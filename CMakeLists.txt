@@ -358,19 +358,76 @@ if(MLIR_FOUND)
     include_directories(${MLIR_BUILD_INCLUDE_DIRS})
     include_directories(${MLIR_LIB_DIRS})
     add_definitions("-DLDC_MLIR_ENABLED")
+
 if(MSVC)
     if(EXISTS "${LLVM_LIBRARY_DIRS}/libMLIR*.lib")
-        set(LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/libMLIR*.lib" ${LLVM_LIBRARIES})
+        set(suffix "lib")
     endif()
 else()
     if(EXISTS "${LLVM_LIBRARY_DIRS}/libMLIRIR.a")
-        set(LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/libMLIR*.a"  ${LLVM_LIBRARIES})
+        set(suffix "a"))
     elseif(EXISTS "${LLVM_LIBRARY_DIRS}/libMLIRIR.so")
-        set(LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/libMLIR*.so"  ${LLVM_LIBRARIES})
+				set(suffix "so")
     elseif(EXISTS "${LLVM_LIBRARY_DIRS}/libMLIRIR.dylib")
-        set(LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/libMLIR*.dylib"  ${LLVM_LIBRARIES})
+				set(suffix "dylib")
     endif()
 endif() #if MSVC
+
+
+set(MLIR_LIB
+${LLVM_LIBRARY_DIRS}/libMLIRAffineOps.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRAnalysis.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRDialect.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIREDSC.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRExecutionEngine.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRFxpMathOps.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRGPU.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRGPUtoNVVMTransforms.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRGPUtoROCDLTransforms.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRGPUtoSPIRVTransforms.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRIR.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRJitRunner.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRLinalg.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRLLVMIR.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRLoopOps.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRLoopsToGPU.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRLoopToStandard.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRMlirOptLib.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRNVVMIR.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIROptMain.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRParser.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRPass.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRQuantizerFxpMathConfig.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRQuantizerSupport.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRQuantizerTransforms.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRQuantOps.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRROCDLIR.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRSDBM.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRSPIRV.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRSPIRVConversion.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRSPIRVSerialization.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRSPIRVTransforms.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRStandardOps.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRStandardToLLVM.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRSupport.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRTargetLLVMIR.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRTargetLLVMIRModuleTranslation.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRTargetNVVMIR.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRTargetROCDLIR.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRTestDialect.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRTestIR.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRTestPass.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRTestTransforms.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRTransforms.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRTransformUtils.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRTranslateClParser.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRTranslation.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRVectorOps.$suffix
+${LLVM_LIBRARY_DIRS}/libMLIRVectorToLLVM.$suffix
+)
+
+set(LLVM_LIBRARIES "${MLIR_LIB}"  ${LLVM_LIBRARIES})
+
 endif() #if MLIR_FOUND
 
 # Also add the header files to the build so that they are available in IDE
