@@ -347,6 +347,32 @@ endif()
 message(STATUS "LDC version identifier: ${LDC_VERSION}")
 configure_file(driver/ldc-version.cpp.in driver/ldc-version.cpp)
 
+#
+# Setting MLIR headers
+#
+
+find_package(MLIR REQUIRED)
+if(MLIR_FOUND)
+    message(STATUS "Buiding with MLIR support")
+    include_directories(${MLIR_INCLUDE_DIRS})
+    include_directories(${MLIR_BUILD_INCLUDE_DIRS})
+    include_directories(${MLIR_LIB_DIRS})
+    add_definitions("-DLDC_MLIR_ENABLED")
+if(MSVC)
+    if(EXISTS "${LLVM_LIBRARY_DIRS}/libMLIR*.lib")
+        set(LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/libMLIR*.lib" ${LLVM_LIBRARIES})
+    endif()
+else()
+    if(EXISTS "${LLVM_LIBRARY_DIRS}/libMLIRIR.a")
+        set(LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/libMLIR*.a"  ${LLVM_LIBRARIES})
+    elseif(EXISTS "${LLVM_LIBRARY_DIRS}/libMLIRIR.so")
+        set(LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/libMLIR*.so"  ${LLVM_LIBRARIES})
+    elseif(EXISTS "${LLVM_LIBRARY_DIRS}/libMLIRIR.dylib")
+        set(LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/libMLIR*.dylib"  ${LLVM_LIBRARIES})
+    endif()
+endif() #if MSVC
+endif() #if MLIR_FOUND
+
 # Also add the header files to the build so that they are available in IDE
 # project files generated via CMake.
 file(GLOB_RECURSE FE_SRC_D dmd/*.d)
@@ -428,8 +454,10 @@ set(LDC_D_SOURCE_FILES
 source_group("Source Files\\dmd" FILES ${FE_SRC_D})
 source_group("Header Files\\dmd" FILES ${FE_HDR})
 source_group("Source Files\\gen" FILES ${GEN_SRC} ${GEN_SRC_D})
+if(MLIR_FOUND)
 source_group("Header Files\\gen\\MLIR" FILES ${MLIR_HDR})
 source_group("Source Files\\gen\\MLIR" FILES ${MLIR_SRC})
+endif()
 source_group("Header Files\\gen" FILES ${GEN_HDR})
 source_group("Source Files\\ir" FILES ${IR_SRC} ${IR_SRC_D})
 source_group("Header Files\\ir" FILES ${IR_HDR})
@@ -455,33 +483,6 @@ if(LDC_DYNAMIC_COMPILE STREQUAL "AUTO")
     endif()
 endif()
 message(STATUS "Building LDC with dynamic compilation support: ${LDC_DYNAMIC_COMPILE} (LDC_DYNAMIC_COMPILE=${LDC_DYNAMIC_COMPILE})")
-
-#
-# Setting MLIR headers
-#
-
-find_package(MLIR REQUIRED)
-if(MLIR_FOUND)
-    message(STATUS "Buiding with MLIR support")
-    include_directories(${MLIR_INCLUDE_DIRS})
-    include_directories(${MLIR_BUILD_INCLUDE_DIRS})
-    include_directories(${MLIR_LIB_DIRS})
-    add_definitions("-DLDC_MLIR_ENABLED")
-if(MSVC)
-    if(EXISTS "${LLVM_LIBRARY_DIRS}/libMLIR*.lib")
-        set(LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/libMLIR*.lib" ${LLVM_LIBRARIES})
-    endif()
-else()
-    if(EXISTS "${LLVM_LIBRARY_DIRS}/libMLIRIR.a")
-        set(LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/libMLIR*.a"  ${LLVM_LIBRARIES})
-    elseif(EXISTS "${LLVM_LIBRARY_DIRS}/libMLIRIR.so")
-        set(LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/libMLIR*.so"  ${LLVM_LIBRARIES})
-    elseif(EXISTS "${LLVM_LIBRARY_DIRS}/libMLIRIR.dylib")
-        set(LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/libMLIR*.dylib"  ${LLVM_LIBRARIES})
-    endif()
-endif() #if MSVC
-endif() #if MLIR_FOUND
-
 
 #
 # Includes, defines.

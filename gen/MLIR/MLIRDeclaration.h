@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_MLIRDECLARATION_H
+#if LDC_MLIR_ENABLED
+
 #define LDC_MLIRDECLARATION_H
 
 #include "dmd/statement.h"
@@ -94,4 +95,4 @@ public:
 
 };
 
-#endif // LDC_MLIRDECLARATION_H
+#endif // LDC_MLIR_ENABLED

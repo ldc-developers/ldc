@@ -7,6 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if LDC_MLIR_ENABLED
+
 #include "tomlirfile.h"
 
 #include "dmd/errors.h"
@@ -95,3 +97,5 @@ void writeMLIRModule(Module *m, mlir::MLIRContext &mlirContext,
     module->print(aos);
   }
 }
+
+#endif //LDC_MLIR_ENABLED

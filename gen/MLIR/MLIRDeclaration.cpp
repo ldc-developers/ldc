@@ -7,6 +7,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+
+#if LDC_MLIR_ENABLED
+
 #include "MLIRDeclaration.h"
 
 MLIRDeclaration::MLIRDeclaration(IRState *irs, Module *m,
@@ -260,3 +263,4 @@ mlir::Value *MLIRDeclaration::mlirGen(Expression *expression) {
     return nullptr;
   }
 }
+#endif //LDC_MLIR_ENABLED

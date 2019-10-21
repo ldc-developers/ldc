@@ -7,6 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if LDC_MLIR_ENABLED
+
 #include "MLIRStatements.h"
 
 namespace llvm{
@@ -105,3 +107,4 @@ mlir::LogicalResult MLIRStatements::genStatements(FuncDeclaration *funcDeclarati
   return mlir::failure();
 }
 
+#endif

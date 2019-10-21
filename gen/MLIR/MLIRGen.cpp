@@ -7,6 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if LDC_MLIR_ENABLED
+
 #include "dmd/declaration.h"
 #include "dmd/expression.h"
 #include "dmd/globals.h"
@@ -218,3 +220,5 @@ mlir::OwningModuleRef mlirGen(mlir::MLIRContext &context,
   return MLIRGenImpl(context, irs).mlirGen(m);
 }
 } //ldc_mlir namespce
+
+#endif //LDC_MLIR_ENABLED

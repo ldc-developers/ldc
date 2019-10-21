@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-
-#ifndef LDC_TOMLIR_H
+#if LDC_MLIR_ENABLED
 #define LDC_TOMLIR_H
 
 #include "gen/irstate.h"
@@ -21,4 +20,4 @@
 
 void writeMLIRModule(Module *m, mlir::MLIRContext &mlirContext,
     const char *filename, IRState *irs);
-#endif // LDC_TOMLIR_H
+#endif // LDC_MLIR_ENABLED

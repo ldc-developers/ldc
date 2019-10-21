@@ -11,8 +11,7 @@
 // for one or more D modules to MLIR. This class executes like a visitor.
 //
 //===----------------------------------------------------------------------===//
-
-#ifndef LDC_MLIRGEN_H
+#if LDC_MLIR_ENABLED
 #define LDC_MLIRGEN_H
 
 #include "mlir/IR/MLIRContext.h"
@@ -34,4 +33,4 @@ mlir::OwningModuleRef mlirGen(mlir::MLIRContext &mlirContext, Module *m,
 } //Namespace ldc_mlir
 
 
-#endif // LDC_MLIRGEN_H
+#endif // LDC_MLIR_ENABLED

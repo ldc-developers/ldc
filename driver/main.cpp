@@ -67,12 +67,12 @@
 #include <stdlib.h>
 #include <memory.h>
 
-//#ifdef LDC_MLIR_ENABLED                              -- FIX THESE FLAGS --
+#if LDC_MLIR_ENABLED   
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Module.h"
 
 #include "gen/MLIR/MLIRGen.h"
-//#endif
+#endif
 
 #if LDC_LLVM_VER >= 600
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
@@ -92,7 +92,9 @@ void gendocfile(Module *m);
 void generateJson(Modules *modules);
 
 using namespace opts;
+#if LDC_MLIR_ENABLED
 using namespace ldc_mlir;
+#endif
 
 static StringsAdapter impPathsStore("I", global.params.imppath);
 static cl::list<std::string, StringsAdapter>
@@ -1063,9 +1065,13 @@ int cppmain() {
 void codegenModules(Modules &modules) {
   // Generate one or more object/IR/bitcode files/dcompute kernels.
   if (global.params.obj && !modules.empty()) {
+#if LDC_MLIR_ENABLED
     mlir::MLIRContext mlircontext;
     ldc::CodeGenerator cg(getGlobalContext(), mlircontext,
                                                          global.params.oneobj);
+#else
+		ldc::CodeGenerator cg(getGlobalContext(), global.params.oneobj);
+#endif
 
 //    if (!module){
 //      IF_LOG Logger::println("Tentou criar um mlir_modulo e falhou");
