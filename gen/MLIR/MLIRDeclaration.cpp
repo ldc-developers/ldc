@@ -196,7 +196,7 @@ mlir::Value *MLIRDeclaration::mlirGen(ArrayLiteralExp *arrayLiteralExp){
   // The type of this attribute is tensor of 64-bit floating-point with the
   // shape of the literal.
   mlir::Type elementType = builder.getF64Type();
-  auto dataType = builder.getTensorType(dims, elementType);
+  auto dataType = mlir::RankedTensorType::get(dims, elementType);
 
   // This is the actual attribute that holds the list of values for this
   // tensor literal.
@@ -205,7 +205,7 @@ mlir::Value *MLIRDeclaration::mlirGen(ArrayLiteralExp *arrayLiteralExp){
 
   // Build the MLIR op `toy.constant`, only boilerplate below.
   mlir::OperationState result(loc(arrayLiteralExp->loc), "ldc.constant");
-  result.addTypes(builder.getTensorType(dims, builder.getF64Type()));
+  result.addTypes(mlir::RankedTensorType::get(dims, builder.getF64Type()));
   result.addAttribute("value", dataAttribute);
   return builder.createOperation(result)->getResult(0);
 }

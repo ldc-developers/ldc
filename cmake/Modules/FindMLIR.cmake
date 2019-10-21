@@ -21,8 +21,8 @@ find_path(MLIR_BUILD_INCLUDE_DIR NAMES "cmake_install.cmake"
 
 message(STATUS "MLIR Dir: ${MLIR_ROOT_DIR}")
 message(STATUS "MLIR Include Dir: ${MLIR_INCLUDE_DIR}/..")
-message(STATUS "MLIR Build Include Dir: ${MLIR_BUILD_INCLUDE_DIR}/..")
 message(STATUS "MLIR Lib Dir: ${MLIR_LIB_DIR}")
+message(STATUS "MLIR Build Include Dir: ${MLIR_BUILD_INCLUDE_DIR}/..")
 
 set(MLIR_ROOT_DIRS ${MLIR_ROOT_DIR})
 set(MLIR_INCLUDE_DIRS ${MLIR_INCLUDE_DIR}/..)
