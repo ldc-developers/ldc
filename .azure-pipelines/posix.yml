@@ -313,8 +313,5 @@ steps:
       XZ_OPT=-9 tar -cJf artifacts/$artifactName.tar.xz --owner=0 --group=0 $artifactName
     fi
   displayName: Pack installation dir
-- task: PublishPipelineArtifact@0
-  inputs:
-    artifactName: $(CI_OS)-$(ARCH)
-    targetPath: ../artifacts
-  displayName: Publish artifact(s)
+- publish: ../artifacts
+  artifact: $(CI_OS)-$(ARCH)

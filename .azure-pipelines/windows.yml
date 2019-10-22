@@ -203,8 +203,5 @@ steps:
     mkdir artifacts
     7z a -mx=9 artifacts/%ARTIFACT_NAME%.7z %ARTIFACT_NAME% > nul
   displayName: Pack installation dir
-- task: PublishPipelineArtifact@0
-  inputs:
-    artifactName: windows-$(ARCH)
-    targetPath: ../artifacts
-  displayName: Publish artifact
+- publish: ../artifacts
+  artifact: windows-$(ARCH)

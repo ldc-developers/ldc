@@ -45,12 +45,12 @@ jobs:
     LDC_VSDIR: C:\non-existing_dummy
   steps:
     - checkout: none
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: windows-x64
         targetPath: artifacts
       displayName: Download x64 artifact
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: windows-x86
         targetPath: artifacts
@@ -95,11 +95,8 @@ jobs:
         mkdir newArtifacts
         7z a -mx=9 newArtifacts/%ARTIFACT_NAME%.7z %ARTIFACT_NAME% > nul
       displayName: Pack
-    - task: PublishPipelineArtifact@0
-      inputs:
-        artifactName: windows-multilib
-        targetPath: newArtifacts
-      displayName: Publish artifact
+    - publish: newArtifacts
+      artifact: windows-multilib
 
 - job: Linux_multilib
   timeoutInMinutes: 120
@@ -152,30 +149,16 @@ jobs:
   condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')))
   steps:
     - checkout: none
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
-        artifactName: windows-x64
         targetPath: artifacts
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: windows-x86
-        targetPath: artifacts
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: windows-multilib
-        targetPath: artifacts
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: linux-x86_64
-        targetPath: artifacts
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: osx-x86_64
-        targetPath: artifacts
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: android-armv7a
-        targetPath: artifacts
+    - bash: |
+        set -ex
+        cd artifacts
+        mv */*.* .
+        find . -type d -empty -delete
+        ls -l
+      displayName: Move artifact files out of their subdirs
     # We also need to determine whether the GitHub release is a pre-release,
     # as the GitHubRelease task overwrites that flag.
     - bash: |
