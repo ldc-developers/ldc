@@ -523,7 +523,7 @@ version (IN_LLVM)
         assert(0);
     }
 
-    override bool equals(RootObject o) const
+    override bool equals(const RootObject o) const
     {
         Type t = cast(Type)o;
         //printf("Type::equals(%s, %s)\n", toChars(), t.toChars());
@@ -790,7 +790,7 @@ version (IN_LLVM)
     /********************************
      * For pretty-printing a type.
      */
-    final override const(char)* toChars()
+    final override const(char)* toChars() const
     {
         OutBuffer buf;
         buf.reserve(16);
@@ -2388,11 +2388,13 @@ version (IN_LLVM)
     /**************************
      * Return type with the top level of it being mutable.
      */
-    Type toHeadMutable()
+    inout(Type) toHeadMutable() inout
     {
         if (!mod)
             return this;
-        return mutableOf();
+        Type unqualThis = cast(Type) this;
+        // `mutableOf` needs a mutable `this` only for caching
+        return cast(inout(Type)) unqualThis.mutableOf();
     }
 
     inout(ClassDeclaration) isClassHandle() inout
@@ -2434,7 +2436,7 @@ version (IN_LLVM)
         buf.reserve(32);
         mangleToBuffer(this, &buf);
 
-        const slice = buf.peekSlice();
+        const slice = buf[];
 
         // Allocate buffer on stack, fail over to using malloc()
         char[128] namebuf;
@@ -5781,7 +5783,7 @@ extern (C++) final class TypeStruct : Type
         return wm;
     }
 
-    override Type toHeadMutable()
+    override inout(Type) toHeadMutable() inout
     {
         return this;
     }
@@ -6095,7 +6097,7 @@ extern (C++) final class TypeClass : Type
         return wm;
     }
 
-    override Type toHeadMutable()
+    override inout(Type) toHeadMutable() inout
     {
         return this;
     }
@@ -6232,7 +6234,7 @@ extern (C++) final class TypeTuple : Type
         return t;
     }
 
-    override bool equals(RootObject o) const
+    override bool equals(const RootObject o) const
     {
         Type t = cast(Type)o;
         //printf("TypeTuple::equals(%s, %s)\n", toChars(), t.toChars());

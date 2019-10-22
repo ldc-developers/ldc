@@ -121,7 +121,7 @@ enum CppStdRevision : uint
 }
 
 // Put command line switches in here
-struct Param
+extern (C++) struct Param
 {
     bool obj = true;        // write object file
     bool link = true;       // perform link
@@ -160,6 +160,7 @@ struct Param
     bool useInline = false;     // inline expand functions
     bool useDIP25;          // implement http://wiki.dlang.org/DIP25
     bool noDIP25;           // revert to pre-DIP25 behavior
+    bool useDIP1021;        // implement https://github.com/dlang/DIPs/blob/master/DIPs/DIP1021.md
     bool release;           // build release version
     bool preservePaths;     // true means don't strip path from source file
     DiagnosticReporting warnings = DiagnosticReporting.off;  // how compiler warnings are handled
@@ -278,27 +279,13 @@ struct Param
     // Linker stuff
     Array!(const(char)*) objfiles;
     Array!(const(char)*) linkswitches;
+    Array!bool linkswitchIsForCC;
     Array!(const(char)*) libfiles;
     Array!(const(char)*) dllfiles;
     const(char)[] deffile;
     const(char)[] resfile;
     const(char)[] exefile;
     const(char)[] mapfile;
-
-    /* LDC: unused function featuring syntax not supported by ltsmaster
-    // generate code for POSIX
-    @property bool isPOSIX() scope const pure nothrow @nogc @safe
-    out(result) { assert(result || isWindows); }
-    do
-    {
-        return isLinux
-            || isOSX
-            || isFreeBSD
-            || isOpenBSD
-            || isDragonFlyBSD
-            || isSolaris;
-    }
-    */
 
 version (IN_LLVM)
 {
@@ -339,7 +326,7 @@ alias structalign_t = uint;
 // other values are all powers of 2
 enum STRUCTALIGN_DEFAULT = (cast(structalign_t)~0);
 
-struct Global
+extern (C++) struct Global
 {
     const(char)[] inifilename;
     string mars_ext = "d";
@@ -516,7 +503,7 @@ version (IN_LLVM)
      * This can be used to restore the state set by `_init` to its original
      * state.
      */
-    void deinitialize()
+    extern (D) void deinitialize()
     {
         this = this.init;
     }
@@ -562,7 +549,7 @@ version (IN_LLVM)
     /**
     Returns: the final defaultlibname based on the command-line parameters
     */
-    const(char)[] finalDefaultlibname() const
+    extern (D) const(char)[] finalDefaultlibname() const
     {
         return params.betterC ? null :
             params.symdebug ? params.debuglibname : params.defaultlibname;

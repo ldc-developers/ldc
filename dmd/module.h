@@ -13,7 +13,6 @@
 #include "dsymbol.h"
 
 struct ModuleDeclaration;
-struct Macro;
 struct Escape;
 struct FileBuffer;
 
@@ -24,6 +23,11 @@ namespace llvm {
     class Module;
 }
 #endif
+
+struct MacroTable
+{
+    void* internal;  // PIMPL
+};
 
 enum PKG
 {
@@ -109,7 +113,7 @@ public:
     Strings *versionids;    // version identifiers
     Strings *versionidsNot;     // forward referenced version identifiers
 
-    Macro *macrotable;          // document comment macros
+    MacroTable macrotable;      // document comment macros
     Escape *escapetable;        // document comment escapes
 
     size_t nameoffset;          // offset of module name from start of ModuleInfo

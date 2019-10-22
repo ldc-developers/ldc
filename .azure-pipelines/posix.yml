@@ -274,7 +274,7 @@ steps:
       sed -i 's| -g -O | -O |g' build.sh
       # Don't run dub after build
       sed -i 's|bin/dub --version||' build.sh
-    elif [ "${BUILD_SOURCEBRANCH:0:10}" != "refs/tags/"]; then
+    elif [ "${BUILD_SOURCEBRANCH:0:10}" != "refs/tags/" ]; then
       # FIXME: dub is built with `-g -O`, which leads to issue #2361 with enabled
       # assertions, at least on Linux. So strip `-g` for untagged builds.
       perl -pi -e "s? -g -O ? -O ?g" build.sh
