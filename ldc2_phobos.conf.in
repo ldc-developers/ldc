@@ -23,6 +23,7 @@ default:
     // default switches appended after all explicit command-line switches
     post-switches = [
         "-I@RUNTIME_DIR@/src",
+        "-I@LDC_BUILD_IMPORT_DIR@",
         "-I@JITRT_DIR@/d",
         "-I@PHOBOS2_DIR@",
     ];
