@@ -266,6 +266,9 @@ if(NOT (LDC_LLVM_VER LESS 800))
     set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"-L--export-dynamic\",")
 endif()
 
+# Directory filled with auto-generated import files
+set(LDC_BUILD_IMPORT_DIR "${PROJECT_BINARY_DIR}/import")
+
 # Only generate the config files if this CMake project is embedded in the LDC CMake project.
 if(LDC_EXE)
     if(PHOBOS2_DIR)
@@ -284,7 +287,7 @@ endif()
 set(GCCBUILTINS "")
 if(TARGET gen_gccbuiltins)
   function(gen_gccbuiltins name)
-    set(module "${PROJECT_BINARY_DIR}/gccbuiltins_${name}.di")
+    set(module "${LDC_BUILD_IMPORT_DIR}/ldc/gccbuiltins_${name}.di")
     if (GCCBUILTINS STREQUAL "")
       set(GCCBUILTINS "${module}" PARENT_SCOPE)
     else()

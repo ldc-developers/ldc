@@ -207,7 +207,7 @@ steps:
       #
       mkdir install/import
       cp -r $BUILD_SOURCESDIRECTORY/runtime/druntime/src/{core,etc,ldc,object.d} install/import
-      cp bootstrap-ldc/runtime/gccbuiltins_{aarch64,arm,x86}.di install/import/ldc
+      cp bootstrap-ldc/runtime/import/ldc/gccbuiltins_{aarch64,arm,x86}.di install/import/ldc
       cp -r $BUILD_SOURCESDIRECTORY/runtime/phobos/etc/c install/import/etc
       rm -rf install/import/etc/c/zlib
       cp -r $BUILD_SOURCESDIRECTORY/runtime/phobos/std install/import
