@@ -34,8 +34,7 @@ mlir::Value* MLIRStatements::mlirGen(ExpStatement *expStmt) {
   if (DeclarationExp *decl_exp = expStmt->exp->isDeclarationExp()) {
     value = declaration->mlirGen(decl_exp);
   } else if (Expression *e = expStmt->exp) {
-    IF_LOG Logger::println("Passou Aqui");
-
+    value = declaration->mlirGen(e);
     if (DeclarationExp *edecl = e->isDeclarationExp()) {
       IF_LOG Logger::println("Declaration");
     }
@@ -46,6 +45,45 @@ mlir::Value* MLIRStatements::mlirGen(ExpStatement *expStmt) {
   }
   return value;
 }
+
+/*mlir::Value* MLIRStatements::mliGen(ForStatement *forStatement){ //TODO
+  IF_LOG Logger::println("MLIRCodeGen: ForStatement to MLIR: '%s'",
+                         forStatement->toChars());
+  LOG_SCOPE
+
+  mlir::CondBranchOp condBranchOp;
+  //condBranchOp->;
+  //mlir::Block;
+
+}*/
+
+mlir::Value* MLIRStatements::mliGen(IfStatement *ifStatement){
+  IF_LOG Logger::println("MLIRCodeGen: IfStatement to MLIR: '%s'",
+                         ifStatement->toChars());
+  LOG_SCOPE
+
+  mlir::Location location = loc(ifStatement->loc);
+
+  MLIRDeclaration *mlirDeclaration = new MLIRDeclaration(irState,module,
+                                  context, builder, symbolTable);
+
+ /* mlir::Value *cond = mlirDeclaration->mlirGen(ifStatement->condition);
+  mlir::Block *ifblock = builder.createBlock(builder.getBlock());
+  mlir::Block *endblock = builder.createBlock(ifblock);
+  mlir::Block *elseblock =
+      ifStatement->elsebody ? builder.createBlock(ifblock) : endblock;
+
+  //TODO: Create an branchOp for D on Dialect
+  mlir::OperationState result(location,"ldc.if");
+
+  result.addSuccessor(ifblock,
+      mlirGen(ifStatement->ifbody->isScopeStatement()));
+  result.addTypes(builder.getNoneType());
+//  result.addOperands(cond);
+  return builder.createOperation(result)->getResult(0);*/
+ return nullptr;
+}
+
 
 mlir::LogicalResult MLIRStatements::mlirGen(ReturnStatement *returnStatement){
   //TODO: Accept more types of return
@@ -84,6 +122,8 @@ void MLIRStatements::mlirGen(CompoundStatement *compoundStatement){
       mlirGen(stmt->isCompoundStatement()); // Try again
     }else if(ReturnStatement *returnStatement = stmt->isReturnStatement()){
       mlirGen(returnStatement);
+    }else if(IfStatement *ifStatement = stmt->isIfStatement()) {
+      mliGen(ifStatement);
     }else{
       IF_LOG Logger::println("Unable to recoganize: '%s'",
           stmt->toChars());
@@ -91,10 +131,33 @@ void MLIRStatements::mlirGen(CompoundStatement *compoundStatement){
   }
 }
 
+
+mlir::ArrayRef<mlir::Value*> MLIRStatements::mlirGen(ScopeStatement
+*scopeStatement){
+  IF_LOG Logger::println("MLIRCodeGen - ScopeStatement: '%s'",
+                         scopeStatement->toChars());
+  LOG_SCOPE
+  std::vector<mlir::Value*> vec;
+
+  auto stmt = scopeStatement->statement;
+  if(auto *compoundStatement = stmt->isCompoundStatement())
+    for(auto stmt : *compoundStatement->statements)
+      if(auto exp = stmt->isExpStatement())
+        vec.push_back(mlirGen(exp));
+      if(auto ret = stmt->isReturnStatement())
+        mlirGen(ret);
+      if(auto If = stmt->isIfStatement())
+        vec.push_back(mlirGen(If));
+  else if(auto expStatement = stmt->isExpStatement())
+    vec.push_back(mlirGen(expStatement));
+
+  mlir::ArrayRef<mlir::Value*> arrayValue(vec);
+  return arrayValue;
+}
+
 mlir::Value* MLIRStatements::mlirGen(Statement* stm) {
   IF_LOG Logger::println("Statament doesn't match with any implemented "
                          "function: '%s'",stm->toChars());
-
   return nullptr;
 }
 

@@ -210,6 +210,49 @@ mlir::Value *MLIRDeclaration::mlirGen(ArrayLiteralExp *arrayLiteralExp){
   return builder.createOperation(result)->getResult(0);
 }
 
+mlir::Value *MLIRDeclaration::mlirGen(Expression *expression, int func){
+  CmpExp *cmpExp = static_cast<CmpExp*>(expression);
+  IF_LOG Logger::println("MLIRCodeGen - CmpExp: '%s'", cmpExp->toChars());
+
+  mlir::Location location = loc(cmpExp->loc);
+  mlir::Value *e1 = mlirGen(cmpExp->e1);
+  mlir::Value *e2 = mlirGen(cmpExp->e2);
+
+  Type *t = cmpExp->e1->type->toBasetype();//?
+
+  StringRef name;
+
+  switch(cmpExp->op){
+    case TOKlt:
+      name = t->isunsigned() ? "ult" : "ldc";
+      break;
+    case TOKle:
+      name = t->isunsigned() ? "ule" : "ldc";
+      break;
+    case TOKgt:
+      name = t->isunsigned() ? "ugt" : "ldc";
+      break;
+    case TOKge:
+      name = t->isunsigned() ? "uge" : "ldc";
+      break;
+    case TOKequal:
+      name = "eq";
+      break;
+    case TOKnotequal:
+      name = "neq";
+      break;
+    default:
+      IF_LOG Logger::println("Invalid comparison operation");
+  }
+
+  mlir::OperationState result(location, "icmp");
+  result.addTypes(builder.getIntegerType(1));
+  auto stringAttr = mlir::StringAttr::get(name, &context);
+  result.addAttribute("Type", stringAttr);
+  result.addOperands({e1,e2});
+  return builder.createOperation(result)->getResult(0);
+}
+
 mlir::Value *MLIRDeclaration::mlirGen(Expression *expression) {
   IF_LOG Logger::println("MLIRCodeGen - Expression: '%s'",
       expression->toChars());
@@ -219,6 +262,8 @@ mlir::Value *MLIRDeclaration::mlirGen(Expression *expression) {
   auto location = loc(expression->loc);
   mlir::Value *e1 = nullptr;
   mlir::Value *e2 = nullptr;
+  mlir::Value *e  = nullptr;
+  int op = expression->op;
 
   if(VarExp *varExp = expression->isVarExp())
     return mlirGen(varExp);
@@ -232,8 +277,11 @@ mlir::Value *MLIRDeclaration::mlirGen(Expression *expression) {
     return mlirGen(callExp);
   else if(ArrayLiteralExp *arrayLiteralExp = expression->isArrayLiteralExp())
     return mlirGen(arrayLiteralExp);
-  else
-  if(AddExp *add = expression->isAddExp()) {
+  else if(op >= 54 && op < 60)
+    return mlirGen(expression, 1);
+  else if(PostExp *postExp = expression->isPostExp())
+    return mlirGen(postExp);
+  else if(AddExp *add = expression->isAddExp()) {
     e1 = mlirGen(add->e1);
     e2 = mlirGen(add->e2);
     op_name = "ldc.add";
@@ -249,7 +297,35 @@ mlir::Value *MLIRDeclaration::mlirGen(Expression *expression) {
     e1 = mlirGen(div->e1);
     e2 = mlirGen(div->e2);
     op_name = "ldc.div";
-  }
+  } else if (ModExp *mod = expression->isModExp()){
+    e1 = mlirGen(mod->e1);
+    e2 = mlirGen(mod->e2);
+    op_name = "ldc.mod";
+  } else if (AndExp *andExp = expression->isAndExp()){
+    e1 = mlirGen(andExp->e1);
+    e2 = mlirGen(andExp->e2);
+    op_name = "ldc.and";
+  } else if (OrExp *orExp = expression->isOrExp()) {
+    e1 = mlirGen(orExp->e1);
+    e2 = mlirGen(orExp->e2);
+    op_name = "ldc.or";
+  } else if (XorExp *xorExp = expression->isXorExp()){
+    e1 = mlirGen(xorExp->e1);
+    e2 = mlirGen(xorExp->e2);
+    op_name = "ldc.xor";
+  } else if (EqualExp *equal = expression->isEqualExp()){
+    e1 = mlirGen(equal->e1);
+    e2 = mlirGen(equal->e2);
+    op_name = "ldc.equal";
+  } /*else if (CondExp *cond = expression->isCondExp()){
+    IF_LOG Logger::println("Cond expression: '%s'", expression->toChars());
+    e1 = mlirGen(cond->e1);
+    e2 = mlirGen(cond->e2);
+    e = mlirGen(cond->econd);
+    IF_LOG Logger::print("econd: '%s'", cond->econd->toChars());
+    op_name = "ldc.cond";
+  }*/
+
 
   if (e1 != nullptr && e2 != nullptr) {
     mlir::OperationState result(location, op_name);
@@ -257,10 +333,10 @@ mlir::Value *MLIRDeclaration::mlirGen(Expression *expression) {
         builder.getIntegerType(16)); // TODO: MODIFY TO ALLOW MORE TYPES
     result.addOperands({e1, e2});
     return builder.createOperation(result)->getResult(0);
-  } else {
-    IF_LOG Logger::println("Unable to recoganize the Expression: '%s'",
-                    expression->toChars());
-    return nullptr;
   }
+    IF_LOG Logger::println("Unable to recoganize the Expression: '%s' : '%u': '%s'",
+                    expression->toChars(), expression->op,
+                    expression->type->toChars());
+    return nullptr;
 }
 #endif //LDC_MLIR_ENABLED

@@ -71,8 +71,10 @@ public:
   mlir::Value* mlirGen(ExpStatement *expStatement);
   mlir::LogicalResult mlirGen(ReturnStatement *returnStatement);
   void mlirGen(CompoundStatement *compoundStatement);
-  mlir::Value *mlirGen(Expression *exp);
+ // mlir::Value *mlirGen(Expression *exp);
   mlir::LogicalResult genStatements(FuncDeclaration *funcDeclaration);
+  mlir::Value* mliGen(IfStatement *ifStatement);
+  mlir::ArrayRef<mlir::Value*> mlirGen(ScopeStatement *scopeStatement);
 
   mlir::Location loc(Loc loc){
     return builder.getFileLineColLoc(builder.getIdentifier(

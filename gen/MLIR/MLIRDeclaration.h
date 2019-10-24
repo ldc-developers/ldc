@@ -77,6 +77,8 @@ public:
   mlir::Value* mlirGen(VarExp *varExp);
   mlir::Value* mlirGen(CallExp *callExp);
   mlir::Value* mlirGen(ArrayLiteralExp *arrayLiteralExp);
+  mlir::Value* mlirGen(AndAssignExp *addAssignExp);
+  mlir::Value* mlirGen(Expression *expression, int func);
 
   ///Set MLIR Location using D Loc info
   mlir::Location loc(Loc loc){
@@ -92,7 +94,6 @@ public:
     symbolTable.insert(var, value);
     return mlir::success();
   }
-
 };
 
 #endif // LDC_MLIR_ENABLED
