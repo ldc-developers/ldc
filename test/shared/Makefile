@@ -2,12 +2,14 @@ LINK_SHARED:=1
 
 include ../common.mak
 
-TESTS:=link load linkD linkDR loadDR finalize
-# LDC_FIXME: host loads two modules with the same name, which is currently
-# disallowed by the (potentially overly eager) module collision detection
-# on OS X.
+TESTS:=link load linkD linkDR loadDR
+# LDC: disable 2 tests on Mac
 ifneq ($(OS),osx)
-	TESTS+=host
+	# * `finalize` fails starting with macOS 10.13, as .dylibs with TLS can't be
+	#   unloaded anymore (https://github.com/ldc-developers/ldc/issues/3002).
+	# * `host` loads two modules with the same name, which is currently disallowed
+	#   by the (potentially overly eager) module collision detection on OS X.
+	TESTS+=finalize host
 endif
 TESTS+=link_linkdep load_linkdep link_loaddep load_loaddep load_13414
 
