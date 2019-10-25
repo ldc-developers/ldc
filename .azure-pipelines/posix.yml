@@ -137,6 +137,8 @@ steps:
     installDir=$PWD/install
     mkdir build-$ARCH
     cd build-$ARCH
+    DEFAULT_LDC_SWITCHES=' "-linker=bfd",'
+    if [ "$ARCH" = "armv7a" ]; then DEFAULT_LDC_SWITCHES="$DEFAULT_LDC_SWITCHES \"-mcpu=cortex-a8\","; fi
     cmake -G Ninja $BUILD_SOURCESDIRECTORY \
       -DCMAKE_BUILD_TYPE=Release \
       -DLLVM_ROOT_DIR=$PWD/../llvm-$ARCH \
@@ -144,6 +146,7 @@ steps:
       -DCMAKE_INSTALL_PREFIX=$installDir \
       -DINCLUDE_INSTALL_DIR=$installDir/import \
       -DD_LINKER_ARGS="-fuse-ld=bfd;-L$PWD/../ldc-build-runtime.tmp/lib;-lphobos2-ldc;-ldruntime-ldc" \
+      -DADDITIONAL_DEFAULT_LDC_SWITCHES="$DEFAULT_LDC_SWITCHES" \
       $EXTRA_CMAKE_FLAGS
     ninja -j$PARALLEL_JOBS -v ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache
   displayName: 'Android: Cross-compile LDC executables'
