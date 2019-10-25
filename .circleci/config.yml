@@ -109,7 +109,7 @@ jobs:
     environment:
       - CI_OS: linux
       - LIBCLANG_COMMON_VERSION: "6.0"
-      - HOST_LDC_VERSION: 1.14.0
+      - HOST_LDC_VERSION: 1.18.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
   Ubuntu-rolling-multilib-sharedLibsOnly:
     <<: *commonSteps
@@ -118,25 +118,25 @@ jobs:
     environment:
       - CI_OS: linux
       - LIBCLANG_COMMON_VERSION: "9"
-      - HOST_LDC_VERSION: 1.14.0
+      - HOST_LDC_VERSION: 1.18.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
   macOS-x64:
     <<: *commonSteps
     macos:
-      xcode: "9.2.0"
+      xcode: "11.1.0"
     environment:
       - CI_OS: osx
-      - LLVM_VERSION: 8.0.0
-      - HOST_LDC_VERSION: 1.14.0
+      - LLVM_VERSION: 9.0.0
+      - HOST_LDC_VERSION: 1.18.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
   macOS-x64-sharedLibsOnly:
     <<: *commonSteps
     macos:
-      xcode: "9.2.0"
+      xcode: "11.1.0"
     environment:
       - CI_OS: osx
-      - LLVM_VERSION: 8.0.0
-      - HOST_LDC_VERSION: 1.14.0
+      - LLVM_VERSION: 9.0.0
+      - HOST_LDC_VERSION: 1.18.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON"
 
 workflows:
