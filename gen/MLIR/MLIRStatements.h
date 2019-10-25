@@ -74,7 +74,7 @@ public:
  // mlir::Value *mlirGen(Expression *exp);
   mlir::LogicalResult genStatements(FuncDeclaration *funcDeclaration);
   mlir::Value* mliGen(IfStatement *ifStatement);
-  mlir::ArrayRef<mlir::Value*> mlirGen(ScopeStatement *scopeStatement);
+  std::vector<mlir::Value*> mlirGen(ScopeStatement *scopeStatement);
 
   mlir::Location loc(Loc loc){
     return builder.getFileLineColLoc(builder.getIdentifier(

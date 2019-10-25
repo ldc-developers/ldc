@@ -70,7 +70,7 @@ public:
 
   //Expression
   mlir::Value* mlirGen(DeclarationExp* declarationExp);
-  mlir::Value* mlirGen(Expression *expression);
+  mlir::Value* mlirGen(Expression *expression, mlir::Block *block = nullptr);
   mlir::Value* mlirGen(AssignExp *assignExp); //Not perfet yet
   mlir::Value* mlirGen(ConstructExp *constructExp);
   mlir::Value* mlirGen(IntegerExp *integerExp);

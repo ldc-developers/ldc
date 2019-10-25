@@ -144,11 +144,10 @@ mlir::Value *MLIRDeclaration::mlirGen(ConstructExp *constructExp){
   LOG_SCOPE
   //mlir::Value *lhs = mlirGen(constructExp->e1);
   mlir::Value *rhs = mlirGen(constructExp->e2);
-  mlir::Value *value = nullptr;
 
   if (failed(declare(constructExp->e1->toChars(), rhs)))
     return nullptr;
-  return value;
+  return rhs;
 }
 
 mlir::Value *MLIRDeclaration::mlirGen(IntegerExp *integerExp){
@@ -224,16 +223,16 @@ mlir::Value *MLIRDeclaration::mlirGen(Expression *expression, int func){
 
   switch(cmpExp->op){
     case TOKlt:
-      name = t->isunsigned() ? "ult" : "ldc";
+      name = t->isunsigned() ? "ult" : "slt";
       break;
     case TOKle:
-      name = t->isunsigned() ? "ule" : "ldc";
+      name = t->isunsigned() ? "ule" : "sle";
       break;
     case TOKgt:
-      name = t->isunsigned() ? "ugt" : "ldc";
+      name = t->isunsigned() ? "ugt" : "sgt";
       break;
     case TOKge:
-      name = t->isunsigned() ? "uge" : "ldc";
+      name = t->isunsigned() ? "uge" : "sge";
       break;
     case TOKequal:
       name = "eq";
@@ -253,20 +252,26 @@ mlir::Value *MLIRDeclaration::mlirGen(Expression *expression, int func){
   return builder.createOperation(result)->getResult(0);
 }
 
-mlir::Value *MLIRDeclaration::mlirGen(Expression *expression) {
+mlir::Value *MLIRDeclaration::mlirGen(Expression *expression, mlir::Block*
+block) {
   IF_LOG Logger::println("MLIRCodeGen - Expression: '%s'",
       expression->toChars());
   LOG_SCOPE
+
+  if(block != nullptr)
+    builder.setInsertionPointToEnd(block);
 
   const char *op_name = nullptr;
   auto location = loc(expression->loc);
   mlir::Value *e1 = nullptr;
   mlir::Value *e2 = nullptr;
-  mlir::Value *e  = nullptr;
+//  mlir::Value *e  = nullptr;
   int op = expression->op;
 
   if(VarExp *varExp = expression->isVarExp())
     return mlirGen(varExp);
+  if(DeclarationExp *declarationExp = expression->isDeclarationExp())
+    mlirGen(declarationExp);
   else if(IntegerExp *integerExp = expression->isIntegerExp())
     return mlirGen(integerExp);
   else if(ConstructExp *constructExp = expression->isConstructExp())

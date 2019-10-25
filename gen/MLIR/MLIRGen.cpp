@@ -171,7 +171,7 @@ private:
     // function.
     builder.setInsertionPointToStart(&entryBlock);
 
-    // Initiaize the object to be the "visitor"
+    // Initialize the object to be the "visitor"
     MLIRStatements *genStmt = new MLIRStatements(irs, irs->dmodule, context,
                                                  builder, symbolTable);
 
