@@ -115,7 +115,7 @@ jobs:
 - job: macOS_x64
   timeoutInMinutes: 120
   pool:
-    vmImage: 'macOS-10.13'
+    vmImage: 'macOS-10.14'
   variables:
     CI_OS: osx
     ARCH: x86_64

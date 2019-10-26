@@ -189,10 +189,6 @@ steps:
 - script: |
     set -ex
     cd ../build
-    if [ "$CI_OS" = "osx" ]; then
-      # FIXME: macOS 10.13 broke this, see https://github.com/ldc-developers/ldc/pull/2839
-      echo 'void main() {}' > $BUILD_SOURCESDIRECTORY/runtime/druntime/test/shared/src/finalize.d
-    fi
     ctest -j$PARALLEL_JOBS --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
   displayName: Run defaultlib unittests & druntime stand-alone tests
   condition: and(succeededOrFailed(), ne(variables['CI_OS'], 'android'))
