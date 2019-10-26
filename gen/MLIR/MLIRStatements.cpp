@@ -81,7 +81,9 @@ mlir::Value* MLIRStatements::mliGen(IfStatement *ifStatement){
   //Creating two blocks if, else and end
   mlir::Block *if_then = builder.createBlock(cond->getParentRegion(),
       cond->getParentRegion()->end());
-  mlir::Block *if_else = builder.createBlock(cond->getParentRegion(),
+  mlir::Block *if_else = nullptr;
+  if(ifStatement->elsebody)
+      builder.createBlock(cond->getParentRegion(),
                                              cond->getParentRegion()->end());
   mlir::Block *end_if = builder.createBlock(cond->getParentRegion(),
                                             cond->getParentRegion()->end());
@@ -117,11 +119,13 @@ mlir::Value* MLIRStatements::mliGen(IfStatement *ifStatement){
   br_if.build(&builder, jump, end_if, {});
   builder.createOperation(jump);
 
-  mlir::OperationState jump1(location, "ldc.br");
-  builder.setInsertionPointToEnd(if_else);
-  mlir::BranchOp br_else;
-  br_if.build(&builder, jump1, end_if, {});
-  builder.createOperation(jump1);
+  if(ifStatement->elsebody) {
+    mlir::OperationState jump1(location, "ldc.br");
+    builder.setInsertionPointToEnd(if_else);
+    mlir::BranchOp br_else;
+    br_if.build(&builder, jump1, end_if, {});
+    builder.createOperation(jump1);
+  }
 
   //Setting the insertion point to the block before if_then and else
   builder.setInsertionPointToStart(end_if);
