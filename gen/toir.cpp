@@ -2871,6 +2871,11 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
               Logger::println("success, in-place-constructing temporary");
               auto lhsLVal = DtoLVal(lhs);
               auto rhsLVal = DtoLVal(rhs);
+              if (!llvm::isa<llvm::AllocaInst>(rhsLVal)) {
+                error(rhs->loc, "lvalue of temporary is not an alloca, please "
+                                "file an LDC issue");
+                fatal();
+              }
               rhsLVal->replaceAllUsesWith(lhsLVal);
               return true;
             }
