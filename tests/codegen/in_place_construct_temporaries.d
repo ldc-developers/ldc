@@ -1,10 +1,13 @@
 // from https://issues.dlang.org/show_bug.cgi?id=20321
 
+// Restrict to x86[_64] hosts for now, as the ABI must not perform any implicit
+// blits (e.g., via LLVM byval attribute) for non-PODs.
 // REQUIRES: host_X86
 // RUN: %ldc -run %s
 
-version (X86) // restrict to x86_64 for now (ABI)
+version (Win32)
 {
+    // ABI needs *a lot* of work: https://github.com/ldc-developers/ldc/pull/3204#discussion_r339300174
     void main() {}
 }
 else:
