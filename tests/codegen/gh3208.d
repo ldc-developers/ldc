@@ -12,6 +12,6 @@ void test(int length)()
 
 void main()
 {
-    static foreach (length; [16, 32, 64, 128, 256])
+    static foreach (length; [16, 32, 64])
         test!length();
 }
