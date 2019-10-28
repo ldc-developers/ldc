@@ -25,7 +25,7 @@ namespace cl = llvm::cl;
 
 cl::list<std::string>
     pluginFiles("plugin", cl::CommaSeparated, cl::desc("Plugins to load."),
-                cl::value_desc("<dynamic_library.so, lib2.so>"));
+                cl::value_desc("dynamic_library.so,lib2.so"));
 
 } // anonymous namespace
 
