@@ -1,3 +1,6 @@
+// older LLVM versions fail the test for longer vectors
+// REQUIRES: atleast_llvm700
+
 // RUN: %ldc -run %s
 
 void test(int length)()
@@ -12,6 +15,6 @@ void test(int length)()
 
 void main()
 {
-    static foreach (length; [16, 32])
+    static foreach (length; [16, 32, 64, 128, 256])
         test!length();
 }

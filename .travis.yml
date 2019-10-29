@@ -35,7 +35,7 @@ matrix:
     - os: osx
       osx_image: xcode9.2
       d: ldc-beta
-      env: LLVM_VERSION=8.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF"
+      env: LLVM_VERSION=7.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF"
 
 cache:
   directories:
