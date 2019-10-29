@@ -392,8 +392,7 @@ LLValue *mergeVectorEquals(LLValue *resultsVector, TOK op) {
 
   if (op == TOKequal) {
     // all pairs must be equal for the vectors to be equal
-    LLConstant *allEqual =
-        LLConstantInt::get(integerType, (1 << sizeInBits) - 1);
+    LLConstant *allEqual = LLConstant::getAllOnesValue(integerType);
     return gIR->ir->CreateICmpEQ(v, allEqual);
   } else if (op == TOKnotequal) {
     // any not-equal pair suffices for the vectors to be not-equal
