@@ -15,26 +15,42 @@
 MLIRDeclaration::MLIRDeclaration(IRState *irs, Module *m,
     mlir::MLIRContext &context, mlir::OpBuilder builder_,
     llvm::ScopedHashTable<StringRef,
-    mlir::Value*> &symbolTable) : irState(irs), module(m), context(context),
-    builder(builder_), symbolTable(symbolTable) {} //Constructor
+    mlir::Value*> &symbolTable, unsigned &total, unsigned &miss) : irState
+    (irs), module(m), context(context), builder(builder_), symbolTable
+    (symbolTable), _total(total), _miss(miss){}
+    //Constructor
 
 MLIRDeclaration::~MLIRDeclaration() = default;
+
+mlir::Value *MLIRDeclaration::mlirGen(Declaration *declaration){
+  IF_LOG Logger::println("MLIRCodeGen - Declaration: '%s'",
+      declaration->toChars());
+  LOG_SCOPE
+
+  if(auto varDeclaration = declaration->isVarDeclaration())
+    return mlirGen(varDeclaration);
+  else {
+    IF_LOG Logger::println("Unable to recoganize Declaration: '%s'",
+                           declaration->toChars());
+    _miss++;
+    return nullptr;
+  }
+}
 
 mlir::Value *MLIRDeclaration::mlirGen(VarDeclaration *vd){
   IF_LOG Logger::println("MLIRCodeGen - VarDeclaration: '%s'", vd->toChars
         ());
   LOG_SCOPE
+  _total++;
   // if aliassym is set, this VarDecl is redone as an alias to another symbol
   // this seems to be done to rewrite Tuple!(...) v;
   // as a TupleDecl that contains a bunch of individual VarDecls
   if (vd->aliassym) {
-    IF_LOG Logger::println("MLIRCodeGen -  VarDeclaration: aliassym -> "
-                           "APAGAR");
+    IF_LOG Logger::println("MLIRCodeGen -  VarDeclaration: aliassym");
     //return DtoDeclarationExpMLIR(vd->aliassym, mlir_);
   }
   if (vd->isDataseg()) {
-    IF_LOG Logger::println("MLIRCodeGen -  VarDeclaration: dataseg -> "
-                           "APAGAR");
+    IF_LOG Logger::println("MLIRCodeGen -  VarDeclaration: dataseg");
     //Declaration_MLIRcodegen(vd, mlir_);
   }else {
     if (vd->nestedrefs.dim) {
@@ -61,6 +77,7 @@ mlir::Value *MLIRDeclaration::mlirGen(VarDeclaration *vd){
                              vd->toChars());
     }
   }
+  _miss++;
   return nullptr;
 }
 
@@ -71,17 +88,19 @@ mlir::Value *MLIRDeclaration::mlirGen(DeclarationExp *decl_exp){
   IF_LOG Logger::println("MLIRCodeGen - DeclExp: '%s'", decl_exp->toChars());
   LOG_SCOPE
   Dsymbol *dsym = decl_exp->declaration;
-
+  _total++;
 
   if (VarDeclaration *vd = dsym->isVarDeclaration())
     return mlirGen(vd);
 
   IF_LOG Logger::println("Unable to recoganize DeclarationExp: '%s'",
                          dsym->toChars());
+  _miss++;
   return nullptr;
 }
 
 mlir::Value *MLIRDeclaration::mlirGen(AssignExp *assignExp){
+  _total++;
   IF_LOG Logger::print(
         "AssignExp::toElem: %s | (%s)(%s = %s)\n", assignExp->toChars(),
         assignExp->type->toChars(), assignExp->e1->type->toChars(),
@@ -95,37 +114,43 @@ mlir::Value *MLIRDeclaration::mlirGen(AssignExp *assignExp){
     if (d->storage_class & (STCref | STCout)) {
       mlir::Value *value = mlirGen(assignExp->e2);
 
-      if (!value)
+      if (!value) {
+        _miss++;
         return nullptr;
-
+      }
       mlir::OperationState result(loc(assignExp->loc), "assign");
       result.addTypes(builder.getIntegerType(16)); // TODO: type
       result.addOperands(value);
       value = builder.createOperation(result)->getResult(0);
 
-      if (failed(declare(assignExp->e1->toChars(), value)))
+      if (failed(declare(assignExp->e1->toChars(), value))) {
+        _miss++;
         return nullptr;
+      }
       return value;
     }
   }
   IF_LOG Logger::println("Unable to translate AssignExp: '%s'",
       assignExp->toChars());
+  _miss++;
   return nullptr;
 }
 
 /// Emit a call expression. It emits specific operations for the `transpose`
 /// builtin. Other identifiers are assumed to be user-defined functions.
 mlir::Value *MLIRDeclaration::mlirGen(CallExp *callExp){
-  IF_LOG Logger::println("MLIRCodeGen - CallExp: '%s'", callExp->toChars
-  ());
+  IF_LOG Logger::println("MLIRCodeGen - CallExp: '%s'", callExp->toChars());
   LOG_SCOPE
+  _total++;
 
   // Codegen the operands first.
   llvm::SmallVector<mlir::Value *, 4> operands;
   for(auto exp : *callExp->arguments){
     auto *arg = mlirGen(exp);
-    if(!arg)
+    if(!arg) {
+      _miss++;
       return nullptr;
+    }
     operands.push_back(arg);
   }
 
@@ -142,15 +167,19 @@ mlir::Value *MLIRDeclaration::mlirGen(CallExp *callExp){
 mlir::Value *MLIRDeclaration::mlirGen(ConstructExp *constructExp){
   IF_LOG Logger::println("MLIRCodeGen - ConstructExp: '%s'", constructExp->toChars());
   LOG_SCOPE
+  _total++;
   //mlir::Value *lhs = mlirGen(constructExp->e1);
   mlir::Value *rhs = mlirGen(constructExp->e2);
 
-  if (failed(declare(constructExp->e1->toChars(), rhs)))
+  if (failed(declare(constructExp->e1->toChars(), rhs))){
+    _miss++;
     return nullptr;
+  }
   return rhs;
 }
 
 mlir::Value *MLIRDeclaration::mlirGen(IntegerExp *integerExp){
+  _total++;
   dinteger_t dint = integerExp->value;
   Logger::println("Integer: '%lu'", dint);
   mlir::OperationState result(loc(integerExp->loc), "ldc.IntegerExp");
@@ -160,6 +189,7 @@ mlir::Value *MLIRDeclaration::mlirGen(IntegerExp *integerExp){
 }
 
 mlir::Value *MLIRDeclaration::mlirGen(VarExp *varExp){
+  _total++;
   Logger::println("VarExp: '%s'", varExp->var->toChars());
   auto var = symbolTable.lookup(varExp->var->toChars());
   if (!var) {
@@ -168,7 +198,7 @@ mlir::Value *MLIRDeclaration::mlirGen(VarExp *varExp){
     result.addTypes(builder.getIntegerType(16)); // TODO: type
     result.addAttribute("value", builder.getI16IntegerAttr(0));
     return builder.createOperation(result)->getResult(0);
-    //return ; // val a = 0; Default value for a variable
+    // var = 0; Default value for a variable
   }
   return var;
 }
@@ -177,10 +207,10 @@ mlir::Value *MLIRDeclaration::mlirGen(ArrayLiteralExp *arrayLiteralExp){
   IF_LOG Logger::println("MLIRCodeGen - ArrayLiteralExp: '%s'",
                          arrayLiteralExp->toChars());
   LOG_SCOPE
+  _total++;
 
  // IF_LOG Logger::println("Basis: '%s'",arrayLiteralExp->basis->toChars());
-  IF_LOG Logger::println("Elements: '%s'", arrayLiteralExp->elements->toChars
-  ());
+  IF_LOG Logger::println("Elements: '%s'", arrayLiteralExp->elements->toChars());
 
   std::vector<double> data;
   for(auto e : *arrayLiteralExp->elements){
@@ -212,6 +242,7 @@ mlir::Value *MLIRDeclaration::mlirGen(ArrayLiteralExp *arrayLiteralExp){
 mlir::Value *MLIRDeclaration::mlirGen(Expression *expression, int func){
   CmpExp *cmpExp = static_cast<CmpExp*>(expression);
   IF_LOG Logger::println("MLIRCodeGen - CmpExp: '%s'", cmpExp->toChars());
+  _total++;
 
   mlir::Location location = loc(cmpExp->loc);
   mlir::Value *e1 = mlirGen(cmpExp->e1);
@@ -241,7 +272,9 @@ mlir::Value *MLIRDeclaration::mlirGen(Expression *expression, int func){
       name = "neq";
       break;
     default:
+      _miss++;
       IF_LOG Logger::println("Invalid comparison operation");
+      break;
   }
 
   mlir::OperationState result(location, "icmp");
@@ -257,6 +290,7 @@ block) {
   IF_LOG Logger::println("MLIRCodeGen - Expression: '%s'",
       expression->toChars());
   LOG_SCOPE
+  this->_total++;
 
   if(block != nullptr)
     builder.setInsertionPointToEnd(block);
@@ -271,7 +305,7 @@ block) {
   if(VarExp *varExp = expression->isVarExp())
     return mlirGen(varExp);
   if(DeclarationExp *declarationExp = expression->isDeclarationExp())
-    mlirGen(declarationExp);
+    return mlirGen(declarationExp);
   else if(IntegerExp *integerExp = expression->isIntegerExp())
     return mlirGen(integerExp);
   else if(ConstructExp *constructExp = expression->isConstructExp())
@@ -286,6 +320,9 @@ block) {
     return mlirGen(expression, 1);
   else if(PostExp *postExp = expression->isPostExp())
     return mlirGen(postExp);
+  else if(StringExp *stringExp = expression->isStringExp())
+    return nullptr;
+    //IF_LOG Logger::println("isStringExp", stringExp->toChars());
   else if(AddExp *add = expression->isAddExp()) {
     e1 = mlirGen(add->e1);
     e2 = mlirGen(add->e2);
@@ -322,7 +359,7 @@ block) {
     e1 = mlirGen(equal->e1);
     e2 = mlirGen(equal->e2);
     op_name = "ldc.equal";
-  } /*else if (CondExp *cond = expression->isCondExp()){
+  }/*else if (CondExp *cond = expression->isCondExp()){
     IF_LOG Logger::println("Cond expression: '%s'", expression->toChars());
     e1 = mlirGen(cond->e1);
     e2 = mlirGen(cond->e2);
@@ -339,9 +376,66 @@ block) {
     result.addOperands({e1, e2});
     return builder.createOperation(result)->getResult(0);
   }
+  _miss++;
     IF_LOG Logger::println("Unable to recoganize the Expression: '%s' : '%u': '%s'",
                     expression->toChars(), expression->op,
                     expression->type->toChars());
     return nullptr;
 }
+
+void MLIRDeclaration::mlirGen(TemplateInstance *decl) {
+  IF_LOG Logger::println("TemplateInstance::codegen: '%s'",
+                         decl->toPrettyChars());
+  LOG_SCOPE
+
+  if (decl->ir->isDefined()) {
+    Logger::println("Already defined, skipping.");
+    return;
+  }
+  decl->ir->setDefined();
+
+  if (isError(decl)) {
+    Logger::println("Has errors, skipping.");
+    return;
+  }
+
+  if (!decl->members) {
+    Logger::println("Has no members, skipping.");
+    return;
+  }
+
+  // Force codegen if this is a templated function with pragma(inline, true).
+  if ((decl->members->dim == 1) && ((*decl->members)[0]->isFuncDeclaration()) &&
+      ((*decl->members)[0]->isFuncDeclaration()->inlining == PINLINEalways)) {
+    Logger::println("needsCodegen() == false, but function is marked with "
+                    "pragma(inline, true), so it really does need "
+                    "codegen.");
+  } else {
+    // FIXME: This is #673 all over again.
+    if (!decl->needsCodegen()) {
+      Logger::println("Does not need codegen, skipping.");
+      return;
+    }
+
+    if (irState->dcomputetarget && (decl->tempdecl == Type::rtinfo ||
+                                decl->tempdecl == Type::rtinfoImpl)) {
+      // Emitting object.RTInfo(Impl) template instantiations in dcompute
+      // modules would require dcompute support for global variables.
+      Logger::println("Skipping object.RTInfo(Impl) template instantiations "
+                      "in dcompute modules.");
+      return;
+    }
+  }
+
+  for (auto &m : *decl->members) {
+    if (m->isDeclaration())
+      mlirGen(m->isDeclaration());
+    else {
+      IF_LOG Logger::println("MLIRGEN Has to be implemented for: '%s'",
+                             m->toChars());
+      _miss++;
+    }
+  }
+}
+
 #endif //LDC_MLIR_ENABLED

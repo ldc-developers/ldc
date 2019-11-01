@@ -20,6 +20,7 @@
 #include "dmd/declaration.h"
 #include "dmd/expression.h"
 #include "dmd/init.h"
+#include "dmd/template.h"
 #include "dmd/visitor.h"
 
 #include "gen/logger.h"
@@ -61,12 +62,19 @@ private:
   /// scope is destroyed and the mappings created in this scope are dropped.
   llvm::ScopedHashTable<StringRef, mlir::Value *> &symbolTable;
 
+  /// Temporary flags to mesure the total amount of hits and misses on our
+  /// translation through MLIR
+  unsigned &_total, &_miss;
+
 public:
   MLIRDeclaration(IRState *irs, Module *m, mlir::MLIRContext &context,
-      mlir::OpBuilder builder_,llvm::ScopedHashTable<StringRef, mlir::Value *> &symbolTable);
+      mlir::OpBuilder builder_,
+      llvm::ScopedHashTable<StringRef, mlir::Value*> &symbolTable, unsigned
+      &total, unsigned &miss);
   ~MLIRDeclaration();
 
   mlir::Value* mlirGen(VarDeclaration* varDeclaration);
+  mlir::Value* mlirGen(Declaration* declaration);
 
   //Expression
   mlir::Value* mlirGen(DeclarationExp* declarationExp);
@@ -79,6 +87,7 @@ public:
   mlir::Value* mlirGen(ArrayLiteralExp *arrayLiteralExp);
   mlir::Value* mlirGen(AndAssignExp *addAssignExp);
   mlir::Value* mlirGen(Expression *expression, int func);
+  void mlirGen(TemplateInstance *templateInstance);
 
   ///Set MLIR Location using D Loc info
   mlir::Location loc(Loc loc){

@@ -14,6 +14,7 @@
 #include "dmd/globals.h"
 #include "dmd/identifier.h"
 #include "dmd/init.h"
+#include "dmd/import.h"
 #include "dmd/module.h"
 #include "dmd/statement.h"
 
@@ -53,22 +54,46 @@ namespace {
 class MLIRGenImpl {
 public:
   MLIRGenImpl(mlir::MLIRContext &context, IRState *irs)
-      : context(context), irs(irs), builder(&context) {}
+      : irs(irs), context(context), builder(&context) {}
 
   mlir::ModuleOp mlirGen(Module *m){
     theModule = mlir::ModuleOp::create(mlir::UnknownLoc::get(&context));
+    m->ir->resetAll();
 
-    for(unsigned long k = 0; k < m->members->dim; k++){
+    for(unsigned long k = 0; k < m->members->dim; k++) {
+      total++;
       Dsymbol *dsym = (*m->members)[k];
       assert(dsym);
 
-      //Declaration_MLIRcodegen(dsym, mlir_);
+      MLIRDeclaration *declaration = new MLIRDeclaration(irs, m, context,
+          builder,symbolTable,total,miss);
+
+      // Declaration_MLIRcodegen(dsym, mlir_);
       FuncDeclaration *fd = dsym->isFuncDeclaration();
-      if(fd != nullptr) {
+      if (fd != nullptr) {
         auto func = mlirGen(fd);
         if (!func)
           return nullptr;
         theModule.push_back(func);
+      } else if (dsym->isInstantiated()) {
+        IF_LOG Logger::println("isTemplateInstance: '%s'",
+                               dsym->isTemplateInstance()->toChars());
+      } else if (dsym->isImport()) {
+        IF_LOG Logger::println("isImport: %s", dsym->isImport()->toChars());
+      } else if (dsym->isVarDeclaration()) {
+        IF_LOG Logger::println("isVarDeclaration: '%s'",
+                               dsym->isVarDeclaration()->toChars());
+      } else if (ScopeDsymbol *scopeDsymbol = dsym->isScopeDsymbol()) {
+        IF_LOG Logger::println("isScopeDsymbol: '%s'", scopeDsymbol->toChars());
+        LOG_SCOPE
+
+        if(auto *templateInstance = scopeDsymbol->isTemplateInstance()) {
+          declaration->mlirGen(templateInstance);
+        }
+      }else{
+        IF_LOG Logger::println("Unnable to recoganize dsym member: '%s'",
+            dsym->toPrettyChars());
+        miss++;
       }
     }
 
@@ -76,8 +101,13 @@ public:
     // properties of the generated MLIR module.
       if (failed(mlir::verify(theModule))) {
        theModule.emitError("module verification error");
+       total++;
+       miss++;
       return nullptr;
      }
+
+      IF_LOG Logger::println("#### Total: '%u'", total);
+      IF_LOG Logger::println("### Miss: '%u'", miss);
 
     return theModule;
 
@@ -107,6 +137,10 @@ private:
   /// added to the mapping. When the processing of a function is terminated, the
   /// scope is destroyed and the mappings created in this scope are dropped.
   llvm::ScopedHashTable<StringRef, mlir::Value *> symbolTable;
+
+
+  /// This flags counts the number of hits and misses of our translation.
+  unsigned total = 0, miss = 0;
 
   mlir::Location loc(Loc loc){
     return builder.getFileLineColLoc(builder.getIdentifier(
@@ -173,7 +207,8 @@ private:
 
     // Initialize the object to be the "visitor"
     MLIRStatements *genStmt = new MLIRStatements(irs, irs->dmodule, context,
-                                                 builder, symbolTable);
+                                                 builder, symbolTable, total,
+                                                 miss);
 
     //Setting arguments of a given function
     unsigned long size = 0;
@@ -197,14 +232,21 @@ private:
       function.erase();
       return nullptr;
     }
+    //function.getBody().back().back().getParentRegion()->viewGraph();
 
     // Implicitly return void if no return statement was emitted.
     // (this would possibly help the REPL case later)
     if (function.getBody().back().back().getName().getStringRef() !=
         "ldc.return") {
       ReturnStatement *returnStatement = Fd->returns->front();
-
-      genStmt->mlirGen(returnStatement);
+      if(returnStatement != nullptr)
+        genStmt->mlirGen(returnStatement);
+      else{
+        mlir::ReturnOp returnOp;
+        mlir::UnknownLoc unknownLoc;
+        mlir::OperationState ret_result(unknownLoc, "ldc.return");
+        returnOp.build(&builder, ret_result);
+      }
     }
     return function;
   }
