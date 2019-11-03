@@ -1,9 +1,9 @@
 include ../common.mak
 
 TESTS := sentinel printf memstomp invariant logging precise precisegc
-# LDC: disable forkgc, forkgc2 and sigmaskgc on Windows
+# LDC: disable POSIX-specific tests on Windows
 ifeq (,$(findstring win,$(OS)))
-TESTS+=forkgc forkgc2 sigmaskgc
+TESTS+=forkgc forkgc2 sigmaskgc startbackgc
 endif
 
 SRC_GC = ../../src/gc/impl/conservative/gc.d
@@ -48,6 +48,9 @@ $(ROOT)/forkgc2: forkgc2.d
 	$(DMD) $(UDFLAGS) -of$@ forkgc2.d
 
 $(ROOT)/sigmaskgc: sigmaskgc.d
+	$(DMD) $(UDFLAGS) -of$@ sigmaskgc.d
+
+$(ROOT)/startbackgc: startbackgc.d
 	$(DMD) $(UDFLAGS) -of$@ sigmaskgc.d
 
 clean:
