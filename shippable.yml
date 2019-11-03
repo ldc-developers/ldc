@@ -93,6 +93,7 @@ build:
     - ninja install > /dev/null
     - cd ..
     - perl -pi -e s?$PWD/install/?%%ldcbinarypath%%/../?g install/etc/ldc2.conf
+    - perl -pi -e 's? "-linker=bfd",??g' install/etc/ldc2.conf
     - cat install/etc/ldc2.conf
     - cp LICENSE install
     - cp packaging/README install
