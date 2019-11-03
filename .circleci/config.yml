@@ -57,7 +57,7 @@ commonSteps: &commonSteps
         command: |
           set -x
           # FIXME: disable parallel GC marking for 64-bit unittest runners on Linux
-          #        (unclear segfaults with shared Phobos testrunners, see #3093)
+          #        (unclear segfaults with shared Phobos testrunners, see #3127)
           if [ "$CI_OS" = "linux" ]; then
             echo 'version (X86_64) extern(C) __gshared string[] rt_options = [ "gcopt=parallel:0" ];' >> runtime/druntime/src/test_runner.d
           fi
@@ -93,6 +93,10 @@ commonSteps: &commonSteps
           if [ "$CI_OS" = "linux" ]; then
             # Circle's RAM disk FS apparently doesn't allow long paths.
             rm ../project/tests/d2/dmd-testsuite/compilable/issue17167.sh
+            # FIXME: work around #3127 again
+            if [[ "$EXTRA_CMAKE_FLAGS" == *-DBUILD_SHARED_LIBS?ON* ]]; then
+              rm ../project/tests/d2/dmd-testsuite/runnable/test8.d
+            fi
           fi
           DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R dmd-testsuite
     - run:
