@@ -26,7 +26,6 @@ build:
         git-core cmake ninja-build \
         libcurl3 libcurl4-openssl-dev \
         curl gdb p7zip-full python-pip tzdata unzip zip
-    - update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
     - pip install --user lit
     # Download & extract host LDC
     - curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-aarch64.tar.xz
@@ -50,13 +49,14 @@ build:
     - mkdir bootstrap-ldc
     - cd bootstrap-ldc
     - |
-      cmake -G Ninja .. \
+      DFLAGS='-linker=bfd' cmake -G Ninja .. \
         -DCMAKE_BUILD_TYPE=Release \
         -DLLVM_ROOT_DIR=$PWD/../llvm \
         -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
         -DBUILD_SHARED_LIBS=OFF \
         -DCOMPILE_D_MODULES_SEPARATELY=ON \
-        -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF
+        -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF \
+        -DADDITIONAL_DEFAULT_LDC_SWITCHES=' "-linker=bfd",'
     - ninja -j32
     - bin/ldc2 --version
     - cd ..
@@ -73,6 +73,7 @@ build:
         -DCMAKE_INSTALL_PREFIX=$installDir \
         -DINCLUDE_INSTALL_DIR=$installDir/import \
         -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF \
+        -DADDITIONAL_DEFAULT_LDC_SWITCHES=' "-linker=bfd",' \
         $EXTRA_CMAKE_FLAGS
       set +x
     - ninja -j32 all ldc2-unittest
@@ -92,6 +93,7 @@ build:
     - ninja install > /dev/null
     - cd ..
     - perl -pi -e s?$PWD/install/?%%ldcbinarypath%%/../?g install/etc/ldc2.conf
+    - perl -pi -e 's? "-linker=bfd",??g' install/etc/ldc2.conf
     - cat install/etc/ldc2.conf
     - cp LICENSE install
     - cp packaging/README install
