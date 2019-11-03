@@ -1,6 +1,11 @@
 # Build gen_gccbuiltins tools to generate D module from LLVM's list of
 # GCC-style intrinsics.
 
+if(CMAKE_CROSSCOMPILING)
+    message(STATUS "NOT building gen_gccbuiltins utility when cross-compiling (you can use host LDC's ldc/gccbuiltins_*.di files)")
+    return()
+endif()
+
 # The LLVM_INCLUDE_DIR definition is not always set, e.g. on Windows.
 # strip off anything but the first path
 string(REGEX REPLACE ";.*$" "" LLVM_INC_DIR "${LLVM_INCLUDE_DIRS}")
@@ -26,7 +31,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(gen_gccbuiltins dl)
 endif()
 
-if (TARGET FileCheck)
+if ((TARGET FileCheck) OR (EXISTS ${LLVM_ROOT_DIR}/bin/FileCheck))
   # already provided by LLVM
 else()
 # Build FileCheck for testing (build source version depending on LLVM version)
@@ -45,7 +50,7 @@ else()
 endif()
 endif()
 
-if (TARGET not)
+if ((TARGET not) OR (EXISTS ${LLVM_ROOT_DIR}/bin/not))
   # already provided by LLVM
 else()
 # Build `not` for testing

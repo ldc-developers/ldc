@@ -98,6 +98,11 @@ private class Section
     size_t bodylen;
     int nooutput;
 
+    override string toString() const
+    {
+        assert(0);
+    }
+
     void write(Loc loc, DocComment* dc, Scope* sc, Dsymbols* a, OutBuffer* buf)
     {
         assert(a.dim);
@@ -130,7 +135,7 @@ private class Section
             buf.writestring("$(DDOC_SECTION ");
             // Replace _ characters with spaces
             buf.writestring("$(DDOC_SECTION_H ");
-            size_t o = buf.offset;
+            size_t o = buf.length;
             for (size_t u = 0; u < namelen; u++)
             {
                 char c = name[u];
@@ -144,10 +149,10 @@ private class Section
             buf.writestring("$(DDOC_DESCRIPTION ");
         }
     L1:
-        size_t o = buf.offset;
-        buf.write(_body, bodylen);
+        size_t o = buf.length;
+        buf.write(_body[0 .. bodylen]);
         escapeStrayParenthesis(loc, buf, o, true);
-        highlightText(sc, a, loc, buf, o);
+        highlightText(sc, a, loc, *buf, o);
         buf.writestring(")");
     }
 }
@@ -222,7 +227,7 @@ private final class ParamSection : Section
                 {
                     buf.writestring("$(DDOC_PARAM_ID ");
                     {
-                        size_t o = buf.offset;
+                        size_t o = buf.length;
                         Parameter fparam = isFunctionParameter(a, namestart, namelen);
                         if (!fparam)
                         {
@@ -250,18 +255,18 @@ private final class ParamSection : Section
                             {
                                 warning(s.loc, "Ddoc: function declaration has no parameter '%.*s'", cast(int)namelen, namestart);
                             }
-                            buf.write(namestart, namelen);
+                            buf.write(namestart[0 .. namelen]);
                         }
                         escapeStrayParenthesis(loc, buf, o, true);
-                        highlightCode(sc, a, buf, o);
+                        highlightCode(sc, a, *buf, o);
                     }
                     buf.writestring(")");
                     buf.writestring("$(DDOC_PARAM_DESC ");
                     {
-                        size_t o = buf.offset;
-                        buf.write(textstart, textlen);
+                        size_t o = buf.length;
+                        buf.write(textstart[0 .. textlen]);
                         escapeStrayParenthesis(loc, buf, o, true);
-                        highlightText(sc, a, loc, buf, o);
+                        highlightText(sc, a, loc, *buf, o);
                     }
                     buf.writestring(")");
                 }
@@ -317,7 +322,7 @@ private final class MacroSection : Section
     override void write(Loc loc, DocComment* dc, Scope* sc, Dsymbols* a, OutBuffer* buf)
     {
         //printf("MacroSection::write()\n");
-        DocComment.parseMacros(dc.escapetable, dc.pmacrotable, _body, bodylen);
+        DocComment.parseMacros(dc.escapetable, *dc.pmacrotable, _body, bodylen);
     }
 }
 
@@ -392,10 +397,10 @@ version (IN_LLVM)
             // BUG: convert file contents to UTF-8 before use
             const data = buffer.data;
             //printf("file: '%.*s'\n", cast(int)data.length, data.ptr);
-            mbuf.write(data.ptr, data.length);
+            mbuf.write(data);
         }
     }
-    DocComment.parseMacros(m.escapetable, &m.macrotable, mbuf.peekSlice().ptr, mbuf.peekSlice().length);
+    DocComment.parseMacros(m.escapetable, m.macrotable, mbuf[].ptr, mbuf[].length);
     Scope* sc = Scope.createGlobal(m); // create root scope
     DocComment* dc = DocComment.parse(m, m.comment);
     dc.pmacrotable = &m.macrotable;
@@ -405,7 +410,7 @@ version (IN_LLVM)
     // Set the title to be the name of the module
     {
         const p = m.toPrettyChars().toDString;
-        Macro.define(&m.macrotable, "TITLE", p);
+        m.macrotable.define("TITLE", p);
     }
     // Set time macros
     {
@@ -413,17 +418,17 @@ version (IN_LLVM)
         time(&t);
         char* p = ctime(&t);
         p = mem.xstrdup(p);
-        Macro.define(&m.macrotable, "DATETIME", p[0 .. strlen(p)]);
-        Macro.define(&m.macrotable, "YEAR", p[20 .. 20 + 4]);
+        m.macrotable.define("DATETIME", p[0 .. strlen(p)]);
+        m.macrotable.define("YEAR", p[20 .. 20 + 4]);
     }
     const srcfilename = m.srcfile.toString();
-    Macro.define(&m.macrotable, "SRCFILENAME", srcfilename);
+    m.macrotable.define("SRCFILENAME", srcfilename);
     const docfilename = m.docfile.toString();
-    Macro.define(&m.macrotable, "DOCFILENAME", docfilename);
+    m.macrotable.define("DOCFILENAME", docfilename);
     if (dc.copyright)
     {
         dc.copyright.nooutput = 1;
-        Macro.define(&m.macrotable, "COPYRIGHT", dc.copyright._body[0 .. dc.copyright.bodylen]);
+        m.macrotable.define("COPYRIGHT", dc.copyright._body[0 .. dc.copyright.bodylen]);
     }
     if (m.isDocFile)
     {
@@ -441,29 +446,29 @@ version (IN_LLVM)
             commentlen = dc.macros.name - m.comment;
             dc.macros.write(loc, dc, sc, &a, &buf);
         }
-        buf.write(m.comment, commentlen);
-        highlightText(sc, &a, loc, &buf, 0);
+        buf.write(m.comment[0 .. commentlen]);
+        highlightText(sc, &a, loc, buf, 0);
     }
     else
     {
         Dsymbols a;
         a.push(m);
         dc.writeSections(sc, &a, &buf);
-        emitMemberComments(m, &buf, sc);
+        emitMemberComments(m, buf, sc);
     }
-    //printf("BODY= '%.*s'\n", cast(int)buf.offset, buf.data);
-    Macro.define(&m.macrotable, "BODY", buf.peekSlice());
+    //printf("BODY= '%.*s'\n", cast(int)buf.length, buf.data);
+    m.macrotable.define("BODY", buf[]);
     OutBuffer buf2;
     buf2.writestring("$(DDOC)");
-    size_t end = buf2.offset;
-    m.macrotable.expand(&buf2, 0, &end, null);
+    size_t end = buf2.length;
+    m.macrotable.expand(buf2, 0, end, null);
     version (all)
     {
         /* Remove all the escape sequences from buf2,
          * and make CR-LF the newline.
          */
         {
-            const slice = buf2.peekSlice();
+            const slice = buf2[];
             buf.setsize(0);
             buf.reserve(slice.length);
             auto p = slice.ptr;
@@ -489,7 +494,7 @@ version (IN_LLVM)
                 buf.writeByte(c);
             }
         }
-        writeFile(m.loc, m.docfile.toString(), buf.peekSlice());
+        writeFile(m.loc, m.docfile.toString(), buf[]);
     }
     else
     {
@@ -498,9 +503,9 @@ version (IN_LLVM)
         {
             size_t i = 0;
             char* p = buf2.data;
-            for (size_t j = 0; j < buf2.offset; j++)
+            for (size_t j = 0; j < buf2.length; j++)
             {
-                if (p[j] == 0xFF && j + 1 < buf2.offset)
+                if (p[j] == 0xFF && j + 1 < buf2.length)
                 {
                     j++;
                     continue;
@@ -510,7 +515,7 @@ version (IN_LLVM)
             }
             buf2.setsize(i);
         }
-        writeFile(m.loc, m.docfile.toString(), buf2.peekSlice());
+        writeFile(m.loc, m.docfile.toString(), buf2[]);
     }
 }
 
@@ -523,9 +528,9 @@ version (IN_LLVM)
  */
 void escapeDdocString(OutBuffer* buf, size_t start)
 {
-    for (size_t u = start; u < buf.offset; u++)
+    for (size_t u = start; u < buf.length; u++)
     {
-        char c = buf.data[u];
+        char c = (*buf)[u];
         switch (c)
         {
         case '$':
@@ -568,9 +573,9 @@ private void escapeStrayParenthesis(Loc loc, OutBuffer* buf, size_t start, bool 
     uint par_open = 0;
     char inCode = 0;
     bool atLineStart = true;
-    for (size_t u = start; u < buf.offset; u++)
+    for (size_t u = start; u < buf.length; u++)
     {
-        char c = buf.data[u];
+        char c = (*buf)[u];
         switch (c)
         {
         case '(':
@@ -614,7 +619,7 @@ private void escapeStrayParenthesis(Loc loc, OutBuffer* buf, size_t start, bool 
             // Issue 15465: don't try to escape unbalanced parens inside code
             // blocks.
             int numdash = 1;
-            for (++u; u < buf.offset && buf.data[u] == c; ++u)
+            for (++u; u < buf.length && (*buf)[u] == c; ++u)
                 ++numdash;
             --u;
             if (c == '`' || (atLineStart && numdash >= 3))
@@ -628,16 +633,16 @@ private void escapeStrayParenthesis(Loc loc, OutBuffer* buf, size_t start, bool 
             break;
         case '\\':
             // replace backslash-escaped parens with their macros
-            if (!inCode && respectBackslashEscapes && u+1 < buf.offset && global.params.markdown)
+            if (!inCode && respectBackslashEscapes && u+1 < buf.length && global.params.markdown)
             {
-                if (buf.data[u+1] == '(' || buf.data[u+1] == ')')
+                if ((*buf)[u+1] == '(' || (*buf)[u+1] == ')')
                 {
-                    const paren = buf.data[u+1] == '(' ? "$(LPAREN)" : "$(RPAREN)";
+                    const paren = (*buf)[u+1] == '(' ? "$(LPAREN)" : "$(RPAREN)";
                     buf.remove(u, 2); //remove the \)
                     buf.insert(u, paren); //insert this instead
                     u += 8; //skip over newly inserted macro
                 }
-                else if (buf.data[u+1] == '\\')
+                else if ((*buf)[u+1] == '\\')
                     ++u;
             }
             break;
@@ -649,10 +654,10 @@ private void escapeStrayParenthesis(Loc loc, OutBuffer* buf, size_t start, bool 
     if (par_open) // if any unmatched lparens
     {
         par_open = 0;
-        for (size_t u = buf.offset; u > start;)
+        for (size_t u = buf.length; u > start;)
         {
             u--;
-            char c = buf.data[u];
+            char c = (*buf)[u];
             switch (c)
             {
             case ')':
@@ -685,7 +690,7 @@ private Scope* skipNonQualScopes(Scope* sc)
     return sc;
 }
 
-private bool emitAnchorName(OutBuffer* buf, Dsymbol s, Scope* sc, bool includeParent)
+private bool emitAnchorName(ref OutBuffer buf, Dsymbol s, Scope* sc, bool includeParent)
 {
     if (!s || s.isPackage() || s.isModule())
         return false;
@@ -716,13 +721,13 @@ private bool emitAnchorName(OutBuffer* buf, Dsymbol s, Scope* sc, bool includePa
     return true;
 }
 
-private void emitAnchor(OutBuffer* buf, Dsymbol s, Scope* sc, bool forHeader = false)
+private void emitAnchor(ref OutBuffer buf, Dsymbol s, Scope* sc, bool forHeader = false)
 {
     Identifier ident;
     {
         OutBuffer anc;
-        emitAnchorName(&anc, s, skipNonQualScopes(sc), true);
-        ident = Identifier.idPool(anc.peekSlice());
+        emitAnchorName(anc, s, skipNonQualScopes(sc), true);
+        ident = Identifier.idPool(anc[]);
     }
 
     auto pcount = cast(void*)ident in sc.anchorCounts;
@@ -829,8 +834,8 @@ private void emitAnchor(OutBuffer* buf, Dsymbol s, Scope* sc, bool forHeader = f
             Identifier shortIdent;
             {
                 OutBuffer anc;
-                emitAnchorName(&anc, s, skipNonQualScopes(sc), false);
-                shortIdent = Identifier.idPool(anc.peekSlice());
+                emitAnchorName(anc, s, skipNonQualScopes(sc), false);
+                shortIdent = Identifier.idPool(anc[]);
             }
 
             auto shortName = shortIdent.toString();
@@ -858,7 +863,7 @@ private size_t getCodeIndent(const(char)* src)
 }
 
 /** Recursively expand template mixin member docs into the scope. */
-private void expandTemplateMixinComments(TemplateMixin tm, OutBuffer* buf, Scope* sc)
+private void expandTemplateMixinComments(TemplateMixin tm, ref OutBuffer buf, Scope* sc)
 {
     if (!tm.semanticRun)
         tm.dsymbolSemantic(sc);
@@ -877,7 +882,7 @@ private void expandTemplateMixinComments(TemplateMixin tm, OutBuffer* buf, Scope
     }
 }
 
-private void emitMemberComments(ScopeDsymbol sds, OutBuffer* buf, Scope* sc)
+private void emitMemberComments(ScopeDsymbol sds, ref OutBuffer buf, Scope* sc)
 {
     if (!sds.members)
         return;
@@ -893,9 +898,9 @@ private void emitMemberComments(ScopeDsymbol sds, OutBuffer* buf, Scope* sc)
         m = "$(DDOC_ENUM_MEMBERS ";
     else if (sds.isModule())
         m = "$(DDOC_MODULE_MEMBERS ";
-    size_t offset1 = buf.offset; // save starting offset
+    size_t offset1 = buf.length; // save starting offset
     buf.writestring(m);
-    size_t offset2 = buf.offset; // to see if we write anything
+    size_t offset2 = buf.length; // to see if we write anything
     sc = sc.push(sds);
     for (size_t i = 0; i < sds.members.dim; i++)
     {
@@ -908,24 +913,24 @@ private void emitMemberComments(ScopeDsymbol sds, OutBuffer* buf, Scope* sc)
     }
     emitComment(null, buf, sc);
     sc.pop();
-    if (buf.offset == offset2)
+    if (buf.length == offset2)
     {
         /* Didn't write out any members, so back out last write
          */
-        buf.offset = offset1;
+        buf.setsize(offset1);
     }
     else
         buf.writestring(")");
 }
 
-private void emitProtection(OutBuffer* buf, Import i)
+private void emitProtection(ref OutBuffer buf, Import i)
 {
     // imports are private by default, which is different from other declarations
     // so they should explicitly show their protection
     emitProtection(buf, i.protection);
 }
 
-private void emitProtection(OutBuffer* buf, Declaration d)
+private void emitProtection(ref OutBuffer buf, Declaration d)
 {
     auto prot = d.protection;
     if (prot.kind != Prot.Kind.undefined && prot.kind != Prot.Kind.public_)
@@ -934,13 +939,13 @@ private void emitProtection(OutBuffer* buf, Declaration d)
     }
 }
 
-private void emitProtection(OutBuffer* buf, Prot prot)
+private void emitProtection(ref OutBuffer buf, Prot prot)
 {
-    protectionToBuffer(buf, prot);
+    protectionToBuffer(&buf, prot);
     buf.writeByte(' ');
 }
 
-private void emitComment(Dsymbol s, OutBuffer* buf, Scope* sc)
+private void emitComment(Dsymbol s, ref OutBuffer buf, Scope* sc)
 {
     extern (C++) final class EmitComment : Visitor
     {
@@ -949,9 +954,9 @@ private void emitComment(Dsymbol s, OutBuffer* buf, Scope* sc)
         OutBuffer* buf;
         Scope* sc;
 
-        extern (D) this(OutBuffer* buf, Scope* sc)
+        extern (D) this(ref OutBuffer buf, Scope* sc)
         {
-            this.buf = buf;
+            this.buf = &buf;
             this.sc = sc;
         }
 
@@ -1004,7 +1009,7 @@ private void emitComment(Dsymbol s, OutBuffer* buf, Scope* sc)
 
                 buf.writestring("$(DDOC_MEMBER");
                 buf.writestring("$(DDOC_MEMBER_HEADER");
-                emitAnchor(buf, symbol, sc, true);
+                emitAnchor(*buf, symbol, sc, true);
                 buf.writeByte(')');
 
                 // Put the declaration signatures as the document 'title'
@@ -1016,17 +1021,17 @@ private void emitComment(Dsymbol s, OutBuffer* buf, Scope* sc)
                     // signatures more appealing
                     if (i == 0)
                     {
-                        size_t o = buf.offset;
-                        toDocBuffer(sx, buf, sc);
-                        highlightCode(sc, sx, buf, o);
+                        size_t o = buf.length;
+                        toDocBuffer(sx, *buf, sc);
+                        highlightCode(sc, sx, *buf, o);
                         buf.writestring("$(DDOC_OVERLOAD_SEPARATOR)");
                         continue;
                     }
                     buf.writestring("$(DDOC_DITTO ");
                     {
-                        size_t o = buf.offset;
-                        toDocBuffer(sx, buf, sc);
-                        highlightCode(sc, sx, buf, o);
+                        size_t o = buf.length;
+                        toDocBuffer(sx, *buf, sc);
+                        highlightCode(sc, sx, *buf, o);
                     }
                     buf.writestring("$(DDOC_OVERLOAD_SEPARATOR)");
                     buf.writeByte(')');
@@ -1037,11 +1042,11 @@ private void emitComment(Dsymbol s, OutBuffer* buf, Scope* sc)
                 {
                     dc.writeSections(sc, &dc.a, buf);
                     if (ScopeDsymbol sds = dc.a[0].isScopeDsymbol())
-                        emitMemberComments(sds, buf, sc);
+                        emitMemberComments(sds, *buf, sc);
                 }
                 buf.writestring(ddoc_decl_dd_e);
                 buf.writeByte(')');
-                //printf("buf.2 = [[%.*s]]\n", cast(int)(buf.offset - o0), buf.data + o0);
+                //printf("buf.2 = [[%.*s]]\n", cast(int)(buf.length - o0), buf.data + o0);
             }
             if (s)
             {
@@ -1056,7 +1061,8 @@ private void emitComment(Dsymbol s, OutBuffer* buf, Scope* sc)
             if (imp.prot().kind != Prot.Kind.public_ && sc.protection.kind != Prot.Kind.export_)
                 return;
 
-            emit(sc, imp, imp.comment);
+            if (imp.comment)
+                emit(sc, imp, imp.comment);
         }
 
         override void visit(Declaration d)
@@ -1069,7 +1075,7 @@ private void emitComment(Dsymbol s, OutBuffer* buf, Scope* sc)
                 if (isDitto(td.comment))
                     com = td.comment;
                 else
-                    com = Lexer.combineComments(td.comment, com, true);
+                    com = Lexer.combineComments(td.comment.toDString(), com.toDString(), true);
             }
             else
             {
@@ -1101,7 +1107,7 @@ private void emitComment(Dsymbol s, OutBuffer* buf, Scope* sc)
                 if (isDitto(td.comment))
                     com = td.comment;
                 else
-                    com = Lexer.combineComments(td.comment, com, true);
+                    com = Lexer.combineComments(td.comment.toDString(), com.toDString(), true);
             }
             else
             {
@@ -1139,7 +1145,7 @@ private void emitComment(Dsymbol s, OutBuffer* buf, Scope* sc)
                 for (size_t i = 0; i < ed.members.dim; i++)
                 {
                     Dsymbol s = (*ed.members)[i];
-                    emitComment(s, buf, sc);
+                    emitComment(s, *buf, sc);
                 }
                 return;
             }
@@ -1178,7 +1184,7 @@ private void emitComment(Dsymbol s, OutBuffer* buf, Scope* sc)
                 {
                     Dsymbol s = (*d)[i];
                     //printf("AttribDeclaration::emitComment %s\n", s.toChars());
-                    emitComment(s, buf, sc);
+                    emitComment(s, *buf, sc);
                 }
             }
         }
@@ -1211,7 +1217,7 @@ private void emitComment(Dsymbol s, OutBuffer* buf, Scope* sc)
             for (size_t i = 0; i < d.dim; i++)
             {
                 Dsymbol s = (*d)[i];
-                emitComment(s, buf, sc);
+                emitComment(s, *buf, sc);
             }
         }
     }
@@ -1223,7 +1229,7 @@ private void emitComment(Dsymbol s, OutBuffer* buf, Scope* sc)
         s.accept(v);
 }
 
-private void toDocBuffer(Dsymbol s, OutBuffer* buf, Scope* sc)
+private void toDocBuffer(Dsymbol s, ref OutBuffer buf, Scope* sc)
 {
     extern (C++) final class ToDocBuffer : Visitor
     {
@@ -1232,9 +1238,9 @@ private void toDocBuffer(Dsymbol s, OutBuffer* buf, Scope* sc)
         OutBuffer* buf;
         Scope* sc;
 
-        extern (D) this(OutBuffer* buf, Scope* sc)
+        extern (D) this(ref OutBuffer buf, Scope* sc)
         {
-            this.buf = buf;
+            this.buf = &buf;
             this.sc = sc;
         }
 
@@ -1252,7 +1258,7 @@ private void toDocBuffer(Dsymbol s, OutBuffer* buf, Scope* sc)
                 buf.writestring("deprecated ");
             if (Declaration d = s.isDeclaration())
             {
-                emitProtection(buf, d);
+                emitProtection(*buf, d);
                 if (d.isStatic())
                     buf.writestring("static ");
                 else if (d.isFinal())
@@ -1292,7 +1298,7 @@ private void toDocBuffer(Dsymbol s, OutBuffer* buf, Scope* sc)
         {
             HdrGenState hgs;
             hgs.ddoc = true;
-            emitProtection(buf, i);
+            emitProtection(*buf, i);
             .toCBuffer(i, buf, &hgs);
         }
 
@@ -1361,7 +1367,7 @@ private void toDocBuffer(Dsymbol s, OutBuffer* buf, Scope* sc)
                 return;
             if (ad.isDeprecated())
                 buf.writestring("deprecated ");
-            emitProtection(buf, ad);
+            emitProtection(*buf, ad);
             buf.printf("alias %s = ", ad.toChars());
             if (Dsymbol s = ad.aliassym) // ident alias
             {
@@ -1453,7 +1459,7 @@ private void toDocBuffer(Dsymbol s, OutBuffer* buf, Scope* sc)
             }
             if (TemplateDeclaration td = getEponymousParent(sd))
             {
-                toDocBuffer(td, buf, sc);
+                toDocBuffer(td, *buf, sc);
             }
             else
             {
@@ -1469,11 +1475,11 @@ private void toDocBuffer(Dsymbol s, OutBuffer* buf, Scope* sc)
                 return;
             version (none)
             {
-                emitProtection(buf, cd);
+                emitProtection(*buf, cd);
             }
             if (TemplateDeclaration td = getEponymousParent(cd))
             {
-                toDocBuffer(td, buf, sc);
+                toDocBuffer(td, *buf, sc);
             }
             else
             {
@@ -1543,7 +1549,7 @@ struct DocComment
     Section summary;
     Section copyright;
     Section macros;
-    Macro** pmacrotable;
+    MacroTable* pmacrotable;
     Escape* escapetable;
     Dsymbols a;
 
@@ -1577,7 +1583,7 @@ struct DocComment
      *
      *      name2 = value2
      */
-    static void parseMacros(Escape* escapetable, Macro** pmacrotable, const(char)* m, size_t mlen)
+    static void parseMacros(Escape* escapetable, ref MacroTable pmacrotable, const(char)* m, size_t mlen)
     {
         const(char)* p = m;
         size_t len = mlen;
@@ -1649,7 +1655,7 @@ struct DocComment
                 if (iequals("ESCAPES", namestart[0 .. namelen]))
                     parseEscapes(escapetable, textstart, textlen);
                 else
-                    Macro.define(pmacrotable, namestart[0 ..namelen], textstart[0 .. textlen]);
+                    pmacrotable.define(namestart[0 .. namelen], textstart[0 .. textlen]);
                 namelen = 0;
                 if (p >= pend)
                     break;
@@ -1880,9 +1886,9 @@ struct DocComment
             if (m.md)
                 loc = m.md.loc;
         }
-        size_t offset1 = buf.offset;
+        size_t offset1 = buf.length;
         buf.writestring("$(DDOC_SECTIONS ");
-        size_t offset2 = buf.offset;
+        size_t offset2 = buf.length;
         for (size_t i = 0; i < sections.dim; i++)
         {
             Section sec = sections[i];
@@ -1892,10 +1898,10 @@ struct DocComment
             if (!sec.namelen && i == 0)
             {
                 buf.writestring("$(DDOC_SUMMARY ");
-                size_t o = buf.offset;
-                buf.write(sec._body, sec.bodylen);
+                size_t o = buf.length;
+                buf.write(sec._body[0 .. sec.bodylen]);
                 escapeStrayParenthesis(loc, buf, o, true);
-                highlightText(sc, a, loc, buf, o);
+                highlightText(sc, a, loc, *buf, o);
                 buf.writestring(")");
             }
             else
@@ -1915,7 +1921,7 @@ struct DocComment
                 while (*c == ' ' || *c == '\t' || *c == '\n' || *c == '\r')
                     ++c;
                 buf.writestring("$(DDOC_EXAMPLES ");
-                size_t o = buf.offset;
+                size_t o = buf.length;
                 buf.writestring(cast(char*)c);
                 if (utd.codedoc)
                 {
@@ -1926,16 +1932,16 @@ struct DocComment
                     buf.writestring("----\n");
                     buf.writestring(codedoc);
                     buf.writestring("----\n");
-                    highlightText(sc, a, loc, buf, o);
+                    highlightText(sc, a, loc, *buf, o);
                 }
                 buf.writestring(")");
             }
         }
-        if (buf.offset == offset2)
+        if (buf.length == offset2)
         {
             /* Didn't write out any sections, so back out last write
              */
-            buf.offset = offset1;
+            buf.setsize(offset1);
             buf.writestring("\n");
         }
         else
@@ -1991,10 +1997,10 @@ private const(char)[] skipwhitespace(const(char)[] p)
  *  chars         = the characters to skip; order is unimportant
  * Returns: the index after skipping characters.
  */
-private size_t skipChars(OutBuffer* buf, size_t i, string chars)
+private size_t skipChars(ref OutBuffer buf, size_t i, string chars)
 {
     Outer:
-    foreach (j, c; buf.peekSlice()[i..$])
+    foreach (j, c; buf[][i..$])
     {
         foreach (d; chars)
         {
@@ -2003,19 +2009,19 @@ private size_t skipChars(OutBuffer* buf, size_t i, string chars)
         }
         return i + j;
     }
-    return buf.offset;
+    return buf.length;
 }
 
 unittest {
     OutBuffer buf;
     string data = "test ---\r\n\r\nend";
-    buf.write(data.ptr, data.length);
+    buf.write(data);
 
-    assert(skipChars(&buf, 0, "-") == 0);
-    assert(skipChars(&buf, 4, "-") == 4);
-    assert(skipChars(&buf, 4, " -") == 8);
-    assert(skipChars(&buf, 8, "\r\n") == 12);
-    assert(skipChars(&buf, 12, "dne") == 15);
+    assert(skipChars(buf, 0, "-") == 0);
+    assert(skipChars(buf, 4, "-") == 4);
+    assert(skipChars(buf, 4, " -") == 8);
+    assert(skipChars(buf, 8, "\r\n") == 12);
+    assert(skipChars(buf, 12, "dne") == 15);
 }
 
 /****************************************************
@@ -2110,9 +2116,9 @@ unittest
  *  to    = the index within `buf` to stop counting at, exclusive
  * Returns: the indent
  */
-private int getMarkdownIndent(OutBuffer* buf, size_t from, size_t to)
+private int getMarkdownIndent(ref OutBuffer buf, size_t from, size_t to)
 {
-    const slice = buf.peekSlice();
+    const slice = buf[];
     if (to > slice.length)
         to = slice.length;
     int indent = 0;
@@ -2127,9 +2133,9 @@ private int getMarkdownIndent(OutBuffer* buf, size_t from, size_t to)
  *      beginning of next line
  *      end of buf
  */
-size_t skiptoident(OutBuffer* buf, size_t i)
+size_t skiptoident(ref OutBuffer buf, size_t i)
 {
-    const slice = buf.peekSlice();
+    const slice = buf[];
     while (i < slice.length)
     {
         dchar c;
@@ -2156,9 +2162,9 @@ size_t skiptoident(OutBuffer* buf, size_t i)
 /************************************************
  * Scan forward past end of identifier.
  */
-private size_t skippastident(OutBuffer* buf, size_t i)
+private size_t skippastident(ref OutBuffer buf, size_t i)
 {
-    const slice = buf.peekSlice();
+    const slice = buf[];
     while (i < slice.length)
     {
         dchar c;
@@ -2186,9 +2192,9 @@ private size_t skippastident(OutBuffer* buf, size_t i)
  * Scan forward past end of an identifier that might
  * contain dots (e.g. `abc.def`)
  */
-private size_t skipPastIdentWithDots(OutBuffer* buf, size_t i)
+private size_t skipPastIdentWithDots(ref OutBuffer buf, size_t i)
 {
-    const slice = buf.peekSlice();
+    const slice = buf[];
     bool lastCharWasDot;
     while (i < slice.length)
     {
@@ -2248,9 +2254,9 @@ private size_t skipPastIdentWithDots(OutBuffer* buf, size_t i)
  *      i if not a URL
  *      index just past it if it is a URL
  */
-private size_t skippastURL(OutBuffer* buf, size_t i)
+private size_t skippastURL(ref OutBuffer buf, size_t i)
 {
-    const slice = buf.peekSlice()[i .. $];
+    const slice = buf[][i .. $];
     size_t j;
     bool sawdot = false;
     if (slice.length > 7 && Port.memicmp(slice.ptr, "http://", 7) == 0)
@@ -2293,7 +2299,7 @@ Lno:
  *  i             = an index within `buf`. If `i` is after `iAt` then it gets
  *                  reduced by the length of the removed macro.
  */
-private void removeBlankLineMacro(OutBuffer* buf, ref size_t iAt, ref size_t i)
+private void removeBlankLineMacro(ref OutBuffer buf, ref size_t iAt, ref size_t i)
 {
     if (!iAt)
         return;
@@ -2318,29 +2324,29 @@ private void removeBlankLineMacro(OutBuffer* buf, ref size_t iAt, ref size_t i)
  *  loc         = the current location within the file
  * Returns: whether a thematic break was replaced
  */
-private bool replaceMarkdownThematicBreak(OutBuffer* buf, ref size_t i, size_t iLineStart, const ref Loc loc)
+private bool replaceMarkdownThematicBreak(ref OutBuffer buf, ref size_t i, size_t iLineStart, const ref Loc loc)
 {
     if (!global.params.markdown)
         return false;
 
-    const slice = buf.peekSlice();
-    const c = buf.data[i];
+    const slice = buf[];
+    const c = buf[i];
     size_t j = i + 1;
     int repeat = 1;
     for (; j < slice.length; j++)
     {
-        if (buf.data[j] == c)
+        if (buf[j] == c)
             ++repeat;
-        else if (buf.data[j] != ' ' && buf.data[j] != '\t')
+        else if (buf[j] != ' ' && buf[j] != '\t')
             break;
     }
     if (repeat >= 3)
     {
-        if (j >= buf.offset || buf.data[j] == '\n' || buf.data[j] == '\r')
+        if (j >= buf.length || buf[j] == '\n' || buf[j] == '\r')
         {
             if (global.params.vmarkdown)
             {
-                const s = buf.peekSlice()[i..j];
+                const s = buf[][i..j];
                 message(loc, "Ddoc: converted '%.*s' to a thematic break", cast(int)s.length, s.ptr);
             }
 
@@ -2362,7 +2368,7 @@ private bool replaceMarkdownThematicBreak(OutBuffer* buf, ref size_t i, size_t i
  *          the detected heading level from 1 to 6, or
  *          0 if not at an ATX heading
  */
-private int detectAtxHeadingLevel(OutBuffer* buf, const size_t i)
+private int detectAtxHeadingLevel(ref OutBuffer buf, const size_t i)
 {
     if (!global.params.markdown)
         return 0;
@@ -2374,7 +2380,7 @@ private int detectAtxHeadingLevel(OutBuffer* buf, const size_t i)
         return 0;
 
     const iTextStart = skipChars(buf, iAfterHashes, " \t");
-    const emptyHeading = buf.data[iTextStart] == '\r' || buf.data[iTextStart] == '\n';
+    const emptyHeading = buf[iTextStart] == '\r' || buf[iTextStart] == '\n';
 
     // require whitespace
     if (!emptyHeading && iTextStart == iAfterHashes)
@@ -2389,12 +2395,12 @@ private int detectAtxHeadingLevel(OutBuffer* buf, const size_t i)
  *  buf   = an OutBuffer containing the DDoc
  *  i     = the index within `buf` to start looking for a suffix at
  */
-private void removeAnyAtxHeadingSuffix(OutBuffer* buf, size_t i)
+private void removeAnyAtxHeadingSuffix(ref OutBuffer buf, size_t i)
 {
     size_t j = i;
     size_t iSuffixStart = 0;
     size_t iWhitespaceStart = j;
-    const slice = buf.peekSlice();
+    const slice = buf[];
     for (; j < slice.length; j++)
     {
         switch (slice[j])
@@ -2434,13 +2440,13 @@ private void removeAnyAtxHeadingSuffix(OutBuffer* buf, size_t i)
  *  headingLevel  = the level (1-6) of heading to end. Is set to `0` when this
  *                  function ends.
  */
-private void endMarkdownHeading(OutBuffer* buf, size_t iStart, ref size_t iEnd, const ref Loc loc, ref int headingLevel)
+private void endMarkdownHeading(ref OutBuffer buf, size_t iStart, ref size_t iEnd, const ref Loc loc, ref int headingLevel)
 {
     if (!global.params.markdown)
         return;
     if (global.params.vmarkdown)
     {
-        const s = buf.peekSlice()[iStart..iEnd];
+        const s = buf[][iStart..iEnd];
         message(loc, "Ddoc: added heading '%.*s'", cast(int)s.length, s.ptr);
     }
 
@@ -2449,7 +2455,7 @@ private void endMarkdownHeading(OutBuffer* buf, size_t iStart, ref size_t iEnd, 
     buf.insert(iStart, heading);
     iEnd += 5;
     size_t iBeforeNewline = iEnd;
-    while (buf.data[iBeforeNewline-1] == '\r' || buf.data[iBeforeNewline-1] == '\n')
+    while (buf[iBeforeNewline-1] == '\r' || buf[iBeforeNewline-1] == '\n')
         --iBeforeNewline;
     buf.insert(iBeforeNewline, ")");
     headingLevel = 0;
@@ -2463,7 +2469,7 @@ private void endMarkdownHeading(OutBuffer* buf, size_t iStart, ref size_t iEnd, 
  *  quoteLevel  = the current quote level. Is set to `0` when this function ends.
  * Returns: the amount that `i` was moved
  */
-private size_t endAllMarkdownQuotes(OutBuffer* buf, size_t i, ref int quoteLevel)
+private size_t endAllMarkdownQuotes(ref OutBuffer buf, size_t i, ref int quoteLevel)
 {
     const length = quoteLevel;
     for (; quoteLevel > 0; --quoteLevel)
@@ -2485,7 +2491,7 @@ private size_t endAllMarkdownQuotes(OutBuffer* buf, size_t i, ref int quoteLevel
  *                      `0` when this function ends.
  * Returns: the amount that `i` was moved
  */
-private size_t endAllListsAndQuotes(OutBuffer* buf, ref size_t i, ref MarkdownList[] nestedLists, ref int quoteLevel, out int quoteMacroLevel)
+private size_t endAllListsAndQuotes(ref OutBuffer buf, ref size_t i, ref MarkdownList[] nestedLists, ref int quoteLevel, out int quoteMacroLevel)
 {
     quoteMacroLevel = 0;
     const i0 = i;
@@ -2504,7 +2510,7 @@ private size_t endAllListsAndQuotes(OutBuffer* buf, ref size_t i, ref MarkdownLi
  *  downToLevel       = the length within `inlineDelimiters`` to reduce emphasis to
  * Returns: the number of characters added to the buffer by the replacements
  */
-private size_t replaceMarkdownEmphasis(OutBuffer* buf, const ref Loc loc, ref MarkdownDelimiter[] inlineDelimiters, int downToLevel = 0)
+private size_t replaceMarkdownEmphasis(ref OutBuffer buf, const ref Loc loc, ref MarkdownDelimiter[] inlineDelimiters, int downToLevel = 0)
 {
     if (!global.params.markdown)
         return 0;
@@ -2526,7 +2532,7 @@ private size_t replaceMarkdownEmphasis(OutBuffer* buf, const ref Loc loc, ref Ma
 
         if (global.params.vmarkdown)
         {
-            const s = buf.peekSlice()[iStart + count..iEnd];
+            const s = buf[][iStart + count..iEnd];
             message(loc, "Ddoc: emphasized text '%.*s'", cast(int)s.length, s.ptr);
         }
 
@@ -2861,12 +2867,12 @@ private struct MarkdownList
      *  i             = the index within `buf` of the potential list item
      * Returns: the parsed list item. Its `isValid` property describes whether parsing succeeded.
      */
-    static MarkdownList parseItem(OutBuffer* buf, size_t iLineStart, size_t i)
+    static MarkdownList parseItem(ref OutBuffer buf, size_t iLineStart, size_t i)
     {
         if (!global.params.markdown)
             return MarkdownList();
 
-        if (buf.data[i] == '+' || buf.data[i] == '-' || buf.data[i] == '*')
+        if (buf[i] == '+' || buf[i] == '-' || buf[i] == '*')
             return parseUnorderedListItem(buf, iLineStart, i);
         else
             return parseOrderedListItem(buf, iLineStart, i);
@@ -2880,7 +2886,7 @@ private struct MarkdownList
      *  i             = the index within `buf` of the list item
      * Returns: whether `i` is at a list item of the same type as this list
      */
-    private bool isAtItemInThisList(OutBuffer* buf, size_t iLineStart, size_t i)
+    private bool isAtItemInThisList(ref OutBuffer buf, size_t iLineStart, size_t i)
     {
         MarkdownList item = (type == '.' || type == ')') ?
             parseOrderedListItem(buf, iLineStart, i) :
@@ -2901,13 +2907,13 @@ private struct MarkdownList
      *  loc           = the location of the Ddoc within the file
      * Returns: `true` if a list was created
      */
-    bool startItem(OutBuffer* buf, ref size_t iLineStart, ref size_t i, ref size_t iPrecedingBlankLine, ref MarkdownList[] nestedLists, const ref Loc loc)
+    bool startItem(ref OutBuffer buf, ref size_t iLineStart, ref size_t i, ref size_t iPrecedingBlankLine, ref MarkdownList[] nestedLists, const ref Loc loc)
     {
         buf.remove(iStart, iContentStart - iStart);
 
         if (!nestedLists.length ||
             delimiterIndent >= nestedLists[$-1].contentIndent ||
-            buf.data[iLineStart - 4..iLineStart] == "$(LI")
+            buf[iLineStart - 4..iLineStart] == "$(LI")
         {
             // start a list macro
             nestedLists ~= this;
@@ -2940,9 +2946,9 @@ private struct MarkdownList
         if (global.params.vmarkdown)
         {
             size_t iEnd = iStart;
-            while (iEnd < buf.offset && buf.data[iEnd] != '\r' && buf.data[iEnd] != '\n')
+            while (iEnd < buf.length && buf[iEnd] != '\r' && buf[iEnd] != '\n')
                 ++iEnd;
-            const s = buf.peekSlice()[iStart..iEnd];
+            const s = buf[][iStart..iEnd];
             message(loc, "Ddoc: starting list item '%.*s'", cast(int)s.length, s.ptr);
         }
 
@@ -2957,7 +2963,7 @@ private struct MarkdownList
      *  nestedLists   = a set of nested lists. Upon return it will be empty.
      * Returns: the amount that `i` changed
      */
-    static size_t endAllNestedLists(OutBuffer* buf, size_t i, ref MarkdownList[] nestedLists)
+    static size_t endAllNestedLists(ref OutBuffer buf, size_t i, ref MarkdownList[] nestedLists)
     {
         const iStart = i;
         for (; nestedLists.length; --nestedLists.length)
@@ -2973,7 +2979,7 @@ private struct MarkdownList
      *  iParagraphStart   = the index within `buf` to start the next paragraph at at. May be adjusted upon return.
      *  nestedLists       = a set of nested lists. Some nested lists may have been removed from it upon return.
      */
-    static void handleSiblingOrEndingList(OutBuffer* buf, ref size_t i, ref size_t iParagraphStart, ref MarkdownList[] nestedLists)
+    static void handleSiblingOrEndingList(ref OutBuffer buf, ref size_t i, ref size_t iParagraphStart, ref MarkdownList[] nestedLists)
     {
         size_t iAfterSpaces = skipChars(buf, i + 1, " \t");
 
@@ -2983,7 +2989,7 @@ private struct MarkdownList
             i = buf.insert(i, ")");
             iParagraphStart = skipChars(buf, i, " \t\r\n");
         }
-        else if (iAfterSpaces >= buf.offset || (buf.data[iAfterSpaces] != '\r' && buf.data[iAfterSpaces] != '\n'))
+        else if (iAfterSpaces >= buf.length || (buf[iAfterSpaces] != '\r' && buf[iAfterSpaces] != '\n'))
         {
             // end nested lists that are indented more than this content
             const indent = getMarkdownIndent(buf, i + 1, iAfterSpaces);
@@ -3011,21 +3017,21 @@ private struct MarkdownList
      *  i             = the index within `buf` of the list item
      * Returns: the parsed list item, or a list item with type `.init` if no list item is available
      */
-    private static MarkdownList parseUnorderedListItem(OutBuffer* buf, size_t iLineStart, size_t i)
+    private static MarkdownList parseUnorderedListItem(ref OutBuffer buf, size_t iLineStart, size_t i)
     {
-        if (i+1 < buf.offset &&
-                (buf.data[i] == '-' ||
-                buf.data[i] == '*' ||
-                buf.data[i] == '+') &&
-            (buf.data[i+1] == ' ' ||
-                buf.data[i+1] == '\t' ||
-                buf.data[i+1] == '\r' ||
-                buf.data[i+1] == '\n'))
+        if (i+1 < buf.length &&
+                (buf[i] == '-' ||
+                buf[i] == '*' ||
+                buf[i] == '+') &&
+            (buf[i+1] == ' ' ||
+                buf[i+1] == '\t' ||
+                buf[i+1] == '\r' ||
+                buf[i+1] == '\n'))
         {
             const iContentStart = skipChars(buf, i + 1, " \t");
             const delimiterIndent = getMarkdownIndent(buf, iLineStart, i);
             const contentIndent = getMarkdownIndent(buf, iLineStart, iContentStart);
-            auto list = MarkdownList(null, iLineStart, iContentStart, delimiterIndent, contentIndent, 0, buf.data[i]);
+            auto list = MarkdownList(null, iLineStart, iContentStart, delimiterIndent, contentIndent, 0, buf[i]);
             return list;
         }
         return MarkdownList();
@@ -3039,17 +3045,17 @@ private struct MarkdownList
      *  i             = the index within `buf` of the list item
      * Returns: the parsed list item, or a list item with type `.init` if no list item is available
      */
-    private static MarkdownList parseOrderedListItem(OutBuffer* buf, size_t iLineStart, size_t i)
+    private static MarkdownList parseOrderedListItem(ref OutBuffer buf, size_t iLineStart, size_t i)
     {
         size_t iAfterNumbers = skipChars(buf, i, "0123456789");
         if (iAfterNumbers - i > 0 &&
             iAfterNumbers - i <= 9 &&
-            iAfterNumbers + 1 < buf.offset &&
-            buf.data[iAfterNumbers] == '.' &&
-            (buf.data[iAfterNumbers+1] == ' ' ||
-                buf.data[iAfterNumbers+1] == '\t' ||
-                buf.data[iAfterNumbers+1] == '\r' ||
-                buf.data[iAfterNumbers+1] == '\n'))
+            iAfterNumbers + 1 < buf.length &&
+            buf[iAfterNumbers] == '.' &&
+            (buf[iAfterNumbers+1] == ' ' ||
+                buf[iAfterNumbers+1] == '\t' ||
+                buf[iAfterNumbers+1] == '\r' ||
+                buf[iAfterNumbers+1] == '\n'))
         {
             const iContentStart = skipChars(buf, iAfterNumbers + 1, " \t");
             const delimiterIndent = getMarkdownIndent(buf, iLineStart, i);
@@ -3057,10 +3063,10 @@ private struct MarkdownList
             size_t iNumberStart = skipChars(buf, i, "0");
             if (iNumberStart == iAfterNumbers)
                 --iNumberStart;
-            auto orderedStart = buf.peekSlice()[iNumberStart .. iAfterNumbers];
+            auto orderedStart = buf[][iNumberStart .. iAfterNumbers];
             if (orderedStart == "1")
                 orderedStart = null;
-            return MarkdownList(orderedStart.idup, iLineStart, iContentStart, delimiterIndent, contentIndent, 0, buf.data[iAfterNumbers]);
+            return MarkdownList(orderedStart.idup, iLineStart, iContentStart, delimiterIndent, contentIndent, 0, buf[iAfterNumbers]);
         }
         return MarkdownList();
     }
@@ -3092,7 +3098,7 @@ private struct MarkdownLink
      *                      additional previously unparsed references.
      * Returns: whether a reference link was found and replaced at `i`
      */
-    static bool replaceLink(OutBuffer* buf, ref size_t i, const ref Loc loc, ref MarkdownDelimiter[] inlineDelimiters, int delimiterIndex, ref MarkdownLinkReferences linkReferences)
+    static bool replaceLink(ref OutBuffer buf, ref size_t i, const ref Loc loc, ref MarkdownDelimiter[] inlineDelimiters, int delimiterIndex, ref MarkdownLinkReferences linkReferences)
     {
         const delimiter = inlineDelimiters[delimiterIndex];
         MarkdownLink link;
@@ -3131,7 +3137,7 @@ private struct MarkdownLink
 
         if (global.params.vmarkdown)
         {
-            const s = buf.peekSlice()[delimiter.iStart..iEnd];
+            const s = buf[][delimiter.iStart..iEnd];
             message(loc, "Ddoc: linking '%.*s' to '%.*s'", cast(int)s.length, s.ptr, cast(int)link.href.length, link.href.ptr);
         }
 
@@ -3152,7 +3158,7 @@ private struct MarkdownLink
      *  loc               = the current location in the file
      * Returns: whether a reference link was found and replaced at `i`
      */
-    static bool replaceReferenceDefinition(OutBuffer* buf, ref size_t i, ref MarkdownDelimiter[] inlineDelimiters, int delimiterIndex, ref MarkdownLinkReferences linkReferences, const ref Loc loc)
+    static bool replaceReferenceDefinition(ref OutBuffer buf, ref size_t i, ref MarkdownDelimiter[] inlineDelimiters, int delimiterIndex, ref MarkdownLinkReferences linkReferences, const ref Loc loc)
     {
         const delimiter = inlineDelimiters[delimiterIndex];
         MarkdownLink link;
@@ -3173,10 +3179,10 @@ private struct MarkdownLink
      *  i     = the index within `buf` that points to the `]` character of the inline link.
      * Returns: the index at the end of parsing the link, or `i` if parsing failed.
      */
-    private size_t parseInlineLink(OutBuffer* buf, size_t i)
+    private size_t parseInlineLink(ref OutBuffer buf, size_t i)
     {
         size_t iEnd = i + 1;
-        if (iEnd >= buf.offset || buf.data[iEnd] != '(')
+        if (iEnd >= buf.length || buf[iEnd] != '(')
             return i;
         ++iEnd;
 
@@ -3184,13 +3190,13 @@ private struct MarkdownLink
             return i;
 
         iEnd = skipChars(buf, iEnd, " \t\r\n");
-        if (buf.data[iEnd] != ')')
+        if (buf[iEnd] != ')')
         {
             if (parseTitle(buf, iEnd))
                 iEnd = skipChars(buf, iEnd, " \t\r\n");
         }
 
-        if (buf.data[iEnd] != ')')
+        if (buf[iEnd] != ')')
             return i;
 
         return iEnd + 1;
@@ -3204,15 +3210,15 @@ private struct MarkdownLink
      *  delimiter = the delimiter that starts this link
      * Returns: the index at the end of parsing the link, or `i` if parsing failed.
      */
-    private size_t parseReferenceLink(OutBuffer* buf, size_t i, MarkdownDelimiter delimiter)
+    private size_t parseReferenceLink(ref OutBuffer buf, size_t i, MarkdownDelimiter delimiter)
     {
         size_t iStart = i + 1;
         size_t iEnd = iStart;
-        if (iEnd >= buf.offset || buf.data[iEnd] != '[' || (iEnd+1 < buf.offset && buf.data[iEnd+1] == ']'))
+        if (iEnd >= buf.length || buf[iEnd] != '[' || (iEnd+1 < buf.length && buf[iEnd+1] == ']'))
         {
             // collapsed reference [foo][] or shortcut reference [foo]
             iStart = delimiter.iStart + delimiter.count - 1;
-            if (buf.data[iEnd] == '[')
+            if (buf[iEnd] == '[')
                 iEnd += 2;
         }
 
@@ -3233,10 +3239,10 @@ private struct MarkdownLink
      *  delimiter = the delimiter that starts this link
      * Returns: the index at the end of parsing the link, or `i` if parsing failed.
      */
-    private size_t parseReferenceDefinition(OutBuffer* buf, size_t i, MarkdownDelimiter delimiter)
+    private size_t parseReferenceDefinition(ref OutBuffer buf, size_t i, MarkdownDelimiter delimiter)
     {
         if (!delimiter.atParagraphStart || delimiter.type != '[' ||
-            i+1 >= buf.offset || buf.data[i+1] != ':')
+            i+1 >= buf.length || buf[i+1] != ':')
             return i;
 
         size_t iEnd = delimiter.iStart;
@@ -3258,7 +3264,7 @@ private struct MarkdownLink
         if (parseTitle(buf, iEnd))
         {
             iEnd = skipChars(buf, iEnd, " \t");
-            if (iEnd < buf.offset && buf.data[iEnd] != '\r' && buf.data[iEnd] != '\n')
+            if (iEnd < buf.length && buf[iEnd] != '\r' && buf[iEnd] != '\n')
             {
                 // the title must end with a newline
                 title.length = 0;
@@ -3267,7 +3273,7 @@ private struct MarkdownLink
         }
 
         iEnd = skipChars(buf, iEnd, " \t");
-        if (requireNewline && iEnd < buf.offset-1 && buf.data[iEnd] != '\r' && buf.data[iEnd] != '\n')
+        if (requireNewline && iEnd < buf.length-1 && buf[iEnd] != '\r' && buf[iEnd] != '\n')
             return i;
 
         return iEnd;
@@ -3281,12 +3287,12 @@ private struct MarkdownLink
      *          If this function returns a non-empty label then `i` will point just after the ']' at the end of the label.
      * Returns: the parsed and normalized label, possibly empty
      */
-    private bool parseLabel(OutBuffer* buf, ref size_t i)
+    private bool parseLabel(ref OutBuffer buf, ref size_t i)
     {
-        if (buf.data[i] != '[')
+        if (buf[i] != '[')
             return false;
 
-        const slice = buf.peekSlice();
+        const slice = buf[];
         size_t j = i + 1;
 
         // Some labels have already been en-symboled; handle that
@@ -3346,14 +3352,14 @@ private struct MarkdownLink
      *          If this function succeeds `i` will point just after the the end of the URL.
      * Returns: whether a URL was found and parsed
      */
-    private bool parseHref(OutBuffer* buf, ref size_t i)
+    private bool parseHref(ref OutBuffer buf, ref size_t i)
     {
         size_t j = skipChars(buf, i, " \t");
 
         size_t iHrefStart = j;
         size_t parenDepth = 1;
         bool inPointy = false;
-        const slice = buf.peekSlice();
+        const slice = buf[];
         for (; j < slice.length; j++)
         {
             switch (slice[j])
@@ -3414,13 +3420,13 @@ private struct MarkdownLink
      *          If this function succeeds `i` will point just after the the end of the title.
      * Returns: whether a title was found and parsed
      */
-    private bool parseTitle(OutBuffer* buf, ref size_t i)
+    private bool parseTitle(ref OutBuffer buf, ref size_t i)
     {
         size_t j = skipChars(buf, i, " \t");
-        if (j >= buf.offset)
+        if (j >= buf.length)
             return false;
 
-        char type = buf.data[j];
+        char type = buf[j];
         if (type != '"' && type != '\'' && type != '(')
             return false;
         if (type == '(')
@@ -3428,7 +3434,7 @@ private struct MarkdownLink
 
         const iTitleStart = j + 1;
         size_t iNewline = 0;
-        const slice = buf.peekSlice();
+        const slice = buf[];
         for (j = iTitleStart; j < slice.length; j++)
         {
             const c = slice[j];
@@ -3477,7 +3483,7 @@ private struct MarkdownLink
      *  iLinkEnd  = the index within `buf` that points just after the last character of the link
      *  delimiter = the Markdown delimiter that started the link or image
      */
-    private void replaceLink(OutBuffer* buf, ref size_t i, size_t iLinkEnd, MarkdownDelimiter delimiter)
+    private void replaceLink(ref OutBuffer buf, ref size_t i, size_t iLinkEnd, MarkdownDelimiter delimiter)
     {
         size_t iAfterLink = i - delimiter.count;
         string macroName;
@@ -3513,7 +3519,7 @@ private struct MarkdownLink
 
             // Link macros with titles require escaping commas
             for (size_t j = iLinkEnd; j < iAfterLink; ++j)
-                if (buf.data[j] == ',')
+                if (buf[j] == ',')
                 {
                     buf.remove(j, 1);
                     j = buf.insert(j, "$(COMMA)") - 1;
@@ -3536,7 +3542,7 @@ private struct MarkdownLink
      *                      an additional reference.
      *  loc               = the current location in the file
      */
-    private void storeAndReplaceDefinition(OutBuffer* buf, ref size_t i, size_t iEnd, ref MarkdownLinkReferences linkReferences, const ref Loc loc)
+    private void storeAndReplaceDefinition(ref OutBuffer buf, ref size_t i, size_t iEnd, ref MarkdownLinkReferences linkReferences, const ref Loc loc)
     {
         if (global.params.vmarkdown)
             message(loc, "Ddoc: found link reference '%.*s' to '%.*s'", cast(int)label.length, label.ptr, cast(int)href.length, href.ptr);
@@ -3642,11 +3648,11 @@ private struct MarkdownLink
      *          If this function succeeds `i` will point after the newline.
      * Returns: whether a newline was skipped
      */
-    private static bool skipOneNewline(OutBuffer* buf, ref size_t i) pure
+    private static bool skipOneNewline(ref OutBuffer buf, ref size_t i) pure
     {
-        if (i < buf.offset && buf.data[i] == '\r')
+        if (i < buf.length && buf[i] == '\r')
             ++i;
-        if (i < buf.offset && buf.data[i] == '\n')
+        if (i < buf.length && buf[i] == '\n')
         {
             ++i;
             return true;
@@ -3675,7 +3681,7 @@ private struct MarkdownLinkReferences
      *  loc   = the current location in the file
      * Returns: a link. If the `href` member has a value then the reference is valid.
      */
-    MarkdownLink lookupReference(string label, OutBuffer* buf, size_t i, const ref Loc loc)
+    MarkdownLink lookupReference(string label, ref OutBuffer buf, size_t i, const ref Loc loc)
     {
         const lowercaseLabel = label.toLowercase();
         if (lowercaseLabel !in references)
@@ -3729,11 +3735,11 @@ private struct MarkdownLinkReferences
      *  loc   = the current location in the file
      * Returns: whether a reference was extracted
      */
-    private void extractReferences(OutBuffer* buf, size_t i, const ref Loc loc)
+    private void extractReferences(ref OutBuffer buf, size_t i, const ref Loc loc)
     {
-        static bool isFollowedBySpace(OutBuffer* buf, size_t i)
+        static bool isFollowedBySpace(ref OutBuffer buf, size_t i)
         {
-            return i+1 < buf.offset && (buf.data[i+1] == ' ' || buf.data[i+1] == '\t');
+            return i+1 < buf.length && (buf[i+1] == ' ' || buf[i+1] == '\t');
         }
 
         if (extractedAll)
@@ -3743,9 +3749,9 @@ private struct MarkdownLinkReferences
         int inCode = false;
         bool newParagraph = true;
         MarkdownDelimiter[] delimiters;
-        for (; i < buf.offset; ++i)
+        for (; i < buf.length; ++i)
         {
-            const c = buf.data[i];
+            const c = buf[i];
             switch (c)
             {
             case ' ':
@@ -3780,8 +3786,8 @@ private struct MarkdownLinkReferences
                 if (leadingBlank && !inCode)
                 {
                     i = skipChars(buf, i, "0123456789");
-                    if (i < buf.offset &&
-                        (buf.data[i] == '.' || buf.data[i] == ')') &&
+                    if (i < buf.length &&
+                        (buf[i] == '.' || buf[i] == ')') &&
                         isFollowedBySpace(buf, i))
                         newParagraph = true;
                     else
@@ -3798,7 +3804,7 @@ private struct MarkdownLinkReferences
                 break;
             case '`':
             case '~':
-                if (leadingBlank && i+2 < buf.offset && buf.data[i+1] == c && buf.data[i+2] == c)
+                if (leadingBlank && i+2 < buf.length && buf[i+1] == c && buf[i+2] == c)
                 {
                     inCode = inCode == c ? false : c;
                     i = skipChars(buf, i, [c]) - 1;
@@ -3944,23 +3950,23 @@ private enum TableColumnAlignment
  *  columnAlignments = alignments to populate for each column
  * Returns: the index of the end of the parsed delimiter, or `0` if not found
  */
-private size_t parseTableDelimiterRow(OutBuffer* buf, const size_t iStart, bool inQuote, ref TableColumnAlignment[] columnAlignments)
+private size_t parseTableDelimiterRow(ref OutBuffer buf, const size_t iStart, bool inQuote, ref TableColumnAlignment[] columnAlignments)
 {
     size_t i = skipChars(buf, iStart, inQuote ? ">| \t" : "| \t");
-    while (i < buf.offset && buf.data[i] != '\r' && buf.data[i] != '\n')
+    while (i < buf.length && buf[i] != '\r' && buf[i] != '\n')
     {
-        const leftColon = buf.data[i] == ':';
+        const leftColon = buf[i] == ':';
         if (leftColon)
             ++i;
 
-        if (i >= buf.offset || buf.data[i] != '-')
+        if (i >= buf.length || buf[i] != '-')
             break;
         i = skipChars(buf, i, "-");
 
-        const rightColon = i < buf.offset && buf.data[i] == ':';
+        const rightColon = i < buf.length && buf[i] == ':';
         i = skipChars(buf, i, ": \t");
 
-        if (i >= buf.offset || (buf.data[i] != '|' && buf.data[i] != '\r' && buf.data[i] != '\n'))
+        if (i >= buf.length || (buf[i] != '|' && buf[i] != '\r' && buf[i] != '\n'))
             break;
         i = skipChars(buf, i, "| \t");
 
@@ -3970,14 +3976,14 @@ private size_t parseTableDelimiterRow(OutBuffer* buf, const size_t iStart, bool 
                 TableColumnAlignment.none;
     }
 
-    if (i < buf.offset && buf.data[i] != '\r' && buf.data[i] != '\n' && buf.data[i] != ')')
+    if (i < buf.length && buf[i] != '\r' && buf[i] != '\n' && buf[i] != ')')
     {
         columnAlignments.length = 0;
         return 0;
     }
 
-    if (i < buf.offset && buf.data[i] == '\r') ++i;
-    if (i < buf.offset && buf.data[i] == '\n') ++i;
+    if (i < buf.length && buf[i] == '\r') ++i;
+    if (i < buf.length && buf[i] == '\n') ++i;
     return i;
 }
 
@@ -3996,7 +4002,7 @@ private size_t parseTableDelimiterRow(OutBuffer* buf, const size_t iStart, bool 
  *  columnAlignments = the parsed alignments for each column
  * Returns: the number of characters added by starting the table, or `0` if unchanged
  */
-private size_t startTable(OutBuffer* buf, size_t iStart, size_t iEnd, const ref Loc loc, bool inQuote, ref MarkdownDelimiter[] inlineDelimiters, out TableColumnAlignment[] columnAlignments)
+private size_t startTable(ref OutBuffer buf, size_t iStart, size_t iEnd, const ref Loc loc, bool inQuote, ref MarkdownDelimiter[] inlineDelimiters, out TableColumnAlignment[] columnAlignments)
 {
     const iDelimiterRowEnd = parseTableDelimiterRow(buf, iEnd + 1, inQuote, columnAlignments);
     if (iDelimiterRowEnd)
@@ -4031,7 +4037,7 @@ private size_t startTable(OutBuffer* buf, size_t iStart, size_t iEnd, const ref 
  *              `THEAD` macro
  * Returns: the number of characters added by replacing the row, or `0` if unchanged
  */
-private size_t replaceTableRow(OutBuffer* buf, size_t iStart, size_t iEnd, const ref Loc loc, ref MarkdownDelimiter[] inlineDelimiters, TableColumnAlignment[] columnAlignments, bool headerRow)
+private size_t replaceTableRow(ref OutBuffer buf, size_t iStart, size_t iEnd, const ref Loc loc, ref MarkdownDelimiter[] inlineDelimiters, TableColumnAlignment[] columnAlignments, bool headerRow)
 {
     if (!columnAlignments.length || iStart == iEnd)
         return 0;
@@ -4055,7 +4061,7 @@ private size_t replaceTableRow(OutBuffer* buf, size_t iStart, size_t iEnd, const
 
     if (headerRow && global.params.vmarkdown)
     {
-        const s = buf.peekSlice()[iStart..iEnd];
+        const s = buf[][iStart..iEnd];
         message(loc, "Ddoc: formatting table '%.*s'", cast(int)s.length, s.ptr);
     }
 
@@ -4069,7 +4075,7 @@ private size_t replaceTableRow(OutBuffer* buf, size_t iStart, size_t iEnd, const
 
         // strip trailing whitespace and delimiter
         size_t i = iCellEnd - 1;
-        while (i > iCellStart && (buf.data[i] == '|' || buf.data[i] == ' ' || buf.data[i] == '\t'))
+        while (i > iCellStart && (buf[i] == '|' || buf[i] == ' ' || buf[i] == '\t'))
             --i;
         ++i;
         buf.remove(i, iCellEnd - i);
@@ -4164,7 +4170,7 @@ private size_t replaceTableRow(OutBuffer* buf, size_t iStart, size_t iEnd, const
  *  columnAlignments = alignments for each column; upon return is set to length `0`
  * Returns: the number of characters added by ending the table, or `0` if unchanged
  */
-private size_t endTable(OutBuffer* buf, size_t i, ref TableColumnAlignment[] columnAlignments)
+private size_t endTable(ref OutBuffer buf, size_t i, ref TableColumnAlignment[] columnAlignments)
 {
     if (!columnAlignments.length)
         return 0;
@@ -4186,7 +4192,7 @@ private size_t endTable(OutBuffer* buf, size_t i, ref TableColumnAlignment[] col
  *  columnAlignments = alignments for each column; upon return is set to length `0`
  * Returns: the number of characters added by replacing the row, or `0` if unchanged
  */
-private size_t endRowAndTable(OutBuffer* buf, size_t iStart, size_t iEnd, const ref Loc loc, ref MarkdownDelimiter[] inlineDelimiters, ref TableColumnAlignment[] columnAlignments)
+private size_t endRowAndTable(ref OutBuffer buf, size_t iStart, size_t iEnd, const ref Loc loc, ref MarkdownDelimiter[] inlineDelimiters, ref TableColumnAlignment[] columnAlignments)
 {
     size_t delta = replaceTableRow(buf, iStart, iEnd, loc, inlineDelimiters, columnAlignments, false);
     delta += endTable(buf, iEnd + delta, columnAlignments);
@@ -4203,7 +4209,7 @@ private size_t endRowAndTable(OutBuffer* buf, size_t iStart, size_t iEnd, const 
  *  buf   = an OutBuffer containing the DDoc
  *  offset = the index within buf to start highlighting
  */
-private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size_t offset)
+private void highlightText(Scope* sc, Dsymbols* a, Loc loc, ref OutBuffer buf, size_t offset)
 {
     const incrementLoc = loc.linnum == 0 ? 1 : 0;
     loc.linnum += incrementLoc;
@@ -4233,9 +4239,9 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
     string codeLanguage;
     size_t iLineStart = offset;
     linkReferences._scope = sc;
-    for (size_t i = offset; i < buf.offset; i++)
+    for (size_t i = offset; i < buf.length; i++)
     {
-        char c = buf.data[i];
+        char c = buf[i];
     Lcont:
         switch (c)
         {
@@ -4280,7 +4286,7 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
                 MarkdownList.handleSiblingOrEndingList(buf, i, iParagraphStart, nestedLists);
 
             iPrecedingBlankLine = 0;
-            if (!inCode && i == iLineStart && i + 1 < buf.offset) // if "\n\n"
+            if (!inCode && i == iLineStart && i + 1 < buf.length) // if "\n\n"
             {
                 i += endTable(buf, i, columnAlignments);
                 if (!lineQuoted && quoteLevel)
@@ -4298,7 +4304,7 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
             }
             else if (inCode &&
                 i == iLineStart &&
-                i + 1 < buf.offset &&
+                i + 1 < buf.length &&
                 !lineQuoted &&
                 quoteLevel) // if "\n\n" in quoted code
             {
@@ -4324,7 +4330,7 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
                 leadingBlank = false;
                 if (inCode)
                     break;
-                const slice = buf.peekSlice();
+                const slice = buf[];
                 auto p = &slice[i];
                 const se = sc._module.escapetable.escapeChar('<');
                 if (se == "&lt;")
@@ -4387,18 +4393,18 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
                     if (!quoteLevel && global.params.vmarkdown)
                     {
                         size_t iEnd = i + 1;
-                        while (iEnd < buf.offset && buf.data[iEnd] != '\n')
+                        while (iEnd < buf.length && buf[iEnd] != '\n')
                             ++iEnd;
-                        const s = buf.peekSlice()[i .. iEnd];
+                        const s = buf[][i .. iEnd];
                         message(loc, "Ddoc: starting quote block with '%.*s'", cast(int)s.length, s.ptr);
                     }
 
                     lineQuoted = true;
                     int lineQuoteLevel = 1;
                     size_t iAfterDelimiters = i + 1;
-                    for (; iAfterDelimiters < buf.offset; ++iAfterDelimiters)
+                    for (; iAfterDelimiters < buf.length; ++iAfterDelimiters)
                     {
-                        const c0 = buf.data[iAfterDelimiters];
+                        const c0 = buf[iAfterDelimiters];
                         if (c0 == '>')
                             ++lineQuoteLevel;
                         else if (c0 != ' ' && c0 != '\t')
@@ -4453,7 +4459,7 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
                 leadingBlank = false;
                 if (inCode)
                     break;
-                char* p = cast(char*)&buf.data[i];
+                char* p = cast(char*)&buf[].ptr[i];
                 if (p[1] == '#' || isalpha(p[1]))
                     break;
                 // already a character entity
@@ -4478,14 +4484,14 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
                     inBacktick = 0;
                     inCode = 0;
                     OutBuffer codebuf;
-                    codebuf.write(buf.peekSlice().ptr + iCodeStart + count, i - (iCodeStart + count));
+                    codebuf.write(buf[iCodeStart + count .. i]);
                     // escape the contents, but do not perform highlighting except for DDOC_PSYMBOL
-                    highlightCode(sc, a, &codebuf, 0);
+                    highlightCode(sc, a, codebuf, 0);
                     escapeStrayParenthesis(loc, &codebuf, 0, false);
                     buf.remove(iCodeStart, i - iCodeStart + count); // also trimming off the current `
                     immutable pre = "$(DDOC_BACKQUOTED ";
                     i = buf.insert(iCodeStart, pre);
-                    i = buf.insert(i, codebuf.peekSlice());
+                    i = buf.insert(i, codebuf[]);
                     i = buf.insert(i, ")");
                     i--; // point to the ending ) so when the for loop does i++, it will see the next character
                     break;
@@ -4495,10 +4501,10 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
                 if (leadingBlank && global.params.markdown && count >= 3)
                 {
                     bool moreBackticks = false;
-                    for (size_t j = iAfterDelimiter; !moreBackticks && j < buf.offset; ++j)
-                        if (buf.data[j] == '`')
+                    for (size_t j = iAfterDelimiter; !moreBackticks && j < buf.length; ++j)
+                        if (buf[j] == '`')
                             moreBackticks = true;
-                        else if (buf.data[j] == '\r' || buf.data[j] == '\n')
+                        else if (buf[j] == '\r' || buf[j] == '\n')
                             break;
                     if (!moreBackticks)
                         goto case '-';
@@ -4595,9 +4601,9 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
                 while (1)
                 {
                     ++i;
-                    if (i >= buf.offset)
+                    if (i >= buf.length)
                         break;
-                    c = buf.data[i];
+                    c = buf[i];
                     if (c == '\n')
                     {
                         eollen = 1;
@@ -4606,9 +4612,9 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
                     if (c == '\r')
                     {
                         eollen = 1;
-                        if (i + 1 >= buf.offset)
+                        if (i + 1 >= buf.length)
                             break;
-                        if (buf.data[i + 1] == '\n')
+                        if (buf[i + 1] == '\n')
                         {
                             eollen = 2;
                             break;
@@ -4626,7 +4632,7 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
                         else if (iInfoString && c != '`')
                         {
                             if (!codeLanguage.length && (c == ' ' || c == '\t'))
-                                codeLanguage = cast(string) buf.data[iInfoString..i].idup;
+                                codeLanguage = cast(string) buf[iInfoString..i].idup;
                         }
                         else
                         {
@@ -4640,7 +4646,7 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
                 if (iInfoString)
                 {
                     if (!codeLanguage.length)
-                        codeLanguage = cast(string) buf.data[iInfoString..i].idup;
+                        codeLanguage = cast(string) buf[iInfoString..i].idup;
                 }
                 else
                     codeFenceLength = i - istart;
@@ -4662,12 +4668,12 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
                     inCode = 0;
                     // The code section is from iCodeStart to i
                     OutBuffer codebuf;
-                    codebuf.write(buf.data + iCodeStart, i - iCodeStart);
+                    codebuf.write(buf[iCodeStart .. i]);
                     codebuf.writeByte(0);
                     // Remove leading indentations from all lines
                     bool lineStart = true;
-                    char* endp = cast(char*)codebuf.data + codebuf.offset;
-                    for (char* p = cast(char*)codebuf.data; p < endp;)
+                    char* endp = cast(char*)codebuf[].ptr + codebuf.length;
+                    for (char* p = cast(char*)codebuf[].ptr; p < endp;)
                     {
                         if (lineStart)
                         {
@@ -4675,11 +4681,11 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
                             char* q = p;
                             while (j-- > 0 && q < endp && isIndentWS(q))
                                 ++q;
-                            codebuf.remove(p - cast(char*)codebuf.data, q - p);
-                            assert(cast(char*)codebuf.data <= p);
-                            assert(p < cast(char*)codebuf.data + codebuf.offset);
+                            codebuf.remove(p - cast(char*)codebuf[].ptr, q - p);
+                            assert(cast(char*)codebuf[].ptr <= p);
+                            assert(p < cast(char*)codebuf[].ptr + codebuf.length);
                             lineStart = false;
-                            endp = cast(char*)codebuf.data + codebuf.offset; // update
+                            endp = cast(char*)codebuf[].ptr + codebuf.length; // update
                             continue;
                         }
                         if (*p == '\n')
@@ -4687,12 +4693,12 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
                         ++p;
                     }
                     if (!codeLanguage.length || codeLanguage == "dlang" || codeLanguage == "d")
-                        highlightCode2(sc, a, &codebuf, 0);
+                        highlightCode2(sc, a, codebuf, 0);
                     else
-                        codebuf.remove(codebuf.offset-1, 1);    // remove the trailing 0 byte
+                        codebuf.remove(codebuf.length-1, 1);    // remove the trailing 0 byte
                     escapeStrayParenthesis(loc, &codebuf, 0, false);
                     buf.remove(iCodeStart, i - iCodeStart);
-                    i = buf.insert(iCodeStart, codebuf.peekSlice());
+                    i = buf.insert(iCodeStart, codebuf[]);
                     i = buf.insert(i, ")\n");
                     i -= 2; // in next loop, c should be '\n'
                 }
@@ -4809,9 +4815,9 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
             }
 
             // Markdown emphasis
-            const leftC = i > offset ? buf.data[i-1] : '\0';
+            const leftC = i > offset ? buf[i-1] : '\0';
             size_t iAfterEmphasis = skipChars(buf, i+1, "*");
-            const rightC = iAfterEmphasis < buf.offset ? buf.data[iAfterEmphasis] : '\0';
+            const rightC = iAfterEmphasis < buf.length ? buf[iAfterEmphasis] : '\0';
             int count = cast(int) (iAfterEmphasis - i);
             const leftFlanking = (rightC != '\0' && !isspace(rightC)) && (!ispunct(rightC) || leftC == '\0' || isspace(leftC) || ispunct(leftC));
             const rightFlanking = (leftC != '\0' && !isspace(leftC)) && (!ispunct(leftC) || rightC == '\0' || isspace(rightC) || ispunct(rightC));
@@ -4836,7 +4842,7 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
             if (inCode || !global.params.markdown)
                 break;
 
-            if (i < buf.offset-1 && buf.data[i+1] == '[')
+            if (i < buf.length-1 && buf[i+1] == '[')
             {
                 const imageStart = MarkdownDelimiter(i, 2, macroLevel, false, false, false, c);
                 inlineDelimiters ~= imageStart;
@@ -4852,7 +4858,7 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
                 break;
             }
 
-            const leftC = i > offset ? buf.data[i-1] : '\0';
+            const leftC = i > offset ? buf[i-1] : '\0';
             const rightFlanking = leftC != '\0' && !isspace(leftC) && !ispunct(leftC);
             const atParagraphStart = leadingBlank && iParagraphStart >= iLineStart;
             const linkStart = MarkdownDelimiter(i, 1, macroLevel, false, rightFlanking, atParagraphStart, c);
@@ -4913,11 +4919,11 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
         case '\\':
         {
             leadingBlank = false;
-            if (inCode || i+1 >= buf.offset || !global.params.markdown)
+            if (inCode || i+1 >= buf.length || !global.params.markdown)
                 break;
 
             /* Escape Markdown special characters */
-            char c1 = buf.data[i+1];
+            char c1 = buf[i+1];
             if (ispunct(c1))
             {
                 if (global.params.vmarkdown)
@@ -4945,7 +4951,7 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
             leadingBlank = false;
             if (inCode || inBacktick)
                 break;
-            const slice = buf.peekSlice();
+            const slice = buf[];
             auto p = &slice[i];
             if (p[1] == '(' && isIdStart(&p[2]))
                 ++macroLevel;
@@ -4954,7 +4960,7 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
 
         case '(':
         {
-            if (!inCode && i > offset && buf.data[i-1] != '$')
+            if (!inCode && i > offset && buf[i-1] != '$')
                 ++parenLevel;
             break;
         }
@@ -4997,7 +5003,7 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
             leadingBlank = false;
             if (sc._module.isDocFile || inCode)
                 break;
-            const start = cast(char*)buf.data + i;
+            const start = cast(char*)buf[].ptr + i;
             if (isIdStart(start))
             {
                 size_t j = skippastident(buf, i);
@@ -5025,7 +5031,7 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
                     break;
                 size_t len = j - i;
                 // leading '_' means no highlight unless it's a reserved symbol name
-                if (c == '_' && (i == 0 || !isdigit(*(start - 1))) && (i == buf.offset - 1 || !isReservedName(start[0 .. len])))
+                if (c == '_' && (i == 0 || !isdigit(*(start - 1))) && (i == buf.length - 1 || !isReservedName(start[0 .. len])))
                 {
                     buf.remove(i, 1);
                     i = buf.bracket(i, "$(DDOC_AUTO_PSYMBOL_SUPPRESS ", j - 1, ")") - 1;
@@ -5056,9 +5062,9 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
     if (inCode == '-')
         error(loc, "unmatched `---` in DDoc comment");
     else if (inCode)
-        buf.insert(buf.offset, ")");
+        buf.insert(buf.length, ")");
 
-    size_t i = buf.offset;
+    size_t i = buf.length;
     if (headingLevel)
     {
         endMarkdownHeading(buf, iParagraphStart, i, loc, headingLevel);
@@ -5072,7 +5078,7 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, OutBuffer* buf, size
 /**************************************************
  * Highlight code for DDOC section.
  */
-private void highlightCode(Scope* sc, Dsymbol s, OutBuffer* buf, size_t offset)
+private void highlightCode(Scope* sc, Dsymbol s, ref OutBuffer buf, size_t offset)
 {
     auto imp = s.isImport();
     if (imp && imp.aliases.dim > 0)
@@ -5095,9 +5101,9 @@ private void highlightCode(Scope* sc, Dsymbol s, OutBuffer* buf, size_t offset)
     else
     {
         OutBuffer ancbuf;
-        emitAnchor(&ancbuf, s, sc);
-        buf.insert(offset, ancbuf.peekSlice());
-        offset += ancbuf.offset;
+        emitAnchor(ancbuf, s, sc);
+        buf.insert(offset, ancbuf[]);
+        offset += ancbuf.length;
 
         Dsymbols a;
         a.push(s);
@@ -5107,14 +5113,14 @@ private void highlightCode(Scope* sc, Dsymbol s, OutBuffer* buf, size_t offset)
 
 /****************************************************
  */
-private void highlightCode(Scope* sc, Dsymbols* a, OutBuffer* buf, size_t offset)
+private void highlightCode(Scope* sc, Dsymbols* a, ref OutBuffer buf, size_t offset)
 {
     //printf("highlightCode(a = '%s')\n", a.toChars());
     bool resolvedTemplateParameters = false;
 
-    for (size_t i = offset; i < buf.offset; i++)
+    for (size_t i = offset; i < buf.length; i++)
     {
-        char c = buf.data[i];
+        char c = buf[i];
         const se = sc._module.escapetable.escapeChar(c);
         if (se.length)
         {
@@ -5123,7 +5129,7 @@ private void highlightCode(Scope* sc, Dsymbols* a, OutBuffer* buf, size_t offset
             i--; // point to ';'
             continue;
         }
-        char* start = cast(char*)buf.data + i;
+        char* start = cast(char*)buf[].ptr + i;
         if (isIdStart(start))
         {
             size_t j = skipPastIdentWithDots(buf, i);
@@ -5187,15 +5193,15 @@ private void highlightCode(Scope* sc, Dsymbols* a, OutBuffer* buf, size_t offset
                     if (parami)
                         parametersBuf.writestring(", ");
 
-                    size_t lastOffset = parametersBuf.offset;
+                    size_t lastOffset = parametersBuf.length;
 
                     .toCBuffer(tp, &parametersBuf, &hgs);
 
-                    paramLens[parami] = parametersBuf.offset - lastOffset;
+                    paramLens[parami] = parametersBuf.length - lastOffset;
                 }
                 parametersBuf.writeByte(')');
 
-                const templateParams = parametersBuf.peekSlice();
+                const templateParams = parametersBuf[];
 
                 //printf("templateDecl: %s\ntemplateParams: %s\nstart: %s\n", td.toChars(), templateParams, start);
                 if (start[0 .. templateParams.length] == templateParams)
@@ -5233,7 +5239,7 @@ private void highlightCode(Scope* sc, Dsymbols* a, OutBuffer* buf, size_t offset
 
 /****************************************
  */
-private void highlightCode3(Scope* sc, OutBuffer* buf, const(char)* p, const(char)* pend)
+private void highlightCode3(Scope* sc, ref OutBuffer buf, const(char)* p, const(char)* pend)
 {
     for (; p < pend; p++)
     {
@@ -5248,20 +5254,20 @@ private void highlightCode3(Scope* sc, OutBuffer* buf, const(char)* p, const(cha
 /**************************************************
  * Highlight code for CODE section.
  */
-private void highlightCode2(Scope* sc, Dsymbols* a, OutBuffer* buf, size_t offset)
+private void highlightCode2(Scope* sc, Dsymbols* a, ref OutBuffer buf, size_t offset)
 {
     uint errorsave = global.startGagging();
     scope diagnosticReporter = new StderrDiagnosticReporter(global.params.useDeprecated);
-    scope Lexer lex = new Lexer(null, cast(char*)buf.data, 0, buf.offset - 1, 0, 1, diagnosticReporter);
+    scope Lexer lex = new Lexer(null, cast(char*)buf[].ptr, 0, buf.length - 1, 0, 1, diagnosticReporter);
     OutBuffer res;
-    const(char)* lastp = cast(char*)buf.data;
-    //printf("highlightCode2('%.*s')\n", cast(int)(buf.offset - 1), buf.data);
-    res.reserve(buf.offset);
+    const(char)* lastp = cast(char*)buf[].ptr;
+    //printf("highlightCode2('%.*s')\n", cast(int)(buf.length - 1), buf[].ptr);
+    res.reserve(buf.length);
     while (1)
     {
         Token tok;
         lex.scan(&tok);
-        highlightCode3(sc, &res, lastp, tok.ptr);
+        highlightCode3(sc, res, lastp, tok.ptr);
         string highlight = null;
         switch (tok.value)
         {
@@ -5297,8 +5303,8 @@ private void highlightCode2(Scope* sc, Dsymbols* a, OutBuffer* buf, size_t offse
         if (highlight)
         {
             res.writestring(highlight);
-            size_t o = res.offset;
-            highlightCode3(sc, &res, tok.ptr, lex.p);
+            size_t o = res.length;
+            highlightCode3(sc, res, tok.ptr, lex.p);
             if (tok.value == TOK.comment || tok.value == TOK.string_)
                 /* https://issues.dlang.org/show_bug.cgi?id=7656
                  * https://issues.dlang.org/show_bug.cgi?id=7715
@@ -5308,7 +5314,7 @@ private void highlightCode2(Scope* sc, Dsymbols* a, OutBuffer* buf, size_t offse
             res.writeByte(')');
         }
         else
-            highlightCode3(sc, &res, tok.ptr, lex.p);
+            highlightCode3(sc, res, tok.ptr, lex.p);
         if (tok.value == TOK.endOfFile)
             break;
         lastp = lex.p;

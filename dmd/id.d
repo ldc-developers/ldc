@@ -23,8 +23,7 @@ import dmd.tokens;
  *
  * All static fields in this struct represents a specific predefined symbol.
  */
-// IN_LLVM: added `extern(C++)`
-extern(C++) struct Id
+extern (C++) struct Id
 {
     static __gshared:
 
@@ -47,7 +46,7 @@ extern(C++) struct Id
      * This can be used to restore the state set by `initialize` to its original
      * state.
      */
-    void deinitialize()
+    extern (D) void deinitialize()
     {
         mixin(msgtable.generate(&deinitializer));
     }
@@ -337,7 +336,7 @@ immutable Msgtable[] msgtable =
     { "main" },
     { "WinMain" },
     { "DllMain" },
-    { "entrypoint", "__entrypoint" },
+    { "CMain", "_d_cmain" },
     { "rt_init" },
     { "__cmp" },
     { "__equals"},

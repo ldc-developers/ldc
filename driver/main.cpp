@@ -405,8 +405,10 @@ void parseCommandLine(Strings &sourceFiles) {
   for (const auto &id : reverts)
     parseRevertOption(global.params, id.c_str());
 
-  // -preview=dip1000 implies -preview=dip25 too
-  if (global.params.vsafe)
+
+  if (global.params.useDIP1021) // DIP1021 implies DIP1000
+    global.params.vsafe = true;
+  if (global.params.vsafe)      // DIP1000 implies DIP25
     global.params.useDIP25 = true;
   if (global.params.noDIP25)
     global.params.useDIP25 = false;

@@ -228,6 +228,8 @@ version (IN_LLVM)
         Scope* enc = enclosing;
         if (!nofree)
         {
+            if (mem.isGCEnabled)
+                this = this.init;
             enclosing = freelist;
             freelist = &this;
             flags |= SCOPE.free;
@@ -729,6 +731,10 @@ version (IN_LLVM)
             // If inside a StorageClassDeclaration that is deprecated
             if (sc2.stc & STC.deprecated_)
                 return true;
+        }
+        if (_module.md && _module.md.isdeprecated)
+        {
+            return true;
         }
         return false;
     }

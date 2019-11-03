@@ -39,7 +39,7 @@ struct FileBuffer
     }
 
     /// Transfers ownership of the buffer to the caller.
-    ubyte[] extractData() pure nothrow @nogc @safe
+    ubyte[] extractSlice() pure nothrow @nogc @safe
     {
         auto result = data;
         data = null;
@@ -62,9 +62,17 @@ struct File
         FileBuffer buffer;
 
         /// Transfers ownership of the buffer to the caller.
-        ubyte[] extractData() pure nothrow @nogc @safe
+        ubyte[] extractSlice() pure nothrow @nogc @safe
         {
-            return buffer.extractData();
+            return buffer.extractSlice();
+        }
+
+        /// ditto
+        /// Include the null-terminator at the end of the buffer in the returned array.
+        ubyte[] extractDataZ() @nogc nothrow pure
+        {
+            auto result = buffer.extractSlice();
+            return result.ptr[0 .. result.length + 1];
         }
     }
 
@@ -94,7 +102,7 @@ nothrow:
                 return result;
             }
             size = cast(size_t)buf.st_size;
-            ubyte* buffer = cast(ubyte*)mem.xmalloc(size + 2);
+            ubyte* buffer = cast(ubyte*)mem.xmalloc_noscan(size + 2);
             if (!buffer)
                 goto err2;
             numread = .read(fd, buffer, size);
@@ -138,7 +146,7 @@ nothrow:
             if (h == INVALID_HANDLE_VALUE)
                 return result;
             size = GetFileSize(h, null);
-            ubyte* buffer = cast(ubyte*)mem.xmalloc(size + 2);
+            ubyte* buffer = cast(ubyte*)mem.xmalloc_noscan(size + 2);
             if (!buffer)
                 goto err2;
             if (ReadFile(h, buffer, size, &numread, null) != TRUE)

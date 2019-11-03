@@ -1,6 +1,6 @@
 variables:
   LLVM_VERSION: 9.0.0
-  HOST_LDC_VERSION: 1.14.0
+  HOST_LDC_VERSION: 1.18.0
 
 # Although tags are supposed to trigger builds by default, they don't.
 trigger:
@@ -45,12 +45,12 @@ jobs:
     LDC_VSDIR: C:\non-existing_dummy
   steps:
     - checkout: none
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: windows-x64
         targetPath: artifacts
       displayName: Download x64 artifact
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: windows-x86
         targetPath: artifacts
@@ -95,11 +95,8 @@ jobs:
         mkdir newArtifacts
         7z a -mx=9 newArtifacts/%ARTIFACT_NAME%.7z %ARTIFACT_NAME% > nul
       displayName: Pack
-    - task: PublishPipelineArtifact@0
-      inputs:
-        artifactName: windows-multilib
-        targetPath: newArtifacts
-      displayName: Publish artifact
+    - publish: newArtifacts
+      artifact: windows-multilib
 
 - job: Linux_multilib
   timeoutInMinutes: 120
@@ -107,6 +104,7 @@ jobs:
     vmImage: 'ubuntu-16.04'
   variables:
     CI_OS: linux
+    ARCH: x86_64
     # To improve portability of the generated binaries, link the C++ standard library statically.
     # Also don't use relax relocations for the C(++) parts of the default libraries in order to
     # support older user binutils (e.g., Ubuntu 14.04).
@@ -117,11 +115,23 @@ jobs:
 - job: macOS_x64
   timeoutInMinutes: 120
   pool:
-    vmImage: 'macOS-10.13'
+    vmImage: 'macOS-10.14'
   variables:
     CI_OS: osx
+    ARCH: x86_64
     EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON
     MACOSX_DEPLOYMENT_TARGET: 10.9
+  steps:
+    - template: .azure-pipelines/posix.yml
+
+- job: Android_armv7a
+  timeoutInMinutes: 120
+  pool:
+    vmImage: 'ubuntu-16.04'
+  variables:
+    CI_OS: android
+    ARCH: armv7a
+    EXTRA_CMAKE_FLAGS: -DANDROID_ABI=armeabi-v7a -DANDROID_NATIVE_API_LEVEL=21 -DANDROID_STL=c++_static -DCMAKE_CROSSCOMPILING=True
   steps:
     - template: .azure-pipelines/posix.yml
 
@@ -134,30 +144,21 @@ jobs:
     - Windows_multilib
     - Linux_multilib
     - macOS_x64
+    - Android_armv7a
   # Only run for commits on the master branch and tags.
   condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')))
   steps:
     - checkout: none
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
-        artifactName: windows-x64
         targetPath: artifacts
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: windows-x86
-        targetPath: artifacts
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: windows-multilib
-        targetPath: artifacts
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: linux-x86_64
-        targetPath: artifacts
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: osx-x86_64
-        targetPath: artifacts
+    - bash: |
+        set -ex
+        cd artifacts
+        mv */*.* .
+        find . -type d -empty -delete
+        ls -l
+      displayName: Move artifact files out of their subdirs
     # We also need to determine whether the GitHub release is a pre-release,
     # as the GitHubRelease task overwrites that flag.
     - bash: |

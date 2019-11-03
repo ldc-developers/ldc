@@ -424,7 +424,7 @@ public:
       auto globalVar = new llvm::GlobalVariable(
           p->module, DtoType(se->type), false,
           llvm::GlobalValue::InternalLinkage, nullptr, ".structliteral");
-      globalVar->setAlignment(DtoAlignment(se->type));
+      globalVar->setAlignment(LLMaybeAlign(DtoAlignment(se->type)));
 
       p->setStructLiteralConstant(se, globalVar);
       llvm::Constant *constValue = toConstElem(se);

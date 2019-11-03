@@ -33,9 +33,11 @@ llvm::cl::opt<std::string>
            llvm::cl::cat(opts::linkingCategory));
 }
 
-static llvm::cl::opt<std::string>
-    gcc("gcc", llvm::cl::desc("GCC to use for assembling and linking"),
-        llvm::cl::Hidden, llvm::cl::ZeroOrMore);
+static llvm::cl::opt<std::string> gcc(
+    "gcc", llvm::cl::ZeroOrMore, llvm::cl::cat(opts::linkingCategory),
+    llvm::cl::desc(
+        "C compiler (GCC/Clang) to use for linking (and external assembling). "
+        "Defaults to the CC environment variable if set, otherwise to `cc`."));
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -75,12 +77,7 @@ std::string getProgram(const char *name, const llvm::cl::opt<std::string> *opt,
 ////////////////////////////////////////////////////////////////////////////////
 
 std::string getGcc() {
-#if defined(__FreeBSD__) && __FreeBSD__ >= 10
-  // Default compiler on FreeBSD 10 is clang
-  return getProgram("clang", &gcc, "CC");
-#else
-  return getProgram("gcc", &gcc, "CC");
-#endif
+  return getProgram("cc", &gcc, "CC");
 }
 
 ////////////////////////////////////////////////////////////////////////////////

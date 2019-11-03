@@ -102,7 +102,7 @@ Setting[] parseConfigFile(const(char)* filename)
     import dmd.globals : Loc;
     import dmd.utils;
 
-    auto content = readFile(Loc.initial, filename).extractData();
+    auto content = readFile(Loc.initial, filename).extractSlice();
 
     // skip UTF-8 BOM
     if (content.length >= 3 && content[0 .. 3] == "\xEF\xBB\xBF")

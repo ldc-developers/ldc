@@ -1021,7 +1021,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
 
                 OutBuffer buf;
                 buf.printf("__%s_field_%llu", dsym.ident.toChars(), cast(ulong)i);
-                auto id = Identifier.idPool(buf.peekSlice());
+                auto id = Identifier.idPool(buf[]);
 
                 Initializer ti;
                 if (ie)
@@ -1594,7 +1594,10 @@ version (IN_LLVM)
         {
             loadErrored = imp.load(sc);
             if (imp.mod)
+            {
                 imp.mod.importAll(null);
+                imp.mod.checkImportDeprecation(imp.loc, sc);
+            }
         }
         if (imp.mod)
         {
@@ -1705,7 +1708,6 @@ version (IN_LLVM)
         // https://issues.dlang.org/show_bug.cgi?id=11117
         // https://issues.dlang.org/show_bug.cgi?id=11164
         if (global.params.moduleDeps !is null && !(imp.id == Id.object && sc._module.ident == Id.object) &&
-            sc._module.ident != Id.entrypoint &&
             strcmp(sc._module.ident.toChars(), "__main") != 0)
         {
             /* The grammar of the file is:
@@ -2035,6 +2037,7 @@ version (IN_LLVM)
                 buf.writestring(pd.ident.toString());
                 if (pd.args)
                 {
+                    const errors_save = global.startGagging();
                     for (size_t i = 0; i < pd.args.dim; i++)
                     {
                         Expression e = (*pd.args)[i];
@@ -2042,7 +2045,7 @@ version (IN_LLVM)
 {
                         // ignore errors in ignored pragmas.
                         global.gag++;
-                        uint errors_save = global.errors;
+                        uint errors_save_inner = global.errors;
 }
                         sc = sc.startCTFE();
                         e = e.expressionSemantic(sc);
@@ -2058,18 +2061,15 @@ version (IN_LLVM)
 {
                         // restore error state.
                         global.gag--;
-                        global.errors = errors_save;
+                        global.errors = errors_save_inner;
 }
                     }
                     if (pd.args.dim)
                         buf.writeByte(')');
+                    global.endGagging(errors_save);
                 }
                 message("pragma    %s", buf.peekChars());
             }
-static if (!IN_LLVM)
-{
-            goto Lnodecl;
-}
         }
         else
             error(pd.loc, "unrecognized `pragma(%s)`", pd.ident.toChars());
@@ -2128,8 +2128,9 @@ static if (!IN_LLVM)
             return null;
 
         const errors = global.errors;
-        const len = buf.offset;
-        const str = buf.extractChars()[0 .. len];
+        const len = buf.length;
+        buf.writeByte(0);
+        const str = buf.extractSlice()[0 .. len];
         scope diagnosticReporter = new StderrDiagnosticReporter(global.params.useDeprecated);
         scope p = new Parser!ASTCodegen(cd.loc, sc._module, str, false, diagnosticReporter);
         p.nextToken();
@@ -2844,7 +2845,10 @@ static if (!IN_LLVM)
         }
 
         /* BUG: should check:
-         *  o no virtual functions or non-static data members of classes
+         *  1. template functions must not introduce virtual functions, as they
+         *     cannot be accomodated in the vtbl[]
+         *  2. templates cannot introduce non-static data members (i.e. fields)
+         *     as they would change the instance size of the aggregate.
          */
 
         tempdecl.semanticRun = PASS.semanticdone;
@@ -3673,7 +3677,9 @@ version (IN_LLVM)
                             // a C++ dtor gets its vtblIndex later (and might even be added twice to the vtbl),
                             // e.g. when compiling druntime with a debug compiler, namely with core.stdcpp.exception.
                             if (auto fd = s.isFuncDeclaration())
-                                assert(fd.vtblIndex == i || (cd.classKind == ClassKind.cpp && fd.isDtorDeclaration));
+                                assert(fd.vtblIndex == i ||
+                                       (cd.classKind == ClassKind.cpp && fd.isDtorDeclaration) ||
+                                       funcdecl.parent.isInterfaceDeclaration); // interface functions can be in multiple vtbls
                         }
                     }
                     else
@@ -4049,7 +4055,29 @@ version (IN_LLVM)
         }
 
         if (funcdecl.fbody && funcdecl.isMain() && sc._module.isRoot())
-            Compiler.genCmain(sc);
+        {
+            // check if `_d_cmain` is defined
+            bool cmainTemplateExists()
+            {
+                auto rootSymbol = sc.search(funcdecl.loc, Id.empty, null);
+                if (auto moduleSymbol = rootSymbol.search(funcdecl.loc, Id.object))
+                    if (moduleSymbol.search(funcdecl.loc, Id.CMain))
+                        return true;
+
+                return false;
+            }
+
+            // Only mixin `_d_cmain` if it is defined
+            if (cmainTemplateExists())
+            {
+                // add `mixin _d_cmain!();` to the declaring module
+                auto tqual = new TypeIdentifier(funcdecl.loc, Id.CMain);
+                auto tm = new TemplateMixin(funcdecl.loc, null, tqual, null);
+                sc._module.members.push(tm);
+            }
+
+            rootHasMain = sc._module;
+        }
 
         assert(funcdecl.type.ty != Terror || funcdecl.errors);
 

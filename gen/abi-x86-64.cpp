@@ -262,8 +262,8 @@ bool X86_64TargetABI::returnInArg(TypeFunction *tf, bool) {
 }
 
 bool X86_64TargetABI::passByVal(TypeFunction *tf, Type *t) {
-  // indirectly by-value for extern(C++) functions and non-POD args
-  if (tf->linkage == LINKcpp && !isPOD(t))
+  // indirectly by-value for non-POD args
+  if (!isPOD(t))
     return false;
 
   return ::passByVal(t->toBasetype());
@@ -278,8 +278,8 @@ void X86_64TargetABI::rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg,
   LLType *originalLType = arg.ltype;
   Type *t = arg.type->toBasetype();
 
-  // indirectly by-value for extern(C++) functions and non-POD args
-  if (fty.type->linkage == LINKcpp && !isPOD(t)) {
+  // indirectly by-value for non-POD args
+  if (!isPOD(t)) {
     indirectByvalRewrite.applyTo(arg);
     if (regCount.int_regs > 0) {
       regCount.int_regs--;

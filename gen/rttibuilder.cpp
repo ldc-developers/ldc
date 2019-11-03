@@ -90,7 +90,7 @@ void RTTIBuilder::push_void_array(llvm::Constant *CI, Type *valtype,
   auto G = new LLGlobalVariable(gIR->module, CI->getType(), true, lwc.first, CI,
                                 initname.peekChars());
   setLinkage(lwc, G);
-  G->setAlignment(DtoAlignment(valtype));
+  G->setAlignment(LLMaybeAlign(DtoAlignment(valtype)));
 
   push_void_array(getTypeAllocSize(CI->getType()), G);
 }
@@ -116,7 +116,7 @@ void RTTIBuilder::push_array(llvm::Constant *CI, uint64_t dim, Type *valtype,
   auto G = new LLGlobalVariable(gIR->module, CI->getType(), true, lwc.first, CI,
                                 initname.peekChars());
   setLinkage(lwc, G);
-  G->setAlignment(DtoAlignment(valtype));
+  G->setAlignment(LLMaybeAlign(DtoAlignment(valtype)));
 
   push_array(dim, DtoBitCast(G, DtoType(valtype->pointerTo())));
 }

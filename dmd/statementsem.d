@@ -79,7 +79,7 @@ private Identifier fixupLabelName(Scope* sc, Identifier ident)
         buf.writestring(flags == SCOPE.require ? "__in_" : "__out_");
         buf.writestring(ident.toString());
 
-        ident = Identifier.idPool(buf.peekSlice());
+        ident = Identifier.idPool(buf[]);
     }
     return ident;
 }
@@ -2807,7 +2807,7 @@ version (IN_LLVM)
 
                 // Sort cases for efficient lookup
                 import core.stdc.stdlib : qsort, _compare_fp_t;
-                qsort(csCopy.data, numcases, CaseStatement.sizeof, cast(_compare_fp_t)&sort_compare);
+                qsort((*csCopy)[].ptr, numcases, CaseStatement.sizeof, cast(_compare_fp_t)&sort_compare);
             }
 
             // The actual lowering
@@ -4416,9 +4416,14 @@ void catchSemantic(Catch c, Scope* sc)
             stc |= STC.scope_;
         }
 
-        if (c.ident)
+        // DIP1008 requires destruction of the Throwable, even if the user didn't specify an identifier
+        auto ident = c.ident;
+        if (!ident && global.params.ehnogc)
+            ident = Identifier.anonymous();
+
+        if (ident)
         {
-            c.var = new VarDeclaration(c.loc, c.type, c.ident, null, stc);
+            c.var = new VarDeclaration(c.loc, c.type, ident, null, stc);
             c.var.iscatchvar = true;
             c.var.dsymbolSemantic(sc);
             sc.insert(c.var);

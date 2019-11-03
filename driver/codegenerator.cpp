@@ -317,9 +317,8 @@ void CodeGenerator::emit(Module *m) {
   prepareLLModule(m);
 
   codegenModule(ir_, m);
-  if (m == rootHasMain) {
-    codegenModule(ir_, entrypoint);
 
+  if (m == rootHasMain) {
     if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
       // On Android, bracket TLS data with the symbols _tlsstart and _tlsend, as
       // done with dmd

@@ -29,7 +29,7 @@ config.with_PGO            = True
 config.dynamic_compile     = @LDC_DYNAMIC_COMPILE@
 config.plugins_supported   = @LDC_ENABLE_PLUGINS@
 config.gnu_make_bin        = "@GNU_MAKE_BIN@"
-config.ldc_host_arch       = "@LDC_HOST_ARCH@"
+config.ldc_host_arch       = "@LLVM_NATIVE_ARCH@"
 config.ldc_with_lld        = @LDC_WITH_LLD@
 config.spirv_enabled       = @LLVM_SPIRV_FOUND@
 config.rt_supports_sanitizers = @RT_SUPPORT_SANITIZERS@
@@ -150,9 +150,9 @@ config.test_exec_root = os.path.dirname(__file__)
 path = os.path.pathsep.join( (config.test_source_root, config.environment['PATH']) )
 config.environment['PATH'] = path
 
-# add LDC bin dir to the path
+# Add LDC and LLVM bin dir to the path
 # Give priority to LDC's version of LLVM tools (we need FileCheck with certain bug fixes)
-path = os.path.pathsep.join( (config.ldc2_bin_dir, config.environment['PATH']) )
+path = os.path.pathsep.join( (config.ldc2_bin_dir, config.llvm_tools_dir, config.environment['PATH']) )
 config.environment['PATH'] = path
 
 # Add substitutions

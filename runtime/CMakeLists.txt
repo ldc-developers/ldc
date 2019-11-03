@@ -37,7 +37,7 @@ set(MULTILIB              OFF                                 CACHE BOOL   "Buil
 set(BUILD_LTO_LIBS        OFF                                 CACHE BOOL   "Also build the runtime as LLVM bitcode libraries for LTO")
 set(INCLUDE_INSTALL_DIR   ${CMAKE_INSTALL_PREFIX}/include/d   CACHE PATH   "Path to install D modules to")
 set(BUILD_SHARED_LIBS     AUTO                                CACHE STRING "Whether to build the runtime as a shared library (ON|OFF|BOTH)")
-set(D_FLAGS               -w                                  CACHE STRING "Runtime D compiler flags, separated by ';'")
+set(D_FLAGS               -w;-de;-dip1000                     CACHE STRING "Runtime D compiler flags, separated by ';'")
 set(D_FLAGS_DEBUG         -g;-link-defaultlib-debug           CACHE STRING "Runtime D compiler flags (debug libraries), separated by ';'")
 set(D_FLAGS_RELEASE       -O3;-release                        CACHE STRING "Runtime D compiler flags (release libraries), separated by ';'")
 set(COMPILE_ALL_D_FILES_AT_ONCE ON                            CACHE BOOL   "Compile all D files for the runtime libs in a single command line instead of separately. Disabling this is useful for many CPU cores and/or iterative development.")
@@ -266,6 +266,9 @@ if(NOT (LDC_LLVM_VER LESS 800))
     set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"-L--export-dynamic\",")
 endif()
 
+# Directory filled with auto-generated import files
+set(LDC_BUILD_IMPORT_DIR "${PROJECT_BINARY_DIR}/import")
+
 # Only generate the config files if this CMake project is embedded in the LDC CMake project.
 if(LDC_EXE)
     if(PHOBOS2_DIR)
@@ -282,29 +285,31 @@ endif()
 #
 
 set(GCCBUILTINS "")
-function(gen_gccbuiltins name)
-  set(module "${PROJECT_BINARY_DIR}/gccbuiltins_${name}.di")
-  if (GCCBUILTINS STREQUAL "")
-    set(GCCBUILTINS "${module}" PARENT_SCOPE)
-  else()
-    set(GCCBUILTINS "${GCCBUILTINS};${module}" PARENT_SCOPE)
-  endif()
-  add_custom_command(
-      OUTPUT ${module}
-      COMMAND gen_gccbuiltins ${module} "${name}"
-  )
-endfunction()
+if(TARGET gen_gccbuiltins)
+  function(gen_gccbuiltins name)
+    set(module "${LDC_BUILD_IMPORT_DIR}/ldc/gccbuiltins_${name}.di")
+    if (GCCBUILTINS STREQUAL "")
+      set(GCCBUILTINS "${module}" PARENT_SCOPE)
+    else()
+      set(GCCBUILTINS "${GCCBUILTINS};${module}" PARENT_SCOPE)
+    endif()
+    add_custom_command(
+        OUTPUT ${module}
+        COMMAND gen_gccbuiltins ${module} "${name}"
+    )
+  endfunction()
 
-set(target_arch "AArch64;ARM;Mips;PowerPC;SystemZ;X86")
-set(target_name "aarch64;arm;mips;ppc;s390;x86")
+  set(target_arch "AArch64;ARM;Mips;PowerPC;SystemZ;X86")
+  set(target_name "aarch64;arm;mips;ppc;s390;x86")
 
-foreach(target ${LLVM_TARGETS_TO_BUILD})
-  list(FIND target_arch ${target} idx)
-  if(idx GREATER -1)
-    list(GET target_name ${idx} name)
-    gen_gccbuiltins(${name})
-  endif()
-endforeach()
+  foreach(target ${LLVM_TARGETS_TO_BUILD})
+    list(FIND target_arch ${target} idx)
+    if(idx GREATER -1)
+      list(GET target_name ${idx} name)
+      gen_gccbuiltins(${name})
+    endif()
+  endforeach()
+endif()
 
 # Always build zlib and other C parts of the runtime in release mode, regardless
 # of what the user chose for LDC itself. Also add other C_FLAGS here.
