@@ -127,8 +127,8 @@ struct X86TargetABI : TargetABI {
   }
 
   bool passByVal(TypeFunction *tf, Type *t) override {
-    // indirectly by-value for extern(C++) functions and non-POD args on Posix
-    if (!isMSVC && tf->linkage == LINKcpp && !isPOD(t))
+    // indirectly by-value for non-POD args on Posix
+    if (!isMSVC && !isPOD(t))
       return false;
 
     // pass all structs and static arrays with the LLVM byval attribute
@@ -146,6 +146,14 @@ struct X86TargetABI : TargetABI {
           // don't rewrite cfloat for extern(D)
           !(externD && rt->ty == Tcomplex32)) {
         integerRewrite.applyToIfNotObsolete(*fty.ret);
+      }
+    }
+
+    // Posix: non-POD args are passed indirectly by-value
+    if (!isMSVC) {
+      for (auto arg : fty.args) {
+        if (!arg->byref && !isPOD(arg->type))
+          indirectByvalRewrite.applyTo(*arg);
       }
     }
 
@@ -179,7 +187,8 @@ struct X86TargetABI : TargetABI {
         Type *lastTy = last->type->toBasetype();
         unsigned sz = lastTy->size();
 
-        if (last->byref && !last->isByVal()) {
+        if (last->rewrite == &indirectByvalRewrite ||
+            (last->byref && !last->isByVal())) {
           Logger::println("Putting last (byref) parameter in register");
           last->attrs.addAttribute(LLAttribute::InReg);
         } else if (!lastTy->isfloating() && (sz == 1 || sz == 2 || sz == 4)) {
@@ -192,15 +201,6 @@ struct X86TargetABI : TargetABI {
           }
           last->attrs.addAttribute(LLAttribute::InReg);
         }
-      }
-
-      // all other arguments are passed on the stack, don't rewrite
-    }
-    // extern(C++) on Posix: non-POD args are passed indirectly by-value
-    else if (!isMSVC && fty.type->linkage == LINKcpp) {
-      for (auto arg : fty.args) {
-        if (!arg->byref && !isPOD(arg->type))
-          indirectByvalRewrite.applyTo(*arg);
       }
     }
 
