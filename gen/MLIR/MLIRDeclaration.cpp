@@ -374,16 +374,6 @@ mlir::Value* MLIRDeclaration::mlirGen(PostExp *postExp){
 
 }
 
-mlir::Value* MLIRDeclaration::mlirGen(AddAssignExp *addAssignExp){
-  mlir::Value *e1 = mlirGen(addAssignExp->e1);
-  mlir::Value *e2 = mlirGen(addAssignExp->e2);
-
-  e1->dump();
-  e2->dump();
-
-  return nullptr;
-}
-
 mlir::Value *MLIRDeclaration::mlirGen(Expression *expression, mlir::Block*
 block) {
   IF_LOG Logger::println("MLIRCodeGen - Expression: '%s' | '%u'",

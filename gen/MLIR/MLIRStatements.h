@@ -70,13 +70,14 @@ public:
       mlir::OpBuilder builder_, llvm::ScopedHashTable<StringRef, mlir::Value
       *> &symbolTable, unsigned &total, unsigned &miss);
   ~MLIRStatements();
+  void mlirGen(IfStatement *ifStatement);
   mlir::Value* mlirGen(Statement *statement);
   mlir::Value* mlirGen(ExpStatement *expStatement);
+  mlir::Value* mlirGen(ForStatement *forStatement);
+  mlir::Value* mlirGen(UnrolledLoopStatement *unrolledLoopStatement);
   mlir::LogicalResult mlirGen(ReturnStatement *returnStatement);
-  std::vector<mlir::Value*> mlirGen(CompoundStatement *compoundStatement);
- // mlir::Value *mlirGen(Expression *exp);
   mlir::LogicalResult genStatements(FuncDeclaration *funcDeclaration);
-  void mlirGen(IfStatement *ifStatement);
+  std::vector<mlir::Value*> mlirGen(CompoundStatement *compoundStatement);
   std::vector<mlir::Value*> mlirGen(ScopeStatement *scopeStatement);
 
   mlir::Location loc(Loc loc){
