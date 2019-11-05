@@ -81,6 +81,23 @@ mlir::Value *MLIRDeclaration::mlirGen(VarDeclaration *vd){
   return nullptr;
 }
 
+mlir::Value* MLIRDeclaration::DtoAssignMLIR(mlir::Location Loc,
+             mlir::Value* lhs, mlir::Value* rhs, int op, bool
+             canSkipPostblit, Type* t1, Type* t2){
+  IF_LOG Logger::println("DtoAssignMLIR()");
+  LOG_SCOPE;
+
+  assert(t1->ty != Tvoid && "Cannot assign values of type void.");
+
+  if (t1->ty == Tbool) {
+    IF_LOG Logger::println("DtoAssignMLIR == Tbool"); //TODO: DtoStoreZextI8
+  }
+
+  IF_LOG Logger::println("Passou aqui! -> '%u'", op);
+  return nullptr;
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // Expressions to be evaluated
 
@@ -106,30 +123,70 @@ mlir::Value *MLIRDeclaration::mlirGen(AssignExp *assignExp){
         assignExp->type->toChars(), assignExp->e1->type->toChars(),
         assignExp->e2->type ? assignExp->e2->type->toChars() : nullptr);
   if (assignExp->memset & referenceInit) {
-    IF_LOG Logger::println(" --> Expression op: '%d'", assignExp->e1->op);
     assert(assignExp->op == TOKconstruct || assignExp->op == TOKblit);
     assert(assignExp->e1->op == TOKvar);
 
     Declaration *d = static_cast<VarExp *>(assignExp->e1)->var;
     if (d->storage_class & (STCref | STCout)) {
-      mlir::Value *value = mlirGen(assignExp->e2);
+      Logger::println("performing ref variable initialization");
+      mlir::Value *rhs = mlirGen(assignExp->e2);
+      //mlir::Value *lhs = mlirGen(assignExp->e1);
+      mlir::Value *value = nullptr;
 
-      if (!value) {
+      if (!rhs) {
         _miss++;
         return nullptr;
       }
       mlir::OperationState result(loc(assignExp->loc), "assign");
       result.addTypes(builder.getIntegerType(16)); // TODO: type
-      result.addOperands(value);
+      result.addOperands(rhs);
       value = builder.createOperation(result)->getResult(0);
 
-      if (failed(declare(assignExp->e1->toChars(), value))) {
+      if (failed(declare(assignExp->e1->toChars(), rhs))) {
         _miss++;
         return nullptr;
       }
       return value;
     }
   }
+
+  // This matches the logic in AssignExp::semantic.
+  // TODO: Should be cached in the frontend to avoid issues with the code
+  // getting out of sync?
+  bool lvalueElem = false;
+  if ((assignExp->e2->op == TOKslice &&
+       static_cast<UnaExp *>(assignExp->e2)->e1->isLvalue()) ||
+      (assignExp->e2->op == TOKcast &&
+       static_cast<UnaExp *>(assignExp->e2)->e1->isLvalue()) ||
+      (assignExp->e2->op != TOKslice && assignExp->e2->isLvalue())) {
+    lvalueElem = true;
+  }
+
+  Type *t1 = assignExp->e1->type->toBasetype();
+  Type *t2 = assignExp->e2->type->toBasetype();
+
+  if(!((assignExp->e1->type->toBasetype()->ty) == Tstruct) &&
+     !(assignExp->e2->op == TOKint64) && !(assignExp->op == TOKconstruct ||
+                                           assignExp->op == TOKblit) && !
+                                           (assignExp->e1->op == TOKslice))
+    DtoAssignMLIR(loc(assignExp->loc),  mlirGen(assignExp->e1),
+                mlirGen(assignExp->e2), assignExp->op,!lvalueElem, t1, t2);
+
+
+  //check if it is a declared variable
+  mlir::Value* lhs = nullptr;
+  lhs = mlirGen(assignExp->e1->isVarExp());
+
+  if(lhs != nullptr) {
+    lhs = mlirGen(assignExp->e2);
+    return lhs;
+  }else{
+    _miss++;
+    IF_LOG Logger::println("Failed to assign '%s' to '%s'",
+        assignExp->e2->toChars(), assignExp->e1->toChars());
+    return nullptr;
+  }
+
   IF_LOG Logger::println("Unable to translate AssignExp: '%s'",
       assignExp->toChars());
   _miss++;
@@ -285,10 +342,52 @@ mlir::Value *MLIRDeclaration::mlirGen(Expression *expression, int func){
   return builder.createOperation(result)->getResult(0);
 }
 
+mlir::Value* MLIRDeclaration::mlirGen(PostExp *postExp){
+  IF_LOG Logger::print("MLIRGen - PostExp: %s @ %s\n", postExp->toChars(),
+                       postExp->type->toChars());
+  LOG_SCOPE;
+
+  mlir::Value* e1 = mlirGen(postExp->e1);
+
+  if(e1 == nullptr){
+    _miss++;
+    IF_LOG Logger::println("Unable to build PostExp '%s'", postExp->toChars());
+    return nullptr;
+  }
+
+
+  StringRef opName;
+  if(postExp->op == TOKplusplus)
+  opName = "ldc.Plusplus";
+  else if(postExp->op == TOKminusminus)
+    opName = "ldc.MinusMinus";
+  else {
+    _miss++;
+    return nullptr;
+  }
+
+  mlir::OperationState result(loc(postExp->loc), opName);
+  result.addOperands(e1);
+  result.addTypes(builder.getIntegerType(32)); // TODO: type
+  result.addAttribute("value", builder.getI16IntegerAttr(1));
+  return builder.createOperation(result)->getResult(0);
+
+}
+
+mlir::Value* MLIRDeclaration::mlirGen(AddAssignExp *addAssignExp){
+  mlir::Value *e1 = mlirGen(addAssignExp->e1);
+  mlir::Value *e2 = mlirGen(addAssignExp->e2);
+
+  e1->dump();
+  e2->dump();
+
+  return nullptr;
+}
+
 mlir::Value *MLIRDeclaration::mlirGen(Expression *expression, mlir::Block*
 block) {
-  IF_LOG Logger::println("MLIRCodeGen - Expression: '%s'",
-      expression->toChars());
+  IF_LOG Logger::println("MLIRCodeGen - Expression: '%s' | '%u'",
+      expression->toChars(), expression->op);
   LOG_SCOPE
   this->_total++;
 
@@ -304,7 +403,7 @@ block) {
 
   if(VarExp *varExp = expression->isVarExp())
     return mlirGen(varExp);
-  if(DeclarationExp *declarationExp = expression->isDeclarationExp())
+  else if(DeclarationExp *declarationExp = expression->isDeclarationExp())
     return mlirGen(declarationExp);
   else if(IntegerExp *integerExp = expression->isIntegerExp())
     return mlirGen(integerExp);
@@ -321,45 +420,99 @@ block) {
   else if(PostExp *postExp = expression->isPostExp())
     return mlirGen(postExp);
   else if(StringExp *stringExp = expression->isStringExp())
-    return nullptr;
-    //IF_LOG Logger::println("isStringExp", stringExp->toChars());
-  else if(AddExp *add = expression->isAddExp()) {
-    e1 = mlirGen(add->e1);
-    e2 = mlirGen(add->e2);
+    return nullptr;//add mlirGen(stringlExp); //needs to implement with blocks
+  else if (LogicalExp *logicalExp = expression->isLogicalExp())
+    return nullptr; //add mlirGen(logicalExp); //needs to implement with blocks
+  else if(expression->isAddExp() || expression->isAddAssignExp()){
+    if(expression->isAddAssignExp()){
+      AddAssignExp *addAssignExp = expression->isAddAssignExp();
+      e1 = mlirGen(addAssignExp->e1);
+      e2 = mlirGen(addAssignExp->e2);
+    }else {
+      AddExp *add = expression->isAddExp();
+      e1 = mlirGen(add->e1);
+      e2 = mlirGen(add->e2);
+    }
     op_name = "ldc.add";
-  } else if (MinExp *min = expression->isMinExp()) {
-    e1 = mlirGen(min->e1);
-    e2 = mlirGen(min->e2);
+  } else if (expression->isMinExp() || expression->isMinAssignExp()) {
+    if(expression->isMinAssignExp()){
+      MinAssignExp* minAssignExp = expression->isMinAssignExp();
+      e1 = mlirGen(minAssignExp->e1);
+      e2 = mlirGen(minAssignExp->e2);
+    }else{
+      MinExp *min = expression->isMinExp();
+      e1 = mlirGen(min->e1);
+      e2 = mlirGen(min->e2);
+    }
     op_name = "ldc.neg";
-  } else if (MulExp *mul = expression->isMulExp()) {
-    e1 = mlirGen(mul->e1);
-    e2 = mlirGen(mul->e2);
+  } else if (expression->isMulExp() || expression->isMulAssignExp()) {
+    if(expression->isMulAssignExp()){
+      MulAssignExp* mulAssignExp = expression->isMulAssignExp();
+      e1 = mlirGen(mulAssignExp->e1);
+      e2 = mlirGen(mulAssignExp->e2);
+    }else{
+      MulExp *mul = expression->isMulExp();
+      e1 = mlirGen(mul->e1);
+      e2 = mlirGen(mul->e2);
+    }
     op_name = "ldc.mul";
-  } else if (DivExp *div = expression->isDivExp()) {
-    e1 = mlirGen(div->e1);
-    e2 = mlirGen(div->e2);
+  } else if (expression->isDivExp() || expression->isDivAssignExp()) {
+    if(expression->isDivAssignExp()){
+      DivAssignExp* divAssignExp = expression->isDivAssignExp();
+      e1 = mlirGen(divAssignExp->e1);
+      e2 = mlirGen(divAssignExp->e2);
+    }else{
+      DivExp *div = expression->isDivExp();
+      e1 = mlirGen(div->e1);
+      e2 = mlirGen(div->e2);
+    }
     op_name = "ldc.div";
-  } else if (ModExp *mod = expression->isModExp()){
-    e1 = mlirGen(mod->e1);
-    e2 = mlirGen(mod->e2);
+  } else if (expression->isModExp() || expression->isModAssignExp()){
+    if(expression->isModAssignExp()){
+      ModAssignExp* modAssignExp = expression->isModAssignExp();
+      e1 = mlirGen(modAssignExp->e1);
+      e2 = mlirGen(modAssignExp->e2);
+    }else{
+      ModExp *mod = expression->isModExp();
+      e1 = mlirGen(mod->e1);
+      e2 = mlirGen(mod->e2);
+    }
     op_name = "ldc.mod";
-  } else if (AndExp *andExp = expression->isAndExp()){
-    e1 = mlirGen(andExp->e1);
-    e2 = mlirGen(andExp->e2);
+  } else if (expression->isAndExp() || expression->isAndAssignExp()){
+    if(expression->isAndAssignExp()){
+      AndAssignExp* andAssignExp = expression->isAndAssignExp();
+      e1 = mlirGen(andAssignExp->e1);
+      e2 = mlirGen(andAssignExp->e2);
+    }else {
+      AndExp *andExp = expression->isAndExp();
+      e1 = mlirGen(andExp->e1);
+      e2 = mlirGen(andExp->e2);
+    }
     op_name = "ldc.and";
-  } else if (OrExp *orExp = expression->isOrExp()) {
-    e1 = mlirGen(orExp->e1);
-    e2 = mlirGen(orExp->e2);
+  } else if (expression->isOrExp() || expression->isOrAssignExp()) {
+    if(expression->isOrAssignExp()){
+      OrAssignExp* orAssignExp = expression->isOrAssignExp();
+      e1 = mlirGen(orAssignExp->e1);
+      e2 = mlirGen(orAssignExp->e2);
+    }else {
+      OrExp *orExp = expression->isOrExp();
+      e1 = mlirGen(orExp->e1);
+      e2 = mlirGen(orExp->e2);
+    }
     op_name = "ldc.or";
-  } else if (XorExp *xorExp = expression->isXorExp()){
-    e1 = mlirGen(xorExp->e1);
-    e2 = mlirGen(xorExp->e2);
+  } else if (expression->isXorExp() || expression->isXorAssignExp()){
+    if(expression->isXorAssignExp()){
+      XorAssignExp* xorAssignExp = expression->isXorAssignExp();
+      e1 = mlirGen(xorAssignExp->e1);
+      e2 = mlirGen(xorAssignExp->e2);
+    }else{
+      XorExp *xorExp = expression->isXorExp();
+      e1 = mlirGen(xorExp->e1);
+      e2 = mlirGen(xorExp->e2);
+    }
     op_name = "ldc.xor";
-  } else if (EqualExp *equal = expression->isEqualExp()){
-    e1 = mlirGen(equal->e1);
-    e2 = mlirGen(equal->e2);
-    op_name = "ldc.equal";
-  }/*else if (CondExp *cond = expression->isCondExp()){
+  }
+  /*else if (CondExp *cond = expression->isCondExp()){
     IF_LOG Logger::println("Cond expression: '%s'", expression->toChars());
     e1 = mlirGen(cond->e1);
     e2 = mlirGen(cond->e2);

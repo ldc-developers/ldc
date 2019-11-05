@@ -75,6 +75,8 @@ public:
 
   mlir::Value* mlirGen(VarDeclaration* varDeclaration);
   mlir::Value* mlirGen(Declaration* declaration);
+  mlir::Value* DtoAssignMLIR(mlir::Location Loc, mlir::Value* lhs,
+      mlir::Value* rhs, int op, bool canSkipPostblitm, Type* t1, Type* t2);
 
   //Expression
   mlir::Value* mlirGen(DeclarationExp* declarationExp);
@@ -88,6 +90,7 @@ public:
   mlir::Value* mlirGen(AndAssignExp *addAssignExp);
   mlir::Value* mlirGen(Expression *expression, int func);
   void mlirGen(TemplateInstance *templateInstance);
+  mlir::Value* mlirGen(PostExp *postExp);
 
   ///Set MLIR Location using D Loc info
   mlir::Location loc(Loc loc){

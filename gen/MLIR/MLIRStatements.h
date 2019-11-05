@@ -76,7 +76,7 @@ public:
   std::vector<mlir::Value*> mlirGen(CompoundStatement *compoundStatement);
  // mlir::Value *mlirGen(Expression *exp);
   mlir::LogicalResult genStatements(FuncDeclaration *funcDeclaration);
-  void mliGen(IfStatement *ifStatement);
+  void mlirGen(IfStatement *ifStatement);
   std::vector<mlir::Value*> mlirGen(ScopeStatement *scopeStatement);
 
   mlir::Location loc(Loc loc){

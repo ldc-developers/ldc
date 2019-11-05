@@ -50,7 +50,7 @@ mlir::Value* MLIRStatements::mlirGen(ExpStatement *expStmt) {
   return value;
 }
 
-/*mlir::Value* MLIRStatements::mliGen(ForStatement *forStatement){ //TODO
+/*mlir::Value* MLIRStatements::mlirGen(ForStatement *forStatement){ //TODO
   IF_LOG Logger::println("MLIRCodeGen: ForStatement to MLIR: '%s'",
                          forStatement->toChars());
   LOG_SCOPE
@@ -61,7 +61,7 @@ mlir::Value* MLIRStatements::mlirGen(ExpStatement *expStmt) {
 
 }*/
 
-void MLIRStatements::mliGen(IfStatement *ifStatement){
+void MLIRStatements::mlirGen(IfStatement *ifStatement){
   IF_LOG Logger::println("MLIRCodeGen: IfStatement to MLIR: '%s'",
                          ifStatement->toChars());
   LOG_SCOPE
@@ -72,7 +72,9 @@ void MLIRStatements::mliGen(IfStatement *ifStatement){
                                   context, builder, symbolTable, if_total,
                                   if_miss);
 
-
+  //Marks if a new direct branch is needed. This happens ehn we need to
+  // connect the end_if of an "else if" into the his sucessor end_if
+  bool gen_new_br = false;
 
   //Getting Value for Condition
   mlir::Value *cond = mlirDeclaration->mlirGen(ifStatement->condition);
@@ -90,7 +92,7 @@ void MLIRStatements::mliGen(IfStatement *ifStatement){
       cond->getParentRegion()->end());
   mlir::Block *if_else = nullptr;
   if(ifStatement->elsebody)
-      builder.createBlock(cond->getParentRegion(),
+    if_else = builder.createBlock(cond->getParentRegion(),
                                              cond->getParentRegion()->end());
   mlir::Block *end_if = builder.createBlock(cond->getParentRegion(),
                                             cond->getParentRegion()->end());
@@ -111,26 +113,46 @@ void MLIRStatements::mliGen(IfStatement *ifStatement){
   //After create the branch operation we can fill each block with their
   // operations
   builder.setInsertionPointToStart(if_then);
-  auto _result = mlirGen(ifStatement->ifbody->isScopeStatement());
-
-
-  if(ifStatement->elsebody){
-    builder.setInsertionPointToStart(if_else);
-    _result = mlirGen(ifStatement->elsebody->isScopeStatement());
-  }
+  if(ExpStatement * expStatement = ifStatement->ifbody->isExpStatement())
+    auto _result = mlirGen(expStatement);
+  else if(ScopeStatement *scopeStatement =
+      ifStatement->ifbody->isScopeStatement())
+    auto _result = mlirGen(scopeStatement);
+  else
+    _miss++;
 
   //Writing a branch instruction on each block (if, else) to (end)
-  mlir::OperationState jump(location, "ldc.br");
+  mlir::OperationState jump(location, "ldc.if_br");
   builder.setInsertionPointToEnd(if_then);
   mlir::BranchOp br_if;
   br_if.build(&builder, jump, end_if, {});
   builder.createOperation(jump);
 
-  if(ifStatement->elsebody) {
+  if(ifStatement->elsebody){
+    builder.setInsertionPointToStart(if_else);
+    if(ExpStatement * expStatement = ifStatement->elsebody->isExpStatement())
+      auto _result = mlirGen(expStatement);
+    else if(ScopeStatement *scopeStatement =
+        ifStatement->elsebody->isScopeStatement())
+      auto _result = mlirGen(scopeStatement);
+    else if(IfStatement* elseif = ifStatement->elsebody->isIfStatement()){
+      gen_new_br = true;
+      mlirGen(elseif);
+    }
+    else
+    _miss++;
+  }
+
+  if(gen_new_br){
+    mlir::OperationState jump0(location, "ldc.br");
+    mlir::BranchOp br_else_if;
+    br_else_if.build(&builder, jump0, end_if, {});
+    builder.createOperation(jump0);
+  }else if(ifStatement->elsebody) {
     mlir::OperationState jump1(location, "ldc.br");
     builder.setInsertionPointToEnd(if_else);
     mlir::BranchOp br_else;
-    br_if.build(&builder, jump1, end_if, {});
+    br_else.build(&builder, jump1, end_if, {});
     builder.createOperation(jump1);
   }
 
@@ -183,7 +205,7 @@ std::vector<mlir::Value*> MLIRStatements::mlirGen(CompoundStatement *compoundSta
     }else if(ReturnStatement *returnStatement = stmt->isReturnStatement()){
       mlirGen(returnStatement);
     }else if(IfStatement *ifStatement = stmt->isIfStatement()) {
-      mliGen(ifStatement);
+      mlirGen(ifStatement);
     }else{
       _miss++;
       IF_LOG Logger::println("Statament doesn't match with any implemented "
@@ -203,6 +225,12 @@ std::vector<mlir::Value*> MLIRStatements::mlirGen(ScopeStatement *scopeStatement
 
   if(auto *compoundStatement = scopeStatement->statement->isCompoundStatement()) {
     arrayValue = mlirGen(compoundStatement);
+  }else{
+    mlir::Value* value = mlirGen(scopeStatement->statement->isExpStatement());
+    if(value != nullptr)
+      arrayValue.push_back(value);
+    else
+      _miss++;
   }
 
   return arrayValue;
