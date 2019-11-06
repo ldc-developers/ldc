@@ -78,7 +78,7 @@ steps:
     clang-cl --version
     mkdir bootstrap-ldc
     cd bootstrap-ldc
-    cmake -G Ninja %BUILD_SOURCESDIRECTORY% -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=%CD%/../llvm -DD_COMPILER=%CD%/../host-ldc/bin/ldmd2
+    cmake -G Ninja %BUILD_SOURCESDIRECTORY% -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=%CD%/../llvm -DD_COMPILER=%CD%/../host-ldc/bin/ldmd2 -DBUILD_LTO_LIBS=ON
     ninja -j2 || exit /b
     bin\ldc2 --version
   displayName: Build bootstrap LDC
