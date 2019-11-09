@@ -249,15 +249,15 @@ void CodeGenerator::finishLLModule(Module *m) {
 void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   ir_->objc.finalize();
 
-  // Issue #1829: make sure all replaced global variables are replaced
-  // everywhere.
-  ir_->replaceGlobals();
-
   ir_->DBuilder.Finalize();
   generateBitcodeForDynamicCompile(ir_);
 
   emitLLVMUsedArray(*ir_);
   emitLinkerOptions(*ir_, ir_->module, ir_->context());
+
+  // Issue #1829: make sure all replaced global variables are replaced
+  // everywhere.
+  ir_->replaceGlobals();
 
   // Emit ldc version as llvm.ident metadata.
   llvm::NamedMDNode *IdentMetadata =
