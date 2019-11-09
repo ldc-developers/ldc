@@ -457,8 +457,8 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
   // cmpxchg instruction
   if (fndecl->llvmInternal == LLVMatomic_cmp_xchg) {
-    if (e->arguments->dim != 4) {
-      e->error("`cmpxchg` instruction expects 4 arguments");
+    if (e->arguments->dim != 6) {
+      e->error("`cmpxchg` instruction expects 6 arguments");
       fatal();
     }
     if (e->type->ty != Tstruct) {
@@ -468,7 +468,12 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     Expression *exp1 = (*e->arguments)[0];
     Expression *exp2 = (*e->arguments)[1];
     Expression *exp3 = (*e->arguments)[2];
-    auto atomicOrdering = llvm::AtomicOrdering((*e->arguments)[3]->toInteger());
+    const auto successOrdering =
+        llvm::AtomicOrdering((*e->arguments)[3]->toInteger());
+    const auto failureOrdering =
+        llvm::AtomicOrdering((*e->arguments)[4]->toInteger());
+    const bool isWeak = (*e->arguments)[5]->toInteger() != 0;
+
     LLValue *ptr = DtoRVal(exp1);
     LLType *pointeeType = ptr->getType()->getContainedType(0);
     DValue *dcmp = toElem(exp2);
@@ -492,8 +497,9 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       fatal();
     }
 
-    LLValue *ret = p->ir->CreateAtomicCmpXchg(ptr, cmp, val, atomicOrdering,
-                                              atomicOrdering);
+    auto ret = p->ir->CreateAtomicCmpXchg(ptr, cmp, val, successOrdering,
+                                           failureOrdering);
+    ret->setWeak(isWeak);
 
     // we return a struct; allocate on stack and store to both fields manually
     // (avoiding DtoAllocaDump() due to bad optimized codegen, most likely

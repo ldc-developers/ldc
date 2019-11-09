@@ -17,8 +17,8 @@ double bar(double cmp)
 {
     static shared double g;
     // CHECK-NEXT: %1 = bitcast double %cmp_arg to i64
-    // CHECK-NEXT: %2 = cmpxchg i64*
-    cas(&g, &cmp, 456.0);
+    // CHECK-NEXT: %2 = cmpxchg weak i64*
+    casWeak(&g, &cmp, 456.0);
     // CHECK-NEXT: %3 = extractvalue { i64, i1 } %2, 0
     // CHECK-NEXT: %4 = bitcast i64 %3 to double
     // CHECK-NEXT: ret double %4
