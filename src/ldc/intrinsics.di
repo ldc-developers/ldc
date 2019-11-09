@@ -561,7 +561,11 @@ struct CmpXchgResult(T) {
 /// If they are equal, it stores val in memory at ptr.
 /// This is all performed as single atomic operation.
 pragma(LDC_atomic_cmp_xchg)
-    CmpXchgResult!T llvm_atomic_cmp_xchg(T)(shared T* ptr, T cmp, T val, AtomicOrdering ordering = DefaultOrdering);
+    CmpXchgResult!T llvm_atomic_cmp_xchg(T)(
+        shared T* ptr, T cmp, T val,
+        AtomicOrdering successOrdering = DefaultOrdering,
+        AtomicOrdering failureOrdering = DefaultOrdering,
+        bool weak = false);
 
 /// Atomically sets *ptr = val and returns the previous *ptr value.
 pragma(LDC_atomic_rmw, "xchg")

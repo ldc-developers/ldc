@@ -39,21 +39,33 @@ version (LDC)
         return *cast(T*) &result;
     }
 
-    alias atomicCompareExchangeWeak = atomicCompareExchangeStrong;
-
-    bool atomicCompareExchangeStrong(MemoryOrder succ = MemoryOrder.seq, MemoryOrder fail = MemoryOrder.seq, T)(T* dest, T* compare, T value) pure nothrow @nogc @trusted
+    bool atomicCompareExchange(bool weak = false, MemoryOrder succ = MemoryOrder.seq, MemoryOrder fail = MemoryOrder.seq, T)(T* dest, T* compare, T value) pure nothrow @nogc @trusted
     {
         alias A = _AtomicType!T;
-        auto result = llvm_atomic_cmp_xchg!A(cast(shared A*) dest, *cast(A*) compare, *cast(A*) &value, _ordering!(succ)); // TODO: what about `fail` order?
+        auto result = llvm_atomic_cmp_xchg!A(cast(shared A*) dest, *cast(A*) compare, *cast(A*) &value,
+            _ordering!(succ), _ordering!(fail), weak);
         *compare = *cast(T*) &result.previousValue;
         return result.exchanged;
     }
+    bool atomicCompareExchangeWeak(MemoryOrder succ = MemoryOrder.seq, MemoryOrder fail = MemoryOrder.seq, T)(T* dest, T* compare, T value) pure nothrow @nogc @trusted
+    {
+        return atomicCompareExchange!(true, succ, fail, T)(dest, compare, value);
+    }
+    bool atomicCompareExchangeStrong(MemoryOrder succ = MemoryOrder.seq, MemoryOrder fail = MemoryOrder.seq, T)(T* dest, T* compare, T value) pure nothrow @nogc @trusted
+    {
+        return atomicCompareExchange!(false, succ, fail, T)(dest, compare, value);
+    }
 
-    bool atomicCompareExchangeStrongNoResult(MemoryOrder succ = MemoryOrder.seq, MemoryOrder fail = MemoryOrder.seq, T)(T* dest, const T compare, T value) pure nothrow @nogc @trusted
+    bool atomicCompareExchangeNoResult(bool weak = false, MemoryOrder succ = MemoryOrder.seq, MemoryOrder fail = MemoryOrder.seq, T)(T* dest, const T compare, T value) pure nothrow @nogc @trusted
     {
         alias A = _AtomicType!T;
-        auto result = llvm_atomic_cmp_xchg!A(cast(shared A*) dest, *cast(A*) &compare, *cast(A*) &value, _ordering!(succ)); // TODO: what about `fail` order?
+        auto result = llvm_atomic_cmp_xchg!A(cast(shared A*) dest, *cast(A*) &compare, *cast(A*) &value,
+            _ordering!(succ), _ordering!(fail), weak);
         return result.exchanged;
+    }
+    bool atomicCompareExchangeStrongNoResult(MemoryOrder succ = MemoryOrder.seq, MemoryOrder fail = MemoryOrder.seq, T)(T* dest, const T compare, T value) pure nothrow @nogc @trusted
+    {
+        return atomicCompareExchangeNoResult!(false, succ, fail, T)(dest, compare, value);
     }
 
     void atomicFence(MemoryOrder order = MemoryOrder.seq)() pure nothrow @nogc @trusted
