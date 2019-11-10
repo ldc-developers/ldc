@@ -16,7 +16,8 @@ else()
     string(REGEX REPLACE "/llvm(/IR)?$" "" LLVM_INTRINSIC_TD_PATH ${LLVM_INTRINSIC_TD_PATH})
     message(STATUS "Using path for Intrinsics.td: ${LLVM_INTRINSIC_TD_PATH}")
 endif()
-append("-DLLVM_INTRINSIC_TD_PATH=\"${LLVM_INTRINSIC_TD_PATH}\"" CMAKE_CXX_FLAGS )
+set_property(SOURCE gen_gccbuiltins.cpp APPEND PROPERTY COMPILE_DEFINITIONS
+    LLVM_INTRINSIC_TD_PATH=R"\(${LLVM_INTRINSIC_TD_PATH}\)")
 
 add_executable(gen_gccbuiltins gen_gccbuiltins.cpp)
 
