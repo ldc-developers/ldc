@@ -182,8 +182,6 @@ int main(int argc, char** argv)
 
     string iStr = string("-I=") + LLVM_INTRINSIC_TD_PATH;
     string oStr = string("-o=") + argv[1];
-#undef XSTR
-#undef STR
 
     vector<char*> args2(argv, argv + 1);
     args2.push_back(const_cast<char*>(file.c_str()));

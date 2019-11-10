@@ -16,15 +16,13 @@ else()
     string(REGEX REPLACE "/llvm(/IR)?$" "" LLVM_INTRINSIC_TD_PATH ${LLVM_INTRINSIC_TD_PATH})
     message(STATUS "Using path for Intrinsics.td: ${LLVM_INTRINSIC_TD_PATH}")
 endif()
-set_property(SOURCE gen_gccbuiltins.cpp APPEND PROPERTY COMPILE_DEFINITIONS
-    LLVM_INTRINSIC_TD_PATH=R"\(${LLVM_INTRINSIC_TD_PATH}\)")
 
 add_executable(gen_gccbuiltins gen_gccbuiltins.cpp)
 
 set_target_properties(
     gen_gccbuiltins PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
+    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS} \"-DLLVM_INTRINSIC_TD_PATH=R\\\"(${LLVM_INTRINSIC_TD_PATH})\\\"\""
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
 target_link_libraries(gen_gccbuiltins ${LLVM_TABLEGEN_LIBRARY} ${LLVM_LIBRARIES} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
