@@ -55,19 +55,23 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
   }
 #endif
 
-#define XSTR(x) #x
-#define STR(x) XSTR((x))
+#define STR(x) #x
+#define XSTR(x) STR(x)
 
   error(Loc(),
         "unrecognised or invalid DCompute targets: the format is ocl-xy0 "
         "for OpenCl x.y and cuda-xy0 for CUDA CC x.y."
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV
-        " Valid versions for OpenCl are " STR(OCL_VALID_VER_INIT) "."
+        " Valid versions for OpenCl are " XSTR((OCL_VALID_VER_INIT)) "."
 #endif
 #if LDC_LLVM_SUPPORTED_TARGET_NVPTX
-        " Valid versions for CUDA are " STR(CUDA_VALID_VER_INIT)
+        " Valid versions for CUDA are " XSTR((CUDA_VALID_VER_INIT))
 #endif
   );
+
+#undef XSTR
+#undef STR
+
   fatal();
   return nullptr;
 }
