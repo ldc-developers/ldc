@@ -1,4 +1,4 @@
-﻿/*
+/*
  * This module holds declarations to LLVM intrinsics.
  *
  * See the LLVM language reference for more information:
@@ -433,7 +433,7 @@ version (INTRINSICS_FROM_800)
 /// The ‘llvm.minimum.*’ intrinsics return the minimum of the two arguments, propagating
 /// NaNs and treating -0.0 as less than +0.0.
 /// If either operand is a NaN, returns NaN. Otherwise returns the lesser of the two arguments.
-/// -0.0 is considered to be less than +0.0 for this intrinsic. These are the 
+/// -0.0 is considered to be less than +0.0 for this intrinsic. These are the
 /// semantics specified in the draft of IEEE 754-2018.
 pragma(LDC_intrinsic, "llvm.minimum.f#")
     T llvm_minimum(T)(T vala, T valb)
@@ -659,7 +659,7 @@ version (INTRINSICS_FROM_800)
 // an operation is greater than the maximum value, the result is set (or
 // "clamped") to this maximum. If it is below the minimum, it is clamped to this
 // minimum.
-// 
+//
 
 /// Signed Saturation Addition
 /// The maximum value this operation can clamp to is the largest signed value
@@ -719,3 +719,12 @@ pragma(LDC_intrinsic, "llvm.debugtrap")
 pragma(LDC_intrinsic, "llvm.expect.i#")
     T llvm_expect(T)(T val, T expectedVal)
         if (__traits(isIntegral, T));
+
+version (INTRINSICS_FROM_600)
+{
+/// LLVM optimizer treats this intrinsic as having side effect, so it can be
+/// inserted into a loop to indicate that the loop shouldn't be assumed to
+/// terminate even if it's an infinite loop with no other side effect.
+pragma(LDC_intrinsic, "llvm.sideeffect")
+    void llvm_sideeffect();
+}
