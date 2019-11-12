@@ -472,8 +472,8 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   p->asmBlock = asmblock;
 
   // do asm statements
-  for (unsigned i = 0; i < stmt->statements->dim; i++) {
-    if (Statement *s = (*stmt->statements)[i]) {
+  for (Statement *s : *stmt->statements) {
+    if (s) {
       Statement_toIR(s, p);
     }
   }
@@ -510,41 +510,33 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
 
     int n_goto = 1;
 
-    size_t n = asmblock->s.size();
-    for (size_t i = 0; i < n; ++i) {
-      IRAsmStmt *a = asmblock->s[i];
-
+    for (IRAsmStmt *a : asmblock->s) {
       // skip non-branch statements
-      if (!a->isBranchToLabel) {
+      LabelDsymbol *const targetLabel = a->isBranchToLabel;
+      if (!targetLabel) {
         continue;
       }
+      Identifier *const ident = targetLabel->ident;
 
       // if internal, no special handling is necessary, skip
-      std::vector<Identifier *>::const_iterator end;
-      end = asmblock->internalLabels.end();
-      bool skip = false;
-      for (auto il : asmblock->internalLabels) {
-        if (il->equals(a->isBranchToLabel->ident)) {
-          skip = true;
-        }
-      }
-      if (skip) {
+      if (llvm::any_of(asmblock->internalLabels,
+                       [ident](Identifier *i) { return i->equals(ident); })) {
         continue;
       }
 
       // if we already set things up for this branch target, skip
-      if (gotoToVal.find(a->isBranchToLabel) != gotoToVal.end()) {
+      if (gotoToVal.find(targetLabel) != gotoToVal.end()) {
         continue;
       }
 
       // record that the jump needs to be handled in the post-asm dispatcher
-      gotoToVal[a->isBranchToLabel] = n_goto;
+      gotoToVal[targetLabel] = n_goto;
 
       // provide an in-asm target for the branch and set value
       IF_LOG Logger::println(
           "statement '%s' references outer label '%s': creating forwarder",
-          a->code.c_str(), a->isBranchToLabel->ident->toChars());
-      printLabelName(code, fdmangle, a->isBranchToLabel->ident->toChars());
+          a->code.c_str(), ident->toChars());
+      printLabelName(code, fdmangle, ident->toChars());
       code << ":\n\t";
       code << "movl $<<in" << n_goto << ">>, $<<out0>>\n";
       // FIXME: Store the value -> label mapping somewhere, so it can be
