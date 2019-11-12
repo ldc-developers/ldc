@@ -15,17 +15,19 @@ jobs:
   variables:
     CLANG_VERSION: 9.0.0
     VSINSTALLDIR: C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\
-    EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON -DD_COMPILER_FLAGS="-flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto" -DEXTRA_CXXFLAGS=-flto=full
   strategy:
     matrix:
       x64:
         OS: windows
         MODEL: 64
         ARCH: x64
+        EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON -DD_COMPILER_FLAGS="-flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto" -DEXTRA_CXXFLAGS=-flto=full
       x86:
         OS: windows
         MODEL: 32
         ARCH: x86
+        # Undefined symbol errors with FullLTO; ThinLTO works.
+        EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON -DD_COMPILER_FLAGS="-flto=thin -defaultlib=phobos2-ldc-lto,druntime-ldc-lto" -DEXTRA_CXXFLAGS=-flto=thin
         # Let CMake configure 64-bit clang-cl for 32-bit code emission.
         CFLAGS: -m32
         CXXFLAGS: -m32
