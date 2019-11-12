@@ -67,10 +67,11 @@
 #include <stdlib.h>
 #include <memory.h>
 
-#if LDC_MLIR_ENABLED   
+#if LDC_MLIR_ENABLED
+#include "mlir/IR/Dialect.h"
 #include "mlir/IR/MLIRContext.h"
-#include "mlir/IR/Module.h"
 
+#include "gen/MLIR/Dialect.h"
 #include "gen/MLIR/MLIRGen.h"
 #endif
 
@@ -1066,6 +1067,8 @@ void codegenModules(Modules &modules) {
   // Generate one or more object/IR/bitcode files/dcompute kernels.
   if (global.params.obj && !modules.empty()) {
 #if LDC_MLIR_ENABLED
+    //Registering DDialect and getting mlircontext with it
+    mlir::registerDialect<mlir::D::DDialect>();
     mlir::MLIRContext mlircontext;
     ldc::CodeGenerator cg(getGlobalContext(), mlircontext,
                                                          global.params.oneobj);

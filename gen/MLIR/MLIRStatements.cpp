@@ -86,8 +86,6 @@ mlir::Value* MLIRStatements::mlirGen(ForStatement *forStatement) {
                          forStatement->toChars());
   LOG_SCOPE
 
-  unsigned if_total = 0, if_miss = 0;
-
   mlir::Location location = loc(forStatement->loc);
   // mlir::OperationState result(location,"ldc.for");
 
@@ -103,7 +101,7 @@ mlir::Value* MLIRStatements::mlirGen(ForStatement *forStatement) {
 
   mlir::Block *endfor = builder.createBlock(condition);
 
-  std::vector<mlir::Value *> op;
+  /*std::vector<mlir::Value *> op;
   op.push_back(insert->getOperations().back().getResult(0));
   auto iterator = llvm::makeArrayRef(op);
 
@@ -112,13 +110,13 @@ mlir::Value* MLIRStatements::mlirGen(ForStatement *forStatement) {
     args_.push_back(op_->getType());
 
   auto argument = llvm::makeArrayRef(args_);
-  condition->addArguments(argument);
+  condition->addArguments(argument);*/ //TODO: PHI-functions -> arguments pass
 
   // Writing a branch instruction on predecessor of condition block
   mlir::OperationState jump_to_cond(location, "ldc.br");
   builder.setInsertionPointToEnd(insert);
   mlir::BranchOp br_to_cond;
-  br_to_cond.build(&builder, jump_to_cond, condition, iterator);
+  br_to_cond.build(&builder, jump_to_cond, condition, {}/*iterator*/);
   builder.createOperation(jump_to_cond);
 
   builder.setInsertionPointToStart(condition);
@@ -126,8 +124,8 @@ mlir::Value* MLIRStatements::mlirGen(ForStatement *forStatement) {
   mlir::Value *cond = nullptr;
   mlir::CmpIOp cmpIOp;
   if (forStatement->condition) {
-
-    mlir::CmpIOp cmpi;
+    cond = declaration->mlirGen(forStatement->condition, condition);
+    /*mlir::CmpIOp cmpi; //TODO:be sure that it will work for every case
     mlir::OperationState cmp(location, "cmpi");
     CmpExp *cmpExp = static_cast<CmpExp *>(forStatement->condition);
     int i = getPredicate(cmpExp);
@@ -135,13 +133,12 @@ mlir::Value* MLIRStatements::mlirGen(ForStatement *forStatement) {
                condition->getArgument(0),
                declaration->mlirGen(cmpExp->e2, condition));
 
-    cond = builder.createOperation(cmp)->getResult(0);
+    cond = builder.createOperation(cmp)->getResult(0);*/
   }
   //Writing a branch instruction on predecessor of condition block
   mlir::OperationState jump_to_body(location, "ldc.br");
   builder.setInsertionPointToEnd(condition);
   mlir::CondBranchOp br_to_body ;
-  //br_to_body.build(&builder, jump_to_body, forbody, {});
   br_to_body.build(&builder, jump_to_body,  cond, forbody, {}, endfor, {});
   builder.createOperation(jump_to_body);
 
@@ -158,17 +155,17 @@ mlir::Value* MLIRStatements::mlirGen(ForStatement *forStatement) {
   builder.createOperation(jump_to_inc);
 
   builder.setInsertionPointToStart(increment);
-  op.clear();
+ /* op.clear(); //TODO: PHI-functions -> arguments pass
   if(auto inc = forStatement->increment)
     op.push_back(declaration->mlirGen(inc, increment));
 
-  auto operands = llvm::makeArrayRef(op);
+  auto operands = llvm::makeArrayRef(op);*/
 
   //Writing a branch instruction on predecessor of condition block
   mlir::OperationState jump_to_end(location, "ldc.br");
   //builder.setInsertionPointToEnd(condition);
   mlir::BranchOp br_to_end ;
-  br_to_end.build(&builder, jump_to_end, condition, operands);
+  br_to_end.build(&builder, jump_to_end, condition, {}/*operands*/);
   builder.createOperation(jump_to_end);
 
  /* std::vector<mlir::Type> args;
@@ -184,7 +181,7 @@ return nullptr;
 }
 
 mlir::Value* MLIRStatements::mlirGen(UnrolledLoopStatement *unrolledLoopStatement){
-    IF_LOG Logger::println("MLIRCODEGEN: UnrolledLoopStatement TO mlir: %s",
+    IF_LOG Logger::println("MLIRCodeGen: UnrolledLoopStatement TO mlir: %s",
                              unrolledLoopStatement->toChars());
   LOG_SCOPE;
 
@@ -192,6 +189,10 @@ mlir::Value* MLIRStatements::mlirGen(UnrolledLoopStatement *unrolledLoopStatemen
   if (!unrolledLoopStatement->statements || !unrolledLoopStatement->statements->dim) {
     return nullptr;
   }
+
+  IF_LOG Logger::println("UnrollLoopStatment not implemented: '%s'",
+      unrolledLoopStatement->toChars());
+  _miss++;
   return nullptr;
 }
 

@@ -21,6 +21,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
+#include "gen/MLIR/MLIRGen.h"
 #include "gen/MLIR/MLIRStatements.h"
 
 #include "mlir/Analysis/Verifier.h"
@@ -30,14 +31,12 @@
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Module.h"
-#include "mlir/IR/StandardTypes.h"
 #include "mlir/IR/Types.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopedHashTable.h"
 
 #include <memory>
-#include "MLIRGen.h"
 
 using namespace ldc_mlir;
 
@@ -111,7 +110,7 @@ public:
 
     return theModule;
 
-  } //MLIRCodeIMplementatio for a given Module
+  } //MLIRCodeImplementation for a given Module
 
 private:
 

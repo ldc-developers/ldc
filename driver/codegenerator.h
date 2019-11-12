@@ -32,7 +32,7 @@ public:
 #if LDC_MLIR_ENABLED	
 	mlir::MLIRContext &mlirContext,
 #endif
-                                                                bool singleObj);
+    bool singleObj);
   ~CodeGenerator();
   void emit(Module *m);
 

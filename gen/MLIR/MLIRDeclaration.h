@@ -26,6 +26,7 @@
 #include "gen/logger.h"
 #include "gen/modules.h"
 #include "gen/irstate.h"
+#include "gen/MLIR/Dialect.h"
 #include "gen/MLIR/MLIRGen.h"
 
 #include "mlir/Dialect/StandardOps/Ops.h"
