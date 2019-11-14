@@ -138,7 +138,7 @@ mlir::Value *MLIRDeclaration::mlirGen(AssignExp *assignExp){
         return nullptr;
       }
       mlir::OperationState result(loc(assignExp->loc), "assign");
-      result.addTypes(builder.getIntegerType(16)); // TODO: type
+      result.addTypes(rhs->getType()); // TODO: type
       result.addOperands(rhs);
       value = builder.createOperation(result)->getResult(0);
 
@@ -210,12 +210,21 @@ mlir::Value *MLIRDeclaration::mlirGen(CallExp *callExp){
     }
     operands.push_back(arg);
   }
+  //Get the return type
+  mlir::Value* ret = nullptr;
+  if(ReturnStatement *returnStatement = *callExp->f->returns->data)
+    ret = mlirGen(returnStatement->exp);
 
+  mlir::Type ret_type = nullptr;
+  if(ret)
+    ret_type = ret->getType();
+  else
+    ret_type = mlir::NoneType::get(&context);
   // Otherwise this is a call to a user-defined function. Calls to
   // user-defined functions are mapped to a custom call that takes the callee
   // name as an attribute.
   mlir::OperationState result(loc(callExp->loc), "ldc.call");
-  result.addTypes(builder.getIntegerType(32));
+  result.addTypes(ret_type);
   result.operands = std::move(operands);
   result.addAttribute("callee", builder.getSymbolRefAttr(callExp->f->mangleString));
   return builder.createOperation(result)->getResult(0);
@@ -239,9 +248,50 @@ mlir::Value *MLIRDeclaration::mlirGen(IntegerExp *integerExp){
   _total++;
   dinteger_t dint = integerExp->value;
   Logger::println("Integer: '%lu'", dint);
-  mlir::OperationState result(loc(integerExp->loc), "ldc.IntegerExp");
-  result.addTypes(builder.getIntegerType(16)); // TODO: type
-  result.addAttribute("value", builder.getI16IntegerAttr(dint));
+  auto ret_type = get_MLIRtype(integerExp);
+  mlir::Attribute value_type;
+  if(ret_type.isInteger(1))
+    value_type = builder.getIntegerAttr(builder.getI1Type(), dint);
+  else if(ret_type.isInteger(8))
+    value_type = builder.getI8IntegerAttr(dint);
+  else if(ret_type.isInteger(16))
+    value_type = builder.getI16IntegerAttr(dint);
+  else if(ret_type.isInteger(32))
+    value_type = builder.getI32IntegerAttr(dint);
+  else if(ret_type.isInteger(64))
+    value_type = builder.getI64IntegerAttr(dint);
+  else
+    _miss++; //TODO: Create getI128IntegerAttr on DDialect
+  llvm::StringRef name;
+  if(value_type.getType() == builder.getI1Type())
+    name = "ldc.bool";
+  else
+    name = "ldc.IntegerExp";
+  mlir::OperationState result(loc(integerExp->loc), name);
+  result.addTypes(ret_type);
+  result.addAttribute("value", value_type);
+  return builder.createOperation(result)->getResult(0);
+}
+
+
+
+mlir::Value* MLIRDeclaration::mlirGen(RealExp *realExp){
+  _total++;
+  real_t dfloat = realExp->value;
+  Logger::println("RealExp: '%Lf'", dfloat);
+  mlir::OperationState result(loc(realExp->loc), "ldc.Integer");
+  auto ret_type = get_MLIRtype(realExp);
+  result.addTypes(ret_type);
+  mlir::Attribute value_type;
+  if(ret_type.isF16())
+    value_type = builder.getF16FloatAttr(dfloat);
+  else if(ret_type.isF32())
+    value_type = builder.getF32FloatAttr(dfloat);
+  else if(ret_type.isF64())
+    value_type = builder.getF64FloatAttr(dfloat);
+  else
+    _miss++; //TODO: Create getF80FloatAttr on DDialect
+  result.addAttribute("value", value_type);
   return builder.createOperation(result)->getResult(0);
 }
 
@@ -250,9 +300,9 @@ mlir::Value *MLIRDeclaration::mlirGen(VarExp *varExp){
   Logger::println("VarExp: '%s'", varExp->var->toChars());
   auto var = symbolTable.lookup(varExp->var->toChars());
   if (!var) {
-    IF_LOG Logger::println("Undeclared VarExp: '%s'", varExp->toChars());
+    IF_LOG Logger::println("Undeclared VarExp: '%s' | '%u'", varExp->toChars(), varExp->op);
     mlir::OperationState result(loc(varExp->loc), "ldc.IntegerExp");
-    result.addTypes(builder.getIntegerType(16)); // TODO: type
+    result.addTypes(get_MLIRtype(varExp));
     result.addAttribute("value", builder.getI16IntegerAttr(0));
     return builder.createOperation(result)->getResult(0);
     // var = 0; Default value for a variable
@@ -368,7 +418,7 @@ mlir::Value* MLIRDeclaration::mlirGen(PostExp *postExp){
 
   mlir::OperationState result(loc(postExp->loc), opName);
   result.addOperands(e1);
-  result.addTypes(builder.getIntegerType(32)); // TODO: type
+  result.addTypes(e1->getType()); // TODO: type
   result.addAttribute("value", builder.getI16IntegerAttr(1));
   return builder.createOperation(result)->getResult(0);
 
@@ -388,7 +438,6 @@ block) {
   auto location = loc(expression->loc);
   mlir::Value *e1 = nullptr;
   mlir::Value *e2 = nullptr;
-//  mlir::Value *e  = nullptr;
   int op = expression->op;
 
   if(VarExp *varExp = expression->isVarExp())
@@ -397,6 +446,8 @@ block) {
     return mlirGen(declarationExp);
   else if(IntegerExp *integerExp = expression->isIntegerExp())
     return mlirGen(integerExp);
+  else if(RealExp *realExp = expression->isRealExp())
+    return mlirGen(realExp);
   else if(ConstructExp *constructExp = expression->isConstructExp())
     return mlirGen(constructExp);
   else if(AssignExp *assignExp = expression->isAssignExp())
@@ -414,16 +465,19 @@ block) {
   else if (LogicalExp *logicalExp = expression->isLogicalExp())
     return nullptr; //add mlirGen(logicalExp); //needs to implement with blocks
   else if(expression->isAddExp() || expression->isAddAssignExp()){
-    if(expression->isAddAssignExp()){
-      AddAssignExp *addAssignExp = expression->isAddAssignExp();
-      e1 = mlirGen(addAssignExp->e1);
-      e2 = mlirGen(addAssignExp->e2);
+    mlir::OperationState addi(location, "ldc.add");
+    if(expression->isAddAssignExp()) {
+        AddAssignExp *addAssignExp = expression->isAddAssignExp();
+        e1 = mlirGen(addAssignExp->e1);
+        e2 = mlirGen(addAssignExp->e2);
     }else {
-      AddExp *add = expression->isAddExp();
-      e1 = mlirGen(add->e1);
-      e2 = mlirGen(add->e2);
+        AddExp *add = expression->isAddExp();
+        e1 = mlirGen(add->e1);
+        e2 = mlirGen(add->e2);
     }
-    op_name = "ldc.add";
+      mlir::D::AddOp addOp;
+      addOp.build(&builder, addi, e1, e2);
+      return builder.createOperation(addi)->getResult(0);
   } else if (expression->isMinExp() || expression->isMinAssignExp()) {
     if(expression->isMinAssignExp()){
       MinAssignExp* minAssignExp = expression->isMinAssignExp();
@@ -502,20 +556,11 @@ block) {
     }
     op_name = "ldc.xor";
   }
-  /*else if (CondExp *cond = expression->isCondExp()){
-    IF_LOG Logger::println("Cond expression: '%s'", expression->toChars());
-    e1 = mlirGen(cond->e1);
-    e2 = mlirGen(cond->e2);
-    e = mlirGen(cond->econd);
-    IF_LOG Logger::print("econd: '%s'", cond->econd->toChars());
-    op_name = "ldc.cond";
-  }*/
 
 
   if (e1 != nullptr && e2 != nullptr) {
     mlir::OperationState result(location, op_name);
-    result.addTypes(
-        builder.getIntegerType(16)); // TODO: MODIFY TO ALLOW MORE TYPES
+    result.addTypes(e1->getType()); // TODO: This works?
     result.addOperands({e1, e2});
     return builder.createOperation(result)->getResult(0);
   }
@@ -527,8 +572,8 @@ block) {
 }
 
 void MLIRDeclaration::mlirGen(TemplateInstance *decl) {
-  IF_LOG Logger::println("TemplateInstance::codegen: '%s'",
-                         decl->toPrettyChars());
+  IF_LOG Logger::println("MLIRCodeGen - TemplateInstance: '%s'",
+     decl->toPrettyChars());
   LOG_SCOPE
 
   if (decl->ir->isDefined()) {
@@ -559,13 +604,12 @@ void MLIRDeclaration::mlirGen(TemplateInstance *decl) {
       Logger::println("Does not need codegen, skipping.");
       return;
     }
-
     if (irState->dcomputetarget && (decl->tempdecl == Type::rtinfo ||
                                 decl->tempdecl == Type::rtinfoImpl)) {
       // Emitting object.RTInfo(Impl) template instantiations in dcompute
       // modules would require dcompute support for global variables.
       Logger::println("Skipping object.RTInfo(Impl) template instantiations "
-                      "in dcompute modules.");
+                    "in dcompute modules.");
       return;
     }
   }
@@ -580,5 +624,48 @@ void MLIRDeclaration::mlirGen(TemplateInstance *decl) {
     }
   }
 }
+
+mlir::Type MLIRDeclaration::get_MLIRtype(Expression* expression){
+    if(expression == nullptr)
+        return mlir::NoneType::get(&context);
+
+    _total++;
+    auto basetype = expression->type->toBasetype();
+    if (basetype->ty == Tchar || basetype->ty == Twchar ||
+        basetype->ty == Tdchar || basetype->ty == Tnull ||
+        basetype->ty == Tvoid || basetype->ty == Tnone) {
+        return mlir::NoneType::get(&context); //TODO: Build these types on DDialect
+    }else if(basetype->ty == Tbool){
+      return builder.getIntegerType(1);
+    }else if (basetype->ty == Tint8){
+      return builder.getIntegerType(8);
+    }else if(basetype->ty == Tint16){
+      return builder.getIntegerType(16);
+    }else if(basetype->ty == Tint32){
+      return builder.getIntegerType(32);
+    }else if(basetype->ty == Tint64){
+      return builder.getIntegerType(64);
+    }else if(basetype->ty == Tint128) {
+        return builder.getIntegerType(128);
+    } else if (basetype->ty == Tfloat32){
+      return builder.getF32Type();
+    }else if(basetype->ty == Tfloat64){
+      return builder.getF64Type();
+    }else if(basetype->ty == Tfloat80) {
+      _miss++;     //TODO: Build F80 type on DDialect
+    } else if (basetype->ty == Tvector) {
+        mlir::TensorType tensor;
+        return tensor;
+    } else {
+        _miss++;
+        MLIRDeclaration *declaration = new MLIRDeclaration(irState, nullptr,
+                                                           context, builder, symbolTable,_total, _miss);
+        mlir::Value *value = declaration->mlirGen(expression);
+        return value->getType();
+    }
+    _miss++;
+    return nullptr;
+}
+
 
 #endif //LDC_MLIR_ENABLED

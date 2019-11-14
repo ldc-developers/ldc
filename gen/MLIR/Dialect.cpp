@@ -39,8 +39,11 @@ DDialect::DDialect(mlir::MLIRContext *context) : mlir::Dialect("D",
 
 void AddOp::build(mlir::Builder *b, mlir::OperationState &state,
         mlir::Value *lhs, mlir::Value *rhs) {
-    state.addTypes(UnrankedTensorType::get(b->getIntegerType(16)));
-    state.addOperands({lhs, rhs});
+  if(lhs->getType() == rhs->getType())
+    state.addTypes(lhs->getType());
+  else
+      state.addTypes(mlir::NoneType::get(b->getContext()));
+  state.addOperands({lhs, rhs});
 }
 
 //===----------------------------------------------------------------------===//

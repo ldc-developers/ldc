@@ -200,7 +200,7 @@ void emitLLVMUsedArray(IRState &irs) {
 namespace ldc {
 CodeGenerator::CodeGenerator(llvm::LLVMContext &context,
 #if LDC_MLIR_ENABLED
-    mlir::MLIRContext &mlirContext, 
+    mlir::MLIRContext &mlirContext,
 #endif
 bool singleObj)
     : context_(context), moduleCount_(0), singleObj_(singleObj), ir_(nullptr)

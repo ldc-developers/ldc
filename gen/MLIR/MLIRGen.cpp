@@ -162,24 +162,23 @@ private:
     llvm::SmallVector<mlir::Type, 4> ret_types;
 
     //Supposing that the type is integer
-    auto type = builder.getIntegerType(32);
     unsigned long size = 0;
     if(Fd->parameters)
       size = Fd->parameters->dim;
 
     // Arguments type is uniformly a generic array.
-    llvm::SmallVector<mlir::Type, 4> arg_types(size, type);
+    llvm::SmallVector<mlir::Type, 4> arg_types(size, get_MLIRtype(Fd->parameters));
 
     auto func_type = builder.getFunctionType(arg_types, ret_types);
     auto function = mlir::FuncOp::create(loc(Fd->loc),
                                          StringRef(Fd->mangleString),
-                                         func_type, {});
+                                         func_type, {}); //TODO: Should this have the arguments?
 
     // Mark the function as generic: it'll require type specialization for every
     // call site.
-    if (function.getNumArguments()) {
-      function.setAttr("ldc.generic", builder.getUnitAttr());
-    }
+//    if (function.getNumArguments()) {
+//      function.setAttr("ldc.generic", builder.getUnitAttr());
+//    }
 
     return function;
   }
@@ -231,7 +230,7 @@ private:
       function.erase();
       return nullptr;
     }
-    //function.getBody().back().back().getParentRegion()->viewGraph();
+  //  function.getBody().back().back().getParentRegion()->viewGraph();
 
     // Implicitly return void if no return statement was emitted.
     // (this would possibly help the REPL case later)
@@ -242,15 +241,53 @@ private:
         genStmt->mlirGen(returnStatement);
       else{
         mlir::ReturnOp returnOp;
-        mlir::UnknownLoc unknownLoc;
-        mlir::OperationState ret_result(unknownLoc, "ldc.return");
-        returnOp.build(&builder, ret_result);
+        mlir::OperationState ret(mlir::UnknownLoc::get(&context), "D.return");
+        returnOp.build(&builder, ret);
       }
     }
     return function;
   }
 
+    mlir::Type get_MLIRtype(VarDeclarations *varDeclarations){
+      if(varDeclarations == nullptr)
+          return mlir::NoneType::get(&context);
 
+      for(auto vd : *varDeclarations) {
+        auto basetype0 = vd->isDeclaration();
+        Type* basetype = basetype0->type;
+        if (basetype->ty == Tchar || basetype->ty == Twchar ||
+          basetype->ty == Tdchar || basetype->ty == Tnull ||
+          basetype->ty == Tvoid || basetype->ty == Tnone) {
+          return mlir::NoneType::get(&context); //TODO: Build these types on DDialect
+        } else if (basetype->ty == Tint8 || basetype->ty == Tint16 ||
+          basetype->ty == Tint32 || basetype->ty == Tint64 ||
+          basetype->ty == Tint128) {
+          return builder.getIntegerType(basetype->size()*8); //size always return 8 times less the real size
+        } else if (basetype->ty == Tfloat32 || basetype->ty == Tfloat64 ||
+          basetype->ty == Tfloat80) {
+          int size_f = basetype->size();
+          if (size_f == 32)
+            return builder.getF32Type();
+          else if (size_f == 64)
+            return builder.getF64Type();
+          else if (size_f == 80)
+            miss++;     //TODO: Build F80 type on DDialect
+          else
+            miss++;
+        } else if (basetype->ty == Tvector) {
+            mlir::TensorType tensor;
+            return tensor;
+        } else {
+            miss++;
+            MLIRDeclaration *declaration = new MLIRDeclaration(irs, nullptr,
+                    context, builder, symbolTable,total, miss);
+            mlir::Value *value = declaration->mlirGen(vd);
+            return value->getType();
+        }
+      }
+      miss++;
+      return nullptr;
+    }
 }; //class MLIRGenImpl
 } //annonymous namespace
 

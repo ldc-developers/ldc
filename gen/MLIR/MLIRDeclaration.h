@@ -85,6 +85,7 @@ public:
   mlir::Value* mlirGen(AssignExp *assignExp); //Not perfet yet
   mlir::Value* mlirGen(ConstructExp *constructExp);
   mlir::Value* mlirGen(IntegerExp *integerExp);
+  mlir::Value* mlirGen(RealExp *realExp);
   mlir::Value* mlirGen(VarExp *varExp);
   mlir::Value* mlirGen(CallExp *callExp);
   mlir::Value* mlirGen(ArrayLiteralExp *arrayLiteralExp);
@@ -92,6 +93,7 @@ public:
   mlir::Value* mlirGen(Expression *expression, int func);
   void mlirGen(TemplateInstance *templateInstance);
   mlir::Value* mlirGen(PostExp *postExp);
+  mlir::Type get_MLIRtype(Expression* expression);
 
   ///Set MLIR Location using D Loc info
   mlir::Location loc(Loc loc){
