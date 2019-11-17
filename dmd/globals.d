@@ -291,8 +291,6 @@ version (IN_LLVM)
 {
     Array!(const(char)*) bitcodeFiles; // LLVM bitcode files passed on cmdline
 
-    uint nestedTmpl; // maximum nested template instantiations
-
     // LDC stuff
     OUTPUTFLAG output_ll;
     OUTPUTFLAG output_bc;
@@ -370,6 +368,15 @@ version (IN_LLVM)
 
     Array!Identifier* versionids;    // command line versions and predefined versions
     Array!Identifier* debugids;      // command line debug versions and predefined versions
+
+version (IN_LLVM)
+{
+    uint recursionLimit = 500; // number of recursive template expansions before abort
+}
+else
+{
+    enum recursionLimit = 500; // number of recursive template expansions before abort
+}
 
   nothrow:
 

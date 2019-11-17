@@ -3047,8 +3047,7 @@ version (IN_LLVM)
 
         __gshared int nest;
         //printf("%d\n", nest);
-        // IN_LLVM replaced: if (++nest > 500)
-        if (++nest > global.params.nestedTmpl) // LDC_FIXME: add testcase for this
+        if (++nest > global.recursionLimit)
         {
             global.gag = 0; // ensure error message gets printed
             tm.error("recursive expansion");
@@ -6317,8 +6316,7 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
         while (ti && !ti.deferred && ti.tinst)
         {
             ti = ti.tinst;
-            // IN_LLVM replaced: if (++nest > 500)
-            if (++nest > global.params.nestedTmpl) // LDC_FIXME: add testcase for this
+            if (++nest > global.recursionLimit)
             {
                 global.gag = 0; // ensure error message gets printed
                 tempinst.error("recursive expansion");

@@ -449,10 +449,9 @@ cl::opt<bool, true>
             cl::desc("Generate code for all template instantiations"));
 
 cl::opt<unsigned, true> nestedTemplateDepth(
-    "template-depth", cl::ZeroOrMore, cl::location(global.params.nestedTmpl),
+    "template-depth", cl::ZeroOrMore, cl::location(global.recursionLimit),
     cl::init(500),
-    cl::desc(
-        "Set maximum number of nested template instantiations (experimental)"));
+    cl::desc("Set maximum number of nested template instantiations"));
 
 // legacy options superseded by `-preview=dip<N>`
 static cl::opt<bool, true>

@@ -255,8 +255,6 @@ struct Param
 #if IN_LLVM
     Array<const char *> bitcodeFiles; // LLVM bitcode files passed on cmdline
 
-    unsigned nestedTmpl; // maximum nested template instantiations
-
     // LDC stuff
     OUTPUTFLAG output_ll;
     OUTPUTFLAG output_bc;
@@ -331,6 +329,10 @@ struct Global
 
     Array<class Identifier*>* versionids; // command line versions and predefined versions
     Array<class Identifier*>* debugids;   // command line debug versions and predefined versions
+
+#if IN_LLVM
+    unsigned recursionLimit; // number of recursive template expansions before abort
+#endif
 
     /* Start gagging. Return the current number of gagged errors
      */
