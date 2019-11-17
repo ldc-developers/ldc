@@ -1317,10 +1317,15 @@ DValue *DtoCastArray(Loc &loc, DValue *u, Type *to) {
   }
 
   if (totype->ty == Tbool) {
-    // return (arr.ptr !is null)
+    // return (arr !is null) <=> (arr.length | arr.ptr) != 0
+    LLValue *len = DtoArrayLen(u);
     LLValue *ptr = DtoArrayPtr(u);
-    LLConstant *nul = getNullPtr(ptr->getType());
-    return new DImValue(to, gIR->ir->CreateICmpNE(ptr, nul));
+    LLType *intType = len->getType();
+    LLValue *orResult = llvm::BinaryOperator::Create(
+        llvm::Instruction::Or, len, gIR->ir->CreatePtrToInt(ptr, intType), "",
+        gIR->scopebb());
+    LLValue *zero = getNullValue(intType);
+    return new DImValue(to, gIR->ir->CreateICmpNE(orResult, zero));
   }
 
   const auto castedPtr = DtoBitCast(DtoArrayPtr(u), getPtrToType(tolltype));
