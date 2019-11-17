@@ -286,6 +286,8 @@ endif()
 
 set(GCCBUILTINS "")
 if(TARGET gen_gccbuiltins)
+  file(MAKE_DIRECTORY "${LDC_BUILD_IMPORT_DIR}/ldc")
+
   function(gen_gccbuiltins name)
     set(module "${LDC_BUILD_IMPORT_DIR}/ldc/gccbuiltins_${name}.di")
     if (GCCBUILTINS STREQUAL "")
