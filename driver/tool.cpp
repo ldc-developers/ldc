@@ -33,11 +33,12 @@ llvm::cl::opt<std::string>
            llvm::cl::cat(opts::linkingCategory));
 }
 
-static llvm::cl::opt<std::string> gcc(
-    "gcc", llvm::cl::ZeroOrMore, llvm::cl::cat(opts::linkingCategory),
-    llvm::cl::desc(
-        "C compiler (GCC/Clang) to use for linking (and external assembling). "
-        "Defaults to the CC environment variable if set, otherwise to `cc`."));
+static llvm::cl::opt<std::string>
+    gcc("gcc", llvm::cl::ZeroOrMore, llvm::cl::cat(opts::linkingCategory),
+        llvm::cl::value_desc("gcc|clang|..."),
+        llvm::cl::desc(
+            "C compiler to use for linking (and external assembling). Defaults "
+            "to the CC environment variable if set, otherwise to `cc`."));
 
 //////////////////////////////////////////////////////////////////////////////
 
