@@ -4203,7 +4203,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             else
             {
                 __gshared int nest;
-                if (++nest > 500)
+                if (++nest > global.recursionLimit)
                 {
                     exp.error("recursive evaluation of `%s`", exp.toChars());
                     --nest;
@@ -6986,6 +6986,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
         if (tob.ty == Tvector && t1b.ty != Tvector)
         {
             result = new VectorExp(exp.loc, exp.e1, exp.to);
+            result = result.expressionSemantic(sc);
             return;
         }
 
