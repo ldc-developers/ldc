@@ -424,6 +424,47 @@ mlir::Value* MLIRDeclaration::mlirGen(PostExp *postExp){
 
 }
 
+mlir::Value *MLIRDeclaration::mlirGen(AddExp *addExp, AddAssignExp *addAssignExp){
+  mlir::Value* e1 = nullptr;
+  mlir::Value* e2 = nullptr;
+  mlir::Location *location = nullptr;
+
+  if(addAssignExp) {
+    mlir::Location addAssignLoc = loc(addAssignExp->loc);
+    location = &addAssignLoc;
+    e1 = mlirGen(addAssignExp->e1);
+    e2 = mlirGen(addAssignExp->e2);
+  }else if(addExp){
+    mlir::Location addExpLoc = loc(addExp->loc);
+    location = &addExpLoc;
+    e1 = mlirGen(addExp->e1);
+    e2 = mlirGen(addExp->e2);
+  }else{
+    _miss++;
+    return nullptr;
+  }
+
+  if(e1->getType().isF16())
+    return builder.create<mlir::D::AddF16Op>(*location, e1, e2);
+  else if(e1->getType().isF32())
+    return builder.create<mlir::D::AddF32Op>(*location, e1, e2);
+  else if(e1->getType().isF64())
+    return builder.create<mlir::D::AddF64Op>(*location, e1, e2);
+  else if(e1->getType().isInteger(8))
+    return builder.create<mlir::D::AddI8Op>(*location, e1, e2);
+  else if(e1->getType().isInteger(16))
+    return builder.create<mlir::D::AddI16Op>(*location, e1, e2);
+  else if(e1->getType().isInteger(32))
+    return builder.create<mlir::D::AddI32Op>(*location, e1, e2);
+  else if(e1->getType().isInteger(64))
+    return builder.create<mlir::D::AddI64Op>(*location, e1, e2);
+    //  else if(e1->getType().isInteger(128))
+    //    return builder.create<mlir::D::AddI128Op>(location, e1, e2);
+  else
+    _miss++;
+  return nullptr;
+}
+
 mlir::Value *MLIRDeclaration::mlirGen(Expression *expression, mlir::Block*
 block) {
   IF_LOG Logger::println("MLIRCodeGen - Expression: '%s' | '%u'",
@@ -465,19 +506,7 @@ block) {
   else if (LogicalExp *logicalExp = expression->isLogicalExp())
     return nullptr; //add mlirGen(logicalExp); //needs to implement with blocks
   else if(expression->isAddExp() || expression->isAddAssignExp()){
-    mlir::OperationState addi(location, "ldc.add");
-    if(expression->isAddAssignExp()) {
-        AddAssignExp *addAssignExp = expression->isAddAssignExp();
-        e1 = mlirGen(addAssignExp->e1);
-        e2 = mlirGen(addAssignExp->e2);
-    }else {
-        AddExp *add = expression->isAddExp();
-        e1 = mlirGen(add->e1);
-        e2 = mlirGen(add->e2);
-    }
-      mlir::D::AddOp addOp;
-      addOp.build(&builder, addi, e1, e2);
-      return builder.createOperation(addi)->getResult(0);
+    return mlirGen(expression->isAddExp(), expression->isAddAssignExp());
   } else if (expression->isMinExp() || expression->isMinAssignExp()) {
     if(expression->isMinAssignExp()){
       MinAssignExp* minAssignExp = expression->isMinAssignExp();

@@ -80,6 +80,7 @@ public:
       mlir::Value* rhs, int op, bool canSkipPostblitm, Type* t1, Type* t2);
 
   //Expression
+  mlir::Value* mlirGen(AddExp *addExp = nullptr, AddAssignExp *addAssignExp = nullptr);
   mlir::Value* mlirGen(DeclarationExp* declarationExp);
   mlir::Value* mlirGen(Expression *expression, mlir::Block *block = nullptr);
   mlir::Value* mlirGen(AssignExp *assignExp); //Not perfet yet

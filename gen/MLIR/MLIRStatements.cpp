@@ -384,8 +384,10 @@ std::vector<mlir::Value*> MLIRStatements::mlirGen(ScopeStatement *scopeStatement
   return arrayValue;
 }
 
+
 mlir::Value* MLIRStatements::mlirGen(Statement* stm) {
   _total++;
+
   if(ExpStatement* expStatement = stm->isExpStatement())
     return mlirGen(expStatement);
   else if(CompoundStatement* compoundStatement = stm->isCompoundStatement())
