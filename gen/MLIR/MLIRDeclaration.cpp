@@ -647,7 +647,7 @@ void MLIRDeclaration::mlirGen(TemplateInstance *decl) {
     if (m->isDeclaration())
       mlirGen(m->isDeclaration());
     else {
-      IF_LOG Logger::println("MLIRGEN Has to be implemented for: '%s'",
+      IF_LOG Logger::println("MLIRGen Has to be implemented for: '%s'",
                              m->toChars());
       _miss++;
     }

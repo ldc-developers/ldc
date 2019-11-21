@@ -6,6 +6,7 @@
 // file for details.
 //
 //===----------------------------------------------------------------------===//
+#if LDC_MLIR_ENABLED
 
 #include "gen/MLIR/Dialect.h"
 
@@ -114,3 +115,5 @@ void AddF64Op::build(mlir::Builder *b, mlir::OperationState &state,
 
 #define GET_OP_CLASSES
 #include "Ops.cpp.inc"
+
+#endif //LDC_MLIR_ENABLED

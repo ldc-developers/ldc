@@ -1076,12 +1076,6 @@ void codegenModules(Modules &modules) {
 		ldc::CodeGenerator cg(getGlobalContext(), global.params.oneobj);
 #endif
 
-//    if (!module){
-//      IF_LOG Logger::println("Tentou criar um mlir_modulo e falhou");
-//      return;
-//    }
-//    module->dump();
-
     DComputeCodeGenManager dccg(getGlobalContext());
     std::vector<Module *> computeModules;
     // When inlining is enabled, we are calling semantic3 on function
