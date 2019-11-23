@@ -21,6 +21,10 @@ steps:
         git-core cmake ninja-build g++-multilib \
         libcurl3 libcurl3:i386 \
         curl gdb tzdata unzip zip
+      # Download & extract clang
+      curl -L -o clang.tar.xz http://releases.llvm.org/9.0.0/clang+llvm-9.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+      mkdir clang
+      tar -xf clang.tar.xz --strip 1 -C clang
       # Use ld.gold per default, so that LTO is tested
       sudo update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
     fi
@@ -73,6 +77,11 @@ steps:
     set -ex
     cd ..
     export PATH="$PWD/ninja:$PATH" # for macOS
+    # Linux: use clang instead of gcc, for LTO
+    if [ "$CI_OS" = "linux" ]; then
+      export CC=$PWD/clang/bin/clang
+      export CXX=$PWD/clang/bin/clang++
+    fi
     installDir=$PWD/install
     mkdir build
     cd build
