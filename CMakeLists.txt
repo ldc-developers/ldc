@@ -525,10 +525,18 @@ endif()
 #
 # Set up the main ldc/ldc2 target.
 #
+set(LDC_LIB_LANGUAGE CXX)
 if(BUILD_SHARED)
     set(LDC_LIB_TYPE SHARED)
 else()
     set(LDC_LIB_TYPE STATIC)
+    if("${D_COMPILER_ID}" STREQUAL "LDMD" AND D_COMPILER_FE_VERSION GREATER 2074)
+        # Define a 'HOST_D' CMake linker language for the static LDCShared
+        # library, using the host ldmd2 compiler ≥ v1.5 as archiver, which
+        # supports LTO objects and cross-archiving.
+        set(CMAKE_HOST_D_CREATE_STATIC_LIBRARY "${D_COMPILER} -lib ${D_COMPILER_FLAGS} ${DDMD_DFLAGS} -of=<TARGET> <OBJECTS>")
+        set(LDC_LIB_LANGUAGE HOST_D)
+    endif()
 endif()
 
 set(LDC_LIB LDCShared)
@@ -546,6 +554,7 @@ set_target_properties(
     LIBRARY_OUTPUT_NAME ldc
     RUNTIME_OUTPUT_NAME ldc
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS} ${EXTRA_CXXFLAGS}"
+    LINKER_LANGUAGE ${LDC_LIB_LANGUAGE}
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
@@ -568,7 +577,7 @@ if(MSVC)
     # VS 2017+: Use undocumented /NOOPTTLS MS linker switch to keep on emitting
     # a .tls section. Required for older host druntime versions, otherwise the
     # GC TLS ranges are garbage starting with VS 2017 Update 15.3.
-    if(MSVC_VERSION GREATER 1900) # VS 2017+
+    if(MSVC_VERSION GREATER 1900 AND D_COMPILER_FE_VERSION LESS 2076)
         list(APPEND LDC_LINKERFLAG_LIST "/NOOPTTLS")
     endif()
 endif()
