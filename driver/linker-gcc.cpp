@@ -169,7 +169,7 @@ std::string getLTOdylibPath() {
 void ArgsBuilder::addDarwinLTOFlags() {
   std::string dylibPath = getLTOdylibPath();
   if (!dylibPath.empty()) {
-    args.push_back("-lto_library=" + dylibPath);
+    addLdFlag("-lto_library", dylibPath);
   }
 }
 
