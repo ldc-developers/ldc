@@ -148,7 +148,7 @@ steps:
 - script: |
     cd ..
     cp llvm/bin/lld-link.exe installed/bin
-    curl -L -o mingw-w64-libs.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v6.0.0/mingw-w64-libs-v6.0.0.7z 2>&1
+    curl -L -o mingw-w64-libs.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v7.0.0-rc.1/mingw-w64-libs-v7.0.0-rc.1.7z 2>&1
     mkdir mingw-w64-libs
     cd mingw-w64-libs
     7z x ../mingw-w64-libs.7z > nul
