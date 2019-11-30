@@ -127,10 +127,10 @@ steps:
     set -ex
     cd ..
     bootstrap-ldc/bin/ldc-build-runtime --ninja -j $PARALLEL_JOBS \
-      "--dFlags=${DFLAGS// /;}" \
+      --dFlags="${DFLAGS// /;}" \
       --targetSystem='Android;Linux;UNIX' \
       --ldcSrcDir=$BUILD_SOURCESDIRECTORY \
-      ${EXTRA_CMAKE_FLAGS//-D/ }
+      ${EXTRA_CMAKE_FLAGS//-D/}
   displayName: 'Android: Cross-compile default libraries'
   condition: and(succeeded(), eq(variables['CI_OS'], 'android'))
 - script: |
@@ -224,6 +224,22 @@ steps:
     # Now rename the installation dir to test portability
     mv install installed
   displayName: Install LDC & make portable
+- script: |
+    set -ex
+    cd ..
+    arch=$ANDROID_X86_ABI
+    if [ "$arch" = "x86" ]; then arch="i686"; fi
+    bootstrap-ldc/bin/ldc-build-runtime --ninja -j $PARALLEL_JOBS \
+      --buildDir=build-libs-$arch \
+      --dFlags="-mtriple=$arch-linux-android" \
+      --targetSystem='Android;Linux;UNIX' \
+      --ldcSrcDir=$BUILD_SOURCESDIRECTORY \
+      ${EXTRA_CMAKE_FLAGS//-D/} \
+      ANDROID_ABI=$ANDROID_X86_ABI
+    mkdir installed/lib-$arch
+    cp build-libs-$arch/lib/*.a installed/lib-$arch
+  displayName: 'Android: Cross-compile x86 libraries and copy to install dir'
+  condition: and(succeeded(), eq(variables['CI_OS'], 'android'))
 - script: |
     set -ex
     cd ..

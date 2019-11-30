@@ -137,9 +137,11 @@ jobs:
       armv7a:
         ARCH: armv7a
         EXTRA_CMAKE_FLAGS: -DANDROID_ABI=armeabi-v7a -DANDROID_NATIVE_API_LEVEL=21 -DANDROID_STL=c++_static -DCMAKE_CROSSCOMPILING=True
+        ANDROID_X86_ABI: x86
       aarch64:
         ARCH: aarch64
         EXTRA_CMAKE_FLAGS: -DANDROID_ABI=arm64-v8a -DANDROID_NATIVE_API_LEVEL=21 -DANDROID_STL=c++_static -DCMAKE_CROSSCOMPILING=True
+        ANDROID_X86_ABI: x86_64
   steps:
     - template: .azure-pipelines/posix.yml
 
