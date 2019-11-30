@@ -33,7 +33,7 @@ commonSteps: &commonSteps
             python get-pip.py --user
             rm get-pip.py
             # Download & extract LDC-flavoured LLVM with enabled assertions
-            curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-osx-x86_64-withAsserts.tar.xz
+            curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-osx-x86_64-withAsserts.tar.xz
             mkdir llvm
             tar -xf llvm.tar.xz --strip 1 -C llvm
             rm llvm.tar.xz
@@ -130,7 +130,7 @@ jobs:
       xcode: "11.1.0"
     environment:
       - CI_OS: osx
-      - LLVM_VERSION: 9.0.0
+      - LLVM_VERSION: 9.0.1
       - HOST_LDC_VERSION: 1.18.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
   macOS-x64-sharedLibsOnly:
@@ -139,7 +139,7 @@ jobs:
       xcode: "11.1.0"
     environment:
       - CI_OS: osx
-      - LLVM_VERSION: 9.0.0
+      - LLVM_VERSION: 9.0.1
       - HOST_LDC_VERSION: 1.18.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON"
 
