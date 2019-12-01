@@ -168,14 +168,16 @@ jobs:
         mv */*.* .
         find . -type d -empty -delete
         ls -l
-      displayName: Move artifact files out of their subdirs
+        sha256sum * > sha256sums.txt
+      displayName: Move artifact files out of their subdirs and compute hashes
     # We also need to determine whether the GitHub release is a pre-release,
     # as the GitHubRelease task overwrites that flag.
     - bash: |
-        set -e
+        set -ex
         if [ "${BUILD_SOURCEBRANCH:0:10}" != "refs/tags/" ]; then
           releaseTag=CI
           isPreRelease=true
+          artifactID=${BUILD_SOURCEVERSION:0:8}
         else
           releaseTag=${BUILD_SOURCEBRANCH:10}
           if [[ "$releaseTag" == *-* ]]; then
@@ -183,7 +185,10 @@ jobs:
           else
             isPreRelease=false
           fi
+          artifactID=${BUILD_SOURCEBRANCH:11}
         fi
+        mv artifacts/sha256sums.txt artifacts/ldc2-$artifactID.sha256sums.txt
+        set +x
         echo "##vso[task.setvariable variable=GITHUB_RELEASE_TAG]$releaseTag"
         echo "##vso[task.setvariable variable=GITHUB_RELEASE_ISPRERELEASE]$isPreRelease"
       displayName: Set GITHUB_RELEASE_{TAG,ISPRERELEASE} env variables
