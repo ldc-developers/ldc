@@ -234,7 +234,6 @@ endif()
 # DMD and GDC do). OS X doesn't need extra configuration due to the use of
 # fat binaries. Other Posixen might need to be added here.
 if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
-    set(ADDITIONAL_DEFAULT_LDC_SWITCHES  "${ADDITIONAL_DEFAULT_LDC_SWITCHES}\n        \"-L--no-warn-search-mismatch\",")
     set(MULTILIB_ADDITIONAL_PATH         "\n        \"${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",")
     set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",")
 endif()
