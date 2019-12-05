@@ -44,6 +44,8 @@ function(mlir_tablegen)
      ${ARGN}
      )
 
+    MESSAGE(STATUS "Setting target for Ops_" ${ARG_TARGET})
+
     set(TABLEGEN_OUTPUT ${TABLEGEN_OUTPUT} ${CMAKE_CURRENT_SOURCE_DIR}/${ARG_SRCS}
             PARENT_SCOPE)
     #mlir-tblgen ops.td --gen-op-* -I*-o=ops.*.inc

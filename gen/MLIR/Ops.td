@@ -33,17 +33,18 @@ class D_Op<string mnemonic, list<OpTrait> traits = []> :
      Op<D_Dialect, mnemonic, traits>;
 
 ////////////////////////////////////////////////////////////////////////////////
-// AddOIp 8, 16, 32, 64, 128
+// AddOIp IntegerLike infers the size of int
 
-def AddI8Op : D_Op<"addi8"> {
+def AddIOp : D_Op<"addi"> {
     let summary = "element-wise addition operation";
     let description = [{
-        The "add" operation performs element-wise addition between two values.
+        The "addi" operation performs element-wise addition between two
+        integer values.
         The type of the value operands are expected to match.
     }];
 
-    let arguments = (ins I8:$lhs, I8:$rhs);
-    let results = (outs I8);
+    let arguments = (ins IntegerLike:$lhs, IntegerLike:$rhs);
+    let results = (outs AnyType);
 
     // Allow building an AddOp with from the two input operands.
     let builders = [
@@ -51,83 +52,20 @@ def AddI8Op : D_Op<"addi8"> {
     ];
 }
 
-def AddI16Op : D_Op<"addi16"> {
-    let summary = "element-wise addition operation";
-    let description = [{
-        The "add" operation performs element-wise addition between two values.
-        The type of the value operands are expected to match.
-    }];
-
-    let arguments = (ins I16:$lhs, I16:$rhs);
-    let results = (outs I16);
-
-    // Allow building an AddOp with from the two input operands.
-    let builders = [
-      OpBuilder<"Builder *b, OperationState &state, Value *lhs, Value *rhs">
-    ];
-}
-
-def AddI32Op : D_Op<"addi32"> {
-    let summary = "element-wise addition operation";
-    let description = [{
-        The "add" operation performs element-wise addition between two values.
-        The type of the value operands are expected to match.
-    }];
-
-    let arguments = (ins I32:$lhs, I32:$rhs);
-    let results = (outs I32);
-
-    // Allow building an AddOp with from the two input operands.
-    let builders = [
-      OpBuilder<"Builder *b, OperationState &state, Value *lhs, Value *rhs">
-    ];
-}
-
-def AddI64Op : D_Op<"addi64"> {
-    let summary = "element-wise addition operation";
-    let description = [{
-        The "add" operation performs element-wise addition between two values.
-        The type of the value operands are expected to match.
-    }];
-
-    let arguments = (ins I64:$lhs, I64:$rhs);
-    let results = (outs I64);
-
-    // Allow building an AddOp with from the two input operands.
-    let builders = [
-      OpBuilder<"Builder *b, OperationState &state, Value *lhs, Value *rhs">
-    ];
-}
-
-/*def AddI128Op : D_Op<"addi128"> {
-    let summary = "element-wise addition operation";
-    let description = [{
-        The "add" operation performs element-wise addition between two values.
-        The type of the value operands are expected to match.
-    }];
-
-    let arguments = (ins I128:$lhs, I128:$rhs);
-    let results = (outs I128);
-
-    // Allow building an AddOp with from the two input operands.
-    let builders = [
-      OpBuilder<"Builder *b, OperationState &state, Value *lhs, Value *rhs">
-    ];
-}*/
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// AddFOp 16, 32, 64
+// AddFOp FloatLike infers the size of float
 
-def AddF16Op : D_Op<"add16f"> {
+def AddFOp : D_Op<"addf"> {
     let summary = "element-wise addition operation";
     let description = [{
-        The "add" operation performs element-wise addition between two values.
+        The "addf" operation performs element-wise addition between two values.
         The type of the value operands are expected to match.
     }];
 
-    let arguments = (ins F16:$lhs, F16:$rhs);
-    let results = (outs F16);
+    let arguments = (ins FloatLike:$lhs, FloatLike:$rhs);
+    let results = (outs AnyType);
 
     // Allow building an AddOp with from the two input operands.
     let builders = [
@@ -135,37 +73,7 @@ def AddF16Op : D_Op<"add16f"> {
     ];
 }
 
-def AddF32Op : D_Op<"add32f"> {
-    let summary = "element-wise addition operation";
-    let description = [{
-        The "add" operation performs element-wise addition between two values.
-        The type of the value operands are expected to match.
-    }];
-
-    let arguments = (ins F32:$lhs, F32:$rhs);
-    let results = (outs F32);
-
-    // Allow building an AddOp with from the two input operands.
-    let builders = [
-      OpBuilder<"Builder *b, OperationState &state, Value *lhs, Value *rhs">
-    ];
-}
-
-def AddF64Op : D_Op<"add64f"> {
-    let summary = "element-wise addition operation";
-    let description = [{
-        The "add" operation performs element-wise addition between two values.
-        The type of the value operands are expected to match.
-    }];
-
-    let arguments = (ins F64:$lhs, F64:$rhs);
-    let results = (outs F64);
-
-    // Allow building an AddOp with from the two input operands.
-    let builders = [
-      OpBuilder<"Builder *b, OperationState &state, Value *lhs, Value *rhs">
-    ];
-}
+////////////////////////////////////////////////////////////////////////////////
 
 def MulOp : D_Op<"mul"> {
   let summary = "element-wise multiplication operation";
@@ -174,8 +82,8 @@ def MulOp : D_Op<"mul"> {
     tensors. The shapes of the tensor operands are expected to match.
   }];
 
-  let arguments = (ins F64Tensor:$lhs, F64Tensor:$rhs);
-  let results = (outs F64Tensor);
+  let arguments = (ins AnyType:$lhs, AnyType:$rhs);
+  let results = (outs AnyType);
 
   // Allow building a MulOp with from the two input operands.
   let builders = [

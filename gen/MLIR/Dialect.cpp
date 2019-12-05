@@ -38,7 +38,7 @@ DDialect::DDialect(mlir::MLIRContext *context) : mlir::Dialect("D",
 //===----------------------------------------------------------------------===//
 // AddOp
 
-void AddI8Op::build(mlir::Builder *b, mlir::OperationState &state,
+void AddIOp::build(mlir::Builder *b, mlir::OperationState &state,
         mlir::Value *lhs, mlir::Value *rhs) {
   if(lhs->getType() == rhs->getType())
     state.addTypes(lhs->getType());
@@ -47,43 +47,8 @@ void AddI8Op::build(mlir::Builder *b, mlir::OperationState &state,
   state.addOperands({lhs, rhs});
 }
 
-void AddI16Op::build(mlir::Builder *b, mlir::OperationState &state,
-                    mlir::Value *lhs, mlir::Value *rhs) {
-  if(lhs->getType() == rhs->getType())
-    state.addTypes(lhs->getType());
-  else
-    state.addTypes(mlir::NoneType::get(b->getContext()));
-  state.addOperands({lhs, rhs});
-}
 
-void AddI32Op::build(mlir::Builder *b, mlir::OperationState &state,
-                    mlir::Value *lhs, mlir::Value *rhs) {
-  if(lhs->getType() == rhs->getType())
-    state.addTypes(lhs->getType());
-  else
-    state.addTypes(mlir::NoneType::get(b->getContext()));
-  state.addOperands({lhs, rhs});
-}
-
-void AddI64Op::build(mlir::Builder *b, mlir::OperationState &state,
-                    mlir::Value *lhs, mlir::Value *rhs) {
-  if(lhs->getType() == rhs->getType())
-    state.addTypes(lhs->getType());
-  else
-    state.addTypes(mlir::NoneType::get(b->getContext()));
-  state.addOperands({lhs, rhs});
-}
-
-/*void AddI128Op::build(mlir::Builder *b, mlir::OperationState &state,
-                    mlir::Value *lhs, mlir::Value *rhs) {
-  if(lhs->getType() == rhs->getType())
-    state.addTypes(lhs->getType());
-  else
-    state.addTypes(mlir::NoneType::get(b->getContext()));
-  state.addOperands({lhs, rhs});
-}*/
-
-void AddF16Op::build(mlir::Builder *b, mlir::OperationState &state,
+void AddFOp::build(mlir::Builder *b, mlir::OperationState &state,
                    mlir::Value *lhs, mlir::Value *rhs) {
   if(lhs->getType() == rhs->getType())
     state.addTypes(lhs->getType());
@@ -92,23 +57,8 @@ void AddF16Op::build(mlir::Builder *b, mlir::OperationState &state,
   state.addOperands({lhs, rhs});
 }
 
-void AddF32Op::build(mlir::Builder *b, mlir::OperationState &state,
-                    mlir::Value *lhs, mlir::Value *rhs) {
-  if(lhs->getType() == rhs->getType())
-    state.addTypes(lhs->getType());
-  else
-    state.addTypes(mlir::NoneType::get(b->getContext()));
-  state.addOperands({lhs, rhs});
-}
+//void MulOp::build(mlir::Builder)
 
-void AddF64Op::build(mlir::Builder *b, mlir::OperationState &state,
-                    mlir::Value *lhs, mlir::Value *rhs) {
-  if(lhs->getType() == rhs->getType())
-    state.addTypes(lhs->getType());
-  else
-    state.addTypes(mlir::NoneType::get(b->getContext()));
-  state.addOperands({lhs, rhs});
-}
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//

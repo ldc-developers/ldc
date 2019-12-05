@@ -37,6 +37,7 @@
 #include "mlir/IR/Types.h"
 
 #include "llvm/ADT/ScopedHashTable.h"
+#include "llvm/Support/raw_ostream.h"
 
 using llvm::StringRef;
 using llvm::ScopedHashTableScope;
@@ -78,23 +79,24 @@ public:
   mlir::Value* mlirGen(Declaration* declaration);
   mlir::Value* DtoAssignMLIR(mlir::Location Loc, mlir::Value* lhs,
       mlir::Value* rhs, int op, bool canSkipPostblitm, Type* t1, Type* t2);
+  mlir::Type get_MLIRtype(Expression* expression);
 
   //Expression
   mlir::Value* mlirGen(AddExp *addExp = nullptr, AddAssignExp *addAssignExp = nullptr);
-  mlir::Value* mlirGen(DeclarationExp* declarationExp);
-  mlir::Value* mlirGen(Expression *expression, mlir::Block *block = nullptr);
-  mlir::Value* mlirGen(AssignExp *assignExp); //Not perfet yet
-  mlir::Value* mlirGen(ConstructExp *constructExp);
-  mlir::Value* mlirGen(IntegerExp *integerExp);
-  mlir::Value* mlirGen(RealExp *realExp);
-  mlir::Value* mlirGen(VarExp *varExp);
-  mlir::Value* mlirGen(CallExp *callExp);
+  //mlir::Value* mlirGen(AndAssignExp *addAssignExp);
   mlir::Value* mlirGen(ArrayLiteralExp *arrayLiteralExp);
-  mlir::Value* mlirGen(AndAssignExp *addAssignExp);
+  mlir::Value* mlirGen(AssignExp *assignExp); //Not perfect yet
+  mlir::Value* mlirGen(CallExp *callExp);
+  mlir::Value* mlirGen(CastExp *castExp);
+  mlir::Value* mlirGen(ConstructExp *constructExp);
+  mlir::Value* mlirGen(DeclarationExp* declarationExp);
   mlir::Value* mlirGen(Expression *expression, int func);
-  void mlirGen(TemplateInstance *templateInstance);
+  mlir::Value* mlirGen(Expression *expression, mlir::Block *block = nullptr);
+  mlir::Value* mlirGen(IntegerExp *integerExp);
   mlir::Value* mlirGen(PostExp *postExp);
-  mlir::Type get_MLIRtype(Expression* expression);
+  mlir::Value* mlirGen(RealExp *realExp);
+  void mlirGen(TemplateInstance *templateInstance);
+  mlir::Value* mlirGen(VarExp *varExp);
 
   ///Set MLIR Location using D Loc info
   mlir::Location loc(Loc loc){

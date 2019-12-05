@@ -278,8 +278,8 @@ mlir::Value *MLIRDeclaration::mlirGen(IntegerExp *integerExp){
 mlir::Value* MLIRDeclaration::mlirGen(RealExp *realExp){
   _total++;
   real_t dfloat = realExp->value;
-  Logger::println("RealExp: '%Lf'", dfloat);
-  mlir::OperationState result(loc(realExp->loc), "ldc.Integer");
+  Logger::println("MLIRCodeGen - RealExp: '%Lf'", dfloat);
+  mlir::OperationState result(loc(realExp->loc), "ldc.RealExp");
   auto ret_type = get_MLIRtype(realExp);
   result.addTypes(ret_type);
   mlir::Attribute value_type;
@@ -297,7 +297,7 @@ mlir::Value* MLIRDeclaration::mlirGen(RealExp *realExp){
 
 mlir::Value *MLIRDeclaration::mlirGen(VarExp *varExp){
   _total++;
-  Logger::println("VarExp: '%s'", varExp->var->toChars());
+  Logger::println("MLIRCodeGen - VarExp: '%s'", varExp->var->toChars());
   auto var = symbolTable.lookup(varExp->var->toChars());
   if (!var) {
     IF_LOG Logger::println("Undeclared VarExp: '%s' | '%u'", varExp->toChars(), varExp->op);
@@ -430,11 +430,18 @@ mlir::Value *MLIRDeclaration::mlirGen(AddExp *addExp, AddAssignExp *addAssignExp
   mlir::Location *location = nullptr;
 
   if(addAssignExp) {
+    IF_LOG Logger::println("MLIRCodeGen - AddExp: '%s' + '%s' @ %s",
+      addAssignExp->e1->toChars(), addAssignExp->e2->toChars(),
+      addAssignExp->type->toChars());
+    LOG_SCOPE
     mlir::Location addAssignLoc = loc(addAssignExp->loc);
     location = &addAssignLoc;
     e1 = mlirGen(addAssignExp->e1);
     e2 = mlirGen(addAssignExp->e2);
   }else if(addExp){
+    IF_LOG Logger::println("MLIRCodeGen - AddExp: '%s' + '%s' @ %s",
+      addExp->e1->toChars(), addExp->e2->toChars(), addExp->type->toChars());
+    LOG_SCOPE
     mlir::Location addExpLoc = loc(addExp->loc);
     location = &addExpLoc;
     e1 = mlirGen(addExp->e1);
@@ -444,31 +451,25 @@ mlir::Value *MLIRDeclaration::mlirGen(AddExp *addExp, AddAssignExp *addAssignExp
     return nullptr;
   }
 
-  if(e1->getType().isF16())
-    return builder.create<mlir::D::AddF16Op>(*location, e1, e2);
-  else if(e1->getType().isF32())
-    return builder.create<mlir::D::AddF32Op>(*location, e1, e2);
-  else if(e1->getType().isF64())
-    return builder.create<mlir::D::AddF64Op>(*location, e1, e2);
-  else if(e1->getType().isInteger(8))
-    return builder.create<mlir::D::AddI8Op>(*location, e1, e2);
-  else if(e1->getType().isInteger(16))
-    return builder.create<mlir::D::AddI16Op>(*location, e1, e2);
-  else if(e1->getType().isInteger(32))
-    return builder.create<mlir::D::AddI32Op>(*location, e1, e2);
-  else if(e1->getType().isInteger(64))
-    return builder.create<mlir::D::AddI64Op>(*location, e1, e2);
-    //  else if(e1->getType().isInteger(128))
-    //    return builder.create<mlir::D::AddI128Op>(location, e1, e2);
-  else
-    _miss++;
+  if((e1->getType().isF16() || e1->getType().isF32() || e1->getType().isF64())
+  && (e2->getType().isF16() || e2->getType().isF32() || e2->getType().isF64())) {
+    return builder.create<mlir::D::AddFOp>(*location, e1, e2);
+  }else
+    if((e1->getType().isInteger(8) || e1->getType().isInteger(16) ||
+    e1->getType().isInteger(32) || e1->getType().isInteger(64)) &&
+    (e2->getType().isInteger(8) || e2->getType().isInteger(16) ||
+    e2->getType().isInteger(32) || e2->getType().isInteger(64))) {
+      return builder.create<mlir::D::AddIOp>(*location, e1, e2);
+    }else {
+      _miss++;
+    }
   return nullptr;
 }
 
 mlir::Value *MLIRDeclaration::mlirGen(Expression *expression, mlir::Block*
 block) {
-  IF_LOG Logger::println("MLIRCodeGen - Expression: '%s' | '%u'",
-      expression->toChars(), expression->op);
+  IF_LOG Logger::println("MLIRCodeGen - Expression: '%s' | '%u' -> '%s'",
+      expression->toChars(), expression->op, expression->type->toChars());
   LOG_SCOPE
   this->_total++;
 
@@ -485,6 +486,8 @@ block) {
     return mlirGen(varExp);
   else if(DeclarationExp *declarationExp = expression->isDeclarationExp())
     return mlirGen(declarationExp);
+  else if(CastExp *castExp = expression->isCastExp())
+    return mlirGen(castExp);
   else if(IntegerExp *integerExp = expression->isIntegerExp())
     return mlirGen(integerExp);
   else if(RealExp *realExp = expression->isRealExp())
@@ -598,6 +601,57 @@ block) {
                     expression->toChars(), expression->op,
                     expression->type->toChars());
     return nullptr;
+}
+
+mlir::Value* MLIRDeclaration::mlirGen(CastExp *castExp){
+  IF_LOG Logger::print("MLIRCodeGen - CastExp: %s @ %s\n", castExp->toChars(),
+                       castExp->type->toChars());
+  LOG_SCOPE;
+
+  mlir::Value* result = nullptr;
+  std::string aux, from, to;
+
+  // get the value to cast
+  mlir::Value* u = mlirGen(castExp->e1);
+
+  // handle cast to void (usually created by frontend to avoid "has no effect"
+  // error)
+  if (castExp->to == Type::tvoid) {
+    result = nullptr;
+    return result;
+  }
+  // cast it to the 'to' type, if necessary
+  result = u;
+  if (castExp->to->equals(castExp->e1->type)) {
+    return result;
+  }
+
+  // paint the type, if necessary
+  if (!castExp->type->equals(castExp->to)) {
+    //result = DtoPaintType(castExp->loc, result, castExp->type); //TODO:
+    IF_LOG Logger::println("Unable to paint the type, function not "
+                           "implemented");
+    _miss++;
+  }
+
+  auto t1 = castExp->to->toChars();
+  auto t2 = castExp->e1->type->toChars();
+  auto type = get_MLIRtype(castExp);
+  llvm::raw_string_ostream rso(aux);
+  type.print(rso);
+  to = rso.str();
+
+  aux.clear();
+  llvm::raw_string_ostream rso2(aux);
+  result->getType().print(rso2);
+  from = rso2.str();
+
+  mlir::OperationState Castresult(loc(castExp->loc), "ldc.CastOp");
+  auto attr = from + " -> " + to;
+  auto stringAttr = mlir::StringAttr::get(attr, &context);
+  Castresult.addTypes(type);
+  Castresult.addOperands({result});
+  return builder.createOperation(Castresult)->getResult(0);
 }
 
 void MLIRDeclaration::mlirGen(TemplateInstance *decl) {
