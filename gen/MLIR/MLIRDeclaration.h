@@ -78,7 +78,8 @@ public:
   mlir::Value* mlirGen(VarDeclaration* varDeclaration);
   mlir::Value* mlirGen(Declaration* declaration);
   mlir::Value* DtoAssignMLIR(mlir::Location Loc, mlir::Value* lhs,
-      mlir::Value* rhs, int op, bool canSkipPostblitm, Type* t1, Type* t2);
+      mlir::Value* rhs, StringRef lhs_name, StringRef rhs_name, int op,
+      bool canSkipPostblitm, Type* t1, Type* t2);
   mlir::Type get_MLIRtype(Expression* expression);
 
   //Expression

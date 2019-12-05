@@ -82,9 +82,12 @@ mlir::Value *MLIRDeclaration::mlirGen(VarDeclaration *vd){
 }
 
 mlir::Value* MLIRDeclaration::DtoAssignMLIR(mlir::Location Loc,
-             mlir::Value* lhs, mlir::Value* rhs, int op, bool
-             canSkipPostblit, Type* t1, Type* t2){
-  IF_LOG Logger::println("DtoAssignMLIR()");
+             mlir::Value* lhs, mlir::Value* rhs,  StringRef lhs_name,
+             StringRef rhs_name, int op, bool canSkipPostblit, Type* t1,
+             Type* t2){
+  IF_LOG Logger::println("MLIRCodeGen - DtoAssignMLIR:");
+  IF_LOG Logger::println("lhs: %s @ '%s'", lhs_name.data(), t1->toChars());
+  IF_LOG Logger::println("rhs: %s @ '%s'", rhs_name.data(), t2->toChars());
   LOG_SCOPE;
 
   assert(t1->ty != Tvoid && "Cannot assign values of type void.");
@@ -93,8 +96,8 @@ mlir::Value* MLIRDeclaration::DtoAssignMLIR(mlir::Location Loc,
     IF_LOG Logger::println("DtoAssignMLIR == Tbool"); //TODO: DtoStoreZextI8
   }
 
-  IF_LOG Logger::println("Passou aqui! -> '%u'", op);
-  return nullptr;
+  lhs =  rhs;
+  return lhs;
 }
 
 
@@ -169,8 +172,9 @@ mlir::Value *MLIRDeclaration::mlirGen(AssignExp *assignExp){
      !(assignExp->e2->op == TOKint64) && !(assignExp->op == TOKconstruct ||
                                            assignExp->op == TOKblit) && !
                                            (assignExp->e1->op == TOKslice))
-    DtoAssignMLIR(loc(assignExp->loc),  mlirGen(assignExp->e1),
-                mlirGen(assignExp->e2), assignExp->op,!lvalueElem, t1, t2);
+    return DtoAssignMLIR(loc(assignExp->loc),  mlirGen(assignExp->e1),
+                mlirGen(assignExp->e2), assignExp->e1->toChars(),
+                assignExp->e2->toChars(), assignExp->op, !lvalueElem, t1, t2);
 
 
   //check if it is a declared variable
@@ -326,7 +330,7 @@ mlir::Value *MLIRDeclaration::mlirGen(ArrayLiteralExp *arrayLiteralExp){
 
   //For now lets assume one-dimensional arrays
   std::vector<int64_t> dims;
-  dims.push_back(1);
+  //dims.push_back(1);
   dims.push_back(data.size());
 
   // The type of this attribute is tensor of 64-bit floating-point with the
@@ -634,8 +638,6 @@ mlir::Value* MLIRDeclaration::mlirGen(CastExp *castExp){
     _miss++;
   }
 
-  auto t1 = castExp->to->toChars();
-  auto t2 = castExp->e1->type->toChars();
   auto type = get_MLIRtype(castExp);
   llvm::raw_string_ostream rso(aux);
   type.print(rso);
@@ -647,8 +649,6 @@ mlir::Value* MLIRDeclaration::mlirGen(CastExp *castExp){
   from = rso2.str();
 
   mlir::OperationState Castresult(loc(castExp->loc), "ldc.CastOp");
-  auto attr = from + " -> " + to;
-  auto stringAttr = mlir::StringAttr::get(attr, &context);
   Castresult.addTypes(type);
   Castresult.addOperands({result});
   return builder.createOperation(Castresult)->getResult(0);
