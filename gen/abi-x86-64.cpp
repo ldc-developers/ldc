@@ -302,7 +302,7 @@ void X86_64TargetABI::rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg,
   if (regCount.trySubtract(arg) == RegCount::ArgumentWouldFitInPartially) {
     // pass the LL struct with byval attribute to prevent LLVM from passing it
     // partially in registers, partially in memory
-    assert(originalLType->isStructTy());
+    assert(arg.ltype->isStructTy());
     IF_LOG Logger::cout() << "Passing byval to prevent register/memory mix: "
                           << arg.type->toChars() << " (" << *originalLType
                           << ")\n";
