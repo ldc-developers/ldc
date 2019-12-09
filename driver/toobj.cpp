@@ -47,6 +47,14 @@
 #include <cstddef>
 #include <fstream>
 
+#if LDC_LLVM_VER < 1000
+using CodeGenFileType = llvm::TargetMachine::CodeGenFileType;
+constexpr CodeGenFileType CGFT_AssemblyFile = llvm::TargetMachine::CGFT_AssemblyFile;
+constexpr CodeGenFileType CGFT_ObjectFile = llvm::TargetMachine::CGFT_ObjectFile;
+#else
+using CodeGenFileType = llvm::CodeGenFileType;
+#endif
+
 static llvm::cl::opt<bool>
     NoIntegratedAssembler("no-integrated-as", llvm::cl::ZeroOrMore,
                           llvm::cl::Hidden,
@@ -57,7 +65,7 @@ namespace {
 // based on llc code, University of Illinois Open Source License
 void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
                    const char *filename,
-                   llvm::TargetMachine::CodeGenFileType fileType) {
+                   CodeGenFileType fileType) {
   using namespace llvm;
 
   const ComputeBackend::Type cb = getComputeTargetType(&m);
@@ -114,7 +122,7 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 #endif
           // Always generate assembly for ptx as it is an assembly format
           // The PTX backend fails if we pass anything else.
-          (cb == ComputeBackend::NVPTX) ? llvm::TargetMachine::CGFT_AssemblyFile
+          (cb == ComputeBackend::NVPTX) ? CGFT_AssemblyFile
                                         : fileType,
           codeGenOptLevel())) {
     llvm_unreachable("no support for asm output");
@@ -274,7 +282,7 @@ public:
 void writeObjectFile(llvm::Module *m, const char *filename) {
   IF_LOG Logger::println("Writing object file to: %s", filename);
   codegenModule(*gTargetMachine, *m, filename,
-                llvm::TargetMachine::CGFT_ObjectFile);
+                CGFT_ObjectFile);
 }
 
 bool shouldAssembleExternally() {
@@ -442,10 +450,10 @@ void writeModule(llvm::Module *m, const char *filename) {
 #endif
       );
       codegenModule(*gTargetMachine, *clonedModule, spath.c_str(),
-                    llvm::TargetMachine::CGFT_AssemblyFile);
+                    CGFT_AssemblyFile);
     } else {
       codegenModule(*gTargetMachine, *m, spath.c_str(),
-                    llvm::TargetMachine::CGFT_AssemblyFile);
+                    CGFT_AssemblyFile);
     }
 
     if (assembleExternally) {
