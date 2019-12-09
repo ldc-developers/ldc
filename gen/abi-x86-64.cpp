@@ -189,11 +189,11 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
 };
 
 /**
- * This type is used to force LLVM to pass a LL struct in memory,
+ * This type is used to force LLVM to pass a LL aggregate in memory,
  * on the function parameters stack. We need this to prevent LLVM
- * from passing a LL struct partially in registers, partially in
+ * from passing an aggregate partially in registers, partially in
  * memory.
- * This is achieved by passing a pointer to the struct and using
+ * This is achieved by passing a pointer to the aggregate and using
  * the byval LLVM attribute.
  */
 struct ImplicitByvalRewrite : ABIRewrite {
@@ -300,9 +300,9 @@ void X86_64TargetABI::rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg,
   }
 
   if (regCount.trySubtract(arg) == RegCount::ArgumentWouldFitInPartially) {
-    // pass the LL struct with byval attribute to prevent LLVM from passing it
-    // partially in registers, partially in memory
-    assert(originalLType->isStructTy());
+    // pass the LL aggregate with byval attribute to prevent LLVM from passing
+    // it partially in registers, partially in memory
+    assert(originalLType->isAggregateType());
     IF_LOG Logger::cout() << "Passing byval to prevent register/memory mix: "
                           << arg.type->toChars() << " (" << *originalLType
                           << ")\n";
