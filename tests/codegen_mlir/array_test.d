@@ -1,4 +1,5 @@
-// RUN: ldc2 -output-mlir -of=%t.mlir %s &&  FileCheck %s < %t.mlir
+// REQUIRES: atleast_llvm1000
+// RUN: %ldc -output-mlir -of=%t.mlir %s &&  FileCheck %s < %t.mlir
 int main(){
   int[5] array = [1,2,3,4,5];
   int[] arr2 = [5, 2, 1, 10];
