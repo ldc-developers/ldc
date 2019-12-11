@@ -180,11 +180,29 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
   }
 
   void visit(IfStatement *stmt) override {
+    // Don't descend into ctfe only code
+    if (stmt->condition->op == TOKvar) {
+      auto ve = (VarExp *)stmt->condition;
+      if (ve->var->ident == Id::ctfe) {
+        if (stmt->elsebody)
+          visit(stmt->elsebody);
+        stop = true;
+      }
+    } else if (stmt->condition->op == TOKnot) {
+      auto ne = (NotExp *) stmt->condition;
+      if (ne->e1->op == TOKvar) {
+        auto ve = (VarExp * )ne->e1;
+        if (ve->var->ident == Id::ctfe) {
+          visit(stmt->ifbody);
+        stop = true;
+        }
+      }
+    }
     // Code inside an if(__dcompute_reflect(0,0)) { ...} is explicitly
     // for the host and is therefore allowed to call non @compute functions.
     // Thus, the if-statement body's code should not be checked for
     // @compute semantics and the recursive visitor should stop here.
-    if (stmt->condition->op == TOKcall) {
+    else if (stmt->condition->op == TOKcall) {
       auto ce = (CallExp *)stmt->condition;
       if (ce->f && ce->f->ident == Id::dcReflect) {
         auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
