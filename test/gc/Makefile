@@ -1,6 +1,6 @@
 include ../common.mak
 
-TESTS := sentinel printf memstomp invariant logging precise precisegc
+TESTS := sentinel printf memstomp invariant logging precise precisegc recoverfree
 # LDC: disable POSIX-specific tests on Windows
 ifeq (,$(findstring win,$(OS)))
 TESTS+=forkgc forkgc2 sigmaskgc startbackgc
@@ -52,6 +52,9 @@ $(ROOT)/sigmaskgc: sigmaskgc.d
 
 $(ROOT)/startbackgc: startbackgc.d
 	$(DMD) $(UDFLAGS) -of$@ sigmaskgc.d
+
+$(ROOT)/recoverfree: recoverfree.d
+	$(DMD) $(UDFLAGS) -of$@ recoverfree.d
 
 clean:
 	rm -rf $(ROOT)
