@@ -239,8 +239,14 @@ public:
       // adding more control flow.
       if (result && result->type->ty != Tvoid &&
           !result->definedInFuncEntryBB()) {
-        LLValue *copy = DtoAllocaDump(result);
-        result = new DLValue(result->type, copy);
+        if (result->isRVal()) {
+          LLValue *lval = DtoAllocaDump(result, ".toElemRValResult");
+          result = new DLValue(result->type, lval);
+        } else {
+          LLValue *lval = DtoLVal(result);
+          LLValue *lvalPtr = DtoAllocaDump(lval, 0, ".toElemLValResult");
+          result = new DSpecialRefValue(result->type, lvalPtr);
+        }
       }
 
       llvm::BasicBlock *endbb = p->insertBB("toElem.success");
@@ -505,7 +511,6 @@ public:
 
     // Try to construct the lhs in-place.
     if (lhs->isLVal() && (e->op == TOKconstruct || e->op == TOKblit)) {
-      Logger::println("attempting in-place construction");
       if (toInPlaceConstruction(lhs->isLVal(), e->e2))
         return;
     }
@@ -524,7 +529,6 @@ public:
     if (lhs->isLVal() && (e->op == TOKassign) &&
         ((e->e2->op == TOKstructliteral) &&
          static_cast<StructLiteralExp *>(e->e2)->useStaticInit)) {
-      Logger::println("attempting in-place assignment");
       if (toInPlaceConstruction(lhs->isLVal(), e->e2))
         return;
     }
@@ -2742,9 +2746,34 @@ bool basetypesAreEqualWithoutModifiers(Type *l, Type *r) {
   r = stripModifiers(r->toBasetype(), true);
   return l->equals(r);
 }
+
+Expression *getCommaHead(CommaExp *e) {
+  auto l = e->e1;
+  for (;;) {
+    if (auto ce = l->isCommaExp())
+      l = ce->e1;
+    else
+      break;
+  }
+  return l;
+}
+
+Expression *getCommaTail(CommaExp *e) {
+  auto r = e->e2;
+  for (;;) {
+    if (auto ce = r->isCommaExp())
+      r = ce->e2;
+    else
+      break;
+  }
+  return r;
+}
 }
 
 bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
+  Logger::println("attempting in-place construction");
+  LOG_SCOPE;
+
   // Is the rhs the init symbol of a zero-initialized struct?
   // Then aggressively zero-out the lhs, without any type checks, e.g., allowing
   // to initialize a `S[1]` lhs with a `S` rhs.
@@ -2758,6 +2787,7 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
         DtoResolveStruct(sd);
 
         if (sd->zeroInit) {
+          Logger::println("success, zeroing out");
           DtoMemSetZero(DtoLVal(lhs));
           return true;
         }
@@ -2765,8 +2795,10 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
     }
   }
 
-  if (!basetypesAreEqualWithoutModifiers(lhs->type, rhs->type))
+  if (!basetypesAreEqualWithoutModifiers(lhs->type, rhs->type)) {
+    Logger::println("aborted due to different base types without modifiers");
     return false;
+  }
 
   // skip over rhs casts only emitted because of differing constness
   if (rhs->op == TOKcast) {
@@ -2783,6 +2815,7 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
     // In this case, pass `&v` as hidden sret argument, i.e., let `foo()`
     // construct the return value directly into the lhs lvalue.
     if (DtoIsReturnInArg(ce)) {
+      Logger::println("success, in-place-constructing sret return value");
       ToElemVisitor::call(gIR, ce, DtoLVal(lhs));
       return true;
     }
@@ -2792,6 +2825,8 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
       auto dve = static_cast<DotVarExp *>(ce->e1);
       auto fd = dve->var->isFuncDeclaration();
       if (fd && fd->isCtorDeclaration() && dve->e1->op == TOKstructliteral) {
+        Logger::println(
+            "success, in-place-constructing struct literal and invoking ctor");
         // emit the struct literal directly into the lhs lvalue...
         auto sle = static_cast<StructLiteralExp *>(dve->e1);
         auto lval = DtoLVal(lhs);
@@ -2807,6 +2842,7 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
 
   // emit struct literals directly into the lhs lvalue
   if (rhs->op == TOKstructliteral) {
+    Logger::println("success, in-place-constructing struct literal");
     auto sle = static_cast<StructLiteralExp *>(rhs);
     ToElemVisitor::emitStructLiteral(sle, DtoLVal(lhs));
     return true;
@@ -2815,6 +2851,7 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
   // static array literals too
   Type *lhsBasetype = lhs->type->toBasetype();
   if (rhs->op == TOKarrayliteral && lhsBasetype->ty == Tsarray) {
+    Logger::println("success, in-place-constructing array literal");
     auto al = static_cast<ArrayLiteralExp *>(rhs);
     initializeArrayLiteral(gIR, al, DtoLVal(lhs));
     return true;
@@ -2822,8 +2859,36 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
 
   // vector literals too
   if (auto ve = rhs->isVectorExp()) {
+    Logger::println("success, in-place-constructing vector");
     ToElemVisitor::emitVector(ve, DtoLVal(lhs));
     return true;
+  }
+
+  // temporary structs and static arrays too
+  if (DtoIsInMemoryOnly(lhsBasetype)) {
+    if (auto ce = rhs->isCommaExp()) {
+      Expression *head = getCommaHead(ce);
+      Expression *tail = getCommaTail(ce);
+
+      if (auto de = head->isDeclarationExp()) {
+        if (auto vd = de->declaration->isVarDeclaration()) {
+          if (auto ve = tail->isVarExp()) {
+            if (ve->var == vd) {
+              Logger::println("success, in-place-constructing temporary");
+              auto lhsLVal = DtoLVal(lhs);
+              auto rhsLVal = DtoLVal(rhs);
+              if (!llvm::isa<llvm::AllocaInst>(rhsLVal)) {
+                error(rhs->loc, "lvalue of temporary is not an alloca, please "
+                                "file an LDC issue");
+                fatal();
+              }
+              rhsLVal->replaceAllUsesWith(lhsLVal);
+              return true;
+            }
+          }
+        }
+      }
+    }
   }
 
   return false;

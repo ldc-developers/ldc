@@ -96,10 +96,10 @@ include(GetLinuxDistribution)
 #
 
 # Version information
-set(LDC_VERSION "1.18.0") # May be overridden by git hash tag
+set(LDC_VERSION "1.19.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   88)
+set(DMDFE_PATCH_VERSION   89)
 set(DMDFE_FIX_LEVEL       1)
 
 set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}${DMDFE_PATCH_VERSION})
@@ -552,9 +552,13 @@ append("-I${PROJECT_BINARY_DIR}" DDMD_DFLAGS)
 append("-version=IN_LLVM" DDMD_DFLAGS)
 append("-DIN_LLVM" LDC_CXXFLAGS)
 append("-DOPAQUE_VTBLS" LDC_CXXFLAGS)
-append("\"-DLDC_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}\"" LDC_CXXFLAGS)
+# Predefine LDC_INSTALL_PREFIX as raw string literal, requiring shell + CMake escaping.
+# E.g., for CMAKE_INSTALL_PREFIX=`C:\dir with space`:
+#   g++ "-DLDC_INSTALL_PREFIX=R\"(C:\dir with space)\"" ...
+#   => LDC_INSTALL_PREFIX defined as `R"(C:\dir with space)"`
+append("\"-DLDC_INSTALL_PREFIX=R\\\"(${CMAKE_INSTALL_PREFIX})\\\"\"" LDC_CXXFLAGS)
 append("-DLDC_LLVM_VER=${LDC_LLVM_VER}" LDC_CXXFLAGS)
-append("\"-DLDC_LIBDIR_SUFFIX=\\\"${LIB_SUFFIX}\\\"\"" LDC_CXXFLAGS)
+append("\"-DLDC_LIBDIR_SUFFIX=R\\\"(${LIB_SUFFIX})\\\"\"" LDC_CXXFLAGS)
 append("-DLDC_HOST_${D_COMPILER_ID}=1" LDC_CXXFLAGS)
 append("-DLDC_HOST_FE_VER=${D_COMPILER_FE_VERSION}" LDC_CXXFLAGS)
 
@@ -613,10 +617,18 @@ endif()
 #
 # Set up the main ldc/ldc2 target.
 #
+set(LDC_LIB_LANGUAGE CXX)
 if(BUILD_SHARED)
     set(LDC_LIB_TYPE SHARED)
 else()
     set(LDC_LIB_TYPE STATIC)
+    if("${D_COMPILER_ID}" STREQUAL "LDMD" AND D_COMPILER_FE_VERSION GREATER 2074)
+        # Define a 'HOST_D' CMake linker language for the static LDCShared
+        # library, using the host ldmd2 compiler ≥ v1.5 as archiver, which
+        # supports LTO objects and cross-archiving.
+        set(CMAKE_HOST_D_CREATE_STATIC_LIBRARY "${D_COMPILER} -lib ${D_COMPILER_FLAGS} ${DDMD_DFLAGS} -of=<TARGET> <OBJECTS>")
+        set(LDC_LIB_LANGUAGE HOST_D)
+    endif()
 endif()
 
 set(LDC_LIB LDCShared)
@@ -634,6 +646,7 @@ set_target_properties(
     LIBRARY_OUTPUT_NAME ldc
     RUNTIME_OUTPUT_NAME ldc
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS} ${EXTRA_CXXFLAGS}"
+    LINKER_LANGUAGE ${LDC_LIB_LANGUAGE}
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
@@ -656,7 +669,7 @@ if(MSVC)
     # VS 2017+: Use undocumented /NOOPTTLS MS linker switch to keep on emitting
     # a .tls section. Required for older host druntime versions, otherwise the
     # GC TLS ranges are garbage starting with VS 2017 Update 15.3.
-    if(MSVC_VERSION GREATER 1900) # VS 2017+
+    if(MSVC_VERSION GREATER 1900 AND D_COMPILER_FE_VERSION LESS 2076)
         list(APPEND LDC_LINKERFLAG_LIST "/NOOPTTLS")
     endif()
 endif()

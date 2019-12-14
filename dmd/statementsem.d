@@ -79,7 +79,7 @@ private Identifier fixupLabelName(Scope* sc, Identifier ident)
         buf.writestring(flags == SCOPE.require ? "__in_" : "__out_");
         buf.writestring(ident.toString());
 
-        ident = Identifier.idPool(buf.peekSlice());
+        ident = Identifier.idPool(buf[]);
     }
     return ident;
 }
@@ -2807,7 +2807,7 @@ version (IN_LLVM)
 
                 // Sort cases for efficient lookup
                 import core.stdc.stdlib : qsort, _compare_fp_t;
-                qsort(csCopy.data, numcases, CaseStatement.sizeof, cast(_compare_fp_t)&sort_compare);
+                qsort((*csCopy)[].ptr, numcases, CaseStatement.sizeof, cast(_compare_fp_t)&sort_compare);
             }
 
             // The actual lowering

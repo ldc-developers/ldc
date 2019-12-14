@@ -1822,11 +1822,12 @@ FuncDeclaration *getParentFunc(Dsymbol *sym) {
     return nullptr;
   }
 
-  // Static/non-extern(D) functions and function (not delegate) literals don't
-  // allow access to a parent context, even if they are nested.
+  // Static functions, non-extern(D) non-member functions and function (not
+  // delegate) literals don't allow access to a parent context, even if they are
+  // nested.
   if (FuncDeclaration *fd = sym->isFuncDeclaration()) {
     bool certainlyNewRoot =
-        fd->isStatic() || fd->linkage != LINKd ||
+        fd->isStatic() || (!fd->isThis() && fd->linkage != LINKd) ||
         (fd->isFuncLiteralDeclaration() &&
          static_cast<FuncLiteralDeclaration *>(fd)->tok == TOKfunction);
     if (certainlyNewRoot) {

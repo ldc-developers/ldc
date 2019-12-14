@@ -1,6 +1,6 @@
 variables:
   LLVM_VERSION: 9.0.0
-  HOST_LDC_VERSION: 1.14.0
+  HOST_LDC_VERSION: 1.18.0
 
 # Although tags are supposed to trigger builds by default, they don't.
 trigger:
@@ -15,17 +15,19 @@ jobs:
   variables:
     CLANG_VERSION: 9.0.0
     VSINSTALLDIR: C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\
-    EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON
   strategy:
     matrix:
       x64:
         OS: windows
         MODEL: 64
         ARCH: x64
+        EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON -DD_COMPILER_FLAGS="-flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto" -DEXTRA_CXXFLAGS=-flto=full
       x86:
         OS: windows
         MODEL: 32
         ARCH: x86
+        # Undefined symbol errors with FullLTO; ThinLTO works.
+        EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON -DD_COMPILER_FLAGS="-flto=thin -defaultlib=phobos2-ldc-lto,druntime-ldc-lto" -DEXTRA_CXXFLAGS=-flto=thin
         # Let CMake configure 64-bit clang-cl for 32-bit code emission.
         CFLAGS: -m32
         CXXFLAGS: -m32
@@ -45,12 +47,12 @@ jobs:
     LDC_VSDIR: C:\non-existing_dummy
   steps:
     - checkout: none
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: windows-x64
         targetPath: artifacts
       displayName: Download x64 artifact
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: windows-x86
         targetPath: artifacts
@@ -95,11 +97,8 @@ jobs:
         mkdir newArtifacts
         7z a -mx=9 newArtifacts/%ARTIFACT_NAME%.7z %ARTIFACT_NAME% > nul
       displayName: Pack
-    - task: PublishPipelineArtifact@0
-      inputs:
-        artifactName: windows-multilib
-        targetPath: newArtifacts
-      displayName: Publish artifact
+    - publish: newArtifacts
+      artifact: windows-multilib
 
 - job: Linux_multilib
   timeoutInMinutes: 120
@@ -118,7 +117,7 @@ jobs:
 - job: macOS_x64
   timeoutInMinutes: 120
   pool:
-    vmImage: 'macOS-10.13'
+    vmImage: 'macOS-10.14'
   variables:
     CI_OS: osx
     ARCH: x86_64
@@ -152,30 +151,16 @@ jobs:
   condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')))
   steps:
     - checkout: none
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
-        artifactName: windows-x64
         targetPath: artifacts
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: windows-x86
-        targetPath: artifacts
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: windows-multilib
-        targetPath: artifacts
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: linux-x86_64
-        targetPath: artifacts
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: osx-x86_64
-        targetPath: artifacts
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: android-armv7a
-        targetPath: artifacts
+    - bash: |
+        set -ex
+        cd artifacts
+        mv */*.* .
+        find . -type d -empty -delete
+        ls -l
+      displayName: Move artifact files out of their subdirs
     # We also need to determine whether the GitHub release is a pre-release,
     # as the GitHubRelease task overwrites that flag.
     - bash: |

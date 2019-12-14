@@ -132,7 +132,7 @@ extern (C++) bool isError(const RootObject o)
 /**************************************
  * Are any of the Objects an error?
  */
-extern (C++) bool arrayObjectIsError(const Objects* args)
+bool arrayObjectIsError(const Objects* args)
 {
     foreach (const o; *args)
     {
@@ -145,7 +145,7 @@ extern (C++) bool arrayObjectIsError(const Objects* args)
 /***********************
  * Try to get arg as a type.
  */
-extern (C++) inout(Type) getType(inout RootObject o)
+inout(Type) getType(inout RootObject o)
 {
     inout t = isType(o);
     if (!t)
@@ -158,7 +158,7 @@ extern (C++) inout(Type) getType(inout RootObject o)
 
 }
 
-extern (C++) Dsymbol getDsymbol(RootObject oarg)
+Dsymbol getDsymbol(RootObject oarg)
 {
     //printf("getDsymbol()\n");
     //printf("e %p s %p t %p v %p\n", isExpression(oarg), isDsymbol(oarg), isType(oarg), isTuple(oarg));
@@ -334,8 +334,8 @@ private bool arrayObjectMatch(Objects* oa1, Objects* oa2)
     if (oa1.dim != oa2.dim)
         return false;
     immutable oa1dim = oa1.dim;
-    auto oa1d = (*oa1).data;
-    auto oa2d = (*oa2).data;
+    auto oa1d = (*oa1)[].ptr;
+    auto oa2d = (*oa2)[].ptr;
     foreach (j; 0 .. oa1dim)
     {
         RootObject o1 = oa1d[j];
@@ -351,11 +351,11 @@ private bool arrayObjectMatch(Objects* oa1, Objects* oa2)
 /************************************
  * Return hash of Objects.
  */
-private hash_t arrayObjectHash(Objects* oa1)
+private size_t arrayObjectHash(Objects* oa1)
 {
     import dmd.root.hash : mixHash;
 
-    hash_t hash = 0;
+    size_t hash = 0;
     foreach (o1; *oa1)
     {
         /* Must follow the logic of match()
@@ -383,7 +383,7 @@ private hash_t arrayObjectHash(Objects* oa1)
  * Handles all Expression classes and MUST match their equals method,
  * i.e. e1.equals(e2) implies expressionHash(e1) == expressionHash(e2).
  */
-private hash_t expressionHash(Expression e)
+private size_t expressionHash(Expression e)
 {
     import dmd.root.ctfloat : CTFloat;
     import dmd.root.hash : calcHash, mixHash;
@@ -494,7 +494,7 @@ extern (C++) final class Tuple : RootObject
         return DYNCAST.tuple;
     }
 
-    override const(char)* toChars()
+    override const(char)* toChars() const
     {
         return objects.toChars();
     }
@@ -673,7 +673,7 @@ else
         return (onemember && onemember.isAggregateDeclaration()) ? onemember.kind() : "template";
     }
 
-    override const(char)* toChars()
+    override const(char)* toChars() const
     {
         if (literal)
             return Dsymbol.toChars();
@@ -685,7 +685,7 @@ else
         buf.writeByte('(');
         for (size_t i = 0; i < parameters.dim; i++)
         {
-            TemplateParameter tp = (*parameters)[i];
+            const TemplateParameter tp = (*parameters)[i];
             if (i)
                 buf.writestring(", ");
             .toCBuffer(tp, &buf, &hgs);
@@ -694,7 +694,7 @@ else
 
         if (onemember)
         {
-            FuncDeclaration fd = onemember.isFuncDeclaration();
+            const FuncDeclaration fd = onemember.isFuncDeclaration();
             if (fd && fd.type)
             {
                 TypeFunction tf = cast(TypeFunction)fd.type;
@@ -2252,12 +2252,16 @@ else
         if (ta)
         {
             //printf("type %s\n", ta.toChars());
-            d = new AliasDeclaration(Loc.initial, tp.ident, ta);
+            auto ad = new AliasDeclaration(Loc.initial, tp.ident, ta);
+            ad.wasTemplateParameter = true;
+            d = ad;
         }
         else if (sa)
         {
             //printf("Alias %s %s;\n", sa.ident.toChars(), tp.ident.toChars());
-            d = new AliasDeclaration(Loc.initial, tp.ident, sa);
+            auto ad = new AliasDeclaration(Loc.initial, tp.ident, sa);
+            ad.wasTemplateParameter = true;
+            d = ad;
         }
         else if (ea)
         {
@@ -3264,25 +3268,29 @@ private MATCH deduceTypeHelper(Type t, Type* at, Type tparam)
             *at = t.mutableOf().unSharedOf();
             return MATCH.exact;
         }
+    case X(MODFlags.const_, MODFlags.shared_ | MODFlags.const_):
+    case X(MODFlags.wild, MODFlags.shared_ | MODFlags.wild):
+    case X(MODFlags.wildconst, MODFlags.shared_ | MODFlags.wildconst):
+        // foo(const(U))                shared(const(T))        => shared(T)
+        // foo(inout(U))                shared(inout(T))        => shared(T)
+        // foo(inout(const(U)))         shared(inout(const(T))) => shared(T)
+        {
+            *at = t.mutableOf();
+            return MATCH.exact;
+        }
     case X(MODFlags.const_, 0):
     case X(MODFlags.const_, MODFlags.wild):
     case X(MODFlags.const_, MODFlags.wildconst):
-    case X(MODFlags.const_, MODFlags.shared_ | MODFlags.const_):
     case X(MODFlags.const_, MODFlags.shared_ | MODFlags.wild):
     case X(MODFlags.const_, MODFlags.shared_ | MODFlags.wildconst):
     case X(MODFlags.const_, MODFlags.immutable_):
-    case X(MODFlags.wild, MODFlags.shared_ | MODFlags.wild):
-    case X(MODFlags.wildconst, MODFlags.shared_ | MODFlags.wildconst):
     case X(MODFlags.shared_ | MODFlags.const_, MODFlags.immutable_):
         // foo(const(U))                T                       => T
         // foo(const(U))                inout(T)                => T
         // foo(const(U))                inout(const(T))         => T
-        // foo(const(U))                shared(const(T))        => shared(T)
         // foo(const(U))                shared(inout(T))        => shared(T)
         // foo(const(U))                shared(inout(const(T))) => shared(T)
         // foo(const(U))                immutable(T)            => T
-        // foo(inout(U))                shared(inout(T))        => shared(T)
-        // foo(inout(const(U)))         shared(inout(const(T))) => shared(T)
         // foo(shared(const(U)))        immutable(T)            => T
         {
             *at = t.mutableOf();
@@ -3297,10 +3305,14 @@ private MATCH deduceTypeHelper(Type t, Type* at, Type tparam)
     case X(MODFlags.shared_, MODFlags.shared_ | MODFlags.const_):
     case X(MODFlags.shared_, MODFlags.shared_ | MODFlags.wild):
     case X(MODFlags.shared_, MODFlags.shared_ | MODFlags.wildconst):
-    case X(MODFlags.shared_ | MODFlags.const_, MODFlags.shared_):
         // foo(shared(U))               shared(const(T))        => const(T)
         // foo(shared(U))               shared(inout(T))        => inout(T)
         // foo(shared(U))               shared(inout(const(T))) => inout(const(T))
+        {
+            *at = t.unSharedOf();
+            return MATCH.exact;
+        }
+    case X(MODFlags.shared_ | MODFlags.const_, MODFlags.shared_):
         // foo(shared(const(U)))        shared(T)               => T
         {
             *at = t.unSharedOf();
@@ -3561,7 +3573,6 @@ MATCH deduceType(RootObject o, Scope* sc, Type tparam, TemplateParameters* param
                 // Found the corresponding parameter tp
                 if (!tp.isTemplateTypeParameter())
                     goto Lnomatch;
-
                 Type at = cast(Type)(*dedtypes)[i];
                 Type tt;
                 if (ubyte wx = wm ? deduceWildHelper(t, &tt, tparam) : 0)
@@ -4657,6 +4668,12 @@ MATCH deduceType(RootObject o, Scope* sc, Type tparam, TemplateParameters* param
 
         override void visit(ArrayLiteralExp e)
         {
+            // https://issues.dlang.org/show_bug.cgi?id=20092
+            if (e.elements && e.elements.dim && e.type.toBasetype().nextOf().ty == Tvoid)
+            {
+                result = deduceEmptyArrayElement();
+                return;
+            }
             if ((!e.elements || !e.elements.dim) && e.type.toBasetype().nextOf().ty == Tvoid && tparam.ty == Tarray)
             {
                 // tparam:T[] <- e:[] (void[])
@@ -5283,7 +5300,11 @@ extern (C++) class TemplateParameter : ASTNode
 
     abstract bool hasDefaultArg();
 
-    override const(char)* toChars() { return this.ident.toChars(); }
+    override const(char)* toChars() const
+    {
+        return this.ident.toChars();
+    }
+
     override DYNCAST dyncast() const pure @nogc nothrow @safe
     {
         return DYNCAST.templateparameter;
@@ -5731,7 +5752,7 @@ extern (C++) class TemplateInstance : ScopeDsymbol
     bool semantictiargsdone;    // has semanticTiargs() been done?
     bool havetempdecl;          // if used second constructor
     bool gagged;                // if the instantiation is done with error gagging
-    hash_t hash;                // cached result of toHash()
+    size_t hash;                // cached result of toHash()
     Expressions* fargs;         // for function template, these are the function arguments
 
     TemplateInstances* deferred;
@@ -5842,7 +5863,7 @@ extern (C++) class TemplateInstance : ScopeDsymbol
         return true;
     }
 
-    override const(char)* toChars()
+    override const(char)* toChars() const
     {
         OutBuffer buf;
         toCBufferInstance(this, &buf);
@@ -6006,7 +6027,7 @@ extern (C++) class TemplateInstance : ScopeDsymbol
         return false;
     }
 
-    final hash_t toHash()
+    final size_t toHash()
     {
         if (!hash)
         {
@@ -6370,7 +6391,15 @@ extern (C++) class TemplateInstance : ScopeDsymbol
                         .error(loc, "`%s` is not a valid template instance, because `%s` is not a template declaration but a type (`%s == %s`)", toChars(), id.toChars(), id.toChars(), s.getType.kind());
                         return false;
                     }
-                    s = s2;
+                    // because s can be the alias created for a TemplateParameter
+                    const AliasDeclaration ad = s.isAliasDeclaration();
+                    version (none)
+                    {
+                        if (ad && ad.wasTemplateParameter)
+                            printf("`%s` is an alias created from a template parameter\n", s.toChars());
+                    }
+                    if (!ad || !ad.wasTemplateParameter)
+                        s = s2;
                 }
                 debug
                 {
@@ -7223,7 +7252,7 @@ extern (C++) class TemplateInstance : ScopeDsymbol
         OutBuffer buf;
         mangleToBuffer(this, &buf);
         //printf("\tgenIdent = %s\n", buf.peekChars());
-        return Identifier.idPool(buf.peekSlice());
+        return Identifier.idPool(buf[]);
     }
 
     extern (D) final void expandMembers(Scope* sc2)
@@ -7252,11 +7281,10 @@ extern (C++) class TemplateInstance : ScopeDsymbol
         __gshared int nest;
         // extracted to a function to allow windows SEH to work without destructors in the same function
         //printf("%d\n", nest);
-        // IN_LLVM replaced: if (++nest > 500)
-        if (++nest > global.params.nestedTmpl) // LDC_FIXME: add testcase for this
+        if (++nest > global.recursionLimit)
         {
             global.gag = 0; // ensure error message gets printed
-            error("recursive expansion");
+            error("recursive expansion exceeded allowed nesting limit");
             fatal();
         }
 
@@ -7270,10 +7298,10 @@ extern (C++) class TemplateInstance : ScopeDsymbol
         // extracted to a function to allow windows SEH to work without destructors in the same function
         __gshared int nest;
         //printf("%d\n", nest);
-        if (++nest > 300)
+        if (++nest > global.recursionLimit)
         {
             global.gag = 0; // ensure error message gets printed
-            error("recursive expansion");
+            error("recursive expansion exceeded allowed nesting limit");
             fatal();
         }
 
@@ -7472,7 +7500,7 @@ extern (C++) final class TemplateMixin : TemplateInstance
         members.foreachDsymbol( (s) { s.setFieldOffset(ad, poffset, isunion); } );
     }
 
-    override const(char)* toChars()
+    override const(char)* toChars() const
     {
         OutBuffer buf;
         toCBufferInstance(this, &buf);
@@ -7945,10 +7973,13 @@ MATCH matchArg(TemplateParameter tp, Scope* sc, RootObject oarg, size_t i, Templ
                  *  template X(T) {}        // T => sa
                  */
             }
-            else if (ta)
+            else if (ta && ta.ty != Tident)
             {
-                /* Match any type to alias parameters, but prefer type parameter.
+                /* Match any type that's not a TypeIdentifier to alias parameters,
+                 * but prefer type parameter.
                  * template X(alias a) { }  // a == ta
+                 *
+                 * TypeIdentifiers are excluded because they might be not yet resolved aliases.
                  */
                 m = MATCH.convert;
             }

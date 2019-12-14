@@ -182,7 +182,11 @@ void initializeSanitizerOptionsFromCmdline()
   if (isAnySanitizerEnabled() && !fSanitizeBlacklist.empty()) {
     std::string loadError;
     sanitizerBlacklist =
-        llvm::SpecialCaseList::create(fSanitizeBlacklist, loadError);
+      llvm::SpecialCaseList::create(fSanitizeBlacklist,
+#if LDC_LLVM_VER >= 1000
+                                    *llvm::vfs::getRealFileSystem(),
+#endif
+                                    loadError);
     if (!sanitizerBlacklist)
       error(Loc(), "-fsanitize-blacklist error: %s", loadError.c_str());
   }

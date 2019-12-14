@@ -29,6 +29,7 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/recursivevisitor.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
@@ -45,6 +46,62 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs);
 void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p);
 
 //////////////////////////////////////////////////////////////////////////////
+
+/// Used to check if a control-flow stmt body contains any label. A label
+/// is considered anything that lets us jump inside the body _apart from_
+/// the stmt. That includes case / default statements.
+/// It is a StoppableVisitor that stops when a label is found.
+/// It's to be passed in a ContainsLabelWalker which recursively
+/// walks the tree and updates our `inside_switch` flag accordingly.
+struct ContainsLabelVisitor : public StoppableVisitor {
+  // If RecursiveWalker finds a SwitchStatement,
+  // `insideSwitch` points to that statement.
+  SwitchStatement *insideSwitch = nullptr;
+
+  using StoppableVisitor::visit;
+
+  void visit(Statement *stmt) override {}
+
+  void visit(LabelStatement *stmt) override { stop = true; }
+
+  void visit(CaseStatement *stmt) override {
+    if (insideSwitch == nullptr)
+      stop = true;
+  }
+
+  void visit(DefaultStatement *stmt) override {
+    if (insideSwitch == nullptr)
+      stop = true;
+  }
+
+  bool foundLabel() { return stop; }
+
+  void visit(Declaration *) override {}
+  void visit(Initializer *) override {}
+  void visit(Dsymbol *) override {}
+  void visit(Expression *) override {}
+};
+
+/// As the RecursiveWalker, but it gets a ContainsLabelVisitor
+/// and updates its `insideSwitch` field accordingly.
+class ContainsLabelWalker : public RecursiveWalker {
+public:
+  using RecursiveWalker::visit;
+
+  explicit ContainsLabelWalker(ContainsLabelVisitor *visitor,
+                               bool _continueAfterStop = true)
+      : RecursiveWalker(visitor, _continueAfterStop) {}
+
+  void visit(SwitchStatement *stmt) override {
+    ContainsLabelVisitor *ev = static_cast<ContainsLabelVisitor *>(v);
+    SwitchStatement *save = ev->insideSwitch;
+    ev->insideSwitch = stmt;
+    RecursiveWalker::visit(stmt);
+    ev->insideSwitch = save;
+  }
+
+  void visit(Expression *) override {}
+};
 
 class ToIRVisitor : public Visitor {
   IRState *irs;
@@ -285,6 +342,19 @@ public:
     }
   }
 
+  //////////////////////////////////////////////////////////////////////////
+
+  bool containsLabel(Statement *stmt) {
+    if (!stmt)
+      return false;
+    ContainsLabelVisitor labelChecker;
+    ContainsLabelWalker walker(&labelChecker, false);
+    stmt->accept(&walker);
+    return labelChecker.foundLabel();
+  }
+
+  //////////////////////////////////////////////////////////////////////////
+
   void visit(IfStatement *stmt) override {
     IF_LOG Logger::println("IfStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
@@ -314,10 +384,33 @@ public:
         return;
       }
     }
-
     DValue *cond_e = toElemDtor(stmt->condition);
     LLValue *cond_val = DtoRVal(cond_e);
-
+    // Is it constant?
+    if (LLConstant *const_val = llvm::dyn_cast<LLConstant>(cond_val)) {
+      Statement *executed = stmt->ifbody;
+      Statement *skipped = stmt->elsebody;
+      if (const_val->isZeroValue()) {
+        std::swap(executed, skipped);
+      }
+      if (!containsLabel(skipped)) {
+        IF_LOG Logger::println("Constant true/false condition - elide.");
+        if (executed) {
+          irs->DBuilder.EmitBlockStart(executed->loc);
+        }
+        // True condition, the branch is taken so emit counter increment.
+        if (!const_val->isZeroValue()) {
+          PGO.emitCounterIncrement(stmt);
+        }
+        if (executed) {
+          executed->accept(this);
+          irs->DBuilder.EmitBlockEnd();
+        }
+        // end the dwarf lexical block
+        irs->DBuilder.EmitBlockEnd();
+        return;
+      }
+    }
     llvm::BasicBlock *ifbb = irs->insertBB("if");
     llvm::BasicBlock *endbb = irs->insertBBAfter(ifbb, "endif");
     llvm::BasicBlock *elsebb =
