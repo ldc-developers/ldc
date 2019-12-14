@@ -91,9 +91,16 @@ public:
   mlir::Value* mlirGen(CastExp *castExp);
   mlir::Value* mlirGen(ConstructExp *constructExp);
   mlir::Value* mlirGen(DeclarationExp* declarationExp);
+  mlir::Value* mlirGen(DivExp *divExp = nullptr, DivAssignExp *divAssignExp = nullptr);
   mlir::Value* mlirGen(Expression *expression, int func);
   mlir::Value* mlirGen(Expression *expression, mlir::Block *block = nullptr);
   mlir::Value* mlirGen(IntegerExp *integerExp);
+  mlir::Value* mlirGen(MinExp *minExp = nullptr, MinAssignExp *minAssignExp = nullptr);
+  mlir::Value* mlirGen(ModExp *modExp = nullptr, ModAssignExp *modAssignExp = nullptr);
+  mlir::Value* mlirGen(AndExp *andExp = nullptr, AndAssignExp *andAssignExp = nullptr);
+  mlir::Value* mlirGen(OrExp *orExp = nullptr, OrAssignExp *orAssignExp = nullptr);
+  mlir::Value* mlirGen(XorExp *xorExp = nullptr, XorAssignExp *xorAssignExp = nullptr);
+  mlir::Value* mlirGen(MulExp *mulExp = nullptr, MulAssignExp *mulAssignExp  = nullptr);
   mlir::Value* mlirGen(PostExp *postExp);
   mlir::Value* mlirGen(RealExp *realExp);
   void mlirGen(TemplateInstance *templateInstance);

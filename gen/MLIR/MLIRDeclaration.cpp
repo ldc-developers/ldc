@@ -96,8 +96,8 @@ mlir::Value* MLIRDeclaration::DtoAssignMLIR(mlir::Location Loc,
     IF_LOG Logger::println("DtoAssignMLIR == Tbool"); //TODO: DtoStoreZextI8
   }
 
-  lhs =  rhs;
-  return lhs;
+ // lhs = rhs; TODO: Verify whats it's better
+  return rhs;
 }
 
 
@@ -197,12 +197,13 @@ mlir::Value *MLIRDeclaration::mlirGen(AssignExp *assignExp){
   return nullptr;
 }
 
-/// Emit a call expression. It emits specific operations for the `transpose`
-/// builtin. Other identifiers are assumed to be user-defined functions.
 mlir::Value *MLIRDeclaration::mlirGen(CallExp *callExp){
   IF_LOG Logger::println("MLIRCodeGen - CallExp: '%s'", callExp->toChars());
   LOG_SCOPE
   _total++;
+
+  std::vector<mlir::Type> types;
+  StringRef functionName = callExp->f->mangleString;
 
   // Codegen the operands first.
   llvm::SmallVector<mlir::Value *, 4> operands;
@@ -219,19 +220,14 @@ mlir::Value *MLIRDeclaration::mlirGen(CallExp *callExp){
   if(ReturnStatement *returnStatement = *callExp->f->returns->data)
     ret = mlirGen(returnStatement->exp);
 
-  mlir::Type ret_type = nullptr;
   if(ret)
-    ret_type = ret->getType();
+    types.push_back(ret->getType());
   else
-    ret_type = mlir::NoneType::get(&context);
-  // Otherwise this is a call to a user-defined function. Calls to
-  // user-defined functions are mapped to a custom call that takes the callee
-  // name as an attribute.
-  mlir::OperationState result(loc(callExp->loc), "ldc.call");
-  result.addTypes(ret_type);
-  result.operands = std::move(operands);
-  result.addAttribute("callee", builder.getSymbolRefAttr(callExp->f->mangleString));
-  return builder.createOperation(result)->getResult(0);
+    types.push_back(mlir::NoneType::get(&context));
+
+  llvm::ArrayRef<mlir::Type> ret_type(types);
+  return builder.create<mlir::D::CallOp>(loc(callExp->loc), functionName,
+                                                            ret_type, operands);
 }
 
 mlir::Value *MLIRDeclaration::mlirGen(ConstructExp *constructExp){
@@ -276,8 +272,6 @@ mlir::Value *MLIRDeclaration::mlirGen(IntegerExp *integerExp){
   result.addAttribute("value", value_type);
   return builder.createOperation(result)->getResult(0);
 }
-
-
 
 mlir::Value* MLIRDeclaration::mlirGen(RealExp *realExp){
   _total++;
@@ -431,6 +425,7 @@ mlir::Value* MLIRDeclaration::mlirGen(PostExp *postExp){
 mlir::Value *MLIRDeclaration::mlirGen(AddExp *addExp, AddAssignExp *addAssignExp){
   mlir::Value* e1 = nullptr;
   mlir::Value* e2 = nullptr;
+  mlir::Value* result = nullptr;
   mlir::Location *location = nullptr;
 
   if(addAssignExp) {
@@ -457,21 +452,351 @@ mlir::Value *MLIRDeclaration::mlirGen(AddExp *addExp, AddAssignExp *addAssignExp
 
   if((e1->getType().isF16() || e1->getType().isF32() || e1->getType().isF64())
   && (e2->getType().isF16() || e2->getType().isF32() || e2->getType().isF64())) {
-    return builder.create<mlir::D::AddFOp>(*location, e1, e2);
+    result = builder.create<mlir::D::AddFOp>(*location, e1,e2).getResult();
   }else
     if((e1->getType().isInteger(8) || e1->getType().isInteger(16) ||
     e1->getType().isInteger(32) || e1->getType().isInteger(64)) &&
     (e2->getType().isInteger(8) || e2->getType().isInteger(16) ||
     e2->getType().isInteger(32) || e2->getType().isInteger(64))) {
-      return builder.create<mlir::D::AddIOp>(*location, e1, e2);
+      result = builder.create<mlir::D::AddOp>(*location, e1, e2).getResult();
     }else {
       _miss++;
+      return nullptr;
     }
-  return nullptr;
+
+    return result;
 }
 
-mlir::Value *MLIRDeclaration::mlirGen(Expression *expression, mlir::Block*
-block) {
+mlir::Value *MLIRDeclaration::mlirGen(MinExp *minExp, MinAssignExp *minAssignExp) {
+  mlir::Value *e1 = nullptr;
+  mlir::Value *e2 = nullptr;
+  mlir::Value *result = nullptr;
+  mlir::Location *location = nullptr;
+
+  if (minAssignExp) {
+    IF_LOG Logger::println("MLIRCodeGen - MinExp: '%s' + '%s' @ %s",
+                           minAssignExp->e1->toChars(),
+                           minAssignExp->e2->toChars(),
+                           minAssignExp->type->toChars());
+    LOG_SCOPE
+    mlir::Location minAssignLoc = loc(minAssignExp->loc);
+    location = &minAssignLoc;
+    e1 = mlirGen(minAssignExp->e1);
+    e2 = mlirGen(minAssignExp->e2);
+  } else if (minExp) {
+    IF_LOG Logger::println("MLIRCodeGen - MinExp: '%s' + '%s' @ %s",
+                           minExp->e1->toChars(), minExp->e2->toChars(),
+                           minExp->type->toChars());
+    LOG_SCOPE
+    mlir::Location minExpLoc = loc(minExp->loc);
+    location = &minExpLoc;
+    e1 = mlirGen(minExp->e1);
+    e2 = mlirGen(minExp->e2);
+  } else {
+    _miss++;
+    return nullptr;
+  }
+
+  if((e1->getType().isF16() || e1->getType().isF32() || e1->getType().isF64())
+     && (e2->getType().isF16() || e2->getType().isF32() || e2->getType().isF64())) {
+    result = builder.create<mlir::D::SubFOp>(*location, e1, e2).getResult();
+  }else
+    if((e1->getType().isInteger(8) || e1->getType().isInteger(16) ||
+      e1->getType().isInteger(32) || e1->getType().isInteger(64)) &&
+     (e2->getType().isInteger(8) || e2->getType().isInteger(16) ||
+      e2->getType().isInteger(32) || e2->getType().isInteger(64))) {
+    result = builder.create<mlir::D::SubOp>(*location, e1, e2).getResult();
+  }else {
+    _miss++;
+    return nullptr;
+  }
+
+  return result;
+}
+
+mlir::Value *MLIRDeclaration::mlirGen(MulExp *mulExp, MulAssignExp *mulAssignExp) {
+  mlir::Value *e1 = nullptr;
+  mlir::Value *e2 = nullptr;
+  mlir::Value *result = nullptr;
+  mlir::Location *location = nullptr;
+
+  if (mulAssignExp) {
+    IF_LOG Logger::println("MLIRCodeGen - MulExp: '%s' + '%s' @ %s",
+                           mulAssignExp->e1->toChars(),
+                           mulAssignExp->e2->toChars(),
+                           mulAssignExp->type->toChars());
+    LOG_SCOPE
+    mlir::Location mulAssignLoc = loc(mulAssignExp->loc);
+    location = &mulAssignLoc;
+    e1 = mlirGen(mulAssignExp->e1);
+    e2 = mlirGen(mulAssignExp->e2);
+  } else if (mulExp) {
+    IF_LOG Logger::println("MLIRCodeGen - MulExp: '%s' + '%s' @ %s",
+                           mulExp->e1->toChars(), mulExp->e2->toChars(),
+                           mulExp->type->toChars());
+    LOG_SCOPE
+    mlir::Location mulExpLoc = loc(mulExp->loc);
+    location = &mulExpLoc;
+    e1 = mlirGen(mulExp->e1);
+    e2 = mlirGen(mulExp->e2);
+  } else {
+    _miss++;
+    return nullptr;
+  }
+
+  if((e1->getType().isF16() || e1->getType().isF32() || e1->getType().isF64())
+     && (e2->getType().isF16() || e2->getType().isF32() || e2->getType().isF64())) {
+    result = builder.create<mlir::D::MulFOp>(*location, e1, e2).getResult();
+  }else
+    if((e1->getType().isInteger(8) || e1->getType().isInteger(16) ||
+      e1->getType().isInteger(32) || e1->getType().isInteger(64)) &&
+     (e2->getType().isInteger(8) || e2->getType().isInteger(16) ||
+      e2->getType().isInteger(32) || e2->getType().isInteger(64))) {
+    result = builder.create<mlir::D::MulOp>(*location, e1, e2).getResult();
+    } else {
+    _miss++;
+    return nullptr;
+    }
+
+  return result;
+}
+
+mlir::Value *MLIRDeclaration::mlirGen(DivExp *divExp, DivAssignExp *divAssignExp) {
+  mlir::Value *e1 = nullptr;
+  mlir::Value *e2 = nullptr;
+  mlir::Value *result = nullptr;
+  mlir::Location *location = nullptr;
+  bool isSigned = true;
+
+  if (divAssignExp) {
+    IF_LOG Logger::println("MLIRCodeGen - DivExp: '%s' + '%s' @ %s",
+                           divAssignExp->e1->toChars(),
+                           divAssignExp->e2->toChars(),
+                           divAssignExp->type->toChars());
+    LOG_SCOPE
+    mlir::Location divAssignLoc = loc(divAssignExp->loc);
+    location = &divAssignLoc;
+    e1 = mlirGen(divAssignExp->e1);
+    e2 = mlirGen(divAssignExp->e2);
+    if(divAssignExp->e1->type->isunsigned() || divAssignExp->e1->type->isunsigned())
+      isSigned = false;
+  } else if (divExp) {
+    IF_LOG Logger::println("MLIRCodeGen - DivExp: '%s' + '%s' @ %s",
+                           divExp->e1->toChars(), divExp->e2->toChars(),
+                           divExp->type->toChars());
+    LOG_SCOPE
+    mlir::Location divExpLoc = loc(divExp->loc);
+    location = &divExpLoc;
+    e1 = mlirGen(divExp->e1);
+    e2 = mlirGen(divExp->e2);
+    if(divExp->e1->type->isunsigned() || divExp->e1->type->isunsigned())
+      isSigned = false;
+  } else {
+    _miss++;
+    return nullptr;
+  }
+
+  if((e1->getType().isF16() || e1->getType().isF32() || e1->getType().isF64())
+     && (e2->getType().isF16() || e2->getType().isF32() || e2->getType().isF64())) {
+    result = builder.create<mlir::D::DivFOp>(*location, e1, e2).getResult();
+  }else
+    if((e1->getType().isInteger(8) || e1->getType().isInteger(16) ||
+      e1->getType().isInteger(32) || e1->getType().isInteger(64)) &&
+     (e2->getType().isInteger(8) || e2->getType().isInteger(16) ||
+      e2->getType().isInteger(32) || e2->getType().isInteger(64))) {
+      if(isSigned)
+        result = builder.create<mlir::D::DivSOp>(*location, e1, e2).getResult();
+      else
+        result = builder.create<mlir::D::DivUOp>(*location, e1, e2).getResult();
+  } else {
+    _miss++;
+    return nullptr;
+  }
+
+  return result;
+}
+
+mlir::Value *MLIRDeclaration::mlirGen(ModExp *modExp, ModAssignExp *modAssignExp){
+  mlir::Value* e1 = nullptr;
+  mlir::Value* e2 = nullptr;
+  mlir::Value* result = nullptr;
+  mlir::Location *location = nullptr;
+  bool isSigned = true;
+
+  if(modAssignExp) {
+    IF_LOG Logger::println("MLIRCodeGen - ModExp: '%s' + '%s' @ %s",
+                           modAssignExp->e1->toChars(), modAssignExp->e2->toChars(),
+                           modAssignExp->type->toChars());
+    LOG_SCOPE
+    mlir::Location modAssignLoc = loc(modAssignExp->loc);
+    location = &modAssignLoc;
+    e1 = mlirGen(modAssignExp->e1);
+    e2 = mlirGen(modAssignExp->e2);
+    if(modAssignExp->e1->type->isunsigned() || modAssignExp->e1->type->isunsigned())
+      isSigned = false;
+  }else if(modExp){
+    IF_LOG Logger::println("MLIRCodeGen - ModExp: '%s' + '%s' @ %s",
+                           modExp->e1->toChars(), modExp->e2->toChars(), modExp->type->toChars());
+    LOG_SCOPE
+    mlir::Location modExpLoc = loc(modExp->loc);
+    location = &modExpLoc;
+    e1 = mlirGen(modExp->e1);
+    e2 = mlirGen(modExp->e2);
+    if(modExp->e1->type->isunsigned() || modExp->e1->type->isunsigned())
+      isSigned = false;
+  }else{
+    _miss++;
+    return nullptr;
+  }
+
+  if((e1->getType().isF16() || e1->getType().isF32() || e1->getType().isF64())
+     && (e2->getType().isF16() || e2->getType().isF32() || e2->getType().isF64())) {
+    result = builder.create<mlir::D::ModFOp>(*location, e1, e2).getResult();
+  }else
+    if((e1->getType().isInteger(8) || e1->getType().isInteger(16) ||
+      e1->getType().isInteger(32) || e1->getType().isInteger(64)) &&
+     (e2->getType().isInteger(8) || e2->getType().isInteger(16) ||
+      e2->getType().isInteger(32) || e2->getType().isInteger(64))) {
+    if(isSigned)
+      result = builder.create<mlir::D::ModSOp>(*location, e1, e2).getResult();
+    else
+      result = builder.create<mlir::D::ModUOp>(*location, e1, e2).getResult();
+  }else {
+    _miss++;
+    return nullptr;
+  }
+
+  return result;
+}
+
+mlir::Value *MLIRDeclaration::mlirGen(AndExp *andExp, AndAssignExp *andAssignExp){
+  mlir::Value* e1 = nullptr;
+  mlir::Value* e2 = nullptr;
+  mlir::Value* result = nullptr;
+  mlir::Location *location = nullptr;
+
+  if(andAssignExp) {
+    IF_LOG Logger::println("MLIRCodeGen - AndExp: '%s' + '%s' @ %s",
+                           andAssignExp->e1->toChars(), andAssignExp->e2->toChars(),
+                           andAssignExp->type->toChars());
+    LOG_SCOPE
+    mlir::Location andAssignLoc = loc(andAssignExp->loc);
+    location = &andAssignLoc;
+    e1 = mlirGen(andAssignExp->e1);
+    e2 = mlirGen(andAssignExp->e2);
+  }else if(andExp){
+    IF_LOG Logger::println("MLIRCodeGen - AndExp: '%s' + '%s' @ %s",
+                           andExp->e1->toChars(), andExp->e2->toChars(), andExp->type->toChars());
+    LOG_SCOPE
+    mlir::Location andExpLoc = loc(andExp->loc);
+    location = &andExpLoc;
+    e1 = mlirGen(andExp->e1);
+    e2 = mlirGen(andExp->e2);
+  }else{
+    _miss++;
+    return nullptr;
+  }
+
+  if((e1->getType().isInteger(8) || e1->getType().isInteger(16) ||
+      e1->getType().isInteger(32) || e1->getType().isInteger(64)) &&
+     (e2->getType().isInteger(8) || e2->getType().isInteger(16) ||
+      e2->getType().isInteger(32) || e2->getType().isInteger(64))) {
+    result = builder.create<mlir::D::AndOp>(*location, e1, e2).getResult();
+  }else {
+    _miss++;
+    return nullptr;
+  }
+
+  return result;
+}
+
+mlir::Value *MLIRDeclaration::mlirGen(OrExp *orExp, OrAssignExp *orAssignExp){
+  mlir::Value* e1 = nullptr;
+  mlir::Value* e2 = nullptr;
+  mlir::Value* result = nullptr;
+  mlir::Location *location = nullptr;
+
+  if(orAssignExp) {
+    IF_LOG Logger::println("MLIRCodeGen - OrExp: '%s' + '%s' @ %s",
+                           orAssignExp->e1->toChars(),
+                           orAssignExp->e2->toChars(),
+                           orAssignExp->type->toChars());
+    LOG_SCOPE
+    mlir::Location orAssignLoc = loc(orAssignExp->loc);
+    location = &orAssignLoc;
+    e1 = mlirGen(orAssignExp->e1);
+    e2 = mlirGen(orAssignExp->e2);
+  }else if(orExp){
+    IF_LOG Logger::println("MLIRCodeGen - OrExp: '%s' + '%s' @ %s",
+                           orExp->e1->toChars(), orExp->e2->toChars(),
+                           orExp->type->toChars());
+    LOG_SCOPE
+    mlir::Location orExpLoc = loc(orExp->loc);
+    location = &orExpLoc;
+    e1 = mlirGen(orExp->e1);
+    e2 = mlirGen(orExp->e2);
+  }else{
+    _miss++;
+    return nullptr;
+  }
+
+  if((e1->getType().isInteger(8) || e1->getType().isInteger(16) ||
+      e1->getType().isInteger(32) || e1->getType().isInteger(64)) &&
+     (e2->getType().isInteger(8) || e2->getType().isInteger(16) ||
+      e2->getType().isInteger(32) || e2->getType().isInteger(64))) {
+    result = builder.create<mlir::D::OrOp>(*location, e1, e2).getResult();
+  }else {
+    _miss++;
+    return nullptr;
+  }
+
+  return result;
+}
+
+mlir::Value *MLIRDeclaration::mlirGen(XorExp *xorExp, XorAssignExp *xorAssignExp){
+  mlir::Value* e1 = nullptr;
+  mlir::Value* e2 = nullptr;
+  mlir::Value* result = nullptr;
+  mlir::Location *location = nullptr;
+
+  if(xorAssignExp) {
+    IF_LOG Logger::println("MLIRCodeGen - XorExp: '%s' + '%s' @ %s",
+                           xorAssignExp->e1->toChars(),
+                           xorAssignExp->e2->toChars(),
+                           xorAssignExp->type->toChars());
+    LOG_SCOPE
+    mlir::Location xorAssignLoc = loc(xorAssignExp->loc);
+    location = &xorAssignLoc;
+    e1 = mlirGen(xorAssignExp->e1);
+    e2 = mlirGen(xorAssignExp->e2);
+  }else if(xorExp){
+    IF_LOG Logger::println("MLIRCodeGen - XorExp: '%s' + '%s' @ %s",
+                           xorExp->e1->toChars(), xorExp->e2->toChars(),
+                           xorExp->type->toChars());
+    LOG_SCOPE
+    mlir::Location xorExpLoc = loc(xorExp->loc);
+    location = &xorExpLoc;
+    e1 = mlirGen(xorExp->e1);
+    e2 = mlirGen(xorExp->e2);
+  }else{
+    _miss++;
+    return nullptr;
+  }
+
+  if((e1->getType().isInteger(8) || e1->getType().isInteger(16) ||
+      e1->getType().isInteger(32) || e1->getType().isInteger(64)) &&
+     (e2->getType().isInteger(8) || e2->getType().isInteger(16) ||
+      e2->getType().isInteger(32) || e2->getType().isInteger(64))) {
+    result = builder.create<mlir::D::XorOp>(*location, e1, e2).getResult();
+  }else {
+    _miss++;
+    return nullptr;
+  }
+
+  return result;
+}
+
+mlir::Value *MLIRDeclaration::mlirGen(Expression *expression, mlir::Block* block) {
   IF_LOG Logger::println("MLIRCodeGen - Expression: '%s' | '%u' -> '%s'",
       expression->toChars(), expression->op, expression->type->toChars());
   LOG_SCOPE
@@ -488,118 +813,47 @@ block) {
 
   if(VarExp *varExp = expression->isVarExp())
     return mlirGen(varExp);
-  else if(DeclarationExp *declarationExp = expression->isDeclarationExp())
+  else if (DeclarationExp *declarationExp = expression->isDeclarationExp())
     return mlirGen(declarationExp);
-  else if(CastExp *castExp = expression->isCastExp())
+  else if (CastExp *castExp = expression->isCastExp())
     return mlirGen(castExp);
-  else if(IntegerExp *integerExp = expression->isIntegerExp())
+  else if (IntegerExp *integerExp = expression->isIntegerExp())
     return mlirGen(integerExp);
-  else if(RealExp *realExp = expression->isRealExp())
+  else if (RealExp *realExp = expression->isRealExp())
     return mlirGen(realExp);
-  else if(ConstructExp *constructExp = expression->isConstructExp())
+  else if (ConstructExp *constructExp = expression->isConstructExp())
     return mlirGen(constructExp);
-  else if(AssignExp *assignExp = expression->isAssignExp())
+  else if (AssignExp *assignExp = expression->isAssignExp())
     return mlirGen(assignExp);
-  else if(CallExp *callExp = expression->isCallExp())
+  else if (CallExp *callExp = expression->isCallExp())
     return mlirGen(callExp);
-  else if(ArrayLiteralExp *arrayLiteralExp = expression->isArrayLiteralExp())
+  else if (ArrayLiteralExp *arrayLiteralExp = expression->isArrayLiteralExp())
     return mlirGen(arrayLiteralExp);
-  else if(op >= 54 && op < 60)
+  else if (op >= 54 && op < 60)
     return mlirGen(expression, 1);
-  else if(PostExp *postExp = expression->isPostExp())
+  else if (PostExp *postExp = expression->isPostExp())
     return mlirGen(postExp);
-  else if(StringExp *stringExp = expression->isStringExp())
+  else if (StringExp *stringExp = expression->isStringExp())
     return nullptr;//add mlirGen(stringlExp); //needs to implement with blocks
   else if (LogicalExp *logicalExp = expression->isLogicalExp())
     return nullptr; //add mlirGen(logicalExp); //needs to implement with blocks
-  else if(expression->isAddExp() || expression->isAddAssignExp()){
+  else if (expression->isAddExp() || expression->isAddAssignExp())
     return mlirGen(expression->isAddExp(), expression->isAddAssignExp());
-  } else if (expression->isMinExp() || expression->isMinAssignExp()) {
-    if(expression->isMinAssignExp()){
-      MinAssignExp* minAssignExp = expression->isMinAssignExp();
-      e1 = mlirGen(minAssignExp->e1);
-      e2 = mlirGen(minAssignExp->e2);
-    }else{
-      MinExp *min = expression->isMinExp();
-      e1 = mlirGen(min->e1);
-      e2 = mlirGen(min->e2);
-    }
-    op_name = "ldc.neg";
-  } else if (expression->isMulExp() || expression->isMulAssignExp()) {
-    if(expression->isMulAssignExp()){
-      MulAssignExp* mulAssignExp = expression->isMulAssignExp();
-      e1 = mlirGen(mulAssignExp->e1);
-      e2 = mlirGen(mulAssignExp->e2);
-    }else{
-      MulExp *mul = expression->isMulExp();
-      e1 = mlirGen(mul->e1);
-      e2 = mlirGen(mul->e2);
-    }
-    op_name = "ldc.mul";
-  } else if (expression->isDivExp() || expression->isDivAssignExp()) {
-    if(expression->isDivAssignExp()){
-      DivAssignExp* divAssignExp = expression->isDivAssignExp();
-      e1 = mlirGen(divAssignExp->e1);
-      e2 = mlirGen(divAssignExp->e2);
-    }else{
-      DivExp *div = expression->isDivExp();
-      e1 = mlirGen(div->e1);
-      e2 = mlirGen(div->e2);
-    }
-    op_name = "ldc.div";
-  } else if (expression->isModExp() || expression->isModAssignExp()){
-    if(expression->isModAssignExp()){
-      ModAssignExp* modAssignExp = expression->isModAssignExp();
-      e1 = mlirGen(modAssignExp->e1);
-      e2 = mlirGen(modAssignExp->e2);
-    }else{
-      ModExp *mod = expression->isModExp();
-      e1 = mlirGen(mod->e1);
-      e2 = mlirGen(mod->e2);
-    }
-    op_name = "ldc.mod";
-  } else if (expression->isAndExp() || expression->isAndAssignExp()){
-    if(expression->isAndAssignExp()){
-      AndAssignExp* andAssignExp = expression->isAndAssignExp();
-      e1 = mlirGen(andAssignExp->e1);
-      e2 = mlirGen(andAssignExp->e2);
-    }else {
-      AndExp *andExp = expression->isAndExp();
-      e1 = mlirGen(andExp->e1);
-      e2 = mlirGen(andExp->e2);
-    }
-    op_name = "ldc.and";
-  } else if (expression->isOrExp() || expression->isOrAssignExp()) {
-    if(expression->isOrAssignExp()){
-      OrAssignExp* orAssignExp = expression->isOrAssignExp();
-      e1 = mlirGen(orAssignExp->e1);
-      e2 = mlirGen(orAssignExp->e2);
-    }else {
-      OrExp *orExp = expression->isOrExp();
-      e1 = mlirGen(orExp->e1);
-      e2 = mlirGen(orExp->e2);
-    }
-    op_name = "ldc.or";
-  } else if (expression->isXorExp() || expression->isXorAssignExp()){
-    if(expression->isXorAssignExp()){
-      XorAssignExp* xorAssignExp = expression->isXorAssignExp();
-      e1 = mlirGen(xorAssignExp->e1);
-      e2 = mlirGen(xorAssignExp->e2);
-    }else{
-      XorExp *xorExp = expression->isXorExp();
-      e1 = mlirGen(xorExp->e1);
-      e2 = mlirGen(xorExp->e2);
-    }
-    op_name = "ldc.xor";
-  }
+  else if (expression->isMinExp() || expression->isMinAssignExp())
+    return mlirGen(expression->isMinExp(), expression->isMinAssignExp());
+  else if (expression->isMulExp() || expression->isMulAssignExp())
+    return mlirGen(expression->isMulExp(), expression->isMulAssignExp());
+  else if (expression->isDivExp() || expression->isDivAssignExp())
+    return mlirGen(expression->isDivExp(), expression->isDivAssignExp());
+  else if (expression->isModExp() || expression->isModAssignExp())
+    return mlirGen(expression->isModExp(), expression->isModAssignExp());
+  else if (expression->isAndExp() || expression->isAndAssignExp())
+    return mlirGen(expression->isAndExp(),expression->isAndAssignExp());
+  else if (expression->isOrExp() || expression->isOrAssignExp())
+    return mlirGen(expression->isOrExp(),expression->isOrAssignExp());
+  else if (expression->isXorExp() || expression->isXorAssignExp())
+    return mlirGen(expression->isXorExp(),expression->isXorAssignExp());
 
-
-  if (e1 != nullptr && e2 != nullptr) {
-    mlir::OperationState result(location, op_name);
-    result.addTypes(e1->getType()); // TODO: This works?
-    result.addOperands({e1, e2});
-    return builder.createOperation(result)->getResult(0);
-  }
   _miss++;
     IF_LOG Logger::println("Unable to recoganize the Expression: '%s' : '%u': '%s'",
                     expression->toChars(), expression->op,
@@ -612,11 +866,9 @@ mlir::Value* MLIRDeclaration::mlirGen(CastExp *castExp){
                        castExp->type->toChars());
   LOG_SCOPE;
 
-  mlir::Value* result = nullptr;
-  std::string aux, from, to;
-
   // get the value to cast
-  mlir::Value* u = mlirGen(castExp->e1);
+  mlir::Value* result;
+  result = mlirGen(castExp->e1);
 
   // handle cast to void (usually created by frontend to avoid "has no effect"
   // error)
@@ -625,7 +877,6 @@ mlir::Value* MLIRDeclaration::mlirGen(CastExp *castExp){
     return result;
   }
   // cast it to the 'to' type, if necessary
-  result = u;
   if (castExp->to->equals(castExp->e1->type)) {
     return result;
   }
@@ -639,15 +890,6 @@ mlir::Value* MLIRDeclaration::mlirGen(CastExp *castExp){
   }
 
   auto type = get_MLIRtype(castExp);
-  llvm::raw_string_ostream rso(aux);
-  type.print(rso);
-  to = rso.str();
-
-  aux.clear();
-  llvm::raw_string_ostream rso2(aux);
-  result->getType().print(rso2);
-  from = rso2.str();
-
   mlir::OperationState Castresult(loc(castExp->loc), "ldc.CastOp");
   Castresult.addTypes(type);
   Castresult.addOperands({result});
