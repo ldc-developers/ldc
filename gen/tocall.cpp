@@ -276,6 +276,19 @@ static LLValue *getTypeinfoArrayArgumentForDVarArg(Expressions *argexps,
 
 ////////////////////////////////////////////////////////////////////////////////
 
+static LLType *getPtrToAtomicType(LLType *type) {
+  switch (const size_t N = getTypeBitSize(type)) {
+  case 8:
+  case 16:
+  case 32:
+  case 64:
+  case 128:
+    return LLType::getIntNPtrTy(gIR->context(), static_cast<unsigned>(N));
+  default:
+    return nullptr;
+  }
+}
+
 bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
                             DValue *&result) {
   // va_start instruction
@@ -385,32 +398,17 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     LLType *pointeeType = ptr->getType()->getContainedType(0);
 
     LLValue *val = nullptr;
-    if (!pointeeType->isIntegerTy()) {
-      if (pointeeType->isStructTy()) {
-        val = DtoLVal(dval);
-        switch (size_t N = getTypeBitSize(pointeeType)) {
-        case 8:
-        case 16:
-        case 32:
-        case 64:
-        case 128: {
-          LLType *intPtrType =
-              LLType::getIntNPtrTy(gIR->context(), static_cast<unsigned>(N));
-          val = DtoLoad(DtoBitCast(val, intPtrType));
-          ptr = DtoBitCast(ptr, intPtrType);
-          break;
-        }
-        default:
-          goto errorStore;
-        }
-      } else {
-      errorStore:
-        e->error("atomic store only supports integer types, not `%s`",
-                 exp1->type->toChars());
-        fatal();
-      }
-    } else {
+    if (pointeeType->isIntegerTy()) {
       val = DtoRVal(dval);
+    } else if (auto intPtrType = getPtrToAtomicType(pointeeType)) {
+      ptr = DtoBitCast(ptr, intPtrType);
+      auto lval = makeLValue(exp1->loc, dval);
+      val = DtoLoad(DtoBitCast(lval, intPtrType));
+    } else {
+      e->error(
+          "atomic store only supports types of size 1/2/4/8/16 bytes, not `%s`",
+          exp1->type->toChars());
+      fatal();
     }
 
     llvm::StoreInst *ret = p->ir->CreateStore(val, ptr);
@@ -434,22 +432,11 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     Type *retType = exp->type->nextOf();
 
     if (!pointeeType->isIntegerTy()) {
-      if (pointeeType->isStructTy()) {
-        switch (const size_t N = getTypeBitSize(pointeeType)) {
-        case 8:
-        case 16:
-        case 32:
-        case 64:
-        case 128:
-          ptr = DtoBitCast(ptr, LLType::getIntNPtrTy(gIR->context(),
-                                                     static_cast<unsigned>(N)));
-          break;
-        default:
-          goto errorLoad;
-        }
+      if (auto intPtrType = getPtrToAtomicType(pointeeType)) {
+        ptr = DtoBitCast(ptr, intPtrType);
       } else {
-      errorLoad:
-        e->error("atomic load only supports integer types, not `%s`",
+        e->error("atomic load only supports types of size 1/2/4/8/16 bytes, "
+                 "not `%s`",
                  retType->toChars());
         fatal();
       }
@@ -470,14 +457,23 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
   // cmpxchg instruction
   if (fndecl->llvmInternal == LLVMatomic_cmp_xchg) {
-    if (e->arguments->dim != 4) {
-      e->error("`cmpxchg` instruction expects 4 arguments");
+    if (e->arguments->dim != 6) {
+      e->error("`cmpxchg` instruction expects 6 arguments");
+      fatal();
+    }
+    if (e->type->ty != Tstruct) {
+      e->error("`cmpxchg` instruction returns a struct");
       fatal();
     }
     Expression *exp1 = (*e->arguments)[0];
     Expression *exp2 = (*e->arguments)[1];
     Expression *exp3 = (*e->arguments)[2];
-    auto atomicOrdering = llvm::AtomicOrdering((*e->arguments)[3]->toInteger());
+    const auto successOrdering =
+        llvm::AtomicOrdering((*e->arguments)[3]->toInteger());
+    const auto failureOrdering =
+        llvm::AtomicOrdering((*e->arguments)[4]->toInteger());
+    const bool isWeak = (*e->arguments)[5]->toInteger() != 0;
+
     LLValue *ptr = DtoRVal(exp1);
     LLType *pointeeType = ptr->getType()->getContainedType(0);
     DValue *dcmp = toElem(exp2);
@@ -485,52 +481,42 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
     LLValue *cmp = nullptr;
     LLValue *val = nullptr;
-    if (!pointeeType->isIntegerTy()) {
-      if (pointeeType->isStructTy()) {
-        switch (const size_t N = getTypeBitSize(pointeeType)) {
-        case 8:
-        case 16:
-        case 32:
-        case 64:
-        case 128: {
-          LLType *intPtrType =
-              LLType::getIntNPtrTy(gIR->context(), static_cast<unsigned>(N));
-          ptr = DtoBitCast(ptr, intPtrType);
-          cmp = DtoLoad(DtoBitCast(DtoLVal(dcmp), intPtrType));
-          val = DtoLoad(DtoBitCast(DtoLVal(dval), intPtrType));
-          break;
-        }
-        default:
-          goto errorCmpxchg;
-        }
-      } else {
-      errorCmpxchg:
-        e->error("`cmpxchg` only supports integer types, not `%s`",
-                 exp2->type->toChars());
-        fatal();
-      }
-    } else {
+    if (pointeeType->isIntegerTy()) {
       cmp = DtoRVal(dcmp);
       val = DtoRVal(dval);
+    } else if (auto intPtrType = getPtrToAtomicType(pointeeType)) {
+      ptr = DtoBitCast(ptr, intPtrType);
+      auto cmpLVal = makeLValue(exp2->loc, dcmp);
+      cmp = DtoLoad(DtoBitCast(cmpLVal, intPtrType));
+      auto lval = makeLValue(exp3->loc, dval);
+      val = DtoLoad(DtoBitCast(lval, intPtrType));
+    } else {
+      e->error(
+          "`cmpxchg` only supports types of size 1/2/4/8/16 bytes, not `%s`",
+          exp2->type->toChars());
+      fatal();
     }
 
-    LLValue *ret = p->ir->CreateAtomicCmpXchg(ptr, cmp, val, atomicOrdering,
-                                              atomicOrdering);
-    // Use the same quickfix as for dragonegg - see r210956
-    ret = p->ir->CreateExtractValue(ret, 0);
-    if (ret->getType() != pointeeType) {
-      ret = DtoAllocaDump(ret, exp3->type);
-      result = new DLValue(exp3->type, ret);
-    } else {
-      result = new DImValue(exp3->type, ret);
-    }
+    auto ret = p->ir->CreateAtomicCmpXchg(ptr, cmp, val, successOrdering,
+                                           failureOrdering);
+    ret->setWeak(isWeak);
+
+    // we return a struct; allocate on stack and store to both fields manually
+    // (avoiding DtoAllocaDump() due to bad optimized codegen, most likely
+    // because of i1)
+    auto mem = DtoAlloca(e->type);
+    DtoStore(p->ir->CreateExtractValue(ret, 0),
+             DtoBitCast(DtoGEP(mem, 0u, 0), ptr->getType()));
+    DtoStoreZextI8(p->ir->CreateExtractValue(ret, 1), DtoGEP(mem, 0, 1));
+
+    result = new DLValue(e->type, mem);
     return true;
   }
 
   // atomicrmw instruction
   if (fndecl->llvmInternal == LLVMatomic_rmw) {
     if (e->arguments->dim != 3) {
-      e->error("`atomic_rmw` instruction expects 3 arguments");
+      e->error("`atomicrmw` instruction expects 3 arguments");
       fatal();
     }
 
@@ -541,7 +527,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     int op = 0;
     for (;; ++op) {
       if (ops[op] == nullptr) {
-        e->error("unknown atomic_rmw operation `%s`",
+        e->error("unknown `atomicrmw` operation `%s`",
                  fndecl->intrinsicName);
         fatal();
       }

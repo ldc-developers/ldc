@@ -10,6 +10,7 @@
 #include "gen/irstate.h"
 
 #include "dmd/declaration.h"
+#include "dmd/expression.h"
 #include "dmd/identifier.h"
 #include "dmd/mtype.h"
 #include "dmd/statement.h"
@@ -181,12 +182,12 @@ void IRState::replaceGlobals() {
 ////////////////////////////////////////////////////////////////////////////////
 
 LLConstant *IRState::getStructLiteralConstant(StructLiteralExp *sle) const {
-  return static_cast<LLConstant *>(structLiteralConstants.lookup(sle));
+  return static_cast<LLConstant *>(structLiteralConstants.lookup(sle->origin));
 }
 
 void IRState::setStructLiteralConstant(StructLiteralExp *sle,
                                        LLConstant *constant) {
-  structLiteralConstants[sle] = constant;
+  structLiteralConstants[sle->origin] = constant;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

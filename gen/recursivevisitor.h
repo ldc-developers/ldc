@@ -286,7 +286,7 @@ public:
 
   using Visitor::visit;
 
-  void visit(AttribDeclaration* ad) override {
+  void visit(AttribDeclaration *ad) override {
     call_visitor(ad) || recurse(ad->decl);
   }
 
@@ -388,7 +388,7 @@ public:
         recurse(stmt->_body);
   }
 
-  void visit(PragmaStatement* stmt) override {
+  void visit(PragmaStatement *stmt) override {
     call_visitor(stmt) || recurse(stmt->_body);
   }
   void visit(DebugStatement *stmt) override {

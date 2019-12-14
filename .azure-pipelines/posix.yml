@@ -137,6 +137,8 @@ steps:
     installDir=$PWD/install
     mkdir build-$ARCH
     cd build-$ARCH
+    DEFAULT_LDC_SWITCHES=' "-linker=bfd",'
+    if [ "$ARCH" = "armv7a" ]; then DEFAULT_LDC_SWITCHES="$DEFAULT_LDC_SWITCHES \"-mcpu=cortex-a8\","; fi
     cmake -G Ninja $BUILD_SOURCESDIRECTORY \
       -DCMAKE_BUILD_TYPE=Release \
       -DLLVM_ROOT_DIR=$PWD/../llvm-$ARCH \
@@ -144,6 +146,7 @@ steps:
       -DCMAKE_INSTALL_PREFIX=$installDir \
       -DINCLUDE_INSTALL_DIR=$installDir/import \
       -DD_LINKER_ARGS="-fuse-ld=bfd;-L$PWD/../ldc-build-runtime.tmp/lib;-lphobos2-ldc;-ldruntime-ldc" \
+      -DADDITIONAL_DEFAULT_LDC_SWITCHES="$DEFAULT_LDC_SWITCHES" \
       $EXTRA_CMAKE_FLAGS
     ninja -j$PARALLEL_JOBS -v ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache
   displayName: 'Android: Cross-compile LDC executables'
@@ -186,10 +189,6 @@ steps:
 - script: |
     set -ex
     cd ../build
-    if [ "$CI_OS" = "osx" ]; then
-      # FIXME: macOS 10.13 broke this, see https://github.com/ldc-developers/ldc/pull/2839
-      echo 'void main() {}' > $BUILD_SOURCESDIRECTORY/runtime/druntime/test/shared/src/finalize.d
-    fi
     ctest -j$PARALLEL_JOBS --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
   displayName: Run defaultlib unittests & druntime stand-alone tests
   condition: and(succeededOrFailed(), ne(variables['CI_OS'], 'android'))
@@ -207,7 +206,7 @@ steps:
       #
       mkdir install/import
       cp -r $BUILD_SOURCESDIRECTORY/runtime/druntime/src/{core,etc,ldc,object.d} install/import
-      cp bootstrap-ldc/runtime/gccbuiltins_{aarch64,arm,x86}.di install/import/ldc
+      cp bootstrap-ldc/runtime/import/ldc/gccbuiltins_{aarch64,arm,x86}.di install/import/ldc
       cp -r $BUILD_SOURCESDIRECTORY/runtime/phobos/etc/c install/import/etc
       rm -rf install/import/etc/c/zlib
       cp -r $BUILD_SOURCESDIRECTORY/runtime/phobos/std install/import
@@ -274,7 +273,7 @@ steps:
       sed -i 's| -g -O | -O |g' build.sh
       # Don't run dub after build
       sed -i 's|bin/dub --version||' build.sh
-    elif [ "${BUILD_SOURCEBRANCH:0:10}" != "refs/tags/"]; then
+    elif [ "${BUILD_SOURCEBRANCH:0:10}" != "refs/tags/" ]; then
       # FIXME: dub is built with `-g -O`, which leads to issue #2361 with enabled
       # assertions, at least on Linux. So strip `-g` for untagged builds.
       perl -pi -e "s? -g -O ? -O ?g" build.sh
@@ -313,8 +312,5 @@ steps:
       XZ_OPT=-9 tar -cJf artifacts/$artifactName.tar.xz --owner=0 --group=0 $artifactName
     fi
   displayName: Pack installation dir
-- task: PublishPipelineArtifact@0
-  inputs:
-    artifactName: $(CI_OS)-$(ARCH)
-    targetPath: ../artifacts
-  displayName: Publish artifact(s)
+- publish: ../artifacts
+  artifact: $(CI_OS)-$(ARCH)

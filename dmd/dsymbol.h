@@ -180,11 +180,11 @@ public:
 #endif
 
     static Dsymbol *create(Identifier *);
-    const char *toChars();
+    const char *toChars() const;
     virtual const char *toPrettyCharsHelper(); // helper to print fully qualified (template) arguments
     Loc getLoc();
     const char *locToChars();
-    bool equals(RootObject *o);
+    bool equals(const RootObject *o) const;
     virtual bool isAnonymous();
     void error(const Loc &loc, const char *format, ...);
     void error(const char *format, ...);
@@ -198,7 +198,9 @@ public:
     Dsymbol *toParent2();
     Dsymbol *toParentDecl();
     Dsymbol *toParentLocal();
+    Dsymbol *toParentP(Dsymbol *p1, Dsymbol *p2 = NULL);
     TemplateInstance *isInstantiated();
+    bool followInstantiationContext(Dsymbol *p1, Dsymbol *p2 = NULL);
     TemplateInstance *isSpeculative();
     Ungag ungagSpeculative();
 

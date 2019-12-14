@@ -176,7 +176,7 @@ bool modifyFieldVar(Loc loc, Scope* sc, VarDeclaration var, Expression e1)
         {
             if (s)
             {
-                s = toParentP(s, var.toParent2());
+                s = s.toParentP(var.toParent2());
                 continue;
             }
         }
@@ -621,7 +621,7 @@ extern (C++) final class TupleDeclaration : Declaration
                 {
                     buf.printf("_%s_%d", ident.toChars(), i);
                     const len = buf.offset;
-                    const name = cast(const(char)*)buf.extractData();
+                    const name = buf.extractSlice().ptr;
                     auto id = Identifier.idPool(name, len);
                     auto arg = new Parameter(STC.in_, t, id, null);
                 }
@@ -697,6 +697,7 @@ extern (C++) final class AliasDeclaration : Declaration
     Dsymbol aliassym;
     Dsymbol overnext;   // next in overload list
     Dsymbol _import;    // !=null if unresolved internal alias for selective import
+    bool wasTemplateParameter; /// indicates wether the alias was created to make a template parameter visible in the scope, i.e as a member.
 
     extern (D) this(const ref Loc loc, Identifier ident, Type type)
     {
@@ -726,6 +727,7 @@ extern (C++) final class AliasDeclaration : Declaration
         //printf("AliasDeclaration::syntaxCopy()\n");
         assert(!s);
         AliasDeclaration sa = type ? new AliasDeclaration(loc, ident, type.syntaxCopy()) : new AliasDeclaration(loc, ident, aliassym.syntaxCopy(null));
+        sa.comment = comment;
         sa.storage_class = storage_class;
         return sa;
     }
@@ -980,7 +982,7 @@ extern (C++) final class OverDeclaration : Declaration
         return "overload alias"; // todo
     }
 
-    override bool equals(RootObject o)
+    override bool equals(const RootObject o) const
     {
         if (this == o)
             return true;
@@ -1099,8 +1101,9 @@ version (IN_LLVM)
     uint endlinnum;                 // line number of end of scope that this var lives in
 
     // When interpreting, these point to the value (NULL if value not determinable)
-    // The index of this variable on the CTFE stack, -1 if not allocated
-    int ctfeAdrOnStack;
+    // The index of this variable on the CTFE stack, AdrOnStackNone if not allocated
+    enum AdrOnStackNone = ~0u;
+    uint ctfeAdrOnStack;
 
     Expression edtor;               // if !=null, does the destruction of the variable
     IntRange* range;                // if !=null, the variable is known to be within the range
@@ -1131,7 +1134,7 @@ version (IN_LLVM)
         assert(type || _init);
         this.type = type;
         this._init = _init;
-        ctfeAdrOnStack = -1;
+        ctfeAdrOnStack = AdrOnStackNone;
         this.storage_class = storage_class;
         sequenceNumber = ++nextSequenceNumber;
     }
@@ -1146,6 +1149,7 @@ version (IN_LLVM)
         //printf("VarDeclaration::syntaxCopy(%s)\n", toChars());
         assert(!s);
         auto v = new VarDeclaration(loc, type ? type.syntaxCopy() : null, ident, _init ? _init.syntaxCopy() : null, storage_class);
+        v.comment = comment;
         return v;
     }
 
@@ -1540,7 +1544,8 @@ version (IN_LLVM)
     /************************************
      * Check to see if this variable is actually in an enclosing function
      * rather than the current one.
-     * Returns true if error occurs.
+     * Update nestedrefs[], closureVars[] and outerVars[].
+     * Returns: true if error occurs.
      */
     extern (D) final bool checkNestedReference(Scope* sc, Loc loc)
     {
@@ -1585,7 +1590,7 @@ version (IN_LLVM)
                 return true;
         }
 
-        // Add this to fdv.closureVars[] if not already there
+        // Add this VarDeclaration to fdv.closureVars[] if not already there
         if (!sc.intypeof && !(sc.flags & SCOPE.compile) &&
             // https://issues.dlang.org/show_bug.cgi?id=17605
             (fdv.flags & FUNCFLAG.compileTimeOnly || !(fdthis.flags & FUNCFLAG.compileTimeOnly))
@@ -1594,6 +1599,9 @@ version (IN_LLVM)
             if (!fdv.closureVars.contains(this))
                 fdv.closureVars.push(this);
         }
+
+        if (!fdthis.outerVars.contains(this))
+            fdthis.outerVars.push(this);
 
         //printf("fdthis is %s\n", fdthis.toChars());
         //printf("var %s in function %s is nested ref\n", toChars(), fdv.toChars());
@@ -1722,7 +1730,7 @@ extern (C++) class TypeInfoDeclaration : VarDeclaration
         assert(0); // should never be produced by syntax
     }
 
-    override final const(char)* toChars()
+    override final const(char)* toChars() const
     {
         //printf("TypeInfoDeclaration::toChars() tinfo = %s\n", tinfo.toChars());
         OutBuffer buf;

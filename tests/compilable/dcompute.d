@@ -3,6 +3,7 @@
 //  - turning on debugging doesn't ICE
 //  - don't analyse uninstantiated templates
 //  - typeid generated for hashing of struct (typeid(const(T))) is ignored and does not error
+//  - if (__ctfe) and if (!__ctfe) don't cause errors
 
 // REQUIRES: target_NVPTX
 // RUN: %ldc -mdcompute-targets=cuda-350 -g %s
@@ -12,7 +13,24 @@ import ldc.dcompute;
 
 @kernel void foo()
 {
+    if (__ctfe)
+    {
+        auto a = new int;
+    }
 
+    if (__ctfe)
+    {
+        auto a = new int;
+    }
+    else {}
+
+    if (!__ctfe)
+    {
+    }
+    else
+    {
+        auto a = new int;
+    }
 }
 
 struct AutoIndexed(T)
@@ -30,6 +48,7 @@ struct AutoIndexed(T)
         p[0] = t;
     }
     @disable this();
+    void opAssign(U u) { index = u; }
     alias index this;
 }
 alias aagf = AutoIndexed!(GlobalPointer!(float));

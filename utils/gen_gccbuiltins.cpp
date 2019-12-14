@@ -175,17 +175,13 @@ int main(int argc, char** argv)
         return 1;
     }
 
-#define STR(x) #x
-#define XSTR(x) STR(x)
-    llvm::SmallString<128> file(XSTR(LLVM_INTRINSIC_TD_PATH));
+    llvm::SmallString<128> file(LLVM_INTRINSIC_TD_PATH);
     sys::path::append(file, "llvm");
     sys::path::append(file, "IR");
     sys::path::append(file, "Intrinsics.td");
 
-    string iStr = string("-I=") + string(XSTR(LLVM_INTRINSIC_TD_PATH));
+    string iStr = string("-I=") + LLVM_INTRINSIC_TD_PATH;
     string oStr = string("-o=") + argv[1];
-#undef XSTR
-#undef STR
 
     vector<char*> args2(argv, argv + 1);
     args2.push_back(const_cast<char*>(file.c_str()));

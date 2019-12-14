@@ -520,7 +520,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
       }
 
       // if internal, no special handling is necessary, skip
-      std::vector<Identifier *>::const_iterator it, end;
+      std::vector<Identifier *>::const_iterator end;
       end = asmblock->internalLabels.end();
       bool skip = false;
       for (auto il : asmblock->internalLabels) {

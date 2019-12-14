@@ -271,15 +271,15 @@ void CodeGenerator::finishLLModule(Module *m) {
 void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   ir_->objc.finalize();
 
-  // Issue #1829: make sure all replaced global variables are replaced
-  // everywhere.
-  ir_->replaceGlobals();
-
   ir_->DBuilder.Finalize();
   generateBitcodeForDynamicCompile(ir_);
 
   emitLLVMUsedArray(*ir_);
   emitLinkerOptions(*ir_, ir_->module, ir_->context());
+
+  // Issue #1829: make sure all replaced global variables are replaced
+  // everywhere.
+  ir_->replaceGlobals();
 
   // Emit ldc version as llvm.ident metadata.
   llvm::NamedMDNode *IdentMetadata =
@@ -339,9 +339,8 @@ void CodeGenerator::emit(Module *m) {
   prepareLLModule(m);
 
   codegenModule(ir_, m);
-  if (m == rootHasMain) {
-    codegenModule(ir_, entrypoint);
 
+  if (m == rootHasMain) {
     if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
       // On Android, bracket TLS data with the symbols _tlsstart and _tlsend, as
       // done with dmd

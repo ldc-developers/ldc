@@ -1678,9 +1678,9 @@ else
         buf.writeByte('R');
         CV_qualifiers(t.nextOf());
         headOfType(t.nextOf());
-        append(t);
         if (t.nextOf().isConst())
             append(t.nextOf());
+        append(t);
     }
 
     override void visit(TypeFunction t)

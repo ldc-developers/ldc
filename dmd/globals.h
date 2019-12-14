@@ -133,6 +133,7 @@ struct Param
     bool useInline;     // inline expand functions
     bool useDIP25;      // implement http://wiki.dlang.org/DIP25
     bool noDIP25;       // revert to pre-DIP25 behavior
+    bool useDIP1021;        // implement https://github.com/dlang/DIPs/blob/master/DIPs/DIP1021.md
     bool release;       // build release version
     bool preservePaths; // true means don't strip path from source file
     Diagnostic warnings;
@@ -243,6 +244,7 @@ struct Param
     // Linker stuff
     Array<const char *> objfiles;
     Array<const char *> linkswitches;
+    Array<bool> linkswitchIsForCC;
     Array<const char *> libfiles;
     Array<const char *> dllfiles;
     DString deffile;
@@ -252,8 +254,6 @@ struct Param
 
 #if IN_LLVM
     Array<const char *> bitcodeFiles; // LLVM bitcode files passed on cmdline
-
-    unsigned nestedTmpl; // maximum nested template instantiations
 
     // LDC stuff
     OUTPUTFLAG output_ll;
@@ -333,6 +333,10 @@ struct Global
 
     Array<class Identifier*>* versionids; // command line versions and predefined versions
     Array<class Identifier*>* debugids;   // command line debug versions and predefined versions
+
+#if IN_LLVM
+    unsigned recursionLimit; // number of recursive template expansions before abort
+#endif
 
     /* Start gagging. Return the current number of gagged errors
      */

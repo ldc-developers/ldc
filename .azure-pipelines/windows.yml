@@ -78,7 +78,7 @@ steps:
     clang-cl --version
     mkdir bootstrap-ldc
     cd bootstrap-ldc
-    cmake -G Ninja %BUILD_SOURCESDIRECTORY% -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=%CD%/../llvm -DD_COMPILER=%CD%/../host-ldc/bin/ldmd2
+    cmake -G Ninja %BUILD_SOURCESDIRECTORY% -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=%CD%/../llvm -DD_COMPILER=%CD%/../host-ldc/bin/ldmd2 -DBUILD_LTO_LIBS=ON
     ninja -j2 || exit /b
     bin\ldc2 --version
   displayName: Build bootstrap LDC
@@ -148,7 +148,7 @@ steps:
 - script: |
     cd ..
     cp llvm/bin/lld-link.exe installed/bin
-    curl -L -o mingw-w64-libs.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v6.0.0/mingw-w64-libs-v6.0.0.7z 2>&1
+    curl -L -o mingw-w64-libs.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v7.0.0-rc.1/mingw-w64-libs-v7.0.0-rc.1.7z 2>&1
     mkdir mingw-w64-libs
     cd mingw-w64-libs
     7z x ../mingw-w64-libs.7z > nul
@@ -203,8 +203,5 @@ steps:
     mkdir artifacts
     7z a -mx=9 artifacts/%ARTIFACT_NAME%.7z %ARTIFACT_NAME% > nul
   displayName: Pack installation dir
-- task: PublishPipelineArtifact@0
-  inputs:
-    artifactName: windows-$(ARCH)
-    targetPath: ../artifacts
-  displayName: Publish artifact
+- publish: ../artifacts
+  artifact: windows-$(ARCH)
