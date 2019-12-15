@@ -332,8 +332,6 @@ void DtoMemSet(LLValue *dst, LLValue *val, LLValue *nbytes, unsigned align) {
 #else  
   gIR->ir->CreateMemSet(dst, val, nbytes, align, false /*isVolatile*/);
 #endif
-
-  gIR->ir->CreateMemSet(dst, val, nbytes, Align, false /*isVolatile*/);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
