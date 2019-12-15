@@ -1354,6 +1354,10 @@ void DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
   DIScope scope = GetSymbolScope(vd);
   llvm::MDNode *Decl = nullptr;
 
+#if LDC_LLVM_VER >= 1000
+  llvm::DIExpression *Expr = nullptr;
+#endif
+  
   if (vd->isDataseg() && vd->toParent()->isAggregateDeclaration()) {
     // static aggregate member
     Decl = StaticDataMemberCache[vd];
@@ -1379,6 +1383,10 @@ void DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
       nullptr, // relative location of field
 #else
       llVar, // value
+#endif
+    
+#if LDC_LLVM_VER >= 1000
+      Expr, // expression
 #endif
       Decl // declaration
   );
