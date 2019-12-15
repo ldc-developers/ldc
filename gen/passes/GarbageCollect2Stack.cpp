@@ -80,7 +80,7 @@ void EmitMemSet(IRBuilder<> &B, Value *Dst, Value *Val, Value *Len,
   Dst = B.CreateBitCast(Dst, PointerType::getUnqual(B.getInt8Ty()));
 
 #if LDC_LLVM_VER >= 1000
-  LLMaybeAlign Align(1);
+  MaybeAlign Align(1);
 #else
   unsigned Align = 1; 
 #endif
