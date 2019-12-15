@@ -805,10 +805,6 @@ mlir::Value *MLIRDeclaration::mlirGen(Expression *expression, mlir::Block* block
   if(block != nullptr)
     builder.setInsertionPointToEnd(block);
 
-  const char *op_name = nullptr;
-  auto location = loc(expression->loc);
-  mlir::Value *e1 = nullptr;
-  mlir::Value *e2 = nullptr;
   int op = expression->op;
 
   if(VarExp *varExp = expression->isVarExp())
