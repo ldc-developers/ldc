@@ -101,10 +101,12 @@ namespace {
 #if LDC_LLVM_VER < 500
 /// Add the Linker Options module flag.
 /// If the flag is already present, merge it with the new data.
-void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
+void emitLinkerOptions(IRState &irs) {
+  llvm::Module &M = irs.module;
+  llvm::LLVMContext &ctx = irs.context();
   if (!M.getModuleFlag("Linker Options")) {
     M.addModuleFlag(llvm::Module::AppendUnique, "Linker Options",
-                    llvm::MDNode::get(ctx, irs.LinkerMetadataArgs));
+                    llvm::MDNode::get(ctx, irs.linkerOptions));
   } else {
     // Merge the Linker Options with the pre-existing one
     // (this can happen when passing a .bc file on the commandline)
@@ -121,10 +123,10 @@ void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
 
       // If we reach here, we found the Linker Options flag.
 
-      // Add the old Linker Options to our LinkerMetadataArgs list.
+      // Add the old Linker Options to our linkerOptions list.
       auto *oldLinkerOptions = llvm::cast<llvm::MDNode>(flag->getOperand(2));
       for (const auto &Option : oldLinkerOptions->operands()) {
-        irs.LinkerMetadataArgs.push_back(Option);
+        irs.linkerOptions.push_back(Option);
       }
 
       // Replace Linker Options with a newly created list.
@@ -132,7 +134,7 @@ void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
           llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
               llvm::Type::getInt32Ty(ctx), llvm::Module::AppendUnique)),
           llvm::MDString::get(ctx, "Linker Options"),
-          llvm::MDNode::get(ctx, irs.LinkerMetadataArgs)};
+          llvm::MDNode::get(ctx, irs.linkerOptions)};
       moduleFlags->setOperand(i, llvm::MDNode::get(ctx, Ops));
 
       break;
@@ -140,10 +142,12 @@ void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
   }
 }
 #else
-/// Add the "llvm.linker.options" metadata.
-/// If the metadata is already present, merge it with the new data.
-void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
-  auto *linkerOptionsMD = M.getOrInsertNamedMetadata("llvm.linker.options");
+void addLinkerMetadata(llvm::Module &M, const char *name,
+    llvm::ArrayRef<llvm::MDNode *> newOperands) {
+  if (newOperands.empty())
+    return;
+
+  llvm::NamedMDNode *node = M.getOrInsertNamedMetadata(name);
 
   // Add the new operands in front of the existing ones, such that linker
   // options of .bc files passed on the cmdline are put _after_ the compiled .d
@@ -151,17 +155,25 @@ void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
 
   // Temporarily store metadata nodes that are already present
   llvm::SmallVector<llvm::MDNode *, 5> oldMDNodes;
-  for (auto *MD : linkerOptionsMD->operands())
+  for (auto *MD : node->operands())
     oldMDNodes.push_back(MD);
 
   // Clear the list and add the new metadata nodes.
-  linkerOptionsMD->clearOperands();
-  for (auto *MD : irs.LinkerMetadataArgs)
-    linkerOptionsMD->addOperand(MD);
+  node->clearOperands();
+  for (auto *MD : newOperands)
+    node->addOperand(MD);
 
   // Re-add metadata nodes that were already present
   for (auto *MD : oldMDNodes)
-    linkerOptionsMD->addOperand(MD);
+    node->addOperand(MD);
+}
+
+/// Add the "llvm.{linker.options,dependent-libraries}" metadata.
+/// If the metadata is already present, merge it with the new data.
+void emitLinkerOptions(IRState &irs) {
+  llvm::Module &M = irs.module;
+  addLinkerMetadata(M, "llvm.linker.options", irs.linkerOptions);
+  addLinkerMetadata(M, "llvm.dependent-libraries", irs.linkerDependentLibs);
 }
 #endif
 
@@ -253,7 +265,7 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   generateBitcodeForDynamicCompile(ir_);
 
   emitLLVMUsedArray(*ir_);
-  emitLinkerOptions(*ir_, ir_->module, ir_->context());
+  emitLinkerOptions(*ir_);
 
   // Issue #1829: make sure all replaced global variables are replaced
   // everywhere.

@@ -1851,25 +1851,27 @@ version (IN_LLVM)
         const(char)* arg1str = null;
 }
 
-        if (global.params.mscoff)
+        // IN_LLVM: extended pragma(linkerDirective) support - not just for COFF
+        //          object files, and not restricted to a single string arg
+        if (pd.ident == Id.linkerDirective)
         {
-            if (pd.ident == Id.linkerDirective)
+            if (!pd.args || pd.args.dim == 0)
+                pd.error("one or more string arguments expected for pragma(linkerDirective)");
+            else
             {
-                if (!pd.args || pd.args.dim != 1)
-                    pd.error("one string argument expected for pragma(linkerDirective)");
-                else
+                for (size_t i = 0; i < pd.args.dim; ++i)
                 {
-                    auto se = semanticString(sc, (*pd.args)[0], "linker directive");
+                    auto se = semanticString(sc, (*pd.args)[i], "linker directive");
                     if (!se)
-                        goto Lnodecl;
-                    (*pd.args)[0] = se;
+                        break;
+                    (*pd.args)[i] = se;
                     if (global.params.verbose)
                         message("linkopt   %.*s", cast(int)se.len, se.peekString().ptr);
                 }
-                goto Lnodecl;
             }
+            goto Lnodecl;
         }
-        if (pd.ident == Id.msg)
+        else if (pd.ident == Id.msg)
         {
             if (pd.args)
             {
