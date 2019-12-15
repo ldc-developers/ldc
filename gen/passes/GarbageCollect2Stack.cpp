@@ -81,6 +81,8 @@ void EmitMemSet(IRBuilder<> &B, Value *Dst, Value *Val, Value *Len,
 
 #if LDC_LLVM_VER >= 1000
   llvm::MaybeAlign Align(1);
+#else
+  unsigned Align = 1; 
 #endif
 
   auto CS = B.CreateMemSet(Dst, Val, Len, Align, false /*isVolatile*/);
