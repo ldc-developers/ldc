@@ -79,7 +79,11 @@ void EmitMemSet(IRBuilder<> &B, Value *Dst, Value *Val, Value *Len,
                 const Analysis &A) {
   Dst = B.CreateBitCast(Dst, PointerType::getUnqual(B.getInt8Ty()));
 
-  auto CS = B.CreateMemSet(Dst, Val, Len, 1 /*Align*/, false /*isVolatile*/);
+#if LDC_LLVM_VER >= 1000
+  llvm::MaybeAlign Align(1);
+#endif
+
+  auto CS = B.CreateMemSet(Dst, Val, Len, Align, false /*isVolatile*/);
   if (A.CGNode) {
     auto calledFunc = CS->getCalledFunction();
     A.CGNode->addCalledFunction(CS, A.CG->getOrInsertFunction(calledFunc));
