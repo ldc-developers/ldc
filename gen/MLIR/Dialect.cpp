@@ -224,7 +224,6 @@ void DoubleOp::build(mlir::Builder *builder, mlir::OperationState &state,
   }
 }
 
-
 //===----------------------------------------------------------------------===//
 // TableGen'd op method definitions
 //===----------------------------------------------------------------------===//

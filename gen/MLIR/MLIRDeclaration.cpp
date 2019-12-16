@@ -216,12 +216,12 @@ mlir::Value *MLIRDeclaration::mlirGen(CallExp *callExp){
     operands.push_back(arg);
   }
   //Get the return type
-  mlir::Value* ret = nullptr;
+  mlir::Type ret = nullptr;
   if(ReturnStatement *returnStatement = *callExp->f->returns->data)
-    ret = mlirGen(returnStatement->exp);
+    ret = get_MLIRtype(returnStatement->exp);
 
   if(ret)
-    types.push_back(ret->getType());
+    types.push_back(ret);
   else
     types.push_back(mlir::NoneType::get(&context));
 
@@ -288,11 +288,8 @@ mlir::Value *MLIRDeclaration::mlirGen(VarExp *varExp){
   auto var = symbolTable.lookup(varExp->var->toChars());
   if (!var) {
     IF_LOG Logger::println("Undeclared VarExp: '%s' | '%u'", varExp->toChars(), varExp->op);
-    mlir::OperationState result(loc(varExp->loc), "ldc.IntegerExp");
-    result.addTypes(get_MLIRtype(varExp));
-    result.addAttribute("value", builder.getI16IntegerAttr(0));
-    return builder.createOperation(result)->getResult(0);
-    // var = 0; Default value for a variable
+    auto type = builder.getIntegerType(32);
+    return builder.create<mlir::D::IntegerOp>(loc(varExp->loc), type, 0, 32);
   }
   return var;
 }
@@ -392,23 +389,45 @@ mlir::Value* MLIRDeclaration::mlirGen(PostExp *postExp){
     return nullptr;
   }
 
+  int size = 0;
+  if(e1->getType().isInteger(1))
+    size = 1;
+  else if(e1->getType().isInteger(8))
+    size = 8;
+  else if(e1->getType().isInteger(16))
+    size = 16;
+  else if(e1->getType().isInteger(32))
+    size = 32;
+  else if(e1->getType().isInteger(64))
+    size = 64;
+  else
+  IF_LOG Logger::println("MLIR doesn't support integer of type different "
+                         "from 1,8,16,32,64");
 
-  StringRef opName;
-  if(postExp->op == TOKplusplus)
-  opName = "ldc.Plusplus";
-  else if(postExp->op == TOKminusminus)
-    opName = "ldc.MinusMinus";
-  else {
+  mlir::Value* e2 = nullptr;
+  mlir::Location location = loc(postExp->loc);
+  if(e1->getType().isF32() || e1->getType().isF16())
+    e2 = builder.create<mlir::D::FloatOp>(location, e1->getType(), 1.00);
+  else if(e1->getType().isF64())
+    e2 = builder.create<mlir::D::DoubleOp>(location, e1->getType(), 1.00);
+  else if(e1->getType().isInteger(size))
+    e2 = builder.create<mlir::D::IntegerOp>(location, e1->getType(), 1, size);
+
+  if(postExp->op == TOKplusplus) {
+    if(e1->getType().isF32() || e1->getType().isF16() || e1->getType().isF64())
+      return builder.create<mlir::D::AddFOp>(location, e1, e2);
+    else if(e1->getType().isInteger(size))
+      return builder.create<mlir::D::AddOp>(location, e1, e2);
+  } else if(postExp->op == TOKminusminus) {
+    if (e1->getType().isF32() || e1->getType().isF16() || e1->getType().isF64())
+      return builder.create<mlir::D::SubFOp>(location, e1, e2);
+    else if (e1->getType().isInteger(size))
+      return builder.create<mlir::D::SubOp>(location, e1, e2);
+  } else {
     _miss++;
     return nullptr;
   }
-
-  mlir::OperationState result(loc(postExp->loc), opName);
-  result.addOperands(e1);
-  result.addTypes(e1->getType()); // TODO: type
-  result.addAttribute("value", builder.getI16IntegerAttr(1));
-  return builder.createOperation(result)->getResult(0);
-
+  return nullptr;
 }
 
 mlir::Value *MLIRDeclaration::mlirGen(AddExp *addExp, AddAssignExp *addAssignExp){
@@ -785,67 +804,6 @@ mlir::Value *MLIRDeclaration::mlirGen(XorExp *xorExp, XorAssignExp *xorAssignExp
   return result;
 }
 
-mlir::Value *MLIRDeclaration::mlirGen(Expression *expression, mlir::Block* block) {
-  IF_LOG Logger::println("MLIRCodeGen - Expression: '%s' | '%u' -> '%s'",
-      expression->toChars(), expression->op, expression->type->toChars());
-  LOG_SCOPE
-  this->_total++;
-
-  if(block != nullptr)
-    builder.setInsertionPointToEnd(block);
-
-  int op = expression->op;
-
-  if(VarExp *varExp = expression->isVarExp())
-    return mlirGen(varExp);
-  else if (DeclarationExp *declarationExp = expression->isDeclarationExp())
-    return mlirGen(declarationExp);
-  else if (CastExp *castExp = expression->isCastExp())
-    return mlirGen(castExp);
-  else if (IntegerExp *integerExp = expression->isIntegerExp())
-    return mlirGen(integerExp);
-  else if (RealExp *realExp = expression->isRealExp())
-    return mlirGen(realExp);
-  else if (ConstructExp *constructExp = expression->isConstructExp())
-    return mlirGen(constructExp);
-  else if (AssignExp *assignExp = expression->isAssignExp())
-    return mlirGen(assignExp);
-  else if (CallExp *callExp = expression->isCallExp())
-    return mlirGen(callExp);
-  else if (ArrayLiteralExp *arrayLiteralExp = expression->isArrayLiteralExp())
-    return mlirGen(arrayLiteralExp);
-  else if (op >= 54 && op < 60)
-    return mlirGen(expression, 1);
-  else if (PostExp *postExp = expression->isPostExp())
-    return mlirGen(postExp);
-  else if (StringExp *stringExp = expression->isStringExp())
-    return nullptr;//add mlirGen(stringlExp); //needs to implement with blocks
-  else if (LogicalExp *logicalExp = expression->isLogicalExp())
-    return nullptr; //add mlirGen(logicalExp); //needs to implement with blocks
-  else if (expression->isAddExp() || expression->isAddAssignExp())
-    return mlirGen(expression->isAddExp(), expression->isAddAssignExp());
-  else if (expression->isMinExp() || expression->isMinAssignExp())
-    return mlirGen(expression->isMinExp(), expression->isMinAssignExp());
-  else if (expression->isMulExp() || expression->isMulAssignExp())
-    return mlirGen(expression->isMulExp(), expression->isMulAssignExp());
-  else if (expression->isDivExp() || expression->isDivAssignExp())
-    return mlirGen(expression->isDivExp(), expression->isDivAssignExp());
-  else if (expression->isModExp() || expression->isModAssignExp())
-    return mlirGen(expression->isModExp(), expression->isModAssignExp());
-  else if (expression->isAndExp() || expression->isAndAssignExp())
-    return mlirGen(expression->isAndExp(),expression->isAndAssignExp());
-  else if (expression->isOrExp() || expression->isOrAssignExp())
-    return mlirGen(expression->isOrExp(),expression->isOrAssignExp());
-  else if (expression->isXorExp() || expression->isXorAssignExp())
-    return mlirGen(expression->isXorExp(),expression->isXorAssignExp());
-
-  _miss++;
-    IF_LOG Logger::println("Unable to recoganize the Expression: '%s' : '%u': '%s'",
-                    expression->toChars(), expression->op,
-                    expression->type->toChars());
-    return nullptr;
-}
-
 mlir::Value* MLIRDeclaration::mlirGen(CastExp *castExp){
   IF_LOG Logger::print("MLIRCodeGen - CastExp: %s @ %s\n", castExp->toChars(),
                        castExp->type->toChars());
@@ -875,10 +833,7 @@ mlir::Value* MLIRDeclaration::mlirGen(CastExp *castExp){
   }
 
   auto type = get_MLIRtype(castExp);
-  mlir::OperationState Castresult(loc(castExp->loc), "ldc.CastOp");
-  Castresult.addTypes(type);
-  Castresult.addOperands({result});
-  return builder.createOperation(Castresult)->getResult(0);
+  return builder.create<mlir::D::CastOp>(loc(castExp->loc), type, result);
 }
 
 void MLIRDeclaration::mlirGen(TemplateInstance *decl) {
@@ -933,6 +888,67 @@ void MLIRDeclaration::mlirGen(TemplateInstance *decl) {
       _miss++;
     }
   }
+}
+
+mlir::Value *MLIRDeclaration::mlirGen(Expression *expression, mlir::Block* block) {
+  IF_LOG Logger::println("MLIRCodeGen - Expression: '%s' | '%u' -> '%s'",
+                         expression->toChars(), expression->op, expression->type->toChars());
+  LOG_SCOPE
+  this->_total++;
+
+  if(block != nullptr)
+    builder.setInsertionPointToEnd(block);
+
+  int op = expression->op;
+
+  if(VarExp *varExp = expression->isVarExp())
+    return mlirGen(varExp);
+  else if (DeclarationExp *declarationExp = expression->isDeclarationExp())
+    return mlirGen(declarationExp);
+  else if (CastExp *castExp = expression->isCastExp())
+    return mlirGen(castExp);
+  else if (IntegerExp *integerExp = expression->isIntegerExp())
+    return mlirGen(integerExp);
+  else if (RealExp *realExp = expression->isRealExp())
+    return mlirGen(realExp);
+  else if (ConstructExp *constructExp = expression->isConstructExp())
+    return mlirGen(constructExp);
+  else if (AssignExp *assignExp = expression->isAssignExp())
+    return mlirGen(assignExp);
+  else if (CallExp *callExp = expression->isCallExp())
+    return mlirGen(callExp);
+  else if (ArrayLiteralExp *arrayLiteralExp = expression->isArrayLiteralExp())
+    return mlirGen(arrayLiteralExp);
+  else if (op >= 54 && op < 60)
+    return mlirGen(expression, 1);
+  else if (PostExp *postExp = expression->isPostExp())
+    return mlirGen(postExp);
+  else if (StringExp *stringExp = expression->isStringExp())
+    return nullptr;//add mlirGen(stringlExp); //needs to implement with blocks
+  else if (LogicalExp *logicalExp = expression->isLogicalExp())
+    return nullptr; //add mlirGen(logicalExp); //needs to implement with blocks
+  else if (expression->isAddExp() || expression->isAddAssignExp())
+    return mlirGen(expression->isAddExp(), expression->isAddAssignExp());
+  else if (expression->isMinExp() || expression->isMinAssignExp())
+    return mlirGen(expression->isMinExp(), expression->isMinAssignExp());
+  else if (expression->isMulExp() || expression->isMulAssignExp())
+    return mlirGen(expression->isMulExp(), expression->isMulAssignExp());
+  else if (expression->isDivExp() || expression->isDivAssignExp())
+    return mlirGen(expression->isDivExp(), expression->isDivAssignExp());
+  else if (expression->isModExp() || expression->isModAssignExp())
+    return mlirGen(expression->isModExp(), expression->isModAssignExp());
+  else if (expression->isAndExp() || expression->isAndAssignExp())
+    return mlirGen(expression->isAndExp(),expression->isAndAssignExp());
+  else if (expression->isOrExp() || expression->isOrAssignExp())
+    return mlirGen(expression->isOrExp(),expression->isOrAssignExp());
+  else if (expression->isXorExp() || expression->isXorAssignExp())
+    return mlirGen(expression->isXorExp(),expression->isXorAssignExp());
+
+  _miss++;
+  IF_LOG Logger::println("Unable to recoganize the Expression: '%s' : '%u': '%s'",
+                         expression->toChars(), expression->op,
+                         expression->type->toChars());
+  return nullptr;
 }
 
 mlir::Type MLIRDeclaration::get_MLIRtype(Expression* expression){

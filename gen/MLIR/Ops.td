@@ -405,11 +405,11 @@ def FloatOp : D_Op<"float", [NoSideEffect]> {
   // populates the `state` that MLIR uses to create operations, i.e. these are
   // used when using `builder.create<FloatOp>(...)`.
   let builders = [
-    // Build a constant with a given constant integer value.
+    // Build a constant with a given constant float value.
     OpBuilder<"Builder *builder, OperationState &state, "
               "Type type, float value">,
 
-    // Build a integer with a given value.
+    // Build a float with a given value.
     OpBuilder<"Builder *builder, OperationState &state, "
               "FloatAttr value", [{
                 build(builder, state, value.getType(), value);
@@ -438,15 +438,30 @@ def DoubleOp : D_Op<"double", [NoSideEffect]> {
   // populates the `state` that MLIR uses to create operations, i.e. these are
   // used when using `builder.create<DoubleOp>(...)`.
   let builders = [
-    // Build a constant with a given constant integer value.
+    // Build a constant with a given constant double value.
     OpBuilder<"Builder *builder, OperationState &state, "
               "Type type, double value">,
 
-    // Build a integer with a given value.
+    // Build a double with a given value.
     OpBuilder<"Builder *builder, OperationState &state, "
               "DenseElementsAttr value", [{
                 build(builder, state, value.getType(), value);
-                }]>,
+                }]>
   ];
 }
 
+def CastOp : D_Op<"cast"> {
+  let summary = "cast type";
+  let description = [{
+    The "cast" operation converts a Value from one type to another type
+    without changing any data elements. If both are ranked
+    then the rank should be the same and static dimensions should match. The
+    operation is invalid if converting to a mismatching constant dimension.
+  }];
+
+  let arguments = (ins AnyType:$input);
+  let results = (outs AnyType:$output);
+
+  // Set the folder bit so that we can fold redundant cast operations.
+ // let hasFolder = 1;
+}
