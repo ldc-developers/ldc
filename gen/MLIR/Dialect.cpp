@@ -217,7 +217,7 @@ void DoubleOp::build(mlir::Builder *builder, mlir::OperationState &state,
                      mlir::Type type, double value) {
   if(type.isF64()){
     auto dataType = builder->getF64Type();
-    auto dataAttribute = builder ->getF64FloatAttr(value);
+    auto dataAttribute = builder->getF64FloatAttr(value);
     DoubleOp::build(builder, state, dataType, dataAttribute);
   }else{
     IF_LOG Logger::println("Unable to get the Attribute for %f", value);

@@ -174,11 +174,6 @@ private:
                                          StringRef(Fd->mangleString),
                                          func_type, {}); //TODO: Should this have the arguments?
 
-    // Mark the function as generic: it'll require type specialization for every
-    // call site.
-//    if (function.getNumArguments()) {
-//      function.setAttr("ldc.generic", builder.getUnitAttr());
-//    }
 
     return function;
   }
@@ -235,7 +230,7 @@ private:
     // Implicitly return void if no return statement was emitted.
     // (this would possibly help the REPL case later)
     if (function.getBody().back().back().getName().getStringRef() !=
-        "ldc.return") {
+        "D.return") {
       ReturnStatement *returnStatement = Fd->returns->front();
       if(returnStatement != nullptr)
         genStmt->mlirGen(returnStatement);

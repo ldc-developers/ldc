@@ -411,7 +411,7 @@ def FloatOp : D_Op<"float", [NoSideEffect]> {
 
     // Build a float with a given value.
     OpBuilder<"Builder *builder, OperationState &state, "
-              "FloatAttr value", [{
+              "DenseElementsAttr value", [{
                 build(builder, state, value.getType(), value);
                 }]>,
   ];
@@ -432,7 +432,7 @@ def DoubleOp : D_Op<"double", [NoSideEffect]> {
   let arguments = (ins AnyAttr:$value);
 
   // The constant operation returns a single value of TensorType.
-  let results = (outs F64);
+  let results = (outs FloatLike);
 
   // Add custom build methods for the DoubleOp operation. These method
   // populates the `state` that MLIR uses to create operations, i.e. these are

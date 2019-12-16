@@ -27,39 +27,6 @@ MLIRStatements::MLIRStatements(IRState *irs, Module *m,
 
 MLIRStatements::~MLIRStatements() = default; //Default Destructor
 
-int getPredicate(CmpExp *cmpExp){
-
-  Type *t = cmpExp->e1->type->toBasetype();
-
-  switch (cmpExp->op){
-  case TOKlt:
-     return t->isunsigned() ? 6 : 2; // "ult" or "slt"
-  case TOKle:
-    return t->isunsigned() ? 7 : 3; // "ule" or "sle"
-  case TOKgt:
-    return t->isunsigned() ? 8 : 4; //  "ugt" : "sgt";
-  case TOKge:
-    return t->isunsigned() ? 9 : 5; //  "uge" or "sge"
-  case TOKequal:
-    return 0;  // "eq";
-  case TOKnotequal:
-    return 1; // "neq";
-  default:
-    IF_LOG Logger::println("Invalid comparison operation");
-    break;
-  }
-  return -1;
-}
-
-/*mlir::Value* getUsedValueRef(mlir::Value* value, mlir::Region* region){
-  for(auto block = region->begin(); block != region->end(); block++) {
-     auto ops = &block->getOps();
-
-  }
-
-}*/
-
-
 mlir::Value* MLIRStatements::mlirGen(ExpStatement *expStmt) {
   IF_LOG Logger::println("MLIRCodeGen: ExpStatement to MLIR: '%s'",
                          expStmt->toChars());
@@ -112,17 +79,15 @@ mlir::Value* MLIRStatements::mlirGen(ForStatement *forStatement) {
   auto argument = llvm::makeArrayRef(args_);
   condition->addArguments(argument);*/ //TODO: PHI-functions -> arguments pass
 
+  mlir::ValueRange args = {}; //operands
   // Writing a branch instruction on predecessor of condition block
-  mlir::OperationState jump_to_cond(location, "ldc.br");
   builder.setInsertionPointToEnd(insert);
-  mlir::BranchOp br_to_cond;
-  br_to_cond.build(&builder, jump_to_cond, condition, {}/*iterator*/);
-  builder.createOperation(jump_to_cond);
+  builder.create<mlir::BranchOp>(location, condition, args);
 
   builder.setInsertionPointToStart(condition);
   // Getting Value for Condition
   mlir::Value *cond = nullptr;
-  mlir::CmpIOp cmpIOp;
+  //mlir::CmpIOp cmpIOp;
   if (forStatement->condition) {
     cond = declaration->mlirGen(forStatement->condition, condition);
     /*mlir::CmpIOp cmpi; //TODO:be sure that it will work for every case
@@ -136,11 +101,8 @@ mlir::Value* MLIRStatements::mlirGen(ForStatement *forStatement) {
     cond = builder.createOperation(cmp)->getResult(0);*/
   }
   //Writing a branch instruction on predecessor of condition block
-  mlir::OperationState jump_to_body(location, "ldc.br");
   builder.setInsertionPointToEnd(condition);
-  mlir::CondBranchOp br_to_body ;
-  br_to_body.build(&builder, jump_to_body,  cond, forbody, {}, endfor, {});
-  builder.createOperation(jump_to_body);
+  builder.create<mlir::CondBranchOp>(location, cond, forbody, args, endfor, args);
 
 
   builder.setInsertionPointToStart(forbody);
@@ -148,11 +110,8 @@ mlir::Value* MLIRStatements::mlirGen(ForStatement *forStatement) {
     mlirGen(body);
 
   //Writing a branch instruction on predecessor of condition block
-  mlir::OperationState jump_to_inc(location, "ldc.br");
   //builder.setInsertionPointToEnd(condition);
-  mlir::BranchOp br_to_inc ;
-  br_to_inc.build(&builder, jump_to_inc, increment, {});
-  builder.createOperation(jump_to_inc);
+  builder.create<mlir::BranchOp>(location, increment, args);
 
   builder.setInsertionPointToStart(increment);
  /* op.clear(); //TODO: PHI-functions -> arguments pass
@@ -160,13 +119,12 @@ mlir::Value* MLIRStatements::mlirGen(ForStatement *forStatement) {
     op.push_back(declaration->mlirGen(inc, increment));
 
   auto operands = llvm::makeArrayRef(op);*/
+  if(auto inc = forStatement->increment)
+    declaration->mlirGen(inc, increment);
 
   //Writing a branch instruction on predecessor of condition block
-  mlir::OperationState jump_to_end(location, "ldc.br");
   //builder.setInsertionPointToEnd(condition);
-  mlir::BranchOp br_to_end ;
-  br_to_end.build(&builder, jump_to_end, condition, {}/*operands*/);
-  builder.createOperation(jump_to_end);
+  builder.create<mlir::BranchOp>(location, condition, args);
 
  /* std::vector<mlir::Type> args;
   for(auto op : operands)
@@ -207,15 +165,14 @@ void MLIRStatements::mlirGen(IfStatement *ifStatement){
                                   context, builder, symbolTable, if_total,
                                   if_miss);
 
-  //Marks if a new direct branch is needed. This happens ehn we need to
-  // connect the end_if of an "else if" into the his sucessor end_if
+  //Marks if a new direct branch is needed. This happens when we need to
+  // connect the end_if of an "else if" into the his successor end_if
   bool gen_new_br = false;
 
   //Getting Value for Condition
   mlir::Value *cond = mlirDeclaration->mlirGen(ifStatement->condition);
 
   mlir::Location location = loc(ifStatement->loc);
-  mlir::OperationState result(location,"ldc.if");
 
   //When we create an block mlir automatically change the insert point, but
   // we have to keep it to insert the if operation inside it's own block an
@@ -235,33 +192,27 @@ void MLIRStatements::mlirGen(IfStatement *ifStatement){
   //Getting back to the old insertion point
   builder.setInsertionPointAfter(&insert->back());
 
-  mlir::CondBranchOp branch; //TODO: Make args to block generic -> phi nodes
+  //TODO: Make args to block generic -> phi nodes
+  mlir::ValueRange args = {}; // Args to block
   if(ifStatement->elsebody)
-    branch.build(&builder, result, cond, if_then, {}/*args to block*/,
-                                             if_else, {} /*args to block*/);
+    builder.create<mlir::CondBranchOp>(location, cond, if_then, args, if_else,args);
   else
-    branch.build(&builder, result, cond, if_then, {}/*args to block*/,
-                                         end_if,  {}/*args to block*/);
+    builder.create<mlir::CondBranchOp>(location, cond, if_then, args, end_if,args);
 
-  builder.createOperation(result);
 
   //After create the branch operation we can fill each block with their
   // operations
   builder.setInsertionPointToStart(if_then);
-  if(ExpStatement * expStatement = ifStatement->ifbody->isExpStatement())
+  if(ExpStatement *expStatement = ifStatement->ifbody->isExpStatement())
     mlirGen(expStatement);
   else if(ScopeStatement *scopeStatement =
       ifStatement->ifbody->isScopeStatement())
     mlirGen(scopeStatement);
   else
     _miss++;
-
   //Writing a branch instruction on each block (if, else) to (end)
-  mlir::OperationState jump(location, "ldc.br");
   builder.setInsertionPointToEnd(if_then);
-  mlir::BranchOp br_if;
-  br_if.build(&builder, jump, end_if, {});
-  builder.createOperation(jump);
+  builder.create<mlir::BranchOp>(location, end_if, args); //args = {}
 
   if(ifStatement->elsebody){
     builder.setInsertionPointToStart(if_else);
@@ -279,16 +230,10 @@ void MLIRStatements::mlirGen(IfStatement *ifStatement){
   }
 
   if(gen_new_br){
-    mlir::OperationState jump0(location, "ldc.br");
-    mlir::BranchOp br_else_if;
-    br_else_if.build(&builder, jump0, end_if, {});
-    builder.createOperation(jump0);
+    builder.create<mlir::BranchOp>(location, end_if, args); //args = {}
   }else if(ifStatement->elsebody) {
-    mlir::OperationState jump1(location, "ldc.br");
     builder.setInsertionPointToEnd(if_else);
-    mlir::BranchOp br_else;
-    br_else.build(&builder, jump1, end_if, {});
-    builder.createOperation(jump1);
+    builder.create<mlir::BranchOp>(location, end_if, args); //args = {}
   }
 
   //Setting the insertion point to the block before if_then and else
@@ -298,7 +243,6 @@ void MLIRStatements::mlirGen(IfStatement *ifStatement){
   _miss += if_miss;
 
 }
-
 
 mlir::LogicalResult MLIRStatements::mlirGen(ReturnStatement *returnStatement){
   //TODO: Accept more types of return
@@ -358,7 +302,6 @@ std::vector<mlir::Value*> MLIRStatements::mlirGen(CompoundStatement *compoundSta
   return arrayValue;
 }
 
-
 std::vector<mlir::Value*> MLIRStatements::mlirGen(ScopeStatement *scopeStatement){
   IF_LOG Logger::println("MLIRCodeGen - ScopeStatement: '%s'",
                          scopeStatement->toChars());
@@ -383,7 +326,6 @@ std::vector<mlir::Value*> MLIRStatements::mlirGen(ScopeStatement *scopeStatement
 
   return arrayValue;
 }
-
 
 mlir::Value* MLIRStatements::mlirGen(Statement* stm) {
   _total++;
