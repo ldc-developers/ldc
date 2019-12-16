@@ -84,7 +84,7 @@ public:
 
   //Expression
   mlir::Value* mlirGen(AddExp *addExp = nullptr, AddAssignExp *addAssignExp = nullptr);
-  //mlir::Value* mlirGen(AndAssignExp *addAssignExp);
+  mlir::Value* mlirGen(AndExp *andExp = nullptr, AndAssignExp *andAssignExp = nullptr);
   mlir::Value* mlirGen(ArrayLiteralExp *arrayLiteralExp);
   mlir::Value* mlirGen(AssignExp *assignExp); //Not perfect yet
   mlir::Value* mlirGen(CallExp *callExp);
@@ -97,14 +97,13 @@ public:
   mlir::Value* mlirGen(IntegerExp *integerExp);
   mlir::Value* mlirGen(MinExp *minExp = nullptr, MinAssignExp *minAssignExp = nullptr);
   mlir::Value* mlirGen(ModExp *modExp = nullptr, ModAssignExp *modAssignExp = nullptr);
-  mlir::Value* mlirGen(AndExp *andExp = nullptr, AndAssignExp *andAssignExp = nullptr);
-  mlir::Value* mlirGen(OrExp *orExp = nullptr, OrAssignExp *orAssignExp = nullptr);
-  mlir::Value* mlirGen(XorExp *xorExp = nullptr, XorAssignExp *xorAssignExp = nullptr);
   mlir::Value* mlirGen(MulExp *mulExp = nullptr, MulAssignExp *mulAssignExp  = nullptr);
+  mlir::Value* mlirGen(OrExp *orExp = nullptr, OrAssignExp *orAssignExp = nullptr);
   mlir::Value* mlirGen(PostExp *postExp);
   mlir::Value* mlirGen(RealExp *realExp);
-  void mlirGen(TemplateInstance *templateInstance);
   mlir::Value* mlirGen(VarExp *varExp);
+  mlir::Value* mlirGen(XorExp *xorExp = nullptr, XorAssignExp *xorAssignExp = nullptr);
+  void mlirGen(TemplateInstance *templateInstance);
 
   ///Set MLIR Location using D Loc info
   mlir::Location loc(Loc loc){
