@@ -351,29 +351,29 @@ def CallOp : D_Op<"call"> {
 }
 
 def IntegerOp : D_Op<"int", [NoSideEffect]> {
-  let summary = "Integer";
+  let summary = "Integer Declaration";
   let description = [{
-    IntegerExp operation turns a literal into an SSA value. The data is attached
+    IntegerOp operation turns a literal into an SSA value. The data is attached
     to the operation as an attribute. For example:
 
     ```mlir
-      %0 = "D.Integer"() {value = 10 : i32} : () -> i32
+      %0 = "D.int"() {value = 10 : i32} : () -> i32
     ```
   }];
 
- /* // The integerExp operation takes an attribute as the only input.
-  let arguments = (ins IntegerLike:$value);*/
-  let arguments = (ins I64ElementsAttr:$value);
+  // The IntegerOp operation takes an attribute as the only input.
+  let arguments = (ins AnyAttr:$value);
 
   // The constant operation returns a single value of TensorType.
   let results = (outs IntegerLike);
 
-  // Add custom build methods for the integerExp operation. These method
+  // Add custom build methods for the IntegerOp operation. These method
   // populates the `state` that MLIR uses to create operations, i.e. these are
   // used when using `builder.create<IntegerOp>(...)`.
   let builders = [
     // Build a constant with a given constant integer value.
-    OpBuilder<"Builder *builder, OperationState &state, int value">,
+    OpBuilder<"Builder *builder, OperationState &state, "
+              "Type type, int value, int size">,
 
     // Build a integer with a given value.
     OpBuilder<"Builder *builder, OperationState &state, "
@@ -381,7 +381,72 @@ def IntegerOp : D_Op<"int", [NoSideEffect]> {
                 build(builder, state, value.getType(), value);
                 }]>,
   ];
-
-  // Invoke a static verify method to verify this constant operation.
-  let verifier = [{ return ::verify(*this); }];
 }
+
+def FloatOp : D_Op<"float", [NoSideEffect]> {
+  let summary = "Float Declaration";
+  let description = [{
+    FloatOp operation turns a literal into an SSA value. The data is attached
+    to the operation as an attribute. For example:
+
+    ```mlir
+      %0 = "D.float"() {value = 10.00000 : f32} : () -> f32
+      %1 = "D.float"() {value = 5.00000 : f16} : () -> f16
+    ```
+  }];
+
+  // The FloatOp operation takes an attribute as the only input.
+  let arguments = (ins AnyAttr:$value);
+
+  // The constant operation returns a single value of TensorType.
+  let results = (outs FloatLike);
+
+  // Add custom build methods for the FloatOp operation. These method
+  // populates the `state` that MLIR uses to create operations, i.e. these are
+  // used when using `builder.create<FloatOp>(...)`.
+  let builders = [
+    // Build a constant with a given constant integer value.
+    OpBuilder<"Builder *builder, OperationState &state, "
+              "Type type, float value">,
+
+    // Build a integer with a given value.
+    OpBuilder<"Builder *builder, OperationState &state, "
+              "FloatAttr value", [{
+                build(builder, state, value.getType(), value);
+                }]>,
+  ];
+}
+
+def DoubleOp : D_Op<"double", [NoSideEffect]> {
+  let summary = "Double Declaration";
+  let description = [{
+    DoubleOp operation turns a literal into an SSA value. The data is attached
+    to the operation as an attribute. For example:
+
+    ```mlir
+      %0 = "D.double"() {value = 10.00000 : f64} : () -> f64
+    ```
+  }];
+
+  // The DoubleOp operation takes an attribute as the only input.
+  let arguments = (ins AnyAttr:$value);
+
+  // The constant operation returns a single value of TensorType.
+  let results = (outs F64);
+
+  // Add custom build methods for the DoubleOp operation. These method
+  // populates the `state` that MLIR uses to create operations, i.e. these are
+  // used when using `builder.create<DoubleOp>(...)`.
+  let builders = [
+    // Build a constant with a given constant integer value.
+    OpBuilder<"Builder *builder, OperationState &state, "
+              "Type type, double value">,
+
+    // Build a integer with a given value.
+    OpBuilder<"Builder *builder, OperationState &state, "
+              "DenseElementsAttr value", [{
+                build(builder, state, value.getType(), value);
+                }]>,
+  ];
+}
+

@@ -9,6 +9,7 @@
 #if LDC_MLIR_ENABLED
 
 #include "gen/MLIR/Dialect.h"
+#include "gen/logger.h"
 
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/StandardTypes.h"
@@ -186,14 +187,42 @@ void CallOp::build(mlir::Builder *b, mlir::OperationState &state,
 /// Build a constant operation.
 /// The builder is passed as an argument, so is the state that this method is
 /// expected to fill in order to build the operation.
-/*void IntegerOp::build(mlir::Builder *builder, mlir::OperationState &state,
-    int value) {
-  auto dataType = RankedTensorType::get({}, builder->getF64Type());
-  mlir::DenseIntElementsAttr dataAttribute = DenseIntElementsAttr::get
-      (dataType, value);
-  IntegerOp::build(builder, state, dataType, dataAttribute);
-}*/
+void IntegerOp::build(mlir::Builder *builder, mlir::OperationState &state,
+                      mlir::Type type, int value, int size = 0) {
+  if(type.isInteger(size)){
+    auto dataType =builder->getIntegerType(size);
+    auto dataAttribute = builder->getIntegerAttr(dataType, value);
+    IntegerOp::build(builder, state, dataType, dataAttribute);
+  }else{
+    IF_LOG Logger::println("Unable to get the Attribute for %d", value);
+  }
+}
 
+void FloatOp::build(mlir::Builder *builder, mlir::OperationState &state,
+                    mlir::Type type, float value) {
+  if(type.isF16()){
+    auto dataType = builder->getF16Type();
+    auto dataAttribute = builder->getF16FloatAttr(value);
+    FloatOp::build(builder, state, dataType, dataAttribute);
+  }else if(type.isF32()){
+    auto dataType = builder->getF32Type();
+    auto dataAttribute = builder->getF32FloatAttr(value);
+    FloatOp::build(builder, state, dataType, dataAttribute);
+  }else{
+    IF_LOG Logger::println("Unable to get the Attribute for %f", value);
+  }
+}
+
+void DoubleOp::build(mlir::Builder *builder, mlir::OperationState &state,
+                     mlir::Type type, double value) {
+  if(type.isF64()){
+    auto dataType = builder->getF64Type();
+    auto dataAttribute = builder ->getF64FloatAttr(value);
+    DoubleOp::build(builder, state, dataType, dataAttribute);
+  }else{
+    IF_LOG Logger::println("Unable to get the Attribute for %f", value);
+  }
+}
 
 
 //===----------------------------------------------------------------------===//

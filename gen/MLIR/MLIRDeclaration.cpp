@@ -247,50 +247,39 @@ mlir::Value *MLIRDeclaration::mlirGen(ConstructExp *constructExp){
 mlir::Value *MLIRDeclaration::mlirGen(IntegerExp *integerExp){
   _total++;
   dinteger_t dint = integerExp->value;
-  Logger::println("Integer: '%lu'", dint);
-  auto ret_type = get_MLIRtype(integerExp);
-  mlir::Attribute value_type;
-  if(ret_type.isInteger(1))
-    value_type = builder.getIntegerAttr(builder.getI1Type(), dint);
-  else if(ret_type.isInteger(8))
-    value_type = builder.getI8IntegerAttr(dint);
-  else if(ret_type.isInteger(16))
-    value_type = builder.getI16IntegerAttr(dint);
-  else if(ret_type.isInteger(32))
-    value_type = builder.getI32IntegerAttr(dint);
-  else if(ret_type.isInteger(64))
-    value_type = builder.getI64IntegerAttr(dint);
+  Logger::println("MLIRGen - Integer: '%lu'", dint);
+  auto type = get_MLIRtype(integerExp);
+  auto location = loc(integerExp->loc);
+  int size = 0;
+  if(type.isInteger(1))
+    size = 1;
+  else if(type.isInteger(8))
+    size = 8;
+  else if(type.isInteger(16))
+    size = 16;
+  else if(type.isInteger(32))
+    size = 32;
+  else if(type.isInteger(64))
+    size = 64;
   else
-    _miss++; //TODO: Create getI128IntegerAttr on DDialect
-  llvm::StringRef name;
-  if(value_type.getType() == builder.getI1Type())
-    name = "ldc.bool";
-  else
-    name = "ldc.IntegerExp";
-  mlir::OperationState result(loc(integerExp->loc), name);
-  result.addTypes(ret_type);
-  result.addAttribute("value", value_type);
-  return builder.createOperation(result)->getResult(0);
+    IF_LOG Logger::println("MLIR doesn't support integer of type different "
+                           "from 1,8,16,32,64");
+  return builder.create<mlir::D::IntegerOp>(location, type, (int)dint, size);
 }
 
 mlir::Value* MLIRDeclaration::mlirGen(RealExp *realExp){
   _total++;
   real_t dfloat = realExp->value;
   Logger::println("MLIRCodeGen - RealExp: '%Lf'", dfloat);
-  mlir::OperationState result(loc(realExp->loc), "ldc.RealExp");
-  auto ret_type = get_MLIRtype(realExp);
-  result.addTypes(ret_type);
-  mlir::Attribute value_type;
-  if(ret_type.isF16())
-    value_type = builder.getF16FloatAttr(dfloat);
-  else if(ret_type.isF32())
-    value_type = builder.getF32FloatAttr(dfloat);
-  else if(ret_type.isF64())
-    value_type = builder.getF64FloatAttr(dfloat);
+  mlir::Location Loc = loc(realExp->loc);
+  auto type = get_MLIRtype(realExp);
+  if(type.isF16() || type.isF32())
+    return builder.create<mlir::D::FloatOp>(Loc, type, dfloat);
+  else if(type.isF64())
+    return builder.create<mlir::D::DoubleOp>(Loc, type, dfloat);
   else
     _miss++; //TODO: Create getF80FloatAttr on DDialect
-  result.addAttribute("value", value_type);
-  return builder.createOperation(result)->getResult(0);
+    return nullptr;
 }
 
 mlir::Value *MLIRDeclaration::mlirGen(VarExp *varExp){
