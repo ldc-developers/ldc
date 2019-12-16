@@ -1380,6 +1380,10 @@ void DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
 #else
       llVar, // value
 #endif
+    
+#if LDC_LLVM_VER >= 1000
+      nullptr, // expression
+#endif
       Decl // declaration
   );
 
