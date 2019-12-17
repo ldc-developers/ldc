@@ -229,15 +229,15 @@ private:
 
     // Implicitly return void if no return statement was emitted.
     // (this would possibly help the REPL case later)
-    if (function.getBody().back().back().getName().getStringRef() !=
-        "D.return") {
+    auto LastOp = function.getBody().back().back().getName().getStringRef();
+    if ( LastOp != "std.return" && LastOp != "std.br" && LastOp != "std.cond_br") {
+     // Logger::println("Num results: %d",function.result);
+      function.getBody().back().back().dump();
       ReturnStatement *returnStatement = Fd->returns->front();
       if(returnStatement != nullptr)
         genStmt->mlirGen(returnStatement);
       else{
-        mlir::ReturnOp returnOp;
-        mlir::OperationState ret(mlir::UnknownLoc::get(&context), "D.return");
-        returnOp.build(&builder, ret);
+        builder.create<mlir::ReturnOp>(function.getBody().back().back().getLoc());
       }
     }
     return function;

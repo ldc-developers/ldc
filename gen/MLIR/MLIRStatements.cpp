@@ -208,10 +208,12 @@ void MLIRStatements::mlirGen(IfStatement *ifStatement){
   else if(ScopeStatement *scopeStatement =
       ifStatement->ifbody->isScopeStatement())
     mlirGen(scopeStatement);
+  else if(IfStatement *nested_if = ifStatement->ifbody->isIfStatement())
+    mlirGen(nested_if);
   else
     _miss++;
   //Writing a branch instruction on each block (if, else) to (end)
-  builder.setInsertionPointToEnd(if_then);
+ // builder.setInsertionPointToEnd(if_then);
   builder.create<mlir::BranchOp>(location, end_if, args); //args = {}
 
   if(ifStatement->elsebody){
@@ -245,26 +247,22 @@ void MLIRStatements::mlirGen(IfStatement *ifStatement){
 }
 
 mlir::LogicalResult MLIRStatements::mlirGen(ReturnStatement *returnStatement){
-  //TODO: Accept more types of return
-  if(!returnStatement->exp->isIntegerExp() && !returnStatement->exp->isVarExp()){
-    _miss++;
-    IF_LOG Logger::println("Unable to genenerate MLIR code for : '%s'",
-        returnStatement->toChars());
-    return mlir::failure();
-  }
-
   IF_LOG Logger::println("MLIRCodeGen - Return Stmt: '%s'",
                          returnStatement->toChars());
   LOG_SCOPE
 
-  mlir::OperationState result(loc(returnStatement->loc),"ldc.return");
+  mlir::Location location = loc(returnStatement->loc);
+
   if(returnStatement->exp->hasCode()) {
     auto *expr = declaration->mlirGen(returnStatement->exp, builder.getInsertionBlock());
     if(!expr)
       return mlir::failure();
-    result.addOperands(expr);
+
+    builder.create<mlir::ReturnOp>(location, expr->getType(), mlir::ValueRange({expr}));
+  }else{
+    builder.create<mlir::ReturnOp>(location);
   }
-  builder.createOperation(result);
+
   return mlir::success();
 }
 
