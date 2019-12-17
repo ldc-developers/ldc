@@ -1,5 +1,5 @@
 // REQUIRES: atleast_llvm1000
-// RUN: %ldc -output-mlir -of=%t.mlir %s &&  FileCheck %s < %t.mlir
+// RUN: %ldc -output-mlir -of=%t.mlir %s &&  FileCheck %s < %t.mlir 
 int main(){
   int a = 10;
   float b = 5;
@@ -8,6 +8,9 @@ int main(){
   a += b;
   d += a;
   a = a * cast(int)b;
+  b = b*d;
+  a = a / cast(int)b;
+  b = d / d;
   int e = a - 1;
   int f = a % e;
   int g = 0;
@@ -26,40 +29,49 @@ int main(){
   d = d / b;
 
 // CHECK-LABEL: func @_Dmain() 
-// CHECK: [[VAL_0:%.*]] = "ldc.IntegerExp"() {value = 10 : i32} : () -> i32
-// CHECK-NEXT: [[VAL_1:%.*]] = "ldc.RealExp"() {value = 5.000000e+00 : f32} : () -> f32
-// CHECK-NEXT: [[VAL_2:%.*]] = "ldc.bool"() {value = 1 : i1} : () -> i1
-// CHECK-NEXT: [[VAL_3:%.*]] = "ldc.RealExp"() {value = 9.9248098590329867 : f64} : () -> f64
-// CHECK-NEXT: [[VAL_4:%.*]] = "ldc.CastOp"([[VAL_0]]) : (i32) -> f32
-// CHECK-NEXT: [[VAL_5:%.*]] = "D.addf"([[VAL_4]], [[VAL_1]]) : (f32, f32) -> f32
-// CHECK-NEXT: [[VAL_6:%.*]] = "ldc.CastOp"([[VAL_0]]) : (i32) -> f64
-// CHECK-NEXT: [[VAL_7:%.*]] = "D.addf"([[VAL_3]], [[VAL_6]]) : (f64, f64) -> f64
-// CHECK-NEXT: [[VAL_8:%.*]] = "ldc.CastOp"([[VAL_1]]) : (f32) -> i32
-// CHECK-NEXT: [[VAL_9:%.*]] = "ldc.mul"([[VAL_0]], [[VAL_8]]) : (i32, i32) -> i32
-// CHECK-NEXT: [[VAL_10:%.*]] = "ldc.IntegerExp"() {value = 1 : i32} : () -> i32
-// CHECK-NEXT: [[VAL_11:%.*]] = "ldc.neg"([[VAL_0]], [[VAL_10]]) : (i32, i32) -> i32
-// CHECK-NEXT: [[VAL_12:%.*]] = "ldc.mod"([[VAL_0]], [[VAL_11]]) : (i32, i32) -> i32
-// CHECK-NEXT: [[VAL_13:%.*]] = "ldc.IntegerExp"() {value = 0 : i32} : () -> i32
-// CHECK-NEXT: [[VAL_14:%.*]] = "ldc.and"([[VAL_0]], [[VAL_13]]) : (i32, i32) -> i32
-// CHECK-NEXT: [[VAL_15:%.*]] = "ldc.Plusplus"([[VAL_0]]) {value = 1 : i16} : (i32) -> i32
-// CHECK-NEXT: [[VAL_16:%.*]] = "ldc.CastOp"([[VAL_1]]) : (f32) -> i32
-// CHECK-NEXT: [[VAL_17:%.*]] = "ldc.or"([[VAL_16]], [[VAL_13]]) : (i32, i32) -> i32
-// CHECK-NEXT: [[VAL_18:%.*]] = "ldc.bool"() {value = 0 : i1} : () -> i1
-// CHECK-NEXT: [[VAL_19:%.*]] = "ldc.CastOp"([[VAL_2]]) : (i1) -> i32
-// CHECK-NEXT: [[VAL_20:%.*]] = "ldc.xor"([[VAL_19]], [[VAL_13]]) : (i32, i32) -> i32 
-// CHECK-NEXT: [[VAL_21:%.*]] = "ldc.MinusMinus"([[VAL_1]]) {value = 1 : i16} : (f32) -> f32
-// CHECK-NEXT: [[VAL_22:%.*]] = "ldc.IntegerExp"() {value = 1 : i32} : () -> i32
-// CHECK-NEXT: [[VAL_23:%.*]] = "D.addi"([[VAL_0]], [[VAL_22]]) : (i32, i32) -> i32
-// CHECK-NEXT: [[VAL_24:%.*]] = "ldc.RealExp"() {value = 2.000000e+00 : f32} : () -> f32
-// CHECK-NEXT: [[VAL_25:%.*]] = "ldc.neg"([[VAL_1]], [[VAL_24]]) : (f32, f32) -> f32 
-// CHECK-NEXT: [[VAL_26:%.*]] = "ldc.RealExp"() {value = 4.000000e+00 : f64} : () -> f64
-// CHECK-NEXT: [[VAL_27:%.*]] = "ldc.div"([[VAL_3]], [[VAL_26]]) : (f64, f64) -> f64
-// CHECK-NEXT: [[VAL_28:%.*]] = "ldc.and"([[VAL_11]], [[VAL_13]]) : (i32, i32) -> i32
-// CHECK-NEXT: [[VAL_29:%.*]] = "ldc.or"([[VAL_12]], [[VAL_13]]) : (i32, i32) -> i32
-// CHECK-NEXT: [[VAL_30:%.*]] = "ldc.xor"([[VAL_13]], [[VAL_13]]) : (i32, i32) -> i32
-// CHECK-NEXT: [[VAL_31:%.*]] = "ldc.CastOp"([[VAL_1]]) : (f32) -> f64
-// CHECK-NEXT: [[VAL_32:%.*]] = "ldc.div"([[VAL_3]], [[VAL_31]]) : (f64, f64) -> f64
-// CHECK-NEXT: [[VAL_33:%.*]] = "ldc.IntegerExp"() {value = 0 : i32} : () -> i32
-// CHECK: "ldc.return"([[VAL_33]]) : (i32) -> () 
+// CHECK: [[VAL_0:%.*]] = "D.int"() {value = 10 : i32} : () -> i32
+// CHECK-NEXT: [[VAL_1:%.*]] = "D.float"() {value = 5.000000e+00 : f32} : () -> f32
+// CHECK-NEXT: [[VAL_2:%.*]] = "D.int"() {value = 1 : i1} : () -> i1
+// CHECK-NEXT: [[VAL_3:%.*]] = "D.double"() {value = 9.9248098590329867 : f64} : () -> f64
+// CHECK-NEXT: [[VAL_4:%.*]] = "D.cast"([[VAL_0]]) : (i32) -> f32
+// CHECK-NEXT: [[VAL_5:%.*]] = "D.fadd"([[VAL_4]], [[VAL_1]]) : (f32, f32) -> f32
+// CHECK-NEXT: [[VAL_6:%.*]] = "D.cast"([[VAL_0]]) : (i32) -> f64
+// CHECK-NEXT: [[VAL_7:%.*]] = "D.fadd"([[VAL_3]], [[VAL_6]]) : (f64, f64) -> f64
+// CHECK-NEXT: [[VAL_8:%.*]] = "D.cast"([[VAL_1]]) : (f32) -> i32
+// CHECK-NEXT: [[VAL_9:%.*]] = "D.mul"([[VAL_0]], [[VAL_8]]) : (i32, i32) -> i32
+// CHECK-NEXT: [[VAL_10:%.*]] = "D.cast"([[VAL_1]]) : (f32) -> f64
+// CHECK-NEXT: [[VAL_11:%.*]] = "D.fmul"([[VAL_10]], [[VAL_3]]) : (f64, f64) -> f64
+// CHECK-NEXT: [[VAL_12:%.*]] = "D.cast"([[VAL_11]]) : (f64) -> f32
+// CHECK-NEXT: [[VAL_13:%.*]] = "D.cast"([[VAL_1]]) : (f32) -> i32
+// CHECK-NEXT: [[VAL_14:%.*]] = "D.sdiv"([[VAL_0]], [[VAL_13]]) : (i32, i32) -> i32
+// CHECK-NEXT: [[VAL_15:%.*]] = "D.fdiv"([[VAL_3]], [[VAL_3]]) : (f64, f64) -> f64
+// CHECK-NEXT: [[VAL_16:%.*]] = "D.cast"([[VAL_15]]) : (f64) -> f32
+// CHECK-NEXT: [[VAL_17:%.*]] = "D.int"() {value = 1 : i32} : () -> i32
+// CHECK-NEXT: [[VAL_18:%.*]] = "D.sub"([[VAL_0]], [[VAL_17]]) : (i32, i32) -> i32
+// CHECK-NEXT: [[VAL_19:%.*]] = "D.srem"([[VAL_0]], [[VAL_18]]) : (i32, i32) -> i32
+// CHECK-NEXT: [[VAL_20:%.*]] = "D.int"() {value = 0 : i32} : () -> i32
+// CHECK-NEXT: [[VAL_21:%.*]] = "D.and"([[VAL_0]], [[VAL_20]]) : (i32, i32) -> i32
+// CHECK-NEXT: [[VAL_22:%.*]] = "D.int"() {value = 1 : i32} : () -> i32
+// CHECK-NEXT: [[VAL_23:%.*]] = "D.add"([[VAL_0]], [[VAL_22]]) : (i32, i32) -> i32
+// CHECK-NEXT: [[VAL_24:%.*]] = "D.cast"([[VAL_1]]) : (f32) -> i32
+// CHECK-NEXT: [[VAL_25:%.*]] = "D.or"([[VAL_24]], [[VAL_20]]) : (i32, i32) -> i32
+// CHECK-NEXT: [[VAL_26:%.*]] = "D.int"() {value = 0 : i1} : () -> i1
+// CHECK-NEXT: [[VAL_27:%.*]] = "D.cast"([[VAL_2]]) : (i1) -> i32
+// CHECK-NEXT: [[VAL_28:%.*]] = "D.xor"([[VAL_27]], [[VAL_20]]) : (i32, i32) -> i32 
+// CHECK-NEXT: [[VAL_29:%.*]] = "D.float"() {value = 1.000000e+00 : f32} : () -> f32
+// CHECK-NEXT: [[VAL_30:%.*]] = "D.fsub"([[VAL_1]], [[VAL_29]]) : (f32, f32) -> f32
+// CHECK-NEXT: [[VAL_31:%.*]] = "D.int"() {value = 1 : i32} : () -> i32
+// CHECK-NEXT: [[VAL_32:%.*]] = "D.add"([[VAL_0]], [[VAL_31]]) : (i32, i32) -> i32
+// CHECK-NEXT: [[VAL_33:%.*]] = "D.float"() {value = 2.000000e+00 : f32} : () -> f32
+// CHECK-NEXT: [[VAL_34:%.*]] = "D.fsub"([[VAL_1]], [[VAL_33]]) : (f32, f32) -> f32 
+// CHECK-NEXT: [[VAL_35:%.*]] = "D.double"() {value = 4.000000e+00 : f64} : () -> f64
+// CHECK-NEXT: [[VAL_36:%.*]] = "D.fdiv"([[VAL_3]], [[VAL_35]]) : (f64, f64) -> f64
+// CHECK-NEXT: [[VAL_37:%.*]] = "D.and"([[VAL_18]], [[VAL_20]]) : (i32, i32) -> i32
+// CHECK-NEXT: [[VAL_38:%.*]] = "D.or"([[VAL_19]], [[VAL_20]]) : (i32, i32) -> i32
+// CHECK-NEXT: [[VAL_39:%.*]] = "D.xor"([[VAL_20]], [[VAL_20]]) : (i32, i32) -> i32
+// CHECK-NEXT: [[VAL_40:%.*]] = "D.cast"([[VAL_1]]) : (f32) -> f64
+// CHECK-NEXT: [[VAL_41:%.*]] = "D.fdiv"([[VAL_3]], [[VAL_40]]) : (f64, f64) -> f64
+// CHECK-NEXT: [[VAL_42:%.*]] = "D.int"() {value = 0 : i32} : () -> i32
+// CHECK-NEXT: [[VAL_43:%.*]] = "std.return"([[VAL_42]]) : (i32) -> i32
 return 0;
 }
