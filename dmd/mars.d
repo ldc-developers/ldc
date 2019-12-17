@@ -522,20 +522,7 @@ version (IN_LLVM) {} else
 }
 
         m.parse();
-        if (m.isHdrFile)
-        {
-            // Remove m's object file from list of object files
-            for (size_t j = 0; j < params.objfiles.dim; j++)
-            {
-                if (m.objfile.toChars() == params.objfiles[j])
-                {
-                    params.objfiles.remove(j);
-                    break;
-                }
-            }
-            if (params.objfiles.dim == 0)
-                params.link = false;
-        }
+
 version (IN_LLVM)
 {
         // Finalize output filenames. Update if `-oq` was specified (only feasible after parsing).
@@ -560,7 +547,7 @@ version (IN_LLVM)
             if (params.objfiles[j] == cast(const(char)*)m)
             {
                 params.objfiles[j] = m.objfile.toChars();
-                if (!m.isDocFile && params.obj)
+                if (!m.isHdrFile && !m.isDocFile && params.obj)
                     m.checkAndAddOutputFile(m.objfile);
                 break;
             }
@@ -569,6 +556,21 @@ version (IN_LLVM)
         if (!params.oneobj || modi == 0 || m.isDocFile)
             m.deleteObjFile();
 } // IN_LLVM
+
+        if (m.isHdrFile)
+        {
+            // Remove m's object file from list of object files
+            for (size_t j = 0; j < params.objfiles.dim; j++)
+            {
+                if (m.objfile.toChars() == params.objfiles[j])
+                {
+                    params.objfiles.remove(j);
+                    break;
+                }
+            }
+            if (params.objfiles.dim == 0)
+                params.link = false;
+        }
         if (m.isDocFile)
         {
             anydocfiles = true;
