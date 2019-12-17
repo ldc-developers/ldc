@@ -508,29 +508,49 @@ mlir::Value *MLIRDeclaration::mlirGen(Expression *expression, int func){
   mlir::Location location = loc(cmpExp->loc);
   mlir::Value *e1 = mlirGen(cmpExp->e1);
   mlir::Value *e2 = mlirGen(cmpExp->e2);
-
   Type *t = cmpExp->e1->type->toBasetype();//?
+  mlir::CmpIPredicate predicate; //= eq;
+  mlir::CmpFPredicate predicateF;
 
-  StringRef name;
+  bool isFloat = e1->getType().isF64() || e1->getType().isF32() ||
+                                                        e1->getType().isBF16();
 
   switch(cmpExp->op){
     case TOKlt:
-      name = t->isunsigned() ? "ult" : "slt";
+      if(isFloat)
+        predicateF = mlir::CmpFPredicate::ULT;
+      else
+        predicate = t->isunsigned() ? mlir::CmpIPredicate::ult : mlir::CmpIPredicate::slt;
       break;
     case TOKle:
-      name = t->isunsigned() ? "ule" : "sle";
+      if(isFloat)
+        predicateF = mlir::CmpFPredicate::ULE;
+      else
+        predicate = t->isunsigned() ? mlir::CmpIPredicate::ule : mlir::CmpIPredicate::sle;
       break;
     case TOKgt:
-      name = t->isunsigned() ? "ugt" : "sgt";
+      if(isFloat)
+        predicateF = mlir::CmpFPredicate::UGT;
+      else
+        predicate = t->isunsigned() ? mlir::CmpIPredicate::ugt : mlir::CmpIPredicate::sgt;
       break;
     case TOKge:
-      name = t->isunsigned() ? "uge" : "sge";
+      if(isFloat)
+        predicateF = mlir::CmpFPredicate::UGE;
+      else
+        predicate = t->isunsigned() ? mlir::CmpIPredicate::uge : mlir::CmpIPredicate::sge;
       break;
     case TOKequal:
-      name = "eq";
+      if(isFloat)
+        predicateF = mlir::CmpFPredicate::UEQ;
+      else
+        predicate = mlir::CmpIPredicate::eq;
       break;
     case TOKnotequal:
-      name = "neq";
+      if(isFloat)
+        predicateF = mlir::CmpFPredicate::UNE;
+      else
+        predicate = mlir::CmpIPredicate::ne;
       break;
     default:
       _miss++;
@@ -538,12 +558,10 @@ mlir::Value *MLIRDeclaration::mlirGen(Expression *expression, int func){
       break;
   }
 
-  mlir::OperationState result(location, "icmp");
-  result.addTypes(builder.getIntegerType(1));
-  auto stringAttr = mlir::StringAttr::get(name, &context);
-  result.addAttribute("Type", stringAttr);
-  result.addOperands({e1,e2});
-  return builder.createOperation(result)->getResult(0);
+  if(isFloat)
+    return builder.create<mlir::CmpFOp>(location, predicateF, e1,e2);
+  else
+    return builder.create<mlir::CmpIOp>(location, predicate, e1, e2);
 }
 
 mlir::Value *MLIRDeclaration::mlirGen(IntegerExp *integerExp){
