@@ -1652,6 +1652,12 @@ version (IN_LLVM)
                     foreach (id; (*imp.packages)[1 .. imp.packages.dim]) // [b, c]
                     {
                         p = cast(Package) p.symtab.lookup(id);
+                        // https://issues.dlang.org/show_bug.cgi?id=17991
+                        // An import of truly empty file/package can happen
+                        // https://issues.dlang.org/show_bug.cgi?id=20151
+                        // Package in the path conflicts with a module name
+                        if (p is null)
+                            break;
                         scopesym.addAccessiblePackage(p, imp.protection);
                     }
                 }
