@@ -31,6 +31,8 @@ class D_Op<string mnemonic, list<OpTrait> traits = []> :
      Op<D_Dialect, mnemonic, traits>;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Binary Operations
+////////////////////////////////////////////////////////////////////////////////
 // AddOp IntegerLike infers the size of int
 
 def AddOp : D_Op<"add"> {
@@ -50,7 +52,6 @@ def AddOp : D_Op<"add"> {
     ];
 }
 
-////////////////////////////////////////////////////////////////////////////////
 // AddFOp FloatLike infers the size of float
 
 def AddFOp : D_Op<"fadd"> {
@@ -69,7 +70,6 @@ def AddFOp : D_Op<"fadd"> {
     ];
 }
 
-////////////////////////////////////////////////////////////////////////////////
 // SubOp IntegerLike infers the size of int
 
 def SubOp : D_Op<"sub"> {
@@ -89,7 +89,6 @@ def SubOp : D_Op<"sub"> {
     ];
 }
 
-////////////////////////////////////////////////////////////////////////////////
 // SubFOp FloatLike infers the size of float
 
 def SubFOp : D_Op<"fsub"> {
@@ -109,8 +108,6 @@ def SubFOp : D_Op<"fsub"> {
     ];
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
 def MulOp : D_Op<"mul"> {
   let summary = "element-wise multiplication operation";
   let description = [{
@@ -126,8 +123,6 @@ def MulOp : D_Op<"mul"> {
     OpBuilder<"Builder *b, OperationState &state, Value *lhs, Value *rhs">
   ];
 }
-
-////////////////////////////////////////////////////////////////////////////////
 
 def MulFOp : D_Op<"fmul"> {
   let summary = "element-wise multiplication operation";
@@ -145,7 +140,6 @@ def MulFOp : D_Op<"fmul"> {
   ];
 }
 
-////////////////////////////////////////////////////////////////////////////////
 def DivSOp : D_Op<"sdiv"> {
     let summary = "signed element-wise division operation";
     let description = [{
@@ -164,7 +158,6 @@ def DivSOp : D_Op<"sdiv"> {
      ];
 }
 
-////////////////////////////////////////////////////////////////////////////////
 def DivUOp : D_Op<"udiv"> {
     let summary = "unsigned element-wise division operation";
     let description = [{
@@ -183,7 +176,6 @@ def DivUOp : D_Op<"udiv"> {
      ];
 }
 
-////////////////////////////////////////////////////////////////////////////////
 def DivFOp : D_Op<"fdiv"> {
     let summary = "element-wise division operation";
     let description = [{
@@ -202,7 +194,6 @@ def DivFOp : D_Op<"fdiv"> {
      ];
 }
 
-////////////////////////////////////////////////////////////////////////////////
 def ModSOp : D_Op<"srem"> {
     let summary = "Returns the signed integer remainder of a division.";
     let description = [{
@@ -221,7 +212,6 @@ def ModSOp : D_Op<"srem"> {
      ];
 }
 
-////////////////////////////////////////////////////////////////////////////////
 def ModUOp : D_Op<"urem"> {
     let summary = "Returns the unsigned integer remainder of a division.";
     let description = [{
@@ -240,7 +230,6 @@ def ModUOp : D_Op<"urem"> {
      ];
 }
 
-////////////////////////////////////////////////////////////////////////////////
 def ModFOp : D_Op<"frem"> {
     let summary = "Returns the remainder of a division.";
     let description = [{
@@ -259,7 +248,6 @@ def ModFOp : D_Op<"frem"> {
      ];
 }
 
-////////////////////////////////////////////////////////////////////////////////
 def AndOp : D_Op<"and"> {
     let summary = "Logical 'and' between two operands";
     let description = [{
@@ -277,7 +265,6 @@ def AndOp : D_Op<"and"> {
      ];
 }
 
-////////////////////////////////////////////////////////////////////////////////
 def OrOp : D_Op<"or"> {
     let summary = "Logical 'or' between two operands";
     let description = [{
@@ -295,7 +282,6 @@ def OrOp : D_Op<"or"> {
      ];
 }
 
-////////////////////////////////////////////////////////////////////////////////
 def XorOp : D_Op<"xor"> {
     let summary = "Logical 'xor' between two operands";
     let description = [{
@@ -315,7 +301,8 @@ def XorOp : D_Op<"xor"> {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
+// Call Operation
+////////////////////////////////////////////////////////////////////////////////
 def CallOp : D_Op<"call"> {
     let summary = "generic call operation";
     let description = [{
@@ -350,6 +337,10 @@ def CallOp : D_Op<"call"> {
     ];
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Constant/Literal Declaration Ops
+////////////////////////////////////////////////////////////////////////////////
+
 def IntegerOp : D_Op<"int", [NoSideEffect]> {
   let summary = "Integer Declaration";
   let description = [{
@@ -367,9 +358,6 @@ def IntegerOp : D_Op<"int", [NoSideEffect]> {
   // The constant operation returns a single value of TensorType.
   let results = (outs IntegerLike);
 
-  // Add custom build methods for the IntegerOp operation. These method
-  // populates the `state` that MLIR uses to create operations, i.e. these are
-  // used when using `builder.create<IntegerOp>(...)`.
   let builders = [
     // Build a constant with a given constant integer value.
     OpBuilder<"Builder *builder, OperationState &state, "
@@ -429,10 +417,10 @@ def DoubleOp : D_Op<"double", [NoSideEffect]> {
   }];
 
   // The DoubleOp operation takes an attribute as the only input.
-  let arguments = (ins AnyAttr:$value);
+  let arguments = (ins F64ElementsAttr:$value);
 
   // The constant operation returns a single value of TensorType.
-  let results = (outs FloatLike);
+  let results = (outs F64Tensor);
 
   // Add custom build methods for the DoubleOp operation. These method
   // populates the `state` that MLIR uses to create operations, i.e. these are
@@ -449,6 +437,10 @@ def DoubleOp : D_Op<"double", [NoSideEffect]> {
                 }]>
   ];
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Cast Operations
+////////////////////////////////////////////////////////////////////////////////
 
 def CastOp : D_Op<"cast"> {
   let summary = "cast type";
