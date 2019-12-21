@@ -109,13 +109,15 @@ void Target::_init(const Param &params) {
   classinfosize = 0; // unused
   maxStaticDataSize = std::numeric_limits<unsigned long long>::max();
 
-  c.longsize = global.params.is64bit && !isMSVC ? 8 : 4;
+  c.longsize = params.is64bit && !isMSVC ? 8 : 4;
   c.long_doublesize = realsize;
   c.criticalSectionSize = getCriticalSectionSize(params);
 
   cpp.reverseOverloads = isMSVC; // according to DMD, only for MSVC++
   cpp.exceptions = true;
   cpp.twoDtorInVtable = !isMSVC;
+
+  objc.supported = params.hasObjectiveC;
 
   // Finalize RealProperties for the target's `real` type.
 

@@ -20,46 +20,45 @@
 template <typename TYPE>
 struct Array
 {
-    d_size_t dim;
-    TYPE *data;
+    d_size_t length;
 
   private:
+    DArray<TYPE> data;
+    #define SMALLARRAYCAP       1
+    TYPE smallarray[SMALLARRAYCAP];    // inline storage for small arrays
+
 #if !IN_LLVM
     Array(const Array&);
 #endif
 
-    d_size_t allocdim;
-    #define SMALLARRAYCAP       1
-    TYPE smallarray[SMALLARRAYCAP];    // inline storage for small arrays
-
   public:
     Array()
     {
-        data = SMALLARRAYCAP ? &smallarray[0] : NULL;
-        dim = 0;
-        allocdim = SMALLARRAYCAP;
+        data.ptr = SMALLARRAYCAP ? &smallarray[0] : NULL;
+        length = 0;
+        data.length = SMALLARRAYCAP;
     }
 
     ~Array()
     {
-        if (data != &smallarray[0])
-            mem.xfree(data);
+        if (data.ptr != &smallarray[0])
+            mem.xfree(data.ptr);
     }
 
     char *toChars() const
     {
-        const char **buf = (const char **)mem.xmalloc(dim * sizeof(const char *));
+        const char **buf = (const char **)mem.xmalloc(length * sizeof(const char *));
         d_size_t len = 2;
-        for (d_size_t u = 0; u < dim; u++)
+        for (d_size_t u = 0; u < length; u++)
         {
-            buf[u] = ((RootObject *)data[u])->toChars();
+            buf[u] = ((RootObject *)data.ptr[u])->toChars();
             len += strlen(buf[u]) + 1;
         }
         char *str = (char *)mem.xmalloc(len);
 
         str[0] = '[';
         char *p = str + 1;
-        for (d_size_t u = 0; u < dim; u++)
+        for (d_size_t u = 0; u < length; u++)
         {
             if (u)
                 *p++ = ',';
@@ -73,204 +72,222 @@ struct Array
         return str;
     }
 
+    void push(TYPE ptr)
+    {
+        reserve(1);
+        data.ptr[length++] = ptr;
+    }
+
+    void append(Array *a)
+    {
+        insert(length, a);
+    }
+
     void reserve(d_size_t nentries)
     {
-        //printf("Array::reserve: dim = %d, allocdim = %d, nentries = %d\n", (int)dim, (int)allocdim, (int)nentries);
-        if (allocdim - dim < nentries)
+        //printf("Array::reserve: length = %d, data.length = %d, nentries = %d\n", (int)length, (int)data.length, (int)nentries);
+        if (data.length - length < nentries)
         {
-            if (allocdim == 0)
-            {   // Not properly initialized, someone memset it to zero
+            if (data.length == 0)
+            {
+                // Not properly initialized, someone memset it to zero
                 if (nentries <= SMALLARRAYCAP)
-                {   allocdim = SMALLARRAYCAP;
-                    data = SMALLARRAYCAP ? &smallarray[0] : NULL;
+                {
+                    data.length = SMALLARRAYCAP;
+                    data.ptr = SMALLARRAYCAP ? &smallarray[0] : NULL;
                 }
                 else
-                {   allocdim = nentries;
-                    data = (TYPE *)mem.xmalloc(allocdim * sizeof(*data));
+                {
+                    data.length = nentries;
+                    data.ptr = (TYPE *)mem.xmalloc(data.length * sizeof(TYPE));
                 }
             }
-            else if (allocdim == SMALLARRAYCAP)
+            else if (data.length == SMALLARRAYCAP)
             {
-                allocdim = dim + nentries;
-                data = (TYPE *)mem.xmalloc(allocdim * sizeof(*data));
-                memcpy(data, &smallarray[0], dim * sizeof(*data));
+                data.length = length + nentries;
+                data.ptr = (TYPE *)mem.xmalloc(data.length * sizeof(TYPE));
+                memcpy(data.ptr, &smallarray[0], length * sizeof(TYPE));
             }
             else
             {
                 /* Increase size by 1.5x to avoid excessive memory fragmentation
                  */
-                d_size_t increment = dim / 2;
+                d_size_t increment = length / 2;
                 if (nentries > increment)       // if 1.5 is not enough
                     increment = nentries;
-                allocdim = dim + increment;
-                data = (TYPE *)mem.xrealloc(data, allocdim * sizeof(*data));
+                data.length = length + increment;
+                data.ptr = (TYPE *)mem.xrealloc(data.ptr, data.length * sizeof(TYPE));
             }
         }
     }
 
-    void setDim(d_size_t newdim)
-    {
-        if (dim < newdim)
-        {
-            reserve(newdim - dim);
-        }
-        dim = newdim;
-    }
-
-    TYPE pop()
-    {
-        return data[--dim];
-    }
-
-    void shift(TYPE ptr)
-    {
-        reserve(1);
-        memmove(data + 1, data, dim * sizeof(*data));
-        data[0] = ptr;
-        dim++;
-    }
-
     void remove(d_size_t i)
     {
-        if (dim - i - 1)
-            memmove(data + i, data + i + 1, (dim - i - 1) * sizeof(data[0]));
-        dim--;
-    }
-
-    void zero()
-    {
-        memset(data,0,dim * sizeof(data[0]));
-    }
-
-    TYPE *tdata()
-    {
-        return data;
-    }
-
-    TYPE& operator[] (d_size_t index)
-    {
-#ifdef DEBUG
-        assert(index < dim);
-#endif
-        return data[index];
-    }
-
-    void insert(d_size_t index, TYPE v)
-    {
-        reserve(1);
-        memmove(data + index + 1, data + index, (dim - index) * sizeof(*data));
-        data[index] = v;
-        dim++;
+        if (length - i - 1)
+            memmove(data.ptr + i, data.ptr + i + 1, (length - i - 1) * sizeof(TYPE));
+        length--;
     }
 
     void insert(d_size_t index, Array *a)
     {
         if (a)
         {
-            d_size_t d = a->dim;
+            d_size_t d = a->length;
             reserve(d);
-            if (dim != index)
-                memmove(data + index + d, data + index, (dim - index) * sizeof(*data));
-            memcpy(data + index, a->data, d * sizeof(*data));
-            dim += d;
+            if (length != index)
+                memmove(data.ptr + index + d, data.ptr + index, (length - index) * sizeof(TYPE));
+            memcpy(data.ptr + index, a->data.ptr, d * sizeof(TYPE));
+            length += d;
         }
     }
 
-    void append(Array *a)
-    {
-        insert(dim, a);
-    }
-
-    void push(TYPE a)
+    void insert(d_size_t index, TYPE ptr)
     {
         reserve(1);
-        data[dim++] = a;
+        memmove(data.ptr + index + 1, data.ptr + index, (length - index) * sizeof(TYPE));
+        data.ptr[index] = ptr;
+        length++;
+    }
+
+    void setDim(d_size_t newdim)
+    {
+        if (length < newdim)
+        {
+            reserve(newdim - length);
+        }
+        length = newdim;
+    }
+
+    d_size_t find(TYPE ptr) const
+    {
+        for (d_size_t i = 0; i < length; i++)
+        {
+            if (data.ptr[i] == ptr)
+                return i;
+        }
+        return SIZE_MAX;
+    }
+
+    bool contains(TYPE ptr) const
+    {
+        return find(ptr) != SIZE_MAX;
+    }
+
+    TYPE& operator[] (d_size_t index)
+    {
+#ifdef DEBUG
+        assert(index < length);
+#endif
+        return data.ptr[index];
+    }
+
+    TYPE *tdata()
+    {
+        return data.ptr;
     }
 
     Array *copy()
     {
         Array *a = new Array();
-        a->setDim(dim);
-        memcpy(a->data, data, dim * sizeof(*data));
+        a->setDim(length);
+        memcpy(a->data.ptr, data.ptr, length * sizeof(TYPE));
         return a;
+    }
+
+    void shift(TYPE ptr)
+    {
+        reserve(1);
+        memmove(data.ptr + 1, data.ptr, length * sizeof(TYPE));
+        data.ptr[0] = ptr;
+        length++;
+    }
+
+    void zero()
+    {
+        memset(data.ptr, 0, length * sizeof(TYPE));
+    }
+
+    TYPE pop()
+    {
+        return data.ptr[--length];
     }
 
 #if IN_LLVM
     // Define members and types like std::vector
     typedef size_t size_type;
 
-    Array(const Array<TYPE> &a) : dim(0), data(0), allocdim(0)
+    Array(const Array &a) : length(0), data()
     {
-        setDim(a.dim);
-        memcpy(data, a.data, dim * sizeof(*data));
+        setDim(a.length);
+        memcpy(data.ptr, a.data.ptr, length * sizeof(TYPE));
     }
 
-    Array &operator=(Array<TYPE> &a)
+    Array &operator=(Array &a)
     {
-        setDim(a.dim);
-        memcpy(data, a.data, dim * sizeof(*data));
+        setDim(a.length);
+        memcpy(data.ptr, a.data.ptr, length * sizeof(TYPE));
         return *this;
     }
 
-    Array(Array<TYPE> &&a)
+    Array(Array &&a)
     {
-        if (data != &smallarray[0])
-            mem.xfree(data);
-        dim = a.dim;
-        allocdim = a.allocdim;
-        if (a.data == &a.smallarray[0])
+        if (data.ptr != &smallarray[0])
+            mem.xfree(data.ptr);
+        length = a.length;
+        if (a.data.ptr == &a.smallarray[0])
         {
-            data = &smallarray[0];
-            memcpy(data, a.data, dim * sizeof(*data));
+            data.ptr = &smallarray[0];
+            data.length = a.data.length;
+            memcpy(data.ptr, a.data.ptr, length * sizeof(TYPE));
         }
         else
         {
             data = a.data;
-            a.data = 0;
+            a.data.ptr = nullptr;
         }
-        a.dim = 0;
-        a.allocdim = 0;
+        a.length = 0;
+        a.data.length = 0;
     }
 
     Array &operator=(Array<TYPE> &&a)
     {
-        if (data != &smallarray[0])
-            mem.xfree(data);
-        dim = a.dim;
-        allocdim = a.allocdim;
-        if (a.data == &a.smallarray[0])
+        if (data.ptr != &smallarray[0])
+            mem.xfree(data.ptr);
+        length = a.length;
+        if (a.data.ptr == &a.smallarray[0])
         {
-            data = &smallarray[0];
-            memcpy(data, a.data, dim * sizeof(*data));
+            data.ptr = &smallarray[0];
+            data.length = a.data.length;
+            memcpy(data.ptr, a.data.ptr, length * sizeof(TYPE));
         }
         else
         {
             data = a.data;
-            a.data = 0;
+            a.data.ptr = nullptr;
         }
-        a.dim = 0;
-        a.allocdim = 0;
+        a.length = 0;
+        a.data.length = 0;
         return *this;
     }
 
     size_type size() const
     {
-        return static_cast<size_type>(dim);
+        return static_cast<size_type>(length);
     }
 
     bool empty() const
     {
-        return dim == 0;
+        return length == 0;
     }
 
     TYPE front() const
     {
-        return data[0];
+        return data.ptr[0];
     }
 
     TYPE back() const
     {
-        return data[dim-1];
+        return data.ptr[length-1];
     }
 
     void push_back(TYPE a)
@@ -288,40 +305,22 @@ struct Array
     typedef std::reverse_iterator<iterator> reverse_iterator;
     typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
 
-    iterator begin() { return static_cast<iterator>(&data[0]); }
-    iterator end() { return static_cast<iterator>(&data[dim]); }
+    iterator begin() { return static_cast<iterator>(data.ptr); }
+    iterator end() { return static_cast<iterator>(&data.ptr[length]); }
     reverse_iterator rbegin() { return reverse_iterator(end()); }
     reverse_iterator rend() { return reverse_iterator(begin()); }
 
-    const_iterator begin() const { return static_cast<const_iterator>(&data[0]); }
-    const_iterator end() const { return static_cast<const_iterator>(&data[dim]); }
+    const_iterator begin() const { return static_cast<const_iterator>(data.ptr); }
+    const_iterator end() const { return static_cast<const_iterator>(&data.ptr[length]); }
     const_reverse_iterator rbegin() const { return const_reverse_iterator(end()); }
     const_reverse_iterator rend() const { return const_reverse_iterator(begin()); }
 
     iterator erase(iterator pos)
     {
-        size_t index = pos - &data[0];
+        size_t index = pos - data.ptr;
         remove(index);
-        return static_cast<iterator>(&data[index]);
+        return static_cast<iterator>(&data.ptr[index]);
     }
 #endif // IN_LLVM
 };
 
-struct BitArray
-{
-    BitArray()
-      : len(0)
-      , ptr(NULL)
-    {}
-
-    ~BitArray()
-    {
-        mem.xfree(ptr);
-    }
-
-    d_size_t len;
-    d_size_t *ptr;
-
-private:
-    BitArray(const BitArray&);
-};

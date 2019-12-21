@@ -17,7 +17,7 @@
 #include "visitor.h"
 #include "tokens.h"
 
-#include "root/rmem.h"
+#include "root/dcompat.h"
 
 class Type;
 class TypeVector;
@@ -395,7 +395,6 @@ public:
 #endif
     size_t numberOfCodeUnits(int tynto = 0) const;
     void writeTo(void* dest, bool zero, int tyto = 0) const;
-    char *toPtr();
 };
 
 // Tuple

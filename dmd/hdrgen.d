@@ -1809,7 +1809,7 @@ public:
                 // BUG: need to cast(dchar)
                 if (cast(uinteger_t)v > 0xFF)
                 {
-                    buf.printf("'\\U%08x'", v);
+                    buf.printf("'\\U%08llx'", cast(long)v);
                     break;
                 }
                 goto case;
@@ -1906,6 +1906,9 @@ public:
                 CTFloat.sprint(buffer.ptr, 'a', value);
         }
         buf.writestring(buffer.ptr);
+        if (buffer.ptr[strlen(buffer.ptr) - 1] == '.')
+            buf.remove(buf.length() - 1, 1);
+
         if (type)
         {
             Type t = type.toBasetype();

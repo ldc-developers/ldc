@@ -9,20 +9,7 @@
 
 #pragma once
 
-#include "dsystem.h"    // for size_t
-
-#if __APPLE__ && __i386__
-    /* size_t is 'unsigned long', which makes it mangle differently
-     * than D's 'uint'
-     */
-    typedef unsigned d_size_t;
-#elif __APPLE__ && __LP64__ && LDC_HOST_DigitalMars && LDC_HOST_FE_VER >= 2079 && LDC_HOST_FE_VER <= 2081
-    /* DMD versions between 2.079 and 2.081 mapped D ulong to uint64_t on OS X.
-     */
-    typedef unsigned long long d_size_t;
-#else
-    typedef size_t d_size_t;
-#endif
+#include "dcompat.h"    // for d_size_t
 
 struct Mem
 {

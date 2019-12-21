@@ -418,7 +418,7 @@ version (IN_LLVM)
         time(&t);
         char* p = ctime(&t);
         p = mem.xstrdup(p);
-        m.macrotable.define("DATETIME", p[0 .. strlen(p)]);
+        m.macrotable.define("DATETIME", p.toDString());
         m.macrotable.define("YEAR", p[20 .. 20 + 4]);
     }
     const srcfilename = m.srcfile.toString();
@@ -2140,7 +2140,7 @@ size_t skiptoident(ref OutBuffer buf, size_t i)
     {
         dchar c;
         size_t oi = i;
-        if (utf_decodeChar(slice.ptr, slice.length, i, c))
+        if (utf_decodeChar(slice, i, c))
         {
             /* Ignore UTF errors, but still consume input
              */
@@ -2169,7 +2169,7 @@ private size_t skippastident(ref OutBuffer buf, size_t i)
     {
         dchar c;
         size_t oi = i;
-        if (utf_decodeChar(slice.ptr, slice.length, i, c))
+        if (utf_decodeChar(slice, i, c))
         {
             /* Ignore UTF errors, but still consume input
              */
@@ -2200,7 +2200,7 @@ private size_t skipPastIdentWithDots(ref OutBuffer buf, size_t i)
     {
         dchar c;
         size_t oi = i;
-        if (utf_decodeChar(slice.ptr, slice.length, i, c))
+        if (utf_decodeChar(slice, i, c))
         {
             /* Ignore UTF errors, but still consume input
              */
@@ -5343,7 +5343,7 @@ bool isIdStart(const(char)* p)
     if (c >= 0x80)
     {
         size_t i = 0;
-        if (utf_decodeChar(p, 4, i, c))
+        if (utf_decodeChar(p[0 .. 4], i, c))
             return false; // ignore errors
         if (isUniAlpha(c))
             return true;
@@ -5362,7 +5362,7 @@ bool isIdTail(const(char)* p)
     if (c >= 0x80)
     {
         size_t i = 0;
-        if (utf_decodeChar(p, 4, i, c))
+        if (utf_decodeChar(p[0 .. 4], i, c))
             return false; // ignore errors
         if (isUniAlpha(c))
             return true;
@@ -5387,7 +5387,7 @@ int utfStride(const(char)* p)
     if (c < 0x80)
         return 1;
     size_t i = 0;
-    utf_decodeChar(p, 4, i, c); // ignore errors, but still consume input
+    utf_decodeChar(p[0 .. 4], i, c); // ignore errors, but still consume input
     return cast(int)i;
 }
 
