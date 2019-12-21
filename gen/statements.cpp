@@ -940,7 +940,7 @@ public:
 
     // The cases of the switch statement, in codegen order.
     auto cases = stmt->cases;
-    const auto caseCount = cases->dim;
+    const auto caseCount = cases->length;
 
     // llvm::Values for the case indices. Might not be llvm::Constants for
     // runtime-initialised immutable globals as case indices, in which case we
@@ -1193,7 +1193,7 @@ public:
     PGO.setCurrentStmt(stmt);
 
     // if no statements, there's nothing to do
-    if (!stmt->statements || !stmt->statements->dim) {
+    if (!stmt->statements || !stmt->statements->length) {
       return;
     }
 
@@ -1208,7 +1208,7 @@ public:
     llvm::BasicBlock *endbb = irs->insertBB("unrolledend");
 
     // create a block for each statement
-    size_t nstmt = stmt->statements->dim;
+    size_t nstmt = stmt->statements->length;
     llvm::SmallVector<llvm::BasicBlock *, 4> blocks(nstmt, nullptr);
     for (size_t i = 0; i < nstmt; i++)
       blocks[i] = irs->insertBBBefore(endbb, "unrolledstmt");
@@ -1219,7 +1219,7 @@ public:
     }
 
     // do statements
-    Statement **stmts = stmt->statements->data;
+    Statement **stmts = &(*stmt->statements)[0];
 
     for (size_t i = 0; i < nstmt; i++) {
       Statement *s = stmts[i];
@@ -1265,7 +1265,7 @@ public:
     // start a dwarf lexical block
     irs->DBuilder.EmitBlockStart(stmt->loc);
 
-    // assert(arguments->dim == 1);
+    // assert(arguments->length == 1);
     assert(stmt->value != 0);
     assert(stmt->aggr != 0);
     assert(stmt->func != 0);

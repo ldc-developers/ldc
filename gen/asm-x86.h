@@ -2423,9 +2423,8 @@ struct AsmProcessor {
     bool is_localsize = false;
     bool really_have_symbol = false;
 
-    if (operand->symbolDisplacement.dim) {
-      is_localsize =
-          isLocalSize((Expression *)operand->symbolDisplacement.data[0]);
+    if (operand->symbolDisplacement.length) {
+      is_localsize = isLocalSize(operand->symbolDisplacement[0]);
       really_have_symbol = !is_localsize;
     }
 
@@ -2873,12 +2872,11 @@ struct AsmProcessor {
           return false;
         }
 
-        if (operand->symbolDisplacement.dim &&
-            isLocalSize((Expression *)operand->symbolDisplacement.data[0])) {
+        if (operand->symbolDisplacement.length &&
+            isLocalSize(operand->symbolDisplacement[0])) {
           // handle __LOCAL_SIZE, which in this constant, is an immediate
           // should do this in slotexp..
-          addOperand("$", Arg_LocalSize,
-                     (Expression *)operand->symbolDisplacement.data[0],
+          addOperand("$", Arg_LocalSize, operand->symbolDisplacement[0],
                      asmcode);
           if (operand->constDisplacement) {
             insnTemplate << '+';
@@ -2887,11 +2885,9 @@ struct AsmProcessor {
           }
         }
 
-        if (operand->symbolDisplacement.dim) {
+        if (operand->symbolDisplacement.length) {
           fmt = "$a";
-          addOperand("$", Arg_Pointer,
-                     (Expression *)operand->symbolDisplacement.data[0],
-                     asmcode);
+          addOperand("$", Arg_Pointer, operand->symbolDisplacement[0], asmcode);
 
           if (operand->constDisplacement) {
             insnTemplate << '+';
@@ -2938,9 +2934,8 @@ struct AsmProcessor {
           Logger::cout() << "segmentPrefix: " << operand->segmentPrefix << '\n';
           Logger::cout() << "constDisplacement: " << operand->constDisplacement
                          << '\n';
-          for (unsigned i = 0; i < operand->symbolDisplacement.dim; i++) {
-            Expression *expr =
-                static_cast<Expression *>(operand->symbolDisplacement.data[i]);
+          for (unsigned i = 0; i < operand->symbolDisplacement.length; i++) {
+            Expression *expr = operand->symbolDisplacement[i];
             Logger::cout() << "symbolDisplacement[" << i
                            << "] = " << expr->toChars() << '\n';
           }
@@ -2955,10 +2950,10 @@ struct AsmProcessor {
           }
         }
         if ((operand->segmentPrefix != Reg_Invalid &&
-             operand->symbolDisplacement.dim == 0) ||
+             operand->symbolDisplacement.length == 0) ||
             operand->constDisplacement) {
           insnTemplate << operand->constDisplacement;
-          if (operand->symbolDisplacement.dim) {
+          if (operand->symbolDisplacement.length) {
             insnTemplate << '+';
           }
           operand->constDisplacement = 0;
@@ -2969,8 +2964,8 @@ struct AsmProcessor {
             asmcode->clobbersMemory = 1;
           }
         }
-        if (operand->symbolDisplacement.dim) {
-          Expression *e = (Expression *)operand->symbolDisplacement.data[0];
+        if (operand->symbolDisplacement.length) {
+          Expression *e = operand->symbolDisplacement[0];
           Declaration *decl = nullptr;
 
           if (e->op == TOKvar) {
@@ -3201,7 +3196,7 @@ struct AsmProcessor {
                   : static_cast<PtrType>(v->type->size(Loc()));
         }
 
-        if (!operand->symbolDisplacement.dim) {
+        if (!operand->symbolDisplacement.length) {
           if (is_offset && !operand->inBracket) {
             operand->isOffset = 1;
           }
@@ -3213,7 +3208,7 @@ struct AsmProcessor {
     } else if (exp->op == TOKidentifier || exp->op == TOKdsymbol) {
       // %% localsize could be treated as a simple constant..
       // change to addSymbolDisp(e)
-      if (!operand->symbolDisplacement.dim) {
+      if (!operand->symbolDisplacement.length) {
         operand->symbolDisplacement.push(exp);
       } else {
         stmt->error("too many symbols in operand");

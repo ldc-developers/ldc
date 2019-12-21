@@ -410,7 +410,7 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
   LOG_SCOPE;
 
   assert(fd->toParent()->isTemplateInstance() && "invalid inline __asm expr");
-  assert(arguments->dim >= 2 && "invalid __asm call");
+  assert(arguments->length >= 2 && "invalid __asm call");
 
   // get code param
   Expression *e = (*arguments)[0];
@@ -420,7 +420,7 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
     e->error("`__asm` code argument is not a `char[]` string literal");
     fatal();
   }
-  std::string code(se->toPtr(), se->numberOfCodeUnits());
+  const auto code = se->toUTF8String();
 
   // get constraints param
   e = (*arguments)[1];
@@ -430,10 +430,10 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
     e->error("`__asm` constraints argument is not a `char[]` string literal");
     fatal();
   }
-  std::string constraints(se->toPtr(), se->numberOfCodeUnits());
+  const auto constraints = se->toUTF8String();
 
   // build runtime arguments
-  size_t n = arguments->dim;
+  size_t n = arguments->length;
 
   LLSmallVector<llvm::Value *, 8> args;
   args.reserve(n - 2);
@@ -451,14 +451,16 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
   llvm::FunctionType *FT = llvm::FunctionType::get(ret_type, argtypes, false);
 
   // make sure the constraints are valid
-  if (!llvm::InlineAsm::Verify(FT, constraints)) {
+  if (!llvm::InlineAsm::Verify(FT, {constraints.ptr, constraints.length})) {
     e->error("`__asm` constraint argument is invalid");
     fatal();
   }
 
   // build asm call
   bool sideeffect = true;
-  llvm::InlineAsm *ia = llvm::InlineAsm::get(FT, code, constraints, sideeffect);
+  llvm::InlineAsm *ia =
+      llvm::InlineAsm::get(FT, {code.ptr, code.length},
+                           {constraints.ptr, constraints.length}, sideeffect);
 
   llvm::Value *rv = gIR->ir->CreateCall(ia, args, "");
 

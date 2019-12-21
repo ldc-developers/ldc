@@ -76,7 +76,7 @@ FieldPriority prioritize(VarDeclaration *field,
 void AggrTypeBuilder::addAggregate(
     AggregateDeclaration *ad, const AggrTypeBuilder::VarInitMap *explicitInits,
     AggrTypeBuilder::Aliases aliases) {
-  const size_t n = ad->fields.dim;
+  const size_t n = ad->fields.length;
   if (n == 0)
     return;
 

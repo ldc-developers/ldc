@@ -503,7 +503,7 @@ public:
 
     // build llvm array type
     LLArrayType *arrtype =
-        LLArrayType::get(DtoMemType(elemt), e->elements->dim);
+        LLArrayType::get(DtoMemType(elemt), e->elements->length);
 
     // dynamic arrays can occur here as well ...
     bool dyn = (bt->ty != Tsarray);
@@ -536,7 +536,7 @@ public:
     LLConstant *globalstorePtr = llvm::ConstantExpr::getGetElementPtr(
         isaPointer(store)->getElementType(), store, idxs, true);
 
-    result = DtoConstSlice(DtoConstSize_t(e->elements->dim), globalstorePtr);
+    result = DtoConstSlice(DtoConstSize_t(e->elements->length), globalstorePtr);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -555,7 +555,7 @@ public:
       DtoResolveStruct(e->sd);
 
       std::map<VarDeclaration *, llvm::Constant *> varInits;
-      const size_t nexprs = e->elements->dim;
+      const size_t nexprs = e->elements->length;
       for (size_t i = 0; i < nexprs; i++) {
         if (auto elem = (*e->elements)[i]) {
           LLConstant *c = toConstElem(elem);
@@ -595,7 +595,7 @@ public:
       // Unfortunately, ClassReferenceExp::getFieldAt is badly broken – it
       // places the base class fields _after_ those of the subclass.
       {
-        const size_t nexprs = value->elements->dim;
+        const size_t nexprs = value->elements->length;
 
         std::stack<ClassDeclaration *> classHierachy;
         ClassDeclaration *cur = origClass;
@@ -607,7 +607,7 @@ public:
         while (!classHierachy.empty()) {
           cur = classHierachy.top();
           classHierachy.pop();
-          for (size_t j = 0; j < cur->fields.dim; ++j) {
+          for (size_t j = 0; j < cur->fields.length; ++j) {
             if (auto elem = (*value->elements)[i]) {
               VarDeclaration *field = cur->fields[j];
               IF_LOG Logger::println("Getting initializer for: %s",

@@ -39,7 +39,8 @@ bool isMagicModule(const ModuleDeclaration *moduleDecl, const Identifier *id) {
     return false;
   }
 
-  if (moduleDecl->packages->dim != 1 || (*moduleDecl->packages)[0] != Id::ldc) {
+  if (moduleDecl->packages->length != 1 ||
+      (*moduleDecl->packages)[0] != Id::ldc) {
     return false;
   }
   return true;
@@ -75,7 +76,7 @@ StructLiteralExp *getLdcAttributesStruct(Expression *attr) {
 }
 
 void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
-  if (sle->elements->dim != elemTypes.size()) {
+  if (sle->elements->length != elemTypes.size()) {
     sle->error("unexpected field count in `ldc.%s.%s`; does druntime not "
                "match compiler version?",
                sle->sd->getModule()->md->id->toChars(),
@@ -83,7 +84,7 @@ void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
     fatal();
   }
 
-  for (size_t i = 0; i < sle->elements->dim; ++i) {
+  for (size_t i = 0; i < sle->elements->length; ++i) {
     if ((*sle->elements)[i]->type->toBasetype() != elemTypes[i]) {
       sle->error("invalid field type in `ldc.%s.%s`; does druntime not "
                  "match compiler version?",

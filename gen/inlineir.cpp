@@ -43,8 +43,8 @@ void copyFnAttributes(llvm::Function *wannabe, llvm::Function *idol) {
 
 std::string exprToString(StringExp *strexp) {
   assert(strexp != nullptr);
-  assert(strexp->sz == 1);
-  return std::string(strexp->toPtr(), strexp->numberOfCodeUnits());
+  auto str = strexp->toUTF8String();
+  return {str.ptr, str.length};
 }
 } // anonymous namespace
 
@@ -73,13 +73,12 @@ void DtoCheckInlineIRPragma(Identifier *ident, Dsymbol *s) {
     //   R inlineIREx(string prefix, string code, string suffix, R, P...)(P);
 
     TemplateParameters &params = *td->parameters;
-    bool valid_params =
-        (params.dim == 3 || params.dim == 5) &&
-        params[params.dim - 2]->isTemplateTypeParameter() &&
-        params[params.dim - 1]->isTemplateTupleParameter();
+    bool valid_params = (params.length == 3 || params.length == 5) &&
+                        params[params.length - 2]->isTemplateTypeParameter() &&
+                        params[params.length - 1]->isTemplateTupleParameter();
 
     if (valid_params) {
-      for (d_size_t i = 0; i < (params.dim - 2); ++i) {
+      for (d_size_t i = 0; i < (params.length - 2); ++i) {
         TemplateValueParameter *p0 = params[i]->isTemplateValueParameter();
         valid_params = valid_params && p0 && p0->valType == Type::tstring;
       }
@@ -125,8 +124,8 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
     // pragma(LDC_inline_ir)
     //   R inlineIREx(string prefix, string code, string suffix, R, P...)(P);
     Objects &objs = tinst->tdtypes;
-    assert(objs.dim == 3 || objs.dim == 5);
-    const bool isExtended = (objs.dim == 5);
+    assert(objs.length == 3 || objs.length == 5);
+    const bool isExtended = (objs.length == 5);
 
     std::string prefix;
     std::string code;
@@ -178,7 +177,7 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
       stream << *DtoType(ty);
 
       i++;
-      if (i >= arg_types.dim) {
+      if (i >= arg_types.length) {
         break;
       }
 
@@ -235,7 +234,7 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
 
     // Build the runtime arguments
     llvm::SmallVector<llvm::Value *, 8> args;
-    args.reserve(arguments->dim);
+    args.reserve(arguments->length);
     for (auto arg : *arguments) {
       args.push_back(DtoRVal(arg));
     }

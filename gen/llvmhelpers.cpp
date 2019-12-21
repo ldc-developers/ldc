@@ -375,7 +375,7 @@ void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
     DtoStoreZextI8(DtoRVal(rhs), DtoLVal(lhs));
   } else if (t->ty == Tstruct) {
     // don't copy anything to empty structs
-    if (static_cast<TypeStruct *>(t)->sym->fields.dim > 0) {
+    if (static_cast<TypeStruct *>(t)->sym->fields.length > 0) {
       llvm::Value *src = DtoLVal(rhs);
       llvm::Value *dst = DtoLVal(lhs);
 
@@ -944,7 +944,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
   IF_LOG Logger::println("DtoVarDeclaration(vdtype = %s)", vd->type->toChars());
   LOG_SCOPE
 
-  if (vd->nestedrefs.dim) {
+  if (vd->nestedrefs.length) {
     IF_LOG Logger::println(
         "has nestedref set (referenced by nested function/delegate)");
 
@@ -1045,7 +1045,7 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
     Logger::println("AttribDeclaration");
     // choose the right set in case this is a conditional declaration
     if (auto d = a->include(nullptr)) {
-      for (unsigned i = 0; i < d->dim; ++i) {
+      for (unsigned i = 0; i < d->length; ++i) {
         DtoDeclarationExp((*d)[i]);
       }
     }
@@ -1058,7 +1058,7 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
     Logger::println("TupleDeclaration");
     assert(tupled->isexp && "Non-expression tuple decls not handled yet.");
     assert(tupled->objects);
-    for (unsigned i = 0; i < tupled->objects->dim; ++i) {
+    for (unsigned i = 0; i < tupled->objects->length; ++i) {
       auto exp = static_cast<DsymbolExp *>((*tupled->objects)[i]);
       DtoDeclarationExp(exp->s);
     }
@@ -1096,7 +1096,7 @@ LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr) {
   // nested variable?
   // A variable may not be really nested even if nextedrefs is not empty
   // in case it is referenced by a function inside __traits(compile) or typeof.
-  if (var->nestedrefs.dim && isIrLocalCreated(var)) {
+  if (var->nestedrefs.length && isIrLocalCreated(var)) {
     if (!irLocal->value) {
       assert(addr);
       irLocal->value = addr;
@@ -1293,8 +1293,8 @@ static char *DtoOverloadedIntrinsicName(TemplateInstance *ti,
   }
 
   // for now use the size in bits of the first template param in the instance
-  assert(ti->tdtypes.dim == 1);
-  Type *T = static_cast<Type *>(ti->tdtypes.data[0]);
+  assert(ti->tdtypes.length == 1);
+  Type *T = static_cast<Type *>(ti->tdtypes[0]);
 
   char prefix;
   if (T->isfloating() && !T->iscomplex()) {
@@ -1581,7 +1581,7 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
           type, DtoBitCast(getIrAggr(cd)->getVtblSymbol(), DtoPtrToType(type)));
     }
     // nested variable
-    if (vd->nestedrefs.dim) {
+    if (vd->nestedrefs.length) {
       Logger::println("nested variable");
       return DtoNestedVariable(loc, type, vd);
     }

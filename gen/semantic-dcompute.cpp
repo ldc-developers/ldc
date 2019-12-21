@@ -49,7 +49,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
       return false;
 
     Objects *tiargs = inst->tiargs;
-    size_t i = 0, len = tiargs->dim;
+    size_t i = 0, len = tiargs->length;
     IF_LOG Logger::println("checking against: %s (%p) (dyncast=%d)",
                            f->toPrettyChars(), (void *)f, f->dyncast());
     LOG_SCOPE
@@ -112,7 +112,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
   // Nogc enforcement.
   // No need to check AssocArrayLiteral because AA's are banned anyway
   void visit(ArrayLiteralExp *e) override {
-    if (e->type->ty != Tarray || !e->elements || !e->elements->dim)
+    if (e->type->ty != Tarray || !e->elements || !e->elements->length)
       return;
     e->error("array literal in `@compute` code not allowed");
     stop = true;
@@ -274,7 +274,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
 void dcomputeSemanticAnalysis(Module *m) {
   DComputeSemanticAnalyser v;
   RecursiveWalker r(&v);
-  for (unsigned k = 0; k < m->members->dim; k++) {
+  for (unsigned k = 0; k < m->members->length; k++) {
     Dsymbol *dsym = (*m->members)[k];
     assert(dsym);
     IF_LOG Logger::println("dcomputeSema: %s: %s", m->toPrettyChars(),

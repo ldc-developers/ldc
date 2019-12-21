@@ -293,7 +293,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
                             DValue *&result) {
   // va_start instruction
   if (fndecl->llvmInternal == LLVMva_start) {
-    if (e->arguments->dim < 1 || e->arguments->dim > 2) {
+    if (e->arguments->length < 1 || e->arguments->length > 2) {
       e->error("`va_start` instruction expects 1 (or 2) arguments");
       fatal();
     }
@@ -312,7 +312,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
   // va_copy instruction
   if (fndecl->llvmInternal == LLVMva_copy) {
-    if (e->arguments->dim != 2) {
+    if (e->arguments->length != 2) {
       e->error("`va_copy` instruction expects 2 arguments");
       fatal();
     }
@@ -326,7 +326,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
   // va_arg instruction
   if (fndecl->llvmInternal == LLVMva_arg) {
-    if (e->arguments->dim != 1) {
+    if (e->arguments->length != 1) {
       e->error("`va_arg` instruction expects 1 argument");
       fatal();
     }
@@ -344,7 +344,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
   // C alloca
   if (fndecl->llvmInternal == LLVMalloca) {
-    if (e->arguments->dim != 1) {
+    if (e->arguments->length != 1) {
       e->error("`alloca` expects 1 argument");
       fatal();
     }
@@ -361,7 +361,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
   // fence instruction
   if (fndecl->llvmInternal == LLVMfence) {
-    if (e->arguments->dim < 1 || e->arguments->dim > 2) {
+    if (e->arguments->length < 1 || e->arguments->length > 2) {
       e->error("`fence` instruction expects 1 (or 2) arguments");
       fatal();
     }
@@ -369,12 +369,12 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
         static_cast<llvm::AtomicOrdering>((*e->arguments)[0]->toInteger());
 #if LDC_LLVM_VER >= 500
     llvm::SyncScope::ID scope = llvm::SyncScope::System;
-    if (e->arguments->dim == 2) {
+    if (e->arguments->length == 2) {
       scope = static_cast<llvm::SyncScope::ID>((*e->arguments)[1]->toInteger());
     }
 #else
     auto scope = llvm::SynchronizationScope::CrossThread;
-    if (e->arguments->dim == 2) {
+    if (e->arguments->length == 2) {
       scope = static_cast<llvm::SynchronizationScope>(
           (*e->arguments)[1]->toInteger());
     }
@@ -385,7 +385,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
   // atomic store instruction
   if (fndecl->llvmInternal == LLVMatomic_store) {
-    if (e->arguments->dim != 3) {
+    if (e->arguments->length != 3) {
       e->error("atomic store instruction expects 3 arguments");
       fatal();
     }
@@ -419,7 +419,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
   // atomic load instruction
   if (fndecl->llvmInternal == LLVMatomic_load) {
-    if (e->arguments->dim != 2) {
+    if (e->arguments->length != 2) {
       e->error("atomic load instruction expects 2 arguments");
       fatal();
     }
@@ -457,7 +457,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
   // cmpxchg instruction
   if (fndecl->llvmInternal == LLVMatomic_cmp_xchg) {
-    if (e->arguments->dim != 6) {
+    if (e->arguments->length != 6) {
       e->error("`cmpxchg` instruction expects 6 arguments");
       fatal();
     }
@@ -515,7 +515,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
   // atomicrmw instruction
   if (fndecl->llvmInternal == LLVMatomic_rmw) {
-    if (e->arguments->dim != 3) {
+    if (e->arguments->length != 3) {
       e->error("`atomicrmw` instruction expects 3 arguments");
       fatal();
     }
@@ -553,7 +553,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       fndecl->llvmInternal == LLVMbitop_btr ||
       fndecl->llvmInternal == LLVMbitop_btc ||
       fndecl->llvmInternal == LLVMbitop_bts) {
-    if (e->arguments->dim != 2) {
+    if (e->arguments->length != 2) {
       e->error("bitop intrinsic expects 2 arguments");
       fatal();
     }
@@ -608,7 +608,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
   }
 
   if (fndecl->llvmInternal == LLVMbitop_vld) {
-    if (e->arguments->dim != 1) {
+    if (e->arguments->length != 1) {
       e->error("`bitop.vld` intrinsic expects 1 argument");
       fatal();
     }
@@ -621,7 +621,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
   }
 
   if (fndecl->llvmInternal == LLVMbitop_vst) {
-    if (e->arguments->dim != 2) {
+    if (e->arguments->length != 2) {
       e->error("`bitop.vst` intrinsic expects 2 arguments");
       fatal();
     }

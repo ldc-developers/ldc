@@ -141,6 +141,8 @@ Where:
 %.*s", cast(int)inifileCanon.length, inifileCanon.ptr, cast(int)help.length, &help[0]);
 }
 
+} // !IN_LLVM
+
 /**
  * Remove generated .di files on error and exit
  */
@@ -158,6 +160,9 @@ private void removeHdrFilesAndFail(ref Param params, ref Modules modules)
 
     fatal();
 }
+
+version (IN_LLVM) {} else
+{
 
 /**
  * DMD's real entry point

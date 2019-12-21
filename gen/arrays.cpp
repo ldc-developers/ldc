@@ -363,7 +363,7 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
                          arrinit->toChars(), targetType->toChars());
   LOG_SCOPE;
 
-  assert(arrinit->value.dim == arrinit->index.dim);
+  assert(arrinit->value.length == arrinit->index.length);
 
   // get base array type
   Type *arrty = targetType->toBasetype();
@@ -377,9 +377,9 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
   }
 
   // make sure the number of initializers is sane
-  if (arrinit->index.dim > arrlen || arrinit->dim > arrlen) {
+  if (arrinit->index.length > arrlen || arrinit->dim > arrlen) {
     error(arrinit->loc, "too many initializers, %llu, for array[%llu]",
-          static_cast<unsigned long long>(arrinit->index.dim),
+          static_cast<unsigned long long>(arrinit->index.length),
           static_cast<unsigned long long>(arrlen));
     fatal();
   }
@@ -401,9 +401,9 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
 
   // go through each initializer, they're not sorted by index by the frontend
   size_t j = 0;
-  for (size_t i = 0; i < arrinit->index.dim; i++) {
+  for (size_t i = 0; i < arrinit->index.length; i++) {
     // get index
-    Expression *idx = static_cast<Expression *>(arrinit->index.data[i]);
+    Expression *idx = arrinit->index[i];
 
     // idx can be null, then it's just the next element
     if (idx) {
@@ -412,7 +412,7 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
     assert(j < arrlen);
 
     // get value
-    Initializer *val = static_cast<Initializer *>(arrinit->value.data[i]);
+    Initializer *val = arrinit->value[i];
     assert(val);
 
     // error check from dmd
@@ -502,7 +502,7 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
 ////////////////////////////////////////////////////////////////////////////////
 
 Expression *indexArrayLiteral(ArrayLiteralExp *ale, unsigned idx) {
-  assert(idx < ale->elements->dim);
+  assert(idx < ale->elements->length);
   auto e = (*ale->elements)[idx];
   if (!e) {
     return ale->basis;
@@ -583,8 +583,8 @@ llvm::Constant *arrayLiteralToConst(IRState *p, ArrayLiteralExp *ale) {
   bool differentTypes = false;
 
   std::vector<LLConstant *> vals;
-  vals.reserve(ale->elements->dim);
-  for (unsigned i = 0; i < ale->elements->dim; ++i) {
+  vals.reserve(ale->elements->length);
+  for (unsigned i = 0; i < ale->elements->length; ++i) {
     llvm::Constant *val = toConstElem(indexArrayLiteral(ale, i), p);
     // extend i1 to i8
     if (val->getType() == LLType::getInt1Ty(p->context()))
@@ -602,19 +602,19 @@ llvm::Constant *arrayLiteralToConst(IRState *p, ArrayLiteralExp *ale) {
   }
 
   if (!elementType) {
-    assert(ale->elements->dim == 0);
+    assert(ale->elements->length == 0);
     elementType = DtoMemType(ale->type->toBasetype()->nextOf());
     return llvm::ConstantArray::get(LLArrayType::get(elementType, 0), vals);
   }
 
-  llvm::ArrayType *t = llvm::ArrayType::get(elementType, ale->elements->dim);
+  llvm::ArrayType *t = llvm::ArrayType::get(elementType, ale->elements->length);
   return llvm::ConstantArray::get(t, vals);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale, LLValue *dstMem) {
-  size_t elemCount = ale->elements->dim;
+  size_t elemCount = ale->elements->length;
 
   // Don't try to write nothing to a zero-element array, we might represent it
   // as a null pointer.

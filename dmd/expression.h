@@ -392,6 +392,11 @@ public:
         writeTo(s, true);
         return s;
     }
+    DString toUTF8String() const
+    {
+      assert(sz == 1);
+      return {len, static_cast<const char *>(string)};
+    }
 #endif
     size_t numberOfCodeUnits(int tynto = 0) const;
     void writeTo(void* dest, bool zero, int tyto = 0) const;

@@ -372,7 +372,7 @@ public:
     }
 
     // Force codegen if this is a templated function with pragma(inline, true).
-    if ((decl->members->dim == 1) &&
+    if ((decl->members->length == 1) &&
         ((*decl->members)[0]->isFuncDeclaration()) &&
         ((*decl->members)[0]->isFuncDeclaration()->inlining == PINLINEalways)) {
       Logger::println("needsCodegen() == false, but function is marked with "
@@ -434,11 +434,12 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   static std::string getPragmaStringArg(PragmaDeclaration *decl) {
-    assert(decl->args && decl->args->dim == 1);
+    assert(decl->args && decl->args->length == 1);
     Expression *e = static_cast<Expression *>((*decl->args)[0]);
     assert(e->op == TOKstring);
     StringExp *se = static_cast<StringExp *>(e);
-    return std::string(se->toPtr(), se->numberOfCodeUnits());
+    DString str = se->toUTF8String();
+    return {str.ptr, str.length};
   }
 
   void visit(PragmaDeclaration *decl) override {

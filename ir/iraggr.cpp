@@ -207,7 +207,7 @@ void IrAggr::addFieldInitializers(
     }
 
     // has interface vtbls?
-    if (cd->vtblInterfaces && cd->vtblInterfaces->dim > 0) {
+    if (cd->vtblInterfaces && cd->vtblInterfaces->length > 0) {
       // Align interface infos to pointer size.
       unsigned aligned =
           (offset + target.ptrsize - 1) & ~(target.ptrsize - 1);

@@ -98,7 +98,7 @@ bool isNestedHFA(const TypeStruct *t, d_uns64 &floatSize, int &num,
   VarDeclarations fields = t->sym->fields;
 
   // HFA can't contains an empty struct
-  if (fields.dim == 0)
+  if (fields.length == 0)
     return false;
 
   // Accumulate number of floats in HFA
@@ -107,7 +107,7 @@ bool isNestedHFA(const TypeStruct *t, d_uns64 &floatSize, int &num,
   // For unions, need to find field with most floats
   int maxn = num;
 
-  for (size_t i = 0; i < fields.dim; ++i) {
+  for (size_t i = 0; i < fields.length; ++i) {
     Type *field = fields[i]->type;
 
     // reset to initial num floats (all union fields are at offset 0)
@@ -203,7 +203,7 @@ namespace {
 bool hasCtor(StructDeclaration *s) {
   if (s->ctor)
     return true;
-  for (size_t i = 0; i < s->fields.dim; i++) {
+  for (size_t i = 0; i < s->fields.length; i++) {
     Type *tf = s->fields[i]->type->baseElemOf();
     if (tf->ty == Tstruct) {
       if (hasCtor(static_cast<TypeStruct *>(tf)->sym))
