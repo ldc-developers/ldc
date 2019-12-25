@@ -480,15 +480,13 @@ void applyTargetMachineAttributes(llvm::Function &func,
 #if LDC_LLVM_VER >= 800
   switch (whichFramePointersToEmit()) {
     case llvm::FramePointer::None:
-      func.addFnAttr("no-frame-pointer-elim", "false");
+      func.addFnAttr("frame-pointer", "none");
       break;
     case llvm::FramePointer::NonLeaf:
-      func.addFnAttr("no-frame-pointer-elim", "false");
-      func.addFnAttr("no-frame-pointer-elim-non-leaf");
+      func.addFnAttr("frame-pointer", "non-leaf");
       break;
     case llvm::FramePointer::All:
-      func.addFnAttr("no-frame-pointer-elim", "true");
-      func.addFnAttr("no-frame-pointer-elim-non-leaf");
+      func.addFnAttr("frame-pointer", "all");
       break;
   }
 #else
@@ -1131,12 +1129,14 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // disable frame-pointer-elimination for functions with inline asm
   if (fd->hasReturnExp & 8) // has inline asm
   {
+#if LDC_LLVM_VER >= 800
+    func->addFnAttr(
+        llvm::Attribute::get(gIR->context(), "frame-pointer", "all"));
+#else
     func->addAttribute(
         LLAttributeSet::FunctionIndex,
         llvm::Attribute::get(gIR->context(), "no-frame-pointer-elim", "true"));
-    func->addAttribute(
-        LLAttributeSet::FunctionIndex,
-        llvm::Attribute::get(gIR->context(), "no-frame-pointer-elim-non-leaf"));
+#endif
   }
 
   // give the 'this' parameter (an lvalue) storage and debug info
