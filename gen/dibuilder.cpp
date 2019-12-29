@@ -9,6 +9,7 @@
 
 #include "gen/dibuilder.h"
 
+#include "dmd/declaration.h"
 #include "dmd/enum.h"
 #include "dmd/identifier.h"
 #include "dmd/import.h"
@@ -1375,14 +1376,13 @@ void DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
       vd->loc.linnum,                        // line num
       CreateTypeDescription(vd->type),       // type
       vd->protection.kind == Prot::private_, // is local to unit
-#if LDC_LLVM_VER >= 400
-      nullptr, // relative location of field
-#else
-      llVar, // value
-#endif
-    
 #if LDC_LLVM_VER >= 1000
-      nullptr, // expression
+      !(vd->storage_class & STCextern),      // bool isDefined
+#endif
+#if LDC_LLVM_VER >= 400
+      nullptr,                               // DIExpression *Expr
+#else
+      llVar,                                 // llvm::Constant *Val
 #endif
       Decl // declaration
   );
