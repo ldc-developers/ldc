@@ -802,6 +802,22 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("AIX");
     VersionCondition::addPredefinedGlobalIdent("Posix");
     break;
+  case llvm::Triple::IOS:
+    VersionCondition::addPredefinedGlobalIdent("iOS");
+    VersionCondition::addPredefinedGlobalIdent("Posix");
+    VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang");
+    break;
+  case llvm::Triple::TvOS:
+    VersionCondition::addPredefinedGlobalIdent("TVOS");
+    VersionCondition::addPredefinedGlobalIdent("Posix");
+    VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang");
+    break;
+  case llvm::Triple::WatchOS:
+    VersionCondition::addPredefinedGlobalIdent("WatchOS");
+    VersionCondition::addPredefinedGlobalIdent("Posix");
+    VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang");
+    break;
+  break;
   default:
     if (triple.getEnvironment() == llvm::Triple::Android) {
       VersionCondition::addPredefinedGlobalIdent("Android");
