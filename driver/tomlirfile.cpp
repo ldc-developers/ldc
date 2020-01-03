@@ -58,6 +58,11 @@ namespace llvm {
 #include "dmd/globals.h"
 #include "gen/MLIR/MLIRGen.h"
 #include "dmd/expression.h"
+#include "mlir/Pass/Pass.h"
+#include "mlir/Pass/PassManager.h"
+#include "mlir/Transforms/Passes.h"
+#include "gen/MLIR/Dialect.h"
+#include "gen/MLIR/Passes.h"
 
 void writeMLIRModule(Module *m, mlir::MLIRContext &mlirContext,
                      const char *filename, IRState *irs){
@@ -83,13 +88,40 @@ void writeMLIRModule(Module *m, mlir::MLIRContext &mlirContext,
     const auto llpath = replaceExtensionWith(global.mlir_ext);
     Logger::println("Writting MLIR to %s\n", llpath.c_str());
     std::error_code errinfo;
-    llvm::raw_fd_ostream aos(llpath.c_str(), errinfo, llvm::sys::fs::F_None);
+    llvm::raw_fd_ostream aos(llpath, errinfo, llvm::sys::fs::F_None);
     if(aos.has_error()){
       error(Loc(), "Cannot write MLIR file '%s':%s", llpath.c_str(),
             errinfo.message().c_str());
       fatal();
     }
     mlir::OwningModuleRef module = ldc_mlir::mlirGen(mlirContext, m, irs);
+
+    mlir::PassManager pm(&mlirContext);
+
+    // Apply any generic pass manager command line options and run the pipeline.
+    mlir::applyPassManagerCLOptions(pm);
+
+    //TODO:Needs to set a flag to lowering D->MLIR->Affine+std
+    bool isLoweringToAffine = true;
+    if(isLoweringToAffine){
+      pm.addPass(mlir::D::createLowerToStandardPass());
+      mlir::OpPassManager &optPM = pm.nest<mlir::FuncOp>();
+      optPM.addPass(mlir::createCanonicalizerPass());
+      optPM.addPass(mlir::createCSEPass());
+
+      //TODO: Needs to set a flag to enaple opt
+      bool enableOpt = 1;
+      if (enableOpt) {
+        optPM.addPass(mlir::createLoopFusionPass());
+        optPM.addPass(mlir::createMemRefDataFlowOptPass());
+      }
+
+
+      if(mlir::failed(pm.run(*module))){
+        IF_LOG Logger::println("Failed on running passes!");
+        return;
+      }
+    }
     if(!module){
       IF_LOG Logger::println("Cannot write MLIR file to '%s'", llpath.c_str());
       fatal();

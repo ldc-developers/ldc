@@ -64,8 +64,8 @@ public:
       Dsymbol *dsym = (*m->members)[k];
       assert(dsym);
 
-      MLIRDeclaration *declaration = new MLIRDeclaration(irs, m, context,
-          builder,symbolTable,total,miss);
+      MLIRDeclaration declaration = MLIRDeclaration(irs, m, context, builder,
+                                                    symbolTable,total,miss);
 
       // Declaration_MLIRcodegen(dsym, mlir_);
       FuncDeclaration *fd = dsym->isFuncDeclaration();
@@ -87,7 +87,7 @@ public:
         LOG_SCOPE
 
         if(auto *templateInstance = scopeDsymbol->isTemplateInstance()) {
-          declaration->mlirGen(templateInstance);
+          declaration.mlirGen(templateInstance);
         }
       }else{
         IF_LOG Logger::println("Unnable to recoganize dsym member: '%s'",
@@ -135,7 +135,7 @@ private:
   /// Entering a function creates a new scope, and the function arguments are
   /// added to the mapping. When the processing of a function is terminated, the
   /// scope is destroyed and the mappings created in this scope are dropped.
-  llvm::ScopedHashTable<StringRef, mlir::Value *> symbolTable;
+  llvm::ScopedHashTable<StringRef, mlir::Value> symbolTable;
 
 
   /// This flags counts the number of hits and misses of our translation.
@@ -148,7 +148,7 @@ private:
 
   /// Declare a variable in the current scope, return success if the variable
   /// wasn't declared yet.
-  mlir::LogicalResult declare(llvm::StringRef var, mlir::Value *value) {
+  mlir::LogicalResult declare(llvm::StringRef var, mlir::Value value) {
     if(symbolTable.count(var))
       return mlir::failure();
     symbolTable.insert(var, value);
@@ -181,7 +181,7 @@ private:
   /// Emit a new function and add it to the MLIR module.
   mlir::FuncOp mlirGen(FuncDeclaration *Fd) {
     // Create a scope in the symbol table to hold variable declarations.
-    ScopedHashTableScope<llvm::StringRef, mlir::Value *> var_scope(symbolTable);
+    ScopedHashTableScope<llvm::StringRef, mlir::Value> var_scope(symbolTable);
 
     // Create an MLIR function for the given prototype.
     mlir::FuncOp function = mlirGen(Fd, true);
@@ -199,7 +199,7 @@ private:
     builder.setInsertionPointToStart(&entryBlock);
 
     // Initialize the object to be the "visitor"
-    MLIRStatements *genStmt = new MLIRStatements(irs, irs->dmodule, context,
+    MLIRStatements genStmt = MLIRStatements(irs, irs->dmodule, context,
                                                  builder, symbolTable, total,
                                                  miss);
 
@@ -220,7 +220,7 @@ private:
     }
     // Emit the body of the function.
 
-    mlir::LogicalResult result = genStmt->genStatements(Fd);
+    mlir::LogicalResult result = genStmt.genStatements(Fd);
     if (mlir::failed(result)) {
       function.erase();
       return nullptr;
@@ -235,7 +235,7 @@ private:
       function.getBody().back().back().dump();
       ReturnStatement *returnStatement = Fd->returns->front();
       if(returnStatement != nullptr)
-        genStmt->mlirGen(returnStatement);
+        genStmt.mlirGen(returnStatement);
       else{
         builder.create<mlir::ReturnOp>(function.getBody().back().back().getLoc());
       }
@@ -276,7 +276,7 @@ private:
             miss++;
             MLIRDeclaration *declaration = new MLIRDeclaration(irs, nullptr,
                     context, builder, symbolTable,total, miss);
-            mlir::Value *value = declaration->mlirGen(vd);
+            mlir::Value value = declaration->mlirGen(vd);
             return value->getType();
         }
       }

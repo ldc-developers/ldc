@@ -20,6 +20,7 @@
 #include "driver/toobj.h"
 #if LDC_MLIR_ENABLED
 #include "driver/tomlirfile.h"
+#include "include/mlir/Pass/PassManager.h"
 #endif
 #include "gen/dynamiccompile.h"
 #include "gen/logger.h"
@@ -263,6 +264,7 @@ void CodeGenerator::finishLLModule(Module *m) {
   }
 
 #if LDC_MLIR_ENABLED
+ mlir::registerPassManagerCLOptions();
   writeMLIRModule(m, mlirContext_, m->objfile.toChars(), ir_);
 #endif
   writeAndFreeLLModule(m->objfile.toChars());
