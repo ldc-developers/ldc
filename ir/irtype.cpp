@@ -61,7 +61,8 @@ llvm::Type *getReal80Type(llvm::LLVMContext &ctx) {
     return llvm::Type::getX86_FP80Ty(ctx);
   }
 
-  if (anyAarch64 || (isAndroid && a == llvm::Triple::x86_64)) {
+  if ((anyAarch64 && !global.params.targetTriple->isOSDarwin()) ||
+      (isAndroid && a == llvm::Triple::x86_64)) {
     return llvm::Type::getFP128Ty(ctx);
   }
 
