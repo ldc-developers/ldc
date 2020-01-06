@@ -386,7 +386,7 @@ immutable Msgtable[] msgtable =
     { "btr" },
     { "bts" },
     { "bswap" },
-    { "volatile"},
+    { "volatile_", "volatile" }, // IN_LLVM: renamed for ltsmaster compatibility
     { "volatileLoad"},
     { "volatileStore"},
     { "_popcnt"},
