@@ -1,3 +1,4 @@
+// REQUIRES: atleast_llvm800
 // Tests that our TargetMachine options are added as function attributes
 
 // RUN: %ldc -c -output-ll -of=%t.ll %s
@@ -21,7 +22,7 @@ void foo()
 // COMMON-DAG: "no-infs-fp-math"="false"
 // COMMON-DAG: "no-nans-fp-math"="false"
 
-// WITH_FP-DAG: "no-frame-pointer-elim"="true"
-// NO_FP-DAG:   "no-frame-pointer-elim"="false"
+// WITH_FP-DAG: "frame-pointer"="all"
+// NO_FP-DAG:   "frame-pointer"="none"
 
 // ATTR-DAG: "target-features"="{{[^"]*}}+test
