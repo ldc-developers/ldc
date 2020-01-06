@@ -41,9 +41,9 @@ void copyFnAttributes(llvm::Function *wannabe, llvm::Function *idol) {
   wannabe->addAttributes(LLAttributeSet::FunctionIndex, fnAttrSet);
 }
 
-std::string exprToString(StringExp *strexp) {
-  assert(strexp != nullptr);
-  auto str = strexp->toUTF8String();
+llvm::StringRef exprToString(StringExp *strexp) {
+  assert(strexp);
+  auto str = strexp->peekString();
   return {str.ptr, str.length};
 }
 } // anonymous namespace
@@ -127,9 +127,7 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
     assert(objs.length == 3 || objs.length == 5);
     const bool isExtended = (objs.length == 5);
 
-    std::string prefix;
-    std::string code;
-    std::string suffix;
+    llvm::StringRef prefix, code, suffix;
     if (isExtended) {
       Expression *a0 = isExpression(objs[0]);
       assert(a0);
@@ -184,11 +182,11 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
       stream << ", ";
     }
 
+    stream << ")\n{\n" << code;
     if (ret->ty == Tvoid) {
-      code.append("\nret void");
+      stream << "\nret void";
     }
-
-    stream << ")\n{\n" << code << "\n}";
+    stream << "\n}";
     if (!suffix.empty()) {
       stream << "\n" << suffix;
     }

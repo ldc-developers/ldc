@@ -126,20 +126,18 @@ sinteger_t getIntElem(StructLiteralExp *sle, size_t idx) {
   return arg->toInteger();
 }
 
-/// Returns a null-terminated string
-const char *getStringElem(StructLiteralExp *sle, size_t idx) {
+llvm::StringRef getStringElem(StructLiteralExp *sle, size_t idx) {
   auto arg = (*sle->elements)[idx];
   if (arg && arg->op == TOKstring) {
     auto strexp = static_cast<StringExp *>(arg);
-    assert(strexp->sz == 1);
-    return strexp->toStringz();
+    DString str = strexp->peekString();
+    return {str.ptr, str.length};
   }
   // Default initialized element (arg->op == TOKnull)
-  return "";
+  return {};
 }
 
-/// Returns a null-terminated string
-const char *getFirstElemString(StructLiteralExp *sle) {
+llvm::StringRef getFirstElemString(StructLiteralExp *sle) {
   return getStringElem(sle, 0);
 }
 
@@ -255,11 +253,10 @@ void applyAttrLLVMFastMathFlag(StructLiteralExp *sle, IrFunction *irFunc) {
   } else if (value == "arcp") {
     irFunc->FMF.setAllowReciprocal();
   } else {
-    // `value` is a null-terminated returned from getStringElem so can be passed
-    // to warning("... %s ...").
     sle->warning(
-        "ignoring unrecognized flag parameter `%s` for `@ldc.attributes.%s`",
-        value.data(), sle->sd->ident->toChars());
+        "ignoring unrecognized flag parameter `%.*s` for `@ldc.attributes.%s`",
+        static_cast<int>(value.size()), value.data(),
+        sle->sd->ident->toChars());
   }
 }
 
@@ -283,8 +280,9 @@ void applyAttrOptStrategy(StructLiteralExp *sle, IrFunction *irFunc) {
     func->addFnAttr(llvm::Attribute::MinSize);
   } else {
     sle->warning(
-        "ignoring unrecognized parameter `%s` for `@ldc.attributes.%s`",
-        value.data(), sle->sd->ident->toChars());
+        "ignoring unrecognized parameter `%.*s` for `@ldc.attributes.%s`",
+        static_cast<int>(value.size()), value.data(),
+        sle->sd->ident->toChars());
   }
 }
 
@@ -302,7 +300,7 @@ void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func,
   // string and simply passes all to llvm.
 
   checkStructElems(sle, {Type::tstring});
-  std::string targetspec = getFirstElemString(sle);
+  llvm::StringRef targetspec = getFirstElemString(sle);
 
   if (targetspec.empty() || targetspec == "default")
     return;

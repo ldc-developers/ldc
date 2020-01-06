@@ -107,11 +107,11 @@ bool isNestedHFA(const TypeStruct *t, d_uns64 &floatSize, int &num,
   // For unions, need to find field with most floats
   int maxn = num;
 
-  for (size_t i = 0; i < fields.length; ++i) {
-    Type *field = fields[i]->type;
+  for (VarDeclaration *field : fields) {
+    Type *tf = field->type;
 
     // reset to initial num floats (all union fields are at offset 0)
-    if (fields[i]->offset == 0)
+    if (field->offset == 0)
       n = num;
 
     // reset dim to dimension of sarray we are in (will be 1 if not)
@@ -120,22 +120,21 @@ bool isNestedHFA(const TypeStruct *t, d_uns64 &floatSize, int &num,
     // Field is an array.  Process the arrayof type and multiply dim by
     // array dim.  Note that empty arrays immediately exclude this struct
     // from HFA status.
-    if (field->ty == Tsarray) {
-      TypeSArray *array = (TypeSArray *)field;
-      if (array->dim->toUInteger() == 0)
+    if (auto tarray = tf->isTypeSArray()) {
+      if (tarray->dim->toUInteger() == 0)
         return false;
-      field = array->nextOf();
-      dim *= array->dim->toUInteger();
+      tf = tarray->nextOf();
+      dim *= tarray->dim->toUInteger();
     }
 
-    if (field->ty == Tstruct) {
-      if (!isNestedHFA((TypeStruct *)field, floatSize, n, dim))
+    if (auto tstruct = tf->isTypeStruct()) {
+      if (!isNestedHFA(tstruct, floatSize, n, dim))
         return false;
-    } else if (field->isfloating()) {
-      d_uns64 sz = field->size();
+    } else if (tf->isfloating()) {
+      d_uns64 sz = tf->size();
       n += dim;
 
-      if (field->iscomplex()) {
+      if (tf->iscomplex()) {
         sz /= 2; // complex is 2 floats, adjust sz
         n += dim;
       }
@@ -203,10 +202,10 @@ namespace {
 bool hasCtor(StructDeclaration *s) {
   if (s->ctor)
     return true;
-  for (size_t i = 0; i < s->fields.length; i++) {
-    Type *tf = s->fields[i]->type->baseElemOf();
-    if (tf->ty == Tstruct) {
-      if (hasCtor(static_cast<TypeStruct *>(tf)->sym))
+  for (VarDeclaration *field : s->fields) {
+    Type *tf = field->type->baseElemOf();
+    if (auto tstruct = tf->isTypeStruct()) {
+      if (hasCtor(tstruct->sym))
         return true;
     }
   }

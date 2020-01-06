@@ -762,9 +762,7 @@ static LinkageWithCOMDAT lowerFuncLinkage(FuncDeclaration *fdecl) {
 // LDC has the same problem with destructors of struct arguments in closures
 // as DMD, so we copy the failure detection
 void verifyScopedDestructionInClosure(FuncDeclaration *fd) {
-  for (size_t i = 0; i < fd->closureVars.length; i++) {
-    VarDeclaration *v = fd->closureVars[i];
-
+  for (VarDeclaration *v : fd->closureVars) {
     // Hack for the case fail_compilation/fail10666.d, until
     // proper issue https://issues.dlang.org/show_bug.cgi?id=5730 fix will come.
     bool isScopeDtorParam = v->edtor && (v->storage_class & STCparameter);
@@ -791,8 +789,7 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
   // index in the IrFuncTy args array separately.
   size_t llArgIdx = 0;
 
-  for (size_t i = 0; i < parameters.length; ++i) {
-    auto *const vd = parameters[i];
+  for (VarDeclaration *vd : parameters) {
     IrParameter *irparam = getIrParameter(vd);
 
     // vd->type (parameter) and irparam->arg->type (argument) don't always

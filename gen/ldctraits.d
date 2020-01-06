@@ -65,7 +65,8 @@ Expression semanticTraitsLDC(TraitsExp e, Scope* sc)
             return new ErrorExp();
         }
 
-        auto str = se.toUTF8(sc).peekString();
+        se = se.toUTF8(sc);
+        auto str = se.peekString();
         auto featureFound = traitsTargetHasFeature(Dstring(str.length, str.ptr));
         return new IntegerExp(e.loc, featureFound ? 1 : 0, Type.tbool);
     }

@@ -420,7 +420,8 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
     e->error("`__asm` code argument is not a `char[]` string literal");
     fatal();
   }
-  const auto code = se->toUTF8String();
+  const DString codeStr = se->peekString();
+  const llvm::StringRef code = {codeStr.ptr, codeStr.length};
 
   // get constraints param
   e = (*arguments)[1];
@@ -430,7 +431,9 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
     e->error("`__asm` constraints argument is not a `char[]` string literal");
     fatal();
   }
-  const auto constraints = se->toUTF8String();
+  const DString constraintsStr = se->peekString();
+  const llvm::StringRef constraints = {constraintsStr.ptr,
+                                       constraintsStr.length};
 
   // build runtime arguments
   size_t n = arguments->length;
@@ -451,16 +454,14 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
   llvm::FunctionType *FT = llvm::FunctionType::get(ret_type, argtypes, false);
 
   // make sure the constraints are valid
-  if (!llvm::InlineAsm::Verify(FT, {constraints.ptr, constraints.length})) {
+  if (!llvm::InlineAsm::Verify(FT, constraints)) {
     e->error("`__asm` constraint argument is invalid");
     fatal();
   }
 
   // build asm call
   bool sideeffect = true;
-  llvm::InlineAsm *ia =
-      llvm::InlineAsm::get(FT, {code.ptr, code.length},
-                           {constraints.ptr, constraints.length}, sideeffect);
+  llvm::InlineAsm *ia = llvm::InlineAsm::get(FT, code, constraints, sideeffect);
 
   llvm::Value *rv = gIR->ir->CreateCall(ia, args, "");
 

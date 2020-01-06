@@ -28,8 +28,11 @@ bool parseStringExp(Expression *e, const char *&res) {
   if (e->op != TOKstring) {
     return false;
   }
-  auto s = static_cast<StringExp *>(e);
-  res = s->toStringz();
+  auto se = static_cast<StringExp *>(e);
+  auto size = (se->len + 1) * se->sz;
+  auto s = static_cast<char *>(mem.xmalloc(size));
+  se->writeTo(s, true);
+  res = s;
   return true;
 }
 
