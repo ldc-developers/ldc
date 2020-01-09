@@ -30,6 +30,11 @@ llvm::GlobalVariable *IrModule::moduleInfoSymbol() {
   moduleInfoVar =
       declareGlobal(Loc(), gIR->module,
                     llvm::StructType::create(gIR->context()), irMangle, false);
+
+  // Like DMD, declare as weak - don't pull in the object file just because of
+  // the import, i.e., use null if the object isn't pulled in by something else.
+  moduleInfoVar->setLinkage(LLGlobalValue::ExternalWeakLinkage);
+
   return moduleInfoVar;
 }
 
