@@ -1,6 +1,6 @@
 include ../common.mak
 
-TESTS:=tlsgc_sections
+TESTS:=tlsgc_sections test_import tlsstack
 # LDC: disable POSIX-specific tests on Windows
 ifeq (,$(findstring win,$(OS)))
 TESTS+=fiber_guard_page external_threads
@@ -21,6 +21,16 @@ $(ROOT)/external_threads.done: $(ROOT)/%.done : $(ROOT)/%
 	@touch $@
 
 $(ROOT)/tlsgc_sections.done: $(ROOT)/%.done : $(ROOT)/%
+	@echo Testing $*
+	$(QUIET)$(TIMELIMIT)$(ROOT)/$*
+	@touch $@
+
+$(ROOT)/test_import.done: $(ROOT)/%.done : $(ROOT)/%
+	@echo Testing $*
+	$(QUIET)$(TIMELIMIT)$(ROOT)/$*
+	@touch $@
+
+$(ROOT)/tlsstack.done: $(ROOT)/%.done : $(ROOT)/%
 	@echo Testing $*
 	$(QUIET)$(TIMELIMIT)$(ROOT)/$*
 	@touch $@
