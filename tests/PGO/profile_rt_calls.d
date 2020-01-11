@@ -2,6 +2,11 @@
 
 // REQUIRES: PGO_RT
 
+// Win32: no weak ModuleInfo.importedSymbols for MSVC targets (for LLD
+//        compatibility) and tries to import non-existing ldc/profile.di
+//        ModuleInfo
+// XFAIL: Windows_x86
+
 // RUN: %ldc -fprofile-instr-generate=%t.profraw -run %s
 
 import ldc.profile;
