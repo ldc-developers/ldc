@@ -230,24 +230,10 @@ endif()
 # Create configuration files.
 #
 
-# Add extra paths on Linux and disable linker arch mismatch warnings (like
-# DMD and GDC do). OS X doesn't need extra configuration due to the use of
-# fat binaries. Other Posixen might need to be added here.
-if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
-    set(ADDITIONAL_DEFAULT_LDC_SWITCHES  "${ADDITIONAL_DEFAULT_LDC_SWITCHES}\n        \"-L--no-warn-search-mismatch\",")
-    set(MULTILIB_ADDITIONAL_PATH         "\n        \"${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",")
-    set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",")
-endif()
-
 # Default -rpath linker option when linking against shared libraries.
 if(SHARED_LIBS_SUPPORTED)
-    if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
-        set(SHARED_LIBS_RPATH         "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}:${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}")
-        set(SHARED_LIBS_INSTALL_RPATH "${CMAKE_INSTALL_LIBDIR}:${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}")
-    else()
-        set(SHARED_LIBS_RPATH         "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
-        set(SHARED_LIBS_INSTALL_RPATH "${CMAKE_INSTALL_LIBDIR}")
-    endif()
+    set(SHARED_LIBS_RPATH         "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
+    set(SHARED_LIBS_INSTALL_RPATH "${CMAKE_INSTALL_LIBDIR}")
 endif()
 
 # Only have either shared or static libs?
@@ -276,8 +262,50 @@ if(LDC_EXE)
     else()
         set(CONFIG_NAME ${LDC_EXE})
     endif()
-    configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf @ONLY)
-    configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf @ONLY)
+    set(conf_path         ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
+    set(install_conf_path ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf)
+    configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${conf_path} @ONLY)
+    configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${install_conf_path} @ONLY)
+
+    # macOS has fat libraries; otherwise, append a separate config file section for the
+    # multilib target and override the lib directory.
+    if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
+        # Rename the just configured host-only *.conf files to *.conf.in during CMake invocation.
+        file(RENAME ${conf_path} ${conf_path}.in)
+        file(RENAME ${install_conf_path} ${install_conf_path}.in)
+
+        set(MULTILIB_DIR         "${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}")
+        set(MULTILIB_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}")
+
+        # The helper script determines the multilib triple by parsing the
+        # `ldc2 -m32 -v` output. This means we depend on a built ldc2
+        # executable; sadly, we cannot add post-build commands to that
+        # top-level target directly, so use a custom target (built as part
+        # of `all`) to finalize the 2 config files.
+        add_custom_command(OUTPUT ${conf_path} VERBATIM
+            COMMAND ${PROJECT_PARENT_DIR}/tools/add-multilib-section.sh
+                    ${LDC_EXE_FULL}
+                    ${MULTILIB_SUFFIX}
+                    ${MULTILIB_DIR}
+                    "$<$<BOOL:${SHARED_LIBS_SUPPORTED}>:${MULTILIB_DIR}>"
+                    ${conf_path}.in
+                    ${conf_path}
+            DEPENDS ${LDC_EXE} ${LDC_EXE_FULL}
+        )
+        add_custom_command(OUTPUT ${install_conf_path} VERBATIM
+            COMMAND ${PROJECT_PARENT_DIR}/tools/add-multilib-section.sh
+                    ${LDC_EXE_FULL}
+                    ${MULTILIB_SUFFIX}
+                    ${MULTILIB_INSTALL_DIR}
+                    "$<$<BOOL:${SHARED_LIBS_SUPPORTED}>:${MULTILIB_INSTALL_DIR}>"
+                    ${install_conf_path}.in
+                    ${install_conf_path}
+            DEPENDS ${LDC_EXE} ${LDC_EXE_FULL}
+        )
+        add_custom_target(add-multilib-section ALL
+            DEPENDS ${conf_path} ${install_conf_path}
+        )
+    endif()
 endif()
 
 #
@@ -356,10 +384,11 @@ macro(dc src_files src_basedir d_flags output_basedir emit_bc all_at_once outlis
         list(APPEND dc_flags -flto=thin --output-bc)
     endif()
 
-    set(dc_deps ${LDC_EXE}
-                ${LDC_EXE_FULL}
-                ${GCCBUILTINS}
-    )
+    set(dc_deps ${LDC_EXE} ${LDC_EXE_FULL} ${GCCBUILTINS})
+    if(TARGET add-multilib-section)
+        # Make sure the config files are available before invoking LDC.
+        set(dc_deps ${dc_deps} add-multilib-section)
+    endif()
 
     set(relative_src_files "")
     set(new_o "")
