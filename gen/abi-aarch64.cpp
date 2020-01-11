@@ -44,7 +44,13 @@ private:
   IntegerRewrite integerRewrite;
 
   bool isVaList(Type *t) {
-    return t->ty == Tstruct && strcmp(t->toPrettyChars(true),
+    if (global.params.targetTriple->isOSDarwin())
+    {
+      return t->ty == Tpointer &&
+        static_cast<TypePointer*>(t)->next->ty == Tchar;
+    }
+    else
+      return t->ty == Tstruct && strcmp(t->toPrettyChars(true),
                                       "ldc.internal.vararg.std.__va_list") == 0;
   }
 
@@ -115,11 +121,15 @@ public:
   }
 
   Type *vaListType() override {
-    // We need to pass the actual va_list type for correct mangling. Simply
-    // using TypeIdentifier here is a bit wonky but works, as long as the name
-    // is actually available in the scope (this is what DMD does, so if a better
-    // solution is found there, this should be adapted).
-    return createTypeIdentifier(Loc(), Identifier::idPool("__va_list"));
+    if (global.params.targetTriple->isOSDarwin())
+      return Type::tchar->pointerTo();
+    else {
+      // We need to pass the actual va_list type for correct mangling. Simply
+      // using TypeIdentifier here is a bit wonky but works, as long as the name
+      // is actually available in the scope (this is what DMD does, so if a better
+      // solution is found there, this should be adapted).
+      return createTypeIdentifier(Loc(), Identifier::idPool("__va_list"));
+    }
   }
 
   const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override {
