@@ -2,13 +2,21 @@
 
 // RUN: %ldc -g -run %s
 
-enum E : void function()
+enum F : void function()
 {
     First = function() {}
 }
 
+enum D : void delegate()
+{
+    First = () {}
+}
+
 void main()
 {
-    auto e = E.First;
-    e();
+    auto f = F.First;
+    f();
+
+    auto d = D.First;
+    d();
 }

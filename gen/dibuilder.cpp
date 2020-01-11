@@ -767,10 +767,11 @@ DISubroutineType DIBuilder::CreateEmptyFunctionType() {
 }
 
 DIType DIBuilder::CreateDelegateType(Type *type) {
-  assert(type->toBasetype()->ty == Tdelegate);
+  Type *const tb = type->toBasetype();
+  assert(tb->ty == Tdelegate);
+  auto t = static_cast<TypeDelegate *>(tb);
 
   llvm::Type *T = DtoType(type);
-  auto t = static_cast<TypeDelegate *>(type);
 
   const auto scope = GetCU();
   const auto name = processDIName(type->toPrettyChars(true));
@@ -790,7 +791,7 @@ DIType DIBuilder::CreateDelegateType(Type *type) {
                                    DBuilder.getOrCreateArray(elems),
                                    0,               // RunTimeLang
                                    getNullDIType(), // VTableHolder
-                                   uniqueIdent(t)); // UniqueIdentifier
+                                   uniqueIdent(type)); // UniqueIdentifier
 }
 
 ////////////////////////////////////////////////////////////////////////////////
