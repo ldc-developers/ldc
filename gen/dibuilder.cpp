@@ -11,6 +11,7 @@
 
 #include "dmd/declaration.h"
 #include "dmd/enum.h"
+#include "dmd/errors.h"
 #include "dmd/identifier.h"
 #include "dmd/import.h"
 #include "dmd/ldcbindings.h"
@@ -138,9 +139,13 @@ DIScope DIBuilder::GetSymbolScope(Dsymbol *s) {
     return EmitNamespace(ns, ns->toChars());
   } else if (auto fwd = parent->isForwardingScopeDsymbol()) {
     return GetSymbolScope(fwd);
+  } else if (auto ed = parent->isEnumDeclaration()) {
+    return CreateEnumType(ed->getType());
+  } else {
+    error(parent->loc, "unknown debuginfo scope `%s`; please file an LDC issue",
+          parent->toChars());
+    fatal();
   }
-
-  llvm_unreachable("Unhandled parent");
 }
 
 DIScope DIBuilder::GetCurrentScope() {
@@ -313,33 +318,37 @@ DIType DIBuilder::CreateBasicType(Type *type) {
 DIType DIBuilder::CreateEnumType(Type *type) {
   assert(type->ty == Tenum);
 
-  llvm::Type *T = DtoType(type);
-  TypeEnum *te = static_cast<TypeEnum *>(type);
+  llvm::Type *const T = DtoType(type);
+  EnumDeclaration *const ed = static_cast<TypeEnum *>(type)->sym;
+  assert(ed->memtype);
 
-  if (te->sym->isSpecial()) {
-    return CreateBasicType(te->sym->memtype);
+  if (ed->isSpecial()) {
+    return CreateBasicType(ed->memtype);
   }
 
   llvm::SmallVector<LLMetadata *, 8> subscripts;
-  for (auto m : *te->sym->members) {
+  for (auto m : *ed->members) {
     EnumMember *em = m->isEnumMember();
-    llvm::StringRef Name(em->toChars());
-    uint64_t Val = em->value()->toInteger();
-    auto Subscript = DBuilder.createEnumerator(Name, Val);
-    subscripts.push_back(Subscript);
+    if (auto ie = em->value()->isIntegerExp()) {
+      subscripts.push_back(
+          DBuilder.createEnumerator(em->toChars(), ie->toInteger()));
+    } else {
+      subscripts.clear();
+      break;
+    }
   }
 
   DIScope scope = nullptr;
-  const auto name = GetNameAndScope(te->sym, scope);
-  const auto lineNumber = te->sym->loc.linnum;
-  const auto file = CreateFile(te->sym);
+  const auto name = GetNameAndScope(ed, scope);
+  const auto lineNumber = ed->loc.linnum;
+  const auto file = CreateFile(ed);
 
   return DBuilder.createEnumerationType(
       scope, name, file, lineNumber,
       getTypeAllocSize(T) * 8,               // size (bits)
       getABITypeAlign(T) * 8,                // align (bits)
       DBuilder.getOrCreateArray(subscripts), // subscripts
-      CreateTypeDescription(te->sym->memtype));
+      CreateTypeDescription(ed->memtype));
 }
 
 DIType DIBuilder::CreatePointerType(Type *type) {
