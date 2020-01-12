@@ -186,9 +186,9 @@ steps:
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     git clone --recursive https://github.com/dlang/tools.git dlang-tools 2>&1
     cd dlang-tools
-    ..\installed\bin\ldmd2 -w rdmd.d
-    ..\installed\bin\ldmd2 -w ddemangle.d
-    ..\installed\bin\ldmd2 -w DustMite\dustmite.d DustMite\splitter.d
+    ..\installed\bin\ldmd2 -w -de -dip1000 rdmd.d
+    ..\installed\bin\ldmd2 -w -de -dip1000 ddemangle.d
+    ..\installed\bin\ldmd2 -w -de -dip1000 DustMite\dustmite.d DustMite\splitter.d
     cp *.exe ../installed/bin
   displayName: Build & copy dlang tools
 - script: |

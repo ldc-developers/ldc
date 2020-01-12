@@ -288,15 +288,11 @@ steps:
     git checkout "$(cat $BUILD_SOURCESDIRECTORY/packaging/dub_version)"
     if [ "$CI_OS" = "android" ]; then
       # Remove -g to prevent invalid debuginfo relocations (apparently due to our custom TLS emulation)
-      sed -i 's| -g -O | -O |g' build.sh
+      sed -i 's|-g -O |-O |' build.sh
       # Don't run dub after build
       sed -i 's|bin/dub --version||' build.sh
-    elif [ "${BUILD_SOURCEBRANCH:0:10}" != "refs/tags/" ]; then
-      # FIXME: dub is built with `-g -O`, which leads to issue #2361 with enabled
-      # assertions, at least on Linux. So strip `-g` for untagged builds.
-      perl -pi -e "s? -g -O ? -O ?g" build.sh
     fi
-    ./build.sh
+    DFLAGS='' ./build.sh $DFLAGS
     cp bin/dub ../installed/bin
     if [ "$CI_OS" != "android" ]; then ../installed/bin/dub --version; fi
   displayName: Build & copy dub
@@ -306,9 +302,9 @@ steps:
     git clone --recursive https://github.com/dlang/tools.git dlang-tools
     cd dlang-tools
     mkdir bin
-    $DMD -w -de rdmd.d -of=bin/rdmd
-    $DMD -w -de ddemangle.d -of=bin/ddemangle
-    $DMD -w -de DustMite/dustmite.d DustMite/splitter.d -of=bin/dustmite
+    $DMD -w -de -dip1000 rdmd.d -of=bin/rdmd
+    $DMD -w -de -dip1000 ddemangle.d -of=bin/ddemangle
+    $DMD -w -de -dip1000 DustMite/dustmite.d DustMite/splitter.d -of=bin/dustmite
     cp bin/{rdmd,ddemangle,dustmite} ../installed/bin
   displayName: Build & copy dlang tools
 - script: |
