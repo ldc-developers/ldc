@@ -1,4 +1,4 @@
-// A -betterC wasm example.
+// A more complex wasm example using Phobos templates (=> -betterC to keep it simple).
 
 // REQUIRES: target_WebAssembly
 // REQUIRES: link_WebAssembly
@@ -16,7 +16,9 @@ void _start() {}
 
 void __assert(const(char)* msg, const(char)* file, uint line) {}
 
-export void myExportedFoo(double x)
+export int myExportedFoo()
 {
-    assert(x > 0);
+    import std.algorithm, std.range;
+    auto range = 100.iota().stride(2).take(5);
+    return range.sum();
 }
