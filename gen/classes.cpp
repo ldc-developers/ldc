@@ -609,7 +609,7 @@ LLConstant *DtoDefineClassInfo(ClassDeclaration *cd) {
   Type *const cinfoType = getClassInfoType(); // check declaration in object.d
   ClassDeclaration *const cinfo = Type::typeinfoclass;
 
-  if (cinfo->fields.dim != 12) {
+  if (cinfo->fields.length != 12) {
     error(Loc(), "Unexpected number of fields in `object.ClassInfo`; "
                  "druntime version does not match compiler (see -v)");
     fatal();
@@ -646,7 +646,7 @@ LLConstant *DtoDefineClassInfo(ClassDeclaration *cd) {
     b.push_array(0, getNullValue(voidPtrPtr));
   } else {
     c = DtoBitCast(ir->getVtblSymbol(), voidPtrPtr);
-    b.push_array(cd->vtbl.dim, c);
+    b.push_array(cd->vtbl.length, c);
   }
 
   // interfaces[]
@@ -690,7 +690,7 @@ LLConstant *DtoDefineClassInfo(ClassDeclaration *cd) {
 #endif
 
   // defaultConstructor
-  VarDeclaration *defConstructorVar = cinfo->fields.data[10];
+  VarDeclaration *defConstructorVar = cinfo->fields[10];
   CtorDeclaration *defConstructor = cd->defaultCtor;
   if (defConstructor && (defConstructor->storage_class & STCdisable)) {
     defConstructor = nullptr;

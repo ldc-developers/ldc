@@ -604,7 +604,7 @@ void codegenModule(IRState *irs, Module *m) {
 
   // process module members
   // NOTE: m->members may grow during codegen
-  for (unsigned k = 0; k < m->members->dim; k++) {
+  for (unsigned k = 0; k < m->members->length; k++) {
     Dsymbol *dsym = (*m->members)[k];
     assert(dsym);
     Declaration_codegen(dsym);

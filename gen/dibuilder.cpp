@@ -502,7 +502,7 @@ DIType DIBuilder::CreateMemberType(unsigned linnum, Type *type, DIFile file,
 
 void DIBuilder::AddFields(AggregateDeclaration *ad, DIFile file,
                           llvm::SmallVector<LLMetadata *, 16> &elems) {
-  size_t narr = ad->fields.dim;
+  size_t narr = ad->fields.length;
   elems.reserve(narr);
   for (auto vd : ad->fields) {
     elems.push_back(CreateMemberType(vd->loc.linnum, vd->type, file,

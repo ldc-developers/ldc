@@ -410,7 +410,7 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
   LOG_SCOPE;
 
   assert(fd->toParent()->isTemplateInstance() && "invalid inline __asm expr");
-  assert(arguments->dim >= 2 && "invalid __asm call");
+  assert(arguments->length >= 2 && "invalid __asm call");
 
   // get code param
   Expression *e = (*arguments)[0];
@@ -420,7 +420,8 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
     e->error("`__asm` code argument is not a `char[]` string literal");
     fatal();
   }
-  std::string code(se->toPtr(), se->numberOfCodeUnits());
+  const DString codeStr = se->peekString();
+  const llvm::StringRef code = {codeStr.ptr, codeStr.length};
 
   // get constraints param
   e = (*arguments)[1];
@@ -430,10 +431,12 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
     e->error("`__asm` constraints argument is not a `char[]` string literal");
     fatal();
   }
-  std::string constraints(se->toPtr(), se->numberOfCodeUnits());
+  const DString constraintsStr = se->peekString();
+  const llvm::StringRef constraints = {constraintsStr.ptr,
+                                       constraintsStr.length};
 
   // build runtime arguments
-  size_t n = arguments->dim;
+  size_t n = arguments->length;
 
   LLSmallVector<llvm::Value *, 8> args;
   args.reserve(n - 2);

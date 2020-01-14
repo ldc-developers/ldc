@@ -76,7 +76,7 @@ static LLValue *write_zeroes(LLValue *mem, unsigned start, unsigned end) {
 static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
                                  Expressions *elements) {
   assert(elements && "struct literal has null elements");
-  const auto numMissingElements = sd->fields.dim - elements->dim;
+  const auto numMissingElements = sd->fields.length - elements->length;
   (void)numMissingElements;
   assert(numMissingElements == 0 || (sd->vthis && numMissingElements == 1));
 
@@ -90,7 +90,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
   LLSmallVector<Data, 16> data;
 
   // collect init expressions in fields declaration order
-  for (size_t index = 0; index < sd->fields.dim; ++index) {
+  for (size_t index = 0; index < sd->fields.length; ++index) {
     VarDeclaration *field = sd->fields[index];
 
     // Skip zero-sized fields such as zero-length static arrays: `ubyte[0]
@@ -99,7 +99,8 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       continue;
 
     // the initializer expression may be null for overridden overlapping fields
-    Expression *expr = (index < elements->dim ? (*elements)[index] : nullptr);
+    Expression *expr =
+        (index < elements->length ? (*elements)[index] : nullptr);
     if (expr || field == sd->vthis) {
       // DMD issue #16471:
       // There may be overlapping initializer expressions in some cases.
@@ -759,7 +760,8 @@ public:
       if (global.params.warnings != DIAGNOSTICoff && checkPrintf) {
         if (fndecl->linkage == LINKc &&
             strcmp(fndecl->ident->toChars(), "printf") == 0) {
-          warnInvalidPrintfCall(e->loc, (*e->arguments)[0], e->arguments->dim);
+          warnInvalidPrintfCall(e->loc, (*e->arguments)[0],
+                                e->arguments->length);
         }
       }
 
@@ -1482,13 +1484,13 @@ public:
       assert(e->argprefix == NULL);
       // get dim
       assert(e->arguments);
-      assert(e->arguments->dim >= 1);
-      if (e->arguments->dim == 1) {
+      assert(e->arguments->length >= 1);
+      if (e->arguments->length == 1) {
         DValue *sz = toElem((*e->arguments)[0]);
         // allocate & init
         result = DtoNewDynArray(e->loc, e->newtype, sz, true);
       } else {
-        size_t ndims = e->arguments->dim;
+        size_t ndims = e->arguments->length;
         std::vector<DValue *> dims;
         dims.reserve(ndims);
         for (auto arg : *e->arguments) {
@@ -1558,13 +1560,13 @@ public:
       DLValue tmpvar(e->newtype, mem);
 
       Expression *exp = nullptr;
-      if (!e->arguments || e->arguments->dim == 0) {
+      if (!e->arguments || e->arguments->length == 0) {
         IF_LOG Logger::println("default initializer\n");
         // static arrays never appear here, so using the defaultInit is ok!
         exp = defaultInit(e->newtype, e->loc);
       } else {
         IF_LOG Logger::println("uniform constructor\n");
-        assert(e->arguments->dim == 1);
+        assert(e->arguments->length == 1);
         exp = (*e->arguments)[0];
       }
 
@@ -2238,7 +2240,7 @@ public:
     // is dynamic ?
     bool const dyn = (arrayType->ty == Tarray);
     // length
-    size_t const len = e->elements->dim;
+    size_t const len = e->elements->length;
 
     // llvm target type
     LLType *llType = DtoType(arrayType);
@@ -2405,13 +2407,13 @@ public:
 
     assert(e->keys);
     assert(e->values);
-    assert(e->keys->dim == e->values->dim);
+    assert(e->keys->length == e->values->length);
 
     Type *basetype = e->type->toBasetype();
     Type *aatype = basetype;
     Type *vtype = aatype->nextOf();
 
-    if (!e->keys->dim) {
+    if (!e->keys->length) {
       goto LruntimeInit;
     }
 
@@ -2425,9 +2427,9 @@ public:
 
     {
       std::vector<LLConstant *> keysInits, valuesInits;
-      keysInits.reserve(e->keys->dim);
-      valuesInits.reserve(e->keys->dim);
-      for (size_t i = 0, n = e->keys->dim; i < n; ++i) {
+      keysInits.reserve(e->keys->length);
+      valuesInits.reserve(e->keys->length);
+      for (size_t i = 0, n = e->keys->length; i < n; ++i) {
         Expression *ekey = (*e->keys)[i];
         Expression *eval = (*e->values)[i];
         IF_LOG Logger::println("(%llu) aa[%s] = %s",
@@ -2463,7 +2465,7 @@ public:
           LLGlobalValue::InternalLinkage, initval, ".aaKeysStorage");
       LLConstant *slice = llvm::ConstantExpr::getGetElementPtr(
           isaPointer(globalstore)->getElementType(), globalstore, idxs, true);
-      slice = DtoConstSlice(DtoConstSize_t(e->keys->dim), slice);
+      slice = DtoConstSlice(DtoConstSize_t(e->keys->length), slice);
       LLValue *keysArray = DtoAggrPaint(slice, funcTy->getParamType(1));
 
       initval = arrayConst(valuesInits, vtype);
@@ -2472,7 +2474,7 @@ public:
                                          initval, ".aaValuesStorage");
       slice = llvm::ConstantExpr::getGetElementPtr(
           isaPointer(globalstore)->getElementType(), globalstore, idxs, true);
-      slice = DtoConstSlice(DtoConstSize_t(e->keys->dim), slice);
+      slice = DtoConstSlice(DtoConstSize_t(e->keys->length), slice);
       LLValue *valuesArray = DtoAggrPaint(slice, funcTy->getParamType(2));
 
       LLValue *aa = gIR->CreateCallOrInvoke(func, aaTypeInfo, keysArray,
@@ -2496,7 +2498,7 @@ public:
                                  e->type, "aaliteral");
     result = new DLValue(e->type, tmp);
 
-    const size_t n = e->keys->dim;
+    const size_t n = e->keys->length;
     for (size_t i = 0; i < n; ++i) {
       Expression *ekey = (*e->keys)[i];
       Expression *eval = (*e->values)[i];
@@ -2572,13 +2574,13 @@ public:
     }
 
     std::vector<LLType *> types;
-    types.reserve(e->exps->dim);
+    types.reserve(e->exps->length);
     for (auto exp : *e->exps) {
       types.push_back(DtoMemType(exp->type));
     }
     LLValue *val =
         DtoRawAlloca(LLStructType::get(gIR->context(), types), 0, ".tuple");
-    for (size_t i = 0; i < e->exps->dim; i++) {
+    for (size_t i = 0; i < e->exps->length; i++) {
       Expression *el = (*e->exps)[i];
       DValue *ep = toElem(el);
       LLValue *gep = DtoGEP(val, 0, i);
@@ -2611,7 +2613,7 @@ public:
     if (e->e1->op == TOKarrayliteral) {
       Logger::println("array literal expression");
       ArrayLiteralExp *lit = static_cast<ArrayLiteralExp *>(e->e1);
-      assert(lit->elements->dim == N &&
+      assert(lit->elements->length == N &&
              "Array literal vector initializer "
              "length mismatch, should have been handled in frontend.");
 

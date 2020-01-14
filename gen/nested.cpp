@@ -334,7 +334,7 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
     DtoCreateNestedContextType(parentFunc);
   }
 
-  if (fd->closureVars.dim == 0) {
+  if (fd->closureVars.length == 0) {
     // No local variables of this function are captured.
     if (parentFunc) {
       // Propagate context arg properties if the context arg is passed on
@@ -435,7 +435,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
   DtoCreateNestedContextType(fd);
 
   // construct nested variables array
-  if (fd->closureVars.dim > 0) {
+  if (fd->closureVars.length > 0) {
     auto &irFunc = funcGen.irFunc;
     unsigned depth = irFunc.depth;
     LLStructType *frameType = irFunc.frameType;

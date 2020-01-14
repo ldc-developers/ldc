@@ -1069,7 +1069,7 @@ void codegenModules(Modules &modules) {
     // Therefore, codegen is done in reverse order with members[0] last, to make
     // sure these functions (added to members[0] by members[x>0]) are
     // codegenned.
-    for (d_size_t i = modules.dim; i-- > 0;) {
+    for (d_size_t i = modules.length; i-- > 0;) {
       Module *const m = modules[i];
 
       if (m->isHdrFile)
@@ -1088,7 +1088,7 @@ void codegenModules(Modules &modules) {
         if (atCompute == DComputeCompileFor::deviceOnly) {
           // Remove m's object file from list of object files
           auto s = m->objfile.toChars();
-          for (size_t j = 0; j < global.params.objfiles.dim; j++) {
+          for (size_t j = 0; j < global.params.objfiles.length; j++) {
             if (s == global.params.objfiles[j]) {
               global.params.objfiles.remove(j);
               break;
@@ -1107,7 +1107,7 @@ void codegenModules(Modules &modules) {
     dccg.writeModules();
 
     // We may have removed all object files, if so don't link.
-    if (global.params.objfiles.dim == 0)
+    if (global.params.objfiles.length == 0)
       global.params.link = false;
   }
 

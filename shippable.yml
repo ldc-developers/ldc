@@ -116,12 +116,6 @@ build:
     - git clone --recursive https://github.com/dlang/dub.git
     - cd dub
     - git checkout "$(cat ../packaging/dub_version)"
-    - |
-      if [ "$IS_GIT_TAG" = "false" ]; then
-        # FIXME: dub is built with `-g -O`, which leads to issue #2361 with enabled
-        # assertions, at least on Linux. So strip `-g` for untagged builds.
-        perl -pi -e "s? -g -O ? -O ?g" build.sh
-      fi
     - ./build.sh
     - cp bin/dub ../installed/bin
     - cd ..
@@ -129,12 +123,10 @@ build:
     # Build & copy dlang tools
     - git clone --recursive https://github.com/dlang/tools.git dlang-tools
     - cd dlang-tools
-    - |
-      make -f posix.mak -j16 install \
-        DMD=$PWD/../installed/bin/ldmd2 \
-        DMD_DIR=$PWD/../tests/d2 \
-        DFLAGS="-w -de" \
-        INSTALL_DIR=$PWD
+    - mkdir bin
+    - $DMD -w -de -dip1000 rdmd.d -of=bin/rdmd
+    - $DMD -w -de -dip1000 ddemangle.d -of=bin/ddemangle
+    - $DMD -w -de -dip1000 DustMite/dustmite.d DustMite/splitter.d -of=bin/dustmite
     - cp bin/{rdmd,ddemangle,dustmite} ../installed/bin
     - cd ..
     # Pack installation dir

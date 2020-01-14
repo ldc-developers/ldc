@@ -28,7 +28,7 @@ bool isFromLDC_DCompute(Dsymbol *sym) {
   if (!moduleDecl->packages)
     return false;
 
-  if (moduleDecl->packages->dim != 1)
+  if (moduleDecl->packages->length != 1)
     return false;
   if ((*moduleDecl->packages)[0] != Id::ldc)
     return false;

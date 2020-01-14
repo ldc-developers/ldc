@@ -472,7 +472,7 @@ version (IN_LLVM)
 
     extern (C++) __gshared Type[TMAX] basic;
 
-    extern (D) __gshared StringTable stringtable;
+    extern (D) __gshared StringTable!Type stringtable;
     extern (D) private __gshared ubyte[TMAX] sizeTy = ()
         {
             ubyte[TMAX] sizeTy = __traits(classInstanceSize, TypeBasic);
@@ -966,10 +966,10 @@ version (IN_LLVM)
         if (!t.deco)
             return t.merge();
 
-        StringValue* sv = stringtable.lookup(t.deco, strlen(t.deco));
-        if (sv && sv.ptrvalue)
+        auto sv = stringtable.lookup(t.deco, strlen(t.deco));
+        if (sv && sv.value)
         {
-            t = cast(Type)sv.ptrvalue;
+            t = sv.value;
             assert(t.deco);
         }
         else
@@ -4361,6 +4361,17 @@ extern (C++) final class TypeFunction : TypeNext
         return false;
     }
 
+    /*******************************
+     * Check for `extern (D) U func(T t, ...)` variadic function type,
+     * which has `_arguments[]` added as the first argument.
+     * Returns:
+     *  true if D-style variadic
+     */
+    bool isDstyleVariadic() const pure nothrow
+    {
+        return linkage == LINK.d && parameterList.varargs == VarArg.variadic;
+    }
+
     /***************************
      * Examine function signature for parameter p and see if
      * the value of p can 'escape' the scope of the function.
@@ -4752,6 +4763,7 @@ extern (C++) final class TypeFunction : TypeNext
                              * copytmp.__copyCtor(arg);
                              */
                             auto tmp = new VarDeclaration(arg.loc, tprm, Identifier.generateId("__copytmp"), null);
+                            tmp.storage_class = STC.rvalue | STC.temp | STC.ctfe;
                             tmp.dsymbolSemantic(sc);
                             Expression ve = new VarExp(arg.loc, tmp);
                             Expression e = new DotIdExp(arg.loc, ve, Id.ctor);

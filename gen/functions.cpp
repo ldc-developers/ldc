@@ -388,7 +388,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
           Logger::println("magic inline asm found");
           TypeFunction *tf = static_cast<TypeFunction *>(fdecl->type);
           if (tf->parameterList.varargs != VARARGvariadic ||
-              (fdecl->parameters && fdecl->parameters->dim != 0)) {
+              (fdecl->parameters && fdecl->parameters->length != 0)) {
             tempdecl->error("invalid `__asm` declaration, must be a D style "
                             "variadic with no explicit parameters");
             fatal();
@@ -718,7 +718,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     ++k;
     IrFuncTyArg *arg = irFty.args[llExplicitIdx];
 
-    if (!fdecl->parameters || arg->parametersIdx >= fdecl->parameters->dim) {
+    if (!fdecl->parameters || arg->parametersIdx >= fdecl->parameters->length) {
       iarg->setName("unnamed");
       continue;
     }
@@ -760,9 +760,7 @@ static LinkageWithCOMDAT lowerFuncLinkage(FuncDeclaration *fdecl) {
 // LDC has the same problem with destructors of struct arguments in closures
 // as DMD, so we copy the failure detection
 void verifyScopedDestructionInClosure(FuncDeclaration *fd) {
-  for (size_t i = 0; i < fd->closureVars.dim; i++) {
-    VarDeclaration *v = fd->closureVars[i];
-
+  for (VarDeclaration *v : fd->closureVars) {
     // Hack for the case fail_compilation/fail10666.d, until
     // proper issue https://issues.dlang.org/show_bug.cgi?id=5730 fix will come.
     bool isScopeDtorParam = v->edtor && (v->storage_class & STCparameter);
@@ -789,8 +787,7 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
   // index in the IrFuncTy args array separately.
   size_t llArgIdx = 0;
 
-  for (size_t i = 0; i < parameters.dim; ++i) {
-    auto *const vd = parameters[i];
+  for (VarDeclaration *vd : parameters) {
     IrParameter *irparam = getIrParameter(vd);
 
     // vd->type (parameter) and irparam->arg->type (argument) don't always
@@ -825,7 +822,7 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
 
     // The debuginfos for captured params are handled later by
     // DtoCreateNestedContext().
-    if (global.params.symdebug && vd->nestedrefs.dim == 0) {
+    if (global.params.symdebug && vd->nestedrefs.length == 0) {
       // Reference (ref/out) parameters have no storage themselves as they are
       // constant pointers, so pass the reference rvalue to EmitLocalVariable().
       gIR->DBuilder.EmitLocalVariable(irparam->value, vd, paramType, false,

@@ -97,11 +97,11 @@ include(GetLinuxDistribution)
 #
 
 # Version information
-set(LDC_VERSION "1.19.0") # May be overridden by git hash tag
+set(LDC_VERSION "1.20.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   89)
-set(DMDFE_FIX_LEVEL       1)
+set(DMDFE_PATCH_VERSION   90)
+set(DMDFE_FIX_LEVEL       0)
 
 set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}${DMDFE_PATCH_VERSION})
 if(DEFINED DMDFE_FIX_LEVEL)
