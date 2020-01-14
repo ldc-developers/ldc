@@ -21,6 +21,10 @@ steps:
         git-core cmake ninja-build g++-multilib \
         libcurl3 libcurl3:i386 \
         curl gdb tzdata unzip zip
+      # Download & extract clang
+      curl -L -o clang.tar.xz http://releases.llvm.org/9.0.0/clang+llvm-9.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+      mkdir clang
+      tar -xf clang.tar.xz --strip 1 -C clang
       # Use ld.gold per default, so that LTO is tested
       sudo update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
     fi
@@ -73,16 +77,22 @@ steps:
     set -ex
     cd ..
     export PATH="$PWD/ninja:$PATH" # for macOS
+    # Linux: use clang instead of gcc, for LTO
+    if [ "$CI_OS" = "linux" ]; then
+      export CC=$PWD/clang/bin/clang
+      export CXX=$PWD/clang/bin/clang++
+    fi
     installDir=$PWD/install
     mkdir build
     cd build
+    IFS=$'\n' extraFlags=( $(xargs -n1 <<<"$EXTRA_CMAKE_FLAGS") )
     cmake -G Ninja $BUILD_SOURCESDIRECTORY \
       -DCMAKE_BUILD_TYPE=Release \
       -DLLVM_ROOT_DIR=$PWD/../llvm \
       -DD_COMPILER=$PWD/../bootstrap-ldc/bin/ldmd2 \
       -DCMAKE_INSTALL_PREFIX=$installDir \
       -DINCLUDE_INSTALL_DIR=$installDir/import \
-      $EXTRA_CMAKE_FLAGS
+      "${extraFlags[@]}"
     ninja -j$PARALLEL_JOBS all ldc2-unittest all-test-runners
     bin/ldc2 -version
   displayName: Build LDC & LDC D unittests & defaultlib unittest runners
@@ -126,11 +136,12 @@ steps:
 - script: |
     set -ex
     cd ..
+    IFS=$'\n' extraFlags=( $(xargs -n1 <<<"$EXTRA_CMAKE_FLAGS") )
     bootstrap-ldc/bin/ldc-build-runtime --ninja -j $PARALLEL_JOBS \
       --dFlags="${DFLAGS// /;}" \
       --targetSystem='Android;Linux;UNIX' \
       --ldcSrcDir=$BUILD_SOURCESDIRECTORY \
-      ${EXTRA_CMAKE_FLAGS//-D/}
+      "${extraFlags[@]//-D/}"
   displayName: 'Android: Cross-compile default libraries'
   condition: and(succeeded(), eq(variables['CI_OS'], 'android'))
 - script: |
@@ -141,6 +152,7 @@ steps:
     cd build-$ARCH
     DEFAULT_LDC_SWITCHES=' "-linker=bfd",'
     if [ "$ARCH" = "armv7a" ]; then DEFAULT_LDC_SWITCHES="$DEFAULT_LDC_SWITCHES \"-mcpu=cortex-a8\","; fi
+    IFS=$'\n' extraFlags=( $(xargs -n1 <<<"$EXTRA_CMAKE_FLAGS") )
     cmake -G Ninja $BUILD_SOURCESDIRECTORY \
       -DCMAKE_BUILD_TYPE=Release \
       -DLLVM_ROOT_DIR=$PWD/../llvm-$ARCH \
@@ -149,7 +161,7 @@ steps:
       -DINCLUDE_INSTALL_DIR=$installDir/import \
       -DD_LINKER_ARGS="-fuse-ld=bfd;-L$PWD/../ldc-build-runtime.tmp/lib;-lphobos2-ldc;-ldruntime-ldc" \
       -DADDITIONAL_DEFAULT_LDC_SWITCHES="$DEFAULT_LDC_SWITCHES" \
-      $EXTRA_CMAKE_FLAGS
+      "${extraFlags[@]}"
     ninja -j$PARALLEL_JOBS -v ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache
   displayName: 'Android: Cross-compile LDC executables'
   condition: and(succeeded(), eq(variables['CI_OS'], 'android'))
