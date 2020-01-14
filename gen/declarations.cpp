@@ -433,21 +433,23 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  static llvm::StringRef getPragmaStringArg(PragmaDeclaration *decl) {
-    assert(decl->args && decl->args->length == 1);
-    Expression *e = (*decl->args)[0];
-    assert(e->op == TOKstring);
-    StringExp *se = static_cast<StringExp *>(e);
+  static llvm::StringRef getPragmaStringArg(PragmaDeclaration *decl,
+                                            d_size_t i = 0) {
+    assert(decl->args && decl->args->length > i);
+    auto se = (*decl->args)[i]->isStringExp();
+    assert(se);
     DString str = se->peekString();
     return {str.ptr, str.length};
   }
 
   void visit(PragmaDeclaration *decl) override {
+    const auto &triple = *global.params.targetTriple;
+
     if (decl->ident == Id::lib) {
       assert(!irs->dcomputetarget);
       llvm::StringRef name = getPragmaStringArg(decl);
 
-      if (global.params.targetTriple->isWindowsGNUEnvironment()) {
+      if (triple.isWindowsGNUEnvironment()) {
         if (name.endswith(".lib")) {
           // On MinGW, strip the .lib suffix, if any, to improve compatibility
           // with code written for DMD (we pass the name to GCC via -l, just as
@@ -463,10 +465,7 @@ public:
         }
       }
 
-      // With LLVM 3.3 or later we can place the library name in the object
-      // file. This seems to be supported only on Windows.
-      if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
-        // Win32: /DEFAULTLIB:"curl"
+      if (triple.isWindowsMSVCEnvironment()) {
         if (name.endswith(".a")) {
           name = name.drop_back(2);
         }
@@ -474,12 +473,10 @@ public:
           name = name.drop_back(4);
         }
 
+        // embed linker directive in COFF object file; don't push to
+        // global.params.linkswitches
         std::string arg = ("/DEFAULTLIB:\"" + name + "\"").str();
-
-        // Embed library name as linker option in object file
-        auto Value = llvm::MDString::get(gIR->context(), arg);
-        gIR->LinkerMetadataArgs.push_back(
-            llvm::MDNode::get(gIR->context(), Value));
+        gIR->addLinkerOption(llvm::StringRef(arg));
       } else {
         size_t const n = name.size() + 3;
         char *arg = static_cast<char *>(mem.xmalloc(n));
@@ -488,14 +485,25 @@ public:
         memcpy(arg + 2, name.data(), name.size());
         arg[n - 1] = 0;
         global.params.linkswitches.push(arg);
+
+        if (triple.isOSBinFormatMachO()) {
+          // embed linker directive in Mach-O object file too
+          gIR->addLinkerOption(llvm::StringRef(arg));
+        } else if (triple.isOSBinFormatELF()) {
+          // embed library name as dependent library in ELF object file too
+          // (supported by LLD v9+)
+          gIR->addLinkerDependentLib(name);
+        }
       }
     } else if (decl->ident == Id::linkerDirective) {
-      if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
-        // Embed directly as linker option in object file
-        llvm::StringRef directive = getPragmaStringArg(decl);
-        auto Value = llvm::MDString::get(gIR->context(), directive);
-        gIR->LinkerMetadataArgs.push_back(
-            llvm::MDNode::get(gIR->context(), Value));
+      // embed in object file (if supported)
+      if (triple.isWindowsMSVCEnvironment() || triple.isOSBinFormatMachO()) {
+        assert(decl->args);
+        llvm::SmallVector<llvm::StringRef, 2> args;
+        args.reserve(decl->args->length);
+        for (d_size_t i = 0; i < decl->args->length; ++i)
+          args.push_back(getPragmaStringArg(decl, i));
+        gIR->addLinkerOption(args);
       }
     }
     visit(static_cast<AttribDeclaration *>(decl));
