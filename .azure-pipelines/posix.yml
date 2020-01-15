@@ -243,7 +243,7 @@ steps:
     if [ "$arch" = "x86" ]; then arch="i686"; fi
     bootstrap-ldc/bin/ldc-build-runtime --ninja -j $PARALLEL_JOBS \
       --buildDir=build-libs-$arch \
-      --dFlags="-w;-de;-dip1000;-mtriple=$arch-linux-android" \
+      --dFlags="-mtriple=$arch-linux-android" \
       --targetSystem='Android;Linux;UNIX' \
       --ldcSrcDir=$BUILD_SOURCESDIRECTORY \
       ${EXTRA_CMAKE_FLAGS//-D/} \
