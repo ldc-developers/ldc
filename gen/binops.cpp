@@ -56,14 +56,14 @@ RVals evalSides(DValue *lhs, Expression *rhs, bool loadLhsAfterRhs) {
 Expression *extractNoStrideInc(Expression *e, d_uns64 baseSize, bool &negate) {
   MulExp *mul;
   while (true) {
-    if (e->op == TOKneg) {
+    if (auto ne = e->isNegExp()) {
       negate = !negate;
-      e = static_cast<NegExp *>(e)->e1;
+      e = ne->e1;
       continue;
     }
 
-    if (e->op == TOKmul) {
-      mul = static_cast<MulExp *>(e);
+    if (auto me = e->isMulExp()) {
+      mul = me;
       break;
     }
 

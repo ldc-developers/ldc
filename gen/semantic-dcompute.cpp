@@ -172,10 +172,11 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     stop = true;
   }
   void visit(SwitchStatement *e) override {
-    if (e->condition->op == TOKcall &&
-        static_cast<CallExp *>(e->condition)->f->ident == Id::__switch) {
-      e->error("cannot `switch` on strings in `@compute` code");
-      stop = true;
+    if (auto ce = e->condition->isCallExp()) {
+      if (ce->f->ident == Id::__switch) {
+        e->error("cannot `switch` on strings in `@compute` code");
+        stop = true;
+      }
     }
   }
 
@@ -202,8 +203,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     // for the host and is therefore allowed to call non @compute functions.
     // Thus, the if-statement body's code should not be checked for
     // @compute semantics and the recursive visitor should stop here.
-    else if (stmt->condition->op == TOKcall) {
-      auto ce = (CallExp *)stmt->condition;
+    if (auto ce = stmt->condition->isCallExp()) {
       if (ce->f && ce->f->ident == Id::dcReflect) {
         auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
         if (arg1 == DComputeTarget::Host)

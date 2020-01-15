@@ -374,20 +374,17 @@ public:
     // need to have a case for each thing we can take the address of
 
     // address of global variable
-    if (e->e1->op == TOKvar) {
-      VarExp *vexp = static_cast<VarExp *>(e->e1);
+    if (auto vexp = e->e1->isVarExp()) {
       LLConstant *c = DtoConstSymbolAddress(e->loc, vexp->var);
       result = c ? DtoBitCast(c, DtoType(e->type)) : nullptr;
       return;
     }
 
     // address of indexExp
-    if (e->e1->op == TOKindex) {
-      IndexExp *iexp = static_cast<IndexExp *>(e->e1);
-
+    if (auto iexp = e->e1->isIndexExp()) {
       // indexee must be global static array var
-      assert(iexp->e1->op == TOKvar);
-      VarExp *vexp = static_cast<VarExp *>(iexp->e1);
+      VarExp *vexp = iexp->e1->isVarExp();
+      assert(vexp);
       VarDeclaration *vd = vexp->var->isVarDeclaration();
       assert(vd);
       assert(vd->type->toBasetype()->ty == Tsarray);
@@ -411,9 +408,7 @@ public:
       return;
     }
 
-    if (e->e1->op == TOKstructliteral) {
-      StructLiteralExp *se = static_cast<StructLiteralExp *>(e->e1);
-
+    if (auto se = e->e1->isStructLiteralExp()) {
       result = p->getStructLiteralConstant(se);
       if (result) {
         IF_LOG Logger::cout()
@@ -666,9 +661,7 @@ public:
 
     // Array literals are assigned element-for-element; other expressions splat
     // across the whole vector.
-    if (e->e1->op == TOKarrayliteral) {
-      const auto ale = static_cast<ArrayLiteralExp *>(e->e1);
-
+    if (auto ale = e->e1->isArrayLiteralExp()) {
       llvm::SmallVector<llvm::Constant *, 16> elements;
       elements.reserve(elemCount);
       for (size_t i = 0; i < elemCount; ++i) {

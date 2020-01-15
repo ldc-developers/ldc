@@ -127,11 +127,11 @@ sinteger_t getIntElem(StructLiteralExp *sle, size_t idx) {
 }
 
 llvm::StringRef getStringElem(StructLiteralExp *sle, size_t idx) {
-  auto arg = (*sle->elements)[idx];
-  if (arg && arg->op == TOKstring) {
-    auto strexp = static_cast<StringExp *>(arg);
-    DString str = strexp->peekString();
-    return {str.ptr, str.length};
+  if (auto arg = (*sle->elements)[idx]) {
+    if (auto strexp = arg->isStringExp()) {
+      DString str = strexp->peekString();
+      return {str.ptr, str.length};
+    }
   }
   // Default initialized element (arg->op == TOKnull)
   return {};

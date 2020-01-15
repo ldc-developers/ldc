@@ -875,14 +875,13 @@ DSliceValue *DtoCatArrays(Loc &loc, Type *arrayType, Expression *exp1,
   llvm::SmallVector<llvm::Value *, 3> args;
   LLFunction *fn = nullptr;
 
-  if (exp1->op == TOKcat) { // handle multiple concat
+  if (auto ce = exp1->isCatExp()) { // handle multiple concat
     fn = getRuntimeFunction(loc, gIR->module, "_d_arraycatnTX");
 
     // Create array of slices
     typedef llvm::SmallVector<llvm::Value *, 16> ArgVector;
     ArgVector arrs;
     arrs.push_back(DtoSlicePtr(exp2));
-    CatExp *ce = static_cast<CatExp *>(exp1);
     do {
       arrs.push_back(DtoSlicePtr(ce->e2));
       ce = static_cast<CatExp *>(ce->e1);

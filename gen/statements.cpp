@@ -196,10 +196,10 @@ public:
             // call postblit if the expression is a D lvalue
             // exceptions: NRVO and special __result variable (out contracts)
             bool doPostblit = !(fd->nrvo_can && fd->nrvo_var);
-            if (doPostblit && stmt->exp->op == TOKvar) {
-              auto ve = static_cast<VarExp *>(stmt->exp);
-              if (ve->var->isResult())
-                doPostblit = false;
+            if (doPostblit) {
+              if (auto ve = stmt->exp->isVarExp())
+                if (ve->var->isResult())
+                  doPostblit = false;
             }
 
             DtoAssign(stmt->loc, &returnValue, e, TOKblit);
@@ -374,8 +374,7 @@ public:
     // to target multiple backends "simultaneously" with one
     // pass through the front end, to have a single "static"
     // context.
-    if (stmt->condition->op == TOKcall) {
-      auto ce = (CallExp *)stmt->condition;
+    if (auto ce = stmt->condition->isCallExp()) {
       if (ce->f && ce->f->ident == Id::dcReflect) {
         if (dcomputeReflectMatches(ce))
           stmt->ifbody->accept(this);
@@ -952,11 +951,11 @@ public:
     for (auto cs : *cases) {
       // skip over casts
       auto ce = cs->exp;
-      while (ce->op == TOKcast)
-        ce = static_cast<CastExp *>(ce)->e1;
+      while (auto next = ce->isCastExp())
+        ce = next->e1;
 
-      if (ce->op == TOKvar) {
-        const auto vd = static_cast<VarExp *>(ce)->var->isVarDeclaration();
+      if (auto ve = ce->isVarExp()) {
+        const auto vd = ve->var->isVarDeclaration();
         if (vd && (!vd->_init || !vd->isConst())) {
           indices.push_back(DtoRVal(toElemDtor(cs->exp)));
           useSwitchInst = false;

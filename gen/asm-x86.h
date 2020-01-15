@@ -2352,12 +2352,11 @@ struct AsmProcessor {
 
       case Arg_Memory:
         // Peel off one layer of explicitly taking the address, if present.
-        if (e->op == TOKaddress) {
-          e = static_cast<AddrExp *>(e)->e1;
+        if (auto ae = e->isAddrExp()) {
+          e = ae->e1;
         }
 
-        if (e->op == TOKvar) {
-          VarExp *v = (VarExp *)e;
+        if (auto v = e->isVarExp()) {
           if (VarDeclaration *vd = v->var->isVarDeclaration()) {
             if (!vd->isDataseg()) {
               stmt->error("only global variables can be referenced by "
@@ -2968,8 +2967,8 @@ struct AsmProcessor {
           Expression *e = operand->symbolDisplacement[0];
           Declaration *decl = nullptr;
 
-          if (e->op == TOKvar) {
-            decl = ((VarExp *)e)->var;
+          if (auto ve = e->isVarExp()) {
+            decl = ve->var;
           }
 
           if (operand->baseReg != Reg_Invalid && decl && !decl->isDataseg()) {
@@ -3028,8 +3027,8 @@ struct AsmProcessor {
             if (isDollar(e)) {
               stmt->error("dollar labels are not supported");
               asmcode->dollarLabel = 1;
-            } else if (e->op == TOKdsymbol) {
-              LabelDsymbol *lbl = static_cast<DsymbolExp *>(e)->s->isLabel();
+            } else if (auto dse = e->isDsymbolExp()) {
+              LabelDsymbol *lbl = dse->s->isLabel();
               stmt->isBranchToLabel = lbl;
 
               use_star = false;
@@ -3101,12 +3100,12 @@ struct AsmProcessor {
   bool isRegExp(Expression *exp) { return exp->op == TOKmod; } // ewww.%%
   bool isLocalSize(Expression *exp) {
     // cleanup: make a static var
-    return exp->op == TOKidentifier &&
-           ((IdentifierExp *)exp)->ident == Id::__LOCAL_SIZE;
+    auto ie = exp->isIdentifierExp();
+    return ie && ie->ident == Id::__LOCAL_SIZE;
   }
   bool isDollar(Expression *exp) {
-    return exp->op == TOKidentifier &&
-           ((IdentifierExp *)exp)->ident == Id::dollar;
+    auto ie = exp->isIdentifierExp();
+    return ie && ie->ident == Id::dollar;
   }
 
   Expression *newRegExp(int regno) {
@@ -3143,8 +3142,8 @@ struct AsmProcessor {
      */
 
     bool is_offset = false;
-    if (exp->op == TOKaddress) {
-      exp = ((AddrExp *)exp)->e1;
+    if (auto ae = exp->isAddrExp()) {
+      exp = ae->e1;
       is_offset = true;
     }
 
@@ -3176,8 +3175,8 @@ struct AsmProcessor {
           stmt->error("too many registers memory operand");
         }
       }
-    } else if (exp->op == TOKvar) {
-      VarDeclaration *v = ((VarExp *)exp)->var->isVarDeclaration();
+    } else if (auto ve = exp->isVarExp()) {
+      VarDeclaration *v = ve->var->isVarDeclaration();
 
       if (v && v->storage_class & STCfield) {
         operand->constDisplacement += v->offset;
