@@ -120,7 +120,7 @@ jobs:
   macOS-x64:
     <<: *commonSteps
     macos:
-      xcode: "11.1.0"
+      xcode: "11.3.1"
     environment:
       - CI_OS: osx
       - LLVM_VERSION: 9.0.1
@@ -129,7 +129,7 @@ jobs:
   macOS-x64-sharedLibsOnly:
     <<: *commonSteps
     macos:
-      xcode: "11.1.0"
+      xcode: "11.3.1"
     environment:
       - CI_OS: osx
       - LLVM_VERSION: 9.0.1
