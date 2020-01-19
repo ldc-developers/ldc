@@ -59,6 +59,10 @@ private:
   /// scope is destroyed and the mappings created in this scope are dropped.
   llvm::ScopedHashTable<StringRef, mlir::Value> &symbolTable;
 
+  /// A mapping for named struct types to the underlying MLIR type and the
+  /// original AST node.
+  llvm::StringMap<std::pair<mlir::Type, StructDeclaration *>> structMap;
+
   ///Class to deal with all declarations.
   MLIRDeclaration declaration;
 
@@ -68,7 +72,8 @@ private:
 public:
   MLIRStatements(IRState *irs, Module *m, mlir::MLIRContext &context,
       mlir::OpBuilder builder_, llvm::ScopedHashTable<StringRef, mlir::Value>
-          &symbolTable, unsigned &total, unsigned &miss);
+          &symbolTable, llvm::StringMap<std::pair<mlir::Type,
+          StructDeclaration *>> &structMap, unsigned &total, unsigned &miss);
   ~MLIRStatements();
   void mlirGen(IfStatement *ifStatement);
   mlir::Value mlirGen(Statement *statement);

@@ -14,11 +14,11 @@
 
 MLIRDeclaration::MLIRDeclaration(IRState *irs, Module *m,
     mlir::MLIRContext &context, mlir::OpBuilder builder_,
-    llvm::ScopedHashTable<StringRef, mlir::Value> &symbolTable, unsigned
-    &total, unsigned &miss) : irState
-    (irs), module(m), context(context), builder(builder_), symbolTable
-    (symbolTable), _total(total), _miss(miss){}
-    //Constructor
+    llvm::ScopedHashTable<StringRef, mlir::Value> &symbolTable,
+    llvm::StringMap<std::pair<mlir::Type, StructDeclaration *>> &structMap,
+    unsigned &total, unsigned &miss) : irState(irs), module(m), context(context),
+    builder(builder_), symbolTable(symbolTable), structMap(structMap),
+    _total(total), _miss(miss){} //Constructor
 
 MLIRDeclaration::~MLIRDeclaration() = default;
 
@@ -368,8 +368,9 @@ mlir::Value MLIRDeclaration::mlirGen(CallExp *callExp){
   }
   //Get the return type
   mlir::Type ret = nullptr;
-  if(ReturnStatement *returnStatement = *callExp->f->returns->data)
-    ret = get_MLIRtype(returnStatement->exp);
+  if(callExp->f->returns != nullptr)
+    if(ReturnStatement *returnStatement = *callExp->f->returns->data)
+      ret = get_MLIRtype(returnStatement->exp);
 
   if(ret)
     types.push_back(ret);
@@ -380,6 +381,20 @@ mlir::Value MLIRDeclaration::mlirGen(CallExp *callExp){
   return builder.create<mlir::CallOp>(loc(callExp->loc), functionName,
       ret_type, operands).getResult(0);
 }
+
+bool SizeIsGreaterThan(mlir::Type a, mlir::Type b){
+  if((a.isInteger(1) || a.isInteger(8) || a.isInteger(16) || a.isInteger(32)) && b.isInteger(64))
+    return true;
+  else if((a.isInteger(1) || a.isInteger(8) || a.isInteger(16)) && b.isInteger(32))
+    return true;
+  else if ((a.isInteger(1) || a.isInteger(8)) && b.isInteger(16))
+    return true;
+  else if (a.isInteger(1) && b.isInteger(8))
+    return true;
+  else
+    return false;
+}
+
 
 mlir::Value MLIRDeclaration::mlirGen(CastExp *castExp){
   IF_LOG Logger::print("MLIRCodeGen - CastExp: %s @ %s\n", castExp->toChars(),
@@ -413,11 +428,31 @@ mlir::Value MLIRDeclaration::mlirGen(CastExp *castExp){
   }
 
   auto type = get_MLIRtype(castExp);
+
+  bool ResultIsInteger = result.getType().isInteger(1) ||
+      result.getType().isInteger(8) || result.getType().isInteger(16) ||
+      result.getType().isInteger(32) || result.getType().isInteger(64);
+  bool TypeIsFloat = type.isF16() || type.isF32() || type.isF64();
+
+  //Extennd f16 -> f32 and f16, f32 -> f64
   if(((result.getType().isF16() || result.getType().isF32()) && type.isF64())||
       (result.getType().isF16() && type.isF32()))
     return builder.create<mlir::FPExtOp>(location, result, type);
-
-  return builder.create<mlir::D::CastOp>(loc(castExp->loc), type, result);
+  // Cast to smaller type f64 -> f32; f64 -> f16; f32-> f16
+  else if (((result.getType().isF64() || result.getType().isF32()) && type.isF16())||
+           (result.getType().isF64() && type.isF32()))
+    return builder.create<mlir::FPTruncOp>(location, result, type);
+  // Extend i1 -> i8; i1, i8 -> i16; i1, i8, i16 -> i32; i1, i8, i16, i32 -> i64
+  else if(SizeIsGreaterThan(result.getType(), type))
+    return builder.create<mlir::SignExtendIOp>(location, result, type);
+  // Truncate i64->i32, i16, i8, i1; i32 -> i16, i8, i1; i16 -> i8, i1; i8 -> i1
+  else if(!SizeIsGreaterThan(result.getType(), type))
+    return builder.create<mlir::TruncateIOp>(location, result, type);
+  // Cast Integer to Float
+  else if(TypeIsFloat && ResultIsInteger)
+    return builder.create<mlir::SIToFPOp>(location, result, type);
+  else
+    return builder.create<mlir::D::CastOp>(loc(castExp->loc), type, result);
 }
 
 mlir::Value MLIRDeclaration::mlirGen(ConstructExp *constructExp){
@@ -570,8 +605,12 @@ mlir::Value MLIRDeclaration::mlirGen(IntegerExp *integerExp){
   _total++;
   dinteger_t dint = integerExp->value;
   Logger::println("MLIRGen - Integer: '%lu'", dint);
+  mlir::Location location = builder.getUnknownLoc();
   auto type = get_MLIRtype(integerExp);
-  auto location = loc(integerExp->loc);
+  if(integerExp->loc.filename == NULL)
+    location = builder.getUnknownLoc();
+  else
+    location = loc(integerExp->loc);
     return builder.create<mlir::ConstantOp>(location, builder.getIntegerAttr(type, dint));
 }
 
@@ -813,12 +852,23 @@ mlir::Value MLIRDeclaration::mlirGen(PostExp *postExp){
 mlir::Value MLIRDeclaration::mlirGen(RealExp *realExp){
   _total++;
   real_t dfloat = realExp->value;
-  Logger::println("MLIRCodeGen - RealExp: '%Lf'", dfloat);
+  IF_LOG Logger::println("MLIRCodeGen - RealExp: '%Lf'", dfloat);
   mlir::Location Loc = loc(realExp->loc);
   auto type = get_MLIRtype(realExp);
   return builder.create<mlir::ConstantOp>(Loc, builder.getFloatAttr(type,
                                                                        dfloat));
+}
 
+mlir::Value MLIRDeclaration::mlirGen(StringExp *stringExp){
+  IF_LOG Logger::println("MLIRCodeGen - StringExp: '%s'", stringExp->toChars());
+
+  //TODO: MAKE STRING AS DIALECT TYPE
+  mlir::OperationState result(loc(stringExp->loc), "ldc.String");
+  result.addAttribute("Value", builder.getStringAttr(StringRef
+  (stringExp->toChars())));
+  result.addTypes(mlir::RankedTensorType::get(stringExp->len+1,
+                   builder.getIntegerType(8)));
+  return builder.createOperation(result)->getResult(0);
 }
 
 mlir::Value MLIRDeclaration::mlirGen(VarExp *varExp){
@@ -961,10 +1011,13 @@ mlir::Value MLIRDeclaration::mlirGen(Expression *expression, mlir::Block* block)
     return mlirGen(expression, 1);
   else if (PostExp *postExp = expression->isPostExp())
     return mlirGen(postExp);
-  else if (StringExp *stringExp = expression->isStringExp())
-    return nullptr;//add mlirGen(stringlExp); //needs to implement with blocks
-  else if (LogicalExp *logicalExp = expression->isLogicalExp())
+  else if (StringExp *stringExp = expression->isStringExp()){
+    return mlirGen(stringExp); //needs to implement with blocks
+  }
+  else if (LogicalExp *logicalExp = expression->isLogicalExp()){
+    _miss++;
     return nullptr; //add mlirGen(logicalExp); //needs to implement with blocks
+  }
   else if (expression->isAddExp() || expression->isAddAssignExp())
     return mlirGen(expression->isAddExp(), expression->isAddAssignExp());
   else if (expression->isMinExp() || expression->isMinAssignExp())
@@ -989,27 +1042,33 @@ mlir::Value MLIRDeclaration::mlirGen(Expression *expression, mlir::Block* block)
   return nullptr;
 }
 
-mlir::Type MLIRDeclaration::get_MLIRtype(Expression* expression){
-    if(expression == nullptr)
+mlir::Type MLIRDeclaration::get_MLIRtype(Expression* expression, Type* type){
+    if(expression == nullptr && type == nullptr)
         return mlir::NoneType::get(&context);
 
     _total++;
-    auto basetype = expression->type->toBasetype();
+
+    Type* basetype;
+    if(type != nullptr)
+      basetype = type->toBasetype();
+    else
+      basetype = expression->type->toBasetype();
+
     if (basetype->ty == Tchar || basetype->ty == Twchar ||
         basetype->ty == Tdchar || basetype->ty == Tnull ||
         basetype->ty == Tvoid || basetype->ty == Tnone) {
         return mlir::NoneType::get(&context); //TODO: Build these types on DDialect
     }else if(basetype->ty == Tbool){
       return builder.getIntegerType(1);
-    }else if (basetype->ty == Tint8){
+    }else if (basetype->ty == Tint8 || basetype->ty == Tuns8){
       return builder.getIntegerType(8);
-    }else if(basetype->ty == Tint16){
+    }else if(basetype->ty == Tint16 || basetype->ty == Tuns16){
       return builder.getIntegerType(16);
-    }else if(basetype->ty == Tint32){
+    }else if(basetype->ty == Tint32 || basetype->ty == Tuns32){
       return builder.getIntegerType(32);
-    }else if(basetype->ty == Tint64){
+    }else if(basetype->ty == Tint64 || basetype->ty == Tuns64){
       return builder.getIntegerType(64);
-    }else if(basetype->ty == Tint128) {
+    }else if(basetype->ty == Tint128 || basetype->ty == Tuns128) {
         return builder.getIntegerType(128);
     } else if (basetype->ty == Tfloat32){
       return builder.getF32Type();
@@ -1023,7 +1082,10 @@ mlir::Type MLIRDeclaration::get_MLIRtype(Expression* expression){
     } else {
         _miss++;
         MLIRDeclaration *declaration = new MLIRDeclaration(irState, nullptr,
-                                                           context, builder, symbolTable,_total, _miss);
+                                                           context, builder,
+                                                           symbolTable,
+                                                           structMap, _total,
+                                                           _miss);
         mlir::Value value = declaration->mlirGen(expression);
         return value.getType();
     }

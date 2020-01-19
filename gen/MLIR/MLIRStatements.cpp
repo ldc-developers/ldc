@@ -18,11 +18,12 @@ using llvm::StringRef;
 
 MLIRStatements::MLIRStatements(IRState *irs, Module *m,
     mlir::MLIRContext &context, mlir::OpBuilder builder_,
-    llvm::ScopedHashTable<StringRef, mlir::Value> &symbolTable, unsigned
-    &total, unsigned &miss) : irState(irs),
-    module(m), context(context), builder(builder_), symbolTable(symbolTable),
+    llvm::ScopedHashTable<StringRef, mlir::Value> &symbolTable,
+    llvm::StringMap<std::pair<mlir::Type, StructDeclaration *>> &structMap,
+    unsigned &total, unsigned &miss) : irState(irs), module(m), context(context),
+    builder(builder_), symbolTable(symbolTable), structMap(structMap),
     declaration(MLIRDeclaration(irs, m, context, builder_, symbolTable,
-        decl_total, decl_miss)), _total(total), _miss(miss) {}
+        structMap, decl_total, decl_miss)), _total(total), _miss(miss) {}
     //Constructor
 
 MLIRStatements::~MLIRStatements() = default; //Default Destructor
@@ -159,8 +160,8 @@ void MLIRStatements::mlirGen(IfStatement *ifStatement){
   unsigned if_total = 0, if_miss = 0;
   //Builing the object to get the Value for an expression
   MLIRDeclaration *mlirDeclaration = new MLIRDeclaration(irState,module,
-                                  context, builder, symbolTable, if_total,
-                                  if_miss);
+                                  context, builder, symbolTable, structMap,
+                                  if_total, if_miss);
 
   //Marks if a new direct branch is needed. This happens when we need to
   // connect the end_if of an "else if" into the his successor end_if

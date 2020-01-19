@@ -59,15 +59,17 @@ public:
     theModule = mlir::ModuleOp::create(mlir::UnknownLoc::get(&context));
     m->ir->resetAll();
 
+    MLIRDeclaration declaration = MLIRDeclaration(irs, m, context, builder,
+                                                  symbolTable,structMap,
+                                                  total, miss);
+
     for(unsigned long k = 0; k < m->members->dim; k++) {
       total++;
       Dsymbol *dsym = (*m->members)[k];
       assert(dsym);
 
-      MLIRDeclaration declaration = MLIRDeclaration(irs, m, context, builder,
-                                                    symbolTable,total,miss);
+      Logger::println("MLIRCodeGen for '%s'", dsym->toChars());
 
-      // Declaration_MLIRcodegen(dsym, mlir_);
       FuncDeclaration *fd = dsym->isFuncDeclaration();
       if (fd != nullptr) {
         auto func = mlirGen(fd);
@@ -137,6 +139,10 @@ private:
   /// scope is destroyed and the mappings created in this scope are dropped.
   llvm::ScopedHashTable<StringRef, mlir::Value> symbolTable;
 
+  /// A mapping for named struct types to the underlying MLIR type and the
+  /// original AST node.
+  llvm::StringMap<std::pair<mlir::Type, StructDeclaration *>> structMap;
+
 
   /// This flags counts the number of hits and misses of our translation.
   unsigned total = 0, miss = 0;
@@ -200,7 +206,7 @@ private:
 
     // Initialize the object to be the "visitor"
     MLIRStatements genStmt = MLIRStatements(irs, irs->dmodule, context,
-                                                 builder, symbolTable, total,
+                                                 builder, symbolTable, structMap, total,
                                                  miss);
 
     //Setting arguments of a given function
@@ -275,7 +281,7 @@ private:
         } else {
             miss++;
             MLIRDeclaration *declaration = new MLIRDeclaration(irs, nullptr,
-                    context, builder, symbolTable,total, miss);
+                    context, builder, symbolTable, structMap, total, miss);
             mlir::Value value = declaration->mlirGen(vd);
             return value->getType();
         }

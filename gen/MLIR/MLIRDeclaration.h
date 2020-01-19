@@ -64,6 +64,10 @@ private:
   /// scope is destroyed and the mappings created in this scope are dropped.
   llvm::ScopedHashTable<StringRef, mlir::Value> &symbolTable;
 
+  /// A mapping for named struct types to the underlying MLIR type and the
+  /// original AST node.
+  llvm::StringMap<std::pair<mlir::Type, StructDeclaration *>> structMap;
+
   /// Temporary flags to mesure the total amount of hits and misses on our
   /// translation through MLIR
   unsigned &_total, &_miss;
@@ -71,8 +75,9 @@ private:
 public:
   MLIRDeclaration(IRState *irs, Module *m, mlir::MLIRContext &context,
       mlir::OpBuilder builder_,
-      llvm::ScopedHashTable<StringRef, mlir::Value> &symbolTable, unsigned
-      &total, unsigned &miss);
+      llvm::ScopedHashTable<StringRef, mlir::Value> &symbolTable,
+      llvm::StringMap<std::pair<mlir::Type, StructDeclaration *>> &structMap,
+      unsigned &total, unsigned &miss);
   ~MLIRDeclaration();
 
   mlir::Value mlirGen(VarDeclaration* varDeclaration);
@@ -80,7 +85,7 @@ public:
   mlir::Value DtoAssignMLIR(mlir::Location Loc, mlir::Value lhs,
       mlir::Value rhs, StringRef lhs_name, StringRef rhs_name, int op,
       bool canSkipPostblitm, Type* t1, Type* t2);
-  mlir::Type get_MLIRtype(Expression* expression);
+  mlir::Type get_MLIRtype(Expression* expression, Type* type = nullptr);
 
   //Expression
   mlir::Value mlirGen(AddExp *addExp = nullptr, AddAssignExp *addAssignExp = nullptr);

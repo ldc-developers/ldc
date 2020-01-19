@@ -188,7 +188,7 @@ void DToStandardLoweringPass::runOnFunction() {
   // to lower as `legal`.
 
  // target.addIllegalDialect<D::DDialect>();
- // target.addLegalOp<D::CastOp>();
+  target.addLegalOp<D::CastOp>();
 
   // Now that the conversion target has been defined, we just need to provide
   // the set of patterns that will lower the Toy operations.
