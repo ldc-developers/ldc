@@ -18,27 +18,25 @@ using llvm::StringRef;
 
 MLIRStatements::MLIRStatements(IRState *irs, Module *m,
     mlir::MLIRContext &context, mlir::OpBuilder builder_,
-    llvm::ScopedHashTable<StringRef, mlir::Value*> &symbolTable, unsigned
-    &total, unsigned &miss) : irState(irs),
-    module(m), context(context), builder(builder_), symbolTable(symbolTable),
-    declaration(new MLIRDeclaration(irs, m, context, builder_, symbolTable,
-        decl_total, decl_miss)), _total(total), _miss(miss) {}
+    llvm::ScopedHashTable<StringRef, mlir::Value> &symbolTable,
+    llvm::StringMap<std::pair<mlir::Type, StructDeclaration *>> &structMap,
+    unsigned &total, unsigned &miss) : irState(irs), module(m), context(context),
+    builder(builder_), symbolTable(symbolTable), structMap(structMap),
+    declaration(MLIRDeclaration(irs, m, context, builder_, symbolTable,
+        structMap, decl_total, decl_miss)), _total(total), _miss(miss) {}
     //Constructor
 
 MLIRStatements::~MLIRStatements() = default; //Default Destructor
 
-mlir::Value* MLIRStatements::mlirGen(ExpStatement *expStmt) {
+mlir::Value MLIRStatements::mlirGen(ExpStatement *expStmt) {
   IF_LOG Logger::println("MLIRCodeGen: ExpStatement to MLIR: '%s'",
                          expStmt->toChars());
   LOG_SCOPE
 
   if (DeclarationExp *decl_exp = expStmt->exp->isDeclarationExp()) {
-    return declaration->mlirGen(decl_exp, builder.getInsertionBlock());
+    return declaration.mlirGen(decl_exp, builder.getInsertionBlock());
   } else if (Expression *e = expStmt->exp) {
-    return declaration->mlirGen(e, builder.getInsertionBlock());
-    if (DeclarationExp *edecl = e->isDeclarationExp()) {
-      IF_LOG Logger::println("Declaration");
-    }
+    return declaration.mlirGen(e, builder.getInsertionBlock());
   } else {
     _miss++;
     IF_LOG Logger::println("Unable to recoganize: '%s'",
@@ -48,7 +46,7 @@ mlir::Value* MLIRStatements::mlirGen(ExpStatement *expStmt) {
 
 }
 
-mlir::Value* MLIRStatements::mlirGen(ForStatement *forStatement) {
+mlir::Value MLIRStatements::mlirGen(ForStatement *forStatement) {
   IF_LOG Logger::println("MLIRCodeGen: ForStatement to MLIR: '%s'",
                          forStatement->toChars());
   LOG_SCOPE
@@ -86,10 +84,10 @@ mlir::Value* MLIRStatements::mlirGen(ForStatement *forStatement) {
 
   builder.setInsertionPointToStart(condition);
   // Getting Value for Condition
-  mlir::Value *cond = nullptr;
+  mlir::Value cond;
   //mlir::CmpIOp cmpIOp;
   if (forStatement->condition) {
-    cond = declaration->mlirGen(forStatement->condition, condition);
+    cond = declaration.mlirGen(forStatement->condition, condition);
     /*mlir::CmpIOp cmpi; //TODO:be sure that it will work for every case
     mlir::OperationState cmp(location, "cmpi");
     CmpExp *cmpExp = static_cast<CmpExp *>(forStatement->condition);
@@ -120,7 +118,7 @@ mlir::Value* MLIRStatements::mlirGen(ForStatement *forStatement) {
 
   auto operands = llvm::makeArrayRef(op);*/
   if(auto inc = forStatement->increment)
-    declaration->mlirGen(inc, increment);
+    declaration.mlirGen(inc, increment);
 
   //Writing a branch instruction on predecessor of condition block
   //builder.setInsertionPointToEnd(condition);
@@ -138,7 +136,7 @@ mlir::Value* MLIRStatements::mlirGen(ForStatement *forStatement) {
 return nullptr;
 }
 
-mlir::Value* MLIRStatements::mlirGen(UnrolledLoopStatement *unrolledLoopStatement){
+mlir::Value MLIRStatements::mlirGen(UnrolledLoopStatement *unrolledLoopStatement){
     IF_LOG Logger::println("MLIRCodeGen: UnrolledLoopStatement TO mlir: %s",
                              unrolledLoopStatement->toChars());
   LOG_SCOPE;
@@ -162,15 +160,15 @@ void MLIRStatements::mlirGen(IfStatement *ifStatement){
   unsigned if_total = 0, if_miss = 0;
   //Builing the object to get the Value for an expression
   MLIRDeclaration *mlirDeclaration = new MLIRDeclaration(irState,module,
-                                  context, builder, symbolTable, if_total,
-                                  if_miss);
+                                  context, builder, symbolTable, structMap,
+                                  if_total, if_miss);
 
   //Marks if a new direct branch is needed. This happens when we need to
   // connect the end_if of an "else if" into the his successor end_if
   bool gen_new_br = false;
 
   //Getting Value for Condition
-  mlir::Value *cond = mlirDeclaration->mlirGen(ifStatement->condition);
+  mlir::Value cond = mlirDeclaration->mlirGen(ifStatement->condition);
 
   mlir::Location location = loc(ifStatement->loc);
 
@@ -254,11 +252,11 @@ mlir::LogicalResult MLIRStatements::mlirGen(ReturnStatement *returnStatement){
   mlir::Location location = loc(returnStatement->loc);
 
   if(returnStatement->exp->hasCode()) {
-    auto *expr = declaration->mlirGen(returnStatement->exp, builder.getInsertionBlock());
+    auto expr = declaration.mlirGen(returnStatement->exp, builder.getInsertionBlock());
     if(!expr)
       return mlir::failure();
-
-    builder.create<mlir::ReturnOp>(location, expr->getType(), mlir::ValueRange({expr}));
+    builder.setInsertionPointToEnd(expr->getDefiningOp()->getBlock());
+    builder.create<mlir::ReturnOp>(location, mlir::ValueRange(expr));
   }else{
     builder.create<mlir::ReturnOp>(location);
   }
@@ -266,12 +264,12 @@ mlir::LogicalResult MLIRStatements::mlirGen(ReturnStatement *returnStatement){
   return mlir::success();
 }
 
-std::vector<mlir::Value*> MLIRStatements::mlirGen(CompoundStatement *compoundStatement){
+std::vector<mlir::Value> MLIRStatements::mlirGen(CompoundStatement *compoundStatement){
   IF_LOG Logger::println("MLIRCodeGen - CompundStatement: '%s'",
                          compoundStatement->toChars());
   LOG_SCOPE
 
-  std::vector<mlir::Value*> arrayValue;
+  std::vector<mlir::Value> arrayValue;
 
   for(auto stmt : *compoundStatement->statements){
     _total++;
@@ -300,11 +298,11 @@ std::vector<mlir::Value*> MLIRStatements::mlirGen(CompoundStatement *compoundSta
   return arrayValue;
 }
 
-std::vector<mlir::Value*> MLIRStatements::mlirGen(ScopeStatement *scopeStatement){
+std::vector<mlir::Value> MLIRStatements::mlirGen(ScopeStatement *scopeStatement){
   IF_LOG Logger::println("MLIRCodeGen - ScopeStatement: '%s'",
                          scopeStatement->toChars());
   LOG_SCOPE
-  std::vector<mlir::Value*> arrayValue;
+  std::vector<mlir::Value> arrayValue;
 
   if(auto *compoundStatement = scopeStatement->statement->isCompoundStatement()) {
     arrayValue = mlirGen(compoundStatement);
@@ -325,7 +323,7 @@ std::vector<mlir::Value*> MLIRStatements::mlirGen(ScopeStatement *scopeStatement
   return arrayValue;
 }
 
-mlir::Value* MLIRStatements::mlirGen(Statement* stm) {
+mlir::Value MLIRStatements::mlirGen(Statement* stm) {
   _total++;
 
   if(ExpStatement* expStatement = stm->isExpStatement())
