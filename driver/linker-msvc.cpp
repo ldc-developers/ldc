@@ -247,8 +247,12 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
   // try to call linker
   std::string linker = opts::linker;
   if (linker.empty()) {
+#ifdef _WIN32
     // default to lld-link.exe for LTO
     linker = opts::isUsingLTO() ? "lld-link.exe" : "link.exe";
+#else
+    linker = "lld-link";
+#endif
   }
 
   return executeToolAndWait(linker, args, global.params.verbose);

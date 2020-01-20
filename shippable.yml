@@ -13,7 +13,7 @@ env:
   global:
     - secure: RQ6gpJFPBDGVlnz+ZzSgeMpkcnvcA/7Lzyj/r06fMFR5iOz2cYaImCekNRw2PlhYQ+0FCQ119TLMKNOa7OUu6XxUp5LZtq7pSB6QLe3RB3YysFsosNPlY/wyyRsrW9ICEbDP/X8kPcfrDtOPGS/dGIwgeo0+R4Yl0OLDK9GrExEY45bWgvuLqoWDO89pi31kBk5LG5MAYhHZ0UTdboi5A2GRT0T8M0kr53jBRka8FGkbncXfHp9+/6IjTVJoUduRkdsk0A9RN1KRoao6rtrBNNvwIStc6zxJSOHszoaTp/K/ucGC4InZl/9GHPS/Y78SGKn7YJv3tGmcGzqAxrVaXQ==
   matrix:
-    - LLVM_VERSION=9.0.0
+    - LLVM_VERSION=9.0.1
       HOST_LDC_VERSION=1.14.0
       EXTRA_CMAKE_FLAGS="-DBUILD_LTO_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64"
 
@@ -39,7 +39,7 @@ build:
         echo 'Using LLVM with enabled assertions'
         assertsSuffix="-withAsserts"
       fi
-      curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-linux-aarch64$assertsSuffix.tar.xz
+      curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-linux-aarch64$assertsSuffix.tar.xz
     - mkdir llvm
     - tar -xf llvm.tar.xz --strip 1 -C llvm
     - rm llvm.tar.xz
@@ -116,12 +116,6 @@ build:
     - git clone --recursive https://github.com/dlang/dub.git
     - cd dub
     - git checkout "$(cat ../packaging/dub_version)"
-    - |
-      if [ "$IS_GIT_TAG" = "false" ]; then
-        # FIXME: dub is built with `-g -O`, which leads to issue #2361 with enabled
-        # assertions, at least on Linux. So strip `-g` for untagged builds.
-        perl -pi -e "s? -g -O ? -O ?g" build.sh
-      fi
     - ./build.sh
     - cp bin/dub ../installed/bin
     - cd ..
@@ -129,12 +123,10 @@ build:
     # Build & copy dlang tools
     - git clone --recursive https://github.com/dlang/tools.git dlang-tools
     - cd dlang-tools
-    - |
-      make -f posix.mak -j16 install \
-        DMD=$PWD/../installed/bin/ldmd2 \
-        DMD_DIR=$PWD/../tests/d2 \
-        DFLAGS="-w -de" \
-        INSTALL_DIR=$PWD
+    - mkdir bin
+    - $DMD -w -de -dip1000 rdmd.d -of=bin/rdmd
+    - $DMD -w -de -dip1000 ddemangle.d -of=bin/ddemangle
+    - $DMD -w -de -dip1000 DustMite/dustmite.d DustMite/splitter.d -of=bin/dustmite
     - cp bin/{rdmd,ddemangle,dustmite} ../installed/bin
     - cd ..
     # Pack installation dir

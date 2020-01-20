@@ -39,7 +39,7 @@ Expression semanticTraitsLDC(TraitsExp e, Scope* sc)
         }
 
         auto cpu = traitsGetTargetCPU();
-        auto se = new StringExp(e.loc, cast(void*)cpu.ptr, cpu.length);
+        auto se = new StringExp(e.loc, cpu.ptr[0 .. cpu.length]);
         return se.expressionSemantic(sc);
     }
     if (e.ident == Id.targetHasFeature)
@@ -66,7 +66,8 @@ Expression semanticTraitsLDC(TraitsExp e, Scope* sc)
         }
 
         se = se.toUTF8(sc);
-        auto featureFound = traitsTargetHasFeature(Dstring(se.len, se.toPtr()));
+        auto str = se.peekString();
+        auto featureFound = traitsTargetHasFeature(Dstring(str.length, str.ptr));
         return new IntegerExp(e.loc, featureFound ? 1 : 0, Type.tbool);
     }
     return null;

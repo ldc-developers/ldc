@@ -180,17 +180,23 @@ void processVersions(std::vector<std::string> &list, const char *type,
   }
 }
 
+// Tries to parse the value of `-[-]<option>{=, }<value>` at `args[i]`.
 template <int N> // option length incl. terminating null
 void tryParse(const llvm::SmallVectorImpl<const char *> &args, size_t i,
-              const char *&output, const char (&option)[N]) {
-  if (strncmp(args[i], option, N - 1) != 0)
+              const char *&value, const char (&option)[N]) {
+  const char *arg = args[i];
+  if (arg[0] != '-')
     return;
 
-  char nextChar = args[i][N - 1];
+  const char *start = arg + (arg[1] == '-' ? 2 : 1);
+  if (strncmp(start, option, N - 1) != 0)
+    return;
+
+  const char nextChar = start[N - 1];
   if (nextChar == '=')
-    output = args[i] + N;
+    value = start + N;
   else if (nextChar == 0 && i < args.size() - 1)
-    output = args[i + 1];
+    value = args[i + 1];
 }
 
 bool tryParseLowmem(const llvm::SmallVectorImpl<const char *> &args) {
@@ -199,13 +205,14 @@ bool tryParseLowmem(const llvm::SmallVectorImpl<const char *> &args) {
     if (args::isRunArg(args[i]))
       break;
 
-    if (strncmp(args[i], "-lowmem", 7) == 0) {
-      auto remainder = args[i] + 7;
-      if (remainder[0] == 0) {
+    llvm::StringRef arg = args[i];
+    if (arg.startswith("-lowmem") || arg.startswith("--lowmem")) {
+      auto remainder = arg.substr(arg[1] == '-' ? 8 : 7);
+      if (remainder.empty()) {
         lowmem = true;
       } else if (remainder[0] == '=') {
-        lowmem = strcmp(remainder + 1, "true") == 0 ||
-                 strcmp(remainder + 1, "TRUE") == 0;
+        auto value = remainder.substr(1);
+        lowmem = (value == "true" || value == "TRUE");
       }
     }
   }
@@ -218,7 +225,7 @@ tryGetExplicitConfFile(const llvm::SmallVectorImpl<const char *> &args) {
   for (size_t i = 1; i < args.size(); ++i) {
     if (args::isRunArg(args[i]))
       break;
-    tryParse(args, i, conf, "-conf");
+    tryParse(args, i, conf, "conf");
   }
   return conf;
 }
@@ -234,18 +241,19 @@ tryGetExplicitTriple(const llvm::SmallVectorImpl<const char *> &args) {
     if (args::isRunArg(args[i]))
       break;
 
-    if (sizeof(void *) != 4 && strcmp(args[i], "-m32") == 0) {
+    llvm::StringRef arg = args[i];
+    if (sizeof(void *) != 4 && (arg == "-m32" || arg == "--m32")) {
       triple = triple.get32BitArchVariant();
       if (triple.getArch() == llvm::Triple::ArchType::x86)
         triple.setArchName("i686"); // instead of i386
       return triple;
     }
 
-    if (sizeof(void *) != 8 && strcmp(args[i], "-m64") == 0)
+    if (sizeof(void *) != 8 && (arg == "-m64" || arg == "--m64"))
       return triple.get64BitArchVariant();
 
-    tryParse(args, i, mtriple, "-mtriple");
-    tryParse(args, i, march, "-march");
+    tryParse(args, i, mtriple, "mtriple");
+    tryParse(args, i, march, "march");
   }
   if (mtriple)
     triple = llvm::Triple(llvm::Triple::normalize(mtriple));
@@ -1091,7 +1099,7 @@ void codegenModules(Modules &modules) {
     // Therefore, codegen is done in reverse order with members[0] last, to make
     // sure these functions (added to members[0] by members[x>0]) are
     // codegenned.
-    for (d_size_t i = modules.dim; i-- > 0;) {
+    for (d_size_t i = modules.length; i-- > 0;) {
       Module *const m = modules[i];
 
       if (m->isHdrFile)
@@ -1110,7 +1118,7 @@ void codegenModules(Modules &modules) {
         if (atCompute == DComputeCompileFor::deviceOnly) {
           // Remove m's object file from list of object files
           auto s = m->objfile.toChars();
-          for (size_t j = 0; j < global.params.objfiles.dim; j++) {
+          for (size_t j = 0; j < global.params.objfiles.length; j++) {
             if (s == global.params.objfiles[j]) {
               global.params.objfiles.remove(j);
               break;
@@ -1129,7 +1137,7 @@ void codegenModules(Modules &modules) {
     dccg.writeModules();
 
     // We may have removed all object files, if so don't link.
-    if (global.params.objfiles.dim == 0)
+    if (global.params.objfiles.length == 0)
       global.params.link = false;
   }
 

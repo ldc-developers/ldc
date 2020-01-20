@@ -76,7 +76,7 @@ static LLValue *write_zeroes(LLValue *mem, unsigned start, unsigned end) {
 static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
                                  Expressions *elements) {
   assert(elements && "struct literal has null elements");
-  const auto numMissingElements = sd->fields.dim - elements->dim;
+  const auto numMissingElements = sd->fields.length - elements->length;
   (void)numMissingElements;
   assert(numMissingElements == 0 || (sd->vthis && numMissingElements == 1));
 
@@ -90,7 +90,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
   LLSmallVector<Data, 16> data;
 
   // collect init expressions in fields declaration order
-  for (size_t index = 0; index < sd->fields.dim; ++index) {
+  for (size_t index = 0; index < sd->fields.length; ++index) {
     VarDeclaration *field = sd->fields[index];
 
     // Skip zero-sized fields such as zero-length static arrays: `ubyte[0]
@@ -99,7 +99,8 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       continue;
 
     // the initializer expression may be null for overridden overlapping fields
-    Expression *expr = (index < elements->dim ? (*elements)[index] : nullptr);
+    Expression *expr =
+        (index < elements->length ? (*elements)[index] : nullptr);
     if (expr || field == sd->vthis) {
       // DMD issue #16471:
       // There may be overlapping initializer expressions in some cases.
@@ -198,8 +199,8 @@ void pushVarDtorCleanup(IRState *p, VarDeclaration *vd) {
 ////////////////////////////////////////////////////////////////////////////////
 
 static Expression *skipOverCasts(Expression *e) {
-  while (e->op == TOKcast)
-    e = static_cast<CastExp *>(e)->e1;
+  while (auto ce = e->isCastExp())
+    e = ce->e1;
   return e;
 }
 
@@ -440,9 +441,8 @@ public:
                          e->e2->type ? e->e2->type->toChars() : nullptr);
     LOG_SCOPE;
 
-    if (e->e1->op == TOKarraylength) {
+    if (auto ale = e->e1->isArrayLengthExp()) {
       Logger::println("performing array.length assignment");
-      ArrayLengthExp *ale = static_cast<ArrayLengthExp *>(e->e1);
       DLValue arrval(ale->e1->type, DtoLVal(ale->e1));
       DValue *newlen = toElem(e->e2);
       DSliceValue *slice =
@@ -458,10 +458,10 @@ public:
     // coding style!
     if (e->memset & referenceInit) {
       assert(e->op == TOKconstruct || e->op == TOKblit);
-      assert(e->e1->op == TOKvar);
+      auto ve = e->e1->isVarExp();
+      assert(ve);
 
-      Declaration *d = static_cast<VarExp *>(e->e1)->var;
-      if (d->storage_class & (STCref | STCout)) {
+      if (ve->var->storage_class & (STCref | STCout)) {
         Logger::println("performing ref variable initialization");
         // Note that the variable value is accessed directly (instead
         // of via getLVal(), which would perform a load from the
@@ -484,8 +484,7 @@ public:
     // when initializing a static array with an array literal.
     // Use the static array as lhs in that case.
     DValue *rewrittenLhsStaticArray = nullptr;
-    if (e->e1->op == TOKslice) {
-      SliceExp *se = static_cast<SliceExp *>(e->e1);
+    if (auto se = e->e1->isSliceExp()) {
       Type *sliceeBaseType = se->e1->type->toBasetype();
       if (se->lwr == nullptr && sliceeBaseType->ty == Tsarray &&
           se->type->toBasetype()->nextOf() == sliceeBaseType->nextOf())
@@ -526,11 +525,13 @@ public:
     // where `i` is a ref variable aliasing with a).
     // Be conservative with this optimization for now: only do the optimization
     // for struct `.init` assignment.
-    if (lhs->isLVal() && (e->op == TOKassign) &&
-        ((e->e2->op == TOKstructliteral) &&
-         static_cast<StructLiteralExp *>(e->e2)->useStaticInit)) {
-      if (toInPlaceConstruction(lhs->isLVal(), e->e2))
-        return;
+    if (lhs->isLVal() && e->op == TOKassign) {
+      if (auto sle = e->e2->isStructLiteralExp()) {
+        if (sle->useStaticInit) {
+          if (toInPlaceConstruction(lhs->isLVal(), sle))
+            return;
+        }
+      }
     }
 
     DValue *r = toElem(e->e2);
@@ -613,8 +614,7 @@ public:
 
   static Expression *getLValExp(Expression *e) {
     e = skipOverCasts(e);
-    if (e->op == TOKcomma) {
-      CommaExp *ce = static_cast<CommaExp *>(e);
+    if (auto ce = e->isCommaExp()) {
       Expression *newCommaRhs = getLValExp(ce->e2);
       if (newCommaRhs != ce->e2) {
         CommaExp *newComma = static_cast<CommaExp *>(ce->copy());
@@ -687,9 +687,8 @@ public:
     PGO.setCurrentStmt(e);
 
     // handle magic inline asm
-    if (e->e1->op == TOKvar) {
-      VarExp *ve = static_cast<VarExp *>(e->e1);
-      if (FuncDeclaration *fd = ve->var->isFuncDeclaration()) {
+    if (auto ve = e->e1->isVarExp()) {
+      if (auto fd = ve->var->isFuncDeclaration()) {
         if (fd->llvmInternal == LLVMinline_asm) {
           return DtoInlineAsmExpr(e->loc, fd, e->arguments, sretPointer);
         }
@@ -711,30 +710,26 @@ public:
     // a similar hack.
     VarDeclaration *delayedDtorVar = nullptr;
     Expression *delayedDtorExp = nullptr;
-    if (e->f && e->f->isCtorDeclaration() && e->e1->op == TOKdotvar) {
-      DotVarExp *dve = static_cast<DotVarExp *>(e->e1);
-      if (dve->e1->op == TOKcomma) {
-        CommaExp *ce = static_cast<CommaExp *>(dve->e1);
-        if (ce->e1->op == TOKdeclaration && ce->e2->op == TOKvar) {
-          VarExp *ve = static_cast<VarExp *>(ce->e2);
-          if (VarDeclaration *vd = ve->var->isVarDeclaration()) {
-            if (vd->needsScopeDtor()) {
-              Logger::println("Delaying edtor");
-              delayedDtorVar = vd;
-              delayedDtorExp = vd->edtor;
-              vd->edtor = nullptr;
-            }
-          }
-        }
-      }
+    if (e->f && e->f->isCtorDeclaration()) {
+      if (auto dve = e->e1->isDotVarExp())
+        if (auto ce = dve->e1->isCommaExp())
+          if (ce->e1->op == TOKdeclaration)
+            if (auto ve = ce->e2->isVarExp())
+              if (auto vd = ve->var->isVarDeclaration())
+                if (vd->needsScopeDtor()) {
+                  Logger::println("Delaying edtor");
+                  delayedDtorVar = vd;
+                  delayedDtorExp = vd->edtor;
+                  vd->edtor = nullptr;
+                }
     }
 
     // get the callee value
     DValue *fnval;
     if (e->directcall) {
       // TODO: Do this as an extra parameter to DotVarExp implementation.
-      assert(e->e1->op == TOKdotvar);
-      DotVarExp *dve = static_cast<DotVarExp *>(e->e1);
+      auto dve = e->e1->isDotVarExp();
+      assert(dve);
       FuncDeclaration *fdecl = dve->var->isFuncDeclaration();
       assert(fdecl);
       DtoDeclareFunction(fdecl);
@@ -759,7 +754,8 @@ public:
       if (global.params.warnings != DIAGNOSTICoff && checkPrintf) {
         if (fndecl->linkage == LINKc &&
             strcmp(fndecl->ident->toChars(), "printf") == 0) {
-          warnInvalidPrintfCall(e->loc, (*e->arguments)[0], e->arguments->dim);
+          warnInvalidPrintfCall(e->loc, (*e->arguments)[0],
+                                e->arguments->length);
         }
       }
 
@@ -1482,13 +1478,13 @@ public:
       assert(e->argprefix == NULL);
       // get dim
       assert(e->arguments);
-      assert(e->arguments->dim >= 1);
-      if (e->arguments->dim == 1) {
+      assert(e->arguments->length >= 1);
+      if (e->arguments->length == 1) {
         DValue *sz = toElem((*e->arguments)[0]);
         // allocate & init
         result = DtoNewDynArray(e->loc, e->newtype, sz, true);
       } else {
-        size_t ndims = e->arguments->dim;
+        size_t ndims = e->arguments->length;
         std::vector<DValue *> dims;
         dims.reserve(ndims);
         for (auto arg : *e->arguments) {
@@ -1558,13 +1554,13 @@ public:
       DLValue tmpvar(e->newtype, mem);
 
       Expression *exp = nullptr;
-      if (!e->arguments || e->arguments->dim == 0) {
+      if (!e->arguments || e->arguments->length == 0) {
         IF_LOG Logger::println("default initializer\n");
         // static arrays never appear here, so using the defaultInit is ok!
         exp = defaultInit(e->newtype, e->loc);
       } else {
         IF_LOG Logger::println("uniform constructor\n");
-        assert(e->arguments->dim == 1);
+        assert(e->arguments->length == 1);
         exp = (*e->arguments)[0];
       }
 
@@ -1609,8 +1605,8 @@ public:
       if (tc->sym->isInterfaceDeclaration()) {
         DtoDeleteInterface(e->loc, dval);
         onstack = true;
-      } else if (e->e1->op == TOKvar) {
-        if (auto vd = static_cast<VarExp *>(e->e1)->var->isVarDeclaration()) {
+      } else if (auto ve = e->e1->isVarExp()) {
+        if (auto vd = ve->var->isVarDeclaration()) {
           if (vd->onstack) {
             DtoFinalizeScopeClass(e->loc, DtoRVal(dval), vd->onstackWithDtor);
             onstack = true;
@@ -2238,7 +2234,7 @@ public:
     // is dynamic ?
     bool const dyn = (arrayType->ty == Tarray);
     // length
-    size_t const len = e->elements->dim;
+    size_t const len = e->elements->length;
 
     // llvm target type
     LLType *llType = DtoType(arrayType);
@@ -2405,13 +2401,13 @@ public:
 
     assert(e->keys);
     assert(e->values);
-    assert(e->keys->dim == e->values->dim);
+    assert(e->keys->length == e->values->length);
 
     Type *basetype = e->type->toBasetype();
     Type *aatype = basetype;
     Type *vtype = aatype->nextOf();
 
-    if (!e->keys->dim) {
+    if (!e->keys->length) {
       goto LruntimeInit;
     }
 
@@ -2425,9 +2421,9 @@ public:
 
     {
       std::vector<LLConstant *> keysInits, valuesInits;
-      keysInits.reserve(e->keys->dim);
-      valuesInits.reserve(e->keys->dim);
-      for (size_t i = 0, n = e->keys->dim; i < n; ++i) {
+      keysInits.reserve(e->keys->length);
+      valuesInits.reserve(e->keys->length);
+      for (size_t i = 0, n = e->keys->length; i < n; ++i) {
         Expression *ekey = (*e->keys)[i];
         Expression *eval = (*e->values)[i];
         IF_LOG Logger::println("(%llu) aa[%s] = %s",
@@ -2463,7 +2459,7 @@ public:
           LLGlobalValue::InternalLinkage, initval, ".aaKeysStorage");
       LLConstant *slice = llvm::ConstantExpr::getGetElementPtr(
           isaPointer(globalstore)->getElementType(), globalstore, idxs, true);
-      slice = DtoConstSlice(DtoConstSize_t(e->keys->dim), slice);
+      slice = DtoConstSlice(DtoConstSize_t(e->keys->length), slice);
       LLValue *keysArray = DtoAggrPaint(slice, funcTy->getParamType(1));
 
       initval = arrayConst(valuesInits, vtype);
@@ -2472,7 +2468,7 @@ public:
                                          initval, ".aaValuesStorage");
       slice = llvm::ConstantExpr::getGetElementPtr(
           isaPointer(globalstore)->getElementType(), globalstore, idxs, true);
-      slice = DtoConstSlice(DtoConstSize_t(e->keys->dim), slice);
+      slice = DtoConstSlice(DtoConstSize_t(e->keys->length), slice);
       LLValue *valuesArray = DtoAggrPaint(slice, funcTy->getParamType(2));
 
       LLValue *aa = gIR->CreateCallOrInvoke(func, aaTypeInfo, keysArray,
@@ -2496,7 +2492,7 @@ public:
                                  e->type, "aaliteral");
     result = new DLValue(e->type, tmp);
 
-    const size_t n = e->keys->dim;
+    const size_t n = e->keys->length;
     for (size_t i = 0; i < n; ++i) {
       Expression *ekey = (*e->keys)[i];
       Expression *eval = (*e->values)[i];
@@ -2572,13 +2568,13 @@ public:
     }
 
     std::vector<LLType *> types;
-    types.reserve(e->exps->dim);
+    types.reserve(e->exps->length);
     for (auto exp : *e->exps) {
       types.push_back(DtoMemType(exp->type));
     }
     LLValue *val =
         DtoRawAlloca(LLStructType::get(gIR->context(), types), 0, ".tuple");
-    for (size_t i = 0; i < e->exps->dim; i++) {
+    for (size_t i = 0; i < e->exps->length; i++) {
       Expression *el = (*e->exps)[i];
       DValue *ep = toElem(el);
       LLValue *gep = DtoGEP(val, 0, i);
@@ -2608,10 +2604,9 @@ public:
 
     // Array literals are assigned element-wise, other expressions are cast and
     // splat across the vector elements. This is what DMD does.
-    if (e->e1->op == TOKarrayliteral) {
+    if (auto lit = e->e1->isArrayLiteralExp()) {
       Logger::println("array literal expression");
-      ArrayLiteralExp *lit = static_cast<ArrayLiteralExp *>(e->e1);
-      assert(lit->elements->dim == N &&
+      assert(lit->elements->length == N &&
              "Array literal vector initializer "
              "length mismatch, should have been handled in frontend.");
 
@@ -2801,15 +2796,13 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
   }
 
   // skip over rhs casts only emitted because of differing constness
-  if (rhs->op == TOKcast) {
-    auto castSource = static_cast<CastExp *>(rhs)->e1;
+  if (auto ce = rhs->isCastExp()) {
+    auto castSource = ce->e1;
     if (basetypesAreEqualWithoutModifiers(lhs->type, castSource->type))
       rhs = castSource;
   }
 
-  if (rhs->op == TOKcall) {
-    auto ce = static_cast<CallExp *>(rhs);
-
+  if (auto ce = rhs->isCallExp()) {
     // Direct construction by rhs call via sret?
     // E.g., `T v = foo();` if the callee `T foo()` uses sret.
     // In this case, pass `&v` as hidden sret argument, i.e., let `foo()`
@@ -2821,40 +2814,40 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
     }
 
     // DMD issue 17457: detect structliteral.ctor(args)
-    if (ce->e1->op == TOKdotvar) {
-      auto dve = static_cast<DotVarExp *>(ce->e1);
+    if (auto dve = ce->e1->isDotVarExp()) {
       auto fd = dve->var->isFuncDeclaration();
-      if (fd && fd->isCtorDeclaration() && dve->e1->op == TOKstructliteral) {
-        Logger::println(
-            "success, in-place-constructing struct literal and invoking ctor");
-        // emit the struct literal directly into the lhs lvalue...
-        auto sle = static_cast<StructLiteralExp *>(dve->e1);
-        auto lval = DtoLVal(lhs);
-        ToElemVisitor::emitStructLiteral(sle, lval);
-        // ... and invoke the ctor directly on it
-        DtoDeclareFunction(fd);
-        auto fnval = new DFuncValue(fd, DtoCallee(fd), lval);
-        DtoCallFunction(ce->loc, ce->type, fnval, ce->arguments);
-        return true;
+      if (fd && fd->isCtorDeclaration()) {
+        if (auto sle = dve->e1->isStructLiteralExp()) {
+          Logger::println("success, in-place-constructing struct literal and "
+                          "invoking ctor");
+          // emit the struct literal directly into the lhs lvalue...
+          auto lval = DtoLVal(lhs);
+          ToElemVisitor::emitStructLiteral(sle, lval);
+          // ... and invoke the ctor directly on it
+          DtoDeclareFunction(fd);
+          auto fnval = new DFuncValue(fd, DtoCallee(fd), lval);
+          DtoCallFunction(ce->loc, ce->type, fnval, ce->arguments);
+          return true;
+        }
       }
     }
   }
 
   // emit struct literals directly into the lhs lvalue
-  if (rhs->op == TOKstructliteral) {
+  if (auto sle = rhs->isStructLiteralExp()) {
     Logger::println("success, in-place-constructing struct literal");
-    auto sle = static_cast<StructLiteralExp *>(rhs);
     ToElemVisitor::emitStructLiteral(sle, DtoLVal(lhs));
     return true;
   }
 
   // static array literals too
   Type *lhsBasetype = lhs->type->toBasetype();
-  if (rhs->op == TOKarrayliteral && lhsBasetype->ty == Tsarray) {
-    Logger::println("success, in-place-constructing array literal");
-    auto al = static_cast<ArrayLiteralExp *>(rhs);
-    initializeArrayLiteral(gIR, al, DtoLVal(lhs));
-    return true;
+  if (auto al = rhs->isArrayLiteralExp()) {
+    if (lhsBasetype->ty == Tsarray) {
+      Logger::println("success, in-place-constructing array literal");
+      initializeArrayLiteral(gIR, al, DtoLVal(lhs));
+      return true;
+    }
   }
 
   // vector literals too

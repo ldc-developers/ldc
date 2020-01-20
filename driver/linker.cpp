@@ -111,7 +111,7 @@ static std::string getOutputName() {
 
   // Infer output name from first object file.
   std::string result =
-      global.params.objfiles.dim
+      global.params.objfiles.length
           ? FileName::removeExt(FileName::name(global.params.objfiles[0]))
           : "a.out";
 

@@ -825,7 +825,7 @@ version (IN_LLVM)
                             /* Add an assert(0, msg); where the missing return
                              * should be.
                              */
-                            e = new AssertExp(funcdecl.endloc, IntegerExp.literal!0, new StringExp(funcdecl.loc, cast(char*)"missing return expression"));
+                            e = new AssertExp(funcdecl.endloc, IntegerExp.literal!0, new StringExp(funcdecl.loc, "missing return expression"));
                         }
                         else
                             e = new HaltExp(funcdecl.endloc);

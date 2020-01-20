@@ -327,7 +327,7 @@ void DtoMemSet(LLValue *dst, LLValue *val, LLValue *nbytes, unsigned align) {
 
   dst = DtoBitCast(dst, VoidPtrTy);
 
-  gIR->ir->CreateMemSet(dst, val, nbytes, align, false /*isVolatile*/);
+  gIR->ir->CreateMemSet(dst, val, nbytes, LLMaybeAlign(align), false /*isVolatile*/);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

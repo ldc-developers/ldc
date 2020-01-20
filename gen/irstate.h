@@ -65,6 +65,7 @@ struct IRScope {
   IRBuilder<> builder;
 
   IRScope();
+  IRScope(const IRScope &) = default;
   explicit IRScope(llvm::BasicBlock *b);
 
   IRScope &operator=(const IRScope &rhs);
@@ -251,10 +252,15 @@ public:
 
 /// Vector of options passed to the linker as metadata in object file.
 #if LDC_LLVM_VER >= 500
-  llvm::SmallVector<llvm::MDNode *, 5> LinkerMetadataArgs;
+  llvm::SmallVector<llvm::MDNode *, 5> linkerOptions;
+  llvm::SmallVector<llvm::MDNode *, 5> linkerDependentLibs;
 #else
-  llvm::SmallVector<llvm::Metadata *, 5> LinkerMetadataArgs;
+  llvm::SmallVector<llvm::Metadata *, 5> linkerOptions;
+  llvm::SmallVector<llvm::Metadata *, 5> linkerDependentLibs;
 #endif
+
+  void addLinkerOption(llvm::ArrayRef<llvm::StringRef> options);
+  void addLinkerDependentLib(llvm::StringRef libraryName);
 
   // MS C++ compatible type descriptors
   llvm::DenseMap<size_t, llvm::StructType *> TypeDescriptorTypeMap;

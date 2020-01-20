@@ -17,7 +17,7 @@
 #include "visitor.h"
 #include "tokens.h"
 
-#include "root/rmem.h"
+#include "root/dcompat.h"
 
 class Type;
 class TypeVector;
@@ -385,17 +385,14 @@ public:
     void accept(Visitor *v) { v->visit(this); }
 #if IN_LLVM
     // The D version returns a slice.
-    const char *toStringz() const
+    DString peekString() const
     {
-        auto nbytes = len * sz;
-        char *s = (char *)mem.xmalloc(nbytes + sz);
-        writeTo(s, true);
-        return s;
+        assert(sz == 1);
+        return {len, static_cast<const char *>(string)};
     }
 #endif
     size_t numberOfCodeUnits(int tynto = 0) const;
     void writeTo(void* dest, bool zero, int tyto = 0) const;
-    char *toPtr();
 };
 
 // Tuple
