@@ -8,6 +8,7 @@
 // affine loops and standard operations. This lowering expects that all calls
 // have been inlined, and all shapes have been resolved.
 //===----------------------------------------------------------------------===//
+#if LDC_MLIR_ENABLED
 
 #include "gen/MLIR/Dialect.h"
 #include "gen/MLIR/Passes.h"
@@ -211,3 +212,5 @@ void DToStandardLoweringPass::runOnFunction() {
 std::unique_ptr<Pass> mlir::D::createLowerToStandardPass() {
   return std::make_unique<DToStandardLoweringPass>();
 }
+
+#endif

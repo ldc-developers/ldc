@@ -76,6 +76,22 @@ public:
         if (!func)
           return nullptr;
         theModule.push_back(func);
+      } else if (StructDeclaration *structDecl = dsym->isStructDeclaration()){
+        if(failed(declaration.mlirGen(structDecl)))
+          return nullptr;
+        IF_LOG Logger::println("MLIRCodeGen - StructLiteralExp: '%s'",
+                               structDecl->toChars());
+        llvm::StringRef structName;
+        if (auto *decl = structDecl){
+          structName = decl->toChars();
+        } else {
+          if(!structDecl->members)
+            return nullptr;
+          for(auto var : *structDecl->members)
+            Logger::println("Expression: '%s'", var->toChars());
+
+        }
+
       } else if (dsym->isInstantiated()) {
         IF_LOG Logger::println("isTemplateInstance: '%s'",
                                dsym->isTemplateInstance()->toChars());

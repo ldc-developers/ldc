@@ -27,14 +27,81 @@ mlir::Value MLIRDeclaration::mlirGen(Declaration *declaration){
       declaration->toChars());
   LOG_SCOPE
 
-  if(auto varDeclaration = declaration->isVarDeclaration())
+  if(StructDeclaration *structDeclaration = declaration->isStructDeclaration()) {
+    if (failed(mlirGen(structDeclaration)))
+      return nullptr;
+  } else if(auto varDeclaration = declaration->isVarDeclaration())
     return mlirGen(varDeclaration);
   else {
-    IF_LOG Logger::println("Unable to recoganize Declaration: '%s'",
+    IF_LOG Logger::println(" "
+                           "---------------------------------------------------- Unable to recoganize Declaration: '%s'",
                            declaration->toChars());
     _miss++;
     return nullptr;
   }
+}
+
+mlir::LogicalResult MLIRDeclaration::mlirGen(StructDeclaration
+*structDeclaration) {
+  IF_LOG Logger::println("MLIRCodeGen - StructDeclaration: '%s'",
+      structDeclaration->toChars());
+
+  if(structMap.count(structDeclaration->toChars()))
+    return mlir::emitError(loc(structDeclaration->loc)) << "error: struct "
+       "type with name '" << structDeclaration->toChars() << "' already exists";
+
+  auto variables = structDeclaration->members;
+  std::vector<mlir::Type> elementTypes;
+  elementTypes.reserve(variables->size());
+  for (auto variable : *variables){
+    Logger::println("Getting Type of '%s'", variable->toChars());
+    if(variable->hasStaticCtorOrDtor())
+      return mlir::emitError(loc(structDeclaration->loc)) << "error: "
+         "variables within a struct definition must not have initializers";
+
+    mlir::Type type = get_MLIRtype(nullptr,variable->getType());
+    if(!type)
+      return mlir::failure();
+    elementTypes.push_back(type);
+  }
+
+  structMap.try_emplace(structDeclaration->toChars(),
+      mlir::D::StructType::get(elementTypes), structDeclaration);
+  return mlir::success();
+}
+
+StructDeclaration* MLIRDeclaration::getStructFor(StructLiteralExp
+                                                 *structLiteralExp){
+  IF_LOG Logger::println("MLIRCodeGen - GetStructFor: '%s'",
+      structLiteralExp->toChars());
+  llvm::StringRef structName;
+  if (auto *decl = structLiteralExp->sd){
+    auto varIt = symbolTable.lookup(decl->toChars());
+    if(!varIt)
+      return nullptr;
+    structName = decl->toChars();
+  } else {
+    if(!structLiteralExp->elements)
+      return nullptr;
+    for(auto var : *structLiteralExp->elements)
+      Logger::println("Expression: '%s'", var->toChars());
+
+  }
+return nullptr;
+}
+
+mlir::Value MLIRDeclaration::mlirGen(StructLiteralExp* structLiteralExp) {
+  IF_LOG Logger::println("MLIRCodeGen - StructLiteralExp: '%s'",
+                         structLiteralExp->toChars());
+
+  mlir::ArrayAttr dataAttr;
+  mlir::Type dataType;
+  std::tie(dataAttr, dataType) = getConstantAttr(nullptr, structLiteralExp);
+
+  // Build the MLIR op `toy.struct_constant`. This invokes the
+  // `StructConstantOp::build` method.
+  return builder.create<mlir::D::StructConstantOp>(loc(structLiteralExp->loc),
+                                                   dataType, dataAttr);
 }
 
 mlir::Value MLIRDeclaration::mlirGen(VarDeclaration *vd){
@@ -79,6 +146,56 @@ mlir::Value MLIRDeclaration::mlirGen(VarDeclaration *vd){
   }
   _miss++;
   return nullptr;
+}
+
+mlir::DenseElementsAttr MLIRDeclaration::getConstantAttr(mlir::Value value) {
+  // The type of this attribute is tensor of 64-bit floating-point with no
+  // shape.
+  auto dataType = mlir::RankedTensorType::get({}, value.getType());
+
+  // This is the actual attribute that holds the list of values for this
+  // tensor literal.
+  return mlir::DenseElementsAttr::get(dataType, &value);
+}
+
+std::pair<mlir::ArrayAttr, mlir::Type> MLIRDeclaration::getConstantAttr(
+                                StructDeclaration *decl, StructLiteralExp *lit){
+
+/// Emit a constant for a struct literal. It will be emitted as an array of
+/// other literals in an Attribute attached to a `toy.struct_constant`
+/// operation. This function returns the generated constant, along with the
+/// corresponding struct type.
+  std::vector<mlir::Attribute> attrElements;
+  std::vector<mlir::Type> typeElements;
+
+  if(decl != nullptr && lit == nullptr){
+    IF_LOG Logger::println("MLIRCodeGen - Getting ConstantAttr for Struct: "
+                           "'%s'", decl->toChars());
+
+    for(auto &var : *decl->members) {
+      Logger::println("Var: '%s'", var->toChars());
+    }
+  }else {
+    IF_LOG Logger::println("MLIRCodeGen - Getting ConstantAttr for Struct: "
+                           "'%s'", lit->toChars());
+
+    for (auto &var : *lit->elements) {
+      if (auto *number = var->isIntegerExp()) {
+        auto value = mlirGen(number);
+        attrElements.push_back(getConstantAttr(value));
+        typeElements.push_back(value.getType());
+     } else if (auto *real = var->isRealExp()) {
+        auto value = mlirGen(real);
+        attrElements.push_back(getConstantAttr(value));
+        typeElements.push_back(value.getType());
+      }
+
+    }
+  }
+
+  mlir::ArrayAttr dataAttr = builder.getArrayAttr(attrElements);
+  mlir::Type dataType = mlir::D::StructType::get(typeElements);
+  return std::make_pair(dataAttr, dataType);
 }
 
 mlir::Value MLIRDeclaration::DtoAssignMLIR(mlir::Location Loc,
@@ -198,7 +315,7 @@ mlir::Value MLIRDeclaration::mlirGen(ArrayLiteralExp *arrayLiteralExp){
   // shape .
   mlir::Type elementType = get_MLIRtype(arrayLiteralExp->elements->data[0]);
   bool isFloat = elementType.isF16() || elementType.isF32() || elementType.isF64();
-
+  Logger::println("@@@@@@@@@@@@@@@@@@@@@@@@ pegou o tipo!");
 
   int size = 0;
   if(elementType.isInteger(1))
@@ -477,6 +594,9 @@ mlir::Value MLIRDeclaration::mlirGen(DeclarationExp *decl_exp){
 
   if (VarDeclaration *vd = dsym->isVarDeclaration())
     return mlirGen(vd);
+  else if(StructDeclaration *structDeclaration = dsym->isStructDeclaration())
+    if(failed(mlirGen(structDeclaration)))
+      return nullptr;
 
   IF_LOG Logger::println("Unable to recoganize DeclarationExp: '%s'",
                          dsym->toChars());
@@ -1034,9 +1154,30 @@ mlir::Value MLIRDeclaration::mlirGen(Expression *expression, mlir::Block* block)
     return mlirGen(expression->isOrExp(),expression->isOrAssignExp());
   else if (expression->isXorExp() || expression->isXorAssignExp())
     return mlirGen(expression->isXorExp(),expression->isXorAssignExp());
+  else if(expression->isStructLiteralExp() || expression->isBlitExp()){
+    Logger::println(" ----> PANIC: STRUCT: '%s'", expression->toChars());
+    if(BlitExp* blit = expression->isBlitExp()){
+      Logger::println(" ----> PANIC: Blit: '%s'", blit->toChars());
+      Logger::println(" ----> PANIC: BLIT->E1: '%s'", blit->e1->toChars());
+        mlirGen(blit->e1);
+      Logger::println(" ----> PANIC: BLIT->E2: '%s'", blit->e2->toChars());
+        mlirGen(blit->e2);
+    }else {
+      Logger::println(" ----> PANIC: STRUCTLiteral: '%s'", expression->toChars
+      ());
+    }
+   // auto cu = expression->isBlitExp();
+   //
+   //
+   // mlirGen(expression->isStructLiteralExp()->sd);
+    //getStructFor(expression->isStructLiteralExp());
+    //mlirGen(expression->isStructLiteralExp());
+  }
+
 
   _miss++;
-  IF_LOG Logger::println("Unable to recoganize the Expression: '%s' : '%u': '%s'",
+  IF_LOG Logger::println(" --------------------------------------------------- "
+                         "Unable to recoganize the Expression: '%s' : '%u': '%s'",
                          expression->toChars(), expression->op,
                          expression->type->toChars());
   return nullptr;
