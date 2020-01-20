@@ -42,11 +42,12 @@ private:
   void writeAndFreeLLModule(const char *filename);
 
   llvm::LLVMContext &context_;
-#if LDC_MLIR_ENABLED
-  mlir::MLIRContext &mlirContext_;
-#endif
   int moduleCount_;
   bool const singleObj_;
   IRState *ir_;
+#if LDC_MLIR_ENABLED
+  mlir::MLIRContext &mlirContext_;
+#endif
+
 };
 }
