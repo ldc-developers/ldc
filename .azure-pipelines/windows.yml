@@ -57,7 +57,7 @@ steps:
     :: Download & extract LDC-flavoured LLVM
     set ASSERTS_SUFFIX=
     if not "%BUILD_SOURCEBRANCH:~0,10%" == "refs/tags/" ( set ASSERTS_SUFFIX=-withAsserts)
-    curl -L -o llvm.7z https://github.com/ldc-developers/llvm/releases/download/ldc-v%LLVM_VERSION%/llvm-%LLVM_VERSION%-windows-%ARCH%%ASSERTS_SUFFIX%.7z 2>&1
+    curl -L -o llvm.7z https://github.com/ldc-developers/llvm-project/releases/download/ldc-v%LLVM_VERSION%/llvm-%LLVM_VERSION%-windows-%ARCH%%ASSERTS_SUFFIX%.7z 2>&1
     mkdir llvm
     cd llvm
     7z x ../llvm.7z > nul
@@ -186,9 +186,9 @@ steps:
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     git clone --recursive https://github.com/dlang/tools.git dlang-tools 2>&1
     cd dlang-tools
-    ..\installed\bin\ldmd2 -w rdmd.d
-    ..\installed\bin\ldmd2 -w ddemangle.d
-    ..\installed\bin\ldmd2 -w DustMite\dustmite.d DustMite\splitter.d
+    ..\installed\bin\ldmd2 -w -de -dip1000 rdmd.d
+    ..\installed\bin\ldmd2 -w -de -dip1000 ddemangle.d
+    ..\installed\bin\ldmd2 -w -de -dip1000 DustMite\dustmite.d DustMite\splitter.d
     cp *.exe ../installed/bin
   displayName: Build & copy dlang tools
 - script: |

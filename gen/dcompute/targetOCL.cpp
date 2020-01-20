@@ -119,7 +119,7 @@ public:
     }
 
     VarDeclarations *vs = fd->parameters;
-    for (i = 0; i < vs->dim; i++) {
+    for (i = 0; i < vs->length; i++) {
       VarDeclaration *v = (*vs)[i];
       decodeTypes(paramArgs, v);
     }

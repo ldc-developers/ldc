@@ -30,6 +30,15 @@ llvm::GlobalVariable *IrModule::moduleInfoSymbol() {
   moduleInfoVar =
       declareGlobal(Loc(), gIR->module,
                     llvm::StructType::create(gIR->context()), irMangle, false);
+
+  // Like DMD, declare as weak - don't pull in the object file just because of
+  // the import, i.e., use null if the object isn't pulled in by something else.
+  // FIXME: Disabled for MSVC targets, because LLD (9.0.1) fails with duplicate
+  //        symbol errors - MS linker works (tested for Win64).
+  if (!global.params.targetTriple->isWindowsMSVCEnvironment()) {
+    moduleInfoVar->setLinkage(LLGlobalValue::ExternalWeakLinkage);
+  }
+
   return moduleInfoVar;
 }
 

@@ -423,18 +423,18 @@ bool needOpEquals(StructDeclaration sd)
             if (ts.sym.aliasthis) // https://issues.dlang.org/show_bug.cgi?id=14806
                 goto Lneed;
         }
-        if (tv.isfloating())
+        if (tvbase.isfloating())
         {
             // This is necessray for:
             //  1. comparison of +0.0 and -0.0 should be true.
             //  2. comparison of NANs should be false always.
             goto Lneed;
         }
-        if (tv.ty == Tarray)
+        if (tvbase.ty == Tarray)
             goto Lneed;
-        if (tv.ty == Taarray)
+        if (tvbase.ty == Taarray)
             goto Lneed;
-        if (tv.ty == Tclass)
+        if (tvbase.ty == Tclass)
             goto Lneed;
     }
 Ldontneed:
@@ -744,18 +744,18 @@ private bool needToHash(StructDeclaration sd)
             if (ts.sym.aliasthis) // https://issues.dlang.org/show_bug.cgi?id=14948
                 goto Lneed;
         }
-        if (tv.isfloating())
+        if (tvbase.isfloating())
         {
             /* This is necessary because comparison of +0.0 and -0.0 should be true,
              * i.e. not a bit compare.
              */
             goto Lneed;
         }
-        if (tv.ty == Tarray)
+        if (tvbase.ty == Tarray)
             goto Lneed;
-        if (tv.ty == Taarray)
+        if (tvbase.ty == Taarray)
             goto Lneed;
-        if (tv.ty == Tclass)
+        if (tvbase.ty == Tclass)
             goto Lneed;
     }
 Ldontneed:
@@ -806,7 +806,7 @@ FuncDeclaration buildXtoHash(StructDeclaration sd, Scope* sc)
      * If sd is a nested struct, and if it's nested in a class, the calculated
      * hash value will also contain the result of parent class's toHash().
      */
-    const(char)* code =
+    const(char)[] code =
         "size_t h = 0;" ~
         "foreach (i, T; typeof(p.tupleof))" ~
         // workaround https://issues.dlang.org/show_bug.cgi?id=17968
@@ -815,7 +815,7 @@ FuncDeclaration buildXtoHash(StructDeclaration sd, Scope* sc)
         "    else " ~
         "        h = h * 33 + typeid(T).getHash(cast(const void*)&p.tupleof[i]);" ~
         "return h;";
-    fop.fbody = new CompileStatement(loc, new StringExp(loc, cast(char*)code));
+    fop.fbody = new CompileStatement(loc, new StringExp(loc, code));
     Scope* sc2 = sc.push();
     sc2.stc = 0;
     sc2.linkage = LINK.d;

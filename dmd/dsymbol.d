@@ -350,13 +350,17 @@ version (IN_LLVM)
         return ident is null;
     }
 
+    extern(D) private const(char)[] prettyFormatHelper()
+    {
+        const cstr = toPrettyChars();
+        return '`' ~ cstr.toDString() ~ "`\0";
+    }
+
     final void error(const ref Loc loc, const(char)* format, ...)
     {
         va_list ap;
         va_start(ap, format);
-        const cstr = toPrettyChars();
-        const pretty = '`' ~ cstr[0 .. strlen(cstr)] ~ "`\0";
-        .verror(loc, format, ap, kind(), pretty.ptr);
+        .verror(loc, format, ap, kind(), prettyFormatHelper().ptr);
         va_end(ap);
     }
 
@@ -364,10 +368,8 @@ version (IN_LLVM)
     {
         va_list ap;
         va_start(ap, format);
-        const cstr = toPrettyChars();
-        const pretty = '`' ~ cstr[0 .. strlen(cstr)] ~ "`\0";
         const loc = getLoc();
-        .verror(loc, format, ap, kind(), pretty.ptr);
+        .verror(loc, format, ap, kind(), prettyFormatHelper().ptr);
         va_end(ap);
     }
 
@@ -375,9 +377,7 @@ version (IN_LLVM)
     {
         va_list ap;
         va_start(ap, format);
-        const cstr = toPrettyChars();
-        const pretty = '`' ~ cstr[0 .. strlen(cstr)] ~ "`\0";
-        .vdeprecation(loc, format, ap, kind(), pretty.ptr);
+        .vdeprecation(loc, format, ap, kind(), prettyFormatHelper().ptr);
         va_end(ap);
     }
 
@@ -385,10 +385,8 @@ version (IN_LLVM)
     {
         va_list ap;
         va_start(ap, format);
-        const cstr = toPrettyChars();
-        const pretty = '`' ~ cstr[0 .. strlen(cstr)] ~ "`\0";
         const loc = getLoc();
-        .vdeprecation(loc, format, ap, kind(), pretty.ptr);
+        .vdeprecation(loc, format, ap, kind(), prettyFormatHelper().ptr);
         va_end(ap);
     }
 
@@ -1279,7 +1277,7 @@ private:
     Dsymbols* importedScopes;
     Prot.Kind* prots;            // array of Prot.Kind, one for each import
 
-    import dmd.root.array : BitArray;
+    import dmd.root.bitarray;
     BitArray accessiblePackages, privateAccessiblePackages;// whitelists of accessible (imported) packages
 
 public:
@@ -1514,10 +1512,6 @@ public:
 
     extern (D) final void addAccessiblePackage(Package p, Prot protection)
     {
-        // https://issues.dlang.org/show_bug.cgi?id=17991
-        // An import of truly empty file/package can happen
-        if (p is null)
-            return;
         auto pary = protection.kind == Prot.Kind.private_ ? &privateAccessiblePackages : &accessiblePackages;
         if (pary.length <= p.tag)
             pary.length = p.tag + 1;

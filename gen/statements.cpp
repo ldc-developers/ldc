@@ -196,10 +196,10 @@ public:
             // call postblit if the expression is a D lvalue
             // exceptions: NRVO and special __result variable (out contracts)
             bool doPostblit = !(fd->nrvo_can && fd->nrvo_var);
-            if (doPostblit && stmt->exp->op == TOKvar) {
-              auto ve = static_cast<VarExp *>(stmt->exp);
-              if (ve->var->isResult())
-                doPostblit = false;
+            if (doPostblit) {
+              if (auto ve = stmt->exp->isVarExp())
+                if (ve->var->isResult())
+                  doPostblit = false;
             }
 
             DtoAssign(stmt->loc, &returnValue, e, TOKblit);
@@ -374,8 +374,7 @@ public:
     // to target multiple backends "simultaneously" with one
     // pass through the front end, to have a single "static"
     // context.
-    if (stmt->condition->op == TOKcall) {
-      auto ce = (CallExp *)stmt->condition;
+    if (auto ce = stmt->condition->isCallExp()) {
       if (ce->f && ce->f->ident == Id::dcReflect) {
         if (dcomputeReflectMatches(ce))
           stmt->ifbody->accept(this);
@@ -940,7 +939,7 @@ public:
 
     // The cases of the switch statement, in codegen order.
     auto cases = stmt->cases;
-    const auto caseCount = cases->dim;
+    const auto caseCount = cases->length;
 
     // llvm::Values for the case indices. Might not be llvm::Constants for
     // runtime-initialised immutable globals as case indices, in which case we
@@ -952,11 +951,11 @@ public:
     for (auto cs : *cases) {
       // skip over casts
       auto ce = cs->exp;
-      while (ce->op == TOKcast)
-        ce = static_cast<CastExp *>(ce)->e1;
+      while (auto next = ce->isCastExp())
+        ce = next->e1;
 
-      if (ce->op == TOKvar) {
-        const auto vd = static_cast<VarExp *>(ce)->var->isVarDeclaration();
+      if (auto ve = ce->isVarExp()) {
+        const auto vd = ve->var->isVarDeclaration();
         if (vd && (!vd->_init || !vd->isConst())) {
           indices.push_back(DtoRVal(toElemDtor(cs->exp)));
           useSwitchInst = false;
@@ -1193,7 +1192,7 @@ public:
     PGO.setCurrentStmt(stmt);
 
     // if no statements, there's nothing to do
-    if (!stmt->statements || !stmt->statements->dim) {
+    if (!stmt->statements || !stmt->statements->length) {
       return;
     }
 
@@ -1208,7 +1207,7 @@ public:
     llvm::BasicBlock *endbb = irs->insertBB("unrolledend");
 
     // create a block for each statement
-    size_t nstmt = stmt->statements->dim;
+    size_t nstmt = stmt->statements->length;
     llvm::SmallVector<llvm::BasicBlock *, 4> blocks(nstmt, nullptr);
     for (size_t i = 0; i < nstmt; i++)
       blocks[i] = irs->insertBBBefore(endbb, "unrolledstmt");
@@ -1219,7 +1218,7 @@ public:
     }
 
     // do statements
-    Statement **stmts = stmt->statements->data;
+    Statement **stmts = &(*stmt->statements)[0];
 
     for (size_t i = 0; i < nstmt; i++) {
       Statement *s = stmts[i];
@@ -1265,7 +1264,7 @@ public:
     // start a dwarf lexical block
     irs->DBuilder.EmitBlockStart(stmt->loc);
 
-    // assert(arguments->dim == 1);
+    // assert(arguments->length == 1);
     assert(stmt->value != 0);
     assert(stmt->aggr != 0);
     assert(stmt->func != 0);

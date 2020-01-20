@@ -1,6 +1,8 @@
 module ldcBuildRuntime;
 
 import core.stdc.stdlib : exit;
+import std.algorithm;
+import std.array;
 import std.file;
 import std.path;
 import std.stdio;
@@ -13,7 +15,6 @@ struct Config {
     string ldcSourceDir;
     bool ninja;
     bool buildTestrunners;
-    string targetPreset;
     string[] targetSystem;
     string[] dFlags;
     string[] cFlags;
@@ -22,14 +23,14 @@ struct Config {
     string[string] cmakeVars;
 }
 
+version (Windows) enum exeSuffix = ".exe";
+else              enum exeSuffix = "";
+
 string defaultLdcExecutable;
 Config config;
 
 int main(string[] args) {
-    version (Windows)
-        enum exeName = "ldc2.exe";
-    else
-        enum exeName = "ldc2";
+    enum exeName = "ldc2" ~ exeSuffix;
     defaultLdcExecutable = buildPath(thisExePath.dirName, exeName);
 
     parseCommandLine(args);
@@ -38,7 +39,7 @@ int main(string[] args) {
     prepareBuildDir();
 
     if (config.resetOnly) {
-        writefln("Runtime libraries build directory successfully reset (%s)", config.buildDir);
+        writefln(".: Build directory successfully reset (%s)", config.buildDir);
         return 0;
     }
 
@@ -46,14 +47,14 @@ int main(string[] args) {
     runCMake();
     build();
 
-    writefln("Runtime libraries built successfully into: %s", config.buildDir);
+    writefln(".: Runtime libraries built successfully into: %s", config.buildDir);
     return 0;
 }
 
 void findLdcExecutable() {
     if (config.ldcExecutable !is null) {
         if (!config.ldcExecutable.exists) {
-            writefln("Error: LDC executable not found: %s", config.ldcExecutable);
+            writefln(".: Error: LDC executable not found: %s", config.ldcExecutable);
             exit(1);
         }
         config.ldcExecutable = config.ldcExecutable.absolutePath;
@@ -65,7 +66,7 @@ void findLdcExecutable() {
         return;
     }
 
-    writeln("Please specify LDC executable via '--ldc=<path/to/ldc2[.exe]>'. Aborting.");
+    writefln(".: Please specify LDC executable via '--ldc=<path/to/ldc2%s>'. Aborting.", exeSuffix);
     exit(1);
 }
 
@@ -75,10 +76,9 @@ void prepareBuildDir() {
 
     if (config.buildDir.exists) {
         if (!config.resetBuildDir) {
-            writefln("Warning: build directory already exists: %s", config.buildDir);
+            writefln(".: Warning: build directory already exists: %s", config.buildDir);
         } else {
-            writefln("Resetting build directory: %s", config.buildDir);
-            import std.array : array;
+            writefln(".: Resetting build directory: %s", config.buildDir);
             auto items = dirEntries(config.buildDir, SpanMode.shallow, false).array;
             const ldcSrc = buildPath(config.buildDir, "ldc-src");
             foreach (i; items) {
@@ -90,7 +90,7 @@ void prepareBuildDir() {
             }
         }
     } else {
-        writefln("Creating build directory: %s", config.buildDir);
+        writefln(".: Creating build directory: %s", config.buildDir);
         mkdirRecurse(config.buildDir);
     }
 
@@ -100,7 +100,7 @@ void prepareBuildDir() {
 void prepareLdcSource() {
     if (config.ldcSourceDir !is null) {
         if (!config.ldcSourceDir.exists) {
-            writefln("Error: LDC source directory not found: %s", config.ldcSourceDir);
+            writefln(".: Error: LDC source directory not found: %s", config.ldcSourceDir);
             exit(1);
         }
         config.ldcSourceDir = config.ldcSourceDir.absolutePath;
@@ -118,8 +118,7 @@ void prepareLdcSource() {
 
     auto ldcVersion = "@LDC_VERSION@";
     void removeVersionSuffix(string beginning) {
-        import std.string : indexOf;
-        const suffixIndex = ldcVersion.indexOf(beginning);
+        const suffixIndex = ldcVersion.countUntil(beginning);
         if (suffixIndex > 0)
             ldcVersion = ldcVersion[0 .. suffixIndex];
     }
@@ -130,12 +129,12 @@ void prepareLdcSource() {
     const localArchiveFile = "ldc-src.zip";
     if (!localArchiveFile.exists) {
         const url = "https://github.com/ldc-developers/ldc/releases/download/v%1$s/ldc-%1$s-src.zip".format(ldcVersion);
-        writefln("Downloading LDC source archive: %s", url);
+        writefln(".: Downloading LDC source archive: %s", url);
         import std.net.curl : download;
         download(url, localArchiveFile);
         if (getSize(localArchiveFile) < 1_048_576) {
-            writefln("Error: downloaded file is corrupt; has LDC v%s been released?", ldcVersion);
-            writefln("You can work around this by manually downloading a src package and moving it to: %s",
+            writefln(".: Error: downloaded file is corrupt; has LDC v%s been released?", ldcVersion);
+            writefln("   You can work around this by manually downloading a src package and moving it to: %s",
                      buildPath(config.buildDir, localArchiveFile));
             localArchiveFile.remove;
             exit(1);
@@ -147,16 +146,7 @@ void prepareLdcSource() {
 }
 
 void runCMake() {
-    import std.array : empty, byPair, join;
-    import std.regex : matchFirst;
-
     const wd = WorkingDirScope(config.buildDir);
-
-    if(config.dFlags.empty)
-        config.dFlags ~= "-w";
-
-    if(config.targetSystem.empty)
-        config.targetSystem ~= "AUTO";
 
     string[] args = [
         "cmake",
@@ -164,18 +154,19 @@ void runCMake() {
         "-DD_VERSION=@D_VERSION@",
         "-DDMDFE_MINOR_VERSION=@DMDFE_MINOR_VERSION@",
         "-DDMDFE_PATCH_VERSION=@DMDFE_PATCH_VERSION@",
-        "-DLDC_TARGET_PRESET=" ~ config.targetPreset,
-        "-DTARGET_SYSTEM=" ~ config.targetSystem.join(";"),
-        "-DD_FLAGS=" ~ config.dFlags.join(";"),
-        "-DRT_CFLAGS=" ~ config.cFlags.join(" "),
-        "-DLD_FLAGS=" ~ config.linkerFlags.join(" "),
     ];
-    if(config.targetPreset.matchFirst("^Android"))
-        args ~= ["-DCMAKE_SYSTEM_NAME=Linux", "-DCMAKE_C_COMPILER_WORKS=True"];
+
+    if (config.targetSystem.length) args ~= "-DTARGET_SYSTEM=" ~ config.targetSystem.join(";");
+    if (config.dFlags.length)       args ~= "-DD_EXTRA_FLAGS=" ~ config.dFlags.join(";");
+    if (config.cFlags.length)       args ~= "-DRT_CFLAGS=" ~ config.cFlags.join(" ");
+    if (config.linkerFlags.length)  args ~= "-DLD_FLAGS=" ~ config.linkerFlags.join(" ");
+
     foreach (pair; config.cmakeVars.byPair)
         args ~= "-D" ~ pair[0] ~ '=' ~ pair[1];
+
     if (config.ninja)
         args ~= [ "-G", "Ninja" ];
+
     args ~= buildPath(config.ldcSourceDir, "runtime");
 
     exec(args);
@@ -204,21 +195,27 @@ struct WorkingDirScope {
     ~this() { chdir(originalPath); }
 }
 
-void exec(string[] command ...) {
-    writeln("Invoking: ", command);
-
+void exec(string[] command) {
     import std.process;
+
+    static string quoteIfNeeded(string arg) {
+        const r = arg.findAmong(" ;");
+        return !r.length ? arg : "'" ~ arg ~ "'";
+    }
+    string flattened = command.map!quoteIfNeeded.join(" ");
+    writefln(".: Invoking: %s", flattened);
+    stdout.flush();
+
     auto pid = spawnProcess(command);
     const exitStatus = wait(pid);
 
     if (exitStatus != 0) {
-        writeln("Error: command failed with status ", exitStatus);
+        writeln(".: Error: command failed with status ", exitStatus);
         exit(1);
     }
 }
 
 void extractZipArchive(string archivePath, string destination) {
-    import std.string : endsWith;
     import std.zip;
 
     auto archive = new ZipArchive(std.file.read(archivePath));
@@ -244,22 +241,19 @@ void parseCommandLine(string[] args) {
             "ldc",         "Path to LDC executable (default: '" ~ defaultLdcExecutable ~ "')", &config.ldcExecutable,
             "buildDir",    "Path to build directory (default: './ldc-build-runtime.tmp')", &config.buildDir,
             "reset",       "If build directory exists, start with removing everything but the ldc-src subdirectory", &config.resetBuildDir,
-            "resetOnly",  "Like --reset, but only resets the build directory. No other actions are taken.", &config.resetOnly,
+            "resetOnly",   "Like --reset, but only resets the build directory. No other actions are taken.", &config.resetOnly,
             "ldcSrcDir",   "Path to LDC source directory (if not specified: downloads & extracts source archive into '<buildDir>/ldc-src')", &config.ldcSourceDir,
             "ninja",       "Use Ninja as CMake build system", &config.ninja,
             "testrunners", "Build the testrunner executables too", &config.buildTestrunners,
-            "targetPreset","Target configuration preset by LDC devs, e.g. Android-arm", &config.targetPreset,
-            "targetSystem","Target OS/toolchain (separated by ';'), e.g. Windows;MSVC", &config.targetSystem,
-            "dFlags",      "LDC flags for the D modules (separated by ';')", &config.dFlags,
-            "cFlags",      "C/ASM compiler flags for the handful of C/ASM files (separated by ';')", &config.cFlags,
-            "linkerFlags", "C linker flags for shared libraries and testrunner executables (separated by ';')", &config.linkerFlags,
+            "targetSystem","Target OS/platform definitions (separated by ';'), e.g., 'Windows;MSVC' or 'Android;Linux;UNIX'. Defaults to the host OS/platform", &config.targetSystem,
+            "dFlags",      "Extra LDC flags for the D modules (separated by ';')", &config.dFlags,
+            "cFlags",      "Extra C/ASM compiler flags for the handful of C/ASM files (separated by ';')", &config.cFlags,
+            "linkerFlags", "Extra C linker flags for shared libraries and testrunner executables (separated by ';')", &config.linkerFlags,
             "j",           "Number of parallel build jobs", &config.numBuildJobs
-            );
+        );
 
-        // getopt() removed all consumed args from `args`
-        import std.range : drop;
-        foreach (arg; args.drop(1)) {
-            import std.algorithm.searching : findSplit;
+        // getopt() has removed all consumed args from `args`
+        foreach (arg; args[1 .. $]) {
             const r = arg.findSplit("=");
             if (r[1].length == 0) {
                 helpInformation.helpWanted = true;
@@ -270,16 +264,15 @@ void parseCommandLine(string[] args) {
 
         if (helpInformation.helpWanted) {
             defaultGetoptPrinter(
-                "Builds the LDC runtime libraries.\n" ~
+                "Builds the LDC runtime libraries.\n\n" ~
                 "Programs required to be found in your PATH:\n" ~
                 "  * CMake\n" ~
                 "  * either Make or Ninja (recommended, enable with '--ninja')\n" ~
-                "  * C toolchain (compiler and linker)\n" ~
-                "--targetPreset currently supports Android-arm or Android-aarch64.\n" ~
+                "  * C toolchain (compiler and linker)\n\n" ~
                 "All arguments are optional.\n" ~
                 "CMake variables (see runtime/CMakeLists.txt in LDC source) can be specified via arguments like 'VAR=value'.\n",
                 helpInformation.options
-                );
+            );
             exit(1);
         }
 

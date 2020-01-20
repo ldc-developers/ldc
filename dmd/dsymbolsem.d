@@ -429,7 +429,7 @@ private bool buildCopyCtor(StructDeclaration sd, Scope* sc)
         return false;
 
     bool hasPostblit;
-    if (sd.postblit)
+    if (sd.postblit && !sd.postblit.isDisabled())
         hasPostblit = true;
 
     auto ctor = sd.search(sd.loc, Id.ctor);
@@ -1652,6 +1652,12 @@ version (IN_LLVM)
                     foreach (id; (*imp.packages)[1 .. imp.packages.dim]) // [b, c]
                     {
                         p = cast(Package) p.symtab.lookup(id);
+                        // https://issues.dlang.org/show_bug.cgi?id=17991
+                        // An import of truly empty file/package can happen
+                        // https://issues.dlang.org/show_bug.cgi?id=20151
+                        // Package in the path conflicts with a module name
+                        if (p is null)
+                            break;
                         scopesym.addAccessiblePackage(p, imp.protection);
                     }
                 }
@@ -1845,25 +1851,27 @@ version (IN_LLVM)
         const(char)* arg1str = null;
 }
 
-        if (global.params.mscoff)
+        // IN_LLVM: extended pragma(linkerDirective) support - not just for COFF
+        //          object files, and not restricted to a single string arg
+        if (pd.ident == Id.linkerDirective)
         {
-            if (pd.ident == Id.linkerDirective)
+            if (!pd.args || pd.args.dim == 0)
+                pd.error("one or more string arguments expected for pragma(linkerDirective)");
+            else
             {
-                if (!pd.args || pd.args.dim != 1)
-                    pd.error("one string argument expected for pragma(linkerDirective)");
-                else
+                for (size_t i = 0; i < pd.args.dim; ++i)
                 {
-                    auto se = semanticString(sc, (*pd.args)[0], "linker directive");
+                    auto se = semanticString(sc, (*pd.args)[i], "linker directive");
                     if (!se)
-                        goto Lnodecl;
-                    (*pd.args)[0] = se;
+                        break;
+                    (*pd.args)[i] = se;
                     if (global.params.verbose)
-                        message("linkopt   %.*s", cast(int)se.len, se.string);
+                        message("linkopt   %.*s", cast(int)se.len, se.peekString().ptr);
                 }
-                goto Lnodecl;
             }
+            goto Lnodecl;
         }
-        if (pd.ident == Id.msg)
+        else if (pd.ident == Id.msg)
         {
             if (pd.args)
             {
@@ -1890,7 +1898,7 @@ version (IN_LLVM)
                     if (se)
                     {
                         se = se.toUTF8(sc);
-                        fprintf(stderr, "%.*s", cast(int)se.len, se.string);
+                        fprintf(stderr, "%.*s", cast(int)se.len, se.peekString().ptr);
                     }
                     else
                         fprintf(stderr, "%s", e.toChars());
@@ -1910,7 +1918,7 @@ version (IN_LLVM)
                     goto Lnodecl;
                 (*pd.args)[0] = se;
 
-                auto name = se.string[0 .. se.len].xarraydup;
+                auto name = se.peekString().xarraydup;
                 if (global.params.verbose)
                     message("library   %s", name.ptr);
                 if (global.params.moduleDeps && !global.params.moduleDepsFile)
@@ -1987,10 +1995,10 @@ version (IN_LLVM)
                  *
                  * Therefore, this validation is compiler implementation specific.
                  */
+                auto slice = se.peekString();
                 for (size_t i = 0; i < se.len;)
                 {
-                    char* p = se.string;
-                    dchar c = p[i];
+                    dchar c = slice[i];
                     if (c < 0x80)
                     {
                         if (c.isValidMangling)
@@ -2004,9 +2012,9 @@ version (IN_LLVM)
                             break;
                         }
                     }
-                    if (const msg = utf_decodeChar(se.string, se.len, i, c))
+                    if (const msg = utf_decodeChar(slice, i, c))
                     {
-                        pd.error("%s", msg);
+                        pd.error("%.*s", cast(int)msg.length, msg.ptr);
                         break;
                     }
                     if (!isUniAlpha(c))
@@ -2086,7 +2094,7 @@ version (IN_LLVM)
                     assert(pd.args && pd.args.dim == 1);
                     if (auto se = (*pd.args)[0].toStringExp())
                     {
-                        const name = se.string[0 .. se.len].xarraydup;
+                        const name = (cast(const(char)[])se.peekData()).xarraydup;
                         uint cnt = setMangleOverride(s, name);
                         if (cnt > 1)
                             pd.error("can only apply to a single declaration");
@@ -2917,7 +2925,7 @@ version (IN_LLVM)
         {
             /* Assign scope local unique identifier, as same as lambdas.
              */
-            const(char)* s = "__mixin";
+            const(char)[] s = "__mixin";
 
             if (FuncDeclaration func = sc.parent.isFuncDeclaration())
             {

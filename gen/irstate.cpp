@@ -192,6 +192,21 @@ void IRState::setStructLiteralConstant(StructLiteralExp *sle,
 
 ////////////////////////////////////////////////////////////////////////////////
 
+void IRState::addLinkerOption(llvm::ArrayRef<llvm::StringRef> options) {
+  llvm::SmallVector<llvm::Metadata *, 2> mdStrings;
+  mdStrings.reserve(options.size());
+  for (const auto &s : options)
+    mdStrings.push_back(llvm::MDString::get(context(), s));
+  linkerOptions.push_back(llvm::MDNode::get(context(), mdStrings));
+}
+
+void IRState::addLinkerDependentLib(llvm::StringRef libraryName) {
+  auto n = llvm::MDString::get(context(), libraryName);
+  linkerDependentLibs.push_back(llvm::MDNode::get(context(), n));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 IRBuilder<> *IRBuilderHelper::operator->() {
   IRBuilder<> &b = state->scope().builder;
   assert(b.GetInsertBlock() != NULL);

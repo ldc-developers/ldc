@@ -24,7 +24,7 @@
 
 IrTypeClass::IrTypeClass(ClassDeclaration *cd)
     : IrTypeAggr(cd), cd(cd), tc(static_cast<TypeClass *>(cd->type)) {
-  vtbl_type = LLArrayType::get(getVoidPtrType(), cd->vtbl.dim);
+  vtbl_type = LLArrayType::get(getVoidPtrType(), cd->vtbl.length);
 }
 
 void IrTypeClass::addClassData(AggrTypeBuilder &builder,
@@ -35,7 +35,7 @@ void IrTypeClass::addClassData(AggrTypeBuilder &builder,
     addClassData(builder, currCd->baseClass);
   }
 
-  if (currCd->vtblInterfaces && currCd->vtblInterfaces->dim > 0) {
+  if (currCd->vtblInterfaces && currCd->vtblInterfaces->length > 0) {
     // KLUDGE: The first pointer in the vtbl will be of type object.Interface;
     // extract that from the "well-known" object.TypeInfo_Class definition.
     // For C++ interfaces, this vtbl entry has to be omitted
@@ -48,7 +48,7 @@ void IrTypeClass::addClassData(AggrTypeBuilder &builder,
 
       // add to the interface map
       addInterfaceToMap(b->sym, builder.currentFieldIndex());
-      auto vtblTy = LLArrayType::get(getVoidPtrType(), b->sym->vtbl.dim);
+      auto vtblTy = LLArrayType::get(getVoidPtrType(), b->sym->vtbl.length);
       builder.addType(llvm::PointerType::get(vtblTy, 0), target.ptrsize);
 
       ++num_interface_vtbls;
@@ -81,7 +81,8 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
 
   if (cd->isInterfaceDeclaration()) {
     // interfaces are just a vtable
-    t->num_interface_vtbls = cd->vtblInterfaces ? cd->vtblInterfaces->dim : 0;
+    t->num_interface_vtbls =
+        cd->vtblInterfaces ? cd->vtblInterfaces->length : 0;
   } else {
     // classes have monitor and fields
     if (!cd->isCPPclass() && !cd->isCPPinterface()) {

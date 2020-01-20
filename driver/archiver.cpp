@@ -302,7 +302,7 @@ int createStaticLibrary() {
                   : global.params.libname.ptr;
   } else { // infer from first object file
     libName =
-        global.params.objfiles.dim
+        global.params.objfiles.length
             ? FileName::removeExt(FileName::name(global.params.objfiles[0]))
             : "a.out";
     libName += '.';

@@ -1682,6 +1682,7 @@ extern (C++) final class CaseStatement : Statement
 
     int index;              // which case it is (since we sort this)
     VarDeclaration lastVar;
+    void* extra;            // for use by Statement_toIR()
 
 version (IN_LLVM)
 {
