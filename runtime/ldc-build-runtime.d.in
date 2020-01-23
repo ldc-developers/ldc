@@ -114,85 +114,93 @@ void prepareLdcSource() {
 
     // Download & extract LDC source archive if <buildDir>/ldc-src/runtime doesn't exist yet.
 
-    const wd = WorkingDirScope(config.buildDir);
+    workingDirScope(config.buildDir, (){
 
-    auto ldcVersion = "@LDC_VERSION@";
-    void removeVersionSuffix(string beginning) {
-        const suffixIndex = ldcVersion.countUntil(beginning);
-        if (suffixIndex > 0)
-            ldcVersion = ldcVersion[0 .. suffixIndex];
-    }
-    removeVersionSuffix("git-");
-    removeVersionSuffix("-dirty");
-
-    import std.format : format;
-    const localArchiveFile = "ldc-src.zip";
-    if (!localArchiveFile.exists) {
-        const url = "https://github.com/ldc-developers/ldc/releases/download/v%1$s/ldc-%1$s-src.zip".format(ldcVersion);
-        writefln(".: Downloading LDC source archive: %s", url);
-        import std.net.curl : download;
-        download(url, localArchiveFile);
-        if (getSize(localArchiveFile) < 1_048_576) {
-            writefln(".: Error: downloaded file is corrupt; has LDC v%s been released?", ldcVersion);
-            writefln("   You can work around this by manually downloading a src package and moving it to: %s",
-                     buildPath(config.buildDir, localArchiveFile));
-            localArchiveFile.remove;
-            exit(1);
+        auto ldcVersion = "@LDC_VERSION@";
+        void removeVersionSuffix(string beginning) {
+            const suffixIndex = ldcVersion.countUntil(beginning);
+            if (suffixIndex > 0)
+                ldcVersion = ldcVersion[0 .. suffixIndex];
         }
-    }
+        removeVersionSuffix("git-");
+        removeVersionSuffix("-dirty");
 
-    extractZipArchive(localArchiveFile, ".");
-    rename("ldc-%1$s-src".format(ldcVersion), ldcSrc);
+        import std.format : format;
+        const localArchiveFile = "ldc-src.zip";
+        if (!localArchiveFile.exists) {
+            const url = "https://github.com/ldc-developers/ldc/releases/download/v%1$s/ldc-%1$s-src.zip".format(ldcVersion);
+            writefln(".: Downloading LDC source archive: %s", url);
+            import std.net.curl : download;
+            download(url, localArchiveFile);
+            if (getSize(localArchiveFile) < 1_048_576) {
+                writefln(".: Error: downloaded file is corrupt; has LDC v%s been released?", ldcVersion);
+                writefln("   You can work around this by manually downloading a src package and moving it to: %s",
+                         buildPath(config.buildDir, localArchiveFile));
+                localArchiveFile.remove;
+                exit(1);
+            }
+        }
+
+        extractZipArchive(localArchiveFile, ".");
+        rename("ldc-%1$s-src".format(ldcVersion), ldcSrc);
+
+    });
 }
 
 void runCMake() {
-    const wd = WorkingDirScope(config.buildDir);
+    workingDirScope(config.buildDir, (){
 
-    string[] args = [
-        "cmake",
-        "-DLDC_EXE_FULL=" ~ config.ldcExecutable,
-        "-DD_VERSION=@D_VERSION@",
-        "-DDMDFE_MINOR_VERSION=@DMDFE_MINOR_VERSION@",
-        "-DDMDFE_PATCH_VERSION=@DMDFE_PATCH_VERSION@",
-    ];
+        string[] args = [
+            "cmake",
+            "-DLDC_EXE_FULL=" ~ config.ldcExecutable,
+            "-DD_VERSION=@D_VERSION@",
+            "-DDMDFE_MINOR_VERSION=@DMDFE_MINOR_VERSION@",
+            "-DDMDFE_PATCH_VERSION=@DMDFE_PATCH_VERSION@",
+        ];
 
-    if (config.targetSystem.length) args ~= "-DTARGET_SYSTEM=" ~ config.targetSystem.join(";");
-    if (config.dFlags.length)       args ~= "-DD_EXTRA_FLAGS=" ~ config.dFlags.join(";");
-    if (config.cFlags.length)       args ~= "-DRT_CFLAGS=" ~ config.cFlags.join(" ");
-    if (config.linkerFlags.length)  args ~= "-DLD_FLAGS=" ~ config.linkerFlags.join(" ");
+        if (config.targetSystem.length) args ~= "-DTARGET_SYSTEM=" ~ config.targetSystem.join(";");
+        if (config.dFlags.length)       args ~= "-DD_EXTRA_FLAGS=" ~ config.dFlags.join(";");
+        if (config.cFlags.length)       args ~= "-DRT_CFLAGS=" ~ config.cFlags.join(" ");
+        if (config.linkerFlags.length)  args ~= "-DLD_FLAGS=" ~ config.linkerFlags.join(" ");
 
-    foreach (pair; config.cmakeVars.byPair)
-        args ~= "-D" ~ pair[0] ~ '=' ~ pair[1];
+        foreach (pair; config.cmakeVars.byPair)
+            args ~= "-D" ~ pair[0] ~ '=' ~ pair[1];
 
-    if (config.ninja)
-        args ~= [ "-G", "Ninja" ];
+        if (config.ninja)
+            args ~= [ "-G", "Ninja" ];
 
-    args ~= buildPath(config.ldcSourceDir, "runtime");
+        args ~= buildPath(config.ldcSourceDir, "runtime");
 
-    exec(args);
+        exec(args);
+
+    });
 }
 
 void build() {
-    const wd = WorkingDirScope(config.buildDir);
+    workingDirScope(config.buildDir, (){
 
-    string[] args = [ config.ninja ? "ninja" : "make" ];
-    if (config.numBuildJobs != 0) {
-        import std.conv : to;
-        args ~= "-j" ~ config.numBuildJobs.to!string;
-    }
-    args ~= "all";
-    if (config.buildTestrunners)
-        args ~= "all-test-runners";
+        string[] args = [ config.ninja ? "ninja" : "make" ];
+        if (config.numBuildJobs != 0) {
+            import std.conv : to;
+            args ~= "-j" ~ config.numBuildJobs.to!string;
+        }
+        args ~= "all";
+        if (config.buildTestrunners)
+            args ~= "all-test-runners";
 
-    exec(args);
+        exec(args);
+
+    });
 }
 
 /*** helpers ***/
 
-struct WorkingDirScope {
-    string originalPath;
-    this(string path) { originalPath = getcwd(); chdir(path); }
-    ~this() { chdir(originalPath); }
+void workingDirScope(string path, void delegate() codeBlock)
+{
+    const originalPath = getcwd();
+    chdir(path);
+    codeBlock();
+    chdir(originalPath);
 }
 
 void exec(string[] command) {
