@@ -29,11 +29,9 @@ matrix:
       d: dmd
       env: LLVM_VERSION=3.9.1
     - os: osx
-      osx_image: xcode9.2
       d: dmd
       env: LLVM_VERSION=9.0.0 OPTS="-DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON"
     - os: osx
-      osx_image: xcode9.2
       d: ldc-beta
       env: LLVM_VERSION=7.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF"
 

@@ -692,6 +692,17 @@ else
     add_builtin("_D4core4math4sqrtFNaNbNiNffZf", &eval_sqrt);
     // @safe @nogc pure nothrow real function(real, real)
     add_builtin("_D4core4math5atan2FNaNbNiNfeeZe", &eval_unimp);
+version (IN_LLVM)
+{
+    // Our implementations in CTFloat fall back to a generic version in case
+    // host compiler's druntime doesn't provide core.math.yl2x[p1] (GDC,
+    // non-x86 hosts). Not providing yl2x[p1] for CTFE would significantly
+    // limit CTFE-ability of std.math for x86 targets.
+    add_builtin("_D4core4math4yl2xFNaNbNiNfeeZe", &eval_yl2x);
+    add_builtin("_D4core4math6yl2xp1FNaNbNiNfeeZe", &eval_yl2xp1);
+}
+else
+{
     if (CTFloat.yl2x_supported)
     {
         add_builtin("_D4core4math4yl2xFNaNbNiNfeeZe", &eval_yl2x);
@@ -708,6 +719,7 @@ else
     {
         add_builtin("_D4core4math6yl2xp1FNaNbNiNfeeZe", &eval_unimp);
     }
+}
     // @safe @nogc pure nothrow long function(real)
     add_builtin("_D4core4math6rndtolFNaNbNiNfeZl", &eval_unimp);
     // @safe @nogc pure nothrow real function(real)

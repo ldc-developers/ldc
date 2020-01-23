@@ -2,7 +2,7 @@
 
 set -euxo pipefail
 
-HOST_LDC_VERSION=1.9.0
+HOST_LDC_VERSION=1.19.0
 
 export DEBIAN_FRONTEND=noninteractive
 dpkg --add-architecture i386

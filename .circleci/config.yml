@@ -14,7 +14,8 @@ commonSteps: &commonSteps
               git-core cmake ninja-build g++-multilib \
               llvm-dev zlib1g-dev libclang-common-$LIBCLANG_COMMON_VERSION-dev \
               libcurl4 libcurl4:i386 \
-              curl gdb python-pip tzdata unzip zip
+              curl gdb python-pip tzdata unzip zip \
+              $EXTRA_APT_PACKAGES
             # Use ld.gold per default, so that LTO is tested
             update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
           else
@@ -104,7 +105,7 @@ jobs:
     environment:
       - CI_OS: linux
       - LIBCLANG_COMMON_VERSION: "6.0"
-      - HOST_LDC_VERSION: 1.18.0
+      - HOST_LDC_VERSION: 1.19.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
   Ubuntu-rolling-multilib-sharedLibsOnly:
     <<: *commonSteps
@@ -113,25 +114,26 @@ jobs:
     environment:
       - CI_OS: linux
       - LIBCLANG_COMMON_VERSION: "9"
-      - HOST_LDC_VERSION: 1.18.0
-      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
+      - EXTRA_APT_PACKAGES: gdmd
+      - HOST_LDC_VERSION: 1.19.0
+      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=gdmd"
   macOS-x64:
     <<: *commonSteps
     macos:
-      xcode: "11.1.0"
+      xcode: "11.3.1"
     environment:
       - CI_OS: osx
       - LLVM_VERSION: 9.0.1
-      - HOST_LDC_VERSION: 1.18.0
+      - HOST_LDC_VERSION: 1.19.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
   macOS-x64-sharedLibsOnly:
     <<: *commonSteps
     macos:
-      xcode: "11.1.0"
+      xcode: "11.3.1"
     environment:
       - CI_OS: osx
       - LLVM_VERSION: 9.0.1
-      - HOST_LDC_VERSION: 1.18.0
+      - HOST_LDC_VERSION: 1.19.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON"
 
 workflows:
