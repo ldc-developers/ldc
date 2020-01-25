@@ -70,7 +70,8 @@ steps:
     echo on
     cd ..
     :: LLVM bin dir in PATH required for lld-link.exe
-    set PATH=%CD%\llvm\bin;C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;%PATH%
+    :: git's usr/bin required to make GNU find precede MS one in C:\Windows\System32
+    set PATH=%CD%\llvm\bin;C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;C:\Program Files\Git\usr\bin;%PATH%
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     echo on
     cmake --version
@@ -85,7 +86,7 @@ steps:
 - script: |
     echo on
     cd ..
-    set PATH=%CD%\llvm\bin;C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;%PATH%
+    set PATH=%CD%\llvm\bin;C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;C:\Program Files\Git\usr\bin;%PATH%
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     echo on
     set INSTALL_DIR=%CD%/install

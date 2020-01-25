@@ -224,26 +224,36 @@ tryGetExplicitTriple(const llvm::SmallVectorImpl<const char *> &args) {
   // most combinations of flags are illegal, this mimicks command line
   //  behaviour for legal ones only
   llvm::Triple triple(llvm::sys::getDefaultTargetTriple());
+  unsigned explicitBitness = 0;
   const char *mtriple = nullptr;
   const char *march = nullptr;
   for (size_t i = 1; i < args.size(); ++i) {
     if (args::isRunArg(args[i]))
       break;
 
-    llvm::StringRef arg = args[i];
-    if (sizeof(void *) != 4 && (arg == "-m32" || arg == "--m32")) {
+    const llvm::StringRef arg = args[i];
+    if (arg == "-m32" || arg == "--m32") {
+      explicitBitness = 32;
+    } else if (arg == "-m64" || arg == "--m64") {
+      explicitBitness = 64;
+    } else {
+      tryParse(args, i, mtriple, "mtriple");
+      tryParse(args, i, march, "march");
+    }
+  }
+
+  // -m{32,64} and -mtriple/-march are mutually exclusive (checked later on)
+  if (explicitBitness) {
+    if (!triple.isArch32Bit() && explicitBitness == 32) {
       triple = triple.get32BitArchVariant();
       if (triple.getArch() == llvm::Triple::ArchType::x86)
         triple.setArchName("i686"); // instead of i386
-      return triple;
+    } else if (!triple.isArch64Bit() && explicitBitness == 64) {
+      triple = triple.get64BitArchVariant();
     }
-
-    if (sizeof(void *) != 8 && (arg == "-m64" || arg == "--m64"))
-      return triple.get64BitArchVariant();
-
-    tryParse(args, i, mtriple, "mtriple");
-    tryParse(args, i, march, "march");
+    return triple;
   }
+
   if (mtriple)
     triple = llvm::Triple(llvm::Triple::normalize(mtriple));
   if (march) {
@@ -413,10 +423,9 @@ void parseCommandLine(Strings &sourceFiles) {
   for (const auto &id : reverts)
     parseRevertOption(global.params, id.c_str());
 
-
   if (global.params.useDIP1021) // DIP1021 implies DIP1000
     global.params.vsafe = true;
-  if (global.params.vsafe)      // DIP1000 implies DIP25
+  if (global.params.vsafe) // DIP1000 implies DIP25
     global.params.useDIP25 = true;
   if (global.params.noDIP25)
     global.params.useDIP25 = false;
