@@ -87,7 +87,7 @@ build:
     # Run DMD testsuite, ignore the errors
     # FIXME: the debug libs seem not really usable, most runnable tests crash
     - sed -i 's|REQUIRED_ARGS=-g -link-defaultlib-debug|REQUIRED_ARGS=-g|g' tests/d2/CTestTestfile.cmake
-    - DMD_TESTSUITE_MAKE_ARGS='-j16' ctest -V -R "dmd-testsuite" || true
+    - DMD_TESTSUITE_MAKE_ARGS='-j16 GDB_FLAGS=OFF' ctest -V -R "dmd-testsuite" || true
     # Run defaultlib unittests (non-debug only for now, excl. hanging core.thread.fiber)
     # & druntime stand-alone tests, ignore the errors
     - ctest -j16 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest|-debug(-shared)?$|^core.thread.fiber($|-)" || true
