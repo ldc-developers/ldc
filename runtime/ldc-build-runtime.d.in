@@ -46,6 +46,7 @@ int main(string[] args) {
     prepareLdcSource();
     runCMake();
     build();
+    generateTestRunnerXcodeProjects();
 
     writefln(".: Runtime libraries built successfully into: %s", config.buildDir);
     return 0;
@@ -185,6 +186,80 @@ void build() {
         args ~= "all-test-runners";
 
     exec(args);
+}
+
+/**
+ * Generates Xcode projects for running the unit test for druntime and Phobos
+ * on an iOS device.
+ *
+ * This works by coping the `runtime/TestRunnerTemplate` directory to the build
+ * directory. Inside the `runtime/TestRunnerTemplate` directory is an Xcode
+ * project located. This project acts as a template. The `project.pbxproj` file
+ * inside the Xcode project contains variables, denoted by `{{ var }}`, which
+ * are replaced with the actual values when the template is rendered.
+ *
+ * The Xcode project has been created using Xcode 11.3.1 (11C504) and then the
+ * `project.pbxproj` file has been manually edited to replace the original
+ * values with variables.
+ */
+void generateTestRunnerXcodeProjects() {
+    const struct ProjectContext {
+        string druntimeArchive;
+        string phobosArchive;
+        string deploymentTarget;
+        string objectPath;
+        string libraryPath;
+    }
+
+    static string renderTemplate(string temp, ProjectContext context) {
+        import std.conv : text;
+
+        string result = temp;
+
+        static foreach (i, _; typeof(ProjectContext.tupleof)) {{
+            enum name = __traits(identifier, ProjectContext.tupleof[i]);
+            result = result.replace("{{ " ~ name ~ " }}", context.tupleof[i].text);
+        }}
+
+        return result;
+    }
+
+    static void copyRecurse(string source, string destination) {
+        mkdirRecurse(destination);
+
+        foreach (e; dirEntries(source, SpanMode.breadth)) {
+            const newPath = destination.buildPath(e[source.length + 1.. $]);
+
+            if (e.isDir)
+                mkdirRecurse(newPath);
+            else
+                copy(e.name, newPath);
+        }
+    }
+
+    static immutable xcodeTargets = ["iOS", "tvOS", "watchOS"];
+    const systemName = config.cmakeVars.get("CMAKE_SYSTEM_NAME", null);
+
+    if (!xcodeTargets.canFind(systemName))
+        return;
+
+    const templatePath = config.ldcSourceDir.buildPath("runtime", "TestRunnerTemplate");
+    const targetPath = config.buildDir.buildPath("TestRunner").absolutePath;
+
+    copyRecurse(templatePath, targetPath);
+
+    ProjectContext context = {
+        druntimeArchive: "libdruntime-ldc-unittest-debug.a",
+        phobosArchive: "libphobos2-ldc-unittest-debug.a",
+        deploymentTarget: config.cmakeVars["CMAKE_OSX_DEPLOYMENT_TARGET"],
+        objectPath: config.buildDir.buildPath("objects-unittest-debug"),
+        libraryPath: config.buildDir.buildPath("lib")
+    };
+
+    const pbxprojPath = targetPath.buildPath("TestRunner.xcodeproj", "project.pbxproj");
+    const projectContent = readText(pbxprojPath);
+    const result = renderTemplate(projectContent, context);
+    std.file.write(pbxprojPath, result);
 }
 
 /*** helpers ***/
