@@ -26,14 +26,15 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
       python runlit.py -v -j $PARALLELISM .
     run_dmd_testsuite_script: |
       cd $CIRRUS_WORKING_DIR/../build
-      DMD_TESTSUITE_MAKE_ARGS=-j$PARALLELISM OS="" ctest -V -R dmd-testsuite
+      DMD_TESTSUITE_MAKE_ARGS=-j$PARALLELISM ctest -V -R dmd-testsuite
     run_defaultlib_tests_script: |
       # Run defaultlib unittests & druntime stand-alone tests
       cd $CIRRUS_WORKING_DIR/../build
       ctest -j$PARALLELISM --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests"
 
 # Installs Ubuntu 18.04+ prerequisites.
-# Requires env variables HOST_LDC_VERSION and LIBCLANG_COMMON_VERSION.
+# Requires env variables HOST_LDC_VERSION and LIBCLANG_COMMON_VERSION and
+# supports optional EXTRA_APT_PACKAGES.
 install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
   install_prerequisites_script: |
     cd $CIRRUS_WORKING_DIR/..
@@ -45,7 +46,8 @@ install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
       git-core cmake ninja-build g++-multilib \
       llvm-dev zlib1g-dev libclang-common-$LIBCLANG_COMMON_VERSION-dev \
       libcurl4 libcurl4:i386 \
-      curl gdb python-pip tzdata unzip zip
+      curl gdb python-pip tzdata unzip zip \
+      $EXTRA_APT_PACKAGES
     # Use ld.gold per default, so that LTO is tested
     update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
     # Install lit
@@ -59,10 +61,10 @@ install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
 
 environment:
   CIRRUS_CLONE_DEPTH: 50
-  HOST_LDC_VERSION: 1.17.0
+  HOST_LDC_VERSION: 1.19.0
 
 task:
-  name: Ubuntu 18.04 x64 multilib
+  name: Ubuntu 18.04 x64 multilib rtSanitizers
   container:
     image: ubuntu:18.04
     cpu: 8
@@ -71,13 +73,13 @@ task:
   environment:
     CI_OS: linux
     LIBCLANG_COMMON_VERSION: "6.0"
-    EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
+    EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
     PARALLELISM: 8
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
   << : *COMMON_STEPS_TEMPLATE
 
 task:
-  name: Ubuntu rolling x64 multilib shared-libs-only
+  name: Ubuntu rolling x64 multilib shared-libs-only gdmd
   container:
     image: ubuntu:rolling
     cpu: 8
@@ -85,21 +87,27 @@ task:
   timeout_in: 120m
   environment:
     CI_OS: linux
-    LIBCLANG_COMMON_VERSION: "8"
-    EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
+    LIBCLANG_COMMON_VERSION: "9"
+    EXTRA_APT_PACKAGES: "gdmd locales"
+    EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=gdmd"
     PARALLELISM: 8
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
+  setup_gdmd_script: |
+    locale-gen en_US.UTF-8
+    gdmd --version
   << : *COMMON_STEPS_TEMPLATE
 
 task:
   name: macOS 10.14 x64
   osx_instance:
-    image: mojave-xcode-10.2
+    image: mojave-xcode
   timeout_in: 120m
   environment:
     CI_OS: osx
-    LLVM_VERSION: 8.0.1
+    LLVM_VERSION: 9.0.1
     EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
+    # OS is preset to `darwin`
+    OS: osx
     PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
     PARALLELISM: 4
   install_prerequisites_script: |
@@ -120,7 +128,7 @@ task:
     python get-pip.py --user
     rm get-pip.py
     # Download & extract LDC-flavoured LLVM with enabled assertions
-    curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-osx-x86_64-withAsserts.tar.xz
+    curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-osx-x86_64-withAsserts.tar.xz
     mkdir llvm
     tar -xf llvm.tar.xz --strip 1 -C llvm
     rm llvm.tar.xz
@@ -135,9 +143,10 @@ task:
   << : *COMMON_STEPS_TEMPLATE
 
 task:
-  name: FreeBSD 12.0 x64
+  name: FreeBSD 12.1 x64
+  allow_failures: 1 == 1
   freebsd_instance:
-    image: freebsd-12-0-release-amd64
+    image_family: freebsd-12-1
     cpu: 4
     memory: 8G
   timeout_in: 120m
