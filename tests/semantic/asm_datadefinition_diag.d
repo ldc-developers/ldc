@@ -10,8 +10,8 @@ void foo()
     asm @nogc nothrow
     {
        mov EAX, EDX;
-       // CHECK: ([[@LINE+1]]): Error: Data definition directives inside inline asm are not supported yet.
-       ds 0xC70F, 0x17;
+       // CHECK: ([[@LINE+1]]): Error: Unsupported data definition directive inside inline asm.
+       de 2.34L, 3.14L;
        mov EAX, EDX;
     }
 }

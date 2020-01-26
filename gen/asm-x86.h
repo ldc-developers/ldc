@@ -3884,17 +3884,14 @@ struct AsmProcessor {
   }
 
   void doData() {
+#if 0
     stmt->error(
         "Data definition directives inside inline asm are not supported yet.");
-// TODO: data instructions not implemented.
-#if 0
-    static const char * directives[] = { ".byte", ".short", ".long", ".long",
-                                         "", "", "" };
+#else
+    static const char *directives[] = {".byte", ".short", ".long", ".long",
+                                       "",      "",       ""};
 
-    machine_mode mode;
-
-    insnTemplate->writestring(static_cast<char*>(directives[op - Op_db]));
-    insnTemplate->writebyte(' ');
+    insnTemplate << directives[op - Op_db] << ' ';
 
     do {
       // DMD is pretty strict here, not even constant expressions are allowed..
@@ -3907,18 +3904,24 @@ struct AsmProcessor {
             token->value == TOKint64v || token->value == TOKuns64v) {
           // As per usual with GNU, assume at least 32-bit host
           if (op != Op_dl) {
-            insnTemplate->printf("%u", (d_uns32) token->unsvalue);
+            insnTemplate << static_cast<d_uns32>(token->unsvalue);
           } else {
             // Output two .longS.  GAS has .quad, but would have to rely on 'L'
             // format ..
             // just need to use HOST_WIDE_INT_PRINT_DEC
-            insnTemplate->printf("%u,%u", (d_uns32) token->unsvalue,
-                                 (d_uns32) (token->unsvalue >> 32));
+            insnTemplate << static_cast<d_uns32>(token->unsvalue) << ','
+                         << static_cast<d_uns32>(token->unsvalue >> 32);
           }
         } else {
           stmt->error("expected integer constant");
         }
         break;
+// LDC_FIXME: support floating-point?
+#ifdef IN_LLVM
+      default:
+        stmt->error("Unsupported data definition directive inside inline asm.");
+        break;
+#else // !IN_LLVM
       case Op_df:
         mode = SFmode;
         goto do_float;
@@ -3935,25 +3938,26 @@ struct AsmProcessor {
         if (token->value == TOKfloat32v || token->value == TOKfloat64v ||
             token->value == TOKfloat80v) {
           long words[3];
-          real_to_target(words, & token->floatvalue.rv(), mode);
+          real_to_target(words, &token->floatvalue, mode);
           // don't use directives..., just use .long like GCC
-          insnTemplate->printf(".long\t%u", words[0]);
+          insnTemplate << ".long\t" << words[0];
           if (mode != SFmode)
-          insnTemplate->printf(",%u", words[1]);
+            insnTemplate << ',' << words[1];
           // DMD outputs 10 bytes, so we need to switch to .short here
           if (mode == XFmode)
-          insnTemplate->printf("\n\t.short\t%u", words[2]);
+            insnTemplate << "\n\t.short\t" << words[2];
         } else {
           stmt->error("expected float constant");
         }
         break;
       default:
         abort();
+#endif // !IN_LLVM
       }
 
       nextToken();
       if (token->value == TOKcomma) {
-        insnTemplate->writebyte(',');
+        insnTemplate << ',';
         nextToken();
       } else if (token->value == TOKeof) {
         break;
