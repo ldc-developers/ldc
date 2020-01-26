@@ -1,6 +1,15 @@
-# Clones the git submodules, builds LDC and the test runners and runs the tests.
+# Installs pip and lit, clones the git submodules, builds LDC and the test
+# runners and runs the tests.
 # Requires env variables EXTRA_CMAKE_FLAGS and PARALLELISM.
 common_steps_template: &COMMON_STEPS_TEMPLATE
+  install_pip_and_lit_script: |
+    # Install pip
+    curl -OL https://bootstrap.pypa.io/get-pip.py
+    python get-pip.py --user
+    rm get-pip.py
+    # Install lit
+    python -m pip install --user lit
+    python -c "import lit; lit.main();" --version | head -n 1
   clone_submodules_script: |
     cd $CIRRUS_WORKING_DIR
     git submodule update --init --depth $CIRRUS_CLONE_DEPTH
@@ -46,13 +55,10 @@ install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
       git-core cmake ninja-build g++-multilib \
       llvm-dev zlib1g-dev libclang-common-$LIBCLANG_COMMON_VERSION-dev \
       libcurl4 libcurl4:i386 \
-      curl gdb python-pip tzdata unzip zip \
+      curl gdb python tzdata unzip zip \
       $EXTRA_APT_PACKAGES
     # Use ld.gold per default, so that LTO is tested
     update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
-    # Install lit
-    python -m pip install --user lit
-    python -c "import lit; lit.main();" --version | head -n 1
     # Download & extract host LDC
     curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-x86_64.tar.xz
     mkdir host-ldc
@@ -123,18 +129,11 @@ task:
     mkdir ninja
     tar -xf ninja-mac.zip -C ninja
     rm ninja-mac.zip
-    # Install pip
-    curl -OL https://bootstrap.pypa.io/get-pip.py
-    python get-pip.py --user
-    rm get-pip.py
     # Download & extract LDC-flavoured LLVM with enabled assertions
     curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-osx-x86_64-withAsserts.tar.xz
     mkdir llvm
     tar -xf llvm.tar.xz --strip 1 -C llvm
     rm llvm.tar.xz
-    # Install lit
-    python -m pip install --user lit
-    python -c "import lit; lit.main();" --version | head -n 1
     # Download & extract host LDC
     curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-osx-x86_64.tar.xz
     mkdir host-ldc
@@ -158,13 +157,6 @@ task:
     cd $CIRRUS_WORKING_DIR/..
     sysctl -n hw.ncpu
     pkg install -y git cmake ninja gmake llvm ldc bash
-    # Install pip
-    curl -OL https://bootstrap.pypa.io/get-pip.py
-    python get-pip.py --user
-    rm get-pip.py
-    # Install lit
-    python -m pip install --user lit
-    python -c "import lit; lit.main();" --version | head -n 1
     # Use FreeBSD's ldc as host D compiler
     ln -s /usr/local host-ldc
   << : *COMMON_STEPS_TEMPLATE
