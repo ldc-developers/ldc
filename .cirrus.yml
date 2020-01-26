@@ -65,6 +65,33 @@ install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
     tar -xf ldc2.tar.xz --strip 1 -C host-ldc
     rm ldc2.tar.xz
 
+# Installs macOS prerequisites.
+# Requires env variables HOST_LDC_VERSION and LLVM_VERSION.
+install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
+  install_prerequisites_script: |
+    cd $CIRRUS_WORKING_DIR/..
+    sysctl -n hw.logicalcpu
+    # Download & extract CMake
+    curl -L -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.16.3/cmake-3.16.3-Darwin-x86_64.tar.gz
+    mkdir cmake
+    tar -xf cmake.tar.gz --strip 3 -C cmake
+    rm cmake.tar.gz
+    # Download & extract Ninja
+    curl -OL https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-mac.zip
+    mkdir ninja
+    tar -xf ninja-mac.zip -C ninja
+    rm ninja-mac.zip
+    # Download & extract LDC-flavoured LLVM with enabled assertions
+    curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-osx-x86_64-withAsserts.tar.xz
+    mkdir llvm
+    tar -xf llvm.tar.xz --strip 1 -C llvm
+    rm llvm.tar.xz
+    # Download & extract host LDC
+    curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-osx-x86_64.tar.xz
+    mkdir host-ldc
+    tar -xf ldc2.tar.xz --strip 1 -C host-ldc
+    rm ldc2.tar.xz
+
 environment:
   CIRRUS_CLONE_DEPTH: 50
   HOST_LDC_VERSION: 1.19.0
@@ -116,29 +143,23 @@ task:
     OS: osx
     PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
     PARALLELISM: 4
-  install_prerequisites_script: |
-    cd $CIRRUS_WORKING_DIR/..
-    sysctl -n hw.logicalcpu
-    # Download & extract CMake
-    curl -L -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.15.3/cmake-3.15.3-Darwin-x86_64.tar.gz
-    mkdir cmake
-    tar -xf cmake.tar.gz --strip 3 -C cmake
-    rm cmake.tar.gz
-    # Download & extract Ninja
-    curl -OL https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-mac.zip
-    mkdir ninja
-    tar -xf ninja-mac.zip -C ninja
-    rm ninja-mac.zip
-    # Download & extract LDC-flavoured LLVM with enabled assertions
-    curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-osx-x86_64-withAsserts.tar.xz
-    mkdir llvm
-    tar -xf llvm.tar.xz --strip 1 -C llvm
-    rm llvm.tar.xz
-    # Download & extract host LDC
-    curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-osx-x86_64.tar.xz
-    mkdir host-ldc
-    tar -xf ldc2.tar.xz --strip 1 -C host-ldc
-    rm ldc2.tar.xz
+  << : *INSTALL_MACOS_PREREQUISITES_TEMPLATE
+  << : *COMMON_STEPS_TEMPLATE
+
+task:
+  name: macOS 10.14 x64 shared-libs-only
+  osx_instance:
+    image: mojave-xcode
+  timeout_in: 120m
+  environment:
+    CI_OS: osx
+    LLVM_VERSION: 9.0.1
+    EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON"
+    # OS is preset to `darwin`
+    OS: osx
+    PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
+    PARALLELISM: 4
+  << : *INSTALL_MACOS_PREREQUISITES_TEMPLATE
   << : *COMMON_STEPS_TEMPLATE
 
 task:
