@@ -4,7 +4,7 @@
 common_steps_template: &COMMON_STEPS_TEMPLATE
   install_pip_and_lit_script: |
     # Install pip
-    curl -OL https://bootstrap.pypa.io/get-pip.py
+    curl --max-time 300 --retry 3 -OL https://bootstrap.pypa.io/get-pip.py
     python get-pip.py --user
     rm get-pip.py
     # Install lit
@@ -60,7 +60,7 @@ install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
     # Use ld.gold per default, so that LTO is tested
     update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
     # Download & extract host LDC
-    curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-x86_64.tar.xz
+    curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-x86_64.tar.xz
     mkdir host-ldc
     tar -xf ldc2.tar.xz --strip 1 -C host-ldc
     rm ldc2.tar.xz
@@ -72,22 +72,22 @@ install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
     cd $CIRRUS_WORKING_DIR/..
     sysctl -n hw.logicalcpu
     # Download & extract CMake
-    curl -L -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.16.3/cmake-3.16.3-Darwin-x86_64.tar.gz
+    curl --max-time 300 --retry 3 -L -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.16.3/cmake-3.16.3-Darwin-x86_64.tar.gz
     mkdir cmake
     tar -xf cmake.tar.gz --strip 3 -C cmake
     rm cmake.tar.gz
     # Download & extract Ninja
-    curl -OL https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-mac.zip
+    curl --max-time 300 --retry 3 -OL https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-mac.zip
     mkdir ninja
     tar -xf ninja-mac.zip -C ninja
     rm ninja-mac.zip
     # Download & extract LDC-flavoured LLVM with enabled assertions
-    curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-osx-x86_64-withAsserts.tar.xz
+    curl --max-time 300 --retry 3 -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-osx-x86_64-withAsserts.tar.xz
     mkdir llvm
     tar -xf llvm.tar.xz --strip 1 -C llvm
     rm llvm.tar.xz
     # Download & extract host LDC
-    curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-osx-x86_64.tar.xz
+    curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-osx-x86_64.tar.xz
     mkdir host-ldc
     tar -xf ldc2.tar.xz --strip 1 -C host-ldc
     rm ldc2.tar.xz
@@ -102,7 +102,7 @@ task:
     image: ubuntu:18.04
     cpu: 8
     memory: 16G
-  timeout_in: 120m
+  timeout_in: 60m
   environment:
     CI_OS: linux
     LIBCLANG_COMMON_VERSION: "6.0"
@@ -117,7 +117,7 @@ task:
     image: ubuntu:rolling
     cpu: 8
     memory: 16G
-  timeout_in: 120m
+  timeout_in: 60m
   environment:
     CI_OS: linux
     LIBCLANG_COMMON_VERSION: "9"
@@ -131,10 +131,10 @@ task:
   << : *COMMON_STEPS_TEMPLATE
 
 task:
-  name: macOS 10.14 x64
+  name: macOS 10.15 x64
   osx_instance:
-    image: mojave-xcode
-  timeout_in: 120m
+    image: catalina-xcode
+  timeout_in: 60m
   environment:
     CI_OS: osx
     LLVM_VERSION: 9.0.1
@@ -147,10 +147,10 @@ task:
   << : *COMMON_STEPS_TEMPLATE
 
 task:
-  name: macOS 10.14 x64 shared-libs-only
+  name: macOS 10.15 x64 shared-libs-only
   osx_instance:
-    image: mojave-xcode
-  timeout_in: 120m
+    image: catalina-xcode
+  timeout_in: 60m
   environment:
     CI_OS: osx
     LLVM_VERSION: 9.0.1
@@ -169,7 +169,7 @@ task:
     image_family: freebsd-12-1
     cpu: 4
     memory: 8G
-  timeout_in: 120m
+  timeout_in: 60m
   environment:
     CI_OS: freebsd
     EXTRA_CMAKE_FLAGS: ""

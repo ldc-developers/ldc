@@ -107,7 +107,7 @@ jobs:
       - LIBCLANG_COMMON_VERSION: "6.0"
       - HOST_LDC_VERSION: 1.19.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
-  Ubuntu-rolling-multilib-sharedLibsOnly:
+  Ubuntu-rolling-multilib-sharedLibsOnly-gdmd:
     <<: *commonSteps
     docker:
       - image: ubuntu:rolling
@@ -141,6 +141,6 @@ workflows:
   build:
     jobs:
       - Ubuntu-18.04-multilib-rtSanitizers
-      - Ubuntu-rolling-multilib-sharedLibsOnly
+      - Ubuntu-rolling-multilib-sharedLibsOnly-gdmd
       - macOS-x64
       - macOS-x64-sharedLibsOnly
