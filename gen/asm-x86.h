@@ -3884,17 +3884,13 @@ struct AsmProcessor {
   }
 
   void doData() {
-    stmt->error(
-        "Data definition directives inside inline asm are not supported yet.");
-// TODO: data instructions not implemented.
-#if 0
-    static const char * directives[] = { ".byte", ".short", ".long", ".long",
-                                         "", "", "" };
+    static const char *directives[] = {".byte", ".short", ".long", ".quad",
+                                       ".long", ".quad",  ".quad"};
 
-    machine_mode mode;
+    insnTemplate << directives[op - Op_db] << ' ';
 
-    insnTemplate->writestring(static_cast<char*>(directives[op - Op_db]));
-    insnTemplate->writebyte(' ');
+    const llvm::fltSemantics *realSemantics = nullptr;
+    unsigned realSizeInBits = 0;
 
     do {
       // DMD is pretty strict here, not even constant expressions are allowed..
@@ -3907,53 +3903,74 @@ struct AsmProcessor {
             token->value == TOKint64v || token->value == TOKuns64v) {
           // As per usual with GNU, assume at least 32-bit host
           if (op != Op_dl) {
-            insnTemplate->printf("%u", (d_uns32) token->unsvalue);
+            insnTemplate << static_cast<d_uns32>(token->unsvalue);
           } else {
-            // Output two .longS.  GAS has .quad, but would have to rely on 'L'
-            // format ..
-            // just need to use HOST_WIDE_INT_PRINT_DEC
-            insnTemplate->printf("%u,%u", (d_uns32) token->unsvalue,
-                                 (d_uns32) (token->unsvalue >> 32));
+            insnTemplate << token->unsvalue;
           }
         } else {
           stmt->error("expected integer constant");
         }
         break;
       case Op_df:
-        mode = SFmode;
-        goto do_float;
       case Op_dd:
-        mode = DFmode;
-        goto do_float;
       case Op_de:
-#ifndef TARGET_80387
-#define XFmode TFmode
-#endif
-        mode = XFmode; // not TFmode
-        // fallthrough
-      do_float:
         if (token->value == TOKfloat32v || token->value == TOKfloat64v ||
             token->value == TOKfloat80v) {
-          long words[3];
-          real_to_target(words, & token->floatvalue.rv(), mode);
-          // don't use directives..., just use .long like GCC
-          insnTemplate->printf(".long\t%u", words[0]);
-          if (mode != SFmode)
-          insnTemplate->printf(",%u", words[1]);
-          // DMD outputs 10 bytes, so we need to switch to .short here
-          if (mode == XFmode)
-          insnTemplate->printf("\n\t.short\t%u", words[2]);
+          if (op == Op_df) {
+            const float value = static_cast<float>(token->floatvalue);
+            insnTemplate << reinterpret_cast<const d_uns32 &>(value);
+          } else if (op == Op_dd) {
+            const double value = static_cast<double>(token->floatvalue);
+            insnTemplate << reinterpret_cast<const d_uns64 &>(value);
+          } else if (op == Op_de) {
+            llvm::APFloat value(0.0);
+            CTFloat::toAPFloat(token->floatvalue, value);
+
+            if (!realSemantics)
+              realSemantics = &DtoType(Type::tfloat80)->getFltSemantics();
+
+            if (&value.getSemantics() != realSemantics) {
+              bool ignored;
+              value.convert(*realSemantics, APFloat::rmNearestTiesToEven,
+                            &ignored);
+            }
+
+            const auto asInt = value.bitcastToAPInt();
+            if (realSizeInBits == 0)
+              realSizeInBits = asInt.getBitWidth();
+
+            auto *ptr = reinterpret_cast<const d_uns64 *>(asInt.getRawData());
+            insnTemplate << ptr[0];
+            if (realSizeInBits == 64) { // e.g., MSVC x86(_64)
+              // nothing left to do
+            } else if (realSizeInBits == 128) { // e.g., Android x64
+              insnTemplate << ',' << ptr[1];
+            } else if (realSizeInBits == 80) {
+              // DMD outputs 10 bytes, so we need to switch to .short here
+              insnTemplate << "\n\t.short "
+                           << *reinterpret_cast<const d_uns16 *>(ptr + 1);
+            } else {
+              stmt->error("unsupported target `real` size");
+            }
+          } else {
+            llvm_unreachable("unexpected op");
+          }
         } else {
           stmt->error("expected float constant");
         }
         break;
       default:
-        abort();
+        stmt->error("Unsupported data definition directive inside inline asm.");
+        break;
       }
 
       nextToken();
       if (token->value == TOKcomma) {
-        insnTemplate->writebyte(',');
+        if (op == Op_de && realSizeInBits == 80) {
+          insnTemplate << "\n\t.quad "; // switch from .short back to .quad
+        } else {
+          insnTemplate << ',';
+        }
         nextToken();
       } else if (token->value == TOKeof) {
         break;
@@ -3963,7 +3980,6 @@ struct AsmProcessor {
     } while (1);
 
     setAsmCode();
-#endif
   }
 };
 
