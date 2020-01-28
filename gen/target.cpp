@@ -48,6 +48,10 @@ unsigned getCriticalSectionSize(const Param &params) {
   // POSIX: sizeof(pthread_mutex_t)
   // based on druntime/src/core/sys/posix/sys/types.d
   const auto &triple = *params.targetTriple;
+
+  if (triple.isOSDarwin())
+    return is64bit ? 64 : 44;
+
   const auto arch = triple.getArch();
   switch (triple.getOS()) {
   case llvm::Triple::Linux:
@@ -58,10 +62,6 @@ unsigned getCriticalSectionSize(const Param &params) {
     if (arch == llvm::Triple::aarch64 || arch == llvm::Triple::aarch64_be)
       return 48;
     return is64bit ? 40 : 24;
-
-  case llvm::Triple::Darwin:
-  case llvm::Triple::MacOSX:
-    return is64bit ? 64 : 44;
 
   case llvm::Triple::NetBSD:
     return is64bit ? 48 : 28;
@@ -287,6 +287,6 @@ Expression *Target::getTargetInfo(const char *name_, const Loc &loc) {
                 mem.xstrdup(opts::dcomputeFilePrefix.c_str()));
   }
 #endif
-    
+
   return nullptr;
 }

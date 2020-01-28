@@ -124,7 +124,7 @@ RegistryStyle getModuleRegistryStyle() {
     return RegistryStyle::sectionMSVC;
   }
 
-  if (t->isMacOSX()) {
+  if (t->isOSDarwin()) {
     return RegistryStyle::sectionDarwin;
   }
 
