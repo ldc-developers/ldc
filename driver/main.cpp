@@ -817,7 +817,6 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang");
     break;
-  break;
   default:
     if (triple.getEnvironment() == llvm::Triple::Android) {
       VersionCondition::addPredefinedGlobalIdent("Android");

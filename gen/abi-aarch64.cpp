@@ -9,6 +9,7 @@
 //
 // The Procedure Call Standard can be found here:
 // http://infocenter.arm.com/help/topic/com.arm.doc.ihi0055b/IHI0055B_aapcs64.pdf
+// https://github.com/ARM-software/software-standards/blob/master/abi/aapcs64/aapcs64.rst
 //
 //===----------------------------------------------------------------------===//
 
@@ -20,7 +21,7 @@
 #include "gen/abi-generic.h"
 
 /**
- * The AACPS64 uses a special native va_list type:
+ * The AAPCS64 uses a special native va_list type:
  *
  * typedef struct __va_list {
  *     void *__stack; // next stack param
@@ -38,20 +39,16 @@
  */
 struct AArch64TargetABI : TargetABI {
 private:
+  const bool isDarwin;
   IndirectByvalRewrite byvalRewrite;
   HFAToArray hfaToArray;
   CompositeToArray64 compositeToArray64;
   IntegerRewrite integerRewrite;
 
-  bool isVaList(Type *t) {
-    if (global.params.targetTriple->isOSDarwin())
-    {
-      return t->ty == Tpointer &&
-        static_cast<TypePointer*>(t)->next->ty == Tchar;
-    }
-    else
-      return t->ty == Tstruct && strcmp(t->toPrettyChars(true),
-                                      "ldc.internal.vararg.std.__va_list") == 0;
+  bool isAAPCS64VaList(Type *t) {
+    return !isDarwin && t->ty == Tstruct &&
+           strcmp(t->toPrettyChars(true),
+                  "ldc.internal.vararg.std.__va_list") == 0;
   }
 
   bool passIndirectlyByValue(Type *t) {
@@ -61,6 +58,8 @@ private:
   }
 
 public:
+  AArch64TargetABI() : isDarwin(global.params.targetTriple->isOSDarwin()) {}
+
   bool returnInArg(TypeFunction *tf, bool) override {
     if (tf->isref) {
       return false;
@@ -95,7 +94,7 @@ public:
     if (t->ty != Tstruct && t->ty != Tsarray)
       return;
 
-    if (!isReturnVal && isVaList(t)) {
+    if (!isReturnVal && isAAPCS64VaList(t)) {
       // compiler magic: pass va_list args implicitly by reference
       arg.byref = true;
       arg.ltype = arg.ltype->getPointerTo();
@@ -121,15 +120,14 @@ public:
   }
 
   Type *vaListType() override {
-    if (global.params.targetTriple->isOSDarwin())
-      return Type::tchar->pointerTo();
-    else {
-      // We need to pass the actual va_list type for correct mangling. Simply
-      // using TypeIdentifier here is a bit wonky but works, as long as the name
-      // is actually available in the scope (this is what DMD does, so if a better
-      // solution is found there, this should be adapted).
-      return createTypeIdentifier(Loc(), Identifier::idPool("__va_list"));
-    }
+    if (isDarwin)
+      return TargetABI::vaListType(); // char*
+
+    // We need to pass the actual va_list type for correct mangling. Simply
+    // using TypeIdentifier here is a bit wonky but works, as long as the name
+    // is actually available in the scope (this is what DMD does, so if a better
+    // solution is found there, this should be adapted).
+    return createTypeIdentifier(Loc(), Identifier::idPool("__va_list"));
   }
 
   const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override {
