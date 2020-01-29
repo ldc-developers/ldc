@@ -94,7 +94,21 @@ static void replace_func_name(IRState *p, std::string &insnt) {
   }
 }
 
+Statement *gccAsmSemantic(GccAsmStatement *s, Scope *sc);
+
 Statement *asmSemantic(AsmStatement *s, Scope *sc) {
+  if (!s->tokens) {
+    return nullptr;
+  }
+
+  sc->func->hasReturnExp |= 8;
+
+  // GCC-style asm starts with a string expression
+  if (s->tokens->value == TOKstring) {
+    auto gas = createGccAsmStatement(s->loc, s->tokens);
+    return gccAsmSemantic(gas, sc);
+  }
+
   auto ias = createInlineAsmStatement(s->loc, s->tokens);
   s = ias;
 
@@ -121,14 +135,6 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
 
   // puts(toChars());
 
-  sc->func->hasReturnExp |= 8;
-
-  // empty statement -- still do the above things because they might be
-  // expected?
-  if (!s->tokens) {
-    return s;
-  }
-
   if (!asmparser) {
     if (t.getArch() == llvm::Triple::x86) {
       asmparser = new AsmParserx8632::AsmParser;
@@ -140,6 +146,103 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
   asmparser->run(sc, ias);
 
   return s;
+}
+
+static llvm::StringRef peekString(StringExp *se) {
+  DString slice = se->peekString();
+  return {slice.ptr, slice.length};
+}
+
+void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
+  IF_LOG Logger::println("GccAsmStatement::toIR(): %s", stmt->loc.toChars());
+  LOG_SCOPE;
+
+  if (stmt->labels) {
+    stmt->error("labels in GCC-style assembly are not supported yet");
+    fatal();
+  }
+
+  llvm::StringRef insn = peekString(stmt->insn->isStringExp());
+
+  std::ostringstream constraints;
+  const auto appendConstraintCode = [&constraints](Expression *e,
+                                                   char prefix = 0) {
+    auto se = e->isStringExp();
+    assert(se);
+    llvm::StringRef code = peekString(se);
+    assert(!code.empty());
+
+    // commit prefix and strip from `code`, if present
+    if (prefix) {
+      constraints << prefix;
+      if (code[0] == prefix)
+        code = code.substr(1);
+    }
+
+    // commit any modifier and strip from `code`
+    if (code.startswith("&")) { // early clobber
+      constraints << '&';
+      code = code.substr(1);
+    } else if (code.startswith("*")) { // indirect in/output
+      constraints << '*';
+      code = code.substr(1);
+    }
+
+    // check whether it's no register name to be enclosed in curly braces
+    auto len = code.size();
+    bool noCurlyBraces = (len == 1 || (len == 3 && code.startswith("^")) ||
+                          code.startswith("{"));
+
+    if (!noCurlyBraces)
+      constraints << '{';
+    constraints.write(code.data(), code.size());
+    if (!noCurlyBraces)
+      constraints << '}';
+
+    constraints << ',';
+  };
+
+  if (stmt->constraints) {
+    for (size_t i = 0; i < stmt->constraints->length; ++i) {
+      bool isOutput = (i < stmt->outputargs);
+      appendConstraintCode((*stmt->constraints)[i], isOutput ? '=' : 0);
+    }
+  }
+
+  if (stmt->clobbers) {
+    for (auto e : *stmt->clobbers) {
+      appendConstraintCode(e, '~');
+    }
+  }
+
+  // remove trailing ','
+  std::string finalConstraints = constraints.str();
+  if (auto size = finalConstraints.size())
+    finalConstraints.resize(size - 1);
+
+  LLSmallVector<LLValue *, 8> outputLVals;
+  LLSmallVector<Expression *, 8> inputArgs;
+  if (stmt->args) {
+    for (size_t i = 0; i < stmt->args->length; ++i) {
+      Expression *e = (*stmt->args)[i];
+      if (i < stmt->outputargs) {
+        outputLVals.push_back(DtoLVal(e));
+      } else {
+        inputArgs.push_back(e);
+      }
+    }
+  }
+
+  LLType *returnType = llvm::Type::getVoidTy(irs->context());
+  // TODO: support multiple output
+  if (outputLVals.size() == 1)
+    returnType = outputLVals[0]->getType()->getContainedType(0);
+
+  LLValue *rval = DtoInlineAsmExpr(stmt->loc, insn, finalConstraints, inputArgs,
+                                   returnType);
+
+  if (!returnType->isVoidTy())
+    DtoStore(rval, outputLVals[0]);
 }
 
 void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
@@ -346,7 +449,8 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
       // Change update operand to pure output operand.
       oc = mw_cns;
 
-      // Add input operand with same value, with original as "matching output".
+      // Add input operand with same value, with original as "matching
+      // output".
       std::ostringstream ss;
       ss << '*' << (n + asmblock->outputcount);
       // Must be at the back; unused operands before used ones screw up
@@ -474,6 +578,11 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   // do asm statements
   for (Statement *s : *stmt->statements) {
     if (s) {
+      if (s->isGccAsmStatement()) {
+        s->error("GCC-style assembly statement unsupported within DMD-style "
+                 "`asm` block");
+        fatal();
+      }
       Statement_toIR(s, p);
     }
   }
@@ -496,7 +605,8 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     mangleToBuffer(fd, &mangleBuf);
     const char *fdmangle = mangleBuf.peekChars();
 
-    // we use a simple static counter to make sure the new end labels are unique
+    // we use a simple static counter to make sure the new end labels are
+    // unique
     static size_t uniqueLabelsId = 0;
     std::ostringstream asmGotoEndLabel;
     printLabelName(asmGotoEndLabel, fdmangle, "_llvm_asm_end");

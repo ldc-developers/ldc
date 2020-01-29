@@ -42,6 +42,7 @@
 
 //////////////////////////////////////////////////////////////////////////////
 // FIXME: Integrate these functions
+void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs);
 void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs);
 void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p);
 
@@ -1671,10 +1672,20 @@ public:
     AsmStatement_toIR(stmt, irs);
   }
 
+  void visit(GccAsmStatement *stmt) override {
+    assert(!irs->dcomputetarget);
+    GccAsmStatement_toIR(stmt, irs);
+  }
+
   //////////////////////////////////////////////////////////////////////////
 
   void visit(CompoundAsmStatement *stmt) override {
     assert(!irs->dcomputetarget);
+    // TODO: need to support multiple nested gcc-asm statements?
+    if (stmt->statements->length == 1) {
+      if (auto gas = stmt->statements->front()->isGccAsmStatement())
+        return visit(gas);
+    }
     CompoundAsmStatement_toIR(stmt, irs);
   }
 
