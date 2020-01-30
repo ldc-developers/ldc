@@ -166,7 +166,7 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
 
   std::ostringstream constraints;
   const auto appendConstraintCode = [&constraints](Expression *e,
-                                                   char prefix = 0) {
+                                                   char prefix = 0) -> bool {
     auto se = e->isStringExp();
     assert(se);
     llvm::StringRef code = peekString(se);
@@ -180,10 +180,12 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
     }
 
     // commit any modifier and strip from `code`
+    bool isIndirect = false;
     if (code.startswith("&")) { // early clobber
       constraints << '&';
       code = code.substr(1);
     } else if (code.startswith("*")) { // indirect in/output
+      isIndirect = true;
       constraints << '*';
       code = code.substr(1);
     }
@@ -200,12 +202,18 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
       constraints << '}';
 
     constraints << ',';
+
+    return isIndirect;
   };
 
+  LLSmallVector<bool, 8> isIndirectOutput(stmt->outputargs, false);
   if (stmt->constraints) {
     for (size_t i = 0; i < stmt->constraints->length; ++i) {
       bool isOutput = (i < stmt->outputargs);
-      appendConstraintCode((*stmt->constraints)[i], isOutput ? '=' : 0);
+      bool isIndirect =
+          appendConstraintCode((*stmt->constraints)[i], isOutput ? '=' : 0);
+      if (isOutput && isIndirect)
+        isIndirectOutput[i] = true;
     }
   }
 
@@ -222,14 +230,20 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
 
   LLSmallVector<LLValue *, 8> outputLVals;
   LLSmallVector<LLType *, 8> outputTypes;
+  LLSmallVector<LLValue *, 8> indirectOutputLVals;
   LLSmallVector<Expression *, 8> inputArgs;
   if (stmt->args) {
     for (size_t i = 0; i < stmt->args->length; ++i) {
       Expression *e = (*stmt->args)[i];
-      if (i < stmt->outputargs) {
+      const bool isOutput = (i < stmt->outputargs);
+      if (isOutput) {
         LLValue *lval = DtoLVal(e);
-        outputLVals.push_back(lval);
-        outputTypes.push_back(lval->getType()->getPointerElementType());
+        if (isIndirectOutput[i]) {
+          indirectOutputLVals.push_back(lval);
+        } else {
+          outputLVals.push_back(lval);
+          outputTypes.push_back(lval->getType()->getPointerElementType());
+        }
       } else {
         inputArgs.push_back(e);
       }
@@ -249,8 +263,8 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
     break;
   }
 
-  LLValue *rval = DtoInlineAsmExpr(stmt->loc, insn, finalConstraints, inputArgs,
-                                   returnType);
+  LLValue *rval = DtoInlineAsmExpr(stmt->loc, insn, finalConstraints,
+                                   indirectOutputLVals, inputArgs, returnType);
 
   switch (outputTypes.size()) {
   case 0:

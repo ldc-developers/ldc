@@ -146,10 +146,10 @@ unsigned getFieldGEPIndex(AggregateDeclaration *ad, VarDeclaration *vd);
 DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
                          LLValue *sretPointer = nullptr);
 ///
-llvm::CallInst *DtoInlineAsmExpr(const Loc &loc, llvm::StringRef code,
-                                 llvm::StringRef constraints,
-                                 llvm::ArrayRef<Expression *> arguments,
-                                 llvm::Type *returnType);
+llvm::CallInst *DtoInlineAsmExpr(
+    const Loc &loc, llvm::StringRef code, llvm::StringRef constraints,
+    llvm::ArrayRef<llvm::Value *> indirectOutputLVals,
+    llvm::ArrayRef<Expression *> arguments, llvm::Type *returnType);
 
 /// Returns the size the LLVM type for a member variable of the given type will
 /// take up in a struct (in bytes). This does not include padding in any way.

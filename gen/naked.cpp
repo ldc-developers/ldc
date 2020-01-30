@@ -443,7 +443,8 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
   Type *returnType = fd->type->nextOf();
   LLType *irReturnType = DtoType(returnType->toBasetype());
 
-  LLValue *rv = DtoInlineAsmExpr(loc, code, constraints, args, irReturnType);
+  LLValue *rv =
+      DtoInlineAsmExpr(loc, code, constraints, {}, args, irReturnType);
 
   // work around missing tuple support for users of the return value
   if (sretPointer || returnType->ty == Tstruct) {
@@ -458,22 +459,24 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
   return new DImValue(returnType, rv);
 }
 
-llvm::CallInst *DtoInlineAsmExpr(const Loc &loc, llvm::StringRef code,
-                                 llvm::StringRef constraints,
-                                 llvm::ArrayRef<Expression *> arguments,
-                                 llvm::Type *returnType) {
+llvm::CallInst *DtoInlineAsmExpr(
+    const Loc &loc, llvm::StringRef code, llvm::StringRef constraints,
+    llvm::ArrayRef<llvm::Value *> indirectOutputLVals,
+    llvm::ArrayRef<Expression *> arguments, llvm::Type *returnType) {
   IF_LOG Logger::println("DtoInlineAsmExpr @ %s", loc.toChars());
   LOG_SCOPE;
 
-  const size_t n = arguments.size();
+  const size_t numTotalIRArgs = indirectOutputLVals.size() + arguments.size();
   LLSmallVector<LLValue *, 8> irArgs;
   LLSmallVector<LLType *, 8> irArgTypes;
-  irArgs.reserve(n);
-  irArgTypes.reserve(n);
-  for (auto *arg : arguments) {
-    irArgs.push_back(DtoRVal(arg));
-    irArgTypes.push_back(irArgs.back()->getType());
-  }
+  irArgs.reserve(numTotalIRArgs);
+  irArgTypes.reserve(numTotalIRArgs);
+  for (auto *lval : indirectOutputLVals)
+    irArgs.push_back(lval);
+  for (auto *e : arguments)
+    irArgs.push_back(DtoRVal(e));
+  for (auto *arg : irArgs)
+    irArgTypes.push_back(arg->getType());
 
   // build asm function type
   llvm::FunctionType *FT =

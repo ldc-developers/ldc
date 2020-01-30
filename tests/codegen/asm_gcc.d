@@ -12,7 +12,7 @@ void cpuid()
     asm { "cpuid" : "=eax" max_extended_cpuid : "eax" 0x8000_0000 : "ebx", "ecx", "edx"; }
 }
 
-// CHECK: define void @_D7asm_gcc14multipleOutputFZv()
+// CHECK: define void @_D7asm_gcc14multipleOutputFZv
 void multipleOutput()
 {
     // CHECK-NEXT: %r = alloca [4 x i32]
@@ -31,4 +31,27 @@ void multipleOutput()
     // CHECK-NEXT: %9 = extractvalue { i32, i32, i32, i32 } %5, 3
     // CHECK-NEXT: store i32 %9, i32* %4
     asm { "cpuid" : "=eax" r[0], "=ebx" r[1], "=ecx" r[2], "=edx" r[3] : "eax" 2; }
+}
+
+// CHECK: define void @_D7asm_gcc14indirectOutputFkZv
+void indirectOutput(uint eax)
+{
+    // CHECK-NEXT: %eax = alloca i32
+    // CHECK-NEXT: %r = alloca [4 x i32]
+    // CHECK-NEXT: store i32 %eax_arg, i32* %eax
+    uint[4] r = void;
+    // CHECK-NEXT: %1 = load i32, i32* %eax
+    // CHECK-NEXT: call void asm sideeffect "cpuid
+    // CHECK-SAME: "=*m,{eax},~{eax},~{ebx},~{ecx},~{edx}"([4 x i32]* %r, i32 %1)
+    asm
+    {
+        `cpuid
+         movl %eax,   $0
+         movl %ebx,  4$0
+         movl %ecx,  8$0
+         movl %edx, 12$0`
+        : "=*m" r
+        : "eax" eax
+        : "eax", "ebx", "ecx", "edx";
+    }
 }
