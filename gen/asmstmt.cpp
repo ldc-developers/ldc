@@ -221,28 +221,50 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
     finalConstraints.resize(size - 1);
 
   LLSmallVector<LLValue *, 8> outputLVals;
+  LLSmallVector<LLType *, 8> outputTypes;
   LLSmallVector<Expression *, 8> inputArgs;
   if (stmt->args) {
     for (size_t i = 0; i < stmt->args->length; ++i) {
       Expression *e = (*stmt->args)[i];
       if (i < stmt->outputargs) {
-        outputLVals.push_back(DtoLVal(e));
+        LLValue *lval = DtoLVal(e);
+        outputLVals.push_back(lval);
+        outputTypes.push_back(lval->getType()->getPointerElementType());
       } else {
         inputArgs.push_back(e);
       }
     }
   }
 
-  LLType *returnType = llvm::Type::getVoidTy(irs->context());
-  // TODO: support multiple output
-  if (outputLVals.size() == 1)
-    returnType = outputLVals[0]->getType()->getContainedType(0);
+  LLType *returnType;
+  switch (outputTypes.size()) {
+  case 0:
+    returnType = llvm::Type::getVoidTy(irs->context());
+    break;
+  case 1:
+    returnType = outputTypes[0];
+    break;
+  default:
+    returnType = LLStructType::get(irs->context(), outputTypes);
+    break;
+  }
 
   LLValue *rval = DtoInlineAsmExpr(stmt->loc, insn, finalConstraints, inputArgs,
                                    returnType);
 
-  if (!returnType->isVoidTy())
+  switch (outputTypes.size()) {
+  case 0:
+    break;
+  case 1:
     DtoStore(rval, outputLVals[0]);
+    break;
+  default:
+    for (size_t i = 0; i < outputTypes.size(); ++i) {
+      auto element = DtoExtractValue(rval, i);
+      DtoStore(element, outputLVals[i]);
+    }
+    break;
+  }
 }
 
 void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
