@@ -55,3 +55,14 @@ void indirectOutput(uint eax)
         : "eax", "ebx", "ecx", "edx";
     }
 }
+
+// CHECK: define void @_D7asm_gcc15specialNamesX86FZv
+void specialNamesX86()
+{
+    byte b;
+    short s;
+    int i;
+    long l;
+    // CHECK: = call { i8, i16, i32, i64 } asm sideeffect "nop", "={ax},={bx},={cx},={dx},{si},{di}"(i16 %1, i64 2) ; [#uses = 4]
+    asm { "nop" : "=a" b, "=b" s, "=c" i, "=d" l : "S" short(1), "D" 2L; }
+}

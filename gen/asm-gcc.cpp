@@ -22,6 +22,7 @@ llvm::StringRef peekString(StringExp *se) {
 }
 
 class ConstraintsBuilder {
+  bool isAnyX86;
   std::ostringstream str; // LLVM constraints string being built
   LLSmallVector<bool, 8> isIndirectOutput;
 
@@ -51,28 +52,52 @@ class ConstraintsBuilder {
       code = code.substr(1);
     }
 
-    bool withCurlyBraces = needsCurlyBraces(code);
-
-    if (withCurlyBraces)
-      str << '{';
-    str.write(code.data(), code.size());
-    if (withCurlyBraces)
-      str << '}';
-
+    str << translateName(code);
     str << ',';
 
     return isIndirect;
   }
 
+  std::string translateName(llvm::StringRef gccName) const {
+    // some variable-width x86[_64] GCC register names aren't supported by LLVM
+    // directly
+    if (isAnyX86 && gccName.size() == 1) {
+      switch (gccName[0]) {
+      case 'a':
+        return "{ax}";
+      case 'b':
+        return "{bx}";
+      case 'c':
+        return "{cx}";
+      case 'd':
+        return "{dx}";
+      case 'S':
+        return "{si}";
+      case 'D':
+        return "{di}";
+      default:
+        break;
+      }
+    }
+
+    return needsCurlyBraces(gccName) ? ("{" + gccName + "}").str()
+                                     : gccName.str();
+  }
+
   // Register names need to be enclosed in curly braces for LLVM.
-  bool needsCurlyBraces(llvm::StringRef code) {
-    auto len = code.size();
-    bool noCurlyBraces = (len == 1 || (len == 3 && code.startswith("^")) ||
-                          code.startswith("{"));
+  bool needsCurlyBraces(llvm::StringRef name) const {
+    auto len = name.size();
+    bool noCurlyBraces = (len == 1 || (len == 3 && name.startswith("^")) ||
+                          name.startswith("{"));
     return !noCurlyBraces;
   }
 
 public:
+  ConstraintsBuilder() {
+    auto arch = global.params.targetTriple->getArch();
+    isAnyX86 = (arch == llvm::Triple::x86 || arch == llvm::Triple::x86_64);
+  }
+
   // Returns the final constraints string for LLVM for a GCC-style asm
   // statement.
   std::string build(GccAsmStatement *stmt) {
