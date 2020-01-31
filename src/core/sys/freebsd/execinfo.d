@@ -39,10 +39,7 @@ else
         else version (D_InlineAsm_X86_64)
             asm nothrow @trusted { mov p[RBP], RBP; }
         else version (AArch64) // LDC
-        {
-            import ldc.llvmasm;
-            __asm("str x29, $0", "=*m", &p);
-        }
+            asm nothrow @trusted { "str x29, %0" : "=m" (p); }
         else
             static assert(false, "Architecture not supported.");
 

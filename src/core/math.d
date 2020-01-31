@@ -243,13 +243,17 @@ version (LDC)
             // y * log2(x)
             real yl2x(real x, real y)   @safe pure nothrow
             {
-                return __asm_trusted!real("fyl2x", "={st},{st(1)},{st},~{st(1)}", y, x);
+                real r;
+                asm @safe pure nothrow @nogc { "fyl2x" : "=st" (r) : "st" (x), "st(1)" (y) : "st(1)"; }
+                return r;
             }
 
             // y * log2(x + 1)
             real yl2xp1(real x, real y) @safe pure nothrow
             {
-                return __asm_trusted!real("fyl2xp1", "={st},{st(1)},{st},~{st(1)}", y, x);
+                real r;
+                asm @safe pure nothrow @nogc { "fyl2xp1" : "=st" (r) : "st" (x), "st(1)" (y) : "st(1)"; }
+                return r;
             }
         }
     }
