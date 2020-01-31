@@ -78,18 +78,28 @@ class ConstraintsBuilder {
       str << '&';
       code = code.substr(1);
     } else if (code.startswith("*")) { // indirect in/output
-      isIndirect = true;
-      str << '*';
+      isIndirect = true; // delay the commit
       code = code.substr(1);
     }
 
-    str << translateName(code);
+    const std::string name = translateName(code, isIndirect);
+
+    if (isIndirect)
+      str << '*';
+    str << name;
     str << ',';
 
     return isIndirect;
   }
 
-  std::string translateName(llvm::StringRef gccName) const {
+  // Might set `isIndirect` to true (but never resets to false).
+  std::string translateName(llvm::StringRef gccName, bool &isIndirect) const {
+    // clang translates GCC `m` to LLVM `*m` (indirect operand)
+    if (gccName == "m") {
+      isIndirect = true;
+      return "m";
+    }
+
     // some variable-width x86[_64] GCC register names aren't supported by LLVM
     // directly
     if (isAnyX86 && gccName.size() == 1) {
@@ -116,11 +126,17 @@ class ConstraintsBuilder {
   }
 
   // Register names need to be enclosed in curly braces for LLVM.
-  bool needsCurlyBraces(llvm::StringRef name) const {
-    auto len = name.size();
-    bool noCurlyBraces = (len == 1 || (len == 3 && name.startswith("^")) ||
-                          name.startswith("{"));
-    return !noCurlyBraces;
+  bool needsCurlyBraces(llvm::StringRef gccName) const {
+    auto N = gccName.size();
+    if (N == 1 || (N == 3 && gccName[0] == '^'))
+      return false;
+    return llvm::all_of(gccName, [](char c) {
+#if LDC_LLVM_VER >= 600
+      return llvm::isAlnum(c);
+#else
+      return isalnum(c);
+#endif
+    });
   }
 
 public:

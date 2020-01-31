@@ -50,7 +50,7 @@ void indirectOutput(uint eax)
          movl %%ebx,  4%0
          movl %%ecx,  8%0
          movl %%edx, 12%0`
-        : "=*m" r
+        : "=m" r
         : "eax" eax
         : "eax", "ebx", "ecx", "edx";
     }
