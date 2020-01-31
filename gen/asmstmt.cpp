@@ -103,8 +103,8 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
 
   sc->func->hasReturnExp |= 8;
 
-  // GCC-style asm starts with a string expression
-  if (s->tokens->value == TOKstring) {
+  // GCC-style asm starts with a string literal or a `(`
+  if (s->tokens->value == TOKstring || s->tokens->value == TOKlparen) {
     auto gas = createGccAsmStatement(s->loc, s->tokens);
     return gccAsmSemantic(gas, sc);
   }
@@ -466,6 +466,23 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   IF_LOG Logger::println("CompoundAsmStatement::toIR(): %s",
                          stmt->loc.toChars());
   LOG_SCOPE;
+
+  const bool isCompoundGccAsmStatement =
+      (stmt->statements && stmt->statements->length &&
+       stmt->statements->front()->isGccAsmStatement());
+  if (isCompoundGccAsmStatement) {
+    for (Statement *s : *stmt->statements) {
+      if (auto gas = s->isGccAsmStatement()) {
+        Statement_toIR(gas, p);
+      } else {
+        s->error("DMD-style assembly statement unsupported within GCC-style "
+                 "`asm` block");
+        fatal();
+      }
+    }
+
+    return;
+  }
 
   // disable inlining by default
   if (!p->func()->decl->allowInlining) {

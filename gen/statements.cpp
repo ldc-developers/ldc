@@ -1681,11 +1681,6 @@ public:
 
   void visit(CompoundAsmStatement *stmt) override {
     assert(!irs->dcomputetarget);
-    // TODO: need to support multiple nested gcc-asm statements?
-    if (stmt->statements->length == 1) {
-      if (auto gas = stmt->statements->front()->isGccAsmStatement())
-        return visit(gas);
-    }
     CompoundAsmStatement_toIR(stmt, irs);
   }
 

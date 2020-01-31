@@ -9,7 +9,7 @@ void cpuid()
     uint max_extended_cpuid;
     // CHECK:      %1 = call i32 asm sideeffect "cpuid", "={eax},{eax},~{ebx},~{ecx},~{edx}"(i32 -2147483648)
     // CHECK-NEXT: store i32 %1, i32* %max_extended_cpuid
-    asm { "cpuid" : "=eax" max_extended_cpuid : "eax" 0x8000_0000 : "ebx", "ecx", "edx"; }
+    asm { "cpuid" : "=eax" (max_extended_cpuid) : "eax" (0x8000_0000) : "ebx", "ecx", "edx"; }
 }
 
 // CHECK: define void @_D7asm_gcc14multipleOutputFZv
@@ -30,7 +30,7 @@ void multipleOutput()
     // CHECK-NEXT: store i32 %8, i32* %3
     // CHECK-NEXT: %9 = extractvalue { i32, i32, i32, i32 } %5, 3
     // CHECK-NEXT: store i32 %9, i32* %4
-    asm { "cpuid" : "=eax" r[0], "=ebx" r[1], "=ecx" r[2], "=edx" r[3] : "eax" 2; }
+    asm { "cpuid" : "=eax" (r[0]), "=ebx" (r[1]), "=ecx" (r[2]), "=edx" (r[3]) : "eax" (2); }
 }
 
 // CHECK: define void @_D7asm_gcc14indirectOutputFkZv
@@ -50,8 +50,8 @@ void indirectOutput(uint eax)
          movl %%ebx,  4%0
          movl %%ecx,  8%0
          movl %%edx, 12%0`
-        : "=m" r
-        : "eax" eax
+        : "=m" (r)
+        : "eax" (eax)
         : "eax", "ebx", "ecx", "edx";
     }
 }
@@ -64,5 +64,5 @@ void specialNamesX86()
     int i;
     long l;
     // CHECK: = call { i8, i16, i32, i64 } asm sideeffect "nop", "={ax},={bx},={cx},={dx},{si},{di}"(i16 %1, i64 2) ; [#uses = 4]
-    asm { "nop" : "=a" b, "=b" s, "=c" i, "=d" l : "S" short(1), "D" 2L; }
+    asm { "nop" : "=a" (b), "=b" (s), "=c" (i), "=d" (l) : "S" (short(1)), "D" (2L); }
 }

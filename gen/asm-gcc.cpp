@@ -130,13 +130,11 @@ class ConstraintsBuilder {
     auto N = gccName.size();
     if (N == 1 || (N == 3 && gccName[0] == '^'))
       return false;
-    return llvm::all_of(gccName, [](char c) {
-#if LDC_LLVM_VER >= 600
-      return llvm::isAlnum(c);
+#if LDC_LLVM_VER >= 400
+    return !gccName.contains('{');
 #else
-      return isalnum(c);
+    return gccName.find('{') == llvm::StringRef::npos;
 #endif
-    });
   }
 
 public:
