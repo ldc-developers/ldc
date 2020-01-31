@@ -204,10 +204,13 @@ void fixRtModule(llvm::Module &newModule,
       // function, ignore
       continue;
     }
-    assert(!contains(thunkVar2func, it.second.thunkVar->getName()));
-    thunkVar2func.insert({it.second.thunkVar->getName(), it.first->getName()});
-    thunkFun2func.insert({it.second.thunkFunc->getName(), it.first->getName()});
-    externalFuncs.insert(it.first->getName());
+    assert(
+        !contains(thunkVar2func, std::string(it.second.thunkVar->getName())));
+    thunkVar2func.emplace(std::string(it.second.thunkVar->getName()),
+                          it.first->getName());
+    thunkFun2func.emplace(std::string(it.second.thunkFunc->getName()),
+                          it.first->getName());
+    externalFuncs.insert(std::string(it.first->getName()));
   }
 
   // Replace call to thunks in jitted code with direct calls to functions
@@ -216,7 +219,7 @@ void fixRtModule(llvm::Module &newModule,
       for (auto &op : instr.operands()) {
         auto val = op.get();
         if (auto callee = llvm::dyn_cast<llvm::Function>(val)) {
-          auto it = thunkFun2func.find(callee->getName());
+          auto it = thunkFun2func.find(std::string(callee->getName()));
           if (thunkFun2func.end() != it) {
             auto realFunc = newModule.getFunction(it->second);
             assert(nullptr != realFunc);
@@ -257,14 +260,14 @@ void removeFunctionsTargets(IRState *irs, llvm::Module &module) {
   std::unordered_map<std::string, IrFunction *> funcMap;
   for (auto &&fun : irs->targetCpuOrFeaturesOverridden) {
     assert(nullptr != fun);
-    funcMap.insert({fun->getLLVMFunc()->getName(), fun});
+    funcMap.emplace(std::string(fun->getLLVMFunc()->getName()), fun);
   }
 
   for (auto &&fun : module.functions()) {
     // Remove 'target-cpu' and 'target-features' attributes from all
     // functions except when they are set explicitly by user.
     // They will be set again by jitting lib to jit host values
-    auto it = funcMap.find(fun.getName());
+    auto it = funcMap.find(std::string(fun.getName()));
     if (funcMap.end() != it) {
       auto irFunc = it->second;
       if (!irFunc->targetCpuOverridden) {

@@ -250,7 +250,7 @@ void appendFullLibPathCandidates(std::vector<std::string> &paths,
   for (const char *dir : ConfigFile::instance.libDirs()) {
     llvm::SmallString<128> candidate(dir);
     llvm::sys::path::append(candidate, filename);
-    paths.push_back(candidate.str());
+    paths.emplace_back(candidate.data(), candidate.size());
   }
 
   // for backwards compatibility
@@ -310,7 +310,7 @@ void ArgsBuilder::addASanLinkFlags(const llvm::Triple &triple) {
         // Add the path to the resource dir to rpath to support using the shared
         // lib from the default location without copying.
         args.push_back("-rpath");
-        args.push_back(llvm::sys::path::parent_path(filepath));
+        args.push_back(std::string(llvm::sys::path::parent_path(filepath)));
       }
 
       return;
@@ -508,7 +508,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   }
 
   args.push_back("-o");
-  args.push_back(outputPath);
+  args.push_back(std::string(outputPath));
 
   addSanitizers(*global.params.targetTriple);
 

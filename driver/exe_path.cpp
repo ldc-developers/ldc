@@ -37,29 +37,29 @@ const string &exe_path::getExePath() {
 
 string exe_path::getBinDir() {
   assert(!exePath.empty());
-  return path::parent_path(exePath);
+  return string(path::parent_path(exePath));
 }
 
 string exe_path::getBaseDir() {
   string binDir = getBinDir();
   assert(!binDir.empty());
-  return path::parent_path(binDir);
+  return string(path::parent_path(binDir));
 }
 
 string exe_path::getLibDir() {
   llvm::SmallString<128> r(getBaseDir());
   path::append(r, "lib" LDC_LIBDIR_SUFFIX);
-  return r.str();
+  return {r.data(), r.size()};
 }
 
 string exe_path::prependBinDir(const llvm::Twine &suffix) {
   llvm::SmallString<128> r(getBinDir());
   path::append(r, suffix);
-  return r.str();
+  return {r.data(), r.size()};
 }
 
 string exe_path::prependLibDir(const llvm::Twine &suffix) {
   llvm::SmallString<128> r(getLibDir());
   path::append(r, suffix);
-  return r.str();
+  return {r.data(), r.size()};
 }

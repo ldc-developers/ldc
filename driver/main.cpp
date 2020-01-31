@@ -109,7 +109,7 @@ void printVersion(llvm::raw_ostream &OS) {
 #endif
 #endif
   OS << "  Default target: " << llvm::sys::getDefaultTargetTriple() << "\n";
-  std::string CPU = llvm::sys::getHostCPUName();
+  std::string CPU(llvm::sys::getHostCPUName());
   if (CPU == "generic" || env::has("SOURCE_DATE_EPOCH")) {
     // Env variable SOURCE_DATE_EPOCH indicates that a reproducible build is
     // wanted. Don't print the actual host CPU in such an environment to aid
@@ -564,7 +564,7 @@ void fixupUClibcEnv() {
   llvm::Triple triple(mTargetTriple);
   if (triple.getEnvironmentName().find("uclibc") != 0)
     return;
-  std::string envName = triple.getEnvironmentName();
+  std::string envName(triple.getEnvironmentName());
   envName.replace(0, 6, "gnu");
   triple.setEnvironmentName(envName);
   mTargetTriple = triple.normalize();
