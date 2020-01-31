@@ -21,6 +21,37 @@ llvm::StringRef peekString(StringExp *se) {
   return {slice.ptr, slice.length};
 }
 
+// Translates a GCC inline asm template string to LLVM's expected format.
+std::string translateTemplate(GccAsmStatement *stmt) {
+  const auto insn = peekString(stmt->insn->isStringExp());
+  const auto N = insn.size();
+
+  std::string result;
+  result.reserve(static_cast<size_t>(N * 1.2));
+
+  for (size_t i = 0; i < N; ++i) {
+    const char c = insn[i];
+    switch (c) {
+    case '$':
+      result += "$$"; // escape for LLVM: $ => $$
+      break;
+    case '%':
+      if (i < N - 1 && insn[i + 1] == '%') { // unescape for LLVM: %% => %
+        result += '%';
+        ++i;
+      } else {
+        result += '$'; // e.g., %0 => $0
+      }
+      break;
+    default:
+      result += c;
+      break;
+    }
+  }
+
+  return result;
+}
+
 class ConstraintsBuilder {
   bool isAnyX86;
   std::ostringstream str; // LLVM constraints string being built
@@ -139,11 +170,21 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
   LOG_SCOPE;
 
   if (stmt->labels) {
-    stmt->error("labels in GCC-style assembly are not supported yet");
+    stmt->error(
+        "goto labels for GCC-style asm statements are not supported yet");
     fatal();
   }
+  if (stmt->names) {
+    for (Identifier *name : *stmt->names) {
+      if (name) {
+        stmt->error("symbolic names for operands in GCC-style assembly are not "
+                    "supported yet");
+        fatal();
+      }
+    }
+  }
 
-  llvm::StringRef insn = peekString(stmt->insn->isStringExp());
+  const std::string insn = translateTemplate(stmt);
 
   ConstraintsBuilder constraintsBuilder;
   const std::string constraints = constraintsBuilder.build(stmt);

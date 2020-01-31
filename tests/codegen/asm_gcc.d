@@ -46,10 +46,10 @@ void indirectOutput(uint eax)
     asm
     {
         `cpuid
-         movl %eax,   $0
-         movl %ebx,  4$0
-         movl %ecx,  8$0
-         movl %edx, 12$0`
+         movl %%eax,   %0
+         movl %%ebx,  4%0
+         movl %%ecx,  8%0
+         movl %%edx, 12%0`
         : "=*m" r
         : "eax" eax
         : "eax", "ebx", "ecx", "edx";
