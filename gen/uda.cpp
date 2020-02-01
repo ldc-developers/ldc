@@ -310,7 +310,7 @@ void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func,
 
   if (func->hasFnAttribute("target-features")) {
     auto attr = func->getFnAttribute("target-features");
-    features.push_back(attr.getValueAsString());
+    features.push_back(std::string(attr.getValueAsString()));
   }
 
   llvm::SmallVector<llvm::StringRef, 4> fragments;

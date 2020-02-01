@@ -96,7 +96,7 @@ bool ConfigFile::locate(std::string &pathstr) {
   {                                                                            \
     sys::path::append(p, filename);                                            \
     if (sys::fs::exists(p.str())) {                                            \
-      pathstr = p.str();                                                       \
+      pathstr = {p.data(), p.size()};                                          \
       return true;                                                             \
     }                                                                          \
   }

@@ -92,8 +92,7 @@ void enumModules(const RtCompileModuleList *modlist_head,
   }
 }
 
-std::string decorate(const std::string &name,
-                     const llvm::DataLayout &datalayout) {
+std::string decorate(llvm::StringRef name, const llvm::DataLayout &datalayout) {
   assert(!name.empty());
   llvm::SmallVector<char, 64> ret;
   llvm::Mangler::getNameWithPrefix(ret, name, datalayout);

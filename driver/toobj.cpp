@@ -362,7 +362,7 @@ void writeModule(llvm::Module *m, const char *filename) {
     llvm::SmallString<128> buffer(filename);
     llvm::sys::path::replace_extension(buffer,
                                        llvm::StringRef(ext.ptr, ext.length));
-    return buffer.str();
+    return {buffer.data(), buffer.size()};
   };
 
   // write LLVM bitcode
@@ -433,7 +433,7 @@ void writeModule(llvm::Module *m, const char *filename) {
     if (!global.params.output_s) {
       llvm::SmallString<16> buffer;
       llvm::sys::fs::createUniqueFile("ldc-%%%%%%%.s", buffer);
-      spath = buffer.str();
+      spath = {buffer.data(), buffer.size()};
     } else {
       spath = replaceExtensionWith(global.s_ext);
     }

@@ -162,7 +162,7 @@ static std::string getX86TargetCPU(const llvm::Triple &triple) {
 static std::string getARMTargetCPU(const llvm::Triple &triple) {
   auto defaultCPU = llvm::ARM::getDefaultCPU(triple.getArchName());
   if (!defaultCPU.empty())
-    return defaultCPU;
+    return std::string(defaultCPU);
 
   // Return the most base CPU with thumb interworking supported by LLVM.
   return (triple.getEnvironment() == llvm::Triple::GNUEABIHF) ? "arm1176jzf-s"
@@ -172,7 +172,7 @@ static std::string getARMTargetCPU(const llvm::Triple &triple) {
 static std::string getAArch64TargetCPU(const llvm::Triple &triple) {
   auto defaultCPU = llvm::AArch64::getDefaultCPU(triple.getArchName());
   if (!defaultCPU.empty())
-    return defaultCPU;
+    return std::string(defaultCPU);
 
   return "generic";
 }

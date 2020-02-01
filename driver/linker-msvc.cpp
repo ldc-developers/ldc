@@ -60,7 +60,7 @@ void addLibIfFound(std::vector<std::string> &args, const llvm::Twine &name) {
     llvm::SmallString<128> candidate(dir);
     llvm::sys::path::append(candidate, name);
     if (llvm::sys::fs::exists(candidate)) {
-      args.push_back(candidate.str());
+      args.emplace_back(candidate.data(), candidate.size());
       return;
     }
   }

@@ -126,7 +126,7 @@ static std::string getOutputName() {
     auto EC = llvm::sys::fs::createTemporaryFile(
         result, extension ? extension : "", tempFilename);
     if (!EC)
-      result = tempFilename.str();
+      result = {tempFilename.data(), tempFilename.size()};
   } else if (extension) {
     result += '.';
     result += extension;
