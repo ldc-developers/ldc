@@ -32,7 +32,7 @@ build_d_executable(
     "run-dmd-testsuite"
     "${RUN_DMD_TESTSUITE_EXE_FULL}"
     "${DMD_TESTSUITE_SRC_DIR}/run.d;${DMD_TESTSUITE_SRC_DIR}/tools/paths.d"
-    "-I${DMD_TESTSUITE_SRC_DIR}"
+    "-version=IN_LLVM;-I${DMD_TESTSUITE_SRC_DIR}"
     ""
     ""
     ""
