@@ -28,16 +28,14 @@ endif()
 
 set(DMD_TESTSUITE_SRC_DIR ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite)
 set(RUN_DMD_TESTSUITE_EXE_FULL ${PROJECT_BINARY_DIR}/run-dmd-testsuite${CMAKE_EXECUTABLE_SUFFIX})
-build_d_executable(
-    "run-dmd-testsuite"
-    "${RUN_DMD_TESTSUITE_EXE_FULL}"
-    "${DMD_TESTSUITE_SRC_DIR}/run.d;${DMD_TESTSUITE_SRC_DIR}/tools/paths.d"
-    "-version=IN_LLVM;-I${DMD_TESTSUITE_SRC_DIR}"
-    ""
-    ""
-    ""
-    ${COMPILE_D_MODULES_SEPARATELY}
+add_custom_command(
+    OUTPUT  ${RUN_DMD_TESTSUITE_EXE_FULL}
+    COMMAND ${LDC_EXE_FULL} -of${RUN_DMD_TESTSUITE_EXE_FULL}
+            ${DMD_TESTSUITE_SRC_DIR}/run.d ${DMD_TESTSUITE_SRC_DIR}/tools/paths.d
+    DEPENDS ${LDC_EXE_FULL} druntime-ldc phobos2-ldc
+            ${DMD_TESTSUITE_SRC_DIR}/run.d ${DMD_TESTSUITE_SRC_DIR}/tools/paths.d
 )
+add_custom_target(run-dmd-testsuite ALL DEPENDS ${RUN_DMD_TESTSUITE_EXE_FULL})
 
 function(add_testsuite config_suffix required_flags gdbflags model make_rule)
     set(name dmd-testsuite${config_suffix})
