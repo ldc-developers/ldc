@@ -121,7 +121,7 @@ script:
     fi
     if [ "$TRAVIS_OS_NAME" = "osx" ]; then
       # dmd-testsuite-debug only to reduce time-outs
-      DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R "dmd-testsuite-debug"
+      DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R "build-run-dmd-testsuite|dmd-testsuite-debug"
     else
       if [ "$LLVM_VERSION" = "3.9.1" ]; then
         # FIXME: assertion failure for runnable/mars1.d with DMD/LLVM 3.9.1
