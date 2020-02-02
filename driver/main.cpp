@@ -14,6 +14,7 @@
 #include "dmd/identifier.h"
 #include "dmd/hdrgen.h"
 #include "dmd/json.h"
+#include "dmd/ldcbindings.h"
 #include "dmd/mars.h"
 #include "dmd/module.h"
 #include "dmd/mtype.h"
@@ -159,7 +160,7 @@ void processVersions(std::vector<std::string> &list, const char *type,
       char *cstr = mem.xstrdup(value);
       if (Identifier::isValidIdentifier(cstr)) {
         if (!globalIDs)
-          globalIDs = new Strings();
+          globalIDs = createStrings();
         globalIDs->push(cstr);
         continue;
       } else {

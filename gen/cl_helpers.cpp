@@ -10,6 +10,7 @@
 #include "gen/cl_helpers.h"
 
 #include "dmd/errors.h"
+#include "dmd/ldcbindings.h"
 #include "dmd/root/rmem.h"
 #include "dmd/root/root.h"
 #include <algorithm>
@@ -65,7 +66,7 @@ void StringsAdapter::push_back(const char *cstr) {
   }
 
   if (!*arrp) {
-    *arrp = new Strings;
+    *arrp = createStrings();
   }
   (*arrp)->push(mem.xstrdup(cstr));
 }

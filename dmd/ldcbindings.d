@@ -9,6 +9,7 @@
 
 module dmd.ldcbindings;
 
+import dmd.arraytypes : Strings;
 import dmd.expression;
 import dmd.globals;
 import dmd.identifier;
@@ -72,3 +73,5 @@ mixin(factory!Expression);
 mixin(factory!InlineAsmStatement);
 mixin(factory!TypeDelegate);
 mixin(factory!TypeIdentifier);
+
+Strings* createStrings() { return new Strings(); }
