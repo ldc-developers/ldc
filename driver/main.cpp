@@ -910,9 +910,6 @@ void registerPredefinedVersions() {
 #undef STR
 }
 
-// in druntime:
-extern "C" void gc_disable();
-
 /// LDC's entry point, C main.
 /// Without `-lowmem`, we need to switch to the bump-pointer allocation scheme
 /// right from the start, before any module ctors are run, so we need this hook
@@ -960,11 +957,6 @@ int main(int argc, const char **originalArgv)
 }
 
 int cppmain() {
-  // Older host druntime versions need druntime to be initialized before
-  // disabling the GC, so we cannot disable it in C main above.
-  if (!mem.isGCEnabled())
-    gc_disable();
-
   exe_path::initialize(allArguments[0]);
 
   global._init();

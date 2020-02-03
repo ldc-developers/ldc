@@ -24,6 +24,7 @@ version (GC)
     import core.memory : GC;
 
     enum isGCAvailable = true;
+    extern extern(C) __gshared string[] rt_options;
 }
 else
     enum isGCAvailable = false;
@@ -147,6 +148,8 @@ extern (C++) struct Mem
 
         static void disableGC() nothrow @nogc
         {
+            __gshared string[] disable_options = [ "gcopt=disable:1" ];
+            rt_options = disable_options;
             _isGCEnabled = false;
         }
 
