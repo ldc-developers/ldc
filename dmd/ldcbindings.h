@@ -44,6 +44,8 @@ InlineAsmStatement *createInlineAsmStatement(const Loc &loc, Token *tokens);
 TypeDelegate *createTypeDelegate(Type *t);
 TypeIdentifier *createTypeIdentifier(const Loc &loc, Identifier *ident);
 
+Strings *createStrings();
+
 // Structs
 //Loc createLoc(const char * filename, uint linnum, uint charnum);
 
