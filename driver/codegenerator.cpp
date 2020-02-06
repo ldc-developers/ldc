@@ -86,7 +86,7 @@ createAndSetDiagnosticsOutputFile(IRState &irs, llvm::LLVMContext &ctx,
 #if LDC_LLVM_VER < 1000
     ctx.setDiagnosticsOutputFile(
         llvm::make_unique<llvm::yaml::Output>(diagnosticsOutputFile->os()));
-
+#endif
     if (withHotness) {
 #if LDC_LLVM_VER >= 500
       ctx.setDiagnosticsHotnessRequested(true);
