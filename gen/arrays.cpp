@@ -65,8 +65,8 @@ static LLValue *DtoSlicePtr(Expression *e) {
   LLValue *val = isStaticArray ? DtoLVal(dval) : makeLValue(loc, dval);
   LLValue *array = DtoRawAlloca(type, 0, ".array");
   LLValue *len = isStaticArray ? DtoArrayLen(dval) : DtoConstSize_t(1);
-  DtoStore(len, DtoGEPi(array, 0, 0));
-  DtoStore(DtoBitCast(val, getVoidPtrType()), DtoGEPi(array, 0, 1));
+  DtoStore(len, DtoGEP(array, 0u, 0));
+  DtoStore(DtoBitCast(val, getVoidPtrType()), DtoGEP(array, 0, 1));
   return array;
 }
 
@@ -160,7 +160,7 @@ static void DtoArrayInit(Loc &loc, LLValue *ptr, LLValue *length,
   LLValue *itr_val = DtoLoad(itr);
   // assign array element value
   DLValue arrayelem(elementValue->type->toBasetype(),
-                    DtoGEP1(ptr, itr_val, true, "arrayinit.arrayelem"));
+                    DtoGEP1(ptr, itr_val, "arrayinit.arrayelem"));
   DtoAssign(loc, &arrayelem, elementValue, TOKblit);
 
   // increment iterator
@@ -351,8 +351,8 @@ static void DtoSetArray(DValue *array, LLValue *dim, LLValue *ptr) {
   IF_LOG Logger::println("SetArray");
   LLValue *arr = DtoLVal(array);
   assert(isaStruct(arr->getType()->getContainedType(0)));
-  DtoStore(dim, DtoGEPi(arr, 0, 0));
-  DtoStore(ptr, DtoGEPi(arr, 0, 1));
+  DtoStore(dim, DtoGEP(arr, 0u, 0));
+  DtoStore(ptr, DtoGEP(arr, 0, 1));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -363,7 +363,7 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
                          arrinit->toChars(), targetType->toChars());
   LOG_SCOPE;
 
-  assert(arrinit->value.dim == arrinit->index.dim);
+  assert(arrinit->value.length == arrinit->index.length);
 
   // get base array type
   Type *arrty = targetType->toBasetype();
@@ -377,9 +377,9 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
   }
 
   // make sure the number of initializers is sane
-  if (arrinit->index.dim > arrlen || arrinit->dim > arrlen) {
+  if (arrinit->index.length > arrlen || arrinit->dim > arrlen) {
     error(arrinit->loc, "too many initializers, %llu, for array[%llu]",
-          static_cast<unsigned long long>(arrinit->index.dim),
+          static_cast<unsigned long long>(arrinit->index.length),
           static_cast<unsigned long long>(arrlen));
     fatal();
   }
@@ -401,9 +401,9 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
 
   // go through each initializer, they're not sorted by index by the frontend
   size_t j = 0;
-  for (size_t i = 0; i < arrinit->index.dim; i++) {
+  for (size_t i = 0; i < arrinit->index.length; i++) {
     // get index
-    Expression *idx = static_cast<Expression *>(arrinit->index.data[i]);
+    Expression *idx = arrinit->index[i];
 
     // idx can be null, then it's just the next element
     if (idx) {
@@ -412,7 +412,7 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
     assert(j < arrlen);
 
     // get value
-    Initializer *val = static_cast<Initializer *>(arrinit->value.data[i]);
+    Initializer *val = arrinit->value[i];
     assert(val);
 
     // error check from dmd
@@ -502,7 +502,7 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
 ////////////////////////////////////////////////////////////////////////////////
 
 Expression *indexArrayLiteral(ArrayLiteralExp *ale, unsigned idx) {
-  assert(idx < ale->elements->dim);
+  assert(idx < ale->elements->length);
   auto e = (*ale->elements)[idx];
   if (!e) {
     return ale->basis;
@@ -583,8 +583,8 @@ llvm::Constant *arrayLiteralToConst(IRState *p, ArrayLiteralExp *ale) {
   bool differentTypes = false;
 
   std::vector<LLConstant *> vals;
-  vals.reserve(ale->elements->dim);
-  for (unsigned i = 0; i < ale->elements->dim; ++i) {
+  vals.reserve(ale->elements->length);
+  for (unsigned i = 0; i < ale->elements->length; ++i) {
     llvm::Constant *val = toConstElem(indexArrayLiteral(ale, i), p);
     // extend i1 to i8
     if (val->getType() == LLType::getInt1Ty(p->context()))
@@ -602,19 +602,19 @@ llvm::Constant *arrayLiteralToConst(IRState *p, ArrayLiteralExp *ale) {
   }
 
   if (!elementType) {
-    assert(ale->elements->dim == 0);
+    assert(ale->elements->length == 0);
     elementType = DtoMemType(ale->type->toBasetype()->nextOf());
     return llvm::ConstantArray::get(LLArrayType::get(elementType, 0), vals);
   }
 
-  llvm::ArrayType *t = llvm::ArrayType::get(elementType, ale->elements->dim);
+  llvm::ArrayType *t = llvm::ArrayType::get(elementType, ale->elements->length);
   return llvm::ConstantArray::get(t, vals);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale, LLValue *dstMem) {
-  size_t elemCount = ale->elements->dim;
+  size_t elemCount = ale->elements->length;
 
   // Don't try to write nothing to a zero-element array, we might represent it
   // as a null pointer.
@@ -643,7 +643,7 @@ void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale, LLValue *dstMem) {
     for (size_t i = 0; i < elemCount; ++i) {
       Expression *rhsExp = indexArrayLiteral(ale, i);
 
-      LLValue *lhsPtr = DtoGEPi(dstMem, 0, i, "", p->scopebb());
+      LLValue *lhsPtr = DtoGEP(dstMem, 0, i, "", p->scopebb());
       DLValue lhs(rhsExp->type, DtoBitCast(lhsPtr, DtoPtrToType(rhsExp->type)));
 
       // try to construct it in-place
@@ -762,15 +762,15 @@ DSliceValue *DtoNewMulDimDynArray(Loc &loc, Type *arrayType, DValue **dims,
     LLArrayType *type = LLArrayType::get(DtoSize_t(), ndims);
     array = DtoRawAlloca(type, 0, ".dimarray");
     for (size_t i = 0; i < ndims; ++i) {
-      DtoStore(DtoRVal(dims[i]), DtoGEPi(array, 0, i, ".ndim"));
+      DtoStore(DtoRVal(dims[i]), DtoGEP(array, 0, i, ".ndim"));
     }
   }
 
   LLStructType *dtype = DtoArrayType(DtoSize_t());
   LLValue *darray = DtoRawAlloca(dtype, 0, ".array");
-  DtoStore(DtoConstSize_t(ndims), DtoGEPi(darray, 0, 0, ".len"));
+  DtoStore(DtoConstSize_t(ndims), DtoGEP(darray, 0u, 0, ".len"));
   DtoStore(DtoBitCast(array, getPtrToType(DtoSize_t())),
-           DtoGEPi(darray, 0, 1, ".ptr"));
+           DtoGEP(darray, 0, 1, ".ptr"));
 
   // call allocator
   LLValue *newptr =
@@ -838,7 +838,7 @@ void DtoCatAssignElement(Loc &loc, DValue *array, Expression *exp) {
   LLValue *ptr = DtoArrayPtr(array);
   LLValue *lastIndex =
       gIR->ir->CreateSub(newLength, DtoConstSize_t(1), ".lastIndex");
-  LLValue *lastElemPtr = DtoGEP1(ptr, lastIndex, true, ".lastElem");
+  LLValue *lastElemPtr = DtoGEP1(ptr, lastIndex, ".lastElem");
   DLValue lastElem(arrayType->nextOf(), lastElemPtr);
   DtoAssign(loc, &lastElem, expVal, TOKblit);
   callPostblit(loc, exp, lastElemPtr);
@@ -875,14 +875,13 @@ DSliceValue *DtoCatArrays(Loc &loc, Type *arrayType, Expression *exp1,
   llvm::SmallVector<llvm::Value *, 3> args;
   LLFunction *fn = nullptr;
 
-  if (exp1->op == TOKcat) { // handle multiple concat
+  if (auto ce = exp1->isCatExp()) { // handle multiple concat
     fn = getRuntimeFunction(loc, gIR->module, "_d_arraycatnTX");
 
     // Create array of slices
     typedef llvm::SmallVector<llvm::Value *, 16> ArgVector;
     ArgVector arrs;
     arrs.push_back(DtoSlicePtr(exp2));
-    CatExp *ce = static_cast<CatExp *>(exp1);
     do {
       arrs.push_back(DtoSlicePtr(ce->e2));
       ce = static_cast<CatExp *>(ce->e1);
@@ -900,13 +899,13 @@ DSliceValue *DtoCatArrays(Loc &loc, Type *arrayType, Expression *exp1,
     for (ArgVector::reverse_iterator I = arrs.rbegin(), E = arrs.rend(); I != E;
          ++I) {
       LLValue *v = DtoLoad(DtoBitCast(*I, ptrarraytype));
-      DtoStore(v, DtoGEPi(array, 0, i++, ".slice"));
+      DtoStore(v, DtoGEP(array, 0, i++, ".slice"));
     }
 
     LLStructType *type2 = DtoArrayType(arraytype);
     LLValue *array2 = DtoRawAlloca(type2, 0, ".array");
-    DtoStore(DtoConstSize_t(arrs.size()), DtoGEPi(array2, 0, 0, ".len"));
-    DtoStore(DtoBitCast(array, ptrarraytype), DtoGEPi(array2, 0, 1, ".ptr"));
+    DtoStore(DtoConstSize_t(arrs.size()), DtoGEP(array2, 0u, 0, ".len"));
+    DtoStore(DtoBitCast(array, ptrarraytype), DtoGEP(array2, 0, 1, ".ptr"));
     LLValue *val =
         DtoLoad(DtoBitCast(array2, getPtrToType(DtoArrayType(DtoArrayType(
                                        LLType::getInt8Ty(gIR->context()))))));
@@ -1186,7 +1185,7 @@ LLValue *DtoArrayLen(DValue *v) {
       return DtoConstSize_t(0);
     }
     if (v->isLVal()) {
-      return DtoLoad(DtoGEPi(DtoLVal(v), 0, 0), ".len");
+      return DtoLoad(DtoGEP(DtoLVal(v), 0u, 0), ".len");
     }
     auto slice = v->isSlice();
     assert(slice);
@@ -1216,7 +1215,7 @@ LLValue *DtoArrayPtr(DValue *v) {
     if (v->isNull()) {
       ptr = getNullPtr(wantedLLPtrType);
     } else if (v->isLVal()) {
-      ptr = DtoLoad(DtoGEPi(DtoLVal(v), 0, 1), ".ptr");
+      ptr = DtoLoad(DtoGEP(DtoLVal(v), 0, 1), ".ptr");
     } else {
       auto slice = v->isSlice();
       assert(slice);

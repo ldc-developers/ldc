@@ -180,11 +180,11 @@ public:
 #endif
 
     static Dsymbol *create(Identifier *);
-    const char *toChars();
+    const char *toChars() const;
     virtual const char *toPrettyCharsHelper(); // helper to print fully qualified (template) arguments
     Loc getLoc();
     const char *locToChars();
-    bool equals(RootObject *o);
+    bool equals(const RootObject *o) const;
     virtual bool isAnonymous();
     void error(const Loc &loc, const char *format, ...);
     void error(const char *format, ...);
@@ -196,10 +196,11 @@ public:
     Dsymbol *pastMixin();
     Dsymbol *toParent();
     Dsymbol *toParent2();
-    Dsymbol *toParent3();
     Dsymbol *toParentDecl();
     Dsymbol *toParentLocal();
+    Dsymbol *toParentP(Dsymbol *p1, Dsymbol *p2 = NULL);
     TemplateInstance *isInstantiated();
+    bool followInstantiationContext(Dsymbol *p1, Dsymbol *p2 = NULL);
     TemplateInstance *isSpeculative();
     Ungag ungagSpeculative();
 
@@ -216,8 +217,6 @@ public:
     virtual void setScope(Scope *sc);
     virtual void importAll(Scope *sc);
     virtual Dsymbol *search(const Loc &loc, Identifier *ident, int flags = IgnoreNone);
-    Dsymbol *search_correct(Identifier *id);
-    Dsymbol *searchX(const Loc &loc, Scope *sc, RootObject *id);
     virtual bool overloadInsert(Dsymbol *s);
     virtual d_uns64 size(const Loc &loc);
     virtual bool isforwardRef();
@@ -319,9 +318,7 @@ private:
 public:
     Dsymbol *syntaxCopy(Dsymbol *s);
     Dsymbol *search(const Loc &loc, Identifier *ident, int flags = SearchLocalsOnly);
-    OverloadSet *mergeOverloadSet(Identifier *ident, OverloadSet *os, Dsymbol *s);
     virtual void importScope(Dsymbol *s, Prot protection);
-    void addAccessiblePackage(Package *p, Prot protection);
     virtual bool isPackageAccessible(Package *p, Prot protection, int flags = 0);
     bool isforwardRef();
     static void multiplyDefined(const Loc &loc, Dsymbol *s1, Dsymbol *s2);

@@ -50,6 +50,7 @@ import dmd.root.rootobject;
 import dmd.root.speller;
 import dmd.statement;
 import dmd.tokens;
+import dmd.utils;
 import dmd.visitor;
 
 version (IN_LLVM)
@@ -236,7 +237,7 @@ extern (C++) class Dsymbol : ASTNode
     Identifier ident;
     Dsymbol parent;
     /// C++ namespace this symbol belongs to
-    CPPNamespaceDeclaration namespace;
+    CPPNamespaceDeclaration cppnamespace;
     Symbol* csym;           // symbol for code generator
     Symbol* isym;           // import version of csym
     const(char)* comment;   // documentation comment for this Dsymbol
@@ -307,7 +308,7 @@ version (IN_LLVM)
         return new Dsymbol(ident);
     }
 
-    override const(char)* toChars()
+    override const(char)* toChars() const
     {
         return ident ? ident.toChars() : "__anonymous";
     }
@@ -331,7 +332,7 @@ version (IN_LLVM)
         return getLoc().toChars();
     }
 
-    override bool equals(RootObject o)
+    override bool equals(const RootObject o) const
     {
         if (this == o)
             return true;
@@ -349,13 +350,17 @@ version (IN_LLVM)
         return ident is null;
     }
 
+    extern(D) private const(char)[] prettyFormatHelper()
+    {
+        const cstr = toPrettyChars();
+        return '`' ~ cstr.toDString() ~ "`\0";
+    }
+
     final void error(const ref Loc loc, const(char)* format, ...)
     {
         va_list ap;
         va_start(ap, format);
-        const cstr = toPrettyChars();
-        const pretty = '`' ~ cstr[0 .. strlen(cstr)] ~ "`\0";
-        .verror(loc, format, ap, kind(), pretty.ptr);
+        .verror(loc, format, ap, kind(), prettyFormatHelper().ptr);
         va_end(ap);
     }
 
@@ -363,10 +368,8 @@ version (IN_LLVM)
     {
         va_list ap;
         va_start(ap, format);
-        const cstr = toPrettyChars();
-        const pretty = '`' ~ cstr[0 .. strlen(cstr)] ~ "`\0";
         const loc = getLoc();
-        .verror(loc, format, ap, kind(), pretty.ptr);
+        .verror(loc, format, ap, kind(), prettyFormatHelper().ptr);
         va_end(ap);
     }
 
@@ -374,9 +377,7 @@ version (IN_LLVM)
     {
         va_list ap;
         va_start(ap, format);
-        const cstr = toPrettyChars();
-        const pretty = '`' ~ cstr[0 .. strlen(cstr)] ~ "`\0";
-        .vdeprecation(loc, format, ap, kind(), pretty.ptr);
+        .vdeprecation(loc, format, ap, kind(), prettyFormatHelper().ptr);
         va_end(ap);
     }
 
@@ -384,10 +385,8 @@ version (IN_LLVM)
     {
         va_list ap;
         va_start(ap, format);
-        const cstr = toPrettyChars();
-        const pretty = '`' ~ cstr[0 .. strlen(cstr)] ~ "`\0";
         const loc = getLoc();
-        .vdeprecation(loc, format, ap, kind(), pretty.ptr);
+        .vdeprecation(loc, format, ap, kind(), prettyFormatHelper().ptr);
         va_end(ap);
     }
 
@@ -472,7 +471,7 @@ version (IN_LLVM)
      * `pastMixinAndNspace` does likewise, additionally skipping over Nspaces that
      * are mangleOnly.
      *
-     * See also `parent`, `toParent`, `toParent2` and `toParent3`.
+     * See also `parent`, `toParent` and `toParent2`.
      */
     final inout(Dsymbol) pastMixin() inout
     {
@@ -484,21 +483,15 @@ version (IN_LLVM)
         return parent.pastMixin();
     }
 
-    /// ditto
-    alias pastMixinAndNspace = pastMixin;
-
     /**********************************
      * `parent` field returns a lexically enclosing scope symbol this is a member of.
      *
      * `toParent()` returns a logically enclosing scope symbol this is a member of.
-     * It skips over TemplateMixin's and Nspaces that are mangleOnly.
+     * It skips over TemplateMixin's.
      *
      * `toParent2()` returns an enclosing scope symbol this is living at runtime.
      * It skips over both TemplateInstance's and TemplateMixin's.
      * It's used when looking for the 'this' pointer of the enclosing function/class.
-     *
-     * `toParent3()` returns a logically enclosing scope symbol this is a member of.
-     * It skips over TemplateMixin's.
      *
      * `toParentDecl()` similar to `toParent2()` but always follows the template declaration scope
      * instead of the instantiation scope.
@@ -530,7 +523,7 @@ version (IN_LLVM)
      */
     final inout(Dsymbol) toParent() inout
     {
-        return parent ? parent.pastMixinAndNspace() : null;
+        return parent ? parent.pastMixin() : null;
     }
 
     /// ditto
@@ -539,12 +532,6 @@ version (IN_LLVM)
         if (!parent || !parent.isTemplateInstance && !parent.isForwardingAttribDeclaration() && !parent.isForwardingScopeDsymbol())
             return parent;
         return parent.toParent2;
-    }
-
-    /// ditto
-    final inout(Dsymbol) toParent3() inout
-    {
-        return parent ? parent.pastMixin() : null;
     }
 
     /// ditto
@@ -570,6 +557,16 @@ version (IN_LLVM)
         return parent.toParentDeclImpl(localOnly);
     }
 
+    /**
+     * Returns the declaration scope scope of `this` unless any of the symbols
+     * `p1` or `p2` resides in its enclosing instantiation scope then the
+     * latter is returned.
+     */
+    final Dsymbol toParentP(Dsymbol p1, Dsymbol p2 = null)
+    {
+        return followInstantiationContext(p1, p2) ? toParent2() : toParentLocal();
+    }
+
     final inout(TemplateInstance) isInstantiated() inout
     {
         if (!parent)
@@ -578,6 +575,50 @@ version (IN_LLVM)
         if (ti && !ti.isTemplateMixin())
             return ti;
         return parent.isInstantiated();
+    }
+
+    /***
+     * Returns true if any of the symbols `p1` or `p2` resides in the enclosing
+     * instantiation scope of `this`.
+     */
+    final bool followInstantiationContext(Dsymbol p1, Dsymbol p2 = null)
+    {
+        static bool has2This(Dsymbol s)
+        {
+            if (auto f = s.isFuncDeclaration())
+                return f.isThis2;
+            if (auto ad = s.isAggregateDeclaration())
+                return ad.vthis2 !is null;
+            return false;
+        }
+
+        if (has2This(this))
+        {
+            assert(p1);
+            auto outer = toParent();
+            while (outer)
+            {
+                auto ti = outer.isTemplateInstance();
+                if (!ti)
+                    break;
+                foreach (oarg; *ti.tiargs)
+                {
+                    auto sa = getDsymbol(oarg);
+                    if (!sa)
+                        continue;
+                    sa = sa.toAlias().toParent2();
+                    if (!sa)
+                        continue;
+                    if (sa == p1)
+                        return true;
+                    else if (p2 && sa == p2)
+                        return true;
+                }
+                outer = ti.tempdecl.toParent();
+            }
+            return false;
+        }
+        return false;
     }
 
     // Check if this function is a member of a template which has only been
@@ -653,9 +694,7 @@ version (IN_LLVM)
 
         // Allocate temporary array comp[]
         alias T = const(char)[];
-        auto compptr = cast(T*)malloc(complength * T.sizeof);
-        if (!compptr)
-            Mem.error();
+        auto compptr = cast(T*)Mem.check(malloc(complength * T.sizeof));
         auto comp = compptr[0 .. complength];
 
         // Fill in comp[] and compute length of final result
@@ -670,7 +709,7 @@ version (IN_LLVM)
             length += len + 1;
         }
 
-        auto s = cast(char*)mem.xmalloc(length);
+        auto s = cast(char*)mem.xmalloc_noscan(length);
         auto q = s + length - 1;
         *q = 0;
         foreach (j; 0 .. complength)
@@ -738,6 +777,8 @@ version (IN_LLVM)
         {
             if (!sds.symtabInsert(this)) // if name is already defined
             {
+                if (isAliasDeclaration() && !_scope)
+                    setScope(sc);
                 Dsymbol s2 = sds.symtabLookup(this,ident);
                 if (!s2.overloadInsert(this))
                 {
@@ -791,7 +832,7 @@ version (IN_LLVM)
         return null;
     }
 
-    final Dsymbol search_correct(Identifier ident)
+    extern (D) final Dsymbol search_correct(Identifier ident)
     {
         /***************************************************
          * Search for symbol with correct spelling.
@@ -833,7 +874,7 @@ version (IN_LLVM)
      * Returns:
      *      symbol found, NULL if not
      */
-    final Dsymbol searchX(const ref Loc loc, Scope* sc, RootObject id, int flags)
+    extern (D) final Dsymbol searchX(const ref Loc loc, Scope* sc, RootObject id, int flags)
     {
         //printf("Dsymbol::searchX(this=%p,%s, ident='%s')\n", this, toChars(), ident.toChars());
         Dsymbol s = toAlias();
@@ -1135,7 +1176,7 @@ version (IN_LLVM)
         else if (comment && strcmp(cast(char*)comment, cast(char*)this.comment) != 0)
         {
             // Concatenate the two
-            this.comment = Lexer.combineComments(this.comment, comment, true);
+            this.comment = Lexer.combineComments(this.comment.toDString(), comment.toDString(), true);
         }
     }
 
@@ -1236,7 +1277,7 @@ private:
     Dsymbols* importedScopes;
     Prot.Kind* prots;            // array of Prot.Kind, one for each import
 
-    import dmd.root.array : BitArray;
+    import dmd.root.bitarray;
     BitArray accessiblePackages, privateAccessiblePackages;// whitelists of accessible (imported) packages
 
 public:
@@ -1258,6 +1299,7 @@ public:
     {
         //printf("ScopeDsymbol::syntaxCopy('%s')\n", toChars());
         ScopeDsymbol sds = s ? cast(ScopeDsymbol)s : new ScopeDsymbol(ident);
+        sds.comment = comment;
         sds.members = arraySyntaxCopy(members);
         sds.endlinnum = endlinnum;
         return sds;
@@ -1395,7 +1437,7 @@ public:
         return null;
     }
 
-    final OverloadSet mergeOverloadSet(Identifier ident, OverloadSet os, Dsymbol s)
+    extern (D) private OverloadSet mergeOverloadSet(Identifier ident, OverloadSet os, Dsymbol s)
     {
         if (!os)
         {
@@ -1468,12 +1510,8 @@ public:
         }
     }
 
-    final void addAccessiblePackage(Package p, Prot protection)
+    extern (D) final void addAccessiblePackage(Package p, Prot protection)
     {
-        // https://issues.dlang.org/show_bug.cgi?id=17991
-        // An import of truly empty file/package can happen
-        if (p is null)
-            return;
         auto pary = protection.kind == Prot.Kind.private_ ? &privateAccessiblePackages : &accessiblePackages;
         if (pary.length <= p.tag)
             pary.length = p.tag + 1;

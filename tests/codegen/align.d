@@ -3,16 +3,16 @@
 // Fails on Windows_x86, see https://github.com/ldc-developers/ldc/issues/1356
 // XFAIL: Windows_x86
 
-align(32) struct Outer { int a; }
-struct Inner { align(32) int a; }
+align(32) struct Outer { int a = 1; }
+// CHECK-DAG: _D5align5Outer6__initZ = constant %align.Outer {{.*}}, align 32
+struct Inner { align(32) int a = 1; }
+// CHECK-DAG: _D5align5Inner6__initZ = constant %align.Inner {{.*}}, align 32
 
 align(1) ubyte globalByte1;
 // CHECK-DAG: _D5align11globalByte1h = {{.*}} align 1
 static Outer globalOuter;
-// CHECK-DAG: constant %align.Outer zeroinitializer{{(, comdat)?}}, align 32
 // CHECK-DAG: _D5align11globalOuterSQu5Outer = {{.*}} align 32
 static Inner globalInner;
-// CHECK-DAG: constant %align.Inner zeroinitializer{{(, comdat)?}}, align 32
 // CHECK-DAG: _D5align11globalInnerSQu5Inner = {{.*}} align 32
 
 Outer passAndReturnOuterByVal(Outer arg) { return arg; }

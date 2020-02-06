@@ -23,8 +23,7 @@ import dmd.tokens;
  *
  * All static fields in this struct represents a specific predefined symbol.
  */
-// IN_LLVM: added `extern(C++)`
-extern(C++) struct Id
+extern (C++) struct Id
 {
     static __gshared:
 
@@ -47,7 +46,7 @@ extern(C++) struct Id
      * This can be used to restore the state set by `initialize` to its original
      * state.
      */
-    void deinitialize()
+    extern (D) void deinitialize()
     {
         mixin(msgtable.generate(&deinitializer));
     }
@@ -337,16 +336,21 @@ immutable Msgtable[] msgtable =
     { "main" },
     { "WinMain" },
     { "DllMain" },
-    { "tls_get_addr", "___tls_get_addr" },
-    { "entrypoint", "__entrypoint" },
+    { "CMain", "_d_cmain" },
     { "rt_init" },
     { "__cmp" },
     { "__equals"},
     { "__switch"},
     { "__switch_error"},
     { "__ArrayCast"},
+    { "_d_HookTraceImpl" },
+    { "_d_arraysetlengthTImpl"},
+    { "_d_arraysetlengthT"},
+    { "_d_arraysetlengthTTrace"},
 
     // varargs implementation
+    { "stdc" },
+    { "stdarg" },
     { "va_start" },
 
     // Builtin functions
@@ -361,16 +365,37 @@ immutable Msgtable[] msgtable =
     { "_sqrt", "sqrt" },
     { "_pow", "pow" },
     { "atan2" },
+    { "rint" },
+    { "ldexp" },
     { "rndtol" },
     { "expm1" },
     { "exp2" },
     { "yl2x" },
     { "yl2xp1" },
     { "fabs" },
+    { "toPrec" },
+    { "simd" },
+    { "__prefetch"},
+    { "__simd_sto"},
+    { "__simd"},
+    { "__simd_ib"},
     { "bitop" },
     { "bsf" },
     { "bsr" },
+    { "btc" },
+    { "btr" },
+    { "bts" },
     { "bswap" },
+    { "volatile_", "volatile" }, // IN_LLVM: renamed for ltsmaster compatibility
+    { "volatileLoad"},
+    { "volatileStore"},
+    { "_popcnt"},
+    { "inp"},
+    { "inpl"},
+    { "inpw"},
+    { "outp"},
+    { "outpl"},
+    { "outpw"},
 
     // Traits
     { "isAbstractClass" },
@@ -425,6 +450,9 @@ immutable Msgtable[] msgtable =
     { "isReturnOnStack" },
     { "isZeroInit" },
     { "getTargetInfo" },
+    { "getLocation" },
+    { "hasPostblit" },
+    { "hasCopyConstructor" },
 
     // For C++ mangling
     { "allocator" },

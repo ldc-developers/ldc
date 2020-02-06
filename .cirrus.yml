@@ -1,0 +1,183 @@
+# Installs pip and lit, clones the git submodules, builds LDC and the test
+# runners and runs the tests.
+# Requires env variables EXTRA_CMAKE_FLAGS and PARALLELISM.
+common_steps_template: &COMMON_STEPS_TEMPLATE
+  install_pip_and_lit_script: |
+    # Install pip
+    curl --max-time 300 --retry 3 -OL https://bootstrap.pypa.io/get-pip.py
+    python get-pip.py --user
+    rm get-pip.py
+    # Install lit
+    python -m pip install --user lit
+    python -c "import lit; lit.main();" --version | head -n 1
+  clone_submodules_script: |
+    cd $CIRRUS_WORKING_DIR
+    git submodule update --init --depth $CIRRUS_CLONE_DEPTH
+  build_script: |
+    # Build LDC & LDC D unittests & defaultlib unittest runners
+    cmake --version
+    ninja --version
+    cd $CIRRUS_WORKING_DIR/..
+    mkdir build
+    cd build
+    cmake -G Ninja $CIRRUS_WORKING_DIR \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
+      $EXTRA_CMAKE_FLAGS
+    ninja -j$PARALLELISM all ldc2-unittest all-test-runners
+    bin/ldc2 -version
+  always:
+    run_compiler_unittests_script: |
+      cd $CIRRUS_WORKING_DIR/../build
+      ctest --output-on-failure -R ldc2-unittest
+    run_lit_testsuite_script: |
+      cd $CIRRUS_WORKING_DIR/../build/tests
+      python runlit.py -v -j $PARALLELISM .
+    run_dmd_testsuite_script: |
+      cd $CIRRUS_WORKING_DIR/../build
+      DMD_TESTSUITE_MAKE_ARGS=-j$PARALLELISM ctest -V -R dmd-testsuite
+    run_defaultlib_tests_script: |
+      # Run defaultlib unittests & druntime stand-alone tests
+      cd $CIRRUS_WORKING_DIR/../build
+      ctest -j$PARALLELISM --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests"
+
+# Installs Ubuntu 18.04+ prerequisites.
+# Requires env variables HOST_LDC_VERSION and LIBCLANG_COMMON_VERSION and
+# supports optional EXTRA_APT_PACKAGES.
+install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
+  install_prerequisites_script: |
+    cd $CIRRUS_WORKING_DIR/..
+    nproc
+    export DEBIAN_FRONTEND=noninteractive
+    dpkg --add-architecture i386
+    apt-get -q update
+    apt-get -yq install \
+      git-core cmake ninja-build g++-multilib \
+      llvm-dev zlib1g-dev libclang-common-$LIBCLANG_COMMON_VERSION-dev \
+      libcurl4 libcurl4:i386 \
+      curl gdb python tzdata unzip zip \
+      $EXTRA_APT_PACKAGES
+    # Use ld.gold per default, so that LTO is tested
+    update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
+    # Download & extract host LDC
+    curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-x86_64.tar.xz
+    mkdir host-ldc
+    tar -xf ldc2.tar.xz --strip 1 -C host-ldc
+    rm ldc2.tar.xz
+
+# Installs macOS prerequisites.
+# Requires env variables HOST_LDC_VERSION and LLVM_VERSION.
+install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
+  install_prerequisites_script: |
+    cd $CIRRUS_WORKING_DIR/..
+    sysctl -n hw.logicalcpu
+    # Download & extract CMake
+    curl --max-time 300 --retry 3 -L -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.16.3/cmake-3.16.3-Darwin-x86_64.tar.gz
+    mkdir cmake
+    tar -xf cmake.tar.gz --strip 3 -C cmake
+    rm cmake.tar.gz
+    # Download & extract Ninja
+    curl --max-time 300 --retry 3 -OL https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-mac.zip
+    mkdir ninja
+    tar -xf ninja-mac.zip -C ninja
+    rm ninja-mac.zip
+    # Download & extract LDC-flavoured LLVM with enabled assertions
+    curl --max-time 300 --retry 3 -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-osx-x86_64-withAsserts.tar.xz
+    mkdir llvm
+    tar -xf llvm.tar.xz --strip 1 -C llvm
+    rm llvm.tar.xz
+    # Download & extract host LDC
+    curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-osx-x86_64.tar.xz
+    mkdir host-ldc
+    tar -xf ldc2.tar.xz --strip 1 -C host-ldc
+    rm ldc2.tar.xz
+
+environment:
+  CIRRUS_CLONE_DEPTH: 50
+  HOST_LDC_VERSION: 1.19.0
+
+task:
+  name: Ubuntu 18.04 x64 multilib rtSanitizers
+  container:
+    image: ubuntu:18.04
+    cpu: 8
+    memory: 16G
+  timeout_in: 60m
+  environment:
+    CI_OS: linux
+    LIBCLANG_COMMON_VERSION: "6.0"
+    EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
+    PARALLELISM: 8
+  << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
+  << : *COMMON_STEPS_TEMPLATE
+
+task:
+  name: Ubuntu rolling x64 multilib shared-libs-only gdmd
+  container:
+    image: ubuntu:rolling
+    cpu: 8
+    memory: 16G
+  timeout_in: 60m
+  environment:
+    CI_OS: linux
+    LIBCLANG_COMMON_VERSION: "9"
+    EXTRA_APT_PACKAGES: "gdmd locales"
+    EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=gdmd"
+    PARALLELISM: 8
+  << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
+  setup_gdmd_script: |
+    locale-gen en_US.UTF-8
+    gdmd --version
+  << : *COMMON_STEPS_TEMPLATE
+
+task:
+  name: macOS 10.15 x64
+  osx_instance:
+    image: catalina-xcode
+  timeout_in: 60m
+  environment:
+    CI_OS: osx
+    LLVM_VERSION: 9.0.1
+    EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
+    # OS is preset to `darwin`
+    OS: osx
+    PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
+    PARALLELISM: 4
+  << : *INSTALL_MACOS_PREREQUISITES_TEMPLATE
+  << : *COMMON_STEPS_TEMPLATE
+
+task:
+  name: macOS 10.15 x64 shared-libs-only
+  osx_instance:
+    image: catalina-xcode
+  timeout_in: 60m
+  environment:
+    CI_OS: osx
+    LLVM_VERSION: 9.0.1
+    EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON"
+    # OS is preset to `darwin`
+    OS: osx
+    PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
+    PARALLELISM: 4
+  << : *INSTALL_MACOS_PREREQUISITES_TEMPLATE
+  << : *COMMON_STEPS_TEMPLATE
+
+task:
+  name: FreeBSD 12.1 x64
+  allow_failures: 1 == 1
+  freebsd_instance:
+    image_family: freebsd-12-1
+    cpu: 4
+    memory: 8G
+  timeout_in: 60m
+  environment:
+    CI_OS: freebsd
+    EXTRA_CMAKE_FLAGS: ""
+    PARALLELISM: 4
+  install_prerequisites_script: |
+    cd $CIRRUS_WORKING_DIR/..
+    sysctl -n hw.ncpu
+    pkg install -y git cmake ninja gmake llvm ldc bash
+    # Use FreeBSD's ldc as host D compiler
+    ln -s /usr/local host-ldc
+  << : *COMMON_STEPS_TEMPLATE

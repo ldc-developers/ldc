@@ -48,6 +48,10 @@ unsigned getCriticalSectionSize(const Param &params) {
   // POSIX: sizeof(pthread_mutex_t)
   // based on druntime/src/core/sys/posix/sys/types.d
   const auto &triple = *params.targetTriple;
+
+  if (triple.isOSDarwin())
+    return is64bit ? 64 : 44;
+
   const auto arch = triple.getArch();
   switch (triple.getOS()) {
   case llvm::Triple::Linux:
@@ -58,10 +62,6 @@ unsigned getCriticalSectionSize(const Param &params) {
     if (arch == llvm::Triple::aarch64 || arch == llvm::Triple::aarch64_be)
       return 48;
     return is64bit ? 40 : 24;
-
-  case llvm::Triple::Darwin:
-  case llvm::Triple::MacOSX:
-    return is64bit ? 64 : 44;
 
   case llvm::Triple::NetBSD:
     return is64bit ? 48 : 28;
@@ -94,9 +94,9 @@ unsigned getCriticalSectionSize(const Param &params) {
 void Target::_init(const Param &params) {
   CTFloat::initialize();
 
-  FloatProperties._init();
-  DoubleProperties._init();
-  RealProperties._init();
+  FloatProperties.initialize();
+  DoubleProperties.initialize();
+  RealProperties.initialize();
 
   const auto &triple = *params.targetTriple;
   const bool isMSVC = triple.isWindowsMSVCEnvironment();
@@ -109,13 +109,15 @@ void Target::_init(const Param &params) {
   classinfosize = 0; // unused
   maxStaticDataSize = std::numeric_limits<unsigned long long>::max();
 
-  c_longsize = global.params.is64bit && !isMSVC ? 8 : 4;
-  c_long_doublesize = realsize;
-  criticalSectionSize = getCriticalSectionSize(params);
+  c.longsize = params.is64bit && !isMSVC ? 8 : 4;
+  c.long_doublesize = realsize;
+  c.criticalSectionSize = getCriticalSectionSize(params);
 
-  reverseCppOverloads = isMSVC; // according to DMD, only for MSVC++
-  cppExceptions = true;
-  twoDtorInVtable = !isMSVC;
+  cpp.reverseOverloads = isMSVC; // according to DMD, only for MSVC++
+  cpp.exceptions = true;
+  cpp.twoDtorInVtable = !isMSVC;
+
+  objc.supported = params.hasObjectiveC;
 
   // Finalize RealProperties for the target's `real` type.
 
@@ -200,7 +202,7 @@ Type *Target::va_listType() { return gABI->vaListType(); }
  *      string if type is mangled specially on target
  *      null if unhandled
  */
-const char *Target::cppTypeMangle(Type *t) {
+const char *TargetCPP::typeMangle(Type *t) {
   if (t->ty == Tfloat80) {
     const auto &triple = *global.params.targetTriple;
     // `long double` on Android/x64 is __float128 and mangled as `g`
@@ -285,6 +287,6 @@ Expression *Target::getTargetInfo(const char *name_, const Loc &loc) {
                 mem.xstrdup(opts::dcomputeFilePrefix.c_str()));
   }
 #endif
-    
+
   return nullptr;
 }

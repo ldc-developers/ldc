@@ -245,8 +245,7 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
     // Embed a linker switch telling the MS linker to export the naked function.
     // This mimics the effect of the dllexport attribute for regular functions.
     const auto linkerSwitch = std::string("/EXPORT:") + mangle;
-    auto Value = llvm::MDString::get(gIR->context(), linkerSwitch);
-    gIR->LinkerMetadataArgs.push_back(llvm::MDNode::get(gIR->context(), Value));
+    gIR->addLinkerOption(llvm::StringRef(linkerSwitch));
   }
 
   gIR->funcGenStates.pop_back();
@@ -314,7 +313,7 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
       as->out_c = "=*m,=*m,";
       LLValue* tmp = DtoRawAlloca(llretTy, 0, ".tmp_asm_ret");
       as->out.push_back( tmp );
-      as->out.push_back( DtoGEPi(tmp, 0,1) );
+      as->out.push_back( DtoGEP(tmp, 0, 1) );
       as->code = "movd %eax, $<<out0>>" "\n\t" "mov %edx, $<<out1>>";
 
       // fix asmblock
@@ -410,7 +409,7 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
   LOG_SCOPE;
 
   assert(fd->toParent()->isTemplateInstance() && "invalid inline __asm expr");
-  assert(arguments->dim >= 2 && "invalid __asm call");
+  assert(arguments->length >= 2 && "invalid __asm call");
 
   // get code param
   Expression *e = (*arguments)[0];
@@ -420,7 +419,8 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
     e->error("`__asm` code argument is not a `char[]` string literal");
     fatal();
   }
-  std::string code(se->toPtr(), se->numberOfCodeUnits());
+  const DString codeStr = se->peekString();
+  const llvm::StringRef code = {codeStr.ptr, codeStr.length};
 
   // get constraints param
   e = (*arguments)[1];
@@ -430,10 +430,12 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
     e->error("`__asm` constraints argument is not a `char[]` string literal");
     fatal();
   }
-  std::string constraints(se->toPtr(), se->numberOfCodeUnits());
+  const DString constraintsStr = se->peekString();
+  const llvm::StringRef constraints = {constraintsStr.ptr,
+                                       constraintsStr.length};
 
   // build runtime arguments
-  size_t n = arguments->dim;
+  size_t n = arguments->length;
 
   LLSmallVector<llvm::Value *, 8> args;
   args.reserve(n - 2);

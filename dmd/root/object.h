@@ -9,12 +9,8 @@
 
 #pragma once
 
-#if !IN_LLVM
-#define POSIX (__linux__ || __GLIBC__ || __gnu_hurd__ || __APPLE__ || __FreeBSD__ || __DragonFly__ || __OpenBSD__ || __sun)
-#endif
-
+#include "dsystem.h"
 #include "dcompat.h"
-#include <stddef.h>
 
 typedef size_t hash_t;
 
@@ -41,22 +37,15 @@ class RootObject
 public:
     RootObject() { }
 
-    virtual bool equals(RootObject *o);
-
-    /**
-     * Return <0, ==0, or >0 if this is less than, equal to, or greater than obj.
-     * Useful for sorting Objects.
-     */
-    virtual int compare(RootObject *obj);
+    virtual bool equals(const RootObject *o) const;
 
     /**
      * Pretty-print an Object. Useful for debugging the old-fashioned way.
      */
-    virtual const char *toChars();
+    virtual const char *toChars() const;
     /// This function is `extern(D)` and should not be called from C++,
     /// as the ABI does not match on some platforms
-    virtual DArray<const char> toString();
-    virtual void toBuffer(OutBuffer *buf);
+    virtual DString toString();
 
     /**
      * Used as a replacement for dynamic_cast. Returns a unique number

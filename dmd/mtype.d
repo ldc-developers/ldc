@@ -288,6 +288,7 @@ enum ENUMTY : int
     Tint128,
     Tuns128,
     TTraits,
+    Tmixin,
     TMAX,
 }
 
@@ -336,6 +337,7 @@ alias Tvector = ENUMTY.Tvector;
 alias Tint128 = ENUMTY.Tint128;
 alias Tuns128 = ENUMTY.Tuns128;
 alias Ttraits = ENUMTY.TTraits;
+alias Tmixin = ENUMTY.Tmixin;
 alias TMAX = ENUMTY.TMAX;
 
 alias TY = ubyte;
@@ -470,7 +472,7 @@ version (IN_LLVM)
 
     extern (C++) __gshared Type[TMAX] basic;
 
-    extern (D) __gshared StringTable stringtable;
+    extern (D) __gshared StringTable!Type stringtable;
     extern (D) private __gshared ubyte[TMAX] sizeTy = ()
         {
             ubyte[TMAX] sizeTy = __traits(classInstanceSize, TypeBasic);
@@ -494,6 +496,7 @@ version (IN_LLVM)
             sizeTy[Tnull] = __traits(classInstanceSize, TypeNull);
             sizeTy[Tvector] = __traits(classInstanceSize, TypeVector);
             sizeTy[Ttraits] = __traits(classInstanceSize, TypeTraits);
+            sizeTy[Tmixin] = __traits(classInstanceSize, TypeMixin);
             return sizeTy;
         }();
 
@@ -520,7 +523,7 @@ version (IN_LLVM)
         assert(0);
     }
 
-    override bool equals(RootObject o) const
+    override bool equals(const RootObject o) const
     {
         Type t = cast(Type)o;
         //printf("Type::equals(%s, %s)\n", toChars(), t.toChars());
@@ -787,7 +790,7 @@ version (IN_LLVM)
     /********************************
      * For pretty-printing a type.
      */
-    final override const(char)* toChars()
+    final override const(char)* toChars() const
     {
         OutBuffer buf;
         buf.reserve(16);
@@ -963,10 +966,10 @@ version (IN_LLVM)
         if (!t.deco)
             return t.merge();
 
-        StringValue* sv = stringtable.lookup(t.deco, strlen(t.deco));
-        if (sv && sv.ptrvalue)
+        auto sv = stringtable.lookup(t.deco, strlen(t.deco));
+        if (sv && sv.value)
         {
-            t = cast(Type)sv.ptrvalue;
+            t = sv.value;
             assert(t.deco);
         }
         else
@@ -2027,7 +2030,7 @@ version (IN_LLVM)
         if (!ad || !ad.aliasthis)
             return null;
 
-        auto s = ad.aliasthis;
+        auto s = ad.aliasthis.sym;
         if (s.isAliasDeclaration())
             s = s.toAlias();
 
@@ -2385,11 +2388,13 @@ version (IN_LLVM)
     /**************************
      * Return type with the top level of it being mutable.
      */
-    Type toHeadMutable()
+    inout(Type) toHeadMutable() inout
     {
         if (!mod)
             return this;
-        return mutableOf();
+        Type unqualThis = cast(Type) this;
+        // `mutableOf` needs a mutable `this` only for caching
+        return cast(inout(Type)) unqualThis.mutableOf();
     }
 
     inout(ClassDeclaration) isClassHandle() inout
@@ -2431,7 +2436,7 @@ version (IN_LLVM)
         buf.reserve(32);
         mangleToBuffer(this, &buf);
 
-        const slice = buf.peekSlice();
+        const slice = buf[];
 
         // Allocate buffer on stack, fail over to using malloc()
         char[128] namebuf;
@@ -2454,7 +2459,7 @@ version (IN_LLVM)
         // else path is DDMD original:
 
         const namelen = 19 + size_t.sizeof * 3 + slice.length + 1;
-        name = namelen <= namebuf.length ? namebuf.ptr : cast(char*)malloc(namelen);
+        name = namelen <= namebuf.length ? namebuf.ptr : cast(char*)Mem.check(malloc(namelen));
         assert(name);
 
         length = sprintf(name, "_D%lluTypeInfo_%.*s6__initZ",
@@ -2689,6 +2694,8 @@ version (IN_LLVM)
         inout(TypeTuple)      isTypeTuple()      { return ty == Ttuple     ? cast(typeof(return))this : null; }
         inout(TypeSlice)      isTypeSlice()      { return ty == Tslice     ? cast(typeof(return))this : null; }
         inout(TypeNull)       isTypeNull()       { return ty == Tnull      ? cast(typeof(return))this : null; }
+        inout(TypeMixin)      isTypeMixin()      { return ty == Tmixin     ? cast(typeof(return))this : null; }
+        inout(TypeTraits)     isTypeTraits()     { return ty == Ttraits    ? cast(typeof(return))this : null; }
     }
 
     override void accept(Visitor v)
@@ -4354,6 +4361,17 @@ extern (C++) final class TypeFunction : TypeNext
         return false;
     }
 
+    /*******************************
+     * Check for `extern (D) U func(T t, ...)` variadic function type,
+     * which has `_arguments[]` added as the first argument.
+     * Returns:
+     *  true if D-style variadic
+     */
+    bool isDstyleVariadic() const pure nothrow
+    {
+        return linkage == LINK.d && parameterList.varargs == VarArg.variadic;
+    }
+
     /***************************
      * Examine function signature for parameter p and see if
      * the value of p can 'escape' the scope of the function.
@@ -4745,6 +4763,7 @@ extern (C++) final class TypeFunction : TypeNext
                              * copytmp.__copyCtor(arg);
                              */
                             auto tmp = new VarDeclaration(arg.loc, tprm, Identifier.generateId("__copytmp"), null);
+                            tmp.storage_class = STC.rvalue | STC.temp | STC.ctfe;
                             tmp.dsymbolSemantic(sc);
                             Expression ve = new VarExp(arg.loc, tmp);
                             Expression e = new DotIdExp(arg.loc, ve, Id.ctor);
@@ -5153,6 +5172,53 @@ extern (C++) final class TypeTraits : Type
     override d_uns64 size(const ref Loc loc)
     {
         return SIZE_INVALID;
+    }
+}
+
+/******
+ * Implements mixin types.
+ *
+ * Semantic analysis will convert it to a real type.
+ */
+extern (C++) final class TypeMixin : Type
+{
+    Loc loc;
+    Expressions* exps;
+
+    extern (D) this(const ref Loc loc, Expressions* exps)
+    {
+        super(Tmixin);
+        this.loc = loc;
+        this.exps = exps;
+    }
+
+    override const(char)* kind() const
+    {
+        return "mixin";
+    }
+
+    override Type syntaxCopy()
+    {
+        return new TypeMixin(loc, Expression.arraySyntaxCopy(exps));
+    }
+
+   override Dsymbol toDsymbol(Scope* sc)
+    {
+        Type t;
+        Expression e;
+        Dsymbol s;
+        resolve(this, loc, sc, &e, &t, &s);
+        if (t)
+            s = t.toDsymbol(sc);
+        else if (e)
+            s = getDsymbol(e);
+
+        return s;
+    }
+
+    override void accept(Visitor v)
+    {
+        v.visit(this);
     }
 }
 
@@ -5634,7 +5700,7 @@ extern (C++) final class TypeStruct : Type
         return false;
     }
 
-    MATCH implicitConvToWithoutAliasThis(Type to)
+    extern (D) MATCH implicitConvToWithoutAliasThis(Type to)
     {
         MATCH m;
 
@@ -5692,7 +5758,7 @@ extern (C++) final class TypeStruct : Type
         return m;
     }
 
-    MATCH implicitConvToThroughAliasThis(Type to)
+    extern (D) MATCH implicitConvToThroughAliasThis(Type to)
     {
         MATCH m;
         if (!(ty == to.ty && sym == (cast(TypeStruct)to).sym) && sym.aliasthis && !(att & AliasThisRec.tracing))
@@ -5745,7 +5811,7 @@ extern (C++) final class TypeStruct : Type
         return wm;
     }
 
-    override Type toHeadMutable()
+    override inout(Type) toHeadMutable() inout
     {
         return this;
     }
@@ -5971,7 +6037,7 @@ extern (C++) final class TypeClass : Type
         return false;
     }
 
-    MATCH implicitConvToWithoutAliasThis(Type to)
+    extern (D) MATCH implicitConvToWithoutAliasThis(Type to)
     {
         MATCH m = constConv(to);
         if (m > MATCH.nomatch)
@@ -5994,7 +6060,7 @@ extern (C++) final class TypeClass : Type
         return MATCH.nomatch;
     }
 
-    MATCH implicitConvToThroughAliasThis(Type to)
+    extern (D) MATCH implicitConvToThroughAliasThis(Type to)
     {
         MATCH m;
         if (sym.aliasthis && !(att & AliasThisRec.tracing))
@@ -6059,7 +6125,7 @@ extern (C++) final class TypeClass : Type
         return wm;
     }
 
-    override Type toHeadMutable()
+    override inout(Type) toHeadMutable() inout
     {
         return this;
     }
@@ -6168,6 +6234,21 @@ extern (C++) final class TypeTuple : Type
         arguments.push(new Parameter(0, t2, null, null, null));
     }
 
+    static TypeTuple create()
+    {
+        return new TypeTuple();
+    }
+
+    static TypeTuple create(Type t1)
+    {
+        return new TypeTuple(t1);
+    }
+
+    static TypeTuple create(Type t1, Type t2)
+    {
+        return new TypeTuple(t1, t2);
+    }
+
     override const(char)* kind() const
     {
         return "tuple";
@@ -6181,7 +6262,7 @@ extern (C++) final class TypeTuple : Type
         return t;
     }
 
-    override bool equals(RootObject o) const
+    override bool equals(const RootObject o) const
     {
         Type t = cast(Type)o;
         //printf("TypeTuple::equals(%s, %s)\n", toChars(), t.toChars());
@@ -6694,6 +6775,21 @@ extern (C++) AggregateDeclaration isAggregate(Type t)
 }
 
 /***************************************************
+ * Determine if type t can be indexed or sliced given that it is not an
+ * aggregate with operator overloads.
+ * Params:
+ *      t = type to check
+ * Returns:
+ *      true if an expression of type t can be e1 in an array expression
+ */
+bool isIndexableNonAggregate(Type t)
+{
+    t = t.toBasetype();
+    return (t.ty == Tpointer || t.ty == Tsarray || t.ty == Tarray || t.ty == Taarray ||
+            t.ty == Ttuple || t.ty == Tvector);
+}
+
+/***************************************************
  * Determine if type t is copyable.
  * Params:
  *      t = type to check
@@ -6711,4 +6807,3 @@ bool isCopyable(const Type t) pure nothrow @nogc
     }
     return true;
 }
-

@@ -37,7 +37,7 @@ class VoidInitExp : public Expression
 public:
     VarDeclaration *var;
 
-    const char *toChars();
+    const char *toChars() const;
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -49,9 +49,7 @@ class ThrownExceptionExp : public Expression
 {
 public:
     ClassReferenceExp *thrown; // the thing being tossed
-    const char *toChars();
-    /// Generate an error message when this exception is not caught
-    void generateUncaughtError();
+    const char *toChars() const;
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -62,5 +60,5 @@ public:
 class CTFEExp : public Expression
 {
 public:
-    const char *toChars();
+    const char *toChars() const;
 };

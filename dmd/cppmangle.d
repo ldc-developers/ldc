@@ -174,7 +174,7 @@ private final class CppMangleVisitor : Visitor
     {
         if (VarDeclaration vd = s.isVarDeclaration())
         {
-            mangle_variable(vd, vd.namespace !is null);
+            mangle_variable(vd, vd.cppnamespace !is null);
         }
         else if (FuncDeclaration fd = s.isFuncDeclaration())
         {
@@ -343,7 +343,7 @@ private final class CppMangleVisitor : Visitor
     /// Ditto
     static bool isStd(CPPNamespaceDeclaration s)
     {
-        return s && s.namespace is null && s.ident == Id.std;
+        return s && s.cppnamespace is null && s.ident == Id.std;
     }
 
     /************************
@@ -357,7 +357,7 @@ private final class CppMangleVisitor : Visitor
     {
         // First check the target whether some specific ABI is being followed.
         bool isFundamental = void;
-        if (target.cppFundamentalType(t, isFundamental))
+        if (target.cpp.fundamentalType(t, isFundamental))
             return isFundamental;
 
         if (auto te = t.isTypeEnum())
@@ -393,7 +393,6 @@ private final class CppMangleVisitor : Visitor
         TemplateParameter tp = (*td.parameters)[arg];
         RootObject o = (*ti.tiargs)[arg];
 
-        Objects* pctx;
         auto prev = this.context.push({
                 TemplateInstance parentti;
                 if (this.context.res.dyncast() == DYNCAST.dsymbol)
@@ -565,12 +564,24 @@ private final class CppMangleVisitor : Visitor
         {
             printf("source_name(%s)\n", s.toChars());
             auto sl = this.buf.peekSlice();
-            assert(sl.length == 0 || haveNE || s.namespace is null || sl != "_ZN");
+            assert(sl.length == 0 || haveNE || s.cppnamespace is null || sl != "_ZN");
         }
         if (TemplateInstance ti = s.isTemplateInstance())
         {
             bool needsTa = false;
-            const isNested = !!ti.tempdecl.namespace || !!getQualifier(ti.tempdecl);
+
+            // https://issues.dlang.org/show_bug.cgi?id=20413
+            // N..E is not needed when substituting members of the std namespace.
+            // This is observed in the GCC and Clang implementations.
+            // The Itanium specification is not clear enough on this specific case.
+            // References:
+            //   https://itanium-cxx-abi.github.io/cxx-abi/abi.html#mangle.name
+            //   https://itanium-cxx-abi.github.io/cxx-abi/abi.html#mangling-compression
+            Dsymbol q = getQualifier(ti.tempdecl);
+            Dsymbol ns = ti.tempdecl.cppnamespace;
+            const inStd = ns && isStd(ns) || q && isStd(q);
+            const isNested = !inStd && (ns || q);
+
             if (substitute(ti.tempdecl, !haveNE && isNested))
             {
                 template_args(ti);
@@ -585,7 +596,7 @@ private final class CppMangleVisitor : Visitor
             else
             {
                 this.writeNamespace(
-                    s.namespace, () {
+                    s.cppnamespace, () {
                         this.writeIdentifier(ti.tempdecl.toAlias().ident);
                         append(ti.tempdecl);
                         template_args(ti);
@@ -593,7 +604,7 @@ private final class CppMangleVisitor : Visitor
             }
         }
         else
-            this.writeNamespace(s.namespace, () => this.writeIdentifier(s.ident),
+            this.writeNamespace(s.cppnamespace, () => this.writeIdentifier(s.ident),
                                 haveNE);
     }
 
@@ -606,7 +617,7 @@ private final class CppMangleVisitor : Visitor
      */
     static Dsymbol getInstance(Dsymbol s)
     {
-        Dsymbol p = s.toParent3();
+        Dsymbol p = s.toParent();
         if (p)
         {
             if (TemplateInstance ti = p.isTemplateInstance())
@@ -619,9 +630,9 @@ private final class CppMangleVisitor : Visitor
     CPPNamespaceDeclaration getTiNamespace(TemplateInstance ti)
     {
         // If we receive a pre-semantic `TemplateInstance`,
-        // `namespace` is always `null`
-        return ti.tempdecl ? ti.namespace
-            : this.context.res.asType().toDsymbol(null).namespace;
+        // `cppnamespace` is always `null`
+        return ti.tempdecl ? ti.cppnamespace
+            : this.context.res.asType().toDsymbol(null).cppnamespace;
     }
 
     /********
@@ -637,7 +648,7 @@ private final class CppMangleVisitor : Visitor
      */
     static Dsymbol getQualifier(Dsymbol s)
     {
-        Dsymbol p = s.toParent3();
+        Dsymbol p = s.toParent();
         return (p && !p.isModule()) ? p : null;
     }
 
@@ -669,7 +680,7 @@ private final class CppMangleVisitor : Visitor
         Dsymbol s = (cast(TypeStruct)t).toDsymbol(null);
         if (s.ident != ident)
             return false;
-        Dsymbol p = s.toParent3();
+        Dsymbol p = s.toParent();
         if (!p)
             return false;
         TemplateInstance ti = p.isTemplateInstance();
@@ -803,7 +814,7 @@ private final class CppMangleVisitor : Visitor
     void cpp_mangle_name(Dsymbol s, bool qualified)
     {
         //printf("cpp_mangle_name(%s, %d)\n", s.toChars(), qualified);
-        Dsymbol p = s.toParent3();
+        Dsymbol p = s.toParent();
         Dsymbol se = s;
         bool write_prefix = true;
         if (p && p.isTemplateInstance())
@@ -811,7 +822,7 @@ private final class CppMangleVisitor : Visitor
             se = p;
             if (find(p.isTemplateInstance().tempdecl) >= 0)
                 write_prefix = false;
-            p = p.toParent3();
+            p = p.toParent();
         }
         if (p && !p.isModule())
         {
@@ -914,7 +925,7 @@ private final class CppMangleVisitor : Visitor
             d.error("Internal Compiler Error: C++ static non-`__gshared` non-`extern` variables not supported");
             fatal();
         }
-        Dsymbol p = d.toParent3();
+        Dsymbol p = d.toParent();
         if (p && !p.isModule()) //for example: char Namespace1::beta[6] should be mangled as "_ZN10Namespace14betaE"
         {
             buf.writestring("_ZN");
@@ -957,7 +968,7 @@ private final class CppMangleVisitor : Visitor
         }
         else
         {
-            Dsymbol p = d.toParent3();
+            Dsymbol p = d.toParent();
             if (p && !p.isModule() && tf.linkage == LINK.cpp)
             {
                 this.mangleNestedFuncPrefix(tf, p);
@@ -1018,7 +1029,7 @@ private final class CppMangleVisitor : Visitor
                 buf.writestring("N");
             if (!substitute(ns))
             {
-                this.writeNamespace(ns.namespace, null);
+                this.writeNamespace(ns.cppnamespace, null);
                 this.writeIdentifier(ns.ident);
                 append(ns);
             }
@@ -1028,7 +1039,7 @@ private final class CppMangleVisitor : Visitor
         }
         else if (!substitute(ns))
         {
-            this.writeNamespace(ns.namespace, null);
+            this.writeNamespace(ns.cppnamespace, null);
             this.writeIdentifier(ns.ident);
             append(ns);
         }
@@ -1054,9 +1065,9 @@ private final class CppMangleVisitor : Visitor
             this.context.fd = d;
             this.context.res = d;
             TypeFunction preSemantic = cast(TypeFunction)d.originalType;
-            auto nspace = ti.toParent3();
+            auto nspace = ti.toParent();
             if (nspace && nspace.isNspace())
-                this.writeChained(ti.toParent3(), () => source_name(ti, true));
+                this.writeChained(ti.toParent(), () => source_name(ti, true));
             else
                 source_name(ti);
             this.mangleReturnType(preSemantic);
@@ -1121,7 +1132,7 @@ private final class CppMangleVisitor : Visitor
                 switch (whichOp)
                 {
                 case CppOperator.Unary:
-                    switch (str.peekSlice())
+                    switch (str.peekString())
                     {
                     case "*":   symName = "de"; goto continue_template;
                     case "++":  symName = "pp"; goto continue_template;
@@ -1133,7 +1144,7 @@ private final class CppMangleVisitor : Visitor
                     }
                     break;
                 case CppOperator.Binary:
-                    switch (str.peekSlice())
+                    switch (str.peekString())
                     {
                     case ">>":  symName = "rs"; goto continue_template;
                     case "<<":  symName = "ls"; goto continue_template;
@@ -1149,7 +1160,7 @@ private final class CppMangleVisitor : Visitor
                     }
                     break;
                 case CppOperator.OpAssign:
-                    switch (str.peekSlice())
+                    switch (str.peekString())
                     {
                     case "*":   symName = "mL"; goto continue_template;
                     case "+":   symName = "pL"; goto continue_template;
@@ -1203,7 +1214,7 @@ private final class CppMangleVisitor : Visitor
 
         int paramsCppMangleDg(size_t n, Parameter fparam)
         {
-            Type t = target.cppParameterType(fparam);
+            Type t = target.cpp.parameterType(fparam);
             if (t.ty == Tsarray)
             {
                 // Static arrays in D are passed by value; no counterpart in C++
@@ -1245,7 +1256,7 @@ private final class CppMangleVisitor : Visitor
             p = "`shared` ";
         else
             p = "";
-        .error(loc, "Internal Compiler Error: %stype `%s` can not be mapped to C++\n", p, t.toChars());
+        .error(loc, "Internal Compiler Error: %stype `%s` cannot be mapped to C++\n", p, t.toChars());
         fatal(); //Fatal, because this error should be handled in frontend
     }
 
@@ -1307,14 +1318,14 @@ private final class CppMangleVisitor : Visitor
         CV_qualifiers(t);
 
         // Handle any target-specific struct types.
-        if (auto tm = target.cppTypeMangle(t))
+        if (auto tm = target.cpp.typeMangle(t))
         {
             buf.writestring(tm);
         }
         else
         {
             Dsymbol s = t.toDsymbol(null);
-            Dsymbol p = s.toParent3();
+            Dsymbol p = s.toParent();
             if (p && p.isTemplateInstance())
             {
                  /* https://issues.dlang.org/show_bug.cgi?id=17947
@@ -1356,7 +1367,7 @@ private final class CppMangleVisitor : Visitor
 
         {
             Dsymbol s = t.toDsymbol(null);
-            Dsymbol p = s.toParent3();
+            Dsymbol p = s.toParent();
             if (p && p.isTemplateInstance())
             {
                  /* https://issues.dlang.org/show_bug.cgi?id=17947
@@ -1489,7 +1500,7 @@ private final class CppMangleVisitor : Visitor
                 sym2.accept(this);
         }
         this.writeNamespace(
-            sym1.namespace, () {
+            sym1.cppnamespace, () {
                 this.writeIdentifier(t.name);
                 this.append(t);
                 dg();
@@ -1516,7 +1527,7 @@ extern(C++):
             return error(t);
 
         // Handle any target-specific basic types.
-        if (auto tm = target.cppTypeMangle(t))
+        if (auto tm = target.cpp.typeMangle(t))
         {
             // Only do substitutions for non-fundamental types.
             if (!isFundamentalType(t) || t.isConst())
@@ -1574,10 +1585,10 @@ extern(C++):
             case Tuns32:                c = 'j';        break;
             case Tfloat32:              c = 'f';        break;
             case Tint64:
-                c = target.c_longsize == 8 ? 'l' : 'x';
+                c = target.c.longsize == 8 ? 'l' : 'x';
                 break;
             case Tuns64:
-                c = target.c_longsize == 8 ? 'm' : 'y';
+                c = target.c.longsize == 8 ? 'm' : 'y';
                 break;
             case Tint128:                c = 'n';       break;
             case Tuns128:                c = 'o';       break;
@@ -1619,7 +1630,7 @@ else
         CV_qualifiers(t);
 
         // Handle any target-specific vector types.
-        if (auto tm = target.cppTypeMangle(t))
+        if (auto tm = target.cpp.typeMangle(t))
         {
             buf.writestring(tm);
         }
@@ -1677,9 +1688,10 @@ else
         if (substitute(t))
             return;
         buf.writeByte('R');
-        auto prev = this.context.push(this.context.res.asType().nextOf());
-        scope (exit) this.context.pop(prev);
-        t.next.accept(this);
+        CV_qualifiers(t.nextOf());
+        headOfType(t.nextOf());
+        if (t.nextOf().isConst())
+            append(t.nextOf());
         append(t);
     }
 
@@ -2145,9 +2157,9 @@ private bool isNamespaceEqual (CPPNamespaceDeclaration a, Nspace b, size_t idx =
 
     // We need to see if there's more ident enclosing
     if (auto pb = b.toParent().isNspace())
-        return isNamespaceEqual(a.namespace, pb);
+        return isNamespaceEqual(a.cppnamespace, pb);
     else
-        return a.namespace is null;
+        return a.cppnamespace is null;
 }
 
 /// Returns:
@@ -2157,9 +2169,9 @@ private bool isNamespaceEqual (CPPNamespaceDeclaration a, CPPNamespaceDeclaratio
     if (a is null || b is null)
         return false;
 
-    if ((a.namespace is null) != (b.namespace is null))
+    if ((a.cppnamespace is null) != (b.cppnamespace is null))
         return false;
     if (a.ident != b.ident)
         return false;
-    return a.namespace is null ? true : isNamespaceEqual(a.namespace, b.namespace);
+    return a.cppnamespace is null ? true : isNamespaceEqual(a.cppnamespace, b.cppnamespace);
 }

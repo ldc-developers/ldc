@@ -30,6 +30,7 @@ import dmd.root.port;
 import dmd.root.rmem;
 import dmd.tokens;
 import dmd.utf;
+import dmd.utils;
 
 nothrow:
 
@@ -223,6 +224,7 @@ class Lexer
         bool doDocComment;      // collect doc comment information
         bool anyToken;          // seen at least one token
         bool commentToken;      // comments are TOK.comment's
+        int inTokenStringConstant; // can be larger than 1 when in nested q{} strings
         int lastDocLine;        // last line of previous doc comment
 
         DiagnosticReporter diagnosticReporter;
@@ -264,6 +266,7 @@ class Lexer
         line = p;
         this.doDocComment = doDocComment;
         this.commentToken = commentToken;
+        this.inTokenStringConstant = 0;
         this.lastDocLine = 0;
         //initKeywords();
         /* If first line starts with '#!', ignore the line
@@ -313,6 +316,8 @@ class Lexer
     /// Frees the given token by returning it to the freelist.
     private void releaseToken(Token* token) pure nothrow @nogc @safe
     {
+        if (mem.isGCEnabled)
+            *token = Token.init;
         token.next = tokenFreelist;
         tokenFreelist = token;
     }
@@ -435,7 +440,7 @@ class Lexer
                 auto start = p;
                 auto hexString = new OutBuffer();
                 t.value = hexStringConstant(t);
-                hexString.write(start, p - start);
+                hexString.write(start[0 .. p - start]);
                 error("Built-in hex string literals are obsolete, use `std.conv.hexString!%s` instead.", hexString.extractChars());
                 return;
             case 'q':
@@ -1331,7 +1336,7 @@ class Lexer
         Loc start = loc();
         auto terminator = p[0];
         p++;
-        stringbuffer.reset();
+        stringbuffer.setsize(0);
         while (1)
         {
             dchar c = p[0];
@@ -1387,7 +1392,7 @@ class Lexer
         uint n = 0;
         uint v = ~0; // dead assignment, needed to suppress warning
         p++;
-        stringbuffer.reset();
+        stringbuffer.setsize(0);
         while (1)
         {
             dchar c = *p++;
@@ -1481,7 +1486,7 @@ class Lexer
         uint blankrol = 0;
         uint startline = 0;
         p++;
-        stringbuffer.reset();
+        stringbuffer.setsize(0);
         while (1)
         {
             dchar c = *p++;
@@ -1635,6 +1640,8 @@ class Lexer
         uint nest = 1;
         const start = loc();
         const pstart = ++p;
+        inTokenStringConstant++;
+        scope(exit) inTokenStringConstant--;
         while (1)
         {
             Token tok;
@@ -1676,7 +1683,7 @@ class Lexer
 
         const start = loc();
         p++;
-        stringbuffer.reset();
+        stringbuffer.setsize(0);
         while (1)
         {
             dchar c = *p++;
@@ -1796,7 +1803,29 @@ class Lexer
         }
         if (*p != '\'')
         {
-            error("unterminated character constant");
+            while (*p != '\'' && *p != 0x1A && *p != 0 && *p != '\n' &&
+                    *p != '\r' && *p != ';' && *p != ')' && *p != ']' && *p != '}')
+            {
+                if (*p & 0x80)
+                {
+                    const s = p;
+                    c = decodeUTF();
+                    if (c == LS || c == PS)
+                    {
+                        p = s;
+                        break;
+                    }
+                }
+                p++;
+            }
+
+            if (*p == '\'')
+            {
+                error("character constant has multiple characters");
+                p++;
+            }
+            else
+                error("unterminated character constant");
             t.unsvalue = '?';
             return tk;
         }
@@ -2061,11 +2090,6 @@ class Lexer
              */
             if (n & 0x8000000000000000L)
             {
-                if (!err)
-                {
-                    error("signed integer overflow");
-                    err = true;
-                }
                 result = TOK.uns64Literal;
             }
             else if (n & 0xFFFFFFFF80000000L)
@@ -2130,7 +2154,7 @@ class Lexer
             assert(*p == '.' || isdigit(*p));
         }
         bool isWellformedString = true;
-        stringbuffer.reset();
+        stringbuffer.setsize(0);
         auto pstart = p;
         bool hex = false;
         dchar c = *p++;
@@ -2211,7 +2235,7 @@ class Lexer
             ++pstart;
         }
         stringbuffer.writeByte(0);
-        auto sbufptr = cast(const(char)*)stringbuffer.data;
+        auto sbufptr = cast(const(char)*)stringbuffer[].ptr;
         TOK result;
         bool isOutOfRange = false;
         t.floatvalue = (isWellformedString ? CTFloat.parse(sbufptr, &isOutOfRange) : CTFloat.zero);
@@ -2384,9 +2408,12 @@ class Lexer
             case 0x1A:
             case '\n':
             Lnewline:
-                this.scanloc.linnum = linnum;
-                if (filespec)
-                    this.scanloc.filename = filespec;
+                if (!inTokenStringConstant)
+                {
+                    this.scanloc.linnum = linnum;
+                    if (filespec)
+                        this.scanloc.filename = filespec;
+                }
                 return;
             case '\r':
                 p++;
@@ -2413,7 +2440,7 @@ class Lexer
             case '"':
                 if (filespec)
                     goto Lerr;
-                stringbuffer.reset();
+                stringbuffer.setsize(0);
                 p++;
                 while (1)
                 {
@@ -2428,7 +2455,7 @@ class Lexer
                         goto Lerr;
                     case '"':
                         stringbuffer.writeByte(0);
-                        filespec = mem.xstrdup(cast(const(char)*)stringbuffer.data);
+                        filespec = mem.xstrdup(cast(const(char)*)stringbuffer[].ptr);
                         p++;
                         break;
                     default:
@@ -2475,11 +2502,11 @@ class Lexer
         }
         size_t idx = 0;
         dchar u;
-        const msg = utf_decodeChar(s, len, idx, u);
+        const msg = utf_decodeChar(s[0 .. len], idx, u);
         p += idx - 1;
         if (msg)
         {
-            error("%s", msg);
+            error("%.*s", cast(int)msg.length, msg.ptr);
         }
         return u;
     }
@@ -2553,7 +2580,7 @@ class Lexer
 
         void trimTrailingWhitespace() nothrow
         {
-            const s = buf.peekSlice();
+            const s = buf[];
             auto len = s.length;
             while (len && (s[len - 1] == ' ' || s[len - 1] == '\t'))
                 --len;
@@ -2612,7 +2639,7 @@ class Lexer
         trimTrailingWhitespace();
 
         // Always end with a newline
-        const s = buf.peekSlice();
+        const s = buf[];
         if (s.length == 0 || s[$ - 1] != '\n')
             buf.writeByte('\n');
 
@@ -2621,45 +2648,37 @@ class Lexer
         auto dc = (lineComment && anyToken) ? &t.lineComment : &t.blockComment;
         // Combine with previous doc comment, if any
         if (*dc)
-            *dc = combineComments(*dc, buf.peekChars(), newParagraph);
+            *dc = combineComments(*dc, buf[], newParagraph).toDString();
         else
-            *dc = buf.extractChars();
+            *dc = buf.extractSlice(true);
     }
 
     /********************************************
      * Combine two document comments into one,
      * separated by an extra newline if newParagraph is true.
      */
-    static const(char)* combineComments(const(char)* c1, const(char)* c2, bool newParagraph) pure
+    static const(char)* combineComments(const(char)[] c1, const(char)[] c2, bool newParagraph) pure
     {
         //printf("Lexer::combineComments('%s', '%s', '%i')\n", c1, c2, newParagraph);
-        auto c = c2;
         const(int) newParagraphSize = newParagraph ? 1 : 0; // Size of the combining '\n'
-        if (c1)
-        {
-            c = c1;
-            if (c2)
-            {
-                size_t len1 = strlen(c1);
-                size_t len2 = strlen(c2);
-                int insertNewLine = 0;
-                if (len1 && c1[len1 - 1] != '\n')
-                {
-                    ++len1;
-                    insertNewLine = 1;
-                }
-                auto p = cast(char*)mem.xmalloc(len1 + newParagraphSize + len2 + 1);
-                memcpy(p, c1, len1 - insertNewLine);
-                if (insertNewLine)
-                    p[len1 - 1] = '\n';
-                if (newParagraph)
-                    p[len1] = '\n';
-                memcpy(p + len1 + newParagraphSize, c2, len2);
-                p[len1 + newParagraphSize + len2] = 0;
-                c = p;
-            }
-        }
-        return c;
+        if (!c1)
+            return c2.ptr;
+        if (!c2)
+            return c1.ptr;
+
+        int insertNewLine = 0;
+        if (c1.length && c1[$ - 1] != '\n')
+            insertNewLine = 1;
+        const retSize = c1.length + insertNewLine + newParagraphSize + c2.length;
+        auto p = cast(char*)mem.xmalloc_noscan(retSize + 1);
+        p[0 .. c1.length] = c1[];
+        if (insertNewLine)
+            p[c1.length] = '\n';
+        if (newParagraph)
+            p[c1.length + insertNewLine] = '\n';
+        p[retSize - c2.length .. retSize] = c2[];
+        p[retSize] = 0;
+        return p;
     }
 
 private:

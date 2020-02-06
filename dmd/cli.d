@@ -346,7 +346,9 @@ dmd -cov -unittest myprog.d
             )`,
         ),
         Option("gf",
-            "emit debug info for all referenced types"
+            "emit debug info for all referenced types",
+            `Symbolic debug info is emitted for all types referenced by the compiled code,
+             even if the definition is in an imported file not currently being compiled.`,
         ),
         Option("gs",
             "always emit stack frame"
@@ -423,7 +425,7 @@ dmd -cov -unittest myprog.d
             "pass linkerflag to link",
             `Pass $(I linkerflag) to the
             $(WINDOWS linker $(OPTLINK))
-            $(UNIX linker), for example,`,
+            $(UNIX linker), for example, ld`,
         ),
         Option("lib",
             "generate library rather than object files",
@@ -678,6 +680,11 @@ dmd -cov -unittest myprog.d
         Option("Xf=<filename>",
             "write JSON file to filename"
         ),
+        Option("Xcc=<driverflag>",
+            "pass driverflag to linker driver (cc)",
+            "Pass $(I driverflag) to the linker driver (`$CC` or `cc`)",
+            TargetOS.all & ~TargetOS.windows
+        ),
     ];
 } // !IN_LLVM
 
@@ -719,6 +726,8 @@ dmd -cov -unittest myprog.d
             "implement https://github.com/dlang/DIPs/blob/master/DIPs/other/DIP1000.md (Scoped Pointers)"),
         Feature("dip1008", "ehnogc",
             "implement https://github.com/dlang/DIPs/blob/master/DIPs/DIP1008.md (@nogc Throwable)"),
+        Feature("dip1021", "useDIP1021",
+            "implement https://github.com/dlang/DIPs/blob/master/DIPs/DIP1021.md (Mutable function arguments)"),
         Feature("fieldwise", "fieldwise", "use fieldwise comparisons for struct equality"),
         Feature("markdown", "markdown", "enable Markdown replacements in Ddoc"),
         Feature("fixAliasThis", "fixAliasThis",
@@ -729,6 +738,8 @@ dmd -cov -unittest myprog.d
             "destruct fields of partially constructed objects"),
         Feature("rvaluerefparam", "rvalueRefParam",
             "enable rvalue arguments to ref parameters"),
+        Feature("nosharedaccess", "noSharedAccess",
+            "disable access to shared memory objects"),
     ];
 }
 

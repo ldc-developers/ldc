@@ -10,6 +10,7 @@
 #include "gen/irstate.h"
 
 #include "dmd/declaration.h"
+#include "dmd/expression.h"
 #include "dmd/identifier.h"
 #include "dmd/mtype.h"
 #include "dmd/statement.h"
@@ -181,12 +182,27 @@ void IRState::replaceGlobals() {
 ////////////////////////////////////////////////////////////////////////////////
 
 LLConstant *IRState::getStructLiteralConstant(StructLiteralExp *sle) const {
-  return static_cast<LLConstant *>(structLiteralConstants.lookup(sle));
+  return static_cast<LLConstant *>(structLiteralConstants.lookup(sle->origin));
 }
 
 void IRState::setStructLiteralConstant(StructLiteralExp *sle,
                                        LLConstant *constant) {
-  structLiteralConstants[sle] = constant;
+  structLiteralConstants[sle->origin] = constant;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void IRState::addLinkerOption(llvm::ArrayRef<llvm::StringRef> options) {
+  llvm::SmallVector<llvm::Metadata *, 2> mdStrings;
+  mdStrings.reserve(options.size());
+  for (const auto &s : options)
+    mdStrings.push_back(llvm::MDString::get(context(), s));
+  linkerOptions.push_back(llvm::MDNode::get(context(), mdStrings));
+}
+
+void IRState::addLinkerDependentLib(llvm::StringRef libraryName) {
+  auto n = llvm::MDString::get(context(), libraryName);
+  linkerDependentLibs.push_back(llvm::MDNode::get(context(), n));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

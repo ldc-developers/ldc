@@ -141,12 +141,15 @@ public:
     // Skip __initZ and typeinfo for @compute device code.
     // TODO: support global variables and thus __initZ
     if (!irs->dcomputetarget) {
-      // Define the __initZ symbol.
       IrAggr *ir = getIrAggr(decl);
-      auto &initZ = ir->getInitSymbol();
-      auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
-      initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
-      setLinkageAndVisibility(decl, initGlobal);
+
+      // Define the __initZ symbol.
+      if (!decl->zeroInit) {
+        auto &initZ = ir->getInitSymbol();
+        auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
+        initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
+        setLinkageAndVisibility(decl, initGlobal);
+      }
 
       // emit typeinfo
       if (!ir->suppressTypeInfo()) {
@@ -369,7 +372,7 @@ public:
     }
 
     // Force codegen if this is a templated function with pragma(inline, true).
-    if ((decl->members->dim == 1) &&
+    if ((decl->members->length == 1) &&
         ((*decl->members)[0]->isFuncDeclaration()) &&
         ((*decl->members)[0]->isFuncDeclaration()->inlining == PINLINEalways)) {
       Logger::println("needsCodegen() == false, but function is marked with "
@@ -430,29 +433,31 @@ public:
 
   //////////////////////////////////////////////////////////////////////////
 
-  static std::string getPragmaStringArg(PragmaDeclaration *decl) {
-    assert(decl->args && decl->args->dim == 1);
-    Expression *e = static_cast<Expression *>((*decl->args)[0]);
-    assert(e->op == TOKstring);
-    StringExp *se = static_cast<StringExp *>(e);
-    return std::string(se->toPtr(), se->numberOfCodeUnits());
+  static llvm::StringRef getPragmaStringArg(PragmaDeclaration *decl,
+                                            d_size_t i = 0) {
+    assert(decl->args && decl->args->length > i);
+    auto se = (*decl->args)[i]->isStringExp();
+    assert(se);
+    DString str = se->peekString();
+    return {str.ptr, str.length};
   }
 
   void visit(PragmaDeclaration *decl) override {
+    const auto &triple = *global.params.targetTriple;
+
     if (decl->ident == Id::lib) {
       assert(!irs->dcomputetarget);
-      const std::string name = getPragmaStringArg(decl);
-      auto nameLen = name.size();
+      llvm::StringRef name = getPragmaStringArg(decl);
 
-      if (global.params.targetTriple->isWindowsGNUEnvironment()) {
-        if (nameLen > 4 && !memcmp(&name[nameLen - 4], ".lib", 4)) {
-          // On MinGW, strip the .lib suffix, if any, to improve
-          // compatibility with code written for DMD (we pass the name to GCC
-          // via -l, just as on Posix).
-          nameLen -= 4;
+      if (triple.isWindowsGNUEnvironment()) {
+        if (name.endswith(".lib")) {
+          // On MinGW, strip the .lib suffix, if any, to improve compatibility
+          // with code written for DMD (we pass the name to GCC via -l, just as
+          // on Posix).
+          name = name.drop_back(4);
         }
 
-        if (nameLen >= 7 && !memcmp(name.data(), "shell32", 7)) {
+        if (name.startswith("shell32")) {
           // Another DMD compatibility kludge: Ignore
           // pragma(lib, "shell32.lib"), it is implicitly provided by
           // MinGW.
@@ -460,43 +465,45 @@ public:
         }
       }
 
-      // With LLVM 3.3 or later we can place the library name in the object
-      // file. This seems to be supported only on Windows.
-      if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
-        llvm::SmallString<24> LibName(name);
-
-        // Win32: /DEFAULTLIB:"curl"
-        if (LibName.endswith(".a")) {
-          LibName = LibName.substr(0, LibName.size() - 2);
+      if (triple.isWindowsMSVCEnvironment()) {
+        if (name.endswith(".a")) {
+          name = name.drop_back(2);
         }
-        if (LibName.endswith(".lib")) {
-          LibName = LibName.substr(0, LibName.size() - 4);
+        if (name.endswith(".lib")) {
+          name = name.drop_back(4);
         }
-        llvm::SmallString<24> tmp("/DEFAULTLIB:\"");
-        tmp.append(LibName);
-        tmp.append("\"");
-        LibName = tmp;
 
-        // Embed library name as linker option in object file
-        auto Value = llvm::MDString::get(gIR->context(), LibName);
-        gIR->LinkerMetadataArgs.push_back(
-            llvm::MDNode::get(gIR->context(), Value));
+        // embed linker directive in COFF object file; don't push to
+        // global.params.linkswitches
+        std::string arg = ("/DEFAULTLIB:\"" + name + "\"").str();
+        gIR->addLinkerOption(llvm::StringRef(arg));
       } else {
-        size_t const n = nameLen + 3;
+        size_t const n = name.size() + 3;
         char *arg = static_cast<char *>(mem.xmalloc(n));
         arg[0] = '-';
         arg[1] = 'l';
-        memcpy(arg + 2, name.data(), nameLen);
+        memcpy(arg + 2, name.data(), name.size());
         arg[n - 1] = 0;
         global.params.linkswitches.push(arg);
+
+        if (triple.isOSBinFormatMachO()) {
+          // embed linker directive in Mach-O object file too
+          gIR->addLinkerOption(llvm::StringRef(arg));
+        } else if (triple.isOSBinFormatELF()) {
+          // embed library name as dependent library in ELF object file too
+          // (supported by LLD v9+)
+          gIR->addLinkerDependentLib(name);
+        }
       }
     } else if (decl->ident == Id::linkerDirective) {
-      if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
-        // Embed directly as linker option in object file
-        const std::string directive = getPragmaStringArg(decl);
-        auto Value = llvm::MDString::get(gIR->context(), directive);
-        gIR->LinkerMetadataArgs.push_back(
-            llvm::MDNode::get(gIR->context(), Value));
+      // embed in object file (if supported)
+      if (triple.isWindowsMSVCEnvironment() || triple.isOSBinFormatMachO()) {
+        assert(decl->args);
+        llvm::SmallVector<llvm::StringRef, 2> args;
+        args.reserve(decl->args->length);
+        for (d_size_t i = 0; i < decl->args->length; ++i)
+          args.push_back(getPragmaStringArg(decl, i));
+        gIR->addLinkerOption(args);
       }
     }
     visit(static_cast<AttribDeclaration *>(decl));
@@ -519,9 +526,7 @@ public:
 
 //////////////////////////////////////////////////////////////////////////////
 
-void Declaration_codegen(Dsymbol *decl) {
-  Declaration_codegen(decl, gIR);
-}
+void Declaration_codegen(Dsymbol *decl) { Declaration_codegen(decl, gIR); }
 
 void Declaration_codegen(Dsymbol *decl, IRState *irs) {
   CodegenVisitor v(irs);

@@ -46,6 +46,7 @@ import dmd.statement_rewrite_walker;
 import dmd.statement;
 import dmd.statementsem;
 import dmd.tokens;
+import dmd.utils;
 import dmd.visitor;
 
 /// Inline Status
@@ -279,7 +280,6 @@ version (IN_LLVM)
     ILS inlineStatusExp = ILS.uninitialized;
     PINLINE inlining = PINLINE.default_;
 
-    CompiledCtfeFunctionPimpl ctfeCode; /// Local data (i.e. CompileCtfeFunction*) for module dinterpret
     int inlineNest;                     /// !=0 if nested inline
     bool isArrayOp;                     /// true if array operation
     bool eh_none;                       /// true if no exception unwinding is needed
@@ -323,8 +323,16 @@ version (IN_LLVM)
 
     bool requiresClosure;               // this function needs a closure
 
-    /// local variables in this function which are referenced by nested functions
+    /** local variables in this function which are referenced by nested functions
+     * (They'll get put into the "closure" for this function.)
+     */
     VarDeclarations closureVars;
+
+    /** Outer variables which are referenced by this nested function
+     * (the inverse of closureVars)
+     */
+    VarDeclarations outerVars;
+
     /// Sibling nested functions which called this one
     FuncDeclarations siblingCallers;
 
@@ -396,7 +404,7 @@ version (IN_LLVM)
                 return false;
         }
 
-        this.namespace = _scope.namespace;
+        this.cppnamespace = _scope.namespace;
 
         // if inferring return type, sematic3 needs to be run
         // - When the function body contains any errors, we cannot assume
@@ -489,7 +497,7 @@ version (IN_LLVM)
      * Hidden parameters include the `this` parameter of a class, struct or
      * nested function and the selector parameter for Objective-C methods.
      */
-    final HiddenParameters declareThis(Scope* sc, AggregateDeclaration ad)
+    extern (D) final HiddenParameters declareThis(Scope* sc, AggregateDeclaration ad)
     {
         if (toParent2() != toParentLocal())
         {
@@ -578,7 +586,7 @@ version (IN_LLVM)
         return HiddenParameters.init;
     }
 
-    override final bool equals(RootObject o)
+    override final bool equals(const RootObject o) const
     {
         if (this == o)
             return true;
@@ -824,7 +832,7 @@ version (IN_LLVM)
     /********************************************
      * Find function in overload list that exactly matches t.
      */
-    final FuncDeclaration overloadExactMatch(Type t)
+    extern (D) final FuncDeclaration overloadExactMatch(Type t)
     {
         FuncDeclaration fd;
         overloadApply(this, (Dsymbol s)
@@ -875,7 +883,7 @@ version (IN_LLVM)
      * 4. If there's no candidates, it's "no match" and returns null with error report.
      *      e.g. If 'tthis' is const but there's no const methods.
      */
-    final FuncDeclaration overloadModMatch(const ref Loc loc, Type tthis, ref bool hasOverloads)
+    extern (D) final FuncDeclaration overloadModMatch(const ref Loc loc, Type tthis, ref bool hasOverloads)
     {
         //printf("FuncDeclaration::overloadModMatch('%s')\n", toChars());
         MatchAccumulator m;
@@ -965,7 +973,7 @@ version (IN_LLVM)
     /********************************************
      * find function template root in overload list
      */
-    final TemplateDeclaration findTemplateDeclRoot()
+    extern (D) final TemplateDeclaration findTemplateDeclRoot()
     {
         FuncDeclaration f = this;
         while (f && f.overnext)
@@ -1145,7 +1153,7 @@ version (IN_LLVM)
                     return LevelError;
             }
 
-            s = toParentP(s, fd);
+            s = s.toParentP(fd);
             assert(s);
             level++;
         }
@@ -1383,7 +1391,7 @@ version (IN_LLVM)
      * so mark it as impure.
      * If there's a purity error, return true.
      */
-    final bool setImpure()
+    extern (D) final bool setImpure()
     {
         if (flags & FUNCFLAG.purityInprocess)
         {
@@ -1420,7 +1428,7 @@ version (IN_LLVM)
      * so mark it as unsafe.
      * If there's a safe error, return true.
      */
-    final bool setUnsafe()
+    extern (D) final bool setUnsafe()
     {
         if (flags & FUNCFLAG.safetyInprocess)
         {
@@ -1453,7 +1461,7 @@ version (IN_LLVM)
      * Returns:
      *      true if function is marked as @nogc, meaning a user error occurred
      */
-    final bool setGC()
+    extern (D) final bool setGC()
     {
         //printf("setGC() %s\n", toChars());
         if (flags & FUNCFLAG.nogcInprocess && semanticRun < PASS.semantic3 && _scope)
@@ -1474,7 +1482,7 @@ version (IN_LLVM)
         return false;
     }
 
-    final void printGCUsage(const ref Loc loc, const(char)* warn)
+    extern (D) final void printGCUsage(const ref Loc loc, const(char)* warn)
     {
         if (!global.params.vgc)
             return;
@@ -1493,7 +1501,7 @@ version (IN_LLVM)
      *   true if the function return value is isolated from
      *   any inputs to the function
      */
-    final bool isReturnIsolated()
+    extern (D) final bool isReturnIsolated()
     {
         TypeFunction tf = type.toTypeFunction();
         assert(tf.next);
@@ -1514,7 +1522,7 @@ version (IN_LLVM)
      *   true if `t` is isolated from
      *   any inputs to the function
      */
-    final bool isTypeIsolated(Type t)
+    extern (D) final bool isTypeIsolated(Type t)
     {
         //printf("isTypeIsolated(t: %s)\n", t.toChars());
 
@@ -1763,10 +1771,10 @@ version (IN_LLVM)
      * Returns:
      *  true if there are no overloads of this function
      */
-    final bool isUnique()
+    final bool isUnique() const
     {
         bool result = false;
-        overloadApply(this, (Dsymbol s)
+        overloadApply(cast() this, (Dsymbol s)
         {
             auto f = s.isFuncDeclaration();
             if (!f)
@@ -1919,6 +1927,12 @@ version (IN_LLVM)
                 FuncDeclaration f = v.nestedrefs[j];
                 assert(f != this);
 
+                /* __require and __ensure will always get called directly,
+                 * so they never make outer functions closure.
+                 */
+                if (f.ident == Id.require || f.ident == Id.ensure)
+                    continue;
+
                 //printf("\t\tf = %p, %s, isVirtual=%d, isThis=%p, tookAddressOf=%d\n", f, f.toChars(), f.isVirtual(), f.isThis(), f.tookAddressOf);
 
                 /* Look to see if f escapes. We consider all parents of f within
@@ -1926,7 +1940,7 @@ version (IN_LLVM)
                  * so does f.
                  * Mark all affected functions as requiring closures.
                  */
-                for (Dsymbol s = f; s && s != this; s = toParentP(s, this))
+                for (Dsymbol s = f; s && s != this; s = s.toParentP(this))
                 {
                     FuncDeclaration fx = s.isFuncDeclaration();
                     if (!fx)
@@ -1937,7 +1951,7 @@ version (IN_LLVM)
 
                         /* Mark as needing closure any functions between this and f
                          */
-                        markAsNeedingClosure((fx == f) ? toParentP(fx, this) : fx, this);
+                        markAsNeedingClosure((fx == f) ? fx.toParentP(this) : fx, this);
 
                         requiresClosure = true;
                     }
@@ -1999,7 +2013,7 @@ version (IN_LLVM)
                 assert(f !is this);
 
             LcheckAncestorsOfANestedRef:
-                for (Dsymbol s = f; s && s !is this; s = toParentP(s, this))
+                for (Dsymbol s = f; s && s !is this; s = s.toParentP(this))
                 {
                     auto fx = s.isFuncDeclaration();
                     if (!fx)
@@ -2072,7 +2086,7 @@ version (IN_LLVM)
     /****************************************************
      * Declare result variable lazily.
      */
-    final void buildResultVar(Scope* sc, Type tret)
+    extern (D) final void buildResultVar(Scope* sc, Type tret)
     {
         if (!vresult)
         {
@@ -2111,7 +2125,7 @@ version (IN_LLVM)
      * Merge into this function the 'in' contracts of all it overrides.
      * 'in's are OR'd together, i.e. only one of them needs to pass.
      */
-    final Statement mergeFrequire(Statement sf, Expressions* params)
+    extern (D) final Statement mergeFrequire(Statement sf, Expressions* params)
     {
         /* If a base function and its override both have an IN contract, then
          * only one of them needs to succeed. This is done by generating:
@@ -2350,7 +2364,7 @@ version (IN_LLVM)
      * Merge into this function the 'out' contracts of all it overrides.
      * 'out's are AND'd together, i.e. all of them need to pass.
      */
-    final Statement mergeFensure(Statement sf, Identifier oid, Expressions* params)
+    extern (D) final Statement mergeFensure(Statement sf, Identifier oid, Expressions* params)
     {
         /* Same comments as for mergeFrequire(), except that we take care
          * of generating a consistent reference to the 'result' local by
@@ -2734,22 +2748,22 @@ unittest
 {
     OutBuffer buf;
     auto mismatches = MODMatchToBuffer(&buf, MODFlags.shared_, 0);
-    assert(buf.peekSlice == "`shared` ");
+    assert(buf[] == "`shared` ");
     assert(!mismatches.isNotShared);
 
-    buf.reset;
+    buf.setsize(0);
     mismatches = MODMatchToBuffer(&buf, 0, MODFlags.shared_);
-    assert(buf.peekSlice == "non-shared ");
+    assert(buf[] == "non-shared ");
     assert(mismatches.isNotShared);
 
-    buf.reset;
+    buf.setsize(0);
     mismatches = MODMatchToBuffer(&buf, MODFlags.const_, 0);
-    assert(buf.peekSlice == "`const` ");
+    assert(buf[] == "`const` ");
     assert(!mismatches.isMutable);
 
-    buf.reset;
+    buf.setsize(0);
     mismatches = MODMatchToBuffer(&buf, 0, MODFlags.const_);
-    assert(buf.peekSlice == "mutable ");
+    assert(buf[] == "mutable ");
     assert(mismatches.isMutable);
 }
 
@@ -2757,7 +2771,7 @@ private const(char)* prependSpace(const(char)* str)
 {
     if (!str || !*str) return "";
 
-    return (" " ~ str[0 .. strlen(str)] ~ "\0").ptr;
+    return (" " ~ str.toDString() ~ "\0").ptr;
 }
 
 /// Flag used by $(LREF resolveFuncCall).
@@ -2834,14 +2848,16 @@ FuncDeclaration resolveFuncCall(const ref Loc loc, Scope* sc, Dsymbol s,
      */
     if (m.last <= MATCH.nomatch)
     {
-        // error was caused on matched function
+        // error was caused on matched function, not on the matching itself,
+        // so return the function to produce a better diagnostic
         if (m.count == 1)
             return m.lastf;
-
-        // if do not print error messages
-        if (flags & FuncResolveFlag.quiet)
-            return null; // no match
     }
+
+    // We are done at this point, as the rest of this function generate
+    // a diagnostic on invalid match
+    if (flags & FuncResolveFlag.quiet)
+        return null;
 
     auto fd = s.isFuncDeclaration();
     auto od = s.isOverDeclaration();
@@ -2859,102 +2875,8 @@ FuncDeclaration resolveFuncCall(const ref Loc loc, Scope* sc, Dsymbol s,
     if (tthis)
         tthis.modToBuffer(&fargsBuf);
 
-    // max num of overloads to print (-v overrides this).
-    enum int numOverloadsDisplay = 5;
-
-    if (!m.lastf && !(flags & FuncResolveFlag.quiet)) // no match
-    {
-        if (!fd && !td && !od)
-        {
-            /* This case happens when several ctors are mixed in an agregate.
-               A (bad) error message is already generated in overloadApply().
-               see https://issues.dlang.org/show_bug.cgi?id=19729
-            */
-        }
-        else if (td && !fd) // all of overloads are templates
-        {
-            .error(loc, "%s `%s.%s` cannot deduce function from argument types `!(%s)%s`, candidates are:",
-                td.kind(), td.parent.toPrettyChars(), td.ident.toChars(),
-                tiargsBuf.peekChars(), fargsBuf.peekChars());
-
-            printCandidates(loc, td);
-        }
-        else if (od)
-        {
-            .error(loc, "none of the overloads of `%s` are callable using argument types `!(%s)%s`",
-                od.ident.toChars(), tiargsBuf.peekChars(), fargsBuf.peekChars());
-        }
-        else
-        {
-            assert(fd);
-
-            // remove when deprecation period of class allocators and deallocators is over
-            if (fd.isNewDeclaration() && fd.checkDisabled(loc, sc))
-                return null;
-
-            bool hasOverloads = fd.overnext !is null;
-            auto tf = fd.type.toTypeFunction();
-            if (tthis && !MODimplicitConv(tthis.mod, tf.mod)) // modifier mismatch
-            {
-                OutBuffer thisBuf, funcBuf;
-                MODMatchToBuffer(&thisBuf, tthis.mod, tf.mod);
-                auto mismatches = MODMatchToBuffer(&funcBuf, tf.mod, tthis.mod);
-                if (hasOverloads)
-                {
-                    .error(loc, "none of the overloads of `%s` are callable using a %sobject, candidates are:",
-                        fd.ident.toChars(), thisBuf.peekChars());
-                }
-                else
-                {
-                    const(char)* failMessage;
-                    functionResolve(m, orig_s, loc, sc, tiargs, tthis, fargs, &failMessage);
-                    if (failMessage)
-                    {
-                        .error(loc, "%s `%s%s%s` is not callable using argument types `%s`",
-                            fd.kind(), fd.toPrettyChars(), parametersTypeToChars(tf.parameterList),
-                            tf.modToChars(), fargsBuf.peekChars());
-                        errorSupplemental(loc, failMessage);
-                    }
-                    else
-                    {
-                        auto fullFdPretty = fd.toPrettyChars();
-                        .error(loc, "%smethod `%s` is not callable using a %sobject",
-                            funcBuf.peekChars(), fullFdPretty,
-                            thisBuf.peekChars());
-
-                        if (mismatches.isNotShared)
-                            .errorSupplemental(loc, "Consider adding `shared` to %s", fullFdPretty);
-                        else if (mismatches.isMutable)
-                            .errorSupplemental(loc, "Consider adding `const` or `inout` to %s", fullFdPretty);
-                    }
-                }
-            }
-            else
-            {
-                //printf("tf = %s, args = %s\n", tf.deco, (*fargs)[0].type.deco);
-                if (hasOverloads)
-                {
-                    .error(loc, "none of the overloads of `%s` are callable using argument types `%s`, candidates are:",
-                        fd.toChars(), fargsBuf.peekChars());
-                }
-                else
-                {
-                    .error(loc, "%s `%s%s%s` is not callable using argument types `%s`",
-                        fd.kind(), fd.toPrettyChars(), parametersTypeToChars(tf.parameterList),
-                        tf.modToChars(), fargsBuf.peekChars());
-                    // re-resolve to check for supplemental message
-                    const(char)* failMessage;
-                    functionResolve(m, orig_s, loc, sc, tiargs, tthis, fargs, &failMessage);
-                    if (failMessage)
-                        errorSupplemental(loc, failMessage);
-                }
-            }
-
-            if (hasOverloads)
-                printCandidates(loc, fd);
-        }
-    }
-    else if (m.nextf)
+    // The call is ambiguous
+    if (m.lastf && m.nextf)
     {
         TypeFunction tf1 = m.lastf.type.toTypeFunction();
         TypeFunction tf2 = m.nextf.type.toTypeFunction();
@@ -2969,7 +2891,95 @@ FuncDeclaration resolveFuncCall(const ref Loc loc, Scope* sc, Dsymbol s,
             fargsBuf.peekChars(),
             m.lastf.loc.toChars(), m.lastf.toPrettyChars(), lastprms, mod1,
             m.nextf.loc.toChars(), m.nextf.toPrettyChars(), nextprms, mod2);
+        return null;
     }
+
+    // no match, generate an error messages
+    if (!fd)
+    {
+        // all of overloads are templates
+        if (td)
+        {
+            .error(loc, "%s `%s.%s` cannot deduce function from argument types `!(%s)%s`, candidates are:",
+                   td.kind(), td.parent.toPrettyChars(), td.ident.toChars(),
+                   tiargsBuf.peekChars(), fargsBuf.peekChars());
+
+            printCandidates(loc, td);
+            return null;
+        }
+        /* This case happens when several ctors are mixed in an agregate.
+           A (bad) error message is already generated in overloadApply().
+           see https://issues.dlang.org/show_bug.cgi?id=19729
+        */
+        if (!od)
+            return null;
+    }
+
+    if (od)
+    {
+        .error(loc, "none of the overloads of `%s` are callable using argument types `!(%s)%s`",
+               od.ident.toChars(), tiargsBuf.peekChars(), fargsBuf.peekChars());
+        return null;
+    }
+
+    // remove when deprecation period of class allocators and deallocators is over
+    if (fd.isNewDeclaration() && fd.checkDisabled(loc, sc))
+        return null;
+
+    bool hasOverloads = fd.overnext !is null;
+    auto tf = fd.type.toTypeFunction();
+    if (tthis && !MODimplicitConv(tthis.mod, tf.mod)) // modifier mismatch
+    {
+        OutBuffer thisBuf, funcBuf;
+        MODMatchToBuffer(&thisBuf, tthis.mod, tf.mod);
+        auto mismatches = MODMatchToBuffer(&funcBuf, tf.mod, tthis.mod);
+        if (hasOverloads)
+        {
+            .error(loc, "none of the overloads of `%s` are callable using a %sobject, candidates are:",
+                   fd.ident.toChars(), thisBuf.peekChars());
+            printCandidates(loc, fd);
+            return null;
+        }
+
+        const(char)* failMessage;
+        functionResolve(m, orig_s, loc, sc, tiargs, tthis, fargs, &failMessage);
+        if (failMessage)
+        {
+            .error(loc, "%s `%s%s%s` is not callable using argument types `%s`",
+                   fd.kind(), fd.toPrettyChars(), parametersTypeToChars(tf.parameterList),
+                   tf.modToChars(), fargsBuf.peekChars());
+            errorSupplemental(loc, failMessage);
+            return null;
+        }
+
+        auto fullFdPretty = fd.toPrettyChars();
+        .error(loc, "%smethod `%s` is not callable using a %sobject",
+               funcBuf.peekChars(), fullFdPretty, thisBuf.peekChars());
+
+        if (mismatches.isNotShared)
+            .errorSupplemental(loc, "Consider adding `shared` to %s", fullFdPretty);
+        else if (mismatches.isMutable)
+            .errorSupplemental(loc, "Consider adding `const` or `inout` to %s", fullFdPretty);
+        return null;
+    }
+
+    //printf("tf = %s, args = %s\n", tf.deco, (*fargs)[0].type.deco);
+    if (hasOverloads)
+    {
+        .error(loc, "none of the overloads of `%s` are callable using argument types `%s`, candidates are:",
+               fd.toChars(), fargsBuf.peekChars());
+        printCandidates(loc, fd);
+        return null;
+    }
+
+    .error(loc, "%s `%s%s%s` is not callable using argument types `%s`",
+           fd.kind(), fd.toPrettyChars(), parametersTypeToChars(tf.parameterList),
+           tf.modToChars(), fargsBuf.peekChars());
+    // re-resolve to check for supplemental message
+    const(char)* failMessage;
+    functionResolve(m, orig_s, loc, sc, tiargs, tthis, fargs, &failMessage);
+    if (failMessage)
+        errorSupplemental(loc, failMessage);
     return null;
 }
 
@@ -2984,6 +2994,7 @@ if (is(Decl == TemplateDeclaration) || is(Decl == FuncDeclaration))
 {
     // max num of overloads to print (-v overrides this).
     int numToDisplay = 5;
+    const(char)* constraintsTip;
 
     overloadApply(declaration, (Dsymbol s)
     {
@@ -3001,7 +3012,14 @@ if (is(Decl == TemplateDeclaration) || is(Decl == FuncDeclaration))
         }
         else if (auto td = s.isTemplateDeclaration())
         {
-            .errorSupplemental(td.loc, "`%s`", td.toPrettyChars());
+            import dmd.staticcond;
+
+            const tmsg = td.toCharsNoConstraints();
+            const cmsg = td.getConstraintEvalError(constraintsTip);
+            if (cmsg)
+                .errorSupplemental(td.loc, "`%s`\n%s", tmsg, cmsg);
+            else
+                .errorSupplemental(td.loc, "`%s`", tmsg);
             nextOverload = td.overnext;
         }
 
@@ -3017,6 +3035,9 @@ if (is(Decl == TemplateDeclaration) || is(Decl == FuncDeclaration))
             .errorSupplemental(loc, "... (%d more, -v to show) ...", num);
         return 1;   // stop iterating
     });
+    // should be only in verbose mode
+    if (constraintsTip)
+        .tip(constraintsTip);
 }
 
 /**************************************
@@ -3158,7 +3179,7 @@ private bool traverseIndirections(Type ta, Type tb)
  */
 private void markAsNeedingClosure(Dsymbol f, FuncDeclaration outerFunc)
 {
-    for (Dsymbol sx = f; sx && sx != outerFunc; sx = toParentP(sx, outerFunc))
+    for (Dsymbol sx = f; sx && sx != outerFunc; sx = sx.toParentP(outerFunc))
     {
         FuncDeclaration fy = sx.isFuncDeclaration();
         if (fy && fy.closureVars.dim)
@@ -3208,7 +3229,7 @@ private bool checkEscapingSiblings(FuncDeclaration f, FuncDeclaration outerFunc,
             bAnyClosures = true;
         }
 
-        for (auto parent = toParentP(g, outerFunc); parent && parent !is outerFunc; parent = toParentP(parent, outerFunc))
+        for (auto parent = g.toParentP(outerFunc); parent && parent !is outerFunc; parent = parent.toParentP(outerFunc))
         {
             // A parent of the sibling had its address taken.
             // Assume escaping of parent affects its children, so needs propagating.
@@ -3236,60 +3257,6 @@ private bool checkEscapingSiblings(FuncDeclaration f, FuncDeclaration outerFunc,
     }
     //printf("\t%d\n", bAnyClosures);
     return bAnyClosures;
-}
-
-/***
- * Returns true if any of the symbols `p` resides in the enclosing instantiation scope of `s`.
- */
-bool followInstantiationContext(D...)(Dsymbol s, D p)
-{
-    static bool has2This(Dsymbol s)
-    {
-        if (auto f = s.isFuncDeclaration())
-            return f.isThis2;
-        if (auto ad = s.isAggregateDeclaration())
-            return ad.vthis2 !is null;
-        return false;
-    }
-
-    assert(s);
-    if (has2This(s))
-    {
-        assert(p.length);
-        auto parent = s.toParent();
-        while (parent)
-        {
-            auto ti = parent.isTemplateInstance();
-            if (!ti) break;
-            foreach (oarg; *ti.tiargs)
-            {
-                auto sa = getDsymbol(oarg);
-                if (!sa)
-                    continue;
-                sa = sa.toAlias().toParent2();
-                if (!sa)
-                    continue;
-                foreach (ps; p)
-                {
-                    if (sa == ps)
-                        return true;
-                }
-            }
-            parent = ti.tempdecl.toParent();
-        }
-        return false;
-    }
-    return false;
-}
-
-/*
- * Returns the declaration scope scope of `s`
- * unless any of the symbols `p` resides in its enclosing instantiation scope
- * then the latter is returned.
- */
-Dsymbol toParentP(D...)(Dsymbol s, D p)
-{
-    return followInstantiationContext(s, p) ? s.toParent2() : s.toParentLocal();
 }
 
 /***********************************************************

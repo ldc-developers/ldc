@@ -83,16 +83,16 @@ LLIntegerType *DtoSize_t();
 LLStructType *DtoModuleReferenceType();
 
 // getelementptr helpers
-LLValue *DtoGEP1(LLValue *ptr, LLValue *i0, bool inBounds,
-                 const char *name = "", llvm::BasicBlock *bb = nullptr);
-LLValue *DtoGEP(LLValue *ptr, LLValue *i0, LLValue *i1, bool inBounds,
-                const char *name = "", llvm::BasicBlock *bb = nullptr);
-
-LLValue *DtoGEPi1(LLValue *ptr, unsigned i0, const char *name = "",
-                  llvm::BasicBlock *bb = nullptr);
-LLValue *DtoGEPi(LLValue *ptr, unsigned i0, unsigned i1, const char *name = "",
+LLValue *DtoGEP1(LLValue *ptr, LLValue *i0, const char *name = "",
                  llvm::BasicBlock *bb = nullptr);
-LLConstant *DtoGEPi(LLConstant *ptr, unsigned i0, unsigned i1);
+LLValue *DtoGEP(LLValue *ptr, LLValue *i0, LLValue *i1, const char *name = "",
+                llvm::BasicBlock *bb = nullptr);
+
+LLValue *DtoGEP1(LLValue *ptr, unsigned i0, const char *name = "",
+                 llvm::BasicBlock *bb = nullptr);
+LLValue *DtoGEP(LLValue *ptr, unsigned i0, unsigned i1, const char *name = "",
+                llvm::BasicBlock *bb = nullptr);
+LLConstant *DtoGEP(LLConstant *ptr, unsigned i0, unsigned i1);
 
 // to constant helpers
 LLConstantInt *DtoConstSize_t(uint64_t);

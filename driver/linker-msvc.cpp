@@ -60,7 +60,7 @@ void addLibIfFound(std::vector<std::string> &args, const llvm::Twine &name) {
     llvm::SmallString<128> candidate(dir);
     llvm::sys::path::append(candidate, name);
     if (llvm::sys::fs::exists(candidate)) {
-      args.push_back(candidate.str());
+      args.emplace_back(candidate.data(), candidate.size());
       return;
     }
   }
@@ -247,8 +247,12 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
   // try to call linker
   std::string linker = opts::linker;
   if (linker.empty()) {
+#ifdef _WIN32
     // default to lld-link.exe for LTO
     linker = opts::isUsingLTO() ? "lld-link.exe" : "link.exe";
+#else
+    linker = "lld-link";
+#endif
   }
 
   return executeToolAndWait(linker, args, global.params.verbose);

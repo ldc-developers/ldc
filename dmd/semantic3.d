@@ -577,7 +577,7 @@ version (IN_LLVM)
 
                 if ((needEnsure && global.params.useOut == CHECKENABLE.on) || fpostinv)
                 {
-                    funcdecl.returnLabel = new LabelDsymbol(Id.returnLabel);
+                    funcdecl.returnLabel = funcdecl.searchLabel(Id.returnLabel);
                 }
 
                 // scope of out contract (need for vresult.semantic)
@@ -825,7 +825,7 @@ version (IN_LLVM)
                             /* Add an assert(0, msg); where the missing return
                              * should be.
                              */
-                            e = new AssertExp(funcdecl.endloc, IntegerExp.literal!0, new StringExp(funcdecl.loc, cast(char*)"missing return expression"));
+                            e = new AssertExp(funcdecl.endloc, IntegerExp.literal!0, new StringExp(funcdecl.loc, "missing return expression"));
                         }
                         else
                             e = new HaltExp(funcdecl.endloc);
@@ -860,17 +860,65 @@ version (IN_LLVM)
                             continue;
                         }
 
+                        /* If the expression in the return statement (exp) cannot be implicitly
+                         * converted to the return type (tret) of the function and if the
+                         * type of the expression is type isolated, then it may be possible
+                         * that a promotion to `immutable` or `inout` (through a cast) will
+                         * match the return type.
+                         */
                         if (!exp.implicitConvTo(tret) && funcdecl.isTypeIsolated(exp.type))
                         {
-                            if (exp.type.immutableOf().implicitConvTo(tret))
-                                exp = exp.castTo(sc2, exp.type.immutableOf());
-                            else if (exp.type.wildOf().implicitConvTo(tret))
-                                exp = exp.castTo(sc2, exp.type.wildOf());
+                            /* https://issues.dlang.org/show_bug.cgi?id=20073
+                             *
+                             * The problem is that if the type of the returned expression (exp.type)
+                             * is an aggregated declaration with an alias this, the alias this may be
+                             * used for the conversion testing without it being an isolated type.
+                             *
+                             * To make sure this does not happen, we can test here the implicit conversion
+                             * only for the aggregated declaration type by using `implicitConvToWithoutAliasThis`.
+                             * The implicit conversion with alias this is taken care of later.
+                             */
+                            AggregateDeclaration aggDecl = isAggregate(exp.type);
+                            TypeStruct tstruct;
+                            TypeClass tclass;
+                            bool hasAliasThis;
+                            if (aggDecl && aggDecl.aliasthis)
+                            {
+                                hasAliasThis = true;
+                                tclass = exp.type.isTypeClass();
+                                if (!tclass)
+                                    tstruct = exp.type.isTypeStruct();
+                                assert(tclass || tstruct);
+                            }
+                            if (hasAliasThis)
+                            {
+                                if (tclass)
+                                {
+                                    if ((cast(TypeClass)(exp.type.immutableOf())).implicitConvToWithoutAliasThis(tret))
+                                        exp = exp.castTo(sc2, exp.type.immutableOf());
+                                    else if ((cast(TypeClass)(exp.type.wildOf())).implicitConvToWithoutAliasThis(tret))
+                                        exp = exp.castTo(sc2, exp.type.wildOf());
+                                }
+                                else
+                                {
+                                    if ((cast(TypeStruct)exp.type.immutableOf()).implicitConvToWithoutAliasThis(tret))
+                                        exp = exp.castTo(sc2, exp.type.immutableOf());
+                                    else if ((cast(TypeStruct)exp.type.immutableOf()).implicitConvToWithoutAliasThis(tret))
+                                        exp = exp.castTo(sc2, exp.type.wildOf());
+                                }
+                            }
+                            else
+                            {
+                                if (exp.type.immutableOf().implicitConvTo(tret))
+                                    exp = exp.castTo(sc2, exp.type.immutableOf());
+                                else if (exp.type.wildOf().implicitConvTo(tret))
+                                    exp = exp.castTo(sc2, exp.type.wildOf());
+                            }
                         }
 
                         const hasCopyCtor = exp.type.ty == Tstruct && (cast(TypeStruct)exp.type).sym.hasCopyCtor;
                         // if a copy constructor is present, the return type conversion will be handled by it
-                        if (!hasCopyCtor)
+                        if (!(hasCopyCtor && exp.isLvalue()))
                             exp = exp.implicitCastTo(sc2, tret);
 
                         if (f.isref)
@@ -1187,6 +1235,18 @@ else
                 if (funcdecl.fbody || funcdecl.allowsContractWithoutBody())
                     funcdecl.fbody = sbody;
             }
+
+            // Check for undefined labels
+            if (funcdecl.labtab)
+                foreach (keyValue; funcdecl.labtab.tab.asRange)
+                {
+                    //printf("  KV: %s = %s\n", keyValue.key.toChars(), keyValue.value.toChars());
+                    LabelDsymbol label = cast(LabelDsymbol)keyValue.value;
+                    if (!label.statement && (!label.deleted || label.iasm))
+                    {
+                        funcdecl.error("label `%s` is undefined", label.toChars());
+                    }
+                }
 
             // Fix up forward-referenced gotos
             if (funcdecl.gotos)

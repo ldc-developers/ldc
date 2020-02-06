@@ -77,13 +77,14 @@ struct Scope
     Dsymbol parent;                 /// parent to use
     LabelStatement slabel;          /// enclosing labelled statement
     SwitchStatement sw;             /// enclosing switch statement
+    Statement tryBody;              /// enclosing _body of TryCatchStatement or TryFinallyStatement
     TryFinallyStatement tf;         /// enclosing try finally statement
     ScopeGuardStatement os;            /// enclosing scope(xxx) statement
     Statement sbreak;               /// enclosing statement that supports "break"
     Statement scontinue;            /// enclosing statement that supports "continue"
     ForeachStatement fes;           /// if nested function for ForeachStatement, this is it
     Scope* callsc;                  /// used for __FUNCTION__, __PRETTY_FUNCTION__ and __MODULE__
-    bool inunion;                   /// true if processing members of a union
+    Dsymbol inunion;                /// != null if processing members of a union
     bool nofree;                    /// true if shouldn't free it
     bool inLoop;                    /// true if inside a loop (where constructor calls aren't allowed)
     int intypeof;                   /// in typeof(exp)
@@ -227,6 +228,8 @@ version (IN_LLVM)
         Scope* enc = enclosing;
         if (!nofree)
         {
+            if (mem.isGCEnabled)
+                this = this.init;
             enclosing = freelist;
             freelist = &this;
             flags |= SCOPE.free;
@@ -382,7 +385,7 @@ version (IN_LLVM)
             if (!ad || !ad.aliasthis)
                 return null;
 
-            Declaration decl = ad.aliasthis.isDeclaration();
+            Declaration decl = ad.aliasthis.sym.isDeclaration();
             if (!decl)
                 return null;
 
@@ -501,7 +504,7 @@ version (IN_LLVM)
         return s;
     }
 
-    extern (C++) Dsymbol search_correct(Identifier ident)
+    extern (D) Dsymbol search_correct(Identifier ident)
     {
         if (global.gag)
             return null; // don't do it for speculative compiles; too time consuming
@@ -573,7 +576,7 @@ version (IN_LLVM)
         return Token.toChars(tok);
     }
 
-    extern (C++) Dsymbol insert(Dsymbol s)
+    extern (D) Dsymbol insert(Dsymbol s)
     {
         if (VarDeclaration vd = s.isVarDeclaration())
         {
@@ -645,7 +648,7 @@ version (IN_LLVM)
      * where it was declared. So mark the Scope as not
      * to be free'd.
      */
-    extern (C++) void setNoFree()
+    extern (D) void setNoFree()
     {
         //int i = 0;
         //printf("Scope::setNoFree(this = %p)\n", this);
@@ -668,6 +671,7 @@ version (IN_LLVM)
         this.enclosing = sc.enclosing;
         this.parent = sc.parent;
         this.sw = sc.sw;
+        this.tryBody = sc.tryBody;
         this.tf = sc.tf;
         this.os = sc.os;
         this.tinst = sc.tinst;
@@ -727,6 +731,10 @@ version (IN_LLVM)
             // If inside a StorageClassDeclaration that is deprecated
             if (sc2.stc & STC.deprecated_)
                 return true;
+        }
+        if (_module.md && _module.md.isdeprecated)
+        {
+            return true;
         }
         return false;
     }

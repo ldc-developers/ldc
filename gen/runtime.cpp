@@ -343,11 +343,14 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
   }
 
   LLFunction *resfn =
-      llvm::cast<llvm::Function>(target.getOrInsertFunction(name, fnty)
-#if LDC_LLVM_VER >= 1000
-                                 .getCallee()
+
+      llvm::cast<llvm::Function>(target
+                                     .getOrInsertFunction(name, fnty)
+#if LDC_LLVM_VER >= 900
+                                     .getCallee()
 #endif
-    );
+      );
+
   resfn->setAttributes(fn->getAttributes());
   resfn->setCallingConv(fn->getCallingConv());
   return resfn;

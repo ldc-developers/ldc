@@ -312,7 +312,7 @@ public:
         assert(i_index != ~0UL);
 
         // offset pointer
-        instance = DtoGEPi(instance, 0, i_index);
+        instance = DtoGEP(instance, 0, i_index);
       }
       result = DtoBitCast(instance, DtoType(tb));
     } else {
@@ -374,20 +374,17 @@ public:
     // need to have a case for each thing we can take the address of
 
     // address of global variable
-    if (e->e1->op == TOKvar) {
-      VarExp *vexp = static_cast<VarExp *>(e->e1);
+    if (auto vexp = e->e1->isVarExp()) {
       LLConstant *c = DtoConstSymbolAddress(e->loc, vexp->var);
       result = c ? DtoBitCast(c, DtoType(e->type)) : nullptr;
       return;
     }
 
     // address of indexExp
-    if (e->e1->op == TOKindex) {
-      IndexExp *iexp = static_cast<IndexExp *>(e->e1);
-
+    if (auto iexp = e->e1->isIndexExp()) {
       // indexee must be global static array var
-      assert(iexp->e1->op == TOKvar);
-      VarExp *vexp = static_cast<VarExp *>(iexp->e1);
+      VarExp *vexp = iexp->e1->isVarExp();
+      assert(vexp);
       VarDeclaration *vd = vexp->var->isVarDeclaration();
       assert(vd);
       assert(vd->type->toBasetype()->ty == Tsarray);
@@ -411,9 +408,7 @@ public:
       return;
     }
 
-    if (e->e1->op == TOKstructliteral) {
-      StructLiteralExp *se = static_cast<StructLiteralExp *>(e->e1);
-
+    if (auto se = e->e1->isStructLiteralExp()) {
       result = p->getStructLiteralConstant(se);
       if (result) {
         IF_LOG Logger::cout()
@@ -424,7 +419,7 @@ public:
       auto globalVar = new llvm::GlobalVariable(
           p->module, DtoType(se->type), false,
           llvm::GlobalValue::InternalLinkage, nullptr, ".structliteral");
-      globalVar->setAlignment(DtoAlignment(se->type));
+      globalVar->setAlignment(LLMaybeAlign(DtoAlignment(se->type)));
 
       p->setStructLiteralConstant(se, globalVar);
       llvm::Constant *constValue = toConstElem(se);
@@ -503,7 +498,7 @@ public:
 
     // build llvm array type
     LLArrayType *arrtype =
-        LLArrayType::get(DtoMemType(elemt), e->elements->dim);
+        LLArrayType::get(DtoMemType(elemt), e->elements->length);
 
     // dynamic arrays can occur here as well ...
     bool dyn = (bt->ty != Tsarray);
@@ -536,7 +531,7 @@ public:
     LLConstant *globalstorePtr = llvm::ConstantExpr::getGetElementPtr(
         isaPointer(store)->getElementType(), store, idxs, true);
 
-    result = DtoConstSlice(DtoConstSize_t(e->elements->dim), globalstorePtr);
+    result = DtoConstSlice(DtoConstSize_t(e->elements->length), globalstorePtr);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -555,7 +550,7 @@ public:
       DtoResolveStruct(e->sd);
 
       std::map<VarDeclaration *, llvm::Constant *> varInits;
-      const size_t nexprs = e->elements->dim;
+      const size_t nexprs = e->elements->length;
       for (size_t i = 0; i < nexprs; i++) {
         if (auto elem = (*e->elements)[i]) {
           LLConstant *c = toConstElem(elem);
@@ -595,7 +590,7 @@ public:
       // Unfortunately, ClassReferenceExp::getFieldAt is badly broken – it
       // places the base class fields _after_ those of the subclass.
       {
-        const size_t nexprs = value->elements->dim;
+        const size_t nexprs = value->elements->length;
 
         std::stack<ClassDeclaration *> classHierachy;
         ClassDeclaration *cur = origClass;
@@ -607,7 +602,7 @@ public:
         while (!classHierachy.empty()) {
           cur = classHierachy.top();
           classHierachy.pop();
-          for (size_t j = 0; j < cur->fields.dim; ++j) {
+          for (size_t j = 0; j < cur->fields.length; ++j) {
             if (auto elem = (*value->elements)[i]) {
               VarDeclaration *field = cur->fields[j];
               IF_LOG Logger::println("Getting initializer for: %s",
@@ -643,7 +638,7 @@ public:
         assert(i_index != ~0UL);
 
         // offset pointer
-        result = DtoGEPi(result, 0, i_index);
+        result = DtoGEP(result, 0, i_index);
       }
     }
 
@@ -666,9 +661,7 @@ public:
 
     // Array literals are assigned element-for-element; other expressions splat
     // across the whole vector.
-    if (e->e1->op == TOKarrayliteral) {
-      const auto ale = static_cast<ArrayLiteralExp *>(e->e1);
-
+    if (auto ale = e->e1->isArrayLiteralExp()) {
       llvm::SmallVector<llvm::Constant *, 16> elements;
       elements.reserve(elemCount);
       for (size_t i = 0; i < elemCount; ++i) {

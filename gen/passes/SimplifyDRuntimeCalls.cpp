@@ -206,6 +206,33 @@ struct LLVM_LIBRARY_VISIBILITY AllocationOpt : public LibCallOptimization {
   }
 };
 
+// This module will also be used in jit runtime
+// copy these function here to avoid dependencies on rest of compiler
+LLIntegerType *DtoSize_t(llvm::LLVMContext &context,
+                         const llvm::Triple &triple) {
+  // the type of size_t does not change once set
+  static LLIntegerType *t = nullptr;
+  if (t == nullptr) {
+
+    if (triple.isArch64Bit()) {
+      t = LLType::getInt64Ty(context);
+    } else if (triple.isArch32Bit()) {
+      t = LLType::getInt32Ty(context);
+    } else if (triple.isArch16Bit()) {
+      t = LLType::getInt16Ty(context);
+    } else {
+      llvm_unreachable("Unsupported size_t width");
+    }
+  }
+  return t;
+}
+
+llvm::ConstantInt *DtoConstSize_t(llvm::LLVMContext &context,
+                                  const llvm::Triple &targetTriple,
+                                  uint64_t i) {
+  return LLConstantInt::get(DtoSize_t(context, targetTriple), i, false);
+}
+
 /// ArraySliceCopyOpt - Turn slice copies into llvm.memcpy when safe
 struct LLVM_LIBRARY_VISIBILITY ArraySliceCopyOpt : public LibCallOptimization {
   Value *CallOptimizer(Function *Callee, CallInst *CI,
@@ -244,9 +271,12 @@ struct LLVM_LIBRARY_VISIBILITY ArraySliceCopyOpt : public LibCallOptimization {
 
     // Equal length and the pointers definitely don't alias, so it's safe to
     // replace the call with memcpy
-    auto Size = Sz != llvm::MemoryLocation::UnknownSize
-                    ? DtoConstSize_t(Sz)
-                    : B.CreateMul(DstLength, ElemSz);
+    auto Size =
+        Sz != llvm::MemoryLocation::UnknownSize
+            ? DtoConstSize_t(
+                  Callee->getContext(),
+                  llvm::Triple(Callee->getParent()->getTargetTriple()), Sz)
+            : B.CreateMul(DstLength, ElemSz);
     return EmitMemCpy(CI->getOperand(0), CI->getOperand(2), Size, 1, B);
   }
 };
@@ -391,7 +421,7 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout *DL,
       }
 
       LLVM_DEBUG(errs() << "SimplifyDRuntimeCalls simplified: " << *CI;
-            errs() << "  into: " << *Result << "\n");
+                 errs() << "  into: " << *Result << "\n");
 
       // Something changed!
       Changed = true;

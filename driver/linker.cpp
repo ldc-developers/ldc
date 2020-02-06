@@ -60,7 +60,8 @@ static cl::alias _linkDebugLib("link-debuglib", cl::Hidden,
 
 static cl::opt<cl::boolOrDefault> linkDefaultLibShared(
     "link-defaultlib-shared", cl::ZeroOrMore,
-    cl::desc("Link with shared versions of default libraries"),
+    cl::desc("Link with shared versions of default libraries. Defaults to true "
+             "when generating a shared library (-shared)."),
     cl::cat(opts::linkingCategory));
 
 static cl::opt<cl::boolOrDefault>
@@ -110,7 +111,7 @@ static std::string getOutputName() {
 
   // Infer output name from first object file.
   std::string result =
-      global.params.objfiles.dim
+      global.params.objfiles.length
           ? FileName::removeExt(FileName::name(global.params.objfiles[0]))
           : "a.out";
 
@@ -125,7 +126,7 @@ static std::string getOutputName() {
     auto EC = llvm::sys::fs::createTemporaryFile(
         result, extension ? extension : "", tempFilename);
     if (!EC)
-      result = tempFilename.str();
+      result = {tempFilename.data(), tempFilename.size()};
   } else if (extension) {
     result += '.';
     result += extension;

@@ -45,7 +45,7 @@ class FileAndLines
         auto readResult = File.read(file.toChars());
         // FIXME: check success
         // take ownership of buffer
-        buffer = new FileBuffer(readResult.extractData());
+        buffer = new FileBuffer(readResult.extractSlice());
         ubyte* buf = buffer.data.ptr;
         // slice into lines
         while (*buf)
@@ -89,7 +89,7 @@ It stores its cached files as $(LREF FileAndLines)
 */
 struct FileCache
 {
-    private StringTable files;
+    private StringTable!(FileAndLines) files;
 
   nothrow:
 
@@ -108,11 +108,11 @@ struct FileCache
         if (auto payload = files.lookup(file))
         {
             if (payload !is null)
-                return cast(typeof(return)) payload.ptrvalue;
+                return payload.value;
         }
 
         auto lines = new FileAndLines(file);
-        files.insert(file, cast(void*) lines);
+        files.insert(file, lines);
         return lines;
     }
 

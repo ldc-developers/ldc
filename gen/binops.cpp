@@ -56,14 +56,14 @@ RVals evalSides(DValue *lhs, Expression *rhs, bool loadLhsAfterRhs) {
 Expression *extractNoStrideInc(Expression *e, d_uns64 baseSize, bool &negate) {
   MulExp *mul;
   while (true) {
-    if (e->op == TOKneg) {
+    if (auto ne = e->isNegExp()) {
       negate = !negate;
-      e = static_cast<NegExp *>(e)->e1;
+      e = ne->e1;
       continue;
     }
 
-    if (e->op == TOKmul) {
-      mul = static_cast<MulExp *>(e);
+    if (auto me = e->isMulExp()) {
+      mul = me;
       break;
     }
 
@@ -115,7 +115,7 @@ DValue *emitPointerOffset(Loc loc, DValue *base, Expression *offset,
   if (!llResult) {
     if (negateOffset)
       llOffset = gIR->ir->CreateNeg(llOffset);
-    llResult = DtoGEP1(llBase, llOffset, false);
+    llResult = DtoGEP1(llBase, llOffset);
   }
 
   return new DImValue(resultType, DtoBitCast(llResult, DtoType(resultType)));
@@ -392,8 +392,7 @@ LLValue *mergeVectorEquals(LLValue *resultsVector, TOK op) {
 
   if (op == TOKequal) {
     // all pairs must be equal for the vectors to be equal
-    LLConstant *allEqual =
-        LLConstantInt::get(integerType, (1 << sizeInBits) - 1);
+    LLConstant *allEqual = LLConstant::getAllOnesValue(integerType);
     return gIR->ir->CreateICmpEQ(v, allEqual);
   } else if (op == TOKnotequal) {
     // any not-equal pair suffices for the vectors to be not-equal

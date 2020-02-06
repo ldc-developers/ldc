@@ -220,11 +220,11 @@ public:
                 Statement s3;
                 if ((ifs = sx.isIfStatement()) !is null &&
                     ifs.ifbody &&
-                    ifs.ifbody.isReturnStatement() &&
+                    ifs.ifbody.endsWithReturnStatement() &&
                     !ifs.elsebody &&
                     i + 1 < s.statements.dim &&
                     (s3 = (*s.statements)[i + 1]) !is null &&
-                    s3.isReturnStatement()
+                    s3.endsWithReturnStatement()
                    )
                 {
                     /* Rewrite as ?:
@@ -513,7 +513,7 @@ public:
                             result.type = f.vthis.type;
                         }
                         // (*__this)[i]
-                        uint i = followInstantiationContext(f, fdv);
+                        uint i = f.followInstantiationContext(fdv);
                         if (i == 1 && f == ids.fd)
                         {
                             auto ve = cast(VarExp)e.copy();
@@ -527,7 +527,7 @@ public:
                         ie.indexIsInBounds = true; // no runtime bounds checking
                         result = ie;
                         result.type = Type.tvoidptr;
-                        s = toParentP(f, fdv);
+                        s = f.toParentP(fdv);
                         ad = s.isAggregateDeclaration();
                         if (ad)
                             goto Lad;
@@ -539,11 +539,11 @@ public:
                         while (ad)
                         {
                             assert(ad.vthis);
-                            bool i = followInstantiationContext(ad, fdv);
+                            bool i = ad.followInstantiationContext(fdv);
                             auto vthis = i ? ad.vthis2 : ad.vthis;
                             result = new DotVarExp(e.loc, result, vthis);
                             result.type = vthis.type;
-                            s = toParentP(ad, fdv);
+                            s = ad.toParentP(fdv);
                             ad = s.isAggregateDeclaration();
                         }
                     }
@@ -681,6 +681,10 @@ public:
                         vto._init = new ExpInitializer(ei.loc, doInlineAs!Expression(ei, ids));
                     }
                 }
+                if (vd.edtor)
+                {
+                    vto.edtor = doInlineAs!Expression(vd.edtor, ids);
+                }
                 auto de = cast(DeclarationExp)e.copy();
                 de.declaration = vto;
                 result = de;
@@ -715,6 +719,7 @@ public:
             //printf("NewExp.doInlineAs!%s(): %s\n", Result.stringof.ptr, e.toChars());
             auto ne = cast(NewExp)e.copy();
             ne.thisexp = doInlineAs!Expression(e.thisexp, ids);
+            ne.argprefix = doInlineAs!Expression(e.argprefix, ids);
             ne.newargs = arrayExpressionDoInline(e.newargs);
             ne.arguments = arrayExpressionDoInline(e.arguments);
             result = ne;

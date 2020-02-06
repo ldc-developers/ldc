@@ -29,15 +29,20 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Instrumentation.h"
+#include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#if LDC_LLVM_VER >= 400
+#include "llvm/Analysis/InlineCost.h"
+#endif
 #if LDC_LLVM_VER >= 800
 #include "llvm/Transforms/Instrumentation/MemorySanitizer.h"
 #include "llvm/Transforms/Instrumentation/ThreadSanitizer.h"
 #endif
-#include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
-
-#if LDC_LLVM_VER >= 400
-#include "llvm/Analysis/InlineCost.h"
+#if LDC_LLVM_VER >= 900
+#include "llvm/Transforms/Instrumentation/AddressSanitizer.h"
+#endif
+#if LDC_LLVM_VER >= 1000
+#include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 #endif
 
 #if LDC_LLVM_VER >= 1000
@@ -96,7 +101,9 @@ static cl::opt<cl::boolOrDefault, false, opts::FlagParser<cl::boolOrDefault>>
         "cross-module-inlining", cl::ZeroOrMore, cl::Hidden,
         cl::desc("(*) Enable cross-module function inlining (default disabled)"));
 
-#if LDC_LLVM_VER < 1000
+
+#if LDC_LLVM_VER < 900
+
 static cl::opt<bool> unitAtATime("unit-at-a-time", cl::desc("Enable basic IPO"),
                                  cl::ZeroOrMore, cl::init(true));
 #endif
@@ -194,7 +201,9 @@ static void addGarbageCollect2StackPass(const PassManagerBuilder &builder,
 static void addAddressSanitizerPasses(const PassManagerBuilder &Builder,
                                       PassManagerBase &PM) {
   PM.add(createAddressSanitizerFunctionPass());
-#if LDC_LLVM_VER >= 1000
+
+#if LDC_LLVM_VER >= 900
+
   PM.add(createModuleAddressSanitizerLegacyPassPass());
 #else
   PM.add(createAddressSanitizerModulePass());
@@ -235,6 +244,11 @@ static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
                                      legacy::PassManagerBase &PM) {
 #ifdef ENABLE_COVERAGE_SANITIZER
 
+#if LDC_LLVM_VER >= 1000
+  PM.add(createModuleSanitizerCoverageLegacyPassPass(
+      opts::getSanitizerCoverageOptions()));
+#else
+
   PM.add(
 #if LDC_LLVM_VER >= 1000
       createModuleSanitizerCoverageLegacyPassPass
@@ -242,6 +256,7 @@ static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
       createSanitizerCoverageModulePass
 #endif
          (opts::getSanitizerCoverageOptions()));
+#endif
 #endif
 }
 
@@ -307,7 +322,9 @@ static void addOptimizationPasses(legacy::PassManagerBase &mpm,
     builder.Inliner = createAlwaysInlinerPass();
 #endif
   }
-#if LDC_LLVM_VER < 1000
+
+#if LDC_LLVM_VER < 900
+
   builder.DisableUnitAtATime = !unitAtATime;
 #endif
   builder.DisableUnrollLoops = optLevel == 0;
@@ -472,7 +489,9 @@ void outputOptimizationSettings(llvm::raw_ostream &hash_os) {
   hash_os << disableSimplifyDruntimeCalls;
   hash_os << disableSimplifyLibCalls;
   hash_os << disableGCToStack;
-#if LDC_LLVM_VER < 1000
+
+#if LDC_LLVM_VER < 900
+
   hash_os << unitAtATime;
 #endif
   hash_os << stripDebug;

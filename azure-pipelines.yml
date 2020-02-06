@@ -1,6 +1,6 @@
 variables:
-  LLVM_VERSION: 8.0.1
-  HOST_LDC_VERSION: 1.14.0
+  LLVM_VERSION: 9.0.1
+  HOST_LDC_VERSION: 1.19.0
 
 # Although tags are supposed to trigger builds by default, they don't.
 trigger:
@@ -13,19 +13,21 @@ jobs:
   pool:
     vmImage: 'windows-2019'
   variables:
-    CLANG_VERSION: 8.0.1
+    CLANG_VERSION: 9.0.0
     VSINSTALLDIR: C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\
-    EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON
   strategy:
     matrix:
       x64:
         OS: windows
         MODEL: 64
         ARCH: x64
+        EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON -DD_COMPILER_FLAGS="-flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto" -DEXTRA_CXXFLAGS=-flto=full
       x86:
         OS: windows
         MODEL: 32
         ARCH: x86
+        # Undefined symbol errors with FullLTO; ThinLTO works.
+        EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON -DD_COMPILER_FLAGS="-flto=thin -defaultlib=phobos2-ldc-lto,druntime-ldc-lto" -DEXTRA_CXXFLAGS=-flto=thin
         # Let CMake configure 64-bit clang-cl for 32-bit code emission.
         CFLAGS: -m32
         CXXFLAGS: -m32
@@ -45,12 +47,12 @@ jobs:
     LDC_VSDIR: C:\non-existing_dummy
   steps:
     - checkout: none
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: windows-x64
         targetPath: artifacts
       displayName: Download x64 artifact
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: windows-x86
         targetPath: artifacts
@@ -95,11 +97,8 @@ jobs:
         mkdir newArtifacts
         7z a -mx=9 newArtifacts/%ARTIFACT_NAME%.7z %ARTIFACT_NAME% > nul
       displayName: Pack
-    - task: PublishPipelineArtifact@0
-      inputs:
-        artifactName: windows-multilib
-        targetPath: newArtifacts
-      displayName: Publish artifact
+    - publish: newArtifacts
+      artifact: windows-multilib
 
 - job: Linux_multilib
   timeoutInMinutes: 120
@@ -107,21 +106,44 @@ jobs:
     vmImage: 'ubuntu-16.04'
   variables:
     CI_OS: linux
+    ARCH: x86_64
     # To improve portability of the generated binaries, link the C++ standard library statically.
     # Also don't use relax relocations for the C(++) parts of the default libraries in order to
     # support older user binutils (e.g., Ubuntu 14.04).
-    EXTRA_CMAKE_FLAGS: -DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DRT_CFLAGS=-Wa,-mrelax-relocations=no -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON
+    BOOTSTRAP_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON
+    EXTRA_CMAKE_FLAGS: -DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DRT_CFLAGS=-Wa,-mrelax-relocations=no -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER_FLAGS="-flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto" -DEXTRA_CXXFLAGS=-flto=full
   steps:
     - template: .azure-pipelines/posix.yml
 
 - job: macOS_x64
   timeoutInMinutes: 120
   pool:
-    vmImage: 'macOS-10.13'
+    vmImage: 'macOS-10.14'
   variables:
     CI_OS: osx
-    EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON
+    ARCH: x86_64
+    BOOTSTRAP_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON
+    EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON -DD_COMPILER_FLAGS="-flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto" -DEXTRA_CXXFLAGS=-flto=full
     MACOSX_DEPLOYMENT_TARGET: 10.9
+  steps:
+    - template: .azure-pipelines/posix.yml
+
+- job: Android
+  timeoutInMinutes: 120
+  pool:
+    vmImage: 'ubuntu-16.04'
+  variables:
+    CI_OS: android
+  strategy:
+    matrix:
+      armv7a:
+        ARCH: armv7a
+        EXTRA_CMAKE_FLAGS: -DANDROID_ABI=armeabi-v7a -DANDROID_NATIVE_API_LEVEL=21 -DANDROID_STL=c++_static -DCMAKE_CROSSCOMPILING=True
+        ANDROID_X86_ABI: x86
+      aarch64:
+        ARCH: aarch64
+        EXTRA_CMAKE_FLAGS: -DANDROID_ABI=arm64-v8a -DANDROID_NATIVE_API_LEVEL=21 -DANDROID_STL=c++_static -DCMAKE_CROSSCOMPILING=True
+        ANDROID_X86_ABI: x86_64
   steps:
     - template: .azure-pipelines/posix.yml
 
@@ -134,37 +156,30 @@ jobs:
     - Windows_multilib
     - Linux_multilib
     - macOS_x64
+    - Android
   # Only run for commits on the master branch and tags.
   condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')))
   steps:
     - checkout: none
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
-        artifactName: windows-x64
         targetPath: artifacts
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: windows-x86
-        targetPath: artifacts
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: windows-multilib
-        targetPath: artifacts
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: linux-x86_64
-        targetPath: artifacts
-    - task: DownloadPipelineArtifact@0
-      inputs:
-        artifactName: osx-x86_64
-        targetPath: artifacts
+    - bash: |
+        set -ex
+        cd artifacts
+        mv */*.* .
+        find . -type d -empty -delete
+        ls -l
+        sha256sum * > sha256sums.txt
+      displayName: Move artifact files out of their subdirs and compute hashes
     # We also need to determine whether the GitHub release is a pre-release,
     # as the GitHubRelease task overwrites that flag.
     - bash: |
-        set -e
+        set -ex
         if [ "${BUILD_SOURCEBRANCH:0:10}" != "refs/tags/" ]; then
           releaseTag=CI
           isPreRelease=true
+          artifactID=${BUILD_SOURCEVERSION:0:8}
         else
           releaseTag=${BUILD_SOURCEBRANCH:10}
           if [[ "$releaseTag" == *-* ]]; then
@@ -172,7 +187,10 @@ jobs:
           else
             isPreRelease=false
           fi
+          artifactID=${BUILD_SOURCEBRANCH:11}
         fi
+        mv artifacts/sha256sums.txt artifacts/ldc2-$artifactID.sha256sums.txt
+        set +x
         echo "##vso[task.setvariable variable=GITHUB_RELEASE_TAG]$releaseTag"
         echo "##vso[task.setvariable variable=GITHUB_RELEASE_ISPRERELEASE]$isPreRelease"
       displayName: Set GITHUB_RELEASE_{TAG,ISPRERELEASE} env variables

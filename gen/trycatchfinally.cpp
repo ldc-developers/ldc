@@ -69,7 +69,7 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
     uint64_t uncaughtCount;
   };
   llvm::SmallVector<CBPrototype, 8> cbPrototypes;
-  cbPrototypes.reserve(stmt->catches->dim);
+  cbPrototypes.reserve(stmt->catches->length);
 
   for (auto c : *stmt->catches) {
     auto catchBB =
@@ -152,7 +152,7 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
     uncaughtCount += it->catchCount;
   }
 
-  catchBlocks.reserve(stmt->catches->dim);
+  catchBlocks.reserve(stmt->catches->length);
 
   for (const auto &p : cbPrototypes) {
     auto branchWeights =
@@ -174,7 +174,7 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
 
       ci = irs.module.getGlobalVariable(wrapperMangle);
       if (!ci) {
-        const char *name = target.cppTypeInfoMangle(p.cd);
+        const char *name = target.cpp.typeInfoMangle(p.cd);
         auto cpp_ti =
             declareGlobal(p.cd->loc, irs.module, getVoidPtrType(), name,
                           /*isConstant=*/true);
@@ -226,7 +226,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
     // catch handler will be outlined, so always treat as a nested reference
     exnObj = getIrValue(var);
 
-    if (var->nestedrefs.dim) {
+    if (var->nestedrefs.length) {
       // if variable needed in a closure, use a stack temporary and copy it
       // when caught
       cpyObj = exnObj;
@@ -295,8 +295,8 @@ void TryCatchScope::emitCatchBodiesMSVC(IRState &irs, llvm::Value *) {
   llvm::BasicBlock *unwindto =
       scopes.currentCleanupScope() > 0 ? scopes.getLandingPad() : nullptr;
   auto catchSwitchInst = llvm::CatchSwitchInst::Create(
-      llvm::ConstantTokenNone::get(irs.context()), unwindto, stmt->catches->dim,
-      "", catchSwitchBlock);
+      llvm::ConstantTokenNone::get(irs.context()), unwindto,
+      stmt->catches->length, "", catchSwitchBlock);
 
   for (auto c : *stmt->catches) {
     auto catchBB =

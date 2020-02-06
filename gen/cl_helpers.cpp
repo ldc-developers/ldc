@@ -10,6 +10,7 @@
 #include "gen/cl_helpers.h"
 
 #include "dmd/errors.h"
+#include "dmd/ldcbindings.h"
 #include "dmd/root/rmem.h"
 #include "dmd/root/root.h"
 #include <algorithm>
@@ -19,7 +20,7 @@
 
 namespace opts {
 
-DArray<const char> dupPathString(llvm::StringRef src) {
+DString dupPathString(llvm::StringRef src) {
   const auto length = src.size();
   char *r = static_cast<char *>(mem.xmalloc(length + 1));
   memcpy(r, src.data(), length);
@@ -30,7 +31,7 @@ DArray<const char> dupPathString(llvm::StringRef src) {
   return {length, r};
 }
 
-DArray<const char> fromPathString(const cl::opt<std::string> &src) {
+DString fromPathString(const cl::opt<std::string> &src) {
   if (src.getNumOccurrences() != 0) {
     if (src.empty()) {
       error(Loc(), "Expected argument to '-%s'", src.ArgStr.str().c_str());
@@ -65,7 +66,7 @@ void StringsAdapter::push_back(const char *cstr) {
   }
 
   if (!*arrp) {
-    *arrp = new Strings;
+    *arrp = createStrings();
   }
   (*arrp)->push(mem.xstrdup(cstr));
 }

@@ -1,3 +1,46 @@
+# LDC 1.19.0 (2019-12-20)
+
+#### Big news
+- Frontend, druntime and Phobos are at version [2.089.1+](https://dlang.org/changelog/2.089.1.html). (#3192, #3210, #3215, #3232, #3242, #3255, #3261)
+- LLVM for prebuilt packages upgraded to v9.0.1; our fork has moved to [ldc-developers/llvm-project](https://github.com/ldc-developers/llvm-project). The x86[_64] packages newly include the experimental **AVR** backend. (#3244)
+- **Android**: A prebuilt AArch64 package has been added. It also includes prebuilt druntime/Phobos libraries for x86_64; the armv7a package includes the i686 libraries. So all 4 Android targets are covered with prebuilt druntime/Phobos. (#3244)
+- Breaking `extern(D)` ABI change for Posix x86[_64]: non-POD arguments are now passed by ref under the hood, just like they already were for `extern(C++)`. Some superfluous implicit blits have been optimized away as well, for all targets. (#3204)
+- Posix: Defaults to `cc` now for linking, not `gcc` (or `clang` for FreeBSD 10+) - if the `CC` environment variable isn't set. Override with `-gcc=<gcc|clang>`. (#3202)
+- Codegen elision of dead branches for `if` statements with constant condition (not depending on enabled LLVM optimizations). (#3134)
+- druntime: New `llvm_sideeffect` intrinsic, new `@cold` function UDA and extended CAS functionality in `core.atomic` (incl. support for weak CAS and separate failure ordering). (https://github.com/ldc-developers/druntime/pull/166, https://github.com/ldc-developers/druntime/pull/167, #3220)
+- Windows: Bundled MinGW-based libs have been upgraded to use the .def files from MinGW-w64 v7.0.0. They now also contain a default `DllMain` entry point as well as `_[v]snprintf`. ([libs](https://github.com/ldc-developers/mingw-w64-libs/releases/tag/v7.0.0-rc.1), #3142)
+
+#### Platform support
+- Supports LLVM 3.9 - 9.0.
+
+#### Bug fixes
+- Misc. CMake issues with some LLVM 9 configurations. (#3079, #3198)
+- Equality/identity comparisons of vectors with length ≥ 32. (#3208, #3209)
+- `ldc.gccbuiltins_*` druntime modules now available to non-installed compiler too. (#3194, #3201)
+- Potential ICE when applying `@assumeUsed` on global union. (#3221, #3222)
+- `Context from outer function, but no outer function?` regression introduced in v1.11 (inability to access outer context from `extern(C++)` methods). (#3234, #3235)
+- Lvalue expressions with nested temporaries to be destructed yielding a wrong lvalue. (#3233)
+- druntime: Cherry-picked fix wrt. GC potentially collecting objects still referenced in other threads' TLS area. (dlang/druntime#2558)
+
+# LDC 1.18.0 (2019-10-16)
+
+#### Big news
+- Frontend, druntime and Phobos are at version [2.088.1](https://dlang.org/changelog/2.088.1.html). (#3143, #3161, #3176, #3190)
+- Support for **LLVM 9.0**. The prebuilt packages have been upgraded to [LLVM 9.0.0](http://releases.llvm.org/9.0.0/docs/ReleaseNotes.html). (#3166)
+- Preliminary **Android** CI, incl. experimental prebuilt armv7a package generation (API level 21, i.e., Android 5+). (#3164)
+- Bundled dub upgraded to v1.17.0+ with improved LDC support, incl. cross-compilation (e.g., `--arch=x86_64-pc-windows-msvc`). (https://github.com/dlang/dub/pull/1755, [Wiki](https://wiki.dlang.org/Cross-compiling_with_LDC))
+- Init symbols of zero-initialized structs are no longer emitted. (#3131)
+- druntime: DMD-compatible `{load,store}Unaligned` and `prefetch` added to `core.simd`. (https://github.com/ldc-developers/druntime/pull/163)
+- JIT improvements, incl. multi-threaded compilation. (#2758, #3154, #3174)
+
+#### Platform support
+- Supports LLVM 3.9 - 9.0.
+
+#### Bug fixes
+- Don't error out when initializing a `void` vector. (#3130, #3139)
+- druntime: Fix exception chaining for latest MSVC runtime v14.23, shipping with Visual Studio 2019 v16.3. (https://github.com/ldc-developers/druntime/pull/164)
+- Keep lvalue-ness when casting associative array to another AA. (#3162, #3179)
+
 # LDC 1.17.0 (2019-08-25)
 
 #### Big news

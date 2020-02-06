@@ -29,6 +29,7 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/recursivevisitor.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
@@ -45,6 +46,62 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs);
 void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p);
 
 //////////////////////////////////////////////////////////////////////////////
+
+/// Used to check if a control-flow stmt body contains any label. A label
+/// is considered anything that lets us jump inside the body _apart from_
+/// the stmt. That includes case / default statements.
+/// It is a StoppableVisitor that stops when a label is found.
+/// It's to be passed in a ContainsLabelWalker which recursively
+/// walks the tree and updates our `inside_switch` flag accordingly.
+struct ContainsLabelVisitor : public StoppableVisitor {
+  // If RecursiveWalker finds a SwitchStatement,
+  // `insideSwitch` points to that statement.
+  SwitchStatement *insideSwitch = nullptr;
+
+  using StoppableVisitor::visit;
+
+  void visit(Statement *stmt) override {}
+
+  void visit(LabelStatement *stmt) override { stop = true; }
+
+  void visit(CaseStatement *stmt) override {
+    if (insideSwitch == nullptr)
+      stop = true;
+  }
+
+  void visit(DefaultStatement *stmt) override {
+    if (insideSwitch == nullptr)
+      stop = true;
+  }
+
+  bool foundLabel() { return stop; }
+
+  void visit(Declaration *) override {}
+  void visit(Initializer *) override {}
+  void visit(Dsymbol *) override {}
+  void visit(Expression *) override {}
+};
+
+/// As the RecursiveWalker, but it gets a ContainsLabelVisitor
+/// and updates its `insideSwitch` field accordingly.
+class ContainsLabelWalker : public RecursiveWalker {
+public:
+  using RecursiveWalker::visit;
+
+  explicit ContainsLabelWalker(ContainsLabelVisitor *visitor,
+                               bool _continueAfterStop = true)
+      : RecursiveWalker(visitor, _continueAfterStop) {}
+
+  void visit(SwitchStatement *stmt) override {
+    ContainsLabelVisitor *ev = static_cast<ContainsLabelVisitor *>(v);
+    SwitchStatement *save = ev->insideSwitch;
+    ev->insideSwitch = stmt;
+    RecursiveWalker::visit(stmt);
+    ev->insideSwitch = save;
+  }
+
+  void visit(Expression *) override {}
+};
 
 class ToIRVisitor : public Visitor {
   IRState *irs;
@@ -139,10 +196,10 @@ public:
             // call postblit if the expression is a D lvalue
             // exceptions: NRVO and special __result variable (out contracts)
             bool doPostblit = !(fd->nrvo_can && fd->nrvo_var);
-            if (doPostblit && stmt->exp->op == TOKvar) {
-              auto ve = static_cast<VarExp *>(stmt->exp);
-              if (ve->var->isResult())
-                doPostblit = false;
+            if (doPostblit) {
+              if (auto ve = stmt->exp->isVarExp())
+                if (ve->var->isResult())
+                  doPostblit = false;
             }
 
             DtoAssign(stmt->loc, &returnValue, e, TOKblit);
@@ -285,6 +342,19 @@ public:
     }
   }
 
+  //////////////////////////////////////////////////////////////////////////
+
+  bool containsLabel(Statement *stmt) {
+    if (!stmt)
+      return false;
+    ContainsLabelVisitor labelChecker;
+    ContainsLabelWalker walker(&labelChecker, false);
+    stmt->accept(&walker);
+    return labelChecker.foundLabel();
+  }
+
+  //////////////////////////////////////////////////////////////////////////
+
   void visit(IfStatement *stmt) override {
     IF_LOG Logger::println("IfStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
@@ -304,8 +374,7 @@ public:
     // to target multiple backends "simultaneously" with one
     // pass through the front end, to have a single "static"
     // context.
-    if (stmt->condition->op == TOKcall) {
-      auto ce = (CallExp *)stmt->condition;
+    if (auto ce = stmt->condition->isCallExp()) {
       if (ce->f && ce->f->ident == Id::dcReflect) {
         if (dcomputeReflectMatches(ce))
           stmt->ifbody->accept(this);
@@ -314,10 +383,33 @@ public:
         return;
       }
     }
-
     DValue *cond_e = toElemDtor(stmt->condition);
     LLValue *cond_val = DtoRVal(cond_e);
-
+    // Is it constant?
+    if (LLConstant *const_val = llvm::dyn_cast<LLConstant>(cond_val)) {
+      Statement *executed = stmt->ifbody;
+      Statement *skipped = stmt->elsebody;
+      if (const_val->isZeroValue()) {
+        std::swap(executed, skipped);
+      }
+      if (!containsLabel(skipped)) {
+        IF_LOG Logger::println("Constant true/false condition - elide.");
+        if (executed) {
+          irs->DBuilder.EmitBlockStart(executed->loc);
+        }
+        // True condition, the branch is taken so emit counter increment.
+        if (!const_val->isZeroValue()) {
+          PGO.emitCounterIncrement(stmt);
+        }
+        if (executed) {
+          executed->accept(this);
+          irs->DBuilder.EmitBlockEnd();
+        }
+        // end the dwarf lexical block
+        irs->DBuilder.EmitBlockEnd();
+        return;
+      }
+    }
     llvm::BasicBlock *ifbb = irs->insertBB("if");
     llvm::BasicBlock *endbb = irs->insertBBAfter(ifbb, "endif");
     llvm::BasicBlock *elsebb =
@@ -847,7 +939,7 @@ public:
 
     // The cases of the switch statement, in codegen order.
     auto cases = stmt->cases;
-    const auto caseCount = cases->dim;
+    const auto caseCount = cases->length;
 
     // llvm::Values for the case indices. Might not be llvm::Constants for
     // runtime-initialised immutable globals as case indices, in which case we
@@ -859,11 +951,11 @@ public:
     for (auto cs : *cases) {
       // skip over casts
       auto ce = cs->exp;
-      while (ce->op == TOKcast)
-        ce = static_cast<CastExp *>(ce)->e1;
+      while (auto next = ce->isCastExp())
+        ce = next->e1;
 
-      if (ce->op == TOKvar) {
-        const auto vd = static_cast<VarExp *>(ce)->var->isVarDeclaration();
+      if (auto ve = ce->isVarExp()) {
+        const auto vd = ve->var->isVarDeclaration();
         if (vd && (!vd->_init || !vd->isConst())) {
           indices.push_back(DtoRVal(toElemDtor(cs->exp)));
           useSwitchInst = false;
@@ -1100,7 +1192,7 @@ public:
     PGO.setCurrentStmt(stmt);
 
     // if no statements, there's nothing to do
-    if (!stmt->statements || !stmt->statements->dim) {
+    if (!stmt->statements || !stmt->statements->length) {
       return;
     }
 
@@ -1115,7 +1207,7 @@ public:
     llvm::BasicBlock *endbb = irs->insertBB("unrolledend");
 
     // create a block for each statement
-    size_t nstmt = stmt->statements->dim;
+    size_t nstmt = stmt->statements->length;
     llvm::SmallVector<llvm::BasicBlock *, 4> blocks(nstmt, nullptr);
     for (size_t i = 0; i < nstmt; i++)
       blocks[i] = irs->insertBBBefore(endbb, "unrolledstmt");
@@ -1126,7 +1218,7 @@ public:
     }
 
     // do statements
-    Statement **stmts = stmt->statements->data;
+    Statement **stmts = &(*stmt->statements)[0];
 
     for (size_t i = 0; i < nstmt; i++) {
       Statement *s = stmts[i];
@@ -1172,7 +1264,7 @@ public:
     // start a dwarf lexical block
     irs->DBuilder.EmitBlockStart(stmt->loc);
 
-    // assert(arguments->dim == 1);
+    // assert(arguments->length == 1);
     assert(stmt->value != 0);
     assert(stmt->aggr != 0);
     assert(stmt->func != 0);
@@ -1258,7 +1350,7 @@ public:
 
     // get value for this iteration
     LLValue *loadedKey = irs->ir->CreateLoad(keyvar);
-    LLValue *gep = DtoGEP1(val, loadedKey, true);
+    LLValue *gep = DtoGEP1(val, loadedKey);
 
     if (!stmt->value->isRef() && !stmt->value->isOut()) {
       // Copy value to local variable, and use it as the value variable.

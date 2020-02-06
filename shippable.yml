@@ -13,8 +13,8 @@ env:
   global:
     - secure: RQ6gpJFPBDGVlnz+ZzSgeMpkcnvcA/7Lzyj/r06fMFR5iOz2cYaImCekNRw2PlhYQ+0FCQ119TLMKNOa7OUu6XxUp5LZtq7pSB6QLe3RB3YysFsosNPlY/wyyRsrW9ICEbDP/X8kPcfrDtOPGS/dGIwgeo0+R4Yl0OLDK9GrExEY45bWgvuLqoWDO89pi31kBk5LG5MAYhHZ0UTdboi5A2GRT0T8M0kr53jBRka8FGkbncXfHp9+/6IjTVJoUduRkdsk0A9RN1KRoao6rtrBNNvwIStc6zxJSOHszoaTp/K/ucGC4InZl/9GHPS/Y78SGKn7YJv3tGmcGzqAxrVaXQ==
   matrix:
-    - LLVM_VERSION=8.0.1
-      HOST_LDC_VERSION=1.14.0
+    - LLVM_VERSION=9.0.1
+      HOST_LDC_VERSION=1.19.0
       EXTRA_CMAKE_FLAGS="-DBUILD_LTO_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64"
 
 build:
@@ -26,7 +26,6 @@ build:
         git-core cmake ninja-build \
         libcurl3 libcurl4-openssl-dev \
         curl gdb p7zip-full python-pip tzdata unzip zip
-    - update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
     - pip install --user lit
     # Download & extract host LDC
     - curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-aarch64.tar.xz
@@ -40,7 +39,7 @@ build:
         echo 'Using LLVM with enabled assertions'
         assertsSuffix="-withAsserts"
       fi
-      curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-linux-aarch64$assertsSuffix.tar.xz
+      curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-linux-aarch64$assertsSuffix.tar.xz
     - mkdir llvm
     - tar -xf llvm.tar.xz --strip 1 -C llvm
     - rm llvm.tar.xz
@@ -50,13 +49,14 @@ build:
     - mkdir bootstrap-ldc
     - cd bootstrap-ldc
     - |
-      cmake -G Ninja .. \
+      DFLAGS='-linker=bfd' cmake -G Ninja .. \
         -DCMAKE_BUILD_TYPE=Release \
         -DLLVM_ROOT_DIR=$PWD/../llvm \
         -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
         -DBUILD_SHARED_LIBS=OFF \
         -DCOMPILE_D_MODULES_SEPARATELY=ON \
-        -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF
+        -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF \
+        -DADDITIONAL_DEFAULT_LDC_SWITCHES=' "-linker=bfd",'
     - ninja -j32
     - bin/ldc2 --version
     - cd ..
@@ -73,6 +73,7 @@ build:
         -DCMAKE_INSTALL_PREFIX=$installDir \
         -DINCLUDE_INSTALL_DIR=$installDir/import \
         -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF \
+        -DADDITIONAL_DEFAULT_LDC_SWITCHES=' "-linker=bfd",' \
         $EXTRA_CMAKE_FLAGS
       set +x
     - ninja -j32 all ldc2-unittest
@@ -83,15 +84,18 @@ build:
     - ctest --output-on-failure -R "ldc2-unittest"
     # Run LIT testsuite, ignore the errors
     - PATH=$PWD/../llvm/bin:$PATH ctest -V -R "lit-tests" || true
-    # Run DMD testsuite (non-debug only for now), ignore the errors
-    - DMD_TESTSUITE_MAKE_ARGS='-j16 -k' ctest -V -R "dmd-testsuite" -E "-debug$" || true
-    # Run defaultlib unittests (non-debug only for now, excl. hanging core.thread)
+    # Run DMD testsuite, ignore the errors
+    # FIXME: the debug libs seem not really usable, most runnable tests crash
+    - sed -i 's|REQUIRED_ARGS=-g -link-defaultlib-debug|REQUIRED_ARGS=-g|g' tests/d2/CTestTestfile.cmake
+    - DMD_TESTSUITE_MAKE_ARGS='-j16 GDB_FLAGS=OFF' ctest -V -R "dmd-testsuite" || true
+    # Run defaultlib unittests (non-debug only for now, excl. hanging core.thread.fiber)
     # & druntime stand-alone tests, ignore the errors
-    - ctest -j16 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest|-debug(-shared)?$|^core.thread($|-)" || true
+    - ctest -j16 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest|-debug(-shared)?$|^core.thread.fiber($|-)" || true
     # Install LDC & make portable
     - ninja install > /dev/null
     - cd ..
     - perl -pi -e s?$PWD/install/?%%ldcbinarypath%%/../?g install/etc/ldc2.conf
+    - perl -pi -e 's? "-linker=bfd",??g' install/etc/ldc2.conf
     - cat install/etc/ldc2.conf
     - cp LICENSE install
     - cp packaging/README install
@@ -114,12 +118,6 @@ build:
     - git clone --recursive https://github.com/dlang/dub.git
     - cd dub
     - git checkout "$(cat ../packaging/dub_version)"
-    - |
-      if [ "$IS_GIT_TAG" = "false" ]; then
-        # FIXME: dub is built with `-g -O`, which leads to issue #2361 with enabled
-        # assertions, at least on Linux. So strip `-g` for untagged builds.
-        perl -pi -e "s? -g -O ? -O ?g" build.sh
-      fi
     - ./build.sh
     - cp bin/dub ../installed/bin
     - cd ..
@@ -127,12 +125,10 @@ build:
     # Build & copy dlang tools
     - git clone --recursive https://github.com/dlang/tools.git dlang-tools
     - cd dlang-tools
-    - |
-      make -f posix.mak -j16 install \
-        DMD=$PWD/../installed/bin/ldmd2 \
-        DMD_DIR=$PWD/../tests/d2 \
-        DFLAGS="-w -de" \
-        INSTALL_DIR=$PWD
+    - mkdir bin
+    - $DMD -w -de -dip1000 rdmd.d -of=bin/rdmd
+    - $DMD -w -de -dip1000 ddemangle.d -of=bin/ddemangle
+    - $DMD -w -de -dip1000 DustMite/dustmite.d DustMite/splitter.d -of=bin/dustmite
     - cp bin/{rdmd,ddemangle,dustmite} ../installed/bin
     - cd ..
     # Pack installation dir

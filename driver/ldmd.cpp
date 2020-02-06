@@ -204,6 +204,7 @@ Where:\n\
   -J=<directory>    look for string imports also in directory\n\
   -L=<linkerflag>   pass linkerflag to link\n\
   -lib              generate library rather than object files\n\
+  -lowmem           enable garbage collection for the compiler\n\
   -m32              generate 32 bit code\n"
 #if 0
 "  -m32mscoff        generate 32 bit code and write MS-COFF object files\n"
@@ -227,10 +228,10 @@ Where:\n\
   -of=<filename>    name output file to filename\n\
   -op               preserve source path for output files\n\
   -preview=<id>     enable an upcoming language change identified by 'id'\n\
-  -preview=?        list all upcoming language changes\n"
+  -preview=?        list all upcoming language changes\n\
+  -profile          profile runtime performance of generated code\n"
 #if 0
-"  -profile          profile runtime performance of generated code\n\
-  -profile=gc       profile runtime allocations\n"
+"  -profile=gc       profile runtime allocations\n"
 #endif
 "  -release          compile release version\n\
   -revert=<id>      revert language change identified by 'id'\n\
@@ -255,7 +256,8 @@ Where:\n\
   -w                warnings as errors (compilation will halt)\n\
   -wi               warnings as messages (compilation will continue)\n\
   -X                generate JSON file\n\
-  -Xf=<filename>    write JSON file to filename\n",
+  -Xf=<filename>    write JSON file to filename\n\
+  -Xcc=<driverflag> pass driverflag to linker driver (cc)\n",
       argv0, argv0);
 }
 
@@ -399,7 +401,8 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         if (argLength > 3 && memcmp(arg + argLength - 3, "=on", 3) == 0) {
           enabled = true;
           kindLength = argLength - 3;
-        } else if (argLength > 4 && memcmp(arg + argLength - 4, "=off", 4) == 0) {
+        } else if (argLength > 4 &&
+                   memcmp(arg + argLength - 4, "=off", 4) == 0) {
           enabled = false;
           kindLength = argLength - 4;
         } else {
@@ -407,11 +410,10 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
           kindLength = argLength;
         }
 
-        const auto check = [&](size_t dmdLength, const char *dmd, const char *ldc) {
-          if (kindLength == dmdLength &&
-              memcmp(arg, dmd, dmdLength) == 0) {
-            ldcArgs.push_back(
-                concat(enabled ? "-enable-" : "-disable-", ldc));
+        const auto check = [&](size_t dmdLength, const char *dmd,
+                               const char *ldc) {
+          if (kindLength == dmdLength && memcmp(arg, dmd, dmdLength) == 0) {
+            ldcArgs.push_back(concat(enabled ? "-enable-" : "-disable-", ldc));
             return true;
           }
           return false;
@@ -458,6 +460,8 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
           ldcArgs.push_back("-relocation-model=pic");
           pic = true;
         }
+      } else if (strcmp(p + 1, "fPIE") == 0) {
+        goto Lnot_in_ldc;
       } else if (strcmp(p + 1, "map") == 0) {
         goto Lnot_in_ldc;
       } else if (strcmp(p + 1, "multiobj") == 0) {

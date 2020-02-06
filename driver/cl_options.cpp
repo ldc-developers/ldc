@@ -449,10 +449,9 @@ cl::opt<bool, true>
             cl::desc("Generate code for all template instantiations"));
 
 cl::opt<unsigned, true> nestedTemplateDepth(
-    "template-depth", cl::ZeroOrMore, cl::location(global.params.nestedTmpl),
+    "template-depth", cl::ZeroOrMore, cl::location(global.recursionLimit),
     cl::init(500),
-    cl::desc(
-        "Set maximum number of nested template instantiations (experimental)"));
+    cl::desc("Set maximum number of nested template instantiations"));
 
 // legacy options superseded by `-preview=dip<N>`
 static cl::opt<bool, true>
@@ -521,15 +520,15 @@ cl::opt<bool> dynamicCompileTlsWorkaround(
     cl::Hidden);
 #endif
 
-static cl::extrahelp footer(
-    "\n"
-    "-d-debug can also be specified without options, in which case it enables "
-    "all\n"
-    "debug checks (i.e. (asserts, boundschecks, contracts and invariants) as "
-    "well\n"
-    "as acting as -d-debug=1\n\n"
-    "Options marked with (*) also have a -disable-FOO variant with inverted\n"
-    "meaning.\n");
+static cl::extrahelp
+    footer("\n"
+           "-d-debug can also be specified without options, in which case it "
+           "enables all debug checks (i.e. asserts, boundschecks, contracts "
+           "and invariants) as well as acting as -d-debug=1.\n\n"
+           "Boolean options can take an optional value, e.g., "
+           "-link-defaultlib-shared=<true,false>.\n"
+           "Boolean options marked with (*) also have a -disable-FOO variant "
+           "with inverted meaning.\n");
 
 /// Create commandline options that may clash with LLVM's options (depending on
 /// LLVM version and on LLVM configuration), and that thus cannot be created
@@ -586,11 +585,14 @@ void hideLLVMOptions() {
       "arm-implicit-it", "asm-instrumentation", "asm-show-inst",
       "atomic-counter-update-promoted", "bounds-checking-single-trap",
       "code-model", "cost-kind", "cppfname", "cppfor", "cppgen",
-      "cvp-dont-process-adds", "debug-counter", "debugger-tune",
-      "denormal-fp-math", "disable-debug-info-verifier",
+      "cvp-dont-add-nowrap-flags",
+      "cvp-dont-process-adds", "debug-counter", "debug-entry-values",
+      "debugger-tune", "denormal-fp-math", "disable-debug-info-verifier",
       "disable-objc-arc-checkforcfghazards", "disable-spill-fusing",
-      "do-counter-promotion", "emulated-tls", "enable-correct-eh-support",
+      "do-counter-promotion", "emscripten-cxx-exceptions-whitelist",
+      "emulated-tls", "enable-correct-eh-support",
       "enable-cse-in-irtranslator", "enable-cse-in-legalizer",
+      "enable-emscripten-cxx-exceptions", "enable-emscripten-sjlj",
       "enable-fp-mad", "enable-gvn-memdep", "enable-implicit-null-checks",
       "enable-load-pre", "enable-loop-simplifycfg-term-folding",
       "enable-misched", "enable-name-compression", "enable-no-infs-fp-math",
@@ -600,6 +602,7 @@ void hideLLVMOptions() {
       "enable-tbaa", "enable-unsafe-fp-math", "exception-model",
       "exhaustive-register-search", "expensive-combines",
       "fatal-assembler-warnings", "filter-print-funcs", "gpsize",
+      "hash-based-counter-split",
       "imp-null-check-page-size", "imp-null-max-insts-to-consider",
       "import-all-index", "incremental-linker-compatible",
       "instcombine-code-sinking",
@@ -617,13 +620,14 @@ void hideLLVMOptions() {
       "mwarn-noncontigious-register", "mwarn-sign-mismatch",
       "no-discriminators", "nozero-initialized-in-bss", "nvptx-sched4reg",
       "objc-arc-annotation-target-identifier", "pie-copy-relocations",
+      "poison-checking-function-local",
       "polly-dump-after", "polly-dump-after-file", "polly-dump-before",
       "polly-dump-before-file", "pre-RA-sched", "print-after-all",
       "print-before-all", "print-machineinstrs", "print-module-scope",
       "profile-estimator-loop-weight", "profile-estimator-loop-weight",
       "profile-file", "profile-info-file", "profile-verifier-noassert",
       "r600-ir-structurize", "rdf-dump", "rdf-limit", "recip", "regalloc",
-      "relax-elf-relocations", "rewrite-map-file", "rng-seed",
+      "relax-elf-relocations", "remarks-section", "rewrite-map-file", "rng-seed",
       "safepoint-ir-verifier-print-only",
       "sample-profile-check-record-coverage",
       "sample-profile-check-sample-coverage",
@@ -638,7 +642,8 @@ void hideLLVMOptions() {
       "stackmap-version", "static-func-full-module-prefix",
       "static-func-strip-dirname-prefix", "stats", "stats-json", "strip-debug",
       "struct-path-tbaa", "summary-file", "tailcallopt", "thread-model",
-      "time-passes", "unfold-element-atomic-memcpy-max-elements",
+      "time-passes", "time-trace-granularity",
+      "unfold-element-atomic-memcpy-max-elements",
       "unique-section-names", "unit-at-a-time", "use-ctors",
       "verify-debug-info", "verify-dom-info", "verify-loop-info",
       "verify-loop-lcssa", "verify-machine-dom-info", "verify-regalloc",

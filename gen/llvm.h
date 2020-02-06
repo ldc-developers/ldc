@@ -32,7 +32,24 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/CallSite.h"
 
+#if LDC_LLVM_VER >= 1000
+// LLVM >= 10 requires C++14 and no longer has llvm::make_unique. Add it back
+// and point to std::make_unique.
+#include <memory>
+namespace llvm {
+using std::make_unique;
+}
+#endif
+
+using llvm::APFloat;
+using llvm::APInt;
 using llvm::IRBuilder;
+
+#if LDC_LLVM_VER >= 1000
+#define LLMaybeAlign llvm::MaybeAlign
+#else
+#define LLMaybeAlign
+#endif
 
 #define GET_INTRINSIC_DECL(_X)                                                 \
   (llvm::Intrinsic::getDeclaration(&gIR->module, llvm::Intrinsic::_X))
@@ -61,6 +78,3 @@ using llvm::IRBuilder;
 #define LLCallSite llvm::CallSite
 
 #define LLSmallVector llvm::SmallVector
-
-using llvm::APFloat;
-using llvm::APInt;

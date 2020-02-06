@@ -92,7 +92,7 @@ extern (C++) final class Import : Dsymbol
         this.protection = Prot.Kind.private_; // default to private
     }
 
-    void addAlias(Identifier name, Identifier _alias)
+    extern (D) void addAlias(Identifier name, Identifier _alias)
     {
         if (isstatic)
             error("cannot have an import bind list");
@@ -117,6 +117,7 @@ extern (C++) final class Import : Dsymbol
     {
         assert(!s);
         auto si = new Import(loc, packages, id, aliasId, isstatic);
+        si.comment = comment;
         for (size_t i = 0; i < names.dim; i++)
         {
             si.addAlias(names[i], aliases[i]);
@@ -159,15 +160,22 @@ extern (C++) final class Import : Dsymbol
                 {
                     if (p.isPkgMod == PKG.unknown)
                     {
+                        uint preverrors = global.errors;
                         mod = Module.load(loc, packages, id);
                         if (!mod)
                             p.isPkgMod = PKG.package_;
                         else
                         {
                             // mod is a package.d, or a normal module which conflicts with the package name.
-                            assert(mod.isPackageFile == (p.isPkgMod == PKG.module_));
                             if (mod.isPackageFile)
                                 mod.tag = p.tag; // reuse the same package tag
+                            else
+                            {
+                                // show error if Module.load does not
+                                if (preverrors == global.errors)
+                                    .error(loc, "%s `%s` from file %s conflicts with %s `%s`", mod.kind(), mod.toPrettyChars(), mod.srcfile.toChars, p.kind(), p.toPrettyChars());
+                                return true;
+                            }
                         }
                     }
                     else
@@ -213,15 +221,10 @@ extern (C++) final class Import : Dsymbol
         load(sc);
         if (!mod) return; // Failed
 
+        if (sc.stc & STC.static_)
+            isstatic = true;
         mod.importAll(null);
-        if (mod.md && mod.md.isdeprecated)
-        {
-            Expression msg = mod.md.msg;
-            if (StringExp se = msg ? msg.toStringExp() : null)
-                mod.deprecation(loc, "is deprecated - %s", se.string);
-            else
-                mod.deprecation(loc, "is deprecated");
-        }
+        mod.checkImportDeprecation(loc, sc);
         if (sc.explicitProtection)
             protection = sc.protection;
         if (!isstatic && !aliasId && !names.dim)

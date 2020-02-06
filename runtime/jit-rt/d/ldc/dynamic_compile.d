@@ -46,7 +46,9 @@ struct CompilerSettings
 }
 
 /++
- + Compile all dynamic code.
+ + Compile all dynamic code associated with global context.
+ + This includes bind objects created without explicit context and all
+ + @dynamicCompile functions.
  + This function must be called before any calls to @dynamicCompile functions and
  + after any changes to @dynamicCompileConst variables
  +
@@ -70,6 +72,58 @@ void compileDynamicCode(in CompilerSettings settings = CompilerSettings.init)
   Context context;
   context.optLevel = settings.optLevel;
   context.sizeLevel = settings.sizeLevel;
+
+  if (settings.progressHandler !is null)
+  {
+    context.interruptPointHandler = &progressHandlerWrapper;
+    context.interruptPointHandlerData = cast(void*)&settings.progressHandler;
+  }
+
+  if (settings.dumpHandler !is null)
+  {
+    context.dumpHandler = &dumpHandlerWrapper;
+    context.dumpHandlerData = cast(void*)&settings.dumpHandler;
+  }
+  rtCompileProcessImpl(context, context.sizeof);
+}
+
+/++
+ + Compile all dynamic code associated with particular context.
+ + This includes bind objects created without this context.
+ + This function must be called before any calls to these bind objects.
+ + Context must not be null.
+ +
+ + This function is thread-safe as long as each thread has separate
+ + instance of context
+ +
+ + Example:
+ + ---
+ + import ldc.attributes, ldc.dynamic_compile;
+ +
+ + @dynamicCompileEmit int foo(int a, int b, int c)
+ + {
+ +   return a + b + c;
+ + }
+ +
+ + auto context = createCompilerContext();
+ + scope(exit) destroyCompilerContext(context);
+ +
+ + auto f = ldc.dynamic_compile.bind(context, &foo, 1,2,3);
+ +
+ + CompilerSettings settings;
+ + settings.optLevel = 3;
+ +
+ + compileDynamicCode(context, settings);
+ +
+ + assert(6 == f());
+ +/
+void compileDynamicCode(DynamicCompilerContext ctx, in CompilerSettings settings = CompilerSettings.init)
+{
+  assert(ctx !is null);
+  Context context;
+  context.optLevel = settings.optLevel;
+  context.sizeLevel = settings.sizeLevel;
+  context.compilerContext = ctx;
 
   if (settings.progressHandler !is null)
   {
@@ -132,7 +186,60 @@ auto bind(F, Args...)(F func, Args args) if (isFunctionPointer!F || isDelegate!F
   {
     return context.saved_func(wrapperArgs);
   }
-  return bindImpl(&wrapper, Context(func), args);
+  return bindImpl(null, &wrapper, Context(func), args);
+}
+
+/++
+ + Returns a reference-counted functional object based on a function or delegate
+ + with values bound to some parameters.
+ + Each argument in `args` must be either a value, convertible to function parameter,
+ + or `ldc.dynamic_compile.placeholder`.
+ + `func` must be a pointer to a function or to a delegate.
+ + The JIT runtime will generate an efficient function specialization based on `args`.
+ + The passed function (or delegate) must be marked `@dynamicCompile` or
+ + `@dynamicCompileEmit` to be efficiently optimized.
+ +
+ + This version takes additional context parameter. Context must not be null.
+ +
+ + `compileDynamicCode()` with same context must be called before making calls
+ + to the returned functional object.
+ +
+ + `toDelegate()` can be called on the returned object to get a callable delegate.
+ + The returned delegate does not prolong the lifetime of the original object (and
+ + thus a copy of the original object must be kept as long as this delegate is alive).
+ +
+ + Example:
+ + ---
+ + @dynamicCompile int foo(int a, int b)
+ + {
+ +   return a + b;
+ + }
+ +
+ + auto f = bind(context, &foo, 40, placeholder);
+ + int delegate(int) d = f.toDelegate();
+ +
+ + compileDynamicCode(context);
+ +
+ + assert(f(2) == 42);
+ + assert(d(2) == 42);
+ +/
+auto bind(F, Args...)(DynamicCompilerContext ctx, F func, Args args) if (isFunctionPointer!F || isDelegate!F)
+{
+  assert(ctx !is null);
+  assert(func !is null);
+  import std.format;
+  alias FuncParams = Parameters!F;
+  enum ParametersCount = FuncParams.length;
+  static assert(ParametersCount == Args.length, format("Invalid bind parameters count: %s, expected %s", Args.length, ParametersCount));
+  struct Context
+  {
+    F saved_func = null;
+  }
+  @dynamicCompileEmit static auto wrapper(Context context, FuncParams wrapperArgs)
+  {
+    return context.saved_func(wrapperArgs);
+  }
+  return bindImpl(ctx, &wrapper, Context(func), args);
 }
 
 /++
@@ -161,7 +268,7 @@ package:
 
   Payload* _payload = null;
 
-  static auto make(int[] Index, OF, Args...)(OF func, Args args)
+  static auto make(int[] Index, OF, Args...)(DynamicCompilerContext context, OF func, Args args)
   {
     import core.exception : onOutOfMemoryError;
     import std.conv : emplace;
@@ -176,7 +283,7 @@ package:
       pureFree(payload);
     }
 
-    emplace(payload, func, args);
+    emplace(payload, context, func, args);
     payload.register();
     BindPtr!F ret;
     ret._payload = cast(Payload*)payload;
@@ -252,8 +359,60 @@ public:
   }
 }
 
+/+
+ + Set options for dynamic compiler.
+ + Returns false on error.
+ +
+ + This function is not thread-safe.
+ +
+ + Example:
+ + ---
+ + import ldc.attributes, ldc.dynamic_compile;
+ +
+ + auto res = setDynamicCompilerOptions(["-disable-gc2stack"]);
+ + assert(res);
+ +
+ + res = setDynamicCompilerOptions(["-invalid_option"], (in char[] str)
+ + {
+ +   writeln("Error: ", str);
+ + });
+ + assert(!res);
+ +/
+bool setDynamicCompilerOptions(string[] args, scope ErrsHandler errs = null)
+{
+  auto errsFunc = (errs !is null ? &errsWrapper : null);
+  auto errsFuncContext = (errs !is null ? cast(void*)&errs : null);
+  return setDynamicCompilerOpts(&args, errsFunc, errsFuncContext);
+}
+
+pragma(LDC_no_typeinfo)
+{
+  extern (C++, class) abstract class DynamicCompilerContext {}
+}
+
+/++
+ + Create compilation context.
+ + Returns newly create context.
+ +/
+DynamicCompilerContext createCompilerContext() nothrow @nogc
+{
+  auto ret = createDynamicCompilerContextImpl();
+  assert(ret !is null);
+  return ret;
+}
+
+/++
+ + Destroy compilation context.
+ + Context must not be null.
+ +/
+void destroyCompilerContext(DynamicCompilerContext context) nothrow @nogc
+{
+  assert(context !is null);
+  destroyDynamicCompilerContextImpl(context);
+}
+
 private:
-auto bindImpl(F, Args...)(F func, Args args)
+auto bindImpl(F, Args...)(DynamicCompilerContext context, F func, Args args)
 {
   import std.format;
   static assert(isFunctionPointer!F, "Function pointer expected as first parameter");
@@ -264,7 +423,7 @@ auto bindImpl(F, Args...)(F func, Args args)
   enum Index = bindParamsInd!(0, 0, Args)();
   alias PartialF = ReturnType!F function(UnbindTypes!(Index, FuncParams));
   alias BindPtrType = BindPtr!PartialF;
-  return BindPtrType.make!Index(func, mapBindParams!(F, 0)(args).expand);
+  return BindPtrType.make!Index(context, func, mapBindParams!(F, 0)(args).expand);
 }
 
 import std.meta;
@@ -370,6 +529,7 @@ struct BindPayload(OF, F, int[] Index, Args...)
 
   Base base;
   OF originalFunc = null;
+  DynamicCompilerContext context = null;
   struct ArgStore
   {
     import std.meta: staticMap;
@@ -380,10 +540,11 @@ struct BindPayload(OF, F, int[] Index, Args...)
   ArgStore argStore;
   bool registered = false;
 
-  this(OF orFunc, Args a)
+  this(DynamicCompilerContext ctx, OF orFunc, Args a)
   {
     assert(orFunc !is null);
     originalFunc = orFunc;
+    context = ctx;
     static if (hasIndirections!(ArgStore))
     {
         pureGcAddRange(&argStore, ArgStore.sizeof);
@@ -401,7 +562,7 @@ struct BindPayload(OF, F, int[] Index, Args...)
   {
     if (registered)
     {
-      unregisterBindPayload(&base.func);
+      unregisterBindPayload(context, &base.func);
     }
     static if (hasIndirections!(ArgStore))
     {
@@ -429,12 +590,14 @@ struct BindPayload(OF, F, int[] Index, Args...)
     alias Ret = ReturnType!F;
     alias Params = Parameters!F;
     @dynamicCompileEmit static Ret exampleFunc(Params) { assert(false); }
-    registerBindPayload(&base.func, cast(void*)originalFunc, cast(void*)&exampleFunc, desc.ptr, desc.length);
+    registerBindPayload(context, &base.func, cast(void*)originalFunc, cast(void*)&exampleFunc, desc.ptr, desc.length);
     registered = true;
   }
 
   alias toDelegate = base.toDelegate;
 }
+
+alias ErrsHandler = void delegate(const(char)[]);
 
 extern(C)
 {
@@ -465,6 +628,13 @@ void dumpHandlerWrapper(void* context, DumpStage stage, const char* buff, size_t
   (*del)(stage, buff[0..len]);
 }
 
+void errsWrapper(void* context, const char* str, size_t len)
+{
+  alias DelType = ErrsHandler;
+  auto del = cast(DelType*)context;
+  assert(str !is null);
+  (*del)(str[0..len]);
+}
 
 // must be synchronized with cpp
 struct Context
@@ -477,10 +647,13 @@ struct Context
   void* fatalHandlerData = null;
   void function(void*, DumpStage, const char*, size_t) dumpHandler = null;
   void* dumpHandlerData = null;
+  DynamicCompilerContext compilerContext = null;
 }
 extern void rtCompileProcessImpl(const ref Context context, size_t contextSize);
-
-void registerBindPayload(void* handle, void* originalFunc, void* exampleFunc, const ParamSlice* params, size_t paramsSize);
-void unregisterBindPayload(void* handle);
+extern void registerBindPayload(DynamicCompilerContext context, void* handle, void* originalFunc, void* exampleFunc, const ParamSlice* params, size_t paramsSize);
+extern void unregisterBindPayload(DynamicCompilerContext context, void* handle);
+extern DynamicCompilerContext createDynamicCompilerContextImpl() nothrow @nogc;
+extern void destroyDynamicCompilerContextImpl(DynamicCompilerContext context) nothrow @nogc;
+extern bool setDynamicCompilerOpts(const(string[])* args, void function(void*, const char*, size_t) errs, void* errsContext);
 }
 

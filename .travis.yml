@@ -8,7 +8,10 @@ matrix:
   include:
     - os: linux
       d: ldc
-      env: LLVM_VERSION=8.0.0 OPTS="-DBUILD_SHARED_LIBS=ON"
+      env: LLVM_VERSION=9.0.0 OPTS="-DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON"
+    - os: linux
+      d: ldc-beta
+      env: LLVM_VERSION=8.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF"
     # FIXME: strange crashes, possibly due to C++ compiler mismatch
     #- os: linux
     #  d: ldc
@@ -26,16 +29,15 @@ matrix:
       d: dmd
       env: LLVM_VERSION=3.9.1
     - os: osx
-      osx_image: xcode9.2
       d: dmd
-      env: LLVM_VERSION=8.0.0 OPTS="-DBUILD_SHARED_LIBS=ON"
+      env: LLVM_VERSION=9.0.0 OPTS="-DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON"
     - os: osx
-      osx_image: xcode9.2
       d: ldc-beta
       env: LLVM_VERSION=7.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF"
 
 cache:
   directories:
+    - llvm-9.0.0
     - llvm-8.0.0
     - llvm-7.0.1
     - llvm-7.0.0
@@ -57,6 +59,8 @@ before_install:
     if [ ! -e "$LLVM_ROOT_DIR/bin/llvm-config" ]; then
       if [ "$TRAVIS_OS_NAME" = "linux" ]; then
         export LLVM_ARCH="x86_64-linux-gnu-ubuntu-16.04"
+      elif [ "$LLVM_VERSION" = "9.0.0" ]; then
+        export LLVM_ARCH="x86_64-darwin-apple"
       else
         export LLVM_ARCH="x86_64-apple-darwin"
       fi
@@ -85,6 +89,7 @@ install:
   - python -c "import lit; lit.main();" --version | head -n 1
 
 script:
+  - unset LD_LIBRARY_PATH
   - cmake --version
   - ninja --version
   - |
@@ -107,14 +112,24 @@ script:
   - ctest --output-on-failure -R "ldc2-unittest"
   # Run LIT testsuite
   - ctest -V -R "lit-tests"
-  # Run DMD testsuite (release only, i.e., no dmd-testsuite-debug, to reduce time-outs)
+  # Run DMD testsuite
   - |
     # The -lowmem tests don't work with an ltsmaster host compiler
     if [[ "$($DC --version | head -n 1)" == *0.17.* ]]; then
       rm tests/d2/dmd-testsuite/runnable/{testptrref,xtest46}_gc.d
       rm tests/d2/dmd-testsuite/fail_compilation/mixin_gc.d
     fi
-    DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R "dmd-testsuite" -E "-debug$"
+    if [ "$TRAVIS_OS_NAME" = "osx" ]; then
+      # dmd-testsuite-debug only to reduce time-outs
+      DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R "build-run-dmd-testsuite|dmd-testsuite-debug"
+    else
+      if [ "$LLVM_VERSION" = "3.9.1" ]; then
+        # FIXME: assertion failure for runnable/mars1.d with DMD/LLVM 3.9.1
+        #        job (debug only, release passes)
+        rm tests/d2/dmd-testsuite/runnable/mars1.d
+      fi
+      DMD_TESTSUITE_MAKE_ARGS=-j3 ctest -V -R "dmd-testsuite"
+    fi
   # Run defaultlib unittests & druntime stand-alone tests
   - ctest -j3 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
 

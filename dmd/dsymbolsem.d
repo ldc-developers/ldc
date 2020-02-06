@@ -428,8 +428,9 @@ private bool buildCopyCtor(StructDeclaration sd, Scope* sc)
     if (global.errors)
         return false;
 
-    if (sd.postblit)
-        return false;
+    bool hasPostblit;
+    if (sd.postblit && !sd.postblit.isDisabled())
+        hasPostblit = true;
 
     auto ctor = sd.search(sd.loc, Id.ctor);
     CtorDeclaration cpCtor;
@@ -479,7 +480,9 @@ private bool buildCopyCtor(StructDeclaration sd, Scope* sc)
         return true;
     }
     else if (cpCtor)
-        return true;
+    {
+        return !hasPostblit;
+    }
 
 LcheckFields:
     VarDeclaration fieldWithCpCtor;
@@ -509,6 +512,9 @@ LcheckFields:
         return false;
     }
     else if (!fieldWithCpCtor)
+        return false;
+
+    if (hasPostblit)
         return false;
 
     //printf("generating copy constructor for %s\n", sd.toChars());
@@ -669,6 +675,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
             return;
 
         dsym.semanticRun = PASS.semantic;
+        dsym.isDeprecated_ = !!(sc.stc & STC.deprecated_);
 
         Dsymbol p = sc.parent.pastMixin();
         AggregateDeclaration ad = p.isAggregateDeclaration();
@@ -723,7 +730,9 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
             }
         }
 
-        ad.aliasthis = s;
+        dsym.sym = s;
+        // Restore alias this
+        ad.aliasthis = dsym;
         dsym.semanticRun = PASS.semanticdone;
     }
 
@@ -761,6 +770,9 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
         if (dsym.semanticRun >= PASS.semanticdone)
             return;
 
+        if (sc && sc.inunion && sc.inunion.isAnonDeclaration())
+            dsym.overlapped = true;
+
         Scope* scx = null;
         if (dsym._scope)
         {
@@ -782,7 +794,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
             dsym.error("extern symbols cannot have initializers");
 
         dsym.userAttribDecl = sc.userAttribDecl;
-        dsym.namespace = sc.namespace;
+        dsym.cppnamespace = sc.namespace;
 
         AggregateDeclaration ad = dsym.isThis();
         if (ad)
@@ -1009,7 +1021,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
 
                 OutBuffer buf;
                 buf.printf("__%s_field_%llu", dsym.ident.toChars(), cast(ulong)i);
-                auto id = Identifier.idPool(buf.peekSlice());
+                auto id = Identifier.idPool(buf[]);
 
                 Initializer ti;
                 if (ie)
@@ -1220,7 +1232,8 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
             // @@@DEPRECATED@@@  https://dlang.org/deprecate.html#scope%20as%20a%20type%20constraint
             // Deprecated in 2.087
             // Remove this when the feature is removed from the language
-            if (!(dsym.storage_class & STC.scope_))
+            if (0 &&          // deprecation disabled for now to accommodate existing extensive use
+               !(dsym.storage_class & STC.scope_))
             {
                 if (!(dsym.storage_class & STC.parameter) && dsym.ident != Id.withSym)
                     dsym.error("reference to `scope class` must be `scope`");
@@ -1446,7 +1459,9 @@ version (IN_LLVM)
                 {
                     uint errors = global.errors;
                     dsym.inuse++;
-                    if (ei)
+                    // Bug 20549. Don't try this on modules or packages, syntaxCopy
+                    // could crash (inf. recursion) on a mod/pkg referencing itself
+                    if (ei && (ei.exp.op != TOK.scope_ ? true : !(cast(ScopeExp)ei.exp).sds.isPackage()))
                     {
                         Expression exp = ei.exp.syntaxCopy();
 
@@ -1582,7 +1597,10 @@ version (IN_LLVM)
         {
             loadErrored = imp.load(sc);
             if (imp.mod)
+            {
                 imp.mod.importAll(null);
+                imp.mod.checkImportDeprecation(imp.loc, sc);
+            }
         }
         if (imp.mod)
         {
@@ -1594,14 +1612,16 @@ version (IN_LLVM)
             if (sc.minst && sc.tinst)
             {
                 //printf("%s imports %s\n", sc.minst.toChars(), imp.mod.toChars());
-                sc.tinst.importedModules.push(imp.mod);
-                sc.minst.aimports.push(imp.mod);
+                if (!sc.tinst.importedModules.contains(imp.mod))
+                    sc.tinst.importedModules.push(imp.mod);
+                if (!sc.minst.aimports.contains(imp.mod))
+                    sc.minst.aimports.push(imp.mod);
             }
             else
             {
-
                 //printf("%s imports %s\n", sc._module.toChars(), imp.mod.toChars());
-                sc._module.aimports.push(imp.mod);
+                if (!sc._module.aimports.contains(imp.mod))
+                    sc._module.aimports.push(imp.mod);
             }
 
             if (sc.explicitProtection)
@@ -1635,6 +1655,12 @@ version (IN_LLVM)
                     foreach (id; (*imp.packages)[1 .. imp.packages.dim]) // [b, c]
                     {
                         p = cast(Package) p.symtab.lookup(id);
+                        // https://issues.dlang.org/show_bug.cgi?id=17991
+                        // An import of truly empty file/package can happen
+                        // https://issues.dlang.org/show_bug.cgi?id=20151
+                        // Package in the path conflicts with a module name
+                        if (p is null)
+                            break;
                         scopesym.addAccessiblePackage(p, imp.protection);
                     }
                 }
@@ -1691,7 +1717,6 @@ version (IN_LLVM)
         // https://issues.dlang.org/show_bug.cgi?id=11117
         // https://issues.dlang.org/show_bug.cgi?id=11164
         if (global.params.moduleDeps !is null && !(imp.id == Id.object && sc._module.ident == Id.object) &&
-            sc._module.ident != Id.entrypoint &&
             strcmp(sc._module.ident.toChars(), "__main") != 0)
         {
             /* The grammar of the file is:
@@ -1807,7 +1832,7 @@ version (IN_LLVM)
         {
             sc = sc.push();
             sc.stc &= ~(STC.auto_ | STC.scope_ | STC.static_ | STC.tls | STC.gshared);
-            sc.inunion = scd.isunion;
+            sc.inunion = scd.isunion ? scd : null;
             sc.flags = 0;
             for (size_t i = 0; i < scd.decl.dim; i++)
             {
@@ -1829,25 +1854,27 @@ version (IN_LLVM)
         const(char)* arg1str = null;
 }
 
-        if (global.params.mscoff)
+        // IN_LLVM: extended pragma(linkerDirective) support - not just for COFF
+        //          object files, and not restricted to a single string arg
+        if (pd.ident == Id.linkerDirective)
         {
-            if (pd.ident == Id.linkerDirective)
+            if (!pd.args || pd.args.dim == 0)
+                pd.error("one or more string arguments expected for pragma(linkerDirective)");
+            else
             {
-                if (!pd.args || pd.args.dim != 1)
-                    pd.error("one string argument expected for pragma(linkerDirective)");
-                else
+                for (size_t i = 0; i < pd.args.dim; ++i)
                 {
-                    auto se = semanticString(sc, (*pd.args)[0], "linker directive");
+                    auto se = semanticString(sc, (*pd.args)[i], "linker directive");
                     if (!se)
-                        goto Lnodecl;
-                    (*pd.args)[0] = se;
+                        break;
+                    (*pd.args)[i] = se;
                     if (global.params.verbose)
-                        message("linkopt   %.*s", cast(int)se.len, se.string);
+                        message("linkopt   %.*s", cast(int)se.len, se.peekString().ptr);
                 }
-                goto Lnodecl;
             }
+            goto Lnodecl;
         }
-        if (pd.ident == Id.msg)
+        else if (pd.ident == Id.msg)
         {
             if (pd.args)
             {
@@ -1874,7 +1901,7 @@ version (IN_LLVM)
                     if (se)
                     {
                         se = se.toUTF8(sc);
-                        fprintf(stderr, "%.*s", cast(int)se.len, se.string);
+                        fprintf(stderr, "%.*s", cast(int)se.len, se.peekString().ptr);
                     }
                     else
                         fprintf(stderr, "%s", e.toChars());
@@ -1894,7 +1921,7 @@ version (IN_LLVM)
                     goto Lnodecl;
                 (*pd.args)[0] = se;
 
-                auto name = se.string[0 .. se.len].xarraydup;
+                auto name = se.peekString().xarraydup;
                 if (global.params.verbose)
                     message("library   %s", name.ptr);
                 if (global.params.moduleDeps && !global.params.moduleDepsFile)
@@ -1971,10 +1998,10 @@ version (IN_LLVM)
                  *
                  * Therefore, this validation is compiler implementation specific.
                  */
+                auto slice = se.peekString();
                 for (size_t i = 0; i < se.len;)
                 {
-                    char* p = se.string;
-                    dchar c = p[i];
+                    dchar c = slice[i];
                     if (c < 0x80)
                     {
                         if (c.isValidMangling)
@@ -1988,9 +2015,9 @@ version (IN_LLVM)
                             break;
                         }
                     }
-                    if (const msg = utf_decodeChar(se.string, se.len, i, c))
+                    if (const msg = utf_decodeChar(slice, i, c))
                     {
-                        pd.error("%s", msg);
+                        pd.error("%.*s", cast(int)msg.length, msg.ptr);
                         break;
                     }
                     if (!isUniAlpha(c))
@@ -2021,6 +2048,7 @@ version (IN_LLVM)
                 buf.writestring(pd.ident.toString());
                 if (pd.args)
                 {
+                    const errors_save = global.startGagging();
                     for (size_t i = 0; i < pd.args.dim; i++)
                     {
                         Expression e = (*pd.args)[i];
@@ -2028,7 +2056,7 @@ version (IN_LLVM)
 {
                         // ignore errors in ignored pragmas.
                         global.gag++;
-                        uint errors_save = global.errors;
+                        uint errors_save_inner = global.errors;
 }
                         sc = sc.startCTFE();
                         e = e.expressionSemantic(sc);
@@ -2044,18 +2072,15 @@ version (IN_LLVM)
 {
                         // restore error state.
                         global.gag--;
-                        global.errors = errors_save;
+                        global.errors = errors_save_inner;
 }
                     }
                     if (pd.args.dim)
                         buf.writeByte(')');
+                    global.endGagging(errors_save);
                 }
                 message("pragma    %s", buf.peekChars());
             }
-static if (!IN_LLVM)
-{
-            goto Lnodecl;
-}
         }
         else
             error(pd.loc, "unrecognized `pragma(%s)`", pd.ident.toChars());
@@ -2072,7 +2097,7 @@ static if (!IN_LLVM)
                     assert(pd.args && pd.args.dim == 1);
                     if (auto se = (*pd.args)[0].toStringExp())
                     {
-                        const name = se.string[0 .. se.len].xarraydup;
+                        const name = (cast(const(char)[])se.peekData()).xarraydup;
                         uint cnt = setMangleOverride(s, name);
                         if (cnt > 1)
                             pd.error("can only apply to a single declaration");
@@ -2114,8 +2139,9 @@ static if (!IN_LLVM)
             return null;
 
         const errors = global.errors;
-        const len = buf.offset;
-        const str = buf.extractChars()[0 .. len];
+        const len = buf.length;
+        buf.writeByte(0);
+        const str = buf.extractSlice()[0 .. len];
         scope diagnosticReporter = new StderrDiagnosticReporter(global.params.useDeprecated);
         scope p = new Parser!ASTCodegen(cd.loc, sc._module, str, false, diagnosticReporter);
         p.nextToken();
@@ -2175,7 +2201,7 @@ static if (!IN_LLVM)
 
         if (ns.ident is null)
         {
-            ns.namespace = sc.namespace;
+            ns.cppnamespace = sc.namespace;
             sc = sc.startCTFE();
             ns.exp = ns.exp.expressionSemantic(sc);
             ns.exp = resolveProperties(sc, ns.exp);
@@ -2185,16 +2211,16 @@ static if (!IN_LLVM)
             if (auto te = ns.exp.isTupleExp())
             {
                 expandTuples(te.exps);
-                CPPNamespaceDeclaration current = ns.namespace;
+                CPPNamespaceDeclaration current = ns.cppnamespace;
                 for (size_t d = 0; d < te.exps.dim; ++d)
                 {
                     auto exp = (*te.exps)[d];
-                    auto prev = d ? current : ns.namespace;
+                    auto prev = d ? current : ns.cppnamespace;
                     current = (d + 1) != te.exps.dim
                         ? new CPPNamespaceDeclaration(exp, null)
                         : ns;
                     current.exp = exp;
-                    current.namespace = prev;
+                    current.cppnamespace = prev;
                     if (auto se = exp.toStringExp())
                     {
                         current.ident = identFromSE(se);
@@ -2320,7 +2346,7 @@ static if (!IN_LLVM)
         if (sc.stc & STC.deprecated_)
             ed.isdeprecated = true;
         ed.userAttribDecl = sc.userAttribDecl;
-        ed.namespace = sc.namespace;
+        ed.cppnamespace = sc.namespace;
 
         ed.semanticRun = PASS.semantic;
 
@@ -2741,7 +2767,7 @@ static if (!IN_LLVM)
 
         tempdecl.parent = sc.parent;
         tempdecl.protection = sc.protection;
-        tempdecl.namespace = sc.namespace;
+        tempdecl.cppnamespace = sc.namespace;
         tempdecl.isstatic = tempdecl.toParent().isModule() || (tempdecl._scope.stc & STC.static_);
 
         if (!tempdecl.isstatic)
@@ -2830,7 +2856,10 @@ static if (!IN_LLVM)
         }
 
         /* BUG: should check:
-         *  o no virtual functions or non-static data members of classes
+         *  1. template functions must not introduce virtual functions, as they
+         *     cannot be accomodated in the vtbl[]
+         *  2. templates cannot introduce non-static data members (i.e. fields)
+         *     as they would change the instance size of the aggregate.
          */
 
         tempdecl.semanticRun = PASS.semanticdone;
@@ -2899,7 +2928,7 @@ static if (!IN_LLVM)
         {
             /* Assign scope local unique identifier, as same as lambdas.
              */
-            const(char)* s = "__mixin";
+            const(char)[] s = "__mixin";
 
             if (FuncDeclaration func = sc.parent.isFuncDeclaration())
             {
@@ -3029,8 +3058,7 @@ static if (!IN_LLVM)
 
         __gshared int nest;
         //printf("%d\n", nest);
-        // IN_LLVM replaced: if (++nest > 500)
-        if (++nest > global.params.nestedTmpl) // LDC_FIXME: add testcase for this
+        if (++nest > global.recursionLimit)
         {
             global.gag = 0; // ensure error message gets printed
             tm.error("recursive expansion");
@@ -3226,7 +3254,7 @@ static if (!IN_LLVM)
         if (!sc || funcdecl.errors)
             return;
 
-        funcdecl.namespace = sc.namespace;
+        funcdecl.cppnamespace = sc.namespace;
         funcdecl.parent = sc.parent;
         Dsymbol parent = funcdecl.toParent();
 
@@ -3347,7 +3375,7 @@ version (IN_LLVM)
             if (tf.purity == PURE.fwdref)
                 sc.stc |= STC.pure_;
             if (tf.trust != TRUST.default_)
-                sc.stc &= ~(STC.safe | STC.system | STC.trusted);
+                sc.stc &= ~STC.safeGroup;
             if (tf.trust == TRUST.safe)
                 sc.stc |= STC.safe;
             if (tf.trust == TRUST.system)
@@ -3631,7 +3659,7 @@ version (IN_LLVM)
                 {
                     //printf("\tintroducing function %s\n", funcdecl.toChars());
                     funcdecl.introducing = 1;
-                    if (cd.classKind == ClassKind.cpp && target.reverseCppOverloads)
+                    if (cd.classKind == ClassKind.cpp && target.cpp.reverseOverloads)
                     {
                         /* Overloaded functions with same name are grouped and in reverse order.
                          * Search for first function of overload group, and insert
@@ -3659,7 +3687,9 @@ version (IN_LLVM)
                             // a C++ dtor gets its vtblIndex later (and might even be added twice to the vtbl),
                             // e.g. when compiling druntime with a debug compiler, namely with core.stdcpp.exception.
                             if (auto fd = s.isFuncDeclaration())
-                                assert(fd.vtblIndex == i || (cd.classKind == ClassKind.cpp && fd.isDtorDeclaration));
+                                assert(fd.vtblIndex == i ||
+                                       (cd.classKind == ClassKind.cpp && fd.isDtorDeclaration) ||
+                                       funcdecl.parent.isInterfaceDeclaration); // interface functions can be in multiple vtbls
                         }
                     }
                     else
@@ -4035,7 +4065,29 @@ version (IN_LLVM)
         }
 
         if (funcdecl.fbody && funcdecl.isMain() && sc._module.isRoot())
-            Compiler.genCmain(sc);
+        {
+            // check if `_d_cmain` is defined
+            bool cmainTemplateExists()
+            {
+                auto rootSymbol = sc.search(funcdecl.loc, Id.empty, null);
+                if (auto moduleSymbol = rootSymbol.search(funcdecl.loc, Id.object))
+                    if (moduleSymbol.search(funcdecl.loc, Id.CMain))
+                        return true;
+
+                return false;
+            }
+
+            // Only mixin `_d_cmain` if it is defined
+            if (cmainTemplateExists())
+            {
+                // add `mixin _d_cmain!();` to the declaring module
+                auto tqual = new TypeIdentifier(funcdecl.loc, Id.CMain);
+                auto tm = new TemplateMixin(funcdecl.loc, null, tqual, null);
+                sc._module.members.push(tm);
+            }
+
+            rootHasMain = sc._module;
+        }
 
         assert(funcdecl.type.ty != Terror || funcdecl.errors);
 
@@ -4080,13 +4132,10 @@ version (IN_LLVM)
 
         if (sc.stc & STC.static_)
         {
-            // Deprecated in 2018-04.
-            // Change to error in 2019-04.
-            // @@@DEPRECATED_2019-04@@@.
             if (sc.stc & STC.shared_)
-                deprecation(ctd.loc, "`shared static` has no effect on a constructor inside a `shared static` block. Use `shared static this()`");
+                error(ctd.loc, "`shared static` has no effect on a constructor inside a `shared static` block. Use `shared static this()`");
             else
-                deprecation(ctd.loc, "`static` has no effect on a constructor inside a `static` block. Use `static this()`");
+                error(ctd.loc, "`static` has no effect on a constructor inside a `static` block. Use `static this()`");
         }
 
         sc.stc &= ~STC.static_; // not a static constructor
@@ -4234,7 +4283,7 @@ version (IN_LLVM)
                         // reserve the dtor slot for the destructor (which we'll create later)
                         cldec.cppDtorVtblIndex = cast(int)cldec.vtbl.dim;
                         cldec.vtbl.push(dd);
-                        if (target.twoDtorInVtable)
+                        if (target.cpp.twoDtorInVtable)
                             cldec.vtbl.push(dd); // deleting destructor uses a second slot
                     }
                 }
@@ -4673,7 +4722,7 @@ version (IN_LLVM)
 
             if (sc.linkage == LINK.cpp)
                 sd.classKind = ClassKind.cpp;
-            sd.namespace = sc.namespace;
+            sd.cppnamespace = sc.namespace;
         }
         else if (sd.symtab && !scx)
             return;
@@ -4893,7 +4942,7 @@ version (IN_LLVM)
 
             if (sc.linkage == LINK.cpp)
                 cldec.classKind = ClassKind.cpp;
-            cldec.namespace = sc.namespace;
+            cldec.cppnamespace = sc.namespace;
             if (sc.linkage == LINK.objc)
                 objc.setObjc(cldec);
         }
@@ -5400,7 +5449,7 @@ version (IN_LLVM)
             cldec.dtor.vtblIndex = cldec.cppDtorVtblIndex;
             cldec.vtbl[cldec.cppDtorVtblIndex] = cldec.dtor;
 
-            if (target.twoDtorInVtable)
+            if (target.cpp.twoDtorInVtable)
             {
                 // TODO: create a C++ compatible deleting destructor (call out to `operator delete`)
                 //       for the moment, we'll call the non-deleting destructor and leak
@@ -5484,7 +5533,8 @@ version (IN_LLVM)
         // Deprecated in 2.087
         // Make an error in 2.091
         // Don't forget to remove code at https://github.com/dlang/dmd/blob/b2f8274ba76358607fc3297a1e9f361480f9bcf9/src/dmd/dsymbolsem.d#L1032-L1036
-        if (cldec.storage_class & STC.scope_)
+        if (0 &&          // deprecation disabled for now to accommodate existing extensive use
+            cldec.storage_class & STC.scope_)
             deprecation(cldec.loc, "`scope` as a type constraint is deprecated.  Use `scope` at the usage site.");
     }
 
@@ -5612,7 +5662,7 @@ version (IN_LLVM)
 
             if (!idec.baseclasses.dim && sc.linkage == LINK.cpp)
                 idec.classKind = ClassKind.cpp;
-            idec.namespace = sc.namespace;
+            idec.cppnamespace = sc.namespace;
 
             if (sc.linkage == LINK.objc)
             {
@@ -5905,7 +5955,9 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
         goto Lerror;
 
     // Copy the tempdecl namespace (not the scope one)
-    tempinst.namespace = tempdecl.namespace;
+    tempinst.cppnamespace = tempdecl.cppnamespace;
+    if (tempinst.cppnamespace)
+        tempinst.cppnamespace.dsymbolSemantic(sc);
 
     /* See if there is an existing TemplateInstantiation that already
      * implements the typeargs. If so, just refer to that one instead.
@@ -5990,7 +6042,10 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
         // modules imported by an existing instance should be added to the module
         // that instantiates the instance.
         if (tempinst.minst)
-            tempinst.minst.aimports.append(&tempinst.inst.importedModules);
+            foreach(imp; tempinst.inst.importedModules)
+                if (!tempinst.minst.aimports.contains(imp))
+                    tempinst.minst.aimports.push(imp);
+
         static if (LOG)
         {
             printf("\tit's a match with instance %p, %d\n", tempinst.inst, tempinst.inst.semanticRun);
@@ -6275,8 +6330,7 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
         while (ti && !ti.deferred && ti.tinst)
         {
             ti = ti.tinst;
-            // IN_LLVM replaced: if (++nest > 500)
-            if (++nest > global.params.nestedTmpl) // LDC_FIXME: add testcase for this
+            if (++nest > global.recursionLimit)
             {
                 global.gag = 0; // ensure error message gets printed
                 tempinst.error("recursive expansion");

@@ -37,6 +37,8 @@ import dmd.root.file;
 import dmd.root.filename;
 import dmd.root.outbuffer;
 import dmd.root.port;
+import dmd.root.rmem;
+import dmd.root.rootobject;
 import dmd.semantic2;
 import dmd.semantic3;
 import dmd.utils;
@@ -175,9 +177,9 @@ private const(char)[] getFilename(Identifiers* packages, Identifier ident)
         {
             const q = strchr(m, '=');
             assert(q);
-            if (dotmods.offset == q - m && memcmp(dotmods.peekChars(), m, q - m) == 0)
+            if (dotmods.length == q - m && memcmp(dotmods.peekChars(), m, q - m) == 0)
             {
-                buf.reset();
+                buf.setsize(0);
                 auto rhs = q[1 .. strlen(q)];
                 if (rhs.length > 0 && (rhs[$ - 1] == '/' || rhs[$ - 1] == '\\'))
                     rhs = rhs[0 .. $ - 1]; // remove trailing separator
@@ -234,6 +236,15 @@ extern (C++) class Package : ScopeDsymbol
     override const(char)* kind() const
     {
         return "package";
+    }
+
+    override bool equals(const RootObject o) const
+    {
+        // custom 'equals' for bug 17441. "package a" and "module a" are not equal
+        if (this == o)
+            return true;
+        auto p = cast(Package)o;
+        return p && isModule() == p.isModule() && ident.equals(p.ident);
     }
 
     /****************************************************
@@ -493,7 +504,7 @@ extern (C++) final class Module : Package
     Identifiers* versionids;    // version identifiers
     Identifiers* versionidsNot; // forward referenced version identifiers
 
-    Macro* macrotable;          // document comment macros
+    MacroTable macrotable;      // document comment macros
     Escape* escapetable;        // document comment escapes
 
     size_t nameoffset;          // offset of module name from start of ModuleInfo
@@ -628,12 +639,6 @@ else
      *      global.params.preservePaths     get output path from arg
      *      srcfile Input file - output file name must not match input file
      */
-    FileName setOutfilename(const(char)* name, const(char)* dir, const(char)* arg, const(char)* ext)
-    {
-        return setOutfilename(name.toDString(), dir.toDString(), arg.toDString(), ext.toDString());
-    }
-
-    /// Ditto
     extern(D) FileName setOutfilename(const(char)[] name, const(char)[] dir, const(char)[] arg, const(char)[] ext)
     {
         const(char)[] docfilename;
@@ -652,7 +657,7 @@ else
                 else version (Windows)
                     import core.sys.windows.winbase : getpid = GetCurrentProcessId;
                 buf.printf("__stdin_%d.d", getpid());
-                arg = buf.peekSlice();
+                arg = buf[];
             }
             if (global.params.preservePaths)
                 argdoc = arg;
@@ -688,7 +693,7 @@ else
         return FileName(docfilename);
     }
 
-    void setDocfile()
+    extern (D) void setDocfile()
     {
         docfile = setOutfilename(global.params.docname.toDString, global.params.docdir.toDString, arg, global.doc_ext);
     }
@@ -708,7 +713,7 @@ else
     {
         //printf("Module::loadSourceBuffer('%s') file '%s'\n", toChars(), srcfile.toChars());
         // take ownership of buffer
-        srcBuffer = new FileBuffer(readResult.extractData());
+        srcBuffer = new FileBuffer(readResult.extractSlice());
         if (readResult.success)
             return true;
 
@@ -748,7 +753,7 @@ else
             }
             else
                 fprintf(stderr, "Specify path to file '%s' with -I switch\n", srcfile.toChars());
-            fatal();
+            // fatal();
         }
         return false;
     }
@@ -1229,6 +1234,29 @@ else
         return needmoduleinfo || (!IN_LLVM && global.params.cov);
     }
 
+    /*******************************************
+     * Print deprecation warning if we're deprecated, when
+     * this module is imported from scope sc.
+     *
+     * Params:
+     *  sc = the scope into which we are imported
+     *  loc = the location of the import statement
+     */
+    void checkImportDeprecation(const ref Loc loc, Scope* sc)
+    {
+        if (md && md.isdeprecated && !sc.isDeprecated)
+        {
+            Expression msg = md.msg;
+            if (StringExp se = msg ? msg.toStringExp() : null)
+            {
+                const slice = se.peekString();
+                deprecation(loc, "is deprecated - %.*s", cast(int)slice.length, slice.ptr);
+            }
+            else
+                deprecation(loc, "is deprecated");
+        }
+    }
+
     override Dsymbol search(const ref Loc loc, Identifier ident, int flags = SearchLocalsOnly)
     {
         /* Since modules can be circularly referenced,
@@ -1299,19 +1327,19 @@ else
     /*******************************************
      * Can't run semantic on s now, try again later.
      */
-    static void addDeferredSemantic(Dsymbol s)
+    extern (D) static void addDeferredSemantic(Dsymbol s)
     {
         //printf("Module::addDeferredSemantic('%s')\n", s.toChars());
         deferred.push(s);
     }
 
-    static void addDeferredSemantic2(Dsymbol s)
+    extern (D) static void addDeferredSemantic2(Dsymbol s)
     {
         //printf("Module::addDeferredSemantic2('%s')\n", s.toChars());
         deferred2.push(s);
     }
 
-    static void addDeferredSemantic3(Dsymbol s)
+    extern (D) static void addDeferredSemantic3(Dsymbol s)
     {
         //printf("Module::addDeferredSemantic3('%s')\n", s.toChars());
         deferred3.push(s);
@@ -1348,8 +1376,7 @@ else
             }
             else
             {
-                todo = cast(Dsymbol*)malloc(len * Dsymbol.sizeof);
-                assert(todo);
+                todo = cast(Dsymbol*)Mem.check(malloc(len * Dsymbol.sizeof));
                 todoalloc = todo;
             }
             memcpy(todo, deferred.tdata(), len * Dsymbol.sizeof);
@@ -1404,7 +1431,7 @@ else
         a.setDim(0);
     }
 
-    static void clearCache()
+    extern (D) static void clearCache()
     {
         for (size_t i = 0; i < amodules.dim; i++)
         {
@@ -1513,7 +1540,7 @@ version (IN_LLVM)
 
 /***********************************************************
  */
-struct ModuleDeclaration
+extern (C++) struct ModuleDeclaration
 {
     Loc loc;
     Identifier id;

@@ -23,11 +23,12 @@ default:
     // default switches appended after all explicit command-line switches
     post-switches = [
         "-I@RUNTIME_DIR@/src",
+        "-I@LDC_BUILD_IMPORT_DIR@",
         "-I@JITRT_DIR@/d",
     ];
     // default directories to be searched for libraries when linking
     lib-dirs = [
-        "@CMAKE_BINARY_DIR@/lib@LIB_SUFFIX@",@MULTILIB_ADDITIONAL_PATH@
+        "@CMAKE_BINARY_DIR@/lib@LIB_SUFFIX@",
     ];
     // default rpath when linking against the shared default libs
     rpath = "@SHARED_LIBS_RPATH@";

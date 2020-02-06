@@ -183,7 +183,7 @@ llvm::AllocaInst *DtoArrayAlloca(Type *type, unsigned arraysize,
       gIR->module.getDataLayout().getAllocaAddrSpace(),
 #endif
       DtoConstUint(arraysize), name, gIR->topallocapoint());
-  ai->setAlignment(DtoAlignment(type));
+  ai->setAlignment(LLMaybeAlign(DtoAlignment(type)));
   return ai;
 }
 
@@ -196,7 +196,7 @@ llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
 #endif
                            name, gIR->topallocapoint());
   if (alignment) {
-    ai->setAlignment(alignment);
+    ai->setAlignment(LLMaybeAlign(alignment));
   }
   return ai;
 }
@@ -375,7 +375,7 @@ void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
     DtoStoreZextI8(DtoRVal(rhs), DtoLVal(lhs));
   } else if (t->ty == Tstruct) {
     // don't copy anything to empty structs
-    if (static_cast<TypeStruct *>(t)->sym->fields.dim > 0) {
+    if (static_cast<TypeStruct *>(t)->sym->fields.length > 0) {
       llvm::Value *src = DtoLVal(rhs);
       llvm::Value *dst = DtoLVal(lhs);
 
@@ -675,6 +675,12 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
   Type *totype = to->toBasetype();
 
   if (fromtype->ty == Taarray) {
+    if (totype->ty == Taarray) {
+      // reinterpret-cast keeping lvalue-ness, IR types will match up
+      if (val->isLVal())
+        return new DLValue(to, DtoLVal(val));
+      return new DImValue(to, DtoRVal(val));
+    }
     // DMD allows casting AAs to void*, even if they are internally
     // implemented as structs.
     if (totype->ty == Tpointer) {
@@ -727,12 +733,6 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
     return DtoCastStruct(loc, val, to);
   case Tnull:
     return DtoNullValue(to, loc);
-  case Taarray:
-    if (totype->ty == Taarray) {
-      // Do nothing, the types will match up anyway.
-      return new DImValue(to, DtoRVal(val));
-    }
-  // fall-through
   default:
     error(loc, "invalid cast from `%s` to `%s`", val->type->toChars(),
           to->toChars());
@@ -914,7 +914,7 @@ void DtoResolveVariable(VarDeclaration *vd) {
     // Set the alignment (it is important not to use type->alignsize because
     // VarDeclarations can have an align() attribute independent of the type
     // as well).
-    gvar->setAlignment(DtoAlignment(vd));
+    gvar->setAlignment(LLMaybeAlign(DtoAlignment(vd)));
 
     // Windows: initialize DLL storage class with `dllimport` for `export`ed
     // symbols
@@ -944,7 +944,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
   IF_LOG Logger::println("DtoVarDeclaration(vdtype = %s)", vd->type->toChars());
   LOG_SCOPE
 
-  if (vd->nestedrefs.dim) {
+  if (vd->nestedrefs.length) {
     IF_LOG Logger::println(
         "has nestedref set (referenced by nested function/delegate)");
 
@@ -1045,7 +1045,7 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
     Logger::println("AttribDeclaration");
     // choose the right set in case this is a conditional declaration
     if (auto d = a->include(nullptr)) {
-      for (unsigned i = 0; i < d->dim; ++i) {
+      for (unsigned i = 0; i < d->length; ++i) {
         DtoDeclarationExp((*d)[i]);
       }
     }
@@ -1058,7 +1058,7 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
     Logger::println("TupleDeclaration");
     assert(tupled->isexp && "Non-expression tuple decls not handled yet.");
     assert(tupled->objects);
-    for (unsigned i = 0; i < tupled->objects->dim; ++i) {
+    for (unsigned i = 0; i < tupled->objects->length; ++i) {
       auto exp = static_cast<DsymbolExp *>((*tupled->objects)[i]);
       DtoDeclarationExp(exp->s);
     }
@@ -1096,7 +1096,7 @@ LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr) {
   // nested variable?
   // A variable may not be really nested even if nextedrefs is not empty
   // in case it is referenced by a function inside __traits(compile) or typeof.
-  if (var->nestedrefs.dim && isIrLocalCreated(var)) {
+  if (var->nestedrefs.length && isIrLocalCreated(var)) {
     if (!irLocal->value) {
       assert(addr);
       irLocal->value = addr;
@@ -1293,8 +1293,8 @@ static char *DtoOverloadedIntrinsicName(TemplateInstance *ti,
   }
 
   // for now use the size in bits of the first template param in the instance
-  assert(ti->tdtypes.dim == 1);
-  Type *T = static_cast<Type *>(ti->tdtypes.data[0]);
+  assert(ti->tdtypes.length == 1);
+  Type *T = static_cast<Type *>(ti->tdtypes[0]);
 
   char prefix;
   if (T->isfloating() && !T->iscomplex()) {
@@ -1581,7 +1581,7 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
           type, DtoBitCast(getIrAggr(cd)->getVtblSymbol(), DtoPtrToType(type)));
     }
     // nested variable
-    if (vd->nestedrefs.dim) {
+    if (vd->nestedrefs.length) {
       Logger::println("nested variable");
       return DtoNestedVariable(loc, type, vd);
     }
@@ -1650,10 +1650,16 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
     IF_LOG Logger::print("Sym: type=%s\n", sdecltype->toChars());
     assert(sdecltype->ty == Tstruct);
     TypeStruct *ts = static_cast<TypeStruct *>(sdecltype);
-    assert(ts->sym);
-    DtoResolveStruct(ts->sym);
+    StructDeclaration *sd = ts->sym;
+    assert(sd);
+    DtoResolveStruct(sd);
 
-    LLValue *initsym = getIrAggr(ts->sym)->getInitSymbol();
+    if (sd->zeroInit) {
+      error(loc, "no init symbol for zero-initialized struct");
+      fatal();
+    }
+
+    LLValue *initsym = getIrAggr(sd)->getInitSymbol();
     initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
     return new DLValue(type, initsym);
   }
@@ -1816,11 +1822,12 @@ FuncDeclaration *getParentFunc(Dsymbol *sym) {
     return nullptr;
   }
 
-  // Static/non-extern(D) functions and function (not delegate) literals don't
-  // allow access to a parent context, even if they are nested.
+  // Static functions, non-extern(D) non-member functions and function (not
+  // delegate) literals don't allow access to a parent context, even if they are
+  // nested.
   if (FuncDeclaration *fd = sym->isFuncDeclaration()) {
     bool certainlyNewRoot =
-        fd->isStatic() || fd->linkage != LINKd ||
+        fd->isStatic() || (!fd->isThis() && fd->linkage != LINKd) ||
         (fd->isFuncLiteralDeclaration() &&
          static_cast<FuncLiteralDeclaration *>(fd)->tok == TOKfunction);
     if (certainlyNewRoot) {
@@ -1874,12 +1881,12 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   static_cast<IrTypeAggr *>(ad->type->ctype)
       ->getMemberLocation(vd, fieldIndex, byteOffset);
 
-  LLValue *val = DtoGEPi(src, 0, fieldIndex);
+  LLValue *val = DtoGEP(src, 0, fieldIndex);
 
   if (byteOffset) {
     // Cast to void* to apply byte-wise offset.
     val = DtoBitCast(val, getVoidPtrType());
-    val = DtoGEPi1(val, byteOffset);
+    val = DtoGEP1(val, byteOffset);
   }
 
   // Cast the (possibly void*) pointer to the canonical variable type.

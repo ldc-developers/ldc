@@ -37,8 +37,9 @@ set(MULTILIB              OFF                                 CACHE BOOL   "Buil
 set(BUILD_LTO_LIBS        OFF                                 CACHE BOOL   "Also build the runtime as LLVM bitcode libraries for LTO")
 set(INCLUDE_INSTALL_DIR   ${CMAKE_INSTALL_PREFIX}/include/d   CACHE PATH   "Path to install D modules to")
 set(BUILD_SHARED_LIBS     AUTO                                CACHE STRING "Whether to build the runtime as a shared library (ON|OFF|BOTH)")
-set(D_FLAGS               -w                                  CACHE STRING "Runtime D compiler flags, separated by ';'")
-set(D_FLAGS_DEBUG         -g;-link-defaultlib-debug           CACHE STRING "Runtime D compiler flags (debug libraries), separated by ';'")
+set(D_FLAGS               -w;-de;-dip1000                     CACHE STRING "Runtime D compiler flags, separated by ';'")
+set(D_EXTRA_FLAGS         ""                                  CACHE STRING "Runtime extra D compiler flags, separated by ';'")
+set(D_FLAGS_DEBUG         -g;-link-defaultlib-debug;-d-debug  CACHE STRING "Runtime D compiler flags (debug libraries), separated by ';'")
 set(D_FLAGS_RELEASE       -O3;-release                        CACHE STRING "Runtime D compiler flags (release libraries), separated by ';'")
 set(COMPILE_ALL_D_FILES_AT_ONCE ON                            CACHE BOOL   "Compile all D files for the runtime libs in a single command line instead of separately. Disabling this is useful for many CPU cores and/or iterative development.")
 set(RT_ARCHIVE_WITH_LDC   ON                                  CACHE STRING "Whether to archive the static runtime libs via LDC instead of CMake archiver")
@@ -51,9 +52,16 @@ set(RT_SUPPORT_SANITIZERS OFF                                 CACHE BOOL   "Buil
 
 set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 
+set(DRUNTIME_EXTRA_FLAGS          -preview=fieldwise)
+set(DRUNTIME_EXTRA_UNITTEST_FLAGS -d-version=CoreUnittest -unittest) # no `-checkaction=context` yet
+set(PHOBOS2_EXTRA_FLAGS           -transition=complex)
+set(PHOBOS2_EXTRA_UNITTEST_FLAGS  -unittest)
+
+# Shadow the D_FLAGS cache variable by a regular variable containing all base D flags
+set(D_FLAGS ${D_FLAGS} ${D_EXTRA_FLAGS})
 if (RT_SUPPORT_SANITIZERS)
     message(STATUS "Building runtime libraries with sanitizer support")
-    set(D_FLAGS "${D_FLAGS};-d-version=SupportSanitizers")
+    list(APPEND D_FLAGS -d-version=SupportSanitizers)
 endif()
 
 # Find gnu make, use specific version first (BSD) and fall back to default 'make' (LINUX)
@@ -120,7 +128,9 @@ endif()
 
 # Auto-detect C system libraries
 if("${C_SYSTEM_LIBS}" STREQUAL "AUTO")
-    if("${TARGET_SYSTEM}" MATCHES "Android")
+    if("${TARGET_SYSTEM}" MATCHES "MSVC")
+        set(C_SYSTEM_LIBS libvcruntime libcmt)
+    elseif("${TARGET_SYSTEM}" MATCHES "Android")
         set(C_SYSTEM_LIBS m c)
     elseif("${TARGET_SYSTEM}" MATCHES "Linux")
         set(C_SYSTEM_LIBS m pthread rt dl)
@@ -228,24 +238,10 @@ endif()
 # Create configuration files.
 #
 
-# Add extra paths on Linux and disable linker arch mismatch warnings (like
-# DMD and GDC do). OS X doesn't need extra configuration due to the use of
-# fat binaries. Other Posixen might need to be added here.
-if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
-    set(ADDITIONAL_DEFAULT_LDC_SWITCHES  "${ADDITIONAL_DEFAULT_LDC_SWITCHES}\n        \"-L--no-warn-search-mismatch\",")
-    set(MULTILIB_ADDITIONAL_PATH         "\n        \"${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",")
-    set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",")
-endif()
-
 # Default -rpath linker option when linking against shared libraries.
 if(SHARED_LIBS_SUPPORTED)
-    if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
-        set(SHARED_LIBS_RPATH         "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}:${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}")
-        set(SHARED_LIBS_INSTALL_RPATH "${CMAKE_INSTALL_LIBDIR}:${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}")
-    else()
-        set(SHARED_LIBS_RPATH         "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
-        set(SHARED_LIBS_INSTALL_RPATH "${CMAKE_INSTALL_LIBDIR}")
-    endif()
+    set(SHARED_LIBS_RPATH         "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
+    set(SHARED_LIBS_INSTALL_RPATH "${CMAKE_INSTALL_LIBDIR}")
 endif()
 
 # Only have either shared or static libs?
@@ -264,6 +260,9 @@ if(NOT (LDC_LLVM_VER LESS 800))
     set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"-L--export-dynamic\",")
 endif()
 
+# Directory filled with auto-generated import files
+set(LDC_BUILD_IMPORT_DIR "${PROJECT_BINARY_DIR}/import")
+
 # Only generate the config files if this CMake project is embedded in the LDC CMake project.
 if(LDC_EXE)
     if(PHOBOS2_DIR)
@@ -271,8 +270,50 @@ if(LDC_EXE)
     else()
         set(CONFIG_NAME ${LDC_EXE})
     endif()
-    configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf @ONLY)
-    configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf @ONLY)
+    set(conf_path         ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
+    set(install_conf_path ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf)
+    configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${conf_path} @ONLY)
+    configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${install_conf_path} @ONLY)
+
+    # macOS has fat libraries; otherwise, append a separate config file section for the
+    # multilib target and override the lib directory.
+    if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
+        # Rename the just configured host-only *.conf files to *.conf.in during CMake invocation.
+        file(RENAME ${conf_path} ${conf_path}.in)
+        file(RENAME ${install_conf_path} ${install_conf_path}.in)
+
+        set(MULTILIB_DIR         "${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}")
+        set(MULTILIB_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}")
+
+        # The helper script determines the multilib triple by parsing the
+        # `ldc2 -m32 -v` output. This means we depend on a built ldc2
+        # executable; sadly, we cannot add post-build commands to that
+        # top-level target directly, so use a custom target (built as part
+        # of `all`) to finalize the 2 config files.
+        add_custom_command(OUTPUT ${conf_path} VERBATIM
+            COMMAND ${PROJECT_PARENT_DIR}/tools/add-multilib-section.sh
+                    ${LDC_EXE_FULL}
+                    ${MULTILIB_SUFFIX}
+                    ${MULTILIB_DIR}
+                    "$<$<BOOL:${SHARED_LIBS_SUPPORTED}>:${MULTILIB_DIR}>"
+                    ${conf_path}.in
+                    ${conf_path}
+            DEPENDS ${LDC_EXE} ${LDC_EXE_FULL}
+        )
+        add_custom_command(OUTPUT ${install_conf_path} VERBATIM
+            COMMAND ${PROJECT_PARENT_DIR}/tools/add-multilib-section.sh
+                    ${LDC_EXE_FULL}
+                    ${MULTILIB_SUFFIX}
+                    ${MULTILIB_INSTALL_DIR}
+                    "$<$<BOOL:${SHARED_LIBS_SUPPORTED}>:${MULTILIB_INSTALL_DIR}>"
+                    ${install_conf_path}.in
+                    ${install_conf_path}
+            DEPENDS ${LDC_EXE} ${LDC_EXE_FULL}
+        )
+        add_custom_target(add-multilib-section ALL
+            DEPENDS ${conf_path} ${install_conf_path}
+        )
+    endif()
 endif()
 
 #
@@ -280,29 +321,33 @@ endif()
 #
 
 set(GCCBUILTINS "")
-function(gen_gccbuiltins name)
-  set(module "${PROJECT_BINARY_DIR}/gccbuiltins_${name}.di")
-  if (GCCBUILTINS STREQUAL "")
-    set(GCCBUILTINS "${module}" PARENT_SCOPE)
-  else()
-    set(GCCBUILTINS "${GCCBUILTINS};${module}" PARENT_SCOPE)
-  endif()
-  add_custom_command(
-      OUTPUT ${module}
-      COMMAND gen_gccbuiltins ${module} "${name}"
-  )
-endfunction()
+if(TARGET gen_gccbuiltins)
+  file(MAKE_DIRECTORY "${LDC_BUILD_IMPORT_DIR}/ldc")
 
-set(target_arch "AArch64;ARM;Mips;PowerPC;SystemZ;X86")
-set(target_name "aarch64;arm;mips;ppc;s390;x86")
+  function(gen_gccbuiltins name)
+    set(module "${LDC_BUILD_IMPORT_DIR}/ldc/gccbuiltins_${name}.di")
+    if (GCCBUILTINS STREQUAL "")
+      set(GCCBUILTINS "${module}" PARENT_SCOPE)
+    else()
+      set(GCCBUILTINS "${GCCBUILTINS};${module}" PARENT_SCOPE)
+    endif()
+    add_custom_command(
+        OUTPUT ${module}
+        COMMAND gen_gccbuiltins ${module} "${name}"
+    )
+  endfunction()
 
-foreach(target ${LLVM_TARGETS_TO_BUILD})
-  list(FIND target_arch ${target} idx)
-  if(idx GREATER -1)
-    list(GET target_name ${idx} name)
-    gen_gccbuiltins(${name})
-  endif()
-endforeach()
+  set(target_arch "AArch64;ARM;Mips;PowerPC;SystemZ;X86")
+  set(target_name "aarch64;arm;mips;ppc;s390;x86")
+
+  foreach(target ${LLVM_TARGETS_TO_BUILD})
+    list(FIND target_arch ${target} idx)
+    if(idx GREATER -1)
+      list(GET target_name ${idx} name)
+      gen_gccbuiltins(${name})
+    endif()
+  endforeach()
+endif()
 
 # Always build zlib and other C parts of the runtime in release mode, regardless
 # of what the user chose for LDC itself. Also add other C_FLAGS here.
@@ -347,10 +392,11 @@ macro(dc src_files src_basedir d_flags output_basedir emit_bc all_at_once outlis
         list(APPEND dc_flags -flto=thin --output-bc)
     endif()
 
-    set(dc_deps ${LDC_EXE}
-                ${LDC_EXE_FULL}
-                ${GCCBUILTINS}
-    )
+    set(dc_deps ${LDC_EXE} ${LDC_EXE_FULL} ${GCCBUILTINS})
+    if(TARGET add-multilib-section)
+        # Make sure the config files are available before invoking LDC.
+        set(dc_deps ${dc_deps} add-multilib-section)
+    endif()
 
     set(relative_src_files "")
     set(new_o "")
@@ -437,7 +483,7 @@ macro(compile_druntime d_flags lib_suffix path_suffix emit_bc all_at_once outlis
     get_target_suffix("${lib_suffix}" "${path_suffix}" target_suffix)
     dc("${DRUNTIME_D}"
        "${RUNTIME_DIR}/src"
-       "-conf=;${d_flags};-I${RUNTIME_DIR}/src"
+       "-conf=;${d_flags};${DRUNTIME_EXTRA_FLAGS};-I${RUNTIME_DIR}/src"
        "${PROJECT_BINARY_DIR}/objects${target_suffix}"
        "${emit_bc}"
        "${all_at_once}"
@@ -452,11 +498,11 @@ macro(compile_phobos2 d_flags lib_suffix path_suffix emit_bc all_at_once outlist
     get_target_suffix("${lib_suffix}" "${path_suffix}" target_suffix)
 
     # Special case for Windows and emit_bc=ON:
-    # LLVM (as of v7.0) doesn't support naked DMD-style asm when generating bitcode.
+    # LLVM before v9.0 doesn't support naked DMD-style asm when generating bitcode.
     # For 1 (Win64) / 3 (Win32) remaining modules, compile separately without generating
     # the bitcode file (and adding the binary object file to outlist_bc instead).
     set(phobos_src_files ${PHOBOS2_D})
-    if(${emit_bc} AND "${TARGET_SYSTEM}" MATCHES "Windows")
+    if(${emit_bc} AND (LDC_LLVM_VER LESS 900 AND "${TARGET_SYSTEM}" MATCHES "Windows"))
         set(naked_asm_src_files "${PHOBOS2_DIR}/std/internal/digest/sha_SSSE3.d")
         if(CMAKE_SIZEOF_VOID_P EQUAL 4)
             list(APPEND naked_asm_src_files
@@ -470,7 +516,7 @@ macro(compile_phobos2 d_flags lib_suffix path_suffix emit_bc all_at_once outlist
         set(naked_asm_o "")
         dc("${naked_asm_src_files}"
            "${PHOBOS2_DIR}"
-           "-conf=;${d_flags};-I${RUNTIME_DIR}/src;-I${PHOBOS2_DIR}"
+           "-conf=;${d_flags};${PHOBOS2_EXTRA_FLAGS};-I${RUNTIME_DIR}/src;-I${PHOBOS2_DIR}"
            "${PROJECT_BINARY_DIR}/objects${target_suffix}"
            "OFF"
            "${all_at_once}"
@@ -484,7 +530,7 @@ macro(compile_phobos2 d_flags lib_suffix path_suffix emit_bc all_at_once outlist
 
     dc("${phobos_src_files}"
        "${PHOBOS2_DIR}"
-       "-conf=;${d_flags};-I${RUNTIME_DIR}/src;-I${PHOBOS2_DIR}"
+       "-conf=;${d_flags};${PHOBOS2_EXTRA_FLAGS};-I${RUNTIME_DIR}/src;-I${PHOBOS2_DIR}"
        "${PROJECT_BINARY_DIR}/objects${target_suffix}"
        "${emit_bc}"
        "${all_at_once}"
@@ -596,14 +642,22 @@ endmacro()
 
 # Builds a static and/or shared copy of druntime/Phobos.
 macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix all_d_files_at_once outlist_targets)
+    set(is_unittest OFF)
+    if("${lib_suffix}" MATCHES "-unittest")
+        set(is_unittest ON)
+    endif()
+
     set(emit_bc OFF)
-    if(BUILD_LTO_LIBS AND NOT "${lib_suffix}" MATCHES "-unittest")
+    if(BUILD_LTO_LIBS AND NOT is_unittest)
         set(emit_bc ON)
     endif()
 
     # Only compile Phobos modules once for static+shared libs.
     # If a shared Phobos lib is generated (too), compile explicitly with `-relocation-model=pic`.
-    set(phobos2_d_flags "${d_flags}")
+    set(phobos2_d_flags ${d_flags})
+    if(is_unittest)
+        list(APPEND phobos2_d_flags ${PHOBOS2_EXTRA_UNITTEST_FLAGS})
+    endif()
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
         list(APPEND phobos2_d_flags -relocation-model=pic)
     endif()
@@ -619,11 +673,16 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix all_
     set(phobos2_common phobos2-ldc${target_suffix}-common)
     add_custom_target(${phobos2_common} DEPENDS ${phobos2_o} ${phobos2_bc})
 
+    set(druntime_d_flags ${d_flags})
+    if(is_unittest)
+        list(APPEND druntime_d_flags ${DRUNTIME_EXTRA_UNITTEST_FLAGS})
+    endif()
+
     # static druntime/Phobos
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "ON")
         set(druntime_o "")
         set(druntime_bc "")
-        compile_druntime("${d_flags}" "${lib_suffix}"
+        compile_druntime("${druntime_d_flags}" "${lib_suffix}"
                          "${path_suffix}" "${emit_bc}" "${all_d_files_at_once}" druntime_o druntime_bc)
 
         build_runtime_libs("${druntime_o}" "${druntime_bc}" "${phobos2_o}" "${phobos2_bc}"
@@ -635,7 +694,7 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix all_
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
         set(druntime_o "")
         set(druntime_bc "")
-        compile_druntime("${d_flags};-relocation-model=pic;-d-version=Shared" "${lib_suffix}${SHARED_LIB_SUFFIX}"
+        compile_druntime("${druntime_d_flags};-relocation-model=pic;-d-version=Shared" "${lib_suffix}${SHARED_LIB_SUFFIX}"
                          "${path_suffix}" "OFF" "${all_d_files_at_once}" druntime_o druntime_bc)
 
         build_runtime_libs("${druntime_o}" "${druntime_bc}" "${phobos2_o}" "${phobos2_bc}"
@@ -828,7 +887,7 @@ install(FILES ${GCCBUILTINS} DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
 # link the test runners against those. Some linker command-line magic is
 # required to make sure all objects are pulled in.
 
-macro(append_testrunner_linkflags libname path_suffix is_shared output_flags)
+macro(set_testrunner_linkflags libname path_suffix is_shared output_flags)
     # (Re)set variable 'tested_lib_path', initialize to directory containing the tested lib.
     # It'll contain the full path to the linked-in library when 'returning' to calling build_test_runners().
     set(tested_lib_path "${CMAKE_BINARY_DIR}/lib${path_suffix}")
@@ -836,17 +895,15 @@ macro(append_testrunner_linkflags libname path_suffix is_shared output_flags)
     if("${TARGET_SYSTEM}" MATCHES "MSVC")
         set(tested_lib_path "${tested_lib_path}/${libname}.lib")
         if("${is_shared}" STREQUAL "ON")
-            append("${tested_lib_path}" ${output_flags})
-            append("msvcrt.lib vcruntime.lib" ${output_flags})
+            set(${output_flags} "${tested_lib_path}")
         else()
             # the MS linker supports /WHOLEARCHIVE since VS 2015 Update 2
-            string(REPLACE "/" "\\" tested_lib_winpath ${tested_lib_path})
-            append("/WHOLEARCHIVE:${tested_lib_winpath}" ${output_flags})
-            append("libcmt.lib libvcruntime.lib" ${output_flags})
+            # we need to use `-WHOLEARCHIVE` (leading dash) to make CMake recognize it as a linker *flag*
+            set(${output_flags} "-WHOLEARCHIVE:${tested_lib_path}")
         endif()
     else()
         if("${is_shared}" STREQUAL "ON")
-            append("-Wl,-rpath,${tested_lib_path}" ${output_flags})
+            set(${output_flags} "-Wl,-rpath,${tested_lib_path}")
             if("${TARGET_SYSTEM}" MATCHES "APPLE")
                 set(tested_lib_path "${tested_lib_path}/lib${libname}.dylib")
                 append("${tested_lib_path}" ${output_flags})
@@ -857,23 +914,19 @@ macro(append_testrunner_linkflags libname path_suffix is_shared output_flags)
         else()
             set(tested_lib_path "${tested_lib_path}/lib${libname}.a")
             if("${TARGET_SYSTEM}" MATCHES "APPLE")
-                append("-Wl,-force_load,${tested_lib_path}" ${output_flags})
+                set(${output_flags} "-Wl,-force_load,${tested_lib_path}")
             else()
-                append("-Wl,--whole-archive,${tested_lib_path},--no-whole-archive" ${output_flags})
+                set(${output_flags} "-Wl,--whole-archive,${tested_lib_path},--no-whole-archive")
             endif()
-            foreach(l ${C_SYSTEM_LIBS})
-                append("-l${l}" ${output_flags})
-            endforeach()
         endif()
     endif()
 endmacro()
 
 set(_GLOBAL_TESTRUNNERS "" CACHE INTERNAL "List of all test runner build targets")
-file(WRITE ${PROJECT_BINARY_DIR}/dummy.c "")
 
 # Generates targets for a pair of druntime/Phobos test runners.
 # The build targets are also appended to the _GLOBAL_TESTRUNNERS list.
-function(build_test_runners name_suffix path_suffix d_flags c_flags linkflags is_shared)
+function(build_test_runners name_suffix path_suffix d_flags linkflags is_shared)
     set(target_suffix)
     get_target_suffix("${name_suffix}" "${path_suffix}" target_suffix)
 
@@ -890,30 +943,34 @@ function(build_test_runners name_suffix path_suffix d_flags c_flags linkflags is
     )
     add_custom_target(test_runner${target_suffix} DEPENDS ${test_runner_o})
 
+    set(c_libs "")
+    if("${is_shared}" STREQUAL "OFF")
+        set(c_libs ${C_SYSTEM_LIBS})
+    endif()
+
     set(druntime_name druntime-test-runner${target_suffix})
-    add_executable(${druntime_name} EXCLUDE_FROM_ALL ${PROJECT_BINARY_DIR}/dummy.c)
-    set(full_linkflags "${test_runner_o} ${linkflags}")
-    append_testrunner_linkflags("druntime-ldc-unittest${name_suffix}" "${path_suffix}" "${is_shared}" full_linkflags)
+    add_executable(${druntime_name} EXCLUDE_FROM_ALL ${test_runner_o})
     add_dependencies(${druntime_name} test_runner${target_suffix} druntime-ldc-unittest${target_suffix})
+    set_testrunner_linkflags("druntime-ldc-unittest${name_suffix}" "${path_suffix}" "${is_shared}" runner_linkflags)
+    target_link_libraries(${druntime_name} ${runner_linkflags} ${c_libs})
     set_target_properties(${druntime_name} PROPERTIES
-        COMPILE_FLAGS   ${c_flags}
-        LINK_FLAGS      ${full_linkflags}
-        LINK_DEPENDS    "${test_runner_o};${tested_lib_path}"
+        LINKER_LANGUAGE C
+        LINK_FLAGS      ${linkflags}
+        LINK_DEPENDS    ${tested_lib_path}
     )
     add_test(build-${druntime_name} "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ${druntime_name})
     set(_GLOBAL_TESTRUNNERS "${_GLOBAL_TESTRUNNERS};${druntime_name}" CACHE INTERNAL "")
 
     if(PHOBOS2_DIR)
         set(phobos_name phobos2-test-runner${target_suffix})
-        add_executable(${phobos_name} EXCLUDE_FROM_ALL ${PROJECT_BINARY_DIR}/dummy.c)
-        target_link_libraries(${phobos_name} druntime-ldc${target_suffix})
-        set(full_linkflags "${test_runner_o} ${linkflags}")
-        append_testrunner_linkflags("phobos2-ldc-unittest${name_suffix}" "${path_suffix}" "${is_shared}" full_linkflags)
+        add_executable(${phobos_name} EXCLUDE_FROM_ALL ${test_runner_o})
         add_dependencies(${phobos_name} test_runner${target_suffix} phobos2-ldc-unittest${target_suffix})
+        set_testrunner_linkflags("phobos2-ldc-unittest${name_suffix}" "${path_suffix}" "${is_shared}" runner_linkflags)
+        target_link_libraries(${phobos_name} ${runner_linkflags} druntime-ldc${target_suffix} ${c_libs})
         set_target_properties(${phobos_name} PROPERTIES
-            COMPILE_FLAGS   ${c_flags}
-            LINK_FLAGS      ${full_linkflags}
-            LINK_DEPENDS    "${test_runner_o};${tested_lib_path}"
+            LINKER_LANGUAGE C
+            LINK_FLAGS      ${linkflags}
+            LINK_DEPENDS    ${tested_lib_path}
         )
         add_test(build-${phobos_name} "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ${phobos_name})
         set(_GLOBAL_TESTRUNNERS "${_GLOBAL_TESTRUNNERS};${phobos_name}" CACHE INTERNAL "")
@@ -922,13 +979,9 @@ endfunction()
 
 # Generates targets for static and/or shared pairs of druntime/Phobos test runners.
 function(build_test_runner_variant name_suffix path_suffix d_flags c_flags)
-    set(full_d_flags ${D_FLAGS} ${d_flags} -unittest -d-version=StdUnittest)
+    set(full_d_flags ${D_FLAGS} ${d_flags})
     set(full_c_flags "${RT_CFLAGS} ${c_flags}")
     set(linkflags "${LD_FLAGS} ${c_flags}")
-    if("${TARGET_SYSTEM}" MATCHES "MSVC")
-        # enforce identical COMDAT folding, apparently needed for std.variant
-        set(linkflags "/OPT:ICF ${linkflags}")
-    endif()
 
     # static and/or shared pair(s) of druntime/Phobos unittest libs
     set(unittest_libs "")
@@ -947,11 +1000,11 @@ function(build_test_runner_variant name_suffix path_suffix d_flags c_flags)
 
     # static druntime/Phobos test runners
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "ON")
-        build_test_runners("${name_suffix}" "${path_suffix}" "${full_d_flags}" "${full_c_flags}" "${linkflags}" "OFF")
+        build_test_runners("${name_suffix}" "${path_suffix}" "${full_d_flags}" "${linkflags}" "OFF")
     endif()
     # shared druntime/Phobos test runners
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
-        build_test_runners("${name_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}" "${full_d_flags}" "${full_c_flags}" "${linkflags}" "ON")
+        build_test_runners("${name_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}" "${full_d_flags}" "${linkflags}" "ON")
     endif()
 endfunction()
 

@@ -29,6 +29,7 @@ import dmd.func;
 import dmd.dmangle;
 import dmd.mtype;
 import dmd.root.outbuffer;
+import dmd.root.rmem;
 import dmd.root.stringtable;
 import dmd.dscope;
 import dmd.statement;
@@ -60,17 +61,20 @@ private enum ExpType
  */
 bool isSameFuncLiteral(FuncLiteralDeclaration l1, FuncLiteralDeclaration l2, Scope* sc)
 {
+    bool result;
     if (auto ser1 = getSerialization(l1, sc))
     {
-        //printf("l1 serialization: %s\n", &ser1[0]);
+        //printf("l1 serialization: %.*s\n", cast(int)ser1.length, &ser1[0]);
         if (auto ser2 = getSerialization(l2, sc))
         {
-            //printf("l2 serialization: %s\n", &ser2[0]);
+            //printf("l2 serialization: %.*s\n", cast(int)ser2.length, &ser2[0]);
             if (ser1 == ser2)
-                return true;
+                result = true;
+            mem.xfree(cast(void*)ser2.ptr);
         }
+        mem.xfree(cast(void*)ser1.ptr);
     }
-    return false;
+    return result;
 }
 
 /**
@@ -91,23 +95,23 @@ bool isSameFuncLiteral(FuncLiteralDeclaration l1, FuncLiteralDeclaration l2, Sco
  *  sc = the scope in which the lambda function is located
  *
  * Returns:
- *  The serielization of `fld`.
+ *  The serialization of `fld` allocated with mem.
  */
 private string getSerialization(FuncLiteralDeclaration fld, Scope* sc)
 {
     scope serVisitor = new SerializeVisitor(fld.parent._scope);
     fld.accept(serVisitor);
-    const len = serVisitor.buf.offset;
+    const len = serVisitor.buf.length;
     if (len == 0)
         return null;
 
-    return cast(string)serVisitor.buf.extractChars()[0 .. len];
+    return cast(string)serVisitor.buf.extractSlice();
 }
 
 private extern (C++) class SerializeVisitor : SemanticTimeTransitiveVisitor
 {
 private:
-    StringTable arg_hash;
+    StringTable!(const(char)[]) arg_hash;
     Scope* sc;
     ExpType et;
     Dsymbol d;
@@ -153,21 +157,21 @@ public:
                 OutBuffer value;
                 value.writestring("arg");
                 value.print(i);
-                arg_hash.insert(key, value.extractChars);
+                arg_hash.insert(key, value.extractSlice());
                 // and the type of the variable is serialized.
                 fparam.accept(this);
             }
         }
 
         // Now the function body can be serialized.
-        ReturnStatement rs = fld.fbody.isReturnStatement();
+        ReturnStatement rs = fld.fbody.endsWithReturnStatement();
         if (rs && rs.exp)
         {
             rs.exp.accept(this);
         }
         else
         {
-            buf.offset = 0;
+            buf.setsize(0);
         }
     }
 
@@ -175,7 +179,7 @@ public:
     {
         static if (LOG)
             printf("DotIdExp: %s\n", exp.toChars());
-        if (buf.offset == 0)
+        if (buf.length == 0)
             return;
 
         // First we need to see what kind of expression e1 is.
@@ -183,7 +187,7 @@ public:
         // an argument (argX.value) if the argument is an aggregate
         // type. This is reported through the et variable.
         exp.e1.accept(this);
-        if (buf.offset == 0)
+        if (buf.length == 0)
             return;
 
         if (et == ExpType.EnumDecl)
@@ -202,7 +206,7 @@ public:
 
         else if (et == ExpType.Arg)
         {
-            buf.setsize(buf.offset -1);
+            buf.setsize(buf.length -1);
             buf.writeByte('.');
             buf.writestring(exp.ident.toString());
             buf.writeByte('_');
@@ -216,8 +220,8 @@ public:
         if (stringtable_value)
         {
             // In which case we need to update the serialization accordingly
-            const(char)* gen_id = cast(const(char)*)stringtable_value.ptrvalue;
-            buf.writestring(gen_id);
+            const(char)[] gen_id = stringtable_value.value;
+            buf.write(gen_id);
             buf.writeByte('_');
             et = ExpType.Arg;
             return true;
@@ -230,7 +234,7 @@ public:
         static if (LOG)
             printf("IdentifierExp: %s\n", exp.toChars());
 
-        if (buf.offset == 0)
+        if (buf.length == 0)
             return;
 
         auto id = exp.ident.toChars();
@@ -261,13 +265,13 @@ public:
                 // For anything else, the function is deemed uncomparable
                 else
                 {
-                    buf.reset();
+                    buf.setsize(0);
                 }
             }
             // If it's an unknown symbol, consider the function incomparable
             else
             {
-                buf.reset();
+                buf.setsize(0);
             }
         }
     }
@@ -279,10 +283,10 @@ public:
                     exp.var.toChars(), exp.e1.toChars());
 
         exp.e1.accept(this);
-        if (buf.offset == 0)
+        if (buf.length == 0)
             return;
 
-        buf.setsize(buf.offset -1);
+        buf.setsize(buf.length -1);
         buf.writeByte('.');
         buf.writestring(exp.var.toChars());
         buf.writeByte('_');
@@ -293,13 +297,13 @@ public:
         static if (LOG)
             printf("VarExp: %s, var: %s\n", exp.toChars(), exp.var.toChars());
 
-        if (buf.offset == 0)
+        if (buf.length == 0)
             return;
 
         auto id = exp.var.ident.toChars();
         if (!checkArgument(id))
         {
-            buf.offset = 0;
+            buf.setsize(0);
         }
     }
 
@@ -309,7 +313,7 @@ public:
         static if (LOG)
             printf("CallExp: %s\n", exp.toChars());
 
-        if (buf.offset == 0)
+        if (buf.length == 0)
             return;
 
         if (!exp.f)
@@ -331,19 +335,19 @@ public:
 
     override void visit(UnaExp exp)
     {
-        if (buf.offset == 0)
+        if (buf.length == 0)
             return;
 
         buf.writeByte('(');
         buf.writestring(Token.toString(exp.op));
         exp.e1.accept(this);
-        if (buf.offset != 0)
+        if (buf.length != 0)
             buf.writestring(")_");
     }
 
     override void visit(IntegerExp exp)
     {
-        if (buf.offset == 0)
+        if (buf.length == 0)
             return;
 
         buf.print(exp.toInteger());
@@ -352,7 +356,7 @@ public:
 
     override void visit(RealExp exp)
     {
-        if (buf.offset == 0)
+        if (buf.length == 0)
             return;
 
         buf.writestring(exp.toChars());
@@ -364,18 +368,18 @@ public:
         static if (LOG)
             printf("BinExp: %s\n", exp.toChars());
 
-        if (buf.offset == 0)
+        if (buf.length == 0)
             return;
 
         buf.writeByte('(');
         buf.writestring(Token.toChars(exp.op));
 
         exp.e1.accept(this);
-        if (buf.offset == 0)
+        if (buf.length == 0)
             return;
 
         exp.e2.accept(this);
-        if (buf.offset == 0)
+        if (buf.length == 0)
             return;
 
         buf.writeByte(')');
@@ -393,11 +397,11 @@ public:
         {
             OutBuffer mangledName;
             mangleToBuffer(s, &mangledName);
-            buf.writestring(mangledName.peekSlice);
+            buf.writestring(mangledName[]);
             buf.writeByte('_');
         }
         else
-            buf.reset();
+            buf.setsize(0);
     }
 
     private bool checkTemplateInstance(T)(T t)
@@ -405,7 +409,7 @@ public:
     {
         if (t.sym.parent && t.sym.parent.isTemplateInstance())
         {
-            buf.reset();
+            buf.setsize(0);
             return true;
         }
         return false;
@@ -460,34 +464,34 @@ public:
             }
         }
         else
-            buf.reset();
+            buf.setsize(0);
     }
 
-    override void visit(ArrayLiteralExp) { buf.reset(); }
-    override void visit(AssocArrayLiteralExp) { buf.reset(); }
-    override void visit(CompileExp) { buf.reset(); }
-    override void visit(ComplexExp) { buf.reset(); }
-    override void visit(DeclarationExp) { buf.reset(); }
-    override void visit(DefaultInitExp) { buf.reset(); }
-    override void visit(DsymbolExp) { buf.reset(); }
-    override void visit(ErrorExp) { buf.reset(); }
-    override void visit(FuncExp) { buf.reset(); }
-    override void visit(HaltExp) { buf.reset(); }
-    override void visit(IntervalExp) { buf.reset(); }
-    override void visit(IsExp) { buf.reset(); }
-    override void visit(NewAnonClassExp) { buf.reset(); }
-    override void visit(NewExp) { buf.reset(); }
-    override void visit(NullExp) { buf.reset(); }
-    override void visit(ObjcClassReferenceExp) { buf.reset(); }
-    override void visit(OverExp) { buf.reset(); }
-    override void visit(ScopeExp) { buf.reset(); }
-    override void visit(StringExp) { buf.reset(); }
-    override void visit(SymbolExp) { buf.reset(); }
-    override void visit(TemplateExp) { buf.reset(); }
-    override void visit(ThisExp) { buf.reset(); }
-    override void visit(TraitsExp) { buf.reset(); }
-    override void visit(TupleExp) { buf.reset(); }
-    override void visit(TypeExp) { buf.reset(); }
-    override void visit(TypeidExp) { buf.reset(); }
-    override void visit(VoidInitExp) { buf.reset(); }
+    override void visit(ArrayLiteralExp) { buf.setsize(0); }
+    override void visit(AssocArrayLiteralExp) { buf.setsize(0); }
+    override void visit(CompileExp) { buf.setsize(0); }
+    override void visit(ComplexExp) { buf.setsize(0); }
+    override void visit(DeclarationExp) { buf.setsize(0); }
+    override void visit(DefaultInitExp) { buf.setsize(0); }
+    override void visit(DsymbolExp) { buf.setsize(0); }
+    override void visit(ErrorExp) { buf.setsize(0); }
+    override void visit(FuncExp) { buf.setsize(0); }
+    override void visit(HaltExp) { buf.setsize(0); }
+    override void visit(IntervalExp) { buf.setsize(0); }
+    override void visit(IsExp) { buf.setsize(0); }
+    override void visit(NewAnonClassExp) { buf.setsize(0); }
+    override void visit(NewExp) { buf.setsize(0); }
+    override void visit(NullExp) { buf.setsize(0); }
+    override void visit(ObjcClassReferenceExp) { buf.setsize(0); }
+    override void visit(OverExp) { buf.setsize(0); }
+    override void visit(ScopeExp) { buf.setsize(0); }
+    override void visit(StringExp) { buf.setsize(0); }
+    override void visit(SymbolExp) { buf.setsize(0); }
+    override void visit(TemplateExp) { buf.setsize(0); }
+    override void visit(ThisExp) { buf.setsize(0); }
+    override void visit(TraitsExp) { buf.setsize(0); }
+    override void visit(TupleExp) { buf.setsize(0); }
+    override void visit(TypeExp) { buf.setsize(0); }
+    override void visit(TypeidExp) { buf.setsize(0); }
+    override void visit(VoidInitExp) { buf.setsize(0); }
 }

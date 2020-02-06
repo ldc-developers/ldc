@@ -50,18 +50,22 @@ extern (C++) struct CTFloat
         enum yl2x_supported = __traits(compiles, core.math.yl2x(1.0L, 2.0L));
     enum yl2xp1_supported = yl2x_supported;
 
-    static void yl2x(const real_t* x, const real_t* y, real_t* res) pure
+    static void yl2x(const real_t* x, const real_t* y, real_t* res) // IN_LLVM: impure because of log2
     {
         static if (yl2x_supported)
             *res = core.math.yl2x(*x, *y);
+        else version (IN_LLVM)
+            *res = *y * log2(*x); // fall back to generic version
         else
             assert(0);
     }
 
-    static void yl2xp1(const real_t* x, const real_t* y, real_t* res) pure
+    static void yl2xp1(const real_t* x, const real_t* y, real_t* res) // IN_LLVM: impure because of log2
     {
         static if (yl2xp1_supported)
             *res = core.math.yl2xp1(*x, *y);
+        else version (IN_LLVM)
+            *res = *y * log2(*x + real_t(1)); // fall back to generic version
         else
             assert(0);
     }
@@ -161,7 +165,7 @@ extern (C++) struct CTFloat
         if (isNaN(a))
             a = real_t.nan;
         enum sz = (real_t.mant_dig == 64) ? 10 : real_t.sizeof;
-        return calcHash(cast(ubyte*) &a, sz);
+        return calcHash((cast(ubyte*) &a)[0 .. sz]);
     }
 
     pure

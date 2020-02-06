@@ -162,7 +162,7 @@ static std::string getX86TargetCPU(const llvm::Triple &triple) {
 static std::string getARMTargetCPU(const llvm::Triple &triple) {
   auto defaultCPU = llvm::ARM::getDefaultCPU(triple.getArchName());
   if (!defaultCPU.empty())
-    return defaultCPU;
+    return std::string(defaultCPU);
 
   // Return the most base CPU with thumb interworking supported by LLVM.
   return (triple.getEnvironment() == llvm::Triple::GNUEABIHF) ? "arm1176jzf-s"
@@ -172,7 +172,7 @@ static std::string getARMTargetCPU(const llvm::Triple &triple) {
 static std::string getAArch64TargetCPU(const llvm::Triple &triple) {
   auto defaultCPU = llvm::AArch64::getDefaultCPU(triple.getArchName());
   if (!defaultCPU.empty())
-    return defaultCPU;
+    return std::string(defaultCPU);
 
   return "generic";
 }
@@ -344,9 +344,9 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
     }
 
     // Handle -m32/-m64.
-    if (sizeof(void *) != 8 && bitness == ExplicitBitness::M64) {
+    if (!triple.isArch64Bit() && bitness == ExplicitBitness::M64) {
       triple = triple.get64BitArchVariant();
-    } else if (sizeof(void *) != 4 && bitness == ExplicitBitness::M32) {
+    } else if (!triple.isArch32Bit() && bitness == ExplicitBitness::M32) {
       triple = triple.get32BitArchVariant();
       if (triple.getArch() == llvm::Triple::ArchType::x86)
         triple.setArchName("i686"); // instead of i386

@@ -22,6 +22,9 @@
 #include "gen/logger.h"
 #include "gen/modules.h"
 #include "gen/runtime.h"
+#if LDC_LLVM_VER >= 900
+#include "llvm/IR/RemarkStreamer.h"
+#endif
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/ToolOutputFile.h"
@@ -57,6 +60,20 @@ createAndSetDiagnosticsOutputFile(IRState &irs, llvm::LLVMContext &ctx,
       llvm::sys::path::replace_extension(diagnosticsFilename, "opt.yaml");
     }
 
+    // If there is instrumentation data available, also output function hotness
+    const bool withHotness = opts::isUsingPGOProfile();
+
+#if LDC_LLVM_VER >= 900
+    auto remarksFileOrError = llvm::setupOptimizationRemarks(
+        ctx, diagnosticsFilename, "", "", withHotness);
+    if (llvm::Error e = remarksFileOrError.takeError()) {
+      irs.dmodule->error("Could not create file %s: %s",
+                         diagnosticsFilename.c_str(),
+                         llvm::toString(std::move(e)).c_str());
+      fatal();
+    }
+    diagnosticsOutputFile = std::move(*remarksFileOrError);
+#else
     std::error_code EC;
     diagnosticsOutputFile = make_unique<llvm::ToolOutputFile>(
         diagnosticsFilename, EC, llvm::sys::fs::F_None);
@@ -69,16 +86,17 @@ createAndSetDiagnosticsOutputFile(IRState &irs, llvm::LLVMContext &ctx,
     //FIXME: this has been replaced by setDiagnosticHandler
 #if LDC_LLVM_VER < 1000
     ctx.setDiagnosticsOutputFile(
-        make_unique<llvm::yaml::Output>(diagnosticsOutputFile->os()));
-#endif
-    // If there is instrumentation data available, also output function hotness
-    if (opts::isUsingPGOProfile()) {
+        llvm::make_unique<llvm::yaml::Output>(diagnosticsOutputFile->os()));
+
+    if (withHotness) {
+
 #if LDC_LLVM_VER >= 500
       ctx.setDiagnosticsHotnessRequested(true);
 #else
       ctx.setDiagnosticHotnessRequested(true);
 #endif
     }
+#endif // LDC_LLVM_VER < 900
   }
 #endif
 
@@ -92,10 +110,12 @@ namespace {
 #if LDC_LLVM_VER < 500
 /// Add the Linker Options module flag.
 /// If the flag is already present, merge it with the new data.
-void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
+void emitLinkerOptions(IRState &irs) {
+  llvm::Module &M = irs.module;
+  llvm::LLVMContext &ctx = irs.context();
   if (!M.getModuleFlag("Linker Options")) {
     M.addModuleFlag(llvm::Module::AppendUnique, "Linker Options",
-                    llvm::MDNode::get(ctx, irs.LinkerMetadataArgs));
+                    llvm::MDNode::get(ctx, irs.linkerOptions));
   } else {
     // Merge the Linker Options with the pre-existing one
     // (this can happen when passing a .bc file on the commandline)
@@ -112,10 +132,10 @@ void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
 
       // If we reach here, we found the Linker Options flag.
 
-      // Add the old Linker Options to our LinkerMetadataArgs list.
+      // Add the old Linker Options to our linkerOptions list.
       auto *oldLinkerOptions = llvm::cast<llvm::MDNode>(flag->getOperand(2));
       for (const auto &Option : oldLinkerOptions->operands()) {
-        irs.LinkerMetadataArgs.push_back(Option);
+        irs.linkerOptions.push_back(Option);
       }
 
       // Replace Linker Options with a newly created list.
@@ -123,7 +143,7 @@ void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
           llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
               llvm::Type::getInt32Ty(ctx), llvm::Module::AppendUnique)),
           llvm::MDString::get(ctx, "Linker Options"),
-          llvm::MDNode::get(ctx, irs.LinkerMetadataArgs)};
+          llvm::MDNode::get(ctx, irs.linkerOptions)};
       moduleFlags->setOperand(i, llvm::MDNode::get(ctx, Ops));
 
       break;
@@ -131,10 +151,12 @@ void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
   }
 }
 #else
-/// Add the "llvm.linker.options" metadata.
-/// If the metadata is already present, merge it with the new data.
-void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
-  auto *linkerOptionsMD = M.getOrInsertNamedMetadata("llvm.linker.options");
+void addLinkerMetadata(llvm::Module &M, const char *name,
+    llvm::ArrayRef<llvm::MDNode *> newOperands) {
+  if (newOperands.empty())
+    return;
+
+  llvm::NamedMDNode *node = M.getOrInsertNamedMetadata(name);
 
   // Add the new operands in front of the existing ones, such that linker
   // options of .bc files passed on the cmdline are put _after_ the compiled .d
@@ -142,17 +164,25 @@ void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
 
   // Temporarily store metadata nodes that are already present
   llvm::SmallVector<llvm::MDNode *, 5> oldMDNodes;
-  for (auto *MD : linkerOptionsMD->operands())
+  for (auto *MD : node->operands())
     oldMDNodes.push_back(MD);
 
   // Clear the list and add the new metadata nodes.
-  linkerOptionsMD->clearOperands();
-  for (auto *MD : irs.LinkerMetadataArgs)
-    linkerOptionsMD->addOperand(MD);
+  node->clearOperands();
+  for (auto *MD : newOperands)
+    node->addOperand(MD);
 
   // Re-add metadata nodes that were already present
   for (auto *MD : oldMDNodes)
-    linkerOptionsMD->addOperand(MD);
+    node->addOperand(MD);
+}
+
+/// Add the "llvm.{linker.options,dependent-libraries}" metadata.
+/// If the metadata is already present, merge it with the new data.
+void emitLinkerOptions(IRState &irs) {
+  llvm::Module &M = irs.module;
+  addLinkerMetadata(M, "llvm.linker.options", irs.linkerOptions);
+  addLinkerMetadata(M, "llvm.dependent-libraries", irs.linkerDependentLibs);
 }
 #endif
 
@@ -240,15 +270,15 @@ void CodeGenerator::finishLLModule(Module *m) {
 void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   ir_->objc.finalize();
 
-  // Issue #1829: make sure all replaced global variables are replaced
-  // everywhere.
-  ir_->replaceGlobals();
-
   ir_->DBuilder.Finalize();
   generateBitcodeForDynamicCompile(ir_);
 
   emitLLVMUsedArray(*ir_);
-  emitLinkerOptions(*ir_, ir_->module, ir_->context());
+  emitLinkerOptions(*ir_);
+
+  // Issue #1829: make sure all replaced global variables are replaced
+  // everywhere.
+  ir_->replaceGlobals();
 
   // Emit ldc version as llvm.ident metadata.
   llvm::NamedMDNode *IdentMetadata =
@@ -268,23 +298,6 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
 
   delete ir_;
   ir_ = nullptr;
-}
-
-namespace {
-/// Emits a declaration for the given symbol, which is assumed to be of type
-/// i8*, and defines a second globally visible i8* that contains the address
-/// of the first symbol.
-void emitSymbolAddrGlobal(llvm::Module &lm, const char *symbolName,
-                          const char *addrName) {
-  llvm::Type *voidPtr =
-      llvm::PointerType::get(llvm::Type::getInt8Ty(lm.getContext()), 0);
-  auto targetSymbol = new llvm::GlobalVariable(
-      lm, voidPtr, false, llvm::GlobalValue::ExternalWeakLinkage, nullptr,
-      symbolName);
-  new llvm::GlobalVariable(
-      lm, voidPtr, false, llvm::GlobalValue::ExternalLinkage,
-      llvm::ConstantExpr::getBitCast(targetSymbol, voidPtr), addrName);
-}
 }
 
 void CodeGenerator::emit(Module *m) {
@@ -308,9 +321,8 @@ void CodeGenerator::emit(Module *m) {
   prepareLLModule(m);
 
   codegenModule(ir_, m);
-  if (m == rootHasMain) {
-    codegenModule(ir_, entrypoint);
 
+  if (m == rootHasMain) {
     if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
       // On Android, bracket TLS data with the symbols _tlsstart and _tlsend, as
       // done with dmd
@@ -327,11 +339,6 @@ void CodeGenerator::emit(Module *m) {
           llvm::ConstantInt::get(ir_->module.getContext(), APInt(32, 0)),
           "_tlsend");
       endSymbol->setSection(".tcommon");
-    } else if (global.params.targetTriple->isOSLinux()) {
-      // On Linux, strongly define the excecutabe BSS bracketing symbols in
-      // the main module for druntime use (see rt.sections_elf_shared).
-      emitSymbolAddrGlobal(ir_->module, "__bss_start", "_d_execBssBegAddr");
-      emitSymbolAddrGlobal(ir_->module, "_end", "_d_execBssEndAddr");
     }
   }
 

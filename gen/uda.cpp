@@ -39,7 +39,8 @@ bool isMagicModule(const ModuleDeclaration *moduleDecl, const Identifier *id) {
     return false;
   }
 
-  if (moduleDecl->packages->dim != 1 || (*moduleDecl->packages)[0] != Id::ldc) {
+  if (moduleDecl->packages->length != 1 ||
+      (*moduleDecl->packages)[0] != Id::ldc) {
     return false;
   }
   return true;
@@ -75,7 +76,7 @@ StructLiteralExp *getLdcAttributesStruct(Expression *attr) {
 }
 
 void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
-  if (sle->elements->dim != elemTypes.size()) {
+  if (sle->elements->length != elemTypes.size()) {
     sle->error("unexpected field count in `ldc.%s.%s`; does druntime not "
                "match compiler version?",
                sle->sd->getModule()->md->id->toChars(),
@@ -83,7 +84,7 @@ void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
     fatal();
   }
 
-  for (size_t i = 0; i < sle->elements->dim; ++i) {
+  for (size_t i = 0; i < sle->elements->length; ++i) {
     if ((*sle->elements)[i]->type->toBasetype() != elemTypes[i]) {
       sle->error("invalid field type in `ldc.%s.%s`; does druntime not "
                  "match compiler version?",
@@ -125,20 +126,18 @@ sinteger_t getIntElem(StructLiteralExp *sle, size_t idx) {
   return arg->toInteger();
 }
 
-/// Returns a null-terminated string
-const char *getStringElem(StructLiteralExp *sle, size_t idx) {
-  auto arg = (*sle->elements)[idx];
-  if (arg && arg->op == TOKstring) {
-    auto strexp = static_cast<StringExp *>(arg);
-    assert(strexp->sz == 1);
-    return strexp->toStringz();
+llvm::StringRef getStringElem(StructLiteralExp *sle, size_t idx) {
+  if (auto arg = (*sle->elements)[idx]) {
+    if (auto strexp = arg->isStringExp()) {
+      DString str = strexp->peekString();
+      return {str.ptr, str.length};
+    }
   }
   // Default initialized element (arg->op == TOKnull)
-  return "";
+  return {};
 }
 
-/// Returns a null-terminated string
-const char *getFirstElemString(StructLiteralExp *sle) {
+llvm::StringRef getFirstElemString(StructLiteralExp *sle) {
   return getStringElem(sle, 0);
 }
 
@@ -254,11 +253,10 @@ void applyAttrLLVMFastMathFlag(StructLiteralExp *sle, IrFunction *irFunc) {
   } else if (value == "arcp") {
     irFunc->FMF.setAllowReciprocal();
   } else {
-    // `value` is a null-terminated returned from getStringElem so can be passed
-    // to warning("... %s ...").
     sle->warning(
-        "ignoring unrecognized flag parameter `%s` for `@ldc.attributes.%s`",
-        value.data(), sle->sd->ident->toChars());
+        "ignoring unrecognized flag parameter `%.*s` for `@ldc.attributes.%s`",
+        static_cast<int>(value.size()), value.data(),
+        sle->sd->ident->toChars());
   }
 }
 
@@ -282,8 +280,9 @@ void applyAttrOptStrategy(StructLiteralExp *sle, IrFunction *irFunc) {
     func->addFnAttr(llvm::Attribute::MinSize);
   } else {
     sle->warning(
-        "ignoring unrecognized parameter `%s` for `@ldc.attributes.%s`",
-        value.data(), sle->sd->ident->toChars());
+        "ignoring unrecognized parameter `%.*s` for `@ldc.attributes.%s`",
+        static_cast<int>(value.size()), value.data(),
+        sle->sd->ident->toChars());
   }
 }
 
@@ -301,7 +300,7 @@ void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func,
   // string and simply passes all to llvm.
 
   checkStructElems(sle, {Type::tstring});
-  std::string targetspec = getFirstElemString(sle);
+  llvm::StringRef targetspec = getFirstElemString(sle);
 
   if (targetspec.empty() || targetspec == "default")
     return;
@@ -311,7 +310,7 @@ void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func,
 
   if (func->hasFnAttribute("target-features")) {
     auto attr = func->getFnAttribute("target-features");
-    features.push_back(attr.getValueAsString());
+    features.push_back(std::string(attr.getValueAsString()));
   }
 
   llvm::SmallVector<llvm::StringRef, 4> fragments;

@@ -82,7 +82,7 @@ version (IN_LLVM)
     HdrGenState hgs;
     hgs.hdrgen = true;
     toCBuffer(m, &buf, &hgs);
-    writeFile(m.loc, m.hdrfile.toString(), buf.peekSlice());
+    writeFile(m.loc, m.hdrfile.toString(), buf[]);
 }
 
 /**
@@ -1607,10 +1607,20 @@ public:
             buf.writeByte(' ');
         }
         TypeFunction tf = cast(TypeFunction)f.type;
-        // Don't print tf.mod, tf.trust, and tf.linkage
+
         if (!f.inferRetType && tf.next)
             typeToBuffer(tf.next, null, buf, hgs);
         parametersToBuffer(tf.parameterList, buf, hgs);
+
+        // https://issues.dlang.org/show_bug.cgi?id=20074
+        void printAttribute(string str)
+        {
+            buf.writeByte(' ');
+            buf.writestring(str);
+        }
+        tf.attributesApply(&printAttribute);
+
+
         CompoundStatement cs = f.fbody.isCompoundStatement();
         Statement s1;
         if (f.semanticRun >= PASS.semantic3done && cs)
@@ -1619,7 +1629,7 @@ public:
         }
         else
             s1 = !cs ? f.fbody : null;
-        ReturnStatement rs = s1 ? s1.isReturnStatement() : null;
+        ReturnStatement rs = s1 ? s1.endsWithReturnStatement() : null;
         if (rs && rs.exp)
         {
             buf.writestring(" => ");
@@ -1799,13 +1809,13 @@ public:
                 // BUG: need to cast(dchar)
                 if (cast(uinteger_t)v > 0xFF)
                 {
-                    buf.printf("'\\U%08x'", v);
+                    buf.printf("'\\U%08llx'", cast(long)v);
                     break;
                 }
                 goto case;
             case Tchar:
                 {
-                    size_t o = buf.offset;
+                    size_t o = buf.length;
                     if (v == '\'')
                         buf.writestring("'\\''");
                     else if (isprint(cast(int)v) && v != '\\')
@@ -1828,19 +1838,17 @@ public:
                 break;
             case Tuns8:
                 buf.writestring("cast(ubyte)");
-                goto L3;
+                goto case Tuns32;
             case Tuns16:
                 buf.writestring("cast(ushort)");
-                goto L3;
+                goto case Tuns32;
             case Tuns32:
-            L3:
                 buf.printf("%uu", cast(uint)v);
                 break;
             case Tint64:
                 buf.printf("%lldL", v);
                 break;
             case Tuns64:
-            L4:
                 buf.printf("%lluLU", v);
                 break;
             case Tbool:
@@ -1850,12 +1858,10 @@ public:
                 buf.writestring("cast(");
                 buf.writestring(t.toChars());
                 buf.writeByte(')');
-                if (target.ptrsize == 4)
-                    goto L3;
-                else if (target.ptrsize == 8)
-                    goto L4;
+                if (target.ptrsize == 8)
+                    goto case Tuns64;
                 else
-                    assert(0);
+                    goto case Tuns32;
             default:
                 /* This can happen if errors, such as
                  * the type is painted on like in fromConstInitializer().
@@ -1900,6 +1906,9 @@ public:
                 CTFloat.sprint(buffer.ptr, 'a', value);
         }
         buf.writestring(buffer.ptr);
+        if (buffer.ptr[strlen(buffer.ptr) - 1] == '.')
+            buf.remove(buf.length() - 1, 1);
+
         if (type)
         {
             Type t = type.toBasetype();
@@ -1971,7 +1980,7 @@ public:
     override void visit(StringExp e)
     {
         buf.writeByte('"');
-        const o = buf.offset;
+        const o = buf.length;
         for (size_t i = 0; i < e.len; i++)
         {
             const c = e.charAt(i);
@@ -2628,15 +2637,15 @@ public:
     }
 }
 
-void toCBuffer(Statement s, OutBuffer* buf, HdrGenState* hgs)
+void toCBuffer(const Statement s, OutBuffer* buf, HdrGenState* hgs)
 {
     scope v = new StatementPrettyPrintVisitor(buf, hgs);
-    s.accept(v);
+    (cast() s).accept(v);
 }
 
-void toCBuffer(Type t, OutBuffer* buf, const Identifier ident, HdrGenState* hgs)
+void toCBuffer(const Type t, OutBuffer* buf, const Identifier ident, HdrGenState* hgs)
 {
-    typeToBuffer(t, ident, buf, hgs);
+    typeToBuffer(cast() t, ident, buf, hgs);
 }
 
 void toCBuffer(Dsymbol s, OutBuffer* buf, HdrGenState* hgs)
@@ -2646,17 +2655,17 @@ void toCBuffer(Dsymbol s, OutBuffer* buf, HdrGenState* hgs)
 }
 
 // used from TemplateInstance::toChars() and TemplateMixin::toChars()
-void toCBufferInstance(TemplateInstance ti, OutBuffer* buf, bool qualifyTypes = false)
+void toCBufferInstance(const TemplateInstance ti, OutBuffer* buf, bool qualifyTypes = false)
 {
     HdrGenState hgs;
     hgs.fullQual = qualifyTypes;
     scope v = new DsymbolPrettyPrintVisitor(buf, &hgs);
-    v.visit(ti);
+    v.visit(cast() ti);
 }
 
-void toCBuffer(Initializer iz, OutBuffer* buf, HdrGenState* hgs)
+void toCBuffer(const Initializer iz, OutBuffer* buf, HdrGenState* hgs)
 {
-    initializerToBuffer(iz, buf, hgs);
+    initializerToBuffer(cast() iz, buf, hgs);
 }
 
 bool stcToBuffer(OutBuffer* buf, StorageClass stc)
@@ -2748,28 +2757,12 @@ string stcToString(ref StorageClass stc)
     return null;
 }
 
-extern (C++) const(char)* stcToChars(ref StorageClass stc)
+const(char)* stcToChars(ref StorageClass stc)
 {
     const s = stcToString(stc);
     return &s[0];  // assume 0 terminated
 }
 
-
-extern (C++) void trustToBuffer(OutBuffer* buf, TRUST trust)
-{
-    buf.writestring(trustToString(trust));
-}
-
-/**
- * Returns:
- *   a human readable representation of `trust`,
- *   which is the token `trust` corresponds to
- */
-extern (C++) const(char)* trustToChars(TRUST trust)
-{
-    /// Works because we return a literal
-    return trustToString(trust).ptr;
-}
 
 /// Ditto
 extern (D) string trustToString(TRUST trust) pure nothrow
@@ -2798,7 +2791,7 @@ private void linkageToBuffer(OutBuffer* buf, LINK linkage)
     }
 }
 
-extern (C++) const(char)* linkageToChars(LINK linkage)
+const(char)* linkageToChars(LINK linkage)
 {
     /// Works because we return a literal
     return linkageToString(linkage).ptr;
@@ -2827,7 +2820,7 @@ string linkageToString(LINK linkage) pure nothrow
     }
 }
 
-extern (C++) void protectionToBuffer(OutBuffer* buf, Prot prot)
+void protectionToBuffer(OutBuffer* buf, Prot prot)
 {
     buf.writestring(protectionToString(prot.kind));
     if (prot.kind == Prot.Kind.package_ && prot.pkg)
@@ -2842,7 +2835,7 @@ extern (C++) void protectionToBuffer(OutBuffer* buf, Prot prot)
  * Returns:
  *   a human readable representation of `kind`
  */
-extern (C++) const(char)* protectionToChars(Prot.Kind kind)
+const(char)* protectionToChars(Prot.Kind kind)
 {
     // Null terminated because we return a literal
     return protectionToString(kind).ptr;
@@ -2884,10 +2877,10 @@ void functionToBufferWithIdent(TypeFunction tf, OutBuffer* buf, const(char)* ide
     visitFuncIdentWithPostfix(tf, ident.toDString(), buf, &hgs);
 }
 
-void toCBuffer(Expression e, OutBuffer* buf, HdrGenState* hgs)
+void toCBuffer(const Expression e, OutBuffer* buf, HdrGenState* hgs)
 {
     scope v = new ExpressionPrettyPrintVisitor(buf, hgs);
-    e.accept(v);
+    (cast() e).accept(v);
 }
 
 /**************************************************
@@ -2906,10 +2899,10 @@ void argExpTypesToCBuffer(OutBuffer* buf, Expressions* arguments)
     }
 }
 
-void toCBuffer(TemplateParameter tp, OutBuffer* buf, HdrGenState* hgs)
+void toCBuffer(const TemplateParameter tp, OutBuffer* buf, HdrGenState* hgs)
 {
     scope v = new TemplateParameterPrettyPrintVisitor(buf, hgs);
-    tp.accept(v);
+    (cast() tp).accept(v);
 }
 
 void arrayObjectsToBuffer(OutBuffer* buf, Objects* objects)
@@ -3127,11 +3120,13 @@ private void sizeToBuffer(Expression e, OutBuffer* buf, HdrGenState* hgs)
         const dinteger_t uval = ex.op == TOK.int64 ? ex.toInteger() : cast(dinteger_t)-1;
         if (cast(sinteger_t)uval >= 0)
         {
-            dinteger_t sizemax;
-            if (target.ptrsize == 4)
-                sizemax = 0xFFFFFFFFU;
-            else if (target.ptrsize == 8)
+            dinteger_t sizemax = void;
+            if (target.ptrsize == 8)
                 sizemax = 0xFFFFFFFFFFFFFFFFUL;
+            else if (target.ptrsize == 4)
+                sizemax = 0xFFFFFFFFU;
+            else if (target.ptrsize == 2)
+                sizemax = 0xFFFFU;
             else
                 assert(0);
             if (uval <= sizemax && uval <= 0x7FFFFFFFFFFFFFFFUL)
@@ -3160,6 +3155,11 @@ private void expToBuffer(Expression e, PREC pr, OutBuffer* buf, HdrGenState* hgs
     {
         if (precedence[e.op] == PREC.zero)
             printf("precedence not defined for token '%s'\n", Token.toChars(e.op));
+    }
+    if (e.op == 0xFF)
+    {
+        buf.writestring("<FF>");
+        return;
     }
     assert(precedence[e.op] != PREC.zero);
     assert(pr != PREC.zero);
@@ -3734,6 +3734,13 @@ private void typeToBufferx(Type t, OutBuffer* buf, HdrGenState* hgs)
         buf.writestring("typeof(null)");
     }
 
+    void visitMixin(TypeMixin t)
+    {
+        buf.writestring("mixin(");
+        argsToBuffer(t.exps, buf, hgs, null);
+        buf.writeByte(')');
+    }
+
     switch (t.ty)
     {
         default:        return t.isTypeBasic() ?
@@ -3760,5 +3767,6 @@ private void typeToBufferx(Type t, OutBuffer* buf, HdrGenState* hgs)
         case Ttuple:     return visitTuple (cast(TypeTuple)t);
         case Tslice:     return visitSlice(cast(TypeSlice)t);
         case Tnull:      return visitNull(cast(TypeNull)t);
+        case Tmixin:     return visitMixin(cast(TypeMixin)t);
     }
 }

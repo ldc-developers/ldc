@@ -9,6 +9,7 @@
 
 #include "dmd/root/ctfloat.h"
 #include "gen/llvm.h"
+#include "llvm/Support/Error.h"
 
 using llvm::APFloat;
 

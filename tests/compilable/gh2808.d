@@ -1,6 +1,6 @@
 // RUN: %ldc -c %s
 
-void foo()
+void gh2808()
 {
     extern(C) void DoubleArrayToAnyArray(void* arg0)
     {
@@ -9,4 +9,15 @@ void foo()
     auto local = 123;
     auto arg = () { return local; }();
     DoubleArrayToAnyArray(null);
+}
+
+void gh3234()
+{
+    int i;
+    void nested() { ++i; }
+
+    extern (C++) class Visitor
+    {
+        void visit() { nested(); }
+    }
 }

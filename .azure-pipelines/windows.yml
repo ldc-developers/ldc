@@ -57,20 +57,21 @@ steps:
     :: Download & extract LDC-flavoured LLVM
     set ASSERTS_SUFFIX=
     if not "%BUILD_SOURCEBRANCH:~0,10%" == "refs/tags/" ( set ASSERTS_SUFFIX=-withAsserts)
-    curl -L -o llvm.7z https://github.com/ldc-developers/llvm/releases/download/ldc-v%LLVM_VERSION%/llvm-%LLVM_VERSION%-windows-%ARCH%%ASSERTS_SUFFIX%.7z 2>&1
+    curl -L -o llvm.7z https://github.com/ldc-developers/llvm-project/releases/download/ldc-v%LLVM_VERSION%/llvm-%LLVM_VERSION%-windows-%ARCH%%ASSERTS_SUFFIX%.7z 2>&1
     mkdir llvm
     cd llvm
     7z x ../llvm.7z > nul
     cd ..
     :: Download & install clang
-    curl -L -o clang.exe https://github.com/llvm/llvm-project/releases/download/llvmorg-%CLANG_VERSION%/LLVM-%CLANG_VERSION%-win64.exe 2>&1
+    curl -L -o clang.exe http://releases.llvm.org/%CLANG_VERSION%/LLVM-%CLANG_VERSION%-win64.exe 2>&1
     clang.exe /S
   displayName: Install prerequisites
 - script: |
     echo on
     cd ..
     :: LLVM bin dir in PATH required for lld-link.exe
-    set PATH=%CD%\llvm\bin;C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;%PATH%
+    :: git's usr/bin required to make GNU find precede MS one in C:\Windows\System32
+    set PATH=%CD%\llvm\bin;C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;C:\Program Files\Git\usr\bin;%PATH%
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     echo on
     cmake --version
@@ -78,14 +79,14 @@ steps:
     clang-cl --version
     mkdir bootstrap-ldc
     cd bootstrap-ldc
-    cmake -G Ninja %BUILD_SOURCESDIRECTORY% -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=%CD%/../llvm -DD_COMPILER=%CD%/../host-ldc/bin/ldmd2
+    cmake -G Ninja %BUILD_SOURCESDIRECTORY% -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=%CD%/../llvm -DD_COMPILER=%CD%/../host-ldc/bin/ldmd2 -DBUILD_LTO_LIBS=ON
     ninja -j2 || exit /b
     bin\ldc2 --version
   displayName: Build bootstrap LDC
 - script: |
     echo on
     cd ..
-    set PATH=%CD%\llvm\bin;C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;%PATH%
+    set PATH=%CD%\llvm\bin;C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;C:\Program Files\Git\usr\bin;%PATH%
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     echo on
     set INSTALL_DIR=%CD%/install
@@ -148,7 +149,7 @@ steps:
 - script: |
     cd ..
     cp llvm/bin/lld-link.exe installed/bin
-    curl -L -o mingw-w64-libs.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v6.0.0/mingw-w64-libs-v6.0.0.7z 2>&1
+    curl -L -o mingw-w64-libs.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v7.0.0-rc.1/mingw-w64-libs-v7.0.0-rc.1.7z 2>&1
     mkdir mingw-w64-libs
     cd mingw-w64-libs
     7z x ../mingw-w64-libs.7z > nul
@@ -177,7 +178,6 @@ steps:
     git clone --recursive https://github.com/dlang/dub.git 2>&1
     cd dub
     powershell -c "git checkout \"$(cat %BUILD_SOURCESDIRECTORY%/packaging/dub_version -Raw)\"" 2>&1
-    powershell -c "(cat build.cmd).replace('curl.lib', '%CD%/../installed/lib/curl.lib') | Set-Content build.cmd"
     call build.cmd 2>&1
     cp bin/dub.exe ../installed/bin
     ..\installed\bin\dub --version
@@ -187,9 +187,9 @@ steps:
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     git clone --recursive https://github.com/dlang/tools.git dlang-tools 2>&1
     cd dlang-tools
-    ..\installed\bin\ldmd2 -w rdmd.d
-    ..\installed\bin\ldmd2 -w ddemangle.d
-    ..\installed\bin\ldmd2 -w DustMite\dustmite.d DustMite\splitter.d
+    ..\installed\bin\ldmd2 -w -de -dip1000 rdmd.d
+    ..\installed\bin\ldmd2 -w -de -dip1000 ddemangle.d
+    ..\installed\bin\ldmd2 -w -de -dip1000 DustMite\dustmite.d DustMite\splitter.d
     cp *.exe ../installed/bin
   displayName: Build & copy dlang tools
 - script: |
@@ -204,8 +204,5 @@ steps:
     mkdir artifacts
     7z a -mx=9 artifacts/%ARTIFACT_NAME%.7z %ARTIFACT_NAME% > nul
   displayName: Pack installation dir
-- task: PublishPipelineArtifact@0
-  inputs:
-    artifactName: windows-$(ARCH)
-    targetPath: ../artifacts
-  displayName: Publish artifact
+- publish: ../artifacts
+  artifact: windows-$(ARCH)

@@ -14,7 +14,8 @@ commonSteps: &commonSteps
               git-core cmake ninja-build g++-multilib \
               llvm-dev zlib1g-dev libclang-common-$LIBCLANG_COMMON_VERSION-dev \
               libcurl4 libcurl4:i386 \
-              curl gdb python-pip tzdata unzip zip
+              curl gdb python-pip tzdata unzip zip \
+              $EXTRA_APT_PACKAGES
             # Use ld.gold per default, so that LTO is tested
             update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
           else
@@ -33,7 +34,7 @@ commonSteps: &commonSteps
             python get-pip.py --user
             rm get-pip.py
             # Download & extract LDC-flavoured LLVM with enabled assertions
-            curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-osx-x86_64-withAsserts.tar.xz
+            curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-osx-x86_64-withAsserts.tar.xz
             mkdir llvm
             tar -xf llvm.tar.xz --strip 1 -C llvm
             rm llvm.tar.xz
@@ -56,11 +57,6 @@ commonSteps: &commonSteps
         name: Build LDC & LDC D unittests & defaultlib unittest runners
         command: |
           set -x
-          # FIXME: disable parallel GC marking for 64-bit unittest runners on Linux
-          #        (unclear segfaults with shared Phobos testrunners, see #3093)
-          if [ "$CI_OS" = "linux" ]; then
-            echo 'version (X86_64) extern(C) __gshared string[] rt_options = [ "gcopt=parallel:0" ];' >> runtime/druntime/src/test_runner.d
-          fi
           cd ..
           cmake --version
           ninja --version
@@ -109,34 +105,35 @@ jobs:
     environment:
       - CI_OS: linux
       - LIBCLANG_COMMON_VERSION: "6.0"
-      - HOST_LDC_VERSION: 1.14.0
+      - HOST_LDC_VERSION: 1.19.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
-  Ubuntu-rolling-multilib-sharedLibsOnly:
+  Ubuntu-rolling-multilib-sharedLibsOnly-gdmd:
     <<: *commonSteps
     docker:
       - image: ubuntu:rolling
     environment:
       - CI_OS: linux
-      - LIBCLANG_COMMON_VERSION: "7"
-      - HOST_LDC_VERSION: 1.14.0
-      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
+      - LIBCLANG_COMMON_VERSION: "9"
+      - EXTRA_APT_PACKAGES: gdmd
+      - HOST_LDC_VERSION: 1.19.0
+      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=gdmd"
   macOS-x64:
     <<: *commonSteps
     macos:
-      xcode: "9.2.0"
+      xcode: "11.3.1"
     environment:
       - CI_OS: osx
-      - LLVM_VERSION: 8.0.0
-      - HOST_LDC_VERSION: 1.14.0
+      - LLVM_VERSION: 9.0.1
+      - HOST_LDC_VERSION: 1.19.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
   macOS-x64-sharedLibsOnly:
     <<: *commonSteps
     macos:
-      xcode: "9.2.0"
+      xcode: "11.3.1"
     environment:
       - CI_OS: osx
-      - LLVM_VERSION: 8.0.0
-      - HOST_LDC_VERSION: 1.14.0
+      - LLVM_VERSION: 9.0.1
+      - HOST_LDC_VERSION: 1.19.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON"
 
 workflows:
@@ -144,6 +141,6 @@ workflows:
   build:
     jobs:
       - Ubuntu-18.04-multilib-rtSanitizers
-      - Ubuntu-rolling-multilib-sharedLibsOnly
+      - Ubuntu-rolling-multilib-sharedLibsOnly-gdmd
       - macOS-x64
       - macOS-x64-sharedLibsOnly

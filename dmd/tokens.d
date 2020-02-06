@@ -22,8 +22,7 @@ import dmd.root.outbuffer;
 import dmd.root.rmem;
 import dmd.utf;
 
-// IN_LLVM: ubyte -> int due to https://issues.dlang.org/show_bug.cgi?id=19658
-enum TOK : int
+enum TOK : ubyte
 {
     reserved,
 
@@ -221,11 +220,10 @@ enum TOK : int
     lazy_,
     auto_,
     package_,
-    manifest,
     immutable_,
 
     // Statements
-    if_ = 183,
+    if_ = 182,
     else_,
     while_,
     for_,
@@ -251,7 +249,7 @@ enum TOK : int
     onScopeSuccess,
 
     // Contracts
-    invariant_ = 207,
+    invariant_ = 206,
 
     // Testing
     unittest_,
@@ -261,7 +259,7 @@ enum TOK : int
     ref_,
     macro_,
 
-    parameters = 212,
+    parameters = 211,
     traits,
     overloadSet,
     pure_,
@@ -281,7 +279,7 @@ enum TOK : int
     vector,
     pound,
 
-    interval = 231,
+    interval = 230,
     voidExpression,
     cantExpression,
     showCtfeContext,
@@ -431,8 +429,8 @@ extern (C++) struct Token
     Loc loc;
     const(char)* ptr; // pointer to first character of this token within buffer
     TOK value;
-    const(char)* blockComment; // doc comment string prior to this token
-    const(char)* lineComment; // doc comment for previous token
+    const(char)[] blockComment; // doc comment string prior to this token
+    const(char)[] lineComment; // doc comment for previous token
 
     union
     {
@@ -452,7 +450,7 @@ extern (C++) struct Token
         Identifier ident;
     }
 
-    extern (D) private __gshared immutable string[TOK.max_] tochars =
+    extern (D) private static immutable string[TOK.max_] tochars =
     [
         // Keywords
         TOK.this_: "this",
@@ -691,7 +689,6 @@ extern (C++) struct Token
 
         TOK.halt: "halt",
         TOK.hexadecimalString: "xstring",
-        TOK.manifest: "manifest",
 
         TOK.interval: "interval",
         TOK.voidExpression: "voidexp",
@@ -738,7 +735,7 @@ nothrow:
      */
     void setString(const(char)* ptr, size_t length)
     {
-        auto s = cast(char*)mem.xmalloc(length + 1);
+        auto s = cast(char*)mem.xmalloc_noscan(length + 1);
         memcpy(s, ptr, length);
         s[length] = 0;
         ustring = s;
@@ -753,7 +750,7 @@ nothrow:
      */
     void setString(const ref OutBuffer buf)
     {
-        setString(cast(const(char)*)buf.data, buf.offset);
+        setString(cast(const(char)*)buf[].ptr, buf.length);
     }
 
     /****
@@ -817,7 +814,7 @@ nothrow:
                 for (size_t i = 0; i < len;)
                 {
                     dchar c;
-                    utf_decodeChar(ustring, len, i, c);
+                    utf_decodeChar(ustring[0 .. len], i, c);
                     switch (c)
                     {
                     case 0:
@@ -845,7 +842,8 @@ nothrow:
                 buf.writeByte('"');
                 if (postfix)
                     buf.writeByte(postfix);
-                p = buf.extractChars();
+                buf.writeByte(0);
+                p = buf.extractSlice().ptr;
             }
             break;
         case TOK.hexadecimalString:
@@ -863,7 +861,7 @@ nothrow:
                 if (postfix)
                     buf.writeByte(postfix);
                 buf.writeByte(0);
-                p = buf.extractData();
+                p = buf.extractSlice().ptr;
                 break;
             }
         case TOK.identifier:
@@ -903,12 +901,12 @@ nothrow:
         return p;
     }
 
-    static const(char)* toChars(TOK value)
+    static const(char)* toChars(ubyte value)
     {
         return toString(value).ptr;
     }
 
-    extern (D) static string toString(TOK value) pure nothrow @nogc @safe
+    extern (D) static string toString(ubyte value) pure nothrow @nogc @safe
     {
         return tochars[value];
     }

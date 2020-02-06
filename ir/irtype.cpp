@@ -48,23 +48,27 @@ LLType *IrTypeBasic::getComplexType(llvm::LLVMContext &ctx, LLType *type) {
 
 namespace {
 llvm::Type *getReal80Type(llvm::LLVMContext &ctx) {
-  llvm::Triple::ArchType const a = global.params.targetTriple->getArch();
-  bool const anyX86 = (a == llvm::Triple::x86) || (a == llvm::Triple::x86_64);
-  bool const anyAarch64 =
+  const auto &triple = *global.params.targetTriple;
+  const auto a = triple.getArch();
+  const bool anyX86 = (a == llvm::Triple::x86) || (a == llvm::Triple::x86_64);
+  const bool anyAarch64 =
       (a == llvm::Triple::aarch64) || (a == llvm::Triple::aarch64_be);
-  bool const isAndroid =
-      global.params.targetTriple->getEnvironment() == llvm::Triple::Android;
+  const bool isAndroid = triple.getEnvironment() == llvm::Triple::Android;
 
-  // only x86 has 80bit float - but no support with MS C Runtime!
-  if (anyX86 && !global.params.targetTriple->isWindowsMSVCEnvironment() &&
-      !isAndroid) {
+  // Only x86 has 80-bit extended precision.
+  // MSVC and Android/x86 use double precision, Android/x64 quadruple.
+  if (anyX86 && !triple.isWindowsMSVCEnvironment() && !isAndroid) {
     return llvm::Type::getX86_FP80Ty(ctx);
   }
 
-  if (anyAarch64 || (isAndroid && a == llvm::Triple::x86_64)) {
+  // AArch64 targets except Darwin (64-bit) use 128-bit quadruple precision.
+  // FIXME: PowerPC, SystemZ, ...
+  if ((anyAarch64 && !triple.isOSDarwin()) ||
+      (isAndroid && a == llvm::Triple::x86_64)) {
     return llvm::Type::getFP128Ty(ctx);
   }
 
+  // 64-bit double precision for all other targets.
   return llvm::Type::getDoubleTy(ctx);
 }
 }

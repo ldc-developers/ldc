@@ -2352,12 +2352,11 @@ struct AsmProcessor {
 
       case Arg_Memory:
         // Peel off one layer of explicitly taking the address, if present.
-        if (e->op == TOKaddress) {
-          e = static_cast<AddrExp *>(e)->e1;
+        if (auto ae = e->isAddrExp()) {
+          e = ae->e1;
         }
 
-        if (e->op == TOKvar) {
-          VarExp *v = (VarExp *)e;
+        if (auto v = e->isVarExp()) {
           if (VarDeclaration *vd = v->var->isVarDeclaration()) {
             if (!vd->isDataseg()) {
               stmt->error("only global variables can be referenced by "
@@ -2423,9 +2422,8 @@ struct AsmProcessor {
     bool is_localsize = false;
     bool really_have_symbol = false;
 
-    if (operand->symbolDisplacement.dim) {
-      is_localsize =
-          isLocalSize((Expression *)operand->symbolDisplacement.data[0]);
+    if (operand->symbolDisplacement.length) {
+      is_localsize = isLocalSize(operand->symbolDisplacement[0]);
       really_have_symbol = !is_localsize;
     }
 
@@ -2873,12 +2871,11 @@ struct AsmProcessor {
           return false;
         }
 
-        if (operand->symbolDisplacement.dim &&
-            isLocalSize((Expression *)operand->symbolDisplacement.data[0])) {
+        if (operand->symbolDisplacement.length &&
+            isLocalSize(operand->symbolDisplacement[0])) {
           // handle __LOCAL_SIZE, which in this constant, is an immediate
           // should do this in slotexp..
-          addOperand("$", Arg_LocalSize,
-                     (Expression *)operand->symbolDisplacement.data[0],
+          addOperand("$", Arg_LocalSize, operand->symbolDisplacement[0],
                      asmcode);
           if (operand->constDisplacement) {
             insnTemplate << '+';
@@ -2887,11 +2884,9 @@ struct AsmProcessor {
           }
         }
 
-        if (operand->symbolDisplacement.dim) {
+        if (operand->symbolDisplacement.length) {
           fmt = "$a";
-          addOperand("$", Arg_Pointer,
-                     (Expression *)operand->symbolDisplacement.data[0],
-                     asmcode);
+          addOperand("$", Arg_Pointer, operand->symbolDisplacement[0], asmcode);
 
           if (operand->constDisplacement) {
             insnTemplate << '+';
@@ -2938,9 +2933,8 @@ struct AsmProcessor {
           Logger::cout() << "segmentPrefix: " << operand->segmentPrefix << '\n';
           Logger::cout() << "constDisplacement: " << operand->constDisplacement
                          << '\n';
-          for (unsigned i = 0; i < operand->symbolDisplacement.dim; i++) {
-            Expression *expr =
-                static_cast<Expression *>(operand->symbolDisplacement.data[i]);
+          for (unsigned i = 0; i < operand->symbolDisplacement.length; i++) {
+            Expression *expr = operand->symbolDisplacement[i];
             Logger::cout() << "symbolDisplacement[" << i
                            << "] = " << expr->toChars() << '\n';
           }
@@ -2955,10 +2949,10 @@ struct AsmProcessor {
           }
         }
         if ((operand->segmentPrefix != Reg_Invalid &&
-             operand->symbolDisplacement.dim == 0) ||
+             operand->symbolDisplacement.length == 0) ||
             operand->constDisplacement) {
           insnTemplate << operand->constDisplacement;
-          if (operand->symbolDisplacement.dim) {
+          if (operand->symbolDisplacement.length) {
             insnTemplate << '+';
           }
           operand->constDisplacement = 0;
@@ -2969,12 +2963,12 @@ struct AsmProcessor {
             asmcode->clobbersMemory = 1;
           }
         }
-        if (operand->symbolDisplacement.dim) {
-          Expression *e = (Expression *)operand->symbolDisplacement.data[0];
+        if (operand->symbolDisplacement.length) {
+          Expression *e = operand->symbolDisplacement[0];
           Declaration *decl = nullptr;
 
-          if (e->op == TOKvar) {
-            decl = ((VarExp *)e)->var;
+          if (auto ve = e->isVarExp()) {
+            decl = ve->var;
           }
 
           if (operand->baseReg != Reg_Invalid && decl && !decl->isDataseg()) {
@@ -3033,8 +3027,8 @@ struct AsmProcessor {
             if (isDollar(e)) {
               stmt->error("dollar labels are not supported");
               asmcode->dollarLabel = 1;
-            } else if (e->op == TOKdsymbol) {
-              LabelDsymbol *lbl = static_cast<DsymbolExp *>(e)->s->isLabel();
+            } else if (auto dse = e->isDsymbolExp()) {
+              LabelDsymbol *lbl = dse->s->isLabel();
               stmt->isBranchToLabel = lbl;
 
               use_star = false;
@@ -3106,12 +3100,12 @@ struct AsmProcessor {
   bool isRegExp(Expression *exp) { return exp->op == TOKmod; } // ewww.%%
   bool isLocalSize(Expression *exp) {
     // cleanup: make a static var
-    return exp->op == TOKidentifier &&
-           ((IdentifierExp *)exp)->ident == Id::__LOCAL_SIZE;
+    auto ie = exp->isIdentifierExp();
+    return ie && ie->ident == Id::__LOCAL_SIZE;
   }
   bool isDollar(Expression *exp) {
-    return exp->op == TOKidentifier &&
-           ((IdentifierExp *)exp)->ident == Id::dollar;
+    auto ie = exp->isIdentifierExp();
+    return ie && ie->ident == Id::dollar;
   }
 
   Expression *newRegExp(int regno) {
@@ -3148,8 +3142,8 @@ struct AsmProcessor {
      */
 
     bool is_offset = false;
-    if (exp->op == TOKaddress) {
-      exp = ((AddrExp *)exp)->e1;
+    if (auto ae = exp->isAddrExp()) {
+      exp = ae->e1;
       is_offset = true;
     }
 
@@ -3181,8 +3175,8 @@ struct AsmProcessor {
           stmt->error("too many registers memory operand");
         }
       }
-    } else if (exp->op == TOKvar) {
-      VarDeclaration *v = ((VarExp *)exp)->var->isVarDeclaration();
+    } else if (auto ve = exp->isVarExp()) {
+      VarDeclaration *v = ve->var->isVarDeclaration();
 
       if (v && v->storage_class & STCfield) {
         operand->constDisplacement += v->offset;
@@ -3201,7 +3195,7 @@ struct AsmProcessor {
                   : static_cast<PtrType>(v->type->size(Loc()));
         }
 
-        if (!operand->symbolDisplacement.dim) {
+        if (!operand->symbolDisplacement.length) {
           if (is_offset && !operand->inBracket) {
             operand->isOffset = 1;
           }
@@ -3213,7 +3207,7 @@ struct AsmProcessor {
     } else if (exp->op == TOKidentifier || exp->op == TOKdsymbol) {
       // %% localsize could be treated as a simple constant..
       // change to addSymbolDisp(e)
-      if (!operand->symbolDisplacement.dim) {
+      if (!operand->symbolDisplacement.length) {
         operand->symbolDisplacement.push(exp);
       } else {
         stmt->error("too many symbols in operand");
@@ -3890,17 +3884,13 @@ struct AsmProcessor {
   }
 
   void doData() {
-    stmt->error(
-        "Data definition directives inside inline asm are not supported yet.");
-// TODO: data instructions not implemented.
-#if 0
-    static const char * directives[] = { ".byte", ".short", ".long", ".long",
-                                         "", "", "" };
+    static const char *directives[] = {".byte", ".short", ".long", ".quad",
+                                       ".long", ".quad",  ".quad"};
 
-    machine_mode mode;
+    insnTemplate << directives[op - Op_db] << ' ';
 
-    insnTemplate->writestring(static_cast<char*>(directives[op - Op_db]));
-    insnTemplate->writebyte(' ');
+    const llvm::fltSemantics *realSemantics = nullptr;
+    unsigned realSizeInBits = 0;
 
     do {
       // DMD is pretty strict here, not even constant expressions are allowed..
@@ -3913,53 +3903,74 @@ struct AsmProcessor {
             token->value == TOKint64v || token->value == TOKuns64v) {
           // As per usual with GNU, assume at least 32-bit host
           if (op != Op_dl) {
-            insnTemplate->printf("%u", (d_uns32) token->unsvalue);
+            insnTemplate << static_cast<d_uns32>(token->unsvalue);
           } else {
-            // Output two .longS.  GAS has .quad, but would have to rely on 'L'
-            // format ..
-            // just need to use HOST_WIDE_INT_PRINT_DEC
-            insnTemplate->printf("%u,%u", (d_uns32) token->unsvalue,
-                                 (d_uns32) (token->unsvalue >> 32));
+            insnTemplate << token->unsvalue;
           }
         } else {
           stmt->error("expected integer constant");
         }
         break;
       case Op_df:
-        mode = SFmode;
-        goto do_float;
       case Op_dd:
-        mode = DFmode;
-        goto do_float;
       case Op_de:
-#ifndef TARGET_80387
-#define XFmode TFmode
-#endif
-        mode = XFmode; // not TFmode
-        // fallthrough
-      do_float:
         if (token->value == TOKfloat32v || token->value == TOKfloat64v ||
             token->value == TOKfloat80v) {
-          long words[3];
-          real_to_target(words, & token->floatvalue.rv(), mode);
-          // don't use directives..., just use .long like GCC
-          insnTemplate->printf(".long\t%u", words[0]);
-          if (mode != SFmode)
-          insnTemplate->printf(",%u", words[1]);
-          // DMD outputs 10 bytes, so we need to switch to .short here
-          if (mode == XFmode)
-          insnTemplate->printf("\n\t.short\t%u", words[2]);
+          if (op == Op_df) {
+            const float value = static_cast<float>(token->floatvalue);
+            insnTemplate << reinterpret_cast<const d_uns32 &>(value);
+          } else if (op == Op_dd) {
+            const double value = static_cast<double>(token->floatvalue);
+            insnTemplate << reinterpret_cast<const d_uns64 &>(value);
+          } else if (op == Op_de) {
+            llvm::APFloat value(0.0);
+            CTFloat::toAPFloat(token->floatvalue, value);
+
+            if (!realSemantics)
+              realSemantics = &DtoType(Type::tfloat80)->getFltSemantics();
+
+            if (&value.getSemantics() != realSemantics) {
+              bool ignored;
+              value.convert(*realSemantics, APFloat::rmNearestTiesToEven,
+                            &ignored);
+            }
+
+            const auto asInt = value.bitcastToAPInt();
+            if (realSizeInBits == 0)
+              realSizeInBits = asInt.getBitWidth();
+
+            auto *ptr = reinterpret_cast<const d_uns64 *>(asInt.getRawData());
+            insnTemplate << ptr[0];
+            if (realSizeInBits == 64) { // e.g., MSVC x86(_64)
+              // nothing left to do
+            } else if (realSizeInBits == 128) { // e.g., Android x64
+              insnTemplate << ',' << ptr[1];
+            } else if (realSizeInBits == 80) {
+              // DMD outputs 10 bytes, so we need to switch to .short here
+              insnTemplate << "\n\t.short "
+                           << *reinterpret_cast<const d_uns16 *>(ptr + 1);
+            } else {
+              stmt->error("unsupported target `real` size");
+            }
+          } else {
+            llvm_unreachable("unexpected op");
+          }
         } else {
           stmt->error("expected float constant");
         }
         break;
       default:
-        abort();
+        stmt->error("Unsupported data definition directive inside inline asm.");
+        break;
       }
 
       nextToken();
       if (token->value == TOKcomma) {
-        insnTemplate->writebyte(',');
+        if (op == Op_de && realSizeInBits == 80) {
+          insnTemplate << "\n\t.quad "; // switch from .short back to .quad
+        } else {
+          insnTemplate << ',';
+        }
         nextToken();
       } else if (token->value == TOKeof) {
         break;
@@ -3969,7 +3980,6 @@ struct AsmProcessor {
     } while (1);
 
     setAsmCode();
-#endif
   }
 };
 

@@ -85,7 +85,7 @@ LLValue *DtoStructEquals(TOK op, DValue *lhs, DValue *rhs) {
   }
 
   // empty struct? EQ always true, NE always false
-  if (static_cast<TypeStruct *>(t)->sym->fields.dim == 0) {
+  if (static_cast<TypeStruct *>(t)->sym->fields.length == 0) {
     return DtoConstBool(cmpop == llvm::ICmpInst::ICMP_EQ);
   }
 
@@ -115,9 +115,9 @@ LLType *DtoUnpaddedStructType(Type *dty) {
   VarDeclarations &fields = sty->sym->fields;
 
   std::vector<LLType *> types;
-  types.reserve(fields.dim);
+  types.reserve(fields.length);
 
-  for (unsigned i = 0; i < fields.dim; i++) {
+  for (unsigned i = 0; i < fields.length; i++) {
     LLType *fty;
     if (fields[i]->type->ty == Tstruct) {
       // Nested structs are the only members that can contain padding
@@ -143,7 +143,7 @@ LLValue *DtoUnpaddedStruct(Type *dty, LLValue *v) {
 
   LLValue *newval = llvm::UndefValue::get(DtoUnpaddedStructType(dty));
 
-  for (unsigned i = 0; i < fields.dim; i++) {
+  for (unsigned i = 0; i < fields.length; i++) {
     LLValue *fieldptr = DtoIndexAggregate(v, sty->sym, fields[i]);
     LLValue *fieldval;
     if (fields[i]->type->ty == Tstruct) {
@@ -163,7 +163,7 @@ void DtoPaddedStruct(Type *dty, LLValue *v, LLValue *lval) {
   TypeStruct *sty = static_cast<TypeStruct *>(dty);
   VarDeclarations &fields = sty->sym->fields;
 
-  for (unsigned i = 0; i < fields.dim; i++) {
+  for (unsigned i = 0; i < fields.length; i++) {
     LLValue *fieldptr = DtoIndexAggregate(lval, sty->sym, fields[i]);
     LLValue *fieldval = DtoExtractValue(v, i);
     if (fields[i]->type->ty == Tstruct) {

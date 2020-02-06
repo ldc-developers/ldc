@@ -28,16 +28,17 @@ bool parseStringExp(Expression *e, const char *&res) {
   if (e->op != TOKstring) {
     return false;
   }
-  auto s = static_cast<StringExp *>(e);
-  res = s->toStringz();
+  auto se = static_cast<StringExp *>(e);
+  auto size = (se->len + 1) * se->sz;
+  auto s = static_cast<char *>(mem.xmalloc(size));
+  se->writeTo(s, true);
+  res = s;
   return true;
 }
 
 bool parseIntExp(Expression *e, dinteger_t &res) {
-  IntegerExp *i = nullptr;
-
   e = e->optimize(WANTvalue);
-  if (e->op == TOKint64 && (i = static_cast<IntegerExp *>(e))) {
+  if (auto i = e->isIntegerExp()) {
     res = i->getInteger();
     return true;
   }
@@ -46,10 +47,11 @@ bool parseIntExp(Expression *e, dinteger_t &res) {
 
 bool parseBoolExp(Expression *e, bool &res) {
   e = e->optimize(WANTvalue);
-  if (e->op == TOKint64 && e->type->equals(Type::tbool)) {
-    IntegerExp *i = static_cast<IntegerExp *>(e);
-    res = i->isBool(true);
-    return true;
+  if (auto i = e->isIntegerExp()) {
+    if (e->type->equals(Type::tbool)) {
+      res = i->isBool(true);
+      return true;
+    }
   }
   return false;
 }
@@ -105,11 +107,11 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
   Identifier *ident = decl->ident;
   Expressions *args = decl->args;
   Expression *expr =
-      (args && args->dim > 0) ? expressionSemantic((*args)[0], sc) : nullptr;
+      (args && args->length > 0) ? expressionSemantic((*args)[0], sc) : nullptr;
 
   // pragma(LDC_intrinsic, "string") { funcdecl(s) }
   if (ident == Id::LDC_intrinsic) {
-    if (!args || args->dim != 1 || !parseStringExp(expr, arg1str)) {
+    if (!args || args->length != 1 || !parseStringExp(expr, arg1str)) {
       decl->error("requires exactly 1 string literal parameter");
       fatal();
     }
@@ -155,7 +157,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
       ident == Id::crt_constructor || ident == Id::crt_destructor) {
     dinteger_t priority;
     if (args) {
-      if (args->dim != 1 || !parseIntExp(expr, priority)) {
+      if (args->length != 1 || !parseIntExp(expr, priority)) {
         decl->error("requires at most 1 integer literal parameter");
         fatal();
       }
@@ -176,7 +178,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
 
   // pragma(LDC_no_typeinfo) { typedecl(s) }
   if (ident == Id::LDC_no_typeinfo) {
-    if (args && args->dim > 0) {
+    if (args && args->length > 0) {
       decl->error("takes no parameters");
       fatal();
     }
@@ -185,7 +187,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
 
   // pragma(LDC_no_moduleinfo) ;
   if (ident == Id::LDC_no_moduleinfo) {
-    if (args && args->dim > 0) {
+    if (args && args->length > 0) {
       decl->error("takes no parameters");
       fatal();
     }
@@ -195,7 +197,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
 
   // pragma(LDC_alloca) { funcdecl(s) }
   if (ident == Id::LDC_alloca) {
-    if (args && args->dim > 0) {
+    if (args && args->length > 0) {
       decl->error("takes no parameters");
       fatal();
     }
@@ -204,7 +206,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
 
   // pragma(LDC_va_start) { templdecl(s) }
   if (ident == Id::LDC_va_start) {
-    if (args && args->dim > 0) {
+    if (args && args->length > 0) {
       decl->error("takes no parameters");
       fatal();
     }
@@ -213,7 +215,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
 
   // pragma(LDC_va_copy) { funcdecl(s) }
   if (ident == Id::LDC_va_copy) {
-    if (args && args->dim > 0) {
+    if (args && args->length > 0) {
       decl->error("takes no parameters");
       fatal();
     }
@@ -222,7 +224,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
 
   // pragma(LDC_va_end) { funcdecl(s) }
   if (ident == Id::LDC_va_end) {
-    if (args && args->dim > 0) {
+    if (args && args->length > 0) {
       decl->error("takes no parameters");
       fatal();
     }
@@ -231,7 +233,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
 
   // pragma(LDC_va_arg) { templdecl(s) }
   if (ident == Id::LDC_va_arg) {
-    if (args && args->dim > 0) {
+    if (args && args->length > 0) {
       decl->error("takes no parameters");
       fatal();
     }
@@ -240,7 +242,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
 
   // pragma(LDC_fence) { funcdecl(s) }
   if (ident == Id::LDC_fence) {
-    if (args && args->dim > 0) {
+    if (args && args->length > 0) {
       decl->error("takes no parameters");
       fatal();
     }
@@ -249,7 +251,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
 
   // pragma(LDC_atomic_load) { templdecl(s) }
   if (ident == Id::LDC_atomic_load) {
-    if (args && args->dim > 0) {
+    if (args && args->length > 0) {
       decl->error("takes no parameters");
       fatal();
     }
@@ -258,7 +260,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
 
   // pragma(LDC_atomic_store) { templdecl(s) }
   if (ident == Id::LDC_atomic_store) {
-    if (args && args->dim > 0) {
+    if (args && args->length > 0) {
       decl->error("takes no parameters");
       fatal();
     }
@@ -267,7 +269,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
 
   // pragma(LDC_atomic_cmp_xchg) { templdecl(s) }
   if (ident == Id::LDC_atomic_cmp_xchg) {
-    if (args && args->dim > 0) {
+    if (args && args->length > 0) {
       decl->error("takes no parameters");
       fatal();
     }
@@ -276,7 +278,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
 
   // pragma(LDC_atomic_rmw, "string") { templdecl(s) }
   if (ident == Id::LDC_atomic_rmw) {
-    if (!args || args->dim != 1 || !parseStringExp(expr, arg1str)) {
+    if (!args || args->length != 1 || !parseStringExp(expr, arg1str)) {
       decl->error("requires exactly 1 string literal parameter");
       fatal();
     }
@@ -285,7 +287,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
 
   // pragma(LDC_verbose);
   if (ident == Id::LDC_verbose) {
-    if (args && args->dim > 0) {
+    if (args && args->length > 0) {
       decl->error("takes no parameters");
       fatal();
     }
@@ -295,7 +297,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
 
   // pragma(LDC_inline_asm) { templdecl(s) }
   if (ident == Id::LDC_inline_asm) {
-    if (args && args->dim > 0) {
+    if (args && args->length > 0) {
       decl->error("takes no parameters");
       fatal();
     }
@@ -304,7 +306,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
 
   // pragma(LDC_inline_ir) { templdecl(s) }
   if (ident == Id::LDC_inline_ir) {
-    if (args && args->dim > 0) {
+    if (args && args->length > 0) {
       decl->error("takes no parameters");
       fatal();
     }
@@ -313,7 +315,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
 
   // pragma(LDC_extern_weak) { vardecl(s) }
   if (ident == Id::LDC_extern_weak) {
-    if (args && args->dim > 0) {
+    if (args && args->length > 0) {
       decl->error("takes no parameters");
       fatal();
     }
@@ -408,7 +410,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
   case LLVMatomic_store:
   case LLVMatomic_cmp_xchg: {
     const int count = applyTemplatePragma(s, [=](TemplateDeclaration *td) {
-      if (td->parameters->dim != 1) {
+      if (td->parameters->length != 1) {
         error(
             s->loc,
             "the `%s` pragma template must have exactly one template parameter",
@@ -463,7 +465,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
 
   case LLVMinline_asm: {
     const int count = applyTemplatePragma(s, [=](TemplateDeclaration *td) {
-      if (td->parameters->dim > 1) {
+      if (td->parameters->length > 1) {
         error(s->loc, "the `%s` pragma template must have exactly zero or one "
                       "template parameters",
               ident->toChars());

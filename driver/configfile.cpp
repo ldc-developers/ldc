@@ -96,7 +96,7 @@ bool ConfigFile::locate(std::string &pathstr) {
   {                                                                            \
     sys::path::append(p, filename);                                            \
     if (sys::fs::exists(p.str())) {                                            \
-      pathstr = p.str();                                                       \
+      pathstr = {p.data(), p.size()};                                          \
       return true;                                                             \
     }                                                                          \
   }
@@ -139,20 +139,16 @@ bool ConfigFile::locate(std::string &pathstr) {
     APPEND_FILENAME_AND_RETURN_IF_EXISTS
   }
 #else
-#define STR(x) #x
-#define XSTR(x) STR(x)
   // try the install-prefix/etc
-  p = XSTR(LDC_INSTALL_PREFIX);
+  p = LDC_INSTALL_PREFIX;
   sys::path::append(p, "etc");
   APPEND_FILENAME_AND_RETURN_IF_EXISTS
 
   // try the install-prefix/etc/ldc
-  p = XSTR(LDC_INSTALL_PREFIX);
+  p = LDC_INSTALL_PREFIX;
   sys::path::append(p, "etc");
   sys::path::append(p, "ldc");
   APPEND_FILENAME_AND_RETURN_IF_EXISTS
-#undef XSTR
-#undef STR
 
   // try /etc (absolute path)
   p = "/etc";
