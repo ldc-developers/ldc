@@ -110,7 +110,7 @@ Feedback of any kind is very much appreciated!
 [0]: https://github.com/ldc-developers/ldc/releases/latest
 [1]: https://dev.azure.com/ldc-developers/ldc/_build/latest?definitionId=1&branchName=master
 [2]: https://circleci.com/gh/ldc-developers/ldc/tree/master
-[3]: https://cirrus-ci.com/github/ldc-developers/ldc
+[3]: https://cirrus-ci.com/github/ldc-developers/ldc/master
 [4]: https://app.shippable.com/github/ldc-developers/ldc/runs?branchName=master
 [5]: https://travis-ci.org/ldc-developers/ldc/branches
 [6]: https://www.bountysource.com/teams/ldc-developers/issues
