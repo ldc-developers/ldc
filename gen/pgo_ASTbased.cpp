@@ -34,11 +34,6 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MD5.h"
 
-#if LDC_LLVM_VER >= 1000
-using std::make_unique;
-#else
-using llvm::make_unique;
-#endif
 namespace {
 llvm::cl::opt<bool, false, opts::FlagParser<bool>> enablePGOIndirectCalls(
     "pgo-indirect-calls", llvm::cl::ZeroOrMore, llvm::cl::Hidden,
