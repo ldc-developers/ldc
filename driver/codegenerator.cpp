@@ -41,7 +41,6 @@ using std::make_unique;
 #else
 using llvm::make_unique;
 #endif
-
 namespace {
 
 std::unique_ptr<llvm::ToolOutputFile>
@@ -89,7 +88,6 @@ createAndSetDiagnosticsOutputFile(IRState &irs, llvm::LLVMContext &ctx,
         llvm::make_unique<llvm::yaml::Output>(diagnosticsOutputFile->os()));
 
     if (withHotness) {
-
 #if LDC_LLVM_VER >= 500
       ctx.setDiagnosticsHotnessRequested(true);
 #else
