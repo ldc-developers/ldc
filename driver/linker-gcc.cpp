@@ -34,7 +34,6 @@ using std::make_unique;
 #else
 using llvm::make_unique;
 #endif
-
 //////////////////////////////////////////////////////////////////////////////
 
 static llvm::cl::opt<std::string>
