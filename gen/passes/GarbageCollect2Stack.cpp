@@ -456,10 +456,8 @@ static void RemoveCall(CallSite CS, const Analysis &A) {
 
   // Remove the runtime call.
   if (A.CGNode) {
-
 #if LDC_LLVM_VER >= 900
     A.CGNode->removeCallEdgeFor(*cast<CallBase>(CS.getInstruction()));
-
 #else
     A.CGNode->removeCallEdgeFor(CS);
 #endif
