@@ -355,10 +355,15 @@ configure_file(driver/ldc-version.cpp.in driver/ldc-version.cpp)
 find_package(MLIR REQUIRED)
 if(MLIR_FOUND)
     message(STATUS "Buiding with MLIR support")
+    include_directories(${MLIR_ROOT_DIR})
     include_directories(${MLIR_INCLUDE_DIRS})
     include_directories(${MLIR_BUILD_INCLUDE_DIRS})
     include_directories(${MLIR_LIB_DIRS})
     add_definitions("-DLDC_MLIR_ENABLED")
+
+    set(LLVM_LINK_COMPONENTS
+        Support
+    )
 
 if(MSVC)
     if(EXISTS "${LLVM_LIBRARY_DIRS}/libMLIR*.lib")
@@ -427,7 +432,7 @@ ${LLVM_LIBRARY_DIRS}/libMLIRVectorOps.${suffix}
 ${LLVM_LIBRARY_DIRS}/libMLIRVectorToLLVM.${suffix}
 )
 
-set(LLVM_LIBRARIES "${MLIR_LIB}"  ${LLVM_LIBRARIES})
+set(LLVM_LIBRARIES "${MLIR_LIB}" ${LLVM_LIBRARIES})
 
 endif() #if MLIR_FOUND
 
