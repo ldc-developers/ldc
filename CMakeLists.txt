@@ -450,6 +450,33 @@ endif()
 message(STATUS "Building LDC with dynamic compilation support: ${LDC_DYNAMIC_COMPILE} (LDC_DYNAMIC_COMPILE=${LDC_DYNAMIC_COMPILE})")
 
 #
+# Setting MLIR headers
+#
+
+find_package(MLIR REQUIRED)
+if(MLIR_FOUND)
+    message(STATUS "Buiding with MLIR support")
+    include_directories(${MLIR_INCLUDE_DIRS})
+    include_directories(${MLIR_BUILD_INCLUDE_DIRS})
+    include_directories(${MLIR_LIB_DIRS})
+    add_definitions("-DLDC_MLIR_ENABLED")
+if(MSVC)
+    if(EXISTS "${LLVM_LIBRARY_DIRS}/libMLIR*.lib")
+        set(LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/libMLIR*.lib" ${LLVM_LIBRARIES})
+    endif()
+else()
+    if(EXISTS "${LLVM_LIBRARY_DIRS}/libMLIRIR.a")
+        set(LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/libMLIR*.a"  ${LLVM_LIBRARIES})
+    elseif(EXISTS "${LLVM_LIBRARY_DIRS}/libMLIRIR.so")
+        set(LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/libMLIR*.so"  ${LLVM_LIBRARIES})
+    elseif(EXISTS "${LLVM_LIBRARY_DIRS}/libMLIRIR.dylib")
+        set(LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/libMLIR*.dylib"  ${LLVM_LIBRARIES})
+    endif()
+endif() #if MSVC
+endif() #if MLIR_FOUND
+
+
+#
 # Includes, defines.
 #
 
