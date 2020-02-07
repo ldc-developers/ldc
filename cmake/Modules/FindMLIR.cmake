@@ -7,10 +7,10 @@
 #   MLIR_BUILD_INCLUDE_DIR
 project(ldc)
 
-find_path(MLIR_ROOT_DIR NAMES "CONTRIBUTING.md" HINTS ${LLVM_ROOT_DIR}/../projects/mlir)
+find_path(MLIR_ROOT_DIR NAMES "CONTRIBUTING.md" HINTS ${LLVM_ROOT_DIR}/../../llvm/projects/mlir)
 
 #Used to get the main header files
-find_path(MLIR_INCLUDE_DIR NAMES "Parser.h" HINTS ${LLVM_ROOT_DIR}/../projects/mlir/include/mlir)
+find_path(MLIR_INCLUDE_DIR NAMES "Parser.h" HINTS ${MLIR_ROOT_DIR}/include/mlir)
 
 #Used to get StandardOps.h.inc
 find_path(MLIR_BUILD_INCLUDE_DIR NAMES "cmake_install.cmake"
@@ -27,9 +27,11 @@ set(MLIR_BUILD_INCLUDE_DIRS ${MLIR_BUILD_INCLUDE_DIR}/..)
 
 # Handle the QUIETLY and REQUIRED arguments and set the MLIR_FOUND to TRUE
 # if all listed variables are TRUE
+if(EXISTS ${MLIR_ROOT_DIR})
 include(FindPackageHandleStandardArgs)
 
 find_package_handle_standard_args(MLIR DEFAULT_MSG MLIR_ROOT_DIRS MLIR_INCLUDE_DIRS
                                             MLIR_BUILD_INCLUDE_DIRS)
 
-mark_as_advanced(MLIR_ROOT_DIRS MLIR_INCLUDE_DIRS MLIR_BUILD_INCLUDE_DIRS)
+mark_as_advanced(MLIR_ROOT_DIRS MLIR_INCLUDE_DIRS MLIR_BUILD_INCLUDE_DIRS MLIR_LIB_DIRS)
+endif()
