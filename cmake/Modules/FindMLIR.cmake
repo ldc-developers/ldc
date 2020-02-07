@@ -7,7 +7,7 @@
 #   MLIR_BUILD_INCLUDE_DIR
 project(ldc)
 
-find_path(MLIR_ROOT_DIR NAMES "CONTRIBUTING.md" HINTS ${LLVM_ROOT_DIR}/../../llvm/projects/mlir)
+find_path(MLIR_ROOT_DIR NAMES "CONTRIBUTING.md" HINTS ${LLVM_ROOT_DIR}/../llvm/projects/mlir)
 
 #Used to get the main header files
 find_path(MLIR_INCLUDE_DIR NAMES "Parser.h" HINTS ${MLIR_ROOT_DIR}/include/mlir)
