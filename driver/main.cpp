@@ -433,11 +433,13 @@ void parseCommandLine(Strings &sourceFiles) {
 
   global.params.output_o =
       (opts::output_o == cl::BOU_UNSET &&
-       !(opts::output_bc || opts::output_ll || opts::output_s))
+       !(opts::output_bc || opts::output_ll || opts::output_s ||
+       opts::output_mlir))
           ? OUTPUTFLAGdefault
           : opts::output_o == cl::BOU_TRUE ? OUTPUTFLAGset : OUTPUTFLAGno;
   global.params.output_bc = opts::output_bc ? OUTPUTFLAGset : OUTPUTFLAGno;
   global.params.output_ll = opts::output_ll ? OUTPUTFLAGset : OUTPUTFLAGno;
+  global.params.output_mlir = opts::output_mlir ? OUTPUTFLAGset : OUTPUTFLAGno;
   global.params.output_s = opts::output_s ? OUTPUTFLAGset : OUTPUTFLAGno;
 
   global.params.cov = (global.params.covPercent <= 100);
@@ -502,6 +504,10 @@ void parseCommandLine(Strings &sourceFiles) {
     } else if (opts::output_s.getNumOccurrences() == 0 &&
                strcmp(ext, global.s_ext.ptr) == 0) {
       global.params.output_s = OUTPUTFLAGset;
+      global.params.output_o = OUTPUTFLAGno;
+    }else if(opts::output_mlir.getNumOccurrences() == 0 &&
+             strcmp(ext, global.mlir_ext.ptr) == 0) {
+      global.params.output_mlir = OUTPUTFLAGset;
       global.params.output_o = OUTPUTFLAGno;
     }
   }
