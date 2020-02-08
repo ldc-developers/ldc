@@ -7,14 +7,17 @@
 #   MLIR_BUILD_INCLUDE_DIR
 project(ldc)
 
-find_path(MLIR_ROOT_DIR NAMES "CONTRIBUTING.md" HINTS ${LLVM_ROOT_DIR}/../llvm/projects/mlir)
+find_path(MLIR_ROOT_DIR NAMES "LICENSE.TXT" HINTS ${LLVM_ROOT_DIR}/../mlir)
 
 #Used to get the main header files
 find_path(MLIR_INCLUDE_DIR NAMES "Parser.h" HINTS ${MLIR_ROOT_DIR}/include/mlir)
 
+#Lib directories
+find_path(MLIR_LIB_DIR NAMES "CMakeLists.txt" HINTS ${MLIR_ROOT_DIR}/lib/IR)
+
 #Used to get StandardOps.h.inc
 find_path(MLIR_BUILD_INCLUDE_DIR NAMES "cmake_install.cmake"
-        HINTS ${LLVM_ROOT_DIR}/projects/mlir/include/mlir)
+        HINTS ${LLVM_ROOT_DIR}/tools/mlir/include/mlir)
 
 message(STATUS "MLIR Dir: ${MLIR_ROOT_DIR}")
 message(STATUS "MLIR Include Dir: ${MLIR_INCLUDE_DIR}/..")
@@ -59,7 +62,7 @@ endfunction()
 include(FindPackageHandleStandardArgs)
 
 find_package_handle_standard_args(MLIR DEFAULT_MSG MLIR_ROOT_DIRS MLIR_INCLUDE_DIRS
-                                            MLIR_BUILD_INCLUDE_DIRS)
+                                            MLIR_BUILD_INCLUDE_DIRS MLIR_LIB_DIRS)
 
 mark_as_advanced(MLIR_ROOT_DIRS MLIR_INCLUDE_DIRS MLIR_BUILD_INCLUDE_DIRS MLIR_LIB_DIRS)
 endif()
