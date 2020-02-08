@@ -28,9 +28,9 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/ManagedStatic.h"
 
-#if LDC_LLVM_VER >= 700
+//#if LDC_LLVM_VER < 900
 #include "llvm/ExecutionEngine/Orc/Legacy.h"
-#endif
+//#endif
 
 #include "context.h"
 #include "disassembler.h"
@@ -46,52 +46,55 @@ class DynamicCompilerContext final {
 private:
   struct ModuleListener {
     llvm::TargetMachine &targetmachine;
-    llvm::raw_ostream *stream = nullptr;
+    llvm::raw_ostream **stream = nullptr;
 
-    ModuleListener(llvm::TargetMachine &tm) : targetmachine(tm) {}
+    ModuleListener(llvm::TargetMachine &tm, llvm::raw_ostream **s) :
+      targetmachine(tm), stream(s) {}
 
     template <typename T> auto operator()(T &&object) -> T {
-      if (nullptr != stream) {
-#if LDC_LLVM_VER >= 700
+      auto &s = *stream;
+      if (nullptr != s) {
         auto objFile =
             llvm::cantFail(llvm::object::ObjectFile::createObjectFile(
                 object->getMemBufferRef()));
-        disassemble(targetmachine, *objFile, *stream);
-#else
-        disassemble(targetmachine, *object->getBinary(), *stream);
-#endif
+        disassemble(targetmachine, *objFile, *s);
       }
       return std::move(object);
     }
   };
+  llvm::raw_ostream *listener_stream = nullptr;
   std::unique_ptr<llvm::TargetMachine> targetmachine;
   const llvm::DataLayout dataLayout;
-#if LDC_LLVM_VER >= 800
+#if LDC_LLVM_VER >= 900
+  using ObjectLayerT = llvm::orc::RTDyldObjectLinkingLayer;
+  using ListenerLayerT = llvm::orc::ObjectTransformLayer;
+  using CompileLayerT = llvm::orc::IRCompileLayer;
+  using LLVMContext = llvm::orc::ThreadSafeContext;
+#elif LDC_LLVM_VER >= 800
   using ObjectLayerT = llvm::orc::LegacyRTDyldObjectLinkingLayer;
   using ListenerLayerT =
       llvm::orc::LegacyObjectTransformLayer<ObjectLayerT, ModuleListener>;
   using CompileLayerT =
       llvm::orc::LegacyIRCompileLayer<ListenerLayerT,
                                       llvm::orc::SimpleCompiler>;
+  using LLVMContext = llvm::LLVMContext;
 #else
   using ObjectLayerT = llvm::orc::RTDyldObjectLinkingLayer;
   using ListenerLayerT =
       llvm::orc::ObjectTransformLayer<ObjectLayerT, ModuleListener>;
   using CompileLayerT =
       llvm::orc::IRCompileLayer<ListenerLayerT, llvm::orc::SimpleCompiler>;
+  using LLVMContext = llvm::LLVMContext;
 #endif
-#if LDC_LLVM_VER >= 700
   using ModuleHandleT = llvm::orc::VModuleKey;
   std::shared_ptr<llvm::orc::SymbolStringPool> stringPool;
   llvm::orc::ExecutionSession execSession;
   std::shared_ptr<llvm::orc::SymbolResolver> resolver;
-#else
-  using ModuleHandleT = CompileLayerT::ModuleHandleT;
-#endif
+
   ObjectLayerT objectLayer;
   ListenerLayerT listenerlayer;
   CompileLayerT compileLayer;
-  llvm::LLVMContext context;
+  LLVMContext context;
   bool compiled = false;
   ModuleHandleT moduleHandle;
   SymMap symMap;
@@ -123,7 +126,7 @@ public:
 
   llvm::JITSymbol findSymbol(const std::string &name);
 
-  llvm::LLVMContext &getContext() { return context; }
+  llvm::LLVMContext &getContext();
 
   void clearSymMap();
 
@@ -147,9 +150,7 @@ public:
 private:
   void removeModule(const ModuleHandleT &handle);
 
-#if LDC_LLVM_VER >= 700
+#if LDC_LLVM_VER < 900
   std::shared_ptr<llvm::orc::SymbolResolver> createResolver();
-#else
-  std::shared_ptr<llvm::JITSymbolResolver> createResolver();
 #endif
 };
