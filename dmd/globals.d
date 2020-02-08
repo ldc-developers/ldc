@@ -336,6 +336,7 @@ extern (C++) struct Global
 version (IN_LLVM)
 {
     const(char)[] ll_ext;
+    const(char)[] mlir_ext;
     const(char)[] bc_ext;
     const(char)[] s_ext;
     const(char)[] ldc_version;
@@ -500,6 +501,7 @@ else
             vendor = "LDC";
             obj_ext = "o";
             ll_ext  = "ll";
+            mlir_ext = "mlir";
             bc_ext  = "bc";
             s_ext   = "s";
 
