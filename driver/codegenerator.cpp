@@ -18,6 +18,7 @@
 #include "driver/cl_options_instrumentation.h"
 #include "driver/linker.h"
 #include "driver/toobj.h"
+#include "driver/tomlir.h"
 #include "gen/dynamiccompile.h"
 #include "gen/logger.h"
 #include "gen/modules.h"

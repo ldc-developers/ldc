@@ -85,6 +85,7 @@ void gendocfile(Module *m);
 void generateJson(Modules *modules);
 
 using namespace opts;
+using namespace ldc_mlir;
 
 static StringsAdapter impPathsStore("I", global.params.imppath);
 static cl::list<std::string, StringsAdapter>

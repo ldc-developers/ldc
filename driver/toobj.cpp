@@ -350,7 +350,8 @@ void writeModule(llvm::Module *m, const char *filename) {
   }
 
   const auto outputFlags = {global.params.output_o, global.params.output_bc,
-                            global.params.output_ll, global.params.output_s};
+                            global.params.output_ll, global.params.output_s,
+                            global.params.output_mlir};
   const auto numOutputFiles =
       std::count_if(outputFlags.begin(), outputFlags.end(),
                     [](OUTPUTFLAG flag) { return flag != 0; });
@@ -420,21 +421,6 @@ void writeModule(llvm::Module *m, const char *filename) {
     if (aos.has_error()) {
       error(Loc(), "cannot write LLVM IR file '%s': %s", llpath.c_str(),
             errinfo.message().c_str());
-      fatal();
-    }
-    AssemblyAnnotator annotator(m->getDataLayout());
-    m->print(aos, &annotator);
-  }
-
-  //Write MLIR
-  if(global.params.output_mlir) {
-    const auto llpath = replaceExtensionWith(global.mlir_ext);
-    Logger::println("Writting MLIR to %s\n", llpath.c_str());
-    std::error_code errinfo;
-    llvm::raw_fd_ostream aos(llpath.c_str(), errinfo, llvm::sys::fs::F_None);
-    if(aos.has_error()){
-      error(Loc(), "Cannot write MLIR file '%s':%s", llpath.c_str(),
-          errinfo.message().c_str());
       fatal();
     }
     AssemblyAnnotator annotator(m->getDataLayout());

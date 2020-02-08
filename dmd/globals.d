@@ -297,6 +297,7 @@ version (IN_LLVM)
 
     // LDC stuff
     OUTPUTFLAG output_ll;
+    OUTPUTFLAG output_mlir;
     OUTPUTFLAG output_bc;
     OUTPUTFLAG output_s;
     OUTPUTFLAG output_o;

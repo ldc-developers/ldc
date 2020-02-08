@@ -373,6 +373,7 @@ set(DRV_SRC
     driver/exe_path.cpp
     driver/targetmachine.cpp
     driver/toobj.cpp
+    driver/tomlir.cpp
     driver/tool.cpp
     driver/archiver.cpp
     driver/linker.cpp
@@ -399,6 +400,7 @@ set(DRV_HDR
     driver/linker.h
     driver/plugins.h
     driver/targetmachine.h
+    driver/tomlir.cpp
     driver/toobj.h
     driver/tool.h
 )
