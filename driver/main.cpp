@@ -506,7 +506,7 @@ void parseCommandLine(Strings &sourceFiles) {
                strcmp(ext, global.s_ext.ptr) == 0) {
       global.params.output_s = OUTPUTFLAGset;
       global.params.output_o = OUTPUTFLAGno;
-    }else if(opts::output_mlir.getNumOccurrences() == 0 &&
+    } else if (opts::output_mlir.getNumOccurrences() == 0 &&
              strcmp(ext, global.mlir_ext.ptr) == 0) {
       global.params.output_mlir = OUTPUTFLAGset;
       global.params.output_o = OUTPUTFLAGno;

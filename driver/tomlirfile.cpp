@@ -1,6 +1,13 @@
+//===-- tomlirfile.cpp-----------------------------------------------------===//
 //
-// Created by Roberto Rosmaninho on 09/10/19.
+//                         LDC – the LLVM D compiler
 //
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+
+#if LDC_MLIR_ENABLED
 
 #include "tomlirfile.h"
 
@@ -76,7 +83,7 @@ void writeMLIRModule(Module *m, mlir::MLIRContext &mlirContext,
     const auto llpath = replaceExtensionWith(global.mlir_ext);
     Logger::println("Writting MLIR to %s\n", llpath.c_str());
     std::error_code errinfo;
-    llvm::raw_fd_ostream aos(llpath.c_str(), errinfo, llvm::sys::fs::F_None);
+    llvm::raw_fd_ostream aos(llpath, errinfo, llvm::sys::fs::F_None);
     if(aos.has_error()){
       error(Loc(), "Cannot write MLIR file '%s':%s", llpath.c_str(),
             errinfo.message().c_str());
@@ -90,3 +97,6 @@ void writeMLIRModule(Module *m, mlir::MLIRContext &mlirContext,
     module->print(aos);
   }
 }
+
+#endif //LDC_MLIR_ENABLED
+

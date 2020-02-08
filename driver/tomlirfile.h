@@ -1,9 +1,17 @@
+//===-- driver/tomlirfile.h - MLIR file emission ----------------*- C++ -*-===//
 //
-// Created by Roberto Rosmaninho on 09/10/19.
+//                         LDC – the LLVM D compiler
 //
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Handles emission of "finished" MLIR modules to on-disk object files.
+//
+//===----------------------------------------------------------------------===//
 
-#ifndef LDC_TOMLIR_H
-#define LDC_TOMLIR_H
+#if LDC_MLIR_ENABLED
 
 #include "gen/irstate.h"
 #include "dmd/module.h"
@@ -11,4 +19,5 @@
 
 void writeMLIRModule(Module *m, mlir::MLIRContext &mlirContext,
     const char *filename, IRState *irs);
-#endif // LDC_TOMLIR_H
+#endif // LDC_MLIR_ENABLED
+
