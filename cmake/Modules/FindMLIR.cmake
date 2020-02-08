@@ -16,10 +16,6 @@ find_path(MLIR_INCLUDE_DIR NAMES "Parser.h" HINTS ${MLIR_ROOT_DIR}/include/mlir)
 find_path(MLIR_BUILD_INCLUDE_DIR NAMES "cmake_install.cmake"
         HINTS ${LLVM_ROOT_DIR}/projects/mlir/include/mlir)
 
-message("-- MLIR Dir: ${MLIR_ROOT_DIR}")
-message("-- MLIR Include Dir: ${MLIR_INCLUDE_DIR}/..")
-message("-- MLIR Build include dir: ${MLIR_BUILD_INCLUDE_DIR}/..")
-message("flag")
 message(STATUS "MLIR Dir: ${MLIR_ROOT_DIR}")
 message(STATUS "MLIR Include Dir: ${MLIR_INCLUDE_DIR}/..")
 message(STATUS "MLIR Lib Dir: ${MLIR_LIB_DIR}/..")
