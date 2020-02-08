@@ -2,7 +2,7 @@
 // Created by Roberto Rosmaninho on 09/10/19.
 //
 
-#include "tomlir.h"
+#include "tomlirfile.h"
 
 #include "dmd/errors.h"
 #include "driver/cl_options.h"
@@ -38,6 +38,7 @@
 #include "llvm/IR/Module.h"
 #include <cstddef>
 #include <fstream>
+#include <mlir/IR/Module.h>
 
 #ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
 namespace llvm {
@@ -46,11 +47,13 @@ namespace llvm {
 #endif
 
 #include "gen/logger.h"
+#include "mlir/IR/Module.h"
 #include "dmd/globals.h"
 #include "gen/MLIR/MLIRGen.h"
+#include "dmd/expression.h"
 
 void writeMLIRModule(Module *m, mlir::MLIRContext &mlirContext,
-                     const char *filename){
+                     const char *filename, IRState *irs){
   const auto outputFlags = {global.params.output_o, global.params.output_bc,
                             global.params.output_ll, global.params.output_s,
                             global.params.output_mlir};
@@ -79,15 +82,11 @@ void writeMLIRModule(Module *m, mlir::MLIRContext &mlirContext,
             errinfo.message().c_str());
       fatal();
     }
-    mlir::OwningModuleRef module = ldc_mlir::mlirGen(mlirContext, m);
+    mlir::OwningModuleRef module = ldc_mlir::mlirGen(mlirContext, m, irs);
     if(!module){
       IF_LOG Logger::println("Cannot write MLIR file to '%s'", llpath.c_str());
       fatal();
     }
     module->print(aos);
-    //AssemblyAnnotator annotator(m->getDataLayout());
-    //m->print(aos, &annotator);
   }
-
-
 }

@@ -18,7 +18,7 @@
 #include "driver/cl_options_instrumentation.h"
 #include "driver/linker.h"
 #include "driver/toobj.h"
-#include "driver/tomlir.h"
+#include "driver/tomlirfile.h"
 #include "gen/dynamiccompile.h"
 #include "gen/logger.h"
 #include "gen/modules.h"
@@ -256,6 +256,7 @@ void CodeGenerator::finishLLModule(Module *m) {
     insertBitcodeFiles(ir_->module, ir_->context(), global.params.bitcodeFiles);
   }
 
+  writeMLIRModule(m, mlirContext_, m->objfile.toChars(), ir_);
   writeAndFreeLLModule(m->objfile.toChars());
 }
 
