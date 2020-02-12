@@ -40,9 +40,9 @@ APFloat parseLiteral(const llvm::fltSemantics &semantics, const char *literal,
   if (isOutOfRange) {
     *isOutOfRange = (
 #if LDC_LLVM_VER >= 1100
-                     r.get(),
+                     r.get()
 #else
-                     r,
+                     r
 #endif
                      & (APFloat::opOverflow | APFloat::opUnderflow)) != 0;
   }
