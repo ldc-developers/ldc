@@ -82,7 +82,7 @@ string dtype(Record* rec, bool readOnlyMem)
 
 string attributes(ListInit* propertyList)
 {
-    string prop =
+    auto prop =
         propertyList->size()
         ? propertyList->getElementAsRecord(0)->getName() : "";
 

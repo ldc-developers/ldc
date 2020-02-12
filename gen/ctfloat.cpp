@@ -38,7 +38,13 @@ APFloat parseLiteral(const llvm::fltSemantics &semantics, const char *literal,
 #endif
       (ap.convertFromString(literal, APFloat::rmNearestTiesToEven));
   if (isOutOfRange) {
-    *isOutOfRange = (r & (APFloat::opOverflow | APFloat::opUnderflow)) != 0;
+    *isOutOfRange = (
+#if LDC_LLVM_VER >= 1100
+                     r.get(),
+#else
+                     r,
+#endif
+                     & (APFloat::opOverflow | APFloat::opUnderflow)) != 0;
   }
   return ap;
 }
