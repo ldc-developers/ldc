@@ -348,6 +348,27 @@ endif()
 message(STATUS "LDC version identifier: ${LDC_VERSION}")
 configure_file(driver/ldc-version.cpp.in driver/ldc-version.cpp)
 
+#
+# Setting MLIR headers
+#
+
+find_package(MLIR)
+if(MLIR_FOUND)
+    message(STATUS "Buiding with MLIR support")
+    include_directories(${MLIR_ROOT_DIR})
+    include_directories(${MLIR_INCLUDE_DIRS})
+    include_directories(${MLIR_BUILD_INCLUDE_DIRS})
+    include_directories(${MLIR_LIB_DIRS})
+    add_definitions("-DLDC_MLIR_ENABLED")
+
+    set(LLVM_LINK_COMPONENTS
+        Support
+    )
+
+set(LLVM_LIBRARIES "${MLIR_LIBRARIES}" ${LLVM_LIBRARIES})
+
+endif() #if MLIR_FOUND
+
 # Also add the header files to the build so that they are available in IDE
 # project files generated via CMake.
 file(GLOB_RECURSE FE_SRC_D dmd/*.d)
