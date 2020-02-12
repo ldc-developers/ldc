@@ -942,7 +942,7 @@ DIModule DIBuilder::EmitModule(Module *m) {
       name,              // qualified module name
       llvm::StringRef(), // (clang modules specific) ConfigurationMacros
       llvm::StringRef()  // (clang modules specific) IncludePath
-#if LDC_LLVM_VER > 1100
+#if LDC_LLVM_VER < 1100
       ,
       llvm::StringRef()  // (clang modules specific) ISysRoot
 #endif
