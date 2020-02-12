@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Handles emission of "finished" MLIR modules to on-disk object files.
+// Handles emission of MLIR modules to on-disk object files.
 //
 //===----------------------------------------------------------------------===//
 
