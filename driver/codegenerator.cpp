@@ -255,8 +255,9 @@ void CodeGenerator::finishLLModule(Module *m) {
   if (moduleCount_ == 1) {
     insertBitcodeFiles(ir_->module, ir_->context(), global.params.bitcodeFiles);
   }
-
+#if LDC_MLIR_ENABLED
   writeMLIRModule(m, mlirContext_, m->objfile.toChars(), ir_);
+#endif  
   writeAndFreeLLModule(m->objfile.toChars());
 }
 
