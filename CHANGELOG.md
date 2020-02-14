@@ -1,3 +1,35 @@
+# LDC 1.20.0 (2020-02-14)
+
+#### Big news
+- Frontend, druntime and Phobos are at version [2.090.1](https://dlang.org/changelog/2.090.1.html). (#3262, #3296, #3306, #3317)
+- Codegen preparations for:
+  - iOS/tvOS/watchOS on AArch64. Thanks Jacob! (#3288)
+  - WASI (WebAssembly System Interface) (#3295)
+- The config file for multilib builds has been restructured by adding a separate section for the multilib target. This avoids `--no-warn-search-mismatch` for the linker and enables support for LLD. (#3276)
+- Support for embedding `pragma({lib,linkerDirective}, ...)` in Mach-O object files. (#3259)
+  E.g., `pragma(linkerDirective, "-framework", "CoreFoundation");` makes Apple's linker pull in that framework when pulling in the compiled object file.
+  ELF object files newly embed `pragma(lib, ...)` library names in a special `.deplibs` section, but that only works with LLD 9+ for now.
+- The `ldc-build-runtime` tool has been slightly revised; `--dFlags` now extends the base D flags instead of overriding them. (1200601d44280d5f948a577b444ffa2dd4f9e433)
+- `ModuleInfo.importedModules` are now emitted as weak references (except on Windows, for LLD compatibility), following DMD. (#3262)
+- Windows: Bundled MinGW-based libs now support wide `wmain` and `wWinMain` C entry points. (#3311)
+
+#### Platform support
+- Supports LLVM 3.9 - 10.0.
+
+#### Bug fixes
+- Potential stack overflows on Linux in GC worker threads. (#3127, dlang/druntime#2904)
+- Support 2 leading dashes (not just 1) in command-line pre-parsing, thus fixing config file section lookup when using `--mtriple` and not ignoring `--conf` and `--lowmem` any longer. (#3268, #3275)
+- Support for data directives in DMD-style inline asm. (#3299, #3301)
+- Cherry-picked fixes for soft-float targets. (#3292, dlang/phobos#7362, dlang/phobos#7366, dlang/phobos#7377)
+- ICE during debuginfo generation for function literals inside enum declarations. (#3272, #3274)
+
+#### Internals
+- Misc. tweaks for `dmd-testsuite`: (#3287, #3306)
+  - Significantly accelerated by skipping uninteresting permutations.
+  - Switch from Makefile to `run.d`, incl. moving LDC-specific exceptions from Makefile to individual test files and support for extended `DISABLED` directives.
+- Addition of (recommendable!) Cirrus CI service (incl. FreeBSD) and removal of Semaphore CI. (#3298)
+- Some improvements for `gdmd` host compilers, incl. CI tests. (#3286)
+
 # LDC 1.19.0 (2019-12-20)
 
 #### Big news
