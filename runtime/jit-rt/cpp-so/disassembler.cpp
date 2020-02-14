@@ -31,6 +31,12 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Target/TargetMachine.h"
 
+#if LDC_LLVM_VER >= 1000
+namespace llvm {
+using std::make_unique;
+}
+#endif
+
 namespace {
 template <typename T> std::unique_ptr<T> unique(T *ptr) {
   return std::unique_ptr<T>(ptr);
@@ -122,7 +128,10 @@ void printFunction(const llvm::MCDisassembler &disasm,
       std::string comment;
       llvm::raw_string_ostream commentStream(comment);
       auto status = disasm.getInstruction(inst, size, data.slice(pos), pos,
-                                          llvm::nulls(), commentStream);
+#if LDC_LLVM_VER < 1000
+                                          llvm::nulls(),
+#endif
+                                          commentStream);
 
       switch (status) {
       case llvm::MCDisassembler::Fail:
@@ -340,7 +349,12 @@ void disassemble(const llvm::TargetMachine &tm,
 
         // TODO: something more optimal
         for (const auto &globalSec : object.sections()) {
+#if LDC_LLVM_VER >= 1000
+          auto rs = globalSec.getRelocatedSection();
+          if (rs && *rs == secIt) {
+#else
           if (globalSec.getRelocatedSection() == secIt) {
+#endif
             processRelocations(symTable, offset, object, globalSec);
           }
         }

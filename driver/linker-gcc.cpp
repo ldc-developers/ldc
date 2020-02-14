@@ -183,7 +183,7 @@ void ArgsBuilder::addLTOLinkFlags() {
     // LLD supports LLVM LTO natively, do not add the plugin itself.
     // Otherwise, assume that ld.gold or ld.bfd is used with plugin support.
     bool isLld = opts::linker == "lld" || useInternalLLDForLinking() ||
-      (opts::linker.empty() && isLldDefaultLinker());
+                 (opts::linker.empty() && isLldDefaultLinker());
     addLTOGoldPluginFlags(!isLld);
   } else if (global.params.targetTriple->isOSDarwin()) {
     addDarwinLTOFlags();
@@ -385,8 +385,7 @@ bool ArgsBuilder::addCompilerRTArchiveLinkFlags(llvm::StringRef baseName,
       if (!linkerDarwin)
         addLdFlag("--whole-archive");
 
-      IF_LOG Logger::println("Found, linking with %s",
-                             filepath.c_str());
+      IF_LOG Logger::println("Found, linking with %s", filepath.c_str());
       args.push_back(filepath);
 
       if (!linkerDarwin)
@@ -672,9 +671,7 @@ void ArgsBuilder::addDefaultPlatformLibs() {
 
 //////////////////////////////////////////////////////////////////////////////
 
-void ArgsBuilder::addTargetFlags() {
-  appendTargetArgsForGcc(args);
-}
+void ArgsBuilder::addTargetFlags() { appendTargetArgsForGcc(args); }
 
 //////////////////////////////////////////////////////////////////////////////
 // Specialization for plain ld.
@@ -719,27 +716,48 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
     const auto fullArgs =
         getFullArgs("lld", argsBuilder.args, global.params.verbose);
 
-    // CanExitEarly == true means that LLD can and will call `exit()` when errors occur.
+    // CanExitEarly == true means that LLD can and will call `exit()` when
+    // errors occur.
     bool CanExitEarly = false;
 
     bool success = false;
     if (global.params.targetTriple->isOSBinFormatELF()) {
-      success = lld::elf::link(fullArgs, CanExitEarly);
-    } else if (global.params.targetTriple->isOSBinFormatMachO()) {
-#if LDC_LLVM_VER >= 700
-      success = lld::mach_o::link(fullArgs, CanExitEarly);
-#else
-      success = lld::mach_o::link(fullArgs);
+      success = lld::elf::link(fullArgs, CanExitEarly
+#if LDC_LLVM_VER >= 1000
+                               ,
+                               llvm::outs(), llvm::errs()
 #endif
+      );
+    } else if (global.params.targetTriple->isOSBinFormatMachO()) {
+      success = lld::mach_o::link(fullArgs
+#if LDC_LLVM_VER >= 700
+                                  ,
+                                  CanExitEarly
+#if LDC_LLVM_VER >= 1000
+                                  ,
+                                  llvm::outs(), llvm::errs()
+#endif
+#endif
+      );
     } else if (global.params.targetTriple->isOSBinFormatCOFF()) {
-      success = lld::mingw::link(fullArgs);
+      success = lld::mingw::link(fullArgs
+#if LDC_LLVM_VER >= 1000
+                                 ,
+                                 CanExitEarly, llvm::outs(), llvm::errs()
+#endif
+      );
     } else if (global.params.targetTriple->isOSBinFormatWasm()) {
 #if __linux__ && LDC_LLVM_VER >= 700
       // FIXME: segfault in cleanup (`freeArena()`) after successful linking,
       //        but only on Linux?
       CanExitEarly = true;
 #endif
-      success = lld::wasm::link(fullArgs, CanExitEarly);
+      success = lld::wasm::link(fullArgs, CanExitEarly
+#if LDC_LLVM_VER >= 1000
+                                ,
+                                llvm::outs(), llvm::errs()
+#endif
+      );
     } else {
       error(Loc(), "unknown target binary format for internal linking");
     }

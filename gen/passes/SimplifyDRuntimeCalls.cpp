@@ -100,8 +100,9 @@ Value *LibCallOptimization::CastToCStr(Value *V, IRBuilder<> &B) {
 Value *LibCallOptimization::EmitMemCpy(Value *Dst, Value *Src, Value *Len,
                                        unsigned Align, IRBuilder<> &B) {
 #if LDC_LLVM_VER >= 700
-  return B.CreateMemCpy(CastToCStr(Dst, B), Align, CastToCStr(Src, B), Align,
-                        Len, false);
+  auto A = LLMaybeAlign(Align);
+  return B.CreateMemCpy(CastToCStr(Dst, B), A, CastToCStr(Src, B), A, Len,
+                        false);
 #else
   return B.CreateMemCpy(CastToCStr(Dst, B), CastToCStr(Src, B), Len, Align,
                         false);
