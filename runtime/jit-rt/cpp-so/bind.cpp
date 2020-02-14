@@ -18,6 +18,12 @@
 
 #include "valueparser.h"
 
+#if LDC_LLVM_VER >= 1000
+#define LLMaybeAlign llvm::MaybeAlign
+#else
+#define LLMaybeAlign
+#endif
+
 namespace {
 enum { SmallParamsCount = 5 };
 
@@ -71,14 +77,14 @@ allocParam(llvm::IRBuilder<> &builder, llvm::Type &srcType,
   if (param.type == ParamType::Aggregate && srcType.isPointerTy()) {
     auto elemType = llvm::cast<llvm::PointerType>(&srcType)->getElementType();
     auto stackArg = builder.CreateAlloca(elemType);
-    stackArg->setAlignment(layout.getABITypeAlignment(elemType));
+    stackArg->setAlignment(LLMaybeAlign(layout.getABITypeAlignment(elemType)));
     auto init =
         parseInitializer(layout, *elemType, param.data, errHandler, override);
     builder.CreateStore(init, stackArg);
     return stackArg;
   }
   auto stackArg = builder.CreateAlloca(&srcType);
-  stackArg->setAlignment(layout.getABITypeAlignment(&srcType));
+  stackArg->setAlignment(LLMaybeAlign(layout.getABITypeAlignment(&srcType)));
   auto init =
       parseInitializer(layout, srcType, param.data, errHandler, override);
   builder.CreateStore(init, stackArg);

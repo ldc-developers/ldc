@@ -232,11 +232,17 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
       (useInternalToolchain && opts::linker.empty() && !opts::isUsingLTO())) {
     const auto fullArgs = getFullArgs("lld-link", args, global.params.verbose);
 
+    const bool success = lld::coff::link(fullArgs
 #if LDC_LLVM_VER >= 600
-    const bool success = lld::coff::link(fullArgs, /*CanExitEarly=*/false);
-#else
-    const bool success = lld::coff::link(fullArgs);
+                                         ,
+                                         /*CanExitEarly=*/false
+#if LDC_LLVM_VER >= 1000
+                                         ,
+                                         llvm::outs(), llvm::errs()
 #endif
+#endif
+    );
+
     if (!success)
       error(Loc(), "linking with LLD failed");
 
