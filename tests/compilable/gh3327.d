@@ -1,3 +1,5 @@
+// RUN: %ldc -c %s
+
 private import core.sys.windows.windows;
 private import core.sys.windows.windef;
 private import core.sys.windows.shellapi;
@@ -16,7 +18,7 @@ private import core.sys.windows.winbase;
 private import core.sys.windows.winver;
 
 void createShortcut(string exe_file_path, string dest_shortcut_file, string _description) {
-	
+
 	import std.utf : toUTF16z;
 	LPCWSTR pathToObj = exe_file_path.toUTF16z;
 	LPCWSTR pathToLink = dest_shortcut_file.toUTF16z;
