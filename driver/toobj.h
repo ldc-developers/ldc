@@ -18,3 +18,7 @@ class Module;
 }
 
 void writeModule(llvm::Module *m, const char *filename);
+#if LDC_MLIR_ENABLED
+void writeMLIRModule(Module *m, mlir::MLIRContext &mlirContext,
+    const char *filename, IRState *irs);
+#endif
