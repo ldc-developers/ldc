@@ -426,9 +426,10 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl,
   assert(fdecl->isVirtual());
   assert(!fdecl->isFinalFunc());
   assert(inst->type->toBasetype()->ty == Tclass);
-  // 0 is always ClassInfo/Interface* unless it is a CPP interface
+  // slot 0 is always ClassInfo/Interface* unless it is a CPP class
   assert(fdecl->vtblIndex > 0 ||
-         (fdecl->vtblIndex == 0 && fdecl->linkage == LINKcpp));
+         (fdecl->vtblIndex == 0 &&
+          inst->type->toBasetype()->isTypeClass()->sym->isCPPclass()));
 
   // get instance
   LLValue *vthis = DtoRVal(inst);
