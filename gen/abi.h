@@ -177,10 +177,11 @@ struct TargetABI {
 
   /***** Static Helpers *****/
 
-  /// Check if struct 't' is a Homogeneous Floating-point Aggregate (HFA)
-  /// consisting of up to 4 of same floating point type.  If so, optionally
-  /// produce the rewriteType: an array of that floating point type
-  static bool isHFA(TypeStruct *t, llvm::Type **rewriteType = nullptr, const int maxFloats = 4);
+  /// Check if `t` is a Homogeneous Floating-point Aggregate (HFA) or
+  /// Homogeneous Vector Aggregate (HVA). If so, optionally produce the
+  /// rewriteType: an array of its fundamental type.
+  static bool isHFVA(Type *t, llvm::Type **rewriteType = nullptr,
+                     int maxElements = 4);
 
 protected:
 
@@ -197,4 +198,8 @@ protected:
 
   /// Returns true if the D type can be bit-cast to an integer of the same size.
   static bool canRewriteAsInt(Type *t, bool include64bit = true);
+
+  /// Returns true if the D function type uses extern(D) linkage *and* isn't a
+  /// D-style variadic function.
+  static bool isExternD(TypeFunction *tf);
 };

@@ -22,11 +22,11 @@
 #include "gen/tollvm.h"
 
 struct PPC64LETargetABI : TargetABI {
-  HFAToArray hfaToArray;
+  HFVAToArray hfvaToArray;
   CompositeToArray64 compositeToArray64;
   IntegerRewrite integerRewrite;
 
-  explicit PPC64LETargetABI() : hfaToArray(8) {}
+  explicit PPC64LETargetABI() : hfvaToArray(8) {}
 
   bool returnInArg(TypeFunction *tf, bool) override {
     if (tf->isref) {
@@ -43,8 +43,8 @@ struct PPC64LETargetABI : TargetABI {
 
   bool passByVal(TypeFunction *, Type *t) override {
     t = t->toBasetype();
-    return t->ty == Tsarray || (t->ty == Tstruct && t->size() > 16 &&
-                                !isHFA((TypeStruct *)t, nullptr, 8));
+    return t->ty == Tsarray ||
+           (t->ty == Tstruct && t->size() > 16 && !isHFVA(t, nullptr, 8));
   }
 
   void rewriteFunctionType(IrFuncTy &fty) override {
@@ -64,8 +64,8 @@ struct PPC64LETargetABI : TargetABI {
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     Type *ty = arg.type->toBasetype();
     if (ty->ty == Tstruct || ty->ty == Tsarray) {
-      if (ty->ty == Tstruct && isHFA((TypeStruct *)ty, &arg.ltype, 8)) {
-        hfaToArray.applyTo(arg, arg.ltype);
+      if (ty->ty == Tstruct && isHFVA(ty, &arg.ltype, 8)) {
+        hfvaToArray.applyTo(arg, arg.ltype);
       } else if (canRewriteAsInt(ty, true)) {
         integerRewrite.applyTo(arg);
       } else {

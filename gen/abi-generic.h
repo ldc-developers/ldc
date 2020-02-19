@@ -224,13 +224,13 @@ struct IndirectByvalRewrite : ABIRewrite {
 };
 
 /**
- * Rewrite Homogeneous Homogeneous Floating-point Aggregate (HFA) as array of
- * float type.
+ * Rewrite Homogeneous Homogeneous Floating-point/Vector Aggregate (HFVA) as
+ * array of floats/vectors.
  */
-struct HFAToArray : ABIRewrite {
+struct HFVAToArray : ABIRewrite {
   const int maxFloats = 4;
 
-  HFAToArray(const int max = 4) : maxFloats(max) {}
+  HFVAToArray(const int max = 4) : maxFloats(max) {}
 
   LLValue *put(DValue *dv, bool, bool) override {
     Logger::println("rewriting HFA %s -> as array", dv->type->toChars());
@@ -244,10 +244,9 @@ struct HFAToArray : ABIRewrite {
   }
 
   LLType *type(Type *t) override {
-    assert(t->ty == Tstruct);
-    LLType *floatArrayType = nullptr;
-    if (TargetABI::isHFA((TypeStruct *)t, &floatArrayType, maxFloats))
-      return floatArrayType;
+    LLType *rewriteType = nullptr;
+    if (TargetABI::isHFVA(t, &rewriteType, maxFloats))
+      return rewriteType;
     llvm_unreachable("Type t should be an HFA");
   }
 };
