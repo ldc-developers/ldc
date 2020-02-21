@@ -351,9 +351,10 @@ void parseCommandLine(Strings &sourceFiles) {
   global.params.objname = opts::fromPathString(objectFile);
   global.params.objdir = opts::fromPathString(objectDir);
 
-  global.params.docdir = opts::fromPathString(ddocDir).ptr;
-  global.params.docname = opts::fromPathString(ddocFile).ptr;
-  global.params.doDocComments |= global.params.docdir || global.params.docname;
+  global.params.docdir = opts::fromPathString(ddocDir);
+  global.params.docname = opts::fromPathString(ddocFile);
+  global.params.doDocComments |=
+      global.params.docdir.length || global.params.docname.length;
 
   global.params.jsonfilename = opts::fromPathString(jsonFile);
   if (global.params.jsonfilename.length) {

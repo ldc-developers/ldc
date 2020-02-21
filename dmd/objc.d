@@ -2,7 +2,7 @@
  * Compiler implementation of the
  * $(LINK2 http://www.dlang.org, D programming language).
  *
- * Copyright:   Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/objc.d, _objc.d)
@@ -502,7 +502,7 @@ else
     {
         assert(id.classKind == ClassKind.objc);
     }
-    body
+    do
     {
         // don't report deprecations for the metaclass to avoid duplicated
         // messages.
@@ -576,7 +576,7 @@ else
         assert(fd.selector);
         assert(fd.isMember);
     }
-    body
+    do
     {
         // * final member functions are kept virtual with Objective-C linkage
         //   because the Objective-C runtime always use dynamic dispatch.
@@ -591,7 +591,7 @@ else
     {
         assert(metaclass);
     }
-    body
+    do
     {
         if (cd.classKind == ClassKind.objc && fd.isStatic && !cd.objc.isMeta)
             return cd.objc.metaclass;
@@ -604,7 +604,7 @@ else
     {
         assert(fd.parent.isClassDeclaration);
     }
-    body
+    do
     {
         if (cd.classKind != ClassKind.objc)
             return;
@@ -642,7 +642,7 @@ else
     {
         assert(fd.selectorParameter is null);
     }
-    body
+    do
     {
         if (!fd.selector)
             return null;

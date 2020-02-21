@@ -100,6 +100,7 @@ class GroupSetting : Setting
 Setting[] parseConfigFile(const(char)* filename)
 {
     import dmd.globals : Loc;
+    import dmd.root.string : toDString;
     import dmd.utils;
 
     auto content = readFile(Loc.initial, filename).extractSlice();

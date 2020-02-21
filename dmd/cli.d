@@ -7,7 +7,7 @@
  * However, this file will be used to generate the
  * $(LINK2 https://dlang.org/dmd-linux.html, online documentation) and MAN pages.
  *
- * Copyright:   Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/cli.d, _cli.d)
@@ -199,8 +199,8 @@ version (IN_LLVM) {} else
         Option("c",
             "compile only, do not link"
         ),
-        Option("check=[assert|bounds|in|invariant|out|switch|h|help|?][=[on|off]]",
-            "Enable or disable specific checks",
+        Option("check=[assert|bounds|in|invariant|out|switch][=[on|off]]",
+            "enable or disable specific checks",
             `Overrides default, -boundscheck, -release and -unittest options to enable or disable specific checks.
                 $(UL
                     $(LI $(B assert): assertion checking)
@@ -215,7 +215,10 @@ version (IN_LLVM) {} else
                     $(LI $(B off): specified check is disabled.)
                 )`
         ),
-        Option("checkaction=[D|C|halt|context|h|help|?]",
+        Option("check=[h|help|?]",
+            "list information on all available checks"
+        ),
+        Option("checkaction=[D|C|halt|context]",
             "behavior on assert/boundscheck/finalswitch failure",
             `Sets behavior when an assert fails, and array boundscheck fails,
              or a final switch errors.
@@ -225,6 +228,9 @@ version (IN_LLVM) {} else
                     $(LI $(B halt): Executes a halt instruction, terminating the program.)
                     $(LI $(B context): Prints the error context as part of the unrecoverable $(D AssertError).)
                 )`
+        ),
+        Option("checkaction=[h|help|?]",
+            "list information on all available check actions"
         ),
         Option("color",
             "turn colored console output on"
@@ -273,11 +279,11 @@ dmd -cov -unittest myprog.d
             `Silently allow $(DDLINK deprecate,deprecate,deprecated features) and use of symbols with
             $(DDSUBLINK $(ROOT_DIR)spec/attribute, deprecated, deprecated attributes).`,
         ),
-        Option("dw",
-            "issue a message when deprecated features or symbols are used (default)"
-        ),
         Option("de",
             "issue an error when deprecated features or symbols are used (halt compilation)"
+        ),
+        Option("dw",
+            "issue a message when deprecated features or symbols are used (default)"
         ),
         Option("debug",
             "compile in debug code",
@@ -313,7 +319,7 @@ dmd -cov -unittest myprog.d
             With $(I filename), write module dependencies as text to $(I filename)
             (only imports).`,
         ),
-        Option("extern-std=[<standard>|h|help|?]",
+        Option("extern-std=<standard>",
             "set C++ name mangling compatibility with <standard>",
             "Standards supported are:
             $(UL
@@ -327,6 +333,9 @@ dmd -cov -unittest myprog.d
                     Sets `__traits(getTargetInfo, \"cppStd\")` to `201703`)
             )",
         ),
+        Option("extern-std=[h|help|?]",
+            "list all supported standards"
+        ),
         Option("fPIC",
             "generate position independent code",
             TargetOS.all & ~(TargetOS.windows | TargetOS.macOS)
@@ -334,10 +343,8 @@ dmd -cov -unittest myprog.d
         Option("g",
             "add symbolic debug info",
             `$(WINDOWS
-                Add CodeView symbolic debug info with
-                $(LINK2 $(ROOT_DIR)spec/abi.html#codeview, D extensions)
-                for debuggers such as
-                $(LINK2 http://ddbg.mainia.de/releases.html, Ddbg)
+                Add CodeView symbolic debug info. See
+                $(LINK2 http://dlang.org/windbg.html, Debugging on Windows).
             )
             $(UNIX
                 Add symbolic debug info in Dwarf format
@@ -369,6 +376,15 @@ dmd -cov -unittest myprog.d
         ),
         Option("Hf=<filename>",
             "write 'header' file to filename"
+        ),
+        Option("HC",
+            "generate C++ 'header' file"
+        ),
+        Option("HCd=<directory>",
+            "write C++ 'header' file to directory"
+        ),
+        Option("HCf=<filename>",
+            "write C++ 'header' file to filename"
         ),
         Option("-help",
             "print help and exit"
@@ -526,7 +542,7 @@ dmd -cov -unittest myprog.d
             If no Visual C installation is detected, a wrapper for the redistributable
             VC2010 dynamic runtime library and mingw based platform import libraries will
             be linked instead using the LLD linker provided by the LLVM project.
-            The detection can be skipped explicitly if $(TT msvcrt100) is specified as
+            The detection can be skipped explicitly if $(TT msvcrt120) is specified as
             $(I libname).
             If $(I libname) is empty, no C runtime library is automatically linked in.",
             TargetOS.windows,
@@ -579,7 +595,7 @@ dmd -cov -unittest myprog.d
             "enable an upcoming language change identified by 'id'",
             `Preview an upcoming language change identified by $(I id)`,
         ),
-        Option("preview=?",
+        Option("preview=[h|help|?]",
             "list all upcoming language changes"
         ),
         Option("profile",
@@ -605,7 +621,7 @@ dmd -cov -unittest myprog.d
             "revert language change identified by 'id'",
             `Revert language change identified by $(I id)`,
         ),
-        Option("revert=?",
+        Option("revert=[h|help|?]",
             "list all revertable language changes"
         ),
         Option("run <srcfile>",
@@ -639,14 +655,23 @@ dmd -cov -unittest myprog.d
         Option("vcolumns",
             "print character (column) numbers in diagnostics"
         ),
+        Option("verror-style=[digitalmars|gnu]",
+            "set the style for file/line number annotations on compiler messages",
+            `Set the style for file/line number annotations on compiler messages,
+            where:
+            $(DL
+            $(DT digitalmars)$(DD 'file(line[,column]): message'. This is the default.)
+            $(DT gnu)$(DD 'file:line[:column]: message', conforming to the GNU standard used by gcc and clang.)
+            )`,
+        ),
         Option("verrors=<num>",
             "limit the number of error messages (0 means unlimited)"
         ),
-        Option("verrors=spec",
-            "show errors from speculative compiles such as __traits(compiles,...)"
-        ),
         Option("verrors=context",
             "show error messages with the context of the erroring source line"
+        ),
+        Option("verrors=spec",
+            "show errors from speculative compiles such as __traits(compiles,...)"
         ),
         Option("-version",
             "print compiler version and exit"

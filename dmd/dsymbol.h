@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -78,7 +78,6 @@ class ArrayScopeSymbol;
 class SymbolDeclaration;
 class Expression;
 class ExpressionDsymbol;
-class DeleteDeclaration;
 class OverloadSet;
 struct AA;
 #ifdef IN_GCC
@@ -289,7 +288,6 @@ public:
     virtual ArrayScopeSymbol *isArrayScopeSymbol() { return NULL; }
     virtual Import *isImport() { return NULL; }
     virtual EnumDeclaration *isEnumDeclaration() { return NULL; }
-    virtual DeleteDeclaration *isDeleteDeclaration() { return NULL; }
     virtual SymbolDeclaration *isSymbolDeclaration() { return NULL; }
     virtual AttribDeclaration *isAttribDeclaration() { return NULL; }
     virtual AnonDeclaration *isAnonDeclaration() { return NULL; }
@@ -378,6 +376,7 @@ public:
 
 class ForwardingScopeDsymbol : public ScopeDsymbol
 {
+public:
     ScopeDsymbol *forward;
 
     Dsymbol *symtabInsert(Dsymbol *s);
@@ -390,6 +389,7 @@ class ForwardingScopeDsymbol : public ScopeDsymbol
 
 class ExpressionDsymbol : public Dsymbol
 {
+public:
     Expression *exp;
 
     ExpressionDsymbol *isExpressionDsymbol() { return this; }
