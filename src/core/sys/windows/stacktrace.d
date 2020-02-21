@@ -219,11 +219,6 @@ private:
         // do ... while so that we don't skip the first stackframe
         do
         {
-            if ( stackframe.AddrPC.Offset == stackframe.AddrReturn.Offset )
-            {
-                debug(PRINTF) printf("Endless callstack\n");
-                break;
-            }
             if (frameNum >= skip)
             {
                 result ~= stackframe.AddrPC.Offset;
@@ -258,44 +253,41 @@ private:
         version (LDC) bool haveEncounteredDThrowException = false;
         foreach (pc; addresses)
         {
-            if ( pc != 0 )
+            char[] res;
+            if (dbghelp.SymGetSymFromAddr64(hProcess, pc, null, symbol) &&
+                *symbol.Name.ptr)
             {
-                char[] res;
-                if (dbghelp.SymGetSymFromAddr64(hProcess, pc, null, symbol) &&
-                    *symbol.Name.ptr)
+                version (LDC)
                 {
-                    version (LDC)
+                    // when encountering the first `_d_throw_exception()` frame,
+                    // clear the current trace and continue with the next frame
+                    if (!haveEncounteredDThrowException)
                     {
-                        // when encountering the first `_d_throw_exception()` frame,
-                        // clear the current trace and continue with the next frame
-                        if (!haveEncounteredDThrowException)
+                        auto len = strlen(symbol.Name.ptr);
+                        // ignore missing leading underscore (Win64 release) or additional module prefix (Win64 debug)
+                        //import core.stdc.stdio; printf("RAW: %s\n", symbol.Name.ptr);
+                        if (len >= 17 && symbol.Name.ptr[len-17 .. len] == "d_throw_exception")
                         {
-                            auto len = strlen(symbol.Name.ptr);
-                            // ignore missing leading underscore (Win64 release) or additional module prefix (Win64 debug)
-                            //import core.stdc.stdio; printf("RAW: %s\n", symbol.Name.ptr);
-                            if (len >= 17 && symbol.Name.ptr[len-17 .. len] == "d_throw_exception")
-                            {
-                                haveEncounteredDThrowException = true;
-                                trace.length = 0;
-                                continue;
-                            }
+                            haveEncounteredDThrowException = true;
+                            trace.length = 0;
+                            continue;
                         }
                     }
-
-                    DWORD disp;
-                    IMAGEHLP_LINEA64 line=void;
-                    line.SizeOfStruct = IMAGEHLP_LINEA64.sizeof;
-
-                    if (dbghelp.SymGetLineFromAddr64(hProcess, pc, &disp, &line))
-                        res = formatStackFrame(cast(void*)pc, symbol.Name.ptr,
-                                               line.FileName, line.LineNumber);
-                    else
-                        res = formatStackFrame(cast(void*)pc, symbol.Name.ptr);
                 }
+
+                DWORD disp;
+                IMAGEHLP_LINEA64 line=void;
+                line.SizeOfStruct = IMAGEHLP_LINEA64.sizeof;
+
+                if (dbghelp.SymGetLineFromAddr64(hProcess, pc, &disp, &line))
+                    res = formatStackFrame(cast(void*)pc, symbol.Name.ptr,
+                                           line.FileName, line.LineNumber);
                 else
-                    res = formatStackFrame(cast(void*)pc);
-                trace ~= res;
+                    res = formatStackFrame(cast(void*)pc, symbol.Name.ptr);
             }
+            else
+                res = formatStackFrame(cast(void*)pc);
+            trace ~= res;
         }
         return trace;
     }
