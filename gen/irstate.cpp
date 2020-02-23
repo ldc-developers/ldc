@@ -207,6 +207,28 @@ void IRState::addLinkerDependentLib(llvm::StringRef libraryName) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+void IRState::addInlineAsmSrcLoc(const Loc &loc,
+                                 llvm::CallInst *inlineAsmCall) {
+  // Simply use a stack of Loc* per IR module, and use index+1 as 32-bit
+  // cookie to be mapped back by the InlineAsmDiagnosticHandler.
+  // 0 is not a valid cookie.
+  inlineAsmLocs.push_back(&loc);
+  auto srcLocCookie = static_cast<unsigned>(inlineAsmLocs.size());
+
+  auto constant =
+      LLConstantInt::get(LLType::getInt32Ty(context()), srcLocCookie);
+  inlineAsmCall->setMetadata(
+      "srcloc",
+      llvm::MDNode::get(context(), llvm::ConstantAsMetadata::get(constant)));
+}
+
+const Loc &IRState::getInlineAsmSrcLoc(unsigned srcLocCookie) const {
+  assert(srcLocCookie);
+  return *inlineAsmLocs.at(srcLocCookie - 1);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 IRBuilder<> *IRBuilderHelper::operator->() {
   IRBuilder<> &b = state->scope().builder;
   assert(b.GetInsertBlock() != NULL);
