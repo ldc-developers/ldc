@@ -65,7 +65,7 @@ struct IRScope {
   IRBuilder<> builder;
 
   IRScope();
-  IRScope(const IRScope &) = default;
+  IRScope(const IRScope &);
   explicit IRScope(llvm::BasicBlock *b);
 
   IRScope &operator=(const IRScope &rhs);

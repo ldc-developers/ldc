@@ -73,7 +73,7 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
   if (cb == ComputeBackend::SPIRV) {
 #ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
     IF_LOG Logger::println("running createSPIRVWriterPass()");
-#if LDC_LLVM_VER >= 900
+#if LDC_LLVM_VER >= 900 && LDC_LLVM_VER < 1000
     std::ofstream out(filename, std::ofstream::binary);
 #else
     std::error_code errinfo;

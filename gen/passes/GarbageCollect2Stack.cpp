@@ -231,7 +231,7 @@ public:
   }
 
   Value *promote(CallSite CS, IRBuilder<> &B, const Analysis &A) override {
-    IRBuilder<> Builder = B;
+    IRBuilder<> &Builder(B);
     // If the allocation is of constant size it's best to put it in the
     // entry block, so do so if we're not already there.
     // For dynamically-sized allocations it's best to avoid the overhead
@@ -360,7 +360,7 @@ public:
   }
 
   Value *promote(CallSite CS, IRBuilder<> &B, const Analysis &A) override {
-    IRBuilder<> Builder = B;
+    IRBuilder<> &Builder = B;
     // If the allocation is of constant size it's best to put it in the
     // entry block, so do so if we're not already there.
     // For dynamically-sized allocations it's best to avoid the overhead

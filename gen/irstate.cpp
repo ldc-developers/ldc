@@ -30,6 +30,8 @@ IRScope::IRScope() : builder(gIR->context()) { begin = nullptr; }
 
 IRScope::IRScope(llvm::BasicBlock *b) : begin(b), builder(b) {}
 
+IRScope::IRScope(const IRScope &other) : begin(other.begin), builder(begin) {}
+
 IRScope &IRScope::operator=(const IRScope &rhs) {
   begin = rhs.begin;
   builder.SetInsertPoint(begin);
