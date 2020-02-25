@@ -19,69 +19,19 @@ else
     static assert(false, "This module is only valid for LDC");
 }
 
-version (LDC_LLVM_309)
-{
-}
-else version (LDC_LLVM_400)
-{
-    version = INTRINSICS_FROM_400;
-}
-else version (LDC_LLVM_500)
-{
-    version = INTRINSICS_FROM_400;
-    version = INTRINSICS_FROM_500;
-}
-else version (LDC_LLVM_600)
-{
-    version = INTRINSICS_FROM_400;
-    version = INTRINSICS_FROM_500;
-    version = INTRINSICS_FROM_600;
-}
-else version (LDC_LLVM_700)
-{
-    version = INTRINSICS_FROM_400;
-    version = INTRINSICS_FROM_500;
-    version = INTRINSICS_FROM_600;
-    version = INTRINSICS_FROM_700;
-}
-else version (LDC_LLVM_701)
-{
-    version = INTRINSICS_FROM_400;
-    version = INTRINSICS_FROM_500;
-    version = INTRINSICS_FROM_600;
-    version = INTRINSICS_FROM_700;
-}
-else version (LDC_LLVM_800)
-{
-    version = INTRINSICS_FROM_400;
-    version = INTRINSICS_FROM_500;
-    version = INTRINSICS_FROM_600;
-    version = INTRINSICS_FROM_700;
-    version = INTRINSICS_FROM_800;
-}
-else version (LDC_LLVM_900)
-{
-    version = INTRINSICS_FROM_400;
-    version = INTRINSICS_FROM_500;
-    version = INTRINSICS_FROM_600;
-    version = INTRINSICS_FROM_700;
-    version = INTRINSICS_FROM_800;
-    version = INTRINSICS_FROM_900;
-}
-else version (LDC_LLVM_1000)
-{
-    version = INTRINSICS_FROM_400;
-    version = INTRINSICS_FROM_500;
-    version = INTRINSICS_FROM_600;
-    version = INTRINSICS_FROM_700;
-    version = INTRINSICS_FROM_800;
-    version = INTRINSICS_FROM_900;
-    version = INTRINSICS_FROM_1000;
-}
-else
-{
-    static assert(false, "LDC LLVM version not supported");
-}
+     version (LDC_LLVM_309)  enum LLVM_version =  309;
+else version (LDC_LLVM_400)  enum LLVM_version =  400;
+else version (LDC_LLVM_500)  enum LLVM_version =  500;
+else version (LDC_LLVM_600)  enum LLVM_version =  600;
+else version (LDC_LLVM_700)  enum LLVM_version =  700;
+else version (LDC_LLVM_701)  enum LLVM_version =  701;
+else version (LDC_LLVM_800)  enum LLVM_version =  800;
+else version (LDC_LLVM_900)  enum LLVM_version =  900;
+else version (LDC_LLVM_1000) enum LLVM_version = 1000;
+else version (LDC_LLVM_1100) enum LLVM_version = 1100;
+else static assert(false, "LDC LLVM version not supported");
+
+enum LLVM_atleast(int major) = (LLVM_version >= major * 100);
 
 // All intrinsics are nothrow and @nogc. The codegen intrinsics are not categorized
 // any further (they probably could), the rest is pure (aborting is fine by
@@ -102,7 +52,7 @@ nothrow:
 pragma(LDC_intrinsic, "llvm.returnaddress")
     void* llvm_returnaddress(uint level);
 
-version(INTRINSICS_FROM_1000)
+static if (LLVM_atleast!10)
 {
     private enum llvm_frameaddress_fullname = "llvm.frameaddress.p0i8";
 }
@@ -181,7 +131,7 @@ alias llvm_readcyclecounter readcyclecounter;
 pragma(LDC_intrinsic, "llvm.clear_cache")
     void llvm_clear_cache(void *from, void *to);
 
-version (INTRINSICS_FROM_600)
+static if (LLVM_atleast!6)
 {
 /// The ‘llvm.thread.pointer‘ intrinsic returns a pointer to the TLS area for the
 /// current thread. The exact semantics of this value are target specific: it may
@@ -199,7 +149,7 @@ pragma(LDC_intrinsic, "llvm.thread.pointer")
 
 pure:
 
-version (INTRINSICS_FROM_700)
+static if (LLVM_atleast!7)
 {
 // The alignment parameter was removed from these memory intrinsics in LLVM 7.0. Instead, alignment
 // can be specified as an attribute on the ptr arguments.
@@ -264,8 +214,8 @@ void llvm_memset(T)(void* dst, ubyte val, T len, uint alignment, bool volatile_ 
         llvm_memset!T(dst, val, len, false);
 }
 
-} // version (INTRINSICS_FROM_700)
-else
+}
+else // !LLVM_atleast!7
 {
 
 /// The 'llvm.memcpy.*' intrinsics copy a block of memory from the source
@@ -428,7 +378,7 @@ pragma(LDC_intrinsic, "llvm.maxnum.f#")
     T llvm_maxnum(T)(T vala, T valb)
         if (__traits(isFloating, T));
 
-version (INTRINSICS_FROM_800)
+static if (LLVM_atleast!8)
 {
 /// The ‘llvm.minimum.*’ intrinsics return the minimum of the two arguments, propagating
 /// NaNs and treating -0.0 as less than +0.0.
@@ -485,7 +435,7 @@ pragma(LDC_intrinsic, "llvm.cttz.i#")
     T llvm_cttz(T)(T src, bool isZeroUndefined)
         if (__traits(isIntegral, T));
 
-version (INTRINSICS_FROM_700)
+static if (LLVM_atleast!7)
 {
 /// The ‘llvm.fshl’ family of intrinsic functions performs a funnel shift left:
 /// the first two values are concatenated as `{ a : b }` (`a` is the most
@@ -511,7 +461,7 @@ pragma(LDC_intrinsic, "llvm.fshr.i#")
     T llvm_fshr(T)(T a, T b, T shift)
         if (__traits(isIntegral, T));
 
-} // INTRINSICS_FROM_700
+} // LLVM_atleast!7
 
 
 //
@@ -658,7 +608,7 @@ pragma(LDC_intrinsic, "llvm.umul.with.overflow.i#")
     OverflowRet!(T) llvm_umul_with_overflow(T)(T lhs, T rhs)
         if (__traits(isIntegral, T));
 
-version (INTRINSICS_FROM_800)
+static if (LLVM_atleast!8)
 {
 //
 // SATURATION ARITHMETIC INTRINSICS
@@ -729,7 +679,7 @@ pragma(LDC_intrinsic, "llvm.expect.i#")
     T llvm_expect(T)(T val, T expectedVal)
         if (__traits(isIntegral, T));
 
-version (INTRINSICS_FROM_600)
+static if (LLVM_atleast!6)
 {
 /// LLVM optimizer treats this intrinsic as having side effect, so it can be
 /// inserted into a loop to indicate that the loop shouldn't be assumed to
