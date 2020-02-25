@@ -77,9 +77,7 @@ std::string getProgram(const char *name, const llvm::cl::opt<std::string> *opt,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-std::string getGcc() {
-  return getProgram("cc", &gcc, "CC");
-}
+std::string getGcc() { return getProgram("cc", &gcc, "CC"); }
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -294,7 +292,8 @@ int executeAndWait(const char *commandLine) {
   return exitCode;
 }
 
-bool setupMsvcEnvironmentImpl() {
+bool setupMsvcEnvironmentImpl(
+    std::vector<std::pair<std::wstring, wchar_t *>> &rollback) {
   if (env::has(L"VSINSTALLDIR"))
     return true;
 
@@ -377,6 +376,7 @@ bool setupMsvcEnvironmentImpl() {
   if (global.params.verbose)
     message("Applying environment variables:");
 
+  rollback.reserve(env.size());
   bool haveVsInstallDir = false;
 
   for (const auto &pair : env) {
@@ -395,6 +395,12 @@ bool setupMsvcEnvironmentImpl() {
     wkey.push_back(0);
     wvalue.push_back(0);
 
+    // copy the original value, if set
+    wchar_t *originalValue = _wgetenv(wkey.data());
+    if (originalValue)
+      originalValue = wcsdup(originalValue);
+    rollback.emplace_back(wkey.data(), originalValue);
+
     SetEnvironmentVariableW(wkey.data(), wvalue.data());
 
     if (key == "VSINSTALLDIR")
@@ -404,11 +410,19 @@ bool setupMsvcEnvironmentImpl() {
   return haveVsInstallDir;
 }
 
-bool setupMsvcEnvironment() {
-  const bool success = setupMsvcEnvironmentImpl();
+bool MsvcEnvironmentScope::setup() {
+  rollback.clear();
+  const bool success = setupMsvcEnvironmentImpl(rollback);
   if (!success)
     warning(Loc(), "no Visual C++ installation detected");
   return success;
+}
+
+MsvcEnvironmentScope::~MsvcEnvironmentScope() {
+  for (const auto &pair : rollback) {
+    SetEnvironmentVariableW(pair.first.data(), pair.second);
+    free(pair.second);
+  }
 }
 
 } // namespace windows
