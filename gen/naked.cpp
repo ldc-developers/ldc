@@ -168,7 +168,8 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
     fullmangle += mangle;
     mangle = fullmangle.c_str();
 
-    asmstr << "\t.section\t__TEXT,__text,regular,pure_instructions" << std::endl;
+    asmstr << "\t.section\t__TEXT,__text,regular,pure_instructions"
+           << std::endl;
     asmstr << "\t.globl\t" << mangle << std::endl;
     if (DtoIsTemplateInstance(fd)) {
       asmstr << "\t.weak_definition\t" << mangle << std::endl;
@@ -405,9 +406,6 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
 
 DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
                          LLValue *sretPointer) {
-  IF_LOG Logger::println("DtoInlineAsmExpr @ %s", loc.toChars());
-  LOG_SCOPE;
-
   assert(fd->toParent()->isTemplateInstance() && "invalid inline __asm expr");
   assert(arguments->length >= 2 && "invalid __asm call");
 
@@ -435,26 +433,58 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
                                        constraintsStr.length};
 
   // build runtime arguments
-  size_t n = arguments->length;
-
-  LLSmallVector<llvm::Value *, 8> args;
-  args.reserve(n - 2);
-  std::vector<LLType *> argtypes;
-  argtypes.reserve(n - 2);
-
-  for (size_t i = 2; i < n; i++) {
-    args.push_back(DtoRVal((*arguments)[i]));
-    argtypes.push_back(args.back()->getType());
+  const size_t n = arguments->length - 2;
+  LLSmallVector<Expression *, 8> args;
+  args.reserve(n);
+  for (size_t i = 0; i < n; i++) {
+    args.push_back((*arguments)[2 + i]);
   }
 
+  Type *returnType = fd->type->nextOf();
+  LLType *irReturnType = DtoType(returnType->toBasetype());
+
+  LLValue *rv =
+      DtoInlineAsmExpr(loc, code, constraints, {}, args, irReturnType);
+
+  // work around missing tuple support for users of the return value
+  if (sretPointer || returnType->ty == Tstruct) {
+    auto lvalue = sretPointer;
+    if (!lvalue)
+      lvalue = DtoAlloca(returnType, ".__asm_tuple_ret");
+    DtoStore(rv, DtoBitCast(lvalue, getPtrToType(irReturnType)));
+    return new DLValue(returnType, lvalue);
+  }
+
+  // return call as im value
+  return new DImValue(returnType, rv);
+}
+
+llvm::CallInst *DtoInlineAsmExpr(
+    const Loc &loc, llvm::StringRef code, llvm::StringRef constraints,
+    llvm::ArrayRef<llvm::Value *> indirectOutputLVals,
+    llvm::ArrayRef<Expression *> arguments, llvm::Type *returnType) {
+  IF_LOG Logger::println("DtoInlineAsmExpr @ %s", loc.toChars());
+  LOG_SCOPE;
+
+  const size_t numTotalIRArgs = indirectOutputLVals.size() + arguments.size();
+  LLSmallVector<LLValue *, 8> irArgs;
+  LLSmallVector<LLType *, 8> irArgTypes;
+  irArgs.reserve(numTotalIRArgs);
+  irArgTypes.reserve(numTotalIRArgs);
+  for (auto *lval : indirectOutputLVals)
+    irArgs.push_back(lval);
+  for (auto *e : arguments)
+    irArgs.push_back(DtoRVal(e));
+  for (auto *arg : irArgs)
+    irArgTypes.push_back(arg->getType());
+
   // build asm function type
-  Type *type = fd->type->nextOf();
-  LLType *ret_type = DtoType(type->toBasetype());
-  llvm::FunctionType *FT = llvm::FunctionType::get(ret_type, argtypes, false);
+  llvm::FunctionType *FT =
+      llvm::FunctionType::get(returnType, irArgTypes, false);
 
   // make sure the constraints are valid
   if (!llvm::InlineAsm::Verify(FT, constraints)) {
-    e->error("`__asm` constraint argument is invalid");
+    error(loc, "inline asm constraints are invalid");
     fatal();
   }
 
@@ -462,21 +492,5 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
   bool sideeffect = true;
   llvm::InlineAsm *ia = llvm::InlineAsm::get(FT, code, constraints, sideeffect);
 
-  llvm::Value *rv = gIR->ir->CreateCall(ia, args, "");
-
-  if (sretPointer) {
-    DtoStore(rv, DtoBitCast(sretPointer, getPtrToType(ret_type)));
-    return new DLValue(type, sretPointer);
-  }
-
-  // work around missing tuple support for users of the return value
-  if (type->ty == Tstruct) {
-    // make a copy
-    llvm::Value *mem = DtoAlloca(type, ".__asm_tuple_ret");
-    DtoStore(rv, DtoBitCast(mem, getPtrToType(ret_type)));
-    return new DLValue(type, mem);
-  }
-
-  // return call as im value
-  return new DImValue(type, rv);
+  return gIR->ir->CreateCall(ia, irArgs, "");
 }

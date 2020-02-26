@@ -42,6 +42,7 @@
 
 //////////////////////////////////////////////////////////////////////////////
 // FIXME: Integrate these functions
+void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs);
 void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs);
 void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p);
 
@@ -1669,6 +1670,11 @@ public:
   void visit(InlineAsmStatement *stmt) override {
     assert(!irs->dcomputetarget);
     AsmStatement_toIR(stmt, irs);
+  }
+
+  void visit(GccAsmStatement *stmt) override {
+    assert(!irs->dcomputetarget);
+    GccAsmStatement_toIR(stmt, irs);
   }
 
   //////////////////////////////////////////////////////////////////////////
