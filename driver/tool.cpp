@@ -386,10 +386,8 @@ bool setupMsvcEnvironmentImpl(
     const llvm::StringRef key = pair.first;
     const llvm::StringRef value = pair.second;
 
-    if (global.params.verbose) {
-      message("  %.*s=%.*s", (int)key.size(), key.data(), (int)value.size(),
-              value.data());
-    }
+    if (key == "VSINSTALLDIR")
+      haveVsInstallDir = true;
 
     llvm::SmallVector<wchar_t, 32> wkey;
     llvm::SmallVector<wchar_t, 512> wvalue;
@@ -398,16 +396,21 @@ bool setupMsvcEnvironmentImpl(
     wkey.push_back(0);
     wvalue.push_back(0);
 
-    // copy the original value, if set
     wchar_t *originalValue = _wgetenv(wkey.data());
+    if (originalValue && wcscmp(originalValue, wvalue.data()) == 0)
+      continue; // no change
+
+    if (global.params.verbose) {
+      message("  %.*s=%.*s", (int)key.size(), key.data(), (int)value.size(),
+              value.data());
+    }
+
+    // copy the original value, if set
     if (originalValue)
       originalValue = wcsdup(originalValue);
     rollback.emplace_back(wkey.data(), originalValue);
 
     SetEnvironmentVariableW(wkey.data(), wvalue.data());
-
-    if (key == "VSINSTALLDIR")
-      haveVsInstallDir = true;
   }
 
   return haveVsInstallDir;
@@ -423,7 +426,7 @@ bool MsvcEnvironmentScope::setup() {
 
 MsvcEnvironmentScope::~MsvcEnvironmentScope() {
   for (const auto &pair : rollback) {
-    SetEnvironmentVariableW(pair.first.data(), pair.second);
+    SetEnvironmentVariableW(pair.first.c_str(), pair.second);
     free(pair.second);
   }
 }
