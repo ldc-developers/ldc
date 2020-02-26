@@ -263,7 +263,7 @@ std::string quoteArg(llvm::StringRef arg) {
   return quotedArg;
 }
 
-int executeAndWait(const char *commandLine) {
+int executeAndWait(const char *commandLine, DWORD creationFlags = 0) {
   STARTUPINFO si;
   ZeroMemory(&si, sizeof(si));
   si.cb = sizeof(si);
@@ -277,8 +277,8 @@ int executeAndWait(const char *commandLine) {
   if (llvm::sys::windows::UTF8ToUTF16(commandLine, wcommandLine))
     return -3;
   wcommandLine.push_back(0);
-  if (!CreateProcessW(nullptr, wcommandLine.data(), nullptr, nullptr, TRUE, 0,
-                      nullptr, nullptr, &si, &pi)) {
+  if (!CreateProcessW(nullptr, wcommandLine.data(), nullptr, nullptr, TRUE,
+                      creationFlags, nullptr, nullptr, &si, &pi)) {
     exitCode = -1;
   } else {
     if (WaitForSingleObject(pi.hProcess, INFINITE) != 0 ||
@@ -324,6 +324,7 @@ bool setupMsvcEnvironmentImpl(
   llvm::SmallString<512> commandLine;
   commandLine += quoteArg(cmdExecutable);
   commandLine += " /s /c \"";
+  commandLine += "chcp 65001 && "; // => UTF-8 output encoding
   commandLine += quoteArg(batchFile);
   commandLine += ' ';
   commandLine += arch;
@@ -331,7 +332,9 @@ bool setupMsvcEnvironmentImpl(
   commandLine += quoteArg(tmpFilePath);
   commandLine += '"';
 
-  const int exitCode = executeAndWait(commandLine.c_str());
+  // do NOT pass down our console
+  const DWORD procCreationFlags = CREATE_NO_WINDOW;
+  const int exitCode = executeAndWait(commandLine.c_str(), procCreationFlags);
   if (exitCode != 0) {
     error(Loc(), "'%s' failed with status: %d", commandLine.c_str(), exitCode);
     llvm::sys::fs::remove(tmpFilePath);
