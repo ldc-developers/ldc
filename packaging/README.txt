@@ -20,15 +20,16 @@ following options:
 * Run LDC in a 'VS Native/Cross Tools Command Prompt' (LDC checks whether the
   VSINSTALLDIR environment variable is set).
   LDC assumes the environment variables are all set up appropriately.
-* Set the LDC_VSDIR environment variable to some Visual Studio/Visual C++ Build
-  Tools installation directory, e.g.,
+* Or set the LDC_VSDIR environment variable to some Visual Studio/Visual C++
+  Build Tools installation directory, e.g.,
   'C:\Program Files (x86)\Microsoft Visual Studio\2017\Community'.
   LDC will invoke a batch file provided by VS to set up the environment
   variables for the selected 32/64-bit target platform, which adds an overhead
   of about 1 second for each linking operation.
-  You can also set LDC_VSDIR to some non-existing dummy path; LDC will try to
-  auto-detect your latest Visual C++ installation in that case.
-* Set up the etc\ldc2.conf config file and specify the directories containing
+  You can also set LDC_VSDIR_FORCE (to some non-empty value); LDC will then try
+  to auto-detect your latest Visual C++ installation if you haven't set
+  LDC_VSDIR, and won't skip the environment setup if VSINSTALLDIR is pre-set.
+* Or set up the etc\ldc2.conf config file and specify the directories containing
   the MS libs (appending them to the 'lib-dirs' array; check out the LIB
   environment variable in a VS tools command prompt) as well as the C runtime
   flavor (e.g., appending '-mscrtlib=libcmt' to the 'switches' array).

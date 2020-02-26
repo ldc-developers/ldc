@@ -294,7 +294,7 @@ int executeAndWait(const char *commandLine) {
 
 bool setupMsvcEnvironmentImpl(
     std::vector<std::pair<std::wstring, wchar_t *>> &rollback) {
-  if (env::has(L"VSINSTALLDIR"))
+  if (env::has(L"VSINSTALLDIR") && !env::has(L"LDC_VSDIR_FORCE"))
     return true;
 
   llvm::SmallString<128> tmpFilePath;
