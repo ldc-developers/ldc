@@ -109,7 +109,7 @@ Each flag represents a field that can be included in the JSON output.
 
 NOTE: set type to uint so its size matches C++ unsigned type
 */
-enum JsonFieldFlags : int // IN_LLVM: changed from uint to int due to https://issues.dlang.org/show_bug.cgi?id=19658
+enum JsonFieldFlags : uint
 {
     none         = 0,
     compilerInfo = (1 << 0),

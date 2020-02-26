@@ -1595,15 +1595,7 @@ extern(C++):
             case Tint128:                c = 'n';       break;
             case Tuns128:                c = 'o';       break;
             case Tfloat64:               c = 'd';       break;
-version (IN_LLVM)
-{
-            // there are special cases for D `real`, handled via Target.cppTypeMangle() in the default case
-            case Tfloat80:               goto default;
-}
-else
-{
             case Tfloat80:               c = 'e';       break;
-}
             case Tbool:                  c = 'b';       break;
             case Tchar:                  c = 'c';       break;
             case Twchar:        p = 'D'; c = 's';       break;  // since C++11

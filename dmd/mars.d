@@ -1037,19 +1037,13 @@ version (NoMain) {} else
     version (DigitalMars)
     {
         version (Win64)
-        {
             pragma(lib, "phobos64");
-        }
         else version (Win32)
         {
             version (CRuntime_Microsoft)
-            {
                 pragma(lib, "phobos32mscoff");
-            }
             else
-            {
                 pragma(lib, "phobos");
-            }
         }
     }
 
