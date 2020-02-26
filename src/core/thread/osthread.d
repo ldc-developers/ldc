@@ -21,6 +21,15 @@ version (LDC)
     import ldc.llvmasm;
 
     version (Windows) version = LDC_Windows;
+
+    version (ARM)     version = ARM_Any;
+    version (AArch64) version = ARM_Any;
+
+    version (MIPS32) version = MIPS_Any;
+    version (MIPS64) version = MIPS_Any;
+
+    version (PPC)   version = PPC_Any;
+    version (PPC64) version = PPC_Any;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2618,64 +2627,29 @@ else
         }
         else version (LDC)
         {
-            version (PPC)
+            version (PPC_Any)
             {
                 // Nonvolatile registers, according to:
                 // System V Application Binary Interface
                 // PowerPC Processor Supplement, September 1995
-                size_t[18] regs = void;
-                __asm("std  14, $0", "=*m", regs.ptr +  0);
-                __asm("std  15, $0", "=*m", regs.ptr +  1);
-                __asm("std  16, $0", "=*m", regs.ptr +  2);
-                __asm("std  17, $0", "=*m", regs.ptr +  3);
-                __asm("std  18, $0", "=*m", regs.ptr +  4);
-                __asm("std  19, $0", "=*m", regs.ptr +  5);
-                __asm("std  20, $0", "=*m", regs.ptr +  6);
-                // Work around LLVM bug 21443 (http://llvm.org/bugs/show_bug.cgi?id=21443)
-                // Because we clobber r0 a different register is choosen
-                __asm("std  21, $0", "=*m,~{r0}", regs.ptr +  7);
-                __asm("std  22, $0", "=*m", regs.ptr +  8);
-                __asm("std  23, $0", "=*m", regs.ptr +  9);
-                __asm("std  24, $0", "=*m", regs.ptr + 10);
-                __asm("std  25, $0", "=*m", regs.ptr + 11);
-                __asm("std  26, $0", "=*m", regs.ptr + 12);
-                __asm("std  27, $0", "=*m", regs.ptr + 13);
-                __asm("std  28, $0", "=*m", regs.ptr + 14);
-                __asm("std  29, $0", "=*m", regs.ptr + 15);
-                __asm("std  30, $0", "=*m", regs.ptr + 16);
-                __asm("std  31, $0", "=*m", regs.ptr + 17);
-
-                __asm("std   1, $0", "=*m", &sp);
-            }
-            else version (PPC64)
-            {
-                // Nonvolatile registers, according to:
                 // ELFv1: 64-bit PowerPC ELF ABI Supplement 1.9, July 2004
                 // ELFv2: Power Architecture, 64-Bit ELV V2 ABI Specification,
                 //        OpenPOWER ABI for Linux Supplement, July 2014
                 size_t[18] regs = void;
-                __asm("std  14, $0", "=*m", regs.ptr +  0);
-                __asm("std  15, $0", "=*m", regs.ptr +  1);
-                __asm("std  16, $0", "=*m", regs.ptr +  2);
-                __asm("std  17, $0", "=*m", regs.ptr +  3);
-                __asm("std  18, $0", "=*m", regs.ptr +  4);
-                __asm("std  19, $0", "=*m", regs.ptr +  5);
-                __asm("std  20, $0", "=*m", regs.ptr +  6);
-                // Work around LLVM bug 21443 (http://llvm.org/bugs/show_bug.cgi?id=21443)
-                // Because we clobber r0 a different register is choosen
-                __asm("std  21, $0", "=*m,~{r0}", regs.ptr +  7);
-                __asm("std  22, $0", "=*m", regs.ptr +  8);
-                __asm("std  23, $0", "=*m", regs.ptr +  9);
-                __asm("std  24, $0", "=*m", regs.ptr + 10);
-                __asm("std  25, $0", "=*m", regs.ptr + 11);
-                __asm("std  26, $0", "=*m", regs.ptr + 12);
-                __asm("std  27, $0", "=*m", regs.ptr + 13);
-                __asm("std  28, $0", "=*m", regs.ptr + 14);
-                __asm("std  29, $0", "=*m", regs.ptr + 15);
-                __asm("std  30, $0", "=*m", regs.ptr + 16);
-                __asm("std  31, $0", "=*m", regs.ptr + 17);
+                static foreach (i; 0 .. regs.length)
+                {{
+                    enum int j = 14 + i; // source register
+                    static if (j == 21)
+                    {
+                        // Work around LLVM bug 21443 (http://llvm.org/bugs/show_bug.cgi?id=21443)
+                        // Because we clobber r0 a different register is chosen
+                        asm pure nothrow @nogc { ("std "~j.stringof~", %0") : "=m" (regs[i]) : : "r0"; }
+                    }
+                    else
+                        asm pure nothrow @nogc { ("std "~j.stringof~", %0") : "=m" (regs[i]); }
+                }}
 
-                __asm("std   1, $0", "=*m", &sp);
+                asm pure nothrow @nogc { "std 1, %0" : "=m" (sp); }
             }
             else version (AArch64)
             {
@@ -2683,56 +2657,47 @@ else
                 // 5.1.1.  Include x29 fp because it optionally can be a callee
                 // saved reg
                 size_t[11] regs = void;
-                __asm("stp x19, x20, $0", "=*m", regs.ptr + 0);
-                __asm("stp x21, x22, $0", "=*m", regs.ptr + 2);
-                __asm("stp x23, x24, $0", "=*m", regs.ptr + 4);
-                __asm("stp x25, x26, $0", "=*m", regs.ptr + 6);
-                __asm("stp x27, x28, $0", "=*m", regs.ptr + 8);
-                __asm("str x29, $0", "=*m", regs.ptr + 10);
-                sp = __asm!(void*)("mov $0, sp", "=r");
+                // store the registers in pairs
+                asm pure nothrow @nogc
+                {
+                    "stp x19, x20, %0" : "=m" (regs[ 0]), "=m" (regs[1]);
+                    "stp x21, x22, %0" : "=m" (regs[ 2]), "=m" (regs[3]);
+                    "stp x23, x24, %0" : "=m" (regs[ 4]), "=m" (regs[5]);
+                    "stp x25, x26, %0" : "=m" (regs[ 6]), "=m" (regs[7]);
+                    "stp x27, x28, %0" : "=m" (regs[ 8]), "=m" (regs[9]);
+                    "str x29, %0"      : "=m" (regs[10]);
+                    "mov %0, sp"       : "=r" (sp);
+                }
             }
             else version (ARM)
             {
                 // Callee-save registers, according to AAPCS, section 5.1.1.
                 // arm and thumb2 instructions
                 size_t[8] regs = void;
-                __asm("stm  $0, {r4-r11}", "r", regs.ptr);
-                sp = __asm!(void*)("mov $0, sp", "=r");
+                asm pure nothrow @nogc
+                {
+                    "stm %0, {r4-r11}" : : "r" (regs.ptr) : "memory";
+                    "mov %0, sp"       : "=r" (sp);
+                }
             }
-            else version (MIPS32)
+            else version (MIPS_Any)
             {
-                // Callee-save registers, according to MIPS Calling Convention
-                size_t[8] regs = void;
-                __asm(`.set  noat;
-                       sw $$16, 0($0);
-                       sw $$17, 4($0);
-                       sw $$18, 8($0);
-                       sw $$19, 12($0);
-                       sw $$20, 16($0);
-                       sw $$21, 20($0);
-                       sw $$22, 24($0);
-                       sw $$23, 28($0);
-                       .set  at;`, "r", regs.ptr);
-                __asm(".set  noat; sw $$29, 0($0); .set  at;", "r", &sp);
-            }
-            else version (MIPS64)
-            {
+                version (MIPS32)      enum store = "sw";
+                else version (MIPS64) enum store = "sd";
+                else static assert(0);
 
-                // Callee-save registers, according to MIPSpro N32 ABI Handbook,
-                // chapter 2, table 2-1.
+                // Callee-save registers, according to MIPS Calling Convention
+                // and MIPSpro N32 ABI Handbook, chapter 2, table 2-1.
                 // FIXME: Should $28 (gp) and $30 (s8) be saved, too?
                 size_t[8] regs = void;
-                __asm(`.set  noat;
-                       sd $$16,  0($0);
-                       sd $$17,  8($0);
-                       sd $$18, 16($0);
-                       sd $$19, 24($0);
-                       sd $$20, 32($0);
-                       sd $$21, 40($0);
-                       sd $$22, 48($0);
-                       sd $$23, 56($0);
-                       .set  at`, "r", regs.ptr);
-                __asm(".set  noat; sw $$29, 0($0); .set  at;", "r", &sp);
+                asm pure nothrow @nogc { ".set noat"; }
+                static foreach (i; 0 .. regs.length)
+                {{
+                    enum int j = 16 + i; // source register
+                    asm pure nothrow @nogc { (store ~ " $"~j.stringof~", %0") : "=m" (regs[i]); }
+                }}
+                asm pure nothrow @nogc { (store ~ " $29, %0") : "=m" (sp); }
+                asm pure nothrow @nogc { ".set at"; }
             }
             else
             {
@@ -3535,47 +3500,42 @@ extern (C) @nogc nothrow
 
 version (LDC)
 {
-    package(core.thread) void* getStackTop() nothrow @nogc @naked
+    version (X86)      version = LDC_stackTopAsm;
+    version (X86_64)   version = LDC_stackTopAsm;
+    version (ARM_Any)  version = LDC_stackTopAsm;
+    version (PPC_Any)  version = LDC_stackTopAsm;
+    version (MIPS_Any) version = LDC_stackTopAsm;
+
+    version (LDC_stackTopAsm)
     {
-        /* The inline assembler is written in a style that the code can be
-         * inlined.
-         * The use of intrinsic llvm_frameaddress is a reasonable default for
-         * cpu architectures without assembler support from LLVM. Because of
-         * the slightly different meaning the code must not be inlined.
+        /* The inline assembler is written in a style that the code can be inlined.
+         * If it isn't, the function is still naked, so the caller's stack pointer
+         * is used nevertheless.
          */
-        version (X86)
+        package(core.thread) void* getStackTop() nothrow @nogc @naked
         {
-            return __asm!(void*)("movl %esp, $0", "=r");
+            version (X86)
+                return __asm!(void*)("movl %esp, $0", "=r");
+            else version (X86_64)
+                return __asm!(void*)("movq %rsp, $0", "=r");
+            else version (ARM_Any)
+                return __asm!(void*)("mov $0, sp", "=r");
+            else version (PPC_Any)
+                return __asm!(void*)("mr $0, 1", "=r");
+            else version (MIPS_Any)
+                return __asm!(void*)("move $0, $$sp", "=r");
+            else
+                static assert(0);
         }
-        else version (X86_64)
-        {
-            return __asm!(void*)("movq %rsp, $0", "=r");
-        }
-        else version (AArch64)
-        {
-            return __asm!(void*)("mov $0, sp", "=r");
-        }
-        else version (ARM)
-        {
-            return __asm!(void*)("mov $0, sp", "=r");
-        }
-        else version (PPC)
-        {
-            return __asm!(void*)("mr $0, 1", "=r");
-        }
-        else version (PPC64)
-        {
-            return __asm!(void*)("mr $0, 1", "=r");
-        }
-        else version (MIPS32)
-        {
-            return __asm!(void*)(".set noat; move $0, $$sp; .set at", "=r");
-        }
-        else version (MIPS64)
-        {
-            return __asm!(void*)("move $0, $$sp", "=r");
-        }
-        else
+    }
+    else
+    {
+        /* The use of intrinsic llvm_frameaddress is a reasonable default for
+         * cpu architectures without assembler support from LLVM. Because of
+         * the slightly different meaning the function must neither be inlined
+         * nor naked.
+         */
+        package(core.thread) void* getStackTop() nothrow @nogc
         {
             import ldc.intrinsics;
             pragma(LDC_never_inline);

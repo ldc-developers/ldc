@@ -847,18 +847,17 @@ else
     {
         version (AArch64)
         {
-            import ldc.llvmasm: __asm;
             // We cannot use ldc.intrinsics.llvm_readcyclecounter because that is not an accurate
             // time counter (it is a counter of CPU cycles, where here we want a time clock).
             // Also, priviledged execution rights are needed to enable correct counting with
             // ldc.intrinsics.llvm_readcyclecounter on AArch64.
             extern (D) void QueryPerformanceCounter(timer_t* ctr)
             {
-                *ctr = __asm!ulong("mrs $0, cntvct_el0", "=r");
+                asm { "mrs %0, cntvct_el0" : "=r" (*ctr); }
             }
             extern (D) void QueryPerformanceFrequency(timer_t* freq)
             {
-                *freq = __asm!ulong("mrs $0, cntfrq_el0", "=r");
+                asm { "mrs %0, cntfrq_el0" : "=r" (*freq); }
             }
         }
         else
