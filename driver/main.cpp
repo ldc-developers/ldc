@@ -366,6 +366,11 @@ void parseCommandLine(Strings &sourceFiles) {
   global.params.doHdrGeneration |=
       global.params.hdrdir.length || global.params.hdrname.length;
 
+  global.params.cxxhdrdir = opts::fromPathString(cxxHdrDir);
+  global.params.cxxhdrname = opts::fromPathString(cxxHdrFile);
+  global.params.doCxxHdrGeneration |=
+      global.params.cxxhdrdir.length || global.params.cxxhdrname.length;
+
   global.params.mixinFile = opts::fromPathString(mixinFile).ptr;
 
   if (moduleDeps.getNumOccurrences() != 0) {
