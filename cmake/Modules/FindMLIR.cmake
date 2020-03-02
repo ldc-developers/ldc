@@ -7,7 +7,8 @@
 #   MLIR_BUILD_INCLUDE_DIR
 project(ldc)
 
-find_path(MLIR_ROOT_DIR NAMES "LICENSE.TXT" HINTS ${LLVM_ROOT_DIR}/../mlir)
+find_path(MLIR_ROOT_DIR NAMES "WritingAPass.md" HINTS ${LLVM_ROOT_DIR}/../mlir/docs)
+set(MLIR_ROOT_DIR ${MLIR_ROOT_DIR}/..)
 
 #Used to get the main header files
 find_path(MLIR_INCLUDE_DIR NAMES "Parser.h" HINTS ${MLIR_ROOT_DIR}/include/mlir)
