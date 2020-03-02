@@ -40,7 +40,7 @@ public:
 private:
   void prepareLLModule(Module *m);
   void finishLLModule(Module *m);
-  void writeAndFreeLLModule(const char *filename);
+  void writeAndFreeLLModule(const char *filename, Module *m = nullptr);
 
   llvm::LLVMContext &context_;
 #if LDC_MLIR_ENABLED

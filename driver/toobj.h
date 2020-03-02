@@ -12,13 +12,18 @@
 //===----------------------------------------------------------------------===//
 
 #pragma once
+#if LDC_MLIR_ENABLED
+#include "mlir/IR/MLIRContext.h"
+#include "gen/irstate.h"
+#include "dmd/module.h"
+#endif
 
 namespace llvm {
 class Module;
 }
 
-void writeModule(llvm::Module *m, const char *filename);
+void writeModule(llvm::Module *m, const char *filename
 #if LDC_MLIR_ENABLED
-void writeMLIRModule(Module *m, mlir::MLIRContext &mlirContext,
-    const char *filename, IRState *irs);
+, ::Module *module,mlir::MLIRContext &mlirContext, IRState *irs
 #endif
+);

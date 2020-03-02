@@ -199,8 +199,17 @@ void emitLLVMUsedArray(IRState &irs) {
 }
 
 namespace ldc {
-CodeGenerator::CodeGenerator(llvm::LLVMContext &context, bool singleObj)
-    : context_(context), moduleCount_(0), singleObj_(singleObj), ir_(nullptr) {
+CodeGenerator::CodeGenerator(llvm::LLVMContext &context,
+#if LDC_MLIR_ENABLED
+    mlir::MLIRContext &mlirContext,
+#endif
+bool singleObj)
+    : context_(context), 
+#if LDC_MLIR_ENABLED
+      mlirContext_(mlirContext),
+#endif
+      moduleCount_(0), singleObj_(singleObj), ir_(nullptr)
+{
   // Set the context to discard value names when not generating textual IR.
   if (!global.params.output_ll) {
     context_.setDiscardValueNames(true);
@@ -255,12 +264,12 @@ void CodeGenerator::finishLLModule(Module *m) {
     insertBitcodeFiles(ir_->module, ir_->context(), global.params.bitcodeFiles);
   }
 #if LDC_MLIR_ENABLED
-  writeMLIRModule(m, mlirContext_, m->objfile.toChars(), ir_);
+  writeAndFreeLLModule(m->objfile.toChars(), m);
 #endif  
   writeAndFreeLLModule(m->objfile.toChars());
 }
 
-void CodeGenerator::writeAndFreeLLModule(const char *filename) {
+void CodeGenerator::writeAndFreeLLModule(const char *filename, Module *m) {
   ir_->objc.finalize();
 
   ir_->DBuilder.Finalize();
@@ -284,7 +293,11 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   std::unique_ptr<llvm::ToolOutputFile> diagnosticsOutputFile =
       createAndSetDiagnosticsOutputFile(*ir_, context_, filename);
 
+#if LDC_MLIR_ENABLED
+  writeModule(&ir_->module, filename, m, mlirContext_, ir_);
+#else
   writeModule(&ir_->module, filename);
+#endif
 
   if (diagnosticsOutputFile)
     diagnosticsOutputFile->keep();
