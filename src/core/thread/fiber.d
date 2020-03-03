@@ -43,6 +43,8 @@ else
 version (Windows)
 {
     import core.stdc.stdlib : malloc, free;
+    import core.sys.windows.winbase;
+    import core.sys.windows.winnt;
 }
 
 private
@@ -1204,7 +1206,7 @@ private:
         //       requires too much special logic to be worthwhile.
         m_ctxt = new Thread.Context;
 
-        static if ( __traits( compiles, VirtualAlloc ) )
+        version (Windows)
         {
             // reserve memory for stack
             m_pmem = VirtualAlloc( null,
@@ -1334,7 +1336,7 @@ private:
         scope(exit) Thread.slock.unlock_nothrow();
         Thread.remove( m_ctxt );
 
-        static if ( __traits( compiles, VirtualAlloc ) )
+        version (Windows)
         {
             VirtualFree( m_pmem, 0, MEM_RELEASE );
         }
