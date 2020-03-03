@@ -40,6 +40,7 @@ steps:
     # Download & extract host LDC
     HOST_OS="$CI_OS"
     if [ "$CI_OS" = "android" ]; then HOST_OS="linux"; fi
+    if [ "$CI_OS" = "wasm" ]; then HOST_OS="linux"; fi
     curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$HOST_OS-x86_64.tar.xz
     mkdir host-ldc
     tar -xf ldc2.tar.xz --strip 1 -C host-ldc
@@ -106,7 +107,7 @@ steps:
     ninja -j$PARALLEL_JOBS all ldc2-unittest all-test-runners
     bin/ldc2 -version
   displayName: Build LDC & LDC D unittests & defaultlib unittest runners
-  condition: and(succeeded(), ne(variables['CI_OS'], 'android'))
+  condition: and(succeeded(), ne(variables['CI_OS'], 'android'), ne(variables['CI_OS'], 'wasm'))
 
 # Android only: cross-compile LDC
 - script: |
@@ -158,6 +159,41 @@ steps:
 - script: |
     set -ex
     cd ..
+    # Download & extract WASI SDK
+    curl -OL https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-$WASI_SDK_VERSION/wasi-sdk-$WASI_SDK_VERSION.0-linux.tar.gz
+    tar -xf wasi-sdk-$WASI_SDK_VERSION.0-linux.tar.gz
+    # The WASI SDK toolchain file uses Wasm as CMAKE_SYSTEM_NAME, but it needs to be Linux, otherwise cmake spits warnings and tries to create object files with .obj extension and ldc doesn't like them
+    WASI_SDK_PREFIX=$PWD/wasi-sdk-$WASI_SDK_VERSION.0
+    set +x
+    echo "##vso[task.setvariable variable=WASI_SDK_PREFIX]$WASI_SDK_PREFIX"
+    set -x
+    # the cmake that comes with the WASI SDK toolchain needs a bit patching to make it work
+    sed -i 's|set(CMAKE_SYSTEM_NAME Wasm)|set(CMAKE_SYSTEM_NAME Linux)|' $WASI_SDK_PREFIX/share/cmake/wasi-sdk.cmake
+    # TODO: can probably get rid of the staging prefix one and set the sysroot via cli
+    cat >> $WASI_SDK_PREFIX/share/cmake/wasi-sdk.cmake <<EOF
+    # Some hacks
+set(CMAKE_SYSROOT ${WASI_SDK_PREFIX}/share/wasi-sysroot CACHE STRING "wasi-sdk build")
+# set(CMAKE_STAGING_PREFIX ${WASI_SDK_PREFIX}/share/wasi-sysroot CACHE STRING "wasi-sdk build") # probably don't need this
+set(CMAKE_C_COMPILER_WORKS ON)
+set(CMAKE_CXX_COMPILER_WORKS ON)
+EOF
+  displayName: 'WebAssembly: Set up cross-compilation'
+  condition: and(succeeded(), eq(variables['CI_OS'], 'wasm'))
+- script: |
+    set -ex
+    cd ..
+    bootstrap-ldc/bin/ldc-build-runtime --ninja -j $PARALLEL_JOBS \
+      "--dFlags=-mtriple=wasm32-wasi" \
+      --ldcSrcDir=$BUILD_SOURCESDIRECTORY \
+      CMAKE_TOOLCHAIN_FILE="$WASI_SDK_PREFIX/share/cmake/wasi-sdk.cmake" WASI_SDK_PREFIX=$WASI_SDK_PREFIX \
+      --linkerFlags="-Wl,--allow-undefined;-Wl,--export=__heap_base;-Wl,--export=__data_end" \
+      --testRunners \
+      "${EXTRA_CMAKE_FLAGS[@]//-D/}"
+  displayName: 'WebAssembly: Cross-compile default libraries'
+  condition: and(succeeded(), eq(variables['CI_OS'], 'wasm'))
+- script: |
+    set -ex
+    cd ..
     installDir=$PWD/install
     mkdir build-$ARCH
     cd build-$ARCH
@@ -198,26 +234,26 @@ steps:
     cd ../build
     ctest --output-on-failure -R "ldc2-unittest"
   displayName: Run LDC D unittests
-  condition: and(succeededOrFailed(), ne(variables['CI_OS'], 'android'))
+  condition: and(succeededOrFailed(), ne(variables['CI_OS'], 'android'), ne(variables['CI_OS'], 'wasm'))
 - script: |
     set -ex
     cd ../build
     # Temporarily add LLVM bin dir to PATH, so that e.g. wasm-ld is found
     PATH=$PWD/../llvm/bin:$PATH ctest -V -R "lit-tests"
   displayName: Run LIT testsuite
-  condition: and(succeededOrFailed(), ne(variables['CI_OS'], 'android'))
+  condition: and(succeededOrFailed(), ne(variables['CI_OS'], 'android'), ne(variables['CI_OS'], 'wasm'))
 - script: |
     set -ex
     cd ../build
     DMD_TESTSUITE_MAKE_ARGS=-j$PARALLEL_JOBS ctest -V -R "dmd-testsuite"
   displayName: Run DMD testsuite
-  condition: and(succeededOrFailed(), ne(variables['CI_OS'], 'android'))
+  condition: and(succeededOrFailed(), ne(variables['CI_OS'], 'android'), ne(variables['CI_OS'], 'wasm'))
 - script: |
     set -ex
     cd ../build
     ctest -j$PARALLEL_JOBS --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
   displayName: Run defaultlib unittests & druntime stand-alone tests
-  condition: and(succeededOrFailed(), ne(variables['CI_OS'], 'android'))
+  condition: and(succeededOrFailed(), ne(variables['CI_OS'], 'android'), ne(variables['CI_OS'], 'wasm'))
 
 # Install & make portable
 - script: |
@@ -238,6 +274,12 @@ steps:
       cp -r $BUILD_SOURCESDIRECTORY/runtime/phobos/etc/c install/import/etc
       rm -rf install/import/etc/c/zlib
       cp -r $BUILD_SOURCESDIRECTORY/runtime/phobos/std install/import
+    elif [ "$CI_OS" = "wasm" ]; then
+      mkdir -p install/bin
+      # cp build-$ARCH/bin/{ldc2,ldmd2,ldc-build-runtime,ldc-profdata,ldc-prune-cache} install/bin
+      mkdir install/lib
+      cp ldc-build-runtime.tmp/lib/*.a install/lib
+      cp wasi-sdk-$WASI_SDK_VERSION.0/share/wasi-sysroot/lib/wasm32-wasi/libc.a install/lib
     else
       export PATH="$PWD/ninja:$PATH"
       cd build
@@ -246,7 +288,7 @@ steps:
       perl -pi -e s?$PWD/install/?%%ldcbinarypath%%/../?g install/etc/ldc2.conf
     fi
     cp $BUILD_SOURCESDIRECTORY/{LICENSE,packaging/README} install
-    cat install/etc/ldc2.conf
+    cat install/etc/ldc2.conf || true
     # Now rename the installation dir to test portability
     mv install installed
   displayName: Install LDC & make portable
@@ -329,7 +371,7 @@ steps:
         ];
         rpath = \"%%ldcbinarypath%%/../lib-arm64\";
     };
-    
+
     \"arm64-apple-ios\":
     {
         switches = [
@@ -347,7 +389,7 @@ steps:
         ];
         rpath = \"%%ldcbinarypath%%/../lib-ios-arm64\";
     };
-    
+
     \"x86_64-apple-ios\":
     {
         switches = [
@@ -382,7 +424,7 @@ steps:
       ./hello32
     fi
   displayName: Run hello-world integration test with shared libs
-  condition: and(succeeded(), ne(variables['CI_OS'], 'android'))
+  condition: and(succeeded(), ne(variables['CI_OS'], 'android'), ne(variables['CI_OS'], 'wasm'))
 - script: |
     set -ex
     cd ..
@@ -403,13 +445,13 @@ steps:
       ./hello_full
     fi
   displayName: Run hello-world integration test with LTO
-  condition: and(succeeded(), ne(variables['CI_OS'], 'android'))
+  condition: and(succeeded(), ne(variables['CI_OS'], 'android'), ne(variables['CI_OS'], 'wasm'))
 - script: |
     set -ex
     cd ..
     installed/bin/ldc2 -enable-dynamic-compile -run $BUILD_SOURCESDIRECTORY/tests/dynamiccompile/array.d
   displayName: Run dynamic-compile integration test
-  condition: and(succeeded(), ne(variables['CI_OS'], 'android'))
+  condition: and(succeeded(), ne(variables['CI_OS'], 'android'), ne(variables['CI_OS'], 'wasm'))
 
 # Add dub & dlang tools
 - script: |
@@ -432,6 +474,7 @@ steps:
     cp bin/dub ../installed/bin
     if [ "$CI_OS" != "android" ]; then ../installed/bin/dub --version; fi
   displayName: Build & copy dub
+  condition: and(succeeded(), ne(variables['CI_OS'], 'wasm'))
 - script: |
     set -ex
     cd ..
@@ -444,6 +487,7 @@ steps:
     $DMD -w -de -dip1000 DustMite/dustmite.d DustMite/splitter.d DustMite/polyhash.d -of=bin/dustmite
     cp bin/{rdmd,ddemangle,dustmite} ../installed/bin
   displayName: Build & copy dlang tools
+  condition: and(succeeded(), ne(variables['CI_OS'], 'wasm'))
 
 # Pack & publish artifact(s)
 - script: |
