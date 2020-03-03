@@ -77,9 +77,7 @@ std::string getProgram(const char *name, const llvm::cl::opt<std::string> *opt,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-std::string getGcc() {
-  return getProgram("cc", &gcc, "CC");
-}
+std::string getGcc() { return getProgram("cc", &gcc, "CC"); }
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -265,7 +263,7 @@ std::string quoteArg(llvm::StringRef arg) {
   return quotedArg;
 }
 
-int executeAndWait(const char *commandLine) {
+int executeAndWait(const char *commandLine, DWORD creationFlags = 0) {
   STARTUPINFO si;
   ZeroMemory(&si, sizeof(si));
   si.cb = sizeof(si);
@@ -279,8 +277,8 @@ int executeAndWait(const char *commandLine) {
   if (llvm::sys::windows::UTF8ToUTF16(commandLine, wcommandLine))
     return -3;
   wcommandLine.push_back(0);
-  if (!CreateProcessW(nullptr, wcommandLine.data(), nullptr, nullptr, TRUE, 0,
-                      nullptr, nullptr, &si, &pi)) {
+  if (!CreateProcessW(nullptr, wcommandLine.data(), nullptr, nullptr, TRUE,
+                      creationFlags, nullptr, nullptr, &si, &pi)) {
     exitCode = -1;
   } else {
     if (WaitForSingleObject(pi.hProcess, INFINITE) != 0 ||
@@ -294,8 +292,9 @@ int executeAndWait(const char *commandLine) {
   return exitCode;
 }
 
-bool setupMsvcEnvironmentImpl() {
-  if (env::has(L"VSINSTALLDIR"))
+bool setupMsvcEnvironmentImpl(
+    std::vector<std::pair<std::wstring, wchar_t *>> &rollback) {
+  if (env::has(L"VSINSTALLDIR") && !env::has(L"LDC_VSDIR_FORCE"))
     return true;
 
   llvm::SmallString<128> tmpFilePath;
@@ -325,6 +324,7 @@ bool setupMsvcEnvironmentImpl() {
   llvm::SmallString<512> commandLine;
   commandLine += quoteArg(cmdExecutable);
   commandLine += " /s /c \"";
+  commandLine += "chcp 65001 && "; // => UTF-8 output encoding
   commandLine += quoteArg(batchFile);
   commandLine += ' ';
   commandLine += arch;
@@ -332,7 +332,9 @@ bool setupMsvcEnvironmentImpl() {
   commandLine += quoteArg(tmpFilePath);
   commandLine += '"';
 
-  const int exitCode = executeAndWait(commandLine.c_str());
+  // do NOT pass down our console
+  const DWORD procCreationFlags = CREATE_NO_WINDOW;
+  const int exitCode = executeAndWait(commandLine.c_str(), procCreationFlags);
   if (exitCode != 0) {
     error(Loc(), "'%s' failed with status: %d", commandLine.c_str(), exitCode);
     llvm::sys::fs::remove(tmpFilePath);
@@ -377,16 +379,15 @@ bool setupMsvcEnvironmentImpl() {
   if (global.params.verbose)
     message("Applying environment variables:");
 
+  rollback.reserve(env.size());
   bool haveVsInstallDir = false;
 
   for (const auto &pair : env) {
     const llvm::StringRef key = pair.first;
     const llvm::StringRef value = pair.second;
 
-    if (global.params.verbose) {
-      message("  %.*s=%.*s", (int)key.size(), key.data(), (int)value.size(),
-              value.data());
-    }
+    if (key == "VSINSTALLDIR")
+      haveVsInstallDir = true;
 
     llvm::SmallVector<wchar_t, 32> wkey;
     llvm::SmallVector<wchar_t, 512> wvalue;
@@ -395,20 +396,39 @@ bool setupMsvcEnvironmentImpl() {
     wkey.push_back(0);
     wvalue.push_back(0);
 
-    SetEnvironmentVariableW(wkey.data(), wvalue.data());
+    wchar_t *originalValue = _wgetenv(wkey.data());
+    if (originalValue && wcscmp(originalValue, wvalue.data()) == 0)
+      continue; // no change
 
-    if (key == "VSINSTALLDIR")
-      haveVsInstallDir = true;
+    if (global.params.verbose) {
+      message("  %.*s=%.*s", (int)key.size(), key.data(), (int)value.size(),
+              value.data());
+    }
+
+    // copy the original value, if set
+    if (originalValue)
+      originalValue = wcsdup(originalValue);
+    rollback.emplace_back(wkey.data(), originalValue);
+
+    SetEnvironmentVariableW(wkey.data(), wvalue.data());
   }
 
   return haveVsInstallDir;
 }
 
-bool setupMsvcEnvironment() {
-  const bool success = setupMsvcEnvironmentImpl();
+bool MsvcEnvironmentScope::setup() {
+  rollback.clear();
+  const bool success = setupMsvcEnvironmentImpl(rollback);
   if (!success)
     warning(Loc(), "no Visual C++ installation detected");
   return success;
+}
+
+MsvcEnvironmentScope::~MsvcEnvironmentScope() {
+  for (const auto &pair : rollback) {
+    SetEnvironmentVariableW(pair.first.c_str(), pair.second);
+    free(pair.second);
+  }
 }
 
 } // namespace windows

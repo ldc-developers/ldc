@@ -266,6 +266,10 @@ int createStaticLibrary() {
 
   const bool useInternalArchiver = ar.empty();
 
+#ifdef _WIN32
+  windows::MsvcEnvironmentScope msvcEnv;
+#endif
+
   // find archiver
   std::string tool;
   if (useInternalArchiver) {
@@ -273,7 +277,7 @@ int createStaticLibrary() {
   } else {
 #ifdef _WIN32
     if (isTargetMSVC)
-      windows::setupMsvcEnvironment();
+      msvcEnv.setup();
 #endif
 
     tool = getProgram(isTargetMSVC ? "lib.exe" : "ar", &ar);

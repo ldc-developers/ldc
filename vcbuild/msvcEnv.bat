@@ -1,8 +1,5 @@
 @echo off
 
-:: Environment already set up?
-if not "%VSINSTALLDIR%"=="" goto :eof
-
 :: Skip detection if an existing LDC_VSDIR environment variable points to an existing folder
 if "%LDC_VSDIR%"=="" goto detect
 if not "%LDC_VSDIR:~-1%"=="\" set LDC_VSDIR=%LDC_VSDIR%\

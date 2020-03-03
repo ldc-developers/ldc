@@ -188,7 +188,10 @@ bool useInternalToolchainForMSVC() {
 #ifndef _WIN32
   return true;
 #else
-  return !env::has(L"VSINSTALLDIR") && !env::has(L"LDC_VSDIR");
+  return !env::has(L"VSINSTALLDIR") && !env::has(L"LDC_VSDIR") &&
+         // LDC_VSDIR_FORCE alone can be used to prefer MSVC toolchain
+         // auto-detection over the internal toolchain.
+         !env::has(L"LDC_VSDIR_FORCE");
 #endif
 }
 
