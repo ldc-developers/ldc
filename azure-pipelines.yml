@@ -1,7 +1,7 @@
 variables:
   LLVM_VERSION: 9.0.1
   CLANG_VERSION: 9.0.0
-  HOST_LDC_VERSION: 1.19.0
+  HOST_LDC_VERSION: 1.20.0
 
 # Although tags are supposed to trigger builds by default, they don't.
 trigger:
@@ -147,6 +147,17 @@ jobs:
   steps:
     - template: .azure-pipelines/posix.yml
 
+- job: WebAssembly
+  timeoutInMinutes: 120
+  pool:
+    vmImage: 'ubuntu-16.04'
+  variables:
+    CI_OS: wasm
+    ARCH: wasm32
+    EXTRA_CMAKE_FLAGS: -DBUILD_SHARED_LIBS=OFF
+  steps:
+    - template: .azure-pipelines/posix.yml
+
 # Uploads the packages to a GitHub release.
 - job: Upload_to_GitHub
   timeoutInMinutes: 30
@@ -157,6 +168,7 @@ jobs:
     - Linux_multilib
     - macOS_x64
     - Android
+    - WebAssembly
   # Only run for commits on the master branch and tags.
   condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')))
   steps:

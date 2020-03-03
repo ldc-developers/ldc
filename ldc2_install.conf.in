@@ -35,7 +35,7 @@ default:
 "^wasm(32|64)-":
 {
     switches = [
-        "-defaultlib=",@WASM_DEFAULT_LDC_SWITCHES@
+        "-defaultlib=c,druntime-ldc,phobos2-ldc",@WASM_DEFAULT_LDC_SWITCHES@
     ];
     lib-dirs = [];
 };

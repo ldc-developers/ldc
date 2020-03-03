@@ -1,9 +1,9 @@
 [submodule "druntime"]
 	path = runtime/druntime
-	url = https://github.com/ldc-developers/druntime.git
+	url = https://github.com/skoppe/druntime.git
 [submodule "phobos"]
 	path = runtime/phobos
-	url = https://github.com/ldc-developers/phobos.git
+	url = https://github.com/skoppe/phobos.git
 [submodule "tests/d2/dmd-testsuite"]
 	path = tests/d2/dmd-testsuite
 	url = https://github.com/ldc-developers/dmd-testsuite.git
