@@ -7,35 +7,44 @@
 #   MLIR_BUILD_INCLUDE_DIR
 project(ldc)
 
-find_path(MLIR_ROOT_DIR NAMES "WritingAPass.md" HINTS ${LLVM_ROOT_DIR}/../mlir/docs)
-set(MLIR_ROOT_DIR ${MLIR_ROOT_DIR}/..)
+find_path(MLIR_ROOT_DIR NAMES "LICENSE.TXT" HINTS ${LLVM_ROOT_DIR}/../mlir)
 
 #Used to get the main header files
-find_path(MLIR_INCLUDE_DIR NAMES "Parser.h" HINTS ${MLIR_ROOT_DIR}/include/mlir)
+find_path(MLIR_INCLUDE_DIR NAMES "DialectConversion.h" HINTS 
+          ${MLIR_ROOT_DIR}/include/mlir/Transforms ${LLVM_INCLUDE_DIRS}/mlir/Transforms/)
+set(MLIR_INCLUDE_DIR ${MLIR_INCLUDE_DIR}/..)
 
 #Lib directories
-find_path(MLIR_LIB_DIR NAMES "CMakeLists.txt" HINTS ${MLIR_ROOT_DIR}/lib/IR)
+find_path(MLIR_LIB_DIR NAMES "AffineExpr.cpp" HINTS
+          ${MLIR_ROOT_DIR}/lib/IR ${LLVM_LIBRARY_DIRS})
 
 #Used to get StandardOps.h.inc
 find_path(MLIR_BUILD_INCLUDE_DIR NAMES "cmake_install.cmake"
         HINTS ${LLVM_ROOT_DIR}/tools/mlir/include/mlir)
 
+if(EXISTS ${MLIR_ROOT_DIR})
+
 message(STATUS "MLIR Dir: ${MLIR_ROOT_DIR}")
-message(STATUS "MLIR Include Dir: ${MLIR_INCLUDE_DIR}/..")
+message(STATUS "MLIR Include Dir: ${MLIR_INCLUDE_DIR}")
 message(STATUS "MLIR Lib Dir: ${MLIR_LIB_DIR}/..")
 message(STATUS "MLIR Build Include Dir: ${MLIR_BUILD_INCLUDE_DIR}/..")
 
 set(MLIR_ROOT_DIRS ${MLIR_ROOT_DIR})
-set(MLIR_INCLUDE_DIRS ${MLIR_INCLUDE_DIR}/..)
+set(MLIR_INCLUDE_DIRS ${MLIR_INCLUDE_DIR})
 set(MLIR_BUILD_INCLUDE_DIRS ${MLIR_BUILD_INCLUDE_DIR}/..)
 set(MLIR_LIB_DIRS ${MLIR_LIB_DIR}/..)
 
-if(EXISTS ${MLIR_ROOT_DIR})
+else()
+
+message(STATUS "MLIR Include Dir: ${MLIR_INCLUDE_DIR}")
+set(MLIR_INCLUDE_DIRS ${MLIR_INCLUDE_DIR})
+
+endif()
+
 #Resources to automatically generate Ops.h.inc and Ops.cpp.inc, assuming that
 #mlir-tblgen is already built and is on the usual directory at llvm dir
 set(MLIR_MAIN_SRC_DIR ${MLIR_INCLUDE_DIR}/.. )
 set(MLIR_TABLEGEN_EXE ${LLVM_ROOT_DIR}/bin/mlir-tblgen)
-set(MLIR_INCLUDE_DIR ${MLIR_BUILD_INCLUDE_DIR}/..)
 
 function(mlir_tablegen)
     cmake_parse_arguments(
@@ -62,8 +71,13 @@ endfunction()
 # if all listed variables are TRUE
 include(FindPackageHandleStandardArgs)
 
+if(EXISTS ${MLIR_ROOT_DIR})
 find_package_handle_standard_args(MLIR DEFAULT_MSG MLIR_ROOT_DIRS MLIR_INCLUDE_DIRS
                                             MLIR_BUILD_INCLUDE_DIRS MLIR_LIB_DIRS)
 
 mark_as_advanced(MLIR_ROOT_DIRS MLIR_INCLUDE_DIRS MLIR_BUILD_INCLUDE_DIRS MLIR_LIB_DIRS)
+else()
+find_package_handle_standard_args(MLIR DEFAULT_MSG  MLIR_INCLUDE_DIRS)
+mark_as_advanced(MLIR_INCLUDE_DIRS)
 endif()
+
