@@ -141,6 +141,16 @@ if canDoLTO:
 if config.ldc_with_lld:
     config.available_features.add('internal_lld')
 
+# Add "link_WebAssembly" feature if we can link wasm (-link-internally or wasm-ld in PATH).
+if config.ldc_with_lld:
+    config.available_features.add('link_WebAssembly')
+else:
+    try:
+        if (subprocess.call(["wasm-ld", "--version"]) == 0):
+            config.available_features.add('link_WebAssembly')
+    except OSError:
+        pass
+
 config.target_triple = '(unused)'
 
 # test_exec_root: The root path where tests should be run.
