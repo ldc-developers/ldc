@@ -40,9 +40,10 @@ IRScope &IRScope::operator=(const IRScope &rhs) {
 IRState::IRState(const char *name, llvm::LLVMContext &context)
     : module(name, context), objc(module), DBuilder(this) {
   ir.state = this;
+  mem.addRange(&inlineAsmLocs, sizeof(inlineAsmLocs));
 }
 
-IRState::~IRState() {}
+IRState::~IRState() { mem.removeRange(&inlineAsmLocs); }
 
 FuncGenState &IRState::funcGen() {
   assert(!funcGenStates.empty() && "Function stack is empty!");
@@ -212,7 +213,7 @@ void IRState::addInlineAsmSrcLoc(const Loc &loc,
   // Simply use a stack of Loc* per IR module, and use index+1 as 32-bit
   // cookie to be mapped back by the InlineAsmDiagnosticHandler.
   // 0 is not a valid cookie.
-  inlineAsmLocs.push_back(&loc);
+  inlineAsmLocs.push_back(loc);
   auto srcLocCookie = static_cast<unsigned>(inlineAsmLocs.size());
 
   auto constant =
@@ -223,8 +224,8 @@ void IRState::addInlineAsmSrcLoc(const Loc &loc,
 }
 
 const Loc &IRState::getInlineAsmSrcLoc(unsigned srcLocCookie) const {
-  assert(srcLocCookie);
-  return *inlineAsmLocs.at(srcLocCookie - 1);
+  assert(srcLocCookie > 0 && srcLocCookie <= inlineAsmLocs.size());
+  return inlineAsmLocs[srcLocCookie - 1];
 }
 
 ////////////////////////////////////////////////////////////////////////////////

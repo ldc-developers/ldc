@@ -113,7 +113,7 @@ struct IRState {
 private:
   std::vector<std::pair<llvm::GlobalVariable *, llvm::Constant *>>
       globalsToReplace;
-  std::vector<const Loc *> inlineAsmLocs;
+  Array<Loc> inlineAsmLocs; // tracked by GC
 
   // Cache of (possibly bitcast) global variables for taking the address of
   // struct literal constants. (Also) used to resolve self-references. Must be
