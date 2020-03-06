@@ -16,8 +16,17 @@
 
 module rt.sections_ldc;
 
+version (OSX)
+    version = Darwin;
+else version (iOS)
+    version = Darwin;
+else version (TVOS)
+    version = Darwin;
+else version (WatchOS)
+    version = Darwin;
+
 version (linux) {}
-else version (OSX) {}
+else version (Darwin) {}
 else version (FreeBSD) {}
 else version (DragonFlyBSD) {}
 else version (NetBSD) {}
