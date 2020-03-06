@@ -29,7 +29,6 @@ version (LDC)
 {
     import stdc = core.stdc.math;
     import ldc.intrinsics;
-    import ldc.llvmasm;
 }
 
 public:
@@ -328,7 +327,6 @@ T toPrec(T:real)(real f)  { pragma(inline, false); return f; }
     r = toPrec!real(d + d);
     r = toPrec!real(r + r);
 
-    /+ Uncomment these once compiler support has been added.
     enum real PIR = 0xc.90fdaa22168c235p-2;
     enum double PID = 0x1.921fb54442d18p+1;
     enum float PIF = 0x1.921fb6p+1;
@@ -342,5 +340,4 @@ T toPrec(T:real)(real f)  { pragma(inline, false); return f; }
     assert(toPrec!float(PIF) == PIF);
     assert(toPrec!double(PIF) == PIF);
     assert(toPrec!real(PIF) == PIF);
-    +/
 }
