@@ -114,10 +114,13 @@ script:
   - ctest -V -R "lit-tests"
   # Run DMD testsuite
   - |
-    # The -lowmem tests don't work with an ltsmaster host compiler
     if [[ "$($DC --version | head -n 1)" == *0.17.* ]]; then
+      # The -lowmem tests don't work with an ltsmaster host compiler
       rm tests/d2/dmd-testsuite/runnable/{testptrref,xtest46}_gc.d
       rm tests/d2/dmd-testsuite/fail_compilation/mixin_gc.d
+      # The @live tests neither (LDC segfaults)
+      rm tests/d2/dmd-testsuite/compilable/ob1.d
+      rm tests/d2/dmd-testsuite/fail_compilation/fob{1,2}.d
     fi
     if [ "$TRAVIS_OS_NAME" = "osx" ]; then
       # dmd-testsuite-debug only to reduce time-outs
