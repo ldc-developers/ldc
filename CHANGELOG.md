@@ -1,3 +1,8 @@
+# LDC 1.20.1 (2020-03-07)
+
+#### Bug fixes
+- Non-Windows: Revert to strong `ModuleInfo.importedModules` references for correct module constructors execution order. (#3346, #3347)
+
 # LDC 1.20.0 (2020-02-14)
 
 #### Big news
