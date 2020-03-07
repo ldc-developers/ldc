@@ -1036,14 +1036,21 @@ version (NoMain) {} else
     // When using a C main, host DMD may not link against host druntime by default.
     version (DigitalMars)
     {
+        // IN_LLVM: extra curly braces for ltsmaster compilability...
         version (Win64)
+        {
             pragma(lib, "phobos64");
+        }
         else version (Win32)
         {
             version (CRuntime_Microsoft)
+            {
                 pragma(lib, "phobos32mscoff");
+            }
             else
+            {
                 pragma(lib, "phobos");
+            }
         }
     }
 

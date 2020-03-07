@@ -2515,7 +2515,7 @@ class Lexer
          */
         OutBuffer buf;
 
-        void trimTrailingWhitespace()
+        void trimTrailingWhitespace() /* IN_LLVM: ltsmaster... */ nothrow
         {
             const s = buf[];
             auto len = s.length;
@@ -2699,6 +2699,7 @@ unittest
     diagnosticHandler = &expectDiagnosticHandler;
 
     void test(string sequence, string expectedError, dchar expectedReturnValue, uint expectedScanLength)
+    /* IN_LLVM: ltsmaster */ nothrow
     {
         uint errors = global.errors;
         gotError = false;

@@ -187,7 +187,7 @@ private struct ModuleComponentRange
  */
 private bool includeImportedModuleCheck(ModuleComponentRange components)
     in { assert(includeImports); }
-do
+body
 {
     createMatchNodes();
     size_t nodeIndex = 0;

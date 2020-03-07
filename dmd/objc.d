@@ -502,7 +502,7 @@ else
     {
         assert(id.classKind == ClassKind.objc);
     }
-    do
+    body
     {
         // don't report deprecations for the metaclass to avoid duplicated
         // messages.
@@ -576,7 +576,7 @@ else
         assert(fd.selector);
         assert(fd.isMember);
     }
-    do
+    body
     {
         // * final member functions are kept virtual with Objective-C linkage
         //   because the Objective-C runtime always use dynamic dispatch.
@@ -591,7 +591,7 @@ else
     {
         assert(metaclass);
     }
-    do
+    body
     {
         if (cd.classKind == ClassKind.objc && fd.isStatic && !cd.objc.isMeta)
             return cd.objc.metaclass;
@@ -604,7 +604,7 @@ else
     {
         assert(fd.parent.isClassDeclaration);
     }
-    do
+    body
     {
         if (cd.classKind != ClassKind.objc)
             return;
@@ -642,7 +642,7 @@ else
     {
         assert(fd.selectorParameter is null);
     }
-    do
+    body
     {
         if (!fd.selector)
             return null;
