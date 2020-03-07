@@ -20,23 +20,36 @@ template _d_cmain()
 {
     extern(C)
     {
-        int _d_run_main(int argc, char **argv, void* mainFunc);
-
         int _Dmain(char[][] args);
 
-        int main(int argc, char **argv)
+        version (Windows)
         {
-            pragma(LDC_profile_instr, false);
-            return _d_run_main(argc, argv, &_Dmain);
-        }
+            int _d_wrun_main(int argc, wchar** wargv, void* mainFunc);
 
-        // Solaris, for unknown reasons, requires both a main() and an _main()
-        version (Solaris)
-        {
-            int _main(int argc, char** argv)
+            int wmain(int argc, wchar** wargv)
             {
                 pragma(LDC_profile_instr, false);
-                return main(argc, argv);
+                return _d_wrun_main(argc, wargv, &_Dmain);
+            }
+        }
+        else
+        {
+            int _d_run_main(int argc, char** argv, void* mainFunc);
+
+            int main(int argc, char** argv)
+            {
+                pragma(LDC_profile_instr, false);
+                return _d_run_main(argc, argv, &_Dmain);
+            }
+
+            // Solaris, for unknown reasons, requires both a main() and an _main()
+            version (Solaris)
+            {
+                int _main(int argc, char** argv)
+                {
+                    pragma(LDC_profile_instr, false);
+                    return main(argc, argv);
+                }
             }
         }
     }
