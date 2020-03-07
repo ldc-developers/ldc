@@ -88,8 +88,9 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
   const bool useInternalToolchain = useInternalToolchainForMSVC();
 
 #ifdef _WIN32
+  windows::MsvcEnvironmentScope msvcEnv;
   if (!useInternalToolchain)
-    windows::setupMsvcEnvironment();
+    msvcEnv.setup();
 #endif
 
   // build arguments

@@ -42,9 +42,6 @@ jobs:
     vmImage: 'windows-2019'
   dependsOn:
     - Windows
-  variables:
-    # Let LDC auto-detect the Visual C++ installation for the smoke tests.
-    LDC_VSDIR: C:\non-existing_dummy
   steps:
     - checkout: none
     - task: DownloadPipelineArtifact@2
@@ -85,14 +82,24 @@ jobs:
         cat etc\ldc2.conf
       displayName: Merge ldc2.conf
     - powershell: |
-        echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > hello.d
+        $hello  = "void main() {`n"
+        $hello += "  import std.process, std.stdio;`n"
+        $hello += "  writefln(""Hello world, %d bits"", size_t.sizeof * 8);`n"
+        $hello += "  assert(!environment.get(""VSINSTALLDIR""));`n"
+        $hello += "}`n"
+        echo "$hello" > hello.d
       displayName: Generate hello.d
     - script: |
-        %ARTIFACT_NAME%\bin\ldc2 -run hello.d
-      displayName: Run 64-bit hello-world smoke test
+        echo on
+        %ARTIFACT_NAME%\bin\ldc2 -v -run hello.d || exit /b
+        %ARTIFACT_NAME%\bin\ldc2 -v -m32 -run hello.d
+      displayName: Run 32/64-bit hello-world smoke test with internal toolchain
     - script: |
-        %ARTIFACT_NAME%\bin\ldc2 -m32 -run hello.d
-      displayName: Run 32-bit hello-world smoke test
+        echo on
+        set LDC_VSDIR_FORCE=1
+        %ARTIFACT_NAME%\bin\ldc2 -v -run hello.d || exit /b
+        %ARTIFACT_NAME%\bin\ldc2 -v -m32 -run hello.d
+      displayName: Run 32/64-bit hello-world smoke test with MSVC auto-detection
     - script: |
         mkdir newArtifacts
         7z a -mx=9 newArtifacts/%ARTIFACT_NAME%.7z %ARTIFACT_NAME% > nul

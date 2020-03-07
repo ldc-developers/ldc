@@ -134,7 +134,7 @@ steps:
     cd ..
     set PATH=%CD%\ninja;%PATH%
     cd build
-    ninja install > nul
+    ninja install > nul || exit /b
     cd ..
     powershell -c "(cat install/etc/ldc2.conf).replace('%CD:\=/%/install/', '%%%%ldcbinarypath%%%%/../') | Set-Content install/etc/ldc2.conf"
     cat install/etc/ldc2.conf
@@ -178,7 +178,7 @@ steps:
     git clone --recursive https://github.com/dlang/dub.git 2>&1
     cd dub
     powershell -c "git checkout \"$(cat %BUILD_SOURCESDIRECTORY%/packaging/dub_version -Raw)\"" 2>&1
-    call build.cmd 2>&1
+    call build.cmd 2>&1 || exit /b
     cp bin/dub.exe ../installed/bin
     ..\installed\bin\dub --version
   displayName: Build & copy dub
@@ -187,9 +187,9 @@ steps:
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     git clone --recursive https://github.com/dlang/tools.git dlang-tools 2>&1
     cd dlang-tools
-    ..\installed\bin\ldmd2 -w -de -dip1000 rdmd.d
-    ..\installed\bin\ldmd2 -w -de -dip1000 ddemangle.d
-    ..\installed\bin\ldmd2 -w -de -dip1000 DustMite\dustmite.d DustMite\splitter.d
+    ..\installed\bin\ldmd2 -w -de -dip1000 rdmd.d || exit /b
+    ..\installed\bin\ldmd2 -w -de -dip1000 ddemangle.d || exit /b
+    ..\installed\bin\ldmd2 -w -de -dip1000 DustMite\dustmite.d DustMite\splitter.d || exit /b
     cp *.exe ../installed/bin
   displayName: Build & copy dlang tools
 - script: |
