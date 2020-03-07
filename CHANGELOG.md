@@ -1,7 +1,12 @@
+# LDC 1.20.1 (2020-03-07)
+
+#### Bug fixes
+- Non-Windows: Revert to strong `ModuleInfo.importedModules` references for correct module constructors execution order. (#3346, #3347)
+
 # LDC 1.20.0 (2020-02-14)
 
 #### Big news
-- Frontend, druntime and Phobos are at version [2.090.1](https://dlang.org/changelog/2.090.1.html). (#3262, #3296, #3306, #3317)
+- Frontend, druntime and Phobos are at version [2.090.1+](https://dlang.org/changelog/2.090.1.html). (#3262, #3296, #3306, #3317, #3326)
 - Codegen preparations for:
   - iOS/tvOS/watchOS on AArch64. Thanks Jacob! (#3288)
   - WASI (WebAssembly System Interface) (#3295)
