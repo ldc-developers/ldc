@@ -161,10 +161,17 @@ Where:\n\
                     bounds checks on, in @safe only, or off\n\
   -c                compile only, do not link\n\
   -check=[assert|bounds|in|invariant|out|switch][=[on|off]]\n\
-                    Enable or disable specific checks\n\
-  -checkaction=[D|C|halt|context]\n\
-                    behavior on assert/boundscheck/finalswitch failure\n\
-  -color            turn colored console output on\n\
+                    enable or disable specific checks\n"
+#if 0
+"  -check=[h|help|?] list information on all available checks\n"
+#endif
+"  -checkaction=[D|C|halt|context]\n\
+                    behavior on assert/boundscheck/finalswitch failure\n"
+#if 0
+"  -checkaction=[h|help|?]\n\
+                    list information on all available check actions\n"
+#endif
+"  -color            turn colored console output on\n\
   -color=[on|off|auto]\n\
                     force colored console output on or off, or only when not redirected (default)\n\
   -conf=<filename>  use config file at filename\n\
@@ -174,8 +181,8 @@ Where:\n\
   -Dd<directory>    write documentation file to directory\n\
   -Df<filename>     write documentation file to filename\n\
   -d                silently allow deprecated features and symbols\n\
-  -dw               issue a message when deprecated features or symbols are used (default)\n\
   -de               issue an error when deprecated features or symbols are used (halt compilation)\n\
+  -dw               issue a message when deprecated features or symbols are used (default)\n\
   -debug            compile in debug code\n\
   -debug=<level>    compile in debug code <= level\n\
   -debug=<ident>    compile in debug code identified by ident\n\
@@ -185,8 +192,12 @@ Where:\n\
   -deps             print module dependencies (imports/file/version/debug/lib)\n\
   -deps=<filename>  write module dependencies to filename (only imports)\n\
   -extern-std=<standard>\n\
-                    set C++ name mangling compatibility with <standard>\n\
-  -fPIC             generate position independent code\n\
+                    set C++ name mangling compatibility with <standard>\n"
+#if 0
+"  -extern-std=[h|help|?]\n\
+                    list all supported standards\n"
+#endif
+"  -fPIC             generate position independent code\n\
   -g                add symbolic debug info\n\
   -gf               emit debug info for all referenced types\n\
   -gs               always emit stack frame\n"
@@ -196,6 +207,9 @@ Where:\n\
 "  -H                generate 'header' file\n\
   -Hd=<directory>   write 'header' file to directory\n\
   -Hf=<filename>    write 'header' file to filename\n\
+  -HC               generate C++ 'header' file\n\
+  -HCd=<directory>  write C++ 'header' file to directory\n\
+  -HCf=<filename>   write C++ 'header' file to filename\n\
   --help            print help and exit\n\
   -I=<directory>    look for imports also in directory\n\
   -i[=<pattern>]    include imported modules in the compilation\n\
@@ -218,7 +232,8 @@ Where:\n\
 "  -mcpu=<id>        generate instructions for architecture identified by 'id'\n\
   -mcpu=[h|help|?]  list all architecture options\n\
   -mixin=<filename> expand and save mixins to file specified by <filename>\n\
-  -mscrtlib=<name>  MS C runtime library to reference from main/WinMain/DllMain\n\
+  -mscrtlib=<libname>\n\
+                    MS C runtime library to reference from main/WinMain/DllMain\n\
   -mv=<package.module>=<filespec>\n\
                     use <filespec> as source file for <package.module>\n\
   -noboundscheck    no array bounds checking (deprecated, use -boundscheck=off)\n\
@@ -228,14 +243,16 @@ Where:\n\
   -of=<filename>    name output file to filename\n\
   -op               preserve source path for output files\n\
   -preview=<id>     enable an upcoming language change identified by 'id'\n\
-  -preview=?        list all upcoming language changes\n\
+  -preview=[h|help|?]\n\
+                    list all upcoming language changes\n\
   -profile          profile runtime performance of generated code\n"
 #if 0
 "  -profile=gc       profile runtime allocations\n"
 #endif
 "  -release          compile release version\n\
   -revert=<id>      revert language change identified by 'id'\n\
-  -revert=?         list all revertable language changes\n\
+  -revert=[h|help|?]\n\
+                    list all revertable language changes\n\
   -run <srcfile>    compile, link, and run the program srcfile\n\
   -shared           generate shared library (DLL)\n\
   -transition=<id>  help with language change identified by 'id'\n\
@@ -245,9 +262,11 @@ Where:\n\
   -v                verbose\n\
   -vcolumns         print character (column) numbers in diagnostics\n\
   -vdmd             print the underlying LDC command line\n\
+  -verror-style=[digitalmars|gnu]\n\
+                    set the style for file/line number annotations on compiler messages\n\
   -verrors=<num>    limit the number of error messages (0 means unlimited)\n\
-  -verrors=spec     show errors from speculative compiles such as __traits(compiles,...)\n\
   -verrors=context  show error messages with the context of the erroring source line\n\
+  -verrors=spec     show errors from speculative compiles such as __traits(compiles,...)\n\
   --version         print compiler version and exit\n\
   -version=<level>  compile in version code >= level\n\
   -version=<ident>  compile in version code identified by ident\n\
@@ -515,7 +534,10 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         } else {
           goto Lerror;
         }
-      } else if (startsWith(p + 1, "mcpu=")) {
+      }
+      /* -verror-style
+       */
+      else if (startsWith(p + 1, "mcpu=")) {
         const char *c = p + 6;
         if (strcmp(c, "?") == 0 || strcmp(c, "h") == 0 ||
             strcmp(c, "help") == 0) {
@@ -552,6 +574,9 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
       /* -D
        * -Dd
        * -Df
+       * -HC
+       * -HCd
+       * -HCf
        * -H
        * -Hd
        * -Hf

@@ -5,7 +5,7 @@
  * This is the POSIX side of the implementation.
  * It exports two functions to C++, `toCppMangleItanium` and `cppTypeInfoMangleItanium`.
  *
- * Copyright: Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Copyright: Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors: Walter Bright, http://www.digitalmars.com
  * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:    $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/cppmangle.d, _cppmangle.d)
@@ -505,11 +505,13 @@ private final class CppMangleVisitor : Visitor
              * <template-arg> ::= <type>               # type or template
              *                ::= X <expression> E     # expression
              *                ::= <expr-primary>       # simple expressions
-             *                ::= I <template-arg>* E  # argument pack
+             *                ::= J <template-arg>* E  # argument pack
+             *
+             * Reference: https://itanium-cxx-abi.github.io/cxx-abi/abi.html#mangle.template-arg
              */
             if (TemplateTupleParameter tt = tp.isTemplateTupleParameter())
             {
-                buf.writeByte('I');     // argument pack
+                buf.writeByte('J');     // argument pack
 
                 // mangle the rest of the arguments as types
                 foreach (j; i .. (*ti.tiargs).dim)
@@ -1593,15 +1595,7 @@ extern(C++):
             case Tint128:                c = 'n';       break;
             case Tuns128:                c = 'o';       break;
             case Tfloat64:               c = 'd';       break;
-version (IN_LLVM)
-{
-            // there are special cases for D `real`, handled via Target.cppTypeMangle() in the default case
-            case Tfloat80:               goto default;
-}
-else
-{
             case Tfloat80:               c = 'e';       break;
-}
             case Tbool:                  c = 'b';       break;
             case Tchar:                  c = 'c';       break;
             case Twchar:        p = 'D'; c = 's';       break;  // since C++11

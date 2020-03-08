@@ -677,7 +677,7 @@ LLConstant *DtoDefineClassInfo(ClassDeclaration *cd) {
   b.push_uint(flags);
 
   // deallocator
-  b.push_funcptr(cd->aggDelete, Type::tvoid->pointerTo());
+  b.push_null_vp();
 
   // offset typeinfo
   VarDeclaration *offTiVar = cinfo->fields[9];

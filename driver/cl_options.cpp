@@ -130,6 +130,18 @@ static cl::opt<bool, true> printErrorContext(
     cl::desc(
         "Show error messages with the context of the erroring source line"));
 
+static cl::opt<MessageStyle, true> verrorStyle(
+    "verror-style", cl::ZeroOrMore, cl::location(global.params.messageStyle),
+    cl::desc(
+        "Set the style for file/line number annotations on compiler messages"),
+    clEnumValues(
+        clEnumValN(MESSAGESTYLEdigitalmars, "digitalmars",
+                   "'file(line[,column]): message' (default)"),
+        clEnumValN(MESSAGESTYLEgnu, "gnu",
+                   "'file:line[:column]: message', conforming to the GNU "
+                   "standard used by gcc and clang")),
+    cl::init(MESSAGESTYLEdigitalmars));
+
 static cl::opt<Diagnostic, true> warnings(
     cl::desc("Warnings:"), cl::ZeroOrMore, cl::location(global.params.warnings),
     clEnumValues(
@@ -244,6 +256,21 @@ cl::opt<std::string> hdrFile("Hf", cl::ZeroOrMore, cl::Prefix,
 cl::opt<bool>
     hdrKeepAllBodies("Hkeep-all-bodies", cl::ZeroOrMore,
                      cl::desc("Keep all function bodies in .di files"));
+
+// C++ header generation options
+static cl::opt<bool, true>
+    doCxxHdrGen("HC", cl::desc("Generate C++ 'header' file"), cl::ZeroOrMore,
+             cl::location(global.params.doCxxHdrGeneration));
+
+cl::opt<std::string>
+    cxxHdrDir("HCd", cl::ZeroOrMore, cl::Prefix,
+              cl::desc("Write C++ 'header' file to <directory>"),
+              cl::value_desc("directory"));
+
+cl::opt<std::string>
+    cxxHdrFile("HCf", cl::ZeroOrMore, cl::Prefix,
+               cl::desc("Write C++ 'header' file to <filename>"),
+               cl::value_desc("filename"));
 
 cl::opt<std::string> mixinFile("mixin", cl::ZeroOrMore,
                                cl::desc("Expand and save mixins to <filename>"),

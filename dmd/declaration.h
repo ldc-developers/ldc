@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -217,6 +217,7 @@ public:
     bool isargptr;              // if parameter that _argptr points to
     bool ctorinit;              // it has been initialized in a ctor
     bool iscatchvar;            // this is the exception object variable in catch() clause
+    bool isowner;               // this is an Owner, despite it being `scope`
     bool onstack;               // it is a class that was allocated on the stack
 #if IN_LLVM
     bool onstackWithDtor;       // it is a class that was allocated on the stack and needs destruction
@@ -629,6 +630,8 @@ public:
     static FuncDeclaration *genCfunc(Parameters *args, Type *treturn, const char *name, StorageClass stc=0);
     static FuncDeclaration *genCfunc(Parameters *args, Type *treturn, Identifier *id, StorageClass stc=0);
 
+    bool checkNrvo();
+
     FuncDeclaration *isFuncDeclaration() { return this; }
 
     virtual FuncDeclaration *toAliasFunc() { return this; }
@@ -806,22 +809,5 @@ public:
     bool addPostInvariant();
 
     NewDeclaration *isNewDeclaration() { return this; }
-    void accept(Visitor *v) { v->visit(this); }
-};
-
-
-class DeleteDeclaration : public FuncDeclaration
-{
-public:
-    Parameters *parameters;
-
-    Dsymbol *syntaxCopy(Dsymbol *);
-    const char *kind() const;
-    bool isDelete();
-    bool isVirtual() const;
-    bool addPreInvariant();
-    bool addPostInvariant();
-
-    DeleteDeclaration *isDeleteDeclaration() { return this; }
     void accept(Visitor *v) { v->visit(this); }
 };

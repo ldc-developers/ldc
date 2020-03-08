@@ -55,7 +55,7 @@ set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 set(DRUNTIME_EXTRA_FLAGS          -preview=fieldwise)
 set(DRUNTIME_EXTRA_UNITTEST_FLAGS -d-version=CoreUnittest -unittest) # no `-checkaction=context` yet
 set(PHOBOS2_EXTRA_FLAGS           -transition=complex)
-set(PHOBOS2_EXTRA_UNITTEST_FLAGS  -unittest)
+set(PHOBOS2_EXTRA_UNITTEST_FLAGS  -d-version=StdUnittest -unittest)
 
 # Shadow the D_FLAGS cache variable by a regular variable containing all base D flags
 set(D_FLAGS ${D_FLAGS} ${D_EXTRA_FLAGS})

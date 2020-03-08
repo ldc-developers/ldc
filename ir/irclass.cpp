@@ -96,7 +96,7 @@ LLGlobalVariable *IrAggr::getClassInfoSymbol() {
     LLType *type = DtoType(aggrdecl->type);
     LLType *bodyType = llvm::cast<LLPointerType>(type)->getElementType();
     bool hasDestructor = (classdecl->dtor != nullptr);
-    bool hasCustomDelete = (classdecl->aggDelete != nullptr);
+    bool hasCustomDelete = false;
     // Construct the fields
     llvm::Metadata *mdVals[CD_NumFields];
     mdVals[CD_BodyType] =
