@@ -174,22 +174,23 @@ steps:
 - script: |
     cd ..
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
-    set DC=%CD%/installed/bin/ldmd2
+    set DMD=%CD%\installed\bin\ldmd2
     git clone --recursive https://github.com/dlang/dub.git 2>&1
     cd dub
     powershell -c "git checkout \"$(cat %BUILD_SOURCESDIRECTORY%/packaging/dub_version -Raw)\"" 2>&1
-    call build.cmd 2>&1 || exit /b
+    %DMD% -run build.d -O -w 2>&1 || exit /b
     cp bin/dub.exe ../installed/bin
     ..\installed\bin\dub --version
   displayName: Build & copy dub
 - script: |
     cd ..
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
+    set DMD=%CD%\installed\bin\ldmd2
     git clone --recursive https://github.com/dlang/tools.git dlang-tools 2>&1
     cd dlang-tools
-    ..\installed\bin\ldmd2 -w -de -dip1000 rdmd.d || exit /b
-    ..\installed\bin\ldmd2 -w -de -dip1000 ddemangle.d || exit /b
-    ..\installed\bin\ldmd2 -w -de -dip1000 DustMite\dustmite.d DustMite\splitter.d || exit /b
+    %DMD% -w -de -dip1000 rdmd.d || exit /b
+    %DMD% -w -de -dip1000 ddemangle.d || exit /b
+    %DMD% -w -de -dip1000 DustMite\dustmite.d DustMite\splitter.d || exit /b
     cp *.exe ../installed/bin
   displayName: Build & copy dlang tools
 - script: |
