@@ -1,5 +1,5 @@
 /**
- * This module provides OSX-specific support for sections.
+ * This module provides Darwin-specific support for sections.
  *
  * Copyright: Copyright The D Language Foundation 2008 - 2016.
  * License: Distributed under the
@@ -10,7 +10,16 @@
  */
 module rt.mach_utils;
 
-version (OSX):
+version (OSX)
+    version = Darwin;
+else version (iOS)
+    version = Darwin;
+else version (TVOS)
+    version = Darwin;
+else version (WatchOS)
+    version = Darwin;
+
+version (Darwin):
 
 import core.sys.darwin.mach.dyld;
 import core.sys.darwin.mach.getsect;
@@ -31,14 +40,7 @@ static immutable SectionRef[] dataSections =
 ubyte[] getSection(in mach_header* header, intptr_t slide,
                    in char* segmentName, in char* sectionName)
 {
-    version (X86)
-    {
-        assert(header.magic == MH_MAGIC);
-        auto sect = getsectbynamefromheader(header,
-                                            segmentName,
-                                            sectionName);
-    }
-    else version (X86_64)
+    version (D_LP64)
     {
         assert(header.magic == MH_MAGIC_64);
         auto sect = getsectbynamefromheader_64(cast(mach_header_64*)header,
@@ -46,7 +48,12 @@ ubyte[] getSection(in mach_header* header, intptr_t slide,
                                             sectionName);
     }
     else
-        static assert(0, "unimplemented");
+    {
+        assert(header.magic == MH_MAGIC);
+        auto sect = getsectbynamefromheader(header,
+                                            segmentName,
+                                            sectionName);
+    }
 
     if (sect !is null && sect.size > 0)
         return (cast(ubyte*)sect.addr + slide)[0 .. cast(size_t)sect.size];

@@ -10,6 +10,15 @@
 
 module rt.sections_elf_shared;
 
+version (OSX)
+    version = Darwin;
+else version (iOS)
+    version = Darwin;
+else version (TVOS)
+    version = Darwin;
+else version (WatchOS)
+    version = Darwin;
+
 version (CRuntime_Glibc) enum SharedELF = true;
 else version (CRuntime_Musl) enum SharedELF = true;
 else version (FreeBSD) enum SharedELF = true;
@@ -18,7 +27,7 @@ else version (DragonFlyBSD) enum SharedELF = true;
 else version (CRuntime_UClibc) enum SharedELF = true;
 else enum SharedELF = false;
 
-version (OSX) enum SharedDarwin = true;
+version (Darwin) enum SharedDarwin = true;
 else enum SharedDarwin = false;
 
 static if (SharedELF || SharedDarwin):
@@ -42,14 +51,13 @@ else version (FreeBSD)
     import core.sys.freebsd.sys.elf;
     import core.sys.freebsd.sys.link_elf;
 }
-else version (OSX)
+else version (Darwin)
 {
     import core.sys.darwin.dlfcn;
     import core.sys.darwin.mach.dyld;
     import core.sys.darwin.mach.getsect;
 
     extern(C) intptr_t _dyld_get_image_slide(const mach_header*) nothrow @nogc;
-    extern(C) mach_header* _dyld_get_image_header_containing_address(const void *addr) nothrow @nogc;
 }
 else version (NetBSD)
 {
@@ -412,7 +420,7 @@ else
 // Compiler to runtime interface.
 ///////////////////////////////////////////////////////////////////////////////
 
-version (OSX)
+version (Darwin)
     private alias ImageHeader = mach_header*;
 else
     private alias ImageHeader = SharedObject;
@@ -892,10 +900,13 @@ else static if (SharedDarwin) void scanSegments(mach_header* info, DSO* pdso)
 
 bool findImageHeaderForAddr(in void* addr, out ImageHeader result) nothrow @nogc
 {
-    version (OSX)
+    version (Darwin)
     {
-        result = _dyld_get_image_header_containing_address(addr);
-        return !!result;
+        Dl_info info;
+        const res = dladdr(addr, &info);
+        result = cast(ImageHeader) info.dli_fbase;
+
+        return res != 0;
     }
     else
     {
@@ -963,7 +974,7 @@ static if (SharedDarwin)
         // for https://github.com/ldc-developers/ldc/issues/1252
     }
 
-    version (X86_64)
+    version (D_LP64)
         import rt.sections_darwin_64 : getTLSRange;
     else
         static assert(0, "Not implemented for this architecture");
