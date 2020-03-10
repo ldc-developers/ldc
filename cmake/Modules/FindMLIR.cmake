@@ -8,7 +8,6 @@
 project(ldc)
 
 find_path(MLIR_ROOT_DIR NAMES "WritingAPass.md" HINTS ${LLVM_ROOT_DIR}/../mlir/docs)
-set(MLIR_ROOT_DIR ${MLIR_ROOT_DIR}/..)
 
 #Used to get the main header files
 find_path(MLIR_INCLUDE_DIR NAMES "DialectConversion.h" HINTS 
@@ -24,6 +23,7 @@ find_path(MLIR_BUILD_INCLUDE_DIR NAMES "cmake_install.cmake"
         HINTS ${LLVM_ROOT_DIR}/tools/mlir/include/mlir)
 
 if(EXISTS ${MLIR_ROOT_DIR})
+set(MLIR_ROOT_DIR ${MLIR_ROOT_DIR}/..)
 
 message(STATUS "MLIR Dir: ${MLIR_ROOT_DIR}")
 message(STATUS "MLIR Include Dir: ${MLIR_INCLUDE_DIR}")
