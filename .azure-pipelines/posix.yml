@@ -305,7 +305,7 @@ steps:
       # Don't run dub after build
       sed -i 's|bin/dub --version||' build.sh
     fi
-    DFLAGS='' ./build.sh $DFLAGS
+    DFLAGS='' $DMD -run build.d -O -w $DFLAGS
     cp bin/dub ../installed/bin
     if [ "$CI_OS" != "android" ]; then ../installed/bin/dub --version; fi
   displayName: Build & copy dub
