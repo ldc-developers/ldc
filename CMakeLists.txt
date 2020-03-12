@@ -97,11 +97,11 @@ include(GetLinuxDistribution)
 #
 
 # Version information
-set(LDC_VERSION "1.21.0") # May be overridden by git hash tag
+set(LDC_VERSION "1.20.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   91)
-set(DMDFE_FIX_LEVEL       0)
+set(DMDFE_PATCH_VERSION   90)
+set(DMDFE_FIX_LEVEL       1)
 
 set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}${DMDFE_PATCH_VERSION})
 if(DEFINED DMDFE_FIX_LEVEL)
@@ -355,10 +355,14 @@ configure_file(driver/ldc-version.cpp.in driver/ldc-version.cpp)
 find_package(MLIR)
 if(MLIR_FOUND)
     message(STATUS "Buiding with MLIR support")
-    include_directories(${MLIR_ROOT_DIR})
-    include_directories(${MLIR_INCLUDE_DIRS})
-    include_directories(${MLIR_BUILD_INCLUDE_DIRS})
-    include_directories(${MLIR_LIB_DIRS})
+		if(${MLIR_ROOT_DIR})
+			include_directories(${MLIR_ROOT_DIR})
+    	include_directories(${MLIR_INCLUDE_DIRS})
+    	include_directories(${MLIR_BUILD_INCLUDE_DIRS})
+    	include_directories(${MLIR_LIB_DIRS})
+		else()
+			include_directories(${MLIR_INCLUDE_DIRS})
+		endif()
     add_definitions("-DLDC_MLIR_ENABLED")
 
     set(LLVM_LINK_COMPONENTS
