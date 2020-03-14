@@ -134,7 +134,7 @@ RegistryStyle getModuleRegistryStyle() {
   }
 
   if (t.isOSLinux() || t.isOSFreeBSD() || t.isOSNetBSD() || t.isOSOpenBSD() ||
-      t.isOSDragonFly()) {
+      t.isOSDragonFly() || t.isPS4()) {
     return RegistryStyle::sectionELF;
   }
 

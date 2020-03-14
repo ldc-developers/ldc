@@ -1041,7 +1041,7 @@ int cppmain() {
     global.params.isLinux = triple->isOSLinux();
     global.params.isOSX = triple->isOSDarwin();
     global.params.isWindows = triple->isOSWindows();
-    global.params.isFreeBSD = triple->isOSFreeBSD();
+    global.params.isFreeBSD = triple->isOSFreeBSD() || triple->isPS4();
     global.params.isOpenBSD = triple->isOSOpenBSD();
     global.params.isDragonFlyBSD = triple->isOSDragonFly();
     global.params.isSolaris = triple->isOSSolaris();
