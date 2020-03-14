@@ -270,6 +270,14 @@ struct Array
         return *this;
     }
 
+    const TYPE &operator[](d_size_t index) const
+    {
+#ifdef DEBUG
+        assert(index < length);
+#endif
+        return data.ptr[index];
+    }
+
     size_type size() const
     {
         return static_cast<size_type>(length);

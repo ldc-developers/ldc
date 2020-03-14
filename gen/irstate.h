@@ -113,6 +113,7 @@ struct IRState {
 private:
   std::vector<std::pair<llvm::GlobalVariable *, llvm::Constant *>>
       globalsToReplace;
+  Array<Loc> inlineAsmLocs; // tracked by GC
 
   // Cache of (possibly bitcast) global variables for taking the address of
   // struct literal constants. (Also) used to resolve self-references. Must be
@@ -261,6 +262,9 @@ public:
 
   void addLinkerOption(llvm::ArrayRef<llvm::StringRef> options);
   void addLinkerDependentLib(llvm::StringRef libraryName);
+
+  void addInlineAsmSrcLoc(const Loc &loc, llvm::CallInst *inlineAsmCall);
+  const Loc &getInlineAsmSrcLoc(unsigned srcLocCookie) const;
 
   // MS C++ compatible type descriptors
   llvm::DenseMap<size_t, llvm::StructType *> TypeDescriptorTypeMap;

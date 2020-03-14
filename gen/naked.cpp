@@ -492,5 +492,8 @@ llvm::CallInst *DtoInlineAsmExpr(
   bool sideeffect = true;
   llvm::InlineAsm *ia = llvm::InlineAsm::get(FT, code, constraints, sideeffect);
 
-  return gIR->ir->CreateCall(ia, irArgs, "");
+  llvm::CallInst *call = gIR->ir->CreateCall(ia, irArgs, "");
+  gIR->addInlineAsmSrcLoc(loc, call);
+
+  return call;
 }
