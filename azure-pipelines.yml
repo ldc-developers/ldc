@@ -3,7 +3,6 @@ variables:
   CLANG_VERSION: 9.0.0
   HOST_LDC_VERSION: 1.19.0
 
-# Although tags are supposed to trigger builds by default, they don't.
 trigger:
 - '*'
 - refs/tags/v*

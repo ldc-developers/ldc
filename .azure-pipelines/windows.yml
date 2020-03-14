@@ -34,7 +34,6 @@ steps:
     7z x ../ninja.zip > nul
     cd ..
     :: Install lit
-    set PATH=%PYTHON_HOME:/=\%;%PATH%
     python -m pip install --user lit
     python -c "import lit; lit.main();" --version | head -n 1
     :: Download & extract host LDC
@@ -105,7 +104,7 @@ steps:
   condition: succeededOrFailed()
 - script: |
     cd ..
-    set PATH=%CD%\llvm\bin;%PYTHON_HOME:/=\%;%PATH%
+    set PATH=%CD%\llvm\bin;%PATH%
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     cd build
     ctest -V -R "lit-tests"
