@@ -124,6 +124,9 @@ static std::string getX86TargetCPU(const llvm::Triple &triple) {
   if (triple.isOSDarwin()) {
     return triple.isArch64Bit() ? "core2" : "yonah";
   }
+  if (triple.isPS4()) {
+    return "btver2";
+  }
   // Everything else goes to x86-64 in 64-bit mode.
   if (triple.isArch64Bit()) {
     return "x86-64";
