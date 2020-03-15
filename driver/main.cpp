@@ -1020,8 +1020,14 @@ int cppmain() {
   }
 
   auto relocModel = getRelocModel();
-  if (global.params.dll && !relocModel.hasValue()) {
-    relocModel = llvm::Reloc::PIC_;
+  if (!relocModel.hasValue()) {
+    if (global.params.dll)
+      relocModel = llvm::Reloc::PIC_;
+    // Default to -reloc-model=rwpi for PS4
+    // FIXME: do this also for when PS4 is the default target and
+    // not specified on the command line
+    else if (Triple(mTargetTriple).isPS4())
+      relocModel = llvm::Reloc::RWPI;
   }
 
   // check and fix environment for uClibc
