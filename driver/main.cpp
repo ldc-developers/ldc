@@ -791,7 +791,7 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang");
     break;
   case llvm::Triple::PS4:
-    VersionCondition::addPredefinedGlobalIdent("PS4");
+    VersionCondition::addPredefinedGlobalIdent("PlayStation4");
     //fallthru
   case llvm::Triple::FreeBSD:
     VersionCondition::addPredefinedGlobalIdent("FreeBSD");
