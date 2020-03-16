@@ -1026,7 +1026,7 @@ int cppmain() {
     // Default to -reloc-model=rwpi for PS4
     // FIXME: do this also for when PS4 is the default target and
     // not specified on the command line
-    else if (Triple(mTargetTriple).isPS4())
+    else if (llvm::Triple(mTargetTriple).isPS4())
       relocModel = llvm::Reloc::RWPI;
   }
 
