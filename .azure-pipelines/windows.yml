@@ -34,7 +34,6 @@ steps:
     7z x ../ninja.zip > nul
     cd ..
     :: Install lit
-    set PATH=%PYTHON_HOME:/=\%;%PATH%
     python -m pip install --user lit
     python -c "import lit; lit.main();" --version | head -n 1
     :: Download & extract host LDC
@@ -57,7 +56,7 @@ steps:
     :: Download & extract LDC-flavoured LLVM
     set ASSERTS_SUFFIX=
     if not "%BUILD_SOURCEBRANCH:~0,10%" == "refs/tags/" ( set ASSERTS_SUFFIX=-withAsserts)
-    curl -L -o llvm.7z https://github.com/ldc-developers/llvm-project/releases/download/ldc-v%LLVM_VERSION%/llvm-%LLVM_VERSION%-windows-%ARCH%%ASSERTS_SUFFIX%.7z 2>&1
+    curl -L -o llvm.7z https://github.com/ldc-developers/llvm-project/releases/download/CI/llvm-%LLVM_VERSION%-windows-%ARCH%%ASSERTS_SUFFIX%.7z 2>&1
     mkdir llvm
     cd llvm
     7z x ../llvm.7z > nul
@@ -105,7 +104,7 @@ steps:
   condition: succeededOrFailed()
 - script: |
     cd ..
-    set PATH=%CD%\llvm\bin;%PYTHON_HOME:/=\%;%PATH%
+    set PATH=%CD%\llvm\bin;%PATH%
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     cd build
     ctest -V -R "lit-tests"
