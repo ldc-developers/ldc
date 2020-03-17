@@ -13,6 +13,15 @@ module core.thread.fiber;
 
 import core.thread.osthread;
 
+version (OSX)
+    version = Darwin;
+else version (iOS)
+    version = Darwin;
+else version (TVOS)
+    version = Darwin;
+else version (WatchOS)
+    version = Darwin;
+
 version (LDC)
 {
     import ldc.attributes;
@@ -510,7 +519,7 @@ private
 
 version (LDC)
 {
-    version (OSX)
+    version (Darwin)
     {
         version (ARM) version = CheckFiberMigration;
         version (AArch64) version = CheckFiberMigration;
