@@ -8,7 +8,7 @@
 #   MLIR_LIBRARIES
 #   MLIR_TABLEGEN  The mlir-tblgen executable
 
-set(MLIR_FOUND "FALSE")
+set(MLIR_FOUND OFF)
 
 # We only want to find an MLIR version that is compatible with our LLVM version,
 # so for now only look in the same installation dir as LLVM.
@@ -20,7 +20,7 @@ find_program(MLIR_TABLEGEN
 if(NOT MLIR_TABLEGEN)
     message(STATUS "Could not find mlir-tblgen. Try manually setting MLIR_ROOT_DIR or MLIR_TABLEGEN.")
 else()
-    set(MLIR_FOUND "TRUE")
+    set(MLIR_FOUND ON)
     message(STATUS "Found mlir-tblgen: ${MLIR_TABLEGEN}")
     get_filename_component(MLIR_BIN_DIR ${MLIR_TABLEGEN} DIRECTORY CACHE)
     get_filename_component(MLIR_ROOT_DIR "${MLIR_BIN_DIR}/.." ABSOLUTE CACHE)
