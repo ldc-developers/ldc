@@ -1020,9 +1020,8 @@ int cppmain() {
   }
 
   auto relocModel = getRelocModel();
-  if (!relocModel.hasValue()) {
-    if (global.params.dll || llvm::Triple(mTargetTriple).isPS4())
-      relocModel = llvm::Reloc::PIC_;
+  if (global.params.dll && !relocModel.hasValue()) {
+    relocModel = llvm::Reloc::PIC_;
   }
 
   // check and fix environment for uClibc

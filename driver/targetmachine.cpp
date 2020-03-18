@@ -426,6 +426,9 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
       // these OSes.
       // On Android, PIC is default as well.
       relocModel = llvm::Reloc::PIC_;
+    } else if (triple.isPS4()) {
+      // PS4 also requires PIC, exact reason unknown. 
+      relocModel = llvm::Reloc::PIC_;
     } else {
       // ARM for other than Darwin or Android defaults to static
       switch (triple.getArch()) {
