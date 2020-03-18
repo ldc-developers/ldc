@@ -255,6 +255,12 @@ Throwable chainExceptions(Throwable e, Throwable t)
 
 ExceptionStack exceptionStack;
 
+static ~this()
+{
+    // destructors not automatically run on globals
+    exceptionStack.destroy();
+}
+
 struct ExceptionStack
 {
 nothrow:
