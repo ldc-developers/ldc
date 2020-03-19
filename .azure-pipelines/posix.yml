@@ -273,19 +273,24 @@ steps:
     mkdir installed/lib-ios-arm64
     cp build-libs-arm64/lib/*.a installed/lib-ios-arm64
     rm installed/lib-ios-arm64/*-lto-debug.a
-    section='
-    "arm64-apple-ios":
+    section="
+    \"arm64-apple-ios\":
     {
         switches = [
-            "-defaultlib=phobos2-ldc,druntime-ldc",
-            "-link-defaultlib-shared=false",
-            "-fvisibility=hidden",
+            \"-defaultlib=phobos2-ldc,druntime-ldc\",
+            \"-link-defaultlib-shared=false\",
+            \"-fvisibility=hidden\",
+            \"-Xcc=-target\",
+            \"-Xcc=$triple\",
+            \"-Xcc=-miphoneos-version-min=$IOS_DEPLOYMENT_TARGET\",
+            \"-Xcc=-isysroot\",
+            \"-Xcc=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk\",
         ];
         lib-dirs = [
-            "%%ldcbinarypath%%/../lib-ios-arm64",
+            \"%%ldcbinarypath%%/../lib-ios-arm64\",
         ];
-        rpath = "%%ldcbinarypath%%/../lib-ios-arm64";
-    };'
+        rpath = \"%%ldcbinarypath%%/../lib-ios-arm64\";
+    };"
     echo "$section" >> installed/etc/ldc2.conf
     cat installed/etc/ldc2.conf
   displayName: 'Mac: Cross-compile iOS/arm64 libraries, copy to install dir and extend ldc2.conf'
@@ -302,6 +307,12 @@ steps:
     fi
   displayName: Run hello-world integration test with shared libs
   condition: and(succeeded(), ne(variables['CI_OS'], 'android'))
+- script: |
+    set -ex
+    cd ..
+    installed/bin/ldc2 -mtriple="arm64-apple-ios$IOS_DEPLOYMENT_TARGET" hello.d -of=hello_ios
+  displayName: 'Mac: Cross-compile & -link hello-world for iOS'
+  condition: and(succeeded(), eq(variables['CI_OS'], 'osx'))
 - script: |
     set -ex
     cd ..
