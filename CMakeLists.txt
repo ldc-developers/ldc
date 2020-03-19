@@ -48,16 +48,18 @@ foreach(LLVM_SUPPORTED_TARGET ${LLVM_TARGETS_TO_BUILD})
     add_definitions("-DLDC_LLVM_SUPPORTED_TARGET_${LLVM_SUPPORTED_TARGET}=1")
 endforeach()
 
-# Set MLIR support variables if it is found
-include(FindMLIR)
-message(STATUS "Building LDC with MLIR support: ${MLIR_FOUND}")
-if(MLIR_FOUND)
-    message(STATUS "Using MLIR installation directory: ${MLIR_ROOT_DIR}")
-    include_directories(${MLIR_INCLUDE_DIR})
-    add_definitions("-DLDC_MLIR_ENABLED")
+# Set MLIR support variables if it is found. Only try for LLVM >= 10.0.
+if(NOT (LDC_LLVM_VER LESS 1000))
+    include(FindMLIR)
+    message(STATUS "Building LDC with MLIR support: ${MLIR_FOUND}")
+    if(MLIR_FOUND)
+        message(STATUS "Using MLIR installation directory: ${MLIR_ROOT_DIR}")
+        include_directories(${MLIR_INCLUDE_DIR})
+        add_definitions("-DLDC_MLIR_ENABLED")
 
-    set(LLVM_LIBRARIES "${MLIR_LIBRARIES}" ${LLVM_LIBRARIES})
-endif() #if MLIR_FOUND
+        set(LLVM_LIBRARIES "${MLIR_LIBRARIES}" ${LLVM_LIBRARIES})
+    endif() #if MLIR_FOUND
+endif()
 
 # Check and adapt for LLVMSPIRVLib (Khronos SPIRV-LLVM-Translator)
 set(LLVM_SPIRV_FOUND OFF)
