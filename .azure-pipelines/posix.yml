@@ -347,12 +347,6 @@ steps:
     git clone --recursive https://github.com/dlang/dub.git
     cd dub
     git checkout "$(cat $BUILD_SOURCESDIRECTORY/packaging/dub_version)"
-    if [ "$CI_OS" = "android" ]; then
-      # Remove -g to prevent invalid debuginfo relocations (apparently due to our custom TLS emulation)
-      sed -i 's|-g -O |-O |' build.sh
-      # Don't run dub after build
-      sed -i 's|bin/dub --version||' build.sh
-    fi
     DFLAGS='' $DMD -run build.d -O -w $DFLAGS
     cp bin/dub ../installed/bin
     if [ "$CI_OS" != "android" ]; then ../installed/bin/dub --version; fi
