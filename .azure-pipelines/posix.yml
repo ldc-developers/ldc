@@ -148,7 +148,7 @@ steps:
     cd ..
     IFS=$'\n' extraFlags=( $(xargs -n1 <<<"$EXTRA_CMAKE_FLAGS $EXTRA_CMAKE_FLAGS_ANDROID") )
     bootstrap-ldc/bin/ldc-build-runtime --ninja -j $PARALLEL_JOBS \
-      --dFlags="${DFLAGS// /;}" \
+      --dFlags="-fvisibility=hidden;${DFLAGS// /;}" \
       --targetSystem='Android;Linux;UNIX' \
       --ldcSrcDir=$BUILD_SOURCESDIRECTORY \
       "${extraFlags[@]//-D/}"
@@ -261,7 +261,7 @@ steps:
     if [ "$arch" = "x86" ]; then arch="i686"; fi
     bootstrap-ldc/bin/ldc-build-runtime --ninja -j $PARALLEL_JOBS \
       --buildDir=build-libs-$arch \
-      --dFlags="-mtriple=$arch-linux-android" \
+      --dFlags="-fvisibility=hidden;-mtriple=$arch-linux-android" \
       --targetSystem='Android;Linux;UNIX' \
       --ldcSrcDir=$BUILD_SOURCESDIRECTORY \
       ${EXTRA_CMAKE_FLAGS//-D/} \
