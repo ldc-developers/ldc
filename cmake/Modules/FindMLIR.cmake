@@ -1,7 +1,7 @@
 # - Try to find MLIR project at LLVM
 #
 # The following are set after configuration is done:
-#   MLIR_FOUND   TRUE if MLIR installation was found
+#   MLIR_FOUND   ON if MLIR installation was found
 #   MLIR_ROOT_DIR
 #   MLIR_INCLUDE_DIR
 #   MLIR_LIB_DIR
