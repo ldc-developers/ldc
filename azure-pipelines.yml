@@ -131,6 +131,7 @@ jobs:
     BOOTSTRAP_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON
     EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON -DD_COMPILER_FLAGS="-flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto" -DEXTRA_CXXFLAGS=-flto=full
     MACOSX_DEPLOYMENT_TARGET: 10.9
+    IOS_DEPLOYMENT_TARGET: 12.0
   steps:
     - template: .azure-pipelines/posix.yml
 
