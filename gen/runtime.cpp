@@ -379,6 +379,8 @@ static const char *getCAssertFunctionName() {
     return "__assert_c99";
   } else if (triple.isMusl()) {
     return "__assert_fail";
+  } else if (triple.isPS4()) {
+      return "_Assert";
   }
   return "__assert";
 }
@@ -391,6 +393,9 @@ static std::vector<PotentiallyLazyType> getCAssertFunctionParamTypes() {
   if (triple.isOSDarwin() || triple.isOSSolaris() || triple.isMusl() ||
       global.params.isUClibcEnvironment) {
     return {voidPtr, voidPtr, uint, voidPtr};
+  }
+  if (triple.isPS4()) {
+      return {voidPtr, voidPtr};
   }
   if (triple.getEnvironment() == llvm::Triple::Android) {
     return {voidPtr, uint, voidPtr};
