@@ -29,7 +29,9 @@
 namespace opts {
 llvm::cl::opt<std::string>
     linker("linker", llvm::cl::ZeroOrMore, llvm::cl::desc("Linker to use"),
-           llvm::cl::value_desc("lld-link|lld|gold|bfd|..."),
+           llvm::cl::value_desc(
+               "lld-link|lld|gold|bfd|...|<nothing>. When explicitly set to "
+               "nothing, prevents LDC from passing -fuse-ld to cc."),
            llvm::cl::cat(opts::linkingCategory));
 }
 
