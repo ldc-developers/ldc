@@ -577,7 +577,7 @@ void ArgsBuilder::addLinker() {
     // Default to ld.gold on Linux due to ld.bfd issues with ThinLTO (see #2278)
     // and older bfd versions stripping llvm.used symbols (e.g., ModuleInfo
     // refs) with --gc-sections (see #2870).
-    // Can be overriden by `-linker=` (explicitly empty).
+    // Can be overridden by `-linker=` (explicitly empty).
     if (opts::linker.getNumOccurrences() == 0)
       args.push_back("-fuse-ld=gold");
   }
