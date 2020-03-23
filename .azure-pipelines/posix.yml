@@ -2,9 +2,12 @@
 # environment variables aren't persisted across steps.
 
 steps:
+
 - checkout: self
   submodules: true
   fetchDepth: 50
+
+# Prerequisites
 - script: |
     set -ex
     cd ..
@@ -56,6 +59,8 @@ steps:
     set +x
     echo "##vso[task.setvariable variable=PARALLEL_JOBS]$PARALLEL_JOBS"
   displayName: Install prerequisites
+
+# Build bootstrap LDC
 - script: |
     set -ex
     cd ..
@@ -73,6 +78,8 @@ steps:
     ninja -j$PARALLEL_JOBS
     bin/ldc2 -version
   displayName: Build bootstrap LDC
+
+# Build
 - script: |
     set -ex
     cd ..
@@ -97,6 +104,8 @@ steps:
     bin/ldc2 -version
   displayName: Build LDC & LDC D unittests & defaultlib unittest runners
   condition: and(succeeded(), ne(variables['CI_OS'], 'android'))
+
+# Android only: cross-compile LDC
 - script: |
     set -ex
     cd ..
@@ -139,7 +148,7 @@ steps:
     cd ..
     IFS=$'\n' extraFlags=( $(xargs -n1 <<<"$EXTRA_CMAKE_FLAGS $EXTRA_CMAKE_FLAGS_ANDROID") )
     bootstrap-ldc/bin/ldc-build-runtime --ninja -j $PARALLEL_JOBS \
-      --dFlags="${DFLAGS// /;}" \
+      --dFlags="-fvisibility=hidden;${DFLAGS// /;}" \
       --targetSystem='Android;Linux;UNIX' \
       --ldcSrcDir=$BUILD_SOURCESDIRECTORY \
       "${extraFlags[@]//-D/}"
@@ -166,6 +175,8 @@ steps:
     ninja -j$PARALLEL_JOBS -v ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache
   displayName: 'Android: Cross-compile LDC executables'
   condition: and(succeeded(), eq(variables['CI_OS'], 'android'))
+
+# Pack source dir
 - script: |
     set -ex
     cd ..
@@ -182,6 +193,8 @@ steps:
     zip -r -9 artifacts/$artifactName.zip $artifactName
   displayName: Pack source dir
   condition: and(succeeded(), eq(variables['CI_OS'], 'linux'))
+
+# Tests
 - script: |
     set -ex
     cd ../build
@@ -207,6 +220,8 @@ steps:
     ctest -j$PARALLEL_JOBS --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
   displayName: Run defaultlib unittests & druntime stand-alone tests
   condition: and(succeededOrFailed(), ne(variables['CI_OS'], 'android'))
+
+# Install & make portable
 - script: |
     set -ex
     cd ..
@@ -237,6 +252,8 @@ steps:
     # Now rename the installation dir to test portability
     mv install installed
   displayName: Install LDC & make portable
+
+# Android: add x86 libraries
 - script: |
     set -ex
     cd ..
@@ -244,7 +261,7 @@ steps:
     if [ "$arch" = "x86" ]; then arch="i686"; fi
     bootstrap-ldc/bin/ldc-build-runtime --ninja -j $PARALLEL_JOBS \
       --buildDir=build-libs-$arch \
-      --dFlags="-mtriple=$arch-linux-android" \
+      --dFlags="-fvisibility=hidden;-mtriple=$arch-linux-android" \
       --targetSystem='Android;Linux;UNIX' \
       --ldcSrcDir=$BUILD_SOURCESDIRECTORY \
       ${EXTRA_CMAKE_FLAGS//-D/} \
@@ -254,6 +271,8 @@ steps:
     cp build-libs-$arch/lib/*.a installed/lib-$arch
   displayName: 'Android: Cross-compile x86 libraries and copy to install dir'
   condition: and(succeeded(), eq(variables['CI_OS'], 'android'))
+
+# Mac: add iOS/arm64 libraries
 - script: |
     set -ex
     cd ..
@@ -295,6 +314,8 @@ steps:
     cat installed/etc/ldc2.conf
   displayName: 'Mac: Cross-compile iOS/arm64 libraries, copy to install dir and extend ldc2.conf'
   condition: and(succeeded(), eq(variables['CI_OS'], 'osx'))
+
+# Integration tests
 - script: |
     set -ex
     cd ..
@@ -331,6 +352,8 @@ steps:
     installed/bin/ldc2 -enable-dynamic-compile -run $BUILD_SOURCESDIRECTORY/tests/dynamiccompile/array.d
   displayName: Run dynamic-compile integration test
   condition: and(succeeded(), ne(variables['CI_OS'], 'android'))
+
+# Add dub & dlang tools
 - script: |
     set -e
     cd ..
@@ -362,6 +385,8 @@ steps:
     $DMD -w -de -dip1000 DustMite/dustmite.d DustMite/splitter.d -of=bin/dustmite
     cp bin/{rdmd,ddemangle,dustmite} ../installed/bin
   displayName: Build & copy dlang tools
+
+# Pack & publish artifact
 - script: |
     set -ex
     cd ..
