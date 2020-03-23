@@ -14,17 +14,17 @@ steps:
     echo on
     cd ..
     :: Download & extract libcurl
-    curl -L -o libcurl.zip https://dl.dropboxusercontent.com/s/ccthbw233qs7kpv/libcurl-7.65.3-WinSSL-zlib-x86-x64.zip?dl=0 2>&1
+    curl -L -o libcurl.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v7.0.0/libcurl-7.69.1-zlib-static-ipv6-sspi-winssl.7z 2>&1
     mkdir libcurl
     cd libcurl
-    7z x ../libcurl.zip > nul
+    7z x ../libcurl.7z > nul
     mkdir ldc2
     if "%MODEL%" == "64" (
       cp dmd2/windows/bin%MODEL%/libcurl.dll ldc2
-      cp dmd2/windows/lib%MODEL%/curl.lib ldc2
+      cp dmd2/windows/lib%MODEL%/*.* ldc2
     ) else (
       cp dmd2/windows/bin/libcurl.dll ldc2
-      cp dmd2/windows/lib32mscoff/curl.lib ldc2
+      cp dmd2/windows/lib32mscoff/*.* ldc2
     )
     cd ..
     :: Download & extract Ninja
@@ -140,8 +140,7 @@ steps:
     cp %BUILD_SOURCESDIRECTORY%/LICENSE install
     cp %BUILD_SOURCESDIRECTORY%/packaging/README.txt install
     cp libcurl/ldc2/libcurl.dll install/bin
-    cp libcurl/ldc2/libcurl.dll install/lib
-    cp libcurl/ldc2/curl.lib install/lib
+    cp libcurl/ldc2/*.* install/lib
     :: Now rename the installation dir to test portability
     mv install installed
   displayName: Install LDC, make portable & copy curl
