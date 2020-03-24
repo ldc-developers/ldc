@@ -450,17 +450,19 @@ include(HandleLTOPGOBuildOptions)
 #
 # Enable Dynamic compilation if supported for this platform and LLVM version.
 #
-set(LDC_DYNAMIC_COMPILE "AUTO" CACHE STRING "Support dynamic compilation (True|False). Enabled by default.")
+set(LDC_DYNAMIC_COMPILE "AUTO" CACHE STRING "Support dynamic compilation (ON|OFF). Enabled by default.")
 option(LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES "Use custom LDC passes in jit" ON)
 if(LDC_DYNAMIC_COMPILE STREQUAL "AUTO")
-    set(LDC_DYNAMIC_COMPILE False)  # must be a valid Python boolean constant (case sensitive)
+    set(LDC_DYNAMIC_COMPILE OFF)
     if (NOT (LDC_LLVM_VER LESS 500))
-        set(LDC_DYNAMIC_COMPILE True)
-        add_definitions(-DLDC_DYNAMIC_COMPILE)
-        add_definitions(-DLDC_DYNAMIC_COMPILE_API_VERSION=3)
+        set(LDC_DYNAMIC_COMPILE ON)
     endif()
 endif()
 message(STATUS "Building LDC with dynamic compilation support: ${LDC_DYNAMIC_COMPILE} (LDC_DYNAMIC_COMPILE=${LDC_DYNAMIC_COMPILE})")
+if(LDC_DYNAMIC_COMPILE)
+    add_definitions(-DLDC_DYNAMIC_COMPILE)
+    add_definitions(-DLDC_DYNAMIC_COMPILE_API_VERSION=3)
+endif()
 
 #
 # Includes, defines.
