@@ -47,7 +47,7 @@ steps:
     if [ "${BUILD_SOURCEBRANCH:0:10}" != "refs/tags/" ]; then
       assertsSuffix="-withAsserts"
     fi
-    curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/CI/llvm-$LLVM_VERSION-$HOST_OS-x86_64$assertsSuffix.tar.xz
+    curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$HOST_OS-x86_64$assertsSuffix.tar.xz
     mkdir llvm
     tar -xf llvm.tar.xz --strip 1 -C llvm
     # Set PARALLEL_JOBS env variable and persist it for future steps
@@ -110,7 +110,7 @@ steps:
     set -ex
     cd ..
     # Download & extract LDC-flavoured LLVM for Android target
-    curl -L -o llvm-$ARCH.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/CI/llvm-$LLVM_VERSION-$CI_OS-$ARCH.tar.xz
+    curl -L -o llvm-$ARCH.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$CI_OS-$ARCH.tar.xz
     mkdir llvm-$ARCH
     tar -xf llvm-$ARCH.tar.xz --strip 1 -C llvm-$ARCH
     # Download & extract Android NDK
@@ -129,7 +129,6 @@ steps:
     androidEnv="android"
     if [ "$ARCH" = "armv7a" ]; then androidEnv="androideabi"; fi
     LLVM_TRIPLE=$ARCH--linux-$androidEnv
-    LLVM_VERSION=10.0.0
     sed $BUILD_SOURCESDIRECTORY/.azure-pipelines/android-llvm-config.in \
       -e "s|@LLVM_VERSION@|$LLVM_VERSION|g" \
       -e "s|@LLVM_INSTALL_DIR@|$PWD/llvm-$ARCH|g" \
