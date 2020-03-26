@@ -97,6 +97,12 @@ bool DIBuilder::mustEmitLocationsDebugInfo() {
   return (global.params.symdebug > 0) || global.params.outputSourceLocations;
 }
 
+unsigned DIBuilder::getColumn(const Loc &loc) {
+  // like clang, don't emit any column info for CodeView
+  // (https://reviews.llvm.org/D23720)
+  return (loc.linnum && !isTargetMSVC) ? loc.charnum : 0;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 DIBuilder::DIBuilder(IRState *const IR)
@@ -187,16 +193,16 @@ llvm::StringRef DIBuilder::GetNameAndScope(Dsymbol *sym, DIScope &scope) {
 // Sets the memory address for a debuginfo variable.
 void DIBuilder::Declare(const Loc &loc, llvm::Value *storage,
                         DILocalVariable divar, DIExpression diexpr) {
-  unsigned charnum = (loc.linnum ? loc.charnum : 0);
-  auto debugLoc = llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope());
+  auto debugLoc =
+      llvm::DebugLoc::get(loc.linnum, getColumn(loc), GetCurrentScope());
   DBuilder.insertDeclare(storage, divar, diexpr, debugLoc, IR->scopebb());
 }
 
 // Sets the (current) value for a debuginfo variable.
 void DIBuilder::SetValue(const Loc &loc, llvm::Value *value,
                          DILocalVariable divar, DIExpression diexpr) {
-  unsigned charnum = (loc.linnum ? loc.charnum : 0);
-  auto debugLoc = llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope());
+  auto debugLoc =
+      llvm::DebugLoc::get(loc.linnum, getColumn(loc), GetCurrentScope());
   DBuilder.insertDbgValueIntrinsic(value,
 #if LDC_LLVM_VER < 600
                                    0,
@@ -1176,12 +1182,8 @@ void DIBuilder::EmitBlockStart(Loc &loc) {
   Logger::println("D to dwarf block start");
   LOG_SCOPE;
 
-  DILexicalBlock block =
-      DBuilder.createLexicalBlock(GetCurrentScope(),           // scope
-                                  CreateFile(loc),             // file
-                                  loc.linnum,                  // line
-                                  loc.linnum ? loc.charnum : 0 // column
-      );
+  DILexicalBlock block = DBuilder.createLexicalBlock(
+      GetCurrentScope(), CreateFile(loc), loc.linnum, getColumn(loc));
   IR->func()->diLexicalBlocks.push(block);
   EmitStopPoint(loc);
 }
@@ -1215,12 +1217,11 @@ void DIBuilder::EmitStopPoint(Loc &loc) {
   if (!linnum)
     linnum = 1;
 
-  unsigned charnum = (loc.linnum ? loc.charnum : 0);
-  Logger::println("D to dwarf stoppoint at line %u, column %u", linnum,
-                  charnum);
+  unsigned col = getColumn(loc);
+  Logger::println("D to dwarf stoppoint at line %u, column %u", linnum, col);
   LOG_SCOPE;
   IR->ir->SetCurrentDebugLocation(
-      llvm::DebugLoc::get(linnum, charnum, GetCurrentScope()));
+      llvm::DebugLoc::get(linnum, col, GetCurrentScope()));
   currentLoc = loc;
 }
 

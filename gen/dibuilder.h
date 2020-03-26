@@ -209,6 +209,8 @@ private:
   bool mustEmitFullDebugInfo();
   bool mustEmitLocationsDebugInfo();
 
+  unsigned getColumn(const Loc &loc);
+
 public:
   template <typename T>
   void OpOffset(T &addr, llvm::StructType *type, int index) {
