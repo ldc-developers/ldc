@@ -78,7 +78,7 @@ install:
       sudo python get-pip.py
       rm get-pip.py
       # Download & extract Ninja & add to PATH
-      wget -O ninja-mac.zip https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-mac.zip
+      wget -O ninja-mac.zip https://github.com/ninja-build/ninja/releases/download/v1.10.0/ninja-mac.zip
       mkdir ninja
       tar -xf ninja-mac.zip -C ninja
       rm ninja-mac.zip

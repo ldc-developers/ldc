@@ -77,7 +77,7 @@ install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
     tar -xf cmake.tar.gz --strip 3 -C cmake
     rm cmake.tar.gz
     # Download & extract Ninja
-    curl --max-time 300 --retry 3 -OL https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-mac.zip
+    curl --max-time 300 --retry 3 -OL https://github.com/ninja-build/ninja/releases/download/v1.10.0/ninja-mac.zip
     mkdir ninja
     tar -xf ninja-mac.zip -C ninja
     rm ninja-mac.zip
