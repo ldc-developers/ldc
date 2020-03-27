@@ -39,7 +39,13 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
+namespace cl = llvm::cl;
 using LLMetadata = llvm::Metadata;
+
+static cl::opt<cl::boolOrDefault> emitColumnInfo(
+    "gcolumn-info", cl::ZeroOrMore, cl::Hidden,
+    cl::desc("Include column numbers in line debug infos. Defaults to "
+             "true for non-MSVC targets."));
 
 namespace ldc {
 
@@ -97,21 +103,22 @@ bool DIBuilder::mustEmitLocationsDebugInfo() {
   return (global.params.symdebug > 0) || global.params.outputSourceLocations;
 }
 
-unsigned DIBuilder::getColumn(const Loc &loc) {
-  // like clang, don't emit any column info for CodeView
-  // (https://reviews.llvm.org/D23720)
-  return (loc.linnum && !isTargetMSVC) ? loc.charnum : 0;
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 DIBuilder::DIBuilder(IRState *const IR)
     : IR(IR), DBuilder(IR->module), CUNode(nullptr),
       isTargetMSVC(global.params.targetTriple->isWindowsMSVCEnvironment()),
       isTargetMSVCx64(isTargetMSVC &&
-                      global.params.targetTriple->isArch64Bit()) {}
+                      global.params.targetTriple->isArch64Bit()),
+      // like clang, don't emit any column infos for CodeView by default
+      // (https://reviews.llvm.org/D23720)
+      emitColumnInfo(opts::getFlagOrDefault(::emitColumnInfo, !isTargetMSVC)) {}
 
 llvm::LLVMContext &DIBuilder::getContext() { return IR->context(); }
+
+unsigned DIBuilder::getColumn(const Loc &loc) const {
+  return (loc.linnum && emitColumnInfo) ? loc.charnum : 0;
+}
 
 // Returns the DI scope of a symbol.
 DIScope DIBuilder::GetSymbolScope(Dsymbol *s) {
