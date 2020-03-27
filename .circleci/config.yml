@@ -20,12 +20,12 @@ commonSteps: &commonSteps
             update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
           else
             # Download & extract CMake
-            curl -L -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.13.4/cmake-3.13.4-Darwin-x86_64.tar.gz
+            curl -L -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.16.5/cmake-3.16.5-Darwin-x86_64.tar.gz
             mkdir cmake
             tar -xf cmake.tar.gz --strip 3 -C cmake
             rm cmake.tar.gz
             # Download & extract Ninja
-            curl -OL https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-mac.zip
+            curl -OL https://github.com/ninja-build/ninja/releases/download/v1.10.0/ninja-mac.zip
             mkdir ninja
             tar -xf ninja-mac.zip -C ninja
             rm ninja-mac.zip
@@ -106,7 +106,7 @@ jobs:
       - PARALLELISM: 2
       - CI_OS: linux
       - LIBCLANG_COMMON_VERSION: "6.0"
-      - HOST_LDC_VERSION: 1.19.0
+      - HOST_LDC_VERSION: 1.20.1
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
   Ubuntu-rolling-multilib-sharedLibsOnly-gdmd:
     <<: *commonSteps
@@ -117,27 +117,27 @@ jobs:
       - CI_OS: linux
       - LIBCLANG_COMMON_VERSION: "9"
       - EXTRA_APT_PACKAGES: gdmd
-      - HOST_LDC_VERSION: 1.19.0
+      - HOST_LDC_VERSION: 1.20.1
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=gdmd"
   macOS-x64:
     <<: *commonSteps
     macos:
-      xcode: "11.3.1"
+      xcode: "11.4.0"
     environment:
       - PARALLELISM: 4
       - CI_OS: osx
-      - LLVM_VERSION: 9.0.1
-      - HOST_LDC_VERSION: 1.19.0
+      - LLVM_VERSION: 10.0.0
+      - HOST_LDC_VERSION: 1.20.1
       - EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
   macOS-x64-sharedLibsOnly:
     <<: *commonSteps
     macos:
-      xcode: "11.3.1"
+      xcode: "11.4.0"
     environment:
       - PARALLELISM: 4
       - CI_OS: osx
-      - LLVM_VERSION: 9.0.1
-      - HOST_LDC_VERSION: 1.19.0
+      - LLVM_VERSION: 10.0.0
+      - HOST_LDC_VERSION: 1.20.1
       - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON"
 
 workflows:

@@ -29,14 +29,17 @@ matrix:
       d: dmd
       env: LLVM_VERSION=3.9.1
     - os: osx
+      osx_image: xcode10.3
       d: dmd
-      env: LLVM_VERSION=9.0.0 OPTS="-DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON"
+      env: LLVM_VERSION=10.0.0 OPTS="-DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON"
     - os: osx
+      osx_image: xcode10.3
       d: ldc-beta
       env: LLVM_VERSION=7.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF"
 
 cache:
   directories:
+    - llvm-10.0.0
     - llvm-9.0.0
     - llvm-8.0.0
     - llvm-7.0.1
@@ -64,7 +67,12 @@ before_install:
       else
         export LLVM_ARCH="x86_64-apple-darwin"
       fi
-      wget -O llvm.tar.xz http://releases.llvm.org/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-$LLVM_ARCH.tar.xz
+      if [ "${LLVM_VERSION:0:1}" = "1" ]; then
+        # v10+
+        wget -O llvm.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVM_VERSION/clang+llvm-$LLVM_VERSION-$LLVM_ARCH.tar.xz
+      else
+        wget -O llvm.tar.xz http://releases.llvm.org/$LLVM_VERSION/clang+llvm-$LLVM_VERSION-$LLVM_ARCH.tar.xz
+      fi
       mkdir -p $LLVM_ROOT_DIR
       tar -xf llvm.tar.xz --strip 1 -C $LLVM_ROOT_DIR
       rm llvm.tar.xz
@@ -78,7 +86,7 @@ install:
       sudo python get-pip.py
       rm get-pip.py
       # Download & extract Ninja & add to PATH
-      wget -O ninja-mac.zip https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-mac.zip
+      wget -O ninja-mac.zip https://github.com/ninja-build/ninja/releases/download/v1.10.0/ninja-mac.zip
       mkdir ninja
       tar -xf ninja-mac.zip -C ninja
       rm ninja-mac.zip

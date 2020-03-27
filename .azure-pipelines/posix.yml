@@ -13,7 +13,7 @@ steps:
     cd ..
     if [ "$CI_OS" = "osx" ]; then
       # Download & extract Ninja
-      curl -L -o ninja-mac.zip https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-mac.zip
+      curl -L -o ninja-mac.zip https://github.com/ninja-build/ninja/releases/download/v1.10.0/ninja-mac.zip
       mkdir ninja
       tar -xf ninja-mac.zip -C ninja
     else

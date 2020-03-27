@@ -72,12 +72,12 @@ install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
     cd $CIRRUS_WORKING_DIR/..
     sysctl -n hw.logicalcpu
     # Download & extract CMake
-    curl --max-time 300 --retry 3 -L -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.16.3/cmake-3.16.3-Darwin-x86_64.tar.gz
+    curl --max-time 300 --retry 3 -L -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.16.5/cmake-3.16.5-Darwin-x86_64.tar.gz
     mkdir cmake
     tar -xf cmake.tar.gz --strip 3 -C cmake
     rm cmake.tar.gz
     # Download & extract Ninja
-    curl --max-time 300 --retry 3 -OL https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-mac.zip
+    curl --max-time 300 --retry 3 -OL https://github.com/ninja-build/ninja/releases/download/v1.10.0/ninja-mac.zip
     mkdir ninja
     tar -xf ninja-mac.zip -C ninja
     rm ninja-mac.zip
@@ -94,7 +94,7 @@ install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
 
 environment:
   CIRRUS_CLONE_DEPTH: 50
-  HOST_LDC_VERSION: 1.19.0
+  HOST_LDC_VERSION: 1.20.1
 
 task:
   name: Ubuntu 18.04 x64 multilib rtSanitizers
@@ -137,7 +137,7 @@ task:
   timeout_in: 60m
   environment:
     CI_OS: osx
-    LLVM_VERSION: 9.0.1
+    LLVM_VERSION: 10.0.0
     EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
     # OS is preset to `darwin`
     OS: osx
@@ -153,7 +153,7 @@ task:
   timeout_in: 60m
   environment:
     CI_OS: osx
-    LLVM_VERSION: 9.0.1
+    LLVM_VERSION: 10.0.0
     EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON"
     # OS is preset to `darwin`
     OS: osx
