@@ -20,10 +20,6 @@
 #include "gen/llvmhelpers.h"
 #include <assert.h>
 
-#if !defined(_MSC_VER)
-#include <pthread.h>
-#endif
-
 using llvm::APFloat;
 
 // in dmd/argtypes.d:
@@ -75,19 +71,8 @@ unsigned getCriticalSectionSize(const Param &params) {
     return 24;
 
   default:
-    break;
+    return 0; // leads to an error whenever requested
   }
-
-  if (arch == llvm::Triple::wasm32 || arch == llvm::Triple::wasm64)
-    return 0;
-
-#ifndef _MSC_VER
-  unsigned hostSize = sizeof(pthread_mutex_t);
-  warning(Loc(), "Assuming critical section size = %u bytes", hostSize);
-  return hostSize;
-#else
-  return 0;
-#endif
 }
 } // anonymous namespace
 

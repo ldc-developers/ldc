@@ -3749,7 +3749,14 @@ version (IN_LLVM)
              *  try { body } finally { _d_criticalexit(&__critsec[0]); }
              */
             auto id = Identifier.generateId("__critsec");
+version (IN_LLVM)
+{
+            auto t = Type.tint8.sarrayOf(target.ptrsize + target.critsecsize(ss.loc));
+}
+else
+{
             auto t = Type.tint8.sarrayOf(target.ptrsize + target.critsecsize());
+}
             auto tmp = new VarDeclaration(ss.loc, t, id, null);
             tmp.storage_class |= STC.temp | STC.shared_ | STC.static_;
             Expression tmpExp = new VarExp(ss.loc, tmp);

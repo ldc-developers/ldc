@@ -105,12 +105,12 @@ version (IN_LLVM)
     uint alignsize(Type type);
     uint fieldalign(Type type);
 
-    uint critsecsize()
+    uint critsecsize(const ref Loc loc)
     {
         if (c.criticalSectionSize == 0)
         {
             import dmd.errors;
-            error(Loc.initial, "Unknown critical section size");
+            error(loc, "unknown critical section size for the selected target");
             fatal();
         }
         return c.criticalSectionSize;
