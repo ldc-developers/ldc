@@ -13,26 +13,11 @@
 
 #pragma once
 
-#include "gen/abi.h"
-#include "gen/dcompute/druntime.h"
-#include "gen/irstate.h"
-#include "gen/llvmhelpers.h"
-#include "gen/logger.h"
-#include "gen/structs.h"
-#include "gen/tollvm.h"
+#include "gen/abi-generic.h"
 
-struct DComputePointerRewrite : ABIRewrite {
+struct DComputePointerRewrite : BaseBitcastABIRewrite {
   LLType *type(Type *t) override {
     auto ptr = toDcomputePointer(static_cast<TypeStruct *>(t)->sym);
     return ptr->toLLVMType(true);
-  }
-  LLValue *getLVal(Type *dty, LLValue *v) override {
-    // TODO: Is this correct?
-    return DtoAllocaDump(v, this->type(dty));
-  }
-  LLValue *put(DValue *dv, bool, bool) override {
-    LLValue *address = getAddressOf(dv);
-    LLType *t = this->type(dv->type);
-    return loadFromMemory(address, t);
   }
 };

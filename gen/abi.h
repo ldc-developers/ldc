@@ -65,12 +65,6 @@ protected:
 
   /// Returns the address of a D value, storing it to memory first if need be.
   static llvm::Value *getAddressOf(DValue *v);
-
-  /// Loads a LL value of a specified type from memory. The element type of the
-  /// provided pointer doesn't need to match the value type (=> suitable for
-  /// bit-casting).
-  static llvm::Value *loadFromMemory(llvm::Value *address, llvm::Type *asType,
-                                     const char *name = ".bitcast_result");
 };
 
 // interface called by codegen
