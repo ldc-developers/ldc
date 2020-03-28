@@ -279,3 +279,65 @@ template <int elementSize> struct CompositeToArray : BaseBitcastABIRewrite {
 using CompositeToArray32 = CompositeToArray<4>;
 // Rewrite a composite as array of i64.
 using CompositeToArray64 = CompositeToArray<8>;
+
+//////////////////////////////////////////////////////////////////////////////
+
+struct RegCount {
+  char gp_regs, simd_regs;
+
+  RegCount(char gp_regs, char simd_regs)
+      : gp_regs(gp_regs), simd_regs(simd_regs) {}
+
+  explicit RegCount(LLType *ty) : gp_regs(0), simd_regs(0) {
+    if (LLStructType *structTy = isaStruct(ty)) {
+      for (unsigned i = 0; i < structTy->getNumElements(); ++i) {
+        RegCount elementRegCount(structTy->getElementType(i));
+        gp_regs += elementRegCount.gp_regs;
+        simd_regs += elementRegCount.simd_regs;
+      }
+    } else if (LLArrayType *arrayTy = isaArray(ty)) {
+      char N = static_cast<char>(arrayTy->getNumElements());
+      RegCount elementRegCount(arrayTy->getElementType());
+      gp_regs = N * elementRegCount.gp_regs;
+      simd_regs = N * elementRegCount.simd_regs;
+    } else if (ty->isIntegerTy() || ty->isPointerTy()) {
+      ++gp_regs;
+    } else if (ty->isFloatingPointTy() || ty->isVectorTy()) {
+      // X87 reals are passed on the stack
+      if (!ty->isX86_FP80Ty()) {
+        ++simd_regs;
+      }
+    } else {
+      unsigned sizeInBits = gDataLayout->getTypeSizeInBits(ty);
+      IF_LOG Logger::cout() << "RegCount: assuming 1 GP register for type "
+                            << *ty << " (" << sizeInBits << " bits)\n";
+      assert(sizeInBits > 0 && sizeInBits <= gDataLayout->getPointerSizeInBits());
+      ++gp_regs;
+    }
+  }
+
+  enum SubtractionResult {
+    ArgumentFitsIn,
+    ArgumentWouldFitInPartially,
+    ArgumentDoesntFitIn
+  };
+
+  SubtractionResult trySubtract(const IrFuncTyArg &arg) {
+    const RegCount wanted(arg.ltype);
+
+    const bool anyRegAvailable = (wanted.gp_regs > 0 && gp_regs > 0) ||
+                                 (wanted.simd_regs > 0 && simd_regs > 0);
+    if (!anyRegAvailable) {
+      return ArgumentDoesntFitIn;
+    }
+
+    if (gp_regs < wanted.gp_regs || simd_regs < wanted.simd_regs) {
+      return ArgumentWouldFitInPartially;
+    }
+
+    gp_regs -= wanted.gp_regs;
+    simd_regs -= wanted.simd_regs;
+
+    return ArgumentFitsIn;
+  }
+};

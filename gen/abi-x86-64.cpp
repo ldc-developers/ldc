@@ -104,67 +104,6 @@ bool passByVal(Type *ty) {
 
   return argTypes->arguments->empty(); // empty => cannot be passed in registers
 }
-
-struct RegCount {
-  char int_regs, sse_regs;
-
-  RegCount() : int_regs(6), sse_regs(8) {}
-
-  explicit RegCount(LLType *ty) : int_regs(0), sse_regs(0) {
-    if (LLStructType *structTy = isaStruct(ty)) {
-      for (unsigned i = 0; i < structTy->getNumElements(); ++i) {
-        RegCount elementRegCount(structTy->getElementType(i));
-        int_regs += elementRegCount.int_regs;
-        sse_regs += elementRegCount.sse_regs;
-      }
-    } else if (LLArrayType *arrayTy = isaArray(ty)) {
-      char N = static_cast<char>(arrayTy->getNumElements());
-      RegCount elementRegCount(arrayTy->getElementType());
-      int_regs = N * elementRegCount.int_regs;
-      sse_regs = N * elementRegCount.sse_regs;
-    } else if (ty->isIntegerTy() || ty->isPointerTy()) {
-      ++int_regs;
-    } else if (ty->isFloatingPointTy() || ty->isVectorTy()) {
-      // X87 reals are passed on the stack
-      if (!ty->isX86_FP80Ty()) {
-        ++sse_regs;
-      }
-    } else {
-      unsigned sizeInBits = gDataLayout->getTypeSizeInBits(ty);
-      IF_LOG Logger::cout() << "SysV RegCount: assuming 1 GP register for type "
-                            << *ty << " (" << sizeInBits << " bits)\n";
-      assert(sizeInBits > 0 && sizeInBits <= 64);
-      ++int_regs;
-    }
-
-    assert(int_regs + sse_regs <= 2);
-  }
-
-  enum SubtractionResult {
-    ArgumentFitsIn,
-    ArgumentWouldFitInPartially,
-    ArgumentDoesntFitIn
-  };
-
-  SubtractionResult trySubtract(const IrFuncTyArg &arg) {
-    const RegCount wanted(arg.ltype);
-
-    const bool anyRegAvailable = (wanted.int_regs > 0 && int_regs > 0) ||
-                                 (wanted.sse_regs > 0 && sse_regs > 0);
-    if (!anyRegAvailable) {
-      return ArgumentDoesntFitIn;
-    }
-
-    if (int_regs < wanted.int_regs || sse_regs < wanted.sse_regs) {
-      return ArgumentWouldFitInPartially;
-    }
-
-    int_regs -= wanted.int_regs;
-    sse_regs -= wanted.sse_regs;
-
-    return ArgumentFitsIn;
-  }
-};
 }
 
 /**
@@ -268,8 +207,8 @@ void X86_64TargetABI::rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg,
   // indirectly by-value for non-POD args
   if (!isPOD(t)) {
     indirectByvalRewrite.applyTo(arg);
-    if (regCount.int_regs > 0) {
-      regCount.int_regs--;
+    if (regCount.gp_regs > 0) {
+      regCount.gp_regs--;
     }
 
     return;
@@ -299,28 +238,28 @@ void X86_64TargetABI::rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg,
 
 void X86_64TargetABI::rewriteFunctionType(IrFuncTy &fty) {
   RegCount &regCount = getRegCount(fty);
-  regCount = RegCount(); // initialize
+  regCount = RegCount(6, 8); // initialize
 
   // RETURN VALUE
   if (!fty.ret->byref && fty.ret->type->toBasetype()->ty != Tvoid) {
     Logger::println("x86-64 ABI: Transforming return type");
     LOG_SCOPE;
-    RegCount dummy;
+    RegCount dummy = regCount;
     rewriteArgument(fty, *fty.ret, dummy);
   }
 
   // IMPLICIT PARAMETERS
   if (fty.arg_sret) {
-    regCount.int_regs--;
+    regCount.gp_regs--;
   }
   if (fty.arg_this || fty.arg_nest) {
-    regCount.int_regs--;
+    regCount.gp_regs--;
   }
   if (fty.arg_objcSelector) {
-    regCount.int_regs--;
+    regCount.gp_regs--;
   }
   if (fty.arg_arguments) {
-    regCount.int_regs -= 2; // dynamic array
+    regCount.gp_regs -= 2; // dynamic array
   }
 
   // EXPLICIT PARAMETERS
@@ -337,8 +276,8 @@ void X86_64TargetABI::rewriteFunctionType(IrFuncTy &fty) {
     IrFuncTyArg &arg = *fty.args[i];
 
     if (arg.byref) {
-      if (!arg.isByVal() && regCount.int_regs > 0) {
-        regCount.int_regs--;
+      if (!arg.isByVal() && regCount.gp_regs > 0) {
+        regCount.gp_regs--;
       }
 
       continue;
