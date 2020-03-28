@@ -79,22 +79,27 @@ int getNestedHFVA(Type *t, LLType *&fundamentalType) {
   }
 
   if (auto tstruct = t->isTypeStruct()) {
+    // check each field recursively and set fundamentalType
+    bool isEmpty = true;
     for (VarDeclaration *field : tstruct->sym->fields) {
-      const int field_N = getNestedHFVA(field->type, fundamentalType);
+      int field_N = getNestedHFVA(field->type, fundamentalType);
       if (field_N < 0)
         return field_N;
-
-      // all union fields are at offset 0; use max field_N
-      // TODO: really that easy wrt. nested anonymous unions?
-      if (field->offset == 0) {
-        N = std::max(N, field_N);
-      } else {
-        N += field_N;
-      }
+      if (field_N > 0) // might be 0 for empty static array
+        isEmpty = false;
     }
 
-    // An empty struct is an undefined byte, i.e., no HFVA.
-    return N == 0 ? -1 : N;
+    // an empty struct (no fields or only empty static arrays) is an undefined
+    // byte, i.e., no HFVA
+    if (isEmpty)
+      return -1;
+
+    // due to possibly overlapping fields (for unions and nested anonymous
+    // unions), use the overall struct size to determine N
+    const auto structSize = t->size();
+    const auto fundamentalSize = fundamentalType->getPrimitiveSizeInBits() / 8;
+    assert(structSize % fundamentalSize == 0);
+    return structSize / fundamentalSize;
   }
 
   LLType *this_ft = nullptr;
