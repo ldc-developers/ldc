@@ -43,14 +43,9 @@ struct AArch64TargetABI : TargetABI {
 private:
   const bool isDarwin;
   IndirectByvalRewrite indirectByvalRewrite;
-  ImplicitByvalRewrite byvalRewrite;
   HFVAToArray hfvaToArray;
   CompositeToArray64 compositeToArray64;
   IntegerRewrite integerRewrite;
-
-  RegCount &getRegCount(IrFuncTy &fty) {
-    return reinterpret_cast<RegCount &>(fty.tag);
-  }
 
   bool isAAPCS64VaList(Type *t) {
     return !isDarwin && t->ty == Tstruct &&
@@ -79,115 +74,56 @@ public:
   bool passByVal(TypeFunction *, Type *) override { return false; }
 
   void rewriteFunctionType(IrFuncTy &fty) override {
-    RegCount &regCount = getRegCount(fty);
-    regCount = RegCount(8, 8); // initialize
-
-    // return value
     if (!fty.ret->byref && fty.ret->type->toBasetype()->ty != Tvoid) {
-      RegCount dummy = regCount;
-      rewriteArgument(fty, *fty.ret, dummy, /*isReturnVal=*/true);
+      rewriteArgument(fty, *fty.ret, /*isReturnVal=*/true);
     }
 
-    // implicit parameters taking up GP registers
-    /* the sret pointer is passed in a dedicated register (x8)
-    if (fty.arg_sret)
-      regCount.gp_regs--;
-    */
-    if (fty.arg_this || fty.arg_nest)
-      regCount.gp_regs--;
-    if (fty.arg_objcSelector)
-      regCount.gp_regs--;
-    if (fty.arg_arguments)
-      regCount.gp_regs -= 2; // slice
-
-    int begin = 0, end = fty.args.size(), step = 1;
-    if (fty.reverseParams) {
-      begin = end - 1;
-      end = -1;
-      step = -1;
-    }
-    for (int i = begin; i != end; i += step) {
-      IrFuncTyArg &arg = *fty.args[i];
-
-      if (arg.byref) {
-        if (regCount.gp_regs > 0 && !arg.isByVal())
-          regCount.gp_regs--;
-
-        continue;
-      }
-
-      rewriteArgument(fty, arg, regCount);
-    }
-
-    // regCount (fty.tag) is now in the state after all implicit & formal args,
-    // ready to serve as initial state for each vararg call site, see below
-  }
-
-  void rewriteVarargs(IrFuncTy &fty,
-                      std::vector<IrFuncTyArg *> &args) override {
-    // use a dedicated RegCount copy for each call site and initialize it with
-    // fty.tag
-    RegCount regCount = getRegCount(fty);
-
-    for (auto arg : args) {
-      if (!arg->byref) // don't rewrite ByVal arguments
-        rewriteArgument(fty, *arg, regCount);
+    for (auto arg : fty.args) {
+      if (!arg->byref)
+        rewriteArgument(fty, *arg, /*isReturnVal=*/false);
     }
   }
 
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
-    llvm_unreachable("Please use the other overload explicitly.");
+    return rewriteArgument(fty, arg, /*isReturnVal=*/false);
   }
 
-  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg, RegCount &regCount,
-                       bool isReturnVal = false) {
-    LLType *originalLType = arg.ltype;
+  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg, bool isReturnVal) {
     Type *t = arg.type->toBasetype();
 
     // compiler magic: pass va_list args implicitly by reference
     if (!isReturnVal && isAAPCS64VaList(t)) {
       arg.byref = true;
       arg.ltype = arg.ltype->getPointerTo();
-      if (regCount.gp_regs > 0)
-        regCount.gp_regs--;
-
       return;
     }
 
-    // non-PODs and bigger aggregates are passed as pointer to hidden copy
+    // non-PODs and bigger non-HFVA aggregates are passed as pointer to hidden
+    // copy
     if (passIndirectlyByValue(t)) {
       indirectByvalRewrite.applyTo(arg);
-      if (regCount.gp_regs > 0)
-        regCount.gp_regs--;
-
       return;
     }
+
+    // LLVM seems to take care of the rest when rewriting as follows, close to
+    // what clang emits:
 
     LLType *hfvaType = nullptr;
     if (isHFVA(t, &hfvaType)) {
-      // pass in SIMD registers (if enough are available for the whole aggregate)
-      hfvaToArray.applyToIfNotObsolete(arg, hfvaType);
-    } else if (t->ty == Tstruct || t->ty == Tsarray) {
-      // pass remaining structs in 1 or 2 GP registers (if enough are available)
+      // pass in SIMD registers (if enough are available for the whole
+      // aggregate)
+      hfvaToArray.applyTo(arg, hfvaType);
+      return;
+    }
+
+    if (t->ty == Tstruct || (t->ty == Tsarray && t->size() > 0)) {
+      // pass remaining aggregates in 1 or 2 GP registers (if enough are
+      // available)
       if (canRewriteAsInt(t)) {
         integerRewrite.applyToIfNotObsolete(arg);
       } else {
-        compositeToArray64.applyToIfNotObsolete(arg);
+        compositeToArray64.applyTo(arg);
       }
-      /* if 16-bytes aligned, the 1st GP register must be an even one
-      if ((regCount.gp_regs & 1) && DtoAlignment(t) >= 16)
-        regCount.gp_regs--;
-      */
-    }
-
-    if (regCount.trySubtract(arg) == RegCount::ArgumentWouldFitInPartially) {
-      // pass the LL aggregate with byval attribute to prevent LLVM from passing
-      // it partially in registers, partially in memory
-      assert(originalLType->isAggregateType());
-      IF_LOG Logger::cout()
-          << "Passing byval to prevent register/memory mix: "
-          << arg.type->toChars() << " (" << *originalLType << ")\n";
-      byvalRewrite.applyTo(arg);
     }
   }
 
