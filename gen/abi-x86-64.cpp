@@ -171,20 +171,7 @@ struct RegCount {
  * This type performs the actual struct/cfloat rewriting by simply storing to
  * memory so that it's then readable as the other type (i.e., bit-casting).
  */
-struct X86_64_C_struct_rewrite : ABIRewrite {
-  LLValue *put(DValue *v, bool, bool) override {
-    LLValue *address = getAddressOf(v);
-
-    LLType *abiTy = getAbiType(v->type->toBasetype());
-    assert(abiTy && "Why are we rewriting a non-rewritten type?");
-
-    return loadFromMemory(address, abiTy, ".X86_64_C_struct_rewrite_putResult");
-  }
-
-  LLValue *getLVal(Type *dty, LLValue *v) override {
-    return DtoAllocaDump(v, dty, ".X86_64_C_struct_rewrite_dump");
-  }
-
+struct X86_64_C_struct_rewrite : BaseBitcastABIRewrite {
   LLType *type(Type *t) override { return getAbiType(t->toBasetype()); }
 };
 

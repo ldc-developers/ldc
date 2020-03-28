@@ -55,29 +55,6 @@ LLValue *ABIRewrite::getAddressOf(DValue *v) {
   return DtoAllocaDump(v, ".getAddressOf_dump");
 }
 
-LLValue *ABIRewrite::loadFromMemory(LLValue *address, LLType *asType,
-                                    const char *name) {
-  LLType *pointerType = address->getType();
-  assert(pointerType->isPointerTy());
-  LLType *pointeeType = pointerType->getPointerElementType();
-
-  if (asType == pointeeType) {
-    return DtoLoad(address, name);
-  }
-
-  if (getTypeStoreSize(asType) > getTypeAllocSize(pointeeType)) {
-    // not enough allocated memory
-    LLValue *paddedDump = DtoRawAlloca(asType, 0, ".loadFromMemory_paddedDump");
-    DtoMemCpy(paddedDump, address,
-              DtoConstSize_t(getTypeAllocSize(pointeeType)));
-    return DtoLoad(paddedDump, name);
-  }
-
-  address = DtoBitCast(address, getPtrToType(asType),
-                       ".loadFromMemory_bitCastAddress");
-  return DtoLoad(address, name);
-}
-
 //////////////////////////////////////////////////////////////////////////////
 
 bool TargetABI::isHFVA(Type *t, int maxNumElements, LLType **hfvaType) {
