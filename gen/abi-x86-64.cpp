@@ -114,36 +114,6 @@ struct X86_64_C_struct_rewrite : BaseBitcastABIRewrite {
   LLType *type(Type *t) override { return getAbiType(t->toBasetype()); }
 };
 
-/**
- * This type is used to force LLVM to pass a LL aggregate in memory,
- * on the function parameters stack. We need this to prevent LLVM
- * from passing an aggregate partially in registers, partially in
- * memory.
- * This is achieved by passing a pointer to the aggregate and using
- * the byval LLVM attribute.
- */
-struct ImplicitByvalRewrite : ABIRewrite {
-  LLValue *put(DValue *v, bool isLValueExp, bool isLastArgExp) override {
-    if (isLValueExp && !isLastArgExp && v->isLVal()) {
-      // copy to avoid visibility of potential side effects of later argument
-      // expressions
-      return DtoAllocaDump(v, ".lval_copy_for_ImplicitByvalRewrite");
-    }
-    return getAddressOf(v);
-  }
-
-  LLValue *getLVal(Type *dty, LLValue *v) override { return v; }
-
-  LLType *type(Type *t) override { return DtoPtrToType(t); }
-
-  void applyTo(IrFuncTyArg &arg, LLType *finalLType = nullptr) override {
-    ABIRewrite::applyTo(arg, finalLType);
-    arg.attrs.addAttribute(LLAttribute::ByVal);
-    if (auto alignment = DtoAlignment(arg.type))
-      arg.attrs.addAlignmentAttr(alignment);
-  }
-};
-
 struct X86_64TargetABI : TargetABI {
   X86_64_C_struct_rewrite struct_rewrite;
   ImplicitByvalRewrite byvalRewrite;

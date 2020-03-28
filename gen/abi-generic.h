@@ -247,6 +247,39 @@ struct IndirectByvalRewrite : ABIRewrite {
   }
 };
 
+//////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Forces LLVM to pass a LL aggregate in memory, on the function parameters
+ * stack. E.g., we need this to prevent LLVM from passing an aggregate partially
+ * in registers, partially in memory.
+ * This is achieved by passing a pointer to the aggregate argument and using
+ * the byval LLVM attribute.
+ */
+struct ImplicitByvalRewrite : ABIRewrite {
+  LLValue *put(DValue *v, bool isLValueExp, bool isLastArgExp) override {
+    if (isLValueExp && !isLastArgExp && v->isLVal()) {
+      // copy to avoid visibility of potential side effects of later argument
+      // expressions
+      return DtoAllocaDump(v, ".lval_copy_for_ImplicitByvalRewrite");
+    }
+    return getAddressOf(v);
+  }
+
+  LLValue *getLVal(Type *dty, LLValue *v) override { return v; }
+
+  LLType *type(Type *t) override { return DtoPtrToType(t); }
+
+  void applyTo(IrFuncTyArg &arg, LLType *finalLType = nullptr) override {
+    ABIRewrite::applyTo(arg, finalLType);
+    arg.attrs.addAttribute(LLAttribute::ByVal);
+    if (auto alignment = DtoAlignment(arg.type))
+      arg.attrs.addAlignmentAttr(alignment);
+  }
+};
+
+//////////////////////////////////////////////////////////////////////////////
+
 /**
  * Rewrite Homogeneous Homogeneous Floating-point/Vector Aggregate (HFVA) as
  * array of floats/vectors.
@@ -263,6 +296,8 @@ struct HFVAToArray : BaseBitcastABIRewrite {
     llvm_unreachable("Type t should be an HFA");
   }
 };
+
+//////////////////////////////////////////////////////////////////////////////
 
 /**
  * Rewrite a composite as array of integers.
