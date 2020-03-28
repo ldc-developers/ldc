@@ -117,6 +117,8 @@ version (IN_LLVM)
     }
 
     Type va_listType();
+
+    Type isHFVA(Type type);
 }
 else // !IN_LLVM
 {

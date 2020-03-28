@@ -99,6 +99,7 @@ struct Target
     unsigned fieldalign(Type *type);
     unsigned critsecsize();
     Type *va_listType();  // get type of va_list
+    Type *isHFVA(Type *type);
     int isVectorTypeSupported(int sz, Type *type);
     bool isVectorOpSupported(Type *type, TOK op, Type *t2 = NULL);
     // ABI and backend.

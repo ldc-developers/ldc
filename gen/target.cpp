@@ -194,6 +194,54 @@ unsigned Target::fieldalign(Type *type) { return DtoAlignment(type); }
 
 Type *Target::va_listType() { return gABI->vaListType(); }
 
+Type *Target::isHFVA(Type *type) {
+  // TODO: adapt to actual target (possibly different max number of elements)
+  LLType *hfaType = nullptr;
+  bool success = TargetABI::isHFVA(type, &hfaType);
+  if (!success)
+    return Type::tvoid->sarrayOf(0); // return `void[0]` if not a HFVA
+
+  LLType *llElementType = hfaType->getArrayElementType();
+  Type *elementType = nullptr;
+  if (llElementType->isFloatingPointTy()) {
+    if (llElementType->isFloatTy()) {
+      elementType = Type::tfloat32;
+    } else if (llElementType->isDoubleTy()) {
+      elementType = Type::tfloat64;
+    } else {
+      elementType = Type::tfloat80;
+    }
+  } else if (llElementType->isVectorTy()) {
+    LLType *llVET = llElementType->getVectorElementType();
+    const auto vectorElementSize = llVET->getPrimitiveSizeInBits() / 8;
+    Type *vectorElementType = nullptr;
+    switch (vectorElementSize) {
+    case 1:
+      vectorElementType = Type::tint8;
+      break;
+    case 2:
+      vectorElementType = Type::tint16;
+      break;
+    case 4:
+      vectorElementType =
+          llVET->isFloatingPointTy() ? Type::tfloat32 : Type::tint32;
+      break;
+    case 8:
+      vectorElementType =
+          llVET->isFloatingPointTy() ? Type::tfloat64 : Type::tint64;
+      break;
+    default:
+      llvm_unreachable("unexpected vector element size");
+    }
+    elementType = TypeVector::create(
+        vectorElementType->sarrayOf(llElementType->getVectorNumElements()));
+  } else {
+    llvm_unreachable("unexpected fundamental HFVA LL type");
+  }
+
+  return elementType->sarrayOf(hfaType->getArrayNumElements());
+}
+
 /**
  * Gets vendor-specific type mangling for C++ ABI.
  * Params:
@@ -275,16 +323,15 @@ Expression *Target::getTargetInfo(const char *name_, const Loc &loc) {
 
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
   if (name == "dcomputeTargets") {
-    Expressions* exps = new Expressions();
+    Expressions *exps = new Expressions();
     for (auto &targ : opts::dcomputeTargets) {
-        exps->push(createStringExp(mem.xstrdup(targ.c_str())));
+      exps->push(createStringExp(mem.xstrdup(targ.c_str())));
     }
     return TupleExp::create(loc, exps);
   }
 
   if (name == "dcomputeFilePrefix") {
-    return createStringExp(
-                mem.xstrdup(opts::dcomputeFilePrefix.c_str()));
+    return createStringExp(mem.xstrdup(opts::dcomputeFilePrefix.c_str()));
   }
 #endif
 
