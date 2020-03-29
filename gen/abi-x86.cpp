@@ -139,7 +139,7 @@ struct X86TargetABI : TargetABI {
 
     // return value:
     if (!fty.ret->byref) {
-      Type *rt = fty.type->next->toBasetype(); // for sret, rt == void
+      Type *rt = fty.ret->type->toBasetype(); // for sret, rt == void
       if (isAggregate(rt) && canRewriteAsInt(rt) &&
           // don't rewrite cfloat for extern(D)
           !(externD && rt->ty == Tcomplex32)) {
