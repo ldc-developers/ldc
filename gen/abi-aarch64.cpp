@@ -68,7 +68,9 @@ public:
     }
 
     Type *rt = tf->next->toBasetype();
-    return passIndirectlyByValue(rt);
+    // TODO: no sret workaround for 0-sized return values (static arrays with 0
+    // elements)
+    return rt->size() == 0 || passIndirectlyByValue(rt);
   }
 
   bool passByVal(TypeFunction *, Type *) override { return false; }
@@ -81,6 +83,16 @@ public:
     for (auto arg : fty.args) {
       if (!arg->byref)
         rewriteArgument(fty, *arg, /*isReturnVal=*/false);
+    }
+
+    // remove 0-sized args (static arrays with 0 elements)
+    size_t i = 0;
+    while (i < fty.args.size()) {
+      if (fty.args[i]->type->size() == 0) {
+        fty.args.erase(fty.args.begin() + i);
+        continue;
+      }
+      ++i;
     }
   }
 
