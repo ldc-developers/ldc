@@ -39,7 +39,13 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
+namespace cl = llvm::cl;
 using LLMetadata = llvm::Metadata;
+
+static cl::opt<cl::boolOrDefault> emitColumnInfo(
+    "gcolumn-info", cl::ZeroOrMore, cl::Hidden,
+    cl::desc("Include column numbers in line debug infos. Defaults to "
+             "true for non-MSVC targets."));
 
 namespace ldc {
 
@@ -103,9 +109,16 @@ DIBuilder::DIBuilder(IRState *const IR)
     : IR(IR), DBuilder(IR->module), CUNode(nullptr),
       isTargetMSVC(global.params.targetTriple->isWindowsMSVCEnvironment()),
       isTargetMSVCx64(isTargetMSVC &&
-                      global.params.targetTriple->isArch64Bit()) {}
+                      global.params.targetTriple->isArch64Bit()),
+      // like clang, don't emit any column infos for CodeView by default
+      // (https://reviews.llvm.org/D23720)
+      emitColumnInfo(opts::getFlagOrDefault(::emitColumnInfo, !isTargetMSVC)) {}
 
 llvm::LLVMContext &DIBuilder::getContext() { return IR->context(); }
+
+unsigned DIBuilder::getColumn(const Loc &loc) const {
+  return (loc.linnum && emitColumnInfo) ? loc.charnum : 0;
+}
 
 // Returns the DI scope of a symbol.
 DIScope DIBuilder::GetSymbolScope(Dsymbol *s) {
@@ -187,16 +200,16 @@ llvm::StringRef DIBuilder::GetNameAndScope(Dsymbol *sym, DIScope &scope) {
 // Sets the memory address for a debuginfo variable.
 void DIBuilder::Declare(const Loc &loc, llvm::Value *storage,
                         DILocalVariable divar, DIExpression diexpr) {
-  unsigned charnum = (loc.linnum ? loc.charnum : 0);
-  auto debugLoc = llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope());
+  auto debugLoc =
+      llvm::DebugLoc::get(loc.linnum, getColumn(loc), GetCurrentScope());
   DBuilder.insertDeclare(storage, divar, diexpr, debugLoc, IR->scopebb());
 }
 
 // Sets the (current) value for a debuginfo variable.
 void DIBuilder::SetValue(const Loc &loc, llvm::Value *value,
                          DILocalVariable divar, DIExpression diexpr) {
-  unsigned charnum = (loc.linnum ? loc.charnum : 0);
-  auto debugLoc = llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope());
+  auto debugLoc =
+      llvm::DebugLoc::get(loc.linnum, getColumn(loc), GetCurrentScope());
   DBuilder.insertDbgValueIntrinsic(value,
 #if LDC_LLVM_VER < 600
                                    0,
@@ -1176,12 +1189,8 @@ void DIBuilder::EmitBlockStart(Loc &loc) {
   Logger::println("D to dwarf block start");
   LOG_SCOPE;
 
-  DILexicalBlock block =
-      DBuilder.createLexicalBlock(GetCurrentScope(),           // scope
-                                  CreateFile(loc),             // file
-                                  loc.linnum,                  // line
-                                  loc.linnum ? loc.charnum : 0 // column
-      );
+  DILexicalBlock block = DBuilder.createLexicalBlock(
+      GetCurrentScope(), CreateFile(loc), loc.linnum, getColumn(loc));
   IR->func()->diLexicalBlocks.push(block);
   EmitStopPoint(loc);
 }
@@ -1215,12 +1224,11 @@ void DIBuilder::EmitStopPoint(Loc &loc) {
   if (!linnum)
     linnum = 1;
 
-  unsigned charnum = (loc.linnum ? loc.charnum : 0);
-  Logger::println("D to dwarf stoppoint at line %u, column %u", linnum,
-                  charnum);
+  unsigned col = getColumn(loc);
+  Logger::println("D to dwarf stoppoint at line %u, column %u", linnum, col);
   LOG_SCOPE;
   IR->ir->SetCurrentDebugLocation(
-      llvm::DebugLoc::get(linnum, charnum, GetCurrentScope()));
+      llvm::DebugLoc::get(linnum, col, GetCurrentScope()));
   currentLoc = loc;
 }
 
