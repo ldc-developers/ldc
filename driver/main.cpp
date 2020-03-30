@@ -842,8 +842,11 @@ void registerPredefinedTargetVersions() {
   default:
     if (triple.getEnvironment() == llvm::Triple::Android) {
       VersionCondition::addPredefinedGlobalIdent("Android");
-    } else if (triple.getOSName() != "unknown") {
-      warning(Loc(), "unknown target OS: %s", triple.getOSName().str().c_str());
+    } else {
+      llvm::StringRef osName = triple.getOSName();
+      if (!osName.empty() && osName != "unknown" && osName != "none") {
+        warning(Loc(), "unknown target OS: %s", osName.str().c_str());
+      }
     }
     break;
   }
