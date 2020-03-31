@@ -309,12 +309,16 @@ public:
     const auto structTypeInfoType = getStructTypeInfoType();
     const auto structTypeInfoDecl = Type::typeinfostruct;
 
-    // On x86_64, class TypeInfo_Struct contains 2 additional fields
-    // (m_arg1/m_arg2) which are used for the X86_64 System V ABI varargs
-    // implementation. They are not present on any other cpu/os.
-    const bool isX86_64 =
-        global.params.targetTriple->getArch() == llvm::Triple::x86_64;
-    const unsigned expectedFields = 11 + (isX86_64 ? 2 : 0);
+    // For x86_64 (except Win64) and AAPCS64 targets, class TypeInfo_Struct
+    // contains 2 additional fields (m_arg1/m_arg2) which are used for the
+    // TypeInfo-based core.stdc.stdarg.va_arg implementations in druntime.
+    const auto &triple = *global.params.targetTriple;
+    const auto arch = triple.getArch();
+    const bool withArgTypes =
+        (arch == llvm::Triple::x86_64 && !triple.isOSWindows()) ||
+        (!triple.isOSDarwin() && // Apple uses a simpler scheme
+         (arch == llvm::Triple::aarch64 || arch == llvm::Triple::aarch64_be));
+    const unsigned expectedFields = 11 + (withArgTypes ? 2 : 0);
     const unsigned actualFields =
         structTypeInfoDecl->fields.length -
         1; // union of xdtor/xdtorti counts as 2 overlapping fields
@@ -340,7 +344,7 @@ public:
       b.push_null_vp();         // xdtor/xdtorti
       b.push_null_vp();         // xpostblit
       b.push_uint(0);           // m_align
-      if (isX86_64) {
+      if (withArgTypes) {
         b.push_null_vp();       // m_arg1
         b.push_null_vp();       // m_arg2
       }
@@ -439,7 +443,7 @@ public:
     // uint m_align
     b.push_uint(DtoAlignment(tc));
 
-    if (isX86_64) {
+    if (withArgTypes) {
       auto arguments = sd->argTypes ? sd->argTypes->arguments : nullptr;
       // TypeInfo m_arg1
       // TypeInfo m_arg2
