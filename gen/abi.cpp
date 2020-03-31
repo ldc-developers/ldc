@@ -32,6 +32,9 @@
 #include "ir/irfuncty.h"
 #include <algorithm>
 
+// in dmd/argtypes_aarch64.d:
+bool isHFVA(Type *t, int maxNumElements, Type **rewriteType);
+
 //////////////////////////////////////////////////////////////////////////////
 
 llvm::Value *ABIRewrite::getRVal(Type *dty, LLValue *v) {
@@ -55,106 +58,17 @@ LLValue *ABIRewrite::getAddressOf(DValue *v) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-// A Homogeneous Floating-point/Vector Aggregate (HFA/HVA) is an ARM/AArch64
-// concept that consists of up to 4 elements of the same floating point/vector
-// type. It is the aggregate final data layout that matters so nested structs,
-// unions, and sarrays can result in an HFA.
-//
-// simple HFAs: struct F1 {float f;}  struct D4 {double a,b,c,d;}
-// interesting HFA: struct {F1[2] vals; float weight;}
-
-namespace {
-// Recursive helper.
-// Returns -1 if the type isn't suited as HFVA (element) or incompatible to the
-// specified fundamental type, otherwise the number of consumed elements of that
-// fundamental type.
-// If `fundamentalType` is null, it is set on the first occasion and then left
-// untouched.
-int getNestedHFVA(Type *t, LLType *&fundamentalType) {
-  t = t->toBasetype();
-  int N = 0;
-
-  if (auto tarray = t->isTypeSArray()) {
-    N = getNestedHFVA(tarray->nextOf(), fundamentalType);
-    return N < 0 ? N : N * tarray->dim->toUInteger(); // => T[0] may return 0
+bool TargetABI::isHFVA(Type *t, int maxNumElements, LLType **hfvaType) {
+  Type *rewriteType = nullptr;
+  if (::isHFVA(t, maxNumElements, &rewriteType)) {
+    if (hfvaType)
+      *hfvaType = DtoType(rewriteType);
+    return true;
   }
-
-  if (auto tstruct = t->isTypeStruct()) {
-    // check each field recursively and set fundamentalType
-    bool isEmpty = true;
-    for (VarDeclaration *field : tstruct->sym->fields) {
-      int field_N = getNestedHFVA(field->type, fundamentalType);
-      if (field_N < 0)
-        return field_N;
-      if (field_N > 0) // might be 0 for empty static array
-        isEmpty = false;
-    }
-
-    // an empty struct (no fields or only empty static arrays) is an undefined
-    // byte, i.e., no HFVA
-    if (isEmpty)
-      return -1;
-
-    // due to possibly overlapping fields (for unions and nested anonymous
-    // unions), use the overall struct size to determine N
-    const auto structSize = t->size();
-    const auto fundamentalSize = fundamentalType->getPrimitiveSizeInBits() / 8;
-    assert(structSize % fundamentalSize == 0);
-    return structSize / fundamentalSize;
-  }
-
-  LLType *this_ft = nullptr;
-  if (auto tvector = t->isTypeVector()) {
-    this_ft = DtoType(tvector);
-    N = 1;
-  } else if (t->isfloating()) {
-    auto tfloat = t;
-    N = 1;
-    if (t->iscomplex()) {
-      N = 2;
-      switch (t->ty) {
-      case Tcomplex32:
-        tfloat = Type::tfloat32;
-        break;
-      case Tcomplex64:
-        tfloat = Type::tfloat64;
-        break;
-      case Tcomplex80:
-        tfloat = Type::tfloat80;
-        break;
-      default:
-        llvm_unreachable("Unexpected complex floating point type");
-      }
-    }
-    this_ft = DtoType(tfloat);
-  } else {
-    return -1; // reject all other types
-  }
-
-  if (!fundamentalType) {
-    fundamentalType = this_ft; // initialize fundamentalType
-  } else if (fundamentalType != this_ft) {
-    return -1; // incompatible fundamental types, reject
-  }
-
-  return N;
-}
+  return false;
 }
 
-bool TargetABI::isHFVA(Type *t, llvm::Type **rewriteType, int maxElements) {
-  if (!isAggregate(t) || !isPOD(t))
-    return false;
-
-  LLType *fundamentalType = nullptr;
-  const int N = getNestedHFVA(t, fundamentalType);
-  if (N < 1 || N > maxElements)
-    return false;
-
-  if (rewriteType)
-    *rewriteType = LLArrayType::get(fundamentalType, N);
-
-  return true;
-}
+//////////////////////////////////////////////////////////////////////////////
 
 TypeTuple *TargetABI::getArgTypes(Type *t) {
   // try to reuse cached argTypes of StructDeclarations
@@ -184,6 +98,8 @@ LLType *TargetABI::getRewrittenArgType(Type *t, TypeTuple *argTypes) {
 LLType *TargetABI::getRewrittenArgType(Type *t) {
   return getRewrittenArgType(t, getArgTypes(t));
 }
+
+//////////////////////////////////////////////////////////////////////////////
 
 bool TargetABI::isAggregate(Type *t) {
   TY ty = t->toBasetype()->ty;

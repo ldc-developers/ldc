@@ -115,7 +115,7 @@ public:
       return; // don't rewrite 0-sized types
 
     if (argTypes->arguments->empty()) {
-      // non-PODs and bigger non-HFVA aggregates are passed as pointer to hidden
+      // non-PODs and larger non-HFVA aggregates are passed as pointer to hidden
       // copy
       indirectByvalRewrite.applyTo(arg);
       return;
@@ -128,7 +128,11 @@ public:
     if (!rewrittenType)
       return;
 
-    argTypesRewrite.applyTo(arg, rewrittenType);
+    if (rewrittenType->isIntegerTy()) {
+      argTypesRewrite.applyToIfNotObsolete(arg, rewrittenType);
+    } else {
+      argTypesRewrite.applyTo(arg, rewrittenType);
+    }
   }
 
   Type *vaListType() override {

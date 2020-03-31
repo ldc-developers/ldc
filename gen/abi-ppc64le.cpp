@@ -44,7 +44,7 @@ struct PPC64LETargetABI : TargetABI {
   bool passByVal(TypeFunction *, Type *t) override {
     t = t->toBasetype();
     return t->ty == Tsarray ||
-           (t->ty == Tstruct && t->size() > 16 && !isHFVA(t, nullptr, 8));
+           (t->ty == Tstruct && t->size() > 16 && !isHFVA(t, 8));
   }
 
   void rewriteFunctionType(IrFuncTy &fty) override {
@@ -64,8 +64,9 @@ struct PPC64LETargetABI : TargetABI {
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     Type *ty = arg.type->toBasetype();
     if (ty->ty == Tstruct || ty->ty == Tsarray) {
-      if (ty->ty == Tstruct && isHFVA(ty, &arg.ltype, 8)) {
-        hfvaToArray.applyTo(arg, arg.ltype);
+      LLType *hfvaType = nullptr;
+      if (ty->ty == Tstruct && isHFVA(ty, 8, &hfvaType)) {
+        hfvaToArray.applyTo(arg, hfvaType);
       } else if (canRewriteAsInt(ty, true)) {
         integerRewrite.applyTo(arg);
       } else {

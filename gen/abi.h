@@ -175,8 +175,8 @@ struct TargetABI {
   /// Check if `t` is a Homogeneous Floating-point Aggregate (HFA) or
   /// Homogeneous Vector Aggregate (HVA). If so, optionally produce the
   /// rewriteType: an array of its fundamental type.
-  static bool isHFVA(Type *t, llvm::Type **rewriteType = nullptr,
-                     int maxElements = 4);
+  static bool isHFVA(Type *t, int maxNumElements = 4,
+                     llvm::Type **hfvaType = nullptr);
 
   static llvm::Type *getRewrittenArgType(Type *t);
 

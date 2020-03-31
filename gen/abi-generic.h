@@ -296,9 +296,9 @@ struct HFVAToArray : BaseBitcastABIRewrite {
   HFVAToArray(const int max = 4) : maxFloats(max) {}
 
   LLType *type(Type *t) override {
-    LLType *rewriteType = nullptr;
-    if (TargetABI::isHFVA(t, &rewriteType, maxFloats))
-      return rewriteType;
+    LLType *hfvaType = nullptr;
+    if (TargetABI::isHFVA(t, maxFloats, &hfvaType))
+      return hfvaType;
     llvm_unreachable("Type t should be an HFA");
   }
 };

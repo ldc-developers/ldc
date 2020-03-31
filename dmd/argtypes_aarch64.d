@@ -37,39 +37,67 @@ extern (C++) TypeTuple toArgTypes_aarch64(Type t)
         return null;
 
     Type tb = t.toBasetype();
-    if (tb.ty == Tstruct || tb.ty == Tsarray || tb.ty == Tdelegate || tb.iscomplex())
+    // TODO: slices (Tarray) too
+    const isAggregate = tb.ty == Tstruct || tb.ty == Tsarray || tb.ty == Tdelegate || tb.iscomplex();
+    if (!isAggregate)
+        return new TypeTuple(t);
+
+    Type hfvaType;
+    enum maxNumHFVAElements = 4;
+    const isHFVA = size > maxNumHFVAElements * 16 ? false : isHFVA(tb, maxNumHFVAElements, &hfvaType);
+
+    // non-PODs and larger non-HFVA PODs are passed indirectly by value (pointer to caller-allocated copy)
+    if ((size > 16 && !isHFVA) || !isPOD(tb))
+        return new TypeTuple();
+
+    if (isHFVA)
     {
-        Type hfvaType;
-        const isHFVA = size > 4 * 16 ? false : isHFVA(tb, hfvaType);
-
-        if ((size > 16 && !isHFVA) || !isPOD(tb))
-        {
-            // pass indirectly by value (pointer to hidden copy)
-            return new TypeTuple();
-        }
-
-        if (isHFVA)
-        {
-            // pass in SIMD registers
-            return new TypeTuple(hfvaType);
-        }
-
-        // pass remaining aggregates in 1 or 2 GP registers
-        static Type getGPType(size_t size)
-        {
-            switch (size)
-            {
-            case 1:  return Type.tint8;
-            case 2:  return Type.tint16;
-            case 4:  return Type.tint32;
-            case 8:  return Type.tint64;
-            default: return Type.tint64.sarrayOf((size + 7) / 8);
-            }
-        }
-        return new TypeTuple(getGPType(size));
+        // pass in SIMD registers
+        return new TypeTuple(hfvaType);
     }
 
-    return new TypeTuple(t);
+    // pass remaining aggregates in 1 or 2 GP registers
+    static Type getGPType(size_t size)
+    {
+        switch (size)
+        {
+        case 1:  return Type.tint8;
+        case 2:  return Type.tint16;
+        case 4:  return Type.tint32;
+        case 8:  return Type.tint64;
+        default: return Type.tint64.sarrayOf((size + 7) / 8);
+        }
+    }
+    return new TypeTuple(getGPType(size));
+}
+
+/**
+ * A Homogeneous Floating-point/Vector Aggregate (HFA/HVA) is an ARM/AArch64
+ * concept that consists of up to 4 elements of the same floating point/vector
+ * type. It is the aggregate final data layout that matters so structs, unions,
+ * static arrays and complex numbers can result in an HFVA.
+ *
+ * simple HFAs: struct F1 {float f;}  struct D4 {double a,b,c,d;}
+ * interesting HFA: struct {F1[2] vals; float weight;}
+ *
+ * If the type is an HFVA and `rewriteType` is specified, it is set to a
+ * corresponding static array type.
+ */
+extern(C++) bool isHFVA(Type t, int maxNumElements = 4, Type* rewriteType = null)
+{
+    t = t.toBasetype();
+    if ((t.ty != Tstruct && t.ty != Tsarray && !t.iscomplex()) || !isPOD(t))
+        return false;
+
+    Type fundamentalType;
+    const N = getNestedHFVA(t, fundamentalType);
+    if (N < 1 || N > maxNumElements)
+        return false;
+
+    if (rewriteType)
+        *rewriteType = fundamentalType.sarrayOf(N);
+
+    return true;
 }
 
 private:
@@ -79,17 +107,6 @@ bool isPOD(Type t)
     auto baseType = t.baseElemOf();
     if (auto ts = baseType.isTypeStruct())
         return ts.sym.isPOD();
-    return true;
-}
-
-bool isHFVA(Type t, ref Type rewriteType)
-{
-    Type fundamentalType;
-    const N = getNestedHFVA(t, fundamentalType);
-    if (N < 1 || N > 4)
-        return false;
-
-    rewriteType = fundamentalType.sarrayOf(N);
     return true;
 }
 

@@ -75,8 +75,9 @@ struct ArmTargetABI : TargetABI {
     if (!fty.ret->byref && retTy->ty == Tstruct) {
       // Rewrite HFAs only because union HFAs are turned into IR types that are
       // non-HFA and messes up register selection
-      if (isHFVA(retTy, &fty.ret->ltype)) {
-        hfvaToArray.applyTo(*fty.ret, fty.ret->ltype);
+      LLType *hfvaType = nullptr;
+      if (isHFVA(retTy, 4, &hfvaType)) {
+        hfvaToArray.applyTo(*fty.ret, hfvaType);
       } else {
         integerRewrite.applyTo(*fty.ret);
       }
@@ -103,8 +104,9 @@ struct ArmTargetABI : TargetABI {
     if (ty->ty == Tstruct) {
       // Rewrite HFAs only because union HFAs are turned into IR types that are
       // non-HFA and messes up register selection
-      if (isHFVA(ty, &arg.ltype)) {
-        hfvaToArray.applyTo(arg, arg.ltype);
+      LLType *hfvaType = nullptr;
+      if (isHFVA(ty, 4, &hfvaType)) {
+        hfvaToArray.applyTo(arg, hfvaType);
       } else if (DtoAlignment(ty) <= 4) {
         compositeToArray32.applyTo(arg);
       } else {
