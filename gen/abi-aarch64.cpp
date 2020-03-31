@@ -21,7 +21,8 @@
 #include "gen/abi-generic.h"
 
 /**
- * Based on https://github.com/ARM-software/abi-aa/blob/master/aapcs64/aapcs64.rst.
+ * Based on
+ * https://github.com/ARM-software/abi-aa/blob/master/aapcs64/aapcs64.rst.
  *
  * The AAPCS64 uses a special native va_list type:
  *
@@ -43,9 +44,7 @@ struct AArch64TargetABI : TargetABI {
 private:
   const bool isDarwin;
   IndirectByvalRewrite indirectByvalRewrite;
-  HFVAToArray hfvaToArray;
-  CompositeToArray64 compositeToArray64;
-  IntegerRewrite integerRewrite;
+  ArgTypesRewrite argTypesRewrite;
 
   bool isAAPCS64VaList(Type *t) {
     return !isDarwin && t->ty == Tstruct &&
@@ -53,24 +52,22 @@ private:
                   "ldc.internal.vararg.std.__va_list") == 0;
   }
 
-  bool passIndirectlyByValue(Type *t) {
-    t = t->toBasetype();
-    return (t->ty == Tstruct || t->ty == Tsarray) &&
-           (!isPOD(t) || (t->size() > 16 && !isHFVA(t)));
-  }
-
 public:
   AArch64TargetABI() : isDarwin(global.params.targetTriple->isOSDarwin()) {}
 
   bool returnInArg(TypeFunction *tf, bool) override {
-    if (tf->isref) {
+    if (tf->isref)
       return false;
-    }
 
     Type *rt = tf->next->toBasetype();
-    // TODO: no sret workaround for 0-sized return values (static arrays with 0
-    // elements)
-    return rt->size() == 0 || passIndirectlyByValue(rt);
+    if (rt->ty == Tstruct || rt->ty == Tsarray) {
+      auto argTypes = getArgTypes(rt);
+      return !argTypes // TODO: no sret workaround for 0-sized return values
+                       // (static arrays with 0 elements)
+             || argTypes->arguments->empty();
+    }
+
+    return false;
   }
 
   bool passByVal(TypeFunction *, Type *) override { return false; }
@@ -103,6 +100,9 @@ public:
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg, bool isReturnVal) {
     Type *t = arg.type->toBasetype();
 
+    if (!isAggregate(t))
+      return;
+
     // compiler magic: pass va_list args implicitly by reference
     if (!isReturnVal && isAAPCS64VaList(t)) {
       arg.byref = true;
@@ -110,9 +110,13 @@ public:
       return;
     }
 
-    // non-PODs and bigger non-HFVA aggregates are passed as pointer to hidden
-    // copy
-    if (passIndirectlyByValue(t)) {
+    auto argTypes = getArgTypes(t);
+    if (!argTypes)
+      return; // don't rewrite 0-sized types
+
+    if (argTypes->arguments->empty()) {
+      // non-PODs and bigger non-HFVA aggregates are passed as pointer to hidden
+      // copy
       indirectByvalRewrite.applyTo(arg);
       return;
     }
@@ -120,23 +124,11 @@ public:
     // LLVM seems to take care of the rest when rewriting as follows, close to
     // what clang emits:
 
-    LLType *hfvaType = nullptr;
-    if (isHFVA(t, &hfvaType)) {
-      // pass in SIMD registers (if enough are available for the whole
-      // aggregate)
-      hfvaToArray.applyTo(arg, hfvaType);
+    auto rewrittenType = getRewrittenArgType(t, argTypes);
+    if (!rewrittenType)
       return;
-    }
 
-    if (t->ty == Tstruct || (t->ty == Tsarray && t->size() > 0)) {
-      // pass remaining aggregates in 1 or 2 GP registers (if enough are
-      // available)
-      if (canRewriteAsInt(t)) {
-        integerRewrite.applyToIfNotObsolete(arg);
-      } else {
-        compositeToArray64.applyTo(arg);
-      }
-    }
+    argTypesRewrite.applyTo(arg, rewrittenType);
   }
 
   Type *vaListType() override {

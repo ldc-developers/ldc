@@ -176,8 +176,7 @@ public:
     StructPOD ispod;            // if struct is POD
 
     // For 64 bit Efl function call/return ABI
-    Type *arg1type;
-    Type *arg2type;
+    TypeTuple *argTypes;
 
     // Even if struct is defined as non-root symbol, some built-in operations
     // (e.g. TypeidExp, NewExp, ArrayLiteralExp, etc) request its TypeInfo.

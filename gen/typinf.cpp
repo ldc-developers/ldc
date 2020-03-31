@@ -440,18 +440,16 @@ public:
     b.push_uint(DtoAlignment(tc));
 
     if (isX86_64) {
+      auto arguments = sd->argTypes ? sd->argTypes->arguments : nullptr;
       // TypeInfo m_arg1
       // TypeInfo m_arg2
-      Type *t = sd->arg1type;
       for (unsigned i = 0; i < 2; i++) {
-        if (t) {
-          t = merge(t);
+        if (arguments && i < arguments->length) {
+          Type *t = merge((*arguments)[i]->type);
           b.push_typeinfo(t);
         } else {
           b.push_null(getTypeInfoType());
         }
-
-        t = sd->arg2type;
       }
     }
 

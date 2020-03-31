@@ -48,74 +48,8 @@
 #include <string>
 #include <utility>
 
-namespace {
-// Structs, static arrays and cfloats may be rewritten to exploit registers.
-// This function returns the rewritten type, or null if no transformation is
-// needed.
-LLType *getAbiType(Type *ty) {
-  // First, check if there's any need of a transformation:
-  if (!(ty->ty == Tcomplex32 || ty->ty == Tstruct || ty->ty == Tsarray)) {
-    return nullptr; // Nothing to do
-  }
-
-  // Okay, we may need to transform. Figure out a canonical type:
-  llvm::SmallVector<Type *, 2> argTypes;
-
-  // try to reuse cached arg{1,2}type of StructDeclarations
-  if (ty->ty == Tstruct) {
-    const auto sd = static_cast<TypeStruct *>(ty)->sym;
-    if (sd && sd->sizeok == SIZEOKdone) {
-      if (!sd->arg1type) {
-        return nullptr; // don't rewrite
-      }
-      argTypes.push_back(sd->arg1type);
-      if (sd->arg2type) {
-        argTypes.push_back(sd->arg2type);
-      }
-    }
-  }
-
-  if (argTypes.empty()) {
-    TypeTuple *tuple = target.toArgTypes(ty);
-    if (!tuple || tuple->arguments->empty()) {
-      return nullptr; // don't rewrite
-    }
-    for (auto param : *tuple->arguments) {
-      argTypes.push_back(param->type);
-    }
-  }
-
-  LLType *abiTy = nullptr;
-  if (argTypes.size() == 1) {
-    abiTy = DtoType(argTypes[0]);
-  } else {
-    abiTy = LLStructType::get(gIR->context(),
-                              {DtoType(argTypes[0]), DtoType(argTypes[1])});
-  }
-
-  return abiTy;
-}
-
-bool passByVal(Type *ty) {
-  TypeTuple *argTypes = target.toArgTypes(ty);
-  if (!argTypes) {
-    return false;
-  }
-
-  return argTypes->arguments->empty(); // empty => cannot be passed in registers
-}
-}
-
-/**
- * This type performs the actual struct/cfloat rewriting by simply storing to
- * memory so that it's then readable as the other type (i.e., bit-casting).
- */
-struct X86_64_C_struct_rewrite : BaseBitcastABIRewrite {
-  LLType *type(Type *t) override { return getAbiType(t->toBasetype()); }
-};
-
 struct X86_64TargetABI : TargetABI {
-  X86_64_C_struct_rewrite struct_rewrite;
+  ArgTypesRewrite argTypesRewrite;
   ImplicitByvalRewrite byvalRewrite;
   IndirectByvalRewrite indirectByvalRewrite;
 
@@ -140,6 +74,12 @@ struct X86_64TargetABI : TargetABI {
 
 private:
   LLType *getValistType();
+
+  static bool passInMemory(Type *t) {
+    TypeTuple *argTypes = getArgTypes(t);
+    return argTypes && argTypes->arguments->empty();
+  }
+
   RegCount &getRegCount(IrFuncTy &fty) {
     return reinterpret_cast<RegCount &>(fty.tag);
   }
@@ -149,12 +89,11 @@ private:
 TargetABI *getX86_64TargetABI() { return new X86_64TargetABI; }
 
 bool X86_64TargetABI::returnInArg(TypeFunction *tf, bool) {
-  if (tf->isref) {
+  if (tf->isref)
     return false;
-  }
 
   Type *rt = tf->next->toBasetype();
-  return ::passByVal(rt);
+  return passInMemory(rt);
 }
 
 bool X86_64TargetABI::passByVal(TypeFunction *tf, Type *t) {
@@ -162,7 +101,7 @@ bool X86_64TargetABI::passByVal(TypeFunction *tf, Type *t) {
   if (!isPOD(t))
     return false;
 
-  return ::passByVal(t->toBasetype());
+  return passInMemory(t->toBasetype());
 }
 
 void X86_64TargetABI::rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) {
@@ -184,15 +123,9 @@ void X86_64TargetABI::rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg,
     return;
   }
 
-  LLType *abiTy = getAbiType(t);
-  if (abiTy && !LLTypeMemoryLayout::typesAreEquivalent(abiTy, originalLType)) {
-    IF_LOG {
-      Logger::println("Rewriting argument type %s", t->toChars());
-      LOG_SCOPE;
-      Logger::cout() << *originalLType << " => " << *abiTy << '\n';
-    }
-
-    struct_rewrite.applyTo(arg, abiTy);
+  if (t->ty == Tcomplex32 || t->ty == Tstruct || t->ty == Tsarray) {
+    if (LLType *rewrittenType = TargetABI::getRewrittenArgType(t))
+      argTypesRewrite.applyToIfNotObsolete(arg, rewrittenType);
   }
 
   if (regCount.trySubtract(arg) == RegCount::ArgumentWouldFitInPartially) {

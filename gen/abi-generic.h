@@ -158,6 +158,12 @@ struct BaseBitcastABIRewrite : ABIRewrite {
   }
 };
 
+struct ArgTypesRewrite : BaseBitcastABIRewrite {
+  LLType *type(Type *t) override {
+    return TargetABI::getRewrittenArgType(t->toBasetype());
+  }
+};
+
 //////////////////////////////////////////////////////////////////////////////
 
 /**

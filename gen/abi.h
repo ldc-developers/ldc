@@ -24,6 +24,7 @@
 class Type;
 class TypeFunction;
 class TypeStruct;
+class TypeTuple;
 struct IrFuncTy;
 struct IrFuncTyArg;
 class FuncDeclaration;
@@ -177,6 +178,8 @@ struct TargetABI {
   static bool isHFVA(Type *t, llvm::Type **rewriteType = nullptr,
                      int maxElements = 4);
 
+  static llvm::Type *getRewrittenArgType(Type *t);
+
 protected:
 
   /// Returns true if the D type is an aggregate:
@@ -196,4 +199,7 @@ protected:
   /// Returns true if the D function type uses extern(D) linkage *and* isn't a
   /// D-style variadic function.
   static bool isExternD(TypeFunction *tf);
+
+  static TypeTuple *getArgTypes(Type *t);
+  static llvm::Type *getRewrittenArgType(Type *t, TypeTuple *argTypes);
 };

@@ -101,7 +101,6 @@ shared static this()
         "isFuture",
         "isFinalClass",
         "isPOD",
-        "isHFVA",
         "isNested",
         "isFloating",
         "isIntegral",
@@ -610,7 +609,7 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
                 sm => sm.isTemplateDeclaration() !is null) != 0;
         });
     }
-    if (e.ident == Id.isPOD || e.ident == Id.isHFVA)
+    if (e.ident == Id.isPOD)
     {
         if (dim != 1)
             return dimError(1);
@@ -624,17 +623,12 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
             return new ErrorExp();
         }
 
-        if (e.ident == Id.isPOD)
+        Type tb = t.baseElemOf();
+        if (auto sd = tb.ty == Tstruct ? (cast(TypeStruct)tb).sym : null)
         {
-            Type tb = t.baseElemOf();
-            if (auto sd = tb.ty == Tstruct ? (cast(TypeStruct)tb).sym : null)
-                return sd.isPOD() ? True() : False();
-            return True();
+            return sd.isPOD() ? True() : False();
         }
-        else
-        {
-            return new TypeExp(e.loc, target.isHFVA(t));
-        }
+        return True();
     }
     if (e.ident == Id.hasCopyConstructor || e.ident == Id.hasPostblit)
     {
