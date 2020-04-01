@@ -10,6 +10,7 @@
 #include "gen/nested.h"
 
 #include "dmd/errors.h"
+#include "dmd/ldcbindings.h"
 #include "dmd/target.h"
 #include "gen/dvalue.h"
 #include "gen/funcgenstate.h"
@@ -399,13 +400,10 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
     if (vd->isRef() || vd->isOut()) {
       t = DtoType(vd->type->pointerTo());
     } else if (vd->isParameter() && (vd->storage_class & STClazy)) {
-      // The LL type is a delegate (LL struct).
-      // Depending on the used TargetABI, the LL parameter is either a struct or
-      // a pointer to a struct (`byval` attribute, IndirectByvalRewrite).
-      t = getIrParameter(vd)->value->getType();
-      if (t->isPointerTy())
-        t = t->getPointerElementType();
-      assert(t->isStructTy());
+      // the type is a delegate (LL struct)
+      Type *dt = TypeFunction::create(nullptr, vd->type, VARARGnone, LINKd);
+      dt = createTypeDelegate(dt);
+      t = DtoType(dt);
     } else {
       t = DtoMemType(vd->type);
     }
@@ -502,7 +500,8 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
         assert(parm->value->getType()->isPointerTy());
 
         if (vd->isRef() || vd->isOut()) {
-          Logger::println("Captured by reference, copying pointer to nested frame");
+          Logger::println(
+              "Captured by reference, copying pointer to nested frame");
           DtoAlignedStore(parm->value, gep);
           // pass GEP as reference lvalue to EmitLocalVariable()
         } else {
