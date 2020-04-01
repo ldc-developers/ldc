@@ -20,7 +20,7 @@ workflows:
       - virtual-device-testing-for-ios@0.9.10:
           title: Run Tests on Device
           inputs:
-            - test_devices: iphone6,12.2,en,portrait
+            - test_devices: iphonexr,13.2,en,portrait
             - download_test_results: true
 
       - deploy-to-bitrise-io@1.9.6: {}
