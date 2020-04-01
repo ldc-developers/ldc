@@ -177,7 +177,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
       Logger::println("lazy param");
       auto ltf = TypeFunction::create(nullptr, arg->type, VARARGnone, LINKd);
       auto ltd = createTypeDelegate(ltf);
-      loweredDType = ltd;
+      loweredDType = merge(ltd);
     } else if (passPointer) {
       // ref/out
       attrs.addDereferenceableAttr(loweredDType->size());
