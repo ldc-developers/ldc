@@ -48,6 +48,69 @@
 #include <string>
 #include <utility>
 
+namespace {
+struct RegCount {
+  char gp_regs, simd_regs;
+
+  RegCount() : gp_regs(6), simd_regs(8) {}
+
+  explicit RegCount(LLType *ty) : gp_regs(0), simd_regs(0) {
+    if (LLStructType *structTy = isaStruct(ty)) {
+      for (unsigned i = 0; i < structTy->getNumElements(); ++i) {
+        RegCount elementRegCount(structTy->getElementType(i));
+        gp_regs += elementRegCount.gp_regs;
+        simd_regs += elementRegCount.simd_regs;
+      }
+    } else if (LLArrayType *arrayTy = isaArray(ty)) {
+      char N = static_cast<char>(arrayTy->getNumElements());
+      RegCount elementRegCount(arrayTy->getElementType());
+      gp_regs = N * elementRegCount.gp_regs;
+      simd_regs = N * elementRegCount.simd_regs;
+    } else if (ty->isIntegerTy() || ty->isPointerTy()) {
+      ++gp_regs;
+    } else if (ty->isFloatingPointTy() || ty->isVectorTy()) {
+      // X87 reals are passed on the stack
+      if (!ty->isX86_FP80Ty()) {
+        ++simd_regs;
+      }
+    } else {
+      unsigned sizeInBits = gDataLayout->getTypeSizeInBits(ty);
+      IF_LOG Logger::cout() << "SysV RegCount: assuming 1 GP register for type "
+                            << *ty << " (" << sizeInBits << " bits)\n";
+      assert(sizeInBits > 0 && sizeInBits <= 64);
+      ++gp_regs;
+    }
+
+    assert(gp_regs + simd_regs <= 2);
+  }
+
+  enum SubtractionResult {
+    ArgumentFitsIn,
+    ArgumentWouldFitInPartially,
+    ArgumentDoesntFitIn
+  };
+
+  SubtractionResult trySubtract(const IrFuncTyArg &arg) {
+    const RegCount wanted(arg.ltype);
+
+    const bool anyRegAvailable = (wanted.gp_regs > 0 && gp_regs > 0) ||
+                                 (wanted.simd_regs > 0 && simd_regs > 0);
+    if (!anyRegAvailable) {
+      return ArgumentDoesntFitIn;
+    }
+
+    if (gp_regs < wanted.gp_regs || simd_regs < wanted.simd_regs) {
+      return ArgumentWouldFitInPartially;
+    }
+
+    gp_regs -= wanted.gp_regs;
+    simd_regs -= wanted.simd_regs;
+
+    return ArgumentFitsIn;
+  }
+};
+} // anonymous namespace
+
 struct X86_64TargetABI : TargetABI {
   ArgTypesRewrite argTypesRewrite;
   ImplicitByvalRewrite byvalRewrite;
@@ -141,13 +204,13 @@ void X86_64TargetABI::rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg,
 
 void X86_64TargetABI::rewriteFunctionType(IrFuncTy &fty) {
   RegCount &regCount = getRegCount(fty);
-  regCount = RegCount(6, 8); // initialize
+  regCount = RegCount(); // initialize
 
   // RETURN VALUE
   if (!fty.ret->byref && fty.ret->type->toBasetype()->ty != Tvoid) {
     Logger::println("x86-64 ABI: Transforming return type");
     LOG_SCOPE;
-    RegCount dummy = regCount;
+    RegCount dummy;
     rewriteArgument(fty, *fty.ret, dummy);
   }
 
