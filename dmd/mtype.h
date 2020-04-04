@@ -830,6 +830,8 @@ public:
 class TypeTuple : public Type
 {
 public:
+    static TypeTuple *empty;    // don't modify!
+
     Parameters *arguments;      // types making up the tuple
 
     static TypeTuple *create(Parameters *arguments);

@@ -6163,6 +6163,8 @@ extern (C++) final class TypeClass : Type
  */
 extern (C++) final class TypeTuple : Type
 {
+    __gshared TypeTuple empty = new TypeTuple(); // don't modify!
+
     Parameters* arguments;  // types making up the tuple
 
     extern (D) this(Parameters* arguments)

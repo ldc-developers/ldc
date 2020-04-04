@@ -22,7 +22,7 @@ import dmd.mtype;
  * Params:
  *      t = type to break down
  * Returns:
- *      tuple of 1 type if the `t` can be passed in registers; e.g., a static array
+ *      tuple of 1 type if `t` can be passed in registers; e.g., a static array
  *      for Homogeneous Floating-point/Vector Aggregates (HFVA).
  *      A tuple of zero length means the type cannot be passed/returned in registers.
  *      null indicates a `void`.
@@ -48,7 +48,7 @@ extern (C++) TypeTuple toArgTypes_aarch64(Type t)
 
     // non-PODs and larger non-HFVA PODs are passed indirectly by value (pointer to caller-allocated copy)
     if ((size > 16 && !isHFVA) || !isPOD(tb))
-        return new TypeTuple();
+        return TypeTuple.empty;
 
     if (isHFVA)
     {

@@ -407,6 +407,8 @@ struct Loc
     unsigned linnum;
     unsigned charnum;
 
+    static const Loc initial;
+
     Loc()
     {
         linnum = 0;

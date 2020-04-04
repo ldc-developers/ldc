@@ -82,13 +82,27 @@ public:
         rewriteArgument(fty, *arg, /*isReturnVal=*/false);
     }
 
-    // remove 0-sized args (static arrays with 0 elements)
+    // remove 0-sized args (static arrays with 0 elements) and, for Darwin,
+    // empty structs too
     size_t i = 0;
     while (i < fty.args.size()) {
-      if (fty.args[i]->type->size() == 0) {
+      auto tb = fty.args[i]->type->toBasetype();
+
+      if (tb->size() == 0) {
         fty.args.erase(fty.args.begin() + i);
         continue;
       }
+
+      // https://developer.apple.com/library/archive/documentation/Xcode/Conceptual/iPhoneOSABIReference/Articles/ARM64FunctionCallingConventions.html#//apple_ref/doc/uid/TP40013702-SW1
+      if (isDarwin) {
+        if (auto ts = tb->isTypeStruct()) {
+          if (ts->sym->fields.empty()) {
+            fty.args.erase(fty.args.begin() + i);
+            continue;
+          }
+        }
+      }
+
       ++i;
     }
   }
@@ -115,8 +129,8 @@ public:
       return; // don't rewrite 0-sized types
 
     if (argTypes->arguments->empty()) {
-      // non-PODs and larger non-HFVA aggregates are passed as pointer to hidden
-      // copy
+      // non-PODs and larger non-HFVA aggregates are passed as pointer to
+      // hidden copy
       indirectByvalRewrite.applyTo(arg);
       return;
     }
@@ -141,8 +155,8 @@ public:
 
     // We need to pass the actual va_list type for correct mangling. Simply
     // using TypeIdentifier here is a bit wonky but works, as long as the name
-    // is actually available in the scope (this is what DMD does, so if a better
-    // solution is found there, this should be adapted).
+    // is actually available in the scope (this is what DMD does, so if a
+    // better solution is found there, this should be adapted).
     return createTypeIdentifier(Loc(), Identifier::idPool("__va_list"));
   }
 

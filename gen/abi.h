@@ -178,6 +178,9 @@ struct TargetABI {
   static bool isHFVA(Type *t, int maxNumElements = 4,
                      llvm::Type **hfvaType = nullptr);
 
+  /// Uses the front-end toArgTypes* machinery and returns an appropriate LL
+  /// type if arguments of the specified D type are to be rewritten in order to
+  /// be passed correctly in registers.
   static llvm::Type *getRewrittenArgType(Type *t);
 
 protected:
@@ -200,6 +203,8 @@ protected:
   /// D-style variadic function.
   static bool isExternD(TypeFunction *tf);
 
+  /// Returns the type tuple produced by the front-end's toArgTypes* machinery.
   static TypeTuple *getArgTypes(Type *t);
+
   static llvm::Type *getRewrittenArgType(Type *t, TypeTuple *argTypes);
 };

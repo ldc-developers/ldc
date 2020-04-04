@@ -89,10 +89,11 @@ LLType *TargetABI::getRewrittenArgType(Type *t, TypeTuple *argTypes) {
   }
 
   auto &args = *argTypes->arguments;
+  assert(args.length <= 2);
   return args.length == 1
-             ? DtoType(args[0]->type)
-             : LLStructType::get(gIR->context(), {DtoType(args[0]->type),
-                                                  DtoType(args[1]->type)});
+      ? DtoType(args[0]->type)
+      : LLStructType::get(gIR->context(),
+                          {DtoType(args[0]->type), DtoType(args[1]->type)});
 }
 
 LLType *TargetABI::getRewrittenArgType(Type *t) {

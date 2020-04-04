@@ -218,7 +218,7 @@ extern (C++) class StructDeclaration : AggregateDeclaration
     structalign_t alignment;    // alignment applied outside of the struct
     StructPOD ispod;            // if struct is POD
 
-    // For 64 bit Efl function call/return ABI
+    // ABI-specific type(s) if the struct can be passed in registers
     TypeTuple argTypes;
 
     // Even if struct is defined as non-root symbol, some built-in operations

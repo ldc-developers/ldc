@@ -158,17 +158,23 @@ struct BaseBitcastABIRewrite : ABIRewrite {
   }
 };
 
+//////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Bit-casts an argument based on the front-end toArgTypes* machinery.
+ */
 struct ArgTypesRewrite : BaseBitcastABIRewrite {
   LLType *type(Type *t) override {
-    return TargetABI::getRewrittenArgType(t->toBasetype());
+    LLType *rewrittenType = TargetABI::getRewrittenArgType(t->toBasetype());
+    assert(rewrittenType);
+    return rewrittenType;
   }
 };
 
 //////////////////////////////////////////////////////////////////////////////
 
 /**
- * Rewrites any parameter to an integer of the same or next bigger size via
- * bit-casting.
+ * Bit-casts an argument to an integer of the same or next bigger size.
  */
 struct IntegerRewrite : BaseBitcastABIRewrite {
   static LLType *getIntegerType(unsigned minSizeInBytes) {
@@ -207,6 +213,43 @@ struct IntegerRewrite : BaseBitcastABIRewrite {
 
   LLType *type(Type *t) override { return getIntegerType(t->size()); }
 };
+
+//////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Bit-casts a Homogeneous Floating-point/Vector Aggregate (HFVA) to an array
+ * of floats/vectors.
+ */
+struct HFVAToArray : BaseBitcastABIRewrite {
+  const int maxFloats = 4;
+
+  HFVAToArray(const int max = 4) : maxFloats(max) {}
+
+  LLType *type(Type *t) override {
+    LLType *hfvaType = nullptr;
+    if (TargetABI::isHFVA(t, maxFloats, &hfvaType))
+      return hfvaType;
+    llvm_unreachable("Type t should be an HFA");
+  }
+};
+
+//////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Bit-casts an argument to an array of integers of the specified size.
+ */
+template <int elementSize> struct CompositeToArray : BaseBitcastABIRewrite {
+  LLType *type(Type *t) override {
+    size_t length = (t->size() + elementSize - 1) / elementSize;
+    return LLArrayType::get(LLIntegerType::get(gIR->context(), elementSize * 8),
+                            length);
+  }
+};
+
+// Bit-cast to an array of i32.
+using CompositeToArray32 = CompositeToArray<4>;
+// Bit-cast to an array of i64.
+using CompositeToArray64 = CompositeToArray<8>;
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -283,43 +326,6 @@ struct ImplicitByvalRewrite : ABIRewrite {
       arg.attrs.addAlignmentAttr(alignment);
   }
 };
-
-//////////////////////////////////////////////////////////////////////////////
-
-/**
- * Rewrite Homogeneous Homogeneous Floating-point/Vector Aggregate (HFVA) as
- * array of floats/vectors.
- */
-struct HFVAToArray : BaseBitcastABIRewrite {
-  const int maxFloats = 4;
-
-  HFVAToArray(const int max = 4) : maxFloats(max) {}
-
-  LLType *type(Type *t) override {
-    LLType *hfvaType = nullptr;
-    if (TargetABI::isHFVA(t, maxFloats, &hfvaType))
-      return hfvaType;
-    llvm_unreachable("Type t should be an HFA");
-  }
-};
-
-//////////////////////////////////////////////////////////////////////////////
-
-/**
- * Rewrite a composite as array of integers.
- */
-template <int elementSize> struct CompositeToArray : BaseBitcastABIRewrite {
-  LLType *type(Type *t) override {
-    size_t length = (t->size() + elementSize - 1) / elementSize;
-    return LLArrayType::get(LLIntegerType::get(gIR->context(), elementSize * 8),
-                            length);
-  }
-};
-
-// Rewrite a composite as array of i32.
-using CompositeToArray32 = CompositeToArray<4>;
-// Rewrite a composite as array of i64.
-using CompositeToArray64 = CompositeToArray<8>;
 
 //////////////////////////////////////////////////////////////////////////////
 
