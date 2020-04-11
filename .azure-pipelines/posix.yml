@@ -35,7 +35,7 @@ steps:
     curl -OL https://bootstrap.pypa.io/get-pip.py
     python get-pip.py --user
     python -m pip install --user lit
-    python -c "import lit; lit.main();" --version | head -n 1
+    python -c "import lit; lit.main();" --version . | head -n 1
     # Download & extract host LDC
     HOST_OS="$CI_OS"
     if [ "$CI_OS" = "android" ]; then HOST_OS="linux"; fi

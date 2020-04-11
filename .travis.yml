@@ -94,7 +94,7 @@ install:
     fi
   # Install lit
   - pip install --user lit
-  - python -c "import lit; lit.main();" --version | head -n 1
+  - python -c "import lit; lit.main();" --version . | head -n 1
 
 script:
   - unset LD_LIBRARY_PATH

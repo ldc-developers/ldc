@@ -9,7 +9,7 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
     rm get-pip.py
     # Install lit
     python -m pip install --user lit
-    python -c "import lit; lit.main();" --version | head -n 1
+    python -c "import lit; lit.main();" --version . | head -n 1
   clone_submodules_script: |
     cd $CIRRUS_WORKING_DIR
     git submodule update --init --depth $CIRRUS_CLONE_DEPTH
