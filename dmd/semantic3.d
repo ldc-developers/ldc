@@ -1388,7 +1388,8 @@ else
         }
 
         // Do live analysis
-        if (funcdecl.fbody && funcdecl.type.ty != Terror && funcdecl.type.isTypeFunction().islive)
+        if (global.params.useDIP1021 && funcdecl.fbody && funcdecl.type.ty != Terror &&
+            funcdecl.type.isTypeFunction().islive)
         {
             oblive(funcdecl);
         }

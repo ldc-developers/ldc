@@ -748,6 +748,7 @@ else
     {
         foreach (i; 1 .. modules[0].aimports.dim)
             semantic3OnDependencies(modules[0].aimports[i]);
+        Module.runDeferredSemantic3();
 
         const data = (*ob)[];
         if (params.moduleDepsFile)
