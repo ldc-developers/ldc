@@ -99,7 +99,6 @@ $(ROOT)/invalid_memory_operation: DFLAGS+=-disable-gc2stack
 $(ROOT)/unittest_assert: DFLAGS+=-unittest -version=CoreUnittest
 $(ROOT)/line_trace: DFLAGS+=$(LINE_TRACE_DFLAGS)
 $(ROOT)/rt_trap_exceptions_drt: DFLAGS+=-g
-$(ROOT)/assert_fail: DFLAGS+=-checkaction=context
 $(ROOT)/refcounted: DFLAGS+=-dip1008
 
 $(ROOT)/%: $(SRC)/%.d $(DMD) $(DRUNTIME)
