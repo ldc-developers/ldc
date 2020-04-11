@@ -52,17 +52,9 @@ nothrow:
 pragma(LDC_intrinsic, "llvm.returnaddress")
     void* llvm_returnaddress(uint level);
 
-static if (LLVM_atleast!10)
-{
-    private enum llvm_frameaddress_fullname = "llvm.frameaddress.p0i8";
-}
-else
-{
-    private enum llvm_frameaddress_fullname = "llvm.frameaddress";
-}
 /// The 'llvm.frameaddress' intrinsic attempts to return the target-specific
 /// frame pointer value for the specified stack frame.
-pragma(LDC_intrinsic, llvm_frameaddress_fullname)
+pragma(LDC_intrinsic, LLVM_atleast!10 ? "llvm.frameaddress.p0i8" : "llvm.frameaddress")
     void* llvm_frameaddress(uint level);
 
 /// The 'llvm.stacksave' intrinsic is used to remember the current state of the
@@ -89,8 +81,8 @@ pragma(LDC_intrinsic, "llvm.stackrestore")
 /// keep in cache. The cache type specifies whether the prefetch is performed on
 /// the data (1) or instruction (0) cache. The rw, locality and cache type
 /// arguments must be constant integers.
-pragma(LDC_intrinsic, "llvm.prefetch")
-    void llvm_prefetch(void* ptr, uint rw, uint locality, uint cachetype) pure @safe;
+pragma(LDC_intrinsic, LLVM_atleast!10 ? "llvm.prefetch.p0i8" : "llvm.prefetch")
+    void llvm_prefetch(const(void)* ptr, uint rw, uint locality, uint cachetype) pure @safe;
 
 /// The 'llvm.pcmarker' intrinsic is a method to export a Program Counter (PC)
 /// in a region of code to simulators and other tools. The method is target

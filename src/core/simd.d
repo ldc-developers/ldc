@@ -84,6 +84,20 @@ version (LDC)
         enum dataCache = 1;
         llvm_prefetch(address, writeFetch, locality, dataCache);
     }
+
+    unittest
+    {
+        float[4] data = [ 0.5, 1, 1.5, 2 ];
+        auto ptr = &data[0];
+
+        prefetch!(false, 0)(ptr);
+        auto v = loadUnaligned!float4(ptr);
+        v *= 2;
+        storeUnaligned!float4(v, ptr);
+
+        float[4] expected = [ 1, 2, 3, 4 ];
+        assert(data == expected);
+    }
 }
 else version (D_SIMD)
 {
