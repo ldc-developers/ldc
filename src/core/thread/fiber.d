@@ -1894,6 +1894,8 @@ private:
     //
     final void switchIn() nothrow @nogc
     {
+        version (LDC) pragma(inline, false);
+
         Thread  tobj = Thread.getThis();
         void**  oldp = &tobj.m_curr.tstack;
         void*   newp = m_ctxt.tstack;
@@ -1978,6 +1980,8 @@ private:
     //
     final void switchOut() nothrow @nogc
     {
+        version (LDC) pragma(inline, false);
+
         Thread  tobj = m_curThread;
         void**  oldp = &m_ctxt.tstack;
         void*   newp = tobj.m_curr.within.tstack;
