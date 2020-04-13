@@ -9,7 +9,7 @@ module mod;
 
 // LLVM-LABEL: define{{.*}} @{{.*}}static_dynamic
 // ASM-LABEL: static_dynamic{{.*}}:
-bool static_dynamic(bool[4] a, bool[] b)
+bool static_dynamic(const bool[4] a, bool[] b)
 {
     // LLVM: call i32 @memcmp(
 
@@ -20,9 +20,9 @@ bool static_dynamic(bool[4] a, bool[] b)
 
 // LLVM-LABEL: define{{.*}} @{{.*}}inv_dynamic_dynamic
 // ASM-LABEL: inv_dynamic_dynamic{{.*}}:
-bool inv_dynamic_dynamic(bool[] a, bool[] b)
+bool inv_dynamic_dynamic(bool[] a, const bool[] b)
 {
-    // The front-end turns this into a call to druntime template function `object.__equals!(bool, bool).__equals(bool[], bool[])`
+    // The front-end turns this into a call to druntime template function `object.__equals!(const(bool), const(bool)).__equals(const(bool)[], const(bool)[])`
     // After optimization (inlining), it should boil down to a length check and a call to memcmp.
     // ASM: {{(mem|b)cmp}}
     return a != b;
