@@ -318,6 +318,7 @@ version (none)
         int bt(const scope size_t* p, size_t bitnum) pure @system;
 }
 else
+pragma(inline, true) // LDC
 int bt(const scope size_t* p, size_t bitnum) pure @system
 {
     static if (size_t.sizeof == 8)
@@ -340,28 +341,63 @@ int bt(const scope size_t* p, size_t bitnum) pure @system
     assert(array[1] == 0x100);
 }
 
+
+version (LDC)
+{
+    pragma(LDC_intrinsic, "ldc.bitop.bts")
+        private int __bts(size_t* p, size_t bitnum) pure @system;
+    pragma(LDC_intrinsic, "ldc.bitop.btc")
+        private int __btc(size_t* p, size_t bitnum) pure @system;
+    pragma(LDC_intrinsic, "ldc.bitop.btr")
+        private int __btr(size_t* p, size_t bitnum) pure @system;
+}
+
+private
+int softBtx(string op)(size_t* p, size_t bitnum) pure @system
+{
+    size_t indexIntoArray = bitnum / (size_t.sizeof*8);
+    size_t bitmask = size_t(1) << (bitnum & ((size_t.sizeof*8) - 1));
+    size_t original = p[indexIntoArray];
+    mixin("p[indexIntoArray] = original " ~ op ~ " bitmask;");
+    return (original&bitmask) > 0 ? true : false;
+}
+
 /**
  * Tests and complements the bit.
  */
-version (LDC)
+pragma(inline, true) // LDC
+int btc(size_t* p, size_t bitnum) pure @system
 {
-    pragma(LDC_intrinsic, "ldc.bitop.btc")
-        int btc(size_t* p, size_t bitnum) pure @system;
+    version (LDC)
+    {
+        if (!__ctfe)
+            return __btc(p, bitnum);
+    }
+    else
+    {
+        pragma(inline, false);  // such that DMD intrinsic detection will work
+    }
+    return softBtx!"^"(p, bitnum);
 }
-else
-int btc(size_t* p, size_t bitnum) pure @system;
 
 
 /**
  * Tests and resets (sets to 0) the bit.
  */
-version (LDC)
+pragma(inline, true) // LDC
+int btr(size_t* p, size_t bitnum) pure @system
 {
-    pragma(LDC_intrinsic, "ldc.bitop.btr")
-        int btr(size_t* p, size_t bitnum) pure @system;
+    version (LDC)
+    {
+        if (!__ctfe)
+            return __btr(p, bitnum);
+    }
+    else
+    {
+        pragma(inline, false);  // such that DMD intrinsic detection will work
+    }
+    return softBtx!"& ~"(p, bitnum);
 }
-else
-int btr(size_t* p, size_t bitnum) pure @system;
 
 
 /**
@@ -377,53 +413,69 @@ p[index / (size_t.sizeof*8)] & (1 << (index & ((size_t.sizeof*8) - 1)))
  *      A non-zero value if the bit was set, and a zero
  *      if it was clear.
  */
-version (LDC)
+
+pragma(inline, true) // LDC
+int bts(size_t* p, size_t bitnum) pure @system
 {
-    pragma(LDC_intrinsic, "ldc.bitop.bts")
-        int bts(size_t* p, size_t bitnum) pure @system;
+    version (LDC)
+    {
+        if (!__ctfe)
+            return __bts(p, bitnum);
+    }
+    else
+    {
+        pragma(inline, false);  // such that DMD intrinsic detection will work
+    }
+    return softBtx!"|"(p, bitnum);
 }
-else
-int bts(size_t* p, size_t bitnum) pure @system;
 
 ///
 @system pure unittest
 {
-    size_t[2] array;
-
-    array[0] = 2;
-    array[1] = 0x100;
-
-    assert(btc(array.ptr, 35) == 0);
-    if (size_t.sizeof == 8)
+    @system pure bool testbitset()
     {
-        assert(array[0] == 0x8_0000_0002);
-        assert(array[1] == 0x100);
-    }
-    else
-    {
+        size_t[2] array;
+
+        array[0] = 2;
+        array[1] = 0x100;
+
+        assert(btc(array.ptr, 35) == 0);
+        if (size_t.sizeof == 8)
+        {
+            assert(array[0] == 0x8_0000_0002);
+            assert(array[1] == 0x100);
+        }
+        else
+        {
+            assert(array[0] == 2);
+            assert(array[1] == 0x108);
+        }
+
+        assert(btc(array.ptr, 35));
         assert(array[0] == 2);
-        assert(array[1] == 0x108);
-    }
-
-    assert(btc(array.ptr, 35));
-    assert(array[0] == 2);
-    assert(array[1] == 0x100);
-
-    assert(bts(array.ptr, 35) == 0);
-    if (size_t.sizeof == 8)
-    {
-        assert(array[0] == 0x8_0000_0002);
         assert(array[1] == 0x100);
-    }
-    else
-    {
+
+        assert(bts(array.ptr, 35) == 0);
+        if (size_t.sizeof == 8)
+        {
+            assert(array[0] == 0x8_0000_0002);
+            assert(array[1] == 0x100);
+        }
+        else
+        {
+            assert(array[0] == 2);
+            assert(array[1] == 0x108);
+        }
+
+        assert(btr(array.ptr, 35));
         assert(array[0] == 2);
-        assert(array[1] == 0x108);
+        assert(array[1] == 0x100);
+
+        return true;
     }
 
-    assert(btr(array.ptr, 35));
-    assert(array[0] == 2);
-    assert(array[1] == 0x100);
+    enum b = testbitset(); // CTFE test
+    testbitset(); // runtime test
 }
 
 /**
