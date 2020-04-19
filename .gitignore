@@ -1,0 +1,28 @@
+# CMake output
+CMakeFiles/
+*.cmake
+CMakeCache.txt
+Makefile
+
+# Build directories
+bin/
+build/
+build-llvm/
+install-llvm/
+lib/
+runtime/import/
+
+# Object files
+*.[oa]
+*.so
+*.exe
+*.dylib
+
+# Extra
+cmakeExtractDMDSystemLinker*
+ldc-build-runtime.d
+driver/ldc-version.cpp
+tests/lit.site.cfg
+
+# Editors
+*~
