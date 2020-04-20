@@ -72,9 +72,24 @@ overhead small and avoid the use of Phobos.
 */
 private string miniFormat(V)(const ref V v)
 {
+    import core.internal.traits: isAggregateType;
     import core.stdc.stdio : sprintf;
     import core.stdc.string : strlen;
-    static if (is(V : bool))
+
+    static if (is(V == shared T, T))
+    {
+        // Use atomics to avoid race conditions whenever possible
+        static if (__traits(compiles, atomicLoad(v)))
+        {
+            T tmp = cast(T) atomicLoad(v);
+            return miniFormat(tmp);
+        }
+        else
+        {   // Fall back to a simple cast - we're violating the type system anyways
+            return miniFormat(*cast(T*) &v);
+        }
+    }
+    else static if (is(V == bool))
     {
         return v ? "true" : "false";
     }
@@ -96,16 +111,24 @@ private string miniFormat(V)(const ref V v)
     {
         return "`null`";
     }
-    else static if (__traits(compiles, { string s = v.toString(); }))
-    {
-        return v.toString();
-    }
-    // Non-const toString(), e.g. classes inheriting from Object
+    // toString() isn't always const, e.g. classes inheriting from Object
     else static if (__traits(compiles, { string s = V.init.toString(); }))
     {
-        return (cast() v).toString();
+        // Object references / struct pointers may be null
+        static if (is(V == class) || is(V == interface) || is(V == U*, U))
+        {
+            if (v is null)
+                return "`null`";
+        }
+
+        // Prefer const overload of toString
+        static if (__traits(compiles, { string s = v.toString(); }))
+            return v.toString();
+        else
+            return (cast() v).toString();
     }
-    else static if (is(V : U[], U))
+    // Static arrays or slices (but not aggregates with `alias this`)
+    else static if (is(V : U[], U) && !isAggregateType!V)
     {
         import core.internal.traits: Unqual;
         alias E = Unqual!U;
@@ -186,6 +209,11 @@ private string miniFormat(V)(const ref V v)
         return V.stringof;
     }
 }
+
+// This should be a local import in miniFormat but fails with a cyclic dependency error
+// core.thread.osthread -> core.time -> object -> core.internal.array.capacity
+// -> core.atomic -> core.thread -> core.thread.osthread
+import core.atomic : atomicLoad;
 
 // Inverts a comparison token for use in _d_assert_fail
 private string invertCompToken(string comp)
