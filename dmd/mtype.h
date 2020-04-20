@@ -658,6 +658,7 @@ class TypeTraits : public Type
 
     Type *syntaxCopy();
     d_uns64 size(const Loc &loc);
+    Dsymbol *toDsymbol(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -742,7 +743,6 @@ class TypeStruct : public Type
 public:
     StructDeclaration *sym;
     AliasThisRec att;
-    CPPMANGLE cppmangle;
 
     static TypeStruct *create(StructDeclaration *sym);
     const char *kind();
@@ -752,7 +752,7 @@ public:
     Dsymbol *toDsymbol(Scope *sc);
     structalign_t alignment();
     Expression *defaultInitLiteral(const Loc &loc);
-    bool isZeroInit(const Loc &loc) /*const*/;
+    bool isZeroInit(const Loc &loc);
     bool isAssignable();
     bool isBoolean() /*const*/;
     bool needsDestruction() /*const*/;

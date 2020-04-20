@@ -4667,6 +4667,7 @@ version (IN_LLVM)
             if (sc.linkage == LINK.cpp)
                 sd.classKind = ClassKind.cpp;
             sd.cppnamespace = sc.namespace;
+            sd.cppmangle = sc.cppmangle;
         }
         else if (sd.symtab && !scx)
             return;
@@ -4884,6 +4885,7 @@ version (IN_LLVM)
             if (sc.linkage == LINK.cpp)
                 cldec.classKind = ClassKind.cpp;
             cldec.cppnamespace = sc.namespace;
+            cldec.cppmangle = sc.cppmangle;
             if (sc.linkage == LINK.objc)
                 objc.setObjc(cldec);
         }
@@ -6369,9 +6371,10 @@ void aliasSemantic(AliasDeclaration ds, Scope* sc)
     //printf("AliasDeclaration::semantic() %s\n", ds.toChars());
 
     // TypeTraits needs to know if it's located in an AliasDeclaration
+    const oldflags = sc.flags;
     sc.flags |= SCOPE.alias_;
     scope(exit)
-        sc.flags &= ~SCOPE.alias_;
+        sc.flags = oldflags;
 
     if (ds.aliassym)
     {
