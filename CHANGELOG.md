@@ -1,3 +1,38 @@
+# LDC 1.21.0 (2020-04-23)
+
+#### Big news
+- Frontend, druntime and Phobos are at version [2.091.1+](https://dlang.org/changelog/2.091.1.html), incl. new CLI switches `-verror-style` and `-HC`, `-HCd`, `-HCf`. (#3333, #3399)
+- **iOS** (incl. watchOS and tvOS) support has landed in druntime and Phobos (thanks Jacob!). All unittests are green on iOS/arm64. The prebuilt macOS package includes prebuilt druntime & Phobos libraries for iOS/arm64, for first `-mtriple=arm64-apple-ios12.0` cross-compilation experiments. (#3373)
+- LLVM for prebuilt packages upgraded to v10.0.0. Android NDK version bumped to r21. (#3307, #3387, #3398)
+- Initial support for **GCC/GDC-style inline assembly** syntax, besides DMD-style inline asm and LDC-specific `__asm`, enabling to write inline asm that is portable across GDC/LDC and corresponds to the GCC syntax in C. See ldc-developers/druntime#171 for examples wrt. how to transition from `__asm` to similar GCC-style asm.  (#3304)
+- Inline assembly diagnostics have been extended by the D source location. (#3339)
+- **Android**:
+  - Revamped druntime initialization, fixing related issues for i686/x86_64 targets, enabling the usage of the `ld.gold` linker (bfd isn't required anymore) as well as getting rid of the D `main()` requirement. (#3350, #3357, ldc-developers/druntime#178)
+  - Reduced size for shared libraries by compiling druntime and Phobos with hidden visibility. (#3377)
+
+#### Platform support
+- Supports LLVM 3.9 - 10.0.
+
+#### Bug fixes
+- Fixed tail calls in thunks, affecting **AArch64** (the debug libraries now work) and possibly other architectures. (#3329, #3332)
+- Windows: Do not emit any column infos for CodeView by default (like clang) & add `-gcolumn-info`. (#3102, #3388)
+- Windows: Do not leak MSVC-environment-setup into `-run` child processes. A new `LDC_VSDIR_FORCE` environment variable can be used to enforce MSVC toolchain setup. (#3340, #3341)
+- Windows: Fix memory leak when throwing exceptions in threads. (#3369, ldc-developers/druntime#181)
+- Try to use `memcmp` for (in)equality of non-mutable static arrays and mutable slices. (#3400, #3401)
+- `ldc.gccbuiltins_*`: Lift 256-bit vector limit, adding 174 AVX512 builtins for x86; 512-bit vector aliases have been added to `core.simd`. (#3405, #3406)
+
+#### Internals
+- `core.bitop.{bts,btr,btc}` are now CTFE-able. (ldc-developers/druntime#182)
+- Do not fallback to host for critical section size of unknown targets. (#3389)
+- Linux: Possibility to avoid passing `-fuse-ld` to `cc` via `-linker=`. (#3382)
+- WebAssembly: Switch from legacy linked-list ModuleInfo registry to `__minfo` section. (#3348)
+- Windows: Bundled libcurl upgraded to v7.69.1, incl. the option to link it statically. (#3378)
+- Windows: Switch to wide `wmain` C entry point in druntime. (#3351)
+- druntime unittests are now compiled with `-checkaction=context`.
+
+#### Known issues
+- When building LDC, old LDC 0.17.*/ltsmaster host compilers miscompile LDC ≥ 1.21, leading to potential segfaults of the built LDC. Ltsmaster can still be used to bootstrap a first compiler and then let that compiler compile itself. (#3354)
+
 # LDC 1.20.1 (2020-03-07)
 
 #### Bug fixes
