@@ -14,7 +14,7 @@ commonSteps: &commonSteps
               git-core cmake ninja-build g++-multilib \
               llvm-dev zlib1g-dev libclang-common-$LIBCLANG_COMMON_VERSION-dev \
               libcurl4 libcurl4:i386 \
-              curl gdb python-pip tzdata unzip zip \
+              curl gdb python tzdata unzip zip \
               $EXTRA_APT_PACKAGES
             # Use ld.gold per default, so that LTO is tested
             update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
@@ -29,10 +29,6 @@ commonSteps: &commonSteps
             mkdir ninja
             tar -xf ninja-mac.zip -C ninja
             rm ninja-mac.zip
-            # Install pip
-            curl -OL https://bootstrap.pypa.io/get-pip.py
-            python get-pip.py --user
-            rm get-pip.py
             # Download & extract LDC-flavoured LLVM with enabled assertions
             curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-osx-x86_64-withAsserts.tar.xz
             mkdir llvm
@@ -41,6 +37,10 @@ commonSteps: &commonSteps
             # Add CMake, Ninja and LLVM to PATH for future steps
             echo "export PATH=$PWD/cmake/bin:$PWD/ninja:$PWD/llvm/bin:$PATH" >> $BASH_ENV
           fi
+          # Install pip
+          curl --max-time 300 --retry 3 -OL https://bootstrap.pypa.io/get-pip.py
+          python get-pip.py --user
+          rm get-pip.py
           # Install lit
           python -m pip install --user lit
           python -c "import lit; lit.main();" --version . | head -n 1
@@ -108,10 +108,11 @@ jobs:
       - LIBCLANG_COMMON_VERSION: "6.0"
       - HOST_LDC_VERSION: 1.20.1
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
-  Ubuntu-rolling-multilib-sharedLibsOnly-gdmd:
+  Ubuntu-19.10-multilib-sharedLibsOnly-gdmd:
     <<: *commonSteps
     docker:
-      - image: ubuntu:rolling
+      # ubuntu:20.04 apparently fails for clock_getres() (works for Cirrus CI), host kernel possibly too old
+      - image: ubuntu:19.10
     environment:
       - PARALLELISM: 2
       - CI_OS: linux
@@ -145,6 +146,6 @@ workflows:
   build:
     jobs:
       - Ubuntu-18.04-multilib-rtSanitizers
-      - Ubuntu-rolling-multilib-sharedLibsOnly-gdmd
+      - Ubuntu-19.10-multilib-sharedLibsOnly-gdmd
       - macOS-x64
       - macOS-x64-sharedLibsOnly
