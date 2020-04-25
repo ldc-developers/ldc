@@ -627,24 +627,47 @@ version (LDC)
 else
 uint bswap(uint v) pure;
 
-/**
- * Swaps bytes in an 8 byte ulong end-to-end, i.e. byte 0 becomes
- * byte 7, byte 1 becomes byte 6, etc.
- */
-version (LDC)
-{
-    alias bswap = llvm_bswap!ulong;
-}
-else
-ulong bswap(ulong v) pure
-{
-    auto sv = Split64(v);
+version (CoreDdoc) {}
+else version (LDC) { /+ LDC treats bswap(ulong) as an intrinsic so don't change the mangling. +/ }
+else version (GNU) { /+ GDC treats bswap(ulong) as an intrinsic so don't change the mangling. +/ }
+else version (D_BetterC) version = BSwap64Template; // Make it a template so it works in betterC.
+
+private enum bswap64 =
+q{
+    Split64 sv = void;
+    if (!__ctfe)
+    {
+        sv.u64 = v;
+    }
+    else
+    {
+        sv.lo = cast(uint) v;
+        sv.hi = cast(uint) (v >>> 32);
+    }
 
     const temp = sv.lo;
     sv.lo = bswap(sv.hi);
     sv.hi = bswap(temp);
 
     return (cast(ulong) sv.hi << 32) | sv.lo;
+};
+
+version (BSwap64Template)
+{
+    ulong bswap()(ulong v) pure { mixin(bswap64); }
+}
+else
+{
+    /**
+     * Swaps bytes in an 8 byte ulong end-to-end, i.e. byte 0 becomes
+     * byte 7, byte 1 becomes byte 6, etc.
+     */
+    version (LDC)
+    {
+        alias bswap = llvm_bswap!ulong;
+    }
+    else
+    ulong bswap(ulong v) pure { mixin(bswap64); }
 }
 
 version (DigitalMars) version (AnyX86) @system // not pure

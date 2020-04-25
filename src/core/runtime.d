@@ -792,15 +792,17 @@ static if (hasExecinfo) private class DefaultTraceInfo : Throwable.TraceInfo
 
     this()
     {
-        version (LDC)
-        {
-            numframes = backtrace( callstack.ptr, MAXFRAMES );
-        }
-        else
-        {
-            numframes = 0; //backtrace( callstack, MAXFRAMES );
-        }
-        if (numframes < 2) // backtrace() failed, do it ourselves
+        // it may not be 1 but it is good enough to get
+        // in CALL instruction address range for backtrace
+        enum CALL_INSTRUCTION_SIZE = 1;
+
+        static if (__traits(compiles, backtrace((void**).init, int.init)))
+            numframes = backtrace(this.callstack.ptr, MAXFRAMES);
+        // Backtrace succeeded, adjust the frame to point to the caller
+        if (numframes >= 2)
+            foreach (ref elem; this.callstack)
+                elem -= CALL_INSTRUCTION_SIZE;
+        else // backtrace() failed, do it ourselves
         {
           version (LDC)
           {
@@ -833,21 +835,10 @@ static if (hasExecinfo) private class DefaultTraceInfo : Throwable.TraceInfo
                           stackPtr < stackBottom &&
                           numframes < MAXFRAMES; )
                 {
-                    enum CALL_INSTRUCTION_SIZE = 1; // it may not be 1 but it is good enough to get
-                    // in CALL instruction address range for backtrace
                     callstack[numframes++] = *(stackPtr + 1) - CALL_INSTRUCTION_SIZE;
                     stackPtr = cast(void**) *stackPtr;
                 }
             }
-        }
-        else version (LDC)
-        {
-            // Success. Adjust the locations by one byte so they point
-            // inside the function (as required by backtrace_symbols)
-            // even if the call to _d_throw_exception was the very last
-            // instruction in the function.
-            foreach (ref c; callstack) c -= 1;
-            return;
         }
     }
 
@@ -870,12 +861,22 @@ static if (hasExecinfo) private class DefaultTraceInfo : Throwable.TraceInfo
         }
         else
         {
-            // NOTE: The first 4 frames with the current implementation are
+            // NOTE: The first few frames with the current implementation are
             //       inside core.runtime and the object code, so eliminate
             //       these for readability.  The alternative would be to
             //       exclude the first N frames that are in a list of
             //       mangled function names.
-            enum FIRSTFRAME = 4;
+            // The frames are:
+            // - core.runtime.DefaultTraceInfo.__ctor()
+            // - core.runtime.defaultTraceHandler(void*)
+            // - _d_traceContext
+            // - _d_createTrace
+            // - _d_throwdwarf
+            // If it's an assertion failure, `_d_assertp`
+            version (Darwin)
+                enum FIRSTFRAME = 5;
+            else
+                enum FIRSTFRAME = 5;
         }
 
         version (linux) enum enableDwarf = true;

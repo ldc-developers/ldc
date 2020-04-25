@@ -110,11 +110,11 @@ else version (AArch64)
     version = AnyARM;
 
 version (iOS)
-    version = AppleARM;
+    version = iOSDerived;
 else version (TVOS)
-    version = AppleARM;
+    version = iOSDerived;
 else version (WatchOS)
-    version = AppleARM;
+    version = iOSDerived;
 
 private
 {
@@ -179,7 +179,7 @@ version (CoreDoc)
 }
 else version (AnyARM)
 {
-    version (AppleARM)
+    version (iOSDerived)
         enum size_t minimumPageSize = 16384;
     else
         enum size_t minimumPageSize = 4096;
@@ -227,7 +227,7 @@ unittest
 // make it more difficult to call the function again, manually.
 private void initialize();
 pragma(crt_constructor)
-pragma(mangle, initialize.mangleof)
+pragma(mangle, `_D` ~ initialize.mangleof)
 private extern (C) void initialize() @system
 {
     version (Posix)

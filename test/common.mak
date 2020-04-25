@@ -36,7 +36,3 @@ else
 endif
 CXXFLAGS_BASE := $(CFLAGS_BASE)
 CXXFLAGS:=$(CFLAGS)
-ifeq (osx,$(OS))
-	CXXFLAGS+=-stdlib=libc++
-	CXXFLAGS_BASE+=-stdlib=libc++
-endif
