@@ -1,6 +1,5 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Code for generating .json descriptions of the module when passing the `-X` flag to dmd.
  *
  * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
@@ -577,6 +576,7 @@ public:
         if (d.condition.inc != Include.notComputed)
         {
             visit(cast(AttribDeclaration)d);
+            return; // Don't visit the if/else bodies again below
         }
         Dsymbols* ds = d.decl ? d.decl : d.elsedecl;
         for (size_t i = 0; i < ds.dim; i++)

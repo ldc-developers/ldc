@@ -1,6 +1,6 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Does the semantic 1 pass on the AST, which looks at symbol declarations but not initializers
+ * or function bodies.
  *
  * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
@@ -756,11 +756,12 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
     {
         version (none)
         {
-            printf("VarDeclaration::semantic('%s', parent = '%s') sem = %d\n", toChars(), sc.parent ? sc.parent.toChars() : null, sem);
-            printf(" type = %s\n", type ? type.toChars() : "null");
-            printf(" stc = x%x\n", sc.stc);
-            printf(" storage_class = x%llx\n", storage_class);
-            printf("linkage = %d\n", sc.linkage);
+            printf("VarDeclaration::semantic('%s', parent = '%s') sem = %d\n",
+                   dsym.toChars(), sc.parent ? sc.parent.toChars() : null, dsym.semanticRun);
+            printf(" type = %s\n", dsym.type ? dsym.type.toChars() : "null");
+            printf(" stc = x%x\n", dsym.storage_class.stc);
+            printf(" storage_class = x%llx\n", dsym.storage_class);
+            printf("linkage = %d\n", dsym.linkage);
             //if (strcmp(toChars(), "mul") == 0) assert(0);
         }
         //if (semanticRun > PASS.init)
@@ -811,9 +812,11 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
             // so mark the scope as ctfe if required
             bool needctfe = (dsym.storage_class & (STC.manifest | STC.static_)) != 0;
             if (needctfe)
+            {
+                sc.flags |= SCOPE.condition;
                 sc = sc.startCTFE();
-
-            //printf("inferring type for %s with init %s\n", toChars(), _init.toChars());
+            }
+            //printf("inferring type for %s with init %s\n", dsym.toChars(), dsym._init.toChars());
             dsym._init = dsym._init.inferType(sc);
             dsym.type = dsym._init.initializerToExpression().type;
             if (needctfe)
@@ -852,7 +855,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
         dsym.type.checkDeprecated(dsym.loc, sc);
         dsym.linkage = sc.linkage;
         dsym.parent = sc.parent;
-        //printf("this = %p, parent = %p, '%s'\n", this, parent, parent.toChars());
+        //printf("this = %p, parent = %p, '%s'\n", dsym, dsym.parent, dsym.parent.toChars());
         dsym.protection = sc.protection;
 
         /* If scope's alignment is the default, use the type's alignment,
@@ -1387,9 +1390,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
 
                     if (ei && dsym.isScope())
                     {
-                        Expression ex = ei.exp;
-                        while (ex.op == TOK.comma)
-                            ex = (cast(CommaExp)ex).e2;
+                        Expression ex = ei.exp.lastComma();
                         if (ex.op == TOK.blit || ex.op == TOK.construct)
                             ex = (cast(AssignExp)ex).e2;
                         if (ex.op == TOK.new_)
@@ -1427,7 +1428,8 @@ version (IN_LLVM)
                         {
                             // or a delegate that doesn't escape a reference to the function
                             FuncDeclaration f = (cast(FuncExp)ex).fd;
-                            f.tookAddressOf--;
+                            if (f.tookAddressOf)
+                                f.tookAddressOf--;
                         }
                     }
                 }
@@ -2034,6 +2036,12 @@ version (IN_LLVM)
                 pd.error("takes no argument");
             goto Ldecl;
         }
+        else if (pd.ident == Id.printf || pd.ident == Id.scanf)
+        {
+            if (pd.args && pd.args.dim != 0)
+                pd.error("takes no argument");
+            goto Ldecl;
+        }
         else if (global.params.ignoreUnsupportedPragmas)
         {
             if (global.params.verbose)
@@ -2342,6 +2350,7 @@ version (IN_LLVM)
         ed.cppnamespace = sc.namespace;
 
         ed.semanticRun = PASS.semantic;
+        UserAttributeDeclaration.checkGNUABITag(ed, sc.linkage);
 
         if (!ed.members && !ed.memtype) // enum ident;
         {
@@ -2664,7 +2673,7 @@ version (IN_LLVM)
                 ? em.ed.memtype
                 : eprev.type;
 
-            Expression emax = tprev.getProperty(em.ed.loc, Id.max, 0);
+            Expression emax = tprev.getProperty(sc, em.ed.loc, Id.max, 0);
             emax = emax.expressionSemantic(sc);
             emax = emax.ctfeInterpret();
 
@@ -2762,6 +2771,7 @@ version (IN_LLVM)
         tempdecl.protection = sc.protection;
         tempdecl.cppnamespace = sc.namespace;
         tempdecl.isstatic = tempdecl.toParent().isModule() || (tempdecl._scope.stc & STC.static_);
+        UserAttributeDeclaration.checkGNUABITag(tempdecl, sc.linkage);
 
         if (!tempdecl.isstatic)
         {
@@ -2937,7 +2947,7 @@ version (IN_LLVM)
                 tm.symtab = sc.parent.isScopeDsymbol().symtab;
             L1:
                 assert(tm.symtab);
-                tm.ident = Identifier.generateId(s, tm.symtab.len + 1);
+                tm.ident = Identifier.generateId(s, tm.symtab.length + 1);
                 tm.symtab.insert(tm);
             }
         }
@@ -3176,6 +3186,9 @@ version (IN_LLVM)
 
         ns.semanticRun = PASS.semantic;
         ns.parent = sc.parent;
+        // Link does not matter here, if the UDA is present it will error
+        UserAttributeDeclaration.checkGNUABITag(ns, LINK.cpp);
+
         if (ns.members)
         {
             assert(sc);
@@ -3291,6 +3304,7 @@ version (IN_LLVM)
         funcdecl.inlining = sc.inlining;
         funcdecl.protection = sc.protection;
         funcdecl.userAttribDecl = sc.userAttribDecl;
+        UserAttributeDeclaration.checkGNUABITag(funcdecl, funcdecl.linkage);
 version (IN_LLVM)
 {
         funcdecl.emitInstrumentation = sc.emitInstrumentation;
@@ -3517,6 +3531,62 @@ version (IN_LLVM)
                 if (f.arguments && f.arguments.dim)
                     funcdecl.error("static constructors / destructors must have empty parameter list");
                 // BUG: check for invalid storage classes
+            }
+        }
+
+        if (const pors = sc.flags & (SCOPE.printf | SCOPE.scanf))
+        {
+            /* printf/scanf-like functions must be of the form:
+             *    extern (C/C++) T printf([parameters...], const(char)* format, ...);
+             * or:
+             *    extern (C/C++) T vprintf([parameters...], const(char)* format, va_list);
+             */
+
+            static bool isPointerToChar(Parameter p)
+            {
+                if (auto tptr = p.type.isTypePointer())
+                {
+                    return tptr.next.ty == Tchar;
+                }
+                return false;
+            }
+
+            static bool isVa_list(Parameter p)
+            {
+                // What it's actually pointing to depends on the target
+                return p.type.isTypePointer() !is null;
+            }
+
+            const nparams = f.parameterList.length;
+            if ((f.linkage == LINK.c || f.linkage == LINK.cpp) &&
+
+                (f.parameterList.varargs == VarArg.variadic &&
+                 nparams >= 1 &&
+                 isPointerToChar(f.parameterList[nparams - 1]) ||
+
+                 f.parameterList.varargs == VarArg.none &&
+                 nparams >= 2 &&
+                 isPointerToChar(f.parameterList[nparams - 2]) &&
+                 isVa_list(f.parameterList[nparams - 1])
+                )
+               )
+            {
+                funcdecl.flags |= (pors == SCOPE.printf) ? FUNCFLAG.printf : FUNCFLAG.scanf;
+            }
+            else
+            {
+                const p = (pors == SCOPE.printf ? Id.printf : Id.scanf).toChars();
+                if (f.parameterList.varargs == VarArg.variadic)
+                {
+                    funcdecl.error("`pragma(%s)` functions must be `extern(C) %s %s([parameters...], const(char)*, ...)"
+                                   ~ " not `%s`",
+                        p, f.next.toChars(), funcdecl.toChars(), funcdecl.type.toChars());
+                }
+                else
+                {
+                    funcdecl.error("`pragma(%s)` functions must be `extern(C) %s %s([parameters...], const(char)*, va_list)",
+                        p, f.next.toChars(), funcdecl.toChars());
+                }
             }
         }
 
@@ -4348,7 +4418,16 @@ version (IN_LLVM)
             scd.fbody = new CompoundStatement(Loc.initial, sa);
         }
 
+        const LINK save = sc.linkage;
+        if (save != LINK.d)
+        {
+            const(char)* s = (scd.isSharedStaticCtorDeclaration() ? "shared " : "");
+            deprecation(scd.loc, "`%sstatic` constructor can only be of D linkage", s);
+            // Just correct it
+            sc.linkage = LINK.d;
+        }
         funcDeclarationSemantic(scd);
+        sc.linkage = save;
 
         // We're going to need ModuleInfo
         Module m = scd.getModule();
@@ -4418,7 +4497,16 @@ version (IN_LLVM)
             sdd.vgate = v;
         }
 
+        const LINK save = sc.linkage;
+        if (save != LINK.d)
+        {
+            const(char)* s = (sdd.isSharedStaticDtorDeclaration() ? "shared " : "");
+            deprecation(sdd.loc, "`%sstatic` destructor can only be of D linkage", s);
+            // Just correct it
+            sc.linkage = LINK.d;
+        }
         funcDeclarationSemantic(sdd);
+        sc.linkage = save;
 
         // We're going to need ModuleInfo
         Module m = sdd.getModule();
@@ -4673,6 +4761,7 @@ version (IN_LLVM)
             return;
 
         sd.semanticRun = PASS.semantic;
+        UserAttributeDeclaration.checkGNUABITag(sd, sc.linkage);
 
         if (!sd.members) // if opaque declaration
         {
@@ -4894,6 +4983,7 @@ version (IN_LLVM)
             return;
         }
         cldec.semanticRun = PASS.semantic;
+        UserAttributeDeclaration.checkGNUABITag(cldec, sc.linkage);
 
         if (cldec.baseok < Baseok.done)
         {
@@ -5602,6 +5692,7 @@ version (IN_LLVM)
             if (!idec.baseclasses.dim && sc.linkage == LINK.cpp)
                 idec.classKind = ClassKind.cpp;
             idec.cppnamespace = sc.namespace;
+            UserAttributeDeclaration.checkGNUABITag(idec, sc.linkage);
 
             if (sc.linkage == LINK.objc)
             {
@@ -5818,7 +5909,8 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
     {
         static if (LOG)
         {
-            printf("-TemplateInstance.dsymbolSemantic('%s', this=%p) already run\n", inst.toChars(), tempinst.inst);
+            printf("-TemplateInstance.dsymbolSemantic('%s', this=%p) already run\n",
+                   tempinst.inst.toChars(), tempinst.inst);
         }
         return;
     }
@@ -6080,7 +6172,7 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
      * member has the same name as the template instance.
      * If so, this template instance becomes an alias for that member.
      */
-    //printf("members.dim = %d\n", members.dim);
+    //printf("members.dim = %d\n", tempinst.members.dim);
     if (tempinst.members.dim)
     {
         Dsymbol s;
@@ -6361,7 +6453,7 @@ Laftersemantic:
 
     static if (LOG)
     {
-        printf("-TemplateInstance.dsymbolSemantic('%s', this=%p)\n", toChars(), this);
+        printf("-TemplateInstance.dsymbolSemantic('%s', this=%p)\n", tempinst.toChars(), tempinst);
     }
 }
 
@@ -6375,6 +6467,10 @@ void aliasSemantic(AliasDeclaration ds, Scope* sc)
     sc.flags |= SCOPE.alias_;
     scope(exit)
         sc.flags = oldflags;
+
+    // preserve the original type
+    if (!ds.originalType && ds.type)
+        ds.originalType = ds.type.syntaxCopy();
 
     if (ds.aliassym)
     {
