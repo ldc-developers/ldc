@@ -101,6 +101,12 @@ nothrow:
      * Returns:
      *  true if absolute path name.
      */
+    extern (C++) static bool absolute(const(char)* name) pure @nogc
+    {
+        return absolute(name.toDString);
+    }
+
+    /// Ditto
     extern (D) static bool absolute(const(char)[] name) pure @nogc
     {
         if (!name.length)
@@ -152,6 +158,12 @@ nothrow:
      *  Points past '.' of extension.
      *  If there isn't one, return null.
      */
+    extern (C++) static const(char)* ext(const(char)* str) pure @nogc
+    {
+        return ext(str.toDString).ptr;
+    }
+
+    /// Ditto
     extern (D) static const(char)[] ext(const(char)[] str) nothrow pure @safe @nogc
     {
         foreach_reverse (idx, char e; str)
