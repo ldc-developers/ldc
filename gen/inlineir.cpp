@@ -204,6 +204,7 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
             err.getLineContents().str().c_str(),
             (std::string(err.getColumnNo(), ' ') + '^').c_str(), errstr.c_str(),
             stream.str().c_str());
+      fatal();
     }
 
     m->setDataLayout(gIR->module.getDataLayout());
