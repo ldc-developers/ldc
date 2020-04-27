@@ -501,7 +501,7 @@ Format parseScanfFormatSpecifier(scope const char[] format, ref size_t idx,
     assert(format[i] == '%');
     const length = format.length;
 
-    Format error()
+    Format error() /* IN_LLVM: ltsmaster... */ nothrow
     {
         idx = i;
         return Format.error;
@@ -596,7 +596,7 @@ Format parsePrintfFormatSpecifier(scope const char[] format, ref size_t idx,
     bool width;
     bool precision;
 
-    Format error()
+    Format error() /* IN_LLVM: ltsmaster... */ nothrow
     {
         idx = i;
         return Format.error;

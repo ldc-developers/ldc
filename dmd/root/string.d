@@ -264,7 +264,7 @@ unittest
 @system pure nothrow @nogc
 bool startsWith(scope const(char)* p, scope const(char)[] needle)
 in { assert(p && needle.ptr); }
-do
+body
 {
     foreach (const c; needle)
     {
