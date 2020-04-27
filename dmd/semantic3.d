@@ -403,12 +403,9 @@ private extern(C++) final class Semantic3Visitor : Visitor
                     // Declare _argptr
 version (IN_LLVM)
 {
-                    Type t = Type.tvalist.typeSemantic(funcdecl.loc, sc);
+                    Type.tvalist = Type.tvalist.typeSemantic(funcdecl.loc, sc);
 }
-else
-{
                     Type t = Type.tvalist;
-}
                     // Init is handled in FuncDeclaration_toObjFile
                     funcdecl.v_argptr = new VarDeclaration(funcdecl.loc, t, Id._argptr, new VoidInitializer(funcdecl.loc));
                     funcdecl.v_argptr.storage_class |= STC.temp;
