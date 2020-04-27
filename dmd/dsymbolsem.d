@@ -2056,12 +2056,6 @@ version (IN_LLVM)
                     for (size_t i = 0; i < pd.args.dim; i++)
                     {
                         Expression e = (*pd.args)[i];
-version (IN_LLVM)
-{
-                        // ignore errors in ignored pragmas.
-                        global.gag++;
-                        uint errors_save_inner = global.errors;
-}
                         sc = sc.startCTFE();
                         e = e.expressionSemantic(sc);
                         e = resolveProperties(sc, e);
@@ -2072,12 +2066,6 @@ version (IN_LLVM)
                         else
                             buf.writeByte(',');
                         buf.writestring(e.toChars());
-version (IN_LLVM)
-{
-                        // restore error state.
-                        global.gag--;
-                        global.errors = errors_save_inner;
-}
                     }
                     if (pd.args.dim)
                         buf.writeByte(')');
