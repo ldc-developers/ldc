@@ -2451,7 +2451,7 @@ version (IN_LLVM)
             static assert(hashedname.length < namebuf.length-30);
             name = namebuf.ptr;
             length = sprintf(name, "_D%lluTypeInfo_%.*s6__initZ",
-                cast(ulong)9 + hashedname.length, hashedname.length, hashedname.ptr);
+                9LU + hashedname.length, cast(int) hashedname.length, hashedname.ptr);
         }
         else
         {
