@@ -138,29 +138,39 @@ int CTFloat::sprint(char *str, char fmt, real_t x) {
   assert(fmt == 'g' || fmt == 'a' || fmt == 'A');
   const bool uppercase = fmt == 'A';
 
-  APFloat ap(0.0);
-  toAPFloat(x, ap);
-
   // We try to keep close to C printf and handle a few divergences of the LLVM
   // to-string utility functions.
 
-  int length = 0;
   if (isNaN(x)) {
+    int length = 0;
     if (copysign(one, x) != one) {
       str[0] = '-';
       ++length;
     }
     memcpy(str + length, uppercase ? "NAN" : "nan", 3);
     length += 3;
-  } else if (isInfinity(x)) {
-    if (!isIdentical(x, infinity)) {
+    str[length] = 0;
+    return length;
+  }
+
+  if (isInfinity(x)) { // incl. -inf
+    int length = 0;
+    if (x < 0) {
       str[0] = '-';
       ++length;
     }
     memcpy(str + length, uppercase ? "INF" : "inf", 3);
     length += 3;
-  } else if (fmt == 'a' || fmt == 'A') {
-    length =
+    str[length] = 0;
+    return length;
+  }
+
+  // Use LLVM for printing hex strings.
+  if (fmt == 'a' || fmt == 'A') {
+    APFloat ap(0.0);
+    toAPFloat(x, ap);
+
+    int length =
         ap.convertToHexString(str, 0, uppercase, APFloat::rmNearestTiesToEven);
 
     // insert a '+' prefix for non-negative exponents (incl. 0) as visual aid
@@ -177,54 +187,36 @@ int CTFloat::sprint(char *str, char fmt, real_t x) {
         break;
       }
     }
-  } else {
-    assert(fmt == 'g');
 
-    llvm::SmallString<32> buffer;
-    ap.toString(buffer, /*FormatPrecision=*/6, /*FormatMaxPadding=*/4);
-
-    bool needsFPSuffix = true;
-    ptrdiff_t commaIndex = -1;
-    for (size_t i = 0; i < buffer.size(); ++i) {
-      if (buffer[i] == '.') {
-        needsFPSuffix = false;
-        commaIndex = i;
-      } else if (buffer[i] == 'E') {
-        needsFPSuffix = false;
-
-        if (!uppercase)
-            buffer[i] = 'e';
-
-        // remove excessive comma+zeros in scientific notation
-        // (1.000000e+100 => 1e+100)
-        if (commaIndex > 0) {
-          bool onlyZeros = std::all_of(&buffer[commaIndex + 1], &buffer[i],
-                                       [](char c) { return c == '0'; });
-          if (onlyZeros) {
-            buffer.erase(&buffer[commaIndex], &buffer[i]);
-            i = commaIndex;
-            commaIndex = -1;
-          }
-        }
-
-        // ensure at least 2 digits for the exponent after the sign
-        // (1e+6 => 1e+06)
-        if (buffer.size() - (i + 2) == 1)
-          buffer.insert(&buffer[i + 2], '0');
-
-        break;
-      }
-    }
-
-    // no comma for non-scientific notation? then add FP suffix to distinguish
-    // from integers (100 => 100.0)
-    if (needsFPSuffix)
-      buffer += ".0";
-
-    length = static_cast<int>(buffer.size());
-    memcpy(str, buffer.data(), length);
+    str[length] = 0;
+    return length;
   }
 
-  str[length] = 0; // null-terminate
+  assert(fmt == 'g');
+
+  // Use the host C runtime for printing decimal strings;
+  // llvm::APFloat::toString() seems not to round correctly, e.g., with LLVM 10:
+  // * powl(2.5L, 2.5L) = 9.882117688... => `9.88211` (not 9.88212)
+  // * 1e-300L => `9.99999e-301`
+#ifdef _MSC_VER
+  int length = sprintf(str, "%g", static_cast<double>(x));
+#else
+  int length = sprintf(str, "%Lg", x);
+#endif
+
+  // 1 => 1.0 to distinguish from integers
+  bool needsFPSuffix = true;
+  for (int i = 0; i < length; ++i) {
+    if (str[i] != '-' && !isdigit(str[i])) {
+      needsFPSuffix = false;
+      break;
+    }
+  }
+  if (needsFPSuffix) {
+    memcpy(str + length, ".0", 2);
+    length += 2;
+  }
+
+  str[length] = 0;
   return length;
 }
