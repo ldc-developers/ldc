@@ -15,6 +15,7 @@ version (Windows):
 import core.stdc.ctype;
 import core.stdc.stdlib;
 import core.stdc.string;
+import core.stdc.wchar_;
 import core.sys.windows.winbase;
 import core.sys.windows.windef;
 import core.sys.windows.winreg;
@@ -25,7 +26,16 @@ import dmd.root.filename;
 import dmd.root.outbuffer;
 import dmd.root.rmem;
 
-struct VSOptions
+version (IN_LLVM)
+{
+    enum supportedPre2017Versions = ["14.0".ptr];
+}
+else
+{
+    enum supportedPre2017Versions = ["14.0".ptr, "12.0", "11.0", "10.0", "9.0"];
+}
+
+extern(C++) struct VSOptions
 {
     // evaluated once at startup, reflecting the result of vcvarsall.bat
     //  from the current environment or the latest Visual Studio installation
@@ -238,6 +248,12 @@ private:
         if (VSInstallDir is null)
             VSInstallDir = getenv("VSINSTALLDIR");
 
+version (IN_LLVM)
+{
+        if (VSInstallDir is null)
+            VSInstallDir = getenv("LDC_VSDIR");
+}
+
         if (VSInstallDir is null)
             VSInstallDir = detectVSInstallDirViaCOM();
 
@@ -245,7 +261,7 @@ private:
             VSInstallDir = GetRegistryString(r"Microsoft\VisualStudio\SxS\VS7", "15.0"); // VS2017
 
         if (VSInstallDir is null)
-            foreach (const(char)* ver; ["14.0".ptr, "12.0", "11.0", "10.0", "9.0"])
+            foreach (const(char)* ver; supportedPre2017Versions)
             {
                 VSInstallDir = GetRegistryString(FileName.combine(r"Microsoft\VisualStudio", ver), "InstallDir");
                 if (VSInstallDir)
@@ -267,7 +283,7 @@ private:
 
         // detect from registry (build tools?)
         if (VCInstallDir is null)
-            foreach (const(char)* ver; ["14.0".ptr, "12.0", "11.0", "10.0", "9.0"])
+            foreach (const(char)* ver; supportedPre2017Versions)
             {
                 auto regPath = FileName.buildPath(r"Microsoft\VisualStudio", ver, r"Setup\VC");
                 VCInstallDir = GetRegistryString(regPath, "ProductDir");
@@ -311,6 +327,7 @@ private:
         }
     }
 
+public:
     /**
      * get Visual C bin folder
      * Params:
@@ -325,7 +342,7 @@ private:
      * Note: differences for the linker binaries are small, they all
      * allow cross compilation
      */
-    const(char)* getVCBinDir(bool x64, out const(char)* addpath)
+    const(char)* getVCBinDir(bool x64, out const(char)* addpath) const
     {
         static const(char)* linkExists(const(char)* p)
         {
@@ -406,7 +423,7 @@ private:
     * Returns:
     *   folder containing the the VC runtime libraries
     */
-    const(char)* getVCLibDir(bool x64)
+    const(char)* getVCLibDir(bool x64) const
     {
         if (VCToolsInstallDir !is null)
             return FileName.combine(VCToolsInstallDir, x64 ? r"lib\x64" : r"lib\x86");
@@ -422,7 +439,7 @@ private:
      * Returns:
      *   folder containing the universal CRT libraries
      */
-    const(char)* getUCRTLibPath(bool x64)
+    const(char)* getUCRTLibPath(bool x64) const
     {
         if (UCRTSdkDir && UCRTVersion)
            return FileName.buildPath(UCRTSdkDir, "Lib", UCRTVersion, x64 ? r"ucrt\x64" : r"ucrt\x86");
@@ -436,7 +453,7 @@ private:
      * Returns:
      *   folder containing the Windows SDK libraries
      */
-    const(char)* getSDKLibPath(bool x64)
+    const(char)* getSDKLibPath(bool x64) const
     {
         if (WindowsSdkDir)
         {
@@ -455,12 +472,19 @@ private:
                 return sdk;
         }
 
+version (IN_LLVM) {}
+else
+{
         // try mingw fallback relative to phobos library folder that's part of LIB
         if (auto p = FileName.searchPath(getenv("LIB"), r"mingw\kernel32.lib"[], false))
             return FileName.path(p).ptr;
+}
 
         return null;
     }
+
+private:
+extern(D):
 
     // iterate through subdirectories named by SDK version in baseDir and return the
     //  one with the largest version that also contains the test file
@@ -500,7 +524,7 @@ private:
      * Returns:
      *  the registry value if it exists and has string type
      */
-    const(char)* GetRegistryString(const(char)* softwareKeyPath, const(char)* valueName)
+    const(char)* GetRegistryString(const(char)* softwareKeyPath, const(char)* valueName) const
     {
         enum x64hive = false; // VS registry entries always in 32-bit hive
 
@@ -527,6 +551,7 @@ private:
         char[260] buf = void;
         DWORD cnt = buf.length * char.sizeof;
         DWORD type;
+        // TODO: wide API
         int hr = RegQueryValueExA(key, valueName, null, &type, cast(ubyte*) buf.ptr, &cnt);
         if (hr == 0 && cnt > 0)
             return buf.dup.ptr;
@@ -578,6 +603,8 @@ import core.sys.windows.oleauto : SysFreeString;
 
 pragma(lib, "ole32.lib");
 pragma(lib, "oleaut32.lib");
+
+extern (C) int _waccess(const(wchar)* _FileName, int _AccessMode);
 
 interface ISetupInstance : IUnknown
 {
@@ -635,18 +662,54 @@ const(char)* detectVSInstallDirViaCOM()
         return null;
     scope(exit) instances.Release();
 
+    BSTR versionString;
+    BSTR installDir;
+    scope(exit) SysFreeString(versionString);
+    scope(exit) SysFreeString(installDir);
+
     while (instances.Next(1, &instance, &fetched) == S_OK && fetched)
     {
-        BSTR bstrInstallDir;
-        if (instance.GetInstallationPath(&bstrInstallDir) != S_OK)
+        BSTR thisVersionString;
+        if (instance.GetInstallationVersion(&thisVersionString) != S_OK)
             continue;
+        scope(exit) SysFreeString(thisVersionString);
 
-        char[260] path;
-        int len = WideCharToMultiByte(CP_UTF8, 0, bstrInstallDir, -1, path.ptr, 260, null, null);
-        SysFreeString(bstrInstallDir);
+        BSTR thisInstallDir;
+        if (instance.GetInstallationPath(&thisInstallDir) != S_OK)
+            continue;
+        scope(exit) SysFreeString(thisInstallDir);
 
-        if (len > 0)
-            return path[0..len].idup.ptr;
+        if (versionString && wcscmp(thisVersionString, versionString) <= 0)
+            continue; // not a newer version, skip
+
+        const installDirLength = wcslen(thisInstallDir);
+        const vcInstallDirLength = installDirLength + 4;
+        auto vcInstallDir = (cast(wchar*) mem.xmalloc_noscan(vcInstallDirLength * wchar.sizeof))[0 .. vcInstallDirLength];
+        scope(exit) mem.xfree(vcInstallDir.ptr);
+        vcInstallDir[0 .. installDirLength] = thisInstallDir[0 .. installDirLength];
+        vcInstallDir[installDirLength .. $] = "\\VC\0"w;
+        if (_waccess(vcInstallDir.ptr, 0) != 0)
+            continue; // Visual C++ not included, skip
+
+        if (versionString)
+        {
+            SysFreeString(versionString);
+            SysFreeString(installDir);
+        }
+        versionString = thisVersionString;
+        installDir = thisInstallDir;
+        thisVersionString = null;
+        thisInstallDir = null;
     }
+
+    if (installDir)
+    {
+        char[260] path = void;
+        int len = WideCharToMultiByte(CP_UTF8, 0, installDir, -1, path.ptr, path.length, null, null);
+        assert(len);
+
+        return path[0 .. len].idup.ptr;
+    }
+
     return null;
 }

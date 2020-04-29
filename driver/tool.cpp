@@ -10,6 +10,7 @@
 #include "driver/tool.h"
 
 #include "dmd/errors.h"
+#include "dmd/vsoptions.h"
 #include "driver/args.h"
 #include "driver/cl_options.h"
 #include "driver/exe_path.h"
@@ -213,217 +214,100 @@ int executeToolAndWait(const std::string &tool_,
 
 namespace windows {
 
-bool needsQuotes(const llvm::StringRef &arg) {
-  return // not already quoted
-      !(arg.size() > 1 && arg[0] == '"' &&
-        arg.back() == '"') && // empty or min 1 space or min 1 double quote
-      (arg.empty() || arg.find(' ') != arg.npos || arg.find('"') != arg.npos);
-}
-
-size_t countPrecedingBackslashes(llvm::StringRef arg, size_t index) {
-  size_t count = 0;
-
-  for (ptrdiff_t i = index - 1; i >= 0; --i) {
-    if (arg[i] != '\\')
-      break;
-    ++count;
-  }
-
-  return count;
-}
-
-std::string quoteArg(llvm::StringRef arg) {
-  if (!needsQuotes(arg))
-    return arg;
-
-  std::string quotedArg;
-  quotedArg.reserve(3 + 2 * arg.size()); // worst case
-
-  quotedArg.push_back('"');
-
-  const size_t argLength = arg.size();
-  for (size_t i = 0; i < argLength; ++i) {
-    if (arg[i] == '"') {
-      // Escape all preceding backslashes (if any).
-      // Note that we *don't* need to escape runs of backslashes that don't
-      // precede a double quote! See MSDN:
-      // http://msdn.microsoft.com/en-us/library/17w5ykft%28v=vs.85%29.aspx
-      quotedArg.append(countPrecedingBackslashes(arg, i), '\\');
-
-      // Escape the double quote.
-      quotedArg.push_back('\\');
-    }
-
-    quotedArg.push_back(arg[i]);
-  }
-
-  // Make sure our final double quote doesn't get escaped by a trailing
-  // backslash.
-  quotedArg.append(countPrecedingBackslashes(arg, argLength), '\\');
-  quotedArg.push_back('"');
-
-  return quotedArg;
-}
-
-int executeAndWait(const char *commandLine, DWORD creationFlags = 0) {
-  STARTUPINFO si;
-  ZeroMemory(&si, sizeof(si));
-  si.cb = sizeof(si);
-
-  PROCESS_INFORMATION pi;
-  ZeroMemory(&pi, sizeof(pi));
-
-  DWORD exitCode;
-
-  llvm::SmallVector<wchar_t, 512> wcommandLine;
-  if (llvm::sys::windows::UTF8ToUTF16(commandLine, wcommandLine))
-    return -3;
-  wcommandLine.push_back(0);
-  if (!CreateProcessW(nullptr, wcommandLine.data(), nullptr, nullptr, TRUE,
-                      creationFlags, nullptr, nullptr, &si, &pi)) {
-    exitCode = -1;
-  } else {
-    if (WaitForSingleObject(pi.hProcess, INFINITE) != 0 ||
-        !GetExitCodeProcess(pi.hProcess, &exitCode))
-      exitCode = -2;
-
-    CloseHandle(pi.hProcess);
-    CloseHandle(pi.hThread);
-  }
-
-  return exitCode;
-}
-
+namespace {
 bool setupMsvcEnvironmentImpl(
-    std::vector<std::pair<std::wstring, wchar_t *>> &rollback) {
-  if (env::has(L"VSINSTALLDIR") && !env::has(L"LDC_VSDIR_FORCE"))
+    std::vector<std::pair<std::wstring, wchar_t *>> *rollback) {
+  if (env::has(L"VSINSTALLDIR") && !env::has(L"LDC_VSDIR_FORCE")) {
+    // assume a fully set up environment (e.g., VS native tools command prompt)
+    return true;
+  }
+
+  const auto begin = std::chrono::steady_clock::now();
+
+  VSOptions vsOptions;
+  vsOptions.initialize();
+  if (!vsOptions.VSInstallDir)
+    return false;
+
+  const bool x64 = global.params.targetTriple->isArch64Bit();
+
+  llvm::SmallVector<const char *, 3> libPaths;
+  if (auto vclibdir = vsOptions.getVCLibDir(x64))
+    libPaths.push_back(vclibdir);
+  if (auto ucrtlibdir = vsOptions.getUCRTLibPath(x64))
+    libPaths.push_back(ucrtlibdir);
+  if (auto sdklibdir = vsOptions.getSDKLibPath(x64))
+    libPaths.push_back(sdklibdir);
+
+  llvm::SmallVector<const char *, 2> binPaths;
+  const char *secondaryBindir = nullptr;
+  if (auto bindir = vsOptions.getVCBinDir(x64, secondaryBindir)) {
+    binPaths.push_back(bindir);
+    if (secondaryBindir)
+      binPaths.push_back(secondaryBindir);
+  }
+
+  const bool success = libPaths.size() == 3 && !binPaths.empty();
+  if (!success)
+    return false;
+
+  if (!rollback) // check for availability only
     return true;
 
-  llvm::SmallString<128> tmpFilePath;
-  if (llvm::sys::fs::createTemporaryFile("ldc_dumpEnv", "", tmpFilePath))
-    return false;
-
-  /* Run `%ComSpec% /s /c "...\dumpEnv.bat <x86|amd64> > <tmpFilePath>"` to
-   * dump the MSVC environment to the temporary file.
-   *
-   * cmd.exe /c treats the following string argument (the command)
-   * in a very peculiar way if it starts with a double-quote.
-   * By adding /s and enclosing the command in extra double-quotes
-   * (WITHOUT additionally escaping the command), the command will
-   * be parsed properly.
-   */
-
-  std::string cmdExecutable = env::get("ComSpec");
-  if (cmdExecutable.empty()) {
-    warning(Loc(),
-            "'ComSpec' environment variable is not set, assuming 'cmd.exe'.");
-    cmdExecutable = "cmd.exe";
-  }
-  std::string batchFile = exe_path::prependBinDir("dumpEnv.bat");
-  std::string arch =
-      global.params.targetTriple->isArch64Bit() ? "amd64" : "x86";
-
-  llvm::SmallString<512> commandLine;
-  commandLine += quoteArg(cmdExecutable);
-  commandLine += " /s /c \"";
-  commandLine += "chcp 65001 && "; // => UTF-8 output encoding
-  commandLine += quoteArg(batchFile);
-  commandLine += ' ';
-  commandLine += arch;
-  commandLine += " > ";
-  commandLine += quoteArg(tmpFilePath);
-  commandLine += '"';
-
-  // do NOT pass down our console
-  const DWORD procCreationFlags = CREATE_NO_WINDOW;
-  const int exitCode = executeAndWait(commandLine.c_str(), procCreationFlags);
-  if (exitCode != 0) {
-    error(Loc(), "'%s' failed with status: %d", commandLine.c_str(), exitCode);
-    llvm::sys::fs::remove(tmpFilePath);
-    return false;
-  }
-
-  auto fileBuffer = llvm::MemoryBuffer::getFile(tmpFilePath);
-  llvm::sys::fs::remove(tmpFilePath);
-  if (fileBuffer.getError())
-    return false;
-
-  const auto contents = (*fileBuffer)->getBuffer();
-  const auto size = contents.size();
-
-  // Parse the file.
-  std::vector<std::pair<llvm::StringRef, llvm::StringRef>> env;
-
-  size_t i = 0;
-  // for each line
-  while (i < size) {
-    llvm::StringRef key, value;
-
-    for (size_t j = i; j < size; ++j) {
-      const char c = contents[j];
-      if (c == '=' && key.empty()) {
-        key = contents.slice(i, j);
-        i = j + 1;
-      } else if (c == '\n' || c == '\r' || c == '\0') {
-        if (!key.empty()) {
-          value = contents.slice(i, j);
-        }
-        // break and continue with next line
-        i = j + 1;
-        break;
-      }
-    }
-
-    if (!key.empty() && !value.empty())
-      env.emplace_back(key, value);
-  }
-
   if (global.params.verbose)
-    message("Applying environment variables:");
+    message("Prepending to environment variables:");
 
-  rollback.reserve(env.size());
-  bool haveVsInstallDir = false;
+  const auto preprendToEnvVar =
+      [rollback](const char *key, const wchar_t *wkey,
+                 const llvm::SmallVectorImpl<const char *> &entries) {
+        wchar_t *originalValue = _wgetenv(wkey);
 
-  for (const auto &pair : env) {
-    const llvm::StringRef key = pair.first;
-    const llvm::StringRef value = pair.second;
+        llvm::SmallString<256> head;
+        for (const char *entry : entries) {
+          if (!head.empty())
+            head += ';';
+          head += entry;
+        }
 
-    if (key == "VSINSTALLDIR")
-      haveVsInstallDir = true;
+        if (global.params.verbose)
+          message("  %s += %.*s", key, (int)head.size(), head.data());
 
-    llvm::SmallVector<wchar_t, 32> wkey;
-    llvm::SmallVector<wchar_t, 512> wvalue;
-    llvm::sys::windows::UTF8ToUTF16(key, wkey);
-    llvm::sys::windows::UTF8ToUTF16(value, wvalue);
-    wkey.push_back(0);
-    wvalue.push_back(0);
+        llvm::SmallVector<wchar_t, 1024> wvalue;
+        llvm::sys::windows::UTF8ToUTF16(head, wvalue);
+        if (originalValue) {
+          wvalue.push_back(L';');
+          wvalue.append(originalValue, originalValue + wcslen(originalValue));
+        }
+        wvalue.push_back(0);
 
-    wchar_t *originalValue = _wgetenv(wkey.data());
-    if (originalValue && wcscmp(originalValue, wvalue.data()) == 0)
-      continue; // no change
+        // copy the original value, if set
+        if (originalValue)
+          originalValue = wcsdup(originalValue);
+        rollback->emplace_back(wkey, originalValue);
 
-    if (global.params.verbose) {
-      message("  %.*s=%.*s", (int)key.size(), key.data(), (int)value.size(),
-              value.data());
-    }
+        SetEnvironmentVariableW(wkey, wvalue.data());
+      };
 
-    // copy the original value, if set
-    if (originalValue)
-      originalValue = wcsdup(originalValue);
-    rollback.emplace_back(wkey.data(), originalValue);
+  rollback->reserve(2);
+  preprendToEnvVar("LIB", L"LIB", libPaths);
+  preprendToEnvVar("PATH", L"PATH", binPaths);
 
-    SetEnvironmentVariableW(wkey.data(), wvalue.data());
+  if (global.params.verbose) {
+    const auto end = std::chrono::steady_clock::now();
+    message("MSVC setup took %lld microseconds",
+            std::chrono::duration_cast<std::chrono::microseconds>(end - begin)
+                .count());
   }
 
-  return haveVsInstallDir;
+  return true;
 }
+} // anonymous namespace
+
+bool isMsvcAvailable() { return setupMsvcEnvironmentImpl(nullptr); }
 
 bool MsvcEnvironmentScope::setup() {
   rollback.clear();
-  const bool success = setupMsvcEnvironmentImpl(rollback);
-  if (!success)
-    warning(Loc(), "no Visual C++ installation detected");
-  return success;
+  return setupMsvcEnvironmentImpl(&rollback);
 }
 
 MsvcEnvironmentScope::~MsvcEnvironmentScope() {

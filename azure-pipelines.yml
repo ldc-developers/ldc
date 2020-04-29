@@ -90,12 +90,11 @@ jobs:
       displayName: Generate hello.d
     - script: |
         echo on
-        %ARTIFACT_NAME%\bin\ldc2 -v -run hello.d || exit /b
-        %ARTIFACT_NAME%\bin\ldc2 -v -m32 -run hello.d
+        %ARTIFACT_NAME%\bin\ldc2 -v -mscrtlib=vcruntime140 -run hello.d || exit /b
+        %ARTIFACT_NAME%\bin\ldc2 -v -mscrtlib=vcruntime140 -m32 -run hello.d
       displayName: Run 32/64-bit hello-world smoke test with internal toolchain
     - script: |
         echo on
-        set LDC_VSDIR_FORCE=1
         %ARTIFACT_NAME%\bin\ldc2 -v -run hello.d || exit /b
         %ARTIFACT_NAME%\bin\ldc2 -v -m32 -run hello.d
       displayName: Run 32/64-bit hello-world smoke test with MSVC auto-detection

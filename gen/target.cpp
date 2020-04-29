@@ -250,7 +250,8 @@ Expression *Target::getTargetInfo(const char *name_, const Loc &loc) {
   if (name == "cppRuntimeLibrary") {
     const char *cppRuntimeLibrary = "";
     if (triple.isWindowsMSVCEnvironment()) {
-      cppRuntimeLibrary = mem.xstrdup(getMscrtLibName().str().c_str());
+      auto mscrtlib = getMscrtLibName().str();
+      cppRuntimeLibrary = mem.xstrdup(mscrtlib.c_str());
     }
     return createStringExp(cppRuntimeLibrary);
   }
