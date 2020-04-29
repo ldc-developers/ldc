@@ -120,11 +120,6 @@ LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
   return CreateCallOrInvoke(Callee, {Arg1, Arg2, Arg3, Arg4}, Name);
 }
 
-bool IRState::isMainFunc(const IrFunction *func) const {
-  assert(func != nullptr);
-  return func->getLLVMFunc() == mainFunc;
-}
-
 bool IRState::emitArrayBoundsChecks() {
   if (global.params.useArrayBounds != CHECKENABLEsafeonly) {
     return global.params.useArrayBounds == CHECKENABLEon;

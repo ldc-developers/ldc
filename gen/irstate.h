@@ -147,10 +147,6 @@ public:
   llvm::Function *topfunc();
   llvm::Instruction *topallocapoint();
 
-  // The function containing the D main() body, if any (not the actual main()
-  // implicitly emitted).
-  llvm::Function *mainFunc = nullptr;
-
   // basic block scopes
   std::vector<IRScope> scopes;
   IRScope &scope();
@@ -183,8 +179,6 @@ public:
   llvm::CallSite CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
                                     LLValue *Arg2, LLValue *Arg3, LLValue *Arg4,
                                     const char *Name = "");
-
-  bool isMainFunc(const IrFunction *func) const;
 
   // this holds the array being indexed or sliced so $ will work
   // might be a better way but it works. problem is I only get a

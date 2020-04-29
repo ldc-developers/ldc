@@ -55,8 +55,8 @@
 #include "llvm/Target/TargetOptions.h"
 #include <iostream>
 
-static bool isMainFunction(FuncDeclaration *fd) {
-  return fd->isMain() || (global.params.betterC && fd->isCMain());
+bool isAnyMainFunction(FuncDeclaration *fd) {
+  return fd->isMain() || fd->isCMain();
 }
 
 llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
@@ -84,7 +84,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   // The index of the next argument on the LLVM level.
   unsigned nextLLArgIdx = 0;
 
-  const bool isMain = fd && isMainFunction(fd);
+  const bool isMain = fd && isAnyMainFunction(fd);
   if (isMain) {
     // D and C main functions always return i32, even if declared as returning
     // void.
@@ -507,6 +507,32 @@ void applyXRayAttributes(FuncDeclaration &fdecl, llvm::Function &func) {
   }
 }
 
+void onlyOneMainCheck(FuncDeclaration *fd) {
+  if (!fd->fbody) // multiple *declarations* are fine
+    return;
+
+  // We'd actually want all possible main functions to be mutually exclusive.
+  // Unfortunately, a D main implies a C main, so only check C mains with
+  // -betterC.
+  if (fd->isMain() || (global.params.betterC && fd->isCMain()) ||
+      (global.params.isWindows && (fd->isWinMain() || fd->isDllMain()))) {
+    // global - across all modules compiled in this compiler invocation
+    static Loc mainLoc;
+    if (!mainLoc.filename) {
+      mainLoc = fd->loc;
+      assert(mainLoc.filename);
+    } else {
+      const char *otherMainNames =
+          global.params.isWindows ? ", `WinMain`, or `DllMain`" : "";
+      const char *mainSwitch =
+          global.params.addMain ? ", -main switch added another `main()`" : "";
+      error(fd->loc,
+            "only one `main`%s allowed%s. Previously found `main` at %s",
+            otherMainNames, mainSwitch, mainLoc.toChars());
+    }
+  }
+}
+
 } // anonymous namespace
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -619,24 +645,17 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     }
   }
 
-  if(irFunc->isDynamicCompiled()) {
+  if (irFunc->isDynamicCompiled()) {
     declareDynamicCompiledFunction(gIR, irFunc);
   }
 
-  if (irFunc->targetCpuOverridden ||
-      irFunc->targetFeaturesOverridden) {
+  if (irFunc->targetCpuOverridden || irFunc->targetFeaturesOverridden) {
     gIR->targetCpuOrFeaturesOverridden.push_back(irFunc);
   }
 
-  // main
-  if (isMainFunction(fdecl) && fdecl->fbody) {
-    // Detect multiple main function definitions, which is disallowed.
-    // DMD checks this in the glue code, so we need to do it here as well.
-    if (gIR->mainFunc) {
-      error(fdecl->loc, "only one `main` function allowed");
-    }
-    gIR->mainFunc = func;
-  }
+  // Detect multiple main function definitions, which is disallowed.
+  // DMD checks this in the glue code, so we need to do it here as well.
+  onlyOneMainCheck(fdecl);
 
   // Set inlining attribute
   if (fdecl->neverInline) {
@@ -1232,16 +1251,13 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     gIR->DBuilder.EmitStopPoint(fd->endloc);
     if (func->getReturnType() == LLType::getVoidTy(gIR->context())) {
       gIR->ir->CreateRetVoid();
-    } else if (!gIR->isMainFunc(irFunc)) {
-      CompoundAsmStatement *asmb = fd->fbody->endsWithAsm();
-      if (asmb) {
-        assert(asmb->abiret);
-        gIR->ir->CreateRet(asmb->abiret);
-      } else {
-        gIR->ir->CreateRet(llvm::UndefValue::get(func->getReturnType()));
-      }
-    } else {
+    } else if (isAnyMainFunction(fd)) {
       gIR->ir->CreateRet(LLConstant::getNullValue(func->getReturnType()));
+    } else if (auto asmb = fd->fbody->endsWithAsm()) {
+      assert(asmb->abiret);
+      gIR->ir->CreateRet(asmb->abiret);
+    } else {
+      gIR->ir->CreateRet(llvm::UndefValue::get(func->getReturnType()));
     }
   }
   gIR->DBuilder.EmitFuncEnd(fd);

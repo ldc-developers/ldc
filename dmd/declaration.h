@@ -457,13 +457,6 @@ void builtin_init();
 class FuncDeclaration : public Declaration
 {
 public:
-    struct HiddenParameters
-    {
-        VarDeclaration *this_;
-        bool isThis2;
-        VarDeclaration *selector;
-    };
-
     Statements *frequires;              // in contracts
     Ensures *fensures;                  // out contracts
     Statement *frequire;                // lowered in contract

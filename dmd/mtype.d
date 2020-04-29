@@ -1,6 +1,5 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Defines a D type.
  *
  * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
@@ -234,7 +233,6 @@ private enum TFlags
     real_        = 8,
     imaginary    = 0x10,
     complex      = 0x20,
-    char_        = 0x40,
 }
 
 enum ENUMTY : int
@@ -341,6 +339,12 @@ alias Tmixin = ENUMTY.Tmixin;
 alias TMAX = ENUMTY.TMAX;
 
 alias TY = ubyte;
+
+///Returns true if ty is char, wchar, or dchar
+bool isSomeChar(TY ty) pure nothrow @nogc @safe
+{
+    return ty == Tchar || ty == Twchar || ty == Tdchar;
+}
 
 enum MODFlags : int
 {
@@ -1032,11 +1036,6 @@ version (IN_LLVM)
     }
 
     bool isunsigned()
-    {
-        return false;
-    }
-
-    bool ischar()
     {
         return false;
     }
@@ -2452,7 +2451,7 @@ version (IN_LLVM)
             static assert(hashedname.length < namebuf.length-30);
             name = namebuf.ptr;
             length = sprintf(name, "_D%lluTypeInfo_%.*s6__initZ",
-                cast(ulong)9 + hashedname.length, hashedname.length, hashedname.ptr);
+                9LU + hashedname.length, cast(int) hashedname.length, hashedname.ptr);
         }
         else
         {
@@ -3161,17 +3160,17 @@ extern (C++) final class TypeBasic : Type
 
         case Tchar:
             d = Token.toChars(TOK.char_);
-            flags |= TFlags.integral | TFlags.unsigned | TFlags.char_;
+            flags |= TFlags.integral | TFlags.unsigned;
             break;
 
         case Twchar:
             d = Token.toChars(TOK.wchar_);
-            flags |= TFlags.integral | TFlags.unsigned | TFlags.char_;
+            flags |= TFlags.integral | TFlags.unsigned;
             break;
 
         case Tdchar:
             d = Token.toChars(TOK.dchar_);
-            flags |= TFlags.integral | TFlags.unsigned | TFlags.char_;
+            flags |= TFlags.integral | TFlags.unsigned;
             break;
 
         default:
@@ -3309,11 +3308,6 @@ extern (C++) final class TypeBasic : Type
     override bool isunsigned() const
     {
         return (flags & TFlags.unsigned) != 0;
-    }
-
-    override bool ischar() const
-    {
-        return (flags & TFlags.char_) != 0;
     }
 
     override MATCH implicitConvTo(Type to)
@@ -3617,7 +3611,7 @@ extern (C++) final class TypeSArray : TypeArray
     override bool isString()
     {
         TY nty = next.toBasetype().ty;
-        return nty == Tchar || nty == Twchar || nty == Tdchar;
+        return nty.isSomeChar;
     }
 
     override bool isZeroInit(const ref Loc loc)
@@ -3787,7 +3781,7 @@ extern (C++) final class TypeDArray : TypeArray
     override bool isString()
     {
         TY nty = next.toBasetype().ty;
-        return nty == Tchar || nty == Twchar || nty == Tdchar;
+        return nty.isSomeChar;
     }
 
     override bool isZeroInit(const ref Loc loc) const
@@ -5917,11 +5911,6 @@ extern (C++) final class TypeEnum : Type
     override bool isunsigned()
     {
         return memType().isunsigned();
-    }
-
-    override bool ischar()
-    {
-        return memType().ischar();
     }
 
     override bool isBoolean()

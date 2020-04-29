@@ -1,6 +1,4 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
  * Entry point for DMD.
  *
  * This modules defines the entry point (main) for DMD, as well as related
@@ -50,6 +48,7 @@ version (NoMain) {} else
 {
     import dmd.lib;
     import dmd.link;
+    import dmd.vsoptions;
 }
 import dmd.mtype;
 import dmd.objc;
@@ -781,7 +780,7 @@ version (IN_LLVM) {} else
         library.setFilename(params.objdir, params.libname);
         // Add input object and input library files to output library
         foreach (p; libmodules)
-            library.addObject(p, null);
+            library.addObject(p.toDString(), null);
     }
 }
     // Generate output files
@@ -1646,10 +1645,6 @@ version (IN_LLVM)
             case "3449":
                 params.vfield = true;
                 break;
-            case "10378":
-            case "import":
-                params.bug10378 = true;
-                break;
             case "14246":
             case "dtorfields":
                 params.dtorFields = true;
@@ -1714,45 +1709,6 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
     {
         dmd.errors.error(Loc.initial, format, arg);
         errors = true;
-    }
-
-    /************************************
-     * Convert string to integer.
-     * Params:
-     *  p = pointer to start of string digits, ending with 0
-     *  max = max allowable value (inclusive)
-     * Returns:
-     *  uint.max on error, otherwise converted integer
-     */
-    static pure uint parseDigits(const(char)*p, const uint max)
-    {
-        uint value;
-        bool overflow;
-        for (uint d; (d = uint(*p) - uint('0')) < 10; ++p)
-        {
-            import core.checkedint : mulu, addu;
-            value = mulu(value, 10, overflow);
-            value = addu(value, d, overflow);
-        }
-        return (overflow || value > max || *p) ? uint.max : value;
-    }
-
-    /********************************
-     * Params:
-     *  p = 0 terminated string
-     *  s = string
-     * Returns:
-     *  true if `p` starts with `s`
-     */
-    static pure bool startsWith(const(char)* p, string s)
-    {
-        foreach (const c; s)
-        {
-            if (c != *p)
-                return false;
-            ++p;
-        }
-        return true;
     }
 
     /**
@@ -2009,16 +1965,9 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             //      -cov=nnn
             if (p[4] == '=')
             {
-                if (isdigit(cast(char)p[5]))
+                if (!params.covPercent.parseDigits(p.toDString()[5 .. $], 100))
                 {
-                    const percent = parseDigits(p + 5, 100);
-                    if (percent == uint.max)
-                        goto Lerror;
-                    params.covPercent = cast(ubyte)percent;
-                }
-                else
-                {
-                    errorInvalidSwitch(p, "Only a number can be passed to `-cov=<num>`");
+                    errorInvalidSwitch(p, "Only a number between 0 and 100 can be passed to `-cov=<num>`");
                     return true;
                 }
             }
@@ -2160,14 +2109,12 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             params.vgc = true;
         else if (startsWith(p + 1, "verrors")) // https://dlang.org/dmd.html#switch-verrors
         {
-            if (p[8] == '=' && isdigit(cast(char)p[9]))
+            if (p[8] != '=')
             {
-                const num = parseDigits(p + 9, int.max);
-                if (num == uint.max)
-                    goto Lerror;
-                params.errorLimit = num;
+                errorInvalidSwitch(p, "Expected argument following `-verrors , e.g. `-verrors=100`");
+                return true;
             }
-            else if (startsWith(p + 9, "spec"))
+            if (startsWith(p + 9, "spec"))
             {
                 params.showGaggedErrors = true;
             }
@@ -2175,7 +2122,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             {
                 params.printErrorContext = true;
             }
-            else
+            else if (!params.errorLimit.parseDigits(p.toDString()[9 .. $]))
             {
                 errorInvalidSwitch(p, "Only number, `spec`, or `context` are allowed for `-verrors`");
                 return true;
@@ -2265,8 +2212,8 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                 // These are kept for backwards compatibility, but no longer documented
                 if (isdigit(cast(char)p[len]))
                 {
-                    const num = parseDigits(p + len, int.max);
-                    if (num == uint.max)
+                    uint num;
+                    if (!num.parseDigits(p.toDString()[len .. $]))
                         goto Lerror;
 
                     // Bugzilla issue number
@@ -2274,9 +2221,6 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                     {
                         case 3449:
                             params.vfield = true;
-                            break;
-                        case 10378:
-                            params.bug10378 = true;
                             break;
                         case 14246:
                             params.dtorFields = true;
@@ -2298,9 +2242,6 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                     const ident = p + len;
                     switch (ident.toDString())
                     {
-                        case "import":
-                            params.bug10378 = true;
-                            break;
                         case "dtorfields":
                             params.dtorFields = true;
                             break;
@@ -2626,11 +2567,8 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             {
                 if (isdigit(cast(char)p[7]))
                 {
-                    const level = parseDigits(p + 7, int.max);
-                    if (level == uint.max)
+                    if (!params.debuglevel.parseDigits(p.toDString()[7 .. $]))
                         goto Lerror;
-
-                    params.debuglevel = level;
                 }
                 else if (Identifier.isValidIdentifier(p + 7))
                 {
@@ -2655,10 +2593,8 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             {
                 if (isdigit(cast(char)p[9]))
                 {
-                    const level = parseDigits(p + 9, int.max);
-                    if (level == uint.max)
+                    if (!params.versionlevel.parseDigits(p.toDString()[9 .. $]))
                         goto Lerror;
-                    params.versionlevel = level;
                 }
                 else if (Identifier.isValidIdentifier(p + 9))
                 {
@@ -2743,7 +2679,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             size_t length = argc - i - 1;
             if (length)
             {
-                const(char)* ext = FileName.ext(arguments[i + 1]);
+                const(char)[] ext = FileName.ext(arguments[i + 1].toDString());
                 if (ext && FileName.equals(ext, "d") == 0 && FileName.equals(ext, "di") == 0)
                 {
                     error("-run must be followed by a source file, not '%s'", arguments[i + 1]);

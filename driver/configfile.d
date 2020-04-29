@@ -174,7 +174,7 @@ private:
         }
         catch (Exception ex)
         {
-            fprintf(stderr, "Error: %.*s\n", ex.msg.length, ex.msg.ptr);
+            fprintf(stderr, "Error: %.*s\n", cast(int) ex.msg.length, ex.msg.ptr);
             return false;
         }
     }

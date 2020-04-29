@@ -47,11 +47,8 @@ typedef struct TYPE type;
 
 void semanticTypeInfo(Scope *sc, Type *t);
 
-#if IN_LLVM
-// in typesem.d:
-Type *typeSemantic(Type *t, Loc loc, Scope *sc);
+Type *typeSemantic(Type *t, const Loc &loc, Scope *sc);
 Type *merge(Type *type);
-#endif
 
 enum ENUMTY
 {
@@ -258,7 +255,6 @@ public:
     virtual bool iscomplex();
     virtual bool isscalar();
     virtual bool isunsigned();
-    virtual bool ischar();
     virtual bool isscope();
     virtual bool isString();
     virtual bool isAssignable();
@@ -404,7 +400,6 @@ public:
     bool iscomplex() /*const*/;
     bool isscalar() /*const*/;
     bool isunsigned() /*const*/;
-    bool ischar() /*const*/;
     MATCH implicitConvTo(Type *to);
     bool isZeroInit(const Loc &loc) /*const*/;
 
@@ -785,7 +780,6 @@ public:
     bool iscomplex();
     bool isscalar();
     bool isunsigned();
-    bool ischar();
     bool isBoolean();
     bool isString();
     bool isAssignable();
