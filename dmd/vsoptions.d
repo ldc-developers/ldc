@@ -20,11 +20,12 @@ import core.sys.windows.winbase;
 import core.sys.windows.windef;
 import core.sys.windows.winreg;
 
-import dmd.env;
+version (IN_LLVM) {} else import dmd.env;
 import dmd.root.file;
 import dmd.root.filename;
 import dmd.root.outbuffer;
 import dmd.root.rmem;
+import dmd.root.string;
 
 version (IN_LLVM)
 {
@@ -59,6 +60,9 @@ extern(C++) struct VSOptions
         detectVCToolsInstallDir();
     }
 
+version (IN_LLVM) { /* not needed */ }
+else
+{
     /**
      * retrieve the name of the default C runtime library
      * Params:
@@ -113,12 +117,13 @@ extern(C++) struct VSOptions
             cmdbuf.writestring(p);
             cmdbuf.writeByte('\"');
         }
-        if (auto p = getenv("DXSDK_DIR"))
+        if (auto p = getenv("DXSDK_DIR"w))
         {
             // support for old DX SDK installations
             cmdbuf.writestring(" /LIBPATH:\"");
             cmdbuf.writestring(p);
             cmdbuf.writestring(x64 ? `\Lib\x64"` : `\Lib\x86"`);
+            mem.xfree(p);
         }
         return cmdbuf.extractChars();
     }
@@ -143,7 +148,7 @@ extern(C++) struct VSOptions
             {
                 // debug info needs DLLs from $(VSInstallDir)\Common7\IDE for most linker versions
                 //  so prepend it too the PATH environment variable
-                const path = getenv("PATH");
+                const path = getenv("PATH"w);
                 const pathlen = strlen(path);
                 const addpathlen = strlen(addpath);
 
@@ -155,6 +160,7 @@ extern(C++) struct VSOptions
                 if (putenvRestorable("PATH", npath[0 .. length]))
                     assert(0);
                 mem.xfree(npath);
+                mem.xfree(path);
             }
             return cmdbuf.extractChars();
         }
@@ -170,10 +176,11 @@ extern(C++) struct VSOptions
         }
 
         // search PATH to avoid createProcess preferring "link.exe" from the dmd folder
-        if (auto p = FileName.searchPath(getenv("PATH"), "link.exe"[], false))
+        if (auto p = FileName.searchPath(getenv("PATH"w), "link.exe"[], false))
             return p.ptr;
         return "link.exe";
     }
+} // !IN_LLVM
 
 private:
     /**
@@ -182,35 +189,35 @@ private:
     void detectWindowsSDK()
     {
         if (WindowsSdkDir is null)
-            WindowsSdkDir = getenv("WindowsSdkDir");
+            WindowsSdkDir = getenv("WindowsSdkDir"w);
 
         if (WindowsSdkDir is null)
         {
-            WindowsSdkDir = GetRegistryString(r"Microsoft\Windows Kits\Installed Roots", "KitsRoot10");
+            WindowsSdkDir = GetRegistryString(r"Microsoft\Windows Kits\Installed Roots", "KitsRoot10"w);
             if (WindowsSdkDir && !findLatestSDKDir(FileName.combine(WindowsSdkDir, "Include"), r"um\windows.h"))
                 WindowsSdkDir = null;
         }
         if (WindowsSdkDir is null)
         {
-            WindowsSdkDir = GetRegistryString(r"Microsoft\Microsoft SDKs\Windows\v8.1", "InstallationFolder");
+            WindowsSdkDir = GetRegistryString(r"Microsoft\Microsoft SDKs\Windows\v8.1", "InstallationFolder"w);
             if (WindowsSdkDir && !FileName.exists(FileName.combine(WindowsSdkDir, "Lib")))
                 WindowsSdkDir = null;
         }
         if (WindowsSdkDir is null)
         {
-            WindowsSdkDir = GetRegistryString(r"Microsoft\Microsoft SDKs\Windows\v8.0", "InstallationFolder");
+            WindowsSdkDir = GetRegistryString(r"Microsoft\Microsoft SDKs\Windows\v8.0", "InstallationFolder"w);
             if (WindowsSdkDir && !FileName.exists(FileName.combine(WindowsSdkDir, "Lib")))
                 WindowsSdkDir = null;
         }
         if (WindowsSdkDir is null)
         {
-            WindowsSdkDir = GetRegistryString(r"Microsoft\Microsoft SDKs\Windows", "CurrentInstallationFolder");
+            WindowsSdkDir = GetRegistryString(r"Microsoft\Microsoft SDKs\Windows", "CurrentInstallationFolder"w);
             if (WindowsSdkDir && !FileName.exists(FileName.combine(WindowsSdkDir, "Lib")))
                 WindowsSdkDir = null;
         }
 
         if (WindowsSdkVersion is null)
-            WindowsSdkVersion = getenv("WindowsSdkVersion");
+            WindowsSdkVersion = getenv("WindowsSdkVersion"w);
 
         if (WindowsSdkVersion is null && WindowsSdkDir !is null)
         {
@@ -225,13 +232,13 @@ private:
     void detectUCRT()
     {
         if (UCRTSdkDir is null)
-            UCRTSdkDir = getenv("UniversalCRTSdkDir");
+            UCRTSdkDir = getenv("UniversalCRTSdkDir"w);
 
         if (UCRTSdkDir is null)
-            UCRTSdkDir = GetRegistryString(r"Microsoft\Windows Kits\Installed Roots", "KitsRoot10");
+            UCRTSdkDir = GetRegistryString(r"Microsoft\Windows Kits\Installed Roots", "KitsRoot10"w);
 
         if (UCRTVersion is null)
-            UCRTVersion = getenv("UCRTVersion");
+            UCRTVersion = getenv("UCRTVersion"w);
 
         if (UCRTVersion is null && UCRTSdkDir !is null)
         {
@@ -246,24 +253,33 @@ private:
     void detectVSInstallDir()
     {
         if (VSInstallDir is null)
-            VSInstallDir = getenv("VSINSTALLDIR");
+            VSInstallDir = getenv("VSINSTALLDIR"w);
 
 version (IN_LLVM)
 {
         if (VSInstallDir is null)
-            VSInstallDir = getenv("LDC_VSDIR");
+            VSInstallDir = getenv("LDC_VSDIR"w);
 }
 
         if (VSInstallDir is null)
             VSInstallDir = detectVSInstallDirViaCOM();
 
         if (VSInstallDir is null)
-            VSInstallDir = GetRegistryString(r"Microsoft\VisualStudio\SxS\VS7", "15.0"); // VS2017
+            VSInstallDir = GetRegistryString(r"Microsoft\VisualStudio\SxS\VS7", "15.0"w); // VS2017
+
+        if (VSInstallDir is null)
+        {
+            wchar[260] buffer = void;
+            // VS Build Tools 2017 (default installation path)
+            const numWritten = ExpandEnvironmentStringsW(r"%ProgramFiles(x86)%\Microsoft Visual Studio\2017\BuildTools"w.ptr, buffer.ptr, buffer.length);
+            if (numWritten <= buffer.length && exists(buffer.ptr))
+                VSInstallDir = toUTF8(buffer.ptr);
+        }
 
         if (VSInstallDir is null)
             foreach (const(char)* ver; supportedPre2017Versions)
             {
-                VSInstallDir = GetRegistryString(FileName.combine(r"Microsoft\VisualStudio", ver), "InstallDir");
+                VSInstallDir = GetRegistryString(FileName.combine(r"Microsoft\VisualStudio", ver), "InstallDir"w);
                 if (VSInstallDir)
                     break;
             }
@@ -275,7 +291,7 @@ version (IN_LLVM)
     void detectVCInstallDir()
     {
         if (VCInstallDir is null)
-            VCInstallDir = getenv("VCINSTALLDIR");
+            VCInstallDir = getenv("VCINSTALLDIR"w);
 
         if (VCInstallDir is null)
             if (VSInstallDir && FileName.exists(FileName.combine(VSInstallDir, "VC")))
@@ -285,8 +301,9 @@ version (IN_LLVM)
         if (VCInstallDir is null)
             foreach (const(char)* ver; supportedPre2017Versions)
             {
-                auto regPath = FileName.buildPath(r"Microsoft\VisualStudio", ver, r"Setup\VC");
-                VCInstallDir = GetRegistryString(regPath, "ProductDir");
+                auto regPath = buildPath(r"Microsoft\VisualStudio", ver, r"Setup\VC");
+                VCInstallDir = GetRegistryString(regPath, "ProductDir"w);
+                mem.xfree(regPath);
                 if (VCInstallDir)
                     break;
             }
@@ -298,7 +315,7 @@ version (IN_LLVM)
     void detectVCToolsInstallDir()
     {
         if (VCToolsInstallDir is null)
-            VCToolsInstallDir = getenv("VCTOOLSINSTALLDIR");
+            VCToolsInstallDir = getenv("VCTOOLSINSTALLDIR"w);
 
         if (VCToolsInstallDir is null && VCInstallDir)
         {
@@ -321,7 +338,7 @@ version (IN_LLVM)
                     *p = 0;
 
                     if (ver && *ver)
-                        VCToolsInstallDir = FileName.buildPath(VCInstallDir, r"Tools\MSVC", ver);
+                        VCToolsInstallDir = buildPath(VCInstallDir, r"Tools\MSVC", ver);
                 }
             }
         }
@@ -344,10 +361,14 @@ public:
      */
     const(char)* getVCBinDir(bool x64, out const(char)* addpath) const
     {
-        static const(char)* linkExists(const(char)* p)
+        static const(char)* linkExists(scope const(char)*[] dirs...)
         {
-            auto lp = FileName.combine(p, "link.exe");
-            return FileName.exists(lp) ? p : null;
+            auto p = buildPathWithSuffix("link.exe", dirs);
+            const(char)* result = null;
+            if (FileName.exists(p))
+                result = FileName.path(p);
+            mem.xfree(p);
+            return result;
         }
 
         const bool isHost64 = isWin64Host();
@@ -357,13 +378,13 @@ public:
             {
                 if (x64)
                 {
-                    if (auto p = linkExists(FileName.combine(VCToolsInstallDir, r"bin\HostX64\x64")))
+                    if (auto p = linkExists(VCToolsInstallDir, r"bin\HostX64\x64"))
                         return p;
                     // in case of missing linker, prefer other host binaries over other target architecture
                 }
                 else
                 {
-                    if (auto p = linkExists(FileName.combine(VCToolsInstallDir, r"bin\HostX64\x86")))
+                    if (auto p = linkExists(VCToolsInstallDir, r"bin\HostX64\x86"))
                     {
                         addpath = FileName.combine(VCToolsInstallDir, r"bin\HostX64\x64");
                         return p;
@@ -372,13 +393,13 @@ public:
             }
             if (x64)
             {
-                if (auto p = linkExists(FileName.combine(VCToolsInstallDir, r"bin\HostX86\x64")))
+                if (auto p = linkExists(VCToolsInstallDir, r"bin\HostX86\x64"))
                 {
                     addpath = FileName.combine(VCToolsInstallDir, r"bin\HostX86\x86");
                     return p;
                 }
             }
-            if (auto p = linkExists(FileName.combine(VCToolsInstallDir, r"bin\HostX86\x86")))
+            if (auto p = linkExists(VCToolsInstallDir, r"bin\HostX86\x86"))
                 return p;
         }
         if (VCInstallDir !is null)
@@ -387,13 +408,13 @@ public:
             {
                 if (x64)
                 {
-                    if (auto p = linkExists(FileName.combine(VCInstallDir, r"bin\amd64")))
+                    if (auto p = linkExists(VCInstallDir, r"bin\amd64"))
                         return p;
                     // in case of missing linker, prefer other host binaries over other target architecture
                 }
                 else
                 {
-                    if (auto p = linkExists(FileName.combine(VCInstallDir, r"bin\amd64_x86")))
+                    if (auto p = linkExists(VCInstallDir, r"bin\amd64_x86"))
                     {
                         addpath = FileName.combine(VCInstallDir, r"bin\amd64");
                         return p;
@@ -407,10 +428,10 @@ public:
                 addpath = FileName.combine(VCInstallDir, r"bin");
 
             if (x64)
-                if (auto p = linkExists(FileName.combine(VCInstallDir, r"x86_amd64")))
+                if (auto p = linkExists(VCInstallDir, r"x86_amd64"))
                     return p;
 
-            if (auto p = linkExists(FileName.combine(VCInstallDir, r"bin\HostX86\x86")))
+            if (auto p = linkExists(VCInstallDir, r"bin\HostX86\x86"))
                 return p;
         }
         return null;
@@ -442,7 +463,7 @@ public:
     const(char)* getUCRTLibPath(bool x64) const
     {
         if (UCRTSdkDir && UCRTVersion)
-           return FileName.buildPath(UCRTSdkDir, "Lib", UCRTVersion, x64 ? r"ucrt\x64" : r"ucrt\x86");
+           return buildPath(UCRTSdkDir, "Lib", UCRTVersion, x64 ? r"ucrt\x64" : r"ucrt\x86");
         return null;
     }
 
@@ -457,26 +478,44 @@ public:
     {
         if (WindowsSdkDir)
         {
+            static const(char)* kernel32Exists(scope const(char)*[] dirs...)
+            {
+                auto p = buildPathWithSuffix("kernel32.lib", dirs);
+                const(char)* result = null;
+                if (FileName.exists(p))
+                    result = FileName.path(p);
+                mem.xfree(p);
+                return result;
+            }
+
             const(char)* arch = x64 ? "x64" : "x86";
             auto sdk = FileName.combine(WindowsSdkDir, "lib");
-            if (WindowsSdkVersion &&
-                FileName.exists(FileName.buildPath(sdk, WindowsSdkVersion, "um", arch, "kernel32.lib"))) // SDK 10.0
-                return FileName.buildPath(sdk, WindowsSdkVersion, "um", arch);
-            else if (FileName.exists(FileName.buildPath(sdk, r"win8\um", arch, "kernel32.lib"))) // SDK 8.0
-                return FileName.buildPath(sdk, r"win8\um", arch);
-            else if (FileName.exists(FileName.buildPath(sdk, r"winv6.3\um", arch, "kernel32.lib"))) // SDK 8.1
-                return FileName.buildPath(sdk, r"winv6.3\um", arch);
-            else if (x64 && FileName.exists(FileName.buildPath(sdk, arch, "kernel32.lib"))) // SDK 7.1 or earlier
-                return FileName.buildPath(sdk, arch);
-            else if (!x64 && FileName.exists(FileName.buildPath(sdk, "kernel32.lib"))) // SDK 7.1 or earlier
-                return sdk;
+            if (WindowsSdkVersion)
+            {
+                if (auto p = kernel32Exists(sdk, WindowsSdkVersion, "um", arch)) // SDK 10.0
+                    return p;
+            }
+            if (auto p = kernel32Exists(sdk, r"win8\um", arch)) // SDK 8.0
+                return p;
+            if (auto p = kernel32Exists(sdk, r"winv6.3\um", arch)) // SDK 8.1
+                return p;
+            if (x64)
+            {
+                if (auto p = kernel32Exists(sdk, arch)) // SDK 7.1 or earlier
+                    return p;
+            }
+            else
+            {
+                if (auto p = kernel32Exists(sdk)) // SDK 7.1 or earlier
+                    return p;
+            }
         }
 
 version (IN_LLVM) {}
 else
 {
         // try mingw fallback relative to phobos library folder that's part of LIB
-        if (auto p = FileName.searchPath(getenv("LIB"), r"mingw\kernel32.lib"[], false))
+        if (auto p = FileName.searchPath(getenv("LIB"w), r"mingw\kernel32.lib"[], false))
             return FileName.path(p).ptr;
 }
 
@@ -490,24 +529,36 @@ extern(D):
     //  one with the largest version that also contains the test file
     static const(char)* findLatestSDKDir(const(char)* baseDir, const(char)* testfile)
     {
-        auto allfiles = FileName.combine(baseDir, "*");
-        WIN32_FIND_DATAA fileinfo;
-        HANDLE h = FindFirstFileA(allfiles, &fileinfo);
+        wchar[] wbase = toUTF16(baseDir);
+        wchar* allfiles = cast(wchar*) mem.xmalloc_noscan((wbase.length + 3) * wchar.sizeof);
+        scope(exit) mem.xfree(allfiles);
+        allfiles[0 .. wbase.length] = wbase;
+        allfiles[wbase.length .. wbase.length+3] = "\\*\0";
+        mem.xfree(wbase.ptr);
+
+        WIN32_FIND_DATAW fileinfo;
+        HANDLE h = FindFirstFileW(allfiles, &fileinfo);
         if (h == INVALID_HANDLE_VALUE)
             return null;
 
-        char* res = null;
+        char* res;
         do
         {
             if (fileinfo.cFileName[0] >= '1' && fileinfo.cFileName[0] <= '9')
-                if (res is null || strcmp(res, fileinfo.cFileName.ptr) < 0)
-                    if (FileName.exists(FileName.buildPath(baseDir, fileinfo.cFileName.ptr, testfile)))
-                    {
-                        const len = strlen(fileinfo.cFileName.ptr) + 1;
-                        res = cast(char*) memcpy(mem.xrealloc(res, len), fileinfo.cFileName.ptr, len);
-                    }
+            {
+                auto name = toUTF8(fileinfo.cFileName.ptr);
+                if ((!res || strcmp(res, name) < 0) &&
+                    FileName.exists(buildPath(baseDir, name, testfile)))
+                {
+                    if (res)
+                        mem.xfree(res);
+                    res = name;
+                }
+                else
+                    mem.xfree(name);
+            }
         }
-        while(FindNextFileA(h, &fileinfo));
+        while(FindNextFileW(h, &fileinfo));
 
         if (!FindClose(h))
             res = null;
@@ -522,9 +573,9 @@ extern(D):
      *  softwareKeyPath = path below HKLM\SOFTWARE
      *  valueName       = name of the value to read
      * Returns:
-     *  the registry value if it exists and has string type
+     *  the registry value (in UTF8) if it exists and has string type
      */
-    const(char)* GetRegistryString(const(char)* softwareKeyPath, const(char)* valueName) const
+    const(char)* GetRegistryString(const(char)* softwareKeyPath, wstring valueName) const
     {
         enum x64hive = false; // VS registry entries always in 32-bit hive
 
@@ -548,19 +599,24 @@ extern(D):
             return null;
         scope(exit) RegCloseKey(key);
 
-        char[260] buf = void;
-        DWORD cnt = buf.length * char.sizeof;
+        wchar[260] buf = void;
+        DWORD size = buf.sizeof;
         DWORD type;
-        // TODO: wide API
-        int hr = RegQueryValueExA(key, valueName, null, &type, cast(ubyte*) buf.ptr, &cnt);
-        if (hr == 0 && cnt > 0)
-            return buf.dup.ptr;
-        if (hr != ERROR_MORE_DATA || type != REG_SZ)
+        int hr = RegQueryValueExW(key, valueName.ptr, null, &type, cast(ubyte*) buf.ptr, &size);
+        if (type != REG_SZ)
             return null;
 
-        scope char[] pbuf = new char[cnt + 1];
-        RegQueryValueExA(key, valueName, null, &type, cast(ubyte*) pbuf.ptr, &cnt);
-        return pbuf.ptr;
+        wchar* wideValue = buf.ptr;
+        scope(exit) wideValue != buf.ptr && mem.xfree(wideValue);
+        if (hr == ERROR_MORE_DATA)
+        {
+            wideValue = cast(wchar*) mem.xmalloc_noscan((size + 1) * wchar.sizeof);
+            hr = RegQueryValueExW(key, valueName.ptr, null, &type, cast(ubyte*) wideValue, &size);
+        }
+        if (hr != 0 || size <= 0)
+            return null;
+
+        return toUTF8(wideValue);
     }
 
     /***
@@ -594,17 +650,102 @@ extern(D):
     }
 }
 
+private:
+
+char* toUTF8(const(wchar)* wide)
+{
+    if (!wide)
+        return null;
+
+    const requiredSize = WideCharToMultiByte(CP_UTF8, 0, wide, -1, null, 0, null, null);
+    char* value = cast(char*) mem.xmalloc_noscan(requiredSize);
+    const size = WideCharToMultiByte(CP_UTF8, 0, wide, -1, value, requiredSize, null, null);
+    assert(size == requiredSize);
+    return value;
+}
+
+wchar[] toUTF16(const(char)* utf8)
+{
+    if (!utf8)
+        return null;
+
+    const requiredCount = MultiByteToWideChar(CP_UTF8, 0, utf8, -1, null, 0);
+    wchar* wide = cast(wchar*) mem.xmalloc_noscan(requiredCount * wchar.sizeof);
+    const count = MultiByteToWideChar(CP_UTF8, 0, utf8, -1, wide, requiredCount);
+    assert(count == requiredCount);
+    return wide[0 .. count-1];
+}
+
+extern(C) wchar* _wgetenv(const(wchar)* name);
+
+char* getenv(wstring name)
+{
+    if (auto wide = _wgetenv(name.ptr))
+        return toUTF8(wide);
+    return null;
+}
+
+char* buildPathWithSuffix(string suffix, const(char)*[] dirs...)
+{
+    assert(dirs.length);
+
+    const(char)[][] ddirs = (cast(const(char)[]*) mem.xmalloc_noscan(dirs.length * string.sizeof))[0 .. dirs.length];
+    scope(exit) mem.xfree(ddirs.ptr);
+
+    size_t size;
+    foreach (i, dir; dirs)
+    {
+        ddirs[i] = dir.toDString;
+        size += ddirs[i].length + 1;
+    }
+    if (suffix.length)
+        size += suffix.length + 1;
+
+    char* p = cast(char*) mem.xmalloc_noscan(size);
+    size_t length;
+    foreach (dir; ddirs)
+    {
+        assert(dir.length);
+        p[length .. length + dir.length] = dir;
+        length += dir.length;
+        const last = p[length - 1];
+        if (last != '\\' && last != '/')
+            p[length++] = '\\';
+    }
+
+    if (suffix.length)
+    {
+        p[length .. length + suffix.length] = suffix;
+        length += suffix.length;
+        p[length] = 0;
+    }
+    else
+        p[--length] = 0; // overwrite last '\' with null terminator
+
+    return p;
+}
+
+char* buildPath(const(char)*[] fragments...)
+{
+    return buildPathWithSuffix(null, fragments);
+}
+
+extern (C) int _waccess(const(wchar)* _FileName, int _AccessMode);
+
+bool exists(const(wchar)* path)
+{
+    return _waccess(path, 0) == 0;
+}
+
 ///////////////////////////////////////////////////////////////////////
 // COM interfaces to find VS2017+ installations
 import core.sys.windows.com;
 import core.sys.windows.wtypes : BSTR;
-import core.sys.windows.winnls : WideCharToMultiByte, CP_UTF8;
-import core.sys.windows.oleauto : SysFreeString;
+import core.sys.windows.winnls : MultiByteToWideChar, WideCharToMultiByte, CP_UTF8;
+import core.sys.windows.oleauto : SysFreeString, SysStringLen;
 
 pragma(lib, "ole32.lib");
 pragma(lib, "oleaut32.lib");
-
-extern (C) int _waccess(const(wchar)* _FileName, int _AccessMode);
 
 interface ISetupInstance : IUnknown
 {
@@ -662,54 +803,44 @@ const(char)* detectVSInstallDirViaCOM()
         return null;
     scope(exit) instances.Release();
 
-    BSTR versionString;
-    BSTR installDir;
-    scope(exit) SysFreeString(versionString);
-    scope(exit) SysFreeString(installDir);
+    static struct WrappedBString
+    {
+        BSTR ptr;
+        this(this) @disable;
+        ~this() { SysFreeString(ptr); }
+        bool opCast(T : bool)() { return ptr !is null; }
+        size_t length() { return SysStringLen(ptr); }
+        void moveTo(ref WrappedBString other) { SysFreeString(other.ptr); other.ptr = ptr; ptr = null; }
+    }
+
+    WrappedBString versionString, installDir;
 
     while (instances.Next(1, &instance, &fetched) == S_OK && fetched)
     {
-        BSTR thisVersionString;
-        if (instance.GetInstallationVersion(&thisVersionString) != S_OK)
+        WrappedBString thisVersionString, thisInstallDir;
+        if (instance.GetInstallationVersion(&thisVersionString.ptr) != S_OK)
             continue;
-        scope(exit) SysFreeString(thisVersionString);
-
-        BSTR thisInstallDir;
-        if (instance.GetInstallationPath(&thisInstallDir) != S_OK)
+        if (instance.GetInstallationPath(&thisInstallDir.ptr) != S_OK)
             continue;
-        scope(exit) SysFreeString(thisInstallDir);
 
-        if (versionString && wcscmp(thisVersionString, versionString) <= 0)
+        if (versionString && wcscmp(thisVersionString.ptr, versionString.ptr) <= 0)
             continue; // not a newer version, skip
 
-        const installDirLength = wcslen(thisInstallDir);
+        const installDirLength = thisInstallDir.length;
         const vcInstallDirLength = installDirLength + 4;
         auto vcInstallDir = (cast(wchar*) mem.xmalloc_noscan(vcInstallDirLength * wchar.sizeof))[0 .. vcInstallDirLength];
         scope(exit) mem.xfree(vcInstallDir.ptr);
-        vcInstallDir[0 .. installDirLength] = thisInstallDir[0 .. installDirLength];
+        vcInstallDir[0 .. installDirLength] = thisInstallDir.ptr[0 .. installDirLength];
         vcInstallDir[installDirLength .. $] = "\\VC\0"w;
-        if (_waccess(vcInstallDir.ptr, 0) != 0)
+        if (!exists(vcInstallDir.ptr))
             continue; // Visual C++ not included, skip
 
-        if (versionString)
-        {
-            SysFreeString(versionString);
-            SysFreeString(installDir);
-        }
-        versionString = thisVersionString;
-        installDir = thisInstallDir;
-        thisVersionString = null;
-        thisInstallDir = null;
+        thisVersionString.moveTo(versionString);
+        thisInstallDir.moveTo(installDir);
     }
 
     if (installDir)
-    {
-        char[260] path = void;
-        int len = WideCharToMultiByte(CP_UTF8, 0, installDir, -1, path.ptr, path.length, null, null);
-        assert(len);
-
-        return path[0 .. len].idup.ptr;
-    }
+        return toUTF8(installDir.ptr);
 
     return null;
 }
