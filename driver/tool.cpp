@@ -217,9 +217,15 @@ namespace windows {
 namespace {
 bool setupMsvcEnvironmentImpl(
     std::vector<std::pair<std::wstring, wchar_t *>> *rollback) {
+  const bool x64 = global.params.targetTriple->isArch64Bit();
+
   if (env::has(L"VSINSTALLDIR") && !env::has(L"LDC_VSDIR_FORCE")) {
-    // assume a fully set up environment (e.g., VS native tools command prompt)
-    return true;
+    // Assume a fully set up environment (e.g., VS native tools command prompt).
+    // Skip the MSVC setup unless the environment is set up for a different
+    // target architecture.
+    const auto tgtArch = env::get("VSCMD_ARG_TGT_ARCH"); // VS 2017+
+    if (tgtArch.empty() || tgtArch == (x64 ? "x64" : "x86"))
+      return true;
   }
 
   const auto begin = std::chrono::steady_clock::now();
@@ -228,8 +234,6 @@ bool setupMsvcEnvironmentImpl(
   vsOptions.initialize();
   if (!vsOptions.VSInstallDir)
     return false;
-
-  const bool x64 = global.params.targetTriple->isArch64Bit();
 
   llvm::SmallVector<const char *, 3> libPaths;
   if (auto vclibdir = vsOptions.getVCLibDir(x64))

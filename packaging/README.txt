@@ -12,10 +12,9 @@ newer), LDC defaults to using linker and libraries of the latest Visual C++
 installation it can find.
 You can set the LDC_VSDIR environment variable to select a specific version,
 e.g., 'C:\Program Files (x86)\Microsoft Visual Studio\2019\Community'.
-The MSVC toolchain setup is skipped if LDC is run inside a 'VS Native/Cross
-Tools Command Prompt' (more precisely, if the VSINSTALLDIR environment variable
-is set). You can set the LDC_VSDIR_FORCE environment variable (to some
-non-empty value) to enforce setting up the MSVC toolchain.
+MSVC toolchain detection and setup is skipped if LDC is run inside a
+'VS Native/Cross Tools Command Prompt' (more precisely, if the VSINSTALLDIR
+environment variable is set).
 
 If you don't have a Visual C++ installation, LDC falls back to LLD (the LLVM
 linker) and the bundled WinSDK & Visual C++ runtime (import) libraries based on
