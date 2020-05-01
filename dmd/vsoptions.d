@@ -27,14 +27,8 @@ import dmd.root.outbuffer;
 import dmd.root.rmem;
 import dmd.root.string;
 
-version (IN_LLVM)
-{
-    enum supportedPre2017Versions = ["14.0".ptr];
-}
-else
-{
-    enum supportedPre2017Versions = ["14.0".ptr, "12.0", "11.0", "10.0", "9.0"];
-}
+version (IN_LLVM) enum supportedPre2017Versions = ["14.0".ptr];
+else              enum supportedPre2017Versions = ["14.0".ptr, "12.0", "11.0", "10.0", "9.0"];
 
 extern(C++) struct VSOptions
 {
@@ -361,15 +355,7 @@ public:
      */
     const(char)* getVCBinDir(bool x64, out const(char)* addpath) const
     {
-        static const(char)* linkExists(scope const(char)*[] dirs...)
-        {
-            auto p = buildPathWithSuffix("link.exe", dirs);
-            const(char)* result = null;
-            if (FileName.exists(p))
-                result = FileName.path(p);
-            mem.xfree(p);
-            return result;
-        }
+        alias linkExists = returnDirIfContainsFile!"link.exe";
 
         const bool isHost64 = isWin64Host();
         if (VCToolsInstallDir !is null)
@@ -478,15 +464,7 @@ public:
     {
         if (WindowsSdkDir)
         {
-            static const(char)* kernel32Exists(scope const(char)*[] dirs...)
-            {
-                auto p = buildPathWithSuffix("kernel32.lib", dirs);
-                const(char)* result = null;
-                if (FileName.exists(p))
-                    result = FileName.path(p);
-                mem.xfree(p);
-                return result;
-            }
+            alias kernel32Exists = returnDirIfContainsFile!"kernel32.lib";
 
             const(char)* arch = x64 ? "x64" : "x86";
             auto sdk = FileName.combine(WindowsSdkDir, "lib");
@@ -685,49 +663,50 @@ char* getenv(wstring name)
     return null;
 }
 
-char* buildPathWithSuffix(string suffix, const(char)*[] dirs...)
+char* buildPath(const(char)*[] fragments...)
 {
-    assert(dirs.length);
+    assert(fragments.length);
 
-    const(char)[][] ddirs = (cast(const(char)[]*) mem.xmalloc_noscan(dirs.length * string.sizeof))[0 .. dirs.length];
-    scope(exit) mem.xfree(ddirs.ptr);
+    const(char)[][] f = (cast(const(char)[]*) mem.xmalloc_noscan(fragments.length * string.sizeof))[0 .. fragments.length];
+    scope(exit) mem.xfree(f.ptr);
 
     size_t size;
-    foreach (i, dir; dirs)
+    foreach (i, fragment; fragments)
     {
-        ddirs[i] = dir.toDString;
-        size += ddirs[i].length + 1;
+        f[i] = fragment.toDString;
+        size += f[i].length + 1;
     }
-    if (suffix.length)
-        size += suffix.length + 1;
 
     char* p = cast(char*) mem.xmalloc_noscan(size);
     size_t length;
-    foreach (dir; ddirs)
+    foreach (fragment; f)
     {
-        assert(dir.length);
-        p[length .. length + dir.length] = dir;
-        length += dir.length;
+        assert(fragment.length);
+        p[length .. length + fragment.length] = fragment;
+        length += fragment.length;
         const last = p[length - 1];
         if (last != '\\' && last != '/')
             p[length++] = '\\';
     }
 
-    if (suffix.length)
-    {
-        p[length .. length + suffix.length] = suffix;
-        length += suffix.length;
-        p[length] = 0;
-    }
-    else
-        p[--length] = 0; // overwrite last '\' with null terminator
+    // overwrite last '\' with null terminator
+    p[--length] = 0;
 
     return p;
 }
 
-char* buildPath(const(char)*[] fragments...)
+char* returnDirIfContainsFile(string fileName)(scope const(char)*[] dirs...)
 {
-    return buildPathWithSuffix(null, fragments);
+    auto dirPath = buildPath(dirs);
+
+    auto filePath = FileName.combine(dirPath, fileName);
+    scope(exit) FileName.free(filePath);
+
+    if (FileName.exists(filePath))
+        return dirPath;
+
+    mem.xfree(dirPath);
+    return null;
 }
 
 extern (C) int _waccess(const(wchar)* _FileName, int _AccessMode);
@@ -818,11 +797,11 @@ const(char)* detectVSInstallDirViaCOM()
     while (instances.Next(1, &instance, &fetched) == S_OK && fetched)
     {
         WrappedBString thisVersionString, thisInstallDir;
-        if (instance.GetInstallationVersion(&thisVersionString.ptr) != S_OK)
-            continue;
-        if (instance.GetInstallationPath(&thisInstallDir.ptr) != S_OK)
+        if (instance.GetInstallationVersion(&thisVersionString.ptr) != S_OK ||
+            instance.GetInstallationPath(&thisInstallDir.ptr) != S_OK)
             continue;
 
+        // FIXME: proper version strings comparison
         if (versionString && wcscmp(thisVersionString.ptr, versionString.ptr) <= 0)
             continue; // not a newer version, skip
 
@@ -839,8 +818,5 @@ const(char)* detectVSInstallDirViaCOM()
         thisInstallDir.moveTo(installDir);
     }
 
-    if (installDir)
-        return toUTF8(installDir.ptr);
-
-    return null;
+    return installDir ? toUTF8(installDir.ptr) : null;
 }
