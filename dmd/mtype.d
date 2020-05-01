@@ -5511,6 +5511,7 @@ extern (C++) final class TypeStruct : Type
 {
     StructDeclaration sym;
     AliasThisRec att = AliasThisRec.fwdref;
+    bool inuse = false; // struct currently subject of recursive method call
 
     extern (D) this(StructDeclaration sym)
     {
@@ -5668,6 +5669,11 @@ extern (C++) final class TypeStruct : Type
 
     override bool needsNested()
     {
+        if (inuse) return false; // circular type, error instead of crashing
+
+        inuse = true;
+        scope(exit) inuse = false;
+
         if (sym.isNested())
             return true;
 
@@ -6167,6 +6173,9 @@ extern (C++) final class TypeClass : Type
  */
 extern (C++) final class TypeTuple : Type
 {
+    // 'logically immutable' cached global - don't modify!
+    __gshared TypeTuple empty = new TypeTuple();
+
     Parameters* arguments;  // types making up the tuple
 
     extern (D) this(Parameters* arguments)

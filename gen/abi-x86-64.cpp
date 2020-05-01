@@ -61,16 +61,16 @@ LLType *getAbiType(Type *ty) {
   // Okay, we may need to transform. Figure out a canonical type:
   llvm::SmallVector<Type *, 2> argTypes;
 
-  // try to reuse cached arg{1,2}type of StructDeclarations
+  // try to reuse cached argTypes of StructDeclarations
   if (ty->ty == Tstruct) {
     const auto sd = static_cast<TypeStruct *>(ty)->sym;
     if (sd && sd->sizeok == SIZEOKdone) {
-      if (!sd->arg1type) {
+      const unsigned N = sd->numArgTypes();
+      if (N == 0) {
         return nullptr; // don't rewrite
       }
-      argTypes.push_back(sd->arg1type);
-      if (sd->arg2type) {
-        argTypes.push_back(sd->arg2type);
+      for (unsigned i = 0; i < N; ++i) {
+        argTypes.push_back(sd->argType(i));
       }
     }
   }

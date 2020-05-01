@@ -738,6 +738,7 @@ class TypeStruct : public Type
 public:
     StructDeclaration *sym;
     AliasThisRec att;
+    bool inuse;
 
     static TypeStruct *create(StructDeclaration *sym);
     const char *kind();
@@ -824,6 +825,9 @@ public:
 class TypeTuple : public Type
 {
 public:
+    // 'logically immutable' cached global - don't modify (neither pointer nor pointee)!
+    static TypeTuple *empty;
+
     Parameters *arguments;      // types making up the tuple
 
     static TypeTuple *create(Parameters *arguments);

@@ -446,16 +446,13 @@ public:
     if (withArgTypes) {
       // TypeInfo m_arg1
       // TypeInfo m_arg2
-      Type *t = sd->arg1type;
       for (unsigned i = 0; i < 2; i++) {
-        if (t) {
+        if (auto t = sd->argType(i)) {
           t = merge(t);
           b.push_typeinfo(t);
         } else {
           b.push_null(getTypeInfoType());
         }
-
-        t = sd->arg2type;
       }
     }
 
