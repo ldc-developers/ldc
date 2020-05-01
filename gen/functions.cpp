@@ -1198,12 +1198,12 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // D varargs: prepare _argptr and _arguments
   if (f->linkage == LINKd && f->parameterList.varargs == VARARGvariadic) {
     // allocate _argptr (of type core.stdc.stdarg.va_list)
-    Type *const argptrType = typeSemantic(Type::tvalist, fd->loc, fd->_scope);
-    LLValue *argptrMem = DtoAlloca(argptrType, "_argptr_mem");
+    Type *tvalist = Type::getVaList(fd->_scope);
+    LLValue *argptrMem = DtoAlloca(tvalist, "_argptr_mem");
     irFunc->_argptr = argptrMem;
 
     // initialize _argptr with a call to the va_start intrinsic
-    DLValue argptrVal(argptrType, argptrMem);
+    DLValue argptrVal(tvalist, argptrMem);
     LLValue *llAp = gABI->prepareVaStart(&argptrVal);
     llvm::CallInst::Create(GET_INTRINSIC_DECL(vastart), llAp, "",
                            gIR->scopebb());

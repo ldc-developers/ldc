@@ -3541,8 +3541,7 @@ version (IN_LLVM)
 
             bool isVa_list(Parameter p)
             {
-                Type.tvalist = Type.tvalist.typeSemantic(funcdecl.loc, sc);
-                return p.type.equals(Type.tvalist);
+                return p.type.equals(Type.getVaList(sc));
             }
 
             const nparams = f.parameterList.length;
