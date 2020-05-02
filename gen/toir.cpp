@@ -2593,8 +2593,8 @@ public:
   //////////////////////////////////////////////////////////////////////////////
 
   static DLValue *emitVector(VectorExp *e, LLValue *dstMem) {
-    TypeVector *type = static_cast<TypeVector *>(e->to->toBasetype());
-    assert(e->type->ty == Tvector);
+    TypeVector *type = e->to->toBasetype()->isTypeVector();
+    assert(type);
 
     const unsigned N = e->dim;
 
@@ -2602,9 +2602,15 @@ public:
     if (elementType->ty == Tvoid)
       elementType = Type::tuns8;
 
-    // Array literals are assigned element-wise, other expressions are cast and
-    // splat across the vector elements. This is what DMD does.
+    const auto getCastElement = [e, elementType](DValue *element) {
+      return DtoRVal(DtoCast(e->loc, element, elementType));
+    };
+
+    Type *tsrc = e->e1->type->toBasetype();
     if (auto lit = e->e1->isArrayLiteralExp()) {
+      // Optimization for array literals: check for a fully static literal and
+      // store a vector constant in that case, otherwise emplace element-wise
+      // into destination memory.
       Logger::println("array literal expression");
       assert(lit->elements->length == N &&
              "Array literal vector initializer "
@@ -2616,7 +2622,7 @@ public:
       llElementConstants.reserve(N);
       for (unsigned i = 0; i < N; ++i) {
         DValue *val = toElem(indexArrayLiteral(lit, i));
-        LLValue *llVal = DtoRVal(DtoCast(e->loc, val, elementType));
+        LLValue *llVal = getCastElement(val);
         llElements.push_back(llVal);
         if (auto llConstant = isaConstant(llVal))
           llElementConstants.push_back(llConstant);
@@ -2630,10 +2636,36 @@ public:
           DtoStore(llElements[i], DtoGEP(dstMem, 0, i));
         }
       }
+    } else if (tsrc->ty == Tarray || tsrc->ty == Tsarray) {
+      // Arrays: prefer a memcpy if the LL element types match, otherwise cast
+      // and store element-wise.
+      if (auto ts = tsrc->isTypeSArray()) {
+        Logger::println("static array expression");
+        assert(ts->dim->toInteger() == N &&
+               "Static array vector initializer length mismatch, should have "
+               "been handled in frontend.");
+      } else {
+        // TODO: bounds check?
+        Logger::println("dynamic array expression, assume matching length");
+      }
+
+      LLValue *arrayPtr = DtoArrayPtr(toElem(e->e1));
+      Type *srcElementType = tsrc->nextOf();
+
+      if (DtoMemType(elementType) == DtoMemType(srcElementType)) {
+        DtoMemCpy(dstMem, arrayPtr);
+      } else {
+        for (unsigned i = 0; i < N; ++i) {
+          DLValue srcElement(srcElementType, DtoGEP1(arrayPtr, i));
+          LLValue *llVal = getCastElement(&srcElement);
+          DtoStore(llVal, DtoGEP(dstMem, 0, i));
+        }
+      }
     } else {
+      // Try a splat vector constant, otherwise store element-wise.
       Logger::println("normal (splat) expression");
       DValue *val = toElem(e->e1);
-      LLValue *llElement = DtoRVal(DtoCast(e->loc, val, elementType));
+      LLValue *llElement = getCastElement(val);
       if (auto llConstant = isaConstant(llElement)) {
         auto vectorConstant = llvm::ConstantVector::getSplat(N, llConstant);
         DtoStore(vectorConstant, dstMem);
