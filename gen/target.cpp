@@ -26,6 +26,8 @@ using llvm::APFloat;
 TypeTuple *toArgTypes(Type *t);
 // in dmd/argtypes_sysv_x64.d:
 TypeTuple *toArgTypes_sysv_x64(Type *t);
+// in dmd/argtypes_aarch64.d:
+TypeTuple *toArgTypes_aarch64(Type *t);
 
 namespace {
 /******************************
@@ -200,10 +202,13 @@ const char *TargetCPP::typeMangle(Type *t) {
 
 TypeTuple *Target::toArgTypes(Type *t) {
   const auto &triple = *global.params.targetTriple;
-  if (triple.getArch() == llvm::Triple::x86)
+  const auto arch = triple.getArch();
+  if (arch == llvm::Triple::x86)
     return ::toArgTypes(t);
-  if (triple.getArch() == llvm::Triple::x86_64 && !triple.isOSWindows())
+  if (arch == llvm::Triple::x86_64 && !triple.isOSWindows())
     return toArgTypes_sysv_x64(t);
+  if (arch == llvm::Triple::aarch64 || arch == llvm::Triple::aarch64_be)
+    return toArgTypes_aarch64(t);
   return nullptr;
 }
 
