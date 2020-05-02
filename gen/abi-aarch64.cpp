@@ -41,7 +41,7 @@ struct AArch64TargetABI : TargetABI {
 private:
   const bool isDarwin;
   IndirectByvalRewrite byvalRewrite;
-  HFAToArray hfaToArray;
+  HFVAToArray hfvaToArray;
   CompositeToArray64 compositeToArray64;
   IntegerRewrite integerRewrite;
 
@@ -65,7 +65,7 @@ private:
   bool passIndirectlyByValue(Type *t) {
     t = t->toBasetype();
     return t->ty == Tsarray || (t->ty == Tstruct && t->size() > 16 &&
-                                !isHFA(static_cast<TypeStruct *>(t)));
+                                !isHFVA(t, hfvaToArray.maxElements));
   }
 
 public:
@@ -115,8 +115,8 @@ public:
     // Rewrite HFAs only because union HFAs are turned into IR types that are
     // non-HFA and messes up register selection
     else if (t->ty == Tstruct &&
-             isHFA(static_cast<TypeStruct *>(t), &arg.ltype)) {
-      hfaToArray.applyTo(arg, arg.ltype);
+             isHFVA(t, hfvaToArray.maxElements, &arg.ltype)) {
+      hfvaToArray.applyTo(arg, arg.ltype);
     } else {
       if (isReturnVal) {
         integerRewrite.applyTo(arg);

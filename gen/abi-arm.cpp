@@ -22,7 +22,7 @@
 #include "llvm/Target/TargetMachine.h"
 
 struct ArmTargetABI : TargetABI {
-  HFAToArray hfaToArray;
+  HFVAToArray hfvaToArray;
   CompositeToArray32 compositeToArray32;
   CompositeToArray64 compositeToArray64;
   IntegerRewrite integerRewrite;
@@ -40,8 +40,8 @@ struct ArmTargetABI : TargetABI {
 
     return rt->ty == Tsarray ||
            (rt->ty == Tstruct && rt->size() > 4 &&
-             (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Soft ||
-             !isHFA((TypeStruct *)rt)));
+            (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Soft ||
+             !isHFVA(rt, hfvaToArray.maxElements)));
   }
 
   bool passByVal(TypeFunction *, Type *t) override {
@@ -75,8 +75,8 @@ struct ArmTargetABI : TargetABI {
     if (!fty.ret->byref && retTy->ty == Tstruct) {
       // Rewrite HFAs only because union HFAs are turned into IR types that are
       // non-HFA and messes up register selection
-      if (isHFA((TypeStruct *)retTy, &fty.ret->ltype)) {
-        hfaToArray.applyTo(*fty.ret, fty.ret->ltype);
+      if (isHFVA(retTy, hfvaToArray.maxElements, &fty.ret->ltype)) {
+        hfvaToArray.applyTo(*fty.ret, fty.ret->ltype);
       } else {
         integerRewrite.applyTo(*fty.ret);
       }
@@ -103,8 +103,8 @@ struct ArmTargetABI : TargetABI {
     if (ty->ty == Tstruct) {
       // Rewrite HFAs only because union HFAs are turned into IR types that are
       // non-HFA and messes up register selection
-      if (isHFA((TypeStruct *)ty, &arg.ltype)) {
-        hfaToArray.applyTo(arg, arg.ltype);
+      if (isHFVA(ty, hfvaToArray.maxElements, &arg.ltype)) {
+        hfvaToArray.applyTo(arg, arg.ltype);
       } else if (DtoAlignment(ty) <= 4) {
         compositeToArray32.applyTo(arg);
       } else {

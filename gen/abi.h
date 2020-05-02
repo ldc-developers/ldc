@@ -177,10 +177,11 @@ struct TargetABI {
 
   /***** Static Helpers *****/
 
-  /// Check if struct 't' is a Homogeneous Floating-point Aggregate (HFA)
-  /// consisting of up to 4 of same floating point type.  If so, optionally
-  /// produce the rewriteType: an array of that floating point type
-  static bool isHFA(TypeStruct *t, llvm::Type **rewriteType = nullptr, const int maxFloats = 4);
+  /// Check if `t` is a Homogeneous Floating-point Aggregate (HFA) or
+  /// Homogeneous Vector Aggregate (HVA). If so, optionally produce the
+  /// rewriteType: an array of its fundamental type.
+  static bool isHFVA(Type *t, int maxNumElements,
+                     llvm::Type **hfvaType = nullptr);
 
 protected:
 
