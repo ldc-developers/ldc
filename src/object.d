@@ -52,13 +52,16 @@ version (LDC)
     else version (ARM_Any)
     {
         // Darwin does not use __va_list
-        version (iOS) {}
+        version (OSX) {}
+        else version (iOS) {}
         else version (TVOS) {}
         else version (WatchOS) {}
-        else
-        {
+        else:
+
+        version (ARM)
             public import core.stdc.stdarg : __va_list;
-        }
+        else version (AArch64)
+            public import core.internal.vararg.aarch64 : __va_list;
     }
 }
 
