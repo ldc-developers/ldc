@@ -104,13 +104,15 @@ bool TargetABI::canRewriteAsInt(Type *t, bool include64bit) {
   return size == 1 || size == 2 || size == 4 || (include64bit && size == 8);
 }
 
+bool TargetABI::isExternD(TypeFunction *tf) {
+  return tf->linkage == LINKd && tf->parameterList.varargs != VARARGvariadic;
+}
+
 //////////////////////////////////////////////////////////////////////////////
 
 bool TargetABI::reverseExplicitParams(TypeFunction *tf) {
   // Required by druntime for extern(D), except for `, ...`-style variadics.
-  return tf->linkage == LINKd &&
-         tf->parameterList.varargs != VARARGvariadic &&
-         tf->parameterList.length() > 1;
+  return isExternD(tf) && tf->parameterList.length() > 1;
 }
 
 //////////////////////////////////////////////////////////////////////////////

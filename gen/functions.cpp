@@ -1197,7 +1197,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   // D varargs: prepare _argptr and _arguments
-  if (f->linkage == LINKd && f->parameterList.varargs == VARARGvariadic) {
+  if (f->isDstyleVariadic()) {
     // allocate _argptr (of type core.stdc.stdarg.va_list)
     Type *tvalist = target.va_listType(fd->loc, fd->_scope);
     LLValue *argptrMem = DtoAlloca(tvalist, "_argptr_mem");

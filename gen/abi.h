@@ -192,4 +192,8 @@ protected:
 
   /// Returns true if the D type can be bit-cast to an integer of the same size.
   static bool canRewriteAsInt(Type *t, bool include64bit = true);
+
+  /// Returns true if the D function type uses extern(D) linkage *and* isn't a
+  /// D-style variadic function.
+  static bool isExternD(TypeFunction *tf);
 };
