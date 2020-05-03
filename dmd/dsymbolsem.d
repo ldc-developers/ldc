@@ -3541,7 +3541,7 @@ version (IN_LLVM)
 
             bool isVa_list(Parameter p)
             {
-                return p.type.equals(Type.getVaList(sc));
+                return p.type.equals(target.va_listType(funcdecl.loc, sc));
             }
 
             const nparams = f.parameterList.length;

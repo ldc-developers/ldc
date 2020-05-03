@@ -179,7 +179,11 @@ unsigned Target::alignsize(Type *type) {
  */
 unsigned Target::fieldalign(Type *type) { return DtoAlignment(type); }
 
-Type *Target::va_listType() { return gABI->vaListType(); }
+Type *Target::va_listType(const Loc &loc, Scope *sc) {
+  if (!va_list)
+    va_list = typeSemantic(gABI->vaListType(), loc, sc);
+  return va_list;
+}
 
 /**
  * Gets vendor-specific type mangling for C++ ABI.

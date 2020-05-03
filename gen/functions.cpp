@@ -20,6 +20,7 @@
 #include "dmd/module.h"
 #include "dmd/mtype.h"
 #include "dmd/statement.h"
+#include "dmd/target.h"
 #include "dmd/template.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
@@ -1198,7 +1199,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // D varargs: prepare _argptr and _arguments
   if (f->linkage == LINKd && f->parameterList.varargs == VARARGvariadic) {
     // allocate _argptr (of type core.stdc.stdarg.va_list)
-    Type *tvalist = Type::getVaList(fd->_scope);
+    Type *tvalist = target.va_listType(fd->loc, fd->_scope);
     LLValue *argptrMem = DtoAlloca(tvalist, "_argptr_mem");
     irFunc->_argptr = argptrMem;
 

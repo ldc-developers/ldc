@@ -475,18 +475,6 @@ version (IN_LLVM)
 
     extern (C++) __gshared Type[TMAX] basic;
 
-    /// Returns the resolved special va_list type.
-    extern (C++) static Type getVaList(Scope* sc)
-    {
-        // `Target.va_listType()` may return a type based on some TypeIdentifier,
-        // possibly referring to an object.d alias. This is why we need to
-        // resolve va_list lazily.
-        __gshared Type tvalist = null;
-        if (!tvalist)
-            tvalist = typeSemantic(target.va_listType(), Loc.initial, sc);
-        return tvalist;
-    }
-
     extern (D) __gshared StringTable!Type stringtable;
     extern (D) private __gshared ubyte[TMAX] sizeTy = ()
         {
