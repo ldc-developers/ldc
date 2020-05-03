@@ -161,8 +161,20 @@ struct BaseBitcastABIRewrite : ABIRewrite {
 //////////////////////////////////////////////////////////////////////////////
 
 /**
- * Rewrites any parameter to an integer of the same or next bigger size via
- * bit-casting.
+ * Bit-casts an argument based on the front-end toArgTypes* machinery.
+ */
+struct ArgTypesRewrite : BaseBitcastABIRewrite {
+  LLType *type(Type *t) override {
+    LLType *rewrittenType = TargetABI::getRewrittenArgType(t->toBasetype());
+    assert(rewrittenType);
+    return rewrittenType;
+  }
+};
+
+//////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Bit-casts an argument to an integer of the same or next bigger size.
  */
 struct IntegerRewrite : BaseBitcastABIRewrite {
   static LLType *getIntegerType(unsigned minSizeInBytes) {
