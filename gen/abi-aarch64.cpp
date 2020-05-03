@@ -17,6 +17,7 @@
 
 #include "dmd/identifier.h"
 #include "dmd/ldcbindings.h"
+#include "dmd/nspace.h"
 #include "gen/abi.h"
 #include "gen/abi-generic.h"
 
@@ -31,8 +32,7 @@
  *     int __vr_offs; // offset from __vr_top to next FP/SIMD register arg
  * } va_list;
  *
- * In druntime, the struct is defined as object.__va_list, an alias of
- * ldc.internal.vararg.std.__va_list.
+ * In druntime, the struct is aliased as object.__va_list.
  * Arguments of this type are never passed by value, only by reference (even
  * though the mangled function name indicates otherwise!). This requires a
  * little bit of compiler magic in the following implementations.
@@ -41,20 +41,31 @@ struct AArch64TargetABI : TargetABI {
 private:
   const bool isDarwin;
   IndirectByvalRewrite byvalRewrite;
-  HFAToArray hfaToArray;
+  HFVAToArray hfvaToArray;
   CompositeToArray64 compositeToArray64;
   IntegerRewrite integerRewrite;
 
   bool isAAPCS64VaList(Type *t) {
-    return !isDarwin && t->ty == Tstruct &&
-           strcmp(t->toPrettyChars(true),
-                  "ldc.internal.vararg.std.__va_list") == 0;
+    if (isDarwin)
+      return false;
+
+    // look for a __va_list struct in a `std` C++ namespace
+    if (auto ts = t->isTypeStruct()) {
+      auto sd = ts->sym;
+      if (strcmp(sd->ident->toChars(), "__va_list") == 0) {
+        if (auto ns = sd->parent->isNspace()) {
+          return strcmp(ns->toChars(), "std") == 0;
+        }
+      }
+    }
+
+    return false;
   }
 
   bool passIndirectlyByValue(Type *t) {
     t = t->toBasetype();
     return t->ty == Tsarray || (t->ty == Tstruct && t->size() > 16 &&
-                                !isHFA(static_cast<TypeStruct *>(t)));
+                                !isHFVA(t, hfvaToArray.maxElements));
   }
 
 public:
@@ -104,8 +115,8 @@ public:
     // Rewrite HFAs only because union HFAs are turned into IR types that are
     // non-HFA and messes up register selection
     else if (t->ty == Tstruct &&
-             isHFA(static_cast<TypeStruct *>(t), &arg.ltype)) {
-      hfaToArray.applyTo(arg, arg.ltype);
+             isHFVA(t, hfvaToArray.maxElements, &arg.ltype)) {
+      hfvaToArray.applyTo(arg, arg.ltype);
     } else {
       if (isReturnVal) {
         integerRewrite.applyTo(arg);

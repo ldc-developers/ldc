@@ -31,6 +31,9 @@
 #include "ir/irfuncty.h"
 #include <algorithm>
 
+// in dmd/argtypes_aarch64.d:
+bool isHFVA(Type *t, int maxNumElements, Type **rewriteType);
+
 //////////////////////////////////////////////////////////////////////////////
 
 llvm::Value *ABIRewrite::getRVal(Type *dty, LLValue *v) {
@@ -77,114 +80,12 @@ LLValue *ABIRewrite::loadFromMemory(LLValue *address, LLType *asType,
 
 //////////////////////////////////////////////////////////////////////////////
 
-// A Homogeneous Floating-point Aggregate (HFA) is an ARM/AArch64 concept that
-// consists of up to 4 of same floating point type.  D floats of same size are
-// considered as same (e.g. ifloat and float are same).  It is the aggregate
-// final data layout that matters so nested structs, unions, and sarrays can
-// result in an HFA.
-//
-// simple HFAs: struct F1 {float f;}  struct D4 {double a,b,c,d;}
-// interesting HFA: struct {F1[2] vals; float weight;}
-
-namespace {
-bool isNestedHFA(const TypeStruct *t, d_uns64 &floatSize, int &num,
-                 uinteger_t adim) {
-  // Used internally by isHFA() to check struct recursively for HFA-ness.
-  // Return true if struct 't' is part of an HFA where 'floatSize' is sizeof
-  // the float and 'num' is number of these floats so far.  On return, 'num'
-  // is updated to the total number of floats in the HFA.  Set 'floatSize'
-  // to 0 discover the sizeof the float.  When struct 't' is part of an
-  // sarray, 'adim' is the dimension of that array, otherwise it is 1.
-  VarDeclarations fields = t->sym->fields;
-
-  // HFA can't contains an empty struct
-  if (fields.length == 0)
-    return false;
-
-  // Accumulate number of floats in HFA
-  int n;
-
-  // For unions, need to find field with most floats
-  int maxn = num;
-
-  for (VarDeclaration *field : fields) {
-    Type *tf = field->type;
-
-    // reset to initial num floats (all union fields are at offset 0)
-    if (field->offset == 0)
-      n = num;
-
-    // reset dim to dimension of sarray we are in (will be 1 if not)
-    uinteger_t dim = adim;
-
-    // Field is an array.  Process the arrayof type and multiply dim by
-    // array dim.  Note that empty arrays immediately exclude this struct
-    // from HFA status.
-    if (auto tarray = tf->isTypeSArray()) {
-      if (tarray->dim->toUInteger() == 0)
-        return false;
-      tf = tarray->nextOf();
-      dim *= tarray->dim->toUInteger();
-    }
-
-    if (auto tstruct = tf->isTypeStruct()) {
-      if (!isNestedHFA(tstruct, floatSize, n, dim))
-        return false;
-    } else if (tf->isfloating()) {
-      d_uns64 sz = tf->size();
-      n += dim;
-
-      if (tf->iscomplex()) {
-        sz /= 2; // complex is 2 floats, adjust sz
-        n += dim;
-      }
-
-      if (floatSize == 0) // discovered floatSize
-        floatSize = sz;
-      else if (sz != floatSize) // different float size, reject
-        return false;
-
-      // if (n > 4)
-      //  return false; // too many floats for HFA, reject
-    } else {
-      return false; // reject all other types
-    }
-
-    if (n > maxn)
-      maxn = n;
-  }
-
-  num = maxn;
-  return true;
-}
-}
-
-bool TargetABI::isHFA(TypeStruct *t, llvm::Type **rewriteType,
-                      const int maxFloats) {
-  d_uns64 floatSize = 0;
-  int num = 0;
-
-  if (isNestedHFA(t, floatSize, num, 1)) {
-    if (num <= maxFloats) {
-      if (rewriteType) {
-        llvm::Type *floatType = nullptr;
-        switch (floatSize) {
-        case 4:
-          floatType = llvm::Type::getFloatTy(gIR->context());
-          break;
-        case 8:
-          floatType = llvm::Type::getDoubleTy(gIR->context());
-          break;
-        case 16:
-          floatType = llvm::Type::getFP128Ty(gIR->context());
-          break;
-        default:
-          llvm_unreachable("Unexpected size for float type");
-        }
-        *rewriteType = LLArrayType::get(floatType, num);
-      }
-      return true;
-    }
+bool TargetABI::isHFVA(Type *t, int maxNumElements, LLType **hfvaType) {
+  Type *rewriteType = nullptr;
+  if (::isHFVA(t, maxNumElements, &rewriteType)) {
+    if (hfvaType)
+      *hfvaType = DtoType(rewriteType);
+    return true;
   }
   return false;
 }
