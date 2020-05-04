@@ -451,7 +451,7 @@ cl::opt<uint32_t, true> hashThreshold(
     cl::desc("Hash symbol names longer than this threshold (experimental)"));
 
 cl::opt<bool> linkonceTemplates(
-    "linkonce-templates", cl::ZeroOrMore,
+    "linkonce-templates", cl::ZeroOrMore, cl::init(true),
     cl::desc(
         "Use linkonce_odr linkage for template symbols instead of weak_odr"));
 

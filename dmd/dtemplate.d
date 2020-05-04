@@ -6157,7 +6157,7 @@ extern (C++) class TemplateInstance : ScopeDsymbol
             return false;
         }
 
-        if (global.params.useUnitTests)
+        if (true)//global.params.useUnitTests)
         {
             // Prefer instantiations from root modules, to maximize link-ability.
             if (minst.isRoot())
@@ -6184,7 +6184,7 @@ extern (C++) class TemplateInstance : ScopeDsymbol
             }
 
             // https://issues.dlang.org/show_bug.cgi?id=2500 case
-            if (minst.rootImports())
+            if (false)//minst.rootImports())
                 return true;
 
             // Elide codegen because this is not included in root instances.
