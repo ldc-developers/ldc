@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -146,6 +146,7 @@ public:
     CompoundStatement    *isCompoundStatement()    { return stmt == STMTcompound    ? (CompoundStatement*)this    : NULL; }
 #if IN_LLVM
     CompoundAsmStatement *isCompoundAsmStatement() { return stmt == STMTcompoundAsm ? (CompoundAsmStatement*)this : NULL; }
+    GccAsmStatement      *isGccAsmStatement()      { return stmt == STMTgccAsm      ? (GccAsmStatement *)this     : NULL; }
 #endif
     ReturnStatement      *isReturnStatement()      { return stmt == STMTreturn      ? (ReturnStatement*)this      : NULL; }
     IfStatement          *isIfStatement()          { return stmt == STMTif          ? (IfStatement*)this          : NULL; }
@@ -284,6 +285,7 @@ public:
 
 class ForwardingStatement : public Statement
 {
+public:
     ForwardingScopeDsymbol *sym;
     Statement *statement;
 

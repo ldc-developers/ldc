@@ -130,6 +130,18 @@ static cl::opt<bool, true> printErrorContext(
     cl::desc(
         "Show error messages with the context of the erroring source line"));
 
+static cl::opt<MessageStyle, true> verrorStyle(
+    "verror-style", cl::ZeroOrMore, cl::location(global.params.messageStyle),
+    cl::desc(
+        "Set the style for file/line number annotations on compiler messages"),
+    clEnumValues(
+        clEnumValN(MESSAGESTYLEdigitalmars, "digitalmars",
+                   "'file(line[,column]): message' (default)"),
+        clEnumValN(MESSAGESTYLEgnu, "gnu",
+                   "'file:line[:column]: message', conforming to the GNU "
+                   "standard used by gcc and clang")),
+    cl::init(MESSAGESTYLEdigitalmars));
+
 static cl::opt<Diagnostic, true> warnings(
     cl::desc("Warnings:"), cl::ZeroOrMore, cl::location(global.params.warnings),
     clEnumValues(
@@ -247,6 +259,21 @@ cl::opt<std::string> hdrFile("Hf", cl::ZeroOrMore, cl::Prefix,
 cl::opt<bool>
     hdrKeepAllBodies("Hkeep-all-bodies", cl::ZeroOrMore,
                      cl::desc("Keep all function bodies in .di files"));
+
+// C++ header generation options
+static cl::opt<bool, true>
+    doCxxHdrGen("HC", cl::desc("Generate C++ 'header' file"), cl::ZeroOrMore,
+             cl::location(global.params.doCxxHdrGeneration));
+
+cl::opt<std::string>
+    cxxHdrDir("HCd", cl::ZeroOrMore, cl::Prefix,
+              cl::desc("Write C++ 'header' file to <directory>"),
+              cl::value_desc("directory"));
+
+cl::opt<std::string>
+    cxxHdrFile("HCf", cl::ZeroOrMore, cl::Prefix,
+               cl::desc("Write C++ 'header' file to <filename>"),
+               cl::value_desc("filename"));
 
 cl::opt<std::string> mixinFile("mixin", cl::ZeroOrMore,
                                cl::desc("Expand and save mixins to <filename>"),
@@ -604,16 +631,17 @@ void hideLLVMOptions() {
       "enable-objc-arc-opts", "enable-pie", "enable-scoped-noalias",
       "enable-tbaa", "enable-unsafe-fp-math", "exception-model",
       "exhaustive-register-search", "expensive-combines",
-      "fatal-assembler-warnings", "filter-print-funcs", "gpsize",
-      "hash-based-counter-split",
+      "fatal-assembler-warnings", "filter-print-funcs",
+      "force-dwarf-frame-section", "gpsize", "hash-based-counter-split",
       "imp-null-check-page-size", "imp-null-max-insts-to-consider",
       "import-all-index", "incremental-linker-compatible",
-      "instcombine-code-sinking",
-      "instcombine-guard-widening-window", "instcombine-max-num-phis",
+      "instcombine-code-sinking", "instcombine-guard-widening-window",
+      "instcombine-max-iterations", "instcombine-max-num-phis",
       "instcombine-maxarray-size", "instrprof-atomic-counter-update-all",
       "internalize-public-api-file",
       "internalize-public-api-list", "iterative-counter-promotion",
       "join-liveintervals", "jump-table-type", "limit-float-precision",
+      "lto-embed-bitcode", "matrix-propagate-shape",
       "max-counter-promotions", "max-counter-promotions-per-loop",
       "mc-relax-all", "mc-x86-disable-arith-relaxation", "meabi",
       "memop-size-large", "memop-size-range", "merror-missing-parenthesis",
@@ -645,13 +673,15 @@ void hideLLVMOptions() {
       "stackmap-version", "static-func-full-module-prefix",
       "static-func-strip-dirname-prefix", "stats", "stats-json", "strip-debug",
       "struct-path-tbaa", "summary-file", "tailcallopt", "thread-model",
-      "time-passes", "time-trace-granularity",
+      "time-passes", "time-trace-granularity", "tls-size",
       "unfold-element-atomic-memcpy-max-elements",
       "unique-section-names", "unit-at-a-time", "use-ctors",
       "verify-debug-info", "verify-dom-info", "verify-loop-info",
       "verify-loop-lcssa", "verify-machine-dom-info", "verify-regalloc",
       "verify-region-info", "verify-scev", "verify-scev-maps",
-      "vp-counters-per-site", "vp-static-alloc", "x86-early-ifcvt",
+      "vp-counters-per-site", "vp-static-alloc",
+      "x86-align-branch", "x86-align-branch-boundary",
+      "x86-branches-within-32B-boundaries", "x86-early-ifcvt",
       "x86-recip-refinement-steps", "x86-use-vzeroupper",
 
       // We enable -fdata-sections/-ffunction-sections by default where it makes

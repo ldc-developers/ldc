@@ -25,6 +25,7 @@
 #include "gen/dcompute/target.h"
 #include "gen/dvalue.h"
 #include "gen/funcgenstate.h"
+#include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -42,6 +43,7 @@
 
 //////////////////////////////////////////////////////////////////////////////
 // FIXME: Integrate these functions
+void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs);
 void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs);
 void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p);
 
@@ -156,7 +158,7 @@ public:
     emitInstrumentationFnLeave(fd);
 
     // is there a return value expression?
-    const bool isMainFunc = irs->isMainFunc(f);
+    const bool isMainFunc = isAnyMainFunction(fd);
     if (stmt->exp || isMainFunc) {
       if (!stmt->exp) {
         // implicitly return 0 for the main function
@@ -283,7 +285,7 @@ public:
         // Hack: the frontend generates 'return 0;' as last statement of
         // 'void main()'. But the debug location is missing. Use the end
         // of function as debug location.
-        if (fd->isMain() && !stmt->loc.linnum) {
+        if (isAnyMainFunction(fd) && !stmt->loc.linnum) {
           irs->DBuilder.EmitStopPoint(fd->endloc);
         }
 
@@ -1669,6 +1671,11 @@ public:
   void visit(InlineAsmStatement *stmt) override {
     assert(!irs->dcomputetarget);
     AsmStatement_toIR(stmt, irs);
+  }
+
+  void visit(GccAsmStatement *stmt) override {
+    assert(!irs->dcomputetarget);
+    GccAsmStatement_toIR(stmt, irs);
   }
 
   //////////////////////////////////////////////////////////////////////////

@@ -106,12 +106,15 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
                        const char *&arg1str) {
   Identifier *ident = decl->ident;
   Expressions *args = decl->args;
-  Expression *expr =
-      (args && args->length > 0) ? expressionSemantic((*args)[0], sc) : nullptr;
+
+  const auto getFirstArg = [args, sc]() {
+    return (args && args->length > 0) ? expressionSemantic((*args)[0], sc)
+                                      : nullptr;
+  };
 
   // pragma(LDC_intrinsic, "string") { funcdecl(s) }
   if (ident == Id::LDC_intrinsic) {
-    if (!args || args->length != 1 || !parseStringExp(expr, arg1str)) {
+    if (!args || args->length != 1 || !parseStringExp(getFirstArg(), arg1str)) {
       decl->error("requires exactly 1 string literal parameter");
       fatal();
     }
@@ -157,7 +160,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
       ident == Id::crt_constructor || ident == Id::crt_destructor) {
     dinteger_t priority;
     if (args) {
-      if (args->length != 1 || !parseIntExp(expr, priority)) {
+      if (args->length != 1 || !parseIntExp(getFirstArg(), priority)) {
         decl->error("requires at most 1 integer literal parameter");
         fatal();
       }
@@ -278,7 +281,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
 
   // pragma(LDC_atomic_rmw, "string") { templdecl(s) }
   if (ident == Id::LDC_atomic_rmw) {
-    if (!args || args->length != 1 || !parseStringExp(expr, arg1str)) {
+    if (!args || args->length != 1 || !parseStringExp(getFirstArg(), arg1str)) {
       decl->error("requires exactly 1 string literal parameter");
       fatal();
     }

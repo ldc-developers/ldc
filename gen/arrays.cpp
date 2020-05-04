@@ -1011,7 +1011,7 @@ LLValue *DtoArrayEqCmp_impl(Loc &loc, const char *func, DValue *l,
 bool validCompareWithMemcmpType(Type *t) {
   switch (t->ty) {
   case Tsarray: {
-    auto *elemType = t->nextOf()->toBasetype();
+    auto *elemType = t->baseElemOf();
     return validCompareWithMemcmpType(elemType);
   }
 
@@ -1056,18 +1056,15 @@ bool validCompareWithMemcmpType(Type *t) {
 /// - Padding bytes
 /// - User-defined opEquals
 bool validCompareWithMemcmp(DValue *l, DValue *r) {
-  auto *ltype = l->type->toBasetype();
-  auto *rtype = r->type->toBasetype();
+  auto *lElemType = l->type->toBasetype()->nextOf()->toBasetype();
+  auto *rElemType = r->type->toBasetype()->nextOf()->toBasetype();
 
-  // Only memcmp equivalent types (memcmp should be used for `const int[3] ==
-  // int[3]`, but not for `int[3] == short[3]`).
-  // Note: Type::equivalent returns true for `int[4]` and `int[]`, and also for
-  // `int[4]` and `int[3]`! That is exactly what we want in this case.
-  if (!ltype->equivalent(rtype))
+  // Only memcmp equivalent element types (memcmp should be used for
+  // `const int[3] == int[]`, but not for `int[3] == short[3]`).
+  if (!lElemType->equivalent(rElemType))
     return false;
 
-  auto *elemType = ltype->nextOf()->toBasetype();
-  return validCompareWithMemcmpType(elemType);
+  return validCompareWithMemcmpType(lElemType);
 }
 
 // Create a call instruction to memcmp.

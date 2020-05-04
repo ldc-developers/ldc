@@ -32,7 +32,11 @@ union CTFloatUnion {
 APFloat parseLiteral(const llvm::fltSemantics &semantics, const char *literal,
                      bool *isOutOfRange = nullptr) {
   APFloat ap(semantics, APFloat::uninitialized);
-  const auto r = ap.convertFromString(literal, APFloat::rmNearestTiesToEven);
+  auto r =
+#if LDC_LLVM_VER >= 1000
+      llvm::cantFail
+#endif
+      (ap.convertFromString(literal, APFloat::rmNearestTiesToEven));
   if (isOutOfRange) {
     *isOutOfRange = (r & (APFloat::opOverflow | APFloat::opUnderflow)) != 0;
   }
@@ -47,21 +51,25 @@ void CTFloat::initialize() {
   if (apSemantics)
     return;
 
-  static_assert(sizeof(real_t) >= 8, "real_t < 64 bits?");
-
-  if (sizeof(real_t) == 8) {
-    apSemantics = &(APFloat::IEEEdouble AP_SEMANTICS_PARENS);
-  } else {
-#if __aarch64__ || (__ANDROID__ && __LP64__)
-    apSemantics = &(APFloat::IEEEquad AP_SEMANTICS_PARENS);
-#elif __i386__ || __x86_64__ || _M_IX86 || _M_X64
-    apSemantics = &(APFloat::x87DoubleExtended AP_SEMANTICS_PARENS);
-#elif __ppc__ || __ppc64__
-    apSemantics = &(APFloat::PPCDoubleDouble AP_SEMANTICS_PARENS);
+#ifdef _MSC_VER
+  // MSVC hosts use dmd.root.longdouble (80-bit x87)
+  apSemantics = &(APFloat::x87DoubleExtended AP_SEMANTICS_PARENS);
 #else
+  static_assert(std::numeric_limits<real_t>::is_specialized,
+                "real_t is not an arithmetic type");
+  constexpr int digits = std::numeric_limits<real_t>::digits;
+  if (digits == 53) {
+    apSemantics = &(APFloat::IEEEdouble AP_SEMANTICS_PARENS);
+  } else if (digits == 64) {
+    apSemantics = &(APFloat::x87DoubleExtended AP_SEMANTICS_PARENS);
+  } else if (digits == 113) {
+    apSemantics = &(APFloat::IEEEquad AP_SEMANTICS_PARENS);
+  } else if (digits == 106) {
+    apSemantics = &(APFloat::PPCDoubleDouble AP_SEMANTICS_PARENS);
+  } else {
     llvm_unreachable("Unknown host real_t type for compile-time reals");
-#endif
   }
+#endif
 
   zero = 0;
   one = 1;

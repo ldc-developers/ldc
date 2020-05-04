@@ -25,6 +25,10 @@ namespace llvm {
 class FunctionType;
 }
 
+// Returns true if the function is a D/C main, eligible for implicit `return 0`
+// (and void -> int return type fix-up).
+bool isAnyMainFunction(FuncDeclaration *fd);
+
 llvm::FunctionType *DtoFunctionType(Type *t, IrFuncTy &irFty, Type *thistype,
                                     Type *nesttype,
                                     FuncDeclaration *fd = nullptr);

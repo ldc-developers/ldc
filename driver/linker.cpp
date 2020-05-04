@@ -10,7 +10,6 @@
 #include "driver/linker.h"
 
 #include "dmd/errors.h"
-#include "driver/args.h"
 #include "driver/cl_options.h"
 #include "driver/tool.h"
 #include "gen/llvm.h"
@@ -184,25 +183,31 @@ bool linkAgainstSharedDefaultLibs() {
 
 //////////////////////////////////////////////////////////////////////////////
 
-bool useInternalToolchainForMSVC() {
-#ifndef _WIN32
-  return true;
-#else
-  return !env::has(L"VSINSTALLDIR") && !env::has(L"LDC_VSDIR");
-#endif
-}
+llvm::StringRef getExplicitMscrtLibName() { return mscrtlib; }
 
-llvm::StringRef getMscrtLibName() {
-  llvm::StringRef name = mscrtlib;
-  if (name.empty()) {
-    if (useInternalToolchainForMSVC()) {
-      name = "vcruntime140";
-    } else {
-      // default to static release variant
-      name = linkFullyStatic() != llvm::cl::BOU_FALSE ? "libcmt" : "msvcrt";
-    }
+llvm::StringRef getMscrtLibName(const bool *useInternalToolchain) {
+  llvm::StringRef name = getExplicitMscrtLibName();
+  if (!name.empty())
+    return name;
+
+  bool useInternal = false;
+  if (useInternalToolchain) {
+    useInternal = *useInternalToolchain;
+  } else {
+#ifdef _WIN32
+    static bool haveMSVC = windows::isMsvcAvailable();
+    useInternal = !haveMSVC;
+#else
+    useInternal = true;
+#endif
   }
-  return name;
+
+  if (useInternal) {
+    return "vcruntime140";
+  } else {
+    // default to static release variant
+    return linkFullyStatic() != llvm::cl::BOU_FALSE ? "libcmt" : "msvcrt";
+  }
 }
 
 //////////////////////////////////////////////////////////////////////////////

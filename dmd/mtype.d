@@ -1,8 +1,7 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Defines a D type.
  *
- * Copyright:   Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/mtype.d, _mtype.d)
@@ -234,7 +233,6 @@ private enum TFlags
     real_        = 8,
     imaginary    = 0x10,
     complex      = 0x20,
-    char_        = 0x40,
 }
 
 enum ENUMTY : int
@@ -287,7 +285,7 @@ enum ENUMTY : int
     Tvector,
     Tint128,
     Tuns128,
-    TTraits,
+    Ttraits,
     Tmixin,
     TMAX,
 }
@@ -336,11 +334,17 @@ alias Tnull = ENUMTY.Tnull;
 alias Tvector = ENUMTY.Tvector;
 alias Tint128 = ENUMTY.Tint128;
 alias Tuns128 = ENUMTY.Tuns128;
-alias Ttraits = ENUMTY.TTraits;
+alias Ttraits = ENUMTY.Ttraits;
 alias Tmixin = ENUMTY.Tmixin;
 alias TMAX = ENUMTY.TMAX;
 
 alias TY = ubyte;
+
+///Returns true if ty is char, wchar, or dchar
+bool isSomeChar(TY ty) pure nothrow @nogc @safe
+{
+    return ty == Tchar || ty == Twchar || ty == Tdchar;
+}
 
 enum MODFlags : int
 {
@@ -438,7 +442,6 @@ extern (C++) abstract class Type : ASTNode
     extern (C++) __gshared Type tstring;     // immutable(char)[]
     extern (C++) __gshared Type twstring;    // immutable(wchar)[]
     extern (C++) __gshared Type tdstring;    // immutable(dchar)[]
-    extern (C++) __gshared Type tvalist;     // va_list alias
     extern (C++) __gshared Type terror;      // for error recovery
     extern (C++) __gshared Type tnull;       // for null type
 
@@ -893,7 +896,6 @@ version (IN_LLVM)
         tstring = tchar.immutableOf().arrayOf();
         twstring = twchar.immutableOf().arrayOf();
         tdstring = tdchar.immutableOf().arrayOf();
-        tvalist = target.va_listType();
 
         const isLP64 = global.params.isLP64;
 
@@ -1032,11 +1034,6 @@ version (IN_LLVM)
     }
 
     bool isunsigned()
-    {
-        return false;
-    }
-
-    bool ischar()
     {
         return false;
     }
@@ -2452,7 +2449,7 @@ version (IN_LLVM)
             static assert(hashedname.length < namebuf.length-30);
             name = namebuf.ptr;
             length = sprintf(name, "_D%lluTypeInfo_%.*s6__initZ",
-                cast(ulong)9 + hashedname.length, hashedname.length, hashedname.ptr);
+                9LU + hashedname.length, cast(int) hashedname.length, hashedname.ptr);
         }
         else
         {
@@ -3161,17 +3158,17 @@ extern (C++) final class TypeBasic : Type
 
         case Tchar:
             d = Token.toChars(TOK.char_);
-            flags |= TFlags.integral | TFlags.unsigned | TFlags.char_;
+            flags |= TFlags.integral | TFlags.unsigned;
             break;
 
         case Twchar:
             d = Token.toChars(TOK.wchar_);
-            flags |= TFlags.integral | TFlags.unsigned | TFlags.char_;
+            flags |= TFlags.integral | TFlags.unsigned;
             break;
 
         case Tdchar:
             d = Token.toChars(TOK.dchar_);
-            flags |= TFlags.integral | TFlags.unsigned | TFlags.char_;
+            flags |= TFlags.integral | TFlags.unsigned;
             break;
 
         default:
@@ -3309,11 +3306,6 @@ extern (C++) final class TypeBasic : Type
     override bool isunsigned() const
     {
         return (flags & TFlags.unsigned) != 0;
-    }
-
-    override bool ischar() const
-    {
-        return (flags & TFlags.char_) != 0;
     }
 
     override MATCH implicitConvTo(Type to)
@@ -3617,7 +3609,7 @@ extern (C++) final class TypeSArray : TypeArray
     override bool isString()
     {
         TY nty = next.toBasetype().ty;
-        return nty == Tchar || nty == Twchar || nty == Tdchar;
+        return nty.isSomeChar;
     }
 
     override bool isZeroInit(const ref Loc loc)
@@ -3787,7 +3779,7 @@ extern (C++) final class TypeDArray : TypeArray
     override bool isString()
     {
         TY nty = next.toBasetype().ty;
-        return nty == Tchar || nty == Twchar || nty == Tdchar;
+        return nty.isSomeChar;
     }
 
     override bool isZeroInit(const ref Loc loc) const
@@ -4169,6 +4161,7 @@ extern (C++) final class TypeFunction : TypeNext
     bool isscope;               // true: 'this' is scope
     bool isreturninferred;      // true: 'this' is return from inference
     bool isscopeinferred;       // true: 'this' is scope from inference
+    bool islive;                // is @live
     LINK linkage;               // calling convention
     TRUST trust;                // level of trust
     PURE purity = PURE.impure;
@@ -4194,6 +4187,8 @@ extern (C++) final class TypeFunction : TypeNext
             this.isnogc = true;
         if (stc & STC.property)
             this.isproperty = true;
+        if (stc & STC.live)
+            this.islive = true;
 
         if (stc & STC.ref_)
             this.isref = true;
@@ -5164,6 +5159,20 @@ extern (C++) final class TypeTraits : Type
         return tt;
     }
 
+    override Dsymbol toDsymbol(Scope* sc)
+    {
+        Type t;
+        Expression e;
+        Dsymbol s;
+        resolve(this, loc, sc, &e, &t, &s);
+        if (t && t.ty != Terror)
+            s = t.toDsymbol(sc);
+        else if (e)
+            s = getDsymbol(e);
+
+        return s;
+    }
+
     override void accept(Visitor v)
     {
         v.visit(this);
@@ -5500,7 +5509,7 @@ extern (C++) final class TypeStruct : Type
 {
     StructDeclaration sym;
     AliasThisRec att = AliasThisRec.fwdref;
-    CPPMANGLE cppmangle = CPPMANGLE.def;
+    bool inuse = false; // struct currently subject of recursive method call
 
     extern (D) this(StructDeclaration sym)
     {
@@ -5600,8 +5609,10 @@ extern (C++) final class TypeStruct : Type
         return structinit;
     }
 
-    override bool isZeroInit(const ref Loc loc) const
+    override bool isZeroInit(const ref Loc loc)
     {
+        // Determine zeroInit here, as this can be called before semantic2
+        sym.determineSize(sym.loc);
         return sym.zeroInit;
     }
 
@@ -5656,6 +5667,11 @@ extern (C++) final class TypeStruct : Type
 
     override bool needsNested()
     {
+        if (inuse) return false; // circular type, error instead of crashing
+
+        inuse = true;
+        scope(exit) inuse = false;
+
         if (sym.isNested())
             return true;
 
@@ -5899,11 +5915,6 @@ extern (C++) final class TypeEnum : Type
     override bool isunsigned()
     {
         return memType().isunsigned();
-    }
-
-    override bool ischar()
-    {
-        return memType().ischar();
     }
 
     override bool isBoolean()
@@ -6160,6 +6171,9 @@ extern (C++) final class TypeClass : Type
  */
 extern (C++) final class TypeTuple : Type
 {
+    // 'logically immutable' cached global - don't modify!
+    __gshared TypeTuple empty = new TypeTuple();
+
     Parameters* arguments;  // types making up the tuple
 
     extern (D) this(Parameters* arguments)

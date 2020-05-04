@@ -1,13 +1,11 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
  * Entry point for DMD.
  *
  * This modules defines the entry point (main) for DMD, as well as related
  * utilities needed for arguments parsing, path manipulation, etc...
  * This file is not shared with other compilers which use the DMD front-end.
  *
- * Copyright:   Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/mars.d, _mars.d)
@@ -36,6 +34,7 @@ import dmd.dmodule;
 import dmd.doc;
 import dmd.dsymbol;
 import dmd.dsymbolsem;
+import dmd.dtoh;
 import dmd.errors;
 import dmd.expression;
 import dmd.globals;
@@ -49,6 +48,7 @@ version (NoMain) {} else
 {
     import dmd.lib;
     import dmd.link;
+    import dmd.vsoptions;
 }
 import dmd.mtype;
 import dmd.objc;
@@ -59,6 +59,7 @@ import dmd.root.man;
 import dmd.root.outbuffer;
 // IN_LLVM import dmd.root.response;
 import dmd.root.rmem;
+import dmd.root.string;
 import dmd.root.stringtable;
 import dmd.semantic2;
 import dmd.semantic3;
@@ -588,7 +589,7 @@ version (IN_LLVM)
         if (m.isHdrFile)
         {
             // Remove m's object file from list of object files
-            for (size_t j = 0; j < params.objfiles.dim; j++)
+            for (size_t j = 0; j < params.objfiles.length; j++)
             {
                 if (m.objfile.toChars() == params.objfiles[j])
                 {
@@ -596,7 +597,7 @@ version (IN_LLVM)
                     break;
                 }
             }
-            if (params.objfiles.dim == 0)
+            if (params.objfiles.length == 0)
                 params.link = false;
         }
         if (m.isDocFile)
@@ -607,7 +608,7 @@ version (IN_LLVM)
             modules.remove(modi);
             modi--;
             // Remove m's object file from list of object files
-            for (size_t j = 0; j < params.objfiles.dim; j++)
+            for (size_t j = 0; j < params.objfiles.length; j++)
             {
                 if (m.objfile.toChars() == params.objfiles[j])
                 {
@@ -615,7 +616,7 @@ version (IN_LLVM)
                     break;
                 }
             }
-            if (params.objfiles.dim == 0)
+            if (params.objfiles.length == 0)
                 params.link = false;
         }
     }
@@ -746,6 +747,7 @@ else
     {
         foreach (i; 1 .. modules[0].aimports.dim)
             semantic3OnDependencies(modules[0].aimports[i]);
+        Module.runDeferredSemantic3();
 
         const data = (*ob)[];
         if (params.moduleDepsFile)
@@ -769,7 +771,7 @@ version (IN_LLVM) {} else
     Library library = null;
     if (params.lib)
     {
-        if (params.objfiles.dim == 0)
+        if (params.objfiles.length == 0)
         {
             error(Loc.initial, "no input files");
             return EXIT_FAILURE;
@@ -778,7 +780,7 @@ version (IN_LLVM) {} else
         library.setFilename(params.objdir, params.libname);
         // Add input object and input library files to output library
         foreach (p; libmodules)
-            library.addObject(p, null);
+            library.addObject(p.toDString(), null);
     }
 }
     // Generate output files
@@ -807,6 +809,13 @@ version (IN_LLVM) {} else
             File.write(cgFilename.ptr, buf[]);
         }
     }
+
+    if (global.params.doCxxHdrGeneration)
+        genCppHdrFiles(modules);
+
+    if (global.errors)
+        fatal();
+
 version (IN_LLVM)
 {
     import core.memory : GC;
@@ -876,7 +885,7 @@ else
     if (global.errors)
         fatal();
     int status = EXIT_SUCCESS;
-    if (!params.objfiles.dim)
+    if (!params.objfiles.length)
     {
         if (params.link)
             error(Loc.initial, "no object files to link");
@@ -998,7 +1007,7 @@ extern (C++) void generateJson(Modules* modules)
         }
         else
         {
-            if (global.params.objfiles.dim == 0)
+            if (global.params.objfiles.length == 0)
             {
                 error(Loc.initial, "cannot determine JSON filename, use `-Xf=<file>` or provide a source file");
                 fatal();
@@ -1027,6 +1036,7 @@ version (NoMain) {} else
     // When using a C main, host DMD may not link against host druntime by default.
     version (DigitalMars)
     {
+        // IN_LLVM: extra curly braces for ltsmaster compilability...
         version (Win64)
         {
             pragma(lib, "phobos64");
@@ -1043,6 +1053,8 @@ version (NoMain) {} else
             }
         }
     }
+
+    extern extern(C) __gshared string[] rt_options;
 
     /**
      * DMD's entry point, C main.
@@ -1068,7 +1080,11 @@ version (NoMain) {} else
                 }
             }
             if (!lowmem)
+            {
+                __gshared string[] disable_options = [ "gcopt=disable:1" ];
+                rt_options = disable_options;
                 mem.disableGC();
+            }
         }
 
         // initialize druntime and call _Dmain() below
@@ -1083,20 +1099,10 @@ version (NoMain) {} else
      */
     extern (C) int _Dmain(char[][])
     {
-        import core.memory;
         import core.runtime;
-
-        // Older host druntime versions need druntime to be initialized before
-        // disabling the GC, so we cannot disable it in C main above.
-        static if (isGCAvailable)
-        {
-            if (!mem.isGCEnabled)
-                GC.disable();
-        }
-        else
-        {
+        import core.memory;
+        static if (!isGCAvailable)
             GC.disable();
-        }
 
         version(D_Coverage)
         {
@@ -1370,7 +1376,15 @@ void addDefaultVersionIdentifiers(const ref Param params)
         VersionCondition.addPredefinedGlobalIdent("Posix");
         VersionCondition.addPredefinedGlobalIdent("linux");
         VersionCondition.addPredefinedGlobalIdent("ELFv1");
-        VersionCondition.addPredefinedGlobalIdent("CRuntime_Glibc");
+        // Note: This should be done with a target triplet, to support cross compilation.
+        // However DMD currently does not support it, so this is a simple
+        // fix to make DMD compile on Musl-based systems such as Alpine.
+        // See https://github.com/dlang/dmd/pull/8020
+        // And https://wiki.osdev.org/Target_Triplet
+        version (CRuntime_Musl)
+            VersionCondition.addPredefinedGlobalIdent("CRuntime_Musl");
+        else
+            VersionCondition.addPredefinedGlobalIdent("CRuntime_Glibc");
         VersionCondition.addPredefinedGlobalIdent("CppRuntime_Gcc");
     }
     else if (params.isOSX)
@@ -1631,10 +1645,6 @@ version (IN_LLVM)
             case "3449":
                 params.vfield = true;
                 break;
-            case "10378":
-            case "import":
-                params.bug10378 = true;
-                break;
             case "14246":
             case "dtorfields":
                 params.dtorFields = true;
@@ -1699,45 +1709,6 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
     {
         dmd.errors.error(Loc.initial, format, arg);
         errors = true;
-    }
-
-    /************************************
-     * Convert string to integer.
-     * Params:
-     *  p = pointer to start of string digits, ending with 0
-     *  max = max allowable value (inclusive)
-     * Returns:
-     *  uint.max on error, otherwise converted integer
-     */
-    static pure uint parseDigits(const(char)*p, const uint max)
-    {
-        uint value;
-        bool overflow;
-        for (uint d; (d = uint(*p) - uint('0')) < 10; ++p)
-        {
-            import core.checkedint : mulu, addu;
-            value = mulu(value, 10, overflow);
-            value = addu(value, d, overflow);
-        }
-        return (overflow || value > max || *p) ? uint.max : value;
-    }
-
-    /********************************
-     * Params:
-     *  p = 0 terminated string
-     *  s = string
-     * Returns:
-     *  true if `p` starts with `s`
-     */
-    static pure bool startsWith(const(char)* p, string s)
-    {
-        foreach (const c; s)
-        {
-            if (c != *p)
-                return false;
-            ++p;
-        }
-        return true;
     }
 
     /**
@@ -1994,16 +1965,9 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             //      -cov=nnn
             if (p[4] == '=')
             {
-                if (isdigit(cast(char)p[5]))
+                if (!params.covPercent.parseDigits(p.toDString()[5 .. $], 100))
                 {
-                    const percent = parseDigits(p + 5, 100);
-                    if (percent == uint.max)
-                        goto Lerror;
-                    params.covPercent = cast(ubyte)percent;
-                }
-                else
-                {
-                    errorInvalidSwitch(p, "Only a number can be passed to `-cov=<num>`");
+                    errorInvalidSwitch(p, "Only a number between 0 and 100 can be passed to `-cov=<num>`");
                     return true;
                 }
             }
@@ -2145,14 +2109,12 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             params.vgc = true;
         else if (startsWith(p + 1, "verrors")) // https://dlang.org/dmd.html#switch-verrors
         {
-            if (p[8] == '=' && isdigit(cast(char)p[9]))
+            if (p[8] != '=')
             {
-                const num = parseDigits(p + 9, int.max);
-                if (num == uint.max)
-                    goto Lerror;
-                params.errorLimit = num;
+                errorInvalidSwitch(p, "Expected argument following `-verrors , e.g. `-verrors=100`");
+                return true;
             }
-            else if (startsWith(p + 9, "spec"))
+            if (startsWith(p + 9, "spec"))
             {
                 params.showGaggedErrors = true;
             }
@@ -2160,11 +2122,22 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             {
                 params.printErrorContext = true;
             }
-            else
+            else if (!params.errorLimit.parseDigits(p.toDString()[9 .. $]))
             {
                 errorInvalidSwitch(p, "Only number, `spec`, or `context` are allowed for `-verrors`");
                 return true;
             }
+        }
+        else if (startsWith(p + 1, "verror-style="))
+        {
+            const style = p + 1 + "verror-style=".length;
+
+            if (strcmp(style, "digitalmars") == 0)
+                params.messageStyle = MessageStyle.digitalmars;
+            else if (strcmp(style, "gnu") == 0)
+                params.messageStyle = MessageStyle.gnu;
+            else
+                error("unknown error style '%s', must be 'digitalmars' or 'gnu'", style);
         }
         else if (startsWith(p + 1, "mcpu")) // https://dlang.org/dmd.html#switch-mcpu
         {
@@ -2239,8 +2212,8 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                 // These are kept for backwards compatibility, but no longer documented
                 if (isdigit(cast(char)p[len]))
                 {
-                    const num = parseDigits(p + len, int.max);
-                    if (num == uint.max)
+                    uint num;
+                    if (!num.parseDigits(p.toDString()[len .. $]))
                         goto Lerror;
 
                     // Bugzilla issue number
@@ -2248,9 +2221,6 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                     {
                         case 3449:
                             params.vfield = true;
-                            break;
-                        case 10378:
-                            params.bug10378 = true;
                             break;
                         case 14246:
                             params.dtorFields = true;
@@ -2272,9 +2242,6 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                     const ident = p + len;
                     switch (ident.toDString())
                     {
-                        case "import":
-                            params.bug10378 = true;
-                            break;
                         case "dtorfields":
                             params.dtorFields = true;
                             break;
@@ -2390,12 +2357,33 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             case 'd':               // https://dlang.org/dmd.html#switch-Dd
                 if (!p[3])
                     goto Lnoarg;
-                params.docdir = p + 3 + (p[3] == '=');
+                params.docdir = (p + 3 + (p[3] == '=')).toDString();
                 break;
             case 'f':               // https://dlang.org/dmd.html#switch-Df
                 if (!p[3])
                     goto Lnoarg;
-                params.docname = p + 3 + (p[3] == '=');
+                params.docname = (p + 3 + (p[3] == '=')).toDString();
+                break;
+            case 0:
+                break;
+            default:
+                goto Lerror;
+            }
+        }
+        else if (p[1] == 'H' && p[2] == 'C')  // https://dlang.org/dmd.html#switch-HC
+        {
+            params.doCxxHdrGeneration = true;
+            switch (p[3])
+            {
+            case 'd':               // https://dlang.org/dmd.html#switch-HCd
+                if (!p[4])
+                    goto Lnoarg;
+                params.cxxhdrdir = (p + 4 + (p[4] == '=')).toDString;
+                break;
+            case 'f':               // https://dlang.org/dmd.html#switch-HCf
+                if (!p[4])
+                    goto Lnoarg;
+                params.cxxhdrname = (p + 4 + (p[4] == '=')).toDString;
                 break;
             case 0:
                 break;
@@ -2579,11 +2567,8 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             {
                 if (isdigit(cast(char)p[7]))
                 {
-                    const level = parseDigits(p + 7, int.max);
-                    if (level == uint.max)
+                    if (!params.debuglevel.parseDigits(p.toDString()[7 .. $]))
                         goto Lerror;
-
-                    params.debuglevel = level;
                 }
                 else if (Identifier.isValidIdentifier(p + 7))
                 {
@@ -2608,10 +2593,8 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             {
                 if (isdigit(cast(char)p[9]))
                 {
-                    const level = parseDigits(p + 9, int.max);
-                    if (level == uint.max)
+                    if (!params.versionlevel.parseDigits(p.toDString()[9 .. $]))
                         goto Lerror;
-                    params.versionlevel = level;
                 }
                 else if (Identifier.isValidIdentifier(p + 9))
                 {
@@ -2696,7 +2679,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             size_t length = argc - i - 1;
             if (length)
             {
-                const(char)* ext = FileName.ext(arguments[i + 1]);
+                const(char)[] ext = FileName.ext(arguments[i + 1].toDString());
                 if (ext && FileName.equals(ext, "d") == 0 && FileName.equals(ext, "di") == 0)
                 {
                     error("-run must be followed by a source file, not '%s'", arguments[i + 1]);

@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "dmd/errors.h"
+#include "driver/args.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
@@ -31,21 +32,27 @@
 
 namespace {
 
-void addMscrtLibs(std::vector<std::string> &args) {
-  const auto mscrtlibName = getMscrtLibName();
+void addMscrtLibs(bool useInternalToolchain, std::vector<std::string> &args) {
+  const auto mscrtlibName = getMscrtLibName(&useInternalToolchain);
 
   args.push_back(("/DEFAULTLIB:" + mscrtlibName).str());
 
   // We need the vcruntime lib for druntime's exception handling (ldc.eh_msvc).
   // Pick one of the 4 variants matching the selected main UCRT lib.
 
+  if (useInternalToolchain) {
 #if LDC_LLVM_VER >= 400
-  if (mscrtlibName.contains_lower("vcruntime")) {
+    assert(mscrtlibName.contains_lower("vcruntime"));
+#endif
     return;
   }
+
+#if LDC_LLVM_VER >= 400
+  const bool isStatic = mscrtlibName.contains_lower("libcmt");
+#else // LLVM 3.9: no llvm::StringRef::{contains,find}_lower
+  const bool isStatic = mscrtlibName.startswith_lower("libcmt");
 #endif
 
-  const bool isStatic = mscrtlibName.startswith_lower("libcmt");
   const bool isDebug =
       mscrtlibName.endswith_lower("d") || mscrtlibName.endswith_lower("d.lib");
 
@@ -85,11 +92,20 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
     fatal();
   }
 
-  const bool useInternalToolchain = useInternalToolchainForMSVC();
-
 #ifdef _WIN32
-  if (!useInternalToolchain)
-    windows::setupMsvcEnvironment();
+  windows::MsvcEnvironmentScope msvcEnv;
+
+  const bool forceMSVC = env::has(L"LDC_VSDIR_FORCE");
+  const bool useInternalToolchain =
+      (!forceMSVC && getExplicitMscrtLibName().contains_lower("vcruntime")) ||
+      !msvcEnv.setup();
+
+  if (forceMSVC && useInternalToolchain) {
+    warning(Loc(), "no Visual C++ installation found for linking, falling back "
+                   "to MinGW-based libraries");
+  }
+#else
+  const bool useInternalToolchain = true;
 #endif
 
   // build arguments
@@ -120,7 +136,7 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
   }
 
   // add C runtime libs
-  addMscrtLibs(args);
+  addMscrtLibs(useInternalToolchain, args);
 
   // specify creation of DLL
   if (global.params.dll) {
@@ -232,11 +248,17 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
       (useInternalToolchain && opts::linker.empty() && !opts::isUsingLTO())) {
     const auto fullArgs = getFullArgs("lld-link", args, global.params.verbose);
 
+    const bool success = lld::coff::link(fullArgs
 #if LDC_LLVM_VER >= 600
-    const bool success = lld::coff::link(fullArgs, /*CanExitEarly=*/false);
-#else
-    const bool success = lld::coff::link(fullArgs);
+                                         ,
+                                         /*CanExitEarly=*/false
+#if LDC_LLVM_VER >= 1000
+                                         ,
+                                         llvm::outs(), llvm::errs()
 #endif
+#endif
+    );
+
     if (!success)
       error(Loc(), "linking with LLD failed");
 

@@ -113,6 +113,7 @@ struct IRState {
 private:
   std::vector<std::pair<llvm::GlobalVariable *, llvm::Constant *>>
       globalsToReplace;
+  Array<Loc> inlineAsmLocs; // tracked by GC
 
   // Cache of (possibly bitcast) global variables for taking the address of
   // struct literal constants. (Also) used to resolve self-references. Must be
@@ -146,10 +147,6 @@ public:
   llvm::Function *topfunc();
   llvm::Instruction *topallocapoint();
 
-  // The function containing the D main() body, if any (not the actual main()
-  // implicitly emitted).
-  llvm::Function *mainFunc = nullptr;
-
   // basic block scopes
   std::vector<IRScope> scopes;
   IRScope &scope();
@@ -182,8 +179,6 @@ public:
   llvm::CallSite CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
                                     LLValue *Arg2, LLValue *Arg3, LLValue *Arg4,
                                     const char *Name = "");
-
-  bool isMainFunc(const IrFunction *func) const;
 
   // this holds the array being indexed or sliced so $ will work
   // might be a better way but it works. problem is I only get a
@@ -261,6 +256,9 @@ public:
 
   void addLinkerOption(llvm::ArrayRef<llvm::StringRef> options);
   void addLinkerDependentLib(llvm::StringRef libraryName);
+
+  void addInlineAsmSrcLoc(const Loc &loc, llvm::CallInst *inlineAsmCall);
+  const Loc &getInlineAsmSrcLoc(unsigned srcLocCookie) const;
 
   // MS C++ compatible type descriptors
   llvm::DenseMap<size_t, llvm::StructType *> TypeDescriptorTypeMap;

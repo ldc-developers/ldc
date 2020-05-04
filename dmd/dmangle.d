@@ -1,7 +1,9 @@
 /**
- * Compiler implementation of the $(LINK2 http://www.dlang.org, D programming language)
+ * Does name mangling for `extern(D)` symbols.
  *
- * Copyright: Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Specification: $(LINK2 https://dlang.org/spec/abi.html#name_mangling, Name Mangling)
+ *
+ * Copyright: Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors: Walter Bright, http://www.digitalmars.com
  * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:    $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/dmangle.d, _dmangle.d)
@@ -32,10 +34,10 @@ import dmd.mtype;
 import dmd.root.ctfloat;
 import dmd.root.outbuffer;
 import dmd.root.aav;
+import dmd.root.string;
 import dmd.target;
 import dmd.tokens;
 import dmd.utf;
-import dmd.utils;
 import dmd.visitor;
 
 private immutable char[TMAX] mangleChar =
@@ -1033,7 +1035,6 @@ public:
         buf.writeByte(m);
         buf.print(q.length);
         buf.writeByte('_');    // nbytes <= 11
-        const len = buf.length;
         auto slice = buf.allocate(2 * q.length);
         foreach (i, c; q)
         {

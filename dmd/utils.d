@@ -1,11 +1,7 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
- * Utility functions for DMD.
+ * This module defines some utility functions for DMD.
  *
- * This modules defines some utility functions for DMD.
- *
- * Copyright:   Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/utils.d, _utils.d)
@@ -21,7 +17,7 @@ import dmd.globals;
 import dmd.root.file;
 import dmd.root.filename;
 import dmd.root.outbuffer;
-import dmd.root.rmem;
+import dmd.root.string;
 
 
 /**
@@ -58,10 +54,16 @@ const(char)* toWinPath(const(char)* src)
  */
 FileBuffer readFile(Loc loc, const(char)* filename)
 {
+    return readFile(loc, filename.toDString());
+}
+
+/// Ditto
+FileBuffer readFile(Loc loc, const(char)[] filename)
+{
     auto result = File.read(filename);
     if (!result.success)
     {
-        error(loc, "Error reading file '%s'", filename);
+        error(loc, "Error reading file `%.*s`", cast(int)filename.length, filename.ptr);
         fatal();
     }
     return FileBuffer(result.extractSlice());
@@ -138,81 +140,87 @@ void escapePath(OutBuffer* buf, const(char)* fname)
     }
 }
 
-/// Slices a `\0`-terminated C-string, excluding the terminator
-inout(char)[] toDString (inout(char)* s) pure nothrow @nogc
-{
-    return s ? s[0 .. strlen(s)] : null;
-}
-
 /**
-Compare two slices for equality, in a case-insensitive way
-
-Comparison is based on `char` and does not do decoding.
-As a result, it's only really accurate for plain ASCII strings.
-
-Params:
-s1 = string to compare
-s2 = string to compare
-
-Returns:
-`true` if `s1 == s2` regardless of case
-*/
-extern(D) static bool iequals(const(char)[] s1, const(char)[] s2)
+ * Convert string to integer.
+ *
+ * Params:
+ *  T = Type of integer to parse
+ *  val = Variable to store the result in
+ *  p = slice to start of string digits
+ *  max = max allowable value (inclusive), defaults to `T.max`
+ *
+ * Returns:
+ *  `false` on error, `true` on success
+ */
+bool parseDigits(T)(ref T val, const(char)[] p, const T max = T.max)
+    @safe pure @nogc nothrow
 {
-    import core.stdc.ctype : toupper;
+    import core.checkedint : mulu, addu, muls, adds;
 
-    if (s1.length != s2.length)
-        return false;
-
-    foreach (idx, c1; s1)
+    // mul* / add* doesn't support types < int
+    static if (T.sizeof < int.sizeof)
     {
-        // Since we did a length check, it is safe to bypass bounds checking
-        const c2 = s2.ptr[idx];
-        if (c1 != c2)
-            if (toupper(c1) != toupper(c2))
-                return false;
+        int value;
+        alias add = adds;
+        alias mul = muls;
     }
-    return true;
+    // unsigned
+    else static if (T.min == 0)
+    {
+        T value;
+        alias add = addu;
+        alias mul = mulu;
+    }
+    else
+    {
+        T value;
+        alias add = adds;
+        alias mul = muls;
+    }
+
+    bool overflow;
+    foreach (char c; p)
+    {
+        if (c > '9' || c < '0')
+            return false;
+        value = mul(value, 10, overflow);
+        value = add(value, uint(c - '0'), overflow);
+    }
+    // If it overflows, value must be > to `max` (since `max` is `T`)
+    val = cast(T) value;
+    return !overflow && value <= max;
 }
 
-/**
-Copy the content of `src` into a C-string ('\0' terminated) then call `dg`
-
-The intent of this function is to provide an allocation-less
-way to call a C function using a D slice.
-The function internally allocates a buffer if needed, but frees it on exit.
-
-Note:
-The argument to `dg` is `scope`. To keep the data around after `dg` exits,
-one has to copy it.
-
-Params:
-src = Slice to use to call the C function
-dg  = Delegate to call afterwards
-
-Returns:
-The return value of `T`
-*/
-auto toCStringThen(alias dg)(const(char)[] src) nothrow
+///
+@safe pure nothrow @nogc unittest
 {
-    const len = src.length + 1;
-    char[512] small = void;
-    scope ptr = (src.length < (small.length - 1))
-                    ? small[0 .. len]
-                    : (cast(char*)mem.xmalloc(len))[0 .. len];
-    scope (exit)
-    {
-        if (&ptr[0] != &small[0])
-            mem.xfree(&ptr[0]);
-    }
-    ptr[0 .. src.length] = src[];
-    ptr[src.length] = '\0';
-    return dg(ptr);
-}
+    byte b;
+    ubyte ub;
+    short s;
+    ushort us;
+    int i;
+    uint ui;
+    long l;
+    ulong ul;
 
-unittest
-{
-    assert("Hello world".toCStringThen!((v) => v == "Hello world\0"));
-    assert("Hello world\0".toCStringThen!((v) => v == "Hello world\0\0"));
-    assert(null.toCStringThen!((v) => v == "\0"));
+    assert(b.parseDigits("42") && b  == 42);
+    assert(ub.parseDigits("42") && ub == 42);
+
+    assert(s.parseDigits("420") && s  == 420);
+    assert(us.parseDigits("42000") && us == 42_000);
+
+    assert(i.parseDigits("420000") && i  == 420_000);
+    assert(ui.parseDigits("420000") && ui == 420_000);
+
+    assert(l.parseDigits("42000000000") && l  == 42_000_000_000);
+    assert(ul.parseDigits("82000000000") && ul == 82_000_000_000);
+
+    assert(!b.parseDigits(ubyte.max.stringof));
+    assert(!b.parseDigits("WYSIWYG"));
+    assert(!b.parseDigits("-42"));
+    assert(!b.parseDigits("200"));
+    assert(ub.parseDigits("200") && ub == 200);
+    assert(i.parseDigits(int.max.stringof) && i == int.max);
+    assert(i.parseDigits("420", 500) && i == 420);
+    assert(!i.parseDigits("420", 400));
 }

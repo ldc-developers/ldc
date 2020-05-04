@@ -224,31 +224,30 @@ struct IndirectByvalRewrite : ABIRewrite {
 };
 
 /**
- * Rewrite Homogeneous Homogeneous Floating-point Aggregate (HFA) as array of
- * float type.
+ * Bit-casts a Homogeneous Floating-point/Vector Aggregate (HFVA) to an array
+ * of floats/vectors.
  */
-struct HFAToArray : ABIRewrite {
-  const int maxFloats = 4;
+struct HFVAToArray : ABIRewrite {
+  const int maxElements;
 
-  HFAToArray(const int max = 4) : maxFloats(max) {}
+  HFVAToArray(int max = 4) : maxElements(max) {}
 
   LLValue *put(DValue *dv, bool, bool) override {
-    Logger::println("rewriting HFA %s -> as array", dv->type->toChars());
+    Logger::println("rewriting HFVA %s -> as array", dv->type->toChars());
     LLType *t = type(dv->type);
     return DtoLoad(DtoBitCast(DtoLVal(dv), getPtrToType(t)));
   }
 
   LLValue *getLVal(Type *dty, LLValue *v) override {
     Logger::println("rewriting array -> as HFA %s", dty->toChars());
-    return DtoAllocaDump(v, dty, ".HFAToArray_dump");
+    return DtoAllocaDump(v, dty, ".HFVAToArray_dump");
   }
 
   LLType *type(Type *t) override {
-    assert(t->ty == Tstruct);
-    LLType *floatArrayType = nullptr;
-    if (TargetABI::isHFA((TypeStruct *)t, &floatArrayType, maxFloats))
-      return floatArrayType;
-    llvm_unreachable("Type t should be an HFA");
+    LLType *hfvaType = nullptr;
+    if (TargetABI::isHFVA(t, maxElements, &hfvaType))
+      return hfvaType;
+    llvm_unreachable("Type t should be an HFVA");
   }
 };
 

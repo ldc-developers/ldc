@@ -48,6 +48,10 @@ template <> struct FlagParserDataType<cl::boolOrDefault> {
   static cl::boolOrDefault false_val() { return cl::BOU_FALSE; }
 };
 
+inline bool getFlagOrDefault(cl::boolOrDefault value, bool defaultValue) {
+  return value == cl::BOU_UNSET ? defaultValue : value == cl::BOU_TRUE;
+}
+
 template <> struct FlagParserDataType<CHECKENABLE> {
   static CHECKENABLE true_val() { return CHECKENABLEon; }
   static CHECKENABLE false_val() { return CHECKENABLEoff; }

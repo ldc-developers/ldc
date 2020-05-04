@@ -71,6 +71,7 @@ class DIBuilder {
 
   const bool isTargetMSVC;
   const bool isTargetMSVCx64;
+  const bool emitColumnInfo;
 
   llvm::DenseMap<Declaration*, llvm::TypedTrackingMDRef<llvm::MDNode>> StaticDataMemberCache;
 
@@ -208,6 +209,8 @@ private:
 
   bool mustEmitFullDebugInfo();
   bool mustEmitLocationsDebugInfo();
+
+  unsigned getColumn(const Loc &loc) const;
 
 public:
   template <typename T>

@@ -2,15 +2,18 @@
 # environment variables aren't persisted across steps.
 
 steps:
+
 - checkout: self
   submodules: true
   fetchDepth: 50
+
+# Prerequisites
 - script: |
     set -ex
     cd ..
     if [ "$CI_OS" = "osx" ]; then
       # Download & extract Ninja
-      curl -L -o ninja-mac.zip https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-mac.zip
+      curl -L -o ninja-mac.zip https://github.com/ninja-build/ninja/releases/download/v1.10.0/ninja-mac.zip
       mkdir ninja
       tar -xf ninja-mac.zip -C ninja
     else
@@ -22,7 +25,7 @@ steps:
         libcurl3 libcurl3:i386 \
         curl gdb p7zip-full tzdata unzip zip
       # Download & extract clang
-      curl -L -o clang.tar.xz http://releases.llvm.org/9.0.0/clang+llvm-9.0.0-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+      curl -L -o clang.tar.xz http://releases.llvm.org/$CLANG_VERSION/clang+llvm-$CLANG_VERSION-x86_64-linux-gnu-ubuntu-16.04.tar.xz
       mkdir clang
       tar -xf clang.tar.xz --strip 1 -C clang
       # Use ld.gold per default, so that LTO is tested
@@ -32,7 +35,7 @@ steps:
     curl -OL https://bootstrap.pypa.io/get-pip.py
     python get-pip.py --user
     python -m pip install --user lit
-    python -c "import lit; lit.main();" --version | head -n 1
+    python -c "import lit; lit.main();" --version . | head -n 1
     # Download & extract host LDC
     HOST_OS="$CI_OS"
     if [ "$CI_OS" = "android" ]; then HOST_OS="linux"; fi
@@ -56,6 +59,8 @@ steps:
     set +x
     echo "##vso[task.setvariable variable=PARALLEL_JOBS]$PARALLEL_JOBS"
   displayName: Install prerequisites
+
+# Build bootstrap LDC
 - script: |
     set -ex
     cd ..
@@ -73,6 +78,8 @@ steps:
     ninja -j$PARALLEL_JOBS
     bin/ldc2 -version
   displayName: Build bootstrap LDC
+
+# Build
 - script: |
     set -ex
     cd ..
@@ -97,6 +104,8 @@ steps:
     bin/ldc2 -version
   displayName: Build LDC & LDC D unittests & defaultlib unittest runners
   condition: and(succeeded(), ne(variables['CI_OS'], 'android'))
+
+# Android only: cross-compile LDC
 - script: |
     set -ex
     cd ..
@@ -105,12 +114,12 @@ steps:
     mkdir llvm-$ARCH
     tar -xf llvm-$ARCH.tar.xz --strip 1 -C llvm-$ARCH
     # Download & extract Android NDK
-    curl -OL https://dl.google.com/android/repository/android-ndk-r20b-linux-x86_64.zip
-    unzip android-ndk-r20b-linux-x86_64.zip > /dev/null
-    rm android-ndk-r20b-linux-x86_64.zip
+    curl -OL https://dl.google.com/android/repository/android-ndk-r21-linux-x86_64.zip
+    unzip android-ndk-r21-linux-x86_64.zip > /dev/null
+    rm android-ndk-r21-linux-x86_64.zip
     # The NDK toolchain file enforces `-g` as base C[XX] flag - remove it to
     # *significantly* reduce executable sizes
-    TOOLCHAIN_FILE=$PWD/android-ndk-r20b/build/cmake/android.toolchain.cmake
+    TOOLCHAIN_FILE=$PWD/android-ndk-r21/build/cmake/android.toolchain.cmake
     sed -i 's|^  -g$||' $TOOLCHAIN_FILE
     # Set EXTRA_CMAKE_FLAGS_ANDROID for future steps
     set +x
@@ -127,7 +136,7 @@ steps:
       -e "s|@LLVM_TARGETS@|AArch64 ARM X86 WebAssembly|g" > llvm-$ARCH/bin/llvm-config
     chmod 755 llvm-$ARCH/bin/llvm-config
     # Set up DFLAGS for cross-compiling/linking with host ldmd2
-    DFLAGS="-mtriple=$LLVM_TRIPLE -L-L$PWD/ldc-build-runtime.tmp/lib -linker=bfd -gcc=$PWD/android-ndk-r20b/toolchains/llvm/prebuilt/linux-x86_64/bin/$ARCH-linux-${androidEnv}21-clang"
+    DFLAGS="-mtriple=$LLVM_TRIPLE -L-L$PWD/ldc-build-runtime.tmp/lib -gcc=$PWD/android-ndk-r21/toolchains/llvm/prebuilt/linux-x86_64/bin/$ARCH-linux-${androidEnv}21-clang"
     if [ "$ARCH" = "armv7a" ]; then DFLAGS="$DFLAGS -mcpu=cortex-a8"; fi
     set +x
     echo "##vso[task.setvariable variable=DFLAGS]$DFLAGS"
@@ -138,7 +147,7 @@ steps:
     cd ..
     IFS=$'\n' extraFlags=( $(xargs -n1 <<<"$EXTRA_CMAKE_FLAGS $EXTRA_CMAKE_FLAGS_ANDROID") )
     bootstrap-ldc/bin/ldc-build-runtime --ninja -j $PARALLEL_JOBS \
-      --dFlags="${DFLAGS// /;}" \
+      --dFlags="-fvisibility=hidden;${DFLAGS// /;}" \
       --targetSystem='Android;Linux;UNIX' \
       --ldcSrcDir=$BUILD_SOURCESDIRECTORY \
       "${extraFlags[@]//-D/}"
@@ -150,8 +159,8 @@ steps:
     installDir=$PWD/install
     mkdir build-$ARCH
     cd build-$ARCH
-    DEFAULT_LDC_SWITCHES=' "-linker=bfd",'
-    if [ "$ARCH" = "armv7a" ]; then DEFAULT_LDC_SWITCHES="$DEFAULT_LDC_SWITCHES \"-mcpu=cortex-a8\","; fi
+    DEFAULT_LDC_SWITCHES=''
+    if [ "$ARCH" = "armv7a" ]; then DEFAULT_LDC_SWITCHES=" \"-mcpu=cortex-a8\","; fi
     IFS=$'\n' extraFlags=( $(xargs -n1 <<<"$EXTRA_CMAKE_FLAGS $EXTRA_CMAKE_FLAGS_ANDROID") )
     cmake -G Ninja $BUILD_SOURCESDIRECTORY \
       -DCMAKE_BUILD_TYPE=Release \
@@ -159,12 +168,14 @@ steps:
       -DD_COMPILER=$PWD/../bootstrap-ldc/bin/ldmd2 \
       -DCMAKE_INSTALL_PREFIX=$installDir \
       -DINCLUDE_INSTALL_DIR=$installDir/import \
-      -DD_LINKER_ARGS="-fuse-ld=bfd;-L$PWD/../ldc-build-runtime.tmp/lib;-lphobos2-ldc;-ldruntime-ldc" \
+      -DD_LINKER_ARGS="-L$PWD/../ldc-build-runtime.tmp/lib;-lphobos2-ldc;-ldruntime-ldc" \
       -DADDITIONAL_DEFAULT_LDC_SWITCHES="$DEFAULT_LDC_SWITCHES" \
       "${extraFlags[@]}"
     ninja -j$PARALLEL_JOBS -v ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache
   displayName: 'Android: Cross-compile LDC executables'
   condition: and(succeeded(), eq(variables['CI_OS'], 'android'))
+
+# Pack source dir
 - script: |
     set -ex
     cd ..
@@ -181,6 +192,8 @@ steps:
     zip -r -9 artifacts/$artifactName.zip $artifactName
   displayName: Pack source dir
   condition: and(succeeded(), eq(variables['CI_OS'], 'linux'))
+
+# Tests
 - script: |
     set -ex
     cd ../build
@@ -206,6 +219,8 @@ steps:
     ctest -j$PARALLEL_JOBS --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
   displayName: Run defaultlib unittests & druntime stand-alone tests
   condition: and(succeededOrFailed(), ne(variables['CI_OS'], 'android'))
+
+# Install & make portable
 - script: |
     set -ex
     cd ..
@@ -236,6 +251,8 @@ steps:
     # Now rename the installation dir to test portability
     mv install installed
   displayName: Install LDC & make portable
+
+# Android: add x86 libraries
 - script: |
     set -ex
     cd ..
@@ -243,7 +260,7 @@ steps:
     if [ "$arch" = "x86" ]; then arch="i686"; fi
     bootstrap-ldc/bin/ldc-build-runtime --ninja -j $PARALLEL_JOBS \
       --buildDir=build-libs-$arch \
-      --dFlags="-mtriple=$arch-linux-android" \
+      --dFlags="-fvisibility=hidden;-mtriple=$arch-linux-android" \
       --targetSystem='Android;Linux;UNIX' \
       --ldcSrcDir=$BUILD_SOURCESDIRECTORY \
       ${EXTRA_CMAKE_FLAGS//-D/} \
@@ -253,6 +270,51 @@ steps:
     cp build-libs-$arch/lib/*.a installed/lib-$arch
   displayName: 'Android: Cross-compile x86 libraries and copy to install dir'
   condition: and(succeeded(), eq(variables['CI_OS'], 'android'))
+
+# Mac: add iOS/arm64 libraries
+- script: |
+    set -ex
+    cd ..
+    export PATH="$PWD/ninja:$PATH"
+    triple="arm64-apple-ios$IOS_DEPLOYMENT_TARGET"
+    # TODO: shared libs too, and look into `-fvisibility=hidden` requirement
+    build/bin/ldc-build-runtime --ninja -j $PARALLEL_JOBS \
+      --buildDir=build-libs-arm64 \
+      --cFlags="-target;$triple" \
+      --dFlags="-mtriple=$triple;-fvisibility=hidden" \
+      --ldcSrcDir=$BUILD_SOURCESDIRECTORY \
+      CMAKE_SYSTEM_NAME=iOS \
+      CMAKE_OSX_ARCHITECTURES=arm64 \
+      CMAKE_OSX_DEPLOYMENT_TARGET=$IOS_DEPLOYMENT_TARGET \
+      BUILD_SHARED_LIBS=OFF \
+      BUILD_LTO_LIBS=ON
+    mkdir installed/lib-ios-arm64
+    cp build-libs-arm64/lib/*.a installed/lib-ios-arm64
+    rm installed/lib-ios-arm64/*-lto-debug.a
+    section="
+    \"arm64-apple-ios\":
+    {
+        switches = [
+            \"-defaultlib=phobos2-ldc,druntime-ldc\",
+            \"-link-defaultlib-shared=false\",
+            \"-fvisibility=hidden\",
+            \"-Xcc=-target\",
+            \"-Xcc=$triple\",
+            \"-Xcc=-miphoneos-version-min=$IOS_DEPLOYMENT_TARGET\",
+            \"-Xcc=-isysroot\",
+            \"-Xcc=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk\",
+        ];
+        lib-dirs = [
+            \"%%ldcbinarypath%%/../lib-ios-arm64\",
+        ];
+        rpath = \"%%ldcbinarypath%%/../lib-ios-arm64\";
+    };"
+    echo "$section" >> installed/etc/ldc2.conf
+    cat installed/etc/ldc2.conf
+  displayName: 'Mac: Cross-compile iOS/arm64 libraries, copy to install dir and extend ldc2.conf'
+  condition: and(succeeded(), eq(variables['CI_OS'], 'osx'))
+
+# Integration tests
 - script: |
     set -ex
     cd ..
@@ -265,6 +327,12 @@ steps:
     fi
   displayName: Run hello-world integration test with shared libs
   condition: and(succeeded(), ne(variables['CI_OS'], 'android'))
+- script: |
+    set -ex
+    cd ..
+    installed/bin/ldc2 -mtriple="arm64-apple-ios$IOS_DEPLOYMENT_TARGET" hello.d -of=hello_ios
+  displayName: 'Mac: Cross-compile & -link hello-world for iOS'
+  condition: and(succeeded(), eq(variables['CI_OS'], 'osx'))
 - script: |
     set -ex
     cd ..
@@ -283,6 +351,8 @@ steps:
     installed/bin/ldc2 -enable-dynamic-compile -run $BUILD_SOURCESDIRECTORY/tests/dynamiccompile/array.d
   displayName: Run dynamic-compile integration test
   condition: and(succeeded(), ne(variables['CI_OS'], 'android'))
+
+# Add dub & dlang tools
 - script: |
     set -e
     cd ..
@@ -299,13 +369,7 @@ steps:
     git clone --recursive https://github.com/dlang/dub.git
     cd dub
     git checkout "$(cat $BUILD_SOURCESDIRECTORY/packaging/dub_version)"
-    if [ "$CI_OS" = "android" ]; then
-      # Remove -g to prevent invalid debuginfo relocations (apparently due to our custom TLS emulation)
-      sed -i 's|-g -O |-O |' build.sh
-      # Don't run dub after build
-      sed -i 's|bin/dub --version||' build.sh
-    fi
-    DFLAGS='' ./build.sh $DFLAGS
+    DFLAGS='' $DMD -run build.d -O -w $DFLAGS
     cp bin/dub ../installed/bin
     if [ "$CI_OS" != "android" ]; then ../installed/bin/dub --version; fi
   displayName: Build & copy dub
@@ -320,6 +384,8 @@ steps:
     $DMD -w -de -dip1000 DustMite/dustmite.d DustMite/splitter.d -of=bin/dustmite
     cp bin/{rdmd,ddemangle,dustmite} ../installed/bin
   displayName: Build & copy dlang tools
+
+# Pack & publish artifact
 - script: |
     set -ex
     cd ..

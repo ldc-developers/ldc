@@ -1,8 +1,7 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * The base class for a D symbol, which can be a module, variable, function, enum, etc.
  *
- * Copyright:   Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/dsymbol.d, _dsymbol.d)
@@ -48,9 +47,9 @@ import dmd.root.aav;
 import dmd.root.rmem;
 import dmd.root.rootobject;
 import dmd.root.speller;
+import dmd.root.string;
 import dmd.statement;
 import dmd.tokens;
-import dmd.utils;
 import dmd.visitor;
 
 version (IN_LLVM)
@@ -228,8 +227,6 @@ enum : int
     IgnoreSymbolVisibility  = 0x80, // also find private and package protected symbols
 }
 
-extern (C++) alias Dsymbol_apply_ft_t = int function(Dsymbol, void*);
-
 /***********************************************************
  */
 extern (C++) class Dsymbol : ASTNode
@@ -392,28 +389,27 @@ version (IN_LLVM)
 
     final bool checkDeprecated(const ref Loc loc, Scope* sc)
     {
-        if (global.params.useDeprecated != DiagnosticReporting.off && isDeprecated())
+        if (global.params.useDeprecated == DiagnosticReporting.off)
+            return false;
+        if (!this.isDeprecated())
+            return false;
+        // Don't complain if we're inside a deprecated symbol's scope
+        if (sc.isDeprecated())
+            return false;
+
+        const(char)* message = null;
+        for (Dsymbol p = this; p; p = p.parent)
         {
-            // Don't complain if we're inside a deprecated symbol's scope
-            if (sc.isDeprecated())
-                return false;
-
-            const(char)* message = null;
-            for (Dsymbol p = this; p; p = p.parent)
-            {
-                message = p.depdecl ? p.depdecl.getMessage() : null;
-                if (message)
-                    break;
-            }
+            message = p.depdecl ? p.depdecl.getMessage() : null;
             if (message)
-                deprecation(loc, "is deprecated - %s", message);
-            else
-                deprecation(loc, "is deprecated");
-
-            return true;
+                break;
         }
+        if (message)
+            deprecation(loc, "is deprecated - %s", message);
+        else
+            deprecation(loc, "is deprecated");
 
-        return false;
+        return true;
     }
 
     /**********************************
@@ -751,48 +747,32 @@ version (IN_LLVM)
         return toAlias();
     }
 
-    /*********************************
-     * Iterate this dsymbol or members of this scoped dsymbol, then
-     * call `fp` with the found symbol and `param`.
-     * Params:
-     *  fp = function pointer to process the iterated symbol.
-     *       If it returns nonzero, the iteration will be aborted.
-     *  param = a parameter passed to fp.
-     * Returns:
-     *  nonzero if the iteration is aborted by the return value of fp,
-     *  or 0 if it's completed.
-     */
-    int apply(Dsymbol_apply_ft_t fp, void* param)
-    {
-        return (*fp)(this, param);
-    }
-
     void addMember(Scope* sc, ScopeDsymbol sds)
     {
         //printf("Dsymbol::addMember('%s')\n", toChars());
         //printf("Dsymbol::addMember(this = %p, '%s' scopesym = '%s')\n", this, toChars(), sds.toChars());
         //printf("Dsymbol::addMember(this = %p, '%s' sds = %p, sds.symtab = %p)\n", this, toChars(), sds, sds.symtab);
         parent = sds;
-        if (!isAnonymous()) // no name, so can't add it to symbol table
+        if (isAnonymous()) // no name, so can't add it to symbol table
+            return;
+
+        if (!sds.symtabInsert(this)) // if name is already defined
         {
-            if (!sds.symtabInsert(this)) // if name is already defined
+            if (isAliasDeclaration() && !_scope)
+                setScope(sc);
+            Dsymbol s2 = sds.symtabLookup(this,ident);
+            if (!s2.overloadInsert(this))
             {
-                if (isAliasDeclaration() && !_scope)
-                    setScope(sc);
-                Dsymbol s2 = sds.symtabLookup(this,ident);
-                if (!s2.overloadInsert(this))
-                {
-                    sds.multiplyDefined(Loc.initial, this, s2);
-                    errors = true;
-                }
+                sds.multiplyDefined(Loc.initial, this, s2);
+                errors = true;
             }
-            if (sds.isAggregateDeclaration() || sds.isEnumDeclaration())
+        }
+        if (sds.isAggregateDeclaration() || sds.isEnumDeclaration())
+        {
+            if (ident == Id.__sizeof || ident == Id.__xalignof || ident == Id._mangleof)
             {
-                if (ident == Id.__sizeof || ident == Id.__xalignof || ident == Id._mangleof)
-                {
-                    error("`.%s` property cannot be redefined", ident.toChars());
-                    errors = true;
-                }
+                error("`.%s` property cannot be redefined", ident.toChars());
+                errors = true;
             }
         }
     }
@@ -1079,51 +1059,54 @@ version (IN_LLVM)
     {
         //printf("Dsymbol::oneMembers() %d\n", members ? members.dim : 0);
         Dsymbol s = null;
-        if (members)
+        if (!members)
         {
-            for (size_t i = 0; i < members.dim; i++)
+            *ps = null;
+            return true;
+        }
+
+        for (size_t i = 0; i < members.dim; i++)
+        {
+            Dsymbol sx = (*members)[i];
+            bool x = sx.oneMember(ps, ident);
+            //printf("\t[%d] kind %s = %d, s = %p\n", i, sx.kind(), x, *ps);
+            if (!x)
             {
-                Dsymbol sx = (*members)[i];
-                bool x = sx.oneMember(ps, ident);
-                //printf("\t[%d] kind %s = %d, s = %p\n", i, sx.kind(), x, *ps);
-                if (!x)
+                //printf("\tfalse 1\n");
+                assert(*ps is null);
+                return false;
+            }
+            if (*ps)
+            {
+                assert(ident);
+                if (!(*ps).ident || !(*ps).ident.equals(ident))
+                    continue;
+                if (!s)
+                    s = *ps;
+                else if (s.isOverloadable() && (*ps).isOverloadable())
                 {
-                    //printf("\tfalse 1\n");
-                    assert(*ps is null);
-                    return false;
-                }
-                if (*ps)
-                {
-                    assert(ident);
-                    if (!(*ps).ident || !(*ps).ident.equals(ident))
-                        continue;
-                    if (!s)
-                        s = *ps;
-                    else if (s.isOverloadable() && (*ps).isOverloadable())
+                    // keep head of overload set
+                    FuncDeclaration f1 = s.isFuncDeclaration();
+                    FuncDeclaration f2 = (*ps).isFuncDeclaration();
+                    if (f1 && f2)
                     {
-                        // keep head of overload set
-                        FuncDeclaration f1 = s.isFuncDeclaration();
-                        FuncDeclaration f2 = (*ps).isFuncDeclaration();
-                        if (f1 && f2)
+                        assert(!f1.isFuncAliasDeclaration());
+                        assert(!f2.isFuncAliasDeclaration());
+                        for (; f1 != f2; f1 = f1.overnext0)
                         {
-                            assert(!f1.isFuncAliasDeclaration());
-                            assert(!f2.isFuncAliasDeclaration());
-                            for (; f1 != f2; f1 = f1.overnext0)
+                            if (f1.overnext0 is null)
                             {
-                                if (f1.overnext0 is null)
-                                {
-                                    f1.overnext0 = f2;
-                                    break;
-                                }
+                                f1.overnext0 = f2;
+                                break;
                             }
                         }
                     }
-                    else // more than one symbol
-                    {
-                        *ps = null;
-                        //printf("\tfalse 2\n");
-                        return false;
-                    }
+                }
+                else // more than one symbol
+                {
+                    *ps = null;
+                    //printf("\tfalse 2\n");
+                    return false;
                 }
             }
         }
@@ -1253,7 +1236,6 @@ version (IN_LLVM)
     inout(ArrayScopeSymbol)            isArrayScopeSymbol()            inout { return null; }
     inout(Import)                      isImport()                      inout { return null; }
     inout(EnumDeclaration)             isEnumDeclaration()             inout { return null; }
-    inout(DeleteDeclaration)           isDeleteDeclaration()           inout { return null; }
     inout(SymbolDeclaration)           isSymbolDeclaration()           inout { return null; }
     inout(AttribDeclaration)           isAttribDeclaration()           inout { return null; }
     inout(AnonDeclaration)             isAnonDeclaration()             inout { return null; }
@@ -1401,7 +1383,8 @@ public:
                          * need to check s once)
                          */
 
-                        if ((s2.isOverloadSet() || s2.isOverloadable()) && (a || s.isOverloadable()))
+                        auto so2 = s2.isOverloadSet();
+                        if ((so2 || s2.isOverloadable()) && (a || s.isOverloadable()))
                         {
                             if (symbolIsVisible(this, s2))
                             {
@@ -1411,6 +1394,26 @@ public:
                                 s = s2;
                             continue;
                         }
+
+                        /* Two different overflow sets can have the same members
+                         * https://issues.dlang.org/show_bug.cgi?id=16709
+                         */
+                        auto so = s.isOverloadSet();
+                        if (so && so2)
+                        {
+                            if (so.a.length == so2.a.length)
+                            {
+                                foreach (j; 0 .. so.a.length)
+                                {
+                                    if (so.a[j] !is so2.a[j])
+                                        goto L1;
+                                }
+                                continue;  // the same
+                              L1:
+                                {   } // different
+                            }
+                        }
+
                         if (flags & IgnoreAmbiguous) // if return NULL on ambiguity
                             return null;
                         if (!(flags & IgnoreErrors))
@@ -1548,7 +1551,29 @@ public:
         }
         if (loc.isValid())
         {
-            .error(loc, "`%s` at %s conflicts with `%s` at %s", s1.toPrettyChars(), s1.locToChars(), s2.toPrettyChars(), s2.locToChars());
+            .error(loc, "%s `%s` at %s conflicts with %s `%s` at %s",
+                s1.kind(), s1.toPrettyChars(), s1.locToChars(),
+                s2.kind(), s2.toPrettyChars(), s2.locToChars());
+
+            static if (0)
+            {
+                if (auto so = s1.isOverloadSet())
+                {
+                    printf("first %p:\n", so);
+                    foreach (s; so.a[])
+                    {
+                        printf("  %p %s `%s` at %s\n", s, s.kind(), s.toPrettyChars(), s.locToChars());
+                    }
+                }
+                if (auto so = s2.isOverloadSet())
+                {
+                    printf("second %p:\n", so);
+                    foreach (s; so.a[])
+                    {
+                        printf("  %p %s `%s` at %s\n", s, s.kind(), s.toPrettyChars(), s.locToChars());
+                    }
+                }
+            }
         }
         else
         {
@@ -1795,28 +1820,25 @@ extern (C++) final class ArrayScopeSymbol : ScopeDsymbol
             v.dsymbolSemantic(sc);
             return v;
         }
-        if (exp.op == TOK.index)
+        if (auto ie = exp.isIndexExp())
         {
             /* array[index] where index is some function of $
              */
-            IndexExp ie = cast(IndexExp)exp;
             pvar = &ie.lengthVar;
             ce = ie.e1;
         }
-        else if (exp.op == TOK.slice)
+        else if (auto se = exp.isSliceExp())
         {
             /* array[lwr .. upr] where lwr or upr is some function of $
              */
-            SliceExp se = cast(SliceExp)exp;
             pvar = &se.lengthVar;
             ce = se.e1;
         }
-        else if (exp.op == TOK.array)
+        else if (auto ae = exp.isArrayExp())
         {
             /* array[e0, e1, e2, e3] where e0, e1, e2 are some function of $
              * $ is a opDollar!(dim)() where dim is the dimension(0,1,2,...)
              */
-            ArrayExp ae = cast(ArrayExp)exp;
             pvar = &ae.lengthVar;
             ce = ae.e1;
         }
@@ -1826,18 +1848,16 @@ extern (C++) final class ArrayScopeSymbol : ScopeDsymbol
              */
             return null;
         }
-        while (ce.op == TOK.comma)
-            ce = (cast(CommaExp)ce).e2;
+        ce = ce.lastComma();
         /* If we are indexing into an array that is really a type
          * tuple, rewrite this as an index into a type tuple and
          * try again.
          */
-        if (ce.op == TOK.type)
+        if (auto te = ce.isTypeExp())
         {
-            Type t = (cast(TypeExp)ce).type;
-            if (t.ty == Ttuple)
+            if (auto ttp = te.type.isTypeTuple())
             {
-                type = cast(TypeTuple)t;
+                type = ttp;
                 goto L1;
             }
         }
@@ -1850,12 +1870,12 @@ extern (C++) final class ArrayScopeSymbol : ScopeDsymbol
              */
             VarDeclaration v;
             Type t;
-            if (ce.op == TOK.tuple)
+            if (auto tupexp = ce.isTupleExp())
             {
                 /* It is for an expression tuple, so the
                  * length will be a const.
                  */
-                Expression e = new IntegerExp(Loc.initial, (cast(TupleExp)ce).exps.dim, Type.tsize_t);
+                Expression e = new IntegerExp(Loc.initial, tupexp.exps.dim, Type.tsize_t);
                 v = new VarDeclaration(loc, Type.tsize_t, Id.dollar, new ExpInitializer(Loc.initial, e));
                 v.storage_class |= STC.temp | STC.static_ | STC.const_;
             }
@@ -2105,13 +2125,6 @@ extern (C++) final class DsymbolTable : RootObject
         return tab[ident];
     }
 
-    // Insert Dsymbol in table. Return NULL if already there.
-    Dsymbol insert(Dsymbol s)
-    {
-        //printf("DsymbolTable::insert(this = %p, '%s')\n", this, s.ident.toChars());
-        return insert(s.ident, s);
-    }
-
     // Look for Dsymbol in table. If there, return it. If not, insert s and return that.
     Dsymbol update(Dsymbol s)
     {
@@ -2119,6 +2132,13 @@ extern (C++) final class DsymbolTable : RootObject
         Dsymbol* ps = tab.getLvalue(ident);
         *ps = s;
         return s;
+    }
+
+    // Insert Dsymbol in table. Return NULL if already there.
+    Dsymbol insert(Dsymbol s)
+    {
+        //printf("DsymbolTable::insert(this = %p, '%s')\n", this, s.ident.toChars());
+        return insert(s.ident, s);
     }
 
     // when ident and s are not the same
@@ -2136,8 +2156,8 @@ extern (C++) final class DsymbolTable : RootObject
      * Returns:
      *  number of symbols in symbol table
      */
-    uint len() const pure
+    size_t length() const pure
     {
-        return cast(uint)tab.length;
+        return tab.length;
     }
 }

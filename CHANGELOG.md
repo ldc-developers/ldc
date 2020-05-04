@@ -1,3 +1,75 @@
+# LDC 1.21.0 (2020-04-23)
+
+#### Big news
+- Frontend, druntime and Phobos are at version [2.091.1+](https://dlang.org/changelog/2.091.1.html), incl. new CLI switches `-verror-style` and `-HC`, `-HCd`, `-HCf`. (#3333, #3399)
+- **iOS** (incl. watchOS and tvOS) support has landed in druntime and Phobos (thanks Jacob!). All unittests are green on iOS/arm64. The prebuilt macOS package includes prebuilt druntime & Phobos libraries for iOS/arm64, for first `-mtriple=arm64-apple-ios12.0` cross-compilation experiments. (#3373)
+- LLVM for prebuilt packages upgraded to v10.0.0. Android NDK version bumped to r21. (#3307, #3387, #3398)
+- Initial support for **GCC/GDC-style inline assembly** syntax, besides DMD-style inline asm and LDC-specific `__asm`, enabling to write inline asm that is portable across GDC/LDC and corresponds to the GCC syntax in C. See ldc-developers/druntime#171 for examples wrt. how to transition from `__asm` to similar GCC-style asm.  (#3304)
+- Inline assembly diagnostics have been extended by the D source location. (#3339)
+- **Android**:
+  - Revamped druntime initialization, fixing related issues for i686/x86_64 targets, enabling the usage of the `ld.gold` linker (bfd isn't required anymore) as well as getting rid of the D `main()` requirement. (#3350, #3357, ldc-developers/druntime#178)
+  - Reduced size for shared libraries by compiling druntime and Phobos with hidden visibility. (#3377)
+
+#### Platform support
+- Supports LLVM 3.9 - 10.0.
+
+#### Bug fixes
+- Fixed tail calls in thunks, affecting **AArch64** (the debug libraries now work) and possibly other architectures. (#3329, #3332)
+- Windows: Do not emit any column infos for CodeView by default (like clang) & add `-gcolumn-info`. (#3102, #3388)
+- Windows: Do not leak MSVC-environment-setup into `-run` child processes. A new `LDC_VSDIR_FORCE` environment variable can be used to enforce MSVC toolchain setup. (#3340, #3341)
+- Windows: Fix memory leak when throwing exceptions in threads. (#3369, ldc-developers/druntime#181)
+- Try to use `memcmp` for (in)equality of non-mutable static arrays and mutable slices. (#3400, #3401)
+- `ldc.gccbuiltins_*`: Lift 256-bit vector limit, adding 174 AVX512 builtins for x86; 512-bit vector aliases have been added to `core.simd`. (#3405, #3406)
+
+#### Internals
+- `core.bitop.{bts,btr,btc}` are now CTFE-able. (ldc-developers/druntime#182)
+- Do not fallback to host for critical section size of unknown targets. (#3389)
+- Linux: Possibility to avoid passing `-fuse-ld` to `cc` via `-linker=`. (#3382)
+- WebAssembly: Switch from legacy linked-list ModuleInfo registry to `__minfo` section. (#3348)
+- Windows: Bundled libcurl upgraded to v7.69.1, incl. the option to link it statically. (#3378)
+- Windows: Switch to wide `wmain` C entry point in druntime. (#3351)
+- druntime unittests are now compiled with `-checkaction=context`.
+
+#### Known issues
+- When building LDC, old LDC 0.17.*/ltsmaster host compilers miscompile LDC ≥ 1.21, leading to potential segfaults of the built LDC. Ltsmaster can still be used to bootstrap a first compiler and then let that compiler compile itself. (#3354)
+
+# LDC 1.20.1 (2020-03-07)
+
+#### Bug fixes
+- Non-Windows: Revert to strong `ModuleInfo.importedModules` references for correct module constructors execution order. (#3346, #3347)
+
+# LDC 1.20.0 (2020-02-14)
+
+#### Big news
+- Frontend, druntime and Phobos are at version [2.090.1+](https://dlang.org/changelog/2.090.1.html). (#3262, #3296, #3306, #3317, #3326)
+- Codegen preparations for:
+  - iOS/tvOS/watchOS on AArch64. Thanks Jacob! (#3288)
+  - WASI (WebAssembly System Interface) (#3295)
+- The config file for multilib builds has been restructured by adding a separate section for the multilib target. This avoids `--no-warn-search-mismatch` for the linker and enables support for LLD. (#3276)
+- Support for embedding `pragma({lib,linkerDirective}, ...)` in Mach-O object files. (#3259)
+  E.g., `pragma(linkerDirective, "-framework", "CoreFoundation");` makes Apple's linker pull in that framework when pulling in the compiled object file.
+  ELF object files newly embed `pragma(lib, ...)` library names in a special `.deplibs` section, but that only works with LLD 9+ for now.
+- The `ldc-build-runtime` tool has been slightly revised; `--dFlags` now extends the base D flags instead of overriding them. (1200601d44280d5f948a577b444ffa2dd4f9e433)
+- `ModuleInfo.importedModules` are now emitted as weak references (except on Windows, for LLD compatibility), following DMD. (#3262)
+- Windows: Bundled MinGW-based libs now support wide `wmain` and `wWinMain` C entry points. (#3311)
+
+#### Platform support
+- Supports LLVM 3.9 - 10.0.
+
+#### Bug fixes
+- Potential stack overflows on Linux in GC worker threads. (#3127, dlang/druntime#2904)
+- Support 2 leading dashes (not just 1) in command-line pre-parsing, thus fixing config file section lookup when using `--mtriple` and not ignoring `--conf` and `--lowmem` any longer. (#3268, #3275)
+- Support for data directives in DMD-style inline asm. (#3299, #3301)
+- Cherry-picked fixes for soft-float targets. (#3292, dlang/phobos#7362, dlang/phobos#7366, dlang/phobos#7377)
+- ICE during debuginfo generation for function literals inside enum declarations. (#3272, #3274)
+
+#### Internals
+- Misc. tweaks for `dmd-testsuite`: (#3287, #3306)
+  - Significantly accelerated by skipping uninteresting permutations.
+  - Switch from Makefile to `run.d`, incl. moving LDC-specific exceptions from Makefile to individual test files and support for extended `DISABLED` directives.
+- Addition of (recommendable!) Cirrus CI service (incl. FreeBSD) and removal of Semaphore CI. (#3298)
+- Some improvements for `gdmd` host compilers, incl. CI tests. (#3286)
+
 # LDC 1.19.0 (2019-12-20)
 
 #### Big news

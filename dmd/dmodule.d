@@ -1,8 +1,9 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Defines a package and module.
  *
- * Copyright:   Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Specification: $(LINK2 https://dlang.org/spec/module.html, Modules)
+ *
+ * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/dmodule.d, _dmodule.d)
@@ -39,9 +40,9 @@ import dmd.root.outbuffer;
 import dmd.root.port;
 import dmd.root.rmem;
 import dmd.root.rootobject;
+import dmd.root.string;
 import dmd.semantic2;
 import dmd.semantic3;
-import dmd.utils;
 import dmd.visitor;
 version (IN_LLVM)
 {
@@ -429,6 +430,7 @@ extern (C++) final class Module : Package
     bool isHdrFile;             // if it is a header (.di) file
     bool isDocFile;             // if it is a documentation input file, not D source
     bool isPackageFile;         // if it is a package.d
+    Package pkg;                // if isPackageFile is true, the Package that contains this package.d
     Strings contentImportedFiles; // array of files whose content was imported
     int needmoduleinfo;
     int selfimports;            // 0: don't know, 1: does not, 2: does
@@ -697,7 +699,7 @@ else
 
     extern (D) void setDocfile()
     {
-        docfile = setOutfilename(global.params.docname.toDString, global.params.docdir.toDString, arg, global.doc_ext);
+        docfile = setOutfilename(global.params.docname, global.params.docdir, arg, global.doc_ext);
     }
 
     /**
@@ -783,12 +785,11 @@ else
     /// syntactic parse
     Module parse()
     {
-        scope diagnosticReporter = new StderrDiagnosticReporter(global.params.useDeprecated);
-        return parse!ASTCodegen(diagnosticReporter);
+        return parseModule!ASTCodegen();
     }
 
     /// ditto
-    extern (D) Module parse(AST)(DiagnosticReporter diagnosticReporter)
+    extern (D) Module parseModule(AST)()
     {
 
 
@@ -1049,13 +1050,11 @@ else
             isHdrFile = true;
         }
         {
-            scope p = new Parser!AST(this, buf, cast(bool) docfile, diagnosticReporter);
+            scope p = new Parser!AST(this, buf, cast(bool) docfile);
             p.nextToken();
             members = p.parseModule();
             md = p.md;
             numlines = p.scanloc.linnum;
-            if (p.errors)
-                ++global.errors;
         }
         srcBuffer.destroy();
         srcBuffer = null;
@@ -1108,15 +1107,27 @@ else
              *
              * To avoid the conflict:
              * 1. If preceding package name insertion had occurred by Package::resolve,
-             *    later package.d loading will change Package::isPkgMod to PKG.module_ and set Package::mod.
+             *    reuse the previous wrapping 'Package' if it exists
              * 2. Otherwise, 'package.d' wrapped by 'Package' is inserted to the internal tree in here.
+             *
+             * Then change Package::isPkgMod to PKG.module_ and set Package::mod.
+             *
+             * Note that the 'wrapping Package' is the Package that contains package.d and other submodules,
+             * the one inserted to the symbol table.
              */
-            auto p = new Package(Loc.initial, ident);
+            auto ps = dst.lookup(ident);
+            Package p = ps ? ps.isPackage() : null;
+            if (p is null)
+            {
+                p = new Package(Loc.initial, ident);
+                p.tag = this.tag; // reuse the same package tag
+                p.symtab = new DsymbolTable();
+            }
+            this.tag = p.tag; // reuse the 'older' package tag
+            this.pkg = p;
             p.parent = this.parent;
             p.isPkgMod = PKG.module_;
             p.mod = this;
-            p.tag = this.tag; // reuse the same package tag
-            p.symtab = new DsymbolTable();
             s = p;
         }
         if (!dst.insert(s))
@@ -1140,16 +1151,9 @@ else
             }
             else if (Package pkg = prev.isPackage())
             {
-                if (pkg.isPkgMod == PKG.unknown && isPackageFile)
-                {
-                    /* If the previous inserted Package is not yet determined as package.d,
-                     * link it to the actual module.
-                     */
-                    pkg.isPkgMod = PKG.module_;
-                    pkg.mod = this;
-                    pkg.tag = this.tag; // reuse the same package tag
+                // 'package.d' loaded after a previous 'Package' insertion
+                if (isPackageFile)
                     amodules.push(this); // Add to global array of all modules
-                }
                 else
                     error(md ? md.loc : loc, "from file %s conflicts with package name %s", srcname, pkg.toChars());
             }

@@ -1,8 +1,7 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Describes a back-end compiler and implements compiler-specific actions.
  *
- * Copyright:   Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/compiler.d, _compiler.d)
@@ -46,7 +45,7 @@ extern (C++) __gshared
  * A data structure that describes a back-end compiler and implements
  * compiler-specific actions.
  */
-struct Compiler
+extern (C++) struct Compiler
 {
     /******************************
      * Encode the given expression, which is assumed to be an rvalue literal
@@ -186,7 +185,8 @@ private struct ModuleComponentRange
  *  True if the given module should be included in the compilation.
  */
 private bool includeImportedModuleCheck(ModuleComponentRange components)
-    in { assert(includeImports); } body
+    in { assert(includeImports); }
+body
 {
     createMatchNodes();
     size_t nodeIndex = 0;

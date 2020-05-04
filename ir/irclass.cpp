@@ -96,7 +96,7 @@ LLGlobalVariable *IrAggr::getClassInfoSymbol() {
     LLType *type = DtoType(aggrdecl->type);
     LLType *bodyType = llvm::cast<LLPointerType>(type)->getElementType();
     bool hasDestructor = (classdecl->dtor != nullptr);
-    bool hasCustomDelete = (classdecl->aggDelete != nullptr);
+    bool hasCustomDelete = false;
     // Construct the fields
     llvm::Metadata *mdVals[CD_NumFields];
     mdVals[CD_BodyType] =
@@ -203,7 +203,8 @@ LLConstant *IrAggr::getVtblInit() {
         Logger::println("Running late functionSemantic to infer return type.");
         if (!fd->functionSemantic()) {
           if (fd->semantic3Errors) {
-            Logger::println("functionSemantic failed; using null for vtbl entry.");
+            Logger::println(
+                "functionSemantic failed; using null for vtbl entry.");
             constants.push_back(getNullValue(voidPtrType));
             continue;
           }
@@ -301,8 +302,8 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtblSymbol(BaseClass *b,
 
   const auto irMangle = getIRMangledVarName(mangledName.peekChars(), LINKd);
 
-  LLGlobalVariable *gvar =
-      declareGlobal(cd->loc, gIR->module, vtblType, irMangle, /*isConstant=*/true);
+  LLGlobalVariable *gvar = declareGlobal(cd->loc, gIR->module, vtblType,
+                                         irMangle, /*isConstant=*/true);
 
   // insert into the vtbl map
   interfaceVtblMap.insert({{b->sym, interfaces_index}, gvar});
@@ -462,9 +463,10 @@ void IrAggr::defineInterfaceVtbl(BaseClass *b, bool new_instance,
 
       // call the real vtbl function.
       llvm::CallInst *call = gIR->ir->CreateCall(callee, args);
-      call->setCallingConv(irFunc->getCallingConv());
-      call->setTailCallKind(thunk->isVarArg() ? llvm::CallInst::TCK_MustTail
-                                              : llvm::CallInst::TCK_Tail);
+      call->setCallingConv(callee->getCallingConv());
+      call->setAttributes(callee->getAttributes());
+      call->setTailCallKind(callee->isVarArg() ? llvm::CallInst::TCK_MustTail
+                                               : llvm::CallInst::TCK_Tail);
 
       // return from the thunk
       if (thunk->getReturnType() == LLType::getVoidTy(gIR->context())) {

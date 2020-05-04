@@ -1,8 +1,9 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Does semantic analysis for statements.
  *
- * Copyright:   Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Specification: $(LINK2 https://dlang.org/spec/statement.html, Statements)
+ *
+ * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/statementsem.d, _statementsem.d)
@@ -48,13 +49,13 @@ import dmd.mtype;
 import dmd.nogc;
 import dmd.opover;
 import dmd.root.outbuffer;
+import dmd.root.string;
 import dmd.semantic2;
 import dmd.sideeffect;
 import dmd.statement;
 import dmd.target;
 import dmd.tokens;
 import dmd.typesem;
-import dmd.utils;
 import dmd.visitor;
 
 version (IN_LLVM) import gen.dpragma;
@@ -673,9 +674,7 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
         {
             auto needExpansion = args[$-1];
             assert(sc);
-            auto previous = sc.scopesym;
         }
-        alias s = fs;
 
         auto loc = fs.loc;
         size_t dim = fs.parameters.dim;
@@ -876,7 +875,7 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
                         if (paramtype)
                             type = paramtype;
                         Initializer ie = new ExpInitializer(Loc.initial, e);
-                        auto v = new VarDeclaration(loc, type, ident, ie);
+                        auto v = new VarDeclaration(loc, type, ident, ie, storageClass);
                         if (storageClass & STC.ref_)
                             v.storage_class |= STC.ref_ | STC.foreach_;
                         if (isStatic || storageClass&STC.manifest || e.isConst() ||
@@ -915,7 +914,7 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
                     var = new AliasDeclaration(loc, ident, t);
                     if (paramtype)
                     {
-                        fs.error("cannot specify element type for symbol `%s`", s.toChars());
+                        fs.error("cannot specify element type for symbol `%s`", fs.toChars());
                         setError();
                         return false;
                     }
@@ -991,14 +990,12 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
             else static if (!isDecl)
             {
                 auto fwd = new ForwardingStatement(loc, res);
-                previous = fwd.sym;
                 res = fwd;
             }
             else
             {
                 import dmd.attrib: ForwardingAttribDeclaration;
                 auto res = new ForwardingAttribDeclaration(st);
-                previous = res.sym;
             }
             static if (!isDecl)
             {
@@ -1220,9 +1217,7 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
                      */
                     Type tv = (*fs.parameters)[1].type.toBasetype();
                     if ((tab.ty == Tarray ||
-                         (tn.ty != tv.ty &&
-                          (tn.ty == Tchar || tn.ty == Twchar || tn.ty == Tdchar) &&
-                          (tv.ty == Tchar || tv.ty == Twchar || tv.ty == Tdchar))) &&
+                         (tn.ty != tv.ty && tn.ty.isSomeChar && tv.ty.isSomeChar)) &&
                         !Type.tsize_t.implicitConvTo(tindex))
                     {
                         fs.deprecation("foreach: loop index implicitly converted from `size_t` to `%s`",
@@ -1233,13 +1228,12 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
                 /* Look for special case of parsing char types out of char type
                  * array.
                  */
-                if (tn.ty == Tchar || tn.ty == Twchar || tn.ty == Tdchar)
+                if (tn.ty.isSomeChar)
                 {
                     int i = (dim == 1) ? 0 : 1; // index of value
                     Parameter p = (*fs.parameters)[i];
                     tnv = p.type.toBasetype();
-                    if (tnv.ty != tn.ty &&
-                        (tnv.ty == Tchar || tnv.ty == Twchar || tnv.ty == Tdchar))
+                    if (tnv.ty != tn.ty && tnv.ty.isSomeChar)
                     {
                         if (p.storageClass & STC.ref_)
                         {
@@ -2795,19 +2789,14 @@ version (IN_LLVM)
 
             if (numcases)
             {
-                extern (C) static int sort_compare(const(void*) x, const(void*) y) @trusted
+                static int sort_compare(in CaseStatement* x, in CaseStatement* y) @trusted /* IN_LLVM: ltsmaster... */ nothrow
                 {
-                    CaseStatement ox = *cast(CaseStatement *)x;
-                    CaseStatement oy = *cast(CaseStatement*)y;
-
-                    auto se1 = ox.exp.isStringExp();
-                    auto se2 = oy.exp.isStringExp();
+                    auto se1 = x.exp.isStringExp();
+                    auto se2 = y.exp.isStringExp();
                     return (se1 && se2) ? se1.compare(se2) : 0;
                 }
-
                 // Sort cases for efficient lookup
-                import core.stdc.stdlib : qsort, _compare_fp_t;
-                qsort((*csCopy)[].ptr, numcases, CaseStatement.sizeof, cast(_compare_fp_t)&sort_compare);
+                csCopy.sort!sort_compare;
             }
 
             // The actual lowering
@@ -3375,41 +3364,9 @@ version (IN_LLVM)
                  *    return x; return 3;  // ok, x can be a value
                  */
             }
-
-            // handle NRVO
-            if (fd.nrvo_can && rs.exp.op == TOK.variable)
-            {
-                VarExp ve = cast(VarExp)rs.exp;
-                VarDeclaration v = ve.var.isVarDeclaration();
-                if (tf.isref)
-                {
-                    // Function returns a reference
-                    if (!inferRef)
-                        fd.nrvo_can = 0;
-                }
-                else if (!v || v.isOut() || v.isRef())
-                    fd.nrvo_can = 0;
-                else if (fd.nrvo_var is null)
-                {
-                    if (!v.isDataseg() && !v.isParameter() && v.toParent2() == fd)
-                    {
-                        //printf("Setting nrvo to %s\n", v.toChars());
-                        fd.nrvo_var = v;
-                    }
-                    else
-                        fd.nrvo_can = 0;
-                }
-                else if (fd.nrvo_var != v)
-                    fd.nrvo_can = 0;
-            }
-            else //if (!exp.isLvalue())    // keep NRVO-ability
-                fd.nrvo_can = 0;
         }
         else
         {
-            // handle NRVO
-            fd.nrvo_can = 0;
-
             // infer return type
             if (fd.inferRetType)
             {
@@ -3785,7 +3742,14 @@ version (IN_LLVM)
              *  try { body } finally { _d_criticalexit(&__critsec[0]); }
              */
             auto id = Identifier.generateId("__critsec");
+version (IN_LLVM)
+{
+            auto t = Type.tint8.sarrayOf(target.ptrsize + target.critsecsize(ss.loc));
+}
+else
+{
             auto t = Type.tint8.sarrayOf(target.ptrsize + target.critsecsize());
+}
             auto tmp = new VarDeclaration(ss.loc, t, id, null);
             tmp.storage_class |= STC.temp | STC.shared_ | STC.static_;
             Expression tmpExp = new VarExp(ss.loc, tmp);

@@ -1,8 +1,10 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Defines a `Dsymbol` representing an aggregate, which is a `struct`, `union` or `class`.
  *
- * Copyright:   Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Specification: $(LINK2 https://dlang.org/spec/struct.html, Structs, Unions),
+ *                $(LINK2 https://dlang.org/spec/class.html, Class).
+ *
+ * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/aggregate.d, _aggregate.d)
@@ -16,6 +18,7 @@ import core.stdc.stdio;
 import core.checkedint;
 
 import dmd.aliasthis;
+import dmd.apply;
 import dmd.arraytypes;
 import dmd.gluelayer; // : Symbol;
 import dmd.declaration;
@@ -79,10 +82,13 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
     VarDeclarations fields; // VarDeclaration fields
     Sizeok sizeok = Sizeok.none;  // set when structsize contains valid data
     Dsymbol deferred;       // any deferred semantic2() or semantic3() symbol
-    bool isdeprecated;      // true if deprecated
 
     /// specifies whether this is a D, C++, Objective-C or anonymous struct/class/interface
     ClassKind classKind;
+    /// Specify whether to mangle the aggregate as a `class` or a `struct`
+    /// This information is used by the MSVC mangler
+    /// Only valid for class and struct. TODO: Merge with ClassKind ?
+    CPPMANGLE cppmangle;
 
     /* !=null if is nested
      * pointing to the dsymbol that directly enclosing it.
@@ -100,7 +106,6 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
     FuncDeclarations invs;          // Array of invariants
     FuncDeclaration inv;            // invariant
     NewDeclaration aggNew;          // allocator
-    DeleteDeclaration aggDelete;    // deallocator
 
     // CtorDeclaration or TemplateDeclaration
     Dsymbol ctor;
@@ -133,7 +138,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
     Scope* newScope(Scope* sc)
     {
         auto sc2 = sc.push(this);
-        sc2.stc &= STC.safeGroup;
+        sc2.stc &= STCFlowThruAggregate;
         sc2.parent = this;
         sc2.inunion = isUnionDeclaration();
         sc2.protection = Prot(Prot.Kind.public_);
@@ -176,15 +181,13 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
         // determineFields can be called recursively from one of the fields's v.semantic
         fields.setDim(0);
 
-        extern (C++) static int func(Dsymbol s, void* param)
+        static int func(Dsymbol s, AggregateDeclaration ad)
         {
             auto v = s.isVarDeclaration();
             if (!v)
                 return 0;
             if (v.storage_class & STC.manifest)
                 return 0;
-
-            auto ad = cast(AggregateDeclaration)param;
 
             if (v.semanticRun < PASS.semanticdone)
                 v.dsymbolSemantic(null);
@@ -223,7 +226,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
             for (size_t i = 0; i < members.dim; i++)
             {
                 auto s = (*members)[i];
-                if (s.apply(&func, cast(void*)this))
+                if (s.apply(&func, this))
                 {
                     if (sizeok != Sizeok.none)
                     {
@@ -636,7 +639,13 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
     // is aggregate deprecated?
     override final bool isDeprecated() const
     {
-        return isdeprecated;
+        return !!(this.storage_class & STC.deprecated_);
+    }
+
+    /// Flag this aggregate as deprecated
+    final void setDeprecated()
+    {
+        this.storage_class |= STC.deprecated_;
     }
 
     /****************************************

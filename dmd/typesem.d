@@ -1,8 +1,7 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Semantic analysis for D types.
  *
- * Copyright:   Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/typesem.d, _typesem.d)
@@ -55,13 +54,13 @@ import dmd.root.ctfloat;
 import dmd.root.rmem;
 import dmd.root.outbuffer;
 import dmd.root.rootobject;
+import dmd.root.string;
 import dmd.root.stringtable;
 import dmd.semantic3;
 import dmd.sideeffect;
 import dmd.target;
 import dmd.tokens;
 import dmd.typesem;
-import dmd.utils;
 
 /**************************
  * This evaluates exp while setting length to be the number
@@ -640,7 +639,7 @@ Expression typeToExpressionHelper(TypeQualified t, Expression e, size_t i = 0)
  *      `Type` with completed semantic analysis, `Terror` if errors
  *      were encountered
  */
-extern(C++) Type typeSemantic(Type t, Loc loc, Scope* sc)
+extern(C++) Type typeSemantic(Type t, const ref Loc loc, Scope* sc)
 {
     static Type error()
     {
@@ -1002,7 +1001,7 @@ extern(C++) Type typeSemantic(Type t, Loc loc, Scope* sc)
             {
                 if (search_function(sd, Id.eq))
                 {
-                    .error(loc, "%sAA key type `%s` should have `size_t toHash() const nothrow @safe` if `opEquals` defined", s, sd.toChars());
+                    .error(loc, "%sAA key type `%s` should have `extern (D) size_t toHash() const nothrow @safe` if `opEquals` defined", s, sd.toChars());
                 }
                 else
                 {
@@ -1148,7 +1147,7 @@ extern(C++) Type typeSemantic(Type t, Loc loc, Scope* sc)
 
         bool errors = false;
 
-        if (mtype.inuse > 500)
+        if (mtype.inuse > global.recursionLimit)
         {
             mtype.inuse = 0;
             .error(loc, "recursive type");
@@ -1203,6 +1202,8 @@ extern(C++) Type typeSemantic(Type t, Loc loc, Scope* sc)
 
         if (sc.stc & STC.property)
             tf.isproperty = true;
+        if (sc.stc & STC.live)
+            tf.islive = true;
 
         tf.linkage = sc.linkage;
         version (none)
@@ -1811,14 +1812,7 @@ extern(C++) Type typeSemantic(Type t, Loc loc, Scope* sc)
     {
         //printf("TypeStruct::semantic('%s')\n", mtype.toChars());
         if (mtype.deco)
-        {
-            if (sc && sc.cppmangle != CPPMANGLE.def)
-            {
-                if (mtype.cppmangle == CPPMANGLE.def)
-                    mtype.cppmangle = sc.cppmangle;
-            }
             return mtype;
-        }
 
         /* Don't semantic for sym because it should be deferred until
          * sizeof needed or its members accessed.
@@ -1828,11 +1822,6 @@ extern(C++) Type typeSemantic(Type t, Loc loc, Scope* sc)
 
         if (mtype.sym.type.ty == Terror)
             return error();
-
-        if (sc && sc.cppmangle != CPPMANGLE.def)
-            mtype.cppmangle = sc.cppmangle;
-        else
-            mtype.cppmangle = CPPMANGLE.asStruct;
 
         return merge(mtype);
     }
@@ -1847,14 +1836,7 @@ extern(C++) Type typeSemantic(Type t, Loc loc, Scope* sc)
     {
         //printf("TypeClass::semantic(%s)\n", mtype.toChars());
         if (mtype.deco)
-        {
-            if (sc && sc.cppmangle != CPPMANGLE.def)
-            {
-                if (mtype.cppmangle == CPPMANGLE.def)
-                    mtype.cppmangle = sc.cppmangle;
-            }
             return mtype;
-        }
 
         /* Don't semantic for sym because it should be deferred until
          * sizeof needed or its members accessed.
@@ -1864,11 +1846,6 @@ extern(C++) Type typeSemantic(Type t, Loc loc, Scope* sc)
 
         if (mtype.sym.type.ty == Terror)
             return error();
-
-        if (sc && sc.cppmangle != CPPMANGLE.def)
-            mtype.cppmangle = sc.cppmangle;
-        else
-            mtype.cppmangle = CPPMANGLE.asClass;
 
         return merge(mtype);
     }
@@ -1997,13 +1974,12 @@ RootObject compileTypeMixin(TypeMixin tm, Loc loc, Scope* sc)
     const len = buf.length;
     buf.writeByte(0);
     const str = buf.extractSlice()[0 .. len];
-    scope diagnosticReporter = new StderrDiagnosticReporter(global.params.useDeprecated);
-    scope p = new Parser!ASTCodegen(loc, sc._module, str, false, diagnosticReporter);
+    scope p = new Parser!ASTCodegen(loc, sc._module, str, false);
     p.nextToken();
     //printf("p.loc.linnum = %d\n", p.loc.linnum);
 
     auto o = p.parseTypeOrAssignExp(TOK.endOfFile);
-    if (p.errors)
+    if (errors != global.errors)
     {
         assert(global.errors != errors); // should have caught all these cases
         return null;
@@ -2101,13 +2077,14 @@ Type merge(Type type)
  *
  * Params:
  *  t = the type for which the property is calculated
+ *  scope_ = the scope from which the property is being accessed. Used for visibility checks only.
  *  loc = the location where the property is encountered
  *  ident = the identifier of the property
  *  flag = if flag & 1, don't report "not a property" error and just return NULL.
  * Returns:
  *      expression representing the property, or null if not a property and (flag & 1)
  */
-Expression getProperty(Type t, const ref Loc loc, Identifier ident, int flag)
+Expression getProperty(Type t, Scope* scope_, const ref Loc loc, Identifier ident, int flag)
 {
     Expression visitType(Type mt)
     {
@@ -2171,6 +2148,8 @@ Expression getProperty(Type t, const ref Loc loc, Identifier ident, int flag)
                 s = mt.toDsymbol(null);
             if (s)
                 s = s.search_correct(ident);
+            if (s && !symbolIsVisible(scope_, s))
+                s = null;
             if (mt != Type.terror)
             {
                 if (s)
@@ -2459,7 +2438,7 @@ Expression getProperty(Type t, const ref Loc loc, Identifier ident, int flag)
         }
         else
         {
-            e = mt.toBasetype().getProperty(loc, ident, flag);
+            e = mt.toBasetype().getProperty(scope_, loc, ident, flag);
         }
         return e;
     }
@@ -3128,9 +3107,7 @@ Expression dotExp(Type mt, Scope* sc, Expression e, Identifier ident, int flag)
         {
             printf("Type::dotExp(e = '%s', ident = '%s')\n", e.toChars(), ident.toChars());
         }
-        Expression ex = e;
-        while (ex.op == TOK.comma)
-            ex = (cast(CommaExp)ex).e2;
+        Expression ex = e.lastComma();
         if (ex.op == TOK.dotVariable)
         {
             DotVarExp dv = cast(DotVarExp)ex;
@@ -3175,7 +3152,7 @@ Expression dotExp(Type mt, Scope* sc, Expression e, Identifier ident, int flag)
             e = new StringExp(e.loc, e.toString());
         }
         else
-            e = mt.getProperty(e.loc, ident, flag & DotExpFlag.gag);
+            e = mt.getProperty(sc, e.loc, ident, flag & DotExpFlag.gag);
 
     Lreturn:
         if (e)
@@ -3235,7 +3212,7 @@ Expression dotExp(Type mt, Scope* sc, Expression e, Identifier ident, int flag)
                 break;
 
             default:
-                e = mt.Type.getProperty(e.loc, ident, flag);
+                e = mt.Type.getProperty(sc, e.loc, ident, flag);
                 break;
             }
         }
@@ -3286,7 +3263,7 @@ Expression dotExp(Type mt, Scope* sc, Expression e, Identifier ident, int flag)
                 break;
 
             default:
-                e = mt.Type.getProperty(e.loc, ident, flag);
+                e = mt.Type.getProperty(sc, e.loc, ident, flag);
                 break;
             }
         }
@@ -3373,7 +3350,7 @@ else
                 e.error("`%s` is not an expression", e.toChars());
                 return new ErrorExp();
             }
-            else if (!(flag & DotExpFlag.noDeref) && sc.func && !sc.intypeof && sc.func.setUnsafe() && !(sc.flags & SCOPE.debug_))
+            else if (!(flag & DotExpFlag.noDeref) && sc.func && !sc.intypeof && !(sc.flags & SCOPE.debug_) && sc.func.setUnsafe())
             {
                 e.error("`%s.ptr` cannot be used in `@safe` code, use `&%s[0]` instead", e.toChars(), e.toChars());
                 return new ErrorExp();
@@ -3421,7 +3398,7 @@ else
         }
         else if (ident == Id.ptr)
         {
-            if (!(flag & DotExpFlag.noDeref) && sc.func && !sc.intypeof && sc.func.setUnsafe() && !(sc.flags & SCOPE.debug_))
+            if (!(flag & DotExpFlag.noDeref) && sc.func && !sc.intypeof && !(sc.flags & SCOPE.debug_) && sc.func.setUnsafe())
             {
                 e.error("`%s.ptr` cannot be used in `@safe` code, use `&%s[0]` instead", e.toChars(), e.toChars());
                 return new ErrorExp();
@@ -3487,7 +3464,7 @@ else
         }
         else if (ident == Id.funcptr)
         {
-            if (!(flag & DotExpFlag.noDeref) && sc.func && !sc.intypeof && sc.func.setUnsafe() && !(sc.flags & SCOPE.debug_))
+            if (!(flag & DotExpFlag.noDeref) && sc.func && !sc.intypeof && !(sc.flags & SCOPE.debug_) && sc.func.setUnsafe())
             {
                 e.error("`%s.funcptr` cannot be used in `@safe` code", e.toChars());
                 return new ErrorExp();
@@ -3633,7 +3610,7 @@ else
         // https://issues.dlang.org/show_bug.cgi?id=14010
         if (ident == Id._mangleof)
         {
-            return mt.getProperty(e.loc, ident, flag & 1);
+            return mt.getProperty(sc, e.loc, ident, flag & 1);
         }
 
         /* If e.tupleof
@@ -3855,7 +3832,7 @@ else
         // https://issues.dlang.org/show_bug.cgi?id=14010
         if (ident == Id._mangleof)
         {
-            return mt.getProperty(e.loc, ident, flag & 1);
+            return mt.getProperty(sc, e.loc, ident, flag & 1);
         }
 
         if (mt.sym.semanticRun < PASS.semanticdone)
@@ -3883,7 +3860,7 @@ else
         {
             if (ident == Id.max || ident == Id.min || ident == Id._init)
             {
-                return mt.getProperty(e.loc, ident, flag & 1);
+                return mt.getProperty(sc, e.loc, ident, flag & 1);
             }
 
             Expression res = mt.sym.getMemtype(Loc.initial).dotExp(sc, e, ident, 1);
@@ -3916,7 +3893,7 @@ else
         // https://issues.dlang.org/show_bug.cgi?id=12543
         if (ident == Id.__sizeof || ident == Id.__xalignof || ident == Id._mangleof)
         {
-            return mt.Type.getProperty(e.loc, ident, 0);
+            return mt.Type.getProperty(sc, e.loc, ident, 0);
         }
 
         /* If e.tupleof
@@ -3974,7 +3951,7 @@ else
             {
                 if (e.op == TOK.type)
                 {
-                    return mt.Type.getProperty(e.loc, ident, 0);
+                    return mt.Type.getProperty(sc, e.loc, ident, 0);
                 }
                 e = new DotTypeExp(e.loc, e, mt.sym);
                 e = e.expressionSemantic(sc);
@@ -3984,7 +3961,7 @@ else
             {
                 if (e.op == TOK.type)
                 {
-                    return mt.Type.getProperty(e.loc, ident, 0);
+                    return mt.Type.getProperty(sc, e.loc, ident, 0);
                 }
                 if (auto ifbase = cbase.isInterfaceDeclaration())
                     e = new CastExp(e.loc, e, ifbase.type);

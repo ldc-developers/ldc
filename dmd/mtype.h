@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -47,11 +47,8 @@ typedef struct TYPE type;
 
 void semanticTypeInfo(Scope *sc, Type *t);
 
-#if IN_LLVM
-// in typesem.d:
-Type *typeSemantic(Type *t, Loc loc, Scope *sc);
+Type *typeSemantic(Type *t, const Loc &loc, Scope *sc);
 Type *merge(Type *type);
-#endif
 
 enum ENUMTY
 {
@@ -103,7 +100,7 @@ enum ENUMTY
     Tvector,
     Tint128,
     Tuns128,
-    TTraits,
+    Ttraits,
     TMAX
 };
 typedef unsigned char TY;       // ENUMTY
@@ -198,7 +195,6 @@ public:
     static Type *tstring;               // immutable(char)[]
     static Type *twstring;              // immutable(wchar)[]
     static Type *tdstring;              // immutable(dchar)[]
-    static Type *tvalist;               // va_list alias
     static Type *terror;                // for error recovery
     static Type *tnull;                 // for null type
 
@@ -258,7 +254,6 @@ public:
     virtual bool iscomplex();
     virtual bool isscalar();
     virtual bool isunsigned();
-    virtual bool ischar();
     virtual bool isscope();
     virtual bool isString();
     virtual bool isAssignable();
@@ -404,7 +399,6 @@ public:
     bool iscomplex() /*const*/;
     bool isscalar() /*const*/;
     bool isunsigned() /*const*/;
-    bool ischar() /*const*/;
     MATCH implicitConvTo(Type *to);
     bool isZeroInit(const Loc &loc) /*const*/;
 
@@ -604,6 +598,7 @@ public:
     bool isscope;       // true: 'this' is scope
     bool isreturninferred;      // true: 'this' is return from inference
     bool isscopeinferred; // true: 'this' is scope from inference
+    bool islive;        // is @live
     LINK linkage;  // calling convention
     TRUST trust;   // level of trust
     PURE purity;   // PURExxxx
@@ -657,6 +652,7 @@ class TypeTraits : public Type
 
     Type *syntaxCopy();
     d_uns64 size(const Loc &loc);
+    Dsymbol *toDsymbol(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -741,7 +737,7 @@ class TypeStruct : public Type
 public:
     StructDeclaration *sym;
     AliasThisRec att;
-    CPPMANGLE cppmangle;
+    bool inuse;
 
     static TypeStruct *create(StructDeclaration *sym);
     const char *kind();
@@ -751,7 +747,7 @@ public:
     Dsymbol *toDsymbol(Scope *sc);
     structalign_t alignment();
     Expression *defaultInitLiteral(const Loc &loc);
-    bool isZeroInit(const Loc &loc) /*const*/;
+    bool isZeroInit(const Loc &loc);
     bool isAssignable();
     bool isBoolean() /*const*/;
     bool needsDestruction() /*const*/;
@@ -784,7 +780,6 @@ public:
     bool iscomplex();
     bool isscalar();
     bool isunsigned();
-    bool ischar();
     bool isBoolean();
     bool isString();
     bool isAssignable();
@@ -829,6 +824,9 @@ public:
 class TypeTuple : public Type
 {
 public:
+    // 'logically immutable' cached global - don't modify (neither pointer nor pointee)!
+    static TypeTuple *empty;
+
     Parameters *arguments;      // types making up the tuple
 
     static TypeTuple *create(Parameters *arguments);

@@ -1,8 +1,9 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Handle introspection functionality of the `__traits()` construct.
  *
- * Copyright:   Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Specification: $(LINK2 https://dlang.org/spec/traits.html, Traits)
+ *
+ * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/traits.d, _traits.d)
@@ -49,7 +50,7 @@ import dmd.typesem;
 import dmd.visitor;
 import dmd.root.rootobject;
 import dmd.root.outbuffer;
-import dmd.utils;
+import dmd.root.string;
 
 enum LOGSEMANTIC = false;
 
@@ -1455,14 +1456,15 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
             //printf("\t[%i] %s %s\n", i, sm.kind(), sm.toChars());
             if (sm.ident)
             {
-                const idx = sm.ident.toChars();
-                if (idx[0] == '_' &&
-                    idx[1] == '_' &&
-                    sm.ident != Id.ctor &&
-                    sm.ident != Id.dtor &&
-                    sm.ident != Id.__xdtor &&
-                    sm.ident != Id.postblit &&
-                    sm.ident != Id.__xpostblit)
+                // https://issues.dlang.org/show_bug.cgi?id=10096
+                // https://issues.dlang.org/show_bug.cgi?id=10100
+                // Skip over internal members in __traits(allMembers)
+                if ((sm.isCtorDeclaration() && sm.ident != Id.ctor) ||
+                    (sm.isDtorDeclaration() && sm.ident != Id.dtor) ||
+                    (sm.isPostBlitDeclaration() && sm.ident != Id.postblit) ||
+                    sm.isInvariantDeclaration() ||
+                    sm.isUnitTestDeclaration())
+
                 {
                     return 0;
                 }
@@ -1572,17 +1574,16 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
                         err = true;
                         break;
                     }
+                    const olderrors = global.errors;
                     const len = buf.length;
                     buf.writeByte(0);
                     const str = buf.extractSlice()[0 .. len];
-                    scope diagnosticReporter = new StderrDiagnosticReporter(global.params.useDeprecated);
-                    scope p = new Parser!ASTCodegen(e.loc, sc._module, str, false, diagnosticReporter);
+                    scope p = new Parser!ASTCodegen(e.loc, sc._module, str, false);
                     p.nextToken();
                     //printf("p.loc.linnum = %d\n", p.loc.linnum);
 
                     o = p.parseTypeOrAssignExp(TOK.endOfFile);
-                    if (p.errors ||
-                        p.token.value != TOK.endOfFile)
+                    if (olderrors != global.errors || p.token.value != TOK.endOfFile)
                     {
                         err = true;
                         break;

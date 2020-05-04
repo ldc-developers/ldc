@@ -40,9 +40,10 @@ IRScope &IRScope::operator=(const IRScope &rhs) {
 IRState::IRState(const char *name, llvm::LLVMContext &context)
     : module(name, context), objc(module), DBuilder(this) {
   ir.state = this;
+  mem.addRange(&inlineAsmLocs, sizeof(inlineAsmLocs));
 }
 
-IRState::~IRState() {}
+IRState::~IRState() { mem.removeRange(&inlineAsmLocs); }
 
 FuncGenState &IRState::funcGen() {
   assert(!funcGenStates.empty() && "Function stack is empty!");
@@ -119,11 +120,6 @@ LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
   return CreateCallOrInvoke(Callee, {Arg1, Arg2, Arg3, Arg4}, Name);
 }
 
-bool IRState::isMainFunc(const IrFunction *func) const {
-  assert(func != nullptr);
-  return func->getLLVMFunc() == mainFunc;
-}
-
 bool IRState::emitArrayBoundsChecks() {
   if (global.params.useArrayBounds != CHECKENABLEsafeonly) {
     return global.params.useArrayBounds == CHECKENABLEon;
@@ -151,7 +147,7 @@ LLConstant *IRState::setGlobalVarInitializer(LLGlobalVariable *&globalVar,
       module, initializer->getType(), globalVar->isConstant(),
       globalVar->getLinkage(), initializer, "", nullptr,
       globalVar->getThreadLocalMode());
-  globalHelperVar->setAlignment(globalVar->getAlignment());
+  globalHelperVar->setAlignment(LLMaybeAlign(globalVar->getAlignment()));
   globalHelperVar->setComdat(globalVar->getComdat());
   globalHelperVar->setDLLStorageClass(globalVar->getDLLStorageClass());
   globalHelperVar->setSection(globalVar->getSection());
@@ -203,6 +199,28 @@ void IRState::addLinkerOption(llvm::ArrayRef<llvm::StringRef> options) {
 void IRState::addLinkerDependentLib(llvm::StringRef libraryName) {
   auto n = llvm::MDString::get(context(), libraryName);
   linkerDependentLibs.push_back(llvm::MDNode::get(context(), n));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void IRState::addInlineAsmSrcLoc(const Loc &loc,
+                                 llvm::CallInst *inlineAsmCall) {
+  // Simply use a stack of Loc* per IR module, and use index+1 as 32-bit
+  // cookie to be mapped back by the InlineAsmDiagnosticHandler.
+  // 0 is not a valid cookie.
+  inlineAsmLocs.push_back(loc);
+  auto srcLocCookie = static_cast<unsigned>(inlineAsmLocs.size());
+
+  auto constant =
+      LLConstantInt::get(LLType::getInt32Ty(context()), srcLocCookie);
+  inlineAsmCall->setMetadata(
+      "srcloc",
+      llvm::MDNode::get(context(), llvm::ConstantAsMetadata::get(constant)));
+}
+
+const Loc &IRState::getInlineAsmSrcLoc(unsigned srcLocCookie) const {
+  assert(srcLocCookie > 0 && srcLocCookie <= inlineAsmLocs.size());
+  return inlineAsmLocs[srcLocCookie - 1];
 }
 
 ////////////////////////////////////////////////////////////////////////////////

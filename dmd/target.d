@@ -1,8 +1,21 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Handles target-specific parameters
  *
- * Copyright:   Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * In order to allow for cross compilation, when the compiler produces a binary
+ * for a different platform than it is running on, target information needs
+ * to be abstracted. This is done in this module, primarily through `Target`.
+ *
+ * Note:
+ * While DMD itself does not support cross-compilation, GDC and LDC do.
+ * Hence, this module is (sometimes heavily) modified by them,
+ * and contributors should review how their changes affect them.
+ *
+ * See_Also:
+ * - $(LINK2 https://wiki.osdev.org/Target_Triplet, Target Triplets)
+ * - $(LINK2 https://github.com/ldc-developers/ldc, LDC repository)
+ * - $(LINK2 https://github.com/D-Programming-GDC/gcc, GDC repository)
+ *
+ * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/target.d, _target.d)
@@ -18,6 +31,7 @@ import dmd.cppmangle;
 import dmd.cppmanglewin;
 import dmd.dclass;
 import dmd.declaration;
+import dmd.dscope;
 import dmd.dstruct;
 import dmd.dsymbol;
 import dmd.expression;
@@ -28,9 +42,9 @@ import dmd.identifier;
 import dmd.mtype;
 import dmd.typesem;
 import dmd.tokens : TOK;
-import dmd.utils : toDString;
 import dmd.root.ctfloat;
 import dmd.root.outbuffer;
+import dmd.root.string : toDString;
 
 version (IN_LLVM) import gen.llvmhelpers;
 
@@ -54,13 +68,13 @@ extern (C++) struct Target
     uint classinfosize;       /// size of `ClassInfo`
     ulong maxStaticDataSize;  /// maximum size of static data
 
-    // C ABI
+    /// C ABI
     TargetC c;
 
-    // C++ ABI
+    /// C++ ABI
     TargetCPP cpp;
 
-    // Objective-C ABI
+    /// Objective-C ABI
     TargetObjC objc;
 
     /**
@@ -95,6 +109,8 @@ extern (C++) struct Target
     FPTypeProperties!double DoubleProperties;   ///
     FPTypeProperties!real_t RealProperties;     ///
 
+    private Type va_list; // cached lazy result of va_listType()
+
 version (IN_LLVM)
 {
     extern (C++):
@@ -105,18 +121,18 @@ version (IN_LLVM)
     uint alignsize(Type type);
     uint fieldalign(Type type);
 
-    uint critsecsize()
+    uint critsecsize(const ref Loc loc)
     {
         if (c.criticalSectionSize == 0)
         {
             import dmd.errors;
-            error(Loc.initial, "Unknown critical section size");
+            error(loc, "unknown critical section size for the selected target");
             fatal();
         }
         return c.criticalSectionSize;
     }
 
-    Type va_listType();
+    Type va_listType(const ref Loc loc, Scope* sc);
 }
 else // !IN_LLVM
 {
@@ -264,34 +280,41 @@ else // !IN_LLVM
     }
 
     /**
-     * Type for the `va_list` type for the target.
+     * Type for the `va_list` type for the target; e.g., required for `_argptr`
+     * declarations.
      * NOTE: For Posix/x86_64 this returns the type which will really
      * be used for passing an argument of type va_list.
      * Returns:
      *      `Type` that represents `va_list`.
      */
-    extern (C++) Type va_listType()
+    extern (C++) Type va_listType(const ref Loc loc, Scope* sc)
     {
+        if (va_list)
+            return va_list;
+
         if (global.params.isWindows)
         {
-            return Type.tchar.pointerTo();
+            va_list = Type.tchar.pointerTo();
         }
-        else if (global.params.isLinux || global.params.isFreeBSD || global.params.isOpenBSD || global.params.isDragonFlyBSD ||
-            global.params.isSolaris || global.params.isOSX)
+        else if (global.params.isLinux        || global.params.isFreeBSD || global.params.isOpenBSD ||
+                 global.params.isDragonFlyBSD || global.params.isSolaris || global.params.isOSX)
         {
             if (global.params.is64bit)
             {
-                return (new TypeIdentifier(Loc.initial, Identifier.idPool("__va_list_tag"))).pointerTo();
+                va_list = new TypeIdentifier(Loc.initial, Identifier.idPool("__va_list_tag")).pointerTo();
+                va_list = typeSemantic(va_list, loc, sc);
             }
             else
             {
-                return Type.tchar.pointerTo();
+                va_list = Type.tchar.pointerTo();
             }
         }
         else
         {
             assert(0);
         }
+
+        return va_list;
     }
 } // !IN_LLVM
 
@@ -576,14 +599,14 @@ else // !IN_LLVM
                 // win32 returns otherwise POD structs with ctors via memory
                 return true;
             }
-            if (sd.arg1type && !sd.arg2type)
+            if (sd.numArgTypes() == 1)
             {
-                tns = sd.arg1type;
+                tns = sd.argType(0);
                 if (tns.ty != Tstruct)
                     goto L2;
                 goto Lagain;
             }
-            else if (global.params.is64bit && !sd.arg1type && !sd.arg2type)
+            else if (global.params.is64bit && sd.numArgTypes() == 0)
                 return true;
             else if (sd.isPOD())
             {

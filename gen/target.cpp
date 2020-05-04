@@ -20,16 +20,14 @@
 #include "gen/llvmhelpers.h"
 #include <assert.h>
 
-#if !defined(_MSC_VER)
-#include <pthread.h>
-#endif
-
 using llvm::APFloat;
 
 // in dmd/argtypes.d:
 TypeTuple *toArgTypes(Type *t);
 // in dmd/argtypes_sysv_x64.d:
 TypeTuple *toArgTypes_sysv_x64(Type *t);
+// in dmd/argtypes_aarch64.d:
+TypeTuple *toArgTypes_aarch64(Type *t);
 
 namespace {
 /******************************
@@ -75,19 +73,8 @@ unsigned getCriticalSectionSize(const Param &params) {
     return 24;
 
   default:
-    break;
+    return 0; // leads to an error whenever requested
   }
-
-  if (arch == llvm::Triple::wasm32 || arch == llvm::Triple::wasm64)
-    return 0;
-
-#ifndef _MSC_VER
-  unsigned hostSize = sizeof(pthread_mutex_t);
-  warning(Loc(), "Assuming critical section size = %u bytes", hostSize);
-  return hostSize;
-#else
-  return 0;
-#endif
 }
 } // anonymous namespace
 
@@ -192,7 +179,11 @@ unsigned Target::alignsize(Type *type) {
  */
 unsigned Target::fieldalign(Type *type) { return DtoAlignment(type); }
 
-Type *Target::va_listType() { return gABI->vaListType(); }
+Type *Target::va_listType(const Loc &loc, Scope *sc) {
+  if (!va_list)
+    va_list = typeSemantic(gABI->vaListType(), loc, sc);
+  return va_list;
+}
 
 /**
  * Gets vendor-specific type mangling for C++ ABI.
@@ -215,10 +206,13 @@ const char *TargetCPP::typeMangle(Type *t) {
 
 TypeTuple *Target::toArgTypes(Type *t) {
   const auto &triple = *global.params.targetTriple;
-  if (triple.getArch() == llvm::Triple::x86)
+  const auto arch = triple.getArch();
+  if (arch == llvm::Triple::x86)
     return ::toArgTypes(t);
-  if (triple.getArch() == llvm::Triple::x86_64 && !triple.isOSWindows())
+  if (arch == llvm::Triple::x86_64 && !triple.isOSWindows())
     return toArgTypes_sysv_x64(t);
+  if (arch == llvm::Triple::aarch64 || arch == llvm::Triple::aarch64_be)
+    return toArgTypes_aarch64(t);
   return nullptr;
 }
 
@@ -265,7 +259,8 @@ Expression *Target::getTargetInfo(const char *name_, const Loc &loc) {
   if (name == "cppRuntimeLibrary") {
     const char *cppRuntimeLibrary = "";
     if (triple.isWindowsMSVCEnvironment()) {
-      cppRuntimeLibrary = mem.xstrdup(getMscrtLibName().str().c_str());
+      auto mscrtlib = getMscrtLibName().str();
+      cppRuntimeLibrary = mem.xstrdup(mscrtlib.c_str());
     }
     return createStringExp(cppRuntimeLibrary);
   }

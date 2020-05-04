@@ -1,8 +1,7 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * A `Dsymbol` representing a renamed import.
  *
- * Copyright:   Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/dimport.d, _dimport.d)
@@ -210,7 +209,16 @@ extern (C++) final class Import : Dsymbol
         if (mod && !mod.importedFrom)
             mod.importedFrom = sc ? sc._module.importedFrom : Module.rootModule;
         if (!pkg)
-            pkg = mod;
+        {
+            if (mod && mod.isPackageFile)
+            {
+                // one level depth package.d file (import pkg; ./pkg/package.d)
+                // it's necessary to use the wrapping Package already created
+                pkg = mod.pkg;
+            }
+            else
+                pkg = mod;
+        }
         //printf("-Import::load('%s'), pkg = %p\n", toChars(), pkg);
         return global.errors != errors;
     }

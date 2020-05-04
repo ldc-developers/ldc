@@ -100,6 +100,7 @@ class GroupSetting : Setting
 Setting[] parseConfigFile(const(char)* filename)
 {
     import dmd.globals : Loc;
+    import dmd.root.string : toDString;
     import dmd.utils;
 
     auto content = readFile(Loc.initial, filename).extractSlice();
@@ -217,8 +218,8 @@ struct Parser
     {
         enum fmt = "Error while reading config file: %.*s\nline %d: %.*s";
         char[1024] buf;
-        auto len = snprintf(buf.ptr, buf.length, fmt, filename.length,
-                            filename.ptr, lineNum, msg.length, msg.ptr);
+        auto len = snprintf(buf.ptr, buf.length, fmt, cast(int) filename.length,
+                            filename.ptr, lineNum, cast(int) msg.length, msg.ptr);
         throw new Exception(buf[0 .. len].idup);
     }
 

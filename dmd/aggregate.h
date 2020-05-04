@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -22,7 +22,6 @@ class FuncDeclaration;
 class CtorDeclaration;
 class DtorDeclaration;
 class NewDeclaration;
-class DeleteDeclaration;
 class InterfaceDeclaration;
 class TypeInfoClassDeclaration;
 class VarDeclaration;
@@ -83,9 +82,9 @@ public:
     VarDeclarations fields;     // VarDeclaration fields
     Sizeok sizeok;              // set when structsize contains valid data
     Dsymbol *deferred;          // any deferred semantic2() or semantic3() symbol
-    bool isdeprecated;          // true if deprecated
 
     ClassKind::Type classKind;  // specifies the linkage type
+    CPPMANGLE cppmangle;
 
     /* !=NULL if is nested
      * pointing to the dsymbol that directly enclosing it.
@@ -101,7 +100,6 @@ public:
     FuncDeclarations invs;              // Array of invariants
     FuncDeclaration *inv;               // invariant
     NewDeclaration *aggNew;             // allocator
-    DeleteDeclaration *aggDelete;       // deallocator
 
     Dsymbol *ctor;                      // CtorDeclaration or TemplateDeclaration
 
@@ -130,6 +128,7 @@ public:
     bool fill(Loc loc, Expressions *elements, bool ctorinit);
     Type *getType();
     bool isDeprecated() const;         // is aggregate deprecated?
+    void setDeprecated();
     bool isNested() const;
     bool isExport() const;
     Dsymbol *searchCtor();
@@ -161,6 +160,7 @@ class StructDeclaration : public AggregateDeclaration
 public:
     bool zeroInit;              // !=0 if initialize with 0 fill
     bool hasIdentityAssign;     // true if has identity opAssign
+    bool hasBlitAssign;         // true if opAssign is a blit
     bool hasIdentityEquals;     // true if has identity opEquals
     bool hasNoFields;           // has no fields
     FuncDeclarations postblits; // Array of postblit functions
@@ -177,9 +177,8 @@ public:
     structalign_t alignment;    // alignment applied outside of the struct
     StructPOD ispod;            // if struct is POD
 
-    // For 64 bit Efl function call/return ABI
-    Type *arg1type;
-    Type *arg2type;
+    // ABI-specific type(s) if the struct can be passed in registers
+    TypeTuple *argTypes;
 
     // Even if struct is defined as non-root symbol, some built-in operations
     // (e.g. TypeidExp, NewExp, ArrayLiteralExp, etc) request its TypeInfo.
@@ -197,6 +196,9 @@ public:
 
     StructDeclaration *isStructDeclaration() { return this; }
     void accept(Visitor *v) { v->visit(this); }
+
+    unsigned numArgTypes() const;
+    Type *argType(unsigned index);
 };
 
 class UnionDeclaration : public StructDeclaration

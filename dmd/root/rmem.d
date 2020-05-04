@@ -1,8 +1,7 @@
 /**
- * Compiler implementation of the D programming language
- * http://dlang.org
+ * Allocate memory using `malloc` or the GC depending on the configuration.
  *
- * Copyright: Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Copyright: Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:   Walter Bright, http://www.digitalmars.com
  * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:    $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/root/rmem.d, root/_rmem.d)
@@ -24,6 +23,8 @@ version (GC)
     import core.memory : GC;
 
     enum isGCAvailable = true;
+
+    version (IN_LLVM)
     extern extern(C) __gshared string[] rt_options;
 }
 else
@@ -148,8 +149,11 @@ extern (C++) struct Mem
 
         static void disableGC() nothrow @nogc
         {
-            __gshared string[] disable_options = [ "gcopt=disable:1" ];
-            rt_options = disable_options;
+            version (IN_LLVM)
+            {
+                __gshared string[] disable_options = [ "gcopt=disable:1" ];
+                rt_options = disable_options;
+            }
             _isGCEnabled = false;
         }
 
@@ -211,7 +215,10 @@ else version (LDC)
 }
 else version (GNU)
 {
-    enum OVERRIDE_MEMALLOC = true;
+    version (IN_GCC)
+        enum OVERRIDE_MEMALLOC = false;
+    else
+        enum OVERRIDE_MEMALLOC = true;
 }
 else
 {

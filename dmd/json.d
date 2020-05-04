@@ -1,8 +1,7 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Code for generating .json descriptions of the module when passing the `-X` flag to dmd.
  *
- * Copyright:   Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/json.d, _json.d)
@@ -35,7 +34,7 @@ import dmd.identifier;
 import dmd.mtype;
 import dmd.root.outbuffer;
 import dmd.root.rootobject;
-import dmd.utils;
+import dmd.root.string;
 import dmd.visitor;
 
 version(Windows) {
@@ -577,6 +576,7 @@ public:
         if (d.condition.inc != Include.notComputed)
         {
             visit(cast(AttribDeclaration)d);
+            return; // Don't visit the if/else bodies again below
         }
         Dsymbols* ds = d.decl ? d.decl : d.elsedecl;
         for (size_t i = 0; i < ds.dim; i++)

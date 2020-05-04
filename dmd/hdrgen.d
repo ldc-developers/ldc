@@ -1,8 +1,9 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Generate $(LINK2 https://dlang.org/dmd-windows.html#interface-files, D interface files).
  *
- * Copyright:   Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Also used to convert AST nodes to D code in general, e.g. for error messages or `printf` debugging.
+ *
+ * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/hdrgen.d, _hdrgen.d)
@@ -44,6 +45,7 @@ import dmd.parse;
 import dmd.root.ctfloat;
 import dmd.root.outbuffer;
 import dmd.root.rootobject;
+import dmd.root.string;
 import dmd.statement;
 import dmd.staticassert;
 import dmd.target;
@@ -381,6 +383,11 @@ public:
             assert(s.sfe.rangefe);
             visit(s.sfe.rangefe);
         }
+    }
+
+    override void visit(ForwardingStatement s)
+    {
+        s.statement.accept(this);
     }
 
     override void visit(IfStatement s)
@@ -1735,15 +1742,6 @@ public:
             buf.writeByte(' ');
         buf.writestring("new");
         parametersToBuffer(ParameterList(d.parameters, d.varargs), buf, hgs);
-        bodyToBuffer(d);
-    }
-
-    override void visit(DeleteDeclaration d)
-    {
-        if (stcToBuffer(buf, d.storage_class & ~STC.static_))
-            buf.writeByte(' ');
-        buf.writestring("delete");
-        parametersToBuffer(ParameterList(d.parameters, VarArg.none), buf, hgs);
         bodyToBuffer(d);
     }
 

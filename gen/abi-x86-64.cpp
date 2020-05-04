@@ -61,16 +61,16 @@ LLType *getAbiType(Type *ty) {
   // Okay, we may need to transform. Figure out a canonical type:
   llvm::SmallVector<Type *, 2> argTypes;
 
-  // try to reuse cached arg{1,2}type of StructDeclarations
+  // try to reuse cached argTypes of StructDeclarations
   if (ty->ty == Tstruct) {
     const auto sd = static_cast<TypeStruct *>(ty)->sym;
     if (sd && sd->sizeok == SIZEOKdone) {
-      if (!sd->arg1type) {
+      const unsigned N = sd->numArgTypes();
+      if (N == 0) {
         return nullptr; // don't rewrite
       }
-      argTypes.push_back(sd->arg1type);
-      if (sd->arg2type) {
-        argTypes.push_back(sd->arg2type);
+      for (unsigned i = 0; i < N; ++i) {
+        argTypes.push_back(sd->argType(i));
       }
     }
   }
@@ -380,7 +380,7 @@ void X86_64TargetABI::rewriteVarargs(IrFuncTy &fty,
 /**
  * The System V AMD64 ABI uses a special native va_list type - a 24-bytes struct
  * passed by reference.
- * In druntime, the struct is defined as object.__va_list_tag; the actually used
+ * In druntime, the struct is aliased as object.__va_list; the actually used
  * core.stdc.stdarg.va_list type is a __va_list_tag* pointer though to achieve
  * byref semantics.
  * This requires a little bit of compiler magic in the following
@@ -433,7 +433,7 @@ Type *X86_64TargetABI::vaListType() {
   // using TypeIdentifier here is a bit wonky but works, as long as the name
   // is actually available in the scope (this is what DMD does, so if a better
   // solution is found there, this should be adapted).
-  return createTypeIdentifier(Loc(), Identifier::idPool("__va_list_tag"))
+  return createTypeIdentifier(Loc(), Identifier::idPool("__va_list"))
       ->pointerTo();
 }
 

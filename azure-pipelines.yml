@@ -1,8 +1,8 @@
 variables:
-  LLVM_VERSION: 9.0.1
-  HOST_LDC_VERSION: 1.19.0
+  LLVM_VERSION: 10.0.0
+  CLANG_VERSION: 9.0.0
+  HOST_LDC_VERSION: 1.20.1
 
-# Although tags are supposed to trigger builds by default, they don't.
 trigger:
 - '*'
 - refs/tags/v*
@@ -13,7 +13,6 @@ jobs:
   pool:
     vmImage: 'windows-2019'
   variables:
-    CLANG_VERSION: 9.0.0
     VSINSTALLDIR: C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\
   strategy:
     matrix:
@@ -42,9 +41,6 @@ jobs:
     vmImage: 'windows-2019'
   dependsOn:
     - Windows
-  variables:
-    # Let LDC auto-detect the Visual C++ installation for the smoke tests.
-    LDC_VSDIR: C:\non-existing_dummy
   steps:
     - checkout: none
     - task: DownloadPipelineArtifact@2
@@ -85,14 +81,23 @@ jobs:
         cat etc\ldc2.conf
       displayName: Merge ldc2.conf
     - powershell: |
-        echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > hello.d
+        $hello  = "void main() {`n"
+        $hello += "  import std.process, std.stdio;`n"
+        $hello += "  writefln(""Hello world, %d bits"", size_t.sizeof * 8);`n"
+        $hello += "  assert(!environment.get(""VSINSTALLDIR""));`n"
+        $hello += "}`n"
+        echo "$hello" > hello.d
       displayName: Generate hello.d
     - script: |
-        %ARTIFACT_NAME%\bin\ldc2 -run hello.d
-      displayName: Run 64-bit hello-world smoke test
+        echo on
+        %ARTIFACT_NAME%\bin\ldc2 -v -mscrtlib=vcruntime140 -run hello.d || exit /b
+        %ARTIFACT_NAME%\bin\ldc2 -v -mscrtlib=vcruntime140 -m32 -run hello.d
+      displayName: Run 32/64-bit hello-world smoke test with internal toolchain
     - script: |
-        %ARTIFACT_NAME%\bin\ldc2 -m32 -run hello.d
-      displayName: Run 32-bit hello-world smoke test
+        echo on
+        %ARTIFACT_NAME%\bin\ldc2 -v -run hello.d || exit /b
+        %ARTIFACT_NAME%\bin\ldc2 -v -m32 -run hello.d
+      displayName: Run 32/64-bit hello-world smoke test with MSVC auto-detection
     - script: |
         mkdir newArtifacts
         7z a -mx=9 newArtifacts/%ARTIFACT_NAME%.7z %ARTIFACT_NAME% > nul
@@ -118,13 +123,14 @@ jobs:
 - job: macOS_x64
   timeoutInMinutes: 120
   pool:
-    vmImage: 'macOS-10.14'
+    vmImage: 'macOS-10.15'
   variables:
     CI_OS: osx
     ARCH: x86_64
     BOOTSTRAP_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON
     EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON -DD_COMPILER_FLAGS="-flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto" -DEXTRA_CXXFLAGS=-flto=full
     MACOSX_DEPLOYMENT_TARGET: 10.9
+    IOS_DEPLOYMENT_TARGET: 12.0
   steps:
     - template: .azure-pipelines/posix.yml
 

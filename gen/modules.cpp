@@ -101,10 +101,10 @@ enum class RegistryStyle {
   /// global.
   legacyLinkedList,
 
-  /// Module references are emitted into the .minfo section.
-  sectionMSVC,
+  /// Module references are emitted into the .minfo/__minfo section.
+  sectionSimple,
 
-  /// Module references are emitted into the .minfo section. Global
+  /// Module references are emitted into the __minfo section. Global
   /// constructors/destructors make sure _d_dso_registry is invoked once per ELF
   /// object.
   sectionELF,
@@ -118,18 +118,23 @@ enum class RegistryStyle {
 
 /// Returns the module registry style to use for the current target triple.
 RegistryStyle getModuleRegistryStyle() {
-  const auto t = global.params.targetTriple;
+  const auto &t = *global.params.targetTriple;
 
-  if (t->isWindowsMSVCEnvironment()) {
-    return RegistryStyle::sectionMSVC;
+  if (t.isWindowsMSVCEnvironment() ||
+      t.getEnvironment() == llvm::Triple::Android
+#if LDC_LLVM_VER >= 500
+      || t.isOSBinFormatWasm()
+#endif
+  ) {
+    return RegistryStyle::sectionSimple;
   }
 
-  if (t->isOSDarwin()) {
+  if (t.isOSDarwin()) {
     return RegistryStyle::sectionDarwin;
   }
 
-  if (t->isOSLinux() || t->isOSFreeBSD() ||
-      t->isOSNetBSD() || t->isOSOpenBSD() || t->isOSDragonFly()) {
+  if (t.isOSLinux() || t.isOSFreeBSD() || t.isOSNetBSD() || t.isOSOpenBSD() ||
+      t.isOSDragonFly()) {
     return RegistryStyle::sectionELF;
   }
 
@@ -312,7 +317,7 @@ llvm::Function *buildRegisterDSO(RegistryStyle style, llvm::Value *dsoSlot,
 
 void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
                             llvm::Constant *thisModuleInfo) {
-  assert(style == RegistryStyle::sectionMSVC ||
+  assert(style == RegistryStyle::sectionSimple ||
          style == RegistryStyle::sectionELF ||
          style == RegistryStyle::sectionDarwin);
   // Only for the first D module to be emitted into this llvm::Module we need to
@@ -325,7 +330,7 @@ void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
 
   const auto moduleInfoPtrTy = DtoPtrToType(getModuleInfoType());
   const auto moduleInfoRefsSectionName =
-      style == RegistryStyle::sectionMSVC
+      global.params.targetTriple->isWindowsMSVCEnvironment()
           ? ".minfo"
           : style == RegistryStyle::sectionDarwin ? "__DATA,.minfo" : "__minfo";
 
@@ -336,10 +341,7 @@ void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
   thismref->setSection(moduleInfoRefsSectionName);
   gIR->usedArray.push_back(thismref);
 
-  // Android doesn't need register_dso and friends- see rt.sections_android-
-  // so bail out here.
-  if (!isFirst || style == RegistryStyle::sectionMSVC ||
-      global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
+  if (!isFirst || style == RegistryStyle::sectionSimple) {
     // Nothing left to do.
     return;
   }

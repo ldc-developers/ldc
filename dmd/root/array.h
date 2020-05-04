@@ -1,4 +1,4 @@
-/* Copyright (C) 2011-2019 by The D Language Foundation, All Rights Reserved
+/* Copyright (C) 2011-2020 by The D Language Foundation, All Rights Reserved
  * All Rights Reserved, written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -268,6 +268,14 @@ struct Array
         a.length = 0;
         a.data.length = 0;
         return *this;
+    }
+
+    const TYPE &operator[](d_size_t index) const
+    {
+#ifdef DEBUG
+        assert(index < length);
+#endif
+        return data.ptr[index];
     }
 
     size_type size() const

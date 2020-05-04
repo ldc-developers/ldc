@@ -1,8 +1,8 @@
+
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Dynamic array implementation.
  *
- * Copyright:   Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/root/array.d, root/_array.d)
@@ -12,9 +12,15 @@
 
 module dmd.root.array;
 
+import core.stdc.stdlib : _compare_fp_t;
 import core.stdc.string;
 
 import dmd.root.rmem;
+import dmd.root.string;
+
+// `qsort` is only `nothrow` since 2.081.0
+private extern(C) void qsort(scope void* base, size_t nmemb, size_t size, _compare_fp_t compar) nothrow @nogc;
+
 
 debug
 {
@@ -52,31 +58,50 @@ public:
     ///returns elements comma separated in []
     extern(D) const(char)[] toString() const
     {
-        static if (is(typeof(T.init.toString())))
+        static const(char)[] toStringImpl(alias toStringFunc, Array)(Array* a, bool quoted = false)
         {
-            const(char)[][] buf = (cast(const(char)[]*)mem.xcalloc((char[]).sizeof, length))[0 .. length];
+            const(char)[][] buf = (cast(const(char)[]*)mem.xcalloc((char[]).sizeof, a.length))[0 .. a.length];
             size_t len = 2; // [ and ]
-            foreach (u; 0 .. length)
+            const seplen = quoted ? 3 : 1; // ',' or null terminator and optionally '"'
+            if (a.length == 0)
+                len += 1; // null terminator
+            else
             {
-                buf[u] = data[u].toString();
-                len += buf[u].length + 1; //length + ',' or null terminator
+                foreach (u; 0 .. a.length)
+                {
+                    buf[u] = toStringFunc(a.data[u]);
+                    len += buf[u].length + seplen;
+                }
             }
             char[] str = (cast(char*)mem.xmalloc_noscan(len))[0..len];
 
             str[0] = '[';
             char* p = str.ptr + 1;
-            foreach (u; 0 .. length)
+            foreach (u; 0 .. a.length)
             {
                 if (u)
                     *p++ = ',';
+                if (quoted)
+                    *p++ = '"';
                 memcpy(p, buf[u].ptr, buf[u].length);
                 p += buf[u].length;
+                if (quoted)
+                    *p++ = '"';
             }
             *p++ = ']';
             *p = 0;
-            assert(p - str.ptr == str.length - 1); //null terminator
+            assert(p - str.ptr == str.length - 1); // null terminator
             mem.xfree(buf.ptr);
             return str[0 .. $-1];
+        }
+
+        static if (is(typeof(T.init.toString())))
+        {
+            return toStringImpl!(a => a.toString)(&this);
+        }
+        else static if (is(typeof(T.init.toDString())))
+        {
+            return toStringImpl!(a => a.toDString)(&this, true);
         }
         else
         {
@@ -276,12 +301,43 @@ public:
         return data[a .. b];
     }
 
+    /**
+     * Sort the elements of an array
+     *
+     * This function relies on `qsort`.
+     *
+     * Params:
+     *   pred = Predicate to use. Should be a function of type
+     *          `int function(scope const T*  e1, scope const T* e2) nothrow`.
+     *          The return value of this function should follow the
+     *          usual C rule: `e1 >= e2 ? (e1 > e2) : -1`.
+     *          The function can have D linkage.
+     *
+     * Returns:
+     *   A reference to this, for easy chaining.
+     */
+    extern(D) ref typeof(this) sort (alias pred) () nothrow
+    {
+        if (this.length < 2)
+            return this;
+        qsort(this.data.ptr, this.length, T.sizeof, &arraySortWrapper!(T, pred));
+        return this;
+    }
+
+    /// Ditto, but use `opCmp` by default
+    extern(D) ref typeof(this) sort () () nothrow
+        if (is(typeof(this.data[0].opCmp(this.data[1])) : int))
+    {
+        return this.sort!(function (scope const(T)* pe1, scope const(T)* pe2) => pe1.opCmp(*pe2));
+    }
+
     alias opDollar = length;
     alias dim = length;
 }
 
 unittest
 {
+    // Test for objects implementing toString()
     static struct S
     {
         int s = -1;
@@ -292,6 +348,17 @@ unittest
     }
     auto array = Array!S(4);
     assert(array.toString() == "[S,S,S,S]");
+    array.setDim(0);
+    assert(array.toString() == "[]");
+
+    // Test for toDString()
+    auto strarray = Array!(const(char)*)(2);
+    strarray[0] = "hello";
+    strarray[1] = "world";
+    auto str = strarray.toString();
+    assert(str == `["hello","world"]`);
+    // Test presence of null terminator.
+    assert(str.ptr[str.length] == '\0');
 }
 
 unittest
@@ -447,4 +514,70 @@ unittest
     string expected = "[id1,id2]";
     assert(array.toString == expected);
     assert(strcmp(array.toChars, expected.ptr) == 0);
+}
+
+/// Predicate to wrap a D function passed to `qsort`
+private template arraySortWrapper(T, alias fn)
+{
+    pragma(mangle, "arraySortWrapper_" ~ T.mangleof ~ "_" ~ fn.mangleof)
+    extern(C) int arraySortWrapper(scope const void* e1, scope const void* e2) nothrow
+    {
+        return fn(cast(const(T*))e1, cast(const(T*))e2);
+    }
+}
+
+// Test sorting
+unittest
+{
+    Array!(const(char)*) strings;
+    strings.push("World");
+    strings.push("Foo");
+    strings.push("baguette");
+    strings.push("Avocado");
+    strings.push("Hello");
+    // Newer frontend versions will work with (e1, e2) and infer the type
+    strings.sort!(function (scope const char** e1, scope const char** e2) => strcmp(*e1, *e2));
+    assert(strings[0] == "Avocado");
+    assert(strings[1] == "Foo");
+    assert(strings[2] == "Hello");
+    assert(strings[3] == "World");
+    assert(strings[4] == "baguette");
+
+    /// opCmp automatically supported
+    static struct MyStruct
+    {
+        int a;
+
+        int opCmp(const ref MyStruct other) const nothrow
+        {
+            // Reverse order
+            return other.a - this.a;
+        }
+    }
+
+    Array!MyStruct arr1;
+    arr1.push(MyStruct(2));
+    arr1.push(MyStruct(4));
+    arr1.push(MyStruct(256));
+    arr1.push(MyStruct(42));
+    arr1.sort();
+    assert(arr1[0].a == 256);
+    assert(arr1[1].a == 42);
+    assert(arr1[2].a == 4);
+    assert(arr1[3].a == 2);
+
+    /// But only if user defined
+    static struct OtherStruct
+    {
+        int a;
+
+        static int pred (scope const OtherStruct* pe1, scope const OtherStruct* pe2)
+            nothrow @nogc pure @safe
+        {
+            return pe1.a - pe2.a;
+        }
+    }
+
+    static assert (!is(typeof(Array!(OtherStruct).init.sort())));
+    static assert (!is(typeof(Array!(OtherStruct).init.sort!pred)));
 }

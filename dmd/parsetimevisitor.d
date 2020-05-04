@@ -1,4 +1,8 @@
 /**
+ * Defines a visitor for the AST.
+ *
+ * Other visitors derive from this class.
+ *
  * Documentation:  https://dlang.org/phobos/dmd_parsetimevisitor.html
  * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/parsetimevisitor.d
  */
@@ -55,7 +59,6 @@ public:
     void visit(AST.InvariantDeclaration s) { visit(cast(AST.FuncDeclaration)s); }
     void visit(AST.UnitTestDeclaration s) { visit(cast(AST.FuncDeclaration)s); }
     void visit(AST.NewDeclaration s) { visit(cast(AST.FuncDeclaration)s); }
-    void visit(AST.DeleteDeclaration s) { visit(cast(AST.FuncDeclaration)s); }
     void visit(AST.StaticCtorDeclaration s) { visit(cast(AST.FuncDeclaration)s); }
     void visit(AST.StaticDtorDeclaration s) { visit(cast(AST.FuncDeclaration)s); }
     void visit(AST.SharedStaticCtorDeclaration s) { visit(cast(AST.StaticCtorDeclaration)s); }

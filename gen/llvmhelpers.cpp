@@ -1755,6 +1755,12 @@ llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
                                     llvm::Type *type,
                                     llvm::StringRef mangledName,
                                     bool isConstant, bool isThreadLocal) {
+  // No TLS support for WebAssembly; spare users from having to add __gshared
+  // everywhere.
+  const auto arch = global.params.targetTriple->getArch();
+  if (arch == llvm::Triple::wasm32 || arch == llvm::Triple::wasm64)
+    isThreadLocal = false;
+
   llvm::GlobalVariable *existing =
       module.getGlobalVariable(mangledName, /*AllowInternal=*/true);
   if (existing) {
@@ -1785,9 +1791,8 @@ llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
   // command line.
   const auto tlsModel =
       isThreadLocal
-          ? (global.params.targetTriple->getArch() == llvm::Triple::ppc
-                 ? llvm::GlobalVariable::LocalExecTLSModel
-                 : clThreadModel.getValue())
+          ? (arch == llvm::Triple::ppc ? llvm::GlobalVariable::LocalExecTLSModel
+                                       : clThreadModel.getValue())
           : llvm::GlobalVariable::NotThreadLocal;
 
   return new llvm::GlobalVariable(module, type, isConstant,

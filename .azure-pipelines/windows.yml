@@ -14,29 +14,28 @@ steps:
     echo on
     cd ..
     :: Download & extract libcurl
-    curl -L -o libcurl.zip https://dl.dropboxusercontent.com/s/ccthbw233qs7kpv/libcurl-7.65.3-WinSSL-zlib-x86-x64.zip?dl=0 2>&1
+    curl -L -o libcurl.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v7.0.0/libcurl-7.69.1-zlib-static-ipv6-sspi-winssl.7z 2>&1
     mkdir libcurl
     cd libcurl
-    7z x ../libcurl.zip > nul
+    7z x ../libcurl.7z > nul
     mkdir ldc2
     if "%MODEL%" == "64" (
       cp dmd2/windows/bin%MODEL%/libcurl.dll ldc2
-      cp dmd2/windows/lib%MODEL%/curl.lib ldc2
+      cp dmd2/windows/lib%MODEL%/*.* ldc2
     ) else (
       cp dmd2/windows/bin/libcurl.dll ldc2
-      cp dmd2/windows/lib32mscoff/curl.lib ldc2
+      cp dmd2/windows/lib32mscoff/*.* ldc2
     )
     cd ..
     :: Download & extract Ninja
-    curl -L -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.9.0/ninja-win.zip 2>&1
+    curl -L -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.10.0/ninja-win.zip 2>&1
     mkdir ninja
     cd ninja
     7z x ../ninja.zip > nul
     cd ..
     :: Install lit
-    set PATH=%PYTHON_HOME:/=\%;%PATH%
     python -m pip install --user lit
-    python -c "import lit; lit.main();" --version | head -n 1
+    python -c "import lit; lit.main();" --version . | head -n 1
     :: Download & extract host LDC
     curl -L -o ldc2.7z http://github.com/ldc-developers/ldc/releases/download/v%HOST_LDC_VERSION%/ldc2-%HOST_LDC_VERSION%-windows-multilib.7z 2>&1
     7z x ldc2.7z > nul
@@ -105,7 +104,7 @@ steps:
   condition: succeededOrFailed()
 - script: |
     cd ..
-    set PATH=%CD%\llvm\bin;%PYTHON_HOME:/=\%;%PATH%
+    set PATH=%CD%\llvm\bin;%PATH%
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     cd build
     ctest -V -R "lit-tests"
@@ -134,22 +133,21 @@ steps:
     cd ..
     set PATH=%CD%\ninja;%PATH%
     cd build
-    ninja install > nul
+    ninja install > nul || exit /b
     cd ..
     powershell -c "(cat install/etc/ldc2.conf).replace('%CD:\=/%/install/', '%%%%ldcbinarypath%%%%/../') | Set-Content install/etc/ldc2.conf"
     cat install/etc/ldc2.conf
     cp %BUILD_SOURCESDIRECTORY%/LICENSE install
     cp %BUILD_SOURCESDIRECTORY%/packaging/README.txt install
     cp libcurl/ldc2/libcurl.dll install/bin
-    cp libcurl/ldc2/libcurl.dll install/lib
-    cp libcurl/ldc2/curl.lib install/lib
+    cp libcurl/ldc2/*.* install/lib
     :: Now rename the installation dir to test portability
     mv install installed
   displayName: Install LDC, make portable & copy curl
 - script: |
     cd ..
     cp llvm/bin/lld-link.exe installed/bin
-    curl -L -o mingw-w64-libs.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v7.0.0-rc.1/mingw-w64-libs-v7.0.0-rc.1.7z 2>&1
+    curl -L -o mingw-w64-libs.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v7.0.0/mingw-w64-libs-v7.0.0.7z 2>&1
     mkdir mingw-w64-libs
     cd mingw-w64-libs
     7z x ../mingw-w64-libs.7z > nul
@@ -174,22 +172,23 @@ steps:
 - script: |
     cd ..
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
-    set DC=%CD%/installed/bin/ldmd2
+    set DMD=%CD%\installed\bin\ldmd2
     git clone --recursive https://github.com/dlang/dub.git 2>&1
     cd dub
     powershell -c "git checkout \"$(cat %BUILD_SOURCESDIRECTORY%/packaging/dub_version -Raw)\"" 2>&1
-    call build.cmd 2>&1
+    %DMD% -run build.d -O -w 2>&1 || exit /b
     cp bin/dub.exe ../installed/bin
     ..\installed\bin\dub --version
   displayName: Build & copy dub
 - script: |
     cd ..
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
+    set DMD=%CD%\installed\bin\ldmd2
     git clone --recursive https://github.com/dlang/tools.git dlang-tools 2>&1
     cd dlang-tools
-    ..\installed\bin\ldmd2 -w -de -dip1000 rdmd.d
-    ..\installed\bin\ldmd2 -w -de -dip1000 ddemangle.d
-    ..\installed\bin\ldmd2 -w -de -dip1000 DustMite\dustmite.d DustMite\splitter.d
+    %DMD% -w -de -dip1000 rdmd.d || exit /b
+    %DMD% -w -de -dip1000 ddemangle.d || exit /b
+    %DMD% -w -de -dip1000 DustMite\dustmite.d DustMite\splitter.d || exit /b
     cp *.exe ../installed/bin
   displayName: Build & copy dlang tools
 - script: |

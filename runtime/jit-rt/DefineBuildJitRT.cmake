@@ -21,7 +21,7 @@ if(LDC_DYNAMIC_COMPILE)
         set(JITRT_EXTRA_FLAGS "/Zl")
 
     else()
-        set(JITRT_EXTRA_FLAGS "-fPIC -std=c++11 -fvisibility=hidden")
+        set(JITRT_EXTRA_FLAGS "-fPIC -fvisibility=hidden")
         if(NOT APPLE)
             CHECK_LINK_FLAG("--exclude-libs=ALL" LINKER_ACCEPTS_EXCLUDE_LIBS_ALL)
             if(LINKER_ACCEPTS_EXCLUDE_LIBS_ALL)
@@ -82,7 +82,7 @@ if(LDC_DYNAMIC_COMPILE)
         add_library(ldc-jit-rt${target_suffix} STATIC ${jitrt_d_o} ${LDC_JITRT_CXX} ${LDC_JITRT_H})
         set_common_library_properties(ldc-jit-rt${target_suffix}
             ldc-jit-rt ${output_path}
-            "${c_flags} ${JITRT_EXTRA_FLAGS}"
+            "${c_flags} ${LLVM_CXXFLAGS} ${LDC_CXXFLAGS} ${JITRT_EXTRA_FLAGS}"
             "${ld_flags} ${JITRT_EXTRA_LDFLAGS}"
             OFF
         )

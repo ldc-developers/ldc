@@ -44,9 +44,21 @@ int executeToolAndWait(const std::string &tool,
 #ifdef _WIN32
 
 namespace windows {
-// Tries to set up the MSVC environment variables and returns true if
-// successful.
-bool setupMsvcEnvironment();
+// Returns true if a usable MSVC installation is available.
+bool isMsvcAvailable();
+
+struct MsvcEnvironmentScope {
+  // Tries to set up the MSVC environment variables for the current process and
+  // returns true if successful. The original environment is restored on
+  // destruction.
+  bool setup();
+
+  ~MsvcEnvironmentScope();
+
+private:
+  // for each changed env var: name & original value
+  std::vector<std::pair<std::wstring, wchar_t *>> rollback;
+};
 }
 
 #endif

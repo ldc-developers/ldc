@@ -1,8 +1,9 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Implements the lexical analyzer, which converts source code into lexical tokens.
  *
- * Copyright:   Copyright (C) 1999-2019 by The D Language Foundation, All Rights Reserved
+ * Specification: $(LINK2 https://dlang.org/spec/lex.html, Lexical)
+ *
+ * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/lexer.d, _lexer.d)
@@ -16,6 +17,7 @@ import core.stdc.ctype;
 import core.stdc.errno;
 import core.stdc.stdarg;
 import core.stdc.stdio;
+import core.stdc.stdlib : getenv;
 import core.stdc.string;
 import core.stdc.time;
 
@@ -28,6 +30,7 @@ import dmd.root.ctfloat;
 import dmd.root.outbuffer;
 import dmd.root.port;
 import dmd.root.rmem;
+import dmd.root.string;
 import dmd.tokens;
 import dmd.utf;
 import dmd.utils;
@@ -152,8 +155,7 @@ unittest
     /* Not much here, just trying things out.
      */
     string text = "int"; // We rely on the implicit null-terminator
-    scope diagnosticReporter = new StderrDiagnosticReporter(global.params.useDeprecated);
-    scope Lexer lex1 = new Lexer(null, text.ptr, 0, text.length, 0, 0, diagnosticReporter);
+    scope Lexer lex1 = new Lexer(null, text.ptr, 0, text.length, 0, 0);
     TOK tok;
     tok = lex1.nextToken();
     //printf("tok == %s, %d, %d\n", Token::toChars(tok), tok, TOK.int32);
@@ -188,8 +190,7 @@ unittest
 
     foreach (testcase; testcases)
     {
-        scope diagnosticReporter = new StderrDiagnosticReporter(global.params.useDeprecated);
-        scope Lexer lex2 = new Lexer(null, testcase.ptr, 0, testcase.length-1, 0, 0, diagnosticReporter);
+        scope Lexer lex2 = new Lexer(null, testcase.ptr, 0, testcase.length-1, 0, 0);
         TOK tok = lex2.nextToken();
         size_t iterations = 1;
         while ((tok != TOK.endOfFile) && (iterations++ < testcase.length))
@@ -227,7 +228,6 @@ class Lexer
         int inTokenStringConstant; // can be larger than 1 when in nested q{} strings
         int lastDocLine;        // last line of previous doc comment
 
-        DiagnosticReporter diagnosticReporter;
         Token* tokenFreelist;
     }
 
@@ -244,18 +244,10 @@ class Lexer
      *  endoffset = the last offset to read into base[]
      *  doDocComment = handle documentation comments
      *  commentToken = comments become TOK.comment's
-     *  diagnosticReporter = the diagnostic reporter to use
      */
     this(const(char)* filename, const(char)* base, size_t begoffset,
-        size_t endoffset, bool doDocComment, bool commentToken,
-        DiagnosticReporter diagnosticReporter) pure
-    in
+        size_t endoffset, bool doDocComment, bool commentToken) pure
     {
-        assert(diagnosticReporter !is null);
-    }
-    body
-    {
-        this.diagnosticReporter = diagnosticReporter;
         scanloc = Loc(filename, 1, 1);
         //printf("Lexer::Lexer(%p,%d)\n",base,length);
         //printf("lexer.filename = %s\n", filename);
@@ -292,12 +284,6 @@ class Lexer
             }
             endOfLine();
         }
-    }
-
-    /// Returns: `true` if any errors occurred during lexing or parsing.
-    final bool errors()
-    {
-        return diagnosticReporter.errorCount > 0;
     }
 
     /// Returns: a newly allocated `Token`.
@@ -537,29 +523,17 @@ class Lexer
                     anyToken = 1;
                     if (*t.ptr == '_') // if special identifier token
                     {
-                        __gshared bool initdone = false;
-                        __gshared char[11 + 1] date;
-                        __gshared char[8 + 1] time;
-                        __gshared char[24 + 1] timestamp;
-                        if (!initdone) // lazy evaluation
-                        {
-                            initdone = true;
-                            time_t ct;
-                            .time(&ct);
-                            const p = ctime(&ct);
-                            assert(p);
-                            sprintf(&date[0], "%.6s %.4s", p + 4, p + 20);
-                            sprintf(&time[0], "%.8s", p + 11);
-                            sprintf(&timestamp[0], "%.24s", p);
-                        }
+                        // Lazy initialization
+                        TimeStampInfo.initialize(t.loc);
+
                         if (id == Id.DATE)
                         {
-                            t.ustring = date.ptr;
+                            t.ustring = TimeStampInfo.date.ptr;
                             goto Lstr;
                         }
                         else if (id == Id.TIME)
                         {
-                            t.ustring = time.ptr;
+                            t.ustring = TimeStampInfo.time.ptr;
                             goto Lstr;
                         }
                         else if (id == Id.VENDOR)
@@ -569,7 +543,7 @@ class Lexer
                         }
                         else if (id == Id.TIMESTAMP)
                         {
-                            t.ustring = timestamp.ptr;
+                            t.ustring = TimeStampInfo.timestamp.ptr;
                         Lstr:
                             t.value = TOK.string_;
                             t.postfix = 0;
@@ -1167,25 +1141,19 @@ class Lexer
      */
     private uint escapeSequence()
     {
-        return Lexer.escapeSequence(token.loc, diagnosticReporter, p);
+        return Lexer.escapeSequence(token.loc, p);
     }
 
     /**
     Parse the given string literal escape sequence into a single character.
     Params:
         loc = the location of the current token
-        handler = the diagnostic reporter object
         sequence = pointer to string with escape sequence to parse. this is a reference
                    variable that is also used to return the position after the sequence
     Returns:
         the escaped sequence as a single character
     */
-    private static dchar escapeSequence(const ref Loc loc, DiagnosticReporter handler, ref const(char)* sequence)
-    in
-    {
-        assert(handler !is null);
-    }
-    body
+    private static dchar escapeSequence(const ref Loc loc, ref const(char)* sequence)
     {
         const(char)* p = sequence; // cache sequence reference on stack
         scope(exit) sequence = p;
@@ -1251,20 +1219,20 @@ class Lexer
                         break;
                     if (!ishex(cast(char)c))
                     {
-                        handler.error(loc, "escape hex sequence has %d hex digits instead of %d", n, ndigits);
+                        .error(loc, "escape hex sequence has %d hex digits instead of %d", n, ndigits);
                         break;
                     }
                 }
                 if (ndigits != 2 && !utf_isValidDchar(v))
                 {
-                    handler.error(loc, "invalid UTF character \\U%08x", v);
+                    .error(loc, "invalid UTF character \\U%08x", v);
                     v = '?'; // recover with valid UTF character
                 }
                 c = v;
             }
             else
             {
-                handler.error(loc, "undefined escape hex sequence \\%c%c", sequence[0], c);
+                .error(loc, "undefined escape hex sequence \\%c%c", sequence[0], c);
                 p++;
             }
             break;
@@ -1278,7 +1246,7 @@ class Lexer
                     c = HtmlNamedEntity(idstart, p - idstart);
                     if (c == ~0)
                     {
-                        handler.error(loc, "unnamed character entity &%.*s;", cast(int)(p - idstart), idstart);
+                        .error(loc, "unnamed character entity &%.*s;", cast(int)(p - idstart), idstart);
                         c = '?';
                     }
                     p++;
@@ -1286,7 +1254,7 @@ class Lexer
                 default:
                     if (isalpha(*p) || (p != idstart && isdigit(*p)))
                         continue;
-                    handler.error(loc, "unterminated named entity &%.*s;", cast(int)(p - idstart + 1), idstart);
+                    .error(loc, "unterminated named entity &%.*s;", cast(int)(p - idstart + 1), idstart);
                     c = '?';
                     break;
                 }
@@ -1311,11 +1279,11 @@ class Lexer
                 while (++n < 3 && isoctal(cast(char)c));
                 c = v;
                 if (c > 0xFF)
-                    handler.error(loc, "escape octal sequence \\%03o is larger than \\377", c);
+                    .error(loc, "escape octal sequence \\%03o is larger than \\377", c);
             }
             else
             {
-                handler.error(loc, "undefined escape sequence \\%c", c);
+                .error(loc, "undefined escape sequence \\%c", c);
                 p++;
             }
             break;
@@ -2315,7 +2283,7 @@ class Lexer
     {
         va_list args;
         va_start(args, format);
-        diagnosticReporter.error(token.loc, format, args);
+        .verror(token.loc, format, args);
         va_end(args);
     }
 
@@ -2323,31 +2291,7 @@ class Lexer
     {
         va_list args;
         va_start(args, format);
-        diagnosticReporter.error(loc, format, args);
-        va_end(args);
-    }
-
-    final void errorSupplemental(const ref Loc loc, const(char)* format, ...)
-    {
-        va_list args;
-        va_start(args, format);
-        diagnosticReporter.errorSupplemental(loc, format, args);
-        va_end(args);
-    }
-
-    final void warning(const ref Loc loc, const(char)* format, ...)
-    {
-        va_list args;
-        va_start(args, format);
-        diagnosticReporter.warning(loc, format, args);
-        va_end(args);
-    }
-
-    final void warningSupplemental(const ref Loc loc, const(char)* format, ...)
-    {
-        va_list args;
-        va_start(args, format);
-        diagnosticReporter.warningSupplemental(loc, format, args);
+        .verror(loc, format, args);
         va_end(args);
     }
 
@@ -2355,23 +2299,7 @@ class Lexer
     {
         va_list args;
         va_start(args, format);
-        diagnosticReporter.deprecation(token.loc, format, args);
-        va_end(args);
-    }
-
-    final void deprecation(const ref Loc loc, const(char)* format, ...)
-    {
-        va_list args;
-        va_start(args, format);
-        diagnosticReporter.deprecation(loc, format, args);
-        va_end(args);
-    }
-
-    final void deprecationSupplemental(const ref Loc loc, const(char)* format, ...)
-    {
-        va_list args;
-        va_start(args, format);
-        diagnosticReporter.deprecationSupplemental(loc, format, args);
+        .vdeprecation(token.loc, format, args);
         va_end(args);
     }
 
@@ -2578,7 +2506,7 @@ class Lexer
          */
         OutBuffer buf;
 
-        void trimTrailingWhitespace() nothrow
+        void trimTrailingWhitespace() /* IN_LLVM: ltsmaster... */ nothrow
         {
             const s = buf[];
             auto len = s.length;
@@ -2689,25 +2617,56 @@ private:
     }
 }
 
+/// Support for `__DATE__`, `__TIME__`, and `__TIMESTAMP__`
+private struct TimeStampInfo
+{
+    private __gshared bool initdone = false;
+
+    // Note: Those properties need to be guarded by a call to `init`
+    // The API isn't safe, and quite brittle, but it was left this way
+    // over performance concerns.
+    // This is currently only called once, from the lexer.
+    __gshared char[11 + 1] date;
+    __gshared char[8 + 1] time;
+    __gshared char[24 + 1] timestamp;
+
+    public static void initialize(const ref Loc loc) nothrow
+    {
+        if (initdone)
+            return;
+
+        initdone = true;
+        time_t ct;
+        // https://issues.dlang.org/show_bug.cgi?id=20444
+        if (auto p = getenv("SOURCE_DATE_EPOCH"))
+        {
+            if (!ct.parseDigits(p.toDString()))
+                error(loc, "Value of environment variable `SOURCE_DATE_EPOCH` should be a valid UNIX timestamp, not: `%s`", p);
+        }
+        else
+            .time(&ct);
+        const p = ctime(&ct);
+        assert(p);
+        sprintf(&date[0], "%.6s %.4s", p + 4, p + 20);
+        sprintf(&time[0], "%.8s", p + 11);
+        sprintf(&timestamp[0], "%.24s", p);
+    }
+}
+
 unittest
 {
-    static final class AssertDiagnosticReporter : DiagnosticReporter
+    import dmd.console;
+    nothrow bool assertDiagnosticHandler(const ref Loc loc, Color headerColor, const(char)* header,
+                                   const(char)* format, va_list ap, const(char)* p1, const(char)* p2)
     {
-        override int errorCount() { assert(0); }
-        override int warningCount() { assert(0); }
-        override int deprecationCount() { assert(0); }
-        override void error(const ref Loc, const(char)*, va_list) { assert(0); }
-        override void errorSupplemental(const ref Loc, const(char)*, va_list) { assert(0); }
-        override void warning(const ref Loc, const(char)*, va_list) { assert(0); }
-        override void warningSupplemental(const ref Loc, const(char)*, va_list) { assert(0); }
-        override void deprecation(const ref Loc, const(char)*, va_list) { assert(0); }
-        override void deprecationSupplemental(const ref Loc, const(char)*, va_list) { assert(0); }
+        assert(0);
     }
+    diagnosticHandler = &assertDiagnosticHandler;
+
     static void test(T)(string sequence, T expected)
     {
-        scope assertOnError = new AssertDiagnosticReporter();
         auto p = cast(const(char)*)sequence.ptr;
-        assert(expected == Lexer.escapeSequence(Loc.initial, assertOnError, p));
+        assert(expected == Lexer.escapeSequence(Loc.initial, p));
         assert(p == sequence.ptr + sequence.length);
     }
 
@@ -2743,46 +2702,43 @@ unittest
     test(`&quot;`, '"');
     test(`&lt;`, '<');
     test(`&gt;`, '>');
+
+    diagnosticHandler = null;
 }
 unittest
 {
-    static final class ExpectDiagnosticReporter : DiagnosticReporter
+    import dmd.console;
+    string expected;
+    bool gotError;
+
+    nothrow bool expectDiagnosticHandler(const ref Loc loc, Color headerColor, const(char)* header,
+                                         const(char)* format, va_list ap, const(char)* p1, const(char)* p2)
     {
-        string expected;
-        bool gotError;
+        assert(cast(Classification)headerColor == Classification.error);
 
-      nothrow:
-
-        this(string expected) { this.expected = expected; }
-
-        override int errorCount() { assert(0); }
-        override int warningCount() { assert(0); }
-        override int deprecationCount() { assert(0); }
-
-        override void error(const ref Loc loc, const(char)* format, va_list args)
-        {
-            gotError = true;
-            char[100] buffer = void;
-            auto actual = buffer[0 .. vsprintf(buffer.ptr, format, args)];
-            assert(expected == actual);
-        }
-
-        override void errorSupplemental(const ref Loc, const(char)*, va_list) { assert(0); }
-        override void warning(const ref Loc, const(char)*, va_list) { assert(0); }
-        override void warningSupplemental(const ref Loc, const(char)*, va_list) { assert(0); }
-        override void deprecation(const ref Loc, const(char)*, va_list) { assert(0); }
-        override void deprecationSupplemental(const ref Loc, const(char)*, va_list) { assert(0); }
+        gotError = true;
+        char[100] buffer = void;
+        auto actual = buffer[0 .. vsprintf(buffer.ptr, format, ap)];
+        assert(expected == actual);
+        return true;
     }
-    static void test(string sequence, string expectedError, dchar expectedReturnValue, uint expectedScanLength) nothrow
+
+    diagnosticHandler = &expectDiagnosticHandler;
+
+    void test(string sequence, string expectedError, dchar expectedReturnValue, uint expectedScanLength)
+    /* IN_LLVM: ltsmaster */ nothrow
     {
-        scope handler = new ExpectDiagnosticReporter(expectedError);
+        uint errors = global.errors;
+        gotError = false;
+        expected = expectedError;
         auto p = cast(const(char)*)sequence.ptr;
-        auto actualReturnValue = Lexer.escapeSequence(Loc.initial, handler, p);
-        assert(handler.gotError);
+        auto actualReturnValue = Lexer.escapeSequence(Loc.initial, p);
+        assert(gotError);
         assert(expectedReturnValue == actualReturnValue);
 
         auto actualScanLength = p - sequence.ptr;
         assert(expectedScanLength == actualScanLength);
+        global.errors = errors;
     }
 
     test("c", `undefined escape sequence \c`, 'c', 1);
@@ -2814,4 +2770,6 @@ unittest
     test("&quot", `unterminated named entity &quot;`, '?', 5);
 
     test("400", `escape octal sequence \400 is larger than \377`, 0x100, 3);
+
+    diagnosticHandler = null;
 }
