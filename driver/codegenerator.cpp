@@ -350,6 +350,7 @@ void CodeGenerator::emit(Module *m) {
   }
 }
 
+#if LDC_MLIR_ENABLED
 void CodeGenerator::emitMLIR(Module *m) {
   bool const loggerWasEnabled = Logger::enabled();
   if (m->llvmForceLogging && !loggerWasEnabled) {
@@ -416,4 +417,5 @@ void CodeGenerator::writeMLIRModule(mlir::OwningModuleRef *module,
   }
 }
 
+#endif
 }
