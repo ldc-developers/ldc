@@ -28,7 +28,31 @@ else()
     set(MLIR_LIB_DIR     ${MLIR_ROOT_DIR}/lib)
 
     # To be done: add the required MLIR libraries. Hopefully we don't have to manually list all MLIR libs.
-    set(MLIR_LIBRARIES "")
+    set(MLIR_LIBRARIES
+            libMLIRAffineOps.a
+            libMLIRAffineToStandard.a
+            libMLIRAnalysis.a
+            libMLIRDialect.a
+            libMLIRIR.a
+            libMLIRLLVMIR.a
+            libMLIRLoopOps.a
+            libMLIRLoopToStandard.a
+            libMLIRLoopsToGPU.a
+            libMLIRMlirOptLib.a
+            libMLIROptMain.a
+            libMLIRParser.a
+            libMLIRPass.a
+            libMLIRStandardOps.a
+            libMLIRStandardToLLVM.a
+            libMLIRStandardToSPIRVTransforms.a
+            libMLIRSupport.a
+            libMLIRTargetLLVMIR.a
+            libMLIRTargetLLVMIRModuleTranslation.a
+            libMLIRTransformUtils.a
+            libMLIRTransforms.a
+            libMLIRTranslateClParser.a
+            libMLIRTranslation.a
+            )
 
     # XXX: This function is untested and will need adjustment.
     function(mlir_tablegen)
