@@ -1094,9 +1094,17 @@ int cppmain() {
 }
 
 void codegenModules(Modules &modules) {
+  bool useMLIR = false;
   // Generate one or more object/IR/bitcode files/dcompute kernels.
   if (global.params.obj && !modules.empty()) {
+#if LDC_MLIR_ENABLED
+    mlir::MLIRContext mlircontext;
+    useMLIR = true;
+    ldc::CodeGenerator cg(getGlobalContext(), mlircontext,
+                          global.params.oneobj);
+#else
     ldc::CodeGenerator cg(getGlobalContext(), global.params.oneobj);
+#endif
     DComputeCodeGenManager dccg(getGlobalContext());
     std::vector<Module *> computeModules;
     // When inlining is enabled, we are calling semantic3 on function
@@ -1119,7 +1127,10 @@ void codegenModules(Modules &modules) {
       const auto atCompute = hasComputeAttr(m);
       if (atCompute == DComputeCompileFor::hostOnly ||
           atCompute == DComputeCompileFor::hostAndDevice) {
-        cg.emit(m);
+        if(useMLIR)
+          cg.emitMLIR(m);
+        else
+          cg.emit(m);
       }
       if (atCompute != DComputeCompileFor::hostOnly) {
         computeModules.push_back(m);

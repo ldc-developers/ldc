@@ -22,8 +22,4 @@ namespace llvm {
 class Module;
 }
 
-void writeModule(llvm::Module *m, const char *filename
-#if LDC_MLIR_ENABLED
-, ::Module *module,mlir::MLIRContext &mlirContext, IRState *irs
-#endif
-);
+void writeModule(llvm::Module *m, const char *filename);

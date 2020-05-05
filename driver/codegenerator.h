@@ -22,6 +22,7 @@
 #include "gen/irstate.h"
 #if LDC_MLIR_ENABLED 
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/Module.h"
 #endif
 
 namespace ldc {
@@ -36,11 +37,13 @@ public:
 
   ~CodeGenerator();
   void emit(Module *m);
+  void emitMLIR(Module *m);
 
 private:
   void prepareLLModule(Module *m);
   void finishLLModule(Module *m);
-  void writeAndFreeLLModule(const char *filename, Module *m = nullptr);
+  void writeAndFreeLLModule(const char *filename);
+  void writeMLIRModule(mlir::OwningModuleRef *module, const char *filename);
 
   llvm::LLVMContext &context_;
 #if LDC_MLIR_ENABLED

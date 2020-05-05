@@ -33,7 +33,7 @@
 
 #if LDC_LLVM_VER < 600
 namespace llvm {
-using ToolOutputFile = tool_output_file;
+  using ToolOutputFile = tool_output_file;
 }
 #endif
 
@@ -283,13 +283,10 @@ void CodeGenerator::finishLLModule(Module *m) {
   if (moduleCount_ == 1) {
     insertBitcodeFiles(ir_->module, ir_->context(), global.params.bitcodeFiles);
   }
-#if LDC_MLIR_ENABLED
-  writeAndFreeLLModule(m->objfile.toChars(), m);
-#endif  
   writeAndFreeLLModule(m->objfile.toChars());
 }
 
-void CodeGenerator::writeAndFreeLLModule(const char *filename, Module *m) {
+void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   ir_->objc.finalize();
 
   ir_->DBuilder.Finalize();
@@ -315,11 +312,7 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename, Module *m) {
   std::unique_ptr<llvm::ToolOutputFile> diagnosticsOutputFile =
       createAndSetDiagnosticsOutputFile(*ir_, context_, filename);
 
-#if LDC_MLIR_ENABLED
-  writeModule(&ir_->module, filename, m, mlirContext_, ir_);
-#else
   writeModule(&ir_->module, filename);
-#endif
 
   if (diagnosticsOutputFile)
     diagnosticsOutputFile->keep();
@@ -356,4 +349,71 @@ void CodeGenerator::emit(Module *m) {
     Logger::disable();
   }
 }
+
+void CodeGenerator::emitMLIR(Module *m) {
+  bool const loggerWasEnabled = Logger::enabled();
+  if (m->llvmForceLogging && !loggerWasEnabled) {
+    Logger::enable();
+  }
+
+  IF_LOG Logger::println("CodeGenerator::emitMLIR(%s)", m->toPrettyChars());
+  LOG_SCOPE;
+
+  if (global.params.verbose_cg) {
+    printf("codegen: %s (%s)\n", m->toPrettyChars(), m->srcfile.toChars());
+  }
+  if (global.errors) {
+    Logger::println("Aborting because of errors");
+    fatal();
+  }
+
+  mlir::OwningModuleRef module;
+  /*module = mlirGen(mlirContext, m, irs);
+  if(!module){
+    IF_LOG Logger::println("Cannot write MLIR file to '%s'", llpath.c_str());
+    fatal();
+  }*/
+
+  writeMLIRModule(&module, m->objfile.toChars());
+
+  if (m->llvmForceLogging && !loggerWasEnabled) {
+    Logger::disable();
+  }
+}
+
+void CodeGenerator::writeMLIRModule(mlir::OwningModuleRef *module,
+    const char *filename) {
+  const auto outputFlags = {global.params.output_o, global.params.output_bc,
+                            global.params.output_ll, global.params.output_s,
+                            global.params.output_mlir};
+  const auto numOutputFiles =
+    std::count_if(outputFlags.begin(), outputFlags.end(),
+                [](OUTPUTFLAG flag) { return flag != 0; });
+
+  const auto replaceExtensionWith =
+    [=](const DArray<const char> &ext) -> std::string {
+      if (numOutputFiles == 1)
+        return filename;
+      llvm::SmallString<128> buffer(filename);
+      llvm::sys::path::replace_extension(buffer,
+                                         llvm::StringRef(ext.ptr, ext.length));
+      return buffer.c_str();
+    };
+
+  //Write MLIR
+  if(global.params.output_mlir) {
+  const auto llpath = replaceExtensionWith(global.mlir_ext);
+  Logger::println("Writting MLIR to %s\n", llpath.c_str());
+  std::error_code errinfo;
+  llvm::raw_fd_ostream aos(llpath, errinfo, llvm::sys::fs::F_None);
+  if (aos.has_error()) {
+    error(Loc(), "Cannot write MLIR file '%s':%s", llpath.c_str(),
+          errinfo.message().c_str());
+    fatal();
+  }
+
+  // module->print(aos);
+  }
+}
+
 }

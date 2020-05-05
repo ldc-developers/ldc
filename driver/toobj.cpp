@@ -18,7 +18,6 @@
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
-#include "gen/MLIR/MLIRGen.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Analysis/ModuleSummaryAnalysis.h"
@@ -311,8 +310,7 @@ bool shouldDoLTO(llvm::Module *m) {
 }
 } // end of anonymous namespace
 
-void writeModule(llvm::Module *m, const char *filename, ::Module *module,
-                 mlir::MLIRContext &mlirContext, IRState *irs) {
+void writeModule(llvm::Module *m, const char *filename) {
   const bool doLTO = shouldDoLTO(m);
   const bool outputObj = shouldOutputObjectFile();
   const bool assembleExternally = shouldAssembleExternally();
@@ -428,25 +426,6 @@ void writeModule(llvm::Module *m, const char *filename, ::Module *module,
     }
     AssemblyAnnotator annotator(m->getDataLayout());
     m->print(aos, &annotator);
-  }
-
-  //Write MLIR
-  if(global.params.output_mlir && module != nullptr) {
-    const auto llpath = replaceExtensionWith(global.mlir_ext);
-    Logger::println("Writing MLIR to %s\n", llpath.c_str());
-    std::error_code errinfo;
-    llvm::raw_fd_ostream aos(llpath, errinfo, llvm::sys::fs::F_None);
-    if(aos.has_error()){
-      error(Loc(), "Cannot write MLIR file '%s':%s", llpath.c_str(),
-            errinfo.message().c_str());
-      fatal();
-    }
-    mlir::OwningModuleRef Module = ldc_mlir::mlirGen(mlirContext, module, irs);
-    if(!Module){
-      IF_LOG Logger::println("Cannot write MLIR file to '%s'", llpath.c_str());
-      fatal();
-    }
-    Module->print(aos);
   }
 
   const bool writeObj = outputObj && !emitBitcodeAsObjectFile;
