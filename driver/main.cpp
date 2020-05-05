@@ -651,6 +651,10 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("AArch64");
     registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat", "ARM_SoftFP");
     break;
+  case llvm::Triple::avr:
+    VersionCondition::addPredefinedGlobalIdent("AVR");
+    VersionCondition::addPredefinedGlobalIdent("D_SoftFloat");
+    break;
   case llvm::Triple::mips:
   case llvm::Triple::mipsel:
     VersionCondition::addPredefinedGlobalIdent("MIPS");
