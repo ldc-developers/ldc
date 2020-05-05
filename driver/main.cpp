@@ -1127,9 +1127,11 @@ void codegenModules(Modules &modules) {
       const auto atCompute = hasComputeAttr(m);
       if (atCompute == DComputeCompileFor::hostOnly ||
           atCompute == DComputeCompileFor::hostAndDevice) {
+#if LDC_MLIR_ENABLED
         if(useMLIR)
           cg.emitMLIR(m);
         else
+#endif
           cg.emit(m);
       }
       if (atCompute != DComputeCompileFor::hostOnly) {
