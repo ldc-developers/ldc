@@ -178,7 +178,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
       Logger::println("lazy param");
       auto ltf = TypeFunction::create(nullptr, arg->type, VARARGnone, LINKd);
       auto ltd = createTypeDelegate(ltf);
-      loweredDType = ltd;
+      loweredDType = merge(ltd);
     } else if (passPointer) {
       // ref/out
       attrs.addDereferenceableAttr(loweredDType->size());
@@ -1197,7 +1197,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   // D varargs: prepare _argptr and _arguments
-  if (f->linkage == LINKd && f->parameterList.varargs == VARARGvariadic) {
+  if (f->isDstyleVariadic()) {
     // allocate _argptr (of type core.stdc.stdarg.va_list)
     Type *tvalist = target.va_listType(fd->loc, fd->_scope);
     LLValue *argptrMem = DtoAlloca(tvalist, "_argptr_mem");

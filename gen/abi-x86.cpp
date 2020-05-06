@@ -87,8 +87,7 @@ struct X86TargetABI : TargetABI {
       return false;
 
     Type *rt = tf->next->toBasetype();
-    const bool externD =
-        (tf->linkage == LINKd && tf->parameterList.varargs != VARARGvariadic);
+    const bool externD = isExternD(tf);
 
     // non-aggregates are returned directly
     if (!isAggregate(rt))
@@ -136,12 +135,11 @@ struct X86TargetABI : TargetABI {
   }
 
   void rewriteFunctionType(IrFuncTy &fty) override {
-    const bool externD = (fty.type->linkage == LINKd &&
-                          fty.type->parameterList.varargs != VARARGvariadic);
+    const bool externD = isExternD(fty.type);
 
     // return value:
     if (!fty.ret->byref) {
-      Type *rt = fty.type->next->toBasetype(); // for sret, rt == void
+      Type *rt = fty.ret->type->toBasetype(); // for sret, rt == void
       if (isAggregate(rt) && canRewriteAsInt(rt) &&
           // don't rewrite cfloat for extern(D)
           !(externD && rt->ty == Tcomplex32)) {
