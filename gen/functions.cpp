@@ -54,6 +54,7 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 #include <iostream>
 
 bool isAnyMainFunction(FuncDeclaration *fd) {
@@ -892,6 +893,62 @@ bool eraseDummyAfterReturnBB(llvm::BasicBlock *bb) {
   return false;
 }
 
+/**
+ * LLVM doesn't really support weak linkage for MSVC targets, it just prevents
+ * inlining. We can emulate it though, by conceptually renaming the defined
+ * function, only declaring the original function and embedding a linker
+ * directive in the object file, instructing the linker to fall back to the weak
+ * implementation if there's no strong definition.
+ * The object file still needs to be pulled in by the linker for the directive
+ * to be found.
+ */
+void emulateWeakAnyLinkageForMSVC(LLFunction *func, LINK linkage) {
+  const bool isWin32 = !global.params.is64bit;
+
+  std::string mangleBuffer;
+  llvm::StringRef finalMangle = func->getName();
+  if (finalMangle[0] == '\1') {
+    finalMangle = finalMangle.substr(1);
+  } else if (isWin32) {
+    // implicit underscore prefix for Win32
+    mangleBuffer = ("_" + finalMangle).str();
+    finalMangle = mangleBuffer;
+  }
+
+  std::string finalWeakMangle = finalMangle;
+  if (linkage == LINKcpp) {
+    assert(finalMangle.startswith("?"));
+    // prepend `__weak_` to first identifier
+    size_t offset = finalMangle.startswith("??$") ? 3 : 1;
+    finalWeakMangle.insert(offset, "__weak_");
+  } else if (linkage == LINKd) {
+    const size_t offset = isWin32 ? 1 : 0;
+    assert(finalMangle.substr(offset).startswith("_D"));
+    // prepend a `__weak` package
+    finalWeakMangle.insert(offset + 2, "6__weak");
+  } else {
+    // prepend `__weak_`
+    const size_t offset = isWin32 && finalMangle.startswith("_") ? 1 : 0;
+    finalWeakMangle.insert(offset, "__weak_");
+  }
+
+  const std::string linkerOption =
+      ("/ALTERNATENAME:" + finalMangle + "=" + finalWeakMangle).str();
+  gIR->addLinkerOption(llvm::StringRef(linkerOption));
+
+  // work around LLVM assertion when cloning a function's debuginfos
+  func->setSubprogram(nullptr);
+
+  llvm::ValueToValueMapTy dummy;
+  auto clone = llvm::CloneFunction(func, dummy);
+  clone->setName("\1" + finalWeakMangle);
+  setLinkage({LLGlobalValue::ExternalLinkage, func->hasComdat()}, clone);
+
+  // reduce the original definition to a declaration
+  setLinkage({LLGlobalValue::ExternalLinkage, false}, func);
+  func->deleteBody();
+}
+
 } // anonymous namespace
 
 void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
@@ -1273,6 +1330,11 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   if (gIR->dcomputetarget && hasKernelAttr(fd)) {
     auto fn = gIR->module.getFunction(fd->mangleString);
     gIR->dcomputetarget->addKernelMetadata(fd, fn);
+  }
+
+  if (func->getLinkage() == LLGlobalValue::WeakAnyLinkage &&
+      global.params.targetTriple->isWindowsMSVCEnvironment()) {
+    emulateWeakAnyLinkageForMSVC(func, fd->linkage);
   }
 }
 

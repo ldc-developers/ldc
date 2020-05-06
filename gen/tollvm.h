@@ -69,7 +69,7 @@ LLValue *DtoDelegateEquals(TOK op, LLValue *lhs, LLValue *rhs);
 typedef std::pair<llvm::GlobalValue::LinkageTypes, bool> LinkageWithCOMDAT;
 LinkageWithCOMDAT DtoLinkage(Dsymbol *sym);
 
-bool supportsCOMDAT();
+bool needsCOMDAT();
 void setLinkage(LinkageWithCOMDAT lwc, llvm::GlobalObject *obj);
 // Sets the linkage of the specified IR global and possibly hides it, both based
 // on the specified D symbol.

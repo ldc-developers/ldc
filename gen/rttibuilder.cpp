@@ -85,7 +85,7 @@ void RTTIBuilder::push_void_array(llvm::Constant *CI, Type *valtype,
   mangleToBuffer(mangle_sym, &initname);
   initname.writestring(".rtti.voidarr.data");
 
-  const LinkageWithCOMDAT lwc(TYPEINFO_LINKAGE_TYPE, supportsCOMDAT());
+  const LinkageWithCOMDAT lwc(TYPEINFO_LINKAGE_TYPE, needsCOMDAT());
 
   auto G = new LLGlobalVariable(gIR->module, CI->getType(), true, lwc.first, CI,
                                 initname.peekChars());
@@ -111,7 +111,7 @@ void RTTIBuilder::push_array(llvm::Constant *CI, uint64_t dim, Type *valtype,
   initname.writestring(tmpStr.c_str());
   initname.writestring(".data");
 
-  const LinkageWithCOMDAT lwc(TYPEINFO_LINKAGE_TYPE, supportsCOMDAT());
+  const LinkageWithCOMDAT lwc(TYPEINFO_LINKAGE_TYPE, needsCOMDAT());
 
   auto G = new LLGlobalVariable(gIR->module, CI->getType(), true, lwc.first, CI,
                                 initname.peekChars());
