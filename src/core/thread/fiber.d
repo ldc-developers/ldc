@@ -32,6 +32,8 @@ version (LDC)
         import ldc.sanitizers_optionally_linked;
     }
 }
+else
+    private enum assumeUsed = null;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Fiber Platform Detection
