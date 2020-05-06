@@ -131,3 +131,92 @@ bool CTFloat::isFloat64LiteralOutOfRange(const char *literal) {
   parseLiteral(APFloat::IEEEdouble AP_SEMANTICS_PARENS, literal, &isOutOfRange);
   return isOutOfRange;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+int CTFloat::sprint(char *str, char fmt, real_t x) {
+  assert(fmt == 'g' || fmt == 'a' || fmt == 'A');
+  const bool uppercase = fmt == 'A';
+
+  // We try to keep close to C printf and handle a few divergences of the LLVM
+  // to-string utility functions.
+
+  if (isNaN(x)) {
+    int length = 0;
+    if (copysign(one, x) != one) {
+      str[0] = '-';
+      ++length;
+    }
+    memcpy(str + length, uppercase ? "NAN" : "nan", 3);
+    length += 3;
+    str[length] = 0;
+    return length;
+  }
+
+  if (isInfinity(x)) { // incl. -inf
+    int length = 0;
+    if (x < 0) {
+      str[0] = '-';
+      ++length;
+    }
+    memcpy(str + length, uppercase ? "INF" : "inf", 3);
+    length += 3;
+    str[length] = 0;
+    return length;
+  }
+
+  // Use LLVM for printing hex strings.
+  if (fmt == 'a' || fmt == 'A') {
+    APFloat ap(0.0);
+    toAPFloat(x, ap);
+
+    int length =
+        ap.convertToHexString(str, 0, uppercase, APFloat::rmNearestTiesToEven);
+
+    // insert a '+' prefix for non-negative exponents (incl. 0) as visual aid
+    const char p = uppercase ? 'P' : 'p';
+    for (int i = length - 2; i >= 0; --i) {
+      if (str[i] == p) {
+        if (str[i + 1] != '-' && str[i + 1] != '+') {
+          for (int j = length - 1; j > i; --j)
+            str[j + 1] = str[j];
+          str[i + 1] = '+';
+          ++length;
+        }
+
+        break;
+      }
+    }
+
+    str[length] = 0;
+    return length;
+  }
+
+  assert(fmt == 'g');
+
+  // Use the host C runtime for printing decimal strings;
+  // llvm::APFloat::toString() seems not to round correctly, e.g., with LLVM 10:
+  // * powl(2.5L, 2.5L) = 9.882117688... => `9.88211` (not 9.88212)
+  // * 1e-300L => `9.99999e-301`
+#ifdef _MSC_VER
+  int length = sprintf(str, "%g", static_cast<double>(x));
+#else
+  int length = sprintf(str, "%Lg", x);
+#endif
+
+  // 1 => 1.0 to distinguish from integers
+  bool needsFPSuffix = true;
+  for (int i = 0; i < length; ++i) {
+    if (str[i] != '-' && !isdigit(str[i])) {
+      needsFPSuffix = false;
+      break;
+    }
+  }
+  if (needsFPSuffix) {
+    memcpy(str + length, ".0", 2);
+    length += 2;
+  }
+
+  str[length] = 0;
+  return length;
+}
