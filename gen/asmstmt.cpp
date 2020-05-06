@@ -116,9 +116,12 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
   llvm::Triple const &t = *global.params.targetTriple;
   if (!(t.getArch() == llvm::Triple::x86 ||
         t.getArch() == llvm::Triple::x86_64)) {
-    s->error("the `asm` statement is not supported for the \"%s\" "
-             "architecture, use `ldc.llvmasm.__asm` instead",
-             t.getArchName().str().c_str());
+    s->error(
+        "DMD-style `asm { op; }` statements are not supported for the \"%s\" "
+        "architecture.",
+        t.getArchName().str().c_str());
+    errorSupplemental(s->loc, "Use GDC-style `asm { \"op\" : …; }` syntax or "
+                              "`ldc.llvmasm.__asm` instead.");
     err = true;
   }
   if (!global.params.useInlineAsm) {

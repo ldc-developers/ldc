@@ -12,6 +12,7 @@
 #include "dmd/expression.h"
 #include "dmd/id.h"
 #include "dmd/identifier.h"
+#include "dmd/target.h"
 #include "gen/abi-aarch64.h"
 #include "gen/abi-arm.h"
 #include "gen/abi-generic.h"
@@ -55,29 +56,6 @@ LLValue *ABIRewrite::getAddressOf(DValue *v) {
   return DtoAllocaDump(v, ".getAddressOf_dump");
 }
 
-LLValue *ABIRewrite::loadFromMemory(LLValue *address, LLType *asType,
-                                    const char *name) {
-  LLType *pointerType = address->getType();
-  assert(pointerType->isPointerTy());
-  LLType *pointeeType = pointerType->getPointerElementType();
-
-  if (asType == pointeeType) {
-    return DtoLoad(address, name);
-  }
-
-  if (getTypeStoreSize(asType) > getTypeAllocSize(pointeeType)) {
-    // not enough allocated memory
-    LLValue *paddedDump = DtoRawAlloca(asType, 0, ".loadFromMemory_paddedDump");
-    DtoMemCpy(paddedDump, address,
-              DtoConstSize_t(getTypeAllocSize(pointeeType)));
-    return DtoLoad(paddedDump, name);
-  }
-
-  address = DtoBitCast(address, getPtrToType(asType),
-                       ".loadFromMemory_bitCastAddress");
-  return DtoLoad(address, name);
-}
-
 //////////////////////////////////////////////////////////////////////////////
 
 bool TargetABI::isHFVA(Type *t, int maxNumElements, LLType **hfvaType) {
@@ -89,6 +67,40 @@ bool TargetABI::isHFVA(Type *t, int maxNumElements, LLType **hfvaType) {
   }
   return false;
 }
+
+//////////////////////////////////////////////////////////////////////////////
+
+TypeTuple *TargetABI::getArgTypes(Type *t) {
+  // try to reuse cached argTypes of StructDeclarations
+  if (auto ts = t->toBasetype()->isTypeStruct()) {
+    auto sd = ts->sym;
+    if (sd->sizeok == SIZEOKdone)
+      return sd->argTypes;
+  }
+
+  return target.toArgTypes(t);
+}
+
+LLType *TargetABI::getRewrittenArgType(Type *t, TypeTuple *argTypes) {
+  if (!argTypes || argTypes->arguments->empty() ||
+      (argTypes->arguments->length == 1 &&
+       argTypes->arguments->front()->type == t)) {
+    return nullptr; // don't rewrite
+  }
+
+  auto &args = *argTypes->arguments;
+  assert(args.length <= 2);
+  return args.length == 1
+             ? DtoType(args[0]->type)
+             : LLStructType::get(gIR->context(), {DtoType(args[0]->type),
+                                                  DtoType(args[1]->type)});
+}
+
+LLType *TargetABI::getRewrittenArgType(Type *t) {
+  return getRewrittenArgType(t, getArgTypes(t));
+}
+
+//////////////////////////////////////////////////////////////////////////////
 
 bool TargetABI::isAggregate(Type *t) {
   TY ty = t->toBasetype()->ty;
@@ -127,13 +139,15 @@ bool TargetABI::canRewriteAsInt(Type *t, bool include64bit) {
   return size == 1 || size == 2 || size == 4 || (include64bit && size == 8);
 }
 
+bool TargetABI::isExternD(TypeFunction *tf) {
+  return tf->linkage == LINKd && tf->parameterList.varargs != VARARGvariadic;
+}
+
 //////////////////////////////////////////////////////////////////////////////
 
 bool TargetABI::reverseExplicitParams(TypeFunction *tf) {
   // Required by druntime for extern(D), except for `, ...`-style variadics.
-  return tf->linkage == LINKd &&
-         tf->parameterList.varargs != VARARGvariadic &&
-         tf->parameterList.length() > 1;
+  return isExternD(tf) && tf->parameterList.length() > 1;
 }
 
 //////////////////////////////////////////////////////////////////////////////

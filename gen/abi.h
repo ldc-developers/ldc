@@ -24,6 +24,7 @@
 class Type;
 class TypeFunction;
 class TypeStruct;
+class TypeTuple;
 struct IrFuncTy;
 struct IrFuncTyArg;
 class FuncDeclaration;
@@ -65,12 +66,6 @@ protected:
 
   /// Returns the address of a D value, storing it to memory first if need be.
   static llvm::Value *getAddressOf(DValue *v);
-
-  /// Loads a LL value of a specified type from memory. The element type of the
-  /// provided pointer doesn't need to match the value type (=> suitable for
-  /// bit-casting).
-  static llvm::Value *loadFromMemory(llvm::Value *address, llvm::Type *asType,
-                                     const char *name = ".bitcast_result");
 };
 
 // interface called by codegen
@@ -183,6 +178,11 @@ struct TargetABI {
   static bool isHFVA(Type *t, int maxNumElements,
                      llvm::Type **hfvaType = nullptr);
 
+  /// Uses the front-end toArgTypes* machinery and returns an appropriate LL
+  /// type if arguments of the specified D type are to be rewritten in order to
+  /// be passed correctly in registers.
+  static llvm::Type *getRewrittenArgType(Type *t);
+
 protected:
 
   /// Returns true if the D type is an aggregate:
@@ -198,4 +198,13 @@ protected:
 
   /// Returns true if the D type can be bit-cast to an integer of the same size.
   static bool canRewriteAsInt(Type *t, bool include64bit = true);
+
+  /// Returns true if the D function type uses extern(D) linkage *and* isn't a
+  /// D-style variadic function.
+  static bool isExternD(TypeFunction *tf);
+
+  /// Returns the type tuple produced by the front-end's toArgTypes* machinery.
+  static TypeTuple *getArgTypes(Type *t);
+
+  static llvm::Type *getRewrittenArgType(Type *t, TypeTuple *argTypes);
 };
