@@ -153,10 +153,6 @@ file(GLOB_RECURSE DRUNTIME_D ${RUNTIME_DIR}/src/*.d)
 list(REMOVE_ITEM DRUNTIME_D ${RUNTIME_DIR}/src/test_runner.d)
 # remove unsupported etc/linux/memoryerror.d (see issue #1915)
 list(REMOVE_ITEM DRUNTIME_D ${RUNTIME_DIR}/src/etc/linux/memoryerror.d)
-# FIXME: Remove all modules in core/stdcpp/ due to alpha quality.
-#        See PR #1917; partly fixed upstream.
-file(GLOB_RECURSE DRUNTIME_D_STDCPP ${RUNTIME_DIR}/src/core/stdcpp/*.d)
-list(REMOVE_ITEM DRUNTIME_D ${DRUNTIME_D_STDCPP})
 # remove some modules in rt/
 list(REMOVE_ITEM DRUNTIME_D
     ${RUNTIME_DIR}/src/rt/alloca.d
