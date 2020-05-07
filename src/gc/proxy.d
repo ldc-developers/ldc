@@ -38,7 +38,10 @@ private
 
 extern (C)
 {
-    version (LDC) import ldc.attributes;
+    version (LDC)
+        import ldc.attributes : weak;
+    else
+        private enum weak = null;
 
     // do not import GC modules, they might add a dependency to this whole module
     void _d_register_conservative_gc();

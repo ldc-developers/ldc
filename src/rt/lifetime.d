@@ -15,7 +15,11 @@ module rt.lifetime;
 import core.memory;
 debug(PRINTF) import core.stdc.stdio;
 static import rt.tlsgc;
-version (LDC) import ldc.attributes;
+
+version (LDC)
+    import ldc.attributes : weak;
+else
+    private enum weak = null;
 
 alias BlkInfo = GC.BlkInfo;
 alias BlkAttr = GC.BlkAttr;
@@ -1093,7 +1097,6 @@ extern (C) void[] _d_newarrayiT(const TypeInfo ti, size_t length) pure nothrow
  *
  */
 void[] _d_newarrayOpT(alias op)(const TypeInfo ti, size_t[] dims)
-@weak // LDC
 {
     debug(PRINTF) printf("_d_newarrayOpT(ndims = %d)\n", dims.length);
     if (dims.length == 0)
@@ -1309,6 +1312,7 @@ extern (C) void _d_delmemory(void* *p)
  *
  */
 extern (C) void _d_callinterfacefinalizer(void *p)
+@weak // LDC
 {
     if (p)
     {
@@ -2152,6 +2156,7 @@ byte[] _d_arrayappendcTX(const TypeInfo ti, ref byte[] px, size_t n)
  * Append dchar to char[]
  */
 extern (C) void[] _d_arrayappendcd(ref byte[] x, dchar c)
+@weak // LDC
 {
     // c could encode into from 1 to 4 characters
     char[4] buf = void;
@@ -2234,6 +2239,7 @@ unittest
  * Append dchar to wchar[]
  */
 extern (C) void[] _d_arrayappendwd(ref byte[] x, dchar c)
+@weak // LDC
 {
     // c could encode into from 1 to 2 w characters
     wchar[2] buf = void;
