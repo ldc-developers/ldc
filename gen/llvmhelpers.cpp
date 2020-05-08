@@ -1755,10 +1755,11 @@ llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
                                     llvm::Type *type,
                                     llvm::StringRef mangledName,
                                     bool isConstant, bool isThreadLocal) {
-  // No TLS support for WebAssembly; spare users from having to add __gshared
-  // everywhere.
+  // No TLS support for WebAssembly and AVR; spare users from having to add
+  // __gshared everywhere.
   const auto arch = global.params.targetTriple->getArch();
-  if (arch == llvm::Triple::wasm32 || arch == llvm::Triple::wasm64)
+  if (arch == llvm::Triple::wasm32 || arch == llvm::Triple::wasm64 ||
+      arch == llvm::Triple::avr)
     isThreadLocal = false;
 
   llvm::GlobalVariable *existing =
