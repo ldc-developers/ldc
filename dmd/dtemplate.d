@@ -5783,6 +5783,7 @@ extern (C++) class TemplateInstance : ScopeDsymbol
     // Note that these are inaccurate until semantic analysis phase completed.
     TemplateInstance tinst;     // enclosing template instance
     TemplateInstance tnext;     // non-first instantiated instances
+    TemplateInstance primaryInst; // primary instantiated instance if this is a non-first one
     Module minst;               // the top module that instantiated this instance
 
     extern (D) this(const ref Loc loc, Identifier ident, Objects* tiargs)
@@ -7165,13 +7166,19 @@ extern (C++) class TemplateInstance : ScopeDsymbol
     {
         Module mi = minst; // instantiated . inserted module
 
+        /*
         if (global.params.useUnitTests || global.params.debuglevel)
         {
             // Turn all non-root instances to speculative
             if (mi && !mi.isRoot())
                 mi = null;
         }
+        */
 
+        if (!mi)
+            return null;
+
+        /++
         //printf("%s.appendToModuleMember() enclosing = %s mi = %s\n",
         //    toPrettyChars(),
         //    enclosing ? enclosing.toPrettyChars() : null,
@@ -7211,6 +7218,7 @@ extern (C++) class TemplateInstance : ScopeDsymbol
              */
         }
         //printf("\t-. mi = %s\n", mi.toPrettyChars());
+        ++/
 
         if (memberOf is mi)     // already a member
         {

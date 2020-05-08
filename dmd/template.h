@@ -273,6 +273,7 @@ public:
     // Note that these are inaccurate until semantic analysis phase completed.
     TemplateInstance *tinst;            // enclosing template instance
     TemplateInstance *tnext;            // non-first instantiated instances
+    TemplateInstance *primaryInst;      // primary instantiated instance if this is a non-first one
     Module *minst;                      // the top module that instantiated this instance
 
     Dsymbol *syntaxCopy(Dsymbol *);

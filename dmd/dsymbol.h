@@ -204,6 +204,8 @@ public:
     // kludge for template.isSymbol()
     DYNCAST dyncast() const { return DYNCAST_DSYMBOL; }
 
+    static Dsymbols *arraySyntaxCopy(Dsymbols *a);
+
     virtual Identifier *getIdent();
     virtual const char *toPrettyChars(bool QualifyTypes = false);
     virtual const char *kind() const;

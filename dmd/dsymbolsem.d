@@ -5930,10 +5930,12 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
     // https://issues.dlang.org/show_bug.cgi?id=10920
     // If the enclosing function is non-root symbol,
     // this instance should be speculative.
+    /*
     if (!tempinst.tinst && sc.func && sc.func.inNonRoot())
     {
         tempinst.minst = null;
     }
+    */
 
     tempinst.gagged = (global.gag > 0);
 
@@ -6014,6 +6016,7 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
             tempinst.inst.gagged = tempinst.gagged;
         }
 
+        tempinst.primaryInst = tempinst.inst;
         tempinst.tnext = tempinst.inst.tnext;
         tempinst.inst.tnext = tempinst;
 
@@ -6029,6 +6032,7 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
          * But whole import graph is not determined until all semantic pass finished,
          * so 'inst' should conservatively finish the semantic3 pass for the codegen.
          */
+        /++
         if (tempinst.minst && tempinst.minst.isRoot() && !(tempinst.inst.minst && tempinst.inst.minst.isRoot()))
         {
             /* Swap the position of 'inst' and 'this' in the instantiation graph.
@@ -6059,6 +6063,7 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
                 tempinst.inst.appendToModuleMember();
             }
         }
+        ++/
 
         // modules imported by an existing instance should be added to the module
         // that instantiates the instance.
@@ -6071,6 +6076,23 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
         {
             printf("\tit's a match with instance %p, %d\n", tempinst.inst, tempinst.inst.semanticRun);
         }
+
+        if (tempinst.minst)
+        {
+            bool moduleHasSiblingAlready = false;
+            for (auto ti = tempinst.primaryInst; ti; ti = ti.tnext)
+            {
+                if (ti.memberOf is tempinst.minst)
+                {
+                    moduleHasSiblingAlready = true;
+                    break;
+                }
+            }
+
+            if (!moduleHasSiblingAlready)
+                tempinst.appendToModuleMember();
+        }
+
         return;
     }
     static if (LOG)

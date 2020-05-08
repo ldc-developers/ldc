@@ -650,7 +650,7 @@ version (IN_LLVM)
     /*************************************
      * Do syntax copy of an array of Dsymbol's.
      */
-    extern (D) static Dsymbols* arraySyntaxCopy(Dsymbols* a)
+    static Dsymbols* arraySyntaxCopy(Dsymbols* a)
     {
         Dsymbols* b = null;
         if (a)
