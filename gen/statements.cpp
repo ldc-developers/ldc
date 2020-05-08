@@ -157,16 +157,23 @@ public:
 
     emitInstrumentationFnLeave(fd);
 
+    const auto cleanupScopeBeforeExpression =
+        funcGen.scopes.currentCleanupScope();
+
     // is there a return value expression?
     const bool isMainFunc = isAnyMainFunction(fd);
     if (stmt->exp || isMainFunc) {
+      // We clean up manually (*not* using toElemDtor) as the expression might
+      // be an lvalue pointing into a temporary, and we may need a load. So we
+      // need to make sure to destruct any temporaries after all of that.
+
       if (!stmt->exp) {
         // implicitly return 0 for the main function
         returnValue = LLConstant::getNullValue(funcType->getReturnType());
       } else if (f->type->next->toBasetype()->ty == Tvoid && !isMainFunc) {
         // evaluate expression for side effects
         assert(stmt->exp->type->toBasetype()->ty == Tvoid);
-        toElemDtor(stmt->exp);
+        toElem(stmt->exp);
       } else if (funcType->getReturnType()->isVoidTy()) {
         // if the IR function's return type is void (but not the D one), it uses
         // sret
@@ -180,18 +187,9 @@ public:
         DLValue returnValue(f->type->next, sretPointer);
 
         // try to construct the return value in-place
-        const auto initialCleanupScope = funcGen.scopes.currentCleanupScope();
         const bool constructed = toInPlaceConstruction(&returnValue, stmt->exp);
-        if (constructed) {
-          // cleanup manually (otherwise done by toElemDtor())
-          if (funcGen.scopes.currentCleanupScope() != initialCleanupScope) {
-            auto endbb = irs->insertBB("inPlaceSretConstruct.success");
-            funcGen.scopes.runCleanups(initialCleanupScope, endbb);
-            funcGen.scopes.popCleanups(initialCleanupScope);
-            irs->scope() = IRScope(endbb);
-          }
-        } else {
-          DValue *e = toElemDtor(stmt->exp);
+        if (!constructed) {
+          DValue *e = toElem(stmt->exp);
 
           // store the return value unless NRVO already used the sret pointer
           if (!e->isLVal() || DtoLVal(e) != sretPointer) {
@@ -217,13 +215,13 @@ public:
         DValue *dval = nullptr;
         // call postblit if necessary
         if (!f->type->isref) {
-          dval = toElemDtor(stmt->exp);
+          dval = toElem(stmt->exp);
           LLValue *vthis =
               (DtoIsInMemoryOnly(dval->type) ? DtoLVal(dval) : DtoRVal(dval));
           callPostblit(stmt->loc, stmt->exp, vthis);
         } else {
           Expression *ae = stmt->exp;
-          dval = toElemDtor(ae);
+          dval = toElem(ae);
         }
         // do abi specific transformations on the return value
         returnValue = getIrFunc(fd)->irFty.putRet(dval);
@@ -275,6 +273,8 @@ public:
 
       // Now run the cleanups.
       funcGen.scopes.runCleanups(0, funcGen.retBlock);
+      // Pop the cleanups pushed during evaluation of the return expression.
+      funcGen.scopes.popCleanups(cleanupScopeBeforeExpression);
 
       irs->scope() = IRScope(funcGen.retBlock);
     }
