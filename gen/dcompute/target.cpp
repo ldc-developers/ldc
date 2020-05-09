@@ -32,6 +32,10 @@ class DcomputeTypeResetVisitor : public Visitor {
     // Needed to keep from base class throwing assertion
   }
 
+  void visit(Statement* stmt) override {
+    // Needed to keep from base class throwing assertion
+  }
+
   void visit(ScopeDsymbol *scope) override {
     if (!isError(scope) && scope->members) {
       for (auto sym : *scope->members)
