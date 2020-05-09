@@ -366,10 +366,8 @@ public:
       return;
     }
 
-    auto members = decl->primaryInst && decl->primaryInst->members
-                       ? decl->primaryInst->members /*Dsymbol::arraySyntaxCopy(
-                             decl->primaryInst->members)*/
-                       : decl->members;
+    auto members =
+        decl->primaryInst ? decl->primaryInst->members : decl->members;
 
     if (!members) {
       Logger::println("Has no members, skipping.");
@@ -377,7 +375,7 @@ public:
     }
 
     // FIXME: This is #673 all over again.
-    if (false) { // (!decl->needsCodegen()) {
+    if (!decl->needsCodegen()) {
       // Force codegen if this is a templated function with pragma(inline,
       // true).
       if (members->length == 1 && (*members)[0]->isFuncDeclaration() &&

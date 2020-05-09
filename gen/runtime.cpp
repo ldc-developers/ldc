@@ -110,10 +110,10 @@ static void checkForImplicitGCCall(const Loc &loc, const char *name) {
 ////////////////////////////////////////////////////////////////////////////////
 
 bool initRuntime() {
-  Logger::println("*** Initializing D runtime declarations ***");
-  LOG_SCOPE;
-
   if (!M) {
+    Logger::println("*** Initializing D runtime declarations ***");
+    LOG_SCOPE;
+
     buildRuntimeModule();
   }
 

@@ -6077,21 +6077,7 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
             printf("\tit's a match with instance %p, %d\n", tempinst.inst, tempinst.inst.semanticRun);
         }
 
-        if (tempinst.minst)
-        {
-            bool moduleHasSiblingAlready = false;
-            for (auto ti = tempinst.primaryInst; ti; ti = ti.tnext)
-            {
-                if (ti.memberOf is tempinst.minst)
-                {
-                    moduleHasSiblingAlready = true;
-                    break;
-                }
-            }
-
-            if (!moduleHasSiblingAlready)
-                tempinst.appendToModuleMember();
-        }
+        tempinst.appendToModuleMember();
 
         return;
     }
