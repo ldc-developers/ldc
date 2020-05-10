@@ -361,13 +361,14 @@ public:
     }
     decl->ir->setDefined();
 
-    if (isError(decl)) {
+    auto primary = decl->inst;
+
+    if (isError(primary)) {
       Logger::println("Has errors, skipping.");
       return;
     }
 
-    auto members =
-        decl->primaryInst ? decl->primaryInst->members : decl->members;
+    auto members = primary->members;
 
     if (!members) {
       Logger::println("Has no members, skipping.");

@@ -5783,7 +5783,6 @@ extern (C++) class TemplateInstance : ScopeDsymbol
     // Note that these are inaccurate until semantic analysis phase completed.
     TemplateInstance tinst;     // enclosing template instance
     TemplateInstance tnext;     // non-first instantiated instances
-    TemplateInstance primaryInst; // primary instantiated instance if this is a non-first one
     Module minst;               // the top module that instantiated this instance
 
     extern (D) this(const ref Loc loc, Identifier ident, Objects* tiargs)
@@ -7025,7 +7024,7 @@ extern (C++) class TemplateInstance : ScopeDsymbol
             return null;
 
         // skip if a sibling has already been added
-        for (auto sibling = primaryInst; sibling; sibling = sibling.tnext)
+        for (auto sibling = inst; sibling; sibling = sibling.tnext)
             if (sibling.memberOf is mi)
                 return null;
 
@@ -7089,19 +7088,19 @@ extern (C++) class TemplateInstance : ScopeDsymbol
         Dsymbols* a = mi.members;
         a.push(this);
         memberOf = mi;
-        if (!primaryInst)
+        if (this is inst)
         {
             if (mi.semanticRun >= PASS.semantic2done)
                 Module.addDeferredSemantic2(this);
             if (mi.semanticRun >= PASS.semantic3done)
                 Module.addDeferredSemantic3(this);
         }
-        else if (!primaryInst.memberOf || !primaryInst.memberOf.isRoot())
+        else if (!inst.memberOf || !inst.memberOf.isRoot())
         {
             //printf(".: deferredSemantic for non-root primaryInst: %s\n", primaryInst.toChars());
-            Module.addDeferredSemantic2(primaryInst);
-            Module.addDeferredSemantic3(primaryInst);
-            primaryInst.memberOf = mi; // HACK
+            Module.addDeferredSemantic2(inst);
+            Module.addDeferredSemantic3(inst);
+            inst.memberOf = mi; // HACK
         }
         return a;
     }

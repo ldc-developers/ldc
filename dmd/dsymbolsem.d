@@ -6016,7 +6016,6 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
             tempinst.inst.gagged = tempinst.gagged;
         }
 
-        tempinst.primaryInst = tempinst.inst;
         tempinst.tnext = tempinst.inst.tnext;
         tempinst.inst.tnext = tempinst;
 
