@@ -7070,37 +7070,40 @@ extern (C++) class TemplateInstance : ScopeDsymbol
         //printf("\t-. mi = %s\n", mi.toPrettyChars());
         ++/
 
-        if (memberOf is mi)     // already a member
+        Dsymbols* a = mi.members;
+        auto parentSemaRun = mi.semanticRun;
+
+        // if this is an instantiation nested inside another TemplateInstance:
+        // don't add to module directly, but to parent TemplateInstance members
+        if (tinst)
         {
-            debug               // make sure it really is a member
+            if (tinst !is tinst.inst)
+                printf(".: tinst.inst is not tinst: %s vs. %s\n", tinst.inst ? tinst.inst.toPrettyChars() : "null", tinst.toPrettyChars());
+            else
             {
-                auto a = mi.members;
-                for (size_t i = 0; 1; ++i)
-                {
-                    assert(i != a.dim);
-                    if (this == (*a)[i])
-                        break;
-                }
+                assert(tinst.minst is mi, "instantiating module mismatch for parent and child TemplateInstance");
+                a = tinst.members;
+                parentSemaRun = tinst.semanticRun;
+                assert(a);
             }
-            return null;
         }
 
-        Dsymbols* a = mi.members;
         a.push(this);
         memberOf = mi;
-        if (this is inst)
+
+        if (this is inst) // primary instance
         {
-            if (mi.semanticRun >= PASS.semantic2done)
+            if (parentSemaRun >= PASS.semantic2done)
                 Module.addDeferredSemantic2(this);
-            if (mi.semanticRun >= PASS.semantic3done)
+            if (parentSemaRun >= PASS.semantic3done)
                 Module.addDeferredSemantic3(this);
         }
         else if (!inst.memberOf || !inst.memberOf.isRoot())
         {
-            //printf(".: deferredSemantic for non-root primaryInst: %s\n", primaryInst.toChars());
+            //printf(".: deferredSemantic for non-root primary instance: %s\n", inst.toChars());
             Module.addDeferredSemantic2(inst);
             Module.addDeferredSemantic3(inst);
-            inst.memberOf = mi; // HACK
+            inst.memberOf = mi; // HACK to restrict to a single pass per inst
         }
         return a;
     }
