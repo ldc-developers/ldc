@@ -1,6 +1,6 @@
 // Check that we can generate code for both the host and device in one compiler invocation
 // REQUIRES: target_NVPTX
-// RUN: %ldc -mdcompute-targets=cuda-350 -m64 -output-ll -mdcompute-file-prefix=host_and_device -Iinputs -output-o %s %S/inputs/kernel.d
+// RUN: %ldc -c -mdcompute-targets=cuda-350 -m64 -output-ll -mdcompute-file-prefix=host_and_device -Iinputs -output-o %s %S/inputs/kernel.d
 // RUN: FileCheck %s --check-prefix=PTX < host_and_device_cuda350_64.ptx
 // RUN: FileCheck %s --check-prefix=LL < dcompute_host_and_device.ll
 
