@@ -7011,101 +7011,63 @@ extern (C++) class TemplateInstance : ScopeDsymbol
     {
         Module mi = minst; // instantiated . inserted module
 
-        /*
-        if (global.params.useUnitTests || global.params.debuglevel)
-        {
-            // Turn all non-root instances to speculative
-            if (mi && !mi.isRoot())
-                mi = null;
-        }
-        */
-
-        if (!mi || !mi.isRoot())
-            return null;
-
-        // skip if a sibling has already been added
-        for (auto sibling = inst; sibling; sibling = sibling.tnext)
-            if (sibling.memberOf is mi)
-                return null;
-
-        /++
-        //printf("%s.appendToModuleMember() enclosing = %s mi = %s\n",
-        //    toPrettyChars(),
-        //    enclosing ? enclosing.toPrettyChars() : null,
-        //    mi ? mi.toPrettyChars() : null);
-        if (!mi || mi.isRoot())
-        {
-            /* If the instantiated module is speculative or root, insert to the
-             * member of a root module. Then:
-             *  - semantic3 pass will get called on the instance members.
-             *  - codegen pass will get a selection chance to do/skip it.
-             */
-            static Dsymbol getStrictEnclosing(TemplateInstance ti)
-            {
-                do
-                {
-                    if (ti.enclosing)
-                        return ti.enclosing;
-                    ti = ti.tempdecl.isInstantiated();
-                } while (ti);
-                return null;
-            }
-
-            Dsymbol enc = getStrictEnclosing(this);
-            // insert target is made stable by using the module
-            // where tempdecl is declared.
-            mi = (enc ? enc : tempdecl).getModule();
-            if (!mi.isRoot())
-                mi = mi.importedFrom;
-            assert(mi.isRoot());
-        }
-        else
-        {
-            /* If the instantiated module is non-root, insert to the member of the
-             * non-root module. Then:
-             *  - semantic3 pass won't be called on the instance.
-             *  - codegen pass won't reach to the instance.
-             */
-        }
-        //printf("\t-. mi = %s\n", mi.toPrettyChars());
-        ++/
-
-        Dsymbols* a = mi.members;
-        auto parentSemaRun = mi.semanticRun;
+        Dsymbols* members;
+        PASS parentSemaRun;
 
         // if this is an instantiation nested inside another TemplateInstance:
         // don't add to module directly, but to parent TemplateInstance members
         if (tinst)
         {
-            if (tinst !is tinst.inst)
-                printf(".: tinst.inst is not tinst: %s vs. %s\n", tinst.inst ? tinst.inst.toPrettyChars() : "null", tinst.toPrettyChars());
-            else
+            if (!tinst.inst)
             {
-                assert(tinst.minst is mi, "instantiating module mismatch for parent and child TemplateInstance");
-                a = tinst.members;
-                parentSemaRun = tinst.semanticRun;
-                assert(a);
+                // parent failed semantic, abort
+                return null;
+            }
+
+            assert(tinst is tinst.inst, "parent TemplateInstance is not a primary one");
+            assert(tinst.minst is mi, "instantiating module mismatch for parent and child TemplateInstance");
+            assert(tinst.members);
+            members = tinst.members;
+            parentSemaRun = tinst.semanticRun;
+        }
+        else
+        {
+            // add top-level TemplateInstance to module; abort if it's not a root module
+            if (!mi || !mi.isRoot())
+                return null;
+
+            // abort if a sibling has already been added
+            for (auto sibling = inst; sibling; sibling = sibling.tnext)
+                if (sibling.memberOf is mi)
+                    return null;
+
+            members = mi.members;
+            parentSemaRun = mi.semanticRun;
+        }
+
+        members.push(this);
+        memberOf = mi;
+
+        if (mi && mi.isRoot())
+        {
+            // in a root module => will be codegen'd => make sure the primary instance gets full sema
+            if (this is inst) // primary instance
+            {
+                if (parentSemaRun >= PASS.semantic2done)
+                    Module.addDeferredSemantic2(this);
+                if (parentSemaRun >= PASS.semantic3done)
+                    Module.addDeferredSemantic3(this);
+            }
+            else if (!inst.memberOf || !inst.memberOf.isRoot())
+            {
+                //printf(".: deferredSemantic for non-root primary instance: %s\n", inst.toChars());
+                Module.addDeferredSemantic2(inst);
+                Module.addDeferredSemantic3(inst);
+                inst.memberOf = mi; // HACK to restrict to a single pass per inst
             }
         }
 
-        a.push(this);
-        memberOf = mi;
-
-        if (this is inst) // primary instance
-        {
-            if (parentSemaRun >= PASS.semantic2done)
-                Module.addDeferredSemantic2(this);
-            if (parentSemaRun >= PASS.semantic3done)
-                Module.addDeferredSemantic3(this);
-        }
-        else if (!inst.memberOf || !inst.memberOf.isRoot())
-        {
-            //printf(".: deferredSemantic for non-root primary instance: %s\n", inst.toChars());
-            Module.addDeferredSemantic2(inst);
-            Module.addDeferredSemantic3(inst);
-            inst.memberOf = mi; // HACK to restrict to a single pass per inst
-        }
-        return a;
+        return members;
     }
 
     /****************************************************
