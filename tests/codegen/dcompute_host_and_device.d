@@ -23,7 +23,7 @@ void main(string[] args)
 }
 
 void foo(GlobalPointer!float x_in) {
-    // CHECK-LABEL: foo:
+    // LL-LABEL: foo
     SharedPointer!float shared_x;
 	PrivatePointer!float private_x;
 	ConstantPointer!float const_x;
@@ -59,7 +59,7 @@ void foo(GlobalPointer!float x_in) {
 	*x_in = *private_x;
 }
 
-// CHECK-LABEL: k_foo:
+// PTX-LABEL: k_foo
 // PTX: ld.global.f32
 // PTX: st.shared.f32
 // PTX: st.local.f32
