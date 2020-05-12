@@ -34,6 +34,7 @@ else()
     elseif(EXISTS "${MLIR_LIB_DIR}/libMLIRIR.a")
       message("Found libMLIR.lib")
       set(MLIR_LIBRARIES libMLIRIR.a libMLIRSupport.a)
+    endif()  
 
     set(MLIR_LIBRARIES libMLIRIR.${suffix} libMLIRSupport.${suffix})
 
