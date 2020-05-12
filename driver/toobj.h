@@ -12,11 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #pragma once
-#if LDC_MLIR_ENABLED
-#include "mlir/IR/MLIRContext.h"
-#include "gen/irstate.h"
-#include "dmd/module.h"
-#endif
 
 namespace llvm {
 class Module;

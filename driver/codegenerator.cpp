@@ -33,7 +33,7 @@
 
 #if LDC_LLVM_VER < 600
 namespace llvm {
-  using ToolOutputFile = tool_output_file;
+using ToolOutputFile = tool_output_file;
 }
 #endif
 

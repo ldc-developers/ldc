@@ -10,7 +10,6 @@
 #include "driver/toobj.h"
 
 #include "dmd/errors.h"
-#include "dmd/module.h"
 #include "driver/cl_options.h"
 #include "driver/cache.h"
 #include "driver/targetmachine.h"

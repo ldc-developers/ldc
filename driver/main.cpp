@@ -1094,12 +1094,10 @@ int cppmain() {
 }
 
 void codegenModules(Modules &modules) {
-  bool useMLIR = false;
   // Generate one or more object/IR/bitcode files/dcompute kernels.
   if (global.params.obj && !modules.empty()) {
 #if LDC_MLIR_ENABLED
     mlir::MLIRContext mlircontext;
-    useMLIR = true;
     ldc::CodeGenerator cg(getGlobalContext(), mlircontext,
                           global.params.oneobj);
 #else
@@ -1128,7 +1126,7 @@ void codegenModules(Modules &modules) {
       if (atCompute == DComputeCompileFor::hostOnly ||
           atCompute == DComputeCompileFor::hostAndDevice) {
 #if LDC_MLIR_ENABLED
-        if(useMLIR && global.params.output_mlir == OUTPUTFLAGset)
+        if(global.params.output_mlir == OUTPUTFLAGset)
           cg.emitMLIR(m);
         else
 #endif
