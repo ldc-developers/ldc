@@ -35,8 +35,6 @@ else()
       set(MLIR_LIBRARIES ${MLIR_LIB_DIR}/libMLIRIR.a ${MLIR_LIB_DIR}/libMLIRSupport.a)
     endif()  
 
-    set(MLIR_LIBRARIES libMLIRIR.${suffix} libMLIRSupport.${suffix})
-
     # XXX: This function is untested and will need adjustment.
     function(mlir_tablegen)
         cmake_parse_arguments(
