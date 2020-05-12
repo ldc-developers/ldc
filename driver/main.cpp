@@ -1128,7 +1128,7 @@ void codegenModules(Modules &modules) {
       if (atCompute == DComputeCompileFor::hostOnly ||
           atCompute == DComputeCompileFor::hostAndDevice) {
 #if LDC_MLIR_ENABLED
-        if(useMLIR)
+        if(useMLIR && global.params.output_mlir == OUTPUTFLAGset)
           cg.emitMLIR(m);
         else
 #endif
