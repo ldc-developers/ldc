@@ -7,10 +7,10 @@ import ldc.dcompute;
 	SharedPointer!float shared_x;
 	PrivatePointer!float private_x;
 	ConstantPointer!float const_x;
-	shared_x[0] = x_in[0];
-	private_x[0] = x_in[0];
-	x_in[0] = const_x[0];
+	*shared_x = *x_in;
+	*private_x = *x_in;
+	*x_in = *const_x;
 
-	x_in[0] = shared_x[0];
-	x_in[0] = private_x[0];
+	*x_in = *shared_x;
+	*x_in = *private_x;
 }

@@ -23,60 +23,40 @@ void main(string[] args)
 }
 
 void foo(GlobalPointer!float x_in) {
-    // CHECK-LABEL: k_foo:
+    // CHECK-LABEL: foo:
     SharedPointer!float shared_x;
 	PrivatePointer!float private_x;
 	ConstantPointer!float const_x;
 
-    // LL: %4 = getelementptr inbounds %"ldc.dcompute.Pointer!(cast(AddrSpace)2u, float).Pointer", %"ldc.dcompute.Pointer!(cast(AddrSpace)2u, float).Pointer"* %shared_x, i32 0, i32 0
-    // LL: %5 = load float*, float** %4
-    // LL: %6 = getelementptr inbounds float, float* %5, i64 0
-    // LL: %7 = getelementptr inbounds %"ldc.dcompute.Pointer!(cast(AddrSpace)1u, float).Pointer", %"ldc.dcompute.Pointer!(cast(AddrSpace)1u, float).Pointer"* %x_in, i32 0, i32 0
-    // LL: %8 = load float*, float** %7
-    // LL: %9 = getelementptr inbounds float, float* %8, i64 0
-    // LL: %10 = load float, float* %9
-    // LL: store float %10, float* %6
-	shared_x[0] = x_in[0];
+    // LL: [[s_load_reg:%[0-9]*]] = load float*, float** {{%[0-9]*}}
+    // LL: [[s_addr_reg:%[0-9]*]] = load float*, float** {{%[0-9]*}}
+    // LL: [[s_store_reg:%[0-9]*]] = load float, float* [[s_addr_reg]]
+    // LL: store float [[s_store_reg]], float* [[s_load_reg]]
+	*shared_x = *x_in;
   
-    // LL: %11 = getelementptr inbounds %"ldc.dcompute.Pointer!(cast(AddrSpace)0u, float).Pointer", %"ldc.dcompute.Pointer!(cast(AddrSpace)0u, float).Pointer"* %private_x, i32 0, i32 0
-    // LL: %12 = load float*, float** %11
-    // LL: %13 = getelementptr inbounds float, float* %12, i64 0
-    // LL: %14 = getelementptr inbounds %"ldc.dcompute.Pointer!(cast(AddrSpace)1u, float).Pointer", %"ldc.dcompute.Pointer!(cast(AddrSpace)1u, float).Pointer"* %x_in, i32 0, i32 0
-    // LL: %15 = load float*, float** %14
-    // LL: %16 = getelementptr inbounds float, float* %15, i64 0
-    // LL: %17 = load float, float* %16
-    // LL: store float %17, float* %13
-	private_x[0] = x_in[0];
+    // LL: [[p_load_reg:%[0-9]*]] = load float*, float** {{%[0-9]*}}
+    // LL: [[p_addr_reg:%[0-9]*]] = load float*, float** {{%[0-9]*}}
+    // LL: [[p_store_reg:%[0-9]*]] = load float, float* [[p_addr_reg]]
+    // LL: store float [[p_store_reg]], float* [[p_load_reg]]
+	*private_x = *x_in;
   
-    // LL: %18 = getelementptr inbounds %"ldc.dcompute.Pointer!(cast(AddrSpace)1u, float).Pointer", %"ldc.dcompute.Pointer!(cast(AddrSpace)1u, float).Pointer"* %x_in, i32 0, i32 0
-    // LL: %19 = load float*, float** %18
-    // LL: %20 = getelementptr inbounds float, float* %19, i64 0
-    // LL: %21 = getelementptr inbounds %"ldc.dcompute.Pointer!(cast(AddrSpace)3u, immutable(float)).Pointer", %"ldc.dcompute.Pointer!(cast(AddrSpace)3u, immutable(float)).Pointer"* %const_x, i32 0, i32 0
-    // LL: %22 = load float*, float** %21
-    // LL: %23 = getelementptr inbounds float, float* %22, i64 0
-    // LL: %24 = load float, float* %23
-    // LL: store float %24, float* %20
-	x_in[0] = const_x[0];
+    // LL: [[c_load_reg:%[0-9]*]] = load float*, float** {{%[0-9]*}}
+    // LL: [[c_addr_reg:%[0-9]*]] = load float*, float** {{%[0-9]*}}
+    // LL: [[c_store_reg:%[0-9]*]] = load float, float* [[c_addr_reg]]
+    // LL: store float [[c_store_reg]], float* [[c_load_reg]]
+	*x_in = *const_x;
 
-    // LL: %25 = getelementptr inbounds %"ldc.dcompute.Pointer!(cast(AddrSpace)1u, float).Pointer", %"ldc.dcompute.Pointer!(cast(AddrSpace)1u, float).Pointer"* %x_in, i32 0, i32 0
-    // LL: %26 = load float*, float** %25
-    // LL: %27 = getelementptr inbounds float, float* %26, i64 0
-    // LL: %28 = getelementptr inbounds %"ldc.dcompute.Pointer!(cast(AddrSpace)2u, float).Pointer", %"ldc.dcompute.Pointer!(cast(AddrSpace)2u, float).Pointer"* %shared_x, i32 0, i32 0
-    // LL: %29 = load float*, float** %28
-    // LL: %30 = getelementptr inbounds float, float* %29, i64 0
-    // LL: %31 = load float, float* %30
-    // LL: store float %31, float* %27
-    x_in[0] = shared_x[0];
+    // LL: [[g1_load_reg:%[0-9]*]] = load float*, float** {{%[0-9]*}}
+    // LL: [[g1_addr_reg:%[0-9]*]] = load float*, float** {{%[0-9]*}}
+    // LL: [[g1_store_reg:%[0-9]*]] = load float, float* [[g1_addr_reg]]
+    // LL: store float [[g1_store_reg]], float* [[g1_load_reg]]
+    *x_in = *shared_x;
 
-    // LL: %32 = getelementptr inbounds %"ldc.dcompute.Pointer!(cast(AddrSpace)1u, float).Pointer", %"ldc.dcompute.Pointer!(cast(AddrSpace)1u, float).Pointer"* %x_in, i32 0, i32 0
-    // LL: %33 = load float*, float** %32
-    // LL: %34 = getelementptr inbounds float, float* %33, i64 0
-    // LL: %35 = getelementptr inbounds %"ldc.dcompute.Pointer!(cast(AddrSpace)0u, float).Pointer", %"ldc.dcompute.Pointer!(cast(AddrSpace)0u, float).Pointer"* %private_x, i32 0, i32 0
-    // LL: %36 = load float*, float** %35
-    // LL: %37 = getelementptr inbounds float, float* %36, i64 0
-    // LL: %38 = load float, float* %37
-    // LL: store float %38, float* %34
-	x_in[0] = private_x[0];
+    // LL: [[g2_load_reg:%[0-9]*]] = load float*, float** {{%[0-9]*}}
+    // LL: [[g2_addr_reg:%[0-9]*]] = load float*, float** {{%[0-9]*}}
+    // LL: [[g2_store_reg:%[0-9]*]] = load float, float* [[g2_addr_reg]]
+    // LL: store float [[g2_store_reg]], float* [[g2_load_reg]]
+	*x_in = *private_x;
 }
 
 // CHECK-LABEL: k_foo:
