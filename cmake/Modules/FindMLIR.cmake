@@ -28,10 +28,12 @@ else()
     set(MLIR_LIB_DIR     ${MLIR_ROOT_DIR}/lib)
 
     # To be done: add the required MLIR libraries. Hopefully we don't have to manually list all MLIR libs.
-    set(suffix "a")
-    if(EXISTS "libMLIRIR.lib")
-      set(suffix "lib")
-    endif()
+
+    if(EXISTS "MLIRIR.lib")
+      set(MLIR_LIBRARIES MLIRIR.lib MLIRSupport.lib)
+    elseif(EXISTS "${MLIR_LIB_DIR}/libMLIRIR.a")
+      message("Found libMLIR.lib")
+      set(MLIR_LIBRARIES libMLIRIR.a libMLIRSupport.a)
 
     set(MLIR_LIBRARIES libMLIRIR.${suffix} libMLIRSupport.${suffix})
 
