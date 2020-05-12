@@ -518,6 +518,13 @@ void parseCommandLine(Strings &sourceFiles) {
     }
   }
 
+#ifndef LDC_MLIR_ENABLED
+  if (global.params.output_mlir == OUTPUTFLAGset) {
+    error(Loc(), "MLIR output requested but this LDC was built without MLIR support");
+    fatal();
+  }
+#endif
+
   if (soname.getNumOccurrences() > 0 && !global.params.dll) {
     error(Loc(), "-soname can be used only when building a shared library");
   }
