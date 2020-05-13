@@ -375,21 +375,6 @@ public:
       return;
     }
 
-    // FIXME: This is #673 all over again.
-    if (!decl->needsCodegen()) {
-      // Force codegen if this is a templated function with pragma(inline,
-      // true).
-      if (members->length == 1 && (*members)[0]->isFuncDeclaration() &&
-          (*members)[0]->isFuncDeclaration()->inlining == PINLINEalways) {
-        Logger::println("needsCodegen() == false, but function is marked with "
-                        "pragma(inline, true), so it really does need "
-                        "codegen.");
-      } else {
-        Logger::println("Does not need codegen, skipping.");
-        return;
-      }
-    }
-
     if (irs->dcomputetarget && (decl->tempdecl == Type::rtinfo ||
                                 decl->tempdecl == Type::rtinfoImpl)) {
       // Emitting object.RTInfo(Impl) template instantiations in dcompute
