@@ -1684,19 +1684,25 @@ public:
     // failed: call assert runtime function
     p->scope() = IRScope(failedbb);
 
-    /* DMD Bugzilla 8360: If the condition is evaluated to true,
-     * msg is not evaluated at all. So should use toElemDtor()
-     * instead of toElem().
-     */
-    DValue *const msg = e->msg ? toElemDtor(e->msg) : nullptr;
-    Module *const module = p->func()->decl->getModule();
-    if (global.params.checkAction == CHECKACTION_C) {
-      const auto cMsg =
-          msg ? DtoArrayPtr(msg) // assuming `msg` is null-terminated, like DMD
-              : DtoConstCString(e->e1->toChars());
-      DtoCAssert(module, e->e1->loc, cMsg);
+    if (global.params.checkAction == CHECKACTION_halt) {
+      p->ir->CreateCall(GET_INTRINSIC_DECL(trap), {});
+      p->ir->CreateUnreachable();
     } else {
-      DtoAssert(module, e->loc, msg);
+      /* DMD Bugzilla 8360: If the condition is evaluated to true,
+       * msg is not evaluated at all. So should use toElemDtor()
+       * instead of toElem().
+       */
+      DValue *msg = e->msg ? toElemDtor(e->msg) : nullptr;
+      Module *module = p->func()->decl->getModule();
+      if (global.params.checkAction == CHECKACTION_C) {
+        LLValue *cMsg =
+            msg ? DtoArrayPtr(
+                      msg) // assuming `msg` is null-terminated, like DMD
+                : DtoConstCString(e->e1->toChars());
+        DtoCAssert(module, e->e1->loc, cMsg);
+      } else {
+        DtoAssert(module, e->loc, msg);
+      }
     }
 
     // passed:
@@ -1705,8 +1711,8 @@ public:
     // class/struct invariants
     if (global.params.useInvariants != CHECKENABLEon)
       return;
-    if (condty->ty == Tclass) {
-      const auto sym = static_cast<TypeClass *>(condty)->sym;
+    if (auto tc = condty->isTypeClass()) {
+      const auto sym = tc->sym;
       if (sym->isInterfaceDeclaration() || sym->isCPPclass())
         return;
 
