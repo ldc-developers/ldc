@@ -221,15 +221,14 @@ void inlineAsmDiagnosticHandler(const llvm::SMDiagnostic &d, void *context,
 namespace ldc {
 CodeGenerator::CodeGenerator(llvm::LLVMContext &context,
 #if LDC_MLIR_ENABLED
-    mlir::MLIRContext &mlirContext,
+                             mlir::MLIRContext &mlirContext,
 #endif
-bool singleObj)
-    : context_(context), 
+                             bool singleObj)
+    : context_(context),
 #if LDC_MLIR_ENABLED
       mlirContext_(mlirContext),
 #endif
-      moduleCount_(0), singleObj_(singleObj), ir_(nullptr)
-{
+      moduleCount_(0), singleObj_(singleObj), ir_(nullptr) {
   // Set the context to discard value names when not generating textual IR.
   if (!global.params.output_ll) {
     context_.setDiscardValueNames(true);
@@ -372,7 +371,7 @@ void CodeGenerator::emitMLIR(Module *m) {
   mlir::OwningModuleRef module;
   /*module = mlirGen(mlirContext, m, irs);
   if(!module){
-    IF_LOG Logger::println("Cannot write MLIR file to '%s'", llpath.c_str());
+    IF_LOG Logger::println("Cannot write module to '%s'", llpath.c_str());
     fatal();
   }*/
 
@@ -393,7 +392,7 @@ void CodeGenerator::writeMLIRModule(mlir::OwningModuleRef *module,
     llvm::raw_fd_ostream aos(llpath, errinfo, llvm::sys::fs::F_None);
 
     if (aos.has_error()) {
-      error(Loc(), "Cannot write MLIR file '%s':%s", llpath.c_str(),
+      error(Loc(), "Cannot write MLIR file '%s': %s", llpath.c_str(),
             errinfo.message().c_str());
       fatal();
     }
