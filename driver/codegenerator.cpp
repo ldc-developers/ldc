@@ -363,6 +363,7 @@ void CodeGenerator::emitMLIR(Module *m) {
   if (global.params.verbose_cg) {
     printf("codegen: %s (%s)\n", m->toPrettyChars(), m->srcfile.toChars());
   }
+
   if (global.errors) {
     Logger::println("Aborting because of errors");
     fatal();
@@ -383,37 +384,21 @@ void CodeGenerator::emitMLIR(Module *m) {
 }
 
 void CodeGenerator::writeMLIRModule(mlir::OwningModuleRef *module,
-    const char *filename) {
-  const auto outputFlags = {global.params.output_o, global.params.output_bc,
-                            global.params.output_ll, global.params.output_s,
-                            global.params.output_mlir};
-  const auto numOutputFiles =
-    std::count_if(outputFlags.begin(), outputFlags.end(),
-                [](OUTPUTFLAG flag) { return flag != 0; });
+                                    const char *filename) {
+  // Write MLIR
+  if (global.params.output_mlir) {
+    const auto llpath = replaceExtensionWith(global.mlir_ext, filename);
+    Logger::println("Writting MLIR to %s\n", llpath.c_str());
+    std::error_code errinfo;
+    llvm::raw_fd_ostream aos(llpath, errinfo, llvm::sys::fs::F_None);
 
-  const auto replaceExtensionWith =
-    [=](const DArray<const char> &ext) -> std::string {
-      if (numOutputFiles == 1)
-        return filename;
-      llvm::SmallString<128> buffer(filename);
-      llvm::sys::path::replace_extension(buffer,
-                                         llvm::StringRef(ext.ptr, ext.length));
-      return buffer.c_str();
-    };
+    if (aos.has_error()) {
+      error(Loc(), "Cannot write MLIR file '%s':%s", llpath.c_str(),
+            errinfo.message().c_str());
+      fatal();
+    }
 
-  //Write MLIR
-  if(global.params.output_mlir) {
-  const auto llpath = replaceExtensionWith(global.mlir_ext);
-  Logger::println("Writting MLIR to %s\n", llpath.c_str());
-  std::error_code errinfo;
-  llvm::raw_fd_ostream aos(llpath, errinfo, llvm::sys::fs::F_None);
-  if (aos.has_error()) {
-    error(Loc(), "Cannot write MLIR file '%s':%s", llpath.c_str(),
-          errinfo.message().c_str());
-    fatal();
-  }
-
-  // module->print(aos);
+    // module->print(aos);
   }
 }
 

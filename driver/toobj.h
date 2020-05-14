@@ -12,9 +12,13 @@
 //===----------------------------------------------------------------------===//
 
 #pragma once
+#include <string>
+#include "dmd/root/dcompat.h"
 
 namespace llvm {
 class Module;
 }
 
 void writeModule(llvm::Module *m, const char *filename);
+std::string replaceExtensionWith(const DArray<const char> &ext,
+                                 const char *filename);
