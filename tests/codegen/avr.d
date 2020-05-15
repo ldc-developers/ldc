@@ -8,6 +8,12 @@
 version (AVR) {} else static assert(0);
 version (D_SoftFloat) {} else static assert(0);
 
+// make sure TLS globals are emitted as regular __gshared globals:
+
+// CHECK: @_D3avr13definedGlobali = global i32 123
+int definedGlobal = 123;
+// CHECK: @_D3avr14declaredGlobali = external global i32
+extern int declaredGlobal;
 
 // test address space of global ctor/dtor function pointers:
 
@@ -20,11 +26,3 @@ void ctor() {}
 // CHECK-SAME: @_D3avr4dtorFZv
 pragma(crt_destructor)
 void dtor() {}
-
-
-// make sure TLS globals are emitted as regular __gshared globals:
-
-// CHECK: @_D3avr13definedGlobali = global i32 123
-int definedGlobal = 123;
-// CHECK: @_D3avr14declaredGlobali = external global i32
-extern int declaredGlobal;
