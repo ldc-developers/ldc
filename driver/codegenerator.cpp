@@ -371,7 +371,7 @@ void CodeGenerator::emitMLIR(Module *m) {
   mlir::OwningModuleRef module;
   /*module = mlirGen(mlirContext, m, irs);
   if(!module){
-    IF_LOG Logger::println("Cannot write module to '%s'", llpath.c_str());
+    IF_LOG Logger::println("Error generating MLIR:'%s'", llpath.c_str());
     fatal();
   }*/
 
