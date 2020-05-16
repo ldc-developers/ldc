@@ -7011,63 +7011,35 @@ extern (C++) class TemplateInstance : ScopeDsymbol
     {
         Module mi = minst; // instantiated . inserted module
 
-        Dsymbols* members;
-        PASS parentSemaRun;
+        // abort if it's not a root module
+        if (!mi || !mi.isRoot())
+            return null;
 
-        // if this is an instantiation nested inside another TemplateInstance:
-        // don't add to module directly, but to parent TemplateInstance members
-        if (tinst)
-        {
-            if (!tinst.inst)
-            {
-                // parent failed semantic, abort
-                return null;
-            }
-
-            assert(tinst is tinst.inst, "parent TemplateInstance is not a primary one");
-            assert(tinst.minst is mi, "instantiating module mismatch for parent and child TemplateInstance");
-            assert(tinst.members);
-            members = tinst.members;
-            parentSemaRun = tinst.semanticRun;
-        }
-        else
-        {
-            // add top-level TemplateInstance to module; abort if it's not a root module
-            if (!mi || !mi.isRoot())
+        // abort if a sibling has already been added
+        for (auto sibling = inst; sibling; sibling = sibling.tnext)
+            if (sibling.memberOf is mi)
                 return null;
 
-            // abort if a sibling has already been added
-            for (auto sibling = inst; sibling; sibling = sibling.tnext)
-                if (sibling.memberOf is mi)
-                    return null;
-
-            members = mi.members;
-            parentSemaRun = mi.semanticRun;
-        }
-
-        members.push(this);
+        mi.members.push(this);
         memberOf = mi;
 
-        if (mi && mi.isRoot())
+        // will be codegen'd => make sure the primary instance gets full sema
+        if (this is inst) // primary instance
         {
-            // in a root module => will be codegen'd => make sure the primary instance gets full sema
-            if (this is inst) // primary instance
-            {
-                if (parentSemaRun >= PASS.semantic2done)
-                    Module.addDeferredSemantic2(this);
-                if (parentSemaRun >= PASS.semantic3done)
-                    Module.addDeferredSemantic3(this);
-            }
-            else if (!inst.memberOf || !inst.memberOf.isRoot())
-            {
-                //printf(".: deferredSemantic for non-root primary instance: %s\n", inst.toChars());
-                Module.addDeferredSemantic2(inst);
-                Module.addDeferredSemantic3(inst);
-                inst.memberOf = mi; // HACK to restrict to a single pass per inst
-            }
+            if (mi.semanticRun >= PASS.semantic2done)
+                Module.addDeferredSemantic2(this);
+            if (mi.semanticRun >= PASS.semantic3done)
+                Module.addDeferredSemantic3(this);
+        }
+        else if (!inst.memberOf || !inst.memberOf.isRoot())
+        {
+            //printf(".: deferredSemantic for non-root primary instance: %s\n", inst.toChars());
+            Module.addDeferredSemantic2(inst);
+            Module.addDeferredSemantic3(inst);
+            inst.memberOf = mi; // HACK to restrict to a single pass per inst
         }
 
-        return members;
+        return mi.members;
     }
 
     /****************************************************

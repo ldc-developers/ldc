@@ -15,6 +15,7 @@
 #include "dmd/id.h"
 #include "dmd/import.h"
 #include "dmd/init.h"
+#include "dmd/module.h"
 #include "dmd/nspace.h"
 #include "dmd/root/rmem.h"
 #include "dmd/template.h"
@@ -103,7 +104,7 @@ public:
 
       // Emit TypeInfo.
       IrAggr *ir = getIrAggr(decl);
-      if (!ir->suppressTypeInfo() && !isSpeculativeType(decl->type)) {
+      if (!ir->suppressTypeInfo()) {
         llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
         defineGlobal(interfaceZ, ir->getClassInfoInit(), decl);
       }
@@ -209,7 +210,7 @@ public:
       ir->defineInterfaceVtbls();
 
       // Emit TypeInfo.
-      if (!ir->suppressTypeInfo() && !isSpeculativeType(decl->type)) {
+      if (!ir->suppressTypeInfo()) {
         llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
         defineGlobal(classZ, ir->getClassInfoInit(), decl);
       }
@@ -361,16 +362,12 @@ public:
     }
     decl->ir->setDefined();
 
-    auto primary = decl->inst;
-
-    if (isError(primary)) {
+    if (isError(decl)) {
       Logger::println("Has errors, skipping.");
       return;
     }
 
-    auto members = primary->members;
-
-    if (!members) {
+    if (!decl->members) {
       Logger::println("Has no members, skipping.");
       return;
     }
@@ -384,27 +381,8 @@ public:
       return;
     }
 
-    for (auto &m : *members) {
+    for (auto m : *decl->members) {
       m->accept(this);
-    }
-  }
-
-  //////////////////////////////////////////////////////////////////////////
-
-  void visit(TemplateMixin *decl) override {
-    IF_LOG Logger::println("TemplateInstance::codegen: '%s'",
-                           decl->toPrettyChars());
-    LOG_SCOPE
-
-    if (decl->ir->isDefined()) {
-      return;
-    }
-    decl->ir->setDefined();
-
-    if (!isError(decl) && decl->members) {
-      for (auto m : *decl->members) {
-        m->accept(this);
-      }
     }
   }
 

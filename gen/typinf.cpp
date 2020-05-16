@@ -362,38 +362,6 @@ public:
 
     DtoResolveStruct(sd);
 
-    if (TemplateInstance *ti = sd->isInstantiated()) {
-      if (!ti->needsCodegen()) {
-        assert(ti->minst || sd->requestTypeInfo);
-
-        // We won't emit ti, so emit the special member functions in here.
-        if (sd->xeq && sd->xeq != StructDeclaration::xerreq &&
-            sd->xeq->semanticRun >= PASSsemantic3) {
-          Declaration_codegen(sd->xeq);
-        }
-        if (sd->xcmp && sd->xcmp != StructDeclaration::xerrcmp &&
-            sd->xcmp->semanticRun >= PASSsemantic3) {
-          Declaration_codegen(sd->xcmp);
-        }
-        if (FuncDeclaration *ftostr = search_toString(sd)) {
-          if (ftostr->semanticRun >= PASSsemantic3)
-            Declaration_codegen(ftostr);
-        }
-        if (sd->xhash && sd->xhash->semanticRun >= PASSsemantic3) {
-          Declaration_codegen(sd->xhash);
-        }
-        if (sd->postblit && sd->postblit->semanticRun >= PASSsemantic3) {
-          Declaration_codegen(sd->postblit);
-        }
-        if (sd->dtor && sd->dtor->semanticRun >= PASSsemantic3) {
-          Declaration_codegen(sd->dtor);
-        }
-        if (sd->tidtor && sd->tidtor->semanticRun >= PASSsemantic3) {
-          Declaration_codegen(sd->tidtor);
-        }
-      }
-    }
-
     IrAggr *iraggr = getIrAggr(sd);
 
     // string name
@@ -650,7 +618,7 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
   // check if the definition can be elided
   Type *forType = decl->tinfo;
   if (!global.params.useTypeInfo || !Type::dtypeinfo ||
-      isSpeculativeType(forType) || builtinTypeInfo(forType)) {
+      builtinTypeInfo(forType)) {
     return;
   }
   if (auto forStructType = forType->isTypeStruct()) {

@@ -6031,7 +6031,6 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
          * But whole import graph is not determined until all semantic pass finished,
          * so 'inst' should conservatively finish the semantic3 pass for the codegen.
          */
-        /++
         if (tempinst.minst && tempinst.minst.isRoot() && !(tempinst.inst.minst && tempinst.inst.minst.isRoot()))
         {
             /* Swap the position of 'inst' and 'this' in the instantiation graph.
@@ -6062,7 +6061,6 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
                 tempinst.inst.appendToModuleMember();
             }
         }
-        ++/
 
         // modules imported by an existing instance should be added to the module
         // that instantiates the instance.
@@ -6075,8 +6073,6 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
         {
             printf("\tit's a match with instance %p, %d\n", tempinst.inst, tempinst.inst.semanticRun);
         }
-
-        tempinst.appendToModuleMember();
 
         return;
     }

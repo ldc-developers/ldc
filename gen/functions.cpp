@@ -763,7 +763,10 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   }
 
   // Now that this function is declared, also define it if needed.
-  if (defineAtEnd) {
+  if (!willDefine && fdecl->semanticRun >= PASSsemantic3done &&
+      DtoIsTemplateInstance(fdecl)) {
+    DtoDefineFunction(fdecl);
+  } else if (defineAtEnd) {
     IF_LOG Logger::println(
         "Function is an externally_available inline candidate: define it now.");
     DtoDefineFunction(fdecl, /*linkageAvailableExternally=*/true);
@@ -1033,11 +1036,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
           fd->toChars());
       return;
     }
-  }
-
-  if (!linkageAvailableExternally && !alreadyOrWillBeDefined(*fd)) {
-    IF_LOG Logger::println("Skipping '%s'.", fd->toPrettyChars());
-    return;
   }
 
   // We cannot emit nested functions with parents that have not gone through
