@@ -2,17 +2,20 @@
 
 // REQUIRES: PGO_RT
 
+// with LLVM 4.0, @optStrategy apparently doesn't suffice to prevent eliding the hot() call
+// XFAIL: llvm400
+
 // RUN: %ldc -O3 -fprofile-generate=%t.profraw -run %s  \
 // RUN:   &&  %profdata merge %t.profraw -o %t.profdata \
 // RUN:   &&  %ldc -O3 -c -output-ll -of=%t.use.ll -fprofile-use=%t.profdata %s \
 // RUN:   &&  FileCheck %s -check-prefix=PROFUSE < %t.use.ll
 
-import ldc.attributes : weak;
+import ldc.attributes;
 
 extern (C)
 { // simplify name mangling for simpler string matching
 
-    @weak // disable reasoning about this function
+    @optStrategy("none")
     void hot()
     {
     }

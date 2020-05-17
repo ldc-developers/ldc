@@ -773,7 +773,7 @@ void CodeGenPGO::setFuncName(llvm::StringRef Name,
     // If Linkage is private, and the function is in a comdat "any" group, set
     // the linkage to internal to prevent LLVM from erroring with "comdat global
     // value has private linkage".
-    if (supportsCOMDAT() &&
+    if (needsCOMDAT() &&
         FuncNameVar->getLinkage() == llvm::GlobalValue::PrivateLinkage) {
       FuncNameVar->setLinkage(llvm::GlobalValue::InternalLinkage);
     }

@@ -223,25 +223,25 @@ LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
     linkage = LLGlobalValue::WeakAnyLinkage;
   }
 
-  return {linkage, supportsCOMDAT()};
+  return {linkage, needsCOMDAT()};
 }
 
-bool supportsCOMDAT() {
-  const auto &triple = *global.params.targetTriple;
-  return !(triple.isOSBinFormatMachO() ||
-#if LDC_LLVM_VER >= 500
-           triple.isOSBinFormatWasm()
-#else
-           triple.getArch() == llvm::Triple::wasm32 ||
-           triple.getArch() == llvm::Triple::wasm64
-#endif
-  );
+bool needsCOMDAT() {
+  /* For MSVC targets (and probably MinGW too), linkonce[_odr] and weak[_odr]
+   * linkages don't work and need to be emulated via COMDATs to prevent multiple
+   * definition errors when linking.
+   * Simply emit all functions in COMDATs, not just templates, for aggressive
+   * linker stripping (/OPT:REF and /OPT:ICF with MS linker/LLD), analogous to
+   * using /Gy with the MS compiler.
+   * https://docs.microsoft.com/en-us/cpp/build/reference/opt-optimizations?view=vs-2019
+   */
+  return global.params.targetTriple->isOSBinFormatCOFF();
 }
 
 void setLinkage(LinkageWithCOMDAT lwc, llvm::GlobalObject *obj) {
   obj->setLinkage(lwc.first);
-  if (lwc.second)
-    obj->setComdat(gIR->module.getOrInsertComdat(obj->getName()));
+  obj->setComdat(lwc.second ? gIR->module.getOrInsertComdat(obj->getName())
+                            : nullptr);
 }
 
 void setLinkageAndVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
