@@ -1,20 +1,42 @@
 include ../common.mak
 
-# LDC: disable on Windows (gcc cmdline...)
+# LDC: enable on Windows too (port from win64.mak)
 ifneq (,$(findstring win,$(OS)))
-HASCPP17:=
-TESTS:=
-TESTS11:=
-TESTS17:=
-OLDABITESTS:=
+
+CXX:=cl.exe
+TESTS:=array allocator memory new string vector
+
+.PHONY: all clean
+
+all: $(addprefix $(ROOT)/,$(TESTS))
+
+$(ROOT)/%: $(SRC)/%.cpp $(SRC)/%_test.d
+	mkdir -p $(dir $@)
+
+	$(CXX) /MT /EHsc $(CXXFLAGS_BASE) -c /Fo$(ROOT)/$*_cpp.obj $<
+	$(DMD) -mscrtlib=libcmt $(DFLAGS) -main -unittest -version=CoreUnittest $(ROOT)/$*_cpp.obj -run $(SRC)/$*_test.d
+
+	$(CXX) /MD /EHsc $(CXXFLAGS_BASE) -c /Fo$(ROOT)/$*_cpp.obj $<
+	$(DMD) -mscrtlib=msvcrt $(DFLAGS) -main -unittest -version=CoreUnittest $(ROOT)/$*_cpp.obj -run $(SRC)/$*_test.d
+
+	$(CXX) /MTd /EHsc $(CXXFLAGS_BASE) -c /Fo$(ROOT)/$*_cpp.obj $<
+	$(DMD) -mscrtlib=libcmtd $(DFLAGS) -main -unittest -version=CoreUnittest $(ROOT)/$*_cpp.obj -run $(SRC)/$*_test.d
+
+	$(CXX) /MDd /EHsc $(CXXFLAGS_BASE) -c /Fo$(ROOT)/$*_cpp.obj $<
+	$(DMD) -mscrtlib=msvcrtd $(DFLAGS) -main -unittest -version=CoreUnittest $(ROOT)/$*_cpp.obj -run $(SRC)/$*_test.d
+
+clean:
+	rm -rf $(GENERATED)
+
 else
+# non-Windows:
+
 HASCPP17:=`echo wow | $(CXX) -std=c++17 -E -xc++ - > /dev/null 2>&1 && echo yes`
 
 TESTS:=allocator new
 TESTS11:=array
 TESTS17:=string_view
 OLDABITESTS:=
-endif
 
 ifeq (osx,$(OS))
 	TESTS+=memory
@@ -85,3 +107,6 @@ $(ROOT)/%_old: $(SRC)/%.cpp $(SRC)/%_test.d
 
 clean:
 	rm -rf $(GENERATED)
+
+endif
+# end non-Windows
