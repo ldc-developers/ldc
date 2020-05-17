@@ -18,6 +18,9 @@ else version (CppRuntime_Gcc)   version = Supported;
 else version (CppRuntime_Clang) version = Supported;
 version (Supported):
 
+version (LDC) import ldc.attributes : weak;
+else          private enum weak = null;
+
 import core.stdcpp.xutility : __cplusplus, CppStdRevision;
 
 version (CppRuntime_DigitalMars)
@@ -73,17 +76,18 @@ version (GenericBaseException)
     class exception
     {
     @nogc:
-    extern(D):
         ///
-        this() nothrow {}
+        extern(D) this() nothrow {}
         ///
+        @weak // LDC
         ~this() nothrow {}
 
         ///
+        @weak // LDC
         const(char)* what() const nothrow { return "unknown"; }
 
     protected:
-        this(const(char)*, int = 1) nothrow { this(); } // compat with MS derived classes
+        extern(D) this(const(char)*, int = 1) nothrow { this(); } // compat with MS derived classes
     }
 }
 else version (CppRuntime_Microsoft)
@@ -92,19 +96,21 @@ else version (CppRuntime_Microsoft)
     class exception
     {
     @nogc:
-    extern (D):
         ///
-        this(const(char)* message = "unknown", int = 1) nothrow { msg = message; }
+        extern(D) this(const(char)* message = "unknown", int = 1) nothrow { msg = message; }
         ///
+        @weak // LDC
         ~this() nothrow {}
 
         ///
+        @weak // LDC
         const(char)* what() const nothrow { return msg != null ? msg : "unknown exception"; }
 
         // TODO: do we want this? exceptions are classes... ref types.
 //        final ref exception opAssign(ref const(exception) e) nothrow { msg = e.msg; return this; }
 
     protected:
+        @weak // LDC
         void _Doraise() const { assert(0); }
 
     protected:
@@ -119,15 +125,15 @@ else
 class bad_exception : exception
 {
 @nogc:
-extern(D):
-    private static immutable msg = "bad exception";
+    extern(D) private static immutable msg = "bad exception";
 
     ///
-    this(const(char)* message = msg.ptr) nothrow { super(message); }
+    extern(D) this(const(char)* message = msg.ptr) nothrow { super(message); }
 
     version (GenericBaseException)
     {
         ///
+        @weak // LDC
         override const(char)* what() const nothrow { return msg.ptr; }
     }
 }

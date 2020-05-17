@@ -11,6 +11,9 @@
 
 module core.stdcpp.typeinfo;
 
+version (LDC) import ldc.attributes : weak;
+else          private enum weak = null;
+
 version (CppRuntime_DigitalMars)
 {
     import core.stdcpp.exception;
@@ -71,7 +74,8 @@ else version (CppRuntime_Microsoft)
     class type_info
     {
     @nogc:
-        extern(D) ~this() nothrow {}
+        @weak // LDC
+        ~this() nothrow {}
         //bool operator==(const type_info rhs) const;
         //bool operator!=(const type_info rhs) const;
         final bool before(const type_info rhs) const nothrow;
@@ -107,13 +111,15 @@ else version (CppRuntime_Gcc)
     class type_info
     {
     @nogc:
-    extern(D):
+        @weak // LDC
         ~this() {}
-        final const(char)* name()() const nothrow
+        @weak // LDC
+        final const(char)* name() const nothrow
         {
             return _name[0] == '*' ? _name + 1 : _name;
         }
-        final bool before()(const type_info _arg) const nothrow
+        @weak // LDC
+        final bool before(const type_info _arg) const nothrow
         {
             import core.stdc.string : strcmp;
             return (_name[0] == '*' && _arg._name[0] == '*')
@@ -121,31 +127,34 @@ else version (CppRuntime_Gcc)
                 : strcmp(_name, _arg._name) < 0;
         }
         //bool operator==(const type_info) const;
-        // dummy implementations to populate the D vtable:
+        @weak // LDC
         bool __is_pointer_p() const { assert(0); }
+        @weak // LDC
         bool __is_function_p() const { assert(0); };
+        @weak // LDC
         bool __do_catch(const type_info, void**, uint) const { assert(0); };
+        @weak // LDC
         bool __do_upcast(const __class_type_info, void**) const { assert(0); };
 
     protected:
         const(char)* _name;
 
-        this(const(char)* name) { _name = name; }
+        extern(D) this(const(char)* name) { _name = name; }
     }
 
     class bad_cast : exception
     {
     @nogc:
-    extern(D):
-        this() nothrow {}
+        extern(D) this() nothrow {}
+        @weak // LDC
         override const(char)* what() const nothrow { return "bad cast"; }
     }
 
     class bad_typeid : exception
     {
     @nogc:
-    extern(D):
-        this() nothrow {}
+        extern(D) this() nothrow {}
+        @weak // LDC
         override const(char)* what() const nothrow { return "bad typeid"; }
     }
 }
