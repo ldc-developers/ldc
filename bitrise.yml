@@ -11,6 +11,23 @@ app:
 workflows:
   primary:
     steps:
+      - script@1.1.5:
+          title: Debug Info AFter
+          inputs:
+          - content: |-
+              #!/bin/bash
+              set -ex
+
+              echo $CI
+              echo $PR
+              echo $BITRISE_CERTIFICATE_URL
+              echo $BITRISE_DEFAULT_CERTIFICATE_URL
+              echo $BITRISE_PULL_REQUEST
+              echo $BITRISE_GIT_MESSAGE
+              echo $BITRISE_BUILD_URL
+              echo $BITRISE_APP_URL
+              echo $BITRISE_APP_SLUG
+
       - cache-pull@2.1.4: {}
       - certificate-and-profile-installer@1.10.3: {}
 
