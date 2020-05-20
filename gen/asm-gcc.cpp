@@ -55,7 +55,7 @@ std::string translateTemplate(GccAsmStatement *stmt) {
 class ConstraintsBuilder {
   bool isAnyX86;
   std::ostringstream str; // LLVM constraints string being built
-  LLSmallVector<bool, 8> isIndirectOutput;
+  LLSmallVector<bool, 8> _isIndirectOperand;
 
   // Appends a constraint string expression with an optional prefix.
   // Returns true if the string describes an indirect operand.
@@ -147,15 +147,14 @@ public:
   // statement.
   std::string build(GccAsmStatement *stmt) {
     str.clear();
-    isIndirectOutput.clear();
-    isIndirectOutput.resize(stmt->outputargs, false);
+    _isIndirectOperand.clear();
 
-    if (stmt->constraints) {
-      for (size_t i = 0; i < stmt->constraints->length; ++i) {
+    if (auto c = stmt->constraints) {
+      _isIndirectOperand.reserve(c->length);
+      for (size_t i = 0; i < c->length; ++i) {
         bool isOutput = (i < stmt->outputargs);
-        bool isIndirect = append((*stmt->constraints)[i], isOutput ? '=' : 0);
-        if (isOutput && isIndirect)
-          isIndirectOutput[i] = true;
+        bool isIndirect = append((*c)[i], isOutput ? '=' : 0);
+        _isIndirectOperand.push_back(isIndirect);
       }
     }
 
@@ -173,8 +172,8 @@ public:
     return result;
   }
 
-  bool isIndirectOutputOperand(size_t outputOperandIndex) const {
-    return isIndirectOutput[outputOperandIndex];
+  bool isIndirectOperand(size_t operandIndex) const {
+    return _isIndirectOperand[operandIndex];
   }
 };
 }
@@ -205,22 +204,33 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
 
   LLSmallVector<LLValue *, 8> outputLVals;
   LLSmallVector<LLType *, 8> outputTypes;
-  LLSmallVector<LLValue *, 8> indirectOutputLVals;
-  LLSmallVector<Expression *, 8> inputArgs;
+  LLSmallVector<LLValue *, 8> operands;
   if (stmt->args) {
     for (size_t i = 0; i < stmt->args->length; ++i) {
       Expression *e = (*stmt->args)[i];
       const bool isOutput = (i < stmt->outputargs);
+      const bool isIndirect = constraintsBuilder.isIndirectOperand(i);
+
       if (isOutput) {
+        assert(e->isLvalue() && "should have been caught by front-end");
         LLValue *lval = DtoLVal(e);
-        if (constraintsBuilder.isIndirectOutputOperand(i)) {
-          indirectOutputLVals.push_back(lval);
+        if (isIndirect) {
+          operands.push_back(lval);
         } else {
           outputLVals.push_back(lval);
           outputTypes.push_back(lval->getType()->getPointerElementType());
         }
       } else {
-        inputArgs.push_back(e);
+        if (isIndirect && !e->isLvalue()) {
+          error(e->loc,
+                "indirect `\"m\"` input operands require an lvalue, but `%s` "
+                "is an rvalue",
+                e->toChars());
+          fatal();
+        }
+
+        LLValue *inputVal = isIndirect ? DtoLVal(e) : DtoRVal(e);
+        operands.push_back(inputVal);
       }
     }
   }
@@ -231,8 +241,8 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
              : N == 1 ? outputTypes[0]
                       : LLStructType::get(irs->context(), outputTypes);
 
-  LLValue *rval = DtoInlineAsmExpr(stmt->loc, insn, constraints,
-                                   indirectOutputLVals, inputArgs, returnType);
+  LLValue *rval =
+      DtoInlineAsmExpr(stmt->loc, insn, constraints, operands, returnType);
 
   if (N == 1) {
     DtoStore(rval, outputLVals[0]);
