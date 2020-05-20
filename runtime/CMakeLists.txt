@@ -156,8 +156,13 @@ list(REMOVE_ITEM DRUNTIME_D ${RUNTIME_DIR}/src/etc/linux/memoryerror.d)
 # remove some modules in rt/
 list(REMOVE_ITEM DRUNTIME_D
     ${RUNTIME_DIR}/src/rt/alloca.d
+    ${RUNTIME_DIR}/src/rt/cmath2.d
+    ${RUNTIME_DIR}/src/rt/deh_win32.d
     ${RUNTIME_DIR}/src/rt/llmath.d
     ${RUNTIME_DIR}/src/rt/memset.d
+    ${RUNTIME_DIR}/src/rt/sections_osx_x86.d
+    ${RUNTIME_DIR}/src/rt/sections_solaris.d
+    ${RUNTIME_DIR}/src/rt/sections_win32.d
 )
 # only include core/sys/ modules matching the platform
 file(GLOB_RECURSE DRUNTIME_D_BIONIC  ${RUNTIME_DIR}/src/core/sys/bionic/*.d)
