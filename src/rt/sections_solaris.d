@@ -10,7 +10,7 @@
 
 module rt.sections_solaris;
 
-version (LDC) {} else:
+version (LDC) { /* implemented in rt.sections_ldc */ } else:
 version (Solaris):
 
 // debug = PRINTF;

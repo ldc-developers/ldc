@@ -27,8 +27,9 @@ module core.math;
 
 version (LDC)
 {
-    import stdc = core.stdc.math;
     import ldc.intrinsics;
+
+    private enum isRealX87 = (real.mant_dig == 64);
 }
 
 public:
@@ -76,7 +77,19 @@ real sin(real x) @safe pure nothrow;       /* intrinsic */
  * indeterminate.
  */
 version (LDC)
-    alias rndtol = stdc.llroundl;
+{
+    // use a fake-pure C llround[l] (might actually touch C errno)
+    static if (real.sizeof == double.sizeof)
+    {
+        private extern(C) long llround(real x) @safe pure nothrow;
+        alias rndtol = llround;
+    }
+    else
+    {
+        private extern(C) long llroundl(real x) @safe pure nothrow;
+        alias rndtol = llroundl;
+    }
+}
 else
 long rndtol(real x) @safe pure nothrow;    /* intrinsic */
 
@@ -125,47 +138,37 @@ extern (C) real rndtonl(real x);
 
 version (LDC)
 {
-    version (MinGW)
+    static if (isRealX87)
     {
+        pragma(inline, true)
         real ldexp(real n, int exp) @safe pure nothrow
         {
-            // The MinGW runtime only provides a double precision ldexp, and
-            // it doesn't seem to reliably possible to express the fscale
-            // semantics (two FP stack inputs/returns) in an inline asm
-            // expression clobber list.
-            version (D_InlineAsm_X86_64)
+            real r = void;
+            asm @safe pure nothrow @nogc
             {
-                asm @trusted pure nothrow
-                {
-                    naked;
-                    push RCX;                // push exp (8 bytes), passed in ECX
-                    fild int ptr [RSP];      // push exp onto FPU stack
-                    pop RCX;                 // return stack to initial state
-                    fld real ptr [RDX];      // push n   onto FPU stack, passed in [RDX]
-                    fscale;                  // ST(0) = ST(0) * 2^ST(1)
-                    fstp ST(1);              // pop stack maintaining top value => function return value
-                    ret;                     // no arguments passed via stack
-                }
+                `fildl  %1       # push exp
+                 fxch   %%st(1)  # swap ST(0) and ST(1)
+                 fscale          # ST(0) := ST(0) * (2 ^^ ST(1))
+                 fstp   %%st(1)  # pop and keep ST(0) value on top`
+                : "=st" (r)
+                : "m" (exp), "st" (n)
+                : "flags"; // might clobber x87 flags
             }
-            else
-            {
-                asm @trusted pure nothrow
-                {
-                    naked;
-                    push EAX;
-                    fild int ptr [ESP];
-                    fld real ptr [ESP+8];
-                    fscale;
-                    fstp ST(1);
-                    pop EAX;
-                    ret 12;
-                }
-            }
+            return r;
         }
     }
-    else // !MinGW
+    else
     {
-        alias ldexp = stdc.ldexpl;
+        // use a fake-pure C ldexp[l] (might actually touch C errno)
+        static if (real.sizeof == double.sizeof)
+        {
+            extern(C) real ldexp(real n, int exp) @safe pure nothrow;
+        }
+        else
+        {
+            private extern(C) real ldexpl(real n, int exp) @safe pure nothrow;
+            alias ldexp = ldexpl;
+        }
     }
 }
 else
@@ -232,35 +235,29 @@ real rint(real x) @safe pure nothrow;      /* intrinsic */
 
 version (LDC)
 {
-    version (X86)    version = X86_Any;
-    version (X86_64) version = X86_Any;
-
-    version (X86_Any)
+    static if (isRealX87)
     {
-        static if (real.mant_dig == 64)
+        pragma(inline, true)
+        real yl2x(real x, real y)   @safe pure nothrow
         {
-            // y * log2(x)
-            real yl2x(real x, real y)   @safe pure nothrow
-            {
-                real r;
-                asm @safe pure nothrow @nogc { "fyl2x" : "=st" (r) : "st" (x), "st(1)" (y) : "st(1)"; }
-                return r;
-            }
+            real r = void;
+            asm @safe pure nothrow @nogc { "fyl2x" : "=st" (r) : "st(1)" (y), "st" (x) : "st(1)", "flags"; }
+            return r;
+        }
 
-            // y * log2(x + 1)
-            real yl2xp1(real x, real y) @safe pure nothrow
-            {
-                real r;
-                asm @safe pure nothrow @nogc { "fyl2xp1" : "=st" (r) : "st" (x), "st(1)" (y) : "st(1)"; }
-                return r;
-            }
+        pragma(inline, true)
+        real yl2xp1(real x, real y) @safe pure nothrow
+        {
+            real r = void;
+            asm @safe pure nothrow @nogc { "fyl2xp1" : "=st" (r) : "st(1)" (y), "st" (x) : "st(1)", "flags"; }
+            return r;
         }
     }
 }
 else
 {
-real yl2x(real x, real y)   @safe pure nothrow;       // y * log2(x)
-real yl2xp1(real x, real y) @safe pure nothrow;       // y * log2(x + 1)
+    real yl2x(real x, real y)   @safe pure nothrow;       // y * log2(x)
+    real yl2xp1(real x, real y) @safe pure nothrow;       // y * log2(x + 1)
 }
 
 unittest

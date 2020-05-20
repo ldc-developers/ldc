@@ -456,9 +456,6 @@ private extern (C) int _d_run_main2(char[][] args, size_t totalArgsLength, MainF
     }
     version (CRuntime_Microsoft)
     {
-        version (LDC)
-            init_msvc();
-
         // enable full precision for reals
         version (GNU)
         {

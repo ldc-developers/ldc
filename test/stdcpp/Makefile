@@ -97,7 +97,7 @@ $(ROOT)/%_11: $(SRC)/%.cpp $(SRC)/%_test.d
 # build C++17 tests
 $(ROOT)/%_17: $(SRC)/%.cpp $(SRC)/%_test.d
 	mkdir -p $(dir $@)
-	$(QUIET)$(DMD) $(DFLAGS) -extern-std=c++17 -main -unittest -version=CoreUnittest -version=CoreUnittest -c -of=$(ROOT)/$*_17_d.o $(SRC)/$*_test.d
+	$(QUIET)$(DMD) $(DFLAGS) -extern-std=c++17 -main -unittest -version=CoreUnittest -c -of=$(ROOT)/$*_17_d.o $(SRC)/$*_test.d
 	$(QUIET)$(CXX) $(CXXFLAGS_BASE) -std=c++17 -o $@ $< $(ROOT)/$*_17_d.o $(DRUNTIME) $(LDL) -lpthread
 # build libstdc++ _GLIBCXX_USE_CXX11_ABI=0 tests
 $(ROOT)/%_old: $(SRC)/%.cpp $(SRC)/%_test.d

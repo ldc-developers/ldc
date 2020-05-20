@@ -715,7 +715,6 @@ extern (C) _Unwind_Reason_Code _d_eh_personality_common(_Unwind_Action actions,
  * Look at the chain of inflight exceptions and pick the class type that'll
  * be looked for in catch clauses.
  * Params:
- *      lsda = pointer to LSDA table
  *      exceptionObject = language specific exception information
  *      currentLsd = pointer to LSDA table
  * Returns:
@@ -1085,7 +1084,7 @@ LsdaResult scanLSDA(const(ubyte)* lsda, _Unwind_Ptr ip, _Unwind_Exception_Class 
                         if (cleanupsOnly)
                             continue;                   // ignore catch
 
-                        auto h = actionTableLookup(exceptionObject, cast(uint)ActionRecordPtr, pActionTable, tt, TType, exceptionClass);
+                        auto h = actionTableLookup(exceptionObject, cast(uint)ActionRecordPtr, pActionTable, tt, TType, exceptionClass, lsda);
                         if (h < 0)
                         {
                             fprintf(stderr, "negative handler\n");
@@ -1129,7 +1128,6 @@ LsdaResult scanLSDA(const(ubyte)* lsda, _Unwind_Ptr ip, _Unwind_Exception_Class 
 /********************************************
  * Look up classType in Action Table.
  * Params:
- *      lsda = pointer to LSDA table
  *      exceptionObject = language specific exception information
  *      actionRecordPtr = starting index in Action Table + 1
  *      pActionTable = pointer to start of Action Table

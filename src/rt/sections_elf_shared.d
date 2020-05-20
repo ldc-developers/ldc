@@ -448,7 +448,7 @@ T[] toRange(T)(T* beg, T* end) { return beg[0 .. end - beg]; }
  */
 extern(C) void _d_dso_registry(void* arg)
 {
-    auto data = cast(CompilerDSOData*)arg;
+    auto data = cast(CompilerDSOData*) arg;
 
     // only one supported currently
     safeAssert(data._version >= 1, "Incompatible compiler-generated DSO data version.");
@@ -878,12 +878,12 @@ static if (SharedELF) void scanSegments(const scope ref SharedObject object, DSO
 }
 else static if (SharedDarwin) void scanSegments(mach_header* info, DSO* pdso)
 {
-    import rt.mach_utils;
+    import rt.sections_osx_x86_64;
 
     immutable slide = _dyld_get_image_slide(info);
-    foreach (e; dataSections)
+    foreach (e; dataSegs)
     {
-        auto sect = getSection(info, slide, e.seg, e.sect);
+        auto sect = getSection(info, slide, e.seg.ptr, e.sect.ptr);
         if (sect != null)
             pdso._gcRanges.insertBack((cast(void*)sect.ptr)[0 .. sect.length]);
     }
@@ -1076,4 +1076,4 @@ void[] getTLSRange(size_t mod, size_t sz) nothrow @nogc
     }
 }
 
-} // !OSX
+} // !SharedDarwin

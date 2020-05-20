@@ -11,6 +11,8 @@
 
 module rt.alloca;
 
+version (LDC) {} else:
+
 version (Posix)
 {
     version = alloca;

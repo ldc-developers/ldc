@@ -11,12 +11,6 @@
  */
 module rt.sections_osx_x86_64;
 
-version (LDC)
-{
-    // Implemented in rt.sections_elf_shared, but using some helper functions (`getTLSRange(void*)`).
-}
-else:
-
 version (OSX)
     version = Darwin;
 else version (iOS)
@@ -27,7 +21,7 @@ else version (WatchOS)
     version = Darwin;
 
 version (Darwin):
-version (X86_64):
+version (D_LP64): // LDC: changed from `version (X86_64)`
 
 // debug = PRINTF;
 import core.stdc.stdio;
@@ -40,6 +34,13 @@ import rt.deh, rt.minfo;
 import rt.util.container.array;
 import rt.util.utility : safeAssert;
 import rt.sections_darwin_64 : getTLSRange;
+
+version (LDC)
+{
+    // implemented in rt.sections_elf_shared, but using some helpers (`dataSegs` and `getSection`)
+}
+else
+{
 
 struct SectionGroup
 {
@@ -166,6 +167,8 @@ extern (C) void sections_osx_onAddImage(const scope mach_header* h, intptr_t sli
         _sections._ehTables = p[0 .. len];
     }
 }
+
+} // !LDC
 
 struct SegRef
 {

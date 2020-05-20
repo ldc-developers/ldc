@@ -1041,14 +1041,14 @@ version (CoreUnittest)
         assert(i == 0);
 
         shared float f = 0.1f;
-        atomicOp!"+="( f, 0.1f );
-        assert( f > 0.1999f && f < 0.2001f );
+        atomicOp!"+="(f, 0.1f);
+        assert(f > 0.1999f && f < 0.2001f);
 
-        static if ( has64BitCAS )
+        static if (has64BitCAS)
         {
             shared double d = 0.1;
-            atomicOp!"+="( d, 0.1 );
-            assert( d > 0.1999 && d < 0.2001 );
+            atomicOp!"+="(d, 0.1);
+            assert(d > 0.1999 && d < 0.2001);
         }
     }
 

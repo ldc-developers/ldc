@@ -1,6 +1,5 @@
 import core.thread;
 import core.sys.posix.sys.mman;
-import ldc.attributes;
 
 version (LDC) import ldc.attributes;
 else struct optStrategy { string a; }

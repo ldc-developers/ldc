@@ -42,7 +42,7 @@ struct SectionGroup
         return _moduleGroup;
     }
 
-    version (LDC) {} else
+    version (DigitalMars)
     version (Win64)
     @property immutable(FuncTable)[] ehTables() const nothrow @nogc
     {
@@ -61,15 +61,6 @@ private:
     void[][] _gcRanges;
 }
 
-version (LDC)
-{
-    /* Precise DATA/TLS GC scanning requires compiler support
-     * (emitting mutable pointers into special sections bracketed
-     * by _{D,T}P_{beg,end} symbols).
-     */
-    version = conservative;
-}
-else
 shared(bool) conservative;
 
 void initSections() nothrow @nogc
@@ -81,13 +72,19 @@ void initSections() nothrow @nogc
     debug(PRINTF) printf("found .data section: [%p,+%llx]\n", dataSection.ptr,
                          cast(ulong)dataSection.length);
 
-  version (LDC) {} else
-  {
     import rt.sections;
     conservative = !scanDataSegPrecisely();
-  }
 
-    version (conservative) // LDC: compile-time
+    version (LDC)
+    {
+        /* FIXME: Precise DATA/TLS GC scanning requires compiler support
+         * (emitting mutable pointers into special sections bracketed
+         * by _{D,T}P_{beg,end} symbols).
+         */
+        _sections._gcRanges = (cast(void[]*) malloc((void[]).sizeof))[0..1];
+        _sections._gcRanges[0] = dataSection;
+    }
+    else if (conservative)
     {
         _sections._gcRanges = (cast(void[]*) malloc((void[]).sizeof))[0..1];
         _sections._gcRanges[0] = dataSection;
@@ -171,7 +168,12 @@ void finiTLSRanges(void[] rng) nothrow @nogc
 
 void scanTLSRanges(void[] rng, scope void delegate(void* pbeg, void* pend) nothrow dg) nothrow
 {
-    version (conservative) // LDC: compile-time
+    version (LDC)
+    {
+        // FIXME
+        dg(rng.ptr, rng.ptr + rng.length);
+    }
+    else if (conservative)
     {
         dg(rng.ptr, rng.ptr + rng.length);
     }

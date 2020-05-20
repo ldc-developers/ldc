@@ -856,7 +856,8 @@ static if (hasExecinfo) private class DefaultTraceInfo : Throwable.TraceInfo
         {
             // NOTE: On LDC, the number of frames heavily depends on the
             // runtime build settings, etc., so skipping a fixed number of
-            // them would be very brittle. We should do this by name instead.
+            // them would be very brittle.
+            // We do this by name in traceHandlerOpApplyImpl() instead.
             enum FIRSTFRAME = 0;
         }
         else

@@ -13,6 +13,8 @@
  */
 module rt.memset;
 
+version (LDC) {} else:
+
 extern (C)
 {
     // Functions from the C library.

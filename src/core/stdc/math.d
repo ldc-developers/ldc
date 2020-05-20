@@ -43,7 +43,6 @@ version (X86_64)  version = X86_Any;
 extern (C):
 @trusted: // All functions here operate on floating point and integer values only.
 nothrow:
-pure: // LDC
 @nogc:
 
 ///
