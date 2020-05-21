@@ -809,13 +809,8 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
   size_t llArgIdx = 0;
 
   for (VarDeclaration *vd : parameters) {
+    Type *paramType = vd->type;
     IrParameter *irparam = getIrParameter(vd);
-
-    // vd->type (parameter) and irparam->arg->type (argument) don't always
-    // match.
-    // E.g., for a lazy parameter of type T, vd->type is T (with lazy storage
-    // class) while irparam->arg->type is the delegate type.
-    Type *const paramType = (irparam ? irparam->arg->type : vd->type);
 
     if (!irparam) {
       // This is a parameter that is not passed on the LLVM level.
@@ -823,8 +818,15 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
       // we do not store to here.
       irparam = getIrParameter(vd, true);
       irparam->value = DtoAlloca(vd, vd->ident->toChars());
+    } else if (!irparam->value) {
+      // Captured parameter not passed on the LLVM level.
+      assert(irparam->nestedIndex >= 0);
+      irparam->value = DtoAlloca(vd, vd->ident->toChars());
     } else {
-      assert(irparam->value);
+      // vd->type (parameter) and irparam->arg->type (argument) don't always
+      // match. E.g., for a lazy parameter of type T, vd->type is T (with lazy
+      // storage class) while irparam->arg->type is the delegate type.
+      paramType = irparam->arg->type;
 
       if (irparam->arg->byref) {
         // The argument is an appropriate lvalue passed by reference.

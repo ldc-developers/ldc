@@ -392,14 +392,17 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
       builder.alignCurrentOffset(alignment);
     }
 
-    IrLocal &irLocal = *getIrLocal(vd, true);
+    const bool isParam = vd->isParameter();
+
+    IrLocal &irLocal =
+        *(isParam ? getIrParameter(vd, true) : getIrLocal(vd, true));
     irLocal.nestedIndex = builder.currentFieldIndex();
     irLocal.nestedDepth = depth;
 
     LLType *t = nullptr;
     if (vd->isRef() || vd->isOut()) {
       t = DtoType(vd->type->pointerTo());
-    } else if (vd->isParameter() && (vd->storage_class & STClazy)) {
+    } else if (isParam && (vd->storage_class & STClazy)) {
       // the type is a delegate (LL struct)
       Type *dt = TypeFunction::create(nullptr, vd->type, VARARGnone, LINKd);
       dt = createTypeDelegate(dt);
