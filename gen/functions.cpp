@@ -969,7 +969,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   if (fd->ir->isDefined()) {
     llvm::Function *func = getIrFunc(fd)->getLLVMFunc();
-    assert(nullptr != func);
+    assert(func);
     if (!linkageAvailableExternally &&
         (func->getLinkage() == llvm::GlobalValue::AvailableExternallyLinkage)) {
       // Fix linkage
