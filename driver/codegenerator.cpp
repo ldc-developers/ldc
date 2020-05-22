@@ -219,8 +219,16 @@ void inlineAsmDiagnosticHandler(const llvm::SMDiagnostic &d, void *context,
 } // anonymous namespace
 
 namespace ldc {
-CodeGenerator::CodeGenerator(llvm::LLVMContext &context, bool singleObj)
-    : context_(context), moduleCount_(0), singleObj_(singleObj), ir_(nullptr) {
+CodeGenerator::CodeGenerator(llvm::LLVMContext &context,
+#if LDC_MLIR_ENABLED
+                             mlir::MLIRContext &mlirContext,
+#endif
+                             bool singleObj)
+    : context_(context),
+#if LDC_MLIR_ENABLED
+      mlirContext_(mlirContext),
+#endif
+      moduleCount_(0), singleObj_(singleObj), ir_(nullptr) {
   // Set the context to discard value names when not generating textual IR.
   if (!global.params.output_ll) {
     context_.setDiscardValueNames(true);
@@ -274,7 +282,6 @@ void CodeGenerator::finishLLModule(Module *m) {
   if (moduleCount_ == 1) {
     insertBitcodeFiles(ir_->module, ir_->context(), global.params.bitcodeFiles);
   }
-
   writeAndFreeLLModule(m->objfile.toChars());
 }
 
@@ -341,4 +348,58 @@ void CodeGenerator::emit(Module *m) {
     Logger::disable();
   }
 }
+
+#if LDC_MLIR_ENABLED
+void CodeGenerator::emitMLIR(Module *m) {
+  bool const loggerWasEnabled = Logger::enabled();
+  if (m->llvmForceLogging && !loggerWasEnabled) {
+    Logger::enable();
+  }
+
+  IF_LOG Logger::println("CodeGenerator::emitMLIR(%s)", m->toPrettyChars());
+  LOG_SCOPE;
+
+  if (global.params.verbose_cg) {
+    printf("codegen: %s (%s)\n", m->toPrettyChars(), m->srcfile.toChars());
+  }
+
+  if (global.errors) {
+    Logger::println("Aborting because of errors");
+    fatal();
+  }
+
+  mlir::OwningModuleRef module;
+  /*module = mlirGen(mlirContext, m, irs);
+  if(!module){
+    IF_LOG Logger::println("Error generating MLIR:'%s'", llpath.c_str());
+    fatal();
+  }*/
+
+  writeMLIRModule(&module, m->objfile.toChars());
+
+  if (m->llvmForceLogging && !loggerWasEnabled) {
+    Logger::disable();
+  }
+}
+
+void CodeGenerator::writeMLIRModule(mlir::OwningModuleRef *module,
+                                    const char *filename) {
+  // Write MLIR
+  if (global.params.output_mlir) {
+    const auto llpath = replaceExtensionWith(global.mlir_ext, filename);
+    Logger::println("Writting MLIR to %s\n", llpath.c_str());
+    std::error_code errinfo;
+    llvm::raw_fd_ostream aos(llpath, errinfo, llvm::sys::fs::F_None);
+
+    if (aos.has_error()) {
+      error(Loc(), "Cannot write MLIR file '%s': %s", llpath.c_str(),
+            errinfo.message().c_str());
+      fatal();
+    }
+
+    // module->print(aos);
+  }
+}
+
+#endif
 }

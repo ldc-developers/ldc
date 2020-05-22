@@ -204,6 +204,9 @@ cl::opt<bool> output_bc("output-bc", cl::desc("Write LLVM bitcode"),
 
 cl::opt<bool> output_ll("output-ll", cl::desc("Write LLVM IR"), cl::ZeroOrMore);
 
+cl::opt<bool> output_mlir("output-mlir", cl::desc("Write MLIR"),
+    cl::ZeroOrMore);
+
 cl::opt<bool> output_s("output-s", cl::desc("Write native assembly"),
                        cl::ZeroOrMore);
 
