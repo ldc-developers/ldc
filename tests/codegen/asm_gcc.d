@@ -56,6 +56,15 @@ void indirectOutput(uint eax)
     }
 }
 
+// CHECK: define void @_D7asm_gcc13indirectInputFkZv
+void indirectInput(uint eax)
+{
+    // CHECK-NEXT: %eax = alloca i32
+    // CHECK-NEXT: store i32 %eax_arg, i32* %eax
+    // CHECK-NEXT: call void asm sideeffect "movl %eax, $0", "*m,~{eax}"(i32* %eax), !srcloc
+    asm { "movl %%eax, %0" : : "m" (eax) : "eax"; }
+}
+
 // CHECK: define void @_D7asm_gcc15specialNamesX86FZv
 void specialNamesX86()
 {
