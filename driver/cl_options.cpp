@@ -460,6 +460,10 @@ cl::opt<bool> disableLinkerStripDead(
     cl::desc("Do not try to remove unused symbols during linking"),
     cl::cat(linkingCategory));
 
+cl::opt<bool> noPLT(
+    "fno-plt", cl::ZeroOrMore,
+    cl::desc("Do not use the PLT to make function calls"));
+
 // Math options
 bool fFastMath; // Storage for the dynamically created ffast-math option.
 llvm::FastMathFlags defaultFMF;
