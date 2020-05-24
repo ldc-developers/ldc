@@ -634,9 +634,15 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   // add func to IRFunc
   irFunc->setLLVMFunc(func);
 
-  // First apply the TargetMachine attributes, such that they can be overridden
-  // by UDAs.
+  // First apply the TargetMachine attributes and NonLazyBind attribute,
+  // such that they can be overridden by UDAs.
   applyTargetMachineAttributes(*func, *gTargetMachine);
+  if (!fdecl->fbody && opts::noPLT) {
+      // Add `NonLazyBind` attribute to function declarations,
+      // the codegen options allow skipping PLT.
+      func->addFnAttr(LLAttribute::NonLazyBind);
+  }
+
   applyFuncDeclUDAs(fdecl, irFunc);
 
   // parameter attributes
