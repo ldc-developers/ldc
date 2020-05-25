@@ -41,6 +41,28 @@ static llvm::cl::opt<bool> linkNoCpp(
     "link-no-cpp", llvm::cl::ZeroOrMore, llvm::cl::Hidden,
     llvm::cl::desc("Disable automatic linking with the C++ standard library."));
 
+// RELRO options
+enum RELROKind {
+  RELRO_None,
+  RELRO_Full,
+  RELRO_Partial,
+  RELRO_Off,
+};
+
+static llvm::cl::opt<RELROKind> relroLevel(
+    "relro-level", llvm::cl::ZeroOrMore,
+    llvm::cl::desc("Set the read-only relocation hardeing level for Posix target"),
+    llvm::cl::init(RELRO_None),
+    clEnumValues(
+        clEnumValN(RELRO_Full, "full", "full RELRO (equivalent to '-L-z -Lrelro -L-z -Lnow')"),
+        clEnumValN(RELRO_Partial, "partial", "partial RELRO (equivalent to '-L-z -Lrelro')"),
+        clEnumValN(RELRO_Off, "off", "no RELRO (equivalent to '-L-z -Lnorelro')")));
+
+static inline bool isUsingRELRO() { return relroLevel != RELRO_None; }
+static inline bool enableFullRELRO() { return relroLevel == RELRO_Full; }
+static inline bool enablePartialRELRO() { return relroLevel == RELRO_Partial; }
+static inline bool disableRELRO() { return relroLevel == RELRO_Off; }
+
 //////////////////////////////////////////////////////////////////////////////
 
 namespace {
@@ -508,6 +530,17 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
 
   args.push_back("-o");
   args.push_back(std::string(outputPath));
+
+  if (isUsingRELRO()) {
+      if (enableFullRELRO()) {
+          addLdFlag("-z", "relro");
+          addLdFlag("-z", "now");
+      } else if (enablePartialRELRO()) {
+          addLdFlag("-z", "relro");
+      } else if (disableRELRO()) {
+          addLdFlag("-z", "norelro");
+      }
+  }
 
   addSanitizers(*global.params.targetTriple);
 
