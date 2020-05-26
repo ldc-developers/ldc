@@ -666,7 +666,7 @@ public extern (C++) void builtin_init()
 {
 version (IN_LLVM)
 {
-    builtins._init(205);
+    builtins._init(203);
 }
 else
 {
@@ -738,12 +738,6 @@ else
     add_builtin("_D3std4math4trig5atan2FNaNbNiNfeeZe", &eval_unimp);
     // @safe @nogc pure nothrow T function(T, int)
     add_builtin("_D4core4math5ldexpFNaNbNiNfeiZe", &eval_ldexp);
-version (IN_LLVM)
-{
-    // LDC's core.math.ldexp might be an alias of C ldexp[l]
-    add_builtin("ldexpl", &eval_ldexp);
-    add_builtin("ldexp", &eval_ldexp);
-}
 
     add_builtin("_D3std4math3logFNaNbNiNfeZe", &eval_log);
 
