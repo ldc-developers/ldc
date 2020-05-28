@@ -134,9 +134,6 @@ static std::string getX86TargetCPU(const llvm::Triple &triple) {
   if (triple.getOSName().startswith("openbsd")) {
     return "i486";
   }
-  if (triple.getOSName().startswith("bitrig")) {
-    return "i686";
-  }
   if (triple.getOSName().startswith("freebsd")) {
     return "i486";
   }
