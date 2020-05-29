@@ -1,0 +1,186 @@
+format_version: '8'
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: ios
+
+app:
+  envs:
+    - BITRISE_PROJECT_PATH: ldc-build-runtime.tmp/TestRunner/TestRunner.xcodeproj
+    - BITRISE_SCHEME: TestRunner
+    - BITRISE_EXPORT_METHOD: development
+    - LLVM_VERSION: 10.0.0
+    - LDC_VERSION: 1.20.1
+    - IOS_VERSION: 12.0
+
+workflows:
+  primary:
+    steps:
+      - cache-pull@2.1.4: {}
+      - certificate-and-profile-installer@1.10.3: {}
+
+      - script@1.1.6:
+          title: Download LLVM
+          inputs:
+            - content: |-
+                #!/bin/bash
+                set -ex
+                curl -L "https://github.com/ldc-developers/llvm-project/releases/download/ldc-v${LLVM_VERSION}/llvm-${LLVM_VERSION}-osx-x86_64.tar.xz" -o llvm.tar.xz
+                tar xf llvm.tar.xz
+                envman add --key LLVM_ROOT_DIR --value "$(pwd)/llvm-${LLVM_VERSION}-osx-x86_64"
+
+      - script@1.1.6:
+          title: Download LDC
+          inputs:
+            - content: |-
+                #!/bin/bash
+                set -ex
+                curl -L "https://github.com/ldc-developers/ldc/releases/download/v${LDC_VERSION}/ldc2-${LDC_VERSION}-osx-x86_64.tar.xz" -o ldc.tar.xz
+                tar xf ldc.tar.xz
+                envman add --key PATH --value "$(pwd)/ldc2-${LDC_VERSION}-osx-x86_64/bin:$PATH"
+
+      - script@1.1.6:
+          title: Build LDC
+          deps:
+            brew:
+              - name: cmake
+              - name: ninja
+          inputs:
+            - content: |-
+                #!/bin/bash
+                set -ex
+                mkdir build
+                cd build
+                cmake -G Ninja .. \
+                  -DD_COMPILER=ldmd2 \
+                  -DBUILD_SHARED_LIBS=OFF \
+                  -DCMAKE_BUILD_TYPE=Release \
+                  -DLLVM_ROOT_DIR="$LLVM_ROOT_DIR"
+                ninja -j2
+                envman add --key LDC_BINARY --value "$(pwd)/bin/ldc2"
+
+      - script@1.1.6:
+          title: Build Runtime
+          deps:
+            brew:
+              - name: cmake
+              - name: ninja
+          inputs:
+            - content: |-
+                #!/bin/bash
+                set -ex
+                build/bin/ldc-build-runtime \
+                  --cFlags="-target;arm64-apple-ios${IOS_VERSION}" \
+                  --dFlags="-mtriple=arm64-apple-ios${IOS_VERSION};-fvisibility=hidden" \
+                  --ldcSrcDir=. \
+                  --ninja \
+                  -j 2 \
+                  CMAKE_SYSTEM_NAME=iOS \
+                  CMAKE_OSX_ARCHITECTURES=arm64 \
+                  CMAKE_OSX_DEPLOYMENT_TARGET="${IOS_VERSION}" \
+                  BUILD_SHARED_LIBS=OFF
+
+                cd ldc-build-runtime.tmp
+                ninja -j2 druntime-test-runner-debug phobos2-test-runner-debug
+
+      - xcode-build-for-test@0.4.0:
+          title: Build Xcode Project
+          run_if: not .IsPR
+
+      - virtual-device-testing-for-ios@0.9.10:
+          title: Run Tests on Device
+          run_if: not .IsPR
+          inputs:
+            - test_devices: iphone6,12.2,en,portrait
+            - download_test_results: true
+
+      - script@1.1.6:
+          title: Assemble Test Result
+          run_if: not .IsPR
+          is_always_run: true
+          inputs:
+            - runner_bin: "$LDC_BINARY -run"
+            - script_file_path: "$BITRISE_STEP_SOURCE_DIR/main.d"
+            - content: |-
+                import std;
+
+                /**
+                 * For some reason the xcresult produced by the previous step
+                 * has a flat file structure. The code in this step fixes that
+                 * so the next step can work. This code turns a file structure
+                 * looking like this:
+                 *
+                 * ```
+                 * ├── TestLogs_Test-Transient Testing-2020.03.21_01-45-58--0700.xcresult_Data_data.0~-O0rfKEKRY3nIhjlqYnpkA66cLiUonVgCNYwugi05n9Jx5OzM2-LySzkK1msGnDLSE8q0NRhrhw7IzkvLpyeNw==
+                 * ├── TestLogs_Test-Transient Testing-2020.03.21_01-45-58--0700.xcresult_Data_data.0~1CjDi6o46z-JhUr8R_x8s2FSUso2vKw5JRCkXMC0u_NrVR82R9FCih_SAFsZ6QBlodOkzBPOcj109apBnmq3Xw==
+                 * ```
+                 *
+                 * Into a file and directory structure like this:
+                 *
+                 * ```
+                 * TestLogs_Test-Transient Testing-2020.03.21_01-45-58--0700.xcresult
+                 * ├── Data
+                 * │   ├── data.0~-O0rfKEKRY3nIhjlqYnpkA66cLiUonVgCNYwugi05n9Jx5OzM2-LySzkK1msGnDLSE8q0NRhrhw7IzkvLpyeNw==
+                 * │   ├── data.0~1CjDi6o46z-JhUr8R_x8s2FSUso2vKw5JRCkXMC0u_NrVR82R9FCih_SAFsZ6QBlodOkzBPOcj109apBnmq3Xw==
+                 * ```
+                 */
+                void main()
+                {
+                    static void copy(string source, string target)
+                    {
+                        const splitResult = target.split(".xcresult");
+                        const xcresultDir = splitResult[0] ~ ".xcresult";
+                        const embeddedDir = splitResult[1].dirName[1 .. $];
+                        const targetDir = buildPath(xcresultDir, embeddedDir);
+
+                        mkdirRecurse(targetDir);
+                        std.file.copy(source, target);
+                    }
+
+                    const source = environment["VDTESTING_DOWNLOADED_FILES_DIR"];
+
+                    auto paths = dirEntries(source, "*.xcresult*", SpanMode.shallow)
+                        .map!(e => e.name.absolutePath)
+                        .array;
+
+                    const sourceBase = (paths.front.split(".xcresult")[0] ~ ".xcresult").baseName;
+                    const targetBasePath = "xcresult".absolutePath;
+                    const xcresultPath = targetBasePath.buildPath(sourceBase);
+
+                    spawnProcess(["envman", "add", "--key", "BITRISE_XCRESULT_PATH", "--value",
+                        xcresultPath]).wait;
+
+                    paths
+                        .map!(e => e.split(".xcresult")[1])
+                        .map!(e => e.split("."))
+                        .map!(e => tuple(e[0].split("_"), e[1]))
+                        .map!(e => tuple(e[0].filter!(a => !a.empty).array, e[1]))
+                        .map!(e => tuple(e[0][0 .. $ - 1], e[0][$ - 1 .. $].front ~ '.' ~ e[1]))
+                        .map!(e => e[0].buildPath.buildPath(e[1]))
+                        .map!(e => targetBasePath.buildPath(sourceBase, e))
+                        .zip(paths)
+                        .each!(e => copy(e[1], e[0]));
+                }
+
+      - xcparse@0.1.0:
+          title: Extract Logs
+          run_if: not .IsPR
+          is_always_run: true
+          inputs:
+            - export_to_deploy: 'yes'
+            - extract_attachments: 'no'
+            - extract_code_coverage: 'no'
+            - extract_logs: 'yes'
+            - extract_screenshots: 'no'
+
+      - script@1.1.6:
+          title: Print Logs
+          run_if: not .IsPR
+          is_always_run: true
+          inputs:
+            - content: |-
+                #!/bin/bash
+                set -e
+                unzip -qq "$XCPARSE_LOGS_PATH"
+                find logs -name StandardOutputAndStandardError.txt | head -1 | xargs cat
+
+      - deploy-to-bitrise-io@1.9.6: {}
+      - cache-push@2.2.3: {}
