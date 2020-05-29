@@ -83,22 +83,25 @@ public:
     }
 
     // remove 0-sized args (static arrays with 0 elements) and, for Darwin,
-    // empty structs too
+    // empty POD structs too
     size_t i = 0;
     while (i < fty.args.size()) {
-      auto tb = fty.args[i]->type->toBasetype();
+      auto arg = fty.args[i];
+      if (!arg->byref) {
+        auto tb = arg->type->toBasetype();
 
-      if (tb->size() == 0) {
-        fty.args.erase(fty.args.begin() + i);
-        continue;
-      }
+        if (tb->size() == 0) {
+          fty.args.erase(fty.args.begin() + i);
+          continue;
+        }
 
-      // https://developer.apple.com/library/archive/documentation/Xcode/Conceptual/iPhoneOSABIReference/Articles/ARM64FunctionCallingConventions.html#//apple_ref/doc/uid/TP40013702-SW1
-      if (isDarwin) {
-        if (auto ts = tb->isTypeStruct()) {
-          if (ts->sym->fields.empty()) {
-            fty.args.erase(fty.args.begin() + i);
-            continue;
+        // https://developer.apple.com/library/archive/documentation/Xcode/Conceptual/iPhoneOSABIReference/Articles/ARM64FunctionCallingConventions.html#//apple_ref/doc/uid/TP40013702-SW1
+        if (isDarwin) {
+          if (auto ts = tb->isTypeStruct()) {
+            if (ts->sym->fields.empty() && ts->sym->isPOD()) {
+              fty.args.erase(fty.args.begin() + i);
+              continue;
+            }
           }
         }
       }
