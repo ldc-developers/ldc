@@ -2236,6 +2236,7 @@ version (IN_LLVM)
         //printf("UserAttributeDeclaration::semantic() %p\n", this);
         if (uad.decl && !uad._scope)
             uad.Dsymbol.setScope(sc); // for function local symbols
+        arrayExpressionSemantic(uad.atts, sc, true);
         return attribSemantic(uad);
     }
 
@@ -5097,6 +5098,7 @@ version (IN_LLVM)
             // Check for errors, handle forward references
             bool multiClassError = false;
 
+            BCLoop:
             for (size_t i = (cldec.baseClass ? 1 : 0); i < cldec.baseclasses.dim;)
             {
                 BaseClass* b = (*cldec.baseclasses)[i];
@@ -5139,7 +5141,7 @@ version (IN_LLVM)
                     {
                         cldec.error("inherits from duplicate interface `%s`", b2.sym.toChars());
                         cldec.baseclasses.remove(i);
-                        continue;
+                        continue BCLoop;
                     }
                 }
                 if (tc.sym.isDeprecated())
@@ -5688,6 +5690,7 @@ version (IN_LLVM)
             }
 
             // Check for errors, handle forward references
+            BCLoop:
             for (size_t i = 0; i < idec.baseclasses.dim;)
             {
                 BaseClass* b = (*idec.baseclasses)[i];
@@ -5709,7 +5712,7 @@ version (IN_LLVM)
                     {
                         idec.error("inherits from duplicate interface `%s`", b2.sym.toChars());
                         idec.baseclasses.remove(i);
-                        continue;
+                        continue BCLoop;
                     }
                 }
                 if (tc.sym == idec || idec.isBaseOf2(tc.sym))
