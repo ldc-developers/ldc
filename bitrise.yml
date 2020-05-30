@@ -89,7 +89,7 @@ workflows:
           title: Run Tests on Device
           run_if: not .IsPR
           inputs:
-            - test_devices: iphone6,12.2,en,portrait
+            - test_devices: iphone6s,12.0,en,portrait
             - download_test_results: true
 
       - script@1.1.6:
