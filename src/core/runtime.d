@@ -797,7 +797,7 @@ static if (hasExecinfo) private class DefaultTraceInfo : Throwable.TraceInfo
         enum CALL_INSTRUCTION_SIZE = 1;
 
         static if (__traits(compiles, backtrace((void**).init, int.init)))
-            numframes = backtrace(this.callstack.ptr, MAXFRAMES);
+            numframes = cast(int) backtrace(this.callstack.ptr, MAXFRAMES);
         // Backtrace succeeded, adjust the frame to point to the caller
         if (numframes >= 2)
             foreach (ref elem; this.callstack)
