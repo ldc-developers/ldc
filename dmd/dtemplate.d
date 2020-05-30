@@ -6531,7 +6531,17 @@ extern (C++) class TemplateInstance : ScopeDsymbol
 
                     if (ea.op == TOK.variable)
                     {
-                        /* This test is to skip substituting a const var with
+                        /* If the parameter is a function that is not called
+                         * explicitly, i.e. `foo!func` as opposed to `foo!func()`,
+                         * then it is a dsymbol, not the return value of `func()`
+                         */
+                        Declaration vd = (cast(VarExp)ea).var;
+                        if (auto fd = vd.isFuncDeclaration())
+                        {
+                            sa = fd;
+                            goto Ldsym;
+                        }
+                        /* Otherwise skip substituting a const var with
                          * its initializer. The problem is the initializer won't
                          * match with an 'alias' parameter. Instead, do the
                          * const substitution in TemplateValueParameter.matchArg().
@@ -7988,6 +7998,7 @@ MATCH matchArg(TemplateParameter tp, Scope* sc, RootObject oarg, size_t i, Templ
         {
             if (sa == TemplateAliasParameter.sdummy)
                 return matchArgNoMatch();
+            // check specialization if template arg is a symbol
             Dsymbol sx = isDsymbol(sa);
             if (sa != tap.specAlias && sx)
             {
@@ -8009,6 +8020,22 @@ MATCH matchArg(TemplateParameter tp, Scope* sc, RootObject oarg, size_t i, Templ
                 MATCH m2 = deduceType(t, sc, talias, parameters, dedtypes);
                 if (m2 <= MATCH.nomatch)
                     return matchArgNoMatch();
+            }
+            // check specialization if template arg is a type
+            else if (ta)
+            {
+                if (Type tspec = isType(tap.specAlias))
+                {
+                    MATCH m2 = ta.implicitConvTo(tspec);
+                    if (m2 <= MATCH.nomatch)
+                        return matchArgNoMatch();
+                }
+                else
+                {
+                    error(tap.loc, "template parameter specialization for a type must be a type and not `%s`",
+                        tap.specAlias.toChars());
+                    return matchArgNoMatch();
+                }
             }
         }
         else if ((*dedtypes)[i])
