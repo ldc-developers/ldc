@@ -164,7 +164,6 @@ task:
 
 task:
   name: FreeBSD 12.1 x64
-  allow_failures: 1 == 1
   freebsd_instance:
     image_family: freebsd-12-1
     cpu: 4
