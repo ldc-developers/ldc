@@ -807,6 +807,9 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang");
     break;
+  case llvm::Triple::PS4:
+    VersionCondition::addPredefinedGlobalIdent("PlayStation4");
+    //fallthru
   case llvm::Triple::FreeBSD:
     VersionCondition::addPredefinedGlobalIdent("FreeBSD");
     VersionCondition::addPredefinedGlobalIdent("Posix");
@@ -1061,7 +1064,7 @@ int cppmain() {
     global.params.isLinux = triple->isOSLinux();
     global.params.isOSX = triple->isOSDarwin();
     global.params.isWindows = triple->isOSWindows();
-    global.params.isFreeBSD = triple->isOSFreeBSD();
+    global.params.isFreeBSD = triple->isOSFreeBSD() || triple->isPS4();
     global.params.isOpenBSD = triple->isOSOpenBSD();
     global.params.isDragonFlyBSD = triple->isOSDragonFly();
     global.params.isSolaris = triple->isOSSolaris();

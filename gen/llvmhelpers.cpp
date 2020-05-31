@@ -322,6 +322,9 @@ void DtoCAssert(Module *M, Loc &loc, LLValue *msg) {
     args.push_back(file);
     args.push_back(line);
     args.push_back(msg);
+  } else if (triple.isPS4()) {
+    args.push_back(file);
+    args.push_back(msg);
   } else {
     args.push_back(msg);
     args.push_back(file);

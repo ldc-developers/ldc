@@ -65,6 +65,7 @@ unsigned getCriticalSectionSize(const Param &params) {
     return is64bit ? 48 : 28;
 
   case llvm::Triple::FreeBSD:
+  case llvm::Triple::PS4:
   case llvm::Triple::OpenBSD:
   case llvm::Triple::DragonFly:
     return gDataLayout->getPointerSize();

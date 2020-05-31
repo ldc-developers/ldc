@@ -124,6 +124,9 @@ static std::string getX86TargetCPU(const llvm::Triple &triple) {
   if (triple.isOSDarwin()) {
     return triple.isArch64Bit() ? "core2" : "yonah";
   }
+  if (triple.isPS4()) {
+    return "btver2";
+  }
   // Everything else goes to x86-64 in 64-bit mode.
   if (triple.isArch64Bit()) {
     return "x86-64";
@@ -419,6 +422,9 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
       // features (like ASLR). We default to PIC code to avoid linking issues on
       // these OSes.
       // On Android, PIC is default as well.
+      relocModel = llvm::Reloc::PIC_;
+    } else if (triple.isPS4()) {
+      // PS4 also requires PIC, exact reason unknown. 
       relocModel = llvm::Reloc::PIC_;
     } else {
       // ARM for other than Darwin or Android defaults to static
