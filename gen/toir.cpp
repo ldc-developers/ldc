@@ -1685,7 +1685,7 @@ public:
     p->scope() = IRScope(failedbb);
 
     if (global.params.checkAction == CHECKACTION_halt) {
-      p->ir->CreateCall(GET_INTRINSIC_DECL(trap), {});
+      p->ir->CreateCall(GET_INTRINSIC_DECL(debugtrap), {});
       p->ir->CreateUnreachable();
     } else {
       /* DMD Bugzilla 8360: If the condition is evaluated to true,
