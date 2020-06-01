@@ -164,7 +164,6 @@ task:
 
 task:
   name: FreeBSD 12.1 x64
-  allow_failures: 1 == 1
   freebsd_instance:
     image_family: freebsd-12-1
     cpu: 4
@@ -174,10 +173,24 @@ task:
     CI_OS: freebsd
     EXTRA_CMAKE_FLAGS: ""
     PARALLELISM: 4
+    # use clang 9 for lld 9 with .deplibs (`pragma(lib)`) support
+    CC: /usr/local/llvm90/bin/clang
   install_prerequisites_script: |
     cd $CIRRUS_WORKING_DIR/..
     sysctl -n hw.ncpu
     pkg install -y git cmake ninja gmake llvm ldc bash
-    # Use FreeBSD's ldc as host D compiler
-    ln -s /usr/local host-ldc
+  clone_submodules_early_script: |
+    cd $CIRRUS_WORKING_DIR
+    git submodule update --init --depth $CIRRUS_CLONE_DEPTH
+  # Build a first LDC as host compiler for the actual build (FreeBSD's LDC is v1.14)
+  build_bootstrap_ldc_script: |
+    cd $CIRRUS_WORKING_DIR/..
+    mkdir host-ldc
+    cd host-ldc
+    cmake -G Ninja $CIRRUS_WORKING_DIR \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DD_COMPILER=/usr/local/bin/ldmd2 \
+      -DBUILD_SHARED_LIBS=OFF
+    ninja -j$PARALLELISM
+    bin/ldc2 -version
   << : *COMMON_STEPS_TEMPLATE
