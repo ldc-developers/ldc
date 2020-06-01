@@ -345,7 +345,7 @@ static llvm::Function *DtoDeclareVaFunction(FuncDeclaration *fdecl) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoResolveFunction(FuncDeclaration *fdecl) {
+void DtoResolveFunction(FuncDeclaration *fdecl, const bool willDeclare) {
   if ((!global.params.useUnitTests || !fdecl->type) &&
       fdecl->isUnitTestDeclaration()) {
     IF_LOG Logger::println("Ignoring unittest %s", fdecl->toPrettyChars());
@@ -423,9 +423,13 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
   LOG_SCOPE;
 
   // queue declaration unless the function is abstract without body
-  if (!fdecl->isAbstract() || fdecl->fbody) {
+  if (!willDeclare && (!fdecl->isAbstract() || fdecl->fbody)) {
     DtoDeclareFunction(fdecl);
   }
+}
+
+void DtoResolveFunction(FuncDeclaration *fdecl) {
+  return DtoResolveFunction(fdecl, false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -539,8 +543,8 @@ void onlyOneMainCheck(FuncDeclaration *fd) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoDeclareFunction(FuncDeclaration *fdecl) {
-  DtoResolveFunction(fdecl);
+void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
+  DtoResolveFunction(fdecl, /*willDeclare=*/true);
 
   if (fdecl->ir->isDeclared()) {
     return;
@@ -567,7 +571,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   // Check if fdecl should be defined too for cross-module inlining.
   // If true, semantic is fully done for fdecl which is needed for some code
   // below (e.g. code that uses fdecl->vthis).
-  const bool defineAtEnd = defineAsExternallyAvailable(*fdecl);
+  const bool defineAtEnd = !willDefine && defineAsExternallyAvailable(*fdecl);
   if (defineAtEnd) {
     IF_LOG Logger::println(
         "Function is an externally_available inline candidate.");
@@ -762,8 +766,12 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   if (defineAtEnd) {
     IF_LOG Logger::println(
         "Function is an externally_available inline candidate: define it now.");
-    DtoDefineFunction(fdecl, true);
+    DtoDefineFunction(fdecl, /*linkageAvailableExternally=*/true);
   }
+}
+
+void DtoDeclareFunction(FuncDeclaration *fdecl) {
+  return DtoDeclareFunction(fdecl, false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -969,7 +977,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   if (fd->ir->isDefined()) {
     llvm::Function *func = getIrFunc(fd)->getLLVMFunc();
-    assert(nullptr != func);
+    assert(func);
     if (!linkageAvailableExternally &&
         (func->getLinkage() == llvm::GlobalValue::AvailableExternallyLinkage)) {
       // Fix linkage
@@ -1001,12 +1009,19 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     fatal();
   }
 
-  DtoResolveFunction(fd);
+  DtoDeclareFunction(fd, /*willDefine=*/true);
+  assert(fd->ir->isDeclared());
+
+  // DtoDeclareFunction might also set the defined flag for functions we
+  // should not touch.
+  if (fd->ir->isDefined()) {
+    return;
+  }
+  fd->ir->setDefined();
 
   if (fd->isUnitTestDeclaration() && !global.params.useUnitTests) {
     IF_LOG Logger::println("No code generation for unit test declaration %s",
                            fd->toChars());
-    fd->ir->setDefined();
     return;
   }
 
@@ -1016,26 +1031,14 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
       IF_LOG Logger::println(
           "No code generation for typeinfo member %s in @compute code",
           fd->toChars());
-      fd->ir->setDefined();
       return;
     }
   }
 
   if (!linkageAvailableExternally && !alreadyOrWillBeDefined(*fd)) {
     IF_LOG Logger::println("Skipping '%s'.", fd->toPrettyChars());
-    fd->ir->setDefined();
     return;
   }
-
-  DtoDeclareFunction(fd);
-  assert(fd->ir->isDeclared());
-
-  // DtoResolveFunction might also set the defined flag for functions we
-  // should not touch.
-  if (fd->ir->isDefined()) {
-    return;
-  }
-  fd->ir->setDefined();
 
   // We cannot emit nested functions with parents that have not gone through
   // semantic analysis. This can happen as DMD leaks some template instances

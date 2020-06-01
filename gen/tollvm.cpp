@@ -215,8 +215,11 @@ LLValue *DtoDelegateEquals(TOK op, LLValue *lhs, LLValue *rhs) {
 ////////////////////////////////////////////////////////////////////////////////
 
 LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
-  auto linkage = (DtoIsTemplateInstance(sym) ? templateLinkage
-                                             : LLGlobalValue::ExternalLinkage);
+  // Function (incl. delegate) literals are emitted into each referencing
+  // compilation unit; use template linkage to prevent conflicts.
+  auto linkage = (sym->isFuncLiteralDeclaration() || DtoIsTemplateInstance(sym))
+                     ? templateLinkage
+                     : LLGlobalValue::ExternalLinkage;
 
   // If @(ldc.attributes.weak) is applied, override the linkage to WeakAny
   if (hasWeakUDA(sym)) {
