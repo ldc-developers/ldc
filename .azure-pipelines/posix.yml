@@ -137,7 +137,6 @@ steps:
     chmod 755 llvm-$ARCH/bin/llvm-config
     # Set up DFLAGS for cross-compiling/linking with host ldmd2
     DFLAGS="-mtriple=$LLVM_TRIPLE -L-L$PWD/ldc-build-runtime.tmp/lib -gcc=$PWD/android-ndk-r21/toolchains/llvm/prebuilt/linux-x86_64/bin/$ARCH-linux-${androidEnv}21-clang"
-    if [ "$ARCH" = "armv7a" ]; then DFLAGS="$DFLAGS -mcpu=cortex-a8"; fi
     set +x
     echo "##vso[task.setvariable variable=DFLAGS]$DFLAGS"
   displayName: 'Android: Set up cross-compilation'
@@ -159,8 +158,6 @@ steps:
     installDir=$PWD/install
     mkdir build-$ARCH
     cd build-$ARCH
-    DEFAULT_LDC_SWITCHES=''
-    if [ "$ARCH" = "armv7a" ]; then DEFAULT_LDC_SWITCHES=" \"-mcpu=cortex-a8\","; fi
     IFS=$'\n' extraFlags=( $(xargs -n1 <<<"$EXTRA_CMAKE_FLAGS $EXTRA_CMAKE_FLAGS_ANDROID") )
     cmake -G Ninja $BUILD_SOURCESDIRECTORY \
       -DCMAKE_BUILD_TYPE=Release \
@@ -169,7 +166,6 @@ steps:
       -DCMAKE_INSTALL_PREFIX=$installDir \
       -DINCLUDE_INSTALL_DIR=$installDir/import \
       -DD_LINKER_ARGS="-L$PWD/../ldc-build-runtime.tmp/lib;-lphobos2-ldc;-ldruntime-ldc" \
-      -DADDITIONAL_DEFAULT_LDC_SWITCHES="$DEFAULT_LDC_SWITCHES" \
       "${extraFlags[@]}"
     ninja -j$PARALLEL_JOBS -v ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache
   displayName: 'Android: Cross-compile LDC executables'
