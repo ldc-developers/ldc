@@ -16,6 +16,8 @@ void _start() {}
 
 void __assert(const(char)* msg, const(char)* file, uint line) {}
 
+int memcmp(const void* s1, const void* s2, size_t n) { assert(0); }
+
 export int myExportedFoo()
 {
     import std.algorithm, std.range;
