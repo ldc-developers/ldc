@@ -183,6 +183,16 @@ static std::string getAArch64TargetCPU(const llvm::Triple &triple) {
   return "generic";
 }
 
+#if LDC_LLVM_VER >= 400
+static std::string getRiscv32TargetCPU(const llvm::Triple &triple) {
+  return "generic-rv32";
+}
+
+static std::string getRiscv64TargetCPU(const llvm::Triple &triple) {
+  return "generic-rv64";
+}
+#endif
+
 /// Returns the LLVM name of the default CPU for the provided target triple.
 static std::string getTargetCPU(const llvm::Triple &triple) {
   switch (triple.getArch()) {
@@ -200,6 +210,12 @@ static std::string getTargetCPU(const llvm::Triple &triple) {
   case llvm::Triple::aarch64:
   case llvm::Triple::aarch64_be:
     return getAArch64TargetCPU(triple);
+#if LDC_LLVM_VER >= 400
+  case llvm::Triple::riscv32:
+    return getRiscv32TargetCPU(triple);
+  case llvm::Triple::riscv64:
+    return getRiscv64TargetCPU(triple);
+#endif
   }
 }
 
