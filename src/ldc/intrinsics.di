@@ -679,3 +679,30 @@ static if (LLVM_atleast!6)
 pragma(LDC_intrinsic, "llvm.sideeffect")
     void llvm_sideeffect();
 }
+
+version(WebAssembly)
+{
+static if (LLVM_atleast!7)
+{
+/// Grows memory by a given delta and returns the previous size, or -1 if enough
+/// memory cannot be allocated.
+///
+/// Note:
+///     In the current version of WebAssembly, all memory instructions implicitly
+///     operate on memory index 0. This restriction may be lifted in future versions.
+///
+/// https://webassembly.github.io/spec/core/exec/instructions.html#exec-memory-grow
+pragma(LDC_intrinsic, "llvm.wasm.memory.grow.i32")
+    int llvm_wasm_memory_grow(int mem, int delta);
+
+/// Returns the current size of memory.
+///
+/// Note:
+///     In the current version of WebAssembly, all memory instructions implicitly
+///     operate on memory index 0. This restriction may be lifted in future versions.
+///
+/// https://webassembly.github.io/spec/core/exec/instructions.html#exec-memory-size
+pragma(LDC_intrinsic, "llvm.wasm.memory.size.i32")
+    int llvm_wasm_memory_size(int mem);
+}
+}
