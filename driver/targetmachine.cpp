@@ -183,7 +183,7 @@ static std::string getAArch64TargetCPU(const llvm::Triple &triple) {
   return "generic";
 }
 
-#if defined RISCV_LLVM_DEV || LDC_LLVM_VER >= 400
+#if LDC_LLVM_VER >= 400
 static std::string getRiscv32TargetCPU(const llvm::Triple &triple) {
   return "generic-rv32";
 }
@@ -210,12 +210,8 @@ static std::string getTargetCPU(const llvm::Triple &triple) {
   case llvm::Triple::aarch64:
   case llvm::Triple::aarch64_be:
     return getAArch64TargetCPU(triple);
-#if defined RISCV_LLVM_DEV || LDC_LLVM_VER >= 400
-#if defined RISCV_LLVM_DEV
-  case llvm::Triple::riscv:
-#else
+#if LDC_LLVM_VER >= 400
   case llvm::Triple::riscv32:
-#endif
     return getRiscv32TargetCPU(triple);
   case llvm::Triple::riscv64:
     return getRiscv64TargetCPU(triple);

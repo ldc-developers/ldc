@@ -684,12 +684,8 @@ void registerPredefinedTargetVersions() {
   case llvm::Triple::msp430:
     VersionCondition::addPredefinedGlobalIdent("MSP430");
     break;
-#if defined RISCV_LLVM_DEV || LDC_LLVM_VER >= 400
-#if defined RISCV_LLVM_DEV
-  case llvm::Triple::riscv:
-#else
+#if LDC_LLVM_VER >= 400
   case llvm::Triple::riscv32:
-#endif
     VersionCondition::addPredefinedGlobalIdent("RISCV32");
     break;
   case llvm::Triple::riscv64:
