@@ -94,7 +94,11 @@ void appendTargetArgsForGcc(std::vector<std::string> &args) {
   // Only specify -m32/-m64 for architectures where the two variants actually
   // exist (as e.g. the GCC ARM toolchain doesn't recognize the switches).
   if (arch64 == Triple::UnknownArch || arch32 == Triple::UnknownArch ||
-      arch64 == Triple::aarch64 || arch64 == Triple::aarch64_be) {
+      arch64 == Triple::aarch64 || arch64 == Triple::aarch64_be
+#if LDC_LLVM_VER >= 400
+      || arch32 == Triple::riscv32 || arch64 == Triple::riscv64
+#endif
+      ) {
     return;
   }
 
