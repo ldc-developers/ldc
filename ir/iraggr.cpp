@@ -43,19 +43,30 @@ llvm::StructType *IrAggr::getLLStructType() {
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLConstant *&IrAggr::getInitSymbol() {
-  if (init) {
-    return init;
+LLConstant *&IrAggr::getInitSymbol(bool define) {
+  if (!init) {
+    // create the initZ symbol
+    const auto irMangle = getIRMangledInitSymbolName(aggrdecl);
+
+    auto initGlobal =
+        declareGlobal(aggrdecl->loc, gIR->module, getLLStructType(), irMangle,
+                      /*isConstant=*/true);
+    initGlobal->setAlignment(LLMaybeAlign(DtoAlignment(type)));
+
+    init = initGlobal;
+
+    if (DtoIsTemplateInstance(aggrdecl))
+      define = true;
   }
 
-  // create the initZ symbol
-  const auto irMangle = getIRMangledInitSymbolName(aggrdecl);
-
-  auto initGlobal = declareGlobal(aggrdecl->loc, gIR->module, getLLStructType(),
-                                  irMangle, /*isConstant=*/true);
-  initGlobal->setAlignment(LLMaybeAlign(DtoAlignment(type)));
-
-  init = initGlobal;
+  if (define) {
+    auto initConstant = getDefaultInit();
+    auto initGlobal = llvm::dyn_cast<LLGlobalVariable>(init);
+    if (initGlobal && !initGlobal->hasInitializer()) {
+      init = gIR->setGlobalVarInitializer(initGlobal, initConstant);
+      setLinkageAndVisibility(aggrdecl, initGlobal);
+    }
+  }
 
   return init;
 }

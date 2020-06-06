@@ -44,18 +44,25 @@ extern LLConstant *DtoDefineClassInfo(ClassDeclaration *cd);
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLGlobalVariable *IrAggr::getVtblSymbol() {
-  if (vtbl) {
-    return vtbl;
+LLGlobalVariable *IrAggr::getVtblSymbol(bool define) {
+  if (!vtbl) {
+    // create the vtblZ symbol
+    const auto irMangle = getIRMangledVTableSymbolName(aggrdecl);
+
+    LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtblType();
+
+    vtbl = declareGlobal(aggrdecl->loc, gIR->module, vtblTy, irMangle,
+                         /*isConstant=*/true);
+
+    if (DtoIsTemplateInstance(aggrdecl))
+      define = true;
   }
 
-  // create the vtblZ symbol
-  const auto irMangle = getIRMangledVTableSymbolName(aggrdecl);
-
-  LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtblType();
-
-  vtbl = declareGlobal(aggrdecl->loc, gIR->module, vtblTy, irMangle,
-                       /*isConstant=*/true);
+  if (define) {
+    auto init = getVtblInit(); // might define vtbl
+    if (!vtbl->hasInitializer())
+      defineGlobal(vtbl, init, aggrdecl);
+  }
 
   return vtbl;
 }

@@ -59,12 +59,12 @@ struct IrAggr {
   //////////////////////////////////////////////////////////////////////////
 
   /// Create the __initZ symbol lazily.
-  llvm::Constant *&getInitSymbol();
+  llvm::Constant *&getInitSymbol(bool define = false);
   /// Builds the __initZ initializer constant lazily.
   llvm::Constant *getDefaultInit();
 
   /// Create the __vtblZ symbol lazily.
-  llvm::GlobalVariable *getVtblSymbol();
+  llvm::GlobalVariable *getVtblSymbol(bool define = false);
   /// Builds the __vtblZ initializer constant lazily.
   llvm::Constant *getVtblInit();
 

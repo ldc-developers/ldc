@@ -146,10 +146,7 @@ public:
 
       // Define the __initZ symbol.
       if (!decl->zeroInit) {
-        auto &initZ = ir->getInitSymbol();
-        auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
-        initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
-        setLinkageAndVisibility(decl, initGlobal);
+        ir->getInitSymbol(true);
       }
 
       // emit typeinfo
@@ -199,13 +196,9 @@ public:
 
       IrAggr *ir = getIrAggr(decl);
 
-      auto &initZ = ir->getInitSymbol();
-      auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
-      initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
-      setLinkageAndVisibility(decl, initGlobal);
+      ir->getInitSymbol(true);
 
-      llvm::GlobalVariable *vtbl = ir->getVtblSymbol();
-      defineGlobal(vtbl, ir->getVtblInit(), decl);
+      ir->getVtblSymbol(true);
 
       ir->defineInterfaceVtbls();
 
