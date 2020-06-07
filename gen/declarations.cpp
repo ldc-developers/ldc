@@ -15,7 +15,6 @@
 #include "dmd/id.h"
 #include "dmd/import.h"
 #include "dmd/init.h"
-#include "dmd/module.h"
 #include "dmd/nspace.h"
 #include "dmd/root/rmem.h"
 #include "dmd/template.h"
@@ -106,7 +105,7 @@ public:
       IrAggr *ir = getIrAggr(decl);
       if (!ir->suppressTypeInfo()) {
         llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
-        defineGlobal(interfaceZ, ir->getClassInfoInit(), decl);
+        defineGlobal(interfaceZ, ir->getClassInfoInit(), decl, true);
       }
     }
   }
@@ -205,7 +204,7 @@ public:
       // Emit TypeInfo.
       if (!ir->suppressTypeInfo()) {
         llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
-        defineGlobal(classZ, ir->getClassInfoInit(), decl);
+        defineGlobal(classZ, ir->getClassInfoInit(), decl, true);
       }
     }
   }

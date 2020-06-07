@@ -499,7 +499,7 @@ void IrAggr::defineInterfaceVtbl(BaseClass *b, bool new_instance,
 
   // define the global
   const auto gvar = getInterfaceVtblSymbol(b, interfaces_index);
-  defineGlobal(gvar, vtbl_constant, cd);
+  defineGlobal(gvar, vtbl_constant, cd, true);
 }
 
 void IrAggr::defineInterfaceVtbls() {
@@ -602,7 +602,7 @@ LLConstant *IrAggr::getClassInfoInterfaces() {
   // create and apply initializer
   LLConstant *arr = LLConstantArray::get(array_type, constants);
   auto ciarr = getInterfaceArraySymbol();
-  defineGlobal(ciarr, arr, cd);
+  defineGlobal(ciarr, arr, cd, true);
 
   // return null, only baseclass provide interfaces
   if (cd->vtblInterfaces->length == 0) {

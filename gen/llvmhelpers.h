@@ -262,7 +262,8 @@ llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
 /// its linkage and visibility.
 /// Asserts that a global isn't defined multiple times this way.
 void defineGlobal(llvm::GlobalVariable *global, llvm::Constant *init,
-                  Dsymbol *symbolForLinkageAndVisibility);
+                  Dsymbol *symbolForLinkageAndVisibility,
+                  bool enforceWeakODRForTemplates = false);
 
 /// Declares (if not already declared) & defines an LLVM global.
 llvm::GlobalVariable *defineGlobal(const Loc &loc, llvm::Module &module,
