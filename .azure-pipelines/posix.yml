@@ -165,7 +165,7 @@ steps:
       -DD_COMPILER=$PWD/../bootstrap-ldc/bin/ldmd2 \
       -DCMAKE_INSTALL_PREFIX=$installDir \
       -DINCLUDE_INSTALL_DIR=$installDir/import \
-      -DD_LINKER_ARGS="-L$PWD/../ldc-build-runtime.tmp/lib;-lphobos2-ldc;-ldruntime-ldc" \
+      -DD_LINKER_ARGS="-fuse-ld=bfd;-L$PWD/../ldc-build-runtime.tmp/lib;-lphobos2-ldc;-ldruntime-ldc" \
       "${extraFlags[@]}"
     ninja -j$PARALLEL_JOBS -v ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache
   displayName: 'Android: Cross-compile LDC executables'
