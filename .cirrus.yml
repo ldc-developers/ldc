@@ -18,11 +18,14 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
     cmake --version
     ninja --version
     cd $CIRRUS_WORKING_DIR/..
+    installDir=$PWD/install
     mkdir build
     cd build
     cmake -G Ninja $CIRRUS_WORKING_DIR \
       -DCMAKE_BUILD_TYPE=Release \
       -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
+      -DCMAKE_INSTALL_PREFIX=$installDir \
+      -DINCLUDE_INSTALL_DIR=$installDir/import \
       $EXTRA_CMAKE_FLAGS
     ninja -j$PARALLELISM all ldc2-unittest all-test-runners
     bin/ldc2 -version
@@ -171,14 +174,15 @@ task:
   timeout_in: 60m
   environment:
     CI_OS: freebsd
-    EXTRA_CMAKE_FLAGS: ""
+    EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS_OS=freebsd"
     PARALLELISM: 4
-    # use clang 9 for lld 9 with .deplibs (`pragma(lib)`) support
-    CC: /usr/local/llvm90/bin/clang
+    GITHUB_TOKEN: ENCRYPTED[0955bd48c8d4e5391446fc0149d0719ad0b63df27ec9e6c180a5730a5b10dc7f28f09d1383423db158d21380ee2b022a]
+    # use clang from the `llvm` ports package to be installed, incl. lld support for .deplibs (`pragma(lib, "execinfo")`)
+    CC: clang90
   install_prerequisites_script: |
     cd $CIRRUS_WORKING_DIR/..
     sysctl -n hw.ncpu
-    pkg install -y git cmake ninja gmake llvm ldc bash
+    pkg install -y git cmake ninja gmake llvm ldc bash gtar p7zip
   clone_submodules_early_script: |
     cd $CIRRUS_WORKING_DIR
     git submodule update --init --depth $CIRRUS_CLONE_DEPTH
@@ -194,3 +198,74 @@ task:
     ninja -j$PARALLELISM
     bin/ldc2 -version
   << : *COMMON_STEPS_TEMPLATE
+  # Install LDC & make portable
+  install_script: |
+    cd $CIRRUS_WORKING_DIR/..
+    cd build
+    ninja install > /dev/null
+    cd ..
+    perl -pi -e s?$PWD/install/?%%ldcbinarypath%%/../?g install/etc/ldc2.conf
+    perl -pi -e "s?,druntime-ldc\",?,druntime-ldc\", \"-gcc=$CC\",?" install/etc/ldc2.conf
+    cp $CIRRUS_WORKING_DIR/{LICENSE,packaging/README} install
+    cat install/etc/ldc2.conf
+    # Now rename the installation dir to test portability
+    mv install installed
+  # Run hello-world integration test with shared libs
+  run_shared_libs_integration_test_script: |
+    cd $CIRRUS_WORKING_DIR/..
+    echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > hello.d
+    installed/bin/ldc2 hello.d -m64 -of=hello64 -link-defaultlib-shared
+    ./hello64
+  # Run hello-world integration test with LTO
+  run_lto_integration_test_script: |
+    cd $CIRRUS_WORKING_DIR/..
+    installed/bin/ldc2 hello.d -of=hello_thin -flto=thin -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
+    ./hello_thin
+    installed/bin/ldc2 hello.d -of=hello_full -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
+    ./hello_full
+  # Run dynamic-compile integration test
+  run_dynamic_compile_integration_test_script: |
+    cd $CIRRUS_WORKING_DIR/..
+    installed/bin/ldc2 -enable-dynamic-compile -run $CIRRUS_WORKING_DIR/tests/dynamiccompile/array.d
+  # Build & copy dub
+  build_dub_script: |
+    cd $CIRRUS_WORKING_DIR/..
+    export DMD=$PWD/installed/bin/ldmd2
+    git clone --recursive https://github.com/dlang/dub.git
+    cd dub
+    git checkout "$(cat $CIRRUS_WORKING_DIR/packaging/dub_version)"
+    $DMD -run build.d -O -w
+    cp bin/dub ../installed/bin
+    ../installed/bin/dub --version
+  # Build & copy dlang tools
+  build_dlang_tools_script: |
+    cd $CIRRUS_WORKING_DIR/..
+    DMD=$PWD/installed/bin/ldmd2
+    git clone --recursive https://github.com/dlang/tools.git dlang-tools
+    cd dlang-tools
+    mkdir bin
+    $DMD -w -de -dip1000 rdmd.d -of=bin/rdmd
+    $DMD -w -de -dip1000 ddemangle.d -of=bin/ddemangle
+    $DMD -w -de -dip1000 DustMite/dustmite.d DustMite/splitter.d -of=bin/dustmite
+    cp bin/{rdmd,ddemangle,dustmite} ../installed/bin
+  # Pack artifact
+  pack_artifact_script: |
+    cd $CIRRUS_WORKING_DIR/..
+    mkdir artifacts
+    if [ -n "$CIRRUS_TAG" ]; then
+      artifactID=${CIRRUS_TAG:1}
+    else
+      artifactID=${CIRRUS_CHANGE_IN_REPO:0:8}
+    fi
+    artifactName=ldc2-$artifactID-$CI_OS-x86_64
+    mv installed $artifactName
+    chmod -R go=rX $artifactName
+    gtar -cf - --owner=0 --group=0 $artifactName | 7za a artifacts/$artifactName.tar.xz -si -txz -mx9
+  # Upload to GitHub release (only for commits on the master branch and tags)
+  upload_to_github_script: |
+    cd $CIRRUS_WORKING_DIR
+    if [ -n "$CIRRUS_TAG" ]; then
+      tools/upload-to-github.sh $CIRRUS_TAG ../artifacts/ldc2-*.tar.xz
+    elif [[ "$CIRRUS_PR" = "" && "$CIRRUS_BRANCH" = "master" ]]; then
+      tools/upload-to-github.sh CI ../artifacts/ldc2-*.tar.xz
+    fi
