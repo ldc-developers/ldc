@@ -183,18 +183,22 @@ task:
   install_prerequisites_script: |
     cd $CIRRUS_WORKING_DIR/..
     sysctl -n hw.ncpu
-    pkg install -y git cmake ninja gmake llvm ldc bash gtar p7zip
+    pkg install -y git cmake ninja gmake llvm bash gtar p7zip
+    # Download & extract host LDC
+    curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/CI/ldc2-57429428-freebsd-x86_64.tar.xz
+    mkdir pre-ldc
+    gtar -xf ldc2.tar.xz --strip 1 -C pre-ldc
   clone_submodules_early_script: |
     cd $CIRRUS_WORKING_DIR
     git submodule update --init --depth $CIRRUS_CLONE_DEPTH
-  # Build a first LDC as host compiler for the actual build (FreeBSD's LDC is v1.14)
+  # Build a first LDC as host compiler for the actual build
   build_bootstrap_ldc_script: |
     cd $CIRRUS_WORKING_DIR/..
     mkdir host-ldc
     cd host-ldc
     cmake -G Ninja $CIRRUS_WORKING_DIR \
       -DCMAKE_BUILD_TYPE=Release \
-      -DD_COMPILER=/usr/local/bin/ldmd2 \
+      -DD_COMPILER=$PWD/../pre-ldc/bin/ldmd2 \
       -DBUILD_SHARED_LIBS=OFF \
       -DBUILD_LTO_LIBS=ON
     ninja -j$PARALLELISM
@@ -268,6 +272,6 @@ task:
     cd $CIRRUS_WORKING_DIR
     if [ -n "$CIRRUS_TAG" ]; then
       tools/upload-to-github.sh $CIRRUS_TAG ../artifacts/ldc2-*.tar.xz
-    else # if [[ "$CIRRUS_PR" = "" && "$CIRRUS_BRANCH" = "master" ]]; then
+    elif [[ "$CIRRUS_PR" = "" && "$CIRRUS_BRANCH" = "master" ]]; then
       tools/upload-to-github.sh CI ../artifacts/ldc2-*.tar.xz
     fi
