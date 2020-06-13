@@ -21,12 +21,13 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
     installDir=$PWD/install
     mkdir build
     cd build
+    IFS=$'\n' extraFlags=( $(xargs -n1 <<<"$EXTRA_CMAKE_FLAGS") )
     cmake -G Ninja $CIRRUS_WORKING_DIR \
       -DCMAKE_BUILD_TYPE=Release \
       -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
       -DCMAKE_INSTALL_PREFIX=$installDir \
       -DINCLUDE_INSTALL_DIR=$installDir/import \
-      $EXTRA_CMAKE_FLAGS
+      "${extraFlags[@]}"
     ninja -j$PARALLELISM all ldc2-unittest all-test-runners
     bin/ldc2 -version
   always:
@@ -174,7 +175,7 @@ task:
   timeout_in: 60m
   environment:
     CI_OS: freebsd
-    EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS_OS=freebsd"
+    EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS_OS=freebsd -DD_COMPILER_FLAGS="-flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto" -DEXTRA_CXXFLAGS=-flto=full
     PARALLELISM: 4
     GITHUB_TOKEN: ENCRYPTED[0955bd48c8d4e5391446fc0149d0719ad0b63df27ec9e6c180a5730a5b10dc7f28f09d1383423db158d21380ee2b022a]
     # use clang from the `llvm` ports package to be installed, incl. lld support for .deplibs (`pragma(lib, "execinfo")`)
@@ -194,7 +195,8 @@ task:
     cmake -G Ninja $CIRRUS_WORKING_DIR \
       -DCMAKE_BUILD_TYPE=Release \
       -DD_COMPILER=/usr/local/bin/ldmd2 \
-      -DBUILD_SHARED_LIBS=OFF
+      -DBUILD_SHARED_LIBS=OFF \
+      -DBUILD_LTO_LIBS=ON
     ninja -j$PARALLELISM
     bin/ldc2 -version
   << : *COMMON_STEPS_TEMPLATE
@@ -266,6 +268,6 @@ task:
     cd $CIRRUS_WORKING_DIR
     if [ -n "$CIRRUS_TAG" ]; then
       tools/upload-to-github.sh $CIRRUS_TAG ../artifacts/ldc2-*.tar.xz
-    elif [[ "$CIRRUS_PR" = "" && "$CIRRUS_BRANCH" = "master" ]]; then
+    else # if [[ "$CIRRUS_PR" = "" && "$CIRRUS_BRANCH" = "master" ]]; then
       tools/upload-to-github.sh CI ../artifacts/ldc2-*.tar.xz
     fi
