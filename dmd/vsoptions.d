@@ -252,7 +252,12 @@ private:
 version (IN_LLVM)
 {
         if (VSInstallDir is null)
+        {
             VSInstallDir = getenv("LDC_VSDIR"w);
+            // only use it if it's an existing directory
+            if (VSInstallDir && FileName.exists(VSInstallDir) != 2)
+                VSInstallDir = null;
+        }
 }
 
         if (VSInstallDir is null)
