@@ -53,13 +53,19 @@ install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
     cd $CIRRUS_WORKING_DIR/..
     nproc
     export DEBIAN_FRONTEND=noninteractive
-    dpkg --add-architecture i386
+    if [[ "$EXTRA_CMAKE_FLAGS" = *-DMULTILIB?ON* ]]; then
+      dpkg --add-architecture i386
+      gcc_pkg="g++-multilib"
+      libcurl_pkg="libcurl4 libcurl4:i386"
+    else
+      gcc_pkg="g++"
+      libcurl_pkg="libcurl4"
+    fi
     apt-get -q update
     apt-get -yq install \
-      git-core cmake ninja-build g++-multilib \
+      git-core cmake ninja-build $gcc_pkg \
       llvm-dev zlib1g-dev libclang-common-$LIBCLANG_COMMON_VERSION-dev \
-      libcurl4 libcurl4:i386 \
-      curl gdb python tzdata unzip zip \
+      $libcurl_pkg curl gdb python tzdata unzip zip \
       $EXTRA_APT_PACKAGES
     # Use ld.gold per default, so that LTO is tested
     update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
@@ -98,7 +104,7 @@ install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
 
 environment:
   CIRRUS_CLONE_DEPTH: 50
-  HOST_LDC_VERSION: 1.20.1
+  HOST_LDC_VERSION: 1.22.0
 
 task:
   name: Ubuntu 18.04 x64 multilib rtSanitizers
@@ -116,7 +122,7 @@ task:
   << : *COMMON_STEPS_TEMPLATE
 
 task:
-  name: Ubuntu rolling x64 multilib shared-libs-only gdmd
+  name: Ubuntu rolling x64 shared-libs-only gdmd
   container:
     image: ubuntu:rolling
     cpu: 8
@@ -126,7 +132,7 @@ task:
     CI_OS: linux
     LIBCLANG_COMMON_VERSION: "10"
     EXTRA_APT_PACKAGES: "gdmd locales"
-    EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=gdmd"
+    EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=gdmd"
     PARALLELISM: 8
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
   setup_gdmd_script: |
@@ -185,7 +191,7 @@ task:
     sysctl -n hw.ncpu
     pkg install -y git cmake ninja gmake llvm bash gtar p7zip
     # Download & extract host LDC
-    curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/CI/ldc2-57429428-freebsd-x86_64.tar.xz
+    curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-freebsd-x86_64.tar.xz
     mkdir pre-ldc
     gtar -xf ldc2.tar.xz --strip 1 -C pre-ldc
   clone_submodules_early_script: |
