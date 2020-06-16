@@ -8,13 +8,19 @@ commonSteps: &commonSteps
           cd ..
           if [ "$CI_OS" = "linux" ]; then
             export DEBIAN_FRONTEND=noninteractive
-            dpkg --add-architecture i386
+            if [[ "$EXTRA_CMAKE_FLAGS" = *-DMULTILIB?ON* ]]; then
+              dpkg --add-architecture i386
+              gcc_pkg="g++-multilib"
+              libcurl_pkg="libcurl4 libcurl4:i386"
+            else
+              gcc_pkg="g++"
+              libcurl_pkg="libcurl4"
+            fi
             apt-get -q update
             apt-get -yq install \
-              git-core cmake ninja-build g++-multilib \
+              git-core cmake ninja-build $gcc_pkg \
               llvm-dev zlib1g-dev libclang-common-$LIBCLANG_COMMON_VERSION-dev \
-              libcurl4 libcurl4:i386 \
-              curl gdb python tzdata unzip zip \
+              $libcurl_pkg curl gdb python tzdata unzip zip \
               $EXTRA_APT_PACKAGES
             # Use ld.gold per default, so that LTO is tested
             update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
@@ -108,7 +114,7 @@ jobs:
       - LIBCLANG_COMMON_VERSION: "6.0"
       - HOST_LDC_VERSION: 1.22.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
-  Ubuntu-20.04-multilib-sharedLibsOnly-gdmd:
+  Ubuntu-20.04-sharedLibsOnly-gdmd:
     <<: *commonSteps
     docker:
       - image: ubuntu:20.04
@@ -118,7 +124,7 @@ jobs:
       - LIBCLANG_COMMON_VERSION: "10"
       - EXTRA_APT_PACKAGES: gdmd
       - HOST_LDC_VERSION: 1.22.0
-      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=gdmd"
+      - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=gdmd"
   macOS-x64:
     <<: *commonSteps
     macos:
@@ -145,6 +151,6 @@ workflows:
   build:
     jobs:
       - Ubuntu-18.04-multilib-rtSanitizers
-      - Ubuntu-20.04-multilib-sharedLibsOnly-gdmd
+      - Ubuntu-20.04-sharedLibsOnly-gdmd
       - macOS-x64
       - macOS-x64-sharedLibsOnly
