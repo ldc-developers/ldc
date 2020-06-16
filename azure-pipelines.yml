@@ -140,6 +140,7 @@ jobs:
     vmImage: 'ubuntu-16.04'
   variables:
     CI_OS: android
+    ANDROID_NDK_VERSION: r21d
   strategy:
     matrix:
       armv7a:

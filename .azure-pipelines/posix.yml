@@ -114,12 +114,12 @@ steps:
     mkdir llvm-$ARCH
     tar -xf llvm-$ARCH.tar.xz --strip 1 -C llvm-$ARCH
     # Download & extract Android NDK
-    curl -OL https://dl.google.com/android/repository/android-ndk-r21-linux-x86_64.zip
-    unzip android-ndk-r21-linux-x86_64.zip > /dev/null
-    rm android-ndk-r21-linux-x86_64.zip
+    curl -OL https://dl.google.com/android/repository/android-ndk-$ANDROID_NDK_VERSION-linux-x86_64.zip
+    unzip android-ndk-$ANDROID_NDK_VERSION-linux-x86_64.zip > /dev/null
+    rm android-ndk-$ANDROID_NDK_VERSION-linux-x86_64.zip
     # The NDK toolchain file enforces `-g` as base C[XX] flag - remove it to
     # *significantly* reduce executable sizes
-    TOOLCHAIN_FILE=$PWD/android-ndk-r21/build/cmake/android.toolchain.cmake
+    TOOLCHAIN_FILE=$PWD/android-ndk-$ANDROID_NDK_VERSION/build/cmake/android.toolchain.cmake
     sed -i 's|^  -g$||' $TOOLCHAIN_FILE
     # Set EXTRA_CMAKE_FLAGS_ANDROID for future steps
     set +x
@@ -136,7 +136,7 @@ steps:
       -e "s|@LLVM_TARGETS@|AArch64 ARM X86 WebAssembly|g" > llvm-$ARCH/bin/llvm-config
     chmod 755 llvm-$ARCH/bin/llvm-config
     # Set up DFLAGS for cross-compiling/linking with host ldmd2
-    DFLAGS="-mtriple=$LLVM_TRIPLE -L-L$PWD/ldc-build-runtime.tmp/lib -gcc=$PWD/android-ndk-r21/toolchains/llvm/prebuilt/linux-x86_64/bin/$ARCH-linux-${androidEnv}21-clang"
+    DFLAGS="-mtriple=$LLVM_TRIPLE -L-L$PWD/ldc-build-runtime.tmp/lib -gcc=$PWD/android-ndk-$ANDROID_NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin/$ARCH-linux-${androidEnv}21-clang"
     set +x
     echo "##vso[task.setvariable variable=DFLAGS]$DFLAGS"
   displayName: 'Android: Set up cross-compilation'
@@ -165,7 +165,7 @@ steps:
       -DD_COMPILER=$PWD/../bootstrap-ldc/bin/ldmd2 \
       -DCMAKE_INSTALL_PREFIX=$installDir \
       -DINCLUDE_INSTALL_DIR=$installDir/import \
-      -DD_LINKER_ARGS="-L$PWD/../ldc-build-runtime.tmp/lib;-lphobos2-ldc;-ldruntime-ldc" \
+      -DD_LINKER_ARGS="-fuse-ld=bfd;-L$PWD/../ldc-build-runtime.tmp/lib;-lphobos2-ldc;-ldruntime-ldc" \
       "${extraFlags[@]}"
     ninja -j$PARALLEL_JOBS -v ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache
   displayName: 'Android: Cross-compile LDC executables'
