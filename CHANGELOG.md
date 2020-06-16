@@ -1,4 +1,4 @@
-# LDC 1.22.0 (2020-06-14)
+# LDC 1.22.0 (2020-06-16)
 
 #### Big news
 - Frontend, druntime and Phobos are at version [2.092.1+](https://dlang.org/changelog/2.092.0.html). (#3413, #3416, #3429, #3434, #3452, #3467)
