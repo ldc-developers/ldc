@@ -98,7 +98,7 @@ install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
 
 environment:
   CIRRUS_CLONE_DEPTH: 50
-  HOST_LDC_VERSION: 1.20.1
+  HOST_LDC_VERSION: 1.22.0
 
 task:
   name: Ubuntu 18.04 x64 multilib rtSanitizers
@@ -185,7 +185,7 @@ task:
     sysctl -n hw.ncpu
     pkg install -y git cmake ninja gmake llvm bash gtar p7zip
     # Download & extract host LDC
-    curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/CI/ldc2-57429428-freebsd-x86_64.tar.xz
+    curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-freebsd-x86_64.tar.xz
     mkdir pre-ldc
     gtar -xf ldc2.tar.xz --strip 1 -C pre-ldc
   clone_submodules_early_script: |

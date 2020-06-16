@@ -106,39 +106,38 @@ jobs:
       - PARALLELISM: 2
       - CI_OS: linux
       - LIBCLANG_COMMON_VERSION: "6.0"
-      - HOST_LDC_VERSION: 1.20.1
+      - HOST_LDC_VERSION: 1.22.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
-  Ubuntu-19.10-multilib-sharedLibsOnly-gdmd:
+  Ubuntu-20.04-multilib-sharedLibsOnly-gdmd:
     <<: *commonSteps
     docker:
-      # ubuntu:20.04 apparently fails for clock_getres() (works for Cirrus CI), host kernel possibly too old
-      - image: ubuntu:19.10
+      - image: ubuntu:20.04
     environment:
       - PARALLELISM: 2
       - CI_OS: linux
-      - LIBCLANG_COMMON_VERSION: "9"
+      - LIBCLANG_COMMON_VERSION: "10"
       - EXTRA_APT_PACKAGES: gdmd
-      - HOST_LDC_VERSION: 1.20.1
+      - HOST_LDC_VERSION: 1.22.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=gdmd"
   macOS-x64:
     <<: *commonSteps
     macos:
-      xcode: "11.4.0"
+      xcode: "11.5.0"
     environment:
       - PARALLELISM: 4
       - CI_OS: osx
       - LLVM_VERSION: 10.0.0
-      - HOST_LDC_VERSION: 1.20.1
+      - HOST_LDC_VERSION: 1.22.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
   macOS-x64-sharedLibsOnly:
     <<: *commonSteps
     macos:
-      xcode: "11.4.0"
+      xcode: "11.5.0"
     environment:
       - PARALLELISM: 4
       - CI_OS: osx
       - LLVM_VERSION: 10.0.0
-      - HOST_LDC_VERSION: 1.20.1
+      - HOST_LDC_VERSION: 1.22.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON"
 
 workflows:
@@ -146,6 +145,6 @@ workflows:
   build:
     jobs:
       - Ubuntu-18.04-multilib-rtSanitizers
-      - Ubuntu-19.10-multilib-sharedLibsOnly-gdmd
+      - Ubuntu-20.04-multilib-sharedLibsOnly-gdmd
       - macOS-x64
       - macOS-x64-sharedLibsOnly

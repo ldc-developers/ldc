@@ -1,7 +1,7 @@
 variables:
   LLVM_VERSION: 10.0.0
   CLANG_VERSION: 9.0.0
-  HOST_LDC_VERSION: 1.20.1
+  HOST_LDC_VERSION: 1.22.0
 
 trigger:
 - '*'
