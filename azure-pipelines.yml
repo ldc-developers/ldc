@@ -116,7 +116,7 @@ jobs:
     # Also don't use relax relocations for the C(++) parts of the default libraries in order to
     # support older user binutils (e.g., Ubuntu 14.04).
     BOOTSTRAP_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON
-    EXTRA_CMAKE_FLAGS: -DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DRT_CFLAGS=-Wa,-mrelax-relocations=no -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER_FLAGS="-flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto" -DEXTRA_CXXFLAGS=-flto=full
+    EXTRA_CMAKE_FLAGS: -DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DJITRT_EXTRA_LDFLAGS=-static-libstdc++ -DRT_CFLAGS=-Wa,-mrelax-relocations=no -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER_FLAGS="-flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto" -DEXTRA_CXXFLAGS=-flto=full
   steps:
     - template: .azure-pipelines/posix.yml
 

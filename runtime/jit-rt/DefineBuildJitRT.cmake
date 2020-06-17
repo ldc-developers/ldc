@@ -18,14 +18,13 @@ if(LDC_DYNAMIC_COMPILE)
     # Set compiler-dependent flags
     if(MSVC)
         # Omit Default Library Name from the library, so it will work with both release and debug builds
-        set(JITRT_EXTRA_FLAGS "/Zl")
-
+        set(JITRT_EXTRA_FLAGS "${JITRT_EXTRA_FLAGS} /Zl")
     else()
-        set(JITRT_EXTRA_FLAGS "-fPIC -fvisibility=hidden")
+        set(JITRT_EXTRA_FLAGS "${JITRT_EXTRA_FLAGS} -fPIC -fvisibility=hidden")
         if(NOT APPLE)
             CHECK_LINK_FLAG("--exclude-libs=ALL" LINKER_ACCEPTS_EXCLUDE_LIBS_ALL)
             if(LINKER_ACCEPTS_EXCLUDE_LIBS_ALL)
-                set(JITRT_EXTRA_LDFLAGS "-Wl,--exclude-libs=ALL")
+                set(JITRT_EXTRA_LDFLAGS "${JITRT_EXTRA_LDFLAGS} -Wl,--exclude-libs=ALL")
             endif()
         endif()
     endif()
