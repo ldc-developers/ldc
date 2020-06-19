@@ -371,28 +371,19 @@ public:
       return;
     }
 
-    // Force codegen if this is a templated function with pragma(inline, true).
-    if ((decl->members->length == 1) &&
-        ((*decl->members)[0]->isFuncDeclaration()) &&
-        ((*decl->members)[0]->isFuncDeclaration()->inlining == PINLINEalways)) {
-      Logger::println("needsCodegen() == false, but function is marked with "
-                      "pragma(inline, true), so it really does need "
-                      "codegen.");
-    } else {
-      // FIXME: This is #673 all over again.
-      if (!decl->needsCodegen()) {
-        Logger::println("Does not need codegen, skipping.");
-        return;
-      }
+    // FIXME: This is #673 all over again.
+    if (!decl->needsCodegen()) {
+      Logger::println("Does not need codegen, skipping.");
+      return;
+    }
 
-      if (irs->dcomputetarget && (decl->tempdecl == Type::rtinfo ||
-                                  decl->tempdecl == Type::rtinfoImpl)) {
-        // Emitting object.RTInfo(Impl) template instantiations in dcompute
-        // modules would require dcompute support for global variables.
-        Logger::println("Skipping object.RTInfo(Impl) template instantiations "
-                        "in dcompute modules.");
-        return;
-      }
+    if (irs->dcomputetarget && (decl->tempdecl == Type::rtinfo ||
+                                decl->tempdecl == Type::rtinfoImpl)) {
+      // Emitting object.RTInfo(Impl) template instantiations in dcompute
+      // modules would require dcompute support for global variables.
+      Logger::println("Skipping object.RTInfo(Impl) template instantiations "
+                      "in dcompute modules.");
+      return;
     }
 
     for (auto &m : *decl->members) {
