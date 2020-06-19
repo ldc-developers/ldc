@@ -206,23 +206,33 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
     addSwitch(ls);
   }
 
-  // default platform libs
-  // TODO check which libaries are necessary
-  args.push_back("kernel32.lib");
-  args.push_back("user32.lib");
-  args.push_back("gdi32.lib");
-  args.push_back("winspool.lib");
-  args.push_back("shell32.lib"); // required for dmain2.d
-  args.push_back("ole32.lib");
-  args.push_back("oleaut32.lib");
-  args.push_back("uuid.lib");
-  args.push_back("comdlg32.lib");
-  args.push_back("advapi32.lib");
+  llvm::Optional<std::vector<std::string>> platformLibNames =
+    getExplicitPlatformLibs();
 
-  // these get pulled in by druntime (rt/msvc.c); include explicitly for
-  // -betterC convenience (issue #3035)
-  args.push_back("oldnames.lib");
-  args.push_back("legacy_stdio_definitions.lib");
+  if (platformLibNames.hasValue()) {
+    args.insert(
+      args.end(),
+      std::make_move_iterator(platformLibNames.getValue().begin()),
+      std::make_move_iterator(platformLibNames.getValue().end()));
+  } else {
+    // default platform libs
+    // TODO check which libaries are necessary
+    args.push_back("kernel32.lib");
+    args.push_back("user32.lib");
+    args.push_back("gdi32.lib");
+    args.push_back("winspool.lib");
+    args.push_back("shell32.lib"); // required for dmain2.d
+    args.push_back("ole32.lib");
+    args.push_back("oleaut32.lib");
+    args.push_back("uuid.lib");
+    args.push_back("comdlg32.lib");
+    args.push_back("advapi32.lib");
+
+    // these get pulled in by druntime (rt/msvc.c); include explicitly for
+    // -betterC convenience (issue #3035)
+    args.push_back("oldnames.lib");
+    args.push_back("legacy_stdio_definitions.lib");
+  }
 
   Logger::println("Linking with: ");
   Stream logstr = Logger::cout();

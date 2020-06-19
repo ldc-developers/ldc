@@ -41,6 +41,11 @@ static cl::opt<std::string>
                cl::desc("Default libraries to link with (overrides previous)"),
                cl::cat(opts::linkingCategory));
 
+static cl::opt<std::string> platformLib(
+    "platformlib", cl::ZeroOrMore, cl::value_desc("lib1,lib2,..."),
+    cl::desc("Platform libraries to link with (overrides previous)"),
+    cl::cat(opts::linkingCategory));
+
 static cl::opt<std::string> debugLib(
     "debuglib", cl::ZeroOrMore, cl::Hidden, cl::value_desc("lib1,lib2,..."),
     cl::desc("Debug versions of default libraries (overrides previous). If the "
@@ -136,6 +141,30 @@ static std::string getOutputName() {
 
 //////////////////////////////////////////////////////////////////////////////
 
+static std::vector<std::string> getLibNames(const cl::opt<std::string>& opt,
+                                            const bool addDebugSuffix,
+                                            const bool addSharedSuffix) {
+  std::vector<std::string> result;
+
+  std::stringstream libNames(opt);
+  while (libNames.good()) {
+    std::string lib;
+    std::getline(libNames, lib, ',');
+    if (lib.empty()) {
+      continue;
+    }
+
+    result.emplace_back((
+      llvm::Twine(lib) +
+      (addDebugSuffix ? "-debug" : "") +
+      (addSharedSuffix ? "-shared" : "")).str());
+  }
+
+  return result;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 static std::vector<std::string> getDefaultLibNames() {
   std::vector<std::string> result;
 
@@ -148,20 +177,22 @@ static std::vector<std::string> getDefaultLibNames() {
         (linkDefaultLibDebug && debugLib.getNumOccurrences() == 0);
     const bool addSharedSuffix = linkAgainstSharedDefaultLibs();
 
-    // Parse comma-separated default library list.
-    std::stringstream libNames(
-        linkDefaultLibDebug && !addDebugSuffix ? debugLib : defaultLib);
-    while (libNames.good()) {
-      std::string lib;
-      std::getline(libNames, lib, ',');
-      if (lib.empty()) {
-        continue;
-      }
+    result = getLibNames(
+      linkDefaultLibDebug && !addDebugSuffix ? debugLib : defaultLib,
+      addDebugSuffix,
+      addSharedSuffix);
+  }
 
-      result.push_back((llvm::Twine(lib) + (addDebugSuffix ? "-debug" : "") +
-                        (addSharedSuffix ? "-shared" : ""))
-                           .str());
-    }
+  return result;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+llvm::Optional<std::vector<std::string>> getExplicitPlatformLibs() {
+  llvm::Optional<std::vector<std::string>> result;
+
+  if (platformLib.getNumOccurrences() > 0) {
+    result = getLibNames(platformLib, false, false);
   }
 
   return result;
