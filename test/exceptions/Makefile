@@ -94,8 +94,10 @@ $(ROOT)/refcounted.done: $(ROOT)/refcounted
 	$(QUIET) $<
 	@touch $@
 
+ifeq (ldmd,$(findstring ldmd,$(DMD)))
 # LDC: Make sure allocation intended to provoke exception is not elided.
 $(ROOT)/invalid_memory_operation: DFLAGS+=-disable-gc2stack
+endif
 $(ROOT)/unittest_assert: DFLAGS+=-unittest -version=CoreUnittest
 $(ROOT)/line_trace: DFLAGS+=$(LINE_TRACE_DFLAGS)
 $(ROOT)/rt_trap_exceptions_drt: DFLAGS+=-g

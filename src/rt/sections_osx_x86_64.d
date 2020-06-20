@@ -11,6 +11,8 @@
  */
 module rt.sections_osx_x86_64;
 
+version (LDC) { /* implemented in rt.sections_elf_shared */ } else:
+
 version (OSX)
     version = Darwin;
 else version (iOS)
@@ -21,7 +23,7 @@ else version (WatchOS)
     version = Darwin;
 
 version (Darwin):
-version (D_LP64): // LDC: changed from `version (X86_64)`
+version (X86_64):
 
 // debug = PRINTF;
 import core.stdc.stdio;
@@ -30,17 +32,11 @@ import core.sys.posix.pthread;
 import core.sys.darwin.mach.dyld;
 import core.sys.darwin.mach.getsect;
 
-import rt.deh, rt.minfo;
+import rt.deh;
+import rt.minfo;
+import rt.sections_darwin_64;
 import rt.util.container.array;
 import rt.util.utility : safeAssert;
-import rt.sections_darwin_64 : getTLSRange;
-
-version (LDC)
-{
-    // implemented in rt.sections_elf_shared, but using some helpers (`dataSegs` and `getSection`)
-}
-else
-{
 
 struct SectionGroup
 {
@@ -128,12 +124,7 @@ __gshared SectionGroup _sections;
 
 extern (C) void sections_osx_onAddImage(const scope mach_header* h, intptr_t slide)
 {
-    foreach (e; dataSegs)
-    {
-        auto sect = getSection(h, slide, e.seg.ptr, e.sect.ptr);
-        if (sect != null)
-            _sections._gcRanges.insertBack((cast(void*)sect.ptr)[0 .. sect.length]);
-    }
+    foreachDataSection(h, slide, (sectionData) { _sections._gcRanges.insertBack(sectionData); });
 
     auto minfosect = getSection(h, slide, "__DATA", "__minfodata");
     if (minfosect != null)
@@ -166,29 +157,4 @@ extern (C) void sections_osx_onAddImage(const scope mach_header* h, intptr_t sli
 
         _sections._ehTables = p[0 .. len];
     }
-}
-
-} // !LDC
-
-struct SegRef
-{
-    string seg;
-    string sect;
-}
-
-static immutable SegRef[] dataSegs = [{SEG_DATA, SECT_DATA},
-                                      {SEG_DATA, SECT_BSS},
-                                      {SEG_DATA, SECT_COMMON}];
-
-ubyte[] getSection(in mach_header* header, intptr_t slide,
-                   in char* segmentName, in char* sectionName)
-{
-    safeAssert(header.magic == MH_MAGIC_64, "Unsupported header.");
-    auto sect = getsectbynamefromheader_64(cast(mach_header_64*)header,
-                                        segmentName,
-                                        sectionName);
-
-    if (sect !is null && sect.size > 0)
-        return (cast(ubyte*)sect.addr + slide)[0 .. cast(size_t)sect.size];
-    return null;
 }

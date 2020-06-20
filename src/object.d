@@ -65,7 +65,11 @@ version (LDC)
     }
 }
 
-version (D_ObjectiveC) public import core.attribute : selector;
+version (D_ObjectiveC)
+{
+    deprecated("explicitly import `selector` instead using: `import core.attribute : selector;`")
+        public import core.attribute : selector;
+}
 version (Posix) public import core.attribute : gnuAbiTag;
 
 // Some ABIs use a complex varargs implementation requiring TypeInfo.argTypes().

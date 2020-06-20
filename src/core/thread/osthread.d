@@ -12,6 +12,7 @@
 
 module core.thread.osthread;
 
+import core.thread.context;
 import core.time;
 import core.exception : onOutOfMemoryError;
 
@@ -175,13 +176,12 @@ else version (Windows)
  */
 class ThreadException : Exception
 {
-    // LDC: +@nogc
-    @safe pure nothrow @nogc this(string msg, string file = __FILE__, size_t line = __LINE__, Throwable next = null)
+    @nogc @safe pure nothrow this(string msg, string file = __FILE__, size_t line = __LINE__, Throwable next = null)
     {
         super(msg, file, line, next);
     }
 
-    @safe pure nothrow this(string msg, Throwable next, string file = __FILE__, size_t line = __LINE__)
+    @nogc @safe pure nothrow this(string msg, Throwable next, string file = __FILE__, size_t line = __LINE__)
     {
         super(msg, file, line, next);
     }
@@ -193,12 +193,12 @@ class ThreadException : Exception
 */
 class ThreadError : Error
 {
-    @safe pure nothrow this(string msg, string file = __FILE__, size_t line = __LINE__, Throwable next = null)
+    @nogc @safe pure nothrow this(string msg, string file = __FILE__, size_t line = __LINE__, Throwable next = null)
     {
         super(msg, file, line, next);
     }
 
-    @safe pure nothrow this(string msg, Throwable next, string file = __FILE__, size_t line = __LINE__)
+    @nogc @safe pure nothrow this(string msg, Throwable next, string file = __FILE__, size_t line = __LINE__)
     {
         super(msg, file, line, next);
     }
@@ -671,8 +671,7 @@ class Thread
     do
     {
         this(sz);
-        () @trusted { m_fn   = fn; }();
-        m_call = Call.FN;
+        m_call = fn;
         m_curr = &m_main;
     }
 
@@ -696,8 +695,7 @@ class Thread
     do
     {
         this(sz);
-        () @trusted { m_dg   = dg; }();
-        m_call = Call.DG;
+        m_call = dg;
         m_curr = &m_main;
     }
 
@@ -1560,7 +1558,6 @@ private:
     this(size_t sz = 0) @safe pure nothrow @nogc
     {
         m_sz = sz;
-        m_call = Call.NO;
         m_curr = &m_main;
     }
 
@@ -1571,31 +1568,10 @@ private:
     //
     final void run()
     {
-        switch ( m_call )
-        {
-        case Call.FN:
-            m_fn();
-            break;
-        case Call.DG:
-            m_dg();
-            break;
-        default:
-            break;
-        }
+        m_call();
     }
-
 
 private:
-    //
-    // The type of routine passed on thread construction.
-    //
-    enum Call
-    {
-        NO,
-        FN,
-        DG
-    }
-
 
     //
     // Standard types
@@ -1640,13 +1616,8 @@ private:
         mach_port_t     m_tmach;
     }
     ThreadID            m_addr;
-    Call                m_call;
+    Callable            m_call;
     string              m_name;
-    union
-    {
-        void function() m_fn;
-        void delegate() m_dg;
-    }
     size_t              m_sz;
     version (Posix)
     {
@@ -1676,23 +1647,9 @@ private:
     }
 
 package(core.thread):
-    static struct Context
-    {
-        void*           bstack,
-                        tstack;
 
-        /// Slot for the EH implementation to keep some state for each stack
-        /// (will be necessary for exception chaining, etc.). Opaque as far as
-        /// we are concerned here.
-        void*           ehContext;
-
-        Context*        within;
-        Context*        next,
-                        prev;
-    }
-
-    Context             m_main;
-    Context*            m_curr;
+    StackContext        m_main;
+    StackContext*       m_curr;
     bool                m_lock;
     void*               m_tlsgcdata;
 
@@ -1701,7 +1658,7 @@ package(core.thread):
     ///////////////////////////////////////////////////////////////////////////
 
 
-    final void pushContext( Context* c ) nothrow @nogc
+    final void pushContext( StackContext* c ) nothrow @nogc
     in
     {
         assert( !c.within );
@@ -1721,7 +1678,7 @@ package(core.thread):
     }
     do
     {
-        Context* c = m_curr;
+        StackContext* c = m_curr;
         m_curr = c.within;
         c.ehContext = swapContext(m_curr.ehContext);
         c.within = null;
@@ -1729,7 +1686,7 @@ package(core.thread):
 
 private:
 
-    final Context* topContext() nothrow @nogc
+    final StackContext* topContext() nothrow @nogc
     in
     {
         assert( m_curr );
@@ -1851,7 +1808,7 @@ package(core.thread):
         (cast(Mutex)_criticalRegionLock.ptr).__dtor();
     }
 
-    __gshared Context*  sm_cbeg;
+    __gshared StackContext*  sm_cbeg;
 
     __gshared Thread    sm_tbeg;
     __gshared size_t    sm_tlen;
@@ -1875,7 +1832,7 @@ package(core.thread):
     //
     // Add a context to the global context list.
     //
-    static void add( Context* c ) nothrow @nogc
+    static void add( StackContext* c ) nothrow @nogc
     in
     {
         assert( c );
@@ -1900,7 +1857,7 @@ package(core.thread):
     //
     // This assumes slock being acquired. This isn't done here to
     // avoid double locking when called from remove(Thread)
-    static void remove( Context* c ) nothrow @nogc
+    static void remove( StackContext* c ) nothrow @nogc
     in
     {
         assert( c );
@@ -2278,7 +2235,7 @@ extern (C) Thread thread_attachThis()
 
 private Thread attachThread(Thread thisThread) @nogc
 {
-    Thread.Context* thisContext = &thisThread.m_main;
+    StackContext* thisContext = &thisThread.m_main;
     assert( thisContext == thisThread.m_curr );
 
     version (Windows)
@@ -2341,8 +2298,8 @@ version (Windows)
         if (auto t = thread_findByAddr(addr))
             return t;
 
-        Thread          thisThread  = new Thread();
-        Thread.Context* thisContext = &thisThread.m_main;
+        Thread        thisThread  = new Thread();
+        StackContext* thisContext = &thisThread.m_main;
         assert( thisContext == thisThread.m_curr );
 
         thisThread.m_addr  = addr;
@@ -2545,172 +2502,162 @@ shared static ~this()
 // Used for needLock below.
 private __gshared bool multiThreadedFlag = false;
 
-version (LDC) {} else
-version (PPC64) version = ExternStackShell;
-
-version (ExternStackShell)
+// Calls the given delegate, passing the current thread's stack pointer to it.
+private void callWithStackShell(scope void delegate(void* sp) nothrow fn) nothrow
+in
 {
-    extern(D) public void callWithStackShell(scope void delegate(void* sp) nothrow fn) nothrow;
+    assert(fn);
 }
-else
+do
 {
-    // Calls the given delegate, passing the current thread's stack pointer to it.
-    private void callWithStackShell(scope void delegate(void* sp) nothrow fn) nothrow
-    in
+    // The purpose of the 'shell' is to ensure all the registers get
+    // put on the stack so they'll be scanned. We only need to push
+    // the callee-save registers.
+    void *sp = void;
+    version (GNU)
     {
-        assert(fn);
+        __builtin_unwind_init();
+        sp = &sp;
     }
-    do
+    else version (AsmX86_Posix)
     {
-        // The purpose of the 'shell' is to ensure all the registers get
-        // put on the stack so they'll be scanned. We only need to push
-        // the callee-save registers.
-        void *sp = void;
-        version (GNU)
+        size_t[3] regs = void;
+        asm pure nothrow @nogc
         {
-            __builtin_unwind_init();
-            sp = &sp;
-        }
-        else version (AsmX86_Posix)
-        {
-            size_t[3] regs = void;
-            asm pure nothrow @nogc
-            {
-                mov [regs + 0 * 4], EBX;
-                mov [regs + 1 * 4], ESI;
-                mov [regs + 2 * 4], EDI;
+            mov [regs + 0 * 4], EBX;
+            mov [regs + 1 * 4], ESI;
+            mov [regs + 2 * 4], EDI;
 
-                mov sp[EBP], ESP;
-            }
+            mov sp[EBP], ESP;
         }
-        else version (AsmX86_Windows)
+    }
+    else version (AsmX86_Windows)
+    {
+        size_t[3] regs = void;
+        asm pure nothrow @nogc
         {
-            size_t[3] regs = void;
-            asm pure nothrow @nogc
-            {
-                mov [regs + 0 * 4], EBX;
-                mov [regs + 1 * 4], ESI;
-                mov [regs + 2 * 4], EDI;
+            mov [regs + 0 * 4], EBX;
+            mov [regs + 1 * 4], ESI;
+            mov [regs + 2 * 4], EDI;
 
-                mov sp[EBP], ESP;
-            }
+            mov sp[EBP], ESP;
         }
-        else version (AsmX86_64_Posix)
+    }
+    else version (AsmX86_64_Posix)
+    {
+        size_t[5] regs = void;
+        asm pure nothrow @nogc
         {
-            size_t[5] regs = void;
-            asm pure nothrow @nogc
-            {
-                mov [regs + 0 * 8], RBX;
-                mov [regs + 1 * 8], R12;
-                mov [regs + 2 * 8], R13;
-                mov [regs + 3 * 8], R14;
-                mov [regs + 4 * 8], R15;
+            mov [regs + 0 * 8], RBX;
+            mov [regs + 1 * 8], R12;
+            mov [regs + 2 * 8], R13;
+            mov [regs + 3 * 8], R14;
+            mov [regs + 4 * 8], R15;
 
-                mov sp[RBP], RSP;
-            }
+            mov sp[RBP], RSP;
         }
-        else version (AsmX86_64_Windows)
+    }
+    else version (AsmX86_64_Windows)
+    {
+        size_t[7] regs = void;
+        asm pure nothrow @nogc
         {
-            size_t[7] regs = void;
-            asm pure nothrow @nogc
-            {
-                mov [regs + 0 * 8], RBX;
-                mov [regs + 1 * 8], RSI;
-                mov [regs + 2 * 8], RDI;
-                mov [regs + 3 * 8], R12;
-                mov [regs + 4 * 8], R13;
-                mov [regs + 5 * 8], R14;
-                mov [regs + 6 * 8], R15;
+            mov [regs + 0 * 8], RBX;
+            mov [regs + 1 * 8], RSI;
+            mov [regs + 2 * 8], RDI;
+            mov [regs + 3 * 8], R12;
+            mov [regs + 4 * 8], R13;
+            mov [regs + 5 * 8], R14;
+            mov [regs + 6 * 8], R15;
 
-                mov sp[RBP], RSP;
-            }
+            mov sp[RBP], RSP;
         }
-        else version (LDC)
+    }
+    else version (LDC)
+    {
+        version (PPC_Any)
         {
-            version (PPC_Any)
-            {
-                // Nonvolatile registers, according to:
-                // System V Application Binary Interface
-                // PowerPC Processor Supplement, September 1995
-                // ELFv1: 64-bit PowerPC ELF ABI Supplement 1.9, July 2004
-                // ELFv2: Power Architecture, 64-Bit ELV V2 ABI Specification,
-                //        OpenPOWER ABI for Linux Supplement, July 2014
-                size_t[18] regs = void;
-                static foreach (i; 0 .. regs.length)
-                {{
-                    enum int j = 14 + i; // source register
-                    static if (j == 21)
-                    {
-                        // Work around LLVM bug 21443 (http://llvm.org/bugs/show_bug.cgi?id=21443)
-                        // Because we clobber r0 a different register is chosen
-                        asm pure nothrow @nogc { ("std "~j.stringof~", %0") : "=m" (regs[i]) : : "r0"; }
-                    }
-                    else
-                        asm pure nothrow @nogc { ("std "~j.stringof~", %0") : "=m" (regs[i]); }
-                }}
-
-                asm pure nothrow @nogc { "std 1, %0" : "=m" (sp); }
-            }
-            else version (AArch64)
-            {
-                // Callee-save registers, x19-x28 according to AAPCS64, section
-                // 5.1.1.  Include x29 fp because it optionally can be a callee
-                // saved reg
-                size_t[11] regs = void;
-                // store the registers in pairs
-                asm pure nothrow @nogc
+            // Nonvolatile registers, according to:
+            // System V Application Binary Interface
+            // PowerPC Processor Supplement, September 1995
+            // ELFv1: 64-bit PowerPC ELF ABI Supplement 1.9, July 2004
+            // ELFv2: Power Architecture, 64-Bit ELV V2 ABI Specification,
+            //        OpenPOWER ABI for Linux Supplement, July 2014
+            size_t[18] regs = void;
+            static foreach (i; 0 .. regs.length)
+            {{
+                enum int j = 14 + i; // source register
+                static if (j == 21)
                 {
-                    "stp x19, x20, %0" : "=m" (regs[ 0]), "=m" (regs[1]);
-                    "stp x21, x22, %0" : "=m" (regs[ 2]), "=m" (regs[3]);
-                    "stp x23, x24, %0" : "=m" (regs[ 4]), "=m" (regs[5]);
-                    "stp x25, x26, %0" : "=m" (regs[ 6]), "=m" (regs[7]);
-                    "stp x27, x28, %0" : "=m" (regs[ 8]), "=m" (regs[9]);
-                    "str x29, %0"      : "=m" (regs[10]);
-                    "mov %0, sp"       : "=r" (sp);
+                    // Work around LLVM bug 21443 (http://llvm.org/bugs/show_bug.cgi?id=21443)
+                    // Because we clobber r0 a different register is chosen
+                    asm pure nothrow @nogc { ("std "~j.stringof~", %0") : "=m" (regs[i]) : : "r0"; }
                 }
-            }
-            else version (ARM)
-            {
-                // Callee-save registers, according to AAPCS, section 5.1.1.
-                // arm and thumb2 instructions
-                size_t[8] regs = void;
-                asm pure nothrow @nogc
-                {
-                    "stm %0, {r4-r11}" : : "r" (regs.ptr) : "memory";
-                    "mov %0, sp"       : "=r" (sp);
-                }
-            }
-            else version (MIPS_Any)
-            {
-                version (MIPS32)      enum store = "sw";
-                else version (MIPS64) enum store = "sd";
-                else static assert(0);
+                else
+                    asm pure nothrow @nogc { ("std "~j.stringof~", %0") : "=m" (regs[i]); }
+            }}
 
-                // Callee-save registers, according to MIPS Calling Convention
-                // and MIPSpro N32 ABI Handbook, chapter 2, table 2-1.
-                // FIXME: Should $28 (gp) and $30 (s8) be saved, too?
-                size_t[8] regs = void;
-                asm pure nothrow @nogc { ".set noat"; }
-                static foreach (i; 0 .. regs.length)
-                {{
-                    enum int j = 16 + i; // source register
-                    asm pure nothrow @nogc { (store ~ " $"~j.stringof~", %0") : "=m" (regs[i]); }
-                }}
-                asm pure nothrow @nogc { (store ~ " $29, %0") : "=m" (sp); }
-                asm pure nothrow @nogc { ".set at"; }
-            }
-            else
+            asm pure nothrow @nogc { "std 1, %0" : "=m" (sp); }
+        }
+        else version (AArch64)
+        {
+            // Callee-save registers, x19-x28 according to AAPCS64, section
+            // 5.1.1.  Include x29 fp because it optionally can be a callee
+            // saved reg
+            size_t[11] regs = void;
+            // store the registers in pairs
+            asm pure nothrow @nogc
             {
-                static assert(false, "Architecture not supported.");
+                "stp x19, x20, %0" : "=m" (regs[ 0]), "=m" (regs[1]);
+                "stp x21, x22, %0" : "=m" (regs[ 2]), "=m" (regs[3]);
+                "stp x23, x24, %0" : "=m" (regs[ 4]), "=m" (regs[5]);
+                "stp x25, x26, %0" : "=m" (regs[ 6]), "=m" (regs[7]);
+                "stp x27, x28, %0" : "=m" (regs[ 8]), "=m" (regs[9]);
+                "str x29, %0"      : "=m" (regs[10]);
+                "mov %0, sp"       : "=r" (sp);
             }
+        }
+        else version (ARM)
+        {
+            // Callee-save registers, according to AAPCS, section 5.1.1.
+            // arm and thumb2 instructions
+            size_t[8] regs = void;
+            asm pure nothrow @nogc
+            {
+                "stm %0, {r4-r11}" : : "r" (regs.ptr) : "memory";
+                "mov %0, sp"       : "=r" (sp);
+            }
+        }
+        else version (MIPS_Any)
+        {
+            version (MIPS32)      enum store = "sw";
+            else version (MIPS64) enum store = "sd";
+            else static assert(0);
+
+            // Callee-save registers, according to MIPS Calling Convention
+            // and MIPSpro N32 ABI Handbook, chapter 2, table 2-1.
+            // FIXME: Should $28 (gp) and $30 (s8) be saved, too?
+            size_t[8] regs = void;
+            asm pure nothrow @nogc { ".set noat"; }
+            static foreach (i; 0 .. regs.length)
+            {{
+                enum int j = 16 + i; // source register
+                asm pure nothrow @nogc { (store ~ " $"~j.stringof~", %0") : "=m" (regs[i]); }
+            }}
+            asm pure nothrow @nogc { (store ~ " $29, %0") : "=m" (sp); }
+            asm pure nothrow @nogc { ".set at"; }
         }
         else
         {
             static assert(false, "Architecture not supported.");
         }
-
-        fn(sp);
     }
+    else
+    {
+        static assert(false, "Architecture not supported.");
+    }
+
+    fn(sp);
 }
 
 // Used for suspendAll/resumeAll below.
@@ -3193,7 +3140,7 @@ private void scanAllTypeImpl( scope ScanAllThreadsTypeFn scan, void* curStackTop
     if (Thread.nAboutToStart)
         scan(ScanType.stack, Thread.pAboutToStart, Thread.pAboutToStart + Thread.nAboutToStart);
 
-    for ( Thread.Context* c = Thread.sm_cbeg; c; c = c.next )
+    for ( StackContext* c = Thread.sm_cbeg; c; c = c.next )
     {
         version (StackGrowsDown)
         {

@@ -1,4 +1,4 @@
-﻿// Written in the D programming language.
+// Written in the D programming language.
 
 /**
  * Builtin mathematical intrinsics
@@ -34,7 +34,18 @@ version (LDC)
 
 public:
 @nogc:
+nothrow:
+@safe:
 
+/*****************************************
+ * Returns x rounded to a long value using the FE_TONEAREST rounding mode.
+ * If the integer value of x is
+ * greater than long.max, the result is
+ * indeterminate.
+ */
+extern (C) real rndtonl(real x);
+
+pure:
 /***********************************
  * Returns cosine of x. x is in radians.
  *
@@ -48,9 +59,17 @@ public:
  */
 
 version (LDC)
+{
+    alias cos = llvm_cos!float;
+    alias cos = llvm_cos!double;
     alias cos = llvm_cos!real;
+}
 else
-real cos(real x) @safe pure nothrow;       /* intrinsic */
+{
+    float cos(float x);     /* intrinsic */
+    double cos(double x);   /* intrinsic */ /// ditto
+    real cos(real x);       /* intrinsic */ /// ditto
+}
 
 /***********************************
  * Returns sine of x. x is in radians.
@@ -66,9 +85,17 @@ real cos(real x) @safe pure nothrow;       /* intrinsic */
  */
 
 version (LDC)
+{
+    alias sin = llvm_sin!float;
+    alias sin = llvm_sin!double;
     alias sin = llvm_sin!real;
+}
 else
-real sin(real x) @safe pure nothrow;       /* intrinsic */
+{
+    float sin(float x);     /* intrinsic */
+    double sin(double x);   /* intrinsic */ /// ditto
+    real sin(real x);       /* intrinsic */ /// ditto
+}
 
 /*****************************************
  * Returns x rounded to a long value using the current rounding mode.
@@ -76,31 +103,26 @@ real sin(real x) @safe pure nothrow;       /* intrinsic */
  * greater than long.max, the result is
  * indeterminate.
  */
+
 version (LDC)
 {
-    // use a fake-pure C llround[l] (might actually touch C errno)
-    static if (real.sizeof == double.sizeof)
+    private extern(C)
     {
-        private extern(C) long llround(real x) @safe pure nothrow;
-        alias rndtol = llround;
+        long llroundf(float x);
+        long llround(double x);
+        long llroundl(real x);
     }
-    else
-    {
-        private extern(C) long llroundl(real x) @safe pure nothrow;
-        alias rndtol = llroundl;
-    }
+
+    alias rndtol = llroundf;
+    alias rndtol = llround;
+    alias rndtol = llroundl;
 }
 else
-long rndtol(real x) @safe pure nothrow;    /* intrinsic */
-
-
-/*****************************************
- * Returns x rounded to a long value using the FE_TONEAREST rounding mode.
- * If the integer value of x is
- * greater than long.max, the result is
- * indeterminate.
- */
-extern (C) real rndtonl(real x);
+{
+    long rndtol(float x);   /* intrinsic */
+    long rndtol(double x);  /* intrinsic */ /// ditto
+    long rndtol(real x);    /* intrinsic */ /// ditto
+}
 
 /***************************************
  * Compute square root of x.
@@ -113,22 +135,21 @@ extern (C) real rndtonl(real x);
  *      )
  */
 
-@safe pure nothrow
+version (LDC)
 {
-  version (LDC)
-  {
+    pragma(inline, true):
+
     // http://llvm.org/docs/LangRef.html#llvm-sqrt-intrinsic
     // sqrt(x) when x is less than zero is undefined
     float  sqrt(float  x) { return x < 0 ? float.nan  : llvm_sqrt(x); }
     double sqrt(double x) { return x < 0 ? double.nan : llvm_sqrt(x); }
     real   sqrt(real   x) { return x < 0 ? real.nan   : llvm_sqrt(x); }
-  }
-  else
-  {
+}
+else
+{
     float sqrt(float x);    /* intrinsic */
     double sqrt(double x);  /* intrinsic */ /// ditto
     real sqrt(real x);      /* intrinsic */ /// ditto
-  }
 }
 
 /*******************************************
@@ -304,10 +325,12 @@ version (LDC)
         return vf;
     }
 
+    float  ldexp(float  n, int exp) { return ldexpImpl(n, exp); }
+    double ldexp(double n, int exp) { return ldexpImpl(n, exp); }
     static if (isRealX87)
     {
         // Roughly 20% faster than ldexpImpl() on an i5-3550 CPU.
-        real ldexp(real n, int exp) @safe pure nothrow
+        real ldexp(real n, int exp)
         {
             real r = void;
             asm @safe pure nothrow @nogc
@@ -325,37 +348,38 @@ version (LDC)
     }
     else
     {
-        real ldexp(real n, int exp) @safe pure nothrow { return ldexpImpl(n, exp); }
+        real ldexp(real n, int exp) { return ldexpImpl(n, exp); }
     }
-
-    //float  ldexp(float  n, int exp) @safe pure nothrow { return ldexpImpl(n, exp); }
-    //double ldexp(double n, int exp) @safe pure nothrow { return ldexpImpl(n, exp); }
 }
 else
-real ldexp(real n, int exp) @safe pure nothrow;    /* intrinsic */
+{
+    float ldexp(float n, int exp);   /* intrinsic */
+    double ldexp(double n, int exp); /* intrinsic */ /// ditto
+    real ldexp(real n, int exp);     /* intrinsic */ /// ditto
+}
 
 unittest {
     static if (real.mant_dig == 113)
     {
-        assert(ldexp(1, -16384) == 0x1p-16384L);
-        assert(ldexp(1, -16382) == 0x1p-16382L);
+        assert(ldexp(1.0L, -16384) == 0x1p-16384L);
+        assert(ldexp(1.0L, -16382) == 0x1p-16382L);
     }
     else static if (real.mant_dig == 106)
     {
-        assert(ldexp(1,  1023) == 0x1p1023L);
-        assert(ldexp(1, -1022) == 0x1p-1022L);
-        assert(ldexp(1, -1021) == 0x1p-1021L);
+        assert(ldexp(1.0L,  1023) == 0x1p1023L);
+        assert(ldexp(1.0L, -1022) == 0x1p-1022L);
+        assert(ldexp(1.0L, -1021) == 0x1p-1021L);
     }
     else static if (real.mant_dig == 64)
     {
-        assert(ldexp(1, -16384) == 0x1p-16384L);
-        assert(ldexp(1, -16382) == 0x1p-16382L);
+        assert(ldexp(1.0L, -16384) == 0x1p-16384L);
+        assert(ldexp(1.0L, -16382) == 0x1p-16382L);
     }
     else static if (real.mant_dig == 53)
     {
-        assert(ldexp(1,  1023) == 0x1p1023L);
-        assert(ldexp(1, -1022) == 0x1p-1022L);
-        assert(ldexp(1, -1021) == 0x1p-1021L);
+        assert(ldexp(1.0L,  1023) == 0x1p1023L);
+        assert(ldexp(1.0L, -1022) == 0x1p-1022L);
+        assert(ldexp(1.0L, -1021) == 0x1p-1021L);
     }
     else
         assert(false, "Only 128bit, 80bit and 64bit reals expected here");
@@ -371,9 +395,17 @@ unittest {
  *      )
  */
 version (LDC)
+{
+    alias fabs = llvm_fabs!float;
+    alias fabs = llvm_fabs!double;
     alias fabs = llvm_fabs!real;
+}
 else
-real fabs(real x) @safe pure nothrow;      /* intrinsic */
+{
+    float fabs(float x);    /* intrinsic */
+    double fabs(double x);  /* intrinsic */ /// ditto
+    real fabs(real x);      /* intrinsic */ /// ditto
+}
 
 /**********************************
  * Rounds x to the nearest integer value, using the current rounding
@@ -384,9 +416,17 @@ real fabs(real x) @safe pure nothrow;      /* intrinsic */
  * the same operation, but does not set the FE_INEXACT exception.
  */
 version (LDC)
+{
+    alias rint = llvm_rint!float;
+    alias rint = llvm_rint!double;
     alias rint = llvm_rint!real;
+}
 else
-real rint(real x) @safe pure nothrow;      /* intrinsic */
+{
+    float rint(float x);    /* intrinsic */
+    double rint(double x);  /* intrinsic */ /// ditto
+    real rint(real x);      /* intrinsic */ /// ditto
+}
 
 /***********************************
  * Building block functions, they
@@ -397,16 +437,18 @@ version (LDC)
 {
     static if (isRealX87)
     {
-        pragma(inline, true)
-        real yl2x(real x, real y)   @safe pure nothrow
+        pragma(inline, true):
+
+        // y * log2(x)
+        real yl2x(real x, real y)
         {
             real r = void;
             asm @safe pure nothrow @nogc { "fyl2x" : "=st" (r) : "st(1)" (y), "st" (x) : "st(1)", "flags"; }
             return r;
         }
 
-        pragma(inline, true)
-        real yl2xp1(real x, real y) @safe pure nothrow
+        // y * log2(x + 1)
+        real yl2xp1(real x, real y)
         {
             real r = void;
             asm @safe pure nothrow @nogc { "fyl2xp1" : "=st" (r) : "st(1)" (y), "st" (x) : "st(1)", "flags"; }
@@ -416,16 +458,22 @@ version (LDC)
 }
 else
 {
-    real yl2x(real x, real y)   @safe pure nothrow;       // y * log2(x)
-    real yl2xp1(real x, real y) @safe pure nothrow;       // y * log2(x + 1)
+    // y * log2(x)
+    float yl2x(float x, float y);    /* intrinsic */
+    double yl2x(double x, double y);  /* intrinsic */ /// ditto
+    real yl2x(real x, real y);      /* intrinsic */ /// ditto
+    // y * log2(x +1)
+    float yl2xp1(float x, float y);    /* intrinsic */
+    double yl2xp1(double x, double y);  /* intrinsic */ /// ditto
+    real yl2xp1(real x, real y);      /* intrinsic */ /// ditto
 }
 
 unittest
 {
     version (INLINE_YL2X)
     {
-        assert(yl2x(1024, 1) == 10);
-        assert(yl2xp1(1023, 1) == 10);
+        assert(yl2x(1024.0L, 1) == 10);
+        assert(yl2xp1(1023.0L, 1) == 10);
     }
 }
 
@@ -444,31 +492,22 @@ unittest
  * Returns:
  *      f in precision of type `T`
  */
-@safe pure nothrow
 T toPrec(T:float)(float f) { pragma(inline, false); return f; }
 /// ditto
-@safe pure nothrow
 T toPrec(T:float)(double f) { pragma(inline, false); return cast(T) f; }
 /// ditto
-@safe pure nothrow
 T toPrec(T:float)(real f)  { pragma(inline, false); return cast(T) f; }
 /// ditto
-@safe pure nothrow
 T toPrec(T:double)(float f) { pragma(inline, false); return f; }
 /// ditto
-@safe pure nothrow
 T toPrec(T:double)(double f) { pragma(inline, false); return f; }
 /// ditto
-@safe pure nothrow
 T toPrec(T:double)(real f)  { pragma(inline, false); return cast(T) f; }
 /// ditto
-@safe pure nothrow
 T toPrec(T:real)(float f) { pragma(inline, false); return f; }
 /// ditto
-@safe pure nothrow
 T toPrec(T:real)(double f) { pragma(inline, false); return f; }
 /// ditto
-@safe pure nothrow
 T toPrec(T:real)(real f)  { pragma(inline, false); return f; }
 
 @safe unittest
