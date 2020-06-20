@@ -110,11 +110,11 @@ include(GetLinuxDistribution)
 #
 
 # Version information
-set(LDC_VERSION "1.22.0") # May be overridden by git hash tag
+set(LDC_VERSION "1.23.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   92)
-set(DMDFE_FIX_LEVEL       1)
+set(DMDFE_PATCH_VERSION   93)
+set(DMDFE_FIX_LEVEL       0)
 
 set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}${DMDFE_PATCH_VERSION})
 if(DEFINED DMDFE_FIX_LEVEL)
@@ -220,7 +220,7 @@ if(MSVC)
     endforeach()
 endif()
 
-append("-J${PROJECT_SOURCE_DIR}/res" DDMD_DFLAGS) # Needed for importing text files
+append("-J${PROJECT_SOURCE_DIR}/dmd/res" DDMD_DFLAGS) # Needed for importing text files
 string(STRIP "${DDMD_DFLAGS}" DDMD_DFLAGS)
 
 # Use separate compiler flags for the frontend and for the LDC-specific parts,
@@ -365,7 +365,7 @@ configure_file(driver/ldc-version.cpp.in driver/ldc-version.cpp)
 # project files generated via CMake.
 file(GLOB_RECURSE FE_SRC_D dmd/*.d)
 file(GLOB_RECURSE FE_HDR   dmd/*.h)
-file(GLOB_RECURSE FE_RES   res/*.*)
+file(GLOB_RECURSE FE_RES   dmd/res/*.*)
 file(GLOB_RECURSE GEN_SRC gen/*.cpp)
 file(GLOB_RECURSE GEN_HDR gen/*.h)
 file(GLOB_RECURSE GEN_SRC_D gen/*.d)

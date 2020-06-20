@@ -652,6 +652,14 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
         this.sc = sc;
     }
 
+    // Save the scope and defer semantic analysis on the Dsymbol.
+    private void deferDsymbolSemantic(Dsymbol s, Scope *scx)
+    {
+        s._scope = scx ? scx : sc.copy();
+        s._scope.setNoFree();
+        Module.addDeferredSemantic(s);
+    }
+
     override void visit(Dsymbol dsym)
     {
         dsym.error("%p has no semantic routine", dsym);
@@ -1311,7 +1319,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
                  * a memset() to initialize the struct.
                  * Must do same check in interpreter.
                  */
-                Expression e = new IntegerExp(dsym.loc, 0, Type.tint32);
+                Expression e = IntegerExp.literal!0;
                 e = new BlitExp(dsym.loc, new VarExp(dsym.loc, dsym), e);
                 e.type = dsym.type;      // don't type check this, it would fail
                 dsym._init = new ExpInitializer(dsym.loc, e);
@@ -2217,8 +2225,8 @@ version (IN_LLVM)
                             return; // An error happened in `identFromSE`
                     }
                     else
-                        ns.exp.error("`%s`: index %d is not a string constant, it is a `%s`",
-                                     ns.exp.toChars(), d, ns.exp.type.toChars());
+                        ns.exp.error("`%s`: index %llu is not a string constant, it is a `%s`",
+                                     ns.exp.toChars(), cast(ulong) d, ns.exp.type.toChars());
                 }
             }
             else if (auto se = ns.exp.toStringExp())
@@ -2371,9 +2379,7 @@ version (IN_LLVM)
                 if (!sym.memtype || !sym.members || !sym.symtab || sym._scope)
                 {
                     // memtype is forward referenced, so try again later
-                    ed._scope = scx ? scx : sc.copy();
-                    ed._scope.setNoFree();
-                    ed._scope._module.addDeferredSemantic(ed);
+                    deferDsymbolSemantic(ed, scx);
                     Module.dprogress = dprogress_save;
                     //printf("\tdeferring %s\n", toChars());
                     ed.semanticRun = PASS.init;
@@ -2680,7 +2686,7 @@ version (IN_LLVM)
             }
 
             // Now set e to (eprev + 1)
-            e = new AddExp(em.loc, eprev, new IntegerExp(em.loc, 1, Type.tint32));
+            e = new AddExp(em.loc, eprev, IntegerExp.literal!1);
             e = e.expressionSemantic(sc);
             e = e.castTo(sc, eprev.type);
             e = e.ctfeInterpret();
@@ -2689,7 +2695,7 @@ version (IN_LLVM)
             if (e.op != TOK.error) // avoid duplicate diagnostics
             {
                 assert(emprev.origValue);
-                em.origValue = new AddExp(em.loc, emprev.origValue, new IntegerExp(em.loc, 1, Type.tint32));
+                em.origValue = new AddExp(em.loc, emprev.origValue, IntegerExp.literal!1);
                 em.origValue = em.origValue.expressionSemantic(sc);
                 em.origValue = em.origValue.ctfeInterpret();
             }
@@ -2902,10 +2908,7 @@ version (IN_LLVM)
             if (tm.semanticRun == PASS.init) // forward reference had occurred
             {
                 //printf("forward reference - deferring\n");
-                tm._scope = scx ? scx : sc.copy();
-                tm._scope.setNoFree();
-                tm._scope._module.addDeferredSemantic(tm);
-                return;
+                return deferDsymbolSemantic(tm, scx);
             }
 
             tm.inst = tm;
@@ -4627,7 +4630,7 @@ version (IN_LLVM)
         }
         Type tret = Type.tvoid.pointerTo();
         if (!nd.type)
-            nd.type = new TypeFunction(ParameterList(nd.parameters, nd.varargs), tret, LINK.d, nd.storage_class);
+            nd.type = new TypeFunction(nd.parameterList, tret, LINK.d, nd.storage_class);
 
         nd.type = nd.type.typeSemantic(nd.loc, sc);
 
@@ -4804,11 +4807,8 @@ version (IN_LLVM)
 
             sc2.pop();
 
-            sd._scope = scx ? scx : sc.copy();
-            sd._scope.setNoFree();
-            sd._scope._module.addDeferredSemantic(sd);
             //printf("\tdeferring %s\n", toChars());
-            return;
+            return deferDsymbolSemantic(sd, scx);
         }
 
         /* Look for special member functions.
@@ -4905,6 +4905,47 @@ version (IN_LLVM)
 
     override void visit(ClassDeclaration cldec)
     {
+        /// Checks that the given class implements all methods of its interfaces.
+        static void checkInterfaceImplementations(ClassDeclaration cd)
+        {
+            foreach (base; cd.interfaces)
+            {
+                // first entry is ClassInfo reference
+                auto methods = base.sym.vtbl[base.sym.vtblOffset .. $];
+
+                foreach (m; methods)
+                {
+                    auto ifd = m.isFuncDeclaration;
+                    assert(ifd);
+
+                    auto type = ifd.type.toTypeFunction();
+                    auto fd = cd.findFunc(ifd.ident, type);
+
+                    if (fd && !fd.isAbstract)
+                    {
+                        //printf("            found\n");
+                        // Check that calling conventions match
+                        if (fd.linkage != ifd.linkage)
+                            fd.error("linkage doesn't match interface function");
+
+                        // Check that it is current
+                        //printf("newinstance = %d fd.toParent() = %s ifd.toParent() = %s\n",
+                            //newinstance, fd.toParent().toChars(), ifd.toParent().toChars());
+                        if (fd.toParent() != cd && ifd.toParent() == base.sym)
+                            cd.error("interface function `%s` is not implemented", ifd.toFullSignature());
+                    }
+
+                    else
+                    {
+                        //printf("            not found %p\n", fd);
+                        // BUG: should mark this class as abstract?
+                        if (!cd.isAbstract())
+                            cd.error("interface function `%s` is not implemented", ifd.toFullSignature());
+                    }
+                }
+            }
+        }
+
         //printf("ClassDeclaration.dsymbolSemantic(%s), type = %p, sizeok = %d, this = %p\n", cldec.toChars(), cldec.type, cldec.sizeok, this);
         //printf("\tparent = %p, '%s'\n", sc.parent, sc.parent ? sc.parent.toChars() : "");
         //printf("sc.stc = %x\n", sc.stc);
@@ -5088,7 +5129,7 @@ version (IN_LLVM)
                 {
                     //printf("\ttry later, forward reference of base class %s\n", tc.sym.toChars());
                     if (tc.sym._scope)
-                        tc.sym._scope._module.addDeferredSemantic(tc.sym);
+                        Module.addDeferredSemantic(tc.sym);
                     cldec.baseok = Baseok.none;
                 }
             L7:
@@ -5162,7 +5203,7 @@ version (IN_LLVM)
                 {
                     //printf("\ttry later, forward reference of base %s\n", tc.sym.toChars());
                     if (tc.sym._scope)
-                        tc.sym._scope._module.addDeferredSemantic(tc.sym);
+                        Module.addDeferredSemantic(tc.sym);
                     cldec.baseok = Baseok.none;
                 }
                 i++;
@@ -5170,11 +5211,8 @@ version (IN_LLVM)
             if (cldec.baseok == Baseok.none)
             {
                 // Forward referencee of one or more bases, try again later
-                cldec._scope = scx ? scx : sc.copy();
-                cldec._scope.setNoFree();
-                cldec._scope._module.addDeferredSemantic(cldec);
                 //printf("\tL%d semantic('%s') failed due to forward references\n", __LINE__, toChars());
-                return;
+                return deferDsymbolSemantic(cldec, scx);
             }
             cldec.baseok = Baseok.done;
 
@@ -5277,13 +5315,10 @@ version (IN_LLVM)
             if (tc.sym.semanticRun < PASS.semanticdone)
             {
                 // Forward referencee of one or more bases, try again later
-                cldec._scope = scx ? scx : sc.copy();
-                cldec._scope.setNoFree();
                 if (tc.sym._scope)
-                    tc.sym._scope._module.addDeferredSemantic(tc.sym);
-                cldec._scope._module.addDeferredSemantic(cldec);
+                    Module.addDeferredSemantic(tc.sym);
                 //printf("\tL%d semantic('%s') failed due to forward references\n", __LINE__, toChars());
-                return;
+                return deferDsymbolSemantic(cldec, scx);
             }
         }
 
@@ -5399,11 +5434,8 @@ version (IN_LLVM)
 
             sc2.pop();
 
-            cldec._scope = scx ? scx : sc.copy();
-            cldec._scope.setNoFree();
-            cldec._scope._module.addDeferredSemantic(cldec);
             //printf("\tdeferring %s\n", toChars());
-            return;
+            return deferDsymbolSemantic(cldec, scx);
         }
 
         /* Look for special member functions.
@@ -5557,6 +5589,8 @@ version (IN_LLVM)
         if (0 &&          // deprecation disabled for now to accommodate existing extensive use
             cldec.storage_class & STC.scope_)
             deprecation(cldec.loc, "`scope` as a type constraint is deprecated.  Use `scope` at the usage site.");
+
+        checkInterfaceImplementations(cldec);
     }
 
     override void visit(InterfaceDeclaration idec)
@@ -5739,7 +5773,7 @@ version (IN_LLVM)
                 {
                     //printf("\ttry later, forward reference of base %s\n", tc.sym.toChars());
                     if (tc.sym._scope)
-                        tc.sym._scope._module.addDeferredSemantic(tc.sym);
+                        Module.addDeferredSemantic(tc.sym);
                     idec.baseok = Baseok.none;
                 }
                 i++;
@@ -5747,10 +5781,7 @@ version (IN_LLVM)
             if (idec.baseok == Baseok.none)
             {
                 // Forward referencee of one or more bases, try again later
-                idec._scope = scx ? scx : sc.copy();
-                idec._scope.setNoFree();
-                idec._scope._module.addDeferredSemantic(idec);
-                return;
+                return deferDsymbolSemantic(idec, scx);
             }
             idec.baseok = Baseok.done;
 
@@ -5785,12 +5816,9 @@ version (IN_LLVM)
             if (tc.sym.semanticRun < PASS.semanticdone)
             {
                 // Forward referencee of one or more bases, try again later
-                idec._scope = scx ? scx : sc.copy();
-                idec._scope.setNoFree();
                 if (tc.sym._scope)
-                    tc.sym._scope._module.addDeferredSemantic(tc.sym);
-                idec._scope._module.addDeferredSemantic(idec);
-                return;
+                    Module.addDeferredSemantic(tc.sym);
+                return deferDsymbolSemantic(idec, scx);
             }
         }
 
@@ -5964,6 +5992,8 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
     TemplateDeclaration tempdecl = tempinst.tempdecl.isTemplateDeclaration();
     assert(tempdecl);
 
+    TemplateStats.incInstance(tempdecl);
+
     // If tempdecl is a mixin, disallow it
     if (tempdecl.ismixin)
     {
@@ -5979,6 +6009,22 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
     tempinst.cppnamespace = tempdecl.cppnamespace;
     if (tempinst.cppnamespace)
         tempinst.cppnamespace.dsymbolSemantic(sc);
+
+    /* Greatly simplified semantic processing for AliasSeq templates
+     */
+    if (tempdecl.isTrivialAliasSeq)
+    {
+        tempinst.inst = tempinst;
+        return aliasSeqInstanceSemantic(tempinst, sc, fargs, tempdecl);
+    }
+
+    /* Greatly simplified semantic processing for Alias templates
+     */
+    else if (tempdecl.isTrivialAlias)
+    {
+        tempinst.inst = tempinst;
+        return aliasInstanceSemantic(tempinst, sc, fargs, tempdecl);
+    }
 
     /* See if there is an existing TemplateInstantiation that already
      * implements the typeargs. If so, just refer to that one instead.
@@ -6083,6 +6129,8 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
     tempinst.inst = tempinst;
     tempinst.parent = tempinst.enclosing ? tempinst.enclosing : tempdecl.parent;
     //printf("parent = '%s'\n", parent.kind());
+
+    TemplateStats.incUnique(tempdecl.isTemplateDeclaration());
 
     TemplateInstance tempdecl_instance_idx = tempdecl.addInstance(tempinst);
 
@@ -6445,6 +6493,56 @@ Laftersemantic:
     {
         printf("-TemplateInstance.dsymbolSemantic('%s', this=%p)\n", tempinst.toChars(), tempinst);
     }
+}
+
+/******************************************************
+ * Do template instance semantic for isAliasSeq templates.
+ * This is a greatly simplified version of templateInstanceSemantic().
+ */
+private
+void aliasSeqInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions* fargs, TemplateDeclaration tempdecl)
+{
+    //printf("[%s] aliasSeqInstance.dsymbolSemantic('%s')\n", tempinst.loc.toChars(), tempinst.toChars());
+    Scope* paramscope = sc.push();
+    paramscope.stc = 0;
+    paramscope.protection = Prot(Prot.Kind.public_);
+
+    TemplateTupleParameter ttp = (*tempdecl.parameters)[0].isTemplateTupleParameter();
+    Tuple va = tempinst.tdtypes[0].isTuple();
+    Declaration d = new TupleDeclaration(tempinst.loc, ttp.ident, &va.objects);
+    d.storage_class |= STC.templateparameter;
+    d.dsymbolSemantic(sc);
+
+    paramscope.pop();
+
+    tempinst.aliasdecl = d;
+
+    tempinst.semanticRun = PASS.semanticdone;
+}
+
+/******************************************************
+ * Do template instance semantic for isAlias templates.
+ * This is a greatly simplified version of templateInstanceSemantic().
+ */
+private
+void aliasInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions* fargs, TemplateDeclaration tempdecl)
+{
+    //printf("[%s] aliasInstance.dsymbolSemantic('%s')\n", tempinst.loc.toChars(), tempinst.toChars());
+    Scope* paramscope = sc.push();
+    paramscope.stc = 0;
+    paramscope.protection = Prot(Prot.Kind.public_);
+
+    TemplateTypeParameter ttp = (*tempdecl.parameters)[0].isTemplateTypeParameter();
+    Type ta = tempinst.tdtypes[0].isType();
+    Declaration d = new AliasDeclaration(tempinst.loc, ttp.ident, ta.addMod(tempdecl.onemember.isAliasDeclaration.type.mod));
+    d.storage_class |= STC.templateparameter;
+    d.dsymbolSemantic(sc);
+
+    paramscope.pop();
+
+    tempinst.aliasdecl = d;
+
+    tempinst.semanticRun = PASS.semanticdone;
 }
 
 // function used to perform semantic on AliasDeclaration

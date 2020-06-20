@@ -109,7 +109,7 @@ extern (C++) struct Target
     FPTypeProperties!double DoubleProperties;   ///
     FPTypeProperties!real_t RealProperties;     ///
 
-    private Type va_list; // cached lazy result of va_listType()
+    private Type tvalist; // cached lazy result of va_listType()
 
 version (IN_LLVM)
 {
@@ -289,24 +289,24 @@ else // !IN_LLVM
      */
     extern (C++) Type va_listType(const ref Loc loc, Scope* sc)
     {
-        if (va_list)
-            return va_list;
+        if (tvalist)
+            return tvalist;
 
         if (global.params.isWindows)
         {
-            va_list = Type.tchar.pointerTo();
+            tvalist = Type.tchar.pointerTo();
         }
         else if (global.params.isLinux        || global.params.isFreeBSD || global.params.isOpenBSD ||
                  global.params.isDragonFlyBSD || global.params.isSolaris || global.params.isOSX)
         {
             if (global.params.is64bit)
             {
-                va_list = new TypeIdentifier(Loc.initial, Identifier.idPool("__va_list_tag")).pointerTo();
-                va_list = typeSemantic(va_list, loc, sc);
+                tvalist = new TypeIdentifier(Loc.initial, Identifier.idPool("__va_list_tag")).pointerTo();
+                tvalist = typeSemantic(tvalist, loc, sc);
             }
             else
             {
-                va_list = Type.tchar.pointerTo();
+                tvalist = Type.tchar.pointerTo();
             }
         }
         else
@@ -314,7 +314,7 @@ else // !IN_LLVM
             assert(0);
         }
 
-        return va_list;
+        return tvalist;
     }
 } // !IN_LLVM
 

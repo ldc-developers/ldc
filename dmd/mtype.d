@@ -371,7 +371,7 @@ enum DotExpFlag
  * Variadic argument lists
  * https://dlang.org/spec/function.html#variadic
  */
-enum VarArg
+enum VarArg : ubyte
 {
     none     = 0,  /// fixed number of arguments
     variadic = 1,  /// (T t, ...)  can be C-style (core.stdc.stdarg) or D-style (core.vararg)
@@ -2021,6 +2021,12 @@ version (IN_LLVM)
         return t;
     }
 
+    final bool hasDeprecatedAliasThis()
+    {
+        auto ad = isAggregate(this);
+        return ad && ad.aliasthis && (ad.aliasthis.isDeprecated || ad.aliasthis.sym.isDeprecated);
+    }
+
     final Type aliasthisOf()
     {
         auto ad = isAggregate(this);
@@ -2191,9 +2197,13 @@ version (IN_LLVM)
      * If this is a shell around another type,
      * get that other type.
      */
-    Type toBasetype()
+    final Type toBasetype()
     {
-        return this;
+        /* This function is used heavily.
+         * De-virtualize it so it can be easily inlined.
+         */
+        TypeEnum te;
+        return ((te = isTypeEnum()) !is null) ? te.toBasetype2() : this;
     }
 
     bool isBaseOf(Type t, int* poffset)
@@ -2592,6 +2602,15 @@ version (IN_LLVM)
      * Only applies to value types, not ref types.
      */
     bool needsDestruction()
+    {
+        return false;
+    }
+
+    /********************************
+     * true if when type is copied, it needs a copy constructor or postblit
+     * applied. Only applies to value types, not ref types.
+     */
+    bool needsCopyOrPostblit()
     {
         return false;
     }
@@ -3720,6 +3739,11 @@ extern (C++) final class TypeSArray : TypeArray
         return next.needsDestruction();
     }
 
+    override bool needsCopyOrPostblit()
+    {
+        return next.needsCopyOrPostblit();
+    }
+
     /*********************************
      *
      */
@@ -4210,9 +4234,9 @@ extern (C++) final class TypeFunction : TypeNext
             this.trust = TRUST.trusted;
     }
 
-    static TypeFunction create(Parameters* parameters, Type treturn, VarArg varargs, LINK linkage, StorageClass stc = 0)
+    static TypeFunction create(Parameters* parameters, Type treturn, ubyte varargs, LINK linkage, StorageClass stc = 0)
     {
-        return new TypeFunction(ParameterList(parameters, varargs), treturn, linkage, stc);
+        return new TypeFunction(ParameterList(parameters, cast(VarArg)varargs), treturn, linkage, stc);
     }
 
     override const(char)* kind() const
@@ -4223,8 +4247,7 @@ extern (C++) final class TypeFunction : TypeNext
     override Type syntaxCopy()
     {
         Type treturn = next ? next.syntaxCopy() : null;
-        Parameters* params = Parameter.arraySyntaxCopy(parameterList.parameters);
-        auto t = new TypeFunction(ParameterList(params, parameterList.varargs), treturn, linkage);
+        auto t = new TypeFunction(parameterList.syntaxCopy(), treturn, linkage);
         t.mod = mod;
         t.isnothrow = isnothrow;
         t.isnogc = isnogc;
@@ -5665,6 +5688,11 @@ extern (C++) final class TypeStruct : Type
         return sym.dtor !is null;
     }
 
+    override bool needsCopyOrPostblit()
+    {
+        return sym.hasCopyCtor || sym.postblit;
+    }
+
     override bool needsNested()
     {
         if (inuse) return false; // circular type, error instead of crashing
@@ -5937,6 +5965,11 @@ extern (C++) final class TypeEnum : Type
         return memType().needsDestruction();
     }
 
+    override bool needsCopyOrPostblit()
+    {
+        return memType().needsCopyOrPostblit();
+    }
+
     override bool needsNested()
     {
         return memType().needsNested();
@@ -5964,7 +5997,7 @@ extern (C++) final class TypeEnum : Type
         return MATCH.nomatch;
     }
 
-    override Type toBasetype()
+    extern (D) Type toBasetype2()
     {
         if (!sym.members && !sym.memtype)
             return this;
@@ -6411,7 +6444,15 @@ extern (C++) final class TypeNull : Type
 extern (C++) struct ParameterList
 {
     Parameters* parameters;
+    StorageClass stc;                   // storage class of ...
     VarArg varargs = VarArg.none;
+
+    this(Parameters* parameters, VarArg varargs = VarArg.none, StorageClass stc = 0)
+    {
+        this.parameters = parameters;
+        this.varargs = varargs;
+        this.stc = stc;
+    }
 
     size_t length()
     {
@@ -6421,6 +6462,11 @@ extern (C++) struct ParameterList
     Parameter opIndex(size_t i)
     {
         return Parameter.getNth(parameters, i);
+    }
+
+    extern (D) ParameterList syntaxCopy()
+    {
+        return ParameterList(Parameter.arraySyntaxCopy(parameters), varargs);
     }
 
     alias parameters this;
@@ -6760,6 +6806,8 @@ void attributesApply(const TypeFunction tf, void delegate(string) dg, TRUSTforma
         dg("return");
     if (tf.isscope && !tf.isscopeinferred)
         dg("scope");
+    if (tf.islive)
+        dg("@live");
 
     TRUST trustAttrib = tf.trust;
 
@@ -6810,7 +6858,7 @@ bool isIndexableNonAggregate(Type t)
  * Returns:
  *      true if we can copy it
  */
-bool isCopyable(const Type t) pure nothrow @nogc
+bool isCopyable(Type t)
 {
     //printf("isCopyable() %s\n", t.toChars());
     if (auto ts = t.isTypeStruct())
@@ -6818,6 +6866,20 @@ bool isCopyable(const Type t) pure nothrow @nogc
         if (ts.sym.postblit &&
             ts.sym.postblit.storage_class & STC.disable)
             return false;
+        if (ts.sym.hasCopyCtor)
+        {
+            // check if there is a matching overload of the copy constructor and whether it is disabled or not
+            // `assert(ctor)` fails on Win32 and Win_32_64. See: https://auto-tester.puremagic.com/pull-history.ghtml?projectid=1&repoid=1&pullid=10575
+            Dsymbol ctor = search_function(ts.sym, Id.ctor);
+            assert(ctor);
+            scope el = new IdentifierExp(Loc.initial, Id.p); // dummy lvalue
+            el.type = cast() ts;
+            Expressions args;
+            args.push(el);
+            FuncDeclaration f = resolveFuncCall(Loc.initial, null, ctor, null, cast()ts, &args, FuncResolveFlag.quiet);
+            if (!f || f.storage_class & STC.disable)
+                return false;
+        }
     }
     return true;
 }

@@ -814,7 +814,7 @@ else
 
             if (buf.length & 3)
             {
-                error("odd length of UTF-32 char source %u", buf.length);
+                error("odd length of UTF-32 char source %llu", cast(ulong) buf.length);
                 fatal();
             }
 
@@ -860,7 +860,7 @@ else
 
             if (buf.length & 1)
             {
-                error("odd length of UTF-16 char source %u", buf.length);
+                error("odd length of UTF-16 char source %llu", cast(ulong) buf.length);
                 fatal();
             }
 
