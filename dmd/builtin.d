@@ -433,7 +433,23 @@ Expression eval_bswap(Loc loc, FuncDeclaration fd, Expressions* arguments)
     uinteger_t n = arg0.toInteger();
     TY ty = arg0.type.toBasetype().ty;
     if (ty == Tint64 || ty == Tuns64)
-        return new IntegerExp(loc, core.bitop.bswap(cast(ulong) n), arg0.type);
+    {
+        version (LDC)
+        {
+            // ltsmaster has no core.bitop.bswap(ulong) overload
+            static if (!__traits(compiles, core.bitop.bswap(ulong.max)))
+            {
+                import ldc.intrinsics : llvm_bswap;
+                alias bswap64 = llvm_bswap!ulong;
+            }
+            else
+                alias bswap64 = core.bitop.bswap;
+        }
+        else
+            alias bswap64 = core.bitop.bswap;
+
+        return new IntegerExp(loc, bswap64(cast(ulong) n), arg0.type);
+    }
     else
         return new IntegerExp(loc, core.bitop.bswap(cast(uint) n), arg0.type);
 }
