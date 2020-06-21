@@ -48,13 +48,14 @@ build:
     - ninja --version
     - mkdir bootstrap-ldc
     - cd bootstrap-ldc
+    # FIXME: -DCOMPILE_D_MODULES_SEPARATELY=ON cannot be used since v1.23 due to
+    #        undefined symbols (template culling...) when compiling separately.
     - |
       DFLAGS='-linker=bfd' cmake -G Ninja .. \
         -DCMAKE_BUILD_TYPE=Release \
         -DLLVM_ROOT_DIR=$PWD/../llvm \
         -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
         -DBUILD_SHARED_LIBS=OFF \
-        -DCOMPILE_D_MODULES_SEPARATELY=ON \
         -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF \
         -DADDITIONAL_DEFAULT_LDC_SWITCHES=' "-linker=bfd",'
     - ninja -j32
