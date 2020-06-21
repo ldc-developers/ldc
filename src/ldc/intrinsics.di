@@ -54,7 +54,7 @@ pragma(LDC_intrinsic, "llvm.returnaddress")
 
 /// The 'llvm.frameaddress' intrinsic attempts to return the target-specific
 /// frame pointer value for the specified stack frame.
-pragma(LDC_intrinsic, LLVM_atleast!10 ? "llvm.frameaddress.p0i8" : "llvm.frameaddress")
+pragma(LDC_intrinsic, LLVM_version >= 1000 ? "llvm.frameaddress.p0i8" : "llvm.frameaddress")
     void* llvm_frameaddress(uint level);
 
 /// The 'llvm.stacksave' intrinsic is used to remember the current state of the
@@ -81,7 +81,7 @@ pragma(LDC_intrinsic, "llvm.stackrestore")
 /// keep in cache. The cache type specifies whether the prefetch is performed on
 /// the data (1) or instruction (0) cache. The rw, locality and cache type
 /// arguments must be constant integers.
-pragma(LDC_intrinsic, LLVM_atleast!10 ? "llvm.prefetch.p0i8" : "llvm.prefetch")
+pragma(LDC_intrinsic, LLVM_version >= 1000 ? "llvm.prefetch.p0i8" : "llvm.prefetch")
     void llvm_prefetch(const(void)* ptr, uint rw, uint locality, uint cachetype) pure @safe;
 
 /// The 'llvm.pcmarker' intrinsic is a method to export a Program Counter (PC)
@@ -123,7 +123,7 @@ alias llvm_readcyclecounter readcyclecounter;
 pragma(LDC_intrinsic, "llvm.clear_cache")
     void llvm_clear_cache(void *from, void *to);
 
-static if (LLVM_atleast!6)
+static if (LLVM_version >= 600)
 {
 /// The ‘llvm.thread.pointer‘ intrinsic returns a pointer to the TLS area for the
 /// current thread. The exact semantics of this value are target specific: it may
@@ -141,7 +141,7 @@ pragma(LDC_intrinsic, "llvm.thread.pointer")
 
 pure:
 
-static if (LLVM_atleast!7)
+static if (LLVM_version >= 700)
 {
 // The alignment parameter was removed from these memory intrinsics in LLVM 7.0. Instead, alignment
 // can be specified as an attribute on the ptr arguments.
@@ -207,7 +207,7 @@ void llvm_memset(T)(void* dst, ubyte val, T len, uint alignment, bool volatile_ 
 }
 
 }
-else // !LLVM_atleast!7
+else // LLVM_version < 700
 {
 
 /// The 'llvm.memcpy.*' intrinsics copy a block of memory from the source
@@ -370,7 +370,7 @@ pragma(LDC_intrinsic, "llvm.maxnum.f#")
     T llvm_maxnum(T)(T vala, T valb)
         if (__traits(isFloating, T));
 
-static if (LLVM_atleast!8)
+static if (LLVM_version >= 800)
 {
 /// The ‘llvm.minimum.*’ intrinsics return the minimum of the two arguments, propagating
 /// NaNs and treating -0.0 as less than +0.0.
@@ -427,7 +427,7 @@ pragma(LDC_intrinsic, "llvm.cttz.i#")
     T llvm_cttz(T)(T src, bool isZeroUndefined)
         if (__traits(isIntegral, T));
 
-static if (LLVM_atleast!7)
+static if (LLVM_version >= 700)
 {
 /// The ‘llvm.fshl’ family of intrinsic functions performs a funnel shift left:
 /// the first two values are concatenated as `{ a : b }` (`a` is the most
@@ -453,7 +453,7 @@ pragma(LDC_intrinsic, "llvm.fshr.i#")
     T llvm_fshr(T)(T a, T b, T shift)
         if (__traits(isIntegral, T));
 
-} // LLVM_atleast!7
+} // LLVM_version >= 700
 
 
 //
@@ -600,7 +600,7 @@ pragma(LDC_intrinsic, "llvm.umul.with.overflow.i#")
     OverflowRet!(T) llvm_umul_with_overflow(T)(T lhs, T rhs)
         if (__traits(isIntegral, T));
 
-static if (LLVM_atleast!8)
+static if (LLVM_version >= 800)
 {
 //
 // SATURATION ARITHMETIC INTRINSICS
@@ -671,7 +671,7 @@ pragma(LDC_intrinsic, "llvm.expect.i#")
     T llvm_expect(T)(T val, T expectedVal)
         if (__traits(isIntegral, T));
 
-static if (LLVM_atleast!6)
+static if (LLVM_version >= 600)
 {
 /// LLVM optimizer treats this intrinsic as having side effect, so it can be
 /// inserted into a loop to indicate that the loop shouldn't be assumed to
@@ -682,7 +682,7 @@ pragma(LDC_intrinsic, "llvm.sideeffect")
 
 version(WebAssembly)
 {
-static if (LLVM_atleast!7)
+static if (LLVM_version >= 700)
 {
 /// Grows memory by a given delta and returns the previous size, or -1 if enough
 /// memory cannot be allocated.
