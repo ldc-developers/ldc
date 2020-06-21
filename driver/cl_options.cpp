@@ -106,6 +106,11 @@ static cl::opt<bool, true>
     vgc("vgc", cl::desc("List all gc allocations including hidden ones"),
         cl::ZeroOrMore, cl::location(global.params.vgc));
 
+static cl::opt<bool, true>
+    vtemplates("vtemplates", cl::ZeroOrMore,
+               cl::desc("List statistics on template instantiations"),
+               cl::location(global.params.vtemplates));
+
 static cl::opt<bool, true> verbose_cg("v-cg", cl::desc("Verbose codegen"),
                                       cl::ZeroOrMore,
                                       cl::location(global.params.verbose_cg));

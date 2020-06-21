@@ -271,6 +271,7 @@ Where:\n\
   -version=<level>  compile in version code >= level\n\
   -version=<ident>  compile in version code identified by ident\n\
   -vgc              list all gc allocations including hidden ones\n\
+  -vtemplates       list statistics on template instantiations\n\
   -vtls             list all variables going into thread local storage\n\
   -w                warnings as errors (compilation will halt)\n\
   -wi               warnings as messages (compilation will continue)\n\
@@ -521,7 +522,8 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
       else if (strcmp(p + 1, "vtls") == 0) {
         ldcArgs.push_back("-transition=tls");
       }
-      /* -vcolumns
+      /* -vtemplates
+       * -vcolumns
        * -vgc
        */
       else if (startsWith(p + 1, "verrors")) {
