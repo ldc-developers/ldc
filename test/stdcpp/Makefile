@@ -4,7 +4,7 @@ include ../common.mak
 ifneq (,$(findstring win,$(OS)))
 
 CXX:=cl.exe
-TESTS:=array allocator memory new string vector
+TESTS:=array allocator memory new string utility vector
 
 .PHONY: all clean
 
