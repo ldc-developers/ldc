@@ -46,9 +46,7 @@ IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
   t->packed = isPacked(sd);
 
   if(isFromLDC_DCompute(sd)) {
-    if(std::find(dcomputeTypes.begin(), dcomputeTypes.end(), sd->type) == dcomputeTypes.end()) {
-      dcomputeTypes.push_back(sd->type);
-    }
+    dcomputeTypes.push_back(sd->type);
   }
   
   // For ldc.dcomptetypes.Pointer!(uint n,T),
