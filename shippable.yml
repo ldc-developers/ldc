@@ -91,11 +91,7 @@ build:
     - PATH="$PWD/../../llvm/bin:$PATH" python runlit.py -v -j 32 . || true
     - cd ..
     # Run DMD testsuite
-    - export DMD_TESTSUITE_MAKE_ARGS='-j32 GDB_FLAGS=OFF'
-    - ctest -V -R "build-run-dmd-testsuite|dmd-testsuite-debug"
-    # FIXME: for non-debug dmd-testsuite, run-dmd-testsuite fails due to an 'internal pointer'
-    #        assertion in Phobos sorting code
-    - ctest -V -R "dmd-testsuite" -E "-debug" || true
+    - DMD_TESTSUITE_MAKE_ARGS='-j32 GDB_FLAGS=OFF' ctest -V -R "dmd-testsuite"
     # Run defaultlib unittests (excl. hanging core.thread.fiber)
     # & druntime stand-alone tests, ignore the errors
     - ctest -j32 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest|^core.thread.fiber($|-)" || true
