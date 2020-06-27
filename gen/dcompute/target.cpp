@@ -32,11 +32,7 @@ void DComputeTarget::doCodeGen(Module *m) {
   // The ll types get generated when the host code gets
   // gen'd which means the address space info is not
   // properly set.
-  for (unsigned k = 0; k < m->members->length; k++) {
-    Dsymbol *dsym = (*m->members)[k];
-    assert(dsym);
-    IrType::resetDComputeTypes();
-  }
+  IrType::resetDComputeTypes();
 
   // process module members
   for (unsigned k = 0; k < m->members->length; k++) {

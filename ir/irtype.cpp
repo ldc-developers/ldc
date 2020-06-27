@@ -34,8 +34,6 @@ void IrType::resetDComputeTypes() {
     delete type->ctype;
     type->ctype = nullptr;
   }
-
-  dcomputeTypes.clear();
 }
 
 IrFuncTy &IrType::getIrFuncTy() {
