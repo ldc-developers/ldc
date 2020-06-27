@@ -122,7 +122,7 @@ build:
     - git clone --recursive https://github.com/dlang/dub.git
     - cd dub
     - git checkout "$(cat ../packaging/dub_version)"
-    - $DMD -run build.d -O -w
+    - $DMD -run build.d -O -w -linkonce-templates
     - cp bin/dub ../installed/bin
     - cd ..
     - installed/bin/dub --version
@@ -130,9 +130,11 @@ build:
     - git clone --recursive https://github.com/dlang/tools.git dlang-tools
     - cd dlang-tools
     - mkdir bin
-    - $DMD -w -de -dip1000 rdmd.d -of=bin/rdmd
-    - $DMD -w -de -dip1000 ddemangle.d -of=bin/ddemangle
-    - $DMD -w -de -dip1000 DustMite/dustmite.d DustMite/splitter.d -of=bin/dustmite
+    - |
+      $DMD -w -de -dip1000 rdmd.d -of=bin/rdmd &
+      $DMD -w -de -dip1000 ddemangle.d -of=bin/ddemangle &
+      $DMD -w -de -dip1000 DustMite/dustmite.d DustMite/splitter.d -of=bin/dustmite &
+      wait
     - cp bin/{rdmd,ddemangle,dustmite} ../installed/bin
     - cd ..
     # Pack installation dir
