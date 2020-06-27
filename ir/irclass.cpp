@@ -394,7 +394,7 @@ void IrAggr::defineInterfaceVtbl(BaseClass *b, bool new_instance,
     llvm::Function *thunk = gIR->module.getFunction(thunkIRMangle);
     if (!thunk) {
       const LinkageWithCOMDAT lwc(LLGlobalValue::LinkOnceODRLinkage,
-                                  supportsCOMDAT());
+                                  needsCOMDAT());
       const auto callee = irFunc->getLLVMCallee();
       thunk = LLFunction::Create(
           isaFunction(callee->getType()->getContainedType(0)), lwc.first,

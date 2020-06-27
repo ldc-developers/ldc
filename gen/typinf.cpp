@@ -666,7 +666,7 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
   LLVMDefineVisitor v(gvar);
   decl->accept(&v);
 
-  setLinkage({TYPEINFO_LINKAGE_TYPE, supportsCOMDAT()}, gvar);
+  setLinkage({TYPEINFO_LINKAGE_TYPE, needsCOMDAT()}, gvar);
   if (auto forStructType = forType->isTypeStruct())
     setVisibility(forStructType->sym, gvar);
 }

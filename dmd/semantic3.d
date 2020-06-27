@@ -411,29 +411,6 @@ private extern(C++) final class Semantic3Visitor : Visitor
                 }
             }
 
-version (IN_LLVM)
-{
-            // Make sure semantic analysis has been run on argument types. This is
-            // e.g. needed for TypeTuple!(int, int) to be picked up as two int
-            // parameters by the Parameter functions.
-            for (size_t i = 0; i < f.parameterList.length; i++)
-            {
-                Parameter arg = f.parameterList[i];
-                Type nw = arg.type.typeSemantic(Loc.initial, sc);
-                if (arg.type != nw)
-                {
-                    arg.type = nw;
-                    // Examine this index again.
-                    // This is important if it turned into a tuple.
-                    // In particular, the empty tuple should be handled or the
-                    // next parameter will be skipped.
-                    // LDC_FIXME: Maybe we only need to do this for tuples,
-                    //            and can add tuple.length after decrement?
-                    i--;
-                }
-            }
-}
-
             /* Declare all the function parameters as variables
              * and install them in parameters[]
              */

@@ -54,6 +54,7 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 #include <iostream>
 
 bool isAnyMainFunction(FuncDeclaration *fd) {
@@ -344,7 +345,7 @@ static llvm::Function *DtoDeclareVaFunction(FuncDeclaration *fdecl) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoResolveFunction(FuncDeclaration *fdecl) {
+void DtoResolveFunction(FuncDeclaration *fdecl, const bool willDeclare) {
   if ((!global.params.useUnitTests || !fdecl->type) &&
       fdecl->isUnitTestDeclaration()) {
     IF_LOG Logger::println("Ignoring unittest %s", fdecl->toPrettyChars());
@@ -422,9 +423,13 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
   LOG_SCOPE;
 
   // queue declaration unless the function is abstract without body
-  if (!fdecl->isAbstract() || fdecl->fbody) {
+  if (!willDeclare && (!fdecl->isAbstract() || fdecl->fbody)) {
     DtoDeclareFunction(fdecl);
   }
+}
+
+void DtoResolveFunction(FuncDeclaration *fdecl) {
+  return DtoResolveFunction(fdecl, false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -538,8 +543,8 @@ void onlyOneMainCheck(FuncDeclaration *fd) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoDeclareFunction(FuncDeclaration *fdecl) {
-  DtoResolveFunction(fdecl);
+void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
+  DtoResolveFunction(fdecl, /*willDeclare=*/true);
 
   if (fdecl->ir->isDeclared()) {
     return;
@@ -566,7 +571,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   // Check if fdecl should be defined too for cross-module inlining.
   // If true, semantic is fully done for fdecl which is needed for some code
   // below (e.g. code that uses fdecl->vthis).
-  const bool defineAtEnd = defineAsExternallyAvailable(*fdecl);
+  const bool defineAtEnd = !willDefine && defineAsExternallyAvailable(*fdecl);
   if (defineAtEnd) {
     IF_LOG Logger::println(
         "Function is an externally_available inline candidate.");
@@ -633,9 +638,15 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   // add func to IRFunc
   irFunc->setLLVMFunc(func);
 
-  // First apply the TargetMachine attributes, such that they can be overridden
-  // by UDAs.
+  // First apply the TargetMachine attributes and NonLazyBind attribute,
+  // such that they can be overridden by UDAs.
   applyTargetMachineAttributes(*func, *gTargetMachine);
+  if (!fdecl->fbody && opts::noPLT) {
+      // Add `NonLazyBind` attribute to function declarations,
+      // the codegen options allow skipping PLT.
+      func->addFnAttr(LLAttribute::NonLazyBind);
+  }
+
   applyFuncDeclUDAs(fdecl, irFunc);
 
   // parameter attributes
@@ -755,8 +766,12 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   if (defineAtEnd) {
     IF_LOG Logger::println(
         "Function is an externally_available inline candidate: define it now.");
-    DtoDefineFunction(fdecl, true);
+    DtoDefineFunction(fdecl, /*linkageAvailableExternally=*/true);
   }
+}
+
+void DtoDeclareFunction(FuncDeclaration *fdecl) {
+  return DtoDeclareFunction(fdecl, false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -808,13 +823,8 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
   size_t llArgIdx = 0;
 
   for (VarDeclaration *vd : parameters) {
+    Type *paramType = vd->type;
     IrParameter *irparam = getIrParameter(vd);
-
-    // vd->type (parameter) and irparam->arg->type (argument) don't always
-    // match.
-    // E.g., for a lazy parameter of type T, vd->type is T (with lazy storage
-    // class) while irparam->arg->type is the delegate type.
-    Type *const paramType = (irparam ? irparam->arg->type : vd->type);
 
     if (!irparam) {
       // This is a parameter that is not passed on the LLVM level.
@@ -822,8 +832,15 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
       // we do not store to here.
       irparam = getIrParameter(vd, true);
       irparam->value = DtoAlloca(vd, vd->ident->toChars());
+    } else if (!irparam->value) {
+      // Captured parameter not passed on the LLVM level.
+      assert(irparam->nestedIndex >= 0);
+      irparam->value = DtoAlloca(vd, vd->ident->toChars());
     } else {
-      assert(irparam->value);
+      // vd->type (parameter) and irparam->arg->type (argument) don't always
+      // match. E.g., for a lazy parameter of type T, vd->type is T (with lazy
+      // storage class) while irparam->arg->type is the delegate type.
+      paramType = irparam->arg->type;
 
       if (irparam->arg->byref) {
         // The argument is an appropriate lvalue passed by reference.
@@ -892,6 +909,62 @@ bool eraseDummyAfterReturnBB(llvm::BasicBlock *bb) {
   return false;
 }
 
+/**
+ * LLVM doesn't really support weak linkage for MSVC targets, it just prevents
+ * inlining. We can emulate it though, by conceptually renaming the defined
+ * function, only declaring the original function and embedding a linker
+ * directive in the object file, instructing the linker to fall back to the weak
+ * implementation if there's no strong definition.
+ * The object file still needs to be pulled in by the linker for the directive
+ * to be found.
+ */
+void emulateWeakAnyLinkageForMSVC(LLFunction *func, LINK linkage) {
+  const bool isWin32 = !global.params.is64bit;
+
+  std::string mangleBuffer;
+  llvm::StringRef finalMangle = func->getName();
+  if (finalMangle[0] == '\1') {
+    finalMangle = finalMangle.substr(1);
+  } else if (isWin32) {
+    // implicit underscore prefix for Win32
+    mangleBuffer = ("_" + finalMangle).str();
+    finalMangle = mangleBuffer;
+  }
+
+  std::string finalWeakMangle = finalMangle;
+  if (linkage == LINKcpp) {
+    assert(finalMangle.startswith("?"));
+    // prepend `__weak_` to first identifier
+    size_t offset = finalMangle.startswith("??$") ? 3 : 1;
+    finalWeakMangle.insert(offset, "__weak_");
+  } else if (linkage == LINKd) {
+    const size_t offset = isWin32 ? 1 : 0;
+    assert(finalMangle.substr(offset).startswith("_D"));
+    // prepend a `__weak` package
+    finalWeakMangle.insert(offset + 2, "6__weak");
+  } else {
+    // prepend `__weak_`
+    const size_t offset = isWin32 && finalMangle.startswith("_") ? 1 : 0;
+    finalWeakMangle.insert(offset, "__weak_");
+  }
+
+  const std::string linkerOption =
+      ("/ALTERNATENAME:" + finalMangle + "=" + finalWeakMangle).str();
+  gIR->addLinkerOption(llvm::StringRef(linkerOption));
+
+  // work around LLVM assertion when cloning a function's debuginfos
+  func->setSubprogram(nullptr);
+
+  llvm::ValueToValueMapTy dummy;
+  auto clone = llvm::CloneFunction(func, dummy);
+  clone->setName("\1" + finalWeakMangle);
+  setLinkage({LLGlobalValue::ExternalLinkage, func->hasComdat()}, clone);
+
+  // reduce the original definition to a declaration
+  setLinkage({LLGlobalValue::ExternalLinkage, false}, func);
+  func->deleteBody();
+}
+
 } // anonymous namespace
 
 void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
@@ -904,7 +977,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   if (fd->ir->isDefined()) {
     llvm::Function *func = getIrFunc(fd)->getLLVMFunc();
-    assert(nullptr != func);
+    assert(func);
     if (!linkageAvailableExternally &&
         (func->getLinkage() == llvm::GlobalValue::AvailableExternallyLinkage)) {
       // Fix linkage
@@ -936,12 +1009,19 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     fatal();
   }
 
-  DtoResolveFunction(fd);
+  DtoDeclareFunction(fd, /*willDefine=*/true);
+  assert(fd->ir->isDeclared());
+
+  // DtoDeclareFunction might also set the defined flag for functions we
+  // should not touch.
+  if (fd->ir->isDefined()) {
+    return;
+  }
+  fd->ir->setDefined();
 
   if (fd->isUnitTestDeclaration() && !global.params.useUnitTests) {
     IF_LOG Logger::println("No code generation for unit test declaration %s",
                            fd->toChars());
-    fd->ir->setDefined();
     return;
   }
 
@@ -951,26 +1031,14 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
       IF_LOG Logger::println(
           "No code generation for typeinfo member %s in @compute code",
           fd->toChars());
-      fd->ir->setDefined();
       return;
     }
   }
 
   if (!linkageAvailableExternally && !alreadyOrWillBeDefined(*fd)) {
     IF_LOG Logger::println("Skipping '%s'.", fd->toPrettyChars());
-    fd->ir->setDefined();
     return;
   }
-
-  DtoDeclareFunction(fd);
-  assert(fd->ir->isDeclared());
-
-  // DtoResolveFunction might also set the defined flag for functions we
-  // should not touch.
-  if (fd->ir->isDefined()) {
-    return;
-  }
-  fd->ir->setDefined();
 
   // We cannot emit nested functions with parents that have not gone through
   // semantic analysis. This can happen as DMD leaks some template instances
@@ -1273,6 +1341,11 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   if (gIR->dcomputetarget && hasKernelAttr(fd)) {
     auto fn = gIR->module.getFunction(fd->mangleString);
     gIR->dcomputetarget->addKernelMetadata(fd, fn);
+  }
+
+  if (func->getLinkage() == LLGlobalValue::WeakAnyLinkage &&
+      global.params.targetTriple->isWindowsMSVCEnvironment()) {
+    emulateWeakAnyLinkageForMSVC(func, fd->linkage);
   }
 }
 

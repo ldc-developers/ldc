@@ -934,10 +934,14 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
         }
         auto id = Identifier.idPool(se.peekString());
 
-        /* Prefer dsymbol, because it might need some runtime contexts.
+        /* Prefer a Type, because getDsymbol(Type) can lose type modifiers.
+           Then a Dsymbol, because it might need some runtime contexts.
          */
+
         Dsymbol sym = getDsymbol(o);
-        if (sym)
+        if (auto t = isType(o))
+            ex = typeDotIdExp(e.loc, t, id);
+        else if (sym)
         {
             if (e.ident == Id.hasMember)
             {
@@ -947,8 +951,6 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
             ex = new DsymbolExp(e.loc, sym);
             ex = new DotIdExp(e.loc, ex, id);
         }
-        else if (auto t = isType(o))
-            ex = typeDotIdExp(e.loc, t, id);
         else if (auto ex2 = isExpression(o))
             ex = new DotIdExp(e.loc, ex2, id);
         else
@@ -1150,6 +1152,7 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
         auto po = isParameter(o);
         auto s = getDsymbolWithoutExpCtx(o);
         UserAttributeDeclaration udad = null;
+        Scope* sc2 = sc;
         if (po)
         {
             udad = po.userAttribDecl;
@@ -1162,6 +1165,12 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
             }
             //printf("getAttributes %s, attrs = %p, scope = %p\n", s.toChars(), s.userAttribDecl, s.scope);
             udad = s.userAttribDecl;
+
+            // Use the symbol scope when possible
+            if (s._scope)
+                sc2 = s._scope;
+            else if (auto m = s.getModule()) // needed for some top level symbols
+                sc2 = m._scope;
         }
         else
         {
@@ -1180,7 +1189,7 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
 
         auto exps = udad ? udad.getAttributes() : new Expressions();
         auto tup = new TupleExp(e.loc, exps);
-        return tup.expressionSemantic(sc);
+        return tup.expressionSemantic(sc2);
     }
     if (e.ident == Id.getFunctionAttributes)
     {

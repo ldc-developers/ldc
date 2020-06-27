@@ -52,6 +52,7 @@ extern cl::opt<std::string> objectDir;
 extern cl::opt<std::string> soname;
 extern cl::opt<bool> output_bc;
 extern cl::opt<bool> output_ll;
+extern cl::opt<bool> output_mlir;
 extern cl::opt<bool> output_s;
 extern cl::opt<cl::boolOrDefault> output_o;
 extern cl::opt<std::string> ddocDir;
@@ -82,6 +83,7 @@ extern FloatABI::Type floatABI;
 extern cl::opt<bool> linkonceTemplates;
 extern cl::opt<bool> disableLinkerStripDead;
 extern cl::opt<unsigned char> defaultToHiddenVisibility;
+extern cl::opt<bool> noPLT;
 
 // Math options
 extern bool fFastMath;

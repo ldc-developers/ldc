@@ -28,7 +28,11 @@ else()
     set(MLIR_LIB_DIR     ${MLIR_ROOT_DIR}/lib)
 
     # To be done: add the required MLIR libraries. Hopefully we don't have to manually list all MLIR libs.
-    set(MLIR_LIBRARIES "")
+    if(EXISTS "${MLIR_LIB_DIR}/MLIRIR.lib")
+      set(MLIR_LIBRARIES ${MLIR_LIB_DIR}/MLIRIR.lib ${MLIR_LIB_DIR}/MLIRSupport.lib)
+    elseif(EXISTS "${MLIR_LIB_DIR}/libMLIRIR.a")
+      set(MLIR_LIBRARIES ${MLIR_LIB_DIR}/libMLIRIR.a ${MLIR_LIB_DIR}/libMLIRSupport.a)
+    endif()  
 
     # XXX: This function is untested and will need adjustment.
     function(mlir_tablegen)

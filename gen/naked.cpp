@@ -434,17 +434,17 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
 
   // build runtime arguments
   const size_t n = arguments->length - 2;
-  LLSmallVector<Expression *, 8> args;
-  args.reserve(n);
+  LLSmallVector<LLValue *, 8> operands;
+  operands.reserve(n);
   for (size_t i = 0; i < n; i++) {
-    args.push_back((*arguments)[2 + i]);
+    operands.push_back(DtoRVal((*arguments)[2 + i]));
   }
 
   Type *returnType = fd->type->nextOf();
   LLType *irReturnType = DtoType(returnType->toBasetype());
 
   LLValue *rv =
-      DtoInlineAsmExpr(loc, code, constraints, {}, args, irReturnType);
+      DtoInlineAsmExpr(loc, code, constraints, operands, irReturnType);
 
   // work around missing tuple support for users of the return value
   if (sretPointer || returnType->ty == Tstruct) {
@@ -459,28 +459,21 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
   return new DImValue(returnType, rv);
 }
 
-llvm::CallInst *DtoInlineAsmExpr(
-    const Loc &loc, llvm::StringRef code, llvm::StringRef constraints,
-    llvm::ArrayRef<llvm::Value *> indirectOutputLVals,
-    llvm::ArrayRef<Expression *> arguments, llvm::Type *returnType) {
+llvm::CallInst *DtoInlineAsmExpr(const Loc &loc, llvm::StringRef code,
+                                 llvm::StringRef constraints,
+                                 llvm::ArrayRef<llvm::Value *> operands,
+                                 llvm::Type *returnType) {
   IF_LOG Logger::println("DtoInlineAsmExpr @ %s", loc.toChars());
   LOG_SCOPE;
 
-  const size_t numTotalIRArgs = indirectOutputLVals.size() + arguments.size();
-  LLSmallVector<LLValue *, 8> irArgs;
-  LLSmallVector<LLType *, 8> irArgTypes;
-  irArgs.reserve(numTotalIRArgs);
-  irArgTypes.reserve(numTotalIRArgs);
-  for (auto *lval : indirectOutputLVals)
-    irArgs.push_back(lval);
-  for (auto *e : arguments)
-    irArgs.push_back(DtoRVal(e));
-  for (auto *arg : irArgs)
-    irArgTypes.push_back(arg->getType());
+  LLSmallVector<LLType *, 8> operandTypes;
+  operandTypes.reserve(operands.size());
+  for (auto *o : operands)
+    operandTypes.push_back(o->getType());
 
   // build asm function type
   llvm::FunctionType *FT =
-      llvm::FunctionType::get(returnType, irArgTypes, false);
+      llvm::FunctionType::get(returnType, operandTypes, false);
 
   // make sure the constraints are valid
   if (!llvm::InlineAsm::Verify(FT, constraints)) {
@@ -492,7 +485,7 @@ llvm::CallInst *DtoInlineAsmExpr(
   bool sideeffect = true;
   llvm::InlineAsm *ia = llvm::InlineAsm::get(FT, code, constraints, sideeffect);
 
-  llvm::CallInst *call = gIR->ir->CreateCall(ia, irArgs, "");
+  llvm::CallInst *call = gIR->ir->CreateCall(ia, operands, "");
   gIR->addInlineAsmSrcLoc(loc, call);
 
   return call;

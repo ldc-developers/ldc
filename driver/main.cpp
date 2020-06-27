@@ -439,11 +439,13 @@ void parseCommandLine(Strings &sourceFiles) {
 
   global.params.output_o =
       (opts::output_o == cl::BOU_UNSET &&
-       !(opts::output_bc || opts::output_ll || opts::output_s))
+       !(opts::output_bc || opts::output_ll || opts::output_s ||
+         opts::output_mlir))
           ? OUTPUTFLAGdefault
           : opts::output_o == cl::BOU_TRUE ? OUTPUTFLAGset : OUTPUTFLAGno;
   global.params.output_bc = opts::output_bc ? OUTPUTFLAGset : OUTPUTFLAGno;
   global.params.output_ll = opts::output_ll ? OUTPUTFLAGset : OUTPUTFLAGno;
+  global.params.output_mlir = opts::output_mlir ? OUTPUTFLAGset : OUTPUTFLAGno;
   global.params.output_s = opts::output_s ? OUTPUTFLAGset : OUTPUTFLAGno;
 
   global.params.cov = (global.params.covPercent <= 100);
@@ -509,8 +511,19 @@ void parseCommandLine(Strings &sourceFiles) {
                strcmp(ext, global.s_ext.ptr) == 0) {
       global.params.output_s = OUTPUTFLAGset;
       global.params.output_o = OUTPUTFLAGno;
+    } else if (opts::output_mlir.getNumOccurrences() == 0 &&
+               strcmp(ext, global.mlir_ext.ptr) == 0) {
+      global.params.output_mlir = OUTPUTFLAGset;
+      global.params.output_o = OUTPUTFLAGno;
     }
   }
+
+#ifndef LDC_MLIR_ENABLED
+  if (global.params.output_mlir == OUTPUTFLAGset) {
+    error(Loc(), "MLIR output requested but this LDC was built without MLIR support");
+    fatal();
+  }
+#endif
 
   if (soname.getNumOccurrences() > 0 && !global.params.dll) {
     error(Loc(), "-soname can be used only when building a shared library");
@@ -671,12 +684,8 @@ void registerPredefinedTargetVersions() {
   case llvm::Triple::msp430:
     VersionCondition::addPredefinedGlobalIdent("MSP430");
     break;
-#if defined RISCV_LLVM_DEV || LDC_LLVM_VER >= 400
-#if defined RISCV_LLVM_DEV
-  case llvm::Triple::riscv:
-#else
+#if LDC_LLVM_VER >= 400
   case llvm::Triple::riscv32:
-#endif
     VersionCondition::addPredefinedGlobalIdent("RISCV32");
     break;
   case llvm::Triple::riscv64:
@@ -1094,7 +1103,13 @@ int cppmain() {
 void codegenModules(Modules &modules) {
   // Generate one or more object/IR/bitcode files/dcompute kernels.
   if (global.params.obj && !modules.empty()) {
+#if LDC_MLIR_ENABLED
+    mlir::MLIRContext mlircontext;
+    ldc::CodeGenerator cg(getGlobalContext(), mlircontext,
+                          global.params.oneobj);
+#else
     ldc::CodeGenerator cg(getGlobalContext(), global.params.oneobj);
+#endif
     DComputeCodeGenManager dccg(getGlobalContext());
     std::vector<Module *> computeModules;
     // When inlining is enabled, we are calling semantic3 on function
@@ -1117,7 +1132,12 @@ void codegenModules(Modules &modules) {
       const auto atCompute = hasComputeAttr(m);
       if (atCompute == DComputeCompileFor::hostOnly ||
           atCompute == DComputeCompileFor::hostAndDevice) {
-        cg.emit(m);
+#if LDC_MLIR_ENABLED
+        if (global.params.output_mlir == OUTPUTFLAGset)
+          cg.emitMLIR(m);
+        else
+#endif
+          cg.emit(m);
       }
       if (atCompute != DComputeCompileFor::hostOnly) {
         computeModules.push_back(m);

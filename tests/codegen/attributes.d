@@ -20,7 +20,7 @@ import ldc.attributes;
 // CHECK-DAG: @{{.*}}myWeakGlobali{{\"?}} = weak
 @(ldc.attributes.weak) int myWeakGlobal;
 
-// CHECK-DAG: define{{.*}} weak {{.*}}void @{{.*}}weakFunc
+// CHECK-DAG: define{{.*}} {{(weak .*void @.*_D)|(void @.*_D6__weak)}}10attributes8weakFuncFZv
 @weak void weakFunc() {}
 
 //---------------------------------------------------------------------

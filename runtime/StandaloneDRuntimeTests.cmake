@@ -27,6 +27,12 @@ else()
     endif()
 endif()
 
+if("${TARGET_SYSTEM}" MATCHES "MSVC")
+    set(cflags_base "CFLAGS_BASE=")
+else()
+    set(cflags_base "CFLAGS_BASE=-Wall -Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
+endif()
+
 if("${TARGET_SYSTEM}" MATCHES "FreeBSD|DragonFly")
     set(linkdl "")
 else()
@@ -51,8 +57,7 @@ foreach(name ${testnames})
         COMMAND ${GNU_MAKE_BIN} -C ${PROJECT_SOURCE_DIR}/druntime/test/${name}
             ROOT=${outdir} DMD=${LDMD_EXE_FULL} MODEL=default
             DRUNTIME=${druntime_path} DRUNTIMESO=${shared_druntime_path}
-            CFLAGS_BASE=-Wall\ -Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}
-            ${linkdl}
+            ${cflags_base} ${linkdl}
     )
     set_tests_properties(druntime-test-${name}
         PROPERTIES DEPENDS clean-druntime-test-${name}

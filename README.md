@@ -54,6 +54,7 @@ not currently integrated into the project release process):
 | Arch Linux   | `pacman -S ldc`                              |
 | Debian       | `apt install ldc`                            |
 | Fedora       | `dnf install ldc`                            |
+| FreeBSD      | `pkg install ldc`                            |
 | Gentoo       | `layman -a ldc`                              |
 | Homebrew     | `brew install ldc`                           |
 | Ubuntu       | `apt install ldc`                            |

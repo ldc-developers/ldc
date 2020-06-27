@@ -153,15 +153,16 @@ file(GLOB_RECURSE DRUNTIME_D ${RUNTIME_DIR}/src/*.d)
 list(REMOVE_ITEM DRUNTIME_D ${RUNTIME_DIR}/src/test_runner.d)
 # remove unsupported etc/linux/memoryerror.d (see issue #1915)
 list(REMOVE_ITEM DRUNTIME_D ${RUNTIME_DIR}/src/etc/linux/memoryerror.d)
-# FIXME: Remove all modules in core/stdcpp/ due to alpha quality.
-#        See PR #1917; partly fixed upstream.
-file(GLOB_RECURSE DRUNTIME_D_STDCPP ${RUNTIME_DIR}/src/core/stdcpp/*.d)
-list(REMOVE_ITEM DRUNTIME_D ${DRUNTIME_D_STDCPP})
 # remove some modules in rt/
 list(REMOVE_ITEM DRUNTIME_D
     ${RUNTIME_DIR}/src/rt/alloca.d
+    ${RUNTIME_DIR}/src/rt/cmath2.d
+    ${RUNTIME_DIR}/src/rt/deh_win32.d
     ${RUNTIME_DIR}/src/rt/llmath.d
     ${RUNTIME_DIR}/src/rt/memset.d
+    ${RUNTIME_DIR}/src/rt/sections_osx_x86.d
+    ${RUNTIME_DIR}/src/rt/sections_solaris.d
+    ${RUNTIME_DIR}/src/rt/sections_win32.d
 )
 # only include core/sys/ modules matching the platform
 file(GLOB_RECURSE DRUNTIME_D_BIONIC  ${RUNTIME_DIR}/src/core/sys/bionic/*.d)
@@ -338,8 +339,8 @@ if(TARGET gen_gccbuiltins)
     )
   endfunction()
 
-  set(target_arch "AArch64;ARM;Mips;PowerPC;SystemZ;X86")
-  set(target_name "aarch64;arm;mips;ppc;s390;x86")
+  set(target_arch "AArch64;AMDGPU;ARM;Mips;NVPTX;PowerPC;SystemZ;X86")
+  set(target_name "aarch64;amdgcn;arm;mips;nvvm;ppc;s390;x86")
 
   foreach(target ${LLVM_TARGETS_TO_BUILD})
     list(FIND target_arch ${target} idx)

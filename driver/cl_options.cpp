@@ -204,6 +204,9 @@ cl::opt<bool> output_bc("output-bc", cl::desc("Write LLVM bitcode"),
 
 cl::opt<bool> output_ll("output-ll", cl::desc("Write LLVM IR"), cl::ZeroOrMore);
 
+cl::opt<bool> output_mlir("output-mlir", cl::desc("Write MLIR"),
+    cl::ZeroOrMore);
+
 cl::opt<bool> output_s("output-s", cl::desc("Write native assembly"),
                        cl::ZeroOrMore);
 
@@ -456,6 +459,10 @@ cl::opt<bool> disableLinkerStripDead(
     "disable-linker-strip-dead", cl::ZeroOrMore,
     cl::desc("Do not try to remove unused symbols during linking"),
     cl::cat(linkingCategory));
+
+cl::opt<bool> noPLT(
+    "fno-plt", cl::ZeroOrMore,
+    cl::desc("Do not use the PLT to make function calls"));
 
 // Math options
 bool fFastMath; // Storage for the dynamically created ffast-math option.

@@ -37,3 +37,25 @@ void foo()
     short8 s8 = [1, 2, 3, 4, 5, 6, 7, 8];
     D2 d2 = 1.5;
 }
+
+// https://github.com/ldc-developers/ldc/issues/3418
+// CHECK: define {{.*}}_D11vector_init3bar
+void bar(const ref float[4] floats, const(int)[] ints)
+{
+    alias float4 = __vector(float[4]);
+    alias int4 = __vector(int[4]);
+
+    // CHECK: %[[f:[0-9]+]] = bitcast <4 x float>* %f to i8*
+    // CHECK: call void @llvm.memcpy{{.*}}(i8*{{[^,]*}} %[[f]]
+    auto f = cast(float4) floats;
+
+    // CHECK: %[[i:[0-9]+]] = bitcast <4 x i32>* %i to i8*
+    // CHECK: call void @llvm.memcpy{{.*}}(i8*{{[^,]*}} %[[i]]
+    auto i = cast(int4) ints;
+
+    // CHECK: fptosi
+    // CHECK: fptosi
+    // CHECK: fptosi
+    // CHECK: fptosi
+    auto converted = cast(int4) floats;
+}

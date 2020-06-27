@@ -124,6 +124,13 @@ static std::string getX86TargetCPU(const llvm::Triple &triple) {
   if (triple.isOSDarwin()) {
     return triple.isArch64Bit() ? "core2" : "yonah";
   }
+
+  // All x86 devices running Android have core2 as their common
+  // denominator.
+  if (triple.getEnvironment() == llvm::Triple::Android) {
+    return "core2";
+  }
+
   // Everything else goes to x86-64 in 64-bit mode.
   if (triple.isArch64Bit()) {
     return "x86-64";
@@ -133,9 +140,6 @@ static std::string getX86TargetCPU(const llvm::Triple &triple) {
   }
   if (triple.getOSName().startswith("openbsd")) {
     return "i486";
-  }
-  if (triple.getOSName().startswith("bitrig")) {
-    return "i686";
   }
   if (triple.getOSName().startswith("freebsd")) {
     return "i486";
@@ -149,18 +153,20 @@ static std::string getX86TargetCPU(const llvm::Triple &triple) {
   if (triple.getOSName().startswith("dragonfly")) {
     return "i486";
   }
-  // All x86 devices running Android have core2 as their common
-  // denominator. This makes a better choice than pentium4.
-  if (triple.getEnvironment() == llvm::Triple::Android) {
-    return "core2";
 
-    // Fallback to p4.
-  }
+  // Fallback to p4.
   return "pentium4";
 }
 
 static std::string getARMTargetCPU(const llvm::Triple &triple) {
   auto defaultCPU = llvm::ARM::getDefaultCPU(triple.getArchName());
+
+  // 32-bit Android: default to cortex-a8
+  if (defaultCPU == "generic" &&
+      triple.getEnvironment() == llvm::Triple::Android) {
+    return "cortex-a8";
+  }
+
   if (!defaultCPU.empty())
     return std::string(defaultCPU);
 
@@ -176,6 +182,16 @@ static std::string getAArch64TargetCPU(const llvm::Triple &triple) {
 
   return "generic";
 }
+
+#if LDC_LLVM_VER >= 400
+static std::string getRiscv32TargetCPU(const llvm::Triple &triple) {
+  return "generic-rv32";
+}
+
+static std::string getRiscv64TargetCPU(const llvm::Triple &triple) {
+  return "generic-rv64";
+}
+#endif
 
 /// Returns the LLVM name of the default CPU for the provided target triple.
 static std::string getTargetCPU(const llvm::Triple &triple) {
@@ -194,6 +210,12 @@ static std::string getTargetCPU(const llvm::Triple &triple) {
   case llvm::Triple::aarch64:
   case llvm::Triple::aarch64_be:
     return getAArch64TargetCPU(triple);
+#if LDC_LLVM_VER >= 400
+  case llvm::Triple::riscv32:
+    return getRiscv32TargetCPU(triple);
+  case llvm::Triple::riscv64:
+    return getRiscv64TargetCPU(triple);
+#endif
   }
 }
 
@@ -294,8 +316,7 @@ const llvm::Target *lookupTarget(const std::string &arch, llvm::Triple &triple,
 
     if (!target) {
       errorMsg = "invalid target architecture '" + arch +
-                 "', see "
-                 "-version for a list of supported targets.";
+                 "', see -version for a list of supported targets.";
       return nullptr;
     }
 
