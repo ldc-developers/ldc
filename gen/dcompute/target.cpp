@@ -24,101 +24,8 @@
 #include "gen/llvmhelpers.h"
 #include "gen/pragma.h"
 #include "gen/runtime.h"
+#include "ir/irtype.h"
 #include <string>
-
-class DcomputeTypeResetVisitor : public Visitor {
-
-  void visit(Dsymbol *sym) override {
-    // Needed to keep from base class throwing assertion
-  }
-
-  void visit(Statement* stmt) override {
-    // Needed to keep from base class throwing assertion
-  }
-
-  void visit(ScopeDsymbol *scope) override {
-    if (!isError(scope) && scope->members) {
-      for (auto sym : *scope->members)
-        sym->accept(this);
-    }
-  }
-
-  void visit(ExpStatement *stmt) override {
-    if (auto e = stmt->exp) {
-      e->accept(this);
-    }
-  }
-
-  void visit(Expression *e) override {
-    // Needed to keep from base class throwing assertion
-  }
-  
-  void visit(DeclarationExp *e) override {
-    if (auto vd = e->declaration->isVarDeclaration()) {
-      vd->accept(this);
-    }
-  }
-
-  void visit(VarDeclaration* vd) {
-    Type *type = vd->type;
-
-    bool is_dcompute_type = false;
-    if(type->ty == Tpointer) {
-      if(type->nextOf()->ty == Tstruct) {
-        is_dcompute_type = isFromLDC_DCompute(static_cast<TypeStruct *>(type->nextOf())->sym);
-      }
-    } else if(type->ty == Tstruct) {
-      is_dcompute_type = isFromLDC_DCompute(static_cast<TypeStruct *>(type)->sym);
-    }
-
-    if(is_dcompute_type && type->ctype) {
-      delete type->ctype;
-      type->ctype = nullptr;
-    }
-  }
-  
-  void visit(FuncDeclaration *decl) override {
-    if(decl->parameters) {
-      for(auto parameter : *decl->parameters) {
-        parameter->accept(this);
-      }
-    }
-
-    if(decl->fbody) {
-      decl->fbody->accept(this);
-    }
-  }
-
-  void visit(CompoundStatement *stmt) override {
-    for (auto s : *stmt->statements) {
-      if (s) {
-        s->accept(this);
-      }
-    }
-  }
-
-  void visit(AttribDeclaration *decl) override {
-    Dsymbols *d = decl->include(nullptr);
-
-    if (d) {
-      for (auto s : *d) {
-        s->accept(this);
-      }
-    }
-  }
-
-  void visit(Nspace *ns) override {
-    if (!isError(ns) && ns->members) {
-      for (auto sym : *ns->members)
-        sym->accept(this);
-    }
-  }
-};
-
-void Declaration_reset(Dsymbol *decl, IRState *irs) {
-  DcomputeTypeResetVisitor v;
-  decl->accept(&v);
-}
 
 void DComputeTarget::doCodeGen(Module *m) {
   // Reset any generated type info for dcompute types.
@@ -128,7 +35,7 @@ void DComputeTarget::doCodeGen(Module *m) {
   for (unsigned k = 0; k < m->members->length; k++) {
     Dsymbol *dsym = (*m->members)[k];
     assert(dsym);
-    Declaration_reset(dsym, _ir);
+    IrType::resetDComputeTypes();
   }
 
   // process module members

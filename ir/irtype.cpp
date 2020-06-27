@@ -18,6 +18,8 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/LLVMContext.h"
 
+std::vector<Type*> IrType::dcomputeTypes = std::vector<Type*>(0);
+
 // These functions use getGlobalContext() as they are invoked before gIR
 // is set.
 
@@ -25,6 +27,15 @@ IrType::IrType(Type *dt, LLType *lt) : dtype(dt), type(lt) {
   assert(dt && "null D Type");
   assert(lt && "null LLVM Type");
   assert(!dt->ctype && "already has IrType");
+}
+
+void IrType::resetDComputeTypes() {
+  for(auto&& type : dcomputeTypes) {
+    delete type->ctype;
+    type->ctype = nullptr;
+  }
+
+  dcomputeTypes.clear();
 }
 
 IrFuncTy &IrType::getIrFuncTy() {

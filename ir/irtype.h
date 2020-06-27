@@ -89,9 +89,15 @@ public:
   ///
   virtual IrFuncTy &getIrFuncTy();
 
+  ///
+  static void resetDComputeTypes();
+  
 protected:
   ///
   IrType(Type *dt, llvm::Type *lt);
+
+  ///
+  static std::vector<Type*> dcomputeTypes;
 
   ///
   Type *dtype = nullptr;

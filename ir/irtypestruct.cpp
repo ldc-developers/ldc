@@ -47,7 +47,12 @@ IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
 
   // For ldc.dcomptetypes.Pointer!(uint n,T),
   // emit { T addrspace(gIR->dcomputetarget->mapping[n])* }
-    llvm::Optional<DcomputePointer> p;
+  llvm::Optional<DcomputePointer> p;
+
+  if(p = toDcomputePointer(sd)) {
+    dcomputeTypes.push_back(sd->type);
+  }
+
   if (gIR->dcomputetarget && (p = toDcomputePointer(sd))) {
    
     // Translate the virtual dcompute address space into the real one for
