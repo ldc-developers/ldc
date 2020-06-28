@@ -23,6 +23,7 @@
 #include "llvm/ADT/Triple.h"
 #include "llvm/IR/Module.h"
 #include "llvm/MC/MCObjectFileInfo.h"
+#include "llvm/MC/MCTargetOptions.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/CommandLine.h"
@@ -515,9 +516,31 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
       llvm::join(features.begin(), features.end(), ",");
 
   if (Logger::enabled()) {
-    Logger::println("Targeting '%s' (CPU '%s' with features '%s')",
+    std::string exceptionModelString;
+    switch (targetOptions.ExceptionModel) {
+    default:
+      llvm_unreachable("ExceptionModel type unknown.");
+    case llvm::ExceptionHandling::None:
+      exceptionModelString = "None";
+      break;
+    case llvm::ExceptionHandling::DwarfCFI:
+      exceptionModelString = "DwarfCFI";
+      break;
+    case llvm::ExceptionHandling::SjLj:
+      exceptionModelString = "SjLj";
+      break;
+    case llvm::ExceptionHandling::ARM:
+      exceptionModelString = "ARM";
+      break;
+    case llvm::ExceptionHandling::WinEH:
+      exceptionModelString = "WinEH";
+      break;
+    }
+
+    Logger::println("Targeting '%s' (CPU '%s' with features '%s', ExceptionModel='%s')",
                     triple.str().c_str(), cpu.c_str(),
-                    finalFeaturesString.c_str());
+                    finalFeaturesString.c_str(),
+                    exceptionModelString.c_str());
   }
 
   return target->createTargetMachine(triple.str(), cpu, finalFeaturesString,
