@@ -95,7 +95,7 @@ extern (C++) struct Target
         d_int64 max_10_exp = T.max_10_exp;  /// maximum int value such that 10$(SUPERSCRIPT `max_10_exp` is representable)
         d_int64 min_10_exp = T.min_10_exp;  /// minimum int value such that 10$(SUPERSCRIPT `min_10_exp`) is representable as a normalized value
 
-        /* IN_LLVM: extern (D) */ void initialize()
+        extern (D) void initialize()
         {
             max = T.max;
             min_normal = T.min_normal;
@@ -114,6 +114,13 @@ extern (C++) struct Target
 version (IN_LLVM)
 {
     extern (C++):
+
+    private void initFPTypeProperties()
+    {
+        FloatProperties.initialize();
+        DoubleProperties.initialize();
+        RealProperties.initialize();
+    }
 
     // implemented in gen/target.cpp:
     void _init(ref const Param params);
@@ -775,6 +782,7 @@ struct TargetC
     uint long_doublesize;     /// size of a C `long double`
     uint criticalSectionSize; /// size of os critical section
 
+    version (IN_LLVM) { /* initialized in Target::_init() */ } else
     extern (D) void initialize(ref const Param params, ref const Target target)
     {
         if (params.isLinux || params.isFreeBSD || params.isOpenBSD || params.isDragonFlyBSD || params.isSolaris)
@@ -854,6 +862,7 @@ struct TargetCPP
     bool exceptions;          /// set if catching C++ exceptions is supported
     bool twoDtorInVtable;     /// target C++ ABI puts deleting and non-deleting destructor into vtable
 
+    version (IN_LLVM) { /* initialized in Target::_init() */ } else
     extern (D) void initialize(ref const Param params, ref const Target target)
     {
         if (params.isLinux || params.isFreeBSD || params.isOpenBSD || params.isDragonFlyBSD || params.isSolaris)
@@ -987,6 +996,7 @@ struct TargetObjC
 {
     bool supported;     /// set if compiler can interface with Objective-C
 
+    version (IN_LLVM) { /* initialized in Target::_init() */ } else
     extern (D) void initialize(ref const Param params, ref const Target target)
     {
         if (params.isOSX && params.is64bit)

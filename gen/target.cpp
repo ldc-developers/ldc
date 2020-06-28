@@ -80,10 +80,7 @@ unsigned getCriticalSectionSize(const Param &params) {
 
 void Target::_init(const Param &params) {
   CTFloat::initialize();
-
-  FloatProperties.initialize();
-  DoubleProperties.initialize();
-  RealProperties.initialize();
+  initFPTypeProperties();
 
   const auto &triple = *params.targetTriple;
   const bool isMSVC = triple.isWindowsMSVCEnvironment();

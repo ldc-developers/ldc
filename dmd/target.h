@@ -83,10 +83,6 @@ struct Target
         d_int64 min_exp;
         d_int64 max_10_exp;
         d_int64 min_10_exp;
-
-#if IN_LLVM
-        void initialize();
-#endif
     };
 
     FPTypeProperties<float> FloatProperties;
@@ -95,6 +91,10 @@ struct Target
 
 private:
     Type *tvalist;
+
+#if IN_LLVM
+    void initFPTypeProperties();
+#endif
 
 public:
     void _init(const Param& params);
