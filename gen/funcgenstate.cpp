@@ -9,6 +9,7 @@
 
 #include "gen/funcgenstate.h"
 
+#include "dmd/globals.h"
 #include "dmd/identifier.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -118,6 +119,7 @@ llvm::CallSite FuncGenState::callOrInvoke(llvm::Value *callee,
   // Intrinsics don't support invoking and 'nounwind' functions don't need it.
   const bool doesNotThrow =
       isNothrow ||
+      global.params.betterC ||
       (calleeFn && (calleeFn->isIntrinsic() || calleeFn->doesNotThrow()));
 
   // calls inside a funclet must be annotated with its value
