@@ -248,10 +248,7 @@ static const char *getLLVMArchSuffixForARM(llvm::StringRef CPU) {
 
 static FloatABI::Type getARMFloatABI(const llvm::Triple &triple,
                                      const char *llvmArchSuffix) {
-  switch (triple.getOS()) {
-  case llvm::Triple::Darwin:
-  case llvm::Triple::MacOSX:
-  case llvm::Triple::IOS: {
+  if (triple.isOSDarwin()) {
     // Darwin defaults to "softfp" for v6 and v7.
     if (llvm::StringRef(llvmArchSuffix).startswith("v6") ||
         llvm::StringRef(llvmArchSuffix).startswith("v7")) {
@@ -260,35 +257,34 @@ static FloatABI::Type getARMFloatABI(const llvm::Triple &triple,
     return FloatABI::Soft;
   }
 
-  case llvm::Triple::FreeBSD:
+  if (triple.isOSFreeBSD()) {
     // FreeBSD defaults to soft float
     return FloatABI::Soft;
+  }
 
+  if (triple.getVendorName().startswith("hardfloat"))
+    return FloatABI::Hard;
+  if (triple.getVendorName().startswith("softfloat"))
+    return FloatABI::SoftFP;
+
+  switch (triple.getEnvironment()) {
+  case llvm::Triple::GNUEABIHF:
+    return FloatABI::Hard;
+  case llvm::Triple::GNUEABI:
+    return FloatABI::SoftFP;
+  case llvm::Triple::EABI:
+    // EABI is always AAPCS, and if it was not marked 'hard', it's softfp
+    return FloatABI::SoftFP;
+  case llvm::Triple::Android: {
+    if (llvm::StringRef(llvmArchSuffix).startswith("v7")) {
+      return FloatABI::SoftFP;
+    }
+    return FloatABI::Soft;
+  }
   default:
-    if (triple.getVendorName().startswith("hardfloat"))
-      return FloatABI::Hard;
-    if (triple.getVendorName().startswith("softfloat"))
-      return FloatABI::SoftFP;
-
-    switch (triple.getEnvironment()) {
-    case llvm::Triple::GNUEABIHF:
-      return FloatABI::Hard;
-    case llvm::Triple::GNUEABI:
-      return FloatABI::SoftFP;
-    case llvm::Triple::EABI:
-      // EABI is always AAPCS, and if it was not marked 'hard', it's softfp
-      return FloatABI::SoftFP;
-    case llvm::Triple::Android: {
-      if (llvm::StringRef(llvmArchSuffix).startswith("v7")) {
-        return FloatABI::SoftFP;
-      }
-      return FloatABI::Soft;
-    }
-    default:
-      // Assume "soft".
-      // TODO: Warn the user we are guessing.
-      return FloatABI::Soft;
-    }
+    // Assume "soft".
+    // TODO: Warn the user we are guessing.
+    return FloatABI::Soft;
   }
 }
 

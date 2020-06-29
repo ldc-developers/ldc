@@ -2322,11 +2322,10 @@ struct AsmProcessor {
   // OSX and 32-bit Windows need an extra leading underscore when mangling a
   // symbol name.
   static bool prependExtraUnderscore(LINK link) {
-    return global.params.targetTriple->getOS() == llvm::Triple::MacOSX ||
-           global.params.targetTriple->getOS() == llvm::Triple::Darwin ||
+    const auto &triple = *global.params.targetTriple;
+    return triple.isOSDarwin() ||
            // Win32: all symbols except for MSVC++ ones
-           (global.params.targetTriple->isOSWindows() &&
-            global.params.targetTriple->isArch32Bit() && link != LINKcpp);
+           (triple.isOSWindows() && triple.isArch32Bit() && link != LINKcpp);
   }
 
   void addOperand(const char *fmt, AsmArgType type, Expression *e,

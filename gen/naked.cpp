@@ -158,12 +158,11 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
 
   const auto &triple = *global.params.targetTriple;
   bool const isWin = triple.isOSWindows();
-  bool const isOSX = (triple.getOS() == llvm::Triple::Darwin ||
-                      triple.getOS() == llvm::Triple::MacOSX);
+  bool const isDarwin = triple.isOSDarwin();
 
   // osx is different
   // also mangling has an extra underscore prefixed
-  if (isOSX) {
+  if (isDarwin) {
     fullmangle += '_';
     fullmangle += mangle;
     mangle = fullmangle.c_str();
@@ -233,7 +232,7 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
 
   // emit size after body
   // llvm does this on linux, but not on osx or Win
-  if (!(isWin || isOSX)) {
+  if (!(isWin || isDarwin)) {
     asmstr << "\t.size\t" << mangle << ", .-" << mangle << std::endl
            << std::endl;
   }
