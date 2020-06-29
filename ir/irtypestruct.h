@@ -23,9 +23,15 @@ public:
   ///
   IrTypeStruct *isStruct() override { return this; }
 
+  ///
+  static void resetDComputeTypes();
+  
 protected:
   ///
   explicit IrTypeStruct(StructDeclaration *sd);
+
+  ///
+  static std::vector<IrTypeStruct*> dcomputeTypes;
 
   /// StructDeclaration this type represents.
   StructDeclaration *sd = nullptr;

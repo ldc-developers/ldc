@@ -11,28 +11,23 @@
 
 #include "dmd/dsymbol.h"
 #include "dmd/errors.h"
-#include "dmd/expression.h"
 #include "dmd/module.h"
-#include "dmd/nspace.h"
 #include "dmd/scope.h"
-#include "dmd/template.h"
 #include "driver/linker.h"
 #include "driver/toobj.h"
 #include "driver/cl_options.h"
-#include "gen/dcompute/druntime.h"
 #include "gen/dcompute/target.h"
 #include "gen/llvmhelpers.h"
-#include "gen/pragma.h"
 #include "gen/runtime.h"
-#include "ir/irtype.h"
-#include <string>
+#include "ir/irtypestruct.h"
+
 
 void DComputeTarget::doCodeGen(Module *m) {
   // Reset any generated type info for dcompute types.
   // The ll types get generated when the host code gets
   // gen'd which means the address space info is not
   // properly set.
-  IrType::resetDComputeTypes();
+  IrTypeStruct::resetDComputeTypes();
 
   // process module members
   for (unsigned k = 0; k < m->members->length; k++) {

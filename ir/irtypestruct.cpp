@@ -30,6 +30,21 @@ IrTypeStruct::IrTypeStruct(StructDeclaration *sd)
 
 //////////////////////////////////////////////////////////////////////////////
 
+std::vector<IrTypeStruct*> IrTypeStruct::dcomputeTypes;
+
+/// Resets special DCompute structs so they get re-created
+/// with the proper address space when generating device code.
+void IrTypeStruct::resetDComputeTypes() {
+  for(auto&& irTypeStruct : dcomputeTypes) {
+    delete irTypeStruct->dtype->ctype;
+    irTypeStruct->dtype->ctype = nullptr;
+  }
+
+  dcomputeTypes.clear();
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
   auto t = new IrTypeStruct(sd);
   sd->type->ctype = t;
@@ -46,7 +61,7 @@ IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
   t->packed = isPacked(sd);
 
   if(isFromLDC_DCompute(sd)) {
-    dcomputeTypes.push_back(sd->type);
+    dcomputeTypes.push_back(t);
   }
   
   // For ldc.dcomptetypes.Pointer!(uint n,T),
