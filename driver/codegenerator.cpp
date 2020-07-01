@@ -138,6 +138,10 @@ void emitLLVMUsedArray(IRState &irs) {
   llvmUsed->setSection("llvm.metadata");
 }
 
+void emitRtLibUseGOT(llvm::Module &M) {
+  M.addModuleFlag(llvm::Module::Max, "RtLibUseGOT", 1);
+}
+
 bool inlineAsmDiagnostic(IRState *irs, const llvm::SMDiagnostic &d,
                          unsigned locCookie) {
   if (!locCookie) {
@@ -263,6 +267,10 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
 
   emitLLVMUsedArray(*ir_);
   emitLinkerOptions(*ir_);
+
+  if (opts::noPLT) {
+    emitRtLibUseGOT(ir_->module);
+  }
 
   // Issue #1829: make sure all replaced global variables are replaced
   // everywhere.
