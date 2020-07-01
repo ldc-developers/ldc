@@ -25,9 +25,6 @@ version (IN_LLVM)
     extern (C++) struct AsmCode;
 
     alias code = AsmCode;
-    struct block;
-    struct Blockx;
-    struct elem;
     struct TYPE;
     alias type = TYPE;
 
