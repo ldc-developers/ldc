@@ -41,7 +41,7 @@ class StringExp;
 struct UnionExp;
 #ifdef IN_GCC
 typedef union tree_node Symbol;
-#else
+#elif !IN_LLVM
 struct Symbol;          // back end symbol
 #endif
 
@@ -463,9 +463,9 @@ public:
     // now contain pointers to themselves. While in toElem, contains a pointer
     // to the memory used to build the literal for resolving such references.
     llvm::Value *inProgressMemory;
+#else
+    Symbol *sym;        // back end symbol to initialize with literal
 #endif
-
-    Symbol *sym;                // back end symbol to initialize with literal
 
     /** pointer to the origin instance of the expression.
      * once a new expression is created, origin is set to 'this'.

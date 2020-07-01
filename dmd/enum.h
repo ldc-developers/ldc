@@ -56,7 +56,9 @@ public:
 
     EnumDeclaration *isEnumDeclaration() { return this; }
 
+#if !IN_LLVM
     Symbol *sinit;
+#endif
     void accept(Visitor *v) { v->visit(this); }
 };
 

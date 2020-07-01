@@ -22,7 +22,6 @@ import dmd.root.file;
 
 version (IN_LLVM)
 {
-    struct Symbol;
     struct code;
     struct block;
     struct Blockx;

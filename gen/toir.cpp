@@ -2924,14 +2924,3 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
 
   return false;
 }
-
-////////////////////////////////////////////////////////////////////////////////
-
-// FIXME: Implement & place in right module
-Symbol *toModuleAssert(Module *m) { return nullptr; }
-
-// FIXME: Implement & place in right module
-Symbol *toModuleUnittest(Module *m) { return nullptr; }
-
-// FIXME: Implement & place in right module
-Symbol *toModuleArray(Module *m) { return nullptr; }

@@ -147,6 +147,20 @@ public:
 
     // Back end
 
+#if IN_LLVM
+    llvm::Module *genLLVMModule(llvm::LLVMContext &context);
+    void checkAndAddOutputFile(const FileName &file);
+    void makeObjectFilenameUnique();
+
+    bool llvmForceLogging;
+    bool noModuleInfo; /// Do not emit any module metadata.
+
+    // Coverage analysis
+    llvm::GlobalVariable
+        *d_cover_valid; // private immutable size_t[] _d_cover_valid;
+    llvm::GlobalVariable *d_cover_data; // private uint[] _d_cover_data;
+    Array<size_t> d_cover_valid_init;   // initializer for _d_cover_valid
+#else
     int doppelganger;           // sub-module
     Symbol *cov;                // private uint[] __coverage;
     unsigned *covb;             // bit array of valid code line numbers
@@ -159,20 +173,6 @@ public:
     Symbol *stest;              // module unit test
 
     Symbol *sfilename;          // symbol for filename
-
-#if IN_LLVM
-    // LDC
-    llvm::Module* genLLVMModule(llvm::LLVMContext& context);
-    void checkAndAddOutputFile(const FileName &file);
-    void makeObjectFilenameUnique();
-
-    bool llvmForceLogging;
-    bool noModuleInfo; /// Do not emit any module metadata.
-
-    // Coverage analysis
-    llvm::GlobalVariable* d_cover_valid;  // private immutable size_t[] _d_cover_valid;
-    llvm::GlobalVariable* d_cover_data;   // private uint[] _d_cover_data;
-    Array<size_t>         d_cover_valid_init; // initializer for _d_cover_valid
 #endif
 
     Module *isModule() { return this; }

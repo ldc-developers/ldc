@@ -360,7 +360,10 @@ extern (C++) final class EnumDeclaration : ScopeDsymbol
         return this;
     }
 
+version (IN_LLVM) {} else
+{
     Symbol* sinit;
+}
 
     override void accept(Visitor v)
     {
