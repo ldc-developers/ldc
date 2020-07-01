@@ -22,7 +22,9 @@ import dmd.root.file;
 
 version (IN_LLVM)
 {
-    struct code;
+    extern (C++) struct AsmCode;
+
+    alias code = AsmCode;
     struct block;
     struct Blockx;
     struct elem;

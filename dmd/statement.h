@@ -40,14 +40,12 @@ class DefaultStatement;
 class LabelStatement;
 class StaticForeach;
 
-#if IN_LLVM
-namespace llvm {
-    class Value;
-}
-struct AsmCode;
-typedef AsmCode code;
-#else
 // Back end
+#if IN_LLVM
+namespace llvm { class Value; }
+struct AsmCode;
+using code = AsmCode;
+#else
 struct code;
 #endif
 
