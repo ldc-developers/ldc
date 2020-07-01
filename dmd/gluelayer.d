@@ -22,17 +22,18 @@ import dmd.root.file;
 
 version (IN_LLVM)
 {
-    extern (C++) struct AsmCode;
-
-    alias code = AsmCode;
-    struct TYPE;
-    alias type = TYPE;
-
     extern (C++)
     {
+        struct AsmCode;
+
+        // < 2.072: no `extern (C++, class)` support
+        /*extern (C++, class)*/ struct IrType;
+
         Statement asmSemantic(AsmStatement s, Scope* sc);
-        void objc_initSymbols() {}
     }
+
+    alias code = AsmCode;
+    alias type = IrType;
 }
 else version (NoBackend)
 {
