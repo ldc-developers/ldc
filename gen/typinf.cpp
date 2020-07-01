@@ -394,7 +394,7 @@ public:
       }
     }
 
-    IrAggr *iraggr = getIrAggr(sd);
+    IrStruct *iraggr = getIrAggr(sd);
 
     // string name
     b.push_string(sd->toPrettyChars());

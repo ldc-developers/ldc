@@ -17,7 +17,7 @@
 
 struct IrModule;
 struct IrFunction;
-struct IrAggr;
+class IrAggr;
 struct IrGlobal;
 struct IrLocal;
 struct IrParameter;
