@@ -46,3 +46,11 @@ enum ClassDataFields {
   // Must be kept last
   CD_NumFields /// The number of fields in ClassInfo metadata
 };
+
+inline std::string getMetadataName(const char *prefix,
+                                   llvm::GlobalVariable *forGlobal) {
+  llvm::StringRef globalName = forGlobal->getName();
+  assert(!globalName.empty());
+  return (prefix + (globalName[0] == '\1' ? globalName.substr(1) : globalName))
+      .str();
+}

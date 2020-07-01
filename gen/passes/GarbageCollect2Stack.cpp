@@ -288,8 +288,7 @@ public:
       return false;
     }
 
-    std::string metaname = CD_PREFIX;
-    metaname += ClassInfo->getName();
+    const auto metaname = getMetadataName(CD_PREFIX, ClassInfo);
 
     NamedMDNode *meta = A.M.getNamedMetadata(metaname);
     if (!meta) {
@@ -576,8 +575,7 @@ llvm::Type *Analysis::getTypeFor(Value *typeinfo) const {
     return nullptr;
   }
 
-  std::string metaname = TD_PREFIX;
-  metaname += ti_global->getName();
+  const auto metaname = getMetadataName(TD_PREFIX, ti_global);
 
   NamedMDNode *meta = M.getNamedMetadata(metaname);
   if (!meta) {

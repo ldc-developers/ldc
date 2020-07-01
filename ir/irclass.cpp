@@ -27,6 +27,7 @@
 #include "gen/rttibuilder.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
+#include "gen/typinf.h"
 #include "ir/iraggr.h"
 #include "ir/irfunction.h"
 #include "ir/irtypeclass.h"
@@ -79,12 +80,14 @@ LLGlobalVariable *IrClass::getClassInfoSymbol() {
                            irMangle, false);
 
   // Generate some metadata on this ClassInfo if it's for a class.
-  ClassDeclaration *classdecl = aggrdecl->isClassDeclaration();
-  if (classdecl && !aggrdecl->isInterfaceDeclaration()) {
+  if (!aggrdecl->isInterfaceDeclaration()) {
+    // regular TypeInfo metadata
+    emitTypeInfoMetadata(typeInfo, aggrdecl->type);
+
     // Gather information
     LLType *type = DtoType(aggrdecl->type);
     LLType *bodyType = llvm::cast<LLPointerType>(type)->getElementType();
-    bool hasDestructor = (classdecl->dtor != nullptr);
+    bool hasDestructor = (aggrdecl->dtor != nullptr);
     bool hasCustomDelete = false;
     // Construct the fields
     llvm::Metadata *mdVals[CD_NumFields];
@@ -95,15 +98,8 @@ LLGlobalVariable *IrClass::getClassInfoSymbol() {
     mdVals[CD_CustomDelete] = llvm::ConstantAsMetadata::get(
         LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasCustomDelete));
     // Construct the metadata and insert it into the module.
-    OutBuffer debugName;
-    debugName.writestring(CD_PREFIX);
-    if (irMangle[0] == '\1') {
-      debugName.write(irMangle.data() + 1, irMangle.length() - 1);
-    } else {
-      debugName.write(irMangle.data(), irMangle.length());
-    }
-    llvm::NamedMDNode *node =
-        gIR->module.getOrInsertNamedMetadata(debugName.peekChars());
+    const auto metaname = getMetadataName(CD_PREFIX, typeInfo);
+    llvm::NamedMDNode *node = gIR->module.getOrInsertNamedMetadata(metaname);
     node->addOperand(llvm::MDNode::get(
         gIR->context(), llvm::makeArrayRef(mdVals, CD_NumFields)));
   }
@@ -337,7 +333,7 @@ LLConstant *IrClass::getClassInfoInit() {
   //       }
 
   auto cd = aggrdecl->isClassDeclaration();
-  IF_LOG Logger::println("DtoDefineClassInfo(%s)", cd->toChars());
+  IF_LOG Logger::println("Defining ClassInfo for: %s", cd->toChars());
   LOG_SCOPE;
 
   Type *const cinfoType = getClassInfoType(); // check declaration in object.d

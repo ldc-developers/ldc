@@ -110,6 +110,11 @@ private:
 class IrStruct : public IrAggr {
 public:
   explicit IrStruct(StructDeclaration *sd) : IrAggr(sd) {}
+
+  /// Creates the TypeInfo_Struct symbol lazily.
+  llvm::GlobalVariable *getTypeInfoSymbol();
+  /// Builds the TypeInfo_Struct initializer constant lazily.
+  llvm::Constant *getTypeInfoInit();
 };
 
 /// Represents a class/interface.

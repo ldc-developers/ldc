@@ -513,14 +513,7 @@ public:
 
   void visit(TypeInfoDeclaration *decl) override {
     if (!irs->dcomputetarget)
-      TypeInfoDeclaration_codegen(decl, irs);
-  }
-
-  //////////////////////////////////////////////////////////////////////////
-
-  void visit(TypeInfoClassDeclaration *decl) override {
-    if (!irs->dcomputetarget)
-      TypeInfoClassDeclaration_codegen(decl, irs);
+      TypeInfoDeclaration_codegen(decl);
   }
 };
 
