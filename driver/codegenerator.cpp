@@ -26,10 +26,12 @@
 #if LDC_LLVM_VER >= 900
 #include "llvm/IR/RemarkStreamer.h"
 #endif
+#include "llvm/Support/CodeGen.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/YAMLTraits.h"
+#include "llvm/Target/TargetMachine.h"
 
 #if LDC_LLVM_VER < 600
 namespace llvm {
@@ -193,6 +195,25 @@ void emitLLVMUsedArray(IRState &irs) {
   llvmUsed->setSection("llvm.metadata");
 }
 
+void emitPICLevel(IRState &irs) {
+  if (gTargetMachine->getRelocationModel() == llvm::Reloc::PIC_) {
+    const auto &triple = *global.params.targetTriple;
+    const auto arch = triple.getArch();
+    switch (arch) {
+    case llvm::Triple::mips:
+    case llvm::Triple::mipsel:
+    case llvm::Triple::mips64:
+    case llvm::Triple::mips64el:
+      // Unlike other architectures, MIPS does not use PIC Level 2 for
+      // historical reasons. See https://reviews.llvm.org/D44381.
+      irs.module.setPICLevel(llvm::PICLevel::Level::SmallPIC);
+      break;
+    default:
+      irs.module.setPICLevel(llvm::PICLevel::Level::BigPIC);
+    }
+  }
+}
+
 void inlineAsmDiagnosticHandler(const llvm::SMDiagnostic &d, void *context,
                                 unsigned locCookie) {
   if (d.getKind() == llvm::SourceMgr::DK_Error)
@@ -264,6 +285,8 @@ void CodeGenerator::prepareLLModule(Module *m) {
   ir_ = new IRState(m->srcfile.toChars(), context_);
   ir_->module.setTargetTriple(global.params.targetTriple->str());
   ir_->module.setDataLayout(*gDataLayout);
+
+  emitPICLevel(*ir_);
 
   // TODO: Make ldc::DIBuilder per-Module to be able to emit several CUs for
   // single-object compilations?
