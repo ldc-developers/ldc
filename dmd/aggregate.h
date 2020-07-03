@@ -167,10 +167,12 @@ public:
     bool hasIdentityEquals;     // true if has identity opEquals
     bool hasNoFields;           // has no fields
     bool hasCopyCtor;           // copy constructor
+#if !IN_LLVM
     // Even if struct is defined as non-root symbol, some built-in operations
     // (e.g. TypeidExp, NewExp, ArrayLiteralExp, etc) request its TypeInfo.
     // For those, today TypeInfo_Struct is generated in COMDAT.
     bool requestTypeInfo;
+#endif
 
     FuncDeclarations postblits; // Array of postblit functions
     FuncDeclaration *postblit;  // aggregate postblit

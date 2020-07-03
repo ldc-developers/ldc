@@ -104,7 +104,10 @@ extern (C++) void semanticTypeInfo(Scope* sc, Type t)
             Scope scx;
             scx._module = sd.getModule();
             getTypeInfoType(sd.loc, t, &scx);
+version (IN_LLVM) {} else
+{
             sd.requestTypeInfo = true;
+}
         }
         else if (!sc.minst)
         {
@@ -114,7 +117,10 @@ extern (C++) void semanticTypeInfo(Scope* sc, Type t)
         else
         {
             getTypeInfoType(sd.loc, t, sc);
+version (IN_LLVM) {} else
+{
             sd.requestTypeInfo = true;
+}
 
             // https://issues.dlang.org/show_bug.cgi?id=15149
             // if the typeid operand type comes from a
@@ -122,6 +128,13 @@ extern (C++) void semanticTypeInfo(Scope* sc, Type t)
             // unSpeculative(sc, sd);
         }
 
+version (IN_LLVM)
+{
+        // LDC defines a struct's TypeInfo (only) once in its owning module,
+        // including the special members, as part of StructDeclaration codegen.
+}
+else
+{
         /* Step 2: If the TypeInfo generation requires sd.semantic3, run it later.
          * This should be done even if typeid(T) exists in speculative scope.
          * Because it may appear later in non-speculative scope.
@@ -150,6 +163,7 @@ extern (C++) void semanticTypeInfo(Scope* sc, Type t)
                 Module.addDeferredSemantic3(sd);
             }
         }
+} // !IN_LLVM
     }
 
     void visitTuple(TypeTuple t)
@@ -205,10 +219,13 @@ extern (C++) class StructDeclaration : AggregateDeclaration
     bool hasIdentityEquals;     // true if has identity opEquals
     bool hasNoFields;           // has no fields
     bool hasCopyCtor;           // copy constructor
+version (IN_LLVM) {} else
+{
     // Even if struct is defined as non-root symbol, some built-in operations
     // (e.g. TypeidExp, NewExp, ArrayLiteralExp, etc) request its TypeInfo.
     // For those, today TypeInfo_Struct is generated in COMDAT.
     bool requestTypeInfo;
+}
 
     FuncDeclarations postblits; // Array of postblit functions
     FuncDeclaration postblit;   // aggregate postblit

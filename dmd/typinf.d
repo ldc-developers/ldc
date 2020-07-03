@@ -75,6 +75,12 @@ void genTypeInfo(Loc loc, Type torig, Scope* sc)
             t.vtinfo = getTypeInfoDeclaration(t);
         assert(t.vtinfo);
 
+version (IN_LLVM)
+{
+        // LDC handles emission in the codegen layer
+}
+else
+{
         /* If this has a custom implementation in std/typeinfo, then
          * do not generate a COMDAT for it.
          */
@@ -89,16 +95,10 @@ void genTypeInfo(Loc loc, Type torig, Scope* sc)
             }
             else // if in obj generation pass
             {
-version (IN_LLVM)
-{
-                Declaration_codegen(t.vtinfo);
-}
-else
-{
                 toObjFile(t.vtinfo, global.params.multiobj);
-}
             }
         }
+} // !IN_LLVM
     }
     if (!torig.vtinfo)
         torig.vtinfo = t.vtinfo; // Types aren't merged, but we can share the vtinfo's
@@ -157,12 +157,19 @@ private TypeInfoDeclaration getTypeInfoDeclaration(Type t)
     }
 }
 
+version (IN_LLVM)
+{
+    // LDC handles TypeInfo emission in the codegen layer
+    // => no need to take care of speculative types.
+}
+else
+{
+
 /**************************************************
  * Returns:
  *      true if any part of type t is speculative.
  *      if t is null, returns false.
  */
-extern (C++) // IN_LLVM
 bool isSpeculativeType(Type t)
 {
     static bool visitVector(TypeVector t)
@@ -255,6 +262,8 @@ bool isSpeculativeType(Type t)
     }
 }
 
+} // !IN_LLVM
+
 /* ========================================================================= */
 
 /* These decide if there's an instance for them already in std.typeinfo,
@@ -263,8 +272,8 @@ bool isSpeculativeType(Type t)
 // IN_LLVM: replaced `private` with `extern(C++)`
 extern(C++) bool builtinTypeInfo(Type t)
 {
-    // LDC_FIXME: if I enable for Tclass, the way LDC does typeinfo will cause
-    // a bunch of linker errors to missing ClassInfo init symbols.
+    // IN_LLVM: the Tclass case seems to be a DMD hack
+    //          (in order not to define ClassInfos in each referencing module)
     if (t.isTypeBasic() || (!IN_LLVM && t.ty == Tclass) || t.ty == Tnull)
         return !t.mod;
     if (t.ty == Tarray)
