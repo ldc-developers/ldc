@@ -60,14 +60,14 @@
 void genTypeInfo(Loc loc, Type *torig, Scope *sc);
 bool builtinTypeInfo(Type *t);
 
-TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(const Loc &loc, Type *torig,
-                                                    Scope *sc) {
-  IF_LOG Logger::println("Type::getTypeInfo(): %s", torig->toChars());
+TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(const Loc &loc, Type *forType) {
+  IF_LOG Logger::println("getOrCreateTypeInfoDeclaration(): %s",
+                         forType->toChars());
   LOG_SCOPE
 
-  genTypeInfo(loc, torig, sc);
+  genTypeInfo(loc, forType, nullptr);
 
-  return torig->vtinfo;
+  return forType->vtinfo;
 }
 
 /* ========================================================================= */
@@ -103,23 +103,6 @@ void emitTypeInfoMetadata(LLGlobalVariable *typeinfoGlobal, Type *forType) {
           gIR->context(), llvm::makeArrayRef(mdVals, TD_NumFields)));
     }
   }
-}
-
-void DtoResolveTypeInfo(TypeInfoDeclaration *tid) {
-  if (tid->ir->isResolved()) {
-    return;
-  }
-  tid->ir->setResolved();
-
-  // TypeInfo instances (except ClassInfo ones) are always emitted as weak
-  // symbols when they are used. We call semanticTypeInfo() to make sure
-  // that the type (e.g. for structs) is semantic3'd and codegen() does not
-  // skip it on grounds of being speculative, as DtoResolveTypeInfo() means
-  // that we actually need the value somewhere else in codegen.
-  // TODO: DMD does not seem to call semanticTypeInfo() from the glue layer,
-  // so there might be a structural issue somewhere.
-  semanticTypeInfo(nullptr, tid->tinfo);
-  Declaration_codegen(tid);
 }
 
 /* ========================================================================= */
@@ -471,8 +454,7 @@ void buildTypeInfo(TypeInfoDeclaration *decl) {
 
   // check if the definition can be elided
   if (gvar->hasInitializer() || !global.params.useTypeInfo ||
-      !Type::dtypeinfo || isSpeculativeType(forType) ||
-      builtinTypeInfo(forType)) {
+      !Type::dtypeinfo || builtinTypeInfo(forType)) {
     return;
   }
   if (auto forClassType = forType->isTypeClass()) {
@@ -491,28 +473,12 @@ void buildTypeInfo(TypeInfoDeclaration *decl) {
 class DeclareOrDefineVisitor : public Visitor {
   using Visitor::visit;
 
-  // Define struct TypeInfos as linkonce_odr in each referencing CU.
+  // Only declare struct TypeInfos. They are defined once in their owning module
+  // as part of StructDeclaration codegen.
   void visit(TypeInfoStructDeclaration *decl) override {
-    auto forType = decl->tinfo->isTypeStruct();
-
-    auto irstruct = getIrAggr(forType->sym, true);
-    auto gvar = irstruct->getTypeInfoSymbol();
-
+    auto irstruct = getIrAggr(decl->tinfo->isTypeStruct()->sym, true);
     IrGlobal *irg = getIrGlobal(decl, true);
-    irg->value = gvar;
-
-    // check if the definition can be elided
-    if (gvar->hasInitializer() || irstruct->suppressTypeInfo() ||
-        isSpeculativeType(forType)) {
-      return;
-    }
-
-    LLConstant *init = irstruct->getTypeInfoInit(); // might define gvar!
-
-    if (!gvar->hasInitializer()) {
-      defineGlobal(gvar, init, irstruct->aggrdecl);
-      gvar->setLinkage(TYPEINFO_LINKAGE_TYPE); // override
-    }
+    irg->value = irstruct->getTypeInfoSymbol();
   }
 
   // Only declare class TypeInfos. They are defined once in their owning module
@@ -526,17 +492,22 @@ class DeclareOrDefineVisitor : public Visitor {
   }
 
   // Build all other TypeInfos.
-  void visit(TypeInfoDeclaration *decl) override {
-    buildTypeInfo(decl);
-  }
+  void visit(TypeInfoDeclaration *decl) override { buildTypeInfo(decl); }
 };
 } // anonymous namespace
 
-void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl) {
-  IF_LOG Logger::println("TypeInfoDeclaration_codegen(%s)",
-                         decl->toPrettyChars());
+LLGlobalVariable *DtoResolveTypeInfo(TypeInfoDeclaration *tid) {
+  IF_LOG Logger::println("DtoResolveTypeInfo(%s)", tid->toPrettyChars());
   LOG_SCOPE;
 
-  DeclareOrDefineVisitor v;
-  decl->accept(&v);
+  assert(!gIR->dcomputetarget);
+
+  if (!tid->ir->isResolved()) {
+    tid->ir->setResolved();
+
+    DeclareOrDefineVisitor v;
+    tid->accept(&v);
+  }
+
+  return llvm::cast<LLGlobalVariable>(getIrValue(tid));
 }

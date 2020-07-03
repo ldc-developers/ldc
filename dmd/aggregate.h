@@ -182,10 +182,12 @@ public:
     // ABI-specific type(s) if the struct can be passed in registers
     TypeTuple *argTypes;
 
+#if !IN_LLVM
     // Even if struct is defined as non-root symbol, some built-in operations
     // (e.g. TypeidExp, NewExp, ArrayLiteralExp, etc) request its TypeInfo.
     // For those, today TypeInfo_Struct is generated in COMDAT.
     bool requestTypeInfo;
+#endif
 
     static StructDeclaration *create(Loc loc, Identifier *id, bool inObject);
     Dsymbol *syntaxCopy(Dsymbol *s);

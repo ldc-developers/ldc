@@ -2685,8 +2685,8 @@ public:
 
   void visit(TypeidExp *e) override {
     if (Type *t = isType(e->obj)) {
-      result = DtoSymbolAddress(
-          e->loc, e->type, getOrCreateTypeInfoDeclaration(e->loc, t, nullptr));
+      result = DtoSymbolAddress(e->loc, e->type,
+                                getOrCreateTypeInfoDeclaration(e->loc, t));
       return;
     }
     if (Expression *ex = isExpression(e->obj)) {

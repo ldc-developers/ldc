@@ -5,7 +5,7 @@
 pragma(LDC_no_moduleinfo); // prevent ModuleInfo from referencing class TypeInfos
 
 
-// CHECK: _D50TypeInfo_S18pragma_no_typeinfo18StructWithTypeInfo6__initZ = linkonce_odr global %object.TypeInfo_Struct
+// CHECK: _D50TypeInfo_S18pragma_no_typeinfo18StructWithTypeInfo6__initZ = global %object.TypeInfo_Struct
 struct StructWithTypeInfo {}
 
 // CHECK: _D18pragma_no_typeinfo17ClassWithTypeInfo7__ClassZ = global %object.TypeInfo_Class
