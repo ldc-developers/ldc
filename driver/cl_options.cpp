@@ -329,17 +329,17 @@ cl::list<std::string> versions(
     cl::desc("Compile in version code >= <level> or identified by <idents>"));
 
 cl::list<std::string> transitions(
-    "transition", cl::CommaSeparated, cl::value_desc("id"),
-    cl::desc("Help with language change identified by <id>, use ? for list"));
+    "transition", cl::CommaSeparated, cl::value_desc("name"),
+    cl::desc("Help with language change identified by <name>, use ? for list"));
 
-cl::list<std::string> previews("preview", cl::CommaSeparated,
-                               cl::value_desc("id"),
-                               cl::desc("Enable an upcoming language change "
-                                        "identified by <id>, use ? for list"));
+cl::list<std::string>
+    previews("preview", cl::CommaSeparated, cl::value_desc("name"),
+             cl::desc("Enable an upcoming language change "
+                      "identified by <name>, use ? for list"));
 
 cl::list<std::string> reverts(
-    "revert", cl::CommaSeparated, cl::value_desc("id"),
-    cl::desc("Revert language change identified by <id>, use ? for list"));
+    "revert", cl::CommaSeparated, cl::value_desc("name"),
+    cl::desc("Revert language change identified by <name>, use ? for list"));
 
 cl::list<std::string>
     linkerSwitches("L", cl::desc("Pass <linkerflag> to the linker"),

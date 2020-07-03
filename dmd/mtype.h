@@ -290,6 +290,7 @@ public:
     Type *referenceTo();
     Type *arrayOf();
     Type *sarrayOf(dinteger_t dim);
+    bool hasDeprecatedAliasThis();
     Type *aliasthisOf();
     virtual Type *makeConst();
     virtual Type *makeImmutable();

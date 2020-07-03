@@ -589,8 +589,8 @@ dmd -cov -unittest myprog.d
             off when generating an object, interface, or Ddoc file
             name. $(SWLINK -op) will leave it on.`,
         ),
-        Option("preview=<id>",
-            "enable an upcoming language change identified by 'id'",
+        Option("preview=<name>",
+            "enable an upcoming language change identified by 'name'",
             `Preview an upcoming language change identified by $(I id)`,
         ),
         Option("preview=[h|help|?]",
@@ -615,8 +615,8 @@ dmd -cov -unittest myprog.d
             done for system and trusted functions, and assertion failures
             are undefined behaviour.`
         ),
-        Option("revert=<id>",
-            "revert language change identified by 'id'",
+        Option("revert=<name>",
+            "revert language change identified by 'name'",
             `Revert language change identified by $(I id)`,
         ),
         Option("revert=[h|help|?]",
@@ -634,8 +634,8 @@ dmd -cov -unittest myprog.d
             `$(UNIX Generate shared library)
              $(WINDOWS Generate DLL library)`,
         ),
-        Option("transition=<id>",
-            "help with language change identified by 'id'",
+        Option("transition=<name>",
+            "help with language change identified by 'name'",
             `Show additional info about language change identified by $(I id)`,
         ),
         Option("transition=[h|help|?]",
@@ -829,7 +829,7 @@ version (IN_LLVM) {} else
         auto buf = description.capitalize ~ " listed by -"~flagName~"=name:
 ";
         auto allTransitions = [Usage.Feature("all", null,
-            "list information on all " ~ description)] ~ features;
+            "Enables all available " ~ description)] ~ features;
         foreach (t; allTransitions)
         {
             if (t.deprecated_)

@@ -1614,12 +1614,21 @@ version (IN_LLVM)
         {
             string buf = `case "all":`;
             foreach (t; features)
+            {
+                if (t.deprecated_)
+                    continue;
+
                 buf ~= `params.`~t.paramName~` = true;`;
-            buf ~= "break;";
+            }
+            buf ~= "return true;\n";
 
             foreach (t; features)
-                buf ~= `case "`~t.name~`": params.`~t.paramName~` = true; return true;`;
-
+            {
+                buf ~= `case "`~t.name~`":`;
+                if (t.deprecated_)
+                    buf ~= "deprecation(Loc.initial, \"`-"~groupName~"="~t.name~"` no longer has any effect.\"); ";
+                buf ~= `params.`~t.paramName~` = true; return true;`;
+            }
             return buf;
         }
 
@@ -1808,7 +1817,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
 
                     buf ~= `params.`~t.paramName~` = true;`;
                 }
-                buf ~= "break;\n";
+                buf ~= "return true;\n";
 
                 foreach (t; features)
                 {
