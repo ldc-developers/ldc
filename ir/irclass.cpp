@@ -248,19 +248,6 @@ LLConstant *IrClass::getVtblInit() {
 //////////////////////////////////////////////////////////////////////////////
 
 namespace {
-LLConstant *buildClassDtor(ClassDeclaration *cd) {
-  FuncDeclaration *dtor = cd->tidtor;
-
-  // if no destructor emit a null
-  if (!dtor) {
-    return getNullPtr(getVoidPtrType());
-  }
-
-  DtoResolveFunction(dtor);
-  return llvm::ConstantExpr::getBitCast(
-      DtoCallee(dtor), getPtrToType(LLType::getInt8Ty(gIR->context())));
-}
-
 unsigned buildClassinfoFlags(ClassDeclaration *cd) {
   // adapted from original dmd code:
   // toobj.c: ToObjFile::visit(ClassDeclaration*) and
@@ -391,10 +378,10 @@ LLConstant *IrClass::getClassInfoInit() {
   }
 
   // destructor
-  if (cd->isInterfaceDeclaration()) {
+  if (cd->isInterfaceDeclaration() || !cd->tidtor) {
     b.push_null_vp();
   } else {
-    b.push(buildClassDtor(cd));
+    b.push_funcptr(cd->tidtor, Type::tvoidptr);
   }
 
   // invariant
