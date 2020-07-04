@@ -1,7 +1,5 @@
 // Test basic Fuzz sanitizer functionality
 
-// REQUIRES: atleast_llvm400
-
 // RUN: %ldc -c -output-ll -O3 -fsanitize=fuzzer -of=%t.ll %s && FileCheck %s < %t.ll
 // RUN: %ldc -c -output-ll -fsanitize=fuzzer,address -of=%t.asan.ll %s && FileCheck %s --check-prefix=CHECK --check-prefix=wASAN < %t.asan.ll
 

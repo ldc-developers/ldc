@@ -49,15 +49,15 @@
 llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel(
     "fthread-model", llvm::cl::ZeroOrMore, llvm::cl::desc("Thread model"),
     llvm::cl::init(llvm::GlobalVariable::GeneralDynamicTLSModel),
-    clEnumValues(clEnumValN(llvm::GlobalVariable::GeneralDynamicTLSModel,
-                            "global-dynamic",
-                            "Global dynamic TLS model (default)"),
-                 clEnumValN(llvm::GlobalVariable::LocalDynamicTLSModel,
-                            "local-dynamic", "Local dynamic TLS model"),
-                 clEnumValN(llvm::GlobalVariable::InitialExecTLSModel,
-                            "initial-exec", "Initial exec TLS model"),
-                 clEnumValN(llvm::GlobalVariable::LocalExecTLSModel,
-                            "local-exec", "Local exec TLS model")));
+    llvm::cl::values(clEnumValN(llvm::GlobalVariable::GeneralDynamicTLSModel,
+                                "global-dynamic",
+                                "Global dynamic TLS model (default)"),
+                     clEnumValN(llvm::GlobalVariable::LocalDynamicTLSModel,
+                                "local-dynamic", "Local dynamic TLS model"),
+                     clEnumValN(llvm::GlobalVariable::InitialExecTLSModel,
+                                "initial-exec", "Initial exec TLS model"),
+                     clEnumValN(llvm::GlobalVariable::LocalExecTLSModel,
+                                "local-exec", "Local exec TLS model")));
 
 /******************************************************************************
  * Simple Triple helpers for DFE
@@ -178,10 +178,7 @@ llvm::AllocaInst *DtoArrayAlloca(Type *type, unsigned arraysize,
                                  const char *name) {
   LLType *lltype = DtoType(type);
   auto ai = new llvm::AllocaInst(
-      lltype,
-#if LDC_LLVM_VER >= 500
-      gIR->module.getDataLayout().getAllocaAddrSpace(),
-#endif
+      lltype, gIR->module.getDataLayout().getAllocaAddrSpace(),
       DtoConstUint(arraysize), name, gIR->topallocapoint());
   ai->setAlignment(LLMaybeAlign(DtoAlignment(type)));
   return ai;
@@ -189,12 +186,9 @@ llvm::AllocaInst *DtoArrayAlloca(Type *type, unsigned arraysize,
 
 llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
                                const char *name) {
-  auto ai =
-      new llvm::AllocaInst(lltype,
-#if LDC_LLVM_VER >= 500
-                           gIR->module.getDataLayout().getAllocaAddrSpace(),
-#endif
-                           name, gIR->topallocapoint());
+  auto ai = new llvm::AllocaInst(
+      lltype, gIR->module.getDataLayout().getAllocaAddrSpace(), name,
+      gIR->topallocapoint());
   if (alignment) {
     ai->setAlignment(LLMaybeAlign(alignment));
   }
@@ -1443,11 +1437,7 @@ bool isLLVMUnsigned(Type *t) { return t->isunsigned() || t->ty == Tpointer; }
 
 void printLabelName(std::ostream &target, const char *func_mangle,
                     const char *label_name) {
-  target << gTargetMachine->getMCAsmInfo()
-                ->getPrivateGlobalPrefix()
-#if LDC_LLVM_VER >= 400
-                .str()
-#endif
+  target << gTargetMachine->getMCAsmInfo()->getPrivateGlobalPrefix().str()
          << func_mangle << "_" << label_name;
 }
 

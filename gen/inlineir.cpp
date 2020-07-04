@@ -38,7 +38,7 @@ struct TempDisableDiscardValueNames {
 void copyFnAttributes(llvm::Function *wannabe, llvm::Function *idol) {
   auto attrSet = idol->getAttributes();
   auto fnAttrSet = attrSet.getFnAttributes();
-  wannabe->addAttributes(LLAttributeSet::FunctionIndex, fnAttrSet);
+  wannabe->addAttributes(LLAttributeList::FunctionIndex, fnAttrSet);
 }
 
 llvm::StringRef exprToString(StringExp *strexp) {

@@ -195,13 +195,8 @@ int executeToolAndWait(const std::string &tool_,
 
   // Execute tool.
   std::string errstr;
-  if (int status = llvm::sys::ExecuteAndWait(tool, argv, envVars,
-#if LDC_LLVM_VER >= 600
-                                             {},
-#else
-                                             nullptr,
-#endif
-                                             0, 0, &errstr)) {
+  if (int status =
+          llvm::sys::ExecuteAndWait(tool, argv, envVars, {}, 0, 0, &errstr)) {
     error(Loc(), "%s failed with status: %d", tool.c_str(), status);
     if (!errstr.empty()) {
       error(Loc(), "message: %s", errstr.c_str());

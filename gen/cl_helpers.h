@@ -18,10 +18,6 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
 
-#if LDC_LLVM_VER >= 500
-#define LLVM_END_WITH_NULL
-#endif
-
 template <typename TYPE> struct Array;
 typedef Array<const char *> Strings;
 
@@ -87,22 +83,12 @@ public:
   // Implement virtual functions needed by generic_parser_base
   unsigned getNumOptions() const override { return 0; }
 
-#if LDC_LLVM_VER >= 400
-  llvm::StringRef
-#else
-  const char *
-#endif
-  getOption(unsigned N) const override {
+  llvm::StringRef getOption(unsigned N) const override {
     llvm_unreachable("Unexpected call");
     return "";
   }
 
-#if LDC_LLVM_VER >= 400
-  llvm::StringRef
-#else
-  const char *
-#endif
-  getDescription(unsigned N) const override {
+  llvm::StringRef getDescription(unsigned N) const override {
     llvm_unreachable("Unexpected call");
     return "";
   }
@@ -169,7 +155,8 @@ class MultiSetter {
   bool invert;
   explicit MultiSetter(bool); // not implemented, disable auto-conversion
 public:
-  MultiSetter(bool invert, CHECKENABLE *p, ...) LLVM_END_WITH_NULL;
+  // end with a nullptr
+  MultiSetter(bool invert, CHECKENABLE *p, ...);
 
   void operator=(bool val);
 };
@@ -193,15 +180,3 @@ public:
   void push_back(const std::string &str) { push_back(str.c_str()); }
 };
 }
-
-
-#if LDC_LLVM_VER >= 400
-#define clEnumValues llvm::cl::values
-#else
-template <typename DataType, typename... OptsTy>
-llvm::cl::ValuesClass<DataType> clEnumValues(const char *Arg, DataType Val,
-                                             const char *Desc,
-                                             OptsTy... Options) {
-  return llvm::cl::values(Arg, Val, Desc, Options..., clEnumValEnd);
-}
-#endif

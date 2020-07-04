@@ -1,7 +1,6 @@
 // Test execution path for ThinLTO when PGO data is available.
 // I manually verified that PGO data is added to the ThinLTO module summary, but do not know how to automatically test this reliably.
 
-// REQUIRES: atleast_llvm400
 // REQUIRES: LTO
 // REQUIRES: PGO_RT
 

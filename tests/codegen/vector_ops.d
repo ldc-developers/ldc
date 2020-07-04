@@ -1,4 +1,3 @@
-// REQUIRES: atleast_llvm500
 // RUN: %ldc -run %s
 
 import core.simd;

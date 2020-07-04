@@ -1,6 +1,5 @@
 // Test Fuzz+ASan functionality
 
-// REQUIRES: atleast_llvm500
 // REQUIRES: Fuzzer, ASan
 
 // See https://github.com/ldc-developers/ldc/issues/2222 for %disable_fp_elim
