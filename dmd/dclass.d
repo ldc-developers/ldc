@@ -223,7 +223,10 @@ extern (C++) class ClassDeclaration : AggregateDeclaration
      */
     ObjcClassDeclaration objc;
 
+version (IN_LLVM) {} else
+{
     Symbol* cpp_type_info_ptr_sym;      // cached instance of class Id.cpp_type_info_ptr
+}
 
     final extern (D) this(const ref Loc loc, Identifier id, BaseClasses* baseclasses, Dsymbols* members, bool inObject)
     {

@@ -138,9 +138,11 @@ public:
     // 'this' type
     Type *handleType() { return type; }
 
+#if !IN_LLVM
     // Back end
     Symbol *stag;               // tag symbol for debug data
     Symbol *sinit;
+#endif
 
     AggregateDeclaration *isAggregateDeclaration() { return this; }
     void accept(Visitor *v) { v->visit(this); }
@@ -279,7 +281,9 @@ public:
     Abstract isabstract;                // 0: fwdref, 1: is abstract class, 2: not abstract
     Baseok baseok;                      // set the progress of base classes resolving
     ObjcClassDeclaration objc;          // Data for a class declaration that is needed for the Objective-C integration
+#if !IN_LLVM
     Symbol *cpp_type_info_ptr_sym;      // cached instance of class Id.cpp_type_info_ptr
+#endif
 
     static ClassDeclaration *create(Loc loc, Identifier *id, BaseClasses *baseclasses, Dsymbols *members, bool inObject);
     Dsymbol *syntaxCopy(Dsymbol *s);

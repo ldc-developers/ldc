@@ -2221,7 +2221,7 @@ struct AsmProcessor {
           auto asmcode = new AsmCode(N_Regs);
 
           if (formatInstruction(operand_i, asmcode)) {
-            stmt->asmcode = (code *)asmcode;
+            stmt->asmcode = asmcode;
           }
         }
       }
@@ -2257,7 +2257,7 @@ struct AsmProcessor {
       auto asmcode = new AsmCode(N_Regs);
 
       if (formatInstruction(operand_i, asmcode)) {
-        stmt->asmcode = (code *)asmcode;
+        stmt->asmcode = asmcode;
       }
     }
   }
@@ -2266,7 +2266,7 @@ struct AsmProcessor {
     auto asmcode = new AsmCode(N_Regs);
     asmcode->insnTemplate = insnTemplate.str();
     Logger::cout() << "insnTemplate = " << asmcode->insnTemplate << '\n';
-    stmt->asmcode = (code *)asmcode;
+    stmt->asmcode = asmcode;
   }
 
   // note: doesn't update AsmOp op

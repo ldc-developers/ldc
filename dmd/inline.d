@@ -663,8 +663,11 @@ public:
                 auto vto = new VarDeclaration(vd.loc, vd.type, vd.ident, vd._init);
                 memcpy(cast(void*)vto, cast(void*)vd, __traits(classInstanceSize, VarDeclaration));
                 vto.parent = ids.parent;
+version (IN_LLVM) {} else
+{
                 vto.csym = null;
                 vto.isym = null;
+}
 
                 ids.from.push(vd);
                 ids.to.push(vto);
@@ -817,8 +820,11 @@ public:
                 auto vto = new VarDeclaration(vd.loc, vd.type, vd.ident, vd._init);
                 memcpy(cast(void*)vto, cast(void*)vd, __traits(classInstanceSize, VarDeclaration));
                 vto.parent = ids.parent;
+version (IN_LLVM) {} else
+{
                 vto.csym = null;
                 vto.isym = null;
+}
 
                 ids.from.push(vd);
                 ids.to.push(vto);
@@ -846,8 +852,11 @@ public:
                 auto vto = new VarDeclaration(vd.loc, vd.type, vd.ident, vd._init);
                 memcpy(cast(void*)vto, cast(void*)vd, __traits(classInstanceSize, VarDeclaration));
                 vto.parent = ids.parent;
+version (IN_LLVM) {} else
+{
                 vto.csym = null;
                 vto.isym = null;
+}
 
                 ids.from.push(vd);
                 ids.to.push(vto);
