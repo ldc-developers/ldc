@@ -247,12 +247,14 @@ LLConstant *IrClass::getVtblInit() {
 
 //////////////////////////////////////////////////////////////////////////////
 
+/**
+ * The following code should be kept in sync with upstream, dmd/toobj.d:
+ * - genClassInfoForClass()
+ * - genClassInfoForInterface()
+ */
+
 namespace {
 unsigned buildClassinfoFlags(ClassDeclaration *cd) {
-  // adapted from original dmd code:
-  // toobj.c: ToObjFile::visit(ClassDeclaration*) and
-  // ToObjFile::visit(InterfaceDeclaration*)
-
   auto flags = ClassFlags::hasOffTi | ClassFlags::hasTypeInfo;
   if (cd->isInterfaceDeclaration()) {
     if (cd->isCOMinterface()) {
@@ -301,24 +303,6 @@ LLConstant *IrClass::getClassInfoInit() {
     return constTypeInfo;
   }
 
-  //     The layout is:
-  //       {
-  //         void **vptr;
-  //         monitor_t monitor;
-  //         byte[] init;
-  //         string name;
-  //         void*[] vtbl;
-  //         Interface[] interfaces;
-  //         TypeInfo_Class base;
-  //         void *destructor;
-  //         void function(Object) classInvariant;
-  //         ClassFlags m_flags;
-  //         void* deallocator;
-  //         OffsetTypeInfo[] m_offTi;
-  //         void function(Object) defaultConstructor;
-  //         immutable(void)* m_RTInfo;
-  //       }
-
   auto cd = aggrdecl->isClassDeclaration();
   IF_LOG Logger::println("Defining ClassInfo for: %s", cd->toChars());
   LOG_SCOPE;
@@ -332,111 +316,87 @@ LLConstant *IrClass::getClassInfoInit() {
     fatal();
   }
 
-  // use the rtti builder
-  RTTIBuilder b(cinfoType);
+  const bool isInterface = cd->isInterfaceDeclaration();
 
-  LLConstant *c;
+  RTTIBuilder b(cinfoType);
 
   LLType *voidPtr = getVoidPtrType();
   LLType *voidPtrPtr = getPtrToType(voidPtr);
 
   // adapted from original dmd code
-  // init[]
-  if (cd->isInterfaceDeclaration()) {
+  // byte[] m_init
+  if (isInterface) {
     b.push_null_void_array();
   } else {
-    size_t initsz = cd->size(Loc());
-    b.push_void_array(initsz, getInitSymbol());
+    b.push_void_array(cd->size(Loc()), getInitSymbol());
   }
 
-  // name[]
+  // string name
   const char *name = cd->ident->toChars();
-  size_t namelen = strlen(name);
-  if (!(namelen > 9 && memcmp(name, "TypeInfo_", 9) == 0)) {
+  if (strncmp(name, "TypeInfo_", 9) != 0) {
     name = cd->toPrettyChars();
-    namelen = strlen(name);
   }
   b.push_string(name);
 
-  // vtbl[]
-  if (cd->isInterfaceDeclaration()) {
+  // void*[] vtbl
+  if (isInterface) {
     b.push_array(0, getNullValue(voidPtrPtr));
   } else {
-    c = DtoBitCast(getVtblSymbol(), voidPtrPtr);
-    b.push_array(cd->vtbl.length, c);
+    b.push_array(cd->vtbl.length, DtoBitCast(getVtblSymbol(), voidPtrPtr));
   }
 
-  // interfaces[]
+  // Interface[] interfaces
   b.push(getClassInfoInterfaces());
 
-  // base
-  // interfaces never get a base, just the interfaces[]
-  if (cd->baseClass && !cd->isInterfaceDeclaration()) {
+  // TypeInfo_Class base
+  assert(!isInterface || !cd->baseClass);
+  if (cd->baseClass) {
     b.push_classinfo(cd->baseClass);
   } else {
     b.push_null(cinfoType);
   }
 
-  // destructor
-  if (cd->isInterfaceDeclaration() || !cd->tidtor) {
-    b.push_null_vp();
-  } else {
-    b.push_funcptr(cd->tidtor, Type::tvoidptr);
-  }
+  // void* destructor
+  assert(!isInterface || !cd->tidtor);
+  b.push_funcptr(cd->tidtor, Type::tvoidptr);
 
-  // invariant
+  // void function(Object) classInvariant
+  assert(!isInterface || !cd->inv);
   VarDeclaration *invVar = cinfo->fields[6];
   b.push_funcptr(cd->inv, invVar->type);
 
-  // flags
-  const unsigned flags = buildClassinfoFlags(cd);
+  // ClassFlags m_flags
+  const auto flags = buildClassinfoFlags(cd);
   b.push_uint(flags);
 
-  // deallocator
+  // void* deallocator
   b.push_null_vp();
 
-  // offset typeinfo
+  // OffsetTypeInfo[] m_offTi
   VarDeclaration *offTiVar = cinfo->fields[9];
-#if GENERATE_OFFTI
-  if (cd->isInterfaceDeclaration())
-    b.push_null(offTiVar->type);
-  else
-    b.push(build_offti_array(cd, DtoType(offTiVar->type)));
-#else
   b.push_null(offTiVar->type);
-#endif
 
-  // defaultConstructor
+  // void function(Object) defaultConstructor
   VarDeclaration *defConstructorVar = cinfo->fields[10];
   CtorDeclaration *defConstructor = cd->defaultCtor;
   if (defConstructor && (defConstructor->storage_class & STCdisable)) {
     defConstructor = nullptr;
   }
+  assert(!isInterface || !defConstructor);
   b.push_funcptr(defConstructor, defConstructorVar->type);
 
-  // m_RTInfo
-  // The cases where getRTInfo is null are not quite here, but the code is
-  // modelled after what DMD does.
+  // immutable(void)* m_RTInfo
   if (cd->getRTInfo) {
     b.push(toConstElem(cd->getRTInfo, gIR));
-  } else if (flags & ClassFlags::noPointers) {
+  } else if (isInterface || (flags & ClassFlags::noPointers)) {
     b.push_size_as_vp(0); // no pointers
   } else {
     b.push_size_as_vp(1); // has pointers
   }
 
-  /*size_t n = inits.size();
-  for (size_t i=0; i<n; ++i)
-  {
-      Logger::cout() << "inits[" << i << "]: " << *inits[i] << '\n';
-  }*/
-
   // build the initializer
   LLType *initType = getClassInfoSymbol()->getType()->getContainedType(0);
   constTypeInfo = b.get_constant(isaStruct(initType));
-
-  // Logger::cout() << "built the classinfo initializer:\n" << *constTypeInfo
-  // <<'\n';
 
   return constTypeInfo;
 }

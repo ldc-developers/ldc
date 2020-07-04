@@ -60,6 +60,9 @@ LLGlobalVariable* IrStruct::getTypeInfoSymbol() {
 }
 
 LLConstant *IrStruct::getTypeInfoInit() {
+  // The upstream implementation is in dmd/todt.d,
+  // TypeInfoDtVisitor.visit(TypeInfoStructDeclaration).
+
   if (constTypeInfo) {
     return constTypeInfo;
   }
@@ -95,126 +98,100 @@ LLConstant *IrStruct::getTypeInfoInit() {
 
   RTTIBuilder b(structTypeInfoType);
 
-  LLStructType *memoryLLType = getTypeInfoStructMemType();
+  // we need (dummy) TypeInfos for opaque structs too
+  const bool isOpaque = !sd->members;
 
-  // handle opaque structs
-  if (!sd->members) {
-    Logger::println("is opaque struct, emitting dummy TypeInfo_Struct");
+  if (!isOpaque) {
+    DtoResolveStruct(sd);
 
-    b.push_null_void_array(); // name
-    b.push_null_void_array(); // m_init
-    b.push_null_vp();         // xtoHash
-    b.push_null_vp();         // xopEquals
-    b.push_null_vp();         // xopCmp
-    b.push_null_vp();         // xtoString
-    b.push_uint(0);           // m_flags
-    b.push_null_vp();         // xdtor/xdtorti
-    b.push_null_vp();         // xpostblit
-    b.push_uint(0);           // m_align
-    if (withArgTypes) {
-      b.push_null_vp(); // m_arg1
-      b.push_null_vp(); // m_arg2
-    }
-    b.push_null_vp(); // m_RTInfo
+    if (TemplateInstance *ti = sd->isInstantiated()) {
+      if (!ti->needsCodegen()) {
+        assert(ti->minst || sd->requestTypeInfo);
 
-    constTypeInfo = b.get_constant(memoryLLType);
-    return constTypeInfo;
-  }
-
-  // can't emit typeinfo for forward declarations
-  if (sd->sizeok != SIZEOKdone) {
-    sd->error("cannot emit `TypeInfo` for forward declaration");
-    fatal();
-  }
-
-  DtoResolveStruct(sd);
-
-  if (TemplateInstance *ti = sd->isInstantiated()) {
-    if (!ti->needsCodegen()) {
-      assert(ti->minst || sd->requestTypeInfo);
-
-      // We won't emit ti, so emit the special member functions in here.
-      if (sd->xeq && sd->xeq != StructDeclaration::xerreq &&
-          sd->xeq->semanticRun >= PASSsemantic3) {
-        Declaration_codegen(sd->xeq);
-      }
-      if (sd->xcmp && sd->xcmp != StructDeclaration::xerrcmp &&
-          sd->xcmp->semanticRun >= PASSsemantic3) {
-        Declaration_codegen(sd->xcmp);
-      }
-      if (FuncDeclaration *ftostr = search_toString(sd)) {
-        if (ftostr->semanticRun >= PASSsemantic3)
-          Declaration_codegen(ftostr);
-      }
-      if (sd->xhash && sd->xhash->semanticRun >= PASSsemantic3) {
-        Declaration_codegen(sd->xhash);
-      }
-      if (sd->postblit && sd->postblit->semanticRun >= PASSsemantic3) {
-        Declaration_codegen(sd->postblit);
-      }
-      if (sd->dtor && sd->dtor->semanticRun >= PASSsemantic3) {
-        Declaration_codegen(sd->dtor);
-      }
-      if (sd->tidtor && sd->tidtor->semanticRun >= PASSsemantic3) {
-        Declaration_codegen(sd->tidtor);
+        // We won't emit ti, so emit the special member functions in here.
+        if (sd->xeq && sd->xeq != StructDeclaration::xerreq &&
+            sd->xeq->semanticRun >= PASSsemantic3) {
+          Declaration_codegen(sd->xeq);
+        }
+        if (sd->xcmp && sd->xcmp != StructDeclaration::xerrcmp &&
+            sd->xcmp->semanticRun >= PASSsemantic3) {
+          Declaration_codegen(sd->xcmp);
+        }
+        if (FuncDeclaration *ftostr = search_toString(sd)) {
+          if (ftostr->semanticRun >= PASSsemantic3)
+            Declaration_codegen(ftostr);
+        }
+        if (sd->xhash && sd->xhash->semanticRun >= PASSsemantic3) {
+          Declaration_codegen(sd->xhash);
+        }
+        if (sd->postblit && sd->postblit->semanticRun >= PASSsemantic3) {
+          Declaration_codegen(sd->postblit);
+        }
+        if (sd->dtor && sd->dtor->semanticRun >= PASSsemantic3) {
+          Declaration_codegen(sd->dtor);
+        }
+        if (sd->tidtor && sd->tidtor->semanticRun >= PASSsemantic3) {
+          Declaration_codegen(sd->tidtor);
+        }
       }
     }
   }
-
-  IrStruct *iraggr = getIrAggr(sd);
 
   // string name
-  b.push_string(sd->toPrettyChars());
+  if (isOpaque) {
+    b.push_null_void_array();
+  } else {
+    b.push_string(sd->toPrettyChars());
+  }
 
   // void[] m_init
   // The protocol is to write a null pointer for zero-initialized structs.
   // The length field is always needed for tsize().
-  llvm::Constant *initPtr;
-  if (ts->isZeroInit(Loc())) {
-    initPtr = getNullValue(getVoidPtrType());
+  if (isOpaque) {
+    b.push_null_void_array();
   } else {
-    initPtr = iraggr->getInitSymbol();
+    llvm::Constant *initPtr;
+    if (ts->isZeroInit(Loc())) {
+      initPtr = getNullValue(getVoidPtrType());
+    } else {
+      initPtr = getInitSymbol();
+    }
+    b.push_void_array(sd->size(Loc()), initPtr);
   }
-  b.push_void_array(getTypeStoreSize(DtoType(ts)), initPtr);
 
   // function xtoHash
-  FuncDeclaration *fd = sd->xhash;
-  b.push_funcptr(fd);
+  b.push_funcptr(isOpaque ? nullptr : sd->xhash);
 
   // function xopEquals
-  fd = sd->xeq;
-  b.push_funcptr(fd);
+  b.push_funcptr(isOpaque ? nullptr : sd->xeq);
 
   // function xopCmp
-  fd = sd->xcmp;
-  b.push_funcptr(fd);
+  b.push_funcptr(isOpaque ? nullptr : sd->xcmp);
 
   // function xtoString
-  fd = search_toString(sd);
-  b.push_funcptr(fd);
+  b.push_funcptr(isOpaque ? nullptr : search_toString(sd));
 
-  // uint m_flags
-  unsigned hasptrs = ts->hasPointers() ? 1 : 0;
-  b.push_uint(hasptrs);
+  // StructFlags m_flags
+  b.push_uint(!isOpaque && ts->hasPointers() ? 1 : 0);
 
   // function xdtor/xdtorti
-  b.push_funcptr(sd->tidtor);
+  b.push_funcptr(isOpaque ? nullptr : sd->tidtor);
 
   // function xpostblit
-  FuncDeclaration *xpostblit = sd->postblit;
-  if (xpostblit && sd->postblit->storage_class & STCdisable) {
+  FuncDeclaration *xpostblit = isOpaque ? nullptr : sd->postblit;
+  if (xpostblit && (xpostblit->storage_class & STCdisable)) {
     xpostblit = nullptr;
   }
   b.push_funcptr(xpostblit);
 
   // uint m_align
-  b.push_uint(DtoAlignment(ts));
+  b.push_uint(isOpaque ? 0 : DtoAlignment(ts));
 
   if (withArgTypes) {
     // TypeInfo m_arg1
     // TypeInfo m_arg2
     for (unsigned i = 0; i < 2; i++) {
-      if (auto t = sd->argType(i)) {
+      if (auto t = isOpaque ? nullptr : sd->argType(i)) {
         t = merge(t);
         b.push_typeinfo(t);
       } else {
@@ -224,15 +201,13 @@ LLConstant *IrStruct::getTypeInfoInit() {
   }
 
   // immutable(void)* m_RTInfo
-  // The cases where getRTInfo is null are not quite here, but the code is
-  // modelled after what DMD does.
-  if (sd->getRTInfo) {
+  if (!isOpaque && sd->getRTInfo) {
     b.push(toConstElem(sd->getRTInfo, gIR));
   } else {
-    b.push_size_as_vp(ts->hasPointers() ? 1 : 0);
+    b.push_size_as_vp(!isOpaque && ts->hasPointers() ? 1 : 0);
   }
 
-  constTypeInfo = b.get_constant(memoryLLType);
+  constTypeInfo = b.get_constant(getTypeInfoStructMemType());
 
   return constTypeInfo;
 }

@@ -125,6 +125,7 @@ void DtoResolveTypeInfo(TypeInfoDeclaration *tid) {
 /* ========================================================================= */
 
 namespace {
+// The upstream implementation is in dmd/todt.d, class TypeInfoDtVisitor.
 class DefineVisitor : public Visitor {
   LLGlobalVariable *const gvar;
 
