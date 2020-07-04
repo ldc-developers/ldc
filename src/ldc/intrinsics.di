@@ -19,10 +19,7 @@ else
     static assert(false, "This module is only valid for LDC");
 }
 
-     version (LDC_LLVM_309)  enum LLVM_version =  309;
-else version (LDC_LLVM_400)  enum LLVM_version =  400;
-else version (LDC_LLVM_500)  enum LLVM_version =  500;
-else version (LDC_LLVM_600)  enum LLVM_version =  600;
+     version (LDC_LLVM_600)  enum LLVM_version =  600;
 else version (LDC_LLVM_700)  enum LLVM_version =  700;
 else version (LDC_LLVM_701)  enum LLVM_version =  701;
 else version (LDC_LLVM_800)  enum LLVM_version =  800;
@@ -123,8 +120,6 @@ alias llvm_readcyclecounter readcyclecounter;
 pragma(LDC_intrinsic, "llvm.clear_cache")
     void llvm_clear_cache(void *from, void *to);
 
-static if (LLVM_version >= 600)
-{
 /// The ‘llvm.thread.pointer‘ intrinsic returns a pointer to the TLS area for the
 /// current thread. The exact semantics of this value are target specific: it may
 /// point to the start of TLS area, to the end, or somewhere in the middle. Depending
@@ -133,7 +128,6 @@ static if (LLVM_version >= 600)
 /// the TLS area. Not all targets support this intrinsic.
 pragma(LDC_intrinsic, "llvm.thread.pointer")
     void* llvm_thread_pointer();
-}
 
 //
 // STANDARD C LIBRARY INTRINSICS
@@ -671,14 +665,11 @@ pragma(LDC_intrinsic, "llvm.expect.i#")
     T llvm_expect(T)(T val, T expectedVal)
         if (__traits(isIntegral, T));
 
-static if (LLVM_version >= 600)
-{
 /// LLVM optimizer treats this intrinsic as having side effect, so it can be
 /// inserted into a loop to indicate that the loop shouldn't be assumed to
 /// terminate even if it's an infinite loop with no other side effect.
 pragma(LDC_intrinsic, "llvm.sideeffect")
     void llvm_sideeffect();
-}
 
 version(WebAssembly)
 {
