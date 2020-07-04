@@ -388,15 +388,17 @@ public:
 
     llvm::StringMap<llvm::GlobalVariable *> *stringLiteralCache =
         stringLiteralCacheForType(cty);
-    LLConstant *_init = buildStringLiteralConstant(e, true);
-    const auto at = _init->getType();
 
     llvm::StringRef key(e->toChars());
-    llvm::GlobalVariable *gvar =
-        (stringLiteralCache->find(key) == stringLiteralCache->end())
-            ? nullptr
-            : (*stringLiteralCache)[key];
-    if (gvar == nullptr) {
+    llvm::GlobalVariable *gvar;
+
+    auto iter = stringLiteralCache->find(key);
+    if (iter != stringLiteralCache->end()) {
+      gvar = iter->second;
+    } else {
+      LLConstant *_init = buildStringLiteralConstant(e, true);
+      const auto at = _init->getType();
+
       llvm::GlobalValue::LinkageTypes _linkage =
           llvm::GlobalValue::PrivateLinkage;
       IF_LOG {
