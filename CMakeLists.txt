@@ -549,6 +549,8 @@ set(LDC_LIB LDCShared)
 set(LDC_LIB_EXTRA_SOURCES "")
 if(MSVC_IDE)
     set(LDC_LIB_EXTRA_SOURCES ${LDC_D_SOURCE_FILES})
+    # Mark this main library target as (bold) startup project for the generated Visual Studio solution.
+    set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${LDC_LIB})
 endif()
 add_library(${LDC_LIB} ${LDC_LIB_TYPE} ${LDC_CXX_SOURCE_FILES} ${DRV_SRC} ${DRV_HDR} ${LDC_LIB_EXTRA_SOURCES})
 set_target_properties(
@@ -562,6 +564,8 @@ set_target_properties(
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS} ${EXTRA_CXXFLAGS}"
     LINKER_LANGUAGE ${LDC_LIB_LANGUAGE}
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
+    # Use a custom .props file to set up Visual D (import paths, predefined versions...).
+    VS_USER_PROPS "${PROJECT_SOURCE_DIR}/cmake/VisualD.props"
 )
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
 target_link_libraries(${LDC_LIB} ${LLVM_LIBRARIES} ${LLVM_LDFLAGS})
