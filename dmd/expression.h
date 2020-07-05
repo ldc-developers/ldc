@@ -390,6 +390,11 @@ public:
         assert(sz == 1);
         return {len, static_cast<const char *>(string)};
     }
+
+    DArray<const unsigned char> peekData() const
+    {
+        return {len * sz, static_cast<const unsigned char *>(string)};
+    }
 #endif
     size_t numberOfCodeUnits(int tynto = 0) const;
     void writeTo(void* dest, bool zero, int tyto = 0) const;

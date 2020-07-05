@@ -389,7 +389,8 @@ public:
     llvm::StringMap<llvm::GlobalVariable *> *stringLiteralCache =
         stringLiteralCacheForType(cty);
 
-    llvm::StringRef key(e->toChars());
+    DArray<const unsigned char> keyData = e->peekData();
+    llvm::StringRef key(static_cast<const char*>(keyData.ptr), keyData.length);
     llvm::GlobalVariable *gvar;
 
     auto iter = stringLiteralCache->find(key);
