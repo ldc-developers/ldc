@@ -389,26 +389,27 @@ public:
     llvm::StringMap<llvm::GlobalVariable *> *stringLiteralCache =
         stringLiteralCacheForType(cty);
 
-    DArray<const unsigned char> keyData = e->peekData();
-    llvm::StringRef key(static_cast<const char*>(keyData.ptr), keyData.length);
+    const DArray<const unsigned char> keyData = e->peekData();
+    const llvm::StringRef key(reinterpret_cast<const char *>(keyData.ptr),
+                              keyData.length);
     llvm::GlobalVariable *gvar;
 
     auto iter = stringLiteralCache->find(key);
     if (iter != stringLiteralCache->end()) {
       gvar = iter->second;
     } else {
-      LLConstant *_init = buildStringLiteralConstant(e, true);
-      const auto at = _init->getType();
+      LLConstant *constant = buildStringLiteralConstant(e, true);
+      LLType *constantType = constant->getType();
 
-      llvm::GlobalValue::LinkageTypes _linkage =
-          llvm::GlobalValue::PrivateLinkage;
       IF_LOG {
-        Logger::cout() << "type: " << *at << '\n';
-        Logger::cout() << "init: " << *_init << '\n';
+        Logger::cout() << "type: " << *constantType << '\n';
+        Logger::cout() << "init: " << *constant << '\n';
       }
-      gvar = new llvm::GlobalVariable(gIR->module, at, true, _linkage, _init,
-                                      ".str");
+      gvar = new llvm::GlobalVariable(gIR->module, constantType, true,
+                                      llvm::GlobalValue::PrivateLinkage,
+                                      constant, ".str");
       gvar->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+
       (*stringLiteralCache)[key] = gvar;
     }
 

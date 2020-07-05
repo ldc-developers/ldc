@@ -390,7 +390,7 @@ public:
         assert(sz == 1);
         return {len, static_cast<const char *>(string)};
     }
-
+    // ditto
     DArray<const unsigned char> peekData() const
     {
         return {len * sz, static_cast<const unsigned char *>(string)};
