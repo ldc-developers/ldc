@@ -171,24 +171,27 @@ public:
     Type *const t = e->type->toBasetype();
     Type *const cty = t->nextOf()->toBasetype();
 
-    auto _init = buildStringLiteralConstant(e, t->ty != Tsarray);
-
     if (t->ty == Tsarray) {
-      result = _init;
+      result = buildStringLiteralConstant(e, t->ty != Tsarray);
       return;
     }
 
     auto stringLiteralCache = stringLiteralCacheForType(cty);
-    llvm::StringRef key(e->toChars());
-    llvm::GlobalVariable *gvar =
-        (stringLiteralCache->find(key) == stringLiteralCache->end())
-            ? nullptr
-            : (*stringLiteralCache)[key];
-    if (gvar == nullptr) {
+
+    const DArray<const unsigned char> keyData = e->peekData();
+    const llvm::StringRef key(reinterpret_cast<const char*>(keyData.ptr), keyData.length);
+    llvm::GlobalVariable *gvar;
+
+    auto iter = stringLiteralCache->find(key);
+    if (iter != stringLiteralCache->end()) {
+      gvar = iter->second;
+    } else {
+      LLConstant *constant = buildStringLiteralConstant(e, t->ty != Tsarray);
+
       llvm::GlobalValue::LinkageTypes _linkage =
           llvm::GlobalValue::PrivateLinkage;
-      gvar = new llvm::GlobalVariable(gIR->module, _init->getType(), true,
-                                      _linkage, _init, ".str");
+      gvar = new llvm::GlobalVariable(gIR->module, constant->getType(), true,
+                                      _linkage, constant, ".str");
       gvar->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
       (*stringLiteralCache)[key] = gvar;
     }
