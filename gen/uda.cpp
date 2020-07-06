@@ -215,6 +215,13 @@ void applyAttrLLVMAttr(StructLiteralExp *sle, llvm::AttrBuilder &attrs) {
     const auto kind = llvm::getAttrKindFromName(key);
     if (kind != llvm::Attribute::None) {
       attrs.addAttribute(kind);
+#if LDC_LLVM_VER >= 500
+      if (kind == llvm::Attribute::NonLazyBind) {
+        if (!gIR->module.getModuleFlag("RtLibUseGOT")) {
+          gIR->module.addModuleFlag(llvm::Module::Max, "RtLibUseGOT", 1);
+        }
+      }
+#endif
     } else {
       attrs.addAttribute(key);
     }
