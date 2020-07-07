@@ -169,7 +169,6 @@ public:
     LOG_SCOPE;
 
     Type *const t = e->type->toBasetype();
-    Type *const cty = t->nextOf()->toBasetype();
 
     if (t->ty == Tsarray) {
       result = buildStringLiteralConstant(e, false);
