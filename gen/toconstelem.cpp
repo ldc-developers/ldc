@@ -172,29 +172,11 @@ public:
     Type *const cty = t->nextOf()->toBasetype();
 
     if (t->ty == Tsarray) {
-      result = buildStringLiteralConstant(e, t->ty != Tsarray);
+      result = buildStringLiteralConstant(e, false);
       return;
     }
 
-    auto stringLiteralCache = stringLiteralCacheForType(cty);
-
-    const DArray<const unsigned char> keyData = e->peekData();
-    const llvm::StringRef key(reinterpret_cast<const char*>(keyData.ptr), keyData.length);
-    llvm::GlobalVariable *gvar;
-
-    auto iter = stringLiteralCache->find(key);
-    if (iter != stringLiteralCache->end()) {
-      gvar = iter->second;
-    } else {
-      LLConstant *constant = buildStringLiteralConstant(e, t->ty != Tsarray);
-
-      llvm::GlobalValue::LinkageTypes _linkage =
-          llvm::GlobalValue::PrivateLinkage;
-      gvar = new llvm::GlobalVariable(gIR->module, constant->getType(), true,
-                                      _linkage, constant, ".str");
-      gvar->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-      (*stringLiteralCache)[key] = gvar;
-    }
+    llvm::GlobalVariable *gvar = buildStringLiteralGlobalVariableCached(e);
 
     llvm::ConstantInt *zero =
         LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0, false);
