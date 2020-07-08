@@ -216,6 +216,41 @@ void inlineAsmDiagnosticHandler(const llvm::SMDiagnostic &d, void *context,
   d2.print(nullptr, llvm::errs());
 }
 
+void setGlobalArrayAddressSpace(const char *Array, llvm::Module &M,
+                                unsigned addressSpace) {
+  if (addressSpace == 0) {
+    return;
+  }
+
+  llvm::SmallVector<llvm::Constant *, 16> CurrentCtors;
+  llvm::IRBuilder<> IRB(M.getContext());
+  llvm::FunctionType *FnTy = llvm::FunctionType::get(IRB.getVoidTy(), false);
+  llvm::StructType *EltTy = llvm::StructType::get(
+      IRB.getInt32Ty(), llvm::PointerType::get(FnTy, addressSpace),
+      IRB.getInt8PtrTy());
+
+  if (llvm::GlobalVariable *GVCtor = M.getNamedGlobal(Array)) {
+    if (llvm::Constant *Init = GVCtor->getInitializer()) {
+      unsigned n = Init->getNumOperands();
+      CurrentCtors.reserve(n + 1);
+      for (unsigned i = 0; i != n; ++i)
+        CurrentCtors.push_back(llvm::cast<llvm::Constant>(Init->getOperand(i)));
+    }
+    GVCtor->eraseFromParent();
+  }
+  
+  if (CurrentCtors.size() <= 0) {
+    return;
+  }
+
+  llvm::ArrayType *AT = llvm::ArrayType::get(EltTy, CurrentCtors.size());
+  llvm::Constant *NewInit = llvm::ConstantArray::get(AT, CurrentCtors);
+
+  (void)new llvm::GlobalVariable(M, NewInit->getType(), false,
+                                 llvm::GlobalValue::AppendingLinkage, NewInit,
+                                 Array);
+}
+
 } // anonymous namespace
 
 namespace ldc {
@@ -297,6 +332,16 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   // Issue #1829: make sure all replaced global variables are replaced
   // everywhere.
   ir_->replaceGlobals();
+
+#if LDC_LLVM_VER >= 800
+  // Set the proper address space for global arrays
+  setGlobalArrayAddressSpace(
+      "llvm.global_ctors", ir_->module,
+      ir_->module.getDataLayout().getProgramAddressSpace());
+  setGlobalArrayAddressSpace(
+      "llvm.global_dtors", ir_->module,
+      ir_->module.getDataLayout().getProgramAddressSpace());
+#endif
 
   // Emit ldc version as llvm.ident metadata.
   llvm::NamedMDNode *IdentMetadata =

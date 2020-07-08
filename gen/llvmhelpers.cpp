@@ -1318,10 +1318,11 @@ static char *DtoOverloadedIntrinsicName(TemplateInstance *ti,
   } else if (dtype->isVectorTy()) {
     llvm::raw_string_ostream stream(replacement);
     stream << 'v' << dtype->getVectorNumElements() << prefix
-        << gDataLayout->getTypeSizeInBits(dtype->getVectorElementType());
+           << gDataLayout->getTypeSizeInBits(dtype->getVectorElementType());
     stream.flush();
   } else {
-    replacement = prefix + std::to_string(gDataLayout->getTypeSizeInBits(dtype));
+    replacement =
+        prefix + std::to_string(gDataLayout->getTypeSizeInBits(dtype));
   }
 
   size_t pos;
