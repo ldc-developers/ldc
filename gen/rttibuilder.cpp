@@ -31,8 +31,8 @@ RTTIBuilder::RTTIBuilder(Type *baseType) {
 
   DtoResolveDsymbol(ad);
 
-  if (ad->isClassDeclaration()) {
-    const auto baseir = getIrAggr(ad);
+  if (auto cd = ad->isClassDeclaration()) {
+    const auto baseir = getIrAggr(cd);
     assert(baseir && "no IrAggr for TypeInfo base class");
 
     // just start with adding the vtbl

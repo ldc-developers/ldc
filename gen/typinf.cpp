@@ -56,8 +56,6 @@
 #include <cassert>
 #include <cstdio>
 
-FuncDeclaration *search_toString(StructDeclaration *sd);
-
 // defined in dmd/typinf.d:
 void genTypeInfo(Loc loc, Type *torig, Scope *sc);
 bool builtinTypeInfo(Type *t);
@@ -79,29 +77,25 @@ TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(const Loc &loc, Type *torig,
 //                                (wut?)
 //////////////////////////////////////////////////////////////////////////////
 
-static void emitTypeMetadata(TypeInfoDeclaration *tid) {
+void emitTypeInfoMetadata(LLGlobalVariable *typeinfoGlobal, Type *forType) {
   // We don't want to generate metadata for non-concrete types (such as tuple
   // types, slice types, typeof(expr), etc.), void and function types (without
   // an indirection), as there must be a valid LLVM undef value of that type.
   // As those types cannot appear as LLVM values, they are not interesting for
   // the optimizer passes anyway.
-  Type *t = tid->tinfo->toBasetype();
+  Type *t = forType->toBasetype();
   if (t->ty < Terror && t->ty != Tvoid && t->ty != Tfunction &&
       t->ty != Tident) {
-    // Add some metadata for use by optimization passes.
-    OutBuffer buf;
-    buf.writestring(TD_PREFIX);
-    mangleToBuffer(tid, &buf);
-    const char *metaname = buf.peekChars();
+    const auto metaname = getMetadataName(TD_PREFIX, typeinfoGlobal);
 
     llvm::NamedMDNode *meta = gIR->module.getNamedMetadata(metaname);
 
     if (!meta) {
       // Construct the fields
       llvm::Metadata *mdVals[TD_NumFields];
-      mdVals[TD_TypeInfo] = llvm::ValueAsMetadata::get(getIrGlobal(tid)->value);
+      mdVals[TD_TypeInfo] = llvm::ValueAsMetadata::get(typeinfoGlobal);
       mdVals[TD_Type] = llvm::ConstantAsMetadata::get(
-          llvm::UndefValue::get(DtoType(tid->tinfo)));
+          llvm::UndefValue::get(DtoType(forType)));
 
       // Construct the metadata and insert it into the module.
       llvm::NamedMDNode *node = gIR->module.getOrInsertNamedMetadata(metaname);
@@ -130,11 +124,13 @@ void DtoResolveTypeInfo(TypeInfoDeclaration *tid) {
 
 /* ========================================================================= */
 
-class LLVMDefineVisitor : public Visitor {
+namespace {
+// The upstream implementation is in dmd/todt.d, class TypeInfoDtVisitor.
+class DefineVisitor : public Visitor {
   LLGlobalVariable *const gvar;
 
 public:
-  LLVMDefineVisitor(LLGlobalVariable *gvar) : gvar(gvar) {}
+  DefineVisitor(LLGlobalVariable *gvar) : gvar(gvar) {}
 
   // Import all functions from class Visitor
   using Visitor::visit;
@@ -296,187 +292,13 @@ public:
   /* ======================================================================= */
 
   void visit(TypeInfoStructDeclaration *decl) override {
-    IF_LOG Logger::println("TypeInfoStructDeclaration::llvmDefine() %s",
-                           decl->toChars());
-    LOG_SCOPE;
-
-    // make sure struct is resolved
-    assert(decl->tinfo->ty == Tstruct);
-    TypeStruct *tc = static_cast<TypeStruct *>(decl->tinfo);
-    StructDeclaration *sd = tc->sym;
-
-    // check declaration in object.d
-    const auto structTypeInfoType = getStructTypeInfoType();
-    const auto structTypeInfoDecl = Type::typeinfostruct;
-
-    // For x86_64 (except Win64) and AAPCS64 targets, class TypeInfo_Struct
-    // contains 2 additional fields (m_arg1/m_arg2) which are used for the
-    // TypeInfo-based core.stdc.stdarg.va_arg implementations in druntime.
-    const auto &triple = *global.params.targetTriple;
-    const auto arch = triple.getArch();
-    const bool withArgTypes =
-        (arch == llvm::Triple::x86_64 && !triple.isOSWindows()) ||
-        (!triple.isOSDarwin() && // Apple uses a simpler scheme
-         (arch == llvm::Triple::aarch64 || arch == llvm::Triple::aarch64_be));
-    const unsigned expectedFields = 11 + (withArgTypes ? 2 : 0);
-    const unsigned actualFields =
-        structTypeInfoDecl->fields.length -
-        1; // union of xdtor/xdtorti counts as 2 overlapping fields
-    if (actualFields != expectedFields) {
-      error(Loc(), "Unexpected number of `object.TypeInfo_Struct` fields; "
-                   "druntime version does not match compiler");
-      fatal();
-    }
-
-    RTTIBuilder b(structTypeInfoType);
-
-    // handle opaque structs
-    if (!sd->members) {
-      Logger::println("is opaque struct, emitting dummy TypeInfo_Struct");
-
-      b.push_null_void_array(); // name
-      b.push_null_void_array(); // m_init
-      b.push_null_vp();         // xtoHash
-      b.push_null_vp();         // xopEquals
-      b.push_null_vp();         // xopCmp
-      b.push_null_vp();         // xtoString
-      b.push_uint(0);           // m_flags
-      b.push_null_vp();         // xdtor/xdtorti
-      b.push_null_vp();         // xpostblit
-      b.push_uint(0);           // m_align
-      if (withArgTypes) {
-        b.push_null_vp();       // m_arg1
-        b.push_null_vp();       // m_arg2
-      }
-      b.push_null_vp();         // m_RTInfo
-
-      b.finalize(gvar);
-      return;
-    }
-
-    // can't emit typeinfo for forward declarations
-    if (sd->sizeok != SIZEOKdone) {
-      sd->error("cannot emit `TypeInfo` for forward declaration");
-      fatal();
-    }
-
-    DtoResolveStruct(sd);
-
-    if (TemplateInstance *ti = sd->isInstantiated()) {
-      if (!ti->needsCodegen()) {
-        assert(ti->minst || sd->requestTypeInfo);
-
-        // We won't emit ti, so emit the special member functions in here.
-        if (sd->xeq && sd->xeq != StructDeclaration::xerreq &&
-            sd->xeq->semanticRun >= PASSsemantic3) {
-          Declaration_codegen(sd->xeq);
-        }
-        if (sd->xcmp && sd->xcmp != StructDeclaration::xerrcmp &&
-            sd->xcmp->semanticRun >= PASSsemantic3) {
-          Declaration_codegen(sd->xcmp);
-        }
-        if (FuncDeclaration *ftostr = search_toString(sd)) {
-          if (ftostr->semanticRun >= PASSsemantic3)
-            Declaration_codegen(ftostr);
-        }
-        if (sd->xhash && sd->xhash->semanticRun >= PASSsemantic3) {
-          Declaration_codegen(sd->xhash);
-        }
-        if (sd->postblit && sd->postblit->semanticRun >= PASSsemantic3) {
-          Declaration_codegen(sd->postblit);
-        }
-        if (sd->dtor && sd->dtor->semanticRun >= PASSsemantic3) {
-          Declaration_codegen(sd->dtor);
-        }
-        if (sd->tidtor && sd->tidtor->semanticRun >= PASSsemantic3) {
-          Declaration_codegen(sd->tidtor);
-        }
-      }
-    }
-
-    IrAggr *iraggr = getIrAggr(sd);
-
-    // string name
-    b.push_string(sd->toPrettyChars());
-
-    // void[] m_init
-    // The protocol is to write a null pointer for zero-initialized arrays. The
-    // length field is always needed for tsize().
-    llvm::Constant *initPtr;
-    if (tc->isZeroInit(Loc())) {
-      initPtr = getNullValue(getVoidPtrType());
-    } else {
-      initPtr = iraggr->getInitSymbol();
-    }
-    b.push_void_array(getTypeStoreSize(DtoType(tc)), initPtr);
-
-    // function xtoHash
-    FuncDeclaration *fd = sd->xhash;
-    b.push_funcptr(fd);
-
-    // function xopEquals
-    fd = sd->xeq;
-    b.push_funcptr(fd);
-
-    // function xopCmp
-    fd = sd->xcmp;
-    b.push_funcptr(fd);
-
-    // function xtoString
-    fd = search_toString(sd);
-    b.push_funcptr(fd);
-
-    // uint m_flags
-    unsigned hasptrs = tc->hasPointers() ? 1 : 0;
-    b.push_uint(hasptrs);
-
-    // function xdtor/xdtorti
-    b.push_funcptr(sd->tidtor);
-
-    // function xpostblit
-    FuncDeclaration *xpostblit = sd->postblit;
-    if (xpostblit && sd->postblit->storage_class & STCdisable) {
-      xpostblit = nullptr;
-    }
-    b.push_funcptr(xpostblit);
-
-    // uint m_align
-    b.push_uint(DtoAlignment(tc));
-
-    if (withArgTypes) {
-      // TypeInfo m_arg1
-      // TypeInfo m_arg2
-      for (unsigned i = 0; i < 2; i++) {
-        if (auto t = sd->argType(i)) {
-          t = merge(t);
-          b.push_typeinfo(t);
-        } else {
-          b.push_null(getTypeInfoType());
-        }
-      }
-    }
-
-    // immutable(void)* m_RTInfo
-    // The cases where getRTInfo is null are not quite here, but the code is
-    // modelled after what DMD does.
-    if (sd->getRTInfo) {
-      b.push(toConstElem(sd->getRTInfo, gIR));
-    } else if (!tc->hasPointers()) {
-      b.push_size_as_vp(0); // no pointers
-    } else {
-      b.push_size_as_vp(1); // has pointers
-    }
-
-    // finish
-    b.finalize(gvar);
+    llvm_unreachable("Should be handled by IrStruct::getTypeInfoInit()");
   }
 
   /* ======================================================================= */
 
   void visit(TypeInfoClassDeclaration *decl) override {
-    llvm_unreachable(
-        "TypeInfoClassDeclaration::llvmDefine() should not be called, "
-        "as a custom Dsymbol::codegen() override is used");
+    llvm_unreachable("Should be handled by IrClass::getClassInfoInit()");
   }
 
   /* ======================================================================= */
@@ -608,54 +430,50 @@ public:
   }
 };
 
-/* ========================================================================= */
-
-void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
-  IF_LOG Logger::println("TypeInfoDeclaration_codegen(%s)",
-                         decl->toPrettyChars());
-  LOG_SCOPE;
-
+// Builds all non-struct/class TypeInfos.
+void buildTypeInfo(TypeInfoDeclaration *decl) {
   if (decl->ir->isDefined()) {
     return;
   }
   decl->ir->setDefined();
+
+  IF_LOG Logger::println("Building TypeInfo: %s", decl->toPrettyChars());
+  LOG_SCOPE;
+
+  Type *forType = decl->tinfo;
 
   OutBuffer mangleBuf;
   mangleToBuffer(decl, &mangleBuf);
   const char *mangled = mangleBuf.peekChars();
 
   IF_LOG {
-    Logger::println("type = '%s'", decl->tinfo->toChars());
+    Logger::println("type = '%s'", forType->toChars());
     Logger::println("typeinfo mangle: %s", mangled);
   }
 
-  // Only declare the symbol if it isn't yet, otherwise the subtype of built-in
-  // TypeInfos (rt.typeinfo.*) may clash with the base type when compiling the
-  // rt.typeinfo.* modules.
+  // Only declare the symbol if it isn't yet, otherwise the subtype of
+  // built-in TypeInfos (rt.typeinfo.*) may clash with the base type when
+  // compiling the rt.typeinfo.* modules.
   const auto irMangle = getIRMangledVarName(mangled, LINKd);
-  llvm::GlobalVariable *gvar = gIR->module.getGlobalVariable(irMangle);
+  LLGlobalVariable *gvar = gIR->module.getGlobalVariable(irMangle);
   if (!gvar) {
     LLType *type = DtoType(decl->type)->getPointerElementType();
     // We need to keep the symbol mutable as the type is not declared as
     // immutable on the D side, and e.g. synchronized() can be used on the
     // implicit monitor.
     gvar = declareGlobal(decl->loc, gIR->module, type, irMangle, false);
+
+    emitTypeInfoMetadata(gvar, forType);
   }
 
   IrGlobal *irg = getIrGlobal(decl, true);
   irg->value = gvar;
 
-  emitTypeMetadata(decl);
-
   // check if the definition can be elided
-  Type *forType = decl->tinfo;
-  if (!global.params.useTypeInfo || !Type::dtypeinfo ||
-      isSpeculativeType(forType) || builtinTypeInfo(forType)) {
+  if (gvar->hasInitializer() || !global.params.useTypeInfo ||
+      !Type::dtypeinfo || isSpeculativeType(forType) ||
+      builtinTypeInfo(forType)) {
     return;
-  }
-  if (auto forStructType = forType->isTypeStruct()) {
-    if (forStructType->sym->llvmInternal == LLVMno_typeinfo)
-      return;
   }
   if (auto forClassType = forType->isTypeClass()) {
     if (forClassType->sym->llvmInternal == LLVMno_typeinfo)
@@ -663,33 +481,58 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
   }
 
   // define the TypeInfo global
-  LLVMDefineVisitor v(gvar);
+  DefineVisitor v(gvar);
   decl->accept(&v);
-
   setLinkage({TYPEINFO_LINKAGE_TYPE, needsCOMDAT()}, gvar);
-  if (auto forStructType = forType->isTypeStruct())
-    setVisibility(forStructType->sym, gvar);
 }
 
 /* ========================================================================= */
 
-void TypeInfoClassDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
-  IF_LOG Logger::println("TypeInfoClassDeclaration_codegen(%s)",
+class DeclareOrDefineVisitor : public Visitor {
+  using Visitor::visit;
+
+  // Define struct TypeInfos as linkonce_odr in each referencing CU.
+  void visit(TypeInfoStructDeclaration *decl) override {
+    auto forType = decl->tinfo->isTypeStruct();
+
+    auto irstruct = getIrAggr(forType->sym, true);
+    auto gvar = irstruct->getTypeInfoSymbol();
+
+    IrGlobal *irg = getIrGlobal(decl, true);
+    irg->value = gvar;
+
+    // check if the definition can be elided
+    if (gvar->hasInitializer() || irstruct->suppressTypeInfo() ||
+        isSpeculativeType(forType)) {
+      return;
+    }
+
+    defineGlobal(gvar, irstruct->getTypeInfoInit(), irstruct->aggrdecl);
+    gvar->setLinkage(TYPEINFO_LINKAGE_TYPE); // override
+  }
+
+  // Only declare class TypeInfos. They are defined once in their owning module
+  // as part of ClassDeclaration codegen.
+  void visit(TypeInfoClassDeclaration *decl) override {
+    auto cd = decl->tinfo->isTypeClass()->sym;
+    DtoResolveClass(cd);
+
+    IrGlobal *irg = getIrGlobal(decl, true);
+    irg->value = getIrAggr(cd)->getClassInfoSymbol();
+  }
+
+  // Build all other TypeInfos.
+  void visit(TypeInfoDeclaration *decl) override {
+    buildTypeInfo(decl);
+  }
+};
+} // anonymous namespace
+
+void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl) {
+  IF_LOG Logger::println("TypeInfoDeclaration_codegen(%s)",
                          decl->toPrettyChars());
   LOG_SCOPE;
 
-  // For classes, the TypeInfo is in fact a ClassInfo instance and emitted
-  // as a __ClassZ symbol. For interfaces, the __InterfaceZ symbol is
-  // referenced as "info" member in a (normal) TypeInfo_Interface instance.
-  IrGlobal *irg = getIrGlobal(decl, true);
-
-  assert(decl->tinfo->ty == Tclass);
-  TypeClass *tc = static_cast<TypeClass *>(decl->tinfo);
-  DtoResolveClass(tc->sym);
-
-  irg->value = getIrAggr(tc->sym)->getClassInfoSymbol();
-
-  if (!tc->sym->isInterfaceDeclaration()) {
-    emitTypeMetadata(decl);
-  }
+  DeclareOrDefineVisitor v;
+  decl->accept(&v);
 }

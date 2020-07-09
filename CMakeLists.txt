@@ -141,10 +141,6 @@ set(LIB_SUFFIX "" CACHE STRING "Appended to the library installation directory. 
 
 set(COMPILE_D_MODULES_SEPARATELY OFF CACHE BOOL "Compile each D module separately (instead of all at once). Useful for many CPU cores and/or iterative development; generated executables will be somewhat slower.")
 
-# The following flag is currently not well tested, expect the build to fail.
-option(GENERATE_OFFTI "generate complete ClassInfo.offTi arrays")
-mark_as_advanced(GENERATE_OFFTI)
-
 if(D_VERSION EQUAL 1)
     message(FATAL_ERROR "D version 1 is no longer supported.
 Please consider using D version 2 or checkout the 'd1' git branch for the last version supporting D version 1.")
@@ -488,10 +484,6 @@ append("-DLDC_LLVM_VER=${LDC_LLVM_VER}" LDC_CXXFLAGS)
 append("\"-DLDC_LIBDIR_SUFFIX=R\\\"(${LIB_SUFFIX})\\\"\"" LDC_CXXFLAGS)
 append("-DLDC_HOST_${D_COMPILER_ID}=1" LDC_CXXFLAGS)
 append("-DLDC_HOST_FE_VER=${D_COMPILER_FE_VERSION}" LDC_CXXFLAGS)
-
-if(GENERATE_OFFTI)
-    append("-DGENERATE_OFFTI" LDC_CXXFLAGS)
-endif()
 
 #
 # LLD integration (requires headers & libs)
