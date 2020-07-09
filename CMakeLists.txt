@@ -310,10 +310,12 @@ if(MSVC)
     separate_arguments(LLVM_LDFLAGS WINDOWS_COMMAND "${LLVM_LDFLAGS}")
     # LLVM 5.0+ requires diaguids.lib from MS Debug Interface Access SDK
     if(NOT (LDC_LLVM_VER LESS 500))
-        if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-            list(APPEND LLVM_LDFLAGS "$ENV{VSINSTALLDIR}DIA SDK\\lib\\amd64\\diaguids.lib")
-        else()
-            list(APPEND LLVM_LDFLAGS "$ENV{VSINSTALLDIR}DIA SDK\\lib\\diaguids.lib")
+        if(NOT MSVC_IDE) # apparently not needed for VS (and spaces in path are problematic)
+            if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+                list(APPEND LLVM_LDFLAGS "$ENV{VSINSTALLDIR}DIA SDK\\lib\\amd64\\diaguids.lib")
+            else()
+                list(APPEND LLVM_LDFLAGS "$ENV{VSINSTALLDIR}DIA SDK\\lib\\diaguids.lib")
+            endif()
         endif()
     endif()
 else()
@@ -363,16 +365,16 @@ configure_file(driver/ldc-version.cpp.in driver/ldc-version.cpp)
 
 # Also add the header files to the build so that they are available in IDE
 # project files generated via CMake.
-file(GLOB_RECURSE FE_SRC_D dmd/*.d)
-file(GLOB_RECURSE FE_HDR   dmd/*.h)
-file(GLOB_RECURSE FE_RES   res/*.*)
-file(GLOB_RECURSE GEN_SRC gen/*.cpp)
-file(GLOB_RECURSE GEN_HDR gen/*.h)
-file(GLOB_RECURSE GEN_SRC_D gen/*.d)
-file(GLOB_RECURSE DRV_SRC_D driver/*.d)
-file(GLOB_RECURSE IR_SRC_D ir/*.d)
-file(GLOB IR_SRC ir/*.cpp)
-file(GLOB IR_HDR ir/*.h)
+file(GLOB_RECURSE FE_SRC_D   dmd/*.d)
+file(GLOB_RECURSE FE_HDR     dmd/*.h)
+file(GLOB_RECURSE FE_RES     res/*.*)
+file(GLOB_RECURSE GEN_SRC    gen/*.cpp)
+file(GLOB_RECURSE GEN_HDR    gen/*.h)
+file(GLOB_RECURSE GEN_SRC_D  gen/*.d)
+file(GLOB_RECURSE IR_SRC     ir/*.cpp)
+file(GLOB_RECURSE IR_HDR     ir/*.h)
+file(GLOB_RECURSE IR_SRC_D   ir/*.d)
+file(GLOB_RECURSE DRV_SRC_D  driver/*.d)
 set(DRV_SRC
     driver/args.cpp
     driver/cache.cpp
@@ -393,8 +395,8 @@ set(DRV_SRC
     driver/linker-msvc.cpp
     driver/main.cpp
     driver/plugins.cpp
-    ${CMAKE_BINARY_DIR}/driver/ldc-version.cpp
 )
+set(DRV_SRC_EXTRA ${CMAKE_BINARY_DIR}/driver/ldc-version.cpp)
 set(DRV_HDR
     driver/args.h
     driver/cache.h
@@ -425,21 +427,23 @@ set(LDC_CXX_SOURCE_FILES
     ${GEN_HDR}
     ${IR_SRC}
     ${IR_HDR}
+    ${DRV_SRC}
+    ${DRV_SRC_EXTRA}
+    ${DRV_HDR}
 )
 set(LDC_D_SOURCE_FILES
     ${FE_SRC_D}
     ${GEN_SRC_D}
-    ${DRV_SRC_D}
     ${IR_SRC_D}
+    ${DRV_SRC_D}
 )
 
-source_group("Source Files\\dmd" FILES ${FE_SRC_D})
-source_group("Header Files\\dmd" FILES ${FE_HDR})
-source_group("Source Files\\gen" FILES ${GEN_SRC} ${GEN_SRC_D})
-source_group("Header Files\\gen" FILES ${GEN_HDR})
-source_group("Source Files\\ir" FILES ${IR_SRC} ${IR_SRC_D})
-source_group("Header Files\\ir" FILES ${IR_HDR})
-source_group("Source Files" FILES ${DRV_SRC_D})
+# source_group(TREE ...) requires CMake v3.8+
+IF("${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}" VERSION_GREATER 3.7)
+    source_group(TREE "${PROJECT_SOURCE_DIR}" PREFIX "Source Files" FILES ${FE_SRC_D} ${GEN_SRC} ${GEN_SRC_D} ${IR_SRC} ${IR_SRC_D} ${DRV_SRC} ${DRV_SRC_D})
+    source_group("Source Files\\driver"                             FILES ${DRV_SRC_EXTRA})
+    source_group(TREE "${PROJECT_SOURCE_DIR}" PREFIX "Header Files" FILES ${FE_HDR} ${GEN_HDR} ${IR_HDR} ${DRV_HDR})
+endif()
 
 
 #
@@ -547,10 +551,17 @@ endif()
 
 set(LDC_LIB LDCShared)
 set(LDC_LIB_EXTRA_SOURCES "")
-if(MSVC_IDE)
+if(MSVC_IDE) # Visual Studio generator
+    # Add the .d files as (Visual D) source files to this lib, so that they show up somewhere.
     set(LDC_LIB_EXTRA_SOURCES ${LDC_D_SOURCE_FILES})
+    set_property(SOURCE ${LDC_LIB_EXTRA_SOURCES} PROPERTY VS_TOOL_OVERRIDE "DCompile")
+    # 'Clear' the original list for the custom commands below, producing ldc2.exe and ldc2-unittest.exe -
+    # we still need a dummy .d file.
+    set(LDC_D_SOURCE_FILES "${PROJECT_SOURCE_DIR}/dmd/root/man.d")
+    # Mark this main library target as (bold) startup project for the generated Visual Studio solution.
+    set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${LDC_LIB})
 endif()
-add_library(${LDC_LIB} ${LDC_LIB_TYPE} ${LDC_CXX_SOURCE_FILES} ${DRV_SRC} ${DRV_HDR} ${LDC_LIB_EXTRA_SOURCES})
+add_library(${LDC_LIB} ${LDC_LIB_TYPE} ${LDC_CXX_SOURCE_FILES} ${LDC_LIB_EXTRA_SOURCES})
 set_target_properties(
     ${LDC_LIB} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
@@ -562,6 +573,8 @@ set_target_properties(
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS} ${EXTRA_CXXFLAGS}"
     LINKER_LANGUAGE ${LDC_LIB_LANGUAGE}
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
+    # Use a custom .props file to set up Visual D (import paths, predefined versions...).
+    VS_USER_PROPS "${PROJECT_SOURCE_DIR}/cmake/VisualD.props"
 )
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
 target_link_libraries(${LDC_LIB} ${LLVM_LIBRARIES} ${LLVM_LDFLAGS})
@@ -654,28 +667,16 @@ if(UNIX AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clan
     endif()
 endif()
 
-# CONFIG generator expressions need to be repeated due to https://cmake.org/Bug/view.php?id=14353
-if(MSVC_IDE)
-    translate_linker_args(linker_args translated_linker_args)
-    separate_arguments(LDC_FLAG_LIST WINDOWS_COMMAND "${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS} ${translated_linker_args}")
-    add_custom_command(
-        OUTPUT ${LDC_EXE_FULL}
-        COMMAND ${D_COMPILER} -L$<TARGET_LINKER_FILE:${LDC_LIB}> ${LDC_FLAG_LIST} -of${LDC_EXE_FULL} ${LDC_D_SOURCE_FILES} $<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:-g> $<$<NOT:$<CONFIG:Debug>>:-O> $<$<NOT:$<CONFIG:Debug>>:-inline> $<$<NOT:$<CONFIG:Debug>>:-release>
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        DEPENDS ${LDC_D_SOURCE_FILES} ${FE_RES} ${LDC_LIB}
-    )
-else()
-    build_d_executable(
-        "${LDC_EXE}"
-        "${LDC_EXE_FULL}"
-        "${LDC_D_SOURCE_FILES}"
-        ""
-        "${LDC_LINKERFLAG_LIST}"
-        "${FE_RES}"
-        "${LDC_LIB}"
-        ${COMPILE_D_MODULES_SEPARATELY}
-    )
-endif()
+build_d_executable(
+    "${LDC_EXE}"
+    "${LDC_EXE_FULL}"
+    "${LDC_D_SOURCE_FILES}"
+    ""
+    "${LDC_LINKERFLAG_LIST}"
+    "${FE_RES}"
+    "${LDC_LIB}"
+    ${COMPILE_D_MODULES_SEPARATELY}
+)
 
 if(MSVC_IDE)
     # the IDE generator is a multi-config one
