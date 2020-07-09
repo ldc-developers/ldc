@@ -385,7 +385,7 @@ public:
     Type *cty = dtype->nextOf()->toBasetype();
     LLType *ct = DtoMemType(cty);
 
-    llvm::GlobalVariable *gvar = buildStringLiteralGlobalVariableCached(e);
+    llvm::GlobalVariable *gvar = p->getCachedStringLiteral(e);
 
     llvm::ConstantInt *zero =
         LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0, false);

@@ -240,12 +240,6 @@ LLConstant *toConstantArray(LLType *ct, LLArrayType *at, T *str, size_t len,
   return LLConstantArray::get(at, vals);
 }
 
-/// Constructs a GlobalVariable for a StringExp.
-/// Caches the result based on StringExp::peekData() such that
-/// any subsequent calls with a StringExp with matching data will return
-/// the same GlobalVariable.
-llvm::GlobalVariable *buildStringLiteralGlobalVariableCached(StringExp *se);
-
 llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm);
 
 /// Tries to declare an LLVM global. If a variable with the same mangled name

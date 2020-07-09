@@ -1707,38 +1707,6 @@ llvm::Constant *DtoConstSymbolAddress(Loc &loc, Declaration *decl) {
   llvm_unreachable("Taking constant address not implemented.");
 }
 
-llvm::GlobalVariable *
-buildStringLiteralGlobalVariableCached(StringExp *se) {
-  llvm::StringMap<llvm::GlobalVariable *> * stringLiteralCache;
-
-  switch (se->sz) {
-  default: llvm_unreachable("Unknown char type");
-  case 1: stringLiteralCache = &gIR->stringLiteral1ByteCache; break;
-  case 2: stringLiteralCache = &gIR->stringLiteral2ByteCache; break;
-  case 4: stringLiteralCache = &gIR->stringLiteral4ByteCache; break;
-  }
-
-  const DArray<const unsigned char> keyData = se->peekData();
-  const llvm::StringRef key(reinterpret_cast<const char*>(keyData.ptr), keyData.length);
-
-  auto iter = stringLiteralCache->find(key);
-  if (iter != stringLiteralCache->end()) {
-    return iter->second;
-  }
-
-  LLConstant *constant = buildStringLiteralConstant(se, true);
-  LLType *constantType = constant->getType();
-
-  llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::PrivateLinkage;
-  auto* result = new llvm::GlobalVariable(gIR->module, constantType,
-                                          true, _linkage, constant, ".str");
-  result->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-
-  (*stringLiteralCache)[key] = result;
-
-  return result;
-}
-
 llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm) {
   Type *dtype = se->type->toBasetype();
   Type *cty = dtype->nextOf()->toBasetype();
