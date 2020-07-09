@@ -1708,6 +1708,12 @@ llvm::Constant *DtoConstSymbolAddress(Loc &loc, Declaration *decl) {
 }
 
 llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm) {
+  if (se->sz == 1) {
+    const DString data = se->peekString();
+    return llvm::ConstantDataArray::getString(
+        gIR->context(), {data.ptr, data.length}, zeroTerm);
+  }
+
   Type *dtype = se->type->toBasetype();
   Type *cty = dtype->nextOf()->toBasetype();
 
