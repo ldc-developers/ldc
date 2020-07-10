@@ -169,29 +169,13 @@ public:
     LOG_SCOPE;
 
     Type *const t = e->type->toBasetype();
-    Type *const cty = t->nextOf()->toBasetype();
-
-    auto _init = buildStringLiteralConstant(e, t->ty != Tsarray);
 
     if (t->ty == Tsarray) {
-      result = _init;
+      result = buildStringLiteralConstant(e, false);
       return;
     }
 
-    auto stringLiteralCache = stringLiteralCacheForType(cty);
-    llvm::StringRef key(e->toChars());
-    llvm::GlobalVariable *gvar =
-        (stringLiteralCache->find(key) == stringLiteralCache->end())
-            ? nullptr
-            : (*stringLiteralCache)[key];
-    if (gvar == nullptr) {
-      llvm::GlobalValue::LinkageTypes _linkage =
-          llvm::GlobalValue::PrivateLinkage;
-      gvar = new llvm::GlobalVariable(gIR->module, _init->getType(), true,
-                                      _linkage, _init, ".str");
-      gvar->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-      (*stringLiteralCache)[key] = gvar;
-    }
+    llvm::GlobalVariable *gvar = p->getCachedStringLiteral(e);
 
     llvm::ConstantInt *zero =
         LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0, false);

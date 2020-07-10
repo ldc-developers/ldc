@@ -1707,21 +1707,13 @@ llvm::Constant *DtoConstSymbolAddress(Loc &loc, Declaration *decl) {
   llvm_unreachable("Taking constant address not implemented.");
 }
 
-llvm::StringMap<llvm::GlobalVariable *> *
-stringLiteralCacheForType(Type *charType) {
-  switch (charType->size()) {
-  default:
-    llvm_unreachable("Unknown char type");
-  case 1:
-    return &gIR->stringLiteral1ByteCache;
-  case 2:
-    return &gIR->stringLiteral2ByteCache;
-  case 4:
-    return &gIR->stringLiteral4ByteCache;
-  }
-}
-
 llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm) {
+  if (se->sz == 1) {
+    const DString data = se->peekString();
+    return llvm::ConstantDataArray::getString(
+        gIR->context(), {data.ptr, data.length}, zeroTerm);
+  }
+
   Type *dtype = se->type->toBasetype();
   Type *cty = dtype->nextOf()->toBasetype();
 

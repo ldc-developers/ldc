@@ -383,31 +383,9 @@ public:
 
     Type *dtype = e->type->toBasetype();
     Type *cty = dtype->nextOf()->toBasetype();
-
     LLType *ct = DtoMemType(cty);
 
-    llvm::StringMap<llvm::GlobalVariable *> *stringLiteralCache =
-        stringLiteralCacheForType(cty);
-    LLConstant *_init = buildStringLiteralConstant(e, true);
-    const auto at = _init->getType();
-
-    llvm::StringRef key(e->toChars());
-    llvm::GlobalVariable *gvar =
-        (stringLiteralCache->find(key) == stringLiteralCache->end())
-            ? nullptr
-            : (*stringLiteralCache)[key];
-    if (gvar == nullptr) {
-      llvm::GlobalValue::LinkageTypes _linkage =
-          llvm::GlobalValue::PrivateLinkage;
-      IF_LOG {
-        Logger::cout() << "type: " << *at << '\n';
-        Logger::cout() << "init: " << *_init << '\n';
-      }
-      gvar = new llvm::GlobalVariable(gIR->module, at, true, _linkage, _init,
-                                      ".str");
-      gvar->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-      (*stringLiteralCache)[key] = gvar;
-    }
+    llvm::GlobalVariable *gvar = p->getCachedStringLiteral(e);
 
     llvm::ConstantInt *zero =
         LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0, false);
