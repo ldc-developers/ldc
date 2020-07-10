@@ -3056,8 +3056,10 @@ version (IN_LLVM)
     // to the memory used to build the literal for resolving such references.
     void* inProgressMemory; // llvm::Value*
 }
-
+else
+{
     Symbol* sym;            /// back end symbol to initialize with literal
+}
 
     /** pointer to the origin instance of the expression.
      * once a new expression is created, origin is set to 'this'.

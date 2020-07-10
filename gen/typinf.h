@@ -14,17 +14,22 @@
 
 #pragma once
 
-struct IRState;
 struct Scope;
 struct Loc;
 class Type;
 class TypeInfoDeclaration;
 
+namespace llvm {
+class GlobalVariable;
+}
+
 void DtoResolveTypeInfo(TypeInfoDeclaration *tid);
 TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(const Loc &loc, Type *t,
                                                     Scope *sc);
-void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p);
-void TypeInfoClassDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p);
+void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl);
+
+// Adds some metadata for use by optimization passes.
+void emitTypeInfoMetadata(llvm::GlobalVariable *typeinfoGlobal, Type *forType);
 
 // defined in dmd/typinf.d:
 bool isSpeculativeType(Type *t);

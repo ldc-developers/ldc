@@ -102,7 +102,7 @@ public:
       }
 
       // Emit TypeInfo.
-      IrAggr *ir = getIrAggr(decl);
+      IrClass *ir = getIrAggr(decl);
       if (!ir->suppressTypeInfo() && !isSpeculativeType(decl->type)) {
         llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
         defineGlobal(interfaceZ, ir->getClassInfoInit(), decl);
@@ -141,7 +141,7 @@ public:
     // Skip __initZ and typeinfo for @compute device code.
     // TODO: support global variables and thus __initZ
     if (!irs->dcomputetarget) {
-      IrAggr *ir = getIrAggr(decl);
+      IrStruct *ir = getIrAggr(decl);
 
       // Define the __initZ symbol.
       if (!decl->zeroInit) {
@@ -196,7 +196,7 @@ public:
         m->accept(this);
       }
 
-      IrAggr *ir = getIrAggr(decl);
+      IrClass *ir = getIrAggr(decl);
 
       auto &initZ = ir->getInitSymbol();
       auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
@@ -513,14 +513,7 @@ public:
 
   void visit(TypeInfoDeclaration *decl) override {
     if (!irs->dcomputetarget)
-      TypeInfoDeclaration_codegen(decl, irs);
-  }
-
-  //////////////////////////////////////////////////////////////////////////
-
-  void visit(TypeInfoClassDeclaration *decl) override {
-    if (!irs->dcomputetarget)
-      TypeInfoClassDeclaration_codegen(decl, irs);
+      TypeInfoDeclaration_codegen(decl);
   }
 };
 

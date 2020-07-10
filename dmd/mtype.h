@@ -40,7 +40,7 @@ class Parameter;
 #ifdef IN_GCC
 typedef union tree_node type;
 #elif IN_LLVM
-typedef class IrType type;
+using type = class IrType;
 #else
 typedef struct TYPE type;
 #endif

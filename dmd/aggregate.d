@@ -829,9 +829,12 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
         return type;
     }
 
+version (IN_LLVM) {} else
+{
     // Back end
     Symbol* stag; // tag symbol for debug data
     Symbol* sinit;
+}
 
     override final inout(AggregateDeclaration) isAggregateDeclaration() inout
     {

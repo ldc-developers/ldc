@@ -418,6 +418,9 @@ void ArgsBuilder::addCppStdlibLinkFlags(const llvm::Triple &triple) {
     break;
   case llvm::Triple::Darwin:
   case llvm::Triple::MacOSX:
+  case llvm::Triple::IOS:
+  case llvm::Triple::WatchOS:
+  case llvm::Triple::TvOS:
   case llvm::Triple::FreeBSD:
     args.push_back("-lc++");
     break;

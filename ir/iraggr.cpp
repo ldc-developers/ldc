@@ -20,6 +20,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/mangling.h"
+#include "gen/pragma.h"
 #include "gen/tollvm.h"
 #include "ir/irdsymbol.h"
 #include "ir/irtypeclass.h"
@@ -39,6 +40,13 @@ llvm::StructType *IrAggr::getLLStructType() {
   llStructType = llvm::dyn_cast<LLStructType>(llType);
 
   return llStructType;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+bool IrAggr::suppressTypeInfo() const {
+  return !global.params.useTypeInfo || !Type::dtypeinfo ||
+         aggrdecl->llvmInternal == LLVMno_typeinfo;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -141,15 +149,17 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
   LOG_SCOPE;
 
   llvm::SmallVector<llvm::Constant *, 16> constants;
-
   unsigned offset = 0;
-  if (type->ty == Tclass) {
+
+  auto cd = aggrdecl->isClassDeclaration();
+  IrClass *irClass = cd ? static_cast<IrClass *>(this) : nullptr;
+  if (irClass) {
     // add vtbl
-    constants.push_back(getVtblSymbol());
+    constants.push_back(irClass->getVtblSymbol());
     offset += target.ptrsize;
 
     // add monitor (except for C++ classes)
-    if (!aggrdecl->isClassDeclaration()->isCPPclass()) {
+    if (!cd->isCPPclass()) {
       constants.push_back(getNullValue(getVoidPtrType()));
       offset += target.ptrsize;
     }
@@ -160,7 +170,7 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
   // we haven't done so previously (due to e.g. ClassReferenceExp, we can
   // have multiple initializer constants for a single class).
   addFieldInitializers(constants, explicitInitializers, aggrdecl, offset,
-                       interfacesWithVtbls.empty());
+                       irClass && irClass->interfacesWithVtbls.empty());
 
   // tail padding?
   const size_t structsize = aggrdecl->size(Loc());
@@ -187,9 +197,10 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
   }
 
   // build constant
+  const bool isPacked = static_cast<IrTypeAggr *>(type->ctype)->packed;
   LLStructType *llType =
       isCompatible ? llStructType
-                   : LLStructType::get(gIR->context(), types, isPacked());
+                   : LLStructType::get(gIR->context(), types, isPacked);
   llvm::Constant *c = LLConstantStruct::get(llType, constants);
   IF_LOG Logger::cout() << "final initializer: " << *c << std::endl;
   return c;
@@ -216,14 +227,15 @@ void IrAggr::addFieldInitializers(
         offset = aligned;
       }
 
-      size_t inter_idx = interfacesWithVtbls.size();
+      IrClass *irClass = static_cast<IrClass *>(this);
+      size_t inter_idx = irClass->interfacesWithVtbls.size();
       for (auto bc : *cd->vtblInterfaces) {
-        constants.push_back(getInterfaceVtblSymbol(bc, inter_idx));
+        constants.push_back(irClass->getInterfaceVtblSymbol(bc, inter_idx));
         offset += target.ptrsize;
         inter_idx++;
 
         if (populateInterfacesWithVtbls)
-          interfacesWithVtbls.push_back(bc);
+          irClass->interfacesWithVtbls.push_back(bc);
       }
     }
   }
@@ -260,12 +272,26 @@ void IrAggr::addFieldInitializers(
 
 IrAggr *getIrAggr(AggregateDeclaration *decl, bool create) {
   if (!isIrAggrCreated(decl) && create) {
-    assert(decl->ir->irAggr == NULL);
-    decl->ir->irAggr = new IrAggr(decl);
+    assert(decl->ir->irAggr == nullptr);
+    if (auto cd = decl->isClassDeclaration()) {
+      decl->ir->irAggr = new IrClass(cd);
+    } else {
+      decl->ir->irAggr = new IrStruct(decl->isStructDeclaration());
+    }
     decl->ir->m_type = IrDsymbol::AggrType;
   }
-  assert(decl->ir->irAggr != NULL);
+  assert(decl->ir->irAggr != nullptr);
   return decl->ir->irAggr;
+}
+
+IrStruct *getIrAggr(StructDeclaration *sd, bool create) {
+  return static_cast<IrStruct *>(
+      getIrAggr(static_cast<AggregateDeclaration *>(sd), create));
+}
+
+IrClass *getIrAggr(ClassDeclaration *cd, bool create) {
+  return static_cast<IrClass *>(
+      getIrAggr(static_cast<AggregateDeclaration *>(cd), create));
 }
 
 bool isIrAggrCreated(AggregateDeclaration *decl) {
