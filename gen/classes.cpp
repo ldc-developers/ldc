@@ -92,7 +92,6 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
   }
   // custom allocator
   else if (newexp->allocator) {
-    DtoResolveFunction(newexp->allocator);
     DFuncValue dfn(newexp->allocator, DtoCallee(newexp->allocator));
     DValue *res = DtoCallFunction(newexp->loc, nullptr, &dfn, newexp->newargs);
     mem = DtoBitCast(DtoRVal(res), DtoType(tc), ".newclass_custom");
@@ -141,7 +140,6 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
 
     Logger::println("Calling constructor");
     assert(newexp->arguments != NULL);
-    DtoResolveFunction(newexp->member);
     DFuncValue dfn(newexp->member, DtoCallee(newexp->member), mem);
     // ignore ctor return value (C++ ctors on Posix may not return `this`)
     DtoCallFunction(newexp->loc, tc, &dfn, newexp->arguments);
