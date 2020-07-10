@@ -507,8 +507,12 @@ class DeclareOrDefineVisitor : public Visitor {
       return;
     }
 
-    defineGlobal(gvar, irstruct->getTypeInfoInit(), irstruct->aggrdecl);
-    gvar->setLinkage(TYPEINFO_LINKAGE_TYPE); // override
+    LLConstant *init = irstruct->getTypeInfoInit(); // might define gvar!
+
+    if (!gvar->hasInitializer()) {
+      defineGlobal(gvar, init, irstruct->aggrdecl);
+      gvar->setLinkage(TYPEINFO_LINKAGE_TYPE); // override
+    }
   }
 
   // Only declare class TypeInfos. They are defined once in their owning module
