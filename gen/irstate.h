@@ -123,8 +123,8 @@ private:
   llvm::DenseMap<void *, llvm::Constant *> structLiteralConstants;
 
   // Global variables bound to string literals. Once created such a variable
-  // variable is reused whenever an equivalent string literal is referenced in
-  // the module, to prevent duplicates.
+  // is reused whenever an equivalent string literal is referenced in the
+  // module, to prevent duplicates.
   llvm::StringMap<llvm::GlobalVariable *> cachedStringLiterals;
   llvm::StringMap<llvm::GlobalVariable *> cachedWstringLiterals;
   llvm::StringMap<llvm::GlobalVariable *> cachedDstringLiterals;
