@@ -1,6 +1,6 @@
 //===-- ctfloat.cpp -------------------------------------------------------===//
 //
-//                         LDC – the LLVM D compiler
+//                         LDC â€“ the LLVM D compiler
 //
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
@@ -115,21 +115,21 @@ real_t CTFloat::fromAPFloat(const APFloat &src_) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-real_t CTFloat::parse(const char *literal, bool *isOutOfRange) {
-  const APFloat ap = parseLiteral(*apSemantics, literal, isOutOfRange);
+real_t CTFloat::parseFloat(const char *literal, bool *isOutOfRange) {
+  const APFloat ap = parseLiteral((APFloat::IEEEsingle AP_SEMANTICS_PARENS),
+                                  literal, isOutOfRange);
   return fromAPFloat(ap);
 }
 
-bool CTFloat::isFloat32LiteralOutOfRange(const char *literal) {
-  bool isOutOfRange;
-  parseLiteral(APFloat::IEEEsingle AP_SEMANTICS_PARENS, literal, &isOutOfRange);
-  return isOutOfRange;
+real_t CTFloat::parseDouble(const char *literal, bool *isOutOfRange) {
+  const APFloat ap = parseLiteral((APFloat::IEEEdouble AP_SEMANTICS_PARENS),
+                                  literal, isOutOfRange);
+  return fromAPFloat(ap);
 }
 
-bool CTFloat::isFloat64LiteralOutOfRange(const char *literal) {
-  bool isOutOfRange;
-  parseLiteral(APFloat::IEEEdouble AP_SEMANTICS_PARENS, literal, &isOutOfRange);
-  return isOutOfRange;
+real_t CTFloat::parseReal(const char *literal, bool *isOutOfRange) {
+  const APFloat ap = parseLiteral(*apSemantics, literal, isOutOfRange);
+  return fromAPFloat(ap);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

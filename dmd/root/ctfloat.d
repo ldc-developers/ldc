@@ -143,9 +143,6 @@ extern (C++) struct CTFloat
     }
 
     static void _init();
-
-    static bool isFloat32LiteralOutOfRange(const(char)* literal) @nogc;
-    static bool isFloat64LiteralOutOfRange(const(char)* literal) @nogc;
   }
 
     pure @trusted
@@ -205,32 +202,55 @@ extern (C++) struct CTFloat
   version (IN_LLVM)
   {
     // implemented in gen/ctfloat.cpp
+
     @system
-    static real_t parse(const(char)* literal, bool* isOutOfRange = null);
+    static real_t parseFloat(const(char)* literal, bool* isOutOfRange = null);
+    @system
+    static real_t parseDouble(const(char)* literal, bool* isOutOfRange = null);
+    @system
+    static real_t parseReal(const(char)* literal, bool* isOutOfRange = null);
+
     @system
     static int sprint(char* str, char fmt, real_t x);
   }
   else
   {
     @system
-    static real_t parse(const(char)* literal, bool* isOutOfRange = null)
+    private static real_t parse(alias parseFn)(const(char)* literal, bool* isOutOfRange)
     {
         errno = 0;
         version(CRuntime_DigitalMars)
         {
             auto save = __locale_decpoint;
             __locale_decpoint = ".";
+            scope(exit) __locale_decpoint = save;
         }
-        version(CRuntime_Microsoft)
-        {
-            auto r = cast(real_t) strtold_dm(literal, null);
-        }
-        else
-            auto r = strtold(literal, null);
-        version(CRuntime_DigitalMars) __locale_decpoint = save;
+        auto r = cast(real_t) parseFn(literal, null);
         if (isOutOfRange)
             *isOutOfRange = (errno == ERANGE);
         return r;
+    }
+
+    @system
+    static real_t parseFloat(const(char)* literal, bool* isOutOfRange = null)
+    {
+        return parse!strtof(literal, isOutOfRange);
+    }
+
+    @system
+    static real_t parseDouble(const(char)* literal, bool* isOutOfRange = null)
+    {
+        return parse!strtod(literal, isOutOfRange);
+    }
+
+    @system
+    static real_t parseReal(const(char)* literal, bool* isOutOfRange = null)
+    {
+        version(CRuntime_Microsoft)
+            alias parseFn = strtold_dm;
+        else
+            alias parseFn = strtold;
+        return parse!parseFn(literal, isOutOfRange);
     }
 
     @system
@@ -344,7 +364,7 @@ version (IN_LLVM)
 
             this(string x, string g, string a, string A)
             {
-                this.x = CTFloat.parse(x.ptr);
+                this.x = CTFloat.parseReal(x.ptr);
                 expected_g = g;
                 expected_a = a;
                 expected_A = A;

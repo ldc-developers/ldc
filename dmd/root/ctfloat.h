@@ -56,9 +56,6 @@ struct CTFloat
     // implemented in gen/ctfloat.cpp
     static void toAPFloat(real_t src, llvm::APFloat &dst);
     static real_t fromAPFloat(const llvm::APFloat &src);
-
-    static bool isFloat32LiteralOutOfRange(const char *literal);
-    static bool isFloat64LiteralOutOfRange(const char *literal);
 #endif
 
     static bool isIdentical(real_t a, real_t b);
@@ -68,7 +65,10 @@ struct CTFloat
 #endif
     static bool isInfinity(real_t r);
 
-    static real_t parse(const char *literal, bool *isOutOfRange = NULL);
+    static real_t parseFloat(const char *literal, bool *isOutOfRange = NULL);
+    static real_t parseDouble(const char *literal, bool *isOutOfRange = NULL);
+    static real_t parseReal(const char *literal, bool *isOutOfRange = NULL);
+
     static int sprint(char *str, char fmt, real_t x);
 
     static size_t hash(real_t a);
