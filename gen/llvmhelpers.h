@@ -240,11 +240,6 @@ LLConstant *toConstantArray(LLType *ct, LLArrayType *at, T *str, size_t len,
   return LLConstantArray::get(at, vals);
 }
 
-/// Returns the cache for string literals of the given character type (for the
-/// current IRState).
-llvm::StringMap<llvm::GlobalVariable *> *
-stringLiteralCacheForType(Type *charType);
-
 llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm);
 
 /// Tries to declare an LLVM global. If a variable with the same mangled name

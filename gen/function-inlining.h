@@ -15,10 +15,6 @@
 
 class FuncDeclaration;
 
-/// Check whether the frontend knows that the function is already defined
-/// in some other module (see DMD's FuncDeclaration::toObjFile).
-bool alreadyOrWillBeDefined(FuncDeclaration &fdecl);
-
 /// Returns whether `fdecl` should be emitted with externally_available
 /// linkage to make it available for inlining.
 ///

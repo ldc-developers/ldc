@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?> 
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup>
+    <DCompiler>LDC</DCompiler>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <DCompile>
+      <ImportPaths>$(MSBuildThisFileDirectory)..</ImportPaths>
+      <StringImportPaths>$(MSBuildThisFileDirectory)..\dmd\res</StringImportPaths>
+      <VersionIdentifiers>IN_LLVM</VersionIdentifiers>
+    </DCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
+    <DCompile>
+      <Optimizer>true</Optimizer>
+      <Inliner>true</Inliner>
+      <DebugCode>Release</DebugCode>
+      <BoundsCheck>Off</BoundsCheck>
+      <DebugInfo>None</DebugInfo>
+    </DCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='RelWithDebInfo'">
+    <DCompile>
+      <Optimizer>true</Optimizer>
+      <Inliner>true</Inliner>
+      <DebugCode>Release</DebugCode>
+      <BoundsCheck>Off</BoundsCheck>
+    </DCompile>
+  </ItemDefinitionGroup>
+</Project>

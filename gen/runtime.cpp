@@ -527,8 +527,6 @@ static void buildRuntimeModule() {
       Attr_ReadOnly_NoUnwind_1_2_NoCapture(Attr_ReadOnly_NoUnwind_1_NoCapture,
                                            AttrSet::FirstArgIndex + 1,
                                            llvm::Attribute::NoCapture),
-      Attr_ReadNone(NoAttrs, LLAttributeSet::FunctionIndex,
-                    llvm::Attribute::ReadNone),
       Attr_1_NoCapture(NoAttrs, AttrSet::FirstArgIndex,
                        llvm::Attribute::NoCapture),
       Attr_1_2_NoCapture(Attr_1_NoCapture, AttrSet::FirstArgIndex + 1,
@@ -536,9 +534,7 @@ static void buildRuntimeModule() {
       Attr_1_3_NoCapture(Attr_1_NoCapture, AttrSet::FirstArgIndex + 2,
                          llvm::Attribute::NoCapture),
       Attr_1_4_NoCapture(Attr_1_NoCapture, AttrSet::FirstArgIndex + 3,
-                         llvm::Attribute::NoCapture),
-      Attr_NoAlias_1_NoCapture(Attr_1_NoCapture, LLAttributeSet::ReturnIndex,
-                               llvm::Attribute::NoAlias);
+                         llvm::Attribute::NoCapture);
 
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////

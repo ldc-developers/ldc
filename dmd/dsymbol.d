@@ -27,6 +27,7 @@ import dmd.declaration;
 import dmd.denum;
 import dmd.dimport;
 import dmd.dmodule;
+import dmd.dversion;
 import dmd.dscope;
 import dmd.dstruct;
 import dmd.dsymbolsem;
@@ -235,8 +236,16 @@ extern (C++) class Dsymbol : ASTNode
     Dsymbol parent;
     /// C++ namespace this symbol belongs to
     CPPNamespaceDeclaration cppnamespace;
+version (IN_LLVM)
+{
+    void* ir; // IrDsymbol*
+    uint llvmInternal;
+}
+else
+{
     Symbol* csym;           // symbol for code generator
     Symbol* isym;           // import version of csym
+}
     const(char)* comment;   // documentation comment for this Dsymbol
     const Loc loc;          // where defined
     Scope* _scope;          // !=null means context to use for semantic()
@@ -250,14 +259,6 @@ extern (C++) class Dsymbol : ASTNode
     // !=null means there's a ddoc unittest associated with this symbol
     // (only use this with ddoc)
     UnitTestDeclaration ddocUnittest;
-
-version (IN_LLVM)
-{
-    // llvm stuff
-    uint llvmInternal;
-
-    void* ir; // IrDsymbol*
-}
 
     final extern (D) this()
     {
@@ -1226,6 +1227,8 @@ version (IN_LLVM)
     inout(UnitTestDeclaration)         isUnitTestDeclaration()         inout { return null; }
     inout(NewDeclaration)              isNewDeclaration()              inout { return null; }
     inout(VarDeclaration)              isVarDeclaration()              inout { return null; }
+    inout(VersionSymbol)               isVersionSymbol()               inout { return null; }
+    inout(DebugSymbol)                 isDebugSymbol()                 inout { return null; }
     inout(ClassDeclaration)            isClassDeclaration()            inout { return null; }
     inout(StructDeclaration)           isStructDeclaration()           inout { return null; }
     inout(UnionDeclaration)            isUnionDeclaration()            inout { return null; }

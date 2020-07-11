@@ -242,7 +242,7 @@ Where:\n\
   -od=<directory>   write object & library files to directory\n\
   -of=<filename>    name output file to filename\n\
   -op               preserve source path for output files\n\
-  -preview=<id>     enable an upcoming language change identified by 'id'\n\
+  -preview=<name>   enable an upcoming language change identified by 'name'\n\
   -preview=[h|help|?]\n\
                     list all upcoming language changes\n\
   -profile          profile runtime performance of generated code\n"
@@ -250,12 +250,13 @@ Where:\n\
 "  -profile=gc       profile runtime allocations\n"
 #endif
 "  -release          compile release version\n\
-  -revert=<id>      revert language change identified by 'id'\n\
+  -revert=<name>    revert language change identified by 'name'\n\
   -revert=[h|help|?]\n\
                     list all revertable language changes\n\
   -run <srcfile>    compile, link, and run the program srcfile\n\
   -shared           generate shared library (DLL)\n\
-  -transition=<id>  help with language change identified by 'id'\n\
+  -transition=<name>\n\
+                    help with language change identified by 'name'\n\
   -transition=[h|help|?]\n\
                     list all language changes\n\
   -unittest         compile in unit tests\n\
@@ -271,6 +272,7 @@ Where:\n\
   -version=<level>  compile in version code >= level\n\
   -version=<ident>  compile in version code identified by ident\n\
   -vgc              list all gc allocations including hidden ones\n\
+  -vtemplates       list statistics on template instantiations\n\
   -vtls             list all variables going into thread local storage\n\
   -w                warnings as errors (compilation will halt)\n\
   -wi               warnings as messages (compilation will continue)\n\
@@ -521,7 +523,8 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
       else if (strcmp(p + 1, "vtls") == 0) {
         ldcArgs.push_back("-transition=tls");
       }
-      /* -vcolumns
+      /* -vtemplates
+       * -vcolumns
        * -vgc
        */
       else if (startsWith(p + 1, "verrors")) {

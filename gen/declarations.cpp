@@ -92,21 +92,23 @@ public:
       return;
     }
 
-    if (decl->members && decl->symtab) {
-      DtoResolveClass(decl);
-      decl->ir->setDefined();
+    if (!(decl->members && decl->symtab)) {
+      return;
+    }
 
-      // Emit any members (e.g. final functions).
-      for (auto m : *decl->members) {
-        m->accept(this);
-      }
+    DtoResolveClass(decl);
+    decl->ir->setDefined();
 
-      // Emit TypeInfo.
-      IrAggr *ir = getIrAggr(decl);
-      if (!ir->suppressTypeInfo()) {
-        llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
-        defineGlobal(interfaceZ, ir->getClassInfoInit(), decl, true);
-      }
+    // Emit any members (e.g. final functions).
+    for (auto m : *decl->members) {
+      m->accept(this);
+    }
+
+    // Emit TypeInfo.
+    IrClass *ir = getIrAggr(decl);
+    if (!ir->suppressTypeInfo()) {
+      llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
+      defineGlobal(interfaceZ, ir->getClassInfoInit(), decl, true);
     }
   }
 
@@ -128,6 +130,13 @@ public:
     }
 
     if (!(decl->members && decl->symtab)) {
+      // we need to emit TypeInfos for opaque structs too
+      IrStruct *ir = getIrAggr(decl, true);
+      if (!irs->dcomputetarget && !ir->suppressTypeInfo()) {
+        llvm::GlobalVariable *typeInfo = ir->getTypeInfoSymbol();
+        defineGlobal(typeInfo, ir->getTypeInfoInit(), decl, true);
+      }
+
       return;
     }
 
@@ -141,7 +150,7 @@ public:
     // Skip __initZ and typeinfo for @compute device code.
     // TODO: support global variables and thus __initZ
     if (!irs->dcomputetarget) {
-      IrAggr *ir = getIrAggr(decl);
+      IrStruct *ir = getIrAggr(decl);
 
       // Define the __initZ symbol.
       if (!decl->zeroInit) {
@@ -150,8 +159,6 @@ public:
 
       // emit typeinfo
       if (!ir->suppressTypeInfo()) {
-        DtoTypeInfoOf(decl->type, /*base=*/false);
-
         // Emit __xopEquals/__xopCmp/__xtoHash.
         if (decl->xeq && decl->xeq != decl->xerreq) {
           decl->xeq->accept(this);
@@ -162,6 +169,10 @@ public:
         if (decl->xhash) {
           decl->xhash->accept(this);
         }
+
+        // define the TypeInfo_Struct symbol
+        llvm::GlobalVariable *typeInfo = ir->getTypeInfoSymbol();
+        defineGlobal(typeInfo, ir->getTypeInfoInit(), decl, true);
       }
     }
   }
@@ -185,27 +196,29 @@ public:
       return;
     }
 
-    if (decl->members && decl->symtab) {
-      DtoResolveClass(decl);
-      decl->ir->setDefined();
+    if (!(decl->members && decl->symtab)) {
+      return;
+    }
 
-      for (auto m : *decl->members) {
-        m->accept(this);
-      }
+    DtoResolveClass(decl);
+    decl->ir->setDefined();
 
-      IrAggr *ir = getIrAggr(decl);
+    for (auto m : *decl->members) {
+      m->accept(this);
+    }
 
-      ir->getInitSymbol(true);
+    IrClass *ir = getIrAggr(decl);
 
-      ir->getVtblSymbol(true);
+    ir->getInitSymbol(true);
 
-      ir->defineInterfaceVtbls();
+    ir->getVtblSymbol(true);
 
-      // Emit TypeInfo.
-      if (!ir->suppressTypeInfo()) {
-        llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
-        defineGlobal(classZ, ir->getClassInfoInit(), decl, true);
-      }
+    ir->defineInterfaceVtbls();
+
+    // Emit TypeInfo.
+    if (!ir->suppressTypeInfo()) {
+      llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
+      defineGlobal(classZ, ir->getClassInfoInit(), decl, true);
     }
   }
 
@@ -471,15 +484,7 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(TypeInfoDeclaration *decl) override {
-    if (!irs->dcomputetarget)
-      TypeInfoDeclaration_codegen(decl, irs);
-  }
-
-  //////////////////////////////////////////////////////////////////////////
-
-  void visit(TypeInfoClassDeclaration *decl) override {
-    if (!irs->dcomputetarget)
-      TypeInfoClassDeclaration_codegen(decl, irs);
+    llvm_unreachable("Should be emitted from codegen layer only");
   }
 };
 

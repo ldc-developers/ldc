@@ -832,8 +832,9 @@ void DtoResolveDsymbol(Dsymbol *dsym) {
 }
 
 void DtoResolveVariable(VarDeclaration *vd) {
-  if (vd->isTypeInfoDeclaration()) {
-    return DtoResolveTypeInfo(static_cast<TypeInfoDeclaration *>(vd));
+  if (auto tid = vd->isTypeInfoDeclaration()) {
+    DtoResolveTypeInfo(tid);
+    return;
   }
 
   IF_LOG Logger::println("DtoResolveVariable(%s)", vd->toPrettyChars());
@@ -1263,17 +1264,12 @@ LLConstant *DtoTypeInfoOf(Type *type, bool base) {
                          type->toChars(), base);
   LOG_SCOPE
 
-  TypeInfoDeclaration *tidecl =
-      getOrCreateTypeInfoDeclaration(Loc(), type, nullptr);
-  assert(tidecl);
-  Declaration_codegen(tidecl);
-  assert(getIrGlobal(tidecl)->value != NULL);
-  LLConstant *c = isaConstant(getIrGlobal(tidecl)->value);
-  assert(c != NULL);
+  auto tidecl = getOrCreateTypeInfoDeclaration(Loc(), type);
+  auto tiglobal = DtoResolveTypeInfo(tidecl);
   if (base) {
-    return llvm::ConstantExpr::getBitCast(c, DtoType(getTypeInfoType()));
+    return llvm::ConstantExpr::getBitCast(tiglobal, DtoType(getTypeInfoType()));
   }
-  return c;
+  return tiglobal;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1560,10 +1556,8 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
     // typeinfo
     if (TypeInfoDeclaration *tid = vd->isTypeInfoDeclaration()) {
       Logger::println("TypeInfoDeclaration");
-      DtoResolveTypeInfo(tid);
-      assert(getIrValue(tid));
       LLType *vartype = DtoType(type);
-      LLValue *m = getIrValue(tid);
+      LLValue *m = DtoResolveTypeInfo(tid);
       if (m->getType() != getPtrToType(vartype)) {
         m = gIR->ir->CreateBitCast(m, vartype);
       }
@@ -1704,21 +1698,13 @@ llvm::Constant *DtoConstSymbolAddress(Loc &loc, Declaration *decl) {
   llvm_unreachable("Taking constant address not implemented.");
 }
 
-llvm::StringMap<llvm::GlobalVariable *> *
-stringLiteralCacheForType(Type *charType) {
-  switch (charType->size()) {
-  default:
-    llvm_unreachable("Unknown char type");
-  case 1:
-    return &gIR->stringLiteral1ByteCache;
-  case 2:
-    return &gIR->stringLiteral2ByteCache;
-  case 4:
-    return &gIR->stringLiteral4ByteCache;
-  }
-}
-
 llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm) {
+  if (se->sz == 1) {
+    const DString data = se->peekString();
+    return llvm::ConstantDataArray::getString(
+        gIR->context(), {data.ptr, data.length}, zeroTerm);
+  }
+
   Type *dtype = se->type->toBasetype();
   Type *cty = dtype->nextOf()->toBasetype();
 

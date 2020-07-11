@@ -47,6 +47,7 @@ import dmd.objc;
 import dmd.root.outbuffer;
 import dmd.root.rootobject;
 import dmd.root.string;
+import dmd.root.stringtable;
 import dmd.semantic2;
 import dmd.semantic3;
 import dmd.statement_rewrite_walker;
@@ -66,10 +67,67 @@ enum ILS : int
 enum BUILTIN : int
 {
     unknown = -1,    /// not known if this is a builtin
-    no,              /// this is not a builtin
-    yes,             /// this is a builtin
-}
+    unimp,           /// this is not a builtin
+    sin,
+    cos,
+    tan,
+    sqrt,
+    fabs,
+    ldexp,
+    log,
+    log2,
+    log10,
+    exp,
+    expm1,
+    exp2,
+    round,
+    floor,
+    ceil,
+    trunc,
+    copysign,
+    pow,
+    fmin,
+    fmax,
+    fma,
+    isnan,
+    isinfinity,
+    isfinite,
+    bsf,
+    bsr,
+    bswap,
+    popcnt,
+    yl2x,
+    yl2xp1,
+    toPrecFloat,
+    toPrecDouble,
+    toPrecReal,
 
+    // IN_LLVM:
+    llvm_sin,
+    llvm_cos,
+    llvm_sqrt,
+    llvm_exp,
+    llvm_exp2,
+    llvm_log,
+    llvm_log2,
+    llvm_log10,
+    llvm_fabs,
+    llvm_minnum,
+    llvm_maxnum,
+    llvm_floor,
+    llvm_ceil,
+    llvm_trunc,
+    llvm_rint,
+    llvm_nearbyint,
+    llvm_round,
+    llvm_fma,
+    llvm_copysign,
+    llvm_bswap,
+    llvm_cttz,
+    llvm_ctlz,
+    llvm_ctpop,
+    llvm_expect,
+}
 
 /* Tweak all return statements and dtor call for nrvo_var, for correct NRVO.
  */
@@ -296,7 +354,10 @@ version (IN_LLVM)
     // Support for NRVO (named return value optimization)
     bool nrvo_can = true;               /// true means we can do NRVO
     VarDeclaration nrvo_var;            /// variable to replace with shidden
+version (IN_LLVM) {} else
+{
     Symbol* shidden;                    /// hidden pointer passed to function
+}
 
     ReturnStatements* returns;
 
@@ -376,6 +437,8 @@ version (IN_LLVM)
         if (!_scope)
             return !errors;
 
+        this.cppnamespace = _scope.namespace;
+
         if (!originalType) // semantic not yet run
         {
             TemplateInstance spec = isSpeculative();
@@ -390,8 +453,6 @@ version (IN_LLVM)
             if (olderrs != global.errors) // if errors compiling this function
                 return false;
         }
-
-        this.cppnamespace = _scope.namespace;
 
         // if inferring return type, sematic3 needs to be run
         // - When the function body contains any errors, we cannot assume
@@ -1462,6 +1523,7 @@ version (IN_LLVM)
      */
     extern (D) final bool isReturnIsolated()
     {
+        //printf("isReturnIsolated(this: %s)\n", this.toChars);
         TypeFunction tf = type.toTypeFunction();
         assert(tf.next);
 
@@ -1483,7 +1545,15 @@ version (IN_LLVM)
      */
     extern (D) final bool isTypeIsolated(Type t)
     {
-        //printf("isTypeIsolated(t: %s)\n", t.toChars());
+        StringTable!Type parentTypes;
+        parentTypes._init();
+        return isTypeIsolated(t, parentTypes);
+    }
+
+    ///ditto
+    extern (D) final bool isTypeIsolated(Type t, ref StringTable!Type parentTypes)
+    {
+        //printf("this: %s, isTypeIsolated(t: %s)\n", this.toChars(), t.toChars());
 
         t = t.baseElemOf();
         switch (t.ty)
@@ -1500,11 +1570,19 @@ version (IN_LLVM)
                 /* Drill down and check the struct's fields
                  */
                 auto sym = t.toDsymbol(null).isStructDeclaration();
+                const tName = t.toChars.toDString;
+                const entry = parentTypes.insert(tName, t);
+                if (entry == null)
+                {
+                    //we've already seen this type in a parent, not isolated
+                    return false;
+                }
                 foreach (v; sym.fields)
                 {
                     Type tmi = v.type.addMod(t.mod);
-                    //printf("\tt = %s, tmi = %s\n", t.toChars(), tmi.toChars());
-                    if (!isTypeIsolated(tmi))
+                    //printf("\tt = %s, v: %s, vtype: %s,  tmi = %s\n",
+                    //       t.toChars(), v.toChars(), v.type.toChars(), tmi.toChars());
+                    if (!isTypeIsolated(tmi, parentTypes))
                         return false;
                 }
                 return true;
@@ -3899,20 +3977,19 @@ extern (C++) final class UnitTestDeclaration : FuncDeclaration
  */
 extern (C++) final class NewDeclaration : FuncDeclaration
 {
-    Parameters* parameters;
-    VarArg varargs;
+    ParameterList parameterList;
 
-    extern (D) this(const ref Loc loc, const ref Loc endloc, StorageClass stc, Parameters* fparams, VarArg varargs)
+    extern (D) this(const ref Loc loc, const ref Loc endloc, StorageClass stc, ref ParameterList parameterList)
     {
         super(loc, endloc, Id.classNew, STC.static_ | stc, null);
-        this.parameters = fparams;
-        this.varargs = varargs;
+        this.parameterList = parameterList;
     }
 
     override Dsymbol syntaxCopy(Dsymbol s)
     {
         assert(!s);
-        auto f = new NewDeclaration(loc, endloc, storage_class, Parameter.arraySyntaxCopy(parameters), varargs);
+        auto parameterList = parameterList.syntaxCopy();
+        auto f = new NewDeclaration(loc, endloc, storage_class, parameterList);
         return FuncDeclaration.syntaxCopy(f);
     }
 

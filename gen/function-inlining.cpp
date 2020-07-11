@@ -72,20 +72,6 @@ bool isInlineCandidate(FuncDeclaration &fdecl) {
 
 } // end anonymous namespace
 
-bool alreadyOrWillBeDefined(FuncDeclaration &fdecl) {
-  for (FuncDeclaration *f = &fdecl; f;) {
-    if (!f->isInstantiated() && f->inNonRoot()) {
-      return false;
-    }
-    if (f->isNested()) {
-      f = f->toParent2()->isFuncDeclaration();
-    } else {
-      break;
-    }
-  }
-  return true;
-}
-
 bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
   IF_LOG Logger::println("Enter defineAsExternallyAvailable");
   LOG_SCOPE

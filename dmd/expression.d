@@ -3056,8 +3056,10 @@ version (IN_LLVM)
     // to the memory used to build the literal for resolving such references.
     void* inProgressMemory; // llvm::Value*
 }
-
+else
+{
     Symbol* sym;            /// back end symbol to initialize with literal
+}
 
     /** pointer to the origin instance of the expression.
      * once a new expression is created, origin is set to 'this'.
@@ -5737,7 +5739,7 @@ extern (C++) final class PostExp : BinExp
 {
     extern (D) this(TOK op, const ref Loc loc, Expression e)
     {
-        super(loc, op, __traits(classInstanceSize, PostExp), e, new IntegerExp(loc, 1, Type.tint32));
+        super(loc, op, __traits(classInstanceSize, PostExp), e, IntegerExp.literal!1);
         assert(op == TOK.minusMinus || op == TOK.plusPlus);
     }
 

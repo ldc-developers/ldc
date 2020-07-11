@@ -418,6 +418,9 @@ void ArgsBuilder::addCppStdlibLinkFlags(const llvm::Triple &triple) {
     break;
   case llvm::Triple::Darwin:
   case llvm::Triple::MacOSX:
+  case llvm::Triple::IOS:
+  case llvm::Triple::WatchOS:
+  case llvm::Triple::TvOS:
   case llvm::Triple::FreeBSD:
     args.push_back("-lc++");
     break;
@@ -569,18 +572,27 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
 //////////////////////////////////////////////////////////////////////////////
 
 void ArgsBuilder::addLinker() {
-  if (!opts::linker.empty()) {
-    args.push_back("-fuse-ld=" + opts::linker);
-  } else if (global.params.isLinux &&
-             global.params.targetTriple->getEnvironment() !=
-                 llvm::Triple::Android) {
-    // Default to ld.gold on Linux due to ld.bfd issues with ThinLTO (see #2278)
-    // and older bfd versions stripping llvm.used symbols (e.g., ModuleInfo
-    // refs) with --gc-sections (see #2870).
-    // Can be overridden by `-linker=` (explicitly empty).
-    if (opts::linker.getNumOccurrences() == 0)
-      args.push_back("-fuse-ld=gold");
+  llvm::StringRef linker = opts::linker;
+
+  // We have a default linker preference for Linux targets. It can be disabled
+  // via `-linker=` (explicitly empty).
+  if (global.params.isLinux && opts::linker.getNumOccurrences() == 0) {
+    // Default to ld.bfd for Android (placing .tdata and .tbss sections adjacent
+    // to each other as required by druntime's rt.sections_android, contrary to
+    // gold and lld as of Android NDK r21d).
+    if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
+      linker = "bfd";
+    }
+    // Otherwise default to ld.gold for Linux due to ld.bfd issues with ThinLTO
+    // (see #2278) and older bfd versions stripping llvm.used symbols (e.g.,
+    // ModuleInfo refs) with --gc-sections (see #2870).
+    else {
+      linker = "gold";
+    }
   }
+
+  if (!linker.empty())
+    args.push_back(("-fuse-ld=" + linker).str());
 }
 
 //////////////////////////////////////////////////////////////////////////////

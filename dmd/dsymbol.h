@@ -82,7 +82,7 @@ class OverloadSet;
 struct AA;
 #ifdef IN_GCC
 typedef union tree_node Symbol;
-#else
+#elif !IN_LLVM
 struct Symbol;
 #endif
 
@@ -157,9 +157,14 @@ public:
     Dsymbol *parent;
     /// C++ namespace this symbol belongs to
     CPPNamespaceDeclaration *namespace_;
+#if IN_LLVM
+    IrDsymbol *ir;
+    uint32_t llvmInternal;
+#else
     Symbol *csym;               // symbol for code generator
     Symbol *isym;               // import version of csym
-    const utf8_t *comment;      // documentation comment for this Dsymbol
+#endif
+    const utf8_t *comment;       // documentation comment for this Dsymbol
     Loc loc;                    // where defined
     Scope *_scope;               // !=NULL means context to use for semantic()
     const utf8_t *prettystring;
@@ -168,13 +173,6 @@ public:
     DeprecatedDeclaration *depdecl; // customized deprecation message
     UserAttributeDeclaration *userAttribDecl;   // user defined attributes
     UnitTestDeclaration *ddocUnittest; // !=NULL means there's a ddoc unittest associated with this symbol (only use this with ddoc)
-
-#if IN_LLVM
-    // llvm stuff
-    uint32_t llvmInternal;
-
-    IrDsymbol *ir;
-#endif
 
     static Dsymbol *create(Identifier *);
     const char *toChars() const;
@@ -275,6 +273,8 @@ public:
     virtual UnitTestDeclaration *isUnitTestDeclaration() { return NULL; }
     virtual NewDeclaration *isNewDeclaration() { return NULL; }
     virtual VarDeclaration *isVarDeclaration() { return NULL; }
+    virtual VersionSymbol *isVersionSymbol() { return NULL; }
+    virtual DebugSymbol *isDebugSymbol() { return NULL; }
     virtual ClassDeclaration *isClassDeclaration() { return NULL; }
     virtual StructDeclaration *isStructDeclaration() { return NULL; }
     virtual UnionDeclaration *isUnionDeclaration() { return NULL; }

@@ -8,7 +8,7 @@ app:
     - BITRISE_SCHEME: TestRunner
     - BITRISE_EXPORT_METHOD: development
     - LLVM_VERSION: 10.0.0
-    - LDC_VERSION: 1.20.1
+    - LDC_VERSION: 1.22.0
     - IOS_VERSION: 12.0
 
 workflows:
@@ -58,7 +58,30 @@ workflows:
                 envman add --key LDC_BINARY --value "$(pwd)/bin/ldc2"
 
       - script@1.1.6:
-          title: Build Runtime
+          title: Cross-compile (iOS/x86_64) druntime & Phobos
+          deps:
+            brew:
+              - name: cmake
+              - name: ninja
+          inputs:
+            - content: |-
+                #!/bin/bash
+                set -ex
+                build/bin/ldc-build-runtime \
+                  --buildDir="ldc-build-runtime.x86_64" \
+                  --cFlags="-target;x86_64-apple-ios${IOS_VERSION}" \
+                  --dFlags="-mtriple=x86_64-apple-ios${IOS_VERSION};-fvisibility=hidden" \
+                  --ldcSrcDir=. \
+                  --ninja \
+                  -j 2 \
+                  CMAKE_SYSTEM_NAME=iOS \
+                  CMAKE_OSX_SYSROOT=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk \
+                  CMAKE_OSX_ARCHITECTURES=x86_64 \
+                  CMAKE_OSX_DEPLOYMENT_TARGET="${IOS_VERSION}" \
+                  BUILD_SHARED_LIBS=OFF
+
+      - script@1.1.6:
+          title: Cross-compile (iOS/arm64) druntime & Phobos, incl. debug unittest runners
           deps:
             brew:
               - name: cmake
@@ -86,7 +109,7 @@ workflows:
           run_if: not .IsPR
 
       - virtual-device-testing-for-ios@0.9.10:
-          title: Run Tests on Device
+          title: Run druntime & Phobos debug unittests on iPhone
           run_if: not .IsPR
           inputs:
             - test_devices: iphone6s,12.0,en,portrait

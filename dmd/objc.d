@@ -475,11 +475,7 @@ extern(C++) private final class Supported : Objc
     {
         VersionCondition.addPredefinedGlobalIdent("D_ObjectiveC");
 
-version (IN_LLVM)
-{
-        objc_initSymbols();
-}
-else
+version (IN_LLVM) {} else
 {
         ObjcGlue.initialize();
 }

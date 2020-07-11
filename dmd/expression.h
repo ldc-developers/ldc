@@ -41,7 +41,7 @@ class StringExp;
 struct UnionExp;
 #ifdef IN_GCC
 typedef union tree_node Symbol;
-#else
+#elif !IN_LLVM
 struct Symbol;          // back end symbol
 #endif
 
@@ -233,6 +233,7 @@ public:
     ModuleInitExp* isModuleInitExp();
     FuncInitExp* isFuncInitExp();
     PrettyFuncInitExp* isPrettyFuncInitExp();
+    ClassReferenceExp* isClassReferenceExp();
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -390,6 +391,11 @@ public:
         assert(sz == 1);
         return {len, static_cast<const char *>(string)};
     }
+    // ditto
+    DArray<const unsigned char> peekData() const
+    {
+        return {len * sz, static_cast<const unsigned char *>(string)};
+    }
 #endif
     size_t numberOfCodeUnits(int tynto = 0) const;
     void writeTo(void* dest, bool zero, int tyto = 0) const;
@@ -463,9 +469,9 @@ public:
     // now contain pointers to themselves. While in toElem, contains a pointer
     // to the memory used to build the literal for resolving such references.
     llvm::Value *inProgressMemory;
+#else
+    Symbol *sym;        // back end symbol to initialize with literal
 #endif
-
-    Symbol *sym;                // back end symbol to initialize with literal
 
     /** pointer to the origin instance of the expression.
      * once a new expression is created, origin is set to 'this'.

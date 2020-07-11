@@ -433,19 +433,7 @@ LLConstant *DtoConstFP(Type *t, const real_t value) {
 LLConstant *DtoConstCString(const char *str) {
   llvm::StringRef s(str ? str : "");
 
-  const auto it = gIR->stringLiteral1ByteCache.find(s);
-  llvm::GlobalVariable *gvar =
-      it == gIR->stringLiteral1ByteCache.end() ? nullptr : it->getValue();
-
-  if (gvar == nullptr) {
-    llvm::Constant *init =
-        llvm::ConstantDataArray::getString(gIR->context(), s, true);
-    gvar = new llvm::GlobalVariable(gIR->module, init->getType(), true,
-                                    llvm::GlobalValue::PrivateLinkage, init,
-                                    ".str");
-    gvar->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-    gIR->stringLiteral1ByteCache[s] = gvar;
-  }
+  LLGlobalVariable *gvar = gIR->getCachedStringLiteral(s);
 
   LLConstant *idxs[] = {DtoConstUint(0), DtoConstUint(0)};
   return llvm::ConstantExpr::getGetElementPtr(gvar->getInitializer()->getType(),
