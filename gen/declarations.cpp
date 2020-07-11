@@ -104,8 +104,11 @@ public:
       m->accept(this);
     }
 
-    // Emit TypeInfo.
     IrClass *ir = getIrAggr(decl);
+
+    //ir->defineInterfaceVtbls();
+
+    // Emit TypeInfo.
     if (!ir->suppressTypeInfo()) {
       llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
       defineGlobal(interfaceZ, ir->getClassInfoInit(), decl, true);

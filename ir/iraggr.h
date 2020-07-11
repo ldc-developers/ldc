@@ -164,10 +164,10 @@ private:
 
   /// Returns the vtbl for an interface implementation.
   llvm::GlobalVariable *getInterfaceVtblSymbol(BaseClass *b,
-                                               size_t interfaces_index);
+                                               size_t interfaces_index,
+                                               bool define = false);
   /// Defines the vtbl for an interface implementation.
-  void defineInterfaceVtbl(BaseClass *b, bool new_inst,
-                           size_t interfaces_index);
+  llvm::Constant *getInterfaceVtblInit(BaseClass *b, size_t interfaces_index);
 
   /// Create the Interface[] interfaces ClassInfo field initializer.
   llvm::Constant *getClassInfoInterfaces();

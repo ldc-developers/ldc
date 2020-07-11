@@ -62,7 +62,7 @@ LLConstant *&IrAggr::getInitSymbol(bool define) {
 
     init = initGlobal;
 
-    if (DtoIsTemplateInstance(aggrdecl))
+    if (!define && DtoIsTemplateInstance(aggrdecl))
       define = true;
   }
 
@@ -70,8 +70,7 @@ LLConstant *&IrAggr::getInitSymbol(bool define) {
     auto initConstant = getDefaultInit();
     auto initGlobal = llvm::dyn_cast<LLGlobalVariable>(init);
     if (initGlobal && !initGlobal->hasInitializer()) {
-      init = gIR->setGlobalVarInitializer(initGlobal, initConstant);
-      setLinkageAndVisibility(aggrdecl, initGlobal);
+      defineGlobal(initGlobal, initConstant, aggrdecl);
     }
   }
 

@@ -571,10 +571,23 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   // Check if fdecl should be defined too for cross-module inlining.
   // If true, semantic is fully done for fdecl which is needed for some code
   // below (e.g. code that uses fdecl->vthis).
-  const bool defineAtEnd = !willDefine && defineAsExternallyAvailable(*fdecl);
-  if (defineAtEnd) {
+  bool defineAtEnd;
+  bool defineAsAvailableExternally = false;
+  if (willDefine) {
+    defineAtEnd = false;
+  } else if (DtoIsTemplateInstance(fdecl)) {
+    if (fdecl->semanticRun < PASSsemantic3done) {
+      assert(fdecl->functionSemantic3());
+      Module::runDeferredSemantic3();
+    }
     IF_LOG Logger::println(
-        "Function is an externally_available inline candidate.");
+        "Function is inside a template, will be defined after declaration.");
+    defineAtEnd = true;
+  } else if (defineAsExternallyAvailable(*fdecl)) {
+    IF_LOG Logger::println("Function is an externally_available inline "
+                           "candidate, will be defined after declaration.");
+    defineAtEnd = true;
+    defineAsAvailableExternally = true;
   }
 
   // get TypeFunction*
@@ -763,13 +776,9 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   }
 
   // Now that this function is declared, also define it if needed.
-  if (!willDefine && fdecl->semanticRun >= PASSsemantic3done &&
-      DtoIsTemplateInstance(fdecl)) {
-    DtoDefineFunction(fdecl);
-  } else if (defineAtEnd) {
-    IF_LOG Logger::println(
-        "Function is an externally_available inline candidate: define it now.");
-    DtoDefineFunction(fdecl, /*linkageAvailableExternally=*/true);
+  if (defineAtEnd) {
+    IF_LOG Logger::println("Define function after declaration:");
+    DtoDefineFunction(fdecl, defineAsAvailableExternally);
   }
 }
 
