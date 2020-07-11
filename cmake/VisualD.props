@@ -10,7 +10,7 @@
     </ClCompile>
     <DCompile>
       <ImportPaths>$(MSBuildThisFileDirectory)..</ImportPaths>
-      <StringImportPaths>$(MSBuildThisFileDirectory)..\res</StringImportPaths>
+      <StringImportPaths>$(MSBuildThisFileDirectory)..\dmd\res</StringImportPaths>
       <VersionIdentifiers>IN_LLVM</VersionIdentifiers>
     </DCompile>
   </ItemDefinitionGroup>

@@ -233,6 +233,7 @@ public:
     ModuleInitExp* isModuleInitExp();
     FuncInitExp* isFuncInitExp();
     PrettyFuncInitExp* isPrettyFuncInitExp();
+    ClassReferenceExp* isClassReferenceExp();
 
     void accept(Visitor *v) { v->visit(this); }
 };

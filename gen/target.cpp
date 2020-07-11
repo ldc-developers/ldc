@@ -80,10 +80,7 @@ unsigned getCriticalSectionSize(const Param &params) {
 
 void Target::_init(const Param &params) {
   CTFloat::initialize();
-
-  FloatProperties.initialize();
-  DoubleProperties.initialize();
-  RealProperties.initialize();
+  initFPTypeProperties();
 
   const auto &triple = *params.targetTriple;
   const bool isMSVC = triple.isWindowsMSVCEnvironment();
@@ -180,9 +177,9 @@ unsigned Target::alignsize(Type *type) {
 unsigned Target::fieldalign(Type *type) { return DtoAlignment(type); }
 
 Type *Target::va_listType(const Loc &loc, Scope *sc) {
-  if (!va_list)
-    va_list = typeSemantic(gABI->vaListType(), loc, sc);
-  return va_list;
+  if (!tvalist)
+    tvalist = typeSemantic(gABI->vaListType(), loc, sc);
+  return tvalist;
 }
 
 /**

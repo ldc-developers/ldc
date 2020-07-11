@@ -161,6 +161,7 @@ list(REMOVE_ITEM DRUNTIME_D
     ${RUNTIME_DIR}/src/rt/llmath.d
     ${RUNTIME_DIR}/src/rt/memset.d
     ${RUNTIME_DIR}/src/rt/sections_osx_x86.d
+    ${RUNTIME_DIR}/src/rt/sections_osx_x86_64.d
     ${RUNTIME_DIR}/src/rt/sections_solaris.d
     ${RUNTIME_DIR}/src/rt/sections_win32.d
 )
