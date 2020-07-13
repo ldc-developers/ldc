@@ -1,4 +1,3 @@
-// REQUIRES: atleast_llvm500
 // REQUIRES: Windows
 // REQUIRES: cdb
 // RUN: %ldc -g -of=%t.exe %s

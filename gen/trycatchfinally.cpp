@@ -1,6 +1,6 @@
 //===-- trycatchfinally.cpp -------------------------------------*- C++ -*-===//
 //
-//                         LDC – the LLVM D compiler
+//                         LDC â€“ the LLVM D compiler
 //
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
@@ -366,13 +366,11 @@ llvm::BasicBlock *CleanupScope::run(IRState &irs, llvm::BasicBlock *sourceBlock,
   // We need a branch selector if we are here...
   if (!branchSelector) {
     // ... and have not created one yet, so do so now.
-    branchSelector = new llvm::AllocaInst(llvm::Type::getInt32Ty(irs.context()),
-#if LDC_LLVM_VER >= 500
-                                          irs.module.getDataLayout().getAllocaAddrSpace(),
-#endif
-                                          llvm::Twine("branchsel.") +
-                                              beginBlock()->getName(),
-                                          irs.topallocapoint());
+    branchSelector = new llvm::AllocaInst(
+        llvm::Type::getInt32Ty(irs.context()),
+        irs.module.getDataLayout().getAllocaAddrSpace(),
+        llvm::Twine("branchsel.") + beginBlock()->getName(),
+        irs.topallocapoint());
 
     // Now we also need to store 0 to it to keep the paths that go to the
     // only existing branch target the same.
@@ -674,17 +672,12 @@ TryCatchFinallyScopes::getLandingPadRef(CleanupCursor scope) {
 
 namespace {
   llvm::LandingPadInst *createLandingPadInst(IRState &irs) {
-    LLType *retType =
-      LLStructType::get(LLType::getInt8PtrTy(irs.context()),
-        LLType::getInt32Ty(irs.context())
-#if LDC_LLVM_VER < 500
-        , nullptr
-#endif
-      );
-  if (!irs.func()->hasLLVMPersonalityFn()) {
-    irs.func()->setLLVMPersonalityFn(
-        getRuntimeFunction(Loc(), irs.module, "_d_eh_personality"));
-  }
+    LLType *retType = LLStructType::get(LLType::getInt8PtrTy(irs.context()),
+                                        LLType::getInt32Ty(irs.context()));
+    if (!irs.func()->hasLLVMPersonalityFn()) {
+      irs.func()->setLLVMPersonalityFn(
+          getRuntimeFunction(Loc(), irs.module, "_d_eh_personality"));
+    }
   return irs.ir->CreateLandingPad(retType, 0);
 }
 }

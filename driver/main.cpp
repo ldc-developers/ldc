@@ -50,6 +50,7 @@
 #include "gen/passes/Passes.h"
 #include "gen/runtime.h"
 #include "gen/uda.h"
+#include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/LinkAllIR.h"
@@ -66,12 +67,6 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-#if LDC_LLVM_VER >= 600
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
-#else
-#include "llvm/Target/TargetSubtargetInfo.h"
-#endif
 
 #if _WIN32
 #include "llvm/Support/ConvertUTF.h"
@@ -97,6 +92,8 @@ static cl::opt<bool> enableGC(
     "lowmem", cl::ZeroOrMore,
     cl::desc("Enable the garbage collector for the LDC front-end. This reduces "
              "the compiler memory requirements but increases compile times."));
+
+namespace {
 
 // This function exits the program.
 void printVersion(llvm::raw_ostream &OS) {
@@ -125,22 +122,10 @@ void printVersion(llvm::raw_ostream &OS) {
   // redirecting stdout to a file.
   OS.flush();
 
-  llvm::TargetRegistry::printRegisteredTargetsForVersion(
-#if LDC_LLVM_VER >= 600
-      OS
-#endif
-  );
+  llvm::TargetRegistry::printRegisteredTargetsForVersion(OS);
 
   exit(EXIT_SUCCESS);
 }
-
-// This function exits the program.
-void printVersionStdout() {
-  printVersion(llvm::outs());
-  assert(false);
-}
-
-namespace {
 
 // Helper function to handle -d-debug=* and -d-version=*
 void processVersions(std::vector<std::string> &list, const char *type,
@@ -284,11 +269,7 @@ void parseCommandLine(Strings &sourceFiles) {
   // finalize by expanding response files specified in config file
   args::expandResponseFiles(allArguments);
 
-#if LDC_LLVM_VER >= 600
   cl::SetVersionPrinter(&printVersion);
-#else
-  cl::SetVersionPrinter(&printVersionStdout);
-#endif
 
   opts::hideLLVMOptions();
   opts::createClashingOptions();
@@ -410,11 +391,9 @@ void parseCommandLine(Strings &sourceFiles) {
   if (includeImports)
     global.params.oneobj = true;
 
-#if LDC_LLVM_VER >= 400
   if (saveOptimizationRecord.getNumOccurrences() > 0) {
     global.params.outputSourceLocations = true;
   }
-#endif
 
   opts::initializeSanitizerOptionsFromCmdline();
 
@@ -551,11 +530,7 @@ void initializePasses() {
   initializeTarget(Registry);
 
 // Initialize passes not included above
-#if LDC_LLVM_VER >= 400
   initializeRewriteSymbolsLegacyPassPass(Registry);
-#else
-  initializeRewriteSymbolsPass(Registry);
-#endif
   initializeSjLjEHPreparePass(Registry);
 }
 
@@ -684,14 +659,12 @@ void registerPredefinedTargetVersions() {
   case llvm::Triple::msp430:
     VersionCondition::addPredefinedGlobalIdent("MSP430");
     break;
-#if LDC_LLVM_VER >= 400
   case llvm::Triple::riscv32:
     VersionCondition::addPredefinedGlobalIdent("RISCV32");
     break;
   case llvm::Triple::riscv64:
     VersionCondition::addPredefinedGlobalIdent("RISCV64");
     break;
-#endif
   case llvm::Triple::sparc:
     // FIXME: Detect SPARC v8+ (SPARC_V8Plus).
     VersionCondition::addPredefinedGlobalIdent("SPARC");

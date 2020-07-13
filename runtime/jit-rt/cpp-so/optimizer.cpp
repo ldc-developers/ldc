@@ -125,18 +125,10 @@ void addOptimizationPasses(llvm::legacy::PassManagerBase &mpm,
 
   // TODO: expose this option from jit
   if (/*willInline()*/ true) {
-#if LDC_LLVM_VER >= 400
     auto params = llvm::getInlineParams(optLevel, sizeLevel);
     builder.Inliner = llvm::createFunctionInliningPass(params);
-#else
-    builder.Inliner = llvm::createFunctionInliningPass(optLevel, sizeLevel);
-#endif
   } else {
-#if LDC_LLVM_VER >= 400
     builder.Inliner = llvm::createAlwaysInlinerLegacyPass();
-#else
-    builder.Inliner = llvm::createAlwaysInlinerPass();
-#endif
   }
 #if LDC_LLVM_VER < 900
   builder.DisableUnitAtATime = false;

@@ -1,6 +1,6 @@
 //===-- asm-gcc.cpp -------------------------------------------------------===//
 //
-//                         LDC – the LLVM D compiler
+//                         LDC â€“ the LLVM D compiler
 //
 // Converts a GDC/GCC-style inline assembly statement to an LLVM inline
 // assembler expression.
@@ -130,11 +130,7 @@ class ConstraintsBuilder {
     auto N = gccName.size();
     if (N == 1 || (N == 3 && gccName[0] == '^'))
       return false;
-#if LDC_LLVM_VER >= 400
     return !gccName.contains('{');
-#else
-    return gccName.find('{') == llvm::StringRef::npos;
-#endif
   }
 
 public:

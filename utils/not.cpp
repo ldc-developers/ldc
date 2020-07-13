@@ -51,13 +51,7 @@ int main(int argc, const char **argv) {
 #endif
 
   std::string ErrMsg;
-  int Result = sys::ExecuteAndWait(*Program, Argv, Env,
-#if LDC_LLVM_VER >= 600
-                                   {},
-#else
-                                   nullptr,
-#endif
-                                   0, 0, &ErrMsg);
+  int Result = sys::ExecuteAndWait(*Program, Argv, Env, {}, 0, 0, &ErrMsg);
 #ifdef _WIN32
   // Handle abort() in msvcrt -- It has exit code as 3.  abort(), aka
   // unreachable, should be recognized as a crash.  However, some binaries use

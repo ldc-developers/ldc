@@ -13,10 +13,8 @@
 // shared by multiple LLVM tools.
 #if LDC_LLVM_VER >= 700
 #include "llvm/CodeGen/CommandFlags.inc"
-#elif LDC_LLVM_VER >= 600
-#include "llvm/CodeGen/CommandFlags.def"
 #else
-#include "llvm/CodeGen/CommandFlags.h"
+#include "llvm/CodeGen/CommandFlags.def"
 #endif
 
 static cl::opt<bool>
@@ -38,11 +36,7 @@ std::string getArchStr() { return ::MArch; }
 
 Optional<Reloc::Model> getRelocModel() { return ::getRelocModel(); }
 
-#if LDC_LLVM_VER >= 600
 Optional<CodeModel::Model> getCodeModel() { return ::getCodeModel(); }
-#else
-CodeModel::Model getCodeModel() { return ::CMModel; }
-#endif
 
 #if LDC_LLVM_VER >= 800
 llvm::Optional<llvm::FramePointer::FP> framePointerUsage() {
@@ -77,8 +71,8 @@ std::string getCPUStr() { return ::getCPUStr(); }
 std::string getFeaturesStr() { return ::getFeaturesStr(); }
 } // namespace opts
 
-#if LDC_WITH_LLD && LDC_LLVM_VER >= 500
-// LLD 5.0 uses the shared header too (for LTO) and exposes some wrappers in
+#if LDC_WITH_LLD
+// LLD uses the shared header too (for LTO) and exposes some wrappers in
 // the lld namespace. Define them here to prevent the LLD object from being
 // linked in with its conflicting command-line options.
 namespace lld {
@@ -98,12 +92,10 @@ Optional<Reloc::Model> getRelocModelFromCMModel() { return ::getRelocModel(); }
 Optional<CodeModel::Model> getCodeModelFromCMModel() {
   return ::getCodeModel();
 }
-#elif LDC_LLVM_VER >= 600
+#else
 Optional<CodeModel::Model> GetCodeModelFromCMModel() {
   return ::getCodeModel();
 }
-#else
-CodeModel::Model GetCodeModelFromCMModel() { return ::CMModel; }
 #endif
 
 #if LDC_LLVM_VER >= 900
@@ -118,4 +110,4 @@ std::vector<std::string> getMAttrs() { return ::MAttrs; }
 std::vector<std::string> GetMAttrs() { return ::MAttrs; }
 #endif
 } // namespace lld
-#endif // LDC_WITH_LLD && LDC_LLVM_VER >= 500
+#endif // LDC_WITH_LLD
