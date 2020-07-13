@@ -1139,11 +1139,12 @@ void DIBuilder::EmitFuncEnd(FuncDeclaration *fd) {
   Logger::println("D to dwarf funcend");
   LOG_SCOPE;
 
-  assert(static_cast<llvm::MDNode *>(getIrFunc(fd)->diSubprogram) != 0);
+  auto irFunc = getIrFunc(fd);
+
+  assert(static_cast<llvm::MDNode *>(irFunc->diSubprogram) != 0);
   EmitStopPoint(fd->endloc);
 
-  // Only attach subprogram entries to function definitions
-  DtoFunction(fd)->setSubprogram(getIrFunc(fd)->diSubprogram);
+  irFunc->getLLVMFunc()->setSubprogram(irFunc->diSubprogram);
 }
 
 void DIBuilder::EmitBlockStart(Loc &loc) {

@@ -1415,7 +1415,6 @@ void callPostblit(Loc &loc, Expression *exp, LLValue *val) {
         fd->toParent()->error(
             loc, "is not copyable because it is annotated with `@disable`");
       }
-      DtoResolveFunction(fd);
       Expressions args;
       DFuncValue dfn(fd, DtoCallee(fd), val);
       DtoCallFunction(loc, Type::basic[Tvoid], &dfn, &args);
@@ -1611,9 +1610,8 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
     // We need to codegen the function here, because literals are not added
     // to the module member list.
     DtoDefineFunction(flitdecl);
-    assert(DtoCallee(flitdecl));
 
-    return new DFuncValue(flitdecl, DtoCallee(flitdecl));
+    return new DFuncValue(flitdecl, DtoCallee(flitdecl, false));
   }
 
   if (FuncDeclaration *fdecl = decl->isFuncDeclaration()) {
@@ -1690,7 +1688,6 @@ llvm::Constant *DtoConstSymbolAddress(Loc &loc, Declaration *decl) {
   }
   // static function
   if (FuncDeclaration *fd = decl->isFuncDeclaration()) {
-    DtoResolveFunction(fd);
     return DtoCallee(fd);
   }
 

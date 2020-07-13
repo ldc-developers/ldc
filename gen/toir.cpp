@@ -710,7 +710,6 @@ public:
       assert(dve);
       FuncDeclaration *fdecl = dve->var->isFuncDeclaration();
       assert(fdecl);
-      DtoDeclareFunction(fdecl);
       Expression *thisExp = dve->e1;
       LLValue *thisArg = thisExp->type->toBasetype()->ty == Tclass
                              ? DtoRVal(thisExp)
@@ -868,7 +867,6 @@ public:
       // Logger::println("FuncDeclaration");
       FuncDeclaration *fd = fv->func;
       assert(fd);
-      DtoResolveFunction(fd);
       result = new DFuncValue(fd, DtoCallee(fd));
       return;
     }
@@ -962,8 +960,6 @@ public:
       // Logger::cout() << "mem: " << *arrptr << '\n';
       result = new DLValue(e->type, DtoBitCast(arrptr, DtoPtrToType(e->type)));
     } else if (FuncDeclaration *fdecl = e->var->isFuncDeclaration()) {
-      DtoResolveFunction(fdecl);
-
       // This is a bit more convoluted than it would need to be, because it
       // has to take templated interface methods into account, for which
       // isFinalFunc is not necessarily true.
@@ -976,6 +972,7 @@ public:
       // Get the actual function value to call.
       LLValue *funcval = nullptr;
       if (nonFinal) {
+        DtoResolveFunction(fdecl);
         funcval = DtoVirtualFunctionPointer(l, fdecl, e->toChars());
       } else {
         funcval = DtoCallee(fdecl);
@@ -1485,7 +1482,6 @@ public:
       LLValue *mem = nullptr;
       if (e->allocator) {
         // custom allocator
-        DtoResolveFunction(e->allocator);
         DFuncValue dfn(e->allocator, DtoCallee(e->allocator));
         DValue *res = DtoCallFunction(e->loc, nullptr, &dfn, e->newargs);
         mem = DtoBitCast(DtoRVal(res), DtoType(ntype->pointerTo()),
@@ -1514,7 +1510,6 @@ public:
 
           IF_LOG Logger::println("Calling constructor");
           assert(e->arguments != NULL);
-          DtoResolveFunction(e->member);
           DFuncValue dfn(e->member, DtoCallee(e->member), mem);
           DtoCallFunction(e->loc, ts, &dfn, e->arguments);
         }
@@ -1712,7 +1707,6 @@ public:
 
       Logger::print("calling struct invariant");
 
-      DtoResolveFunction(invDecl);
       DFuncValue invFunc(invDecl, DtoCallee(invDecl), DtoRVal(cond));
       DtoCallFunction(e->loc, nullptr, &invFunc, nullptr);
     }
@@ -2152,7 +2146,7 @@ public:
       DtoDeclareFunction(fd);
       assert(!fd->isNested());
     }
-    assert(DtoCallee(fd));
+    assert(DtoCallee(fd, false));
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2166,6 +2160,7 @@ public:
     assert(fd);
 
     genFuncLiteral(fd, e);
+    LLFunction *callee = DtoCallee(fd, false);
 
     if (fd->isNested()) {
       LLType *dgty = DtoType(e->type);
@@ -2195,12 +2190,12 @@ public:
       }
       cval = DtoBitCast(cval, dgty->getContainedType(0));
 
-      LLValue *castfptr = DtoBitCast(DtoCallee(fd), dgty->getContainedType(1));
+      LLValue *castfptr = DtoBitCast(callee, dgty->getContainedType(1));
 
       result = new DImValue(e->type, DtoAggrPair(cval, castfptr, ".func"));
 
     } else {
-      result = new DFuncValue(e->type, fd, DtoCallee(fd));
+      result = new DFuncValue(e->type, fd, callee);
     }
   }
 
@@ -2840,7 +2835,6 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
           auto lval = DtoLVal(lhs);
           ToElemVisitor::emitStructLiteral(sle, lval);
           // ... and invoke the ctor directly on it
-          DtoDeclareFunction(fd);
           auto fnval = new DFuncValue(fd, DtoCallee(fd), lval);
           DtoCallFunction(ce->loc, ce->type, fnval, ce->arguments);
           return true;

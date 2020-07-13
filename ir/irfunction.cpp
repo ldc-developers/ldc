@@ -10,6 +10,7 @@
 #include "ir/irfunction.h"
 
 #include "driver/cl_options.h"
+#include "gen/functions.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/irstate.h"
@@ -102,12 +103,10 @@ bool isIrFuncCreated(FuncDeclaration *decl) {
   return t == IrDsymbol::FuncType;
 }
 
-llvm::Function *DtoFunction(FuncDeclaration *decl, bool create) {
-  assert(decl != nullptr);
-  return getIrFunc(decl, create)->getLLVMFunc();
-}
-
 llvm::Function *DtoCallee(FuncDeclaration *decl, bool create) {
   assert(decl != nullptr);
-  return getIrFunc(decl, create)->getLLVMCallee();
+  if (create) {
+    DtoDeclareFunction(decl);
+  }
+  return getIrFunc(decl)->getLLVMCallee();
 }

@@ -460,7 +460,7 @@ public:
     // added to the module member list.
     Declaration_codegen(fd, p);
 
-    result = DtoCallee(fd);
+    result = DtoCallee(fd, false);
     assert(result);
 
     if (fd->tok != TOKfunction) {

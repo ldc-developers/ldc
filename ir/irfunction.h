@@ -105,10 +105,6 @@ private:
 IrFunction *getIrFunc(FuncDeclaration *decl, bool create = false);
 bool isIrFuncCreated(FuncDeclaration *decl);
 
-/// Returns the associated LLVM function.
-/// Use DtoCallee() for the LLVM function to be used for calls.
-llvm::Function *DtoFunction(FuncDeclaration *decl, bool create = false);
-
 /// Returns the associated LLVM function to be used for calls (potentially
 /// some sort of wrapper, e.g., a JIT wrapper).
-llvm::Function *DtoCallee(FuncDeclaration *decl, bool create = false);
+llvm::Function *DtoCallee(FuncDeclaration *decl, bool create = true);
