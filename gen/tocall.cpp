@@ -367,10 +367,18 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     }
     auto atomicOrdering =
         static_cast<llvm::AtomicOrdering>((*e->arguments)[0]->toInteger());
+#if LDC_LLVM_VER >= 500
     llvm::SyncScope::ID scope = llvm::SyncScope::System;
     if (e->arguments->length == 2) {
       scope = static_cast<llvm::SyncScope::ID>((*e->arguments)[1]->toInteger());
     }
+#else
+    auto scope = llvm::SynchronizationScope::CrossThread;
+    if (e->arguments->length == 2) {
+      scope = static_cast<llvm::SynchronizationScope>(
+          (*e->arguments)[1]->toInteger());
+    }
+#endif
     p->ir->CreateFence(atomicOrdering, scope);
     return true;
   }
@@ -993,7 +1001,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   // set calling convention and parameter attributes
-  LLAttributeList &attrlist = attrs;
+  LLAttributeSet &attrlist = attrs;
   if (dfnval && dfnval->func) {
     LLFunction *llfunc = llvm::dyn_cast<LLFunction>(DtoRVal(dfnval));
     if (llfunc && llfunc->isIntrinsic()) // override intrinsic attrs
@@ -1008,9 +1016,14 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
     call.setCallingConv(callconv);
   }
   // merge in function attributes set in callOrInvoke
+#if LDC_LLVM_VER >= 500
   attrlist = attrlist.addAttributes(
-      gIR->context(), LLAttributeList::FunctionIndex,
-      llvm::AttrBuilder(call.getAttributes(), LLAttributeList::FunctionIndex));
+      gIR->context(), LLAttributeSet::FunctionIndex,
+      llvm::AttrBuilder(call.getAttributes(), LLAttributeSet::FunctionIndex));
+#else
+  attrlist = attrlist.addAttributes(
+      gIR->context(), LLAttributeSet::FunctionIndex, call.getAttributes());
+#endif
   call.setAttributes(attrlist);
 
   // Special case for struct constructor calls: For temporaries, using the

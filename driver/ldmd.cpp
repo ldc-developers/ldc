@@ -122,7 +122,13 @@ int execute(const std::string &exePath, const char **args) {
 #endif
 
   std::string errorMsg;
-  int rc = ls::ExecuteAndWait(exePath, argv, envVars, {}, 0, 0, &errorMsg);
+  int rc = ls::ExecuteAndWait(exePath, argv, envVars,
+#if LDC_LLVM_VER >= 600
+                              {},
+#else
+                              nullptr,
+#endif
+                              0, 0, &errorMsg);
   if (!errorMsg.empty()) {
     error("Error executing %s: %s", exePath.c_str(), errorMsg.c_str());
   }

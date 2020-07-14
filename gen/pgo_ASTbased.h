@@ -118,6 +118,7 @@ public:
 
   /// Adds profiling instrumentation/annotation of indirect calls to `funcPtr`
   /// for callsite `callSite`.
+  /// Does nothing for LLVM < 3.9.
   void emitIndirectCallPGO(llvm::Instruction *callSite, llvm::Value *funcPtr);
 
   /// Adds profiling instrumentation/annotation of a certain value.
@@ -127,6 +128,7 @@ public:
   /// code site `valueSite`, and the to be profiled value is given by
   /// `value`. `value` should be of LLVM i64 type, unless `ptrCastNeeded` is
   /// true, in which case a ptrtoint cast to i64 is added.
+  /// Does nothing for LLVM < 3.9.
   void valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
                     llvm::Value *value, bool ptrCastNeeded);
 

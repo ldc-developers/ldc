@@ -37,8 +37,13 @@
 #include "gen/logger.h"
 #include "gen/optimizer.h"
 
+#if LDC_LLVM_VER >= 400
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Support/Chrono.h"
+#else
+#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Support/TimeValue.h"
+#endif
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/Path.h"
@@ -139,7 +144,7 @@ llvm::cl::opt<RetrievalMode> cacheRecoveryMode(
     "cache-retrieval", llvm::cl::ZeroOrMore,
     llvm::cl::desc("Set the cache retrieval mechanism (default: copy)."),
     llvm::cl::init(RetrievalMode::Copy),
-    llvm::cl::values(
+    clEnumValues(
         clEnumValN(RetrievalMode::Copy, "copy",
                    "Make a copy of the cache file"),
         clEnumValN(RetrievalMode::HardLink, "hardlink",
@@ -164,10 +169,14 @@ bool isPruningEnabled() {
   return false;
 }
 
+#if LDC_LLVM_VER >= 400
 llvm::sys::TimePoint<std::chrono::seconds> getTimeNow() {
   using namespace std::chrono;
   return time_point_cast<seconds>(system_clock::now());
 }
+#else
+llvm::sys::TimeValue getTimeNow() { return llvm::sys::TimeValue::now(); }
+#endif
 
 /// A raw_ostream that creates a hash of what is written to it.
 /// This class does not encounter output errors.
@@ -300,9 +309,13 @@ void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os) {
   const auto relocModel = opts::getRelocModel();
   if (relocModel.hasValue())
     hash_os << relocModel.getValue();
+#if LDC_LLVM_VER >= 600
   const auto codeModel = opts::getCodeModel();
   if (codeModel.hasValue())
     hash_os << codeModel.getValue();
+#else
+  hash_os << opts::getCodeModel();
+#endif
 #if LDC_LLVM_VER >= 800
   const auto framePointerUsage = opts::framePointerUsage();
   if (framePointerUsage.hasValue())

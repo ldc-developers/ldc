@@ -121,7 +121,11 @@ RegistryStyle getModuleRegistryStyle() {
   const auto &t = *global.params.targetTriple;
 
   if (t.isWindowsMSVCEnvironment() ||
-      t.getEnvironment() == llvm::Triple::Android || t.isOSBinFormatWasm()) {
+      t.getEnvironment() == llvm::Triple::Android
+#if LDC_LLVM_VER >= 500
+      || t.isOSBinFormatWasm()
+#endif
+  ) {
     return RegistryStyle::sectionSimple;
   }
 

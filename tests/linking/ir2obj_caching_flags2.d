@@ -1,6 +1,8 @@
 // Test that certain cmdline flags result in different cache objects, even though the LLVM IR may be the same.
 // Test a few fsanitize-coverage options.
 
+// REQUIRES: atleast_llvm500
+
 // Note that the NO_HIT tests should change the default setting of the tested flag.
 
 // Create and then empty the cache for correct testing when running the test multiple times.

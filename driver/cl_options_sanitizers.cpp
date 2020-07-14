@@ -39,12 +39,14 @@ cl::list<std::string> fSanitizeBlacklist(
 
 std::unique_ptr<llvm::SpecialCaseList> sanitizerBlacklist;
 
+#ifdef ENABLE_COVERAGE_SANITIZER
 cl::list<std::string> fSanitizeCoverage(
     "fsanitize-coverage", cl::CommaSeparated,
     cl::desc("Specify the type of coverage instrumentation for -fsanitize"),
     cl::value_desc("type"));
 
 llvm::SanitizerCoverageOptions sanitizerCoverageOptions;
+#endif
 
 // Parse sanitizer name passed on commandline and return the corresponding
 // sanitizer bits.
@@ -73,6 +75,7 @@ SanitizerBits parseFSanitizeCmdlineParameter() {
   return retval;
 }
 
+#ifdef ENABLE_COVERAGE_SANITIZER
 void parseFSanitizeCoverageParameter(llvm::StringRef name,
                                      llvm::SanitizerCoverageOptions &opts) {
   if (name == "func") {
@@ -107,15 +110,19 @@ void parseFSanitizeCoverageParameter(llvm::StringRef name,
   else if (name == "trace-pc-guard") {
     opts.TracePCGuard = true;
   }
+#if LDC_LLVM_VER >= 500
   else if (name == "inline-8bit-counters") {
     opts.Inline8bitCounters = true;
   }
   else if (name == "no-prune") {
     opts.NoPrune = true;
   }
+#endif
+#if LDC_LLVM_VER >= 600
   else if (name == "pc-table") {
     opts.PCTable = true;
   }
+#endif
   else {
     error(Loc(), "Unrecognized -fsanitize-coverage option '%s'.", name.str().c_str());
   }
@@ -129,6 +136,7 @@ void parseFSanitizeCoverageCmdlineParameter(llvm::SanitizerCoverageOptions &opts
     parseFSanitizeCoverageParameter(name, opts);
   }
 }
+#endif
 
 } // anonymous namespace
 
@@ -140,13 +148,19 @@ void initializeSanitizerOptionsFromCmdline()
 {
   enabledSanitizers |= parseFSanitizeCmdlineParameter();
 
+#ifdef ENABLE_COVERAGE_SANITIZER
   auto &sancovOpts = sanitizerCoverageOptions;
 
-  // The Fuzz sanitizer implies -fsanitize-coverage=inline-8bit-counters,indirect-calls,trace-cmp,pc-table
+  // LLVM < 6.0: The Fuzz sanitizer implies -fsanitize-coverage=trace-pc-guard,indirect-calls,trace-cmp
+  // LLVM >= 6.0: The Fuzz sanitizer implies -fsanitize-coverage=inline-8bit-counters,indirect-calls,trace-cmp,pc-table
   if (isSanitizerEnabled(FuzzSanitizer)) {
     enabledSanitizers |= CoverageSanitizer;
+#if LDC_LLVM_VER < 600
+    sancovOpts.TracePCGuard = true;
+#else
     sancovOpts.Inline8bitCounters = true;
     sancovOpts.PCTable = true;
+#endif
     sancovOpts.IndirectCalls = true;
     sancovOpts.TraceCmp = true;
   }
@@ -156,10 +170,14 @@ void initializeSanitizerOptionsFromCmdline()
   // trace-pc/trace-pc-guard/inline-8bit-counters without specifying the
   // insertion type implies edge
   if ((sancovOpts.CoverageType == llvm::SanitizerCoverageOptions::SCK_None) &&
-      (sancovOpts.TracePC || sancovOpts.TracePCGuard ||
-       sancovOpts.Inline8bitCounters)) {
+      (sancovOpts.TracePC || sancovOpts.TracePCGuard
+#if LDC_LLVM_VER >= 500
+       || sancovOpts.Inline8bitCounters
+#endif
+       )) {
     sancovOpts.CoverageType = llvm::SanitizerCoverageOptions::SCK_Edge;
   }
+#endif
 
   if (isAnySanitizerEnabled() && !fSanitizeBlacklist.empty()) {
     std::string loadError;
@@ -174,9 +192,11 @@ void initializeSanitizerOptionsFromCmdline()
   }
 }
 
+#ifdef ENABLE_COVERAGE_SANITIZER
 llvm::SanitizerCoverageOptions getSanitizerCoverageOptions() {
   return sanitizerCoverageOptions;
 }
+#endif
 
 // Output to `hash_os` all optimization settings that influence object code
 // output and that are not observable in the IR before running LLVM passes. This
@@ -185,8 +205,10 @@ llvm::SanitizerCoverageOptions getSanitizerCoverageOptions() {
 void outputSanitizerSettings(llvm::raw_ostream &hash_os) {
   hash_os << SanitizerBits(enabledSanitizers);
 
+#ifdef ENABLE_COVERAGE_SANITIZER
   hash_os.write(reinterpret_cast<char *>(&sanitizerCoverageOptions),
                 sizeof(sanitizerCoverageOptions));
+#endif
 }
 
 bool functionIsInSanitizerBlacklist(FuncDeclaration *funcDecl) {
@@ -196,11 +218,16 @@ bool functionIsInSanitizerBlacklist(FuncDeclaration *funcDecl) {
   auto funcName = mangleExact(funcDecl);
   auto fileName = funcDecl->loc.filename;
 
-  // TODO: LLVM supports sections (e.g. "[address]") in the blacklist file to
-  // only blacklist a function for a particular sanitizer. We could make use of
-  // that too.
+#if LDC_LLVM_VER >= 600
+  // TODO: LLVM 6.0 supports sections (e.g. "[address]") in the blacklist file
+  // to only blacklist a function for a particular sanitizer. We could make use
+  // of that too.
   return sanitizerBlacklist->inSection(/*Section=*/"", "fun", funcName) ||
          sanitizerBlacklist->inSection(/*Section=*/"", "src", fileName);
+#else
+  return sanitizerBlacklist->inSection("fun", funcName) ||
+         sanitizerBlacklist->inSection("src", fileName);
+#endif
 }
 
 } // namespace opts

@@ -251,8 +251,13 @@ public:
   std::set<IrGlobal *> dynamicCompiledVars;
 
 /// Vector of options passed to the linker as metadata in object file.
+#if LDC_LLVM_VER >= 500
   llvm::SmallVector<llvm::MDNode *, 5> linkerOptions;
   llvm::SmallVector<llvm::MDNode *, 5> linkerDependentLibs;
+#else
+  llvm::SmallVector<llvm::Metadata *, 5> linkerOptions;
+  llvm::SmallVector<llvm::Metadata *, 5> linkerDependentLibs;
+#endif
 
   void addLinkerOption(llvm::ArrayRef<llvm::StringRef> options);
   void addLinkerDependentLib(llvm::StringRef libraryName);

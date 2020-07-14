@@ -21,7 +21,11 @@
 #include "llvm/Support/Path.h"
 
 #if LDC_WITH_LLD
+#if LDC_LLVM_VER >= 600
 #include "lld/Common/Driver.h"
+#else
+#include "lld/Driver/Driver.h"
+#endif
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
@@ -37,11 +41,17 @@ void addMscrtLibs(bool useInternalToolchain, std::vector<std::string> &args) {
   // Pick one of the 4 variants matching the selected main UCRT lib.
 
   if (useInternalToolchain) {
+#if LDC_LLVM_VER >= 400
     assert(mscrtlibName.contains_lower("vcruntime"));
+#endif
     return;
   }
 
+#if LDC_LLVM_VER >= 400
   const bool isStatic = mscrtlibName.contains_lower("libcmt");
+#else // LLVM 3.9: no llvm::StringRef::{contains,find}_lower
+  const bool isStatic = mscrtlibName.startswith_lower("libcmt");
+#endif
 
   const bool isDebug =
       mscrtlibName.endswith_lower("d") || mscrtlibName.endswith_lower("d.lib");
@@ -238,11 +248,14 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
       (useInternalToolchain && opts::linker.empty() && !opts::isUsingLTO())) {
     const auto fullArgs = getFullArgs("lld-link", args, global.params.verbose);
 
-    const bool success = lld::coff::link(fullArgs,
+    const bool success = lld::coff::link(fullArgs
+#if LDC_LLVM_VER >= 600
+                                         ,
                                          /*CanExitEarly=*/false
 #if LDC_LLVM_VER >= 1000
                                          ,
                                          llvm::outs(), llvm::errs()
+#endif
 #endif
     );
 

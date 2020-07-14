@@ -1,6 +1,6 @@
 //===-- args.cpp ----------------------------------------------------------===//
 //
-//                         LDC â€“ the LLVM D compiler
+//                         LDC – the LLVM D compiler
 //
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
@@ -108,7 +108,9 @@ bool has(const wchar_t *wname) { return _wgetenv(wname) != nullptr; }
 
 std::string get(const char *name) {
 #ifdef _WIN32
+#if LDC_LLVM_VER >= 400
   using llvm::UTF16;
+#endif
   const wchar_t *wvalue = wget(name);
   std::string value;
   if (wvalue) {

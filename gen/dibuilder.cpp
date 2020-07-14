@@ -53,6 +53,12 @@ namespace ldc {
 const char *convertDIdentifierToCPlusPlus(const char *name, size_t nameLength);
 
 namespace {
+#if LDC_LLVM_VER >= 400
+const auto DIFlagZero = DIFlags::FlagZero;
+#else
+const unsigned DIFlagZero = 0;
+#endif
+
 DIType getNullDIType() { return nullptr; }
 
 llvm::StringRef uniqueIdent(Type *t) {
@@ -204,8 +210,11 @@ void DIBuilder::SetValue(const Loc &loc, llvm::Value *value,
                          DILocalVariable divar, DIExpression diexpr) {
   auto debugLoc =
       llvm::DebugLoc::get(loc.linnum, getColumn(loc), GetCurrentScope());
-  DBuilder.insertDbgValueIntrinsic(value, divar, diexpr, debugLoc,
-                                   IR->scopebb());
+  DBuilder.insertDbgValueIntrinsic(value,
+#if LDC_LLVM_VER < 600
+                                   0,
+#endif
+                                   divar, diexpr, debugLoc, IR->scopebb());
 }
 
 DIFile DIBuilder::CreateFile(Loc &loc) {
@@ -313,6 +322,9 @@ DIType DIBuilder::CreateBasicType(Type *type) {
 
   return DBuilder.createBasicType(type->toChars(),         // name
                                   getTypeAllocSize(T) * 8, // size (bits)
+#if LDC_LLVM_VER < 400
+                                  getABITypeAlign(T) * 8, // align (bits)
+#endif
                                   Encoding);
 }
 
@@ -363,16 +375,21 @@ DIType DIBuilder::CreatePointerType(Type *type) {
   if (nt->toBasetype()->ty == Tvoid)
     nt = Type::tuns8;
 
+#if LDC_LLVM_VER >= 500
   // TODO: The addressspace is important for dcompute targets. See e.g.
   // https://www.mail-archive.com/dwarf-discuss@lists.dwarfstd.org/msg00326.html
   const llvm::Optional<unsigned> DWARFAddressSpace = llvm::None;
+#endif
 
   const auto name = processDIName(type->toPrettyChars(true));
 
   return DBuilder.createPointerType(CreateTypeDescription(nt),
                                     getTypeAllocSize(T) * 8, // size (bits)
                                     getABITypeAlign(T) * 8,  // align (bits)
-                                    DWARFAddressSpace, name);
+#if LDC_LLVM_VER >= 500
+                                    DWARFAddressSpace,
+#endif
+                                    name);
 }
 
 DIType DIBuilder::CreateVectorType(Type *type) {
@@ -429,7 +446,7 @@ DIType DIBuilder::CreateComplexType(Type *type) {
                                    0,                       // LineNo
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment
-                                   DIFlags::FlagZero,       // What here?
+                                   DIFlagZero,              // What here?
                                    getNullDIType(),         // derived from
                                    DBuilder.getOrCreateArray(elems),
                                    0,               // RunTimeLang
@@ -466,7 +483,7 @@ DIType DIBuilder::CreateMemberType(unsigned linnum, Type *type, DIFile file,
   // find base type
   DIType basetype = CreateTypeDescription(t);
 
-  auto Flags = DIFlags::FlagZero;
+  auto Flags = DIFlagZero;
   switch (prot) {
   case Prot::private_:
     Flags = DIFlags::FlagPrivate;
@@ -630,14 +647,13 @@ DIType DIBuilder::CreateCompositeType(Type *type) {
   if (t->ty == Tclass) {
     ret = DBuilder.createClassType(
         scope, name, file, lineNum, sizeInBits, alignmentInBits,
-        classOffsetInBits, DIFlags::FlagZero, derivedFrom, elemsArray,
-        vtableHolder, templateParams, uniqueIdentifier);
+        classOffsetInBits, DIFlagZero, derivedFrom, elemsArray, vtableHolder,
+        templateParams, uniqueIdentifier);
   } else {
     const auto runtimeLang = 0;
-    ret = DBuilder.createStructType(scope, name, file, lineNum, sizeInBits,
-                                    alignmentInBits, DIFlags::FlagZero,
-                                    derivedFrom, elemsArray, runtimeLang,
-                                    vtableHolder, uniqueIdentifier);
+    ret = DBuilder.createStructType(
+        scope, name, file, lineNum, sizeInBits, alignmentInBits, DIFlagZero,
+        derivedFrom, elemsArray, runtimeLang, vtableHolder, uniqueIdentifier);
   }
 
   irAggr->diCompositeType =
@@ -665,7 +681,7 @@ DIType DIBuilder::CreateArrayType(Type *type) {
                                    0,                       // LineNo
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment in bits
-                                   DIFlags::FlagZero,       // What here?
+                                   DIFlagZero,              // What here?
                                    getNullDIType(),         // derived from
                                    DBuilder.getOrCreateArray(elems),
                                    0,               // RunTimeLang
@@ -726,7 +742,7 @@ DIType DIBuilder::CreateAArrayType(Type *type) {
                                    0,                       // LineNo
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment in bits
-                                   DIFlags::FlagZero,       // What here?
+                                   DIFlagZero,              // What here?
                                    getNullDIType(),         // derived from
                                    DBuilder.getOrCreateArray(elems),
                                    0,               // RunTimeLang
@@ -755,7 +771,7 @@ DISubroutineType DIBuilder::CreateFunctionType(Type *type) {
   assert(t->ctype);
   unsigned CC = t->ctype->getIrFuncTy().reverseParams ? DW_CC_D_dmd : 0;
 
-  return DBuilder.createSubroutineType(paramsArray, DIFlags::FlagZero, CC);
+  return DBuilder.createSubroutineType(paramsArray, DIFlagZero, CC);
 }
 
 DISubroutineType DIBuilder::CreateEmptyFunctionType() {
@@ -783,7 +799,7 @@ DIType DIBuilder::CreateDelegateType(Type *type) {
                                    0, // line number where defined
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment in bits
-                                   DIFlags::FlagZero,       // flags
+                                   DIFlagZero,              // flags
                                    getNullDIType(),         // derived from
                                    DBuilder.getOrCreateArray(elems),
                                    0,               // RunTimeLang
@@ -811,12 +827,13 @@ DIType DIBuilder::CreateTypeDescription(Type *type) {
 
   if (t->ty == Tvoid)
     return nullptr;
-  if (t->ty == Tnull) {
-    // display null as void*
+  if (t->ty == Tnull) // display null as void*
     return DBuilder.createPointerType(CreateTypeDescription(Type::tvoid), 8, 8,
+#if LDC_LLVM_VER >= 500
                                       /* DWARFAddressSpace */ llvm::None,
+#endif
+
                                       "typeof(null)");
-  }
   if (t->ty == Tvector)
     return CreateVectorType(type);
   if (t->isintegral() || t->isfloating()) {
@@ -839,7 +856,11 @@ DIType DIBuilder::CreateTypeDescription(Type *type) {
     const auto aggregateDIType = CreateCompositeType(type);
     const auto name = (aggregateDIType->getName() + "*").str();
     return DBuilder.createPointerType(aggregateDIType, getTypeAllocSize(T) * 8,
-                                      getABITypeAlign(T) * 8, llvm::None, name);
+                                      getABITypeAlign(T) * 8,
+#if LDC_LLVM_VER >= 500
+                                      llvm::None,
+#endif
+                                      name);
   }
   if (t->ty == Tfunction)
     return CreateFunctionType(type);
@@ -902,8 +923,12 @@ void DIBuilder::EmitCompileUnit(Module *m) {
   CUNode = DBuilder.createCompileUnit(
       global.params.symdebug == 2 ? llvm::dwarf::DW_LANG_C_plus_plus
                                   : llvm::dwarf::DW_LANG_D,
+#if LDC_LLVM_VER >= 400
       DBuilder.createFile(llvm::sys::path::filename(srcpath),
                           llvm::sys::path::parent_path(srcpath)),
+#else
+      llvm::sys::path::filename(srcpath), llvm::sys::path::parent_path(srcpath),
+#endif
       producerName,
       isOptimizationEnabled(), // isOptimized
       llvm::StringRef(),       // Flags TODO
@@ -939,7 +964,16 @@ DIModule DIBuilder::EmitModule(Module *m) {
 DINamespace DIBuilder::EmitNamespace(Dsymbol *sym, llvm::StringRef name) {
   name = processDIName(name);
   const bool exportSymbols = true;
-  return DBuilder.createNameSpace(GetSymbolScope(sym), name, exportSymbols);
+  return DBuilder.createNameSpace(GetSymbolScope(sym), name
+#if LDC_LLVM_VER < 500
+                                  ,
+                                  CreateFile(sym), sym->loc.linnum
+#endif
+#if LDC_LLVM_VER >= 400
+                                  ,
+                                  exportSymbols
+#endif
+  );
 }
 
 void DIBuilder::EmitImport(Import *im) {
@@ -950,9 +984,11 @@ void DIBuilder::EmitImport(Import *im) {
   auto diModule = EmitModule(im->mod);
 
   DBuilder.createImportedModule(GetCurrentScope(),
-                                diModule,       // imported module
+                                diModule, // imported module
+#if LDC_LLVM_VER >= 500
                                 CreateFile(im), // file
-                                im->loc.linnum  // line num
+#endif
+                                im->loc.linnum // line num
   );
 }
 
@@ -1039,7 +1075,7 @@ DISubprogram DIBuilder::CreateFunction(DIScope scope, llvm::StringRef name,
                                        unsigned lineNo, DISubroutineType ty,
                                        bool isLocalToUnit, bool isDefinition,
                                        bool isOptimized, unsigned scopeLine,
-                                       DIFlags flags) {
+                                       DIFlagsType flags) {
 #if LDC_LLVM_VER >= 800
   const auto dispFlags =
       llvm::DISubprogram::toSPFlags(isLocalToUnit, isDefinition, isOptimized);
@@ -1209,7 +1245,11 @@ void DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
     return;
 
   llvm::Instruction *instr = DBuilder.insertDbgValueIntrinsic(
-      val, debugVariable, DBuilder.createExpression(),
+      val,
+#if LDC_LLVM_VER < 600
+      0,
+#endif
+      debugVariable, DBuilder.createExpression(),
       IR->ir->getCurrentDebugLocation(), IR->scopebb());
   instr->setDebugLoc(IR->ir->getCurrentDebugLocation());
 }
@@ -1284,7 +1324,7 @@ void DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
   const auto lineNum = vd->loc.linnum;
   const auto preserve = true;
   auto flags = !isThisPtr
-                   ? DIFlags::FlagZero
+                   ? DIFlagZero
                    : DIFlags::FlagArtificial | DIFlags::FlagObjectPointer;
 
   DILocalVariable debugVariable;
@@ -1343,7 +1383,11 @@ void DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
   OutBuffer mangleBuf;
   mangleToBuffer(vd, &mangleBuf);
 
+#if LDC_LLVM_VER >= 400
   auto DIVar = DBuilder.createGlobalVariableExpression(
+#else
+  DBuilder.createGlobalVariable(
+#endif
       scope,                                 // context
       vd->toChars(),                         // name
       mangleBuf.peekChars(),                 // linkage name
@@ -1354,11 +1398,17 @@ void DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
 #if LDC_LLVM_VER >= 1000
       !(vd->storage_class & STCextern),      // bool isDefined
 #endif
+#if LDC_LLVM_VER >= 400
       nullptr,                               // DIExpression *Expr
-      Decl                                   // declaration
+#else
+      llVar,                                 // llvm::Constant *Val
+#endif
+      Decl // declaration
   );
 
+#if LDC_LLVM_VER >= 400
   llVar->addDebugInfo(DIVar);
+#endif
 }
 
 void DIBuilder::Finalize() {

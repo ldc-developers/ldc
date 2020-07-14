@@ -1,5 +1,6 @@
 // Test the basic fuzz target mixin for a D-signature fuzz target.
 
+// REQUIRES: atleast_llvm500
 // REQUIRES: Fuzzer
 // UNSUPPORTED: Windows
 

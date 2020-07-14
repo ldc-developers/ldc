@@ -1,5 +1,7 @@
 // Test ldc.attributes.allocSize diagnostics
 
+// Although @allocSize is only effective for LLVM>=3.9, diagnostics should work for all LLVM versions
+
 // RUN: not %ldc -d-version=NORMAL %s 2>&1 | FileCheck %s --check-prefix=NORMAL
 // RUN: not %ldc -d-version=THIS   %s 2>&1 | FileCheck %s --check-prefix=THIS
 

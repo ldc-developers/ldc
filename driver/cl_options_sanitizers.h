@@ -16,6 +16,12 @@
 #include "gen/cl_helpers.h"
 #include "llvm/Transforms/Instrumentation.h"
 
+#if LDC_LLVM_VER >= 400
+// Enable coverage sanitizer options from LLVM 4.0 to simplify our code: earlier
+// versions do not have all options available.
+#define ENABLE_COVERAGE_SANITIZER
+#endif
+
 class FuncDeclaration;
 namespace llvm {
 class raw_ostream;
@@ -42,7 +48,9 @@ inline bool isSanitizerEnabled(SanitizerCheck san) {
 
 void initializeSanitizerOptionsFromCmdline();
 
+#ifdef ENABLE_COVERAGE_SANITIZER
 llvm::SanitizerCoverageOptions getSanitizerCoverageOptions();
+#endif
 
 void outputSanitizerSettings(llvm::raw_ostream &hash_os);
 

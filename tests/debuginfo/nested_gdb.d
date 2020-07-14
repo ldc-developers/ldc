@@ -46,7 +46,7 @@ void encloser(int arg0, ref int arg1)
 // GDB: b 46
 // GDB: c
 // GDB: p arg0
-// CHECK: $10 = 456
+// no-CHECK: $10 = 456 (`<optimized out>` for LLVM < 5.0)
 // GDB: p arg1
 // CHECK: $11 = (int &) @{{0x[0-9a-f]*}}: 456
 // GDB: p enc_n

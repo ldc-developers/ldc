@@ -469,10 +469,15 @@ void applyTargetMachineAttributes(llvm::Function &func,
   }
   // Floating point settings
   func.addFnAttr("unsafe-fp-math", TO.UnsafeFPMath ? "true" : "false");
-  // This option was removed from llvm::TargetOptions in LLVM 5.0.
-  // Clang sets this to true when `-cl-mad-enable` is passed (OpenCL only).
-  // TODO: implement interface for this option.
-  const bool lessPreciseFPMADOption = false;
+  const bool lessPreciseFPMADOption =
+#if LDC_LLVM_VER >= 500
+      // This option was removed from llvm::TargetOptions in LLVM 5.0.
+      // Clang sets this to true when `-cl-mad-enable` is passed (OpenCL only).
+      // TODO: implement interface for this option.
+      false;
+#else
+      TO.LessPreciseFPMADOption;
+#endif
   func.addFnAttr("less-precise-fpmad",
                  lessPreciseFPMADOption ? "true" : "false");
   func.addFnAttr("no-infs-fp-math", TO.NoInfsFPMath ? "true" : "false");
@@ -1190,7 +1195,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // matter at all
   llvm::Instruction *allocaPoint =
       new llvm::AllocaInst(LLType::getInt32Ty(gIR->context()),
+#if LDC_LLVM_VER >= 500
                            0, // Address space
+#endif
                            "alloca_point", beginbb);
   funcGen.allocapoint = allocaPoint;
 
@@ -1212,7 +1219,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
         llvm::Attribute::get(gIR->context(), "frame-pointer", "all"));
 #else
     func->addAttribute(
-        LLAttributeList::FunctionIndex,
+        LLAttributeSet::FunctionIndex,
         llvm::Attribute::get(gIR->context(), "no-frame-pointer-elim", "true"));
 #endif
   }

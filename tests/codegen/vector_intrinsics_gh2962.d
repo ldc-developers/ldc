@@ -1,3 +1,4 @@
+// REQUIRES: atleast_llvm500
 // REQUIRES: host_X86
 
 // RUN: %ldc -run %s

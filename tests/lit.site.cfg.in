@@ -82,9 +82,9 @@ config.available_features.add("llvm%d" % config.llvm_version)
 # config.llvm_version: 309, 400, 500, ...
 # plusoneable_llvmversion: 39, 40, 50, ...
 plusoneable_llvmversion = config.llvm_version // 10  + config.llvm_version%10
-for version in range(60, plusoneable_llvmversion+1):
+for version in range(39, plusoneable_llvmversion+1):
     config.available_features.add("atleast_llvm%d0%d" % (version//10, version%10))
-for version in range(plusoneable_llvmversion, 101):
+for version in range(plusoneable_llvmversion, 91):
     config.available_features.add("atmost_llvm%d0%d" % (version//10, version%10))
 
 # Define OS as available feature (Windows, Darwin, Linux)

@@ -1,3 +1,5 @@
+// REQUIRES: atleast_llvm500
+
 // RUN: %ldc -c -output-ll -fxray-instrument -fxray-instruction-threshold=543 -of=%t.ll %s && FileCheck %s < %t.ll
 
 // CHECK-LABEL: define{{.*}} @{{.*}}10instrument

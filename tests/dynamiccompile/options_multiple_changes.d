@@ -1,5 +1,6 @@
 
 // RUN: %ldc -enable-dynamic-compile -run %s
+// REQUIRES: atleast_llvm600
 
 import std.stdio;
 import std.array;

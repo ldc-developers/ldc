@@ -1,6 +1,6 @@
 // RUN: %ldc -mtriple=x86_64-linux-gnu -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 
-// REQUIRES: target_X86
+// REQUIRES: atleast_llvm500, target_X86
 
 // CHECK: !llvm.dependent-libraries = !{!0}
 // CHECK: !0 = !{!"mylib"}

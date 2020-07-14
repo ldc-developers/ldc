@@ -1,6 +1,6 @@
 // RUN: %ldc -mtriple=x86_64-apple-darwin -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 
-// REQUIRES: target_X86
+// REQUIRES: atleast_llvm500, target_X86
 
 // CHECK: !llvm.linker.options = !{!0, !1, !2}
 

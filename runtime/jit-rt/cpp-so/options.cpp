@@ -36,10 +36,20 @@ bool parseOptions(Slice<Slice<const char>> args,
   CallbackOstream os(callback);
 
   // There is no Option::setDefault() before llvm 60
+#if LDC_LLVM_VER >= 600
   llvm::cl::ResetAllOptionOccurrences();
   for (auto &i : llvm::cl::getRegisteredOptions()) {
     i.second->setDefault();
   }
+#else
+  static bool changed = false;
+  if (changed) {
+    os << "Cannot set options more than once";
+    os.flush();
+    return false;
+  }
+  changed = true;
+#endif
   auto res = llvm::cl::ParseCommandLineOptions(
       static_cast<int>(tempOpts.size()), tempOpts.data(), "", &os);
   os.flush();

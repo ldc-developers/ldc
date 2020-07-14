@@ -12,32 +12,42 @@
 #include "gen/llvm.h"
 
 using LLAttribute = llvm::Attribute::AttrKind;
-using LLAttributeList = llvm::AttributeList;
+#if LDC_LLVM_VER >= 500
+  using LLAttributeSet = llvm::AttributeList;
+#else
+  using LLAttributeSet = llvm::AttributeSet;
+#endif
 
 class AttrSet {
-  LLAttributeList set;
+  LLAttributeSet set;
 
   AttrSet &add(unsigned index, const llvm::AttrBuilder &builder);
 
 public:
   AttrSet() = default;
-  AttrSet(const LLAttributeList &nativeSet) : set(nativeSet) {}
+  AttrSet(const LLAttributeSet &nativeSet) : set(nativeSet) {}
   AttrSet(const AttrSet &base, unsigned index, LLAttribute attribute);
+
+#if LDC_LLVM_VER >= 500
+  static const unsigned FirstArgIndex = LLAttributeSet::FirstArgIndex;
+#else
+  static const unsigned FirstArgIndex = 1;
+#endif
 
   static AttrSet
   extractFunctionAndReturnAttributes(const llvm::Function *function);
 
   AttrSet &addToParam(unsigned paramIndex, const llvm::AttrBuilder &builder) {
-    return add(LLAttributeList::FirstArgIndex + paramIndex, builder);
+    return add(paramIndex + FirstArgIndex, builder);
   }
   AttrSet &addToFunction(const llvm::AttrBuilder &builder) {
-    return add(LLAttributeList::FunctionIndex, builder);
+    return add(LLAttributeSet::FunctionIndex, builder);
   }
   AttrSet &addToReturn(const llvm::AttrBuilder &builder) {
-    return add(LLAttributeList::ReturnIndex, builder);
+    return add(LLAttributeSet::ReturnIndex, builder);
   }
   AttrSet &merge(const AttrSet &other);
 
-  operator LLAttributeList &() { return set; }
-  operator const LLAttributeList &() const { return set; }
+  operator LLAttributeSet &() { return set; }
+  operator const LLAttributeSet &() const { return set; }
 };

@@ -30,12 +30,17 @@
 #include "ir/irfunction.h"
 #include "ir/irtype.h"
 #include "ir/irtypefunction.h"
-#include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include <algorithm>
+
+#if LDC_LLVM_VER >= 400
+#include "llvm/Bitcode/BitcodeWriter.h"
+#else
+#include "llvm/Bitcode/ReaderWriter.h"
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -497,38 +502,38 @@ static void buildRuntimeModule() {
 
   // Construct some attribute lists used below (possibly multiple times)
   AttrSet NoAttrs,
-      Attr_NoAlias(NoAttrs, LLAttributeList::ReturnIndex,
+      Attr_NoAlias(NoAttrs, LLAttributeSet::ReturnIndex,
                    llvm::Attribute::NoAlias),
-      Attr_NoUnwind(NoAttrs, LLAttributeList::FunctionIndex,
+      Attr_NoUnwind(NoAttrs, LLAttributeSet::FunctionIndex,
                     llvm::Attribute::NoUnwind),
-      Attr_ReadOnly(NoAttrs, LLAttributeList::FunctionIndex,
+      Attr_ReadOnly(NoAttrs, LLAttributeSet::FunctionIndex,
                     llvm::Attribute::ReadOnly),
-      Attr_Cold(NoAttrs, LLAttributeList::FunctionIndex, llvm::Attribute::Cold),
-      Attr_Cold_NoReturn(Attr_Cold, LLAttributeList::FunctionIndex,
+      Attr_Cold(NoAttrs, LLAttributeSet::FunctionIndex, llvm::Attribute::Cold),
+      Attr_Cold_NoReturn(Attr_Cold, LLAttributeSet::FunctionIndex,
                          llvm::Attribute::NoReturn),
       Attr_Cold_NoReturn_NoUnwind(Attr_Cold_NoReturn,
-                                  LLAttributeList::FunctionIndex,
+                                  LLAttributeSet::FunctionIndex,
                                   llvm::Attribute::NoUnwind),
-      Attr_ReadOnly_NoUnwind(Attr_ReadOnly, LLAttributeList::FunctionIndex,
+      Attr_ReadOnly_NoUnwind(Attr_ReadOnly, LLAttributeSet::FunctionIndex,
                              llvm::Attribute::NoUnwind),
-      Attr_ReadOnly_1_NoCapture(Attr_ReadOnly, LLAttributeList::FirstArgIndex,
+      Attr_ReadOnly_1_NoCapture(Attr_ReadOnly, AttrSet::FirstArgIndex,
                                 llvm::Attribute::NoCapture),
       Attr_ReadOnly_1_3_NoCapture(Attr_ReadOnly_1_NoCapture,
-                                  LLAttributeList::FirstArgIndex + 2,
+                                  AttrSet::FirstArgIndex + 2,
                                   llvm::Attribute::NoCapture),
       Attr_ReadOnly_NoUnwind_1_NoCapture(Attr_ReadOnly_1_NoCapture,
-                                         LLAttributeList::FunctionIndex,
+                                         LLAttributeSet::FunctionIndex,
                                          llvm::Attribute::NoUnwind),
       Attr_ReadOnly_NoUnwind_1_2_NoCapture(Attr_ReadOnly_NoUnwind_1_NoCapture,
-                                           LLAttributeList::FirstArgIndex + 1,
+                                           AttrSet::FirstArgIndex + 1,
                                            llvm::Attribute::NoCapture),
-      Attr_1_NoCapture(NoAttrs, LLAttributeList::FirstArgIndex,
+      Attr_1_NoCapture(NoAttrs, AttrSet::FirstArgIndex,
                        llvm::Attribute::NoCapture),
-      Attr_1_2_NoCapture(Attr_1_NoCapture, LLAttributeList::FirstArgIndex + 1,
+      Attr_1_2_NoCapture(Attr_1_NoCapture, AttrSet::FirstArgIndex + 1,
                          llvm::Attribute::NoCapture),
-      Attr_1_3_NoCapture(Attr_1_NoCapture, LLAttributeList::FirstArgIndex + 2,
+      Attr_1_3_NoCapture(Attr_1_NoCapture, AttrSet::FirstArgIndex + 2,
                          llvm::Attribute::NoCapture),
-      Attr_1_4_NoCapture(Attr_1_NoCapture, LLAttributeList::FirstArgIndex + 3,
+      Attr_1_4_NoCapture(Attr_1_NoCapture, AttrSet::FirstArgIndex + 3,
                          llvm::Attribute::NoCapture);
 
   //////////////////////////////////////////////////////////////////////////////

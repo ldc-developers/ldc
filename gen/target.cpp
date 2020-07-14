@@ -106,9 +106,15 @@ void Target::_init(const Param &params) {
   // Finalize RealProperties for the target's `real` type.
 
   const auto targetRealSemantics = &real->getFltSemantics();
+#if LDC_LLVM_VER >= 400
   const auto IEEEdouble = &APFloat::IEEEdouble();
   const auto x87DoubleExtended = &APFloat::x87DoubleExtended();
   const auto IEEEquad = &APFloat::IEEEquad();
+#else
+  const auto IEEEdouble = &APFloat::IEEEdouble;
+  const auto x87DoubleExtended = &APFloat::x87DoubleExtended;
+  const auto IEEEquad = &APFloat::IEEEquad;
+#endif
 
   RealProperties.nan = CTFloat::nan;
   RealProperties.infinity = CTFloat::infinity;
@@ -227,8 +233,10 @@ Expression *Target::getTargetInfo(const char *name_, const Loc &loc) {
       objectFormat = "macho";
     } else if (triple.isOSBinFormatELF()) {
       objectFormat = "elf";
+#if LDC_LLVM_VER >= 500
     } else if (triple.isOSBinFormatWasm()) {
       objectFormat = "wasm";
+#endif
     }
     return createStringExp(objectFormat);
   }
