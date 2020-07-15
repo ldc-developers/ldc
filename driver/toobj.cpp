@@ -283,10 +283,6 @@ bool shouldAssembleExternally() {
 bool shouldOutputObjectFile() {
   return global.params.output_o && !shouldAssembleExternally();
 }
-
-bool shouldDoLTO(llvm::Module *m) {
-  return opts::isUsingLTO();
-}
 } // end of anonymous namespace
 
 std::string replaceExtensionWith(const DArray<const char> &ext,
@@ -307,7 +303,7 @@ std::string replaceExtensionWith(const DArray<const char> &ext,
 }
 
 void writeModule(llvm::Module *m, const char *filename) {
-  const bool doLTO = shouldDoLTO(m);
+  const bool doLTO = opts::isUsingLTO();
   const bool outputObj = shouldOutputObjectFile();
   const bool assembleExternally = shouldAssembleExternally();
 
