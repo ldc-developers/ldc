@@ -260,7 +260,7 @@ public:
       return;
     }
 
-    DtoResolveVariable(decl);
+    DtoResolveVariable(decl, /*willDefine=*/true);
     decl->ir->setDefined();
 
     // just forward aliases
@@ -292,7 +292,7 @@ public:
       // If we reach here during codegen of an available_externally function,
       // new variable declarations should stay external and therefore must not
       // have an initializer.
-      if (!(decl->storage_class & STCextern) && !decl->inNonRoot()) {
+      if (!(decl->storage_class & STCextern)) {
         // Build the initializer. Might use irGlobal->value!
         LLConstant *initVal =
             DtoConstInitializer(decl->loc, decl->type, decl->_init);

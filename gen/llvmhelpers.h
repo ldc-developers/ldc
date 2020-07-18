@@ -111,7 +111,7 @@ TemplateInstance *DtoIsTemplateInstance(Dsymbol *s);
 /// This function does *not* emit any (function, variable) *definitions*; this
 /// is done by Dsymbol::codegen.
 void DtoResolveDsymbol(Dsymbol *dsym);
-void DtoResolveVariable(VarDeclaration *var);
+void DtoResolveVariable(VarDeclaration *var, bool willDefine = false);
 
 // declaration inside a declarationexp
 void DtoVarDeclaration(VarDeclaration *var);

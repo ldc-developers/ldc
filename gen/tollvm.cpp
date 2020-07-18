@@ -222,10 +222,7 @@ LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
   // Function (incl. delegate) literals are emitted into each referencing
   // compilation unit; use template linkage to prevent conflicts.
   else if (sym->isFuncLiteralDeclaration() || DtoIsTemplateInstance(sym)) {
-    // HACK: weak_odr for template data for now
-    linkage = sym->isVarDeclaration() && sym->isVarDeclaration()->isDataseg()
-                  ? LLGlobalValue::WeakODRLinkage
-                  : templateLinkage;
+    linkage = templateLinkage;
   } else {
     linkage = LLGlobalValue::ExternalLinkage;
   }

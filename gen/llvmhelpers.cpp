@@ -825,7 +825,7 @@ void DtoResolveDsymbol(Dsymbol *dsym) {
   }
 }
 
-void DtoResolveVariable(VarDeclaration *vd) {
+void DtoResolveVariable(VarDeclaration *vd, bool willDefine) {
   if (auto tid = vd->isTypeInfoDeclaration()) {
     DtoResolveTypeInfo(tid);
     return;
@@ -920,6 +920,10 @@ void DtoResolveVariable(VarDeclaration *vd) {
     }
 
     IF_LOG Logger::cout() << *gvar << '\n';
+
+    if (!willDefine && DtoIsTemplateInstance(vd)) {
+      Declaration_codegen(vd);
+    }
   }
 }
 
