@@ -111,7 +111,7 @@ TemplateInstance *DtoIsTemplateInstance(Dsymbol *s);
 /// This function does *not* emit any (function, variable) *definitions*; this
 /// is done by Dsymbol::codegen.
 void DtoResolveDsymbol(Dsymbol *dsym);
-void DtoResolveVariable(VarDeclaration *var, bool willDefine = false);
+void DtoResolveVariable(VarDeclaration *var);
 
 // declaration inside a declarationexp
 void DtoVarDeclaration(VarDeclaration *var);
@@ -257,8 +257,7 @@ llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
 /// its linkage and visibility.
 /// Asserts that a global isn't defined multiple times this way.
 void defineGlobal(llvm::GlobalVariable *global, llvm::Constant *init,
-                  Dsymbol *symbolForLinkageAndVisibility,
-                  bool enforceWeakODRForTemplates = false);
+                  Dsymbol *symbolForLinkageAndVisibility);
 
 /// Declares (if not already declared) & defines an LLVM global.
 llvm::GlobalVariable *defineGlobal(const Loc &loc, llvm::Module &module,

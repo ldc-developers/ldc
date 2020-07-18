@@ -70,7 +70,7 @@ LLConstant *&IrAggr::getInitSymbol(bool define) {
     auto initConstant = getDefaultInit();
     auto initGlobal = llvm::cast<LLGlobalVariable>(init);
     if (!initGlobal->hasInitializer()) {
-      defineGlobal(initGlobal, initConstant, aggrdecl);
+      gIR->setGlobalVarInitializer(initGlobal, initConstant, aggrdecl);
     }
   }
 

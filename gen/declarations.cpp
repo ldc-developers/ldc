@@ -260,7 +260,7 @@ public:
       return;
     }
 
-    DtoResolveVariable(decl, /*willDefine=*/true);
+    DtoResolveVariable(decl);
     decl->ir->setDefined();
 
     // just forward aliases
@@ -279,56 +279,9 @@ public:
       assert(!irs->dcomputetarget);
 
       IrGlobal *irGlobal = getIrGlobal(decl);
-      LLGlobalVariable *gvar = llvm::cast<LLGlobalVariable>(irGlobal->value);
-      assert(gvar && "DtoResolveVariable should have created value");
+      auto val = llvm::cast<LLConstant>(irGlobal->getValue(/*define=*/true));
 
-      if (global.params.vtls && gvar->isThreadLocal() &&
-          !(decl->storage_class & STCtemp)) {
-        const char *p = decl->loc.toChars();
-        message("%s: `%s` is thread local", p, decl->toChars());
-      }
-
-      // Check if we are defining or just declaring the global in this module.
-      // If we reach here during codegen of an available_externally function,
-      // new variable declarations should stay external and therefore must not
-      // have an initializer.
-      if (!(decl->storage_class & STCextern)) {
-        // Build the initializer. Might use irGlobal->value!
-        LLConstant *initVal =
-            DtoConstInitializer(decl->loc, decl->type, decl->_init);
-
-        // Cache it.
-        assert(!irGlobal->constInit);
-        irGlobal->constInit = initVal;
-
-        // Set the initializer, swapping out the variable if the types do not
-        // match.
-        irGlobal->value = irs->setGlobalVarInitializer(gvar, initVal);
-
-        // Finalize linkage & DLL storage class.
-        const auto lwc = DtoLinkage(decl);
-        setLinkage(lwc, gvar);
-        if (gvar->hasDLLImportStorageClass()) {
-          gvar->setDLLStorageClass(LLGlobalValue::DLLExportStorageClass);
-        }
-
-        // Hide non-exported symbols
-        if (opts::defaultToHiddenVisibility && !decl->isExport()) {
-          gvar->setVisibility(LLGlobalValue::HiddenVisibility);
-        }
-
-        // Also set up the debug info.
-        irs->DBuilder.EmitGlobalVariable(gvar, decl);
-      }
-
-      // If this global is used from a naked function, we need to create an
-      // artificial "use" for it, or it could be removed by the optimizer if
-      // the only reference to it is in inline asm.
-      if (irGlobal->nakedUse) {
-        irs->usedArray.push_back(gvar);
-      }
-
-      IF_LOG Logger::cout() << *gvar << '\n';
+      IF_LOG Logger::cout() << *val << '\n';
     }
   }
 

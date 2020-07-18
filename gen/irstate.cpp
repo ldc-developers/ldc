@@ -135,10 +135,12 @@ bool IRState::emitArrayBoundsChecks() {
   return t->ty == Tfunction && ((TypeFunction *)t)->trust == TRUSTsafe;
 }
 
-LLConstant *IRState::setGlobalVarInitializer(LLGlobalVariable *&globalVar,
-                                             LLConstant *initializer) {
+LLConstant *
+IRState::setGlobalVarInitializer(LLGlobalVariable *&globalVar,
+                                 LLConstant *initializer,
+                                 Dsymbol *symbolForLinkageAndVisibility) {
   if (initializer->getType() == globalVar->getType()->getContainedType(0)) {
-    globalVar->setInitializer(initializer);
+    defineGlobal(globalVar, initializer, symbolForLinkageAndVisibility);
     return globalVar;
   }
 
@@ -146,13 +148,15 @@ LLConstant *IRState::setGlobalVarInitializer(LLGlobalVariable *&globalVar,
   // It inherits most properties from the existing globalVar.
   auto globalHelperVar = new LLGlobalVariable(
       module, initializer->getType(), globalVar->isConstant(),
-      globalVar->getLinkage(), initializer, "", nullptr,
+      globalVar->getLinkage(), nullptr, "", nullptr,
       globalVar->getThreadLocalMode());
   globalHelperVar->setAlignment(LLMaybeAlign(globalVar->getAlignment()));
   globalHelperVar->setComdat(globalVar->getComdat());
   globalHelperVar->setDLLStorageClass(globalVar->getDLLStorageClass());
   globalHelperVar->setSection(globalVar->getSection());
   globalHelperVar->takeName(globalVar);
+
+  defineGlobal(globalHelperVar, initializer, symbolForLinkageAndVisibility);
 
   // Replace all existing uses of globalVar by the bitcast pointer.
   auto castHelperVar = DtoBitCast(globalHelperVar, globalVar->getType());

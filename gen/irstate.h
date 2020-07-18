@@ -221,8 +221,10 @@ public:
   // Returns either the specified globalVar if the types match, or the bitcast
   // pointer replacing globalVar (and resets globalVar to the new helper
   // global).
-  llvm::Constant *setGlobalVarInitializer(llvm::GlobalVariable *&globalVar,
-                                          llvm::Constant *initializer);
+  llvm::Constant *
+  setGlobalVarInitializer(llvm::GlobalVariable *&globalVar,
+                          llvm::Constant *initializer,
+                          Dsymbol *symbolForLinkageAndVisibility);
 
   // To be called when finalizing the IR module in order to perform a second
   // replacement pass for global variables replaced (and registered) by

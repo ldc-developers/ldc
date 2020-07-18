@@ -825,7 +825,7 @@ void DtoResolveDsymbol(Dsymbol *dsym) {
   }
 }
 
-void DtoResolveVariable(VarDeclaration *vd, bool willDefine) {
+void DtoResolveVariable(VarDeclaration *vd) {
   if (auto tid = vd->isTypeInfoDeclaration()) {
     DtoResolveTypeInfo(tid);
     return;
@@ -860,70 +860,11 @@ void DtoResolveVariable(VarDeclaration *vd, bool willDefine) {
     }
     vd->ir->setDeclared();
 
-    getIrGlobal(vd, true);
-
-    IF_LOG {
-      if (vd->parent) {
-        Logger::println("parent: %s (%s)", vd->parent->toChars(),
-                        vd->parent->kind());
-      } else {
-        Logger::println("parent: null");
-      }
-    }
-
-    // If a const/immutable value has a proper initializer (not "= void"),
-    // it cannot be assigned again in a static constructor. Thus, we can
-    // emit it as read-only data.
-    // We also do so for forward-declared (extern) globals, just like clang.
-    const bool isLLConst = (vd->isConst() || vd->isImmutable()) &&
-                           ((vd->_init && !vd->_init->isVoidInitializer()) ||
-                            (vd->storage_class & STCextern));
+    auto irGlobal = getIrGlobal(vd, true);
+    irGlobal->getValue();
 
     assert(!vd->ir->isInitialized());
-    if (gIR->dmodule) {
-      vd->ir->setInitialized();
-    }
-    const auto irMangle = getIRMangledName(vd);
-
-    // Since the type of a global must exactly match the type of its
-    // initializer, we cannot know the type until after we have emitted the
-    // latter (e.g. in case of unions, …). However, it is legal for the
-    // initializer to refer to the address of the variable. Thus, we first
-    // create a global with the generic type (note the assignment to
-    // vd->ir->irGlobal->value!), and in case we also do an initializer
-    // with a different type later, swap it out and replace any existing
-    // uses with bitcasts to the previous type.
-
-    llvm::GlobalVariable *gvar =
-        declareGlobal(vd->loc, gIR->module, DtoMemType(vd->type), irMangle,
-                      isLLConst, vd->isThreadlocal());
-    if (vd->llvmInternal == LLVMextern_weak)
-      gvar->setLinkage(llvm::GlobalValue::ExternalWeakLinkage);
-
-    auto varIr = getIrGlobal(vd);
-    varIr->value = gvar;
-
-    // Set the alignment (it is important not to use type->alignsize because
-    // VarDeclarations can have an align() attribute independent of the type
-    // as well).
-    gvar->setAlignment(LLMaybeAlign(DtoAlignment(vd)));
-
-    // Windows: initialize DLL storage class with `dllimport` for `export`ed
-    // symbols
-    if (global.params.isWindows && vd->isExport()) {
-      gvar->setDLLStorageClass(LLGlobalValue::DLLImportStorageClass);
-    }
-
-    applyVarDeclUDAs(vd, gvar);
-    if (varIr->dynamicCompileConst) {
-      addDynamicCompiledVar(gIR, varIr);
-    }
-
-    IF_LOG Logger::cout() << *gvar << '\n';
-
-    if (!willDefine && DtoIsTemplateInstance(vd)) {
-      Declaration_codegen(vd);
-    }
+    vd->ir->setInitialized();
   }
 }
 
@@ -1776,17 +1717,12 @@ llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
 }
 
 void defineGlobal(llvm::GlobalVariable *global, llvm::Constant *init,
-                  Dsymbol *symbolForLinkageAndVisibility,
-                  bool enforceWeakODRForTemplates) {
+                  Dsymbol *symbolForLinkageAndVisibility) {
   assert(global->isDeclaration() && "Global variable already defined");
   assert(init);
   global->setInitializer(init);
   if (symbolForLinkageAndVisibility) {
     setLinkageAndVisibility(symbolForLinkageAndVisibility, global);
-    if (enforceWeakODRForTemplates &&
-        DtoIsTemplateInstance(symbolForLinkageAndVisibility)) {
-      global->setLinkage(LLGlobalValue::WeakODRLinkage);
-    }
   }
 }
 
