@@ -35,9 +35,6 @@ set(llvm_config_names llvm-config-10.0 llvm-config100 llvm-config-10
                       llvm-config-8.0 llvm-config80 llvm-config-8
                       llvm-config-7.0 llvm-config70 llvm-config-7
                       llvm-config-6.0 llvm-config60
-                      llvm-config-5.0 llvm-config50
-                      llvm-config-4.0 llvm-config40
-                      llvm-config-3.9 llvm-config39
                       llvm-config)
 find_program(LLVM_CONFIG
     NAMES ${llvm_config_names}
@@ -113,19 +110,7 @@ else()
     # The LLVM version string _may_ contain a git/svn suffix, so match only the x.y.z part
     string(REGEX MATCH "^[0-9]+[.][0-9]+[.][0-9]+" LLVM_VERSION_BASE_STRING "${LLVM_VERSION_STRING}")
 
-    # Versions below 4.0 do not support components debuginfomsf and demangle
-    if(${LLVM_VERSION_STRING} MATCHES "^3\\..*")
-        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfomsf" index)
-        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "demangle" index)
-    endif()
-    # Versions below 6.0 do not support component windowsmanifest
-    if(${LLVM_VERSION_STRING} MATCHES "^[3-5]\\..*")
-        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "windowsmanifest" index)
-    endif()
-
     llvm_set(LDFLAGS ldflags)
-    # In LLVM 3.5+, the system library dependencies (e.g. "-lz") are accessed
-    # using the separate "--system-libs" flag.
     llvm_set(SYSTEM_LIBS system-libs)
     string(REPLACE "\n" " " LLVM_LDFLAGS "${LLVM_LDFLAGS} ${LLVM_SYSTEM_LIBS}")
     llvm_set(LIBRARY_DIRS libdir true)
@@ -138,13 +123,7 @@ else()
         endif()
     endif()
 
-    # Versions below 4.0 do not support llvm-config --cmakedir
-    if(${LLVM_VERSION_STRING} MATCHES "^3\\..*")
-        set(LLVM_CMAKEDIR ${LLVM_LIBRARY_DIRS}/cmake/llvm)
-    else()
-        llvm_set(CMAKEDIR cmakedir)
-    endif()
-
+    llvm_set(CMAKEDIR cmakedir)
     llvm_set(TARGETS_TO_BUILD targets-built)
     string(REGEX MATCHALL "${pattern}[^ ]+" LLVM_TARGETS_TO_BUILD ${LLVM_TARGETS_TO_BUILD})
 

@@ -20,12 +20,8 @@
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Analysis/ModuleSummaryAnalysis.h"
-#if LDC_LLVM_VER >= 400
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
-#else
-#include "llvm/Bitcode/ReaderWriter.h"
-#endif
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
@@ -34,11 +30,7 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#if LDC_LLVM_VER >= 600
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
-#else
-#include "llvm/Target/TargetSubtargetInfo.h"
-#endif
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
 #ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
@@ -171,13 +163,8 @@ class AssemblyAnnotator : public AssemblyAnnotationWriter {
   static llvm::StringRef GetDisplayName(const Function *F) {
     llvm::DebugInfoFinder Finder;
     Finder.processModule(*F->getParent());
-    if (DISubprogram *N = FindSubprogram(F, Finder))
-    {
-#if LDC_LLVM_VER >= 500
+    if (DISubprogram *N = FindSubprogram(F, Finder)) {
       return N->getName();
-#else
-      return N->getDisplayName();
-#endif
     }
     return "";
   }
@@ -296,17 +283,6 @@ bool shouldAssembleExternally() {
 bool shouldOutputObjectFile() {
   return global.params.output_o && !shouldAssembleExternally();
 }
-
-bool shouldDoLTO(llvm::Module *m) {
-#if LDC_LLVM_VER == 309
-  // LLVM 3.9 bug: can't do ThinLTO with modules that have module-scope inline
-  // assembly blocks (duplicate definitions upon importing from such a module).
-  // https://llvm.org/bugs/show_bug.cgi?id=30610
-  if (opts::isUsingThinLTO() && !m->getModuleInlineAsm().empty())
-    return false;
-#endif
-  return opts::isUsingLTO();
-}
 } // end of anonymous namespace
 
 std::string replaceExtensionWith(const DArray<const char> &ext,
@@ -327,7 +303,7 @@ std::string replaceExtensionWith(const DArray<const char> &ext,
 }
 
 void writeModule(llvm::Module *m, const char *filename) {
-  const bool doLTO = shouldDoLTO(m);
+  const bool doLTO = opts::isUsingLTO();
   const bool outputObj = shouldOutputObjectFile();
   const bool assembleExternally = shouldAssembleExternally();
 
@@ -390,20 +366,13 @@ void writeModule(llvm::Module *m, const char *filename) {
 
     if (opts::isUsingThinLTO()) {
       Logger::println("Creating module summary for ThinLTO");
-#if LDC_LLVM_VER == 309
-      // When the function freq info callback is set to nullptr, LLVM will
-      // calculate it automatically for us.
-      llvm::ModuleSummaryIndexBuilder indexBuilder(
-          m, /* function freq callback */ nullptr);
-      auto &moduleSummaryIndex = indexBuilder.getIndex();
-#else
+
       llvm::ProfileSummaryInfo PSI(*m);
 
       // When the function freq info callback is set to nullptr, LLVM will
       // calculate it automatically for us.
       auto moduleSummaryIndex = buildModuleSummaryIndex(
           *m, /* function freq callback */ nullptr, &PSI);
-#endif
 
       llvm::WriteBitcodeToFile(M, bos, true, &moduleSummaryIndex,
                                /* generate ThinLTO hash */ true);

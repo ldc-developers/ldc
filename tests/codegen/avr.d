@@ -1,4 +1,4 @@
-// REQUIRES: atleast_llvm400, target_AVR
+// REQUIRES: target_AVR
 
 // RUN: %ldc -mtriple=avr -betterC -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 

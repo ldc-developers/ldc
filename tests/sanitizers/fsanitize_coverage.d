@@ -1,7 +1,5 @@
 // Test basic coverage sanitizer functionality
 
-// REQUIRES: atleast_llvm400
-
 // RUN: %ldc -c -output-ll -fsanitize-coverage=trace-pc-guard -of=%t.ll %s && FileCheck %s --check-prefix=PCGUARD < %t.ll
 // RUN: %ldc -c -output-ll -fsanitize-coverage=trace-pc-guard,trace-cmp -of=%t.cmp.ll %s && FileCheck %s --check-prefix=PCCMP < %t.cmp.ll
 // RUN: %ldc -c -output-ll -fsanitize-coverage=trace-pc-guard,func -of=%t.func.ll %s && FileCheck %s --check-prefix=PCFUNC < %t.func.ll

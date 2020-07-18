@@ -1,6 +1,5 @@
 // ThinLTO: Test that module ctors/dtors are called
 
-// REQUIRES: atleast_llvm309
 // REQUIRES: LTO
 
 // RUN: %ldc -flto=thin -O3 -run %s | FileCheck %s

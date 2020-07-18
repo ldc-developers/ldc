@@ -10,6 +10,7 @@
 #include "ir/irfunction.h"
 
 #include "driver/cl_options.h"
+#include "gen/functions.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/irstate.h"
@@ -28,14 +29,14 @@ IrFunction::IrFunction(FuncDeclaration *fd)
 }
 
 void IrFunction::setNeverInline() {
-  assert(!func->getAttributes().hasAttribute(LLAttributeSet::FunctionIndex,
+  assert(!func->getAttributes().hasAttribute(LLAttributeList::FunctionIndex,
                                              llvm::Attribute::AlwaysInline) &&
          "function can't be never- and always-inline at the same time");
   func->addFnAttr(llvm::Attribute::NoInline);
 }
 
 void IrFunction::setAlwaysInline() {
-  assert(!func->getAttributes().hasAttribute(LLAttributeSet::FunctionIndex,
+  assert(!func->getAttributes().hasAttribute(LLAttributeList::FunctionIndex,
                                              llvm::Attribute::NoInline) &&
          "function can't be never- and always-inline at the same time");
   func->addFnAttr(llvm::Attribute::AlwaysInline);
@@ -102,12 +103,10 @@ bool isIrFuncCreated(FuncDeclaration *decl) {
   return t == IrDsymbol::FuncType;
 }
 
-llvm::Function *DtoFunction(FuncDeclaration *decl, bool create) {
-  assert(decl != nullptr);
-  return getIrFunc(decl, create)->getLLVMFunc();
-}
-
 llvm::Function *DtoCallee(FuncDeclaration *decl, bool create) {
   assert(decl != nullptr);
-  return getIrFunc(decl, create)->getLLVMCallee();
+  if (create) {
+    DtoDeclareFunction(decl);
+  }
+  return getIrFunc(decl)->getLLVMCallee();
 }

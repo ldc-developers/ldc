@@ -255,13 +255,8 @@ void disassemble(const llvm::TargetMachine &tm,
 
   llvm::MCObjectFileInfo mofi;
   llvm::MCContext ctx(mai, mri, &mofi);
-#if LDC_LLVM_VER >= 600
   mofi.InitMCObjectFileInfo(tm.getTargetTriple(), tm.isPositionIndependent(),
                             ctx, tm.getCodeModel() == llvm::CodeModel::Large);
-#else
-  mofi.InitMCObjectFileInfo(tm.getTargetTriple(), tm.isPositionIndependent(),
-                            tm.getCodeModel(), ctx);
-#endif
 
   auto disasm = unique(target.createMCDisassembler(*sti, ctx));
   if (nullptr == disasm) {
@@ -284,13 +279,7 @@ void disassemble(const llvm::TargetMachine &tm,
   }
 
   llvm::MCTargetOptions opts;
-  auto mab = unique(target.createMCAsmBackend(
-#if LDC_LLVM_VER >= 600
-      *sti, *mri, opts)
-#else
-      *mri, tm.getTargetTriple().getTriple(), tm.getTargetCPU(), opts)
-#endif
-  );
+  auto mab = unique(target.createMCAsmBackend(*sti, *mri, opts));
   if (nullptr == mab) {
     return;
   }

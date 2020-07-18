@@ -1,5 +1,3 @@
-// REQUIRES: atleast_llvm400
-
 // Automatic output filename generation from LL output file
 // RUN: %ldc -c -betterC -O3 -g -fsave-optimization-record -output-ll -of=%t.1.ll %s \
 // RUN: && FileCheck %s --check-prefix=LLVM < %t.1.ll \

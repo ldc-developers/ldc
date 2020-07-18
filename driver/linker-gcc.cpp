@@ -25,7 +25,7 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 
-#if LDC_WITH_LLD && LDC_LLVM_VER >= 600
+#if LDC_WITH_LLD
 #include "lld/Common/Driver.h"
 #endif
 
@@ -139,13 +139,11 @@ void ArgsBuilder::addLTOGoldPluginFlags(bool requirePlugin) {
   optChars[13] = '0' + std::min<char>(optLevel(), 3);
   addLdFlag(optChars);
 
-#if LDC_LLVM_VER >= 400
   const llvm::TargetOptions &TO = gTargetMachine->Options;
   if (TO.FunctionSections)
     addLdFlag("-plugin-opt=-function-sections");
   if (TO.DataSections)
     addLdFlag("-plugin-opt=-data-sections");
-#endif
 }
 
 // Returns an empty string when libLTO.dylib was not specified nor found.
@@ -327,13 +325,7 @@ void ArgsBuilder::addASanLinkFlags(const llvm::Triple &triple) {
 // Adds all required link flags for -fsanitize=fuzzer when libFuzzer library is
 // found.
 void ArgsBuilder::addFuzzLinkFlags(const llvm::Triple &triple) {
-#if LDC_LLVM_VER >= 600
   const auto searchPaths = getFullCompilerRTLibPathCandidates("fuzzer", triple);
-#else
-  std::vector<std::string> searchPaths;
-  appendFullLibPathCandidates(searchPaths, "libFuzzer.a");
-  appendFullLibPathCandidates(searchPaths, "libLLVMFuzzer.a");
-#endif
 
   for (const auto &filepath : searchPaths) {
     IF_LOG Logger::println("Searching libFuzzer: %s", filepath.c_str());
@@ -722,7 +714,7 @@ class LdArgsBuilder : public ArgsBuilder {
 
 int linkObjToBinaryGcc(llvm::StringRef outputPath,
                        const std::vector<std::string> &defaultLibNames) {
-#if LDC_WITH_LLD && LDC_LLVM_VER >= 600
+#if LDC_WITH_LLD
   if (useInternalLLDForLinking()) {
     LdArgsBuilder argsBuilder;
     argsBuilder.build(outputPath, defaultLibNames);
@@ -787,17 +779,13 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
   // exception: invoke (ld-compatible) linker directly for WebAssembly targets
   std::string tool;
   std::unique_ptr<ArgsBuilder> argsBuilder;
-#if LDC_LLVM_VER >= 500
   if (global.params.targetTriple->isOSBinFormatWasm()) {
     tool = getProgram("wasm-ld", &opts::linker);
     argsBuilder = llvm::make_unique<LdArgsBuilder>();
   } else {
-#endif
     tool = getGcc();
     argsBuilder = llvm::make_unique<ArgsBuilder>();
-#if LDC_LLVM_VER >= 500
   }
-#endif
 
   // build arguments
   argsBuilder->build(outputPath, defaultLibNames);

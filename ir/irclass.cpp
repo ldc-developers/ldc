@@ -204,8 +204,6 @@ LLConstant *IrClass::getVtblInit() {
         }
       }
 
-      DtoResolveFunction(fd);
-      assert(isIrFuncCreated(fd) && "invalid vtbl function");
       c = DtoBitCast(DtoCallee(fd), voidPtrType);
 
       if (cd->isFuncHidden(fd) && !fd->isFuture()) {

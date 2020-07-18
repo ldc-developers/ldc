@@ -1,8 +1,5 @@
 // Test passing of LLVM bitcode file with Linker Options set
 
-// LLVM >= 5.0 uses llvm.linker.options instead. See link_bitcode_libs_500.d.
-// REQUIRES: atmost_llvm400
-
 // Linker Options are currently only set on Windows platform, so we must (cross-)compile to Windows
 // REQUIRES: target_X86
 
@@ -13,8 +10,7 @@
 pragma(lib, "library_one");
 pragma(lib, "library_two");
 
-// CHECK: !"Linker Options", ![[ATTR_TUPLE:[0-9]+]]
-// CHECK: ![[ATTR_TUPLE]] = !{![[ATTR_LIB1:[0-9]+]], ![[ATTR_LIB2:[0-9]+]], ![[ATTR_LIB3:[0-9]+]], ![[ATTR_LIB4:[0-9]+]]}
+// CHECK: !llvm.linker.options = !{![[ATTR_LIB1:[0-9]+]], ![[ATTR_LIB2:[0-9]+]], ![[ATTR_LIB3:[0-9]+]], ![[ATTR_LIB4:[0-9]+]]}
 // CHECK: ![[ATTR_LIB1]]{{.*}}library_one
 // CHECK: ![[ATTR_LIB2]]{{.*}}library_two
 // CHECK: ![[ATTR_LIB3]]{{.*}}imported_one

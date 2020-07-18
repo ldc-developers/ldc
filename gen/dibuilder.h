@@ -55,13 +55,7 @@ using DISubroutineType = llvm::DISubroutineType *;
 using DISubprogram = llvm::DISubprogram *;
 using DIModule = llvm::DIModule *;
 using DICompileUnit = llvm::DICompileUnit *;
-#if LDC_LLVM_VER >= 400
-using DIFlagsType = llvm::DINode::DIFlags;
 using DIFlags = llvm::DINode::DIFlags;
-#else
-using DIFlagsType = unsigned;
-using DIFlags = llvm::DINode;
-#endif
 
 class DIBuilder {
   IRState *const IR;
@@ -196,7 +190,7 @@ private:
                               unsigned lineNo, DISubroutineType ty,
                               bool isLocalToUnit, bool isDefinition,
                               bool isOptimized, unsigned scopeLine,
-                              DIFlagsType flags);
+                              DIFlags flags);
   DIType CreateCompositeType(Type *type);
   DIType CreateArrayType(Type *type);
   DIType CreateSArrayType(Type *type);
@@ -221,11 +215,7 @@ public:
 
     uint64_t offset =
         gDataLayout->getStructLayout(type)->getElementOffset(index);
-#if LDC_LLVM_VER >= 500
     addr.push_back(llvm::dwarf::DW_OP_plus_uconst);
-#else
-    addr.push_back(llvm::dwarf::DW_OP_plus);
-#endif
     addr.push_back(offset);
   }
 

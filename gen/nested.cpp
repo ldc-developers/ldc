@@ -171,9 +171,6 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
   }
 
   if (!skipDIDeclaration && global.params.symdebug) {
-#if LDC_LLVM_VER < 500
-    gIR->DBuilder.OpDeref(dwarfAddrOps);
-#endif
     gIR->DBuilder.EmitLocalVariable(ctx, vd, nullptr, false,
                                     /*forceAsLocal=*/true, false, dwarfAddrOps);
   }
@@ -524,11 +521,6 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
 
       if (global.params.symdebug) {
         LLSmallVector<int64_t, 1> dwarfAddrOps;
-#if LDC_LLVM_VER < 500
-        // Because we are passing a GEP instead of an alloca to
-        // llvm.dbg.declare, we have to make the address dereference explicit.
-        gIR->DBuilder.OpDeref(dwarfAddrOps);
-#endif
         gIR->DBuilder.EmitLocalVariable(gep, vd, nullptr, false, false, false,
                                         dwarfAddrOps);
       }

@@ -1,6 +1,6 @@
 //===-- ctfloat.cpp -------------------------------------------------------===//
 //
-//                         LDC – the LLVM D compiler
+//                         LDC â€“ the LLVM D compiler
 //
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
@@ -12,12 +12,6 @@
 #include "llvm/Support/Error.h"
 
 using llvm::APFloat;
-
-#if LDC_LLVM_VER >= 400
-#define AP_SEMANTICS_PARENS ()
-#else
-#define AP_SEMANTICS_PARENS
-#endif
 
 namespace {
 
@@ -53,19 +47,19 @@ void CTFloat::initialize() {
 
 #ifdef _MSC_VER
   // MSVC hosts use dmd.root.longdouble (80-bit x87)
-  apSemantics = &(APFloat::x87DoubleExtended AP_SEMANTICS_PARENS);
+  apSemantics = &APFloat::x87DoubleExtended();
 #else
   static_assert(std::numeric_limits<real_t>::is_specialized,
                 "real_t is not an arithmetic type");
   constexpr int digits = std::numeric_limits<real_t>::digits;
   if (digits == 53) {
-    apSemantics = &(APFloat::IEEEdouble AP_SEMANTICS_PARENS);
+    apSemantics = &APFloat::IEEEdouble();
   } else if (digits == 64) {
-    apSemantics = &(APFloat::x87DoubleExtended AP_SEMANTICS_PARENS);
+    apSemantics = &APFloat::x87DoubleExtended();
   } else if (digits == 113) {
-    apSemantics = &(APFloat::IEEEquad AP_SEMANTICS_PARENS);
+    apSemantics = &APFloat::IEEEquad();
   } else if (digits == 106) {
-    apSemantics = &(APFloat::PPCDoubleDouble AP_SEMANTICS_PARENS);
+    apSemantics = &APFloat::PPCDoubleDouble();
   } else {
     llvm_unreachable("Unknown host real_t type for compile-time reals");
   }
@@ -122,13 +116,13 @@ real_t CTFloat::parse(const char *literal, bool *isOutOfRange) {
 
 bool CTFloat::isFloat32LiteralOutOfRange(const char *literal) {
   bool isOutOfRange;
-  parseLiteral(APFloat::IEEEsingle AP_SEMANTICS_PARENS, literal, &isOutOfRange);
+  parseLiteral(APFloat::IEEEsingle(), literal, &isOutOfRange);
   return isOutOfRange;
 }
 
 bool CTFloat::isFloat64LiteralOutOfRange(const char *literal) {
   bool isOutOfRange;
-  parseLiteral(APFloat::IEEEdouble AP_SEMANTICS_PARENS, literal, &isOutOfRange);
+  parseLiteral(APFloat::IEEEdouble(), literal, &isOutOfRange);
   return isOutOfRange;
 }
 

@@ -38,7 +38,7 @@ struct TempDisableDiscardValueNames {
 void copyFnAttributes(llvm::Function *wannabe, llvm::Function *idol) {
   auto attrSet = idol->getAttributes();
   auto fnAttrSet = attrSet.getFnAttributes();
-  wannabe->addAttributes(LLAttributeSet::FunctionIndex, fnAttrSet);
+  wannabe->addAttributes(LLAttributeList::FunctionIndex, fnAttrSet);
 }
 
 llvm::StringRef exprToString(StringExp *strexp) {
@@ -162,9 +162,8 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
     }
     stream << "define " << *DtoType(ret) << " @" << mangled_name << "(";
 
-    for (size_t i = 0;;) {
+    for (size_t i = 0; i < arg_types.length; ++i) {
       Type *ty = isType(arg_types[i]);
-      // assert(ty);
       if (!ty) {
         error(tinst->loc,
               "All parameters of a template defined with pragma "
@@ -172,14 +171,9 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
               ", should be types");
         fatal();
       }
+      if (i != 0)
+        stream << ", ";
       stream << *DtoType(ty);
-
-      i++;
-      if (i >= arg_types.length) {
-        break;
-      }
-
-      stream << ", ";
     }
 
     stream << ")\n{\n" << code;

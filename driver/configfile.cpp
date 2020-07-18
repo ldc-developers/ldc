@@ -32,7 +32,7 @@
 
 namespace sys = llvm::sys;
 
-#if defined(_WIN32) && LDC_LLVM_VER >= 400
+#if defined(_WIN32)
 using llvm::UTF16;
 #endif
 
