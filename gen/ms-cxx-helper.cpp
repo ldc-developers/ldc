@@ -1,6 +1,6 @@
 //===-- ms-cxx-helper.cpp -------------------------------------------------===//
 //
-//                         LDC – the LLVM D compiler
+//                         LDC â€“ the LLVM D compiler
 //
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
@@ -19,16 +19,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
-llvm::BasicBlock *getUnwindDest(llvm::Instruction *I) {
-  if (auto II = llvm::dyn_cast<llvm::InvokeInst>(I))
-    return II->getUnwindDest();
-  if (auto CSI = llvm::dyn_cast<llvm::CatchSwitchInst>(I))
-    return CSI->getUnwindDest();
-  if (auto CRPI = llvm::dyn_cast<llvm::CleanupReturnInst>(I))
-    return CRPI->getUnwindDest();
-  return nullptr;
-}
-
 // return all basic blocks that are reachable from bb, but don't pass through
 // ebb and don't follow unwinding target
 void findSuccessors(std::vector<llvm::BasicBlock *> &blocks,
@@ -39,11 +29,10 @@ void findSuccessors(std::vector<llvm::BasicBlock *> &blocks,
     for (size_t pos = 0; pos < blocks.size(); ++pos) {
       bb = blocks[pos];
       if (auto term = bb->getTerminator()) {
-        llvm::BasicBlock *unwindDest = getUnwindDest(term);
         unsigned cnt = term->getNumSuccessors();
         for (unsigned s = 0; s < cnt; s++) {
           llvm::BasicBlock *succ = term->getSuccessor(s);
-          if (succ != ebb && succ != unwindDest &&
+          if (succ != ebb &&
               std::find(blocks.begin(), blocks.end(), succ) == blocks.end()) {
             blocks.push_back(succ);
           }
@@ -72,6 +61,10 @@ void remapBlocksValue(std::vector<llvm::BasicBlock *> &blocks,
   remapBlocks(blocks, VMap);
 }
 
+bool isTokenNoneVal(llvm::Value *val) {
+  return val->getValueID() == llvm::Value::ConstantTokenNoneVal;
+}
+
 // make a copy of all blocks and instructions in srcblocks
 // - map values to clones
 // - redirect srcTarget to continueWith
@@ -96,18 +89,53 @@ void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
     for (auto &II : *bb) {
       llvm::Instruction *Inst = &II;
       llvm::Instruction *newInst = nullptr;
-      if (funclet &&
-          !llvm::isa<llvm::DbgInfoIntrinsic>(Inst)) { // IntrinsicInst?
+      if (!llvm::isa<llvm::DbgInfoIntrinsic>(Inst)) { // IntrinsicInst?
         if (auto IInst = llvm::dyn_cast<llvm::InvokeInst>(Inst)) {
-          auto invoke = llvm::InvokeInst::Create(
-              IInst, llvm::OperandBundleDef("funclet", funclet));
-          newInst = invoke;
+          if (IInst->countOperandBundlesOfType("funclet") == 0) {
+            auto newInvoke =
+                funclet ? llvm::InvokeInst::Create(
+                              IInst, llvm::OperandBundleDef("funclet", funclet))
+                        : llvm::cast<llvm::InvokeInst>(IInst->clone());
+            newInst = newInvoke;
+            if (unwindTo) {
+              newInvoke->setUnwindDest(unwindTo);
+            }
+          }
         } else if (auto CInst = llvm::dyn_cast<llvm::CallInst>(Inst)) {
-          auto call = llvm::CallInst::Create(
-              CInst, llvm::OperandBundleDef("funclet", funclet));
-          newInst = call;
-        } else if (funclet && llvm::isa<llvm::UnreachableInst>(Inst)) {
+          if (funclet && CInst->countOperandBundlesOfType("funclet") == 0) {
+            newInst = llvm::CallInst::Create(
+                CInst, llvm::OperandBundleDef("funclet", funclet));
+          }
+        } else if (llvm::isa<llvm::UnreachableInst>(Inst)) {
           newInst = llvm::BranchInst::Create(continueWith); // to cleanupret
+        } else if (auto CPInst = llvm::dyn_cast<llvm::CleanupPadInst>(Inst)) {
+          if (funclet && isTokenNoneVal(CPInst->getParentPad())) {
+            newInst =
+                llvm::CleanupPadInst::Create(funclet, {}, CPInst->getName());
+          }
+        } else if (auto CSInst = llvm::dyn_cast<llvm::CatchSwitchInst>(Inst)) {
+          if (isTokenNoneVal(CSInst->getParentPad())) {
+            auto oldUnwindDest = CSInst->getUnwindDest();
+            auto newCS = llvm::CatchSwitchInst::Create(
+                CSInst->getParentPad(),
+                oldUnwindDest && unwindTo ? unwindTo : oldUnwindDest,
+                CSInst->getNumOperands(), CSInst->getName());
+            for (auto handler : CSInst->handlers()) {
+              newCS->addHandler(handler);
+            }
+            newInst = newCS;
+            if (funclet) {
+              newCS->setParentPad(funclet);
+            }
+          }
+        } else if (auto CRInst =
+                       llvm::dyn_cast<llvm::CleanupReturnInst>(Inst)) {
+          if (isTokenNoneVal(CRInst->getCleanupPad()->getParentPad())) {
+            auto newCR = llvm::CleanupReturnInst::Create(
+                CRInst->getCleanupPad(),
+                unwindTo ? unwindTo : CRInst->getUnwindDest());
+            newInst = newCR;
+          }
         }
       }
       if (!newInst)
@@ -115,9 +143,6 @@ void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
 
       nbb->getInstList().push_back(newInst);
       VMap[Inst] = newInst; // Add instruction map to value.
-      if (unwindTo)
-        if (auto dest = getUnwindDest(Inst))
-          VMap[dest] = unwindTo;
     }
     nbb->insertInto(F, continueWith);
     VMap[bb] = nbb;
