@@ -112,7 +112,9 @@ public:
   explicit IrStruct(StructDeclaration *sd) : IrAggr(sd) {}
 
   /// Creates the TypeInfo_Struct symbol lazily.
-  llvm::GlobalVariable *getTypeInfoSymbol();
+  llvm::GlobalVariable *getTypeInfoSymbol(bool define = false);
+
+private:
   /// Builds the TypeInfo_Struct initializer constant lazily.
   llvm::Constant *getTypeInfoInit();
 };
@@ -123,20 +125,13 @@ public:
   explicit IrClass(ClassDeclaration *cd) : IrAggr(cd) {}
 
   /// Creates the __ClassZ/__InterfaceZ symbol lazily.
-  llvm::GlobalVariable *getClassInfoSymbol();
-  /// Builds the __ClassZ/__InterfaceZ initializer constant lazily.
-  llvm::Constant *getClassInfoInit();
+  llvm::GlobalVariable *getClassInfoSymbol(bool define = false);
 
   /// Creates the __vtblZ symbol lazily.
   llvm::GlobalVariable *getVtblSymbol(bool define = false);
-  /// Builds the __vtblZ initializer constant lazily.
-  llvm::Constant *getVtblInit();
 
   /// Defines all interface vtbls.
   void defineInterfaceVtbls();
-
-  /// Creates the __interfaceInfos symbol lazily.
-  llvm::GlobalVariable *getInterfaceArraySymbol();
 
   /// Initialize interface.
   void initializeInterface();
@@ -162,12 +157,21 @@ private:
   /// Corresponds to the Interface instances needed to be output.
   std::vector<BaseClass *> interfacesWithVtbls;
 
+  /// Builds the __ClassZ/__InterfaceZ initializer constant lazily.
+  llvm::Constant *getClassInfoInit();
+
+  /// Builds the __vtblZ initializer constant lazily.
+  llvm::Constant *getVtblInit();
+
   /// Returns the vtbl for an interface implementation.
   llvm::GlobalVariable *getInterfaceVtblSymbol(BaseClass *b,
                                                size_t interfaces_index,
                                                bool define = false);
   /// Defines the vtbl for an interface implementation.
   llvm::Constant *getInterfaceVtblInit(BaseClass *b, size_t interfaces_index);
+
+  /// Creates the __interfaceInfos symbol lazily.
+  llvm::GlobalVariable *getInterfaceArraySymbol();
 
   /// Create the Interface[] interfaces ClassInfo field initializer.
   llvm::Constant *getClassInfoInterfaces();

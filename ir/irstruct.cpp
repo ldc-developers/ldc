@@ -34,27 +34,31 @@ LLStructType* getTypeInfoStructMemType() {
 }
 }
 
-LLGlobalVariable* IrStruct::getTypeInfoSymbol() {
-  if (typeInfo) {
-    return typeInfo;
+LLGlobalVariable* IrStruct::getTypeInfoSymbol(bool define) {
+  if (!typeInfo) {
+    OutBuffer mangledName;
+    mangledName.writestring("TypeInfo_S");
+    mangleToBuffer(aggrdecl, &mangledName);
+    const auto length = mangledName.length();
+    mangledName.prependstring(("_D" + std::to_string(length)).c_str());
+    mangledName.writestring("6__initZ");
+
+    const auto irMangle = getIRMangledVarName(mangledName.peekChars(), LINKd);
+
+    // We need to keep the symbol mutable as the type is not declared as
+    // immutable on the D side, and e.g. synchronized() can be used on the
+    // implicit monitor.
+    typeInfo = declareGlobal(aggrdecl->loc, gIR->module,
+                             getTypeInfoStructMemType(), irMangle, false);
+
+    emitTypeInfoMetadata(typeInfo, aggrdecl->type);
   }
 
-  OutBuffer mangledName;
-  mangledName.writestring("TypeInfo_S");
-  mangleToBuffer(aggrdecl, &mangledName);
-  const auto length = mangledName.length();
-  mangledName.prependstring(("_D" + std::to_string(length)).c_str());
-  mangledName.writestring("6__initZ");
-
-  const auto irMangle = getIRMangledVarName(mangledName.peekChars(), LINKd);
-
-  // We need to keep the symbol mutable as the type is not declared as
-  // immutable on the D side, and e.g. synchronized() can be used on the
-  // implicit monitor.
-  typeInfo = declareGlobal(aggrdecl->loc, gIR->module,
-                           getTypeInfoStructMemType(), irMangle, false);
-
-  emitTypeInfoMetadata(typeInfo, aggrdecl->type);
+  if (define) {
+    auto init = getTypeInfoInit();
+    if (!typeInfo->hasInitializer())
+      defineGlobal(typeInfo, init, aggrdecl, true);
+  }
 
   return typeInfo;
 }

@@ -65,49 +65,55 @@ LLGlobalVariable *IrClass::getVtblSymbol(bool define) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLGlobalVariable *IrClass::getClassInfoSymbol() {
-  if (typeInfo) {
-    return typeInfo;
+LLGlobalVariable *IrClass::getClassInfoSymbol(bool define) {
+  if (!typeInfo) {
+    // create the ClassZ / InterfaceZ symbol
+    const auto irMangle = getIRMangledClassInfoSymbolName(aggrdecl);
+
+    // The type is also ClassInfo for interfaces – the actual TypeInfo for them
+    // is a TypeInfo_Interface instance that references __ClassZ in its "base"
+    // member.
+    Type *cinfoType = getClassInfoType();
+    DtoType(cinfoType);
+    IrTypeClass *tc = stripModifiers(cinfoType)->ctype->isClass();
+    assert(tc && "invalid ClassInfo type");
+
+    // classinfos cannot be constants since they're used as locks for
+    // synchronized
+    typeInfo = declareGlobal(aggrdecl->loc, gIR->module, tc->getMemoryLLType(),
+                             irMangle, false);
+
+    // Generate some metadata on this ClassInfo if it's for a class.
+    if (!aggrdecl->isInterfaceDeclaration()) {
+      // regular TypeInfo metadata
+      emitTypeInfoMetadata(typeInfo, aggrdecl->type);
+
+      // Gather information
+      LLType *type = DtoType(aggrdecl->type);
+      LLType *bodyType = llvm::cast<LLPointerType>(type)->getElementType();
+      bool hasDestructor = (aggrdecl->dtor != nullptr);
+      bool hasCustomDelete = false;
+      // Construct the fields
+      llvm::Metadata *mdVals[CD_NumFields];
+      mdVals[CD_BodyType] =
+          llvm::ConstantAsMetadata::get(llvm::UndefValue::get(bodyType));
+      mdVals[CD_Finalize] = llvm::ConstantAsMetadata::get(
+          LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasDestructor));
+      mdVals[CD_CustomDelete] =
+          llvm::ConstantAsMetadata::get(LLConstantInt::get(
+              LLType::getInt1Ty(gIR->context()), hasCustomDelete));
+      // Construct the metadata and insert it into the module.
+      const auto metaname = getMetadataName(CD_PREFIX, typeInfo);
+      llvm::NamedMDNode *node = gIR->module.getOrInsertNamedMetadata(metaname);
+      node->addOperand(llvm::MDNode::get(
+          gIR->context(), llvm::makeArrayRef(mdVals, CD_NumFields)));
+    }
   }
 
-  // create the ClassZ / InterfaceZ symbol
-  const auto irMangle = getIRMangledClassInfoSymbolName(aggrdecl);
-
-  // The type is also ClassInfo for interfaces – the actual TypeInfo for them
-  // is a TypeInfo_Interface instance that references __ClassZ in its "base"
-  // member.
-  Type *cinfoType = getClassInfoType();
-  DtoType(cinfoType);
-  IrTypeClass *tc = stripModifiers(cinfoType)->ctype->isClass();
-  assert(tc && "invalid ClassInfo type");
-
-  // classinfos cannot be constants since they're used as locks for synchronized
-  typeInfo = declareGlobal(aggrdecl->loc, gIR->module, tc->getMemoryLLType(),
-                           irMangle, false);
-
-  // Generate some metadata on this ClassInfo if it's for a class.
-  if (!aggrdecl->isInterfaceDeclaration()) {
-    // regular TypeInfo metadata
-    emitTypeInfoMetadata(typeInfo, aggrdecl->type);
-
-    // Gather information
-    LLType *type = DtoType(aggrdecl->type);
-    LLType *bodyType = llvm::cast<LLPointerType>(type)->getElementType();
-    bool hasDestructor = (aggrdecl->dtor != nullptr);
-    bool hasCustomDelete = false;
-    // Construct the fields
-    llvm::Metadata *mdVals[CD_NumFields];
-    mdVals[CD_BodyType] =
-        llvm::ConstantAsMetadata::get(llvm::UndefValue::get(bodyType));
-    mdVals[CD_Finalize] = llvm::ConstantAsMetadata::get(
-        LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasDestructor));
-    mdVals[CD_CustomDelete] = llvm::ConstantAsMetadata::get(
-        LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasCustomDelete));
-    // Construct the metadata and insert it into the module.
-    const auto metaname = getMetadataName(CD_PREFIX, typeInfo);
-    llvm::NamedMDNode *node = gIR->module.getOrInsertNamedMetadata(metaname);
-    node->addOperand(llvm::MDNode::get(
-        gIR->context(), llvm::makeArrayRef(mdVals, CD_NumFields)));
+  if (define) {
+    auto init = getClassInfoInit();
+    if (!typeInfo->hasInitializer())
+      defineGlobal(typeInfo, init, aggrdecl, true);
   }
 
   return typeInfo;

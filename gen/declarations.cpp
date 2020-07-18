@@ -110,8 +110,7 @@ public:
 
     // Emit TypeInfo.
     if (!ir->suppressTypeInfo()) {
-      llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
-      defineGlobal(interfaceZ, ir->getClassInfoInit(), decl, true);
+      ir->getClassInfoSymbol(/*define=*/true);
     }
   }
 
@@ -136,8 +135,7 @@ public:
       // we need to emit TypeInfos for opaque structs too
       IrStruct *ir = getIrAggr(decl, true);
       if (!irs->dcomputetarget && !ir->suppressTypeInfo()) {
-        llvm::GlobalVariable *typeInfo = ir->getTypeInfoSymbol();
-        defineGlobal(typeInfo, ir->getTypeInfoInit(), decl, true);
+        ir->getTypeInfoSymbol(/*define=*/true);
       }
 
       return;
@@ -174,8 +172,7 @@ public:
         }
 
         // define the TypeInfo_Struct symbol
-        llvm::GlobalVariable *typeInfo = ir->getTypeInfoSymbol();
-        defineGlobal(typeInfo, ir->getTypeInfoInit(), decl, true);
+        ir->getTypeInfoSymbol(/*define=*/true);
       }
     }
   }
@@ -220,8 +217,7 @@ public:
 
     // Emit TypeInfo.
     if (!ir->suppressTypeInfo()) {
-      llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
-      defineGlobal(classZ, ir->getClassInfoInit(), decl, true);
+      ir->getClassInfoSymbol(/*define=*/true);
     }
   }
 

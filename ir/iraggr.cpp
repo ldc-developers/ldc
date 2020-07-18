@@ -68,8 +68,8 @@ LLConstant *&IrAggr::getInitSymbol(bool define) {
 
   if (define) {
     auto initConstant = getDefaultInit();
-    auto initGlobal = llvm::dyn_cast<LLGlobalVariable>(init);
-    if (initGlobal && !initGlobal->hasInitializer()) {
+    auto initGlobal = llvm::cast<LLGlobalVariable>(init);
+    if (!initGlobal->hasInitializer()) {
       defineGlobal(initGlobal, initConstant, aggrdecl);
     }
   }
