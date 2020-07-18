@@ -487,12 +487,8 @@ class DeclareOrDefineVisitor : public Visitor {
       return;
     }
 
-    LLConstant *init = irstruct->getTypeInfoInit(); // might define ti!
-
-    if (!ti->hasInitializer()) {
-      defineGlobal(ti, init, sd);
-      ti->setLinkage(TYPEINFO_LINKAGE_TYPE); // override
-    }
+    irstruct->getTypeInfoSymbol(/*define=*/true);
+    ti->setLinkage(TYPEINFO_LINKAGE_TYPE); // override
   }
 
   // Only declare class TypeInfos. They are defined once in their owning module

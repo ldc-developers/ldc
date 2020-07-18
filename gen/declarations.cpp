@@ -107,8 +107,7 @@ public:
     // Emit TypeInfo.
     IrClass *ir = getIrAggr(decl);
     if (!ir->suppressTypeInfo()) {
-      llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
-      defineGlobal(interfaceZ, ir->getClassInfoInit(), decl);
+      ir->getClassInfoSymbol(/*define=*/true);
     }
   }
 
@@ -148,10 +147,7 @@ public:
 
       // Define the __initZ symbol.
       if (!decl->zeroInit) {
-        auto &initZ = ir->getInitSymbol();
-        auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
-        initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
-        setLinkageAndVisibility(decl, initGlobal);
+        ir->getInitSymbol(/*define=*/true);
       }
 
       // Emit special __xopEquals/__xopCmp/__xtoHash member functions required
@@ -204,20 +200,15 @@ public:
 
     IrClass *ir = getIrAggr(decl);
 
-    auto &initZ = ir->getInitSymbol();
-    auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
-    initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
-    setLinkageAndVisibility(decl, initGlobal);
+    ir->getInitSymbol(/*define=*/true);
 
-    llvm::GlobalVariable *vtbl = ir->getVtblSymbol();
-    defineGlobal(vtbl, ir->getVtblInit(), decl);
+    ir->getVtblSymbol(/*define*/true);
 
     ir->defineInterfaceVtbls();
 
     // Emit TypeInfo.
     if (!ir->suppressTypeInfo()) {
-      llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
-      defineGlobal(classZ, ir->getClassInfoInit(), decl);
+      ir->getClassInfoSymbol(/*define=*/true);
     }
   }
 

@@ -51,19 +51,26 @@ bool IrAggr::suppressTypeInfo() const {
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLConstant *&IrAggr::getInitSymbol() {
-  if (init) {
-    return init;
+LLConstant *IrAggr::getInitSymbol(bool define) {
+  if (!init) {
+    const auto irMangle = getIRMangledInitSymbolName(aggrdecl);
+
+    auto initGlobal =
+        declareGlobal(aggrdecl->loc, gIR->module, getLLStructType(), irMangle,
+                      /*isConstant=*/true);
+    initGlobal->setAlignment(LLMaybeAlign(DtoAlignment(type)));
+
+    init = initGlobal;
   }
 
-  // create the initZ symbol
-  const auto irMangle = getIRMangledInitSymbolName(aggrdecl);
-
-  auto initGlobal = declareGlobal(aggrdecl->loc, gIR->module, getLLStructType(),
-                                  irMangle, /*isConstant=*/true);
-  initGlobal->setAlignment(LLMaybeAlign(DtoAlignment(type)));
-
-  init = initGlobal;
+  if (define) {
+    auto initConstant = getDefaultInit();
+    auto initGlobal = llvm::dyn_cast<LLGlobalVariable>(init);
+    if (initGlobal // NOT a bitcast pointer to helper global
+        && !initGlobal->hasInitializer()) {
+      init = gIR->setGlobalVarInitializer(initGlobal, initConstant, aggrdecl);
+    }
+  }
 
   return init;
 }
