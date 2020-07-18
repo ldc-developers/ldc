@@ -566,10 +566,9 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   // Check if fdecl should be defined too for cross-module inlining.
   // If true, semantic is fully done for fdecl which is needed for some code
   // below (e.g. code that uses fdecl->vthis).
-  bool defineAtEnd;
+  bool defineAtEnd = false;
   bool defineAsAvailableExternally = false;
   if (willDefine) {
-    defineAtEnd = false;
   } else if (DtoIsTemplateInstance(fdecl)) {
     if (fdecl->semanticRun < PASSsemantic3done) {
       assert(fdecl->functionSemantic3());

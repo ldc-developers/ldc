@@ -56,7 +56,7 @@ void DtoResolveClass(ClassDeclaration *cd) {
   DtoType(cd->type);
 
   // create IrAggr
-  IrClass *irAggr = getIrAggr(cd, true);
+  getIrAggr(cd, true);
 
   // make sure all fields really get their ir field
   for (auto vd : cd->fields) {
@@ -66,11 +66,6 @@ void DtoResolveClass(ClassDeclaration *cd) {
       }
     }
     getIrField(vd, true);
-  }
-
-  // interface only emit typeinfo and classinfo
-  if (cd->isInterfaceDeclaration()) {
-    irAggr->initializeInterface();
   }
 }
 

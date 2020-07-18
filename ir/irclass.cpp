@@ -41,6 +41,28 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
+IrClass::IrClass(ClassDeclaration *cd) : IrAggr(cd) {
+  addInterfaceVtbls(cd);
+
+  assert(interfacesWithVtbls.size() ==
+             stripModifiers(type)->ctype->isClass()->getNumInterfaceVtbls() &&
+         "inconsistent number of interface vtables in this class");
+}
+
+void IrClass::addInterfaceVtbls(ClassDeclaration *cd) {
+  if (cd->baseClass && !cd->isInterfaceDeclaration()) {
+    addInterfaceVtbls(cd->baseClass);
+  }
+
+  if (cd->vtblInterfaces) {
+    for (auto bc : *cd->vtblInterfaces) {
+      interfacesWithVtbls.push_back(bc);
+    }
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 LLGlobalVariable *IrClass::getVtblSymbol(bool define) {
   if (!vtbl) {
     const auto irMangle = getIRMangledVTableSymbolName(aggrdecl);
@@ -108,12 +130,15 @@ LLGlobalVariable *IrClass::getClassInfoSymbol(bool define) {
       node->addOperand(llvm::MDNode::get(
           gIR->context(), llvm::makeArrayRef(mdVals, CD_NumFields)));
     }
+
+    if (!define && DtoIsTemplateInstance(aggrdecl))
+      define = true;
   }
 
   if (define) {
     auto init = getClassInfoInit();
     if (!typeInfo->hasInitializer())
-      defineGlobal(typeInfo, init, aggrdecl, true);
+      defineGlobal(typeInfo, init, aggrdecl);
   }
 
   return typeInfo;
@@ -361,7 +386,7 @@ LLConstant *IrClass::getClassInfoInit() {
   // TypeInfo_Class base
   assert(!isInterface || !cd->baseClass);
   if (cd->baseClass) {
-    b.push_classinfo(cd->baseClass);
+    b.push_typeinfo(cd->baseClass->type);
   } else {
     b.push_null(cinfoType);
   }
@@ -711,9 +736,7 @@ LLConstant *IrClass::getClassInfoInterfaces() {
     if (cd->isInterfaceDeclaration()) {
       vtb = DtoConstSlice(DtoConstSize_t(0), getNullValue(voidptrptr_type));
     } else {
-      auto itv = interfaceVtblMap.find({it->sym, i});
-      assert(itv != interfaceVtblMap.end() && "interface vtbl not found");
-      vtb = itv->second;
+      vtb = getInterfaceVtblSymbol(it, i);
       vtb = DtoBitCast(vtb, voidptrptr_type);
       auto vtblSize = itc->getVtblType()->getNumContainedTypes();
       vtb = DtoConstSlice(DtoConstSize_t(vtblSize), vtb);
@@ -735,7 +758,7 @@ LLConstant *IrClass::getClassInfoInterfaces() {
   // create and apply initializer
   LLConstant *arr = LLConstantArray::get(array_type, constants);
   auto ciarr = getInterfaceArraySymbol();
-  defineGlobal(ciarr, arr, cd, true);
+  defineGlobal(ciarr, arr, cd);
 
   // return null, only baseclass provide interfaces
   if (cd->vtblInterfaces->length == 0) {
@@ -752,21 +775,4 @@ LLConstant *IrClass::getClassInfoInterfaces() {
 
   // return as a slice
   return DtoConstSlice(DtoConstSize_t(cd->vtblInterfaces->length), ptr);
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
-void IrClass::initializeInterface() {
-  InterfaceDeclaration *base = aggrdecl->isInterfaceDeclaration();
-  assert(base && "not interface");
-
-  // has interface vtbls?
-  if (!base->vtblInterfaces) {
-    return;
-  }
-
-  for (auto bc : *base->vtblInterfaces) {
-    // add to the interface list
-    interfacesWithVtbls.push_back(bc);
-  }
 }

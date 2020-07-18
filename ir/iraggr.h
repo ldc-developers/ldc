@@ -103,7 +103,7 @@ private:
   void addFieldInitializers(llvm::SmallVectorImpl<llvm::Constant *> &constants,
                             const VarInitMap &explicitInitializers,
                             AggregateDeclaration *decl, unsigned &offset,
-                            bool populateInterfacesWithVtbls);
+                            unsigned &interfaceVtblIndex);
 };
 
 /// Represents a struct.
@@ -122,7 +122,7 @@ private:
 /// Represents a class/interface.
 class IrClass : public IrAggr {
 public:
-  explicit IrClass(ClassDeclaration *cd) : IrAggr(cd) {}
+  explicit IrClass(ClassDeclaration *cd);
 
   /// Creates the __ClassZ/__InterfaceZ symbol lazily.
   llvm::GlobalVariable *getClassInfoSymbol(bool define = false);
@@ -132,9 +132,6 @@ public:
 
   /// Defines all interface vtbls.
   void defineInterfaceVtbls();
-
-  /// Initialize interface.
-  void initializeInterface();
 
 private:
   /// Vtbl global.
@@ -156,6 +153,8 @@ private:
   /// by this class.
   /// Corresponds to the Interface instances needed to be output.
   std::vector<BaseClass *> interfacesWithVtbls;
+
+  void addInterfaceVtbls(ClassDeclaration *cd);
 
   /// Builds the __ClassZ/__InterfaceZ initializer constant lazily.
   llvm::Constant *getClassInfoInit();

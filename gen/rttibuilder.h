@@ -46,7 +46,6 @@ public:
   void push_size_as_vp(uint64_t s);
   void push_string(const char *str);
   void push_typeinfo(Type *t);
-  void push_classinfo(ClassDeclaration *cd);
 
   /// pushes the function pointer or a null void* if it cannot.
   void push_funcptr(FuncDeclaration *fd, Type *castto = nullptr);

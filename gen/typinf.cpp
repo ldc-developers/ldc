@@ -299,7 +299,7 @@ public:
     RTTIBuilder b(getInterfaceTypeInfoType());
 
     // TypeInfo base
-    b.push_classinfo(tc->sym);
+    b.push_typeinfo(tc);
 
     // finish
     b.finalize(gvar);
@@ -503,10 +503,10 @@ LLGlobalVariable *DtoResolveTypeInfo(TypeInfoDeclaration *tid) {
   assert(!gIR->dcomputetarget);
 
   if (!tid->ir->isResolved()) {
-    tid->ir->setResolved();
-
     DeclareOrDefineVisitor v;
     tid->accept(&v);
+
+    tid->ir->setResolved();
   }
 
   return llvm::cast<LLGlobalVariable>(getIrValue(tid));
