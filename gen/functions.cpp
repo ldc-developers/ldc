@@ -571,7 +571,8 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   if (willDefine) {
   } else if (DtoIsTemplateInstance(fdecl)) {
     if (fdecl->semanticRun < PASSsemantic3done) {
-      assert(fdecl->functionSemantic3());
+      const bool semaSuccess = fdecl->functionSemantic3();
+      assert(semaSuccess);
       Module::runDeferredSemantic3();
     }
     IF_LOG Logger::println(
