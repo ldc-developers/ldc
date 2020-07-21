@@ -135,8 +135,11 @@ public:
       return Working;
 
     // Check for remaining work in Working.
-    if (Working)
-      MD5.update(Working);
+    if (Working) {
+      using namespace llvm::support;
+      uint64_t Swapped = endian::byte_swap<uint64_t, little>(Working);
+      MD5.update(llvm::makeArrayRef((uint8_t *)&Swapped, sizeof(Swapped)));
+    }
 
     // Finalize the MD5 and return the hash.
     llvm::MD5::MD5Result Result;
