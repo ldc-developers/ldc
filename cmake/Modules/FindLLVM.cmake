@@ -113,6 +113,10 @@ else()
     llvm_set(LDFLAGS ldflags)
     llvm_set(SYSTEM_LIBS system-libs)
     string(REPLACE "\n" " " LLVM_LDFLAGS "${LLVM_LDFLAGS} ${LLVM_SYSTEM_LIBS}")
+    if(APPLE) # unclear why/how this happens
+        string(REPLACE "-llibxml2.tbd" "-lxml2" LLVM_LDFLAGS ${LLVM_LDFLAGS})
+    endif()
+
     llvm_set(LIBRARY_DIRS libdir true)
     llvm_set_libs(LIBRARIES libs "${LLVM_FIND_COMPONENTS}")
     # LLVM bug: llvm-config --libs tablegen returns -lLLVM-3.8.0
