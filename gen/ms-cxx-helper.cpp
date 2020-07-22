@@ -1,6 +1,6 @@
 //===-- ms-cxx-helper.cpp -------------------------------------------------===//
 //
-//                         LDC – the LLVM D compiler
+//                         LDC â€“ the LLVM D compiler
 //
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
@@ -13,6 +13,7 @@
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
+#include "gen/mangling.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/CFG.h"
@@ -168,9 +169,9 @@ llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd) {
     return Var;
 
   // first character skipped in debugger output, so we add 'D' as prefix
-  std::string TypeNameString = "D";
-  TypeNameString.append(cd->toPrettyChars());
-  std::string TypeDescName = TypeNameString + "@TypeDescriptor";
+  const auto TypeNameString = (llvm::Twine("D") + cd->toPrettyChars()).str();
+
+  const auto TypeDescName = getIRMangledAggregateName(cd, "@TypeDescriptor");
 
   // Declare and initialize the TypeDescriptor.
   llvm::Constant *Fields[] = {

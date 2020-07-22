@@ -134,9 +134,8 @@ std::string getIRMangledVarName(std::string baseMangle, LINK link) {
   return gABI->mangleVariableForLLVM(std::move(baseMangle), link);
 }
 
-namespace {
 std::string getIRMangledAggregateName(AggregateDeclaration *ad,
-                                    const char *suffix) {
+                                      const char *suffix) {
   std::string ret = "_D";
 
   OutBuffer mangleBuf;
@@ -153,7 +152,6 @@ std::string getIRMangledAggregateName(AggregateDeclaration *ad,
     ret += suffix;
 
   return getIRMangledVarName(std::move(ret), LINKd);
-}
 }
 
 std::string getIRMangledInitSymbolName(AggregateDeclaration *aggrdecl) {

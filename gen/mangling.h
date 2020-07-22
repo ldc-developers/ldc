@@ -35,9 +35,12 @@ std::string getIRMangledName(VarDeclaration *vd);
 std::string getIRMangledFuncName(std::string baseMangle, LINK link);
 std::string getIRMangledVarName(std::string baseMangle, LINK link);
 
+std::string getIRMangledAggregateName(AggregateDeclaration *aggrdecl,
+                                      const char *suffix = nullptr);
 std::string getIRMangledInitSymbolName(AggregateDeclaration *aggrdecl);
 std::string getIRMangledVTableSymbolName(AggregateDeclaration *aggrdecl);
 std::string getIRMangledClassInfoSymbolName(AggregateDeclaration *aggrdecl);
 std::string getIRMangledInterfaceInfosSymbolName(ClassDeclaration *cd);
+
 std::string getIRMangledModuleInfoSymbolName(Module *module);
 std::string getIRMangledModuleRefSymbolName(const char *moduleMangle);
