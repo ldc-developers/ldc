@@ -163,10 +163,11 @@ llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd) {
                          /*isConstant=*/true);
   }
 
-  auto classInfoPtr = getIrAggr(cd, true)->getClassInfoSymbol();
-  llvm::GlobalVariable *&Var = irs.TypeDescriptorMap[classInfoPtr];
+  llvm::GlobalVariable *&Var = irs.TypeDescriptorMap[cd];
   if (Var)
     return Var;
+
+  auto classInfoPtr = getIrAggr(cd, true)->getClassInfoSymbol();
 
   // first character skipped in debugger output, so we add 'D' as prefix
   const auto TypeNameString = (llvm::Twine("D") + cd->toPrettyChars()).str();

@@ -272,7 +272,7 @@ public:
 
   // MS C++ compatible type descriptors
   llvm::DenseMap<size_t, llvm::StructType *> TypeDescriptorTypeMap;
-  llvm::DenseMap<llvm::Constant *, llvm::GlobalVariable *> TypeDescriptorMap;
+  llvm::DenseMap<ClassDeclaration *, llvm::GlobalVariable *> TypeDescriptorMap;
 
   // Target for dcompute. If not nullptr, it owns this.
   DComputeTarget *dcomputetarget = nullptr;
