@@ -339,7 +339,10 @@ LLConstant *IrClass::getClassInfoInit() {
   Type *const cinfoType = getClassInfoType(); // check declaration in object.d
   ClassDeclaration *const cinfo = Type::typeinfoclass;
 
-  if (cinfo->fields.length != 12) {
+  // for MSVC EH, we need an extra trailing field (`mangledName`)
+  const bool isMSVC = global.params.targetTriple->isWindowsMSVCEnvironment();
+
+  if (cinfo->fields.length != (isMSVC ? 13 : 12)) {
     error(Loc(), "Unexpected number of fields in `object.ClassInfo`; "
                  "druntime version does not match compiler (see -v)");
     fatal();
@@ -421,6 +424,17 @@ LLConstant *IrClass::getClassInfoInit() {
     b.push_size_as_vp(0); // no pointers
   } else {
     b.push_size_as_vp(1); // has pointers
+  }
+
+  if (isMSVC) {
+    // string mangledName
+    auto t = ClassDeclaration::throwable;
+    const bool isAThrowable = (t && (cd == t || t->isBaseOf(cd, nullptr)));
+    if (isAThrowable) {
+      b.push_string(getIRMangledAggregateName(cd).c_str());
+    } else {
+      b.push_null_void_array();
+    }
   }
 
   // build the initializer
