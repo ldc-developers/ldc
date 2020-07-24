@@ -598,7 +598,7 @@ if(LDC_WITH_LLD)
     else()
         set(LDC_LINKERFLAG_LIST -llldDriver -llldMinGW -llldCOFF -llldELF -llldMachO -llldWasm -llldYAML -llldReaderWriter -llldCommon -llldCore ${LDC_LINKERFLAG_LIST})
     endif()
-    if(APPLE) # bug, should be fixed in LLVM 6.0.1
+    if(APPLE AND LDC_LLVM_VER LESS 700) # LLVM 6.0.0 bug, should be fixed in 6.0.1
         list(APPEND LDC_LINKERFLAG_LIST -lxml2)
     endif()
 endif()

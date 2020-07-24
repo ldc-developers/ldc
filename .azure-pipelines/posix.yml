@@ -18,16 +18,15 @@ steps:
       tar -xf ninja-mac.zip -C ninja
     else
       export DEBIAN_FRONTEND=noninteractive
+      wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+      CLANG_MAJOR=${CLANG_VERSION%%\.*}
+      sudo add-apt-repository "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-$CLANG_MAJOR main"
       sudo dpkg --add-architecture i386
       sudo apt-get -q update
       sudo apt-get -yq install \
-        git-core cmake ninja-build g++-multilib \
+        git-core cmake ninja-build clang-$CLANG_MAJOR g++-multilib \
         libcurl3 libcurl3:i386 \
         curl gdb p7zip-full tzdata unzip zip
-      # Download & extract clang
-      curl -L -o clang.tar.xz http://releases.llvm.org/$CLANG_VERSION/clang+llvm-$CLANG_VERSION-x86_64-linux-gnu-ubuntu-16.04.tar.xz
-      mkdir clang
-      tar -xf clang.tar.xz --strip 1 -C clang
       # Use ld.gold per default, so that LTO is tested
       sudo update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
     fi
@@ -86,8 +85,9 @@ steps:
     export PATH="$PWD/ninja:$PATH" # for macOS
     # Linux: use clang instead of gcc, for LTO
     if [ "$CI_OS" = "linux" ]; then
-      export CC=$PWD/clang/bin/clang
-      export CXX=$PWD/clang/bin/clang++
+      CLANG_MAJOR=${CLANG_VERSION%%\.*}
+      export CC=/usr/bin/clang-$CLANG_MAJOR
+      export CXX=/usr/bin/clang++-$CLANG_MAJOR
     fi
     installDir=$PWD/install
     mkdir build
