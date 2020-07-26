@@ -1,9 +1,8 @@
 // Test that ThreadSanitizer+LDC works on a very basic testcase.
-// Note that -betterC is used, to avoid relying on druntime for this test.
 
 // REQUIRES: TSan
 
-// RUN: %ldc -betterC -g -fsanitize=thread %s -of=%t%exe
+// RUN: %ldc -g -fsanitize=thread %s -of=%t%exe
 // RUN: %deflake 10 %t%exe | FileCheck %s
 
 // CHECK: WARNING: ThreadSanitizer: data race
@@ -20,7 +19,6 @@ void *thread1(void *x) {
   return x;
 }
 
-extern(C)
 int main() {
   barrier_init(&barrier, 2);
   pthread_t t;
