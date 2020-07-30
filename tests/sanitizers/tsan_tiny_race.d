@@ -2,9 +2,10 @@
 // Note that -betterC is used, to avoid relying on druntime for this test.
 
 // REQUIRES: TSan
+// REQUIRES: atleast_llvm800
 
 // RUN: %ldc -betterC -g -fsanitize=thread %s -of=%t%exe
-// RUN: %deflake 10 %t%exe | FileCheck %s
+// RUN: %deflake 20 %t%exe | FileCheck %s
 
 // CHECK: WARNING: ThreadSanitizer: data race
 
