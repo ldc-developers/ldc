@@ -102,6 +102,7 @@ public:
     ConditionalExpr,
     AndAndExpr,
     OrOrExpr,
+    UnrolledLoopIterationScope,
 
     // Keep this last.  It's for the static assert that follows.
     LastHashType
@@ -176,11 +177,39 @@ struct MapRegionCounters : public StoppableVisitor {
     }                                                                          \
   } while (0)
 
-  void visit(Statement *stmt) override {}
-  void visit(Expression *exp) override {}
-  void visit(Declaration *decl) override {}
-  void visit(Initializer *init) override {}
-  void visit(Dsymbol *dsym) override {}
+  void visit(Statement *stmt) override {
+    // If this assert fails, a new statement type was added to the frontend, and
+    // thus we need to decide on how to handle PGO calculations for that, both
+    // in MapRegionCounters and in ComputeRegionCounts.
+    assert(0 && "All statement types should be explicitly handled to avoid "
+                "missing new statement types in MapRegionCounters and "
+                "ComputeRegionCounts");
+  }
+  void visit(CompoundStatement *) override {}
+  void visit(ExpStatement *) override {}
+  void visit(ImportStatement *) override {}
+  void visit(ScopeStatement *) override {}
+  void visit(ReturnStatement *) override {}
+  void visit(StaticAssertStatement *) override {}
+  void visit(CompileStatement *) override {}
+  void visit(ScopeGuardStatement *) override {}
+  void visit(ConditionalStatement *) override {}
+  void visit(StaticForeachStatement *) override {}
+  void visit(PragmaStatement *) override {}
+  void visit(BreakStatement *) override {}
+  void visit(ContinueStatement *) override {}
+  void visit(GotoDefaultStatement *) override {}
+  void visit(GotoCaseStatement *) override {}
+  void visit(GotoStatement *) override {}
+  void visit(SynchronizedStatement *) override {}
+  void visit(WithStatement *) override {}
+  void visit(ThrowStatement *) override {}
+  void visit(AsmStatement *) override {}
+
+  void visit(Expression *) override {}
+  void visit(Declaration *) override {}
+  void visit(Initializer *) override {}
+  void visit(Dsymbol *) override {}
 
   void visit(FuncDeclaration *fd) override {
     if (NextCounter) {
@@ -227,6 +256,23 @@ struct MapRegionCounters : public StoppableVisitor {
     SKIP_VISITED(stmt);
     CounterMap[stmt] = NextCounter++;
     Hash.combine(PGOHash::ForeachRangeStmt);
+  }
+
+  void visit(UnrolledLoopStatement *stmt) override {
+    // Continues and breaks in the scopes of UnrolledLoop iterations can "goto"
+    // to "labels" at the start of the next iteration or end of the loop. We
+    // should therefore treat each unrolled loop iteration the same as
+    // LabelStatements (with redundant counting of the first iteration which is
+    // always executed).
+    // The counter for the UnrolledLoopStatement itself counts the
+    // exit block of the 'loop'.
+    SKIP_VISITED(stmt);
+    CounterMap[stmt] = NextCounter++;
+    Hash.combine(PGOHash::UnrolledLoopIterationScope);
+    for (auto s : *stmt->statements) {
+      CounterMap[s] = NextCounter++;
+      Hash.combine(PGOHash::UnrolledLoopIterationScope);
+    }
   }
 
   void visit(LabelStatement *stmt) override {
@@ -449,6 +495,29 @@ struct ComputeRegionCounts : public RecursiveVisitor {
     }
 
     CurrentCount = 0;
+    RecordNextStmtCount = true;
+  }
+
+  void visit(UnrolledLoopStatement *S) override {
+    RecordStmtCount(S);
+
+    // The iterations can still have `break` and `continue` even though we are
+    // no longer in a loop. We need to provide this BreakContinue struct for
+    // those breaks&continues to refer to, but we do not use it otherwise.
+    BreakContinueStack.push_back(BreakContinue());
+
+    // Iteration statement counters track the entry block of each iteration
+    // (redundant for first iteration)
+    for (auto iteration_stmt : *S->statements) {
+      setCount(PGO.getRegionCount(iteration_stmt));
+      RecordNextStmtCount = true;
+      recurse(iteration_stmt);
+    }
+
+    BreakContinueStack.pop_back();
+
+    // UnrolledLoopStatement counter tracks the continuation after the statement.
+    setCount(PGO.getRegionCount(S));
     RecordNextStmtCount = true;
   }
 

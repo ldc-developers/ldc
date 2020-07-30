@@ -1237,6 +1237,8 @@ public:
       // continue goes to next statement, break goes to end
       irs->funcGen().jumpTargets.pushLoopTarget(stmt, nextbb, endbb);
 
+      PGO.emitCounterIncrement(s);
+
       // do statement
       s->accept(this);
 
@@ -1250,6 +1252,9 @@ public:
     }
 
     irs->scope() = IRScope(endbb);
+
+    // PGO counter tracks the continuation after the loop
+    PGO.emitCounterIncrement(stmt);
 
     // end the dwarf lexical block
     irs->DBuilder.EmitBlockEnd();
