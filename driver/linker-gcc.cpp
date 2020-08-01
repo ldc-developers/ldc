@@ -291,9 +291,9 @@ void ArgsBuilder::addSanitizerLinkFlags(const llvm::Triple &triple,
   // In case of shared ASan, I think we also need to statically link with
   // libclang_rt.asan-preinit-<arch>.a on Linux. On Darwin, the only option is
   // to use the shared library.
-  bool linkSharedTSan = triple.isOSDarwin();
+  bool linkSharedLibrary = triple.isOSDarwin();
   const auto searchPaths =
-      getFullCompilerRTLibPathCandidates(sanitizerName, triple, linkSharedTSan);
+      getFullCompilerRTLibPathCandidates(sanitizerName, triple, linkSharedLibrary);
 
   for (const auto &filepath : searchPaths) {
     IF_LOG Logger::println("Searching sanitizer lib: %s", filepath.c_str());
@@ -303,7 +303,7 @@ void ArgsBuilder::addSanitizerLinkFlags(const llvm::Triple &triple,
       IF_LOG Logger::println("Found, linking with %s", filepath.c_str());
       args.push_back(filepath);
 
-      if (linkSharedTSan) {
+      if (linkSharedLibrary) {
         // Add @executable_path to rpath to support having the shared lib copied
         // with the executable.
         args.push_back("-rpath");
