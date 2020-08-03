@@ -56,7 +56,9 @@ public:
 
 private:
   virtual void addSanitizers(const llvm::Triple &triple);
-  virtual void addASanLinkFlags(const llvm::Triple &triple);
+  virtual void addSanitizerLinkFlags(const llvm::Triple &triple,
+                                     const llvm::StringRef sanitizerName,
+                                     const llvm::StringRef fallbackFlag);
   virtual void addFuzzLinkFlags(const llvm::Triple &triple);
   virtual void addCppStdlibLinkFlags(const llvm::Triple &triple);
   virtual void addProfileRuntimeLinkFlags(const llvm::Triple &triple);
@@ -279,27 +281,29 @@ getFullCompilerRTLibPathCandidates(llvm::StringRef baseName,
   return r;
 }
 
-void ArgsBuilder::addASanLinkFlags(const llvm::Triple &triple) {
-  // Examples: "libclang_rt.asan-x86_64.a" or "libclang_rt.asan-arm.a" and
-  // "libclang_rt.asan-x86_64.so"
+void ArgsBuilder::addSanitizerLinkFlags(const llvm::Triple &triple,
+                                        const llvm::StringRef sanitizerName,
+                                        const llvm::StringRef fallbackFlag) {
+  // Examples: "libclang_rt.tsan-x86_64.a" or "libclang_rt.tsan-arm.a" and
+  // "libclang_rt.tsan-x86_64.so"
 
   // TODO: let user choose to link with shared lib.
   // In case of shared ASan, I think we also need to statically link with
   // libclang_rt.asan-preinit-<arch>.a on Linux. On Darwin, the only option is
   // to use the shared library.
-  bool linkSharedASan = triple.isOSDarwin();
+  bool linkSharedLibrary = triple.isOSDarwin();
   const auto searchPaths =
-      getFullCompilerRTLibPathCandidates("asan", triple, linkSharedASan);
+      getFullCompilerRTLibPathCandidates(sanitizerName, triple, linkSharedLibrary);
 
   for (const auto &filepath : searchPaths) {
-    IF_LOG Logger::println("Searching ASan lib: %s", filepath.c_str());
+    IF_LOG Logger::println("Searching sanitizer lib: %s", filepath.c_str());
 
     if (llvm::sys::fs::exists(filepath) &&
         !llvm::sys::fs::is_directory(filepath)) {
       IF_LOG Logger::println("Found, linking with %s", filepath.c_str());
       args.push_back(filepath);
 
-      if (linkSharedASan) {
+      if (linkSharedLibrary) {
         // Add @executable_path to rpath to support having the shared lib copied
         // with the executable.
         args.push_back("-rpath");
@@ -315,11 +319,9 @@ void ArgsBuilder::addASanLinkFlags(const llvm::Triple &triple) {
     }
   }
 
-  // When we reach here, we did not find the ASan library.
-  // Fallback, requires Clang. The asan library contains a versioned symbol
-  // name and a linker error will happen when the LDC-LLVM and Clang-LLVM
-  // versions don't match.
-  args.push_back("-fsanitize=address");
+  // When we reach here, we did not find the sanitizer library.
+  // Fallback, requires Clang.
+  args.push_back(fallbackFlag);
 }
 
 // Adds all required link flags for -fsanitize=fuzzer when libFuzzer library is
@@ -446,7 +448,7 @@ void ArgsBuilder::addProfileRuntimeLinkFlags(const llvm::Triple &triple) {
 
 void ArgsBuilder::addSanitizers(const llvm::Triple &triple) {
   if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
-    addASanLinkFlags(triple);
+    addSanitizerLinkFlags(triple, "asan", "-fsanitize=address");
   }
 
   if (opts::isSanitizerEnabled(opts::FuzzSanitizer)) {
@@ -459,10 +461,8 @@ void ArgsBuilder::addSanitizers(const llvm::Triple &triple) {
     args.push_back("-fsanitize=memory");
   }
 
-  // TODO: instead of this, we should link with our own sanitizer libraries
-  // because LDC's LLVM version could be different from the system clang.
   if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {
-    args.push_back("-fsanitize=thread");
+    addSanitizerLinkFlags(triple, "tsan", "-fsanitize=thread");
   }
 }
 
