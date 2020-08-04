@@ -101,12 +101,11 @@ bool DIBuilder::mustEmitLocationsDebugInfo() {
 
 DIBuilder::DIBuilder(IRState *const IR)
     : IR(IR), DBuilder(IR->module), CUNode(nullptr),
-      isTargetMSVC(global.params.targetTriple->isWindowsMSVCEnvironment()),
-      isTargetMSVCx64(isTargetMSVC &&
-                      global.params.targetTriple->isArch64Bit()),
+      emitCodeView(!opts::emitDwarfDebugInfo &&
+                   global.params.targetTriple->isWindowsMSVCEnvironment()),
       // like clang, don't emit any column infos for CodeView by default
       // (https://reviews.llvm.org/D23720)
-      emitColumnInfo(opts::getFlagOrDefault(::emitColumnInfo, !isTargetMSVC)) {}
+      emitColumnInfo(opts::getFlagOrDefault(::emitColumnInfo, !emitCodeView)) {}
 
 llvm::LLVMContext &DIBuilder::getContext() { return IR->context(); }
 
@@ -244,7 +243,7 @@ DIType DIBuilder::CreateBasicType(Type *type) {
     Encoding = DW_ATE_boolean;
     break;
   case Tchar:
-    if (isTargetMSVC) {
+    if (emitCodeView) {
       // VS debugger does not support DW_ATE_UTF for char
       Encoding = DW_ATE_unsigned_char;
       break;
@@ -255,7 +254,7 @@ DIType DIBuilder::CreateBasicType(Type *type) {
     Encoding = DW_ATE_UTF;
     break;
   case Tint8:
-    if (isTargetMSVC) {
+    if (emitCodeView) {
       // VS debugger does not support DW_ATE_signed for 8-bit
       Encoding = DW_ATE_signed_char;
       break;
@@ -268,7 +267,7 @@ DIType DIBuilder::CreateBasicType(Type *type) {
     Encoding = DW_ATE_signed;
     break;
   case Tuns8:
-    if (isTargetMSVC) {
+    if (emitCodeView) {
       // VS debugger does not support DW_ATE_unsigned for 8-bit
       Encoding = DW_ATE_unsigned_char;
       break;
@@ -288,7 +287,7 @@ DIType DIBuilder::CreateBasicType(Type *type) {
   case Timaginary32:
   case Timaginary64:
   case Timaginary80:
-    if (isTargetMSVC) {
+    if (emitCodeView) {
       // DW_ATE_imaginary_float not supported by the LLVM DWARF->CodeView
       // conversion
       Encoding = DW_ATE_float;
@@ -299,7 +298,7 @@ DIType DIBuilder::CreateBasicType(Type *type) {
   case Tcomplex32:
   case Tcomplex64:
   case Tcomplex80:
-    if (isTargetMSVC) {
+    if (emitCodeView) {
       // DW_ATE_complex_float not supported by the LLVM DWARF->CodeView
       // conversion
       return CreateComplexType(t);
@@ -890,11 +889,22 @@ void DIBuilder::EmitCompileUnit(Module *m) {
   auto producerName =
       std::string("LDC ") + ldc_version + " (LLVM " + llvm_version + ")";
 
-  if (isTargetMSVC)
+  if (emitCodeView) {
     IR->module.addModuleFlag(llvm::Module::Warning, "CodeView", 1);
-  else if (global.params.dwarfVersion > 0)
-    IR->module.addModuleFlag(llvm::Module::Warning, "Dwarf Version",
-                             global.params.dwarfVersion);
+  } else {
+    unsigned dwarfVersion = global.params.dwarfVersion;
+    if (dwarfVersion == 0 &&
+        global.params.targetTriple->isWindowsMSVCEnvironment()) {
+      // clang 10 defaults to v4
+      dwarfVersion = 4;
+    }
+
+    if (dwarfVersion > 0) {
+      IR->module.addModuleFlag(llvm::Module::Warning, "Dwarf Version",
+                               dwarfVersion);
+    }
+  }
+
   // Metadata without a correct version will be stripped by UpgradeDebugInfo.
   IR->module.addModuleFlag(llvm::Module::Warning, "Debug Info Version",
                            llvm::DEBUG_METADATA_VERSION);
@@ -974,7 +984,7 @@ DISubprogram DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
   DIScope scope = nullptr;
   llvm::StringRef name;
   // FIXME: work around apparent LLVM CodeView bug wrt. nested functions
-  if (isTargetMSVC && fd->toParent2()->isFuncDeclaration()) {
+  if (emitCodeView && fd->toParent2()->isFuncDeclaration()) {
     // emit into module & use fully qualified name
     scope = GetCU();
     name = fd->toPrettyChars(true);
@@ -1241,7 +1251,8 @@ void DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 
   // For MSVC x64, some by-value parameters need to be declared as DI locals to
   // work around garbage for both cdb and VS debuggers.
-  if (isParameter && !forceAsLocal && isTargetMSVCx64 && !isRefOrOut) {
+  if (emitCodeView && isParameter && !forceAsLocal && !isRefOrOut &&
+      global.params.targetTriple->isArch64Bit()) {
     // 1) params rewritten by IndirectByvalRewrite
     if (isaArgument(ll) && addr.empty()) {
       forceAsLocal = true;

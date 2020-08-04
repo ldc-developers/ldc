@@ -1045,6 +1045,11 @@ int cppmain() {
       global.obj_ext = {3, "obj"};
   }
 
+  // -gdwarf implies -g if not specified explicitly
+  if (opts::emitDwarfDebugInfo && global.params.symdebug == 0) {
+    global.params.symdebug = 1;
+  }
+
   // allocate the target abi
   gABI = TargetABI::getTarget();
 
