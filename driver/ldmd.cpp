@@ -813,7 +813,7 @@ int cppmain() {
 
   int rspFd;
   llvm::SmallString<128> rspPath;
-  if (ls::fs::createUniqueFile("ldmd-%%-%%-%%-%%.rsp", rspFd, rspPath)) {
+  if (ls::fs::createTemporaryFile("ldmd", "rsp", rspFd, rspPath)) {
     error("Could not open temporary response file.");
   }
 
@@ -821,7 +821,7 @@ int cppmain() {
     llvm::raw_fd_ostream rspOut(rspFd, /*shouldClose=*/true);
     // skip argv[0] and terminating NULL
     for (auto it = args.begin() + 1, end = args.end() - 1; it != end; ++it) {
-      rspOut << *it << '\n';
+      rspOut << '"' << *it << "\"\n";
     }
   }
 
