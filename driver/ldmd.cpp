@@ -28,7 +28,6 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Support/Program.h"
 #include "llvm/Support/SystemUtils.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
@@ -37,7 +36,6 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
-#include <numeric>
 #include <vector>
 
 #if _WIN32
@@ -109,22 +107,13 @@ bool startsWith(const char *str, const char (&prefix)[N]) {
 /**
  * Runs the given executable, returning its error code.
  */
-int execute(const std::string &exePath, const char **args) {
-#if LDC_LLVM_VER >= 700
-  std::vector<llvm::StringRef> argv;
-  for (auto pArg = args; *pArg; ++pArg) {
-    argv.push_back(*pArg);
-  }
-  auto envVars = llvm::None;
-#else
-  auto argv = args;
-  auto envVars = nullptr;
-#endif
-
+int execute(std::vector<const char *> fullArgs) {
   std::string errorMsg;
-  int rc = ls::ExecuteAndWait(exePath, argv, envVars, {}, 0, 0, &errorMsg);
-  if (!errorMsg.empty()) {
-    error("Error executing %s: %s", exePath.c_str(), errorMsg.c_str());
+  const char *executable = fullArgs[0];
+  const int rc =
+      args::executeAndWait(std::move(fullArgs), llvm::sys::WEM_UTF8, &errorMsg);
+  if (rc && !errorMsg.empty()) {
+    error("Error executing %s: %s", executable, errorMsg.c_str());
   }
   return rc;
 }
@@ -134,8 +123,7 @@ int execute(const std::string &exePath, const char **args) {
  */
 void printUsage(const char *argv0, const std::string &ldcPath) {
   // Print version information by actually invoking ldc -version.
-  const char *args[] = {ldcPath.c_str(), "-version", nullptr};
-  execute(ldcPath, args);
+  execute({ldcPath.c_str(), "-version"});
 
   printf(
       "\n\
@@ -538,8 +526,7 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         const char *c = p + 6;
         if (strcmp(c, "?") == 0 || strcmp(c, "h") == 0 ||
             strcmp(c, "help") == 0) {
-          const char *mcpuargs[] = {ldcPath.c_str(), "-mcpu=help", nullptr};
-          execute(ldcPath, mcpuargs);
+          execute({ldcPath.c_str(), "-mcpu=help"});
           exit(EXIT_SUCCESS);
         } else if (strcmp(c, "baseline") == 0) {
           // ignore
@@ -667,8 +654,7 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         exit(EXIT_SUCCESS);
       } else if (strcmp(p + 1, "-version") == 0) {
         // Print version information by actually invoking ldc -version.
-        const char *versionargs[] = {ldcPath.c_str(), "-version", nullptr};
-        execute(ldcPath, versionargs);
+        execute({ldcPath.c_str(), "-version"});
         exit(EXIT_SUCCESS);
       }
       /* -L
@@ -720,23 +706,6 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
     }
     puts("");
   }
-}
-
-/**
- * Returns the OS-dependent length limit for the command line when invoking
- * subprocesses.
- */
-size_t maxCommandLineLen() {
-#if defined(HAVE_SC_ARG_MAX)
-  // http://www.in-ulm.de/~mascheck/various/argmax – the factor 2 is just
-  // a wild guess to account for the enviroment.
-  return sysconf(_SC_ARG_MAX) / 2;
-#elif defined(_WIN32)
-  // http://blogs.msdn.com/b/oldnewthing/archive/2003/12/10/56028.aspx
-  return 32767;
-#else
-#error "Do not know how to determine maximum command line length."
-#endif
 }
 
 /**
@@ -794,49 +763,10 @@ int cppmain() {
     exit(EXIT_FAILURE);
   }
 
-  // We need to manually set up argv[0] and the terminating NULL.
-  std::vector<const char *> args;
-  args.push_back(ldcPath.c_str());
+  std::vector<const char *> fullArgs;
+  fullArgs.push_back(ldcPath.c_str());
 
-  translateArgs(ldmdArguments, args);
+  translateArgs(ldmdArguments, fullArgs);
 
-  args.push_back(nullptr);
-
-  // Check if we can get away without a response file.
-  const size_t totalLen = std::accumulate(
-      args.begin(), args.end() - 1,
-      args.size() * 3, // quotes + space
-      [](size_t acc, const char *arg) { return acc + strlen(arg); });
-  if (totalLen <= maxCommandLineLen()) {
-    return execute(ldcPath, args.data());
-  }
-
-  int rspFd;
-  llvm::SmallString<128> rspPath;
-  if (ls::fs::createTemporaryFile("ldmd", "rsp", rspFd, rspPath)) {
-    error("Could not open temporary response file.");
-  }
-
-  {
-    llvm::raw_fd_ostream rspOut(rspFd, /*shouldClose=*/true);
-    // skip argv[0] and terminating NULL
-    for (auto it = args.begin() + 1, end = args.end() - 1; it != end; ++it) {
-      rspOut << '"' << *it << "\"\n";
-    }
-  }
-
-  std::string rspArg = "@";
-  rspArg += rspPath.str();
-
-  args.resize(1);
-  args.push_back(rspArg.c_str());
-  args.push_back(nullptr);
-
-  int rc = execute(ldcPath, args.data());
-
-  if (ls::fs::remove(rspPath.str())) {
-    warning("Could not remove response file.");
-  }
-
-  return rc;
+  return execute(std::move(fullArgs));
 }

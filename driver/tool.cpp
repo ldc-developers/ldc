@@ -19,11 +19,9 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Support/Program.h"
 
 #ifdef _WIN32
 #include <Windows.h>
-#include <numeric>
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
@@ -151,7 +149,7 @@ std::vector<const char *> getFullArgs(const char *tool,
                                       bool printVerbose) {
   std::vector<const char *> fullArgs;
   fullArgs.reserve(args.size() +
-                   2); // executeToolAndWait() appends an additional null
+                   2); // args::executeAndWait() may append an additional null
 
   fullArgs.push_back(tool);
   for (const auto &arg : args)
@@ -172,60 +170,8 @@ std::vector<const char *> getFullArgs(const char *tool,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-#if LDC_LLVM_VER >= 700
-namespace {
-std::vector<llvm::StringRef> toRefsVector(llvm::ArrayRef<const char *> args) {
-  std::vector<llvm::StringRef> refs;
-  refs.reserve(args.size());
-  for (const char *arg : args)
-    refs.emplace_back(arg);
-  return refs;
-}
-
-#ifdef _WIN32
-struct ResponseFile {
-  llvm::SmallString<128> path;
-
-  ~ResponseFile() {
-    if (!path.empty()) {
-      if (llvm::sys::fs::remove(path)) {
-        warning(Loc(), "could not remove response file");
-      }
-    }
-  }
-
-  // Creates an appropriate response file if needed (=> path non-empty).
-  // Returns false on error.
-  bool setup(llvm::ArrayRef<const char *> fullArgs) {
-    assert(path.empty());
-
-    const size_t totalLen = std::accumulate(
-        fullArgs.begin(), fullArgs.end(),
-        fullArgs.size() * 3, // quotes + space
-        [](size_t acc, const char *arg) { return acc + strlen(arg); });
-
-    if (totalLen <= 32767)
-      return true; // nothing to do
-
-    if (llvm::sys::fs::createTemporaryFile("ldc", "rsp", path))
-      return false;
-
-    const std::string content =
-        llvm::sys::flattenWindowsCommandLine(toRefsVector(fullArgs.slice(1)));
-
-    // MSVC tools apparently require UTF-16
-    if (llvm::sys::writeFileWithEncoding(path, content, llvm::sys::WEM_UTF16))
-      return false;
-
-    return true;
-  }
-};
-#endif // _WIN32
-}
-#endif // LDC_LLVM_VER >= 700
-
 int executeToolAndWait(const std::string &tool_,
-                       std::vector<std::string> const &args, bool verbose) {
+                       const std::vector<std::string> &args, bool verbose) {
   const auto tool = findProgramByName(tool_);
   if (tool.empty()) {
     error(Loc(), "failed to locate %s", tool_.c_str());
@@ -233,42 +179,26 @@ int executeToolAndWait(const std::string &tool_,
   }
 
   // Construct real argument list; first entry is the tool itself.
-  auto realargs = getFullArgs(tool.c_str(), args, verbose);
+  auto fullArgs = getFullArgs(tool.c_str(), args, verbose);
 
-#if LDC_LLVM_VER >= 700
-// We may need a response file on Windows hosts to overcome cmdline limits.
+  // We may need a response file to overcome cmdline limits, especially on Windows.
+  auto rspEncoding = llvm::sys::WEM_UTF8;
 #ifdef _WIN32
-  ResponseFile rspFile;
-  if (!rspFile.setup(realargs)) {
-    error(Loc(), "could not write temporary response file");
-    return -1;
-  }
-
-  std::string rspArg;
-  if (!rspFile.path.empty()) {
-    rspArg = ("@" + rspFile.path).str();
-    realargs.resize(1); // tool only
-    realargs.push_back(rspArg.c_str());
-  }
-#endif // _WIN32
-
-  const std::vector<llvm::StringRef> argv = toRefsVector(realargs);
-  auto envVars = llvm::None;
-#else // LDC_LLVM_VER < 700
-  realargs.push_back(nullptr); // terminate with null
-  auto argv = &realargs[0];
-  auto envVars = nullptr;
+  // MSVC tools (link.exe etc.) apparently require UTF-16 encoded response files
+  auto triple = global.params.targetTriple;
+  if (triple && triple->isWindowsMSVCEnvironment())
+    rspEncoding = llvm::sys::WEM_UTF16;
 #endif
 
   // Execute tool.
-  std::string errstr;
+  std::string errorMsg;
   const int status =
-      llvm::sys::ExecuteAndWait(tool, argv, envVars, {}, 0, 0, &errstr);
+      args::executeAndWait(std::move(fullArgs), rspEncoding, &errorMsg);
 
   if (status) {
     error(Loc(), "%s failed with status: %d", tool.c_str(), status);
-    if (!errstr.empty()) {
-      errorSupplemental(Loc(), "message: %s", errstr.c_str());
+    if (!errorMsg.empty()) {
+      errorSupplemental(Loc(), "message: %s", errorMsg.c_str());
     }
   }
 

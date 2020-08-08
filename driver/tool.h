@@ -38,7 +38,7 @@ std::vector<const char *> getFullArgs(const char *tool,
                                       bool printVerbose);
 
 int executeToolAndWait(const std::string &tool,
-                       std::vector<std::string> const &args,
+                       const std::vector<std::string> &args,
                        bool verbose = false);
 
 #ifdef _WIN32

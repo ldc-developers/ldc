@@ -10,6 +10,7 @@
 #pragma once
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/Program.h"
 
 namespace args {
 
@@ -35,7 +36,16 @@ int forwardToDruntime(int argc, const CArgChar **argv);
 
 // Returns true if the specified arg is either `-run` or `--run`.
 bool isRunArg(const char *arg);
-}
+
+// Executes a command line and returns its exit code.
+// Optionally uses a response file to overcome cmdline length limitations.
+int executeAndWait(std::vector<const char *> fullArgs,
+                   llvm::Optional<llvm::sys::WindowsEncodingMethod>
+                       responseFileEncoding = {llvm::None},
+                   std::string *errorMsg = nullptr);
+} // namespace args
+
+////////////////////////////////////////////////////////////////////////////////
 
 namespace env {
 
@@ -47,4 +57,4 @@ bool has(const wchar_t *wname);
 
 // Returns the value of the specified environment variable (in UTF-8).
 std::string get(const char *name);
-}
+} // namespace env

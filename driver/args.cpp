@@ -9,7 +9,9 @@
 
 #include "args.h"
 
+#include "llvm/ADT/SmallString.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/StringSaver.h"
 
 #include <cstdlib>
@@ -82,7 +84,105 @@ int forwardToDruntime(int argc, const CArgChar **argv) {
 bool isRunArg(const char *arg) {
   return strcmp(arg, "-run") == 0 || strcmp(arg, "--run") == 0;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+namespace {
+#if LDC_LLVM_VER >= 700
+std::vector<llvm::StringRef> toRefsVector(llvm::ArrayRef<const char *> args) {
+  std::vector<llvm::StringRef> refs;
+  refs.reserve(args.size());
+  for (const char *arg : args)
+    refs.emplace_back(arg);
+  return refs;
+}
+#endif
+
+struct ResponseFile {
+  llvm::SmallString<128> path;
+
+  // Deletes the file (if path is non-empty).
+  ~ResponseFile() {
+    if (!path.empty())
+      llvm::sys::fs::remove(path);
+  }
+
+  // Creates an appropriate response file if needed (=> path non-empty).
+  // Returns false on error.
+  bool setup(llvm::ArrayRef<const char *> fullArgs,
+             llvm::sys::WindowsEncodingMethod encoding) {
+    assert(path.empty());
+
+    const auto args = fullArgs.slice(1);
+    if (llvm::sys::commandLineFitsWithinSystemLimits(fullArgs[0], args))
+      return true; // nothing to do
+
+#if defined(_WIN32) && LDC_LLVM_VER >= 700
+    const std::string content =
+        llvm::sys::flattenWindowsCommandLine(toRefsVector(args));
+#else
+    std::string content;
+    content.reserve(65536);
+    for (llvm::StringRef arg : args) {
+      content += '"';
+      for (char c : arg) {
+#ifdef _WIN32
+        if (c == '"')
+          content += '"'; // " => ""
+#else
+        if (c == '\\' || c == '"')
+          content += '\\'; // \ => \\, " => \"
+#endif
+        content += c;
+      }
+      content += "\"\n";
+    }
+#endif
+
+    if (llvm::sys::fs::createTemporaryFile("ldc", "rsp", path))
+      return false;
+
+    if (llvm::sys::writeFileWithEncoding(path, content, encoding))
+      return false;
+
+    return true;
+  }
+};
+} // anonymous namespace
+
+int executeAndWait(
+    std::vector<const char *> fullArgs,
+    llvm::Optional<llvm::sys::WindowsEncodingMethod> responseFileEncoding,
+    std::string *errorMsg) {
+  args::ResponseFile rspFile;
+  if (responseFileEncoding.hasValue() &&
+      !rspFile.setup(fullArgs, responseFileEncoding.getValue())) {
+    if (errorMsg)
+      *errorMsg = "could not write temporary response file";
+    return -1;
+  }
+
+  std::string rspArg;
+  if (!rspFile.path.empty()) {
+    rspArg = ("@" + rspFile.path).str();
+    fullArgs.resize(1); // executable only
+    fullArgs.push_back(rspArg.c_str());
+  }
+
+#if LDC_LLVM_VER >= 700
+  const std::vector<llvm::StringRef> argv = toRefsVector(fullArgs);
+  auto envVars = llvm::None;
+#else
+  fullArgs.push_back(nullptr); // terminate with null
+  auto argv = fullArgs.data();
+  auto envVars = nullptr;
+#endif
+
+  return llvm::sys::ExecuteAndWait(argv[0], argv, envVars, {}, 0, 0, errorMsg);
+}
 } // namespace args
+
+////////////////////////////////////////////////////////////////////////////////
 
 namespace env {
 #ifdef _WIN32
