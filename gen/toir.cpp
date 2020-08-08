@@ -973,7 +973,7 @@ public:
       LLValue *funcval = nullptr;
       if (nonFinal) {
         DtoResolveFunction(fdecl);
-        funcval = DtoVirtualFunctionPointer(l, fdecl, e->toChars());
+        funcval = DtoVirtualFunctionPointer(l, fdecl);
       } else {
         funcval = DtoCallee(fdecl);
       }
@@ -1862,7 +1862,7 @@ public:
 
     if (e->e1->op != TOKsuper && e->e1->op != TOKdottype &&
         e->func->isVirtual() && !e->func->isFinalFunc()) {
-      castfptr = DtoVirtualFunctionPointer(u, e->func, e->toChars());
+      castfptr = DtoVirtualFunctionPointer(u, e->func);
     } else if (e->func->isAbstract()) {
       llvm_unreachable("Delegate to abstract method not implemented.");
     } else if (e->func->toParent()->isInterfaceDeclaration()) {

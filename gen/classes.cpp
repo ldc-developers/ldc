@@ -419,8 +419,7 @@ DValue *DtoDynamicCastInterface(Loc &loc, DValue *val, Type *_to) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl,
-                                   const char *name) {
+LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl) {
   // sanity checks
   assert(fdecl->isVirtual());
   assert(!fdecl->isFinalFunc());
@@ -440,8 +439,8 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl,
   // load vtbl ptr
   funcval = DtoLoad(funcval);
   // index vtbl
-  std::string vtblname = name;
-  vtblname.append("@vtbl");
+  const std::string name = fdecl->toChars();
+  const auto vtblname = name + "@vtbl";
   funcval = DtoGEP(funcval, 0, fdecl->vtblIndex, vtblname.c_str());
   // load opaque pointer
   funcval = DtoAlignedLoad(funcval);
