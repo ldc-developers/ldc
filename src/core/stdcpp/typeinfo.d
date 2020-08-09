@@ -108,6 +108,7 @@ else version (CppRuntime_Gcc)
 
     extern (C++, "std"):
 
+    abstract // LDC
     class type_info
     {
     @nogc:
@@ -127,14 +128,10 @@ else version (CppRuntime_Gcc)
                 : strcmp(_name, _arg._name) < 0;
         }
         //bool operator==(const type_info) const;
-        @weak // LDC
-        bool __is_pointer_p() const { assert(0); }
-        @weak // LDC
-        bool __is_function_p() const { assert(0); };
-        @weak // LDC
-        bool __do_catch(const type_info, void**, uint) const { assert(0); };
-        @weak // LDC
-        bool __do_upcast(const __class_type_info, void**) const { assert(0); };
+        bool __is_pointer_p() const;
+        bool __is_function_p() const;
+        bool __do_catch(const type_info, void**, uint) const;
+        bool __do_upcast(const __class_type_info, void**) const;
 
     protected:
         const(char)* _name;
