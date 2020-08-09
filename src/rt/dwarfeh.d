@@ -1242,16 +1242,19 @@ int actionTableLookup(_Unwind_Exception* exceptionObject, uint actionRecordPtr, 
         ClassInfo ci = cast(ClassInfo)cast(void*)(entry);
         if (ci.classinfo is __cpp_type_info_ptr.classinfo)
         {
-            if (exceptionClass == cppExceptionClass || exceptionClass == cppExceptionClass1)
+            version (CppRuntime_Gcc)
             {
-                // sti is catch clause type_info
-                auto sti = cast(CppTypeInfo)((cast(__cpp_type_info_ptr)cast(void*)ci).ptr);
-                auto p = getCppPtrToThrownObject(exceptionObject, sti);
-                if (p) // if found
+                if (exceptionClass == cppExceptionClass || exceptionClass == cppExceptionClass1)
                 {
-                    auto eh = CppExceptionHeader.toExceptionHeader(exceptionObject);
-                    eh.thrownPtr = p;                   // for __cxa_begin_catch()
-                    return cast(int)TypeFilter;
+                    // sti is catch clause type_info
+                    auto sti = cast(CppTypeInfo)((cast(__cpp_type_info_ptr)cast(void*)ci).ptr);
+                    auto p = getCppPtrToThrownObject(exceptionObject, sti);
+                    if (p) // if found
+                    {
+                        auto eh = CppExceptionHeader.toExceptionHeader(exceptionObject);
+                        eh.thrownPtr = p;                   // for __cxa_begin_catch()
+                        return cast(int)TypeFilter;
+                    }
                 }
             }
         }
@@ -1286,94 +1289,103 @@ void terminate(uint line) @nogc
 
 /****************************** C++ Support *****************************/
 
-enum _Unwind_Exception_Class cppExceptionClass =
-        (cast(_Unwind_Exception_Class)'G' << 56) |
-        (cast(_Unwind_Exception_Class)'N' << 48) |
-        (cast(_Unwind_Exception_Class)'U' << 40) |
-        (cast(_Unwind_Exception_Class)'C' << 32) |
-        (cast(_Unwind_Exception_Class)'C' << 24) |
-        (cast(_Unwind_Exception_Class)'+' << 16) |
-        (cast(_Unwind_Exception_Class)'+' <<  8) |
-        (cast(_Unwind_Exception_Class)0 <<  0);
-
-enum _Unwind_Exception_Class cppExceptionClass1 = cppExceptionClass + 1;
-
-
-/*****************************************
- * Get Pointer to Thrown Object if type of thrown object is implicitly
- * convertible to the catch type.
- * Params:
- *      exceptionObject = language specific exception information
- *      sti = type of catch clause
- * Returns:
- *      null if not caught, pointer to thrown object if caught
- */
-void* getCppPtrToThrownObject(_Unwind_Exception* exceptionObject, CppTypeInfo sti)
+version (CppRuntime_Gcc)
 {
-    void* p;    // pointer to thrown object
-    if (exceptionObject.exception_class & 1)
-        p = CppExceptionHeader.toExceptionHeader(exceptionObject).ptr;
-    else
-        p = cast(void*)(exceptionObject + 1);           // thrown object is immediately after it
+    enum _Unwind_Exception_Class cppExceptionClass =
+            (cast(_Unwind_Exception_Class)'G' << 56) |
+            (cast(_Unwind_Exception_Class)'N' << 48) |
+            (cast(_Unwind_Exception_Class)'U' << 40) |
+            (cast(_Unwind_Exception_Class)'C' << 32) |
+            (cast(_Unwind_Exception_Class)'C' << 24) |
+            (cast(_Unwind_Exception_Class)'+' << 16) |
+            (cast(_Unwind_Exception_Class)'+' <<  8) |
+            (cast(_Unwind_Exception_Class)0 <<  0);
 
-    const tt = (cast(CppExceptionHeader*)p - 1).typeinfo;
+    enum _Unwind_Exception_Class cppExceptionClass1 = cppExceptionClass + 1;
 
-    if (tt.__is_pointer_p())
-        p = *cast(void**)p;
-
-    // Pointer adjustment may be necessary due to multiple inheritance
-    return (sti is tt || sti.__do_catch(tt, &p, 1)) ? p : null;
-}
-
-extern (C++)
-{
-    /**
-     * Access C++ std::type_info's virtual functions from D,
-     * being careful to not require linking with libstd++
-     * or interfere with core.stdcpp.typeinfo.
-     * So, give it a different name.
-     */
-    interface CppTypeInfo // map to C++ std::type_info's virtual functions
-    {
-        void dtor1();                           // consume destructor slot in vtbl[]
-        void dtor2();                           // consume destructor slot in vtbl[]
-        bool __is_pointer_p() const;
-        bool __is_function_p() const;
-        bool __do_catch(const CppTypeInfo, void**, uint) const;
-        bool __do_upcast(const void*, void**) const;
-    }
-}
-
-/// The C++ version of D's ExceptionHeader wrapper
-struct CppExceptionHeader
-{
-    union
-    {
-        CppTypeInfo typeinfo;                   // type that was thrown
-        void* ptr;                              // pointer to real exception
-    }
-    void* p1;                                   // unreferenced placeholders...
-    void* p2;
-    void* p3;
-    void* p4;
-    int i1;
-    int i2;
-    const(ubyte)* p5;
-    const(ubyte)* p6;
-    _Unwind_Ptr p7;
-    void* thrownPtr;                            // pointer to thrown object
-    _Unwind_Exception exception_object;         // the unwinder's data
-
-    /*******************************
-     * Convert from pointer to exception_object field to pointer to CppExceptionHeader
-     * that it is embedded inside of.
+    /*****************************************
+     * Get Pointer to Thrown Object if type of thrown object is implicitly
+     * convertible to the catch type.
      * Params:
-     *  eo = pointer to exception_object field
+     *      exceptionObject = language specific exception information
+     *      sti = type of catch clause
      * Returns:
-     *  pointer to CppExceptionHeader that eo points into.
+     *      null if not caught, pointer to thrown object if caught
      */
-    static CppExceptionHeader* toExceptionHeader(_Unwind_Exception* eo)
+    void* getCppPtrToThrownObject(_Unwind_Exception* exceptionObject, CppTypeInfo sti)
     {
-        return cast(CppExceptionHeader*)(eo + 1) - 1;
+        void* p;    // pointer to thrown object
+        if (exceptionObject.exception_class & 1)
+            p = CppExceptionHeader.toExceptionHeader(exceptionObject).ptr;
+        else
+            p = cast(void*)(exceptionObject + 1);           // thrown object is immediately after it
+
+        const tt = (cast(CppExceptionHeader*)p - 1).typeinfo;
+
+        if (tt.__is_pointer_p())
+            p = *cast(void**)p;
+
+        // Pointer adjustment may be necessary due to multiple inheritance
+        return (sti is tt || sti.__do_catch(tt, &p, 1)) ? p : null;
+    }
+
+    version (LDC)
+    {
+        import core.stdcpp.typeinfo : CppTypeInfo = type_info;
+    }
+    else
+    {
+        extern (C++)
+        {
+            /**
+             * Access C++ std::type_info's virtual functions from D,
+             * being careful to not require linking with libstd++
+             * or interfere with core.stdcpp.typeinfo.
+             * So, give it a different name.
+             */
+            interface CppTypeInfo // map to C++ std::type_info's virtual functions
+            {
+                void dtor1();                           // consume destructor slot in vtbl[]
+                void dtor2();                           // consume destructor slot in vtbl[]
+                bool __is_pointer_p() const;
+                bool __is_function_p() const;
+                bool __do_catch(const CppTypeInfo, void**, uint) const;
+                bool __do_upcast(const void*, void**) const;
+            }
+        }
+    }
+
+    /// The C++ version of D's ExceptionHeader wrapper
+    struct CppExceptionHeader
+    {
+        union
+        {
+            CppTypeInfo typeinfo;                   // type that was thrown
+            void* ptr;                              // pointer to real exception
+        }
+        void* p1;                                   // unreferenced placeholders...
+        void* p2;
+        void* p3;
+        void* p4;
+        int i1;
+        int i2;
+        const(ubyte)* p5;
+        const(ubyte)* p6;
+        _Unwind_Ptr p7;
+        void* thrownPtr;                            // pointer to thrown object
+        _Unwind_Exception exception_object;         // the unwinder's data
+
+        /*******************************
+         * Convert from pointer to exception_object field to pointer to CppExceptionHeader
+         * that it is embedded inside of.
+         * Params:
+         *  eo = pointer to exception_object field
+         * Returns:
+         *  pointer to CppExceptionHeader that eo points into.
+         */
+        static CppExceptionHeader* toExceptionHeader(_Unwind_Exception* eo)
+        {
+            return cast(CppExceptionHeader*)(eo + 1) - 1;
+        }
     }
 }
