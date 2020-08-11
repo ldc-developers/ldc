@@ -19,7 +19,6 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Support/Program.h"
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -150,7 +149,7 @@ std::vector<const char *> getFullArgs(const char *tool,
                                       bool printVerbose) {
   std::vector<const char *> fullArgs;
   fullArgs.reserve(args.size() +
-                   2); // executeToolAndWait() appends an additional null
+                   2); // args::executeAndWait() may append an additional null
 
   fullArgs.push_back(tool);
   for (const auto &arg : args)
@@ -172,7 +171,7 @@ std::vector<const char *> getFullArgs(const char *tool,
 ////////////////////////////////////////////////////////////////////////////////
 
 int executeToolAndWait(const std::string &tool_,
-                       std::vector<std::string> const &args, bool verbose) {
+                       const std::vector<std::string> &args, bool verbose) {
   const auto tool = findProgramByName(tool_);
   if (tool.empty()) {
     error(Loc(), "failed to locate %s", tool_.c_str());
@@ -180,30 +179,30 @@ int executeToolAndWait(const std::string &tool_,
   }
 
   // Construct real argument list; first entry is the tool itself.
-  auto realargs = getFullArgs(tool.c_str(), args, verbose);
-#if LDC_LLVM_VER >= 700
-  std::vector<llvm::StringRef> argv;
-  argv.reserve(realargs.size());
-  for (auto &&arg : realargs)
-    argv.push_back(arg);
-  auto envVars = llvm::None;
-#else
-  realargs.push_back(nullptr); // terminate with null
-  auto argv = &realargs[0];
-  auto envVars = nullptr;
+  auto fullArgs = getFullArgs(tool.c_str(), args, verbose);
+
+  // We may need a response file to overcome cmdline limits, especially on Windows.
+  auto rspEncoding = llvm::sys::WEM_UTF8;
+#ifdef _WIN32
+  // MSVC tools (link.exe etc.) apparently require UTF-16 encoded response files
+  auto triple = global.params.targetTriple;
+  if (triple && triple->isWindowsMSVCEnvironment())
+    rspEncoding = llvm::sys::WEM_UTF16;
 #endif
 
   // Execute tool.
-  std::string errstr;
-  if (int status =
-          llvm::sys::ExecuteAndWait(tool, argv, envVars, {}, 0, 0, &errstr)) {
+  std::string errorMsg;
+  const int status =
+      args::executeAndWait(std::move(fullArgs), rspEncoding, &errorMsg);
+
+  if (status) {
     error(Loc(), "%s failed with status: %d", tool.c_str(), status);
-    if (!errstr.empty()) {
-      error(Loc(), "message: %s", errstr.c_str());
+    if (!errorMsg.empty()) {
+      errorSupplemental(Loc(), "message: %s", errorMsg.c_str());
     }
-    return status;
   }
-  return 0;
+
+  return status;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
