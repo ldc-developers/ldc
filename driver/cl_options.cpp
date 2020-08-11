@@ -183,6 +183,10 @@ static cl::opt<unsigned char, true> debugInfo(
         clEnumValN(3, "gline-tables-only", "Add line tables only")),
     cl::location(global.params.symdebug), cl::init(0));
 
+cl::opt<bool> emitDwarfDebugInfo(
+    "gdwarf", cl::ZeroOrMore,
+    cl::desc("Emit DWARF debuginfo (instead of CodeView) for MSVC targets"));
+
 cl::opt<bool> noAsm("noasm", cl::desc("Disallow use of inline assembler"),
                     cl::ZeroOrMore);
 

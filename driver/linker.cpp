@@ -169,7 +169,17 @@ static std::vector<std::string> getDefaultLibNames() {
 
 //////////////////////////////////////////////////////////////////////////////
 
-bool useInternalLLDForLinking() { return linkInternally; }
+bool useInternalLLDForLinking() {
+  return linkInternally
+#if LDC_WITH_LLD
+         ||
+         // DWARF debuginfos for MSVC require LLD
+         (opts::emitDwarfDebugInfo && linkInternally.getNumOccurrences() == 0 &&
+          opts::linker.empty() && !opts::isUsingLTO() &&
+          global.params.targetTriple->isWindowsMSVCEnvironment())
+#endif
+      ;
+}
 
 cl::boolOrDefault linkFullyStatic() { return staticFlag; }
 
