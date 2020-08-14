@@ -556,7 +556,14 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
     }
   }
 
-  addDefaultPlatformLibs();
+  const auto explicitPlatformLibs = getExplicitPlatformLibs();
+  if (explicitPlatformLibs.hasValue()) {
+    for (const auto &name : explicitPlatformLibs.getValue()) {
+      args.push_back("-l" + name);
+    }
+  } else {
+    addDefaultPlatformLibs();
+  }
 
   addTargetFlags();
 }

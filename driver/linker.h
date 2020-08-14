@@ -40,7 +40,7 @@ llvm::cl::boolOrDefault linkFullyStatic();
 bool linkAgainstSharedDefaultLibs();
 
 /**
- * Returns the value of -platformlib.
+ * Returns the -platformlib library names, if specified.
  */
 llvm::Optional<std::vector<std::string>> getExplicitPlatformLibs();
 
