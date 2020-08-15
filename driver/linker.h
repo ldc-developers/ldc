@@ -40,6 +40,11 @@ llvm::cl::boolOrDefault linkFullyStatic();
 bool linkAgainstSharedDefaultLibs();
 
 /**
+ * Returns the -platformlib library names, if specified.
+ */
+llvm::Optional<std::vector<std::string>> getExplicitPlatformLibs();
+
+/**
  * Returns the value of -mscrtlib.
  */
 llvm::StringRef getExplicitMscrtLibName();

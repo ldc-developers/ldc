@@ -32,6 +32,11 @@ static cl::opt<bool> linkInternally("link-internally", cl::ZeroOrMore,
 constexpr bool linkInternally = false;
 #endif
 
+static cl::opt<std::string> platformLib(
+    "platformlib", cl::ZeroOrMore, cl::value_desc("lib1,lib2,..."),
+    cl::desc("Platform libraries to link with (overrides previous)"),
+    cl::cat(opts::linkingCategory));
+
 static cl::opt<bool> noDefaultLib(
     "nodefaultlib", cl::ZeroOrMore, cl::Hidden,
     cl::desc("Don't add a default library for linking implicitly"));
@@ -136,6 +141,26 @@ static std::string getOutputName() {
 
 //////////////////////////////////////////////////////////////////////////////
 
+static std::vector<std::string>
+parseLibNames(llvm::StringRef commaSeparatedList, llvm::StringRef suffix = {}) {
+  std::vector<std::string> result;
+
+  std::stringstream list(commaSeparatedList);
+  while (list.good()) {
+    std::string lib;
+    std::getline(list, lib, ',');
+    if (lib.empty()) {
+      continue;
+    }
+
+    result.push_back(suffix.empty() ? std::move(lib) : (lib + suffix).str());
+  }
+
+  return result;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 static std::vector<std::string> getDefaultLibNames() {
   std::vector<std::string> result;
 
@@ -144,27 +169,31 @@ static std::vector<std::string> getDefaultLibNames() {
                        "overrides the existing list instead of appending to "
                        "it. Please use the latter instead.");
   } else if (!global.params.betterC) {
-    const bool addDebugSuffix =
-        (linkDefaultLibDebug && debugLib.getNumOccurrences() == 0);
-    const bool addSharedSuffix = linkAgainstSharedDefaultLibs();
+    llvm::StringRef list = defaultLib;
+    std::string suffix;
 
-    // Parse comma-separated default library list.
-    std::stringstream libNames(
-        linkDefaultLibDebug && !addDebugSuffix ? debugLib : defaultLib);
-    while (libNames.good()) {
-      std::string lib;
-      std::getline(libNames, lib, ',');
-      if (lib.empty()) {
-        continue;
-      }
-
-      result.push_back((llvm::Twine(lib) + (addDebugSuffix ? "-debug" : "") +
-                        (addSharedSuffix ? "-shared" : ""))
-                           .str());
+    if (linkDefaultLibDebug) {
+      if (debugLib.getNumOccurrences() == 0)
+        suffix = "-debug";
+      else
+        list = debugLib;
     }
+    if (linkAgainstSharedDefaultLibs()) {
+      suffix += "-shared";
+    }
+
+    result = parseLibNames(list, suffix);
   }
 
   return result;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+llvm::Optional<std::vector<std::string>> getExplicitPlatformLibs() {
+  if (platformLib.getNumOccurrences() > 0)
+    return parseLibNames(platformLib);
+  return llvm::None;
 }
 
 //////////////////////////////////////////////////////////////////////////////
