@@ -1,6 +1,6 @@
 variables:
   LLVM_VERSION: 10.0.1
-  CLANG_VERSION: 10.0.0
+  CLANG_VERSION: 10.0.1
   HOST_LDC_VERSION: 1.22.0
 
 trigger:
@@ -13,6 +13,7 @@ jobs:
   pool:
     vmImage: 'windows-2019'
   variables:
+    CLANG_VERSION: 10.0.0
     VSINSTALLDIR: C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\
   strategy:
     matrix:
