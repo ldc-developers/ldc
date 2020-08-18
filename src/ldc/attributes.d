@@ -236,6 +236,13 @@ enum restrict = llvmAttr("noalias");
 enum cold = llvmAttr("cold");
 
 /**
+ * Add LLVM's "nonlazybind" attribute to a function, suppresses lazy symbol binding.
+ * This may make calls to function faster, at the cost of extra program startup time
+ * if the function is not called during program startup.
+ */
+enum noplt = llvmAttr("nonlazybind");
+
+/**
  * Sets the optimization strategy for a function.
  * Valid strategies are "none", "optsize", "minsize". The strategies are mutually exclusive.
  *
