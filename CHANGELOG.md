@@ -5,7 +5,7 @@
 - Min required LLVM version raised to v6.0, dropping support for v3.9-5.0. (#3493)
 - LLVM for prebuilt packages bumped to v10.0.1. (#3513)
 - The prebuilt Mac package now also includes prebuilt druntime/Phobos for the iOS/x86_64 simulator, making cross-compilation work out of the box with `-mtriple=x86_64-apple-ios12.0`. (#3478)
-- New `-gdwarf` CLI option to emit DWARF debuginfos for MSVC targets. (#3533)
+- Windows: New `-gdwarf` CLI option to emit DWARF debuginfos for MSVC targets, e.g., for debugging with gdb/lldb. (#3533)
 - New `-platformlib` CLI option to override the default linked-with platform libraries, e.g., when targeting bare-metal. (#3374, #3475)
 
 #### Platform support
