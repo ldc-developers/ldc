@@ -30,7 +30,6 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/CallSite.h"
 
 #if LDC_LLVM_VER >= 1000
 // LLVM >= 10 requires C++14 and no longer has llvm::make_unique. Add it back
@@ -46,8 +45,14 @@ using llvm::APInt;
 using llvm::IRBuilder;
 
 #if LDC_LLVM_VER >= 1000
+#if LDC_LLVM_VER >= 1100
+#define LLAlign llvm::Align
+#else
+#define LLAlign llvm::MaybeAlign
+#endif
 #define LLMaybeAlign llvm::MaybeAlign
 #else
+#define LLAlign
 #define LLMaybeAlign
 #endif
 
@@ -74,7 +79,5 @@ using llvm::IRBuilder;
 #define LLConstantArray llvm::ConstantArray
 #define LLConstantInt llvm::ConstantInt
 #define LLConstantFP llvm::ConstantFP
-
-#define LLCallSite llvm::CallSite
 
 #define LLSmallVector llvm::SmallVector

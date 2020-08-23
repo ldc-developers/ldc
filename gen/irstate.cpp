@@ -99,35 +99,42 @@ llvm::BasicBlock *IRState::insertBB(const llvm::Twine &name) {
   return insertBBAfter(scopebb(), name);
 }
 
-LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, const char *Name) {
-  return funcGen().callOrInvoke(Callee, {}, Name);
+llvm::Instruction *IRState::CreateCallOrInvoke(LLFunction *Callee,
+                                               const char *Name) {
+  return CreateCallOrInvoke(Callee, {}, Name);
 }
 
-LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee,
-                                       llvm::ArrayRef<LLValue *> Args,
-                                       const char *Name, bool isNothrow) {
-  return funcGen().callOrInvoke(Callee, Args, Name, isNothrow);
+llvm::Instruction *IRState::CreateCallOrInvoke(LLFunction *Callee,
+                                               llvm::ArrayRef<LLValue *> Args,
+                                               const char *Name,
+                                               bool isNothrow) {
+  return funcGen().callOrInvoke(Callee, Callee->getFunctionType(), Args, Name,
+                                isNothrow);
 }
 
-LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
-                                       const char *Name) {
-  return funcGen().callOrInvoke(Callee, {Arg1}, Name);
+llvm::Instruction *IRState::CreateCallOrInvoke(LLFunction *Callee,
+                                               LLValue *Arg1,
+                                               const char *Name) {
+  return CreateCallOrInvoke(Callee, llvm::ArrayRef<LLValue *>(Arg1), Name);
 }
 
-LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
-                                       LLValue *Arg2, const char *Name) {
+llvm::Instruction *IRState::CreateCallOrInvoke(LLFunction *Callee,
+                                               LLValue *Arg1, LLValue *Arg2,
+                                               const char *Name) {
   return CreateCallOrInvoke(Callee, {Arg1, Arg2}, Name);
 }
 
-LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
-                                       LLValue *Arg2, LLValue *Arg3,
-                                       const char *Name) {
+llvm::Instruction *IRState::CreateCallOrInvoke(LLFunction *Callee,
+                                               LLValue *Arg1, LLValue *Arg2,
+                                               LLValue *Arg3,
+                                               const char *Name) {
   return CreateCallOrInvoke(Callee, {Arg1, Arg2, Arg3}, Name);
 }
 
-LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
-                                       LLValue *Arg2, LLValue *Arg3,
-                                       LLValue *Arg4, const char *Name) {
+llvm::Instruction *IRState::CreateCallOrInvoke(LLFunction *Callee,
+                                               LLValue *Arg1, LLValue *Arg2,
+                                               LLValue *Arg3, LLValue *Arg4,
+                                               const char *Name) {
   return CreateCallOrInvoke(Callee, {Arg1, Arg2, Arg3, Arg4}, Name);
 }
 

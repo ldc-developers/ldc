@@ -365,9 +365,9 @@ llvm::BasicBlock *CleanupScope::run(IRState &irs, llvm::BasicBlock *sourceBlock,
   // We need a branch selector if we are here...
   if (!branchSelector) {
     // ... and have not created one yet, so do so now.
+    llvm::Type *branchSelectorType = llvm::Type::getInt32Ty(irs.context());
     branchSelector = new llvm::AllocaInst(
-        llvm::Type::getInt32Ty(irs.context()),
-        irs.module.getDataLayout().getAllocaAddrSpace(),
+        branchSelectorType, irs.module.getDataLayout().getAllocaAddrSpace(),
         llvm::Twine("branchsel.") + beginBlock()->getName(),
         irs.topallocapoint());
 
@@ -380,7 +380,11 @@ llvm::BasicBlock *CleanupScope::run(IRState &irs, llvm::BasicBlock *sourceBlock,
     // And convert the BranchInst to the existing branch target to a
     // SelectInst so we can append the other cases to it.
     endBlock()->getTerminator()->eraseFromParent();
-    llvm::Value *sel = new llvm::LoadInst(branchSelector, "", endBlock());
+    llvm::Value *sel = new llvm::LoadInst(
+#if LDC_LLVM_VER >= 1100
+        branchSelectorType,
+#endif
+        branchSelector, "", endBlock());
     llvm::SwitchInst::Create(
         sel, exitTargets[0].branchTarget,
         1, // Expected number of branches, only for pre-allocating.

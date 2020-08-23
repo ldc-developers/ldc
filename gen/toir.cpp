@@ -2428,8 +2428,7 @@ public:
       LLValue *valuesArray = DtoAggrPaint(slice, funcTy->getParamType(2));
 
       LLValue *aa = gIR->CreateCallOrInvoke(func, aaTypeInfo, keysArray,
-                                            valuesArray, "aa")
-                        .getInstruction();
+                                            valuesArray, "aa");
       if (basetype->ty != Taarray) {
         LLValue *tmp = DtoAlloca(e->type, "aaliteral");
         DtoStore(aa, DtoGEP(tmp, 0u, 0));
@@ -2623,7 +2622,13 @@ public:
       DValue *val = toElem(e->e1);
       LLValue *llElement = getCastElement(val);
       if (auto llConstant = isaConstant(llElement)) {
-        auto vectorConstant = llvm::ConstantVector::getSplat(N, llConstant);
+#if LDC_LLVM_VER >= 1100
+        const auto elementCount = llvm::ElementCount(N, false);
+#else
+        const auto elementCount = N;
+#endif
+        auto vectorConstant =
+            llvm::ConstantVector::getSplat(elementCount, llConstant);
         DtoStore(vectorConstant, dstMem);
       } else {
         for (unsigned int i = 0; i < N; ++i) {

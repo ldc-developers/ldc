@@ -22,7 +22,6 @@
 #include "ir/irvar.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringMap.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/ProfileData/InstrProfReader.h"
 #include <deque>
 #include <memory>
@@ -188,21 +187,22 @@ public:
   llvm::BasicBlock *insertBB(const llvm::Twine &name);
 
   // create a call or invoke, depending on the landing pad info
-  llvm::CallSite CreateCallOrInvoke(LLValue *Callee, const char *Name = "");
-  llvm::CallSite CreateCallOrInvoke(LLValue *Callee,
-                                    llvm::ArrayRef<LLValue *> Args,
-                                    const char *Name = "",
-                                    bool isNothrow = false);
-  llvm::CallSite CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
-                                    const char *Name = "");
-  llvm::CallSite CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
-                                    LLValue *Arg2, const char *Name = "");
-  llvm::CallSite CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
-                                    LLValue *Arg2, LLValue *Arg3,
-                                    const char *Name = "");
-  llvm::CallSite CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
-                                    LLValue *Arg2, LLValue *Arg3, LLValue *Arg4,
-                                    const char *Name = "");
+  llvm::Instruction *CreateCallOrInvoke(LLFunction *Callee,
+                                        const char *Name = "");
+  llvm::Instruction *CreateCallOrInvoke(LLFunction *Callee,
+                                        llvm::ArrayRef<LLValue *> Args,
+                                        const char *Name = "",
+                                        bool isNothrow = false);
+  llvm::Instruction *CreateCallOrInvoke(LLFunction *Callee, LLValue *Arg1,
+                                        const char *Name = "");
+  llvm::Instruction *CreateCallOrInvoke(LLFunction *Callee, LLValue *Arg1,
+                                        LLValue *Arg2, const char *Name = "");
+  llvm::Instruction *CreateCallOrInvoke(LLFunction *Callee, LLValue *Arg1,
+                                        LLValue *Arg2, LLValue *Arg3,
+                                        const char *Name = "");
+  llvm::Instruction *CreateCallOrInvoke(LLFunction *Callee, LLValue *Arg1,
+                                        LLValue *Arg2, LLValue *Arg3,
+                                        LLValue *Arg4, const char *Name = "");
 
   // this holds the array being indexed or sliced so $ will work
   // might be a better way but it works. problem is I only get a

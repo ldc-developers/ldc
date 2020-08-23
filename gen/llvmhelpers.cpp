@@ -85,7 +85,7 @@ LLValue *DtoNew(Loc &loc, Type *newtype) {
   LLConstant *ti = DtoTypeInfoOf(newtype);
   assert(isaPointer(ti));
   // call runtime allocator
-  LLValue *mem = gIR->CreateCallOrInvoke(fn, ti, ".gc_mem").getInstruction();
+  LLValue *mem = gIR->CreateCallOrInvoke(fn, ti, ".gc_mem");
   // cast
   return DtoBitCast(mem, DtoPtrToType(newtype), ".gc_mem");
 }
@@ -95,7 +95,7 @@ LLValue *DtoNewStruct(Loc &loc, TypeStruct *newtype) {
       loc, gIR->module,
       newtype->isZeroInit(newtype->sym->loc) ? "_d_newitemT" : "_d_newitemiT");
   LLConstant *ti = DtoTypeInfoOf(newtype);
-  LLValue *mem = gIR->CreateCallOrInvoke(fn, ti, ".gc_struct").getInstruction();
+  LLValue *mem = gIR->CreateCallOrInvoke(fn, ti, ".gc_struct");
   return DtoBitCast(mem, DtoPtrToType(newtype), ".gc_struct");
 }
 
@@ -180,7 +180,9 @@ llvm::AllocaInst *DtoArrayAlloca(Type *type, unsigned arraysize,
   auto ai = new llvm::AllocaInst(
       lltype, gIR->module.getDataLayout().getAllocaAddrSpace(),
       DtoConstUint(arraysize), name, gIR->topallocapoint());
-  ai->setAlignment(LLMaybeAlign(DtoAlignment(type)));
+  if (auto alignment = DtoAlignment(type)) {
+    ai->setAlignment(LLAlign(alignment));
+  }
   return ai;
 }
 
@@ -190,7 +192,7 @@ llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
       lltype, gIR->module.getDataLayout().getAllocaAddrSpace(), name,
       gIR->topallocapoint());
   if (alignment) {
-    ai->setAlignment(LLMaybeAlign(alignment));
+    ai->setAlignment(LLAlign(alignment));
   }
   return ai;
 }
@@ -201,7 +203,7 @@ LLValue *DtoGcMalloc(Loc &loc, LLType *lltype, const char *name) {
   // parameters
   LLValue *size = DtoConstSize_t(getTypeAllocSize(lltype));
   // call runtime allocator
-  LLValue *mem = gIR->CreateCallOrInvoke(fn, size, name).getInstruction();
+  LLValue *mem = gIR->CreateCallOrInvoke(fn, size, name);
   // cast
   return DtoBitCast(mem, getPtrToType(lltype), name);
 }
@@ -1231,7 +1233,12 @@ LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp) {
     assert(tv->basetype->ty == Tsarray);
     dinteger_t elemCount =
         static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();
-    return llvm::ConstantVector::getSplat(elemCount, val);
+#if LDC_LLVM_VER >= 1100
+    const auto elementCount = llvm::ElementCount(elemCount, false);
+#else
+    const auto elementCount = elemCount;
+#endif
+    return llvm::ConstantVector::getSplat(elementCount, val);
   }
 
   if (llType->isIntegerTy() && targetLLType->isIntegerTy()) {
@@ -1310,9 +1317,14 @@ static char *DtoOverloadedIntrinsicName(TemplateInstance *ti,
   if (dtype->isPPC_FP128Ty()) { // special case
     replacement = "ppcf128";
   } else if (dtype->isVectorTy()) {
+#if LDC_LLVM_VER >= 1100
+    auto vectorType = llvm::cast<llvm::FixedVectorType>(dtype);
+#else
+    auto vectorType = llvm::cast<llvm::VectorType>(dtype);
+#endif
     llvm::raw_string_ostream stream(replacement);
-    stream << 'v' << dtype->getVectorNumElements() << prefix
-        << gDataLayout->getTypeSizeInBits(dtype->getVectorElementType());
+    stream << 'v' << vectorType->getNumElements() << prefix
+           << gDataLayout->getTypeSizeInBits(vectorType->getElementType());
     stream.flush();
   } else {
     replacement = prefix + std::to_string(gDataLayout->getTypeSizeInBits(dtype));

@@ -103,10 +103,8 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
         loc, gIR->module, useEHAlloc ? "_d_newThrowable" : "_d_allocclass");
     LLConstant *ci = DtoBitCast(getIrAggr(tc->sym)->getClassInfoSymbol(),
                                 DtoType(getClassInfoType()));
-    mem = gIR->CreateCallOrInvoke(fn, ci,
-                                  useEHAlloc ? ".newthrowable_alloc"
-                                             : ".newclass_gc_alloc")
-              .getInstruction();
+    mem = gIR->CreateCallOrInvoke(
+        fn, ci, useEHAlloc ? ".newthrowable_alloc" : ".newclass_gc_alloc");
     mem = DtoBitCast(mem, DtoType(tc),
                      useEHAlloc ? ".newthrowable" : ".newclass_gc");
     doInit = !useEHAlloc;
@@ -375,7 +373,7 @@ DValue *DtoDynamicCastObject(Loc &loc, DValue *val, Type *_to) {
   assert(funcTy->getParamType(1) == cinfo->getType());
 
   // call it
-  LLValue *ret = gIR->CreateCallOrInvoke(func, obj, cinfo).getInstruction();
+  LLValue *ret = gIR->CreateCallOrInvoke(func, obj, cinfo);
 
   // cast return value
   ret = DtoBitCast(ret, DtoType(_to));
@@ -409,7 +407,7 @@ DValue *DtoDynamicCastInterface(Loc &loc, DValue *val, Type *_to) {
   cinfo = DtoBitCast(cinfo, funcTy->getParamType(1));
 
   // call it
-  LLValue *ret = gIR->CreateCallOrInvoke(func, ptr, cinfo).getInstruction();
+  LLValue *ret = gIR->CreateCallOrInvoke(func, ptr, cinfo);
 
   // cast return value
   ret = DtoBitCast(ret, DtoType(_to));

@@ -198,7 +198,7 @@ static void copySlice(Loc &loc, LLValue *dstarr, LLValue *dstlen, LLValue *srcar
   const bool checksEnabled =
       global.params.useAssert == CHECKENABLEon || gIR->emitArrayBoundsChecks();
   if (checksEnabled && !knownInBounds) {
-    LLValue *fn = getRuntimeFunction(loc, gIR->module, "_d_array_slice_copy");
+    LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_array_slice_copy");
     gIR->CreateCallOrInvoke(
         fn, {dstarr, dstlen, srcarr, srclen, DtoConstSize_t(elementSize)}, "",
         /*isNothrow=*/true);
@@ -293,20 +293,18 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
       }
     } else if (isConstructing) {
       LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_arrayctor");
-      LLCallSite call = gIR->CreateCallOrInvoke(fn, DtoTypeInfoOf(elemType),
-                                                DtoSlice(rhsPtr, rhsLength),
-                                                DtoSlice(lhsPtr, lhsLength));
-      call.setCallingConv(llvm::CallingConv::C);
+      gIR->CreateCallOrInvoke(fn, DtoTypeInfoOf(elemType),
+                              DtoSlice(rhsPtr, rhsLength),
+                              DtoSlice(lhsPtr, lhsLength));
     } else // assigning
     {
       LLValue *tmpSwap = DtoAlloca(elemType, "arrayAssign.tmpSwap");
       LLFunction *fn = getRuntimeFunction(
           loc, gIR->module,
           !canSkipPostblit ? "_d_arrayassign_l" : "_d_arrayassign_r");
-      LLCallSite call = gIR->CreateCallOrInvoke(
+      gIR->CreateCallOrInvoke(
           fn, DtoTypeInfoOf(elemType), DtoSlice(rhsPtr, rhsLength),
           DtoSlice(lhsPtr, lhsLength), DtoBitCast(tmpSwap, getVoidPtrType()));
-      call.setCallingConv(llvm::CallingConv::C);
     }
   } else {
     // scalar rhs:
@@ -335,12 +333,11 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
       LLFunction *fn = getRuntimeFunction(loc, gIR->module,
                                           isConstructing ? "_d_arraysetctor"
                                                          : "_d_arraysetassign");
-      LLCallSite call = gIR->CreateCallOrInvoke(
+      gIR->CreateCallOrInvoke(
           fn, lhsPtr, DtoBitCast(makeLValue(loc, rhs), getVoidPtrType()),
           gIR->ir->CreateTruncOrBitCast(lhsLength,
                                         LLType::getInt32Ty(gIR->context())),
           DtoTypeInfoOf(stripModifiers(t2)));
-      call.setCallingConv(llvm::CallingConv::C);
     }
   }
 }
@@ -704,8 +701,7 @@ DSliceValue *DtoNewDynArray(Loc &loc, Type *arrayType, DValue *dim,
 
   // call allocator
   LLValue *newArray =
-      gIR->CreateCallOrInvoke(fn, arrayTypeInfo, arrayLen, ".gc_mem")
-          .getInstruction();
+      gIR->CreateCallOrInvoke(fn, arrayTypeInfo, arrayLen, ".gc_mem");
 
   // return a DSliceValue with the well-known length for better optimizability
   auto ptr =
@@ -774,8 +770,7 @@ DSliceValue *DtoNewMulDimDynArray(Loc &loc, Type *arrayType, DValue **dims,
 
   // call allocator
   LLValue *newptr =
-      gIR->CreateCallOrInvoke(fn, arrayTypeInfo, DtoLoad(darray), ".gc_mem")
-          .getInstruction();
+      gIR->CreateCallOrInvoke(fn, arrayTypeInfo, DtoLoad(darray), ".gc_mem");
 
   IF_LOG Logger::cout() << "final ptr = " << *newptr << '\n';
 
@@ -802,12 +797,10 @@ DSliceValue *DtoResizeDynArray(Loc &loc, Type *arrayType, DValue *array,
       getRuntimeFunction(loc, gIR->module, zeroInit ? "_d_arraysetlengthT"
                                                     : "_d_arraysetlengthiT");
 
-  LLValue *newArray =
-      gIR->CreateCallOrInvoke(
-             fn, DtoTypeInfoOf(arrayType), newdim,
-             DtoBitCast(DtoLVal(array), fn->getFunctionType()->getParamType(2)),
-             ".gc_mem")
-          .getInstruction();
+  LLValue *newArray = gIR->CreateCallOrInvoke(
+      fn, DtoTypeInfoOf(arrayType), newdim,
+      DtoBitCast(DtoLVal(array), fn->getFunctionType()->getParamType(2)),
+      ".gc_mem");
 
   return getSlice(arrayType, newArray);
 }
@@ -853,14 +846,11 @@ DSliceValue *DtoCatAssignArray(Loc &loc, DValue *arr, Expression *exp) {
 
   LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_arrayappendT");
   // Call _d_arrayappendT(TypeInfo ti, byte[] *px, byte[] y)
-  LLValue *newArray =
-      gIR->CreateCallOrInvoke(
-             fn, DtoTypeInfoOf(arrayType),
-             DtoBitCast(DtoLVal(arr), fn->getFunctionType()->getParamType(1)),
-             DtoAggrPaint(DtoSlice(exp),
-                          fn->getFunctionType()->getParamType(2)),
-             ".appendedArray")
-          .getInstruction();
+  LLValue *newArray = gIR->CreateCallOrInvoke(
+      fn, DtoTypeInfoOf(arrayType),
+      DtoBitCast(DtoLVal(arr), fn->getFunctionType()->getParamType(1)),
+      DtoAggrPaint(DtoSlice(exp), fn->getFunctionType()->getParamType(2)),
+      ".appendedArray");
 
   return getSlice(arrayType, newArray);
 }
@@ -929,8 +919,7 @@ DSliceValue *DtoCatArrays(Loc &loc, Type *arrayType, Expression *exp1,
     args.push_back(val);
   }
 
-  auto newArray =
-      gIR->CreateCallOrInvoke(fn, args, ".appendedArray").getInstruction();
+  auto newArray = gIR->CreateCallOrInvoke(fn, args, ".appendedArray");
   return getSlice(arrayType, newArray);
 }
 
@@ -944,13 +933,10 @@ DSliceValue *DtoAppendDChar(Loc &loc, DValue *arr, Expression *exp,
   LLFunction *fn = getRuntimeFunction(loc, gIR->module, func);
 
   // Call function (ref string x, dchar c)
-  LLValue *newArray =
-      gIR->CreateCallOrInvoke(
-             fn,
-             DtoBitCast(DtoLVal(arr), fn->getFunctionType()->getParamType(0)),
-             DtoBitCast(valueToAppend, fn->getFunctionType()->getParamType(1)),
-             ".appendedArray")
-          .getInstruction();
+  LLValue *newArray = gIR->CreateCallOrInvoke(
+      fn, DtoBitCast(DtoLVal(arr), fn->getFunctionType()->getParamType(0)),
+      DtoBitCast(valueToAppend, fn->getFunctionType()->getParamType(1)),
+      ".appendedArray");
 
   return getSlice(arr->type, newArray);
 }
@@ -1003,7 +989,7 @@ LLValue *DtoArrayEqCmp_impl(Loc &loc, const char *func, DValue *l,
     args.push_back(DtoBitCast(tival, fn->getFunctionType()->getParamType(2)));
   }
 
-  return gIR->CreateCallOrInvoke(fn, args).getInstruction();
+  return gIR->CreateCallOrInvoke(fn, args);
 }
 
 /// When `true` is returned, the type can be compared using `memcmp`.

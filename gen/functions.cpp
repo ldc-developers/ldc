@@ -926,7 +926,7 @@ void emulateWeakAnyLinkageForMSVC(LLFunction *func, LINK linkage) {
     finalMangle = mangleBuffer;
   }
 
-  std::string finalWeakMangle = finalMangle;
+  std::string finalWeakMangle = finalMangle.str();
   if (linkage == LINKcpp) {
     assert(finalMangle.startswith("?"));
     // prepend `__weak_` to first identifier
