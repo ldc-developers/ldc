@@ -140,6 +140,6 @@ llvm::CallSite FuncGenState::callOrInvoke(llvm::Value *callee,
     invoke->setAttributes(calleeFn->getAttributes());
   }
 
-  irs.scope() = IRScope(postinvoke);
+  irs.ir->SetInsertPoint(postinvoke);
   return invoke;
 }

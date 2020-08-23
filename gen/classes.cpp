@@ -221,11 +221,11 @@ void DtoFinalizeScopeClass(Loc &loc, LLValue *inst, bool hasDtor) {
                           getNullValue(monitor->getType()), ".hasMonitor");
   llvm::BranchInst::Create(ifbb, endbb, hasMonitor, gIR->scopebb());
 
-  gIR->scope() = IRScope(ifbb);
+  gIR->ir->SetInsertPoint(ifbb);
   DtoFinalizeClass(loc, inst);
   gIR->ir->CreateBr(endbb);
 
-  gIR->scope() = IRScope(endbb);
+  gIR->ir->SetInsertPoint(endbb);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -752,11 +752,11 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
                                      pair.second),
                   casebb);
 
-      p->scope() = IRScope(casebb);
+      p->ir->SetInsertPoint(casebb);
       DtoGoto(stmt->loc, pair.first);
     }
 
-    p->scope() = IRScope(bb);
+    p->ir->SetInsertPoint(bb);
   }
 }
 

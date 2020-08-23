@@ -91,12 +91,12 @@ DLValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key,
 
     // set up failbb to call the array bounds error runtime function
 
-    gIR->scope() = IRScope(failbb);
+    gIR->ir->SetInsertPoint(failbb);
 
     DtoBoundsCheckFailCall(gIR, loc);
 
     // if ok, proceed in okbb
-    gIR->scope() = IRScope(okbb);
+    gIR->ir->SetInsertPoint(okbb);
   }
   return new DLValue(type, ret);
 }

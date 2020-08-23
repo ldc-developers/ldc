@@ -59,16 +59,28 @@ class StructLiteralExp;
 struct IrFunction;
 struct IrModule;
 
-// represents a scope
-struct IRScope {
-  llvm::BasicBlock *begin;
-  IRBuilder<> builder;
+// insertion point for IRBuilder
+struct InsertionPoint {
+  llvm::BasicBlock *bb;                             // can be null
+  llvm::Optional<llvm::BasicBlock::iterator> point; // bb end if not set
 
-  IRScope();
-  IRScope(const IRScope &) = default;
-  explicit IRScope(llvm::BasicBlock *b);
+  InsertionPoint(llvm::BasicBlock *bb,
+                 llvm::Optional<llvm::BasicBlock::iterator> point)
+      : bb(bb), point(std::move(point)) {}
+};
 
-  IRScope &operator=(const IRScope &rhs);
+// Resets the IRBuilder for a new function and restores its previous state on
+// destruction.
+struct FunctionIRBuilderScope {
+private:
+  IRState &state;
+  InsertionPoint previousInsertionPoint;
+  llvm::FastMathFlags previousFMF;
+  llvm::DebugLoc previousDebugLoc;
+
+public:
+  FunctionIRBuilderScope(IRState &state);
+  ~FunctionIRBuilderScope();
 };
 
 struct IRBuilderHelper {
@@ -111,6 +123,10 @@ struct IRAsmBlock {
 // represents the LLVM module (object file)
 struct IRState {
 private:
+  IRBuilder<> builder;
+  friend struct FunctionIRBuilderScope;
+  friend struct IRBuilderHelper;
+
   std::vector<std::pair<llvm::GlobalVariable *, llvm::Constant *>>
       globalsToReplace;
   Array<Loc> inlineAsmLocs; // tracked by GC
@@ -155,8 +171,9 @@ public:
   llvm::Instruction *topallocapoint();
 
   // basic block scopes
-  std::vector<IRScope> scopes;
-  IRScope &scope();
+  InsertionPoint getInsertPoint();
+  void setInsertPoint(llvm::BasicBlock *insertAtEnd);
+  void setInsertPoint(InsertionPoint point);
   llvm::BasicBlock *scopebb();
   bool scopereturned();
 

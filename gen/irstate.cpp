@@ -27,19 +27,8 @@ const llvm::DataLayout *gDataLayout = nullptr;
 TargetABI *gABI = nullptr;
 
 ////////////////////////////////////////////////////////////////////////////////
-IRScope::IRScope() : builder(gIR->context()) { begin = nullptr; }
-
-IRScope::IRScope(llvm::BasicBlock *b) : begin(b), builder(b) {}
-
-IRScope &IRScope::operator=(const IRScope &rhs) {
-  begin = rhs.begin;
-  builder.SetInsertPoint(begin);
-  return *this;
-}
-
-////////////////////////////////////////////////////////////////////////////////
 IRState::IRState(const char *name, llvm::LLVMContext &context)
-    : module(name, context), objc(module), DBuilder(this) {
+    : builder(context), module(name, context), objc(module), DBuilder(this) {
   ir.state = this;
   mem.addRange(&inlineAsmLocs, sizeof(inlineAsmLocs));
 }
@@ -57,20 +46,41 @@ llvm::Function *IRState::topfunc() { return func()->getLLVMFunc(); }
 
 llvm::Instruction *IRState::topallocapoint() { return funcGen().allocapoint; }
 
-IRScope &IRState::scope() {
-  assert(!scopes.empty());
-  return scopes.back();
+InsertionPoint IRState::getInsertPoint() {
+  auto bb = builder.GetInsertBlock();
+  if (!bb)
+    return {nullptr, llvm::None};
+
+  llvm::Optional<llvm::BasicBlock::iterator> point = builder.GetInsertPoint();
+  if (point == bb->end())
+    point = llvm::None;
+
+  return {bb, point};
+}
+
+void IRState::setInsertPoint(llvm::BasicBlock *insertAtEnd) {
+  builder.SetInsertPoint(insertAtEnd);
+}
+
+void IRState::setInsertPoint(InsertionPoint point) {
+  if (!point.bb) {
+    builder.ClearInsertionPoint();
+  } else if (!point.point.hasValue()) {
+    builder.SetInsertPoint(point.bb);
+  } else {
+    builder.SetInsertPoint(point.bb, point.point.getValue());
+  }
 }
 
 llvm::BasicBlock *IRState::scopebb() {
-  IRScope &s = scope();
-  assert(s.begin);
-  return s.begin;
+  auto bb = ir->GetInsertBlock();
+  assert(bb);
+  return bb;
 }
 
 bool IRState::scopereturned() {
-  // return scope().returned;
-  return !scopebb()->empty() && scopebb()->back().isTerminator();
+  auto bb = scopebb();
+  return !bb->empty() && bb->back().isTerminator();
 }
 
 llvm::BasicBlock *IRState::insertBBBefore(llvm::BasicBlock *successor,
@@ -283,8 +293,25 @@ const Loc &IRState::getInlineAsmSrcLoc(unsigned srcLocCookie) const {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+FunctionIRBuilderScope::FunctionIRBuilderScope(IRState &state)
+    : state(state), previousInsertionPoint(state.getInsertPoint()),
+      previousFMF(state.builder.getFastMathFlags()),
+      previousDebugLoc(state.builder.getCurrentDebugLocation()) {
+  state.builder.ClearInsertionPoint();
+  state.builder.clearFastMathFlags();
+  state.builder.SetCurrentDebugLocation({});
+}
+
+FunctionIRBuilderScope::~FunctionIRBuilderScope() {
+  state.setInsertPoint(previousInsertionPoint);
+  state.builder.setFastMathFlags(previousFMF);
+  state.builder.SetCurrentDebugLocation(previousDebugLoc);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 IRBuilder<> *IRBuilderHelper::operator->() {
-  IRBuilder<> &b = state->scope().builder;
+  IRBuilder<> &b = state->builder;
   assert(b.GetInsertBlock() != NULL);
   return &b;
 }

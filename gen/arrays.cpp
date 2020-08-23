@@ -144,7 +144,7 @@ static void DtoArrayInit(Loc &loc, LLValue *ptr, LLValue *length,
   llvm::BranchInst::Create(condbb, gIR->scopebb());
 
   // replace current scope
-  gIR->scope() = IRScope(condbb);
+  gIR->ir->SetInsertPoint(condbb);
 
   // create the condition
   LLValue *cond_val =
@@ -155,7 +155,7 @@ static void DtoArrayInit(Loc &loc, LLValue *ptr, LLValue *length,
   llvm::BranchInst::Create(bodybb, endbb, cond_val, gIR->scopebb());
 
   // rewrite scope
-  gIR->scope() = IRScope(bodybb);
+  gIR->ir->SetInsertPoint(bodybb);
 
   LLValue *itr_val = DtoLoad(itr);
   // assign array element value
@@ -171,7 +171,7 @@ static void DtoArrayInit(Loc &loc, LLValue *ptr, LLValue *length,
   llvm::BranchInst::Create(condbb, gIR->scopebb());
 
   // rewrite the scope
-  gIR->scope() = IRScope(endbb);
+  gIR->ir->SetInsertPoint(endbb);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1118,12 +1118,12 @@ LLValue *DtoArrayEqCmp_memcmp(Loc &loc, DValue *l, DValue *r, IRState &irs) {
   // Note: no extra null checks are needed before passing the pointers to memcmp.
   // The array comparison is UB for non-zero length, and memcmp will correctly
   // return 0 (equality) when the length is zero.
-  irs.scope() = IRScope(memcmpBB);
+  irs.ir->SetInsertPoint(memcmpBB);
   auto memcmpAnswer = callMemcmp(loc, irs, l_ptr, r_ptr, l_length);
   irs.ir->CreateBr(memcmpEndBB);
 
   // Merge the result of length check and memcmp call into a phi node.
-  irs.scope() = IRScope(memcmpEndBB);
+  irs.ir->SetInsertPoint(memcmpEndBB);
   llvm::PHINode *phi =
       irs.ir->CreatePHI(LLType::getInt32Ty(gIR->context()), 2, "cmp_result");
   phi->addIncoming(DtoConstInt(1), incomingBB);
@@ -1348,11 +1348,11 @@ void DtoIndexBoundsCheck(Loc &loc, DValue *arr, DValue *index) {
   gIR->ir->CreateCondBr(cond, okbb, failbb);
 
   // set up failbb to call the array bounds error runtime function
-  gIR->scope() = IRScope(failbb);
+  gIR->ir->SetInsertPoint(failbb);
   DtoBoundsCheckFailCall(gIR, loc);
 
   // if ok, proceed in okbb
-  gIR->scope() = IRScope(okbb);
+  gIR->ir->SetInsertPoint(okbb);
 }
 
 void DtoBoundsCheckFailCall(IRState *irs, Loc &loc) {

@@ -74,7 +74,7 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
   for (auto c : *stmt->catches) {
     auto catchBB =
         irs.insertBBBefore(endbb, llvm::Twine("catch.") + c->type->toChars());
-    irs.scope() = IRScope(catchBB);
+    irs.ir->SetInsertPoint(catchBB);
     irs.DBuilder.EmitBlockStart(c->loc);
     PGO.emitCounterIncrement(c);
 
@@ -218,9 +218,8 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
 
     // redirect scope to avoid the generation of debug info before the
     // catchpad
-    IRScope save = irs.scope();
-    irs.scope() = IRScope(gIR->topallocapoint()->getParent());
-    irs.scope().builder.SetInsertPoint(gIR->topallocapoint());
+    const auto savedInsertPoint = irs.getInsertPoint();
+    irs.ir->SetInsertPoint(gIR->topallocapoint());
     DtoDeclarationExp(var);
 
     // catch handler will be outlined, so always treat as a nested reference
@@ -232,7 +231,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
       cpyObj = exnObj;
       exnObj = DtoAlloca(var->type, "exnObj");
     }
-    irs.scope() = save;
+    irs.setInsertPoint(savedInsertPoint);
     irs.DBuilder.EmitStopPoint(ctch->loc); // re-set debug loc after the
                                            // SetInsertPoint(allocaInst) call
   } else if (ctch->type) {
@@ -275,7 +274,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
   // outside the catch funclet
   llvm::BasicBlock *catchhandler = irs.insertBB("catchhandler");
   llvm::CatchReturnInst::Create(catchpad, catchhandler, irs.scopebb());
-  irs.scope() = IRScope(catchhandler);
+  irs.ir->SetInsertPoint(catchhandler);
   irs.funcGen().pgo.emitCounterIncrement(ctch);
   if (!isCPPclass) {
     auto enterCatchFn =
@@ -302,7 +301,7 @@ void TryCatchScope::emitCatchBodiesMSVC(IRState &irs, llvm::Value *) {
     auto catchBB =
         irs.insertBBBefore(endbb, llvm::Twine("catch.") + c->type->toChars());
 
-    irs.scope() = IRScope(catchBB);
+    irs.ir->SetInsertPoint(catchBB);
     irs.DBuilder.EmitBlockStart(c->loc);
 
     emitBeginCatchMSVC(irs, c, catchSwitchInst);
@@ -689,12 +688,12 @@ llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
   }
 
   // save and rewrite scope
-  IRScope savedIRScope = irs.scope();
+  const auto savedInsertPoint = irs.getInsertPoint();
 
   // insert landing pads at the end of the function, in emission order,
   // to improve human-readability of the IR
   llvm::BasicBlock *beginBB = irs.insertBBBefore(nullptr, "landingPad");
-  irs.scope() = IRScope(beginBB);
+  irs.ir->SetInsertPoint(beginBB);
 
   llvm::LandingPadInst *landingPad = createLandingPadInst(irs);
 
@@ -724,7 +723,7 @@ llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
       llvm::BasicBlock *afterCleanupBB =
           irs.insertBB(beginBB->getName() + llvm::Twine(".after.cleanup"));
       runCleanups(lastCleanup, newCleanup, afterCleanupBB);
-      irs.scope() = IRScope(afterCleanupBB);
+      irs.ir->SetInsertPoint(afterCleanupBB);
       lastCleanup = newCleanup;
     }
 
@@ -747,7 +746,7 @@ llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
       irs.ir->CreateCondBr(
           irs.ir->CreateICmpEQ(irs.ir->CreateLoad(ehSelectorSlot), ehTypeId),
           cb.bodyBB, mismatchBB, cb.branchWeights);
-      irs.scope() = IRScope(mismatchBB);
+      irs.ir->SetInsertPoint(mismatchBB);
     }
   }
 
@@ -765,7 +764,7 @@ llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
     irs.ir->CreateBr(resumeUnwindBlock);
   }
 
-  irs.scope() = savedIRScope;
+  irs.setInsertPoint(savedInsertPoint);
   return beginBB;
 }
 
@@ -780,13 +779,13 @@ llvm::BasicBlock *TryCatchFinallyScopes::getOrCreateResumeUnwindBlock() {
     resumeUnwindBlock = irs.insertBB("eh.resume");
 
     llvm::BasicBlock *oldBB = irs.scopebb();
-    irs.scope() = IRScope(resumeUnwindBlock);
+    irs.ir->SetInsertPoint(resumeUnwindBlock);
 
     llvm::Function *resumeFn = getUnwindResumeFunction(Loc(), irs.module);
     irs.ir->CreateCall(resumeFn, DtoLoad(getOrCreateEhPtrSlot()));
     irs.ir->CreateUnreachable();
 
-    irs.scope() = IRScope(oldBB);
+    irs.ir->SetInsertPoint(oldBB);
   }
   return resumeUnwindBlock;
 }
@@ -844,8 +843,7 @@ TryCatchFinallyScopes::runCleanupPad(CleanupCursor scope,
   //  can place an exception frame (but not done here)
   auto frame = getNullPtr(getVoidPtrType());
 
-  auto savedInsertBlock = irs.ir->GetInsertBlock();
-  auto savedInsertPoint = irs.ir->GetInsertPoint();
+  auto savedInsertPoint = irs.getInsertPoint();
   auto savedDbgLoc = irs.DBuilder.GetCurrentLoc();
 
   auto endFn = getRuntimeFunction(Loc(), irs.module, "_d_leave_cleanup");
@@ -865,7 +863,7 @@ TryCatchFinallyScopes::runCleanupPad(CleanupCursor scope,
       beginFn, frame, {llvm::OperandBundleDef("funclet", cleanuppad)}, "");
   llvm::BranchInst::Create(copybb, cleanupret, exec, cleanupbb);
 
-  irs.ir->SetInsertPoint(savedInsertBlock, savedInsertPoint);
+  irs.setInsertPoint(savedInsertPoint);
   irs.DBuilder.EmitStopPoint(savedDbgLoc);
 
   return cleanupbb;

@@ -883,12 +883,12 @@ void emitDMDStyleFunctionTrace(IRState &irs, FuncDeclaration *fd,
   // Push cleanup block that calls _c_trace_epi at function exit.
   {
     auto traceEpilogBB = irs.insertBB("trace_epi");
-    auto saveScope = irs.scope();
-    irs.scope() = IRScope(traceEpilogBB);
+    const auto savedInsertPoint = irs.getInsertPoint();
+    irs.ir->SetInsertPoint(traceEpilogBB);
     irs.ir->CreateCall(
         getRuntimeFunction(fd->endloc, irs.module, "_c_trace_epi"));
     funcGen.scopes.pushCleanup(traceEpilogBB, irs.scopebb());
-    irs.scope() = saveScope;
+    irs.setInsertPoint(savedInsertPoint);
   }
 }
 
@@ -1165,13 +1165,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   llvm::BasicBlock *beginbb =
       llvm::BasicBlock::Create(gIR->context(), "", func);
 
-  gIR->scopes.push_back(IRScope(beginbb));
-  SCOPE_EXIT {
-    gIR->scopes.pop_back();
-  };
-
-  // Set the FastMath options for this function scope.
-  gIR->scopes.back().builder.setFastMathFlags(irFunc->FMF);
+  // set up the IRBuilder scope for the function
+  FunctionIRBuilderScope irBuilderScope(*gIR);
+  gIR->setInsertPoint(beginbb);
+  gIR->ir->setFastMathFlags(irFunc->FMF);
 
   // @naked: emit body and return, no prologue/epilogue
   if (func->hasFnAttribute(llvm::Attribute::Naked)) {
@@ -1277,11 +1274,11 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     {
       auto *vaendBB =
           llvm::BasicBlock::Create(gIR->context(), "vaend", gIR->topfunc());
-      IRScope saveScope = gIR->scope();
-      gIR->scope() = IRScope(vaendBB);
+      const auto savedInsertPoint = gIR->getInsertPoint();
+      gIR->ir->SetInsertPoint(vaendBB);
       gIR->ir->CreateCall(GET_INTRINSIC_DECL(vaend), llAp);
       funcGen.scopes.pushCleanup(vaendBB, gIR->scopebb());
-      gIR->scope() = saveScope;
+      gIR->setInsertPoint(savedInsertPoint);
     }
   }
 
@@ -1297,7 +1294,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
       if (!funcGen.retBlock)
         funcGen.retBlock = gIR->insertBB("return");
       funcGen.scopes.runCleanups(0, funcGen.retBlock);
-      gIR->scope() = IRScope(funcGen.retBlock);
+      gIR->ir->SetInsertPoint(funcGen.retBlock);
     }
     funcGen.scopes.popCleanups(0);
   }
