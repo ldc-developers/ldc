@@ -385,14 +385,19 @@ DIType DIBuilder::CreateVectorType(Type *type) {
   // translate void vectors to byte vectors
   if (te->toBasetype()->ty == Tvoid)
     te = Type::tuns8;
-  int64_t Dim = tv->size(Loc()) / te->size(Loc());
-  LLMetadata *subscripts[] = {DBuilder.getOrCreateSubrange(0, Dim)};
+  const auto dim = tv->size(Loc()) / te->size(Loc());
+#if LDC_LLVM_VER >= 1100
+  const auto Dim = llvm::ConstantAsMetadata::get(DtoConstSize_t(dim));
+  auto subscript = DBuilder.getOrCreateSubrange(Dim, nullptr, nullptr, nullptr);
+#else
+  auto subscript = DBuilder.getOrCreateSubrange(0, dim);
+#endif
 
   return DBuilder.createVectorType(
-      getTypeAllocSize(T) * 8,              // size (bits)
-      getABITypeAlign(T) * 8,               // align (bits)
-      CreateTypeDescription(te),            // element type
-      DBuilder.getOrCreateArray(subscripts) // subscripts
+      getTypeAllocSize(T) * 8,               // size (bits)
+      getABITypeAlign(T) * 8,                // align (bits)
+      CreateTypeDescription(te),             // element type
+      DBuilder.getOrCreateArray({subscript}) // subscripts
   );
 }
 
@@ -681,8 +686,14 @@ DIType DIBuilder::CreateSArrayType(Type *type) {
   llvm::SmallVector<LLMetadata *, 8> subscripts;
   while (t->ty == Tsarray) {
     TypeSArray *tsa = static_cast<TypeSArray *>(t);
-    int64_t Count = tsa->dim->toInteger();
-    auto subscript = DBuilder.getOrCreateSubrange(0, Count);
+    const auto count = tsa->dim->toInteger();
+#if LDC_LLVM_VER >= 1100
+    const auto Count = llvm::ConstantAsMetadata::get(DtoConstSize_t(count));
+    const auto subscript =
+        DBuilder.getOrCreateSubrange(Count, nullptr, nullptr, nullptr);
+#else
+    const auto subscript = DBuilder.getOrCreateSubrange(0, count);
+#endif
     subscripts.push_back(subscript);
     t = t->nextOf();
   }
