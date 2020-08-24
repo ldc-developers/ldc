@@ -872,8 +872,8 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   // call the function
-  llvm::CallBase *call = gIR->funcGen().callOrInvoke(callable, callableTy, args,
-                                                     "", tf->isnothrow);
+  LLCallBasePtr call = gIR->funcGen().callOrInvoke(callable, callableTy, args,
+                                                   "", tf->isnothrow);
 
   // PGO: Insert instrumentation or attach profile metadata at indirect call
   // sites.
@@ -886,7 +886,8 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   const int sretArgIndex =
       (irFty.arg_sret && irFty.arg_this && gABI->passThisBeforeSret(tf) ? 1
                                                                         : 0);
-  LLValue *retllval = (irFty.arg_sret ? args[sretArgIndex] : call);
+  LLValue *retllval = irFty.arg_sret ? args[sretArgIndex]
+                                     : static_cast<llvm::Instruction *>(call);
   bool retValIsLVal =
       (tf->isref && returnTy != Tvoid) || (irFty.arg_sret != nullptr);
 

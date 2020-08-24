@@ -30,6 +30,9 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/DebugInfo.h"
+#if LDC_LLVM_VER < 800
+#include "llvm/IR/CallSite.h"
+#endif
 
 #if LDC_LLVM_VER >= 1000
 // LLVM >= 10 requires C++14 and no longer has llvm::make_unique. Add it back
@@ -81,3 +84,21 @@ using llvm::IRBuilder;
 #define LLConstantFP llvm::ConstantFP
 
 #define LLSmallVector llvm::SmallVector
+
+#if LDC_LLVM_VER >= 800
+using LLCallBasePtr = llvm::CallBase *;
+#else
+class LLCallBasePtr {
+  llvm::CallSite CS;
+
+public:
+  LLCallBasePtr(llvm::CallInst *CI) : CS(CI) {}
+  LLCallBasePtr(llvm::InvokeInst *II) : CS(II) {}
+  explicit LLCallBasePtr(llvm::Instruction *I) : CS(I) {}
+
+  llvm::CallSite *operator->() { return &CS; }
+
+  operator llvm::CallSite &() { return CS; }
+  operator llvm::Instruction *() { return CS.getInstruction(); }
+};
+#endif

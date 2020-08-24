@@ -114,11 +114,11 @@ public:
 
   // Analyze the current call, filling in some fields. Returns true if
   // this is an allocation we can stack-allocate.
-  virtual bool analyze(CallBase *CB, const Analysis &A) = 0;
+  virtual bool analyze(LLCallBasePtr CB, const Analysis &A) = 0;
 
   // Returns the alloca to replace this call.
   // It will always be inserted before the call.
-  virtual Value *promote(CallBase *CB, IRBuilder<> &B, const Analysis &A) {
+  virtual Value *promote(LLCallBasePtr CB, IRBuilder<> &B, const Analysis &A) {
     NumGcToStack++;
 
     auto &BB = CB->getCaller()->getEntryBlock();
@@ -166,7 +166,7 @@ public:
   TypeInfoFI(ReturnType::Type returnType, unsigned tiArgNr)
       : FunctionInfo(returnType), TypeInfoArgNr(tiArgNr) {}
 
-  bool analyze(CallBase *CB, const Analysis &A) override {
+  bool analyze(LLCallBasePtr CB, const Analysis &A) override {
     Value *TypeInfo = CB->getArgOperand(TypeInfoArgNr);
     Ty = A.getTypeFor(TypeInfo);
     if (!Ty) {
@@ -187,7 +187,7 @@ public:
       : TypeInfoFI(returnType, tiArgNr), ArrSizeArgNr(arrSizeArgNr),
         Initialized(initialized) {}
 
-  bool analyze(CallBase *CB, const Analysis &A) override {
+  bool analyze(LLCallBasePtr CB, const Analysis &A) override {
     if (!TypeInfoFI::analyze(CB, A)) {
       return false;
     }
@@ -216,7 +216,7 @@ public:
     return true;
   }
 
-  Value *promote(CallBase *CB, IRBuilder<> &B, const Analysis &A) override {
+  Value *promote(LLCallBasePtr CB, IRBuilder<> &B, const Analysis &A) override {
     IRBuilder<> Builder(B.GetInsertBlock(), B.GetInsertPoint());
 
     // If the allocation is of constant size it's best to put it in the
@@ -265,7 +265,7 @@ public:
 // FunctionInfo for _d_allocclass
 class AllocClassFI : public FunctionInfo {
 public:
-  bool analyze(CallBase *CB, const Analysis &A) override {
+  bool analyze(LLCallBasePtr CB, const Analysis &A) override {
     if (CB->arg_size() != 1) {
       return false;
     }
@@ -322,7 +322,7 @@ class UntypedMemoryFI : public FunctionInfo {
   Value *SizeArg;
 
 public:
-  bool analyze(CallBase *CB, const Analysis &A) override {
+  bool analyze(LLCallBasePtr CB, const Analysis &A) override {
     if (CB->arg_size() < SizeArgNr + 1) {
       return false;
     }
@@ -345,7 +345,7 @@ public:
     return true;
   }
 
-  Value *promote(CallBase *CB, IRBuilder<> &B, const Analysis &A) override {
+  Value *promote(LLCallBasePtr CB, IRBuilder<> &B, const Analysis &A) override {
     IRBuilder<> Builder(B.GetInsertBlock(), B.GetInsertPoint());
 
     // If the allocation is of constant size it's best to put it in the
@@ -431,11 +431,11 @@ GarbageCollect2Stack::GarbageCollect2Stack()
   KnownFunctions["_d_allocmemory"] = &AllocMemory;
 }
 
-static void RemoveCall(CallBase *CB, const Analysis &A) {
+static void RemoveCall(LLCallBasePtr CB, const Analysis &A) {
   // For an invoke instruction, we insert a branch to the normal target BB
   // immediately before it. Ideally, we would find a way to not invalidate
   // the dominator tree here.
-  if (auto Invoke = dyn_cast<InvokeInst>(CB)) {
+  if (auto Invoke = dyn_cast<InvokeInst>(static_cast<Instruction *>(CB))) {
     BranchInst::Create(Invoke->getNormalDest(), Invoke);
     Invoke->getUnwindDest()->removePredecessor(CB->getParent());
   }
@@ -448,7 +448,7 @@ static void RemoveCall(CallBase *CB, const Analysis &A) {
     A.CGNode->removeCallEdgeFor(CB);
 #endif
   }
-  CB->eraseFromParent();
+  static_cast<Instruction *>(CB)->eraseFromParent();
 }
 
 static bool
@@ -481,10 +481,18 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
       auto originalI = I;
 
       // Ignore non-calls.
-      auto CB = dyn_cast<CallBase>(&(*(I++)));
+      Instruction *Inst = &(*(I++));
+#if LDC_LLVM_VER >= 800
+      auto CB = dyn_cast<CallBase>(Inst);
       if (!CB) {
         continue;
       }
+#else
+      LLCallBasePtr CB(Inst);
+      if (!CB->getInstruction()) {
+        continue;
+      }
+#endif
 
       // Ignore indirect calls and calls to non-external functions.
       Function *Callee = CB->getCalledFunction();
@@ -501,7 +509,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
 
       FunctionInfo *info = OMI->getValue();
 
-      if (CB->use_empty()) {
+      if (static_cast<Instruction *>(CB)->use_empty()) {
         Changed = true;
         NumDeleted++;
         RemoveCall(CB, A);
@@ -544,7 +552,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
       if (newVal->getType() != CB->getType()) {
         newVal = Builder.CreateBitCast(newVal, CB->getType());
       }
-      CB->replaceAllUsesWith(newVal);
+      static_cast<Instruction *>(CB)->replaceAllUsesWith(newVal);
 
       RemoveCall(CB, A);
     }
@@ -816,7 +824,11 @@ bool isSafeToStackAllocate(BasicBlock::iterator Alloc, Value *V,
     switch (I->getOpcode()) {
     case Instruction::Call:
     case Instruction::Invoke: {
+#if LDC_LLVM_VER >= 800
       auto CB = llvm::cast<CallBase>(I);
+#else
+      LLCallBasePtr CB(I);
+#endif
       // Not captured if the callee is readonly, doesn't return a copy through
       // its return value and doesn't unwind (a readonly function can leak bits
       // by throwing an exception or not depending on the input value).
@@ -840,7 +852,7 @@ bool isSafeToStackAllocate(BasicBlock::iterator Alloc, Value *V,
             return false;
           }
 
-          if (auto call = dyn_cast<CallInst>(CB)) {
+          if (auto call = dyn_cast<CallInst>(static_cast<Instruction *>(CB))) {
             if (call->isTailCall()) {
               RemoveTailCallInsts.push_back(call);
             }
