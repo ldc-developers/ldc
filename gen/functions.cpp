@@ -454,20 +454,28 @@ void applyParamAttrsToLLFunc(TypeFunction *f, IrFuncTy &irFty,
 /// does the same). See https://llvm.org/bugs/show_bug.cgi?id=23172
 void applyTargetMachineAttributes(llvm::Function &func,
                                   const llvm::TargetMachine &target) {
-  const llvm::TargetOptions &TO = target.Options;
+  const auto dcompute = gIR->dcomputetarget;
 
-  // TODO: implement commandline switches to change the default values.
   // TODO: (correctly) apply these for NVPTX (but not for SPIRV).
-  if (gIR->dcomputetarget && gIR->dcomputetarget->target == DComputeTarget::OpenCL)
+  if (dcompute && dcompute->target == DComputeTarget::OpenCL)
     return;
-  if (!gIR->dcomputetarget) {
-    // Target CPU capabilities
-    func.addFnAttr("target-cpu", target.getTargetCPU());
-    auto featStr = target.getTargetFeatureString();
-    if (!featStr.empty())
-      func.addFnAttr("target-features", featStr);
-  }
+  const auto cpu = dcompute ? "" : target.getTargetCPU();
+  const auto features = dcompute ? "" : target.getTargetFeatureString();
+
+#if LDC_LLVM_VER >= 1000
+  opts::setFunctionAttributes(cpu, features, func);
+  if (opts::fFastMath) // -ffast-math[=true] overrides -enable-unsafe-fp-math
+    func.addFnAttr("unsafe-fp-math", "true");
+  if (!func.hasFnAttribute("frame-pointer")) // not explicitly set by user
+    func.addFnAttr("frame-pointer", isOptimizationEnabled() ? "none" : "all");
+#else
+  if (!cpu.empty())
+    func.addFnAttr("target-cpu", cpu);
+  if (!features.empty())
+    func.addFnAttr("target-features", features);
+
   // Floating point settings
+  const auto &TO = target.Options;
   func.addFnAttr("unsafe-fp-math", TO.UnsafeFPMath ? "true" : "false");
   // This option was removed from llvm::TargetOptions in LLVM 5.0.
   // Clang sets this to true when `-cl-mad-enable` is passed (OpenCL only).
@@ -490,10 +498,11 @@ void applyTargetMachineAttributes(llvm::Function &func,
       func.addFnAttr("frame-pointer", "all");
       break;
   }
-#else
+#else // LDC_LLVM_VER < 800
   func.addFnAttr("no-frame-pointer-elim",
                  willEliminateFramePointer() ? "false" : "true");
 #endif
+#endif // LDC_LLVM_VER < 1000
 }
 
 void applyXRayAttributes(FuncDeclaration &fdecl, llvm::Function &func) {

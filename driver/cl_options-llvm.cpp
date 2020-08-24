@@ -63,6 +63,8 @@ Optional<CodeModel::Model> getCodeModel() {
 #if LDC_LLVM_VER >= 800
 llvm::Optional<llvm::FramePointer::FP> framePointerUsage() {
 #if LDC_LLVM_VER >= 1100
+  // Defaults to `FP::None`; no way to check if set explicitly by user except
+  // indirectly via setFunctionAttributes()...
   return codegen::getFramePointerUsage();
 #else
   if (::FramePointerUsage.getNumOccurrences() > 0)
@@ -116,6 +118,17 @@ std::string getFeaturesStr() {
   return ::getFeaturesStr();
 #endif
 }
+
+#if LDC_LLVM_VER >= 1000
+void setFunctionAttributes(StringRef cpu, StringRef features,
+                           Function &function) {
+#if LDC_LLVM_VER >= 1100
+  return codegen::setFunctionAttributes(cpu, features, function);
+#else
+  return ::setFunctionAttributes(cpu, features, function);
+#endif
+}
+#endif
 } // namespace opts
 
 #if LDC_WITH_LLD

@@ -14,6 +14,10 @@
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Target/TargetOptions.h"
 
+namespace llvm {
+class Function;
+}
+
 namespace opts {
 
 std::string getArchStr();
@@ -31,4 +35,8 @@ bool printTargetFeaturesHelp();
 llvm::TargetOptions InitTargetOptionsFromCodeGenFlags();
 std::string getCPUStr();
 std::string getFeaturesStr();
+#if LDC_LLVM_VER >= 1000
+void setFunctionAttributes(llvm::StringRef cpu, llvm::StringRef features,
+                           llvm::Function &function);
+#endif
 }
