@@ -50,7 +50,11 @@ bool FuncEntryCallPass::runOnFunction(Function &F) {
   // (this includes e.g. `ldc.register_dso`!)
   llvm::BasicBlock &block = F.getEntryBlock();
   IRBuilder<> builder(&block, block.begin());
+#if LLVM_VERSION >= 1100
+  builder.CreateCall(FunctionCallee(cast<Function>(funcToCallUponEntry)));
+#else
   builder.CreateCall(funcToCallUponEntry);
+#endif
   return true;
 }
 
