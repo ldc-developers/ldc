@@ -207,7 +207,7 @@ void DIBuilder::SetValue(const Loc &loc, llvm::Value *value,
                                    IR->scopebb());
 }
 
-DIFile DIBuilder::CreateFile(Loc &loc) {
+DIFile DIBuilder::CreateFile(const Loc &loc) {
   const char *filename = loc.filename;
   if (!filename)
     filename = IR->dmodule->srcfile.toChars();
@@ -1149,26 +1149,15 @@ void DIBuilder::EmitFuncStart(FuncDeclaration *fd) {
   Logger::println("D to dwarf funcstart");
   LOG_SCOPE;
 
-  assert(static_cast<llvm::MDNode *>(getIrFunc(fd)->diSubprogram) != 0);
+  auto irFunc = getIrFunc(fd);
+  assert(irFunc->diSubprogram);
+  irFunc->getLLVMFunc()->setSubprogram(irFunc->diSubprogram);
+
+  IR->ir->SetCurrentDebugLocation({}); // clear first
   EmitStopPoint(fd->loc);
 }
 
-void DIBuilder::EmitFuncEnd(FuncDeclaration *fd) {
-  if (!mustEmitLocationsDebugInfo())
-    return;
-
-  Logger::println("D to dwarf funcend");
-  LOG_SCOPE;
-
-  auto irFunc = getIrFunc(fd);
-
-  assert(static_cast<llvm::MDNode *>(irFunc->diSubprogram) != 0);
-  EmitStopPoint(fd->endloc);
-
-  irFunc->getLLVMFunc()->setSubprogram(irFunc->diSubprogram);
-}
-
-void DIBuilder::EmitBlockStart(Loc &loc) {
+void DIBuilder::EmitBlockStart(const Loc &loc) {
   if (!mustEmitLocationsDebugInfo())
     return;
 
@@ -1193,7 +1182,7 @@ void DIBuilder::EmitBlockEnd() {
   fn->diLexicalBlocks.pop();
 }
 
-void DIBuilder::EmitStopPoint(Loc &loc) {
+void DIBuilder::EmitStopPoint(const Loc &loc) {
   if (!mustEmitLocationsDebugInfo())
     return;
 
@@ -1202,6 +1191,7 @@ void DIBuilder::EmitStopPoint(Loc &loc) {
   // cannot do this in all cases).
   if (!loc.linnum && IR->ir->getCurrentDebugLocation())
     return;
+
   unsigned linnum = loc.linnum;
   // without proper loc use the line of the enclosing symbol that has line
   // number debug info
@@ -1215,10 +1205,7 @@ void DIBuilder::EmitStopPoint(Loc &loc) {
   LOG_SCOPE;
   IR->ir->SetCurrentDebugLocation(
       llvm::DebugLoc::get(linnum, col, GetCurrentScope()));
-  currentLoc = loc;
 }
-
-Loc DIBuilder::GetCurrentLoc() const { return currentLoc; }
 
 void DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
   auto sub = IR->func()->variableMap.find(vd);

@@ -58,28 +58,15 @@ class StructLiteralExp;
 struct IrFunction;
 struct IrModule;
 
-// insertion point for IRBuilder
-struct InsertionPoint {
-  llvm::BasicBlock *bb;                             // can be null
-  llvm::Optional<llvm::BasicBlock::iterator> point; // bb end if not set
-
-  InsertionPoint(llvm::BasicBlock *bb,
-                 llvm::Optional<llvm::BasicBlock::iterator> point)
-      : bb(bb), point(std::move(point)) {}
-};
-
-// Resets the IRBuilder for a new function and restores its previous state on
-// destruction.
-struct FunctionIRBuilderScope {
+// Saves the IRBuilder state and restores it on destruction.
+struct IRBuilderScope {
 private:
-  IRState &state;
-  InsertionPoint previousInsertionPoint;
-  llvm::FastMathFlags previousFMF;
-  llvm::DebugLoc previousDebugLoc;
+  llvm::IRBuilderBase::InsertPointGuard ipGuard;
+  llvm::IRBuilderBase::FastMathFlagGuard fmfGuard;
 
 public:
-  FunctionIRBuilderScope(IRState &state);
-  ~FunctionIRBuilderScope();
+  explicit IRBuilderScope(llvm::IRBuilderBase &builder)
+      : ipGuard(builder), fmfGuard(builder) {}
 };
 
 struct IRBuilderHelper {
@@ -123,7 +110,6 @@ struct IRAsmBlock {
 struct IRState {
 private:
   IRBuilder<> builder;
-  friend struct FunctionIRBuilderScope;
   friend struct IRBuilderHelper;
 
   std::vector<std::pair<llvm::GlobalVariable *, llvm::Constant *>>
@@ -169,11 +155,16 @@ public:
   llvm::Function *topfunc();
   llvm::Instruction *topallocapoint();
 
-  // basic block scopes
-  InsertionPoint getInsertPoint();
-  void setInsertPoint(llvm::BasicBlock *insertAtEnd);
-  void setInsertPoint(InsertionPoint point);
-  llvm::BasicBlock *scopebb();
+  // Use this to set the IRBuilder's insertion point for a new function.
+  // The previous IRBuilder state is restored when the returned value is
+  // destructed. Use `ir->SetInsertPoint()` instead to change the insertion
+  // point inside the same function.
+  std::unique_ptr<IRBuilderScope> setInsertPoint(llvm::BasicBlock *bb);
+  // Use this to have the IRBuilder's current insertion point (incl. debug
+  // location) restored when the returned value is destructed.
+  std::unique_ptr<llvm::IRBuilderBase::InsertPointGuard> saveInsertPoint();
+  // Returns the basic block the IRBuilder currently inserts into.
+  llvm::BasicBlock *scopebb() { return ir->GetInsertBlock(); }
   bool scopereturned();
 
   // Creates a new basic block and inserts it before the specified one.

@@ -72,8 +72,6 @@ class DIBuilder {
     return CUNode;
   }
 
-  Loc currentLoc;
-
 public:
   explicit DIBuilder(IRState *const IR);
 
@@ -114,18 +112,13 @@ public:
   /// \brief Emits debug info for function start
   void EmitFuncStart(FuncDeclaration *fd);
 
-  /// \brief Emits debug info for function end
-  void EmitFuncEnd(FuncDeclaration *fd);
-
   /// \brief Emits debug info for block start
-  void EmitBlockStart(Loc &loc);
+  void EmitBlockStart(const Loc &loc);
 
   /// \brief Emits debug info for block end
   void EmitBlockEnd();
 
-  Loc GetCurrentLoc() const;
-
-  void EmitStopPoint(Loc &loc);
+  void EmitStopPoint(const Loc &loc);
 
   void EmitValue(llvm::Value *val, VarDeclaration *vd);
 
@@ -171,7 +164,7 @@ private:
                  llvm::SmallVector<llvm::Metadata *, 16> &elems);
   void AddStaticMembers(AggregateDeclaration *sd, ldc::DIFile file,
                  llvm::SmallVector<llvm::Metadata *, 16> &elems);
-  DIFile CreateFile(Loc &loc);
+  DIFile CreateFile(const Loc &loc);
   DIFile CreateFile();
   DIFile CreateFile(Dsymbol* decl);
   DIType CreateBasicType(Type *type);

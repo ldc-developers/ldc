@@ -46,36 +46,15 @@ llvm::Function *IRState::topfunc() { return func()->getLLVMFunc(); }
 
 llvm::Instruction *IRState::topallocapoint() { return funcGen().allocapoint; }
 
-InsertionPoint IRState::getInsertPoint() {
-  auto bb = builder.GetInsertBlock();
-  if (!bb)
-    return {nullptr, llvm::None};
-
-  llvm::Optional<llvm::BasicBlock::iterator> point = builder.GetInsertPoint();
-  if (point == bb->end())
-    point = llvm::None;
-
-  return {bb, point};
+std::unique_ptr<IRBuilderScope> IRState::setInsertPoint(llvm::BasicBlock *bb) {
+  auto savedScope = llvm::make_unique<IRBuilderScope>(builder);
+  builder.SetInsertPoint(bb);
+  return savedScope;
 }
 
-void IRState::setInsertPoint(llvm::BasicBlock *insertAtEnd) {
-  builder.SetInsertPoint(insertAtEnd);
-}
-
-void IRState::setInsertPoint(InsertionPoint point) {
-  if (!point.bb) {
-    builder.ClearInsertionPoint();
-  } else if (!point.point.hasValue()) {
-    builder.SetInsertPoint(point.bb);
-  } else {
-    builder.SetInsertPoint(point.bb, point.point.getValue());
-  }
-}
-
-llvm::BasicBlock *IRState::scopebb() {
-  auto bb = ir->GetInsertBlock();
-  assert(bb);
-  return bb;
+std::unique_ptr<llvm::IRBuilderBase::InsertPointGuard>
+IRState::saveInsertPoint() {
+  return llvm::make_unique<llvm::IRBuilderBase::InsertPointGuard>(builder);
 }
 
 bool IRState::scopereturned() {
@@ -300,26 +279,9 @@ const Loc &IRState::getInlineAsmSrcLoc(unsigned srcLocCookie) const {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-FunctionIRBuilderScope::FunctionIRBuilderScope(IRState &state)
-    : state(state), previousInsertionPoint(state.getInsertPoint()),
-      previousFMF(state.builder.getFastMathFlags()),
-      previousDebugLoc(state.builder.getCurrentDebugLocation()) {
-  state.builder.ClearInsertionPoint();
-  state.builder.clearFastMathFlags();
-  state.builder.SetCurrentDebugLocation({});
-}
-
-FunctionIRBuilderScope::~FunctionIRBuilderScope() {
-  state.setInsertPoint(previousInsertionPoint);
-  state.builder.setFastMathFlags(previousFMF);
-  state.builder.SetCurrentDebugLocation(previousDebugLoc);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 IRBuilder<> *IRBuilderHelper::operator->() {
   IRBuilder<> &b = state->builder;
-  assert(b.GetInsertBlock() != NULL);
+  assert(b.GetInsertBlock());
   return &b;
 }
 

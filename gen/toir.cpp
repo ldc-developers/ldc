@@ -187,12 +187,10 @@ namespace {
 void pushVarDtorCleanup(IRState *p, VarDeclaration *vd) {
   llvm::BasicBlock *beginBB = p->insertBB(llvm::Twine("dtor.") + vd->toChars());
 
-  // TODO: Clean this up with push/pop insertion point methods.
-  const auto savedInsertPoint = p->getInsertPoint();
+  const auto savedInsertPoint = p->saveInsertPoint();
   p->ir->SetInsertPoint(beginBB);
   toElemDtor(vd->edtor);
   p->funcGen().scopes.pushCleanup(beginBB, p->scopebb());
-  p->setInsertPoint(savedInsertPoint);
 }
 }
 

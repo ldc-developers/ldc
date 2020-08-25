@@ -1087,12 +1087,10 @@ public:
         if (PGO.emitsInstrumentation()) {
           llvm::BasicBlock *casecntr =
               irs->insertBBBefore(casejumptargetbb, "casecntr");
-          const auto savedInsertPoint = irs->getInsertPoint();
+          const auto savedInsertPoint = irs->saveInsertPoint();
           irs->ir->SetInsertPoint(casecntr);
           PGO.emitCounterIncrement(cs);
           llvm::BranchInst::Create(casejumptargetbb, casecntr);
-          irs->setInsertPoint(savedInsertPoint);
-
           casejumptargetbb = casecntr;
         }
 

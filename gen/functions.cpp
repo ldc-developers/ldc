@@ -892,12 +892,11 @@ void emitDMDStyleFunctionTrace(IRState &irs, FuncDeclaration *fd,
   // Push cleanup block that calls _c_trace_epi at function exit.
   {
     auto traceEpilogBB = irs.insertBB("trace_epi");
-    const auto savedInsertPoint = irs.getInsertPoint();
+    const auto savedInsertPoint = irs.saveInsertPoint();
     irs.ir->SetInsertPoint(traceEpilogBB);
     irs.ir->CreateCall(
         getRuntimeFunction(fd->endloc, irs.module, "_c_trace_epi"));
     funcGen.scopes.pushCleanup(traceEpilogBB, irs.scopebb());
-    irs.setInsertPoint(savedInsertPoint);
   }
 }
 
@@ -1175,9 +1174,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
       llvm::BasicBlock::Create(gIR->context(), "", func);
 
   // set up the IRBuilder scope for the function
-  FunctionIRBuilderScope irBuilderScope(*gIR);
-  gIR->setInsertPoint(beginbb);
+  const auto savedIRBuilderScope = gIR->setInsertPoint(beginbb);
   gIR->ir->setFastMathFlags(irFunc->FMF);
+  gIR->DBuilder.EmitFuncStart(fd);
 
   // @naked: emit body and return, no prologue/epilogue
   if (func->hasFnAttribute(llvm::Attribute::Naked)) {
@@ -1199,9 +1198,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
                            0, // Address space
                            "alloca_point", beginbb);
   funcGen.allocapoint = allocaPoint;
-
-  // debug info - after all allocas, but before any llvm.dbg.declare etc
-  gIR->DBuilder.EmitFuncStart(fd);
 
   emitInstrumentationFnEnter(fd);
 
@@ -1283,11 +1279,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     {
       auto *vaendBB =
           llvm::BasicBlock::Create(gIR->context(), "vaend", gIR->topfunc());
-      const auto savedInsertPoint = gIR->getInsertPoint();
+      const auto savedInsertPoint = gIR->saveInsertPoint();
       gIR->ir->SetInsertPoint(vaendBB);
       gIR->ir->CreateCall(GET_INTRINSIC_DECL(vaend), llAp);
       funcGen.scopes.pushCleanup(vaendBB, gIR->scopebb());
-      gIR->setInsertPoint(savedInsertPoint);
     }
   }
 
@@ -1328,7 +1323,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
       gIR->ir->CreateRet(llvm::UndefValue::get(func->getReturnType()));
     }
   }
-  gIR->DBuilder.EmitFuncEnd(fd);
 
   // erase alloca point
   if (allocaPoint->getParent()) {

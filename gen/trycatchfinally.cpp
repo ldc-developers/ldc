@@ -218,7 +218,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
 
     // redirect scope to avoid the generation of debug info before the
     // catchpad
-    const auto savedInsertPoint = irs.getInsertPoint();
+    const auto savedInsertPoint = irs.saveInsertPoint();
     irs.ir->SetInsertPoint(gIR->topallocapoint());
     DtoDeclarationExp(var);
 
@@ -231,9 +231,6 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
       cpyObj = exnObj;
       exnObj = DtoAlloca(var->type, "exnObj");
     }
-    irs.setInsertPoint(savedInsertPoint);
-    irs.DBuilder.EmitStopPoint(ctch->loc); // re-set debug loc after the
-                                           // SetInsertPoint(allocaInst) call
   } else if (ctch->type) {
     // catch without var
     exnObj = DtoAlloca(ctch->type, "exnObj");
@@ -692,7 +689,7 @@ llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
   }
 
   // save and rewrite scope
-  const auto savedInsertPoint = irs.getInsertPoint();
+  const auto savedInsertPoint = irs.saveInsertPoint();
 
   // insert landing pads at the end of the function, in emission order,
   // to improve human-readability of the IR
@@ -768,7 +765,6 @@ llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
     irs.ir->CreateBr(resumeUnwindBlock);
   }
 
-  irs.setInsertPoint(savedInsertPoint);
   return beginBB;
 }
 
@@ -847,8 +843,7 @@ TryCatchFinallyScopes::runCleanupPad(CleanupCursor scope,
   //  can place an exception frame (but not done here)
   auto frame = getNullPtr(getVoidPtrType());
 
-  auto savedInsertPoint = irs.getInsertPoint();
-  auto savedDbgLoc = irs.DBuilder.GetCurrentLoc();
+  const auto savedInsertPoint = irs.saveInsertPoint();
 
   auto endFn = getRuntimeFunction(Loc(), irs.module, "_d_leave_cleanup");
   irs.ir->SetInsertPoint(cleanupret);
@@ -866,9 +861,6 @@ TryCatchFinallyScopes::runCleanupPad(CleanupCursor scope,
   auto exec = irs.ir->CreateCall(
       beginFn, frame, {llvm::OperandBundleDef("funclet", cleanuppad)}, "");
   llvm::BranchInst::Create(copybb, cleanupret, exec, cleanupbb);
-
-  irs.setInsertPoint(savedInsertPoint);
-  irs.DBuilder.EmitStopPoint(savedDbgLoc);
 
   return cleanupbb;
 }
