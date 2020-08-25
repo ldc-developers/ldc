@@ -19,8 +19,14 @@
 #include "valueparser.h"
 
 #if LDC_LLVM_VER >= 1000
+#if LDC_LLVM_VER >= 1100
+#define LLAlign llvm::Align
+#else
+#define LLAlign llvm::MaybeAlign
+#endif
 #define LLMaybeAlign llvm::MaybeAlign
 #else
+#define LLAlign
 #define LLMaybeAlign
 #endif
 
@@ -77,14 +83,16 @@ allocParam(llvm::IRBuilder<> &builder, llvm::Type &srcType,
   if (param.type == ParamType::Aggregate && srcType.isPointerTy()) {
     auto elemType = llvm::cast<llvm::PointerType>(&srcType)->getElementType();
     auto stackArg = builder.CreateAlloca(elemType);
-    stackArg->setAlignment(LLMaybeAlign(layout.getABITypeAlignment(elemType)));
+    if (auto alignment = layout.getABITypeAlignment(elemType))
+      stackArg->setAlignment(LLAlign(alignment));
     auto init =
         parseInitializer(layout, *elemType, param.data, errHandler, override);
     builder.CreateStore(init, stackArg);
     return stackArg;
   }
   auto stackArg = builder.CreateAlloca(&srcType);
-  stackArg->setAlignment(LLMaybeAlign(layout.getABITypeAlignment(&srcType)));
+  if (auto alignment = layout.getABITypeAlignment(&srcType))
+    stackArg->setAlignment(LLAlign(alignment));
   auto init =
       parseInitializer(layout, srcType, param.data, errHandler, override);
   builder.CreateStore(init, stackArg);

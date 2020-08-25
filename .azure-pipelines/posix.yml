@@ -378,8 +378,7 @@ steps:
     cd ..
     installed/bin/ldc2 -enable-dynamic-compile -run $BUILD_SOURCESDIRECTORY/tests/dynamiccompile/array.d
   displayName: Run dynamic-compile integration test
-  #condition: and(succeeded(), ne(variables['CI_OS'], 'android'))
-  condition: not(always())
+  condition: and(succeeded(), ne(variables['CI_OS'], 'android'))
 
 # Add dub & dlang tools
 - script: |

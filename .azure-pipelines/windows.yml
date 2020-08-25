@@ -172,7 +172,6 @@ steps:
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     installed\bin\ldc2 -enable-dynamic-compile -run %BUILD_SOURCESDIRECTORY%/tests/dynamiccompile/array.d
   displayName: Run dynamic-compile integration test
-  condition: not(always())
 - script: |
     cd ..
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
