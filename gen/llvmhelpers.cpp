@@ -637,8 +637,7 @@ DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
     LLValue *vector = DtoRVal(val);
     IF_LOG Logger::cout() << "src: " << *vector << "to type: " << *tolltype
                           << " (creating temporary)\n";
-    LLValue *array = DtoAlloca(to);
-    DtoStore(vector, DtoBitCast(array, getPtrToType(vector->getType())));
+    LLValue *array = DtoAllocaDump(vector, tolltype, DtoAlignment(val->type));
     return new DLValue(to, array);
   }
   if (totype->ty == Tvector && to->size() == val->type->size()) {
