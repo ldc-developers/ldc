@@ -102,10 +102,12 @@ public:
       }
 
       // Emit TypeInfo.
-      IrClass *ir = getIrAggr(decl);
-      if (!ir->suppressTypeInfo() && !isSpeculativeType(decl->type)) {
-        llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
-        defineGlobal(interfaceZ, ir->getClassInfoInit(), decl);
+      if (!decl->inNonRoot()) {
+        IrClass *ir = getIrAggr(decl);
+        if (!ir->suppressTypeInfo() && !isSpeculativeType(decl->type)) {
+          llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
+          defineGlobal(interfaceZ, ir->getClassInfoInit(), decl);
+        }
       }
     }
   }
@@ -144,7 +146,10 @@ public:
       IrStruct *ir = getIrAggr(decl);
 
       // Define the __initZ symbol.
-      if (!decl->zeroInit) {
+      // Don't define it if it is all-zeros, or if the struct is from another
+      // module (codegen reached from a force inlined function from another
+      // module).
+      if (!decl->zeroInit && !decl->inNonRoot()) {
         auto &initZ = ir->getInitSymbol();
         auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
         initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
@@ -198,20 +203,22 @@ public:
 
       IrClass *ir = getIrAggr(decl);
 
-      auto &initZ = ir->getInitSymbol();
-      auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
-      initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
-      setLinkageAndVisibility(decl, initGlobal);
+      if (!decl->inNonRoot()) {
+        auto &initZ = ir->getInitSymbol();
+        auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
+        initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
+        setLinkageAndVisibility(decl, initGlobal);
 
-      llvm::GlobalVariable *vtbl = ir->getVtblSymbol();
-      defineGlobal(vtbl, ir->getVtblInit(), decl);
+        llvm::GlobalVariable *vtbl = ir->getVtblSymbol();
+        defineGlobal(vtbl, ir->getVtblInit(), decl);
 
-      ir->defineInterfaceVtbls();
+        ir->defineInterfaceVtbls();
 
-      // Emit TypeInfo.
-      if (!ir->suppressTypeInfo() && !isSpeculativeType(decl->type)) {
-        llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
-        defineGlobal(classZ, ir->getClassInfoInit(), decl);
+        // Emit TypeInfo.
+        if (!ir->suppressTypeInfo() && !isSpeculativeType(decl->type)) {
+          llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
+          defineGlobal(classZ, ir->getClassInfoInit(), decl);
+        }
       }
     }
   }
