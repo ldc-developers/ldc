@@ -126,7 +126,13 @@ script:
     if [ "$TRAVIS_OS_NAME" = "osx" ]; then
       numJobs=2
     fi
-    ninja -j$numJobs all ldc2-unittest all-test-runners
+    # Work around out-of-memory errors - retry once with full numJobs, and another time with halved numJobs (ceiled)
+    targets='all ldc2-unittest all-test-runners'
+    currentNumJobs=$numJobs
+    for i in {1..3}; do
+      ninja -j$currentNumJobs $targets && break || true
+      currentNumJobs=$(( ($numJobs + $i - 1) / $i ))
+    done
   - bin/ldc2 -version || exit 1
   # Run LDC D unittests
   - ctest --output-on-failure -R "ldc2-unittest"
