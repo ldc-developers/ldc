@@ -130,13 +130,7 @@ public:
     }
 
     if (!(decl->members && decl->symtab)) {
-      // we need to emit TypeInfos for opaque structs too
-      IrStruct *ir = getIrAggr(decl, true);
-      if (!irs->dcomputetarget && !ir->suppressTypeInfo()) {
-        llvm::GlobalVariable *typeInfo = ir->getTypeInfoSymbol();
-        defineGlobal(typeInfo, ir->getTypeInfoInit(), decl);
-      }
-
+      // nothing to do for opaque structs anymore
       return;
     }
 
@@ -160,9 +154,9 @@ public:
         setLinkageAndVisibility(decl, initGlobal);
       }
 
-      // emit typeinfo
+      // Emit special __xopEquals/__xopCmp/__xtoHash member functions required
+      // for the TypeInfo.
       if (!ir->suppressTypeInfo()) {
-        // Emit __xopEquals/__xopCmp/__xtoHash.
         if (decl->xeq && decl->xeq != decl->xerreq) {
           decl->xeq->accept(this);
         }
@@ -173,9 +167,7 @@ public:
           decl->xhash->accept(this);
         }
 
-        // define the TypeInfo_Struct symbol
-        llvm::GlobalVariable *typeInfo = ir->getTypeInfoSymbol();
-        defineGlobal(typeInfo, ir->getTypeInfoInit(), decl);
+        // the TypeInfo itself is emitted into each referencing CU
       }
     }
   }

@@ -51,5 +51,7 @@ export struct ExportedS { int nonZero = 1; }
 
 // DEFAULT:    _D45TypeInfo_S24export_aggregate_symbols8DefaultS6__initZ
 // HIDDEN-NOT: _D45TypeInfo_S24export_aggregate_symbols8DefaultS6__initZ
+auto ti_defaultS = typeid(DefaultS);
 
 // BOTH: _D46TypeInfo_S24export_aggregate_symbols9ExportedS6__initZ
+auto ti_exportedS = typeid(ExportedS);

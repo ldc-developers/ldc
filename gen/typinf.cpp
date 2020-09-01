@@ -473,12 +473,26 @@ void buildTypeInfo(TypeInfoDeclaration *decl) {
 class DeclareOrDefineVisitor : public Visitor {
   using Visitor::visit;
 
-  // Only declare struct TypeInfos. They are defined once in their owning module
-  // as part of StructDeclaration codegen.
+  // Define struct TypeInfos as linkonce_odr in each referencing CU.
   void visit(TypeInfoStructDeclaration *decl) override {
-    auto irstruct = getIrAggr(decl->tinfo->isTypeStruct()->sym, true);
+    auto sd = decl->tinfo->isTypeStruct()->sym;
+    auto irstruct = getIrAggr(sd, true);
     IrGlobal *irg = getIrGlobal(decl, true);
-    irg->value = irstruct->getTypeInfoSymbol();
+
+    auto ti = irstruct->getTypeInfoSymbol();
+    irg->value = ti;
+
+    // check if the definition can be elided
+    if (ti->hasInitializer() || irstruct->suppressTypeInfo()) {
+      return;
+    }
+
+    LLConstant *init = irstruct->getTypeInfoInit(); // might define ti!
+
+    if (!ti->hasInitializer()) {
+      defineGlobal(ti, init, sd);
+      ti->setLinkage(TYPEINFO_LINKAGE_TYPE); // override
+    }
   }
 
   // Only declare class TypeInfos. They are defined once in their owning module

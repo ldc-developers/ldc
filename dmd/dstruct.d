@@ -128,13 +128,6 @@ version (IN_LLVM) {} else
             // unSpeculative(sc, sd);
         }
 
-version (IN_LLVM)
-{
-        // LDC defines a struct's TypeInfo (only) once in its owning module,
-        // including the special members, as part of StructDeclaration codegen.
-}
-else
-{
         /* Step 2: If the TypeInfo generation requires sd.semantic3, run it later.
          * This should be done even if typeid(T) exists in speculative scope.
          * Because it may appear later in non-speculative scope.
@@ -163,7 +156,6 @@ else
                 Module.addDeferredSemantic3(sd);
             }
         }
-} // !IN_LLVM
     }
 
     void visitTuple(TypeTuple t)
