@@ -17,9 +17,9 @@ int main(string[] args)
 // CDB: ld /f strings_cdb*
 // enable case sensitive symbol lookup
 // CDB: .symopt-1
-// CDB: bp `strings_cdb.d:22`
+// CDB: bp0 /1 `strings_cdb.d:20`
 // CDB: g
-    return 0;
+// CHECK: Breakpoint 0 hit
 // CHECK: !strings_cdb.D main
 
 // CDB: dt string
@@ -55,6 +55,8 @@ int main(string[] args)
 // CDB: ?? args.ptr[0]
 // CHECK: +0x000 length
 // CHECK: +[[OFF]] ptr {{ *}}: 0x{{[0-9a-f`]* *".*exe.*"}}
+
+    return 0;
 }
 
 // CDB: q

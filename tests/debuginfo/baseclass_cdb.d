@@ -23,9 +23,9 @@ int main(string[] args)
 // CDB: ld /f baseclass_cdb*
 // enable case sensitive symbol lookup
 // CDB: .symopt-1
-// CDB: bp `baseclass_cdb.d:28`
+// CDB: bp0 /1 `baseclass_cdb.d:26`
 // CDB: g
-    return 0;
+// CHECK: Breakpoint 0 hit
 // CHECK: !baseclass_cdb.D main
 
 // CDB: ?? dc
@@ -34,6 +34,8 @@ int main(string[] args)
 // CHECK: baseMember{{ *: *3}}
 // verify baseMember is not listed twice
 // CHECK-NEXT: derivedMember{{ *: *7}}
+
+    return 0;
 }
 
 // CDB: q

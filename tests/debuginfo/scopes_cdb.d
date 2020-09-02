@@ -24,10 +24,11 @@ template Template(int N)
     int[N] field;
     void foo()
     {
-// CDB: bp `scopes_cdb.d:27`
+// CDB: bp0 /1 `scopes_cdb.d:27`
 // CDB: g
-// CHECK-G:  !scopes_cdb.Template!1.foo+
-// CHECK-GC: !scopes_cdb::Template<1>::foo+
+// CHECK: Breakpoint 0 hit
+// CHECK-G:  !scopes_cdb.Template!1.foo
+// CHECK-GC: !scopes_cdb::Template<1>::foo
     }
 }
 
@@ -35,19 +36,21 @@ extern (C++, cppns)
 {
     void cppFoo()
     {
-// CDB: bp `scopes_cdb.d:38`
+// CDB: bp1 /1 `scopes_cdb.d:39`
 // CDB: g
-// CHECK-G:  !scopes_cdb.cppns.cppFoo+
-// CHECK-GC: !scopes_cdb::cppns::cppFoo+
+// CHECK: Breakpoint 1 hit
+// CHECK-G:  !scopes_cdb.cppns.cppFoo
+// CHECK-GC: !scopes_cdb::cppns::cppFoo
     }
 }
 
 void templatedFoo(int N)()
 {
-// CDB: bp `scopes_cdb.d:47`
+// CDB: bp2 /1 `scopes_cdb.d:49`
 // CDB: g
-// CHECK-G:  !scopes_cdb.templatedFoo!2+
-// CHECK-GC: !scopes_cdb::templatedFoo<2>+
+// CHECK: Breakpoint 2 hit
+// CHECK-G:  !scopes_cdb.templatedFoo!2
+// CHECK-GC: !scopes_cdb::templatedFoo<2>
 }
 
 mixin template Mixin(T)
@@ -60,10 +63,11 @@ mixin template Mixin(T)
         void mixedInFoo()
         {
             MixedInStruct local;
-// CDB: bp `scopes_cdb.d:63`
+// CDB: bp3 /1 `scopes_cdb.d:66`
 // CDB: g
-// CHECK-G:  !scopes_cdb.S.mixedInFoo+
-// CHECK-GC: !scopes_cdb::S::mixedInFoo+
+// CHECK: Breakpoint 3 hit
+// CHECK-G:  !scopes_cdb.S.mixedInFoo
+// CHECK-GC: !scopes_cdb::S::mixedInFoo
 // CDB: dv /t
 // CHECK-G:  struct scopes_cdb.S.MixedInStruct local =
 // CHECK-GC: struct scopes_cdb::S::MixedInStruct local =
@@ -92,10 +96,11 @@ void test()
         T[N] field;
         void foo()
         {
-// CDB: bp `scopes_cdb.d:95`
+// CDB: bp4 /1 `scopes_cdb.d:99`
 // CDB: g
-// CHECK-G:  !scopes_cdb.test.TemplatedNestedStruct!(S, 3).foo+
-// CHECK-GC: !scopes_cdb::test::TemplatedNestedStruct<S, 3>::foo+
+// CHECK: Breakpoint 4 hit
+// CHECK-G:  !scopes_cdb.test.TemplatedNestedStruct!(S, 3).foo
+// CHECK-GC: !scopes_cdb::test::TemplatedNestedStruct<S, 3>::foo
         }
     }
 
@@ -107,18 +112,20 @@ void test()
         int field;
         void foo()
         {
-// CDB: bp `scopes_cdb.d:110`
+// CDB: bp5 /1 `scopes_cdb.d:115`
 // CDB: g
-// CHECK-G:  !scopes_cdb.test.NestedStruct.foo+
-// CHECK-GC: !scopes_cdb::test::NestedStruct::foo+
+// CHECK: Breakpoint 5 hit
+// CHECK-G:  !scopes_cdb.test.NestedStruct.foo
+// CHECK-GC: !scopes_cdb::test::NestedStruct::foo
         }
     }
 
     NestedStruct ns;
     ns.foo();
 
-// CDB: bp `scopes_cdb.d:120`
+// CDB: bp6 /1 `scopes_cdb.d:126`
 // CDB: g
+// CHECK: Breakpoint 6 hit
 // CDB: dv /t
 // CHECK-G:       struct scopes_cdb.S s =
 // CHECK-GC:      struct scopes_cdb::S s =

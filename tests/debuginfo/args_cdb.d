@@ -31,13 +31,12 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
             Small small, Large large,
             TypeInfo_Class ti, typeof(null) np)
 {
-// CDB: bp `args_cdb.d:34`
+// CDB: bp0 /1 `args_cdb.d:34`
 // CDB: g
-    // arguments implicitly passed by reference aren't shown if unused
-    float cim = c.im + fa[7] + dg() + small.val + large.a;
-    return 1;
+// CHECK: Breakpoint 0 hit
 // CHECK-G:  !args_cdb.byValue
 // CHECK-GC: !args_cdb::byValue
+
 // CDB: dv /t
 
 // CHECK: unsigned char ub = 0x01
@@ -121,6 +120,10 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 // CHECK-GC: object::TypeInfo_Class
 // CHECK-G-NEXT:  m_init : byte[]
 // CHECK-GC-NEXT: m_init : slice<byte>
+
+    // arguments implicitly passed by reference aren't shown if unused
+    float cim = c.im + fa[7] + dg() + small.val + large.a;
+    return 1;
 }
 
 /*
@@ -131,11 +134,12 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
  */
 size_t byValueShort(Large large)
 {
-// CDB: bp `args_cdb.d:134`
+// CDB: bp1 /1 `args_cdb.d:137`
 // CDB: g
-    return large.a;
+// CHECK: Breakpoint 1 hit
 // CHECK-G:  !args_cdb.byValueShort
 // CHECK-GC: !args_cdb::byValueShort
+
 // CDB: dv /t
 // CHECK-G:  struct args_cdb.Large large = struct args_cdb.Large
 // CHECK-GC: struct args_cdb::Large large = struct args_cdb::Large
@@ -144,6 +148,8 @@ size_t byValueShort(Large large)
 // CHECK-G:  args_cdb.Large
 // CHECK-GC: args_cdb::Large
 // CHECK-NEXT: a : 0x13
+
+    return large.a;
 }
 
 int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
@@ -154,11 +160,12 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
           Small* small, Large* large,
           TypeInfo_Class* ti, typeof(null)* np)
 {
-// CDB: bp `args_cdb.d:157`
+// CDB: bp2 /1 `args_cdb.d:163`
 // CDB: g
-    return 3;
+// CHECK: Breakpoint 2 hit
 // CHECK-G:  !args_cdb.byPtr
 // CHECK-GC: !args_cdb::byPtr
+
 // CDB: dv /t
 // CDB: ?? *ub
 // CHECK: unsigned char 0x01
@@ -216,6 +223,8 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
 // CHECK-GC-NEXT: m_init : slice<byte>
 // CDB: ?? *np
 // CHECK: void * {{0x[0`]*}}
+
+    return 3;
 }
 
 int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
@@ -226,8 +235,9 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
           ref Small small, ref Large large,
           ref TypeInfo_Class ti, ref typeof(null) np)
 {
-// CDB: bp `args_cdb.d:229`
+// CDB: bp3 /1 `args_cdb.d:238`
 // CDB: g
+// CHECK: Breakpoint 3 hit
 // CHECK-G:  !args_cdb.byRef
 // CHECK-GC: !args_cdb::byRef
 
