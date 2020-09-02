@@ -12,8 +12,10 @@
 void encloser(int arg0, ref int arg1)
 {
     int enc_n = 123;
-// CDB: bp `nested_cdb.d:16`
+// CDB: bp0 /1 `nested_cdb.d:15`
 // CDB: g
+// CHECK: Breakpoint 0 hit
+
 // CDB: dv /t
 // CHECK: int arg0 = 0n1
 // (cdb displays references as pointers)
@@ -26,8 +28,9 @@ void encloser(int arg0, ref int arg1)
     void nested(int nes_i)
     {
         int blub = arg0 + arg1 + enc_n;
-// CDB: bp `nested_cdb.d:30`
+// CDB: bp1 /1 `nested_cdb.d:31`
 // CDB: g
+// CHECK: Breakpoint 1 hit
 // CDB: dv /t
 // CHECK: int arg0 = 0n1
 // CHECK-NEXT: int * arg1 = {{0x[0-9a-f`]*}}
@@ -35,8 +38,9 @@ void encloser(int arg0, ref int arg1)
 // CDB: ?? *arg1
 // CHECK: int 0n2
         arg0 = arg1 = enc_n = nes_i;
-// CDB: bp `nested_cdb.d:39`
+// CDB: bp2 /1 `nested_cdb.d:41`
 // CDB: g
+// CHECK: Breakpoint 2 hit
 // CDB: dv /t
 // CHECK: int arg0 = 0n456
 // CHECK-NEXT: int * arg1 = {{0x[0-9a-f`]*}}
@@ -46,8 +50,9 @@ void encloser(int arg0, ref int arg1)
     }
 
     nested(456);
-// CDB: bp `nested_cdb.d:50`
+// CDB: bp3 /1 `nested_cdb.d:53`
 // CDB: g
+// CHECK: Breakpoint 3 hit
 // CDB: dv /t
 // CHECK: int arg0 = 0n456
 // CHECK-NEXT: int * arg1 = {{0x[0-9a-f`]*}}

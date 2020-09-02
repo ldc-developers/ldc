@@ -12,8 +12,9 @@ import core.simd;
 // CDB: ld /f vector_cdb*
 // enable case sensitive symbol lookup
 // CDB: .symopt-1
-// CDB: bp `vector_cdb.d:91`
+// CDB: bp0 /1 `vector_cdb.d:92`
 // CDB: g
+// CHECK: Breakpoint 0 hit
 // CDB: dv /t
 
 int main()
