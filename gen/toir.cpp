@@ -2165,35 +2165,12 @@ public:
     if (fd->isNested()) {
       LLType *dgty = DtoType(e->type);
 
-      LLValue *cval;
-      auto &funcGen = p->funcGen();
-      auto &irfn = funcGen.irFunc;
-      if (funcGen.nestedVar && fd->toParent2() == irfn.decl) {
-        // We check fd->toParent2() because a frame allocated in one
-        // function cannot be used for a delegate created in another
-        // function. Happens with anonymous functions.
-        cval = funcGen.nestedVar;
-      } else if (irfn.nestArg) {
-        cval = irfn.nestArg;
-      } else if (irfn.thisArg) {
-        AggregateDeclaration *ad = irfn.decl->isMember2();
-        if (!ad || !ad->vthis) {
-          cval = getNullPtr(getVoidPtrType());
-        } else {
-          cval =
-              ad->isClassDeclaration() ? DtoLoad(irfn.thisArg) : irfn.thisArg;
-          cval = DtoLoad(
-              DtoGEP(cval, 0, getFieldGEPIndex(ad, ad->vthis), ".vthis"));
-        }
-      } else {
-        cval = getNullPtr(getVoidPtrType());
-      }
+      LLValue *cval = DtoNestedContext(e->loc, fd);
       cval = DtoBitCast(cval, dgty->getContainedType(0));
 
       LLValue *castfptr = DtoBitCast(callee, dgty->getContainedType(1));
 
       result = new DImValue(e->type, DtoAggrPair(cval, castfptr, ".func"));
-
     } else {
       result = new DFuncValue(e->type, fd, callee);
     }
