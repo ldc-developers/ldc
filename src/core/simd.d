@@ -442,57 +442,27 @@ else version (D_SIMD)
     * Returns:
     *      result of opcode
     */
-    pure @safe V1 simd(XMM opcode, V1, V2)(V1 op1, V2 op2)
-        if (is(V1 == __vector) && is(V2 == __vector))
-    {
-        pragma(inline, true);
-        return cast(V1)__simd(opcode, op1, op2);
-    }
-
-    pure @safe void16 __simd(XMM opcode, void16 op1, void16 op2); // intrinsic
+    pure @safe void16 __simd(XMM opcode, void16 op1, void16 op2);
 
     ///
     unittest
     {
         float4 a;
-        a = simd!(XMM.PXOR)(a, a);
+        a = cast(float4)__simd(XMM.PXOR, a, a);
     }
 
     /**
     * Unary SIMD instructions.
     */
-    pure @safe V1 simd(XMM opcode, V1)(V1 op1)
-        if (is(V1 == __vector))
-    {
-        pragma(inline, true);
-        return cast(V1)__simd(opcode, op1);
-    }
-
-    ///
-    pure @safe V1 simd(XMM opcode, V1)(double d)
-        if (is(V1 == __vector))
-    {
-        pragma(inline, true);
-        return cast(V1)__simd(opcode, d);
-    }
-
-    ///
-    pure @safe V1 simd(XMM opcode, V1)(float f)
-        if (is(V1 == __vector))
-    {
-        pragma(inline, true);
-        return cast(V1)__simd(opcode, f);
-    }
-
-    pure @safe void16 __simd(XMM opcode, void16 op1); // intrinsic
-    pure @safe void16 __simd(XMM opcode, double d);   // intrinsic
-    pure @safe void16 __simd(XMM opcode, float f);    // intrinsic
+    pure @safe void16 __simd(XMM opcode, void16 op1);
+    pure @safe void16 __simd(XMM opcode, double d);   ///
+    pure @safe void16 __simd(XMM opcode, float f);    ///
 
     ///
     unittest
     {
         float4 a;
-        a = simd!(XMM.LODSS)(a);
+        a = cast(float4)__simd(XMM.LODSS, a);
     }
 
     /****
@@ -510,20 +480,13 @@ else version (D_SIMD)
     * Returns:
     *      result of opcode
     */
-    pure @safe V1 simd(XMM opcode, ubyte imm8, V1, V2)(V1 op1, V2 op2)
-        if (is(V1 == __vector) && is(V2 == __vector))
-    {
-        pragma(inline, true);
-        return cast(V1)__simd(opcode, op1, op2, imm8);
-    }
-
-    pure @safe void16 __simd(XMM opcode, void16 op1, void16 op2, ubyte imm8); // intrinsic
+    pure @safe void16 __simd(XMM opcode, void16 op1, void16 op2, ubyte imm8);
 
     ///
     unittest
     {
         float4 a;
-        a = simd!(XMM.CMPPD, 0x7A)(a, a);
+        a = cast(float4)__simd(XMM.CMPPD, a, a, 0x7A);
     }
 
     /***
@@ -537,20 +500,13 @@ else version (D_SIMD)
     * Returns:
     *      result of opcode
     */
-    pure @safe V1 simd(XMM opcode, ubyte imm8, V1)(V1 op1)
-        if (is(V1 == __vector))
-    {
-        pragma(inline, true);
-        return cast(V1)__simd_ib(opcode, op1, imm8);
-    }
-
-    pure @safe void16 __simd_ib(XMM opcode, void16 op1, ubyte imm8);  // intrinsic
+    pure @safe void16 __simd_ib(XMM opcode, void16 op1, ubyte imm8);
 
     ///
     unittest
     {
         float4 a;
-        a = simd!(XMM.PSRLQ, 0x7A)(a);
+        a = cast(float4) __simd_ib(XMM.PSRLQ, a, 0x7A);
     }
 
     /*****
@@ -560,32 +516,9 @@ else version (D_SIMD)
     *    op2
     * These cannot be marked as pure, as semantic() doesn't check them.
     */
-    @safe V1 simd_sto(XMM opcode, V1, V2)(V1 op1, V2 op2)
-        if (is(V1 == __vector) && is(V2 == __vector))
-    {
-        pragma(inline, true);
-        return cast(V1)__simd_sto(opcode, op1, op2);
-    }
-
-    ///
-    @safe V1 simd_stod(XMM opcode, V1, V2)(double op1, V1 op2)
-        if (is(V1 == __vector))
-    {
-        pragma(inline, true);
-        return cast(V1)__simd_sto(opcode, op1, op2);
-    }
-
-    ///
-    @safe V1 simd_stof(XMM opcode, V1)(float op1, V1 op2)
-        if (is(V1 == __vector))
-    {
-        pragma(inline, true);
-        return cast(V1)__simd_sto(opcode, op1, op2);
-    }
-
-    @safe void16 __simd_sto(XMM opcode, void16 op1, void16 op2);  // intrinsic
-    @safe void16 __simd_sto(XMM opcode, double op1, void16 op2);  // intrinsic
-    @safe void16 __simd_sto(XMM opcode, float op1, void16 op2);   // intrinsic
+    @safe void16 __simd_sto(XMM opcode, void16 op1, void16 op2);
+    @safe void16 __simd_sto(XMM opcode, double op1, void16 op2); ///
+    @safe void16 __simd_sto(XMM opcode, float op1, void16 op2);  ///
 
     ///
     unittest
@@ -594,9 +527,9 @@ else version (D_SIMD)
         float f = 1;
         double d = 1;
 
-        cast(void)simd_sto!(XMM.STOUPS)(a, a);
-        //simd_sto!(XMM.STOUPS)(f, a);
-        //simd_sto!(XMM.STOUPS)(d, a);
+        cast(void)__simd_sto(XMM.STOUPS, a, a);
+        cast(void)__simd_sto(XMM.STOUPS, f, a);
+        cast(void)__simd_sto(XMM.STOUPS, d, a);
     }
 
     /* The following use overloading to ensure correct typing.

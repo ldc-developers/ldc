@@ -386,13 +386,17 @@ unittest {
 }
 
 /*******************************
- * Returns |x|
- *
+ * Compute the absolute value.
  *      $(TABLE_SV
  *      $(TR $(TH x)                 $(TH fabs(x)))
  *      $(TR $(TD $(PLUSMN)0.0)      $(TD +0.0) )
  *      $(TR $(TD $(PLUSMN)$(INFIN)) $(TD +$(INFIN)) )
  *      )
+ * It is implemented as a compiler intrinsic.
+ * Params:
+ *      x = floating point value
+ * Returns: |x|
+ * References: equivalent to `std.math.fabs`
  */
 version (LDC)
 {
@@ -400,11 +404,11 @@ version (LDC)
     alias fabs = llvm_fabs!double;
     alias fabs = llvm_fabs!real;
 }
-else
+else @safe pure nothrow @nogc
 {
-    float fabs(float x);    /* intrinsic */
-    double fabs(double x);  /* intrinsic */ /// ditto
-    real fabs(real x);      /* intrinsic */ /// ditto
+    float  fabs(float  x);
+    double fabs(double x); /// ditto
+    real   fabs(real   x); /// ditto
 }
 
 /**********************************

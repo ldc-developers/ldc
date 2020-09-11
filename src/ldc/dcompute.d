@@ -121,6 +121,6 @@ alias GenericPointer(T)  = Pointer!(AddrSpace.Generic,  T);
 //
 // The __gshared below does not work. It is kludged into place in `DtoResolveVariable`
 
-alias Global(T)   = __gshared Variable!(AddrSpace.Global,   T);
-alias Shared(T)   = shared    Variable!(AddrSpace.Shared,   T);
-alias Constant(T) = immutable Variable!(AddrSpace.Constant, T);
+alias Global(T)   = /*__gshared*/ Variable!(AddrSpace.Global,   T);
+alias Shared(T)   = shared        Variable!(AddrSpace.Shared,   T);
+alias Constant(T) = immutable     Variable!(AddrSpace.Constant, T);

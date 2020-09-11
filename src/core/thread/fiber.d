@@ -12,6 +12,8 @@
 module core.thread.fiber;
 
 import core.thread.osthread;
+import core.thread.threadgroup;
+import core.thread.types;
 import core.thread.context;
 
 version (OSX)
@@ -1871,6 +1873,7 @@ private:
             {
                 // allocate and construct a ThreadException manually for @nogc
                 import core.stdc.stdlib : malloc;
+                import core.thread.threadbase : ThreadException;
                 enum threadExceptionSize = __traits(classInstanceSize, ThreadException);
                 if (void* p = malloc(threadExceptionSize))
                 {
@@ -2144,6 +2147,7 @@ unittest
 
         version (CheckFiberMigration)
         {
+            import core.thread.threadbase : ThreadException;
             try
             {
                 f.call();
