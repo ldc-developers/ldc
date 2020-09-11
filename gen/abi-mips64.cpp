@@ -1,6 +1,6 @@
 //===-- gen/abi-mips64.cpp - MIPS64 ABI description ------------*- C++ -*-===//
 //
-//                         LDC – the LLVM D compiler
+//                         LDC â€“ the LLVM D compiler
 //
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
@@ -26,7 +26,7 @@ struct MIPS64TargetABI : TargetABI {
   explicit MIPS64TargetABI(const bool Is64Bit) : Is64Bit(Is64Bit) {}
 
   bool returnInArg(TypeFunction *tf, bool) override {
-    if (tf->isref) {
+    if (tf->isref()) {
       return false;
     }
 

@@ -93,7 +93,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     newIrFty.ret = new IrFuncTyArg(Type::tint32, false);
   } else {
     Type *rt = f->next;
-    const bool byref = f->isref && rt->toBasetype()->ty != Tvoid;
+    const bool byref = f->isref() && rt->toBasetype()->ty != Tvoid;
     llvm::AttrBuilder attrs;
 
     if (abi->returnInArg(f, fd && fd->needThis())) {
@@ -134,7 +134,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
 
   bool hasObjCSelector = false;
   if (fd && fd->linkage == LINKobjc && thistype) {
-    if (fd->selector) {
+    if (fd->objc.selector) {
       hasObjCSelector = true;
     } else if (fd->parent->isClassDeclaration()) {
       fd->error("Objective-C `@selector` is missing");

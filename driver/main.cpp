@@ -349,8 +349,10 @@ void parseCommandLine(Strings &sourceFiles) {
 
   global.params.cxxhdrdir = opts::fromPathString(cxxHdrDir);
   global.params.cxxhdrname = opts::fromPathString(cxxHdrFile);
-  global.params.doCxxHdrGeneration |=
-      global.params.cxxhdrdir.length || global.params.cxxhdrname.length;
+  if (global.params.doCxxHdrGeneration == CxxHeaderMode::none &&
+      (global.params.cxxhdrdir.length || global.params.cxxhdrname.length)) {
+    global.params.doCxxHdrGeneration = CxxHeaderMode::silent;
+  }
 
   global.params.mixinFile = opts::fromPathString(mixinFile).ptr;
 
@@ -961,8 +963,6 @@ int cppmain() {
   exe_path::initialize(allArguments[0]);
 
   global._init();
-  // global.version includes the terminating null
-  global.version = {strlen(ldc::dmd_version) + 1, ldc::dmd_version};
   global.ldc_version = {strlen(ldc::ldc_version), ldc::ldc_version};
   global.llvm_version = {strlen(ldc::llvm_version), ldc::llvm_version};
 

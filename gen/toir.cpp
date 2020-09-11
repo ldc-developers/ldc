@@ -434,7 +434,8 @@ public:
     // Can't just override ConstructExp::toElem because not all TOKconstruct
     // operations are actually instances of ConstructExp... Long live the DMD
     // coding style!
-    if (e->memset & referenceInit) {
+    if (static_cast<int>(e->memset) &
+        static_cast<int>(MemorySet::referenceInit)) {
       assert(e->op == TOKconstruct || e->op == TOKblit);
       auto ve = e->e1->isVarExp();
       assert(ve);

@@ -36,7 +36,7 @@ struct PPCTargetABI : TargetABI {
   explicit PPCTargetABI(const bool Is64Bit) : Is64Bit(Is64Bit) {}
 
   bool returnInArg(TypeFunction *tf, bool) override {
-    if (tf->isref) {
+    if (tf->isref()) {
       return false;
     }
 

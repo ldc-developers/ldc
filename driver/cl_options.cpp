@@ -270,9 +270,15 @@ cl::opt<bool>
                      cl::desc("Keep all function bodies in .di files"));
 
 // C++ header generation options
-static cl::opt<bool, true>
-    doCxxHdrGen("HC", cl::desc("Generate C++ 'header' file"), cl::ZeroOrMore,
-             cl::location(global.params.doCxxHdrGeneration));
+static cl::opt<CxxHeaderMode, true> doCxxHdrGen(
+    "HC", cl::desc("Generate C++ 'header' file"), cl::ZeroOrMore,
+    cl::values(
+        clEnumValN(CxxHeaderMode::silent, "silent",
+                   "Only list extern(C[++]) declarations"),
+        clEnumValN(
+            CxxHeaderMode::verbose, "verbose",
+            "Also add comments for ignored declarations (e.g. extern(D))")),
+    cl::location(global.params.doCxxHdrGeneration));
 
 cl::opt<std::string>
     cxxHdrDir("HCd", cl::ZeroOrMore, cl::Prefix,

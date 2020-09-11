@@ -22,8 +22,8 @@
 
 using llvm::APFloat;
 
-// in dmd/argtypes.d:
-TypeTuple *toArgTypes(Type *t);
+// in dmd/argtypes_x86.d:
+TypeTuple *toArgTypes_x86(Type *t);
 // in dmd/argtypes_sysv_x64.d:
 TypeTuple *toArgTypes_sysv_x64(Type *t);
 // in dmd/argtypes_aarch64.d:
@@ -199,7 +199,7 @@ TypeTuple *Target::toArgTypes(Type *t) {
   const auto &triple = *global.params.targetTriple;
   const auto arch = triple.getArch();
   if (arch == llvm::Triple::x86)
-    return ::toArgTypes(t);
+    return toArgTypes_x86(t);
   if (arch == llvm::Triple::x86_64 && !triple.isOSWindows())
     return toArgTypes_sysv_x64(t);
   if (arch == llvm::Triple::aarch64 || arch == llvm::Triple::aarch64_be)

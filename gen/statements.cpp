@@ -177,7 +177,7 @@ public:
       } else if (funcType->getReturnType()->isVoidTy()) {
         // if the IR function's return type is void (but not the D one), it uses
         // sret
-        assert(!f->type->isref);
+        assert(!f->type->isref());
 
         LLValue *sretPointer = f->sretArg;
         assert(sretPointer);
@@ -214,7 +214,7 @@ public:
         }
         DValue *dval = nullptr;
         // call postblit if necessary
-        if (!f->type->isref) {
+        if (!f->type->isref()) {
           dval = toElem(stmt->exp);
           LLValue *vthis =
               (DtoIsInMemoryOnly(dval->type) ? DtoLVal(dval) : DtoRVal(dval));

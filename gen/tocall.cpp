@@ -769,7 +769,7 @@ private:
 
     if (irFty.arg_objcSelector) {
       assert(dfnval);
-      const auto selector = dfnval->func->selector;
+      const auto selector = dfnval->func->objc.selector;
       assert(selector);
       LLGlobalVariable *selptr = gIR->objc.getMethVarRef(*selector);
       args.push_back(DtoBitCast(DtoLoad(selptr), getVoidPtrType()));
@@ -868,7 +868,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   // call the function
-  LLCallSite call = gIR->CreateCallOrInvoke(callable, args, "", tf->isnothrow);
+  LLCallSite call = gIR->CreateCallOrInvoke(callable, args, "", tf->isnothrow());
 
   // PGO: Insert instrumentation or attach profile metadata at indirect call
   // sites.
@@ -884,7 +884,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   LLValue *retllval =
       (irFty.arg_sret ? args[sretArgIndex] : call.getInstruction());
   bool retValIsLVal =
-      (tf->isref && returnTy != Tvoid) || (irFty.arg_sret != nullptr);
+      (tf->isref() && returnTy != Tvoid) || (irFty.arg_sret != nullptr);
 
   if (!retValIsLVal) {
     // let the ABI transform the return value back
@@ -904,7 +904,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
                            returntype->toChars(), rbase->toChars());
     switch (rbase->ty) {
     case Tarray:
-      if (tf->isref) {
+      if (tf->isref()) {
         retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
       } else {
         retllval = DtoAggrPaint(retllval, DtoType(rbase));
@@ -912,7 +912,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
       break;
 
     case Tsarray:
-      if (nextbase->ty == Tvector && !tf->isref) {
+      if (nextbase->ty == Tvector && !tf->isref()) {
         if (retValIsLVal) {
           retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
         } else {
@@ -929,7 +929,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
     case Tclass:
     case Taarray:
     case Tpointer:
-      if (tf->isref) {
+      if (tf->isref()) {
         retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
       } else {
         retllval = DtoBitCast(retllval, DtoType(rbase));
@@ -937,7 +937,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
       break;
 
     case Tstruct:
-      if (nextbase->ty == Taarray && !tf->isref) {
+      if (nextbase->ty == Taarray && !tf->isref()) {
         // In the D2 frontend, the associative array type and its
         // object.AssociativeArray representation are used
         // interchangably in some places. However, AAs are returned

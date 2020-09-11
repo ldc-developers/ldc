@@ -132,7 +132,7 @@ bool IRState::emitArrayBoundsChecks() {
   }
 
   Type *t = func()->decl->type;
-  return t->ty == Tfunction && ((TypeFunction *)t)->trust == TRUSTsafe;
+  return t->ty == Tfunction && ((TypeFunction *)t)->trust == TRUST::safe;
 }
 
 LLConstant *IRState::setGlobalVarInitializer(LLGlobalVariable *&globalVar,
