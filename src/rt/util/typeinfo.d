@@ -108,6 +108,7 @@ version (CoreUnittest)
 {
     alias TypeTuple(T...) = T;
 }
+version (LDC) { /* compiler uses a TypeInfo base class for its declarations */ } else
 unittest
 {
     // Bugzilla 13052
@@ -380,6 +381,7 @@ if (T.sizeof == Base.sizeof && T.alignof == Base.alignof)
             override @property uint flags() const { return 2; }
 }
 
+version (LDC) { /* compiler uses a TypeInfo base class for its declarations */ } else
 unittest
 {
     assert(typeid(int).toString == "int");
@@ -482,6 +484,7 @@ private class TypeInfoArrayGeneric(T, Base = T) : Select!(is(T == Base), TypeInf
     }
 }
 
+version (LDC) { /* compiler uses a TypeInfo base class for its declarations */ } else
 unittest
 {
     assert(typeid(int[]) == typeid(int[]));
@@ -520,6 +523,7 @@ class TypeInfo_v : TypeInfoGeneric!ubyte
         return 1;
     }
 
+    version (LDC) { /* compiler uses a TypeInfo base class for its declarations */ } else
     unittest
     {
         assert(typeid(void).toString == "void");
@@ -591,6 +595,7 @@ class TypeInfo_c : TypeInfoGeneric!creal
         }
 }
 
+version (LDC) { /* compiler uses a TypeInfo base class for its declarations */ } else
 static if (__traits(hasMember, TypeInfo, "argTypes"))
     unittest
     {
@@ -683,6 +688,7 @@ class TypeInfo_Av : TypeInfo_Ah
         return cast(inout) typeid(void);
     }
 
+    version (LDC) { /* compiler uses a TypeInfo base class for its declarations */ } else
     unittest
     {
         assert(typeid(void[]).toString == "void[]");
@@ -691,6 +697,7 @@ class TypeInfo_Av : TypeInfo_Ah
 }
 
 // all delegates
+version (LDC) { /* compiler uses a TypeInfo base class for its declarations */ } else
 unittest
 {
     assert(typeid(void delegate(int)).flags == 1);
@@ -733,6 +740,7 @@ class TypeInfo_n : TypeInfo
 
     override @property immutable(void)* rtInfo() nothrow pure const @safe { return rtinfoNoPointers; }
 
+    version (LDC) { /* compiler uses a TypeInfo base class for its declarations */ } else
     unittest
     {
         with (typeid(typeof(null)))
