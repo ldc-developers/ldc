@@ -9,7 +9,7 @@ matrix:
     - os: linux
       arch: arm64
       d: ldc-beta
-      env: LLVM_VERSION=10.0.1 PARALLELISM=16 CC=gcc-8 CXX=g++-8 OPTS="-DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64 -DADDITIONAL_DEFAULT_LDC_SWITCHES='\"-linker=bfd\",' -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF"
+      env: LLVM_VERSION=cc7582ff PARALLELISM=16 CC=gcc-8 CXX=g++-8 OPTS="-DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64 -DADDITIONAL_DEFAULT_LDC_SWITCHES='\"-linker=bfd\",' -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF"
       addons:
         apt:
           sources:
@@ -63,7 +63,7 @@ before_install:
   - |
     if [ ! -e "$LLVM_ROOT_DIR/bin/llvm-config" ]; then
       if [ "$TRAVIS_CPU_ARCH" = "arm64" ]; then
-        llvm_url="https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-linux-aarch64-withAsserts.tar.xz"
+        llvm_url="https://github.com/ldc-developers/llvm-project/releases/download/CI/llvm-$LLVM_VERSION-linux-aarch64-withAsserts.tar.xz"
       else
         if [ "$TRAVIS_OS_NAME" = "linux" ]; then
           LLVM_ARCH="x86_64-linux-gnu-ubuntu-16.04"
