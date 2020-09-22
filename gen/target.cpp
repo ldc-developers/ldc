@@ -103,6 +103,9 @@ void Target::_init(const Param &params) {
 
   objc.supported = params.hasObjectiveC;
 
+  const llvm::StringRef archName = triple.getArchName();
+  architectureName = {archName.size(), archName.data()};
+
   // Finalize RealProperties for the target's `real` type.
 
   const auto targetRealSemantics = &real->getFltSemantics();
