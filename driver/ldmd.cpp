@@ -158,6 +158,7 @@ Where:\n\
                     force colored console output on or off, or only when not redirected (default)\n\
   -conf=<filename>  use config file at filename\n\
   -cov              do code coverage analysis\n\
+  -cov=ctfe         include code executed during CTFE in coverage report\n\
   -cov=<nnn>        require at least nnn%% code coverage\n\
   -D                generate documentation\n\
   -Dd<directory>    write documentation file to directory\n\

@@ -429,8 +429,6 @@ void parseCommandLine(Strings &sourceFiles) {
   global.params.output_mlir = opts::output_mlir ? OUTPUTFLAGset : OUTPUTFLAGno;
   global.params.output_s = opts::output_s ? OUTPUTFLAGset : OUTPUTFLAGno;
 
-  global.params.cov = (global.params.covPercent <= 100);
-
   templateLinkage = opts::linkonceTemplates ? LLGlobalValue::LinkOnceODRLinkage
                                             : LLGlobalValue::WeakODRLinkage;
 

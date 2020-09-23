@@ -23,33 +23,6 @@ llvm::SmallVector<const char *, 32> allArguments;
 
 cl::OptionCategory linkingCategory("Linking options");
 
-/* Option parser that defaults to zero when no explicit number is given.
- * i.e.:  -cov    --> value = 0
- *        -cov=9  --> value = 9
- *        -cov=101 --> error, value must be in range [0..100]
- */
-struct CoverageParser : public cl::parser<unsigned char> {
-  explicit CoverageParser(cl::Option &O) : cl::parser<unsigned char>(O) {}
-
-  bool parse(cl::Option &O, llvm::StringRef /*ArgName*/, llvm::StringRef Arg,
-             unsigned char &Val) {
-    if (Arg == "") {
-      Val = 0;
-      return false;
-    }
-
-    if (Arg.getAsInteger(0, Val)) {
-      return O.error("'" + Arg +
-                     "' value invalid for required coverage percentage");
-    }
-
-    if (Val > 100) {
-      return O.error("Required coverage percentage must be <= 100");
-    }
-    return false;
-  }
-};
-
 // Positional options first, in order:
 cl::list<std::string> fileList(cl::Positional, cl::desc("files"));
 
@@ -515,11 +488,43 @@ cl::opt<bool, true> betterC(
     "betterC", cl::ZeroOrMore, cl::location(global.params.betterC),
     cl::desc("Omit generating some runtime information and helper functions"));
 
-cl::opt<unsigned char, true, CoverageParser> coverageAnalysis(
-    "cov", cl::ZeroOrMore, cl::location(global.params.covPercent),
-    cl::desc("Compile-in code coverage analysis\n(use -cov=n for n% "
-             "minimum required coverage)"),
-    cl::ValueOptional, cl::init(127));
+// `-cov[=<n>|ctfe]` parser.
+struct CoverageParser : public cl::parser<bool> {
+  explicit CoverageParser(cl::Option &O) : cl::parser<bool>(O) {}
+
+  bool parse(cl::Option &O, llvm::StringRef /*ArgName*/, llvm::StringRef Arg,
+             bool & /*Val*/) {
+    global.params.cov = true;
+
+    if (Arg.empty()) {
+      return false;
+    }
+
+    if (Arg == "ctfe") {
+      global.params.ctfe_cov = true;
+      return false;
+    }
+
+    unsigned char percent = 0;
+    if (Arg.getAsInteger(0, percent)) {
+      return O.error("'" + Arg +
+                     "' value invalid for required coverage percentage");
+    }
+
+    if (percent > 100) {
+      return O.error("required coverage percentage must be <= 100");
+    }
+
+    global.params.covPercent = percent;
+    return false;
+  }
+};
+
+static cl::opt<bool, false, CoverageParser> coverageAnalysis(
+    "cov", cl::ZeroOrMore,
+    cl::desc("Compile-in code coverage analysis and .lst file generation\n"
+             "Use -cov=<n> for n% minimum required coverage\n"
+             "Use -cov=ctfe to include code executed during CTFE"));
 
 cl::opt<LTOKind> ltoMode(
     "flto", cl::ZeroOrMore, cl::desc("Set LTO mode, requires linker support"),
