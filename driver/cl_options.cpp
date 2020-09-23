@@ -79,10 +79,32 @@ static cl::opt<bool, true>
     vgc("vgc", cl::desc("List all gc allocations including hidden ones"),
         cl::ZeroOrMore, cl::location(global.params.vgc));
 
-static cl::opt<bool, true>
-    vtemplates("vtemplates", cl::ZeroOrMore,
-               cl::desc("List statistics on template instantiations"),
-               cl::location(global.params.vtemplates));
+// `-vtemplates[=list-instances]` parser.
+struct VTemplatesParser : public cl::parser<bool> {
+  explicit VTemplatesParser(cl::Option &O) : cl::parser<bool>(O) {}
+
+  bool parse(cl::Option &O, llvm::StringRef /*ArgName*/, llvm::StringRef Arg,
+             bool & /*Val*/) {
+    global.params.vtemplates = true;
+
+    if (Arg.empty()) {
+      return false;
+    }
+
+    if (Arg == "list-instances") {
+      global.params.vtemplatesListInstances = true;
+      return false;
+    }
+
+    return O.error("unsupported value '" + Arg + "'");
+  }
+};
+
+static cl::opt<bool, false, VTemplatesParser> vtemplates(
+    "vtemplates", cl::ZeroOrMore,
+    cl::desc("List statistics on template instantiations\n"
+             "Use -vtemplates=list-instances to additionally show all "
+             "instantiation contexts for each template"));
 
 static cl::opt<bool, true> verbose_cg("v-cg", cl::desc("Verbose codegen"),
                                       cl::ZeroOrMore,
