@@ -190,7 +190,8 @@ Where:\n\
 "  -H                generate 'header' file\n\
   -Hd=<directory>   write 'header' file to directory\n\
   -Hf=<filename>    write 'header' file to filename\n\
-  -HC               generate C++ 'header' file\n\
+  -HC[=[silent|verbose]]\n\
+                    generate C++ 'header' file\n\
   -HCd=<directory>  write C++ 'header' file to directory\n\
   -HCf=<filename>   write C++ 'header' file to filename\n\
   --help            print help and exit\n\

@@ -265,15 +265,35 @@ cl::opt<bool>
                      cl::desc("Keep all function bodies in .di files"));
 
 // C++ header generation options
-static cl::opt<CxxHeaderMode, true> doCxxHdrGen(
-    "HC", cl::desc("Generate C++ 'header' file"), cl::ZeroOrMore,
+
+// `-HC[=silent|verbose]` parser. Required for defaulting to `silent`.
+struct HCParser : public cl::parser<CxxHeaderMode> {
+  explicit HCParser(cl::Option &O) : cl::parser<CxxHeaderMode>(O) {}
+
+  bool parse(cl::Option &O, llvm::StringRef /*ArgName*/, llvm::StringRef Arg,
+             CxxHeaderMode &Val) {
+    if (Arg.empty() || Arg == "silent") {
+      Val = CxxHeaderMode::silent;
+      return false;
+    }
+    if (Arg == "verbose") {
+      Val = CxxHeaderMode::verbose;
+      return false;
+    }
+
+    return O.error("unsupported value '" + Arg + "'");
+  }
+};
+
+static cl::opt<CxxHeaderMode, true, HCParser> doCxxHdrGen(
+    "HC", cl::ZeroOrMore, cl::desc("Generate C++ header file"),
+    cl::location(global.params.doCxxHdrGeneration), cl::ValueOptional,
     cl::values(
         clEnumValN(CxxHeaderMode::silent, "silent",
-                   "Only list extern(C[++]) declarations"),
+                   "Only list extern(C[++]) declarations (default)"),
         clEnumValN(
             CxxHeaderMode::verbose, "verbose",
-            "Also add comments for ignored declarations (e.g. extern(D))")),
-    cl::location(global.params.doCxxHdrGeneration));
+            "Also add comments for ignored declarations (e.g. extern(D))")));
 
 cl::opt<std::string>
     cxxHdrDir("HCd", cl::ZeroOrMore, cl::Prefix,
