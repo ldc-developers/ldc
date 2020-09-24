@@ -439,16 +439,22 @@ void addCoverageAnalysis(Module *m) {
 
     LLArrayType *type =
         LLArrayType::get(LLType::getInt32Ty(gIR->context()), m->numlines);
-    llvm::ConstantAggregateZero *zeroinitializer =
-        llvm::ConstantAggregateZero::get(type);
-    m->d_cover_data = new llvm::GlobalVariable(
-        gIR->module, type, false, LLGlobalValue::InternalLinkage,
-        zeroinitializer, "_d_cover_data");
-    LLConstant *idxs[] = {DtoConstUint(0), DtoConstUint(0)};
-    d_cover_data_slice =
-        DtoConstSlice(DtoConstSize_t(type->getArrayNumElements()),
-                      llvm::ConstantExpr::getGetElementPtr(
-                          type, m->d_cover_data, idxs, true));
+
+    llvm::Constant *init;
+    if (!m->ctfe_cov) {
+      init = llvm::ConstantAggregateZero::get(type);
+    } else {
+      std::vector<unsigned> initData(m->numlines);
+      m->initCoverageDataWithCtfeCoverage(initData.data());
+      init = llvm::ConstantDataArray::get(gIR->context(), initData);
+    }
+
+    m->d_cover_data = new llvm::GlobalVariable(gIR->module, type, false,
+                                               LLGlobalValue::InternalLinkage,
+                                               init, "_d_cover_data");
+
+    d_cover_data_slice = DtoConstSlice(DtoConstSize_t(m->numlines),
+                                       DtoGEP(m->d_cover_data, 0, 0));
   }
 
   // Create "static constructor" that calls _d_cover_register2(string filename,

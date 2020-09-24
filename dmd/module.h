@@ -161,6 +161,8 @@ public:
         *d_cover_valid; // private immutable size_t[] _d_cover_valid;
     llvm::GlobalVariable *d_cover_data; // private uint[] _d_cover_data;
     Array<size_t> d_cover_valid_init;   // initializer for _d_cover_valid
+
+    void initCoverageDataWithCtfeCoverage(unsigned *data) const;
 #else
     int doppelganger;           // sub-module
     Symbol *cov;                // private uint[] __coverage;
