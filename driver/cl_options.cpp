@@ -79,12 +79,20 @@ static cl::opt<bool, true>
     vgc("vgc", cl::desc("List all gc allocations including hidden ones"),
         cl::ZeroOrMore, cl::location(global.params.vgc));
 
+// Dummy data type for custom parsers where the help output shouldn't display
+// any value. cl::parser<bool> is final for LLVM < 9...
+#if LDC_LLVM_VER >= 900
+using DummyDataType = bool;
+#else
+enum class DummyDataType { dummy };
+#endif
+
 // `-vtemplates[=list-instances]` parser.
-struct VTemplatesParser : public cl::parser<bool> {
-  explicit VTemplatesParser(cl::Option &O) : cl::parser<bool>(O) {}
+struct VTemplatesParser : public cl::parser<DummyDataType> {
+  explicit VTemplatesParser(cl::Option &O) : cl::parser<DummyDataType>(O) {}
 
   bool parse(cl::Option &O, llvm::StringRef /*ArgName*/, llvm::StringRef Arg,
-             bool & /*Val*/) {
+             DummyDataType & /*Val*/) {
     global.params.vtemplates = true;
 
     if (Arg.empty()) {
@@ -100,8 +108,8 @@ struct VTemplatesParser : public cl::parser<bool> {
   }
 };
 
-static cl::opt<bool, false, VTemplatesParser> vtemplates(
-    "vtemplates", cl::ZeroOrMore,
+static cl::opt<DummyDataType, false, VTemplatesParser> vtemplates(
+    "vtemplates", cl::ZeroOrMore, cl::ValueOptional,
     cl::desc("List statistics on template instantiations\n"
              "Use -vtemplates=list-instances to additionally show all "
              "instantiation contexts for each template"));
@@ -531,11 +539,11 @@ cl::opt<bool, true> betterC(
     cl::desc("Omit generating some runtime information and helper functions"));
 
 // `-cov[=<n>|ctfe]` parser.
-struct CoverageParser : public cl::parser<bool> {
-  explicit CoverageParser(cl::Option &O) : cl::parser<bool>(O) {}
+struct CoverageParser : public cl::parser<DummyDataType> {
+  explicit CoverageParser(cl::Option &O) : cl::parser<DummyDataType>(O) {}
 
   bool parse(cl::Option &O, llvm::StringRef /*ArgName*/, llvm::StringRef Arg,
-             bool & /*Val*/) {
+             DummyDataType & /*Val*/) {
     global.params.cov = true;
 
     if (Arg.empty()) {
@@ -562,8 +570,8 @@ struct CoverageParser : public cl::parser<bool> {
   }
 };
 
-static cl::opt<bool, false, CoverageParser> coverageAnalysis(
-    "cov", cl::ZeroOrMore,
+static cl::opt<DummyDataType, false, CoverageParser> coverageAnalysis(
+    "cov", cl::ZeroOrMore, cl::ValueOptional,
     cl::desc("Compile-in code coverage analysis and .lst file generation\n"
              "Use -cov=<n> for n% minimum required coverage\n"
              "Use -cov=ctfe to include code executed during CTFE"));
