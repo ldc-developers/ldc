@@ -67,6 +67,10 @@ void addSanitizerLibs(std::vector<std::string> &args) {
   if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
     args.push_back("ldc_rt.asan.lib");
   }
+  if (opts::isSanitizerEnabled(opts::FuzzSanitizer)) {
+    args.push_back("ldc_rt.fuzzer.lib");
+    args.push_back("/SUBSYSTEM:CONSOLE"); // pull main() from fuzzer lib
+  }
 
   // TODO: remaining sanitizers
 }

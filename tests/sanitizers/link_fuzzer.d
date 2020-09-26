@@ -1,6 +1,7 @@
 // Test linking C++ stdlib (or not) with -fsanitize=fuzzer
 
 // REQUIRES: Fuzzer
+// UNSUPPORTED: Windows
 
 // RUN: %ldc -v -fsanitize=fuzzer %s | FileCheck %s
 // "lib(ldc|clang)_rt.fuzzer.*.a" since LLVM 6.0
