@@ -238,6 +238,12 @@ IrTypeVector *IrTypeVector::get(Type *dt) {
 //////////////////////////////////////////////////////////////////////////////
 
 IrType *&getIrType(Type *t, bool create) {
+  // See remark in DtoType().
+  assert((t->ty != Tstruct || t == static_cast<TypeStruct *>(t)->sym->type) &&
+         "use sd->type for structs");
+  assert((t->ty != Tclass || t == static_cast<TypeClass *>(t)->sym->type) &&
+         "use cd->type for classes");
+
   t = stripModifiers(t);
 
   if (create) {

@@ -61,12 +61,6 @@ void DtoAddExtendAttr(Type *type, llvm::AttrBuilder &attrs) {
   }
 }
 
-static LLType *getOpaqueErrorType() {
-  static LLStructType *t =
-      LLStructType::create(gIR->context(), Type::terror->toChars());
-  return t;
-}
-
 LLType *DtoType(Type *t) {
   t = stripModifiers(t);
 
@@ -123,17 +117,42 @@ LLType *DtoType(Type *t) {
   }
 
   // aggregates
-  case Tstruct: {
-    auto sd = static_cast<TypeStruct *>(t)->sym;
-    if (sd->type->ty == Terror)
-      return getOpaqueErrorType();
-    return IrTypeStruct::get(sd)->getLLType();
-  }
+  case Tstruct:
   case Tclass: {
-    auto cd = static_cast<TypeClass *>(t)->sym;
-    if (cd->type->ty == Terror)
-      return getOpaqueErrorType();
-    return IrTypeClass::get(cd)->getLLType();
+    const auto isStruct = t->ty == Tstruct;
+    AggregateDeclaration *ad;
+    if (isStruct) {
+      ad = static_cast<TypeStruct *>(t)->sym;
+    } else {
+      ad = static_cast<TypeClass *>(t)->sym;
+    }
+    if (ad->type->ty == Terror) {
+      static LLStructType *opaqueErrorType =
+          LLStructType::create(gIR->context(), Type::terror->toChars());
+      return opaqueErrorType;
+    }
+    Type *adType = stripModifiers(ad->type);
+    if (adType->ctype) {
+      /* This should not happen, but e.g. can for aggregates whose mangled name
+       * contains a lambda which got promoted from a delegate to a function.
+       * We certainly don't want to override adType->ctype, and not associate
+       * an IrType to multiple Types either (see e.g.
+       * IrTypeStruct::resetDComputeTypes()).
+       * This means there are some aggregate Types which don't have an
+       * associated ctype, so getIrType() should always be fed with its
+       * AggregateDeclaration::type.
+       */
+      IF_LOG {
+        Logger::println("Aggregate with multiple Types detected: %s (%s)",
+                        ad->toPrettyChars(), ad->locToChars());
+        LOG_SCOPE;
+        Logger::println("Existing deco:    %s", adType->deco);
+        Logger::println("Mismatching deco: %s", t->deco);
+      }
+      return adType->ctype->getLLType();
+    }
+    return isStruct ? IrTypeStruct::get(ad->isStructDeclaration())->getLLType()
+                    : IrTypeClass::get(ad->isClassDeclaration())->getLLType();
   }
 
   // functions
