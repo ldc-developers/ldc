@@ -61,6 +61,12 @@ void DtoAddExtendAttr(Type *type, llvm::AttrBuilder &attrs) {
   }
 }
 
+static LLType *getOpaqueErrorType() {
+  static LLStructType *t =
+      LLStructType::create(gIR->context(), Type::terror->toChars());
+  return t;
+}
+
 LLType *DtoType(Type *t) {
   t = stripModifiers(t);
 
@@ -71,7 +77,6 @@ LLType *DtoType(Type *t) {
   IF_LOG Logger::println("Building type: %s", t->toChars());
   LOG_SCOPE;
 
-  assert(t);
   switch (t->ty) {
   // basic types
   case Tvoid:
@@ -120,6 +125,8 @@ LLType *DtoType(Type *t) {
   // aggregates
   case Tstruct: {
     TypeStruct *ts = static_cast<TypeStruct *>(t);
+    if (ts->sym->type->ty == Terror)
+      return getOpaqueErrorType();
     if (ts->sym->type->ctype) {
       // This should not happen, but the frontend seems to be buggy. Not
       // sure if this is the best way to handle the situation, but we
@@ -133,6 +140,8 @@ LLType *DtoType(Type *t) {
   }
   case Tclass: {
     TypeClass *tc = static_cast<TypeClass *>(t);
+    if (tc->sym->type->ty == Terror)
+      return getOpaqueErrorType();
     if (tc->sym->type->ctype) {
       // See Tstruct case.
       IF_LOG Logger::cout()
@@ -316,7 +325,6 @@ LLValue *DtoGEP(LLValue *ptr, unsigned i0, unsigned i1, const char *name,
 
 LLConstant *DtoGEP(LLConstant *ptr, unsigned i0, unsigned i1) {
   LLPointerType *p = isaPointer(ptr);
-  (void)p;
   assert(p && "GEP expects a pointer type");
   LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
   return llvm::ConstantExpr::getGetElementPtr(p->getElementType(), ptr, indices,
