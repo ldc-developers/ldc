@@ -2644,6 +2644,14 @@ public:
     result = emitVector(e, vector);
   }
 
+  void visit(VectorArrayExp* e) override {
+    IF_LOG Logger::print("VectorArrayExp::toElem() %s\n", e->toChars());
+    LOG_SCOPE;
+
+    DValue *vector = toElem(e->e1);
+    result = DtoCastVector(e->loc, vector, e->type);
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   void visit(PowExp *e) override {

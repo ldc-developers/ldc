@@ -3355,17 +3355,10 @@ Expression dotExp(Type mt, Scope* sc, Expression e, Identifier ident, int flag)
         }
         if (ident == Id.array)
         {
-version (IN_LLVM)
-{
-            e = e.castTo(sc, mt.basetype);
-}
-else
-{
             //e = e.castTo(sc, basetype);
             // Keep lvalue-ness
             e = new VectorArrayExp(e.loc, e);
             e = e.expressionSemantic(sc);
-}
             return e;
         }
         if (ident == Id._init || ident == Id.offsetof || ident == Id.stringof || ident == Id.__xalignof)
