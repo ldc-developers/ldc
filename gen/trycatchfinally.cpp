@@ -179,8 +179,7 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
         b.push(cpp_ti);
 
         auto wrapperType = llvm::cast<llvm::StructType>(
-            static_cast<IrTypeClass *>(cppTypeInfoPtrType->ctype)
-                ->getMemoryLLType());
+            getIrType(cppTypeInfoPtrType)->isClass()->getMemoryLLType());
         auto wrapperInit = b.get_constant(wrapperType);
 
         ci = defineGlobal(p.cd->loc, irs.module, wrapperMangle, wrapperInit,

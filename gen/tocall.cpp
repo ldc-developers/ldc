@@ -40,10 +40,7 @@ IrFuncTy &DtoIrTypeFunction(DValue *fnval) {
     }
   }
 
-  Type *type = stripModifiers(fnval->type->toBasetype());
-  DtoType(type);
-  assert(type->ctype);
-  return type->ctype->getIrFuncTy();
+  return getIrType(fnval->type->toBasetype(), true)->getIrFuncTy();
 }
 
 TypeFunction *DtoTypeFunction(DValue *fnval) {

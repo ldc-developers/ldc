@@ -258,9 +258,8 @@ struct LazyFunctionDeclarer {
     // the call to DtoType performs many actions such as rewriting the function
     // type and storing it in dty
     auto llfunctype = llvm::cast<llvm::FunctionType>(DtoType(dty));
-    assert(dty->ctype);
-    auto attrs =
-        dty->ctype->getIrFuncTy().getParamAttrs(gABI->passThisBeforeSret(dty));
+    auto attrs = getIrType(dty)->getIrFuncTy().getParamAttrs(
+        gABI->passThisBeforeSret(dty));
     attrs.merge(attributes);
 
     for (auto fname : mangledFunctionNames) {

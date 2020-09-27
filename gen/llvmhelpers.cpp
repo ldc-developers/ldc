@@ -1806,9 +1806,9 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   // Look up field to index and any offset to apply.
   unsigned fieldIndex;
   unsigned byteOffset;
-  assert(ad->type->ctype->isAggr());
-  static_cast<IrTypeAggr *>(ad->type->ctype)
-      ->getMemberLocation(vd, fieldIndex, byteOffset);
+  auto irTypeAggr = getIrType(ad->type)->isAggr();
+  assert(irTypeAggr);
+  irTypeAggr->getMemberLocation(vd, fieldIndex, byteOffset);
 
   LLValue *val = DtoGEP(src, 0, fieldIndex);
 
@@ -1828,9 +1828,9 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
 unsigned getFieldGEPIndex(AggregateDeclaration *ad, VarDeclaration *vd) {
   unsigned fieldIndex;
   unsigned byteOffset;
-  assert(ad->type->ctype->isAggr());
-  static_cast<IrTypeAggr *>(ad->type->ctype)
-      ->getMemberLocation(vd, fieldIndex, byteOffset);
+  auto irTypeAggr = getIrType(ad->type)->isAggr();
+  assert(irTypeAggr);
+  irTypeAggr->getMemberLocation(vd, fieldIndex, byteOffset);
   assert(byteOffset == 0 && "Cannot address field by a simple GEP.");
   return fieldIndex;
 }

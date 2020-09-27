@@ -182,6 +182,9 @@ public:
 protected:
   ///
   explicit IrTypeVector(Type *dt, llvm::Type *lt);
-
-  static llvm::Type *vector2llvm(Type *dt);
 };
+
+//////////////////////////////////////////////////////////////////////////////
+
+/// Returns a reference to the IrType* associated with the specified D type.
+IrType *&getIrType(Type *t, bool create = false);

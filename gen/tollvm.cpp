@@ -124,32 +124,16 @@ LLType *DtoType(Type *t) {
 
   // aggregates
   case Tstruct: {
-    TypeStruct *ts = static_cast<TypeStruct *>(t);
-    if (ts->sym->type->ty == Terror)
+    auto sd = static_cast<TypeStruct *>(t)->sym;
+    if (sd->type->ty == Terror)
       return getOpaqueErrorType();
-    if (ts->sym->type->ctype) {
-      // This should not happen, but the frontend seems to be buggy. Not
-      // sure if this is the best way to handle the situation, but we
-      // certainly don't want to override ts->sym->type->ctype.
-      IF_LOG Logger::cout()
-          << "Struct with multiple Types detected: " << ts->toChars() << " ("
-          << ts->sym->locToChars() << ")" << std::endl;
-      return ts->sym->type->ctype->getLLType();
-    }
-    return IrTypeStruct::get(ts->sym)->getLLType();
+    return IrTypeStruct::get(sd)->getLLType();
   }
   case Tclass: {
-    TypeClass *tc = static_cast<TypeClass *>(t);
-    if (tc->sym->type->ty == Terror)
+    auto cd = static_cast<TypeClass *>(t)->sym;
+    if (cd->type->ty == Terror)
       return getOpaqueErrorType();
-    if (tc->sym->type->ctype) {
-      // See Tstruct case.
-      IF_LOG Logger::cout()
-          << "Class with multiple Types detected: " << tc->toChars() << " ("
-          << tc->sym->locToChars() << ")" << std::endl;
-      return tc->sym->type->ctype->getLLType();
-    }
-    return IrTypeClass::get(tc->sym)->getLLType();
+    return IrTypeClass::get(cd)->getLLType();
   }
 
   // functions
@@ -182,9 +166,8 @@ LLType *DtoType(Type *t) {
   case Taarray:
     return getVoidPtrType();
 
-  case Tvector: {
+  case Tvector:
     return IrTypeVector::get(t)->getLLType();
-  }
 
   default:
     llvm_unreachable("Unknown class of D Type!");

@@ -30,14 +30,15 @@ IrTypeStruct::IrTypeStruct(StructDeclaration *sd)
 
 //////////////////////////////////////////////////////////////////////////////
 
-std::vector<IrTypeStruct*> IrTypeStruct::dcomputeTypes;
+std::vector<IrTypeStruct *> IrTypeStruct::dcomputeTypes;
 
 /// Resets special DCompute structs so they get re-created
 /// with the proper address space when generating device code.
 void IrTypeStruct::resetDComputeTypes() {
-  for(auto&& irTypeStruct : dcomputeTypes) {
-    delete irTypeStruct->dtype->ctype;
-    irTypeStruct->dtype->ctype = nullptr;
+  for (auto irTypeStruct : dcomputeTypes) {
+    auto &ctype = getIrType(irTypeStruct->dtype);
+    delete ctype;
+    ctype = nullptr;
   }
 
   dcomputeTypes.clear();
@@ -46,12 +47,12 @@ void IrTypeStruct::resetDComputeTypes() {
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
-  auto t = new IrTypeStruct(sd);
-  sd->type->ctype = t;
-
   IF_LOG Logger::println("Building struct type %s @ %s", sd->toPrettyChars(),
                          sd->loc.toChars());
   LOG_SCOPE;
+
+  auto t = new IrTypeStruct(sd);
+  getIrType(sd->type) = t;
 
   // if it's a forward declaration, all bets are off, stick with the opaque
   if (sd->sizeok != SIZEOKdone) {
