@@ -57,7 +57,7 @@ nothrow:
     {
         assert(name[length] == '\0');
     }
-    do
+    body
     {
         //printf("Identifier('%s', %d)\n", name, value);
         this(name[0 .. length], value);

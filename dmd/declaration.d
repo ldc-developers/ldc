@@ -1136,7 +1136,7 @@ version (IN_LLVM)
     {
         assert(ident);
     }
-    do
+    body
     {
         //printf("VarDeclaration('%s')\n", ident.toChars());
         super(loc, ident);

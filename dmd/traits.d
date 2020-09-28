@@ -1122,6 +1122,12 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
                 {
                     if (includeTemplates)
                     {
+static if (__VERSION__ < 2071) // IN_LLVM: no `AA.clear()` for ltsmaster, undo dlang/dmd#11431
+{
+                        exps.push(new DsymbolExp(Loc.initial, s, false));
+}
+else
+{
                         if (auto td = s.isTemplateDeclaration())
                         {
                             // if td is part of an overload set we must take a copy
@@ -1147,6 +1153,7 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
                             }
                             exps.push(new DsymbolExp(Loc.initial, td, false));
                         }
+}
                     }
                     return 0;
                 }
