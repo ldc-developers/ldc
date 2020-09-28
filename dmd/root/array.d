@@ -1078,7 +1078,8 @@ pure nothrow @safe unittest
 }
 
 /// Implements the range interface primitive `popFront` for built-in arrays.
-void popFront(T)(scope ref inout(T)[] array) pure nothrow @nogc @safe
+// no `scope` to work with GDC...
+void popFront(T)(/*scope*/ ref inout(T)[] array) pure nothrow @nogc @safe
 {
     assert(array.length, "Attempting to popFront() past the end of an array of " ~ T.stringof);
     array = array[1 .. $];
