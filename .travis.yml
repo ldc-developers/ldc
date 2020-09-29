@@ -9,7 +9,7 @@ matrix:
     - os: linux
       arch: arm64
       d: ldc-beta
-      env: LLVM_VERSION=cc7582ff PARALLELISM=16 CC=gcc-8 CXX=g++-8 OPTS="-DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64 -DADDITIONAL_DEFAULT_LDC_SWITCHES='\"-linker=bfd\",' -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF"
+      env: LLVM_VERSION=f13ab423 PARALLELISM=16 CC=gcc-8 CXX=g++-8 OPTS="-DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64 -DADDITIONAL_DEFAULT_LDC_SWITCHES='\"-linker=bfd\",' -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF"
       addons:
         apt:
           sources:
