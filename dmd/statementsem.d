@@ -2856,6 +2856,8 @@ version (IN_LLVM)
 
         if (sw)
         {
+            Expression initialExp = cs.exp;
+
             cs.exp = cs.exp.implicitCastTo(sc, sw.condition.type);
             cs.exp = cs.exp.optimize(WANTvalue | WANTexpand);
 
@@ -2929,7 +2931,8 @@ version (IN_LLVM)
                 //printf("comparing '%s' with '%s'\n", exp.toChars(), cs.exp.toChars());
                 if (cs2.exp.equals(cs.exp))
                 {
-                    cs.error("duplicate `case %s` in `switch` statement", cs.exp.toChars());
+                    // https://issues.dlang.org/show_bug.cgi?id=15909
+                    cs.error("duplicate `case %s` in `switch` statement", initialExp.toChars());
                     errors = true;
                     break;
                 }
