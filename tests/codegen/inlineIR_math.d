@@ -91,7 +91,7 @@ extern (C) double aliasInlineUnsafe(double[] a, double[] b)
 }
 
 // LLVM-LABEL: define{{.*}} @aliasInlineSafe
-// LLVM-SAME: #[[UNSAFEFPMATH2:[0-9]+]]
+// LLVM-SAME: #[[NO_UNSAFEFPMATH:[0-9]+]]
 // ASM-LABEL: aliasInlineSafe:
 extern (C) double aliasInlineSafe(double[] a, double[] b)
 {
@@ -113,6 +113,8 @@ double neverInlinedEnclosingFunction()
     return muladd(1.0, 2.0, 3.0);
 }
 
-// LLVM-DAG: attributes #[[UNSAFEFPMATH]] ={{.*}} "unsafe-fp-math"="true"
-// LLVM-DAG: attributes #[[UNSAFEFPMATH2]] ={{.*}} "unsafe-fp-math"="false"
-// LLVM-DAG: attributes #[[FEAT]] ={{.*}} "target-features"="{{.*}}+fma{{.*}}"
+// LLVM: attributes #[[UNSAFEFPMATH]] ={{.*}} "unsafe-fp-math"="true"
+// LLVM: attributes #[[FEAT]] ={{.*}} "target-features"="{{.*}}+fma{{.*}}"
+
+// LLVM: attributes #[[NO_UNSAFEFPMATH]] =
+// LLVM-NOT: "unsafe-fp-math"="true"

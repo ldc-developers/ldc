@@ -216,6 +216,7 @@ longdouble_soft ldexpl(longdouble_soft ldval, int exp); // see strtold
 inline longdouble_soft fabs (longdouble_soft ld) { return fabsl(ld); }
 inline longdouble_soft sqrt (longdouble_soft ld) { return sqrtl(ld); }
 
+#if !IN_LLVM
 #undef LDBL_DIG
 #undef LDBL_MAX
 #undef LDBL_MIN
@@ -235,6 +236,7 @@ inline longdouble_soft sqrt (longdouble_soft ld) { return sqrtl(ld); }
 #define LDBL_MIN_EXP    (-16381)
 #define LDBL_MAX_10_EXP 4932
 #define LDBL_MIN_10_EXP (-4932)
+#endif // !IN_LLVM
 
 extern const longdouble_soft ld_qnan;
 extern const longdouble_soft ld_inf;

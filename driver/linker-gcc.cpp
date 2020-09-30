@@ -321,7 +321,7 @@ void ArgsBuilder::addSanitizerLinkFlags(const llvm::Triple &triple,
 
   // When we reach here, we did not find the sanitizer library.
   // Fallback, requires Clang.
-  args.push_back(fallbackFlag);
+  args.emplace_back(fallbackFlag);
 }
 
 // Adds all required link flags for -fsanitize=fuzzer when libFuzzer library is

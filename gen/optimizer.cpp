@@ -131,14 +131,14 @@ bool willCrossModuleInline() {
   return enableCrossModuleInlining == llvm::cl::BOU_TRUE;
 }
 
-#if LDC_LLVM_VER >= 800
+#if LDC_LLVM_VER >= 800 && LDC_LLVM_VER < 1000
 llvm::FramePointer::FP whichFramePointersToEmit() {
   if (auto option = opts::framePointerUsage())
     return *option;
   return isOptimizationEnabled() ? llvm::FramePointer::None
                                  : llvm::FramePointer::All;
 }
-#else
+#elif LDC_LLVM_VER < 800
 bool willEliminateFramePointer() {
   const llvm::cl::boolOrDefault disableFPElimEnum = opts::disableFPElim();
   return disableFPElimEnum == llvm::cl::BOU_FALSE ||

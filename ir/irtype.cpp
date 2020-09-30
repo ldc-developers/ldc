@@ -220,5 +220,10 @@ llvm::Type *IrTypeVector::vector2llvm(Type *dt) {
   TypeSArray *tsa = static_cast<TypeSArray *>(tv->basetype);
   uint64_t dim = static_cast<uint64_t>(tsa->dim->toUInteger());
   LLType *elemType = DtoMemType(tsa->next);
-  return llvm::VectorType::get(elemType, dim);
+  return llvm::VectorType::get(elemType, dim
+#if LDC_LLVM_VER >= 1100
+                               ,
+                               /*Scalable=*/false
+#endif
+  );
 }

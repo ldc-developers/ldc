@@ -560,8 +560,9 @@ void IrClass::defineInterfaceVtbl(BaseClass *b, bool new_instance,
       // create entry and end blocks
       llvm::BasicBlock *beginbb =
           llvm::BasicBlock::Create(gIR->context(), "", thunk);
-      gIR->scopes.push_back(IRScope(beginbb));
 
+      // set up the IRBuilder scope for the thunk
+      const auto savedIRBuilderScope = gIR->setInsertPoint(beginbb);
       gIR->DBuilder.EmitFuncStart(thunkFd);
 
       // Copy the function parameters, so later we can pass them to the
@@ -603,11 +604,6 @@ void IrClass::defineInterfaceVtbl(BaseClass *b, bool new_instance,
       } else {
         llvm::ReturnInst::Create(gIR->context(), call, beginbb);
       }
-
-      gIR->DBuilder.EmitFuncEnd(thunkFd);
-
-      // clean up
-      gIR->scopes.pop_back();
 
       gIR->funcGenStates.pop_back();
     }

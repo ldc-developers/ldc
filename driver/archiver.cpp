@@ -18,6 +18,9 @@
 #include "llvm/Object/MachO.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/Errc.h"
+#if LDC_LLVM_VER >= 1100
+#include "llvm/Support/Host.h"
+#endif
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/ToolDrivers/llvm-lib/LibDriver.h"

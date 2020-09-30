@@ -276,7 +276,7 @@ public:
       // Pop the cleanups pushed during evaluation of the return expression.
       funcGen.scopes.popCleanups(cleanupScopeBeforeExpression);
 
-      irs->scope() = IRScope(funcGen.retBlock);
+      irs->ir->SetInsertPoint(funcGen.retBlock);
     }
 
     // If we need to emit the actual return instruction, do so.
@@ -299,7 +299,7 @@ public:
     // Finally, create a new predecessor-less dummy bb as the current IRScope
     // to make sure we do not emit any extra instructions after the terminating
     // instruction (ret or branch to return bb), which would be illegal IR.
-    irs->scope() = IRScope(irs->insertBB("dummy.afterreturn"));
+    irs->ir->SetInsertPoint(irs->insertBB("dummy.afterreturn"));
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -426,7 +426,7 @@ public:
     PGO.addBranchWeights(brinstr, brweights);
 
     // replace current scope
-    irs->scope() = IRScope(ifbb);
+    irs->ir->SetInsertPoint(ifbb);
 
     // do scoped statements
 
@@ -441,7 +441,7 @@ public:
     }
 
     if (stmt->elsebody) {
-      irs->scope() = IRScope(elsebb);
+      irs->ir->SetInsertPoint(elsebb);
       irs->DBuilder.EmitBlockStart(stmt->elsebody->loc);
       stmt->elsebody->accept(this);
       if (!irs->scopereturned()) {
@@ -454,7 +454,7 @@ public:
     irs->DBuilder.EmitBlockEnd();
 
     // rewrite the scope
-    irs->scope() = IRScope(endbb);
+    irs->ir->SetInsertPoint(endbb);
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -495,7 +495,7 @@ public:
     irs->ir->CreateBr(whilebb);
 
     // replace current scope
-    irs->scope() = IRScope(whilebb);
+    irs->ir->SetInsertPoint(whilebb);
 
     // create the condition
     emitCoverageLinecountInc(stmt->condition->loc);
@@ -514,7 +514,7 @@ public:
     }
 
     // rewrite scope
-    irs->scope() = IRScope(whilebodybb);
+    irs->ir->SetInsertPoint(whilebodybb);
 
     // while body code
     irs->funcGen().jumpTargets.pushLoopTarget(stmt, whilebb, endbb);
@@ -530,7 +530,7 @@ public:
     }
 
     // rewrite the scope
-    irs->scope() = IRScope(endbb);
+    irs->ir->SetInsertPoint(endbb);
 
     // end the dwarf lexical block
     irs->DBuilder.EmitBlockEnd();
@@ -558,7 +558,7 @@ public:
     llvm::BranchInst::Create(dowhilebb, irs->scopebb());
 
     // replace current scope
-    irs->scope() = IRScope(dowhilebb);
+    irs->ir->SetInsertPoint(dowhilebb);
 
     // do-while body code
     irs->funcGen().jumpTargets.pushLoopTarget(stmt, condbb, endbb);
@@ -570,7 +570,7 @@ public:
 
     // branch to condition block
     llvm::BranchInst::Create(condbb, irs->scopebb());
-    irs->scope() = IRScope(condbb);
+    irs->ir->SetInsertPoint(condbb);
 
     // create the condition
     emitCoverageLinecountInc(stmt->condition->loc);
@@ -592,7 +592,7 @@ public:
     }
 
     // rewrite the scope
-    irs->scope() = IRScope(endbb);
+    irs->ir->SetInsertPoint(endbb);
 
     // end the dwarf lexical block
     irs->DBuilder.EmitBlockEnd();
@@ -635,7 +635,7 @@ public:
     irs->funcGen().jumpTargets.pushLoopTarget(scopeStart, forincbb, endbb);
 
     // replace current scope
-    irs->scope() = IRScope(forbb);
+    irs->ir->SetInsertPoint(forbb);
 
     // create the condition
     llvm::Value *cond_val;
@@ -658,7 +658,7 @@ public:
     }
 
     // rewrite scope
-    irs->scope() = IRScope(forbodybb);
+    irs->ir->SetInsertPoint(forbodybb);
 
     // do for body code
     PGO.emitCounterIncrement(stmt);
@@ -670,7 +670,7 @@ public:
     if (!irs->scopereturned()) {
       llvm::BranchInst::Create(forincbb, irs->scopebb());
     }
-    irs->scope() = IRScope(forincbb);
+    irs->ir->SetInsertPoint(forincbb);
 
     // increment
     if (stmt->increment) {
@@ -687,7 +687,7 @@ public:
     irs->funcGen().jumpTargets.popLoopTarget();
 
     // rewrite the scope
-    irs->scope() = IRScope(endbb);
+    irs->ir->SetInsertPoint(endbb);
 
     // end the dwarf lexical block
     irs->DBuilder.EmitBlockEnd();
@@ -731,7 +731,7 @@ public:
 
     // the break terminated this basicblock, start a new one
     llvm::BasicBlock *bb = irs->insertBB("afterbreak");
-    irs->scope() = IRScope(bb);
+    irs->ir->SetInsertPoint(bb);
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -766,7 +766,7 @@ public:
 
     // the continue terminated this basicblock, start a new one
     llvm::BasicBlock *bb = irs->insertBB("aftercontinue");
-    irs->scope() = IRScope(bb);
+    irs->ir->SetInsertPoint(bb);
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -818,7 +818,7 @@ public:
                              : irs->insertBBAfter(finallybb, "try.success");
 
     // Emit the finally block and set up the cleanup scope for it.
-    irs->scope() = IRScope(finallybb);
+    irs->ir->SetInsertPoint(finallybb);
     irs->DBuilder.EmitBlockStart(stmt->finalbody->loc);
     stmt->finalbody->accept(this);
     irs->DBuilder.EmitBlockEnd();
@@ -832,7 +832,7 @@ public:
       irs->funcGen().scopes.pushCleanup(finallybb, irs->scopebb());
     }
     // Emit the try block.
-    irs->scope() = IRScope(trybb);
+    irs->ir->SetInsertPoint(trybb);
 
     assert(stmt->_body);
     irs->DBuilder.EmitBlockStart(stmt->_body->loc);
@@ -842,7 +842,7 @@ public:
     if (successbb) {
       if (!computeCode)
         irs->funcGen().scopes.runCleanups(cleanupBefore, successbb);
-      irs->scope() = IRScope(successbb);
+      irs->ir->SetInsertPoint(successbb);
       // PGO counter tracks the continuation of the try-finally statement
       PGO.emitCounterIncrement(stmt);
     }
@@ -874,7 +874,7 @@ public:
     irs->funcGen().scopes.pushTryCatch(stmt, endbb);
 
     // Emit the try block.
-    irs->scope() = IRScope(trybb);
+    irs->ir->SetInsertPoint(trybb);
 
     assert(stmt->_body);
     irs->DBuilder.EmitBlockStart(stmt->_body->loc);
@@ -886,7 +886,7 @@ public:
 
     irs->funcGen().scopes.popTryCatch();
 
-    irs->scope() = IRScope(endbb);
+    irs->ir->SetInsertPoint(endbb);
 
     // PGO counter tracks the continuation of the try statement
     PGO.emitCounterIncrement(stmt);
@@ -920,7 +920,7 @@ public:
 
     // TODO: Should not be needed.
     llvm::BasicBlock *bb = irs->insertBB("afterthrow");
-    irs->scope() = IRScope(bb);
+    irs->ir->SetInsertPoint(bb);
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -986,7 +986,7 @@ public:
 
     // do switch body
     assert(stmt->_body);
-    irs->scope() = IRScope(bodybb);
+    irs->ir->SetInsertPoint(bodybb);
     funcGen.jumpTargets.pushBreakTarget(stmt, endbb);
     stmt->_body->accept(this);
     funcGen.jumpTargets.popBreakTarget();
@@ -994,7 +994,7 @@ public:
       llvm::BranchInst::Create(endbb, irs->scopebb());
     }
 
-    irs->scope() = IRScope(oldbb);
+    irs->ir->SetInsertPoint(oldbb);
     if (useSwitchInst) {
       // The case index value.
       LLValue *condVal = DtoRVal(toElemDtor(stmt->condition));
@@ -1018,7 +1018,7 @@ public:
         {
           llvm::BasicBlock *defaultcntr =
               irs->insertBBBefore(defaultTargetBB, "defaultcntr");
-          irs->scope() = IRScope(defaultcntr);
+          irs->ir->SetInsertPoint(defaultcntr);
           if (stmt->sdefault)
               PGO.emitCounterIncrement(stmt->sdefault);
           llvm::BranchInst::Create(defaultTargetBB, defaultcntr);
@@ -1033,7 +1033,7 @@ public:
           const auto body = funcGen.switchTargets.get(cs);
 
           auto casecntr = irs->insertBBBefore(body, "casecntr");
-          irs->scope() = IRScope(casecntr);
+          irs->ir->SetInsertPoint(casecntr);
           PGO.emitCounterIncrement(cs);
           llvm::BranchInst::Create(body, casecntr);
           si->addCase(isaConstantInt(indices[i]), casecntr);
@@ -1068,13 +1068,13 @@ public:
         // Prepend extra BB to "default:" to increment profiling counter.
         llvm::BasicBlock *defaultcntr =
             irs->insertBBBefore(defaultTargetBB, "defaultcntr");
-        irs->scope() = IRScope(defaultcntr);
+        irs->ir->SetInsertPoint(defaultcntr);
         PGO.emitCounterIncrement(stmt->sdefault);
         llvm::BranchInst::Create(defaultTargetBB, defaultcntr);
         defaultTargetBB = defaultcntr;
       }
 
-      irs->scope() = IRScope(nextbb);
+      irs->ir->SetInsertPoint(nextbb);
       auto failedCompareCount = incomingPGORegionCount;
       for (size_t i = 0; i < caseCount; ++i) {
         LLValue *cmp = irs->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ, indices[i],
@@ -1087,12 +1087,10 @@ public:
         if (PGO.emitsInstrumentation()) {
           llvm::BasicBlock *casecntr =
               irs->insertBBBefore(casejumptargetbb, "casecntr");
-          auto savedbb = irs->scope();
-          irs->scope() = IRScope(casecntr);
+          const auto savedInsertPoint = irs->saveInsertPoint();
+          irs->ir->SetInsertPoint(casecntr);
           PGO.emitCounterIncrement(cs);
           llvm::BranchInst::Create(casejumptargetbb, casecntr);
-          irs->scope() = savedbb;
-
           casejumptargetbb = casecntr;
         }
 
@@ -1111,13 +1109,13 @@ public:
           PGO.addBranchWeights(branchinst, brweights);
         }
 
-        irs->scope() = IRScope(nextbb);
+        irs->ir->SetInsertPoint(nextbb);
       }
 
       llvm::BranchInst::Create(defaultTargetBB, irs->scopebb());
     }
 
-    irs->scope() = IRScope(endbb);
+    irs->ir->SetInsertPoint(endbb);
     // PGO counter tracks exit point of switch statement:
     PGO.emitCounterIncrement(stmt);
   }
@@ -1141,7 +1139,7 @@ public:
       llvm::BranchInst::Create(body, irs->scopebb());
     }
 
-    irs->scope() = IRScope(body);
+    irs->ir->SetInsertPoint(body);
 
     assert(stmt->statement);
     irs->DBuilder.EmitBlockStart(stmt->statement->loc);
@@ -1172,7 +1170,7 @@ public:
       llvm::BranchInst::Create(body, irs->scopebb());
     }
 
-    irs->scope() = IRScope(body);
+    irs->ir->SetInsertPoint(body);
 
     assert(stmt->statement);
     irs->DBuilder.EmitBlockStart(stmt->statement->loc);
@@ -1231,7 +1229,7 @@ public:
       llvm::BasicBlock *nextbb = (i + 1 == nstmt) ? endbb : blocks[i + 1];
 
       // update scope
-      irs->scope() = IRScope(thisbb);
+      irs->ir->SetInsertPoint(thisbb);
 
       // push loop scope
       // continue goes to next statement, break goes to end
@@ -1251,7 +1249,7 @@ public:
       }
     }
 
-    irs->scope() = IRScope(endbb);
+    irs->ir->SetInsertPoint(endbb);
 
     // PGO counter tracks the continuation after the loop
     PGO.emitCounterIncrement(stmt);
@@ -1334,7 +1332,7 @@ public:
     llvm::BranchInst::Create(condbb, irs->scopebb());
 
     // condition
-    irs->scope() = IRScope(condbb);
+    irs->ir->SetInsertPoint(condbb);
 
     LLValue *done = nullptr;
     LLValue *load = DtoLoad(keyvar);
@@ -1353,7 +1351,7 @@ public:
     }
 
     // init body
-    irs->scope() = IRScope(bodybb);
+    irs->ir->SetInsertPoint(bodybb);
     PGO.emitCounterIncrement(stmt);
 
     // get value for this iteration
@@ -1383,7 +1381,7 @@ public:
     }
 
     // next
-    irs->scope() = IRScope(nextbb);
+    irs->ir->SetInsertPoint(nextbb);
     if (stmt->op == TOKforeach) {
       LLValue *load = DtoLoad(keyvar);
       load = irs->ir->CreateAdd(load, LLConstantInt::get(keytype, 1, false));
@@ -1395,7 +1393,7 @@ public:
     irs->DBuilder.EmitBlockEnd();
 
     // end
-    irs->scope() = IRScope(endbb);
+    irs->ir->SetInsertPoint(endbb);
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -1438,7 +1436,7 @@ public:
     llvm::BranchInst::Create(condbb, irs->scopebb());
 
     // CONDITION
-    irs->scope() = IRScope(condbb);
+    irs->ir->SetInsertPoint(condbb);
 
     // first we test that lwr < upr
     lower = DtoLoad(keyval);
@@ -1462,7 +1460,7 @@ public:
     }
 
     // BODY
-    irs->scope() = IRScope(bodybb);
+    irs->ir->SetInsertPoint(bodybb);
     PGO.emitCounterIncrement(stmt);
 
     // reverse foreach decrements here
@@ -1486,7 +1484,7 @@ public:
     }
 
     // NEXT
-    irs->scope() = IRScope(nextbb);
+    irs->ir->SetInsertPoint(nextbb);
 
     // forward foreach increments here
     if (stmt->op == TOKforeach) {
@@ -1503,7 +1501,7 @@ public:
     irs->DBuilder.EmitBlockEnd();
 
     // END
-    irs->scope() = IRScope(endbb);
+    irs->ir->SetInsertPoint(endbb);
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -1538,7 +1536,7 @@ public:
         llvm::BranchInst::Create(labelBB, irs->scopebb());
       }
 
-      irs->scope() = IRScope(labelBB);
+      irs->ir->SetInsertPoint(labelBB);
     }
 
     PGO.emitCounterIncrement(stmt);
@@ -1565,7 +1563,7 @@ public:
 
     // TODO: Should not be needed.
     llvm::BasicBlock *bb = irs->insertBB("aftergoto");
-    irs->scope() = IRScope(bb);
+    irs->ir->SetInsertPoint(bb);
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -1590,7 +1588,7 @@ public:
 
     // TODO: Should not be needed.
     llvm::BasicBlock *bb = irs->insertBB("aftergotodefault");
-    irs->scope() = IRScope(bb);
+    irs->ir->SetInsertPoint(bb);
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -1616,7 +1614,7 @@ public:
 
     // TODO: Should not be needed.
     llvm::BasicBlock *bb = irs->insertBB("aftergotocase");
-    irs->scope() = IRScope(bb);
+    irs->ir->SetInsertPoint(bb);
   }
 
   //////////////////////////////////////////////////////////////////////////

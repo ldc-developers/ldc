@@ -22,7 +22,6 @@
 #include "ir/irvar.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringMap.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/ProfileData/InstrProfReader.h"
 #include <deque>
 #include <memory>
@@ -59,16 +58,15 @@ class StructLiteralExp;
 struct IrFunction;
 struct IrModule;
 
-// represents a scope
-struct IRScope {
-  llvm::BasicBlock *begin;
-  IRBuilder<> builder;
+// Saves the IRBuilder state and restores it on destruction.
+struct IRBuilderScope {
+private:
+  llvm::IRBuilderBase::InsertPointGuard ipGuard;
+  llvm::IRBuilderBase::FastMathFlagGuard fmfGuard;
 
-  IRScope();
-  IRScope(const IRScope &) = default;
-  explicit IRScope(llvm::BasicBlock *b);
-
-  IRScope &operator=(const IRScope &rhs);
+public:
+  explicit IRBuilderScope(llvm::IRBuilderBase &builder)
+      : ipGuard(builder), fmfGuard(builder) {}
 };
 
 struct IRBuilderHelper {
@@ -111,6 +109,9 @@ struct IRAsmBlock {
 // represents the LLVM module (object file)
 struct IRState {
 private:
+  IRBuilder<> builder;
+  friend struct IRBuilderHelper;
+
   std::vector<std::pair<llvm::GlobalVariable *, llvm::Constant *>>
       globalsToReplace;
   Array<Loc> inlineAsmLocs; // tracked by GC
@@ -154,10 +155,16 @@ public:
   llvm::Function *topfunc();
   llvm::Instruction *topallocapoint();
 
-  // basic block scopes
-  std::vector<IRScope> scopes;
-  IRScope &scope();
-  llvm::BasicBlock *scopebb();
+  // Use this to set the IRBuilder's insertion point for a new function.
+  // The previous IRBuilder state is restored when the returned value is
+  // destructed. Use `ir->SetInsertPoint()` instead to change the insertion
+  // point inside the same function.
+  std::unique_ptr<IRBuilderScope> setInsertPoint(llvm::BasicBlock *bb);
+  // Use this to have the IRBuilder's current insertion point (incl. debug
+  // location) restored when the returned value is destructed.
+  std::unique_ptr<llvm::IRBuilderBase::InsertPointGuard> saveInsertPoint();
+  // Returns the basic block the IRBuilder currently inserts into.
+  llvm::BasicBlock *scopebb() { return ir->GetInsertBlock(); }
   bool scopereturned();
 
   // Creates a new basic block and inserts it before the specified one.
@@ -171,21 +178,22 @@ public:
   llvm::BasicBlock *insertBB(const llvm::Twine &name);
 
   // create a call or invoke, depending on the landing pad info
-  llvm::CallSite CreateCallOrInvoke(LLValue *Callee, const char *Name = "");
-  llvm::CallSite CreateCallOrInvoke(LLValue *Callee,
-                                    llvm::ArrayRef<LLValue *> Args,
-                                    const char *Name = "",
-                                    bool isNothrow = false);
-  llvm::CallSite CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
-                                    const char *Name = "");
-  llvm::CallSite CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
-                                    LLValue *Arg2, const char *Name = "");
-  llvm::CallSite CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
-                                    LLValue *Arg2, LLValue *Arg3,
-                                    const char *Name = "");
-  llvm::CallSite CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
-                                    LLValue *Arg2, LLValue *Arg3, LLValue *Arg4,
-                                    const char *Name = "");
+  llvm::Instruction *CreateCallOrInvoke(LLFunction *Callee,
+                                        const char *Name = "");
+  llvm::Instruction *CreateCallOrInvoke(LLFunction *Callee,
+                                        llvm::ArrayRef<LLValue *> Args,
+                                        const char *Name = "",
+                                        bool isNothrow = false);
+  llvm::Instruction *CreateCallOrInvoke(LLFunction *Callee, LLValue *Arg1,
+                                        const char *Name = "");
+  llvm::Instruction *CreateCallOrInvoke(LLFunction *Callee, LLValue *Arg1,
+                                        LLValue *Arg2, const char *Name = "");
+  llvm::Instruction *CreateCallOrInvoke(LLFunction *Callee, LLValue *Arg1,
+                                        LLValue *Arg2, LLValue *Arg3,
+                                        const char *Name = "");
+  llvm::Instruction *CreateCallOrInvoke(LLFunction *Callee, LLValue *Arg1,
+                                        LLValue *Arg2, LLValue *Arg3,
+                                        LLValue *Arg4, const char *Name = "");
 
   // this holds the array being indexed or sliced so $ will work
   // might be a better way but it works. problem is I only get a
