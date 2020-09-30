@@ -73,6 +73,9 @@ bool isInlineCandidate(FuncDeclaration &fdecl) {
 } // end anonymous namespace
 
 bool alreadyOrWillBeDefined(FuncDeclaration &fdecl) {
+  if (fdecl.isFuncLiteralDeclaration()) // emitted into each referencing CU
+    return true;
+
   for (FuncDeclaration *f = &fdecl; f;) {
     if (!f->isInstantiated() && f->inNonRoot()) {
       return false;
