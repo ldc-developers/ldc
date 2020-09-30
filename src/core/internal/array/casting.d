@@ -40,6 +40,7 @@ private void onArrayCastError()(string fromType, size_t fromSize, string toType,
         auto N = msgLength - 1 - index;
         if (N > m.length)
             N = m.length;
+        // prevent superfluous and betterC-unfriendly checks via direct memcpy
         memcpy(msg + index, m.ptr, N);
         index += N;
     }
