@@ -193,8 +193,8 @@ void stripModule(llvm::Module &module) {
 
 void fixRtModule(llvm::Module &newModule,
                  const decltype(IRState::dynamicCompiledFunctions) &funcs) {
-  std::unordered_map<std::string, std::string> thunkVar2func;
-  std::unordered_map<std::string, std::string> thunkFun2func;
+  std::unordered_map<std::string, llvm::StringRef> thunkVar2func;
+  std::unordered_map<std::string, llvm::StringRef> thunkFun2func;
   std::unordered_set<std::string> externalFuncs;
   for (auto &&it : funcs) {
     assert(nullptr != it.first);
@@ -769,7 +769,12 @@ void createThunkFunc(llvm::Module &module, const llvm::Function *src,
   for (auto &arg : dst->args()) {
     args.push_back(&arg);
   }
+#if LDC_LLVM_VER >= 1100
+  auto ret = builder.CreateCall(
+      llvm::FunctionCallee(dst->getFunctionType(), thunkPtr), args);
+#else
   auto ret = builder.CreateCall(thunkPtr, args);
+#endif
   ret->setCallingConv(src->getCallingConv());
   ret->setAttributes(src->getAttributes());
   if (dst->getReturnType()->isVoidTy()) {

@@ -23,7 +23,9 @@
 #include "gen/logger.h"
 #include "gen/modules.h"
 #include "gen/runtime.h"
-#if LDC_LLVM_VER >= 900
+#if LDC_LLVM_VER >= 1100
+#include "llvm/IR/LLVMRemarkStreamer.h"
+#elif LDC_LLVM_VER >= 900
 #include "llvm/IR/RemarkStreamer.h"
 #endif
 #include "llvm/Support/FileSystem.h"
@@ -52,8 +54,13 @@ createAndSetDiagnosticsOutputFile(IRState &irs, llvm::LLVMContext &ctx,
     const bool withHotness = opts::isUsingPGOProfile();
 
 #if LDC_LLVM_VER >= 900
-    auto remarksFileOrError = llvm::setupOptimizationRemarks(
-        ctx, diagnosticsFilename, "", "", withHotness);
+    auto remarksFileOrError =
+#if LDC_LLVM_VER >= 1100
+        llvm::setupLLVMOptimizationRemarks(
+#else
+        llvm::setupOptimizationRemarks(
+#endif
+            ctx, diagnosticsFilename, "", "", withHotness);
     if (llvm::Error e = remarksFileOrError.takeError()) {
       irs.dmodule->error("Could not create file %s: %s",
                          diagnosticsFilename.c_str(),

@@ -68,16 +68,17 @@ string dtype(Record* rec, bool readOnlyMem)
         return "";
 }
 
-string attributes(ListInit* propertyList)
+StringRef attributes(ListInit* propertyList)
 {
-    string prop =
-        propertyList->size()
-        ? propertyList->getElementAsRecord(0)->getName() : "";
+  const auto prop = propertyList->size()
+                    ? propertyList->getElementAsRecord(0)->getName()
+                    : "";
 
-    return
-        prop == "IntrNoMem" ? " pure @safe" :
-        prop == "IntrReadArgMem" ? " pure" :
-        prop == "IntrReadWriteArgMem" ? " pure" : "";
+  if (prop == "IntrNoMem")
+    return " pure @safe";
+  if (prop == "IntrReadArgMem" || prop == "IntrReadWriteArgMem")
+    return " pure";
+  return "";
 }
 
 void processRecord(raw_ostream& os, Record& rec, string arch)
@@ -85,8 +86,8 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
     if(!rec.getValue("GCCBuiltinName"))
         return;
 
-    string builtinName = rec.getValueAsString("GCCBuiltinName");
-    string name =  rec.getName();
+    const StringRef builtinName = rec.getValueAsString("GCCBuiltinName");
+    string name = rec.getName().str();
 
     if(name.substr(0, 4) != "int_" || name.find(arch) == string::npos)
         return;
@@ -96,9 +97,8 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
     name = string("llvm.") + name;
 
     ListInit* propsList = rec.getValueAsListInit("IntrProperties");
-    string prop =
-        propsList->size()
-        ? propsList->getElementAsRecord(0)->getName() : "";
+    const StringRef prop =
+        propsList->size() ? propsList->getElementAsRecord(0)->getName() : "";
 
     bool readOnlyMem = prop == "IntrReadArgMem" || prop == "IntrReadMem";
 
@@ -127,8 +127,8 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
     else
         return;
 
-    os << "pragma(LDC_intrinsic, \"" + name + "\")\n    ";
-    os << ret + " " + builtinName + "(";
+    os << "pragma(LDC_intrinsic, \"" << name << "\")\n    ";
+    os << ret << " " << builtinName << "(";
 
     if(params.size())
         os << params[0];
@@ -136,7 +136,7 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
     for(size_t i = 1; i < params.size(); i++)
         os << ", " << params[i];
 
-    os << ")" + attributes(propsList) + ";\n\n";
+    os << ")" << attributes(propsList) << ";\n\n";
 }
 
 std::string arch;

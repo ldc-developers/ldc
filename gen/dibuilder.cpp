@@ -207,7 +207,7 @@ void DIBuilder::SetValue(const Loc &loc, llvm::Value *value,
                                    IR->scopebb());
 }
 
-DIFile DIBuilder::CreateFile(Loc &loc) {
+DIFile DIBuilder::CreateFile(const Loc &loc) {
   const char *filename = loc.filename;
   if (!filename)
     filename = IR->dmodule->srcfile.toChars();
@@ -385,14 +385,19 @@ DIType DIBuilder::CreateVectorType(Type *type) {
   // translate void vectors to byte vectors
   if (te->toBasetype()->ty == Tvoid)
     te = Type::tuns8;
-  int64_t Dim = tv->size(Loc()) / te->size(Loc());
-  LLMetadata *subscripts[] = {DBuilder.getOrCreateSubrange(0, Dim)};
+  const auto dim = tv->size(Loc()) / te->size(Loc());
+#if LDC_LLVM_VER >= 1100
+  const auto Dim = llvm::ConstantAsMetadata::get(DtoConstSize_t(dim));
+  auto subscript = DBuilder.getOrCreateSubrange(Dim, nullptr, nullptr, nullptr);
+#else
+  auto subscript = DBuilder.getOrCreateSubrange(0, dim);
+#endif
 
   return DBuilder.createVectorType(
-      getTypeAllocSize(T) * 8,              // size (bits)
-      getABITypeAlign(T) * 8,               // align (bits)
-      CreateTypeDescription(te),            // element type
-      DBuilder.getOrCreateArray(subscripts) // subscripts
+      getTypeAllocSize(T) * 8,               // size (bits)
+      getABITypeAlign(T) * 8,                // align (bits)
+      CreateTypeDescription(te),             // element type
+      DBuilder.getOrCreateArray({subscript}) // subscripts
   );
 }
 
@@ -681,8 +686,14 @@ DIType DIBuilder::CreateSArrayType(Type *type) {
   llvm::SmallVector<LLMetadata *, 8> subscripts;
   while (t->ty == Tsarray) {
     TypeSArray *tsa = static_cast<TypeSArray *>(t);
-    int64_t Count = tsa->dim->toInteger();
-    auto subscript = DBuilder.getOrCreateSubrange(0, Count);
+    const auto count = tsa->dim->toInteger();
+#if LDC_LLVM_VER >= 1100
+    const auto Count = llvm::ConstantAsMetadata::get(DtoConstSize_t(count));
+    const auto subscript =
+        DBuilder.getOrCreateSubrange(Count, nullptr, nullptr, nullptr);
+#else
+    const auto subscript = DBuilder.getOrCreateSubrange(0, count);
+#endif
     subscripts.push_back(subscript);
     t = t->nextOf();
   }
@@ -1138,26 +1149,15 @@ void DIBuilder::EmitFuncStart(FuncDeclaration *fd) {
   Logger::println("D to dwarf funcstart");
   LOG_SCOPE;
 
-  assert(static_cast<llvm::MDNode *>(getIrFunc(fd)->diSubprogram) != 0);
+  auto irFunc = getIrFunc(fd);
+  assert(irFunc->diSubprogram);
+  irFunc->getLLVMFunc()->setSubprogram(irFunc->diSubprogram);
+
+  IR->ir->SetCurrentDebugLocation({}); // clear first
   EmitStopPoint(fd->loc);
 }
 
-void DIBuilder::EmitFuncEnd(FuncDeclaration *fd) {
-  if (!mustEmitLocationsDebugInfo())
-    return;
-
-  Logger::println("D to dwarf funcend");
-  LOG_SCOPE;
-
-  auto irFunc = getIrFunc(fd);
-
-  assert(static_cast<llvm::MDNode *>(irFunc->diSubprogram) != 0);
-  EmitStopPoint(fd->endloc);
-
-  irFunc->getLLVMFunc()->setSubprogram(irFunc->diSubprogram);
-}
-
-void DIBuilder::EmitBlockStart(Loc &loc) {
+void DIBuilder::EmitBlockStart(const Loc &loc) {
   if (!mustEmitLocationsDebugInfo())
     return;
 
@@ -1182,7 +1182,7 @@ void DIBuilder::EmitBlockEnd() {
   fn->diLexicalBlocks.pop();
 }
 
-void DIBuilder::EmitStopPoint(Loc &loc) {
+void DIBuilder::EmitStopPoint(const Loc &loc) {
   if (!mustEmitLocationsDebugInfo())
     return;
 
@@ -1191,6 +1191,7 @@ void DIBuilder::EmitStopPoint(Loc &loc) {
   // cannot do this in all cases).
   if (!loc.linnum && IR->ir->getCurrentDebugLocation())
     return;
+
   unsigned linnum = loc.linnum;
   // without proper loc use the line of the enclosing symbol that has line
   // number debug info
@@ -1204,10 +1205,7 @@ void DIBuilder::EmitStopPoint(Loc &loc) {
   LOG_SCOPE;
   IR->ir->SetCurrentDebugLocation(
       llvm::DebugLoc::get(linnum, col, GetCurrentScope()));
-  currentLoc = loc;
 }
-
-Loc DIBuilder::GetCurrentLoc() const { return currentLoc; }
 
 void DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
   auto sub = IR->func()->variableMap.find(vd);

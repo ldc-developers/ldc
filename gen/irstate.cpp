@@ -27,19 +27,8 @@ const llvm::DataLayout *gDataLayout = nullptr;
 TargetABI *gABI = nullptr;
 
 ////////////////////////////////////////////////////////////////////////////////
-IRScope::IRScope() : builder(gIR->context()) { begin = nullptr; }
-
-IRScope::IRScope(llvm::BasicBlock *b) : begin(b), builder(b) {}
-
-IRScope &IRScope::operator=(const IRScope &rhs) {
-  begin = rhs.begin;
-  builder.SetInsertPoint(begin);
-  return *this;
-}
-
-////////////////////////////////////////////////////////////////////////////////
 IRState::IRState(const char *name, llvm::LLVMContext &context)
-    : module(name, context), objc(module), DBuilder(this) {
+    : builder(context), module(name, context), objc(module), DBuilder(this) {
   ir.state = this;
   mem.addRange(&inlineAsmLocs, sizeof(inlineAsmLocs));
 }
@@ -57,20 +46,20 @@ llvm::Function *IRState::topfunc() { return func()->getLLVMFunc(); }
 
 llvm::Instruction *IRState::topallocapoint() { return funcGen().allocapoint; }
 
-IRScope &IRState::scope() {
-  assert(!scopes.empty());
-  return scopes.back();
+std::unique_ptr<IRBuilderScope> IRState::setInsertPoint(llvm::BasicBlock *bb) {
+  auto savedScope = llvm::make_unique<IRBuilderScope>(builder);
+  builder.SetInsertPoint(bb);
+  return savedScope;
 }
 
-llvm::BasicBlock *IRState::scopebb() {
-  IRScope &s = scope();
-  assert(s.begin);
-  return s.begin;
+std::unique_ptr<llvm::IRBuilderBase::InsertPointGuard>
+IRState::saveInsertPoint() {
+  return llvm::make_unique<llvm::IRBuilderBase::InsertPointGuard>(builder);
 }
 
 bool IRState::scopereturned() {
-  // return scope().returned;
-  return !scopebb()->empty() && scopebb()->back().isTerminator();
+  auto bb = scopebb();
+  return !bb->empty() && bb->back().isTerminator();
 }
 
 llvm::BasicBlock *IRState::insertBBBefore(llvm::BasicBlock *successor,
@@ -89,35 +78,42 @@ llvm::BasicBlock *IRState::insertBB(const llvm::Twine &name) {
   return insertBBAfter(scopebb(), name);
 }
 
-LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, const char *Name) {
-  return funcGen().callOrInvoke(Callee, {}, Name);
+llvm::Instruction *IRState::CreateCallOrInvoke(LLFunction *Callee,
+                                               const char *Name) {
+  return CreateCallOrInvoke(Callee, {}, Name);
 }
 
-LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee,
-                                       llvm::ArrayRef<LLValue *> Args,
-                                       const char *Name, bool isNothrow) {
-  return funcGen().callOrInvoke(Callee, Args, Name, isNothrow);
+llvm::Instruction *IRState::CreateCallOrInvoke(LLFunction *Callee,
+                                               llvm::ArrayRef<LLValue *> Args,
+                                               const char *Name,
+                                               bool isNothrow) {
+  return funcGen().callOrInvoke(Callee, Callee->getFunctionType(), Args, Name,
+                                isNothrow);
 }
 
-LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
-                                       const char *Name) {
-  return funcGen().callOrInvoke(Callee, {Arg1}, Name);
+llvm::Instruction *IRState::CreateCallOrInvoke(LLFunction *Callee,
+                                               LLValue *Arg1,
+                                               const char *Name) {
+  return CreateCallOrInvoke(Callee, llvm::ArrayRef<LLValue *>(Arg1), Name);
 }
 
-LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
-                                       LLValue *Arg2, const char *Name) {
+llvm::Instruction *IRState::CreateCallOrInvoke(LLFunction *Callee,
+                                               LLValue *Arg1, LLValue *Arg2,
+                                               const char *Name) {
   return CreateCallOrInvoke(Callee, {Arg1, Arg2}, Name);
 }
 
-LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
-                                       LLValue *Arg2, LLValue *Arg3,
-                                       const char *Name) {
+llvm::Instruction *IRState::CreateCallOrInvoke(LLFunction *Callee,
+                                               LLValue *Arg1, LLValue *Arg2,
+                                               LLValue *Arg3,
+                                               const char *Name) {
   return CreateCallOrInvoke(Callee, {Arg1, Arg2, Arg3}, Name);
 }
 
-LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
-                                       LLValue *Arg2, LLValue *Arg3,
-                                       LLValue *Arg4, const char *Name) {
+llvm::Instruction *IRState::CreateCallOrInvoke(LLFunction *Callee,
+                                               LLValue *Arg1, LLValue *Arg2,
+                                               LLValue *Arg3, LLValue *Arg4,
+                                               const char *Name) {
   return CreateCallOrInvoke(Callee, {Arg1, Arg2, Arg3, Arg4}, Name);
 }
 
@@ -284,8 +280,8 @@ const Loc &IRState::getInlineAsmSrcLoc(unsigned srcLocCookie) const {
 ////////////////////////////////////////////////////////////////////////////////
 
 IRBuilder<> *IRBuilderHelper::operator->() {
-  IRBuilder<> &b = state->scope().builder;
-  assert(b.GetInsertBlock() != NULL);
+  IRBuilder<> &b = state->builder;
+  assert(b.GetInsertBlock());
   return &b;
 }
 

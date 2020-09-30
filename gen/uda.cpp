@@ -16,6 +16,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 
+#if LDC_LLVM_VER < 1100
 namespace llvm {
 // Auto-generate:
 // Attribute::AttrKind getAttrKindFromName(StringRef AttrName) { ... }
@@ -26,6 +27,7 @@ namespace llvm {
 #include "llvm/IR/Attributes.inc"
 #endif
 }
+#endif
 
 namespace {
 
@@ -205,7 +207,11 @@ void applyAttrLLVMAttr(StructLiteralExp *sle, llvm::AttrBuilder &attrs) {
   llvm::StringRef key = getStringElem(sle, 0);
   llvm::StringRef value = getStringElem(sle, 1);
   if (value.empty()) {
+#if LDC_LLVM_VER >= 1100
+    const auto kind = llvm::Attribute::getAttrKindFromName(key);
+#else
     const auto kind = llvm::getAttrKindFromName(key);
+#endif
     if (kind != llvm::Attribute::None) {
       attrs.addAttribute(kind);
     } else {

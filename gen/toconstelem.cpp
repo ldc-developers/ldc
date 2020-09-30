@@ -664,8 +664,13 @@ public:
       // cast.
       // FIXME: Check DMD source to understand why two different ASTs are
       //        constructed.
+#if LDC_LLVM_VER >= 1100
+      const auto elementCount = llvm::ElementCount(elemCount, false);
+#else
+      const auto elementCount = elemCount;
+#endif
       result = llvm::ConstantVector::getSplat(
-          elemCount, toConstElem(e->e1->optimize(WANTvalue)));
+          elementCount, toConstElem(e->e1->optimize(WANTvalue)));
     }
   }
 

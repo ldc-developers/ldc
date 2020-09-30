@@ -17,10 +17,6 @@ void foo()
 
 // COMMON: attributes #[[KEYVALUE]]
 // COMMON-DAG: "target-cpu"=
-// COMMON-DAG: "unsafe-fp-math"="false"
-// COMMON-DAG: "less-precise-fpmad"="false"
-// COMMON-DAG: "no-infs-fp-math"="false"
-// COMMON-DAG: "no-nans-fp-math"="false"
 
 // WITH_FP-DAG: "frame-pointer"="all"
 // NO_FP-DAG:   "frame-pointer"="none"

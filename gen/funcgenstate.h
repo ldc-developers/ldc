@@ -18,7 +18,6 @@
 #include "gen/pgo_ASTbased.h"
 #include "gen/trycatchfinally.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/IR/CallSite.h"
 #include <vector>
 
 class Identifier;
@@ -200,9 +199,10 @@ public:
 
   /// Emits a call or invoke to the given callee, depending on whether there
   /// are catches/cleanups active or not.
-  llvm::CallSite callOrInvoke(llvm::Value *callee,
-                              llvm::ArrayRef<llvm::Value *> args,
-                              const char *name = "", bool isNothrow = false);
+  LLCallBasePtr callOrInvoke(llvm::Value *callee,
+                             llvm::FunctionType *calleeType,
+                             llvm::ArrayRef<llvm::Value *> args,
+                             const char *name = "", bool isNothrow = false);
 
 private:
   IRState &irs;

@@ -476,7 +476,11 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
       else if (strcmp(p + 1, "gf") == 0) {
         ldcArgs.push_back("-g");
       } else if (strcmp(p + 1, "gs") == 0) {
+#if LDC_LLVM_VER >= 1100
+        ldcArgs.push_back("-frame-pointer=all");
+#else
         ldcArgs.push_back("-disable-fp-elim");
+#endif
       } else if (strcmp(p + 1, "gx") == 0) {
         goto Lnot_in_ldc;
       } else if (strcmp(p + 1, "gt") == 0) {

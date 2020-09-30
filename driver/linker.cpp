@@ -145,7 +145,7 @@ static std::vector<std::string>
 parseLibNames(llvm::StringRef commaSeparatedList, llvm::StringRef suffix = {}) {
   std::vector<std::string> result;
 
-  std::stringstream list(commaSeparatedList);
+  std::stringstream list(commaSeparatedList.str());
   while (list.good()) {
     std::string lib;
     std::getline(list, lib, ',');
