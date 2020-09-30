@@ -47,7 +47,6 @@ set(RT_CFLAGS             ""                                  CACHE STRING "Runt
 set(LD_FLAGS              ""                                  CACHE STRING "Runtime extra C linker flags, separated by ' '")
 set(C_SYSTEM_LIBS         AUTO                                CACHE STRING "C system libraries for linking shared libraries and test runners, separated by ';'")
 set(TARGET_SYSTEM         AUTO                                CACHE STRING "Target OS/toolchain for cross-compilation (e.g., 'Linux;UNIX', 'Darwin;APPLE;UNIX', 'Windows;MSVC')")
-set(LDC_TARGET_PRESET     ""                                  CACHE STRING "Use a preset target configuration for cross-compilation, by passing format OS-arch (e.g., 'Linux-arm', 'Mac-x64', 'Windows-aarch64', 'Android-x86')")
 set(RT_SUPPORT_SANITIZERS OFF                                 CACHE BOOL   "Build runtime libraries with sanitizer support (e.g. for AddressSanitizer)")
 
 set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
@@ -69,9 +68,6 @@ find_program(GNU_MAKE_BIN NAMES gmake gnumake make)
 if ("${GNU_MAKE_BIN}" STREQUAL "")
     message(FATAL_ERROR "GNU make could not be found. Please install gmake/gnumake/make using your (platform) package installer")
 endif()
-
-# Use LDC_TARGET_PRESET to configure target runtime
-include(PresetRuntimeConfiguration)
 
 # Auto-detect TARGET_SYSTEM from host
 if("${TARGET_SYSTEM}" STREQUAL "AUTO")
