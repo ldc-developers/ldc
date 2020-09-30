@@ -84,6 +84,7 @@ public:
     unsigned numlines;  // number of lines in source file
     bool isHdrFile;     // if it is a header (.di) file
     bool isDocFile;     // if it is a documentation input file, not D source
+    bool hasAlwaysInlines; // contains references to functions that must be inlined
     bool isPackageFile; // if it is a package.d
     Package *pkg;       // if isPackageFile is true, the Package that contains this package.d
     Strings contentImportedFiles;  // array of files whose content was imported
@@ -160,6 +161,8 @@ public:
         *d_cover_valid; // private immutable size_t[] _d_cover_valid;
     llvm::GlobalVariable *d_cover_data; // private uint[] _d_cover_data;
     Array<size_t> d_cover_valid_init;   // initializer for _d_cover_valid
+
+    void initCoverageDataWithCtfeCoverage(unsigned *data) const;
 #else
     int doppelganger;           // sub-module
     Symbol *cov;                // private uint[] __coverage;
@@ -174,6 +177,8 @@ public:
 
     Symbol *sfilename;          // symbol for filename
 #endif
+
+    void *ctfe_cov;             // stores coverage information from ctfe
 
     Module *isModule() { return this; }
     void accept(Visitor *v) { v->visit(this); }

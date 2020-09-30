@@ -159,6 +159,8 @@ script:
       # The @live tests neither (LDC segfaults)
       rm tests/d2/dmd-testsuite/compilable/ob1.d
       rm tests/d2/dmd-testsuite/fail_compilation/fob{1,2}.d
+      # A __traits(getOverloads) test neither
+      rm tests/d2/dmd-testsuite/compilable/test21050.d
     fi
   - |
     if [ "$TRAVIS_CPU_ARCH" = "arm64" ]; then

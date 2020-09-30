@@ -388,20 +388,27 @@ extern (C++) abstract class Type : ASTNode
     MOD mod; // modifiers MODxxxx
     char* deco;
 
-    /* These are cached values that are lazily evaluated by constOf(), immutableOf(), etc.
-     * They should not be referenced by anybody but mtype.c.
-     * They can be NULL if not lazily evaluated yet.
-     * Note that there is no "shared immutable", because that is just immutable
-     * Naked == no MOD bits
-     */
-    Type cto;       // MODFlags.const_                 ? naked version of this type : const version
-    Type ito;       // MODFlags.immutable_             ? naked version of this type : immutable version
-    Type sto;       // MODFlags.shared_                ? naked version of this type : shared mutable version
-    Type scto;      // MODFlags.shared_ | MODFlags.const_     ? naked version of this type : shared const version
-    Type wto;       // MODFlags.wild                  ? naked version of this type : wild version
-    Type wcto;      // MODFlags.wildconst             ? naked version of this type : wild const version
-    Type swto;      // MODFlags.shared_ | MODFlags.wild      ? naked version of this type : shared wild version
-    Type swcto;     // MODFlags.shared_ | MODFlags.wildconst ? naked version of this type : shared wild const version
+    static struct Mcache
+    {
+        /* These are cached values that are lazily evaluated by constOf(), immutableOf(), etc.
+         * They should not be referenced by anybody but mtype.d.
+         * They can be null if not lazily evaluated yet.
+         * Note that there is no "shared immutable", because that is just immutable
+         * The point of this is to reduce the size of each Type instance as
+         * we bank on the idea that usually only one of variants exist.
+         * It will also speed up code because these are rarely referenced and
+         * so need not be in the cache.
+         */
+        Type cto;       // MODFlags.const_
+        Type ito;       // MODFlags.immutable_
+        Type sto;       // MODFlags.shared_
+        Type scto;      // MODFlags.shared_ | MODFlags.const_
+        Type wto;       // MODFlags.wild
+        Type wcto;      // MODFlags.wildconst
+        Type swto;      // MODFlags.shared_ | MODFlags.wild
+        Type swcto;     // MODFlags.shared_ | MODFlags.wildconst
+    }
+    private Mcache* mcache;
 
     Type pto;       // merged pointer to this type
     Type rto;       // reference to this type
@@ -552,13 +559,20 @@ version (IN_LLVM)
         return DYNCAST.type;
     }
 
+    extern (D)
+    final Mcache* getMcache()
+    {
+        if (!mcache)
+            mcache = cast(Mcache*) mem.xcalloc(Mcache.sizeof, 1);
+        return mcache;
+    }
+
     /*******************************
      * Covariant means that 'this' can substitute for 't',
      * i.e. a pure function is a match for an impure type.
      * Params:
      *      t = type 'this' is covariant with
      *      pstc = if not null, store STCxxxx which would make it covariant
-     *      fix17349 = enable fix https://issues.dlang.org/show_bug.cgi?id=17349
      * Returns:
      *      0       types are distinct
      *      1       this is covariant with t
@@ -567,7 +581,7 @@ version (IN_LLVM)
      *      3       cannot determine covariance because of forward references
      *      *pstc   STCxxxx which would make it covariant
      */
-    final int covariant(Type t, StorageClass* pstc = null, bool fix17349 = true)
+    final int covariant(Type t, StorageClass* pstc = null)
     {
         version (none)
         {
@@ -596,19 +610,15 @@ version (IN_LLVM)
 
         if (t1.parameterList.parameters && t2.parameterList.parameters)
         {
-            size_t dim = t1.parameterList.length;
-            if (dim != t2.parameterList.length)
+            if (t1.parameterList.length != t2.parameterList.length)
                 goto Ldistinct;
 
-            for (size_t i = 0; i < dim; i++)
+            foreach (i, fparam1; t1.parameterList)
             {
-                Parameter fparam1 = t1.parameterList[i];
                 Parameter fparam2 = t2.parameterList[i];
 
                 if (!fparam1.type.equals(fparam2.type))
                 {
-                    if (!fix17349)
-                        goto Ldistinct;
                     Type tp1 = fparam1.type;
                     Type tp2 = fparam2.type;
                     if (tp1.ty == tp2.ty)
@@ -709,20 +719,20 @@ version (IN_LLVM)
         if (t1.isref != t2.isref)
             goto Lnotcovariant;
 
-        if (!t1.isref && (t1.isscope || t2.isscope))
+        if (!t1.isref && (t1.isScopeQual || t2.isScopeQual))
         {
-            StorageClass stc1 = t1.isscope ? STC.scope_ : 0;
-            StorageClass stc2 = t2.isscope ? STC.scope_ : 0;
+            StorageClass stc1 = t1.isScopeQual ? STC.scope_ : 0;
+            StorageClass stc2 = t2.isScopeQual ? STC.scope_ : 0;
             if (t1.isreturn)
             {
                 stc1 |= STC.return_;
-                if (!t1.isscope)
+                if (!t1.isScopeQual)
                     stc1 |= STC.ref_;
             }
             if (t2.isreturn)
             {
                 stc2 |= STC.return_;
-                if (!t2.isscope)
+                if (!t2.isScopeQual)
                     stc2 |= STC.ref_;
             }
             if (!Parameter.isCovariantScope(t1.isref, stc1, stc2))
@@ -818,7 +828,7 @@ version (IN_LLVM)
 
     static void _init()
     {
-        stringtable._init(14000);
+        stringtable._init(14_000);
 
         // Set basic types
         __gshared TY* basetab =
@@ -1139,16 +1149,9 @@ version (IN_LLVM)
         t.arrayof = null;
         t.pto = null;
         t.rto = null;
-        t.cto = null;
-        t.ito = null;
-        t.sto = null;
-        t.scto = null;
-        t.wto = null;
-        t.wcto = null;
-        t.swto = null;
-        t.swcto = null;
         t.vtinfo = null;
         t.ctype = null;
+        t.mcache = null;
         if (t.ty == Tstruct)
             (cast(TypeStruct)t).att = AliasThisRec.fwdref;
         if (t.ty == Tclass)
@@ -1164,10 +1167,10 @@ version (IN_LLVM)
         //printf("Type::constOf() %p %s\n", this, toChars());
         if (mod == MODFlags.const_)
             return this;
-        if (cto)
+        if (mcache && mcache.cto)
         {
-            assert(cto.mod == MODFlags.const_);
-            return cto;
+            assert(mcache.cto.mod == MODFlags.const_);
+            return mcache.cto;
         }
         Type t = makeConst();
         t = t.merge();
@@ -1184,10 +1187,10 @@ version (IN_LLVM)
         //printf("Type::immutableOf() %p %s\n", this, toChars());
         if (isImmutable())
             return this;
-        if (ito)
+        if (mcache && mcache.ito)
         {
-            assert(ito.isImmutable());
-            return ito;
+            assert(mcache.ito.isImmutable());
+            return mcache.ito;
         }
         Type t = makeImmutable();
         t = t.merge();
@@ -1205,33 +1208,36 @@ version (IN_LLVM)
         Type t = this;
         if (isImmutable())
         {
-            t = ito; // immutable => naked
+            getMcache();
+            t = mcache.ito; // immutable => naked
             assert(!t || (t.isMutable() && !t.isShared()));
         }
         else if (isConst())
         {
+            getMcache();
             if (isShared())
             {
                 if (isWild())
-                    t = swcto; // shared wild const -> shared
+                    t = mcache.swcto; // shared wild const -> shared
                 else
-                    t = sto; // shared const => shared
+                    t = mcache.sto; // shared const => shared
             }
             else
             {
                 if (isWild())
-                    t = wcto; // wild const -> naked
+                    t = mcache.wcto; // wild const -> naked
                 else
-                    t = cto; // const => naked
+                    t = mcache.cto; // const => naked
             }
             assert(!t || t.isMutable());
         }
         else if (isWild())
         {
+            getMcache();
             if (isShared())
-                t = sto; // shared wild => shared
+                t = mcache.sto; // shared wild => shared
             else
-                t = wto; // wild => naked
+                t = mcache.wto; // wild => naked
             assert(!t || t.isMutable());
         }
         if (!t)
@@ -1251,10 +1257,10 @@ version (IN_LLVM)
         //printf("Type::sharedOf() %p, %s\n", this, toChars());
         if (mod == MODFlags.shared_)
             return this;
-        if (sto)
+        if (mcache && mcache.sto)
         {
-            assert(sto.mod == MODFlags.shared_);
-            return sto;
+            assert(mcache.sto.mod == MODFlags.shared_);
+            return mcache.sto;
         }
         Type t = makeShared();
         t = t.merge();
@@ -1268,10 +1274,10 @@ version (IN_LLVM)
         //printf("Type::sharedConstOf() %p, %s\n", this, toChars());
         if (mod == (MODFlags.shared_ | MODFlags.const_))
             return this;
-        if (scto)
+        if (mcache && mcache.scto)
         {
-            assert(scto.mod == (MODFlags.shared_ | MODFlags.const_));
-            return scto;
+            assert(mcache.scto.mod == (MODFlags.shared_ | MODFlags.const_));
+            return mcache.scto;
         }
         Type t = makeSharedConst();
         t = t.merge();
@@ -1299,19 +1305,20 @@ version (IN_LLVM)
 
         if (isShared())
         {
+            getMcache();
             if (isWild())
             {
                 if (isConst())
-                    t = wcto; // shared wild const => wild const
+                    t = mcache.wcto; // shared wild const => wild const
                 else
-                    t = wto; // shared wild => wild
+                    t = mcache.wto; // shared wild => wild
             }
             else
             {
                 if (isConst())
-                    t = cto; // shared const => const
+                    t = mcache.cto; // shared const => const
                 else
-                    t = sto; // shared => naked
+                    t = mcache.sto; // shared => naked
             }
             assert(!t || !t.isShared());
         }
@@ -1338,10 +1345,10 @@ version (IN_LLVM)
         //printf("Type::wildOf() %p %s\n", this, toChars());
         if (mod == MODFlags.wild)
             return this;
-        if (wto)
+        if (mcache && mcache.wto)
         {
-            assert(wto.mod == MODFlags.wild);
-            return wto;
+            assert(mcache.wto.mod == MODFlags.wild);
+            return mcache.wto;
         }
         Type t = makeWild();
         t = t.merge();
@@ -1355,10 +1362,10 @@ version (IN_LLVM)
         //printf("Type::wildConstOf() %p %s\n", this, toChars());
         if (mod == MODFlags.wildconst)
             return this;
-        if (wcto)
+        if (mcache && mcache.wcto)
         {
-            assert(wcto.mod == MODFlags.wildconst);
-            return wcto;
+            assert(mcache.wcto.mod == MODFlags.wildconst);
+            return mcache.wcto;
         }
         Type t = makeWildConst();
         t = t.merge();
@@ -1372,10 +1379,10 @@ version (IN_LLVM)
         //printf("Type::sharedWildOf() %p, %s\n", this, toChars());
         if (mod == (MODFlags.shared_ | MODFlags.wild))
             return this;
-        if (swto)
+        if (mcache && mcache.swto)
         {
-            assert(swto.mod == (MODFlags.shared_ | MODFlags.wild));
-            return swto;
+            assert(mcache.swto.mod == (MODFlags.shared_ | MODFlags.wild));
+            return mcache.swto;
         }
         Type t = makeSharedWild();
         t = t.merge();
@@ -1389,10 +1396,10 @@ version (IN_LLVM)
         //printf("Type::sharedWildConstOf() %p, %s\n", this, toChars());
         if (mod == (MODFlags.shared_ | MODFlags.wildconst))
             return this;
-        if (swcto)
+        if (mcache && mcache.swcto)
         {
-            assert(swcto.mod == (MODFlags.shared_ | MODFlags.wildconst));
-            return swcto;
+            assert(mcache.swcto.mod == (MODFlags.shared_ | MODFlags.wildconst));
+            return mcache.swcto;
         }
         Type t = makeSharedWildConst();
         t = t.merge();
@@ -1420,35 +1427,43 @@ version (IN_LLVM)
                 break;
 
             case MODFlags.const_:
-                cto = t;
+                getMcache();
+                mcache.cto = t;
                 break;
 
             case MODFlags.wild:
-                wto = t;
+                getMcache();
+                mcache.wto = t;
                 break;
 
             case MODFlags.wildconst:
-                wcto = t;
+                getMcache();
+                mcache.wcto = t;
                 break;
 
             case MODFlags.shared_:
-                sto = t;
+                getMcache();
+                mcache.sto = t;
                 break;
 
             case MODFlags.shared_ | MODFlags.const_:
-                scto = t;
+                getMcache();
+                mcache.scto = t;
                 break;
 
             case MODFlags.shared_ | MODFlags.wild:
-                swto = t;
+                getMcache();
+                mcache.swto = t;
                 break;
 
             case MODFlags.shared_ | MODFlags.wildconst:
-                swcto = t;
+                getMcache();
+                mcache.swcto = t;
                 break;
 
             case MODFlags.immutable_:
-                ito = t;
+                getMcache();
+                mcache.ito = t;
                 break;
 
             default:
@@ -1457,67 +1472,67 @@ version (IN_LLVM)
         }
         assert(mod != t.mod);
 
-        auto X(T, U)(T m, U n)
+        if (mod)
         {
-            return ((m << 4) | n);
+            getMcache();
+            t.getMcache();
         }
-
         switch (mod)
         {
         case 0:
             break;
 
         case MODFlags.const_:
-            cto = mto;
-            t.cto = this;
+            mcache.cto = mto;
+            t.mcache.cto = this;
             break;
 
         case MODFlags.wild:
-            wto = mto;
-            t.wto = this;
+            mcache.wto = mto;
+            t.mcache.wto = this;
             break;
 
         case MODFlags.wildconst:
-            wcto = mto;
-            t.wcto = this;
+            mcache.wcto = mto;
+            t.mcache.wcto = this;
             break;
 
         case MODFlags.shared_:
-            sto = mto;
-            t.sto = this;
+            mcache.sto = mto;
+            t.mcache.sto = this;
             break;
 
         case MODFlags.shared_ | MODFlags.const_:
-            scto = mto;
-            t.scto = this;
+            mcache.scto = mto;
+            t.mcache.scto = this;
             break;
 
         case MODFlags.shared_ | MODFlags.wild:
-            swto = mto;
-            t.swto = this;
+            mcache.swto = mto;
+            t.mcache.swto = this;
             break;
 
         case MODFlags.shared_ | MODFlags.wildconst:
-            swcto = mto;
-            t.swcto = this;
+            mcache.swcto = mto;
+            t.mcache.swcto = this;
             break;
 
         case MODFlags.immutable_:
-            t.ito = this;
-            if (t.cto)
-                t.cto.ito = this;
-            if (t.sto)
-                t.sto.ito = this;
-            if (t.scto)
-                t.scto.ito = this;
-            if (t.wto)
-                t.wto.ito = this;
-            if (t.wcto)
-                t.wcto.ito = this;
-            if (t.swto)
-                t.swto.ito = this;
-            if (t.swcto)
-                t.swcto.ito = this;
+            t.mcache.ito = this;
+            if (t.mcache.cto)
+                t.mcache.cto.getMcache().ito = this;
+            if (t.mcache.sto)
+                t.mcache.sto.getMcache().ito = this;
+            if (t.mcache.scto)
+                t.mcache.scto.getMcache().ito = this;
+            if (t.mcache.wto)
+                t.mcache.wto.getMcache().ito = this;
+            if (t.mcache.wcto)
+                t.mcache.wcto.getMcache().ito = this;
+            if (t.mcache.swto)
+                t.mcache.swto.getMcache().ito = this;
+            if (t.mcache.swcto)
+                t.mcache.swcto.getMcache().ito = this;
             break;
 
         default:
@@ -1534,6 +1549,8 @@ version (IN_LLVM)
      */
     final void check()
     {
+        if (mcache)
+        with (mcache)
         switch (mod)
         {
         case 0:
@@ -2110,8 +2127,8 @@ version (IN_LLVM)
     Type makeConst()
     {
         //printf("Type::makeConst() %p, %s\n", this, toChars());
-        if (cto)
-            return cto;
+        if (mcache && mcache.cto)
+            return mcache.cto;
         Type t = this.nullAttributes();
         t.mod = MODFlags.const_;
         //printf("-Type::makeConst() %p, %s\n", t, toChars());
@@ -2120,8 +2137,8 @@ version (IN_LLVM)
 
     Type makeImmutable()
     {
-        if (ito)
-            return ito;
+        if (mcache && mcache.ito)
+            return mcache.ito;
         Type t = this.nullAttributes();
         t.mod = MODFlags.immutable_;
         return t;
@@ -2129,8 +2146,8 @@ version (IN_LLVM)
 
     Type makeShared()
     {
-        if (sto)
-            return sto;
+        if (mcache && mcache.sto)
+            return mcache.sto;
         Type t = this.nullAttributes();
         t.mod = MODFlags.shared_;
         return t;
@@ -2138,8 +2155,8 @@ version (IN_LLVM)
 
     Type makeSharedConst()
     {
-        if (scto)
-            return scto;
+        if (mcache && mcache.scto)
+            return mcache.scto;
         Type t = this.nullAttributes();
         t.mod = MODFlags.shared_ | MODFlags.const_;
         return t;
@@ -2147,8 +2164,8 @@ version (IN_LLVM)
 
     Type makeWild()
     {
-        if (wto)
-            return wto;
+        if (mcache && mcache.wto)
+            return mcache.wto;
         Type t = this.nullAttributes();
         t.mod = MODFlags.wild;
         return t;
@@ -2156,8 +2173,8 @@ version (IN_LLVM)
 
     Type makeWildConst()
     {
-        if (wcto)
-            return wcto;
+        if (mcache && mcache.wcto)
+            return mcache.wcto;
         Type t = this.nullAttributes();
         t.mod = MODFlags.wildconst;
         return t;
@@ -2165,8 +2182,8 @@ version (IN_LLVM)
 
     Type makeSharedWild()
     {
-        if (swto)
-            return swto;
+        if (mcache && mcache.swto)
+            return mcache.swto;
         Type t = this.nullAttributes();
         t.mod = MODFlags.shared_ | MODFlags.wild;
         return t;
@@ -2174,8 +2191,8 @@ version (IN_LLVM)
 
     Type makeSharedWildConst()
     {
-        if (swcto)
-            return swcto;
+        if (mcache && mcache.swcto)
+            return mcache.swcto;
         Type t = this.nullAttributes();
         t.mod = MODFlags.shared_ | MODFlags.wildconst;
         return t;
@@ -2307,7 +2324,6 @@ version (IN_LLVM)
                 else if (ty == Taarray)
                 {
                     t = new TypeAArray(t, (cast(TypeAArray)this).index.syntaxCopy());
-                    (cast(TypeAArray)t).sc = (cast(TypeAArray)this).sc; // duplicate scope
                 }
                 else if (ty == Tdelegate)
                 {
@@ -2380,7 +2396,6 @@ version (IN_LLVM)
                 else if (ty == Taarray)
                 {
                     t = new TypeAArray(utn, (cast(TypeAArray)this).index);
-                    (cast(TypeAArray)t).sc = (cast(TypeAArray)this).sc; // duplicate scope
                 }
                 else
                     assert(0);
@@ -2736,6 +2751,11 @@ extern (C++) final class TypeError : Type
         super(Terror);
     }
 
+    override const(char)* kind() const
+    {
+        return "error";
+    }
+
     override Type syntaxCopy()
     {
         // No semantic analysis done, no need to copy
@@ -2749,7 +2769,7 @@ extern (C++) final class TypeError : Type
 
     override Expression defaultInitLiteral(const ref Loc loc)
     {
-        return new ErrorExp();
+        return ErrorExp.get();
     }
 
     override void accept(Visitor v)
@@ -2799,10 +2819,10 @@ extern (C++) abstract class TypeNext : Type
     override final Type makeConst()
     {
         //printf("TypeNext::makeConst() %p, %s\n", this, toChars());
-        if (cto)
+        if (mcache && mcache.cto)
         {
-            assert(cto.mod == MODFlags.const_);
-            return cto;
+            assert(mcache.cto.mod == MODFlags.const_);
+            return mcache.cto;
         }
         TypeNext t = cast(TypeNext)Type.makeConst();
         if (ty != Tfunction && next.ty != Tfunction && !next.isImmutable())
@@ -2829,10 +2849,10 @@ extern (C++) abstract class TypeNext : Type
     override final Type makeImmutable()
     {
         //printf("TypeNext::makeImmutable() %s\n", toChars());
-        if (ito)
+        if (mcache && mcache.ito)
         {
-            assert(ito.isImmutable());
-            return ito;
+            assert(mcache.ito.isImmutable());
+            return mcache.ito;
         }
         TypeNext t = cast(TypeNext)Type.makeImmutable();
         if (ty != Tfunction && next.ty != Tfunction && !next.isImmutable())
@@ -2845,10 +2865,10 @@ extern (C++) abstract class TypeNext : Type
     override final Type makeShared()
     {
         //printf("TypeNext::makeShared() %s\n", toChars());
-        if (sto)
+        if (mcache && mcache.sto)
         {
-            assert(sto.mod == MODFlags.shared_);
-            return sto;
+            assert(mcache.sto.mod == MODFlags.shared_);
+            return mcache.sto;
         }
         TypeNext t = cast(TypeNext)Type.makeShared();
         if (ty != Tfunction && next.ty != Tfunction && !next.isImmutable())
@@ -2875,10 +2895,10 @@ extern (C++) abstract class TypeNext : Type
     override final Type makeSharedConst()
     {
         //printf("TypeNext::makeSharedConst() %s\n", toChars());
-        if (scto)
+        if (mcache && mcache.scto)
         {
-            assert(scto.mod == (MODFlags.shared_ | MODFlags.const_));
-            return scto;
+            assert(mcache.scto.mod == (MODFlags.shared_ | MODFlags.const_));
+            return mcache.scto;
         }
         TypeNext t = cast(TypeNext)Type.makeSharedConst();
         if (ty != Tfunction && next.ty != Tfunction && !next.isImmutable())
@@ -2895,10 +2915,10 @@ extern (C++) abstract class TypeNext : Type
     override final Type makeWild()
     {
         //printf("TypeNext::makeWild() %s\n", toChars());
-        if (wto)
+        if (mcache && mcache.wto)
         {
-            assert(wto.mod == MODFlags.wild);
-            return wto;
+            assert(mcache.wto.mod == MODFlags.wild);
+            return mcache.wto;
         }
         TypeNext t = cast(TypeNext)Type.makeWild();
         if (ty != Tfunction && next.ty != Tfunction && !next.isImmutable())
@@ -2925,10 +2945,10 @@ extern (C++) abstract class TypeNext : Type
     override final Type makeWildConst()
     {
         //printf("TypeNext::makeWildConst() %s\n", toChars());
-        if (wcto)
+        if (mcache && mcache.wcto)
         {
-            assert(wcto.mod == MODFlags.wildconst);
-            return wcto;
+            assert(mcache.wcto.mod == MODFlags.wildconst);
+            return mcache.wcto;
         }
         TypeNext t = cast(TypeNext)Type.makeWildConst();
         if (ty != Tfunction && next.ty != Tfunction && !next.isImmutable())
@@ -2945,10 +2965,10 @@ extern (C++) abstract class TypeNext : Type
     override final Type makeSharedWild()
     {
         //printf("TypeNext::makeSharedWild() %s\n", toChars());
-        if (swto)
+        if (mcache && mcache.swto)
         {
-            assert(swto.isSharedWild());
-            return swto;
+            assert(mcache.swto.isSharedWild());
+            return mcache.swto;
         }
         TypeNext t = cast(TypeNext)Type.makeSharedWild();
         if (ty != Tfunction && next.ty != Tfunction && !next.isImmutable())
@@ -2965,10 +2985,10 @@ extern (C++) abstract class TypeNext : Type
     override final Type makeSharedWildConst()
     {
         //printf("TypeNext::makeSharedWildConst() %s\n", toChars());
-        if (swcto)
+        if (mcache && mcache.swcto)
         {
-            assert(swcto.mod == (MODFlags.shared_ | MODFlags.wildconst));
-            return swcto;
+            assert(mcache.swcto.mod == (MODFlags.shared_ | MODFlags.wildconst));
+            return mcache.swcto;
         }
         TypeNext t = cast(TypeNext)Type.makeSharedWildConst();
         if (ty != Tfunction && next.ty != Tfunction && !next.isImmutable())
@@ -3525,9 +3545,22 @@ extern (C++) final class TypeVector : Type
         //printf("TypeVector::implicitConvTo(%s) from %s\n", to.toChars(), toChars());
         if (this == to)
             return MATCH.exact;
-        if (ty == to.ty)
+        if (to.ty != Tvector)
+            return MATCH.nomatch;
+
+        TypeVector tv = cast(TypeVector)to;
+        assert(basetype.ty == Tsarray && tv.basetype.ty == Tsarray);
+
+        // Can't convert to a vector which has different size.
+        if (basetype.size() != tv.basetype.size())
+            return MATCH.nomatch;
+
+        // Allow conversion to void[]
+        if (tv.basetype.nextOf().ty == Tvoid)
             return MATCH.convert;
-        return MATCH.nomatch;
+
+        // Otherwise implicitly convertible only if basetypes are.
+        return basetype.implicitConvTo(tv.basetype);
     }
 
     override Expression defaultInitLiteral(const ref Loc loc)
@@ -3862,7 +3895,6 @@ extern (C++) final class TypeAArray : TypeArray
 {
     Type index;     // key type
     Loc loc;
-    Scope* sc;
 
     extern (D) this(Type t, Type index)
     {
@@ -4143,7 +4175,7 @@ enum RET : int
     stack        = 2,    // returned on stack
 }
 
-enum TRUST : int
+enum TRUST : ubyte
 {
     default_   = 0,
     system     = 1,    // @system (same as TRUST.default)
@@ -4160,7 +4192,7 @@ enum TRUSTformat : int
 alias TRUSTformatDefault = TRUSTformat.TRUSTformatDefault;
 alias TRUSTformatSystem = TRUSTformat.TRUSTformatSystem;
 
-enum PURE : int
+enum PURE : ubyte
 {
     impure      = 0,    // not pure at all
     fwdref      = 1,    // it's pure, but not known which level yet
@@ -4177,22 +4209,29 @@ extern (C++) final class TypeFunction : TypeNext
 
     ParameterList parameterList;   // function parameters
 
-    bool isnothrow;             // true: nothrow
-    bool isnogc;                // true: is @nogc
-    bool isproperty;            // can be called without parentheses
-    bool isref;                 // true: returns a reference
-    bool isreturn;              // true: 'this' is returned by ref
-    bool isscope;               // true: 'this' is scope
-    bool isreturninferred;      // true: 'this' is return from inference
-    bool isscopeinferred;       // true: 'this' is scope from inference
-    bool islive;                // is @live
+    private enum FunctionFlag : uint
+    {
+        none            = 0,
+        isnothrow       = 0x0001, // nothrow
+        isnogc          = 0x0002, // is @nogc
+        isproperty      = 0x0004, // can be called without parentheses
+        isref           = 0x0008, // returns a reference
+        isreturn        = 0x0010, // 'this' is returned by ref
+        isscope         = 0x0020, // 'this' is scope
+        isreturninferred= 0x0040, // 'this' is return from inference
+        isscopeinferred = 0x0080, // 'this' is scope from inference
+        islive          = 0x0100, // is @live
+        incomplete      = 0x0200, // return type or default arguments removed
+        inoutParam      = 0x0400, // inout on the parameters
+        inoutQual       = 0x0800, // inout on the qualifier
+    }
+
     LINK linkage;               // calling convention
+    FunctionFlag funcFlags;
     TRUST trust;                // level of trust
     PURE purity = PURE.impure;
-    ubyte iswild;               // bit0: inout on params, bit1: inout on qualifier
+    byte inuse;
     Expressions* fargs;         // function arguments
-    int inuse;
-    bool incomplete;            // return type or default arguments removed
 
     extern (D) this(ParameterList pl, Type treturn, LINK linkage, StorageClass stc = 0)
     {
@@ -4221,7 +4260,7 @@ extern (C++) final class TypeFunction : TypeNext
         if (stc & STC.returninferred)
             this.isreturninferred = true;
         if (stc & STC.scope_)
-            this.isscope = true;
+            this.isScopeQual = true;
         if (stc & STC.scopeinferred)
             this.isscopeinferred = true;
 
@@ -4255,10 +4294,11 @@ extern (C++) final class TypeFunction : TypeNext
         t.isproperty = isproperty;
         t.isref = isref;
         t.isreturn = isreturn;
-        t.isscope = isscope;
+        t.isScopeQual = isScopeQual;
         t.isreturninferred = isreturninferred;
         t.isscopeinferred = isscopeinferred;
-        t.iswild = iswild;
+        t.isInOutParam = isInOutParam;
+        t.isInOutQual = isInOutQual;
         t.trust = trust;
         t.fargs = fargs;
         return t;
@@ -4321,10 +4361,8 @@ extern (C++) final class TypeFunction : TypeNext
 
         /* Evaluate what kind of purity based on the modifiers for the parameters
          */
-        const dim = tf.parameterList.length;
-    Lloop: foreach (i; 0 .. dim)
+    Lloop: foreach (i, fparam; tf.parameterList)
         {
-            Parameter fparam = tf.parameterList[i];
             Type t = fparam.type;
             if (!t)
                 continue;
@@ -4369,10 +4407,8 @@ extern (C++) final class TypeFunction : TypeNext
      */
     bool hasLazyParameters()
     {
-        size_t dim = parameterList.length;
-        for (size_t i = 0; i < dim; i++)
+        foreach (i, fparam; parameterList)
         {
-            Parameter fparam = parameterList[i];
             if (fparam.storageClass & STC.lazy_)
                 return true;
         }
@@ -4431,6 +4467,10 @@ extern (C++) final class TypeFunction : TypeNext
         if (!global.params.vsafe)
             return stc;
 
+        // When the preview switch is enable, `in` parameters are `scope`
+        if (stc & STC.in_ && global.params.previewIn)
+            return stc | STC.scope_;
+
         if (stc & (STC.scope_ | STC.return_ | STC.lazy_) || purity == PURE.impure)
             return stc;
 
@@ -4445,10 +4485,8 @@ extern (C++) final class TypeFunction : TypeNext
         if (purity == PURE.weak)
         {
             // Check escaping through parameters
-            const dim = parameterList.length;
-            foreach (const i; 0 .. dim)
+            foreach (i, fparam; parameterList)
             {
-                Parameter fparam = parameterList[i];
                 if (fparam == p)
                     continue;
                 Type t = fparam.type;
@@ -4457,7 +4495,7 @@ extern (C++) final class TypeFunction : TypeNext
                 t = t.baseElemOf();
                 if (t.isMutable() && t.hasPointers())
                 {
-                    if (fparam.storageClass & (STC.ref_ | STC.out_))
+                    if (fparam.isReference())
                     {
                     }
                     else if (t.ty == Tarray || t.ty == Tpointer)
@@ -4518,7 +4556,7 @@ extern (C++) final class TypeFunction : TypeNext
         if ((stc & STC.pure_ && !t.purity) ||
             (stc & STC.nothrow_ && !t.isnothrow) ||
             (stc & STC.nogc && !t.isnogc) ||
-            (stc & STC.scope_ && !t.isscope) ||
+            (stc & STC.scope_ && !t.isScopeQual) ||
             (stc & STC.safe && t.trust < TRUST.trusted))
         {
             // Klunky to change these
@@ -4531,11 +4569,12 @@ extern (C++) final class TypeFunction : TypeNext
             tf.isproperty = t.isproperty;
             tf.isref = t.isref;
             tf.isreturn = t.isreturn;
-            tf.isscope = t.isscope;
+            tf.isScopeQual = t.isScopeQual;
             tf.isreturninferred = t.isreturninferred;
             tf.isscopeinferred = t.isscopeinferred;
             tf.trust = t.trust;
-            tf.iswild = t.iswild;
+            tf.isInOutParam = t.isInOutParam;
+            tf.isInOutQual = t.isInOutQual;
 
             if (stc & STC.pure_)
                 tf.purity = PURE.fwdref;
@@ -4547,7 +4586,7 @@ extern (C++) final class TypeFunction : TypeNext
                 tf.trust = TRUST.safe;
             if (stc & STC.scope_)
             {
-                tf.isscope = true;
+                tf.isScopeQual = true;
                 if (stc & STC.scopeinferred)
                     tf.isscopeinferred = true;
             }
@@ -4595,10 +4634,11 @@ extern (C++) final class TypeFunction : TypeNext
         t.isproperty = isproperty;
         t.isref = isref;
         t.isreturn = isreturn;
-        t.isscope = isscope;
+        t.isScopeQual = isScopeQual;
         t.isreturninferred = isreturninferred;
         t.isscopeinferred = isscopeinferred;
-        t.iswild = 0;
+        t.isInOutParam = false;
+        t.isInOutQual = false;
         t.trust = trust;
         t.fargs = fargs;
         return t.merge();
@@ -4616,7 +4656,7 @@ extern (C++) final class TypeFunction : TypeNext
             at = arg.type.toPrettyChars(true);
         OutBuffer buf;
         // only mention rvalue if it's relevant
-        const rv = !arg.isLvalue() && par.storageClass & (STC.ref_ | STC.out_);
+        const rv = !arg.isLvalue() && par.isReference();
         buf.printf("cannot pass %sargument `%s` of type `%s` to parameter `%s`",
             rv ? "rvalue ".ptr : "".ptr, arg.toChars(), at,
             parameterToChars(par, this, qual));
@@ -4679,8 +4719,8 @@ extern (C++) final class TypeFunction : TypeNext
             }
         }
 
-        size_t nparams = parameterList.length;
-        size_t nargs = args.length;
+        const nparams = parameterList.length;
+        const nargs = args.length;
         if (nargs > nparams)
         {
             if (parameterList.varargs == VarArg.none)
@@ -4694,11 +4734,11 @@ extern (C++) final class TypeFunction : TypeNext
             match = MATCH.convert; // match ... with a "conversion" match level
         }
 
-        for (size_t u = 0; u < nargs; u++)
+        foreach (u, p; parameterList)
         {
-            if (u >= nparams)
+            if (u == nargs)
                 break;
-            Parameter p = parameterList[u];
+
             Expression arg = args[u];
             assert(arg);
             Type tprm = p.type;
@@ -4706,7 +4746,7 @@ extern (C++) final class TypeFunction : TypeNext
 
             if (!(p.storageClass & STC.lazy_ && tprm.ty == Tvoid && targ.ty != Tvoid))
             {
-                bool isRef = (p.storageClass & (STC.ref_ | STC.out_)) != 0;
+                const isRef = p.isReference();
                 wildmatch |= targ.deduceWild(tprm, isRef);
             }
         }
@@ -4727,11 +4767,10 @@ extern (C++) final class TypeFunction : TypeNext
             }
         }
 
-        for (size_t u = 0; u < nparams; u++)
+        foreach (u, p; parameterList)
         {
             MATCH m;
 
-            Parameter p = parameterList[u];
             assert(p);
             if (u >= nargs)
             {
@@ -4760,7 +4799,7 @@ extern (C++) final class TypeFunction : TypeNext
                     }
                     else
                     {
-                        const isRef = (p.storageClass & (STC.ref_ | STC.out_)) != 0;
+                        const isRef = p.isReference();
 
                         StructDeclaration argStruct, prmStruct;
 
@@ -4809,7 +4848,7 @@ extern (C++) final class TypeFunction : TypeNext
                 }
 
                 // Non-lvalues do not match ref or out parameters
-                if (p.storageClass & (STC.ref_ | STC.out_))
+                if (p.isReference())
                 {
                     // https://issues.dlang.org/show_bug.cgi?id=13783
                     // Don't use toBasetype() to handle enum types.
@@ -4843,6 +4882,19 @@ extern (C++) final class TypeFunction : TypeNext
                                 dinteger_t dim = (cast(TypeSArray)tp).dim.toUInteger();
                                 ta = tn.sarrayOf(dim);
                             }
+                        }
+                        else if ((p.storageClass & STC.in_) && global.params.previewIn)
+                        {
+                            // Allow converting a literal to an `in` which is `ref`
+                            if (arg.op == TOK.arrayLiteral && tp.ty == Tsarray)
+                            {
+                                Type tn = tp.nextOf();
+                                dinteger_t dim = (cast(TypeSArray)tp).dim.toUInteger();
+                                ta = tn.sarrayOf(dim);
+                            }
+
+                            // Need to make this a rvalue through a temporary
+                            m = MATCH.convert;
                         }
                         else if (!global.params.rvalueRefParam ||
                                  p.storageClass & STC.out_ ||
@@ -4917,8 +4969,8 @@ extern (C++) final class TypeFunction : TypeNext
                             if (!global.gag || global.params.showGaggedErrors)
                             {
                                 OutBuffer buf;
-                                buf.printf("expected %d variadic argument(s)", sz);
-                                buf.printf(", not %d", nargs - u);
+                                buf.printf("expected %llu variadic argument(s)", sz);
+                                buf.printf(", not %zu", nargs - u);
                                 *pMessage = buf.extractChars();
                             }
                             goto Nomatch;
@@ -5023,6 +5075,155 @@ extern (C++) final class TypeFunction : TypeNext
         if (tb.ty == Terror)
             return true;
         return false;
+    }
+
+    /// set or get if the function has the `nothrow` attribute
+    bool isnothrow() const pure nothrow @safe @nogc
+    {
+        return (funcFlags & FunctionFlag.isnothrow) != 0;
+    }
+    /// ditto
+    void isnothrow(bool v) pure nothrow @safe @nogc
+    {
+        if (v) funcFlags |= FunctionFlag.isnothrow;
+        else funcFlags &= ~FunctionFlag.isnothrow;
+    }
+
+    /// set or get if the function has the `@nogc` attribute
+    bool isnogc() const pure nothrow @safe @nogc
+    {
+        return (funcFlags & FunctionFlag.isnogc) != 0;
+    }
+    /// ditto
+    void isnogc(bool v) pure nothrow @safe @nogc
+    {
+        if (v) funcFlags |= FunctionFlag.isnogc;
+        else funcFlags &= ~FunctionFlag.isnogc;
+    }
+
+    /// set or get if the function has the `@property` attribute
+    bool isproperty() const pure nothrow @safe @nogc
+    {
+        return (funcFlags & FunctionFlag.isproperty) != 0;
+    }
+    /// ditto
+    void isproperty(bool v) pure nothrow @safe @nogc
+    {
+        if (v) funcFlags |= FunctionFlag.isproperty;
+        else funcFlags &= ~FunctionFlag.isproperty;
+    }
+
+    /// set or get if the function has the `ref` attribute
+    bool isref() const pure nothrow @safe @nogc
+    {
+        return (funcFlags & FunctionFlag.isref) != 0;
+    }
+    /// ditto
+    void isref(bool v) pure nothrow @safe @nogc
+    {
+        if (v) funcFlags |= FunctionFlag.isref;
+        else funcFlags &= ~FunctionFlag.isref;
+    }
+
+    /// set or get if the function has the `return` attribute
+    bool isreturn() const pure nothrow @safe @nogc
+    {
+        return (funcFlags & FunctionFlag.isreturn) != 0;
+    }
+    /// ditto
+    void isreturn(bool v) pure nothrow @safe @nogc
+    {
+        if (v) funcFlags |= FunctionFlag.isreturn;
+        else funcFlags &= ~FunctionFlag.isreturn;
+    }
+
+    /// set or get if the function has the `scope` attribute
+    bool isScopeQual() const pure nothrow @safe @nogc
+    {
+        return (funcFlags & FunctionFlag.isscope) != 0;
+    }
+    /// ditto
+    void isScopeQual(bool v) pure nothrow @safe @nogc
+    {
+        if (v) funcFlags |= FunctionFlag.isscope;
+        else funcFlags &= ~FunctionFlag.isscope;
+    }
+
+    /// set or get if the function has the `return` attribute inferred
+    bool isreturninferred() const pure nothrow @safe @nogc
+    {
+        return (funcFlags & FunctionFlag.isreturninferred) != 0;
+    }
+    /// ditto
+    void isreturninferred(bool v) pure nothrow @safe @nogc
+    {
+        if (v) funcFlags |= FunctionFlag.isreturninferred;
+        else funcFlags &= ~FunctionFlag.isreturninferred;
+    }
+
+    /// set or get if the function has the `scope` attribute inferred
+    bool isscopeinferred() const pure nothrow @safe @nogc
+    {
+        return (funcFlags & FunctionFlag.isscopeinferred) != 0;
+    }
+    /// ditoo
+    void isscopeinferred(bool v) pure nothrow @safe @nogc
+    {
+        if (v) funcFlags |= FunctionFlag.isscopeinferred;
+        else funcFlags &= ~FunctionFlag.isscopeinferred;
+    }
+
+    /// set or get if the function has the `@live` attribute
+    bool islive() const pure nothrow @safe @nogc
+    {
+        return (funcFlags & FunctionFlag.islive) != 0;
+    }
+    /// ditto
+    void islive(bool v) pure nothrow @safe @nogc
+    {
+        if (v) funcFlags |= FunctionFlag.islive;
+        else funcFlags &= ~FunctionFlag.islive;
+    }
+
+    /// set or get if the return type or the default arguments are removed
+    bool incomplete() const pure nothrow @safe @nogc
+    {
+        return (funcFlags & FunctionFlag.incomplete) != 0;
+    }
+    /// ditto
+    void incomplete(bool v) pure nothrow @safe @nogc
+    {
+        if (v) funcFlags |= FunctionFlag.incomplete;
+        else funcFlags &= ~FunctionFlag.incomplete;
+    }
+
+    /// set or get if the function has the `inout` on the parameters
+    bool isInOutParam() const pure nothrow @safe @nogc
+    {
+        return (funcFlags & FunctionFlag.inoutParam) != 0;
+    }
+    /// ditto
+    void isInOutParam(bool v) pure nothrow @safe @nogc
+    {
+        if (v) funcFlags |= FunctionFlag.inoutParam;
+        else funcFlags &= ~FunctionFlag.inoutParam;
+    }
+
+    /// set or get if the function has the `inout` on the parameters
+    bool isInOutQual() const pure nothrow @safe @nogc
+    {
+        return (funcFlags & FunctionFlag.inoutQual) != 0;
+    }
+    /// ditto
+    void isInOutQual(bool v) pure nothrow @safe @nogc
+    {
+        if (v) funcFlags |= FunctionFlag.inoutQual;
+        else funcFlags &= ~FunctionFlag.inoutQual;
+    }
+    /// Returns: `true` the function is `isInOutQual` or `isInOutParam` ,`false` otherwise.
+    bool iswild() const pure nothrow @safe @nogc
+    {
+        return (funcFlags & (FunctionFlag.inoutParam | FunctionFlag.inoutQual)) != 0;
     }
 
     override void accept(Visitor v)
@@ -5174,6 +5375,11 @@ extern (C++) final class TypeTraits : Type
         this.exp = exp;
     }
 
+    override const(char)* kind() const
+    {
+        return "traits";
+    }
+
     override Type syntaxCopy()
     {
         TraitsExp te = cast(TraitsExp) exp.syntaxCopy();
@@ -5277,23 +5483,31 @@ extern (C++) abstract class TypeQualified : Type
         for (size_t i = 0; i < idents.dim; i++)
         {
             RootObject id = t.idents[i];
-            if (id.dyncast() == DYNCAST.dsymbol)
+            with (DYNCAST) final switch (id.dyncast())
             {
-                TemplateInstance ti = cast(TemplateInstance)id;
-                ti = cast(TemplateInstance)ti.syntaxCopy(null);
-                id = ti;
-            }
-            else if (id.dyncast() == DYNCAST.expression)
-            {
+            case object:
+                break;
+            case expression:
                 Expression e = cast(Expression)id;
                 e = e.syntaxCopy();
                 id = e;
-            }
-            else if (id.dyncast() == DYNCAST.type)
-            {
+                break;
+            case dsymbol:
+                TemplateInstance ti = cast(TemplateInstance)id;
+                ti = cast(TemplateInstance)ti.syntaxCopy(null);
+                id = ti;
+                break;
+            case type:
                 Type tx = cast(Type)id;
                 tx = tx.syntaxCopy();
                 id = tx;
+                break;
+            case identifier:
+            case tuple:
+            case parameter:
+            case statement:
+            case condition:
+            case templateparameter:
             }
             idents[i] = id;
         }
@@ -5348,7 +5562,7 @@ extern (C++) final class TypeIdentifier : TypeQualified
 
     override Type syntaxCopy()
     {
-        auto t = new TypeIdentifier(loc, ident);
+        auto t = Pool!TypeIdentifier.make(loc, ident);
         t.syntaxCopyHelper(this);
         t.mod = mod;
         return t;
@@ -5590,7 +5804,7 @@ extern (C++) final class TypeStruct : Type
         }
         sym.size(loc);
         if (sym.sizeok != Sizeok.done)
-            return new ErrorExp();
+            return ErrorExp.get();
 
         auto structelems = new Expressions(sym.nonHiddenFields());
         uint offset = 0;
@@ -5601,7 +5815,7 @@ extern (C++) final class TypeStruct : Type
             if (vd.inuse)
             {
                 error(loc, "circular reference to `%s`", vd.toPrettyChars());
-                return new ErrorExp();
+                return ErrorExp.get();
             }
             if (vd.offset < offset || vd.type.size() == 0)
                 e = null;
@@ -6438,11 +6652,13 @@ extern (C++) final class TypeNull : Type
 }
 
 /***********************************************************
- * Encapsulate Parameters* so .length and [i] can be used on it.
+ * Represents a function's formal parameters + variadics info.
+ * Length, indexing and iteration are based on a depth-first tuple expansion.
  * https://dlang.org/spec/function.html#ParameterList
  */
 extern (C++) struct ParameterList
 {
+    /// The raw (unexpanded) formal parameters, possibly containing tuples.
     Parameters* parameters;
     StorageClass stc;                   // storage class of ...
     VarArg varargs = VarArg.none;
@@ -6454,22 +6670,38 @@ extern (C++) struct ParameterList
         this.stc = stc;
     }
 
+    /// Returns the number of expanded parameters. Complexity: O(N).
     size_t length()
     {
         return Parameter.dim(parameters);
     }
 
+    /// Returns the expanded parameter at the given index, or null if out of
+    /// bounds. Complexity: O(i).
     Parameter opIndex(size_t i)
     {
         return Parameter.getNth(parameters, i);
+    }
+
+    /// Iterates over the expanded parameters. Complexity: O(N).
+    /// Prefer this to avoid the O(N + N^2/2) complexity of calculating length
+    /// and calling N times opIndex.
+    extern (D) int opApply(scope Parameter.ForeachDg dg)
+    {
+        return Parameter._foreach(parameters, dg);
+    }
+
+    /// Iterates over the expanded parameters, matching them with the unexpanded
+    /// ones, for semantic processing
+    extern (D) int opApply(scope Parameter.SemanticForeachDg dg)
+    {
+        return Parameter._foreach(this.parameters, dg);
     }
 
     extern (D) ParameterList syntaxCopy()
     {
         return ParameterList(Parameter.arraySyntaxCopy(parameters), varargs);
     }
-
-    alias parameters this;
 }
 
 
@@ -6531,6 +6763,12 @@ extern (C++) final class Parameter : ASTNode
         return null;
     }
 
+    /// Returns: Whether the function parameter is a reference (out / ref)
+    bool isReference() const @safe pure nothrow @nogc
+    {
+        return (this.storageClass & (STC.ref_ | STC.out_)) != 0;
+    }
+
     // kludge for template.isType()
     override DYNCAST dyncast() const
     {
@@ -6571,14 +6809,22 @@ extern (C++) final class Parameter : ASTNode
         return nargs;
     }
 
-    /***************************************
-     * Get nth Parameter, folding in tuples.
+    /**
+     * Get nth `Parameter`, folding in tuples.
+     *
+     * Since `parameters` can include tuples, which would increase its
+     * length, this function allows to get the `nth` parameter as if
+     * all tuples transitively contained in `parameters` were flattened.
+     *
+     * Params:
+     *   parameters = Array of `Parameter` to iterate over
+     *   nth = Index of the desired parameter.
+     *
      * Returns:
-     *      Parameter*      nth Parameter
-     *      NULL            not found, *pn gets incremented by the number
-     *                      of Parameters
+     *   The parameter at index `nth` (taking tuples into account),
+     *   or `null` if out of bound.
      */
-    static Parameter getNth(Parameters* parameters, size_t nth, size_t* pn = null)
+    static Parameter getNth(Parameters* parameters, size_t nth)
     {
         Parameter param;
 
@@ -6596,7 +6842,13 @@ extern (C++) final class Parameter : ASTNode
         return res ? param : null;
     }
 
+    /// Type of delegate when iterating solely on the parameters
     alias ForeachDg = extern (D) int delegate(size_t paramidx, Parameter param);
+    /// Type of delegate when iterating on both the original set of parameters,
+    /// and the type tuple. Useful for semantic analysis.
+    /// 'o' stands for 'original' and 'e' stands for 'expanded'.
+    alias SemanticForeachDg = extern (D) int delegate(
+        size_t oidx, Parameter oparam, size_t eidx, Parameter eparam);
 
     /***************************************
      * Expands tuples in args in depth first order. Calls
@@ -6605,33 +6857,62 @@ extern (C++) final class Parameter : ASTNode
      * Use this function to avoid the O(N + N^2/2) complexity of
      * calculating dim and calling N times getNth.
      */
-    extern (D) static int _foreach(Parameters* parameters, scope ForeachDg dg, size_t* pn = null)
+    extern (D) static int _foreach(Parameters* parameters, scope ForeachDg dg)
     {
-        assert(dg);
-        if (!parameters)
+        assert(dg !is null);
+        return _foreach(parameters, (_oidx, _oparam, idx, param) => dg(idx, param));
+    }
+
+    /// Ditto
+    extern (D) static int _foreach(
+        Parameters* parameters, scope SemanticForeachDg dg)
+    {
+        assert(dg !is null);
+        if (parameters is null)
             return 0;
 
-        size_t n = pn ? *pn : 0; // take over index
-        int result = 0;
-        foreach (i; 0 .. parameters.dim)
+        size_t eidx;
+        foreach (oidx; 0 .. parameters.length)
         {
-            Parameter p = (*parameters)[i];
-            Type t = p.type.toBasetype();
-
-            if (auto tu = t.isTypeTuple())
-            {
-                result = _foreach(tu.arguments, dg, &n);
-            }
-            else
-                result = dg(n++, p);
-
-            if (result)
-                break;
+            Parameter oparam = (*parameters)[oidx];
+            if (auto r = _foreachImpl(dg, oidx, oparam, eidx, /* eparam */ oparam))
+                return r;
         }
+        return 0;
+    }
 
-        if (pn)
-            *pn = n; // update index
-        return result;
+    /// Implementation of the iteration process, which recurses in itself
+    /// and just forwards `oidx` and `oparam`.
+    extern (D) private static int _foreachImpl(scope SemanticForeachDg dg,
+        size_t oidx, Parameter oparam, ref size_t eidx, Parameter eparam)
+    {
+        if (eparam is null)
+            return 0;
+
+        Type t = eparam.type.toBasetype();
+        if (auto tu = t.isTypeTuple())
+        {
+            // Check for empty tuples
+            if (tu.arguments is null)
+                return 0;
+
+            foreach (nidx; 0 .. tu.arguments.length)
+            {
+                Parameter nextep = (*tu.arguments)[nidx];
+                if (auto r = _foreachImpl(dg, oidx, oparam, eidx, nextep))
+                    return r;
+            }
+        }
+        else
+        {
+            if (auto r = dg(oidx, oparam, eidx, eparam))
+                return r;
+            // The only place where we should increment eidx is here,
+            // as a TypeTuple doesn't count as a parameter (for arity)
+            // it it is empty.
+            eidx++;
+        }
+        return 0;
     }
 
     override const(char)* toChars() const
@@ -6642,19 +6923,35 @@ extern (C++) final class Parameter : ASTNode
     /*********************************
      * Compute covariance of parameters `this` and `p`
      * as determined by the storage classes of both.
+     *
      * Params:
      *  returnByRef = true if the function returns by ref
      *  p = Parameter to compare with
+     *  previewIn = Whether `-previewIn` is being used, and thus if
+     *              `in` means `scope`.
+     *
      * Returns:
      *  true = `this` can be used in place of `p`
      *  false = nope
      */
-    bool isCovariant(bool returnByRef, const Parameter p) const pure nothrow @nogc @safe
+    bool isCovariant(bool returnByRef, const Parameter p, bool previewIn = global.params.previewIn)
+        const pure nothrow @nogc @safe
     {
-        enum stc = STC.ref_ | STC.in_ | STC.out_ | STC.lazy_;
-        if ((this.storageClass & stc) != (p.storageClass & stc))
+        ulong thisSTC = this.storageClass;
+        ulong otherSTC = p.storageClass;
+
+        if (previewIn)
+        {
+            if (thisSTC & STC.in_)
+                thisSTC |= STC.scope_;
+            if (otherSTC & STC.in_)
+                otherSTC |= STC.scope_;
+        }
+
+        enum stc = STC.ref_ | STC.out_ | STC.lazy_;
+        if ((thisSTC & stc) != (otherSTC & stc))
             return false;
-        return isCovariantScope(returnByRef, this.storageClass, p.storageClass);
+        return isCovariantScope(returnByRef, thisSTC, otherSTC);
     }
 
     extern (D) private static bool isCovariantScope(bool returnByRef, StorageClass from, StorageClass to) pure nothrow @nogc @safe
@@ -6804,7 +7101,7 @@ void attributesApply(const TypeFunction tf, void delegate(string) dg, TRUSTforma
         dg("ref");
     if (tf.isreturn && !tf.isreturninferred)
         dg("return");
-    if (tf.isscope && !tf.isscopeinferred)
+    if (tf.isScopeQual && !tf.isscopeinferred)
         dg("scope");
     if (tf.islive)
         dg("@live");

@@ -83,7 +83,7 @@ struct X86TargetABI : TargetABI {
   }
 
   bool returnInArg(TypeFunction *tf, bool needsThis) override {
-    if (tf->isref)
+    if (tf->isref())
       return false;
 
     Type *rt = tf->next->toBasetype();

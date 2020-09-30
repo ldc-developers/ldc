@@ -31,7 +31,7 @@ struct ArmTargetABI : TargetABI {
     // AAPCS 5.4 wants composites > 4-bytes returned by arg except for
     // Homogeneous Aggregates of up-to 4 float types (6.1.2.1) - an HFA.
     // TODO: see if Tsarray should be candidate for HFA.
-    if (tf->isref)
+    if (tf->isref())
       return false;
     Type *rt = tf->next->toBasetype();
 

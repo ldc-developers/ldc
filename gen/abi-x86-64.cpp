@@ -182,7 +182,7 @@ private:
 TargetABI *getX86_64TargetABI() { return new X86_64TargetABI; }
 
 bool X86_64TargetABI::returnInArg(TypeFunction *tf, bool) {
-  if (tf->isref) {
+  if (tf->isref()) {
     return false;
   }
 

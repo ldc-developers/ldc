@@ -623,19 +623,16 @@ DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
   LLType *tolltype = DtoType(to);
 
   if (totype->ty == Tsarray) {
-    // If possible, we need to cast only the address of the vector without
-    // creating a copy, because, besides the fact that this seem to be the
-    // language semantics, DMD rewrites e.g. float4.array to
-    // cast(float[4])array.
+    // Reinterpret-cast without copy if the source vector is in memory.
     if (val->isLVal()) {
       LLValue *vector = DtoLVal(val);
-      IF_LOG Logger::cout() << "src: " << *vector << "to type: " << *tolltype
+      IF_LOG Logger::cout() << "src: " << *vector << " to type: " << *tolltype
                             << " (casting address)\n";
       return new DLValue(to, DtoBitCast(vector, getPtrToType(tolltype)));
     }
 
     LLValue *vector = DtoRVal(val);
-    IF_LOG Logger::cout() << "src: " << *vector << "to type: " << *tolltype
+    IF_LOG Logger::cout() << "src: " << *vector << " to type: " << *tolltype
                           << " (creating temporary)\n";
     LLValue *array = DtoAllocaDump(vector, tolltype, DtoAlignment(val->type));
     return new DLValue(to, array);

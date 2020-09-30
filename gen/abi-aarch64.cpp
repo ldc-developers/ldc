@@ -55,7 +55,7 @@ public:
   AArch64TargetABI() : isDarwin(global.params.targetTriple->isOSDarwin()) {}
 
   bool returnInArg(TypeFunction *tf, bool) override {
-    if (tf->isref) {
+    if (tf->isref()) {
       return false;
     }
 

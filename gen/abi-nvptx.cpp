@@ -36,7 +36,7 @@ struct NVPTXTargetABI : TargetABI {
     }
   }
   bool returnInArg(TypeFunction *tf, bool) override {
-    return !tf->isref && DtoIsInMemoryOnly(tf->next);
+    return !tf->isref() && DtoIsInMemoryOnly(tf->next);
   }
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     Type *ty = arg.type->toBasetype();

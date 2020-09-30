@@ -158,6 +158,7 @@ Where:\n\
                     force colored console output on or off, or only when not redirected (default)\n\
   -conf=<filename>  use config file at filename\n\
   -cov              do code coverage analysis\n\
+  -cov=ctfe         include code executed during CTFE in coverage report\n\
   -cov=<nnn>        require at least nnn%% code coverage\n\
   -D                generate documentation\n\
   -Dd<directory>    write documentation file to directory\n\
@@ -189,7 +190,8 @@ Where:\n\
 "  -H                generate 'header' file\n\
   -Hd=<directory>   write 'header' file to directory\n\
   -Hf=<filename>    write 'header' file to filename\n\
-  -HC               generate C++ 'header' file\n\
+  -HC[=[silent|verbose]]\n\
+                    generate C++ 'header' file\n\
   -HCd=<directory>  write C++ 'header' file to directory\n\
   -HCf=<filename>   write C++ 'header' file to filename\n\
   --help            print help and exit\n\
@@ -254,7 +256,8 @@ Where:\n\
   -version=<level>  compile in version code >= level\n\
   -version=<ident>  compile in version code identified by ident\n\
   -vgc              list all gc allocations including hidden ones\n\
-  -vtemplates       list statistics on template instantiations\n\
+  -vtemplates=[list-instances]\n\
+                    list statistics on template instantiations\n\
   -vtls             list all variables going into thread local storage\n\
   -w                warnings as errors (compilation will halt)\n\
   -wi               warnings as messages (compilation will continue)\n\

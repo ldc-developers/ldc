@@ -1,8 +1,10 @@
 // RUN: %ldc -run %s
 
+int bar() { return 0; }
+
 void foo(void delegate() sink)
 {
-    return (0, sink());
+    return (bar(), sink());
 }
 
 void main()

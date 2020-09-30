@@ -23,33 +23,6 @@ llvm::SmallVector<const char *, 32> allArguments;
 
 cl::OptionCategory linkingCategory("Linking options");
 
-/* Option parser that defaults to zero when no explicit number is given.
- * i.e.:  -cov    --> value = 0
- *        -cov=9  --> value = 9
- *        -cov=101 --> error, value must be in range [0..100]
- */
-struct CoverageParser : public cl::parser<unsigned char> {
-  explicit CoverageParser(cl::Option &O) : cl::parser<unsigned char>(O) {}
-
-  bool parse(cl::Option &O, llvm::StringRef /*ArgName*/, llvm::StringRef Arg,
-             unsigned char &Val) {
-    if (Arg == "") {
-      Val = 0;
-      return false;
-    }
-
-    if (Arg.getAsInteger(0, Val)) {
-      return O.error("'" + Arg +
-                     "' value invalid for required coverage percentage");
-    }
-
-    if (Val > 100) {
-      return O.error("Required coverage percentage must be <= 100");
-    }
-    return false;
-  }
-};
-
 // Positional options first, in order:
 cl::list<std::string> fileList(cl::Positional, cl::desc("files"));
 
@@ -106,10 +79,40 @@ static cl::opt<bool, true>
     vgc("vgc", cl::desc("List all gc allocations including hidden ones"),
         cl::ZeroOrMore, cl::location(global.params.vgc));
 
-static cl::opt<bool, true>
-    vtemplates("vtemplates", cl::ZeroOrMore,
-               cl::desc("List statistics on template instantiations"),
-               cl::location(global.params.vtemplates));
+// Dummy data type for custom parsers where the help output shouldn't display
+// any value. cl::parser<bool> is final for LLVM < 9...
+#if LDC_LLVM_VER >= 900
+using DummyDataType = bool;
+#else
+enum class DummyDataType { dummy };
+#endif
+
+// `-vtemplates[=list-instances]` parser.
+struct VTemplatesParser : public cl::parser<DummyDataType> {
+  explicit VTemplatesParser(cl::Option &O) : cl::parser<DummyDataType>(O) {}
+
+  bool parse(cl::Option &O, llvm::StringRef /*ArgName*/, llvm::StringRef Arg,
+             DummyDataType & /*Val*/) {
+    global.params.vtemplates = true;
+
+    if (Arg.empty()) {
+      return false;
+    }
+
+    if (Arg == "list-instances") {
+      global.params.vtemplatesListInstances = true;
+      return false;
+    }
+
+    return O.error("unsupported value '" + Arg + "'");
+  }
+};
+
+static cl::opt<DummyDataType, false, VTemplatesParser> vtemplates(
+    "vtemplates", cl::ZeroOrMore, cl::ValueOptional,
+    cl::desc("List statistics on template instantiations\n"
+             "Use -vtemplates=list-instances to additionally show all "
+             "instantiation contexts for each template"));
 
 static cl::opt<bool, true> verbose_cg("v-cg", cl::desc("Verbose codegen"),
                                       cl::ZeroOrMore,
@@ -270,9 +273,35 @@ cl::opt<bool>
                      cl::desc("Keep all function bodies in .di files"));
 
 // C++ header generation options
-static cl::opt<bool, true>
-    doCxxHdrGen("HC", cl::desc("Generate C++ 'header' file"), cl::ZeroOrMore,
-             cl::location(global.params.doCxxHdrGeneration));
+
+// `-HC[=silent|verbose]` parser. Required for defaulting to `silent`.
+struct HCParser : public cl::parser<CxxHeaderMode> {
+  explicit HCParser(cl::Option &O) : cl::parser<CxxHeaderMode>(O) {}
+
+  bool parse(cl::Option &O, llvm::StringRef /*ArgName*/, llvm::StringRef Arg,
+             CxxHeaderMode &Val) {
+    if (Arg.empty() || Arg == "silent") {
+      Val = CxxHeaderMode::silent;
+      return false;
+    }
+    if (Arg == "verbose") {
+      Val = CxxHeaderMode::verbose;
+      return false;
+    }
+
+    return O.error("unsupported value '" + Arg + "'");
+  }
+};
+
+static cl::opt<CxxHeaderMode, true, HCParser> doCxxHdrGen(
+    "HC", cl::ZeroOrMore, cl::desc("Generate C++ header file"),
+    cl::location(global.params.doCxxHdrGeneration), cl::ValueOptional,
+    cl::values(
+        clEnumValN(CxxHeaderMode::silent, "silent",
+                   "Only list extern(C[++]) declarations (default)"),
+        clEnumValN(
+            CxxHeaderMode::verbose, "verbose",
+            "Also add comments for ignored declarations (e.g. extern(D))")));
 
 cl::opt<std::string>
     cxxHdrDir("HCd", cl::ZeroOrMore, cl::Prefix,
@@ -509,11 +538,43 @@ cl::opt<bool, true> betterC(
     "betterC", cl::ZeroOrMore, cl::location(global.params.betterC),
     cl::desc("Omit generating some runtime information and helper functions"));
 
-cl::opt<unsigned char, true, CoverageParser> coverageAnalysis(
-    "cov", cl::ZeroOrMore, cl::location(global.params.covPercent),
-    cl::desc("Compile-in code coverage analysis\n(use -cov=n for n% "
-             "minimum required coverage)"),
-    cl::ValueOptional, cl::init(127));
+// `-cov[=<n>|ctfe]` parser.
+struct CoverageParser : public cl::parser<DummyDataType> {
+  explicit CoverageParser(cl::Option &O) : cl::parser<DummyDataType>(O) {}
+
+  bool parse(cl::Option &O, llvm::StringRef /*ArgName*/, llvm::StringRef Arg,
+             DummyDataType & /*Val*/) {
+    global.params.cov = true;
+
+    if (Arg.empty()) {
+      return false;
+    }
+
+    if (Arg == "ctfe") {
+      global.params.ctfe_cov = true;
+      return false;
+    }
+
+    unsigned char percent = 0;
+    if (Arg.getAsInteger(0, percent)) {
+      return O.error("'" + Arg +
+                     "' value invalid for required coverage percentage");
+    }
+
+    if (percent > 100) {
+      return O.error("required coverage percentage must be <= 100");
+    }
+
+    global.params.covPercent = percent;
+    return false;
+  }
+};
+
+static cl::opt<DummyDataType, false, CoverageParser> coverageAnalysis(
+    "cov", cl::ZeroOrMore, cl::ValueOptional,
+    cl::desc("Compile-in code coverage analysis and .lst file generation\n"
+             "Use -cov=<n> for n% minimum required coverage\n"
+             "Use -cov=ctfe to include code executed during CTFE"));
 
 cl::opt<LTOKind> ltoMode(
     "flto", cl::ZeroOrMore, cl::desc("Set LTO mode, requires linker support"),

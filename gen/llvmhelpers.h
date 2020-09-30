@@ -94,6 +94,7 @@ DValue *DtoCastInt(Loc &loc, DValue *val, Type *to);
 DValue *DtoCastPtr(Loc &loc, DValue *val, Type *to);
 DValue *DtoCastFloat(Loc &loc, DValue *val, Type *to);
 DValue *DtoCastDelegate(Loc &loc, DValue *val, Type *to);
+DValue *DtoCastVector(Loc &loc, DValue *val, Type *to);
 DValue *DtoCast(Loc &loc, DValue *val, Type *to);
 
 // return the same val as passed in, modified to the target type, if possible,
