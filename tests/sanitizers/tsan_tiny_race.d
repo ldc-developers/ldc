@@ -1,35 +1,31 @@
 // Test that ThreadSanitizer+LDC works on a very basic testcase.
-// Note that -betterC is used, to avoid relying on druntime for this test.
 
 // REQUIRES: TSan
 // REQUIRES: atleast_llvm800
 
-// RUN: %ldc -betterC -g -fsanitize=thread %s -of=%t%exe
+// RUN: %ldc -g -fsanitize=thread %s -of=%t%exe
 // RUN: %deflake 20 %t%exe | FileCheck %s
 
 // CHECK: WARNING: ThreadSanitizer: data race
 
-import core.sys.posix.pthread;
+import core.thread;
 
 shared int global;
 
-extern(C)
-void *thread1(void *x) {
+void thread1() {
   barrier_wait(&barrier);
-// CHECK-DAG: thread1{{.*}}[[@LINE+1]]
+// CHECK-DAG: 7thread1{{.*}}[[@LINE+1]]
   global = 42;
-  return x;
 }
 
-extern(C)
 int main() {
   barrier_init(&barrier, 2);
-  pthread_t t;
-  pthread_create(&t, null, &thread1, null);
-// CHECK-DAG: main{{.*}}[[@LINE+1]]
+  auto t = new Thread(&thread1);
+  t.start();
+// CHECK-DAG: _Dmain{{.*}}[[@LINE+1]]
   global = 43;
   barrier_wait(&barrier);
-  pthread_join(t, null);
+  t.join();
   return global;
 }
 
