@@ -318,7 +318,17 @@ class Thread : ThreadBase
         }
         else version (Posix)
         {
-            pthread_detach( m_addr );
+            version (LDC)
+            {
+                // don't detach the main thread, TSan doesn't like it:
+                // https://github.com/ldc-developers/ldc/issues/3519
+                if (!isMainThread())
+                    pthread_detach( m_addr );
+            }
+            else
+            {
+                pthread_detach( m_addr );
+            }
             m_addr = m_addr.init;
         }
         version (Darwin)
