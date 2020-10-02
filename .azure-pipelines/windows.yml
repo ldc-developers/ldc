@@ -79,7 +79,7 @@ steps:
     mkdir bootstrap-ldc
     cd bootstrap-ldc
     cmake -G Ninja %BUILD_SOURCESDIRECTORY% -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=%CD%/../llvm -DD_COMPILER=%CD%/../host-ldc/bin/ldmd2 -DBUILD_LTO_LIBS=ON
-    ninja -j2 || exit /b
+    ninja -j4 || exit /b
     bin\ldc2 --version
   displayName: Build bootstrap LDC
 - script: |
@@ -92,7 +92,7 @@ steps:
     mkdir build
     cd build
     cmake -G Ninja %BUILD_SOURCESDIRECTORY% -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release %EXTRA_CMAKE_FLAGS% -DCMAKE_INSTALL_PREFIX=%INSTALL_DIR% -DINCLUDE_INSTALL_DIR=%INSTALL_DIR%/import -DLLVM_ROOT_DIR=%CD%/../llvm -DD_COMPILER=%CD%/../bootstrap-ldc/bin/ldmd2
-    ninja -j2 all ldc2-unittest all-test-runners || exit /b
+    ninja -j4 all ldc2-unittest all-test-runners || exit /b
     bin\ldc2 --version
   displayName: Build LDC & LDC D unittests & defaultlib unittest runners
 - script: |
