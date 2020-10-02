@@ -84,11 +84,16 @@ function(build_d_executable target_name output_exe d_src_files compiler_args lin
 
         translate_linker_args(linker_args translated_linker_args)
 
+        # Use an extra custom target as dependency for the executable instead
+        # of the object files directly to improve parallelization.
+        # See https://github.com/ldc-developers/ldc/pull/3575.
+        add_custom_target(${target_name}_d_objects DEPENDS ${object_files})
+
         add_custom_command(
             OUTPUT ${output_exe}
             COMMAND ${D_COMPILER} ${dflags} ${DDMD_LFLAGS} -of${output_exe} ${objects_args} ${dep_libs} ${translated_linker_args}
             WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-            DEPENDS ${object_files} ${link_deps}
+            DEPENDS ${target_name}_d_objects ${link_deps}
         )
         add_custom_target(${target_name} ALL DEPENDS ${output_exe})
     endif()

@@ -626,20 +626,22 @@ if(LDC_ENABLE_PLUGINS)
 endif()
 message(STATUS "Building LDC with plugin support: ${LDC_ENABLE_PLUGINS} (LDC_ENABLE_PLUGINS=${LDC_ENABLE_PLUGINS})")
 
-set(LDC_LINK_MANUALLY OFF)
-if(UNIX AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")))
-    # On Unix-like systems, DMD and LDC will use the C compiler for linking, but
-    # will pass on -L options prefixed by -Xlinker to directly forward them to
-    # the underlying ld. Since there are some flags the GCC driver handles itself
-    # rather than passing them to ld, we cannot just directly translate
-    # LDC_LINKERFLAG_LIST to -L options. To be able to handle general linker flags,
-    # we manually invoke the linker instead of using the D compiler to do so.
-    set(LDC_LINK_MANUALLY ON)
+if(NOT DEFINED LDC_LINK_MANUALLY)
+    set(LDC_LINK_MANUALLY OFF)
+    if(UNIX AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")))
+        # On Unix-like systems, DMD and LDC will use the C compiler for linking, but
+        # will pass on -L options prefixed by -Xlinker to directly forward them to
+        # the underlying ld. Since there are some flags the GCC driver handles itself
+        # rather than passing them to ld, we cannot just directly translate
+        # LDC_LINKERFLAG_LIST to -L options. To be able to handle general linker flags,
+        # we manually invoke the linker instead of using the D compiler to do so.
+        set(LDC_LINK_MANUALLY ON)
 
-    if(NOT DEFINED D_LINKER_ARGS)
-        include(ExtractDMDSystemLinker)
-        message(STATUS "Host D compiler linker program: ${D_LINKER_COMMAND}")
-        message(STATUS "Host D compiler linker flags: ${D_LINKER_ARGS}")
+        if(NOT DEFINED D_LINKER_ARGS)
+            include(ExtractDMDSystemLinker)
+            message(STATUS "Host D compiler linker program: ${D_LINKER_COMMAND}")
+            message(STATUS "Host D compiler linker flags: ${D_LINKER_ARGS}")
+        endif()
     endif()
 endif()
 
