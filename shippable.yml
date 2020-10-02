@@ -61,7 +61,7 @@ build:
     - ninja -j32
     - bin/ldc2 --version
     - cd ..
-    # Build LDC & LDC D unittests
+    # Build LDC & LDC D unittests & defaultlib unittest runners
     - |
       set -x
       installDir=$PWD/install
@@ -77,10 +77,11 @@ build:
         -DADDITIONAL_DEFAULT_LDC_SWITCHES=' "-linker=bfd",' \
         $EXTRA_CMAKE_FLAGS
       set +x
-    - ninja -j32 all ldc2-unittest
+    - |
+      # Work around out-of-memory errors - retry once with halved jobs
+      targets='all ldc2-unittest all-test-runners'
+      ninja -j32 $targets || ninja -j16 $targets
     - bin/ldc2 --version
-    # Build defaultlib unittest runners
-    - ninja -j16 all-test-runners
     # Run LDC D unittests
     - ctest --output-on-failure -R "ldc2-unittest"
     # FIXME: all gdb tests fail (might have to do with the Shippable/Packet setup) and are disabled

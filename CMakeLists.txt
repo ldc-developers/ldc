@@ -834,7 +834,7 @@ build_d_executable(
     "${LDC_LINKERFLAG_LIST}"
     ""
     "${LDC_LIB}"
-    ON # always build separately (faster with parallelization)
+    ${COMPILE_D_MODULES_SEPARATELY}
 )
 set_target_properties("${LDC_UNITTEST_EXE}" PROPERTIES EXCLUDE_FROM_ALL ON)
 add_test(NAME build-ldc2-unittest COMMAND "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ldc2-unittest)
