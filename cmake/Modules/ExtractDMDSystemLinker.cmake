@@ -24,9 +24,9 @@ set(result_code)
 set(stdout)
 set(stderr)
 if(UNIX)
-    separate_arguments(cmdflags UNIX_COMMAND "${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS}")
+    separate_arguments(cmdflags UNIX_COMMAND "${D_COMPILER_FLAGS} ${DFLAGS_BASE}")
 else()
-    separate_arguments(cmdflags WINDOWS_COMMAND "${D_COMPILER_FLAGS} ${DDMD_DFLAGS} ${DDMD_LFLAGS}")
+    separate_arguments(cmdflags WINDOWS_COMMAND "${D_COMPILER_FLAGS} ${DFLAGS_BASE}")
 endif()
 execute_process(
     COMMAND ${D_COMPILER} ${cmdflags} -v ${source_file}

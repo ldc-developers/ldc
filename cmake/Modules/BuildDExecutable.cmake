@@ -13,12 +13,11 @@ endmacro()
 # - D_COMPILER
 # - D_COMPILER_ID
 # - D_COMPILER_FLAGS
-# - DDMD_DFLAGS
-# - DDMD_LFLAGS
+# - DFLAGS_BASE
 # - LDC_LINK_MANUALLY
 # - D_LINKER_ARGS
 function(build_d_executable target_name output_exe d_src_files compiler_args linker_args extra_compile_deps link_deps compile_separately)
-    set(dflags "${D_COMPILER_FLAGS} ${DDMD_DFLAGS}")
+    set(dflags "${D_COMPILER_FLAGS} ${DFLAGS_BASE} ${compiler_args}")
     if(UNIX)
       separate_arguments(dflags UNIX_COMMAND "${dflags}")
     else()
@@ -37,7 +36,7 @@ function(build_d_executable target_name output_exe d_src_files compiler_args lin
         endif()
         add_custom_command(
             OUTPUT ${object_file}
-            COMMAND ${D_COMPILER} -c ${dflags} -of${object_file} ${compiler_args} ${d_src_files}
+            COMMAND ${D_COMPILER} -c ${dflags} -of${object_file} ${d_src_files}
             WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
             DEPENDS ${d_src_files} ${extra_compile_deps}
         )
@@ -51,7 +50,7 @@ function(build_d_executable target_name output_exe d_src_files compiler_args lin
             set(object_file ${PROJECT_BINARY_DIR}/obj/${target_name}/${object_file}${CMAKE_CXX_OUTPUT_EXTENSION})
             add_custom_command(
                 OUTPUT ${object_file}
-                COMMAND ${D_COMPILER} -c ${dflags} -of${object_file} ${compiler_args} ${f}
+                COMMAND ${D_COMPILER} -c ${dflags} -of${object_file} ${f}
                 WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
                 DEPENDS ${f} ${extra_compile_deps}
             )
@@ -91,7 +90,7 @@ function(build_d_executable target_name output_exe d_src_files compiler_args lin
 
         add_custom_command(
             OUTPUT ${output_exe}
-            COMMAND ${D_COMPILER} ${dflags} ${DDMD_LFLAGS} -of${output_exe} ${objects_args} ${dep_libs} ${translated_linker_args}
+            COMMAND ${D_COMPILER} ${dflags} -of${output_exe} ${objects_args} ${dep_libs} ${translated_linker_args}
             WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
             DEPENDS ${target_name}_d_objects ${link_deps}
         )

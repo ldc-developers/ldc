@@ -25,7 +25,7 @@ if(__LTO_FLAG)
 
     check_d_source_compiles("void main(){}" D_COMPILER_ACCEPTS_FLTO_${uppercase_LDC_BUILD_WITH_LTO} FLAGS ${__LTO_FLAG})
     if(D_COMPILER_ACCEPTS_FLTO_${uppercase_LDC_BUILD_WITH_LTO})
-        append(${__LTO_FLAG} DDMD_DFLAGS)
+        append(${__LTO_FLAG} DFLAGS_LDC)
     endif()
 
     if(uppercase_LDC_BUILD_WITH_LTO STREQUAL "THIN")
