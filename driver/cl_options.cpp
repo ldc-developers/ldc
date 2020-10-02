@@ -380,8 +380,7 @@ cl::list<std::string>
                    cl::Prefix);
 
 cl::list<std::string>
-    ccSwitches("Xcc", cl::CommaSeparated,
-               cl::desc("Pass <ccflag> to GCC/Clang for linking"),
+    ccSwitches("Xcc", cl::desc("Pass <ccflag> to GCC/Clang for linking"),
                cl::value_desc("ccflag"), cl::cat(linkingCategory));
 
 cl::opt<std::string>
