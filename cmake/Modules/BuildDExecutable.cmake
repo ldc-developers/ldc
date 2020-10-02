@@ -1,10 +1,14 @@
-# Translates linker args for usage in DMD-compatible command-line (prepend -L).
+# Translates linker args for usage in DMD-compatible command-line.
 macro(translate_linker_args in_var out_var)
     set(${out_var} "")
     foreach(f IN LISTS "${in_var}")
         if(NOT "${f}" STREQUAL "")
-            string(REPLACE "-LIBPATH:" "/LIBPATH:" f ${f})
-            list(APPEND ${out_var} "-L${f}")
+            if(MSVC)
+                string(REPLACE "-LIBPATH:" "/LIBPATH:" f ${f})
+                list(APPEND ${out_var} "-L${f}")
+            else()
+                list(APPEND ${out_var} "-Xcc=${f}")
+            endif()
         endif()
     endforeach()
 endmacro()
@@ -81,7 +85,13 @@ function(build_d_executable target_name output_exe d_src_files compiler_args lin
             list(APPEND dep_libs "-L$<TARGET_LINKER_FILE:${l}>")
         endforeach()
 
-        translate_linker_args(linker_args translated_linker_args)
+        set(full_linker_args ${CMAKE_EXE_LINKER_FLAGS} ${linker_args})
+        translate_linker_args(full_linker_args translated_linker_args)
+
+        # We need to link against the C++ runtime library.
+        if(NOT MSVC AND "${D_COMPILER_ID}" STREQUAL "LDMD")
+            set(translated_linker_args "-gcc=${CMAKE_CXX_COMPILER}" ${translated_linker_args})
+        endif()
 
         # Use an extra custom target as dependency for the executable instead
         # of the object files directly to improve parallelization.

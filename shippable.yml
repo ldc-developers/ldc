@@ -57,7 +57,8 @@ build:
         -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
         -DBUILD_SHARED_LIBS=OFF \
         -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF \
-        -DADDITIONAL_DEFAULT_LDC_SWITCHES=' "-linker=bfd",'
+        -DADDITIONAL_DEFAULT_LDC_SWITCHES=' "-linker=bfd",' \
+        -DLDC_LINK_MANUALLY=OFF
     - ninja -j32
     - bin/ldc2 --version
     - cd ..
@@ -75,6 +76,7 @@ build:
         -DINCLUDE_INSTALL_DIR=$installDir/import \
         -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF \
         -DADDITIONAL_DEFAULT_LDC_SWITCHES=' "-linker=bfd",' \
+        -DLDC_LINK_MANUALLY=OFF \
         $EXTRA_CMAKE_FLAGS
       set +x
     - |

@@ -74,6 +74,7 @@ steps:
       -DLLVM_ROOT_DIR=$PWD/../llvm \
       -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
       -DBUILD_SHARED_LIBS=OFF \
+      -DLDC_LINK_MANUALLY=OFF \
       $BOOTSTRAP_CMAKE_FLAGS
     ninja -j$PARALLEL_JOBS
     bin/ldc2 -version
@@ -99,6 +100,7 @@ steps:
       -DD_COMPILER=$PWD/../bootstrap-ldc/bin/ldmd2 \
       -DCMAKE_INSTALL_PREFIX=$installDir \
       -DINCLUDE_INSTALL_DIR=$installDir/import \
+      -DLDC_LINK_MANUALLY=OFF \
       "${extraFlags[@]}"
     ninja -j$PARALLEL_JOBS all ldc2-unittest all-test-runners
     bin/ldc2 -version
