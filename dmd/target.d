@@ -661,6 +661,8 @@ version (IN_LLVM)
     TypeTuple toArgTypes(Type t);
     bool isReturnOnStack(TypeFunction tf, bool needsThis);
     // unused: ulong parameterSize(const ref Loc loc, Type t);
+    bool preferPassByRef(Type t);
+    Expression getTargetInfo(const(char)* name, const ref Loc loc);
 }
 else // !IN_LLVM
 {
@@ -879,7 +881,6 @@ else // !IN_LLVM
         const sz = t.size(loc);
         return params.is64bit ? (sz + 7) & ~7 : (sz + 3) & ~3;
     }
-} // !IN_LLVM
 
     /**
      * Decides whether an `in` parameter of the specified POD type is to be
@@ -939,12 +940,6 @@ else // !IN_LLVM
         }
     }
 
-version (IN_LLVM)
-{
-    extern (C++) Expression getTargetInfo(const(char)* name, const ref Loc loc);
-}
-else
-{
     // this guarantees `getTargetInfo` and `allTargetInfos` remain in sync
     private enum TargetInfoKeys
     {

@@ -44,6 +44,11 @@ private:
 
   bool passPointerToHiddenCopy(Type *t, bool isReturnValue,
                                TypeFunction *tf) const {
+    return passPointerToHiddenCopy(t, isReturnValue, tf->linkage, tf);
+  }
+
+  bool passPointerToHiddenCopy(Type *t, bool isReturnValue, LINK linkage,
+                               TypeFunction *tf = nullptr) const {
     // 80-bit real/ireal:
     // * returned on the x87 stack (for DMD inline asm compliance and what LLVM
     //   defaults to)
@@ -51,7 +56,7 @@ private:
     if (isX87(t))
       return !isReturnValue;
 
-    const bool isMSVCpp = isMSVC && tf->linkage == LINK::cpp;
+    const bool isMSVCpp = isMSVC && linkage == LINK::cpp;
 
     // Handle non-PODs:
     if (isReturnValue) {
@@ -77,7 +82,8 @@ private:
     }
 
     // __vectorcall: Homogeneous Vector Aggregates are passed in registers
-    if (isExternD(tf) && isHVA(t, hfvaToArray.maxElements))
+    const bool isD = tf ? isExternD(tf) : linkage == LINK::d;
+    if (isD && isHVA(t, hfvaToArray.maxElements))
       return false;
 
     // Remaining aggregates which can NOT be rewritten as integers (size > 8
@@ -134,6 +140,12 @@ public:
     //   in SIMD register(s)
     // * all other types are returned via sret
     return passPointerToHiddenCopy(rt, /*isReturnValue=*/true, tf);
+  }
+
+  // Prefer a ref if the POD cannot be passed in a register, i.e., if
+  // IndirectByvalRewrite would be applied.
+  bool preferPassByRef(Type *t) override {
+    return passPointerToHiddenCopy(t->toBasetype(), false, LINK::d);
   }
 
   bool passByVal(TypeFunction *, Type *) override {
