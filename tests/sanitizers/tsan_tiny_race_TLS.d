@@ -1,34 +1,29 @@
 // Test that ThreadSanitizer+LDC works on a very basic testcase.
-// Note that -betterC is used, to avoid relying on druntime for this test.
 
 // REQUIRES: TSan
 // REQUIRES: atleast_llvm800
 
-// RUN: %ldc -betterC -g -fsanitize=thread %s -of=%t%exe
+// RUN: %ldc -g -fsanitize=thread %s -of=%t%exe
 // RUN: %deflake 20 %t%exe | FileCheck %s
 
 // CHECK: WARNING: ThreadSanitizer: data race
 
-import core.sys.posix.pthread;
+import core.thread;
 
-extern(C)
-void *thread1(void *x) {
+void thread1(ref int x) nothrow {
   barrier_wait(&barrier);
-// CHECK-DAG: thread1{{.*}}[[@LINE+1]]
-  *cast(int*)x = 42;
-  return x;
+// CHECK-DAG: 7thread1{{.*}}[[@LINE+1]]
+  x = 42;
 }
 
-extern(C)
 int main() {
   int tls_variable;
   barrier_init(&barrier, 2);
-  pthread_t t;
-  pthread_create(&t, null, &thread1, &tls_variable);
-// CHECK-DAG: main{{.*}}[[@LINE+1]]
+  auto tid = createLowLevelThread(() { thread1(tls_variable); });
+// CHECK-DAG: _Dmain{{.*}}[[@LINE+1]]
   tls_variable = 43;
   barrier_wait(&barrier);
-  pthread_join(t, null);
+  joinLowLevelThread(tid);
   return 0;
 }
 
@@ -44,6 +39,8 @@ import core.stdc.config;
 alias __c_unsigned = uint;
 // Default instance of the barrier, but a test can declare more manually.
 __gshared invisible_barrier_t barrier;
+
+nothrow:
 
 extern (C) {
   // These functions reside inside the tsan library.

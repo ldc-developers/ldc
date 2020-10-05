@@ -33,6 +33,7 @@ config.ldc_host_arch       = "@LLVM_NATIVE_ARCH@"
 config.ldc_with_lld        = @LDC_WITH_LLD@
 config.spirv_enabled       = @LLVM_SPIRV_FOUND@
 config.rt_supports_sanitizers = @RT_SUPPORT_SANITIZERS@
+config.shared_rt_libs_only = "@BUILD_SHARED_LIBS@" == "ON"
 
 config.name = 'LDC'
 
