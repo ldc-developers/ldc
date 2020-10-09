@@ -3,12 +3,12 @@
 import ldc.attributes;
 
 // CHECK:      define{{.*}} @{{.*}}3foo
-// CHECK-SAME: i8*{{.*}} noalias %p_arg
+// CHECK-SAME: i8*{{.*}} noalias align 1 %p_arg
 void foo(@llvmAttr("noalias") void* p) {}
 
 // CHECK:      define{{.*}} @{{.*}}3bar
-// CHECK-SAME: [16 x float]*{{.*}} noalias dereferenceable(64) %kernel
-// CHECK-SAME: float*{{.*}} noalias %data_arg
+// CHECK-SAME: [16 x float]*{{.*}} noalias align 4 dereferenceable(64) %kernel
+// CHECK-SAME: float*{{.*}} noalias align 4 %data_arg
 void bar(@restrict float* data, @restrict ref const float[16] kernel) {}
 
 // CHECK:      define{{.*}} @{{.*}}14classReference
