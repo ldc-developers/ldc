@@ -98,8 +98,8 @@ function(build_d_executable target_name output_exe d_src_files compiler_args lin
             set(translated_linker_args "-gcc=${CMAKE_CXX_COMPILER}" ${translated_linker_args})
         endif()
 
-        # Use an extra custom target as dependency for the executable instead
-        # of the object files directly to improve parallelization.
+        # Use an extra custom target as dependency for the executable in
+        # addition to the object files directly to improve parallelization.
         # See https://github.com/ldc-developers/ldc/pull/3575.
         add_custom_target(${target_name}_d_objects DEPENDS ${object_files})
 
@@ -107,7 +107,7 @@ function(build_d_executable target_name output_exe d_src_files compiler_args lin
             OUTPUT ${output_exe}
             COMMAND ${D_COMPILER} ${dflags} -of${output_exe} ${objects_args} ${dep_libs} ${translated_linker_args}
             WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-            DEPENDS ${target_name}_d_objects ${link_deps}
+            DEPENDS ${target_name}_d_objects ${object_files} ${link_deps}
         )
         add_custom_target(${target_name} ALL DEPENDS ${output_exe})
     endif()
