@@ -15,7 +15,7 @@ build_d_executable(
     "${LDCPRUNECACHE_EXE}"
     "${LDCPRUNECACHE_EXE_FULL}"
     "${LDCPRUNECACHE_D_SRC}"
-    "-I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH}"
+    "${DFLAGS_BUILD_TYPE}"
     ""
     ""
     ""

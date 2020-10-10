@@ -1,10 +1,19 @@
-# Translates linker args for usage in DMD-compatible command-line (prepend -L).
+# Translates linker args for usage in DMD-compatible command-line.
 macro(translate_linker_args in_var out_var)
     set(${out_var} "")
     foreach(f IN LISTS "${in_var}")
         if(NOT "${f}" STREQUAL "")
-            string(REPLACE "-LIBPATH:" "/LIBPATH:" f ${f})
-            list(APPEND ${out_var} "-L${f}")
+            if(MSVC)
+                string(REPLACE "-LIBPATH:" "/LIBPATH:" f ${f})
+                list(APPEND ${out_var} "-L${f}")
+            else()
+                # Work around `-Xcc=-Wl,...` issue for older ldmd2 host compilers.
+                if("${D_COMPILER_ID}" STREQUAL "LDMD" AND "${f}" MATCHES "^-Wl,")
+                    list(APPEND ${out_var} "-L${f}")
+                else()
+                    list(APPEND ${out_var} "-Xcc=${f}")
+                endif()
+            endif()
         endif()
     endforeach()
 endmacro()
@@ -13,12 +22,11 @@ endmacro()
 # - D_COMPILER
 # - D_COMPILER_ID
 # - D_COMPILER_FLAGS
-# - DDMD_DFLAGS
-# - DDMD_LFLAGS
+# - DFLAGS_BASE
 # - LDC_LINK_MANUALLY
 # - D_LINKER_ARGS
 function(build_d_executable target_name output_exe d_src_files compiler_args linker_args extra_compile_deps link_deps compile_separately)
-    set(dflags "${D_COMPILER_FLAGS} ${DDMD_DFLAGS}")
+    set(dflags "${D_COMPILER_FLAGS} ${DFLAGS_BASE} ${compiler_args}")
     if(UNIX)
       separate_arguments(dflags UNIX_COMMAND "${dflags}")
     else()
@@ -37,7 +45,7 @@ function(build_d_executable target_name output_exe d_src_files compiler_args lin
         endif()
         add_custom_command(
             OUTPUT ${object_file}
-            COMMAND ${D_COMPILER} -c ${dflags} -of${object_file} ${compiler_args} ${d_src_files}
+            COMMAND ${D_COMPILER} -c ${dflags} -of${object_file} ${d_src_files}
             WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
             DEPENDS ${d_src_files} ${extra_compile_deps}
         )
@@ -51,7 +59,7 @@ function(build_d_executable target_name output_exe d_src_files compiler_args lin
             set(object_file ${PROJECT_BINARY_DIR}/obj/${target_name}/${object_file}${CMAKE_CXX_OUTPUT_EXTENSION})
             add_custom_command(
                 OUTPUT ${object_file}
-                COMMAND ${D_COMPILER} -c ${dflags} -of${object_file} ${compiler_args} ${f}
+                COMMAND ${D_COMPILER} -c ${dflags} -of${object_file} ${f}
                 WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
                 DEPENDS ${f} ${extra_compile_deps}
             )
@@ -82,13 +90,24 @@ function(build_d_executable target_name output_exe d_src_files compiler_args lin
             list(APPEND dep_libs "-L$<TARGET_LINKER_FILE:${l}>")
         endforeach()
 
-        translate_linker_args(linker_args translated_linker_args)
+        set(full_linker_args ${CMAKE_EXE_LINKER_FLAGS} ${linker_args})
+        translate_linker_args(full_linker_args translated_linker_args)
+
+        # We need to link against the C++ runtime library.
+        if(NOT MSVC AND "${D_COMPILER_ID}" STREQUAL "LDMD")
+            set(translated_linker_args "-gcc=${CMAKE_CXX_COMPILER}" ${translated_linker_args})
+        endif()
+
+        # Use an extra custom target as dependency for the executable instead
+        # of the object files directly to improve parallelization.
+        # See https://github.com/ldc-developers/ldc/pull/3575.
+        add_custom_target(${target_name}_d_objects DEPENDS ${object_files})
 
         add_custom_command(
             OUTPUT ${output_exe}
-            COMMAND ${D_COMPILER} ${dflags} ${DDMD_LFLAGS} -of${output_exe} ${objects_args} ${dep_libs} ${translated_linker_args}
+            COMMAND ${D_COMPILER} ${dflags} -of${output_exe} ${objects_args} ${dep_libs} ${translated_linker_args}
             WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-            DEPENDS ${object_files} ${link_deps}
+            DEPENDS ${target_name}_d_objects ${link_deps}
         )
         add_custom_target(${target_name} ALL DEPENDS ${output_exe})
     endif()

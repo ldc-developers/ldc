@@ -17,7 +17,7 @@ output_conf=$6
 # parse multilib triple from `-v` output
 set +e
 # extract `config    /path/to/ldc2.conf (i686-unknown-linux-gnu)`
-triple="$(echo "module bla;" | $ldc -m$bitness -v -o- -conf=$input_conf - | grep -m 1 '^config')"
+triple="$(echo "module object;" | $ldc -m$bitness -v -o- -conf=$input_conf - | grep -m 1 '^config')"
 triple="${triple##* (}" # `i686-unknown-linux-gnu)`
 triple="${triple%)}"    # `i686-unknown-linux-gnu`
 if [ "${triple//[^-]/}" = "---" ]; then

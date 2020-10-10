@@ -71,6 +71,7 @@ commonSteps: &commonSteps
           cmake -G Ninja $CIRCLE_WORKING_DIRECTORY \
             -DCMAKE_BUILD_TYPE=Release \
             -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
+            -DLDC_LINK_MANUALLY=OFF \
             $EXTRA_CMAKE_FLAGS
           # Work around out-of-memory errors - retry twice with parallelization and one last time serially
           targets='all ldc2-unittest all-test-runners'
@@ -124,7 +125,7 @@ jobs:
       - LIBCLANG_COMMON_VERSION: "10"
       - EXTRA_APT_PACKAGES: gdmd
       - HOST_LDC_VERSION: 1.22.0
-      - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=gdmd"
+      - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
   macOS-x64:
     <<: *commonSteps
     macos:

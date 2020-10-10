@@ -157,42 +157,42 @@ set(LDC_EXE_NAME ${PROGRAM_PREFIX}${LDC_EXE}${PROGRAM_SUFFIX})
 set(LDMD_EXE_NAME ${PROGRAM_PREFIX}${LDMD_EXE}${PROGRAM_SUFFIX})
 
 # Setup D compiler flags (DMD syntax, which also works with LDMD).
-set(DDMD_DFLAGS "-wi")
-set(DDMD_LFLAGS "")
+set(DFLAGS_BASE "-wi")
+set(DFLAGS_BUILD_TYPE "") # DFLAGS derived from CMAKE_BUILD_TYPE
 if(NOT MSVC_IDE)
     # for multi-config builds, these options have to be added later to the custom command
     if(CMAKE_BUILD_TYPE MATCHES "Debug")
-        append("-g" DDMD_DFLAGS)
+        append("-g" DFLAGS_BUILD_TYPE)
         if(${D_COMPILER_ID} STREQUAL "LDMD")
-            append("-link-debuglib" DDMD_DFLAGS)
+            append("-link-debuglib" DFLAGS_BUILD_TYPE)
         endif()
     elseif(CMAKE_BUILD_TYPE MATCHES "RelWithDebInfo")
-        append("-g -O -inline -release" DDMD_DFLAGS)
+        append("-g -O -inline -release" DFLAGS_BUILD_TYPE)
     else()
         # Default to a Release build type
-        append("-O -inline -release" DDMD_DFLAGS)
+        append("-O -inline -release" DFLAGS_BUILD_TYPE)
     endif()
 
     if(LLVM_ENABLE_ASSERTIONS)
-        string(REPLACE " -release" "" DDMD_DFLAGS "${DDMD_DFLAGS}")
+        string(REPLACE " -release" "" DFLAGS_BUILD_TYPE "${DFLAGS_BUILD_TYPE}")
     endif()
 endif()
 
 if(MSVC)
     if(CMAKE_SIZEOF_VOID_P EQUAL 8)
         message(STATUS "Let D host compiler output 64bit object files")
-        append("-m64" DDMD_DFLAGS)
+        append("-m64" DFLAGS_BASE)
     else()
         message(STATUS "Let D host compiler output 32bit COFF object files")
         if(${D_COMPILER_ID} STREQUAL "DigitalMars")
-            append("-m32mscoff" DDMD_DFLAGS)
+            append("-m32mscoff" DFLAGS_BASE)
         else()
-            append("-m32" DDMD_DFLAGS)
+            append("-m32" DFLAGS_BASE)
         endif()
     endif()
 
     if(${D_COMPILER_ID} STREQUAL "DigitalMars" AND (MSVC_VERSION GREATER 1800)) # VS 2015+
-        append("-Llegacy_stdio_definitions.lib" DDMD_DFLAGS)
+        append("-Llegacy_stdio_definitions.lib" DFLAGS_BASE)
     endif()
 
     # Link against the static MSVC runtime; CMake's C(++) flags apparently default to the dynamic one.
@@ -215,9 +215,6 @@ if(MSVC)
         endif()
     endforeach()
 endif()
-
-append("-J${PROJECT_SOURCE_DIR}/dmd/res" DDMD_DFLAGS) # Needed for importing text files
-string(STRIP "${DDMD_DFLAGS}" DDMD_DFLAGS)
 
 # Use separate compiler flags for the frontend and for the LDC-specific parts,
 # as enabling warnings on the DMD frontend only leads to a lot of clutter in
@@ -442,6 +439,7 @@ endif()
 #
 # Configure the build system to use LTO and/or PGO while building LDC
 #
+set(DFLAGS_LDC "")
 include(HandleLTOPGOBuildOptions)
 
 #
@@ -463,10 +461,11 @@ endif()
 #
 
 include_directories(. dmd)
-append("-I${PROJECT_SOURCE_DIR}" DDMD_DFLAGS)
-append("-I${PROJECT_BINARY_DIR}" DDMD_DFLAGS)
+append("-I${PROJECT_SOURCE_DIR}" DFLAGS_LDC)
+append("-I${PROJECT_BINARY_DIR}" DFLAGS_LDC)
+append("-J${PROJECT_SOURCE_DIR}/dmd/res" DFLAGS_LDC)
 
-append("-version=IN_LLVM" DDMD_DFLAGS)
+append("-version=IN_LLVM" DFLAGS_LDC)
 append("-DIN_LLVM" LDC_CXXFLAGS)
 append("-DOPAQUE_VTBLS" LDC_CXXFLAGS)
 # Predefine LDC_INSTALL_PREFIX as raw string literal, requiring shell + CMake escaping.
@@ -529,7 +528,7 @@ else()
         # Define a 'HOST_D' CMake linker language for the static LDCShared
         # library, using the host ldmd2 compiler ≥ v1.5 as archiver, which
         # supports LTO objects and cross-archiving.
-        set(CMAKE_HOST_D_CREATE_STATIC_LIBRARY "${D_COMPILER} -lib ${D_COMPILER_FLAGS} ${DDMD_DFLAGS} -of=<TARGET> <OBJECTS>")
+        set(CMAKE_HOST_D_CREATE_STATIC_LIBRARY "${D_COMPILER} -lib ${D_COMPILER_FLAGS} ${DFLAGS_BASE} -of=<TARGET> <OBJECTS>")
         set(LDC_LIB_LANGUAGE HOST_D)
     endif()
 endif()
@@ -626,28 +625,27 @@ if(LDC_ENABLE_PLUGINS)
 endif()
 message(STATUS "Building LDC with plugin support: ${LDC_ENABLE_PLUGINS} (LDC_ENABLE_PLUGINS=${LDC_ENABLE_PLUGINS})")
 
-set(LDC_LINK_MANUALLY OFF)
-if(UNIX AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")))
-    # On Unix-like systems, DMD and LDC will use the C compiler for linking, but
-    # will pass on -L options prefixed by -Xlinker to directly forward them to
-    # the underlying ld. Since there are some flags the GCC driver handles itself
-    # rather than passing them to ld, we cannot just directly translate
-    # LDC_LINKERFLAG_LIST to -L options. To be able to handle general linker flags,
-    # we manually invoke the linker instead of using the D compiler to do so.
-    set(LDC_LINK_MANUALLY ON)
-
-    if(NOT DEFINED D_LINKER_ARGS)
-        include(ExtractDMDSystemLinker)
-        message(STATUS "Host D compiler linker program: ${D_LINKER_COMMAND}")
-        message(STATUS "Host D compiler linker flags: ${D_LINKER_ARGS}")
+if(NOT DEFINED LDC_LINK_MANUALLY)
+    if(MSVC)
+        # Use the D host compiler for linking D executables.
+        set(LDC_LINK_MANUALLY OFF)
+    else()
+        # On Unix-like systems, default to having CMake link the D executables via the C++ compiler.
+        # (Using the D compiler needs -Xcc and -gcc support, see file BuildDExecutable.cmake.)
+        set(LDC_LINK_MANUALLY ON)
     endif()
+endif()
+if(LDC_LINK_MANUALLY AND NOT DEFINED D_LINKER_ARGS)
+    include(ExtractDMDSystemLinker)
+    message(STATUS "Host D compiler linker program: ${D_LINKER_COMMAND}")
+    message(STATUS "Host D compiler linker flags: ${D_LINKER_ARGS}")
 endif()
 
 build_d_executable(
     "${LDC_EXE}"
     "${LDC_EXE_FULL}"
     "${LDC_D_SOURCE_FILES}"
-    ""
+    "${DFLAGS_BUILD_TYPE} ${DFLAGS_LDC}"
     "${LDC_LINKERFLAG_LIST}"
     "${FE_RES}"
     "${LDC_LIB}"
@@ -689,7 +687,7 @@ build_d_executable(
     "${LDMD_EXE}"
     "${LDMD_EXE_FULL}"
     "${LDMD_D_SOURCE_FILES}"
-    ""
+    "${DFLAGS_BUILD_TYPE}"
     "${LDC_LINKERFLAG_LIST}"
     ""
     "LDMD_CXX_LIB"
@@ -829,11 +827,11 @@ build_d_executable(
     "${LDC_UNITTEST_EXE}"
     "${LDC_UNITTEST_EXE_FULL}"
     "${LDC_D_SOURCE_FILES}"
-    "-unittest"
+    "-g -unittest ${DFLAGS_LDC}"
     "${LDC_LINKERFLAG_LIST}"
     ""
     "${LDC_LIB}"
-    ON # always build separately (faster with parallelization)
+    ${COMPILE_D_MODULES_SEPARATELY}
 )
 set_target_properties("${LDC_UNITTEST_EXE}" PROPERTIES EXCLUDE_FROM_ALL ON)
 add_test(NAME build-ldc2-unittest COMMAND "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ldc2-unittest)
@@ -859,7 +857,7 @@ build_d_executable(
     "${LDC_BUILD_RUNTIME_EXE}"
     "${LDC_BUILD_RUNTIME_EXE_FULL}"
     "${PROJECT_BINARY_DIR}/ldc-build-runtime.d"
-    ""
+    "${DFLAGS_BUILD_TYPE}"
     ""
     "${PROJECT_SOURCE_DIR}/runtime/ldc-build-runtime.d.in"
     ""
