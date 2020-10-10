@@ -66,16 +66,16 @@ DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
   if (currentCtx) {
     Logger::println("Using own nested context of current function");
     ctx = currentCtx;
-  } else if (irfunc->decl->isMember2()) {
+  } else if (AggregateDeclaration *ad = irfunc->decl->isMember2()) {
     Logger::println(
         "Current function is member of nested class, loading vthis");
-
-    AggregateDeclaration *cd = irfunc->decl->isMember2();
-    LLValue *val = irfunc->thisArg;
-    if (cd->isClassDeclaration()) {
-      val = DtoLoad(val);
+    LLValue *val =
+        ad->isClassDeclaration() ? DtoLoad(irfunc->thisArg) : irfunc->thisArg;
+    for (; ad; ad = ad->toParent2()->isAggregateDeclaration()) {
+      assert(ad->vthis);
+      val = DtoLoad(DtoGEP(val, 0, getVthisIdx(ad), ".vthis"));
     }
-    ctx = DtoLoad(DtoGEP(val, 0, getVthisIdx(cd), ".vthis"));
+    ctx = val;
     skipDIDeclaration = true;
   } else {
     Logger::println("Regular nested function, using context arg");
@@ -455,17 +455,13 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
       LLValue *src = irFunc.nestArg;
       if (!src) {
         assert(irFunc.thisArg);
-        assert(fd->isMember2());
-        LLValue *thisval = DtoLoad(irFunc.thisArg);
-        AggregateDeclaration *cd = fd->isMember2();
-        assert(cd);
-        assert(cd->vthis);
+        AggregateDeclaration *ad = fd->isMember2();
+        assert(ad);
+        assert(ad->vthis);
+        LLValue *thisptr =
+            ad->isClassDeclaration() ? DtoLoad(irFunc.thisArg) : irFunc.thisArg;
         IF_LOG Logger::println("Indexing to 'this'");
-        if (cd->isStructDeclaration()) {
-          src = DtoExtractValue(thisval, getVthisIdx(cd), ".vthis");
-        } else {
-          src = DtoLoad(DtoGEP(thisval, 0, getVthisIdx(cd), ".vthis"));
-        }
+        src = DtoLoad(DtoGEP(thisptr, 0, getVthisIdx(ad), ".vthis"));
       }
       if (depth > 1) {
         src = DtoBitCast(src, getVoidPtrType());
