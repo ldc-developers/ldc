@@ -863,9 +863,6 @@ void DtoResolveVariable(VarDeclaration *vd) {
 
     auto irGlobal = getIrGlobal(vd, true);
     irGlobal->getValue();
-
-    assert(!vd->ir->isInitialized());
-    vd->ir->setInitialized();
   }
 }
 
