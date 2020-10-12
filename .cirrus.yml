@@ -148,7 +148,7 @@ task:
   timeout_in: 60m
   environment:
     CI_OS: osx
-    LLVM_VERSION: 10.0.0
+    LLVM_VERSION: 11.0.0
     EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
     # OS is preset to `darwin`
     OS: osx
@@ -164,7 +164,7 @@ task:
   timeout_in: 60m
   environment:
     CI_OS: osx
-    LLVM_VERSION: 10.0.0
+    LLVM_VERSION: 11.0.0
     EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON"
     # OS is preset to `darwin`
     OS: osx
