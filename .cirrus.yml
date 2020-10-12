@@ -142,34 +142,22 @@ task:
   << : *COMMON_STEPS_TEMPLATE
 
 task:
-  name: macOS 10.15 x64
+  name: macOS 10.15 $TASK_NAME_SUFFIX
   osx_instance:
     image: catalina-xcode
   timeout_in: 60m
   environment:
     CI_OS: osx
     LLVM_VERSION: 11.0.0
-    EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
     # OS is preset to `darwin`
     OS: osx
     PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
     PARALLELISM: 4
-  << : *INSTALL_MACOS_PREREQUISITES_TEMPLATE
-  << : *COMMON_STEPS_TEMPLATE
-
-task:
-  name: macOS 10.15 x64 shared-libs-only
-  osx_instance:
-    image: catalina-xcode
-  timeout_in: 60m
-  environment:
-    CI_OS: osx
-    LLVM_VERSION: 11.0.0
-    EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON"
-    # OS is preset to `darwin`
-    OS: osx
-    PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
-    PARALLELISM: 4
+    matrix:
+      - TASK_NAME_SUFFIX: x64
+        EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
+      - TASK_NAME_SUFFIX: x64 shared-libs-only
+        EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON"
   << : *INSTALL_MACOS_PREREQUISITES_TEMPLATE
   << : *COMMON_STEPS_TEMPLATE
 
