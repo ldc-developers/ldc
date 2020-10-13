@@ -622,6 +622,11 @@ struct BitRange
  * Returns:
  *      `x` with bytes swapped
  */
+version (LDC)
+{
+    alias byteswap = llvm_bswap!ushort;
+}
+else
 pragma(inline, false)
 ushort byteswap(ushort x) pure
 {
