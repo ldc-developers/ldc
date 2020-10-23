@@ -1,3 +1,25 @@
+# LDC 1.24.0 (2020-10-24)
+
+#### Big news
+- Frontend, druntime and Phobos are at version [2.094.1+](https://dlang.org/changelog/2.094.0.html), incl. new command-line options `-cov=ctfe`,  `-vtemplates=list-instances` and `-HC=<silent|verbose>` . (#3560, #3582, #3588, #3593)
+- Support for **LLVM 11**. The prebuilt packages use v11.0.0; x86 packages newly include the LLVM backend for AMD GPUs. (#3546, #3586)
+- Experimental support for **macOS on 64-bit ARM**, thanks Guillaume! All druntime/Phobos unit tests pass. The macOS package includes prebuilt druntime/Phobos; adapt the SDK path in `etc/ldc2.conf` and then use `-mtriple=arm64-apple-macos` to cross-compile. (dlang/druntime#3226, #3583)
+
+#### Platform support
+- Supports LLVM 6.0 - 11.0.
+
+#### Bug fixes
+- Fix potentially wrong context pointers when calling delegate literals. (#3553, #3554)
+- Fix alignment issue when casting vector rvalue to static array. (c8889a9219)
+- Make sure lambdas in `pragma(inline, true)` functions are emitted into each referencing compilation unit. (#3570)
+- Fix `-Xcc=-Wl,...` by dropping support for comma-separated list of `cc` options. (c61b1357ed)
+- Fix ThreadSanitizer support by not detaching main thread upon program termination. (#3572)
+- Traverse full chain of nested aggregates when resolving a nested variable. (#3556, #3558)
+
+#### Internals
+- CI: Linux AArch64 is now also tested by a Travis job, because Shippable has sadly become unreliable. (#3469)
+- Building LDC with an LDC host compiler might be somewhat faster now (requires `-DLDC_LINK_MANUALLY=OFF` in the CMake command-line on non-Windows hosts). (#3575)
+
 # LDC 1.23.0 (2020-08-19)
 
 #### Big news
