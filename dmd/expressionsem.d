@@ -61,7 +61,6 @@ import dmd.root.ctfloat;
 import dmd.root.file;
 import dmd.root.filename;
 import dmd.root.outbuffer;
-import dmd.root.rmem;
 import dmd.root.rootobject;
 import dmd.root.string;
 import dmd.semantic2;
@@ -466,7 +465,7 @@ private Expression searchUFCS(Scope* sc, UnaExp ue, Identifier ident)
     if (ue.op == TOK.dotTemplateInstance)
     {
         DotTemplateInstanceExp dti = cast(DotTemplateInstanceExp)ue;
-        auto ti = Pool!TemplateInstance.make(loc, s.ident, dti.ti.tiargs);
+        auto ti = new TemplateInstance(loc, s.ident, dti.ti.tiargs);
         if (!ti.updateTempDecl(sc, s))
             return ErrorExp.get();
         return new ScopeExp(loc, ti);
@@ -1440,6 +1439,13 @@ private bool arrayExpressionToCommonType(Scope* sc, Expressions* exps, Type* pt)
             Expression ex = condexp.expressionSemantic(sc);
             if (ex.op == TOK.error)
                 e = ex;
+            else if (e.op == TOK.function_ || e.op == TOK.delegate_)
+            {
+                // https://issues.dlang.org/show_bug.cgi?id=21285
+                // Functions and delegates don't convert correctly with castTo below
+                (*exps)[j0] = condexp.e1;
+                e = condexp.e2;
+            }
             else
             {
                 // Convert to common type
@@ -4172,7 +4178,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                 }
             }
 
-            auto ti = Pool!TemplateInstance.make(exp.loc, exp.td, tiargs);
+            auto ti = new TemplateInstance(exp.loc, exp.td, tiargs);
             return (new ScopeExp(exp.loc, ti)).expressionSemantic(sc);
         }
         return exp.expressionSemantic(sc);
