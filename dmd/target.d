@@ -41,7 +41,6 @@ import dmd.globals;
 import dmd.id;
 import dmd.identifier;
 import dmd.mtype;
-import dmd.root.rmem;
 import dmd.typesem;
 import dmd.tokens : TOK;
 import dmd.root.ctfloat;
@@ -318,7 +317,7 @@ else // !IN_LLVM
         {
             if (global.params.is64bit)
             {
-                tvalist = Pool!TypeIdentifier.make(Loc.initial, Identifier.idPool("__va_list_tag")).pointerTo();
+                tvalist = new TypeIdentifier(Loc.initial, Identifier.idPool("__va_list_tag")).pointerTo();
                 tvalist = typeSemantic(tvalist, loc, sc);
             }
             else
