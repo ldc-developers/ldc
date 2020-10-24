@@ -131,14 +131,13 @@ task:
   timeout_in: 60m
   environment:
     CI_OS: linux
-    LIBCLANG_COMMON_VERSION: "10"
-    EXTRA_APT_PACKAGES: "gdmd locales"
+    LIBCLANG_COMMON_VERSION: "11"
+    EXTRA_APT_PACKAGES: "gdmd"
     EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
     PARALLELISM: 8
+    # for gdmd:
+    LANG: C.UTF-8
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
-  setup_gdmd_script: |
-    locale-gen en_US.UTF-8
-    gdmd --version
   << : *COMMON_STEPS_TEMPLATE
 
 task:
