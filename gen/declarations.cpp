@@ -92,21 +92,23 @@ public:
       return;
     }
 
-    if (decl->members && decl->symtab) {
-      DtoResolveClass(decl);
-      decl->ir->setDefined();
+    if (!(decl->members && decl->symtab)) {
+      return;
+    }
 
-      // Emit any members (e.g. final functions).
-      for (auto m : *decl->members) {
-        m->accept(this);
-      }
+    DtoResolveClass(decl);
+    decl->ir->setDefined();
 
-      // Emit TypeInfo.
-      IrClass *ir = getIrAggr(decl);
-      if (!ir->suppressTypeInfo() && !isSpeculativeType(decl->type)) {
-        llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
-        defineGlobal(interfaceZ, ir->getClassInfoInit(), decl);
-      }
+    // Emit any members (e.g. final functions).
+    for (auto m : *decl->members) {
+      m->accept(this);
+    }
+
+    // Emit TypeInfo.
+    IrClass *ir = getIrAggr(decl);
+    if (!ir->suppressTypeInfo()) {
+      llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
+      defineGlobal(interfaceZ, ir->getClassInfoInit(), decl);
     }
   }
 
@@ -128,6 +130,7 @@ public:
     }
 
     if (!(decl->members && decl->symtab)) {
+      // nothing to do for opaque structs anymore
       return;
     }
 
@@ -151,11 +154,9 @@ public:
         setLinkageAndVisibility(decl, initGlobal);
       }
 
-      // emit typeinfo
+      // Emit special __xopEquals/__xopCmp/__xtoHash member functions required
+      // for the TypeInfo.
       if (!ir->suppressTypeInfo()) {
-        DtoTypeInfoOf(decl->type, /*base=*/false);
-
-        // Emit __xopEquals/__xopCmp/__xtoHash.
         if (decl->xeq && decl->xeq != decl->xerreq) {
           decl->xeq->accept(this);
         }
@@ -165,6 +166,8 @@ public:
         if (decl->xhash) {
           decl->xhash->accept(this);
         }
+
+        // the TypeInfo itself is emitted into each referencing CU
       }
     }
   }
@@ -188,31 +191,33 @@ public:
       return;
     }
 
-    if (decl->members && decl->symtab) {
-      DtoResolveClass(decl);
-      decl->ir->setDefined();
+    if (!(decl->members && decl->symtab)) {
+      return;
+    }
 
-      for (auto m : *decl->members) {
-        m->accept(this);
-      }
+    DtoResolveClass(decl);
+    decl->ir->setDefined();
 
-      IrClass *ir = getIrAggr(decl);
+    for (auto m : *decl->members) {
+      m->accept(this);
+    }
 
-      auto &initZ = ir->getInitSymbol();
-      auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
-      initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
-      setLinkageAndVisibility(decl, initGlobal);
+    IrClass *ir = getIrAggr(decl);
 
-      llvm::GlobalVariable *vtbl = ir->getVtblSymbol();
-      defineGlobal(vtbl, ir->getVtblInit(), decl);
+    auto &initZ = ir->getInitSymbol();
+    auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
+    initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
+    setLinkageAndVisibility(decl, initGlobal);
 
-      ir->defineInterfaceVtbls();
+    llvm::GlobalVariable *vtbl = ir->getVtblSymbol();
+    defineGlobal(vtbl, ir->getVtblInit(), decl);
 
-      // Emit TypeInfo.
-      if (!ir->suppressTypeInfo() && !isSpeculativeType(decl->type)) {
-        llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
-        defineGlobal(classZ, ir->getClassInfoInit(), decl);
-      }
+    ir->defineInterfaceVtbls();
+
+    // Emit TypeInfo.
+    if (!ir->suppressTypeInfo()) {
+      llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
+      defineGlobal(classZ, ir->getClassInfoInit(), decl);
     }
   }
 
@@ -503,8 +508,7 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(TypeInfoDeclaration *decl) override {
-    if (!irs->dcomputetarget)
-      TypeInfoDeclaration_codegen(decl);
+    llvm_unreachable("Should be emitted from codegen layer only");
   }
 };
 
