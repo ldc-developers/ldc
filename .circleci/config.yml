@@ -26,12 +26,12 @@ commonSteps: &commonSteps
             update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
           else
             # Download & extract CMake
-            curl -L -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.16.5/cmake-3.16.5-Darwin-x86_64.tar.gz
+            curl -L -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.18.4/cmake-3.18.4-Darwin-x86_64.tar.gz
             mkdir cmake
             tar -xf cmake.tar.gz --strip 3 -C cmake
             rm cmake.tar.gz
             # Download & extract Ninja
-            curl -OL https://github.com/ninja-build/ninja/releases/download/v1.10.0/ninja-mac.zip
+            curl -OL https://github.com/ninja-build/ninja/releases/download/v1.10.1/ninja-mac.zip
             mkdir ninja
             tar -xf ninja-mac.zip -C ninja
             rm ninja-mac.zip
@@ -129,7 +129,7 @@ jobs:
   macOS-x64:
     <<: *commonSteps
     macos:
-      xcode: "11.5.0"
+      xcode: "12.1.0"
     environment:
       - PARALLELISM: 4
       - CI_OS: osx
@@ -139,7 +139,7 @@ jobs:
   macOS-x64-sharedLibsOnly:
     <<: *commonSteps
     macos:
-      xcode: "11.5.0"
+      xcode: "12.1.0"
     environment:
       - PARALLELISM: 4
       - CI_OS: osx
