@@ -32,16 +32,17 @@ matrix:
       d: dmd-beta
       env: LLVM_VERSION=6.0.1 OPTS="-DLIB_SUFFIX=64 -DLDC_LINK_MANUALLY=ON"
     - os: osx
-      osx_image: xcode10.3
+      osx_image: xcode11.3
       d: dmd-beta
       env: LLVM_VERSION=10.0.0 OPTS="-DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON"
     - os: osx
-      osx_image: xcode10.3
+      osx_image: xcode11.3
       d: ldc-beta
       env: LLVM_VERSION=7.0.0 OPTS="-DBUILD_SHARED_LIBS=OFF"
 
 cache:
   directories:
+    - llvm-11.0.0
     - llvm-10.0.0
     - llvm-9.0.0
     - llvm-8.0.0
@@ -93,7 +94,7 @@ install:
       sudo python get-pip.py
       rm get-pip.py
       # Download & extract Ninja & add to PATH
-      wget -O ninja-mac.zip https://github.com/ninja-build/ninja/releases/download/v1.10.0/ninja-mac.zip
+      wget -O ninja-mac.zip https://github.com/ninja-build/ninja/releases/download/v1.10.1/ninja-mac.zip
       mkdir ninja
       tar -xf ninja-mac.zip -C ninja
       rm ninja-mac.zip
