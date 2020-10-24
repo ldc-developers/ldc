@@ -105,7 +105,7 @@ install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
 
 environment:
   CIRRUS_CLONE_DEPTH: 50
-  HOST_LDC_VERSION: 1.22.0
+  HOST_LDC_VERSION: 1.24.0
 
 task:
   name: Ubuntu 18.04 x64 multilib rtSanitizers

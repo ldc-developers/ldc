@@ -113,7 +113,7 @@ jobs:
       - PARALLELISM: 2
       - CI_OS: linux
       - LIBCLANG_COMMON_VERSION: "6.0"
-      - HOST_LDC_VERSION: 1.22.0
+      - HOST_LDC_VERSION: 1.24.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
   Ubuntu-20.04-sharedLibsOnly-gdmd:
     <<: *commonSteps
@@ -124,7 +124,7 @@ jobs:
       - CI_OS: linux
       - LIBCLANG_COMMON_VERSION: "10"
       - EXTRA_APT_PACKAGES: gdmd
-      - HOST_LDC_VERSION: 1.22.0
+      - HOST_LDC_VERSION: 1.24.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
   macOS-x64:
     <<: *commonSteps
@@ -134,7 +134,7 @@ jobs:
       - PARALLELISM: 4
       - CI_OS: osx
       - LLVM_VERSION: 11.0.0
-      - HOST_LDC_VERSION: 1.22.0
+      - HOST_LDC_VERSION: 1.24.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
   macOS-x64-sharedLibsOnly:
     <<: *commonSteps
@@ -144,7 +144,7 @@ jobs:
       - PARALLELISM: 4
       - CI_OS: osx
       - LLVM_VERSION: 11.0.0
-      - HOST_LDC_VERSION: 1.22.0
+      - HOST_LDC_VERSION: 1.24.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON"
 
 workflows:

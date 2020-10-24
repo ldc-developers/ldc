@@ -8,7 +8,7 @@ app:
     - BITRISE_SCHEME: TestRunner
     - BITRISE_EXPORT_METHOD: development
     - LLVM_VERSION: 11.0.0
-    - LDC_VERSION: 1.22.0
+    - HOST_LDC_VERSION: 1.24.0
     - IOS_VERSION: 12.0
 
 workflows:
@@ -33,9 +33,9 @@ workflows:
             - content: |-
                 #!/bin/bash
                 set -ex
-                curl -L "https://github.com/ldc-developers/ldc/releases/download/v${LDC_VERSION}/ldc2-${LDC_VERSION}-osx-x86_64.tar.xz" -o ldc.tar.xz
+                curl -L "https://github.com/ldc-developers/ldc/releases/download/v${HOST_LDC_VERSION}/ldc2-${HOST_LDC_VERSION}-osx-x86_64.tar.xz" -o ldc.tar.xz
                 tar xf ldc.tar.xz
-                envman add --key PATH --value "$(pwd)/ldc2-${LDC_VERSION}-osx-x86_64/bin:$PATH"
+                envman add --key PATH --value "$(pwd)/ldc2-${HOST_LDC_VERSION}-osx-x86_64/bin:$PATH"
 
       - script@1.1.6:
           title: Build LDC
