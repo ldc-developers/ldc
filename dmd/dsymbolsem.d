@@ -6071,8 +6071,13 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
             tempinst.inst.gagged = tempinst.gagged;
         }
 
-        tempinst.tnext = tempinst.inst.tnext;
-        tempinst.inst.tnext = tempinst;
+        // LDC: the tnext linked list is only used by TemplateInstance.needsCodegen(),
+        //      which is skipped with -linkonce-templates
+        if (!(IN_LLVM && global.params.linkonceTemplates))
+        {
+            tempinst.tnext = tempinst.inst.tnext;
+            tempinst.inst.tnext = tempinst;
+        }
 
         /* A module can have explicit template instance and its alias
          * in module scope (e,g, `alias Base64 = Base64Impl!('+', '/');`).

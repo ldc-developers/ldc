@@ -103,6 +103,9 @@ DValue *DtoPaintType(Loc &loc, DValue *val, Type *to);
 
 // is template instance check, returns module where instantiated
 TemplateInstance *DtoIsTemplateInstance(Dsymbol *s);
+/// Returns true if the specified symbol is to be defined on declaration, for
+/// -linkonce-templates.
+bool defineOnDeclare(Dsymbol *s);
 
 /// Makes sure the declarations corresponding to the given D symbol have been
 /// emitted to the currently processed LLVM module.

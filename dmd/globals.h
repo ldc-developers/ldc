@@ -302,6 +302,8 @@ struct Param
     unsigned hashThreshold; // MD5 hash symbols larger than this threshold (0 = no hashing)
 
     bool outputSourceLocations; // if true, output line tables.
+
+    bool linkonceTemplates; // -linkonce-templates
 #endif
 };
 

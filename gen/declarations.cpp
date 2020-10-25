@@ -324,7 +324,7 @@ public:
     }
 
     // FIXME: This is #673 all over again.
-    if (!decl->needsCodegen()) {
+    if (!global.params.linkonceTemplates && !decl->needsCodegen()) {
       Logger::println("Does not need codegen, skipping.");
       return;
     }

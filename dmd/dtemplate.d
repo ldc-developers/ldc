@@ -6190,6 +6190,11 @@ extern (C++) class TemplateInstance : ScopeDsymbol
      */
     final bool needsCodegen()
     {
+version (IN_LLVM)
+{
+        assert(!global.params.linkonceTemplates);
+}
+
         // Now -allInst is just for the backward compatibility.
         if (global.params.allInst)
         {
@@ -7308,6 +7313,26 @@ extern (C++) class TemplateInstance : ScopeDsymbol
     extern (D) final Dsymbols* appendToModuleMember()
     {
         Module mi = minst; // instantiated . inserted module
+
+version (IN_LLVM)
+{
+        if (global.params.linkonceTemplates)
+        {
+            // abort if it's not a root module
+            if (!mi || !mi.isRoot())
+                return null;
+
+            // instantiated in a root module => make sure the primary instance gets full sema
+            if (!inst.memberOf)
+            {
+                Module.addDeferredSemantic2(inst);
+                Module.addDeferredSemantic3(inst);
+                inst.memberOf = mi; // HACK to restrict to a single pass per primary instance
+            }
+
+            return null;
+        }
+}
 
         if (global.params.useUnitTests)
         {

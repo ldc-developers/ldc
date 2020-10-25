@@ -81,7 +81,6 @@ extern cl::opt<bool> m64bits;
 extern cl::opt<std::string> mTargetTriple;
 extern cl::opt<std::string> mABI;
 extern FloatABI::Type floatABI;
-extern cl::opt<bool> linkonceTemplates;
 extern cl::opt<bool> disableLinkerStripDead;
 extern cl::opt<unsigned char> defaultToHiddenVisibility;
 extern cl::opt<bool> noPLT;

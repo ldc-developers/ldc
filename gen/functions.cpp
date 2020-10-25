@@ -575,10 +575,23 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   // Check if fdecl should be defined too for cross-module inlining.
   // If true, semantic is fully done for fdecl which is needed for some code
   // below (e.g. code that uses fdecl->vthis).
-  const bool defineAtEnd = !willDefine && defineAsExternallyAvailable(*fdecl);
-  if (defineAtEnd) {
-    IF_LOG Logger::println(
-        "Function is an externally_available inline candidate.");
+  bool defineAtEnd = false;
+  bool defineAsAvailableExternally = false;
+  if (willDefine) {
+  } else if (defineOnDeclare(fdecl)) {
+    if (fdecl->semanticRun < PASSsemantic3done) {
+      const bool semaSuccess = fdecl->functionSemantic3();
+      assert(semaSuccess);
+      Module::runDeferredSemantic3();
+    }
+    IF_LOG Logger::println("Function is inside a linkonce_odr template, will "
+                           "be defined after declaration.");
+    defineAtEnd = true;
+  } else if (defineAsExternallyAvailable(*fdecl)) {
+    IF_LOG Logger::println("Function is an externally_available inline "
+                           "candidate, will be defined after declaration.");
+    defineAtEnd = true;
+    defineAsAvailableExternally = true;
   }
 
   // get TypeFunction*
@@ -768,9 +781,8 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
 
   // Now that this function is declared, also define it if needed.
   if (defineAtEnd) {
-    IF_LOG Logger::println(
-        "Function is an externally_available inline candidate: define it now.");
-    DtoDefineFunction(fdecl, /*linkageAvailableExternally=*/true);
+    IF_LOG Logger::println("Define function after declaration:");
+    DtoDefineFunction(fdecl, defineAsAvailableExternally);
   }
 }
 
@@ -1038,7 +1050,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     }
   }
 
-  if (!linkageAvailableExternally && !alreadyOrWillBeDefined(*fd)) {
+  if (!linkageAvailableExternally && skipCodegen(*fd)) {
     IF_LOG Logger::println("Skipping '%s'.", fd->toPrettyChars());
     return;
   }

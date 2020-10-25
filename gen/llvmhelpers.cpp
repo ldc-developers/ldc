@@ -796,16 +796,17 @@ DValue *DtoPaintType(Loc &loc, DValue *val, Type *to) {
  ******************************************************************************/
 
 TemplateInstance *DtoIsTemplateInstance(Dsymbol *s) {
-  if (!s) {
-    return nullptr;
-  }
-  if (s->isTemplateInstance() && !s->isTemplateMixin()) {
-    return s->isTemplateInstance();
-  }
-  if (s->parent) {
-    return DtoIsTemplateInstance(s->parent);
+  for (; s; s = s->parent) {
+    if (auto ti = s->isTemplateInstance()) {
+      if (!ti->isTemplateMixin())
+        return ti;
+    }
   }
   return nullptr;
+}
+
+bool defineOnDeclare(Dsymbol* s) {
+  return global.params.linkonceTemplates && DtoIsTemplateInstance(s);
 }
 
 /******************************************************************************

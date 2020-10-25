@@ -82,6 +82,9 @@ LLConstant *IrAggr::getInitSymbol(bool define) {
     initGlobal->setAlignment(LLMaybeAlign(DtoAlignment(type)));
 
     init = initGlobal;
+
+    if (!define && defineOnDeclare(aggrdecl))
+      define = true;
   }
 
   if (define) {
