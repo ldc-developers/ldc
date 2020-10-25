@@ -86,19 +86,12 @@ void emitTypeInfoMetadata(LLGlobalVariable *typeinfoGlobal, Type *forType) {
       t->ty != Tident) {
     const auto metaname = getMetadataName(TD_PREFIX, typeinfoGlobal);
 
-    llvm::NamedMDNode *meta = gIR->module.getNamedMetadata(metaname);
-
-    if (!meta) {
-      // Construct the fields
-      llvm::Metadata *mdVals[TD_NumFields];
-      mdVals[TD_TypeInfo] = llvm::ValueAsMetadata::get(typeinfoGlobal);
-      mdVals[TD_Type] = llvm::ConstantAsMetadata::get(
-          llvm::UndefValue::get(DtoType(forType)));
-
+    if (!gIR->module.getNamedMetadata(metaname)) {
       // Construct the metadata and insert it into the module.
-      llvm::NamedMDNode *node = gIR->module.getOrInsertNamedMetadata(metaname);
-      node->addOperand(llvm::MDNode::get(
-          gIR->context(), llvm::makeArrayRef(mdVals, TD_NumFields)));
+      auto meta = gIR->module.getOrInsertNamedMetadata(metaname);
+      auto val = llvm::UndefValue::get(DtoType(forType));
+      meta->addOperand(llvm::MDNode::get(gIR->context(),
+                                         llvm::ConstantAsMetadata::get(val)));
     }
   }
 }
