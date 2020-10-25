@@ -12,6 +12,7 @@
 #include "dmd/aggregate.h"
 #include "dmd/declaration.h"
 #include "dmd/expression.h"
+#include "dmd/identifier.h"
 #include "dmd/init.h"
 #include "dmd/mtype.h"
 #include "dmd/target.h"
@@ -55,9 +56,29 @@ LLConstant *IrAggr::getInitSymbol(bool define) {
   if (!init) {
     const auto irMangle = getIRMangledInitSymbolName(aggrdecl);
 
-    auto initGlobal =
-        declareGlobal(aggrdecl->loc, gIR->module, getLLStructType(), irMangle,
-                      /*isConstant=*/true);
+    // Init symbols of built-in TypeInfo classes (in rt.util.typeinfo) are
+    // special.
+    auto cd = aggrdecl->isClassDeclaration();
+    const bool isBuiltinTypeInfo =
+        cd && llvm::StringRef(cd->ident->toChars()).startswith("TypeInfo_");
+
+    // Only declare the symbol if it isn't yet, otherwise the init symbol of
+    // built-in TypeInfos may clash with an existing base-typed forward
+    // declaration when compiling the rt.util.typeinfo unittests.
+    auto initGlobal = gIR->module.getGlobalVariable(irMangle);
+    if (initGlobal) {
+      assert(isBuiltinTypeInfo && !initGlobal->hasInitializer() &&
+             "existing global expected to be a built-in TypeInfo forward "
+             "declaration");
+    } else {
+      // Init symbols of built-in TypeInfos need to be kept mutable as the type
+      // is not declared as immutable on the D side, and e.g. synchronized() can
+      // be used on the implicit monitor.
+      initGlobal =
+          declareGlobal(aggrdecl->loc, gIR->module, getLLStructType(), irMangle,
+                        /*isConstant=*/!isBuiltinTypeInfo);
+    }
+
     initGlobal->setAlignment(LLMaybeAlign(DtoAlignment(type)));
 
     init = initGlobal;

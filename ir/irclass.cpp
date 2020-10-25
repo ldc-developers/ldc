@@ -96,10 +96,11 @@ LLGlobalVariable *IrClass::getClassInfoSymbol(bool define) {
     IrTypeClass *tc = stripModifiers(cinfoType)->ctype->isClass();
     assert(tc && "invalid ClassInfo type");
 
-    // classinfos cannot be constants since they're used as locks for
-    // synchronized
+    // We need to keep the symbol mutable as the type is not declared as
+    // immutable on the D side, and e.g. synchronized() can be used on the
+    // implicit monitor.
     typeInfo = declareGlobal(aggrdecl->loc, gIR->module, tc->getMemoryLLType(),
-                             irMangle, false);
+                             irMangle, /*isConstant=*/false);
 
     // Generate some metadata on this ClassInfo if it's for a class.
     if (!aggrdecl->isInterfaceDeclaration()) {
