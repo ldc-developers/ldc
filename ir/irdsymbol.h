@@ -45,7 +45,7 @@ struct IrDsymbol {
     FieldType
   };
 
-  enum State { Initial, Resolved, Declared, Initialized, Defined };
+  enum State { Initial, Resolved, Declared, Defined };
 
   static std::vector<IrDsymbol *> list;
   static void resetAll();
@@ -63,12 +63,10 @@ struct IrDsymbol {
 
   bool isResolved() const { return m_state >= Resolved; }
   bool isDeclared() const { return m_state >= Declared; }
-  bool isInitialized() const { return m_state >= Initialized; }
   bool isDefined() const { return m_state >= Defined; }
 
   void setResolved();
   void setDeclared();
-  void setInitialized();
   void setDefined();
 
 private:

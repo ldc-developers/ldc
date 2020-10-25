@@ -51,19 +51,26 @@ bool IrAggr::suppressTypeInfo() const {
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLConstant *&IrAggr::getInitSymbol() {
-  if (init) {
-    return init;
+LLConstant *IrAggr::getInitSymbol(bool define) {
+  if (!init) {
+    const auto irMangle = getIRMangledInitSymbolName(aggrdecl);
+
+    auto initGlobal =
+        declareGlobal(aggrdecl->loc, gIR->module, getLLStructType(), irMangle,
+                      /*isConstant=*/true);
+    initGlobal->setAlignment(LLMaybeAlign(DtoAlignment(type)));
+
+    init = initGlobal;
   }
 
-  // create the initZ symbol
-  const auto irMangle = getIRMangledInitSymbolName(aggrdecl);
-
-  auto initGlobal = declareGlobal(aggrdecl->loc, gIR->module, getLLStructType(),
-                                  irMangle, /*isConstant=*/true);
-  initGlobal->setAlignment(LLMaybeAlign(DtoAlignment(type)));
-
-  init = initGlobal;
+  if (define) {
+    auto initConstant = getDefaultInit();
+    auto initGlobal = llvm::dyn_cast<LLGlobalVariable>(init);
+    if (initGlobal // NOT a bitcast pointer to helper global
+        && !initGlobal->hasInitializer()) {
+      init = gIR->setGlobalVarInitializer(initGlobal, initConstant, aggrdecl);
+    }
+  }
 
   return init;
 }
@@ -165,12 +172,10 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
     }
   }
 
-  // Add the initializers for the member fields. While we are traversing the
-  // class hierarchy, use the opportunity to populate interfacesWithVtbls if
-  // we haven't done so previously (due to e.g. ClassReferenceExp, we can
-  // have multiple initializer constants for a single class).
+  // Add the initializers for the member fields.
+  unsigned dummy = 0;
   addFieldInitializers(constants, explicitInitializers, aggrdecl, offset,
-                       irClass && irClass->interfacesWithVtbls.empty());
+                       dummy);
 
   // tail padding?
   const size_t structsize = aggrdecl->size(Loc());
@@ -209,12 +214,12 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
 void IrAggr::addFieldInitializers(
     llvm::SmallVectorImpl<llvm::Constant *> &constants,
     const VarInitMap &explicitInitializers, AggregateDeclaration *decl,
-    unsigned &offset, bool populateInterfacesWithVtbls) {
+    unsigned &offset, unsigned &interfaceVtblIndex) {
 
   if (ClassDeclaration *cd = decl->isClassDeclaration()) {
     if (cd->baseClass) {
       addFieldInitializers(constants, explicitInitializers, cd->baseClass,
-                           offset, populateInterfacesWithVtbls);
+                           offset, interfaceVtblIndex);
     }
 
     // has interface vtbls?
@@ -228,14 +233,11 @@ void IrAggr::addFieldInitializers(
       }
 
       IrClass *irClass = static_cast<IrClass *>(this);
-      size_t inter_idx = irClass->interfacesWithVtbls.size();
       for (auto bc : *cd->vtblInterfaces) {
-        constants.push_back(irClass->getInterfaceVtblSymbol(bc, inter_idx));
+        constants.push_back(
+            irClass->getInterfaceVtblSymbol(bc, interfaceVtblIndex));
         offset += target.ptrsize;
-        inter_idx++;
-
-        if (populateInterfacesWithVtbls)
-          irClass->interfacesWithVtbls.push_back(bc);
+        ++interfaceVtblIndex;
       }
     }
   }

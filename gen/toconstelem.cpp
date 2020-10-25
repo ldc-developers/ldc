@@ -407,7 +407,7 @@ public:
 
       p->setStructLiteralConstant(se, globalVar);
       llvm::Constant *constValue = toConstElem(se);
-      constValue = p->setGlobalVarInitializer(globalVar, constValue);
+      constValue = p->setGlobalVarInitializer(globalVar, constValue, nullptr);
       p->setStructLiteralConstant(se, constValue);
 
       result = constValue;
@@ -604,7 +604,7 @@ public:
 
       llvm::Constant *constValue =
           getIrAggr(origClass)->createInitializerConstant(varInits);
-      constValue = p->setGlobalVarInitializer(globalVar, constValue);
+      constValue = p->setGlobalVarInitializer(globalVar, constValue, nullptr);
       p->setStructLiteralConstant(value, constValue);
 
       result = constValue;

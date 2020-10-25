@@ -107,8 +107,7 @@ public:
     // Emit TypeInfo.
     IrClass *ir = getIrAggr(decl);
     if (!ir->suppressTypeInfo()) {
-      llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
-      defineGlobal(interfaceZ, ir->getClassInfoInit(), decl);
+      ir->getClassInfoSymbol(/*define=*/true);
     }
   }
 
@@ -148,10 +147,7 @@ public:
 
       // Define the __initZ symbol.
       if (!decl->zeroInit) {
-        auto &initZ = ir->getInitSymbol();
-        auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
-        initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
-        setLinkageAndVisibility(decl, initGlobal);
+        ir->getInitSymbol(/*define=*/true);
       }
 
       // Emit special __xopEquals/__xopCmp/__xtoHash member functions required
@@ -204,20 +200,15 @@ public:
 
     IrClass *ir = getIrAggr(decl);
 
-    auto &initZ = ir->getInitSymbol();
-    auto initGlobal = llvm::cast<LLGlobalVariable>(initZ);
-    initZ = irs->setGlobalVarInitializer(initGlobal, ir->getDefaultInit());
-    setLinkageAndVisibility(decl, initGlobal);
+    ir->getInitSymbol(/*define=*/true);
 
-    llvm::GlobalVariable *vtbl = ir->getVtblSymbol();
-    defineGlobal(vtbl, ir->getVtblInit(), decl);
+    ir->getVtblSymbol(/*define*/true);
 
     ir->defineInterfaceVtbls();
 
     // Emit TypeInfo.
     if (!ir->suppressTypeInfo()) {
-      llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
-      defineGlobal(classZ, ir->getClassInfoInit(), decl);
+      ir->getClassInfoSymbol(/*define=*/true);
     }
   }
 
@@ -278,57 +269,13 @@ public:
              "manifest constant being codegen'd!");
       assert(!irs->dcomputetarget);
 
-      IrGlobal *irGlobal = getIrGlobal(decl);
-      LLGlobalVariable *gvar = llvm::cast<LLGlobalVariable>(irGlobal->value);
-      assert(gvar && "DtoResolveVariable should have created value");
-
-      if (global.params.vtls && gvar->isThreadLocal() &&
-          !(decl->storage_class & STCtemp)) {
-        const char *p = decl->loc.toChars();
-        message("%s: `%s` is thread local", p, decl->toChars());
-      }
-
       // Check if we are defining or just declaring the global in this module.
       // If we reach here during codegen of an available_externally function,
       // new variable declarations should stay external and therefore must not
       // have an initializer.
-      if (!(decl->storage_class & STCextern) && !decl->inNonRoot()) {
-        // Build the initializer. Might use irGlobal->value!
-        LLConstant *initVal =
-            DtoConstInitializer(decl->loc, decl->type, decl->_init);
+      bool define = !(decl->storage_class & STCextern) && !decl->inNonRoot();
 
-        // Cache it.
-        assert(!irGlobal->constInit);
-        irGlobal->constInit = initVal;
-
-        // Set the initializer, swapping out the variable if the types do not
-        // match.
-        irGlobal->value = irs->setGlobalVarInitializer(gvar, initVal);
-
-        // Finalize linkage & DLL storage class.
-        const auto lwc = DtoLinkage(decl);
-        setLinkage(lwc, gvar);
-        if (gvar->hasDLLImportStorageClass()) {
-          gvar->setDLLStorageClass(LLGlobalValue::DLLExportStorageClass);
-        }
-
-        // Hide non-exported symbols
-        if (opts::defaultToHiddenVisibility && !decl->isExport()) {
-          gvar->setVisibility(LLGlobalValue::HiddenVisibility);
-        }
-
-        // Also set up the debug info.
-        irs->DBuilder.EmitGlobalVariable(gvar, decl);
-      }
-
-      // If this global is used from a naked function, we need to create an
-      // artificial "use" for it, or it could be removed by the optimizer if
-      // the only reference to it is in inline asm.
-      if (irGlobal->nakedUse) {
-        irs->usedArray.push_back(gvar);
-      }
-
-      IF_LOG Logger::cout() << *gvar << '\n';
+      getIrGlobal(decl)->getValue(define);
     }
   }
 

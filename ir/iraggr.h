@@ -58,7 +58,7 @@ public:
   virtual ~IrAggr() = default;
 
   /// Creates the __initZ symbol lazily.
-  llvm::Constant *&getInitSymbol();
+  llvm::Constant *getInitSymbol(bool define = false);
   /// Builds the __initZ initializer constant lazily.
   llvm::Constant *getDefaultInit();
 
@@ -103,7 +103,7 @@ private:
   void addFieldInitializers(llvm::SmallVectorImpl<llvm::Constant *> &constants,
                             const VarInitMap &explicitInitializers,
                             AggregateDeclaration *decl, unsigned &offset,
-                            bool populateInterfacesWithVtbls);
+                            unsigned &interfaceVtblIndex);
 };
 
 /// Represents a struct.
@@ -112,7 +112,9 @@ public:
   explicit IrStruct(StructDeclaration *sd) : IrAggr(sd) {}
 
   /// Creates the TypeInfo_Struct symbol lazily.
-  llvm::GlobalVariable *getTypeInfoSymbol();
+  llvm::GlobalVariable *getTypeInfoSymbol(bool define = false);
+
+private:
   /// Builds the TypeInfo_Struct initializer constant lazily.
   llvm::Constant *getTypeInfoInit();
 };
@@ -120,26 +122,16 @@ public:
 /// Represents a class/interface.
 class IrClass : public IrAggr {
 public:
-  explicit IrClass(ClassDeclaration *cd) : IrAggr(cd) {}
+  explicit IrClass(ClassDeclaration *cd);
 
   /// Creates the __ClassZ/__InterfaceZ symbol lazily.
-  llvm::GlobalVariable *getClassInfoSymbol();
-  /// Builds the __ClassZ/__InterfaceZ initializer constant lazily.
-  llvm::Constant *getClassInfoInit();
+  llvm::GlobalVariable *getClassInfoSymbol(bool define = false);
 
   /// Creates the __vtblZ symbol lazily.
-  llvm::GlobalVariable *getVtblSymbol();
-  /// Builds the __vtblZ initializer constant lazily.
-  llvm::Constant *getVtblInit();
+  llvm::GlobalVariable *getVtblSymbol(bool define = false);
 
   /// Defines all interface vtbls.
   void defineInterfaceVtbls();
-
-  /// Creates the __interfaceInfos symbol lazily.
-  llvm::GlobalVariable *getInterfaceArraySymbol();
-
-  /// Initialize interface.
-  void initializeInterface();
 
 private:
   /// Vtbl global.
@@ -162,12 +154,23 @@ private:
   /// Corresponds to the Interface instances needed to be output.
   std::vector<BaseClass *> interfacesWithVtbls;
 
+  void addInterfaceVtbls(ClassDeclaration *cd);
+
+  /// Builds the __ClassZ/__InterfaceZ initializer constant lazily.
+  llvm::Constant *getClassInfoInit();
+
+  /// Builds the __vtblZ initializer constant lazily.
+  llvm::Constant *getVtblInit();
+
   /// Returns the vtbl for an interface implementation.
   llvm::GlobalVariable *getInterfaceVtblSymbol(BaseClass *b,
-                                               size_t interfaces_index);
+                                               size_t interfaces_index,
+                                               bool define = false);
   /// Defines the vtbl for an interface implementation.
-  void defineInterfaceVtbl(BaseClass *b, bool new_inst,
-                           size_t interfaces_index);
+  llvm::Constant *getInterfaceVtblInit(BaseClass *b, size_t interfaces_index);
+
+  /// Creates the __interfaceInfos symbol lazily.
+  llvm::GlobalVariable *getInterfaceArraySymbol();
 
   /// Create the Interface[] interfaces ClassInfo field initializer.
   llvm::Constant *getClassInfoInterfaces();
