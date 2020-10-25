@@ -7318,19 +7318,18 @@ version (IN_LLVM)
 {
         if (global.params.linkonceTemplates)
         {
-            // abort if it's not a root module
+            // Skip if it's not a root module.
             if (!mi || !mi.isRoot())
                 return null;
 
-            // instantiated in a root module => make sure the primary instance gets full sema
-            if (!inst.memberOf)
-            {
-                Module.addDeferredSemantic2(inst);
-                Module.addDeferredSemantic3(inst);
-                inst.memberOf = mi; // HACK to restrict to a single pass per primary instance
-            }
+            // Skip if the primary instance has already been assigned to a root
+            // module.
+            if (inst.memberOf)
+                return null;
 
-            return null;
+            // Okay, this is the primary instance to be assigned to a root
+            // module and getting semantic3.
+            assert(this is inst);
         }
 }
 
