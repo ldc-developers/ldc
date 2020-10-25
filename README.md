@@ -36,6 +36,8 @@ Portable stand-alone binary builds for common platforms (incl. Linux,
 macOS and Windows) are available at the
 [GitHub release page](https://github.com/ldc-developers/ldc/releases).
 
+For Windows, the [VisualD installer](https://rainers.github.io/visuald/visuald/StartPage.html) comes with a bundled LDC.
+
 For bleeding-edge users, we also provide the [latest successful
 Continuous Integration builds](https://github.com/ldc-developers/ldc/releases/tag/CI)
 with enabled LLVM & LDC assertions (increasing compile times by roughly 50%).
