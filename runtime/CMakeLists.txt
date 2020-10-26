@@ -52,9 +52,9 @@ set(RT_SUPPORT_SANITIZERS OFF                                 CACHE BOOL   "Buil
 set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 
 set(DRUNTIME_EXTRA_FLAGS          -preview=fieldwise)
-set(DRUNTIME_EXTRA_UNITTEST_FLAGS -d-version=CoreUnittest -unittest -checkaction=context)
+set(DRUNTIME_EXTRA_UNITTEST_FLAGS -d-version=CoreUnittest -unittest -checkaction=context -linkonce-templates)
 set(PHOBOS2_EXTRA_FLAGS           -transition=complex)
-set(PHOBOS2_EXTRA_UNITTEST_FLAGS  -d-version=StdUnittest -unittest)
+set(PHOBOS2_EXTRA_UNITTEST_FLAGS  -d-version=StdUnittest -unittest -linkonce-templates)
 
 # Shadow the D_FLAGS cache variable by a regular variable containing all base D flags
 set(D_FLAGS ${D_FLAGS} ${D_EXTRA_FLAGS})
@@ -933,7 +933,7 @@ function(build_test_runners name_suffix path_suffix d_flags linkflags is_shared)
     set(test_runner_bc "")
     dc("${RUNTIME_DIR}/src/test_runner.d"
        "${RUNTIME_DIR}/src"
-       "${d_flags}"
+       "${d_flags};-linkonce-templates"
        "${PROJECT_BINARY_DIR}/objects-unittest${target_suffix}"
        "OFF"
        "OFF"
