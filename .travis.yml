@@ -167,9 +167,6 @@ script:
   - |
     if [ "$TRAVIS_CPU_ARCH" = "arm64" ]; then
       DMD_TESTSUITE_MAKE_ARGS="-j${PARALLELISM:-3} GDB_FLAGS=OFF" ctest -V -R "dmd-testsuite"
-    elif [ "$TRAVIS_OS_NAME" = "osx" ]; then
-      # dmd-testsuite-debug only to reduce time-outs
-      DMD_TESTSUITE_MAKE_ARGS=-j${PARALLELISM:-3} ctest -V -R "build-run-dmd-testsuite|dmd-testsuite-debug"
     else
       DMD_TESTSUITE_MAKE_ARGS=-j${PARALLELISM:-3} ctest -V -R "dmd-testsuite"
     fi
