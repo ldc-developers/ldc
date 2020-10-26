@@ -83,8 +83,8 @@ LLConstant *IrAggr::getInitSymbol(bool define) {
 
     init = initGlobal;
 
-    if (!define && defineOnDeclare(aggrdecl))
-      define = true;
+    if (!define)
+      define = defineOnDeclare(aggrdecl);
   }
 
   if (define) {

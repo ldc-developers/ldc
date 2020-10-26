@@ -101,8 +101,6 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to);
 // otherwise returns a new DValue
 DValue *DtoPaintType(Loc &loc, DValue *val, Type *to);
 
-// is template instance check, returns module where instantiated
-TemplateInstance *DtoIsTemplateInstance(Dsymbol *s);
 /// Returns true if the specified symbol is to be defined on declaration, for
 /// -linkonce-templates.
 bool defineOnDeclare(Dsymbol *s);

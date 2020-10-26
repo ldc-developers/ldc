@@ -221,7 +221,7 @@ LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
   }
   // Function (incl. delegate) literals are emitted into each referencing
   // compilation unit; use template linkage to prevent conflicts.
-  else if (sym->isFuncLiteralDeclaration() || DtoIsTemplateInstance(sym)) {
+  else if (sym->isFuncLiteralDeclaration() || sym->isInstantiated()) {
     linkage = templateLinkage;
   } else {
     linkage = LLGlobalValue::ExternalLinkage;

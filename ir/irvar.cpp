@@ -28,8 +28,8 @@ LLValue *IrGlobal::getValue(bool define) {
   if (!value) {
     declare();
 
-    if (!define && defineOnDeclare(V))
-      define = true;
+    if (!define)
+      define = defineOnDeclare(V);
   }
 
   if (define && !(V->storage_class & STCextern)) {
