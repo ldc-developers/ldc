@@ -569,28 +569,12 @@ llvm::Type *Analysis::getTypeFor(Value *typeinfo) const {
   const auto metaname = getMetadataName(TD_PREFIX, ti_global);
 
   NamedMDNode *meta = M.getNamedMetadata(metaname);
-  if (!meta) {
+  if (!meta || meta->getNumOperands() != 1) {
     return nullptr;
   }
 
-  MDNode *node = static_cast<MDNode *>(meta->getOperand(0));
-  if (!node) {
-    return nullptr;
-  }
-
-  if (node->getNumOperands() != TD_NumFields) {
-    return nullptr;
-  }
-
-  auto md = llvm::dyn_cast<llvm::ValueAsMetadata>(
-              node->getOperand(TD_TypeInfo).get());
-  if (md == nullptr || md->getValue()->stripPointerCasts() != ti_global) {
-    return nullptr;
-  }
-
-
-  return llvm::cast<llvm::ValueAsMetadata>(node->getOperand(TD_Type))
-      ->getType();
+  MDNode *node = meta->getOperand(0);
+  return llvm::cast<llvm::ConstantAsMetadata>(node->getOperand(0))->getType();
 }
 
 /// Returns whether Def is used by any instruction that is reachable from Alloc

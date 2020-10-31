@@ -56,9 +56,7 @@
 #include <cassert>
 #include <cstdio>
 
-// defined in dmd/typinf.d:
-void genTypeInfo(Loc loc, Type *torig, Scope *sc);
-bool builtinTypeInfo(Type *t);
+void genTypeInfo(Loc loc, Type *torig, Scope *sc); // in dmd/typinf.d
 
 TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(const Loc &loc, Type *forType) {
   IF_LOG Logger::println("getOrCreateTypeInfoDeclaration(): %s",
@@ -88,19 +86,12 @@ void emitTypeInfoMetadata(LLGlobalVariable *typeinfoGlobal, Type *forType) {
       t->ty != Tident) {
     const auto metaname = getMetadataName(TD_PREFIX, typeinfoGlobal);
 
-    llvm::NamedMDNode *meta = gIR->module.getNamedMetadata(metaname);
-
-    if (!meta) {
-      // Construct the fields
-      llvm::Metadata *mdVals[TD_NumFields];
-      mdVals[TD_TypeInfo] = llvm::ValueAsMetadata::get(typeinfoGlobal);
-      mdVals[TD_Type] = llvm::ConstantAsMetadata::get(
-          llvm::UndefValue::get(DtoType(forType)));
-
+    if (!gIR->module.getNamedMetadata(metaname)) {
       // Construct the metadata and insert it into the module.
-      llvm::NamedMDNode *node = gIR->module.getOrInsertNamedMetadata(metaname);
-      node->addOperand(llvm::MDNode::get(
-          gIR->context(), llvm::makeArrayRef(mdVals, TD_NumFields)));
+      auto meta = gIR->module.getOrInsertNamedMetadata(metaname);
+      auto val = llvm::UndefValue::get(DtoType(forType));
+      meta->addOperand(llvm::MDNode::get(gIR->context(),
+                                         llvm::ConstantAsMetadata::get(val)));
     }
   }
 }
@@ -434,20 +425,24 @@ void buildTypeInfo(TypeInfoDeclaration *decl) {
     Logger::println("typeinfo mangle: %s", mangled);
   }
 
-  // Only declare the symbol if it isn't yet, otherwise the subtype of
-  // built-in TypeInfos (rt.typeinfo.*) may clash with the base type when
-  // compiling the rt.typeinfo.* modules.
+  // Only declare the symbol if it isn't yet, otherwise it may clash with an
+  // existing init symbol of a built-in TypeInfo class (in rt.util.typeinfo)
+  // when compiling the rt.util.typeinfo unittests.
   const auto irMangle = getIRMangledVarName(mangled, LINKd);
   LLGlobalVariable *gvar = gIR->module.getGlobalVariable(irMangle);
-  if (!gvar) {
+  if (gvar) {
+    assert(builtinTypeInfo(forType) && "existing global expected to be the "
+                                       "init symbol of a built-in TypeInfo");
+  } else {
     LLType *type = DtoType(decl->type)->getPointerElementType();
     // We need to keep the symbol mutable as the type is not declared as
     // immutable on the D side, and e.g. synchronized() can be used on the
     // implicit monitor.
-    gvar = declareGlobal(decl->loc, gIR->module, type, irMangle, false);
-
-    emitTypeInfoMetadata(gvar, forType);
+    gvar = declareGlobal(decl->loc, gIR->module, type, irMangle,
+                         /*isConstant=*/false);
   }
+
+  emitTypeInfoMetadata(gvar, forType);
 
   IrGlobal *irg = getIrGlobal(decl, true);
   irg->value = gvar;

@@ -13,25 +13,13 @@
 
 #pragma once
 
-// MDNode was moved into its own header, and contains Value*s
 #include "llvm/IR/Metadata.h"
-typedef llvm::Value MDNodeField;
-
-#define METADATA_LINKAGE_TYPE llvm::GlobalValue::WeakODRLinkage
 
 // *** Metadata for TypeInfo instances ***
+// A metadata node for a TypeInfo instance will be named TD_PREFIX ~ <Name of
+// TypeInfo global>. The node contains a single operand, an arbitrary constant
+// value of the LLVM type corresponding to the D type the TypeInfo is for.
 #define TD_PREFIX "llvm.ldc.typeinfo."
-
-/// The fields in the metadata node for a TypeInfo instance.
-/// (Its name will be TD_PREFIX ~ <Name of TypeInfo global>)
-enum TypeDataFields {
-  TD_TypeInfo, /// A reference toe the TypeInfo global this node is for.
-
-  TD_Type, /// A value of the LLVM type corresponding to this D type
-
-  // Must be kept last:
-  TD_NumFields /// The number of fields in TypeInfo metadata
-};
 
 // *** Metadata for ClassInfo instances ***
 #define CD_PREFIX "llvm.ldc.classinfo."

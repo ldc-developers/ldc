@@ -48,8 +48,9 @@ LLGlobalVariable* IrStruct::getTypeInfoSymbol(bool define) {
     // We need to keep the symbol mutable as the type is not declared as
     // immutable on the D side, and e.g. synchronized() can be used on the
     // implicit monitor.
-    typeInfo = declareGlobal(aggrdecl->loc, gIR->module,
-                             getTypeInfoStructMemType(), irMangle, false);
+    typeInfo =
+        declareGlobal(aggrdecl->loc, gIR->module, getTypeInfoStructMemType(),
+                      irMangle, /*isConstant=*/false);
 
     emitTypeInfoMetadata(typeInfo, aggrdecl->type);
   }
