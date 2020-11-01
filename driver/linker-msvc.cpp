@@ -240,7 +240,7 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
 
 #if LDC_WITH_LLD
   if (useInternalLLDForLinking() ||
-      (useInternalToolchain && opts::linker.empty() && !opts::isUsingLTO())) {
+      (useInternalToolchain && opts::linker.empty())) {
     const auto fullArgs = getFullArgs("lld-link", args, global.params.verbose);
 
     const bool success = lld::coff::link(fullArgs,

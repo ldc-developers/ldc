@@ -68,9 +68,8 @@ steps:
 - script: |
     echo on
     cd ..
-    :: LLVM bin dir in PATH required for lld-link.exe
-    :: git's usr/bin required to make GNU find precede MS one in C:\Windows\System32
-    set PATH=%CD%\llvm\bin;C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;C:\Program Files\Git\usr\bin;%PATH%
+    :: git's usr/bin required to make GNU `find` precede MS one in C:\Windows\System32
+    set PATH=C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;C:\Program Files\Git\usr\bin;%PATH%
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     echo on
     cmake --version
@@ -85,7 +84,7 @@ steps:
 - script: |
     echo on
     cd ..
-    set PATH=%CD%\llvm\bin;C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;C:\Program Files\Git\usr\bin;%PATH%
+    set PATH=C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;C:\Program Files\Git\usr\bin;%PATH%
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     echo on
     set INSTALL_DIR=%CD%/install
@@ -104,7 +103,6 @@ steps:
   condition: succeededOrFailed()
 - script: |
     cd ..
-    set PATH=%CD%\llvm\bin;%PATH%
     :: strings_cdb has regressed for 32-bit starting with the VS 2019 v16.6.0 Azure Image (worked fine until v16.5.4)
     :: it also works fine on my box with the same v16.7.2...
     if "%MODEL%" == "32" ( del %BUILD_SOURCESDIRECTORY%\tests\debuginfo\strings_cdb.d)
@@ -149,13 +147,12 @@ steps:
   displayName: Install LDC, make portable & copy curl
 - script: |
     cd ..
-    cp llvm/bin/lld-link.exe installed/bin
     curl -L -o mingw-w64-libs.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v7.0.0/mingw-w64-libs-v7.0.0.7z 2>&1
     mkdir mingw-w64-libs
     cd mingw-w64-libs
     7z x ../mingw-w64-libs.7z > nul
     cp -r lib%MODEL% ../installed/lib/mingw
-  displayName: Copy lld-link.exe & MinGW-w64-based libs
+  displayName: Copy MinGW-w64-based libs
 - script: |
     cd ..
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%

@@ -1073,7 +1073,11 @@ int cppmain() {
   loadAllPlugins();
 
   Strings libmodules;
-  return mars_mainBody(global.params, files, libmodules);
+  const int rc = mars_mainBody(global.params, files, libmodules);
+
+  llvm::llvm_shutdown();
+
+  return rc;
 }
 
 void codegenModules(Modules &modules) {
@@ -1146,5 +1150,4 @@ void codegenModules(Modules &modules) {
   cache::pruneCache();
 
   freeRuntime();
-  llvm::llvm_shutdown();
 }

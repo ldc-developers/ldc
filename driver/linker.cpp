@@ -202,10 +202,11 @@ bool useInternalLLDForLinking() {
   return linkInternally
 #if LDC_WITH_LLD
          ||
-         // DWARF debuginfos for MSVC require LLD
-         (opts::emitDwarfDebugInfo && linkInternally.getNumOccurrences() == 0 &&
-          opts::linker.empty() && !opts::isUsingLTO() &&
-          global.params.targetTriple->isWindowsMSVCEnvironment())
+         // MSVC: DWARF debuginfos and LTO require LLD
+         (linkInternally.getNumOccurrences() == 0 && // not explicitly disabled
+          opts::linker.empty() && // no explicitly selected linker
+          global.params.targetTriple->isWindowsMSVCEnvironment() &&
+          (opts::emitDwarfDebugInfo || opts::isUsingLTO()))
 #endif
       ;
 }
