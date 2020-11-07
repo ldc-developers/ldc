@@ -71,7 +71,11 @@ private:
 
     // Remaining aggregates which can NOT be rewritten as integers (size > 8
     // bytes or not a power of 2) are passed by ref to hidden copy.
-    return isAggregate(t) && !canRewriteAsInt(t);
+    // LDC-specific exceptions: slices and delegates are left alone (as non-
+    // rewritten IR structs) and passed/returned as 2 separate args => passed in
+    // up to 2 GP registers and returned in RAX & RDX.
+    return isAggregate(t) && !canRewriteAsInt(t) && t->ty != Tarray &&
+           t->ty != Tdelegate;
   }
 
 public:
@@ -113,6 +117,7 @@ public:
     //   are returned in a register (RAX, or XMM0 for single float/ifloat/
     //   double/idouble)
     // * 80-bit real/ireal are returned on the x87 stack
+    // * LDC-specific: slices and delegates are returned in RAX & RDX
     // * all other types are returned via sret
     return passPointerToHiddenCopy(rt, /*isReturnValue=*/true, tf->linkage);
   }
