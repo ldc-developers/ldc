@@ -15,6 +15,7 @@
 #pragma once
 
 #include "dmd/aggregate.h"
+#include "dmd/target.h"
 #include "llvm/ADT/SmallVector.h"
 #include <map>
 #include <vector>
@@ -92,6 +93,10 @@ protected:
 
   explicit IrAggr(AggregateDeclaration *aggr)
       : aggrdecl(aggr), type(aggr->type) {}
+
+  // These reflect the magic pointers in druntime's `object` module.
+  static unsigned rtinfoNoPointers() { return 0; }
+  static unsigned rtinfoHasPointers() { return target.ptrsize; }
 
 private:
   llvm::StructType *llStructType = nullptr;

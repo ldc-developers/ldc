@@ -11,6 +11,7 @@
 
 #include "dmd/aggregate.h"
 #include "dmd/declaration.h"
+#include "dmd/enum.h"
 #include "dmd/errors.h"
 #include "dmd/id.h"
 #include "dmd/identifier.h"
@@ -183,6 +184,8 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     } else if (passPointer) {
       // ref/out
       attrs.addDereferenceableAttr(loweredDType->size());
+      if (auto alignment = DtoAlignment(loweredDType))
+        attrs.addAlignmentAttr(DtoAlignment(loweredDType));
     } else {
       if (abi->passByVal(f, loweredDType)) {
         // LLVM ByVal parameters are pointers to a copy in the function
@@ -195,6 +198,21 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
       } else {
         // Add sext/zext as needed.
         DtoAddExtendAttr(loweredDType, attrs);
+        // Add pointee alignment for pointer params, excluding function pointers
+        // and pointers to opaque structs/enums.
+        if (auto tp = loweredDType->isTypePointer()) {
+          auto pointeeType = tp->next;
+          if (pointeeType->ty != Tfunction) {
+            auto ts = pointeeType->isTypeStruct();
+            const bool isOpaqueStruct = ts && !ts->sym->members;
+            auto te = pointeeType->isTypeEnum();
+            const bool isOpaqueEnum = te && !te->sym->memtype;
+            if (!isOpaqueStruct && !isOpaqueEnum) {
+              if (auto alignment = DtoAlignment(pointeeType))
+                attrs.addAlignmentAttr(alignment);
+            }
+          }
+        }
       }
     }
 

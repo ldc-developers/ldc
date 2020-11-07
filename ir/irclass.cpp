@@ -418,9 +418,9 @@ LLConstant *IrClass::getClassInfoInit() {
   if (cd->getRTInfo) {
     b.push(toConstElem(cd->getRTInfo, gIR));
   } else if (isInterface || (flags & ClassFlags::noPointers)) {
-    b.push_size_as_vp(0); // no pointers
+    b.push_size_as_vp(rtinfoNoPointers());
   } else {
-    b.push_size_as_vp(1); // has pointers
+    b.push_size_as_vp(rtinfoHasPointers());
   }
 
   // build the initializer

@@ -173,7 +173,8 @@ LLConstant *IrStruct::getTypeInfoInit() {
   if (!isOpaque && sd->getRTInfo) {
     b.push(toConstElem(sd->getRTInfo, gIR));
   } else {
-    b.push_size_as_vp(!isOpaque && ts->hasPointers() ? 1 : 0);
+    b.push_size_as_vp(!isOpaque && ts->hasPointers() ? rtinfoHasPointers()
+                                                     : rtinfoNoPointers());
   }
 
   constTypeInfo = b.get_constant(getTypeInfoStructMemType());
