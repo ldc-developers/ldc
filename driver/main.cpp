@@ -830,7 +830,9 @@ void registerPredefinedTargetVersions() {
       VersionCondition::addPredefinedGlobalIdent("Android");
     } else {
       llvm::StringRef osName = triple.getOSName();
-      if (!osName.empty() && osName != "unknown" && osName != "none") {
+      if (osName.empty() || osName == "unknown" || osName == "none") {
+        VersionCondition::addPredefinedGlobalIdent("FreeStanding");
+      } else {
         warning(Loc(), "unknown target OS: %s", osName.str().c_str());
       }
     }
