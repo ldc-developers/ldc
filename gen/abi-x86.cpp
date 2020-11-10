@@ -126,8 +126,9 @@ struct X86TargetABI : TargetABI {
   }
 
   bool passByVal(TypeFunction *tf, Type *t) override {
-    // indirectly by-value for non-POD args on Posix
-    if (!isMSVC && !isPOD(t))
+    // indirectly by-value for non-POD args (except for MSVC++)
+    const bool isMSVCpp = isMSVC && tf->linkage == LINKcpp;
+    if (!isMSVCpp && !isPOD(t))
       return false;
 
     // pass all structs and static arrays with the LLVM byval attribute
@@ -147,8 +148,9 @@ struct X86TargetABI : TargetABI {
       }
     }
 
-    // Posix: non-POD args are passed indirectly by-value
-    if (!isMSVC) {
+    // non-POD args are passed indirectly by-value (except for MSVC++)
+    const bool isMSVCpp = isMSVC && fty.type->linkage == LINKcpp;
+    if (!isMSVCpp) {
       for (auto arg : fty.args) {
         if (!arg->byref && !isPOD(arg->type))
           indirectByvalRewrite.applyTo(*arg);
