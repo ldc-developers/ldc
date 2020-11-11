@@ -68,6 +68,17 @@ bool TargetABI::isHFVA(Type *t, int maxNumElements, LLType **hfvaType) {
   return false;
 }
 
+bool TargetABI::isHVA(Type *t, int maxNumElements, LLType **hvaType) {
+  Type *rewriteType = nullptr;
+  if (::isHFVA(t, maxNumElements, &rewriteType) &&
+      rewriteType->nextOf()->ty == Tvector) {
+    if (hvaType)
+      *hvaType = DtoType(rewriteType);
+    return true;
+  }
+  return false;
+}
+
 //////////////////////////////////////////////////////////////////////////////
 
 TypeTuple *TargetABI::getArgTypes(Type *t) {

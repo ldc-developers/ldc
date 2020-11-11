@@ -35,13 +35,15 @@ private:
   const bool isMSVC;
   IndirectByvalRewrite byvalRewrite;
   IntegerRewrite integerRewrite;
+  HFVAToArray hfvaToArray;
 
   bool isX87(Type *t) const {
     return !isMSVC // 64-bit reals for MSVC targets
            && (t->ty == Tfloat80 || t->ty == Timaginary80);
   }
 
-  bool passPointerToHiddenCopy(Type *t, bool isReturnValue, LINK linkage) const {
+  bool passPointerToHiddenCopy(Type *t, bool isReturnValue,
+                               TypeFunction *tf) const {
     // 80-bit real/ireal:
     // * returned on the x87 stack (for DMD inline asm compliance and what LLVM
     //   defaults to)
@@ -49,7 +51,7 @@ private:
     if (isX87(t))
       return !isReturnValue;
 
-    const bool isMSVCpp = isMSVC && linkage == LINKcpp;
+    const bool isMSVCpp = isMSVC && tf->linkage == LINKcpp;
 
     // Handle non-PODs:
     if (isReturnValue) {
@@ -74,6 +76,10 @@ private:
       }
     }
 
+    // __vectorcall: Homogeneous Vector Aggregates are passed in registers
+    if (isExternD(tf) && isHVA(t, hfvaToArray.maxElements))
+      return false;
+
     // Remaining aggregates which can NOT be rewritten as integers (size > 8
     // bytes or not a power of 2) are passed by ref to hidden copy.
     // LDC-specific exceptions: slices and delegates are left alone (as non-
@@ -85,7 +91,8 @@ private:
 
 public:
   Win64TargetABI()
-      : isMSVC(global.params.targetTriple->isWindowsMSVCEnvironment()) {}
+      : isMSVC(global.params.targetTriple->isWindowsMSVCEnvironment()),
+        hfvaToArray(4) {}
 
   llvm::CallingConv::ID callingConv(LINK l, TypeFunction *tf = nullptr,
                                     FuncDeclaration *fd = nullptr) override {
@@ -123,8 +130,10 @@ public:
     //   double/idouble)
     // * 80-bit real/ireal are returned on the x87 stack
     // * LDC-specific: slices and delegates are returned in RAX & RDX
+    // * for extern(D), vectors and Homogeneous Vector Aggregates are returned
+    //   in SIMD register(s)
     // * all other types are returned via sret
-    return passPointerToHiddenCopy(rt, /*isReturnValue=*/true, tf->linkage);
+    return passPointerToHiddenCopy(rt, /*isReturnValue=*/true, tf);
   }
 
   bool passByVal(TypeFunction *, Type *) override {
@@ -173,9 +182,12 @@ public:
     Type *t = arg.type->toBasetype();
     LLType *originalLType = arg.ltype;
 
-    if (passPointerToHiddenCopy(t, isReturnValue, fty.type->linkage)) {
+    if (passPointerToHiddenCopy(t, isReturnValue, fty.type)) {
       // the caller allocates a hidden copy and passes a pointer to that copy
       byvalRewrite.applyTo(arg);
+    } else if (isExternD(fty.type) && isHVA(t, hfvaToArray.maxElements, &arg.ltype)) {
+      // rewrite Homogeneous Vector Aggregates as static array of vectors
+      hfvaToArray.applyTo(arg, arg.ltype);
     } else if (isAggregate(t) && canRewriteAsInt(t)) {
       integerRewrite.applyToIfNotObsolete(arg);
     }
