@@ -1255,9 +1255,9 @@ void DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     if (isaArgument(ll) && addr.empty()) {
       forceAsLocal = true;
     } else {
-      // 2) dynamic arrays and vectors
+      // 2) dynamic arrays, delegates and vectors
       TY ty = type->toBasetype()->ty;
-      if (ty == Tarray || ty == Tvector)
+      if (ty == Tarray || ty == Tdelegate || ty == Tvector)
         forceAsLocal = true;
     }
   }
