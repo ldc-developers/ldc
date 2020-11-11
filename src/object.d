@@ -2266,8 +2266,7 @@ extern (C)
 
     version (LDC)
     {
-        /* https://github.com/ldc-developers/ldc/issues/2782
-         * The real type is (non-importable) struct `rt.aaA.AA`;
+        /* The real type is (non-importable) `rt.aaA.Impl*`;
          * the compiler uses `void*` for its prototypes.
          */
         private alias AA = void*;
