@@ -51,21 +51,26 @@ private:
 
     const bool isMSVCpp = isMSVC && linkage == LINKcpp;
 
+    // Handle non-PODs:
     if (isReturnValue) {
-      // MSVC++ enforces sret for non-PODs, incl. aggregates with ctors
-      // (which by itself doesn't make it a non-POD for D).
-      const bool excludeStructsWithCtor = isMSVCpp;
-      if (!isPOD(t, excludeStructsWithCtor))
+      // Enforce sret for non-PODs.
+      // MSVC++ additionally enforces it for all structs with ctors.
+      if (!isPOD(t, isMSVCpp))
         return true;
     } else {
-      // Contrary to return values, POD-ness is ignored for arguments.
-      // MSVC++ seems to enforce by-ref passing only for aggregates with
+      // MSVC++ seems to enforce by-ref passing only for structs with
       // copy ctor (incl. `= delete`).
-      if (isMSVCpp && t->ty == Tstruct) {
-        StructDeclaration *sd = static_cast<TypeStruct *>(t)->sym;
-        assert(sd);
-        if (sd->postblit || sd->hasCopyCtor)
-          return true;
+      if (isMSVCpp) {
+        if (t->ty == Tstruct) {
+          StructDeclaration *sd = static_cast<TypeStruct *>(t)->sym;
+          assert(sd);
+          if (sd->postblit || sd->hasCopyCtor)
+            return true;
+        }
+      }
+      // non-MSVC++: pass all non-PODs by ref to hidden copy
+      else if (!isPOD(t)) {
+        return true;
       }
     }
 
