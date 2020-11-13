@@ -11,7 +11,6 @@
 
 #include "dmd/errors.h"
 #include "dmd/expression.h"
-#include "dmd/mangle.h"
 #include "dmd/statement.h"
 #include "dmd/target.h"
 #include "gen/classes.h"
@@ -165,12 +164,8 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
       // Wrap std::type_info pointers inside a __cpp_type_info_ptr class
       // instance so that the personality routine may differentiate C++ catch
       // clauses from D ones.
-      OutBuffer wrapperMangleBuf;
-      wrapperMangleBuf.writestring("_D");
-      mangleToBuffer(p.cd, &wrapperMangleBuf);
-      wrapperMangleBuf.printf("%d%s", 18, "_cpp_type_info_ptr");
       const auto wrapperMangle =
-          getIRMangledVarName(wrapperMangleBuf.peekChars(), LINKd);
+          getIRMangledAggregateName(p.cd, "18_cpp_type_info_ptr");
 
       ci = irs.module.getGlobalVariable(wrapperMangle);
       if (!ci) {
