@@ -488,7 +488,7 @@ static void buildRuntimeModule() {
   Type *wstringTy = Type::twchar->arrayOf();
   Type *dstringTy = Type::tdchar->arrayOf();
 
-  // The AA type is a struct that only contains a ptr
+  // LDC's AA type is rt.aaA.Impl*; use void* for the prototypes
   Type *aaTy = voidPtrTy;
 
   //////////////////////////////////////////////////////////////////////////////
