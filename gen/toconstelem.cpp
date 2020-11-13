@@ -289,7 +289,7 @@ public:
               static_cast<TypeClass *>(tb)->sym->isInterfaceDeclaration()) {
         assert(it->isBaseOf(cd, NULL));
 
-        IrTypeClass *typeclass = cd->type->ctype->isClass();
+        IrTypeClass *typeclass = getIrType(cd->type)->isClass();
 
         // find interface impl
         size_t i_index = typeclass->getInterfaceIndex(it);
@@ -565,7 +565,7 @@ public:
       IF_LOG Logger::cout() << "Using existing global: " << *result << '\n';
     } else {
       auto globalVar = new llvm::GlobalVariable(
-          p->module, origClass->type->ctype->isClass()->getMemoryLLType(),
+          p->module, getIrType(origClass->type)->isClass()->getMemoryLLType(),
           false, llvm::GlobalValue::InternalLinkage, nullptr, ".classref");
       p->setStructLiteralConstant(value, globalVar);
 
@@ -615,10 +615,9 @@ public:
       if (InterfaceDeclaration *it = targetClass->isInterfaceDeclaration()) {
         assert(it->isBaseOf(origClass, NULL));
 
-        IrTypeClass *typeclass = origClass->type->ctype->isClass();
-
         // find interface impl
-        size_t i_index = typeclass->getInterfaceIndex(it);
+        size_t i_index =
+            getIrType(origClass->type)->isClass()->getInterfaceIndex(it);
         assert(i_index != ~0UL);
 
         // offset pointer

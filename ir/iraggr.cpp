@@ -35,7 +35,7 @@ llvm::StructType *IrAggr::getLLStructType() {
     return llStructType;
 
   LLType *llType = DtoType(type);
-  if (auto irClassType = type->ctype->isClass())
+  if (auto irClassType = getIrType(type)->isClass())
     llType = irClassType->getMemoryLLType();
 
   llStructType = llvm::dyn_cast<LLStructType>(llType);
@@ -223,7 +223,7 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
   }
 
   // build constant
-  const bool isPacked = static_cast<IrTypeAggr *>(type->ctype)->packed;
+  const bool isPacked = getIrType(type)->isAggr()->packed;
   LLStructType *llType =
       isCompatible ? llStructType
                    : LLStructType::get(gIR->context(), types, isPacked);

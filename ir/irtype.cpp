@@ -24,7 +24,7 @@
 IrType::IrType(Type *dt, LLType *lt) : dtype(dt), type(lt) {
   assert(dt && "null D Type");
   assert(lt && "null LLVM Type");
-  assert(!dt->ctype && "already has IrType");
+  assert(!getIrType(dt) && "already has IrType");
 }
 
 IrFuncTy &IrType::getIrFuncTy() {
@@ -37,7 +37,7 @@ IrTypeBasic::IrTypeBasic(Type *dt) : IrType(dt, basic2llvm(dt)) {}
 
 IrTypeBasic *IrTypeBasic::get(Type *dt) {
   auto t = new IrTypeBasic(dt);
-  dt->ctype = t;
+  getIrType(dt) = t;
   return t;
 }
 
@@ -136,8 +136,10 @@ llvm::Type *IrTypeBasic::basic2llvm(Type *t) {
 IrTypePointer::IrTypePointer(Type *dt, LLType *lt) : IrType(dt, lt) {}
 
 IrTypePointer *IrTypePointer::get(Type *dt) {
-  assert(!dt->ctype);
   assert((dt->ty == Tpointer || dt->ty == Tnull) && "not pointer/null type");
+
+  auto &ctype = getIrType(dt);
+  assert(!ctype);
 
   LLType *elemType;
   if (dt->ty == Tnull) {
@@ -147,13 +149,13 @@ IrTypePointer *IrTypePointer::get(Type *dt) {
 
     // DtoType could have already created the same type, e.g. for
     // dt == Node* in struct Node { Node* n; }.
-    if (dt->ctype) {
-      return dt->ctype->isPointer();
+    if (ctype) {
+      return ctype->isPointer();
     }
   }
 
   auto t = new IrTypePointer(dt, llvm::PointerType::get(elemType, 0));
-  dt->ctype = t;
+  ctype = t;
   return t;
 }
 
@@ -162,20 +164,22 @@ IrTypePointer *IrTypePointer::get(Type *dt) {
 IrTypeSArray::IrTypeSArray(Type *dt, LLType *lt) : IrType(dt, lt) {}
 
 IrTypeSArray *IrTypeSArray::get(Type *dt) {
-  assert(!dt->ctype);
   assert(dt->ty == Tsarray && "not static array type");
+
+  auto &ctype = getIrType(dt);
+  assert(!ctype);
 
   LLType *elemType = DtoMemType(dt->nextOf());
 
   // We might have already built the type during DtoMemType e.g. as part of a
   // forward reference in a struct.
-  if (!dt->ctype) {
+  if (!ctype) {
     TypeSArray *tsa = static_cast<TypeSArray *>(dt);
     uint64_t dim = static_cast<uint64_t>(tsa->dim->toUInteger());
-    dt->ctype = new IrTypeSArray(dt, llvm::ArrayType::get(elemType, dim));
+    ctype = new IrTypeSArray(dt, llvm::ArrayType::get(elemType, dim));
   }
 
-  return dt->ctype->isSArray();
+  return ctype->isSArray();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -183,20 +187,22 @@ IrTypeSArray *IrTypeSArray::get(Type *dt) {
 IrTypeArray::IrTypeArray(Type *dt, LLType *lt) : IrType(dt, lt) {}
 
 IrTypeArray *IrTypeArray::get(Type *dt) {
-  assert(!dt->ctype);
   assert(dt->ty == Tarray && "not dynamic array type");
+
+  auto &ctype = getIrType(dt);
+  assert(!ctype);
 
   LLType *elemType = DtoMemType(dt->nextOf());
 
   // Could have already built the type as part of a struct forward reference,
   // just as for pointers.
-  if (!dt->ctype) {
+  if (!ctype) {
     llvm::Type *types[] = {DtoSize_t(), llvm::PointerType::get(elemType, 0)};
     LLType *at = llvm::StructType::get(getGlobalContext(), types, false);
-    dt->ctype = new IrTypeArray(dt, at);
+    ctype = new IrTypeArray(dt, at);
   }
 
-  return dt->ctype->isArray();
+  return ctype->isArray();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -204,26 +210,46 @@ IrTypeArray *IrTypeArray::get(Type *dt) {
 IrTypeVector::IrTypeVector(Type *dt, llvm::Type *lt) : IrType(dt, lt) {}
 
 IrTypeVector *IrTypeVector::get(Type *dt) {
-  LLType *lt = vector2llvm(dt);
+  TypeVector *tv = dt->isTypeVector();
+  assert(tv && "not vector type");
+
+  auto &ctype = getIrType(dt);
+  assert(!ctype);
+
+  TypeSArray *tsa = tv->basetype->isTypeSArray();
+  assert(tsa);
+  LLType *elemType = DtoMemType(tsa->next);
+
   // Could have already built the type as part of a struct forward reference,
   // just as for pointers and arrays.
-  if (!dt->ctype) {
-    dt->ctype = new IrTypeVector(dt, lt);
+  if (!ctype) {
+    LLType *lt = llvm::VectorType::get(elemType, tsa->dim->toUInteger()
+#if LDC_LLVM_VER >= 1100
+                                                     ,
+                                       /*Scalable=*/false
+#endif
+    );
+    ctype = new IrTypeVector(dt, lt);
   }
-  return dt->ctype->isVector();
+
+  return ctype->isVector();
 }
 
-llvm::Type *IrTypeVector::vector2llvm(Type *dt) {
-  assert(dt->ty == Tvector && "not vector type");
-  TypeVector *tv = static_cast<TypeVector *>(dt);
-  assert(tv->basetype->ty == Tsarray);
-  TypeSArray *tsa = static_cast<TypeSArray *>(tv->basetype);
-  uint64_t dim = static_cast<uint64_t>(tsa->dim->toUInteger());
-  LLType *elemType = DtoMemType(tsa->next);
-  return llvm::VectorType::get(elemType, dim
-#if LDC_LLVM_VER >= 1100
-                               ,
-                               /*Scalable=*/false
-#endif
-  );
+//////////////////////////////////////////////////////////////////////////////
+
+IrType *&getIrType(Type *t, bool create) {
+  // See remark in DtoType().
+  assert((t->ty != Tstruct || t == static_cast<TypeStruct *>(t)->sym->type) &&
+         "use sd->type for structs");
+  assert((t->ty != Tclass || t == static_cast<TypeClass *>(t)->sym->type) &&
+         "use cd->type for classes");
+
+  t = stripModifiers(t);
+
+  if (create) {
+    DtoType(t);
+    assert(t->ctype);
+  }
+
+  return t->ctype;
 }

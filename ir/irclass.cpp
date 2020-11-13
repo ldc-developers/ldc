@@ -45,7 +45,7 @@ IrClass::IrClass(ClassDeclaration *cd) : IrAggr(cd) {
   addInterfaceVtbls(cd);
 
   assert(interfacesWithVtbls.size() ==
-             stripModifiers(type)->ctype->isClass()->getNumInterfaceVtbls() &&
+             getIrType(type)->isClass()->getNumInterfaceVtbls() &&
          "inconsistent number of interface vtables in this class");
 }
 
@@ -67,7 +67,7 @@ LLGlobalVariable *IrClass::getVtblSymbol(bool define) {
   if (!vtbl) {
     const auto irMangle = getIRMangledVTableSymbolName(aggrdecl);
 
-    LLType *vtblTy = stripModifiers(type)->ctype->isClass()->getVtblType();
+    LLType *vtblTy = getIrType(type)->isClass()->getVtblType();
 
     vtbl = declareGlobal(aggrdecl->loc, gIR->module, vtblTy, irMangle,
                          /*isConstant=*/true);
@@ -91,9 +91,7 @@ LLGlobalVariable *IrClass::getClassInfoSymbol(bool define) {
     // The type is also ClassInfo for interfaces – the actual TypeInfo for them
     // is a TypeInfo_Interface instance that references __ClassZ in its "base"
     // member.
-    Type *cinfoType = getClassInfoType();
-    DtoType(cinfoType);
-    IrTypeClass *tc = stripModifiers(cinfoType)->ctype->isClass();
+    IrTypeClass *tc = getIrType(getClassInfoType(), true)->isClass();
     assert(tc && "invalid ClassInfo type");
 
     // We need to keep the symbol mutable as the type is not declared as
@@ -152,7 +150,7 @@ LLGlobalVariable *IrClass::getInterfaceArraySymbol() {
 
   ClassDeclaration *cd = aggrdecl->isClassDeclaration();
 
-  size_t n = stripModifiers(type)->ctype->isClass()->getNumInterfaceVtbls();
+  size_t n = getIrType(type)->isClass()->getNumInterfaceVtbls();
   assert(n > 0 && "getting ClassInfo.interfaces storage symbol, but we "
                   "don't implement any interfaces");
 
@@ -657,7 +655,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
 
 void IrClass::defineInterfaceVtbls() {
   const size_t n = interfacesWithVtbls.size();
-  assert(n == stripModifiers(type)->ctype->isClass()->getNumInterfaceVtbls() &&
+  assert(n == getIrType(type)->isClass()->getNumInterfaceVtbls() &&
          "inconsistent number of interface vtables in this class");
 
   for (size_t i = 0; i < n; ++i) {
@@ -676,7 +674,7 @@ LLConstant *IrClass::getClassInfoInterfaces() {
   assert(cd);
 
   size_t n = interfacesWithVtbls.size();
-  assert(stripModifiers(type)->ctype->isClass()->getNumInterfaceVtbls() == n &&
+  assert(getIrType(type)->isClass()->getNumInterfaceVtbls() == n &&
          "inconsistent number of interface vtables in this class");
 
   Type *interfacesArrayType = getInterfacesArrayType();
@@ -710,7 +708,7 @@ LLConstant *IrClass::getClassInfoInterfaces() {
 
     IrClass *irinter = getIrAggr(it->sym);
     assert(irinter && "interface has null IrStruct");
-    IrTypeClass *itc = stripModifiers(irinter->type)->ctype->isClass();
+    IrTypeClass *itc = getIrType(irinter->type)->isClass();
     assert(itc && "null interface IrTypeClass");
 
     // classinfo

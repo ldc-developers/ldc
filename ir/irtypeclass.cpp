@@ -60,12 +60,13 @@ void IrTypeClass::addClassData(AggrTypeBuilder &builder,
 }
 
 IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
-  const auto t = new IrTypeClass(cd);
-  cd->type->ctype = t;
-
   IF_LOG Logger::println("Building class type %s @ %s", cd->toPrettyChars(),
                          cd->loc.toChars());
   LOG_SCOPE;
+
+  const auto t = new IrTypeClass(cd);
+  getIrType(cd->type) = t;
+
   IF_LOG Logger::println("Instance size: %u", cd->structsize);
 
   // This class may contain an align declaration. See GitHub #726.

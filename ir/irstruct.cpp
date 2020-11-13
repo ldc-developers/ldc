@@ -26,8 +26,7 @@
 namespace {
 LLStructType* getTypeInfoStructMemType() {
   Type *t = getStructTypeInfoType();
-  DtoType(t);
-  IrTypeClass *tc = t->ctype->isClass();
+  IrTypeClass *tc = getIrType(t, true)->isClass();
   assert(tc && "invalid TypeInfo_Struct type");
 
   return llvm::cast<LLStructType>(tc->getMemoryLLType());

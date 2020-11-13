@@ -19,20 +19,22 @@ IrTypeFunction::IrTypeFunction(Type *dt, llvm::Type *lt, IrFuncTy irFty_)
     : IrType(dt, lt), irFty(std::move(irFty_)) {}
 
 IrTypeFunction *IrTypeFunction::get(Type *dt) {
-  assert(!dt->ctype);
-  assert(dt->ty == Tfunction);
+  TypeFunction *tf = dt->isTypeFunction();
+  assert(tf);
 
-  TypeFunction *tf = static_cast<TypeFunction *>(dt);
+  auto &ctype = getIrType(tf);
+  assert(!ctype);
 
   IrFuncTy irFty(tf);
   llvm::Type *lt = DtoFunctionType(tf, irFty, nullptr, nullptr);
 
   // Could have already built the type as part of a struct forward reference,
   // just as for pointers and arrays.
-  if (!dt->ctype) {
-    dt->ctype = new IrTypeFunction(dt, lt, irFty);
+  if (!ctype) {
+    ctype = new IrTypeFunction(dt, lt, irFty);
   }
-  return dt->ctype->isFunction();
+
+  return ctype->isFunction();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -41,11 +43,12 @@ IrTypeDelegate::IrTypeDelegate(Type *dt, llvm::Type *lt, IrFuncTy irFty_)
     : IrType(dt, lt), irFty(std::move(irFty_)) {}
 
 IrTypeDelegate *IrTypeDelegate::get(Type *t) {
-  assert(!t->ctype);
   assert(t->ty == Tdelegate);
-  assert(t->nextOf()->ty == Tfunction);
+  TypeFunction *tf = t->nextOf()->isTypeFunction();
+  assert(tf);
 
-  TypeFunction *tf = static_cast<TypeFunction *>(t->nextOf());
+  auto &ctype = getIrType(t);
+  assert(!ctype);
 
   IrFuncTy irFty(tf);
   llvm::Type *ltf =
@@ -55,8 +58,9 @@ IrTypeDelegate *IrTypeDelegate::get(Type *t) {
 
   // Could have already built the type as part of a struct forward reference,
   // just as for pointers and arrays.
-  if (!t->ctype) {
-    t->ctype = new IrTypeDelegate(t, lt, irFty);
+  if (!ctype) {
+    ctype = new IrTypeDelegate(t, lt, irFty);
   }
-  return t->ctype->isDelegate();
+
+  return ctype->isDelegate();
 }
