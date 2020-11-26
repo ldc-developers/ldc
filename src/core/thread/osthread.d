@@ -1234,7 +1234,7 @@ version (Posix)
     __gshared int resumeSignalNumber;
 }
 
-private extern (D) ThreadBase attachThread(ThreadBase _thisThread) @nogc
+private extern (D) ThreadBase attachThread(ThreadBase _thisThread) @nogc nothrow
 {
     Thread thisThread = _thisThread.toThread();
 
@@ -1713,7 +1713,7 @@ package extern(D) void* getStackBottom() nothrow @nogc
  * Returns:
  *  Whether the thread is now suspended (true) or terminated (false).
  */
-private extern (D) bool suspend( Thread t ) nothrow
+private extern (D) bool suspend( Thread t ) nothrow @nogc
 {
     Duration waittime = dur!"usecs"(10);
  Lagain:
@@ -1995,7 +1995,7 @@ extern (C) void thread_suspendAll() nothrow
                 }
                 if (cnt)
                     goto Lagain;
-             }
+            }
         }
     }
 }
@@ -2014,7 +2014,7 @@ extern (C) void thread_suspendAll() nothrow
  * Throws:
  *  ThreadError if the resume fails for a running thread.
  */
-private extern (D) void resume(ThreadBase _t) nothrow
+private extern (D) void resume(ThreadBase _t) nothrow @nogc
 {
     Thread t = _t.toThread;
 
@@ -2595,7 +2595,7 @@ private
     import core.sys.windows.dll : dll_getRefCount;
 
     version (CRuntime_Microsoft)
-        extern(C) extern __gshared ubyte msvcUsesUCRT; // from rt/msvc.c
+        extern(C) extern __gshared ubyte msvcUsesUCRT; // from rt/msvc.d
 
     /// set during termination of a DLL on Windows, i.e. while executing DllMain(DLL_PROCESS_DETACH)
     public __gshared bool thread_DLLProcessDetaching;
@@ -2843,7 +2843,10 @@ nothrow @nogc unittest
 
     ThreadID[8] tids;
     for (int i = 0; i < tids.length; i++)
+    {
         tids[i] = createLowLevelThread(&task.run);
+        assert(tids[i] != ThreadID.init);
+    }
 
     for (int i = 0; i < tids.length; i++)
         joinLowLevelThread(tids[i]);
