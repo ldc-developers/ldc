@@ -51,7 +51,7 @@ private:
     if (isX87(t))
       return !isReturnValue;
 
-    const bool isMSVCpp = isMSVC && tf->linkage == LINKcpp;
+    const bool isMSVCpp = isMSVC && tf->linkage == LINK::cpp;
 
     // Handle non-PODs:
     if (isReturnValue) {
@@ -100,13 +100,13 @@ public:
     // => let LLVM pass vectors in registers instead of passing a ref to a
     // hidden copy (both cases handled by LLVM automatically for LL vectors
     // which we don't rewrite).
-    return l == LINKd && !(tf && tf->parameterList.varargs == VARARGvariadic)
+    return l == LINK::d && !(tf && tf->parameterList.varargs == VARARGvariadic)
                ? llvm::CallingConv::X86_VectorCall
                : llvm::CallingConv::C;
   }
 
   std::string mangleFunctionForLLVM(std::string name, LINK l) override {
-    if (l == LINKd) {
+    if (l == LINK::d) {
       // Prepend a 0x1 byte to prevent LLVM from applying vectorcall/stdcall
       // mangling: _D… => _D…@<paramssize>
       name.insert(name.begin(), '\1');
@@ -121,7 +121,7 @@ public:
     Type *rt = tf->next->toBasetype();
 
     // for non-static member functions, MSVC++ enforces sret for all structs
-    if (isMSVC && tf->linkage == LINKcpp && needsThis && rt->ty == Tstruct) {
+    if (isMSVC && tf->linkage == LINK::cpp && needsThis && rt->ty == Tstruct) {
       return true;
     }
 
@@ -143,7 +143,7 @@ public:
 
   bool passThisBeforeSret(TypeFunction *tf) override {
     // required by MSVC++
-    return tf->linkage == LINKcpp;
+    return tf->linkage == LINK::cpp;
   }
 
   void rewriteFunctionType(IrFuncTy &fty) override {

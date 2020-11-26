@@ -322,9 +322,9 @@ dmd -cov -unittest myprog.d
             "set C++ name mangling compatibility with <standard>",
             "Standards supported are:
             $(UL
-                $(LI $(I c++98) (default): Use C++98 name mangling,
+                $(LI $(I c++98): Use C++98 name mangling,
                     Sets `__traits(getTargetInfo, \"cppStd\")` to `199711`)
-                $(LI $(I c++11): Use C++11 name mangling,
+                $(LI $(I c++11) (default): Use C++11 name mangling,
                     Sets `__traits(getTargetInfo, \"cppStd\")` to `201103`)
                 $(LI $(I c++14): Use C++14 name mangling,
                     Sets `__traits(getTargetInfo, \"cppStd\")` to `201402`)
@@ -779,6 +779,8 @@ dmd -cov -unittest myprog.d
             "disable access to shared memory objects"),
         Feature("in", "previewIn",
             "`in` on parameters means `scope const [ref]` and accepts rvalues"),
+        Feature("inclusiveincontracts", "inclusiveInContracts",
+            "'in' contracts of overridden methods must be a superset of parent contract"),
         // DEPRECATED previews
         // trigger deprecation message once D repositories don't use this flag anymore
         Feature("markdown", "markdown", "enable Markdown replacements in Ddoc", false, false),
@@ -855,7 +857,8 @@ version (IN_LLVM) {} else
                 continue;
             buf ~= "  =";
             buf ~= t.name;
-            auto lineLength = 3 + t.name.length;
+            buf ~= " "; // at least one separating space
+            auto lineLength = "  =".length + t.name.length + " ".length;
             foreach (i; lineLength .. maxFlagLength)
                 buf ~= " ";
             buf ~= t.helpText;

@@ -161,7 +161,7 @@ public:
     TraitsExp* isTraitsExp();
     HaltExp* isHaltExp();
     IsExp* isExp();
-    CompileExp* isCompileExp();
+    MixinExp* isMixinExp();
     ImportExp* isImportExp();
     AssertExp* isAssertExp();
     DotIdExp* isDotIdExp();
@@ -742,7 +742,7 @@ public:
 
 /****************************************************************/
 
-class CompileExp : public UnaExp
+class MixinExp : public UnaExp
 {
 public:
     void accept(Visitor *v) { v->visit(this); }
@@ -904,6 +904,8 @@ public:
     unsigned char mod;          // MODxxxxx
 
     Expression *syntaxCopy();
+    bool isLvalue();
+    Expression *toLvalue(Scope *sc, Expression *e);
 
     void accept(Visitor *v) { v->visit(this); }
 };

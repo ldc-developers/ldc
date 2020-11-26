@@ -417,9 +417,6 @@ else
 {
     setTarget(params);
 
-    // Predefined version identifiers
-    addDefaultVersionIdentifiers(params);
-
     setDefaultLibrary();
 }
 
@@ -440,6 +437,12 @@ else
     }
     import dmd.root.ctfloat : CTFloat;
     CTFloat.initialize();
+
+version (IN_LLVM) {} else
+{
+    // Predefined version identifiers
+    addDefaultVersionIdentifiers(params);
+}
 
     if (params.verbose)
     {
@@ -1420,6 +1423,7 @@ void addDefaultVersionIdentifiers(const ref Param params)
     {
         VersionCondition.addPredefinedGlobalIdent("Posix");
         VersionCondition.addPredefinedGlobalIdent("FreeBSD");
+        VersionCondition.addPredefinedGlobalIdent("FreeBSD_" ~ target.FreeBSDMajor);
         VersionCondition.addPredefinedGlobalIdent("ELFv1");
         VersionCondition.addPredefinedGlobalIdent("CppRuntime_Clang");
     }

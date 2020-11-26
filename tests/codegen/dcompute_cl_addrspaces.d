@@ -6,11 +6,11 @@
 @compute(CompileFor.deviceOnly) module dcompute_cl_addrspaces;
 import ldc.dcompute;
 
-// LL: %"ldc.dcompute.Pointer!(cast(AddrSpace)0u, float).Pointer" = type { float* }
-// LL: %"ldc.dcompute.Pointer!(cast(AddrSpace)1u, float).Pointer" = type { float addrspace(1)* }
-// LL: %"ldc.dcompute.Pointer!(cast(AddrSpace)2u, float).Pointer" = type { float addrspace(2)* }
-// LL: %"ldc.dcompute.Pointer!(cast(AddrSpace)3u, immutable(float)).Pointer" = type { float addrspace(3)* }
-// LL: %"ldc.dcompute.Pointer!(cast(AddrSpace)4u, float).Pointer" = type { float addrspace(4)* }
+// LL: %"ldc.dcompute.Pointer!(AddrSpace.Private, float).Pointer" = type { float* }
+// LL: %"ldc.dcompute.Pointer!(AddrSpace.Global, float).Pointer" = type { float addrspace(1)* }
+// LL: %"ldc.dcompute.Pointer!(AddrSpace.Shared, float).Pointer" = type { float addrspace(2)* }
+// LL: %"ldc.dcompute.Pointer!(AddrSpace.Constant, immutable(float)).Pointer" = type { float addrspace(3)* }
+// LL: %"ldc.dcompute.Pointer!(AddrSpace.Generic, float).Pointer" = type { float addrspace(4)* }
 
 // SPT-DAG: 2 TypeVoid [[VOID_ID:[0-9]+]]
 // SPT-DAG: 3 TypeFloat [[FLOAT_ID:[0-9]+]] 32

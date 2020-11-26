@@ -79,6 +79,8 @@ unsigned getCriticalSectionSize(const Param &params) {
 } // anonymous namespace
 
 void Target::_init(const Param &params) {
+  this->params = &params;
+
   CTFloat::initialize();
   initFPTypeProperties();
 

@@ -59,11 +59,11 @@ llvm::Function *buildForwarderFunction(
   const auto fnTy =
       LLFunctionType::get(LLType::getVoidTy(gIR->context()), {}, false);
 
-  const auto irMangle = getIRMangledFuncName(name, LINKd);
+  const auto irMangle = getIRMangledFuncName(name, LINK::d);
   assert(gIR->module.getFunction(irMangle) == NULL);
   llvm::Function *fn = llvm::Function::Create(
       fnTy, llvm::GlobalValue::InternalLinkage, irMangle, &gIR->module);
-  fn->setCallingConv(gABI->callingConv(LINKd));
+  fn->setCallingConv(gABI->callingConv(LINK::d));
 
   // Emit the body, consisting of...
   const auto bb = llvm::BasicBlock::Create(gIR->context(), "", fn);
@@ -174,7 +174,7 @@ llvm::Constant *buildLocalClasses(Module *m, size_t &count) {
       continue;
     }
 
-    if (cd->sizeok != SIZEOKdone) {
+    if (cd->sizeok != Sizeok::done) {
       IF_LOG Logger::println(
           "skipping opaque class declaration '%s' in moduleinfo",
           cd->toPrettyChars());

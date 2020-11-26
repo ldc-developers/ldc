@@ -55,7 +55,7 @@ IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
   getIrType(sd->type) = t;
 
   // if it's a forward declaration, all bets are off, stick with the opaque
-  if (sd->sizeok != SIZEOKdone) {
+  if (sd->sizeok != Sizeok::done) {
     return t;
   }
 

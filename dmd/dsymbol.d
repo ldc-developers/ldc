@@ -131,7 +131,7 @@ struct Ungag
 struct Prot
 {
     ///
-    enum Kind : int
+    enum Kind : ubyte
     {
         undefined,
         none,           // no access
@@ -452,6 +452,9 @@ version (IN_LLVM)
             deprecation(loc, "is deprecated - %s", message);
         else
             deprecation(loc, "is deprecated");
+
+        if (auto ti = sc.parent ? sc.parent.isInstantiated() : null)
+            ti.printInstantiationTrace(Classification.deprecation);
 
         return true;
     }

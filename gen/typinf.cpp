@@ -428,7 +428,7 @@ void buildTypeInfo(TypeInfoDeclaration *decl) {
   // Only declare the symbol if it isn't yet, otherwise it may clash with an
   // existing init symbol of a built-in TypeInfo class (in rt.util.typeinfo)
   // when compiling the rt.util.typeinfo unittests.
-  const auto irMangle = getIRMangledVarName(mangled, LINKd);
+  const auto irMangle = getIRMangledVarName(mangled, LINK::d);
   LLGlobalVariable *gvar = gIR->module.getGlobalVariable(irMangle);
   if (gvar) {
     assert(builtinTypeInfo(forType) && "existing global expected to be the "

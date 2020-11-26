@@ -42,7 +42,7 @@ LLGlobalVariable* IrStruct::getTypeInfoSymbol(bool define) {
     mangledName.prependstring(("_D" + std::to_string(length)).c_str());
     mangledName.writestring("6__initZ");
 
-    const auto irMangle = getIRMangledVarName(mangledName.peekChars(), LINKd);
+    const auto irMangle = getIRMangledVarName(mangledName.peekChars(), LINK::d);
 
     // We need to keep the symbol mutable as the type is not declared as
     // immutable on the D side, and e.g. synchronized() can be used on the

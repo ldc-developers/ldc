@@ -133,7 +133,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   }
 
   bool hasObjCSelector = false;
-  if (fd && fd->linkage == LINKobjc && thistype) {
+  if (fd && fd->linkage == LINK::objc && thistype) {
     if (fd->objc.selector) {
       hasObjCSelector = true;
     } else if (fd->parent->isClassDeclaration()) {
@@ -149,7 +149,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   // Non-typesafe variadics (both C and D styles) are also variadics on the LLVM
   // level.
   const bool isLLVMVariadic = (f->parameterList.varargs == VARARGvariadic);
-  if (isLLVMVariadic && f->linkage == LINKd) {
+  if (isLLVMVariadic && f->linkage == LINK::d) {
     // Add extra `_arguments` parameter for D-style variadic functions.
     newIrFty.arg_arguments =
         new IrFuncTyArg(getTypeInfoType()->arrayOf(), false);
@@ -159,7 +159,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   const size_t numExplicitDArgs = f->parameterList.length();
 
   // if this _Dmain() doesn't have an argument, we force it to have one
-  if (isMain && f->linkage != LINKc && numExplicitDArgs == 0) {
+  if (isMain && f->linkage != LINK::c && numExplicitDArgs == 0) {
     Type *mainargs = Type::tchar->arrayOf()->arrayOf();
     newIrFty.args.push_back(new IrFuncTyArg(mainargs, false));
     ++nextLLArgIdx;
@@ -177,7 +177,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     if (arg->storageClass & STClazy) {
       // Lazy arguments are lowered to delegates.
       Logger::println("lazy param");
-      auto ltf = TypeFunction::create(nullptr, arg->type, VARARGnone, LINKd);
+      auto ltf = TypeFunction::create(nullptr, arg->type, VARARGnone, LINK::d);
       auto ltd = createTypeDelegate(ltf);
       loweredDType = merge(ltd);
     } else if (passPointer) {
@@ -402,10 +402,10 @@ void DtoResolveFunction(FuncDeclaration *fdecl, const bool willDeclare) {
         } else if (tempdecl->llvmInternal == LLVMinline_ir) {
           Logger::println("magic inline ir found");
           fdecl->llvmInternal = LLVMinline_ir;
-          fdecl->linkage = LINKc;
+          fdecl->linkage = LINK::c;
           Type *type = fdecl->type;
           assert(type->ty == Tfunction);
-          static_cast<TypeFunction *>(type)->linkage = LINKc;
+          static_cast<TypeFunction *>(type)->linkage = LINK::c;
 
           DtoFunctionType(fdecl);
           fdecl->ir->setDefined();
@@ -615,7 +615,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   // hardcoded into druntime, even if the frontend type has D linkage (Bugzilla
   // issue 9028).
   const bool forceC = vafunc || DtoIsIntrinsic(fdecl) || fdecl->isMain();
-  const auto link = forceC ? LINKc : f->linkage;
+  const auto link = forceC ? LINK::c : f->linkage;
 
   // mangled name
   const auto irMangle = getIRMangledName(fdecl, link);
@@ -693,9 +693,9 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   if (fdecl->neverInline) {
     irFunc->setNeverInline();
   } else {
-    if (fdecl->inlining == PINLINEalways) {
+    if (fdecl->inlining == PINLINE::always) {
       irFunc->setAlwaysInline();
-    } else if (fdecl->inlining == PINLINEnever) {
+    } else if (fdecl->inlining == PINLINE::never) {
       irFunc->setNeverInline();
     }
   }
@@ -950,12 +950,12 @@ void emulateWeakAnyLinkageForMSVC(LLFunction *func, LINK linkage) {
   }
 
   std::string finalWeakMangle = finalMangle.str();
-  if (linkage == LINKcpp) {
+  if (linkage == LINK::cpp) {
     assert(finalMangle.startswith("?"));
     // prepend `__weak_` to first identifier
     size_t offset = finalMangle.startswith("??$") ? 3 : 1;
     finalWeakMangle.insert(offset, "__weak_");
-  } else if (linkage == LINKd) {
+  } else if (linkage == LINK::d) {
     const size_t offset = isWin32 ? 1 : 0;
     assert(finalMangle.substr(offset).startswith("_D"));
     // prepend a `__weak` package

@@ -171,7 +171,7 @@ static cl::opt<CppStdRevision, true> cplusplus(
         clEnumValN(CppStdRevisionCpp98, "c++98",
                    "Sets `__traits(getTargetInfo, \"cppStd\")` to `199711`"),
         clEnumValN(CppStdRevisionCpp11, "c++11",
-                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `201103`"),
+                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `201103` (default)"),
         clEnumValN(CppStdRevisionCpp14, "c++14",
                    "Sets `__traits(getTargetInfo, \"cppStd\")` to `201402`"),
         clEnumValN(CppStdRevisionCpp17, "c++17",

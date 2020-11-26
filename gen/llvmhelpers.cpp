@@ -1747,7 +1747,7 @@ FuncDeclaration *getParentFunc(Dsymbol *sym) {
   // nested.
   if (FuncDeclaration *fd = sym->isFuncDeclaration()) {
     bool certainlyNewRoot =
-        fd->isStatic() || (!fd->isThis() && fd->linkage != LINKd) ||
+        fd->isStatic() || (!fd->isThis() && fd->linkage != LINK::d) ||
         (fd->isFuncLiteralDeclaration() &&
          static_cast<FuncLiteralDeclaration *>(fd)->tok == TOKfunction);
     if (certainlyNewRoot) {
