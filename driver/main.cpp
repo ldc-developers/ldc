@@ -779,6 +779,12 @@ void registerPredefinedTargetVersions() {
     break;
   case llvm::Triple::FreeBSD:
     VersionCondition::addPredefinedGlobalIdent("FreeBSD");
+    if (unsigned major = triple.getOSMajorVersion()) {
+      const auto withMajor = "FreeBSD_" + std::to_string(major);
+      VersionCondition::addPredefinedGlobalIdent(withMajor.c_str());
+    } else {
+      warning(Loc(), "FreeBSD major version not specified in target triple");
+    }
     VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang");
     break;
