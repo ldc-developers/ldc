@@ -437,6 +437,7 @@ steps:
     cd ..
     git clone --recursive https://github.com/dlang/tools.git dlang-tools
     cd dlang-tools
+    git checkout "$(cat $BUILD_SOURCESDIRECTORY/packaging/dlang-tools_version)"
     mkdir bin
     $DMD -w -de -dip1000 rdmd.d -of=bin/rdmd
     $DMD -w -de -dip1000 ddemangle.d -of=bin/ddemangle

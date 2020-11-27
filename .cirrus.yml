@@ -243,6 +243,7 @@ task:
     DMD=$PWD/installed/bin/ldmd2
     git clone --recursive https://github.com/dlang/tools.git dlang-tools
     cd dlang-tools
+    git checkout "$(cat $CIRRUS_WORKING_DIR/packaging/dlang-tools_version)"
     mkdir bin
     $DMD -w -de -dip1000 rdmd.d -of=bin/rdmd
     $DMD -w -de -dip1000 ddemangle.d -of=bin/ddemangle
