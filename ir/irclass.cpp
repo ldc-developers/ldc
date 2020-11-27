@@ -71,6 +71,9 @@ LLGlobalVariable *IrClass::getVtblSymbol(bool define) {
 
     vtbl = declareGlobal(aggrdecl->loc, gIR->module, vtblTy, irMangle,
                          /*isConstant=*/true);
+
+    if (!define)
+      define = defineOnDeclare(aggrdecl);
   }
 
   if (define) {
@@ -125,6 +128,9 @@ LLGlobalVariable *IrClass::getClassInfoSymbol(bool define) {
       node->addOperand(llvm::MDNode::get(
           gIR->context(), llvm::makeArrayRef(mdVals, CD_NumFields)));
     }
+
+    if (!define)
+      define = defineOnDeclare(aggrdecl);
   }
 
   if (define) {
@@ -378,7 +384,7 @@ LLConstant *IrClass::getClassInfoInit() {
   // TypeInfo_Class base
   assert(!isInterface || !cd->baseClass);
   if (cd->baseClass) {
-    b.push_classinfo(cd->baseClass);
+    b.push_typeinfo(cd->baseClass->type);
   } else {
     b.push_null(cinfoType);
   }
@@ -464,6 +470,9 @@ llvm::GlobalVariable *IrClass::getInterfaceVtblSymbol(BaseClass *b,
 
     // insert into the vtbl map
     interfaceVtblMap.insert({{b->sym, interfaces_index}, gvar});
+
+    if (!define)
+      define = defineOnDeclare(aggrdecl);
   }
 
   if (define && !gvar->hasInitializer()) {

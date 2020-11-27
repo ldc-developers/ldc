@@ -6071,8 +6071,13 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
             tempinst.inst.gagged = tempinst.gagged;
         }
 
-        tempinst.tnext = tempinst.inst.tnext;
-        tempinst.inst.tnext = tempinst;
+        // LDC: the tnext linked list is only used by TemplateInstance.needsCodegen(),
+        //      which is skipped with -linkonce-templates
+        if (!(IN_LLVM && global.params.linkonceTemplates))
+        {
+            tempinst.tnext = tempinst.inst.tnext;
+            tempinst.inst.tnext = tempinst;
+        }
 
         /* A module can have explicit template instance and its alias
          * in module scope (e,g, `alias Base64 = Base64Impl!('+', '/');`).
@@ -6156,7 +6161,10 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
             scope v = new InstMemberWalker(tempinst.inst);
             tempinst.inst.accept(v);
 
-            if (tempinst.minst) // if inst was not speculative
+            // LDC: if `inst` was speculative, it was already appended to a root
+            //      module - unless using -linkonce-templates
+            if ((IN_LLVM && global.params.linkonceTemplates) ||
+                tempinst.minst) // if inst was not speculative
             {
                 /* Add 'inst' once again to the root module members[], then the
                  * instance members will get codegen chances.

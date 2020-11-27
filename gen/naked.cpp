@@ -170,7 +170,7 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
     asmstr << "\t.section\t__TEXT,__text,regular,pure_instructions"
            << std::endl;
     asmstr << "\t.globl\t" << mangle << std::endl;
-    if (DtoIsTemplateInstance(fd)) {
+    if (fd->isInstantiated()) {
       asmstr << "\t.weak_definition\t" << mangle << std::endl;
     }
     asmstr << "\t.p2align\t4, 0x90" << std::endl;
@@ -198,7 +198,7 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
     asmstr << "\t.type\t32;" << std::endl;
     asmstr << "\t.endef" << std::endl;
 
-    if (DtoIsTemplateInstance(fd)) {
+    if (fd->isInstantiated()) {
       asmstr << "\t.section\t.text,\"xr\",discard," << mangle << std::endl;
     } else {
       asmstr << "\t.text" << std::endl;
@@ -207,7 +207,7 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
     asmstr << "\t.p2align\t4, 0x90" << std::endl;
     asmstr << mangle << ":" << std::endl;
   } else {
-    if (DtoIsTemplateInstance(fd)) {
+    if (fd->isInstantiated()) {
       asmstr << "\t.section\t.text." << mangle << ",\"axG\",@progbits,"
              << mangle << ",comdat" << std::endl;
       asmstr << "\t.weak\t" << mangle << std::endl;

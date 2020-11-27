@@ -72,13 +72,13 @@ bool isInlineCandidate(FuncDeclaration &fdecl) {
 
 } // end anonymous namespace
 
-bool alreadyOrWillBeDefined(FuncDeclaration &fdecl) {
+bool skipCodegen(FuncDeclaration &fdecl) {
   if (fdecl.isFuncLiteralDeclaration()) // emitted into each referencing CU
-    return true;
+    return false;
 
   for (FuncDeclaration *f = &fdecl; f;) {
-    if (!f->isInstantiated() && f->inNonRoot()) {
-      return false;
+    if (f->inNonRoot()) { // false if instantiated
+      return true;
     }
     if (f->isNested()) {
       f = f->toParent2()->isFuncDeclaration();
@@ -86,7 +86,7 @@ bool alreadyOrWillBeDefined(FuncDeclaration &fdecl) {
       break;
     }
   }
-  return true;
+  return false;
 }
 
 bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
