@@ -186,6 +186,7 @@ steps:
     set DMD=%CD%\installed\bin\ldmd2
     git clone --recursive https://github.com/dlang/tools.git dlang-tools 2>&1
     cd dlang-tools
+    powershell -c "git checkout \"$(cat %BUILD_SOURCESDIRECTORY%/packaging/dlang-tools_version -Raw)\"" 2>&1
     %DMD% -w -de -dip1000 rdmd.d || exit /b
     %DMD% -w -de -dip1000 ddemangle.d || exit /b
     %DMD% -w -de -dip1000 DustMite\dustmite.d DustMite\splitter.d || exit /b
