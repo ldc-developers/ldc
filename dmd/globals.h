@@ -454,7 +454,6 @@ enum class LINK : uint8_t
     c,
     cpp,
     windows,
-    pascal,
     objc,
     system
 };

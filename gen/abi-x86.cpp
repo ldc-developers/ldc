@@ -49,7 +49,6 @@ struct X86TargetABI : TargetABI {
                  : llvm::CallingConv::C;
     case LINK::d:
     case LINK::default_:
-    case LINK::pascal:
     case LINK::windows:
       return llvm::CallingConv::X86_StdCall;
     default:
