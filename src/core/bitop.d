@@ -413,7 +413,6 @@ p[index / (size_t.sizeof*8)] & (1 << (index & ((size_t.sizeof*8) - 1)))
  *      A non-zero value if the bit was set, and a zero
  *      if it was clear.
  */
-
 pragma(inline, true) // LDC
 int bts(size_t* p, size_t bitnum) pure @system
 {
@@ -1000,8 +999,7 @@ uint bitswap( uint x ) pure
     {
         version (LDC)
         {
-            static if (is(typeof(llvm_bitreverse(x))))
-                return llvm_bitreverse(x);
+            return llvm_bitreverse(x);
         }
         else
         static if (is(typeof(asmBitswap32(x))))
@@ -1040,8 +1038,7 @@ ulong bitswap ( ulong x ) pure
     {
         version (LDC)
         {
-            static if (is(typeof(llvm_bitreverse(x))))
-                return llvm_bitreverse(x);
+            return llvm_bitreverse(x);
         }
         else
         static if (is(typeof(asmBitswap64(x))))

@@ -327,8 +327,6 @@ fiber_switchContext:
 
 #elif defined( __ppc__ ) || defined( __PPC__ ) || defined( __powerpc__ )
 
-    .section  ".text"
-
 /**
  * Performs a context switch.
  *
@@ -336,10 +334,11 @@ fiber_switchContext:
  * r4 - new context pointer
  *
  */
-    .align 2
-    .globl fiber_switchContext
-    .type   fiber_switchContext, @function
+.text
+.align 2
+.globl fiber_switchContext
 fiber_switchContext:
+
     /* Save linkage area */
     mflr        0
     mfcr        5
@@ -450,7 +449,6 @@ fiber_switchContext:
 
     /* Return and switch context */
     blr
-    .size  fiber_switchContext,.-fiber_switchContext
 
 #elif defined(__mips__) && _MIPS_SIM == _ABIO32
 /************************************************************************************
