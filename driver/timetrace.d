@@ -21,17 +21,17 @@ static if (LLVM_VERSION_MAJOR >= 10)
     // Forward declarations of LLVM Support functions
     extern(C++, llvm)
     {
+        struct TimeTraceProfiler;
         void timeTraceProfilerEnd();
 
         static if (LLVM_VERSION_MAJOR < 11)
         {
-            extern __gshared void* TimeTraceProfilerInstance;
+            extern __gshared TimeTraceProfiler* TimeTraceProfilerInstance;
             auto getTimeTraceProfilerInstance() { return TimeTraceProfilerInstance; }
         }
         else
         {
-            // No need to detail the return type (not part of C++ mangling).
-            void* getTimeTraceProfilerInstance();
+            TimeTraceProfiler* getTimeTraceProfilerInstance();
         }
     }
 
