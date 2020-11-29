@@ -66,6 +66,9 @@ void timeTraceProfilerBegin(size_t name_length, const char *name_ptr,
 #else // LDC_WITH_TIMETRACER
 
 // Provide dummy implementations when not supporting time tracing.
+
+#include "llvm/ADT/StringRef.h"
+
 inline void initializeTimeTracer() {}
 inline void deinitializeTimeTracer() {}
 inline void writeTimeTraceProfile() {}
