@@ -97,6 +97,11 @@ extern std::vector<std::string> debugArgs;
 void createClashingOptions();
 void hideLLVMOptions();
 
+// Compilation time tracing options
+extern cl::opt<bool> fTimeTrace;
+extern cl::opt<std::string> fTimeTraceFile;
+extern cl::opt<unsigned> fTimeTraceGranularity;
+
 // LTO options
 enum LTOKind {
   LTO_None,

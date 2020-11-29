@@ -13,6 +13,7 @@
 #include "driver/cl_options.h"
 #include "driver/cache.h"
 #include "driver/targetmachine.h"
+#include "driver/timetrace.h"
 #include "driver/tool.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
@@ -313,6 +314,7 @@ void writeModule(llvm::Module *m, const char *filename) {
   const bool useIR2ObjCache = !opts::cacheDir.empty() && outputObj && !doLTO;
   llvm::SmallString<32> moduleHash;
   if (useIR2ObjCache) {
+    ::TimeTraceScope timeScope("Check object cache", llvm::StringRef(filename));
     llvm::SmallString<128> cacheDir(opts::cacheDir.c_str());
     llvm::sys::fs::make_absolute(cacheDir);
     opts::cacheDir = cacheDir.c_str();
@@ -330,7 +332,13 @@ void writeModule(llvm::Module *m, const char *filename) {
   }
 
   // run optimizer
-  ldc_optimize_module(m);
+  {
+    ::TimeTraceScope timeScope("Optimize", llvm::StringRef(filename));
+    ldc_optimize_module(m);
+  }
+
+  // Everything beyond this point is writing file(s) to disk.
+  ::TimeTraceScope timeScope("Write file(s)", llvm::StringRef(filename));
 
   // make sure the output directory exists
   const auto directory = llvm::sys::path::parent_path(filename);
