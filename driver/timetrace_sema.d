@@ -190,35 +190,39 @@ extern(C++) final class SemanticTimeTraceVisitor(SemaVisitor) : Visitor
     override void visit(InterfaceDeclaration idec) { semavisitor.visit(idec); }
 }
 
-// Note: this is not very careful check, but is hopefully good enough to trigger upon relevant changes to the DMD frontend.
+// Note: this is not a very careful check, but is hopefully good enough to trigger upon relevant changes to the DMD frontend.
 // If the parent of First and Second already contains an override
 // function and Second overrides it, this function always returns true even if First does not override it.
 private bool checkFirstOverridesAllSecondOverides(First, Second)() {
-    foreach (der2;  __traits(derivedMembers, Second))
+    // Due to access rights limits of __traits(derivedMembers,...) we require a newer dlang version to do the check
+    static if (__VERSION__ >= 2086)
     {
-        foreach (mem2; __traits(getOverloads, Second, der2))
+        foreach (der2;  __traits(derivedMembers, Second))
         {
-            if (!__traits(isOverrideFunction, mem2))
-                continue;
-            else
+            foreach (mem2; __traits(getOverloads, Second, der2))
             {
-                bool found = false;
-                foreach (der1;  __traits(derivedMembers, First))
+                if (!__traits(isOverrideFunction, mem2))
+                    continue;
+                else
                 {
-                    foreach (mem1; __traits(getOverloads, First, der1))
+                    bool found = false;
+                    foreach (der1;  __traits(derivedMembers, First))
                     {
-                        if (!__traits(isOverrideFunction, mem1))
-                            continue;
-                        else if (__traits(getVirtualIndex, mem1) == __traits(getVirtualIndex, mem2))
+                        foreach (mem1; __traits(getOverloads, First, der1))
                         {
-                            found = true;
-                            break;
+                            if (!__traits(isOverrideFunction, mem1))
+                                continue;
+                            else if (__traits(getVirtualIndex, mem1) == __traits(getVirtualIndex, mem2))
+                            {
+                                found = true;
+                                break;
+                            }
                         }
+                        if (found) break;
                     }
-                    if (found) break;
+                    assert (found, mem2.mangleof ~ " needs override");
+                    if (!found) return false;
                 }
-                assert (found, mem2.mangleof ~ " needs override");
-                if (!found) return false;
             }
         }
     }
