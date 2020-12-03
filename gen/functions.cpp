@@ -1382,22 +1382,3 @@ DValue *DtoArgument(Parameter *fnarg, Expression *argexp) {
 
   return arg;
 }
-
-////////////////////////////////////////////////////////////////////////////////
-
-int binary(const char *p, const char **tab, int high) {
-  int i = 0, j = high, k, l;
-  do {
-    k = (i + j) / 2;
-    l = strcmp(p, tab[k]);
-    if (!l) {
-      return k;
-    }
-    if (l < 0) {
-      j = k;
-    } else {
-      i = k + 1;
-    }
-  } while (i != j);
-  return -1;
-}
