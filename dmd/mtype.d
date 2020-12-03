@@ -6728,7 +6728,7 @@ extern (C++) struct ParameterList
     }
 
     /// Compares this to another ParameterList (and expands tuples if necessary)
-    extern (D) bool opEquals(scope ref ParameterList other) const
+    extern (D) bool opEquals(/* IN_LLVM: ltsmaster... scope */ ref ParameterList other) const
     {
         if (stc != other.stc || varargs != other.varargs || (!parameters != !other.parameters))
             return false;
