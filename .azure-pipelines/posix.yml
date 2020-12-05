@@ -445,7 +445,7 @@ steps:
     cp bin/{rdmd,ddemangle,dustmite} ../installed/bin
   displayName: Build & copy dlang tools
 
-# Pack & publish artifact
+# Pack & publish artifact(s)
 - script: |
     set -ex
     cd ..
