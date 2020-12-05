@@ -169,8 +169,10 @@ llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd) {
 
   auto classInfoPtr = getIrAggr(cd, true)->getClassInfoSymbol();
 
-  // first character skipped in debugger output, so we add 'D' as prefix
-  const auto TypeNameString = (llvm::Twine("D") + cd->toPrettyChars()).str();
+  auto t = ClassDeclaration::throwable;
+  const bool isAThrowable = (t && (cd == t || t->isBaseOf(cd, nullptr)));
+  const std::string TypeNameString =
+      isAThrowable ? getIRMangledAggregateName(cd) : cd->toPrettyChars();
 
   const auto TypeDescName = getIRMangledAggregateName(cd, "@TypeDescriptor");
 
