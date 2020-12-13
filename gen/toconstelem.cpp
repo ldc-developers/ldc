@@ -82,7 +82,7 @@ public:
     }
 
     if (TypeInfoDeclaration *ti = e->var->isTypeInfoDeclaration()) {
-      result = DtoTypeInfoOf(ti->tinfo, false);
+      result = DtoTypeInfoOf(ti->tinfo, false, e->loc);
       result = DtoBitCast(result, DtoType(e->type));
       return;
     }
@@ -685,7 +685,7 @@ public:
       return;
     }
 
-    result = DtoTypeInfoOf(t, /*base=*/false);
+    result = DtoTypeInfoOf(t, /*base=*/false, e->loc);
     result = DtoBitCast(result, DtoType(e->type));
   }
 

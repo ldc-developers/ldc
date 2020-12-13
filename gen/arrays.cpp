@@ -293,7 +293,7 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
       }
     } else if (isConstructing) {
       LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_arrayctor");
-      gIR->CreateCallOrInvoke(fn, DtoTypeInfoOf(elemType),
+      gIR->CreateCallOrInvoke(fn, DtoTypeInfoOf(elemType, /*base=*/true, loc),
                               DtoSlice(rhsPtr, rhsLength),
                               DtoSlice(lhsPtr, lhsLength));
     } else // assigning
@@ -303,7 +303,7 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
           loc, gIR->module,
           !canSkipPostblit ? "_d_arrayassign_l" : "_d_arrayassign_r");
       gIR->CreateCallOrInvoke(
-          fn, DtoTypeInfoOf(elemType), DtoSlice(rhsPtr, rhsLength),
+          fn, DtoTypeInfoOf(elemType, /*base=*/true, loc), DtoSlice(rhsPtr, rhsLength),
           DtoSlice(lhsPtr, lhsLength), DtoBitCast(tmpSwap, getVoidPtrType()));
     }
   } else {
@@ -337,7 +337,7 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
           fn, lhsPtr, DtoBitCast(makeLValue(loc, rhs), getVoidPtrType()),
           gIR->ir->CreateTruncOrBitCast(lhsLength,
                                         LLType::getInt32Ty(gIR->context())),
-          DtoTypeInfoOf(stripModifiers(t2)));
+          DtoTypeInfoOf(stripModifiers(t2), /*base=*/true, loc));
     }
   }
 }
@@ -693,7 +693,7 @@ DSliceValue *DtoNewDynArray(Loc &loc, Type *arrayType, DValue *dim,
   LLFunction *fn = getRuntimeFunction(loc, gIR->module, fnname);
 
   // typeinfo arg
-  LLValue *arrayTypeInfo = DtoTypeInfoOf(arrayType);
+  LLValue *arrayTypeInfo = DtoTypeInfoOf(arrayType, /*base=*/true, loc);
 
   // dim arg
   assert(DtoType(dim->type) == DtoSize_t());
@@ -727,7 +727,7 @@ DSliceValue *DtoNewMulDimDynArray(Loc &loc, Type *arrayType, DValue **dims,
   LLFunction *fn = getRuntimeFunction(loc, gIR->module, fnname);
 
   // typeinfo arg
-  LLValue *arrayTypeInfo = DtoTypeInfoOf(arrayType);
+  LLValue *arrayTypeInfo = DtoTypeInfoOf(arrayType, /*base=*/true, loc);
 
   // Check if constant
   bool allDimsConst = true;
@@ -798,7 +798,7 @@ DSliceValue *DtoResizeDynArray(Loc &loc, Type *arrayType, DValue *array,
                                                     : "_d_arraysetlengthiT");
 
   LLValue *newArray = gIR->CreateCallOrInvoke(
-      fn, DtoTypeInfoOf(arrayType), newdim,
+      fn, DtoTypeInfoOf(arrayType, /*base=*/true, loc), newdim,
       DtoBitCast(DtoLVal(array), fn->getFunctionType()->getParamType(2)),
       ".gc_mem");
 
@@ -822,7 +822,7 @@ void DtoCatAssignElement(Loc &loc, DValue *array, Expression *exp) {
   // potentially moved to a new block).
   LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_arrayappendcTX");
   gIR->CreateCallOrInvoke(
-      fn, DtoTypeInfoOf(arrayType),
+      fn, DtoTypeInfoOf(arrayType, /*base=*/true, loc),
       DtoBitCast(DtoLVal(array), fn->getFunctionType()->getParamType(1)),
       DtoConstSize_t(1), ".appendedArray");
 
@@ -847,7 +847,7 @@ DSliceValue *DtoCatAssignArray(Loc &loc, DValue *arr, Expression *exp) {
   LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_arrayappendT");
   // Call _d_arrayappendT(TypeInfo ti, byte[] *px, byte[] y)
   LLValue *newArray = gIR->CreateCallOrInvoke(
-      fn, DtoTypeInfoOf(arrayType),
+      fn, DtoTypeInfoOf(arrayType, /*base=*/true, loc),
       DtoBitCast(DtoLVal(arr), fn->getFunctionType()->getParamType(1)),
       DtoAggrPaint(DtoSlice(exp), fn->getFunctionType()->getParamType(2)),
       ".appendedArray");
@@ -901,14 +901,14 @@ DSliceValue *DtoCatArrays(Loc &loc, Type *arrayType, Expression *exp1,
                                        LLType::getInt8Ty(gIR->context()))))));
 
     // TypeInfo ti
-    args.push_back(DtoTypeInfoOf(arrayType));
+    args.push_back(DtoTypeInfoOf(arrayType, /*base=*/true, loc));
     // byte[][] arrs
     args.push_back(val);
   } else {
     fn = getRuntimeFunction(loc, gIR->module, "_d_arraycatT");
 
     // TypeInfo ti
-    args.push_back(DtoTypeInfoOf(arrayType));
+    args.push_back(DtoTypeInfoOf(arrayType, /*base=*/true, loc));
     // byte[] x
     LLValue *val = DtoLoad(DtoSlicePtr(exp1));
     val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(1));
@@ -985,7 +985,7 @@ LLValue *DtoArrayEqCmp_impl(Loc &loc, const char *func, DValue *l,
 
   // pass array typeinfo ?
   if (useti) {
-    LLValue *tival = DtoTypeInfoOf(l->type);
+    LLValue *tival = DtoTypeInfoOf(l->type, /*base=*/true, loc);
     args.push_back(DtoBitCast(tival, fn->getFunctionType()->getParamType(2)));
   }
 

@@ -61,7 +61,7 @@ DLValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key,
   LLValue *ret;
   if (lvalue) {
     LLValue *rawAATI =
-        DtoTypeInfoOf(aa->type->unSharedOf()->mutableOf(), /*base=*/false);
+        DtoTypeInfoOf(aa->type->unSharedOf()->mutableOf(), /*base=*/false, loc);
     LLValue *castedAATI = DtoBitCast(rawAATI, funcTy->getParamType(1));
     LLValue *valsize = DtoConstSize_t(getTypeAllocSize(DtoType(type)));
     ret = gIR->CreateCallOrInvoke(func, aaval, castedAATI, valsize, pkey,
@@ -192,7 +192,7 @@ LLValue *DtoAAEquals(Loc &loc, TOK op, DValue *l, DValue *r) {
 
   LLValue *aaval = DtoBitCast(DtoRVal(l), funcTy->getParamType(1));
   LLValue *abval = DtoBitCast(DtoRVal(r), funcTy->getParamType(2));
-  LLValue *aaTypeInfo = DtoTypeInfoOf(t);
+  LLValue *aaTypeInfo = DtoTypeInfoOf(t, /*base=*/true, loc);
   LLValue *res =
       gIR->CreateCallOrInvoke(func, aaTypeInfo, aaval, abval, "aaEqRes");
 

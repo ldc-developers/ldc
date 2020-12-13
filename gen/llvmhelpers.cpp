@@ -82,7 +82,7 @@ LLValue *DtoNew(Loc &loc, Type *newtype) {
   // get runtime function
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_allocmemoryT");
   // get type info
-  LLConstant *ti = DtoTypeInfoOf(newtype);
+  LLConstant *ti = DtoTypeInfoOf(newtype, /*base=*/true, loc);
   assert(isaPointer(ti));
   // call runtime allocator
   LLValue *mem = gIR->CreateCallOrInvoke(fn, ti, ".gc_mem");
@@ -94,7 +94,7 @@ LLValue *DtoNewStruct(Loc &loc, TypeStruct *newtype) {
   llvm::Function *fn = getRuntimeFunction(
       loc, gIR->module,
       newtype->isZeroInit(newtype->sym->loc) ? "_d_newitemT" : "_d_newitemiT");
-  LLConstant *ti = DtoTypeInfoOf(newtype);
+  LLConstant *ti = DtoTypeInfoOf(newtype, /*base=*/true, loc);
   LLValue *mem = gIR->CreateCallOrInvoke(fn, ti, ".gc_struct");
   return DtoBitCast(mem, DtoPtrToType(newtype), ".gc_struct");
 }
@@ -111,7 +111,7 @@ void DtoDeleteStruct(Loc &loc, DValue *ptr) {
   LLValue *lval = (ptr->isLVal() ? DtoLVal(ptr) : makeLValue(loc, ptr));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)),
-      DtoBitCast(DtoTypeInfoOf(ptr->type->nextOf()),
+      DtoBitCast(DtoTypeInfoOf(ptr->type->nextOf(), /*base=*/true, loc),
                  fn->getFunctionType()->getParamType(1)));
 }
 
@@ -138,7 +138,7 @@ void DtoDeleteArray(Loc &loc, DValue *arr) {
   bool hasDtor = (elementType->toBasetype()->ty == Tstruct &&
                   elementType->needsDestruction());
   LLValue *typeInfo = (!hasDtor ? getNullPtr(fty->getParamType(1))
-                                : DtoTypeInfoOf(elementType));
+                                : DtoTypeInfoOf(elementType, /*base=*/true, loc));
 
   LLValue *lval = (arr->isLVal() ? DtoLVal(arr) : makeLValue(loc, arr));
   gIR->CreateCallOrInvoke(fn, DtoBitCast(lval, fty->getParamType(0)),
@@ -1192,12 +1192,12 @@ LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLConstant *DtoTypeInfoOf(Type *type, bool base) {
+LLConstant *DtoTypeInfoOf(Type *type, bool base, const Loc& loc) {
   IF_LOG Logger::println("DtoTypeInfoOf(type = '%s', base='%d')",
                          type->toChars(), base);
   LOG_SCOPE
 
-  auto tidecl = getOrCreateTypeInfoDeclaration(Loc(), type);
+  auto tidecl = getOrCreateTypeInfoDeclaration(loc, type);
   auto tiglobal = DtoResolveTypeInfo(tidecl);
   if (base) {
     return llvm::ConstantExpr::getBitCast(tiglobal, DtoType(getTypeInfoType()));

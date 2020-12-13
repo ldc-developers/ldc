@@ -126,7 +126,7 @@ LLConstant *DtoConstInitializer(Loc &loc, Type *type,
 LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp);
 
 // getting typeinfo of type, base=true casts to object.TypeInfo
-LLConstant *DtoTypeInfoOf(Type *ty, bool base = true);
+LLConstant *DtoTypeInfoOf(Type *ty, bool base = true, const Loc& loc = Loc());
 
 // target stuff
 void findDefaultTarget();
