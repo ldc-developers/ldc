@@ -25,11 +25,11 @@
 #include "ir/irmodule.h"
 
 // returns the keytype typeinfo
-static LLConstant *to_keyti(DValue *aa, LLType *targetType) {
+static LLConstant *to_keyti(const Loc &loc, DValue *aa, LLType *targetType) {
   // keyti param
   assert(aa->type->toBasetype()->ty == Taarray);
   TypeAArray *aatype = static_cast<TypeAArray *>(aa->type->toBasetype());
-  LLConstant *ti = DtoTypeInfoOf(aatype->index, /*base=*/false);
+  LLConstant *ti = DtoTypeInfoOf(loc, aatype->index, /*base=*/false);
   return DtoBitCast(ti, targetType);
 }
 
@@ -61,13 +61,13 @@ DLValue *DtoAAIndex(const Loc &loc, Type *type, DValue *aa, DValue *key,
   LLValue *ret;
   if (lvalue) {
     LLValue *rawAATI =
-        DtoTypeInfoOf(aa->type->unSharedOf()->mutableOf(), /*base=*/false, loc);
+        DtoTypeInfoOf(loc, aa->type->unSharedOf()->mutableOf(), /*base=*/false);
     LLValue *castedAATI = DtoBitCast(rawAATI, funcTy->getParamType(1));
     LLValue *valsize = DtoConstSize_t(getTypeAllocSize(DtoType(type)));
     ret = gIR->CreateCallOrInvoke(func, aaval, castedAATI, valsize, pkey,
                                   "aa.index");
   } else {
-    LLValue *keyti = to_keyti(aa, funcTy->getParamType(1));
+    LLValue *keyti = to_keyti(loc, aa, funcTy->getParamType(1));
     ret = gIR->CreateCallOrInvoke(func, aaval, keyti, pkey, "aa.index");
   }
 
@@ -125,7 +125,7 @@ DValue *DtoAAIn(const Loc &loc, Type *type, DValue *aa, DValue *key) {
   aaval = DtoBitCast(aaval, funcTy->getParamType(0));
 
   // keyti param
-  LLValue *keyti = to_keyti(aa, funcTy->getParamType(1));
+  LLValue *keyti = to_keyti(loc, aa, funcTy->getParamType(1));
 
   // pkey param
   LLValue *pkey = makeLValue(loc, key);
@@ -169,7 +169,7 @@ DValue *DtoAARemove(const Loc &loc, DValue *aa, DValue *key) {
   aaval = DtoBitCast(aaval, funcTy->getParamType(0));
 
   // keyti param
-  LLValue *keyti = to_keyti(aa, funcTy->getParamType(1));
+  LLValue *keyti = to_keyti(loc, aa, funcTy->getParamType(1));
 
   // pkey param
   LLValue *pkey = makeLValue(loc, key);
@@ -192,7 +192,7 @@ LLValue *DtoAAEquals(const Loc &loc, TOK op, DValue *l, DValue *r) {
 
   LLValue *aaval = DtoBitCast(DtoRVal(l), funcTy->getParamType(1));
   LLValue *abval = DtoBitCast(DtoRVal(r), funcTy->getParamType(2));
-  LLValue *aaTypeInfo = DtoTypeInfoOf(t, /*base=*/true, loc);
+  LLValue *aaTypeInfo = DtoTypeInfoOf(loc, t);
   LLValue *res =
       gIR->CreateCallOrInvoke(func, aaTypeInfo, aaval, abval, "aaEqRes");
 

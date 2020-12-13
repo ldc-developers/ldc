@@ -82,7 +82,7 @@ LLValue *DtoNew(const Loc &loc, Type *newtype) {
   // get runtime function
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_allocmemoryT");
   // get type info
-  LLConstant *ti = DtoTypeInfoOf(newtype, /*base=*/true, loc);
+  LLConstant *ti = DtoTypeInfoOf(loc, newtype);
   assert(isaPointer(ti));
   // call runtime allocator
   LLValue *mem = gIR->CreateCallOrInvoke(fn, ti, ".gc_mem");
@@ -94,7 +94,7 @@ LLValue *DtoNewStruct(const Loc &loc, TypeStruct *newtype) {
   llvm::Function *fn = getRuntimeFunction(
       loc, gIR->module,
       newtype->isZeroInit(newtype->sym->loc) ? "_d_newitemT" : "_d_newitemiT");
-  LLConstant *ti = DtoTypeInfoOf(newtype, /*base=*/true, loc);
+  LLConstant *ti = DtoTypeInfoOf(loc, newtype);
   LLValue *mem = gIR->CreateCallOrInvoke(fn, ti, ".gc_struct");
   return DtoBitCast(mem, DtoPtrToType(newtype), ".gc_struct");
 }
@@ -111,7 +111,7 @@ void DtoDeleteStruct(const Loc &loc, DValue *ptr) {
   LLValue *lval = (ptr->isLVal() ? DtoLVal(ptr) : makeLValue(loc, ptr));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)),
-      DtoBitCast(DtoTypeInfoOf(ptr->type->nextOf(), /*base=*/true, loc),
+      DtoBitCast(DtoTypeInfoOf(loc, ptr->type->nextOf()),
                  fn->getFunctionType()->getParamType(1)));
 }
 
@@ -137,8 +137,8 @@ void DtoDeleteArray(const Loc &loc, DValue *arr) {
   Type *elementType = arr->type->nextOf();
   bool hasDtor = (elementType->toBasetype()->ty == Tstruct &&
                   elementType->needsDestruction());
-  LLValue *typeInfo = (!hasDtor ? getNullPtr(fty->getParamType(1))
-                                : DtoTypeInfoOf(elementType, /*base=*/true, loc));
+  LLValue *typeInfo = !hasDtor ? getNullPtr(fty->getParamType(1))
+                               : DtoTypeInfoOf(loc, elementType);
 
   LLValue *lval = (arr->isLVal() ? DtoLVal(arr) : makeLValue(loc, arr));
   gIR->CreateCallOrInvoke(fn, DtoBitCast(lval, fty->getParamType(0)),
@@ -1192,7 +1192,7 @@ LLConstant *DtoConstExpInit(const Loc &loc, Type *targetType, Expression *exp) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLConstant *DtoTypeInfoOf(Type *type, bool base, const Loc &loc) {
+LLConstant *DtoTypeInfoOf(const Loc &loc, Type *type, bool base) {
   IF_LOG Logger::println("DtoTypeInfoOf(type = '%s', base='%d')",
                          type->toChars(), base);
   LOG_SCOPE

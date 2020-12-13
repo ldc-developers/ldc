@@ -250,7 +250,8 @@ static LLValue *getTypeinfoArrayArgumentForDVarArg(Expressions *argexps,
   std::vector<LLConstant *> vtypeinfos;
   vtypeinfos.reserve(numVariadicArgs);
   for (size_t i = begin; i < numArgExps; i++) {
-    vtypeinfos.push_back(DtoTypeInfoOf((*argexps)[i]->type, /*base=*/true, (*argexps)[i]->loc));
+    Expression *argExp = (*argexps)[i];
+    vtypeinfos.push_back(DtoTypeInfoOf(argExp->loc, argExp->type));
   }
 
   // apply initializer

@@ -2402,9 +2402,9 @@ public:
       llvm::Function *func =
           getRuntimeFunction(e->loc, gIR->module, "_d_assocarrayliteralTX");
       LLFunctionType *funcTy = func->getFunctionType();
-      LLValue *aaTypeInfo =
-          DtoBitCast(DtoTypeInfoOf(stripModifiers(aatype), /*base=*/false, e->loc),
-                     DtoType(getAssociativeArrayTypeInfoType()));
+      LLValue *aaTypeInfo = DtoBitCast(
+          DtoTypeInfoOf(e->loc, stripModifiers(aatype), /*base=*/false),
+          DtoType(getAssociativeArrayTypeInfoType()));
 
       LLConstant *idxs[2] = {DtoConstUint(0), DtoConstUint(0)};
 
