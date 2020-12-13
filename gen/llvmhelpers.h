@@ -29,13 +29,13 @@ template <class T> using ArrayParam = llvm::ArrayRef<T>;
 llvm::LLVMContext& getGlobalContext();
 
 // dynamic memory helpers
-LLValue *DtoNew(Loc &loc, Type *newtype);
-LLValue *DtoNewStruct(Loc &loc, TypeStruct *newtype);
-void DtoDeleteMemory(Loc &loc, DValue *ptr);
-void DtoDeleteStruct(Loc &loc, DValue *ptr);
-void DtoDeleteClass(Loc &loc, DValue *inst);
-void DtoDeleteInterface(Loc &loc, DValue *inst);
-void DtoDeleteArray(Loc &loc, DValue *arr);
+LLValue *DtoNew(const Loc &loc, Type *newtype);
+LLValue *DtoNewStruct(const Loc &loc, TypeStruct *newtype);
+void DtoDeleteMemory(const Loc &loc, DValue *ptr);
+void DtoDeleteStruct(const Loc &loc, DValue *ptr);
+void DtoDeleteClass(const Loc &loc, DValue *inst);
+void DtoDeleteInterface(const Loc &loc, DValue *inst);
+void DtoDeleteArray(const Loc &loc, DValue *arr);
 
 unsigned DtoAlignment(Type *type);
 unsigned DtoAlignment(VarDeclaration *vd);
@@ -47,7 +47,7 @@ llvm::AllocaInst *DtoArrayAlloca(Type *type, unsigned arraysize,
                                  const char *name = "");
 llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
                                const char *name = "");
-LLValue *DtoGcMalloc(Loc &loc, LLType *lltype, const char *name = "");
+LLValue *DtoGcMalloc(const Loc &loc, LLType *lltype, const char *name = "");
 
 LLValue *DtoAllocaDump(DValue *val, const char *name = "");
 LLValue *DtoAllocaDump(DValue *val, int alignment, const char *name = "");
@@ -60,46 +60,46 @@ LLValue *DtoAllocaDump(LLValue *val, LLType *asType, int alignment = 0,
                        const char *name = "");
 
 // assertion generator
-void DtoAssert(Module *M, Loc &loc, DValue *msg);
-void DtoCAssert(Module *M, Loc &loc, LLValue *msg);
+void DtoAssert(Module *M, const Loc &loc, DValue *msg);
+void DtoCAssert(Module *M, const Loc &loc, LLValue *msg);
 
 // returns module file name
 LLConstant *DtoModuleFileName(Module *M, const Loc &loc);
 
 /// emits goto to LabelStatement with the target identifier
-void DtoGoto(Loc &loc, LabelDsymbol *target);
+void DtoGoto(const Loc &loc, LabelDsymbol *target);
 
 /// Enters a critical section.
-void DtoEnterCritical(Loc &loc, LLValue *g);
+void DtoEnterCritical(const Loc &loc, LLValue *g);
 /// leaves a critical section.
-void DtoLeaveCritical(Loc &loc, LLValue *g);
+void DtoLeaveCritical(const Loc &loc, LLValue *g);
 
 /// Enters a monitor lock.
-void DtoEnterMonitor(Loc &loc, LLValue *v);
+void DtoEnterMonitor(const Loc &loc, LLValue *v);
 /// Leaves a monitor lock.
-void DtoLeaveMonitor(Loc &loc, LLValue *v);
+void DtoLeaveMonitor(const Loc &loc, LLValue *v);
 
 // basic operations
-void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
+void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
                bool canSkipPostblit = false);
 
-DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl);
-llvm::Constant *DtoConstSymbolAddress(Loc &loc, Declaration *decl);
+DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl);
+llvm::Constant *DtoConstSymbolAddress(const Loc &loc, Declaration *decl);
 
 /// Create a null DValue.
-DValue *DtoNullValue(Type *t, Loc loc = Loc());
+DValue *DtoNullValue(Type *t, const Loc loc = Loc());
 
 // casts
-DValue *DtoCastInt(Loc &loc, DValue *val, Type *to);
-DValue *DtoCastPtr(Loc &loc, DValue *val, Type *to);
-DValue *DtoCastFloat(Loc &loc, DValue *val, Type *to);
-DValue *DtoCastDelegate(Loc &loc, DValue *val, Type *to);
-DValue *DtoCastVector(Loc &loc, DValue *val, Type *to);
-DValue *DtoCast(Loc &loc, DValue *val, Type *to);
+DValue *DtoCastInt(const Loc &loc, DValue *val, Type *to);
+DValue *DtoCastPtr(const Loc &loc, DValue *val, Type *to);
+DValue *DtoCastFloat(const Loc &loc, DValue *val, Type *to);
+DValue *DtoCastDelegate(const Loc &loc, DValue *val, Type *to);
+DValue *DtoCastVector(const Loc &loc, DValue *val, Type *to);
+DValue *DtoCast(const Loc &loc, DValue *val, Type *to);
 
 // return the same val as passed in, modified to the target type, if possible,
 // otherwise returns a new DValue
-DValue *DtoPaintType(Loc &loc, DValue *val, Type *to);
+DValue *DtoPaintType(const Loc &loc, DValue *val, Type *to);
 
 /// Returns true if the specified symbol is to be defined on declaration, for
 /// -linkonce-templates.
@@ -121,12 +121,12 @@ DValue *DtoDeclarationExp(Dsymbol *declaration);
 LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr = nullptr);
 
 // initializer helpers
-LLConstant *DtoConstInitializer(Loc &loc, Type *type,
+LLConstant *DtoConstInitializer(const Loc &loc, Type *type,
                                 Initializer *init = nullptr);
-LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp);
+LLConstant *DtoConstExpInit(const Loc &loc, Type *targetType, Expression *exp);
 
 // getting typeinfo of type, base=true casts to object.TypeInfo
-LLConstant *DtoTypeInfoOf(Type *ty, bool base = true, const Loc& loc = Loc());
+LLConstant *DtoTypeInfoOf(Type *type, bool base = true, const Loc &loc = Loc());
 
 // target stuff
 void findDefaultTarget();
@@ -145,7 +145,8 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
 unsigned getFieldGEPIndex(AggregateDeclaration *ad, VarDeclaration *vd);
 
 ///
-DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
+DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
+                         Expressions *arguments,
                          LLValue *sretPointer = nullptr);
 ///
 llvm::CallInst *DtoInlineAsmExpr(const Loc &loc, llvm::StringRef code,
@@ -160,9 +161,9 @@ size_t getMemberSize(Type *type);
 /// Returns the llvm::Value of the passed DValue, making sure that it is an
 /// lvalue (has a memory address), so it can be passed to the D runtime
 /// functions without problems.
-LLValue *makeLValue(Loc &loc, DValue *value);
+LLValue *makeLValue(const Loc &loc, DValue *value);
 
-void callPostblit(Loc &loc, Expression *exp, LLValue *val);
+void callPostblit(const Loc &loc, Expression *exp, LLValue *val);
 
 /// Returns whether the given variable is a DMD-internal "ref variable".
 ///
@@ -216,7 +217,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
                             DValue *&result);
 
 ///
-DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
+DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
                         Expressions *arguments, LLValue *sretPointer = nullptr);
 
 Type *stripModifiers(Type *type, bool transitive = false);

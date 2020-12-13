@@ -108,7 +108,7 @@ void DtoSetArrayToNull(LLValue *v) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static void DtoArrayInit(Loc &loc, LLValue *ptr, LLValue *length,
+static void DtoArrayInit(const Loc &loc, LLValue *ptr, LLValue *length,
                          DValue *elementValue) {
   IF_LOG Logger::println("DtoArrayInit");
   LOG_SCOPE;
@@ -193,8 +193,9 @@ static LLValue *computeSize(LLValue *length, size_t elementSize) {
              : gIR->ir->CreateMul(length, DtoConstSize_t(elementSize));
 };
 
-static void copySlice(Loc &loc, LLValue *dstarr, LLValue *dstlen, LLValue *srcarr,
-                      LLValue *srclen, size_t elementSize, bool knownInBounds) {
+static void copySlice(const Loc &loc, LLValue *dstarr, LLValue *dstlen,
+                      LLValue *srcarr, LLValue *srclen, size_t elementSize,
+                      bool knownInBounds) {
   const bool checksEnabled =
       global.params.useAssert == CHECKENABLEon || gIR->emitArrayBoundsChecks();
   if (checksEnabled && !knownInBounds) {
@@ -224,7 +225,7 @@ static bool arrayNeedsPostblit(Type *t) {
 
 // Does array assignment (or initialization) from another array of the same
 // element type or from an appropriate single element.
-void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
+void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
                     bool canSkipPostblit) {
   IF_LOG Logger::println("DtoArrayAssign");
   LOG_SCOPE;
@@ -675,7 +676,7 @@ static DSliceValue *getSlice(Type *arrayType, LLValue *array) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-DSliceValue *DtoNewDynArray(Loc &loc, Type *arrayType, DValue *dim,
+DSliceValue *DtoNewDynArray(const Loc &loc, Type *arrayType, DValue *dim,
                             bool defaultInit) {
   IF_LOG Logger::println("DtoNewDynArray : %s", arrayType->toChars());
   LOG_SCOPE;
@@ -710,8 +711,8 @@ DSliceValue *DtoNewDynArray(Loc &loc, Type *arrayType, DValue *dim,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-DSliceValue *DtoNewMulDimDynArray(Loc &loc, Type *arrayType, DValue **dims,
-                                  size_t ndims) {
+DSliceValue *DtoNewMulDimDynArray(const Loc &loc, Type *arrayType,
+                                  DValue **dims, size_t ndims) {
   IF_LOG Logger::println("DtoNewMulDimDynArray : %s", arrayType->toChars());
   LOG_SCOPE;
 
@@ -778,7 +779,7 @@ DSliceValue *DtoNewMulDimDynArray(Loc &loc, Type *arrayType, DValue **dims,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-DSliceValue *DtoResizeDynArray(Loc &loc, Type *arrayType, DValue *array,
+DSliceValue *DtoResizeDynArray(const Loc &loc, Type *arrayType, DValue *array,
                                LLValue *newdim) {
   IF_LOG Logger::println("DtoResizeDynArray : %s", arrayType->toChars());
   LOG_SCOPE;
@@ -807,7 +808,7 @@ DSliceValue *DtoResizeDynArray(Loc &loc, Type *arrayType, DValue *array,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoCatAssignElement(Loc &loc, DValue *array, Expression *exp) {
+void DtoCatAssignElement(const Loc &loc, DValue *array, Expression *exp) {
   IF_LOG Logger::println("DtoCatAssignElement");
   LOG_SCOPE;
 
@@ -839,7 +840,7 @@ void DtoCatAssignElement(Loc &loc, DValue *array, Expression *exp) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DSliceValue *DtoCatAssignArray(Loc &loc, DValue *arr, Expression *exp) {
+DSliceValue *DtoCatAssignArray(const Loc &loc, DValue *arr, Expression *exp) {
   IF_LOG Logger::println("DtoCatAssignArray");
   LOG_SCOPE;
   Type *arrayType = arr->type;
@@ -857,7 +858,7 @@ DSliceValue *DtoCatAssignArray(Loc &loc, DValue *arr, Expression *exp) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DSliceValue *DtoCatArrays(Loc &loc, Type *arrayType, Expression *exp1,
+DSliceValue *DtoCatArrays(const Loc &loc, Type *arrayType, Expression *exp1,
                           Expression *exp2) {
   IF_LOG Logger::println("DtoCatAssignArray");
   LOG_SCOPE;
@@ -925,7 +926,7 @@ DSliceValue *DtoCatArrays(Loc &loc, Type *arrayType, Expression *exp1,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DSliceValue *DtoAppendDChar(Loc &loc, DValue *arr, Expression *exp,
+DSliceValue *DtoAppendDChar(const Loc &loc, DValue *arr, Expression *exp,
                             const char *func) {
   LLValue *valueToAppend = DtoRVal(exp);
 
@@ -943,7 +944,8 @@ DSliceValue *DtoAppendDChar(Loc &loc, DValue *arr, Expression *exp,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DSliceValue *DtoAppendDCharToString(Loc &loc, DValue *arr, Expression *exp) {
+DSliceValue *DtoAppendDCharToString(const Loc &loc, DValue *arr,
+                                    Expression *exp) {
   IF_LOG Logger::println("DtoAppendDCharToString");
   LOG_SCOPE;
   return DtoAppendDChar(loc, arr, exp, "_d_arrayappendcd");
@@ -951,7 +953,7 @@ DSliceValue *DtoAppendDCharToString(Loc &loc, DValue *arr, Expression *exp) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DSliceValue *DtoAppendDCharToUnicodeString(Loc &loc, DValue *arr,
+DSliceValue *DtoAppendDCharToUnicodeString(const Loc &loc, DValue *arr,
                                            Expression *exp) {
   IF_LOG Logger::println("DtoAppendDCharToUnicodeString");
   LOG_SCOPE;
@@ -961,8 +963,8 @@ DSliceValue *DtoAppendDCharToUnicodeString(Loc &loc, DValue *arr,
 ////////////////////////////////////////////////////////////////////////////////
 namespace {
 // helper for eq and cmp
-LLValue *DtoArrayEqCmp_impl(Loc &loc, const char *func, DValue *l,
-                                   DValue *r, bool useti) {
+LLValue *DtoArrayEqCmp_impl(const Loc &loc, const char *func, DValue *l,
+                            DValue *r, bool useti) {
   IF_LOG Logger::println("comparing arrays");
   LLFunction *fn = getRuntimeFunction(loc, gIR->module, func);
   assert(fn);
@@ -1054,7 +1056,7 @@ bool validCompareWithMemcmp(DValue *l, DValue *r) {
 }
 
 // Create a call instruction to memcmp.
-llvm::CallInst *callMemcmp(Loc &loc, IRState &irs, LLValue *l_ptr,
+llvm::CallInst *callMemcmp(const Loc &loc, IRState &irs, LLValue *l_ptr,
                            LLValue *r_ptr, LLValue *numElements) {
   assert(l_ptr && r_ptr && numElements);
   LLFunction *fn = getRuntimeFunction(loc, gIR->module, "memcmp");
@@ -1076,7 +1078,8 @@ llvm::CallInst *callMemcmp(Loc &loc, IRState &irs, LLValue *l_ptr,
 /// with memcmp.
 ///
 /// Note: the dynamic array length check is not covered by (LDC's) PGO.
-LLValue *DtoArrayEqCmp_memcmp(Loc &loc, DValue *l, DValue *r, IRState &irs) {
+LLValue *DtoArrayEqCmp_memcmp(const Loc &loc, DValue *l, DValue *r,
+                              IRState &irs) {
   IF_LOG Logger::println("Comparing arrays using memcmp");
 
   auto *l_ptr = DtoArrayPtr(l);
@@ -1120,7 +1123,7 @@ LLValue *DtoArrayEqCmp_memcmp(Loc &loc, DValue *l, DValue *r, IRState &irs) {
 } // end anonymous namespace
 
 ////////////////////////////////////////////////////////////////////////////////
-LLValue *DtoArrayEquals(Loc &loc, TOK op, DValue *l, DValue *r) {
+LLValue *DtoArrayEquals(const Loc &loc, TOK op, DValue *l, DValue *r) {
   LLValue *res = nullptr;
 
   if (r->isNull()) {
@@ -1216,7 +1219,7 @@ LLValue *DtoArrayPtr(DValue *v) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-DValue *DtoCastArray(Loc &loc, DValue *u, Type *to) {
+DValue *DtoCastArray(const Loc &loc, DValue *u, Type *to) {
   IF_LOG Logger::println("DtoCastArray");
   LOG_SCOPE;
 
@@ -1309,7 +1312,7 @@ DValue *DtoCastArray(Loc &loc, DValue *u, Type *to) {
   return new DLValue(to, castedPtr);
 }
 
-void DtoIndexBoundsCheck(Loc &loc, DValue *arr, DValue *index) {
+void DtoIndexBoundsCheck(const Loc &loc, DValue *arr, DValue *index) {
   Type *arrty = arr->type->toBasetype();
   assert(
       (arrty->ty == Tsarray || arrty->ty == Tarray || arrty->ty == Tpointer) &&
@@ -1341,7 +1344,7 @@ void DtoIndexBoundsCheck(Loc &loc, DValue *arr, DValue *index) {
   gIR->ir->SetInsertPoint(okbb);
 }
 
-void DtoBoundsCheckFailCall(IRState *irs, Loc &loc) {
+void DtoBoundsCheckFailCall(IRState *irs, const Loc &loc) {
   Module *const module = irs->func()->decl->getModule();
 
   if (global.params.checkAction == CHECKACTION_C) {

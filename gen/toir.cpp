@@ -587,7 +587,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  using BinOpFunc = DValue *(Loc &, Type *, DValue *, Expression *, bool);
+  using BinOpFunc = DValue *(const Loc &, Type *, DValue *, Expression *, bool);
 
   static Expression *getLValExp(Expression *e) {
     e = skipOverCasts(e);

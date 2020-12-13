@@ -78,7 +78,7 @@ llvm::LLVMContext &getGlobalContext() { return *GlobalContext; }
  * DYNAMIC MEMORY HELPERS
  ******************************************************************************/
 
-LLValue *DtoNew(Loc &loc, Type *newtype) {
+LLValue *DtoNew(const Loc &loc, Type *newtype) {
   // get runtime function
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_allocmemoryT");
   // get type info
@@ -90,7 +90,7 @@ LLValue *DtoNew(Loc &loc, Type *newtype) {
   return DtoBitCast(mem, DtoPtrToType(newtype), ".gc_mem");
 }
 
-LLValue *DtoNewStruct(Loc &loc, TypeStruct *newtype) {
+LLValue *DtoNewStruct(const Loc &loc, TypeStruct *newtype) {
   llvm::Function *fn = getRuntimeFunction(
       loc, gIR->module,
       newtype->isZeroInit(newtype->sym->loc) ? "_d_newitemT" : "_d_newitemiT");
@@ -99,14 +99,14 @@ LLValue *DtoNewStruct(Loc &loc, TypeStruct *newtype) {
   return DtoBitCast(mem, DtoPtrToType(newtype), ".gc_struct");
 }
 
-void DtoDeleteMemory(Loc &loc, DValue *ptr) {
+void DtoDeleteMemory(const Loc &loc, DValue *ptr) {
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delmemory");
   LLValue *lval = (ptr->isLVal() ? DtoLVal(ptr) : makeLValue(loc, ptr));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
 }
 
-void DtoDeleteStruct(Loc &loc, DValue *ptr) {
+void DtoDeleteStruct(const Loc &loc, DValue *ptr) {
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delstruct");
   LLValue *lval = (ptr->isLVal() ? DtoLVal(ptr) : makeLValue(loc, ptr));
   gIR->CreateCallOrInvoke(
@@ -115,21 +115,21 @@ void DtoDeleteStruct(Loc &loc, DValue *ptr) {
                  fn->getFunctionType()->getParamType(1)));
 }
 
-void DtoDeleteClass(Loc &loc, DValue *inst) {
+void DtoDeleteClass(const Loc &loc, DValue *inst) {
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delclass");
   LLValue *lval = (inst->isLVal() ? DtoLVal(inst) : makeLValue(loc, inst));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
 }
 
-void DtoDeleteInterface(Loc &loc, DValue *inst) {
+void DtoDeleteInterface(const Loc &loc, DValue *inst) {
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delinterface");
   LLValue *lval = (inst->isLVal() ? DtoLVal(inst) : makeLValue(loc, inst));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
 }
 
-void DtoDeleteArray(Loc &loc, DValue *arr) {
+void DtoDeleteArray(const Loc &loc, DValue *arr) {
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delarray_t");
   llvm::FunctionType *fty = fn->getFunctionType();
 
@@ -197,7 +197,7 @@ llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
   return ai;
 }
 
-LLValue *DtoGcMalloc(Loc &loc, LLType *lltype, const char *name) {
+LLValue *DtoGcMalloc(const Loc &loc, LLType *lltype, const char *name) {
   // get runtime function
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_allocmemory");
   // parameters
@@ -263,7 +263,7 @@ LLValue *DtoAllocaDump(LLValue *val, LLType *asType, int alignment,
  * ASSERT HELPER
  ******************************************************************************/
 
-void DtoAssert(Module *M, Loc &loc, DValue *msg) {
+void DtoAssert(Module *M, const Loc &loc, DValue *msg) {
   // func
   const char *fname = msg ? "_d_assert_msg" : "_d_assert";
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, fname);
@@ -289,7 +289,7 @@ void DtoAssert(Module *M, Loc &loc, DValue *msg) {
   gIR->ir->CreateUnreachable();
 }
 
-void DtoCAssert(Module *M, Loc &loc, LLValue *msg) {
+void DtoCAssert(Module *M, const Loc &loc, LLValue *msg) {
   const auto &triple = *global.params.targetTriple;
   const auto file =
       DtoConstCString(loc.filename ? loc.filename : M->srcfile.toChars());
@@ -341,7 +341,7 @@ LLConstant *DtoModuleFileName(Module *M, const Loc &loc) {
  * GOTO HELPER
  ******************************************************************************/
 
-void DtoGoto(Loc &loc, LabelDsymbol *target) {
+void DtoGoto(const Loc &loc, LabelDsymbol *target) {
   assert(!gIR->scopereturned());
 
   LabelStatement *lblstmt = target->statement;
@@ -359,7 +359,7 @@ void DtoGoto(Loc &loc, LabelDsymbol *target) {
 
 // is this a good approach at all ?
 
-void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
+void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
                bool canSkipPostblit) {
   IF_LOG Logger::println("DtoAssign()");
   LOG_SCOPE;
@@ -471,7 +471,7 @@ DValue *DtoNullValue(Type *type, Loc loc) {
  * CASTING HELPERS
  ******************************************************************************/
 
-DValue *DtoCastInt(Loc &loc, DValue *val, Type *_to) {
+DValue *DtoCastInt(const Loc &loc, DValue *val, Type *_to) {
   LLType *tolltype = DtoType(_to);
 
   Type *to = _to->toBasetype();
@@ -522,7 +522,7 @@ DValue *DtoCastInt(Loc &loc, DValue *val, Type *_to) {
   return new DImValue(_to, rval);
 }
 
-DValue *DtoCastPtr(Loc &loc, DValue *val, Type *to) {
+DValue *DtoCastPtr(const Loc &loc, DValue *val, Type *to) {
   LLType *tolltype = DtoType(to);
 
   Type *totype = to->toBasetype();
@@ -554,7 +554,7 @@ DValue *DtoCastPtr(Loc &loc, DValue *val, Type *to) {
   return new DImValue(to, rval);
 }
 
-DValue *DtoCastFloat(Loc &loc, DValue *val, Type *to) {
+DValue *DtoCastFloat(const Loc &loc, DValue *val, Type *to) {
   if (val->type == to) {
     return val;
   }
@@ -604,7 +604,7 @@ DValue *DtoCastFloat(Loc &loc, DValue *val, Type *to) {
   return new DImValue(to, rval);
 }
 
-DValue *DtoCastDelegate(Loc &loc, DValue *val, Type *to) {
+DValue *DtoCastDelegate(const Loc &loc, DValue *val, Type *to) {
   if (to->toBasetype()->ty == Tdelegate) {
     return DtoPaintType(loc, val, to);
   }
@@ -617,7 +617,7 @@ DValue *DtoCastDelegate(Loc &loc, DValue *val, Type *to) {
   fatal();
 }
 
-DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
+DValue *DtoCastVector(const Loc &loc, DValue *val, Type *to) {
   assert(val->type->toBasetype()->ty == Tvector);
   Type *totype = to->toBasetype();
   LLType *tolltype = DtoType(to);
@@ -645,7 +645,7 @@ DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
   fatal();
 }
 
-DValue *DtoCastStruct(Loc &loc, DValue *val, Type *to) {
+DValue *DtoCastStruct(const Loc &loc, DValue *val, Type *to) {
   Type *const totype = to->toBasetype();
   if (totype->ty == Tstruct) {
     // This a cast to repaint a struct to another type, which the language
@@ -662,7 +662,7 @@ DValue *DtoCastStruct(Loc &loc, DValue *val, Type *to) {
   fatal();
 }
 
-DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
+DValue *DtoCast(const Loc &loc, DValue *val, Type *to) {
   Type *fromtype = val->type->toBasetype();
   Type *totype = to->toBasetype();
 
@@ -734,7 +734,7 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoPaintType(Loc &loc, DValue *val, Type *to) {
+DValue *DtoPaintType(const Loc &loc, DValue *val, Type *to) {
   Type *from = val->type->toBasetype();
   IF_LOG Logger::println("repainting from '%s' to '%s'", from->toChars(),
                          to->toChars());
@@ -1062,7 +1062,7 @@ LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr) {
  * INITIALIZER HELPERS
  ******************************************************************************/
 
-LLConstant *DtoConstInitializer(Loc &loc, Type *type, Initializer *init) {
+LLConstant *DtoConstInitializer(const Loc &loc, Type *type, Initializer *init) {
   LLConstant *_init = nullptr; // may return zero
   if (!init) {
     IF_LOG Logger::println("const default initializer for %s", type->toChars());
@@ -1089,7 +1089,7 @@ LLConstant *DtoConstInitializer(Loc &loc, Type *type, Initializer *init) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp) {
+LLConstant *DtoConstExpInit(const Loc &loc, Type *targetType, Expression *exp) {
   IF_LOG Logger::println("DtoConstExpInit(targetType = %s, exp = %s)",
                          targetType->toChars(), exp->toChars());
   LOG_SCOPE
@@ -1192,7 +1192,7 @@ LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLConstant *DtoTypeInfoOf(Type *type, bool base, const Loc& loc) {
+LLConstant *DtoTypeInfoOf(Type *type, bool base, const Loc &loc) {
   IF_LOG Logger::println("DtoTypeInfoOf(type = '%s', base='%d')",
                          type->toChars(), base);
   LOG_SCOPE
@@ -1325,7 +1325,7 @@ Type *stripModifiers(Type *type, bool transitive) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *makeLValue(Loc &loc, DValue *value) {
+LLValue *makeLValue(const Loc &loc, DValue *value) {
   if (value->isLVal())
     return DtoLVal(value);
 
@@ -1340,7 +1340,7 @@ LLValue *makeLValue(Loc &loc, DValue *value) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void callPostblit(Loc &loc, Expression *exp, LLValue *val) {
+void callPostblit(const Loc &loc, Expression *exp, LLValue *val) {
   Type *tb = exp->type->toBasetype();
   if ((exp->op == TOKvar || exp->op == TOKdotvar || exp->op == TOKstar ||
        exp->op == TOKthis || exp->op == TOKindex) &&
@@ -1441,7 +1441,7 @@ LLValue *createIPairCmp(TOK op, LLValue *lhs1, LLValue *lhs2, LLValue *rhs1,
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
+DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl) {
   IF_LOG Logger::println("DtoSymbolAddress ('%s' of type '%s')",
                          decl->toChars(), decl->type->toChars());
   LOG_SCOPE
@@ -1590,7 +1590,7 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
   llvm_unreachable("Unimplemented VarExp type");
 }
 
-llvm::Constant *DtoConstSymbolAddress(Loc &loc, Declaration *decl) {
+llvm::Constant *DtoConstSymbolAddress(const Loc &loc, Declaration *decl) {
   // Make sure 'this' isn't needed.
   // TODO: This check really does not belong here, should be moved to
   // semantic analysis in the frontend.

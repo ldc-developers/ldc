@@ -35,7 +35,7 @@ static LLConstant *to_keyti(DValue *aa, LLType *targetType) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DLValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key,
+DLValue *DtoAAIndex(const Loc &loc, Type *type, DValue *aa, DValue *key,
                     bool lvalue) {
   // D2:
   // call:
@@ -101,7 +101,7 @@ DLValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoAAIn(Loc &loc, Type *type, DValue *aa, DValue *key) {
+DValue *DtoAAIn(const Loc &loc, Type *type, DValue *aa, DValue *key) {
   // D1:
   // call:
   // extern(C) void* _aaIn(AA aa*, TypeInfo keyti, void* pkey)
@@ -145,7 +145,7 @@ DValue *DtoAAIn(Loc &loc, Type *type, DValue *aa, DValue *key) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoAARemove(Loc &loc, DValue *aa, DValue *key) {
+DValue *DtoAARemove(const Loc &loc, DValue *aa, DValue *key) {
   // D1:
   // call:
   // extern(C) void _aaDel(AA aa, TypeInfo keyti, void* pkey)
@@ -183,7 +183,7 @@ DValue *DtoAARemove(Loc &loc, DValue *aa, DValue *key) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoAAEquals(Loc &loc, TOK op, DValue *l, DValue *r) {
+LLValue *DtoAAEquals(const Loc &loc, TOK op, DValue *l, DValue *r) {
   Type *t = l->type->toBasetype();
   assert(t == r->type->toBasetype() &&
          "aa equality is only defined for aas of same type");
