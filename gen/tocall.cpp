@@ -250,7 +250,8 @@ static LLValue *getTypeinfoArrayArgumentForDVarArg(Expressions *argexps,
   std::vector<LLConstant *> vtypeinfos;
   vtypeinfos.reserve(numVariadicArgs);
   for (size_t i = begin; i < numArgExps; i++) {
-    vtypeinfos.push_back(DtoTypeInfoOf((*argexps)[i]->type));
+    Expression *argExp = (*argexps)[i];
+    vtypeinfos.push_back(DtoTypeInfoOf(argExp->loc, argExp->type));
   }
 
   // apply initializer
@@ -636,7 +637,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 class ImplicitArgumentsBuilder {
 public:
   ImplicitArgumentsBuilder(std::vector<LLValue *> &args, AttrSet &attrs,
-                           Loc &loc, DValue *fnval,
+                           const Loc &loc, DValue *fnval,
                            LLFunctionType *llCalleeType, Expressions *argexps,
                            Type *resulttype, LLValue *sretPointer)
       : args(args), attrs(attrs), loc(loc), fnval(fnval), argexps(argexps),
@@ -663,7 +664,7 @@ private:
   // passed:
   std::vector<LLValue *> &args;
   AttrSet &attrs;
-  Loc &loc;
+  const Loc &loc;
   DValue *const fnval;
   Expressions *const argexps;
   Type *const resulttype;
@@ -795,7 +796,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 
 // FIXME: this function is a mess !
-DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
+DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
                         Expressions *arguments, LLValue *sretPointer) {
   IF_LOG Logger::println("DtoCallFunction()");
   LOG_SCOPE

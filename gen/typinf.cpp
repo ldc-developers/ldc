@@ -314,7 +314,7 @@ public:
     LLType *tiTy = DtoType(getTypeInfoType());
 
     for (auto arg : *tu->arguments) {
-      arrInits.push_back(DtoTypeInfoOf(arg->type));
+      arrInits.push_back(DtoTypeInfoOf(decl->loc, arg->type));
     }
 
     // build array

@@ -62,7 +62,7 @@ void RTTIBuilder::push_null(Type *T) { push(getNullValue(DtoType(T))); }
 
 void RTTIBuilder::push_null_vp() { push(getNullValue(getVoidPtrType())); }
 
-void RTTIBuilder::push_typeinfo(Type *t) { push(DtoTypeInfoOf(t)); }
+void RTTIBuilder::push_typeinfo(Type *t) { push(DtoTypeInfoOf(Loc(), t)); }
 
 void RTTIBuilder::push_string(const char *str) { push(DtoConstString(str)); }
 

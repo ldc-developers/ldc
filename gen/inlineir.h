@@ -28,6 +28,6 @@ class Value;
 /// Will call fatal() in case of errors
 void DtoCheckInlineIRPragma(Identifier *ident, Dsymbol *s);
 
-DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
+DValue *DtoInlineIRExpr(const Loc &loc, FuncDeclaration *fdecl,
                         Expressions *arguments,
                         llvm::Value *sretPointer = nullptr);

@@ -16,4 +16,4 @@
 
 struct Loc;
 
-void emitCoverageLinecountInc(Loc &loc);
+void emitCoverageLinecountInc(const Loc &loc);

@@ -21,7 +21,7 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-dinteger_t undoStrideMul(Loc &loc, Type *t, dinteger_t offset) {
+dinteger_t undoStrideMul(const Loc &loc, Type *t, dinteger_t offset) {
   assert(t->ty == Tpointer);
   d_uns64 elemSize = t->nextOf()->size(loc);
   assert((offset % elemSize) == 0 &&
@@ -146,7 +146,7 @@ DValue *isAssociativeArrayAndNull(Type *type, LLValue *lhs, LLValue *rhs) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-DValue *binAdd(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binAdd(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   Type *lhsType = lhs->type->toBasetype();
   Type *rhsType = rhs->type->toBasetype();
@@ -177,7 +177,7 @@ DValue *binAdd(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
 
 //////////////////////////////////////////////////////////////////////////////
 
-DValue *binMin(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binMin(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   Type *lhsType = lhs->type->toBasetype();
   Type *rhsType = rhs->type->toBasetype();
@@ -221,7 +221,7 @@ DValue *binMin(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
 
 //////////////////////////////////////////////////////////////////////////////
 
-DValue *binMul(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binMul(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
 
@@ -238,7 +238,7 @@ DValue *binMul(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
 
 //////////////////////////////////////////////////////////////////////////////
 
-DValue *binDiv(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binDiv(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
 
@@ -261,7 +261,7 @@ DValue *binDiv(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
 
 //////////////////////////////////////////////////////////////////////////////
 
-DValue *binMod(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binMod(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
 
@@ -285,8 +285,9 @@ DValue *binMod(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
 //////////////////////////////////////////////////////////////////////////////
 
 namespace {
-DValue *binBitwise(llvm::Instruction::BinaryOps binOp, Loc &loc, Type *type,
-                   DValue *lhs, Expression *rhs, bool loadLhsAfterRhs) {
+DValue *binBitwise(llvm::Instruction::BinaryOps binOp, const Loc &loc,
+                   Type *type, DValue *lhs, Expression *rhs,
+                   bool loadLhsAfterRhs) {
   auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
 
   LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
@@ -297,38 +298,38 @@ DValue *binBitwise(llvm::Instruction::BinaryOps binOp, Loc &loc, Type *type,
 }
 }
 
-DValue *binAnd(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binAnd(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   return binBitwise(llvm::Instruction::And, loc, type, lhs, rhs,
                     loadLhsAfterRhs);
 }
 
-DValue *binOr(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binOr(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
               bool loadLhsAfterRhs) {
   return binBitwise(llvm::Instruction::Or, loc, type, lhs, rhs,
                     loadLhsAfterRhs);
 }
 
-DValue *binXor(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binXor(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   return binBitwise(llvm::Instruction::Xor, loc, type, lhs, rhs,
                     loadLhsAfterRhs);
 }
 
-DValue *binShl(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binShl(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   return binBitwise(llvm::Instruction::Shl, loc, type, lhs, rhs,
                     loadLhsAfterRhs);
 }
 
-DValue *binShr(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binShr(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   auto op = (isLLVMUnsigned(type) ? llvm::Instruction::LShr
                                   : llvm::Instruction::AShr);
   return binBitwise(op, loc, type, lhs, rhs, loadLhsAfterRhs);
 }
 
-DValue *binUshr(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binUshr(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                 bool loadLhsAfterRhs) {
   return binBitwise(llvm::Instruction::LShr, loc, type, lhs, rhs,
                     loadLhsAfterRhs);
@@ -336,7 +337,7 @@ DValue *binUshr(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoBinNumericEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
+LLValue *DtoBinNumericEquals(const Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
   assert(op == TOKequal || op == TOKnotequal || op == TOKidentity ||
          op == TOKnotidentity);
   Type *t = lhs->type->toBasetype();
@@ -358,7 +359,7 @@ LLValue *DtoBinNumericEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoBinFloatsEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
+LLValue *DtoBinFloatsEquals(const Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
   LLValue *res = nullptr;
   if (op == TOKequal || op == TOKnotequal) {
     LLValue *l = DtoRVal(lhs);

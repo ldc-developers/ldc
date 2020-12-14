@@ -30,13 +30,13 @@ class FuncGenState;
 void DtoCreateNestedContext(FuncGenState &funcGen);
 
 /// Resolves the nested context for classes and structs with arbitrary nesting.
-void DtoResolveNestedContext(Loc &loc, AggregateDeclaration *decl,
+void DtoResolveNestedContext(const Loc &loc, AggregateDeclaration *decl,
                              LLValue *value);
 
 /// Gets the context value for a call to a nested function or creating a nested
 /// class or struct with arbitrary nesting.
-llvm::Value *DtoNestedContext(Loc &loc, Dsymbol *sym);
+llvm::Value *DtoNestedContext(const Loc &loc, Dsymbol *sym);
 
 /// Gets the DValue of a nested variable with arbitrary nesting.
-DValue *DtoNestedVariable(Loc &loc, Type *astype, VarDeclaration *vd,
+DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
                           bool byref = false);
