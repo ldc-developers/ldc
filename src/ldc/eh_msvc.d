@@ -8,11 +8,11 @@ version (CRuntime_Microsoft):
 
 import core.sys.windows.windows;
 import core.exception : onOutOfMemoryError, OutOfMemoryError;
+import core.internal.container.common : xmalloc;
 import core.stdc.stdlib : malloc, free, abort;
 import core.stdc.string : memcpy;
 import ldc.attributes;
 import ldc.llvmasm;
-import rt.util.container.common : xmalloc;
 
 // pointers are image relative for Win64 versions
 version (Win64)
@@ -153,7 +153,7 @@ extern(C) void _d_throw_exception(Throwable throwable)
 
 ///////////////////////////////////////////////////////////////
 
-import rt.util.container.hashtab;
+import core.internal.container.hashtab;
 import core.sync.mutex;
 
 __gshared HashTab!(TypeInfo_Class, ImgPtr!_ThrowInfo) throwInfoHashtab;

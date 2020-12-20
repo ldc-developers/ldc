@@ -35,7 +35,7 @@ import core.sys.darwin.mach.getsect;
 import rt.deh;
 import rt.minfo;
 import rt.sections_darwin_64;
-import rt.util.container.array;
+import core.internal.container.array;
 import rt.util.utility : safeAssert;
 
 struct SectionGroup

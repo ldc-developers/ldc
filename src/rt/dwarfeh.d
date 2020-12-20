@@ -29,78 +29,64 @@ version (LDC)
         else
             version = ARM_EABI_UNWINDER;
     }
+}
 
-    // These are the register numbers for SetGR that
-    // llvm's eh.exception and eh.selector intrinsics
-    // will pick up.
-    // Hints for these can be found by looking at the
-    // EH_RETURN_DATA_REGNO macro in GCC, careful testing
-    // is required though.
-    //
-    // If you have a native gcc you can try the following:
-    // #include <stdio.h>
-    //
-    // int main(int argc, char *argv[])
-    // {
-    //     printf("EH_RETURN_DATA_REGNO(0) = %d\n", __builtin_eh_return_data_regno(0));
-    //     printf("EH_RETURN_DATA_REGNO(1) = %d\n", __builtin_eh_return_data_regno(1));
-    //     return 0;
-    // }
-    version (X86_64)
-    {
-        enum eh_exception_regno = 0;
-        enum eh_selector_regno = 1;
-    }
-    else version (X86)
-    {
-        enum eh_exception_regno = 0;
-        enum eh_selector_regno = 2;
-    }
-    else version (PPC64)
-    {
-        enum eh_exception_regno = 3;
-        enum eh_selector_regno = 4;
-    }
-    else version (PPC)
-    {
-        enum eh_exception_regno = 3;
-        enum eh_selector_regno = 4;
-    }
-    else version (MIPS32)
-    {
-        enum eh_exception_regno = 4;
-        enum eh_selector_regno = 5;
-    }
-    else version (MIPS64)
-    {
-        enum eh_exception_regno = 4;
-        enum eh_selector_regno = 5;
-    }
-    else version (ARM)
-    {
-        enum eh_exception_regno = 0;
-        enum eh_selector_regno = 1;
-    }
-    else version (AArch64)
-    {
-        enum eh_exception_regno = 0;
-        enum eh_selector_regno = 1;
-    }
-    else // FIXME
-    {
-        enum eh_exception_regno = 0;
-        enum eh_selector_regno = 2;
-    }
-
-    _Unwind_Ptr readUnaligned(T, bool consume)(ref const(ubyte)* p)
-    {
-        import core.stdc.string : memcpy;
-        T value = void;
-        memcpy(&value, p, T.sizeof);
-        static if (consume)
-            p += T.sizeof;
-        return cast(_Unwind_Ptr) value;
-    }
+/* These are the register numbers for _Unwind_SetGR().
+ * Hints for these can be found by looking at the EH_RETURN_DATA_REGNO macro in
+ * GCC. If you have a native gcc you can try the following:
+ *
+ * #include <stdio.h>
+ *
+ * int main(int argc, char *argv[])
+ * {
+ *     printf("EH_RETURN_DATA_REGNO(0) = %d\n", __builtin_eh_return_data_regno(0));
+ *     printf("EH_RETURN_DATA_REGNO(1) = %d\n", __builtin_eh_return_data_regno(1));
+ *     return 0;
+ * }
+ */
+version (X86_64)
+{
+    enum eh_exception_regno = 0;
+    enum eh_selector_regno = 1;
+}
+else version (X86)
+{
+    enum eh_exception_regno = 0;
+    enum eh_selector_regno = 2;
+}
+else version (AArch64)
+{
+    enum eh_exception_regno = 0;
+    enum eh_selector_regno = 1;
+}
+else version (ARM)
+{
+    enum eh_exception_regno = 0;
+    enum eh_selector_regno = 1;
+}
+else version (PPC64)
+{
+    enum eh_exception_regno = 3;
+    enum eh_selector_regno = 4;
+}
+else version (PPC)
+{
+    enum eh_exception_regno = 3;
+    enum eh_selector_regno = 4;
+}
+else version (MIPS64)
+{
+    enum eh_exception_regno = 4;
+    enum eh_selector_regno = 5;
+}
+else version (MIPS32)
+{
+    enum eh_exception_regno = 4;
+    enum eh_selector_regno = 5;
+}
+else
+{
+    static assert(0, "Unknown EH register numbers for this architecture");
 }
 
 extern (C)
@@ -109,9 +95,31 @@ extern (C)
     void _d_createTrace(Throwable o, void* context);
 }
 
+private _Unwind_Ptr readUnaligned(T, bool consume)(ref const(ubyte)* p)
+{
+    version (X86)         enum hasUnalignedLoads = true;
+    else version (X86_64) enum hasUnalignedLoads = true;
+    else                  enum hasUnalignedLoads = false;
+
+    static if (hasUnalignedLoads)
+    {
+        T value = *cast(T*) p;
+    }
+    else
+    {
+        import core.stdc.string : memcpy;
+        T value = void;
+        memcpy(&value, p, T.sizeof);
+    }
+
+    static if (consume)
+        p += T.sizeof;
+    return cast(_Unwind_Ptr) value;
+}
+
 debug (EH_personality)
 {
-    void writeln(in char* format, ...) @nogc nothrow
+    private void writeln(in char* format, ...) @nogc nothrow
     {
         import core.stdc.stdarg;
 
@@ -694,18 +702,8 @@ extern (C) _Unwind_Reason_Code _d_eh_personality_common(_Unwind_Action actions,
     }
 
     // Set up registers and jump to cleanup or handler
-    version (LDC)
-    {
-        enum reg0 = eh_exception_regno;
-        enum reg1 = eh_selector_regno;
-    }
-    else
-    {
-        int reg0 = 0;       // EAX/RAX is __exception_object
-        int reg1 = (size_t.sizeof == 4) ? 2 : 1;       // EDX/RDX is __handler
-    }
-    _Unwind_SetGR(context, reg0, cast(_Unwind_Ptr)exceptionObject);
-    _Unwind_SetGR(context, reg1, handler);
+    _Unwind_SetGR(context, eh_exception_regno, cast(_Unwind_Ptr)exceptionObject);
+    _Unwind_SetGR(context, eh_selector_regno, handler);
     _Unwind_SetIP(context, landing_pad);
 
     return _URC_INSTALL_CONTEXT;
@@ -865,48 +863,23 @@ LsdaResult scanLSDA(const(ubyte)* lsda, _Unwind_Ptr ip, _Unwind_Exception_Class 
 
     _Unwind_Ptr dw_pe_value(ubyte pe)
     {
-        version (LDC)
+        switch (pe)
         {
-            switch (pe)
-            {
-                case DW_EH_PE_sdata2:   return readUnaligned!(short,  true)(p);
-                case DW_EH_PE_udata2:   return readUnaligned!(ushort, true)(p);
-                case DW_EH_PE_sdata4:   return readUnaligned!(int,    true)(p);
-                case DW_EH_PE_udata4:   return readUnaligned!(uint,   true)(p);
-                case DW_EH_PE_sdata8:   return readUnaligned!(long,   true)(p);
-                case DW_EH_PE_udata8:   return readUnaligned!(ulong,  true)(p);
-                case DW_EH_PE_uleb128:  return cast(_Unwind_Ptr) uLEB128(&p);
-                case DW_EH_PE_sleb128:  return cast(_Unwind_Ptr) sLEB128(&p);
-                case DW_EH_PE_ptr:      if (size_t.sizeof == 8)
-                                            goto case DW_EH_PE_udata8;
-                                        else
-                                            goto case DW_EH_PE_udata4;
-                default:
-                    terminate(__LINE__);
-                    return 0;
-            }
-        }
-        else
-        {
-            _Unwind_Ptr value = void;
-            switch (pe)
-            {
-                case DW_EH_PE_uleb128:  value = cast(_Unwind_Ptr) uLEB128(&p);             break;
-                case DW_EH_PE_udata2:   value = cast(_Unwind_Ptr) *cast(ushort*)p; p += 2; break;
-                case DW_EH_PE_udata4:   value = cast(_Unwind_Ptr) *cast(uint*)p;   p += 4; break;
-                case DW_EH_PE_udata8:   value = cast(_Unwind_Ptr) *cast(ulong*)p;  p += 8; break;
-                case DW_EH_PE_sleb128:  value = cast(_Unwind_Ptr) sLEB128(&p);             break;
-                case DW_EH_PE_sdata2:   value = cast(_Unwind_Ptr) *cast(short*)p;  p += 2; break;
-                case DW_EH_PE_sdata4:   value = cast(_Unwind_Ptr) *cast(int*)p;    p += 4; break;
-                case DW_EH_PE_sdata8:   value = cast(_Unwind_Ptr) *cast(long*)p;   p += 8; break;
-                case DW_EH_PE_ptr:      if (size_t.sizeof == 8)
-                                            goto case DW_EH_PE_udata8;
-                                        else
-                                            goto case DW_EH_PE_udata4;
-                default:
-                    terminate(__LINE__);
-            }
-            return value;
+            case DW_EH_PE_sdata2:   return readUnaligned!(short,  true)(p);
+            case DW_EH_PE_udata2:   return readUnaligned!(ushort, true)(p);
+            case DW_EH_PE_sdata4:   return readUnaligned!(int,    true)(p);
+            case DW_EH_PE_udata4:   return readUnaligned!(uint,   true)(p);
+            case DW_EH_PE_sdata8:   return readUnaligned!(long,   true)(p);
+            case DW_EH_PE_udata8:   return readUnaligned!(ulong,  true)(p);
+            case DW_EH_PE_sleb128:  return cast(_Unwind_Ptr) sLEB128(&p);
+            case DW_EH_PE_uleb128:  return cast(_Unwind_Ptr) uLEB128(&p);
+            case DW_EH_PE_ptr:      if (size_t.sizeof == 8)
+                                        goto case DW_EH_PE_udata8;
+                                    else
+                                        goto case DW_EH_PE_udata4;
+            default:
+                terminate(__LINE__);
+                return 0;
         }
     }
 
@@ -1183,43 +1156,21 @@ int actionTableLookup(_Unwind_Exception* exceptionObject, uint actionRecordPtr, 
          */
         _Unwind_Ptr entry;
         const(ubyte)* tt2;
-        version (LDC)
+        switch (TType & DW_EH_PE_FORMAT_MASK)
         {
-            switch (TType & DW_EH_PE_FORMAT_MASK)
-            {
-                case DW_EH_PE_sdata2:   entry = readUnaligned!(short,  false)(tt2 = tt - TypeFilter * 2); break;
-                case DW_EH_PE_udata2:   entry = readUnaligned!(ushort, false)(tt2 = tt - TypeFilter * 2); break;
-                case DW_EH_PE_sdata4:   entry = readUnaligned!(int,    false)(tt2 = tt - TypeFilter * 4); break;
-                case DW_EH_PE_udata4:   entry = readUnaligned!(uint,   false)(tt2 = tt - TypeFilter * 4); break;
-                case DW_EH_PE_sdata8:   entry = readUnaligned!(long,   false)(tt2 = tt - TypeFilter * 8); break;
-                case DW_EH_PE_udata8:   entry = readUnaligned!(ulong,  false)(tt2 = tt - TypeFilter * 8); break;
-                case DW_EH_PE_ptr:      if (size_t.sizeof == 8)
-                                            goto case DW_EH_PE_udata8;
-                                        else
-                                            goto case DW_EH_PE_udata4;
-                default:
-                    fprintf(stderr, "TType = x%x\n", TType);
-                    return -1;      // corrupt
-            }
-        }
-        else
-        {
-            switch (TType & DW_EH_PE_FORMAT_MASK)
-            {
-                case DW_EH_PE_udata2:   entry = cast(_Unwind_Ptr) *cast(ushort*)(tt2 = tt - TypeFilter * 2); break;
-                case DW_EH_PE_udata4:   entry = cast(_Unwind_Ptr) *cast(uint*)  (tt2 = tt - TypeFilter * 4); break;
-                case DW_EH_PE_udata8:   entry = cast(_Unwind_Ptr) *cast(ulong*) (tt2 = tt - TypeFilter * 8); break;
-                case DW_EH_PE_sdata2:   entry = cast(_Unwind_Ptr) *cast(short*) (tt2 = tt - TypeFilter * 2); break;
-                case DW_EH_PE_sdata4:   entry = cast(_Unwind_Ptr) *cast(int*)   (tt2 = tt - TypeFilter * 4); break;
-                case DW_EH_PE_sdata8:   entry = cast(_Unwind_Ptr) *cast(long*)  (tt2 = tt - TypeFilter * 8); break;
-                case DW_EH_PE_ptr:      if (size_t.sizeof == 8)
-                                            goto case DW_EH_PE_udata8;
-                                        else
-                                            goto case DW_EH_PE_udata4;
-                default:
-                    fprintf(stderr, "TType = x%x\n", TType);
-                    return -1;      // corrupt
-            }
+            case DW_EH_PE_sdata2:   entry = readUnaligned!(short,  false)(tt2 = tt - TypeFilter * 2); break;
+            case DW_EH_PE_udata2:   entry = readUnaligned!(ushort, false)(tt2 = tt - TypeFilter * 2); break;
+            case DW_EH_PE_sdata4:   entry = readUnaligned!(int,    false)(tt2 = tt - TypeFilter * 4); break;
+            case DW_EH_PE_udata4:   entry = readUnaligned!(uint,   false)(tt2 = tt - TypeFilter * 4); break;
+            case DW_EH_PE_sdata8:   entry = readUnaligned!(long,   false)(tt2 = tt - TypeFilter * 8); break;
+            case DW_EH_PE_udata8:   entry = readUnaligned!(ulong,  false)(tt2 = tt - TypeFilter * 8); break;
+            case DW_EH_PE_ptr:      if (size_t.sizeof == 8)
+                                        goto case DW_EH_PE_udata8;
+                                    else
+                                        goto case DW_EH_PE_udata4;
+            default:
+                fprintf(stderr, "TType = x%x\n", TType);
+                return -1;      // corrupt
         }
         if (!entry)             // the 'catch all' type
             return -1;          // corrupt: should never happen with DMD, which explicitly uses Throwable
