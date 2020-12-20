@@ -2464,7 +2464,7 @@ else
      */
     extern (D) TemplateInstance findExistingInstance(TemplateInstance tithis, Expressions* fargs)
     {
-        //printf("findExistingInstance(%p)\n", tithis);
+        //printf("findExistingInstance() %s\n", tithis.toChars());
         tithis.fargs = fargs;
         auto tibox = TemplateInstanceBox(tithis);
         auto p = tibox in instances;
@@ -2479,7 +2479,7 @@ else
      */
     extern (D) TemplateInstance addInstance(TemplateInstance ti)
     {
-        //printf("addInstance() %p %p\n", instances, ti);
+        //printf("addInstance() %p %s\n", instances, ti.toChars());
         auto tibox = TemplateInstanceBox(ti);
         instances[tibox] = ti;
         debug (FindExistingInstance) ++nAdded;
@@ -2493,7 +2493,7 @@ else
      */
     extern (D) void removeInstance(TemplateInstance ti)
     {
-        //printf("removeInstance()\n");
+        //printf("removeInstance() %s\n", ti.toChars());
         auto tibox = TemplateInstanceBox(ti);
         debug (FindExistingInstance) ++nRemoved;
         instances.remove(tibox);
@@ -6208,16 +6208,6 @@ version (IN_LLVM)
         assert(!global.params.linkonceTemplates);
 }
 
-        if (global.params.allInst)
-        {
-            return true;
-        }
-
-        if (isDiscardable())
-        {
-            return false;
-        }
-
         if (!minst)
         {
             // If this is a speculative instantiation,
@@ -6234,6 +6224,10 @@ version (IN_LLVM)
             if (tinst && tinst.needsCodegen())
             {
                 minst = tinst.minst; // cache result
+                if (global.params.allInst && minst)
+                {
+                    return true;
+                }
                 assert(minst);
                 assert(minst.isRoot() || minst.rootImports());
                 return true;
@@ -6241,11 +6235,25 @@ version (IN_LLVM)
             if (tnext && (tnext.needsCodegen() || tnext.minst))
             {
                 minst = tnext.minst; // cache result
+                if (global.params.allInst && minst)
+                {
+                    return true;
+                }
                 assert(minst);
                 return minst.isRoot() || minst.rootImports();
             }
 
             // Elide codegen because this is really speculative.
+            return false;
+        }
+
+        if (global.params.allInst)
+        {
+            return true;
+        }
+
+        if (isDiscardable())
+        {
             return false;
         }
 

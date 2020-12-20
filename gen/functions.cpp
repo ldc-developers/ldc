@@ -524,8 +524,9 @@ void onlyOneMainCheck(FuncDeclaration *fd) {
   // We'd actually want all possible main functions to be mutually exclusive.
   // Unfortunately, a D main implies a C main, so only check C mains with
   // -betterC.
+  const bool isOSWindows = global.params.targetTriple->isOSWindows();
   if (fd->isMain() || (global.params.betterC && fd->isCMain()) ||
-      (global.params.isWindows && (fd->isWinMain() || fd->isDllMain()))) {
+      (isOSWindows && (fd->isWinMain() || fd->isDllMain()))) {
     // global - across all modules compiled in this compiler invocation
     static Loc mainLoc;
     if (!mainLoc.filename) {
@@ -533,7 +534,7 @@ void onlyOneMainCheck(FuncDeclaration *fd) {
       assert(mainLoc.filename);
     } else {
       const char *otherMainNames =
-          global.params.isWindows ? ", `WinMain`, or `DllMain`" : "";
+          isOSWindows ? ", `WinMain`, or `DllMain`" : "";
       const char *mainSwitch =
           global.params.addMain ? ", -main switch added another `main()`" : "";
       error(fd->loc,
@@ -647,7 +648,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
 
   func->setCallingConv(gABI->callingConv(link, f, fdecl));
 
-  if (global.params.isWindows && fdecl->isExport()) {
+  if (global.params.targetTriple->isOSWindows() && fdecl->isExport()) {
     func->setDLLStorageClass(fdecl->isImportedSymbol()
                                  ? LLGlobalValue::DLLImportStorageClass
                                  : LLGlobalValue::DLLExportStorageClass);

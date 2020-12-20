@@ -2161,7 +2161,7 @@ public:
     genFuncLiteral(fd, e);
     LLFunction *callee = DtoCallee(fd, false);
 
-    if (fd->isNested()) {
+    if (e->type->ty == Tdelegate) {
       LLType *dgty = DtoType(e->type);
 
       LLValue *cval = DtoNestedContext(e->loc, fd);
@@ -2171,6 +2171,7 @@ public:
 
       result = new DImValue(e->type, DtoAggrPair(cval, castfptr, ".func"));
     } else {
+      assert(e->type->ty == Tfunction);
       result = new DFuncValue(e->type, fd, callee);
     }
   }

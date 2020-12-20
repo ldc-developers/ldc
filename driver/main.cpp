@@ -1034,13 +1034,23 @@ int cppmain() {
   {
     llvm::Triple *triple = new llvm::Triple(gTargetMachine->getTargetTriple());
     global.params.targetTriple = triple;
-    global.params.isLinux = triple->isOSLinux();
-    global.params.isOSX = triple->isOSDarwin();
-    global.params.isWindows = triple->isOSWindows();
-    global.params.isFreeBSD = triple->isOSFreeBSD();
-    global.params.isOpenBSD = triple->isOSOpenBSD();
-    global.params.isDragonFlyBSD = triple->isOSDragonFly();
-    global.params.isSolaris = triple->isOSSolaris();
+
+    if (triple->isOSLinux()) {
+      global.params.targetOS = TargetOS_linux;
+    } else if (triple->isOSDarwin()) {
+      global.params.targetOS = TargetOS_OSX;
+    } else if (triple->isOSWindows()) {
+      global.params.targetOS = TargetOS_Windows;
+    } else if (triple->isOSFreeBSD()) {
+      global.params.targetOS = TargetOS_FreeBSD;
+    } else if (triple->isOSOpenBSD()) {
+      global.params.targetOS = TargetOS_OpenBSD;
+    } else if (triple->isOSDragonFly()) {
+      global.params.targetOS = TargetOS_DragonFlyBSD;
+    } else if (triple->isOSSolaris()) {
+      global.params.targetOS = TargetOS_Solaris;
+    }
+
     global.params.isLP64 = gDataLayout->getPointerSizeInBits() == 64;
     global.params.is64bit = triple->isArch64Bit();
     global.params.hasObjectiveC = objc_isSupported(*triple);

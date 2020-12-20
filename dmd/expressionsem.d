@@ -5984,6 +5984,13 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             ob.writestring(")");
             ob.writenl();
         }
+        if (global.params.makeDeps && global.params.oneobj)
+        {
+            OutBuffer* ob = global.params.makeDeps;
+            ob.writestringln(" \\");
+            ob.writestring("  ");
+            escapePath(ob, toPosixPath(name));
+        }
 
         {
             auto readResult = File.read(name);
@@ -6213,6 +6220,12 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
         exp.e1 = exp.e1.optimize(WANTvalue);
         exp.e1 = exp.e1.toBoolean(sc);
 
+        if (exp.e1.op == TOK.error)
+        {
+            result = exp.e1;
+            return;
+        }
+
         if (exp.msg)
         {
             exp.msg = expressionSemantic(exp.msg, sc);
@@ -6222,11 +6235,6 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             checkParamArgumentEscape(sc, null, null, exp.msg, true, false);
         }
 
-        if (exp.e1.op == TOK.error)
-        {
-            result = exp.e1;
-            return;
-        }
         if (exp.msg && exp.msg.op == TOK.error)
         {
             result = exp.msg;

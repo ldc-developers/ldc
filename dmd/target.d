@@ -178,19 +178,19 @@ else // !IN_LLVM
             ptrsize = 8;
             classinfosize = 0x98; // 152
         }
-        if (params.isLinux || params.isFreeBSD || params.isOpenBSD || params.isDragonFlyBSD || params.isSolaris)
+        if (params.targetOS & (TargetOS.linux | TargetOS.FreeBSD | TargetOS.OpenBSD | TargetOS.DragonFlyBSD | TargetOS.Solaris))
         {
             realsize = 12;
             realpad = 2;
             realalignsize = 4;
         }
-        else if (params.isOSX)
+        else if (params.targetOS == TargetOS.OSX)
         {
             realsize = 16;
             realpad = 6;
             realalignsize = 16;
         }
-        else if (params.isWindows)
+        else if (params.targetOS == TargetOS.Windows)
         {
             realsize = 10;
             realpad = 0;
@@ -207,7 +207,7 @@ else // !IN_LLVM
             assert(0);
         if (params.is64bit)
         {
-            if (params.isLinux || params.isFreeBSD || params.isDragonFlyBSD || params.isSolaris)
+            if (params.targetOS & (TargetOS.linux | TargetOS.FreeBSD | TargetOS.DragonFlyBSD | TargetOS.Solaris))
             {
                 realsize = 16;
                 realpad = 6;
@@ -253,8 +253,7 @@ else // !IN_LLVM
         case Tcomplex80:
             return target.realalignsize;
         case Tcomplex32:
-            if (params.isLinux || params.isOSX || params.isFreeBSD || params.isOpenBSD ||
-                params.isDragonFlyBSD || params.isSolaris)
+            if (params.targetOS & TargetOS.Posix)
                 return 4;
             break;
         case Tint64:
@@ -262,8 +261,7 @@ else // !IN_LLVM
         case Tfloat64:
         case Timaginary64:
         case Tcomplex64:
-            if (params.isLinux || params.isOSX || params.isFreeBSD || params.isOpenBSD ||
-                params.isDragonFlyBSD || params.isSolaris)
+            if (params.targetOS & TargetOS.Posix)
                 return params.is64bit ? 8 : 4;
             break;
         default:
@@ -283,7 +281,7 @@ else // !IN_LLVM
     {
         const size = type.alignsize();
 
-        if ((params.is64bit || params.isOSX) && (size == 16 || size == 32))
+        if ((params.is64bit || params.targetOS == TargetOS.OSX) && (size == 16 || size == 32))
             return size;
 
         return (8 < size) ? 8 : size;
@@ -312,12 +310,11 @@ else // !IN_LLVM
         if (tvalist)
             return tvalist;
 
-        if (params.isWindows)
+        if (params.targetOS == TargetOS.Windows)
         {
             tvalist = Type.tchar.pointerTo();
         }
-        else if (params.isLinux        || params.isFreeBSD || params.isOpenBSD ||
-                 params.isDragonFlyBSD || params.isSolaris || params.isOSX)
+        else if (params.targetOS & TargetOS.Posix)
         {
             if (params.is64bit)
             {
@@ -654,7 +651,7 @@ else
      */
     extern (C++) LINK systemLinkage()
     {
-        return params.isWindows ? LINK.windows : LINK.c;
+        return params.targetOS == TargetOS.Windows ? LINK.windows : LINK.c;
     }
 
 version (IN_LLVM)
@@ -708,7 +705,7 @@ else // !IN_LLVM
         d_uns64 sz = tn.size();
         Type tns = tn;
 
-        if (params.isWindows && params.is64bit)
+        if (params.targetOS == TargetOS.Windows && params.is64bit)
         {
             // http://msdn.microsoft.com/en-us/library/7572ztz4.aspx
             if (tns.ty == Tcomplex32)
@@ -731,7 +728,7 @@ else // !IN_LLVM
                 return false;
             return true;
         }
-        else if (params.isWindows && params.mscoff)
+        else if (params.targetOS == TargetOS.Windows && params.mscoff)
         {
             Type tb = tns.baseElemOf();
             if (tb.ty == Tstruct)
@@ -756,7 +753,7 @@ else // !IN_LLVM
             if (tns.ty != Tstruct)
             {
     L2:
-                if (params.isLinux && tf.linkage != LINK.d && !params.is64bit)
+                if (params.targetOS == TargetOS.linux && tf.linkage != LINK.d && !params.is64bit)
                 {
                                                     // 32 bit C/C++ structs always on stack
                 }
@@ -783,12 +780,12 @@ else // !IN_LLVM
         if (tns.ty == Tstruct)
         {
             StructDeclaration sd = (cast(TypeStruct)tns).sym;
-            if (params.isLinux && tf.linkage != LINK.d && !params.is64bit)
+            if (params.targetOS == TargetOS.linux && tf.linkage != LINK.d && !params.is64bit)
             {
                 //printf("  2 true\n");
                 return true;            // 32 bit C/C++ structs always on stack
             }
-            if (params.isWindows && tf.linkage == LINK.cpp && !params.is64bit &&
+            if (params.targetOS == TargetOS.Windows && tf.linkage == LINK.cpp && !params.is64bit &&
                      sd.isPOD() && sd.ctor)
             {
                 // win32 returns otherwise POD structs with ctors via memory
@@ -815,7 +812,7 @@ else // !IN_LLVM
                         return false;     // return small structs in regs
                                             // (not 3 byte structs!)
                     case 16:
-                        if (!params.isWindows && params.is64bit)
+                        if (params.targetOS & TargetOS.Posix && params.is64bit)
                            return false;
                         break;
 
@@ -826,9 +823,7 @@ else // !IN_LLVM
             //printf("  3 true\n");
             return true;
         }
-        else if ((params.isLinux || params.isOSX ||
-                  params.isFreeBSD || params.isSolaris ||
-                  params.isDragonFlyBSD) &&
+        else if (params.targetOS & TargetOS.Posix &&
                  tf.linkage == LINK.c &&
                  tns.iscomplex())
         {
@@ -837,7 +832,7 @@ else // !IN_LLVM
             else
                 return true;
         }
-        else if (params.isWindows &&
+        else if (params.targetOS == TargetOS.Windows &&
                  !params.is64bit &&
                  tf.linkage == LINK.cpp &&
                  tf.isfloating())
@@ -867,7 +862,7 @@ else // !IN_LLVM
     extern (C++) ulong parameterSize(const ref Loc loc, Type t)
     {
         if (!params.is64bit &&
-            (params.isFreeBSD || params.isOSX))
+            (params.targetOS & (TargetOS.FreeBSD | TargetOS.OSX)))
         {
             /* These platforms use clang, which regards a struct
              * with size 0 as being of size 0 on the parameter stack,
@@ -899,7 +894,7 @@ else // !IN_LLVM
         const size = t.size();
         if (global.params.is64bit)
         {
-            if (global.params.isWindows)
+            if (global.params.targetOS == TargetOS.Windows)
             {
                 // Win64 special case: by-value for slices and delegates due to
                 // high number of usages in druntime/Phobos (compiled without
@@ -977,16 +972,16 @@ else
         switch (name.toDString) with (TargetInfoKeys)
         {
             case objectFormat.stringof:
-                if (params.isWindows)
+                if (params.targetOS == TargetOS.Windows)
                     return stringExp(params.mscoff ? "coff" : "omf");
-                else if (params.isOSX)
+                else if (params.targetOS == TargetOS.OSX)
                     return stringExp("macho");
                 else
                     return stringExp("elf");
             case floatAbi.stringof:
                 return stringExp("hard");
             case cppRuntimeLibrary.stringof:
-                if (params.isWindows)
+                if (params.targetOS == TargetOS.Windows)
                 {
                     if (params.mscoff)
                         return stringExp(params.mscrtlib);
@@ -1012,7 +1007,7 @@ else
      */
     extern (D) bool isXmmSupported()
     {
-        return global.params.is64bit || global.params.isOSX;
+        return global.params.is64bit || global.params.targetOS == TargetOS.OSX;
     }
 
     /++ LDC: syntax not supported by ltsmaster
@@ -1021,15 +1016,10 @@ else
      *  true if generating code for POSIX
      */
     extern (D) @property bool isPOSIX() scope const nothrow @nogc
-    out(result) { assert(result || params.isWindows); }
+    out(result) { assert(result || params.targetOS == TargetOS.Windows); }
     do
     {
-        return params.isLinux
-            || params.isOSX
-            || params.isFreeBSD
-            || params.isOpenBSD
-            || params.isDragonFlyBSD
-            || params.isSolaris;
+        return (params.targetOS & TargetOS.Posix) != 0;
     }
 
     /**
@@ -1037,7 +1027,7 @@ else
      *  FreeBSD major version string being targeted.
      */
     extern (D) @property string FreeBSDMajor() scope const nothrow @nogc
-    in { assert(params.isFreeBSD); }
+    in { assert(params.targetOS == TargetOS.FreeBSD); }
     do
     {
         // FIXME: Need better a way to statically set the major FreeBSD version?
@@ -1067,22 +1057,22 @@ struct TargetC
     version (IN_LLVM) { /* initialized in Target::_init() */ } else
     extern (D) void initialize(ref const Param params, ref const Target target)
     {
-        if (params.isLinux || params.isFreeBSD || params.isOpenBSD || params.isDragonFlyBSD || params.isSolaris)
+        if (params.targetOS & (TargetOS.linux | TargetOS.FreeBSD | TargetOS.OpenBSD | TargetOS.DragonFlyBSD | TargetOS.Solaris))
             longsize = 4;
-        else if (params.isOSX)
+        else if (params.targetOS == TargetOS.OSX)
             longsize = 4;
-        else if (params.isWindows)
+        else if (params.targetOS == TargetOS.Windows)
             longsize = 4;
         else
             assert(0);
         if (params.is64bit)
         {
-            if (params.isLinux || params.isFreeBSD || params.isDragonFlyBSD || params.isSolaris)
+            if (params.targetOS & (TargetOS.linux | TargetOS.FreeBSD | TargetOS.DragonFlyBSD | TargetOS.Solaris))
                 longsize = 8;
-            else if (params.isOSX)
+            else if (params.targetOS == TargetOS.OSX)
                 longsize = 8;
         }
-        if (params.is64bit && params.isWindows)
+        if (params.is64bit && params.targetOS == TargetOS.Windows)
             long_doublesize = 8;
         else
             long_doublesize = target.realsize;
@@ -1092,12 +1082,12 @@ struct TargetC
 
     private static uint getCriticalSectionSize(ref const Param params) pure
     {
-        if (params.isWindows)
+        if (params.targetOS == TargetOS.Windows)
         {
             // sizeof(CRITICAL_SECTION) for Windows.
             return params.isLP64 ? 40 : 24;
         }
-        else if (params.isLinux)
+        else if (params.targetOS == TargetOS.linux)
         {
             // sizeof(pthread_mutex_t) for Linux.
             if (params.is64bit)
@@ -1105,27 +1095,27 @@ struct TargetC
             else
                 return params.isLP64 ? 40 : 24;
         }
-        else if (params.isFreeBSD)
+        else if (params.targetOS == TargetOS.FreeBSD)
         {
             // sizeof(pthread_mutex_t) for FreeBSD.
             return params.isLP64 ? 8 : 4;
         }
-        else if (params.isOpenBSD)
+        else if (params.targetOS == TargetOS.OpenBSD)
         {
             // sizeof(pthread_mutex_t) for OpenBSD.
             return params.isLP64 ? 8 : 4;
         }
-        else if (params.isDragonFlyBSD)
+        else if (params.targetOS == TargetOS.DragonFlyBSD)
         {
             // sizeof(pthread_mutex_t) for DragonFlyBSD.
             return params.isLP64 ? 8 : 4;
         }
-        else if (params.isOSX)
+        else if (params.targetOS == TargetOS.OSX)
         {
             // sizeof(pthread_mutex_t) for OSX.
             return params.isLP64 ? 64 : 44;
         }
-        else if (params.isSolaris)
+        else if (params.targetOS == TargetOS.Solaris)
         {
             // sizeof(pthread_mutex_t) for Solaris.
             return 24;
@@ -1147,16 +1137,15 @@ struct TargetCPP
     version (IN_LLVM) { /* initialized in Target::_init() */ } else
     extern (D) void initialize(ref const Param params, ref const Target target)
     {
-        if (params.isLinux || params.isFreeBSD || params.isOpenBSD || params.isDragonFlyBSD || params.isSolaris)
+        if (params.targetOS & (TargetOS.linux | TargetOS.FreeBSD | TargetOS.OpenBSD | TargetOS.DragonFlyBSD | TargetOS.Solaris))
             twoDtorInVtable = true;
-        else if (params.isOSX)
+        else if (params.targetOS == TargetOS.OSX)
             twoDtorInVtable = true;
-        else if (params.isWindows)
+        else if (params.targetOS == TargetOS.Windows)
             reverseOverloads = true;
         else
             assert(0);
-        exceptions = params.isLinux || params.isFreeBSD ||
-            params.isDragonFlyBSD || params.isOSX;
+        exceptions = (params.targetOS & TargetOS.Posix) != 0;
     }
 
     /**
@@ -1295,7 +1284,7 @@ struct TargetObjC
     version (IN_LLVM) { /* initialized in Target::_init() */ } else
     extern (D) void initialize(ref const Param params, ref const Target target)
     {
-        if (params.isOSX && params.is64bit)
+        if (params.targetOS == TargetOS.OSX && params.is64bit)
             supported = true;
     }
 }

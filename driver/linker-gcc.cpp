@@ -575,7 +575,8 @@ void ArgsBuilder::addLinker() {
 
   // We have a default linker preference for Linux targets. It can be disabled
   // via `-linker=` (explicitly empty).
-  if (global.params.isLinux && opts::linker.getNumOccurrences() == 0) {
+  if (global.params.targetTriple->isOSLinux() &&
+      opts::linker.getNumOccurrences() == 0) {
     // Default to ld.bfd for Android (placing .tdata and .tbss sections adjacent
     // to each other as required by druntime's rt.sections_android, contrary to
     // gold and lld as of Android NDK r21d).

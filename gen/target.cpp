@@ -37,15 +37,15 @@ namespace {
  * aligned, so the returned field size is a multiple of pointer-size.
  */
 unsigned getCriticalSectionSize(const Param &params) {
+  const auto &triple = *params.targetTriple;
   const bool is64bit = params.is64bit;
 
   // Windows: sizeof(CRITICAL_SECTION)
-  if (params.isWindows)
+  if (triple.isOSWindows())
     return is64bit ? 40 : 24;
 
   // POSIX: sizeof(pthread_mutex_t)
   // based on druntime/src/core/sys/posix/sys/types.d
-  const auto &triple = *params.targetTriple;
 
   if (triple.isOSDarwin())
     return is64bit ? 64 : 44;
