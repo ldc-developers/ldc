@@ -10,6 +10,7 @@
 #include "dmd/errors.h"
 #include "dmd/globals.h"
 #include "driver/cl_options.h"
+#include "driver/timetrace.h"
 #include "driver/tool.h"
 #include "gen/logger.h"
 #include "llvm/ADT/Triple.h"
@@ -240,6 +241,7 @@ static llvm::cl::opt<std::string> ar("ar", llvm::cl::desc("Archiver"),
 
 int createStaticLibrary() {
   Logger::println("*** Creating static library ***");
+  ::TimeTraceScope timeScope("Create static library");
 
   const bool isTargetMSVC =
       global.params.targetTriple->isWindowsMSVCEnvironment();

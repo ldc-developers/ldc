@@ -11,6 +11,7 @@
 
 #include "dmd/errors.h"
 #include "driver/cl_options.h"
+#include "driver/timetrace.h"
 #include "driver/tool.h"
 #include "gen/llvm.h"
 #include "gen/logger.h"
@@ -284,6 +285,7 @@ static std::string gExePath;
 
 int linkObjToBinary() {
   Logger::println("*** Linking executable ***");
+  TimeTraceScope timeScope("Linking executable");
 
   // remember output path for later
   gExePath = getOutputName();
@@ -310,6 +312,8 @@ void deleteExeFile() {
 //////////////////////////////////////////////////////////////////////////////
 
 int runProgram() {
+  TimeTraceScope timeScope("Run user program");
+
   assert(!gExePath.empty());
 
   // Run executable

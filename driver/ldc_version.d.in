@@ -1,0 +1,12 @@
+//===-- driver/ldc_version.d - ------------------------------------*- D -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+
+module driver.ldc_version;
+
+enum LLVM_VERSION_MAJOR = @LLVM_VERSION_MAJOR@;
