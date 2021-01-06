@@ -824,7 +824,7 @@ else // !IN_LLVM
             return true;
         }
         else if (params.targetOS & TargetOS.Posix &&
-                 tf.linkage == LINK.c &&
+                 (tf.linkage == LINK.c || tf.linkage == LINK.cpp) &&
                  tns.iscomplex())
         {
             if (tns.ty == Tcomplex32)
