@@ -2,14 +2,18 @@
 # environment variables aren't persisted across steps.
 
 steps:
+
 - script: |
     :: Use Windows CRLF line endings for checked-out text files
     git config --global core.autocrlf true
     set
   displayName: Print environment variables
+
 - checkout: self
   submodules: true
   fetchDepth: 50
+
+# Prerequisites
 - script: |
     echo on
     cd ..
@@ -65,6 +69,8 @@ steps:
     curl -L -o clang.exe https://github.com/llvm/llvm-project/releases/download/llvmorg-%CLANG_VERSION%/LLVM-%CLANG_VERSION%-win64.exe 2>&1
     clang.exe /S
   displayName: Install prerequisites
+
+# Build bootstrap LDC
 - script: |
     echo on
     cd ..
@@ -81,6 +87,8 @@ steps:
     ninja -j4 || exit /b
     bin\ldc2 --version
   displayName: Build bootstrap LDC
+
+# Build
 - script: |
     echo on
     cd ..
@@ -94,6 +102,8 @@ steps:
     ninja -j4 all ldc2-unittest all-test-runners || exit /b
     bin\ldc2 --version
   displayName: Build LDC & LDC D unittests & defaultlib unittest runners
+
+# Tests
 - script: |
     cd ..
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
@@ -130,6 +140,8 @@ steps:
     ctest -j4 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
   displayName: Run defaultlib unittests & druntime stand-alone tests
   condition: succeededOrFailed()
+
+# Install, make portable and copy curl & MinGW-w64-based libs
 - script: |
     cd ..
     set PATH=%CD%\ninja;%PATH%
@@ -153,6 +165,8 @@ steps:
     7z x ../mingw-w64-libs.7z > nul
     cp -r lib%MODEL% ../installed/lib/mingw
   displayName: Copy MinGW-w64-based libs
+
+# Integration tests
 - script: |
     cd ..
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
@@ -169,6 +183,8 @@ steps:
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     installed\bin\ldc2 -enable-dynamic-compile -run %BUILD_SOURCESDIRECTORY%/tests/dynamiccompile/array.d
   displayName: Run dynamic-compile integration test
+
+# Add dub & dlang tools
 - script: |
     cd ..
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
@@ -192,6 +208,8 @@ steps:
     %DMD% -w -de -dip1000 DustMite\dustmite.d DustMite\splitter.d || exit /b
     cp *.exe ../installed/bin
   displayName: Build & copy dlang tools
+
+# Pack & publish artifact
 - script: |
     cd ..
     if "%BUILD_SOURCEBRANCH:~0,10%" == "refs/tags/" (

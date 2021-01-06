@@ -39,7 +39,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl);
 void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally = false);
 
 void DtoDefineNakedFunction(FuncDeclaration *fd);
-void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
+void emitABIReturnAsmStmt(IRAsmBlock *asmblock, const Loc &loc,
                           FuncDeclaration *fdecl);
 
 DValue *DtoArgument(Parameter *fnarg, Expression *argexp);

@@ -566,8 +566,18 @@ private uint setMangleOverride(Dsymbol s, const(char)[] sym)
  */
 extern(C++) void dsymbolSemantic(Dsymbol dsym, Scope* sc)
 {
+version (IN_LLVM)
+{
+    import driver.timetrace_sema;
+    scope v = new DsymbolSemanticVisitor(sc);
+    scope vtimetrace = new SemanticTimeTraceVisitor!DsymbolSemanticVisitor(v);
+    dsym.accept(vtimetrace);
+}
+else
+{
     scope v = new DsymbolSemanticVisitor(sc);
     dsym.accept(v);
+}
 }
 
 structalign_t getAlignment(AlignDeclaration ad, Scope* sc)

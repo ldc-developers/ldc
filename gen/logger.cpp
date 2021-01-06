@@ -114,7 +114,7 @@ void print(const char *fmt, ...) {
     va_end(va);
   }
 }
-void attention(Loc &loc, const char *fmt, ...) {
+void attention(const Loc &loc, const char *fmt, ...) {
   va_list va;
   va_start(va, fmt);
   vwarning(loc, fmt, va);

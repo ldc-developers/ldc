@@ -13,7 +13,7 @@
 #include "gen/irstate.h"
 #include "gen/logger.h"
 
-void emitCoverageLinecountInc(Loc &loc) {
+void emitCoverageLinecountInc(const Loc &loc) {
   Module *m = gIR->dmodule;
 
   // Only emit coverage increment for locations in the source of the current

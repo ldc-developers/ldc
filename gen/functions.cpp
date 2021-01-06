@@ -25,6 +25,7 @@
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
+#include "driver/timetrace.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
@@ -987,6 +988,14 @@ void emulateWeakAnyLinkageForMSVC(LLFunction *func, LINK linkage) {
 } // anonymous namespace
 
 void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
+  TimeTraceScope timeScope(
+      ("Codegen func " + llvm::SmallString<40>(fd->toChars())).str(), [fd]() {
+        std::string detail = fd->toPrettyChars();
+        detail += ", loc: ";
+        detail += fd->loc.toChars();
+        return detail;
+      });
+
   IF_LOG Logger::println("DtoDefineFunction(%s): %s", fd->toPrettyChars(),
                          fd->loc.toChars());
   LOG_SCOPE;

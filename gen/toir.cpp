@@ -587,7 +587,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  using BinOpFunc = DValue *(Loc &, Type *, DValue *, Expression *, bool);
+  using BinOpFunc = DValue *(const Loc &, Type *, DValue *, Expression *, bool);
 
   static Expression *getLValExp(Expression *e) {
     e = skipOverCasts(e);
@@ -2403,9 +2403,9 @@ public:
       llvm::Function *func =
           getRuntimeFunction(e->loc, gIR->module, "_d_assocarrayliteralTX");
       LLFunctionType *funcTy = func->getFunctionType();
-      LLValue *aaTypeInfo =
-          DtoBitCast(DtoTypeInfoOf(stripModifiers(aatype), /*base=*/false),
-                     DtoType(getAssociativeArrayTypeInfoType()));
+      LLValue *aaTypeInfo = DtoBitCast(
+          DtoTypeInfoOf(e->loc, stripModifiers(aatype), /*base=*/false),
+          DtoType(getAssociativeArrayTypeInfoType()));
 
       LLConstant *idxs[2] = {DtoConstUint(0), DtoConstUint(0)};
 

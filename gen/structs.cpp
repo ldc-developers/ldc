@@ -32,7 +32,7 @@
 
 void DtoResolveStruct(StructDeclaration *sd) { DtoResolveStruct(sd, sd->loc); }
 
-void DtoResolveStruct(StructDeclaration *sd, Loc &callerLoc) {
+void DtoResolveStruct(StructDeclaration *sd, const Loc &callerLoc) {
   // Make sure to resolve each struct type exactly once.
   if (sd->ir->isResolved()) {
     return;

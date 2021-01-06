@@ -35,6 +35,7 @@
 #include "driver/linker.h"
 #include "driver/plugins.h"
 #include "driver/targetmachine.h"
+#include "driver/timetrace.h"
 #include "gen/abi.h"
 #include "gen/cl_helpers.h"
 #include "gen/irstate.h"
@@ -995,6 +996,8 @@ int cppmain() {
     fatal();
   }
 
+  initializeTimeTracer();
+
   // Set up the TargetMachine.
   const auto arch = getArchStr();
   if ((m32bits || m64bits) && (!arch.empty() || !mTargetTriple.empty())) {
@@ -1091,17 +1094,26 @@ int cppmain() {
 
   loadAllPlugins();
 
-  Strings libmodules;
-  const int rc = mars_mainBody(global.params, files, libmodules);
+  int status;
+  {
+    TimeTraceScope timeScope("ExecuteCompiler");
+    Strings libmodules;
+    status = mars_mainBody(global.params, files, libmodules);
+  }
+
+  writeTimeTraceProfile();
+  deinitializeTimeTracer();
 
   llvm::llvm_shutdown();
 
-  return rc;
+  return status;
 }
 
 void codegenModules(Modules &modules) {
   // Generate one or more object/IR/bitcode files/dcompute kernels.
   if (global.params.obj && !modules.empty()) {
+    TimeTraceScope timeScope("Codegen all modules");
+
 #if LDC_MLIR_ENABLED
     mlir::MLIRContext mlircontext;
     ldc::CodeGenerator cg(getGlobalContext(), mlircontext,
@@ -1131,6 +1143,7 @@ void codegenModules(Modules &modules) {
       const auto atCompute = hasComputeAttr(m);
       if (atCompute == DComputeCompileFor::hostOnly ||
           atCompute == DComputeCompileFor::hostAndDevice) {
+        TimeTraceScope timeScope(("Codegen module " + llvm::SmallString<20>(m->toChars())).str());
 #if LDC_MLIR_ENABLED
         if (global.params.output_mlir == OUTPUTFLAGset)
           cg.emitMLIR(m);
@@ -1156,8 +1169,11 @@ void codegenModules(Modules &modules) {
     }
 
     if (!computeModules.empty()) {
-      for (auto &mod : computeModules)
+      TimeTraceScope timeScope("Codegen DCompute device modules");
+      for (auto &mod : computeModules) {
+        TimeTraceScope timeScope(("Codegen DCompute device module " + llvm::SmallString<20>(mod->toChars())).str());
         dccg.emit(mod);
+      }
     }
     dccg.writeModules();
 
@@ -1166,7 +1182,10 @@ void codegenModules(Modules &modules) {
       global.params.link = false;
   }
 
-  cache::pruneCache();
+  {
+    TimeTraceScope timeScope("Prune object file cache");
+    cache::pruneCache();
+  }
 
   freeRuntime();
 }

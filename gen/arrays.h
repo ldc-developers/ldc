@@ -54,36 +54,38 @@ llvm::Constant *arrayLiteralToConst(IRState *p, ArrayLiteralExp *ale);
 /// dstMem is expected to be a pointer to the array allocation.
 void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale, LLValue *dstMem);
 
-void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
+void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
                     bool canSkipPostblit);
 void DtoSetArrayToNull(LLValue *v);
 
-DSliceValue *DtoNewDynArray(Loc &loc, Type *arrayType, DValue *dim,
+DSliceValue *DtoNewDynArray(const Loc &loc, Type *arrayType, DValue *dim,
                             bool defaultInit = true);
-DSliceValue *DtoNewMulDimDynArray(Loc &loc, Type *arrayType, DValue **dims,
-                                  size_t ndims);
-DSliceValue *DtoResizeDynArray(Loc &loc, Type *arrayType, DValue *array,
+DSliceValue *DtoNewMulDimDynArray(const Loc &loc, Type *arrayType,
+                                  DValue **dims, size_t ndims);
+DSliceValue *DtoResizeDynArray(const Loc &loc, Type *arrayType, DValue *array,
                                llvm::Value *newdim);
 
-void DtoCatAssignElement(Loc &loc, DValue *arr, Expression *exp);
-DSliceValue *DtoCatAssignArray(Loc &loc, DValue *arr, Expression *exp);
-DSliceValue *DtoCatArrays(Loc &loc, Type *type, Expression *e1, Expression *e2);
-DSliceValue *DtoAppendDCharToString(Loc &loc, DValue *arr, Expression *exp);
-DSliceValue *DtoAppendDCharToUnicodeString(Loc &loc, DValue *arr,
+void DtoCatAssignElement(const Loc &loc, DValue *arr, Expression *exp);
+DSliceValue *DtoCatAssignArray(const Loc &loc, DValue *arr, Expression *exp);
+DSliceValue *DtoCatArrays(const Loc &loc, Type *type, Expression *e1,
+                          Expression *e2);
+DSliceValue *DtoAppendDCharToString(const Loc &loc, DValue *arr,
+                                    Expression *exp);
+DSliceValue *DtoAppendDCharToUnicodeString(const Loc &loc, DValue *arr,
                                            Expression *exp);
 
-LLValue *DtoArrayEquals(Loc &loc, TOK op, DValue *l, DValue *r);
+LLValue *DtoArrayEquals(const Loc &loc, TOK op, DValue *l, DValue *r);
 
 LLValue *DtoDynArrayIs(TOK op, DValue *l, DValue *r);
 
 LLValue *DtoArrayLen(DValue *v);
 LLValue *DtoArrayPtr(DValue *v);
 
-DValue *DtoCastArray(Loc &loc, DValue *val, Type *to);
+DValue *DtoCastArray(const Loc &loc, DValue *val, Type *to);
 
 // generates an array bounds check
-void DtoIndexBoundsCheck(Loc &loc, DValue *arr, DValue *index);
+void DtoIndexBoundsCheck(const Loc &loc, DValue *arr, DValue *index);
 
 /// Inserts a call to the druntime function that throws the range error, with
 /// the given location.
-void DtoBoundsCheckFailCall(IRState *p, Loc &loc);
+void DtoBoundsCheckFailCall(IRState *p, const Loc &loc);

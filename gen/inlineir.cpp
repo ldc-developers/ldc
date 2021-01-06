@@ -99,7 +99,7 @@ void DtoCheckInlineIRPragma(Identifier *ident, Dsymbol *s) {
   }
 }
 
-DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
+DValue *DtoInlineIRExpr(const Loc &loc, FuncDeclaration *fdecl,
                         Expressions *arguments, LLValue *sretPointer) {
   IF_LOG Logger::println("DtoInlineIRExpr @ %s", loc.toChars());
   LOG_SCOPE;

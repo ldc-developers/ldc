@@ -36,7 +36,7 @@ class Value;
  * (only for better diagnosis)
  */
 void DtoResolveStruct(StructDeclaration *sd);
-void DtoResolveStruct(StructDeclaration *sd, Loc &callerLoc);
+void DtoResolveStruct(StructDeclaration *sd, const Loc &callerLoc);
 
 /// Returns a boolean=true if the two structs are equal.
 llvm::Value *DtoStructEquals(TOK op, DValue *lhs, DValue *rhs);

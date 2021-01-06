@@ -352,6 +352,7 @@ else()
 endif()
 message(STATUS "LDC version identifier: ${LDC_VERSION}")
 configure_file(driver/ldc-version.cpp.in driver/ldc-version.cpp)
+configure_file(driver/ldc_version.d.in driver/ldc_version.d)
 
 # Also add the header files to the build so that they are available in IDE
 # project files generated via CMake.
@@ -377,6 +378,7 @@ set(DRV_SRC
     driver/dcomputecodegenerator.cpp
     driver/exe_path.cpp
     driver/targetmachine.cpp
+    driver/timetrace.cpp
     driver/toobj.cpp
     driver/tool.cpp
     driver/archiver.cpp
@@ -404,6 +406,7 @@ set(DRV_HDR
     driver/linker.h
     driver/plugins.h
     driver/targetmachine.h
+    driver/timetrace.h
     driver/toobj.h
     driver/tool.h
 )

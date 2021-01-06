@@ -25,14 +25,14 @@ class TypeClass;
 /// Resolves the llvm type for a class declaration
 void DtoResolveClass(ClassDeclaration *cd);
 
-DValue *DtoNewClass(Loc &loc, TypeClass *type, NewExp *newexp);
+DValue *DtoNewClass(const Loc &loc, TypeClass *type, NewExp *newexp);
 void DtoInitClass(TypeClass *tc, llvm::Value *dst);
-void DtoFinalizeClass(Loc &loc, llvm::Value *inst);
-void DtoFinalizeScopeClass(Loc &loc, llvm::Value *inst, bool hasDtor);
+void DtoFinalizeClass(const Loc &loc, llvm::Value *inst);
+void DtoFinalizeScopeClass(const Loc &loc, llvm::Value *inst, bool hasDtor);
 
-DValue *DtoCastClass(Loc &loc, DValue *val, Type *to);
-DValue *DtoDynamicCastObject(Loc &loc, DValue *val, Type *to);
+DValue *DtoCastClass(const Loc &loc, DValue *val, Type *to);
+DValue *DtoDynamicCastObject(const Loc &loc, DValue *val, Type *to);
 
-DValue *DtoDynamicCastInterface(Loc &loc, DValue *val, Type *to);
+DValue *DtoDynamicCastInterface(const Loc &loc, DValue *val, Type *to);
 
 llvm::Value *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl);
