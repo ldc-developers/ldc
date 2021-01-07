@@ -761,7 +761,14 @@ version (IN_LLVM)
         ob.writenl();
         const data = (*ob)[];
         if (params.makeDepsFile)
+        {
             writeFile(Loc.initial, params.makeDepsFile, data);
+version (IN_LLVM)
+{
+            params.makeDeps = null;
+            params.makeDepsFile = null;
+}
+        }
         else
             printf("%.*s", cast(int)data.length, data.ptr);
     }
@@ -2992,20 +2999,12 @@ else
     }
     else
     {
-version (IN_LLVM)
-{
-        if (params.objname && numSrcFiles + (params.addMain ? 1 : 0) > 1)
-            params.oneobj = true;
-}
-else
-{
         if (params.objname && numSrcFiles)
         {
             params.oneobj = true;
             //error("multiple source files, but only one .obj name");
             //fatal();
         }
-}
     }
 
     if (params.makeDeps && !params.oneobj)
@@ -3201,11 +3200,9 @@ else
     }
 version (IN_LLVM)
 {
-    if (global.params.oneobj && modules.dim < 2 && !includeImports)
-        global.params.oneobj = false;
-    // global.params.oneobj => move object file for first source file to
-    // beginning of object files list
-    if (global.params.oneobj && firstModuleObjectFileIndex != 0)
+    // When compiling to a single object file, move that object file to the
+    // beginning of the object files list.
+    if (global.params.oneobj && modules.length > 0 && firstModuleObjectFileIndex != 0)
     {
         auto fn = global.params.objfiles[firstModuleObjectFileIndex];
         global.params.objfiles.remove(firstModuleObjectFileIndex);

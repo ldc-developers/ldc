@@ -389,9 +389,15 @@ cl::list<std::string>
 cl::opt<std::string>
     moduleDeps("deps", cl::ValueOptional, cl::ZeroOrMore,
                cl::value_desc("filename"),
-               cl::desc("Write module dependencies to filename (only imports). "
+               cl::desc("Write module dependencies to <filename> (only imports). "
                         "'-deps' alone prints module dependencies "
                         "(imports/file/version/debug/lib)"));
+
+cl::opt<std::string>
+    makeDeps("makedeps", cl::ValueOptional, cl::ZeroOrMore,
+             cl::value_desc("filename"),
+             cl::desc("Write module dependencies in Makefile compatible format "
+                      "to <filename>/stdout (only imports)"));
 
 cl::opt<bool> m32bits("m32", cl::desc("32 bit target"), cl::ZeroOrMore);
 

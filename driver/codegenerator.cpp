@@ -186,7 +186,7 @@ CodeGenerator::CodeGenerator(llvm::LLVMContext &context,
 }
 
 CodeGenerator::~CodeGenerator() {
-  if (singleObj_) {
+  if (singleObj_ && moduleCount_ > 0) {
     // For singleObj builds, the first object file name is the one for the first
     // source file (e.g., `b.o` for `ldc2 a.o b.d c.d`).
     const char *filename = global.params.objfiles[0];

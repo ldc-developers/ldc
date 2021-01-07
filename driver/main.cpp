@@ -363,6 +363,12 @@ void parseCommandLine(Strings &sourceFiles) {
       global.params.moduleDepsFile = opts::dupPathString(moduleDeps);
   }
 
+  if (makeDeps.getNumOccurrences() != 0) {
+    global.params.makeDeps = new OutBuffer;
+    if (!makeDeps.empty())
+      global.params.makeDepsFile = opts::dupPathString(makeDeps);
+  }
+
 #if _WIN32
   const auto toWinPaths = [](Strings *paths) {
     if (!paths)

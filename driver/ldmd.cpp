@@ -209,6 +209,9 @@ Where:\n\
 #endif
 "  -m64              generate 64 bit code\n\
   -main             add default main() (e.g. for unittesting)\n\
+  -makedeps         print module dependencies in Makefile compatible format to stdout\n\
+  -makedeps=<filename>\n\
+                    write module dependencies in Makefile compatible format to filename (only imports)\n\
   -man              open web browser on manual page\n"
 #if 0
 "  -map              generate linker .map file\n"
