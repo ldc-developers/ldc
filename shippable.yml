@@ -136,7 +136,7 @@ build:
     - |
       $DMD -w -de -dip1000 rdmd.d -of=bin/rdmd &
       $DMD -w -de -dip1000 ddemangle.d -of=bin/ddemangle &
-      $DMD -w -de -dip1000 DustMite/dustmite.d DustMite/splitter.d -of=bin/dustmite &
+      $DMD -w -de -dip1000 DustMite/dustmite.d DustMite/splitter.d DustMite/polyhash.d -of=bin/dustmite &
       wait
     - cp bin/{rdmd,ddemangle,dustmite} ../installed/bin
     - cd ..
