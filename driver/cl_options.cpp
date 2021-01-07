@@ -170,12 +170,15 @@ static cl::opt<CppStdRevision, true> cplusplus(
     cl::values(
         clEnumValN(CppStdRevisionCpp98, "c++98",
                    "Sets `__traits(getTargetInfo, \"cppStd\")` to `199711`"),
-        clEnumValN(CppStdRevisionCpp11, "c++11",
-                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `201103` (default)"),
+        clEnumValN(
+            CppStdRevisionCpp11, "c++11",
+            "Sets `__traits(getTargetInfo, \"cppStd\")` to `201103` (default)"),
         clEnumValN(CppStdRevisionCpp14, "c++14",
                    "Sets `__traits(getTargetInfo, \"cppStd\")` to `201402`"),
         clEnumValN(CppStdRevisionCpp17, "c++17",
-                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `201703`")));
+                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `201703`"),
+        clEnumValN(CppStdRevisionCpp20, "c++20",
+                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `202002`")));
 
 static cl::opt<unsigned char, true> debugInfo(
     cl::desc("Generating debug information:"), cl::ZeroOrMore,
