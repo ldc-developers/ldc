@@ -2171,7 +2171,6 @@ public:
 
       result = new DImValue(e->type, DtoAggrPair(cval, castfptr, ".func"));
     } else {
-      assert(e->type->ty == Tfunction);
       result = new DFuncValue(e->type, fd, callee);
     }
   }
