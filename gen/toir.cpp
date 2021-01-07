@@ -2161,7 +2161,7 @@ public:
     genFuncLiteral(fd, e);
     LLFunction *callee = DtoCallee(fd, false);
 
-    if (e->type->ty == Tdelegate) {
+    if (fd->isNested()) {
       LLType *dgty = DtoType(e->type);
 
       LLValue *cval = DtoNestedContext(e->loc, fd);

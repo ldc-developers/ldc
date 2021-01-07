@@ -283,6 +283,7 @@ public:
 #endif
 
     static ClassDeclaration *create(Loc loc, Identifier *id, BaseClasses *baseclasses, Dsymbols *members, bool inObject);
+    const char *toPrettyChars(bool QualifyTypes = false);
     Dsymbol *syntaxCopy(Dsymbol *s);
     Scope *newScope(Scope *sc);
     bool isBaseOf2(ClassDeclaration *cd);
