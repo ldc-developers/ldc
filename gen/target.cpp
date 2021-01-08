@@ -216,6 +216,8 @@ bool Target::isReturnOnStack(TypeFunction *tf, bool needsThis) {
   return gABI->returnInArg(tf, needsThis);
 }
 
+bool Target::preferPassByRef(Type *t) { return gABI->preferPassByRef(t); }
+
 Expression *Target::getTargetInfo(const char *name_, const Loc &loc) {
   const llvm::StringRef name(name_);
   const auto &triple = *global.params.targetTriple;

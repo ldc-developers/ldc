@@ -70,6 +70,19 @@ public:
     return false;
   }
 
+  // Prefer a ref if the POD cannot be passed in registers, i.e., if
+  // IndirectByvalRewrite would be applied.
+  bool preferPassByRef(Type *t) override {
+    t = t->toBasetype();
+
+    if (!(t->ty == Tstruct || t->ty == Tsarray))
+      return false;
+
+    auto argTypes = getArgTypes(t);
+    return argTypes // not 0-sized
+        && argTypes->arguments->empty(); // cannot be passed in registers
+  }
+
   bool passByVal(TypeFunction *, Type *) override { return false; }
 
   void rewriteFunctionType(IrFuncTy &fty) override {

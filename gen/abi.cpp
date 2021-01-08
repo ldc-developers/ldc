@@ -156,6 +156,14 @@ bool TargetABI::isExternD(TypeFunction *tf) {
 
 //////////////////////////////////////////////////////////////////////////////
 
+bool TargetABI::preferPassByRef(Type *t) {
+  // simple base heuristic: use a ref for all types > 2 machine words
+  d_uns64 machineWordSize = global.params.is64bit ? 8 : 4;
+  return t->size() > 2 * machineWordSize;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 bool TargetABI::reverseExplicitParams(TypeFunction *tf) {
   // Required by druntime for extern(D), except for `, ...`-style variadics.
   return isExternD(tf) && tf->parameterList.length() > 1;

@@ -124,6 +124,10 @@ struct TargetABI {
   /// attribute.
   virtual bool returnInArg(TypeFunction *tf, bool needsThis) = 0;
 
+  /// Returns true if the specified parameter type (a POD) should be passed by
+  /// ref for `in` params with -preview=in.
+  virtual bool preferPassByRef(Type *t);
+
   /// Returns true if the D type is passed using the LLVM ByVal attribute.
   ///
   /// ByVal arguments are bitcopied to the callee's function parameters stack in
