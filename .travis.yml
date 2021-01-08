@@ -9,7 +9,7 @@ matrix:
     - os: linux
       arch: arm64
       d: ldc-beta
-      env: LLVM_VERSION=11.0.0 PARALLELISM=16 CC=gcc-8 CXX=g++-8 OPTS="-DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64 -DADDITIONAL_DEFAULT_LDC_SWITCHES='\"-linker=bfd\",' -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF"
+      env: LLVM_VERSION=11.0.1 PARALLELISM=16 CC=gcc-8 CXX=g++-8 OPTS="-DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64 -DADDITIONAL_DEFAULT_LDC_SWITCHES='\"-linker=bfd\",' -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF"
       addons:
         apt:
           sources:
@@ -42,7 +42,7 @@ matrix:
 
 cache:
   directories:
-    - llvm-11.0.0
+    - llvm-11.0.1
     - llvm-10.0.0
     - llvm-9.0.0
     - llvm-8.0.0
