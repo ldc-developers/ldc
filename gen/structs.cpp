@@ -47,7 +47,7 @@ void DtoResolveStruct(StructDeclaration *sd, const Loc &callerLoc) {
   DtoType(sd->type);
 
   // if it's a forward declaration, all bets are off. The type should be enough
-  if (sd->sizeok != SIZEOKdone) {
+  if (sd->sizeok != Sizeok::done) {
     error(callerLoc, "struct `%s.%s` unknown size", sd->getModule()->toChars(),
           sd->toChars());
     fatal();

@@ -216,6 +216,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
 
     override void visit(FuncDeclaration funcdecl)
     {
+        //printf("FuncDeclaration::semantic3(%s '%s', sc = %p)\n", funcdecl.kind(), funcdecl.toChars(), sc);
         /* Determine if function should add `return 0;`
          */
         bool addReturn0()
@@ -630,7 +631,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
                 }
 
                 // handle NRVO
-                if (!target.isReturnOnStack(f, funcdecl.needThis()) || funcdecl.checkNrvo())
+                if (!target.isReturnOnStack(f, funcdecl.needThis()) || !funcdecl.checkNRVO())
                     funcdecl.nrvo_can = 0;
 
                 if (funcdecl.fbody.isErrorStatement())
@@ -739,7 +740,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
                     /* Disable optimization on Win32 due to
                      * https://issues.dlang.org/show_bug.cgi?id=17997
                      */
-//                    if (!global.params.isWindows || global.params.is64bit)
+//                    if (!global.params.targetOS == TargetOS.Windows || global.params.is64bit)
                         funcdecl.eh_none = true;         // don't generate unwind tables for this function
                 }
 
@@ -888,13 +889,20 @@ private extern(C++) final class Semantic3Visitor : Visitor
                         const hasCopyCtor = exp.type.ty == Tstruct && (cast(TypeStruct)exp.type).sym.hasCopyCtor;
                         // if a copy constructor is present, the return type conversion will be handled by it
                         if (!(hasCopyCtor && exp.isLvalue()))
-                            exp = exp.implicitCastTo(sc2, tret);
+                        {
+                            if (f.isref && !MODimplicitConv(exp.type.mod, tret.mod) && !tret.isTypeSArray())
+                                error(exp.loc, "expression `%s` of type `%s` is not implicitly convertible to return type `ref %s`",
+                                      exp.toChars(), exp.type.toChars(), tret.toChars());
+                            else
+                                exp = exp.implicitCastTo(sc2, tret);
+                        }
 
                         if (f.isref)
                         {
                             // Function returns a reference
                             exp = exp.toLvalue(sc2, exp);
                             checkReturnEscapeRef(sc2, exp, false);
+                            exp = exp.optimize(WANTvalue, /*keepLvalue*/ true);
                         }
                         else
                         {
@@ -939,7 +947,15 @@ private extern(C++) final class Semantic3Visitor : Visitor
                 sc2 = sc2.pop();
             }
 
-            funcdecl.frequire = funcdecl.mergeFrequire(funcdecl.frequire, funcdecl.fdrequireParams);
+            if (global.params.inclusiveInContracts)
+            {
+                funcdecl.frequire = funcdecl.mergeFrequireInclusivePreview(
+                    funcdecl.frequire, funcdecl.fdrequireParams);
+            }
+            else
+            {
+                funcdecl.frequire = funcdecl.mergeFrequire(funcdecl.frequire, funcdecl.fdrequireParams);
+            }
             funcdecl.fensure = funcdecl.mergeFensure(funcdecl.fensure, Id.result, funcdecl.fdensureParams);
 
             Statement freq = funcdecl.frequire;
@@ -1165,7 +1181,7 @@ else
                     ClassDeclaration cd = funcdecl.toParentDecl().isClassDeclaration();
                     if (cd)
                     {
-                        if (!IN_LLVM && !global.params.is64bit && global.params.isWindows && !funcdecl.isStatic() && !sbody.usesEH() && !global.params.trace)
+                        if (!IN_LLVM && !global.params.is64bit && global.params.targetOS == TargetOS.Windows && !funcdecl.isStatic() && !sbody.usesEH() && !global.params.trace)
                         {
                             /* The back end uses the "jmonitor" hack for syncing;
                              * no need to do the sync at this level.

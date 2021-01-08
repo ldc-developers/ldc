@@ -578,7 +578,7 @@ DIType DIBuilder::CreateCompositeType(Type *type) {
 
   // if we don't know the aggregate's size, we don't know enough about it
   // to provide debug info. probably a forward-declared struct?
-  if (ad->sizeok == SIZEOKnone) {
+  if (ad->sizeok == Sizeok::none) {
     return DBuilder.createUnspecifiedType(name);
   }
 

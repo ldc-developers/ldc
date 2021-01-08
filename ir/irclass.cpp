@@ -463,7 +463,7 @@ llvm::GlobalVariable *IrClass::getInterfaceVtblSymbol(BaseClass *b,
     mangledName.writestring(thunkPrefix);
     mangledName.writestring("6__vtblZ");
 
-    const auto irMangle = getIRMangledVarName(mangledName.peekChars(), LINKd);
+    const auto irMangle = getIRMangledVarName(mangledName.peekChars(), LINK::d);
 
     gvar = declareGlobal(aggrdecl->loc, gIR->module, vtblType, irMangle,
                          /*isConstant=*/true);

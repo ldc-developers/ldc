@@ -417,9 +417,6 @@ else
 {
     setTarget(params);
 
-    // Predefined version identifiers
-    addDefaultVersionIdentifiers(params);
-
     setDefaultLibrary();
 }
 
@@ -440,6 +437,12 @@ else
     }
     import dmd.root.ctfloat : CTFloat;
     CTFloat.initialize();
+
+version (IN_LLVM) {} else
+{
+    // Predefined version identifiers
+    addDefaultVersionIdentifiers(params);
+}
 
     if (params.verbose)
     {
@@ -484,6 +487,14 @@ else
     scope(exit) flushMixins();
     global.path = buildPath(params.imppath);
     global.filePath = buildPath(params.fileImppath);
+
+    if (params.makeDeps && params.oneobj)
+    {
+        assert(params.objname);
+        OutBuffer* ob = params.makeDeps;
+        ob.writestring(toPosixPath(params.objname));
+        ob.writestring(":");
+    }
 
     if (params.addMain)
         files.push("__main.d");
@@ -736,6 +747,26 @@ version (IN_LLVM)
             // fix LDC issue #1625
             params.moduleDeps = null;
             params.moduleDepsFile = null;
+}
+        }
+        else
+            printf("%.*s", cast(int)data.length, data.ptr);
+    }
+
+    // All imports are resolved at this stage
+    // output the makefile module dependencies
+    if (params.makeDeps && params.oneobj)
+    {
+        OutBuffer* ob = params.makeDeps;
+        ob.writenl();
+        const data = (*ob)[];
+        if (params.makeDepsFile)
+        {
+            writeFile(Loc.initial, params.makeDepsFile, data);
+version (IN_LLVM)
+{
+            params.makeDeps = null;
+            params.makeDepsFile = null;
 }
         }
         else
@@ -1081,23 +1112,20 @@ else
      */
     extern (C) int main(int argc, char** argv)
     {
-        static if (isGCAvailable)
+        bool lowmem = false;
+        foreach (i; 1 .. argc)
         {
-            bool lowmem = false;
-            foreach (i; 1 .. argc)
+            if (strcmp(argv[i], "-lowmem") == 0)
             {
-                if (strcmp(argv[i], "-lowmem") == 0)
-                {
-                    lowmem = true;
-                    break;
-                }
+                lowmem = true;
+                break;
             }
-            if (!lowmem)
-            {
-                __gshared string[] disable_options = [ "gcopt=disable:1" ];
-                rt_options = disable_options;
-                mem.disableGC();
-            }
+        }
+        if (!lowmem)
+        {
+            __gshared string[] disable_options = [ "gcopt=disable:1" ];
+            rt_options = disable_options;
+            mem.disableGC();
         }
 
         // initialize druntime and call _Dmain() below
@@ -1119,9 +1147,6 @@ else
         }
 
         import core.runtime;
-        import core.memory;
-        static if (!isGCAvailable)
-            GC.disable();
 
         version(D_Coverage)
         {
@@ -1346,19 +1371,19 @@ private void setDefaultLibrary()
 void setTarget(ref Param params)
 {
     static if (TARGET.Windows)
-        params.isWindows = true;
+        params.targetOS = TargetOS.Windows;
     else static if (TARGET.Linux)
-        params.isLinux = true;
+        params.targetOS = TargetOS.linux;
     else static if (TARGET.OSX)
-        params.isOSX = true;
+        params.targetOS = TargetOS.OSX;
     else static if (TARGET.FreeBSD)
-        params.isFreeBSD = true;
+        params.targetOS = TargetOS.FreeBSD;
     else static if (TARGET.OpenBSD)
-        params.isOpenBSD = true;
+        params.targetOS = TargetOS.OpenBSD;
     else static if (TARGET.Solaris)
-        params.isSolaris = true;
+        params.targetOS = TargetOS.Solaris;
     else static if (TARGET.DragonFlyBSD)
-        params.isDragonFlyBSD = true;
+        params.targetOS = TargetOS.DragonFlyBSD;
     else
         static assert(0, "unknown TARGET");
 }
@@ -1378,7 +1403,7 @@ void setTarget(ref Param params)
 void addDefaultVersionIdentifiers(const ref Param params)
 {
     VersionCondition.addPredefinedGlobalIdent("DigitalMars");
-    if (params.isWindows)
+    if (params.targetOS == TargetOS.Windows)
     {
         VersionCondition.addPredefinedGlobalIdent("Windows");
         if (global.params.mscoff)
@@ -1392,7 +1417,7 @@ void addDefaultVersionIdentifiers(const ref Param params)
             VersionCondition.addPredefinedGlobalIdent("CppRuntime_DigitalMars");
         }
     }
-    else if (params.isLinux)
+    else if (params.targetOS == TargetOS.linux)
     {
         VersionCondition.addPredefinedGlobalIdent("Posix");
         VersionCondition.addPredefinedGlobalIdent("linux");
@@ -1408,7 +1433,7 @@ void addDefaultVersionIdentifiers(const ref Param params)
             VersionCondition.addPredefinedGlobalIdent("CRuntime_Glibc");
         VersionCondition.addPredefinedGlobalIdent("CppRuntime_Gcc");
     }
-    else if (params.isOSX)
+    else if (params.targetOS == TargetOS.OSX)
     {
         VersionCondition.addPredefinedGlobalIdent("Posix");
         VersionCondition.addPredefinedGlobalIdent("OSX");
@@ -1416,28 +1441,29 @@ void addDefaultVersionIdentifiers(const ref Param params)
         // For legacy compatibility
         VersionCondition.addPredefinedGlobalIdent("darwin");
     }
-    else if (params.isFreeBSD)
+    else if (params.targetOS == TargetOS.FreeBSD)
     {
         VersionCondition.addPredefinedGlobalIdent("Posix");
         VersionCondition.addPredefinedGlobalIdent("FreeBSD");
+        VersionCondition.addPredefinedGlobalIdent("FreeBSD_" ~ target.FreeBSDMajor);
         VersionCondition.addPredefinedGlobalIdent("ELFv1");
         VersionCondition.addPredefinedGlobalIdent("CppRuntime_Clang");
     }
-    else if (params.isOpenBSD)
+    else if (params.targetOS == TargetOS.OpenBSD)
     {
         VersionCondition.addPredefinedGlobalIdent("Posix");
         VersionCondition.addPredefinedGlobalIdent("OpenBSD");
         VersionCondition.addPredefinedGlobalIdent("ELFv1");
         VersionCondition.addPredefinedGlobalIdent("CppRuntime_Gcc");
     }
-    else if (params.isDragonFlyBSD)
+    else if (params.targetOS == TargetOS.DragonFlyBSD)
     {
         VersionCondition.addPredefinedGlobalIdent("Posix");
         VersionCondition.addPredefinedGlobalIdent("DragonFlyBSD");
         VersionCondition.addPredefinedGlobalIdent("ELFv1");
         VersionCondition.addPredefinedGlobalIdent("CppRuntime_Gcc");
     }
-    else if (params.isSolaris)
+    else if (params.targetOS == TargetOS.Solaris)
     {
         VersionCondition.addPredefinedGlobalIdent("Posix");
         VersionCondition.addPredefinedGlobalIdent("Solaris");
@@ -1465,7 +1491,7 @@ void addDefaultVersionIdentifiers(const ref Param params)
     {
         VersionCondition.addPredefinedGlobalIdent("D_InlineAsm_X86_64");
         VersionCondition.addPredefinedGlobalIdent("X86_64");
-        if (params.isWindows)
+        if (params.targetOS & TargetOS.Windows)
         {
             VersionCondition.addPredefinedGlobalIdent("Win64");
         }
@@ -1475,7 +1501,7 @@ void addDefaultVersionIdentifiers(const ref Param params)
         VersionCondition.addPredefinedGlobalIdent("D_InlineAsm"); //legacy
         VersionCondition.addPredefinedGlobalIdent("D_InlineAsm_X86");
         VersionCondition.addPredefinedGlobalIdent("X86");
-        if (params.isWindows)
+        if (params.targetOS == TargetOS.Windows)
         {
             VersionCondition.addPredefinedGlobalIdent("Win32");
         }
@@ -2071,15 +2097,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             params.stackstomp = true;
         else if (arg == "-lowmem") // https://dlang.org/dmd.html#switch-lowmem
         {
-            static if (isGCAvailable)
-            {
-                // ignore, already handled in C main
-            }
-            else
-            {
-                error("switch '%s' requires DMD to be built with '-version=GC'", arg.ptr);
-                continue;
-            }
+            // ignore, already handled in C main
         }
         else if (arg.length > 6 && arg[0..6] == "--DRT-")
         {
@@ -2267,6 +2285,9 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                 break;
             case "c++17":
                 params.cplusplus = CppStdRevision.cpp17;
+                break;
+            case "c++20":
+                params.cplusplus = CppStdRevision.cpp20;
                 break;
             default:
                 error("Switch `%s` is invalid", p);
@@ -2760,6 +2781,29 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             }
             params.moduleDeps = new OutBuffer();
         }
+        else if (startsWith(p + 1, "makedeps"))          // https://dlang.org/dmd.html#switch-makedeps
+        {
+            if (params.makeDeps)
+            {
+                error("-makedeps[=file] can only be provided once!");
+                break;
+            }
+            if (p[9] == '=')
+            {
+                if (p[10] == '\0')
+                {
+                    error("expected filename after -makedeps=");
+                    break;
+                }
+                params.makeDepsFile = (p + 10).toDString;
+            }
+            else if (p[9] != '\0')
+            {
+                goto Lerror;
+            }
+            // Else output to stdout.
+            params.makeDeps = new OutBuffer();
+        }
         else if (arg == "-main")             // https://dlang.org/dmd.html#switch-main
         {
             params.addMain = true;
@@ -2955,21 +2999,16 @@ else
     }
     else
     {
-version (IN_LLVM)
-{
-        if (params.objname && numSrcFiles + (params.addMain ? 1 : 0) > 1)
-            params.oneobj = true;
-}
-else
-{
         if (params.objname && numSrcFiles)
         {
             params.oneobj = true;
             //error("multiple source files, but only one .obj name");
             //fatal();
         }
-}
     }
+
+    if (params.makeDeps && !params.oneobj)
+        error(Loc.initial, "-makedeps switch is not compatible with multiple objects mode");
 
     if (params.noDIP25)
         params.useDIP25 = false;
@@ -3036,7 +3075,7 @@ version (IN_LLVM) {} else
         return null;
     }
     // IN_LLVM replaced: static if (TARGET.Linux || TARGET.OSX || TARGET.FreeBSD || TARGET.OpenBSD || TARGET.Solaris || TARGET.DragonFlyBSD)
-    if (!global.params.isWindows)
+    if (global.params.targetOS != TargetOS.Windows)
     {
         if (FileName.equals(ext, global.dll_ext))
         {
@@ -3062,7 +3101,7 @@ version (IN_LLVM) {} else
         return null;
     }
     // IN_LLVM replaced: static if (TARGET.Windows)
-    if (global.params.isWindows)
+    if (global.params.targetOS == TargetOS.Windows)
     {
         if (FileName.equals(ext, "res"))
         {
@@ -3161,11 +3200,9 @@ else
     }
 version (IN_LLVM)
 {
-    if (global.params.oneobj && modules.dim < 2 && !includeImports)
-        global.params.oneobj = false;
-    // global.params.oneobj => move object file for first source file to
-    // beginning of object files list
-    if (global.params.oneobj && firstModuleObjectFileIndex != 0)
+    // When compiling to a single object file, move that object file to the
+    // beginning of the object files list.
+    if (global.params.oneobj && modules.length > 0 && firstModuleObjectFileIndex != 0)
     {
         auto fn = global.params.objfiles[firstModuleObjectFileIndex];
         global.params.objfiles.remove(firstModuleObjectFileIndex);

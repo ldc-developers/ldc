@@ -205,7 +205,7 @@ steps:
     powershell -c "git checkout \"$(cat %BUILD_SOURCESDIRECTORY%/packaging/dlang-tools_version -Raw)\"" 2>&1
     %DMD% -w -de -dip1000 rdmd.d || exit /b
     %DMD% -w -de -dip1000 ddemangle.d || exit /b
-    %DMD% -w -de -dip1000 DustMite\dustmite.d DustMite\splitter.d || exit /b
+    %DMD% -w -de -dip1000 DustMite\dustmite.d DustMite\splitter.d DustMite\polyhash.d || exit /b
     cp *.exe ../installed/bin
   displayName: Build & copy dlang tools
 

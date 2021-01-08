@@ -2322,7 +2322,7 @@ struct AsmProcessor {
     const auto &triple = *global.params.targetTriple;
     return triple.isOSDarwin() ||
            // Win32: all symbols except for MSVC++ ones
-           (triple.isOSWindows() && triple.isArch32Bit() && link != LINKcpp);
+           (triple.isOSWindows() && triple.isArch32Bit() && link != LINK::cpp);
   }
 
   void addOperand(const char *fmt, AsmArgType type, Expression *e,

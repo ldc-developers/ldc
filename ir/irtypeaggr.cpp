@@ -205,7 +205,7 @@ bool IrTypeAggr::isPacked(AggregateDeclaration *ad) {
   // make it packed.
   unsigned aggregateSize = ~0u;
   unsigned aggregateAlignment = 1;
-  if (ad->sizeok == SIZEOKdone) {
+  if (ad->sizeok == Sizeok::done) {
     aggregateSize = ad->structsize;
 
     const auto naturalAlignment = ad->alignsize;

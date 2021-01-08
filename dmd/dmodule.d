@@ -43,6 +43,7 @@ import dmd.root.rootobject;
 import dmd.root.string;
 import dmd.semantic2;
 import dmd.semantic3;
+import dmd.utils;
 import dmd.visitor;
 version (IN_LLVM)
 {
@@ -785,6 +786,9 @@ else
     /**
      * Reads the file from `srcfile` and loads the source buffer.
      *
+     * If makefile module dependency is requested, we add this module
+     * to the list of dependencies from here.
+     *
      * Params:
      *  loc = the location
      *
@@ -798,6 +802,14 @@ else
 
         //printf("Module::read('%s') file '%s'\n", toChars(), srcfile.toChars());
         auto readResult = File.read(srcfile.toChars());
+
+        if (global.params.makeDeps && global.params.oneobj)
+        {
+            OutBuffer* ob = global.params.makeDeps;
+            ob.writestringln(" \\");
+            ob.writestring("  ");
+            ob.writestring(toPosixPath(srcfile.toString()));
+        }
 
         return loadSourceBuffer(loc, readResult);
     }

@@ -92,7 +92,7 @@ void IrGlobal::declare() {
 
   // Windows: initialize DLL storage class with `dllimport` for `export`ed
   // symbols
-  if (global.params.isWindows && V->isExport()) {
+  if (global.params.targetTriple->isOSWindows() && V->isExport()) {
     gvar->setDLLStorageClass(LLGlobalValue::DLLImportStorageClass);
   }
 

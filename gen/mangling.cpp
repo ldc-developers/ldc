@@ -102,7 +102,7 @@ std::string getIRMangledName(FuncDeclaration *fdecl, LINK link) {
   std::string mangledName = mangleExact(fdecl);
 
   // Hash the name if necessary
-  if (((link == LINKd) || (link == LINKdefault)) &&
+  if (((link == LINK::d) || (link == LINK::default_)) &&
       (global.params.hashThreshold != 0) &&
       (mangledName.length() > global.params.hashThreshold)) {
 
@@ -151,7 +151,7 @@ std::string getIRMangledAggregateName(AggregateDeclaration *ad,
   if (suffix)
     ret += suffix;
 
-  return getIRMangledVarName(std::move(ret), LINKd);
+  return getIRMangledVarName(std::move(ret), LINK::d);
 }
 
 std::string getIRMangledInitSymbolName(AggregateDeclaration *aggrdecl) {
@@ -173,7 +173,7 @@ std::string getIRMangledInterfaceInfosSymbolName(ClassDeclaration *cd) {
   mangledName.writestring("_D");
   mangleToBuffer(cd, &mangledName);
   mangledName.writestring("16__interfaceInfosZ");
-  return getIRMangledVarName(mangledName.peekChars(), LINKd);
+  return getIRMangledVarName(mangledName.peekChars(), LINK::d);
 }
 
 std::string getIRMangledModuleInfoSymbolName(Module *module) {
@@ -181,10 +181,10 @@ std::string getIRMangledModuleInfoSymbolName(Module *module) {
   mangledName.writestring("_D");
   mangleToBuffer(module, &mangledName);
   mangledName.writestring("12__ModuleInfoZ");
-  return getIRMangledVarName(mangledName.peekChars(), LINKd);
+  return getIRMangledVarName(mangledName.peekChars(), LINK::d);
 }
 
 std::string getIRMangledModuleRefSymbolName(const char *moduleMangle) {
   return getIRMangledVarName(
-      (llvm::Twine("_D") + moduleMangle + "11__moduleRefZ").str(), LINKd);
+      (llvm::Twine("_D") + moduleMangle + "11__moduleRefZ").str(), LINK::d);
 }

@@ -436,10 +436,12 @@ version (IN_LLVM)
     /****************************************************
      * Resolve forward reference of function signature -
      * parameter types, return type, and attributes.
-     * Returns false if any errors exist in the signature.
+     * Returns:
+     *  false if any errors exist in the signature.
      */
     final bool functionSemantic()
     {
+        //printf("functionSemantic() %p %s\n", this, toChars());
         if (!_scope)
             return !errors;
 
@@ -1234,7 +1236,7 @@ version (IN_LLVM)
     final const(char)* toFullSignature()
     {
         OutBuffer buf;
-        functionToBufferWithIdent(type.toTypeFunction(), &buf, toChars());
+        functionToBufferWithIdent(type.toTypeFunction(), &buf, toChars(), isStatic);
         return buf.extractChars();
     }
 
@@ -1757,8 +1759,8 @@ version (IN_LLVM)
 
         if (!isMember || !p.isClassDeclaration)
             return false;
-                                                             // https://issues.dlang.org/show_bug.cgi?id=19654
-        if (p.isClassDeclaration.classKind == ClassKind.objc && !p.isInterfaceDeclaration)
+
+        if (p.isClassDeclaration.classKind == ClassKind.objc)
             return .objc.isVirtual(this);
 
         version (none)
@@ -2203,22 +2205,89 @@ version (IN_LLVM)
             }
 
             sf = fdv.mergeFrequire(sf, params);
+            if (!sf || !fdv.fdrequire)
+                return null;
+            //printf("fdv.frequire: %s\n", fdv.frequire.toChars());
+            /* Make the call:
+                *   try { __require(params); }
+                *   catch (Throwable) { frequire; }
+                */
+            params = Expression.arraySyntaxCopy(params);
+            Expression e = new CallExp(loc, new VarExp(loc, fdv.fdrequire, false), params);
+            Statement s2 = new ExpStatement(loc, e);
+
+            auto c = new Catch(loc, getThrowable(), null, sf);
+            c.internalCatch = true;
+            auto catches = new Catches();
+            catches.push(c);
+            sf = new TryCatchStatement(loc, s2, catches);
+        }
+        return sf;
+    }
+
+    /****************************************************
+     * Merge into this function the 'in' contracts of all it overrides.
+     */
+    extern (D) final Statement mergeFrequireInclusivePreview(Statement sf, Expressions* params)
+    {
+        /* If a base function and its override both have an IN contract, then
+         * the override in contract must widen the guarantee of the base contract.
+         * This is checked by generating:
+         *
+         * void derived.in() {
+         *  try {
+         *    ... body of derived.in() ...
+         *  }
+         *  catch () {
+         *    // derived in rejected this argument. so parent must also reject it, or we've tightened the contract.
+         *    base.in();
+         *    assert(false, "Logic error: " ~ thr.msg);
+         *  }
+         */
+
+        foreach (fdv; foverrides)
+        {
+            /* The semantic pass on the contracts of the overridden functions must
+             * be completed before code generation occurs.
+             * https://issues.dlang.org/show_bug.cgi?id=3602
+             */
+            if (fdv.frequires && fdv.semanticRun != PASS.semantic3done)
+            {
+                assert(fdv._scope);
+                Scope* sc = fdv._scope.push();
+                sc.stc &= ~STC.override_;
+                fdv.semantic3(sc);
+                sc.pop();
+            }
+
+            sf = fdv.mergeFrequireInclusivePreview(sf, params);
             if (sf && fdv.fdrequire)
             {
+                const loc = this.fdrequire.loc;
+
                 //printf("fdv.frequire: %s\n", fdv.frequire.toChars());
                 /* Make the call:
-                 *   try { __require(params); }
-                 *   catch (Throwable) { frequire; }
+                 *   try { frequire; }
+                 *   catch (Throwable thr) { __require(params); assert(false, "Logic error: " ~ thr.msg); }
                  */
+                Identifier id = Identifier.generateId("thr");
                 params = Expression.arraySyntaxCopy(params);
                 Expression e = new CallExp(loc, new VarExp(loc, fdv.fdrequire, false), params);
                 Statement s2 = new ExpStatement(loc, e);
+                // assert(false, ...)
+                // TODO make this a runtime helper to allow:
+                // - chaining the original expression
+                // - nogc concatenation
+                Expression msg = new StringExp(loc, "Logic error: in-contract was tighter than parent in-contract");
+                Statement fail = new ExpStatement(loc, new AssertExp(loc, IntegerExp.literal!0, msg));
 
-                auto c = new Catch(loc, getThrowable(), null, sf);
+                Statement s3 = new CompoundStatement(loc, s2, fail);
+
+                auto c = new Catch(loc, getThrowable(), id, s3);
                 c.internalCatch = true;
                 auto catches = new Catches();
                 catches.push(c);
-                sf = new TryCatchStatement(loc, s2, catches);
+                sf = new TryCatchStatement(loc, sf, catches);
             }
             else
                 return null;
@@ -2563,19 +2632,16 @@ version (IN_LLVM)
      * using NRVO is possible.
      *
      * Returns:
-     *      true if the result cannot be returned by hidden reference.
+     *      `false` if the result cannot be returned by hidden reference.
      */
-    final bool checkNrvo()
+    final bool checkNRVO()
     {
-        if (!nrvo_can)
-            return true;
-
-        if (returns is null)
-            return true;
+        if (!nrvo_can || returns is null)
+            return false;
 
         auto tf = type.toTypeFunction();
         if (tf.isref)
-            return true;
+            return false;
 
         foreach (rs; *returns)
         {
@@ -2583,24 +2649,23 @@ version (IN_LLVM)
             {
                 auto v = ve.var.isVarDeclaration();
                 if (!v || v.isOut() || v.isRef())
-                    return true;
+                    return false;
                 else if (nrvo_var is null)
                 {
-                    if (!v.isDataseg() && !v.isParameter() && v.toParent2() == this)
-                    {
-                        //printf("Setting nrvo to %s\n", v.toChars());
-                        nrvo_var = v;
-                    }
-                    else
-                        return true;
+                    // Variables in the data segment (e.g. globals, TLS or not),
+                    // parameters and closure variables cannot be NRVOed.
+                    if (v.isDataseg() || v.isParameter() || v.toParent2() != this)
+                        return false;
+                    //printf("Setting nrvo to %s\n", v.toChars());
+                    nrvo_var = v;
                 }
                 else if (nrvo_var != v)
-                    return true;
+                    return false;
             }
             else //if (!exp.isLvalue())    // keep NRVO-ability
-                return true;
+                return false;
         }
-        return false;
+        return true;
     }
 
     override final inout(FuncDeclaration) isFuncDeclaration() inout
@@ -3045,14 +3110,13 @@ FuncDeclaration resolveFuncCall(const ref Loc loc, Scope* sc, Dsymbol s,
             return null;
         }
 
-        auto fullFdPretty = fd.toPrettyChars();
         .error(loc, "%smethod `%s` is not callable using a %sobject",
-               funcBuf.peekChars(), fullFdPretty, thisBuf.peekChars());
+               funcBuf.peekChars(), fd.toPrettyChars(), thisBuf.peekChars());
 
         if (mismatches.isNotShared)
-            .errorSupplemental(loc, "Consider adding `shared` to %s", fullFdPretty);
+            .errorSupplemental(fd.loc, "Consider adding `shared` here");
         else if (mismatches.isMutable)
-            .errorSupplemental(loc, "Consider adding `const` or `inout` to %s", fullFdPretty);
+            .errorSupplemental(fd.loc, "Consider adding `const` or `inout` here");
         return null;
     }
 

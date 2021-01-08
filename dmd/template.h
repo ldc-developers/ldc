@@ -285,7 +285,6 @@ public:
     bool oneMember(Dsymbol **ps, Identifier *ident);
     const char *toChars() const;
     const char* toPrettyCharsHelper();
-    void printInstantiationTrace();
     Identifier *getIdent();
     hash_t toHash();
 

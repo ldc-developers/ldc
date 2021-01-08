@@ -203,9 +203,6 @@ endif()
 # druntime C parts
 file(GLOB_RECURSE DRUNTIME_C ${RUNTIME_DIR}/src/*.c)
 list(REMOVE_ITEM DRUNTIME_C ${RUNTIME_DIR}/src/rt/dylib_fixes.c)
-if(NOT "${TARGET_SYSTEM}" MATCHES "MSVC")
-    list(REMOVE_ITEM DRUNTIME_C ${RUNTIME_DIR}/src/rt/msvc.c ${RUNTIME_DIR}/src/rt/msvc_math.c)
-endif()
 
 # druntime ASM parts
 set(DRUNTIME_ASM)

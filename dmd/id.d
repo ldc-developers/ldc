@@ -186,7 +186,6 @@ immutable Msgtable[] msgtable =
     { "C" },
     { "D" },
     { "Windows" },
-    { "Pascal" },
     { "System" },
     { "Objective" },
 
@@ -462,6 +461,7 @@ immutable Msgtable[] msgtable =
     { "getUnitTests" },
     { "getVirtualIndex" },
     { "getPointerBitmap" },
+    { "getCppNamespaces" },
     { "isReturnOnStack" },
     { "isZeroInit" },
     { "getTargetInfo" },
@@ -481,6 +481,7 @@ immutable Msgtable[] msgtable =
     // Compiler recognized UDA's
     { "udaGNUAbiTag", "gnuAbiTag" },
     { "udaSelector", "selector" },
+    { "udaOptional", "optional"},
 
     // C names, for undefined identifier error messages
     { "NULL" },

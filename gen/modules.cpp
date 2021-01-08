@@ -182,7 +182,7 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
   // linked list
   LLFunction *ctor =
       LLFunction::Create(fty, LLGlobalValue::InternalLinkage,
-                         getIRMangledFuncName(fname, LINKd), &gIR->module);
+                         getIRMangledFuncName(fname, LINK::d), &gIR->module);
 
   // provide the default initializer
   LLStructType *modulerefTy = DtoModuleReferenceType();
@@ -199,7 +199,7 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
       defineGlobal(Loc(), gIR->module, thismrefIRMangle, thismrefinit,
                    LLGlobalValue::InternalLinkage, false);
   // make sure _Dmodule_ref is declared
-  const auto mrefIRMangle = getIRMangledVarName("_Dmodule_ref", LINKc);
+  const auto mrefIRMangle = getIRMangledVarName("_Dmodule_ref", LINK::c);
   LLConstant *mref = gIR->module.getNamedGlobal(mrefIRMangle);
   LLType *modulerefPtrTy = getPtrToType(modulerefTy);
   if (!mref) {
@@ -476,8 +476,8 @@ void addCoverageAnalysis(Module *m) {
         LLFunctionType::get(LLType::getVoidTy(gIR->context()), {}, false);
     ctor =
         LLFunction::Create(ctorTy, LLGlobalValue::InternalLinkage,
-                           getIRMangledFuncName(ctorname, LINKd), &gIR->module);
-    ctor->setCallingConv(gABI->callingConv(LINKd));
+                           getIRMangledFuncName(ctorname, LINK::d), &gIR->module);
+    ctor->setCallingConv(gABI->callingConv(LINK::d));
     // Set function attributes. See functions.cpp:DtoDefineFunction()
     if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
       ctor->addFnAttr(LLAttribute::UWTable);

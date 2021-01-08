@@ -728,7 +728,7 @@ public:
       // as requested by bearophile, see if it's a C printf call and that it's
       // valid.
       if (global.params.warnings != DIAGNOSTICoff && checkPrintf) {
-        if (fndecl->linkage == LINKc &&
+        if (fndecl->linkage == LINK::c &&
             strcmp(fndecl->ident->toChars(), "printf") == 0) {
           warnInvalidPrintfCall(e->loc, (*e->arguments)[0],
                                 e->arguments->length);
@@ -1691,7 +1691,7 @@ public:
       Logger::println("calling class invariant");
 
       const auto fnMangle =
-          getIRMangledFuncName("_D9invariant12_d_invariantFC6ObjectZv", LINKd);
+          getIRMangledFuncName("_D9invariant12_d_invariantFC6ObjectZv", LINK::d);
       const auto fn = getRuntimeFunction(e->loc, gIR->module, fnMangle.c_str());
 
       const auto arg =

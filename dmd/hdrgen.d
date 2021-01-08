@@ -1449,6 +1449,15 @@ public:
         buf.writenl();
     }
 
+    override void visit(AliasAssign d)
+    {
+        buf.writestring(d.ident.toString());
+        buf.writestring(" = ");
+        typeToBuffer(d.type, null, buf, hgs);
+        buf.writeByte(';');
+        buf.writenl();
+    }
+
     override void visit(VarDeclaration d)
     {
         if (d.storage_class & STC.local)
@@ -1782,19 +1791,17 @@ public:
             case Tenum:
                 {
                     TypeEnum te = cast(TypeEnum)t;
-                    if (hgs.fullDump)
+                    auto sym = te.sym;
+                    if (sym && sym.members && (!hgs.inEnumDecl || hgs.inEnumDecl != sym))
                     {
-                        auto sym = te.sym;
-                        if (hgs.inEnumDecl && sym && hgs.inEnumDecl != sym)  foreach(i;0 .. sym.members.dim)
+                        foreach (em; *sym.members)
                         {
-                            EnumMember em = cast(EnumMember) (*sym.members)[i];
-                            if (em.value.toInteger == v)
+                            if ((cast(EnumMember)em).value.toInteger == v)
                             {
                                 buf.printf("%s.%s", sym.toChars(), em.ident.toChars());
                                 return ;
                             }
                         }
-                        //assert(0, "We could not find the EmumMember");// for some reason it won't append char* ~ e.toChars() ~ " in " ~ sym.toChars() );
                     }
 
                     buf.printf("cast(%s)", te.sym.toChars());
@@ -1889,45 +1896,7 @@ public:
 
     void floatToBuffer(Type type, real_t value)
     {
-        /** sizeof(value)*3 is because each byte of mantissa is max
-         of 256 (3 characters). The string will be "-M.MMMMe-4932".
-         (ie, 8 chars more than mantissa). Plus one for trailing \0.
-         Plus one for rounding. */
-        const(size_t) BUFFER_LEN = value.sizeof * 3 + 8 + 1 + 1;
-        char[BUFFER_LEN] buffer;
-        CTFloat.sprint(buffer.ptr, 'g', value);
-        assert(strlen(buffer.ptr) < BUFFER_LEN);
-        if (hgs.hdrgen)
-        {
-            real_t r = CTFloat.parse(buffer.ptr);
-            if (r != value) // if exact duplication
-                CTFloat.sprint(buffer.ptr, 'a', value);
-        }
-        buf.writestring(buffer.ptr);
-        if (buffer.ptr[strlen(buffer.ptr) - 1] == '.')
-            buf.remove(buf.length() - 1, 1);
-
-        if (type)
-        {
-            Type t = type.toBasetype();
-            switch (t.ty)
-            {
-            case Tfloat32:
-            case Timaginary32:
-            case Tcomplex32:
-                buf.writeByte('F');
-                break;
-            case Tfloat80:
-            case Timaginary80:
-            case Tcomplex80:
-                buf.writeByte('L');
-                break;
-            default:
-                break;
-            }
-            if (t.isimaginary())
-                buf.writeByte('i');
-        }
+        .floatToBuffer(type, value, buf, hgs.hdrgen);
     }
 
     override void visit(RealExp e)
@@ -2312,7 +2281,7 @@ public:
         expToBuffer(commaExtract, precedence[exp.op], buf, hgs);
     }
 
-    override void visit(CompileExp e)
+    override void visit(MixinExp e)
     {
         buf.writestring("mixin(");
         argsToBuffer(e.exps, buf, hgs, null);
@@ -2548,6 +2517,58 @@ public:
     }
 }
 
+/**
+ * Formats `value` as a literal of type `type` into `buf`.
+ *
+ * Params:
+ *   type     = literal type (e.g. Tfloat)
+ *   value    = value to print
+ *   buf      = target buffer
+ *   allowHex = whether hex floating point literals may be used
+ *              for greater accuracy
+ */
+void floatToBuffer(Type type, const real_t value, OutBuffer* buf, const bool allowHex)
+{
+    /** sizeof(value)*3 is because each byte of mantissa is max
+        of 256 (3 characters). The string will be "-M.MMMMe-4932".
+        (ie, 8 chars more than mantissa). Plus one for trailing \0.
+        Plus one for rounding. */
+    const(size_t) BUFFER_LEN = value.sizeof * 3 + 8 + 1 + 1;
+    char[BUFFER_LEN] buffer;
+    CTFloat.sprint(buffer.ptr, 'g', value);
+    assert(strlen(buffer.ptr) < BUFFER_LEN);
+    if (allowHex)
+    {
+        real_t r = CTFloat.parse(buffer.ptr);
+        if (r != value) // if exact duplication
+            CTFloat.sprint(buffer.ptr, 'a', value);
+    }
+    buf.writestring(buffer.ptr);
+    if (buffer.ptr[strlen(buffer.ptr) - 1] == '.')
+        buf.remove(buf.length() - 1, 1);
+
+    if (type)
+    {
+        Type t = type.toBasetype();
+        switch (t.ty)
+        {
+        case Tfloat32:
+        case Timaginary32:
+        case Tcomplex32:
+            buf.writeByte('F');
+            break;
+        case Tfloat80:
+        case Timaginary80:
+        case Tcomplex80:
+            buf.writeByte('L');
+            break;
+        default:
+            break;
+        }
+        if (t.isimaginary())
+            buf.writeByte('i');
+    }
+}
 
 private void templateParameterToBuffer(TemplateParameter tp, OutBuffer* buf, HdrGenState* hgs)
 {
@@ -2851,8 +2872,6 @@ string linkageToString(LINK linkage) pure nothrow
         return "C++";
     case LINK.windows:
         return "Windows";
-    case LINK.pascal:
-        return "Pascal";
     case LINK.objc:
         return "Objective-C";
     case LINK.system:
@@ -2911,10 +2930,10 @@ void functionToBufferFull(TypeFunction tf, OutBuffer* buf, const Identifier iden
 }
 
 // ident is inserted before the argument list and will be "function" or "delegate" for a type
-void functionToBufferWithIdent(TypeFunction tf, OutBuffer* buf, const(char)* ident)
+void functionToBufferWithIdent(TypeFunction tf, OutBuffer* buf, const(char)* ident, bool isStatic)
 {
     HdrGenState hgs;
-    visitFuncIdentWithPostfix(tf, ident.toDString(), buf, &hgs);
+    visitFuncIdentWithPostfix(tf, ident.toDString(), buf, &hgs, isStatic);
 }
 
 void toCBuffer(const Expression e, OutBuffer* buf, HdrGenState* hgs)
@@ -3405,7 +3424,7 @@ private void objectToBuffer(RootObject oarg, OutBuffer* buf, HdrGenState* hgs)
 }
 
 
-private void visitFuncIdentWithPostfix(TypeFunction t, const char[] ident, OutBuffer* buf, HdrGenState* hgs)
+private void visitFuncIdentWithPostfix(TypeFunction t, const char[] ident, OutBuffer* buf, HdrGenState* hgs, bool isStatic)
 {
     if (t.inuse)
     {
@@ -3418,6 +3437,8 @@ private void visitFuncIdentWithPostfix(TypeFunction t, const char[] ident, OutBu
         linkageToBuffer(buf, t.linkage);
         buf.writeByte(' ');
     }
+    if (t.linkage == LINK.objc && isStatic)
+        buf.write("static ");
     if (t.next)
     {
         typeToBuffer(t.next, null, buf, hgs);
@@ -3654,7 +3675,7 @@ private void typeToBufferx(Type t, OutBuffer* buf, HdrGenState* hgs)
     {
         //printf("TypePointer::toCBuffer2() next = %d\n", t.next.ty);
         if (t.next.ty == Tfunction)
-            visitFuncIdentWithPostfix(cast(TypeFunction)t.next, "function", buf, hgs);
+            visitFuncIdentWithPostfix(cast(TypeFunction)t.next, "function", buf, hgs, false);
         else
         {
             visitWithMask(t.next, t.mod, buf, hgs);
@@ -3671,12 +3692,12 @@ private void typeToBufferx(Type t, OutBuffer* buf, HdrGenState* hgs)
     void visitFunction(TypeFunction t)
     {
         //printf("TypeFunction::toCBuffer2() t = %p, ref = %d\n", t, t.isref);
-        visitFuncIdentWithPostfix(t, null, buf, hgs);
+        visitFuncIdentWithPostfix(t, null, buf, hgs, false);
     }
 
     void visitDelegate(TypeDelegate t)
     {
-        visitFuncIdentWithPostfix(cast(TypeFunction)t.next, "delegate", buf, hgs);
+        visitFuncIdentWithPostfix(cast(TypeFunction)t.next, "delegate", buf, hgs, false);
     }
 
     void visitTypeQualifiedHelper(TypeQualified t)

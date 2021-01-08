@@ -255,13 +255,13 @@ void applyAttrOptStrategy(StructLiteralExp *sle, IrFunction *irFunc) {
 
   llvm::Function *func = irFunc->getLLVMFunc();
   if (value == "none") {
-    if (irFunc->decl->inlining == PINLINEalways) {
+    if (irFunc->decl->inlining == PINLINE::always) {
       sle->error("cannot combine `@ldc.attributes.%s(\"none\")` with "
                  "`pragma(inline, true)`",
                  sle->sd->ident->toChars());
       return;
     }
-    irFunc->decl->inlining = PINLINEnever;
+    irFunc->decl->inlining = PINLINE::never;
     func->addFnAttr(llvm::Attribute::OptimizeNone);
   } else if (value == "optsize") {
     func->addFnAttr(llvm::Attribute::OptimizeForSize);

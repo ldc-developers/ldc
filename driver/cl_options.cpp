@@ -170,12 +170,15 @@ static cl::opt<CppStdRevision, true> cplusplus(
     cl::values(
         clEnumValN(CppStdRevisionCpp98, "c++98",
                    "Sets `__traits(getTargetInfo, \"cppStd\")` to `199711`"),
-        clEnumValN(CppStdRevisionCpp11, "c++11",
-                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `201103`"),
+        clEnumValN(
+            CppStdRevisionCpp11, "c++11",
+            "Sets `__traits(getTargetInfo, \"cppStd\")` to `201103` (default)"),
         clEnumValN(CppStdRevisionCpp14, "c++14",
                    "Sets `__traits(getTargetInfo, \"cppStd\")` to `201402`"),
         clEnumValN(CppStdRevisionCpp17, "c++17",
-                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `201703`")));
+                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `201703`"),
+        clEnumValN(CppStdRevisionCpp20, "c++20",
+                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `202002`")));
 
 static cl::opt<unsigned char, true> debugInfo(
     cl::desc("Generating debug information:"), cl::ZeroOrMore,
@@ -386,9 +389,15 @@ cl::list<std::string>
 cl::opt<std::string>
     moduleDeps("deps", cl::ValueOptional, cl::ZeroOrMore,
                cl::value_desc("filename"),
-               cl::desc("Write module dependencies to filename (only imports). "
+               cl::desc("Write module dependencies to <filename> (only imports). "
                         "'-deps' alone prints module dependencies "
                         "(imports/file/version/debug/lib)"));
+
+cl::opt<std::string>
+    makeDeps("makedeps", cl::ValueOptional, cl::ZeroOrMore,
+             cl::value_desc("filename"),
+             cl::desc("Write module dependencies in Makefile compatible format "
+                      "to <filename>/stdout (only imports)"));
 
 cl::opt<bool> m32bits("m32", cl::desc("32 bit target"), cl::ZeroOrMore);
 

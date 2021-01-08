@@ -34,7 +34,7 @@ import dmd.root.rmem;
 import dmd.target;
 import dmd.visitor;
 
-enum Abstract : int
+enum Abstract : ubyte
 {
     fwdref = 0,      // whether an abstract class is not yet computed
     yes,             // is abstract class
@@ -129,7 +129,7 @@ extern (C++) struct BaseClass
     }
 }
 
-enum ClassFlags : int
+enum ClassFlags : uint
 {
     none          = 0x0,
     isCOMclass    = 0x1,
@@ -383,6 +383,14 @@ version (IN_LLVM) {} else
         return new ClassDeclaration(loc, id, baseclasses, members, inObject);
     }
 
+    override const(char)* toPrettyChars(bool qualifyTypes = false)
+    {
+        if (objc.isMeta)
+            return .objc.toPrettyChars(this, qualifyTypes);
+
+        return super.toPrettyChars(qualifyTypes);
+    }
+
     override Dsymbol syntaxCopy(Dsymbol s)
     {
         //printf("ClassDeclaration.syntaxCopy('%s')\n", toChars());
@@ -569,9 +577,11 @@ version (IN_LLVM) {} else
 
             alignsize = baseClass.alignsize;
             structsize = baseClass.structsize;
-            if (classKind == ClassKind.cpp && global.params.isWindows)
+            if (classKind == ClassKind.cpp && global.params.targetOS == TargetOS.Windows)
                 structsize = (structsize + alignsize - 1) & ~(alignsize - 1);
         }
+        else if (classKind == ClassKind.objc)
+            structsize = 0; // no hidden member for an Objective-C class
         else if (isInterfaceDeclaration())
         {
             if (interfaces.length == 0)

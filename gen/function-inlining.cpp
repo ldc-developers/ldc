@@ -95,13 +95,13 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
 
   // Implementation note: try to do cheap checks first.
 
-  if (fdecl.neverInline || fdecl.inlining == PINLINEnever) {
+  if (fdecl.neverInline || fdecl.inlining == PINLINE::never) {
     IF_LOG Logger::println("pragma(inline, false) specified");
     return false;
   }
 
   // pragma(inline, true) functions will be inlined even at -O0
-  if (fdecl.inlining == PINLINEalways) {
+  if (fdecl.inlining == PINLINE::always) {
     IF_LOG Logger::println(
         "pragma(inline, true) specified, overrides cmdline flags");
   } else if (!willCrossModuleInline()) {
@@ -146,7 +146,7 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
     return false;
   }
 
-  if (fdecl.inlining != PINLINEalways && !isInlineCandidate(fdecl))
+  if (fdecl.inlining != PINLINE::always && !isInlineCandidate(fdecl))
     return false;
 
   IF_LOG Logger::println("Potential inlining candidate");
