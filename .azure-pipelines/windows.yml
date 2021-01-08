@@ -18,7 +18,7 @@ steps:
     echo on
     cd ..
     :: Download & extract libcurl
-    curl -L -o libcurl.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v7.0.0/libcurl-7.69.1-zlib-static-ipv6-sspi-winssl.7z 2>&1
+    curl -L -o libcurl.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v8.0.0/libcurl-7.74.0-zlib-static-ipv6-sspi-schannel.7z 2>&1
     mkdir libcurl
     cd libcurl
     7z x ../libcurl.7z > nul
