@@ -165,47 +165,36 @@ static if (hasExecinfo)
         import core.stdc.stdio : snprintf;
         import core.sys.posix.stdlib : free;
 
-version (LDC)
-{
         const char** frameListFull = backtrace_symbols(callstack.ptr, cast(int) callstack.length);
         scope(exit) free(cast(void*) frameListFull);
-
-        // See if _d_throw_exception is on the stack. If yes, ignore it and all the
-        // druntime internals before it.
-        size_t startIdx = 0;
-        foreach (size_t i; 0 .. callstack.length) {
-            auto s = frameListFull[i];
-            if (getMangledSymbolName(s[0 .. strlen(s)]) == "_d_throw_exception") {
-                startIdx = i + 1;
-                break;
-            }
-        }
-
-        auto frameList = frameListFull + startIdx;
-        callstack = callstack[startIdx .. $];
-}
-else
-{
-        const char** frameList = backtrace_symbols(callstack.ptr, cast(int) callstack.length);
-        scope(exit) free(cast(void*) frameList);
-}
 
         auto image = Image.openSelf();
 
         // find address -> file, line mapping using dwarf debug_line
         Array!Location locations;
         locations.length = callstack.length;
+        size_t startIdx;
         foreach (size_t i; 0 .. callstack.length)
         {
             locations[i].address = callstack[i];
             locations[i].procedure = getMangledSymbolName(frameList[i][0 .. strlen(frameList[i])]);
+
+            // NOTE: The first few frames with the current implementation are
+            //       inside core.runtime and the object code, so eliminate
+            //       these for readability.
+            // They also might depend on build parameters, which would make
+            // using a fixed number of frames otherwise brittle.
+            version (LDC) enum BaseExceptionFunctionName = "_d_throw_exception";
+            else          enum BaseExceptionFunctionName = "_d_throwdwarf";
+            if (!startIdx && locations[i].procedure == BaseExceptionFunctionName)
+                startIdx = i + 1;
         }
 
         if (!image.isValid())
-            return locations[].processCallstack(null, image.baseAddress, dg);
+            return locations[startIdx .. $].processCallstack(null, image.baseAddress, dg);
 
         return image.processDebugLineSectionData(
-            (line) => locations[].processCallstack(line, image.baseAddress, dg));
+            (line) => locations[startIdx .. $].processCallstack(line, image.baseAddress, dg));
     }
 }
 
@@ -220,6 +209,11 @@ int traceHandlerOpApplyImpl2(T)(const T[] input, scope int delegate(ref size_t, 
     {
         locations[idx].address = inp.address;
         locations[idx].procedure = inp.name;
+        // Same code as `traceHandlerOpApplyImpl2`
+        version (LDC) enum BaseExceptionFunctionName = "_d_throw_exception";
+        else          enum BaseExceptionFunctionName = "_d_throwdwarf";
+        if (!startIdx && inp.name == BaseExceptionFunctionName)
+            startIdx = i + 1;
     }
 
     return image.isValid
