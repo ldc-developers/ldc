@@ -643,6 +643,9 @@ void ArgsBuilder::addDefaultPlatformLibs() {
       args.push_back("-lm");
       break;
     }
+    if (triple.isMusl() && !global.params.betterC) {
+      args.push_back("-lunwind"); // for druntime backtrace
+    }
     args.push_back("-lrt");
   // fallthrough
   case llvm::Triple::Darwin:
