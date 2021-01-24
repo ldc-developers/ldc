@@ -33,7 +33,7 @@ steps:
       sudo update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
     fi
     # Install lit
-    curl -OL https://bootstrap.pypa.io/get-pip.py
+    curl -OL https://bootstrap.pypa.io/2.7/get-pip.py
     python get-pip.py --user
     python -m pip install --user lit
     python -c "import lit.main; lit.main.main();" --version . | head -n 1

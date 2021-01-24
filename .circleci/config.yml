@@ -44,7 +44,7 @@ commonSteps: &commonSteps
             echo "export PATH=$PWD/cmake/bin:$PWD/ninja:$PWD/llvm/bin:$PATH" >> $BASH_ENV
           fi
           # Install pip
-          curl --max-time 300 --retry 3 -OL https://bootstrap.pypa.io/get-pip.py
+          curl --max-time 300 --retry 3 -OL https://bootstrap.pypa.io/2.7/get-pip.py
           python get-pip.py --user
           rm get-pip.py
           # Install lit
