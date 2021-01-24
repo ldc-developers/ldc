@@ -90,7 +90,7 @@ install:
   - |
     if [ "$TRAVIS_OS_NAME" = "osx" ]; then
       # Install pip
-      wget -O get-pip.py https://bootstrap.pypa.io/get-pip.py
+      wget -O get-pip.py https://bootstrap.pypa.io/2.7/get-pip.py
       sudo python get-pip.py
       rm get-pip.py
       # Download & extract Ninja & add to PATH
