@@ -32,6 +32,18 @@ version (LDC)
         llvm_atomic_store!A(*cast(A*) &value, cast(shared A*) dest, _ordering!(order));
     }
 
+    T atomicFetchAdd(MemoryOrder order = MemoryOrder.seq, T)(T* dest, T value) pure nothrow @nogc @trusted
+    {
+        alias A = _AtomicType!T;
+        return llvm_atomic_rmw_add!A(cast(shared A*) dest, value, _ordering!(order));
+    }
+
+    T atomicFetchSub(MemoryOrder order = MemoryOrder.seq, T)(T* dest, T value) pure nothrow @nogc @trusted
+    {
+        alias A = _AtomicType!T;
+        return llvm_atomic_rmw_sub!A(cast(shared A*) dest, value, _ordering!(order));
+    }
+
     T atomicExchange(MemoryOrder order = MemoryOrder.seq, bool result = true, T)(T* dest, T value) pure nothrow @nogc @trusted
     {
         alias A = _AtomicType!T;
