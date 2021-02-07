@@ -86,13 +86,9 @@ endif()
 
 if("${TARGET_SYSTEM}" MATCHES "UNIX")
     ENABLE_LANGUAGE(ASM)
-elseif("${TARGET_SYSTEM}" MATCHES "MSVC")
-    ENABLE_LANGUAGE(ASM_MASM)
 endif()
 
-include(CheckTypeSize)
-check_type_size(void* ptr_size)
-if(${ptr_size} MATCHES "^8$") ## if it's 64-bit OS
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(HOST_BITNESS 64)
     set(MULTILIB_SUFFIX 32)
 else()

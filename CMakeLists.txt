@@ -8,9 +8,6 @@ project(ldc)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
 include(FindDCompiler)
-include(CheckIncludeFile)
-include(CheckIncludeFileCXX)
-include(CheckLibraryExists)
 include(CheckCXXCompilerFlag)
 include(CheckDSourceCompiles)
 include(CheckLinkFlag)
@@ -669,17 +666,10 @@ endif()
 #
 # LDMD
 #
-include(CheckSymbolExists)
-CHECK_SYMBOL_EXISTS(_SC_ARG_MAX "unistd.h" HAVE_SC_ARG_MAX)
-if (HAVE_SC_ARG_MAX)
-   append("-DHAVE_SC_ARG_MAX" CMAKE_CXX_FLAGS)
-endif()
-
 set_source_files_properties(driver/args.cpp driver/exe_path.cpp driver/ldmd.cpp driver/response.cpp PROPERTIES
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
     COMPILE_DEFINITIONS LDC_EXE_NAME="${LDC_EXE_NAME}"
 )
-
 add_library(LDMD_CXX_LIB ${LDC_LIB_TYPE} driver/args.cpp driver/exe_path.cpp driver/ldmd.cpp driver/response.cpp driver/args.h driver/exe_path.h)
 set_target_properties(
     LDMD_CXX_LIB PROPERTIES
@@ -762,8 +752,6 @@ function(copy_compilerrt_lib llvm_lib_name ldc_lib_name fixup_dylib)
         message(STATUS "--  - not found: ${llvm_lib_path}")
     endif()
 endfunction()
-include(CheckTypeSize)
-check_type_size(void* ptr_size)
 message(STATUS "-- Including LLVM compiler-rt libraries (LDC_INSTALL_LLVM_RUNTIME_LIBS): ${LDC_INSTALL_LLVM_RUNTIME_LIBS}")
 if (LDC_INSTALL_LLVM_RUNTIME_LIBS)
     # Locate LLVM sanitizer runtime libraries, and copy them to our lib folder
@@ -797,7 +785,7 @@ if (LDC_INSTALL_LLVM_RUNTIME_LIBS)
         endif()
     elseif(WIN32)
         set(compilerrt_arch_suffix "x86_64")
-        if(${ptr_size} EQUAL 4)
+        if(CMAKE_SIZEOF_VOID_P EQUAL 4)
             set(compilerrt_arch_suffix "i386")
         endif()
         copy_compilerrt_lib("windows/clang_rt.asan-${compilerrt_arch_suffix}.lib"       "ldc_rt.asan.lib"     FALSE)

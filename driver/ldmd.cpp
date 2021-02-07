@@ -44,10 +44,6 @@
 #include <sys/stat.h>
 #endif
 
-#ifdef HAVE_SC_ARG_MAX
-#include <unistd.h>
-#endif
-
 namespace ls = llvm::sys;
 
 // We reuse DMD's response file parsing routine for maximum compatibility - it
