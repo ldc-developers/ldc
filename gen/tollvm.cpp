@@ -229,8 +229,6 @@ LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
   LLGlobalValue::LinkageTypes linkage = LLGlobalValue::ExternalLinkage;
   if (hasWeakUDA(sym)) {
     linkage = LLGlobalValue::WeakAnyLinkage;
-  } else if (sym->isInstantiated()) {
-    linkage = templateLinkage;
   } else {
     // Function (incl. delegate) literals are emitted into each referencing
     // compilation unit, so use linkonce_odr for all lambdas and all global
@@ -241,8 +239,11 @@ LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
         potentialLambda = vd->toParent2();
     }
 
-    if (potentialLambda->isFuncLiteralDeclaration())
+    if (potentialLambda->isFuncLiteralDeclaration()) {
       linkage = LLGlobalValue::LinkOnceODRLinkage;
+    } else if (sym->isInstantiated()) {
+      linkage = templateLinkage;
+    }
   }
 
   return {linkage, needsCOMDAT()};
