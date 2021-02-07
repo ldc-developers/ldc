@@ -40,9 +40,8 @@ else()
     set(cflags_base "CFLAGS_BASE=-Wall -Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
 endif()
 
-if("${TARGET_SYSTEM}" MATCHES "FreeBSD|DragonFly")
-    set(linkdl "")
-else()
+set(linkdl "")
+if("${TARGET_SYSTEM}" MATCHES "Linux")
     set(linkdl "LINKDL=-L-ldl")
 endif()
 
