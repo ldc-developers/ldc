@@ -63,12 +63,6 @@ if (RT_SUPPORT_SANITIZERS)
     list(APPEND D_FLAGS -d-version=SupportSanitizers)
 endif()
 
-# Find gnu make, use specific version first (BSD) and fall back to default 'make' (LINUX)
-find_program(GNU_MAKE_BIN NAMES gmake gnumake make)
-if ("${GNU_MAKE_BIN}" STREQUAL "")
-    message(FATAL_ERROR "GNU make could not be found. Please install gmake/gnumake/make using your (platform) package installer")
-endif()
-
 # Auto-detect TARGET_SYSTEM from host
 if("${TARGET_SYSTEM}" STREQUAL "AUTO")
     set(TARGET_SYSTEM ${CMAKE_SYSTEM_NAME})
@@ -1080,5 +1074,4 @@ if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
     add_runtime_tests_variants("${MULTILIB_SUFFIX}")
 endif()
 
-# Add the standalone druntime tests.
-include(StandaloneDRuntimeTests)
+include(DRuntimeIntegrationTests)

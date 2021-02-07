@@ -215,7 +215,7 @@ steps:
     set -ex
     cd ../build
     ctest -j$PARALLEL_JOBS --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
-  displayName: Run defaultlib unittests & druntime stand-alone tests
+  displayName: Run defaultlib unittests & druntime integration tests
   condition: and(succeededOrFailed(), ne(variables['CI_OS'], 'android'))
 
 # Install & make portable
