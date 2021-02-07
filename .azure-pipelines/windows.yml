@@ -68,8 +68,7 @@ steps:
 - script: |
     echo on
     cd ..
-    :: git's usr/bin required to make GNU `find` precede MS one in C:\Windows\System32
-    set PATH=C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;C:\Program Files\Git\usr\bin;%PATH%
+    set PATH=C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;%PATH%
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     echo on
     cmake --version
@@ -86,7 +85,7 @@ steps:
 - script: |
     echo on
     cd ..
-    set PATH=C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;C:\Program Files\Git\usr\bin;%PATH%
+    set PATH=C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;%PATH%
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     echo on
     set INSTALL_DIR=%CD%/install

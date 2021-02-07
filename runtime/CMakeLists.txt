@@ -416,6 +416,7 @@ macro(dc src_files src_basedir d_flags output_basedir emit_bc all_at_once outlis
             set(outfiles ${output_o})
             set(renameCommand "")
             if(${emit_bc})
+                # rename generated *.bc to *.bc.o[bj]
                 set(renameCommand mv ${output_basedir}/${output_root}.bc ${output_bc})
                 list(APPEND outfiles ${output_bc})
             endif()
@@ -431,22 +432,21 @@ macro(dc src_files src_basedir d_flags output_basedir emit_bc all_at_once outlis
     endforeach()
 
     if(${all_at_once})
-        set(renameCommand "")
-        if(${emit_bc})
-            if(WIN32)
-                set(renameCommand find ${output_basedir} -iname '*.bc' -exec mv '{}' '{}${CMAKE_C_OUTPUT_EXTENSION}' "\;")
-            else()
-                set(renameCommand find ${output_basedir} -iname '*.bc' -exec mv '{}' '{}${CMAKE_C_OUTPUT_EXTENSION}' "\\\\;")
-            endif()
-        endif()
-
         add_custom_command(
             OUTPUT  ${new_o} ${new_bc}
             COMMAND ${LDC_EXE_FULL} ${dc_flags} -od=${output_basedir} -op ${relative_src_files}
-            COMMAND ${renameCommand}
             WORKING_DIRECTORY ${src_basedir}
             DEPENDS ${src_files} ${dc_deps}
         )
+
+        # append a rename command for each generated .bc
+        foreach(dst_bc ${new_bc})
+            string(REGEX REPLACE "${CMAKE_C_OUTPUT_EXTENSION}$" "" src_bc "${dst_bc}")
+            add_custom_command(
+                OUTPUT ${new_o} ${new_bc} APPEND
+                COMMAND mv ${src_bc} ${dst_bc}
+            )
+        endforeach()
     endif()
 
     list(APPEND ${outlist_o} ${new_o})
