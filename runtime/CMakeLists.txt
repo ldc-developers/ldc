@@ -135,6 +135,11 @@ if("${C_SYSTEM_LIBS}" STREQUAL "AUTO")
     endif()
 endif()
 
+message(STATUS "-- LDC runtime configuration:")
+message(STATUS "--  - Building 32/64-bit libraries (MULTILIB): ${MULTILIB}")
+message(STATUS "--  - Building shared libraries (BUILD_SHARED_LIBS): ${BUILD_SHARED_LIBS}")
+message(STATUS "--  - Building LTO libraries (BUILD_LTO_LIBS): ${BUILD_LTO_LIBS}")
+
 get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
 set(RUNTIME_DIR ${PROJECT_SOURCE_DIR}/druntime CACHE PATH "druntime root directory")
 set(PHOBOS2_DIR ${PROJECT_SOURCE_DIR}/phobos CACHE PATH "Phobos root directory")
