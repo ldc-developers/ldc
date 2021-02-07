@@ -42,6 +42,18 @@ find_program(LLVM_CONFIG
     PATHS ${LLVM_ROOT_DIR}/bin NO_DEFAULT_PATH
     DOC "Path to llvm-config tool.")
 find_program(LLVM_CONFIG NAMES ${llvm_config_names})
+if(APPLE)
+    # extra fallbacks for MacPorts & Homebrew
+    find_program(LLVM_CONFIG
+        NAMES ${llvm_config_names}
+        PATHS /opt/local/libexec/llvm-11/bin  /opt/local/libexec/llvm-10/bin  /opt/local/libexec/llvm-9.0/bin
+              /opt/local/libexec/llvm-8.0/bin /opt/local/libexec/llvm-7.0/bin /opt/local/libexec/llvm-6.0/bin
+              /opt/local/libexec/llvm/bin
+              /usr/local/opt/llvm@11/bin /usr/local/opt/llvm@10/bin /usr/local/opt/llvm@9/bin
+              /usr/local/opt/llvm@8/bin  /usr/local/opt/llvm@7/bin  /usr/local/opt/llvm@6/bin
+              /usr/local/opt/llvm/bin
+        NO_DEFAULT_PATH)
+endif()
 
 # Prints a warning/failure message depending on the required/quiet flags. Copied
 # from FindPackageHandleStandardArgs.cmake because it doesn't seem to be exposed.
