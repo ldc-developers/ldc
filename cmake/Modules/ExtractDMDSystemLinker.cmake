@@ -37,8 +37,8 @@ execute_process(
     ERROR_STRIP_TRAILING_WHITESPACE
 )
 
-if(result_code)
-    message(FATAL_ERROR "Failed to link empty D program using '${D_COMPILER} ${cmdflags}'")
+if(NOT "${result_code}" STREQUAL "0")
+    message(FATAL_ERROR "Failed to link empty D program using '${D_COMPILER} ${D_COMPILER_FLAGS} ${DFLAGS_BASE}':\n${stderr}")
 endif()
 
 if("${D_COMPILER_ID}" STREQUAL "GDMD")
