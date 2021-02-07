@@ -50,7 +50,7 @@ macro(_LLVM_FAIL _msg)
     message(FATAL_ERROR "${_msg}")
   else()
     if(NOT LLVM_FIND_QUIETLY)
-      message(STATUS "${_msg}")
+      message(WARNING "${_msg}")
     endif()
   endif()
 endmacro()
@@ -58,7 +58,7 @@ endmacro()
 
 if(NOT LLVM_CONFIG)
     if(NOT LLVM_FIND_QUIETLY)
-        message(WARNING "Could not find llvm-config (LLVM >= ${LLVM_FIND_VERSION}). Try manually setting LLVM_CONFIG to the llvm-config executable of the installation to use.")
+        _LLVM_FAIL("No LLVM installation (>= ${LLVM_FIND_VERSION}) found. Try manually setting the 'LLVM_ROOT_DIR' or 'LLVM_CONFIG' variables.")
     endif()
 else()
     macro(llvm_set var flag)
@@ -138,35 +138,35 @@ else()
     string(REGEX MATCH "set\\(LLVM_NATIVE_ARCH (.+)\\)" LLVM_NATIVE_ARCH "${LLVM_NATIVE_ARCH}")
     set(LLVM_NATIVE_ARCH ${CMAKE_MATCH_1})
     message(STATUS "LLVM_NATIVE_ARCH: ${LLVM_NATIVE_ARCH}")
-endif()
 
-# On CMake builds of LLVM, the output of llvm-config --cxxflags does not
-# include -fno-rtti, leading to linker errors. Be sure to add it.
-if(NOT MSVC AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")))
-    if(NOT ${LLVM_CXXFLAGS} MATCHES "-fno-rtti")
-        set(LLVM_CXXFLAGS "${LLVM_CXXFLAGS} -fno-rtti")
+    # On CMake builds of LLVM, the output of llvm-config --cxxflags does not
+    # include -fno-rtti, leading to linker errors. Be sure to add it.
+    if(NOT MSVC AND (CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")))
+        if(NOT ${LLVM_CXXFLAGS} MATCHES "-fno-rtti")
+            set(LLVM_CXXFLAGS "${LLVM_CXXFLAGS} -fno-rtti")
+        endif()
     endif()
-endif()
 
-# Remove some clang-specific flags for gcc.
-if(CMAKE_COMPILER_IS_GNUCXX)
-    string(REPLACE "-Wcovered-switch-default " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
-    string(REPLACE "-Wstring-conversion " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
-    string(REPLACE "-fcolor-diagnostics " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
-    # this requires more recent gcc versions (not supported by 4.9)
-    string(REPLACE "-Werror=unguarded-availability-new " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
-endif()
+    # Remove some clang-specific flags for gcc.
+    if(CMAKE_COMPILER_IS_GNUCXX)
+        string(REPLACE "-Wcovered-switch-default " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+        string(REPLACE "-Wstring-conversion " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+        string(REPLACE "-fcolor-diagnostics " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+        # this requires more recent gcc versions (not supported by 4.9)
+        string(REPLACE "-Werror=unguarded-availability-new " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+    endif()
 
-# Remove gcc-specific flags for clang.
-if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
-    string(REPLACE "-Wno-maybe-uninitialized " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
-endif()
+    # Remove gcc-specific flags for clang.
+    if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
+        string(REPLACE "-Wno-maybe-uninitialized " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+    endif()
 
-string(REGEX REPLACE "([0-9]+).*" "\\1" LLVM_VERSION_MAJOR "${LLVM_VERSION_STRING}" )
-string(REGEX REPLACE "[0-9]+\\.([0-9]+).*[A-Za-z]*" "\\1" LLVM_VERSION_MINOR "${LLVM_VERSION_STRING}" )
+    string(REGEX REPLACE "([0-9]+).*" "\\1" LLVM_VERSION_MAJOR "${LLVM_VERSION_STRING}" )
+    string(REGEX REPLACE "[0-9]+\\.([0-9]+).*[A-Za-z]*" "\\1" LLVM_VERSION_MINOR "${LLVM_VERSION_STRING}" )
 
-if (${LLVM_VERSION_STRING} VERSION_LESS ${LLVM_FIND_VERSION})
-    message(FATAL_ERROR "Unsupported LLVM version found ${LLVM_VERSION_STRING}. At least version ${LLVM_FIND_VERSION} is required.")
+    if (${LLVM_VERSION_STRING} VERSION_LESS ${LLVM_FIND_VERSION})
+        _LLVM_FAIL("Unsupported LLVM version ${LLVM_VERSION_STRING} found (${LLVM_CONFIG}). At least version ${LLVM_FIND_VERSION} is required. You can also set variables 'LLVM_ROOT_DIR' or 'LLVM_CONFIG' to use a different LLVM installation.")
+    endif()
 endif()
 
 # Use the default CMake facilities for handling QUIET/REQUIRED.
