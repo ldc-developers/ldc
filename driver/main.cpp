@@ -466,6 +466,12 @@ void parseCommandLine(Strings &sourceFiles) {
       global.params.run = false;
       error(Loc(), "Expected at least one argument to '-run'\n");
     }
+
+    // -run: enforce -oq and -cleanup-obj for non-conflicting temporary objects
+    if (global.params.run) {
+      global.params.fullyQualifiedObjectFiles = true;
+      global.params.cleanupObjectFiles = true;
+    }
   }
 
   sourceFiles.reserve(fileList.size());
@@ -929,6 +935,25 @@ void registerPredefinedVersions() {
 #undef STR
 }
 
+static llvm::SmallString<32> tempObjectsDir;
+
+// With -cleanup-obj, potentially invoked (once) by Module.setOutfilename() to
+// create a unique temporary directory for generated object files (if -od hasn't
+// been specified), e.g., `/tmp/objtmp-ldc-688445`.
+const char *createTempObjectsDir() {
+  assert(tempObjectsDir.empty());
+
+  auto ec = llvm::sys::fs::createUniqueDirectory("objtmp-ldc", tempObjectsDir);
+  if (ec) {
+    error(Loc(),
+          "failed to create temporary directory for object files: %s\n%s",
+          tempObjectsDir.c_str(), ec.message().c_str());
+    fatal();
+  }
+
+  return tempObjectsDir.c_str();
+}
+
 /// LDC's entry point, C main.
 /// Without `-lowmem`, we need to switch to the bump-pointer allocation scheme
 /// right from the start, before any module ctors are run, so we need this hook
@@ -1108,6 +1133,10 @@ int cppmain() {
     Strings libmodules;
     status = mars_mainBody(global.params, files, libmodules);
   }
+
+  // try to remove the temp objects dir if created for -cleanup-obj
+  if (!tempObjectsDir.empty())
+    llvm::sys::fs::remove(tempObjectsDir);
 
   writeTimeTraceProfile();
   deinitializeTimeTracer();

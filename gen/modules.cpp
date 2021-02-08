@@ -82,19 +82,6 @@ void Module::checkAndAddOutputFile(const FileName &file) {
   files.emplace(std::move(key), this);
 }
 
-void Module::makeObjectFilenameUnique() {
-  assert(objfile.toChars());
-
-  const char *ext = FileName::ext(objfile.toChars());
-  const char *stem = FileName::removeExt(objfile.toChars());
-
-  llvm::SmallString<128> unique;
-  auto EC = llvm::sys::fs::createUniqueFile(
-      llvm::Twine(stem) + "-%%%%%%%." + ext, unique);
-  if (!EC) // success
-    objfile.reset(unique.c_str());
-}
-
 namespace {
 /// Ways the druntime module registry system can be implemented.
 enum class RegistryStyle {

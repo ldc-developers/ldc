@@ -546,12 +546,6 @@ version (IN_LLVM)
                 m.hdrfile = m.setOutfilename(params.hdrname, params.hdrdir, m.arg, global.hdr_ext);
         }
 
-        // If `-run` is passed, the obj file is temporary and is removed after execution.
-        // Make sure the name does not collide with other files from other processes by
-        // creating a unique filename.
-        if (params.run)
-            m.makeObjectFilenameUnique();
-
         // Set object filename in params.objfiles.
         for (size_t j = 0; j < params.objfiles.dim; j++)
         {
@@ -886,8 +880,7 @@ version (IN_LLVM)
         else if (params.lib)
             status = createStaticLibrary();
 
-        if (status == EXIT_SUCCESS &&
-            (params.cleanupObjectFiles || params.run))
+        if (status == EXIT_SUCCESS && params.cleanupObjectFiles)
         {
             for (size_t i = 0; i < modules.dim; i++)
             {
