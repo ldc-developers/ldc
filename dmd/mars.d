@@ -909,7 +909,12 @@ else // !IN_LLVM
                 status = runProgram();
                 /* Delete .obj files and .exe file
                  */
-version (IN_LLVM) {} else
+version (IN_LLVM)
+{
+                // object files already deleted above
+                deleteExeFile();
+}
+else
 {
                 foreach (m; modules)
                 {
@@ -917,8 +922,8 @@ version (IN_LLVM) {} else
                     if (params.oneobj)
                         break;
                 }
-}
                 params.exefile.toCStringThen!(ef => File.remove(ef.ptr));
+}
             }
         }
     }
