@@ -83,7 +83,7 @@ jobs:
     vmImage: 'ubuntu-16.04'
   variables:
     CI_OS: android
-    ANDROID_NDK_VERSION: r21d
+    ANDROID_NDK_VERSION: r21e
     # Official clang 11.0.0 was available for Ubuntu 16.04, but isn't anymore...
     CLANG_VERSION: 10.0.1
   strategy:
