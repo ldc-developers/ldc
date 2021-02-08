@@ -1790,6 +1790,11 @@ extern (C++) /* IN_LLVM abstract */ class Expression : ASTNode
         inout(ClassReferenceExp) isClassReferenceExp() { return op == TOK.classReference ? cast(typeof(return))this : null; }
     }
 
+    inout(BinAssignExp) isBinAssignExp() pure inout nothrow @nogc
+    {
+        return null;
+    }
+
     override void accept(Visitor v)
     {
         v.visit(this);
@@ -4632,6 +4637,11 @@ extern (C++) class BinAssignExp : BinExp
     {
         // should check e1.checkModifiable() ?
         return toLvalue(sc, this);
+    }
+
+    override inout(BinAssignExp) isBinAssignExp() pure inout nothrow @nogc
+    {
+        return this;
     }
 
     override void accept(Visitor v)

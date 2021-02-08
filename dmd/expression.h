@@ -234,6 +234,7 @@ public:
     FuncInitExp* isFuncInitExp();
     PrettyFuncInitExp* isPrettyFuncInitExp();
     ClassReferenceExp* isClassReferenceExp();
+    virtual BinAssignExp* isBinAssignExp();
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -737,6 +738,7 @@ public:
     bool isLvalue();
     Expression *toLvalue(Scope *sc, Expression *ex);
     Expression *modifiableLvalue(Scope *sc, Expression *e);
+    BinAssignExp* isBinAssignExp();
     void accept(Visitor *v) { v->visit(this); }
 };
 

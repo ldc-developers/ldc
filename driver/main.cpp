@@ -364,7 +364,7 @@ void parseCommandLine(Strings &sourceFiles) {
   }
 
   if (makeDeps.getNumOccurrences() != 0) {
-    global.params.makeDeps = new OutBuffer;
+    global.params.emitMakeDeps = true;
     if (!makeDeps.empty())
       global.params.makeDepsFile = opts::dupPathString(makeDeps);
   }

@@ -1,6 +1,6 @@
 //===-- driver/archiver.h - Creating static libraries -----------*- C++ -*-===//
 //
-//                         LDC – the LLVM D compiler
+//                         LDC â€“ the LLVM D compiler
 //
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
@@ -14,3 +14,9 @@
  * @return 0 on success.
  */
 int createStaticLibrary();
+
+/**
+ * Returns the path to the static library previously created with
+ * createStaticLibrary.
+ */
+const char *getPathToProducedStaticLibrary();

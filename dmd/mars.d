@@ -77,8 +77,10 @@ version (IN_LLVM)
     void codegenModules(ref Modules modules);
     // in driver/archiver.cpp
     int createStaticLibrary();
+    const(char)* getPathToProducedStaticLibrary();
     // in driver/linker.cpp
     int linkObjToBinary();
+    const(char)* getPathToProducedBinary();
     void deleteExeFile();
     int runProgram();
 }
@@ -488,14 +490,6 @@ else
     global.path = buildPath(params.imppath);
     global.filePath = buildPath(params.fileImppath);
 
-    if (params.makeDeps && params.oneobj)
-    {
-        assert(params.objname);
-        OutBuffer* ob = params.makeDeps;
-        ob.writestring(toPosixPath(params.objname));
-        ob.writestring(":");
-    }
-
     if (params.addMain)
         files.push("__main.d");
     // Create Modules
@@ -753,26 +747,6 @@ version (IN_LLVM)
             printf("%.*s", cast(int)data.length, data.ptr);
     }
 
-    // All imports are resolved at this stage
-    // output the makefile module dependencies
-    if (params.makeDeps && params.oneobj)
-    {
-        OutBuffer* ob = params.makeDeps;
-        ob.writenl();
-        const data = (*ob)[];
-        if (params.makeDepsFile)
-        {
-            writeFile(Loc.initial, params.makeDepsFile, data);
-version (IN_LLVM)
-{
-            params.makeDeps = null;
-            params.makeDepsFile = null;
-}
-        }
-        else
-            printf("%.*s", cast(int)data.length, data.ptr);
-    }
-
     printCtfePerformanceStats();
     printTemplateStats();
 
@@ -793,6 +767,7 @@ version (IN_LLVM) {} else
             library.addObject(p.toDString(), null);
     }
 }
+
     // Generate output files
     if (params.doJsonGeneration)
     {
@@ -947,10 +922,90 @@ version (IN_LLVM) {} else
             }
         }
     }
+
+    // Output the makefile dependencies
+    if (params.emitMakeDeps)
+    {
+version (IN_LLVM)
+{
+        emitMakeDeps(params);
+}
+else
+{
+        emitMakeDeps(params, library);
+}
+    }
+
     if (global.errors || global.warnings)
         removeHdrFilesAndFail(params, modules);
 
     return status;
+}
+
+/// Emit the makefile dependencies for the -makedeps switch
+version (NoMain) {} else
+{
+    // IN_LLVM: no `library` param
+    void emitMakeDeps(ref Param params/*, Library library*/)
+    {
+        assert(params.emitMakeDeps);
+
+        OutBuffer buf;
+
+        // start by resolving and writing the target (which is sometimes resolved during link phase)
+        if (IN_LLVM && params.link)
+        {
+            buf.writeEscapedMakePath(getPathToProducedBinary());
+        }
+        else if (IN_LLVM && params.lib)
+        {
+            buf.writeEscapedMakePath(getPathToProducedStaticLibrary());
+        }
+        /* IN_LLVM: handled above
+        else if (params.link && params.exefile)
+        {
+            buf.writeEscapedMakePath(&params.exefile[0]);
+        }
+        else if (params.lib && library)
+        {
+            buf.writeEscapedMakePath(library.getFilename());
+        }
+        */
+        else if (params.objname)
+        {
+            buf.writeEscapedMakePath(&params.objname[0]);
+        }
+        else if (params.objfiles.length)
+        {
+            buf.writeEscapedMakePath(params.objfiles[0]);
+            foreach (of; params.objfiles[1 .. $])
+            {
+                buf.writestring(" ");
+                buf.writeEscapedMakePath(of);
+            }
+        }
+        else
+        {
+            assert(false, "cannot resolve makedeps target");
+        }
+
+        buf.writestring(":");
+
+        // then output every dependency
+        foreach (dep; params.makeDeps)
+        {
+            buf.writestringln(" \\");
+            buf.writestring("  ");
+            buf.writeEscapedMakePath(dep);
+        }
+        buf.writenl();
+
+        const data = buf[];
+        if (params.makeDepsFile)
+            writeFile(Loc.initial, params.makeDepsFile, data);
+        else
+            printf("%.*s", cast(int) data.length, data.ptr);
+    }
 }
 
 private FileBuffer readFromStdin()
@@ -2783,7 +2838,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
         }
         else if (startsWith(p + 1, "makedeps"))          // https://dlang.org/dmd.html#switch-makedeps
         {
-            if (params.makeDeps)
+            if (params.emitMakeDeps)
             {
                 error("-makedeps[=file] can only be provided once!");
                 break;
@@ -2802,7 +2857,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                 goto Lerror;
             }
             // Else output to stdout.
-            params.makeDeps = new OutBuffer();
+            params.emitMakeDeps = true;
         }
         else if (arg == "-main")             // https://dlang.org/dmd.html#switch-main
         {
@@ -3006,9 +3061,6 @@ else
             //fatal();
         }
     }
-
-    if (params.makeDeps && !params.oneobj)
-        error(Loc.initial, "-makedeps switch is not compatible with multiple objects mode");
 
     if (params.noDIP25)
         params.useDIP25 = false;
