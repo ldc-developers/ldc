@@ -26,7 +26,7 @@ commonSteps: &commonSteps
             update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
           else
             # Download & extract CMake
-            curl -L -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.18.4/cmake-3.18.4-Darwin-x86_64.tar.gz
+            curl -L -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.19.4/cmake-3.19.4-macos-universal.tar.gz
             mkdir cmake
             tar -xf cmake.tar.gz --strip 3 -C cmake
             rm cmake.tar.gz
