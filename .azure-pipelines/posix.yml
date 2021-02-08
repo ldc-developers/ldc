@@ -14,7 +14,7 @@ steps:
     if [ "$CI_OS" = "osx" ]; then
       sudo xcode-select --switch /Applications/Xcode_12.2.app/Contents/Developer
       # Download & extract Ninja
-      curl -L -o ninja-mac.zip https://github.com/ninja-build/ninja/releases/download/v1.10.1/ninja-mac.zip
+      curl -L -o ninja-mac.zip https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-mac.zip
       mkdir ninja
       tar -xf ninja-mac.zip -C ninja
     else

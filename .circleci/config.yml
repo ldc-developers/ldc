@@ -31,7 +31,7 @@ commonSteps: &commonSteps
             tar -xf cmake.tar.gz --strip 3 -C cmake
             rm cmake.tar.gz
             # Download & extract Ninja
-            curl -OL https://github.com/ninja-build/ninja/releases/download/v1.10.1/ninja-mac.zip
+            curl -OL https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-mac.zip
             mkdir ninja
             tar -xf ninja-mac.zip -C ninja
             rm ninja-mac.zip
