@@ -51,12 +51,6 @@ steps:
     7z x ../make.7z > nul
     mv make.exe gmake.exe
     cd ..
-    :: Download & extract a *working* GNU grep
-    :: (version 3.1 bundled with newer git (v2.19+) seems to be buggy wrt. output line-endings)
-    curl -L -o grep.7z https://dl.dropboxusercontent.com/s/vwlfgz8wv1fmqnn/grep-3.0.7z?dl=0 2>&1
-    cd gnu
-    7z x ../grep.7z > nul
-    cd ..
     :: Download & extract LDC-flavoured LLVM
     set ASSERTS_SUFFIX=
     if not "%BUILD_SOURCEBRANCH:~0,10%" == "refs/tags/" ( set ASSERTS_SUFFIX=-withAsserts)
@@ -124,7 +118,7 @@ steps:
 - script: |
     cd ..
     :: git's usr/bin/bash, unlike its bin/bash, leaves PATH as-is
-    set PATH=%CD%\gnu;C:\Program Files\Git\usr\bin;%PATH%
+    set PATH=C:\Program Files\Git\usr\bin;%PATH%
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     set DMD_TESTSUITE_MAKE_ARGS=-j4
     cd build
@@ -134,7 +128,7 @@ steps:
 - script: |
     cd ..
     :: Add libcurl.dll dir to PATH
-    set PATH=%CD%\libcurl\ldc2;%CD%\gnu;C:\Program Files\Git\usr\bin;%PATH%
+    set PATH=%CD%\libcurl\ldc2;C:\Program Files\Git\usr\bin;%PATH%
     call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     cd build
     ctest -j4 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
