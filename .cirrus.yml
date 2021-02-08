@@ -83,12 +83,12 @@ install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
     cd $CIRRUS_WORKING_DIR/..
     sysctl -n hw.logicalcpu
     # Download & extract CMake
-    curl --max-time 300 --retry 3 -L -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.18.4/cmake-3.18.4-Darwin-x86_64.tar.gz
+    curl --max-time 300 --retry 3 -L -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.19.4/cmake-3.19.4-macos-universal.tar.gz
     mkdir cmake
     tar -xf cmake.tar.gz --strip 3 -C cmake
     rm cmake.tar.gz
     # Download & extract Ninja
-    curl --max-time 300 --retry 3 -OL https://github.com/ninja-build/ninja/releases/download/v1.10.1/ninja-mac.zip
+    curl --max-time 300 --retry 3 -OL https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-mac.zip
     mkdir ninja
     tar -xf ninja-mac.zip -C ninja
     rm ninja-mac.zip
@@ -151,7 +151,7 @@ task:
     # OS is preset to `darwin`
     OS: osx
     PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
-    PARALLELISM: 4
+    PARALLELISM: 12
     matrix:
       - TASK_NAME_SUFFIX: x64
         EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"

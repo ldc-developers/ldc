@@ -12,9 +12,8 @@ steps:
     set -ex
     cd ..
     if [ "$CI_OS" = "osx" ]; then
-      sudo xcode-select --switch /Applications/Xcode_12.2.app/Contents/Developer
       # Download & extract Ninja
-      curl -L -o ninja-mac.zip https://github.com/ninja-build/ninja/releases/download/v1.10.1/ninja-mac.zip
+      curl -L -o ninja-mac.zip https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-mac.zip
       mkdir ninja
       tar -xf ninja-mac.zip -C ninja
     else
@@ -283,7 +282,6 @@ steps:
       --cFlags="-target;$triple_arm64" \
       --dFlags="-mtriple=$triple_arm64" \
       --ldcSrcDir=$BUILD_SOURCESDIRECTORY \
-      CMAKE_OSX_SYSROOT=/Applications/Xcode_12.2.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.0.sdk \
       CMAKE_OSX_ARCHITECTURES=arm64 \
       CMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
       BUILD_LTO_LIBS=ON
@@ -322,7 +320,7 @@ steps:
             \"-Xcc=-target\",
             \"-Xcc=$triple_arm64\",
             \"-Xcc=-isysroot\",
-            \"-Xcc=/Applications/Xcode_12.2.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.0.sdk\",
+            \"-Xcc=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk\",
         ];
         lib-dirs = [
             \"%%ldcbinarypath%%/../lib-arm64\",
