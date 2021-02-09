@@ -109,6 +109,11 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
     return false;
   }
 
+  if (fdecl.isFuncLiteralDeclaration()) {
+    // defined as discardable linkonce_odr in each referencing CU
+    IF_LOG Logger::println("isFuncLiteralDeclaration() == true");
+    return false;
+  }
   if (fdecl.isUnitTestDeclaration()) {
     IF_LOG Logger::println("isUnitTestDeclaration() == true");
     return false;

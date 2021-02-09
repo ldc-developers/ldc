@@ -32,12 +32,20 @@ LLValue *IrGlobal::getValue(bool define) {
       define = defineOnDeclare(V);
   }
 
-  if (define && !(V->storage_class & STCextern)) {
-    auto gvar = llvm::dyn_cast<LLGlobalVariable>(value);
-    const bool isDefined = !gvar // bitcast pointer to a helper global
-                           || gvar->hasInitializer();
-    if (!isDefined)
-      this->define();
+  if (define) {
+    if (V->storage_class & STCextern) {
+      // external
+    } else if (!gIR->funcGenStates.empty() &&
+               gIR->topfunc()->getLinkage() ==
+                   LLGlobalValue::AvailableExternallyLinkage) {
+      // don't define globals while codegen'ing available_externally functions
+    } else {
+      auto gvar = llvm::dyn_cast<LLGlobalVariable>(value);
+      const bool isDefined = !gvar // bitcast pointer to a helper global
+                             || gvar->hasInitializer();
+      if (!isDefined)
+        this->define();
+    }
   }
 
   return value;

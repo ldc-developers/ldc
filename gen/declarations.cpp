@@ -269,13 +269,7 @@ public:
              "manifest constant being codegen'd!");
       assert(!irs->dcomputetarget);
 
-      // Check if we are defining or just declaring the global in this module.
-      // If we reach here during codegen of an available_externally function,
-      // new variable declarations should stay external and therefore must not
-      // have an initializer.
-      bool define = !(decl->storage_class & STCextern) && !decl->inNonRoot();
-
-      getIrGlobal(decl)->getValue(define);
+      getIrGlobal(decl)->getValue(/*define=*/true);
     }
   }
 
