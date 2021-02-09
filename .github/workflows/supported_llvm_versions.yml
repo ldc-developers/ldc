@@ -1,0 +1,122 @@
+name: Test supported LLVM versions and misc. D host compilers
+on: [push, pull_request]
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - job_name: Ubuntu 16.04, LLVM 9, latest LDC beta
+            os: ubuntu-16.04
+            host_dc: ldc-beta
+            llvm_version: "9.0.0"
+            cmake_opts: "-DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON"
+          - job_name: Ubuntu 16.04, LLVM 8, LDC 0.17.6
+            os: ubuntu-16.04
+            host_dc: ldc-0.17.6
+            llvm_version: "8.0.0"
+            cmake_opts: "-DBUILD_SHARED_LIBS=OFF -DLDC_LINK_MANUALLY=ON"
+          - job_name: Ubuntu 16.04, LLVM 6, latest DMD beta
+            os: ubuntu-16.04
+            host_dc: dmd-beta
+            llvm_version: "6.0.1"
+            cmake_opts: "-DLIB_SUFFIX=64 -DLDC_LINK_MANUALLY=ON"
+          - job_name: Latest macOS, LLVM 10, latest DMD beta
+            os: macos-latest
+            host_dc: dmd-beta
+            llvm_version: "10.0.0"
+            cmake_opts: "-DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON"
+          - job_name: Latest macOS, LLVM 7, latest LDC beta
+            os: macos-latest
+            host_dc: ldc-beta
+            llvm_version: "7.0.0"
+            cmake_opts: "-DBUILD_SHARED_LIBS=OFF"
+    name: ${{ matrix.job_name }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 50
+      - name: Install ninja
+        uses: seanmiddleditch/gha-setup-ninja@v3
+      - name: Install D host compiler
+        uses: dlang-community/setup-dlang@v1.0.6
+        with:
+          compiler: ${{ matrix.host_dc }}
+      - name: Clear LD_LIBRARY_PATH to prevent loading host compiler libs
+        run: echo "LD_LIBRARY_PATH=" >> $GITHUB_ENV
+      - name: Install lit
+        run: |
+          set -euxo pipefail
+          curl -OL https://bootstrap.pypa.io/2.7/get-pip.py
+          python get-pip.py --user
+          python -m pip install --user lit
+          python -c "import lit.main; lit.main.main();" --version . | head -n 1
+      - name: "Linux: Install gdb"
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install gdb
+
+      - name: Try to restore cached LLVM
+        uses: actions/cache@v2
+        with:
+          path: llvm
+          key: llvm-${{ matrix.llvm_version }}-${{ matrix.os }}
+
+      - name: Download & extract prebuilt vanilla LLVM ${{ matrix.llvm_version }}
+        run: |
+          set -euxo pipefail
+          if [[ -d llvm ]]; then
+            echo "Already cached"
+            exit 0
+          fi
+          if [[ '${{ runner.os }}' == 'macOS' ]]; then
+            suffix='x86_64-apple-darwin'
+          else
+            suffix='x86_64-linux-gnu-${{ matrix.os }}'
+          fi
+          version='${{ matrix.llvm_version }}'
+          if [[ "$version" == 10.* ]]; then
+            llvm_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-$suffix.tar.xz"
+          else
+            llvm_url="http://releases.llvm.org/$version/clang+llvm-$version-$suffix.tar.xz"
+          fi
+          curl -L -o llvm.tar.xz $llvm_url
+          mkdir -p llvm
+          tar -xf llvm.tar.xz --strip 1 -C llvm
+          rm llvm.tar.xz
+
+      - name: Build LDC & LDC D unittests & defaultlib unittest runners with extra '${{ matrix.cmake_opts }}'
+        run: |
+          set -euxo pipefail
+          cmake -G Ninja . \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLVM_ROOT_DIR=$PWD/llvm \
+            -DLDC_INSTALL_LTOPLUGIN=ON \
+            -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON \
+            -DLDC_LINK_MANUALLY=OFF \
+            ${{ matrix.cmake_opts }}
+          ninja -j2 all ldc2-unittest all-test-runners
+          bin/ldc2 -version
+
+      - name: Run LDC D unittests
+        run: ctest --output-on-failure -R "ldc2-unittest"
+      - name: Run LIT testsuite
+        run: ctest -V -R "lit-tests"
+      - name: Run DMD testsuite
+        run: |
+          set -euxo pipefail
+          if [[ '${{ matrix.host_dc }}' == ldc-0.17.* ]]; then
+            # The -lowmem tests don't work with an ltsmaster host compiler
+            rm tests/d2/dmd-testsuite/runnable/{testptrref,xtest46}_gc.d
+            rm tests/d2/dmd-testsuite/fail_compilation/mixin_gc.d
+            # The @live tests neither (LDC segfaults)
+            rm tests/d2/dmd-testsuite/compilable/ob1.d
+            rm tests/d2/dmd-testsuite/fail_compilation/fob{1,2}.d
+            # A __traits(getOverloads) test neither
+            rm tests/d2/dmd-testsuite/compilable/test21050.d
+          fi
+          ctest -V -R "dmd-testsuite"
+      - name: Run defaultlib unittests & druntime integration tests
+        run: ctest -j2 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
