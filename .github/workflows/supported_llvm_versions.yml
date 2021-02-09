@@ -1,4 +1,4 @@
-name: Test supported LLVM versions and misc. D host compilers
+name: Vanilla LLVM
 on: [push, pull_request]
 
 jobs:
