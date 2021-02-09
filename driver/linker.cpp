@@ -93,7 +93,7 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
 
 //////////////////////////////////////////////////////////////////////////////
 
-static std::string getOutputName() {
+static std::string getOutputPath() {
   const auto &triple = *global.params.targetTriple;
   const bool sharedLib = global.params.dll;
 
@@ -288,7 +288,7 @@ int linkObjToBinary() {
   TimeTraceScope timeScope("Linking executable");
 
   // remember output path for later
-  gExePath = getOutputName();
+  gExePath = getOutputPath();
 
   createDirectoryForFileOrFail(gExePath);
 
@@ -299,6 +299,11 @@ int linkObjToBinary() {
   }
 
   return linkObjToBinaryGcc(gExePath, defaultLibNames);
+}
+
+const char *getPathToProducedBinary() {
+  assert(!gExePath.empty());
+  return gExePath.c_str();
 }
 
 //////////////////////////////////////////////////////////////////////////////
