@@ -1,3 +1,10 @@
+# Try to find GNU make, use specific version first (BSD) and fall back to default 'make' (Linux)
+find_program(GNU_MAKE_BIN NAMES gmake gnumake make)
+if(NOT GNU_MAKE_BIN)
+    message(WARNING "GNU make could not be found. Please install gmake/gnumake/make using your (platform) package installer to enable the druntime integration tests.")
+    return()
+endif()
+
 macro(get_subdirs result dir)
     file(GLOB children RELATIVE ${dir} ${dir}/*)
     set(subdir_list "")
@@ -33,9 +40,8 @@ else()
     set(cflags_base "CFLAGS_BASE=-Wall -Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
 endif()
 
-if("${TARGET_SYSTEM}" MATCHES "FreeBSD|DragonFly")
-    set(linkdl "")
-else()
+set(linkdl "")
+if("${TARGET_SYSTEM}" MATCHES "Linux")
     set(linkdl "LINKDL=-L-ldl")
 endif()
 

@@ -1,8 +1,6 @@
-include(CheckTypeSize)
-check_type_size(void* ptr_size)
-if(${ptr_size} MATCHES "^4$")
+if(CMAKE_SIZEOF_VOID_P EQUAL 4)
     set(host_model 32)
-elseif(${ptr_size} MATCHES "^8$")
+else()
     set(host_model 64)
 endif()
 

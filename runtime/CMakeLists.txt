@@ -63,12 +63,6 @@ if (RT_SUPPORT_SANITIZERS)
     list(APPEND D_FLAGS -d-version=SupportSanitizers)
 endif()
 
-# Find gnu make, use specific version first (BSD) and fall back to default 'make' (LINUX)
-find_program(GNU_MAKE_BIN NAMES gmake gnumake make)
-if ("${GNU_MAKE_BIN}" STREQUAL "")
-    message(FATAL_ERROR "GNU make could not be found. Please install gmake/gnumake/make using your (platform) package installer")
-endif()
-
 # Auto-detect TARGET_SYSTEM from host
 if("${TARGET_SYSTEM}" STREQUAL "AUTO")
     set(TARGET_SYSTEM ${CMAKE_SYSTEM_NAME})
@@ -86,13 +80,9 @@ endif()
 
 if("${TARGET_SYSTEM}" MATCHES "UNIX")
     ENABLE_LANGUAGE(ASM)
-elseif("${TARGET_SYSTEM}" MATCHES "MSVC")
-    ENABLE_LANGUAGE(ASM_MASM)
 endif()
 
-include(CheckTypeSize)
-check_type_size(void* ptr_size)
-if(${ptr_size} MATCHES "^8$") ## if it's 64-bit OS
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(HOST_BITNESS 64)
     set(MULTILIB_SUFFIX 32)
 else()
@@ -134,6 +124,11 @@ if("${C_SYSTEM_LIBS}" STREQUAL "AUTO")
         set(C_SYSTEM_LIBS m pthread)
     endif()
 endif()
+
+message(STATUS "-- LDC runtime configuration:")
+message(STATUS "--  - Building 32/64-bit libraries (MULTILIB): ${MULTILIB}")
+message(STATUS "--  - Building shared libraries (BUILD_SHARED_LIBS): ${BUILD_SHARED_LIBS}")
+message(STATUS "--  - Building LTO libraries (BUILD_LTO_LIBS): ${BUILD_LTO_LIBS}")
 
 get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
 set(RUNTIME_DIR ${PROJECT_SOURCE_DIR}/druntime CACHE PATH "druntime root directory")
@@ -421,6 +416,7 @@ macro(dc src_files src_basedir d_flags output_basedir emit_bc all_at_once outlis
             set(outfiles ${output_o})
             set(renameCommand "")
             if(${emit_bc})
+                # rename generated *.bc to *.bc.o[bj]
                 set(renameCommand mv ${output_basedir}/${output_root}.bc ${output_bc})
                 list(APPEND outfiles ${output_bc})
             endif()
@@ -436,22 +432,21 @@ macro(dc src_files src_basedir d_flags output_basedir emit_bc all_at_once outlis
     endforeach()
 
     if(${all_at_once})
-        set(renameCommand "")
-        if(${emit_bc})
-            if(WIN32)
-                set(renameCommand find ${output_basedir} -iname '*.bc' -exec mv '{}' '{}${CMAKE_C_OUTPUT_EXTENSION}' "\;")
-            else()
-                set(renameCommand find ${output_basedir} -iname '*.bc' -exec mv '{}' '{}${CMAKE_C_OUTPUT_EXTENSION}' "\\\\;")
-            endif()
-        endif()
-
         add_custom_command(
             OUTPUT  ${new_o} ${new_bc}
             COMMAND ${LDC_EXE_FULL} ${dc_flags} -od=${output_basedir} -op ${relative_src_files}
-            COMMAND ${renameCommand}
             WORKING_DIRECTORY ${src_basedir}
             DEPENDS ${src_files} ${dc_deps}
         )
+
+        # append a rename command for each generated .bc
+        foreach(dst_bc ${new_bc})
+            string(REGEX REPLACE "${CMAKE_C_OUTPUT_EXTENSION}$" "" src_bc "${dst_bc}")
+            add_custom_command(
+                OUTPUT ${new_o} ${new_bc} APPEND
+                COMMAND mv ${src_bc} ${dst_bc}
+            )
+        endforeach()
     endif()
 
     list(APPEND ${outlist_o} ${new_o})
@@ -1079,5 +1074,4 @@ if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
     add_runtime_tests_variants("${MULTILIB_SUFFIX}")
 endif()
 
-# Add the standalone druntime tests.
-include(StandaloneDRuntimeTests)
+include(DRuntimeIntegrationTests)

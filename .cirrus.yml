@@ -42,7 +42,7 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
       cd $CIRRUS_WORKING_DIR/../build
       DMD_TESTSUITE_MAKE_ARGS=-j$PARALLELISM ctest -V -R dmd-testsuite
     run_defaultlib_tests_script: |
-      # Run defaultlib unittests & druntime stand-alone tests
+      # Run defaultlib unittests & druntime integration tests
       cd $CIRRUS_WORKING_DIR/../build
       ctest -j$PARALLELISM --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests"
 

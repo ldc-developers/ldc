@@ -99,7 +99,7 @@ commonSteps: &commonSteps
           fi
           DMD_TESTSUITE_MAKE_ARGS=-j$PARALLELISM ctest -V -R dmd-testsuite
     - run:
-        name: Run defaultlib unittests & druntime stand-alone tests
+        name: Run defaultlib unittests & druntime integration tests
         when: always
         command: cd ../build && ctest -j$PARALLELISM --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests"
 

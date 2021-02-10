@@ -588,6 +588,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
       // this can e.g. happen for special __xtoHash member functions
       Logger::println("Function hasn't had sema3 run yet, running it now.");
       const bool semaSuccess = fdecl->functionSemantic3();
+      (void)semaSuccess;
       assert(semaSuccess);
       Module::runDeferredSemantic3();
     }

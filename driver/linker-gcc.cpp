@@ -647,11 +647,10 @@ void ArgsBuilder::addDefaultPlatformLibs() {
       args.push_back("-lunwind"); // for druntime backtrace
     }
     args.push_back("-lrt");
+    args.push_back("-ldl");
   // fallthrough
   case llvm::Triple::Darwin:
   case llvm::Triple::MacOSX:
-    args.push_back("-ldl");
-  // fallthrough
   case llvm::Triple::FreeBSD:
   case llvm::Triple::NetBSD:
   case llvm::Triple::OpenBSD:

@@ -1093,10 +1093,9 @@ public:
     // evaluate the base expression but delay getting its pointer until the
     // potential bounds have been evaluated
     DValue *v = toElem(e->e1);
-    auto getBasePointer = [e, v, etype]() {
+    auto getBasePointer = [v, etype]() {
       if (etype->ty == Tpointer) {
         // pointer slicing
-        assert(e->lwr);
         return DtoRVal(v);
       } else {
         // array slice
