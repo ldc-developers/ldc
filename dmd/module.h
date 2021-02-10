@@ -151,7 +151,6 @@ public:
 #if IN_LLVM
     llvm::Module *genLLVMModule(llvm::LLVMContext &context);
     void checkAndAddOutputFile(const FileName &file);
-    void makeObjectFilenameUnique();
 
     bool llvmForceLogging;
     bool noModuleInfo; /// Do not emit any module metadata.

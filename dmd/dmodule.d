@@ -50,6 +50,9 @@ version (IN_LLVM)
     import dmd.root.aav;
     import dmd.root.array;
     import dmd.root.rmem;
+
+    // in driver/main.cpp
+    extern (C++) const(char)* createTempObjectsDir();
 }
 
 version(Windows) {
@@ -702,6 +705,17 @@ else
             // If argdoc doesn't have an absolute path, make it relative to dir
             if (!FileName.absolute(argdoc))
             {
+version (IN_LLVM)
+{
+                if (!dir.length && global.params.cleanupObjectFiles)
+                {
+                    __gshared const(char)[] tempObjectsDir;
+                    if (!tempObjectsDir.length)
+                        tempObjectsDir = createTempObjectsDir().toDString;
+
+                    dir = tempObjectsDir;
+                }
+}
                 //FileName::ensurePathExists(dir);
                 argdoc = FileName.combine(dir, argdoc);
             }
@@ -1525,7 +1539,6 @@ version (IN_LLVM)
 {
     //llvm::Module* genLLVMModule(llvm::LLVMContext& context);
     void checkAndAddOutputFile(const ref FileName file);
-    void makeObjectFilenameUnique();
 
     bool llvmForceLogging;
     bool noModuleInfo; /// Do not emit any module metadata.
