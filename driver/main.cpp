@@ -64,6 +64,9 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
+#if LDC_MLIR_ENABLED
+#include "mlir/IR/MLIRContext.h"
+#endif
 #include <assert.h>
 #include <limits.h>
 #include <stdio.h>

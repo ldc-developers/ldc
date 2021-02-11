@@ -107,8 +107,6 @@ DIBuilder::DIBuilder(IRState *const IR)
       // (https://reviews.llvm.org/D23720)
       emitColumnInfo(opts::getFlagOrDefault(::emitColumnInfo, !emitCodeView)) {}
 
-llvm::LLVMContext &DIBuilder::getContext() { return IR->context(); }
-
 unsigned DIBuilder::getColumn(const Loc &loc) const {
   return (loc.linnum && emitColumnInfo) ? loc.charnum : 0;
 }
@@ -193,16 +191,16 @@ llvm::StringRef DIBuilder::GetNameAndScope(Dsymbol *sym, DIScope &scope) {
 // Sets the memory address for a debuginfo variable.
 void DIBuilder::Declare(const Loc &loc, llvm::Value *storage,
                         DILocalVariable divar, DIExpression diexpr) {
-  auto debugLoc =
-      llvm::DebugLoc::get(loc.linnum, getColumn(loc), GetCurrentScope());
+  auto debugLoc = llvm::DILocation::get(IR->context(), loc.linnum,
+                                        getColumn(loc), GetCurrentScope());
   DBuilder.insertDeclare(storage, divar, diexpr, debugLoc, IR->scopebb());
 }
 
 // Sets the (current) value for a debuginfo variable.
 void DIBuilder::SetValue(const Loc &loc, llvm::Value *value,
                          DILocalVariable divar, DIExpression diexpr) {
-  auto debugLoc =
-      llvm::DebugLoc::get(loc.linnum, getColumn(loc), GetCurrentScope());
+  auto debugLoc = llvm::DILocation::get(IR->context(), loc.linnum,
+                                        getColumn(loc), GetCurrentScope());
   DBuilder.insertDbgValueIntrinsic(value, divar, diexpr, debugLoc,
                                    IR->scopebb());
 }
@@ -1202,8 +1200,9 @@ void DIBuilder::EmitStopPoint(const Loc &loc) {
   unsigned col = getColumn(loc);
   Logger::println("D to dwarf stoppoint at line %u, column %u", linnum, col);
   LOG_SCOPE;
+
   IR->ir->SetCurrentDebugLocation(
-      llvm::DebugLoc::get(linnum, col, GetCurrentScope()));
+      llvm::DILocation::get(IR->context(), linnum, col, GetCurrentScope()));
 }
 
 void DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {

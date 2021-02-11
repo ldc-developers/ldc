@@ -72,7 +72,8 @@ llvm::Function *buildForwarderFunction(
   ldc::DISubprogram dis = gIR->DBuilder.EmitModuleCTor(fn, name.c_str());
   if (global.params.symdebug) {
     // Need _some_ debug info to avoid inliner bug, see GitHub issue #998.
-    builder.SetCurrentDebugLocation(llvm::DebugLoc::get(0, 0, dis));
+    builder.SetCurrentDebugLocation(
+        llvm::DILocation::get(gIR->context(), 0, 0, dis));
   }
 
   // ... calling the given functions, and...

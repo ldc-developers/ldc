@@ -447,10 +447,15 @@ include(HandleLTOPGOBuildOptions)
 #
 # Enable Dynamic compilation if supported for this platform and LLVM version.
 #
-set(LDC_DYNAMIC_COMPILE "AUTO" CACHE STRING "Support dynamic compilation (ON|OFF). Enabled by default.")
+set(LDC_DYNAMIC_COMPILE "AUTO" CACHE STRING "Support dynamic compilation (ON|OFF). Enabled by default; not supported for LLVM >= 12.")
 option(LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES "Use custom LDC passes in jit" ON)
 if(LDC_DYNAMIC_COMPILE STREQUAL "AUTO")
-    set(LDC_DYNAMIC_COMPILE ON)
+    if(LDC_LLVM_VER LESS 1200)
+        set(LDC_DYNAMIC_COMPILE ON)
+    else()
+        # TODO: port from ORCv1 API (dropped with LLVM 12) to ORCv2 (added with LLVM 7)
+        set(LDC_DYNAMIC_COMPILE OFF)
+    endif()
 endif()
 message(STATUS "-- Building LDC with dynamic compilation support (LDC_DYNAMIC_COMPILE): ${LDC_DYNAMIC_COMPILE}")
 if(LDC_DYNAMIC_COMPILE)

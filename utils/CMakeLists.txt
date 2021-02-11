@@ -43,7 +43,10 @@ if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${FILECHECK_SRC})
         COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
         LINK_FLAGS "${SANITIZE_LDFLAGS}"
     )
-    target_link_libraries(FileCheck  ${LLVM_LIBRARIES} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
+    if(NOT (LDC_LLVM_VER LESS 1200))
+        target_link_libraries(FileCheck LLVMFileCheck)
+    endif()
+    target_link_libraries(FileCheck ${LLVM_LIBRARIES} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
 else()
     message(STATUS "Skip building FileCheck (source not found), assuming it can be found in LLVM bin directory")
 endif()

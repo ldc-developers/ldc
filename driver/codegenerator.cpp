@@ -32,6 +32,14 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/YAMLTraits.h"
+#if LDC_MLIR_ENABLED
+#if LDC_LLVM_VER >= 1200
+#include "mlir/IR/BuiltinOps.h"
+#else
+#include "mlir/IR/Module.h"
+#endif
+#include "mlir/IR/MLIRContext.h"
+#endif
 
 namespace {
 

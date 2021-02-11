@@ -152,7 +152,6 @@ public:
   void Finalize();
 
 private:
-  llvm::LLVMContext &getContext();
   DIScope GetSymbolScope(Dsymbol *s);
   DIScope GetCurrentScope();
   llvm::StringRef GetNameAndScope(Dsymbol *sym, DIScope &scope);
