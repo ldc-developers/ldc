@@ -128,7 +128,7 @@ bool willInline() {
 }
 
 bool willCrossModuleInline() {
-  return enableCrossModuleInlining == llvm::cl::BOU_TRUE;
+  return enableCrossModuleInlining == llvm::cl::BOU_TRUE && willInline();
 }
 
 #if LDC_LLVM_VER >= 800 && LDC_LLVM_VER < 1000
