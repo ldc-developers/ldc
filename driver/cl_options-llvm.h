@@ -16,6 +16,7 @@
 
 namespace llvm {
 class Function;
+class Triple;
 }
 
 namespace opts {
@@ -32,7 +33,9 @@ llvm::cl::boolOrDefault disableFPElim();
 bool disableRedZone();
 bool printTargetFeaturesHelp();
 
-llvm::TargetOptions InitTargetOptionsFromCodeGenFlags();
+llvm::TargetOptions
+InitTargetOptionsFromCodeGenFlags(const llvm::Triple &triple);
+
 std::string getCPUStr();
 std::string getFeaturesStr();
 #if LDC_LLVM_VER >= 1000

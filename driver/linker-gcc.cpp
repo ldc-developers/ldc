@@ -745,13 +745,17 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
 #endif
       );
     } else if (global.params.targetTriple->isOSBinFormatMachO()) {
+#if LDC_LLVM_VER >= 1200
+      success = lld::macho::link(fullArgs
+#else
       success = lld::mach_o::link(fullArgs
+#endif
 #if LDC_LLVM_VER >= 700
-                                  ,
-                                  CanExitEarly
+                                 ,
+                                 CanExitEarly
 #if LDC_LLVM_VER >= 1000
-                                  ,
-                                  llvm::outs(), llvm::errs()
+                                 ,
+                                 llvm::outs(), llvm::errs()
 #endif
 #endif
       );

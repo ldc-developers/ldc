@@ -447,7 +447,9 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
     }
   }
 
-  llvm::TargetOptions targetOptions = opts::InitTargetOptionsFromCodeGenFlags();
+  llvm::TargetOptions targetOptions =
+      opts::InitTargetOptionsFromCodeGenFlags(triple);
+
   if (targetOptions.MCOptions.ABIName.empty())
     targetOptions.MCOptions.ABIName = getABI(triple);
 

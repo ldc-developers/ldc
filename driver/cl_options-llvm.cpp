@@ -9,6 +9,10 @@
 
 #include "driver/cl_options-llvm.h"
 
+#if LDC_WITH_LLD
+#include "llvm/ADT/Triple.h"
+#endif
+
 // Pull in command-line options and helper functions from special LLVM header
 // shared by multiple LLVM tools.
 #if LDC_LLVM_VER >= 1100
@@ -95,8 +99,10 @@ bool printTargetFeaturesHelp() {
                      [](const std::string &a) { return a == "help"; });
 }
 
-TargetOptions InitTargetOptionsFromCodeGenFlags() {
-#if LDC_LLVM_VER >= 1100
+TargetOptions InitTargetOptionsFromCodeGenFlags(const llvm::Triple &triple) {
+#if LDC_LLVM_VER >= 1200
+  return codegen::InitTargetOptionsFromCodeGenFlags(triple);
+#elif LDC_LLVM_VER >= 1100
   return codegen::InitTargetOptionsFromCodeGenFlags();
 #else
   return ::InitTargetOptionsFromCodeGenFlags();
@@ -141,7 +147,7 @@ TargetOptions initTargetOptionsFromCodeGenFlags() {
 #else
 TargetOptions InitTargetOptionsFromCodeGenFlags() {
 #endif
-  return ::opts::InitTargetOptionsFromCodeGenFlags();
+  return ::opts::InitTargetOptionsFromCodeGenFlags(llvm::Triple());
 }
 
 #if LDC_LLVM_VER >= 1000
