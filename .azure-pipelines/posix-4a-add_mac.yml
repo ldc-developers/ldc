@@ -44,7 +44,6 @@ steps:
     cp -a build-libs-arm64/lib/*.{a,dylib} installed/lib-arm64
     cp build-libs-ios-arm64/lib/*.a installed/lib-ios-arm64
     cp build-libs-ios-x86_64/lib/*.a installed/lib-ios-x86_64
-    rm installed/lib-{arm64,ios-arm64,ios-x86_64}/*-lto-debug.a
     sections="
     \"arm64-apple-macos\":
     {

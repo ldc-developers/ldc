@@ -632,15 +632,10 @@ macro(build_runtime_libs druntime_o druntime_bc phobos2_o phobos2_bc c_flags ld_
 endmacro()
 
 # Builds a static and/or shared copy of druntime/Phobos.
-macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix all_d_files_at_once outlist_targets)
+macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit_bc all_d_files_at_once outlist_targets)
     set(is_unittest OFF)
     if("${lib_suffix}" MATCHES "-unittest")
         set(is_unittest ON)
-    endif()
-
-    set(emit_bc OFF)
-    if(BUILD_LTO_LIBS AND NOT is_unittest)
-        set(emit_bc ON)
     endif()
 
     # Only compile Phobos modules once for static+shared libs.
@@ -704,6 +699,7 @@ macro(build_runtime_variants d_flags c_flags ld_flags path_suffix outlist_target
         "${ld_flags}"
         ""
         "${path_suffix}"
+        "${BUILD_LTO_LIBS}"
         "${COMPILE_ALL_D_FILES_AT_ONCE}"
         ${outlist_targets}
     )
@@ -714,6 +710,7 @@ macro(build_runtime_variants d_flags c_flags ld_flags path_suffix outlist_target
         "${ld_flags}"
         "-debug"
         "${path_suffix}"
+        "OFF" # no additional bitcode/LTO objects
         "${COMPILE_ALL_D_FILES_AT_ONCE}"
         ${outlist_targets}
     )
@@ -757,7 +754,6 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
         list(APPEND libs_to_merge druntime-ldc.a druntime-ldc-debug.a
                                   phobos2-ldc.a  phobos2-ldc-debug.a
         )
-        # Only install the release versions of the (static-only) bitcode libraries.
         if(BUILD_LTO_LIBS)
             list(APPEND libs_to_merge druntime-ldc-lto.a phobos2-ldc-lto.a)
         endif()
@@ -821,7 +817,7 @@ else()
     # Only build the host version of the jit runtime due to LLVM dependency.
     build_jit_runtime("${D_FLAGS};${D_FLAGS_RELEASE}" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" libs_to_install)
 
-    # Only install the release versions of the (static-only) bitcode libraries.
+    # Add the (static- and release-only) bitcode libraries.
     if(BUILD_LTO_LIBS AND (NOT ${BUILD_SHARED_LIBS} STREQUAL "ON"))
         list(APPEND libs_to_install druntime-ldc-lto phobos2-ldc-lto)
     endif()
@@ -982,6 +978,7 @@ function(build_test_runner_variant name_suffix path_suffix d_flags c_flags)
         "${linkflags}"
         "-unittest${name_suffix}"
         "${path_suffix}"
+        "OFF" # no additional bitcode/LTO objects
         "OFF" # compile separately
         unittest_libs
     )
