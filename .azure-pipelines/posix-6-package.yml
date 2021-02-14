@@ -4,6 +4,7 @@
 # Required env vars:
 # - ARCH
 # - CI_OS
+# - EXTRA_CMAKE_FLAGS_CROSS (optional)
 
 steps:
 
@@ -11,7 +12,7 @@ steps:
 - script: |
     set -e
     cd ..
-    if [ "$CI_OS" = "android" ]; then
+    if [[ "$EXTRA_CMAKE_FLAGS_CROSS" != "" ]]; then
       DMD=$PWD/bootstrap-ldc/bin/ldmd2
     else
       DMD=$PWD/installed/bin/ldmd2
@@ -26,7 +27,9 @@ steps:
     git checkout "$(cat $BUILD_SOURCESDIRECTORY/packaging/dub_version)"
     DFLAGS='' $DMD -run build.d -O -w $DFLAGS
     cp bin/dub ../installed/bin
-    if [ "$CI_OS" != "android" ]; then ../installed/bin/dub --version; fi
+    if [[ "$EXTRA_CMAKE_FLAGS_CROSS" == "" ]]; then
+      ../installed/bin/dub --version
+    fi
   displayName: Build & copy dub
 - script: |
     set -ex

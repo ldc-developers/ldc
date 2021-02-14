@@ -110,6 +110,23 @@ jobs:
       displayName: 'Cross-compile & -link hello-world for arm64 and iOS'
     - template: .azure-pipelines/posix-6-package.yml
 
+- job: macOS_arm64
+  timeoutInMinutes: 120
+  pool:
+    vmImage: 'macOS-10.15'
+  variables:
+    CI_OS: osx
+    ARCH: arm64
+    EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto" -DEXTRA_CXXFLAGS=-flto=full
+    EXTRA_CMAKE_FLAGS_CROSS: -DCMAKE_OSX_ARCHITECTURES=arm64
+    MACOSX_DEPLOYMENT_TARGET: 11.0
+    IOS_DEPLOYMENT_TARGET: 12.0
+  steps:
+    - template: .azure-pipelines/posix-1-setup.yml
+    - template: .azure-pipelines/posix-2-build_cross_mac.yml
+    - template: .azure-pipelines/posix-4-install.yml
+    - template: .azure-pipelines/posix-6-package.yml
+
 - job: Android
   timeoutInMinutes: 120
   pool:
@@ -143,6 +160,7 @@ jobs:
     - Windows_multilib
     - Linux_multilib
     - macOS_x64
+    - macOS_arm64
     - Android
   # Only run for commits on the master branch and tags.
   condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')))

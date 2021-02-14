@@ -59,7 +59,7 @@ steps:
       --dFlags="-fvisibility=hidden;${DFLAGS// /;}" \
       --targetSystem='Android;Linux;UNIX' \
       --ldcSrcDir=$BUILD_SOURCESDIRECTORY \
-      "${extraFlags[@]//-D/}"
+      "${extraFlags[@]#-D}"
   displayName: Cross-compile default libraries
 
 # Cross-compile LDC executables
@@ -78,5 +78,5 @@ steps:
       -DINCLUDE_INSTALL_DIR=$installDir/import \
       -DD_LINKER_ARGS="-fuse-ld=bfd;-L$PWD/../ldc-build-runtime.tmp/lib;-lphobos2-ldc;-ldruntime-ldc" \
       "${extraFlags[@]}"
-    ninja -j$PARALLEL_JOBS -v ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache
+    ninja -j$PARALLEL_JOBS ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache
   displayName: 'Cross-compile LDC executables'

@@ -15,7 +15,6 @@ steps:
     triple_ios_x64="x86_64-apple-ios$IOS_DEPLOYMENT_TARGET"
     build/bin/ldc-build-runtime --ninja -j $PARALLEL_JOBS \
       --buildDir=build-libs-arm64 \
-      --cFlags="-target;$triple_arm64" \
       --dFlags="-mtriple=$triple_arm64" \
       --ldcSrcDir=$BUILD_SOURCESDIRECTORY \
       CMAKE_OSX_ARCHITECTURES=arm64 \
@@ -24,7 +23,6 @@ steps:
     # TODO: build shared libs too, and look into `-fvisibility=hidden` requirement
     build/bin/ldc-build-runtime --ninja -j $PARALLEL_JOBS \
       --buildDir=build-libs-ios-arm64 \
-      --cFlags="-target;$triple_ios_arm64" \
       --dFlags="-mtriple=$triple_ios_arm64;-fvisibility=hidden" \
       --ldcSrcDir=$BUILD_SOURCESDIRECTORY \
       CMAKE_SYSTEM_NAME=iOS \
@@ -34,7 +32,6 @@ steps:
       BUILD_LTO_LIBS=ON
     build/bin/ldc-build-runtime --ninja -j $PARALLEL_JOBS \
       --buildDir=build-libs-ios-x86_64 \
-      --cFlags="-target;$triple_ios_x64" \
       --dFlags="-mtriple=$triple_ios_x64;-fvisibility=hidden" \
       --ldcSrcDir=$BUILD_SOURCESDIRECTORY \
       CMAKE_SYSTEM_NAME=iOS \

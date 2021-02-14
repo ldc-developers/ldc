@@ -7,7 +7,6 @@
 # The following variables are defined:
 #  LLVM_FOUND          - true if LLVM was found
 #  LLVM_CXXFLAGS       - C++ compiler flags for files that include LLVM headers.
-#  LLVM_HOST_TARGET    - Target triple used to configure LLVM.
 #  LLVM_INCLUDE_DIRS   - Directory containing LLVM include files.
 #  LLVM_LDFLAGS        - Linker flags to add when linking against LLVM
 #                        (includes -LLLVM_LIBRARY_DIRS).
@@ -115,7 +114,6 @@ else()
 
     llvm_set(VERSION_STRING version)
     llvm_set(CXXFLAGS cxxflags)
-    llvm_set(HOST_TARGET host-target)
     llvm_set(INCLUDE_DIRS includedir true)
     llvm_set(ROOT_DIR prefix true)
     llvm_set(ENABLE_ASSERTIONS assertion-mode)
@@ -185,5 +183,5 @@ endif()
 include(FindPackageHandleStandardArgs)
 
 find_package_handle_standard_args(LLVM
-    REQUIRED_VARS LLVM_ROOT_DIR LLVM_HOST_TARGET
+    REQUIRED_VARS LLVM_ROOT_DIR
     VERSION_VAR LLVM_VERSION_STRING)
