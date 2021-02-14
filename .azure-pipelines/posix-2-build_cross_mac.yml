@@ -57,6 +57,7 @@ steps:
       -DCMAKE_INSTALL_PREFIX=$installDir \
       -DINCLUDE_INSTALL_DIR=$installDir/import \
       -DLDC_LINK_MANUALLY=OFF \
+      -DLDC_ENABLE_ASSERTIONS=OFF \
       "${extraFlags[@]}"
     ninja -j$PARALLEL_JOBS ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache
   displayName: 'Cross-compile LDC executables'

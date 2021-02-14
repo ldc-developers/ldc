@@ -140,6 +140,8 @@ set(LIB_SUFFIX "" CACHE STRING "Appended to the library installation directory. 
 
 set(COMPILE_D_MODULES_SEPARATELY OFF CACHE BOOL "Compile each D module separately (instead of all at once). Useful for many CPU cores and/or iterative development; generated executables will be somewhat slower.")
 
+set(LDC_ENABLE_ASSERTIONS "${LLVM_ENABLE_ASSERTIONS}" CACHE BOOL "Enable LDC assertions. Defaults to the LLVM assertions mode; overriding may cause LDC segfaults!")
+
 if(D_VERSION EQUAL 1)
     message(FATAL_ERROR "D version 1 is no longer supported.
 Please consider using D version 2 or checkout the 'd1' git branch for the last version supporting D version 1.")
@@ -172,7 +174,7 @@ if(NOT MSVC_IDE)
         append("-O -inline -release" DFLAGS_BUILD_TYPE)
     endif()
 
-    if(LLVM_ENABLE_ASSERTIONS)
+    if(LDC_ENABLE_ASSERTIONS)
         string(REPLACE " -release" "" DFLAGS_BUILD_TYPE "${DFLAGS_BUILD_TYPE}")
     endif()
 endif()
@@ -495,15 +497,15 @@ if(LDC_WITH_LLD)
 endif()
 message(STATUS "-- Building LDC with integrated LLD linker (LDC_WITH_LLD): ${LDC_WITH_LLD}")
 
-# if llvm was built with assertions we have to do the same
-# as there are some headers with differing behavior based on NDEBUG
-if(LLVM_ENABLE_ASSERTIONS)
-    message(STATUS "-- Building LDC with enabled assertions (inherited from LLVM build)")
+message(STATUS "-- Building LDC with enabled assertions (LDC_ENABLE_ASSERTIONS): ${LDC_ENABLE_ASSERTIONS}")
+if(LDC_ENABLE_ASSERTIONS)
     append("-UNDEBUG" EXTRA_CXXFLAGS)
     # avoid MSVC warning D9025 about "-DNDEBUG ... -UNDEBUG"
     string(REGEX REPLACE "(^| )[/-]D *NDEBUG( |$)" "\\1-UNDEBUG\\2" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
     string(REGEX REPLACE "(^| )[/-]D *NDEBUG( |$)" "\\1-UNDEBUG\\2" CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL}")
     string(REGEX REPLACE "(^| )[/-]D *NDEBUG( |$)" "\\1-UNDEBUG\\2" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+else()
+    append("-DNDEBUG" EXTRA_CXXFLAGS)
 endif()
 
 #
