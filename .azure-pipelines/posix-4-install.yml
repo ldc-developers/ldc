@@ -1,0 +1,37 @@
+# Installs LDC and makes the installation portable.
+#
+# Required env vars:
+# - ARCH
+# - CI_OS
+
+steps:
+- script: |
+    set -ex
+    cd ..
+    if [ "$CI_OS" = "android" ]; then
+      mkdir -p install/bin
+      cp build-$ARCH/bin/{ldc2,ldmd2,ldc-build-runtime,ldc-profdata,ldc-prune-cache} install/bin
+      mkdir install/lib
+      cp ldc-build-runtime.tmp/lib/*.a install/lib
+      mkdir install/etc
+      sed "s|$PWD/install/|%%ldcbinarypath%%/../|g" build-$ARCH/bin/ldc2_install.conf > install/etc/ldc2.conf
+      cp -r $BUILD_SOURCESDIRECTORY/packaging/bash_completion.d install/etc
+      #
+      mkdir install/import
+      cp -r $BUILD_SOURCESDIRECTORY/runtime/druntime/src/{core,etc,ldc,object.d} install/import
+      cp bootstrap-ldc/runtime/import/ldc/gccbuiltins_{aarch64,arm,x86}.di install/import/ldc
+      cp -r $BUILD_SOURCESDIRECTORY/runtime/phobos/etc/c install/import/etc
+      rm -rf install/import/etc/c/zlib
+      cp -r $BUILD_SOURCESDIRECTORY/runtime/phobos/std install/import
+    else
+      export PATH="$PWD/ninja:$PATH"
+      cd build
+      ninja install > /dev/null
+      cd ..
+      perl -pi -e s?$PWD/install/?%%ldcbinarypath%%/../?g install/etc/ldc2.conf
+    fi
+    cp $BUILD_SOURCESDIRECTORY/{LICENSE,packaging/README} install
+    cat install/etc/ldc2.conf
+    # Now rename the installation dir to test portability
+    mv install installed
+  displayName: Install LDC & make portable

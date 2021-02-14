@@ -1,0 +1,65 @@
+# Builds dub & dlang tools and copies them to the install dir, then packs the
+# install dir and publishes the artifact(s).
+#
+# Required env vars:
+# - ARCH
+# - CI_OS
+
+steps:
+
+# Add dub & dlang tools
+- script: |
+    set -e
+    cd ..
+    if [ "$CI_OS" = "android" ]; then
+      DMD=$PWD/bootstrap-ldc/bin/ldmd2
+    else
+      DMD=$PWD/installed/bin/ldmd2
+    fi
+    echo "##vso[task.setvariable variable=DMD]$DMD"
+  displayName: Set DMD environment variable
+- script: |
+    set -ex
+    cd ..
+    git clone --recursive https://github.com/dlang/dub.git
+    cd dub
+    git checkout "$(cat $BUILD_SOURCESDIRECTORY/packaging/dub_version)"
+    DFLAGS='' $DMD -run build.d -O -w $DFLAGS
+    cp bin/dub ../installed/bin
+    if [ "$CI_OS" != "android" ]; then ../installed/bin/dub --version; fi
+  displayName: Build & copy dub
+- script: |
+    set -ex
+    cd ..
+    git clone --recursive https://github.com/dlang/tools.git dlang-tools
+    cd dlang-tools
+    git checkout "$(cat $BUILD_SOURCESDIRECTORY/packaging/dlang-tools_version)"
+    mkdir bin
+    $DMD -w -de -dip1000 rdmd.d -of=bin/rdmd
+    $DMD -w -de -dip1000 ddemangle.d -of=bin/ddemangle
+    $DMD -w -de -dip1000 DustMite/dustmite.d DustMite/splitter.d DustMite/polyhash.d -of=bin/dustmite
+    cp bin/{rdmd,ddemangle,dustmite} ../installed/bin
+  displayName: Build & copy dlang tools
+
+# Pack & publish artifact(s)
+- script: |
+    set -ex
+    cd ..
+    if [ ! -d artifacts ]; then mkdir artifacts; fi
+    if [ "${BUILD_SOURCEBRANCH:0:10}" = "refs/tags/" ]; then
+      artifactID=${BUILD_SOURCEBRANCH:11}
+    else
+      artifactID=${BUILD_SOURCEVERSION:0:8}
+    fi
+    artifactName=ldc2-$artifactID-$CI_OS-$ARCH
+    mv installed $artifactName
+    chmod -R go=rX $artifactName
+    if [ "$CI_OS" = "osx" ]; then
+      sudo chown -R root:wheel $artifactName
+      tar -cJf artifacts/$artifactName.tar.xz --options='compression-level=9' $artifactName
+    else
+      tar -cf - --owner=0 --group=0 $artifactName | 7za a artifacts/$artifactName.tar.xz -si -txz -mx9
+    fi
+  displayName: Pack installation dir
+- publish: ../artifacts
+  artifact: $(CI_OS)-$(ARCH)
