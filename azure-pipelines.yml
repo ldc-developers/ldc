@@ -35,6 +35,9 @@ jobs:
         ASMFLAGS: -m32
   steps:
     - template: .azure-pipelines/windows.yml
+    - template: .azure-pipelines/posix-4-install.yml
+    - template: .azure-pipelines/4a-add_win.yml
+    - template: .azure-pipelines/posix-5-integration_test.yml
     - template: .azure-pipelines/posix-6-package.yml
 
 # Merges the x64 and x86 Windows packages to a multilib package (64-bit binaries + 32/64-bit libraries).

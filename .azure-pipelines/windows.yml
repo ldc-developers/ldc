@@ -99,7 +99,6 @@ steps:
 # Tests
 - script: |
     cd ..
-    call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     cd build
     ctest --output-on-failure -R "ldc2-unittest"
   displayName: Run LDC D unittests
@@ -133,46 +132,3 @@ steps:
     ctest -j4 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
   displayName: Run defaultlib unittests & druntime integration tests
   condition: succeededOrFailed()
-
-# Install, make portable and copy curl & MinGW-w64-based libs
-- script: |
-    cd ..
-    set PATH=%CD%\ninja;%PATH%
-    cd build
-    ninja install > nul || exit /b
-    cd ..
-    powershell -c "(cat install/etc/ldc2.conf).replace('%CD:\=/%/install/', '%%%%ldcbinarypath%%%%/../') | Set-Content install/etc/ldc2.conf"
-    cat install/etc/ldc2.conf
-    cp %BUILD_SOURCESDIRECTORY%/LICENSE install
-    cp %BUILD_SOURCESDIRECTORY%/packaging/README.txt install
-    cp libcurl/ldc2/libcurl.dll install/bin
-    cp libcurl/ldc2/*.* install/lib
-    :: Now rename the installation dir to test portability
-    mv install installed
-  displayName: Install LDC, make portable & copy curl
-- script: |
-    cd ..
-    curl -L -o mingw-w64-libs.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v8.0.0/mingw-w64-libs-v8.0.0.7z 2>&1
-    mkdir mingw-w64-libs
-    cd mingw-w64-libs
-    7z x ../mingw-w64-libs.7z > nul
-    cp -r lib%MODEL% ../installed/lib/mingw
-  displayName: Copy MinGW-w64-based libs
-
-# Integration tests
-- script: |
-    cd ..
-    call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
-    powershell -c "echo 'void main() { import std.stdio; writefln(\"Hello world, %%d bits\", size_t.sizeof * 8); }'" > hello.d
-    installed\bin\ldc2 hello.d -of=hello_thin.exe -flto=thin -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
-    hello_thin.exe || exit /b
-    installed\bin\ldc2 hello.d -of=hello_full.exe -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
-    hello_full.exe
-  displayName: Run hello-world integration test with LTO
-- script: |
-    cd ..
-    :: Add ldc-jit.dll dir to PATH
-    set PATH=%CD%\installed\lib;%PATH%
-    call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
-    installed\bin\ldc2 -enable-dynamic-compile -run %BUILD_SOURCESDIRECTORY%/tests/dynamiccompile/array.d
-  displayName: Run dynamic-compile integration test
