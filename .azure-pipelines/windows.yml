@@ -69,7 +69,7 @@ steps:
     echo on
     cd ..
     set PATH=C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;%PATH%
-    call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
+    call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     echo on
     cmake --version
     ninja --version
@@ -86,7 +86,7 @@ steps:
     echo on
     cd ..
     set PATH=C:\Program Files\LLVM\bin;%CD%\ninja;%CD%\gnu;%PATH%
-    call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
+    call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     echo on
     set INSTALL_DIR=%CD%/install
     mkdir build
@@ -99,7 +99,6 @@ steps:
 # Tests
 - script: |
     cd ..
-    call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     cd build
     ctest --output-on-failure -R "ldc2-unittest"
   displayName: Run LDC D unittests
@@ -109,7 +108,7 @@ steps:
     :: strings_cdb has regressed for 32-bit starting with the VS 2019 v16.6.0 Azure Image (worked fine until v16.5.4)
     :: it also works fine on my box with the same v16.7.2...
     if "%MODEL%" == "32" ( del %BUILD_SOURCESDIRECTORY%\tests\debuginfo\strings_cdb.d)
-    call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
+    call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     cd build
     ctest -V -R "lit-tests"
   displayName: Run LIT testsuite
@@ -118,7 +117,7 @@ steps:
     cd ..
     :: git's usr/bin/bash, unlike its bin/bash, leaves PATH as-is
     set PATH=C:\Program Files\Git\usr\bin;%PATH%
-    call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
+    call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     set DMD_TESTSUITE_MAKE_ARGS=-j4
     cd build
     ctest -V -R "dmd-testsuite"
@@ -128,92 +127,8 @@ steps:
     cd ..
     :: Add libcurl.dll dir to PATH
     set PATH=%CD%\libcurl\ldc2;C:\Program Files\Git\usr\bin;%PATH%
-    call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
+    call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     cd build
     ctest -j4 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
   displayName: Run defaultlib unittests & druntime integration tests
   condition: succeededOrFailed()
-
-# Install, make portable and copy curl & MinGW-w64-based libs
-- script: |
-    cd ..
-    set PATH=%CD%\ninja;%PATH%
-    cd build
-    ninja install > nul || exit /b
-    cd ..
-    powershell -c "(cat install/etc/ldc2.conf).replace('%CD:\=/%/install/', '%%%%ldcbinarypath%%%%/../') | Set-Content install/etc/ldc2.conf"
-    cat install/etc/ldc2.conf
-    cp %BUILD_SOURCESDIRECTORY%/LICENSE install
-    cp %BUILD_SOURCESDIRECTORY%/packaging/README.txt install
-    cp libcurl/ldc2/libcurl.dll install/bin
-    cp libcurl/ldc2/*.* install/lib
-    :: Now rename the installation dir to test portability
-    mv install installed
-  displayName: Install LDC, make portable & copy curl
-- script: |
-    cd ..
-    curl -L -o mingw-w64-libs.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v8.0.0/mingw-w64-libs-v8.0.0.7z 2>&1
-    mkdir mingw-w64-libs
-    cd mingw-w64-libs
-    7z x ../mingw-w64-libs.7z > nul
-    cp -r lib%MODEL% ../installed/lib/mingw
-  displayName: Copy MinGW-w64-based libs
-
-# Integration tests
-- script: |
-    cd ..
-    call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
-    powershell -c "echo 'void main() { import std.stdio; writefln(\"Hello world, %%d bits\", size_t.sizeof * 8); }'" > hello.d
-    installed\bin\ldc2 hello.d -of=hello_thin.exe -flto=thin -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
-    hello_thin.exe || exit /b
-    installed\bin\ldc2 hello.d -of=hello_full.exe -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
-    hello_full.exe
-  displayName: Run hello-world integration test with LTO
-- script: |
-    cd ..
-    :: Add ldc-jit.dll dir to PATH
-    set PATH=%CD%\installed\lib;%PATH%
-    call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
-    installed\bin\ldc2 -enable-dynamic-compile -run %BUILD_SOURCESDIRECTORY%/tests/dynamiccompile/array.d
-  displayName: Run dynamic-compile integration test
-
-# Add dub & dlang tools
-- script: |
-    cd ..
-    call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
-    set DMD=%CD%\installed\bin\ldmd2
-    git clone --recursive https://github.com/dlang/dub.git 2>&1
-    cd dub
-    powershell -c "git checkout \"$(cat %BUILD_SOURCESDIRECTORY%/packaging/dub_version -Raw)\"" 2>&1
-    %DMD% -run build.d -O -w 2>&1 || exit /b
-    cp bin/dub.exe ../installed/bin
-    ..\installed\bin\dub --version
-  displayName: Build & copy dub
-- script: |
-    cd ..
-    call "%VSINSTALLDIR%Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
-    set DMD=%CD%\installed\bin\ldmd2
-    git clone --recursive https://github.com/dlang/tools.git dlang-tools 2>&1
-    cd dlang-tools
-    powershell -c "git checkout \"$(cat %BUILD_SOURCESDIRECTORY%/packaging/dlang-tools_version -Raw)\"" 2>&1
-    %DMD% -w -de -dip1000 rdmd.d || exit /b
-    %DMD% -w -de -dip1000 ddemangle.d || exit /b
-    %DMD% -w -de -dip1000 DustMite\dustmite.d DustMite\splitter.d DustMite\polyhash.d || exit /b
-    cp *.exe ../installed/bin
-  displayName: Build & copy dlang tools
-
-# Pack & publish artifact
-- script: |
-    cd ..
-    if "%BUILD_SOURCEBRANCH:~0,10%" == "refs/tags/" (
-      set ARTIFACT_ID=%BUILD_SOURCEBRANCH:~11%
-    ) else (
-      set ARTIFACT_ID=%BUILD_SOURCEVERSION:~0,8%
-    )
-    set ARTIFACT_NAME=ldc2-%ARTIFACT_ID%-windows-%ARCH%
-    mv installed %ARTIFACT_NAME%
-    mkdir artifacts
-    7z a -mx=9 artifacts/%ARTIFACT_NAME%.7z %ARTIFACT_NAME% > nul
-  displayName: Pack installation dir
-- publish: ../artifacts
-  artifact: windows-$(ARCH)

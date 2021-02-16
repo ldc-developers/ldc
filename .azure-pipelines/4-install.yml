@@ -5,7 +5,7 @@
 # - EXTRA_CMAKE_FLAGS_CROSS (optional)
 
 steps:
-- script: |
+- bash: |
     set -ex
     cd ..
     if [[ "$EXTRA_CMAKE_FLAGS_CROSS" != "" ]]; then
@@ -28,9 +28,19 @@ steps:
       ninja install > /dev/null
       cd ..
     fi
-    cp $BUILD_SOURCESDIRECTORY/{LICENSE,packaging/README} install
+    cp $BUILD_SOURCESDIRECTORY/LICENSE install
+    if [ "$CI_OS" = "windows" ]; then
+      cp $BUILD_SOURCESDIRECTORY/packaging/README.txt install
+    else
+      cp $BUILD_SOURCESDIRECTORY/packaging/README install
+    fi
     # Make portable
-    perl -pi -e "s|$PWD/install/|%%ldcbinarypath%%/../|g" install/etc/ldc2.conf
+    absInstallDir="$PWD/install"
+    if [ "$CI_OS" = "windows" ]; then
+      # /d/a/1/install => D:/a/1/install
+      absInstallDir=`cygpath -m "$absInstallDir"`
+    fi
+    perl -pi -e "s|$absInstallDir/|%%ldcbinarypath%%/../|g" install/etc/ldc2.conf
     cat install/etc/ldc2.conf
     # Now rename the installation dir to test portability
     mv install installed

@@ -1,0 +1,17 @@
+# Copies curl and MinGW-w64-based libs to the install dir.
+#
+# Required env vars:
+# - MODEL
+
+steps:
+- bash: |
+    set -ex
+    cd ..
+    cp libcurl/ldc2/libcurl.dll installed/bin
+    cp libcurl/ldc2/*.* installed/lib
+    curl -L -o mingw-w64-libs.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v8.0.0/mingw-w64-libs-v8.0.0.7z
+    mkdir mingw-w64-libs
+    cd mingw-w64-libs
+    7z x ../mingw-w64-libs.7z > /dev/null
+    cp -r lib$MODEL ../installed/lib/mingw
+  displayName: Copy curl & MinGW-w64-based libs

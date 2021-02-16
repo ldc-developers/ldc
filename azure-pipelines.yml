@@ -15,16 +15,16 @@ jobs:
   pool:
     vmImage: 'windows-2019'
   variables:
-    VSINSTALLDIR: C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\
+    CI_OS: windows
+    OS: windows
+    LDC_VSDIR: C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise
   strategy:
     matrix:
       x64:
-        OS: windows
         MODEL: 64
         ARCH: x64
         EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto" -DEXTRA_CXXFLAGS=-flto=full
       x86:
-        OS: windows
         MODEL: 32
         ARCH: x86
         # Undefined symbol errors with FullLTO; ThinLTO works.
@@ -35,6 +35,10 @@ jobs:
         ASMFLAGS: -m32
   steps:
     - template: .azure-pipelines/windows.yml
+    - template: .azure-pipelines/4-install.yml
+    - template: .azure-pipelines/4a-windows.yml
+    - template: .azure-pipelines/5-integration_test.yml
+    - template: .azure-pipelines/6-package.yml
 
 # Merges the x64 and x86 Windows packages to a multilib package (64-bit binaries + 32/64-bit libraries).
 - job: Windows_multilib
@@ -59,8 +63,8 @@ jobs:
     BOOTSTRAP_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON
     EXTRA_CMAKE_FLAGS: -DMULTILIB=ON -DBUILD_LTO_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DJITRT_EXTRA_LDFLAGS=-static-libstdc++ -DRT_CFLAGS=-Wa,-mrelax-relocations=no -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto" -DEXTRA_CXXFLAGS=-flto=full
   steps:
-    - template: .azure-pipelines/posix-1-setup.yml
-    - template: .azure-pipelines/posix-2-build_native.yml
+    - template: .azure-pipelines/1-posix-setup.yml
+    - template: .azure-pipelines/2-posix-build_native.yml
     # Pack source dir
     - script: |
         set -ex
@@ -77,10 +81,10 @@ jobs:
         tar -xf artifacts/$artifactName.tar.gz
         zip -r -9 artifacts/$artifactName.zip $artifactName
       displayName: Pack source dir
-    - template: .azure-pipelines/posix-3-test.yml
-    - template: .azure-pipelines/posix-4-install.yml
-    - template: .azure-pipelines/posix-5-integration_test.yml
-    - template: .azure-pipelines/posix-6-package.yml
+    - template: .azure-pipelines/3-posix-test.yml
+    - template: .azure-pipelines/4-install.yml
+    - template: .azure-pipelines/5-integration_test.yml
+    - template: .azure-pipelines/6-package.yml
 
 - job: macOS_x64
   timeoutInMinutes: 120
@@ -94,12 +98,12 @@ jobs:
     MACOSX_DEPLOYMENT_TARGET: 10.9
     IOS_DEPLOYMENT_TARGET: 12.0
   steps:
-    - template: .azure-pipelines/posix-1-setup.yml
-    - template: .azure-pipelines/posix-2-build_native.yml
-    - template: .azure-pipelines/posix-3-test.yml
-    - template: .azure-pipelines/posix-4-install.yml
-    - template: .azure-pipelines/posix-4a-add_mac.yml
-    - template: .azure-pipelines/posix-5-integration_test.yml
+    - template: .azure-pipelines/1-posix-setup.yml
+    - template: .azure-pipelines/2-posix-build_native.yml
+    - template: .azure-pipelines/3-posix-test.yml
+    - template: .azure-pipelines/4-install.yml
+    - template: .azure-pipelines/4a-mac_x64.yml
+    - template: .azure-pipelines/5-integration_test.yml
     - script: |
         set -ex
         cd ..
@@ -108,7 +112,7 @@ jobs:
         installed/bin/ldc2 -mtriple="arm64-apple-ios$IOS_DEPLOYMENT_TARGET" hello.d -of=hello_ios_arm64
         installed/bin/ldc2 -mtriple="x86_64-apple-ios$IOS_DEPLOYMENT_TARGET" hello.d -of=hello_ios_x86_64
       displayName: 'Cross-compile & -link hello-world for arm64 and iOS'
-    - template: .azure-pipelines/posix-6-package.yml
+    - template: .azure-pipelines/6-package.yml
 
 - job: macOS_arm64
   timeoutInMinutes: 120
@@ -122,10 +126,10 @@ jobs:
     MACOSX_DEPLOYMENT_TARGET: 11.0
     IOS_DEPLOYMENT_TARGET: 12.0
   steps:
-    - template: .azure-pipelines/posix-1-setup.yml
-    - template: .azure-pipelines/posix-2-build_cross_mac.yml
-    - template: .azure-pipelines/posix-4-install.yml
-    - template: .azure-pipelines/posix-6-package.yml
+    - template: .azure-pipelines/1-posix-setup.yml
+    - template: .azure-pipelines/2-posix-build_cross_mac.yml
+    - template: .azure-pipelines/4-install.yml
+    - template: .azure-pipelines/6-package.yml
 
 - job: Android
   timeoutInMinutes: 120
@@ -145,11 +149,11 @@ jobs:
         EXTRA_CMAKE_FLAGS_CROSS: -DANDROID_ABI=arm64-v8a -DANDROID_NATIVE_API_LEVEL=21 -DANDROID_STL=c++_static -DCMAKE_CROSSCOMPILING=True
         ANDROID_X86_ABI: x86_64
   steps:
-    - template: .azure-pipelines/posix-1-setup.yml
-    - template: .azure-pipelines/posix-2-build_cross_android.yml
-    - template: .azure-pipelines/posix-4-install.yml
-    - template: .azure-pipelines/posix-4a-add_android_x86.yml
-    - template: .azure-pipelines/posix-6-package.yml
+    - template: .azure-pipelines/1-posix-setup.yml
+    - template: .azure-pipelines/2-posix-build_cross_android.yml
+    - template: .azure-pipelines/4-install.yml
+    - template: .azure-pipelines/4a-android.yml
+    - template: .azure-pipelines/6-package.yml
 
 # Uploads all artifacts to a GitHub release.
 - job: Upload_to_GitHub
