@@ -1,0 +1,28 @@
+# Cross-compiles the Android x86 default libraries and copies them to the
+# install dir.
+#
+# Required env vars:
+# - ANDROID_X86_ABI
+# - EXTRA_CMAKE_FLAGS (optional)
+# - EXTRA_CMAKE_FLAGS_CROSS (optional)
+# - EXTRA_CMAKE_FLAGS_ANDROID (optional)
+# - PARALLEL_JOBS
+
+steps:
+- script: |
+    set -ex
+    cd ..
+    arch=$ANDROID_X86_ABI
+    if [ "$arch" = "x86" ]; then arch="i686"; fi
+    bootstrap-ldc/bin/ldc-build-runtime --ninja -j $PARALLEL_JOBS \
+      --buildDir=build-libs-$arch \
+      --dFlags="-fvisibility=hidden;-mtriple=$arch-linux-android" \
+      --targetSystem='Android;Linux;UNIX' \
+      --ldcSrcDir=$BUILD_SOURCESDIRECTORY \
+      ${EXTRA_CMAKE_FLAGS//-D/} \
+      ${EXTRA_CMAKE_FLAGS_CROSS//-D/} \
+      ${EXTRA_CMAKE_FLAGS_ANDROID//-D/} \
+      ANDROID_ABI=$ANDROID_X86_ABI
+    mkdir installed/lib-$arch
+    cp build-libs-$arch/lib/*.a installed/lib-$arch
+  displayName: 'Cross-compile x86 default libraries and copy to install dir'

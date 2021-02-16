@@ -1,0 +1,23 @@
+# Runs the full test suite.
+#
+# Required env vars:
+# - PARALLEL_JOBS
+
+steps:
+
+- script: cd ../build && ctest --output-on-failure -R "ldc2-unittest"
+  displayName: Run LDC D unittests
+  condition: succeededOrFailed()
+
+# Temporarily add LLVM bin dir to PATH, so that e.g. wasm-ld is found
+- script: cd ../build && PATH=$PWD/../llvm/bin:$PATH ctest -V -R "lit-tests"
+  displayName: Run LIT testsuite
+  condition: succeededOrFailed()
+
+- script: cd ../build && DMD_TESTSUITE_MAKE_ARGS=-j$PARALLEL_JOBS ctest -V -R "dmd-testsuite"
+  displayName: Run DMD testsuite
+  condition: succeededOrFailed()
+
+- script: cd ../build && ctest -j$PARALLEL_JOBS --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
+  displayName: Run defaultlib unittests & druntime integration tests
+  condition: succeededOrFailed()

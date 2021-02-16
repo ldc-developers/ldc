@@ -1,0 +1,34 @@
+# Performs a full native build incl. all test runners.
+#
+# Required env vars:
+# - CI_OS
+# - EXTRA_CMAKE_FLAGS (optional)
+# - PARALLEL_JOBS
+
+steps:
+
+# Build LDC & LDC D unittests & defaultlib unittest runners
+- script: |
+    set -ex
+    cd ..
+    export PATH="$PWD/ninja:$PATH" # for macOS
+    # Linux: use clang instead of gcc, for LTO
+    if [ "$CI_OS" = "linux" ]; then
+      export CC=$PWD/clang/bin/clang
+      export CXX=$PWD/clang/bin/clang++
+    fi
+    installDir=$PWD/install
+    mkdir build
+    cd build
+    IFS=$'\n' extraFlags=( $(xargs -n1 <<<"$EXTRA_CMAKE_FLAGS") )
+    cmake -G Ninja $BUILD_SOURCESDIRECTORY \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DLLVM_ROOT_DIR=$PWD/../llvm \
+      -DD_COMPILER=$PWD/../bootstrap-ldc/bin/ldmd2 \
+      -DCMAKE_INSTALL_PREFIX=$installDir \
+      -DINCLUDE_INSTALL_DIR=$installDir/import \
+      -DLDC_LINK_MANUALLY=OFF \
+      "${extraFlags[@]}"
+    ninja -j$PARALLEL_JOBS all ldc2-unittest all-test-runners
+    bin/ldc2 -version
+  displayName: Build LDC & LDC D unittests & defaultlib unittest runners

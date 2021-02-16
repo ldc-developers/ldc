@@ -1,0 +1,91 @@
+# Clones the git repos, installs prerequisites and builds the first (bootstrap)
+# compiler.
+#
+# Required env vars:
+# - BOOTSTRAP_CMAKE_FLAGS (optional)
+# - CI_OS
+# - CLANG_VERSION
+# - HOST_LDC_VERSION
+# - LLVM_VERSION
+# Exported env var:
+# - PARALLEL_JOBS
+
+steps:
+
+# Clone
+- checkout: self
+  submodules: true
+  fetchDepth: 50
+
+# Install prerequisites
+- script: |
+    set -ex
+    cd ..
+    if [ "$CI_OS" = "osx" ]; then
+      # Download & extract Ninja
+      curl -L -o ninja-mac.zip https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-mac.zip
+      mkdir ninja
+      tar -xf ninja-mac.zip -C ninja
+    else
+      export DEBIAN_FRONTEND=noninteractive
+      sudo dpkg --add-architecture i386
+      sudo apt-get -q update
+      sudo apt-get -yq install \
+        git-core cmake ninja-build g++-multilib \
+        libcurl3 libcurl3:i386 \
+        curl gdb p7zip-full tzdata unzip zip
+      # Download & extract clang
+      curl -L -o clang.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-$CLANG_VERSION/clang+llvm-$CLANG_VERSION-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+      mkdir clang
+      tar -xf clang.tar.xz --strip 1 -C clang
+      # Use ld.gold per default, so that LTO is tested
+      sudo update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
+    fi
+    # Install lit
+    curl -OL https://bootstrap.pypa.io/2.7/get-pip.py
+    python get-pip.py --user
+    python -m pip install --user lit
+    python -c "import lit.main; lit.main.main();" --version . | head -n 1
+    # Download & extract host LDC
+    HOST_OS="$CI_OS"
+    if [ "$CI_OS" = "android" ]; then HOST_OS="linux"; fi
+    curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$HOST_OS-x86_64.tar.xz
+    mkdir host-ldc
+    tar -xf ldc2.tar.xz --strip 1 -C host-ldc
+    # Download & extract LDC-flavoured LLVM
+    assertsSuffix=""
+    if [ "${BUILD_SOURCEBRANCH:0:10}" != "refs/tags/" ]; then
+      assertsSuffix="-withAsserts"
+    fi
+    curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$HOST_OS-x86_64$assertsSuffix.tar.xz
+    mkdir llvm
+    tar -xf llvm.tar.xz --strip 1 -C llvm
+    # Set PARALLEL_JOBS env variable and persist it for future steps
+    if [ "$CI_OS" = "osx" ]; then
+      PARALLEL_JOBS=$(sysctl -n hw.logicalcpu)
+    else
+      PARALLEL_JOBS=$(nproc)
+    fi
+    set +x
+    echo "##vso[task.setvariable variable=PARALLEL_JOBS]$PARALLEL_JOBS"
+  displayName: Install prerequisites
+
+# Build bootstrap LDC
+- script: |
+    set -ex
+    cd ..
+    export PATH="$PWD/ninja:$PATH" # for macOS
+    cmake --version
+    ninja --version
+    mkdir bootstrap-ldc
+    cd bootstrap-ldc
+    cmake -G Ninja $BUILD_SOURCESDIRECTORY \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DLLVM_ROOT_DIR=$PWD/../llvm \
+      -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
+      -DBUILD_SHARED_LIBS=OFF \
+      -DLDC_LINK_MANUALLY=OFF \
+      $BOOTSTRAP_CMAKE_FLAGS
+    ninja -j$PARALLEL_JOBS
+    bin/ldc2 -version
+  displayName: Build bootstrap LDC

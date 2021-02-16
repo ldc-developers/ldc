@@ -1,0 +1,63 @@
+# Cross-compiles LDC and default libraries to the macOS/arm64 target.
+#
+# Required env vars:
+# - ARCH
+# - CI_OS
+# - EXTRA_CMAKE_FLAGS (optional)
+# - EXTRA_CMAKE_FLAGS_CROSS (optional)
+# - LLVM_VERSION
+# - PARALLEL_JOBS
+# Exported env vars:
+# - DFLAGS
+
+steps:
+
+# Set up cross-compilation
+- script: |
+    set -ex
+    cd ..
+    # Download & extract LDC-flavoured LLVM for macOS target
+    curl -L -o llvm-$ARCH.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$CI_OS-$ARCH.tar.xz
+    mkdir llvm-$ARCH
+    tar -xf llvm-$ARCH.tar.xz --strip 1 -C llvm-$ARCH
+    # Replace llvm-config by the native LLVM's
+    cp llvm/bin/llvm-config llvm-$ARCH/bin
+    # Set up DFLAGS for cross-compiling/linking with host ldmd2
+    triple=$ARCH-apple-macos
+    DFLAGS="-mtriple=$triple -L-L$PWD/ldc-build-runtime.tmp/lib -Xcc=-target -Xcc=$triple -Xcc=-isysroot -Xcc=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
+    set +x
+    echo "##vso[task.setvariable variable=DFLAGS]$DFLAGS"
+  displayName: Set up cross-compilation
+
+# Cross-compile default libraries
+- script: |
+    set -ex
+    cd ..
+    export PATH="$PWD/ninja:$PATH"
+    IFS=$'\n' extraFlags=( $(xargs -n1 <<<"$EXTRA_CMAKE_FLAGS $EXTRA_CMAKE_FLAGS_CROSS" | cut -b3-) )
+    bootstrap-ldc/bin/ldc-build-runtime --ninja -j $PARALLEL_JOBS \
+      --dFlags="${DFLAGS// /;}" \
+      --ldcSrcDir=$BUILD_SOURCESDIRECTORY \
+      "${extraFlags[@]}"
+  displayName: Cross-compile default libraries
+
+# Cross-compile LDC executables
+- script: |
+    set -ex
+    cd ..
+    export PATH="$PWD/ninja:$PATH"
+    installDir=$PWD/install
+    mkdir build-$ARCH
+    cd build-$ARCH
+    IFS=$'\n' extraFlags=( $(xargs -n1 <<<"$EXTRA_CMAKE_FLAGS $EXTRA_CMAKE_FLAGS_CROSS") )
+    cmake -G Ninja $BUILD_SOURCESDIRECTORY \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DLLVM_ROOT_DIR=$PWD/../llvm-$ARCH \
+      -DD_COMPILER=$PWD/../bootstrap-ldc/bin/ldmd2 \
+      -DCMAKE_INSTALL_PREFIX=$installDir \
+      -DINCLUDE_INSTALL_DIR=$installDir/import \
+      -DLDC_LINK_MANUALLY=OFF \
+      -DLDC_ENABLE_ASSERTIONS=OFF \
+      "${extraFlags[@]}"
+    ninja -j$PARALLEL_JOBS ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache
+  displayName: 'Cross-compile LDC executables'
