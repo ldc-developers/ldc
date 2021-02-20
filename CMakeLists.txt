@@ -632,7 +632,11 @@ if(LDC_ENABLE_PLUGINS)
     elseif(UNIX)
         # For plugin support, we need to link with --export-dynamic on Unix.
         # Make sure the linker supports --export-dynamic (on Solaris it is not supported and also not needed).
+        set(CMAKE_REQUIRED_QUIET_BAK ${CMAKE_REQUIRED_QUIET})
+        set(CMAKE_REQUIRED_QUIET ON) # suppress status messages
         CHECK_LINK_FLAG("--export-dynamic" LINKER_ACCEPTS_EXPORT_DYNAMIC_FLAG)
+        set(CMAKE_REQUIRED_QUIET ${CMAKE_REQUIRED_QUIET_BAK})
+
         if(LINKER_ACCEPTS_EXPORT_DYNAMIC_FLAG)
             set(LDC_LINKERFLAG_LIST "${LDC_LINKERFLAG_LIST};-Wl,--export-dynamic")
         endif()
