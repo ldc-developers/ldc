@@ -7,7 +7,9 @@
 # The following variables are defined:
 #  LLVM_FOUND          - true if LLVM was found
 #  LLVM_CXXFLAGS       - C++ compiler flags for files that include LLVM headers.
+#  LLVM_ENABLE_ASSERTIONS - Whether LLVM was built with enabled assertions (ON/OFF).
 #  LLVM_INCLUDE_DIRS   - Directory containing LLVM include files.
+#  LLVM_IS_SHARED      - Whether LLVM is going to be linked dynamically (ON) or statically (OFF).
 #  LLVM_LDFLAGS        - Linker flags to add when linking against LLVM
 #                        (includes -LLLVM_LIBRARY_DIRS).
 #  LLVM_LIBRARIES      - Full paths to the library files to link against.
@@ -16,6 +18,7 @@
 #                        X86 for x86_64 and i686 hosts.
 #  LLVM_ROOT_DIR       - The root directory of the LLVM installation.
 #                        llvm-config is searched for in ${LLVM_ROOT_DIR}/bin.
+#  LLVM_TARGETS_TO_BUILD - List of built LLVM targets.
 #  LLVM_VERSION_MAJOR  - Major version of LLVM.
 #  LLVM_VERSION_MINOR  - Minor version of LLVM.
 #  LLVM_VERSION_STRING - Full LLVM version string (e.g. 6.0.0svn).
@@ -121,6 +124,13 @@ else()
 
     # The LLVM version string _may_ contain a git/svn suffix, so match only the x.y.z part
     string(REGEX MATCH "^[0-9]+[.][0-9]+[.][0-9]+" LLVM_VERSION_BASE_STRING "${LLVM_VERSION_STRING}")
+
+    llvm_set(SHARED_MODE shared-mode)
+    if(LLVM_SHARED_MODE STREQUAL "shared")
+        set(LLVM_IS_SHARED ON)
+    else()
+        set(LLVM_IS_SHARED OFF)
+    endif()
 
     llvm_set(LDFLAGS ldflags)
     llvm_set(SYSTEM_LIBS system-libs)

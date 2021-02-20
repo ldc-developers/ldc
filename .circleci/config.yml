@@ -22,8 +22,6 @@ commonSteps: &commonSteps
               llvm-dev zlib1g-dev libclang-common-$LIBCLANG_COMMON_VERSION-dev \
               $libcurl_pkg curl gdb python tzdata unzip zip \
               $EXTRA_APT_PACKAGES
-            # Use ld.gold per default, so that LTO is tested
-            update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
           else
             # Download & extract CMake
             curl -L -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.19.4/cmake-3.19.4-macos-universal.tar.gz
@@ -114,7 +112,7 @@ jobs:
       - CI_OS: linux
       - LIBCLANG_COMMON_VERSION: "6.0"
       - HOST_LDC_VERSION: 1.24.0
-      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
+      - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
   Ubuntu-20.04-sharedLibsOnly-gdmd:
     <<: *commonSteps
     docker:
@@ -125,7 +123,7 @@ jobs:
       - LIBCLANG_COMMON_VERSION: "10"
       - EXTRA_APT_PACKAGES: gdmd
       - HOST_LDC_VERSION: 1.24.0
-      - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
+      - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
   macOS-x64:
     <<: *commonSteps
     macos:

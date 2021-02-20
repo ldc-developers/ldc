@@ -24,7 +24,7 @@ addons:
       - gdb
       - ninja-build
 
-# Download & extract prebuilt vanilla LLVM if not in cache
+# Download & extract prebuilt LLVM if not in cache
 before_install:
   - nproc
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then free; fi
@@ -51,7 +51,6 @@ script:
     cmake -G Ninja . \
       -DCMAKE_BUILD_TYPE=Release \
       -DLLVM_ROOT_DIR=$LLVM_ROOT_DIR \
-      -DLDC_INSTALL_LTOPLUGIN=ON \
       -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON \
       -DLDC_LINK_MANUALLY=OFF \
       $OPTS

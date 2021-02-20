@@ -715,10 +715,10 @@ endfunction()
 #
 # Locate LLVM's LTO binary and use it
 #
-if(APPLE)
-    set(LDC_INSTALL_LTOPLUGIN_DEFAULT ON)
-else()
+if(WIN32 OR LLVM_IS_SHARED)
     set(LDC_INSTALL_LTOPLUGIN_DEFAULT OFF)
+else()
+    set(LDC_INSTALL_LTOPLUGIN_DEFAULT ON)
 endif()
 set(LDC_INSTALL_LTOPLUGIN ${LDC_INSTALL_LTOPLUGIN_DEFAULT} CACHE BOOL "Copy/install the LTO plugin from the LLVM package when available.")
 if (LDC_INSTALL_LTOPLUGIN)
