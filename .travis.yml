@@ -51,7 +51,6 @@ script:
     cmake -G Ninja . \
       -DCMAKE_BUILD_TYPE=Release \
       -DLLVM_ROOT_DIR=$LLVM_ROOT_DIR \
-      -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON \
       -DLDC_LINK_MANUALLY=OFF \
       $OPTS
   # Build LDC & LDC D unittests & defaultlib unittest runners
