@@ -68,8 +68,6 @@ install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
       llvm-dev zlib1g-dev libclang-common-$LIBCLANG_COMMON_VERSION-dev \
       $libcurl_pkg curl gdb python tzdata unzip zip \
       $EXTRA_APT_PACKAGES
-    # Use ld.gold per default, so that LTO is tested
-    update-alternatives --install /usr/bin/ld ld /usr/bin/ld.gold 99
     # Download & extract host LDC
     curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-x86_64.tar.xz
     mkdir host-ldc
@@ -117,7 +115,7 @@ task:
   environment:
     CI_OS: linux
     LIBCLANG_COMMON_VERSION: "6.0"
-    EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON"
+    EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON"
     PARALLELISM: 8
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
   << : *COMMON_STEPS_TEMPLATE
@@ -133,7 +131,7 @@ task:
     CI_OS: linux
     LIBCLANG_COMMON_VERSION: "11"
     EXTRA_APT_PACKAGES: "gdmd"
-    EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
+    EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
     PARALLELISM: 8
     # for gdmd:
     LANG: C.UTF-8
@@ -169,7 +167,7 @@ task:
   timeout_in: 60m
   environment:
     CI_OS: freebsd
-    EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON -DLDC_INSTALL_LTOPLUGIN=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS=ON -DLDC_INSTALL_LLVM_RUNTIME_LIBS_OS=freebsd -DD_COMPILER_FLAGS="-flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto" -DEXTRA_CXXFLAGS=-flto=full
+    EXTRA_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON -DD_COMPILER_FLAGS="-flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto" -DEXTRA_CXXFLAGS=-flto=full
     PARALLELISM: 4
     GITHUB_TOKEN: ENCRYPTED[0955bd48c8d4e5391446fc0149d0719ad0b63df27ec9e6c180a5730a5b10dc7f28f09d1383423db158d21380ee2b022a]
     # use clang from the `llvm` ports package to be installed, incl. lld support for .deplibs (`pragma(lib, "execinfo")`)

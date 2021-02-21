@@ -88,7 +88,7 @@ for version in range(60, plusoneable_llvmversion+1):
 for version in range(plusoneable_llvmversion, 121):
     config.available_features.add("atmost_llvm%d0%d" % (version//10, version%10))
 
-# Define OS as available feature (Windows, Darwin, Linux)
+# Define OS as available feature (Windows, Darwin, Linux, FreeBSD...)
 config.available_features.add(platform.system())
 
 # Define available features based on what LLVM can target
@@ -114,24 +114,12 @@ if (config.ldc_host_arch != ''):
     config.available_features.add('host_' + config.ldc_host_arch)
 
 # Add "LTO" feature if linker support and LTO plugin are available
-# (LTO is supported from LLVM 3.9)
-canDoLTO = False
-if (platform.system() == 'Darwin'):
-    command = ['ld', '-v']
-    p = subprocess.Popen(command, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, universal_newlines=True)
-    text = p.stderr.read()
-    if ("LTO support" in text and os.path.isfile(config.ldc2_lib_dir + '/libLTO-ldc.dylib')):
-        canDoLTO = True
-elif (platform.system() == 'Linux'):
-    command = ['ld', '-plugin']
-    p = subprocess.Popen(command, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, universal_newlines=True)
-    text = p.stderr.read()
-    if ("plugin: missing argument" in text and os.path.isfile(config.ldc2_lib_dir + '/LLVMgold-ldc.so')):
-        canDoLTO = True
-elif (platform.system() == 'Windows'):
+if (platform.system() == 'Windows'):
     canDoLTO = config.ldc_with_lld
+elif (platform.system() == 'Darwin'):
+    canDoLTO = os.path.exists('@LLVM_LIBRARY_DIRS@/libLTO.dylib')
+else:
+    canDoLTO = os.path.exists('@LLVM_LIBRARY_DIRS@/LLVMgold.so')
 if canDoLTO:
     config.available_features.add('LTO')
 

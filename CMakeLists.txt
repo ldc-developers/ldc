@@ -486,6 +486,10 @@ append("-DLDC_LLVM_VER=${LDC_LLVM_VER}" LDC_CXXFLAGS)
 append("\"-DLDC_LIBDIR_SUFFIX=R\\\"(${LIB_SUFFIX})\\\"\"" LDC_CXXFLAGS)
 append("-DLDC_HOST_${D_COMPILER_ID}=1" LDC_CXXFLAGS)
 append("-DLDC_HOST_FE_VER=${D_COMPILER_FE_VERSION}" LDC_CXXFLAGS)
+# If the LLVM is shared, add its lib dir to the hardcoded list used for library lookups.
+if(LLVM_IS_SHARED)
+    append("\"-DLDC_LLVM_LIBDIR=R\\\"(${LLVM_LIBRARY_DIRS})\\\"\"" LDC_CXXFLAGS)
+endif()
 
 #
 # LLD integration (requires headers & libs)
@@ -632,7 +636,11 @@ if(LDC_ENABLE_PLUGINS)
     elseif(UNIX)
         # For plugin support, we need to link with --export-dynamic on Unix.
         # Make sure the linker supports --export-dynamic (on Solaris it is not supported and also not needed).
+        set(CMAKE_REQUIRED_QUIET_BAK ${CMAKE_REQUIRED_QUIET})
+        set(CMAKE_REQUIRED_QUIET ON) # suppress status messages
         CHECK_LINK_FLAG("--export-dynamic" LINKER_ACCEPTS_EXPORT_DYNAMIC_FLAG)
+        set(CMAKE_REQUIRED_QUIET ${CMAKE_REQUIRED_QUIET_BAK})
+
         if(LINKER_ACCEPTS_EXPORT_DYNAMIC_FLAG)
             set(LDC_LINKERFLAG_LIST "${LDC_LINKERFLAG_LIST};-Wl,--export-dynamic")
         endif()
@@ -715,10 +723,10 @@ endfunction()
 #
 # Locate LLVM's LTO binary and use it
 #
-if(APPLE)
-    set(LDC_INSTALL_LTOPLUGIN_DEFAULT ON)
-else()
+if(WIN32 OR LLVM_IS_SHARED)
     set(LDC_INSTALL_LTOPLUGIN_DEFAULT OFF)
+else()
+    set(LDC_INSTALL_LTOPLUGIN_DEFAULT ON)
 endif()
 set(LDC_INSTALL_LTOPLUGIN ${LDC_INSTALL_LTOPLUGIN_DEFAULT} CACHE BOOL "Copy/install the LTO plugin from the LLVM package when available.")
 if (LDC_INSTALL_LTOPLUGIN)
@@ -744,10 +752,10 @@ endif()
 # Locate ASan and other LLVM compiler-rt libraries, and copy them to our lib folder
 # Location is LLVM_LIBRARY_DIRS/clang/<version>/lib/<OS>/ , for example LLVM_LIBRARY_DIRS/clang/4.0.0/lib/darwin/
 #
-if(APPLE OR WIN32)
-    set(LDC_INSTALL_LLVM_RUNTIME_LIBS_DEFAULT ON)
-else()
+if(LLVM_IS_SHARED)
     set(LDC_INSTALL_LLVM_RUNTIME_LIBS_DEFAULT OFF)
+else()
+    set(LDC_INSTALL_LLVM_RUNTIME_LIBS_DEFAULT ON)
 endif()
 set(LDC_INSTALL_LLVM_RUNTIME_LIBS ${LDC_INSTALL_LLVM_RUNTIME_LIBS_DEFAULT} CACHE BOOL "Copy/install LLVM compiler-rt libraries (ASan, libFuzzer, ...) from LLVM/Clang into LDC lib dir when available.")
 function(copy_compilerrt_lib llvm_lib_name ldc_lib_name fixup_dylib)
@@ -804,12 +812,6 @@ if (LDC_INSTALL_LLVM_RUNTIME_LIBS)
         copy_compilerrt_lib("windows/clang_rt.builtins-${compilerrt_arch_suffix}.lib"   "ldc_rt.builtins.lib" FALSE)
         copy_compilerrt_lib("windows/clang_rt.profile-${compilerrt_arch_suffix}.lib"    "ldc_rt.profile.lib"  FALSE)
         copy_compilerrt_lib("windows/clang_rt.fuzzer-${compilerrt_arch_suffix}.lib"     "ldc_rt.fuzzer.lib"   FALSE)
-        copy_compilerrt_lib("windows/clang_rt.xray-${compilerrt_arch_suffix}.lib"       "ldc_rt.xray.lib"     FALSE)
-        if(NOT (LDC_LLVM_VER LESS 700))
-            copy_compilerrt_lib("windows/clang_rt.xray-basic-${compilerrt_arch_suffix}.lib"      "ldc_rt.xray-basic.lib"     FALSE)
-            copy_compilerrt_lib("windows/clang_rt.xray-fdr-${compilerrt_arch_suffix}.lib"        "ldc_rt.xray-fdr.lib"       FALSE)
-            copy_compilerrt_lib("windows/clang_rt.xray-profiling-${compilerrt_arch_suffix}.lib"  "ldc_rt.xray-profiling.lib" FALSE)
-        endif()
     endif()
 endif()
 
