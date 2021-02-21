@@ -1,3 +1,46 @@
+# LDC 1.25.0 (2021-02-21)
+
+#### Big news
+- Frontend, druntime and Phobos are at version [2.095.1](https://dlang.org/changelog/2.095.0.html), incl. new command-line option `-makedeps`. (#3620, #3658, #3668)
+- Support for **LLVM 12** and LLVM 11.1. (#3663, ldc-developers/druntime#195)
+- LLVM for prebuilt packages bumped to v11.0.1. (#3639)
+- New prebuilt package for **native macOS/arm64** ('Apple silicon'). (#3666)
+- LDC invocations can now be nicely profiled via `--ftime-trace`. (#3624)
+- Struct TypeInfos are emitted into *referencing* object files only, and special TypeInfo member functions into the owning object file only. (#3491)
+- Windows:
+  - New CI-automated [Windows installer](https://github.com/ldc-developers/ldc/releases/download/v1.25.0/ldc2-1.25.0-windows-multilib.exe) corresponding to the multilib package. (#3601)
+  - Bundled MinGW-based libs bumped to MinGW-w64 v8.0.0. (#3605)
+  - Bundled libcurl upgraded to v7.74.0. (#3638)
+  - Breaking ABI changes:
+    - `extern(D)`: Pass non-PODs by ref to temporary. (#3612)
+    - Win64: Pass/return delegates like slices - in (up to) 2 GP registers. (#3609)
+    - Win64 `extern(D)`: Pass/return Homogeneous Vector Aggregates in SIMD registers. (#3610)
+- `-linkonce-templates` comes with a new experimental template emission scheme and is now suited for projects consisting of multiple object files too. It's similar to C++, emitting templated symbols into *each* referencing compilation unit with optimizer-discardable `linkonce_odr` linkage. The consequences are manifold - each object file is self-sufficient wrt. templated symbols, naturally working around any template-culling bugs and also meaning increased opportunity for inlining and less need for LTO.
+  The probably biggest advantage is that the optimizer can discard unused `linkonce_odr` symbols early instead of optimizing and forwarding to the assembler. So this is especially useful to **decrease compilation times with `-O`** and can at least in some scenarios greatly outweigh the (potentially very much) higher number of symbols defined by the glue layer - on my box, building optimized dub (all-at-once) is 28% faster with `-linkonce-templates`, and building the optimized Phobos unittests (per module) 56% faster.
+  Libraries compiled with `-linkonce-templates` can generally *not* be linked against dependent code compiled without `-linkonce-templates`; the other way around works. (#3600)
+- Emit function/delegate literals as `linkonce_odr`, as they are emitted into each referencing compilation unit too. (#3650)
+- Exploit ABI specifics with `-preview=in`. (#3578)
+- Musl: Switch to cherry-picked libunwind-based backtrace alternative. (#3641, ldc-developers/druntime#192)
+
+#### Platform support
+- Supports LLVM 6.0 - 12.0.
+
+#### Bug fixes
+- Fix LTO with `-link-internally`. The prebuilt Windows packages don't bundle an external `lld-link.exe` LLD linker anymore. (#2657, #3604)
+- Add source location information for `TypeInfo` diagnostics with `-betterC`. (#3631, #3632)
+- Keep init symbols of built-in `TypeInfo` classes mutable just like any other TypeInfo, so that e.g. `synchronized()` can be used on the implicit monitor. (#3599)
+- Windows: Fix colliding EH TypeDescriptors for exceptions with the same `TypeInfo_Class` name. (#3501, #3614)
+- Predefine version `FreeStanding` when targeting bare-metal. (#3607, #3608)
+- druntime: Define `rt.aaA.AA` as naked pointer, no struct wrapper. (#3613)
+- Misc. fixes and improvements for the CMake scripts, incl. new defaults for `LDC_INSTALL_{LTOPLUGIN,LLVM_RUNTIME_LIBS}`. (#3647, #3655, #3654, #3673)
+- `-cleanup-obj`: Put object files into unique temporary directory by default. (#3643, #3660)
+- druntime: Add missing `core.atomic.atomicFetch{Add,Sub}`. (#3646, ldc-developers/druntime#193)
+- Fix regression wrt. non-deleted temporary `-run` executable. (#3636)
+
+#### Internals
+- Ignore `-enable-cross-module-inlining` if inlining is generally disabled. (#3664)
+- Travis CI ported to GitHub Actions (excl. Linux/AArch64). (#3661, #3662)
+
 # LDC 1.24.0 (2020-10-24)
 
 #### Big news
