@@ -6,7 +6,7 @@ ifeq (,$(findstring win,$(OS)))
 TESTS+=forkgc forkgc2 sigmaskgc startbackgc
 endif
 
-SRC_GC = ../../src/gc/impl/conservative/gc.d
+SRC_GC = ../../src/core/internal/gc/impl/conservative/gc.d
 SRC = $(SRC_GC) ../../src/rt/lifetime.d
 # ../../src/object.d causes duplicate symbols
 UDFLAGS = $(DFLAGS) -unittest -version=CoreUnittest
