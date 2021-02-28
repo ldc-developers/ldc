@@ -965,8 +965,8 @@ public:
       // Also, private/package methods are always non-virtual.
       const bool nonFinal = !fdecl->isFinalFunc() &&
                             (fdecl->isAbstract() || fdecl->isVirtual()) &&
-                            fdecl->prot().kind != Prot::private_ &&
-                            fdecl->prot().kind != Prot::package_;
+                            fdecl->visibility.kind != Visibility::private_ &&
+                            fdecl->visibility.kind != Visibility::package_;
 
       // Get the actual function value to call.
       LLValue *funcval = nullptr;

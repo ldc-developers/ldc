@@ -5,7 +5,7 @@
  * utilities needed for arguments parsing, path manipulation, etc...
  * This file is not shared with other compilers which use the DMD front-end.
  *
- * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2021 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/mars.d, _mars.d)
@@ -144,6 +144,24 @@ Where:
   @<cmdfile>       read arguments from cmdfile
 %.*s", cast(int)inifileCanon.length, inifileCanon.ptr, cast(int)help.length, &help[0]);
 }
+
+/// DMD-specific parameters.
+struct DMDparams
+{
+    bool alwaysframe;       // always emit standard stack frame
+    ubyte dwarf;            // DWARF version
+    bool map;               // generate linker .map file
+
+    // Hidden debug switches
+    bool debugb;
+    bool debugc;
+    bool debugf;
+    bool debugr;
+    bool debugx;
+    bool debugy;
+}
+
+shared DMDparams dmdParams = dmdParams.init;
 
 /**
  * DMD's real entry point
@@ -528,8 +546,8 @@ else
         m.importedFrom = m; // m.isRoot() == true
 version (IN_LLVM) {} else
 {
-        if (!params.oneobj || modi == 0 || m.isDocFile)
-            m.deleteObjFile();
+//        if (!params.oneobj || modi == 0 || m.isDocFile)
+//            m.deleteObjFile();
 }
 
         m.parse();
@@ -1713,7 +1731,7 @@ version (IN_LLVM)
                 if (t.deprecated_)
                     continue;
 
-                buf ~= `params.`~t.paramName~` = true;`;
+                buf ~= `setFlagFor!groupName(params.`~t.paramName~`);`;
             }
             buf ~= "return true;\n";
 
@@ -1722,7 +1740,7 @@ version (IN_LLVM)
                 buf ~= `case "`~t.name~`":`;
                 if (t.deprecated_)
                     buf ~= "deprecation(Loc.initial, \"`-"~groupName~"="~t.name~"` no longer has any effect.\"); ";
-                buf ~= `params.`~t.paramName~` = true; return true;`;
+                buf ~= `setFlagFor!groupName(params.`~t.paramName~`); return true;`;
             }
             return buf;
         }
@@ -1756,7 +1774,7 @@ version (IN_LLVM)
                 break;
             case "14246":
             case "dtorfields":
-                params.dtorFields = true;
+                params.dtorFields = FeatureState.enabled;
                 break;
             case "14488":
                 params.vcomplex = true;
@@ -1910,7 +1928,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                     if (t.deprecated_)
                         continue;
 
-                    buf ~= `params.`~t.paramName~` = true;`;
+                    buf ~= `setFlagFor!name(params.`~t.paramName~`);`;
                 }
                 buf ~= "return true;\n";
 
@@ -1919,7 +1937,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                     buf ~= `case "`~t.name~`":`;
                     if (t.deprecated_)
                         buf ~= "deprecation(Loc.initial, \"`-"~name~"="~t.name~"` no longer has any effect.\"); ";
-                    buf ~= `params.`~t.paramName~` = true; return true;`;
+                    buf ~= `setFlagFor!name(params.`~t.paramName~`); return true;`;
                 }
                 return buf;
             }
@@ -2126,7 +2144,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             }
         }
         else if (arg == "-map") // https://dlang.org/dmd.html#switch-map
-            params.map = true;
+            dmdParams.map = true;
         else if (arg == "-multiobj")
             params.multiobj = true;
         else if (startsWith(p + 1, "mixin="))
@@ -2138,6 +2156,31 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
         }
         else if (arg == "-g") // https://dlang.org/dmd.html#switch-g
             params.symdebug = 1;
+        else if (startsWith(p + 1, "gdwarf")) // https://dlang.org/dmd.html#switch-gdwarf
+        {
+            static if (TARGET.Windows)
+            {
+                goto Lerror;
+            }
+            else
+            {
+                if (dmdParams.dwarf)
+                {
+                    error("`-gdwarf=<version>` can only be provided once");
+                    break;
+                }
+                params.symdebug = 1;
+
+                enum len = "-gdwarf=".length;
+                // Parse:
+                //      -gdwarf=version
+                if (arg.length < len || !dmdParams.dwarf.parseDigits(arg[len .. $], 5) || dmdParams.dwarf < 3)
+                {
+                    error("`-gdwarf=<version>` requires a valid version [3|4|5]", p);
+                    return false;
+                }
+            }
+        }
         else if (arg == "-gf")
         {
             if (!params.symdebug)
@@ -2145,7 +2188,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             params.symdebugref = true;
         }
         else if (arg == "-gs")  // https://dlang.org/dmd.html#switch-gs
-            params.alwaysframe = true;
+            dmdParams.alwaysframe = true;
         else if (arg == "-gx")  // https://dlang.org/dmd.html#switch-gx
             params.stackstomp = true;
         else if (arg == "-lowmem") // https://dlang.org/dmd.html#switch-lowmem
@@ -2373,7 +2416,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                             params.vfield = true;
                             break;
                         case 14_246:
-                            params.dtorFields = true;
+                            params.dtorFields = FeatureState.enabled;
                             break;
                         case 14_488:
                             params.vcomplex = true;
@@ -2393,7 +2436,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                     switch (ident.toDString())
                     {
                         case "dtorfields":
-                            params.dtorFields = true;
+                            params.dtorFields = FeatureState.enabled;
                             break;
                         case "intpromote":
                             params.fix16997 = true;
@@ -2433,7 +2476,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             // copy previously standalone flags from -transition
             // -preview=dip1000 implies -preview=dip25 too
             if (params.vsafe)
-                params.useDIP25 = true;
+                params.useDIP25 = FeatureState.enabled;
         }
         else if (startsWith(p + 1, "revert") ) // https://dlang.org/dmd.html#switch-revert
         {
@@ -2449,9 +2492,6 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                 params.revertUsage = true;
                 return false;
             }
-
-            if (params.noDIP25)
-                params.useDIP25 = false;
         }
         else if (arg == "-w")   // https://dlang.org/dmd.html#switch-w
             params.warnings = DiagnosticReporting.error;
@@ -2652,10 +2692,10 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             }
         }
         else if (arg == "-dip25")       // https://dlang.org/dmd.html#switch-dip25
-            params.useDIP25 = true;
+            params.useDIP25 =  FeatureState.enabled;
         else if (arg == "-dip1000")
         {
-            params.useDIP25 = true;
+            params.useDIP25 = FeatureState.enabled;
             params.vsafe = true;
         }
         else if (arg == "-dip1008")
@@ -2779,11 +2819,11 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                 goto Lerror;
         }
         else if (arg == "--b")
-            params.debugb = true;
+            dmdParams.debugb = true;
         else if (arg == "--c")
-            params.debugc = true;
+            dmdParams.debugc = true;
         else if (arg == "--f")
-            params.debugf = true;
+            dmdParams.debugf = true;
         else if (arg == "--help" ||
                  arg == "-h")
         {
@@ -2791,16 +2831,16 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             return false;
         }
         else if (arg == "--r")
-            params.debugr = true;
+            dmdParams.debugr = true;
         else if (arg == "--version")
         {
             params.logo = true;
             return false;
         }
         else if (arg == "--x")
-            params.debugx = true;
+            dmdParams.debugx = true;
         else if (arg == "--y")
-            params.debugy = true;
+            dmdParams.debugy = true;
         else if (p[1] == 'L')                        // https://dlang.org/dmd.html#switch-L
         {
             params.linkswitches.push(p + 2 + (p[2] == '='));
@@ -3059,9 +3099,18 @@ else
             //fatal();
         }
     }
+}
 
-    if (params.noDIP25)
-        params.useDIP25 = false;
+/// Sets the boolean for a flag with the given name
+private static void setFlagFor(string name)(ref bool b)
+{
+    b = name != "revert";
+}
+
+/// Sets the FeatureState for a flag with the given name
+private static void setFlagFor(string name)(ref FeatureState s)
+{
+    s = name != "revert" ? FeatureState.enabled : FeatureState.disabled;
 }
 
 /**

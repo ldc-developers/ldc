@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (C) 2013-2020 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 2013-2021 by The D Language Foundation, All Rights Reserved
  * written by Iain Buclaw
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -29,7 +29,6 @@ struct TargetC
 {
     unsigned longsize;            // size of a C 'long' or 'unsigned long' type
     unsigned long_doublesize;     // size of a C 'long double'
-    unsigned criticalSectionSize; // size of os critical section
 };
 
 struct TargetCPP
@@ -106,11 +105,6 @@ public:
     // Type sizes and support.
     unsigned alignsize(Type *type);
     unsigned fieldalign(Type *type);
-#if IN_LLVM
-    unsigned critsecsize(const Loc &loc);
-#else
-    unsigned critsecsize();
-#endif
     Type *va_listType(const Loc &loc, Scope *sc);  // get type of va_list
     int isVectorTypeSupported(int sz, Type *type);
     bool isVectorOpSupported(Type *type, TOK op, Type *t2 = NULL);
@@ -121,6 +115,7 @@ public:
     d_uns64 parameterSize(const Loc& loc, Type *t);
     bool preferPassByRef(Type *t);
     Expression *getTargetInfo(const char* name, const Loc& loc);
+    bool isCalleeDestroyingArgs(TypeFunction* tf);
 };
 
 extern Target target;

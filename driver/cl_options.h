@@ -85,6 +85,7 @@ extern FloatABI::Type floatABI;
 extern cl::opt<bool> disableLinkerStripDead;
 extern cl::opt<unsigned char> defaultToHiddenVisibility;
 extern cl::opt<bool> noPLT;
+extern cl::opt<bool> useDIP25;
 
 // Math options
 extern bool fFastMath;

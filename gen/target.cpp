@@ -29,55 +29,6 @@ TypeTuple *toArgTypes_sysv_x64(Type *t);
 // in dmd/argtypes_aarch64.d:
 TypeTuple *toArgTypes_aarch64(Type *t);
 
-namespace {
-/******************************
- * Return size of alias Mutex in druntime/src/rt/monitor_.d, or, more precisely,
- * the size of the native critical section as 2nd field in struct
- * D_CRITICAL_SECTION (after a pointer). D_CRITICAL_SECTION is pointer-size
- * aligned, so the returned field size is a multiple of pointer-size.
- */
-unsigned getCriticalSectionSize(const Param &params) {
-  const auto &triple = *params.targetTriple;
-  const bool is64bit = params.is64bit;
-
-  // Windows: sizeof(CRITICAL_SECTION)
-  if (triple.isOSWindows())
-    return is64bit ? 40 : 24;
-
-  // POSIX: sizeof(pthread_mutex_t)
-  // based on druntime/src/core/sys/posix/sys/types.d
-
-  if (triple.isOSDarwin())
-    return is64bit ? 64 : 44;
-
-  const auto arch = triple.getArch();
-  switch (triple.getOS()) {
-  case llvm::Triple::Linux:
-    if (triple.getEnvironment() == llvm::Triple::Android) {
-      // 32-bit integer rounded up to pointer size
-      return gDataLayout->getPointerSize();
-    }
-    if (arch == llvm::Triple::aarch64 || arch == llvm::Triple::aarch64_be)
-      return 48;
-    return is64bit ? 40 : 24;
-
-  case llvm::Triple::NetBSD:
-    return is64bit ? 48 : 28;
-
-  case llvm::Triple::FreeBSD:
-  case llvm::Triple::OpenBSD:
-  case llvm::Triple::DragonFly:
-    return gDataLayout->getPointerSize();
-
-  case llvm::Triple::Solaris:
-    return 24;
-
-  default:
-    return 0; // leads to an error whenever requested
-  }
-}
-} // anonymous namespace
-
 void Target::_init(const Param &params) {
   this->params = &params;
 
@@ -97,7 +48,6 @@ void Target::_init(const Param &params) {
 
   c.longsize = params.is64bit && !isMSVC ? 8 : 4;
   c.long_doublesize = realsize;
-  c.criticalSectionSize = getCriticalSectionSize(params);
 
   cpp.reverseOverloads = isMSVC; // according to DMD, only for MSVC++
   cpp.exceptions = true;
@@ -280,4 +230,10 @@ Expression *Target::getTargetInfo(const char *name_, const Loc &loc) {
 #endif
 
   return nullptr;
+}
+
+bool Target::isCalleeDestroyingArgs(TypeFunction* tf) {
+  // callEE for extern(D) and MSVC++; callER for non-MSVC extern(C++)
+  return global.params.targetTriple->isWindowsMSVCEnvironment() ||
+         tf->linkage != LINK::cpp;
 }

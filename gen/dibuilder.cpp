@@ -422,8 +422,8 @@ DIType DIBuilder::CreateComplexType(Type *type) {
 
   auto imoffset = getTypeAllocSize(DtoType(elemtype));
   LLMetadata *elems[] = {
-      CreateMemberType(0, elemtype, file, "re", 0, Prot::public_),
-      CreateMemberType(0, elemtype, file, "im", imoffset, Prot::public_)};
+      CreateMemberType(0, elemtype, file, "re", 0, Visibility::public_),
+      CreateMemberType(0, elemtype, file, "im", imoffset, Visibility::public_)};
 
   return DBuilder.createStructType(GetCU(),
                                    t->toChars(),            // Name
@@ -455,7 +455,7 @@ DIType DIBuilder::CreateTypedef(unsigned linnum, Type *type, DIFile file,
 
 DIType DIBuilder::CreateMemberType(unsigned linnum, Type *type, DIFile file,
                                    const char *c_name, unsigned offset,
-                                   Prot::Kind prot, bool isStatic,
+                                   Visibility::Kind visibility, bool isStatic,
                                    DIScope scope) {
   Type *t = type->toBasetype();
 
@@ -469,14 +469,14 @@ DIType DIBuilder::CreateMemberType(unsigned linnum, Type *type, DIFile file,
   DIType basetype = CreateTypeDescription(t);
 
   auto Flags = DIFlags::FlagZero;
-  switch (prot) {
-  case Prot::private_:
+  switch (visibility) {
+  case Visibility::private_:
     Flags = DIFlags::FlagPrivate;
     break;
-  case Prot::protected_:
+  case Visibility::protected_:
     Flags = DIFlags::FlagProtected;
     break;
-  case Prot::public_:
+  case Visibility::public_:
     Flags = DIFlags::FlagPublic;
     break;
   default:
@@ -505,7 +505,7 @@ void DIBuilder::AddFields(AggregateDeclaration *ad, DIFile file,
   for (auto vd : ad->fields) {
     elems.push_back(CreateMemberType(vd->loc.linnum, vd->type, file,
                                      vd->toChars(), vd->offset,
-                                     vd->prot().kind));
+                                     vd->visibility.kind));
   }
 }
 
@@ -531,9 +531,10 @@ void DIBuilder::AddStaticMembers(AggregateDeclaration *ad, DIFile file,
         visitMembers(tmixin->members);
       } else if (auto vd = s->isVarDeclaration())
         if (vd->isDataseg() && !vd->aliassym /* TODO: tuples*/) {
-          llvm::MDNode *elem = CreateMemberType(
-              vd->loc.linnum, vd->type, file, vd->toChars(), 0, vd->prot().kind,
-              /*isStatic = */ true, scope);
+          llvm::MDNode *elem =
+              CreateMemberType(vd->loc.linnum, vd->type, file, vd->toChars(), 0,
+                               vd->visibility.kind,
+                               /*isStatic = */ true, scope);
           elems.push_back(elem);
           StaticDataMemberCache[vd].reset(elem);
         }
@@ -658,10 +659,11 @@ DIType DIBuilder::CreateArrayType(Type *type) {
   const auto name = processDIName(type->toPrettyChars(true));
   const auto file = CreateFile();
 
-  LLMetadata *elems[] = {
-      CreateMemberType(0, Type::tsize_t, file, "length", 0, Prot::public_),
-      CreateMemberType(0, t->nextOf()->pointerTo(), file, "ptr",
-                       global.params.is64bit ? 8 : 4, Prot::public_)};
+  LLMetadata *elems[] = {CreateMemberType(0, Type::tsize_t, file, "length", 0,
+                                          Visibility::public_),
+                         CreateMemberType(0, t->nextOf()->pointerTo(), file,
+                                          "ptr", global.params.is64bit ? 8 : 4,
+                                          Visibility::public_)};
 
   return DBuilder.createStructType(scope, name, file,
                                    0,                       // LineNo
@@ -728,7 +730,7 @@ DIType DIBuilder::CreateAArrayType(Type *type) {
   LLMetadata *elems[] = {
       CreateTypedef(0, index, file, "__key_t"),
       CreateTypedef(0, value, file, "__val_t"),
-      CreateMemberType(0, Type::tvoidptr, file, "ptr", 0, Prot::public_)};
+      CreateMemberType(0, Type::tvoidptr, file, "ptr", 0, Visibility::public_)};
 
   return DBuilder.createStructType(scope, name, file,
                                    0,                       // LineNo
@@ -781,10 +783,11 @@ DIType DIBuilder::CreateDelegateType(Type *type) {
   const auto name = processDIName(type->toPrettyChars(true));
   const auto file = CreateFile();
 
-  LLMetadata *elems[] = {
-      CreateMemberType(0, Type::tvoidptr, file, "context", 0, Prot::public_),
-      CreateMemberType(0, t->next, file, "funcptr",
-                       global.params.is64bit ? 8 : 4, Prot::public_)};
+  LLMetadata *elems[] = {CreateMemberType(0, Type::tvoidptr, file, "context", 0,
+                                          Visibility::public_),
+                         CreateMemberType(0, t->next, file, "funcptr",
+                                          global.params.is64bit ? 8 : 4,
+                                          Visibility::public_)};
 
   return DBuilder.createStructType(scope, name, file,
                                    0, // line number where defined
@@ -1006,7 +1009,7 @@ DISubprogram DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
   const auto linkageName = irFunc->getLLVMFuncName();
   const auto file = CreateFile(fd);
   const auto lineNo = fd->loc.linnum;
-  const auto isLocalToUnit = fd->protection.kind == Prot::private_;
+  const auto isLocalToUnit = fd->visibility.kind == Visibility::private_;
   const auto isDefinition = true;
   const auto scopeLine = lineNo; // FIXME
   const auto flags = DIFlags::FlagPrototyped;
@@ -1094,7 +1097,7 @@ DISubprogram DIBuilder::EmitThunk(llvm::Function *Thunk, FuncDeclaration *fd) {
   const auto linkageName = Thunk->getName();
   const auto file = CreateFile(fd);
   const auto lineNo = fd->loc.linnum;
-  const bool isLocalToUnit = fd->protection.kind == Prot::private_;
+  const bool isLocalToUnit = fd->visibility.kind == Visibility::private_;
   const bool isDefinition = true;
   const bool isOptimized = isOptimizationEnabled();
   const auto scopeLine = lineNo; // FIXME
@@ -1357,7 +1360,7 @@ void DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
       CreateFile(vd),                        // file
       vd->loc.linnum,                        // line num
       CreateTypeDescription(vd->type),       // type
-      vd->protection.kind == Prot::private_, // is local to unit
+      vd->visibility.kind == Visibility::private_, // is local to unit
 #if LDC_LLVM_VER >= 1000
       !(vd->storage_class & STCextern),      // bool isDefined
 #endif
