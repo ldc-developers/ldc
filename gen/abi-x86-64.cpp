@@ -246,7 +246,7 @@ void X86_64TargetABI::rewriteFunctionType(IrFuncTy &fty) {
   regCount = RegCount(); // initialize
 
   // RETURN VALUE
-  if (!fty.ret->byref && fty.ret->type->toBasetype()->ty != Tvoid) {
+  if (!skipReturnValueRewrite(fty)) {
     Logger::println("x86-64 ABI: Transforming return type");
     LOG_SCOPE;
     RegCount dummy;

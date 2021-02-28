@@ -97,7 +97,8 @@ LLType *DtoType(Type *t) {
   case Tbool:
   case Tchar:
   case Twchar:
-  case Tdchar: {
+  case Tdchar:
+  case Tnoreturn: {
     return IrTypeBasic::get(t)->getLLType();
   }
 

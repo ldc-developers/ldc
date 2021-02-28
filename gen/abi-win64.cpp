@@ -160,8 +160,7 @@ public:
 
   void rewriteFunctionType(IrFuncTy &fty) override {
     // return value
-    const auto rt = fty.ret->type->toBasetype();
-    if (!fty.ret->byref && rt->ty != Tvoid) {
+    if (!skipReturnValueRewrite(fty)) {
       rewrite(fty, *fty.ret, /*isReturnValue=*/true);
     }
 

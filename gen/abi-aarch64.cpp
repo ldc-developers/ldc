@@ -86,7 +86,7 @@ public:
   bool passByVal(TypeFunction *, Type *) override { return false; }
 
   void rewriteFunctionType(IrFuncTy &fty) override {
-    if (!fty.ret->byref && fty.ret->type->toBasetype()->ty != Tvoid) {
+    if (!skipReturnValueRewrite(fty)) {
       rewriteArgument(fty, *fty.ret, /*isReturnVal=*/true);
     }
 

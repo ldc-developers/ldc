@@ -819,7 +819,7 @@ DIType DIBuilder::CreateTypeDescription(Type *type) {
 
   Type *t = type->toBasetype();
 
-  if (t->ty == Tvoid)
+  if (t->ty == Tvoid || t->ty == Tnoreturn)
     return nullptr;
   if (t->ty == Tnull) {
     // display null as void*

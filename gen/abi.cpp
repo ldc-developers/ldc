@@ -154,6 +154,14 @@ bool TargetABI::isExternD(TypeFunction *tf) {
   return tf->linkage == LINK::d && tf->parameterList.varargs != VARARGvariadic;
 }
 
+bool TargetABI::skipReturnValueRewrite(IrFuncTy &fty) {
+  if (fty.ret->byref)
+    return true;
+
+  auto ty = fty.ret->type->toBasetype()->ty;
+  return ty == Tvoid || ty == Tnoreturn;
+}
+
 //////////////////////////////////////////////////////////////////////////////
 
 bool TargetABI::preferPassByRef(Type *t) {
