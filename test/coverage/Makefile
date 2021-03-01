@@ -43,9 +43,15 @@ $(ROOT)/merge_override.done: $(ROOT)/%.done: $(ROOT)/%
 	@rm -f $(ROOT)/src-$*.lst
 	$(QUIET)$(SED) $(SED_INPLACE) 's/CHANGEVAR/CHANGE_VAR/g' src/$*.d
 	$(QUIET)$(ROOT)/$* $(ROOT) $(RUN_ARGS)
+ifneq (,$(findstring win,$(OS)))
+	sed -i 's:^src\\:src/:g' $(ROOT)/src-$*.lst
+endif
 	$(QUIET)$(SED) $(SED_INPLACE) 's/CHANGE_VAR/CHANGEVAR/g' src/$*.d
 	$(QUIET)$(DIFF) src-$*.lst_1.exp $(ROOT)/src-$*.lst
 	$(QUIET)$(ROOT)/$* $(ROOT) $(RUN_ARGS)
+ifneq (,$(findstring win,$(OS)))
+	sed -i 's:^src\\:src/:g' $(ROOT)/src-$*.lst
+endif
 	$(QUIET)$(SED) $(SED_INPLACE) 's/CHANGEVAR/CHANGE_VAR/g' src/$*.d
 	$(QUIET)$(DIFF) src-$*.lst_2.exp $(ROOT)/src-$*.lst
 	@touch $@
