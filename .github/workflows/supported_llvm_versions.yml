@@ -115,8 +115,9 @@ jobs:
             rm tests/d2/dmd-testsuite/runnable/{testptrref,xtest46}_gc.d
             rm tests/d2/dmd-testsuite/fail_compilation/mixin_gc.d
             # The @live tests neither (LDC segfaults)
-            rm tests/d2/dmd-testsuite/compilable/ob1.d
+            rm tests/d2/dmd-testsuite/compilable/ob{1,2}.d
             rm tests/d2/dmd-testsuite/fail_compilation/fob{1,2}.d
+            rm tests/d2/dmd-testsuite/fail_compilation/failob2.d
             # A __traits(getOverloads) test neither
             rm tests/d2/dmd-testsuite/compilable/test21050.d
           fi
