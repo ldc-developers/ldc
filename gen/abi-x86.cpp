@@ -183,22 +183,23 @@ struct X86TargetABI : TargetABI {
         //   * It is not a floating point type.
 
         IrFuncTyArg *last = fty.args.back();
-        Type *lastTy = last->type->toBasetype();
-        unsigned sz = lastTy->size();
-
         if (last->rewrite == &indirectByvalRewrite ||
             (last->byref && !last->isByVal())) {
           Logger::println("Putting last (byref) parameter in register");
           last->attrs.addAttribute(LLAttribute::InReg);
-        } else if (!lastTy->isfloating() && (sz == 1 || sz == 2 || sz == 4)) {
-          // rewrite aggregates as integers to make inreg work
-          if (lastTy->ty == Tstruct || lastTy->ty == Tsarray) {
-            integerRewrite.applyTo(*last);
-            // undo byval semantics applied via passByVal() returning true
-            last->byref = false;
-            last->attrs.clear();
+        } else {
+          Type *lastTy = last->type->toBasetype();
+          auto sz = lastTy->size();
+          if (!lastTy->isfloating() && (sz == 1 || sz == 2 || sz == 4)) {
+            // rewrite aggregates as integers to make inreg work
+            if (lastTy->ty == Tstruct || lastTy->ty == Tsarray) {
+              integerRewrite.applyTo(*last);
+              // undo byval semantics applied via passByVal() returning true
+              last->byref = false;
+              last->attrs.clear();
+            }
+            last->attrs.addAttribute(LLAttribute::InReg);
           }
-          last->attrs.addAttribute(LLAttribute::InReg);
         }
       }
     }

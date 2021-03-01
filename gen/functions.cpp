@@ -183,7 +183,16 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
       loweredDType = merge(ltd);
     } else if (passPointer) {
       // ref/out
-      attrs.addDereferenceableAttr(loweredDType->size());
+      auto ts = loweredDType->toBasetype()->isTypeStruct();
+      if (ts && !ts->sym->members) {
+        // opaque struct
+        attrs.addAttribute(LLAttribute::NonNull);
+#if LDC_LLVM_VER >= 1100
+        attrs.addAttribute(LLAttribute::NoUndef);
+#endif
+      } else {
+        attrs.addDereferenceableAttr(loweredDType->size());
+      }
     } else {
       if (abi->passByVal(f, loweredDType)) {
         // LLVM ByVal parameters are pointers to a copy in the function

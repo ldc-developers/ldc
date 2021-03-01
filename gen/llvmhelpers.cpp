@@ -152,7 +152,9 @@ void DtoDeleteArray(const Loc &loc, DValue *arr) {
 unsigned DtoAlignment(Type *type) {
   structalign_t alignment = type->alignment();
   if (alignment == STRUCTALIGN_DEFAULT) {
-    alignment = type->alignsize();
+    auto ts = type->toBasetype()->isTypeStruct();
+    if (!ts || ts->sym->members) // not an opaque struct
+      alignment = type->alignsize();
   }
   return (alignment == STRUCTALIGN_DEFAULT ? 0 : alignment);
 }
