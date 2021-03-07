@@ -283,14 +283,13 @@ public:
     LOG_SCOPE;
 
     // make sure interface is resolved
-    assert(decl->tinfo->ty == Tclass);
-    TypeClass *tc = static_cast<TypeClass *>(decl->tinfo);
-    DtoResolveClass(tc->sym);
+    auto cd = decl->tinfo->isTypeClass()->sym;
+    DtoResolveClass(cd);
 
     RTTIBuilder b(getInterfaceTypeInfoType());
 
-    // TypeInfo base
-    b.push_typeinfo(tc);
+    // TypeInfo_Class info
+    b.push(getIrAggr(cd)->getClassInfoSymbol());
 
     // finish
     b.finalize(gvar);
