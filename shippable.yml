@@ -81,7 +81,7 @@ build:
     - |
       # Work around out-of-memory errors - retry once with halved jobs
       targets='all ldc2-unittest all-test-runners'
-      ninja -j32 $targets || ninja -j16 $targets
+      ninja -j32 -k0 $targets || ninja -j16 $targets
     - bin/ldc2 --version
     # Run LDC D unittests
     - ctest --output-on-failure -R "ldc2-unittest"
