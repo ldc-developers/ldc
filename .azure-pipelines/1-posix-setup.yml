@@ -40,7 +40,7 @@ steps:
       tar -xf clang.tar.xz --strip 1 -C clang
     fi
     # Install lit
-    curl -OL https://bootstrap.pypa.io/2.7/get-pip.py
+    curl -OL https://bootstrap.pypa.io/pip/2.7/get-pip.py
     python get-pip.py --user
     python -m pip install --user lit
     python -c "import lit.main; lit.main.main();" --version . | head -n 1
