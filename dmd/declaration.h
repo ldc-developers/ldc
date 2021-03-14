@@ -568,6 +568,7 @@ public:
     // 4 if there's an assert(0)
     // 8 if there's inline asm
     // 16 if there are multiple return statements
+    // IN_LLVM: 32 if there's DMD-style inline asm
     int hasReturnExp;
 
     // Support for NRVO (named return value optimization)
