@@ -43,8 +43,8 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
 
 #if LDC_LLVM_SUPPORTED_TARGET_NVPTX
 #define CUDA_VALID_VER_INIT 100, 110, 120, 130, 200, 210, 300, 350, 370,\
- 500, 520, 600, 610, 620
-  const std::array<int, 14> valid_cuda_versions = {{CUDA_VALID_VER_INIT}};
+ 500, 520, 600, 610, 620, 700, 720, 750, 800
+  const std::array<int, 18> valid_cuda_versions = {{CUDA_VALID_VER_INIT}};
 
   if (s.substr(0, 5) == "cuda-") {
     const int v = atoi(s.c_str() + 5);
