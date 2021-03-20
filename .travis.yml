@@ -9,7 +9,7 @@ matrix:
     - os: linux
       arch: arm64
       d: ldc-beta
-      env: LLVM_VERSION=11.0.1 PARALLELISM=8 CC=gcc-8 CXX=g++-8 OPTS="-DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64 -DADDITIONAL_DEFAULT_LDC_SWITCHES='\"-linker=bfd\",' -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF"
+      env: LLVM_VERSION=11.0.1 CC=gcc-8 CXX=g++-8 OPTS="-DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64 -DADDITIONAL_DEFAULT_LDC_SWITCHES='\"-linker=bfd\",' -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF"
 
 cache:
   directories:
@@ -55,14 +55,12 @@ script:
       $OPTS
   # Build LDC & LDC D unittests & defaultlib unittest runners
   - |
-    numJobs=${PARALLELISM:-3}
     # Work around out-of-memory errors - retry with decreasing jobs
     targets='all ldc2-unittest all-test-runners'
-    currentNumJobs=$numJobs
-    for i in {1..5}; do
-      ninja -j$currentNumJobs $targets && break || true
-      currentNumJobs=$(( ($numJobs + $i - 1) / $i ))
-    done
+    ninja -j8 -k0 $targets || \
+      ninja -j8 -k0 $targets || \
+      ninja -j2 -k0 $targets || \
+      ninja -j1 $targets
   - bin/ldc2 -version || exit 1
   # Run LDC D unittests
   - ctest --output-on-failure -R "ldc2-unittest"
@@ -73,10 +71,10 @@ script:
   # FIXME: don't ignore errors
   - ctest -V -R "lit-tests" || true
   # Run DMD testsuite
-  - DMD_TESTSUITE_MAKE_ARGS="-j${PARALLELISM:-3} GDB_FLAGS=OFF" ctest -V -R "dmd-testsuite"
+  - DMD_TESTSUITE_MAKE_ARGS="-j8 GDB_FLAGS=OFF" ctest -V -R "dmd-testsuite"
   # Run defaultlib unittests & druntime integration tests
   # FIXME: don't exclude hanging core.thread.fiber & don't ignore errors
-  - ctest -j${PARALLELISM:-3} --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest|^core.thread.fiber($|-)" || true
+  - ctest -j8 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest|^core.thread.fiber($|-)" || true
 
 after_success:
   - |

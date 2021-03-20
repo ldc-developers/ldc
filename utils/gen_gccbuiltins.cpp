@@ -52,7 +52,9 @@ string dtype(Record* rec, bool readOnlyMem)
         type = type.substr(i);
     }
 
-    if(type == "i8")
+    if(type == "i1" && vec.empty())
+        return "bool";
+    else if(type == "i8")
         return "byte" + vec;
     else if(type == "i16")
         return "short" + vec;

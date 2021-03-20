@@ -4,7 +4,7 @@
 common_steps_template: &COMMON_STEPS_TEMPLATE
   install_pip_and_lit_script: |
     # Install pip
-    curl --max-time 300 --retry 3 -OL https://bootstrap.pypa.io/2.7/get-pip.py
+    curl --max-time 300 --retry 3 -OL https://bootstrap.pypa.io/pip/2.7/get-pip.py
     python get-pip.py --user
     rm get-pip.py
     # Install lit

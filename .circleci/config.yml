@@ -42,7 +42,7 @@ commonSteps: &commonSteps
             echo "export PATH=$PWD/cmake/bin:$PWD/ninja:$PWD/llvm/bin:$PATH" >> $BASH_ENV
           fi
           # Install pip
-          curl --max-time 300 --retry 3 -OL https://bootstrap.pypa.io/2.7/get-pip.py
+          curl --max-time 300 --retry 3 -OL https://bootstrap.pypa.io/pip/2.7/get-pip.py
           python get-pip.py --user
           rm get-pip.py
           # Install lit
@@ -71,10 +71,10 @@ commonSteps: &commonSteps
             -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
             -DLDC_LINK_MANUALLY=OFF \
             $EXTRA_CMAKE_FLAGS
-          # Work around out-of-memory errors - retry twice with parallelization and one last time serially
+          # Work around out-of-memory errors - retry once with parallelization and one last time serially
           targets='all ldc2-unittest all-test-runners'
-          for i in {1..3}; do
-            ninja -j$PARALLELISM $targets && break || true
+          for i in {1..2}; do
+            ninja -j$PARALLELISM -k0 $targets && break || true
           done
           ninja -j1 $targets
           bin/ldc2 -version
