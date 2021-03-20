@@ -29,6 +29,8 @@
 
 #include "dmd/aggregate.h"
 #include "dmd/declaration.h"
+#include "dmd/enum.h"
+#include "dmd/id.h"
 #include "dmd/identifier.h"
 #include "dmd/ldcbindings.h"
 #include "dmd/mtype.h"
@@ -175,6 +177,16 @@ private:
     return argTypes && argTypes->arguments->empty();
   }
 
+  // Helper treating the magic __c_complex_real enum as creal.
+  static bool returnsComplexReal(TypeFunction* tf) {
+    Type *rt = tf->next;
+    if (auto te = rt->isTypeEnum()) {
+      if (te->sym->ident == Id::__c_complex_real)
+        return true;
+    }
+    return rt->toBasetype()->ty == Tcomplex80;
+  }
+
   RegCount &getRegCount(IrFuncTy &fty) {
     return reinterpret_cast<RegCount &>(fty.tag);
   }
@@ -189,6 +201,11 @@ bool X86_64TargetABI::returnInArg(TypeFunction *tf, bool) {
   }
 
   Type *rt = tf->next->toBasetype();
+
+  // x87 creal is returned on the x87 stack
+  if (returnsComplexReal(tf))
+    return false;
+
   return passInMemory(rt);
 }
 
@@ -249,8 +266,12 @@ void X86_64TargetABI::rewriteFunctionType(IrFuncTy &fty) {
   if (!skipReturnValueRewrite(fty)) {
     Logger::println("x86-64 ABI: Transforming return type");
     LOG_SCOPE;
-    RegCount dummy;
-    rewriteArgument(fty, *fty.ret, dummy);
+
+    // don't rewrite x87 creal return values (returned on the x87 stack)
+    if (!returnsComplexReal(fty.type)) {
+      RegCount dummy;
+      rewriteArgument(fty, *fty.ret, dummy);
+    }
   }
 
   // IMPLICIT PARAMETERS
