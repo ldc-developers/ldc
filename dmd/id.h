@@ -32,6 +32,8 @@ struct Id
     static Identifier *__c_longlong;
     static Identifier *__c_ulonglong;
     static Identifier *__c_long_double;
+    static Identifier *__c_complex_float;
+    static Identifier *__c_complex_double;
     static Identifier *__c_complex_real;
     static Identifier *__switch;
     static Identifier *crt_constructor;
