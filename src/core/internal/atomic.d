@@ -75,6 +75,10 @@ version (LDC)
             _ordering!(succ), _ordering!(fail), weak);
         return result.exchanged;
     }
+    bool atomicCompareExchangeWeakNoResult(MemoryOrder succ = MemoryOrder.seq, MemoryOrder fail = MemoryOrder.seq, T)(T* dest, const T compare, T value) pure nothrow @nogc @trusted
+    {
+        return atomicCompareExchangeNoResult!(true, succ, fail, T)(dest, compare, value);
+    }
     bool atomicCompareExchangeStrongNoResult(MemoryOrder succ = MemoryOrder.seq, MemoryOrder fail = MemoryOrder.seq, T)(T* dest, const T compare, T value) pure nothrow @nogc @trusted
     {
         return atomicCompareExchangeNoResult!(false, succ, fail, T)(dest, compare, value);
