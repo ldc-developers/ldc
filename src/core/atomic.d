@@ -1131,6 +1131,13 @@ version (CoreUnittest)
         }
     }
 
+    @betterC pure nothrow @nogc @safe unittest
+    {
+        int a;
+        if (casWeak!(MemoryOrder.acq_rel, MemoryOrder.raw)(&a, 0, 4))
+            assert(a == 4);
+    }
+
     @betterC pure nothrow unittest
     {
         // https://issues.dlang.org/show_bug.cgi?id=17821
