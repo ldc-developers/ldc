@@ -167,9 +167,9 @@ private:
   DIFile CreateFile();
   DIFile CreateFile(Dsymbol* decl);
   DIType CreateBasicType(Type *type);
-  DIType CreateEnumType(Type *type);
-  DIType CreatePointerType(Type *type);
-  DIType CreateVectorType(Type *type);
+  DIType CreateEnumType(TypeEnum *type);
+  DIType CreatePointerType(TypePointer *type);
+  DIType CreateVectorType(TypeVector *type);
   DIType CreateComplexType(Type *type);
   DIType CreateTypedef(unsigned linnum, Type *type, DIFile file,
                        const char *c_name);
@@ -183,13 +183,13 @@ private:
                               bool isOptimized, unsigned scopeLine,
                               DIFlags flags);
   DIType CreateCompositeType(Type *type);
-  DIType CreateArrayType(Type *type);
-  DIType CreateSArrayType(Type *type);
-  DIType CreateAArrayType(Type *type);
+  DIType CreateArrayType(TypeArray *type);
+  DIType CreateSArrayType(TypeSArray *type);
+  DIType CreateAArrayType(TypeAArray *type);
   DISubroutineType CreateFunctionType(Type *type);
   DISubroutineType CreateEmptyFunctionType();
-  DIType CreateDelegateType(Type *type);
-  DIType CreateTypeDescription(Type *type);
+  DIType CreateDelegateType(TypeDelegate *type);
+  DIType CreateTypeDescription(Type *type, bool voidToUbyte = false);
   DICompositeType CreateCompositeTypeDescription(Type *type);
 
   bool mustEmitFullDebugInfo();
