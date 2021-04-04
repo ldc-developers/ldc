@@ -1025,6 +1025,26 @@ public:
     Expression *toBoolean(Scope *sc);
     Expression *addDtorHook(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
+
+#if IN_LLVM
+    // Returns the head of this CommaExp, descending recursively.
+    //    `(a, b), c` => a
+    Expression *getHead() {
+      auto l = e1;
+      while (auto ce = l->isCommaExp())
+        l = ce->e1;
+      return l;
+    }
+
+    // Returns the tail of this CommaExp, descending recursively.
+    //    `a, (b, c)` => c
+    Expression *getTail() {
+      auto r = e2;
+      while (auto ce = r->isCommaExp())
+        r = ce->e2;
+      return r;
+    }
+#endif
 };
 
 class IndexExp : public BinExp

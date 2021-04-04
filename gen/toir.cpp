@@ -2743,28 +2743,6 @@ bool basetypesAreEqualWithoutModifiers(Type *l, Type *r) {
   r = stripModifiers(r->toBasetype(), true);
   return l->equals(r);
 }
-
-Expression *getCommaHead(CommaExp *e) {
-  auto l = e->e1;
-  for (;;) {
-    if (auto ce = l->isCommaExp())
-      l = ce->e1;
-    else
-      break;
-  }
-  return l;
-}
-
-Expression *getCommaTail(CommaExp *e) {
-  auto r = e->e2;
-  for (;;) {
-    if (auto ce = r->isCommaExp())
-      r = ce->e2;
-    else
-      break;
-  }
-  return r;
-}
 }
 
 bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
@@ -2861,8 +2839,8 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
   // temporary structs and static arrays too
   if (DtoIsInMemoryOnly(lhsBasetype)) {
     if (auto ce = rhs->isCommaExp()) {
-      Expression *head = getCommaHead(ce);
-      Expression *tail = getCommaTail(ce);
+      Expression *head = ce->getHead();
+      Expression *tail = ce->getTail();
 
       if (auto de = head->isDeclarationExp()) {
         if (auto vd = de->declaration->isVarDeclaration()) {
