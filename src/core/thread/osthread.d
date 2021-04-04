@@ -318,16 +318,19 @@ class Thread : ThreadBase
         }
         else version (Posix)
         {
-            version (LDC)
+            if (m_addr != m_addr.init)
             {
-                // don't detach the main thread, TSan doesn't like it:
-                // https://github.com/ldc-developers/ldc/issues/3519
-                if (!isMainThread())
+                version (LDC)
+                {
+                    // don't detach the main thread, TSan doesn't like it:
+                    // https://github.com/ldc-developers/ldc/issues/3519
+                    if (!isMainThread())
+                        pthread_detach( m_addr );
+                }
+                else
+                {
                     pthread_detach( m_addr );
-            }
-            else
-            {
-                pthread_detach( m_addr );
+                }
             }
             m_addr = m_addr.init;
         }
@@ -552,7 +555,7 @@ class Thread : ThreadBase
         }
         else version (Posix)
         {
-            if ( pthread_join( m_addr, null ) != 0 )
+            if ( m_addr != m_addr.init && pthread_join( m_addr, null ) != 0 )
                 throw new ThreadException( "Unable to join thread" );
             // NOTE: pthread_join acts as a substitute for pthread_detach,
             //       which is normally called by the dtor.  Setting m_addr
