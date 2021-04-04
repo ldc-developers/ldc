@@ -1944,6 +1944,10 @@ else
                             {
                                 // Allow conversion from T[lwr .. upr] to ref T[upr-lwr]
                             }
+                            else if (global.params.rvalueRefParam)
+                            {
+                                // Allow implicit conversion to ref
+                            }
                             else
                                 return nomatch();
                         }
