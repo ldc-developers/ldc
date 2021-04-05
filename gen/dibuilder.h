@@ -189,6 +189,7 @@ private:
   DISubroutineType CreateFunctionType(Type *type);
   DISubroutineType CreateEmptyFunctionType();
   DIType CreateDelegateType(TypeDelegate *type);
+  DIType CreateUnspecifiedType(Dsymbol *sym);
   DIType CreateTypeDescription(Type *type, bool voidToUbyte = false);
 
   bool mustEmitFullDebugInfo();

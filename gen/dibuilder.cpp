@@ -320,7 +320,7 @@ DIType DIBuilder::CreateEnumType(TypeEnum *type) {
   EnumDeclaration *const ed = type->sym;
 
   if (!ed->memtype) // opaque enum
-    return DBuilder.createUnspecifiedType(ed->toPrettyChars(true));
+    return CreateUnspecifiedType(ed);
 
   if (ed->isSpecial()) // magic enums: forward to base type
     return CreateTypeDescription(ed->memtype);
@@ -553,7 +553,7 @@ DIType DIBuilder::CreateCompositeType(Type *t) {
   // if we don't know the aggregate's size, we don't know enough about it
   // to provide debug info. probably a forward-declared struct?
   if (ad->sizeok == Sizeok::none) {
-    return DBuilder.createUnspecifiedType(name);
+    return CreateUnspecifiedType(ad);
   }
 
   assert(GetCU() && "Compilation unit missing or corrupted");
@@ -753,6 +753,11 @@ DIType DIBuilder::CreateDelegateType(TypeDelegate *type) {
                                    uniqueIdent(type)); // UniqueIdentifier
 }
 
+DIType DIBuilder::CreateUnspecifiedType(Dsymbol *sym) {
+  return DBuilder.createUnspecifiedType(
+      processDIName(sym->toPrettyChars(true)));
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 DIType DIBuilder::CreateTypeDescription(Type *t, bool voidToUbyte) {
@@ -783,12 +788,14 @@ DIType DIBuilder::CreateTypeDescription(Type *t, bool voidToUbyte) {
     return CreateAArrayType(taa);
   if (t->ty == Tstruct)
     return CreateCompositeType(t);
-  if (t->ty == Tclass) {
+  if (auto tc = t->isTypeClass()) {
     LLType *T = DtoType(t);
     const auto aggregateDIType = CreateCompositeType(t);
-    const auto name = (aggregateDIType->getName() + "*").str();
+    const auto name =
+        (tc->sym->toPrettyChars(true) + llvm::StringRef("*")).str();
     return DBuilder.createPointerType(aggregateDIType, getTypeAllocSize(T) * 8,
-                                      getABITypeAlign(T) * 8, llvm::None, name);
+                                      getABITypeAlign(T) * 8, llvm::None,
+                                      processDIName(name));
   }
   if (auto tf = t->isTypeFunction())
     return CreateFunctionType(tf);
@@ -931,7 +938,7 @@ DISubprogram DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
   if (emitCodeView && fd->toParent2()->isFuncDeclaration()) {
     // emit into module & use fully qualified name
     scope = GetCU();
-    name = fd->toPrettyChars(true);
+    name = processDIName(fd->toPrettyChars(true));
   } else if (fd->isMain()) {
     scope = GetSymbolScope(fd);
     name = fd->toPrettyChars(true); // `D main`

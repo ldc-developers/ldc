@@ -87,7 +87,8 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 // CHECK: int delegate()
 // CHECK-NEXT: context :
 // CHECK-NEXT: funcptr :
-// CHECK-SAME: args_cdb.main.__lambda
+// CHECK-G-SAME: args_cdb.main.__lambda
+// CHECK-GC-SAME: args_cdb::main::__lambda
 
 // CDB: ?? slice
 // CHECK-G:  struct int[]
@@ -134,7 +135,7 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
  */
 size_t byValueShort(Large large)
 {
-// CDB: bp1 /1 `args_cdb.d:137`
+// CDB: bp1 /1 `args_cdb.d:138`
 // CDB: g
 // CHECK: Breakpoint 1 hit
 // CHECK-G:  !args_cdb.byValueShort
@@ -160,7 +161,7 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
           Small* small, Large* large,
           TypeInfo_Class* ti, typeof(null)* np)
 {
-// CDB: bp2 /1 `args_cdb.d:163`
+// CDB: bp2 /1 `args_cdb.d:164`
 // CDB: g
 // CHECK: Breakpoint 2 hit
 // CHECK-G:  !args_cdb.byPtr
@@ -189,7 +190,8 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
 // CHECK: int delegate()
 // CHECK-NEXT: context :
 // CHECK-NEXT: funcptr :
-// CHECK-SAME: args_cdb.main.__lambda
+// CHECK-G-SAME: args_cdb.main.__lambda
+// CHECK-GC-SAME: args_cdb::main::__lambda
 // CDB: ?? *fun
 // CHECK: <function> *
 // CDB: ?? *slice
@@ -235,7 +237,7 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
           ref Small small, ref Large large,
           ref TypeInfo_Class ti, ref typeof(null) np)
 {
-// CDB: bp3 /1 `args_cdb.d:238`
+// CDB: bp3 /1 `args_cdb.d:240`
 // CDB: g
 // CHECK: Breakpoint 3 hit
 // CHECK-G:  !args_cdb.byRef
@@ -265,7 +267,8 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
 // CHECK: int delegate()
 // CHECK-NEXT: context :
 // CHECK-NEXT: funcptr : {{0x[0-9a-f`]*}}
-// CHECK-SAME: args_cdb.main.__lambda
+// CHECK-G-SAME: args_cdb.main.__lambda
+// CHECK-GC-SAME: args_cdb::main::__lambda
 // CDB: ?? *fun
 // CHECK: <function> * {{0x[0-9a-f`]*}}
 // CDB: ?? *slice
