@@ -330,23 +330,21 @@ DIType DIBuilder::CreateEnumType(TypeEnum *type) {
   const auto lineNumber = ed->loc.linnum;
   const auto file = CreateFile(ed);
 
-  // only emit a typedef for non-integral/floating-point types
+  // just emit a typedef for non-integral base types
   auto tb = type->toBasetype();
-  if (!tb->isintegral() && !tb->isfloating()) {
+  if (!tb->isintegral()) {
     auto tbase = CreateTypeDescription(tb);
     return DBuilder.createTypedef(tbase, name, file, lineNumber, scope);
   }
 
-  // emit members iff all members are integers
   llvm::SmallVector<LLMetadata *, 8> subscripts;
-  for (auto m : *ed->members) {
-    EnumMember *em = m->isEnumMember();
-    if (auto ie = em->value()->isIntegerExp()) {
-      subscripts.push_back(
-          DBuilder.createEnumerator(em->toChars(), ie->toInteger()));
-    } else {
-      subscripts.clear();
-      break;
+  if (ed->members) {
+    for (auto m : *ed->members) {
+      EnumMember *em = m->isEnumMember();
+      if (auto ie = em->value()->isIntegerExp()) {
+        subscripts.push_back(
+            DBuilder.createEnumerator(em->toChars(), ie->toInteger()));
+      }
     }
   }
 
