@@ -190,7 +190,6 @@ private:
   DISubroutineType CreateEmptyFunctionType();
   DIType CreateDelegateType(TypeDelegate *type);
   DIType CreateTypeDescription(Type *type, bool voidToUbyte = false);
-  DICompositeType CreateCompositeTypeDescription(Type *type);
 
   bool mustEmitFullDebugInfo();
   bool mustEmitLocationsDebugInfo();

@@ -125,7 +125,7 @@ DIScope DIBuilder::GetSymbolScope(Dsymbol *s) {
     // parent composite types have to get declared
     while (!parent->isModule()) {
       if (parent->isAggregateDeclaration())
-        CreateCompositeTypeDescription(parent->getType());
+        CreateCompositeType(parent->getType());
       parent = parent->toParent();
     }
   }
@@ -135,7 +135,7 @@ DIScope DIBuilder::GetSymbolScope(Dsymbol *s) {
   } else if (auto m = parent->isModule()) {
     return EmitModule(m);
   } else if (parent->isAggregateDeclaration()) {
-    return CreateCompositeTypeDescription(parent->getType());
+    return CreateCompositeType(parent->getType());
   } else if (auto fd = parent->isFuncDeclaration()) {
     DtoDeclareFunction(fd);
     return EmitSubProgram(fd);
@@ -494,7 +494,7 @@ void DIBuilder::AddStaticMembers(AggregateDeclaration *ad, DIFile file,
   if (!members)
     return;
 
-  auto scope = CreateCompositeTypeDescription(ad->getType());
+  auto scope = CreateCompositeType(ad->getType());
 
   std::function<void(Dsymbols *)> visitMembers = [&](Dsymbols *members) {
     for (auto s : *members) {
@@ -543,7 +543,7 @@ DIType DIBuilder::CreateCompositeType(Type *t) {
     T = T->getPointerElementType();
   IrAggr *irAggr = getIrAggr(ad, true);
 
-  if (static_cast<llvm::MDNode *>(irAggr->diCompositeType) != nullptr) {
+  if (irAggr->diCompositeType) {
     return irAggr->diCompositeType;
   }
 
@@ -620,9 +620,8 @@ DIType DIBuilder::CreateCompositeType(Type *t) {
 
   irAggr->diCompositeType =
       DBuilder.replaceTemporary(llvm::TempDINode(irAggr->diCompositeType), ret);
-  irAggr->diCompositeType = ret;
 
-  return ret;
+  return irAggr->diCompositeType;
 }
 
 DIType DIBuilder::CreateArrayType(TypeArray *type) {
@@ -798,12 +797,6 @@ DIType DIBuilder::CreateTypeDescription(Type *t, bool voidToUbyte) {
 
   // Crash if the type is not supported.
   llvm_unreachable("Unsupported type in debug info");
-}
-
-DICompositeType DIBuilder::CreateCompositeTypeDescription(Type *type) {
-  DIType ret = type->toBasetype()->ty == Tclass ? CreateCompositeType(type)
-                                                : CreateTypeDescription(type);
-  return llvm::cast<llvm::DICompositeType>(ret);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
