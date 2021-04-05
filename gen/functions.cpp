@@ -664,10 +664,11 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   // First apply the TargetMachine attributes and NonLazyBind attribute,
   // such that they can be overridden by UDAs.
   applyTargetMachineAttributes(*func, *gTargetMachine);
-  if (!fdecl->fbody && opts::noPLT) {
-      // Add `NonLazyBind` attribute to function declarations,
-      // the codegen options allow skipping PLT.
-      func->addFnAttr(LLAttribute::NonLazyBind);
+
+  // Add `NonLazyBind` attribute to function declarations,
+  // the codegen options allow skipping PLT.
+  if (opts::noPLT && !fdecl->fbody) {
+    func->addFnAttr(LLAttribute::NonLazyBind);
   }
 
   applyFuncDeclUDAs(fdecl, irFunc);
