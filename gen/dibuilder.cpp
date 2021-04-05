@@ -741,7 +741,7 @@ DIType DIBuilder::CreateDelegateType(TypeDelegate *type) {
 
   LLMetadata *elems[] = {
       CreateMemberType(0, Type::tvoidptr, file, "context", 0, Prot::public_),
-      CreateMemberType(0, type->next, file, "funcptr",
+      CreateMemberType(0, type->next->pointerTo(), file, "funcptr",
                        global.params.is64bit ? 8 : 4, Prot::public_)};
 
   return DBuilder.createStructType(scope, name, file,
