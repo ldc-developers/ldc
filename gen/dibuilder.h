@@ -171,8 +171,6 @@ private:
   DIType CreatePointerType(TypePointer *type);
   DIType CreateVectorType(TypeVector *type);
   DIType CreateComplexType(Type *type);
-  DIType CreateTypedef(unsigned linnum, Type *type, DIFile file,
-                       const char *c_name);
   DIType CreateMemberType(unsigned linnum, Type *type, DIFile file,
                           const char *c_name, unsigned offset, Prot::Kind,
                           bool isStatic = false, DIScope scope = nullptr);

@@ -53,8 +53,6 @@ namespace ldc {
 const char *convertDIdentifierToCPlusPlus(const char *name, size_t nameLength);
 
 namespace {
-DIType getNullDIType() { return nullptr; }
-
 llvm::StringRef uniqueIdent(Type *t) {
   if (t->deco)
     return t->deco;
@@ -425,17 +423,11 @@ DIType DIBuilder::CreateComplexType(Type *type) {
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment
                                    DIFlags::FlagZero,       // What here?
-                                   getNullDIType(),         // derived from
+                                   nullptr,                 // derived from
                                    DBuilder.getOrCreateArray(elems),
                                    0,               // RunTimeLang
-                                   getNullDIType(), // VTableHolder
+                                   nullptr,         // VTableHolder
                                    uniqueIdent(t)); // UniqueIdentifier
-}
-
-DIType DIBuilder::CreateTypedef(unsigned linnum, Type *type, DIFile file,
-                                const char *c_name) {
-  DIType basetype = CreateTypeDescription(type);
-  return DBuilder.createTypedef(basetype, c_name, file, linnum, GetCU());
 }
 
 DIType DIBuilder::CreateMemberType(unsigned linnum, Type *type, DIFile file,
@@ -567,8 +559,8 @@ DIType DIBuilder::CreateCompositeType(Type *t) {
   const auto sizeInBits = T->isSized() ? getTypeAllocSize(T) * 8 : 0;
   const auto alignmentInBits = T->isSized() ? getABITypeAlign(T) * 8 : 0;
   const auto classOffsetInBits = 0;
-  auto derivedFrom = getNullDIType();
-  const auto vtableHolder = getNullDIType();
+  DIType derivedFrom = nullptr;
+  const auto vtableHolder = nullptr;
   const auto templateParams = nullptr;
   const auto uniqueIdentifier = uniqueIdent(t);
 
@@ -641,11 +633,11 @@ DIType DIBuilder::CreateArrayType(TypeArray *type) {
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment in bits
                                    DIFlags::FlagZero,       // What here?
-                                   getNullDIType(),         // derived from
+                                   nullptr,                 // derived from
                                    DBuilder.getOrCreateArray(elems),
-                                   0,                       // RunTimeLang
-                                   getNullDIType(),         // VTableHolder
-                                   uniqueIdent(type));      // UniqueIdentifier
+                                   0,                  // RunTimeLang
+                                   nullptr,            // VTableHolder
+                                   uniqueIdent(type)); // UniqueIdentifier
 }
 
 DIType DIBuilder::CreateSArrayType(TypeSArray *type) {
@@ -677,16 +669,16 @@ DIType DIBuilder::CreateSArrayType(TypeSArray *type) {
 DIType DIBuilder::CreateAArrayType(TypeAArray *type) {
   llvm::Type *T = DtoType(type);
 
-  Type *index = type->index;
-  Type *value = type->nextOf();
+  auto tindex = CreateTypeDescription(type->index);
+  auto tvalue = CreateTypeDescription(type->nextOf());
 
   const auto scope = GetCU();
   const auto name = processDIName(type->toPrettyChars(true));
   const auto file = CreateFile();
 
   LLMetadata *elems[] = {
-      CreateTypedef(0, index, file, "__key_t"),
-      CreateTypedef(0, value, file, "__val_t"),
+      DBuilder.createTypedef(tindex, "__key_t", file, 0, scope),
+      DBuilder.createTypedef(tvalue, "__val_t", file, 0, scope),
       CreateMemberType(0, Type::tvoidptr, file, "ptr", 0, Prot::public_)};
 
   return DBuilder.createStructType(scope, name, file,
@@ -694,11 +686,11 @@ DIType DIBuilder::CreateAArrayType(TypeAArray *type) {
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment in bits
                                    DIFlags::FlagZero,       // What here?
-                                   getNullDIType(),         // derived from
+                                   nullptr,                 // derived from
                                    DBuilder.getOrCreateArray(elems),
-                                   0,                       // RunTimeLang
-                                   getNullDIType(),         // VTableHolder
-                                   uniqueIdent(type));      // UniqueIdentifier
+                                   0,                  // RunTimeLang
+                                   nullptr,            // VTableHolder
+                                   uniqueIdent(type)); // UniqueIdentifier
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -746,10 +738,10 @@ DIType DIBuilder::CreateDelegateType(TypeDelegate *type) {
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment in bits
                                    DIFlags::FlagZero,       // flags
-                                   getNullDIType(),         // derived from
+                                   nullptr,                 // derived from
                                    DBuilder.getOrCreateArray(elems),
-                                   0,               // RunTimeLang
-                                   getNullDIType(), // VTableHolder
+                                   0,                  // RunTimeLang
+                                   nullptr,            // VTableHolder
                                    uniqueIdent(type)); // UniqueIdentifier
 }
 
