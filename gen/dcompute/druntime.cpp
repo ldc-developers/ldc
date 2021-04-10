@@ -25,12 +25,10 @@ bool isFromLDC_DCompute(Dsymbol *sym) {
   auto moduleDecl = mod->md;
   if (!moduleDecl)
     return false;
-  if (!moduleDecl->packages)
-    return false;
 
-  if (moduleDecl->packages->length != 1)
+  if (moduleDecl->packages.length != 1)
     return false;
-  if ((*moduleDecl->packages)[0] != Id::ldc)
+  if (moduleDecl->packages.ptr[0] != Id::ldc)
     return false;
 
   return moduleDecl->id == Id::dcompute;

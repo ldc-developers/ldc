@@ -59,12 +59,10 @@ std::string hashSymbolName(llvm::StringRef name, Dsymbol *symb) {
   {
     auto moddecl = symb->getModule()->md;
     assert(moddecl);
-    if (auto packages = moddecl->packages) {
-      for (auto package : *packages) {
-        llvm::StringRef str = package->toChars();
-        ret += ldc::to_string(str.size());
-        ret += str;
-      }
+    for (size_t i = 0; i < moddecl->packages.length; ++i) {
+      llvm::StringRef str = moddecl->packages.ptr[i]->toChars();
+      ret += ldc::to_string(str.size());
+      ret += str;
     }
     llvm::StringRef str = moddecl->id->toChars();
     ret += ldc::to_string(str.size());

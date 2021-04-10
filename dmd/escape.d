@@ -1,7 +1,7 @@
 /**
  * Most of the logic to implement scoped pointers and scoped references is here.
  *
- * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2021 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/escape.d, _escape.d)
@@ -882,34 +882,34 @@ ByRef:
 
         /* Do not allow slicing of a static array returned by a function
          */
-        if (va && ee.op == TOK.call && ee.type.toBasetype().ty == Tsarray && va.type.toBasetype().ty == Tarray &&
-            !(va.storage_class & STC.temp))
+        if (ee.op == TOK.call && ee.type.toBasetype().ty == Tsarray && e1.type.toBasetype().ty == Tarray &&
+            !(va && va.storage_class & STC.temp))
         {
             if (!gag)
                 deprecation(ee.loc, "slice of static array temporary returned by `%s` assigned to longer lived variable `%s`",
-                    ee.toChars(), va.toChars());
+                    ee.toChars(), e1.toChars());
             //result = true;
             continue;
         }
 
-        if (va && ee.op == TOK.call && ee.type.toBasetype().ty == Tstruct &&
-            !(va.storage_class & STC.temp) && va.ident != Id.withSym &&
+        if (ee.op == TOK.call && ee.type.toBasetype().ty == Tstruct &&
+            (!va || (!(va.storage_class & STC.temp) && va.ident != Id.withSym)) &&
             sc.func.setUnsafe())
         {
             if (!gag)
                 error(ee.loc, "address of struct temporary returned by `%s` assigned to longer lived variable `%s`",
-                    ee.toChars(), va.toChars());
+                    ee.toChars(), e1.toChars());
             result = true;
             continue;
         }
 
-        if (va && ee.op == TOK.structLiteral &&
-            !(va.storage_class & STC.temp) && va.ident != Id.withSym &&
+        if (ee.op == TOK.structLiteral &&
+            (!va || (!(va.storage_class & STC.temp) && va.ident != Id.withSym)) &&
             sc.func.setUnsafe())
         {
             if (!gag)
                 error(ee.loc, "address of struct literal `%s` assigned to longer lived variable `%s`",
-                    ee.toChars(), va.toChars());
+                    ee.toChars(), e1.toChars());
             result = true;
             continue;
         }
@@ -1034,7 +1034,8 @@ bool checkNewEscape(Scope* sc, Expression e, bool gag)
                 !(p.parent == sc.func))
             {
                 // Only look for errors if in module listed on command line
-                if (global.params.vsafe) // https://issues.dlang.org/show_bug.cgi?id=17029
+                if (global.params.vsafe         // https://issues.dlang.org/show_bug.cgi?id=17029
+                    && sc.func.setUnsafe())     // https://issues.dlang.org/show_bug.cgi?id=20868
                 {
                     if (!gag)
                         error(e.loc, "scope variable `%s` may not be copied into allocated memory", v.toChars());
@@ -1105,7 +1106,7 @@ bool checkNewEscape(Scope* sc, Expression e, bool gag)
 
         // If -preview=dip25 is used, the user wants an error
         // Otherwise, issue a deprecation
-        const emitError = global.params.useDIP25;
+        const emitError = global.params.useDIP25 == FeatureState.enabled;
         // https://dlang.org/spec/function.html#return-ref-parameters
         // Only look for errors if in module listed on command line
         if (p == sc.func)
@@ -1235,7 +1236,8 @@ private bool checkReturnEscapeImpl(Scope* sc, Expression e, bool refs, bool gag)
             if (v.storage_class & STC.return_)
                 continue;
 
-            if (sc._module && sc._module.isRoot() &&
+            auto pfunc = p.isFuncDeclaration();
+            if (pfunc && sc._module && sc._module.isRoot() &&
                 /* This case comes up when the ReturnStatement of a __foreachbody is
                  * checked for escapes by the caller of __foreachbody. Skip it.
                  *
@@ -1245,13 +1247,13 @@ private bool checkReturnEscapeImpl(Scope* sc, Expression e, bool refs, bool gag)
                  *        return s;     // s is inferred as 'scope' but incorrectly tested in foo()
                  *    return null; }
                  */
-                !(!refs && p.parent == sc.func && p.isFuncDeclaration() && p.isFuncDeclaration().fes) &&
+                !(!refs && p.parent == sc.func && pfunc.fes) &&
                 /*
                  *  auto p(scope string s) {
                  *      string scfunc() { return s; }
                  *  }
                  */
-                !(!refs && p.isFuncDeclaration() && sc.func.isFuncDeclaration().getLevel(p.isFuncDeclaration(), sc.intypeof) > 0)
+                !(!refs && sc.func.isFuncDeclaration().getLevel(pfunc, sc.intypeof) > 0)
                )
             {
                 // Only look for errors if in module listed on command line
@@ -1369,7 +1371,7 @@ private bool checkReturnEscapeImpl(Scope* sc, Expression e, bool refs, bool gag)
             {
                 // If -preview=dip25 is used, the user wants an error
                 // Otherwise, issue a deprecation
-                const emitError = global.params.useDIP25;
+                const emitError = global.params.useDIP25 == FeatureState.enabled;
                 // https://dlang.org/spec/function.html#return-ref-parameters
                 // Only look for errors if in module listed on command line
                 if (p == sc.func)

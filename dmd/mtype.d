@@ -1,7 +1,7 @@
 /**
  * Defines a D type.
  *
- * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2021 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/mtype.d, _mtype.d)
@@ -287,6 +287,7 @@ enum ENUMTY : int
     Tuns128,
     Ttraits,
     Tmixin,
+    Tnoreturn,
     TMAX,
 }
 
@@ -336,6 +337,7 @@ alias Tint128 = ENUMTY.Tint128;
 alias Tuns128 = ENUMTY.Tuns128;
 alias Ttraits = ENUMTY.Ttraits;
 alias Tmixin = ENUMTY.Tmixin;
+alias Tnoreturn = ENUMTY.Tnoreturn;
 alias TMAX = ENUMTY.TMAX;
 
 alias TY = ubyte;
@@ -451,6 +453,7 @@ extern (C++) abstract class Type : ASTNode
     extern (C++) __gshared Type tdstring;    // immutable(dchar)[]
     extern (C++) __gshared Type terror;      // for error recovery
     extern (C++) __gshared Type tnull;       // for null type
+    extern (C++) __gshared Type tnoreturn;   // for bottom type typeof(*null)
 
     extern (C++) __gshared Type tsize_t;     // matches size_t alias
     extern (C++) __gshared Type tptrdiff_t;  // matches ptrdiff_t alias
@@ -507,6 +510,7 @@ version (IN_LLVM)
             sizeTy[Tvector] = __traits(classInstanceSize, TypeVector);
             sizeTy[Ttraits] = __traits(classInstanceSize, TypeTraits);
             sizeTy[Tmixin] = __traits(classInstanceSize, TypeMixin);
+            sizeTy[Tnoreturn] = __traits(classInstanceSize, TypeNoreturn);
             return sizeTy;
         }();
 
@@ -868,6 +872,10 @@ version (IN_LLVM)
         }
         basic[Terror] = new TypeError();
 
+        tnoreturn = new TypeNoreturn();
+        tnoreturn.deco = tnoreturn.merge().deco;
+        basic[Tnoreturn] = tnoreturn;
+
         tvoid = basic[Tvoid];
         tint8 = basic[Tint8];
         tuns8 = basic[Tuns8];
@@ -898,6 +906,7 @@ version (IN_LLVM)
 
         tshiftcnt = tint32;
         terror = basic[Terror];
+        tnoreturn = basic[Tnoreturn];
         tnull = new TypeNull();
         tnull.deco = tnull.merge().deco;
 
@@ -2726,6 +2735,7 @@ version (IN_LLVM)
         inout(TypeNull)       isTypeNull()       { return ty == Tnull      ? cast(typeof(return))this : null; }
         inout(TypeMixin)      isTypeMixin()      { return ty == Tmixin     ? cast(typeof(return))this : null; }
         inout(TypeTraits)     isTypeTraits()     { return ty == Ttraits    ? cast(typeof(return))this : null; }
+        inout(TypeNoreturn)   isTypeNoreturn()   { return ty == Tnoreturn  ? cast(typeof(return))this : null; }
     }
 
     override void accept(Visitor v)
@@ -2755,7 +2765,7 @@ extern (C++) final class TypeError : Type
         return "error";
     }
 
-    override Type syntaxCopy()
+    override TypeError syntaxCopy()
     {
         // No semantic analysis done, no need to copy
         return this;
@@ -3222,7 +3232,7 @@ extern (C++) final class TypeBasic : Type
         return dstring;
     }
 
-    override Type syntaxCopy()
+    override TypeBasic syntaxCopy()
     {
         // No semantic analysis done on basic types, no need to copy
         return this;
@@ -3498,7 +3508,7 @@ extern (C++) final class TypeVector : Type
         return "vector";
     }
 
-    override Type syntaxCopy()
+    override TypeVector syntaxCopy()
     {
         return new TypeVector(basetype.syntaxCopy());
     }
@@ -3627,13 +3637,13 @@ extern (C++) final class TypeSArray : TypeArray
         return "sarray";
     }
 
-    override Type syntaxCopy()
+    override TypeSArray syntaxCopy()
     {
         Type t = next.syntaxCopy();
         Expression e = dim.syntaxCopy();
-        t = new TypeSArray(t, e);
-        t.mod = mod;
-        return t;
+        auto result = new TypeSArray(t, e);
+        result.mod = mod;
+        return result;
     }
 
     override d_uns64 size(const ref Loc loc)
@@ -3819,17 +3829,15 @@ extern (C++) final class TypeDArray : TypeArray
         return "darray";
     }
 
-    override Type syntaxCopy()
+    override TypeDArray syntaxCopy()
     {
         Type t = next.syntaxCopy();
         if (t == next)
-            t = this;
-        else
-        {
-            t = new TypeDArray(t);
-            t.mod = mod;
-        }
-        return t;
+            return this;
+
+        auto result = new TypeDArray(t);
+        result.mod = mod;
+        return result;
     }
 
     override d_uns64 size(const ref Loc loc) const
@@ -3924,18 +3932,16 @@ extern (C++) final class TypeAArray : TypeArray
         return "aarray";
     }
 
-    override Type syntaxCopy()
+    override TypeAArray syntaxCopy()
     {
         Type t = next.syntaxCopy();
         Type ti = index.syntaxCopy();
         if (t == next && ti == index)
-            t = this;
-        else
-        {
-            t = new TypeAArray(t, ti);
-            t.mod = mod;
-        }
-        return t;
+            return this;
+
+        auto result = new TypeAArray(t, ti);
+        result.mod = mod;
+        return result;
     }
 
     override d_uns64 size(const ref Loc loc) const
@@ -4019,17 +4025,15 @@ extern (C++) final class TypePointer : TypeNext
         return "pointer";
     }
 
-    override Type syntaxCopy()
+    override TypePointer syntaxCopy()
     {
         Type t = next.syntaxCopy();
         if (t == next)
-            t = this;
-        else
-        {
-            t = new TypePointer(t);
-            t.mod = mod;
-        }
-        return t;
+            return this;
+
+        auto result = new TypePointer(t);
+        result.mod = mod;
+        return result;
     }
 
     override d_uns64 size(const ref Loc loc) const
@@ -4152,17 +4156,15 @@ extern (C++) final class TypeReference : TypeNext
         return "reference";
     }
 
-    override Type syntaxCopy()
+    override TypeReference syntaxCopy()
     {
         Type t = next.syntaxCopy();
         if (t == next)
-            t = this;
-        else
-        {
-            t = new TypeReference(t);
-            t.mod = mod;
-        }
-        return t;
+            return this;
+
+        auto result = new TypeReference(t);
+        result.mod = mod;
+        return result;
     }
 
     override d_uns64 size(const ref Loc loc) const
@@ -4295,13 +4297,14 @@ extern (C++) final class TypeFunction : TypeNext
         return "function";
     }
 
-    override Type syntaxCopy()
+    override TypeFunction syntaxCopy()
     {
         Type treturn = next ? next.syntaxCopy() : null;
         auto t = new TypeFunction(parameterList.syntaxCopy(), treturn, linkage);
         t.mod = mod;
         t.isnothrow = isnothrow;
         t.isnogc = isnogc;
+        t.islive = islive;
         t.purity = purity;
         t.isproperty = isproperty;
         t.isref = isref;
@@ -4928,13 +4931,14 @@ extern (C++) final class TypeFunction : TypeNext
                      * https://issues.dlang.org/show_bug.cgi?id=15674
                      * Allow on both ref and out parameters.
                      */
+                    Type firsttab = ta.toBasetype();
                     while (1)
                     {
                         Type tab = ta.toBasetype();
                         Type tat = tab.aliasthisOf();
                         if (!tat || !tat.implicitConvTo(tprm))
                             break;
-                        if (tat == tab)
+                        if (tat == tab || tat == firsttab)
                             break;
                         ta = tat;
                     }
@@ -5058,6 +5062,16 @@ extern (C++) final class TypeFunction : TypeNext
     Nomatch:
         //printf("no match\n");
         return MATCH.nomatch;
+    }
+
+    /** Extends TypeNext.constConv by also checking for matching attributes **/
+    override MATCH constConv(Type to)
+    {
+        // Attributes need to match exactly, otherwise it's an implicit conversion
+        if (this.ty != to.ty || !this.attributesEqual(cast(TypeFunction) to))
+            return MATCH.nomatch;
+
+        return super.constConv(to);
     }
 
     extern (D) bool checkRetType(const ref Loc loc)
@@ -5278,17 +5292,15 @@ extern (C++) final class TypeDelegate : TypeNext
         return "delegate";
     }
 
-    override Type syntaxCopy()
+    override TypeDelegate syntaxCopy()
     {
         Type t = next.syntaxCopy();
         if (t == next)
-            t = this;
-        else
-        {
-            t = new TypeDelegate(t);
-            t.mod = mod;
-        }
-        return t;
+            return this;
+
+        auto result = new TypeDelegate(t);
+        result.mod = mod;
+        return result;
     }
 
     override Type addStorageClass(StorageClass stc)
@@ -5404,9 +5416,9 @@ extern (C++) final class TypeTraits : Type
         return "traits";
     }
 
-    override Type syntaxCopy()
+    override TypeTraits syntaxCopy()
     {
-        TraitsExp te = cast(TraitsExp) exp.syntaxCopy();
+        TraitsExp te = exp.syntaxCopy();
         TypeTraits tt = new TypeTraits(loc, te);
         tt.mod = mod;
         return tt;
@@ -5446,6 +5458,7 @@ extern (C++) final class TypeMixin : Type
 {
     Loc loc;
     Expressions* exps;
+    RootObject obj; // cached result of semantic analysis.
 
     extern (D) this(const ref Loc loc, Expressions* exps)
     {
@@ -5459,7 +5472,7 @@ extern (C++) final class TypeMixin : Type
         return "mixin";
     }
 
-    override Type syntaxCopy()
+    override TypeMixin syntaxCopy()
     {
         return new TypeMixin(loc, Expression.arraySyntaxCopy(exps));
     }
@@ -5500,6 +5513,10 @@ extern (C++) abstract class TypeQualified : Type
         this.loc = loc;
     }
 
+    // abstract override so that using `TypeQualified.syntaxCopy` gets
+    // us a `TypeQualified`
+    abstract override TypeQualified syntaxCopy();
+
     final void syntaxCopyHelper(TypeQualified t)
     {
         //printf("TypeQualified::syntaxCopyHelper(%s) %s\n", t.toChars(), toChars());
@@ -5518,7 +5535,7 @@ extern (C++) abstract class TypeQualified : Type
                 break;
             case dsymbol:
                 TemplateInstance ti = cast(TemplateInstance)id;
-                ti = cast(TemplateInstance)ti.syntaxCopy(null);
+                ti = ti.syntaxCopy(null);
                 id = ti;
                 break;
             case type:
@@ -5584,7 +5601,7 @@ extern (C++) final class TypeIdentifier : TypeQualified
         return "identifier";
     }
 
-    override Type syntaxCopy()
+    override TypeIdentifier syntaxCopy()
     {
         auto t = new TypeIdentifier(loc, ident);
         t.syntaxCopyHelper(this);
@@ -5638,10 +5655,10 @@ extern (C++) final class TypeInstance : TypeQualified
         return "instance";
     }
 
-    override Type syntaxCopy()
+    override TypeInstance syntaxCopy()
     {
         //printf("TypeInstance::syntaxCopy() %s, %d\n", toChars(), idents.dim);
-        auto t = new TypeInstance(loc, cast(TemplateInstance)tempinst.syntaxCopy(null));
+        auto t = new TypeInstance(loc, tempinst.syntaxCopy(null));
         t.syntaxCopyHelper(this);
         t.mod = mod;
         return t;
@@ -5683,7 +5700,7 @@ extern (C++) final class TypeTypeof : TypeQualified
         return "typeof";
     }
 
-    override Type syntaxCopy()
+    override TypeTypeof syntaxCopy()
     {
         //printf("TypeTypeof::syntaxCopy() %s\n", toChars());
         auto t = new TypeTypeof(loc, exp.syntaxCopy());
@@ -5730,7 +5747,7 @@ extern (C++) final class TypeReturn : TypeQualified
         return "return";
     }
 
-    override Type syntaxCopy()
+    override TypeReturn syntaxCopy()
     {
         auto t = new TypeReturn(loc);
         t.syntaxCopyHelper(this);
@@ -5799,7 +5816,7 @@ extern (C++) final class TypeStruct : Type
         return sym.alignsize;
     }
 
-    override Type syntaxCopy()
+    override TypeStruct syntaxCopy()
     {
         return this;
     }
@@ -6121,7 +6138,7 @@ extern (C++) final class TypeEnum : Type
         return "enum";
     }
 
-    override Type syntaxCopy()
+    override TypeEnum syntaxCopy()
     {
         return this;
     }
@@ -6293,7 +6310,7 @@ extern (C++) final class TypeClass : Type
         return target.ptrsize;
     }
 
-    override Type syntaxCopy()
+    override TypeClass syntaxCopy()
     {
         return this;
     }
@@ -6539,10 +6556,10 @@ extern (C++) final class TypeTuple : Type
         return "tuple";
     }
 
-    override Type syntaxCopy()
+    override TypeTuple syntaxCopy()
     {
         Parameters* args = Parameter.arraySyntaxCopy(arguments);
-        Type t = new TypeTuple(args);
+        auto t = new TypeTuple(args);
         t.mod = mod;
         return t;
     }
@@ -6597,9 +6614,9 @@ extern (C++) final class TypeSlice : TypeNext
         return "slice";
     }
 
-    override Type syntaxCopy()
+    override TypeSlice syntaxCopy()
     {
-        Type t = new TypeSlice(next.syntaxCopy(), lwr.syntaxCopy(), upr.syntaxCopy());
+        auto t = new TypeSlice(next.syntaxCopy(), lwr.syntaxCopy(), upr.syntaxCopy());
         t.mod = mod;
         return t;
     }
@@ -6625,7 +6642,7 @@ extern (C++) final class TypeNull : Type
         return "null";
     }
 
-    override Type syntaxCopy()
+    override TypeNull syntaxCopy()
     {
         // No semantic analysis done, no need to copy
         return this;
@@ -6667,6 +6684,57 @@ extern (C++) final class TypeNull : Type
     override d_uns64 size(const ref Loc loc) const
     {
         return tvoidptr.size(loc);
+    }
+
+    override void accept(Visitor v)
+    {
+        v.visit(this);
+    }
+}
+
+/***********************************************************
+ */
+extern (C++) final class TypeNoreturn : Type
+{
+    extern (D) this()
+    {
+        //printf("TypeNoreturn %p\n", this);
+        super(Tnoreturn);
+    }
+
+    override const(char)* kind() const
+    {
+        return "noreturn";
+    }
+
+    override TypeNoreturn syntaxCopy()
+    {
+        // No semantic analysis done, no need to copy
+        return this;
+    }
+
+    override MATCH implicitConvTo(Type to)
+    {
+        //printf("TypeNoreturn::implicitConvTo(this=%p, to=%p)\n", this, to);
+        //printf("from: %s\n", toChars());
+        //printf("to  : %s\n", to.toChars());
+        MATCH m = Type.implicitConvTo(to);
+        return (m == MATCH.exact) ? MATCH.exact : MATCH.convert;
+    }
+
+    override bool isBoolean() const
+    {
+        return false;
+    }
+
+    override d_uns64 size(const ref Loc loc) const
+    {
+        return 0;
+    }
+
+    override uint alignsize()
+    {
+        return 0;
     }
 
     override void accept(Visitor v)
@@ -6784,7 +6852,7 @@ extern (C++) final class Parameter : ASTNode
 
     Parameter syntaxCopy()
     {
-        return new Parameter(storageClass, type ? type.syntaxCopy() : null, ident, defaultArg ? defaultArg.syntaxCopy() : null, userAttribDecl ? cast(UserAttributeDeclaration) userAttribDecl.syntaxCopy(null) : null);
+        return new Parameter(storageClass, type ? type.syntaxCopy() : null, ident, defaultArg ? defaultArg.syntaxCopy() : null, userAttribDecl ? userAttribDecl.syntaxCopy(null) : null);
     }
 
     /****************************************************

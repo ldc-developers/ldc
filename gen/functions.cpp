@@ -183,7 +183,16 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
       loweredDType = merge(ltd);
     } else if (passPointer) {
       // ref/out
-      attrs.addDereferenceableAttr(loweredDType->size());
+      auto ts = loweredDType->toBasetype()->isTypeStruct();
+      if (ts && !ts->sym->members) {
+        // opaque struct
+        attrs.addAttribute(LLAttribute::NonNull);
+#if LDC_LLVM_VER >= 1100
+        attrs.addAttribute(LLAttribute::NoUndef);
+#endif
+      } else {
+        attrs.addDereferenceableAttr(loweredDType->size());
+      }
     } else {
       if (abi->passByVal(f, loweredDType)) {
         // LLVM ByVal parameters are pointers to a copy in the function
@@ -665,9 +674,12 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   // such that they can be overridden by UDAs.
   applyTargetMachineAttributes(*func, *gTargetMachine);
   if (!fdecl->fbody && opts::noPLT) {
-      // Add `NonLazyBind` attribute to function declarations,
-      // the codegen options allow skipping PLT.
-      func->addFnAttr(LLAttribute::NonLazyBind);
+    // Add `NonLazyBind` attribute to function declarations,
+    // the codegen options allow skipping PLT.
+    func->addFnAttr(LLAttribute::NonLazyBind);
+  }
+  if (f->next->toBasetype()->ty == Tnoreturn) {
+    func->addFnAttr(LLAttribute::NoReturn);
   }
 
   applyFuncDeclUDAs(fdecl, irFunc);

@@ -179,7 +179,20 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
     DValue *const dval = DtoArgument(formalParam, argexp);
 
     // load from lvalue/let TargetABI rewrite it/...
-    llvm::Value *llVal = irFty.putArg(*irArg, dval, argexp->isLvalue(),
+    bool isLValueExp = argexp->isLvalue();
+    // regard temporaries as rvalues here
+    if (isLValueExp) {
+      auto ae = argexp;
+      if (auto ce = ae->isCommaExp())
+        ae = ce->getTail();
+      if (auto ve = ae->isVarExp()) {
+        if (auto vd = ve->var->isVarDeclaration()) {
+          if (vd->storage_class & STCtemp)
+            isLValueExp = false;
+        }
+      }
+    }
+    llvm::Value *llVal = irFty.putArg(*irArg, dval, isLValueExp,
                                       dArgIndex == explicitDArgCount - 1);
 
     const size_t llArgIdx =

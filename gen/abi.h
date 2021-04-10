@@ -216,4 +216,6 @@ protected:
   static TypeTuple *getArgTypes(Type *t);
 
   static llvm::Type *getRewrittenArgType(Type *t, TypeTuple *argTypes);
+
+  static bool skipReturnValueRewrite(IrFuncTy &fty);
 };

@@ -2,7 +2,7 @@
  * Does the semantic 1 pass on the AST, which looks at symbol declarations but not initializers
  * or function bodies.
  *
- * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2021 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/dsymbolsem.d, _dsymbolsem.d)
@@ -91,6 +91,8 @@ private FuncDeclaration buildPostBlit(StructDeclaration sd, Scope* sc)
     //printf("StructDeclaration::buildPostBlit() %s\n", sd.toChars());
     if (sd.isUnionDeclaration())
         return null;
+
+    const hasUserDefinedPosblit = sd.postblits.dim && !sd.postblits[0].isDisabled ? true : false;
 
     // by default, the storage class of the created postblit
     StorageClass stc = STC.safe | STC.nothrow_ | STC.pure_ | STC.nogc;
@@ -339,6 +341,27 @@ private FuncDeclaration buildPostBlit(StructDeclaration sd, Scope* sc)
         sd.members.push(_alias);
         _alias.addMember(sc, sd); // add to symbol table
     }
+
+    if (sd.hasCopyCtor)
+    {
+        // we have user defined postblit, so we prioritize it
+        if (hasUserDefinedPosblit)
+        {
+            sd.hasCopyCtor = false;
+            return xpostblit;
+        }
+        // we have fields with postblits, so print deprecations
+        if (xpostblit && !xpostblit.isDisabled())
+        {
+            deprecation(sd.loc, "`struct %s` implicitly-generated postblit hides copy constructor.", sd.toChars);
+            deprecationSupplemental(sd.loc, "The field postblit will have priority over the copy constructor.");
+            deprecationSupplemental(sd.loc, "To change this, the postblit should be disabled for `struct %s`", sd.toChars());
+            sd.hasCopyCtor = false;
+        }
+        else
+            xpostblit = null;
+    }
+
     return xpostblit;
 }
 
@@ -428,10 +451,6 @@ private bool buildCopyCtor(StructDeclaration sd, Scope* sc)
     if (global.errors)
         return false;
 
-    bool hasPostblit;
-    if (sd.postblit && !sd.postblit.isDisabled())
-        hasPostblit = true;
-
     auto ctor = sd.search(sd.loc, Id.ctor);
     CtorDeclaration cpCtor;
     CtorDeclaration rvalueCtor;
@@ -472,16 +491,17 @@ private bool buildCopyCtor(StructDeclaration sd, Scope* sc)
         return 0;
     });
 
-    if (cpCtor && rvalueCtor)
+    if (cpCtor)
     {
-        .error(sd.loc, "`struct %s` may not define both a rvalue constructor and a copy constructor", sd.toChars());
-        errorSupplemental(rvalueCtor.loc,"rvalue constructor defined here");
-        errorSupplemental(cpCtor.loc, "copy constructor defined here");
+        if (rvalueCtor)
+        {
+            .error(sd.loc, "`struct %s` may not define both a rvalue constructor and a copy constructor", sd.toChars());
+            errorSupplemental(rvalueCtor.loc,"rvalue constructor defined here");
+            errorSupplemental(cpCtor.loc, "copy constructor defined here");
+            return true;
+        }
+
         return true;
-    }
-    else if (cpCtor)
-    {
-        return !hasPostblit;
     }
 
 LcheckFields:
@@ -512,9 +532,6 @@ LcheckFields:
         return false;
     }
     else if (!fieldWithCpCtor)
-        return false;
-
-    if (hasPostblit)
         return false;
 
     //printf("generating copy constructor for %s\n", sd.toChars());
@@ -761,7 +778,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
         assert(dsym.semanticRun <= PASS.semantic);
 
         dsym.storage_class |= sc.stc & STC.deprecated_;
-        dsym.protection = sc.protection;
+        dsym.visibility = sc.visibility;
         dsym.userAttribDecl = sc.userAttribDecl;
 
         if (!sc.func && dsym.inNonRoot())
@@ -887,7 +904,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
         dsym.linkage = sc.linkage;
         dsym.parent = sc.parent;
         //printf("this = %p, parent = %p, '%s'\n", dsym, dsym.parent, dsym.parent.toChars());
-        dsym.protection = sc.protection;
+        dsym.visibility = sc.visibility;
 
         /* If scope's alignment is the default, use the type's alignment,
          * otherwise the scope overrrides.
@@ -935,7 +952,8 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
         }
         if (auto ts = tb.isTypeStruct())
         {
-            if (!ts.sym.members)
+            // Require declarations, except when it's just a reference (as done for pointers)
+            if (!ts.sym.members && !(dsym.storage_class & STC.ref_))
             {
                 dsym.error("no definition of struct `%s`", ts.toChars());
             }
@@ -1241,7 +1259,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
             }
         }
 
-        if (!(dsym.storage_class & (STC.ctfe | STC.ref_ | STC.result)) &&
+        if (!(dsym.storage_class & (STC.ctfe | STC.extern_ | STC.ref_ | STC.result)) &&
             tbn.ty == Tstruct && (cast(TypeStruct)tbn).sym.noDefaultCtor)
         {
             if (!dsym._init)
@@ -1342,7 +1360,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
             if (tv.ty == Tstruct && (cast(TypeStruct)tv).sym.zeroInit)
             {
                 /* If a struct is all zeros, as a special case
-                 * set it's initializer to the integer 0.
+                 * set its initializer to the integer 0.
                  * In AssignExp::toElem(), we check for this and issue
                  * a memset() to initialize the struct.
                  * Must do same check in interpreter.
@@ -1658,8 +1676,8 @@ version (IN_LLVM)
             if (!importer.aimports.contains(imp.mod))
                 importer.aimports.push(imp.mod);
 
-            if (sc.explicitProtection)
-                imp.protection = sc.protection;
+            if (sc.explicitVisibility)
+                imp.visibility = sc.visibility;
 
             if (!imp.aliasId && !imp.names.dim) // neither a selective nor a renamed import
             {
@@ -1674,31 +1692,11 @@ version (IN_LLVM)
 
                 if (!imp.isstatic)
                 {
-                    scopesym.importScope(imp.mod, imp.protection);
+                    scopesym.importScope(imp.mod, imp.visibility);
                 }
 
-                // Mark the imported packages as accessible from the current
-                // scope. This access check is necessary when using FQN b/c
-                // we're using a single global package tree.
-                // https://issues.dlang.org/show_bug.cgi?id=313
-                if (imp.packages)
-                {
-                    // import a.b.c.d;
-                    auto p = imp.pkg; // a
-                    scopesym.addAccessiblePackage(p, imp.protection);
-                    foreach (id; (*imp.packages)[1 .. imp.packages.dim]) // [b, c]
-                    {
-                        p = cast(Package) p.symtab.lookup(id);
-                        // https://issues.dlang.org/show_bug.cgi?id=17991
-                        // An import of truly empty file/package can happen
-                        // https://issues.dlang.org/show_bug.cgi?id=20151
-                        // Package in the path conflicts with a module name
-                        if (p is null)
-                            break;
-                        scopesym.addAccessiblePackage(p, imp.protection);
-                    }
-                }
-                scopesym.addAccessiblePackage(imp.mod, imp.protection); // d
+
+                imp.addPackageAccess(scopesym);
             }
 
             if (!loadErrored)
@@ -1713,7 +1711,7 @@ version (IN_LLVM)
             }
 
             sc = sc.push(imp.mod);
-            sc.protection = imp.protection;
+            sc.visibility = imp.visibility;
             for (size_t i = 0; i < imp.aliasdecls.dim; i++)
             {
                 AliasDeclaration ad = imp.aliasdecls[i];
@@ -1773,9 +1771,9 @@ version (IN_LLVM)
             ob.writestring(" (");
             escapePath(ob, imod.srcfile.toChars());
             ob.writestring(") : ");
-            // use protection instead of sc.protection because it couldn't be
+            // use visibility instead of sc.visibility because it couldn't be
             // resolved yet, see the comment above
-            protectionToBuffer(ob, imp.protection);
+            visibilityToBuffer(ob, imp.visibility);
             ob.writeByte(' ');
             if (imp.isstatic)
             {
@@ -1783,13 +1781,9 @@ version (IN_LLVM)
                 ob.writeByte(' ');
             }
             ob.writestring(": ");
-            if (imp.packages)
+            foreach (pid; imp.packages)
             {
-                for (size_t i = 0; i < imp.packages.dim; i++)
-                {
-                    Identifier pid = (*imp.packages)[i];
-                    ob.printf("%s.", pid.toChars());
-                }
+                ob.printf("%s.", pid.toChars());
             }
             ob.writestring(imp.id.toString());
             ob.writestring(" (");
@@ -1959,12 +1953,6 @@ version (IN_LLVM)
                     e = e.expressionSemantic(sc);
                     e = resolveProperties(sc, e);
                     sc = sc.endCTFE();
-                    // pragma(msg) is allowed to contain types as well as expressions
-                    if (e.type && e.type.ty == Tvoid)
-                    {
-                        error(pd.loc, "Cannot pass argument `%s` to `pragma msg` because it is `void`", e.toChars());
-                        return;
-                    }
                     e = ctfeInterpretForPragmaMsg(e);
                     if (e.op == TOK.error)
                     {
@@ -2258,7 +2246,7 @@ version (IN_LLVM)
                     auto exp = (*te.exps)[d];
                     auto prev = d ? current : ns.cppnamespace;
                     current = (d + 1) != te.exps.dim
-                        ? new CPPNamespaceDeclaration(exp, null)
+                        ? new CPPNamespaceDeclaration(ns.loc, exp, null)
                         : ns;
                     current.exp = exp;
                     current.cppnamespace = prev;
@@ -2332,7 +2320,7 @@ version (IN_LLVM)
         Scope* sc = m._scope; // see if already got one from importAll()
         if (!sc)
         {
-            Scope.createGlobal(m); // create root scope
+            sc = Scope.createGlobal(m); // create root scope
         }
 
         //printf("Module = %p, linkage = %d\n", sc.scopesym, sc.linkage);
@@ -2351,7 +2339,7 @@ version (IN_LLVM)
         if (!m._scope)
         {
             sc = sc.pop();
-            sc.pop(); // 2 pops because Scope::createGlobal() created 2
+            sc.pop(); // 2 pops because Scope.createGlobal() created 2
         }
         m.semanticRun = PASS.semanticdone;
         //printf("-Module::semantic(this = %p, '%s'): parent = %p\n", this, toChars(), parent);
@@ -2387,7 +2375,7 @@ version (IN_LLVM)
         ed.parent = sc.parent;
         ed.type = ed.type.typeSemantic(ed.loc, sc);
 
-        ed.protection = sc.protection;
+        ed.visibility = sc.visibility;
         if (sc.stc & STC.deprecated_)
             ed.isdeprecated = true;
         ed.userAttribDecl = sc.userAttribDecl;
@@ -2566,7 +2554,7 @@ version (IN_LLVM)
 
         em.semanticRun = PASS.semantic;
 
-        em.protection = em.ed.isAnonymous() ? em.ed.protection : Prot(Prot.Kind.public_);
+        em.visibility = em.ed.isAnonymous() ? em.ed.visibility : Visibility(Visibility.Kind.public_);
         em.linkage = LINK.d;
         em.storage_class |= STC.manifest;
 
@@ -2581,7 +2569,12 @@ version (IN_LLVM)
 
         // Eval UDA in this same scope. Issues 19344, 20835, 21122
         if (em.userAttribDecl)
+        {
+            // Set scope but avoid extra sc.uda attachment inside setScope()
+            auto inneruda = em.userAttribDecl.userAttribDecl;
             em.userAttribDecl.setScope(sc);
+            em.userAttribDecl.userAttribDecl = inneruda;
+        }
 
         // The first enum member is special
         bool first = (em == (*em.ed.members)[0]);
@@ -2814,7 +2807,7 @@ version (IN_LLVM)
         tempdecl.semanticRun = PASS.semantic;
 
         tempdecl.parent = sc.parent;
-        tempdecl.protection = sc.protection;
+        tempdecl.visibility = sc.visibility;
         tempdecl.cppnamespace = sc.namespace;
         tempdecl.isstatic = tempdecl.toParent().isModule() || (tempdecl._scope.stc & STC.static_);
         tempdecl.deprecated_ = !!(sc.stc & STC.deprecated_);
@@ -3063,7 +3056,7 @@ version (IN_LLVM)
             ScopeDsymbol sds = sce.scopesym;
             if (sds)
             {
-                sds.importScope(tm, Prot(Prot.Kind.public_));
+                sds.importScope(tm, Visibility(Visibility.Kind.public_));
                 break;
             }
         }
@@ -3351,7 +3344,7 @@ version (IN_LLVM)
         if (auto pragmadecl = sc.inlining)
             funcdecl.inlining = pragmadecl.evalPragmaInline(sc);
 
-        funcdecl.protection = sc.protection;
+        funcdecl.visibility = sc.visibility;
         funcdecl.userAttribDecl = sc.userAttribDecl;
         UserAttributeDeclaration.checkGNUABITag(funcdecl, funcdecl.linkage);
 version (IN_LLVM)
@@ -3547,8 +3540,8 @@ version (IN_LLVM)
             const(char)* sfunc;
             if (funcdecl.isStatic())
                 sfunc = "static";
-            else if (funcdecl.protection.kind == Prot.Kind.private_ || funcdecl.protection.kind == Prot.Kind.package_)
-                sfunc = protectionToChars(funcdecl.protection.kind);
+            else if (funcdecl.visibility.kind == Visibility.Kind.private_ || funcdecl.visibility.kind == Visibility.Kind.package_)
+                sfunc = visibilityToChars(funcdecl.visibility.kind);
             else
                 sfunc = "final";
             funcdecl.error("`%s` functions cannot be `abstract`", sfunc);
@@ -3556,9 +3549,9 @@ version (IN_LLVM)
 
         if (funcdecl.isOverride() && !funcdecl.isVirtual() && !funcdecl.isFuncLiteralDeclaration())
         {
-            Prot.Kind kind = funcdecl.prot().kind;
-            if ((kind == Prot.Kind.private_ || kind == Prot.Kind.package_) && funcdecl.isMember())
-                funcdecl.error("`%s` method is not virtual and cannot override", protectionToChars(kind));
+            Visibility.Kind kind = funcdecl.visible().kind;
+            if ((kind == Visibility.Kind.private_ || kind == Visibility.Kind.package_) && funcdecl.isMember())
+                funcdecl.error("`%s` method is not virtual and cannot override", visibilityToChars(kind));
             else
                 funcdecl.error("cannot override a non-virtual function");
         }
@@ -3736,7 +3729,7 @@ version (IN_LLVM)
                         if (f2)
                         {
                             f2 = f2.overloadExactMatch(funcdecl.type);
-                            if (f2 && f2.isFinalFunc() && f2.prot().kind != Prot.Kind.private_)
+                            if (f2 && f2.isFinalFunc() && f2.visible().kind != Visibility.Kind.private_)
                                 funcdecl.error("cannot override `final` function `%s`", f2.toPrettyChars());
                         }
                     }
@@ -3951,61 +3944,64 @@ version (IN_LLVM)
         Linterfaces:
             bool foundVtblMatch = false;
 
-            foreach (b; cd.interfaces)
+            for (ClassDeclaration bcd = cd; !foundVtblMatch && bcd; bcd = bcd.baseClass)
             {
-                vi = funcdecl.findVtblIndex(&b.sym.vtbl, cast(int)b.sym.vtbl.dim);
-                switch (vi)
+                foreach (b; bcd.interfaces)
                 {
-                case -1:
-                    break;
-
-                case -2:
-                    // can't determine because of forward references
-                    funcdecl.errors = true;
-                    return;
-
-                default:
+                    vi = funcdecl.findVtblIndex(&b.sym.vtbl, cast(int)b.sym.vtbl.dim);
+                    switch (vi)
                     {
-                        auto fdv = cast(FuncDeclaration)b.sym.vtbl[vi];
-                        Type ti = null;
+                    case -1:
+                        break;
 
-                        foundVtblMatch = true;
+                    case -2:
+                        // can't determine because of forward references
+                        funcdecl.errors = true;
+                        return;
 
-                        /* Remember which functions this overrides
-                         */
-                        funcdecl.foverrides.push(fdv);
-
-                        /* Should we really require 'override' when implementing
-                         * an interface function?
-                         */
-                        //if (!isOverride())
-                        //    warning(loc, "overrides base class function %s, but is not marked with 'override'", fdv.toPrettyChars());
-
-                        if (fdv.tintro)
-                            ti = fdv.tintro;
-                        else if (!funcdecl.type.equals(fdv.type))
+                    default:
                         {
-                            /* Only need to have a tintro if the vptr
-                             * offsets differ
+                            auto fdv = cast(FuncDeclaration)b.sym.vtbl[vi];
+                            Type ti = null;
+
+                            foundVtblMatch = true;
+
+                            /* Remember which functions this overrides
                              */
-                            int offset;
-                            if (fdv.type.nextOf().isBaseOf(funcdecl.type.nextOf(), &offset))
+                            funcdecl.foverrides.push(fdv);
+
+                            /* Should we really require 'override' when implementing
+                             * an interface function?
+                             */
+                            //if (!isOverride())
+                            //    warning(loc, "overrides base class function %s, but is not marked with 'override'", fdv.toPrettyChars());
+
+                            if (fdv.tintro)
+                                ti = fdv.tintro;
+                            else if (!funcdecl.type.equals(fdv.type))
                             {
-                                ti = fdv.type;
-                            }
-                        }
-                        if (ti)
-                        {
-                            if (funcdecl.tintro)
-                            {
-                                if (!funcdecl.tintro.nextOf().equals(ti.nextOf()) && !funcdecl.tintro.nextOf().isBaseOf(ti.nextOf(), null) && !ti.nextOf().isBaseOf(funcdecl.tintro.nextOf(), null))
+                                /* Only need to have a tintro if the vptr
+                                 * offsets differ
+                                 */
+                                int offset;
+                                if (fdv.type.nextOf().isBaseOf(funcdecl.type.nextOf(), &offset))
                                 {
-                                    funcdecl.error("incompatible covariant types `%s` and `%s`", funcdecl.tintro.toChars(), ti.toChars());
+                                    ti = fdv.type;
                                 }
                             }
-                            else
+                            if (ti)
                             {
-                                funcdecl.tintro = ti;
+                                if (funcdecl.tintro)
+                                {
+                                    if (!funcdecl.tintro.nextOf().equals(ti.nextOf()) && !funcdecl.tintro.nextOf().isBaseOf(ti.nextOf(), null) && !ti.nextOf().isBaseOf(funcdecl.tintro.nextOf(), null))
+                                    {
+                                        funcdecl.error("incompatible covariant types `%s` and `%s`", funcdecl.tintro.toChars(), ti.toChars());
+                                    }
+                                }
+                                else
+                                {
+                                    funcdecl.tintro = ti;
+                                }
                             }
                         }
                     }
@@ -4081,7 +4077,7 @@ version (IN_LLVM)
                         if (f2)
                         {
                             f2 = f2.overloadExactMatch(funcdecl.type);
-                            if (f2 && f2.isFinalFunc() && f2.prot().kind != Prot.Kind.private_)
+                            if (f2 && f2.isFinalFunc() && f2.visible().kind != Visibility.Kind.private_)
                                 funcdecl.error("cannot override `final` function `%s.%s`", b.sym.toChars(), f2.toPrettyChars());
                         }
                     }
@@ -4620,7 +4616,7 @@ version (IN_LLVM)
             utd._scope = null;
         }
 
-        utd.protection = sc.protection;
+        utd.visibility = sc.visibility;
 
         utd.parent = sc.parent;
         Dsymbol p = utd.parent.pastMixin();
@@ -4794,7 +4790,7 @@ version (IN_LLVM)
 
         if (sd.semanticRun == PASS.init)
         {
-            sd.protection = sc.protection;
+            sd.visibility = sc.visibility;
 
             sd.alignment = sc.alignment();
 
@@ -4881,8 +4877,8 @@ version (IN_LLVM)
 
         sd.dtor = buildDtor(sd, sc2);
         sd.tidtor = buildExternDDtor(sd, sc2);
-        sd.postblit = buildPostBlit(sd, sc2);
         sd.hasCopyCtor = buildCopyCtor(sd, sc2);
+        sd.postblit = buildPostBlit(sd, sc2);
 
         buildOpAssign(sd, sc2);
         buildOpEquals(sd, sc2);
@@ -5008,7 +5004,7 @@ version (IN_LLVM)
 
         if (cldec.semanticRun == PASS.init)
         {
-            cldec.protection = sc.protection;
+            cldec.visibility = sc.visibility;
 
             cldec.storage_class |= sc.stc;
             if (cldec.storage_class & STC.auto_)
@@ -5588,10 +5584,10 @@ version (IN_LLVM)
             foreach (vd; cldec.fields)
             {
                 if (!vd.isThisDeclaration() &&
-                    !vd.prot().isMoreRestrictiveThan(Prot(Prot.Kind.public_)))
+                    vd.visible() >= Visibility(Visibility.Kind.public_))
                 {
                     vd.error("Field members of a `synchronized` class cannot be `%s`",
-                        protectionToChars(vd.prot().kind));
+                        visibilityToChars(vd.visible().kind));
                 }
             }
         }
@@ -5660,7 +5656,7 @@ version (IN_LLVM)
 
         if (idec.semanticRun == PASS.init)
         {
-            idec.protection = sc.protection;
+            idec.visibility = sc.visibility;
 
             idec.storage_class |= sc.stc;
             idec.userAttribDecl = sc.userAttribDecl;
@@ -6257,7 +6253,7 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
     // Declare each template parameter as an alias for the argument type
     Scope* paramscope = _scope.push();
     paramscope.stc = 0;
-    paramscope.protection = Prot(Prot.Kind.public_); // https://issues.dlang.org/show_bug.cgi?id=14169
+    paramscope.visibility = Visibility(Visibility.Kind.public_); // https://issues.dlang.org/show_bug.cgi?id=14169
                                               // template parameters should be public
     tempinst.declareParameters(paramscope);
     paramscope.pop();
@@ -6580,7 +6576,7 @@ void aliasSeqInstanceSemantic(TemplateInstance tempinst, Scope* sc, TemplateDecl
     //printf("[%s] aliasSeqInstance.dsymbolSemantic('%s')\n", tempinst.loc.toChars(), tempinst.toChars());
     Scope* paramscope = sc.push();
     paramscope.stc = 0;
-    paramscope.protection = Prot(Prot.Kind.public_);
+    paramscope.visibility = Visibility(Visibility.Kind.public_);
 
     TemplateTupleParameter ttp = (*tempdecl.parameters)[0].isTemplateTupleParameter();
     Tuple va = tempinst.tdtypes[0].isTuple();
@@ -6605,7 +6601,7 @@ void aliasInstanceSemantic(TemplateInstance tempinst, Scope* sc, TemplateDeclara
     //printf("[%s] aliasInstance.dsymbolSemantic('%s')\n", tempinst.loc.toChars(), tempinst.toChars());
     Scope* paramscope = sc.push();
     paramscope.stc = 0;
-    paramscope.protection = Prot(Prot.Kind.public_);
+    paramscope.visibility = Visibility(Visibility.Kind.public_);
 
     TemplateTypeParameter ttp = (*tempdecl.parameters)[0].isTemplateTypeParameter();
     Type ta = tempinst.tdtypes[0].isType();
@@ -6628,7 +6624,7 @@ void aliasSemantic(AliasDeclaration ds, Scope* sc)
     // as DsymbolSemanticVisitor::visit(AliasDeclaration), in case we're called first.
     // see https://issues.dlang.org/show_bug.cgi?id=21001
     ds.storage_class |= sc.stc & STC.deprecated_;
-    ds.protection = sc.protection;
+    ds.visibility = sc.visibility;
     ds.userAttribDecl = sc.userAttribDecl;
 
     // TypeTraits needs to know if it's located in an AliasDeclaration
@@ -6638,6 +6634,15 @@ void aliasSemantic(AliasDeclaration ds, Scope* sc)
     void normalRet()
     {
         sc.flags = oldflags;
+        ds.inuse = 0;
+        ds.semanticRun = PASS.semanticdone;
+
+        if (auto sx = ds.overnext)
+        {
+            ds.overnext = null;
+            if (!ds.overloadInsert(sx))
+                ScopeDsymbol.multiplyDefined(Loc.initial, sx, ds);
+        }
     }
 
     void errorRet()
@@ -6782,19 +6787,14 @@ void aliasSemantic(AliasDeclaration ds, Scope* sc)
 
     if (global.gag && errors != global.errors)
         return errorRet();
-    ds.inuse = 0;
-    ds.semanticRun = PASS.semanticdone;
 
-    if (auto sx = ds.overnext)
-    {
-        ds.overnext = null;
-        if (!ds.overloadInsert(sx))
-            ScopeDsymbol.multiplyDefined(Loc.initial, sx, ds);
-    }
     normalRet();
 }
 
-// function used to perform semantic on AliasDeclaration
+/********************
+ * Perform semantic on AliasAssignment.
+ * Has a lot of similarities to aliasSemantic(). Perhaps they should share code.
+ */
 private void aliasAssignSemantic(AliasAssign ds, Scope* sc)
 {
     //printf("AliasAssign::semantic() %p,  %s\n", ds, ds.ident.toChars());
@@ -6807,48 +6807,55 @@ private void aliasAssignSemantic(AliasAssign ds, Scope* sc)
         return;
     }
 
-    Dsymbol scopesym;
-    Dsymbol as = sc.search(ds.loc, ds.ident, &scopesym);
-    if (!as)
+    /* Find the AliasDeclaration corresponding to ds.
+     * Returns: AliasDeclaration if found, null if error
+     */
+    AliasDeclaration findAliasDeclaration(AliasAssign ds, Scope* sc)
     {
-        ds.error("undefined identifier `%s`", ds.ident.toChars());
-        return errorRet();
-    }
-    if (as.errors)
-    {
-        return errorRet();
+        Dsymbol scopesym;
+        Dsymbol as = sc.search(ds.loc, ds.ident, &scopesym);
+        if (!as)
+        {
+            ds.error("undefined identifier `%s`", ds.ident.toChars());
+            return null;
+        }
+        if (as.errors)
+            return null;
+
+        auto ad = as.isAliasDeclaration();
+        if (!ad)
+        {
+            ds.error("identifier `%s` must be an alias declaration", as.toChars());
+            return null;
+        }
+
+        if (ad.overnext)
+        {
+            ds.error("cannot reassign overloaded alias");
+            return null;
+        }
+
+        // Check constraints on the parent
+        auto adParent = ad.toParent();
+        if (adParent != ds.toParent())
+        {
+            if (!adParent)
+                adParent = ds.toParent();
+            error(ds.loc, "`%s` must have same parent `%s` as alias `%s`", ds.ident.toChars(), adParent.toChars(), ad.toChars());
+            return null;
+        }
+        if (!adParent.isTemplateInstance())
+        {
+            ds.error("must be a member of a template");
+            return null;
+        }
+
+        return ad;
     }
 
-    AliasDeclaration aliassym = as.isAliasDeclaration();
+    auto aliassym = findAliasDeclaration(ds, sc);
     if (!aliassym)
-    {
-        ds.error("identifier `%s` must be an alias declaration", as.toChars());
         return errorRet();
-    }
-
-    if (aliassym.overnext)
-    {
-        ds.error("cannot reassign overloaded alias");
-        return errorRet();
-    }
-
-    auto aliassymParent = aliassym.toParent();
-    if (aliassymParent != ds.toParent())
-    {
-        ds.error("must have same parent `%s` as alias `%s`", aliassymParent.toChars(), aliassym.toChars());
-        return errorRet();
-    }
-    if (!aliassymParent.isTemplateInstance())
-    {
-        ds.error("must be a member of a template");
-        return errorRet();
-    }
-
-    if (!aliassym.type)
-    {
-        ds.error("alias assignment can only apply to type aliases");
-        return errorRet();
-    }
 
     if (aliassym.adFlags & Declaration.wasRead)
     {
@@ -6858,12 +6865,43 @@ private void aliasAssignSemantic(AliasAssign ds, Scope* sc)
         return errorRet();
     }
 
-    const errors = global.errors;
     aliassym.adFlags |= Declaration.ignoreRead; // temporarilly allow reads of aliassym
 
     const storage_class = sc.stc & (STC.deprecated_ | STC.ref_ | STC.nothrow_ | STC.nogc | STC.pure_ | STC.shared_ | STC.disable);
 
-//<<>>
+    if (ds.aliassym)
+    {
+        auto fd = ds.aliassym.isFuncLiteralDeclaration();
+        auto td = ds.aliassym.isTemplateDeclaration();
+        if (fd && fd.semanticRun >= PASS.semanticdone)
+        {
+        }
+        else if (fd || td && td.literal)
+        {
+
+            Expression e = new FuncExp(ds.loc, ds.aliassym);
+            e = e.expressionSemantic(sc);
+            auto fe = e.isFuncExp();
+            if (!fe)
+                return errorRet();
+            ds.aliassym = fe.td ? cast(Dsymbol)fe.td : fe.fd;
+        }
+        else if (ds.aliassym.isTemplateInstance())
+            ds.aliassym.dsymbolSemantic(sc);
+
+        aliassym.type = null;
+        aliassym.aliassym = ds.aliassym;
+        return;
+    }
+
+    /* Given:
+     *    abc = def;
+     * it is not knownable from the syntax whether `def` is a type or a symbol.
+     * It appears here as `ds.type`. Do semantic analysis on `def` to disambiguate.
+     */
+
+    const errors = global.errors;
+
     /* This section is needed because Type.resolve() will:
      *   const x = 3;
      *   alias y = x;
@@ -6897,12 +6935,18 @@ private void aliasAssignSemantic(AliasAssign ds, Scope* sc)
 
         if (e)  // Try to convert Expression to Dsymbol
         {
-            s = getDsymbol(e);
-            if (!s)
+            // TupleExp is naturally converted to a TupleDeclaration
+            if (auto te = e.isTupleExp())
+                s = new TupleDeclaration(te.loc, ds.ident, cast(Objects*)te.exps);
+            else
             {
-                if (e.op != TOK.error)
-                    ds.error("cannot alias an expression `%s`", e.toChars());
-                return errorRet();
+                s = getDsymbol(e);
+                if (!s)
+                {
+                    if (e.op != TOK.error)
+                        ds.error("cannot alias an expression `%s`", e.toChars());
+                    return errorRet();
+                }
             }
         }
         ds.type = t;
@@ -6918,9 +6962,8 @@ private void aliasAssignSemantic(AliasAssign ds, Scope* sc)
         //printf("alias %s resolved to %s %s\n", toChars(), s.kind(), s.toChars());
         aliassym.type = null;
         aliassym.aliassym = s;
-
         aliassym.storage_class |= sc.stc & STC.deprecated_;
-        aliassym.protection = sc.protection;
+        aliassym.visibility = sc.visibility;
         aliassym.userAttribDecl = sc.userAttribDecl;
     }
     else    // it's a type alias
@@ -6943,4 +6986,3 @@ private void aliasAssignSemantic(AliasAssign ds, Scope* sc)
 
     ds.semanticRun = PASS.semanticdone;
 }
-

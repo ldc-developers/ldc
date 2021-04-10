@@ -40,9 +40,10 @@ function(build_d_executable target_name output_exe d_src_files compiler_args lin
         # Compile all D modules to a single object.
         set(object_file ${PROJECT_BINARY_DIR}/obj/${target_name}${CMAKE_CXX_OUTPUT_EXTENSION})
         # Default to -linkonce-templates with LDMD host compiler, to speed-up optimization.
-        if("${D_COMPILER_ID}" STREQUAL "LDMD")
-            set(dflags -linkonce-templates ${dflags})
-        endif()
+        # FIXME: https://github.com/ldc-developers/ldc/issues/3690
+        #if("${D_COMPILER_ID}" STREQUAL "LDMD")
+        #    set(dflags -linkonce-templates ${dflags})
+        #endif()
         add_custom_command(
             OUTPUT ${object_file}
             COMMAND ${D_COMPILER} -c ${dflags} -of${object_file} ${d_src_files}

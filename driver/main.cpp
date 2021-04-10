@@ -424,9 +424,13 @@ void parseCommandLine(Strings &sourceFiles) {
   if (global.params.useDIP1021) // DIP1021 implies DIP1000
     global.params.vsafe = true;
   if (global.params.vsafe) // DIP1000 implies DIP25
-    global.params.useDIP25 = true;
-  if (global.params.noDIP25)
-    global.params.useDIP25 = false;
+    global.params.useDIP25 = FeatureState::enabled;
+  // legacy -dip25 option
+  if (global.params.useDIP25 == FeatureState::default_ &&
+      opts::useDIP25.getNumOccurrences()) {
+    global.params.useDIP25 =
+        opts::useDIP25 ? FeatureState::enabled : FeatureState::disabled;
+  }
 
   global.params.output_o =
       (opts::output_o == cl::BOU_UNSET &&

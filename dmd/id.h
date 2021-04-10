@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (C) 2017-2020 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 2017-2021 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -32,6 +32,9 @@ struct Id
     static Identifier *__c_longlong;
     static Identifier *__c_ulonglong;
     static Identifier *__c_long_double;
+    static Identifier *__c_complex_float;
+    static Identifier *__c_complex_double;
+    static Identifier *__c_complex_real;
     static Identifier *__switch;
     static Identifier *crt_constructor;
     static Identifier *crt_destructor;

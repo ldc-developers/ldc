@@ -1,4 +1,3 @@
-
 // RUN: %ldc -enable-dynamic-compile -run %s
 
 import std.array;
@@ -82,10 +81,17 @@ void main(string[] args)
   assert(654 == b());
   assert(987 == z());
   assert(7531 == e());
-  assert(9862 == a());
+  version (Win64)
+  {
+    // TODO: fix https://github.com/ldc-developers/ldc/issues/3695
+  }
+  else
+  {
+    assert(9862 == a());
+  }
   assert(indexOf(dump.data, "321") != -1);
   assert(indexOf(dump.data, "654") != -1);
   assert(indexOf(dump.data, "987") != -1);
   //assert(indexOf(dump.data, "7531") != -1); // TODO: doesn't properly optimized yet
-  assert(indexOf(dump.data, "9862") != -1);
+  version (Win64) { /* ditto */ } else assert(indexOf(dump.data, "9862") != -1);
 }

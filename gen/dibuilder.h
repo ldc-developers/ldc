@@ -172,7 +172,7 @@ private:
   DIType CreateVectorType(TypeVector *type);
   DIType CreateComplexType(Type *type);
   DIType CreateMemberType(unsigned linnum, Type *type, DIFile file,
-                          const char *c_name, unsigned offset, Prot::Kind,
+                          const char *c_name, unsigned offset, Visibility::Kind,
                           bool isStatic = false, DIScope scope = nullptr);
   DISubprogram CreateFunction(DIScope scope, llvm::StringRef name,
                               llvm::StringRef linkageName, DIFile file,

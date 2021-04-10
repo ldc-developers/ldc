@@ -78,6 +78,7 @@ llvm::Type *IrTypeBasic::basic2llvm(Type *t) {
 
   switch (t->ty) {
   case Tvoid:
+  case Tnoreturn:
     return llvm::Type::getVoidTy(ctx);
 
   case Tint8:

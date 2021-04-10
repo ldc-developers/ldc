@@ -178,6 +178,7 @@ Where:\n\
 #endif
 "  -fPIC             generate position independent code\n\
   -g                add symbolic debug info\n\
+  -gdwarf=<version> add DWARF symbolic debug info\n\
   -gf               emit debug info for all referenced types\n\
   -gs               always emit stack frame\n"
 #if 0
@@ -475,7 +476,11 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
       /* -g
        * -gc
        */
-      else if (strcmp(p + 1, "gf") == 0) {
+      else if (startsWith(p + 1, "gdwarf=")) {
+        ldcArgs.push_back("-gdwarf"); // implies -g and enforces DWARF for MSVC
+        ldcArgs.push_back("-dwarf-version");
+        ldcArgs.push_back(p + 8);
+      } else if (strcmp(p + 1, "gf") == 0) {
         ldcArgs.push_back("-g");
       } else if (strcmp(p + 1, "gs") == 0) {
 #if LDC_LLVM_VER >= 1100

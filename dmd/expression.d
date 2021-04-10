@@ -3,7 +3,7 @@
  *
  * Specification: ($LINK2 https://dlang.org/spec/expression.html, Expressions)
  *
- * Copyright:   Copyright (C) 1999-2020 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2021 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/expression.d, _expression.d)
@@ -1576,7 +1576,7 @@ extern (C++) /* IN_LLVM abstract */ class Expression : ASTNode
                 }
 
                 // Forward to aliasthis.
-                if (ad.aliasthis && tb != att)
+                if (ad.aliasthis && !(att && tb.equivalent(att)))
                 {
                     if (!att && tb.checkAliasThisRec())
                         att = tb;
@@ -1788,6 +1788,7 @@ extern (C++) /* IN_LLVM abstract */ class Expression : ASTNode
         inout(FuncInitExp)       isFuncInitExp() { return op == TOK.functionString ? cast(typeof(return))this : null; }
         inout(PrettyFuncInitExp) isPrettyFuncInitExp() { return op == TOK.prettyFunction ? cast(typeof(return))this : null; }
         inout(ClassReferenceExp) isClassReferenceExp() { return op == TOK.classReference ? cast(typeof(return))this : null; }
+        inout(ThrownExceptionExp) isThrownExceptionExp() { return op == TOK.thrownException ? cast(typeof(return))this : null; }
     }
 
     inout(BinAssignExp) isBinAssignExp() pure inout nothrow @nogc
@@ -1974,7 +1975,7 @@ extern (C++) final class IntegerExp : Expression
         return result;
     }
 
-    override Expression syntaxCopy()
+    override IntegerExp syntaxCopy()
     {
         return this;
     }
@@ -2338,7 +2339,7 @@ extern (C++) class ThisExp : Expression
         //printf("ThisExp::ThisExp() loc = %d\n", loc.linnum);
     }
 
-    override Expression syntaxCopy()
+    override ThisExp syntaxCopy()
     {
         auto r = cast(ThisExp) super.syntaxCopy();
         // require new semantic (possibly new `var` etc.)
@@ -2922,7 +2923,7 @@ extern (C++) final class TupleExp : Expression
         return this;
     }
 
-    override Expression syntaxCopy()
+    override TupleExp syntaxCopy()
     {
         return new TupleExp(loc, e0 ? e0.syntaxCopy() : null, arraySyntaxCopy(exps));
     }
@@ -3006,7 +3007,7 @@ extern (C++) final class ArrayLiteralExp : Expression
         emplaceExp!(ArrayLiteralExp)(pue, loc, null, elements);
     }
 
-    override Expression syntaxCopy()
+    override ArrayLiteralExp syntaxCopy()
     {
         return new ArrayLiteralExp(loc,
             null,
@@ -3169,7 +3170,7 @@ extern (C++) final class AssocArrayLiteralExp : Expression
         return false;
     }
 
-    override Expression syntaxCopy()
+    override AssocArrayLiteralExp syntaxCopy()
     {
         return new AssocArrayLiteralExp(loc, arraySyntaxCopy(keys), arraySyntaxCopy(values));
     }
@@ -3276,7 +3277,7 @@ else
         return false;
     }
 
-    override Expression syntaxCopy()
+    override StructLiteralExp syntaxCopy()
     {
         auto exp = new StructLiteralExp(loc, sd, arraySyntaxCopy(elements), type ? type : stype);
         exp.origin = this;
@@ -3407,7 +3408,7 @@ extern (C++) final class TypeExp : Expression
         this.type = type;
     }
 
-    override Expression syntaxCopy()
+    override TypeExp syntaxCopy()
     {
         return new TypeExp(loc, type.syntaxCopy());
     }
@@ -3451,9 +3452,9 @@ extern (C++) final class ScopeExp : Expression
         assert(!sds.isTemplateDeclaration());   // instead, you should use TemplateExp
     }
 
-    override Expression syntaxCopy()
+    override ScopeExp syntaxCopy()
     {
-        return new ScopeExp(loc, cast(ScopeDsymbol)sds.syntaxCopy(null));
+        return new ScopeExp(loc, sds.syntaxCopy(null));
     }
 
     override bool checkType()
@@ -3567,7 +3568,7 @@ extern (C++) final class NewExp : Expression
         return new NewExp(loc, thisexp, newargs, newtype, arguments);
     }
 
-    override Expression syntaxCopy()
+    override NewExp syntaxCopy()
     {
         return new NewExp(loc,
             thisexp ? thisexp.syntaxCopy() : null,
@@ -3601,9 +3602,9 @@ extern (C++) final class NewAnonClassExp : Expression
         this.arguments = arguments;
     }
 
-    override Expression syntaxCopy()
+    override NewAnonClassExp syntaxCopy()
     {
-        return new NewAnonClassExp(loc, thisexp ? thisexp.syntaxCopy() : null, arraySyntaxCopy(newargs), cast(ClassDeclaration)cd.syntaxCopy(null), arraySyntaxCopy(arguments));
+        return new NewAnonClassExp(loc, thisexp ? thisexp.syntaxCopy() : null, arraySyntaxCopy(newargs), cd.syntaxCopy(null), arraySyntaxCopy(arguments));
     }
 
     override void accept(Visitor v)
@@ -3764,12 +3765,6 @@ extern (C++) final class VarExp : SymbolExp
     {
         v.visit(this);
     }
-
-    override Expression syntaxCopy()
-    {
-        auto ret = super.syntaxCopy();
-        return ret;
-    }
 }
 
 /***********************************************************
@@ -3888,7 +3883,7 @@ extern (C++) final class FuncExp : Expression
         }
     }
 
-    override Expression syntaxCopy()
+    override FuncExp syntaxCopy()
     {
         if (td)
             return new FuncExp(loc, td.syntaxCopy(null));
@@ -4120,7 +4115,7 @@ extern (C++) final class DeclarationExp : Expression
         this.declaration = declaration;
     }
 
-    override Expression syntaxCopy()
+    override DeclarationExp syntaxCopy()
     {
         return new DeclarationExp(loc, declaration.syntaxCopy(null));
     }
@@ -4153,7 +4148,7 @@ extern (C++) final class TypeidExp : Expression
         this.obj = o;
     }
 
-    override Expression syntaxCopy()
+    override TypeidExp syntaxCopy()
     {
         return new TypeidExp(loc, objectSyntaxCopy(obj));
     }
@@ -4179,7 +4174,7 @@ extern (C++) final class TraitsExp : Expression
         this.args = args;
     }
 
-    override Expression syntaxCopy()
+    override TraitsExp syntaxCopy()
     {
         return new TraitsExp(loc, ident, TemplateInstance.arraySyntaxCopy(args));
     }
@@ -4229,7 +4224,7 @@ extern (C++) final class IsExp : Expression
         this.parameters = parameters;
     }
 
-    override Expression syntaxCopy()
+    override IsExp syntaxCopy()
     {
         // This section is identical to that in TemplateDeclaration::syntaxCopy()
         TemplateParameters* p = null;
@@ -4261,7 +4256,7 @@ extern (C++) abstract class UnaExp : Expression
         this.e1 = e1;
     }
 
-    override Expression syntaxCopy()
+    override UnaExp syntaxCopy()
     {
         UnaExp e = cast(UnaExp)copy();
         e.type = null;
@@ -4334,7 +4329,7 @@ extern (C++) abstract class BinExp : Expression
         this.e2 = e2;
     }
 
-    override Expression syntaxCopy()
+    override BinExp syntaxCopy()
     {
         BinExp e = cast(BinExp)copy();
         e.type = null;
@@ -4663,7 +4658,7 @@ extern (C++) final class MixinExp : Expression
         this.exps = exps;
     }
 
-    override Expression syntaxCopy()
+    override MixinExp syntaxCopy()
     {
         return new MixinExp(loc, arraySyntaxCopy(exps));
     }
@@ -4724,7 +4719,7 @@ extern (C++) final class AssertExp : UnaExp
         this.msg = msg;
     }
 
-    override Expression syntaxCopy()
+    override AssertExp syntaxCopy()
     {
         return new AssertExp(loc, e1.syntaxCopy(), msg ? msg.syntaxCopy() : null);
     }
@@ -4815,9 +4810,31 @@ extern (C++) final class DotVarExp : UnaExp
         if (sc.func && sc.func.isCtorDeclaration())
         {
             // if inside a constructor scope and e1 of this DotVarExp
-            // is a DotVarExp, then check if e1.e1 is a `this` identifier
+            // is another DotVarExp, then check if the leftmost expression is a `this` identifier
             if (auto dve = e1.isDotVarExp())
             {
+                // Iterate the chain of DotVarExp to find `this`
+                // Keep track whether access to fields was limited to union members
+                // s.t. one can initialize an entire struct inside nested unions
+                // (but not its members)
+                bool onlyUnion = true;
+                while (true)
+                {
+                    auto v = dve.var.isVarDeclaration();
+                    assert(v);
+
+                    // Accessing union member?
+                    auto t = v.type.isTypeStruct();
+                    if (!t || !t.sym.isUnionDeclaration())
+                        onlyUnion = false;
+
+                    // Another DotVarExp left?
+                    if (!dve.e1 || dve.e1.op != TOK.dotVariable)
+                        break;
+
+                    dve = cast(DotVarExp) dve.e1;
+                }
+
                 if (dve.e1.op == TOK.this_)
                 {
                     scope v = dve.var.isVarDeclaration();
@@ -4835,7 +4852,9 @@ extern (C++) final class DotVarExp : UnaExp
                                  */
                                 scope modifyLevel = v.checkModify(loc, sc, dve.e1, flag);
                                 // reflect that assigning a field of v is not initialization of v
-                                v.ctorinit = false;
+                                // unless v is a (potentially nested) union
+                                if (!onlyUnion)
+                                    v.ctorinit = false;
                                 if (modifyLevel == Modifiable.initialization)
                                     return Modifiable.yes;
                                 return modifyLevel;
@@ -4928,7 +4947,7 @@ extern (C++) final class DotTemplateInstanceExp : UnaExp
         this.ti = ti;
     }
 
-    override Expression syntaxCopy()
+    override DotTemplateInstanceExp syntaxCopy()
     {
         return new DotTemplateInstanceExp(loc, e1.syntaxCopy(), ti.name, TemplateInstance.arraySyntaxCopy(ti.tiargs));
     }
@@ -5030,6 +5049,7 @@ extern (C++) final class CallExp : UnaExp
     FuncDeclaration f;      // symbol to call
     bool directcall;        // true if a virtual call is devirtualized
     bool inDebugStatement;  /// true if this was in a debug statement
+    bool ignoreAttributes;  /// don't enforce attributes (e.g. call @gc function in @nogc code)
     VarDeclaration vthis2;  // container for multi-context
 
     extern (D) this(const ref Loc loc, Expression e, Expressions* exps)
@@ -5100,7 +5120,7 @@ extern (C++) final class CallExp : UnaExp
         return new CallExp(loc, fd, earg1);
     }
 
-    override Expression syntaxCopy()
+    override CallExp syntaxCopy()
     {
         return new CallExp(loc, e1.syntaxCopy(), arraySyntaxCopy(arguments));
     }
@@ -5381,7 +5401,7 @@ extern (C++) final class CastExp : UnaExp
         this.mod = mod;
     }
 
-    override Expression syntaxCopy()
+    override CastExp syntaxCopy()
     {
         return to ? new CastExp(loc, e1.syntaxCopy(), to.syntaxCopy()) : new CastExp(loc, e1.syntaxCopy(), mod);
     }
@@ -5441,7 +5461,7 @@ extern (C++) final class VectorExp : UnaExp
         emplaceExp!(VectorExp)(pue, loc, e, type);
     }
 
-    override Expression syntaxCopy()
+    override VectorExp syntaxCopy()
     {
         return new VectorExp(loc, e1.syntaxCopy(), to.syntaxCopy());
     }
@@ -5511,7 +5531,7 @@ extern (C++) final class SliceExp : UnaExp
         this.lwr = lwr;
     }
 
-    override Expression syntaxCopy()
+    override SliceExp syntaxCopy()
     {
         auto se = new SliceExp(loc, e1.syntaxCopy(), lwr ? lwr.syntaxCopy() : null, upr ? upr.syntaxCopy() : null);
         se.lengthVar = this.lengthVar; // bug7871
@@ -5600,7 +5620,7 @@ extern (C++) final class ArrayExp : UnaExp
         arguments = args;
     }
 
-    override Expression syntaxCopy()
+    override ArrayExp syntaxCopy()
     {
         auto ae = new ArrayExp(loc, e1.syntaxCopy(), arraySyntaxCopy(arguments));
         ae.lengthVar = this.lengthVar; // bug7871
@@ -5844,7 +5864,7 @@ extern (C++) final class IndexExp : BinExp
         //printf("IndexExp::IndexExp('%s')\n", toChars());
     }
 
-    override Expression syntaxCopy()
+    override IndexExp syntaxCopy()
     {
         auto ie = new IndexExp(loc, e1.syntaxCopy(), e2.syntaxCopy());
         ie.lengthVar = this.lengthVar; // bug7871
@@ -6659,7 +6679,7 @@ extern (C++) final class CondExp : BinExp
         this.econd = econd;
     }
 
-    override Expression syntaxCopy()
+    override CondExp syntaxCopy()
     {
         return new CondExp(loc, econd.syntaxCopy(), e1.syntaxCopy(), e2.syntaxCopy());
     }
@@ -6748,7 +6768,7 @@ extern (C++) final class CondExp : BinExp
                     {
                         if (!vcond)
                         {
-                            vcond = copyToTemp(STC.volatile_, "__cond", ce.econd);
+                            vcond = copyToTemp(STC.volatile_ | STC.const_, "__cond", ce.econd);
                             vcond.dsymbolSemantic(sc);
 
                             Expression de = new DeclarationExp(ce.econd.loc, vcond);

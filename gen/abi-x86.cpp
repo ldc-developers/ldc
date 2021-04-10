@@ -7,6 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "dmd/enum.h"
+#include "dmd/id.h"
 #include "gen/abi-generic.h"
 #include "gen/abi.h"
 #include "gen/dvalue.h"
@@ -81,11 +83,27 @@ struct X86TargetABI : TargetABI {
     return name;
   }
 
+  // Helper folding the magic __c_complex_{float,double,real} enums to the basic
+  // complex type.
+  static Type *getExtraLoweredReturnType(TypeFunction *tf) {
+    Type *rt = tf->next;
+    if (auto te = rt->isTypeEnum()) {
+      auto id = te->sym->ident;
+      if (id == Id::__c_complex_float)
+        return Type::tcomplex32;
+      if (id == Id::__c_complex_double)
+        return Type::tcomplex64;
+      if (id == Id::__c_complex_real)
+        return Type::tcomplex80;
+    }
+    return rt->toBasetype();
+  }
+
   bool returnInArg(TypeFunction *tf, bool needsThis) override {
     if (tf->isref())
       return false;
 
-    Type *rt = tf->next->toBasetype();
+    Type *rt = getExtraLoweredReturnType(tf);
     const bool externD = isExternD(tf);
 
     // non-aggregates are returned directly
@@ -138,8 +156,8 @@ struct X86TargetABI : TargetABI {
     const bool externD = isExternD(fty.type);
 
     // return value:
-    if (!fty.ret->byref) {
-      Type *rt = fty.ret->type->toBasetype(); // for sret, rt == void
+    if (!skipReturnValueRewrite(fty)) {
+      Type *rt = getExtraLoweredReturnType(fty.type);
       if (isAggregate(rt) && canRewriteAsInt(rt) &&
           // don't rewrite cfloat for extern(D)
           !(externD && rt->ty == Tcomplex32)) {
@@ -183,22 +201,23 @@ struct X86TargetABI : TargetABI {
         //   * It is not a floating point type.
 
         IrFuncTyArg *last = fty.args.back();
-        Type *lastTy = last->type->toBasetype();
-        unsigned sz = lastTy->size();
-
         if (last->rewrite == &indirectByvalRewrite ||
             (last->byref && !last->isByVal())) {
           Logger::println("Putting last (byref) parameter in register");
           last->attrs.addAttribute(LLAttribute::InReg);
-        } else if (!lastTy->isfloating() && (sz == 1 || sz == 2 || sz == 4)) {
-          // rewrite aggregates as integers to make inreg work
-          if (lastTy->ty == Tstruct || lastTy->ty == Tsarray) {
-            integerRewrite.applyTo(*last);
-            // undo byval semantics applied via passByVal() returning true
-            last->byref = false;
-            last->attrs.clear();
+        } else {
+          Type *lastTy = last->type->toBasetype();
+          auto sz = lastTy->size();
+          if (!lastTy->isfloating() && (sz == 1 || sz == 2 || sz == 4)) {
+            // rewrite aggregates as integers to make inreg work
+            if (lastTy->ty == Tstruct || lastTy->ty == Tsarray) {
+              integerRewrite.applyTo(*last);
+              // undo byval semantics applied via passByVal() returning true
+              last->byref = false;
+              last->attrs.clear();
+            }
+            last->attrs.addAttribute(LLAttribute::InReg);
           }
-          last->attrs.addAttribute(LLAttribute::InReg);
         }
       }
     }

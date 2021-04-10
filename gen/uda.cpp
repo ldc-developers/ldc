@@ -41,8 +41,8 @@ bool isMagicModule(const ModuleDeclaration *moduleDecl, const Identifier *id) {
     return false;
   }
 
-  if (moduleDecl->packages->length != 1 ||
-      (*moduleDecl->packages)[0] != Id::ldc) {
+  if (moduleDecl->packages.length != 1 ||
+      moduleDecl->packages.ptr[0] != Id::ldc) {
     return false;
   }
   return true;
