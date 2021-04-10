@@ -109,6 +109,9 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
     return gccAsmSemantic(gas, sc);
   }
 
+  // this is DMD-style asm
+  sc->func->hasReturnExp |= 32;
+
   auto ias = createInlineAsmStatement(s->loc, s->tokens);
   s = ias;
 
@@ -156,7 +159,7 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
   LOG_SCOPE;
 
   // sanity check
-  assert(irs->func()->decl->hasReturnExp & 8);
+  assert((irs->func()->decl->hasReturnExp & 40) == 40);
 
   // get asm block
   IRAsmBlock *asmblock = irs->asmBlock;

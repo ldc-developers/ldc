@@ -53,8 +53,6 @@ namespace ldc {
 const char *convertDIdentifierToCPlusPlus(const char *name, size_t nameLength);
 
 namespace {
-DIType getNullDIType() { return nullptr; }
-
 llvm::StringRef uniqueIdent(Type *t) {
   if (t->deco)
     return t->deco;
@@ -125,7 +123,7 @@ DIScope DIBuilder::GetSymbolScope(Dsymbol *s) {
     // parent composite types have to get declared
     while (!parent->isModule()) {
       if (parent->isAggregateDeclaration())
-        CreateCompositeTypeDescription(parent->getType());
+        CreateCompositeType(parent->getType());
       parent = parent->toParent();
     }
   }
@@ -135,7 +133,7 @@ DIScope DIBuilder::GetSymbolScope(Dsymbol *s) {
   } else if (auto m = parent->isModule()) {
     return EmitModule(m);
   } else if (parent->isAggregateDeclaration()) {
-    return CreateCompositeTypeDescription(parent->getType());
+    return CreateCompositeType(parent->getType());
   } else if (auto fd = parent->isFuncDeclaration()) {
     DtoDeclareFunction(fd);
     return EmitSubProgram(fd);
@@ -144,7 +142,10 @@ DIScope DIBuilder::GetSymbolScope(Dsymbol *s) {
   } else if (auto fwd = parent->isForwardingScopeDsymbol()) {
     return GetSymbolScope(fwd);
   } else if (auto ed = parent->isEnumDeclaration()) {
-    return CreateEnumType(ed->getType());
+    auto et = CreateEnumType(ed->getType()->isTypeEnum());
+    if (llvm::isa<llvm::DICompositeType>(et))
+      return et;
+    return EmitNamespace(ed, ed->toChars());
   } else {
     error(parent->loc, "unknown debuginfo scope `%s`; please file an LDC issue",
           parent->toChars());
@@ -313,34 +314,39 @@ DIType DIBuilder::CreateBasicType(Type *type) {
                                   Encoding);
 }
 
-DIType DIBuilder::CreateEnumType(Type *type) {
-  assert(type->ty == Tenum);
+DIType DIBuilder::CreateEnumType(TypeEnum *type) {
+  EnumDeclaration *const ed = type->sym;
 
-  llvm::Type *const T = DtoType(type);
-  EnumDeclaration *const ed = static_cast<TypeEnum *>(type)->sym;
-  assert(ed->memtype);
+  if (!ed->memtype) // opaque enum
+    return CreateUnspecifiedType(ed);
 
-  if (ed->isSpecial()) {
-    return CreateBasicType(ed->memtype);
-  }
-
-  llvm::SmallVector<LLMetadata *, 8> subscripts;
-  for (auto m : *ed->members) {
-    EnumMember *em = m->isEnumMember();
-    if (auto ie = em->value()->isIntegerExp()) {
-      subscripts.push_back(
-          DBuilder.createEnumerator(em->toChars(), ie->toInteger()));
-    } else {
-      subscripts.clear();
-      break;
-    }
-  }
+  if (ed->isSpecial()) // magic enums: forward to base type
+    return CreateTypeDescription(ed->memtype);
 
   DIScope scope = nullptr;
   const auto name = GetNameAndScope(ed, scope);
   const auto lineNumber = ed->loc.linnum;
   const auto file = CreateFile(ed);
 
+  // just emit a typedef for non-integral base types
+  auto tb = type->toBasetype();
+  if (!tb->isintegral()) {
+    auto tbase = CreateTypeDescription(tb);
+    return DBuilder.createTypedef(tbase, name, file, lineNumber, scope);
+  }
+
+  llvm::SmallVector<LLMetadata *, 8> subscripts;
+  if (ed->members) {
+    for (auto m : *ed->members) {
+      EnumMember *em = m->isEnumMember();
+      if (auto ie = em->value()->isIntegerExp()) {
+        subscripts.push_back(
+            DBuilder.createEnumerator(em->toChars(), ie->toInteger()));
+      }
+    }
+  }
+
+  llvm::Type *const T = DtoType(type);
   return DBuilder.createEnumerationType(
       scope, name, file, lineNumber,
       getTypeAllocSize(T) * 8,               // size (bits)
@@ -349,16 +355,8 @@ DIType DIBuilder::CreateEnumType(Type *type) {
       CreateTypeDescription(ed->memtype));
 }
 
-DIType DIBuilder::CreatePointerType(Type *type) {
+DIType DIBuilder::CreatePointerType(TypePointer *type) {
   llvm::Type *T = DtoType(type);
-  Type *t = type->toBasetype();
-  assert(t->ty == Tpointer);
-
-  // find base type
-  Type *nt = t->nextOf();
-  // translate void pointers to byte pointers
-  if (nt->toBasetype()->ty == Tvoid)
-    nt = Type::tuns8;
 
   // TODO: The addressspace is important for dcompute targets. See e.g.
   // https://www.mail-archive.com/dwarf-discuss@lists.dwarfstd.org/msg00326.html
@@ -366,24 +364,17 @@ DIType DIBuilder::CreatePointerType(Type *type) {
 
   const auto name = processDIName(type->toPrettyChars(true));
 
-  return DBuilder.createPointerType(CreateTypeDescription(nt),
-                                    getTypeAllocSize(T) * 8, // size (bits)
-                                    getABITypeAlign(T) * 8,  // align (bits)
-                                    DWARFAddressSpace, name);
+  return DBuilder.createPointerType(
+      CreateTypeDescription(type->nextOf(), /*voidToUbyte=*/true),
+      getTypeAllocSize(T) * 8, // size (bits)
+      getABITypeAlign(T) * 8,  // align (bits)
+      DWARFAddressSpace, name);
 }
 
-DIType DIBuilder::CreateVectorType(Type *type) {
+DIType DIBuilder::CreateVectorType(TypeVector *type) {
   LLType *T = DtoType(type);
-  Type *t = type->toBasetype();
 
-  assert(t->ty == Tvector &&
-         "Only vectors allowed for debug info in DIBuilder::CreateVectorType");
-  TypeVector *tv = static_cast<TypeVector *>(t);
-  Type *te = tv->elementType();
-  // translate void vectors to byte vectors
-  if (te->toBasetype()->ty == Tvoid)
-    te = Type::tuns8;
-  const auto dim = tv->size(Loc()) / te->size(Loc());
+  const auto dim = type->basetype->isTypeSArray()->dim->toInteger();
 #if LDC_LLVM_VER >= 1100
   const auto Dim = llvm::ConstantAsMetadata::get(DtoConstSize_t(dim));
   auto subscript = DBuilder.getOrCreateSubrange(Dim, nullptr, nullptr, nullptr);
@@ -392,16 +383,16 @@ DIType DIBuilder::CreateVectorType(Type *type) {
 #endif
 
   return DBuilder.createVectorType(
-      getTypeAllocSize(T) * 8,               // size (bits)
-      getABITypeAlign(T) * 8,                // align (bits)
-      CreateTypeDescription(te),             // element type
+      getTypeAllocSize(T) * 8, // size (bits)
+      getABITypeAlign(T) * 8,  // align (bits)
+      CreateTypeDescription(type->elementType(), /*voidToUbyte=*/true),
       DBuilder.getOrCreateArray({subscript}) // subscripts
   );
 }
 
 DIType DIBuilder::CreateComplexType(Type *type) {
-  llvm::Type *T = DtoType(type);
   Type *t = type->toBasetype();
+  llvm::Type *T = DtoType(type);
 
   Type *elemtype = nullptr;
   switch (t->ty) {
@@ -432,41 +423,21 @@ DIType DIBuilder::CreateComplexType(Type *type) {
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment
                                    DIFlags::FlagZero,       // What here?
-                                   getNullDIType(),         // derived from
+                                   nullptr,                 // derived from
                                    DBuilder.getOrCreateArray(elems),
                                    0,               // RunTimeLang
-                                   getNullDIType(), // VTableHolder
+                                   nullptr,         // VTableHolder
                                    uniqueIdent(t)); // UniqueIdentifier
-}
-
-DIType DIBuilder::CreateTypedef(unsigned linnum, Type *type, DIFile file,
-                                const char *c_name) {
-  Type *t = type->toBasetype();
-
-  // translate functions to function pointers
-  if (t->ty == Tfunction)
-    t = t->pointerTo();
-
-  // find base type
-  DIType basetype = CreateTypeDescription(t);
-
-  return DBuilder.createTypedef(basetype, c_name, file, linnum, GetCU());
 }
 
 DIType DIBuilder::CreateMemberType(unsigned linnum, Type *type, DIFile file,
                                    const char *c_name, unsigned offset,
                                    Visibility::Kind visibility, bool isStatic,
                                    DIScope scope) {
-  Type *t = type->toBasetype();
-
-  // translate functions to function pointers
-  if (t->ty == Tfunction)
-    t = t->pointerTo();
-
-  llvm::Type *T = DtoType(t);
+  llvm::Type *T = DtoType(type);
 
   // find base type
-  DIType basetype = CreateTypeDescription(t);
+  DIType basetype = CreateTypeDescription(type);
 
   auto Flags = DIFlags::FlagZero;
   switch (visibility) {
@@ -515,7 +486,7 @@ void DIBuilder::AddStaticMembers(AggregateDeclaration *ad, DIFile file,
   if (!members)
     return;
 
-  auto scope = CreateCompositeTypeDescription(ad->getType());
+  auto scope = CreateCompositeType(ad->getType());
 
   std::function<void(Dsymbols *)> visitMembers = [&](Dsymbols *members) {
     for (auto s : *members) {
@@ -547,19 +518,16 @@ void DIBuilder::AddStaticMembers(AggregateDeclaration *ad, DIFile file,
   visitMembers(members);
 }
 
-DIType DIBuilder::CreateCompositeType(Type *type) {
-  Type *t = type->toBasetype();
+DIType DIBuilder::CreateCompositeType(Type *t) {
   assert((t->ty == Tstruct || t->ty == Tclass) &&
          "Unsupported type for debug info in DIBuilder::CreateCompositeType");
+
   AggregateDeclaration *ad;
   if (t->ty == Tstruct) {
-    TypeStruct *ts = static_cast<TypeStruct *>(t);
-    ad = ts->sym;
+    ad = static_cast<TypeStruct *>(t)->sym;
   } else {
-    TypeClass *tc = static_cast<TypeClass *>(t);
-    ad = tc->sym;
+    ad = static_cast<TypeClass *>(t)->sym;
   }
-  assert(ad);
 
   // Use the actual type associated with the declaration, ignoring any
   // const/wrappers.
@@ -568,7 +536,7 @@ DIType DIBuilder::CreateCompositeType(Type *type) {
     T = T->getPointerElementType();
   IrAggr *irAggr = getIrAggr(ad, true);
 
-  if (static_cast<llvm::MDNode *>(irAggr->diCompositeType) != nullptr) {
+  if (irAggr->diCompositeType) {
     return irAggr->diCompositeType;
   }
 
@@ -578,7 +546,7 @@ DIType DIBuilder::CreateCompositeType(Type *type) {
   // if we don't know the aggregate's size, we don't know enough about it
   // to provide debug info. probably a forward-declared struct?
   if (ad->sizeok == Sizeok::none) {
-    return DBuilder.createUnspecifiedType(name);
+    return CreateUnspecifiedType(ad);
   }
 
   assert(GetCU() && "Compilation unit missing or corrupted");
@@ -592,8 +560,8 @@ DIType DIBuilder::CreateCompositeType(Type *type) {
   const auto sizeInBits = T->isSized() ? getTypeAllocSize(T) * 8 : 0;
   const auto alignmentInBits = T->isSized() ? getABITypeAlign(T) * 8 : 0;
   const auto classOffsetInBits = 0;
-  auto derivedFrom = getNullDIType();
-  const auto vtableHolder = getNullDIType();
+  DIType derivedFrom = nullptr;
+  const auto vtableHolder = nullptr;
   const auto templateParams = nullptr;
   const auto uniqueIdentifier = uniqueIdent(t);
 
@@ -645,15 +613,12 @@ DIType DIBuilder::CreateCompositeType(Type *type) {
 
   irAggr->diCompositeType =
       DBuilder.replaceTemporary(llvm::TempDINode(irAggr->diCompositeType), ret);
-  irAggr->diCompositeType = ret;
 
-  return ret;
+  return irAggr->diCompositeType;
 }
 
-DIType DIBuilder::CreateArrayType(Type *type) {
+DIType DIBuilder::CreateArrayType(TypeArray *type) {
   llvm::Type *T = DtoType(type);
-  Type *t = type->toBasetype();
-  assert(t->ty == Tarray);
 
   const auto scope = GetCU();
   const auto name = processDIName(type->toPrettyChars(true));
@@ -661,7 +626,7 @@ DIType DIBuilder::CreateArrayType(Type *type) {
 
   LLMetadata *elems[] = {CreateMemberType(0, Type::tsize_t, file, "length", 0,
                                           Visibility::public_),
-                         CreateMemberType(0, t->nextOf()->pointerTo(), file,
+                         CreateMemberType(0, type->nextOf()->pointerTo(), file,
                                           "ptr", global.params.is64bit ? 8 : 4,
                                           Visibility::public_)};
 
@@ -670,22 +635,20 @@ DIType DIBuilder::CreateArrayType(Type *type) {
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment in bits
                                    DIFlags::FlagZero,       // What here?
-                                   getNullDIType(),         // derived from
+                                   nullptr,                 // derived from
                                    DBuilder.getOrCreateArray(elems),
-                                   0,               // RunTimeLang
-                                   getNullDIType(), // VTableHolder
-                                   uniqueIdent(t)); // UniqueIdentifier
+                                   0,                  // RunTimeLang
+                                   nullptr,            // VTableHolder
+                                   uniqueIdent(type)); // UniqueIdentifier
 }
 
-DIType DIBuilder::CreateSArrayType(Type *type) {
+DIType DIBuilder::CreateSArrayType(TypeSArray *type) {
   llvm::Type *T = DtoType(type);
-  Type *t = type->toBasetype();
-  assert(t->ty == Tsarray);
 
-  // find base type
+  Type *te = type;
   llvm::SmallVector<LLMetadata *, 8> subscripts;
-  while (t->ty == Tsarray) {
-    TypeSArray *tsa = static_cast<TypeSArray *>(t);
+  for (; te->ty == Tsarray; te = te->nextOf()) {
+    TypeSArray *tsa = static_cast<TypeSArray *>(te);
     const auto count = tsa->dim->toInteger();
 #if LDC_LLVM_VER >= 1100
     const auto Count = llvm::ConstantAsMetadata::get(DtoConstSize_t(count));
@@ -695,41 +658,29 @@ DIType DIBuilder::CreateSArrayType(Type *type) {
     const auto subscript = DBuilder.getOrCreateSubrange(0, count);
 #endif
     subscripts.push_back(subscript);
-    t = t->nextOf();
   }
-
-  // element type: void => byte, function => function pointer
-  t = t->toBasetype();
-  if (t->ty == Tvoid)
-    t = Type::tuns8;
-  else if (t->ty == Tfunction)
-    t = t->pointerTo();
 
   return DBuilder.createArrayType(
       getTypeAllocSize(T) * 8,              // size (bits)
       getABITypeAlign(T) * 8,               // align (bits)
-      CreateTypeDescription(t),             // element type
+      CreateTypeDescription(te, /*voidToUbyte=*/true),
       DBuilder.getOrCreateArray(subscripts) // subscripts
   );
 }
 
-DIType DIBuilder::CreateAArrayType(Type *type) {
+DIType DIBuilder::CreateAArrayType(TypeAArray *type) {
   llvm::Type *T = DtoType(type);
-  Type *t = type->toBasetype();
-  assert(t->ty == Taarray);
 
-  TypeAArray *typeAArray = static_cast<TypeAArray *>(t);
-
-  Type *index = typeAArray->index;
-  Type *value = typeAArray->nextOf();
+  auto tindex = CreateTypeDescription(type->index);
+  auto tvalue = CreateTypeDescription(type->nextOf());
 
   const auto scope = GetCU();
   const auto name = processDIName(type->toPrettyChars(true));
   const auto file = CreateFile();
 
   LLMetadata *elems[] = {
-      CreateTypedef(0, index, file, "__key_t"),
-      CreateTypedef(0, value, file, "__val_t"),
+      DBuilder.createTypedef(tindex, "__key_t", file, 0, scope),
+      DBuilder.createTypedef(tvalue, "__val_t", file, 0, scope),
       CreateMemberType(0, Type::tvoidptr, file, "ptr", 0, Visibility::public_)};
 
   return DBuilder.createStructType(scope, name, file,
@@ -737,11 +688,11 @@ DIType DIBuilder::CreateAArrayType(Type *type) {
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment in bits
                                    DIFlags::FlagZero,       // What here?
-                                   getNullDIType(),         // derived from
+                                   nullptr,                 // derived from
                                    DBuilder.getOrCreateArray(elems),
-                                   0,               // RunTimeLang
-                                   getNullDIType(), // VTableHolder
-                                   uniqueIdent(t)); // UniqueIdentifier
+                                   0,                  // RunTimeLang
+                                   nullptr,            // VTableHolder
+                                   uniqueIdent(type)); // UniqueIdentifier
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -750,9 +701,9 @@ DIType DIBuilder::CreateAArrayType(Type *type) {
 const unsigned DW_CC_D_dmd = 0x43;
 
 DISubroutineType DIBuilder::CreateFunctionType(Type *type) {
-  assert(type->toBasetype()->ty == Tfunction);
+  TypeFunction *t = type->isTypeFunction();
+  assert(t);
 
-  TypeFunction *t = static_cast<TypeFunction *>(type);
   Type *retType = t->next;
 
   // Create "dummy" subroutine type for the return type
@@ -772,52 +723,41 @@ DISubroutineType DIBuilder::CreateEmptyFunctionType() {
   return DBuilder.createSubroutineType(paramsArray);
 }
 
-DIType DIBuilder::CreateDelegateType(Type *type) {
-  Type *const tb = type->toBasetype();
-  assert(tb->ty == Tdelegate);
-  auto t = static_cast<TypeDelegate *>(tb);
-
+DIType DIBuilder::CreateDelegateType(TypeDelegate *type) {
   llvm::Type *T = DtoType(type);
 
   const auto scope = GetCU();
   const auto name = processDIName(type->toPrettyChars(true));
   const auto file = CreateFile();
 
-  LLMetadata *elems[] = {CreateMemberType(0, Type::tvoidptr, file, "context", 0,
-                                          Visibility::public_),
-                         CreateMemberType(0, t->next, file, "funcptr",
-                                          global.params.is64bit ? 8 : 4,
-                                          Visibility::public_)};
+  LLMetadata *elems[] = {
+      CreateMemberType(0, Type::tvoidptr, file, "context", 0,
+                       Visibility::public_),
+      CreateMemberType(0, type->next->pointerTo(), file, "funcptr",
+                       global.params.is64bit ? 8 : 4, Visibility::public_)};
 
   return DBuilder.createStructType(scope, name, file,
                                    0, // line number where defined
                                    getTypeAllocSize(T) * 8, // size in bits
                                    getABITypeAlign(T) * 8,  // alignment in bits
                                    DIFlags::FlagZero,       // flags
-                                   getNullDIType(),         // derived from
+                                   nullptr,                 // derived from
                                    DBuilder.getOrCreateArray(elems),
-                                   0,               // RunTimeLang
-                                   getNullDIType(), // VTableHolder
+                                   0,                  // RunTimeLang
+                                   nullptr,            // VTableHolder
                                    uniqueIdent(type)); // UniqueIdentifier
 }
 
-////////////////////////////////////////////////////////////////////////////////
-bool isOpaqueEnumType(Type *type) {
-  if (type->ty != Tenum)
-    return false;
-
-  TypeEnum *te = static_cast<TypeEnum *>(type);
-  return !te->sym->memtype;
+DIType DIBuilder::CreateUnspecifiedType(Dsymbol *sym) {
+  return DBuilder.createUnspecifiedType(
+      processDIName(sym->toPrettyChars(true)));
 }
 
-DIType DIBuilder::CreateTypeDescription(Type *type) {
-  // Check for opaque enum first, Bugzilla 13792
-  if (isOpaqueEnumType(type)) {
-    const auto ed = static_cast<TypeEnum *>(type)->sym;
-    return DBuilder.createUnspecifiedType(ed->toChars());
-  }
+////////////////////////////////////////////////////////////////////////////////
 
-  Type *t = type->toBasetype();
+DIType DIBuilder::CreateTypeDescription(Type *t, bool voidToUbyte) {
+  if (voidToUbyte && t->toBasetype()->ty == Tvoid)
+    t = Type::tuns8;
 
   if (t->ty == Tvoid || t->ty == Tnoreturn)
     return nullptr;
@@ -827,43 +767,38 @@ DIType DIBuilder::CreateTypeDescription(Type *type) {
                                       /* DWARFAddressSpace */ llvm::None,
                                       "typeof(null)");
   }
-  if (t->ty == Tvector)
-    return CreateVectorType(type);
-  if (t->isintegral() || t->isfloating()) {
-    if (type->ty == Tenum)
-      return CreateEnumType(type);
-    return CreateBasicType(type);
-  }
-  if (t->ty == Tpointer)
-    return CreatePointerType(type);
-  if (t->ty == Tarray)
-    return CreateArrayType(type);
-  if (t->ty == Tsarray)
-    return CreateSArrayType(type);
-  if (t->ty == Taarray)
-    return CreateAArrayType(type);
+  if (auto te = t->isTypeEnum())
+    return CreateEnumType(te);
+  if (auto tv = t->isTypeVector())
+    return CreateVectorType(tv);
+  if (t->isintegral() || t->isfloating())
+    return CreateBasicType(t);
+  if (auto tp = t->isTypePointer())
+    return CreatePointerType(tp);
+  if (auto ta = t->isTypeDArray())
+    return CreateArrayType(ta);
+  if (auto tsa = t->isTypeSArray())
+    return CreateSArrayType(tsa);
+  if (auto taa = t->isTypeAArray())
+    return CreateAArrayType(taa);
   if (t->ty == Tstruct)
-    return CreateCompositeType(type);
-  if (t->ty == Tclass) {
+    return CreateCompositeType(t);
+  if (auto tc = t->isTypeClass()) {
     LLType *T = DtoType(t);
-    const auto aggregateDIType = CreateCompositeType(type);
-    const auto name = (aggregateDIType->getName() + "*").str();
+    const auto aggregateDIType = CreateCompositeType(t);
+    const auto name =
+        (tc->sym->toPrettyChars(true) + llvm::StringRef("*")).str();
     return DBuilder.createPointerType(aggregateDIType, getTypeAllocSize(T) * 8,
-                                      getABITypeAlign(T) * 8, llvm::None, name);
+                                      getABITypeAlign(T) * 8, llvm::None,
+                                      processDIName(name));
   }
-  if (t->ty == Tfunction)
-    return CreateFunctionType(type);
-  if (t->ty == Tdelegate)
-    return CreateDelegateType(type);
+  if (auto tf = t->isTypeFunction())
+    return CreateFunctionType(tf);
+  if (auto td = t->isTypeDelegate())
+    return CreateDelegateType(td);
 
   // Crash if the type is not supported.
   llvm_unreachable("Unsupported type in debug info");
-}
-
-DICompositeType DIBuilder::CreateCompositeTypeDescription(Type *type) {
-  DIType ret = type->toBasetype()->ty == Tclass ? CreateCompositeType(type)
-                                                : CreateTypeDescription(type);
-  return llvm::cast<llvm::DICompositeType>(ret);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -998,7 +933,7 @@ DISubprogram DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
   if (emitCodeView && fd->toParent2()->isFuncDeclaration()) {
     // emit into module & use fully qualified name
     scope = GetCU();
-    name = fd->toPrettyChars(true);
+    name = processDIName(fd->toPrettyChars(true));
   } else if (fd->isMain()) {
     scope = GetSymbolScope(fd);
     name = fd->toPrettyChars(true); // `D main`
@@ -1040,7 +975,7 @@ DISubprogram DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
     );
 
     // Now create subroutine type.
-    diFnType = CreateFunctionType(static_cast<TypeFunction *>(fd->type));
+    diFnType = CreateFunctionType(fd->type);
   }
 
   // FIXME: duplicates?

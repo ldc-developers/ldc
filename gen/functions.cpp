@@ -1244,8 +1244,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     emitDMDStyleFunctionTrace(*gIR, fd, funcGen);
   }
 
-  // disable frame-pointer-elimination for functions with inline asm
-  if (fd->hasReturnExp & 8) // has inline asm
+  // disable frame-pointer-elimination for functions with DMD-style inline asm
+  if (fd->hasReturnExp & 32)
   {
 #if LDC_LLVM_VER >= 800
     func->addFnAttr(
