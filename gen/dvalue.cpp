@@ -130,7 +130,7 @@ DRValue *DLValue::getRVal() {
     return nullptr;
   }
 
-  LLValue *rval = DtoLoad(val);
+  LLValue *rval = DtoLoad(val, "", DtoAlignment(type));
 
   const auto ty = type->toBasetype()->ty;
   if (ty == Tbool) {

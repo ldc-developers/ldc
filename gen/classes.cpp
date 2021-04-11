@@ -437,7 +437,7 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl) {
   const auto vtblname = name + "@vtbl";
   funcval = DtoGEP(funcval, 0, fdecl->vtblIndex, vtblname.c_str());
   // load opaque pointer
-  funcval = DtoAlignedLoad(funcval);
+  funcval = DtoLoad(funcval);
 
   IF_LOG Logger::cout() << "funcval: " << *funcval << '\n';
 

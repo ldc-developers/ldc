@@ -208,7 +208,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
         ((!isVararg && !isaPointer(paramType)) ||
          (isVararg && !irArg->byref && !irArg->isByVal()))) {
       Logger::println("Loading struct type for function argument");
-      llVal = DtoLoad(llVal);
+      llVal = DtoLoad(llVal, "", DtoAlignment(argexp->type));
     }
 
     // parameter type mismatch, this is hard to get rid of
@@ -623,7 +623,9 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
     Expression *exp1 = (*e->arguments)[0];
     LLValue *ptr = DtoRVal(exp1);
-    result = new DImValue(e->type, DtoVolatileLoad(ptr));
+    auto val = DtoLoad(ptr, "", DtoAlignment(exp1->type->nextOf()));
+    llvm::cast<llvm::LoadInst>(val)->setVolatile(true);
+    result = new DImValue(e->type, val);
     return true;
   }
 

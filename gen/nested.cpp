@@ -123,7 +123,7 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
   };
   const auto dereference = [&val, &dwarfAddrOps](const char *name = "") {
     gIR->DBuilder.OpDeref(dwarfAddrOps);
-    val = DtoAlignedLoad(val, name);
+    val = DtoLoad(val, name);
   };
 
   const auto vardepth = irLocal->nestedDepth;
@@ -159,7 +159,7 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
     // Handled appropriately by makeVarDValue() and EmitLocalVariable(), pass
     // storage of pointer (reference lvalue).
   } else if (byref || isRefOrOut) {
-    val = DtoAlignedLoad(val);
+    val = DtoLoad(val);
     // ref/out variables get a reference-debuginfo-type in EmitLocalVariable()
     // => don't dereference, use reference lvalue as address
     if (!isRefOrOut)
@@ -299,8 +299,8 @@ LLValue *DtoNestedContext(const Loc &loc, Dsymbol *sym) {
       val = DtoBitCast(val,
                        LLPointerType::getUnqual(getIrFunc(ctxfd)->frameType));
       val = DtoGEP(val, 0, neededDepth);
-      val = DtoAlignedLoad(
-          val, (std::string(".frame.") + frameToPass->toChars()).c_str());
+      val = DtoLoad(val,
+                    (std::string(".frame.") + frameToPass->toChars()).c_str());
     }
   }
 

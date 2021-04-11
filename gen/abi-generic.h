@@ -133,7 +133,7 @@ struct BaseBitcastABIRewrite : ABIRewrite {
     if (!dv->isLVal()) {
       LLValue *dump = DtoAllocaDump(dv, asType, alignment,
                                     ".BaseBitcastABIRewrite_arg_storage");
-      return DtoLoad(dump, name);
+      return DtoLoad(dump, name, alignment);
     }
 
     LLValue *address = DtoLVal(dv);
@@ -147,11 +147,11 @@ struct BaseBitcastABIRewrite : ABIRewrite {
           asType, alignment, ".BaseBitcastABIRewrite_padded_arg_storage");
       DtoMemCpy(paddedDump, address, alignment, srcAlignment,
                 pointeeAllocSize);
-      return DtoLoad(paddedDump, name);
+      return DtoLoad(paddedDump, name, alignment);
     }
 
     address = DtoBitCast(address, getPtrToType(asType));
-    return DtoLoad(address, name);
+    return DtoLoad(address, name, alignment);
   }
 
   LLValue *getLVal(Type *dty, LLValue *v) override {

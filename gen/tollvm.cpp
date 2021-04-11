@@ -484,24 +484,11 @@ LLConstant *DtoConstString(const char *str) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoLoad(LLValue *src, const char *name) {
-  return gIR->ir->CreateLoad(src, name);
-}
-
-// Like DtoLoad, but the pointer is guaranteed to be aligned appropriately for
-// the type.
-LLValue *DtoAlignedLoad(LLValue *src, const char *name) {
-  llvm::LoadInst *ld = gIR->ir->CreateLoad(src, name);
-  if (auto alignment = getABITypeAlign(ld->getType())) {
-    ld->setAlignment(LLAlign(alignment));
-  }
-  return ld;
-}
-
-LLValue *DtoVolatileLoad(LLValue *src, const char *name) {
-  llvm::LoadInst *ld = gIR->ir->CreateLoad(src, name);
-  ld->setVolatile(true);
-  return ld;
+LLValue *DtoLoad(LLValue *src, const char *name, unsigned alignment) {
+  auto r = gIR->ir->CreateLoad(src, name);
+  if (alignment != 0)
+    r->setAlignment(LLAlign(alignment));
+  return r;
 }
 
 void DtoStore(LLValue *src, LLValue *dst) {
