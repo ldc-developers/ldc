@@ -188,21 +188,31 @@ void DtoMemSetZero(LLValue *dst, unsigned align = 1);
  * Generates a call to llvm.memcpy.i32 (or i64 depending on architecture).
  * @param dst Destination memory.
  * @param src Source memory.
+ * @param dstAlign The minimum alignment of the destination memory.
+ * @param srcAlign The minimum alignment of the source memory.
  * @param nbytes Number of bytes to copy.
- * @param align The minimum alignment of the source and destination memory.
  */
-void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes, unsigned align = 1);
+void DtoMemCpy(LLValue *dst, LLValue *src, unsigned dstAlign, unsigned srcAlign,
+               uint64_t nbytes);
+void DtoMemCpy(LLValue *dst, LLValue *src, unsigned dstAlign, unsigned srcAlign,
+               LLValue *nbytes);
 
 /**
  * The same as DtoMemCpy but figures out the size itself based on the dst
  * pointee.
  * @param dst Destination memory.
  * @param src Source memory.
+ * @param dstAlign The minimum alignment of the destination memory.
+ * @param srcAlign The minimum alignment of the source memory.
  * @param withPadding Use the dst pointee's padded size, not its store size.
- * @param align The minimum alignment of the source and destination memory.
  */
-void DtoMemCpy(LLValue *dst, LLValue *src, bool withPadding = false,
-               unsigned align = 1);
+void DtoMemCpy(LLValue *dst, LLValue *src, unsigned dstAlign, unsigned srcAlign);
+/**
+ * Ditto.
+ * @param align The minimum alignment of the source _and_ destination memory.
+ *              If 0, the natural alignment of the dst pointee is used.
+ */
+void DtoMemCpy(LLValue *dst, LLValue *src, unsigned align = 0);
 
 /**
  * Generates a call to C memcmp.

@@ -2253,13 +2253,14 @@ public:
       if (!dstMem)
         dstMem = DtoAlloca(e->type, ".structliteral");
 
+      const unsigned alignment = DtoAlignment(e->type);
       if (sd->zeroInit) {
         DtoMemSetZero(dstMem);
       } else {
         LLValue *initsym = getIrAggr(sd)->getInitSymbol();
         initsym = DtoBitCast(initsym, DtoType(e->type->pointerTo()));
         assert(dstMem->getType() == initsym->getType());
-        DtoMemCpy(dstMem, initsym);
+        DtoMemCpy(dstMem, initsym, alignment);
       }
 
       return new DLValue(e->type, dstMem);
@@ -2532,7 +2533,7 @@ public:
       DValue *ep = toElem(el);
       LLValue *gep = DtoGEP(val, 0, i);
       if (DtoIsInMemoryOnly(el->type)) {
-        DtoMemCpy(gep, DtoLVal(ep));
+        DtoMemCpy(gep, DtoLVal(ep), DtoAlignment(el->type));
       } else if (el->type->ty != Tvoid) {
         DtoStoreZextI8(DtoRVal(ep), gep);
       } else {
@@ -2607,7 +2608,8 @@ public:
       Type *srcElementType = tsrc->nextOf();
 
       if (DtoMemType(elementType) == DtoMemType(srcElementType)) {
-        DtoMemCpy(dstMem, arrayPtr);
+        DtoMemCpy(dstMem, arrayPtr, DtoAlignment(type),
+                  DtoAlignment(srcElementType));
       } else {
         for (unsigned i = 0; i < N; ++i) {
           DLValue srcElement(srcElementType, DtoGEP1(arrayPtr, i));

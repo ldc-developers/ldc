@@ -195,7 +195,7 @@ static LLValue *computeSize(LLValue *length, size_t elementSize) {
 
 static void copySlice(const Loc &loc, LLValue *dstarr, LLValue *dstlen,
                       LLValue *srcarr, LLValue *srclen, size_t elementSize,
-                      bool knownInBounds) {
+                      unsigned elementAlignment, bool knownInBounds) {
   const bool checksEnabled =
       global.params.useAssert == CHECKENABLEon || gIR->emitArrayBoundsChecks();
   if (checksEnabled && !knownInBounds) {
@@ -208,7 +208,7 @@ static void copySlice(const Loc &loc, LLValue *dstarr, LLValue *dstlen,
     // sz1 == 0 at runtime, this would probably still be legal (the C spec
     // is unclear here).
     LLValue *size = computeSize(dstlen, elementSize);
-    DtoMemCpy(dstarr, srcarr, size);
+    DtoMemCpy(dstarr, srcarr, elementAlignment, elementAlignment, size);
   }
 }
 
@@ -273,6 +273,7 @@ void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
     if (!needsDestruction && !needsPostblit) {
       // fast version
       const size_t elementSize = getTypeAllocSize(DtoMemType(elemType));
+      const unsigned elementAlignment = DtoAlignment(elemType);
       if (rhs->isNull()) {
         LLValue *lhsSize = computeSize(lhsLength, elementSize);
         DtoMemSetZero(lhsPtr, lhsSize);
@@ -290,7 +291,7 @@ void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
           }
         }
         copySlice(loc, lhsPtr, lhsLength, rhsPtr, rhsLength, elementSize,
-                  knownInBounds);
+                  elementAlignment, knownInBounds);
       }
     } else if (isConstructing) {
       LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_arrayctor");
@@ -632,8 +633,9 @@ void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale, LLValue *dstMem) {
                                            true, LLGlobalValue::InternalLinkage,
                                            constarr, ".arrayliteral");
       gvar->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-      DtoMemCpy(dstMem, gvar,
-                DtoConstSize_t(getTypeAllocSize(constarr->getType())));
+      unsigned elemAlign = DtoAlignment(ale->type->toBasetype()->nextOf());
+      DtoMemCpy(dstMem, gvar, elemAlign, elemAlign,
+                getTypeAllocSize(constarr->getType()));
     }
   } else {
     // Store the elements one by one.

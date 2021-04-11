@@ -464,10 +464,8 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
         src = DtoLoad(DtoGEP(thisptr, 0, getVthisIdx(ad), ".vthis"));
       }
       if (depth > 1) {
-        src = DtoBitCast(src, getVoidPtrType());
-        LLValue *dst = DtoBitCast(frame, getVoidPtrType());
-        DtoMemCpy(dst, src, DtoConstSize_t((depth - 1) * target.ptrsize),
-                  getABITypeAlign(getVoidPtrType()));
+        unsigned align = target.ptrsize;
+        DtoMemCpy(frame, src, align, align, (depth - 1) * target.ptrsize);
       }
       // Copy nestArg into framelist; the outer frame is not in the list of
       // pointers
@@ -505,7 +503,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
           // The parameter value is an alloca'd stack slot.
           // Copy to the nesting frame and leave the alloca for
           // the optimizers to clean up.
-          DtoMemCpy(gep, parm->value);
+          DtoMemCpy(gep, parm->value, DtoAlignment(vd));
           gep->takeName(parm->value);
           parm->value = gep;
         }
