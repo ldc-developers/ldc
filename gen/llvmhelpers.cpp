@@ -255,7 +255,7 @@ LLValue *DtoAllocaDump(LLValue *val, LLType *asType, int alignment,
       (getTypeStoreSize(memType) <= getTypeAllocSize(asMemType) ? asMemType
                                                                 : memType);
   LLValue *mem = DtoRawAlloca(allocaType, alignment, name);
-  DtoStoreZextI8(val, DtoBitCast(mem, memType->getPointerTo()));
+  DtoStore(val, DtoBitCast(mem, memType->getPointerTo()), alignment);
   return DtoBitCast(mem, asMemType->getPointerTo());
 }
 
@@ -368,7 +368,7 @@ void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
   assert(t->ty != Tvoid && "Cannot assign values of type void.");
 
   if (t->ty == Tbool) {
-    DtoStoreZextI8(DtoRVal(rhs), DtoLVal(lhs));
+    DtoStore(DtoRVal(rhs), DtoLVal(lhs));
   } else if (t->ty == Tstruct) {
     // don't copy anything to empty structs
     if (static_cast<TypeStruct *>(t)->sym->fields.length > 0) {

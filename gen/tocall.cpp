@@ -514,7 +514,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     auto mem = DtoAlloca(e->type);
     DtoStore(p->ir->CreateExtractValue(ret, 0),
              DtoBitCast(DtoGEP(mem, 0u, 0), ptr->getType()));
-    DtoStoreZextI8(p->ir->CreateExtractValue(ret, 1), DtoGEP(mem, 0, 1));
+    DtoStore(p->ir->CreateExtractValue(ret, 1), DtoGEP(mem, 0, 1));
 
     result = new DLValue(e->type, mem);
     return true;
@@ -640,7 +640,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     Expression *exp2 = (*e->arguments)[1];
     LLValue *ptr = DtoRVal(exp1);
     LLValue *val = DtoRVal(exp2);
-    DtoVolatileStore(val, ptr);
+    DtoStore(val, ptr, DtoAlignment(exp1->type->nextOf()))->setVolatile(true);
     return true;
   }
 

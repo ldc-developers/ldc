@@ -236,7 +236,8 @@ DValue *DtoInlineIRExpr(const Loc &loc, FuncDeclaration *fdecl,
     Type *type = fdecl->type->nextOf();
 
     if (sretPointer) {
-      DtoStore(rv, DtoBitCast(sretPointer, getPtrToType(rv->getType())));
+      DtoStore(rv, DtoBitCast(sretPointer, getPtrToType(rv->getType())),
+               DtoAlignment(type));
       return new DLValue(type, sretPointer);
     }
 

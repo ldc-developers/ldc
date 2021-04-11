@@ -2532,13 +2532,13 @@ public:
       Expression *el = (*e->exps)[i];
       DValue *ep = toElem(el);
       LLValue *gep = DtoGEP(val, 0, i);
+      const unsigned alignment = DtoAlignment(el->type);
       if (DtoIsInMemoryOnly(el->type)) {
-        DtoMemCpy(gep, DtoLVal(ep), DtoAlignment(el->type));
+        DtoMemCpy(gep, DtoLVal(ep), alignment);
       } else if (el->type->ty != Tvoid) {
-        DtoStoreZextI8(DtoRVal(ep), gep);
-      } else {
-        DtoStore(LLConstantInt::get(LLType::getInt8Ty(p->context()), 0, false),
-                 gep);
+        DtoStore(DtoRVal(ep), gep, alignment);
+      } else { // void
+        DtoStore(getNullValue(types[i]), gep);
       }
     }
     result = new DLValue(e->type, val);
@@ -2555,6 +2555,7 @@ public:
     Type *elementType = type->elementType();
     if (elementType->ty == Tvoid)
       elementType = Type::tuns8;
+    const unsigned elementAlign = DtoAlignment(elementType);
 
     const auto getCastElement = [e, elementType](DValue *element) {
       return DtoRVal(DtoCast(e->loc, element, elementType));
@@ -2584,10 +2585,10 @@ public:
 
       if (llElementConstants.size() == N) {
         auto vectorConstant = llvm::ConstantVector::get(llElementConstants);
-        DtoStore(vectorConstant, dstMem);
+        DtoStore(vectorConstant, dstMem, DtoAlignment(type));
       } else {
         for (unsigned i = 0; i < N; ++i) {
-          DtoStore(llElements[i], DtoGEP(dstMem, 0, i));
+          DtoStore(llElements[i], DtoGEP(dstMem, 0, i), elementAlign);
         }
       }
     } else if (tsrc->ty == Tarray || tsrc->ty == Tsarray) {
@@ -2608,13 +2609,12 @@ public:
       Type *srcElementType = tsrc->nextOf();
 
       if (DtoMemType(elementType) == DtoMemType(srcElementType)) {
-        DtoMemCpy(dstMem, arrayPtr, DtoAlignment(type),
-                  DtoAlignment(srcElementType));
+        DtoMemCpy(dstMem, arrayPtr, DtoAlignment(type), elementAlign);
       } else {
         for (unsigned i = 0; i < N; ++i) {
           DLValue srcElement(srcElementType, DtoGEP1(arrayPtr, i));
           LLValue *llVal = getCastElement(&srcElement);
-          DtoStore(llVal, DtoGEP(dstMem, 0, i));
+          DtoStore(llVal, DtoGEP(dstMem, 0, i), elementAlign);
         }
       }
     } else {
@@ -2632,10 +2632,10 @@ public:
 #endif
         auto vectorConstant =
             llvm::ConstantVector::getSplat(elementCount, llConstant);
-        DtoStore(vectorConstant, dstMem);
+        DtoStore(vectorConstant, dstMem, DtoAlignment(type));
       } else {
         for (unsigned int i = 0; i < N; ++i) {
-          DtoStore(llElement, DtoGEP(dstMem, 0, i));
+          DtoStore(llElement, DtoGEP(dstMem, 0, i), elementAlign);
         }
       }
     }

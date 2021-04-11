@@ -107,10 +107,7 @@ LLConstant *DtoConstBool(bool);
 
 // llvm wrappers
 LLValue *DtoLoad(LLValue *src, const char *name = "", unsigned alignment = 0);
-void DtoStore(LLValue *src, LLValue *dst);
-void DtoVolatileStore(LLValue *src, LLValue *dst);
-void DtoStoreZextI8(LLValue *src, LLValue *dst);
-void DtoAlignedStore(LLValue *src, LLValue *dst);
+llvm::StoreInst *DtoStore(LLValue *src, LLValue *dst, unsigned alignment = 0);
 LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name = "");
 LLConstant *DtoBitCast(LLConstant *v, LLType *t);
 LLValue *DtoInsertValue(LLValue *aggr, LLValue *v, unsigned idx,

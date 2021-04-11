@@ -622,19 +622,22 @@ void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale, LLValue *dstMem) {
 
   if (isConstLiteral(ale)) {
     llvm::Constant *constarr = arrayLiteralToConst(p, ale);
+    const unsigned elemAlign = DtoAlignment(ale->type->toBasetype()->nextOf());
 
     // Emit a global for longer arrays, as an inline constant is always
     // lowered to a series of movs or similar at the asm level. The
     // optimizer can still decide to promote the memcpy intrinsic, so
     // the cutoff merely affects compilation speed.
     if (elemCount <= 4) {
-      DtoStore(constarr, DtoBitCast(dstMem, getPtrToType(constarr->getType())));
+      DtoStore(constarr, DtoBitCast(dstMem, getPtrToType(constarr->getType())),
+               elemAlign);
     } else {
       auto gvar = new llvm::GlobalVariable(gIR->module, constarr->getType(),
                                            true, LLGlobalValue::InternalLinkage,
                                            constarr, ".arrayliteral");
       gvar->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-      unsigned elemAlign = DtoAlignment(ale->type->toBasetype()->nextOf());
+      if (elemAlign != 0)
+        gvar->setAlignment(LLMaybeAlign(elemAlign));
       DtoMemCpy(dstMem, gvar, elemAlign, elemAlign,
                 getTypeAllocSize(constarr->getType()));
     }

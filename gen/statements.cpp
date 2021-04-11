@@ -1638,8 +1638,11 @@ public:
     if (stmt->wthis) {
       LLValue *mem = DtoRawVarDeclaration(stmt->wthis);
       DValue *e = toElemDtor(stmt->exp);
-      LLValue *val = (DtoIsInMemoryOnly(e->type) ? DtoLVal(e) : DtoRVal(e));
-      DtoStore(val, mem);
+      if (DtoIsInMemoryOnly(e->type)) {
+        DtoStore(DtoLVal(e), mem); // TODO: this seems strange
+      } else {
+        DtoStore(DtoRVal(e), mem, DtoAlignment(stmt->wthis));
+      }
     }
 
     if (stmt->_body) {

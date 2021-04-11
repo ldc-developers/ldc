@@ -240,6 +240,7 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
   LLValue *rval =
       DtoInlineAsmExpr(stmt->loc, insn, constraints, operands, returnType);
 
+  // TODO: align?
   if (N == 1) {
     DtoStore(rval, outputLVals[0]);
   } else {

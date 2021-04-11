@@ -471,7 +471,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
       // pointers
       src = DtoBitCast(src, frameType->getContainedType(depth - 1));
       LLValue *gep = DtoGEP(frame, 0, depth - 1);
-      DtoAlignedStore(src, gep);
+      DtoStore(src, gep);
     }
 
     funcGen.nestedVar = frame;
@@ -496,7 +496,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
         if (vd->isRef() || vd->isOut()) {
           Logger::println(
               "Captured by reference, copying pointer to nested frame");
-          DtoAlignedStore(parm->value, gep);
+          DtoStore(parm->value, gep);
           // pass GEP as reference lvalue to EmitLocalVariable()
         } else {
           Logger::println("Copying to nested frame");
