@@ -345,23 +345,27 @@ LLConstant *DtoGEP(LLConstant *ptr, unsigned i0, unsigned i1) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoMemSet(LLValue *dst, LLValue *val, LLValue *nbytes, unsigned align) {
-  LLType *VoidPtrTy = getVoidPtrType();
-
-  dst = DtoBitCast(dst, VoidPtrTy);
-
-  gIR->ir->CreateMemSet(dst, val, nbytes, LLMaybeAlign(align), false /*isVolatile*/);
+void DtoMemSet(LLValue *dst, LLValue *val, unsigned align, LLValue *nbytes) {
+  if (align == 0)
+    align = getABITypeAlign(dst->getType()->getPointerElementType());
+  dst = DtoBitCast(dst, getVoidPtrType());
+  gIR->ir->CreateMemSet(dst, val, nbytes, LLMaybeAlign(align),
+                        false /*isVolatile*/);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoMemSetZero(LLValue *dst, LLValue *nbytes, unsigned align) {
-  DtoMemSet(dst, DtoConstUbyte(0), nbytes, align);
+void DtoMemSetZero(LLValue *dst, unsigned align, LLValue *nbytes) {
+  DtoMemSet(dst, DtoConstUbyte(0), align, nbytes);
+}
+
+void DtoMemSetZero(LLValue *dst, unsigned align, uint64_t nbytes) {
+  DtoMemSetZero(dst, align, DtoConstSize_t(nbytes));
 }
 
 void DtoMemSetZero(LLValue *dst, unsigned align) {
-  uint64_t n = getTypeStoreSize(dst->getType()->getContainedType(0));
-  DtoMemSetZero(dst, DtoConstSize_t(n), align);
+  auto size = getTypeAllocSize(dst->getType()->getPointerElementType());
+  DtoMemSetZero(dst, align, size);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

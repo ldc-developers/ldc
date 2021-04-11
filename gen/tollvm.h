@@ -163,18 +163,19 @@ LLValue *DtoAggrPaint(LLValue *aggr, LLType *as);
  * Generates a call to llvm.memset.i32 (or i64 depending on architecture).
  * @param dst Destination memory.
  * @param val The value to set.
- * @param nbytes Number of bytes to overwrite.
  * @param align The minimum alignment of the destination memory.
+ * @param nbytes Number of bytes to overwrite.
  */
-void DtoMemSet(LLValue *dst, LLValue *val, LLValue *nbytes, unsigned align = 1);
+void DtoMemSet(LLValue *dst, LLValue *val, unsigned align, LLValue *nbytes);
 
 /**
  * Generates a call to llvm.memset.i32 (or i64 depending on architecture).
  * @param dst Destination memory.
- * @param nbytes Number of bytes to overwrite.
  * @param align The minimum alignment of the destination memory.
+ * @param nbytes Number of bytes to overwrite.
  */
-void DtoMemSetZero(LLValue *dst, LLValue *nbytes, unsigned align = 1);
+void DtoMemSetZero(LLValue *dst, unsigned align, uint64_t nbytes);
+void DtoMemSetZero(LLValue *dst, unsigned align, LLValue *nbytes);
 
 /**
  * The same as DtoMemSetZero but figures out the size itself based on the
@@ -182,7 +183,7 @@ void DtoMemSetZero(LLValue *dst, LLValue *nbytes, unsigned align = 1);
  * @param dst Destination memory.
  * @param align The minimum alignment of the destination memory.
  */
-void DtoMemSetZero(LLValue *dst, unsigned align = 1);
+void DtoMemSetZero(LLValue *dst, unsigned align);
 
 /**
  * Generates a call to llvm.memcpy.i32 (or i64 depending on architecture).

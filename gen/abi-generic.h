@@ -105,7 +105,7 @@ struct RemoveStructPadding : ABIRewrite {
     LLValue *lval = DtoAlloca(dty, ".RemoveStructPadding_dump");
     // Make sure the padding is zero, so struct comparisons work.
     // TODO: Only do this if there's padding, and/or only initialize padding.
-    DtoMemSetZero(lval, DtoConstSize_t(getTypeAllocSize(DtoType(dty))));
+    DtoMemSetZero(lval, DtoAlignment(dty));
     DtoPaddedStruct(dty->toBasetype(), v, lval);
     return lval;
   }

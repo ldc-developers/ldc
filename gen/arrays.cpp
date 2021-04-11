@@ -126,7 +126,8 @@ static void DtoArrayInit(const Loc &loc, LLValue *ptr, LLValue *length,
         size = gIR->ir->CreateMul(length, DtoConstSize_t(elementSize),
                                   ".arraysize");
       }
-      DtoMemSet(ptr, isNullConstant ? DtoConstUbyte(0) : val, size);
+      DtoMemSet(ptr, isNullConstant ? DtoConstUbyte(0) : val,
+                DtoAlignment(elementValue->type), size);
       return;
     }
   }
@@ -276,7 +277,7 @@ void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
       const unsigned elementAlignment = DtoAlignment(elemType);
       if (rhs->isNull()) {
         LLValue *lhsSize = computeSize(lhsLength, elementSize);
-        DtoMemSetZero(lhsPtr, lhsSize);
+        DtoMemSetZero(lhsPtr, elementAlignment, lhsSize);
       } else {
         bool knownInBounds =
             isConstructing || (t->ty == Tsarray && t2->ty == Tsarray);
