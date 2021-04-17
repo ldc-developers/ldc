@@ -123,25 +123,29 @@ struct RemoveStructPadding : ABIRewrite {
  * the bit-cast.
  */
 struct BaseBitcastABIRewrite : ABIRewrite {
+  static unsigned getMaxAlignment(LLType *llType, Type *dType) {
+    return std::max(getABITypeAlign(llType), DtoAlignment(dType));
+  }
+
   LLValue *put(DValue *dv, bool, bool) override {
-    LLValue *address = dv->isLVal() ? DtoLVal(dv) : nullptr;
     LLType *asType = type(dv->type);
+    const unsigned alignment = getMaxAlignment(asType, dv->type);
     const char *name = ".BaseBitcastABIRewrite_arg";
 
-    if (!address) {
-      address = DtoAllocaDump(dv, asType, 0, ".BaseBitcastABIRewrite_arg_storage");
+    if (!dv->isLVal()) {
+      LLValue *dump = DtoAllocaDump(dv, asType, alignment,
+                                    ".BaseBitcastABIRewrite_arg_storage");
+      return DtoLoad(dump, name);
     }
 
+    LLValue *address = DtoLVal(dv);
     LLType *pointeeType = address->getType()->getPointerElementType();
 
-    if (asType == pointeeType) {
-      return DtoLoad(address, name);
-    }
-
-    if (getTypeStoreSize(asType) > getTypeAllocSize(pointeeType)) {
-      // not enough allocated memory
-      LLValue *paddedDump =
-          DtoRawAlloca(asType, 0, ".BaseBitcastABIRewrite_padded_arg_storage");
+    if (getTypeStoreSize(asType) > getTypeAllocSize(pointeeType) ||
+        alignment > DtoAlignment(dv->type)) {
+      // not enough allocated memory or insufficiently aligned
+      LLValue *paddedDump = DtoRawAlloca(
+          asType, alignment, ".BaseBitcastABIRewrite_padded_arg_storage");
       DtoMemCpy(paddedDump, address,
                 DtoConstSize_t(getTypeAllocSize(pointeeType)));
       return DtoLoad(paddedDump, name);
@@ -152,7 +156,9 @@ struct BaseBitcastABIRewrite : ABIRewrite {
   }
 
   LLValue *getLVal(Type *dty, LLValue *v) override {
-    return DtoAllocaDump(v, dty, ".BaseBitcastABIRewrite_param_storage");
+    const unsigned alignment = getMaxAlignment(v->getType(), dty);
+    return DtoAllocaDump(v, DtoType(dty), alignment,
+                         ".BaseBitcastABIRewrite_param_storage");
   }
 
   void applyToIfNotObsolete(IrFuncTyArg &arg, LLType *finalLType = nullptr) {
