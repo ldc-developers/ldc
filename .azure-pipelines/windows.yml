@@ -54,7 +54,9 @@ steps:
     :: Download & extract LDC-flavoured LLVM
     set ASSERTS_SUFFIX=
     if not "%BUILD_SOURCEBRANCH:~0,10%" == "refs/tags/" ( set ASSERTS_SUFFIX=-withAsserts)
-    curl --max-time 300 --retry 3 -L -o llvm.7z https://github.com/ldc-developers/llvm-project/releases/download/ldc-v%LLVM_VERSION%/llvm-%LLVM_VERSION%-windows-%ARCH%%ASSERTS_SUFFIX%.7z 2>&1
+    set LLVM_RELEASE_TAG=CI
+    echo "%LLVM_VERSION%" | find "." > nul && set LLVM_RELEASE_TAG=ldc-v%LLVM_VERSION%
+    curl --max-time 300 --retry 3 -L -o llvm.7z https://github.com/ldc-developers/llvm-project/releases/download/%LLVM_RELEASE_TAG%/llvm-%LLVM_VERSION%-windows-%ARCH%%ASSERTS_SUFFIX%.7z 2>&1
     mkdir llvm
     cd llvm
     7z x ../llvm.7z > nul
