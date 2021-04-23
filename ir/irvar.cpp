@@ -98,12 +98,6 @@ void IrGlobal::declare() {
   // as well).
   gvar->setAlignment(LLMaybeAlign(DtoAlignment(V)));
 
-  // Windows: initialize DLL storage class with `dllimport` for `export`ed
-  // symbols
-  if (global.params.targetTriple->isOSWindows() && V->isExport()) {
-    gvar->setDLLStorageClass(LLGlobalValue::DLLImportStorageClass);
-  }
-
   applyVarDeclUDAs(V, gvar);
 
   if (dynamicCompileConst)
@@ -127,11 +121,6 @@ void IrGlobal::define() {
   // match.
   auto gvar = llvm::cast<LLGlobalVariable>(value);
   value = gIR->setGlobalVarInitializer(gvar, initVal, V);
-
-  // Finalize DLL storage class.
-  if (gvar->hasDLLImportStorageClass()) {
-    gvar->setDLLStorageClass(LLGlobalValue::DLLExportStorageClass);
-  }
 
   // If this global is used from a naked function, we need to create an
   // artificial "use" for it, or it could be removed by the optimizer if

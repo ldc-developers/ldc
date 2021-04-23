@@ -14,6 +14,7 @@
 #include "dmd/mangle.h"
 #include "dmd/statement.h"
 #include "dmd/template.h"
+#include "driver/cl_options.h"
 #include "gen/dvalue.h"
 #include "gen/funcgenstate.h"
 #include "gen/irstate.h"
@@ -240,8 +241,9 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   gIR->module.appendModuleInlineAsm(asmstr.str());
   asmstr.str("");
 
-  if (global.params.targetTriple->isWindowsMSVCEnvironment() &&
-      fd->isExport()) {
+  if (global.params.targetTriple->isOSWindows() &&
+      (opts::symbolVisibility == opts::SymbolVisibility::public_ ||
+       fd->isExport())) {
     // Embed a linker switch telling the MS linker to export the naked function.
     // This mimics the effect of the dllexport attribute for regular functions.
     const auto linkerSwitch = std::string("/EXPORT:") + mangle;

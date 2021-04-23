@@ -667,12 +667,6 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
 
   func->setCallingConv(gABI->callingConv(link, f, fdecl));
 
-  if (global.params.targetTriple->isOSWindows() && fdecl->isExport()) {
-    func->setDLLStorageClass(fdecl->isImportedSymbol()
-                                 ? LLGlobalValue::DLLImportStorageClass
-                                 : LLGlobalValue::DLLExportStorageClass);
-  }
-
   IF_LOG Logger::cout() << "func = " << *func << std::endl;
 
   // add func to IRFunc
@@ -1151,9 +1145,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     return;
   }
 
-  if (opts::defaultToHiddenVisibility && !fd->isExport()) {
-    func->setVisibility(LLGlobalValue::HiddenVisibility);
-  }
+  setVisibility(fd, func);
 
   // if this function is naked, we take over right away! no standard processing!
   if (fd->naked) {
@@ -1192,8 +1184,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   } else {
     setLinkage(lwc, func);
   }
-
-  assert(!func->hasDLLImportStorageClass());
 
   // function attributes
   if (gABI->needsUnwindTables()) {
