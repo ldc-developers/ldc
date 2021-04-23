@@ -1023,9 +1023,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     assert(func);
     if (!linkageAvailableExternally &&
         (func->getLinkage() == llvm::GlobalValue::AvailableExternallyLinkage)) {
-      // Fix linkage
+      // Fix linkage and visibility
       const auto lwc = lowerFuncLinkage(fd);
       setLinkage(lwc, func);
+      setVisibility(fd, func);
     }
     return;
   }
@@ -1145,8 +1146,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     return;
   }
 
-  setVisibility(fd, func);
-
   // if this function is naked, we take over right away! no standard processing!
   if (fd->naked) {
     DtoDefineNakedFunction(fd);
@@ -1183,6 +1182,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
            lwc.first != llvm::GlobalValue::LinkOnceAnyLinkage);
   } else {
     setLinkage(lwc, func);
+    setVisibility(fd, func);
   }
 
   // function attributes

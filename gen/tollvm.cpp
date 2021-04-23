@@ -275,9 +275,13 @@ void setLinkageAndVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
 
 void setVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
   if (global.params.targetTriple->isOSWindows()) {
-    const bool isExported =
-        opts::symbolVisibility == opts::SymbolVisibility::public_ ||
-        sym->isExport();
+    bool isExported = sym->isExport();
+    if (!isExported &&
+        opts::symbolVisibility == opts::SymbolVisibility::public_) {
+      const auto l = obj->getLinkage();
+      isExported = l == LLGlobalValue::ExternalLinkage ||
+                   l == LLGlobalValue::WeakODRLinkage;
+    }
     obj->setDLLStorageClass(isExported ? LLGlobalValue::DLLExportStorageClass
                                        : LLGlobalValue::DefaultStorageClass);
   } else {
