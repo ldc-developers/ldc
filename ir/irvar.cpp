@@ -12,6 +12,7 @@
 #include "dmd/declaration.h"
 #include "dmd/errors.h"
 #include "dmd/init.h"
+#include "driver/cl_options.h"
 #include "gen/dynamiccompile.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
@@ -92,6 +93,24 @@ void IrGlobal::declare() {
 
   if (V->llvmInternal == LLVMextern_weak)
     gvar->setLinkage(llvm::GlobalValue::ExternalWeakLinkage);
+
+  // Windows: for globals with `export` visibility, initialize the DLL storage
+  // class with dllimport unless the variable is defined in a root module
+  // (=> no extra indirection for other root modules, assuming *all* root
+  // modules will be linked together to one or more binaries).
+  // [Defining a global overrides its DLL storage class.]
+  if (global.params.targetTriple->isOSWindows()) {
+    const bool isDefinedInRootModule =
+        !(V->storage_class & STCextern) && !V->inNonRoot();
+    if (!isDefinedInRootModule) {
+      // with -fvisibility=public, also include all extern(D) globals
+      if (V->isExport() ||
+          (opts::symbolVisibility == opts::SymbolVisibility::public_ &&
+           V->linkage == LINK::d)) {
+        gvar->setDLLStorageClass(LLGlobalValue::DLLImportStorageClass);
+      }
+    }
+  }
 
   // Set the alignment (it is important not to use type->alignsize because
   // VarDeclarations can have an align() attribute independent of the type

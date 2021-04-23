@@ -8,8 +8,7 @@ export
     // CHECK: @{{.*}}exportedGlobal{{.*}} = dllexport
     extern(C) __gshared void* exportedGlobal;
 
-    // CHECK: @{{.*}}importedGlobal{{.*}} = external
-    // CHECK-NOT: dllimport
+    // CHECK: @{{.*}}importedGlobal{{.*}} = external dllimport
     extern(C) extern __gshared void* importedGlobal;
 
     // CHECK: define dllexport {{.*}}_D6export11exportedFooFZv
