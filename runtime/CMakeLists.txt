@@ -91,7 +91,7 @@ else()
 endif()
 
 set(SHARED_LIBS_SUPPORTED OFF)
-if("${TARGET_SYSTEM}" MATCHES "Linux|FreeBSD|DragonFly|APPLE"
+if("${TARGET_SYSTEM}" MATCHES "Windows|Linux|FreeBSD|DragonFly|APPLE"
    AND (NOT "${TARGET_SYSTEM}" MATCHES "Android"))
     set(SHARED_LIBS_SUPPORTED ON)
 endif()
@@ -107,7 +107,7 @@ endif()
 set(SHARED_LIB_SUFFIX "")
 if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
     if(NOT SHARED_LIBS_SUPPORTED)
-        message(FATAL_ERROR "Shared libraries (BUILD_SHARED_LIBS) are only supported on Linux, macOS, FreeBSD and DragonFly for the time being.")
+        message(FATAL_ERROR "Shared libraries (BUILD_SHARED_LIBS) are only supported on Windows, Linux, macOS, FreeBSD and DragonFly for the time being.")
     endif()
     set(SHARED_LIB_SUFFIX "-shared")
 endif()
@@ -638,26 +638,30 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit
         set(is_unittest ON)
     endif()
 
-    # Only compile Phobos modules once for static+shared libs.
-    # If a shared Phobos lib is generated (too), compile explicitly with `-relocation-model=pic`.
     set(phobos2_d_flags ${d_flags})
     if(is_unittest)
         list(APPEND phobos2_d_flags ${PHOBOS2_EXTRA_UNITTEST_FLAGS})
     endif()
-    if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
-        list(APPEND phobos2_d_flags -relocation-model=pic)
+
+    # Posix: only compile Phobos modules once for static+shared libs.
+    # If a shared Phobos lib is generated (too), compile explicitly with `-relocation-model=pic`.
+    if(NOT "${TARGET_SYSTEM}" MATCHES "Windows")
+        if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
+            list(APPEND phobos2_d_flags -relocation-model=pic)
+        endif()
+
+        set(phobos2_o "")
+        set(phobos2_bc "")
+        compile_phobos2("${phobos2_d_flags}" "${lib_suffix}"
+                        "${path_suffix}" "${emit_bc}" "${all_d_files_at_once}" phobos2_o phobos2_bc)
+
+        # Use a dummy custom target ('phobos2-ldc…-common') depending solely on the Phobos D objects
+        # (custom commands) as dependency for static+shared Phobos libs.
+        # Otherwise building both libs in parallel may result in conflicting Phobos module compilations
+        # (at least with the make generator), a known CMake issue.
+        set(phobos2_common phobos2-ldc${target_suffix}-common)
+        add_custom_target(${phobos2_common} DEPENDS ${phobos2_o} ${phobos2_bc})
     endif()
-
-    set(phobos2_o "")
-    set(phobos2_bc "")
-    compile_phobos2("${phobos2_d_flags}" "${lib_suffix}" "${path_suffix}" "${emit_bc}" "${all_d_files_at_once}" phobos2_o phobos2_bc)
-
-    # Use a dummy custom target ('phobos2-ldc…-common') depending solely on the Phobos D objects
-    # (custom commands) as dependency for static+shared Phobos libs.
-    # Otherwise building both libs in parallel may result in conflicting Phobos module compilations
-    # (at least with the make generator), a known CMake issue.
-    set(phobos2_common phobos2-ldc${target_suffix}-common)
-    add_custom_target(${phobos2_common} DEPENDS ${phobos2_o} ${phobos2_bc})
 
     set(druntime_d_flags ${d_flags})
     if(is_unittest)
@@ -671,22 +675,45 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit
         compile_druntime("${druntime_d_flags}" "${lib_suffix}"
                          "${path_suffix}" "${emit_bc}" "${all_d_files_at_once}" druntime_o druntime_bc)
 
+        # Windows: compile Phobos with hidden visibility
+        if("${TARGET_SYSTEM}" MATCHES "Windows")
+            set(phobos2_o "")
+            set(phobos2_bc "")
+            compile_phobos2("${phobos2_d_flags}" "${lib_suffix}"
+                            "${path_suffix}" "${emit_bc}" "${all_d_files_at_once}" phobos2_o phobos2_bc)
+        endif()
+
         build_runtime_libs("${druntime_o}" "${druntime_bc}" "${phobos2_o}" "${phobos2_bc}"
                            "${c_flags}" "${ld_flags}" "${lib_suffix}" "${path_suffix}"
                            "OFF" "${emit_bc}" ${outlist_targets})
-        add_dependencies(phobos2-ldc${target_suffix} ${phobos2_common})
+
+        if(NOT "${TARGET_SYSTEM}" MATCHES "Windows")
+            add_dependencies(phobos2-ldc${target_suffix} ${phobos2_common})
+        endif()
     endif()
     # shared druntime/Phobos
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
+        # compile druntime with extra `version (Shared)`
         set(druntime_o "")
         set(druntime_bc "")
-        compile_druntime("${druntime_d_flags};-relocation-model=pic;-d-version=Shared" "${lib_suffix}${SHARED_LIB_SUFFIX}"
+        compile_druntime("${druntime_d_flags};-relocation-model=pic;-d-version=Shared;-fvisibility=public" "${lib_suffix}${SHARED_LIB_SUFFIX}"
                          "${path_suffix}" "OFF" "${all_d_files_at_once}" druntime_o druntime_bc)
+
+        # Windows: compile Phobos with public visibility
+        if("${TARGET_SYSTEM}" MATCHES "Windows")
+            set(phobos2_o "")
+            set(phobos2_bc "")
+            compile_phobos2("${phobos2_d_flags};-fvisibility=public" "${lib_suffix}${SHARED_LIB_SUFFIX}"
+                            "${path_suffix}" "OFF" "${all_d_files_at_once}" phobos2_o phobos2_bc)
+        endif()
 
         build_runtime_libs("${druntime_o}" "${druntime_bc}" "${phobos2_o}" "${phobos2_bc}"
                            "${c_flags}" "${ld_flags}" "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}"
                            "ON" "OFF" ${outlist_targets})
-        add_dependencies(phobos2-ldc${target_suffix} ${phobos2_common})
+
+        if(NOT "${TARGET_SYSTEM}" MATCHES "Windows")
+            add_dependencies(phobos2-ldc${target_suffix} ${phobos2_common})
+        endif()
     endif()
 endmacro()
 
