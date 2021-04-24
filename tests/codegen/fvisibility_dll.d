@@ -21,4 +21,7 @@ extern(C) void main()
     assert(x == 3);
 
     dllWeakFoo();
+
+    scope c = new MyClass;
+    assert(c.myInt == 456);
 }

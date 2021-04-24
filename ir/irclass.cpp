@@ -70,7 +70,7 @@ LLGlobalVariable *IrClass::getVtblSymbol(bool define) {
     LLType *vtblTy = getIrType(type)->isClass()->getVtblType();
 
     vtbl = declareGlobal(aggrdecl->loc, gIR->module, vtblTy, irMangle,
-                         /*isConstant=*/true);
+                         /*isConstant=*/true, false, useDLLImport());
 
     if (!define)
       define = defineOnDeclare(aggrdecl);
@@ -101,7 +101,7 @@ LLGlobalVariable *IrClass::getClassInfoSymbol(bool define) {
     // immutable on the D side, and e.g. synchronized() can be used on the
     // implicit monitor.
     typeInfo = declareGlobal(aggrdecl->loc, gIR->module, tc->getMemoryLLType(),
-                             irMangle, /*isConstant=*/false);
+                             irMangle, /*isConstant=*/false, false, useDLLImport());
 
     // Generate some metadata on this ClassInfo if it's for a class.
     if (!aggrdecl->isInterfaceDeclaration()) {
@@ -167,8 +167,9 @@ LLGlobalVariable *IrClass::getInterfaceArraySymbol() {
 
   LLArrayType *array_type = llvm::ArrayType::get(InterfaceTy, n);
 
-  classInterfacesArray = declareGlobal(cd->loc, gIR->module, array_type,
-                                       irMangle, /*isConstant=*/true);
+  classInterfacesArray =
+      declareGlobal(cd->loc, gIR->module, array_type, irMangle,
+                    /*isConstant=*/true, false, false);
 
   return classInterfacesArray;
 }
@@ -466,7 +467,7 @@ llvm::GlobalVariable *IrClass::getInterfaceVtblSymbol(BaseClass *b,
     const auto irMangle = getIRMangledVarName(mangledName.peekChars(), LINK::d);
 
     gvar = declareGlobal(aggrdecl->loc, gIR->module, vtblType, irMangle,
-                         /*isConstant=*/true);
+                         /*isConstant=*/true, false, false);
 
     // insert into the vtbl map
     interfaceVtblMap.insert({{b->sym, interfaces_index}, gvar});

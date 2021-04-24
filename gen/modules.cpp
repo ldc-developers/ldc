@@ -22,6 +22,7 @@
 #include "dmd/statement.h"
 #include "dmd/target.h"
 #include "dmd/template.h"
+#include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/timetrace.h"
 #include "gen/abi.h"
@@ -128,7 +129,7 @@ RegistryStyle getModuleRegistryStyle() {
 LLGlobalVariable *declareDSOGlobal(llvm::StringRef mangledName, LLType *type,
                                    bool isThreadLocal = false) {
   auto global = declareGlobal(Loc(), gIR->module, type, mangledName, false,
-                              isThreadLocal);
+                              isThreadLocal, false);
   global->setVisibility(LLGlobalValue::HiddenVisibility);
   return global;
 }
@@ -190,7 +191,10 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
   LLConstant *mref = gIR->module.getNamedGlobal(mrefIRMangle);
   LLType *modulerefPtrTy = getPtrToType(modulerefTy);
   if (!mref) {
-    mref = declareGlobal(Loc(), gIR->module, modulerefPtrTy, mrefIRMangle, false);
+    const bool useDLLImport =
+        opts::symbolVisibility == opts::SymbolVisibility::public_;
+    mref = declareGlobal(Loc(), gIR->module, modulerefPtrTy, mrefIRMangle,
+                         false, false, useDLLImport);
   }
   mref = DtoBitCast(mref, getPtrToType(modulerefPtrTy));
 

@@ -36,6 +36,7 @@
 #include "dmd/mtype.h"
 #include "dmd/scope.h"
 #include "dmd/template.h"
+#include "driver/cl_options.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/irstate.h"
@@ -429,16 +430,21 @@ void buildTypeInfo(TypeInfoDeclaration *decl) {
   // when compiling the rt.util.typeinfo unittests.
   const auto irMangle = getIRMangledVarName(mangled, LINK::d);
   LLGlobalVariable *gvar = gIR->module.getGlobalVariable(irMangle);
+  const bool isBuiltin = builtinTypeInfo(forType);
   if (gvar) {
-    assert(builtinTypeInfo(forType) && "existing global expected to be the "
-                                       "init symbol of a built-in TypeInfo");
+    assert(isBuiltin && "existing global expected to be the init symbol of a "
+                        "built-in TypeInfo");
   } else {
     LLType *type = DtoType(decl->type)->getPointerElementType();
     // We need to keep the symbol mutable as the type is not declared as
     // immutable on the D side, and e.g. synchronized() can be used on the
     // implicit monitor.
-    gvar = declareGlobal(decl->loc, gIR->module, type, irMangle,
-                         /*isConstant=*/false);
+    const bool isConstant = false;
+    // TODO: no dllimport when compiling druntime itself
+    const bool useDLLImport =
+        isBuiltin && opts::symbolVisibility == opts::SymbolVisibility::public_;
+    gvar = declareGlobal(decl->loc, gIR->module, type, irMangle, isConstant,
+                         false, useDLLImport);
   }
 
   emitTypeInfoMetadata(gvar, forType);
@@ -447,8 +453,8 @@ void buildTypeInfo(TypeInfoDeclaration *decl) {
   irg->value = gvar;
 
   // check if the definition can be elided
-  if (gvar->hasInitializer() || !global.params.useTypeInfo ||
-      !Type::dtypeinfo || builtinTypeInfo(forType)) {
+  if (isBuiltin || gvar->hasInitializer() || !global.params.useTypeInfo ||
+      !Type::dtypeinfo) {
     return;
   }
   if (auto forClassType = forType->isTypeClass()) {

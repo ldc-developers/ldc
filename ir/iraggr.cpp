@@ -16,6 +16,7 @@
 #include "dmd/init.h"
 #include "dmd/mtype.h"
 #include "dmd/target.h"
+#include "driver/cl_options.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -52,6 +53,23 @@ bool IrAggr::suppressTypeInfo() const {
 
 //////////////////////////////////////////////////////////////////////////////
 
+bool IrAggr::useDLLImport() const {
+  if (!global.params.targetTriple->isOSWindows())
+    return false;
+
+  if (aggrdecl->isExport() ||
+      opts::symbolVisibility == opts::SymbolVisibility::public_) {
+    // dllimport, unless defined in a root module (=> no extra indirection for
+    // other root modules, assuming *all* root modules will be linked together
+    // to one or more binaries).
+    return aggrdecl->inNonRoot();
+  }
+
+  return false;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 LLConstant *IrAggr::getInitSymbol(bool define) {
   if (!init) {
     const auto irMangle = getIRMangledInitSymbolName(aggrdecl);
@@ -74,9 +92,9 @@ LLConstant *IrAggr::getInitSymbol(bool define) {
       // Init symbols of built-in TypeInfos need to be kept mutable as the type
       // is not declared as immutable on the D side, and e.g. synchronized() can
       // be used on the implicit monitor.
-      initGlobal =
-          declareGlobal(aggrdecl->loc, gIR->module, getLLStructType(), irMangle,
-                        /*isConstant=*/!isBuiltinTypeInfo);
+      const bool isConstant = !isBuiltinTypeInfo;
+      initGlobal = declareGlobal(aggrdecl->loc, gIR->module, getLLStructType(),
+                                 irMangle, isConstant, false, useDLLImport());
     }
 
     initGlobal->setAlignment(LLMaybeAlign(DtoAlignment(type)));

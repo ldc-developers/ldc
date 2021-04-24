@@ -77,28 +77,12 @@ void IrGlobal::declare() {
 
   const auto irMangle = getIRMangledName(V);
 
-  // Since the type of a global must exactly match the type of its
-  // initializer, we cannot know the type until after we have emitted the
-  // latter (e.g. in case of unions, …). However, it is legal for the
-  // initializer to refer to the address of the variable. Thus, we first
-  // create a global with the generic type (note the assignment to
-  // vd->ir->irGlobal->value!), and in case we also do an initializer
-  // with a different type later, swap it out and replace any existing
-  // uses with bitcasts to the previous type.
-
-  LLGlobalVariable *gvar =
-      declareGlobal(V->loc, gIR->module, DtoMemType(V->type), irMangle,
-                    isLLConst, V->isThreadlocal());
-  value = gvar;
-
-  if (V->llvmInternal == LLVMextern_weak)
-    gvar->setLinkage(llvm::GlobalValue::ExternalWeakLinkage);
-
   // Windows: for globals with `export` visibility, initialize the DLL storage
   // class with dllimport unless the variable is defined in a root module
   // (=> no extra indirection for other root modules, assuming *all* root
   // modules will be linked together to one or more binaries).
   // [Defining a global overrides its DLL storage class.]
+  bool useDLLImport = false;
   if (global.params.targetTriple->isOSWindows()) {
     // dllimport isn't supported for thread-local globals (MSVC++ neither)
     if (!V->isThreadlocal()) {
@@ -109,10 +93,27 @@ void IrGlobal::declare() {
         const bool isDefinedInRootModule =
             !(V->storage_class & STCextern) && !V->inNonRoot();
         if (!isDefinedInRootModule)
-          gvar->setDLLStorageClass(LLGlobalValue::DLLImportStorageClass);
+          useDLLImport = true;
       }
     }
   }
+
+  // Since the type of a global must exactly match the type of its
+  // initializer, we cannot know the type until after we have emitted the
+  // latter (e.g. in case of unions, …). However, it is legal for the
+  // initializer to refer to the address of the variable. Thus, we first
+  // create a global with the generic type (note the assignment to
+  // value!), and in case we also do an initializer with a different type
+  // later, swap it out and replace any existing uses with bitcasts to the
+  // previous type.
+
+  LLGlobalVariable *gvar =
+      declareGlobal(V->loc, gIR->module, DtoMemType(V->type), irMangle,
+                    isLLConst, V->isThreadlocal(), useDLLImport);
+  value = gvar;
+
+  if (V->llvmInternal == LLVMextern_weak)
+    gvar->setLinkage(llvm::GlobalValue::ExternalWeakLinkage);
 
   // Set the alignment (it is important not to use type->alignsize because
   // VarDeclarations can have an align() attribute independent of the type

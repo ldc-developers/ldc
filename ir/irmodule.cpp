@@ -10,6 +10,7 @@
 #include "ir/irmodule.h"
 
 #include "dmd/module.h"
+#include "driver/cl_options.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -27,9 +28,12 @@ llvm::GlobalVariable *IrModule::moduleInfoSymbol() {
 
   const auto irMangle = getIRMangledModuleInfoSymbolName(M);
 
-  moduleInfoVar =
-      declareGlobal(Loc(), gIR->module,
-                    llvm::StructType::create(gIR->context()), irMangle, false);
+  const bool useDLLImport =
+      opts::symbolVisibility == opts::SymbolVisibility::public_ && !M->isRoot();
+
+  moduleInfoVar = declareGlobal(Loc(), gIR->module,
+                                llvm::StructType::create(gIR->context()),
+                                irMangle, false, false, useDLLImport);
 
   return moduleInfoVar;
 }
