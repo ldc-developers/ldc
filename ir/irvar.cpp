@@ -100,14 +100,17 @@ void IrGlobal::declare() {
   // modules will be linked together to one or more binaries).
   // [Defining a global overrides its DLL storage class.]
   if (global.params.targetTriple->isOSWindows()) {
-    const bool isDefinedInRootModule =
-        !(V->storage_class & STCextern) && !V->inNonRoot();
-    if (!isDefinedInRootModule) {
-      // with -fvisibility=public, also include all extern(D) globals
-      if (V->isExport() ||
-          (opts::symbolVisibility == opts::SymbolVisibility::public_ &&
-           V->linkage == LINK::d)) {
-        gvar->setDLLStorageClass(LLGlobalValue::DLLImportStorageClass);
+    // dllimport isn't supported for thread-local globals (MSVC++ neither)
+    if (!V->isThreadlocal()) {
+      const bool isDefinedInRootModule =
+          !(V->storage_class & STCextern) && !V->inNonRoot();
+      if (!isDefinedInRootModule) {
+        // with -fvisibility=public, also include all extern(D) globals
+        if (V->isExport() ||
+            (opts::symbolVisibility == opts::SymbolVisibility::public_ &&
+             V->linkage == LINK::d)) {
+          gvar->setDLLStorageClass(LLGlobalValue::DLLImportStorageClass);
+        }
       }
     }
   }
@@ -140,6 +143,12 @@ void IrGlobal::define() {
   // match.
   auto gvar = llvm::cast<LLGlobalVariable>(value);
   value = gIR->setGlobalVarInitializer(gvar, initVal, V);
+
+  // dllexport isn't supported for thread-local globals (MSVC++ neither);
+  // don't let LLVM create a useless /EXPORT directive (yields the same linker
+  // error anyway when trying to dllimport).
+  if (gvar->hasDLLExportStorageClass() && V->isThreadlocal())
+    gvar->setDLLStorageClass(LLGlobalValue::DefaultStorageClass);
 
   // If this global is used from a naked function, we need to create an
   // artificial "use" for it, or it could be removed by the optimizer if
