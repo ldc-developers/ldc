@@ -12,6 +12,7 @@
 #include "dmd/errors.h"
 #include "dmd/mangle.h"
 #include "dmd/module.h"
+#include "driver/cl_options.h"
 #include "gen/abi.h"
 #include "gen/classes.h"
 #include "gen/irstate.h"
@@ -312,5 +313,9 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
   LLGlobalVariable *moduleInfoSym = getIrModule(m)->moduleInfoSymbol();
   b.finalize(moduleInfoSym);
   setLinkage({LLGlobalValue::ExternalLinkage, needsCOMDAT()}, moduleInfoSym);
+  if (global.params.targetTriple->isOSWindows() &&
+      opts::symbolVisibility == opts::SymbolVisibility::public_) {
+    moduleInfoSym->setDLLStorageClass(LLGlobalValue::DLLExportStorageClass);
+  }
   return moduleInfoSym;
 }
