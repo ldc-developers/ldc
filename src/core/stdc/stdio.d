@@ -901,10 +901,13 @@ else version (CRuntime_Microsoft)
     extern shared void function() _fcloseallp;
 
     ///
+    extern(D) pragma(mangle, "stdin") // LDC, for automatic export
     shared FILE* stdin;  // = &__iob_func()[0];
     ///
+    extern(D) pragma(mangle, "stdout") // LDC, for automatic export
     shared FILE* stdout; // = &__iob_func()[1];
     ///
+    extern(D) pragma(mangle, "stderr") // LDC, for automatic export
     shared FILE* stderr; // = &__iob_func()[2];
 }
 else version (CRuntime_Glibc)
