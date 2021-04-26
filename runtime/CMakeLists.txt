@@ -115,14 +115,20 @@ endif()
 # Auto-detect C system libraries
 if("${C_SYSTEM_LIBS}" STREQUAL "AUTO")
     if("${TARGET_SYSTEM}" MATCHES "MSVC")
-        set(C_SYSTEM_LIBS libvcruntime libcmt)
-    elseif("${TARGET_SYSTEM}" MATCHES "Android")
-        set(C_SYSTEM_LIBS m c)
-    elseif("${TARGET_SYSTEM}" MATCHES "Linux")
-        set(C_SYSTEM_LIBS m pthread rt dl)
+        set(C_SYSTEM_LIBS        libcmt libvcruntime)
+        set(C_SYSTEM_LIBS_SHARED msvcrt vcruntime oldnames legacy_stdio_definitions)
     else()
-        set(C_SYSTEM_LIBS m pthread)
+        if("${TARGET_SYSTEM}" MATCHES "Android")
+            set(C_SYSTEM_LIBS m c)
+        elseif("${TARGET_SYSTEM}" MATCHES "Linux")
+            set(C_SYSTEM_LIBS m pthread rt dl)
+        else()
+            set(C_SYSTEM_LIBS m pthread)
+        endif()
+        set(C_SYSTEM_LIBS_SHARED ${C_SYSTEM_LIBS})
     endif()
+else()
+    set(C_SYSTEM_LIBS_SHARED ${C_SYSTEM_LIBS})
 endif()
 
 message(STATUS "-- LDC runtime configuration:")
@@ -590,7 +596,7 @@ macro(build_runtime_libs druntime_o druntime_bc phobos2_o phobos2_bc c_flags ld_
     # libraries otherwise implicitly added by LDC to make it loadable from
     # C executables.
     if("${is_shared}" STREQUAL "ON")
-        target_link_libraries(druntime-ldc${target_suffix} ${C_SYSTEM_LIBS})
+        target_link_libraries(druntime-ldc${target_suffix} ${C_SYSTEM_LIBS_SHARED})
     endif()
 
     list(APPEND ${outlist_targets} druntime-ldc${target_suffix})
@@ -608,7 +614,7 @@ macro(build_runtime_libs druntime_o druntime_bc phobos2_o phobos2_bc c_flags ld_
             # in order to exclude the druntime tests for the Phobos test runner.
             string(REPLACE "-unittest" "" target_suffix_without_unittest "${target_suffix}")
             target_link_libraries(phobos2-ldc${target_suffix}
-                druntime-ldc${target_suffix_without_unittest} ${C_SYSTEM_LIBS})
+                druntime-ldc${target_suffix_without_unittest} ${C_SYSTEM_LIBS_SHARED})
         endif()
 
         list(APPEND ${outlist_targets} phobos2-ldc${target_suffix})
