@@ -1373,6 +1373,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   if (func->getLinkage() == LLGlobalValue::WeakAnyLinkage &&
+      !func->hasDLLExportStorageClass() &&
       global.params.targetTriple->isWindowsMSVCEnvironment()) {
     emulateWeakAnyLinkageForMSVC(func, fd->linkage);
   }

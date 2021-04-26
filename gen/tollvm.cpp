@@ -280,7 +280,8 @@ void setVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
         opts::symbolVisibility == opts::SymbolVisibility::public_) {
       const auto l = obj->getLinkage();
       isExported = l == LLGlobalValue::ExternalLinkage ||
-                   l == LLGlobalValue::WeakODRLinkage;
+                   l == LLGlobalValue::WeakODRLinkage ||
+                   l == LLGlobalValue::WeakAnyLinkage;
     }
     obj->setDLLStorageClass(isExported ? LLGlobalValue::DLLExportStorageClass
                                        : LLGlobalValue::DefaultStorageClass);

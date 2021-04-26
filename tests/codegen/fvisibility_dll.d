@@ -16,6 +16,9 @@ import fvisibility_dll_lib;
 extern(C) void main()
 {
     assert(dllGlobal == 123);
+
     const x = dllSum(1, 2);
     assert(x == 3);
+
+    dllWeakFoo();
 }
