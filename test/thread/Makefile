@@ -36,9 +36,7 @@ $(ROOT)/tlsstack.done: $(ROOT)/%.done : $(ROOT)/%
 	@touch $@
 
 $(ROOT)/join_detach.done: $(ROOT)/%.done : $(ROOT)/%
-	@echo Testing $*
-	$(QUIET)$(TIMELIMIT)$(ROOT)/$*
-	@touch $@
+	@echo Testing $* is currently disabled!
 
 $(ROOT)/%: $(SRC)/%.d
 	$(QUIET)$(DMD) $(DFLAGS) -of$@ $<
