@@ -412,6 +412,11 @@ bool ldc_optimize_module(llvm::Module *M) {
 
   addOptimizationPasses(mpm, fpm, optLevel(), sizeLevel());
 
+  if (global.params.targetTriple->isOSWindows() &&
+      opts::symbolVisibility == opts::SymbolVisibility::public_) {
+    mpm.add(createDLLImportRelocationPass());
+  }
+
   // Run per-function passes.
   fpm.doInitialization();
   for (auto &F : *M) {

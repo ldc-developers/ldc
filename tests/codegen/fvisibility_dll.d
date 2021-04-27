@@ -13,6 +13,16 @@
 
 import fvisibility_dll_lib;
 
+// test manual 'relocation' of references to dllimported globals in static data initializers:
+__gshared int* dllimportRef = &dllGlobal;
+__gshared void* castDllimportRef = &dllGlobal;
+immutable void*[2] arrayOfRefs = [ null, cast(immutable) &dllGlobal ];
+
+struct MyStruct
+{
+    int* dllimportRef = &dllGlobal; // init symbol references dllimported global
+}
+
 extern(C) void main()
 {
     assert(dllGlobal == 123);
@@ -24,4 +34,9 @@ extern(C) void main()
 
     scope c = new MyClass;
     assert(c.myInt == 456);
+
+    assert(dllimportRef == &dllGlobal);
+    assert(castDllimportRef == &dllGlobal);
+    assert(arrayOfRefs[1] == &dllGlobal);
+    assert(MyStruct.init.dllimportRef == &dllGlobal);
 }
