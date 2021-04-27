@@ -1,4 +1,4 @@
-//===-- gen/abi-ppc-64.h - PPC64 ABI description ----------------*- C++ -*-===//
+//===-- gen/abi-aarch-64.h - AArch64 ABI description ----------------*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
