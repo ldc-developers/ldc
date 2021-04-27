@@ -100,7 +100,11 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     if (abi->returnInArg(f, fd && fd->needThis())) {
       // sret return
       llvm::AttrBuilder sretAttrs;
+#if LDC_LLVM_VER >= 1200
+      sretAttrs.addStructRetAttr(DtoType(rt));
+#else
       sretAttrs.addAttribute(LLAttribute::StructRet);
+#endif
       sretAttrs.addAttribute(LLAttribute::NoAlias);
       if (unsigned alignment = DtoAlignment(rt))
         sretAttrs.addAlignmentAttr(alignment);
@@ -198,7 +202,11 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
         // LLVM ByVal parameters are pointers to a copy in the function
         // parameters stack. The caller needs to provide a pointer to the
         // original argument.
+#if LDC_LLVM_VER >= 1200
+        attrs.addByValAttr(DtoType(loweredDType));
+#else
         attrs.addAttribute(LLAttribute::ByVal);
+#endif
         if (auto alignment = DtoAlignment(loweredDType))
           attrs.addAlignmentAttr(alignment);
         passPointer = true;
