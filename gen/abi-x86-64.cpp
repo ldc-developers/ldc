@@ -136,7 +136,11 @@ struct ImplicitByvalRewrite : ABIRewrite {
 
   void applyTo(IrFuncTyArg &arg, LLType *finalLType = nullptr) override {
     ABIRewrite::applyTo(arg, finalLType);
+#if LDC_LLVM_VER >= 1200
+    arg.attrs.addByValAttr(DtoType(arg.type));
+#else
     arg.attrs.addAttribute(LLAttribute::ByVal);
+#endif
     if (auto alignment = DtoAlignment(arg.type))
       arg.attrs.addAlignmentAttr(alignment);
   }

@@ -133,7 +133,11 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
 
     llvm::AttrBuilder initialAttrs;
     if (passByVal) {
+#if LDC_LLVM_VER >= 1200
+      initialAttrs.addByValAttr(DtoType(argType));
+#else
       initialAttrs.addAttribute(LLAttribute::ByVal);
+#endif
       if (auto alignment = DtoAlignment(argType))
         initialAttrs.addAlignmentAttr(alignment);
     } else {
