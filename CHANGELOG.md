@@ -1,3 +1,21 @@
+# LDC 1.26.0 (2021-04-28)
+
+#### Big news
+- Frontend, druntime and Phobos are at version [2.096.1+](https://dlang.org/changelog/2.096.0.html), incl. new `ldmd2` command-line option `-gdwarf=<version>` (use `-dwarf-version` for `ldc2`). (#3678, #3706)
+
+#### Platform support
+- Supports LLVM 6.0 - 12.0.
+
+#### Bug fixes
+- v1.25 regression: TypeInfo for interface gives invalid string for name. (#3693)
+- Make enums show up correctly as members of a struct when debugging. (#3688, #3694)
+- Some new GCC builtins are available in `ldc.gccbuiltins_*`, by not rejecting LLVM `i1` anymore (mapping to D `bool` instead). Thanks Bruce! (#3682)
+- dcompute: Don't reject CUDA versions 7.x - 8.0.0. (#3683)
+- Don't enforce the frame pointer for functions with GCC-style inline asm. (#3685)
+- `-i`: Exclude `ldc.*` modules by default. (#3679)
+- Fix some cases of insufficient alignment for arguments and parameters. (#3692, #3698)
+- Fix a few issues with LLVM 12. (#3697, #3708)
+
 # LDC 1.25.0 (2021-02-21)
 
 #### Big news
