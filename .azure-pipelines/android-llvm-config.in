@@ -51,27 +51,30 @@ LDFLAGS="-L${prefix}/lib"
 LIBFILE="${prefix}/lib/libLLVM-$version.so"
 
 components="aarch64 aarch64asmparser aarch64codegen aarch64desc aarch64disassembler aarch64info aarch64utils \
-aggressiveinstcombine all all-targets analysis arm armasmparser armcodegen armdesc armdisassembler arminfo \
-armutils asmparser asmprinter binaryformat bitreader bitstreamreader bitwriter cfguard codegen core coroutines \
-coverage debuginfocodeview debuginfodwarf debuginfogsym debuginfomsf debuginfopdb demangle dlltooldriver \
-dwarflinker engine executionengine extensions filecheck frontendopenacc frontendopenmp fuzzmutate globalisel \
-instcombine instrumentation interfacestub interpreter \
-ipo irreader jitlink libdriver lineeditor linker lto mc mca mcdisassembler mcjit mcparser mirparser native \
-nativecodegen objcarcopts object objectyaml option orcjit orcshared orctargetprocess passes profiledata remarks runtimedyld \
-scalaropts selectiondag support symbolize tablegen target textapi transformutils vectorize webassembly \
-webassemblyasmparser webassemblycodegen webassemblydesc webassemblydisassembler webassemblyinfo windowsmanifest \
-x86 x86asmparser x86codegen x86desc x86disassembler x86info xray"
-static_libs="-lLLVMWindowsManifest -lLLVMTableGen -lLLVMLTO -lLLVMPasses -lLLVMCoroutines \
--lLLVMObjCARCOpts -lLLVMExtensions -lLLVMLibDriver -lLLVMOption -lLLVMipo -lLLVMInstrumentation -lLLVMVectorize \
--lLLVMLinker -lLLVMIRReader -lLLVMFrontendOpenMP -lLLVMDebugInfoPDB -lLLVMAsmParser -lLLVMX86Disassembler \
--lLLVMX86AsmParser -lLLVMX86CodeGen -lLLVMX86Desc -lLLVMX86Info -lLLVMWebAssemblyDisassembler -lLLVMWebAssemblyAsmParser \
--lLLVMWebAssemblyCodeGen -lLLVMWebAssemblyDesc -lLLVMWebAssemblyInfo -lLLVMARMDisassembler -lLLVMARMAsmParser \
--lLLVMARMCodeGen -lLLVMARMDesc -lLLVMARMUtils -lLLVMARMInfo -lLLVMAArch64Disassembler -lLLVMMCDisassembler \
--lLLVMAArch64AsmParser -lLLVMAArch64CodeGen -lLLVMCFGuard -lLLVMGlobalISel -lLLVMSelectionDAG -lLLVMAsmPrinter \
--lLLVMDebugInfoDWARF -lLLVMCodeGen -lLLVMTarget -lLLVMScalarOpts -lLLVMInstCombine -lLLVMAggressiveInstCombine \
--lLLVMTransformUtils -lLLVMBitWriter -lLLVMAnalysis -lLLVMProfileData -lLLVMObject -lLLVMTextAPI -lLLVMMCParser \
--lLLVMBitReader -lLLVMCore -lLLVMRemarks -lLLVMBitstreamReader -lLLVMAArch64Desc -lLLVMMC -lLLVMDebugInfoCodeView \
--lLLVMDebugInfoMSF -lLLVMBinaryFormat -lLLVMAArch64Utils -lLLVMAArch64Info -lLLVMSupport -lLLVMDemangle"
+aggressiveinstcombine all all-targets analysis arm armasmparser armcodegen armdesc armdisassembler arminfo armutils \
+asmparser asmprinter binaryformat bitreader bitstreamreader bitwriter cfguard codegen core coroutines coverage \
+debuginfocodeview debuginfodwarf debuginfogsym debuginfomsf debuginfopdb demangle dlltooldriver dwarflinker engine \
+executionengine extensions filecheck frontendopenacc frontendopenmp fuzzmutate globalisel hellonew instcombine \
+instrumentation interfacestub interpreter ipo irreader jitlink libdriver lineeditor linker lto mc mca mcdisassembler \
+mcjit mcparser mirparser native nativecodegen objcarcopts object objectyaml option orcjit orcshared orctargetprocess \
+passes profiledata remarks runtimedyld scalaropts selectiondag support symbolize tablegen target textapi \
+transformutils vectorize webassembly webassemblyasmparser webassemblycodegen webassemblydesc webassemblydisassembler \
+webassemblyinfo windowsmanifest x86 x86asmparser x86codegen x86desc x86disassembler x86info xray"
+static_libs="-lLLVMWindowsManifest -lLLVMXRay -lLLVMLibDriver -lLLVMDlltoolDriver -lLLVMCoverage -lLLVMLineEditor \
+-lLLVMX86Disassembler -lLLVMX86AsmParser -lLLVMX86CodeGen -lLLVMX86Desc -lLLVMX86Info -lLLVMWebAssemblyDisassembler \
+-lLLVMWebAssemblyAsmParser -lLLVMWebAssemblyCodeGen -lLLVMWebAssemblyDesc -lLLVMWebAssemblyInfo -lLLVMARMDisassembler \
+-lLLVMARMAsmParser -lLLVMARMCodeGen -lLLVMARMDesc -lLLVMARMUtils -lLLVMARMInfo -lLLVMAArch64Disassembler \
+-lLLVMAArch64AsmParser -lLLVMAArch64CodeGen -lLLVMAArch64Desc -lLLVMAArch64Utils -lLLVMAArch64Info -lLLVMOrcJIT \
+-lLLVMMCJIT -lLLVMJITLink -lLLVMOrcTargetProcess -lLLVMOrcShared -lLLVMInterpreter -lLLVMExecutionEngine \
+-lLLVMRuntimeDyld -lLLVMSymbolize -lLLVMDebugInfoPDB -lLLVMDebugInfoGSYM -lLLVMOption -lLLVMObjectYAML -lLLVMMCA \
+-lLLVMMCDisassembler -lLLVMLTO -lLLVMPasses -lLLVMCFGuard -lLLVMCoroutines -lLLVMObjCARCOpts -lLLVMHelloNew -lLLVMipo \
+-lLLVMVectorize -lLLVMLinker -lLLVMInstrumentation -lLLVMFrontendOpenMP -lLLVMFrontendOpenACC -lLLVMExtensions \
+-lLLVMDWARFLinker -lLLVMGlobalISel -lLLVMMIRParser -lLLVMAsmPrinter -lLLVMDebugInfoDWARF -lLLVMSelectionDAG \
+-lLLVMCodeGen -lLLVMIRReader -lLLVMAsmParser -lLLVMInterfaceStub -lLLVMFileCheck -lLLVMFuzzMutate -lLLVMTarget \
+-lLLVMScalarOpts -lLLVMInstCombine -lLLVMAggressiveInstCombine -lLLVMTransformUtils -lLLVMBitWriter -lLLVMAnalysis \
+-lLLVMProfileData -lLLVMObject -lLLVMTextAPI -lLLVMMCParser -lLLVMMC -lLLVMDebugInfoCodeView -lLLVMDebugInfoMSF \
+-lLLVMBitReader -lLLVMCore -lLLVMRemarks -lLLVMBitstreamReader -lLLVMBinaryFormat -lLLVMTableGen -lLLVMSupport \
+-lLLVMDemangle"
 shared_libs="-lLLVM-$version"
 libs=$shared_libs
 handle_args () {
