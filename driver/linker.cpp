@@ -246,8 +246,7 @@ llvm::StringRef getMscrtLibName(const bool *useInternalToolchain) {
   if (useInternal) {
     return "vcruntime140";
   } else {
-    // default to static release variant
-    return linkFullyStatic() != llvm::cl::BOU_FALSE ? "libcmt" : "msvcrt";
+    return linkAgainstSharedDefaultLibs() ? "msvcrt" : "libcmt";
   }
 }
 
