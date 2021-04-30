@@ -950,11 +950,20 @@ function(build_test_runners name_suffix path_suffix d_flags linkflags is_shared)
     set(target_suffix)
     get_target_suffix("${name_suffix}" "${path_suffix}" target_suffix)
 
+    set(c_libs "")
+    set(full_dflags ${d_flags} -linkonce-templates)
+    if("${is_shared}" STREQUAL "OFF")
+        set(c_libs ${C_SYSTEM_LIBS})
+    elseif("${TARGET_SYSTEM}" MATCHES "MSVC")
+        set(c_libs ${C_SYSTEM_LIBS_SHARED})
+        set(full_dflags ${full_dflags} -fvisibility=public)
+    endif()
+
     set(test_runner_o  "")
     set(test_runner_bc "")
     dc("${RUNTIME_DIR}/src/test_runner.d"
        "${RUNTIME_DIR}/src"
-       "${d_flags};-linkonce-templates"
+       "${full_dflags}"
        "${PROJECT_BINARY_DIR}/objects-unittest${target_suffix}"
        "OFF"
        "OFF"
@@ -962,11 +971,6 @@ function(build_test_runners name_suffix path_suffix d_flags linkflags is_shared)
        test_runner_bc
     )
     add_custom_target(test_runner${target_suffix} DEPENDS ${test_runner_o})
-
-    set(c_libs "")
-    if("${is_shared}" STREQUAL "OFF")
-        set(c_libs ${C_SYSTEM_LIBS})
-    endif()
 
     set(druntime_name druntime-test-runner${target_suffix})
     add_executable(${druntime_name} EXCLUDE_FROM_ALL ${test_runner_o})
