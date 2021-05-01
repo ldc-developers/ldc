@@ -37,6 +37,7 @@ steps:
     mv lib lib64
     cp -r ../ldc2-*-x86/lib .
     mv lib lib32
+    cp ../ldc2-*-x86/bin/*.dll ../ldc2-*-x86/bin/*.pdb lib32/
   displayName: Extract & merge artifacts
 - powershell: |
     cd ldc2-*-multilib

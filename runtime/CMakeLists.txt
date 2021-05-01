@@ -856,26 +856,33 @@ else()
     endif()
 
     foreach(libname ${libs_to_install})
-        # On Mac, manually copy static libraries to prevent ranlib from
-        # potentially corrupting the file during installation.
-        # See https://bugs.llvm.org/show_bug.cgi?id=34808.
-        set(copy_manually OFF)
-        if("${TARGET_SYSTEM}" MATCHES "APPLE")
-            set(target_type)
-            get_target_property(target_type ${libname} TYPE)
-            if("${target_type}" STREQUAL "STATIC_LIBRARY")
-                set(copy_manually ON)
-            endif()
-        endif()
+        set(target_type)
+        get_target_property(target_type ${libname} TYPE)
 
         set(destination_dir ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
         if(${libname} MATCHES "_${MULTILIB_SUFFIX}$")
             set(destination_dir ${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX})
         endif()
 
-        if(copy_manually)
+        # On Mac, manually copy static libraries to prevent ranlib from
+        # potentially corrupting the file during installation.
+        # See https://bugs.llvm.org/show_bug.cgi?id=34808.
+        if("${TARGET_SYSTEM}" MATCHES "APPLE" AND "${target_type}" STREQUAL "STATIC_LIBRARY")
             install(FILES       $<TARGET_FILE:${libname}>
                     DESTINATION ${destination_dir})
+        # Windows DLLs:
+        elseif("${TARGET_SYSTEM}" MATCHES "MSVC" AND "${target_type}" STREQUAL "SHARED_LIBRARY")
+            # import .lib in regular lib dir
+            install(FILES       $<TARGET_LINKER_FILE:${libname}>
+                    DESTINATION ${destination_dir})
+            # .dll in bin dir
+            install(FILES       $<TARGET_FILE:${libname}>
+                    DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+            # .pdb of debug DLLs in bin dir
+            if(${libname} MATCHES "-debug")
+                install(FILES       $<TARGET_PDB_FILE:${libname}>
+                        DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+            endif()
         else()
             install(TARGETS     ${libname}
                     DESTINATION ${destination_dir})
