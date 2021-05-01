@@ -41,7 +41,13 @@ void writeTimeTraceProfile() {
     }
 
     std::error_code err;
-    llvm::raw_fd_ostream outputstream(filename, err, llvm::sys::fs::OF_Text);
+    llvm::raw_fd_ostream outputstream(filename, err,
+#if LDC_LLVM_VER >= 900
+                                      llvm::sys::fs::OF_Text
+#else
+                                      llvm::sys::fs::F_Text
+#endif
+                                      );
     if (err) {
       error(Loc(), "Error writing Time Trace profile: could not open %s",
             filename.c_str());

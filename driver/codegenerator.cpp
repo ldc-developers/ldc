@@ -347,7 +347,13 @@ void CodeGenerator::writeMLIRModule(mlir::OwningModuleRef *module,
     const auto llpath = replaceExtensionWith(global.mlir_ext, filename);
     Logger::println("Writting MLIR to %s\n", llpath.c_str());
     std::error_code errinfo;
-    llvm::raw_fd_ostream aos(llpath, errinfo, llvm::sys::fs::F_None);
+    llvm::raw_fd_ostream aos(llpath, errinfo,
+#if LDC_LLVM_VER >= 900
+                             llvm::sys::fs::OF_None
+#else
+                             llvm::sys::fs::F_None
+#endif
+                             );
 
     if (aos.has_error()) {
       error(Loc(), "Cannot write MLIR file '%s': %s", llpath.c_str(),

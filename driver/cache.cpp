@@ -480,7 +480,12 @@ void recoverObjectFile(llvm::StringRef cacheObjectHash,
 #if LDC_LLVM_VER >= 700
                                         llvm::sys::fs::CD_OpenExisting,
 #endif
-                                        llvm::sys::fs::F_Append)) {
+#if LDC_LLVM_VER >= 900
+                                        llvm::sys::fs::OF_Append
+#else
+                                        llvm::sys::fs::F_Append
+#endif
+                                        )) {
       error(Loc(), "Failed to open the cached file for writing: %s",
             cacheFile.c_str());
       fatal();
