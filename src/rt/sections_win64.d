@@ -12,8 +12,9 @@
 
 module rt.sections_win64;
 
-// LDC: changed from `version (CRuntime_Microsoft):` to include MinGW as well
-version (Windows):
+version (LDC) { /* implemented in rt.sections_elf_shared */ } else:
+
+version (CRuntime_Microsoft):
 
 // debug = PRINTF;
 debug(PRINTF) import core.stdc.stdio;
