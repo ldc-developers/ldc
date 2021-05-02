@@ -1037,14 +1037,17 @@ endmacro()
 
 function(add_tests d_files runner target_suffix)
     foreach(file ${d_files})
-        file_to_module_name(${file} module)
-        add_test(NAME "${module}${target_suffix}"
-            WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
-            COMMAND ${runner}-test-runner${target_suffix} ${module}
-        )
-        set_tests_properties("${module}${target_suffix}" PROPERTIES
-            DEPENDS build-${runner}-test-runner${target_suffix}
-        )
+        # skip rt.dso_* (no ModuleInfo)
+        if(NOT "${file}" MATCHES "druntime/src/rt/dso_")
+            file_to_module_name(${file} module)
+            add_test(NAME "${module}${target_suffix}"
+                WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
+                COMMAND ${runner}-test-runner${target_suffix} ${module}
+            )
+            set_tests_properties("${module}${target_suffix}" PROPERTIES
+                DEPENDS build-${runner}-test-runner${target_suffix}
+            )
+        endif()
     endforeach()
 endfunction()
 function(add_runtime_tests name_suffix path_suffix)
