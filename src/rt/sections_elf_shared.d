@@ -86,12 +86,13 @@ else version (DragonFlyBSD)
 }
 else version (Windows)
 {
+    import core.sys.windows.winbase;
+    import core.sys.windows.windef;
 }
 else
 {
     static assert(0, "unimplemented");
 }
-import core.sys.posix.pthread;
 import rt.deh;
 import rt.dmain2;
 import rt.minfo;
@@ -277,9 +278,18 @@ version (Shared)
             (*res)[i] = tdso;
             if (tdso._addCnt)
             {
-                // Increment the dlopen ref for explicitly loaded libraries to pin them.
-                const success = .dlopen(nameForDSO(tdso._pdso), RTLD_LAZY) !is null;
-                safeAssert(success, "Failed to increment dlopen ref.");
+                // Increment the refcount of explicitly loaded libraries to pin them.
+                version (Windows)
+                {
+                    HMODULE hModule;
+                    const success = GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+                                                       cast(const(wchar)*) tdso._pdso._slot, &hModule) == TRUE;
+                }
+                else
+                {
+                    const success = .dlopen(nameForDSO(tdso._pdso), RTLD_LAZY) !is null;
+                }
+                safeAssert(success, "Failed to increment library refcount.");
                 (*res)[i]._addCnt = 1; // new array takes over the additional ref count
             }
         }
@@ -296,7 +306,10 @@ version (Shared)
             {
                 auto handle = tdso._pdso._handle;
                 safeAssert(handle !is null, "Invalid library handle.");
-                .dlclose(handle);
+                version (Windows)
+                    FreeLibrary(handle);
+                else
+                    .dlclose(handle);
             }
         }
         pary.reset();
@@ -327,7 +340,12 @@ version (Shared)
             auto handle = tdso._pdso._handle;
             safeAssert(handle !is null, "Invalid DSO handle.");
             for (; tdso._addCnt > 0; --tdso._addCnt)
-                .dlclose(handle);
+            {
+                version (Windows)
+                    FreeLibrary(handle);
+                else
+                    .dlclose(handle);
+            }
         }
 
         // Free the memory for the array contents.
@@ -455,12 +473,16 @@ else
 
 version (Darwin)
     private alias ImageHeader = mach_header*;
-else static if (SharedELF)
+else version (Windows)
+    private alias ImageHeader = IMAGE_DOS_HEADER*;
+else
     private alias ImageHeader = SharedObject;
 
-extern(C) alias GetTLSAnchor = void* function() nothrow @nogc;
-
-version (Windows)
+version (Darwin)
+{
+    extern(C) alias GetTLSAnchor = void* function() nothrow @nogc;
+}
+else version (Windows)
 {
     alias GetTLSRange = void[] function() nothrow @nogc;
 
@@ -517,9 +539,9 @@ package extern(C) void _d_dso_registry(void* arg)
 
         version (Windows)
         {
+            ImageHeader header = data._imageBase;
             pdso._getTLSRange = data._getTLSRange;
-
-            scanSegments(data._imageBase, pdso);
+            // pdso._moduleGroup set in scanSegments()
         }
         else
         {
@@ -539,9 +561,9 @@ package extern(C) void _d_dso_registry(void* arg)
             ImageHeader header = void;
             const headerFound = findImageHeaderForAddr(data._slot, header);
             safeAssert(headerFound, "Failed to find image header.");
-
-            scanSegments(header, pdso);
         }
+
+        scanSegments(header, pdso);
 
         version (Shared)
         {
@@ -702,7 +724,14 @@ version (Shared)
         _rtLoading = true;
         scope (exit) _rtLoading = save;
 
-        auto handle = .dlopen(name, RTLD_LAZY);
+        version (Windows)
+        {
+            // TODO: UTF16
+            auto handle = cast(void*) LoadLibraryA(name);
+        }
+        else
+            auto handle = .dlopen(name, RTLD_LAZY);
+
         if (handle is null) return null;
 
         // if it's a D library
@@ -722,7 +751,11 @@ version (Shared)
         // if it's a D library
         if (auto pdso = dsoForHandle(handle))
             decThreadRef(pdso, true);
-        return .dlclose(handle) == 0;
+
+        version (Windows)
+            return FreeLibrary(handle);
+        else
+            return .dlclose(handle) == 0;
     }
 }
 
@@ -799,6 +832,7 @@ void freeDSO(DSO* pdso) nothrow @nogc
 version (Shared)
 {
 @nogc nothrow:
+    version (Windows) {} else
     const(char)* nameForDSO(in DSO* pdso)
     {
         Dl_info info = void;
@@ -900,7 +934,12 @@ version (Shared)
     {
         // FIXME: Not implemented yet.
     }
+    else version (Windows) void getDependencies(in ImageHeader info, ref Array!(DSO*) deps)
+    {
+        // FIXME: Not implemented yet.
+    }
 
+    version (Windows) {} else
     void* handleForName(const char* name)
     {
         auto handle = .dlopen(name, RTLD_NOLOAD | RTLD_LAZY);
@@ -1039,10 +1078,21 @@ else
  */
 version (Shared) void* handleForAddr(void* addr) nothrow @nogc
 {
-    Dl_info info = void;
-    if (dladdr(addr, &info) != 0)
-        return handleForName(info.dli_fname);
-    return null;
+    version (Windows)
+    {
+        void* hModule;
+        if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                                cast(const(wchar)*) addr, &hModule))
+            return null;
+        return hModule;
+    }
+    else
+    {
+        Dl_info info = void;
+        if (dladdr(addr, &info) != 0)
+            return handleForName(info.dli_fname);
+        return null;
+    }
 }
 
 version (Windows)
