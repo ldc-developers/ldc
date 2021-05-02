@@ -17,7 +17,7 @@ int4 globalIntFour;
 S17237 globalStruct;
 // CHECK-DAG: @{{.*}}globalStruct{{.*}}S17237{{\"?}} = {{.*}} zeroinitializer{{(, comdat)?}}, align 32
 
-// CHECK-LABEL: define <8 x i32> @foo(
+// CHECK-LABEL: define{{( dso_local)?}} <8 x i32> @foo(
 extern(C) int8 foo(S17237* s)
 {
     // CHECK: %[[GEP:[0-9]]] = getelementptr {{.*}}S17237* %s_arg

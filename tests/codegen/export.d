@@ -11,7 +11,7 @@ export
     // CHECK-DAG: @{{.*}}importedGlobal{{.*}} = external dllimport
     extern(C) extern __gshared void* importedGlobal;
 
-    // CHECK-DAG: define dllexport {{.*}}_D6export11exportedFooFZv
+    // CHECK-DAG: define{{( dso_local)?}} dllexport {{.*}}_D6export11exportedFooFZv
     void exportedFoo() {}
 
     // CHECK-DAG: declare dllimport {{.*}}_D6export11importedFooFZv

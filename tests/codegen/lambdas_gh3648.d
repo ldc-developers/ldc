@@ -26,9 +26,9 @@ void foo()
 }
 
 // the global variables should be defined as linkonce_odr:
-// CHECK: _D14lambdas_gh36489__lambda5FZ10global_bari{{.*}} = linkonce_odr thread_local global
-// CHECK: _D14lambdas_gh36489__lambda6FZ18global_bar_inlinedOi{{.*}} = linkonce_odr global
-// CHECK: _D14lambdas_gh36483fooFZ__T9__lambda1TiZQnFiZ12lambda_templi{{.*}} = linkonce_odr global
+// CHECK: _D14lambdas_gh36489__lambda5FZ10global_bari{{.*}} ={{( dso_local)?}} linkonce_odr thread_local global
+// CHECK: _D14lambdas_gh36489__lambda6FZ18global_bar_inlinedOi{{.*}} ={{( dso_local)?}} linkonce_odr global
+// CHECK: _D14lambdas_gh36483fooFZ__T9__lambda1TiZQnFiZ12lambda_templi{{.*}} ={{( dso_local)?}} linkonce_odr global
 
 // foo() should only call two lambdas:
 // CHECK: define {{.*}}_D14lambdas_gh36483fooFZv

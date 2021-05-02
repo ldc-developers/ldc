@@ -1386,6 +1386,12 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
       global.params.targetTriple->isWindowsMSVCEnvironment()) {
     emulateWeakAnyLinkageForMSVC(func, fd->linkage);
   }
+
+  // Assume func marked as dso_local, which will resolve to a symbol
+  // within the same linkage unit.
+  if (gTargetMachine->shouldAssumeDSOLocal(gIR->module, func)) {
+    func->setDSOLocal(true);
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

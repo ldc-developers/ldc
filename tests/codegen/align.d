@@ -4,9 +4,9 @@
 // XFAIL: Windows_x86
 
 align(32) struct Outer { int a = 1; }
-// CHECK-DAG: _D5align5Outer6__initZ = constant %align.Outer {{.*}}, align 32
+// CHECK-DAG: _D5align5Outer6__initZ ={{( dso_local)?}} constant %align.Outer {{.*}}, align 32
 struct Inner { align(32) int a = 1; }
-// CHECK-DAG: _D5align5Inner6__initZ = constant %align.Inner {{.*}}, align 32
+// CHECK-DAG: _D5align5Inner6__initZ ={{( dso_local)?}} constant %align.Inner {{.*}}, align 32
 
 align(1) ubyte globalByte1;
 // CHECK-DAG: _D5align11globalByte1h = {{.*}} align 1

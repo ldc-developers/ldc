@@ -7,7 +7,7 @@ version (D_SoftFloat) {} else static assert(0);
 
 // make sure TLS globals are emitted as regular __gshared globals:
 
-// CHECK: @_D3avr13definedGlobali = global i32 123
+// CHECK: @_D3avr13definedGlobali ={{( dso_local)?}} global i32 123
 int definedGlobal = 123;
 // CHECK: @_D3avr14declaredGlobali = external global i32
 extern int declaredGlobal;

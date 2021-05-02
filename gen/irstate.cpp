@@ -20,6 +20,7 @@
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
 #include <cstdarg>
+#include "llvm/Target/TargetMachine.h"
 
 IRState *gIR = nullptr;
 llvm::TargetMachine *gTargetMachine = nullptr;
@@ -137,6 +138,11 @@ IRState::setGlobalVarInitializer(LLGlobalVariable *&globalVar,
                                  Dsymbol *symbolForLinkageAndVisibility) {
   if (initializer->getType() == globalVar->getType()->getContainedType(0)) {
     defineGlobal(globalVar, initializer, symbolForLinkageAndVisibility);
+    // Assume globalVar marked as dso_local, which will resolve to a symbol
+    // within the same linkage unit.
+    if (gTargetMachine->shouldAssumeDSOLocal(gIR->module, globalVar)) {
+      globalVar->setDSOLocal(true);
+    }
     return globalVar;
   }
 
@@ -163,6 +169,12 @@ IRState::setGlobalVarInitializer(LLGlobalVariable *&globalVar,
 
   // Reset globalVar to the helper variable.
   globalVar = globalHelperVar;
+
+  // Assume globalVar marked as dso_local, which will resolve to a symbol
+  // within the same linkage unit.
+  if (gTargetMachine->shouldAssumeDSOLocal(gIR->module, globalVar)) {
+    globalVar->setDSOLocal(true);
+  }
 
   return castHelperVar;
 }

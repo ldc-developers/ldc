@@ -14,7 +14,7 @@ void main() {
         foofoofoo(i);
 }
 
-// PROFUSE-LABEL: define void @foofoofoo(
+// PROFUSE-LABEL: define{{( dso_local)?}} void @foofoofoo(
 // PROFUSE-SAME: !prof ![[FUNCENTRY:[0-9]+]]
 extern(C) void foofoofoo(int i)
 {
@@ -81,4 +81,3 @@ extern(C) void foofoofoo(int i)
 // PROFUSE-DAG: ![[IF2_2]] = !{!"branch_weights", i32 51, i32 26}
 // PROFUSE-DAG: ![[IF2_3]] = !{!"branch_weights", i32 2, i32 25}
 // PROFUSE-DAG: ![[IFEXIT]] = !{!"branch_weights", i32 399, i32 1}
-

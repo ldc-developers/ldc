@@ -8,12 +8,12 @@
 // RUN:   &&  FileCheck %s < %t2.ll
 
 extern(C) void foo(int N) {
-  // CHECK-LABEL: define void @foo(
+  // CHECK-LABEL: define{{( dso_local)?}} void @foo(
   // CHECK: br i1 %{{.*}}, label %{{.*}}, label %{{.*}}, !prof ![[FOO:[0-9]+]]
   if (N) {}
 }
 
-// CHECK-LABEL: define i32 @_Dmain(
+// CHECK-LABEL: define{{( dso_local)?}} i32 @_Dmain(
 void main() {
   import ldc.profile;
   foo(0);
