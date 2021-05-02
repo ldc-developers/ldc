@@ -711,6 +711,8 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit
             set(phobos2_bc "")
             compile_phobos2("${phobos2_d_flags};-fvisibility=public" "${lib_suffix}${SHARED_LIB_SUFFIX}"
                             "${path_suffix}" "OFF" "${all_d_files_at_once}" phobos2_o phobos2_bc)
+            # also link-in special rt.dso_windows druntime module
+            list(APPEND phobos2_o ${PROJECT_BINARY_DIR}/objects${target_suffix}/rt/dso_windows.obj)
         endif()
 
         build_runtime_libs("${druntime_o}" "${druntime_bc}" "${phobos2_o}" "${phobos2_bc}"
@@ -977,6 +979,10 @@ function(build_test_runners name_suffix path_suffix d_flags linkflags is_shared)
        test_runner_o
        test_runner_bc
     )
+    if("${is_shared}" STREQUAL "ON" AND "${TARGET_SYSTEM}" MATCHES "Windows")
+        # also link-in special rt.dso_windows druntime module
+        list(APPEND test_runner_o ${PROJECT_BINARY_DIR}/objects${target_suffix}/rt/dso_windows.obj)
+    endif()
     add_custom_target(test_runner${target_suffix} DEPENDS ${test_runner_o})
 
     set(druntime_name druntime-test-runner${target_suffix})
