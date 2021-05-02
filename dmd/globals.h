@@ -313,6 +313,7 @@ struct Param
 
     const llvm::Triple *targetTriple;
     bool isUClibcEnvironment; // not directly supported by LLVM
+    DString cppstdlib; // Cpp runtime library
 
     // Codegen cl options
     bool disableRedZone;

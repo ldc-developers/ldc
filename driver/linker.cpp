@@ -81,6 +81,12 @@ static llvm::cl::opt<std::string>
              llvm::cl::value_desc("libcmt[d]|msvcrt[d]"),
              llvm::cl::cat(opts::linkingCategory));
 
+static llvm::cl::opt<std::string>
+    cppstdlib("cppstdlib", llvm::cl::Optional ,
+             llvm::cl::desc("C++ runtime library to link with"),
+             llvm::cl::value_desc("libstd++|libc++"),
+             llvm::cl::cat(opts::linkingCategory));
+
 //////////////////////////////////////////////////////////////////////////////
 
 // linker-gcc.cpp
@@ -335,3 +341,7 @@ int runProgram() {
   }
   return status;
 }
+
+//////////////////////////////////////////////////////////////////////////////
+
+const char * getExplicitCppRuntimeName() { return cppstdlib.c_str(); }

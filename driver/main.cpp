@@ -784,7 +784,10 @@ void registerPredefinedTargetVersions() {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_UClibc");
     } else {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Glibc");
-      VersionCondition::addPredefinedGlobalIdent("CppRuntime_Gcc");
+      if (global.params.cppstdlib.compare("libc++") == 0)
+        VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang");
+      else
+        VersionCondition::addPredefinedGlobalIdent("CppRuntime_Gcc");
     }
     break;
   case llvm::Triple::Haiku:
