@@ -6,6 +6,14 @@ version (AArch64) version = ARM_Any;
 
 version (ARM_Any) version (D_HardFloat) version = ARM_Any_HardFloat;
 
+// Windows: shared Phobos test runners need to pull in the Phobos unittest DLL
+version (Windows) version (SharedPhobos)
+{
+    import ldc.attributes : assumeUsed;
+    import std.compiler : name;
+    @assumeUsed immutable dummy = &name;
+}
+
 ModuleInfo* getModuleInfo(string name)
 {
     foreach (m; ModuleInfo)
