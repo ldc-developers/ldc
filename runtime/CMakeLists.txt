@@ -951,6 +951,26 @@ macro(set_testrunner_linkflags libname path_suffix is_shared output_flags)
     endif()
 endmacro()
 
+# Sets `test_runner_o`.
+macro(compile_testrunner d_flags is_shared target_suffix extra_dir_suffix)
+    set(test_runner_o  "")
+    set(test_runner_bc "")
+    dc("${RUNTIME_DIR}/src/test_runner.d"
+       "${RUNTIME_DIR}/src"
+       "${d_flags}"
+       "${PROJECT_BINARY_DIR}/objects-unittest${target_suffix}${extra_dir_suffix}"
+       "OFF"
+       "OFF"
+       test_runner_o
+       test_runner_bc
+    )
+
+    if("${is_shared}" STREQUAL "ON" AND "${TARGET_SYSTEM}" MATCHES "Windows")
+        # also link-in special rt.dso_windows druntime module
+        list(APPEND test_runner_o ${PROJECT_BINARY_DIR}/objects${target_suffix}/rt/dso_windows.obj)
+    endif()
+endmacro()
+
 set(_GLOBAL_TESTRUNNERS "" CACHE INTERNAL "List of all test runner build targets")
 
 # Generates targets for a pair of druntime/Phobos test runners.
@@ -968,21 +988,7 @@ function(build_test_runners name_suffix path_suffix d_flags linkflags is_shared)
         set(full_dflags ${full_dflags} -fvisibility=public)
     endif()
 
-    set(test_runner_o  "")
-    set(test_runner_bc "")
-    dc("${RUNTIME_DIR}/src/test_runner.d"
-       "${RUNTIME_DIR}/src"
-       "${full_dflags}"
-       "${PROJECT_BINARY_DIR}/objects-unittest${target_suffix}"
-       "OFF"
-       "OFF"
-       test_runner_o
-       test_runner_bc
-    )
-    if("${is_shared}" STREQUAL "ON" AND "${TARGET_SYSTEM}" MATCHES "Windows")
-        # also link-in special rt.dso_windows druntime module
-        list(APPEND test_runner_o ${PROJECT_BINARY_DIR}/objects${target_suffix}/rt/dso_windows.obj)
-    endif()
+    compile_testrunner("${full_dflags}" "${is_shared}" "${target_suffix}" "")
     add_custom_target(test_runner${target_suffix} DEPENDS ${test_runner_o})
 
     set(druntime_name druntime-test-runner${target_suffix})
@@ -999,9 +1005,18 @@ function(build_test_runners name_suffix path_suffix d_flags linkflags is_shared)
     set(_GLOBAL_TESTRUNNERS "${_GLOBAL_TESTRUNNERS};${druntime_name}" CACHE INTERNAL "")
 
     if(PHOBOS2_DIR)
+        # Windows: the shared Phobos test runners need to be recompiled to reference a Phobos symbol,
+        #          so that the Phobos unittest DLLs are actually loaded
+        set(phobos_test_runner_target test_runner${target_suffix})
+        if("${is_shared}" STREQUAL "ON" AND "${TARGET_SYSTEM}" MATCHES "Windows")
+            compile_testrunner("${full_dflags};-d-version=SharedPhobos" "${is_shared}" "${target_suffix}" "-phobos")
+            set(phobos_test_runner_target test_runner_phobos_${target_suffix})
+            add_custom_target(${phobos_test_runner_target} DEPENDS ${test_runner_o})
+        endif()
+
         set(phobos_name phobos2-test-runner${target_suffix})
         add_executable(${phobos_name} EXCLUDE_FROM_ALL ${test_runner_o})
-        add_dependencies(${phobos_name} test_runner${target_suffix} phobos2-ldc-unittest${target_suffix})
+        add_dependencies(${phobos_name} ${phobos_test_runner_target} phobos2-ldc-unittest${target_suffix})
         set_testrunner_linkflags("phobos2-ldc-unittest${name_suffix}" "${path_suffix}" "${is_shared}" runner_linkflags)
         target_link_libraries(${phobos_name} ${runner_linkflags} druntime-ldc${target_suffix} ${c_libs})
         set_target_properties(${phobos_name} PROPERTIES
