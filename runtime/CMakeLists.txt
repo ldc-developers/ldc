@@ -719,7 +719,13 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit
                            "${c_flags}" "${ld_flags}" "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}"
                            "ON" "OFF" ${outlist_targets})
 
-        if(NOT "${TARGET_SYSTEM}" MATCHES "Windows")
+        if("${TARGET_SYSTEM}" MATCHES "Windows")
+            # Windows: copy & install (release) rt/dso_windows.obj to lib dir
+            if ("${lib_suffix}" STREQUAL "")
+                add_custom_command(TARGET druntime-ldc${target_suffix} POST_BUILD COMMAND cp ${PROJECT_BINARY_DIR}/objects${target_suffix}/rt/dso_windows.obj ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/)
+                install(FILES ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/dso_windows.obj DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
+            endif()
+        else()
             add_dependencies(phobos2-ldc${target_suffix} ${phobos2_common})
         endif()
     endif()
