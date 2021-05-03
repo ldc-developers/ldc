@@ -720,10 +720,27 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit
                            "ON" "OFF" ${outlist_targets})
 
         if("${TARGET_SYSTEM}" MATCHES "Windows")
-            # Windows: copy & install (release) rt/dso_windows.obj to lib dir
+            # Windows: precompile rt.dso_windows object file & install to lib dir.
+            # The existing object file isn't reused to prevent *exported* symbols (only
+            # -link-defaultlib-shared for dllimport, no -fvisibility=public).
+            # This allows to create executables with -link-defaultlib-shared without
+            # any exports (and according extra linker files such as the import .lib).
             if ("${lib_suffix}" STREQUAL "")
-                add_custom_command(TARGET druntime-ldc${target_suffix} POST_BUILD COMMAND cp ${PROJECT_BINARY_DIR}/objects${target_suffix}/rt/dso_windows.obj ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/)
-                install(FILES ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/dso_windows.obj DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
+                set(dso_windows_o "")
+                set(dso_windows_bc "")
+                dc("${RUNTIME_DIR}/src/rt/dso_windows.d"
+                   "${RUNTIME_DIR}/src/rt" # => output path: ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/dso_windows.obj
+                   "-conf=;${d_flags};-link-defaultlib-shared;${DRUNTIME_EXTRA_FLAGS};-I${RUNTIME_DIR}/src"
+                   "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}"
+                   "OFF" # emit_bc
+                   "OFF" # all_at_once
+                   dso_windows_o
+                   dso_windows_bc
+                )
+
+                add_custom_target(dso_windows DEPENDS ${dso_windows_o})
+                add_dependencies(phobos2-ldc${target_suffix} dso_windows)
+                install(FILES ${dso_windows_o} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
             endif()
         else()
             add_dependencies(phobos2-ldc${target_suffix} ${phobos2_common})
