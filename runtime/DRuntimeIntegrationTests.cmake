@@ -55,17 +55,18 @@ endif()
 list(REMOVE_ITEM testnames uuid) # MSVC only, custom Makefile (win64.mak)
 
 foreach(name ${testnames})
-    set(outdir ${PROJECT_BINARY_DIR}/druntime-test-${name})
-    add_test(NAME clean-druntime-test-${name}
-        COMMAND ${CMAKE_COMMAND} -E remove_directory ${outdir}
-    )
-    add_test(NAME druntime-test-${name}
-        COMMAND ${GNU_MAKE_BIN} -C ${PROJECT_SOURCE_DIR}/druntime/test/${name}
-            ROOT=${outdir} DMD=${LDMD_EXE_FULL} MODEL=default
-            DRUNTIME=${druntime_path} DRUNTIMESO=${shared_druntime_path}
-            ${cflags_base} ${linkdl}
-    )
-    set_tests_properties(druntime-test-${name}
-        PROPERTIES DEPENDS clean-druntime-test-${name}
-    )
+    foreach(build debug release)
+        set(fullname druntime-test-${name}-${build})
+        set(outdir ${PROJECT_BINARY_DIR}/${fullname})
+        add_test(NAME clean-${fullname}
+            COMMAND ${CMAKE_COMMAND} -E remove_directory ${outdir}
+        )
+        add_test(NAME ${fullname}
+            COMMAND ${GNU_MAKE_BIN} -C ${PROJECT_SOURCE_DIR}/druntime/test/${name}
+                ROOT=${outdir} DMD=${LDMD_EXE_FULL} MODEL=default BUILD=${build}
+                DRUNTIME=${druntime_path} DRUNTIMESO=${shared_druntime_path}
+                ${cflags_base} ${linkdl}
+        )
+        set_tests_properties(${fullname} PROPERTIES DEPENDS clean-${fullname})
+    endforeach()
 endforeach()
