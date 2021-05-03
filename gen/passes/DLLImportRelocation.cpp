@@ -58,7 +58,7 @@ struct Impl {
   ~Impl() {
     if (ctor) {
       // append a `ret void` instruction
-      ReturnInst::Create(m.getContext(), &ctor->getEntryBlock());
+      ReturnInst::Create(m.getContext(), &ctor->back());
     }
   }
 
@@ -180,7 +180,7 @@ private:
     if (!ctor)
       createCRTConstructor();
 
-    IRBuilder<> b(&ctor->getEntryBlock());
+    IRBuilder<> b(&ctor->back());
 
     Value *address = currentGlobal;
     for (auto i : currentGepPath) {
@@ -198,7 +198,23 @@ private:
     if (value->getType() != t)
       value = b.CreatePointerCast(value, t);
 
+    // Only modify the field if the current value is still null from the static
+    // initializer. This is important for multiple definitions of a (templated)
+    // global, in multiple object files linked to a binary, uniqued by the
+    // linker - the chosen definition might not reference dllimported globals in
+    // the same fields (and might be constant altogether if it contains no
+    // dllimport refs at all).
+    auto ifbb = BasicBlock::Create(m.getContext(), "if", ctor);
+    auto endbb = BasicBlock::Create(m.getContext(), "endif", ctor);
+
+    auto isStillNull =
+        b.CreateICmp(CmpInst::ICMP_EQ, b.CreateLoad(address, false),
+                     Constant::getNullValue(t));
+    b.CreateCondBr(isStillNull, ifbb, endbb);
+
+    b.SetInsertPoint(ifbb);
     b.CreateStore(value, address);
+    b.CreateBr(endbb);
   }
 };
 }
