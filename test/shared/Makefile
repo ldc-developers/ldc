@@ -2,6 +2,30 @@ LINK_SHARED:=1
 
 include ../common.mak
 
+# LDC: enable on Windows too (port from win64.mak)
+ifneq (,$(findstring win,$(OS)))
+
+all: loadlibwin dllrefcount dllgc
+
+dllrefcount:
+	$(DMD) $(DFLAGS) src/dllrefcount.d
+	dllrefcount.exe
+	rm dllrefcount.*
+
+loadlibwin:
+	$(DMD) $(DFLAGS) src/loadlibwin.d
+	loadlibwin.exe
+	rm loadlibwin.*
+
+dllgc:
+	$(DMD) $(DFLAGS) -version=DLL -shared -ofdllgc.dll src/dllgc.d
+	$(DMD) $(DFLAGS) -ofloaddllgc.exe src/dllgc.d
+	loaddllgc.exe
+	rm loaddllgc.* dllgc.*
+
+else
+# non-Windows:
+
 TESTS:=link load linkD linkDR loadDR
 # LDC: disable 3 tests on Mac
 ifneq ($(OS),osx)
@@ -72,3 +96,6 @@ $(ROOT)/%.so: $(SRC)/%.d $(DRUNTIMESO)
 
 clean:
 	rm -rf $(GENERATED)
+
+endif
+# end non-Windows
