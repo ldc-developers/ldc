@@ -991,7 +991,7 @@ function(build_test_runners name_suffix path_suffix d_flags linkflags is_shared)
         set(c_libs ${C_SYSTEM_LIBS})
     elseif("${TARGET_SYSTEM}" MATCHES "MSVC")
         set(c_libs ${C_SYSTEM_LIBS_SHARED})
-        set(full_dflags ${full_dflags} -fvisibility=public)
+        set(full_dflags ${full_dflags} -link-defaultlib-shared) # to dllimport data
     endif()
 
     compile_testrunner("${full_dflags}" "${is_shared}" "${target_suffix}" "")
