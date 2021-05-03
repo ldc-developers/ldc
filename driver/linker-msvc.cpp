@@ -144,6 +144,12 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
     args.push_back(objfile);
   }
 
+  // add precompiled rt.dso_windows object file (in lib directory) when linking
+  // against shared druntime
+  if (!defaultLibNames.empty() && linkAgainstSharedDefaultLibs()) {
+    args.push_back("dso_windows.obj");
+  }
+
   // .res/.def files
   if (global.params.resfile.length)
     args.push_back(global.params.resfile.ptr);
