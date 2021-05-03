@@ -96,7 +96,8 @@ extern (C)
     alias void  function()      gcClrFn;
 }
 
-version (Windows)
+version (Shared) { /* in rt.sections_elf_shared */ }
+else version (Windows)
 {
     /*******************************************
      * Loads a DLL written in D with the name 'name'.

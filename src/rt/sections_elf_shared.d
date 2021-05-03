@@ -718,7 +718,7 @@ version (Shared)
             decThreadRef(dep, false);
     }
 
-    extern(C) void* rt_loadLibrary(const char* name)
+    void* loadLibraryImpl(T)(const T* name)
     {
         immutable save = _rtLoading;
         _rtLoading = true;
@@ -726,8 +726,10 @@ version (Shared)
 
         version (Windows)
         {
-            // TODO: UTF16
-            auto handle = cast(void*) LoadLibraryA(name);
+            static if (T.sizeof == 1)
+                auto handle = LoadLibraryA(name);
+            else
+                auto handle = LoadLibraryW(name);
         }
         else
             auto handle = .dlopen(name, RTLD_LAZY);
@@ -738,6 +740,17 @@ version (Shared)
         if (auto pdso = dsoForHandle(handle))
             incThreadRef(pdso, true);
         return handle;
+    }
+
+    extern(C) void* rt_loadLibrary(const char* name)
+    {
+        return loadLibraryImpl(name);
+    }
+
+    version (Windows)
+    extern(C) void* rt_loadLibraryW(const wchar* name)
+    {
+        return loadLibraryImpl(name);
     }
 
     extern(C) int rt_unloadLibrary(void* handle)
