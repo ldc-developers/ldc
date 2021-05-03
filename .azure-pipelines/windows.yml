@@ -116,7 +116,8 @@ steps:
 - script: |
     cd ..
     :: git's usr/bin/bash, unlike its bin/bash, leaves PATH as-is
-    set PATH=C:\Program Files\Git\usr\bin;%PATH%
+    :: also add druntime/Phobos DLL dir to PATH
+    set PATH=%CD%\build\lib;C:\Program Files\Git\usr\bin;%PATH%
     call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     set DMD_TESTSUITE_MAKE_ARGS=-j4
     cd build
