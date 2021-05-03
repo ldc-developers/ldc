@@ -63,12 +63,13 @@ static cl::opt<bool, true>
 cl::opt<SymbolVisibility> symbolVisibility(
     "fvisibility", cl::ZeroOrMore, cl::desc("Default visibility of symbols"),
     cl::init(SymbolVisibility::default_),
-    cl::values(clEnumValN(SymbolVisibility::default_, "default",
-                          "Hidden for Windows targets, otherwise public"),
-               clEnumValN(SymbolVisibility::hidden, "hidden",
-                          "Only export symbols marked with 'export'"),
-               clEnumValN(SymbolVisibility::public_, "public",
-                          "Export all symbols")));
+    cl::values(
+        clEnumValN(
+            SymbolVisibility::default_, "default",
+            "Hidden for Windows targets without -shared, otherwise public"),
+        clEnumValN(SymbolVisibility::hidden, "hidden",
+                   "Only export symbols marked with 'export'"),
+        clEnumValN(SymbolVisibility::public_, "public", "Export all symbols")));
 
 static cl::opt<bool, true> verbose("v", cl::desc("Verbose"), cl::ZeroOrMore,
                                    cl::location(global.params.verbose));

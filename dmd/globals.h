@@ -323,6 +323,10 @@ struct Param
     bool outputSourceLocations; // if true, output line tables.
 
     bool linkonceTemplates; // -linkonce-templates
+
+    // Windows-specific:
+    bool dllexport; // dllexport ~all defined symbols?
+    bool dllimport; // dllimport data symbols not defined in any root module?
 #endif
 };
 

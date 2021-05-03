@@ -16,7 +16,6 @@
 #include "dmd/init.h"
 #include "dmd/mtype.h"
 #include "dmd/target.h"
-#include "driver/cl_options.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -57,8 +56,7 @@ bool IrAggr::useDLLImport() const {
   if (!global.params.targetTriple->isOSWindows())
     return false;
 
-  if (aggrdecl->isExport() ||
-      opts::symbolVisibility == opts::SymbolVisibility::public_) {
+  if (global.params.dllimport || aggrdecl->isExport()) {
     // dllimport, unless defined in a root module (=> no extra indirection for
     // other root modules, assuming *all* root modules will be linked together
     // to one or more binaries).

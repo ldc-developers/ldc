@@ -12,7 +12,6 @@
 #include "dmd/declaration.h"
 #include "dmd/errors.h"
 #include "dmd/init.h"
-#include "driver/cl_options.h"
 #include "gen/dynamiccompile.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
@@ -86,10 +85,9 @@ void IrGlobal::declare() {
   if (global.params.targetTriple->isOSWindows()) {
     // dllimport isn't supported for thread-local globals (MSVC++ neither)
     if (!V->isThreadlocal()) {
-      // with -fvisibility=public, also include all extern(D) globals
-      if (V->isExport() ||
-          (opts::symbolVisibility == opts::SymbolVisibility::public_ &&
-           V->linkage == LINK::d)) {
+      // with -fvisibility=public / -link-defaultlib-shared, also include all
+      // extern(D) globals
+      if (V->isExport() || (global.params.dllimport && V->linkage == LINK::d)) {
         const bool isDefinedInRootModule =
             !(V->storage_class & STCextern) && !V->inNonRoot();
         if (!isDefinedInRootModule)

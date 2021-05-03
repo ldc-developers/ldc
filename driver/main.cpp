@@ -1110,6 +1110,18 @@ int cppmain() {
     global.params.symdebug = 1;
   }
 
+  if (global.params.targetTriple->isOSWindows()) {
+    const auto v = opts::symbolVisibility.getValue();
+    global.params.dllexport =
+        v == opts::SymbolVisibility::public_ ||
+        // default with -shared
+        (v == opts::SymbolVisibility::default_ && global.params.dll);
+    global.params.dllimport =
+        v == opts::SymbolVisibility::public_ ||
+        // enforced when linking against shared default libs
+        linkAgainstSharedDefaultLibs();
+  }
+
   // allocate the target abi
   gABI = TargetABI::getTarget();
 

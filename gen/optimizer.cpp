@@ -412,8 +412,7 @@ bool ldc_optimize_module(llvm::Module *M) {
 
   addOptimizationPasses(mpm, fpm, optLevel(), sizeLevel());
 
-  if (global.params.targetTriple->isOSWindows() &&
-      opts::symbolVisibility == opts::SymbolVisibility::public_) {
+  if (global.params.dllimport) {
     mpm.add(createDLLImportRelocationPass());
   }
 

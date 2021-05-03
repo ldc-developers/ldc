@@ -36,7 +36,6 @@
 #include "dmd/mtype.h"
 #include "dmd/scope.h"
 #include "dmd/template.h"
-#include "driver/cl_options.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/irstate.h"
@@ -441,8 +440,7 @@ void buildTypeInfo(TypeInfoDeclaration *decl) {
     // implicit monitor.
     const bool isConstant = false;
     // TODO: no dllimport when compiling druntime itself
-    const bool useDLLImport =
-        isBuiltin && opts::symbolVisibility == opts::SymbolVisibility::public_;
+    const bool useDLLImport = isBuiltin && global.params.dllimport;
     gvar = declareGlobal(decl->loc, gIR->module, type, irMangle, isConstant,
                          false, useDLLImport);
   }

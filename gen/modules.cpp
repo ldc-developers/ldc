@@ -22,7 +22,6 @@
 #include "dmd/statement.h"
 #include "dmd/target.h"
 #include "dmd/template.h"
-#include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/timetrace.h"
 #include "gen/abi.h"
@@ -191,10 +190,8 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
   LLConstant *mref = gIR->module.getNamedGlobal(mrefIRMangle);
   LLType *modulerefPtrTy = getPtrToType(modulerefTy);
   if (!mref) {
-    const bool useDLLImport =
-        opts::symbolVisibility == opts::SymbolVisibility::public_;
     mref = declareGlobal(Loc(), gIR->module, modulerefPtrTy, mrefIRMangle,
-                         false, false, useDLLImport);
+                         false, false, global.params.dllimport);
   }
   mref = DtoBitCast(mref, getPtrToType(modulerefPtrTy));
 

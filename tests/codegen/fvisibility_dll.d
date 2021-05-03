@@ -5,10 +5,10 @@
 // REQUIRES: Windows
 
 // generate DLL and import lib
-// RUN: %ldc %S/inputs/fvisibility_dll_lib.d -betterC -shared -fvisibility=public -of=%t_lib.dll
+// RUN: %ldc %S/inputs/fvisibility_dll_lib.d -betterC -shared -of=%t_lib.dll
 
-// compile, link and run the app; -fvisibility=public for importing data symbols as dllimport
-// RUN: %ldc %s -fvisibility=public -I%S/inputs -betterC %t_lib.lib -of=%t.exe
+// compile, link and run the app; -link-defaultlib-shared for importing data symbols as dllimport
+// RUN: %ldc %s -I%S/inputs -betterC -link-defaultlib-shared %t_lib.lib -of=%t.exe
 // RUN: %t.exe
 
 import fvisibility_dll_lib;

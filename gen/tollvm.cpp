@@ -276,8 +276,7 @@ void setLinkageAndVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
 void setVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
   if (global.params.targetTriple->isOSWindows()) {
     bool isExported = sym->isExport();
-    if (!isExported &&
-        opts::symbolVisibility == opts::SymbolVisibility::public_) {
+    if (!isExported && global.params.dllexport) {
       const auto l = obj->getLinkage();
       isExported = l == LLGlobalValue::ExternalLinkage ||
                    l == LLGlobalValue::WeakODRLinkage ||

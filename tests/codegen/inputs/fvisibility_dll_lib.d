@@ -9,8 +9,8 @@ double dllSum(double a, double b)
 
 void dllWeakFoo() @weak {}
 
-// extern(C++) for -betterC; that requires an explicit `export` (contrary to extern(D))
-export extern(C++) class MyClass
+// extern(C++) for -betterC
+extern(C++) class MyClass
 {
     int myInt = 456;
 }
