@@ -163,9 +163,9 @@ private:
                  llvm::SmallVector<llvm::Metadata *, 16> &elems);
   void AddStaticMembers(AggregateDeclaration *sd, ldc::DIFile file,
                  llvm::SmallVector<llvm::Metadata *, 16> &elems);
+  DIFile CreateFile(const char *filename = nullptr);
   DIFile CreateFile(const Loc &loc);
-  DIFile CreateFile();
-  DIFile CreateFile(Dsymbol* decl);
+  DIFile CreateFile(Dsymbol *decl);
   DIType CreateBasicType(Type *type);
   DIType CreateEnumType(TypeEnum *type);
   DIType CreatePointerType(TypePointer *type);
