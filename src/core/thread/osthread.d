@@ -452,6 +452,12 @@ class Thread : ThreadBase
                 onThreadError( "Error initializing thread stack size" );
         }
 
+        version (Shared)
+        {
+            auto ps = cast(void**).malloc(2 * size_t.sizeof);
+            if (ps is null) onOutOfMemoryError();
+        }
+
         version (Windows)
         {
             // NOTE: If a thread is just executing DllMain()
@@ -464,7 +470,11 @@ class Thread : ThreadBase
             // Solution: Create the thread in suspended state and then
             //       add and resume it with slock acquired
             assert(m_sz <= uint.max, "m_sz must be less than or equal to uint.max");
-            m_hndl = cast(HANDLE) _beginthreadex( null, cast(uint) m_sz, &thread_entryPoint, cast(void*) this, CREATE_SUSPENDED, &m_addr );
+            version (Shared)
+                auto threadArg = cast(void*) ps;
+            else
+                auto threadArg = cast(void*) this;
+            m_hndl = cast(HANDLE) _beginthreadex( null, cast(uint) m_sz, &thread_entryPoint, threadArg, CREATE_SUSPENDED, &m_addr );
             if ( cast(size_t) m_hndl == 0 )
                 onThreadError( "Error creating thread" );
         }
@@ -475,28 +485,36 @@ class Thread : ThreadBase
             ++nAboutToStart;
             pAboutToStart = cast(ThreadBase*)realloc(pAboutToStart, Thread.sizeof * nAboutToStart);
             pAboutToStart[nAboutToStart - 1] = this;
-            version (Windows)
-            {
-                if ( ResumeThread( m_hndl ) == -1 )
-                    onThreadError( "Error resuming thread" );
-            }
-            else version (Posix)
+
+            version (Posix)
             {
                 // NOTE: This is also set to true by thread_entryPoint, but set it
                 //       here as well so the calling thread will see the isRunning
                 //       state immediately.
                 atomicStore!(MemoryOrder.raw)(m_isRunning, true);
                 scope( failure ) atomicStore!(MemoryOrder.raw)(m_isRunning, false);
+            }
 
-                version (Shared)
+            version (Shared)
+            {
+                auto libs = externDFunc!("rt.sections_elf_shared.pinLoadedLibraries",
+                                         void* function() @nogc nothrow)();
+
+                ps[0] = cast(void*)this;
+                ps[1] = cast(void*)libs;
+
+                version (Windows)
                 {
-                    auto libs = externDFunc!("rt.sections_elf_shared.pinLoadedLibraries",
-                                             void* function() @nogc nothrow)();
-
-                    auto ps = cast(void**).malloc(2 * size_t.sizeof);
-                    if (ps is null) onOutOfMemoryError();
-                    ps[0] = cast(void*)this;
-                    ps[1] = cast(void*)libs;
+                    if ( ResumeThread( m_hndl ) == -1 )
+                    {
+                        externDFunc!("rt.sections_elf_shared.unpinLoadedLibraries",
+                                     void function(void*) @nogc nothrow)(libs);
+                        .free(ps);
+                        onThreadError( "Error resuming thread" );
+                    }
+                }
+                else version (Posix)
+                {
                     if ( pthread_create( &m_addr, &attr, &thread_entryPoint, ps ) != 0 )
                     {
                         externDFunc!("rt.sections_elf_shared.unpinLoadedLibraries",
@@ -505,14 +523,27 @@ class Thread : ThreadBase
                         onThreadError( "Error creating thread" );
                     }
                 }
-                else
+            }
+            else
+            {
+                version (Windows)
+                {
+                    if ( ResumeThread( m_hndl ) == -1 )
+                        onThreadError( "Error resuming thread" );
+                }
+                else version (Posix)
                 {
                     if ( pthread_create( &m_addr, &attr, &thread_entryPoint, cast(void*) this ) != 0 )
                         onThreadError( "Error creating thread" );
                 }
+            }
+
+            version (Posix)
+            {
                 if ( pthread_attr_destroy( &attr ) != 0 )
                     onThreadError( "Error destroying thread attributes" );
             }
+
             version (Darwin)
             {
                 m_tmach = pthread_mach_thread_np( m_addr );
@@ -2173,8 +2204,25 @@ version (Windows)
         //
         extern (Windows) uint thread_entryPoint( void* arg ) nothrow
         {
-            Thread  obj = cast(Thread) arg;
+            version (Shared)
+            {
+                Thread obj = cast(Thread)(cast(void**)arg)[0];
+                auto loadedLibraries = (cast(void**)arg)[1];
+                .free(arg);
+            }
+            else
+            {
+                Thread obj = cast(Thread)arg;
+            }
             assert( obj );
+
+            // loadedLibraries need to be inherited from parent thread
+            // before initilizing GC for TLS (rt_tlsgc_init)
+            version (Shared)
+            {
+                externDFunc!("rt.sections_elf_shared.inheritLoadedLibraries",
+                             void function(void*) @nogc nothrow)(loadedLibraries);
+            }
 
             obj.initDataStorage();
 
@@ -2219,6 +2267,11 @@ version (Windows)
                     append( t );
                 }
                 rt_moduleTlsDtor();
+                version (Shared)
+                {
+                    externDFunc!("rt.sections_elf_shared.cleanupLoadedLibraries",
+                                 void function() @nogc nothrow)();
+                }
             }
             catch ( Throwable t )
             {
