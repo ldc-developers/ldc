@@ -546,6 +546,12 @@ endforeach()
 
 # Sets the common properties for all library targets.
 function(set_common_library_properties target name output_dir c_flags ld_flags is_shared)
+    # Windows: enforce .pdb generation for debug DLLs
+    set(full_ldflags "${ld_flags}")
+    if(is_shared AND "${name}" MATCHES "-debug" AND "${TARGET_SYSTEM}" MATCHES "MSVC")
+        append("/DEBUG" full_ldflags)
+    endif()
+
     set_target_properties(${target} PROPERTIES
         OUTPUT_NAME                 ${name}
         ARCHIVE_OUTPUT_DIRECTORY    ${output_dir}
@@ -553,7 +559,7 @@ function(set_common_library_properties target name output_dir c_flags ld_flags i
         RUNTIME_OUTPUT_DIRECTORY    ${output_dir}
         COMPILE_DEFINITIONS         "LDC=1"
         COMPILE_FLAGS               "${c_flags}"
-        LINK_FLAGS                  "${ld_flags}"
+        LINK_FLAGS                  "${full_ldflags}"
         VERSION                     ${DMDFE_VERSION}
         SOVERSION                   ${DMDFE_PATCH_VERSION}
         LINKER_LANGUAGE             C
