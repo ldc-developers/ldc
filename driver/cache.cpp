@@ -318,7 +318,10 @@ void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os) {
   const auto codeModel = opts::getCodeModel();
   if (codeModel.hasValue())
     hash_os << codeModel.getValue();
-#if LDC_LLVM_VER >= 800
+#if LDC_LLVM_VER >= 1300
+  const auto framePointerUsage = opts::framePointerUsage();
+  hash_os << (int)framePointerUsage;
+#elif LDC_LLVM_VER >= 800
   const auto framePointerUsage = opts::framePointerUsage();
   if (framePointerUsage.hasValue())
     hash_os << framePointerUsage.getValue();

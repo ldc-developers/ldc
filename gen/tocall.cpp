@@ -508,8 +508,12 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       fatal();
     }
 
-    auto ret = p->ir->CreateAtomicCmpXchg(ptr, cmp, val, successOrdering,
-                                           failureOrdering);
+    auto ret = p->ir->CreateAtomicCmpXchg(ptr, cmp, val,
+#if LDC_LLVM_VER >= 1300
+                                          llvm::MaybeAlign(),
+#endif
+                                          successOrdering,
+                                          failureOrdering);
     ret->setWeak(isWeak);
 
     // we return a struct; allocate on stack and store to both fields manually
@@ -554,6 +558,9 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     LLValue *val = DtoRVal(exp2);
     LLValue *ret =
         p->ir->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp(op), ptr, val,
+#if LDC_LLVM_VER >= 1300
+                                          llvm::MaybeAlign(),
+#endif
                                llvm::AtomicOrdering(atomicOrdering));
     result = new DImValue(exp2->type, ret);
     return true;
