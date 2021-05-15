@@ -100,6 +100,15 @@ extern std::vector<std::string> debugArgs;
 void createClashingOptions();
 void hideLLVMOptions();
 
+enum class CoverageIncrement
+{
+    _default,
+    atomic,
+    nonatomic,
+    boolean
+};
+extern cl::opt<CoverageIncrement> coverageIncrement;
+
 // Compilation time tracing options
 extern cl::opt<bool> fTimeTrace;
 extern cl::opt<std::string> fTimeTraceFile;

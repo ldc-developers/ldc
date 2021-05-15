@@ -588,6 +588,18 @@ static cl::opt<DummyDataType, false, CoverageParser> coverageAnalysis(
              "Use -cov=<n> for n% minimum required coverage\n"
              "Use -cov=ctfe to include code executed during CTFE"));
 
+cl::opt<CoverageIncrement> coverageIncrement(
+    "cov-increment", cl::ZeroOrMore,
+    cl::desc("Set the type of coverage line count increment instruction"),
+    cl::init(CoverageIncrement::_default),
+    cl::values(clEnumValN(CoverageIncrement::_default, "default",
+                          "Use the default (atomic)"),
+               clEnumValN(CoverageIncrement::atomic, "atomic", "Atomic increment"),
+               clEnumValN(CoverageIncrement::nonatomic, "non-atomic",
+                          "Non-atomic increment (not thread safe)"),
+               clEnumValN(CoverageIncrement::boolean, "boolean",
+                          "Don't read, just set counter to 1")));
+
 // Compilation time tracing options
 cl::opt<bool> fTimeTrace(
     "ftime-trace", cl::ZeroOrMore,
