@@ -67,9 +67,10 @@ install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
     apt-get -yq install \
       git-core cmake ninja-build $gcc_pkg \
       llvm-dev zlib1g-dev libclang-common-$LIBCLANG_COMMON_VERSION-dev \
-      $libcurl_pkg curl gdb python tzdata unzip zip \
+      $libcurl_pkg curl gdb python3 tzdata unzip zip \
       $EXTRA_APT_PACKAGES
-    update-alternatives --install /usr/bin/python python /usr/bin/python3.6 1  
+    python3 --version
+    update-alternatives --install /usr/bin/python python /usr/bin/python3.8 1  
     # Download & extract host LDC
     curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-x86_64.tar.xz
     mkdir host-ldc
