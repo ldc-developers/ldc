@@ -70,7 +70,7 @@ install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
       $libcurl_pkg curl gdb python3 python3-pip tzdata unzip zip \
       $EXTRA_APT_PACKAGES
     python3 --version
-    update-alternatives --install /usr/bin/python python /usr/bin/python3.6 1  
+    update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1  
     # Download & extract host LDC
     curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-x86_64.tar.xz
     mkdir host-ldc
