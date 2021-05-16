@@ -1,12 +1,8 @@
-# Installs pip and lit, clones the git submodules, builds LDC and the test
+# Installs lit, clones the git submodules, builds LDC and the test
 # runners and runs the tests.
 # Requires env variables EXTRA_CMAKE_FLAGS and PARALLELISM.
 common_steps_template: &COMMON_STEPS_TEMPLATE
-  install_pip_and_lit_script: |
-    # Install pip
-    curl --max-time 300 --retry 3 -OL https://bootstrap.pypa.io/pip/2.7/get-pip.py
-    python get-pip.py --user
-    rm get-pip.py
+  install_lit_script: |
     # Install lit
     python -m pip install --user lit
     python -c "import lit.main; lit.main.main();" --version . | head -n 1
@@ -73,6 +69,7 @@ install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
       llvm-dev zlib1g-dev libclang-common-$LIBCLANG_COMMON_VERSION-dev \
       $libcurl_pkg curl gdb python tzdata unzip zip \
       $EXTRA_APT_PACKAGES
+    update-alternatives --install /usr/bin/python python /usr/bin/python3 1  
     # Download & extract host LDC
     curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-x86_64.tar.xz
     mkdir host-ldc
