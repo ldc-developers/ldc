@@ -106,9 +106,8 @@ install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
     rm ldc2.tar.xz
     # Install Python3
     brew install python
+    ln -s $(which python3) /usr/bin/python
     python --version
-    python -m ensurepip
-
 
 environment:
   CIRRUS_CLONE_DEPTH: 50
