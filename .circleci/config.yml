@@ -20,7 +20,7 @@ commonSteps: &commonSteps
             apt-get -yq install \
               git-core cmake ninja-build $gcc_pkg \
               llvm-dev zlib1g-dev libclang-common-$LIBCLANG_COMMON_VERSION-dev \
-              $libcurl_pkg curl gdb python tzdata unzip zip \
+              $libcurl_pkg curl gdb python3 python3-pip tzdata unzip zip \
               $EXTRA_APT_PACKAGES
           else
             # Download & extract CMake
@@ -41,10 +41,10 @@ commonSteps: &commonSteps
             # Add CMake, Ninja and LLVM to PATH for future steps
             echo "export PATH=$PWD/cmake/bin:$PWD/ninja:$PWD/llvm/bin:$PATH" >> $BASH_ENV
           fi
-          # Install pip
-          curl --max-time 300 --retry 3 -OL https://bootstrap.pypa.io/pip/2.7/get-pip.py
-          python get-pip.py --user
-          rm get-pip.py
+          # Set python
+          python3 --version
+          ln -sf $(which python3) /usr/local/bin/python
+          python --version
           # Install lit
           python -m pip install --user lit
           python -c "import lit.main; lit.main.main();" --version . | head -n 1
