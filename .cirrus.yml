@@ -107,6 +107,7 @@ install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
     # Install Python3
     brew install python
     python --version
+    python -m ensurepip
 
 
 environment:
