@@ -67,10 +67,10 @@ install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
     apt-get -yq install \
       git-core cmake ninja-build $gcc_pkg \
       llvm-dev zlib1g-dev libclang-common-$LIBCLANG_COMMON_VERSION-dev \
-      $libcurl_pkg curl gdb python3 python3-pip tzdata unzip zip \
+      $libcurl_pkg curl gdb python3.6 python3-pip tzdata unzip zip \
       $EXTRA_APT_PACKAGES
     python3 --version
-    update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1  
+    update-alternatives --install /usr/bin/python python /usr/bin/python3.6 1  
     # Download & extract host LDC
     curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-x86_64.tar.xz
     mkdir host-ldc
@@ -103,6 +103,9 @@ install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
     mkdir host-ldc
     tar -xf ldc2.tar.xz --strip 1 -C host-ldc
     rm ldc2.tar.xz
+    # Install Python3
+    brew install python
+
 
 environment:
   CIRRUS_CLONE_DEPTH: 50
@@ -153,11 +156,18 @@ task:
     OS: osx
     PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
     PARALLELISM: 12
-    matrix:
-      - TASK_NAME_SUFFIX: x64
-        EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
-      - TASK_NAME_SUFFIX: x64 shared-libs-only
-        EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON"
+    PYTHON_VERSION: 3.7
+    # ^  update when the default version of python in homebrew changes
+    PATH: "${HOME}/.local/bin:${HOME}/Library/Python/${PYTHON_VERSION}/bin:/usr/local/opt/python/libexec/bin:${PATH}"
+    # ^  add user and homebrew paths
+    PIP_CACHE: "${HOME}/Library/Caches/pip"
+  brew_cache:
+    folder: "$HOME/Library/Caches/Homebrew"
+  matrix:
+    - TASK_NAME_SUFFIX: x64
+      EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
+    - TASK_NAME_SUFFIX: x64 shared-libs-only
+      EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON"
   << : *INSTALL_MACOS_PREREQUISITES_TEMPLATE
   << : *COMMON_STEPS_TEMPLATE
 
