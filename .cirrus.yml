@@ -70,7 +70,8 @@ install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
       $libcurl_pkg curl gdb python3.6 python3-pip tzdata unzip zip \
       $EXTRA_APT_PACKAGES
     python3 --version
-    update-alternatives --install /usr/bin/python python /usr/bin/python3.6 1  
+    #update-alternatives --install /usr/bin/python python /usr/bin/python3.6 1  
+    python --version
     # Download & extract host LDC
     curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-x86_64.tar.xz
     mkdir host-ldc
@@ -157,11 +158,6 @@ task:
     OS: osx
     PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
     PARALLELISM: 12
-    PYTHON_VERSION: 3.7
-    # ^  update when the default version of python in homebrew changes
-    PATH: "${HOME}/.local/bin:${HOME}/Library/Python/${PYTHON_VERSION}/bin:/usr/local/opt/python/libexec/bin:${PATH}"
-    # ^  add user and homebrew paths
-    PIP_CACHE: "${HOME}/Library/Caches/pip"
   brew_cache:
     folder: "$HOME/Library/Caches/Homebrew"
   matrix:
