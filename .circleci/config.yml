@@ -43,7 +43,7 @@ commonSteps: &commonSteps
           fi
           # Set python
           python3 --version
-          ln -sf $(which python3) /usr/bin/python
+          ln -sf $(which python3) /usr/local/bin/python
           python --version
           # Install lit
           python -m pip install --user lit
