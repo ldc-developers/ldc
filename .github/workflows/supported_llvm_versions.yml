@@ -49,6 +49,10 @@ jobs:
         with:
           submodules: true
           fetch-depth: 50
+      - name: Set up Python 3.x
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
       - name: Install ninja
         uses: seanmiddleditch/gha-setup-ninja@v3
       - name: Install D host compiler
@@ -60,8 +64,6 @@ jobs:
       - name: Install lit
         run: |
           set -euxo pipefail
-          curl -OL https://bootstrap.pypa.io/pip/2.7/get-pip.py
-          python get-pip.py --user
           python -m pip install --user lit
           python -c "import lit.main; lit.main.main();" --version . | head -n 1
       - name: "Linux: Install gdb"
