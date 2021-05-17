@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # wrapper to run lit from commandline
 
 from __future__ import print_function

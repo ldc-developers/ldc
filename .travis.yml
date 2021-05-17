@@ -40,8 +40,8 @@ before_install:
 
 install:
   # Install lit
-  - python -m pip install --user lit
-  - python -c "import lit.main; lit.main.main();" --version . | head -n 1
+  - python3 -m pip install --user lit
+  - python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
 
 script:
   - unset LD_LIBRARY_PATH

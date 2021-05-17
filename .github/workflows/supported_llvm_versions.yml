@@ -64,8 +64,8 @@ jobs:
       - name: Install lit
         run: |
           set -euxo pipefail
-          python -m pip install --user lit
-          python -c "import lit.main; lit.main.main();" --version . | head -n 1
+          python3 -m pip install --user lit
+          python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
       - name: "Linux: Install gdb"
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install gdb
