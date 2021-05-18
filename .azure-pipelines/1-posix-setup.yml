@@ -17,11 +17,6 @@ steps:
   submodules: true
   fetchDepth: 50
 
-# Install Python >= 3.6
-- task: UsePythonVersion@0
-    inputs:
-      versionSpec: '3.7'
-
 # Install prerequisites
 - script: |
     set -ex
@@ -38,7 +33,7 @@ steps:
       sudo apt-get -yq install \
         git-core cmake ninja-build g++-multilib \
         libcurl3 libcurl3:i386 \
-        curl gdb p7zip-full tzdata unzip zip
+        curl gdb p7zip-full tzdata unzip zip python3-pip
       # Download & extract clang
       curl -L -o clang.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-$CLANG_VERSION/clang+llvm-$CLANG_VERSION-x86_64-linux-gnu-ubuntu-16.04.tar.xz
       mkdir clang
@@ -46,7 +41,6 @@ steps:
     fi
     # Install lit
     python3 --version
-    python3 -m pip install --upgrade pip
     python3 -m pip install --user lit
     python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
     # Download & extract host LDC
