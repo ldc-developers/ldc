@@ -32,7 +32,7 @@ steps:
       sudo apt-get -q update
       sudo apt-get -yq install \
         git-core cmake ninja-build g++-multilib \
-        libcurl3 libcurl3:i386 \
+        libcurl4 libcurl4:i386 \
         curl gdb p7zip-full tzdata unzip zip python3-pip
       # Download & extract clang
       curl -L -o clang.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-$CLANG_VERSION/clang+llvm-$CLANG_VERSION-x86_64-linux-gnu-ubuntu-16.04.tar.xz
