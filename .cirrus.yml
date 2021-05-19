@@ -4,8 +4,8 @@
 common_steps_template: &COMMON_STEPS_TEMPLATE
   install_lit_script: |
     # Install lit
-    python -m pip install --user lit
-    python -c "import lit.main; lit.main.main();" --version . | head -n 1
+    python3 -m pip install --user lit
+    python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
   clone_submodules_script: |
     cd $CIRRUS_WORKING_DIR
     git submodule update --init --depth $CIRRUS_CLONE_DEPTH
@@ -33,7 +33,7 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
       ctest --output-on-failure -R ldc2-unittest
     run_lit_testsuite_script: |
       cd $CIRRUS_WORKING_DIR/../build/tests
-      python runlit.py -v -j $PARALLELISM .
+      python3 runlit.py -v -j $PARALLELISM .
     run_dmd_testsuite_script: |
       cd $CIRRUS_WORKING_DIR/../build
       DMD_TESTSUITE_MAKE_ARGS=-j$PARALLELISM ctest -V -R dmd-testsuite
@@ -70,8 +70,6 @@ install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
       $libcurl_pkg curl gdb python3 python3-pip tzdata unzip zip \
       $EXTRA_APT_PACKAGES
     python3 --version
-    ln -s $(which python3) /usr/bin/python
-    python --version
     # Download & extract host LDC
     curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-x86_64.tar.xz
     mkdir host-ldc
@@ -106,8 +104,7 @@ install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
     rm ldc2.tar.xz
     # Install Python3
     brew install python
-    ln -sf $(which python3) /usr/local/bin/python
-    python --version
+    python3 --version
 
 environment:
   CIRRUS_CLONE_DEPTH: 50
@@ -186,8 +183,8 @@ task:
     cd $CIRRUS_WORKING_DIR/..
     sysctl -n hw.ncpu
     pkg install -y git cmake ninja gmake llvm bash gtar p7zip
-    python --version
-    python -m ensurepip
+    python3 --version
+    python3 -m ensurepip
     # Download & extract host LDC
     curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-freebsd-x86_64.tar.xz
     mkdir pre-ldc

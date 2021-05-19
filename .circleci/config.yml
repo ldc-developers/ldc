@@ -41,13 +41,10 @@ commonSteps: &commonSteps
             # Add CMake, Ninja and LLVM to PATH for future steps
             echo "export PATH=$PWD/cmake/bin:$PWD/ninja:$PWD/llvm/bin:$PATH" >> $BASH_ENV
           fi
-          # Set python
-          python3 --version
-          ln -sf $(which python3) /usr/local/bin/python
-          python --version
           # Install lit
-          python -m pip install --user lit
-          python -c "import lit.main; lit.main.main();" --version . | head -n 1
+          python3 --version
+          python3 -m pip install --user lit
+          python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
           # Download & extract host LDC
           curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$CI_OS-x86_64.tar.xz
           mkdir host-ldc
@@ -85,7 +82,7 @@ commonSteps: &commonSteps
     - run:
         name: Run LIT testsuite
         when: always
-        command: cd ../build/tests && python runlit.py -v -j $PARALLELISM .
+        command: cd ../build/tests && python3 runlit.py -v -j $PARALLELISM .
     - run:
         name: Run DMD testsuite
         when: always

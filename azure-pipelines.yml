@@ -59,7 +59,7 @@ jobs:
 - job: Linux_multilib
   timeoutInMinutes: 120
   pool:
-    vmImage: 'ubuntu-16.04'
+    vmImage: 'ubuntu-18.04'
   variables:
     CI_OS: linux
     ARCH: x86_64
@@ -153,7 +153,7 @@ jobs:
 - job: Android
   timeoutInMinutes: 120
   pool:
-    vmImage: 'ubuntu-16.04'
+    vmImage: 'ubuntu-18.04'
   variables:
     CI_OS: android
     ANDROID_NDK_VERSION: r21e
@@ -188,7 +188,7 @@ jobs:
 - job: Upload_to_GitHub
   timeoutInMinutes: 30
   pool:
-    vmImage: 'ubuntu-16.04'
+    vmImage: 'ubuntu-18.04'
   dependsOn:
     - Windows_multilib
     - Linux_multilib
