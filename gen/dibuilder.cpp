@@ -881,7 +881,7 @@ DIModule DIBuilder::EmitModule(Module *m) {
   const auto name = processDIName(m->toPrettyChars(true));
 
   irm->diModule = DBuilder.createModule(
-      CUNode,
+      CreateFile(m->srcfile.toChars()),
       name,              // qualified module name
       llvm::StringRef(), // (clang modules specific) ConfigurationMacros
       llvm::StringRef(), // (clang modules specific) IncludePath
