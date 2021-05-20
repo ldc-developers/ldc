@@ -153,9 +153,9 @@ void main(string[] args)
         name ~= '\0';
         assert(.dlopen(name.ptr, RTLD_LAZY | RTLD_NOLOAD) is null);
         name = name[0 .. $-1];
-    }
 
-    auto thr = new Thread({runTests(name);});
-    thr.start();
-    thr.join();
+        auto thr = new Thread({runTests(name);});
+        thr.start();
+        thr.join();
+    }
 }
