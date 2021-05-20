@@ -587,13 +587,7 @@ DIType DIBuilder::CreateCompositeType(Type *t) {
     ClassDeclaration *classDecl = ad->isClassDeclaration();
     if (classDecl && classDecl->baseClass) {
       derivedFrom = CreateCompositeType(classDecl->baseClass->getType());
-      // needs a forward declaration to add inheritence information to elems
-      const auto elemsArray = nullptr;
-      DIType fwd = DBuilder.createClassType(
-          scope, name, file, lineNum, sizeInBits, alignmentInBits,
-          classOffsetInBits, DIFlags::FlagFwdDecl, derivedFrom, elemsArray,
-          vtableHolder, templateParams, uniqueIdentifier);
-      auto dt = DBuilder.createInheritance(fwd,
+      auto dt = DBuilder.createInheritance(irAggr->diCompositeType,
                                            derivedFrom, // base class type
                                            0,           // offset of base class
 #if LDC_LLVM_VER >= 700
