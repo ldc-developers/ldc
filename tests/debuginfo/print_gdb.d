@@ -64,7 +64,7 @@ void main()
     bar();
 
     // BP
-// GDB: b 66
+// GDB: b print_gdb.d:66
 // GDB: c
 // GDB: p globVal
 // CHECK: = 987
@@ -87,7 +87,7 @@ void main()
     inputs.import_b.b_cA.staticVal = 78;
 
     // BP
-// GDB: b 89
+// GDB: b print_gdb.d:89
 // GDB: c
 // GDB: p strB
 // GDB: p strB.memberFunc(4)
@@ -107,7 +107,7 @@ void main()
     clsC.mixedVal++;
 
         // BP
-// GDB: b 109
+// GDB: b print_gdb.d:109
 // GDB: c
 // GDB: p *clsC
 // GDB: p clsC.classMemberFunc(6)
@@ -124,7 +124,7 @@ void main()
     templatedStruct!float tsF;
 
     // BP
-// GDB: b 126
+// GDB: b print_gdb.d:126
 // GDB: c
 // GDB: whatis tsF
 // CHECK: type = print_gdb.templatedStruct
