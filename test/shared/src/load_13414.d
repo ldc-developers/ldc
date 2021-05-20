@@ -7,6 +7,8 @@ shared uint tlsDtor, dtor;
 void staticDtorHook() { atomicOp!"+="(tlsDtor, 1); }
 void sharedStaticDtorHook() { atomicOp!"+="(dtor, 1); }
 
+version (LDC) version (darwin) version = LDC_darwin;
+
 void runTest(string name)
 {
     auto h = Runtime.loadLibrary(name);
@@ -15,17 +17,25 @@ void runTest(string name)
     *cast(void function()*).dlsym(h, "_D9lib_1341414staticDtorHookOPFZv") = &staticDtorHook;
     *cast(void function()*).dlsym(h, "_D9lib_1341420sharedStaticDtorHookOPFZv") = &sharedStaticDtorHook;
 
-    Runtime.unloadLibrary(h);
+    const unloaded = Runtime.unloadLibrary(h);
     version (CRuntime_Musl)
     {
         // On Musl, unloadLibrary is a no-op because dlclose is a no-op
+        assert(!unloaded);
         assert(tlsDtor == 0);
         assert(dtor == 0);
     }
     else
     {
+        assert(unloaded);
         assert(tlsDtor == 1);
-        assert(dtor == 1);
+        version (LDC_darwin)
+        {
+            // Since 10.13: https://github.com/ldc-developers/ldc/issues/3002
+            assert(dtor == 0);
+        }
+        else
+            assert(dtor == 1);
     }
 }
 

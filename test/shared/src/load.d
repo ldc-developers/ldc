@@ -133,7 +133,12 @@ void runTests(string libName)
     assert(findModuleInfo("lib") is null);
 }
 
-version (LDC) version (darwin) version = LDC_darwin;
+version (LDC)
+{
+    version (CRuntime_Musl) enum unloadIsNoop = true;
+    else version (darwin)   enum unloadIsNoop = true;
+    else                    enum unloadIsNoop = false;
+}
 
 void main(string[] args)
 {
@@ -143,7 +148,7 @@ void main(string[] args)
 
     runTests(name);
 
-    version (LDC_darwin)
+    static if (unloadIsNoop)
     {
         // https://github.com/ldc-developers/ldc/issues/3002
     }
