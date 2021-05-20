@@ -133,6 +133,8 @@ void runTests(string libName)
     assert(findModuleInfo("lib") is null);
 }
 
+version (LDC) version (darwin) version = LDC_darwin;
+
 void main(string[] args)
 {
     auto name = args[0] ~ '\0';
@@ -141,10 +143,17 @@ void main(string[] args)
 
     runTests(name);
 
-    // lib is no longer resident
-    name ~= '\0';
-    assert(.dlopen(name.ptr, RTLD_LAZY | RTLD_NOLOAD) is null);
-    name = name[0 .. $-1];
+    version (LDC_darwin)
+    {
+        // https://github.com/ldc-developers/ldc/issues/3002
+    }
+    else
+    {
+        // lib is no longer resident
+        name ~= '\0';
+        assert(.dlopen(name.ptr, RTLD_LAZY | RTLD_NOLOAD) is null);
+        name = name[0 .. $-1];
+    }
 
     auto thr = new Thread({runTests(name);});
     thr.start();
