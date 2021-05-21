@@ -108,8 +108,8 @@ enum class RegistryStyle {
 RegistryStyle getModuleRegistryStyle() {
   const auto &t = *global.params.targetTriple;
 
-  if (t.isWindowsMSVCEnvironment() ||
-      t.getEnvironment() == llvm::Triple::Android || t.isOSBinFormatWasm()) {
+  if (t.isOSWindows() || t.getEnvironment() == llvm::Triple::Android ||
+      t.isOSBinFormatWasm()) {
     return RegistryStyle::sectionSimple;
   }
 
