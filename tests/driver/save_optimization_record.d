@@ -12,7 +12,7 @@ int alwaysInlined(int a) { return a; }
 int foo()
 {
     // LLVM: 8329424
-    // YAML: File: save_optimization_record.d, Line: [[@LINE+1]]
+    // YAML: File: {{.*}}save_optimization_record.d{{.*[[:space:]]?.*}}Line: [[@LINE+1]]
     return 8329423 + alwaysInlined(1);
 }
 

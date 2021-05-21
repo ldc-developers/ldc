@@ -206,27 +206,38 @@ void DIBuilder::SetValue(const Loc &loc, llvm::Value *value,
                                    IR->scopebb());
 }
 
-DIFile DIBuilder::CreateFile(const Loc &loc) {
-  const char *filename = loc.filename;
+DIFile DIBuilder::CreateFile(const char *filename) {
   if (!filename)
     filename = IR->dmodule->srcfile.toChars();
-  llvm::SmallString<128> path(filename);
-  llvm::sys::fs::make_absolute(path);
 
-  return DBuilder.createFile(llvm::sys::path::filename(path),
-                             llvm::sys::path::parent_path(path));
+  // clang appears to use the curent working dir as 'directory' for relative
+  // source paths, and the root path for absolute ones:
+  // clang -g -emit-llvm -S ..\blub.c =>
+  //   !DIFile(filename: "..\\blub.c", directory: "C:\\LDC\\ninja-ldc", ...)
+  //   !DIFile(filename: "Program
+  //   Files\\LLVM\\lib\\clang\\11.0.1\\include\\stddef.h", directory: "C:\\",
+  //   ...)
+
+  if (llvm::sys::path::is_absolute(filename)) {
+    return DBuilder.createFile(llvm::sys::path::relative_path(filename),
+                               llvm::sys::path::root_path(filename));
+  }
+
+  llvm::SmallString<128> cwd;
+  llvm::sys::fs::current_path(cwd);
+
+  return DBuilder.createFile(filename, cwd);
 }
 
-DIFile DIBuilder::CreateFile() {
-  Loc loc(IR->dmodule->srcfile.toChars(), 0, 0);
-  return CreateFile(loc);
+DIFile DIBuilder::CreateFile(const Loc &loc) {
+  return CreateFile(loc.filename);
 }
 
 DIFile DIBuilder::CreateFile(Dsymbol *decl) {
-  Loc loc;
-  for (Dsymbol *sym = decl; sym && !loc.filename; sym = sym->parent)
-    loc = sym->loc;
-  return loc.filename ? CreateFile(loc) : CreateFile();
+  const char *filename = nullptr;
+  for (Dsymbol *sym = decl; sym && !filename; sym = sym->parent)
+    filename = sym->loc.filename;
+  return CreateFile(filename);
 }
 
 DIType DIBuilder::CreateBasicType(Type *type) {
@@ -827,10 +838,6 @@ void DIBuilder::EmitCompileUnit(Module *m) {
 
   assert(!CUNode && "Already created compile unit for this DIBuilder instance");
 
-  // prepare srcpath
-  llvm::SmallString<128> srcpath(m->srcfile.toChars());
-  llvm::sys::fs::make_absolute(srcpath);
-
   // prepare producer name string
   auto producerName =
       std::string("LDC ") + ldc_version + " (LLVM " + llvm_version + ")";
@@ -858,9 +865,7 @@ void DIBuilder::EmitCompileUnit(Module *m) {
   CUNode = DBuilder.createCompileUnit(
       global.params.symdebug == 2 ? llvm::dwarf::DW_LANG_C_plus_plus
                                   : llvm::dwarf::DW_LANG_D,
-      DBuilder.createFile(llvm::sys::path::filename(srcpath),
-                          llvm::sys::path::parent_path(srcpath)),
-      producerName,
+      CreateFile(m->srcfile.toChars()), producerName,
       isOptimizationEnabled(), // isOptimized
       llvm::StringRef(),       // Flags TODO
       1,                       // Runtime Version TODO
