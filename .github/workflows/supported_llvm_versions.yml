@@ -130,4 +130,11 @@ jobs:
           fi
           ctest -V -R "dmd-testsuite"
       - name: Run defaultlib unittests & druntime integration tests
-        run: ctest -j2 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
+        run: |
+          set -euxo pipefail
+          excludes='dmd-testsuite|lit-tests|ldc2-unittest'
+          if [[ '${{ runner.os }}' == 'macOS' ]]; then
+            # https://github.com/ldc-developers/ldc/issues/3280
+            excludes+='|druntime-test-exceptions-debug'
+          fi
+          ctest -j2 --output-on-failure -E "$excludes"
