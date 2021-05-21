@@ -14,7 +14,7 @@ version (Windows):
 
 pragma(LDC_no_moduleinfo); // not needed; avoid collision for druntime.dll and other binaries
 
-import rt.sections_elf_shared : CompilerDSOData, IMAGE_DOS_HEADER, _d_dso_registry;
+import rt.sections_elf_shared : CompilerDSOData, _d_dso_registry;
 
 private:
 
@@ -28,7 +28,7 @@ void register_dso()
 {
     dsoData._version = 1;
     dsoData._slot = &dsoSlot;
-    dsoData._imageBase = cast(IMAGE_DOS_HEADER*) &__ImageBase;
+    dsoData._imageBase = cast(typeof(dsoData._imageBase)) &__ImageBase;
     dsoData._getTLSRange = &getTLSRange;
 
     _d_dso_registry(&dsoData);

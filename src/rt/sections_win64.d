@@ -12,14 +12,15 @@
 
 module rt.sections_win64;
 
-version (LDC) { /* implemented in rt.sections_elf_shared */ } else:
-
 version (CRuntime_Microsoft):
 
 // debug = PRINTF;
 debug(PRINTF) import core.stdc.stdio;
 import core.stdc.stdlib : malloc, free;
 import rt.deh, rt.minfo;
+
+version (LDC) { /* implemented in rt.sections_elf_shared, we just need some helpers */ } else
+{
 
 struct SectionGroup
 {
@@ -66,10 +67,12 @@ shared(bool) conservative;
 
 void initSections() nothrow @nogc
 {
-    _sections._moduleGroup = ModuleGroup(getModuleInfos());
+    auto doshdr = cast(IMAGE_DOS_HEADER*) &__ImageBase;
+
+    _sections._moduleGroup = ModuleGroup(getModuleInfos(doshdr));
 
     // the ".data" image section includes both object file sections ".data" and ".bss"
-    void[] dataSection = findImageSection(".data");
+    void[] dataSection = findImageSection(doshdr, ".data");
     debug(PRINTF) printf("found .data section: [%p,+%llx]\n", dataSection.ptr,
                          cast(ulong)dataSection.length);
 
@@ -194,26 +197,14 @@ void scanTLSRanges(void[] rng, scope void delegate(void* pbeg, void* pend) nothr
     }
 }
 
+} // !LDC
+
 private:
-__gshared SectionGroup _sections;
 
-version (LDC)
+version (LDC) {} else
 {
-    version (MinGW)
-    {
-        // This linked list is created by a compiler generated function inserted
-        // into the .ctor list by the compiler.
-        struct ModuleReference
-        {
-            ModuleReference* next;
-            immutable(ModuleInfo)* mod;
-        }
+    __gshared SectionGroup _sections;
 
-        extern(C) __gshared ModuleReference* _Dmodule_ref; // start of linked list
-    }
-}
-else
-{
     extern(C)
     {
         extern __gshared void* _minfo_beg;
@@ -221,7 +212,7 @@ else
     }
 }
 
-immutable(ModuleInfo*)[] getModuleInfos() nothrow @nogc
+package immutable(ModuleInfo*)[] getModuleInfos(IMAGE_DOS_HEADER* doshdr) nothrow @nogc
 out (result)
 {
     foreach (m; result)
@@ -229,30 +220,10 @@ out (result)
 }
 do
 {
-  version (MinGW) // LDC
-  {
-    import core.stdc.stdlib : malloc;
-
-    size_t len = 0;
-    for (auto mr = _Dmodule_ref; mr; mr = mr.next)
-        len++;
-
-    auto result = (cast(immutable(ModuleInfo)**)malloc(len * size_t.sizeof))[0 .. len];
-
-    auto tip = _Dmodule_ref;
-    foreach (ref r; result)
-    {
-        r = tip.mod;
-        tip = tip.next;
-    }
-
-    return cast(immutable)result;
-  }
-  else
-  {
     version (LDC)
     {
-        void[] minfoSection = findImageSection(".minfo");
+        // the ".minfo" section consists of pointers to all ModuleInfos defined in object files linked into the image
+        void[] minfoSection = findImageSection(doshdr, ".minfo");
         auto m = (cast(immutable(ModuleInfo*)*)minfoSection.ptr)[0 .. minfoSection.length / size_t.sizeof];
     }
     else
@@ -263,25 +234,22 @@ do
     /* Because of alignment inserted by the linker, various null pointers
      * are there. We need to filter them out.
      */
-    auto p = m.ptr;
-    auto pend = m.ptr + m.length;
 
     // count non-null pointers
-    size_t cnt;
-    for (; p < pend; ++p)
-    {
-        if (*p !is null) ++cnt;
-    }
+    size_t count;
+    foreach (mi; m)
+        if (mi !is null) ++count;
 
-    auto result = (cast(immutable(ModuleInfo)**).malloc(cnt * size_t.sizeof))[0 .. cnt];
+    if (count == m.length)
+        return m;
 
-    p = m.ptr;
-    cnt = 0;
-    for (; p < pend; ++p)
-        if (*p !is null) result[cnt++] = *p;
+    auto result = (cast(immutable(ModuleInfo)**) malloc(count * size_t.sizeof))[0 .. count];
 
-    return cast(immutable)result;
-  }
+    count = 0;
+    foreach (mi; m)
+        if (mi !is null) result[count++] = mi;
+
+    return cast(immutable) result;
 }
 
 extern(C)
@@ -310,7 +278,7 @@ extern(C)
 
 enum IMAGE_DOS_SIGNATURE = 0x5A4D;      // MZ
 
-struct IMAGE_DOS_HEADER // DOS .EXE header
+package struct IMAGE_DOS_HEADER // DOS .EXE header
 {
     ushort   e_magic;    // Magic number
     ushort[29] e_res2;   // Reserved ushorts
@@ -359,19 +327,18 @@ bool compareSectionName(ref IMAGE_SECTION_HEADER section, string name) nothrow @
     return name.length == 8 || section.Name[name.length] == 0;
 }
 
-void[] findImageSection(string name) nothrow @nogc
+package void[] findImageSection(IMAGE_DOS_HEADER* doshdr, string name) nothrow @nogc
 {
     if (name.length > 8) // section name from string table not supported
         return null;
-    IMAGE_DOS_HEADER* doshdr = cast(IMAGE_DOS_HEADER*) &__ImageBase;
     if (doshdr.e_magic != IMAGE_DOS_SIGNATURE)
         return null;
 
-    auto nthdr = cast(IMAGE_NT_HEADERS*)(cast(void*)doshdr + doshdr.e_lfanew);
-    auto sections = cast(IMAGE_SECTION_HEADER*)(cast(void*)nthdr + IMAGE_NT_HEADERS.sizeof + nthdr.FileHeader.SizeOfOptionalHeader);
+    auto nthdr = cast(IMAGE_NT_HEADERS*) (cast(void*)doshdr + doshdr.e_lfanew);
+    auto sections = cast(IMAGE_SECTION_HEADER*) (cast(void*)nthdr + IMAGE_NT_HEADERS.sizeof + nthdr.FileHeader.SizeOfOptionalHeader);
     for (ushort i = 0; i < nthdr.FileHeader.NumberOfSections; i++)
-        if (compareSectionName (sections[i], name))
-            return (cast(void*)&__ImageBase + sections[i].VirtualAddress)[0 .. sections[i].VirtualSize];
+        if (compareSectionName(sections[i], name))
+            return (cast(void*)doshdr + sections[i].VirtualAddress)[0 .. sections[i].VirtualSize];
 
     return null;
 }

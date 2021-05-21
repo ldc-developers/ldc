@@ -88,6 +88,7 @@ else version (Windows)
 {
     import core.sys.windows.winbase;
     import core.sys.windows.windef;
+    import rt.sections_win64 : IMAGE_DOS_HEADER, findImageSection, getModuleInfos;
 }
 else
 {
@@ -541,7 +542,7 @@ package extern(C) void _d_dso_registry(void* arg)
         {
             ImageHeader header = data._imageBase;
             pdso._getTLSRange = data._getTLSRange;
-            // pdso._moduleGroup set in scanSegments()
+            pdso._moduleGroup = ModuleGroup(getModuleInfos(header));
         }
         else
         {
@@ -971,41 +972,13 @@ version (Shared)
  */
 version (Windows)
 {
-    void scanSegments(IMAGE_DOS_HEADER* image, DSO* pdso)
+    void scanSegments(IMAGE_DOS_HEADER* image, DSO* pdso) nothrow @nogc
     {
-        // the ".minfo" section consists of pointers to all ModuleInfos defined in object files linked into the image
-        void[] minfoSection = image.findImageSection(".minfo");
-        auto moduleInfos = filterModuleInfos(
-            (cast(immutable(ModuleInfo*)*) minfoSection.ptr)[0 .. minfoSection.length / size_t.sizeof]
-        );
-        pdso._moduleGroup = ModuleGroup(moduleInfos);
-
         version (Shared)
             pdso._codeSegments.insertBack(image.findImageSection(".text"));
 
         // the ".data" image section includes both object file sections ".data" and ".bss"
         pdso._gcRanges.insertBack(image.findImageSection(".data"));
-    }
-
-    // Because of alignment inserted by the linker, various null pointers
-    // may be found in the .minfo section, and need to be filtered out.
-    immutable(ModuleInfo*)[] filterModuleInfos(immutable(ModuleInfo*)[] m)
-    {
-        // count non-null pointers
-        size_t count;
-        foreach (mi; m)
-            if (mi !is null) ++count;
-
-        if (count == m.length)
-            return m;
-
-        auto result = (cast(immutable(ModuleInfo)**) malloc(count * size_t.sizeof))[0 .. count];
-
-        count = 0;
-        foreach (mi; m)
-            if (mi !is null) result[count++] = mi;
-
-        return cast(immutable) result;
     }
 }
 else
@@ -1108,83 +1081,11 @@ version (Shared) void* handleForAddr(void* addr) nothrow @nogc
     }
 }
 
-version (Windows)
-{
-    // This code is required to parse section ranges from the image header.
-
-    enum IMAGE_DOS_SIGNATURE = 0x5A4D;      // MZ
-
-    package struct IMAGE_DOS_HEADER // DOS .EXE header
-    {
-        ushort   e_magic;    // Magic number
-        ushort[29] e_res2;   // Reserved ushorts
-        int      e_lfanew;   // File address of new exe header
-    }
-
-    struct IMAGE_FILE_HEADER
-    {
-        ushort Machine;
-        ushort NumberOfSections;
-        uint   TimeDateStamp;
-        uint   PointerToSymbolTable;
-        uint   NumberOfSymbols;
-        ushort SizeOfOptionalHeader;
-        ushort Characteristics;
-    }
-
-    struct IMAGE_NT_HEADERS
-    {
-        uint Signature;
-        IMAGE_FILE_HEADER FileHeader;
-        // optional header follows
-    }
-
-    struct IMAGE_SECTION_HEADER
-    {
-        char[8] Name = 0;
-        union {
-            uint   PhysicalAddress;
-            uint   VirtualSize;
-        }
-        uint   VirtualAddress;
-        uint   SizeOfRawData;
-        uint   PointerToRawData;
-        uint   PointerToRelocations;
-        uint   PointerToLinenumbers;
-        ushort NumberOfRelocations;
-        ushort NumberOfLinenumbers;
-        uint   Characteristics;
-    }
-
-    bool compareSectionName(ref IMAGE_SECTION_HEADER section, string name) nothrow @nogc
-    {
-        if (name[] != section.Name[0 .. name.length])
-            return false;
-        return name.length == 8 || section.Name[name.length] == 0;
-    }
-
-    void[] findImageSection(IMAGE_DOS_HEADER* doshdr, string name) nothrow @nogc
-    {
-        if (name.length > 8) // section name from string table not supported
-            return null;
-        if (doshdr.e_magic != IMAGE_DOS_SIGNATURE)
-            return null;
-
-        auto nthdr = cast(IMAGE_NT_HEADERS*) (cast(void*)doshdr + doshdr.e_lfanew);
-        auto sections = cast(IMAGE_SECTION_HEADER*) (cast(void*)nthdr + IMAGE_NT_HEADERS.sizeof + nthdr.FileHeader.SizeOfOptionalHeader);
-        for (ushort i = 0; i < nthdr.FileHeader.NumberOfSections; i++)
-            if (compareSectionName(sections[i], name))
-                return (cast(void*)doshdr + sections[i].VirtualAddress)[0 .. sections[i].VirtualSize];
-
-        return null;
-    }
-}
-else: // !Windows
-
 ///////////////////////////////////////////////////////////////////////////////
 // TLS module helper
 ///////////////////////////////////////////////////////////////////////////////
 
+version (Windows) {} else:
 
 /*
  * Returns: the TLS memory range for a given module and the calling
