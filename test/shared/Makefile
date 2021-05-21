@@ -8,20 +8,20 @@ ifneq (,$(findstring win,$(OS)))
 all: loadlibwin dllrefcount dllgc
 
 dllrefcount:
-	$(DMD) $(DFLAGS) src/dllrefcount.d
-	dllrefcount.exe
-	rm dllrefcount.*
+	$(DMD) $(DFLAGS) src/dllrefcount.d -of$(ROOT)/dllrefcount.exe
+	$(ROOT)/dllrefcount.exe
+	rm $(ROOT)/dllrefcount.*
 
 loadlibwin:
-	$(DMD) $(DFLAGS) src/loadlibwin.d
-	loadlibwin.exe
-	rm loadlibwin.*
+	$(DMD) $(DFLAGS) src/loadlibwin.d -of$(ROOT)/loadlibwin.exe
+	$(ROOT)/loadlibwin.exe
+	rm $(ROOT)/loadlibwin.*
 
 dllgc:
-	$(DMD) $(DFLAGS) -version=DLL -shared -ofdllgc.dll src/dllgc.d
-	$(DMD) $(DFLAGS) -ofloaddllgc.exe src/dllgc.d
-	loaddllgc.exe
-	rm loaddllgc.* dllgc.*
+	$(DMD) $(DFLAGS) -version=DLL -shared -of$(ROOT)/dllgc.dll src/dllgc.d
+	$(DMD) $(DFLAGS) -of$(ROOT)/loaddllgc.exe src/dllgc.d
+	$(ROOT)/loaddllgc.exe
+	rm $(ROOT)/loaddllgc.* $(ROOT)/dllgc.*
 
 else
 # non-Windows:
