@@ -27,9 +27,11 @@ llvm::GlobalVariable *IrModule::moduleInfoSymbol() {
 
   const auto irMangle = getIRMangledModuleInfoSymbolName(M);
 
-  moduleInfoVar =
-      declareGlobal(Loc(), gIR->module,
-                    llvm::StructType::create(gIR->context()), irMangle, false);
+  const bool useDLLImport = global.params.dllimport && !M->isRoot();
+
+  moduleInfoVar = declareGlobal(Loc(), gIR->module,
+                                llvm::StructType::create(gIR->context()),
+                                irMangle, false, false, useDLLImport);
 
   return moduleInfoVar;
 }

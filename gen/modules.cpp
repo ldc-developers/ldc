@@ -128,7 +128,7 @@ RegistryStyle getModuleRegistryStyle() {
 LLGlobalVariable *declareDSOGlobal(llvm::StringRef mangledName, LLType *type,
                                    bool isThreadLocal = false) {
   auto global = declareGlobal(Loc(), gIR->module, type, mangledName, false,
-                              isThreadLocal);
+                              isThreadLocal, false);
   global->setVisibility(LLGlobalValue::HiddenVisibility);
   return global;
 }
@@ -190,7 +190,8 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
   LLConstant *mref = gIR->module.getNamedGlobal(mrefIRMangle);
   LLType *modulerefPtrTy = getPtrToType(modulerefTy);
   if (!mref) {
-    mref = declareGlobal(Loc(), gIR->module, modulerefPtrTy, mrefIRMangle, false);
+    mref = declareGlobal(Loc(), gIR->module, modulerefPtrTy, mrefIRMangle,
+                         false, false, global.params.dllimport);
   }
   mref = DtoBitCast(mref, getPtrToType(modulerefPtrTy));
 

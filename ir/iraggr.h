@@ -93,6 +93,9 @@ protected:
   explicit IrAggr(AggregateDeclaration *aggr)
       : aggrdecl(aggr), type(aggr->type) {}
 
+  // Use dllimport for *declared* init symbol, TypeInfo and vtable?
+  bool useDLLImport() const;
+
 private:
   llvm::StructType *llStructType = nullptr;
 

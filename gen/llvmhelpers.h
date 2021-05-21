@@ -253,8 +253,8 @@ llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm);
 llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
                                     llvm::Type *type,
                                     llvm::StringRef mangledName,
-                                    bool isConstant,
-                                    bool isThreadLocal = false);
+                                    bool isConstant, bool isThreadLocal,
+                                    bool useDLLImport);
 
 /// Defines an existing LLVM global, i.e., sets the initial value and finalizes
 /// its linkage and visibility.

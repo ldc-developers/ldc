@@ -160,7 +160,8 @@ llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd) {
   if (cd->isCPPclass()) {
     const char *name = target.cpp.typeInfoMangle(cd);
     return declareGlobal(cd->loc, irs.module, getVoidPtrType(), name,
-                         /*isConstant=*/true);
+                         /*isConstant*/ true, false,
+                         /*useDLLImport*/ cd->isExport());
   }
 
   llvm::GlobalVariable *&Var = irs.TypeDescriptorMap[cd];

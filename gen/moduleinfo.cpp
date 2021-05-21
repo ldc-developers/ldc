@@ -312,5 +312,8 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
   LLGlobalVariable *moduleInfoSym = getIrModule(m)->moduleInfoSymbol();
   b.finalize(moduleInfoSym);
   setLinkage({LLGlobalValue::ExternalLinkage, needsCOMDAT()}, moduleInfoSym);
+  if (global.params.dllexport) {
+    moduleInfoSym->setDLLStorageClass(LLGlobalValue::DLLExportStorageClass);
+  }
   return moduleInfoSym;
 }

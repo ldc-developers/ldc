@@ -76,18 +76,38 @@ void IrGlobal::declare() {
 
   const auto irMangle = getIRMangledName(V);
 
+  // Windows: for globals with `export` visibility, initialize the DLL storage
+  // class with dllimport unless the variable is defined in a root module
+  // (=> no extra indirection for other root modules, assuming *all* root
+  // modules will be linked together to one or more binaries).
+  // [Defining a global overrides its DLL storage class.]
+  bool useDLLImport = false;
+  if (global.params.targetTriple->isOSWindows()) {
+    // dllimport isn't supported for thread-local globals (MSVC++ neither)
+    if (!V->isThreadlocal()) {
+      // with -fvisibility=public / -link-defaultlib-shared, also include all
+      // extern(D) globals
+      if (V->isExport() || (global.params.dllimport && V->linkage == LINK::d)) {
+        const bool isDefinedInRootModule =
+            !(V->storage_class & STCextern) && !V->inNonRoot();
+        if (!isDefinedInRootModule)
+          useDLLImport = true;
+      }
+    }
+  }
+
   // Since the type of a global must exactly match the type of its
   // initializer, we cannot know the type until after we have emitted the
   // latter (e.g. in case of unions, …). However, it is legal for the
   // initializer to refer to the address of the variable. Thus, we first
   // create a global with the generic type (note the assignment to
-  // vd->ir->irGlobal->value!), and in case we also do an initializer
-  // with a different type later, swap it out and replace any existing
-  // uses with bitcasts to the previous type.
+  // value!), and in case we also do an initializer with a different type
+  // later, swap it out and replace any existing uses with bitcasts to the
+  // previous type.
 
   LLGlobalVariable *gvar =
       declareGlobal(V->loc, gIR->module, DtoMemType(V->type), irMangle,
-                    isLLConst, V->isThreadlocal());
+                    isLLConst, V->isThreadlocal(), useDLLImport);
   value = gvar;
 
   if (V->llvmInternal == LLVMextern_weak)
@@ -97,12 +117,6 @@ void IrGlobal::declare() {
   // VarDeclarations can have an align() attribute independent of the type
   // as well).
   gvar->setAlignment(LLMaybeAlign(DtoAlignment(V)));
-
-  // Windows: initialize DLL storage class with `dllimport` for `export`ed
-  // symbols
-  if (global.params.targetTriple->isOSWindows() && V->isExport()) {
-    gvar->setDLLStorageClass(LLGlobalValue::DLLImportStorageClass);
-  }
 
   applyVarDeclUDAs(V, gvar);
 
@@ -128,10 +142,11 @@ void IrGlobal::define() {
   auto gvar = llvm::cast<LLGlobalVariable>(value);
   value = gIR->setGlobalVarInitializer(gvar, initVal, V);
 
-  // Finalize DLL storage class.
-  if (gvar->hasDLLImportStorageClass()) {
-    gvar->setDLLStorageClass(LLGlobalValue::DLLExportStorageClass);
-  }
+  // dllexport isn't supported for thread-local globals (MSVC++ neither);
+  // don't let LLVM create a useless /EXPORT directive (yields the same linker
+  // error anyway when trying to dllimport).
+  if (gvar->hasDLLExportStorageClass() && V->isThreadlocal())
+    gvar->setDLLStorageClass(LLGlobalValue::DefaultStorageClass);
 
   // If this global is used from a naked function, we need to create an
   // artificial "use" for it, or it could be removed by the optimizer if

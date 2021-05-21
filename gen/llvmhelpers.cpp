@@ -1672,7 +1672,8 @@ std::string llvmTypeToString(llvm::Type *type) {
 llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
                                     llvm::Type *type,
                                     llvm::StringRef mangledName,
-                                    bool isConstant, bool isThreadLocal) {
+                                    bool isConstant, bool isThreadLocal,
+                                    bool useDLLImport) {
   // No TLS support for WebAssembly and AVR; spare users from having to add
   // __gshared everywhere.
   const auto arch = global.params.targetTriple->getArch();
@@ -1714,9 +1715,14 @@ llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
                                        : clThreadModel.getValue())
           : llvm::GlobalVariable::NotThreadLocal;
 
-  return new llvm::GlobalVariable(module, type, isConstant,
-                                  llvm::GlobalValue::ExternalLinkage, nullptr,
-                                  mangledName, nullptr, tlsModel);
+  auto gvar = new llvm::GlobalVariable(module, type, isConstant,
+                                       llvm::GlobalValue::ExternalLinkage,
+                                       nullptr, mangledName, nullptr, tlsModel);
+
+  if (useDLLImport && global.params.targetTriple->isOSWindows())
+    gvar->setDLLStorageClass(LLGlobalValue::DLLImportStorageClass);
+
+  return gvar;
 }
 
 void defineGlobal(llvm::GlobalVariable *global, llvm::Constant *init,
@@ -1734,8 +1740,9 @@ llvm::GlobalVariable *defineGlobal(const Loc &loc, llvm::Module &module,
                                    llvm::GlobalValue::LinkageTypes linkage,
                                    bool isConstant, bool isThreadLocal) {
   assert(init);
-  auto global = declareGlobal(loc, module, init->getType(), mangledName,
-                              isConstant, isThreadLocal);
+  auto global =
+      declareGlobal(loc, module, init->getType(), mangledName, isConstant,
+                    isThreadLocal, /*useDLLImport*/ false);
   defineGlobal(global, init, nullptr);
   global->setLinkage(linkage);
   return global;

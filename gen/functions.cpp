@@ -667,12 +667,6 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
 
   func->setCallingConv(gABI->callingConv(link, f, fdecl));
 
-  if (global.params.targetTriple->isOSWindows() && fdecl->isExport()) {
-    func->setDLLStorageClass(fdecl->isImportedSymbol()
-                                 ? LLGlobalValue::DLLImportStorageClass
-                                 : LLGlobalValue::DLLExportStorageClass);
-  }
-
   IF_LOG Logger::cout() << "func = " << *func << std::endl;
 
   // add func to IRFunc
@@ -1029,9 +1023,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     assert(func);
     if (!linkageAvailableExternally &&
         (func->getLinkage() == llvm::GlobalValue::AvailableExternallyLinkage)) {
-      // Fix linkage
+      // Fix linkage and visibility
       const auto lwc = lowerFuncLinkage(fd);
       setLinkage(lwc, func);
+      setVisibility(fd, func);
     }
     return;
   }
@@ -1151,10 +1146,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     return;
   }
 
-  if (opts::defaultToHiddenVisibility && !fd->isExport()) {
-    func->setVisibility(LLGlobalValue::HiddenVisibility);
-  }
-
   // if this function is naked, we take over right away! no standard processing!
   if (fd->naked) {
     DtoDefineNakedFunction(fd);
@@ -1191,9 +1182,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
            lwc.first != llvm::GlobalValue::LinkOnceAnyLinkage);
   } else {
     setLinkage(lwc, func);
+    setVisibility(fd, func);
   }
-
-  assert(!func->hasDLLImportStorageClass());
 
   // function attributes
   if (gABI->needsUnwindTables()) {
@@ -1383,6 +1373,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   if (func->getLinkage() == LLGlobalValue::WeakAnyLinkage &&
+      !func->hasDLLExportStorageClass() &&
       global.params.targetTriple->isWindowsMSVCEnvironment()) {
     emulateWeakAnyLinkageForMSVC(func, fd->linkage);
   }

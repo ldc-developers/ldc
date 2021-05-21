@@ -83,7 +83,8 @@ extern cl::opt<std::string> mTargetTriple;
 extern cl::opt<std::string> mABI;
 extern FloatABI::Type floatABI;
 extern cl::opt<bool> disableLinkerStripDead;
-extern cl::opt<unsigned char> defaultToHiddenVisibility;
+enum class SymbolVisibility { default_, hidden, public_ };
+extern cl::opt<SymbolVisibility> symbolVisibility;
 extern cl::opt<bool> noPLT;
 extern cl::opt<bool> useDIP25;
 

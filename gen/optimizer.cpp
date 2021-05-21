@@ -412,6 +412,10 @@ bool ldc_optimize_module(llvm::Module *M) {
 
   addOptimizationPasses(mpm, fpm, optLevel(), sizeLevel());
 
+  if (global.params.dllimport) {
+    mpm.add(createDLLImportRelocationPass());
+  }
+
   // Run per-function passes.
   fpm.doInitialization();
   for (auto &F : *M) {
