@@ -1,4 +1,4 @@
-dist: xenial
+dist: bionic
 language: d
 
 git:
@@ -17,8 +17,6 @@ cache:
 
 addons:
   apt:
-    sources:
-      - ubuntu-toolchain-r-test
     packages:
       - g++-8
       - gdb
@@ -27,7 +25,7 @@ addons:
 # Download & extract prebuilt LLVM if not in cache
 before_install:
   - nproc
-  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then free; fi
+  - free
   - export LLVM_ROOT_DIR="$PWD/llvm-$LLVM_VERSION"
   - |
     if [ ! -e "$LLVM_ROOT_DIR/bin/llvm-config" ]; then
@@ -41,7 +39,9 @@ before_install:
 install:
   # Install lit
   - python3 -m pip install --user lit
-  - python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
+  - |
+    set -o pipefail
+    python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
 
 script:
   - unset LD_LIBRARY_PATH
