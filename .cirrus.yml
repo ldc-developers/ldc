@@ -155,13 +155,13 @@ task:
     OS: osx
     PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
     PARALLELISM: 12
+    matrix:
+      - TASK_NAME_SUFFIX: x64
+        EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
+      - TASK_NAME_SUFFIX: x64 shared-libs-only
+        EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON"
   brew_cache:
     folder: "$HOME/Library/Caches/Homebrew"
-  matrix:
-    - TASK_NAME_SUFFIX: x64
-      EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
-    - TASK_NAME_SUFFIX: x64 shared-libs-only
-      EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON"
   << : *INSTALL_MACOS_PREREQUISITES_TEMPLATE
   << : *COMMON_STEPS_TEMPLATE
 
