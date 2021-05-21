@@ -30,10 +30,11 @@ steps:
       export DEBIAN_FRONTEND=noninteractive
       sudo dpkg --add-architecture i386
       sudo apt-get -q update
+      # Don't use latest gdb v10 from Ubuntu toolchain PPA with regressions, use official v8
       sudo apt-get -yq install \
         git-core cmake ninja-build g++-multilib \
         libcurl4 libcurl4:i386 \
-        curl gdb p7zip-full tzdata unzip zip python3-pip
+        curl gdb=8.1.1-0ubuntu1 p7zip-full tzdata unzip zip python3-pip
       # Download & extract clang
       curl -L -o clang.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-$CLANG_VERSION/clang+llvm-$CLANG_VERSION-x86_64-linux-gnu-ubuntu-16.04.tar.xz
       mkdir clang
