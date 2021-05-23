@@ -69,6 +69,13 @@ steps:
     %ARTIFACT_NAME%\bin\ldc2 -v -run hello.d || exit /b
     %ARTIFACT_NAME%\bin\ldc2 -v -m32 -run hello.d
   displayName: Run 32/64-bit hello-world smoke test with MSVC auto-detection
+- script: |
+    echo on
+    set PATH=%ARTIFACT_NAME%\bin;%PATH%
+    %ARTIFACT_NAME%\bin\ldc2 -link-defaultlib-shared -run hello.d || exit /b
+    set PATH=%ARTIFACT_NAME%\lib32;%PATH%
+    %ARTIFACT_NAME%\bin\ldc2 -link-defaultlib-shared -m32 -run hello.d
+  displayName: Run 32/64-bit hello-world smoke test with shared libs
 
 # Pack, build installer & publish artifacts
 - script: |
