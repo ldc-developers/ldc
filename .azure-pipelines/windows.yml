@@ -76,7 +76,7 @@ steps:
     clang-cl --version
     mkdir bootstrap-ldc
     cd bootstrap-ldc
-    cmake -G Ninja %BUILD_SOURCESDIRECTORY% -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=%CD%/../llvm -DD_COMPILER=%CD%/../host-ldc/bin/ldmd2 -DBUILD_LTO_LIBS=ON
+    cmake -G Ninja %BUILD_SOURCESDIRECTORY% -DCMAKE_C_COMPILER:PATH=clang-cl.exe -DCMAKE_CXX_COMPILER:PATH=clang-cl.exe -DCMAKE_BUILD_TYPE=Release -DLLVM_ROOT_DIR=%CD%/../llvm -DD_COMPILER=%CD%/../host-ldc/bin/ldmd2 -DBUILD_SHARED_LIBS=OFF -DBUILD_LTO_LIBS=ON
     ninja -j4 || exit /b
     bin\ldc2 --version
   displayName: Build bootstrap LDC
@@ -116,7 +116,8 @@ steps:
 - script: |
     cd ..
     :: git's usr/bin/bash, unlike its bin/bash, leaves PATH as-is
-    set PATH=C:\Program Files\Git\usr\bin;%PATH%
+    :: also add druntime/Phobos DLL dir to PATH
+    set PATH=%CD%\build\lib;C:\Program Files\Git\usr\bin;%PATH%
     call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     set DMD_TESTSUITE_MAKE_ARGS=-j4
     cd build
@@ -125,8 +126,8 @@ steps:
   condition: succeededOrFailed()
 - script: |
     cd ..
-    :: Add libcurl.dll dir to PATH
-    set PATH=%CD%\libcurl\ldc2;C:\Program Files\Git\usr\bin;%PATH%
+    :: Add druntime/Phobos/libcurl.dll dir to PATH
+    set PATH=%CD%\build\lib;%CD%\libcurl\ldc2;C:\Program Files\Git\usr\bin;%PATH%
     call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=%ARCH%
     cd build
     ctest -j4 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"

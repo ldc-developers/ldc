@@ -91,7 +91,7 @@ else()
 endif()
 
 set(SHARED_LIBS_SUPPORTED OFF)
-if("${TARGET_SYSTEM}" MATCHES "Linux|FreeBSD|DragonFly|APPLE"
+if("${TARGET_SYSTEM}" MATCHES "Windows|Linux|FreeBSD|DragonFly|APPLE"
    AND (NOT "${TARGET_SYSTEM}" MATCHES "Android"))
     set(SHARED_LIBS_SUPPORTED ON)
 endif()
@@ -107,7 +107,7 @@ endif()
 set(SHARED_LIB_SUFFIX "")
 if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
     if(NOT SHARED_LIBS_SUPPORTED)
-        message(FATAL_ERROR "Shared libraries (BUILD_SHARED_LIBS) are only supported on Linux, macOS, FreeBSD and DragonFly for the time being.")
+        message(FATAL_ERROR "Shared libraries (BUILD_SHARED_LIBS) are only supported on Windows, Linux, macOS, FreeBSD and DragonFly for the time being.")
     endif()
     set(SHARED_LIB_SUFFIX "-shared")
 endif()
@@ -115,14 +115,20 @@ endif()
 # Auto-detect C system libraries
 if("${C_SYSTEM_LIBS}" STREQUAL "AUTO")
     if("${TARGET_SYSTEM}" MATCHES "MSVC")
-        set(C_SYSTEM_LIBS libvcruntime libcmt)
-    elseif("${TARGET_SYSTEM}" MATCHES "Android")
-        set(C_SYSTEM_LIBS m c)
-    elseif("${TARGET_SYSTEM}" MATCHES "Linux")
-        set(C_SYSTEM_LIBS m pthread rt dl)
+        set(C_SYSTEM_LIBS        libcmt libvcruntime)
+        set(C_SYSTEM_LIBS_SHARED msvcrt vcruntime oldnames legacy_stdio_definitions)
     else()
-        set(C_SYSTEM_LIBS m pthread)
+        if("${TARGET_SYSTEM}" MATCHES "Android")
+            set(C_SYSTEM_LIBS m c)
+        elseif("${TARGET_SYSTEM}" MATCHES "Linux")
+            set(C_SYSTEM_LIBS m pthread rt dl)
+        else()
+            set(C_SYSTEM_LIBS m pthread)
+        endif()
+        set(C_SYSTEM_LIBS_SHARED ${C_SYSTEM_LIBS})
     endif()
+else()
+    set(C_SYSTEM_LIBS_SHARED ${C_SYSTEM_LIBS})
 endif()
 
 message(STATUS "-- LDC runtime configuration:")
@@ -540,6 +546,12 @@ endforeach()
 
 # Sets the common properties for all library targets.
 function(set_common_library_properties target name output_dir c_flags ld_flags is_shared)
+    # Windows: enforce .pdb generation for debug DLLs
+    set(full_ldflags "${ld_flags}")
+    if(is_shared AND "${name}" MATCHES "-debug" AND "${TARGET_SYSTEM}" MATCHES "MSVC")
+        append("/DEBUG" full_ldflags)
+    endif()
+
     set_target_properties(${target} PROPERTIES
         OUTPUT_NAME                 ${name}
         ARCHIVE_OUTPUT_DIRECTORY    ${output_dir}
@@ -547,7 +559,7 @@ function(set_common_library_properties target name output_dir c_flags ld_flags i
         RUNTIME_OUTPUT_DIRECTORY    ${output_dir}
         COMPILE_DEFINITIONS         "LDC=1"
         COMPILE_FLAGS               "${c_flags}"
-        LINK_FLAGS                  "${ld_flags}"
+        LINK_FLAGS                  "${full_ldflags}"
         VERSION                     ${DMDFE_VERSION}
         SOVERSION                   ${DMDFE_PATCH_VERSION}
         LINKER_LANGUAGE             C
@@ -590,7 +602,7 @@ macro(build_runtime_libs druntime_o druntime_bc phobos2_o phobos2_bc c_flags ld_
     # libraries otherwise implicitly added by LDC to make it loadable from
     # C executables.
     if("${is_shared}" STREQUAL "ON")
-        target_link_libraries(druntime-ldc${target_suffix} ${C_SYSTEM_LIBS})
+        target_link_libraries(druntime-ldc${target_suffix} ${C_SYSTEM_LIBS_SHARED})
     endif()
 
     list(APPEND ${outlist_targets} druntime-ldc${target_suffix})
@@ -608,7 +620,7 @@ macro(build_runtime_libs druntime_o druntime_bc phobos2_o phobos2_bc c_flags ld_
             # in order to exclude the druntime tests for the Phobos test runner.
             string(REPLACE "-unittest" "" target_suffix_without_unittest "${target_suffix}")
             target_link_libraries(phobos2-ldc${target_suffix}
-                druntime-ldc${target_suffix_without_unittest} ${C_SYSTEM_LIBS})
+                druntime-ldc${target_suffix_without_unittest} ${C_SYSTEM_LIBS_SHARED})
         endif()
 
         list(APPEND ${outlist_targets} phobos2-ldc${target_suffix})
@@ -638,26 +650,30 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit
         set(is_unittest ON)
     endif()
 
-    # Only compile Phobos modules once for static+shared libs.
-    # If a shared Phobos lib is generated (too), compile explicitly with `-relocation-model=pic`.
     set(phobos2_d_flags ${d_flags})
     if(is_unittest)
         list(APPEND phobos2_d_flags ${PHOBOS2_EXTRA_UNITTEST_FLAGS})
     endif()
-    if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
-        list(APPEND phobos2_d_flags -relocation-model=pic)
+
+    # Posix: only compile Phobos modules once for static+shared libs.
+    # If a shared Phobos lib is generated (too), compile explicitly with `-relocation-model=pic`.
+    if(NOT "${TARGET_SYSTEM}" MATCHES "Windows")
+        if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
+            list(APPEND phobos2_d_flags -relocation-model=pic)
+        endif()
+
+        set(phobos2_o "")
+        set(phobos2_bc "")
+        compile_phobos2("${phobos2_d_flags}" "${lib_suffix}"
+                        "${path_suffix}" "${emit_bc}" "${all_d_files_at_once}" phobos2_o phobos2_bc)
+
+        # Use a dummy custom target ('phobos2-ldc…-common') depending solely on the Phobos D objects
+        # (custom commands) as dependency for static+shared Phobos libs.
+        # Otherwise building both libs in parallel may result in conflicting Phobos module compilations
+        # (at least with the make generator), a known CMake issue.
+        set(phobos2_common phobos2-ldc${target_suffix}-common)
+        add_custom_target(${phobos2_common} DEPENDS ${phobos2_o} ${phobos2_bc})
     endif()
-
-    set(phobos2_o "")
-    set(phobos2_bc "")
-    compile_phobos2("${phobos2_d_flags}" "${lib_suffix}" "${path_suffix}" "${emit_bc}" "${all_d_files_at_once}" phobos2_o phobos2_bc)
-
-    # Use a dummy custom target ('phobos2-ldc…-common') depending solely on the Phobos D objects
-    # (custom commands) as dependency for static+shared Phobos libs.
-    # Otherwise building both libs in parallel may result in conflicting Phobos module compilations
-    # (at least with the make generator), a known CMake issue.
-    set(phobos2_common phobos2-ldc${target_suffix}-common)
-    add_custom_target(${phobos2_common} DEPENDS ${phobos2_o} ${phobos2_bc})
 
     set(druntime_d_flags ${d_flags})
     if(is_unittest)
@@ -671,22 +687,70 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit
         compile_druntime("${druntime_d_flags}" "${lib_suffix}"
                          "${path_suffix}" "${emit_bc}" "${all_d_files_at_once}" druntime_o druntime_bc)
 
+        # Windows: compile Phobos with hidden visibility
+        if("${TARGET_SYSTEM}" MATCHES "Windows")
+            set(phobos2_o "")
+            set(phobos2_bc "")
+            compile_phobos2("${phobos2_d_flags}" "${lib_suffix}"
+                            "${path_suffix}" "${emit_bc}" "${all_d_files_at_once}" phobos2_o phobos2_bc)
+        endif()
+
         build_runtime_libs("${druntime_o}" "${druntime_bc}" "${phobos2_o}" "${phobos2_bc}"
                            "${c_flags}" "${ld_flags}" "${lib_suffix}" "${path_suffix}"
                            "OFF" "${emit_bc}" ${outlist_targets})
-        add_dependencies(phobos2-ldc${target_suffix} ${phobos2_common})
+
+        if(NOT "${TARGET_SYSTEM}" MATCHES "Windows")
+            add_dependencies(phobos2-ldc${target_suffix} ${phobos2_common})
+        endif()
     endif()
     # shared druntime/Phobos
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
+        # compile druntime with extra `version (Shared)`
         set(druntime_o "")
         set(druntime_bc "")
-        compile_druntime("${druntime_d_flags};-relocation-model=pic;-d-version=Shared" "${lib_suffix}${SHARED_LIB_SUFFIX}"
+        compile_druntime("${druntime_d_flags};-relocation-model=pic;-d-version=Shared;-fvisibility=public" "${lib_suffix}${SHARED_LIB_SUFFIX}"
                          "${path_suffix}" "OFF" "${all_d_files_at_once}" druntime_o druntime_bc)
+
+        # Windows: compile Phobos with public visibility
+        if("${TARGET_SYSTEM}" MATCHES "Windows")
+            set(phobos2_o "")
+            set(phobos2_bc "")
+            compile_phobos2("${phobos2_d_flags};-fvisibility=public" "${lib_suffix}${SHARED_LIB_SUFFIX}"
+                            "${path_suffix}" "OFF" "${all_d_files_at_once}" phobos2_o phobos2_bc)
+            # also link-in special rt.dso_windows druntime module
+            list(APPEND phobos2_o ${PROJECT_BINARY_DIR}/objects${target_suffix}/rt/dso_windows.obj)
+        endif()
 
         build_runtime_libs("${druntime_o}" "${druntime_bc}" "${phobos2_o}" "${phobos2_bc}"
                            "${c_flags}" "${ld_flags}" "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}"
                            "ON" "OFF" ${outlist_targets})
-        add_dependencies(phobos2-ldc${target_suffix} ${phobos2_common})
+
+        if("${TARGET_SYSTEM}" MATCHES "Windows")
+            # Windows: precompile rt.dso_windows object file & install to lib dir.
+            # The existing object file isn't reused to prevent *exported* symbols (only
+            # -link-defaultlib-shared for dllimport, no -fvisibility=public).
+            # This allows to create executables with -link-defaultlib-shared without
+            # any exports (and according extra linker files such as the import .lib).
+            if ("${lib_suffix}" STREQUAL "")
+                set(dso_windows_o "")
+                set(dso_windows_bc "")
+                dc("${RUNTIME_DIR}/src/rt/dso_windows.d"
+                   "${RUNTIME_DIR}/src/rt" # => output path: ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/dso_windows.obj
+                   "-conf=;${d_flags};-link-defaultlib-shared;${DRUNTIME_EXTRA_FLAGS};-I${RUNTIME_DIR}/src"
+                   "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}"
+                   "OFF" # emit_bc
+                   "OFF" # all_at_once
+                   dso_windows_o
+                   dso_windows_bc
+                )
+
+                add_custom_target(dso_windows DEPENDS ${dso_windows_o})
+                add_dependencies(phobos2-ldc${target_suffix} dso_windows)
+                install(FILES ${dso_windows_o} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
+            endif()
+        else()
+            add_dependencies(phobos2-ldc${target_suffix} ${phobos2_common})
+        endif()
     endif()
 endmacro()
 
@@ -823,26 +887,33 @@ else()
     endif()
 
     foreach(libname ${libs_to_install})
-        # On Mac, manually copy static libraries to prevent ranlib from
-        # potentially corrupting the file during installation.
-        # See https://bugs.llvm.org/show_bug.cgi?id=34808.
-        set(copy_manually OFF)
-        if("${TARGET_SYSTEM}" MATCHES "APPLE")
-            set(target_type)
-            get_target_property(target_type ${libname} TYPE)
-            if("${target_type}" STREQUAL "STATIC_LIBRARY")
-                set(copy_manually ON)
-            endif()
-        endif()
+        set(target_type)
+        get_target_property(target_type ${libname} TYPE)
 
         set(destination_dir ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
         if(${libname} MATCHES "_${MULTILIB_SUFFIX}$")
             set(destination_dir ${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX})
         endif()
 
-        if(copy_manually)
+        # On Mac, manually copy static libraries to prevent ranlib from
+        # potentially corrupting the file during installation.
+        # See https://bugs.llvm.org/show_bug.cgi?id=34808.
+        if("${TARGET_SYSTEM}" MATCHES "APPLE" AND "${target_type}" STREQUAL "STATIC_LIBRARY")
             install(FILES       $<TARGET_FILE:${libname}>
                     DESTINATION ${destination_dir})
+        # Windows DLLs:
+        elseif("${TARGET_SYSTEM}" MATCHES "MSVC" AND "${target_type}" STREQUAL "SHARED_LIBRARY")
+            # import .lib in regular lib dir
+            install(FILES       $<TARGET_LINKER_FILE:${libname}>
+                    DESTINATION ${destination_dir})
+            # .dll in bin dir
+            install(FILES       $<TARGET_FILE:${libname}>
+                    DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+            # .pdb of debug DLLs in bin dir
+            if(${libname} MATCHES "-debug")
+                install(FILES       $<TARGET_PDB_FILE:${libname}>
+                        DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+            endif()
         else()
             install(TARGETS     ${libname}
                     DESTINATION ${destination_dir})
@@ -909,6 +980,26 @@ macro(set_testrunner_linkflags libname path_suffix is_shared output_flags)
     endif()
 endmacro()
 
+# Sets `test_runner_o`.
+macro(compile_testrunner d_flags is_shared target_suffix extra_dir_suffix)
+    set(test_runner_o  "")
+    set(test_runner_bc "")
+    dc("${RUNTIME_DIR}/src/test_runner.d"
+       "${RUNTIME_DIR}/src"
+       "${d_flags}"
+       "${PROJECT_BINARY_DIR}/objects-unittest${target_suffix}${extra_dir_suffix}"
+       "OFF"
+       "OFF"
+       test_runner_o
+       test_runner_bc
+    )
+
+    if("${is_shared}" STREQUAL "ON" AND "${TARGET_SYSTEM}" MATCHES "Windows")
+        # also link-in special rt.dso_windows druntime module
+        list(APPEND test_runner_o ${PROJECT_BINARY_DIR}/objects${target_suffix}/rt/dso_windows.obj)
+    endif()
+endmacro()
+
 set(_GLOBAL_TESTRUNNERS "" CACHE INTERNAL "List of all test runner build targets")
 
 # Generates targets for a pair of druntime/Phobos test runners.
@@ -917,23 +1008,17 @@ function(build_test_runners name_suffix path_suffix d_flags linkflags is_shared)
     set(target_suffix)
     get_target_suffix("${name_suffix}" "${path_suffix}" target_suffix)
 
-    set(test_runner_o  "")
-    set(test_runner_bc "")
-    dc("${RUNTIME_DIR}/src/test_runner.d"
-       "${RUNTIME_DIR}/src"
-       "${d_flags};-linkonce-templates"
-       "${PROJECT_BINARY_DIR}/objects-unittest${target_suffix}"
-       "OFF"
-       "OFF"
-       test_runner_o
-       test_runner_bc
-    )
-    add_custom_target(test_runner${target_suffix} DEPENDS ${test_runner_o})
-
     set(c_libs "")
+    set(full_dflags ${d_flags} -linkonce-templates)
     if("${is_shared}" STREQUAL "OFF")
         set(c_libs ${C_SYSTEM_LIBS})
+    elseif("${TARGET_SYSTEM}" MATCHES "MSVC")
+        set(c_libs ${C_SYSTEM_LIBS_SHARED})
+        set(full_dflags ${full_dflags} -link-defaultlib-shared) # to dllimport data
     endif()
+
+    compile_testrunner("${full_dflags}" "${is_shared}" "${target_suffix}" "")
+    add_custom_target(test_runner${target_suffix} DEPENDS ${test_runner_o})
 
     set(druntime_name druntime-test-runner${target_suffix})
     add_executable(${druntime_name} EXCLUDE_FROM_ALL ${test_runner_o})
@@ -949,9 +1034,18 @@ function(build_test_runners name_suffix path_suffix d_flags linkflags is_shared)
     set(_GLOBAL_TESTRUNNERS "${_GLOBAL_TESTRUNNERS};${druntime_name}" CACHE INTERNAL "")
 
     if(PHOBOS2_DIR)
+        # Windows: the shared Phobos test runners need to be recompiled to reference a Phobos symbol,
+        #          so that the Phobos unittest DLLs are actually loaded
+        set(phobos_test_runner_target test_runner${target_suffix})
+        if("${is_shared}" STREQUAL "ON" AND "${TARGET_SYSTEM}" MATCHES "Windows")
+            compile_testrunner("${full_dflags};-d-version=SharedPhobos" "${is_shared}" "${target_suffix}" "-phobos")
+            set(phobos_test_runner_target test_runner_phobos_${target_suffix})
+            add_custom_target(${phobos_test_runner_target} DEPENDS ${test_runner_o})
+        endif()
+
         set(phobos_name phobos2-test-runner${target_suffix})
         add_executable(${phobos_name} EXCLUDE_FROM_ALL ${test_runner_o})
-        add_dependencies(${phobos_name} test_runner${target_suffix} phobos2-ldc-unittest${target_suffix})
+        add_dependencies(${phobos_name} ${phobos_test_runner_target} phobos2-ldc-unittest${target_suffix})
         set_testrunner_linkflags("phobos2-ldc-unittest${name_suffix}" "${path_suffix}" "${is_shared}" runner_linkflags)
         target_link_libraries(${phobos_name} ${runner_linkflags} druntime-ldc${target_suffix} ${c_libs})
         set_target_properties(${phobos_name} PROPERTIES

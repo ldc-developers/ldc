@@ -14,14 +14,17 @@ steps:
 - bash: |
     set -ex
     cd ..
-    installed/bin/ldc2 hello.d -m64 -of=hello64 -link-defaultlib-shared
-    ./hello64
+    if [ "$CI_OS" = "windows" ]; then
+      # Add druntime/Phobos DLL dir to PATH
+      export PATH="$PWD/installed/bin:$PATH"
+    fi
+    installed/bin/ldc2 hello.d -link-defaultlib-shared
+    ./hello
     if [ "$CI_OS" = "linux" ]; then
-      installed/bin/ldc2 hello.d -m32 -of=hello32 -link-defaultlib-shared
-      ./hello32
+      installed/bin/ldc2 hello.d -m32 -link-defaultlib-shared
+      ./hello
     fi
   displayName: Run hello-world integration test with shared libs
-  condition: and(succeeded(), ne(variables['CI_OS'], 'windows'))
 
 - bash: |
     set -ex
@@ -40,7 +43,7 @@ steps:
     cd ..
     if [ "$CI_OS" = "windows" ]; then
       # Add ldc-jit.dll dir to PATH
-      export PATH="$PWD/installed/lib:$PATH"
+      export PATH="$PWD/installed/bin:$PATH"
     fi
     installed/bin/ldc2 -enable-dynamic-compile -run $BUILD_SOURCESDIRECTORY/tests/dynamiccompile/array.d
   displayName: Run dynamic-compile integration test
