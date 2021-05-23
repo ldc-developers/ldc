@@ -2,30 +2,6 @@ LINK_SHARED:=1
 
 include ../common.mak
 
-# LDC: enable on Windows too (port from win64.mak)
-ifneq (,$(findstring win,$(OS)))
-
-all: loadlibwin dllrefcount dllgc
-
-dllrefcount:
-	$(DMD) $(DFLAGS) src/dllrefcount.d -of$(ROOT)/dllrefcount.exe
-	$(ROOT)/dllrefcount.exe
-	rm $(ROOT)/dllrefcount.*
-
-loadlibwin:
-	$(DMD) $(DFLAGS) src/loadlibwin.d -of$(ROOT)/loadlibwin.exe
-	$(ROOT)/loadlibwin.exe
-	rm $(ROOT)/loadlibwin.*
-
-dllgc:
-	$(DMD) $(DFLAGS) -version=DLL -shared -of$(ROOT)/dllgc.dll src/dllgc.d
-	$(DMD) $(DFLAGS) -of$(ROOT)/loaddllgc.exe src/dllgc.d
-	$(ROOT)/loaddllgc.exe
-	rm $(ROOT)/loaddllgc.* $(ROOT)/dllgc.*
-
-else
-# non-Windows:
-
 TESTS:=link load linkD linkDR loadDR
 # LDC: disable 3 tests on Mac
 ifneq ($(OS),osx)
@@ -43,59 +19,113 @@ EXPORT_DYNAMIC=$(if $(findstring $(OS),linux freebsd dragonflybsd),-L--export-dy
 NO_AS_NEEDED=$(if $(findstring $(OS),linux freebsd dragonflybsd),-L--no-as-needed,)
 
 .PHONY: all clean
+
+# LDC: add Windows tests
+ifeq (,$(findstring win,$(OS)))
+
 all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS)))
+LIB_EXT:=so
+DLL_EXT:=so
 
 $(ROOT)/loadDR.done $(ROOT)/host.done: RUN_ARGS:=$(DRUNTIMESO)
+
+else
+# Windows
+
+all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS))) loadlibwin dllrefcount dllgc
+LIB_EXT:=lib
+DLL_EXT:=dll
+CC=cl.exe
+CFLAGS:=/MD /Zi
+
+$(ROOT)/loadDR.done $(ROOT)/host.done: RUN_ARGS:=$(subst .lib,.dll,$(DRUNTIMESO))
+
+dllrefcount:
+	$(DMD) $(DFLAGS) src/dllrefcount.d -of$(ROOT)/dllrefcount.exe
+	$(ROOT)/dllrefcount.exe
+	rm $(ROOT)/dllrefcount.*
+
+loadlibwin:
+	$(DMD) $(DFLAGS) src/loadlibwin.d -of$(ROOT)/loadlibwin.exe
+	$(ROOT)/loadlibwin.exe
+	rm $(ROOT)/loadlibwin.*
+
+dllgc:
+	$(DMD) $(DFLAGS) -version=DLL -shared -of$(ROOT)/dllgc.dll src/dllgc.d
+	$(DMD) $(DFLAGS) -of$(ROOT)/loaddllgc.exe src/dllgc.d
+	$(ROOT)/loaddllgc.exe
+	rm $(ROOT)/loaddllgc.* $(ROOT)/dllgc.*
+
+# end Windows
+endif
 
 $(ROOT)/%.done: $(ROOT)/%
 	@echo Testing $*
 	$(QUIET)$(TIMELIMIT)$< $(RUN_ARGS)
 	@touch $@
 
-$(ROOT)/link: $(SRC)/link.d $(ROOT)/lib.so $(DRUNTIMESO)
-	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< -L$(ROOT)/lib.so
+$(ROOT)/link: $(SRC)/link.d $(ROOT)/lib.$(DLL_EXT) $(DRUNTIMESO)
+	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< -L$(ROOT)/lib.$(LIB_EXT)
 
-$(ROOT)/link_linkdep: $(SRC)/link_linkdep.d $(ROOT)/lib.so $(ROOT)/liblinkdep.so $(DRUNTIMESO)
-	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKFLAGS) -L$(ROOT)/liblinkdep.so -L$(ROOT)/lib.so
+$(ROOT)/link_linkdep: $(SRC)/link_linkdep.d $(ROOT)/lib.$(DLL_EXT) $(ROOT)/liblinkdep.$(DLL_EXT) $(DRUNTIMESO)
+	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKFLAGS) -L$(ROOT)/liblinkdep.$(LIB_EXT) -L$(ROOT)/lib.$(LIB_EXT)
 
-$(ROOT)/load_linkdep: $(SRC)/load_linkdep.d $(ROOT)/lib.so $(ROOT)/liblinkdep.so $(DRUNTIMESO)
+$(ROOT)/load_linkdep: $(SRC)/load_linkdep.d $(ROOT)/lib.$(DLL_EXT) $(ROOT)/liblinkdep.$(DLL_EXT) $(DRUNTIMESO)
 	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKFLAGS) $(LINKDL)
 
-$(ROOT)/link_loaddep: $(SRC)/link_loaddep.d $(ROOT)/lib.so $(ROOT)/libloaddep.so $(DRUNTIMESO)
-	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKFLAGS) -L$(ROOT)/libloaddep.so
+$(ROOT)/link_loaddep: $(SRC)/link_loaddep.d $(ROOT)/lib.$(DLL_EXT) $(ROOT)/libloaddep.$(DLL_EXT) $(DRUNTIMESO)
+	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKFLAGS) -L$(ROOT)/libloaddep.$(LIB_EXT)
 
-$(ROOT)/load_loaddep: $(SRC)/load_loaddep.d $(ROOT)/lib.so $(ROOT)/libloaddep.so $(DRUNTIMESO)
+$(ROOT)/load_loaddep: $(SRC)/load_loaddep.d $(ROOT)/lib.$(DLL_EXT) $(ROOT)/libloaddep.$(DLL_EXT) $(DRUNTIMESO)
 	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKFLAGS) $(LINKDL)
 
-$(ROOT)/load $(ROOT)/finalize: $(ROOT)/%: $(SRC)/%.d $(ROOT)/lib.so $(DRUNTIMESO)
+$(ROOT)/load $(ROOT)/finalize: $(ROOT)/%: $(SRC)/%.d $(ROOT)/lib.$(DLL_EXT) $(DRUNTIMESO)
 	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKDL)
 
-$(ROOT)/load_13414: $(ROOT)/%: $(SRC)/%.d $(ROOT)/lib_13414.so $(DRUNTIMESO)
+$(ROOT)/load_13414: $(ROOT)/%: $(SRC)/%.d $(ROOT)/lib_13414.$(DLL_EXT) $(DRUNTIMESO)
 	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKDL)
 
-$(ROOT)/linkD: $(SRC)/linkD.c $(ROOT)/lib.so $(DRUNTIMESO)
-	$(QUIET)$(CC) $(CFLAGS) -o $@ $< $(ROOT)/lib.so $(LDL) -pthread
 
-$(ROOT)/linkDR: $(SRC)/linkDR.c $(ROOT)/lib.so $(DRUNTIMESO)
+ifeq (,$(findstring win,$(OS)))
+
+$(ROOT)/linkD: $(SRC)/linkD.c $(ROOT)/lib.$(DLL_EXT) $(DRUNTIMESO)
+	$(QUIET)$(CC) $(CFLAGS) -o $@ $< $(ROOT)/lib.$(DLL_EXT) $(LDL) -pthread
+
+$(ROOT)/linkDR: $(SRC)/linkDR.c $(ROOT)/lib.$(DLL_EXT) $(DRUNTIMESO)
 	$(QUIET)$(CC) $(CFLAGS) -o $@ $< $(DRUNTIMESO) $(LDL) -pthread
 
-$(ROOT)/loadDR: $(SRC)/loadDR.c $(ROOT)/lib.so $(DRUNTIMESO)
+$(ROOT)/loadDR: $(SRC)/loadDR.c $(ROOT)/lib.$(DLL_EXT) $(DRUNTIMESO)
 	$(QUIET)$(CC) $(CFLAGS) -o $@ $< $(LDL) -pthread
 
-$(ROOT)/host: $(SRC)/host.c $(ROOT)/plugin1.so $(ROOT)/plugin2.so
+$(ROOT)/host: $(SRC)/host.c $(ROOT)/plugin1.$(DLL_EXT) $(ROOT)/plugin2.$(DLL_EXT)
 	$(QUIET)$(CC) $(CFLAGS) -o $@ $< $(LDL) -pthread
 
-$(ROOT)/liblinkdep.so: $(ROOT)/lib.so
-$(ROOT)/liblinkdep.so: DFLAGS+=-L$(ROOT)/lib.so
+else
+# Windows
 
-$(ROOT)/plugin1.so $(ROOT)/plugin2.so: $(SRC)/plugin.d $(DRUNTIMESO)
+$(ROOT)/linkD: $(SRC)/linkD.c $(ROOT)/lib.$(DLL_EXT) $(DRUNTIMESO)
+	$(QUIET)$(CC) $(CFLAGS) /Fe$@ $< $(ROOT)/lib.$(LIB_EXT)
+
+$(ROOT)/linkDR: $(SRC)/linkDR.c $(ROOT)/lib.$(DLL_EXT) $(DRUNTIMESO)
+	$(QUIET)$(CC) $(CFLAGS) /Fe$@ $< $(DRUNTIMESO)
+
+$(ROOT)/loadDR: $(SRC)/loadDR.c $(ROOT)/lib.$(DLL_EXT) $(DRUNTIMESO)
+	$(QUIET)$(CC) $(CFLAGS) /Fe$@ $<
+
+$(ROOT)/host: $(SRC)/host.c $(ROOT)/plugin1.$(DLL_EXT) $(ROOT)/plugin2.$(DLL_EXT)
+	$(QUIET)$(CC) $(CFLAGS) /Fe$@ $<
+
+# end Windows
+endif
+
+$(ROOT)/liblinkdep.$(DLL_EXT): $(ROOT)/lib.$(DLL_EXT)
+$(ROOT)/liblinkdep.$(DLL_EXT): DFLAGS+=-L$(ROOT)/lib.$(LIB_EXT)
+
+$(ROOT)/plugin1.$(DLL_EXT) $(ROOT)/plugin2.$(DLL_EXT): $(SRC)/plugin.d $(DRUNTIMESO)
 	$(QUIET)$(DMD) -fPIC -shared $(DFLAGS) -of$@ $<
 
-$(ROOT)/%.so: $(SRC)/%.d $(DRUNTIMESO)
+$(ROOT)/%.$(DLL_EXT): $(SRC)/%.d $(DRUNTIMESO)
 	$(QUIET)$(DMD) -fPIC -shared $(DFLAGS) -of$@ $< $(LINKDL)
 
 clean:
 	rm -rf $(GENERATED)
-
-endif
-# end non-Windows
