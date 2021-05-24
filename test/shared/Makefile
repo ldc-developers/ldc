@@ -55,6 +55,9 @@ dllgc:
 	$(ROOT)/loaddllgc.exe
 	rm $(ROOT)/loaddllgc.* $(ROOT)/dllgc.*
 
+# LDC: this test is designed for .exe & .dll with separate druntimes
+dllgc: DFLAGS+=-link-defaultlib-shared=false
+
 # end Windows
 endif
 
