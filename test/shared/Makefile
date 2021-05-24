@@ -111,16 +111,16 @@ else
 # Windows
 
 $(ROOT)/linkD: $(SRC)/linkD.c $(ROOT)/lib.$(DLL_EXT) $(DRUNTIMESO)
-	$(QUIET)$(CC) $(CFLAGS) /Fe$@ $< $(ROOT)/lib.$(LIB_EXT)
+	$(QUIET)$(CC) $(CFLAGS) /Fo$@.obj /Fe$@.exe $< $(ROOT)/lib.$(LIB_EXT)
 
 $(ROOT)/linkDR: $(SRC)/linkDR.c $(ROOT)/lib.$(DLL_EXT) $(DRUNTIMESO)
-	$(QUIET)$(CC) $(CFLAGS) /Fe$@ $< $(DRUNTIMESO)
+	$(QUIET)$(CC) $(CFLAGS) /Fo$@.obj /Fe$@.exe $< $(DRUNTIMESO)
 
 $(ROOT)/loadDR: $(SRC)/loadDR.c $(ROOT)/lib.$(DLL_EXT) $(DRUNTIMESO)
-	$(QUIET)$(CC) $(CFLAGS) /Fe$@ $<
+	$(QUIET)$(CC) $(CFLAGS) /Fo$@.obj /Fe$@.exe $<
 
 $(ROOT)/host: $(SRC)/host.c $(ROOT)/plugin1.$(DLL_EXT) $(ROOT)/plugin2.$(DLL_EXT)
-	$(QUIET)$(CC) $(CFLAGS) /Fe$@ $<
+	$(QUIET)$(CC) $(CFLAGS) /Fo$@.obj /Fe$@.exe $<
 
 # end Windows
 endif
