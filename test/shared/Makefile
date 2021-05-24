@@ -11,7 +11,12 @@ ifneq ($(OS),osx)
 	#   by the (potentially overly eager) module collision detection on OS X.
 	# * FIXME: `load_linkdep`
 	#   it might fail because of unimplemented `getDependencies()` in rt.sections_elf_shared
-	TESTS+=finalize host load_linkdep
+	ifneq (,$(findstring win,$(OS)))
+		# LDC FIXME: disable `load_linkdep` on Windows - needs `getDependencies()`
+		TESTS+=finalize host
+	else
+		TESTS+=finalize host load_linkdep
+	endif
 endif
 TESTS+=link_linkdep link_loaddep load_loaddep load_13414
 
