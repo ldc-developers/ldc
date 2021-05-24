@@ -35,8 +35,7 @@ else
 all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS))) loadlibwin dllrefcount dllgc
 LIB_EXT:=lib
 DLL_EXT:=dll
-CC=cl.exe
-CFLAGS:=/MD /Zi
+CC:=cl.exe
 
 $(ROOT)/loadDR.done $(ROOT)/host.done: RUN_ARGS:=$(subst .lib,.dll,$(DRUNTIMESO))
 
