@@ -32,11 +32,17 @@ void register_dso()
     dsoData._getTLSRange = &getTLSRange;
 
     _d_dso_registry(&dsoData);
+
+    // The default MSVCRT DllMain appears not to call `pragma(crt_destructor)`
+    // functions, not even when explicitly unloading via `FreeLibrary()`.
+    // Fortunately, registering an atexit handler inside the DSO seems to do
+    // the job just as well.
+    import core.stdc.stdlib : atexit;
+    atexit(&unregister_dso);
 }
 
-// Automatically unregisters this DSO from druntime.
-pragma(crt_destructor)
-void unregister_dso()
+// Unregisters this DSO from druntime.
+extern (C) void unregister_dso()
 {
     _d_dso_registry(&dsoData);
 }
