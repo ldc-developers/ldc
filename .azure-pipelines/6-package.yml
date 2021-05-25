@@ -5,10 +5,11 @@
 # - ARCH
 # - CI_OS
 # - EXTRA_CMAKE_FLAGS_CROSS (optional)
+# - CROSS_TRIPLE (optional)
 
 steps:
 
-# Add dub & dlang tools
+# Add dub, dlang tools & reggae
 - bash: |
     set -e
     cd ..
@@ -43,6 +44,20 @@ steps:
     $DMD -w -de -dip1000 DustMite/dustmite.d DustMite/splitter.d DustMite/polyhash.d -of=bin/dustmite
     cp bin/{rdmd,ddemangle,dustmite} ../installed/bin
   displayName: Build & copy dlang tools
+- bash: |
+    set -ex
+    cd ..
+    git clone --recursive https://github.com/atilaneves/reggae.git
+    cd reggae
+    git checkout "$(cat $BUILD_SOURCESDIRECTORY/packaging/reggae_version)"
+    DFLAGS="-O $DFLAGS" ../host-ldc/bin/dub build -v --build-mode=allAtOnce --combined \
+      --compiler="$(dirname "$DMD")/ldc2" \
+      ${CROSS_TRIPLE:+--arch="$CROSS_TRIPLE"}
+    cp bin/reggae ../installed/bin
+    if [[ "$EXTRA_CMAKE_FLAGS_CROSS" == "" ]]; then
+      ../installed/bin/reggae --version -b ninja
+    fi
+  displayName: Build & copy reggae
 
 # Pack & publish artifact(s)
 - bash: |

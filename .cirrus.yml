@@ -256,6 +256,15 @@ task:
     $DMD -w -de -dip1000 ddemangle.d -of=bin/ddemangle
     $DMD -w -de -dip1000 DustMite/dustmite.d DustMite/splitter.d DustMite/polyhash.d -of=bin/dustmite
     cp bin/{rdmd,ddemangle,dustmite} ../installed/bin
+  # Build & copy reggae
+  build_reggae_script: |
+    cd $CIRRUS_WORKING_DIR/..
+    git clone --recursive https://github.com/atilaneves/reggae.git
+    cd reggae
+    git checkout "$(cat $CIRRUS_WORKING_DIR/packaging/reggae_version)"
+    DFLAGS="-O" ../dub/bin/dub build -v --combined --compiler="$PWD/../installed/bin/ldc2"
+    cp bin/reggae ../installed/bin
+    ../installed/bin/reggae --version -b ninja
   # Pack artifact
   pack_artifact_script: |
     cd $CIRRUS_WORKING_DIR/..
