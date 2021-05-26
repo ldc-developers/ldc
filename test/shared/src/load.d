@@ -153,7 +153,8 @@ void main(string[] args)
         name ~= '\0';
         version (Windows)
         {
-            // TODO
+            import core.sys.windows.winbase;
+            assert(!GetModuleHandleA(name.ptr));
         }
         else
         {
