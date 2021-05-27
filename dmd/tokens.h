@@ -188,6 +188,9 @@ enum
         TOKobjc_class_reference,
         TOKvectorarray,
 
+        TOKarrow,
+        TOKcolonColon,
+
         TOKMAX
 };
 

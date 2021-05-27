@@ -500,19 +500,19 @@ void parseCommandLine(Strings &sourceFiles) {
     if (!ext) {
       // keep things as they are
     } else if (opts::output_ll.getNumOccurrences() == 0 &&
-               strcmp(ext, global.ll_ext.ptr) == 0) {
+               strcmp(ext, ll_ext.ptr) == 0) {
       global.params.output_ll = OUTPUTFLAGset;
       global.params.output_o = OUTPUTFLAGno;
     } else if (opts::output_bc.getNumOccurrences() == 0 &&
-               strcmp(ext, global.bc_ext.ptr) == 0) {
+               strcmp(ext, bc_ext.ptr) == 0) {
       global.params.output_bc = OUTPUTFLAGset;
       global.params.output_o = OUTPUTFLAGno;
     } else if (opts::output_s.getNumOccurrences() == 0 &&
-               strcmp(ext, global.s_ext.ptr) == 0) {
+               strcmp(ext, s_ext.ptr) == 0) {
       global.params.output_s = OUTPUTFLAGset;
       global.params.output_o = OUTPUTFLAGno;
     } else if (opts::output_mlir.getNumOccurrences() == 0 &&
-               strcmp(ext, global.mlir_ext.ptr) == 0) {
+               strcmp(ext, mlir_ext.ptr) == 0) {
       global.params.output_mlir = OUTPUTFLAGset;
       global.params.output_o = OUTPUTFLAGno;
     }

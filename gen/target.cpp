@@ -48,10 +48,12 @@ void Target::_init(const Param &params) {
 
   c.longsize = params.is64bit && !isMSVC ? 8 : 4;
   c.long_doublesize = realsize;
+  c.twchar_t = triple.isOSWindows() ? Type::twchar : Type::tdchar;
 
   cpp.reverseOverloads = isMSVC; // according to DMD, only for MSVC++
   cpp.exceptions = true;
   cpp.twoDtorInVtable = !isMSVC;
+  cpp.wrapDtorInExternD = triple.getArch() == llvm::Triple::x86;
 
   objc.supported = params.hasObjectiveC;
 
