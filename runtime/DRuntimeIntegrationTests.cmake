@@ -56,6 +56,13 @@ list(REMOVE_ITEM testnames uuid) # MSVC only, custom Makefile (win64.mak)
 
 foreach(name ${testnames})
     foreach(build debug release)
+        set(druntime_path_build ${druntime_path})
+        set(shared_druntime_path_build ${shared_druntime_path})
+        if(${build} STREQUAL "debug")
+            string(REPLACE "druntime-ldc" "druntime-ldc-debug" druntime_path_build ${druntime_path_build})
+            string(REPLACE "druntime-ldc" "druntime-ldc-debug" shared_druntime_path_build ${shared_druntime_path_build})
+        endif()
+
         set(fullname druntime-test-${name}-${build})
         set(outdir ${PROJECT_BINARY_DIR}/${fullname})
         add_test(NAME clean-${fullname}
@@ -64,7 +71,7 @@ foreach(name ${testnames})
         add_test(NAME ${fullname}
             COMMAND ${GNU_MAKE_BIN} -C ${PROJECT_SOURCE_DIR}/druntime/test/${name}
                 ROOT=${outdir} DMD=${LDMD_EXE_FULL} MODEL=default BUILD=${build}
-                DRUNTIME=${druntime_path} DRUNTIMESO=${shared_druntime_path}
+                DRUNTIME=${druntime_path_build} DRUNTIMESO=${shared_druntime_path_build}
                 ${cflags_base} ${linkdl}
         )
         set_tests_properties(${fullname} PROPERTIES DEPENDS clean-${fullname})
