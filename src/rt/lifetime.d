@@ -1153,7 +1153,7 @@ extern (C) void[] _d_newarraymiTX(const TypeInfo ti, size_t[] dims)
  * Allocate an uninitialized non-array item.
  * This is an optimization to avoid things needed for arrays like the __arrayPad(size).
  */
-extern (C) void* _d_newitemU(in TypeInfo _ti) pure nothrow
+extern (C) void* _d_newitemU(scope const TypeInfo _ti) pure nothrow
 @weak // LDC
 {
     auto ti = unqualify(_ti);
