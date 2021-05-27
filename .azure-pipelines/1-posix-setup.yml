@@ -23,7 +23,7 @@ steps:
     cd ..
     if [ "$CI_OS" = "osx" ]; then
       # Download & extract Ninja
-      curl -L -o ninja-mac.zip https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-mac.zip
+      curl --max-time 60 --retry 3 -L -o ninja-mac.zip https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-mac.zip
       mkdir ninja
       tar -xf ninja-mac.zip -C ninja
     else
@@ -36,7 +36,7 @@ steps:
         libcurl4 libcurl4:i386 \
         curl gdb=8.1.1-0ubuntu1 p7zip-full tzdata unzip zip python3-pip
       # Download & extract clang
-      curl -L -o clang.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-$CLANG_VERSION/clang+llvm-$CLANG_VERSION-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+      curl --max-time 300 --retry 3 -L -o clang.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-$CLANG_VERSION/clang+llvm-$CLANG_VERSION-x86_64-linux-gnu-ubuntu-16.04.tar.xz
       mkdir clang
       tar -xf clang.tar.xz --strip 1 -C clang
     fi
@@ -47,7 +47,7 @@ steps:
     # Download & extract host LDC
     HOST_OS="$CI_OS"
     if [ "$CI_OS" = "android" ]; then HOST_OS="linux"; fi
-    curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$HOST_OS-x86_64.tar.xz
+    curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$HOST_OS-x86_64.tar.xz
     mkdir host-ldc
     tar -xf ldc2.tar.xz --strip 1 -C host-ldc
     # Download & extract LDC-flavoured LLVM
@@ -55,7 +55,7 @@ steps:
     if [ "${BUILD_SOURCEBRANCH:0:10}" != "refs/tags/" ]; then
       assertsSuffix="-withAsserts"
     fi
-    curl -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$HOST_OS-x86_64$assertsSuffix.tar.xz
+    curl --max-time 300 --retry 3 -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$HOST_OS-x86_64$assertsSuffix.tar.xz
     mkdir llvm
     tar -xf llvm.tar.xz --strip 1 -C llvm
     # Set PARALLEL_JOBS env variable and persist it for future steps

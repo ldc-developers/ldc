@@ -9,7 +9,7 @@ steps:
     cd ..
     cp libcurl/ldc2/libcurl.dll installed/bin
     cp libcurl/ldc2/*.* installed/lib
-    curl -L -o mingw-w64-libs.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v8.0.0/mingw-w64-libs-v8.0.0.7z
+    curl --max-time 60 --retry 3 -L -o mingw-w64-libs.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v8.0.0/mingw-w64-libs-v8.0.0.7z
     mkdir mingw-w64-libs
     cd mingw-w64-libs
     7z x ../mingw-w64-libs.7z > /dev/null

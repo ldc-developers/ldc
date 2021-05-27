@@ -94,7 +94,7 @@ jobs:
           else
             llvm_url="http://releases.llvm.org/$version/clang+llvm-$version-$suffix.tar.xz"
           fi
-          curl -L -o llvm.tar.xz $llvm_url
+          curl --max-time 300 --retry 3 -L -o llvm.tar.xz $llvm_url
           mkdir -p llvm
           tar -xf llvm.tar.xz --strip 1 -C llvm
           rm llvm.tar.xz
