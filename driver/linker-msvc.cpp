@@ -109,7 +109,7 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
 
   // specify that the image will contain a table of safe exception handlers
   // and can handle addresses >2GB (32bit only)
-  if (!global.params.is64bit) {
+  if (global.params.targetTriple->isArch32Bit()) {
     args.push_back("/SAFESEH");
     args.push_back("/LARGEADDRESSAWARE");
   }

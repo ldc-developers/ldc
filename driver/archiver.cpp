@@ -9,6 +9,7 @@
 
 #include "dmd/errors.h"
 #include "dmd/globals.h"
+#include "dmd/target.h"
 #include "driver/cl_options.h"
 #include "driver/timetrace.h"
 #include "driver/tool.h"
@@ -239,7 +240,7 @@ std::string getOutputPath() {
     // DMD adds the default extension if there is none
     libName = opts::invokedByLDMD
                   ? FileName::defaultExt(global.params.libname.ptr,
-                                         global.lib_ext.ptr)
+                                         target.lib_ext.ptr)
                   : global.params.libname.ptr;
   } else { // infer from first object file
     libName =
@@ -247,7 +248,7 @@ std::string getOutputPath() {
             ? FileName::removeExt(FileName::name(global.params.objfiles[0]))
             : "a.out";
     libName += '.';
-    libName += global.lib_ext.ptr;
+    libName += target.lib_ext.ptr;
   }
 
   // DMD creates static libraries in the objects directory (unless using an

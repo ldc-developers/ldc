@@ -52,7 +52,7 @@ version (IN_LLVM)
 {
     // Return the mangled name of the RTTI Type Descriptor.
     // Reverse-engineered using a few C++ exception classes.
-    scope VisualCPPMangler v = new VisualCPPMangler(!global.params.mscoff);
+    scope VisualCPPMangler v = new VisualCPPMangler(!target.mscoff);
     v.buf.writestring("\1??_R0?AV");
     v.mangleIdent(s);
     v.buf.writestring("@8");

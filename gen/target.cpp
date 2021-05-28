@@ -39,6 +39,22 @@ void Target::_init(const Param &params) {
   const bool isMSVC = triple.isWindowsMSVCEnvironment();
   llvm::Type *const real = DtoType(Type::basic[Tfloat80]);
 
+  if (triple.isOSLinux()) {
+    os = OS_linux;
+  } else if (triple.isOSDarwin()) {
+    os = OS_OSX;
+  } else if (triple.isOSWindows()) {
+    os = OS_Windows;
+  } else if (triple.isOSFreeBSD()) {
+    os = OS_FreeBSD;
+  } else if (triple.isOSOpenBSD()) {
+    os = OS_OpenBSD;
+  } else if (triple.isOSDragonFly()) {
+    os = OS_DragonFlyBSD;
+  } else if (triple.isOSSolaris()) {
+    os = OS_Solaris;
+  }
+
   ptrsize = gDataLayout->getPointerSize();
   realsize = gDataLayout->getTypeAllocSize(real);
   realpad = realsize - gDataLayout->getTypeStoreSize(real);
@@ -46,7 +62,7 @@ void Target::_init(const Param &params) {
   classinfosize = 0; // unused
   maxStaticDataSize = std::numeric_limits<unsigned long long>::max();
 
-  c.longsize = params.is64bit && !isMSVC ? 8 : 4;
+  c.longsize = triple.isArch64Bit() && !isMSVC ? 8 : 4;
   c.long_doublesize = realsize;
   c.twchar_t = triple.isOSWindows() ? Type::twchar : Type::tdchar;
 
@@ -55,10 +71,31 @@ void Target::_init(const Param &params) {
   cpp.twoDtorInVtable = !isMSVC;
   cpp.wrapDtorInExternD = triple.getArch() == llvm::Triple::x86;
 
-  objc.supported = params.hasObjectiveC;
+  objc.supported = objc_isSupported(triple);
 
   const llvm::StringRef archName = triple.getArchName();
   architectureName = {archName.size(), archName.data()};
+
+  is64bit = triple.isArch64Bit();
+  isLP64 = gDataLayout->getPointerSizeInBits() == 64;
+  run_noext = !triple.isOSWindows();
+  mscoff = isMSVC;
+
+  if (isMSVC) {
+    obj_ext = {3, "obj"};
+    lib_ext = {3, "lib"};
+  } else {
+    obj_ext = {1, "o"};
+    lib_ext = {1, "a"};
+  }
+
+  if (triple.isOSWindows()) {
+    dll_ext = {3, "dll"};
+  } else if (triple.isOSDarwin()) {
+    dll_ext = {5, "dylib"};
+  } else {
+    dll_ext = {2, "so"};
+  }
 
   // Finalize RealProperties for the target's `real` type.
 

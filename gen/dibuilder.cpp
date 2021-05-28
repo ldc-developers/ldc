@@ -19,6 +19,7 @@
 #include "dmd/module.h"
 #include "dmd/mtype.h"
 #include "dmd/nspace.h"
+#include "dmd/target.h"
 #include "dmd/template.h"
 #include "driver/cl_options.h"
 #include "driver/ldc-version.h"
@@ -632,7 +633,7 @@ DIType DIBuilder::CreateArrayType(TypeArray *type) {
   LLMetadata *elems[] = {CreateMemberType(0, Type::tsize_t, file, "length", 0,
                                           Visibility::public_),
                          CreateMemberType(0, type->nextOf()->pointerTo(), file,
-                                          "ptr", global.params.is64bit ? 8 : 4,
+                                          "ptr", target.ptrsize,
                                           Visibility::public_)};
 
   return DBuilder.createStructType(scope, name, file,
@@ -739,7 +740,7 @@ DIType DIBuilder::CreateDelegateType(TypeDelegate *type) {
       CreateMemberType(0, Type::tvoidptr, file, "context", 0,
                        Visibility::public_),
       CreateMemberType(0, type->next->pointerTo(), file, "funcptr",
-                       global.params.is64bit ? 8 : 4, Visibility::public_)};
+                       target.ptrsize, Visibility::public_)};
 
   return DBuilder.createStructType(scope, name, file,
                                    0, // line number where defined

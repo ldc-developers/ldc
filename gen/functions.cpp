@@ -954,7 +954,7 @@ bool eraseDummyAfterReturnBB(llvm::BasicBlock *bb) {
  * to be found.
  */
 void emulateWeakAnyLinkageForMSVC(LLFunction *func, LINK linkage) {
-  const bool isWin32 = !global.params.is64bit;
+  const bool isWin32 = global.params.targetTriple->isArch32Bit();
 
   std::string mangleBuffer;
   llvm::StringRef finalMangle = func->getName();
