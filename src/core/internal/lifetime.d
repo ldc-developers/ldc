@@ -95,8 +95,11 @@ if (!is(T == const) && !is(T == immutable) && !is(T == inout))
     import core.internal.traits : hasElaborateAssign;
 
     // Avoid stack allocation by hacking to get to the init symbol.
-    pragma(mangle, "_D" ~ T.mangleof[1..$] ~ "6__initZ")
-    __gshared extern immutable typeof(T.init) initializer;
+    static if (is(T == struct))
+    {
+        pragma(mangle, "_D" ~ T.mangleof[1..$] ~ "6__initZ")
+        __gshared extern immutable T initializer;
+    }
 
     void emplaceInitializer(scope ref T chunk) nothrow pure @trusted
     {
