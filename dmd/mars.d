@@ -203,7 +203,7 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
 
 } // !IN_LLVM
 
-extern (C++) int mars_mainBody(ref Param params, ref Strings files, ref Strings libmodules)
+extern (C++) int mars_mainBody(ref Param params, ref Strings files, ref Strings libmodules, bool isLP64)
 {
     /*
     Prints a supplied usage text to the console and
@@ -348,7 +348,7 @@ else
 }
 
     // Initialization
-    Type._init();
+    Type._init(isLP64);
     Id.initialize();
     Module._init();
     target._init(params);

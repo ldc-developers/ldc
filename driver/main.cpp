@@ -1107,7 +1107,8 @@ int cppmain() {
   {
     TimeTraceScope timeScope("ExecuteCompiler");
     Strings libmodules;
-    status = mars_mainBody(global.params, files, libmodules);
+    status = mars_mainBody(global.params, files, libmodules,
+                           gDataLayout->getPointerSizeInBits() == 64);
   }
 
   // try to remove the temp objects dir if created for -cleanup-obj
