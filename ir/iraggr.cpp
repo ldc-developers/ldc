@@ -83,9 +83,12 @@ LLConstant *IrAggr::getInitSymbol(bool define) {
     // declaration when compiling the rt.util.typeinfo unittests.
     auto initGlobal = gIR->module.getGlobalVariable(irMangle);
     if (initGlobal) {
-      assert(isBuiltinTypeInfo && !initGlobal->hasInitializer() &&
-             "existing global expected to be a built-in TypeInfo forward "
-             "declaration");
+      assert(!initGlobal->hasInitializer() &&
+             "existing init symbol not expected to be defined");
+      assert((isBuiltinTypeInfo ||
+              initGlobal->getType()->getPointerElementType() ==
+                  getLLStructType()) &&
+             "type of existing init symbol declaration doesn't match");
     } else {
       // Init symbols of built-in TypeInfos need to be kept mutable as the type
       // is not declared as immutable on the D side, and e.g. synchronized() can
