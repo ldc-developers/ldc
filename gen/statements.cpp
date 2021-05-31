@@ -49,6 +49,26 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p);
 
 //////////////////////////////////////////////////////////////////////////////
 
+namespace {
+bool isAssertFalse(Expression *e) {
+  return e ? e->type == Type::tnoreturn &&
+                 (e->op == TOKhalt || e->op == TOKassert)
+           : false;
+}
+
+bool isAssertFalse(Statement *s) {
+  if (!s)
+    return false;
+  if (auto es = s->isExpStatement())
+    return isAssertFalse(es->exp);
+  else if (auto ss = s->isScopeStatement())
+    return isAssertFalse(ss->statement);
+  return false;
+}
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 /// Used to check if a control-flow stmt body contains any label. A label
 /// is considered anything that lets us jump inside the body _apart from_
 /// the stmt. That includes case / default statements.
@@ -315,8 +335,10 @@ public:
     irs->DBuilder.EmitStopPoint(stmt->loc);
 
     if (auto e = stmt->exp) {
-      if (e->hasCode())
+      if (e->hasCode() &&
+          !isAssertFalse(e)) { // `assert(0)` not meant to be covered
         emitCoverageLinecountInc(stmt->loc);
+      }
 
       DValue *elem;
       // a cast(void) around the expression is allowed, but doesn't require any
@@ -1143,7 +1165,9 @@ public:
 
     assert(stmt->statement);
     irs->DBuilder.EmitBlockStart(stmt->statement->loc);
-    emitCoverageLinecountInc(stmt->loc);
+    if (!isAssertFalse(stmt->statement)) {
+      emitCoverageLinecountInc(stmt->loc);
+    }
     if (stmt->gototarget) {
       PGO.emitCounterIncrement(PGO.getCounterPtr(stmt, 1));
     }
@@ -1174,7 +1198,9 @@ public:
 
     assert(stmt->statement);
     irs->DBuilder.EmitBlockStart(stmt->statement->loc);
-    emitCoverageLinecountInc(stmt->loc);
+    if (!isAssertFalse(stmt->statement)) {
+      emitCoverageLinecountInc(stmt->loc);
+    }
     if (stmt->gototarget) {
       PGO.emitCounterIncrement(PGO.getCounterPtr(stmt, 1));
     }
