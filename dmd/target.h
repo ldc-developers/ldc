@@ -26,6 +26,10 @@ class Type;
 class TypeTuple;
 class TypeFunction;
 
+#if IN_LLVM
+namespace llvm { class Type; }
+#endif
+
 enum class CPU
 {
     x87,
@@ -125,6 +129,9 @@ struct Target
     OS os;
     // D ABI
     unsigned ptrsize;
+#if IN_LLVM
+    llvm::Type *realType;
+#endif
     unsigned realsize;           // size a real consumes in memory
     unsigned realpad;            // 'padding' added to the CPU real size to bring it up to realsize
     unsigned realalignsize;      // alignment for reals

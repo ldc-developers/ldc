@@ -125,6 +125,10 @@ extern (C++) struct Target
 
     // D ABI
     uint ptrsize;             /// size of a pointer in bytes
+version (IN_LLVM)
+{
+    void* realType;           // llvm::Type* for `real`
+}
     uint realsize;            /// size a real consumes in memory
     uint realpad;             /// padding added to the CPU real size to bring it up to realsize
     uint realalignsize;       /// alignment for reals
