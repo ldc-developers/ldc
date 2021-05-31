@@ -298,7 +298,7 @@ version (IN_LLVM) {} else
 } // !IN_LLVM
 
     if (params.color)
-        global.console = Console.create(core.stdc.stdio.stderr);
+        global.console = cast(void*) createConsole(core.stdc.stdio.stderr);
 
 version (IN_LLVM) {} else
 {

@@ -10,6 +10,7 @@
 # - PARALLEL_JOBS
 # Exported env vars:
 # - DFLAGS
+# - CROSS_TRIPLE
 # - EXTRA_CMAKE_FLAGS_ANDROID
 
 steps:
@@ -48,6 +49,7 @@ steps:
     DFLAGS="-mtriple=$LLVM_TRIPLE -L-L$PWD/ldc-build-runtime.tmp/lib -gcc=$PWD/android-ndk-$ANDROID_NDK_VERSION/toolchains/llvm/prebuilt/linux-x86_64/bin/$ARCH-linux-${androidEnv}21-clang"
     set +x
     echo "##vso[task.setvariable variable=DFLAGS]$DFLAGS"
+    echo "##vso[task.setvariable variable=CROSS_TRIPLE]$LLVM_TRIPLE"
   displayName: Set up cross-compilation
 
 # Cross-compile default libraries
