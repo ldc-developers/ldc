@@ -316,7 +316,7 @@ private void verrorPrint(const ref Loc loc, Color headerColor, const(char)* head
 
     if (global.params.showGaggedErrors && global.gag)
         fprintf(stderr, "(spec:%d) ", global.gag);
-    Console* con = cast(Console*)global.console;
+    Console con = cast(Console) global.console;
     const p = loc.toChars();
     if (con)
         con.setColorBright(true);
@@ -771,7 +771,7 @@ private void colorHighlightCode(ref OutBuffer buf)
  * Params:
  *      buf = highlighted text
  */
-private void writeHighlights(Console* con, ref const OutBuffer buf)
+private void writeHighlights(Console con, ref const OutBuffer buf)
 {
     bool colors;
     scope (exit)

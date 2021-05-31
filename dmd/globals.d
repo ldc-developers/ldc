@@ -540,8 +540,8 @@ else
             }
 
             // -color=auto is the default value
-            import dmd.console : Console;
-            params.color = Console.detectTerminal();
+            import dmd.console : detectTerminal;
+            params.color = detectTerminal();
         }
         else version (IN_GCC)
         {
@@ -560,8 +560,8 @@ else
             bc_ext  = "bc";
             s_ext   = "s";
 
-            import dmd.console : Console;
-            params.color = Console.detectTerminal();
+            import dmd.console : detectTerminal;
+            params.color = detectTerminal();
         }
     }
 
