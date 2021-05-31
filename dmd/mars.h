@@ -4,7 +4,7 @@
 
 struct Param;
 
-int mars_mainBody(Param &params, Strings &files, Strings &libmodules, bool isLP64);
+int mars_mainBody(Param &params, Strings &files, Strings &libmodules);
 
 void parseTransitionOption(Param &params, const char *name);
 void parsePreviewOption(Param &params, const char *name);

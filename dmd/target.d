@@ -214,11 +214,15 @@ else // !IN_LLVM
      */
     extern (C++) void _init(ref const Param params)
     {
+        // is64bit, mscoff and cpu are initialized in parseCommandLine
+
         this.params = &params;
 
         FloatProperties.initialize();
         DoubleProperties.initialize();
         RealProperties.initialize();
+
+        isLP64 = is64bit;
 
         // These have default values for 32 bit code, they get
         // adjusted for 64 bit code.
@@ -1278,7 +1282,7 @@ struct TargetC
 
     uint longsize;            /// size of a C `long` or `unsigned long` type
     uint long_doublesize;     /// size of a C `long double`
-    Type twchar_t;            /// C `wchar_t` type
+    uint wchar_tsize;         /// size of a C `wchar_t` type
 version (IN_LLVM) {} else
 {
     Runtime runtime;          /// vendor of the C runtime to link against
@@ -1308,9 +1312,9 @@ version (IN_LLVM) {} else
         else
             long_doublesize = target.realsize;
         if (os == Target.OS.Windows)
-            twchar_t = Type.twchar;
+            wchar_tsize = 2;
         else
-            twchar_t = Type.tdchar;
+            wchar_tsize = 4;
 
         if (os == Target.OS.Windows)
             runtime = target.mscoff ? Runtime.Microsoft : Runtime.DigitalMars;

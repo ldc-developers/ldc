@@ -203,7 +203,7 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
 
 } // !IN_LLVM
 
-extern (C++) int mars_mainBody(ref Param params, ref Strings files, ref Strings libmodules, bool isLP64)
+extern (C++) int mars_mainBody(ref Param params, ref Strings files, ref Strings libmodules)
 {
     /*
     Prints a supplied usage text to the console and
@@ -348,10 +348,10 @@ else
 }
 
     // Initialization
-    Type._init(isLP64);
+    target._init(params);
+    Type._init();
     Id.initialize();
     Module._init();
-    target._init(params);
     Expression._init();
     Objc._init();
     import dmd.filecache : FileCache;
@@ -2852,10 +2852,6 @@ else
         if (params.mscrtlib)
             error(Loc.initial, "`-mscrtlib` can only be used when targetting windows");
     }
-
-    // Target uses 64bit pointers.
-    // FIXME: X32 is 64bit but uses 32 bit pointers
-    target.isLP64 = target.is64bit;
 } // !IN_LLVM
 
     if (params.boundscheck != CHECKENABLE._default)

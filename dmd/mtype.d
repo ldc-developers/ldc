@@ -830,7 +830,7 @@ version (IN_LLVM)
         return buf.extractChars();
     }
 
-    static void _init(bool isLP64)
+    static void _init()
     {
         stringtable._init(14_000);
 
@@ -914,6 +914,8 @@ version (IN_LLVM)
         tstring = tchar.immutableOf().arrayOf();
         twstring = twchar.immutableOf().arrayOf();
         tdstring = tdchar.immutableOf().arrayOf();
+
+        const isLP64 = target.isLP64;
 
         tsize_t    = basic[isLP64 ? Tuns64 : Tuns32];
         tptrdiff_t = basic[isLP64 ? Tint64 : Tint32];

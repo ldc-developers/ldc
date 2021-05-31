@@ -64,7 +64,7 @@ void Target::_init(const Param &params) {
 
   c.longsize = triple.isArch64Bit() && !isMSVC ? 8 : 4;
   c.long_doublesize = realsize;
-  c.twchar_t = triple.isOSWindows() ? Type::twchar : Type::tdchar;
+  c.wchar_tsize = triple.isOSWindows() ? 2 : 4;
 
   cpp.reverseOverloads = isMSVC; // according to DMD, only for MSVC++
   cpp.exceptions = true;
