@@ -726,6 +726,7 @@ DValue *DtoCast(const Loc &loc, DValue *val, Type *to) {
   case Tstruct:
     return DtoCastStruct(loc, val, to);
   case Tnull:
+  case Tnoreturn:
     return DtoNullValue(to, loc);
   default:
     error(loc, "invalid cast from `%s` to `%s`", val->type->toChars(),
