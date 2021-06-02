@@ -123,7 +123,7 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
   };
   const auto dereference = [&val, &dwarfAddrOps](const char *name = "") {
     gIR->DBuilder.OpDeref(dwarfAddrOps);
-    val = DtoAlignedLoad(val, name);
+    val = DtoLoad(val, name);
   };
 
   const auto vardepth = irLocal->nestedDepth;
@@ -159,7 +159,7 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
     // Handled appropriately by makeVarDValue() and EmitLocalVariable(), pass
     // storage of pointer (reference lvalue).
   } else if (byref || isRefOrOut) {
-    val = DtoAlignedLoad(val);
+    val = DtoLoad(val);
     // ref/out variables get a reference-debuginfo-type in EmitLocalVariable()
     // => don't dereference, use reference lvalue as address
     if (!isRefOrOut)
@@ -299,8 +299,8 @@ LLValue *DtoNestedContext(const Loc &loc, Dsymbol *sym) {
       val = DtoBitCast(val,
                        LLPointerType::getUnqual(getIrFunc(ctxfd)->frameType));
       val = DtoGEP(val, 0, neededDepth);
-      val = DtoAlignedLoad(
-          val, (std::string(".frame.") + frameToPass->toChars()).c_str());
+      val = DtoLoad(val,
+                    (std::string(".frame.") + frameToPass->toChars()).c_str());
     }
   }
 
@@ -464,16 +464,14 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
         src = DtoLoad(DtoGEP(thisptr, 0, getVthisIdx(ad), ".vthis"));
       }
       if (depth > 1) {
-        src = DtoBitCast(src, getVoidPtrType());
-        LLValue *dst = DtoBitCast(frame, getVoidPtrType());
-        DtoMemCpy(dst, src, DtoConstSize_t((depth - 1) * target.ptrsize),
-                  getABITypeAlign(getVoidPtrType()));
+        unsigned align = target.ptrsize;
+        DtoMemCpy(frame, src, align, align, (depth - 1) * target.ptrsize);
       }
       // Copy nestArg into framelist; the outer frame is not in the list of
       // pointers
       src = DtoBitCast(src, frameType->getContainedType(depth - 1));
       LLValue *gep = DtoGEP(frame, 0, depth - 1);
-      DtoAlignedStore(src, gep);
+      DtoStore(src, gep);
     }
 
     funcGen.nestedVar = frame;
@@ -498,14 +496,14 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
         if (vd->isRef() || vd->isOut()) {
           Logger::println(
               "Captured by reference, copying pointer to nested frame");
-          DtoAlignedStore(parm->value, gep);
+          DtoStore(parm->value, gep);
           // pass GEP as reference lvalue to EmitLocalVariable()
         } else {
           Logger::println("Copying to nested frame");
           // The parameter value is an alloca'd stack slot.
           // Copy to the nesting frame and leave the alloca for
           // the optimizers to clean up.
-          DtoMemCpy(gep, parm->value);
+          DtoMemCpy(gep, parm->value, DtoAlignment(vd));
           gep->takeName(parm->value);
           parm->value = gep;
         }

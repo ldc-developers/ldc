@@ -155,6 +155,9 @@ public:
     FuncDeclaration *const fd = f->decl;
     llvm::FunctionType *funcType = f->getLLVMFuncType();
 
+    Type *const tret = f->type->next;
+    const unsigned tretAlign = DtoAlignment(tret);
+
     emitInstrumentationFnLeave(fd);
 
     const auto cleanupScopeBeforeExpression =
@@ -170,7 +173,7 @@ public:
       if (!stmt->exp) {
         // implicitly return 0 for the main function
         returnValue = LLConstant::getNullValue(funcType->getReturnType());
-      } else if (f->type->next->toBasetype()->ty == Tvoid && !isMainFunc) {
+      } else if (tret->toBasetype()->ty == Tvoid && !isMainFunc) {
         // evaluate expression for side effects
         assert(stmt->exp->type->toBasetype()->ty == Tvoid);
         toElem(stmt->exp);
@@ -184,7 +187,7 @@ public:
 
         assert(!f->irFty.arg_sret->rewrite &&
                "ABI shouldn't have to rewrite sret returns");
-        DLValue returnValue(f->type->next, sretPointer);
+        DLValue returnValue(tret, sretPointer);
 
         // try to construct the return value in-place
         const bool constructed = toInPlaceConstruction(&returnValue, stmt->exp);
@@ -210,7 +213,7 @@ public:
       } else {
         // the return type is not void, so this is a normal "register" return
         if (stmt->exp->op == TOKnull) {
-          stmt->exp->type = f->type->next;
+          stmt->exp->type = tret;
         }
         DValue *dval = nullptr;
         // call postblit if necessary
@@ -231,10 +234,9 @@ public:
         // value is a pointer to a struct or a static array, load from it
         // before returning.
         if (returnValue->getType() != funcType->getReturnType() &&
-            DtoIsInMemoryOnly(f->type->next) &&
-            isaPointer(returnValue->getType())) {
+            DtoIsInMemoryOnly(tret) && isaPointer(returnValue->getType())) {
           Logger::println("Loading value for return");
-          returnValue = DtoLoad(returnValue);
+          returnValue = DtoLoad(returnValue, "", tretAlign);
         }
 
         // can happen for classes
@@ -261,7 +263,7 @@ public:
         funcGen.retBlock = irs->insertBB("return");
         if (returnValue) {
           funcGen.retValSlot =
-              DtoRawAlloca(returnValue->getType(), 0, "return.slot");
+              DtoRawAlloca(returnValue->getType(), tretAlign, "return.slot");
         }
       }
 
@@ -289,8 +291,9 @@ public:
           irs->DBuilder.EmitStopPoint(fd->endloc);
         }
 
-        irs->ir->CreateRet(useRetValSlot ? DtoLoad(funcGen.retValSlot)
-                                         : returnValue);
+        irs->ir->CreateRet(useRetValSlot
+                               ? DtoLoad(funcGen.retValSlot, "", tretAlign)
+                               : returnValue);
       } else {
         irs->ir->CreateRetVoid();
       }
@@ -1635,8 +1638,11 @@ public:
     if (stmt->wthis) {
       LLValue *mem = DtoRawVarDeclaration(stmt->wthis);
       DValue *e = toElemDtor(stmt->exp);
-      LLValue *val = (DtoIsInMemoryOnly(e->type) ? DtoLVal(e) : DtoRVal(e));
-      DtoStore(val, mem);
+      if (DtoIsInMemoryOnly(e->type)) {
+        DtoStore(DtoLVal(e), mem); // TODO: this seems strange
+      } else {
+        DtoStore(DtoRVal(e), mem, DtoAlignment(stmt->wthis));
+      }
     }
 
     if (stmt->_body) {

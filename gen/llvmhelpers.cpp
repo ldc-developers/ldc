@@ -231,9 +231,7 @@ LLValue *DtoAllocaDump(DValue *val, LLType *asType, int alignment,
     const auto minSize =
         std::min(getTypeAllocSize(lval->getType()->getPointerElementType()),
                  getTypeAllocSize(asMemType));
-    const auto minAlignment =
-        std::min(DtoAlignment(val->type), static_cast<unsigned>(alignment));
-    DtoMemCpy(copy, lval, DtoConstSize_t(minSize), minAlignment);
+    DtoMemCpy(copy, lval, alignment, DtoAlignment(val->type), minSize);
     // TODO: zero-out any remaining bytes?
     return copy;
   }
@@ -257,7 +255,7 @@ LLValue *DtoAllocaDump(LLValue *val, LLType *asType, int alignment,
       (getTypeStoreSize(memType) <= getTypeAllocSize(asMemType) ? asMemType
                                                                 : memType);
   LLValue *mem = DtoRawAlloca(allocaType, alignment, name);
-  DtoStoreZextI8(val, DtoBitCast(mem, memType->getPointerTo()));
+  DtoStore(val, DtoBitCast(mem, memType->getPointerTo()), alignment);
   return DtoBitCast(mem, asMemType->getPointerTo());
 }
 
@@ -370,7 +368,7 @@ void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
   assert(t->ty != Tvoid && "Cannot assign values of type void.");
 
   if (t->ty == Tbool) {
-    DtoStoreZextI8(DtoRVal(rhs), DtoLVal(lhs));
+    DtoStore(DtoRVal(rhs), DtoLVal(lhs));
   } else if (t->ty == Tstruct) {
     // don't copy anything to empty structs
     if (static_cast<TypeStruct *>(t)->sym->fields.length > 0) {
@@ -381,7 +379,7 @@ void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
       // time as to not emit an invalid (overlapping) memcpy on trivial
       // struct self-assignments like 'A a; a = a;'.
       if (src != dst)
-        DtoMemCpy(dst, src);
+        DtoMemCpy(dst, src, DtoAlignment(t));
     }
   } else if (t->ty == Tarray || t->ty == Tsarray) {
     DtoArrayAssign(loc, lhs, rhs, op, canSkipPostblit);

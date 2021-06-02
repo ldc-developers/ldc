@@ -450,7 +450,8 @@ DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
     auto lvalue = sretPointer;
     if (!lvalue)
       lvalue = DtoAlloca(returnType, ".__asm_tuple_ret");
-    DtoStore(rv, DtoBitCast(lvalue, getPtrToType(irReturnType)));
+    DtoStore(rv, DtoBitCast(lvalue, getPtrToType(irReturnType)),
+             DtoAlignment(returnType));
     return new DLValue(returnType, lvalue);
   }
 

@@ -105,7 +105,7 @@ struct RemoveStructPadding : ABIRewrite {
     LLValue *lval = DtoAlloca(dty, ".RemoveStructPadding_dump");
     // Make sure the padding is zero, so struct comparisons work.
     // TODO: Only do this if there's padding, and/or only initialize padding.
-    DtoMemSetZero(lval, DtoConstSize_t(getTypeAllocSize(DtoType(dty))));
+    DtoMemSetZero(lval, DtoAlignment(dty));
     DtoPaddedStruct(dty->toBasetype(), v, lval);
     return lval;
   }
@@ -123,40 +123,40 @@ struct RemoveStructPadding : ABIRewrite {
  * the bit-cast.
  */
 struct BaseBitcastABIRewrite : ABIRewrite {
-  static unsigned getMaxAlignment(LLType *llType, Type *dType) {
-    return std::max(getABITypeAlign(llType), DtoAlignment(dType));
-  }
-
   LLValue *put(DValue *dv, bool, bool) override {
     LLType *asType = type(dv->type);
-    const unsigned alignment = getMaxAlignment(asType, dv->type);
+    const unsigned dstAlignment = getABITypeAlign(asType);
+    const unsigned srcAlignment = DtoAlignment(dv->type);
+    const unsigned alignment = std::max(dstAlignment, srcAlignment);
     const char *name = ".BaseBitcastABIRewrite_arg";
 
     if (!dv->isLVal()) {
       LLValue *dump = DtoAllocaDump(dv, asType, alignment,
                                     ".BaseBitcastABIRewrite_arg_storage");
-      return DtoLoad(dump, name);
+      return DtoLoad(dump, name, alignment);
     }
 
     LLValue *address = DtoLVal(dv);
-    LLType *pointeeType = address->getType()->getPointerElementType();
+    const auto pointeeAllocSize =
+        getTypeAllocSize(address->getType()->getPointerElementType());
 
-    if (getTypeStoreSize(asType) > getTypeAllocSize(pointeeType) ||
-        alignment > DtoAlignment(dv->type)) {
-      // not enough allocated memory or insufficiently aligned
+    // not enough allocated memory or insufficiently aligned?
+    if (getTypeStoreSize(asType) > pointeeAllocSize ||
+        alignment > srcAlignment) {
       LLValue *paddedDump = DtoRawAlloca(
           asType, alignment, ".BaseBitcastABIRewrite_padded_arg_storage");
-      DtoMemCpy(paddedDump, address,
-                DtoConstSize_t(getTypeAllocSize(pointeeType)));
-      return DtoLoad(paddedDump, name);
+      DtoMemCpy(paddedDump, address, alignment, srcAlignment,
+                pointeeAllocSize);
+      return DtoLoad(paddedDump, name, alignment);
     }
 
     address = DtoBitCast(address, getPtrToType(asType));
-    return DtoLoad(address, name);
+    return DtoLoad(address, name, alignment);
   }
 
   LLValue *getLVal(Type *dty, LLValue *v) override {
-    const unsigned alignment = getMaxAlignment(v->getType(), dty);
+    const unsigned alignment =
+        std::max(getABITypeAlign(v->getType()), DtoAlignment(dty));
     return DtoAllocaDump(v, DtoType(dty), alignment,
                          ".BaseBitcastABIRewrite_param_storage");
   }

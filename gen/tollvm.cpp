@@ -359,46 +359,66 @@ LLConstant *DtoGEP(LLConstant *ptr, unsigned i0, unsigned i1) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoMemSet(LLValue *dst, LLValue *val, LLValue *nbytes, unsigned align) {
-  LLType *VoidPtrTy = getVoidPtrType();
-
-  dst = DtoBitCast(dst, VoidPtrTy);
-
-  gIR->ir->CreateMemSet(dst, val, nbytes, LLMaybeAlign(align), false /*isVolatile*/);
+void DtoMemSet(LLValue *dst, LLValue *val, unsigned align, LLValue *nbytes) {
+  if (align == 0)
+    align = getABITypeAlign(dst->getType()->getPointerElementType());
+  dst = DtoBitCast(dst, getVoidPtrType());
+  gIR->ir->CreateMemSet(dst, val, nbytes, LLMaybeAlign(align),
+                        false /*isVolatile*/);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoMemSetZero(LLValue *dst, LLValue *nbytes, unsigned align) {
-  DtoMemSet(dst, DtoConstUbyte(0), nbytes, align);
+void DtoMemSetZero(LLValue *dst, unsigned align, LLValue *nbytes) {
+  DtoMemSet(dst, DtoConstUbyte(0), align, nbytes);
+}
+
+void DtoMemSetZero(LLValue *dst, unsigned align, uint64_t nbytes) {
+  DtoMemSetZero(dst, align, DtoConstSize_t(nbytes));
 }
 
 void DtoMemSetZero(LLValue *dst, unsigned align) {
-  uint64_t n = getTypeStoreSize(dst->getType()->getContainedType(0));
-  DtoMemSetZero(dst, DtoConstSize_t(n), align);
+  auto size = getTypeAllocSize(dst->getType()->getPointerElementType());
+  DtoMemSetZero(dst, align, size);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes, unsigned align) {
+void DtoMemCpy(LLValue *dst, LLValue *src, unsigned dstAlign, unsigned srcAlign,
+               LLValue *nbytes) {
+  if (dstAlign == 0)
+    dstAlign = getABITypeAlign(dst->getType()->getPointerElementType());
+  if (srcAlign == 0)
+    srcAlign = getABITypeAlign(src->getType()->getPointerElementType());
+
   LLType *VoidPtrTy = getVoidPtrType();
 
   dst = DtoBitCast(dst, VoidPtrTy);
   src = DtoBitCast(src, VoidPtrTy);
 
 #if LDC_LLVM_VER >= 700
-  auto A = LLMaybeAlign(align);
-  gIR->ir->CreateMemCpy(dst, A, src, A, nbytes, false /*isVolatile*/);
+  gIR->ir->CreateMemCpy(dst, LLMaybeAlign(dstAlign), src,
+                        LLMaybeAlign(srcAlign), nbytes, false /*isVolatile*/);
 #else
+  unsigned align = std::min(dstAlign, srcAlign);
   gIR->ir->CreateMemCpy(dst, src, nbytes, align, false /*isVolatile*/);
 #endif
 }
 
-void DtoMemCpy(LLValue *dst, LLValue *src, bool withPadding, unsigned align) {
-  LLType *pointee = dst->getType()->getContainedType(0);
-  uint64_t n =
-      withPadding ? getTypeAllocSize(pointee) : getTypeStoreSize(pointee);
-  DtoMemCpy(dst, src, DtoConstSize_t(n), align);
+void DtoMemCpy(LLValue *dst, LLValue *src, unsigned dstAlign, unsigned srcAlign,
+               uint64_t nbytes) {
+  DtoMemCpy(dst, src, dstAlign, srcAlign, DtoConstSize_t(nbytes));
+}
+
+void DtoMemCpy(LLValue *dst, LLValue *src, unsigned dstAlign, unsigned srcAlign) {
+  auto size = getTypeAllocSize(dst->getType()->getPointerElementType());
+  DtoMemCpy(dst, src, dstAlign, srcAlign, size);
+}
+
+void DtoMemCpy(LLValue *dst, LLValue *src, unsigned align) {
+  if (align == 0)
+    align = getABITypeAlign(dst->getType()->getPointerElementType());
+  DtoMemCpy(dst, src, align, align);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -478,56 +498,28 @@ LLConstant *DtoConstString(const char *str) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoLoad(LLValue *src, const char *name) {
-  return gIR->ir->CreateLoad(src, name);
+LLValue *DtoLoad(LLValue *src, const char *name, unsigned alignment) {
+  auto r = gIR->ir->CreateLoad(src, name);
+  if (alignment != 0)
+    r->setAlignment(LLAlign(alignment));
+  return r;
 }
 
-// Like DtoLoad, but the pointer is guaranteed to be aligned appropriately for
-// the type.
-LLValue *DtoAlignedLoad(LLValue *src, const char *name) {
-  llvm::LoadInst *ld = gIR->ir->CreateLoad(src, name);
-  if (auto alignment = getABITypeAlign(ld->getType())) {
-    ld->setAlignment(LLAlign(alignment));
-  }
-  return ld;
-}
+////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoVolatileLoad(LLValue *src, const char *name) {
-  llvm::LoadInst *ld = gIR->ir->CreateLoad(src, name);
-  ld->setVolatile(true);
-  return ld;
-}
-
-void DtoStore(LLValue *src, LLValue *dst) {
-  assert(src->getType() != llvm::Type::getInt1Ty(gIR->context()) &&
-         "Should store bools as i8 instead of i1.");
-  gIR->ir->CreateStore(src, dst);
-}
-
-void DtoVolatileStore(LLValue *src, LLValue *dst) {
-  assert(src->getType() != llvm::Type::getInt1Ty(gIR->context()) &&
-         "Should store bools as i8 instead of i1.");
-  gIR->ir->CreateStore(src, dst)->setVolatile(true);
-}
-
-void DtoStoreZextI8(LLValue *src, LLValue *dst) {
-  if (src->getType() == llvm::Type::getInt1Ty(gIR->context())) {
-    llvm::Type *i8 = llvm::Type::getInt8Ty(gIR->context());
-    assert(dst->getType()->getContainedType(0) == i8);
+llvm::StoreInst *DtoStore(LLValue *src, LLValue *dst, unsigned alignment) {
+  // i1 is always stored as zero-extended i8
+  if (src->getType() == LLType::getInt1Ty(gIR->context())) {
+    auto i8 = LLType::getInt8Ty(gIR->context());
+    assert(dst->getType()->getPointerElementType() == i8);
     src = gIR->ir->CreateZExt(src, i8);
   }
-  gIR->ir->CreateStore(src, dst);
-}
 
-// Like DtoStore, but the pointer is guaranteed to be aligned appropriately for
-// the type.
-void DtoAlignedStore(LLValue *src, LLValue *dst) {
-  assert(src->getType() != llvm::Type::getInt1Ty(gIR->context()) &&
-         "Should store bools as i8 instead of i1.");
-  llvm::StoreInst *st = gIR->ir->CreateStore(src, dst);
-  if (auto alignment = getABITypeAlign(src->getType())) {
-    st->setAlignment(LLAlign(alignment));
-  }
+  auto store = gIR->ir->CreateStore(src, dst);
+  if (alignment != 0)
+    store->setAlignment(LLAlign(alignment));
+
+  return store;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

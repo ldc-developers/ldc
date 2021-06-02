@@ -181,7 +181,8 @@ void DtoInitClass(TypeClass *tc, LLValue *dst) {
   initsym = DtoBitCast(initsym, DtoType(tc));
   LLValue *srcarr = DtoGEP(initsym, 0, firstDataIdx);
 
-  DtoMemCpy(dstarr, srcarr, DtoConstSize_t(dataBytes));
+  unsigned align = target.ptrsize;
+  DtoMemCpy(dstarr, srcarr, align, align, dataBytes);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -436,7 +437,7 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl) {
   const auto vtblname = name + "@vtbl";
   funcval = DtoGEP(funcval, 0, fdecl->vtblIndex, vtblname.c_str());
   // load opaque pointer
-  funcval = DtoAlignedLoad(funcval);
+  funcval = DtoLoad(funcval);
 
   IF_LOG Logger::cout() << "funcval: " << *funcval << '\n';
 

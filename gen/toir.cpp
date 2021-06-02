@@ -67,7 +67,7 @@ bool walkPostorder(Expression *e, StoppableVisitor *v);
 static LLValue *write_zeroes(LLValue *mem, unsigned start, unsigned end) {
   mem = DtoBitCast(mem, getVoidPtrType());
   LLValue *gep = DtoGEP1(mem, start, ".padding");
-  DtoMemSetZero(gep, DtoConstSize_t(end - start));
+  DtoMemSetZero(gep, 1, end - start);
   return mem;
 }
 
@@ -517,7 +517,7 @@ public:
       Logger::println("performing aggregate zero initialization");
       assert(e->e2->toInteger() == 0);
       LLValue *lval = DtoLVal(lhs);
-      DtoMemSetZero(lval);
+      DtoMemSetZero(lval, DtoAlignment(lhs->type));
       TypeStruct *ts = static_cast<TypeStruct *>(e->e1->type);
       if (ts->sym->isNested() && ts->sym->vthis)
         DtoResolveNestedContext(e->loc, ts->sym, lval);
@@ -2253,13 +2253,14 @@ public:
       if (!dstMem)
         dstMem = DtoAlloca(e->type, ".structliteral");
 
+      const unsigned alignment = DtoAlignment(e->type);
       if (sd->zeroInit) {
-        DtoMemSetZero(dstMem);
+        DtoMemSetZero(dstMem, alignment);
       } else {
         LLValue *initsym = getIrAggr(sd)->getInitSymbol();
         initsym = DtoBitCast(initsym, DtoType(e->type->pointerTo()));
         assert(dstMem->getType() == initsym->getType());
-        DtoMemCpy(dstMem, initsym);
+        DtoMemCpy(dstMem, initsym, alignment);
       }
 
       return new DLValue(e->type, dstMem);
@@ -2531,13 +2532,13 @@ public:
       Expression *el = (*e->exps)[i];
       DValue *ep = toElem(el);
       LLValue *gep = DtoGEP(val, 0, i);
+      const unsigned alignment = DtoAlignment(el->type);
       if (DtoIsInMemoryOnly(el->type)) {
-        DtoMemCpy(gep, DtoLVal(ep));
+        DtoMemCpy(gep, DtoLVal(ep), alignment);
       } else if (el->type->ty != Tvoid) {
-        DtoStoreZextI8(DtoRVal(ep), gep);
-      } else {
-        DtoStore(LLConstantInt::get(LLType::getInt8Ty(p->context()), 0, false),
-                 gep);
+        DtoStore(DtoRVal(ep), gep, alignment);
+      } else { // void
+        DtoStore(getNullValue(types[i]), gep);
       }
     }
     result = new DLValue(e->type, val);
@@ -2554,6 +2555,7 @@ public:
     Type *elementType = type->elementType();
     if (elementType->ty == Tvoid)
       elementType = Type::tuns8;
+    const unsigned elementAlign = DtoAlignment(elementType);
 
     const auto getCastElement = [e, elementType](DValue *element) {
       return DtoRVal(DtoCast(e->loc, element, elementType));
@@ -2583,10 +2585,10 @@ public:
 
       if (llElementConstants.size() == N) {
         auto vectorConstant = llvm::ConstantVector::get(llElementConstants);
-        DtoStore(vectorConstant, dstMem);
+        DtoStore(vectorConstant, dstMem, DtoAlignment(type));
       } else {
         for (unsigned i = 0; i < N; ++i) {
-          DtoStore(llElements[i], DtoGEP(dstMem, 0, i));
+          DtoStore(llElements[i], DtoGEP(dstMem, 0, i), elementAlign);
         }
       }
     } else if (tsrc->ty == Tarray || tsrc->ty == Tsarray) {
@@ -2607,12 +2609,12 @@ public:
       Type *srcElementType = tsrc->nextOf();
 
       if (DtoMemType(elementType) == DtoMemType(srcElementType)) {
-        DtoMemCpy(dstMem, arrayPtr);
+        DtoMemCpy(dstMem, arrayPtr, DtoAlignment(type), elementAlign);
       } else {
         for (unsigned i = 0; i < N; ++i) {
           DLValue srcElement(srcElementType, DtoGEP1(arrayPtr, i));
           LLValue *llVal = getCastElement(&srcElement);
-          DtoStore(llVal, DtoGEP(dstMem, 0, i));
+          DtoStore(llVal, DtoGEP(dstMem, 0, i), elementAlign);
         }
       }
     } else {
@@ -2630,10 +2632,10 @@ public:
 #endif
         auto vectorConstant =
             llvm::ConstantVector::getSplat(elementCount, llConstant);
-        DtoStore(vectorConstant, dstMem);
+        DtoStore(vectorConstant, dstMem, DtoAlignment(type));
       } else {
         for (unsigned int i = 0; i < N; ++i) {
-          DtoStore(llElement, DtoGEP(dstMem, 0, i));
+          DtoStore(llElement, DtoGEP(dstMem, 0, i), elementAlign);
         }
       }
     }
@@ -2763,7 +2765,7 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
 
         if (sd->zeroInit) {
           Logger::println("success, zeroing out");
-          DtoMemSetZero(DtoLVal(lhs));
+          DtoMemSetZero(DtoLVal(lhs), DtoAlignment(lhs->type));
           return true;
         }
       }

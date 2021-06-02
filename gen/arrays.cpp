@@ -126,7 +126,8 @@ static void DtoArrayInit(const Loc &loc, LLValue *ptr, LLValue *length,
         size = gIR->ir->CreateMul(length, DtoConstSize_t(elementSize),
                                   ".arraysize");
       }
-      DtoMemSet(ptr, isNullConstant ? DtoConstUbyte(0) : val, size);
+      DtoMemSet(ptr, isNullConstant ? DtoConstUbyte(0) : val,
+                DtoAlignment(elementValue->type), size);
       return;
     }
   }
@@ -195,7 +196,7 @@ static LLValue *computeSize(LLValue *length, size_t elementSize) {
 
 static void copySlice(const Loc &loc, LLValue *dstarr, LLValue *dstlen,
                       LLValue *srcarr, LLValue *srclen, size_t elementSize,
-                      bool knownInBounds) {
+                      unsigned elementAlignment, bool knownInBounds) {
   const bool checksEnabled =
       global.params.useAssert == CHECKENABLEon || gIR->emitArrayBoundsChecks();
   if (checksEnabled && !knownInBounds) {
@@ -208,7 +209,7 @@ static void copySlice(const Loc &loc, LLValue *dstarr, LLValue *dstlen,
     // sz1 == 0 at runtime, this would probably still be legal (the C spec
     // is unclear here).
     LLValue *size = computeSize(dstlen, elementSize);
-    DtoMemCpy(dstarr, srcarr, size);
+    DtoMemCpy(dstarr, srcarr, elementAlignment, elementAlignment, size);
   }
 }
 
@@ -273,9 +274,10 @@ void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
     if (!needsDestruction && !needsPostblit) {
       // fast version
       const size_t elementSize = getTypeAllocSize(DtoMemType(elemType));
+      const unsigned elementAlignment = DtoAlignment(elemType);
       if (rhs->isNull()) {
         LLValue *lhsSize = computeSize(lhsLength, elementSize);
-        DtoMemSetZero(lhsPtr, lhsSize);
+        DtoMemSetZero(lhsPtr, elementAlignment, lhsSize);
       } else {
         bool knownInBounds =
             isConstructing || (t->ty == Tsarray && t2->ty == Tsarray);
@@ -290,7 +292,7 @@ void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
           }
         }
         copySlice(loc, lhsPtr, lhsLength, rhsPtr, rhsLength, elementSize,
-                  knownInBounds);
+                  elementAlignment, knownInBounds);
       }
     } else if (isConstructing) {
       LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_arrayctor");
@@ -620,20 +622,24 @@ void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale, LLValue *dstMem) {
 
   if (isConstLiteral(ale)) {
     llvm::Constant *constarr = arrayLiteralToConst(p, ale);
+    const unsigned elemAlign = DtoAlignment(ale->type->toBasetype()->nextOf());
 
     // Emit a global for longer arrays, as an inline constant is always
     // lowered to a series of movs or similar at the asm level. The
     // optimizer can still decide to promote the memcpy intrinsic, so
     // the cutoff merely affects compilation speed.
     if (elemCount <= 4) {
-      DtoStore(constarr, DtoBitCast(dstMem, getPtrToType(constarr->getType())));
+      DtoStore(constarr, DtoBitCast(dstMem, getPtrToType(constarr->getType())),
+               elemAlign);
     } else {
       auto gvar = new llvm::GlobalVariable(gIR->module, constarr->getType(),
                                            true, LLGlobalValue::InternalLinkage,
                                            constarr, ".arrayliteral");
       gvar->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-      DtoMemCpy(dstMem, gvar,
-                DtoConstSize_t(getTypeAllocSize(constarr->getType())));
+      if (elemAlign != 0)
+        gvar->setAlignment(LLMaybeAlign(elemAlign));
+      DtoMemCpy(dstMem, gvar, elemAlign, elemAlign,
+                getTypeAllocSize(constarr->getType()));
     }
   } else {
     // Store the elements one by one.
