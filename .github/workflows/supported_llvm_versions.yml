@@ -125,8 +125,8 @@ jobs:
             rm tests/d2/dmd-testsuite/compilable/ob{1,2}.d
             rm tests/d2/dmd-testsuite/fail_compilation/fob{1,2}.d
             rm tests/d2/dmd-testsuite/fail_compilation/failob2.d
-            # A __traits(getOverloads) test neither
-            rm tests/d2/dmd-testsuite/compilable/test21050.d
+            # Some __traits(getOverloads) tests neither
+            rm tests/d2/dmd-testsuite/compilable/{test21050,test21743}.d
           fi
           ctest -V -R "dmd-testsuite"
       - name: Run defaultlib unittests & druntime integration tests
