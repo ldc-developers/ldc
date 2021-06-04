@@ -9,7 +9,7 @@ matrix:
     - os: linux
       arch: arm64
       d: ldc-beta
-      env: LLVM_VERSION=11.0.1 CC=gcc-8 CXX=g++-8 OPTS="-DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64 -DADDITIONAL_DEFAULT_LDC_SWITCHES='\"-linker=bfd\",' -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF"
+      env: LLVM_VERSION=12.0.0 CC=gcc-8 CXX=g++-8 OPTS="-DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64 -DADDITIONAL_DEFAULT_LDC_SWITCHES='\"-linker=bfd\",' -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF"
 
 cache:
   directories:
@@ -29,7 +29,9 @@ before_install:
   - export LLVM_ROOT_DIR="$PWD/llvm-$LLVM_VERSION"
   - |
     if [ ! -e "$LLVM_ROOT_DIR/bin/llvm-config" ]; then
-      llvm_url="https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-linux-aarch64-withAsserts.tar.xz"
+      llvm_tag="CI"
+      if [[ "$LLVM_VERSION" = *.* ]]; then llvm_tag="ldc-v$LLVM_VERSION"; fi
+      llvm_url="https://github.com/ldc-developers/llvm-project/releases/download/$llvm_tag/llvm-$LLVM_VERSION-linux-aarch64-withAsserts.tar.xz"
       wget -nv -O llvm.tar.xz $llvm_url
       mkdir -p $LLVM_ROOT_DIR
       tar -xf llvm.tar.xz --strip 1 -C $LLVM_ROOT_DIR

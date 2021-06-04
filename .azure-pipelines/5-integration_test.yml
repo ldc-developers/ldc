@@ -47,3 +47,5 @@ steps:
     fi
     installed/bin/ldc2 -enable-dynamic-compile -run $BUILD_SOURCESDIRECTORY/tests/dynamiccompile/array.d
   displayName: Run dynamic-compile integration test
+  # disabled since LLVM 12, needs https://github.com/ldc-developers/ldc/pull/3184
+  condition: not(always())

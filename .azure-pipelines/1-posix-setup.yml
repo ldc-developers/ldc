@@ -55,7 +55,11 @@ steps:
     if [ "${BUILD_SOURCEBRANCH:0:10}" != "refs/tags/" ]; then
       assertsSuffix="-withAsserts"
     fi
-    curl --max-time 300 --retry 3 -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$HOST_OS-x86_64$assertsSuffix.tar.xz
+    if [[ "$LLVM_VERSION" = *.* ]]; then
+      curl --max-time 300 --retry 3 -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$HOST_OS-x86_64$assertsSuffix.tar.xz
+    else
+      curl --max-time 300 --retry 3 -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/CI/llvm-$LLVM_VERSION-$HOST_OS-x86_64$assertsSuffix.tar.xz
+    fi
     mkdir llvm
     tar -xf llvm.tar.xz --strip 1 -C llvm
     # Set PARALLEL_JOBS env variable and persist it for future steps
