@@ -9,12 +9,12 @@
 // RUN:   &&  %ldc -O3 -c -output-ll -of=%t2.ll -fprofile-instr-use=%t.profdata %s \
 // RUN:   &&  FileCheck %s -check-prefix=PROFUSE < %t2.ll
 
-import ldc.attributes : weak;
+import ldc.attributes;
 
 extern (C)
 { // simplify name mangling for simpler string matching
 
-    @weak // disable reasoning about this function
+    @optStrategy("none") // don't inline / elide call
     void hot()
     {
     }
