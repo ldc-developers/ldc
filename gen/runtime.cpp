@@ -16,6 +16,7 @@
 #include "dmd/module.h"
 #include "dmd/mtype.h"
 #include "dmd/root/root.h"
+#include "dmd/target.h"
 #include "dmd/tokens.h"
 #include "driver/cl_options_instrumentation.h"
 #include "gen/abi.h"
@@ -836,7 +837,7 @@ static void buildRuntimeModule() {
                   {stringTy, sizeTy->arrayOf(), uintTy->arrayOf(), ubyteTy});
   }
 
-  if (global.params.hasObjectiveC) {
+  if (target.objc.supported) {
     assert(global.params.targetTriple->isOSDarwin());
 
     // The types of these functions don't really matter because they are always

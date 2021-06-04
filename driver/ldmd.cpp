@@ -401,38 +401,55 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         // Parse:
         //      -check=[assert|bounds|in|invariant|out|switch][=[on|off]]
         const char *arg = p + 7;
-        const auto argLength = strlen(arg);
-        bool enabled = false;
-        size_t kindLength = 0;
-        if (argLength > 3 && memcmp(arg + argLength - 3, "=on", 3) == 0) {
-          enabled = true;
-          kindLength = argLength - 3;
-        } else if (argLength > 4 &&
-                   memcmp(arg + argLength - 4, "=off", 4) == 0) {
-          enabled = false;
-          kindLength = argLength - 4;
+        if (strcmp(arg, "on") == 0) {
+          ldcArgs.push_back("-boundscheck=on");
+          ldcArgs.push_back("-enable-asserts");
+          ldcArgs.push_back("-enable-preconditions");
+          ldcArgs.push_back("-enable-invariants");
+          ldcArgs.push_back("-enable-postconditions");
+          ldcArgs.push_back("-enable-switch-errors");
+        } else if (strcmp(arg, "off") == 0) {
+          ldcArgs.push_back("-boundscheck=off");
+          ldcArgs.push_back("-disable-asserts");
+          ldcArgs.push_back("-disable-preconditions");
+          ldcArgs.push_back("-disable-invariants");
+          ldcArgs.push_back("-disable-postconditions");
+          ldcArgs.push_back("-disable-switch-errors");
         } else {
-          enabled = true;
-          kindLength = argLength;
-        }
-
-        const auto check = [&](size_t dmdLength, const char *dmd,
-                               const char *ldc) {
-          if (kindLength == dmdLength && memcmp(arg, dmd, dmdLength) == 0) {
-            ldcArgs.push_back(concat(enabled ? "-enable-" : "-disable-", ldc));
-            return true;
+          const auto argLength = strlen(arg);
+          bool enabled = false;
+          size_t kindLength = 0;
+          if (argLength > 3 && memcmp(arg + argLength - 3, "=on", 3) == 0) {
+            enabled = true;
+            kindLength = argLength - 3;
+          } else if (argLength > 4 &&
+                     memcmp(arg + argLength - 4, "=off", 4) == 0) {
+            enabled = false;
+            kindLength = argLength - 4;
+          } else {
+            enabled = true;
+            kindLength = argLength;
           }
-          return false;
-        };
 
-        if (kindLength == 6 && memcmp(arg, "bounds", 6) == 0) {
-          ldcArgs.push_back(enabled ? "-boundscheck=on" : "-boundscheck=off");
-        } else if (!(check(6, "assert", "asserts") ||
-                     check(2, "in", "preconditions") ||
-                     check(9, "invariant", "invariants") ||
-                     check(3, "out", "postconditions") ||
-                     check(6, "switch", "switch-errors"))) {
-          goto Lerror;
+          const auto check = [&](size_t dmdLength, const char *dmd,
+                                 const char *ldc) {
+            if (kindLength == dmdLength && memcmp(arg, dmd, dmdLength) == 0) {
+              ldcArgs.push_back(
+                  concat(enabled ? "-enable-" : "-disable-", ldc));
+              return true;
+            }
+            return false;
+          };
+
+          if (kindLength == 6 && memcmp(arg, "bounds", 6) == 0) {
+            ldcArgs.push_back(enabled ? "-boundscheck=on" : "-boundscheck=off");
+          } else if (!(check(6, "assert", "asserts") ||
+                       check(2, "in", "preconditions") ||
+                       check(9, "invariant", "invariants") ||
+                       check(3, "out", "postconditions") ||
+                       check(6, "switch", "switch-errors"))) {
+            goto Lerror;
+          }
         }
       }
       /* -checkaction

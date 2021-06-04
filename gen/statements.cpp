@@ -49,6 +49,26 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p);
 
 //////////////////////////////////////////////////////////////////////////////
 
+namespace {
+bool isAssertFalse(Expression *e) {
+  return e ? e->type == Type::tnoreturn &&
+                 (e->op == TOKhalt || e->op == TOKassert)
+           : false;
+}
+
+bool isAssertFalse(Statement *s) {
+  if (!s)
+    return false;
+  if (auto es = s->isExpStatement())
+    return isAssertFalse(es->exp);
+  else if (auto ss = s->isScopeStatement())
+    return isAssertFalse(ss->statement);
+  return false;
+}
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 /// Used to check if a control-flow stmt body contains any label. A label
 /// is considered anything that lets us jump inside the body _apart from_
 /// the stmt. That includes case / default statements.
@@ -167,12 +187,16 @@ public:
       // be an lvalue pointing into a temporary, and we may need a load. So we
       // need to make sure to destruct any temporaries after all of that.
 
+      const auto rt = f->type->next;
+      const auto rtb = rt->toBasetype();
+
       if (!stmt->exp) {
         // implicitly return 0 for the main function
         returnValue = LLConstant::getNullValue(funcType->getReturnType());
-      } else if (f->type->next->toBasetype()->ty == Tvoid && !isMainFunc) {
+      } else if ((rtb->ty == Tvoid || rtb->ty == Tnoreturn) && !isMainFunc) {
         // evaluate expression for side effects
-        assert(stmt->exp->type->toBasetype()->ty == Tvoid);
+        assert(stmt->exp->type->toBasetype()->ty == Tvoid ||
+               stmt->exp->type->toBasetype()->ty == Tnoreturn);
         toElem(stmt->exp);
       } else if (funcType->getReturnType()->isVoidTy()) {
         // if the IR function's return type is void (but not the D one), it uses
@@ -184,7 +208,7 @@ public:
 
         assert(!f->irFty.arg_sret->rewrite &&
                "ABI shouldn't have to rewrite sret returns");
-        DLValue returnValue(f->type->next, sretPointer);
+        DLValue returnValue(rt, sretPointer);
 
         // try to construct the return value in-place
         const bool constructed = toInPlaceConstruction(&returnValue, stmt->exp);
@@ -210,7 +234,7 @@ public:
       } else {
         // the return type is not void, so this is a normal "register" return
         if (stmt->exp->op == TOKnull) {
-          stmt->exp->type = f->type->next;
+          stmt->exp->type = rt;
         }
         DValue *dval = nullptr;
         // call postblit if necessary
@@ -231,8 +255,7 @@ public:
         // value is a pointer to a struct or a static array, load from it
         // before returning.
         if (returnValue->getType() != funcType->getReturnType() &&
-            DtoIsInMemoryOnly(f->type->next) &&
-            isaPointer(returnValue->getType())) {
+            DtoIsInMemoryOnly(rt) && isaPointer(returnValue->getType())) {
           Logger::println("Loading value for return");
           returnValue = DtoLoad(returnValue);
         }
@@ -315,8 +338,10 @@ public:
     irs->DBuilder.EmitStopPoint(stmt->loc);
 
     if (auto e = stmt->exp) {
-      if (e->hasCode())
+      if (e->hasCode() &&
+          !isAssertFalse(e)) { // `assert(0)` not meant to be covered
         emitCoverageLinecountInc(stmt->loc);
+      }
 
       DValue *elem;
       // a cast(void) around the expression is allowed, but doesn't require any
@@ -1143,7 +1168,9 @@ public:
 
     assert(stmt->statement);
     irs->DBuilder.EmitBlockStart(stmt->statement->loc);
-    emitCoverageLinecountInc(stmt->loc);
+    if (!isAssertFalse(stmt->statement)) {
+      emitCoverageLinecountInc(stmt->loc);
+    }
     if (stmt->gototarget) {
       PGO.emitCounterIncrement(PGO.getCounterPtr(stmt, 1));
     }
@@ -1174,7 +1201,9 @@ public:
 
     assert(stmt->statement);
     irs->DBuilder.EmitBlockStart(stmt->statement->loc);
-    emitCoverageLinecountInc(stmt->loc);
+    if (!isAssertFalse(stmt->statement)) {
+      emitCoverageLinecountInc(stmt->loc);
+    }
     if (stmt->gototarget) {
       PGO.emitCounterIncrement(PGO.getCounterPtr(stmt, 1));
     }

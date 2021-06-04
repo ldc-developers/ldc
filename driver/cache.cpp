@@ -30,6 +30,7 @@
 #include "driver/cache.h"
 
 #include "dmd/errors.h"
+#include "dmd/target.h"
 #include "driver/cache_pruning.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_sanitizers.h"
@@ -217,7 +218,7 @@ void storeCacheFileName(llvm::StringRef cacheObjectHash,
   filePath = opts::cacheDir;
   llvm::sys::path::append(
       filePath, llvm::Twine("ircache_") + cacheObjectHash + "." +
-                    llvm::StringRef(global.obj_ext.ptr, global.obj_ext.length));
+                    llvm::StringRef(target.obj_ext.ptr, target.obj_ext.length));
 }
 
 // Output to `hash_os` all commandline flags, and try to skip the ones that have

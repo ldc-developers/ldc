@@ -166,8 +166,7 @@ bool TargetABI::skipReturnValueRewrite(IrFuncTy &fty) {
 
 bool TargetABI::preferPassByRef(Type *t) {
   // simple base heuristic: use a ref for all types > 2 machine words
-  d_uns64 machineWordSize = global.params.is64bit ? 8 : 4;
-  return t->size() > 2 * machineWordSize;
+  return t->size() > 2 * target.ptrsize;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -268,7 +267,7 @@ TargetABI *TargetABI::getTarget() {
   case llvm::Triple::mipsel:
   case llvm::Triple::mips64:
   case llvm::Triple::mips64el:
-    return getMIPS64TargetABI(global.params.is64bit);
+    return getMIPS64TargetABI(global.params.targetTriple->isArch64Bit());
   case llvm::Triple::ppc:
   case llvm::Triple::ppc64:
     return getPPCTargetABI(global.params.targetTriple->isArch64Bit());

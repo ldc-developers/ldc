@@ -17,45 +17,10 @@ import dmd.root.filename;
 import dmd.root.outbuffer;
 import dmd.identifier;
 
-/// Bit decoding of the TargetOS
-enum TargetOS : ubyte
-{
-    /* These are mutually exclusive; one and only one is set.
-     * Match spelling and casing of corresponding version identifiers
-     */
-    linux        = 1,
-    Windows      = 2,
-    OSX          = 4,
-    OpenBSD      = 8,
-    FreeBSD      = 0x10,
-    Solaris      = 0x20,
-    DragonFlyBSD = 0x40,
-
-    // Combination masks
-    all = linux | Windows | OSX | FreeBSD | Solaris | DragonFlyBSD,
-    Posix = linux | OSX | FreeBSD | Solaris | DragonFlyBSD,
-}
-
-template xversion(string s)
-{
-    enum xversion = mixin(`{ version (` ~ s ~ `) return true; else return false; }`)();
-}
-
-enum IN_LLVM = xversion!`IN_LLVM`;
-
-enum TARGET : bool
-{
-    Linux        = xversion!`linux`,
-    OSX          = xversion!`OSX`,
-    FreeBSD      = xversion!`FreeBSD`,
-    OpenBSD      = xversion!`OpenBSD`,
-    Solaris      = xversion!`Solaris`,
-    Windows      = xversion!`Windows`,
-    DragonFlyBSD = xversion!`DragonFlyBSD`,
-}
-
 version (IN_LLVM)
 {
+    enum IN_LLVM = true;
+
     enum OUTPUTFLAG : int
     {
         OUTPUTFLAGno,
@@ -66,6 +31,8 @@ version (IN_LLVM)
     alias OUTPUTFLAGdefault = OUTPUTFLAG.OUTPUTFLAGdefault;
     alias OUTPUTFLAGset     = OUTPUTFLAG.OUTPUTFLAGset;
 }
+else
+    enum IN_LLVM = false;
 
 enum DiagnosticReporting : ubyte
 {
@@ -94,25 +61,6 @@ enum CHECKACTION : ubyte
     C,            // call C assert on failure
     halt,         // cause program halt on failure
     context,      // call D assert with the error context on failure
-}
-
-enum CPU
-{
-    x87,
-    mmx,
-    sse,
-    sse2,
-    sse3,
-    ssse3,
-    sse4_1,
-    sse4_2,
-    avx,                // AVX1 instruction set
-    avx2,               // AVX2 instruction set
-    avx512,             // AVX-512 instruction set
-
-    // Special values that don't survive past the command line processing
-    baseline,           // (default) the minimum capability CPU
-    native              // the machine the compiler is being run on
 }
 
 enum PIC : ubyte
@@ -180,21 +128,16 @@ extern (C++) struct Param
     bool vtemplatesListInstances; // collect and list statistics on template instantiations origins. TODO: make this an enum when we want to list other kinds of instances
     bool vgc;               // identify gc usage
     bool vfield;            // identify non-mutable field variables
-    bool vcomplex;          // identify complex/imaginary type usage
+    bool vcomplex = true;   // identify complex/imaginary type usage
     ubyte symdebug;         // insert debug symbolic information
     bool symdebugref;       // insert debug information for all referenced types, too
     bool optimize;          // run optimizer
-    bool is64bit = (size_t.sizeof == 8);  // generate 64 bit code; true by default for 64 bit dmd
-    bool isLP64;            // generate code for LP64
-    TargetOS targetOS;      // operating system to generate code for
-    bool hasObjectiveC;     // target supports Objective-C
-    bool mscoff = false;    // for Win32: write MsCoff object files instead of OMF
     DiagnosticReporting useDeprecated = DiagnosticReporting.inform;  // how use of deprecated features are handled
     bool stackstomp;            // add stack stomping code
     bool useUnitTests;          // generate unittest code
     bool useInline = false;     // inline expand functions
     FeatureState useDIP25;  // implement http://wiki.dlang.org/DIP25
-    bool useDIP1021;        // implement https://github.com/dlang/DIPs/blob/master/DIPs/DIP1021.md
+    bool useDIP1021;        // implement https://github.com/dlang/DIPs/blob/master/DIPs/accepted/DIP1021.md
     bool release;           // build release version
     bool preservePaths;     // true means don't strip path from source file
     DiagnosticReporting warnings = DiagnosticReporting.off;  // how compiler warnings are handled
@@ -252,8 +195,6 @@ extern (C++) struct Param
     bool externStdUsage;    // print help on -extern-std switch
     bool hcUsage;           // print help on -HC switch
     bool logo;              // print compiler logo
-
-    CPU cpu = CPU.baseline; // CPU instruction set to target
 
     CHECKENABLE useInvariants  = CHECKENABLE._default;  // generate class invariant checks
     CHECKENABLE useIn          = CHECKENABLE._default;  // generate precondition checks
@@ -374,6 +315,21 @@ alias structalign_t = uint;
 // other values are all powers of 2
 enum STRUCTALIGN_DEFAULT = (cast(structalign_t)~0);
 
+enum mars_ext = "d";
+enum doc_ext  = "html";     // for Ddoc generated files
+enum ddoc_ext = "ddoc";     // for Ddoc macro include files
+enum dd_ext   = "dd";       // for Ddoc source files
+enum hdr_ext  = "di";       // for D 'header' import files
+enum json_ext = "json";     // for JSON files
+enum map_ext  = "map";      // for .map files
+version (IN_LLVM)
+{
+    enum ll_ext = "ll";
+    enum mlir_ext = "mlir";
+    enum bc_ext = "bc";
+    enum s_ext = "s";
+}
+
 version (IN_LLVM)
 {
     extern (C++, ldc) extern const char* dmd_version;
@@ -382,28 +338,6 @@ version (IN_LLVM)
 extern (C++) struct Global
 {
     const(char)[] inifilename;
-    string mars_ext = "d";
-    const(char)[] obj_ext;
-version (IN_LLVM)
-{
-    const(char)[] ll_ext;
-    const(char)[] mlir_ext;
-    const(char)[] bc_ext;
-    const(char)[] s_ext;
-    const(char)[] ldc_version;
-    const(char)[] llvm_version;
-
-    bool gaggedForInlining; // Set for functionSemantic3 for external inlining candidates
-}
-    const(char)[] lib_ext;
-    const(char)[] dll_ext;
-    string doc_ext = "html";      // for Ddoc generated files
-    string ddoc_ext = "ddoc";     // for Ddoc macro include files
-    string hdr_ext = "di";        // for D 'header' import files
-    string cxxhdr_ext = "h";      // for C/C++ 'header' files
-    string json_ext = "json";     // for JSON files
-    string map_ext = "map";       // for .map files
-    bool run_noext;                     // allow -run sources without extensions.
 
     string copyright = "Copyright (C) 1999-2021 by The D Language Foundation, All Rights Reserved";
     string written = "written by Walter Bright";
@@ -433,6 +367,11 @@ version (IN_LLVM) {} else
 
 version (IN_LLVM)
 {
+    const(char)[] ldc_version;
+    const(char)[] llvm_version;
+
+    bool gaggedForInlining; // Set for functionSemantic3 for external inlining candidates
+
     uint recursionLimit = 500; // number of recursive template expansions before abort
 }
 else
@@ -481,63 +420,6 @@ else
         version (MARS)
         {
             vendor = "Digital Mars D";
-            static if (TARGET.Windows)
-            {
-                obj_ext = "obj";
-            }
-            else static if (TARGET.Linux || TARGET.OSX || TARGET.FreeBSD || TARGET.OpenBSD || TARGET.Solaris || TARGET.DragonFlyBSD)
-            {
-                obj_ext = "o";
-            }
-            else
-            {
-                static assert(0, "fix this");
-            }
-            static if (TARGET.Windows)
-            {
-                lib_ext = "lib";
-            }
-            else static if (TARGET.Linux || TARGET.OSX || TARGET.FreeBSD || TARGET.OpenBSD || TARGET.Solaris || TARGET.DragonFlyBSD)
-            {
-                lib_ext = "a";
-            }
-            else
-            {
-                static assert(0, "fix this");
-            }
-            static if (TARGET.Windows)
-            {
-                dll_ext = "dll";
-            }
-            else static if (TARGET.Linux || TARGET.FreeBSD || TARGET.OpenBSD || TARGET.Solaris || TARGET.DragonFlyBSD)
-            {
-                dll_ext = "so";
-            }
-            else static if (TARGET.OSX)
-            {
-                dll_ext = "dylib";
-            }
-            else
-            {
-                static assert(0, "fix this");
-            }
-            static if (TARGET.Windows)
-            {
-                run_noext = false;
-            }
-            else static if (TARGET.Linux || TARGET.OSX || TARGET.FreeBSD || TARGET.OpenBSD || TARGET.Solaris || TARGET.DragonFlyBSD)
-            {
-                // Allow 'script' D source files to have no extension.
-                run_noext = true;
-            }
-            else
-            {
-                static assert(0, "fix this");
-            }
-            static if (TARGET.Windows)
-            {
-                params.mscoff = params.is64bit;
-            }
 
             // -color=auto is the default value
             import dmd.console : detectTerminal;
@@ -546,19 +428,10 @@ else
         else version (IN_GCC)
         {
             vendor = "GNU D";
-            obj_ext = "o";
-            lib_ext = "a";
-            dll_ext = "so";
-            run_noext = true;
         }
         else version (IN_LLVM)
         {
             vendor = "LDC";
-            obj_ext = "o";
-            ll_ext  = "ll";
-            mlir_ext = "mlir";
-            bc_ext  = "bc";
-            s_ext   = "s";
 
             import dmd.console : detectTerminal;
             params.color = detectTerminal();

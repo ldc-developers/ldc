@@ -24,11 +24,11 @@ double ggg(double r)
 {
     // std.math.nextDown() is inlined when optimizing
     import std.math;
-    // OPT0: call {{.*}} @{{.*}}D3std4math8nextDown
-    // OPT3: call {{.*}} @{{.*}}D3std4math6nextUp
+    // OPT0: call {{.*}} @{{.*}}D3std4math10operations8nextDown
+    // OPT3: call {{.*}} @{{.*}}D3std4math10operations6nextUp
     return nextDown(r);
     // OPT0: ret
     // OPT3: ret
 }
-// OPT0: declare {{.*}}D3std4math8nextDown
-// OPT3: declare {{.*}}D3std4math6nextUp
+// OPT0: declare {{.*}}D3std4math10operations8nextDown
+// OPT3: declare {{.*}}D3std4math10operations6nextUp

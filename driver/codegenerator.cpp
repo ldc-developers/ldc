@@ -344,7 +344,7 @@ void CodeGenerator::writeMLIRModule(mlir::OwningModuleRef *module,
                                     const char *filename) {
   // Write MLIR
   if (global.params.output_mlir) {
-    const auto llpath = replaceExtensionWith(global.mlir_ext, filename);
+    const auto llpath = replaceExtensionWith(mlir_ext, filename);
     Logger::println("Writting MLIR to %s\n", llpath.c_str());
     std::error_code errinfo;
     llvm::raw_fd_ostream aos(llpath, errinfo,

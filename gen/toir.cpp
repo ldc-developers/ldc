@@ -1984,7 +1984,7 @@ public:
 
     Type *dtype = e->type->toBasetype();
     LLValue *retPtr = nullptr;
-    if (dtype->ty != Tvoid) {
+    if (!(dtype->ty == Tvoid || dtype->ty == Tnoreturn)) {
       // allocate a temporary for pointer to the final result.
       retPtr = DtoAlloca(dtype->pointerTo(), "condtmp");
     }
@@ -2004,7 +2004,7 @@ public:
     p->ir->SetInsertPoint(condtrue);
     PGO.emitCounterIncrement(e);
     DValue *u = toElem(e->e1);
-    if (retPtr) {
+    if (retPtr && u->type->toBasetype()->ty != Tnoreturn) {
       LLValue *lval = makeLValue(e->loc, u);
       DtoStore(lval, DtoBitCast(retPtr, lval->getType()->getPointerTo()));
     }
@@ -2012,7 +2012,7 @@ public:
 
     p->ir->SetInsertPoint(condfalse);
     DValue *v = toElem(e->e2);
-    if (retPtr) {
+    if (retPtr && v->type->toBasetype()->ty != Tnoreturn) {
       LLValue *lval = makeLValue(e->loc, v);
       DtoStore(lval, DtoBitCast(retPtr, lval->getType()->getPointerTo()));
     }

@@ -55,8 +55,9 @@ void DComputeTarget::writeModule() {
 
   std::string filename;
   llvm::raw_string_ostream os(filename);
+  const bool is64 = global.params.targetTriple->isArch64Bit();
   os << opts::dcomputeFilePrefix << '_' << short_name << tversion << '_'
-     << (global.params.is64bit ? 64 : 32) << '.' << binSuffix;
+     << (is64 ? 64 : 32) << '.' << binSuffix;
 
   const char *path =
       FileName::combine(global.params.objdir.ptr, os.str().c_str());

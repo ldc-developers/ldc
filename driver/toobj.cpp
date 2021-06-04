@@ -362,7 +362,7 @@ void writeModule(llvm::Module *m, const char *filename) {
   if (global.params.output_bc || emitBitcodeAsObjectFile) {
     std::string bcpath = emitBitcodeAsObjectFile
                              ? filename
-                             : replaceExtensionWith(global.bc_ext, filename);
+                             : replaceExtensionWith(bc_ext, filename);
     Logger::println("Writing LLVM bitcode to: %s\n", bcpath.c_str());
     std::error_code errinfo;
     llvm::raw_fd_ostream bos(bcpath.c_str(), errinfo,
@@ -403,7 +403,7 @@ void writeModule(llvm::Module *m, const char *filename) {
 
   // write LLVM IR
   if (global.params.output_ll) {
-    const auto llpath = replaceExtensionWith(global.ll_ext, filename);
+    const auto llpath = replaceExtensionWith(ll_ext, filename);
     Logger::println("Writing LLVM IR to: %s\n", llpath.c_str());
     std::error_code errinfo;
     llvm::raw_fd_ostream aos(llpath.c_str(), errinfo,
@@ -431,7 +431,7 @@ void writeModule(llvm::Module *m, const char *filename) {
       llvm::sys::fs::createUniqueFile("ldc-%%%%%%%.s", buffer);
       spath = {buffer.data(), buffer.size()};
     } else {
-      spath = replaceExtensionWith(global.s_ext, filename);
+      spath = replaceExtensionWith(s_ext, filename);
     }
 
     Logger::println("Writing asm to: %s\n", spath.c_str());

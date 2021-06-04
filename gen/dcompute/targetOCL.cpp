@@ -44,13 +44,13 @@ public:
                        // Map from nomimal DCompute address space to OpenCL
                        // address. For OpenCL this is a no-op.
                        {{0, 1, 2, 3, 4}}) {
+    const bool is64 = global.params.targetTriple->isArch64Bit();
 
     _ir = new IRState("dcomputeTargetOCL", ctx);
-    _ir->module.setTargetTriple(global.params.is64bit ? SPIR_TARGETTRIPLE64
-                                                      : SPIR_TARGETTRIPLE32);
+    _ir->module.setTargetTriple(is64 ? SPIR_TARGETTRIPLE64
+                                     : SPIR_TARGETTRIPLE32);
 
-    _ir->module.setDataLayout(global.params.is64bit ? SPIR_DATALAYOUT64
-                                                    : SPIR_DATALAYOUT32);
+    _ir->module.setDataLayout(is64 ? SPIR_DATALAYOUT64 : SPIR_DATALAYOUT32);
     _ir->dcomputetarget = this;
   }
 
