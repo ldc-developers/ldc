@@ -38,6 +38,9 @@ void emitCoverageLinecountInc(const Loc &loc) {
 
   // Do an atomic increment, so this works when multiple threads are executed.
   gIR->ir->CreateAtomicRMW(llvm::AtomicRMWInst::Add, ptr, DtoConstUint(1),
+#if LDC_LLVM_VER >= 1300
+                           llvm::MaybeAlign(),
+#endif
                            llvm::AtomicOrdering::Monotonic);
 
   unsigned num_sizet_bits = gDataLayout->getTypeSizeInBits(DtoSize_t());

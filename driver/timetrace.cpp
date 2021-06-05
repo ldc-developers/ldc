@@ -18,6 +18,9 @@
 #include "dmd/errors.h"
 #include "driver/cl_options.h"
 #include "llvm/Support/TimeProfiler.h"
+#if LDC_LLVM_VER >= 1300
+#include "llvm/Support/FileSystem.h"
+#endif
 
 void initializeTimeTracer() {
   if (opts::fTimeTrace) {
