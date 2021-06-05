@@ -127,6 +127,8 @@ task:
 
 task:
   name: Ubuntu rolling x64 shared-libs-only gdmd
+  # allow failures - gdb v10 came with regressions
+  allow_failures: true
   container:
     image: ubuntu:rolling
     cpu: 8
