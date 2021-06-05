@@ -442,6 +442,8 @@ static void RemoveCall(LLCallBasePtr CB, const Analysis &A) {
   if (A.CGNode) {
 #if LDC_LLVM_VER >= 900
     A.CGNode->removeCallEdgeFor(*CB);
+#elif LDC_LLVM_VER >= 800
+    A.CGNode->removeCallEdgeFor(llvm::CallSite(CB));
 #else
     A.CGNode->removeCallEdgeFor(CB);
 #endif

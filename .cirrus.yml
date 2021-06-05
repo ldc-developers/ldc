@@ -127,6 +127,8 @@ task:
 
 task:
   name: Ubuntu rolling x64 shared-libs-only gdmd
+  # allow failures - gdb v10 came with regressions
+  allow_failures: true
   container:
     image: ubuntu:rolling
     cpu: 8
@@ -166,9 +168,9 @@ task:
   << : *COMMON_STEPS_TEMPLATE
 
 task:
-  name: FreeBSD 12.1 x64
+  name: FreeBSD 12.2 x64
   freebsd_instance:
-    image_family: freebsd-12-1
+    image_family: freebsd-12-2
     cpu: 4
     memory: 8G
   timeout_in: 60m
