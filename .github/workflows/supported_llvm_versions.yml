@@ -7,28 +7,29 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - job_name: Ubuntu 16.04, LLVM 12, latest LDC beta
-            os: ubuntu-16.04
+          - job_name: Ubuntu 18.04, LLVM 12, latest LDC beta
+            os: ubuntu-18.04
             host_dc: ldc-beta
             llvm_version: "12.0.0"
             cmake_opts: ""
-          - job_name: Ubuntu 16.04, LLVM 11, latest LDC beta
-            os: ubuntu-16.04
+          - job_name: Ubuntu 18.04, LLVM 11, latest LDC beta
+            os: ubuntu-18.04
             host_dc: ldc-beta
             llvm_version: "11.0.1"
             cmake_opts: "-DRT_SUPPORT_SANITIZERS=ON"
-          - job_name: Ubuntu 16.04, LLVM 9, latest LDC beta
-            os: ubuntu-16.04
+          - job_name: Ubuntu 18.04, LLVM 9, latest LDC beta
+            os: ubuntu-18.04
             host_dc: ldc-beta
-            llvm_version: "9.0.0"
+            llvm_version: "9.0.1"
             cmake_opts: "-DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON"
+          # LDC v0.17.6: C parts of Phobos not compiled with -fPIC, needs Ubuntu 16.04
           - job_name: Ubuntu 16.04, LLVM 8, LDC 0.17.6
             os: ubuntu-16.04
             host_dc: ldc-0.17.6
             llvm_version: "8.0.0"
             cmake_opts: "-DBUILD_SHARED_LIBS=OFF -DLDC_LINK_MANUALLY=ON"
-          - job_name: Ubuntu 16.04, LLVM 6, latest DMD beta
-            os: ubuntu-16.04
+          - job_name: Ubuntu 18.04, LLVM 6, latest DMD beta
+            os: ubuntu-18.04
             host_dc: dmd-beta
             llvm_version: "6.0.1"
             cmake_opts: "-DLIB_SUFFIX=64 -DLDC_LINK_MANUALLY=ON"
@@ -50,6 +51,7 @@ jobs:
           submodules: true
           fetch-depth: 50
       - name: Set up Python 3.x
+        if: matrix.os == 'ubuntu-16.04'
         uses: actions/setup-python@v2
         with:
           python-version: '3.x'
@@ -68,13 +70,21 @@ jobs:
           python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
       - name: "Linux: Install gdb"
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install gdb
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          if [[ '${{ matrix.os }}' == 'ubuntu-18.04' ]]; then
+            # Don't use latest gdb v10 from Ubuntu toolchain PPA with regressions, use official v8
+            sudo apt-get install gdb=8.1.1-0ubuntu1
+          else
+            sudo apt-get install gdb
+          fi
 
       - name: Try to restore cached LLVM
         uses: actions/cache@v2
         with:
           path: llvm
-          key: llvm-${{ matrix.llvm_version }}-${{ matrix.os }}
+          key: llvm-${{ matrix.llvm_version }}-ubuntu-16.04
 
       - name: Download & extract prebuilt vanilla LLVM ${{ matrix.llvm_version }}
         run: |
@@ -86,10 +96,10 @@ jobs:
           if [[ '${{ runner.os }}' == 'macOS' ]]; then
             suffix='x86_64-apple-darwin'
           else
-            suffix='x86_64-linux-gnu-${{ matrix.os }}'
+            suffix='x86_64-linux-gnu-ubuntu-16.04'
           fi
           version='${{ matrix.llvm_version }}'
-          if [[ "$version" == 1?.* ]]; then
+          if [[ "$version" =~ ^(1.|9)\. ]]; then
             llvm_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-$suffix.tar.xz"
           else
             llvm_url="http://releases.llvm.org/$version/clang+llvm-$version-$suffix.tar.xz"
@@ -113,7 +123,13 @@ jobs:
       - name: Run LDC D unittests
         run: ctest --output-on-failure -R "ldc2-unittest"
       - name: Run LIT testsuite
-        run: ctest -V -R "lit-tests"
+        run: |
+          set -euxo pipefail
+          # LLVM 9: libclang_rt.fuzzer-x86_64.a not compiled with -fPIC
+          if [[ '${{ matrix.llvm_version }}' == 9.* ]]; then
+            echo "config.available_features.remove('Fuzzer')" >> tests/sanitizers/lit.local.cfg
+          fi
+          ctest -V -R "lit-tests"
       - name: Run DMD testsuite
         run: |
           set -euxo pipefail
