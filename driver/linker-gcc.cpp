@@ -471,10 +471,8 @@ void ArgsBuilder::addSanitizers(const llvm::Triple &triple) {
     addFuzzLinkFlags(triple);
   }
 
-  // TODO: instead of this, we should link with our own sanitizer libraries
-  // because LDC's LLVM version could be different from the system clang.
   if (opts::isSanitizerEnabled(opts::MemorySanitizer)) {
-    args.push_back("-fsanitize=memory");
+    addSanitizerLinkFlags(triple, "msan", "-fsanitize=memory");
   }
 
   if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {

@@ -114,6 +114,11 @@ static cl::opt<bool>
     disableSLPVectorization("disable-slp-vectorization", cl::ZeroOrMore,
                             cl::desc("Disable the slp vectorization pass"));
 
+static cl::opt<int> fSanitizeMemoryTrackOrigins(
+    "fsanitize-memory-track-origins", cl::ZeroOrMore, cl::init(0),
+    cl::desc(
+        "Enable origins tracking in MemorySanitizer (0=disabled, default)"));
+
 unsigned optLevel() {
   // Use -O2 as a base for the size-optimization levels.
   return optimizeLevel >= 0 ? optimizeLevel : 2;
@@ -201,8 +206,14 @@ static void addAddressSanitizerPasses(const PassManagerBuilder &Builder,
 
 static void addMemorySanitizerPass(const PassManagerBuilder &Builder,
                                    PassManagerBase &PM) {
-#if LDC_LLVM_VER >= 800
-  PM.add(createMemorySanitizerLegacyPassPass());
+  int trackOrigins = fSanitizeMemoryTrackOrigins;
+  bool recover = false;
+  bool kernel = false;
+#if LDC_LLVM_VER >= 900
+  PM.add(createMemorySanitizerLegacyPassPass(
+      MemorySanitizerOptions{trackOrigins, recover, kernel}));
+#elif LDC_LLVM_VER >= 800
+  PM.add(createMemorySanitizerLegacyPassPass(trackOrigins, recover, kernel));
 #else
   PM.add(createMemorySanitizerPass());
 #endif
