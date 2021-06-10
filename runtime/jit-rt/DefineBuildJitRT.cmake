@@ -38,8 +38,9 @@ if(LDC_DYNAMIC_COMPILE)
            "${JITRT_DIR}/d"
            "${d_flags}"
            "${PROJECT_BINARY_DIR}/objects${target_suffix}"
-           "OFF"
+           "OFF" # emit_bc
            "${all_at_once}"
+           ""    # single_obj_name
            ${outlist_o}
            ${outlist_bc}
         )
