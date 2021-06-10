@@ -298,4 +298,10 @@ extern (C)
             proxiedGC = null;
         }
     //}
+
+    version (LDC)
+    bool gc_isProxied() nothrow @nogc
+    {
+        return proxiedGC !is null;
+    }
 }

@@ -37,7 +37,7 @@ $(ROOT)/loadDR.done $(ROOT)/host.done: RUN_ARGS:=$(DRUNTIMESO)
 else
 # Windows
 
-all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS))) loadlibwin dllrefcount dllgc
+all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS))) loadlibwin dllrefcount dllgc dll_gc_proxy_teardown
 LIB_EXT:=lib
 DLL_EXT:=dll
 CC:=cl.exe
@@ -47,21 +47,28 @@ $(ROOT)/loadDR.done $(ROOT)/host.done: RUN_ARGS:=$(subst .lib,.dll,$(DRUNTIMESO)
 dllrefcount:
 	$(DMD) $(DFLAGS) src/dllrefcount.d -of$(ROOT)/dllrefcount.exe
 	$(ROOT)/dllrefcount.exe
-	rm $(ROOT)/dllrefcount.*
 
 loadlibwin:
 	$(DMD) $(DFLAGS) src/loadlibwin.d -of$(ROOT)/loadlibwin.exe
 	$(ROOT)/loadlibwin.exe
-	rm $(ROOT)/loadlibwin.*
 
 dllgc:
 	$(DMD) $(DFLAGS) -version=DLL -shared -of$(ROOT)/dllgc.dll src/dllgc.d
 	$(DMD) $(DFLAGS) -of$(ROOT)/loaddllgc.exe src/dllgc.d
 	$(ROOT)/loaddllgc.exe
-	rm $(ROOT)/loaddllgc.* $(ROOT)/dllgc.*
 
 # LDC: this test is designed for .exe & .dll with separate druntimes
 dllgc: DFLAGS+=-link-defaultlib-shared=false
+
+# LDC addition: test teardown with separate druntimes, with the DLL using the .exe GC
+dll_gc_proxy_teardown: DFLAGS+=-link-defaultlib-shared=false
+dll_gc_proxy_teardown:
+	$(DMD) $(DFLAGS) -shared -L/EXPORT:gc_setProxy -L/EXPORT:gc_clrProxy -version=DLL -of$(ROOT)/dll_gc_proxy_teardown.dll src/dll_gc_proxy_teardown.d
+	$(DMD) $(DFLAGS) -shared -L/EXPORT:gc_setProxy -L/EXPORT:gc_clrProxy -version=DLL -version=NoUnload -of$(ROOT)/dll_gc_proxy_teardown_nounload.dll src/dll_gc_proxy_teardown.d
+	$(DMD) $(DFLAGS) -of$(ROOT)/load_dll_gc_proxy_teardown.exe src/dll_gc_proxy_teardown.d
+	$(DMD) $(DFLAGS) -version=NoUnload -of$(ROOT)/load_dll_gc_proxy_teardown_nounload.exe src/dll_gc_proxy_teardown.d
+	$(ROOT)/load_dll_gc_proxy_teardown.exe
+	$(ROOT)/load_dll_gc_proxy_teardown_nounload.exe
 
 # end Windows
 endif

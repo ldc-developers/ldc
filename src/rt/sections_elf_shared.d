@@ -487,6 +487,8 @@ else version (Windows)
 {
     alias GetTLSRange = void[] function() nothrow @nogc;
 
+    extern(C) bool gc_isProxied() nothrow @nogc; // in core.internal.gc.proxy
+
     // link in rt.dso_windows:
     import ldc.attributes : assumeUsed;
     extern(C) extern __gshared int __dso_windows_ref;
@@ -620,7 +622,22 @@ package extern(C) void _d_dso_registry(void* arg)
         *data._slot = null;
 
         // don't finalizes modules after rt_term was called (see Bugzilla 11378)
-        if (_isRuntimeInitialized)
+        bool doFinalize = _isRuntimeInitialized;
+        version (Shared) {} else version (Windows)
+        {
+            /* If a DLL with its own static druntime has been loaded via
+             * rt_loadLibrary() [from an .{exe,dll} host with static druntime],
+             * its GC is 'replaced' by a proxy to the host's GC.
+             * If it's still proxied, the DLL isn't being unloaded explicitly
+             * via rt_unloadLibrary(), and is so probably being unloaded
+             * implicitly when terminating the process. Chances are high that
+             * the host's druntime has already been terminated, in which case
+             * trying to access its GC causes a segfault.
+             */
+            if (doFinalize)
+                doFinalize = !gc_isProxied();
+        }
+        if (doFinalize)
         {
             // rt_unloadLibrary already ran tls dtors, so do this only for dlclose
             immutable runTlsDtors = !_rtLoading;
