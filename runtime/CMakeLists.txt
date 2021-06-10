@@ -750,12 +750,12 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit
     endif()
     # shared druntime/Phobos
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
-        # compile druntime with public visibility and extra `version (Shared)` (and preferably to a single object file)
+        # compile druntime with public visibility and extra `version (Shared)`
         set(druntime_o "")
         set(druntime_bc "")
         compile_druntime("${druntime_d_flags};-relocation-model=pic;-fvisibility=public;-d-version=Shared"
                          "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}"
-                         "OFF" "${all_d_files_at_once}" "${all_d_files_at_once}" druntime_o druntime_bc)
+                         "OFF" "${all_d_files_at_once}" "OFF" druntime_o druntime_bc)
 
         # compile Phobos with public visibility (and preferably to a single object file)
         if(phobos2_common STREQUAL "")
