@@ -142,6 +142,9 @@ set(COMPILE_D_MODULES_SEPARATELY OFF CACHE BOOL "Compile each D module separatel
 
 set(LDC_ENABLE_ASSERTIONS "${LLVM_ENABLE_ASSERTIONS}" CACHE BOOL "Enable LDC assertions. Defaults to the LLVM assertions mode; overriding may cause LDC segfaults!")
 
+# Allow user to specify mimalloc.o location, to be linked with `ldc2` only
+set(ALTERNATIVE_MALLOC_O   ""     CACHE STRING "If specified, adds ALTERNATIVE_MALLOC_O object file to LDC link, to override the CRT malloc.")
+
 if(D_VERSION EQUAL 1)
     message(FATAL_ERROR "D version 1 is no longer supported.
 Please consider using D version 2 or checkout the 'd1' git branch for the last version supporting D version 1.")
@@ -669,7 +672,7 @@ build_d_executable(
     "${LDC_EXE_FULL}"
     "${LDC_D_SOURCE_FILES}"
     "${DFLAGS_BUILD_TYPE} ${DFLAGS_LDC}"
-    "${LDC_LINKERFLAG_LIST}"
+    "${ALTERNATIVE_MALLOC_O};${LDC_LINKERFLAG_LIST}"
     "${FE_RES}"
     "${LDC_LIB}"
     ${COMPILE_D_MODULES_SEPARATELY}
