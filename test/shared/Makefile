@@ -37,6 +37,9 @@ $(ROOT)/loadDR.done $(ROOT)/host.done: RUN_ARGS:=$(DRUNTIMESO)
 else
 # Windows
 
+# required for executables to implicitly dllimport DLL symbols (with -link-defaultlib-shared)
+DFLAGS+=-fvisibility=public
+
 all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS))) loadlibwin dllrefcount dllgc dll_gc_proxy_teardown
 LIB_EXT:=lib
 DLL_EXT:=dll
