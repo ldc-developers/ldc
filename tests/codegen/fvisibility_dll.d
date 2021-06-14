@@ -7,9 +7,8 @@
 // generate DLL and import lib (public visibility by default)
 // RUN: %ldc %S/inputs/fvisibility_dll_lib.d -betterC -shared -of=%t_lib.dll
 
-// compile, link and run the app;
-// `-link-defaultlib-shared -fvisibility=public` for dllimporting data symbols
-// RUN: %ldc %s -I%S/inputs -betterC -link-defaultlib-shared -fvisibility=public %t_lib.lib -of=%t.exe
+// compile, link and run the app; `-dllimport=all` for dllimporting data symbols
+// RUN: %ldc %s -I%S/inputs -betterC -dllimport=all %t_lib.lib -of=%t.exe
 // RUN: %t.exe
 
 import fvisibility_dll_lib;

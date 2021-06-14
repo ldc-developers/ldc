@@ -1090,10 +1090,15 @@ int cppmain() {
         v == opts::SymbolVisibility::public_ ||
         // default with -shared
         (v == opts::SymbolVisibility::default_ && global.params.dll);
-    global.params.dllimport = !linkAgainstSharedDefaultLibs() ? DLLImport::none
-                              : v == opts::SymbolVisibility::public_
-                                  ? DLLImport::all
-                                  : DLLImport::defaultLibsOnly;
+    if (opts::dllimport.getNumOccurrences() == 0) {
+      global.params.dllimport =
+          !linkAgainstSharedDefaultLibs() ? DLLImport::none
+          : global.params.dllexport       ? DLLImport::all
+                                          : DLLImport::defaultLibsOnly;
+    }
+  } else {
+    global.params.dllexport = false;
+    global.params.dllimport = DLLImport::none;
   }
 
   // allocate the target abi
