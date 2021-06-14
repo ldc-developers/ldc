@@ -383,7 +383,7 @@ endforeach()
 
 # Compiles the given D modules to object files, and if enabled, bitcode files.
 # The paths of the output files are appended to outlist_o and outlist_bc, respectively.
-macro(dc src_files src_basedir d_flags output_basedir emit_bc all_at_once outlist_o outlist_bc)
+macro(dc src_files src_basedir d_flags output_basedir emit_bc all_at_once single_obj_name outlist_o outlist_bc)
     set(dc_flags -c --output-o ${d_flags})
     if(${emit_bc})
         list(APPEND dc_flags -flto=thin --output-bc)
@@ -438,9 +438,19 @@ macro(dc src_files src_basedir d_flags output_basedir emit_bc all_at_once outlis
     endforeach()
 
     if(${all_at_once})
+        if("${single_obj_name}" STREQUAL "")
+            list(APPEND dc_flags -od=${output_basedir} -op)
+        else()
+            set(new_o ${output_basedir}/${single_obj_name}${CMAKE_C_OUTPUT_EXTENSION})
+            if(${emit_bc})
+                set(new_bc ${output_basedir}/${single_obj_name}.bc${CMAKE_C_OUTPUT_EXTENSION})
+            endif()
+            list(APPEND dc_flags -of=${new_o})
+        endif()
+
         add_custom_command(
             OUTPUT  ${new_o} ${new_bc}
-            COMMAND ${LDC_EXE_FULL} ${dc_flags} -od=${output_basedir} -op ${relative_src_files}
+            COMMAND ${LDC_EXE_FULL} ${dc_flags} ${relative_src_files}
             WORKING_DIRECTORY ${src_basedir}
             DEPENDS ${src_files} ${dc_deps}
         )
@@ -476,23 +486,57 @@ endmacro()
 
 # Sets up the target(s) for building the druntime D object files, appending the
 # names of the (bitcode) files to link into the library to outlist_o (outlist_bc).
-macro(compile_druntime d_flags lib_suffix path_suffix emit_bc all_at_once outlist_o outlist_bc)
+macro(compile_druntime d_flags lib_suffix path_suffix emit_bc all_at_once single_obj outlist_o outlist_bc)
     get_target_suffix("${lib_suffix}" "${path_suffix}" target_suffix)
+    if(${single_obj})
+        set(single_obj_name druntime)
+    else()
+        set(single_obj_name "")
+    endif()
     dc("${DRUNTIME_D}"
        "${RUNTIME_DIR}/src"
        "-conf=;${d_flags};${DRUNTIME_EXTRA_FLAGS};-I${RUNTIME_DIR}/src"
        "${PROJECT_BINARY_DIR}/objects${target_suffix}"
        "${emit_bc}"
        "${all_at_once}"
+       "${single_obj_name}"
        ${outlist_o}
        ${outlist_bc}
     )
 endmacro()
 
+set(dso_windows_o "")
+if("${TARGET_SYSTEM}" MATCHES "Windows")
+    # Windows: precompile rt.dso_windows object file & install to lib dir.
+    # The existing object file isn't reused to prevent *exported* symbols (only
+    # -link-defaultlib-shared for dllimport, no -fvisibility=public).
+    # This allows to create executables with -link-defaultlib-shared without
+    # any exports (and according extra linker files such as the import .lib).
+    set(dso_windows_bc "")
+    dc("${RUNTIME_DIR}/src/rt/dso_windows.d"
+       "${RUNTIME_DIR}/src"
+       "-conf=;${D_FLAGS};${D_FLAGS_RELEASE};-link-defaultlib-shared;${DRUNTIME_EXTRA_FLAGS};-I${RUNTIME_DIR}/src"
+       "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}"
+       "OFF" # emit_bc
+       "ON"  # all_at_once
+       "dso_windows" # single_obj_name
+       dso_windows_o
+       dso_windows_bc
+    )
+
+    add_custom_target(dso_windows DEPENDS ${dso_windows_o})
+    install(FILES ${dso_windows_o} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
+endif()
+
 # Sets up the targets for building the Phobos D object files, appending the
 # names of the (bitcode) files to link into the library to outlist_o (outlist_bc).
-macro(compile_phobos2 d_flags lib_suffix path_suffix emit_bc all_at_once outlist_o outlist_bc)
+macro(compile_phobos2 d_flags lib_suffix path_suffix emit_bc all_at_once single_obj outlist_o outlist_bc)
     get_target_suffix("${lib_suffix}" "${path_suffix}" target_suffix)
+    if(${single_obj})
+        set(single_obj_name phobos2)
+    else()
+        set(single_obj_name "")
+    endif()
 
     # Special case for Windows and emit_bc=ON:
     # LLVM before v9.0 doesn't support naked DMD-style asm when generating bitcode.
@@ -515,8 +559,9 @@ macro(compile_phobos2 d_flags lib_suffix path_suffix emit_bc all_at_once outlist
            "${PHOBOS2_DIR}"
            "-conf=;${d_flags};${PHOBOS2_EXTRA_FLAGS};-I${RUNTIME_DIR}/src;-I${PHOBOS2_DIR}"
            "${PROJECT_BINARY_DIR}/objects${target_suffix}"
-           "OFF"
+           "OFF" # emit_bc
            "${all_at_once}"
+           ""    # single_obj_name
            naked_asm_o
            naked_asm_o
         )
@@ -531,6 +576,7 @@ macro(compile_phobos2 d_flags lib_suffix path_suffix emit_bc all_at_once outlist
        "${PROJECT_BINARY_DIR}/objects${target_suffix}"
        "${emit_bc}"
        "${all_at_once}"
+       "${single_obj_name}"
        ${outlist_o}
        ${outlist_bc}
     )
@@ -655,17 +701,16 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit
         list(APPEND phobos2_d_flags ${PHOBOS2_EXTRA_UNITTEST_FLAGS})
     endif()
 
-    # Posix: only compile Phobos modules once for static+shared libs.
-    # If a shared Phobos lib is generated (too), compile explicitly with `-relocation-model=pic`.
-    if(NOT "${TARGET_SYSTEM}" MATCHES "Windows")
-        if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
-            list(APPEND phobos2_d_flags -relocation-model=pic)
-        endif()
-
+    # Posix: when compiling both static and shared Phobos *and* compiling the modules separately
+    # (by default, only for the unittests), only compile once to save build time.
+    set(phobos2_common "")
+    if((NOT "${TARGET_SYSTEM}" MATCHES "Windows") AND BUILD_SHARED_LIBS STREQUAL "BOTH"
+       AND NOT ${all_d_files_at_once})
         set(phobos2_o "")
         set(phobos2_bc "")
-        compile_phobos2("${phobos2_d_flags}" "${lib_suffix}"
-                        "${path_suffix}" "${emit_bc}" "${all_d_files_at_once}" phobos2_o phobos2_bc)
+        compile_phobos2("${phobos2_d_flags};-relocation-model=pic;-fvisibility=public"
+                        "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}"
+                        "${emit_bc}" "${all_d_files_at_once}" "OFF" phobos2_o phobos2_bc)
 
         # Use a dummy custom target ('phobos2-ldc…-common') depending solely on the Phobos D objects
         # (custom commands) as dependency for static+shared Phobos libs.
@@ -684,72 +729,56 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "ON")
         set(druntime_o "")
         set(druntime_bc "")
-        compile_druntime("${druntime_d_flags}" "${lib_suffix}"
-                         "${path_suffix}" "${emit_bc}" "${all_d_files_at_once}" druntime_o druntime_bc)
+        compile_druntime("${druntime_d_flags}" "${lib_suffix}" "${path_suffix}"
+                         "${emit_bc}" "${all_d_files_at_once}" "OFF" druntime_o druntime_bc)
 
-        # Windows: compile Phobos with hidden visibility
-        if("${TARGET_SYSTEM}" MATCHES "Windows")
+        # compile Phobos (with hidden visibility on Windows)
+        if(phobos2_common STREQUAL "")
             set(phobos2_o "")
             set(phobos2_bc "")
-            compile_phobos2("${phobos2_d_flags}" "${lib_suffix}"
-                            "${path_suffix}" "${emit_bc}" "${all_d_files_at_once}" phobos2_o phobos2_bc)
+            compile_phobos2("${phobos2_d_flags}" "${lib_suffix}" "${path_suffix}"
+                            "${emit_bc}" "${all_d_files_at_once}" "OFF" phobos2_o phobos2_bc)
         endif()
 
         build_runtime_libs("${druntime_o}" "${druntime_bc}" "${phobos2_o}" "${phobos2_bc}"
                            "${c_flags}" "${ld_flags}" "${lib_suffix}" "${path_suffix}"
                            "OFF" "${emit_bc}" ${outlist_targets})
 
-        if(NOT "${TARGET_SYSTEM}" MATCHES "Windows")
+        if(NOT phobos2_common STREQUAL "")
             add_dependencies(phobos2-ldc${target_suffix} ${phobos2_common})
         endif()
     endif()
     # shared druntime/Phobos
     if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
-        # compile druntime with extra `version (Shared)`
+        # compile druntime with public visibility and extra `version (Shared)`
         set(druntime_o "")
         set(druntime_bc "")
-        compile_druntime("${druntime_d_flags};-relocation-model=pic;-d-version=Shared;-fvisibility=public" "${lib_suffix}${SHARED_LIB_SUFFIX}"
-                         "${path_suffix}" "OFF" "${all_d_files_at_once}" druntime_o druntime_bc)
+        compile_druntime("${druntime_d_flags};-relocation-model=pic;-fvisibility=public;-d-version=Shared"
+                         "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}"
+                         "OFF" "${all_d_files_at_once}" "OFF" druntime_o druntime_bc)
 
-        # Windows: compile Phobos with public visibility
-        if("${TARGET_SYSTEM}" MATCHES "Windows")
+        # compile Phobos with public visibility (and preferably to a single object file)
+        if(phobos2_common STREQUAL "")
             set(phobos2_o "")
             set(phobos2_bc "")
-            compile_phobos2("${phobos2_d_flags};-fvisibility=public" "${lib_suffix}${SHARED_LIB_SUFFIX}"
-                            "${path_suffix}" "OFF" "${all_d_files_at_once}" phobos2_o phobos2_bc)
+            compile_phobos2("${phobos2_d_flags};-relocation-model=pic;-fvisibility=public"
+                            "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}"
+                            "OFF" "${all_d_files_at_once}" "${all_d_files_at_once}" phobos2_o phobos2_bc)
+        endif()
+
+        if("${TARGET_SYSTEM}" MATCHES "Windows")
             # also link-in special rt.dso_windows druntime module
-            list(APPEND phobos2_o ${PROJECT_BINARY_DIR}/objects${target_suffix}/rt/dso_windows.obj)
+            list(APPEND phobos2_o ${dso_windows_o})
         endif()
 
         build_runtime_libs("${druntime_o}" "${druntime_bc}" "${phobos2_o}" "${phobos2_bc}"
                            "${c_flags}" "${ld_flags}" "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}"
                            "ON" "OFF" ${outlist_targets})
 
-        if("${TARGET_SYSTEM}" MATCHES "Windows")
-            # Windows: precompile rt.dso_windows object file & install to lib dir.
-            # The existing object file isn't reused to prevent *exported* symbols (only
-            # -link-defaultlib-shared for dllimport, no -fvisibility=public).
-            # This allows to create executables with -link-defaultlib-shared without
-            # any exports (and according extra linker files such as the import .lib).
-            if ("${lib_suffix}" STREQUAL "")
-                set(dso_windows_o "")
-                set(dso_windows_bc "")
-                dc("${RUNTIME_DIR}/src/rt/dso_windows.d"
-                   "${RUNTIME_DIR}/src/rt" # => output path: ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/dso_windows.obj
-                   "-conf=;${d_flags};-link-defaultlib-shared;${DRUNTIME_EXTRA_FLAGS};-I${RUNTIME_DIR}/src"
-                   "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}"
-                   "OFF" # emit_bc
-                   "OFF" # all_at_once
-                   dso_windows_o
-                   dso_windows_bc
-                )
-
-                add_custom_target(dso_windows DEPENDS ${dso_windows_o})
-                add_dependencies(phobos2-ldc${target_suffix} dso_windows)
-                install(FILES ${dso_windows_o} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
-            endif()
-        else()
+        if(NOT phobos2_common STREQUAL "")
             add_dependencies(phobos2-ldc${target_suffix} ${phobos2_common})
+        elseif("${TARGET_SYSTEM}" MATCHES "Windows")
+            add_dependencies(phobos2-ldc${target_suffix} dso_windows)
         endif()
     endif()
 endmacro()
@@ -988,15 +1017,16 @@ macro(compile_testrunner d_flags is_shared target_suffix extra_dir_suffix)
        "${RUNTIME_DIR}/src"
        "${d_flags}"
        "${PROJECT_BINARY_DIR}/objects-unittest${target_suffix}${extra_dir_suffix}"
-       "OFF"
-       "OFF"
+       "OFF" # emit_bc
+       "ON"  # all_at_once
+       "test_runner" # single_obj_name
        test_runner_o
        test_runner_bc
     )
 
     if("${is_shared}" STREQUAL "ON" AND "${TARGET_SYSTEM}" MATCHES "Windows")
         # also link-in special rt.dso_windows druntime module
-        list(APPEND test_runner_o ${PROJECT_BINARY_DIR}/objects${target_suffix}/rt/dso_windows.obj)
+        list(APPEND test_runner_o ${dso_windows_o})
     endif()
 endmacro()
 
