@@ -37,8 +37,8 @@ $(ROOT)/loadDR.done $(ROOT)/host.done: RUN_ARGS:=$(DRUNTIMESO)
 else
 # Windows
 
-# required for executables to implicitly dllimport DLL symbols (with -link-defaultlib-shared)
-DFLAGS+=-fvisibility=public
+# required for executables to implicitly dllimport DLL data symbols
+DFLAGS+=-dllimport=all
 
 all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS))) loadlibwin dllrefcount dllgc dll_gc_proxy_teardown
 LIB_EXT:=lib
@@ -61,10 +61,10 @@ dllgc:
 	$(ROOT)/loaddllgc.exe
 
 # LDC: this test is designed for .exe & .dll with separate druntimes
-dllgc: DFLAGS+=-link-defaultlib-shared=false
+dllgc: DFLAGS+=-link-defaultlib-shared=false -dllimport=none
 
 # LDC addition: test teardown with separate druntimes, with the DLL using the .exe GC
-dll_gc_proxy_teardown: DFLAGS+=-link-defaultlib-shared=false
+dll_gc_proxy_teardown: DFLAGS+=-link-defaultlib-shared=false -dllimport=none
 dll_gc_proxy_teardown:
 	$(DMD) $(DFLAGS) -shared -L/EXPORT:gc_setProxy -L/EXPORT:gc_clrProxy -version=DLL -of$(ROOT)/dll_gc_proxy_teardown.dll src/dll_gc_proxy_teardown.d
 	$(DMD) $(DFLAGS) -shared -L/EXPORT:gc_setProxy -L/EXPORT:gc_clrProxy -version=DLL -version=NoUnload -of$(ROOT)/dll_gc_proxy_teardown_nounload.dll src/dll_gc_proxy_teardown.d
