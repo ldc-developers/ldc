@@ -98,6 +98,15 @@ enum class FeatureState : signed char
     enabled = 1    /// Specified as `-preview=`
 };
 
+#if IN_LLVM
+enum class DLLImport : char
+{
+    none,
+    defaultLibsOnly, // only symbols from druntime/Phobos
+    all
+};
+#endif
+
 // Put command line switches in here
 struct Param
 {
@@ -279,8 +288,8 @@ struct Param
     bool linkonceTemplates; // -linkonce-templates
 
     // Windows-specific:
-    bool dllexport; // dllexport ~all defined symbols?
-    bool dllimport; // dllimport data symbols not defined in any root module?
+    bool dllexport;      // dllexport ~all defined symbols?
+    DLLImport dllimport; // dllimport data symbols not defined in any root module?
 #endif
 };
 

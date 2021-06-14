@@ -423,7 +423,7 @@ bool ldc_optimize_module(llvm::Module *M) {
 
   addOptimizationPasses(mpm, fpm, optLevel(), sizeLevel());
 
-  if (global.params.dllimport) {
+  if (global.params.dllimport != DLLImport::none) {
     mpm.add(createDLLImportRelocationPass());
   }
 

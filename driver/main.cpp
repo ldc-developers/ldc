@@ -1090,10 +1090,10 @@ int cppmain() {
         v == opts::SymbolVisibility::public_ ||
         // default with -shared
         (v == opts::SymbolVisibility::default_ && global.params.dll);
-    global.params.dllimport =
-        v == opts::SymbolVisibility::public_ ||
-        // enforced when linking against shared default libs
-        linkAgainstSharedDefaultLibs();
+    global.params.dllimport = !linkAgainstSharedDefaultLibs() ? DLLImport::none
+                              : v == opts::SymbolVisibility::public_
+                                  ? DLLImport::all
+                                  : DLLImport::defaultLibsOnly;
   }
 
   // allocate the target abi

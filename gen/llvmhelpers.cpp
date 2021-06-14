@@ -1670,6 +1670,22 @@ std::string llvmTypeToString(llvm::Type *type) {
   return result;
 }
 
+bool isDefaultLibSymbol(Dsymbol *sym) {
+  auto mod = sym->getModule();
+  if (!mod)
+    return false;
+
+  auto md = mod->md;
+  if (!md)
+    return false;
+
+  if (md->packages.length == 0)
+    return md->id == Id::object;
+
+  auto p = md->packages.ptr[0];
+  return p == Id::core || p == Id::std || p == Id::etc || p == Id::ldc;
+}
+
 llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
                                     llvm::Type *type,
                                     llvm::StringRef mangledName,

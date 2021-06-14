@@ -85,9 +85,13 @@ void IrGlobal::declare() {
   if (global.params.targetTriple->isOSWindows()) {
     // dllimport isn't supported for thread-local globals (MSVC++ neither)
     if (!V->isThreadlocal()) {
-      // with -fvisibility=public / -link-defaultlib-shared, also include all
+      // with -fvisibility=public / -link-defaultlib-shared, also include
       // extern(D) globals
-      if (V->isExport() || (global.params.dllimport && V->linkage == LINK::d)) {
+      if (V->isExport() ||
+          (V->linkage == LINK::d &&
+           (global.params.dllimport == DLLImport::all ||
+            (global.params.dllimport == DLLImport::defaultLibsOnly &&
+             isDefaultLibSymbol(V))))) {
         const bool isDefinedInRootModule =
             !(V->storage_class & STCextern) && !V->inNonRoot();
         if (!isDefinedInRootModule)

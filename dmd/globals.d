@@ -109,6 +109,14 @@ enum FeatureState : byte
     enabled = 1    /// Specified as `-preview=`
 }
 
+version (IN_LLVM)
+enum DLLImport : byte
+{
+    none,
+    defaultLibsOnly, // only symbols from druntime/Phobos
+    all
+}
+
 // Put command line switches in here
 extern (C++) struct Param
 {
@@ -304,8 +312,8 @@ version (IN_LLVM)
     bool linkonceTemplates; // -linkonce-templates
 
     // Windows-specific:
-    bool dllexport; // dllexport ~all defined symbols?
-    bool dllimport; // dllimport data symbols not defined in any root module?
+    bool dllexport;      // dllexport ~all defined symbols?
+    DLLImport dllimport; // dllimport data symbols not defined in any root module?
 } // IN_LLVM
 }
 
