@@ -1686,7 +1686,11 @@ bool isDefaultLibSymbol(Dsymbol *sym) {
     return md->id == Id::object || md->id == Id::std;
 
   auto p = md->packages.ptr[0];
-  return p == Id::core || p == Id::std || p == Id::etc || p == Id::ldc;
+  return p == Id::core || p == Id::etc || p == Id::ldc ||
+         (p == Id::std &&
+          // 3rd-party package: std.io (https://github.com/MartinNowak/io/)
+          !((md->packages.length == 1 && md->id == Id::io) ||
+            (md->packages.length > 1 && md->packages.ptr[1] == Id::io)));
 }
 
 llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
