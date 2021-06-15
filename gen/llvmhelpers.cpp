@@ -1680,7 +1680,7 @@ bool isDefaultLibSymbol(Dsymbol *sym) {
     return false;
 
   if (md->packages.length == 0)
-    return md->id == Id::object;
+    return md->id == Id::object || md->id == Id::std;
 
   auto p = md->packages.ptr[0];
   return p == Id::core || p == Id::std || p == Id::etc || p == Id::ldc;
