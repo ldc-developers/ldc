@@ -1671,6 +1671,9 @@ std::string llvmTypeToString(llvm::Type *type) {
 }
 
 bool isDefaultLibSymbol(Dsymbol *sym) {
+  if (defineOnDeclare(sym))
+    return false;
+
   auto mod = sym->getModule();
   if (!mod)
     return false;
