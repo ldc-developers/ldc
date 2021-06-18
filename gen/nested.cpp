@@ -316,6 +316,12 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
                          fd->toPrettyChars());
   LOG_SCOPE
 
+  FuncDeclaration *parentFunc = getParentFunc(fd);
+  // Make sure the parent has already been analyzed.
+  if (parentFunc) {
+    DtoCreateNestedContextType(parentFunc);
+  }
+
   DtoDeclareFunction(fd);
 
   IrFunction &irFunc = *getIrFunc(fd);
@@ -325,12 +331,6 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
     return;
   }
   irFunc.nestedContextCreated = true;
-
-  FuncDeclaration *parentFunc = getParentFunc(fd);
-  // Make sure the parent has already been analyzed.
-  if (parentFunc) {
-    DtoCreateNestedContextType(parentFunc);
-  }
 
   if (fd->closureVars.length == 0) {
     // No local variables of this function are captured.
