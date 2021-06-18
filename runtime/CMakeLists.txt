@@ -708,7 +708,7 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit
        AND NOT ${all_d_files_at_once})
         set(phobos2_o "")
         set(phobos2_bc "")
-        compile_phobos2("${phobos2_d_flags};-relocation-model=pic;-fvisibility=public"
+        compile_phobos2("${phobos2_d_flags};-relocation-model=pic;-fvisibility=public;-dllimport=all"
                         "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}"
                         "${emit_bc}" "${all_d_files_at_once}" "OFF" phobos2_o phobos2_bc)
 
@@ -753,7 +753,7 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit
         # compile druntime with public visibility and extra `version (Shared)`
         set(druntime_o "")
         set(druntime_bc "")
-        compile_druntime("${druntime_d_flags};-relocation-model=pic;-fvisibility=public;-d-version=Shared"
+        compile_druntime("${druntime_d_flags};-relocation-model=pic;-fvisibility=public;-dllimport=none;-d-version=Shared"
                          "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}"
                          "OFF" "${all_d_files_at_once}" "OFF" druntime_o druntime_bc)
 
@@ -761,7 +761,7 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit
         if(phobos2_common STREQUAL "")
             set(phobos2_o "")
             set(phobos2_bc "")
-            compile_phobos2("${phobos2_d_flags};-relocation-model=pic;-fvisibility=public"
+            compile_phobos2("${phobos2_d_flags};-relocation-model=pic;-fvisibility=public;-dllimport=all"
                             "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}"
                             "OFF" "${all_d_files_at_once}" "${all_d_files_at_once}" phobos2_o phobos2_bc)
         endif()

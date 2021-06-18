@@ -85,6 +85,7 @@ extern FloatABI::Type floatABI;
 extern cl::opt<bool> disableLinkerStripDead;
 enum class SymbolVisibility { default_, hidden, public_ };
 extern cl::opt<SymbolVisibility> symbolVisibility;
+extern cl::opt<DLLImport, true> dllimport;
 extern cl::opt<bool> noPLT;
 extern cl::opt<bool> useDIP25;
 

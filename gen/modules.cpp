@@ -190,8 +190,9 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
   LLConstant *mref = gIR->module.getNamedGlobal(mrefIRMangle);
   LLType *modulerefPtrTy = getPtrToType(modulerefTy);
   if (!mref) {
-    mref = declareGlobal(Loc(), gIR->module, modulerefPtrTy, mrefIRMangle,
-                         false, false, global.params.dllimport);
+    mref =
+        declareGlobal(Loc(), gIR->module, modulerefPtrTy, mrefIRMangle, false,
+                      false, global.params.dllimport != DLLImport::none);
   }
   mref = DtoBitCast(mref, getPtrToType(modulerefPtrTy));
 

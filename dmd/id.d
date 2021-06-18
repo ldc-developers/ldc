@@ -544,6 +544,9 @@ immutable Msgtable[] msgtable =
     { "dcPointer", "Pointer" },
     { "dcReflect", "__dcompute_reflect" },
     { "RTInfoImpl" },
+
+    // IN_LLVM
+    { "io" },
 ];
 
 

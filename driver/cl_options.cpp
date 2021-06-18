@@ -71,6 +71,22 @@ cl::opt<SymbolVisibility> symbolVisibility(
                    "Only export symbols marked with 'export'"),
         clEnumValN(SymbolVisibility::public_, "public", "Export all symbols")));
 
+cl::opt<DLLImport, true> dllimport(
+    "dllimport", cl::ZeroOrMore, cl::location(global.params.dllimport),
+    cl::desc("Windows only: which extern(D) global variables to dllimport "
+             "implicitly if not defined in a root module"),
+    cl::values(
+        clEnumValN(DLLImport::none, "none",
+                   "None (default with -link-defaultlib-shared=false)"),
+        clEnumValN(DLLImport::defaultLibsOnly, "defaultLibsOnly",
+                   "Only druntime/Phobos symbols (default with "
+                   "-link-defaultlib-shared and -fvisibility=hidden). May "
+                   "likely need to be coupled with -linkonce-templates to "
+                   "overcome linker errors wrt. instantiated symbols."),
+        clEnumValN(DLLImport::all, "all",
+                   "All (default with -link-defaultlib-shared and "
+                   "-fvisibility=public)")));
+
 static cl::opt<bool, true> verbose("v", cl::desc("Verbose"), cl::ZeroOrMore,
                                    cl::location(global.params.verbose));
 

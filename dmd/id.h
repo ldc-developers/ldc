@@ -44,6 +44,9 @@ struct Id
     static Identifier *dcompute;
     static Identifier *dcPointer;
     static Identifier *object;
+    static Identifier *core;
+    static Identifier *etc;
+    static Identifier *std;
     static Identifier *ensure;
     static Identifier *require;
     static Identifier *xopEquals;
@@ -90,5 +93,6 @@ struct Id
     static Identifier *udaDynamicCompile;
     static Identifier *udaDynamicCompileConst;
     static Identifier *udaDynamicCompileEmit;
+    static Identifier *io;
 #endif
 };
