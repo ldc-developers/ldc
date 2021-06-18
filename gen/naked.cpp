@@ -142,8 +142,6 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   IF_LOG Logger::println("DtoDefineNakedFunction(%s)", mangleExact(fd));
   LOG_SCOPE;
 
-  gIR->funcGenStates.emplace_back(new FuncGenState(*getIrFunc(fd), *gIR));
-
   // we need to do special processing on the body, since we only want
   // to allow actual inline asm blocks to reach the final asm output
 
@@ -247,8 +245,6 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
     const auto linkerSwitch = std::string("/EXPORT:") + mangle;
     gIR->addLinkerOption(llvm::StringRef(linkerSwitch));
   }
-
-  gIR->funcGenStates.pop_back();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

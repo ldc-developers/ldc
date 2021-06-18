@@ -147,8 +147,8 @@ public:
   ObjCState objc;
 
   // Stack of currently codegen'd functions (more than one for lambdas or other
-  // nested functions, inlining-only codegen'ing, etc.), and some convenience
-  // accessors for the top-most one.
+  // nested functions, inlining-only codegen'ing, -linkonce-templates etc.),
+  // and some convenience accessors for the top-most one.
   std::vector<std::unique_ptr<FuncGenState>> funcGenStates;
   FuncGenState &funcGen();
   IrFunction *func();
