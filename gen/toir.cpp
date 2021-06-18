@@ -997,22 +997,23 @@ public:
 
     VarDeclaration *vd = nullptr;
 
-    // special cases: `this(int) { this(); }` and `this(int) { super(); }`
-    if (!e->var) {
+    if (e->var) {
+      vd = e->var->isVarDeclaration();
+    } else {
+      // special cases: `this(int) { this(); }` and `this(int) { super(); }`
       Logger::println("this exp without var declaration");
       if (auto thisArg = p->func()->thisArg) {
         result = new DLValue(e->type, thisArg);
         return;
       }
       // use the inner-most parent's `vthis`
-      for (int i = p->funcGenStates.size() - 2; i >= 0; --i) {
-        if (auto vthis = p->funcGenStates[i]->irFunc.decl->vthis) {
+      for (auto fd = getParentFunc(p->func()->decl); fd;
+           fd = getParentFunc(fd)) {
+        if (auto vthis = fd->vthis) {
           vd = vthis;
           break;
         }
       }
-    } else {
-      vd = e->var->isVarDeclaration();
     }
 
     assert(vd);
