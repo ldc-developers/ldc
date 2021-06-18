@@ -56,9 +56,7 @@ bool IrAggr::useDLLImport() const {
   if (!global.params.targetTriple->isOSWindows())
     return false;
 
-  if (aggrdecl->isExport() || global.params.dllimport == DLLImport::all ||
-      (global.params.dllimport == DLLImport::defaultLibsOnly &&
-       isDefaultLibSymbol(aggrdecl))) {
+  if (dllimportSymbol(aggrdecl)) {
     // dllimport, unless defined in a root module (=> no extra indirection for
     // other root modules, assuming *all* root modules will be linked together
     // to one or more binaries).

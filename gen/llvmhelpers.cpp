@@ -1670,7 +1670,10 @@ std::string llvmTypeToString(llvm::Type *type) {
   return result;
 }
 
-bool isDefaultLibSymbol(Dsymbol *sym) {
+// Is the specified symbol defined in the druntime/Phobos libs?
+// Note: fuzzy semantics for instantiated symbols, except with
+// -linkonce-templates.
+static bool isDefaultLibSymbol(Dsymbol *sym) {
   if (defineOnDeclare(sym))
     return false;
 
@@ -1691,6 +1694,12 @@ bool isDefaultLibSymbol(Dsymbol *sym) {
           // 3rd-party package: std.io (https://github.com/MartinNowak/io/)
           !((md->packages.length == 1 && md->id == Id::io) ||
             (md->packages.length > 1 && md->packages.ptr[1] == Id::io)));
+}
+
+bool dllimportSymbol(Dsymbol *sym) {
+  return sym->isExport() || global.params.dllimport == DLLImport::all ||
+         (global.params.dllimport == DLLImport::defaultLibsOnly &&
+          isDefaultLibSymbol(sym));
 }
 
 llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,

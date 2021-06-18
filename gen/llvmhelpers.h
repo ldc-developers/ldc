@@ -245,8 +245,8 @@ LLConstant *toConstantArray(LLType *ct, LLArrayType *at, T *str, size_t len,
 
 llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm);
 
-/// Is the specified symbol part of druntime/Phobos?
-bool isDefaultLibSymbol(Dsymbol *sym);
+/// Indicates whether the specified symbol is a general dllimport candidate.
+bool dllimportSymbol(Dsymbol *sym);
 
 /// Tries to declare an LLVM global. If a variable with the same mangled name
 /// already exists, checks if the types match and returns it instead.
