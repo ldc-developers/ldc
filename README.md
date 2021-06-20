@@ -1,6 +1,7 @@
 LDC – the LLVM-based D Compiler
 ===============================
 
+[![Latest release](https://img.shields.io/github/v/release/ldc-developers/ldc?include_prereleases&label=latest)][8]
 [![Latest stable release](https://img.shields.io/github/v/release/ldc-developers/ldc?label=stable)][0]
 [![Build status](https://img.shields.io/azure-devops/build/ldc-developers/ldc/1/master?label=Azure%20Pipelines&logo=Azure%20Pipelines)][1]
 [![Build status](https://img.shields.io/bitrise/1b36e52cf09e5308/master?label=Bitrise&logo=Bitrise&token=CSkvmRcSUiweaURFUJDMYw)][2]
@@ -119,3 +120,4 @@ Feedback of any kind is very much appreciated!
 [5]: https://app.shippable.com/github/ldc-developers/ldc/runs?branchName=master
 [6]: https://travis-ci.org/ldc-developers/ldc/branches
 [7]: https://www.bountysource.com/teams/ldc-developers/issues
+[8]: https://github.com/ldc-developers/ldc/releases
