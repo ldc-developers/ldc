@@ -87,7 +87,8 @@ purposes, we recommend GDC via its `gdmd` wrapper. Alternatively, LDC 0.17,
 the last version not to require a D compiler, is maintained to some degree in
 the `ltsmaster` branch.)
 
-### Cross-compiling
+Cross-compilation
+-----------------
 
 Similar to other LLVM-based compilers, cross-compiling with LDC is simple.
 Full instructions and example invocations are provided on the dedicated
