@@ -33,28 +33,28 @@ Installation
 
 ### From a pre-built package
 
-Portable stand-alone binary builds for common platforms (incl. Linux,
-macOS and Windows) are available at the
-[GitHub release page](https://github.com/ldc-developers/ldc/releases).
+Portable stand-alone binary builds (and a Windows installer) for common
+platforms (incl. Linux, macOS, Windows, FreeBSD and Android) are available
+at the [GitHub release page](https://github.com/ldc-developers/ldc/releases).
+For Windows, the [Visual D installer](https://rainers.github.io/visuald/visuald/StartPage.html)
+also comes with a bundled LDC.
 
-For Windows, the [VisualD installer](https://rainers.github.io/visuald/visuald/StartPage.html) comes with a bundled LDC.
-
-For bleeding-edge users, we also provide the [latest successful
-Continuous Integration builds](https://github.com/ldc-developers/ldc/releases/tag/CI)
+For bleeding-edge users, we also provide the [latest successful Continuous
+Integration builds](https://github.com/ldc-developers/ldc/releases/tag/CI)
 with enabled LLVM & LDC assertions (increasing compile times by roughly 50%).
 
-The [dlang.org install script](https://dlang.org/install.html)
-can also be used to install LDC:
+The [dlang.org install script](https://dlang.org/install.html) can also be
+used to install these official packages from GitHub:
 
     curl -fsS https://dlang.org/install.sh | bash -s ldc
 
-In addition, LDC is available from various package managers
-(but note that these packages **might be outdated** as they are
-not currently integrated into the project release process):
+In addition, LDC is available from various package managers (but note that
+these packages are **community-maintained, might be outdated and not offer
+the full feature set of official packages from GitHub**):
 
 |              | Command                                      |
 | ------------ | -------------------------------------------- |
-| **Android**  | in [Termux app](https://play.google.com/store/apps/details?id=com.termux&hl=en): `pkg install ldc` |
+| Android      | in [Termux app](https://play.google.com/store/apps/details?id=com.termux&hl=en): `pkg install ldc` |
 | Arch Linux   | `pacman -S ldc`                              |
 | Debian       | `apt install ldc`                            |
 | Fedora       | `dnf install ldc`                            |
@@ -66,11 +66,6 @@ not currently integrated into the project release process):
 | Nix/NixOS    | `nix-env -i ldc`                             |
 | Chocolatey   | `choco install ldc`                          |
 | Docker       | `docker pull dlang2/ldc-ubuntu`              |
-
-#### Targeting Android
-
-You can find full instructions on cross-compiling or natively compiling
-for Android [on the wiki](https://wiki.dlang.org/Build_D_for_Android).
 
 ### Building from source
 
@@ -97,6 +92,11 @@ the `ltsmaster` branch.)
 Similar to other LLVM-based compilers, cross-compiling with LDC is simple.
 Full instructions and example invocations are provided on the dedicated
 [Wiki page](https://wiki.dlang.org/Cross-compiling_with_LDC).
+
+#### Targeting Android
+
+You can find full instructions on cross-compiling or natively compiling
+for Android [on the wiki](https://wiki.dlang.org/Build_D_for_Android).
 
 Contact
 -------
