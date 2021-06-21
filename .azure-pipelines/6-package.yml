@@ -4,8 +4,9 @@
 # Required env vars:
 # - ARCH
 # - CI_OS
-# - EXTRA_CMAKE_FLAGS_CROSS (optional)
 # - CROSS_TRIPLE (optional)
+# - DFLAGS (optional)
+# - EXTRA_CMAKE_FLAGS_CROSS (optional)
 
 steps:
 
@@ -26,7 +27,7 @@ steps:
     git clone --recursive https://github.com/dlang/dub.git
     cd dub
     git checkout "$(cat $BUILD_SOURCESDIRECTORY/packaging/dub_version)"
-    DFLAGS='' $DMD -run build.d -O -w $DFLAGS
+    DFLAGS='' $DMD -run build.d -O -w -linkonce-templates $DFLAGS
     cp bin/dub ../installed/bin
     if [[ "$EXTRA_CMAKE_FLAGS_CROSS" == "" ]]; then
       ../installed/bin/dub --version
@@ -50,7 +51,7 @@ steps:
     git clone --recursive https://github.com/atilaneves/reggae.git
     cd reggae
     git checkout "$(cat $BUILD_SOURCESDIRECTORY/packaging/reggae_version)"
-    DFLAGS="-O $DFLAGS" ../host-ldc/bin/dub build -v --build-mode=allAtOnce --combined \
+    DFLAGS="-O -linkonce-templates $DFLAGS" ../host-ldc/bin/dub build -v --build-mode=allAtOnce --combined \
       --compiler="$(dirname "$DMD")/ldc2" \
       ${CROSS_TRIPLE:+--arch="$CROSS_TRIPLE"}
     cp bin/reggae ../installed/bin
