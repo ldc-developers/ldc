@@ -54,18 +54,19 @@ the full feature set of official packages from GitHub**):
 
 |              | Command                                      |
 | ------------ | -------------------------------------------- |
+| Alpine Linux | `apk add ldc`                              |
 | Android      | in [Termux app](https://play.google.com/store/apps/details?id=com.termux&hl=en): `pkg install ldc` |
 | Arch Linux   | `pacman -S ldc`                              |
+| Chocolatey   | `choco install ldc`                          |
 | Debian       | `apt install ldc`                            |
+| Docker       | `docker pull dlang2/ldc-ubuntu`              |
 | Fedora       | `dnf install ldc`                            |
 | FreeBSD      | `pkg install ldc`                            |
 | Gentoo       | `layman -a ldc`                              |
 | Homebrew     | `brew install ldc`                           |
-| Ubuntu       | `apt install ldc`                            |
-| Snap         | `snap install --classic --channel=edge ldc2` |
 | Nix/NixOS    | `nix-env -i ldc`                             |
-| Chocolatey   | `choco install ldc`                          |
-| Docker       | `docker pull dlang2/ldc-ubuntu`              |
+| Snap         | `snap install --classic --channel=edge ldc2` |
+| Ubuntu       | `apt install ldc`                            |
 
 ### Building from source
 
