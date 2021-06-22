@@ -52,6 +52,17 @@ steps:
     set -ex
     cd ..
     export PATH="$PWD/ninja:$PATH"
+    # Build mimalloc (object file only)
+    curl --max-time 60 --retry 3 -L -o mimalloc.tar.gz "https://github.com/microsoft/mimalloc/archive/refs/tags/$(cat $BUILD_SOURCESDIRECTORY/packaging/mimalloc_version).tar.gz"
+    mkdir mimalloc
+    tar -xf mimalloc.tar.gz --strip 1 -C mimalloc
+    mkdir build-mimalloc
+    cd build-mimalloc
+    cmake -G Ninja ../mimalloc $EXTRA_CMAKE_FLAGS_CROSS
+    ninja mimalloc-obj
+    ls -lh CMakeFiles/mimalloc-obj.dir/src/static.c.o
+    cd ..
+    # Build LDC
     installDir=$PWD/install
     mkdir build-$ARCH
     cd build-$ARCH
@@ -64,6 +75,7 @@ steps:
       -DINCLUDE_INSTALL_DIR=$installDir/import \
       -DLDC_LINK_MANUALLY=OFF \
       -DLDC_ENABLE_ASSERTIONS=OFF \
+      -DALTERNATIVE_MALLOC_O=$PWD/../build-mimalloc/CMakeFiles/mimalloc-obj.dir/src/static.c.o \
       "${extraFlags[@]}"
     ninja -j$PARALLEL_JOBS ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache
   displayName: 'Cross-compile LDC executables'
