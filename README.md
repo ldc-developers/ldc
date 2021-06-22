@@ -7,7 +7,6 @@ LDC – the LLVM-based D Compiler
 [![Build status](https://img.shields.io/bitrise/1b36e52cf09e5308/master?label=Bitrise&logo=Bitrise&token=CSkvmRcSUiweaURFUJDMYw)][2]
 [![Build status](https://img.shields.io/circleci/project/github/ldc-developers/ldc/master?logo=CircleCI&label=CircleCI)][3]
 [![Build status](https://img.shields.io/cirrus/github/ldc-developers/ldc/master?label=Cirrus%20CI&logo=Cirrus%20CI)][4]
-[![Build status](https://img.shields.io/shippable/5b6826467dafeb0700d693e5/master?label=Shippable&logo=data%3Aimage%2Fpng%3Bbase64%2CiVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8%2F9hAAAABGdBTUEAAK%2FINwWK6QAAABl0RVh0U29mdHdhcmUAQWRvYmUgSW1hZ2VSZWFkeXHJZTwAAAM9SURBVHjaZFNLTBNRFJ3ptNLP9AfFIlCoSj8gRtsgCiImFnYI4saISzcmGkOiRsPSre5cGBfGhESJCzeaKCEmkPARjCaSStMiLW2h0qZQWjqdTtvpjGcMJIgvuXnv3ffuufeedx5BYKjVamlqgp1RqVTS2qpUKvtIknS1trYSer1e8hHwaTFZDAYDsTfkNq3sYYtRuNJQ01C5RddyK4yQWV1dXWxra7ui0Wi0LMtyWq32ezabTdfV1Z23MuE0lfpNB1UK78Im%2F5S836wKeGoUdgmNF4n8S2V7XGkwmRDA6nQ6M9zlXC6XAlg1nQxGrpb9jXvZH3vZu7LP8eIrUSTKf8shCVVrS0u%2Bv78%2FPzIyopbJZInKyspfw8PDhwYGBuK6w0e4veBsScx50%2FwkFefEeZ2C9Dh0VINfbw9kqm3yQCBQWF5ezoIPHmDKsbGx5MLCAuu64KFTK0u5KiGnfrHCPfNlhNcUwIRvKf79163SnNMz4K452qRpb2%2FXonyqq6vLMD09Xerp6Tk0ODhY7fP5FL5NJvY2nI%2BGBc0qwzAhareifKooBggVXW232891dHRoeZ7fMZlMNaIo8kajseB0OjWLi4up9a0MbTDXnrBYLF14lU6K2DfC4bC%2Fs7PzckVFhU4ul%2BvHx8fZ%2Bvp6qlQqyRBMRqPR3Pb2tjWfz2d2dnYS6%2Bvrk%2F8ASJXMzs5%2BQu9Ol8vlRBYiHo%2BnIpFIcXR09EkikbhI07R%2BYmLi0dra2nXsPx4EIMrlcnZjY%2BMssjUjUxSakPv9fg24eANerGjrOKo6g3O2WCx%2B%2FQ8A6jvW3d39XKFQZPr6%2BowSB7hMQEwur9d7D3y0wY5heAqFgkN2EADoN9B%2FzmazEVar9Uhvb%2B9xcMBgfQrcWGZmZi5NTU3d4TiOhVqHDgKoEXgtFAr9RmbNnrOqqkq5tLQUwtktgHHJZPIHnjACmTPy%2FdFQ3e10Ok2bzWYd%2Bs7EYjEK7DPBYJAEeSpBEE643e4vDoejGVLfRDX3yN1YBewd%2Bj%2BJXh9AC0Noww0wGdYEnk5AwByENA%2FiHkPiH%2FCDh1HF1n4AJawR5P1EmZLvJiwofV%2Fpn8HGdu%2BehsVgSWnzR4ABAB1RgzTDi2vfAAAAAElFTkSuQmCC)][5]
 [![Build status](https://img.shields.io/travis/ldc-developers/ldc/master?logo=Travis&label=Travis%20CI)][6]
 [![Bountysource](https://www.bountysource.com/badge/tracker?tracker_id=283332)][7]
 
@@ -119,7 +118,6 @@ Feedback of any kind is very much appreciated!
 [2]: https://app.bitrise.io/app/1b36e52cf09e5308
 [3]: https://circleci.com/gh/ldc-developers/ldc/tree/master
 [4]: https://cirrus-ci.com/github/ldc-developers/ldc/master
-[5]: https://app.shippable.com/github/ldc-developers/ldc/runs?branchName=master
 [6]: https://travis-ci.org/ldc-developers/ldc/branches
 [7]: https://www.bountysource.com/teams/ldc-developers/issues
 [8]: https://github.com/ldc-developers/ldc/releases
