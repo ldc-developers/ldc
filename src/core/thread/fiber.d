@@ -1916,11 +1916,10 @@ private:
                 import core.stdc.stdlib : malloc;
                 import core.thread.threadbase : ThreadException;
                 enum threadExceptionSize = __traits(classInstanceSize, ThreadException);
-                if (void* p = malloc(threadExceptionSize))
+                if (auto e = cast(ThreadException) malloc(threadExceptionSize))
                 {
-                    p[0 .. threadExceptionSize] = typeid(ThreadException).initializer[];
-                    auto e = cast(ThreadException) p;
-                    e.__ctor(
+                    import core.lifetime : emplace;
+                    emplace(e,
                         "Migrating Fibers between Threads on this platform may lead " ~
                         "to incorrect thread local variable access.  To allow " ~
                         "migration anyway, call Fiber.allowMigration()");

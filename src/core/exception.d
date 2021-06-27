@@ -655,11 +655,11 @@ private T staticError(T, Args...)(auto ref Args args)
         else
             auto store = &_store;
 
-        (*store)[0 .. __traits(classInstanceSize, T)] = typeid(T).initializer[];
         return cast(T) store.ptr;
     }
     auto res = (cast(T function() @trusted pure nothrow @nogc) &get)();
-    res.__ctor(args);
+    import core.lifetime : emplace;
+    emplace(res, args);
     return res;
 }
 

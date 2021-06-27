@@ -536,7 +536,7 @@ package extern(C) void _d_dso_registry(void* arg)
         if (firstDSO) initLocks();
 
         DSO* pdso = cast(DSO*).calloc(1, DSO.sizeof);
-        assert(typeid(DSO).initializer().ptr is null);
+        static assert(__traits(isZeroInit, DSO));
         pdso._slot = data._slot;
         *data._slot = pdso; // store backlink in library record
 
