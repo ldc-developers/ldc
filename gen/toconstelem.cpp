@@ -71,12 +71,16 @@ public:
     LOG_SCOPE;
 
     if (SymbolDeclaration *sdecl = e->var->isSymbolDeclaration()) {
-      // this is the static initialiser (init symbol) for aggregates
-      AggregateDeclaration *ad = sdecl->dsym;
-      IF_LOG Logger::print("Sym: ad=%s\n", ad->toChars());
-      DtoResolveDsymbol(ad);
-      result = getIrAggr(ad)->getDefaultInit();
-      return;
+      // This is the static initialiser (init symbol) for aggregates.
+      // Exclude void[]-typed `__traits(initSymbol)` (LDC extension).
+      if (sdecl->type->toBasetype()->ty == Tstruct) {
+        const auto sd = sdecl->dsym->isStructDeclaration();
+        assert(sd);
+        IF_LOG Logger::print("Sym: sd=%s\n", sd->toChars());
+        DtoResolveStruct(sd);
+        result = getIrAggr(sd)->getDefaultInit();
+        return;
+      }
     }
 
     if (TypeInfoDeclaration *ti = e->var->isTypeInfoDeclaration()) {

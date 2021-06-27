@@ -2141,8 +2141,8 @@ public:
         {
 version (IN_LLVM)
 {
-            // exclude class init symbols (LDC addition)
-            if (!s.dsym.isStructDeclaration())
+            // exclude void[]-typed `__traits(initSymbol)` (LDC extension)
+            if (s.type.toBasetype().ty != Tstruct)
                 return CTFEExp.cantexp;
 }
             // Struct static initializers, for example

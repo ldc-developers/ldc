@@ -1579,10 +1579,10 @@ DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl) {
     DtoResolveDsymbol(ad);
     auto sd = ad->isStructDeclaration();
 
-    // LDC extension: void[]-typed init symbol, for classes too
+    // LDC extension: void[]-typed `__traits(initSymbol)`, for classes too
     auto tb = sdecl->type->toBasetype();
-    if (tb->ty == Tarray) {
-      assert(tb->nextOf()->ty == Tvoid);
+    if (tb->ty != Tstruct) {
+      assert(tb->ty == Tarray && tb->nextOf()->ty == Tvoid);
       const auto size = DtoConstSize_t(ad->structsize);
       llvm::Constant *ptr =
           sd && sd->zeroInit
@@ -1597,7 +1597,7 @@ DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl) {
       fatal();
     }
 
-    LLValue *initsym = getIrAggr(ad)->getInitSymbol();
+    LLValue *initsym = getIrAggr(sd)->getInitSymbol();
     return new DLValue(type, DtoBitCast(initsym, DtoPtrToType(sd->type)));
   }
 
