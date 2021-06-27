@@ -2205,7 +2205,9 @@ extern (C) void thread_init() @nogc
         status = sem_init( &suspendCount, 0, 0 );
         assert( status == 0 );
     }
-    if (typeid(Thread).initializer.ptr)
+    version (LDC)
+        _mainThreadStore[] = __traits(initSymbol, Thread)[];
+    else if (typeid(Thread).initializer.ptr)
         _mainThreadStore[] = typeid(Thread).initializer[];
     Thread.sm_main = attachThread((cast(Thread)_mainThreadStore.ptr).__ctor());
 }

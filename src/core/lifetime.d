@@ -103,8 +103,19 @@ T emplace(T, Args...)(T chunk, auto ref Args args)
         " is abstract and it can't be emplaced");
 
     // Initialize the object in its pre-ctor state
-    enum classSize = __traits(classInstanceSize, T);
-    (() @trusted => (cast(void*) chunk)[0 .. classSize] = typeid(T).initializer[])();
+    version (LDC)
+    {
+        () @trusted
+        {
+            const initializer = __traits(initSymbol, T);
+            (cast(void*) chunk)[0 .. initializer.length] = initializer[];
+        }();
+    }
+    else
+    {
+        enum classSize = __traits(classInstanceSize, T);
+        (() @trusted => (cast(void*) chunk)[0 .. classSize] = typeid(T).initializer[])();
+    }
 
     static if (isInnerClass!T)
     {
@@ -2121,6 +2132,8 @@ private void moveEmplaceImpl(T)(ref T source, ref T target)
 
             static if (__traits(isZeroInit, T))
                 () @trusted { memset(&source, 0, sz); }();
+            else version (LDC)
+                () @trusted { memcpy(&source, __traits(initSymbol, T).ptr, sz); }();
             else
             {
                 auto init = typeid(T).initializer();

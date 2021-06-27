@@ -31,6 +31,9 @@ private struct NoHooks
     // static char[] parseType(ref Demangle, char[])
 }
 
+version (LDC) private enum isLDC = true;
+else          private enum isLDC = false;
+
 private struct Demangle(Hooks = NoHooks)
 {
     // NOTE: This implementation currently only works with mangled function
@@ -104,7 +107,8 @@ pure @safe:
 
         //throw new ParseException( msg );
         debug(info) printf( "error: %.*s\n", cast(int) msg.length, msg.ptr );
-        throw __ctfe ? new ParseException(msg)
+        throw __ctfe ? new ParseException(msg) :
+              isLDC  ? cast(ParseException) __traits(initSymbol, ParseException).ptr
                      : cast(ParseException) cast(void*) typeid(ParseException).initializer;
 
     }
@@ -116,7 +120,8 @@ pure @safe:
 
         //throw new OverflowException( msg );
         debug(info) printf( "overflow: %.*s\n", cast(int) msg.length, msg.ptr );
-        throw cast(OverflowException) cast(void*) typeid(OverflowException).initializer;
+        throw isLDC ? cast(OverflowException) __traits(initSymbol, OverflowException).ptr
+                    : cast(OverflowException) cast(void*) typeid(OverflowException).initializer;
     }
 
 
