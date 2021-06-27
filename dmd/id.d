@@ -520,7 +520,8 @@ immutable Msgtable[] msgtable =
     // IN_LLVM: LDC-specific traits.
     { "targetCPU" },
     { "targetHasFeature" },
-    
+    { "initSymbol" },
+
     // IN_LLVM: LDC-specific attributes
     { "ldc" },
     { "attributes" },

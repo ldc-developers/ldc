@@ -1711,6 +1711,19 @@ version (IN_LLVM)
  */
 extern (C++) final class SymbolDeclaration : Declaration
 {
+version (IN_LLVM)
+{
+    AggregateDeclaration dsym;
+
+    extern (D) this(const ref Loc loc, AggregateDeclaration dsym)
+    {
+        super(loc, dsym.ident);
+        this.dsym = dsym;
+        storage_class |= STC.const_;
+    }
+}
+else
+{
     StructDeclaration dsym;
 
     extern (D) this(const ref Loc loc, StructDeclaration dsym)
@@ -1719,6 +1732,7 @@ extern (C++) final class SymbolDeclaration : Declaration
         this.dsym = dsym;
         storage_class |= STC.const_;
     }
+}
 
     // Eliminate need for dynamic_cast
     override inout(SymbolDeclaration) isSymbolDeclaration() inout

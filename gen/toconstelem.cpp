@@ -71,13 +71,11 @@ public:
     LOG_SCOPE;
 
     if (SymbolDeclaration *sdecl = e->var->isSymbolDeclaration()) {
-      // this seems to be the static initialiser for structs
-      Type *sdecltype = sdecl->type->toBasetype();
-      IF_LOG Logger::print("Sym: type=%s\n", sdecltype->toChars());
-      assert(sdecltype->ty == Tstruct);
-      TypeStruct *ts = static_cast<TypeStruct *>(sdecltype);
-      DtoResolveStruct(ts->sym);
-      result = getIrAggr(ts->sym)->getDefaultInit();
+      // this is the static initialiser (init symbol) for aggregates
+      AggregateDeclaration *ad = sdecl->dsym;
+      IF_LOG Logger::print("Sym: ad=%s\n", ad->toChars());
+      DtoResolveDsymbol(ad);
+      result = getIrAggr(ad)->getDefaultInit();
       return;
     }
 
