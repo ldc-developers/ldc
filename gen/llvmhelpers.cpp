@@ -1573,23 +1573,32 @@ DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl) {
   }
 
   if (SymbolDeclaration *sdecl = decl->isSymbolDeclaration()) {
-    // this seems to be the static initialiser for structs
-    Type *sdecltype = sdecl->type->toBasetype();
-    IF_LOG Logger::print("Sym: type=%s\n", sdecltype->toChars());
-    assert(sdecltype->ty == Tstruct);
-    TypeStruct *ts = static_cast<TypeStruct *>(sdecltype);
-    StructDeclaration *sd = ts->sym;
-    assert(sd);
-    DtoResolveStruct(sd);
+    // this is the static initialiser (init symbol) for aggregates
+    AggregateDeclaration *ad = sdecl->dsym;
+    IF_LOG Logger::print("Sym: ad=%s\n", ad->toChars());
+    DtoResolveDsymbol(ad);
+    auto sd = ad->isStructDeclaration();
 
+    // LDC extension: void[]-typed `__traits(initSymbol)`, for classes too
+    auto tb = sdecl->type->toBasetype();
+    if (tb->ty != Tstruct) {
+      assert(tb->ty == Tarray && tb->nextOf()->ty == Tvoid);
+      const auto size = DtoConstSize_t(ad->structsize);
+      llvm::Constant *ptr =
+          sd && sd->zeroInit
+              ? getNullValue(getVoidPtrType())
+              : DtoBitCast(getIrAggr(ad)->getInitSymbol(), getVoidPtrType());
+      return new DSliceValue(type, size, ptr);
+    }
+
+    assert(sd);
     if (sd->zeroInit) {
       error(loc, "no init symbol for zero-initialized struct");
       fatal();
     }
 
     LLValue *initsym = getIrAggr(sd)->getInitSymbol();
-    initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
-    return new DLValue(type, initsym);
+    return new DLValue(type, DtoBitCast(initsym, DtoPtrToType(sd->type)));
   }
 
   llvm_unreachable("Unimplemented VarExp type");

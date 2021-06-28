@@ -273,7 +273,11 @@ public:
 class SymbolDeclaration : public Declaration
 {
 public:
+#if IN_LLVM
+    AggregateDeclaration *dsym;
+#else
     StructDeclaration *dsym;
+#endif
 
     // Eliminate need for dynamic_cast
     SymbolDeclaration *isSymbolDeclaration() { return (SymbolDeclaration *)this; }

@@ -71,14 +71,16 @@ public:
     LOG_SCOPE;
 
     if (SymbolDeclaration *sdecl = e->var->isSymbolDeclaration()) {
-      // this seems to be the static initialiser for structs
-      Type *sdecltype = sdecl->type->toBasetype();
-      IF_LOG Logger::print("Sym: type=%s\n", sdecltype->toChars());
-      assert(sdecltype->ty == Tstruct);
-      TypeStruct *ts = static_cast<TypeStruct *>(sdecltype);
-      DtoResolveStruct(ts->sym);
-      result = getIrAggr(ts->sym)->getDefaultInit();
-      return;
+      // This is the static initialiser (init symbol) for aggregates.
+      // Exclude void[]-typed `__traits(initSymbol)` (LDC extension).
+      if (sdecl->type->toBasetype()->ty == Tstruct) {
+        const auto sd = sdecl->dsym->isStructDeclaration();
+        assert(sd);
+        IF_LOG Logger::print("Sym: sd=%s\n", sd->toChars());
+        DtoResolveStruct(sd);
+        result = getIrAggr(sd)->getDefaultInit();
+        return;
+      }
     }
 
     if (TypeInfoDeclaration *ti = e->var->isTypeInfoDeclaration()) {

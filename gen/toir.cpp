@@ -2755,13 +2755,11 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
   // to initialize a `S[1]` lhs with a `S` rhs.
   if (auto ve = rhs->isVarExp()) {
     if (auto symdecl = ve->var->isSymbolDeclaration()) {
-      Type *t = symdecl->type->toBasetype();
-      if (auto ts = t->isTypeStruct()) {
-        // this is the static initializer for a struct (init symbol)
-        StructDeclaration *sd = ts->sym;
+      // exclude void[]-typed `__traits(initSymbol)` (LDC extension)
+      if (symdecl->type->toBasetype()->ty == Tstruct) {
+        auto sd = symdecl->dsym->isStructDeclaration();
         assert(sd);
         DtoResolveStruct(sd);
-
         if (sd->zeroInit) {
           Logger::println("success, zeroing out");
           DtoMemSetZero(DtoLVal(lhs));

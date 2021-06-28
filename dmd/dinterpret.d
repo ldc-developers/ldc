@@ -2139,6 +2139,12 @@ public:
         }
         else if (SymbolDeclaration s = d.isSymbolDeclaration())
         {
+version (IN_LLVM)
+{
+            // exclude void[]-typed `__traits(initSymbol)` (LDC extension)
+            if (s.type.toBasetype().ty != Tstruct)
+                return CTFEExp.cantexp;
+}
             // Struct static initializers, for example
             e = s.dsym.type.defaultInitLiteral(loc);
             if (e.op == TOK.error)
