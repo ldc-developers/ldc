@@ -81,3 +81,8 @@ void deleteExeFile();
  * @return the return status of the executable.
  */
 int runProgram();
+
+/**
+ * Returns the name of the C++ runtime library to link with.
+ */
+const char *getExplicitCppRuntimeName();

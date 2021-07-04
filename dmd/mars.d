@@ -83,6 +83,7 @@ version (IN_LLVM)
     const(char)* getPathToProducedBinary();
     void deleteExeFile();
     int runProgram();
+    const (char)* getExplicitCppRuntimeName();
 }
 else
 {
@@ -340,6 +341,8 @@ else
 
 version (IN_LLVM)
 {
+    import dmd.root.string : toDString;
+    global.params.cppstdlib = toDString(getExplicitCppRuntimeName());
     registerPredefinedVersions();
 }
 else

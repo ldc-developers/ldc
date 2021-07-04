@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <string>
+#include <cstring>
 #include "dsystem.h"
 
 /// Represents a D [ ] array
@@ -33,6 +35,12 @@ struct DString : public DArray<const char>
 
     DString(size_t length, const char *ptr)
         : DArray<const char>(length, ptr) { }
+
+    int compare (std::string str)
+    {
+        return this->length >= str.length() ?
+            strncmp(this->ptr, str.c_str(), this->length) : -1;
+    }
 };
 
 /// Corresponding C++ type that maps to D size_t
