@@ -2744,6 +2744,31 @@ bool basetypesAreEqualWithoutModifiers(Type *l, Type *r) {
   r = stripModifiers(r->toBasetype(), true);
   return l->equals(r);
 }
+
+VarDeclaration *isTemporaryVar(Expression *e) {
+  if (auto ce = e->isCommaExp())
+    if (auto de = ce->getHead()->isDeclarationExp())
+      if (auto vd = de->declaration->isVarDeclaration())
+        if (vd->storage_class & STCtemp)
+          if (auto ve = ce->getTail()->isVarExp())
+            if (ve->var == vd)
+              return vd;
+
+  return nullptr;
+}
+
+LLValue *inPlaceConstructTemporary(DValue *lhs, Expression *rhs) {
+  auto lhsLVal = DtoLVal(lhs);
+  auto rhsLVal = DtoLVal(rhs);
+  if (!llvm::isa<llvm::AllocaInst>(rhsLVal)) {
+    error(rhs->loc, "lvalue of temporary is not an alloca, please "
+                    "file an LDC issue");
+    fatal();
+  }
+  if (lhsLVal != rhsLVal)
+    rhsLVal->replaceAllUsesWith(lhsLVal);
+  return lhsLVal;
+}
 }
 
 bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
@@ -2792,17 +2817,24 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
       return true;
     }
 
-    // DMD issue 17457: detect structliteral.ctor(args)
+    // detect <structliteral | temporary>.ctor(args)
     if (auto dve = ce->e1->isDotVarExp()) {
       auto fd = dve->var->isFuncDeclaration();
       if (fd && fd->isCtorDeclaration()) {
+        LLValue *lval = nullptr;
         if (auto sle = dve->e1->isStructLiteralExp()) {
           Logger::println("success, in-place-constructing struct literal and "
                           "invoking ctor");
-          // emit the struct literal directly into the lhs lvalue...
-          auto lval = DtoLVal(lhs);
+          lval = DtoLVal(lhs);
           ToElemVisitor::emitStructLiteral(sle, lval);
-          // ... and invoke the ctor directly on it
+        } else if (isTemporaryVar(dve->e1)) {
+          Logger::println("success, in-place-constructing temporary and "
+                          "invoking ctor");
+          lval = inPlaceConstructTemporary(lhs, dve->e1);
+        }
+
+        // invoke the ctor directly on it
+        if (lval) {
           auto fnval = new DFuncValue(fd, DtoCallee(fd), lval);
           DtoCallFunction(ce->loc, ce->type, fnval, ce->arguments);
           return true;
@@ -2810,56 +2842,31 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
       }
     }
   }
-
   // emit struct literals directly into the lhs lvalue
-  if (auto sle = rhs->isStructLiteralExp()) {
+  else if (auto sle = rhs->isStructLiteralExp()) {
     Logger::println("success, in-place-constructing struct literal");
     ToElemVisitor::emitStructLiteral(sle, DtoLVal(lhs));
     return true;
   }
-
-  // static array literals too
-  Type *lhsBasetype = lhs->type->toBasetype();
-  if (auto al = rhs->isArrayLiteralExp()) {
-    if (lhsBasetype->ty == Tsarray) {
+  // and static array literals
+  else if (auto al = rhs->isArrayLiteralExp()) {
+    if (lhs->type->toBasetype()->ty == Tsarray) {
       Logger::println("success, in-place-constructing array literal");
       initializeArrayLiteral(gIR, al, DtoLVal(lhs));
       return true;
     }
   }
-
-  // vector literals too
-  if (auto ve = rhs->isVectorExp()) {
+  // and vector literals
+  else if (auto ve = rhs->isVectorExp()) {
     Logger::println("success, in-place-constructing vector");
     ToElemVisitor::emitVector(ve, DtoLVal(lhs));
     return true;
   }
-
-  // temporary structs and static arrays too
-  if (DtoIsInMemoryOnly(lhsBasetype)) {
-    if (auto ce = rhs->isCommaExp()) {
-      Expression *head = ce->getHead();
-      Expression *tail = ce->getTail();
-
-      if (auto de = head->isDeclarationExp()) {
-        if (auto vd = de->declaration->isVarDeclaration()) {
-          if (auto ve = tail->isVarExp()) {
-            if (ve->var == vd) {
-              Logger::println("success, in-place-constructing temporary");
-              auto lhsLVal = DtoLVal(lhs);
-              auto rhsLVal = DtoLVal(rhs);
-              if (!llvm::isa<llvm::AllocaInst>(rhsLVal)) {
-                error(rhs->loc, "lvalue of temporary is not an alloca, please "
-                                "file an LDC issue");
-                fatal();
-              }
-              rhsLVal->replaceAllUsesWith(lhsLVal);
-              return true;
-            }
-          }
-        }
-      }
-    }
+  // and temporaries
+  else if (isTemporaryVar(rhs)) {
+    Logger::println("success, in-place-constructing temporary");
+    inPlaceConstructTemporary(lhs, rhs);
+    return true;
   }
 
   return false;
