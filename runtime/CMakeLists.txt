@@ -667,6 +667,11 @@ macro(build_runtime_libs druntime_o druntime_bc phobos2_o phobos2_bc c_flags ld_
             string(REPLACE "-unittest" "" target_suffix_without_unittest "${target_suffix}")
             target_link_libraries(phobos2-ldc${target_suffix}
                 druntime-ldc${target_suffix_without_unittest} ${C_SYSTEM_LIBS_SHARED})
+
+            # Windows: export zlib symbols from Phobos DLL
+            if("${TARGET_SYSTEM}" MATCHES "Windows")
+                target_compile_definitions(phobos2-ldc${target_suffix} PRIVATE "ZLIB_DLL=1")
+            endif()
         endif()
 
         list(APPEND ${outlist_targets} phobos2-ldc${target_suffix})
