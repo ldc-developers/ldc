@@ -535,7 +535,7 @@ private extern (C++) final class StatementSemanticVisitor : Visitor
         const inLoopSave = sc.inLoop;
         sc.inLoop = true;
         if (ds._body)
-            ds._body = ds._body.semanticScope(sc, ds, ds);
+            ds._body = ds._body.semanticScope(sc, ds, ds, null);
         sc.inLoop = inLoopSave;
 
         if (ds.condition.op == TOK.dotIdentifier)
@@ -2375,7 +2375,7 @@ else
         CtorFlow ctorflow_then = sc.ctorflow;   // move flow results
         sc.ctorflow = ctorflow_root;            // reset flow analysis back to root
         if (ifs.elsebody)
-            ifs.elsebody = ifs.elsebody.semanticScope(sc, null, null);
+            ifs.elsebody = ifs.elsebody.semanticScope(sc, null, null, null);
 
         // Merge 'then' results into 'else' results
         sc.merge(ifs.loc, ctorflow_then);
@@ -4021,13 +4021,9 @@ version (IN_LLVM)
         enum FLAGcpp = 1;
         enum FLAGd = 2;
 
-        tcs.tryBody = sc.tryBody;
-
-        scope sc2 = sc.push();
-        sc2.tryBody = tcs;
-        tcs._body = tcs._body.semanticScope(sc2, null, null);
+        tcs.tryBody = sc.tryBody;   // chain on the in-flight tryBody
+        tcs._body = tcs._body.semanticScope(sc, null, null, tcs);
         assert(tcs._body);
-        sc2.pop();
 
         /* Even if body is empty, still do semantic analysis on catches
          */
@@ -4108,12 +4104,8 @@ version (IN_LLVM)
     override void visit(TryFinallyStatement tfs)
     {
         //printf("TryFinallyStatement::semantic()\n");
-        tfs.tryBody = sc.tryBody;
-
-        auto sc2 = sc.push();
-        sc2.tryBody = tfs;
-        tfs._body = tfs._body.statementSemantic(sc2);
-        sc2.pop();
+        tfs.tryBody = sc.tryBody;   // chain on in-flight tryBody
+        tfs._body = tfs._body.semanticScope(sc, null, null, tfs);
 
         sc = sc.push();
         sc.tf = tfs;
@@ -4544,7 +4536,7 @@ Statement semanticNoScope(Statement s, Scope* sc)
 }
 
 // Same as semanticNoScope(), but do create a new scope
-Statement semanticScope(Statement s, Scope* sc, Statement sbreak, Statement scontinue)
+private Statement semanticScope(Statement s, Scope* sc, Statement sbreak, Statement scontinue, Statement tryBody)
 {
     auto sym = new ScopeDsymbol();
     sym.parent = sc.scopesym;
@@ -4553,6 +4545,8 @@ Statement semanticScope(Statement s, Scope* sc, Statement sbreak, Statement scon
         scd.sbreak = sbreak;
     if (scontinue)
         scd.scontinue = scontinue;
+    if (tryBody)
+        scd.tryBody = tryBody;
     s = s.semanticNoScope(scd);
     scd.pop();
     return s;
