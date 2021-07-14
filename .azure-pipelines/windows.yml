@@ -38,6 +38,7 @@ steps:
     7z x ../ninja.zip > nul
     cd ..
     :: Install lit
+    python -m pip install --user setuptools wheel
     python -m pip install --user lit
     python -c "import lit.main; lit.main.main();" --version . | head -n 1
     :: Download & extract host LDC
