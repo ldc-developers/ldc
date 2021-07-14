@@ -26,7 +26,7 @@ build:
         git-core cmake ninja-build \
         libcurl3 libcurl4-openssl-dev \
         curl gdb p7zip-full python3-pip tzdata unzip zip
-    - pip install --user lit
+    - pip install --user setuptools wheel lit
     # Download & extract host LDC
     - curl -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-aarch64.tar.xz
     - mkdir host-ldc

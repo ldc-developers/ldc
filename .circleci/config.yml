@@ -43,7 +43,7 @@ commonSteps: &commonSteps
           fi
           # Install lit
           python3 --version
-          python3 -m pip install --user lit
+          python3 -m pip install --user setuptools wheel lit
           python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
           # Download & extract host LDC
           curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$CI_OS-x86_64.tar.xz
