@@ -2756,19 +2756,6 @@ VarDeclaration *isTemporaryVar(Expression *e) {
 
   return nullptr;
 }
-
-LLValue *inPlaceConstructTemporary(DValue *lhs, Expression *rhs) {
-  auto lhsLVal = DtoLVal(lhs);
-  auto rhsLVal = DtoLVal(rhs);
-  if (!llvm::isa<llvm::AllocaInst>(rhsLVal)) {
-    error(rhs->loc, "lvalue of temporary is not an alloca, please "
-                    "file an LDC issue");
-    fatal();
-  }
-  if (lhsLVal != rhsLVal)
-    rhsLVal->replaceAllUsesWith(lhsLVal);
-  return lhsLVal;
-}
 }
 
 bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
@@ -2821,21 +2808,10 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
     if (auto dve = ce->e1->isDotVarExp()) {
       auto fd = dve->var->isFuncDeclaration();
       if (fd && fd->isCtorDeclaration()) {
-        LLValue *lval = nullptr;
-        if (auto sle = dve->e1->isStructLiteralExp()) {
-          Logger::println("success, in-place-constructing struct literal and "
-                          "invoking ctor");
-          lval = DtoLVal(lhs);
-          ToElemVisitor::emitStructLiteral(sle, lval);
-        } else if (isTemporaryVar(dve->e1)) {
-          Logger::println("success, in-place-constructing temporary and "
-                          "invoking ctor");
-          lval = inPlaceConstructTemporary(lhs, dve->e1);
-        }
-
-        // invoke the ctor directly on it
-        if (lval) {
-          auto fnval = new DFuncValue(fd, DtoCallee(fd), lval);
+        Logger::println("is a constructor call, checking lhs of DotVarExp");
+        if (toInPlaceConstruction(lhs, dve->e1)) {
+          Logger::println("success, calling ctor on in-place constructed lhs");
+          auto fnval = new DFuncValue(fd, DtoCallee(fd), DtoLVal(lhs));
           DtoCallFunction(ce->loc, ce->type, fnval, ce->arguments);
           return true;
         }
@@ -2865,7 +2841,15 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
   // and temporaries
   else if (isTemporaryVar(rhs)) {
     Logger::println("success, in-place-constructing temporary");
-    inPlaceConstructTemporary(lhs, rhs);
+    auto lhsLVal = DtoLVal(lhs);
+    auto rhsLVal = DtoLVal(rhs);
+    if (!llvm::isa<llvm::AllocaInst>(rhsLVal)) {
+      error(rhs->loc, "lvalue of temporary is not an alloca, please "
+                      "file an LDC issue");
+      fatal();
+    }
+    if (lhsLVal != rhsLVal)
+      rhsLVal->replaceAllUsesWith(lhsLVal);
     return true;
   }
 
