@@ -81,6 +81,16 @@ LLConstant *IrStruct::getTypeInfoInit() {
   IF_LOG Logger::println("Defining TypeInfo for struct: %s", sd->toChars());
   LOG_SCOPE;
 
+  // we need (dummy) TypeInfos for opaque structs too
+  const bool isOpaque = !sd->members;
+
+  // make sure xtoHash/xopEquals/xopCmp etc. are semantically analyzed
+  if (!isOpaque && sd->semanticRun < PASSsemantic3done) {
+    Logger::println(
+        "Struct hasn't had semantic3 yet, calling semanticTypeInfoMembers()");
+    sd->semanticTypeInfoMembers();
+  }
+
   TypeStruct *ts = sd->type->isTypeStruct();
 
   // check declaration in object.d
@@ -107,9 +117,6 @@ LLConstant *IrStruct::getTypeInfoInit() {
   }
 
   RTTIBuilder b(structTypeInfoType);
-
-  // we need (dummy) TypeInfos for opaque structs too
-  const bool isOpaque = !sd->members;
 
   // string name
   if (isOpaque) {

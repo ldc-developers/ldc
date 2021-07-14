@@ -602,7 +602,6 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
     Logger::println("Function is inside a linkonce_odr template, will be "
                     "defined after declaration.");
     if (fdecl->semanticRun < PASSsemantic3done) {
-      // this can e.g. happen for special __xtoHash member functions
       Logger::println("Function hasn't had sema3 run yet, running it now.");
       const bool semaSuccess = fdecl->functionSemantic3();
       (void)semaSuccess;
