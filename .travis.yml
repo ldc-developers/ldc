@@ -40,7 +40,8 @@ before_install:
 
 install:
   # Install lit
-  - python3 -m pip install --user setuptools wheel lit
+  - python3 -m pip install --user setuptools wheel
+  - python3 -m pip install --user lit
   - |
     set -o pipefail
     python3 -c "import lit.main; lit.main.main();" --version . | head -n 1

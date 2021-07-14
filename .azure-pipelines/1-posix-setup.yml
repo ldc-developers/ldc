@@ -42,7 +42,8 @@ steps:
     fi
     # Install lit
     python3 --version
-    python3 -m pip install --user setuptools wheel lit
+    python3 -m pip install --user setuptools wheel
+    python3 -m pip install --user lit
     python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
     # Download & extract host LDC
     HOST_OS="$CI_OS"
