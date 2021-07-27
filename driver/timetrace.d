@@ -227,13 +227,16 @@ struct TimeTraceProfiler
         CounterEvent counters;
         if (dmd.root.rmem.mem.isGCEnabled)
         {
-            import core.memory : GC;
-            auto stats = GC.stats();
-            auto profileStats = GC.profileStats();
+            static if (__VERSION__ >= 2085)
+            {
+                import core.memory : GC;
+                auto stats = GC.stats();
+                auto profileStats = GC.profileStats();
 
-            counters.allocatedMemory = stats.allocatedInCurrentThread;
-            counters.memoryInUse = stats.usedSize;
-            counters.numberOfGCCollections = profileStats.numCollections;
+                counters.allocatedMemory = stats.allocatedInCurrentThread;
+                counters.memoryInUse = stats.usedSize;
+                counters.numberOfGCCollections = profileStats.numCollections;
+            }
         }
         else
         {
