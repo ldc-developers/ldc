@@ -111,7 +111,7 @@ extern(C++) final class SemanticTimeTraceVisitor(SemaVisitor) : Visitor
 
     override void visit(Import imp)
     {
-        auto timeScope = TimeTraceScope(text(pretext ~ "Import ", imp.id.toChars()), text(imp.toPrettyChars(), ", loc: ", imp.loc.toChars()));
+        auto timeScope = TimeTraceScope(text(pretext ~ "Import ", imp.id.toChars()), imp.toPrettyChars().to!string, imp.loc);
         semavisitor.visit(imp);
     }
 
@@ -148,7 +148,7 @@ extern(C++) final class SemanticTimeTraceVisitor(SemaVisitor) : Visitor
     override void visit(Package pkg) { semavisitor.visit(pkg); }
 
     override void visit(Module m) {
-        auto timeScope = TimeTraceScope(text(pretext ~ "Module ", m.toPrettyChars()), text(m.toPrettyChars(), ", loc: ", m.loc.toChars()));
+        auto timeScope = TimeTraceScope(text(pretext ~ "Module ", m.toPrettyChars()), m.loc);
         semavisitor.visit(m);
     }
 
@@ -165,7 +165,7 @@ extern(C++) final class SemanticTimeTraceVisitor(SemaVisitor) : Visitor
     override void visit(Nspace ns) { semavisitor.visit(ns); }
 
     override void visit(FuncDeclaration funcdecl) {
-        auto timeScope = TimeTraceScope(text(pretext ~ "Func ", funcdecl.toChars()), text(funcdecl.toPrettyChars(), ", loc: ", funcdecl.loc.toChars()));
+        auto timeScope = TimeTraceScope(text(pretext ~ "Func ", funcdecl.toChars()), funcdecl.toPrettyChars().to!string, funcdecl.loc);
         semavisitor.visit(funcdecl);
     }
 

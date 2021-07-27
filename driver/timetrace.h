@@ -8,29 +8,29 @@
 //===----------------------------------------------------------------------===//
 //
 // Compilation time tracing, --ftime-trace.
-// Supported from LLVM 10. (LLVM 9 supports time tracing, but without
-// granularity check which makes profiles way too large)
+// Main implementation is in D, this C++ source is for interfacing.
 //
 //===----------------------------------------------------------------------===//
 
 #pragma once
 
-#if LDC_LLVM_VER >= 1000
-#define LDC_WITH_TIMETRACER 1
-#endif
+#include "dmd/globals.h"
+#include <functional>
 
-#if LDC_WITH_TIMETRACER
+// Forward declarations to functions implemented in D
+void initializeTimeTrace(unsigned timeGranularity, unsigned memoryGranularity,
+                         const char *processName);
+void deinitializeTimeTrace();
+void writeTimeTraceProfile(const char *filename_cstr);
+void timeTraceProfilerBegin(const char *name_ptr, const char *detail_ptr, Loc loc);
+void timeTraceProfilerEnd();
+bool timeTraceProfilerEnabled();
 
-#include "llvm/Support/TimeProfiler.h"
-
-void initializeTimeTracer();
-void deinitializeTimeTracer();
-void writeTimeTraceProfile();
 
 /// RAII helper class to call the begin and end functions of the time trace
 /// profiler.  When the object is constructed, it begins the section; and when
 /// it is destroyed, it stops it.
-/// The StringRefs passed are not stored.
+/// The strings pointed to are copied (pointers are not stored).
 struct TimeTraceScope {
   TimeTraceScope() = delete;
   TimeTraceScope(const TimeTraceScope &) = delete;
@@ -38,54 +38,25 @@ struct TimeTraceScope {
   TimeTraceScope(TimeTraceScope &&) = delete;
   TimeTraceScope &operator=(TimeTraceScope &&) = delete;
 
-  TimeTraceScope(llvm::StringRef Name) {
-    if (llvm::timeTraceProfilerEnabled())
-      llvm::timeTraceProfilerBegin(Name, llvm::StringRef(""));
+  TimeTraceScope(const char *name, Loc loc = Loc()) {
+    if (timeTraceProfilerEnabled())
+      timeTraceProfilerBegin(name, "", loc);
   }
-  TimeTraceScope(llvm::StringRef Name, llvm::StringRef Detail) {
-    if (llvm::timeTraceProfilerEnabled())
-      llvm::timeTraceProfilerBegin(Name, Detail);
+  TimeTraceScope(const char *name, const char *detail, Loc loc = Loc()) {
+    if (timeTraceProfilerEnabled())
+      timeTraceProfilerBegin(name, detail, loc);
   }
-  TimeTraceScope(llvm::StringRef Name,
-                 llvm::function_ref<std::string()> Detail) {
-    if (llvm::timeTraceProfilerEnabled())
-      llvm::timeTraceProfilerBegin(Name, Detail);
+  TimeTraceScope(const char *name, std::function<std::string()> detail, Loc loc = Loc()) {
+    if (timeTraceProfilerEnabled())
+      timeTraceProfilerBegin(name, detail().c_str(), loc);
+  }
+  TimeTraceScope(std::function<std::string()> name, std::function<std::string()> detail, Loc loc = Loc()) {
+    if (timeTraceProfilerEnabled())
+      timeTraceProfilerBegin(name().c_str(), detail().c_str(), loc);
   }
 
   ~TimeTraceScope() {
-    if (llvm::timeTraceProfilerEnabled())
-      llvm::timeTraceProfilerEnd();
+    if (timeTraceProfilerEnabled())
+      timeTraceProfilerEnd();
   }
 };
-
-// Helper function to interface with LLVM's `void
-// timeTraceProfilerBegin(StringRef Name, StringRef Detail)`
-void timeTraceProfilerBegin(size_t name_length, const char *name_ptr,
-                            size_t detail_length, const char *detail_ptr);
-
-#else // LDC_WITH_TIMETRACER
-
-// Provide dummy implementations when not supporting time tracing.
-
-#include "llvm/ADT/StringRef.h"
-
-inline void initializeTimeTracer() {}
-inline void deinitializeTimeTracer() {}
-inline void writeTimeTraceProfile() {}
-struct TimeTraceScope {
-  TimeTraceScope() = delete;
-  TimeTraceScope(const TimeTraceScope &) = delete;
-  TimeTraceScope &operator=(const TimeTraceScope &) = delete;
-  TimeTraceScope(TimeTraceScope &&) = delete;
-  TimeTraceScope &operator=(TimeTraceScope &&) = delete;
-
-  TimeTraceScope(llvm::StringRef Name) {}
-  TimeTraceScope(llvm::StringRef Name, llvm::StringRef Detail) {}
-  TimeTraceScope(llvm::StringRef Name,
-                 llvm::function_ref<std::string()> Detail) {}
-};
-inline void timeTraceProfilerBegin(size_t name_length, const char *name_ptr,
-                                   size_t detail_length,
-                                   const char *detail_ptr) {}
-
-#endif // LDC_WITH_TIMETRACER

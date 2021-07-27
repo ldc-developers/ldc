@@ -622,7 +622,7 @@ cl::opt<bool> fTimeTrace(
     cl::desc("Turn on time profiler. Generates JSON file "
              "based on the output filename (also see --ftime-trace-file)."));
 cl::opt<unsigned> fTimeTraceGranularity(
-    "ftime-trace-granularity", cl::ZeroOrMore,
+    "ftime-trace-granularity", cl::ZeroOrMore, cl::init(500),
     cl::desc(
         "Minimum time granularity (in microseconds) traced by time profiler"));
 cl::opt<std::string>
