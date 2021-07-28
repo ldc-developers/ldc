@@ -519,7 +519,10 @@ else
         }
         else
         {
-            static assert(0);
+            // Fallback to libc timestamp
+            import core.stdc.time : time;
+            auto t = time(null); // unit is seconds
+            *ctr = cast(timer_t) t * 1_000_000_000; // we expect nanoseconds
         }
     }
 }
