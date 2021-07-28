@@ -2,6 +2,7 @@
 # runners and runs the tests.
 # Requires env variables EXTRA_CMAKE_FLAGS and PARALLELISM.
 common_steps_template: &COMMON_STEPS_TEMPLATE
+  list_env_vars_script: export
   install_lit_script: |
     # Install lit
     python3 -m pip install --user setuptools wheel
