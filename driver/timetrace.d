@@ -155,7 +155,7 @@ struct TimeTraceProfiler
     struct CounterEvent
     {
         size_t memoryInUse;
-        size_t allocatedMemory;
+        ulong allocatedMemory;
         size_t numberOfGCCollections;
         timer_t timepoint;
     }
