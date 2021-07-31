@@ -1,3 +1,40 @@
+# LDC 1.27.0 (2021-07-31)
+
+#### Big news
+- Frontend, druntime and Phobos are at version [2.097.1+](https://dlang.org/changelog/2.097.0.html). (#3741, #3770, #3771, #3790, #3794, #3796, #3799) **(new)**
+- LLVM for prebuilt packages bumped to **v12.0.1**, and Linux base image to Ubuntu 18.04. Unfortunately, the dynamic-compile (JIT) functionality is lost this way - it needs some [more work](https://github.com/ldc-developers/ldc/pull/3184) to adapt to a newer LLVM API. (#3701, #3789)
+- Prebuilt packages now bundle [reggae](https://github.com/atilaneves/reggae), a meta build tool to generate [ninja](https://github.com/ninja-build/ninja/releases)/make build files for dub projects (and more). Building large projects with many dependencies can be significantly sped-up via parallelization and dependency tracking for incremental builds. (#3739)
+  Basic [usage](https://github.com/atilaneves/reggae#d-projects-and-dub-integration), in a dub project dir (containing a `dub.{sdl,json}` file):
+  ```
+  reggae -b ninja|make --dc=ldc2   # only needed the first time or when adding source files
+  ninja|make [-j<N>]
+  ```
+- Greatly improved **DLL support on Windows**, making it almost as easy as on Posix:
+  - `-fvisibility=public` now also affects Windows, exporting all defined symbols as on Posix, without explicit `export` visibility. Compiling a DLL with `-shared` now defaults to `-fvisibility=public` for consistency with Posix. (#3703)
+  - This paved the way for druntime and Phobos DLLs, now bundled with prebuilt Windows packages and linkable via `-link-defaultlib-shared` (default with `-shared`, consistent with Posix targets). Previous hacks to partially accomodate for multiple, statically linked druntimes and Phobos in a single process (GC proxy etc.) aren't required any longer. With `-link-defaultlib-shared`, LDC now defaults to `-mscrtlib=msvcrt`, linking against the shared MSVC runtime. (ldc-developers/druntime#197, #3704, ldc-developers/druntime#198)
+  - Limitation: TLS variables cannot be accessed directly across DLL boundaries. This can be worked around with an accessor function, e.g., ldc-developers/druntime@5d3e21a35d.
+  - Non-TLS `extern(D)` global variables *not* defined in a root module are `dllimport`ed (with `-fvisibility=public`, or - restricted to druntime/Phobos symbols - with `-link-defaultlib-shared`). Compiling all modules of a DLL at once thus avoids linker warnings about 'importing locally defined symbol'. When linking a DLL against a static library, the static library may likely need to be compiled with `-fvisibility=public` to make its globals importable from the DLL. There's a new `-dllimport` option for explicit control. (#3763)
+  - Caveat: symbols aren't uniqued across the whole process, so can be defined in multiple DLLs/executables, each with their own address, so you cannot rely on TypeInfos, instantiated symbols and functions to have the same address for the whole process.
+  - When linking manually (not via LDC), binaries linked against druntime DLL need to include new `lib\dso_windows.obj`.
+  - To restore the previous behavior of `-shared`, add `-fvisibility=hidden -link-defaultlib-shared=false`.
+- Windows: ANSI color codes can now be enforced for redirected stderr via `-enable-color`. (#3744)
+- Prebuilt Linux and Mac packages now use the [mimalloc](https://github.com/microsoft/mimalloc) allocator, significantly increasing compiler performance in some cases. (#3758, #3759)
+- The prebuilt macOS x64 package now bundles *shared* druntime/Phobos libs for iOS too. (#3764)
+- Possibly more performant *shared* Phobos library by compiling to a single object file with implicit cross-module inlining. (#3757)
+- New `-cov-increment` option for more performant coverage count execution. (#3724)
+- `-fsanitize=memory`: Bundle according LLVM compiler-rt library and add new `-fsanitize-memory-track-origins` option. (#3751)
+- New LDC-specific language addition: `__traits(initSymbol, <aggregate type>)` with semantics equivalent to `TypeInfo.initializer()`, but circumventing the `TypeInfo` indirection and thus e.g. also usable for `-betterC` code. (#3774, ldc-developers/druntime#201)
+
+#### Platform support
+- Supports LLVM 6.0 - 12.0.
+
+#### Bug fixes
+- Fix debuginfo source file paths, e.g., including directories in exception stack traces. (#3687)
+- Fix potentially corrupt context pointers for nested functions with `-linkonce-templates`. (#3690, #3766)
+- Predefine version `CppRuntime_Gcc` for musl targets. (#3769)
+- RVO: In-place construct `<temporary>.__ctor(<args>)`. (#3778, #3779)
+- `-linkonce-templates`: Make sure special struct TypeInfo members are semantically analyzed before emitting the `TypeInfo`. (#3783)
+
 # LDC 1.26.0 (2021-04-28)
 
 #### Big news
