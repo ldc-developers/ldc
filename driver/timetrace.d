@@ -233,7 +233,7 @@ struct TimeTraceProfiler
                 auto stats = GC.stats();
                 auto profileStats = GC.profileStats();
 
-                counters.allocatedMemory = stats.allocatedInCurrentThread;
+                counters.allocatedMemory = stats.usedSize + stats.freeSize;
                 counters.memoryInUse = stats.usedSize;
                 counters.numberOfGCCollections = profileStats.numCollections;
             }
