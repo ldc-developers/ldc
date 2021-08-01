@@ -112,7 +112,7 @@ void writeTimeTraceProfile(const(char)* filename_cstr)
 extern(C++)
 void timeTraceProfilerBegin(const(char)* name_ptr, const(char)* detail_ptr, Loc loc)
 {
-    import dmd.root.rmem;
+    import dmd.root.rmem : xarraydup;
     import core.stdc.string : strdup;
 
     assert(timeTraceProfiler);
@@ -121,8 +121,8 @@ void timeTraceProfilerBegin(const(char)* name_ptr, const(char)* detail_ptr, Loc 
     if (loc.filename)
         loc.filename = strdup(loc.filename);
 
-    timeTraceProfiler.beginScope(mem.xstrdup(name_ptr).toDString(),
-                                 mem.xstrdup(detail_ptr).toDString(), loc);
+    timeTraceProfiler.beginScope(xarraydup(name_ptr.toDString()),
+                                 xarraydup(detail_ptr.toDString()), loc);
 }
 
 extern(C++)
@@ -184,21 +184,23 @@ struct TimeTraceProfiler
             time_scale = freq / 1_000_000;
         }
 
+        this.beginningOfTime = getTimeInMicroseconds();
+    }
+
+    timer_t getTimeInMicroseconds()
+    {
         timer_t time;
         QueryPerformanceCounter(&time);
-        this.beginningOfTime = time / time_scale;
+        return time / time_scale;
     }
 
     void beginScope(const(char)[] name, const(char)[] details, Loc loc)
     {
-        timer_t time;
-        QueryPerformanceCounter(&time);
-
         DurationEvent event;
         event.name = name;
         event.details = details;
         event.loc = loc;
-        event.timeBegin = time / time_scale;
+        event.timeBegin = getTimeInMicroseconds();
         durationStack.push(event);
 
         //counterEvents.push(generateCounterEvent(event.timeBegin));
@@ -206,9 +208,7 @@ struct TimeTraceProfiler
 
     void endScope()
     {
-        timer_t timeEnd;
-        QueryPerformanceCounter(&timeEnd);
-        timeEnd /= time_scale;
+        timer_t timeEnd = getTimeInMicroseconds();
 
         DurationEvent event = durationStack.pop();
         event.timeDuration = timeEnd - event.timeBegin;
@@ -299,7 +299,7 @@ struct TimeTraceProfiler
     {
         // {"ph":"C","name":"ctr","ts":111,"args": {"Allocated_Memory_bytes":  0, "hello":  0}},
 
-        foreach (event; counterEvents)
+        foreach (const ref event; counterEvents)
         {
             buf.write(`{"ph":"C","name":"ctr","ts":`);
             buf.print(event.timepoint);
@@ -486,43 +486,50 @@ else version (LDC)
         *ctr = llvm_readcyclecounter();
     }
 }
-else
+else version (D_InlineAsm_X86)
 {
     extern (D) void QueryPerformanceCounter(timer_t* ctr)
     {
-        version (D_InlineAsm_X86)
+        asm
         {
-            asm
-            {
-                naked                   ;
-                mov       ECX,EAX       ;
-                rdtsc                   ;
-                mov   [ECX],EAX         ;
-                mov   4[ECX],EDX        ;
-                ret                     ;
-            }
+            naked                   ;
+            mov       ECX,EAX       ;
+            rdtsc                   ;
+            mov   [ECX],EAX         ;
+            mov   4[ECX],EDX        ;
+            ret                     ;
         }
-        else version (D_InlineAsm_X86_64)
+    }
+}
+else version (D_InlineAsm_X86_64)
+{
+    extern (D) void QueryPerformanceCounter(timer_t* ctr)
+    {
+        asm
         {
-            asm
-            {
-                naked                   ;
-                // rdtsc can produce skewed results without preceding lfence/mfence.
-                // this is what GNU/Linux does, but only use mfence here.
-                // see https://github.com/torvalds/linux/blob/03b9730b769fc4d87e40f6104f4c5b2e43889f19/arch/x86/include/asm/msr.h#L130-L154
-                mfence                  ; // serialize rdtsc instruction.
-                rdtsc                   ;
-                mov   [RDI],EAX         ;
-                mov   4[RDI],EDX        ;
-                ret                     ;
-            }
+            naked                   ;
+            // rdtsc can produce skewed results without preceding lfence/mfence.
+            // this is what GNU/Linux does, but only use mfence here.
+            // see https://github.com/torvalds/linux/blob/03b9730b769fc4d87e40f6104f4c5b2e43889f19/arch/x86/include/asm/msr.h#L130-L154
+            mfence                  ; // serialize rdtsc instruction.
+            rdtsc                   ;
+            mov   [RDI],EAX         ;
+            mov   4[RDI],EDX        ;
+            ret                     ;
         }
-        else
-        {
-            // Fallback to libc timestamp
-            import core.stdc.time : time;
-            auto t = time(null); // unit is seconds
-            *ctr = cast(timer_t) t * 1_000_000_000; // we expect nanoseconds
-        }
+    }
+}
+else
+{
+    // Fallback to core.time.MonoTime
+    import core.time;
+
+    extern (D) void QueryPerformanceCounter(timer_t* ctr)
+    {
+        *ctr = MonoTime.currTime().ticks();
+    }
+    extern (D) void QueryPerformanceFrequency(timer_t* freq)
+    {
+        *freq = MonoTime.ticksPerSecond();
     }
 }
