@@ -210,16 +210,16 @@ struct LLVM_LIBRARY_VISIBILITY AllocationOpt : public LibCallOptimization {
 // This module will also be used in jit runtime
 // copy these function here to avoid dependencies on rest of compiler
 LLIntegerType *DtoSize_t(llvm::LLVMContext &context,
-                         const llvm::Triple &triple) {
+                         const llvm::DataLayout &DL) {
   // the type of size_t does not change once set
   static LLIntegerType *t = nullptr;
   if (t == nullptr) {
-
-    if (triple.isArch64Bit()) {
+    const auto ptrsize = DL.getPointerSize();
+    if (ptrsize == 8) {
       t = LLType::getInt64Ty(context);
-    } else if (triple.isArch32Bit()) {
+    } else if (ptrsize == 4) {
       t = LLType::getInt32Ty(context);
-    } else if (triple.isArch16Bit()) {
+    } else if (ptrsize == 2) {
       t = LLType::getInt16Ty(context);
     } else {
       llvm_unreachable("Unsupported size_t width");
@@ -229,9 +229,8 @@ LLIntegerType *DtoSize_t(llvm::LLVMContext &context,
 }
 
 llvm::ConstantInt *DtoConstSize_t(llvm::LLVMContext &context,
-                                  const llvm::Triple &targetTriple,
-                                  uint64_t i) {
-  return LLConstantInt::get(DtoSize_t(context, targetTriple), i, false);
+                                  const llvm::DataLayout &DL, uint64_t i) {
+  return LLConstantInt::get(DtoSize_t(context, DL), i, false);
 }
 
 /// ArraySliceCopyOpt - Turn slice copies into llvm.memcpy when safe
@@ -272,13 +271,11 @@ struct LLVM_LIBRARY_VISIBILITY ArraySliceCopyOpt : public LibCallOptimization {
 
     // Equal length and the pointers definitely don't alias, so it's safe to
     // replace the call with memcpy
-    auto Size =
-        Sz != llvm::MemoryLocation::UnknownSize
-            ? DtoConstSize_t(
-                  Callee->getContext(),
-                  llvm::Triple(Callee->getParent()->getTargetTriple()), Sz)
-            : B.CreateMul(DstLength, ElemSz);
-    return EmitMemCpy(CI->getOperand(0), CI->getOperand(2), Size, 1, B);
+    auto size = Sz != llvm::MemoryLocation::UnknownSize
+                    ? DtoConstSize_t(Callee->getContext(),
+                                     Callee->getParent()->getDataLayout(), Sz)
+                    : B.CreateMul(DstLength, ElemSz);
+    return EmitMemCpy(CI->getOperand(0), CI->getOperand(2), size, 1, B);
   }
 };
 

@@ -16,6 +16,7 @@
 #include "dmd/id.h"
 #include "dmd/init.h"
 #include "dmd/module.h"
+#include "dmd/target.h"
 #include "driver/cl_options.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
@@ -298,13 +299,11 @@ LLIntegerType *DtoSize_t() {
   // the type of size_t does not change once set
   static LLIntegerType *t = nullptr;
   if (t == nullptr) {
-    auto triple = global.params.targetTriple;
-
-    if (triple->isArch64Bit()) {
+    if (target.ptrsize == 8) {
       t = LLType::getInt64Ty(gIR->context());
-    } else if (triple->isArch32Bit()) {
+    } else if (target.ptrsize == 4) {
       t = LLType::getInt32Ty(gIR->context());
-    } else if (triple->isArch16Bit()) {
+    } else if (target.ptrsize == 2) {
       t = LLType::getInt16Ty(gIR->context());
     } else {
       llvm_unreachable("Unsupported size_t width");
