@@ -243,8 +243,11 @@ struct TimeTraceProfiler
 
     void writePrologue(OutBuffer* buf)
     {
+        // Time is to be output in microseconds
+        long timescale = MonoTime.ticksPerSecond() / 1_000_000;
+
         buf.write("{\n\"beginningOfTime\":");
-        buf.print(beginningOfTime);
+        buf.print(beginningOfTime / timescale);
         buf.write(",\n\"traceEvents\": [\n");
     }
 
@@ -287,7 +290,7 @@ struct TimeTraceProfiler
         // {"ph":"C","name":"ctr","ts":111,"args": {"Allocated_Memory_bytes":  0, "hello":  0}},
 
         // Time is to be output in microseconds
-        auto timescale = MonoTime.ticksPerSecond() / 1_000_000;
+        long timescale = MonoTime.ticksPerSecond() / 1_000_000;
 
         foreach (const ref event; counterEvents)
         {
@@ -309,9 +312,6 @@ struct TimeTraceProfiler
     {
         // {"ph":"X","name": "Sema1: somename","ts":111,"dur":222,"loc":"filename.d:123","args": {"detail": "something", "loc":"filename.d:123"},"pid":0,"tid":0}
 
-        // Time is to be output in microseconds
-        auto timescale = MonoTime.ticksPerSecond() / 1_000_000;
-
         void writeLocation(Loc loc)
         {
             if (loc.filename)
@@ -328,6 +328,9 @@ struct TimeTraceProfiler
                 buf.write(`<no file>`);
             }
         }
+
+        // Time is to be output in microseconds
+        long timescale = MonoTime.ticksPerSecond() / 1_000_000;
 
         foreach (event; durationEvents)
         {

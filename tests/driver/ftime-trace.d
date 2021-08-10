@@ -9,17 +9,27 @@
 
 module ftimetrace;
 
-// COARSE-NOT: intrinsics
-// FINE: intrinsics
+// FINE: stdio
 // FINE: ftime-trace.d:[[@LINE+1]]
-import ldc.intrinsics;
+import std.stdio;
+
+int ctfe()
+{
+    int sum;
+    foreach (i; 0..100)
+    {
+        sum += i;
+    }
+    return sum;
+}
 
 // COARSE-NOT: foo
 // FINE: foo
 // FINE: ftime-trace.d:[[@LINE+1]]
 int foo()
 {
-    return 1;
+    enum s = ctfe();
+    return s;
 }
 
 void main()
@@ -28,4 +38,4 @@ void main()
 }
 
 // ALL-DAG: ExecuteCompiler
-// ALL-DAG: Linking executable
+// FINE-DAG: Linking executable
