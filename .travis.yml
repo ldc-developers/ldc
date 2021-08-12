@@ -153,6 +153,14 @@ script:
   - $DMD -w -de -dip1000 DustMite/dustmite.d DustMite/splitter.d DustMite/polyhash.d -of=bin/dustmite
   - cp bin/{rdmd,ddemangle,dustmite} ../installed/bin
   - cd ..
+  # Build & copy reggae
+  - git clone --recursive https://github.com/atilaneves/reggae.git
+  - cd reggae
+  - git checkout "$(cat ../packaging/reggae_version)"
+  - DFLAGS="-O -linkonce-templates" ../installed/bin/dub build -v --build-mode=allAtOnce --combined
+  - cp bin/reggae ../installed/bin
+  - cd ..
+  - installed/bin/reggae --version -b ninja
   # Pack installation dir
   - |
     if [[ "$TRAVIS_TAG" != "" ]]; then
