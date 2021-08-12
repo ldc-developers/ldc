@@ -59,6 +59,16 @@ script:
   - ninja -j8
   - bin/ldc2 -version || exit 1
   - cd ..
+  # Build mimalloc (object file only)
+  - curl --max-time 60 --retry 3 -L -o mimalloc.tar.gz "https://github.com/microsoft/mimalloc/archive/refs/tags/$(cat packaging/mimalloc_version).tar.gz"
+  - mkdir mimalloc
+  - tar -xf mimalloc.tar.gz --strip 1 -C mimalloc
+  - mkdir build-mimalloc
+  - cd build-mimalloc
+  - cmake -G Ninja ../mimalloc
+  - ninja mimalloc-obj
+  - ls -lh CMakeFiles/mimalloc-obj.dir/src/static.c.o
+  - cd ..
   # Build LDC & LDC D unittests & defaultlib unittest runners
   - mkdir build
   - cd build
@@ -73,6 +83,7 @@ script:
       -DINCLUDE_INSTALL_DIR="$installDir/import" \
       -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF \
       -DLDC_LINK_MANUALLY=OFF \
+      -DALTERNATIVE_MALLOC_O="$PWD/../build-mimalloc/CMakeFiles/mimalloc-obj.dir/src/static.c.o" \
       $OPTS
     set +x
   - |
