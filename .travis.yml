@@ -49,13 +49,12 @@ script:
   - mkdir bootstrap-ldc
   - cd bootstrap-ldc
   - |
-    DFLAGS='-linker=bfd' cmake -G Ninja .. \
+    cmake -G Ninja .. \
       -DCMAKE_BUILD_TYPE=Release \
       -DLLVM_ROOT_DIR="$PWD/../llvm" \
       -DBUILD_SHARED_LIBS=OFF \
       -DCOMPILE_D_MODULES_SEPARATELY=ON \
       -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF \
-      -DADDITIONAL_DEFAULT_LDC_SWITCHES=' "-linker=bfd",' \
       -DLDC_LINK_MANUALLY=OFF
   - ninja -j8
   - bin/ldc2 -version || exit 1
@@ -73,7 +72,6 @@ script:
       -DCMAKE_INSTALL_PREFIX="$installDir" \
       -DINCLUDE_INSTALL_DIR="$installDir/import" \
       -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF \
-      -DADDITIONAL_DEFAULT_LDC_SWITCHES=' "-linker=bfd",' \
       -DLDC_LINK_MANUALLY=OFF \
       $OPTS
     set +x
@@ -107,7 +105,6 @@ script:
   - ninja install > /dev/null
   - cd ..
   - perl -pi -e "s?$PWD/install/?%%ldcbinarypath%%/../?g" install/etc/ldc2.conf
-  - perl -pi -e 's? "-linker=bfd",??g' install/etc/ldc2.conf
   - cat install/etc/ldc2.conf
   - cp LICENSE install
   - cp packaging/README install
