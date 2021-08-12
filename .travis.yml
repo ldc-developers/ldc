@@ -36,10 +36,10 @@ install:
     llvm_tag="CI"
     if [[ "$LLVM_VERSION" = *.* ]]; then llvm_tag="ldc-v$LLVM_VERSION"; fi
     llvm_url="https://github.com/ldc-developers/llvm-project/releases/download/$llvm_tag/llvm-$LLVM_VERSION-linux-aarch64$assertsSuffix.tar.xz"
-    curl --max-time 300 --retry 3 -L -o llvm.tar.xz $llvm_url
-    mkdir -p llvm
-    tar -xf llvm.tar.xz --strip 1 -C llvm
-    rm llvm.tar.xz
+    curl --max-time 300 --retry 3 -L -o llvm.tar.xz $llvm_url || exit 1
+    mkdir -p llvm || exit 1
+    tar -xf llvm.tar.xz --strip 1 -C llvm || exit 1
+    rm llvm.tar.xz || exit 1
 
 script:
   - unset LD_LIBRARY_PATH
@@ -55,7 +55,8 @@ script:
       -DBUILD_SHARED_LIBS=OFF \
       -DCOMPILE_D_MODULES_SEPARATELY=ON \
       -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF \
-      -DLDC_LINK_MANUALLY=OFF
+      -DLDC_LINK_MANUALLY=OFF \
+      || exit 1
   - ninja -j8
   - bin/ldc2 -version || exit 1
   - cd ..
@@ -84,7 +85,8 @@ script:
       -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF \
       -DLDC_LINK_MANUALLY=OFF \
       -DALTERNATIVE_MALLOC_O="$PWD/../build-mimalloc/CMakeFiles/mimalloc-obj.dir/src/static.c.o" \
-      $OPTS
+      $OPTS \
+      || exit 1
     set +x
   - |
     # Work around out-of-memory errors - retry with decreasing jobs
@@ -92,11 +94,11 @@ script:
     ninja -j8 -k0 $targets || \
       ninja -j8 -k0 $targets || \
       ninja -j4 -k0 $targets || \
-      ninja -j1 $targets
+      ninja -j1 $targets || exit 1
     targets='all-test-runners'
     ninja -j4 -k0 $targets || \
       ninja -j2 -k0 $targets || \
-      ninja -j1 $targets
+      ninja -j1 $targets || exit 1
   - bin/ldc2 -version || exit 1
   # Run LDC D unittests
   - ctest --output-on-failure -R "ldc2-unittest"
@@ -112,6 +114,8 @@ script:
   # Run defaultlib unittests & druntime integration tests
   # FIXME: don't exclude hanging core.thread.fiber & don't ignore errors
   - ctest -j8 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest|^core.thread.fiber($|-)" || true
+  # Terminate the job if there were failures
+  - if [[ "$TRAVIS_TEST_RESULT" != "0" ]]; then exit 1; fi
   # Install LDC & make portable
   - ninja install > /dev/null
   - cd ..
@@ -169,16 +173,18 @@ script:
       artifactID=${TRAVIS_COMMIT:0:8}
     fi
     artifactName=ldc2-$artifactID-linux-aarch64
-    mv installed $artifactName
+    mv installed $artifactName || exit 1
     artifact=$artifactName.tar.xz
-    tar -cf - $artifactName | 7za a $artifact -si -txz -mx9
-    ls -l $artifact
+    tar -cf - $artifactName | 7za a $artifact -si -txz -mx9 || exit 1
+    ls -l $artifact || exit 1
   # Upload to GitHub release (only for commits on the master branch and tags)
   - |
-    if [[ "$TRAVIS_TAG" != "" ]]; then
-      tools/upload-to-github.sh $TRAVIS_TAG ldc2-*.tar.xz
-    elif [[ "$TRAVIS_PULL_REQUEST" = "false" && "$TRAVIS_BRANCH" = "master" ]]; then
-      tools/upload-to-github.sh CI ldc2-*.tar.xz
+    if [[ "$TRAVIS_TEST_RESULT" == "0" ]]; then
+      if [[ "$TRAVIS_TAG" != "" ]]; then
+        tools/upload-to-github.sh $TRAVIS_TAG ldc2-*.tar.xz || exit 1
+      elif [[ "$TRAVIS_PULL_REQUEST" = "false" && "$TRAVIS_BRANCH" = "master" ]]; then
+        tools/upload-to-github.sh CI ldc2-*.tar.xz || exit 1
+      fi
     fi
 
 notifications:
