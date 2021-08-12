@@ -82,7 +82,6 @@ script:
       -DD_COMPILER="$PWD/../bootstrap-ldc/bin/ldmd2" \
       -DCMAKE_INSTALL_PREFIX="$installDir" \
       -DINCLUDE_INSTALL_DIR="$installDir/import" \
-      -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF \
       -DLDC_LINK_MANUALLY=OFF \
       -DALTERNATIVE_MALLOC_O="$PWD/../build-mimalloc/CMakeFiles/mimalloc-obj.dir/src/static.c.o" \
       $OPTS \
@@ -92,7 +91,6 @@ script:
     # Work around out-of-memory errors - retry with decreasing jobs
     targets='all ldc2-unittest'
     ninja -j8 -k0 $targets || \
-      ninja -j8 -k0 $targets || \
       ninja -j4 -k0 $targets || \
       ninja -j1 $targets || exit 1
     targets='all-test-runners'
@@ -175,7 +173,7 @@ script:
     mv installed $artifactName || exit 1
     artifact=$artifactName.tar.xz
     tar -cf - $artifactName | 7za a $artifact -si -txz -mx9 || exit 1
-    ls -l $artifact || exit 1
+    ls -lh $artifact || exit 1
   # Upload to GitHub release (only for commits on the master branch and tags)
   - |
     if [[ "$TRAVIS_TEST_RESULT" == "0" ]]; then
