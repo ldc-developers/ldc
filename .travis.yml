@@ -4,7 +4,13 @@ arch: arm64
 language: d
 d: ldc-1.26.0
 
-env: LLVM_VERSION=12.0.0 CC=gcc-8 CXX=g++-8 OPTS="-DBUILD_LTO_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DJITRT_EXTRA_LDFLAGS=-static-libstdc++ -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64"
+env:
+  global:
+    - LLVM_VERSION=12.0.0
+    - CC=gcc-8
+    - CXX=g++-8
+    - OPTS="-DBUILD_LTO_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DJITRT_EXTRA_LDFLAGS=-static-libstdc++ -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64"
+    - secure: "WfMv0kOqVU8+SgZUrwgzvzGvFbZvPmeIqrDJ+sotbzEtDeCcMuZmj/+8VuysXzpShXx/FxCoopWpAz30pedES8anGR3ciZruVPPsi22rOR5IBHuSnbamkmF11eQgRaDcj6GvZL7QeWLHBx6EN+C+mQFEVqRrD5avCO/K0RqWTD4="
 
 git:
   depth: 50
