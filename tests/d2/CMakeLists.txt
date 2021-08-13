@@ -51,7 +51,7 @@ function(add_testsuite config_suffix required_flags gdbflags model make_rule)
         COMMAND ${RUN_DMD_TESTSUITE_EXE_FULL} RESULTS_DIR=${resultsdir}
                      REQUIRED_ARGS=${required_flags} DFLAGS=${dflags}
                      DMD=${LDMD_EXE_FULL} MODEL=${model} GDB_FLAGS=${gdbflags}
-                     ARGS= ${make_rule}
+                     ARGS= BUILD_SHARED_LIBS=${BUILD_SHARED_LIBS} ${make_rule}
         WORKING_DIRECTORY ${DMD_TESTSUITE_SRC_DIR}
     )
     set_tests_properties(${name} PROPERTIES DEPENDS "build-run-dmd-testsuite;clean-${name}")
