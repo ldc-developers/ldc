@@ -1,19 +1,19 @@
+os: linux
 dist: bionic
+arch: arm64
 language: d
+d: ldc-1.26.0
+
+env:
+  global:
+    - LLVM_VERSION=12.0.0
+    - CC=gcc-8
+    - CXX=g++-8
+    - OPTS="-DBUILD_LTO_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DJITRT_EXTRA_LDFLAGS=-static-libstdc++ -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64"
+    - secure: "WfMv0kOqVU8+SgZUrwgzvzGvFbZvPmeIqrDJ+sotbzEtDeCcMuZmj/+8VuysXzpShXx/FxCoopWpAz30pedES8anGR3ciZruVPPsi22rOR5IBHuSnbamkmF11eQgRaDcj6GvZL7QeWLHBx6EN+C+mQFEVqRrD5avCO/K0RqWTD4="
 
 git:
   depth: 50
-
-matrix:
-  include:
-    - os: linux
-      arch: arm64
-      d: ldc-1.26.0
-      env: LLVM_VERSION=12.0.0 CC=gcc-8 CXX=g++-8 OPTS="-DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64 -DADDITIONAL_DEFAULT_LDC_SWITCHES='\"-linker=bfd\",' -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF"
-
-cache:
-  directories:
-    - llvm-$LLVM_VERSION
 
 addons:
   apt:
@@ -21,68 +21,171 @@ addons:
       - g++-8
       - gdb
       - ninja-build
-
-# Download & extract prebuilt LLVM if not in cache
-before_install:
-  - nproc
-  - free
-  - export LLVM_ROOT_DIR="$PWD/llvm-$LLVM_VERSION"
-  - |
-    if [ ! -e "$LLVM_ROOT_DIR/bin/llvm-config" ]; then
-      llvm_tag="CI"
-      if [[ "$LLVM_VERSION" = *.* ]]; then llvm_tag="ldc-v$LLVM_VERSION"; fi
-      llvm_url="https://github.com/ldc-developers/llvm-project/releases/download/$llvm_tag/llvm-$LLVM_VERSION-linux-aarch64-withAsserts.tar.xz"
-      wget -nv -O llvm.tar.xz $llvm_url
-      mkdir -p $LLVM_ROOT_DIR
-      tar -xf llvm.tar.xz --strip 1 -C $LLVM_ROOT_DIR
-      rm llvm.tar.xz
-    fi
+      - p7zip-full
 
 install:
+  - nproc
+  - free
   # Install lit
   - python3 -m pip install --user setuptools wheel
   - python3 -m pip install --user lit
   - |
     set -o pipefail
     python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
+  # Download & extract LDC-flavoured LLVM
+  - |
+    assertsSuffix=""
+    if [[ "$TRAVIS_TAG" == "" ]]; then
+      echo 'Using LLVM with enabled assertions'
+      assertsSuffix="-withAsserts"
+    fi
+    llvm_tag="CI"
+    if [[ "$LLVM_VERSION" = *.* ]]; then llvm_tag="ldc-v$LLVM_VERSION"; fi
+    llvm_url="https://github.com/ldc-developers/llvm-project/releases/download/$llvm_tag/llvm-$LLVM_VERSION-linux-aarch64$assertsSuffix.tar.xz"
+    curl --max-time 300 --retry 3 -L -o llvm.tar.xz $llvm_url || travis_terminate 1
+    mkdir -p llvm || travis_terminate 1
+    tar -xf llvm.tar.xz --strip 1 -C llvm || travis_terminate 1
+    rm llvm.tar.xz || travis_terminate 1
 
 script:
   - unset LD_LIBRARY_PATH
   - cmake --version
   - ninja --version
+  # Build bootstrap LDC
+  - mkdir bootstrap-ldc
+  - cd bootstrap-ldc
   - |
-    cmake -G Ninja . \
+    cmake -G Ninja .. \
       -DCMAKE_BUILD_TYPE=Release \
-      -DLLVM_ROOT_DIR=$LLVM_ROOT_DIR \
+      -DLLVM_ROOT_DIR="$PWD/../llvm" \
+      -DBUILD_SHARED_LIBS=OFF \
+      -DCOMPILE_D_MODULES_SEPARATELY=ON \
+      -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF \
       -DLDC_LINK_MANUALLY=OFF \
-      $OPTS
+      || travis_terminate 1
+  - ninja -j8
+  - bin/ldc2 -version || travis_terminate 1
+  - cd ..
+  # Build mimalloc (object file only)
+  - curl --max-time 60 --retry 3 -L -o mimalloc.tar.gz "https://github.com/microsoft/mimalloc/archive/refs/tags/$(cat packaging/mimalloc_version).tar.gz"
+  - mkdir mimalloc
+  - tar -xf mimalloc.tar.gz --strip 1 -C mimalloc
+  - mkdir build-mimalloc
+  - cd build-mimalloc
+  - cmake -G Ninja ../mimalloc
+  - ninja mimalloc-obj
+  - ls -lh CMakeFiles/mimalloc-obj.dir/src/static.c.o
+  - cd ..
   # Build LDC & LDC D unittests & defaultlib unittest runners
+  - mkdir build
+  - cd build
+  - |
+    set -x
+    installDir="$(dirname "$PWD")/install"
+    cmake -G Ninja .. \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DLLVM_ROOT_DIR="$PWD/../llvm" \
+      -DD_COMPILER="$PWD/../bootstrap-ldc/bin/ldmd2" \
+      -DCMAKE_INSTALL_PREFIX="$installDir" \
+      -DINCLUDE_INSTALL_DIR="$installDir/import" \
+      -DLDC_LINK_MANUALLY=OFF \
+      -DALTERNATIVE_MALLOC_O="$PWD/../build-mimalloc/CMakeFiles/mimalloc-obj.dir/src/static.c.o" \
+      $OPTS \
+      || travis_terminate 1
+    set +x
   - |
     # Work around out-of-memory errors - retry with decreasing jobs
-    targets='all ldc2-unittest all-test-runners'
+    targets='all ldc2-unittest'
     ninja -j8 -k0 $targets || \
-      ninja -j8 -k0 $targets || \
+      ninja -j4 -k0 $targets || \
+      ninja -j1 $targets || travis_terminate 1
+    targets='all-test-runners'
+    ninja -j4 -k0 $targets || \
       ninja -j2 -k0 $targets || \
-      ninja -j1 $targets
-  - bin/ldc2 -version || exit 1
+      ninja -j1 $targets || travis_terminate 1
+  - bin/ldc2 -version || travis_terminate 1
   # Run LDC D unittests
   - ctest --output-on-failure -R "ldc2-unittest"
-  # FIXME: all gdb tests fail and are disabled
-  - rm tests/debuginfo/*_gdb.d
-  - rm tests/d2/dmd-testsuite/runnable/b18504.d
   # Run LIT testsuite
-  # FIXME: don't ignore errors
-  - ctest -V -R "lit-tests" || true
+  # FIXME: the following 2 tests fail
+  - rm ../tests/debuginfo/nested_gdb.d
+  - rm ../tests/sanitizers/fuzz_basic.d
+  - ctest -V -R "lit-tests"
   # Run DMD testsuite
-  - DMD_TESTSUITE_MAKE_ARGS="-j8 GDB_FLAGS=OFF" ctest -V -R "dmd-testsuite"
+  - DMD_TESTSUITE_MAKE_ARGS="-j8" ctest -V -R "dmd-testsuite"
   # Run defaultlib unittests & druntime integration tests
   # FIXME: don't exclude hanging core.thread.fiber & don't ignore errors
   - ctest -j8 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest|^core.thread.fiber($|-)" || true
-
-after_success:
+  # Terminate the job if there were failures
+  - if [[ "$TRAVIS_TEST_RESULT" != "0" ]]; then travis_terminate 1; fi
+  # Install LDC & make portable
+  - ninja install > /dev/null
+  - cd ..
+  - perl -pi -e "s?$PWD/install/?%%ldcbinarypath%%/../?g" install/etc/ldc2.conf
+  - cat install/etc/ldc2.conf
+  - cp LICENSE install
+  - cp packaging/README install
+  # Now rename the installation dir to test portability
+  - mv install installed
+  # Run hello-world integration test with shared libs
+  - echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > hello.d
+  - installed/bin/ldc2 hello.d -of=hello -link-defaultlib-shared
+  - ./hello
+  # Run hello-world integration test with LTO
+  - installed/bin/ldc2 hello.d -of=hello_thin -flto=thin -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
+  - ./hello_thin
+  - installed/bin/ldc2 hello.d -of=hello_full -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
+  - ./hello_full
+  # Run dynamic-compile integration test
+  # FIXME: disabled since LLVM 12, needs https://github.com/ldc-developers/ldc/pull/3184
+  #- installed/bin/ldc2 -enable-dynamic-compile -run tests/dynamiccompile/array.d
+  # Build & copy dub
+  - export DMD="$PWD/installed/bin/ldmd2"
+  - git clone --recursive https://github.com/dlang/dub.git
+  - cd dub
+  - git checkout "$(cat ../packaging/dub_version)"
+  - $DMD -run build.d -O -w -linkonce-templates
+  - cp bin/dub ../installed/bin
+  - cd ..
+  - installed/bin/dub --version
+  # Build & copy dlang tools
+  - git clone --recursive https://github.com/dlang/tools.git dlang-tools
+  - cd dlang-tools
+  - git checkout "$(cat ../packaging/dlang-tools_version)"
+  - mkdir bin
+  - $DMD -w -de -dip1000 rdmd.d -of=bin/rdmd
+  - $DMD -w -de -dip1000 ddemangle.d -of=bin/ddemangle
+  - $DMD -w -de -dip1000 DustMite/dustmite.d DustMite/splitter.d DustMite/polyhash.d -of=bin/dustmite
+  - cp bin/{rdmd,ddemangle,dustmite} ../installed/bin
+  - cd ..
+  # Build & copy reggae
+  - git clone --recursive https://github.com/atilaneves/reggae.git
+  - cd reggae
+  - git checkout "$(cat ../packaging/reggae_version)"
+  - DFLAGS="-O -linkonce-templates" ../installed/bin/dub build -v --build-mode=allAtOnce --combined
+  - cp bin/reggae ../installed/bin
+  - cd ..
+  - installed/bin/reggae --version -b ninja
+  # Pack installation dir
   - |
-    if [[ "$OPTS" == *-DTEST_COVERAGE?ON* ]]; then
-      coveralls -e runtime -e tests -e vcbuild --gcov gcov-4.9 --gcov-options '\-lp' > /dev/null 2>&1
+    if [[ "$TRAVIS_TAG" != "" ]]; then
+      artifactID=${TRAVIS_TAG:1}
+    else
+      artifactID=${TRAVIS_COMMIT:0:8}
+    fi
+    artifactName=ldc2-$artifactID-linux-aarch64
+    mv installed $artifactName || travis_terminate 1
+    artifact=$artifactName.tar.xz
+    tar -cf - $artifactName | 7za a $artifact -si -txz -mx9 || travis_terminate 1
+    ls -lh $artifact || travis_terminate 1
+  # Upload to GitHub release (only for commits on the master branch and tags)
+  - |
+    if [[ "$TRAVIS_TEST_RESULT" == "0" ]]; then
+      if [[ "$TRAVIS_TAG" != "" ]]; then
+        tools/upload-to-github.sh $TRAVIS_TAG ldc2-*.tar.xz || travis_terminate 1
+      elif [[ "$TRAVIS_PULL_REQUEST" = "false" && "$TRAVIS_BRANCH" = "master" ]]; then
+        tools/upload-to-github.sh CI ldc2-*.tar.xz || travis_terminate 1
+      fi
     fi
 
 notifications:
