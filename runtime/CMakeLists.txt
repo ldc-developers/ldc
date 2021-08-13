@@ -103,6 +103,7 @@ if(${BUILD_SHARED_LIBS} STREQUAL "AUTO")
         set(BUILD_SHARED_LIBS OFF)
     endif()
 endif()
+set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS} PARENT_SCOPE) # e.g., for tests/d2/CMakeLists.txt and forwarding to dmd-testsuite
 
 set(SHARED_LIB_SUFFIX "")
 if(NOT ${BUILD_SHARED_LIBS} STREQUAL "OFF")
