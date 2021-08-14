@@ -5,6 +5,7 @@
 // REQUIRES: target_X86
 // RUN: %ldc -mtriple=x86_64-linux-gnux32 -O -c %s
 
+static assert((void*).sizeof == 4);
 static assert(size_t.sizeof == 4);
 static assert(ptrdiff_t.sizeof == 4);
 
