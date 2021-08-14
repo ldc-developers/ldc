@@ -382,7 +382,6 @@ set(DRV_SRC
     driver/dcomputecodegenerator.cpp
     driver/exe_path.cpp
     driver/targetmachine.cpp
-    driver/timetrace.cpp
     driver/toobj.cpp
     driver/tool.cpp
     driver/archiver.cpp

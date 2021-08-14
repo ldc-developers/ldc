@@ -1002,13 +1002,16 @@ void emulateWeakAnyLinkageForMSVC(LLFunction *func, LINK linkage) {
 } // anonymous namespace
 
 void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
-  TimeTraceScope timeScope(
-      ("Codegen func " + llvm::SmallString<40>(fd->toChars())).str(), [fd]() {
-        std::string detail = fd->toPrettyChars();
-        detail += ", loc: ";
-        detail += fd->loc.toChars();
-        return detail;
-      });
+  TimeTraceScope timeScope([fd]() {
+                             std::string name("Codegen func ");
+                             name += fd->toChars();
+                             return name;
+                           },
+                           [fd]() {
+                             std::string detail = fd->toPrettyChars();
+                             return detail;
+                           },
+                           fd->loc);
 
   IF_LOG Logger::println("DtoDefineFunction(%s): %s", fd->toPrettyChars(),
                          fd->loc.toChars());
