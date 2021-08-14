@@ -2,7 +2,7 @@ os: linux
 dist: bionic
 arch: arm64
 language: d
-d: ldc-1.26.0
+d: ldc-beta
 
 env:
   global:
