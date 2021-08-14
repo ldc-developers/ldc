@@ -728,6 +728,8 @@ void registerPredefinedTargetVersions() {
   // Set versions for arch bitwidth
   if (gDataLayout->getPointerSizeInBits() == 64) {
     VersionCondition::addPredefinedGlobalIdent("D_LP64");
+  } else if (triple.isArch64Bit()) {
+    VersionCondition::addPredefinedGlobalIdent("D_X32");
   } else if (triple.isArch16Bit()) {
     VersionCondition::addPredefinedGlobalIdent("D_P16");
   }

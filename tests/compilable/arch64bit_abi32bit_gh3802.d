@@ -9,6 +9,7 @@ static assert(size_t.sizeof == 4);
 static assert(ptrdiff_t.sizeof == 4);
 
 version (D_LP64) static assert(0);
+version (D_X32) { /* expected */ } else static assert(0);
 
 bool equals(string lhs, string rhs)
 {
