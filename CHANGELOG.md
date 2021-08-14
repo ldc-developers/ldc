@@ -1,3 +1,14 @@
+# LDC 1.27.1 (2021-08-14)
+
+#### Big news
+- Frontend, druntime and Phobos are at version [2.097.2](https://dlang.org/changelog/2.097.0.html). (#3811)
+- Revamped and improved `-ftime-trace` implementation for compiler profiling/tracing, now excluding LLVM-internal traces, adding frontend memory tracing, source file location infos etc. (#3797)
+- An official prebuilt package for Linux AArch64 is available again after migrating from Shippable to Travis. (#3733)
+
+#### Bug fixes
+- ICE for 64-bit targets with 32-bit pointer size. (#3802, #3808)
+- Implement `core.atomic.pause()` for some architectures. (#3806, #3807)
+
 # LDC 1.27.0 (2021-07-31)
 
 #### Big news
