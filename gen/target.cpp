@@ -90,7 +90,7 @@ void Target::_init(const Param &params) {
   classinfosize = 0; // unused
   maxStaticDataSize = std::numeric_limits<unsigned long long>::max();
 
-  c.longsize = triple.isArch64Bit() && !isMSVC ? 8 : 4;
+  c.longsize = (ptrsize == 8) && !isMSVC ? 8 : 4;
   c.long_doublesize = realsize;
   c.wchar_tsize = triple.isOSWindows() ? 2 : 4;
 
