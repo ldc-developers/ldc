@@ -56,7 +56,7 @@ bool IrAggr::useDLLImport() const {
   if (!global.params.targetTriple->isOSWindows())
     return false;
 
-  if (dllimportSymbol(aggrdecl)) {
+  if (dllimportDataSymbol(aggrdecl)) {
     // dllimport, unless defined in a root module (=> no extra indirection for
     // other root modules, assuming *all* root modules will be linked together
     // to one or more binaries).
@@ -103,7 +103,7 @@ LLConstant *IrAggr::getInitSymbol(bool define) {
     init = initGlobal;
 
     if (!define)
-      define = defineOnDeclare(aggrdecl);
+      define = defineOnDeclare(aggrdecl, /*isFunction=*/false);
   }
 
   if (define) {

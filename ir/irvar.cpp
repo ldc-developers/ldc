@@ -29,7 +29,7 @@ LLValue *IrGlobal::getValue(bool define) {
     declare();
 
     if (!define)
-      define = defineOnDeclare(V);
+      define = defineOnDeclare(V, /*isFunction=*/false);
   }
 
   if (define) {
@@ -86,7 +86,7 @@ void IrGlobal::declare() {
     // dllimport isn't supported for thread-local globals (MSVC++ neither)
     if (!V->isThreadlocal()) {
       // implicitly include extern(D) globals with -dllimport
-      if (V->isExport() || (V->linkage == LINK::d && dllimportSymbol(V))) {
+      if (V->isExport() || (V->linkage == LINK::d && dllimportDataSymbol(V))) {
         const bool isDefinedInRootModule =
             !(V->storage_class & STCextern) && !V->inNonRoot();
         if (!isDefinedInRootModule)

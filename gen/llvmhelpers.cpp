@@ -795,14 +795,6 @@ DValue *DtoPaintType(const Loc &loc, DValue *val, Type *to) {
 }
 
 /******************************************************************************
- * TEMPLATE HELPERS
- ******************************************************************************/
-
-bool defineOnDeclare(Dsymbol* s) {
-  return global.params.linkonceTemplates && s->isInstantiated();
-}
-
-/******************************************************************************
  * PROCESSING QUEUE HELPERS
  ******************************************************************************/
 
@@ -1680,12 +1672,8 @@ std::string llvmTypeToString(llvm::Type *type) {
 }
 
 // Is the specified symbol defined in the druntime/Phobos libs?
-// Note: fuzzy semantics for instantiated symbols, except with
-// -linkonce-templates.
+// For instantiated symbols: is the template declared in druntime/Phobos?
 static bool isDefaultLibSymbol(Dsymbol *sym) {
-  if (defineOnDeclare(sym))
-    return false;
-
   auto mod = sym->getModule();
   if (!mod)
     return false;
@@ -1705,10 +1693,24 @@ static bool isDefaultLibSymbol(Dsymbol *sym) {
             (md->packages.length > 1 && md->packages.ptr[1] == Id::io)));
 }
 
-bool dllimportSymbol(Dsymbol *sym) {
+bool defineOnDeclare(Dsymbol* sym, bool isFunction) {
+  if (global.params.linkonceTemplates)
+    return sym->isInstantiated();
+
+  // With -dllimport=defaultLibsOnly, an instantiated data symbol from a
+  // druntime/Phobos template may be assigned to an arbitrary binary (and culled
+  // from others via `needsCodegen()`). Define it in each referencing CU and
+  // never dllimport.
+  return !isFunction && global.params.dllimport == DLLImport::defaultLibsOnly &&
+         sym->isInstantiated() && isDefaultLibSymbol(sym);
+}
+
+bool dllimportDataSymbol(Dsymbol *sym) {
   return sym->isExport() || global.params.dllimport == DLLImport::all ||
          (global.params.dllimport == DLLImport::defaultLibsOnly &&
-          isDefaultLibSymbol(sym));
+          // exclude instantiated symbols from druntime/Phobos templates (see
+          // `defineOnDeclare()`)
+          !sym->isInstantiated() && isDefaultLibSymbol(sym));
 }
 
 llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,

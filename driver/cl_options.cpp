@@ -80,9 +80,7 @@ cl::opt<DLLImport, true> dllimport(
                    "None (default with -link-defaultlib-shared=false)"),
         clEnumValN(DLLImport::defaultLibsOnly, "defaultLibsOnly",
                    "Only druntime/Phobos symbols (default with "
-                   "-link-defaultlib-shared and -fvisibility=hidden). May "
-                   "likely need to be coupled with -linkonce-templates to "
-                   "overcome linker errors wrt. instantiated symbols."),
+                   "-link-defaultlib-shared and -fvisibility=hidden)."),
         clEnumValN(DLLImport::all, "all",
                    "All (default with -link-defaultlib-shared and "
                    "-fvisibility=public)")));

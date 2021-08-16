@@ -57,7 +57,7 @@ LLGlobalVariable* IrStruct::getTypeInfoSymbol(bool define) {
     emitTypeInfoMetadata(typeInfo, aggrdecl->type);
 
     if (!define)
-      define = defineOnDeclare(aggrdecl);
+      define = defineOnDeclare(aggrdecl, /*isFunction=*/false);
   }
 
   if (define) {
