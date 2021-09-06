@@ -606,7 +606,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   bool useabiret = false;
   p->asmBlock->asmBlock->abiret = nullptr;
   if (thisfunc->fbody->endsWithAsm() == stmt &&
-      thisfunc->type->nextOf()->ty != Tvoid) {
+      thisfunc->type->nextOf()->ty != TY::Tvoid) {
     // there can't be goto forwarders in this case
     assert(gotoToVal.empty());
     emitABIReturnAsmStmt(asmblock, stmt->loc, thisfunc);

@@ -181,7 +181,7 @@ void Target::_init(const Param &params) {
  */
 unsigned Target::alignsize(Type *type) {
   assert(type->isTypeBasic());
-  if (type->ty == Tvoid) {
+  if (type->ty == TY::Tvoid) {
     return 1;
   }
   return gDataLayout->getABITypeAlignment(DtoType(type));
@@ -207,7 +207,7 @@ Type *Target::va_listType(const Loc &loc, Scope *sc) {
  *      null if unhandled
  */
 const char *TargetCPP::typeMangle(Type *t) {
-  if (t->ty == Tfloat80) {
+  if (t->ty == TY::Tfloat80) {
     const auto &triple = *global.params.targetTriple;
     // `long double` on Android/x64 is __float128 and mangled as `g`
     bool isAndroidX64 = triple.getEnvironment() == llvm::Triple::Android &&

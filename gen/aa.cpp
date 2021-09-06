@@ -27,7 +27,7 @@
 // returns the keytype typeinfo
 static LLConstant *to_keyti(const Loc &loc, DValue *aa, LLType *targetType) {
   // keyti param
-  assert(aa->type->toBasetype()->ty == Taarray);
+  assert(aa->type->toBasetype()->ty == TY::Taarray);
   TypeAArray *aatype = static_cast<TypeAArray *>(aa->type->toBasetype());
   LLConstant *ti = DtoTypeInfoOf(loc, aatype->index, /*base=*/false);
   return DtoBitCast(ti, targetType);

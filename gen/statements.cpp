@@ -193,10 +193,11 @@ public:
       if (!stmt->exp) {
         // implicitly return 0 for the main function
         returnValue = LLConstant::getNullValue(funcType->getReturnType());
-      } else if ((rtb->ty == Tvoid || rtb->ty == Tnoreturn) && !isMainFunc) {
+      } else if ((rtb->ty == TY::Tvoid || rtb->ty == TY::Tnoreturn) &&
+                 !isMainFunc) {
         // evaluate expression for side effects
-        assert(stmt->exp->type->toBasetype()->ty == Tvoid ||
-               stmt->exp->type->toBasetype()->ty == Tnoreturn);
+        assert(stmt->exp->type->toBasetype()->ty == TY::Tvoid ||
+               stmt->exp->type->toBasetype()->ty == TY::Tnoreturn);
         toElem(stmt->exp);
       } else if (funcType->getReturnType()->isVoidTy()) {
         // if the IR function's return type is void (but not the D one), it uses

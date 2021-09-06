@@ -128,7 +128,7 @@ bool IRState::emitArrayBoundsChecks() {
   }
 
   Type *t = func()->decl->type;
-  return t->ty == Tfunction && ((TypeFunction *)t)->trust == TRUST::safe;
+  return t->ty == TY::Tfunction && ((TypeFunction *)t)->trust == TRUST::safe;
 }
 
 LLConstant *

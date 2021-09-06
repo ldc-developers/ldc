@@ -26,7 +26,7 @@ struct NVPTXTargetABI : TargetABI {
   }
   bool passByVal(TypeFunction *, Type *t) override {
     t = t->toBasetype();
-    return ((t->ty == Tsarray || t->ty == Tstruct) && t->size() > 64);
+    return ((t->ty == TY::Tsarray || t->ty == TY::Tstruct) && t->size() > 64);
   }
   bool reverseExplicitParams(TypeFunction *) override { return false; }
   void rewriteFunctionType(IrFuncTy &fty) override {
@@ -41,7 +41,7 @@ struct NVPTXTargetABI : TargetABI {
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     Type *ty = arg.type->toBasetype();
     llvm::Optional<DcomputePointer> ptr;
-    if (ty->ty == Tstruct &&
+    if (ty->ty == TY::Tstruct &&
         (ptr = toDcomputePointer(static_cast<TypeStruct *>(ty)->sym))) {
       pointerRewite.applyTo(arg);
     }

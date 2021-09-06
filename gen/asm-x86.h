@@ -3185,7 +3185,7 @@ struct AsmProcessor {
           // Tfloat64
           TY ty = v->type->toBasetype()->ty;
           operand->dataSizeHint =
-              (ty == Tfloat80 || ty == Timaginary80) &&
+              (ty == TY::Tfloat80 || ty == TY::Timaginary80) &&
                       !global.params.targetTriple->isWindowsMSVCEnvironment()
                   ? Extended_Ptr
                   : static_cast<PtrType>(v->type->size(Loc()));

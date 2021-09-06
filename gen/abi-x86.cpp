@@ -118,7 +118,7 @@ struct X86TargetABI : TargetABI {
       // extern(C) and all others:
       // * cfloat will be rewritten as 64-bit integer and returned in registers
       // * sret for cdouble and creal
-      return rt->ty != Tcomplex32;
+      return rt->ty != TY::Tcomplex32;
     }
 
     // non-extern(D): some OSs don't return structs in registers at all
@@ -128,7 +128,7 @@ struct X86TargetABI : TargetABI {
     const bool isMSVCpp = isMSVC && tf->linkage == LINK::cpp;
 
     // for non-static member functions, MSVC++ enforces sret for all structs
-    if (isMSVCpp && needsThis && rt->ty == Tstruct) {
+    if (isMSVCpp && needsThis && rt->ty == TY::Tstruct) {
       return true;
     }
 
@@ -160,7 +160,7 @@ struct X86TargetABI : TargetABI {
       Type *rt = getExtraLoweredReturnType(fty.type);
       if (isAggregate(rt) && canRewriteAsInt(rt) &&
           // don't rewrite cfloat for extern(D)
-          !(externD && rt->ty == Tcomplex32)) {
+          !(externD && rt->ty == TY::Tcomplex32)) {
         integerRewrite.applyToIfNotObsolete(*fty.ret);
       }
     }
@@ -210,7 +210,7 @@ struct X86TargetABI : TargetABI {
           auto sz = lastTy->size();
           if (!lastTy->isfloating() && (sz == 1 || sz == 2 || sz == 4)) {
             // rewrite aggregates as integers to make inreg work
-            if (lastTy->ty == Tstruct || lastTy->ty == Tsarray) {
+            if (lastTy->ty == TY::Tstruct || lastTy->ty == TY::Tsarray) {
               integerRewrite.applyTo(*last);
               // undo byval semantics applied via passByVal() returning true
               last->byref = false;
@@ -233,7 +233,7 @@ struct X86TargetABI : TargetABI {
     size_t i = 0;
     while (i < fty.args.size()) {
       Type *type = fty.args[i]->type->toBasetype();
-      if (type->ty == Tstruct) {
+      if (type->ty == TY::Tstruct) {
         // Do not pass empty structs at all for C++ ABI compatibility.
         // Tests with clang reveal that more complex "empty" types, for
         // example a struct containing an empty struct, are not

@@ -369,10 +369,10 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
   case LLVMglobal_crt_dtor: {
     const unsigned char flag = llvm_internal == LLVMglobal_crt_ctor ? 1 : 2;
     const int count = applyFunctionPragma(s, [=](FuncDeclaration *fd) {
-      assert(fd->type->ty == Tfunction);
+      assert(fd->type->ty == TY::Tfunction);
       TypeFunction *type = static_cast<TypeFunction *>(fd->type);
       Type *retType = type->next;
-      if (retType->ty != Tvoid || type->parameterList.length() > 0 ||
+      if (retType->ty != TY::Tvoid || type->parameterList.length() > 0 ||
           (fd->isMember() && !fd->isStatic())) {
         error(s->loc,
               "the `%s` pragma is only allowed on `void` functions which take "

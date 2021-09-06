@@ -231,14 +231,14 @@ DValue *DtoCastClass(const Loc &loc, DValue *val, Type *_to) {
   Type *to = _to->toBasetype();
 
   // class -> pointer
-  if (to->ty == Tpointer) {
+  if (to->ty == TY::Tpointer) {
     IF_LOG Logger::println("to pointer");
     LLType *tolltype = DtoType(_to);
     LLValue *rval = DtoBitCast(DtoRVal(val), tolltype);
     return new DImValue(_to, rval);
   }
   // class -> bool
-  if (to->ty == Tbool) {
+  if (to->ty == TY::Tbool) {
     IF_LOG Logger::println("to bool");
     LLValue *llval = DtoRVal(val);
     LLValue *zero = LLConstant::getNullValue(llval->getType());
@@ -257,13 +257,13 @@ DValue *DtoCastClass(const Loc &loc, DValue *val, Type *_to) {
     return DtoCastInt(loc, &im, _to);
   }
   // class -> typeof(null)
-  if (to->ty == Tnull) {
+  if (to->ty == TY::Tnull) {
     IF_LOG Logger::println("to %s", to->toChars());
     return new DImValue(_to, LLConstant::getNullValue(DtoType(_to)));
   }
 
   // must be class/interface
-  assert(to->ty == Tclass);
+  assert(to->ty == TY::Tclass);
   TypeClass *tc = static_cast<TypeClass *>(to);
 
   // from type
@@ -416,7 +416,7 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl) {
   // sanity checks
   assert(fdecl->isVirtual());
   assert(!fdecl->isFinalFunc());
-  assert(inst->type->toBasetype()->ty == Tclass);
+  assert(inst->type->toBasetype()->ty == TY::Tclass);
   // slot 0 is always ClassInfo/Interface* unless it is a CPP class
   assert(fdecl->vtblIndex > 0 ||
          (fdecl->vtblIndex == 0 &&

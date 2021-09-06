@@ -43,7 +43,7 @@ IrTypeDelegate::IrTypeDelegate(Type *dt, llvm::Type *lt, IrFuncTy irFty_)
     : IrType(dt, lt), irFty(std::move(irFty_)) {}
 
 IrTypeDelegate *IrTypeDelegate::get(Type *t) {
-  assert(t->ty == Tdelegate);
+  assert(t->ty == TY::Tdelegate);
   TypeFunction *tf = t->nextOf()->isTypeFunction();
   assert(tf);
 

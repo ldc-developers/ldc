@@ -188,7 +188,7 @@ private:
       if (te->sym->ident == Id::__c_complex_real)
         return true;
     }
-    return rt->toBasetype()->ty == Tcomplex80;
+    return rt->toBasetype()->ty == TY::Tcomplex80;
   }
 
   RegCount &getRegCount(IrFuncTy &fty) {
@@ -246,7 +246,7 @@ void X86_64TargetABI::rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg,
     return;
   }
 
-  if (t->ty == Tcomplex32 || t->ty == Tstruct || t->ty == Tsarray) {
+  if (t->ty == TY::Tcomplex32 || t->ty == TY::Tstruct || t->ty == TY::Tsarray) {
     if (LLType *rewrittenType = getRewrittenArgType(t))
       argTypesRewrite.applyToIfNotObsolete(arg, rewrittenType);
   }
@@ -401,11 +401,11 @@ const char *X86_64TargetABI::objcMsgSendFunc(Type *ret,
   }
   if (ret) {
     // complex long double return
-    if (ret->ty == Tcomplex80) {
+    if (ret->ty == TY::Tcomplex80) {
       return "objc_msgSend_fp2ret";
     }
     // long double return
-    if (ret->ty == Tfloat80 || ret->ty == Timaginary80) {
+    if (ret->ty == TY::Tfloat80 || ret->ty == TY::Timaginary80) {
       return "objc_msgSend_fpret";
     }
   }

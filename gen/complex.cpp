@@ -33,12 +33,12 @@ LLType *DtoComplexBaseType(Type *t) {
   switch (t->toBasetype()->ty) {
   default:
     llvm_unreachable("Unexpected complex floating point type");
-  case Tcomplex32:
-    return DtoType(Type::basic[Tfloat32]);
-  case Tcomplex64:
-    return DtoType(Type::basic[Tfloat64]);
-  case Tcomplex80:
-    return DtoType(Type::basic[Tfloat80]);
+  case TY::Tcomplex32:
+    return DtoType(Type::tfloat32);
+  case TY::Tcomplex64:
+    return DtoType(Type::tfloat64);
+  case TY::Tcomplex80:
+    return DtoType(Type::tfloat80);
   }
 }
 
@@ -49,13 +49,13 @@ LLConstant *DtoConstComplex(Type *_ty, real_t re, real_t im) {
   switch (_ty->toBasetype()->ty) {
   default:
     llvm_unreachable("Unexpected complex floating point type");
-  case Tcomplex32:
+  case TY::Tcomplex32:
     base = Type::tfloat32;
     break;
-  case Tcomplex64:
+  case TY::Tcomplex64:
     base = Type::tfloat64;
     break;
-  case Tcomplex80:
+  case TY::Tcomplex80:
     base = Type::tfloat80;
     break;
   }
@@ -76,15 +76,15 @@ DValue *DtoComplex(const Loc &loc, Type *to, DValue *val) {
   switch (to->toBasetype()->ty) {
   default:
     llvm_unreachable("Unexpected complex floating point type");
-  case Tcomplex32:
+  case TY::Tcomplex32:
     baserety = Type::tfloat32;
     baseimty = Type::timaginary32;
     break;
-  case Tcomplex64:
+  case TY::Tcomplex64:
     baserety = Type::tfloat64;
     baseimty = Type::timaginary64;
     break;
-  case Tcomplex80:
+  case TY::Tcomplex80:
     baserety = Type::tfloat80;
     baseimty = Type::timaginary80;
     break;
@@ -121,15 +121,15 @@ void DtoGetComplexParts(const Loc &loc, Type *to, DValue *val, DValue *&re,
   switch (to->toBasetype()->ty) {
   default:
     llvm_unreachable("Unexpected complex floating point type");
-  case Tcomplex32:
+  case TY::Tcomplex32:
     baserety = Type::tfloat32;
     baseimty = Type::timaginary32;
     break;
-  case Tcomplex64:
+  case TY::Tcomplex64:
     baserety = Type::tfloat64;
     baseimty = Type::timaginary64;
     break;
-  case Tcomplex80:
+  case TY::Tcomplex80:
     baserety = Type::tfloat80;
     baseimty = Type::timaginary80;
     break;
@@ -462,20 +462,20 @@ DValue *DtoCastComplex(const Loc &loc, DValue *val, Type *_to) {
     switch (vty->ty) {
     default:
       llvm_unreachable("Unexpected complex floating point type");
-    case Tcomplex32:
+    case TY::Tcomplex32:
       extractty = Type::timaginary32;
       break;
-    case Tcomplex64:
+    case TY::Tcomplex64:
       extractty = Type::timaginary64;
       break;
-    case Tcomplex80:
+    case TY::Tcomplex80:
       extractty = Type::timaginary80;
       break;
     }
     auto im = new DImValue(extractty, impart);
     return DtoCastFloat(loc, im, to);
   }
-  if (to->ty == Tbool) {
+  if (to->ty == TY::Tbool) {
     return new DImValue(
         _to, DtoComplexEquals(loc, TOKnotequal, val, DtoNullValue(vty)));
   }
@@ -487,13 +487,13 @@ DValue *DtoCastComplex(const Loc &loc, DValue *val, Type *_to) {
     switch (vty->ty) {
     default:
       llvm_unreachable("Unexpected complex floating point type");
-    case Tcomplex32:
+    case TY::Tcomplex32:
       extractty = Type::tfloat32;
       break;
-    case Tcomplex64:
+    case TY::Tcomplex64:
       extractty = Type::tfloat64;
       break;
-    case Tcomplex80:
+    case TY::Tcomplex80:
       extractty = Type::tfloat80;
       break;
     }

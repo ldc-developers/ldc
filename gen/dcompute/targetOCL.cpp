@@ -142,17 +142,17 @@ public:
   std::string basicTypeToString(Type *t) {
     std::stringstream ss;
     auto ty = t->ty;
-    if (ty == Tint8)
+    if (ty == TY::Tint8)
       ss << "char";
-    else if (ty == Tuns8)
+    else if (ty == TY::Tuns8)
       ss << "uchar";
-    else if (ty == Tvector) {
+    else if (ty == TY::Tvector) {
       TypeVector *vec = static_cast<TypeVector *>(t);
       auto size = vec->size(Loc());
       auto basety = vec->basetype->ty;
-      if (basety == Tint8)
+      if (basety == TY::Tint8)
         ss << "char";
-      else if (basety == Tuns8)
+      else if (basety == TY::Tuns8)
         ss << "uchar";
       else
         ss << vec->basetype->toChars();
@@ -171,7 +171,7 @@ public:
     std::string tyName;
     std::string accessQual = "none";
     int addrspace = 0;
-    if (v->type->ty == Tstruct &&
+    if (v->type->ty == TY::Tstruct &&
         (ptr = toDcomputePointer(static_cast<TypeStruct *>(v->type)->sym))) {
       addrspace = ptr->addrspace;
       tyName = basicTypeToString(ptr->type) + "*";

@@ -73,7 +73,7 @@ public:
     if (SymbolDeclaration *sdecl = e->var->isSymbolDeclaration()) {
       // This is the static initialiser (init symbol) for aggregates.
       // Exclude void[]-typed `__traits(initSymbol)` (LDC extension).
-      if (sdecl->type->toBasetype()->ty == Tstruct) {
+      if (sdecl->type->toBasetype()->ty == TY::Tstruct) {
         const auto sd = sdecl->dsym->isStructDeclaration();
         assert(sd);
         IF_LOG Logger::print("Sym: sd=%s\n", sd->toChars());
@@ -146,7 +146,7 @@ public:
                          e->type->toChars(), e->toChars());
     LOG_SCOPE;
     LLType *t = DtoType(e->type);
-    if (e->type->ty == Tarray) {
+    if (e->type->ty == TY::Tarray) {
       assert(isaStruct(t));
       result = llvm::ConstantAggregateZero::get(t);
     } else {
@@ -172,7 +172,7 @@ public:
 
     Type *const t = e->type->toBasetype();
 
-    if (t->ty == Tsarray) {
+    if (t->ty == TY::Tsarray) {
       result = buildStringLiteralConstant(e, false);
       return;
     }
@@ -185,9 +185,9 @@ public:
     LLConstant *arrptr = llvm::ConstantExpr::getGetElementPtr(
         isaPointer(gvar)->getElementType(), gvar, idxs, true);
 
-    if (t->ty == Tpointer) {
+    if (t->ty == TY::Tpointer) {
       result = arrptr;
-    } else if (t->ty == Tarray) {
+    } else if (t->ty == TY::Tarray) {
       LLConstant *clen =
           LLConstantInt::get(DtoSize_t(), e->numberOfCodeUnits(), false);
       result = DtoConstSlice(clen, arrptr, e->type);
@@ -205,7 +205,7 @@ public:
 
     // add to pointer
     Type *t1b = e->e1->type->toBasetype();
-    if (t1b->ty == Tpointer && e->e2->type->isintegral()) {
+    if (t1b->ty == TY::Tpointer && e->e2->type->isintegral()) {
       llvm::Constant *ptr = toConstElem(e->e1);
       dinteger_t idx = undoStrideMul(e->loc, t1b, e->e2->toInteger());
       result = llvm::ConstantExpr::getGetElementPtr(
@@ -222,7 +222,7 @@ public:
     LOG_SCOPE;
 
     Type *t1b = e->e1->type->toBasetype();
-    if (t1b->ty == Tpointer && e->e2->type->isintegral()) {
+    if (t1b->ty == TY::Tpointer && e->e2->type->isintegral()) {
       llvm::Constant *ptr = toConstElem(e->e1);
       dinteger_t idx = undoStrideMul(e->loc, t1b, e->e2->toInteger());
 
@@ -247,7 +247,7 @@ public:
 
     // string literal to dyn array:
     // reinterpret the string data as an array, calculate the length
-    if (e->e1->op == TOKstring && tb->ty == Tarray) {
+    if (e->e1->op == TOKstring && tb->ty == TY::Tarray) {
 #if 0
             StringExp *strexp = static_cast<StringExp*>(e1);
             size_t datalen = strexp->sz * strexp->len;
@@ -262,11 +262,12 @@ public:
       result = toConstElem(e->e1);
     }
     // pointer to pointer
-    else if (tb->ty == Tpointer && e->e1->type->toBasetype()->ty == Tpointer) {
+    else if (tb->ty == TY::Tpointer &&
+             e->e1->type->toBasetype()->ty == TY::Tpointer) {
       result = llvm::ConstantExpr::getBitCast(toConstElem(e->e1), lltype);
     }
     // global variable to pointer
-    else if (tb->ty == Tpointer && e->e1->op == TOKvar) {
+    else if (tb->ty == TY::Tpointer && e->e1->op == TOKvar) {
       VarDeclaration *vd =
           static_cast<VarExp *>(e->e1)->var->isVarDeclaration();
       assert(vd);
@@ -277,13 +278,13 @@ public:
         goto Lerr;
       }
       Type *type = vd->type->toBasetype();
-      if (type->ty == Tarray || type->ty == Tdelegate) {
+      if (type->ty == TY::Tarray || type->ty == TY::Tdelegate) {
         LLConstant *idxs[2] = {DtoConstSize_t(0), DtoConstSize_t(1)};
         value = llvm::ConstantExpr::getGetElementPtr(
             isaPointer(value)->getElementType(), value, idxs, true);
       }
       result = DtoBitCast(value, DtoType(tb));
-    } else if (tb->ty == Tclass && e->e1->type->ty == Tclass &&
+    } else if (tb->ty == TY::Tclass && e->e1->type->ty == TY::Tclass &&
                e->e1->op == TOKclassreference) {
       auto cd = static_cast<ClassReferenceExp *>(e->e1)->originalClass();
       llvm::Constant *instance = toConstElem(e->e1);
@@ -373,7 +374,7 @@ public:
       assert(vexp);
       VarDeclaration *vd = vexp->var->isVarDeclaration();
       assert(vd);
-      assert(vd->type->toBasetype()->ty == Tsarray);
+      assert(vd->type->toBasetype()->ty == TY::Tsarray);
       DtoResolveVariable(vd);
       assert(isIrGlobalCreated(vd));
 
@@ -389,7 +390,7 @@ public:
           isaPointer(val)->getElementType(), val, idxs, true);
 
       // bitcast to requested type
-      assert(e->type->toBasetype()->ty == Tpointer);
+      assert(e->type->toBasetype()->ty == TY::Tpointer);
       result = DtoBitCast(gep, DtoType(e->type));
       return;
     }
@@ -434,7 +435,7 @@ public:
     FuncLiteralDeclaration *fd = e->fd;
     assert(fd);
 
-    if (fd->tok == TOKreserved && e->type->ty == Tpointer) {
+    if (fd->tok == TOKreserved && e->type->ty == TY::Tpointer) {
       // This is a lambda that was inferred to be a function literal instead
       // of a delegate, so set tok here in order to get correct types/mangling.
       // Horrible hack, but DMD does the same thing in FuncExp::toElem and
@@ -487,7 +488,7 @@ public:
         LLArrayType::get(DtoMemType(elemt), e->elements->length);
 
     // dynamic arrays can occur here as well ...
-    bool dyn = (bt->ty != Tsarray);
+    bool dyn = (bt->ty != TY::Tsarray);
 
     llvm::Constant *initval = arrayLiteralToConst(p, e);
 
@@ -505,7 +506,7 @@ public:
                                     : llvm::GlobalValue::UnnamedAddr::None);
     llvm::Constant *store = DtoBitCast(gvar, getPtrToType(arrtype));
 
-    if (bt->ty == Tpointer) {
+    if (bt->ty == TY::Tpointer) {
       // we need to return pointer to the static array.
       result = store;
       return;
@@ -612,7 +613,7 @@ public:
       result = constValue;
     }
 
-    if (e->type->ty == Tclass) {
+    if (e->type->ty == TY::Tclass) {
       ClassDeclaration *targetClass = static_cast<TypeClass *>(e->type)->sym;
       if (InterfaceDeclaration *it = targetClass->isInterfaceDeclaration()) {
         assert(it->isBaseOf(origClass, NULL));
@@ -627,7 +628,7 @@ public:
       }
     }
 
-    assert(e->type->ty == Tclass || e->type->ty == Tenum);
+    assert(e->type->ty == TY::Tclass || e->type->ty == TY::Tenum);
     result = DtoBitCast(result, DtoType(e->type));
   }
 
@@ -639,7 +640,7 @@ public:
     LOG_SCOPE;
 
     TypeVector *tv = static_cast<TypeVector *>(e->to->toBasetype());
-    assert(tv->ty == Tvector);
+    assert(tv->ty == TY::Tvector);
 
     const auto elemCount =
         static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();

@@ -39,7 +39,7 @@ private:
 
   bool isX87(Type *t) const {
     return !isMSVC // 64-bit reals for MSVC targets
-           && (t->ty == Tfloat80 || t->ty == Timaginary80);
+           && (t->ty == TY::Tfloat80 || t->ty == TY::Timaginary80);
   }
 
   bool passPointerToHiddenCopy(Type *t, bool isReturnValue,
@@ -68,7 +68,7 @@ private:
       // MSVC++ seems to enforce by-ref passing only for structs with
       // copy ctor (incl. `= delete`).
       if (isMSVCpp) {
-        if (t->ty == Tstruct) {
+        if (t->ty == TY::Tstruct) {
           StructDeclaration *sd = static_cast<TypeStruct *>(t)->sym;
           assert(sd);
           if (sd->postblit || sd->hasCopyCtor)
@@ -91,8 +91,8 @@ private:
     // LDC-specific exceptions: slices and delegates are left alone (as non-
     // rewritten IR structs) and passed/returned as 2 separate args => passed in
     // up to 2 GP registers and returned in RAX & RDX.
-    return isAggregate(t) && !canRewriteAsInt(t) && t->ty != Tarray &&
-           t->ty != Tdelegate;
+    return isAggregate(t) && !canRewriteAsInt(t) && t->ty != TY::Tarray &&
+           t->ty != TY::Tdelegate;
   }
 
 public:
@@ -127,7 +127,8 @@ public:
     Type *rt = tf->next->toBasetype();
 
     // for non-static member functions, MSVC++ enforces sret for all structs
-    if (isMSVC && tf->linkage == LINK::cpp && needsThis && rt->ty == Tstruct) {
+    if (isMSVC && tf->linkage == LINK::cpp && needsThis &&
+        rt->ty == TY::Tstruct) {
       return true;
     }
 

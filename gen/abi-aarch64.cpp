@@ -60,7 +60,7 @@ public:
     }
 
     Type *rt = tf->next->toBasetype();
-    if (rt->ty == Tstruct || rt->ty == Tsarray) {
+    if (rt->ty == TY::Tstruct || rt->ty == TY::Tsarray) {
       auto argTypes = getArgTypes(rt);
       return !argTypes // FIXME: get rid of sret workaround for 0-sized return
                        //        values (static arrays with 0 elements)
@@ -75,7 +75,7 @@ public:
   bool preferPassByRef(Type *t) override {
     t = t->toBasetype();
 
-    if (!(t->ty == Tstruct || t->ty == Tsarray))
+    if (!(t->ty == TY::Tstruct || t->ty == TY::Tsarray))
       return false;
 
     auto argTypes = getArgTypes(t);

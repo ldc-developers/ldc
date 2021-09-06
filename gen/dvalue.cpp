@@ -67,9 +67,10 @@ DImValue::DImValue(Type *t, llvm::Value *v) : DRValue(t, v) {
   // TODO: get rid of Tfunction exception
   // v may be an addrspace qualified pointer so strip it before doing a pointer
   // equality check.
-  assert(t->toBasetype()->ty == Tfunction ||
+  assert(t->toBasetype()->ty == TY::Tfunction ||
          stripAddrSpaces(v->getType()) == DtoType(t));
-  assert(t->toBasetype()->ty != Tarray && "use DSliceValue for dynamic arrays");
+  assert(t->toBasetype()->ty != TY::Tarray &&
+         "use DSliceValue for dynamic arrays");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -82,7 +83,7 @@ DConstValue::DConstValue(Type *t, LLConstant *con) : DRValue(t, con) {
 
 DSliceValue::DSliceValue(Type *t, LLValue *pair, LLValue *length, LLValue *ptr)
     : DRValue(t, pair), length(length), ptr(ptr) {
-  assert(t->toBasetype()->ty == Tarray);
+  assert(t->toBasetype()->ty == TY::Tarray);
   // v may be an addrspace qualified pointer so strip it before doing a pointer
   // equality check.
   assert(stripAddrSpaces(pair->getType()) == DtoType(t));
@@ -120,7 +121,7 @@ bool DFuncValue::definedInFuncEntryBB() {
 DLValue::DLValue(Type *t, LLValue *v) : DValue(t, v) {
   // v may be an addrspace qualified pointer so strip it before doing a pointer
   // equality check.
-  assert(t->toBasetype()->ty == Ttuple ||
+  assert(t->toBasetype()->ty == TY::Ttuple ||
          stripAddrSpaces(v->getType()) == DtoPtrToType(t));
 }
 
@@ -133,7 +134,7 @@ DRValue *DLValue::getRVal() {
   LLValue *rval = DtoLoad(val);
 
   const auto ty = type->toBasetype()->ty;
-  if (ty == Tbool) {
+  if (ty == TY::Tbool) {
     assert(rval->getType() == llvm::Type::getInt8Ty(gIR->context()));
 
     if (isOptimizationEnabled()) {
@@ -146,7 +147,7 @@ DRValue *DLValue::getRVal() {
 
     // truncate to i1
     rval = gIR->ir->CreateTrunc(rval, llvm::Type::getInt1Ty(gIR->context()));
-  } else if (ty == Tarray) {
+  } else if (ty == TY::Tarray) {
     return new DSliceValue(type, rval);
   }
 

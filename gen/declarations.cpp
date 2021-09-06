@@ -86,7 +86,7 @@ public:
       return;
     }
 
-    if (decl->type->ty == Terror) {
+    if (decl->type->ty == TY::Terror) {
       decl->error("had semantic errors when compiling");
       decl->ir->setDefined();
       return;
@@ -122,7 +122,7 @@ public:
       return;
     }
 
-    if (decl->type->ty == Terror) {
+    if (decl->type->ty == TY::Terror) {
       decl->error("had semantic errors when compiling");
       decl->ir->setDefined();
       return;
@@ -181,7 +181,7 @@ public:
       return;
     }
 
-    if (decl->type->ty == Terror) {
+    if (decl->type->ty == TY::Terror) {
       decl->error("had semantic errors when compiling");
       decl->ir->setDefined();
       return;
@@ -245,7 +245,7 @@ public:
       return;
     }
 
-    if (decl->type->ty == Terror) {
+    if (decl->type->ty == TY::Terror) {
       decl->error("had semantic errors when compiling");
       decl->ir->setDefined();
       return;
@@ -279,7 +279,7 @@ public:
     IF_LOG Logger::println("Ignoring EnumDeclaration::codegen: '%s'",
                            decl->toPrettyChars());
 
-    if (decl->type->ty == Terror) {
+    if (decl->type->ty == TY::Terror) {
       decl->error("had semantic errors when compiling");
       return;
     }

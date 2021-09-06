@@ -74,7 +74,7 @@ void DtoResolveStruct(StructDeclaration *sd, const Loc &callerLoc) {
 
 LLValue *DtoStructEquals(TOK op, DValue *lhs, DValue *rhs) {
   Type *t = lhs->type->toBasetype();
-  assert(t->ty == Tstruct);
+  assert(t->ty == TY::Tstruct);
 
   // set predicate
   llvm::ICmpInst::Predicate cmpop;
@@ -102,7 +102,7 @@ LLValue *DtoStructEquals(TOK op, DValue *lhs, DValue *rhs) {
 /// specified type.
 /// Union types will get expanded into a struct, with a type for each member.
 LLType *DtoUnpaddedStructType(Type *dty) {
-  assert(dty->ty == Tstruct);
+  assert(dty->ty == TY::Tstruct);
 
   typedef llvm::DenseMap<Type *, llvm::StructType *> CacheT;
   static llvm::ManagedStatic<CacheT> cache;
@@ -119,7 +119,7 @@ LLType *DtoUnpaddedStructType(Type *dty) {
 
   for (unsigned i = 0; i < fields.length; i++) {
     LLType *fty;
-    if (fields[i]->type->ty == Tstruct) {
+    if (fields[i]->type->ty == TY::Tstruct) {
       // Nested structs are the only members that can contain padding
       fty = DtoUnpaddedStructType(fields[i]->type);
     } else {
@@ -137,7 +137,7 @@ LLType *DtoUnpaddedStructType(Type *dty) {
 /// Note: v must be a pointer to a struct, but the return value will be a
 ///       first-class struct value.
 LLValue *DtoUnpaddedStruct(Type *dty, LLValue *v) {
-  assert(dty->ty == Tstruct);
+  assert(dty->ty == TY::Tstruct);
   TypeStruct *sty = static_cast<TypeStruct *>(dty);
   VarDeclarations &fields = sty->sym->fields;
 
@@ -146,7 +146,7 @@ LLValue *DtoUnpaddedStruct(Type *dty, LLValue *v) {
   for (unsigned i = 0; i < fields.length; i++) {
     LLValue *fieldptr = DtoIndexAggregate(v, sty->sym, fields[i]);
     LLValue *fieldval;
-    if (fields[i]->type->ty == Tstruct) {
+    if (fields[i]->type->ty == TY::Tstruct) {
       // Nested structs are the only members that can contain padding
       fieldval = DtoUnpaddedStruct(fields[i]->type, fieldptr);
     } else {
@@ -159,14 +159,14 @@ LLValue *DtoUnpaddedStruct(Type *dty, LLValue *v) {
 
 /// Undo the transformation performed by DtoUnpaddedStruct, writing to lval.
 void DtoPaddedStruct(Type *dty, LLValue *v, LLValue *lval) {
-  assert(dty->ty == Tstruct);
+  assert(dty->ty == TY::Tstruct);
   TypeStruct *sty = static_cast<TypeStruct *>(dty);
   VarDeclarations &fields = sty->sym->fields;
 
   for (unsigned i = 0; i < fields.length; i++) {
     LLValue *fieldptr = DtoIndexAggregate(lval, sty->sym, fields[i]);
     LLValue *fieldval = DtoExtractValue(v, i);
-    if (fields[i]->type->ty == Tstruct) {
+    if (fields[i]->type->ty == TY::Tstruct) {
       // Nested structs are the only members that can contain padding
       DtoPaddedStruct(fields[i]->type, fieldval, fieldptr);
     } else {

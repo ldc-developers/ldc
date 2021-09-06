@@ -42,12 +42,12 @@
 bool DtoIsInMemoryOnly(Type *type) {
   Type *typ = type->toBasetype();
   TY t = typ->ty;
-  return (t == Tstruct || t == Tsarray);
+  return (t == TY::Tstruct || t == TY::Tsarray);
 }
 
 bool DtoIsReturnInArg(CallExp *ce) {
   Type *t = ce->e1->type->toBasetype();
-  if (t->ty == Tfunction && (!ce->f || !DtoIsIntrinsic(ce->f))) {
+  if (t->ty == TY::Tfunction && (!ce->f || !DtoIsIntrinsic(ce->f))) {
     return gABI->returnInArg(static_cast<TypeFunction *>(t),
                              ce->f && ce->f->needThis());
   }
@@ -56,7 +56,7 @@ bool DtoIsReturnInArg(CallExp *ce) {
 
 void DtoAddExtendAttr(Type *type, llvm::AttrBuilder &attrs) {
   type = type->toBasetype();
-  if (type->isintegral() && type->ty != Tvector && type->size() <= 2) {
+  if (type->isintegral() && type->ty != TY::Tvector && type->size() <= 2) {
     attrs.addAttribute(type->isunsigned() ? LLAttribute::ZExt
                                           : LLAttribute::SExt);
   }
@@ -74,61 +74,61 @@ LLType *DtoType(Type *t) {
 
   switch (t->ty) {
   // basic types
-  case Tvoid:
-  case Tint8:
-  case Tuns8:
-  case Tint16:
-  case Tuns16:
-  case Tint32:
-  case Tuns32:
-  case Tint64:
-  case Tuns64:
-  case Tint128:
-  case Tuns128:
-  case Tfloat32:
-  case Tfloat64:
-  case Tfloat80:
-  case Timaginary32:
-  case Timaginary64:
-  case Timaginary80:
-  case Tcomplex32:
-  case Tcomplex64:
-  case Tcomplex80:
-  // case Tbit:
-  case Tbool:
-  case Tchar:
-  case Twchar:
-  case Tdchar:
-  case Tnoreturn: {
+  case TY::Tvoid:
+  case TY::Tint8:
+  case TY::Tuns8:
+  case TY::Tint16:
+  case TY::Tuns16:
+  case TY::Tint32:
+  case TY::Tuns32:
+  case TY::Tint64:
+  case TY::Tuns64:
+  case TY::Tint128:
+  case TY::Tuns128:
+  case TY::Tfloat32:
+  case TY::Tfloat64:
+  case TY::Tfloat80:
+  case TY::Timaginary32:
+  case TY::Timaginary64:
+  case TY::Timaginary80:
+  case TY::Tcomplex32:
+  case TY::Tcomplex64:
+  case TY::Tcomplex80:
+  // case TY::Tbit:
+  case TY::Tbool:
+  case TY::Tchar:
+  case TY::Twchar:
+  case TY::Tdchar:
+  case TY::Tnoreturn: {
     return IrTypeBasic::get(t)->getLLType();
   }
 
   // pointers
-  case Tnull:
-  case Tpointer: {
+  case TY::Tnull:
+  case TY::Tpointer: {
     return IrTypePointer::get(t)->getLLType();
   }
 
   // arrays
-  case Tarray: {
+  case TY::Tarray: {
     return IrTypeArray::get(t)->getLLType();
   }
 
-  case Tsarray: {
+  case TY::Tsarray: {
     return IrTypeSArray::get(t)->getLLType();
   }
 
   // aggregates
-  case Tstruct:
-  case Tclass: {
-    const auto isStruct = t->ty == Tstruct;
+  case TY::Tstruct:
+  case TY::Tclass: {
+    const auto isStruct = t->ty == TY::Tstruct;
     AggregateDeclaration *ad;
     if (isStruct) {
       ad = static_cast<TypeStruct *>(t)->sym;
     } else {
       ad = static_cast<TypeClass *>(t)->sym;
     }
-    if (ad->type->ty == Terror) {
+    if (ad->type->ty == TY::Terror) {
       static LLStructType *opaqueErrorType =
           LLStructType::create(gIR->context(), Type::terror->toChars());
       return opaqueErrorType;
@@ -158,12 +158,12 @@ LLType *DtoType(Type *t) {
   }
 
   // functions
-  case Tfunction: {
+  case TY::Tfunction: {
     return IrTypeFunction::get(t)->getLLType();
   }
 
   // delegates
-  case Tdelegate: {
+  case TY::Tdelegate: {
     return IrTypeDelegate::get(t)->getLLType();
   }
 
@@ -171,7 +171,7 @@ LLType *DtoType(Type *t) {
   // enum
 
   // FIXME: maybe just call toBasetype first ?
-  case Tenum: {
+  case TY::Tenum: {
     Type *bt = t->toBasetype();
     assert(bt);
     if (t == bt) {
@@ -184,10 +184,10 @@ LLType *DtoType(Type *t) {
   }
 
   // associative arrays
-  case Taarray:
+  case TY::Taarray:
     return getVoidPtrType();
 
-  case Tvector:
+  case TY::Tvector:
     return IrTypeVector::get(t)->getLLType();
 
   default:

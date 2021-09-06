@@ -252,7 +252,7 @@ LLConstant *IrClass::getVtblInit() {
           }
           if (fd->leastAsSpecialized(fd2) || fd2->leastAsSpecialized(fd)) {
             TypeFunction *tf = static_cast<TypeFunction *>(fd->type);
-            if (tf->ty == Tfunction) {
+            if (tf->ty == TY::Tfunction) {
               cd->error("use of `%s%s` is hidden by `%s`; use `alias %s = "
                         "%s.%s;` to introduce base class overload set",
                         fd->toPrettyChars(),

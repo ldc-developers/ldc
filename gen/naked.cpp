@@ -268,8 +268,8 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, const Loc &loc,
 
   // x86
   if (triple.getArch() == llvm::Triple::x86) {
-    if (rt->isintegral() || rt->ty == Tpointer || rt->ty == Tclass ||
-        rt->ty == Taarray) {
+    if (rt->isintegral() || rt->ty == TY::Tpointer || rt->ty == TY::Tclass ||
+        rt->ty == TY::Taarray) {
       if (rt->size() == 8) {
         as->out_c = "=A,";
       } else {
@@ -281,7 +281,7 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, const Loc &loc,
           // extern(D) always returns on the FPU stack
           as->out_c = "={st},={st(1)},";
           asmblock->retn = 2;
-        } else if (rt->ty == Tcomplex32) {
+        } else if (rt->ty == TY::Tcomplex32) {
           // non-extern(D) cfloat is returned as i64
           as->out_c = "=A,";
           asmblock->retty = LLType::getInt64Ty(gIR->context());
@@ -295,7 +295,7 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, const Loc &loc,
       } else {
         as->out_c = "={st},";
       }
-    } else if (rt->ty == Tarray || rt->ty == Tdelegate) {
+    } else if (rt->ty == TY::Tarray || rt->ty == TY::Tdelegate) {
       as->out_c = "={ax},={dx},";
       asmblock->retn = 2;
 #if 0
@@ -332,8 +332,8 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, const Loc &loc,
 
   // x86_64
   else if (triple.getArch() == llvm::Triple::x86_64) {
-    if (rt->isintegral() || rt->ty == Tpointer || rt->ty == Tclass ||
-        rt->ty == Taarray) {
+    if (rt->isintegral() || rt->ty == TY::Tpointer || rt->ty == TY::Tclass ||
+        rt->ty == TY::Taarray) {
       as->out_c = "={ax},";
     } else if (rt->isfloating()) {
       const bool isWin64 = triple.isOSWindows();
@@ -372,7 +372,7 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, const Loc &loc,
         // Plain float/double/ifloat/idouble
         as->out_c = "={xmm0},";
       }
-    } else if (rt->ty == Tarray || rt->ty == Tdelegate) {
+    } else if (rt->ty == TY::Tarray || rt->ty == TY::Tdelegate) {
       as->out_c = "={ax},={dx},";
       asmblock->retn = 2;
     } else {
@@ -442,7 +442,7 @@ DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
       DtoInlineAsmExpr(loc, code, constraints, operands, irReturnType);
 
   // work around missing tuple support for users of the return value
-  if (sretPointer || returnType->ty == Tstruct) {
+  if (sretPointer || returnType->ty == TY::Tstruct) {
     auto lvalue = sretPointer;
     if (!lvalue)
       lvalue = DtoAlloca(returnType, ".__asm_tuple_ret");
