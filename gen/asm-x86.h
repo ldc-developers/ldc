@@ -3795,7 +3795,7 @@ struct AsmProcessor {
         // if IdentifierExp::semantic won't find anything.
         Dsymbol *scopesym;
         if (!sc->search(stmt->loc, ident, &scopesym)) {
-          if (LabelDsymbol *labelsym = sc->func->searchLabel(ident)) {
+          if (LabelDsymbol *labelsym = sc->func->searchLabel(ident, stmt->loc)) {
             e = createDsymbolExp(stmt->loc, labelsym);
             if (opTakesLabel()) {
               return e;

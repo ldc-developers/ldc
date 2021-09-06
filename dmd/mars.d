@@ -1537,7 +1537,7 @@ version (IN_LLVM)
                 if (t.deprecated_)
                     continue;
 
-                buf ~= `setFlagFor!groupName(params.`~t.paramName~`);`;
+                buf ~= `setFlagFor(groupName, params.`~t.paramName~`);`;
             }
             buf ~= "return true;\n";
 
@@ -1546,7 +1546,7 @@ version (IN_LLVM)
                 buf ~= `case "`~t.name~`":`;
                 if (t.deprecated_)
                     buf ~= "deprecation(Loc.initial, \"`-"~groupName~"="~t.name~"` no longer has any effect.\"); ";
-                buf ~= `setFlagFor!groupName(params.`~t.paramName~`); return true;`;
+                buf ~= `setFlagFor(groupName, params.`~t.paramName~`); return true;`;
             }
             return buf;
         }

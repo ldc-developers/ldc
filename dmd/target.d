@@ -27,7 +27,11 @@ module dmd.target;
 
 import dmd.globals : Param;
 
-version (IN_LLVM) import gen.llvmhelpers;
+version (IN_LLVM)
+{
+    import dmd.globals : IN_LLVM;
+    import gen.llvmhelpers;
+}
 
 enum CPU
 {

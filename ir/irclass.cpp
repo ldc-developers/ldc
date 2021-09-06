@@ -246,7 +246,8 @@ LLConstant *IrClass::getVtblInit() {
           if (fd2->isFuture()) {
             continue;
           }
-          if (fd->leastAsSpecialized(fd2) || fd2->leastAsSpecialized(fd)) {
+          if (fd->leastAsSpecialized(fd2) != MATCH::nomatch ||
+              fd2->leastAsSpecialized(fd) != MATCH::nomatch) {
             TypeFunction *tf = static_cast<TypeFunction *>(fd->type);
             if (tf->ty == TY::Tfunction) {
               cd->error("use of `%s%s` is hidden by `%s`; use `alias %s = "
