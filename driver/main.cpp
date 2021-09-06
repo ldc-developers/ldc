@@ -422,8 +422,15 @@ void parseCommandLine(Strings &sourceFiles) {
     parseRevertOption(global.params, id.c_str());
 
   if (global.params.useDIP1021) // DIP1021 implies DIP1000
-    global.params.vsafe = true;
-  if (global.params.vsafe) // DIP1000 implies DIP25
+    global.params.useDIP1000 = FeatureState::enabled;
+  // legacy -dip1000 option
+  if (global.params.useDIP1000 == FeatureState::default_ &&
+      opts::useDIP1000.getNumOccurrences()) {
+    global.params.useDIP1000 =
+        opts::useDIP1000 ? FeatureState::enabled : FeatureState::disabled;
+  }
+
+  if (global.params.useDIP1000 == FeatureState::enabled) // DIP1000 implies DIP25
     global.params.useDIP25 = FeatureState::enabled;
   // legacy -dip25 option
   if (global.params.useDIP25 == FeatureState::default_ &&
