@@ -1479,17 +1479,7 @@ public:
       TypeStruct *ts = static_cast<TypeStruct *>(ntype);
 
       // allocate
-      LLValue *mem = nullptr;
-      if (e->allocator) {
-        // custom allocator
-        DFuncValue dfn(e->allocator, DtoCallee(e->allocator));
-        DValue *res = DtoCallFunction(e->loc, nullptr, &dfn, e->newargs);
-        mem = DtoBitCast(DtoRVal(res), DtoType(ntype->pointerTo()),
-                         ".newstruct_custom");
-      } else {
-        // default allocator
-        mem = DtoNewStruct(e->loc, ts);
-      }
+      LLValue *mem = DtoNewStruct(e->loc, ts);
 
       if (!e->member && e->arguments) {
         IF_LOG Logger::println("Constructing using literal");

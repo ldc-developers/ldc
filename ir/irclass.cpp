@@ -112,16 +112,12 @@ LLGlobalVariable *IrClass::getClassInfoSymbol(bool define) {
       LLType *type = DtoType(aggrdecl->type);
       LLType *bodyType = llvm::cast<LLPointerType>(type)->getElementType();
       bool hasDestructor = (aggrdecl->dtor != nullptr);
-      bool hasCustomDelete = false;
       // Construct the fields
       llvm::Metadata *mdVals[CD_NumFields];
       mdVals[CD_BodyType] =
           llvm::ConstantAsMetadata::get(llvm::UndefValue::get(bodyType));
       mdVals[CD_Finalize] = llvm::ConstantAsMetadata::get(
           LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasDestructor));
-      mdVals[CD_CustomDelete] =
-          llvm::ConstantAsMetadata::get(LLConstantInt::get(
-              LLType::getInt1Ty(gIR->context()), hasCustomDelete));
       // Construct the metadata and insert it into the module.
       const auto metaname = getMetadataName(CD_PREFIX, typeInfo);
       llvm::NamedMDNode *node = gIR->module.getOrInsertNamedMetadata(metaname);

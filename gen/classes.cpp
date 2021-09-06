@@ -84,15 +84,7 @@ DValue *DtoNewClass(const Loc &loc, TypeClass *tc, NewExp *newexp) {
       alignment = 0;
     mem = DtoRawAlloca(DtoType(tc)->getContainedType(0), alignment,
                        ".newclass_alloca");
-  }
-  // custom allocator
-  else if (newexp->allocator) {
-    DFuncValue dfn(newexp->allocator, DtoCallee(newexp->allocator));
-    DValue *res = DtoCallFunction(newexp->loc, nullptr, &dfn, newexp->newargs);
-    mem = DtoBitCast(DtoRVal(res), DtoType(tc), ".newclass_custom");
-  }
-  // default allocator
-  else {
+  } else {
     const bool useEHAlloc = global.params.ehnogc && newexp->thrownew;
     llvm::Function *fn = getRuntimeFunction(
         loc, gIR->module, useEHAlloc ? "_d_newThrowable" : "_d_allocclass");

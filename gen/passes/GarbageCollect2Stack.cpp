@@ -290,17 +290,8 @@ public:
     // with destructors are ignored for now.
     auto hasDestructor =
         mdconst::dyn_extract<Constant>(node->getOperand(CD_Finalize));
-    // We can't stack-allocate if the class has a custom deallocator
-    // (Custom allocators don't get turned into this runtime call, so
-    // those can be ignored)
-    auto hasCustomDelete =
-        mdconst::dyn_extract<Constant>(node->getOperand(CD_CustomDelete));
-    if (hasDestructor == nullptr || hasCustomDelete == nullptr) {
-      return false;
-    }
-
-    if (ConstantExpr::getOr(hasDestructor, hasCustomDelete) !=
-        ConstantInt::getFalse(A.M.getContext())) {
+    if (hasDestructor == nullptr ||
+        hasDestructor != ConstantInt::getFalse(A.M.getContext())) {
       return false;
     }
 
