@@ -42,7 +42,7 @@ DsymbolExp *createDsymbolExp(const Loc &, Dsymbol *, bool = false);
 Expression *createExpression(const Loc &loc, TOK op, int size);
 InlineAsmStatement *createInlineAsmStatement(const Loc &loc, Token *tokens);
 GccAsmStatement *createGccAsmStatement(const Loc &loc, Token *tokens);
-TypeDelegate *createTypeDelegate(Type *t);
+TypeDelegate *createTypeDelegate(TypeFunction *tf);
 TypeIdentifier *createTypeIdentifier(const Loc &loc, Identifier *ident);
 
 Strings *createStrings();
