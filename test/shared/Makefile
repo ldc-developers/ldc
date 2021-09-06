@@ -2,23 +2,23 @@ LINK_SHARED:=1
 
 include ../common.mak
 
-TESTS:=link load linkD linkDR loadDR
-# LDC: disable 3 tests on Mac
+TESTS:=link load linkD linkDR loadDR dynamiccast
+TESTS+=link_linkdep link_loaddep load_loaddep load_13414
+# LDC: disable 3 tests on Mac, 1 on Windows
 ifneq ($(OS),osx)
-	# * `finalize` fails starting with macOS 10.13, as .dylibs with TLS can't be
-	#   unloaded anymore (https://github.com/ldc-developers/ldc/issues/3002).
 	# * `host` loads two modules with the same name, which is currently disallowed
 	#   by the (potentially overly eager) module collision detection on OS X.
+	# * `finalize` fails starting with macOS 10.13, as .dylibs with TLS can't be
+	#   unloaded anymore (https://github.com/ldc-developers/ldc/issues/3002).
 	# * FIXME: `load_linkdep`
 	#   it might fail because of unimplemented `getDependencies()` in rt.sections_elf_shared
 	ifneq (,$(findstring win,$(OS)))
 		# LDC FIXME: disable `load_linkdep` on Windows - needs `getDependencies()`
-		TESTS+=finalize host
+		TESTS+=host finalize
 	else
-		TESTS+=finalize host load_linkdep
+		TESTS+=host finalize load_linkdep
 	endif
 endif
-TESTS+=link_linkdep link_loaddep load_loaddep load_13414
 
 EXPORT_DYNAMIC=$(if $(findstring $(OS),linux freebsd dragonflybsd),-L--export-dynamic,)
 NO_AS_NEEDED=$(if $(findstring $(OS),linux freebsd dragonflybsd),-L--no-as-needed,)
@@ -76,9 +76,12 @@ dll_gc_proxy_teardown:
 # end Windows
 endif
 
+$(ROOT)/dynamiccast.done: CLEANUP:=rm dynamiccast_endmain dynamiccast_endbar
+
 $(ROOT)/%.done: $(ROOT)/%
 	@echo Testing $*
 	$(QUIET)$(TIMELIMIT)$< $(RUN_ARGS)
+	$(CLEANUP)
 	@touch $@
 
 $(ROOT)/link: $(SRC)/link.d $(ROOT)/lib.$(DLL_EXT) $(DRUNTIMESO)
@@ -102,6 +105,11 @@ $(ROOT)/load $(ROOT)/finalize: $(ROOT)/%: $(SRC)/%.d $(ROOT)/lib.$(DLL_EXT) $(DR
 $(ROOT)/load_13414: $(ROOT)/%: $(SRC)/%.d $(ROOT)/lib_13414.$(DLL_EXT) $(DRUNTIMESO)
 	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKDL)
 
+$(ROOT)/dynamiccast: $(SRC)/dynamiccast.d $(ROOT)/dynamiccast.$(DLL_EXT) $(DRUNTIMESO)
+	$(QUIET)$(DMD) $(DFLAGS) -of$@ $(SRC)/dynamiccast.d $(LINKDL)
+
+$(ROOT)/dynamiccast.$(DLL_EXT): $(SRC)/dynamiccast.d $(DRUNTIMESO)
+	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< -version=DLL -fPIC -shared $(LINKDL)
 
 ifeq (,$(findstring win,$(OS)))
 

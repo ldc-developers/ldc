@@ -215,7 +215,9 @@ uint addu()(uint x, uint y, ref bool overflow)
         }
     }
     immutable uint r = x + y;
-    if (r < x || r < y)
+    immutable bool o = r < x;
+    assert(o == (r < y));
+    if (o)
         overflow = true;
     return r;
 }
@@ -224,6 +226,14 @@ uint addu()(uint x, uint y, ref bool overflow)
 @betterC
 unittest
 {
+    for (uint i = 0; i < 10; ++i)
+    {
+        bool overflow;
+        immutable uint r = addu (uint.max - i, uint.max - i, overflow);
+        assert (r == 2 * (uint.max - i));
+        assert (overflow);
+    }
+
     bool overflow;
     assert(addu(2, 3, overflow) == 5);
     assert(!overflow);
@@ -259,7 +269,9 @@ ulong addu()(ulong x, ulong y, ref bool overflow)
         }
     }
     immutable ulong r = x + y;
-    if (r < x || r < y)
+    immutable bool o = r < x;
+    assert(o == (r < y));
+    if (o)
         overflow = true;
     return r;
 }
@@ -305,7 +317,9 @@ ucent addu()(ucent x, ucent y, ref bool overflow)
         }
     }
     immutable ucent r = x + y;
-    if (r < x || r < y)
+    immutable bool o = r < x;
+    assert(o == (r < y));
+    if (o)
         overflow = true;
     return r;
 }

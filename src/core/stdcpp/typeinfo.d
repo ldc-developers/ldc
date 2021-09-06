@@ -11,8 +11,7 @@
 
 module core.stdcpp.typeinfo;
 
-version (LDC) import ldc.attributes : weak;
-else          private enum weak = null;
+import core.attribute : weak;
 
 version (CppRuntime_DigitalMars)
 {
@@ -112,15 +111,12 @@ else version (CppRuntime_Gcc)
     class type_info
     {
     @nogc:
-        @weak // LDC
-        ~this() {}
-        @weak // LDC
-        final const(char)* name() const nothrow
+        @weak ~this() {}
+        @weak final const(char)* name() const nothrow
         {
             return _name[0] == '*' ? _name + 1 : _name;
         }
-        @weak // LDC
-        final bool before(const type_info _arg) const nothrow
+        @weak final bool before(const type_info _arg) const nothrow
         {
             import core.stdc.string : strcmp;
             return (_name[0] == '*' && _arg._name[0] == '*')
@@ -143,16 +139,14 @@ else version (CppRuntime_Gcc)
     {
     @nogc:
         extern(D) this() nothrow {}
-        @weak // LDC
-        override const(char)* what() const nothrow { return "bad cast"; }
+        @weak override const(char)* what() const nothrow { return "bad cast"; }
     }
 
     class bad_typeid : exception
     {
     @nogc:
         extern(D) this() nothrow {}
-        @weak // LDC
-        override const(char)* what() const nothrow { return "bad typeid"; }
+        @weak override const(char)* what() const nothrow { return "bad typeid"; }
     }
 }
 else

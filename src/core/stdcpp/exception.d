@@ -18,10 +18,8 @@ else version (CppRuntime_Gcc)   version = Supported;
 else version (CppRuntime_Clang) version = Supported;
 version (Supported):
 
-version (LDC) import ldc.attributes : weak;
-else          private enum weak = null;
-
 import core.stdcpp.xutility : __cplusplus, CppStdRevision;
+import core.attribute : weak;
 
 version (CppRuntime_DigitalMars)
     version = GenericBaseException;
@@ -79,12 +77,10 @@ version (GenericBaseException)
         ///
         extern(D) this() nothrow {}
         ///
-        @weak // LDC
-        ~this() nothrow {}
+        @weak ~this() nothrow {} // HACK: this should extern, but then we have link errors!
 
         ///
-        @weak // LDC
-        const(char)* what() const nothrow { return "unknown"; }
+        @weak const(char)* what() const nothrow { return "unknown"; } // HACK: this should extern, but then we have link errors!
 
     protected:
         extern(D) this(const(char)*, int = 1) nothrow { this(); } // compat with MS derived classes
@@ -110,8 +106,7 @@ else version (CppRuntime_Microsoft)
 //        final ref exception opAssign(ref const(exception) e) nothrow { msg = e.msg; return this; }
 
     protected:
-        @weak // LDC
-        void _Doraise() const { assert(0); }
+        @weak void _Doraise() const { assert(0); }
 
     protected:
         const(char)* msg;
