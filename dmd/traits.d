@@ -18,11 +18,11 @@ import core.stdc.stdio;
 import dmd.aggregate;
 import dmd.arraytypes;
 import dmd.astcodegen;
+import dmd.astenums;
 import dmd.attrib;
 import dmd.canthrow;
 import dmd.dclass;
 import dmd.declaration;
-import dmd.denum;
 import dmd.dimport;
 import dmd.dmangle;
 import dmd.dmodule;
@@ -494,12 +494,8 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
 
         if (t)
         {
-            if (t.ty == Tfunction)
-                return cast(TypeFunction)t;
-            else if (t.ty == Tdelegate)
-                return cast(TypeFunction)t.nextOf();
-            else if (t.ty == Tpointer && t.nextOf().ty == Tfunction)
-                return cast(TypeFunction)t.nextOf();
+            if (auto tf = t.isFunction_Delegate_PtrToFunction())
+                return tf;
         }
 
         return null;
@@ -526,8 +522,6 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
                 auto y = s.isDeclaration();
             static if (is(T == FuncDeclaration))
                 auto y = s.isFuncDeclaration();
-            static if (is(T == EnumMember))
-                auto y = s.isEnumMember();
 
             if (!y || !fp(y))
                 return False();
@@ -539,7 +533,6 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
     alias isDsymX = isX!Dsymbol;
     alias isDeclX = isX!Declaration;
     alias isFuncX = isX!FuncDeclaration;
-    alias isEnumMemX = isX!EnumMember;
 
     Expression isPkgX(bool function(Package) fp)
     {
@@ -1557,6 +1550,9 @@ else
                         break;
                     case ClassKind.objc:
                         link = LINK.objc;
+                        break;
+                    case ClassKind.c:
+                        link = LINK.c;
                         break;
                 }
             }

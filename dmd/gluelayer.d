@@ -47,21 +47,6 @@ else version (NoBackend)
 
     extern (C++)
     {
-        version (NoMain) {} else
-        {
-            import dmd.lib : Library;
-
-            // glue
-            void obj_write_deferred(Library library)        {}
-            void obj_start(const(char)* srcfile)            {}
-            void obj_end(Library library, const(char)* objfilename) {}
-            void genObjFile(Module m, bool multiobj)        {}
-
-            // msc
-            void backend_init() {}
-            void backend_term() {}
-        }
-
         // iasm
         Statement asmSemantic(AsmStatement s, Scope* sc)
         {
@@ -80,8 +65,6 @@ else version (NoBackend)
 }
 else version (MARS)
 {
-    import dmd.lib : Library;
-
     public import dmd.backend.cc : block, Blockx, Symbol;
     public import dmd.backend.type : type;
     public import dmd.backend.el : elem;
@@ -89,14 +72,6 @@ else version (MARS)
 
     extern (C++)
     {
-        void obj_write_deferred(Library library);
-        void obj_start(const(char)* srcfile);
-        void obj_end(Library library, const(char)* objfilename);
-        void genObjFile(Module m, bool multiobj);
-
-        void backend_init();
-        void backend_term();
-
         Statement asmSemantic(AsmStatement s, Scope* sc);
 
         void toObjFile(Dsymbol ds, bool multiobj);

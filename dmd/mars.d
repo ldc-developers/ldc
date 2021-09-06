@@ -1,3 +1,4 @@
+
 /**
  * Entry point for DMD.
  *
@@ -23,7 +24,6 @@ import core.stdc.string;
 
 import dmd.arraytypes;
 import dmd.astcodegen;
-import dmd.gluelayer;
 import dmd.builtin;
 import dmd.cond;
 import dmd.console;
@@ -47,7 +47,8 @@ import dmd.json;
 version (IN_LLVM) {} else
 version (NoMain) {} else
 {
-    import dmd.lib;
+    import dmd.glue : generateCodeAndWrite;
+    import dmd.dmsc : backend_init, backend_term;
     import dmd.link;
     import dmd.vsoptions;
 }
@@ -106,7 +107,7 @@ Print DMD's logo with more debug information and error-reporting pointers.
 Params:
     stream = output stream to print the information on
 */
-extern(C) void printInternalFailure(FILE* stream)
+private void printInternalFailure(FILE* stream)
 {
     fputs(("---\n" ~
     "ERROR: This is a compiler bug.\n" ~
@@ -344,7 +345,7 @@ version (IN_LLVM)
 }
 else
 {
-    setDefaultLibrary();
+    setDefaultLibrary(params, target);
 }
 
     // Initialization
@@ -673,24 +674,6 @@ version (IN_LLVM)
     printCtfePerformanceStats();
     printTemplateStats();
 
-version (IN_LLVM) {} else
-{
-    Library library = null;
-    if (params.lib)
-    {
-        if (params.objfiles.length == 0)
-        {
-            error(Loc.initial, "no input files");
-            return EXIT_FAILURE;
-        }
-        library = Library.factory();
-        library.setFilename(params.objdir, params.libname);
-        // Add input object and input library files to output library
-        foreach (p; libmodules)
-            library.addObject(p.toDString(), null);
-    }
-}
-
     // Generate output files
     if (params.doJsonGeneration)
     {
@@ -746,50 +729,19 @@ version (IN_LLVM)
 }
 else
 {
-    if (!params.obj)
+    if (params.lib && params.objfiles.length == 0)
     {
+        error(Loc.initial, "no input files");
+        return EXIT_FAILURE;
     }
-    else if (params.oneobj)
-    {
-        Module firstm;    // first module we generate code for
-        foreach (m; modules)
-        {
-            if (m.isHdrFile)
-                continue;
-            if (!firstm)
-            {
-                firstm = m;
-                obj_start(m.srcfile.toChars());
-            }
-            if (params.verbose)
-                message("code      %s", m.toChars());
-            genObjFile(m, false);
-        }
-        if (!global.errors && firstm)
-        {
-            obj_end(library, firstm.objfile.toChars());
-        }
-    }
-    else
-    {
-        foreach (m; modules)
-        {
-            if (m.isHdrFile)
-                continue;
-            if (params.verbose)
-                message("code      %s", m.toChars());
-            obj_start(m.srcfile.toChars());
-            genObjFile(m, params.multiobj);
-            obj_end(library, m.objfile.toChars());
-            obj_write_deferred(library);
-            if (global.errors && !params.lib)
-                m.deleteObjFile();
-        }
-    }
-    if (params.lib && !global.errors)
-        library.write();
+
+    generateCodeAndWrite(modules[], libmodules[], params.libname, params.objdir,
+                         params.lib, params.obj, params.oneobj, params.multiobj,
+                         params.verbose);
+
     backend_term();
 } // !IN_LLVM
+
     if (global.errors)
         fatal();
     int status = EXIT_SUCCESS;
@@ -852,16 +804,7 @@ else
 
     // Output the makefile dependencies
     if (params.emitMakeDeps)
-    {
-version (IN_LLVM)
-{
         emitMakeDeps(params);
-}
-else
-{
-        emitMakeDeps(params, library);
-}
-    }
 
     if (global.warnings)
         errorOnWarning();
@@ -986,8 +929,7 @@ bool parseCommandlineAndConfig(size_t argc, const(char)** argv, ref Param params
 /// Emit the makefile dependencies for the -makedeps switch
 version (NoMain) {} else
 {
-    // IN_LLVM: no `library` param
-    void emitMakeDeps(ref Param params/*, Library library*/)
+    void emitMakeDeps(ref Param params)
     {
         assert(params.emitMakeDeps);
 
@@ -1007,9 +949,12 @@ version (NoMain) {} else
         {
             buf.writeEscapedMakePath(&params.exefile[0]);
         }
-        else if (params.lib && library)
+        else if (params.lib)
         {
-            buf.writeEscapedMakePath(library.getFilename());
+            const(char)[] libname = params.libname ? params.libname : FileName.name(params.objfiles[0].toDString);
+            libname = FileName.forceExt(libname,target.lib_ext);
+
+            buf.writeEscapedMakePath(&libname[0]);
         }
         */
         else if (params.objname)
@@ -1425,37 +1370,37 @@ const(char)[] parse_conf_arg(Strings* args)
  * Note that if `-defaultlib=` or `-debuglib=` was used,
  * we don't override that either.
  */
-private void setDefaultLibrary()
+private void setDefaultLibrary(ref Param params, const ref Target target)
 {
-    if (global.params.defaultlibname is null)
+    if (params.defaultlibname is null)
     {
         if (target.os == Target.OS.Windows)
         {
             if (target.is64bit)
-                global.params.defaultlibname = "phobos64";
+                params.defaultlibname = "phobos64";
             else if (target.mscoff)
-                global.params.defaultlibname = "phobos32mscoff";
+                params.defaultlibname = "phobos32mscoff";
             else
-                global.params.defaultlibname = "phobos";
+                params.defaultlibname = "phobos";
         }
         else if (target.os & (Target.OS.linux | Target.OS.FreeBSD | Target.OS.OpenBSD | Target.OS.Solaris | Target.OS.DragonFlyBSD))
         {
-            global.params.defaultlibname = "libphobos2.a";
+            params.defaultlibname = "libphobos2.a";
         }
         else if (target.os == Target.OS.OSX)
         {
-            global.params.defaultlibname = "phobos2";
+            params.defaultlibname = "phobos2";
         }
         else
         {
             assert(0, "fix this");
         }
     }
-    else if (!global.params.defaultlibname.length)  // if `-defaultlib=` (i.e. an empty defaultlib)
-        global.params.defaultlibname = null;
+    else if (!params.defaultlibname.length)  // if `-defaultlib=` (i.e. an empty defaultlib)
+        params.defaultlibname = null;
 
-    if (global.params.debuglibname is null)
-        global.params.debuglibname = global.params.defaultlibname;
+    if (params.debuglibname is null)
+        params.debuglibname = params.defaultlibname;
 }
 
 /**
@@ -1789,7 +1734,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                     if (t.deprecated_)
                         continue;
 
-                    buf ~= `setFlagFor!name(params.`~t.paramName~`);`;
+                    buf ~= `setFlagFor(name, params.`~t.paramName~`);`;
                 }
                 buf ~= "return true;\n";
 
@@ -1798,7 +1743,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                     buf ~= `case "`~t.name~`":`;
                     if (t.deprecated_)
                         buf ~= "deprecation(Loc.initial, \"`-"~name~"="~t.name~"` no longer has any effect.\"); ";
-                    buf ~= `setFlagFor!name(params.`~t.paramName~`); return true;`;
+                    buf ~= `setFlagFor(name, params.`~t.paramName~`); return true;`;
                 }
                 return buf;
             }
@@ -2158,6 +2103,12 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                 error("unknown error style '%.*s', must be 'digitalmars' or 'gnu'", cast(int) style.length, style.ptr);
             }
         }
+        else if (startsWith(p + 1, "target"))
+        {
+            enum len = "-target=".length;
+            const triple = Triple(p + len);
+            target.setTriple(triple);
+        }
         else if (startsWith(p + 1, "mcpu")) // https://dlang.org/dmd.html#switch-mcpu
         {
             enum len = "-mcpu=".length;
@@ -2306,11 +2257,11 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             }
 
             if (params.useDIP1021)
-                params.vsafe = true;    // dip1021 implies dip1000
+                params.useDIP1000 = FeatureState.enabled;    // dip1021 implies dip1000
 
             // copy previously standalone flags from -transition
             // -preview=dip1000 implies -preview=dip25 too
-            if (params.vsafe)
+            if (params.useDIP1000 == FeatureState.enabled)
                 params.useDIP25 = FeatureState.enabled;
         }
         else if (startsWith(p + 1, "revert") ) // https://dlang.org/dmd.html#switch-revert
@@ -2523,7 +2474,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
         else if (arg == "-dip1000")
         {
             params.useDIP25 = FeatureState.enabled;
-            params.vsafe = true;
+            params.useDIP1000 = FeatureState.enabled;
         }
         else if (arg == "-dip1008")
         {
@@ -2741,7 +2692,11 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             {
                 const(char)[] runarg = arguments[i + 1].toDString();
                 const(char)[] ext = FileName.ext(runarg);
-                if (ext && FileName.equals(ext, mars_ext) == 0 && FileName.equals(ext, hdr_ext) == 0)
+                if (ext &&
+                    FileName.equals(ext, mars_ext) == 0 &&
+                    FileName.equals(ext, hdr_ext) == 0 &&
+                    FileName.equals(ext, i_ext) == 0 &&
+                    FileName.equals(ext, c_ext) == 0)
                 {
                     error("-run must be followed by a source file, not '%s'", arguments[i + 1]);
                     break;
@@ -2974,13 +2929,13 @@ private void reconcileLinkRunLib(ref Param params, size_t numSrcFiles)
 }
 
 /// Sets the boolean for a flag with the given name
-private static void setFlagFor(string name)(ref bool b)
+private static void setFlagFor(string name, ref bool b)
 {
     b = name != "revert";
 }
 
 /// Sets the FeatureState for a flag with the given name
-private static void setFlagFor(string name)(ref FeatureState s)
+private static void setFlagFor(string name, ref FeatureState s)
 {
     s = name != "revert" ? FeatureState.enabled : FeatureState.disabled;
 }
@@ -3089,9 +3044,13 @@ version (IN_LLVM) {} else
         }
     }
     /* Examine extension to see if it is a valid
-        * D source file extension
-        */
-    if (FileName.equals(ext, mars_ext) || FileName.equals(ext, hdr_ext) || FileName.equals(ext, dd_ext))
+     * D, Ddoc or C source file extension
+     */
+    if (FileName.equals(ext, mars_ext) ||
+        FileName.equals(ext, hdr_ext ) ||
+        FileName.equals(ext, dd_ext  ) ||
+        FileName.equals(ext, c_ext   ) ||
+        FileName.equals(ext, i_ext   ))
     {
         name = FileName.removeExt(p);
         if (!name.length || name == ".." || name == ".")

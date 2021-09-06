@@ -50,7 +50,7 @@ void semanticTypeInfo(Scope *sc, Type *t);
 Type *typeSemantic(Type *t, const Loc &loc, Scope *sc);
 Type *merge(Type *type);
 
-enum ENUMTY
+enum class TY : uint8_t
 {
     Tarray,             // slice array, aka T[]
     Tsarray,            // static array, aka T[dimension]
@@ -105,7 +105,6 @@ enum ENUMTY
     Tnoreturn,
     TMAX
 };
-typedef unsigned char TY;       // ENUMTY
 
 #define SIZE_INVALID (~(d_uns64)0)   // error return from size() functions
 
@@ -217,7 +216,7 @@ public:
     static TemplateDeclaration *rtinfoImpl;
 #endif
 
-    static Type *basic[TMAX];
+    static Type *basic[(int)TY::TMAX];
 
     virtual const char *kind();
     Type *copy() const;
@@ -323,6 +322,8 @@ public:
 
     // For eliminating dynamic_cast
     virtual TypeBasic *isTypeBasic();
+    TypeFunction *isPtrToFunction();
+    TypeFunction *isFunction_Delegate_PtrToFunction();
     TypeError *isTypeError();
     TypeVector *isTypeVector();
     TypeSArray *isTypeSArray();
@@ -345,6 +346,7 @@ public:
     TypeMixin *isTypeMixin();
     TypeTraits *isTypeTraits();
     TypeNoreturn *isTypeNoreturn();
+    TypeTag *isTypeTag();
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -646,7 +648,7 @@ class TypeDelegate : public TypeNext
 public:
     // .next is a TypeFunction
 
-    static TypeDelegate *create(Type *t);
+    static TypeDelegate *create(TypeFunction *t);
     const char *kind();
     TypeDelegate *syntaxCopy();
     Type *addStorageClass(StorageClass stc);
@@ -903,9 +905,18 @@ public:
     const char *kind();
     TypeNoreturn *syntaxCopy();
     MATCH implicitConvTo(Type* to);
+    MATCH constConv(Type* to);
     bool isBoolean() /* const */;
     d_uns64 size(const Loc& loc) /* const */;
     unsigned alignsize();
+
+    void accept(Visitor *v) { v->visit(this); }
+};
+
+class TypeTag final : public Type
+{
+public:
+    TypeTag *syntaxCopy();
 
     void accept(Visitor *v) { v->visit(this); }
 };

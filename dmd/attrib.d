@@ -26,6 +26,7 @@ module dmd.attrib;
 
 import dmd.aggregate;
 import dmd.arraytypes;
+import dmd.astenums;
 import dmd.cond;
 import dmd.declaration;
 import dmd.dmodule;
@@ -175,9 +176,9 @@ extern (C++) abstract class AttribDeclaration : Dsymbol
         return Dsymbol.oneMembers(d, ps, ident);
     }
 
-    override void setFieldOffset(AggregateDeclaration ad, uint* poffset, bool isunion)
+    override void setFieldOffset(AggregateDeclaration ad, ref FieldState fieldState, bool isunion)
     {
-        include(null).foreachDsymbol( s => s.setFieldOffset(ad, poffset, isunion) );
+        include(null).foreachDsymbol( s => s.setFieldOffset(ad, fieldState, isunion) );
     }
 
     override final bool hasPointers()
@@ -207,7 +208,7 @@ extern (C++) abstract class AttribDeclaration : Dsymbol
         objc.addSymbols(this, classes, categories);
     }
 
-    override final inout(AttribDeclaration) isAttribDeclaration() inout
+    override final inout(AttribDeclaration) isAttribDeclaration() inout pure @safe
     {
         return this;
     }
@@ -695,7 +696,8 @@ extern (C++) final class VisibilityDeclaration : AttribDeclaration
  */
 extern (C++) final class AlignDeclaration : AttribDeclaration
 {
-    Expression ealign;                              /// expression yielding the actual alignment
+    Expressions* exps;                              /// Expression(s) yielding the desired alignment,
+                                                    /// the largest value wins
     enum structalign_t UNKNOWN = 0;                 /// alignment not yet computed
     static assert(STRUCTALIGN_DEFAULT != UNKNOWN);
 
@@ -704,17 +706,28 @@ extern (C++) final class AlignDeclaration : AttribDeclaration
     structalign_t salign = UNKNOWN;
 
 
-    extern (D) this(const ref Loc loc, Expression ealign, Dsymbols* decl)
+    extern (D) this(const ref Loc loc, Expression exp, Dsymbols* decl)
     {
         super(loc, null, decl);
-        this.ealign = ealign;
+        if (exp)
+        {
+            if (!exps)
+                exps = new Expressions();
+            exps.push(exp);
+        }
+    }
+
+    extern (D) this(const ref Loc loc, Expressions* exps, Dsymbols* decl)
+    {
+        super(loc, null, decl);
+        this.exps = exps;
     }
 
     override AlignDeclaration syntaxCopy(Dsymbol s)
     {
         assert(!s);
         return new AlignDeclaration(loc,
-            ealign ? ealign.syntaxCopy() : null,
+            Expression.arraySyntaxCopy(exps),
             Dsymbol.arraySyntaxCopy(decl));
     }
 
@@ -759,7 +772,7 @@ extern (C++) final class AnonDeclaration : AttribDeclaration
         return AttribDeclaration.setScope(sc);
     }
 
-    override void setFieldOffset(AggregateDeclaration ad, uint* poffset, bool isunion)
+    override void setFieldOffset(AggregateDeclaration ad, ref FieldState fieldState, bool isunion)
     {
         //printf("\tAnonDeclaration::setFieldOffset %s %p\n", isunion ? "union" : "struct", this);
         if (decl)
@@ -778,12 +791,12 @@ extern (C++) final class AnonDeclaration : AttribDeclaration
             ad.structsize = 0;
             ad.alignsize = 0;
 
-            uint offset = 0;
+            FieldState fs;
             decl.foreachDsymbol( (s)
             {
-                s.setFieldOffset(ad, &offset, this.isunion);
+                s.setFieldOffset(ad, fs, this.isunion);
                 if (this.isunion)
-                    offset = 0;
+                    fs.offset = 0;
             });
 
             /* https://issues.dlang.org/show_bug.cgi?id=13613
@@ -795,7 +808,7 @@ extern (C++) final class AnonDeclaration : AttribDeclaration
             {
                 ad.structsize = savestructsize;
                 ad.alignsize = savealignsize;
-                *poffset = ad.structsize;
+                fieldState.offset = ad.structsize;
                 return;
             }
 
@@ -818,7 +831,7 @@ extern (C++) final class AnonDeclaration : AttribDeclaration
              * go ahead and place it.
              */
             anonoffset = AggregateDeclaration.placeField(
-                poffset,
+                &fieldState.offset,
                 anonstructsize, anonalignsize, alignment,
                 &ad.structsize, &ad.alignsize,
                 isunion);

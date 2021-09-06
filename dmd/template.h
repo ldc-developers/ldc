@@ -303,7 +303,7 @@ public:
     const char *kind() const;
     bool oneMember(Dsymbol **ps, Identifier *ident);
     bool hasPointers();
-    void setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion);
+    void setFieldOffset(AggregateDeclaration *ad, FieldState& fieldState, bool isunion);
     const char *toChars() const;
 
     TemplateMixin *isTemplateMixin() { return this; }

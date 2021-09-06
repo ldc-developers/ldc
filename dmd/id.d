@@ -493,6 +493,14 @@ immutable Msgtable[] msgtable =
     { "unsigned" },
     { "wchar_t" },
 
+    // for C compiler
+    { "__tag" },
+    { "dllimport" },
+    { "dllexport" },
+    { "vector_size" },
+    { "__func__" },
+    { "noreturn" },
+
     // IN_LLVM: LDC-specific pragmas.
     { "LDC_intrinsic" },
     { "LDC_no_typeinfo" },

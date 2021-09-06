@@ -15,7 +15,9 @@ module dmd.builtin;
 
 import core.stdc.math;
 import core.stdc.string;
+
 import dmd.arraytypes;
+import dmd.astenums;
 import dmd.dmangle;
 version (IN_LLVM) import dmd.dtemplate;
 import dmd.errors;

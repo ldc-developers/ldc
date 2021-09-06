@@ -17,6 +17,7 @@ import core.stdc.stdio;
 import core.stdc.string;
 import dmd.aggregate;
 import dmd.arraytypes;
+import dmd.astenums;
 import dmd.attrib;
 import dmd.ctorflow;
 import dmd.dclass;
@@ -59,6 +60,7 @@ enum SCOPE
     ignoresymbolvisibility    = 0x0200,   /// ignore symbol visibility
                                           /// https://issues.dlang.org/show_bug.cgi?id=15907
     onlysafeaccess = 0x0400,  /// unsafe access is not allowed for @safe code
+    Cfile         = 0x0800,   /// C semantics apply
     free          = 0x8000,   /// is on free list
 
     fullinst      = 0x10000,  /// fully instantiate templates
@@ -73,7 +75,7 @@ enum SCOPE
 private enum PersistentFlags =
     SCOPE.contract | SCOPE.debug_ | SCOPE.ctfe | SCOPE.compile | SCOPE.constraint |
     SCOPE.noaccesscheck | SCOPE.onlysafeaccess | SCOPE.ignoresymbolvisibility |
-    SCOPE.printf | SCOPE.scanf;
+    SCOPE.printf | SCOPE.scanf | SCOPE.Cfile;
 
 struct Scope
 {
@@ -178,6 +180,8 @@ version (IN_LLVM)
             m = m.parent;
         m.addMember(null, sc.scopesym);
         m.parent = null; // got changed by addMember()
+        if (_module.isCFile)
+            sc.flags |= SCOPE.Cfile;
         // Create the module scope underneath the global scope
         sc = sc.push(_module);
         sc.parent = _module;
@@ -327,12 +331,6 @@ version (IN_LLVM)
         }
     }
 
-    extern (C++) Module instantiatingModule()
-    {
-        // TODO: in speculative context, returning 'module' is correct?
-        return minst ? minst : _module;
-    }
-
     /************************************
      * Perform unqualified name lookup by following the chain of scopes up
      * until found.
@@ -468,6 +466,17 @@ version (IN_LLVM)
 
                 if (Dsymbol s = sc.scopesym.search(loc, ident, flags))
                 {
+                    if (flags & TagNameSpace)
+                    {
+                        // ImportC: if symbol is not a tag, look for it in tag table
+                        if (!s.isScopeDsymbol())
+                        {
+                            auto ps = cast(void*)s in sc._module.tagSymTab;
+                            if (!ps)
+                                goto NotFound;
+                            s = *ps;
+                        }
+                    }
                     if (!(flags & (SearchImportsOnly | IgnoreErrors)) &&
                         ident == Id.length && sc.scopesym.isArrayScopeSymbol() &&
                         sc.enclosing && sc.enclosing.search(loc, ident, null, flags))
@@ -480,6 +489,7 @@ version (IN_LLVM)
                     return s;
                 }
 
+            NotFound:
                 if (global.params.fixAliasThis)
                 {
                     Expression exp = new ThisExp(loc);
@@ -584,7 +594,7 @@ version (IN_LLVM)
      */
     extern (D) static const(char)* search_correct_C(Identifier ident)
     {
-        import dmd.mtype : Twchar;
+        import dmd.astenums : Twchar;
         TOK tok;
         if (ident == Id.NULL)
             tok = TOK.null_;
@@ -601,8 +611,31 @@ version (IN_LLVM)
         return Token.toChars(tok);
     }
 
+    /***************************
+     * Find the innermost scope with a symbol table.
+     * Returns:
+     *  innermost scope, null if none
+     */
+    extern (D) Scope* inner() return
+    {
+        for (Scope* sc = &this; sc; sc = sc.enclosing)
+        {
+            if (sc.scopesym)
+                return sc;
+        }
+        return null;
+    }
+
+    /******************************
+     * Add symbol s to innermost symbol table.
+     * Params:
+     *  s = symbol to insert
+     * Returns:
+     *  null if already in table, `s` if not
+     */
     extern (D) Dsymbol insert(Dsymbol s)
     {
+        //printf("insert() %s\n", s.toChars());
         if (VarDeclaration vd = s.isVarDeclaration())
         {
             if (lastVar)
@@ -619,18 +652,34 @@ version (IN_LLVM)
             }
             return null;
         }
+
+        auto scopesym = inner().scopesym;
+        //printf("\t\tscopesym = %p\n", scopesym);
+        if (!scopesym.symtab)
+            scopesym.symtab = new DsymbolTable();
+        if (!(flags & SCOPE.Cfile))
+            return scopesym.symtabInsert(s);
+
+        // ImportC insert
+        if (!scopesym.symtabInsert(s)) // if already in table
+        {
+            Dsymbol s2 = scopesym.symtabLookup(s, s.ident); // s2 is existing entry
+            return handleTagSymbols(this, s, s2, scopesym);
+        }
+        return s; // inserted
+    }
+
+    /********************************************
+     * Search enclosing scopes for ScopeDsymbol.
+     */
+    ScopeDsymbol getScopesym()
+    {
         for (Scope* sc = &this; sc; sc = sc.enclosing)
         {
-            //printf("\tsc = %p\n", sc);
             if (sc.scopesym)
-            {
-                //printf("\t\tsc.scopesym = %p\n", sc.scopesym);
-                if (!sc.scopesym.symtab)
-                    sc.scopesym.symtab = new DsymbolTable();
-                return sc.scopesym.symtabInsert(s);
-            }
+                return sc.scopesym;
         }
-        assert(0);
+        return null; // not found
     }
 
     /********************************************
@@ -642,8 +691,7 @@ version (IN_LLVM)
         {
             if (!sc.scopesym)
                 continue;
-            ClassDeclaration cd = sc.scopesym.isClassDeclaration();
-            if (cd)
+            if (ClassDeclaration cd = sc.scopesym.isClassDeclaration())
                 return cd;
         }
         return null;
@@ -658,11 +706,9 @@ version (IN_LLVM)
         {
             if (!sc.scopesym)
                 continue;
-            AggregateDeclaration ad = sc.scopesym.isClassDeclaration();
-            if (ad)
+            if (AggregateDeclaration ad = sc.scopesym.isClassDeclaration())
                 return ad;
-            ad = sc.scopesym.isStructDeclaration();
-            if (ad)
+            if (AggregateDeclaration ad = sc.scopesym.isStructDeclaration())
                 return ad;
         }
         return null;
