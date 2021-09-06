@@ -1603,7 +1603,8 @@ private struct FuncDeclSem3
     }
 }
 
-private void semanticTypeInfoMembers(StructDeclaration sd)
+extern(C++) // IN_LLVM
+void semanticTypeInfoMembers(StructDeclaration sd)
 {
     if (sd.xeq &&
         sd.xeq._scope &&
