@@ -194,7 +194,7 @@ ImgPtr!CatchableType getCatchableType(TypeInfo_Class ti)
     if (auto p = ti in catchableHashtab)
         return *p;
 
-    size_t sz = TypeDescriptor.sizeof + ti.name.length;
+    const sz = TypeDescriptor.sizeof + ti.name.length + 1;
     auto td = eh_malloc!TypeDescriptor(sz);
     auto ptd = td.toPointer;
 
