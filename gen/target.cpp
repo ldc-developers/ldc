@@ -93,6 +93,8 @@ void Target::_init(const Param &params) {
   c.longsize = (ptrsize == 8) && !isMSVC ? 8 : 4;
   c.long_doublesize = realsize;
   c.wchar_tsize = triple.isOSWindows() ? 2 : 4;
+  c.bitFieldStyle =
+      isMSVC ? TargetC::BitFieldStyle::MS : TargetC::BitFieldStyle::Gcc_Clang;
 
   cpp.reverseOverloads = isMSVC; // according to DMD, only for MSVC++
   cpp.exceptions = true;
