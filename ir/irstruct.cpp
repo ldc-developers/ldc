@@ -121,11 +121,11 @@ LLConstant *IrStruct::getTypeInfoInit() {
 
   RTTIBuilder b(structTypeInfoType);
 
-  // string name
+  // string mangledName
   if (isOpaque) {
     b.push_null_void_array();
   } else {
-    b.push_string(sd->toPrettyChars());
+    b.push_string(ts->deco);
   }
 
   // void[] m_init
