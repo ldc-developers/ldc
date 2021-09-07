@@ -82,6 +82,8 @@ void Target::_init(const Param &params) {
     os = OS_Solaris;
   }
 
+  osMajor = triple.getOSMajorVersion();
+
   ptrsize = gDataLayout->getPointerSize();
   realType = getRealType(triple);
   realsize = gDataLayout->getTypeAllocSize(realType);
