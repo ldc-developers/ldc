@@ -64,8 +64,14 @@ Optional<CodeModel::Model> getCodeModel() {
 #endif
 }
 
+#if LDC_LLVM_VER >= 1400
+using FPK = llvm::FramePointerKind;
+#elif LDC_LLVM_VER >= 800
+using FPK = llvm::FramePointerKind;
+#endif
+
 #if LDC_LLVM_VER >= 800
-llvm::Optional<llvm::FramePointer::FP> framePointerUsage() {
+llvm::Optional<FPK> framePointerUsage() {
 #if LDC_LLVM_VER >= 1100
   // Defaults to `FP::None`; no way to check if set explicitly by user except
   // indirectly via setFunctionAttributes()...

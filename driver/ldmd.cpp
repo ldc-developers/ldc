@@ -712,7 +712,13 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
       }
     } else {
       const auto ext = ls::path::extension(p);
-      if (ext.equals_lower(".exe")) {
+      if (
+#if LDC_LLVM_VER >= 1400
+        ext.equals_insensitive(".exe")
+#else
+        ext.equals_lower(".exe")
+#endif
+          ) {
         // should be for Windows targets only
         ldcArgs.push_back(concat("-of=", p));
         continue;

@@ -197,7 +197,11 @@ void applyAttrAllocSize(StructLiteralExp *sle, IrFunction *irFunc) {
 
   llvm::Function *func = irFunc->getLLVMFunc();
 
+#if LDC_LLVM_VER >= 1400
+  func->addFnAttrs(builder);
+#else
   func->addAttributes(LLAttributeList::FunctionIndex, builder);
+#endif
 }
 
 // @llvmAttr("key", "value")
@@ -414,7 +418,11 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       } else if (ident == Id::udaLLVMAttr) {
         llvm::AttrBuilder attrs;
         applyAttrLLVMAttr(sle, attrs);
+#if LDC_LLVM_VER >= 1400
+        func->addFnAttrs(attrs);
+#else
         func->addAttributes(LLAttributeList::FunctionIndex, attrs);
+#endif
       } else if (ident == Id::udaLLVMFastMathFlag) {
         applyAttrLLVMFastMathFlag(sle, irFunc);
       } else if (ident == Id::udaOptStrategy) {

@@ -21,6 +21,9 @@
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/SpecialCaseList.h"
+#if LDC_LLVM_VER >= 1400
+#include "llvm/Support/VirtualFileSystem.h"
+#endif
 
 namespace {
 

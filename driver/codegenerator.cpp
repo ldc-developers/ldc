@@ -264,7 +264,9 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   llvm::Metadata *IdentNode[] = {llvm::MDString::get(ir_->context(), Version)};
   IdentMetadata->addOperand(llvm::MDNode::get(ir_->context(), IdentNode));
 
+#if LDC_LLVM_VER < 1400
   context_.setInlineAsmDiagnosticHandler(inlineAsmDiagnosticHandler, ir_);
+#endif
 
   std::unique_ptr<llvm::ToolOutputFile> diagnosticsOutputFile =
       createAndSetDiagnosticsOutputFile(*ir_, context_, filename);
