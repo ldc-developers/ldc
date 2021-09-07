@@ -866,9 +866,6 @@ public:
 class NewDeclaration : public FuncDeclaration
 {
 public:
-    Parameters *parameters;
-    VarArg varargs;
-
     NewDeclaration *syntaxCopy(Dsymbol *);
     const char *kind() const;
     bool isVirtual() const;
