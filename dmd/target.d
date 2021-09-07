@@ -1633,6 +1633,7 @@ struct TargetObjC
     x64-windows-msvc
     x64-pc-windows-msvc
  */
+version (IN_LLVM) {} else
 struct Triple
 {
     private const(char)[] source;
