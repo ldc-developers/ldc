@@ -14,13 +14,12 @@ extern(C):  // simplify name mangling for simpler string matching
 
 // PROFGEN-DAG: @[[BoB:__(llvm_profile_counters|profc)_bunch_of_branches]] ={{.*}} global [15 x i64] zeroinitializer
 
-// PROFGEN-LABEL: @bunch_of_branches()
-// PROFUSE-LABEL: @bunch_of_branches()
+// PROFGEN-LABEL: @bunch_of_branches(i32
+// PROFUSE-LABEL: @bunch_of_branches(i32
 // PROFGEN: store {{.*}} @[[BoB]], i64 0, i64 0
 // PROFUSE-SAME: !prof ![[BoB0:[0-9]+]]
-void bunch_of_branches() {
+void bunch_of_branches(const uint two) {
   uint i;
-  uint two = 2;
 
   // PROFGEN: store {{.*}} @[[BoB]], i64 0, i64 1
   // PROFUSE: br {{.*}} !prof ![[BoB1:[0-9]+]]
@@ -84,7 +83,7 @@ void bunch_of_branches() {
 // PROFUSE-LABEL: @_Dmain(
 extern(D):
 void main() {
-  bunch_of_branches();
+  bunch_of_branches(2);
 }
 
 

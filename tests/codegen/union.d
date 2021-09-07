@@ -30,8 +30,8 @@ struct SWithUnion
 
     union
     {
-        struct { ubyte ub = 6; ushort us = 33; align(8) ulong ul_dummy = void; ulong last = 123; }
-        struct { uint ui1; uint ui2 = 84; ulong ul = 666; }
+        struct { ubyte ub = 6; ushort us = 33;                align(8) ulong ul = 666; }
+        struct { uint ui1;                     uint ui2 = 84; ulong ul_dummy;          ulong last = 123; }
     }
 }
 // CHECK-DAG: %union.SWithUnion                                                      = type { i8, [3 x i8], %union.S, [4 x i8], i8, [1 x i8], i16, i32, i64, i64 }
