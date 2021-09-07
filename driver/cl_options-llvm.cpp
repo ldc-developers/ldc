@@ -67,7 +67,7 @@ Optional<CodeModel::Model> getCodeModel() {
 #if LDC_LLVM_VER >= 1400
 using FPK = llvm::FramePointerKind;
 #elif LDC_LLVM_VER >= 800
-using FPK = llvm::llvm::FramePointer::FP;
+using FPK = llvm::FramePointer::FP;
 #endif
 
 #if LDC_LLVM_VER >= 800
