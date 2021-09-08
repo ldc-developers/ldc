@@ -283,6 +283,7 @@ DValue *toElem(Expression *e);
 DValue *toElem(Expression *e, bool skipOverCasts);
 DValue *toElemDtor(Expression *e);
 LLConstant *toConstElem(Expression *e, IRState *p);
+LLConstant *tryToConstElem(Expression *e, IRState *p);
 
 inline llvm::Value *DtoRVal(Expression *e) { return DtoRVal(toElem(e)); }
 inline llvm::Value *DtoLVal(Expression *e) { return DtoLVal(toElem(e)); }

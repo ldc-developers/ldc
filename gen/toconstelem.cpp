@@ -25,12 +25,8 @@
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
 
-/// Emits an LLVM constant corresponding to the expression.
-///
-/// Due to the current implementation of AssocArrayLiteralExp::toElem, the
-/// implementations have to be able to handle being called on expressions
-/// that are not actually constant. In such a case, an LLVM undef of the
-/// expected type should be returned (_not_ null).
+/// Emits an LLVM constant corresponding to the expression (or an error if
+/// impossible).
 class ToConstElemVisitor : public Visitor {
   IRState *p;
   LLConstant *result;
@@ -51,16 +47,11 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  void fatalError(Expression *e) {
+  void fatalError() {
+    result = nullptr;
     if (!global.gag) {
       fatal();
     }
-
-    // Do not return null here, as AssocArrayLiteralExp::toElem determines
-    // whether it can allocate the needed arrays statically by just invoking
-    // toConstElem on its key/value expressions, and handling the null value
-    // consequently would require error-prone adaptions in all other code.
-    result = llvm::UndefValue::get(DtoType(e->type));
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -93,7 +84,7 @@ public:
     if (vd && vd->isConst() && vd->_init) {
       if (vd->inuse) {
         e->error("recursive reference `%s`", e->toChars());
-        result = llvm::UndefValue::get(DtoType(e->type));
+        result = nullptr;
       } else {
         vd->inuse++;
         // return the initializer
@@ -104,7 +95,7 @@ public:
     // fail
     else {
       e->error("non-constant expression `%s`", e->toChars());
-      result = llvm::UndefValue::get(DtoType(e->type));
+      result = nullptr;
     }
   }
 
@@ -259,7 +250,7 @@ public:
             size_t arrlen = datalen / eltype->size();
 #endif
       e->error("ct cast of `string` to dynamic array not fully implemented");
-      result = toConstElem(e->e1);
+      result = nullptr;
     }
     // pointer to pointer
     else if (tb->ty == TY::Tpointer &&
@@ -310,7 +301,7 @@ public:
   Lerr:
     e->error("cannot cast `%s` to `%s` at compile time", e->e1->type->toChars(),
              e->type->toChars());
-    fatalError(e);
+    fatalError();
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -322,7 +313,7 @@ public:
 
     llvm::Constant *base = DtoConstSymbolAddress(e->loc, e->var);
     if (base == nullptr) {
-      result = llvm::UndefValue::get(DtoType(e->type));
+      result = nullptr;
       return;
     }
 
@@ -454,7 +445,7 @@ public:
       if (!fd->toParent2()->isModule()) {
         e->error("non-constant nested delegate literal expression `%s`",
                  e->toChars());
-        fatalError(e);
+        fatalError();
         return;
       }
     }
@@ -698,10 +689,25 @@ public:
 
   void visit(Expression *e) override {
     e->error("expression `%s` is not a constant", e->toChars());
-    fatalError(e);
+    fatalError();
   }
 };
 
 LLConstant *toConstElem(Expression *e, IRState *p) {
-  return ToConstElemVisitor(p).toConstElem(e);
+  auto ce = ToConstElemVisitor(p).toConstElem(e);
+  if (!ce) {
+    // error case; never return null
+    ce = llvm::UndefValue::get(DtoType(e->type));
+  }
+  return ce;
+}
+
+LLConstant *tryToConstElem(Expression *e, IRState *p) {
+  const auto errors = global.startGagging();
+  auto ce = ToConstElemVisitor(p).toConstElem(e);
+  if (global.endGagging(errors)) {
+    return nullptr;
+  }
+  assert(ce);
+  return ce;
 }

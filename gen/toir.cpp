@@ -2376,13 +2376,11 @@ public:
         IF_LOG Logger::println("(%llu) aa[%s] = %s",
                                static_cast<unsigned long long>(i),
                                ekey->toChars(), eval->toChars());
-        unsigned errors = global.startGagging();
-        LLConstant *ekeyConst = toConstElem(ekey, p);
-        LLConstant *evalConst = toConstElem(eval, p);
-        if (global.endGagging(errors)) {
+        LLConstant *ekeyConst = tryToConstElem(ekey, p);
+        LLConstant *evalConst = tryToConstElem(eval, p);
+        if (!ekeyConst || !evalConst) {
           goto LruntimeInit;
         }
-        assert(ekeyConst && evalConst);
         keysInits.push_back(ekeyConst);
         valuesInits.push_back(evalConst);
       }

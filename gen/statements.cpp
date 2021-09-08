@@ -977,21 +977,13 @@ public:
     bool useSwitchInst = true;
 
     for (auto cs : *cases) {
-      // skip over casts
       auto ce = cs->exp;
-      while (auto next = ce->isCastExp())
-        ce = next->e1;
-
-      if (auto ve = ce->isVarExp()) {
-        const auto vd = ve->var->isVarDeclaration();
-        if (vd && (!vd->_init || !vd->isConst())) {
-          indices.push_back(DtoRVal(toElemDtor(cs->exp)));
-          useSwitchInst = false;
-          continue;
-        }
+      if (auto ceConst = tryToConstElem(ce, irs)) {
+        indices.push_back(ceConst);
+      } else {
+        indices.push_back(DtoRVal(toElemDtor(ce)));
+        useSwitchInst = false;
       }
-
-      indices.push_back(toConstElem(cs->exp, irs));
     }
     assert(indices.size() == caseCount);
 
