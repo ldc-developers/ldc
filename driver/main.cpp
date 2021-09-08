@@ -342,7 +342,7 @@ void parseCommandLine(Strings &sourceFiles) {
       global.params.docdir.length || global.params.docname.length;
 
   global.params.jsonfilename = opts::fromPathString(jsonFile);
-  if (global.params.jsonfilename.length) {
+  if (global.params.jsonfilename.length || !jsonFields.empty()) {
     global.params.doJsonGeneration = true;
   }
 
