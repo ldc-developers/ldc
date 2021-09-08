@@ -1844,27 +1844,32 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   // ourselves, DtoType below would be enough.
   DtoResolveDsymbol(ad);
 
-  // Cast the pointer we got to the canonical struct type the indices are
-  // based on.
-  LLType *st = DtoType(ad->type);
-  if (ad->isStructDeclaration()) {
-    st = getPtrToType(st);
-  }
-  src = DtoBitCast(src, st);
-
-  // Look up field to index and any offset to apply.
+  // Look up field to index or offset to apply.
   unsigned fieldIndex;
   unsigned byteOffset;
   auto irTypeAggr = getIrType(ad->type)->isAggr();
   assert(irTypeAggr);
   irTypeAggr->getMemberLocation(vd, fieldIndex, byteOffset);
 
-  LLValue *val = DtoGEP(src, 0, fieldIndex);
-
+  LLValue *val = src;
   if (byteOffset) {
-    // Cast to void* to apply byte-wise offset.
+    assert(fieldIndex == 0);
+    // Cast to void* to apply byte-wise offset from object start.
     val = DtoBitCast(val, getVoidPtrType());
     val = DtoGEP1(val, byteOffset);
+  } else {
+    if (ad->structsize == 0) { // can happen for extern(C) structs
+      assert(fieldIndex == 0);
+    } else {
+      // Cast the pointer we got to the canonical struct type the indices are
+      // based on.
+      LLType *st = DtoType(ad->type);
+      if (ad->isStructDeclaration()) {
+        st = getPtrToType(st);
+      }
+      val = DtoBitCast(val, st);
+      val = DtoGEP(val, 0, fieldIndex);
+    }
   }
 
   // Cast the (possibly void*) pointer to the canonical variable type.

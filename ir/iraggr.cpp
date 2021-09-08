@@ -225,8 +225,6 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
   if (offset < structsize)
     add_zeros(constants, offset, structsize);
 
-  assert(!constants.empty());
-
   // get LL field types
   llvm::SmallVector<llvm::Type *, 16> types;
   types.reserve(constants.size());
