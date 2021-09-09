@@ -559,6 +559,17 @@ static void buildRuntimeModule() {
   createFwdDecl(LINK::c, voidTy, {"_d_assert_msg"}, {stringTy, stringTy, uintTy},
                 {}, Attr_Cold_NoReturn);
 
+  // void _d_arraybounds_slice(string file, uint line, size_t lower,
+  //                           size_t upper, size_t length)
+  createFwdDecl(LINK::c, voidTy, {"_d_arraybounds_slice"},
+                {stringTy, uintTy, sizeTy, sizeTy, sizeTy}, {},
+                Attr_Cold_NoReturn);
+
+  // void _d_arraybounds_index(string file, uint line, size_t index,
+  //                           size_t length)
+  createFwdDecl(LINK::c, voidTy, {"_d_arraybounds_index"},
+                {stringTy, uintTy, sizeTy, sizeTy}, {}, Attr_Cold_NoReturn);
+
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////

@@ -1326,13 +1326,14 @@ void DtoIndexBoundsCheck(const Loc &loc, DValue *arr, DValue *index) {
   }
 
   if (arrty->ty == TY::Tpointer) {
-    // Length of pointers is unknown, ingore.
+    // Length of pointers is unknown, ignore.
     return;
   }
 
-  llvm::ICmpInst::Predicate cmpop = llvm::ICmpInst::ICMP_ULT;
-  llvm::Value *cond = gIR->ir->CreateICmp(cmpop, DtoRVal(index),
-                                          DtoArrayLen(arr), "bounds.cmp");
+  LLValue *const llIndex = DtoRVal(index);
+  LLValue *const llLength = DtoArrayLen(arr);
+  LLValue *const cond = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_ULT, llIndex,
+                                            llLength, "bounds.cmp");
 
   llvm::BasicBlock *okbb = gIR->insertBB("bounds.ok");
   llvm::BasicBlock *failbb = gIR->insertBBAfter(okbb, "bounds.fail");
@@ -1340,24 +1341,54 @@ void DtoIndexBoundsCheck(const Loc &loc, DValue *arr, DValue *index) {
 
   // set up failbb to call the array bounds error runtime function
   gIR->ir->SetInsertPoint(failbb);
-  DtoBoundsCheckFailCall(gIR, loc);
+  emitArrayIndexError(gIR, loc, llIndex, llLength);
 
   // if ok, proceed in okbb
   gIR->ir->SetInsertPoint(okbb);
 }
 
-void DtoBoundsCheckFailCall(IRState *irs, const Loc &loc) {
+static void emitRangeErrorImpl(IRState *irs, const Loc &loc,
+                               const char *cAssertMsg, const char *dFnName,
+                               llvm::ArrayRef<LLValue *> extraArgs) {
   Module *const module = irs->func()->decl->getModule();
 
-  if (global.params.checkAction == CHECKACTION_C) {
-    DtoCAssert(module, loc, DtoConstCString("array overflow"));
-  } else {
-    llvm::Function *errorfn =
-        getRuntimeFunction(loc, irs->module, "_d_arraybounds");
-    irs->CreateCallOrInvoke(errorfn, DtoModuleFileName(module, loc),
-                            DtoConstUint(loc.linnum));
-
-    // the function does not return
+  switch (global.params.checkAction) {
+  case CHECKACTION_C:
+    DtoCAssert(module, loc, DtoConstCString(cAssertMsg));
+    break;
+  case CHECKACTION_halt:
+    irs->ir->CreateCall(GET_INTRINSIC_DECL(trap), {});
     irs->ir->CreateUnreachable();
+    break;
+  case CHECKACTION_context:
+  case CHECKACTION_D: {
+    auto fn = getRuntimeFunction(loc, irs->module, dFnName);
+    LLSmallVector<LLValue *, 5> args;
+    args.reserve(2 + extraArgs.size());
+    args.push_back(DtoModuleFileName(module, loc));
+    args.push_back(DtoConstUint(loc.linnum));
+    args.insert(args.end(), extraArgs.begin(), extraArgs.end());
+    irs->CreateCallOrInvoke(fn, args);
+    irs->ir->CreateUnreachable();
+    break;
   }
+  default:
+    llvm_unreachable("Unhandled checkAction");
+  }
+}
+
+void emitRangeError(IRState *irs, const Loc &loc) {
+  emitRangeErrorImpl(irs, loc, "array overflow", "_d_arraybounds", {});
+}
+
+void emitArraySliceError(IRState *irs, const Loc &loc, LLValue *lower,
+                         LLValue *upper, LLValue *length) {
+  emitRangeErrorImpl(irs, loc, "array slice out of bounds",
+                     "_d_arraybounds_slice", {lower, upper, length});
+}
+
+void emitArrayIndexError(IRState *irs, const Loc &loc, LLValue *index,
+                         LLValue *length) {
+  emitRangeErrorImpl(irs, loc, "array index out of bounds",
+                     "_d_arraybounds_index", {index, length});
 }

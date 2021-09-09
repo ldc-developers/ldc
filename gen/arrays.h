@@ -88,4 +88,8 @@ void DtoIndexBoundsCheck(const Loc &loc, DValue *arr, DValue *index);
 
 /// Inserts a call to the druntime function that throws the range error, with
 /// the given location.
-void DtoBoundsCheckFailCall(IRState *p, const Loc &loc);
+void emitRangeError(IRState *irs, const Loc &loc);
+void emitArraySliceError(IRState *irs, const Loc &loc, LLValue *lower,
+                         LLValue *upper, LLValue *length);
+void emitArrayIndexError(IRState *irs, const Loc &loc, LLValue *index,
+                         LLValue *length);

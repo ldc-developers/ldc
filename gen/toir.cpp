@@ -1120,22 +1120,24 @@ public:
       LLValue *vup = DtoRVal(e->upr);
       p->arrays.pop_back();
 
-      const bool needCheckUpper =
-          (etype->ty != TY::Tpointer) && !e->upperIsInBounds;
+      const bool hasLength = etype->ty != TY::Tpointer;
+      const bool needCheckUpper = hasLength && !e->upperIsInBounds;
       const bool needCheckLower = !e->lowerIsLessThanUpper;
       if (p->emitArrayBoundsChecks() && (needCheckUpper || needCheckLower)) {
         llvm::BasicBlock *okbb = p->insertBB("bounds.ok");
         llvm::BasicBlock *failbb = p->insertBBAfter(okbb, "bounds.fail");
 
-        llvm::Value *okCond = nullptr;
+        LLValue *const vlen = hasLength ? DtoArrayLen(v) : nullptr;
+
+        LLValue *okCond = nullptr;
         if (needCheckUpper) {
-          okCond = p->ir->CreateICmp(llvm::ICmpInst::ICMP_ULE, vup,
-                                     DtoArrayLen(v), "bounds.cmp.lo");
+          okCond = p->ir->CreateICmp(llvm::ICmpInst::ICMP_ULE, vup, vlen,
+                                     "bounds.cmp.up");
         }
 
         if (needCheckLower) {
-          llvm::Value *cmp = p->ir->CreateICmp(llvm::ICmpInst::ICMP_ULE, vlo,
-                                               vup, "bounds.cmp.up");
+          LLValue *cmp = p->ir->CreateICmp(llvm::ICmpInst::ICMP_ULE, vlo, vup,
+                                           "bounds.cmp.lo");
           if (okCond) {
             okCond = p->ir->CreateAnd(okCond, cmp);
           } else {
@@ -1146,7 +1148,8 @@ public:
         p->ir->CreateCondBr(okCond, okbb, failbb);
 
         p->ir->SetInsertPoint(failbb);
-        DtoBoundsCheckFailCall(p, e->loc);
+        emitArraySliceError(p, e->loc, vlo, vup,
+                            vlen ? vlen : DtoConstSize_t(0));
 
         p->ir->SetInsertPoint(okbb);
       }

@@ -88,10 +88,8 @@ DLValue *DtoAAIndex(const Loc &loc, Type *type, DValue *aa, DValue *key,
     gIR->ir->CreateCondBr(cond, okbb, failbb);
 
     // set up failbb to call the array bounds error runtime function
-
     gIR->ir->SetInsertPoint(failbb);
-
-    DtoBoundsCheckFailCall(gIR, loc);
+    emitRangeError(gIR, loc);
 
     // if ok, proceed in okbb
     gIR->ir->SetInsertPoint(okbb);
