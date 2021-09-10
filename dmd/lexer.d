@@ -2398,7 +2398,7 @@ class Lexer
             flags = cast(FLAGS)(flags | f);
         }
 
-        void overflow()
+        void overflow() /* IN_LLVM: ltsmaster... */ nothrow
         {
             error("integer overflow");
         }

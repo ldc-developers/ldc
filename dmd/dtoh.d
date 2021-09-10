@@ -606,7 +606,7 @@ public:
             }
 
             // Seperate function because of a spurious dual-context deprecation
-            static int compare(const AST.Dsymbol* a, const AST.Dsymbol* b)
+            static int compare(const AST.Dsymbol* a, const AST.Dsymbol* b) /* IN_LLVM: ltsmaster... */ nothrow
             {
                 return strcmp(a.ident.toChars(), b.ident.toChars());
             }
@@ -2909,7 +2909,7 @@ public:
         // Should never be called directly with a TI, only onemember
         assert(!sym.isTemplateInstance(), sym.toString());
     }
-    do
+    body
     {
         debug (Debug_DtoH)
         {
