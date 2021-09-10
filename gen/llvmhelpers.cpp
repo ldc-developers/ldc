@@ -1084,6 +1084,10 @@ LLConstant *DtoConstInitializer(const Loc &loc, Type *type, Initializer *init) {
     Logger::println("const void initializer");
     LLType *ty = DtoMemType(type);
     _init = LLConstant::getNullValue(ty);
+  } else if (CInitializer *ci = init->isCInitializer()) {
+    // TODO: ImportC
+    error(loc, "LDC doesn't support C initializer lists yet");
+    fatal();
   } else {
     // StructInitializer is no longer suposed to make it to the glue layer
     // in DMD 2.064.
