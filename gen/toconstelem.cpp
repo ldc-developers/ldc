@@ -163,8 +163,9 @@ public:
 
     Type *const t = e->type->toBasetype();
 
-    if (t->ty == TY::Tsarray) {
-      result = buildStringLiteralConstant(e, false);
+    if (auto ts = t->isTypeSArray()) {
+      bool zeroTerm = ts->dim->toInteger() == e->numberOfCodeUnits() + 1;
+      result = buildStringLiteralConstant(e, zeroTerm);
       return;
     }
 
@@ -177,7 +178,7 @@ public:
         isaPointer(gvar)->getElementType(), gvar, idxs, true);
 
     if (t->ty == TY::Tpointer) {
-      result = arrptr;
+      result = DtoBitCast(arrptr, DtoType(t));
     } else if (t->ty == TY::Tarray) {
       LLConstant *clen =
           LLConstantInt::get(DtoSize_t(), e->numberOfCodeUnits(), false);

@@ -380,8 +380,6 @@ public:
     LOG_SCOPE;
 
     Type *dtype = e->type->toBasetype();
-    Type *cty = dtype->nextOf()->toBasetype();
-    LLType *ct = DtoMemType(cty);
 
     llvm::GlobalVariable *gvar = p->getCachedStringLiteral(e);
 
@@ -396,13 +394,13 @@ public:
           LLConstantInt::get(DtoSize_t(), e->numberOfCodeUnits(), false);
       result = new DSliceValue(e->type, DtoConstSlice(clen, arrptr, dtype));
     } else if (dtype->ty == TY::Tsarray) {
+      Type *cty = dtype->nextOf()->toBasetype();
+      LLType *ct = DtoMemType(cty);
       LLType *dstType =
           getPtrToType(LLArrayType::get(ct, e->numberOfCodeUnits()));
-      LLValue *emem =
-          (gvar->getType() == dstType) ? gvar : DtoBitCast(gvar, dstType);
-      result = new DLValue(e->type, emem);
+      result = new DLValue(e->type, DtoBitCast(gvar, dstType));
     } else if (dtype->ty == TY::Tpointer) {
-      result = new DImValue(e->type, arrptr);
+      result = new DImValue(e->type, DtoBitCast(arrptr, DtoType(dtype)));
     } else {
       llvm_unreachable("Unknown type for StringExp.");
     }
