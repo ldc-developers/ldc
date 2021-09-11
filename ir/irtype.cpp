@@ -51,55 +51,55 @@ llvm::Type *IrTypeBasic::basic2llvm(Type *t) {
   llvm::LLVMContext &ctx = getGlobalContext();
 
   switch (t->ty) {
-  case Tvoid:
-  case Tnoreturn:
+  case TY::Tvoid:
+  case TY::Tnoreturn:
     return llvm::Type::getVoidTy(ctx);
 
-  case Tint8:
-  case Tuns8:
-  case Tchar:
+  case TY::Tint8:
+  case TY::Tuns8:
+  case TY::Tchar:
     return llvm::Type::getInt8Ty(ctx);
 
-  case Tint16:
-  case Tuns16:
-  case Twchar:
+  case TY::Tint16:
+  case TY::Tuns16:
+  case TY::Twchar:
     return llvm::Type::getInt16Ty(ctx);
 
-  case Tint32:
-  case Tuns32:
-  case Tdchar:
+  case TY::Tint32:
+  case TY::Tuns32:
+  case TY::Tdchar:
     return llvm::Type::getInt32Ty(ctx);
 
-  case Tint64:
-  case Tuns64:
+  case TY::Tint64:
+  case TY::Tuns64:
     return llvm::Type::getInt64Ty(ctx);
 
-  case Tint128:
-  case Tuns128:
+  case TY::Tint128:
+  case TY::Tuns128:
     return llvm::IntegerType::get(ctx, 128);
 
-  case Tfloat32:
-  case Timaginary32:
+  case TY::Tfloat32:
+  case TY::Timaginary32:
     return llvm::Type::getFloatTy(ctx);
 
-  case Tfloat64:
-  case Timaginary64:
+  case TY::Tfloat64:
+  case TY::Timaginary64:
     return llvm::Type::getDoubleTy(ctx);
 
-  case Tfloat80:
-  case Timaginary80:
+  case TY::Tfloat80:
+  case TY::Timaginary80:
     return target.realType;
 
-  case Tcomplex32:
+  case TY::Tcomplex32:
     return getComplexType(ctx, llvm::Type::getFloatTy(ctx));
 
-  case Tcomplex64:
+  case TY::Tcomplex64:
     return getComplexType(ctx, llvm::Type::getDoubleTy(ctx));
 
-  case Tcomplex80:
+  case TY::Tcomplex80:
     return getComplexType(ctx, target.realType);
 
-  case Tbool:
+  case TY::Tbool:
     return llvm::Type::getInt1Ty(ctx);
   default:
     llvm_unreachable("Unknown basic type.");
@@ -111,13 +111,14 @@ llvm::Type *IrTypeBasic::basic2llvm(Type *t) {
 IrTypePointer::IrTypePointer(Type *dt, LLType *lt) : IrType(dt, lt) {}
 
 IrTypePointer *IrTypePointer::get(Type *dt) {
-  assert((dt->ty == Tpointer || dt->ty == Tnull) && "not pointer/null type");
+  assert((dt->ty == TY::Tpointer || dt->ty == TY::Tnull) &&
+         "not pointer/null type");
 
   auto &ctype = getIrType(dt);
   assert(!ctype);
 
   LLType *elemType;
-  if (dt->ty == Tnull) {
+  if (dt->ty == TY::Tnull) {
     elemType = llvm::Type::getInt8Ty(getGlobalContext());
   } else {
     elemType = DtoMemType(dt->nextOf());
@@ -139,7 +140,7 @@ IrTypePointer *IrTypePointer::get(Type *dt) {
 IrTypeSArray::IrTypeSArray(Type *dt, LLType *lt) : IrType(dt, lt) {}
 
 IrTypeSArray *IrTypeSArray::get(Type *dt) {
-  assert(dt->ty == Tsarray && "not static array type");
+  assert(dt->ty == TY::Tsarray && "not static array type");
 
   auto &ctype = getIrType(dt);
   assert(!ctype);
@@ -162,7 +163,7 @@ IrTypeSArray *IrTypeSArray::get(Type *dt) {
 IrTypeArray::IrTypeArray(Type *dt, LLType *lt) : IrType(dt, lt) {}
 
 IrTypeArray *IrTypeArray::get(Type *dt) {
-  assert(dt->ty == Tarray && "not dynamic array type");
+  assert(dt->ty == TY::Tarray && "not dynamic array type");
 
   auto &ctype = getIrType(dt);
   assert(!ctype);
@@ -214,9 +215,10 @@ IrTypeVector *IrTypeVector::get(Type *dt) {
 
 IrType *&getIrType(Type *t, bool create) {
   // See remark in DtoType().
-  assert((t->ty != Tstruct || t == static_cast<TypeStruct *>(t)->sym->type) &&
-         "use sd->type for structs");
-  assert((t->ty != Tclass || t == static_cast<TypeClass *>(t)->sym->type) &&
+  assert(
+      (t->ty != TY::Tstruct || t == static_cast<TypeStruct *>(t)->sym->type) &&
+      "use sd->type for structs");
+  assert((t->ty != TY::Tclass || t == static_cast<TypeClass *>(t)->sym->type) &&
          "use cd->type for classes");
 
   t = stripModifiers(t);

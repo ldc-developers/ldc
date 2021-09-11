@@ -73,7 +73,7 @@ import driver.timetrace;
 /// Time tracing visitor for semantic analysis. Only valid to instantiate and use this visitor if time tracing is enabled.
 extern(C++) final class SemanticTimeTraceVisitor(SemaVisitor) : Visitor
 {
-    static assert(checkFirstOverridesAllSecondOverides!(typeof(this), SemaVisitor));
+    static assert(checkFirstOverridesAllSecondOverrides!(typeof(this), SemaVisitor));
 
     import driver.timetrace, std.format, std.conv;
 
@@ -190,12 +190,14 @@ extern(C++) final class SemanticTimeTraceVisitor(SemaVisitor) : Visitor
     override void visit(ClassDeclaration cldec) { semavisitor.visit(cldec); }
 
     override void visit(InterfaceDeclaration idec) { semavisitor.visit(idec); }
+
+    override void visit(BitFieldDeclaration bfd) { semavisitor.visit(bfd); }
 }
 
 // Note: this is not a very careful check, but is hopefully good enough to trigger upon relevant changes to the DMD frontend.
 // If the parent of First and Second already contains an override
 // function and Second overrides it, this function always returns true even if First does not override it.
-private bool checkFirstOverridesAllSecondOverides(First, Second)() {
+private bool checkFirstOverridesAllSecondOverrides(First, Second)() {
     // Due to access rights limits of __traits(derivedMembers,...) we require a newer dlang version to do the check
     static if (__VERSION__ >= 2086)
     {

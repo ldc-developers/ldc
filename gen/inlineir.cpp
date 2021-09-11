@@ -177,7 +177,7 @@ DValue *DtoInlineIRExpr(const Loc &loc, FuncDeclaration *fdecl,
     }
 
     stream << ")\n{\n" << code;
-    if (ret->ty == Tvoid) {
+    if (ret->ty == TY::Tvoid) {
       stream << "\nret void";
     }
     stream << "\n}";

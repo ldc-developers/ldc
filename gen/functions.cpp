@@ -49,6 +49,7 @@
 #include "gen/scope_exit.h"
 #include "gen/tollvm.h"
 #include "gen/uda.h"
+#include "ir/irdsymbol.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "llvm/IR/Intrinsics.h"
@@ -68,7 +69,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   LOG_SCOPE
 
   // sanity check
-  assert(type->ty == Tfunction);
+  assert(type->ty == TY::Tfunction);
   TypeFunction *f = static_cast<TypeFunction *>(type);
   assert(f->next && "Encountered function type with invalid return type; "
                     "trying to codegen function ignored by the frontend?");
@@ -94,7 +95,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     newIrFty.ret = new IrFuncTyArg(Type::tint32, false);
   } else {
     Type *rt = f->next;
-    const bool byref = f->isref() && rt->toBasetype()->ty != Tvoid;
+    const bool byref = f->isref() && rt->toBasetype()->ty != TY::Tvoid;
     llvm::AttrBuilder attrs;
 
     if (abi->returnInArg(f, fd && fd->needThis())) {
@@ -126,8 +127,8 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     if (fd && fd->isCtorDeclaration()) {
       attrs.addAttribute(LLAttribute::Returned);
     }
-    newIrFty.arg_this =
-        new IrFuncTyArg(thistype, thistype->toBasetype()->ty == Tstruct, attrs);
+    newIrFty.arg_this = new IrFuncTyArg(
+        thistype, thistype->toBasetype()->ty == TY::Tstruct, attrs);
     ++nextLLArgIdx;
   } else if (nesttype) {
     // Add the context pointer for nested functions
@@ -377,9 +378,9 @@ void DtoResolveFunction(FuncDeclaration *fdecl, const bool willDeclare) {
 
   Type *type = fdecl->type;
   // If errors occurred compiling it, such as bugzilla 6118
-  if (type && type->ty == Tfunction) {
+  if (type && type->ty == TY::Tfunction) {
     Type *next = static_cast<TypeFunction *>(type)->next;
-    if (!next || next->ty == Terror) {
+    if (!next || next->ty == TY::Terror) {
       return;
     }
   }
@@ -422,7 +423,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl, const bool willDeclare) {
           fdecl->llvmInternal = LLVMinline_ir;
           fdecl->linkage = LINK::c;
           Type *type = fdecl->type;
-          assert(type->ty == Tfunction);
+          assert(type->ty == TY::Tfunction);
           static_cast<TypeFunction *>(type)->linkage = LINK::c;
 
           DtoFunctionType(fdecl);
@@ -679,7 +680,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
     // the codegen options allow skipping PLT.
     func->addFnAttr(LLAttribute::NonLazyBind);
   }
-  if (f->next->toBasetype()->ty == Tnoreturn) {
+  if (f->next->toBasetype()->ty == TY::Tnoreturn) {
     func->addFnAttr(LLAttribute::NoReturn);
   }
 
@@ -1033,11 +1034,11 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     return;
   }
 
-  if ((fd->type && fd->type->ty == Terror) ||
-      (fd->type && fd->type->ty == Tfunction &&
+  if ((fd->type && fd->type->ty == TY::Terror) ||
+      (fd->type && fd->type->ty == TY::Tfunction &&
        static_cast<TypeFunction *>(fd->type)->next == nullptr) ||
-      (fd->type && fd->type->ty == Tfunction &&
-       static_cast<TypeFunction *>(fd->type)->next->ty == Terror)) {
+      (fd->type && fd->type->ty == TY::Tfunction &&
+       static_cast<TypeFunction *>(fd->type)->next->ty == TY::Terror)) {
     IF_LOG Logger::println(
         "Ignoring; has error type, no return type or returns error type");
     fd->ir->setDefined();
@@ -1400,7 +1401,7 @@ DValue *DtoArgument(Parameter *fnarg, Expression *argexp) {
 
   // lazy arg
   if (fnarg && (fnarg->storageClass & STClazy)) {
-    assert(argexp->type->toBasetype()->ty == Tdelegate);
+    assert(argexp->type->toBasetype()->ty == TY::Tdelegate);
     assert(!arg->isLVal());
     return arg;
   }

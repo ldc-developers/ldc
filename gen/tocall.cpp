@@ -45,10 +45,10 @@ IrFuncTy &DtoIrTypeFunction(DValue *fnval) {
 
 TypeFunction *DtoTypeFunction(DValue *fnval) {
   Type *type = fnval->type->toBasetype();
-  if (type->ty == Tfunction) {
+  if (type->ty == TY::Tfunction) {
     return static_cast<TypeFunction *>(type);
   }
-  if (type->ty == Tdelegate) {
+  if (type->ty == TY::Tdelegate) {
     // FIXME: There is really no reason why the function type should be
     // unmerged at this stage, but the frontend still seems to produce such
     // cases; for example for the uint(uint) next type of the return type of
@@ -63,7 +63,7 @@ TypeFunction *DtoTypeFunction(DValue *fnval) {
     // root cause.
 
     Type *next = merge(type->nextOf());
-    assert(next->ty == Tfunction);
+    assert(next->ty == TY::Tfunction);
     return static_cast<TypeFunction *>(next);
   }
 
@@ -74,10 +74,10 @@ TypeFunction *DtoTypeFunction(DValue *fnval) {
 
 LLValue *DtoCallableValue(DValue *fn) {
   Type *type = fn->type->toBasetype();
-  if (type->ty == Tfunction) {
+  if (type->ty == TY::Tfunction) {
     return DtoRVal(fn);
   }
-  if (type->ty == Tdelegate) {
+  if (type->ty == TY::Tdelegate) {
     if (fn->isLVal()) {
       LLValue *dg = DtoLVal(fn);
       LLValue *funcptr = DtoGEP(dg, 0, 1);
@@ -365,7 +365,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     }
     Expression *exp = (*e->arguments)[0];
     DValue *expv = toElem(exp);
-    if (expv->type->toBasetype()->ty != Tint32) {
+    if (expv->type->toBasetype()->ty != TY::Tint32) {
       expv = DtoCast(e->loc, expv, Type::tint32);
     }
     result = new DImValue(e->type,
@@ -472,7 +472,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       e->error("`cmpxchg` instruction expects 6 arguments");
       fatal();
     }
-    if (e->type->ty != Tstruct) {
+    if (e->type->ty != TY::Tstruct) {
       e->error("`cmpxchg` instruction returns a struct");
       fatal();
     }
@@ -660,7 +660,7 @@ public:
       : args(args), attrs(attrs), loc(loc), fnval(fnval), argexps(argexps),
         resulttype(resulttype), sretPointer(sretPointer),
         // computed:
-        isDelegateCall(fnval->type->toBasetype()->ty == Tdelegate),
+        isDelegateCall(fnval->type->toBasetype()->ty == TY::Tdelegate),
         dfnval(fnval->isFunc()), irFty(DtoIrTypeFunction(fnval)),
         tf(DtoTypeFunction(fnval)),
         llArgTypesBegin(llCalleeType->param_begin()) {}
@@ -904,7 +904,7 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
   LLValue *retllval = irFty.arg_sret ? args[sretArgIndex]
                                      : static_cast<llvm::Instruction *>(call);
   bool retValIsLVal =
-      (tf->isref() && returnTy != Tvoid) || (irFty.arg_sret != nullptr);
+      (tf->isref() && returnTy != TY::Tvoid) || (irFty.arg_sret != nullptr);
 
   if (!retValIsLVal) {
     // let the ABI transform the return value back
@@ -923,7 +923,7 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
     IF_LOG Logger::println("repainting return value from '%s' to '%s'",
                            returntype->toChars(), rbase->toChars());
     switch (rbase->ty) {
-    case Tarray:
+    case TY::Tarray:
       if (tf->isref()) {
         retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
       } else {
@@ -931,8 +931,8 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
       }
       break;
 
-    case Tsarray:
-      if (nextbase->ty == Tvector && !tf->isref()) {
+    case TY::Tsarray:
+      if (nextbase->ty == TY::Tvector && !tf->isref()) {
         if (retValIsLVal) {
           retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
         } else {
@@ -946,9 +946,9 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
       }
       goto unknownMismatch;
 
-    case Tclass:
-    case Taarray:
-    case Tpointer:
+    case TY::Tclass:
+    case TY::Taarray:
+    case TY::Tpointer:
       if (tf->isref()) {
         retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
       } else {
@@ -956,8 +956,8 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
       }
       break;
 
-    case Tstruct:
-      if (nextbase->ty == Taarray && !tf->isref()) {
+    case TY::Tstruct:
+      if (nextbase->ty == TY::Taarray && !tf->isref()) {
         // In the D2 frontend, the associative array type and its
         // object.AssociativeArray representation are used
         // interchangably in some places. However, AAs are returned
@@ -1047,7 +1047,7 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
     return new DLValue(resulttype, retllval);
   }
 
-  if (rbase->ty == Tarray) {
+  if (rbase->ty == TY::Tarray) {
     return new DSliceValue(resulttype, retllval);
   }
 

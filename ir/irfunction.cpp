@@ -22,7 +22,7 @@ IrFunction::IrFunction(FuncDeclaration *fd)
   decl = fd;
 
   Type *t = fd->type->toBasetype();
-  assert(t->ty == Tfunction);
+  assert(t->ty == TY::Tfunction);
   type = static_cast<TypeFunction *>(t);
 
   irFty.type = type;

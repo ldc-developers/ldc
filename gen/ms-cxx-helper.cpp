@@ -170,8 +170,11 @@ llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd) {
 
   auto classInfoPtr = getIrAggr(cd, true)->getClassInfoSymbol();
 
-  // first character skipped in debugger output, so we add 'D' as prefix
-  const auto TypeNameString = (llvm::Twine("D") + cd->toPrettyChars()).str();
+  // The type name must match the expectation in druntime's ldc.eh_msvc - the
+  // TypeInfo_Class name with a 'D' prefix (the first character is skipped in
+  // debugger output).
+  const auto TypeNameString =
+      (llvm::Twine("D") + cd->toPrettyChars(/*QualifyTypes=*/true)).str();
 
   const auto TypeDescName = getIRMangledAggregateName(cd, "@TypeDescriptor");
 

@@ -239,6 +239,7 @@ Where:\n\
                     list all revertable language changes\n\
   -run <srcfile>    compile, link, and run the program srcfile\n\
   -shared           generate shared library (DLL)\n\
+  -target=<triple>  use <triple> as <arch>-[<vendor>-]<os>[-<cenv>[-<cppenv]]\n\
   -transition=<name>\n\
                     help with language change identified by 'name'\n\
   -transition=[h|help|?]\n\
@@ -550,7 +551,9 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
       }
       /* -verror-style
        */
-      else if (startsWith(p + 1, "mcpu=")) {
+      else if (startsWith(p + 1, "target=")) {
+        ldcArgs.push_back(concat("-mtriple=", p + 8));
+      } else if (startsWith(p + 1, "mcpu=")) {
         const char *c = p + 6;
         if (strcmp(c, "?") == 0 || strcmp(c, "h") == 0 ||
             strcmp(c, "help") == 0) {

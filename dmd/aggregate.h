@@ -21,7 +21,6 @@ class Expression;
 class FuncDeclaration;
 class CtorDeclaration;
 class DtorDeclaration;
-class NewDeclaration;
 class InterfaceDeclaration;
 class TypeInfoClassDeclaration;
 class VarDeclaration;
@@ -42,18 +41,11 @@ enum class Baseok : uint8_t
     semanticdone  // all base classes semantic done
 };
 
-enum StructPOD
+enum class ThreeState : uint8_t
 {
-    ISPODno,            // struct is not POD
-    ISPODyes,           // struct is POD
-    ISPODfwd            // POD not yet computed
-};
-
-enum class Abstract : uint8_t
-{
-    fwdref = 0,      // whether an abstract class is not yet computed
-    yes,             // is abstract class
-    no               // is not abstract class
+    none,         // value not yet computed
+    no,           // value is false
+    yes,          // value is true
 };
 
 FuncDeclaration *search_toString(StructDeclaration *sd);
@@ -65,7 +57,9 @@ enum class ClassKind : uint8_t
   /// the aggregate is a C++ struct/class/interface
   cpp,
   /// the aggregate is an Objective-C class/interface
-  objc
+  objc,
+  /// the aggregate is a C struct
+  c,
 };
 
 struct MangleOverride
@@ -102,7 +96,6 @@ public:
     // Special member functions
     FuncDeclarations invs;              // Array of invariants
     FuncDeclaration *inv;               // invariant
-    NewDeclaration *aggNew;             // allocator
 
     Dsymbol *ctor;                      // CtorDeclaration or TemplateDeclaration
 
@@ -122,11 +115,11 @@ public:
 
     Visibility visibility;
     bool noDefaultCtor;         // no default construction
+    bool disableNew;            // disallow allocations using `new`
     Sizeok sizeok;              // set when structsize contains valid data
 
     virtual Scope *newScope(Scope *sc);
     void setScope(Scope *sc);
-    bool determineFields();
     size_t nonHiddenFields();
     bool determineSize(Loc loc);
     virtual void finalizeSize() = 0;
@@ -148,8 +141,7 @@ public:
 
 #if !IN_LLVM
     // Back end
-    Symbol *stag;               // tag symbol for debug data
-    Symbol *sinit;
+    void *sinit;
 #endif
 
     AggregateDeclaration *isAggregateDeclaration() { return this; }
@@ -191,18 +183,16 @@ public:
     static FuncDeclaration *xerrcmp;     // object.xopCmp
 
     structalign_t alignment;    // alignment applied outside of the struct
-    StructPOD ispod;            // if struct is POD
+    ThreeState ispod;           // if struct is POD
 
     // ABI-specific type(s) if the struct can be passed in registers
     TypeTuple *argTypes;
 
     static StructDeclaration *create(Loc loc, Identifier *id, bool inObject);
     StructDeclaration *syntaxCopy(Dsymbol *s);
-    void semanticTypeInfoMembers();
     Dsymbol *search(const Loc &loc, Identifier *ident, int flags = SearchLocalsOnly);
     const char *kind() const;
     void finalizeSize();
-    bool fit(const Loc &loc, Scope *sc, Expressions *elements, Type *stype);
     bool isPOD();
 
     StructDeclaration *isStructDeclaration() { return this; }
@@ -286,7 +276,7 @@ public:
     int cppDtorVtblIndex;               // slot reserved for the virtual destructor [extern(C++)]
     bool inuse;                         // to prevent recursive attempts
 
-    Abstract isabstract;                // 0: fwdref, 1: is abstract class, 2: not abstract
+    ThreeState isabstract;              // if abstract class
     Baseok baseok;                      // set the progress of base classes resolving
     ObjcClassDeclaration objc;          // Data for a class declaration that is needed for the Objective-C integration
 #if !IN_LLVM
@@ -335,7 +325,6 @@ public:
     InterfaceDeclaration *syntaxCopy(Dsymbol *s);
     Scope *newScope(Scope *sc);
     bool isBaseOf(ClassDeclaration *cd, int *poffset);
-    bool isBaseOf(BaseClass *bc, int *poffset);
     const char *kind() const;
     int vtblOffset() const;
     bool isCPPinterface() const;

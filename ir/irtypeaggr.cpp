@@ -10,6 +10,7 @@
 #include "ir/irtypeaggr.h"
 
 #include "dmd/aggregate.h"
+#include "dmd/errors.h"
 #include "dmd/init.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
@@ -149,7 +150,12 @@ void AggrTypeBuilder::addAggregate(
     if (!vd)
       continue;
 
-    assert(vd->offset >= m_offset && "Variable overlaps previous field.");
+    if (vd->offset < m_offset) {
+      // TODO: ImportC
+      vd->error(
+          "overlaps previous field. LDC doesn't support C bit fields yet");
+      fatal();
+    }
 
     // Add an explicit field for any padding so we can zero it, as per TDPL
     // §7.1.1.

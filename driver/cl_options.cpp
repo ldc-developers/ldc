@@ -551,10 +551,8 @@ cl::opt<unsigned, true> nestedTemplateDepth(
 // legacy options superseded by `-preview=dip<N>`
 cl::opt<bool> useDIP25("dip25", cl::ZeroOrMore, cl::ReallyHidden,
                        cl::desc("Implement DIP25 (sealed references)"));
-static cl::opt<bool, true>
-    useDIP1000("dip1000", cl::ZeroOrMore, cl::location(global.params.vsafe),
-               cl::desc("Implement DIP1000 (scoped pointers)"),
-               cl::ReallyHidden);
+cl::opt<bool> useDIP1000("dip1000", cl::ZeroOrMore, cl::ReallyHidden,
+                         cl::desc("Implement DIP1000 (scoped pointers)"));
 static cl::opt<bool, true>
     useDIP1008("dip1008", cl::ZeroOrMore, cl::location(global.params.ehnogc),
                cl::desc("Implement DIP1008 (@nogc Throwable)"),

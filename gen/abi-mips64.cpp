@@ -39,12 +39,12 @@ struct MIPS64TargetABI : TargetABI {
     // because otherwise LLVM tries to actually return the array in a number
     // of physical registers, which leads, depending on the target, to
     // either horrendous codegen or backend crashes.
-    return (rt->ty == Tstruct || rt->ty == Tsarray);
+    return (rt->ty == TY::Tstruct || rt->ty == TY::Tsarray);
   }
 
   bool passByVal(TypeFunction *, Type *t) override {
     TY ty = t->toBasetype()->ty;
-    return ty == Tstruct || ty == Tsarray;
+    return ty == TY::Tstruct || ty == TY::Tsarray;
   }
 
   void rewriteFunctionType(IrFuncTy &fty) override {

@@ -250,54 +250,54 @@ DIType DIBuilder::CreateBasicType(Type *type) {
   // find encoding
   unsigned Encoding;
   switch (t->ty) {
-  case Tbool:
+  case TY::Tbool:
     Encoding = DW_ATE_boolean;
     break;
-  case Tchar:
+  case TY::Tchar:
     if (emitCodeView) {
       // VS debugger does not support DW_ATE_UTF for char
       Encoding = DW_ATE_unsigned_char;
       break;
     }
     // fall through
-  case Twchar:
-  case Tdchar:
+  case TY::Twchar:
+  case TY::Tdchar:
     Encoding = DW_ATE_UTF;
     break;
-  case Tint8:
+  case TY::Tint8:
     if (emitCodeView) {
       // VS debugger does not support DW_ATE_signed for 8-bit
       Encoding = DW_ATE_signed_char;
       break;
     }
     // fall through
-  case Tint16:
-  case Tint32:
-  case Tint64:
-  case Tint128:
+  case TY::Tint16:
+  case TY::Tint32:
+  case TY::Tint64:
+  case TY::Tint128:
     Encoding = DW_ATE_signed;
     break;
-  case Tuns8:
+  case TY::Tuns8:
     if (emitCodeView) {
       // VS debugger does not support DW_ATE_unsigned for 8-bit
       Encoding = DW_ATE_unsigned_char;
       break;
     }
     // fall through
-  case Tuns16:
-  case Tuns32:
-  case Tuns64:
-  case Tuns128:
+  case TY::Tuns16:
+  case TY::Tuns32:
+  case TY::Tuns64:
+  case TY::Tuns128:
     Encoding = DW_ATE_unsigned;
     break;
-  case Tfloat32:
-  case Tfloat64:
-  case Tfloat80:
+  case TY::Tfloat32:
+  case TY::Tfloat64:
+  case TY::Tfloat80:
     Encoding = DW_ATE_float;
     break;
-  case Timaginary32:
-  case Timaginary64:
-  case Timaginary80:
+  case TY::Timaginary32:
+  case TY::Timaginary64:
+  case TY::Timaginary80:
     if (emitCodeView) {
       // DW_ATE_imaginary_float not supported by the LLVM DWARF->CodeView
       // conversion
@@ -306,9 +306,9 @@ DIType DIBuilder::CreateBasicType(Type *type) {
     }
     Encoding = DW_ATE_imaginary_float;
     break;
-  case Tcomplex32:
-  case Tcomplex64:
-  case Tcomplex80:
+  case TY::Tcomplex32:
+  case TY::Tcomplex64:
+  case TY::Tcomplex80:
     if (emitCodeView) {
       // DW_ATE_complex_float not supported by the LLVM DWARF->CodeView
       // conversion
@@ -408,13 +408,13 @@ DIType DIBuilder::CreateComplexType(Type *type) {
 
   Type *elemtype = nullptr;
   switch (t->ty) {
-  case Tcomplex32:
+  case TY::Tcomplex32:
     elemtype = Type::tfloat32;
     break;
-  case Tcomplex64:
+  case TY::Tcomplex64:
     elemtype = Type::tfloat64;
     break;
-  case Tcomplex80:
+  case TY::Tcomplex80:
     elemtype = Type::tfloat80;
     break;
   default:
@@ -531,11 +531,11 @@ void DIBuilder::AddStaticMembers(AggregateDeclaration *ad, DIFile file,
 }
 
 DIType DIBuilder::CreateCompositeType(Type *t) {
-  assert((t->ty == Tstruct || t->ty == Tclass) &&
+  assert((t->ty == TY::Tstruct || t->ty == TY::Tclass) &&
          "Unsupported type for debug info in DIBuilder::CreateCompositeType");
 
   AggregateDeclaration *ad;
-  if (t->ty == Tstruct) {
+  if (t->ty == TY::Tstruct) {
     ad = static_cast<TypeStruct *>(t)->sym;
   } else {
     ad = static_cast<TypeClass *>(t)->sym;
@@ -544,7 +544,7 @@ DIType DIBuilder::CreateCompositeType(Type *t) {
   // Use the actual type associated with the declaration, ignoring any
   // const/wrappers.
   LLType *T = DtoType(ad->type);
-  if (t->ty == Tclass)
+  if (t->ty == TY::Tclass)
     T = T->getPointerElementType();
   IrAggr *irAggr = getIrAggr(ad, true);
 
@@ -578,8 +578,8 @@ DIType DIBuilder::CreateCompositeType(Type *t) {
   const auto uniqueIdentifier = uniqueIdent(t);
 
   // set diCompositeType to handle recursive types properly
-  unsigned tag = (t->ty == Tstruct) ? llvm::dwarf::DW_TAG_structure_type
-                                    : llvm::dwarf::DW_TAG_class_type;
+  unsigned tag = (t->ty == TY::Tstruct) ? llvm::dwarf::DW_TAG_structure_type
+                                        : llvm::dwarf::DW_TAG_class_type;
   irAggr->diCompositeType =
       DBuilder.createReplaceableCompositeType(tag, name, scope, file, lineNum);
 
@@ -604,7 +604,7 @@ DIType DIBuilder::CreateCompositeType(Type *t) {
   const auto elemsArray = DBuilder.getOrCreateArray(elems);
 
   DIType ret;
-  if (t->ty == Tclass) {
+  if (t->ty == TY::Tclass) {
     ret = DBuilder.createClassType(
         scope, name, file, lineNum, sizeInBits, alignmentInBits,
         classOffsetInBits, DIFlags::FlagZero, derivedFrom, elemsArray,
@@ -653,7 +653,7 @@ DIType DIBuilder::CreateSArrayType(TypeSArray *type) {
 
   Type *te = type;
   llvm::SmallVector<LLMetadata *, 8> subscripts;
-  for (; te->ty == Tsarray; te = te->nextOf()) {
+  for (; te->ty == TY::Tsarray; te = te->nextOf()) {
     TypeSArray *tsa = static_cast<TypeSArray *>(te);
     const auto count = tsa->dim->toInteger();
 #if LDC_LLVM_VER >= 1100
@@ -762,12 +762,12 @@ DIType DIBuilder::CreateUnspecifiedType(Dsymbol *sym) {
 ////////////////////////////////////////////////////////////////////////////////
 
 DIType DIBuilder::CreateTypeDescription(Type *t, bool voidToUbyte) {
-  if (voidToUbyte && t->toBasetype()->ty == Tvoid)
+  if (voidToUbyte && t->toBasetype()->ty == TY::Tvoid)
     t = Type::tuns8;
 
-  if (t->ty == Tvoid || t->ty == Tnoreturn)
+  if (t->ty == TY::Tvoid || t->ty == TY::Tnoreturn)
     return nullptr;
-  if (t->ty == Tnull) {
+  if (t->ty == TY::Tnull) {
     // display null as void*
     return DBuilder.createPointerType(CreateTypeDescription(Type::tvoid), 8, 8,
                                       /* DWARFAddressSpace */ llvm::None,
@@ -787,7 +787,7 @@ DIType DIBuilder::CreateTypeDescription(Type *t, bool voidToUbyte) {
     return CreateSArrayType(tsa);
   if (auto taa = t->isTypeAArray())
     return CreateAArrayType(taa);
-  if (t->ty == Tstruct)
+  if (t->ty == TY::Tstruct)
     return CreateCompositeType(t);
   if (auto tc = t->isTypeClass()) {
     LLType *T = DtoType(t);
@@ -1193,7 +1193,7 @@ void DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     } else {
       // 2) dynamic arrays, delegates and vectors
       TY ty = type->toBasetype()->ty;
-      if (ty == Tarray || ty == Tdelegate || ty == Tvector)
+      if (ty == TY::Tarray || ty == TY::Tdelegate || ty == TY::Tvector)
         forceAsLocal = true;
     }
   }

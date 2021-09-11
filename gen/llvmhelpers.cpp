@@ -36,6 +36,7 @@
 #include "gen/tollvm.h"
 #include "gen/typinf.h"
 #include "gen/uda.h"
+#include "ir/irdsymbol.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "ir/irtypeaggr.h"
@@ -135,7 +136,7 @@ void DtoDeleteArray(const Loc &loc, DValue *arr) {
 
   // the TypeInfo argument must be null if the type has no dtor
   Type *elementType = arr->type->nextOf();
-  bool hasDtor = (elementType->toBasetype()->ty == Tstruct &&
+  bool hasDtor = (elementType->toBasetype()->ty == TY::Tstruct &&
                   elementType->needsDestruction());
   LLValue *typeInfo = !hasDtor ? getNullPtr(fty->getParamType(1))
                                : DtoTypeInfoOf(loc, elementType);
@@ -367,11 +368,11 @@ void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
   LOG_SCOPE;
 
   Type *t = lhs->type->toBasetype();
-  assert(t->ty != Tvoid && "Cannot assign values of type void.");
+  assert(t->ty != TY::Tvoid && "Cannot assign values of type void.");
 
-  if (t->ty == Tbool) {
+  if (t->ty == TY::Tbool) {
     DtoStoreZextI8(DtoRVal(rhs), DtoLVal(lhs));
-  } else if (t->ty == Tstruct) {
+  } else if (t->ty == TY::Tstruct) {
     // don't copy anything to empty structs
     if (static_cast<TypeStruct *>(t)->sym->fields.length > 0) {
       llvm::Value *src = DtoLVal(rhs);
@@ -383,9 +384,9 @@ void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
       if (src != dst)
         DtoMemCpy(dst, src);
     }
-  } else if (t->ty == Tarray || t->ty == Tsarray) {
+  } else if (t->ty == TY::Tarray || t->ty == TY::Tsarray) {
     DtoArrayAssign(loc, lhs, rhs, op, canSkipPostblit);
-  } else if (t->ty == Tdelegate) {
+  } else if (t->ty == TY::Tdelegate) {
     LLValue *l = DtoLVal(lhs);
     LLValue *r = DtoRVal(rhs);
     IF_LOG {
@@ -393,8 +394,8 @@ void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
       Logger::cout() << "rhs: " << *r << '\n';
     }
     DtoStore(r, l);
-  } else if (t->ty == Tclass) {
-    assert(rhs->type->toBasetype()->ty == Tclass);
+  } else if (t->ty == TY::Tclass) {
+    assert(rhs->type->toBasetype()->ty == TY::Tclass);
     LLValue *l = DtoLVal(lhs);
     LLValue *r = DtoRVal(rhs);
     IF_LOG {
@@ -454,13 +455,13 @@ DValue *DtoNullValue(Type *type, Loc loc) {
   }
   // integer, floating, pointer, assoc array, delegate and class have no special
   // representation
-  if (basetype->isintegral() || basetype->isfloating() || basety == Tpointer ||
-      basety == Tnull || basety == Tclass || basety == Tdelegate ||
-      basety == Taarray) {
+  if (basetype->isintegral() || basetype->isfloating() ||
+      basety == TY::Tpointer || basety == TY::Tnull || basety == TY::Tclass ||
+      basety == TY::Tdelegate || basety == TY::Taarray) {
     return new DNullValue(type, LLConstant::getNullValue(lltype));
   }
   // dynamic array
-  if (basety == Tarray) {
+  if (basety == TY::Tarray) {
     LLValue *len = DtoConstSize_t(0);
     LLValue *ptr = getNullPtr(DtoPtrToType(basetype->nextOf()));
     return new DSliceValue(type, len, ptr);
@@ -488,13 +489,13 @@ DValue *DtoCastInt(const Loc &loc, DValue *val, Type *_to) {
   size_t fromsz = from->size();
   size_t tosz = to->size();
 
-  if (to->ty == Tbool) {
+  if (to->ty == TY::Tbool) {
     LLValue *zero = LLConstantInt::get(rval->getType(), 0, false);
     rval = gIR->ir->CreateICmpNE(rval, zero);
   } else if (to->isintegral()) {
-    if (fromsz < tosz || from->ty == Tbool) {
+    if (fromsz < tosz || from->ty == TY::Tbool) {
       IF_LOG Logger::cout() << "cast to: " << *tolltype << '\n';
-      if (isLLVMUnsigned(from) || from->ty == Tbool) {
+      if (isLLVMUnsigned(from) || from->ty == TY::Tbool) {
         rval = new llvm::ZExtInst(rval, tolltype, "", gIR->scopebb());
       } else {
         rval = new llvm::SExtInst(rval, tolltype, "", gIR->scopebb());
@@ -512,7 +513,7 @@ DValue *DtoCastInt(const Loc &loc, DValue *val, Type *_to) {
     } else {
       rval = new llvm::SIToFPInst(rval, tolltype, "", gIR->scopebb());
     }
-  } else if (to->ty == Tpointer) {
+  } else if (to->ty == TY::Tpointer) {
     IF_LOG Logger::cout() << "cast pointer: " << *tolltype << '\n';
     rval = gIR->ir->CreateIntToPtr(rval, tolltype);
   } else {
@@ -530,18 +531,19 @@ DValue *DtoCastPtr(const Loc &loc, DValue *val, Type *to) {
   Type *totype = to->toBasetype();
   Type *fromtype = val->type->toBasetype();
   (void)fromtype;
-  assert(fromtype->ty == Tpointer || fromtype->ty == Tfunction);
+  assert(fromtype->ty == TY::Tpointer || fromtype->ty == TY::Tfunction);
 
   LLValue *rval;
 
-  if (totype->ty == Tpointer || totype->ty == Tclass || totype->ty == Taarray) {
+  if (totype->ty == TY::Tpointer || totype->ty == TY::Tclass ||
+      totype->ty == TY::Taarray) {
     LLValue *src = DtoRVal(val);
     IF_LOG {
       Logger::cout() << "src: " << *src << '\n';
       Logger::cout() << "to type: " << *tolltype << '\n';
     }
     rval = DtoBitCast(src, tolltype);
-  } else if (totype->ty == Tbool) {
+  } else if (totype->ty == TY::Tbool) {
     LLValue *src = DtoRVal(val);
     LLValue *zero = LLConstant::getNullValue(src->getType());
     rval = gIR->ir->CreateICmpNE(src, zero);
@@ -572,7 +574,7 @@ DValue *DtoCastFloat(const Loc &loc, DValue *val, Type *to) {
 
   LLValue *rval;
 
-  if (totype->ty == Tbool) {
+  if (totype->ty == TY::Tbool) {
     rval = DtoRVal(val);
     LLValue *zero = LLConstant::getNullValue(rval->getType());
     rval = gIR->ir->CreateFCmpUNE(rval, zero);
@@ -607,10 +609,10 @@ DValue *DtoCastFloat(const Loc &loc, DValue *val, Type *to) {
 }
 
 DValue *DtoCastDelegate(const Loc &loc, DValue *val, Type *to) {
-  if (to->toBasetype()->ty == Tdelegate) {
+  if (to->toBasetype()->ty == TY::Tdelegate) {
     return DtoPaintType(loc, val, to);
   }
-  if (to->toBasetype()->ty == Tbool) {
+  if (to->toBasetype()->ty == TY::Tbool) {
     return new DImValue(to,
                         DtoDelegateEquals(TOKnotequal, DtoRVal(val), nullptr));
   }
@@ -620,11 +622,11 @@ DValue *DtoCastDelegate(const Loc &loc, DValue *val, Type *to) {
 }
 
 DValue *DtoCastVector(const Loc &loc, DValue *val, Type *to) {
-  assert(val->type->toBasetype()->ty == Tvector);
+  assert(val->type->toBasetype()->ty == TY::Tvector);
   Type *totype = to->toBasetype();
   LLType *tolltype = DtoType(to);
 
-  if (totype->ty == Tsarray) {
+  if (totype->ty == TY::Tsarray) {
     // Reinterpret-cast without copy if the source vector is in memory.
     if (val->isLVal()) {
       LLValue *vector = DtoLVal(val);
@@ -639,7 +641,7 @@ DValue *DtoCastVector(const Loc &loc, DValue *val, Type *to) {
     LLValue *array = DtoAllocaDump(vector, tolltype, DtoAlignment(val->type));
     return new DLValue(to, array);
   }
-  if (totype->ty == Tvector && to->size() == val->type->size()) {
+  if (totype->ty == TY::Tvector && to->size() == val->type->size()) {
     return new DImValue(to, DtoBitCast(DtoRVal(val), tolltype));
   }
   error(loc, "invalid cast from `%s` to `%s`", val->type->toChars(),
@@ -649,7 +651,7 @@ DValue *DtoCastVector(const Loc &loc, DValue *val, Type *to) {
 
 DValue *DtoCastStruct(const Loc &loc, DValue *val, Type *to) {
   Type *const totype = to->toBasetype();
-  if (totype->ty == Tstruct) {
+  if (totype->ty == TY::Tstruct) {
     // This a cast to repaint a struct to another type, which the language
     // allows for identical layouts (opCast() and so on have been lowered
     // earlier by the frontend).
@@ -668,8 +670,8 @@ DValue *DtoCast(const Loc &loc, DValue *val, Type *to) {
   Type *fromtype = val->type->toBasetype();
   Type *totype = to->toBasetype();
 
-  if (fromtype->ty == Taarray) {
-    if (totype->ty == Taarray) {
+  if (fromtype->ty == TY::Taarray) {
+    if (totype->ty == TY::Taarray) {
       // reinterpret-cast keeping lvalue-ness, IR types will match up
       if (val->isLVal())
         return new DLValue(to, DtoLVal(val));
@@ -677,12 +679,12 @@ DValue *DtoCast(const Loc &loc, DValue *val, Type *to) {
     }
     // DMD allows casting AAs to void*, even if they are internally
     // implemented as structs.
-    if (totype->ty == Tpointer) {
+    if (totype->ty == TY::Tpointer) {
       IF_LOG Logger::println("Casting AA to pointer.");
       LLValue *rval = DtoBitCast(DtoRVal(val), DtoType(to));
       return new DImValue(to, rval);
     }
-    if (totype->ty == Tbool) {
+    if (totype->ty == TY::Tbool) {
       IF_LOG Logger::println("Casting AA to bool.");
       LLValue *rval = DtoRVal(val);
       LLValue *zero = LLConstant::getNullValue(rval->getType());
@@ -698,7 +700,7 @@ DValue *DtoCast(const Loc &loc, DValue *val, Type *to) {
                          to->toChars());
   LOG_SCOPE;
 
-  if (fromtype->ty == Tvector) {
+  if (fromtype->ty == TY::Tvector) {
     // First, handle vector types (which can also be isintegral()).
     return DtoCastVector(loc, val, to);
   }
@@ -713,20 +715,20 @@ DValue *DtoCast(const Loc &loc, DValue *val, Type *to) {
   }
 
   switch (fromtype->ty) {
-  case Tclass:
+  case TY::Tclass:
     return DtoCastClass(loc, val, to);
-  case Tarray:
-  case Tsarray:
+  case TY::Tarray:
+  case TY::Tsarray:
     return DtoCastArray(loc, val, to);
-  case Tpointer:
-  case Tfunction:
+  case TY::Tpointer:
+  case TY::Tfunction:
     return DtoCastPtr(loc, val, to);
-  case Tdelegate:
+  case TY::Tdelegate:
     return DtoCastDelegate(loc, val, to);
-  case Tstruct:
+  case TY::Tstruct:
     return DtoCastStruct(loc, val, to);
-  case Tnull:
-  case Tnoreturn:
+  case TY::Tnull:
+  case TY::Tnoreturn:
     return DtoNullValue(to, loc);
   default:
     error(loc, "invalid cast from `%s` to `%s`", val->type->toChars(),
@@ -742,9 +744,9 @@ DValue *DtoPaintType(const Loc &loc, DValue *val, Type *to) {
   IF_LOG Logger::println("repainting from '%s' to '%s'", from->toChars(),
                          to->toChars());
 
-  if (from->ty == Tarray) {
+  if (from->ty == TY::Tarray) {
     Type *at = to->toBasetype();
-    assert(at->ty == Tarray);
+    assert(at->ty == TY::Tarray);
     Type *elem = at->nextOf()->pointerTo();
     if (DSliceValue *slice = val->isSlice()) {
       return new DSliceValue(to, slice->getLength(),
@@ -761,9 +763,9 @@ DValue *DtoPaintType(const Loc &loc, DValue *val, Type *to) {
     ptr = DtoBitCast(ptr, DtoType(elem));
     return new DImValue(to, DtoAggrPair(len, ptr));
   }
-  if (from->ty == Tdelegate) {
+  if (from->ty == TY::Tdelegate) {
     Type *dgty = to->toBasetype();
-    assert(dgty->ty == Tdelegate);
+    assert(dgty->ty == TY::Tdelegate);
     if (val->isLVal()) {
       LLValue *ptr = DtoLVal(val);
       assert(isaPointer(ptr));
@@ -779,14 +781,16 @@ DValue *DtoPaintType(const Loc &loc, DValue *val, Type *to) {
     IF_LOG Logger::cout() << "dg: " << *aggr << '\n';
     return new DImValue(to, aggr);
   }
-  if (from->ty == Tpointer || from->ty == Tclass || from->ty == Taarray) {
+  if (from->ty == TY::Tpointer || from->ty == TY::Tclass ||
+      from->ty == TY::Taarray) {
     Type *b = to->toBasetype();
-    assert(b->ty == Tpointer || b->ty == Tclass || b->ty == Taarray);
+    assert(b->ty == TY::Tpointer || b->ty == TY::Tclass ||
+           b->ty == TY::Taarray);
     LLValue *ptr = DtoBitCast(DtoRVal(val), DtoType(b));
     return new DImValue(to, ptr);
   }
-  if (from->ty == Tsarray) {
-    assert(to->toBasetype()->ty == Tsarray);
+  if (from->ty == TY::Tsarray) {
+    assert(to->toBasetype()->ty == TY::Tsarray);
     LLValue *ptr = DtoBitCast(DtoLVal(val), DtoPtrToType(to));
     return new DLValue(to, ptr);
   }
@@ -1073,6 +1077,10 @@ LLConstant *DtoConstInitializer(const Loc &loc, Type *type, Initializer *init) {
     Logger::println("const void initializer");
     LLType *ty = DtoMemType(type);
     _init = LLConstant::getNullValue(ty);
+  } else if (CInitializer *ci = init->isCInitializer()) {
+    // TODO: ImportC
+    error(loc, "LDC doesn't support C initializer lists yet");
+    fatal();
   } else {
     // StructInitializer is no longer suposed to make it to the glue layer
     // in DMD 2.064.
@@ -1120,7 +1128,7 @@ LLConstant *DtoConstExpInit(const Loc &loc, Type *targetType, Expression *exp) {
   if (llType == targetLLType)
     return val;
 
-  if (baseTargetType->ty == Tsarray) {
+  if (baseTargetType->ty == TY::Tsarray) {
     Logger::println("Building constant array initializer from scalar.");
 
     assert(baseValType->size() > 0);
@@ -1130,7 +1138,7 @@ LLConstant *DtoConstExpInit(const Loc &loc, Type *targetType, Expression *exp) {
     // may be a multi-dimensional array init, e.g., `char[2][3] x = 0xff`
     baseValType = stripModifiers(baseValType);
     LLSmallVector<size_t, 4> dims; // { 3, 2 }
-    for (auto t = baseTargetType; t->ty == Tsarray;) {
+    for (auto t = baseTargetType; t->ty == TY::Tsarray;) {
       dims.push_back(static_cast<TypeSArray *>(t)->dim->toUInteger());
       auto elementType = stripModifiers(t->nextOf()->toBasetype());
       if (elementType->equals(baseValType))
@@ -1151,11 +1159,11 @@ LLConstant *DtoConstExpInit(const Loc &loc, Type *targetType, Expression *exp) {
     return val;
   }
 
-  if (baseTargetType->ty == Tvector) {
+  if (baseTargetType->ty == TY::Tvector) {
     Logger::println("Building constant vector initializer from scalar.");
 
     TypeVector *tv = static_cast<TypeVector *>(baseTargetType);
-    assert(tv->basetype->ty == Tsarray);
+    assert(tv->basetype->ty == TY::Tsarray);
     dinteger_t elemCount =
         static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();
 #if LDC_LLVM_VER >= 1200
@@ -1310,7 +1318,7 @@ size_t getMemberSize(Type *type) {
 ////////////////////////////////////////////////////////////////////////////////
 
 Type *stripModifiers(Type *type, bool transitive) {
-  if (type->ty == Tfunction) {
+  if (type->ty == TY::Tfunction) {
     return type;
   }
 
@@ -1341,7 +1349,7 @@ void callPostblit(const Loc &loc, Expression *exp, LLValue *val) {
   Type *tb = exp->type->toBasetype();
   if ((exp->op == TOKvar || exp->op == TOKdotvar || exp->op == TOKstar ||
        exp->op == TOKthis || exp->op == TOKindex) &&
-      tb->ty == Tstruct) {
+      tb->ty == TY::Tstruct) {
     StructDeclaration *sd = static_cast<TypeStruct *>(tb)->sym;
     if (sd->postblit) {
       FuncDeclaration *fd = sd->postblit;
@@ -1351,7 +1359,7 @@ void callPostblit(const Loc &loc, Expression *exp, LLValue *val) {
       }
       Expressions args;
       DFuncValue dfn(fd, DtoCallee(fd), val);
-      DtoCallFunction(loc, Type::basic[Tvoid], &dfn, &args);
+      DtoCallFunction(loc, Type::tvoid, &dfn, &args);
     }
   }
 }
@@ -1364,7 +1372,9 @@ bool isSpecialRefVar(VarDeclaration *vd) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-bool isLLVMUnsigned(Type *t) { return t->isunsigned() || t->ty == Tpointer; }
+bool isLLVMUnsigned(Type *t) {
+  return t->isunsigned() || t->ty == TY::Tpointer;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -1519,7 +1529,7 @@ DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl) {
       }
       if (vd->storage_class & STClazy) {
         Logger::println("lazy parameter");
-        assert(type->ty == Tdelegate);
+        assert(type->ty == TY::Tdelegate);
       }
       assert(!isSpecialRefVar(vd) && "Code not expected to handle special "
                                      "ref vars, although it can easily be "
@@ -1573,8 +1583,8 @@ DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl) {
 
     // LDC extension: void[]-typed `__traits(initSymbol)`, for classes too
     auto tb = sdecl->type->toBasetype();
-    if (tb->ty != Tstruct) {
-      assert(tb->ty == Tarray && tb->nextOf()->ty == Tvoid);
+    if (tb->ty != TY::Tstruct) {
+      assert(tb->ty == TY::Tarray && tb->nextOf()->ty == TY::Tvoid);
       const auto size = DtoConstSize_t(ad->structsize);
       llvm::Constant *ptr =
           sd && sd->zeroInit
@@ -1841,27 +1851,32 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   // ourselves, DtoType below would be enough.
   DtoResolveDsymbol(ad);
 
-  // Cast the pointer we got to the canonical struct type the indices are
-  // based on.
-  LLType *st = DtoType(ad->type);
-  if (ad->isStructDeclaration()) {
-    st = getPtrToType(st);
-  }
-  src = DtoBitCast(src, st);
-
-  // Look up field to index and any offset to apply.
+  // Look up field to index or offset to apply.
   unsigned fieldIndex;
   unsigned byteOffset;
   auto irTypeAggr = getIrType(ad->type)->isAggr();
   assert(irTypeAggr);
   irTypeAggr->getMemberLocation(vd, fieldIndex, byteOffset);
 
-  LLValue *val = DtoGEP(src, 0, fieldIndex);
-
+  LLValue *val = src;
   if (byteOffset) {
-    // Cast to void* to apply byte-wise offset.
+    assert(fieldIndex == 0);
+    // Cast to void* to apply byte-wise offset from object start.
     val = DtoBitCast(val, getVoidPtrType());
     val = DtoGEP1(val, byteOffset);
+  } else {
+    if (ad->structsize == 0) { // can happen for extern(C) structs
+      assert(fieldIndex == 0);
+    } else {
+      // Cast the pointer we got to the canonical struct type the indices are
+      // based on.
+      LLType *st = DtoType(ad->type);
+      if (ad->isStructDeclaration()) {
+        st = getPtrToType(st);
+      }
+      val = DtoBitCast(val, st);
+      val = DtoGEP(val, 0, fieldIndex);
+    }
   }
 
   // Cast the (possibly void*) pointer to the canonical variable type.
@@ -1898,8 +1913,8 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
     // The type of globals is determined by their initializer, and the front-end
     // may inject implicit casts for class references and static arrays.
     assert(vd->isDataseg() || (vd->storage_class & STCextern) ||
-           type->toBasetype()->ty == Tclass ||
-           type->toBasetype()->ty == Tsarray);
+           type->toBasetype()->ty == TY::Tclass ||
+           type->toBasetype()->ty == TY::Tsarray);
     llvm::Type *pointeeType = val->getType()->getPointerElementType();
     if (isSpecialRef)
       pointeeType = pointeeType->getPointerElementType();

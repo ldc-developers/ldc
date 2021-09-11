@@ -193,10 +193,11 @@ public:
       if (!stmt->exp) {
         // implicitly return 0 for the main function
         returnValue = LLConstant::getNullValue(funcType->getReturnType());
-      } else if ((rtb->ty == Tvoid || rtb->ty == Tnoreturn) && !isMainFunc) {
+      } else if ((rtb->ty == TY::Tvoid || rtb->ty == TY::Tnoreturn) &&
+                 !isMainFunc) {
         // evaluate expression for side effects
-        assert(stmt->exp->type->toBasetype()->ty == Tvoid ||
-               stmt->exp->type->toBasetype()->ty == Tnoreturn);
+        assert(stmt->exp->type->toBasetype()->ty == TY::Tvoid ||
+               stmt->exp->type->toBasetype()->ty == TY::Tnoreturn);
         toElem(stmt->exp);
       } else if (funcType->getReturnType()->isVoidTy()) {
         // if the IR function's return type is void (but not the D one), it uses
@@ -976,21 +977,13 @@ public:
     bool useSwitchInst = true;
 
     for (auto cs : *cases) {
-      // skip over casts
       auto ce = cs->exp;
-      while (auto next = ce->isCastExp())
-        ce = next->e1;
-
-      if (auto ve = ce->isVarExp()) {
-        const auto vd = ve->var->isVarDeclaration();
-        if (vd && (!vd->_init || !vd->isConst())) {
-          indices.push_back(DtoRVal(toElemDtor(cs->exp)));
-          useSwitchInst = false;
-          continue;
-        }
+      if (auto ceConst = tryToConstElem(ce, irs)) {
+        indices.push_back(ceConst);
+      } else {
+        indices.push_back(DtoRVal(toElemDtor(ce)));
+        useSwitchInst = false;
       }
-
-      indices.push_back(toConstElem(cs->exp, irs));
     }
     assert(indices.size() == caseCount);
 

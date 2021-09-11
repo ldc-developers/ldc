@@ -401,9 +401,9 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
       t = DtoType(vd->type->pointerTo());
     } else if (isParam && (vd->storage_class & STClazy)) {
       // the type is a delegate (LL struct)
-      Type *dt = TypeFunction::create(nullptr, vd->type, VARARGnone, LINK::d);
-      dt = createTypeDelegate(dt);
-      t = DtoType(dt);
+      auto tf = TypeFunction::create(nullptr, vd->type, VARARGnone, LINK::d);
+      auto td = createTypeDelegate(tf);
+      t = DtoType(td);
     } else {
       t = DtoMemType(vd->type);
     }

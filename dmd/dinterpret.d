@@ -18,6 +18,7 @@ import core.stdc.stdlib;
 import core.stdc.string;
 import dmd.apply;
 import dmd.arraytypes;
+import dmd.astenums;
 import dmd.attrib;
 import dmd.builtin;
 import dmd.constfold;
@@ -350,7 +351,7 @@ public:
     extern (C++) void pop(VarDeclaration v)
     {
         assert(!v.isDataseg() || v.isCTFE());
-        assert(!(v.storage_class & (STC.ref_ | STC.out_)));
+        assert(!v.isReference());
         const oldid = v.ctfeAdrOnStack;
         v.ctfeAdrOnStack = cast(uint)cast(size_t)savedId[oldid];
         if (v.ctfeAdrOnStack == values.dim - 1)
@@ -2131,7 +2132,7 @@ public:
                     errorSupplemental(vie.var.loc, "`%s` was uninitialized and used before set", vie.var.toChars());
                     return CTFEExp.cantexp;
                 }
-                if (goal != CTFEGoal.LValue && (v.isRef() || v.isOut()))
+                if (goal != CTFEGoal.LValue && v.isReference())
                     e = interpret(e, istate, goal);
             }
             if (!e)
@@ -2172,26 +2173,20 @@ version (IN_LLVM)
             return;
         }
 
-        // Note: This is a workaround for
-        // https://issues.dlang.org/show_bug.cgi?id=17351
-        // The aforementioned bug triggers when passing manifest constant by `ref`.
-        // If there was not a previous reference to them, they are
-        // not cached and trigger a "cannot be read at compile time".
-        // This fix is a crude solution to get it to work. A more proper
-        // approach would be to resolve the forward reference, but that is
-        // much more involved.
-        if (goal == CTFEGoal.LValue && e.var.type.isMutable())
+        if (goal == CTFEGoal.LValue)
         {
             if (auto v = e.var.isVarDeclaration())
             {
-                if (!v.isDataseg() && !v.isCTFE() && !istate)
-                {
-                    e.error("variable `%s` cannot be read at compile time", v.toChars());
-                    result = CTFEExp.cantexp;
-                    return;
-                }
                 if (!hasValue(v))
                 {
+                    // Compile-time known non-CTFE variable from an outer context
+                    // e.g. global or from a ref argument
+                    if (v.isConst() || v.isImmutable())
+                    {
+                        result = getVarExp(e.loc, istate, v, goal);
+                        return;
+                    }
+
                     if (!v.isCTFE() && v.isDataseg())
                         e.error("static variable `%s` cannot be read at compile time", v.toChars());
                     else // CTFE initiated from inside a function
@@ -2746,12 +2741,6 @@ version (IN_LLVM)
         debug (LOG)
         {
             printf("%s NewExp::interpret() %s\n", e.loc.toChars(), e.toChars());
-        }
-        if (e.allocator)
-        {
-            e.error("member allocators not supported by CTFE");
-            result = CTFEExp.cantexp;
-            return;
         }
 
         Expression epre = interpret(pue, e.argprefix, istate, CTFEGoal.Nothing);
@@ -6143,6 +6132,9 @@ version (IN_LLVM)
             result = CTFEExp.cantexp;
             return;
         }
+
+        if (result.isStringExp())
+            return;
 
         if (result.op != TOK.address)
         {

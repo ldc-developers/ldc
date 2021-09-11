@@ -29,6 +29,7 @@
 #include "gen/tollvm.h"
 #include "gen/typinf.h"
 #include "ir/iraggr.h"
+#include "ir/irdsymbol.h"
 #include "ir/irfunction.h"
 #include "ir/irtypeclass.h"
 #include "llvm/ADT/SmallString.h"
@@ -112,16 +113,12 @@ LLGlobalVariable *IrClass::getClassInfoSymbol(bool define) {
       LLType *type = DtoType(aggrdecl->type);
       LLType *bodyType = llvm::cast<LLPointerType>(type)->getElementType();
       bool hasDestructor = (aggrdecl->dtor != nullptr);
-      bool hasCustomDelete = false;
       // Construct the fields
       llvm::Metadata *mdVals[CD_NumFields];
       mdVals[CD_BodyType] =
           llvm::ConstantAsMetadata::get(llvm::UndefValue::get(bodyType));
       mdVals[CD_Finalize] = llvm::ConstantAsMetadata::get(
           LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasDestructor));
-      mdVals[CD_CustomDelete] =
-          llvm::ConstantAsMetadata::get(LLConstantInt::get(
-              LLType::getInt1Ty(gIR->context()), hasCustomDelete));
       // Construct the metadata and insert it into the module.
       const auto metaname = getMetadataName(CD_PREFIX, typeInfo);
       llvm::NamedMDNode *node = gIR->module.getOrInsertNamedMetadata(metaname);
@@ -250,9 +247,10 @@ LLConstant *IrClass::getVtblInit() {
           if (fd2->isFuture()) {
             continue;
           }
-          if (fd->leastAsSpecialized(fd2) || fd2->leastAsSpecialized(fd)) {
+          if (fd->leastAsSpecialized(fd2) != MATCH::nomatch ||
+              fd2->leastAsSpecialized(fd) != MATCH::nomatch) {
             TypeFunction *tf = static_cast<TypeFunction *>(fd->type);
-            if (tf->ty == Tfunction) {
+            if (tf->ty == TY::Tfunction) {
               cd->error("use of `%s%s` is hidden by `%s`; use `alias %s = "
                         "%s.%s;` to introduce base class overload set",
                         fd->toPrettyChars(),
@@ -368,7 +366,7 @@ LLConstant *IrClass::getClassInfoInit() {
   // string name
   const char *name = cd->ident->toChars();
   if (strncmp(name, "TypeInfo_", 9) != 0) {
-    name = cd->toPrettyChars();
+    name = cd->toPrettyChars(/*QualifyTypes=*/true);
   }
   b.push_string(name);
 

@@ -182,7 +182,7 @@ static llvm::Constant *FillSArrayDims(Type *arrTypeD, llvm::Constant *init) {
     return init;
   }
 
-  if (arrTypeD->ty == Tsarray) {
+  if (arrTypeD->ty == TY::Tsarray) {
     init = FillSArrayDims(arrTypeD->nextOf(), init);
     size_t dim = static_cast<TypeSArray *>(arrTypeD)->dim->toUInteger();
     llvm::ArrayType *arrty = llvm::ArrayType::get(init->getType(), dim);
@@ -224,8 +224,6 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
   const size_t structsize = aggrdecl->size(Loc());
   if (offset < structsize)
     add_zeros(constants, offset, structsize);
-
-  assert(!constants.empty());
 
   // get LL field types
   llvm::SmallVector<llvm::Type *, 16> types;

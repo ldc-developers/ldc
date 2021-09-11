@@ -493,7 +493,15 @@ immutable Msgtable[] msgtable =
     { "unsigned" },
     { "wchar_t" },
 
-    // IN_LLVM: LDC-specific pragmas.
+    // for C compiler
+    { "__tag" },
+    { "dllimport" },
+    { "dllexport" },
+    { "vector_size" },
+    { "__func__" },
+    { "noreturn" },
+
+    // IN_LLVM: LDC-specific pragmas
     { "LDC_intrinsic" },
     { "LDC_no_typeinfo" },
     { "LDC_no_moduleinfo" },
@@ -517,7 +525,7 @@ immutable Msgtable[] msgtable =
     { "LDC_extern_weak" },
     { "LDC_profile_instr" },
 
-    // IN_LLVM: LDC-specific traits.
+    // IN_LLVM: LDC-specific traits
     { "targetCPU" },
     { "targetHasFeature" },
     { "initSymbol" },

@@ -50,6 +50,7 @@
 #include "gen/runtime.h"
 #include "gen/structs.h"
 #include "gen/tollvm.h"
+#include "ir/irdsymbol.h"
 #include "ir/irtype.h"
 #include <ir/irtypeclass.h>
 #include "ir/irvar.h"
@@ -82,8 +83,8 @@ void emitTypeInfoMetadata(LLGlobalVariable *typeinfoGlobal, Type *forType) {
   // As those types cannot appear as LLVM values, they are not interesting for
   // the optimizer passes anyway.
   Type *t = forType->toBasetype();
-  if (t->ty < Terror && t->ty != Tvoid && t->ty != Tfunction &&
-      t->ty != Tident) {
+  if (t->ty < TY::Terror && t->ty != TY::Tvoid && t->ty != TY::Tfunction &&
+      t->ty != TY::Tident) {
     const auto metaname = getMetadataName(TD_PREFIX, typeinfoGlobal);
 
     if (!gIR->module.getNamedMetadata(metaname)) {
@@ -129,7 +130,7 @@ public:
 
     RTTIBuilder b(getEnumTypeInfoType());
 
-    assert(decl->tinfo->ty == Tenum);
+    assert(decl->tinfo->ty == TY::Tenum);
     TypeEnum *tc = static_cast<TypeEnum *>(decl->tinfo);
     EnumDeclaration *sd = tc->sym;
 
@@ -190,7 +191,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
-    assert(decl->tinfo->ty == Tsarray);
+    assert(decl->tinfo->ty == TY::Tsarray);
     TypeSArray *tc = static_cast<TypeSArray *>(decl->tinfo);
 
     RTTIBuilder b(getStaticArrayTypeInfoType());
@@ -213,7 +214,7 @@ public:
         decl->toChars());
     LOG_SCOPE;
 
-    assert(decl->tinfo->ty == Taarray);
+    assert(decl->tinfo->ty == TY::Taarray);
     TypeAArray *tc = static_cast<TypeAArray *>(decl->tinfo);
 
     RTTIBuilder b(getAssociativeArrayTypeInfoType());
@@ -251,7 +252,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
-    assert(decl->tinfo->ty == Tdelegate);
+    assert(decl->tinfo->ty == TY::Tdelegate);
     Type *ret_type = decl->tinfo->nextOf()->nextOf();
 
     RTTIBuilder b(getDelegateTypeInfoType());
@@ -303,7 +304,7 @@ public:
     LOG_SCOPE;
 
     // create elements array
-    assert(decl->tinfo->ty == Ttuple);
+    assert(decl->tinfo->ty == TY::Ttuple);
     TypeTuple *tu = static_cast<TypeTuple *>(decl->tinfo);
 
     size_t dim = tu->arguments->length;
@@ -392,7 +393,7 @@ public:
                            decl->toChars());
     LOG_SCOPE;
 
-    assert(decl->tinfo->ty == Tvector);
+    assert(decl->tinfo->ty == TY::Tvector);
     TypeVector *tv = static_cast<TypeVector *>(decl->tinfo);
 
     RTTIBuilder b(getVectorTypeInfoType());

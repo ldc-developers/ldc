@@ -42,7 +42,7 @@ LLValue *DtoSlice(LLValue *ptr, LLValue *length, LLType *elemType = nullptr) {
 
 LLValue *DtoSlice(Expression *e) {
   DValue *dval = toElem(e);
-  if (dval->type->toBasetype()->ty == Tsarray) {
+  if (dval->type->toBasetype()->ty == TY::Tsarray) {
     // Convert static array to slice
     return DtoSlice(DtoLVal(dval), DtoArrayLen(dval));
   }
@@ -57,11 +57,11 @@ static LLValue *DtoSlicePtr(Expression *e) {
   Loc loc;
   LLStructType *type = DtoArrayType(LLType::getInt8Ty(gIR->context()));
   Type *vt = dval->type->toBasetype();
-  if (vt->ty == Tarray) {
+  if (vt->ty == TY::Tarray) {
     return makeLValue(loc, dval);
   }
 
-  bool isStaticArray = vt->ty == Tsarray;
+  bool isStaticArray = vt->ty == TY::Tsarray;
   LLValue *val = isStaticArray ? DtoLVal(dval) : makeLValue(loc, dval);
   LLValue *array = DtoRawAlloca(type, 0, ".array");
   LLValue *len = isStaticArray ? DtoArrayLen(dval) : DtoConstSize_t(1);
@@ -87,7 +87,7 @@ LLStructType *DtoArrayType(LLType *t) {
 
 LLArrayType *DtoStaticArrayType(Type *t) {
   t = t->toBasetype();
-  assert(t->ty == Tsarray);
+  assert(t->ty == TY::Tsarray);
   TypeSArray *tsa = static_cast<TypeSArray *>(t);
   Type *tnext = tsa->nextOf();
 
@@ -179,7 +179,7 @@ static void DtoArrayInit(const Loc &loc, LLValue *ptr, LLValue *length,
 static Type *DtoArrayElementType(Type *arrayType) {
   assert(arrayType->toBasetype()->nextOf());
   Type *t = arrayType->toBasetype()->nextOf()->toBasetype();
-  while (t->ty == Tsarray) {
+  while (t->ty == TY::Tsarray) {
     t = t->nextOf()->toBasetype();
   }
   return t;
@@ -217,7 +217,7 @@ static void copySlice(const Loc &loc, LLValue *dstarr, LLValue *dstlen,
 // Determine whether t is an array of structs that need a postblit.
 static bool arrayNeedsPostblit(Type *t) {
   t = DtoArrayElementType(t);
-  if (t->ty == Tstruct) {
+  if (t->ty == TY::Tstruct) {
     return static_cast<TypeStruct *>(t)->sym->postblit != nullptr;
   }
   return false;
@@ -235,8 +235,8 @@ void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
   assert(t->nextOf());
 
   // reference assignment for dynamic array?
-  if (t->ty == Tarray && !lhs->isSlice()) {
-    assert(t2->ty == Tarray || t2->ty == Tsarray);
+  if (t->ty == TY::Tarray && !lhs->isSlice()) {
+    assert(t2->ty == TY::Tarray || t2->ty == TY::Tsarray);
     if (rhs->isNull()) {
       DtoSetArrayToNull(DtoLVal(lhs));
     } else {
@@ -259,8 +259,9 @@ void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
   // Be careful to handle void arrays correctly when modifying this (see tests
   // for DMD issue 7493).
   // TODO: This should use AssignExp::memset.
-  LLValue *realRhsArrayPtr =
-      (t2->ty == Tarray || t2->ty == Tsarray) ? DtoArrayPtr(rhs) : nullptr;
+  LLValue *realRhsArrayPtr = (t2->ty == TY::Tarray || t2->ty == TY::Tsarray)
+                                 ? DtoArrayPtr(rhs)
+                                 : nullptr;
   if (realRhsArrayPtr && realRhsArrayPtr->getType() == realLhsPtr->getType()) {
     // T[]  = T[]      T[]  = T[n]
     // T[n] = T[n]     T[n] = T[]
@@ -268,7 +269,7 @@ void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
     LLValue *rhsLength = DtoArrayLen(rhs);
 
     const bool needsPostblit = (op != TOKblit && arrayNeedsPostblit(t) &&
-                                (!canSkipPostblit || t2->ty == Tarray));
+                                (!canSkipPostblit || t2->ty == TY::Tarray));
 
     if (!needsDestruction && !needsPostblit) {
       // fast version
@@ -278,7 +279,7 @@ void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
         DtoMemSetZero(lhsPtr, lhsSize);
       } else {
         bool knownInBounds =
-            isConstructing || (t->ty == Tsarray && t2->ty == Tsarray);
+            isConstructing || (t->ty == TY::Tsarray && t2->ty == TY::Tsarray);
         if (!knownInBounds) {
           if (auto constLhsLength = llvm::dyn_cast<LLConstantInt>(lhsLength)) {
             if (auto constRhsLength =
@@ -368,7 +369,7 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
 
   // for statis arrays, dmd does not include any trailing default
   // initialized elements in the value/index lists
-  if (arrty->ty == Tsarray) {
+  if (arrty->ty == TY::Tsarray) {
     TypeSArray *tsa = static_cast<TypeSArray *>(arrty);
     arrlen = static_cast<size_t>(tsa->dim->toInteger());
   }
@@ -383,7 +384,7 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
 
   // get elem type
   Type *elemty;
-  if (arrty->ty == Tvector) {
+  if (arrty->ty == TY::Tvector) {
     elemty = static_cast<TypeVector *>(arrty)->elementType();
   } else {
     elemty = arrty->nextOf();
@@ -459,7 +460,7 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
     constarr = LLConstantStruct::getAnon(gIR->context(),
                                          initvals); // FIXME should this pack?
   } else {
-    if (arrty->ty == Tvector) {
+    if (arrty->ty == TY::Tvector) {
       constarr = llvm::ConstantVector::get(initvals);
     } else {
       constarr =
@@ -470,7 +471,7 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
   //     std::cout << "constarr: " << *constarr << std::endl;
 
   // if the type is a static array, we're done
-  if (arrty->ty == Tsarray || arrty->ty == Tvector) {
+  if (arrty->ty == TY::Tsarray || arrty->ty == TY::Tvector) {
     return constarr;
   }
 
@@ -482,7 +483,7 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
                                    LLGlobalValue::InternalLinkage, constarr,
                                    ".constarray");
 
-  if (arrty->ty == Tpointer) {
+  if (arrty->ty == TY::Tpointer) {
     // we need to return pointer to the static array.
     return DtoBitCast(gvar, DtoType(arrty));
   }
@@ -524,7 +525,7 @@ bool isConstLiteral(Expression *e, bool immutableType) {
       // If dynamic array: assume not constant because the array is expected to
       // be newly allocated. See GH 1924.
       Type *arrayType = ale->type->toBasetype();
-      if (arrayType->ty == Tarray)
+      if (arrayType->ty == TY::Tarray)
         return false;
     }
 
@@ -786,7 +787,7 @@ DSliceValue *DtoResizeDynArray(const Loc &loc, Type *arrayType, DValue *array,
   assert(array);
   assert(newdim);
   assert(arrayType);
-  assert(arrayType->toBasetype()->ty == Tarray);
+  assert(arrayType->toBasetype()->ty == TY::Tarray);
 
   // decide on what runtime function to call based on whether the type is zero
   // initialized
@@ -997,40 +998,41 @@ LLValue *DtoArrayEqCmp_impl(const Loc &loc, const char *func, DValue *l,
 /// See `validCompareWithMemcmp`.
 bool validCompareWithMemcmpType(Type *t) {
   switch (t->ty) {
-  case Tsarray: {
+  case TY::Tsarray: {
     auto *elemType = t->baseElemOf();
     return validCompareWithMemcmpType(elemType);
   }
 
-  case Tstruct:
+  case TY::Tstruct:
     // TODO: Implement when structs can be compared with memcmp. Remember that
     // structs can have a user-defined opEquals, alignment padding bytes (in
     // arrays), and padding bytes.
     return false;
 
-  case Tvoid:
-  case Tint8:
-  case Tuns8:
-  case Tint16:
-  case Tuns16:
-  case Tint32:
-  case Tuns32:
-  case Tint64:
-  case Tuns64:
-  case Tint128:
-  case Tuns128:
-  case Tbool:
-  case Tchar:
-  case Twchar:
-  case Tdchar:
-  case Tpointer:
+  case TY::Tvoid:
+  case TY::Tint8:
+  case TY::Tuns8:
+  case TY::Tint16:
+  case TY::Tuns16:
+  case TY::Tint32:
+  case TY::Tuns32:
+  case TY::Tint64:
+  case TY::Tuns64:
+  case TY::Tint128:
+  case TY::Tuns128:
+  case TY::Tbool:
+  case TY::Tchar:
+  case TY::Twchar:
+  case TY::Tdchar:
+  case TY::Tpointer:
     return true;
 
     // TODO: Determine whether this can be "return true" too:
-    // case Tvector:
-  }
+    // case TY::Tvector:
 
-  return false;
+  default:
+    return false;
+  }
 }
 
 /// When `true` is returned, `l` and `r` can be compared using `memcmp`.
@@ -1086,8 +1088,9 @@ LLValue *DtoArrayEqCmp_memcmp(const Loc &loc, DValue *l, DValue *r,
   auto *l_length = DtoArrayLen(l);
 
   // Early return for the simple case of comparing two static arrays.
-  const bool staticArrayComparison = (l->type->toBasetype()->ty == Tsarray) &&
-                                     (r->type->toBasetype()->ty == Tsarray);
+  const bool staticArrayComparison =
+      (l->type->toBasetype()->ty == TY::Tsarray) &&
+      (r->type->toBasetype()->ty == TY::Tsarray);
   if (staticArrayComparison) {
     // TODO: simply codegen when comparing static arrays with different length (int[3] == int[2])
     return callMemcmp(loc, irs, l_ptr, r_ptr, l_length);
@@ -1165,7 +1168,7 @@ LLValue *DtoArrayLen(DValue *v) {
   LOG_SCOPE;
 
   Type *t = v->type->toBasetype();
-  if (t->ty == Tarray) {
+  if (t->ty == TY::Tarray) {
     if (v->isNull()) {
       return DtoConstSize_t(0);
     }
@@ -1176,7 +1179,7 @@ LLValue *DtoArrayLen(DValue *v) {
     assert(slice);
     return slice->getLength();
   }
-  if (t->ty == Tsarray) {
+  if (t->ty == TY::Tsarray) {
     assert(!v->isSlice());
     assert(!v->isNull());
     TypeSArray *sarray = static_cast<TypeSArray *>(t);
@@ -1196,7 +1199,7 @@ LLValue *DtoArrayPtr(DValue *v) {
   LLType *wantedLLPtrType = DtoPtrToType(t->nextOf());
   LLValue *ptr = nullptr;
 
-  if (t->ty == Tarray) {
+  if (t->ty == TY::Tarray) {
     if (v->isNull()) {
       ptr = getNullPtr(wantedLLPtrType);
     } else if (v->isLVal()) {
@@ -1206,7 +1209,7 @@ LLValue *DtoArrayPtr(DValue *v) {
       assert(slice);
       ptr = slice->getPtr();
     }
-  } else if (t->ty == Tsarray) {
+  } else if (t->ty == TY::Tsarray) {
     assert(!v->isSlice());
     assert(!v->isNull());
     ptr = DtoLVal(v);
@@ -1226,14 +1229,14 @@ DValue *DtoCastArray(const Loc &loc, DValue *u, Type *to) {
 
   Type *totype = to->toBasetype();
   Type *fromtype = u->type->toBasetype();
-  if (fromtype->ty != Tarray && fromtype->ty != Tsarray) {
+  if (fromtype->ty != TY::Tarray && fromtype->ty != TY::Tsarray) {
     error(loc, "can't cast `%s` to `%s`", u->type->toChars(), to->toChars());
     fatal();
   }
 
   IF_LOG Logger::cout() << "from array or sarray" << '\n';
 
-  if (totype->ty == Tpointer) {
+  if (totype->ty == TY::Tpointer) {
     IF_LOG Logger::cout() << "to pointer" << '\n';
     LLValue *ptr = DtoArrayPtr(u);
     if (ptr->getType() != tolltype) {
@@ -1242,12 +1245,12 @@ DValue *DtoCastArray(const Loc &loc, DValue *u, Type *to) {
     return new DImValue(to, ptr);
   }
 
-  if (totype->ty == Tarray) {
+  if (totype->ty == TY::Tarray) {
     IF_LOG Logger::cout() << "to array" << '\n';
 
     LLValue *length = nullptr;
     LLValue *ptr = nullptr;
-    if (fromtype->ty == Tsarray) {
+    if (fromtype->ty == TY::Tsarray) {
       length = DtoConstSize_t(
           static_cast<TypeSArray *>(fromtype)->dim->toUInteger());
       ptr = DtoLVal(u);
@@ -1282,11 +1285,11 @@ DValue *DtoCastArray(const Loc &loc, DValue *u, Type *to) {
     return new DSliceValue(to, length, DtoBitCast(ptr, ptrty));
   }
 
-  if (totype->ty == Tsarray) {
+  if (totype->ty == TY::Tsarray) {
     IF_LOG Logger::cout() << "to sarray" << '\n';
 
     LLValue *ptr = nullptr;
-    if (fromtype->ty == Tsarray) {
+    if (fromtype->ty == TY::Tsarray) {
       ptr = DtoLVal(u);
     } else {
       size_t tosize = static_cast<TypeSArray *>(totype)->dim->toInteger();
@@ -1300,7 +1303,7 @@ DValue *DtoCastArray(const Loc &loc, DValue *u, Type *to) {
     return new DLValue(to, DtoBitCast(ptr, getPtrToType(tolltype)));
   }
 
-  if (totype->ty == Tbool) {
+  if (totype->ty == TY::Tbool) {
     // return (arr.ptr !is null)
     LLValue *ptr = DtoArrayPtr(u);
     LLConstant *nul = getNullPtr(ptr->getType());
@@ -1313,23 +1316,24 @@ DValue *DtoCastArray(const Loc &loc, DValue *u, Type *to) {
 
 void DtoIndexBoundsCheck(const Loc &loc, DValue *arr, DValue *index) {
   Type *arrty = arr->type->toBasetype();
-  assert(
-      (arrty->ty == Tsarray || arrty->ty == Tarray || arrty->ty == Tpointer) &&
-      "Can only array bounds check for static or dynamic arrays");
+  assert((arrty->ty == TY::Tsarray || arrty->ty == TY::Tarray ||
+          arrty->ty == TY::Tpointer) &&
+         "Can only array bounds check for static or dynamic arrays");
 
   if (!index) {
     // Caller supplied no index, known in-bounds.
     return;
   }
 
-  if (arrty->ty == Tpointer) {
-    // Length of pointers is unknown, ingore.
+  if (arrty->ty == TY::Tpointer) {
+    // Length of pointers is unknown, ignore.
     return;
   }
 
-  llvm::ICmpInst::Predicate cmpop = llvm::ICmpInst::ICMP_ULT;
-  llvm::Value *cond = gIR->ir->CreateICmp(cmpop, DtoRVal(index),
-                                          DtoArrayLen(arr), "bounds.cmp");
+  LLValue *const llIndex = DtoRVal(index);
+  LLValue *const llLength = DtoArrayLen(arr);
+  LLValue *const cond = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_ULT, llIndex,
+                                            llLength, "bounds.cmp");
 
   llvm::BasicBlock *okbb = gIR->insertBB("bounds.ok");
   llvm::BasicBlock *failbb = gIR->insertBBAfter(okbb, "bounds.fail");
@@ -1337,24 +1341,54 @@ void DtoIndexBoundsCheck(const Loc &loc, DValue *arr, DValue *index) {
 
   // set up failbb to call the array bounds error runtime function
   gIR->ir->SetInsertPoint(failbb);
-  DtoBoundsCheckFailCall(gIR, loc);
+  emitArrayIndexError(gIR, loc, llIndex, llLength);
 
   // if ok, proceed in okbb
   gIR->ir->SetInsertPoint(okbb);
 }
 
-void DtoBoundsCheckFailCall(IRState *irs, const Loc &loc) {
+static void emitRangeErrorImpl(IRState *irs, const Loc &loc,
+                               const char *cAssertMsg, const char *dFnName,
+                               llvm::ArrayRef<LLValue *> extraArgs) {
   Module *const module = irs->func()->decl->getModule();
 
-  if (global.params.checkAction == CHECKACTION_C) {
-    DtoCAssert(module, loc, DtoConstCString("array overflow"));
-  } else {
-    llvm::Function *errorfn =
-        getRuntimeFunction(loc, irs->module, "_d_arraybounds");
-    irs->CreateCallOrInvoke(errorfn, DtoModuleFileName(module, loc),
-                            DtoConstUint(loc.linnum));
-
-    // the function does not return
+  switch (global.params.checkAction) {
+  case CHECKACTION_C:
+    DtoCAssert(module, loc, DtoConstCString(cAssertMsg));
+    break;
+  case CHECKACTION_halt:
+    irs->ir->CreateCall(GET_INTRINSIC_DECL(trap), {});
     irs->ir->CreateUnreachable();
+    break;
+  case CHECKACTION_context:
+  case CHECKACTION_D: {
+    auto fn = getRuntimeFunction(loc, irs->module, dFnName);
+    LLSmallVector<LLValue *, 5> args;
+    args.reserve(2 + extraArgs.size());
+    args.push_back(DtoModuleFileName(module, loc));
+    args.push_back(DtoConstUint(loc.linnum));
+    args.insert(args.end(), extraArgs.begin(), extraArgs.end());
+    irs->CreateCallOrInvoke(fn, args);
+    irs->ir->CreateUnreachable();
+    break;
   }
+  default:
+    llvm_unreachable("Unhandled checkAction");
+  }
+}
+
+void emitRangeError(IRState *irs, const Loc &loc) {
+  emitRangeErrorImpl(irs, loc, "array overflow", "_d_arraybounds", {});
+}
+
+void emitArraySliceError(IRState *irs, const Loc &loc, LLValue *lower,
+                         LLValue *upper, LLValue *length) {
+  emitRangeErrorImpl(irs, loc, "array slice out of bounds",
+                     "_d_arraybounds_slice", {lower, upper, length});
+}
+
+void emitArrayIndexError(IRState *irs, const Loc &loc, LLValue *index,
+                         LLValue *length) {
+  emitRangeErrorImpl(irs, loc, "array index out of bounds",
+                     "_d_arraybounds_index", {index, length});
 }

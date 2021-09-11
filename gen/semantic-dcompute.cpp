@@ -92,12 +92,12 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
       return;
     }
 
-    if (decl->type->ty == Taarray) {
+    if (decl->type->ty == TY::Taarray) {
       decl->error("associative arrays not allowed in `@compute` code");
       stop = true;
     }
     // includes interfaces
-    else if (decl->type->ty == Tclass) {
+    else if (decl->type->ty == TY::Tclass) {
       decl->error("interfaces and classes not allowed in `@compute` code");
     }
   }
@@ -112,7 +112,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
   // Nogc enforcement.
   // No need to check AssocArrayLiteral because AA's are banned anyway
   void visit(ArrayLiteralExp *e) override {
-    if (e->type->ty != Tarray || !e->elements || !e->elements->length)
+    if (e->type->ty != TY::Tarray || !e->elements || !e->elements->length)
       return;
     e->error("array literal in `@compute` code not allowed");
     stop = true;

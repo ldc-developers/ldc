@@ -82,6 +82,8 @@ void Target::_init(const Param &params) {
     os = OS_Solaris;
   }
 
+  osMajor = triple.getOSMajorVersion();
+
   ptrsize = gDataLayout->getPointerSize();
   realType = getRealType(triple);
   realsize = gDataLayout->getTypeAllocSize(realType);
@@ -93,6 +95,8 @@ void Target::_init(const Param &params) {
   c.longsize = (ptrsize == 8) && !isMSVC ? 8 : 4;
   c.long_doublesize = realsize;
   c.wchar_tsize = triple.isOSWindows() ? 2 : 4;
+  c.bitFieldStyle =
+      isMSVC ? TargetC::BitFieldStyle::MS : TargetC::BitFieldStyle::Gcc_Clang;
 
   cpp.reverseOverloads = isMSVC; // according to DMD, only for MSVC++
   cpp.exceptions = true;
@@ -181,7 +185,7 @@ void Target::_init(const Param &params) {
  */
 unsigned Target::alignsize(Type *type) {
   assert(type->isTypeBasic());
-  if (type->ty == Tvoid) {
+  if (type->ty == TY::Tvoid) {
     return 1;
   }
   return gDataLayout->getABITypeAlignment(DtoType(type));
@@ -207,7 +211,7 @@ Type *Target::va_listType(const Loc &loc, Scope *sc) {
  *      null if unhandled
  */
 const char *TargetCPP::typeMangle(Type *t) {
-  if (t->ty == Tfloat80) {
+  if (t->ty == TY::Tfloat80) {
     const auto &triple = *global.params.targetTriple;
     // `long double` on Android/x64 is __float128 and mangled as `g`
     bool isAndroidX64 = triple.getEnvironment() == llvm::Triple::Android &&

@@ -23,6 +23,7 @@
 #include "gen/logger.h"
 #include "gen/modules.h"
 #include "gen/runtime.h"
+#include "ir/irdsymbol.h"
 #if LDC_LLVM_VER >= 1100
 #include "llvm/IR/LLVMRemarkStreamer.h"
 #elif LDC_LLVM_VER >= 900

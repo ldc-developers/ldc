@@ -23,6 +23,9 @@
 #include "ir/iraggr.h"
 #include "ir/irtypeclass.h"
 
+// in semantic3.d
+void semanticTypeInfoMembers(StructDeclaration *sd);
+
 namespace {
 LLStructType* getTypeInfoStructMemType() {
   Type *t = getStructTypeInfoType();
@@ -88,7 +91,7 @@ LLConstant *IrStruct::getTypeInfoInit() {
   if (!isOpaque && sd->semanticRun < PASSsemantic3done) {
     Logger::println(
         "Struct hasn't had semantic3 yet, calling semanticTypeInfoMembers()");
-    sd->semanticTypeInfoMembers();
+    semanticTypeInfoMembers(sd);
   }
 
   TypeStruct *ts = sd->type->isTypeStruct();
@@ -118,11 +121,11 @@ LLConstant *IrStruct::getTypeInfoInit() {
 
   RTTIBuilder b(structTypeInfoType);
 
-  // string name
+  // string mangledName
   if (isOpaque) {
     b.push_null_void_array();
   } else {
-    b.push_string(sd->toPrettyChars());
+    b.push_string(ts->deco);
   }
 
   // void[] m_init

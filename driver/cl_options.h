@@ -88,6 +88,7 @@ extern cl::opt<SymbolVisibility> symbolVisibility;
 extern cl::opt<DLLImport, true> dllimport;
 extern cl::opt<bool> noPLT;
 extern cl::opt<bool> useDIP25;
+extern cl::opt<bool> useDIP1000;
 
 // Math options
 extern bool fFastMath;
