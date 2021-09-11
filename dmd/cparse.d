@@ -3445,6 +3445,7 @@ final class CParser(AST) : Parser!AST
 
         auto t = pt;
 
+        bool seenType;
         bool any;
         while (1)
         {
@@ -3463,9 +3464,19 @@ final class CParser(AST) : Parser!AST
                 case TOK._Bool:
                 //case TOK._Imaginary:
                 case TOK._Complex:
-                case TOK.identifier: // typedef-name
                     t = peek(t);
+                    seenType = true;
                     any = true;
+                    continue;
+
+                case TOK.identifier: // typedef-name
+                    if (!seenType)
+                    {
+                        t = peek(t);
+                        seenType = true;
+                        any = true;
+                        continue;
+                    }
                     break;
 
                 case TOK.struct_:
