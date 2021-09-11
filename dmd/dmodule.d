@@ -49,12 +49,9 @@ import dmd.semantic3;
 import dmd.target;
 import dmd.utils;
 import dmd.visitor;
+
 version (IN_LLVM)
 {
-    import dmd.root.aav;
-    import dmd.root.array;
-    import dmd.root.rmem;
-
     // in driver/main.cpp
     extern (C++) const(char)* createTempObjectsDir();
 }
@@ -463,7 +460,7 @@ extern (C++) final class Module : Package
     const(char)[] arg;           // original argument name
     ModuleDeclaration* md;      // if !=null, the contents of the ModuleDeclaration declaration
     const FileName srcfile;     // input source file
-    // LDC: keep both following file names mutable (for -oq)
+    // IN_LLVM: keep both following file names mutable (for -oq)
     /*const*/ FileName objfile; // output .obj file
     /*const*/ FileName hdrfile; // 'header' file
     FileName docfile;           // output documentation file

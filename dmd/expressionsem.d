@@ -79,8 +79,6 @@ import dmd.utf;
 import dmd.utils;
 import dmd.visitor;
 
-version (IN_LLVM) import gen.dpragma;
-
 enum LOGSEMANTIC = false;
 
 /********************************************************
@@ -2124,9 +2122,12 @@ private bool functionParameters(const ref Loc loc, Scope* sc,
         {
             // These will be the trailing ... arguments
             // If not D linkage, do promotions
-            // IN_LLVM: don't do promotions on intrinsics
-            if (tf.linkage != LINK.d && !(IN_LLVM && fd && DtoIsIntrinsic(fd)))
+            if (tf.linkage != LINK.d)
             {
+              // IN_LLVM: don't do promotions on intrinsics
+              import gen.dpragma : DtoIsIntrinsic;
+              if (!(IN_LLVM && fd && DtoIsIntrinsic(fd)))
+              {
                 // Promote bytes, words, etc., to ints
                 arg = integralPromotions(arg, sc);
 
@@ -2158,6 +2159,7 @@ private bool functionParameters(const ref Loc loc, Scope* sc,
                         err = true;
                     }
                 }
+              }
             }
 
             // Do not allow types that need destructors or copy constructors.
@@ -6937,12 +6939,16 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             FuncDeclaration f = ve.var.isFuncDeclaration();
             if (f)
             {
-               if (IN_LLVM && DtoIsIntrinsic(f.toAliasFunc()))
-               {
+version (IN_LLVM)
+{
+                import gen.dpragma : DtoIsIntrinsic;
+                if (DtoIsIntrinsic(f.toAliasFunc()))
+                {
                     exp.error("cannot take the address of intrinsic function `%s`", f.toAliasFunc().toChars());
                     result = ErrorExp.get();
                     return;
                 }
+}
                 /* Because nested functions cannot be overloaded,
                  * mark here that we took its address because castTo()
                  * may not be called with an exact match.

@@ -47,8 +47,6 @@ import dmd.staticassert;
 import dmd.tokens;
 import dmd.visitor;
 
-version (IN_LLVM) import gen.dpragma;
-
 /**
  * Returns:
  *     `TypeIdentifier` corresponding to `object.Throwable`

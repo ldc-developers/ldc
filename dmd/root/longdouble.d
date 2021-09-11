@@ -11,7 +11,7 @@
 
 module dmd.root.longdouble;
 
-version(CRuntime_Microsoft)
+version (CRuntime_Microsoft)
 {
     static if (real.sizeof > 8)
         alias longdouble = real;

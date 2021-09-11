@@ -36,7 +36,6 @@ import dmd.expressionsem;
 import dmd.func;
 import dmd.globals;
 import dmd.hdrgen;
-version (IN_LLVM) import dmd.hooks;
 import dmd.id;
 import dmd.identifier;
 import dmd.mtype;
@@ -1937,6 +1936,8 @@ version (IN_LLVM)
         d.storage_class |= STC.rvalue;
         return new VarExp(ad.loc, d);
     }
+
+    import dmd.hooks : semanticTraitsHook;
     if (Expression ret = semanticTraitsHook(e, sc))
     {
         return ret;

@@ -54,8 +54,7 @@ extern(C++) struct VSOptions
         detectVCToolsInstallDir();
     }
 
-version (IN_LLVM) { /* not needed */ }
-else
+version (IN_LLVM) { /* not needed */ } else
 {
     /**
      * retrieve the name of the default C runtime library
@@ -496,8 +495,7 @@ public:
             }
         }
 
-version (IN_LLVM) {}
-else
+version (IN_LLVM) {} else
 {
         // try mingw fallback relative to phobos library folder that's part of LIB
         if (auto p = FileName.searchPath(getenv("LIB"w), r"mingw\kernel32.lib"[], false))

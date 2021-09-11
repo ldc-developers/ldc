@@ -24,12 +24,6 @@ import dmd.mtype;
 import dmd.visitor;
 import core.stdc.stdio;
 
-version (IN_LLVM)
-{
-    import dmd.dsymbol;
-    extern (C++) void Declaration_codegen(Dsymbol decl);
-}
-
 /****************************************************
  * Generates the `TypeInfo` object associated with `torig` if it
  * hasn't already been generated

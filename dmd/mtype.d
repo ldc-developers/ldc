@@ -52,8 +52,6 @@ import dmd.tokens;
 import dmd.typesem;
 import dmd.visitor;
 
-version (IN_LLVM) import gen.llvmhelpers;
-
 enum LOGDOTEXP = 0;         // log ::dotExp()
 enum LOGDEFAULTINIT = 0;    // log ::defaultInit()
 

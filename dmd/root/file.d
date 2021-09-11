@@ -17,7 +17,7 @@ import core.stdc.stdlib;
 import core.stdc.string : strerror;
 import core.sys.posix.fcntl;
 import core.sys.posix.unistd;
-version (Windows)
+version (Windows) // IN_LLVM: ltsmaster...
 {
     import core.sys.windows.winbase;
     import core.sys.windows.winnt;

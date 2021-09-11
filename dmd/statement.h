@@ -43,8 +43,7 @@ class StaticForeach;
 // Back end
 #if IN_LLVM
 namespace llvm { class Value; }
-struct AsmCode;
-using code = AsmCode;
+using code = struct AsmCode;
 #else
 struct code;
 #endif

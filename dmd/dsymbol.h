@@ -16,16 +16,6 @@
 #include "arraytypes.h"
 #include "visitor.h"
 
-#if IN_LLVM
-# if defined(_MSC_VER)
-# undef min
-# undef max
-# endif
-#include <cstdint>
-#include "../ir/irdsymbol.h"
-#endif
-
-
 class CPPNamespaceDeclaration;
 class Identifier;
 struct Scope;
@@ -84,7 +74,9 @@ class OverloadSet;
 struct AA;
 #ifdef IN_GCC
 typedef union tree_node Symbol;
-#elif !IN_LLVM
+#elif IN_LLVM
+struct IrDsymbol;
+#else
 struct Symbol;
 #endif
 
@@ -171,7 +163,7 @@ public:
     CPPNamespaceDeclaration *namespace_;
 #if IN_LLVM
     IrDsymbol *ir;
-    uint32_t llvmInternal;
+    unsigned llvmInternal;
 #else
     Symbol *csym;               // symbol for code generator
     Symbol *isym;               // import version of csym

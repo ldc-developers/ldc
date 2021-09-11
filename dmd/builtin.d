@@ -19,7 +19,6 @@ import core.stdc.string;
 import dmd.arraytypes;
 import dmd.astenums;
 import dmd.dmangle;
-version (IN_LLVM) import dmd.dtemplate;
 import dmd.errors;
 import dmd.expression;
 import dmd.func;
@@ -527,6 +526,8 @@ version (IN_LLVM)
 
 private Type getTypeOfOverloadedIntrinsic(FuncDeclaration fd)
 {
+    import dmd.dtemplate : TemplateInstance;
+
     // Depending on the state of the code generation we have to look at
     // the template instance or the function declaration.
     assert(fd.parent && "function declaration requires parent");

@@ -73,12 +73,6 @@ import dmd.templateparamsem;
 import dmd.typesem;
 import dmd.visitor;
 
-version (IN_LLVM)
-{
-    import gen.dpragma;
-    import gen.llvmhelpers;
-}
-
 enum LOG = false;
 
 private uint setMangleOverride(Dsymbol s, const(char)[] sym)
@@ -1478,6 +1472,8 @@ version (IN_LLVM)
     {
 version (IN_LLVM)
 {
+        import gen.dpragma : LDCPragma, DtoCheckPragma, DtoGetPragma;
+
         LDCPragma llvm_internal = LDCPragma.LLVMnone;
         const(char)* arg1str = null;
 }
@@ -5935,12 +5931,16 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
             //printf("tempdecl.ident = %s, s = '%s'\n", tempdecl.ident.toChars(), s.kind(), s.toPrettyChars());
             //printf("setting aliasdecl\n");
             tempinst.aliasdecl = s;
-            if (IN_LLVM && tempdecl.llvmInternal != 0)
+version (IN_LLVM)
+{
+            import gen.llvmhelpers : DtoSetFuncDeclIntrinsicName;
+            if (tempdecl.llvmInternal != 0)
             {
                 s.llvmInternal = tempdecl.llvmInternal;
                 if (FuncDeclaration fd = s.isFuncDeclaration())
                     DtoSetFuncDeclIntrinsicName(tempinst, tempdecl, fd);
             }
+}
         }
     }
 

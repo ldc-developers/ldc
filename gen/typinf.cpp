@@ -50,6 +50,7 @@
 #include "gen/runtime.h"
 #include "gen/structs.h"
 #include "gen/tollvm.h"
+#include "ir/irdsymbol.h"
 #include "ir/irtype.h"
 #include <ir/irtypeclass.h>
 #include "ir/irvar.h"

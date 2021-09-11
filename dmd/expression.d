@@ -71,8 +71,6 @@ import dmd.typesem;
 import dmd.utf;
 import dmd.visitor;
 
-version (IN_LLVM) import gen.dpragma;
-
 enum LOGSEMANTIC = false;
 void emplaceExp(T : Expression, Args...)(void* p, Args args)
 {
@@ -662,7 +660,7 @@ enum WANTexpand = 1;    // expand const/immutable variables if possible
 /***********************************************************
  * http://dlang.org/spec/expression.html#expression
  */
-// LDC: Instantiated in gen/asm-x86.h (`Handled = createExpression(...)`).
+// IN_LLVM: instantiated in gen/asm-x86.h (`Handled = createExpression(...)`)
 extern (C++) /* IN_LLVM abstract */ class Expression : ASTNode
 {
     const TOK op;   // to minimize use of dynamic_cast
@@ -3654,6 +3652,8 @@ extern (C++) final class SymOffExp : SymbolExp
     {
 version (IN_LLVM)
 {
+        import gen.dpragma : LDCPragma;
+
         // For a weak symbol, we only statically know that it is non-null if the
         // offset is non-zero.
         if (var.llvmInternal == LDCPragma.LLVMextern_weak)

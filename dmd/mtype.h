@@ -17,10 +17,6 @@
 #include "globals.h"
 #include "visitor.h"
 
-#if IN_LLVM
-#include <cstdlib>
-#endif
-
 struct Scope;
 class AggregateDeclaration;
 class Identifier;

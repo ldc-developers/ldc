@@ -66,8 +66,6 @@ import dmd.typesem;
 import dmd.visitor;
 import dmd.compiler;
 
-version (IN_LLVM) import gen.dpragma;
-
 version (DMDLIB)
 {
     version = CallbackAPI;
@@ -2511,6 +2509,8 @@ else
         // IN_LLVM. FIXME Move to pragma.cpp
         else if (ps.ident == Id.LDC_profile_instr)
         {
+            import gen.dpragma : DtoCheckProfileInstrPragma;
+
             bool emitInstr = true;
             if (!ps.args || ps.args.dim != 1 || !DtoCheckProfileInstrPragma((*ps.args)[0], emitInstr))
             {

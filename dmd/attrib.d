@@ -47,8 +47,6 @@ import dmd.target; // for target.systemLinkage
 import dmd.tokens;
 import dmd.visitor;
 
-version (IN_LLVM) import gen.dpragma;
-
 /***********************************************************
  * Abstract attribute applied to Dsymbol's used as a common
  * ancestor for storage classes (StorageClassDeclaration),
@@ -908,6 +906,8 @@ extern (C++) final class PragmaDeclaration : AttribDeclaration
         }
         if (IN_LLVM && ident == Id.LDC_profile_instr)
         {
+            import gen.dpragma : DtoCheckProfileInstrPragma;
+
             bool emitInstr = true;
             if (!args || args.dim != 1 || !DtoCheckProfileInstrPragma((*args)[0], emitInstr))
             {

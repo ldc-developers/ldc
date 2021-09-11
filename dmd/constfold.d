@@ -35,8 +35,6 @@ import dmd.target;
 import dmd.tokens;
 import dmd.utf;
 
-version (IN_LLVM) import gen.dpragma;
-
 private enum LOG = false;
 
 private Expression expType(Type type, Expression e)
@@ -67,6 +65,8 @@ int isConst(Expression e)
     case TOK.symbolOffset:
 version (IN_LLVM)
 {
+        import gen.dpragma : LDCPragma;
+
         // We don't statically know anything about the address of a weak symbol
         // if there is no offset. With an offset, we can at least say that it is
         // non-zero.

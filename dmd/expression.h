@@ -481,7 +481,7 @@ public:
     // to the memory used to build the literal for resolving such references.
     llvm::Value *inProgressMemory;
 #else
-    Symbol *sym;        // back end symbol to initialize with literal
+    Symbol *sym;                // back end symbol to initialize with literal
 #endif
 
     /** pointer to the origin instance of the expression.
