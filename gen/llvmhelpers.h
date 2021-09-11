@@ -101,10 +101,6 @@ DValue *DtoCast(const Loc &loc, DValue *val, Type *to);
 // otherwise returns a new DValue
 DValue *DtoPaintType(const Loc &loc, DValue *val, Type *to);
 
-/// Returns true if the specified symbol is to be defined on declaration, for
-/// -linkonce-templates.
-bool defineOnDeclare(Dsymbol *s);
-
 /// Makes sure the declarations corresponding to the given D symbol have been
 /// emitted to the currently processed LLVM module.
 ///
@@ -245,8 +241,13 @@ LLConstant *toConstantArray(LLType *ct, LLArrayType *at, T *str, size_t len,
 
 llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm);
 
-/// Indicates whether the specified symbol is a general dllimport candidate.
-bool dllimportSymbol(Dsymbol *sym);
+/// Returns true if the specified symbol is to be defined on declaration,
+/// primarily for -linkonce-templates.
+bool defineOnDeclare(Dsymbol *sym, bool isFunction);
+
+/// Indicates whether the specified data symbol is a general dllimport
+/// candidate.
+bool dllimportDataSymbol(Dsymbol *sym);
 
 /// Tries to declare an LLVM global. If a variable with the same mangled name
 /// already exists, checks if the types match and returns it instead.

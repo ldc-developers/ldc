@@ -73,7 +73,7 @@ LLGlobalVariable *IrClass::getVtblSymbol(bool define) {
                          /*isConstant=*/true, false, useDLLImport());
 
     if (!define)
-      define = defineOnDeclare(aggrdecl);
+      define = defineOnDeclare(aggrdecl, /*isFunction=*/false);
   }
 
   if (define) {
@@ -130,7 +130,7 @@ LLGlobalVariable *IrClass::getClassInfoSymbol(bool define) {
     }
 
     if (!define)
-      define = defineOnDeclare(aggrdecl);
+      define = defineOnDeclare(aggrdecl, /*isFunction=*/false);
   }
 
   if (define) {
@@ -473,7 +473,7 @@ llvm::GlobalVariable *IrClass::getInterfaceVtblSymbol(BaseClass *b,
     interfaceVtblMap.insert({{b->sym, interfaces_index}, gvar});
 
     if (!define)
-      define = defineOnDeclare(aggrdecl);
+      define = defineOnDeclare(aggrdecl, /*isFunction=*/false);
   }
 
   if (define && !gvar->hasInitializer()) {

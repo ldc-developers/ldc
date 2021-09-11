@@ -598,7 +598,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   bool defineAsAvailableExternally = false;
   if (willDefine) {
     // will be defined anyway after declaration
-  } else if (defineOnDeclare(fdecl)) {
+  } else if (defineOnDeclare(fdecl, /*isFunction=*/true)) {
     Logger::println("Function is inside a linkonce_odr template, will be "
                     "defined after declaration.");
     if (fdecl->semanticRun < PASSsemantic3done) {
