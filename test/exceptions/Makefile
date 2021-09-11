@@ -69,9 +69,11 @@ $(ROOT)/rt_trap_exceptions.done: STDERR_EXP2="src/rt_trap_exceptions.d:8 main"
 $(ROOT)/assert_fail.done: STDERR_EXP="success."
 $(ROOT)/%.done: $(ROOT)/%
 	@echo Testing $*
-	$(NEGATE) $(QUIET)$(TIMELIMIT)$(ROOT)/$* $(RUN_ARGS) 2>&1 1>/dev/null | grep -qF $(STDERR_EXP)
+	$(QUIET)$(TIMELIMIT)$(ROOT)/$* $(RUN_ARGS) 2>$(ROOT)/$*.stderr || true
+	cat $(ROOT)/$*.stderr
+	$(NEGATE) grep -qF $(STDERR_EXP) < $(ROOT)/$*.stderr
 	if [ ! -z $(STDERR_EXP2) ] ; then \
-		$(NEGATE) $(QUIET)$(TIMELIMIT)$(ROOT)/$* $(RUN_ARGS) 2>&1 1>/dev/null | grep -qF $(STDERR_EXP2); \
+		$(NEGATE) grep -qF $(STDERR_EXP2) < $(ROOT)/$*.stderr; \
 	fi
 	@touch $@
 
