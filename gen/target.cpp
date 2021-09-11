@@ -10,7 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "dmd/errors.h"
-#include "dmd/ldcbindings.h"
+#include "dmd/expression.h"
 #include "dmd/mtype.h"
 #include "dmd/target.h"
 #include "driver/cl_options.h"
@@ -282,8 +282,10 @@ Expression *Target::getTargetInfo(const char *name_, const Loc &loc) {
     return createStringExp(cppRuntimeLibrary);
   }
 
-  if (name == "cppStd")
-    return createIntegerExp(static_cast<unsigned>(global.params.cplusplus));
+  if (name == "cppStd") {
+    return IntegerExp::create(
+        Loc(), static_cast<unsigned>(global.params.cplusplus), Type::tint32);
+  }
 
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
   if (name == "dcomputeTargets") {

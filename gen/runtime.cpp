@@ -12,7 +12,6 @@
 #include "dmd/aggregate.h"
 #include "dmd/dsymbol.h"
 #include "dmd/errors.h"
-#include "dmd/ldcbindings.h"
 #include "dmd/module.h"
 #include "dmd/mtype.h"
 #include "dmd/root/root.h"
@@ -450,7 +449,7 @@ static Type *rt_dg1() {
   auto params = new Parameters();
   params->push(Parameter::create(0, Type::tvoidptr, nullptr, nullptr, nullptr));
   auto fty = TypeFunction::create(params, Type::tint32, VARARGnone, LINK::d);
-  dg_t = createTypeDelegate(fty);
+  dg_t = TypeDelegate::create(fty);
   return dg_t;
 }
 
@@ -464,7 +463,7 @@ static Type *rt_dg2() {
   params->push(Parameter::create(0, Type::tvoidptr, nullptr, nullptr, nullptr));
   params->push(Parameter::create(0, Type::tvoidptr, nullptr, nullptr, nullptr));
   auto fty = TypeFunction::create(params, Type::tint32, VARARGnone, LINK::d);
-  dg2_t = createTypeDelegate(fty);
+  dg2_t = TypeDelegate::create(fty);
   return dg2_t;
 }
 

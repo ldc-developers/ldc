@@ -16,7 +16,6 @@
 #include "gen/abi-arm.h"
 
 #include "dmd/identifier.h"
-#include "dmd/ldcbindings.h"
 #include "gen/abi.h"
 #include "gen/abi-generic.h"
 #include "llvm/Target/TargetMachine.h"
@@ -118,7 +117,7 @@ struct ArmTargetABI : TargetABI {
     // using TypeIdentifier here is a bit wonky but works, as long as the name
     // is actually available in the scope (this is what DMD does, so if a better
     // solution is found there, this should be adapted).
-    return createTypeIdentifier(Loc(), Identifier::idPool("__va_list"));
+    return TypeIdentifier::create(Loc(), Identifier::idPool("__va_list"));
   }
 
   const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override {

@@ -5537,6 +5537,14 @@ extern (C++) final class TypeIdentifier : TypeQualified
         this.ident = ident;
     }
 
+version (IN_LLVM)
+{
+    static TypeIdentifier create(const ref Loc loc, Identifier ident)
+    {
+        return new TypeIdentifier(loc, ident);
+    }
+}
+
     override const(char)* kind() const
     {
         return "identifier";

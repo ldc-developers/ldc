@@ -15,7 +15,6 @@
 #include "dmd/id.h"
 #include "dmd/identifier.h"
 #include "dmd/init.h"
-#include "dmd/ldcbindings.h"
 #include "dmd/module.h"
 #include "dmd/mtype.h"
 #include "dmd/root/port.h"

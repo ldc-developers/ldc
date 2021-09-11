@@ -12,10 +12,10 @@
 #include "dmd/aggregate.h"
 #include "dmd/declaration.h"
 #include "dmd/errors.h"
+#include "dmd/expression.h"
 #include "dmd/id.h"
 #include "dmd/identifier.h"
 #include "dmd/init.h"
-#include "dmd/ldcbindings.h"
 #include "dmd/mangle.h"
 #include "dmd/module.h"
 #include "dmd/mtype.h"
@@ -184,7 +184,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
       // Lazy arguments are lowered to delegates.
       Logger::println("lazy param");
       auto ltf = TypeFunction::create(nullptr, arg->type, VARARGnone, LINK::d);
-      auto ltd = createTypeDelegate(ltf);
+      auto ltd = TypeDelegate::create(ltf);
       loweredDType = merge(ltd);
     } else if (passPointer) {
       // ref/out

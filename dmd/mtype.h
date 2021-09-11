@@ -709,6 +709,9 @@ public:
     Identifier *ident;
     Dsymbol *originalSymbol; // The symbol representing this identifier, before alias resolution
 
+#if IN_LLVM
+    static TypeIdentifier *create(const Loc &loc, Identifier *ident);
+#endif
     const char *kind();
     TypeIdentifier *syntaxCopy();
     Dsymbol *toDsymbol(Scope *sc);

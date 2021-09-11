@@ -10,6 +10,7 @@
 #include "dmd/declaration.h"
 #include "dmd/dsymbol.h"
 #include "dmd/errors.h"
+#include "dmd/ldcbindings.h"
 #include "dmd/scope.h"
 #include "dmd/statement.h"
 #include "gen/dvalue.h"

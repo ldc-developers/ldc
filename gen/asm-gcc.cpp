@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "dmd/errors.h"
-#include "dmd/ldcbindings.h"
+#include "dmd/expression.h"
 #include "dmd/statement.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"

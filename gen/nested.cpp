@@ -10,7 +10,6 @@
 #include "gen/nested.h"
 
 #include "dmd/errors.h"
-#include "dmd/ldcbindings.h"
 #include "dmd/target.h"
 #include "gen/dvalue.h"
 #include "gen/funcgenstate.h"
@@ -402,7 +401,7 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
     } else if (isParam && (vd->storage_class & STClazy)) {
       // the type is a delegate (LL struct)
       auto tf = TypeFunction::create(nullptr, vd->type, VARARGnone, LINK::d);
-      auto td = createTypeDelegate(tf);
+      auto td = TypeDelegate::create(tf);
       t = DtoType(td);
     } else {
       t = DtoMemType(vd->type);
