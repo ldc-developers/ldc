@@ -9,16 +9,21 @@
 
 module dmd.ldcbindings;
 
-import dmd.arraytypes : Strings;
+import dmd.arraytypes;
 import dmd.dsymbol;
 import dmd.expression;
 import dmd.globals;
+import dmd.root.outbuffer;
 import dmd.statement;
 import dmd.tokens;
 
 extern (C++):
 
 Strings* createStrings() { return new Strings(); }
+Parameters* createParameters() { return new Parameters(); }
+Expressions* createExpressions() { return new Expressions(); }
+
+OutBuffer* createOutBuffer() { return new OutBuffer(); }
 
 InlineAsmStatement createInlineAsmStatement(const ref Loc loc, Token* tokens) { return new InlineAsmStatement(loc, tokens); }
 GccAsmStatement createGccAsmStatement(const ref Loc loc, Token* tokens) { return new GccAsmStatement(loc, tokens); }

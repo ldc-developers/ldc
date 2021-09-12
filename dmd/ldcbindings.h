@@ -18,8 +18,14 @@ class DsymbolExp;
 class Expression;
 class GccAsmStatement;
 class InlineAsmStatement;
+struct OutBuffer;
+class Parameter;
 
 Array<const char *> *createStrings();
+Array<Parameter *> *createParameters();
+Array<Expression *> *createExpressions();
+
+OutBuffer *createOutBuffer();
 
 // for gen/asmstmt.cpp only:
 InlineAsmStatement *createInlineAsmStatement(const Loc &loc, Token *tokens);

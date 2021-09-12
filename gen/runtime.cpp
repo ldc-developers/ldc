@@ -12,6 +12,7 @@
 #include "dmd/aggregate.h"
 #include "dmd/dsymbol.h"
 #include "dmd/errors.h"
+#include "dmd/ldcbindings.h"
 #include "dmd/module.h"
 #include "dmd/mtype.h"
 #include "dmd/root/root.h"
@@ -244,7 +245,7 @@ struct LazyFunctionDeclarer {
   void declare(const Loc &loc) {
     Parameters *params = nullptr;
     if (!paramTypes.empty()) {
-      params = new Parameters();
+      params = createParameters();
       for (size_t i = 0, e = paramTypes.size(); i < e; ++i) {
         StorageClass stc = paramsSTC.empty() ? 0 : paramsSTC[i];
         Type *paramTy = paramTypes[i].get(loc);
@@ -446,7 +447,7 @@ static Type *rt_dg1() {
   if (dg_t)
     return dg_t;
 
-  auto params = new Parameters();
+  auto params = createParameters();
   params->push(Parameter::create(0, Type::tvoidptr, nullptr, nullptr, nullptr));
   auto fty = TypeFunction::create(params, Type::tint32, VARARGnone, LINK::d);
   dg_t = TypeDelegate::create(fty);
@@ -459,7 +460,7 @@ static Type *rt_dg2() {
   if (dg2_t)
     return dg2_t;
 
-  auto params = new Parameters();
+  auto params = createParameters();
   params->push(Parameter::create(0, Type::tvoidptr, nullptr, nullptr, nullptr));
   params->push(Parameter::create(0, Type::tvoidptr, nullptr, nullptr, nullptr));
   auto fty = TypeFunction::create(params, Type::tint32, VARARGnone, LINK::d);

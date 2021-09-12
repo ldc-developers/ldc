@@ -361,7 +361,7 @@ void parseCommandLine(Strings &sourceFiles) {
   global.params.mixinFile = opts::fromPathString(mixinFile).ptr;
 
   if (moduleDeps.getNumOccurrences() != 0) {
-    global.params.moduleDeps = new OutBuffer;
+    global.params.moduleDeps = createOutBuffer();
     if (!moduleDeps.empty())
       global.params.moduleDepsFile = opts::dupPathString(moduleDeps);
   }
