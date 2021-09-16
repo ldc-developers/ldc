@@ -151,6 +151,7 @@ void emitLLVMUsedArray(IRState &irs) {
   llvmUsed->setSection("llvm.metadata");
 }
 
+#if LDC_LLVM_VER < 1300
 void inlineAsmDiagnosticHandler(const llvm::SMDiagnostic &d, void *context,
                                 unsigned locCookie) {
   if (d.getKind() == llvm::SourceMgr::DK_Error)
@@ -173,6 +174,40 @@ void inlineAsmDiagnosticHandler(const llvm::SMDiagnostic &d, void *context,
                         d.getLineContents(), d.getRanges(), d.getFixIts());
   d2.print(nullptr, llvm::errs());
 }
+#else
+struct InlineAsmDiagnosticHandler : public llvm::DiagnosticHandler {
+  IRState *irs;
+  InlineAsmDiagnosticHandler(IRState *irs) : irs(irs) {}
+
+    // return false to defer to LLVMContext::diagnose()
+  bool handleDiagnostics(const llvm::DiagnosticInfo &DI) override {
+    if (DI.getKind() != llvm::DK_SrcMgr)
+        return false;
+
+    const auto &DISM = llvm::cast<llvm::DiagnosticInfoSrcMgr>(DI);
+    if (DI.getKind() == llvm::SourceMgr::DK_Error)
+      ++global.errors;
+    unsigned locCookie = DISM.getLocCookie();
+    auto & d = DISM.getSMDiag();
+    if (!locCookie) {
+      d.print(nullptr, llvm::errs());
+      return false;
+    }
+
+    // replace the `<inline asm>` dummy filename by the LOC of the actual D
+    // expression/statement (`myfile.d(123)`)
+    const Loc &loc = irs->getInlineAsmSrcLoc(locCookie);
+    const char *filename = loc.toChars(/*showColumns*/ false);
+
+    // keep on using llvm::SMDiagnostic::print() for nice, colorful output
+    llvm::SMDiagnostic d2(*d.getSourceMgr(), d.getLoc(), filename, d.getLineNo(),
+                          d.getColumnNo(), d.getKind(), d.getMessage(),
+                          d.getLineContents(), d.getRanges(), d.getFixIts());
+    d2.print(nullptr, llvm::errs());
+    return true;
+  }
+};
+#endif
 
 } // anonymous namespace
 
@@ -264,8 +299,11 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   llvm::Metadata *IdentNode[] = {llvm::MDString::get(ir_->context(), Version)};
   IdentMetadata->addOperand(llvm::MDNode::get(ir_->context(), IdentNode));
 
-#if LDC_LLVM_VER < 1400
+#if LDC_LLVM_VER < 1300
   context_.setInlineAsmDiagnosticHandler(inlineAsmDiagnosticHandler, ir_);
+#else
+  context_.setDiagnosticHandler(
+          std::make_unique<InlineAsmDiagnosticHandler>(ir_));
 #endif
 
   std::unique_ptr<llvm::ToolOutputFile> diagnosticsOutputFile =
