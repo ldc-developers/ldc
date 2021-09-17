@@ -32,7 +32,6 @@
 #include "dmd/enum.h"
 #include "dmd/id.h"
 #include "dmd/identifier.h"
-#include "dmd/ldcbindings.h"
 #include "dmd/mtype.h"
 #include "dmd/target.h"
 #include "gen/abi.h"
@@ -389,7 +388,7 @@ Type *X86_64TargetABI::vaListType() {
   // using TypeIdentifier here is a bit wonky but works, as long as the name
   // is actually available in the scope (this is what DMD does, so if a better
   // solution is found there, this should be adapted).
-  return createTypeIdentifier(Loc(), Identifier::idPool("__va_list"))
+  return TypeIdentifier::create(Loc(), Identifier::idPool("__va_list"))
       ->pointerTo();
 }
 

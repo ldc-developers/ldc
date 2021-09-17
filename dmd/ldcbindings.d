@@ -9,71 +9,71 @@
 
 module dmd.ldcbindings;
 
-import dmd.arraytypes : Strings;
+import dmd.arraytypes;
+import dmd.dsymbol;
 import dmd.expression;
 import dmd.globals;
-import dmd.iasmgcc;
-import dmd.identifier;
-import dmd.mtype;
-import dmd.declaration;
-import dmd.dsymbol;
+import dmd.root.outbuffer;
 import dmd.statement;
 import dmd.tokens;
-import std.traits;
-import std.stdio;
-import std.string;
-import std.conv;
 
-/+ This mixin defines "createClassName" functions for all constructors of T, returning T*.
- + createClassName(...) must be used in C++ code instead of "new ClassName(...)".
- + For structs it returns a T (non-ptr).
- + Many thanks to Chris Wright for authoring the initial version.
- +/
-private string factory(T)() {
-    string s;
-    int count = __traits(getOverloads, T, "__ctor").length;
-    if (count == 0) {
-        s = `ClassName createClassName() { return new ClassName(); }`;
-    } else {
-        for (int i = 0; i < count; i++) {
-            s ~= `ClassName createClassName(Parameters!(__traits(getOverloads, ClassName, "__ctor")[OVERLOAD]) params) {
-                return new ClassName(params);
-            }
-            `.replace("OVERLOAD", i.to!string);
-        }
-    }
-    static if (is(T == struct)) {
-        s = s.replace("new", "");
-    }
-    return s.replace("ClassName", T.stringof.split('.')[$-1]);
-}
-// helper functions to create D objects
-extern(C++):
-mixin(factory!IntegerExp);
-mixin(factory!LogicalExp);
-mixin(factory!EqualExp);
-mixin(factory!CmpExp);
-mixin(factory!ShlExp);
-mixin(factory!ShrExp);
-mixin(factory!UshrExp);
-mixin(factory!NotExp);
-mixin(factory!ComExp);
-mixin(factory!OrExp);
-mixin(factory!AndExp);
-mixin(factory!XorExp);
-mixin(factory!ModExp);
-mixin(factory!MulExp);
-mixin(factory!DivExp);
-mixin(factory!AddExp);
-mixin(factory!MinExp);
-mixin(factory!NegExp);
-mixin(factory!AddrExp);
-mixin(factory!RealExp);
-mixin(factory!DsymbolExp);
-mixin(factory!Expression);
-mixin(factory!InlineAsmStatement);
-mixin(factory!GccAsmStatement);
-mixin(factory!TypeDelegate);
-mixin(factory!TypeIdentifier);
+extern (C++):
 
 Strings* createStrings() { return new Strings(); }
+Parameters* createParameters() { return new Parameters(); }
+Expressions* createExpressions() { return new Expressions(); }
+
+OutBuffer* createOutBuffer() { return new OutBuffer(); }
+
+InlineAsmStatement createInlineAsmStatement(const ref Loc loc, Token* tokens) { return new InlineAsmStatement(loc, tokens); }
+GccAsmStatement createGccAsmStatement(const ref Loc loc, Token* tokens) { return new GccAsmStatement(loc, tokens); }
+
+Expression createExpressionForIntOp(const ref Loc loc, TOK op, Expression e1, Expression e2)
+{
+    switch (op)
+    {
+        case TOK.add:
+            return e2 ? new AddExp(loc, e1, e2) : e1;
+        case TOK.min:
+            return e2 ? new MinExp(loc, e1, e2) : new NegExp(loc, e1);
+        case TOK.mul:
+            return new MulExp(loc, e1, e2);
+        case TOK.div:
+            return new DivExp(loc, e1, e2);
+        case TOK.mod:
+            return new ModExp(loc, e1, e2);
+        case TOK.leftShift:
+            return new ShlExp(loc, e1, e2);
+        case TOK.rightShift:
+            return new ShrExp(loc, e1, e2);
+        case TOK.unsignedRightShift:
+            return new UshrExp(loc, e1, e2);
+        case TOK.not:
+            return new NotExp(loc, e1);
+        case TOK.tilde:
+            return new ComExp(loc, e1);
+        case TOK.orOr:
+        case TOK.andAnd:
+            return new LogicalExp(loc, op, e1, e2);
+        case TOK.or:
+            return new OrExp(loc, e1, e2);
+        case TOK.and:
+            return new AndExp(loc, e1, e2);
+        case TOK.xor:
+            return new XorExp(loc, e1, e2);
+        case TOK.equal:
+        case TOK.notEqual:
+            return new EqualExp(op, loc, e1, e2);
+        case TOK.greaterThan:
+        case TOK.greaterOrEqual:
+        case TOK.lessThan:
+        case TOK.lessOrEqual:
+            return new CmpExp(op, loc, e1, e2);
+        default:
+            assert(0, "unknown integer operation");
+    }
+}
+
+Expression createExpression(const ref Loc loc, TOK op) { return new Expression(loc, op, __traits(classInstanceSize, Expression)); }
+DsymbolExp createDsymbolExp(const ref Loc loc, Dsymbol s) { return new DsymbolExp(loc, s, /*hasOverloads=*/false); }
+AddrExp createAddrExp(const ref Loc loc, Expression e) { return new AddrExp(loc, e); }

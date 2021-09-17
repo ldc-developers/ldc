@@ -18,6 +18,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "dmd/expression.h"
 #include "dmd/id.h"
 #include "dmd/identifier.h"
 #include "dmd/ldcbindings.h"
@@ -2075,7 +2076,7 @@ struct AsmProcessor {
         ptrTypeIdentTable[i] = Identifier::idPool(ptrTypeNameTable[i]);
       }
 
-      Handled = createExpression(Loc(), TOKvoid, sizeof(Expression));
+      Handled = createExpression(Loc(), TOKvoid);
 
       ident_seg = Identifier::idPool("seg");
 
@@ -3105,7 +3106,7 @@ struct AsmProcessor {
   }
 
   Expression *newRegExp(int regno) {
-    auto e = createIntegerExp(regno);
+    auto e = IntegerExp::create(Loc(), regno, Type::tint32);
     e->op = TOKmod;
     return e;
   }
@@ -3113,12 +3114,12 @@ struct AsmProcessor {
 #ifndef ASM_X86_64
   Expression *newIntExp(int v /* %% type */) {
     // Only handles 32-bit numbers as this is IA-32.
-    return createIntegerExp(stmt->loc, v, Type::tint32);
+    return IntegerExp::create(stmt->loc, v, Type::tint32);
   }
 #else
   Expression *newIntExp(long long v /* %% type */) {
     // Handle 64 bit
-    return createIntegerExp(stmt->loc, v, Type::tint64);
+    return IntegerExp::create(stmt->loc, v, Type::tint64);
   }
 #endif
 
@@ -3221,76 +3222,12 @@ struct AsmProcessor {
   }
 
   Expression *intOp(TOK op, Expression *e1, Expression *e2) {
-    Expression *e;
     if (isIntExp(e1) && (!e2 || isIntExp(e2))) {
-      switch (op) {
-      case TOKadd:
-        if (e2) {
-          e = createAddExp(stmt->loc, e1, e2);
-        } else {
-          e = e1;
-        }
-        break;
-      case TOKmin:
-        if (e2) {
-          e = createMinExp(stmt->loc, e1, e2);
-        } else {
-          e = createNegExp(stmt->loc, e1);
-        }
-        break;
-      case TOKmul:
-        e = createMulExp(stmt->loc, e1, e2);
-        break;
-      case TOKdiv:
-        e = createDivExp(stmt->loc, e1, e2);
-        break;
-      case TOKmod:
-        e = createModExp(stmt->loc, e1, e2);
-        break;
-      case TOKshl:
-        e = createShlExp(stmt->loc, e1, e2);
-        break;
-      case TOKshr:
-        e = createShrExp(stmt->loc, e1, e2);
-        break;
-      case TOKushr:
-        e = createUshrExp(stmt->loc, e1, e2);
-        break;
-      case TOKnot:
-        e = createNotExp(stmt->loc, e1);
-        break;
-      case TOKtilde:
-        e = createComExp(stmt->loc, e1);
-        break;
-      case TOKoror:
-      case TOKandand:
-        e = createLogicalExp(stmt->loc, op, e1, e2);
-        break;
-      case TOKor:
-        e = createOrExp(stmt->loc, e1, e2);
-        break;
-      case TOKand:
-        e = createAndExp(stmt->loc, e1, e2);
-        break;
-      case TOKxor:
-        e = createXorExp(stmt->loc, e1, e2);
-        break;
-      case TOKequal:
-      case TOKnotequal:
-        e = createEqualExp(op, stmt->loc, e1, e2);
-        break;
-      case TOKgt:
-      case TOKge:
-      case TOKlt:
-      case TOKle:
-        e = createCmpExp(op, stmt->loc, e1, e2);
-        break;
-      default:
-        llvm_unreachable("Unknown integer operation.");
-      }
+      Expression *e = createExpressionForIntOp(stmt->loc, op, e1, e2);
       e = expressionSemantic(e, sc);
       return e->ctfeInterpret();
     }
+
     stmt->error("expected integer operand(s) for `%s`", Token::toChars(op));
     return newIntExp(0);
   }
@@ -3698,9 +3635,9 @@ struct AsmProcessor {
 // semantic here?
 #ifndef ASM_X86_64
       // %% for tok64 really should use 64bit type
-      e = createIntegerExp(stmt->loc, token->unsvalue, Type::tint32);
+      e = IntegerExp::create(stmt->loc, token->unsvalue, Type::tint32);
 #else
-      e = createIntegerExp(stmt->loc, token->unsvalue, Type::tint64);
+      e = IntegerExp::create(stmt->loc, token->unsvalue, Type::tint64);
 #endif
       nextToken();
       break;
@@ -3708,7 +3645,7 @@ struct AsmProcessor {
     case TOKfloat64v:
     case TOKfloat80v:
       // %% need different types?
-      e = createRealExp(stmt->loc, token->floatvalue, Type::tfloat80);
+      e = RealExp::create(stmt->loc, token->floatvalue, Type::tfloat80);
       nextToken();
       break;
     case TOKidentifier: {
