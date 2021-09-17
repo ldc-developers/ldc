@@ -36,19 +36,19 @@ void addMscrtLibs(bool useInternalToolchain, std::vector<std::string> &args) {
   // We need the vcruntime lib for druntime's exception handling (ldc.eh_msvc).
   // Pick one of the 4 variants matching the selected main UCRT lib.
 
-#if LDC_LLVM_VER < 1400
-#define contains_insensitive contains_lower
-#define endswith_insensitive endswith_lower
+#if LDC_LLVM_VER >= 1400
+#define contains_lower contains_insensitive
+#define endswith_lower endswith_insensitive
 #endif
   if (useInternalToolchain) {
-    assert(mscrtlibName.contains_insensitive("vcruntime"));
+    assert(mscrtlibName.contains_lower("vcruntime"));
     return;
   }
 
-  const bool isStatic = mscrtlibName.contains_insensitive("libcmt");
+  const bool isStatic = mscrtlibName.contains_lower("libcmt");
 
   const bool isDebug =
-      mscrtlibName.endswith_insensitive("d") || mscrtlibName.endswith_insensitive("d.lib");
+      mscrtlibName.endswith_lower("d") || mscrtlibName.endswith_lower("d.lib");
 
   const llvm::StringRef prefix = isStatic ? "lib" : "";
   const llvm::StringRef suffix = isDebug ? "d" : "";
