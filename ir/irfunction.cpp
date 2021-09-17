@@ -29,26 +29,14 @@ IrFunction::IrFunction(FuncDeclaration *fd)
 }
 
 void IrFunction::setNeverInline() {
-  assert(!func->getAttributes()
-#if LDC_LLVM_VER < 1400
-                .hasAttribute(LLAttributeList::FunctionIndex,
-#else
-                .hasFnAttr(
-#endif
-                           llvm::Attribute::AlwaysInline) &&
-            "function can't be never- and always-inline at the same time");
+  assert(!func->hasFnAttribute(llvm::Attribute::AlwaysInline) &&
+         "function can't be never- and always-inline at the same time");
   func->addFnAttr(llvm::Attribute::NoInline);
 }
 
 void IrFunction::setAlwaysInline() {
-  assert(!func->getAttributes()
-#if LDC_LLVM_VER < 1400
-                .hasAttribute(LLAttributeList::FunctionIndex,
-#else
-                .hasFnAttr(
-#endif
-                           llvm::Attribute::NoInline) &&
-            "function can't be never- and always-inline at the same time");
+  assert(!func->hasFnAttribute(llvm::Attribute::NoInline) &&
+         "function can't be never- and always-inline at the same time");
   func->addFnAttr(llvm::Attribute::AlwaysInline);
 }
 
