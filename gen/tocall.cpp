@@ -508,12 +508,12 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       fatal();
     }
 
-    auto ret = p->ir->CreateAtomicCmpXchg(ptr, cmp, val,
+    auto ret =
+      p->ir->CreateAtomicCmpXchg(ptr, cmp, val,
 #if LDC_LLVM_VER >= 1400
-                                          LLMaybeAlign(),
+                                 LLMaybeAlign(gDataLayout->getABITypeAlignment(val->getType())),
 #endif
-                                          successOrdering,
-                                          failureOrdering);
+                                 successOrdering, failureOrdering);
     ret->setWeak(isWeak);
 
     // we return a struct; allocate on stack and store to both fields manually
@@ -559,7 +559,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     LLValue *ret =
         p->ir->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp(op), ptr, val,
 #if LDC_LLVM_VER >= 1400
-                               LLMaybeAlign(),
+                               LLMaybeAlign(gDataLayout->getABITypeAlignment(val->getType())),
 #endif
                                llvm::AtomicOrdering(atomicOrdering));
     result = new DImValue(exp2->type, ret);
@@ -1036,13 +1036,13 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
   }
   // merge in function attributes set in callOrInvoke
 #if LDC_LLVM_VER >= 1400
-attrlist = attrlist.addFnAttributes(
-        gIR->context(),
-        llvm::AttrBuilder(call->getAttributes(), LLAttributeList::FunctionIndex));
+  attrlist = attrlist.addFnAttributes(
+    gIR->context(),
+    llvm::AttrBuilder(call->getAttributes(), LLAttributeList::FunctionIndex));
 #else
   attrlist = attrlist.addAttributes(
-      gIR->context(), LLAttributeList::FunctionIndex,
-      llvm::AttrBuilder(call->getAttributes(), LLAttributeList::FunctionIndex));
+    gIR->context(), LLAttributeList::FunctionIndex,
+    llvm::AttrBuilder(call->getAttributes(), LLAttributeList::FunctionIndex));
 #endif
   call->setAttributes(attrlist);
 
