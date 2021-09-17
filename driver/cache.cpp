@@ -322,7 +322,7 @@ void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os) {
 #if LDC_LLVM_VER >= 800
   const auto framePointerUsage = opts::framePointerUsage();
   if (framePointerUsage.hasValue())
-    hash_os << framePointerUsage.getValue();
+    hash_os << static_cast<int>(framePointerUsage.getValue());
 #else
   hash_os << opts::disableFPElim();
 #endif
