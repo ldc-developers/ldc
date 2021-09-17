@@ -37,8 +37,8 @@ void addMscrtLibs(bool useInternalToolchain, std::vector<std::string> &args) {
   // Pick one of the 4 variants matching the selected main UCRT lib.
 
 #if LDC_LLVM_VER < 1400
-#define contains_insensitive contains_lower
-#define endswith_insensitive endswith_lower
+using contains_insensitive = contains_lower;
+using endswith_insensitive = endswith_lower;
 #endif
   if (useInternalToolchain) {
     assert(mscrtlibName.contains_insensitive("vcruntime"));
