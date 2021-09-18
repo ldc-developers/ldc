@@ -76,7 +76,7 @@ dll_gc_proxy_teardown:
 # end Windows
 endif
 
-$(ROOT)/dynamiccast.done: CLEANUP:=rm dynamiccast_endmain dynamiccast_endbar
+$(ROOT)/dynamiccast.done: CLEANUP:=rm $(ROOT)/dynamiccast_endmain $(ROOT)/dynamiccast_endbar
 
 $(ROOT)/%.done: $(ROOT)/%
 	@echo Testing $*
