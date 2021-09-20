@@ -34,9 +34,19 @@ struct SPIRVTargetABI : TargetABI {
       if (!arg->byref)
         rewriteArgument(fty, *arg);
     }
+    if (!skipReturnValueRewrite(fty))
+      rewriteArgument(fty, *fty.ret);
   }
   bool returnInArg(TypeFunction *tf, bool) override {
-    return !tf->isref() && DtoIsInMemoryOnly(tf->next);
+    if (tf->isref())
+      return false;
+    Type *retty = tf->next->toBasetype();
+    if (retty->ty == TY::Tsarray)
+      return true;
+    else if (auto st = retty->isTypeStruct())
+      return !toDcomputePointer(st->sym);
+    else
+      return false;
   }
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     Type *ty = arg.type->toBasetype();
