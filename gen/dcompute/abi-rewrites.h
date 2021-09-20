@@ -15,7 +15,19 @@
 
 #include "gen/abi-generic.h"
 
-struct DComputePointerRewrite : BaseBitcastABIRewrite {
+struct DComputePointerRewrite : ABIRewrite {
+  LLValue *put(DValue *v, bool isLValueExp, bool) override {
+    LLValue *address = DtoLVal(v);
+    address = DtoGEP(address, 0u, 0u);
+    return DtoLoad(address, ".DComputePointerRewrite_arg");
+  }
+
+  LLValue *getLVal(Type *dty, LLValue *v) override {
+    LLValue *mem = DtoAlloca(dty, ".DComputePointerRewrite_param_storage");
+    DtoStore(v, DtoGEP(mem, 0u, 0u));
+    return mem;
+  }
+
   LLType *type(Type *t) override {
     auto ptr = toDcomputePointer(static_cast<TypeStruct *>(t)->sym);
     return ptr->toLLVMType(true);
