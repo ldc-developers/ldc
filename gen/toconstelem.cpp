@@ -39,7 +39,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
-  LLConstant *toConstElem(Expression *e) {
+  LLConstant *process(Expression *e) {
     result = nullptr;
     e->accept(this);
     return result;
@@ -198,7 +198,7 @@ public:
     // add to pointer
     Type *t1b = e->e1->type->toBasetype();
     if (t1b->ty == TY::Tpointer && e->e2->type->isintegral()) {
-      llvm::Constant *ptr = toConstElem(e->e1);
+      llvm::Constant *ptr = toConstElem(e->e1, p);
       dinteger_t idx = undoStrideMul(e->loc, t1b, e->e2->toInteger());
       result = llvm::ConstantExpr::getGetElementPtr(
           isaPointer(ptr)->getElementType(), ptr, DtoConstSize_t(idx));
@@ -215,7 +215,7 @@ public:
 
     Type *t1b = e->e1->type->toBasetype();
     if (t1b->ty == TY::Tpointer && e->e2->type->isintegral()) {
-      llvm::Constant *ptr = toConstElem(e->e1);
+      llvm::Constant *ptr = toConstElem(e->e1, p);
       dinteger_t idx = undoStrideMul(e->loc, t1b, e->e2->toInteger());
 
       llvm::Constant *negIdx = llvm::ConstantExpr::getNeg(DtoConstSize_t(idx));
@@ -256,7 +256,7 @@ public:
     // pointer to pointer
     else if (tb->ty == TY::Tpointer &&
              e->e1->type->toBasetype()->ty == TY::Tpointer) {
-      result = llvm::ConstantExpr::getBitCast(toConstElem(e->e1), lltype);
+      result = llvm::ConstantExpr::getBitCast(toConstElem(e->e1, p), lltype);
     }
     // global variable to pointer
     else if (tb->ty == TY::Tpointer && e->e1->op == TOKvar) {
@@ -279,7 +279,7 @@ public:
     } else if (tb->ty == TY::Tclass && e->e1->type->ty == TY::Tclass &&
                e->e1->op == TOKclassreference) {
       auto cd = static_cast<ClassReferenceExp *>(e->e1)->originalClass();
-      llvm::Constant *instance = toConstElem(e->e1);
+      llvm::Constant *instance = toConstElem(e->e1, p);
       if (InterfaceDeclaration *it =
               static_cast<TypeClass *>(tb)->sym->isInterfaceDeclaration()) {
         assert(it->isBaseOf(cd, NULL));
@@ -371,7 +371,7 @@ public:
       assert(isIrGlobalCreated(vd));
 
       // get index
-      LLConstant *index = toConstElem(iexp->e2);
+      LLConstant *index = toConstElem(iexp->e2, p);
       assert(index->getType() == DtoSize_t());
 
       // gep
@@ -401,7 +401,7 @@ public:
       globalVar->setAlignment(LLMaybeAlign(DtoAlignment(se->type)));
 
       p->setStructLiteralConstant(se, globalVar);
-      llvm::Constant *constValue = toConstElem(se);
+      llvm::Constant *constValue = toConstElem(se, p);
       constValue = p->setGlobalVarInitializer(globalVar, constValue, nullptr);
       p->setStructLiteralConstant(se, constValue);
 
@@ -532,7 +532,7 @@ public:
       const size_t nexprs = e->elements->length;
       for (size_t i = 0; i < nexprs; i++) {
         if (auto elem = (*e->elements)[i]) {
-          LLConstant *c = toConstElem(elem);
+          LLConstant *c = toConstElem(elem, p);
           // extend i1 to i8
           if (c->getType() == LLType::getInt1Ty(p->context()))
             c = llvm::ConstantExpr::getZExt(c, LLType::getInt8Ty(p->context()));
@@ -587,7 +587,7 @@ public:
               IF_LOG Logger::println("Getting initializer for: %s",
                                      field->toChars());
               LOG_SCOPE;
-              varInits[field] = toConstElem(elem);
+              varInits[field] = toConstElem(elem, p);
             }
             ++i;
           }
@@ -643,7 +643,7 @@ public:
       llvm::SmallVector<llvm::Constant *, 16> elements;
       elements.reserve(elemCount);
       for (size_t i = 0; i < elemCount; ++i) {
-        elements.push_back(toConstElem(indexArrayLiteral(ale, i)));
+        elements.push_back(toConstElem(indexArrayLiteral(ale, i), p));
       }
 
       result = llvm::ConstantVector::get(elements);
@@ -666,7 +666,7 @@ public:
       const auto elementCount = elemCount;
 #endif
       result = llvm::ConstantVector::getSplat(
-          elementCount, toConstElem(e->e1->optimize(WANTvalue)));
+          elementCount, toConstElem(e->e1->optimize(WANTvalue), p));
     }
   }
 
@@ -695,7 +695,7 @@ public:
 };
 
 LLConstant *toConstElem(Expression *e, IRState *p) {
-  auto ce = ToConstElemVisitor(p).toConstElem(e);
+  auto ce = ToConstElemVisitor(p).process(e);
   if (!ce) {
     // error case; never return null
     ce = llvm::UndefValue::get(DtoType(e->type));
@@ -705,7 +705,7 @@ LLConstant *toConstElem(Expression *e, IRState *p) {
 
 LLConstant *tryToConstElem(Expression *e, IRState *p) {
   const auto errors = global.startGagging();
-  auto ce = ToConstElemVisitor(p).toConstElem(e);
+  auto ce = ToConstElemVisitor(p).process(e);
   if (global.endGagging(errors)) {
     return nullptr;
   }
