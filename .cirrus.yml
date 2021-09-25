@@ -5,7 +5,8 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
   install_lit_script: |
     # Install lit
     python3 -m pip install --user setuptools wheel
-    python3 -m pip install --user lit
+    # lit v0.11.1 is the latest version to work with Python v3.5 (from Ubuntu 16.04)
+    python3 -m pip install --user lit==0.11.1
     python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
   clone_submodules_script: |
     cd $CIRRUS_WORKING_DIR
@@ -144,6 +145,56 @@ task:
     # for gdmd:
     LANG: C.UTF-8
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
+  << : *COMMON_STEPS_TEMPLATE
+
+# LDC v0.17.6: C parts of Phobos not compiled with -fPIC, needs Ubuntu 16.04
+task:
+  name: Ubuntu 16.04 x64 ltsmaster
+  container:
+    image: ubuntu:16.04
+    cpu: 8
+    memory: 16G
+  timeout_in: 60m
+  environment:
+    CI_OS: linux
+    EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON -DLDC_LINK_MANUALLY=ON -DLLVM_ROOT_DIR=$CIRRUS_WORKING_DIR/../llvm"
+    PARALLELISM: 8
+    # for pip:
+    LANG: C.UTF-8
+  install_prerequisites_script: |
+    cd $CIRRUS_WORKING_DIR/..
+    nproc
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get -q update
+    apt-get -yq install \
+      git-core cmake ninja-build g++ \
+      zlib1g-dev \
+      libcurl3 curl gdb python3 python3-pip tzdata unzip zip
+    python3 --version
+    # Download & extract host LDC
+    curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v0.17.6/ldc2-0.17.6-linux-x86_64.tar.xz
+    mkdir host-ldc
+    tar -xf ldc2.tar.xz --strip 1 -C host-ldc
+    rm ldc2.tar.xz
+    # Download & extract vanilla LLVM
+    curl --max-time 300 --retry 3 -L -o llvm.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-12.0.1/clang+llvm-12.0.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+    mkdir -p llvm
+    tar -xf llvm.tar.xz --strip 1 -C llvm
+    rm llvm.tar.xz
+  clone_submodules_early_script: |
+    cd $CIRRUS_WORKING_DIR
+    git submodule update --init --depth $CIRRUS_CLONE_DEPTH
+  remove_some_tests_script: |
+    cd $CIRRUS_WORKING_DIR/tests/d2/dmd-testsuite
+    # The -lowmem tests don't work with an ltsmaster host compiler
+    rm runnable/{testptrref,xtest46}_gc.d
+    rm fail_compilation/mixin_gc.d
+    # The @live tests neither (LDC segfaults)
+    rm compilable/ob{1,2}.d
+    rm fail_compilation/fob{1,2}.d
+    rm fail_compilation/failob2.d
+    # Some __traits(getOverloads) tests neither
+    rm compilable/{test21050,test21743}.d
   << : *COMMON_STEPS_TEMPLATE
 
 task:

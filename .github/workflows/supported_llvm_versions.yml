@@ -22,12 +22,11 @@ jobs:
             host_dc: ldc-beta
             llvm_version: "9.0.1"
             cmake_opts: "-DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON"
-          # LDC v0.17.6: C parts of Phobos not compiled with -fPIC, needs Ubuntu 16.04
-          - job_name: Ubuntu 16.04, LLVM 8, LDC 0.17.6
-            os: ubuntu-16.04
-            host_dc: ldc-0.17.6
+          - job_name: Ubuntu 18.04, LLVM 8, latest LDC beta
+            os: ubuntu-18.04
+            host_dc: ldc-beta
             llvm_version: "8.0.0"
-            cmake_opts: "-DBUILD_SHARED_LIBS=OFF -DLDC_LINK_MANUALLY=ON"
+            cmake_opts: "-DBUILD_SHARED_LIBS=OFF"
           - job_name: Ubuntu 18.04, LLVM 6, latest DMD beta
             os: ubuntu-18.04
             host_dc: dmd-beta
@@ -50,11 +49,6 @@ jobs:
         with:
           submodules: true
           fetch-depth: 50
-      - name: Set up Python 3.x
-        if: matrix.os == 'ubuntu-16.04'
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.x'
       - name: Install ninja
         uses: seanmiddleditch/gha-setup-ninja@v3
       - name: Install D host compiler
@@ -74,12 +68,8 @@ jobs:
         run: |
           set -euxo pipefail
           sudo apt-get update
-          if [[ '${{ matrix.os }}' == 'ubuntu-18.04' ]]; then
-            # Don't use latest gdb v10 from Ubuntu toolchain PPA with regressions, use official v8
-            sudo apt-get install gdb=8.1.1-0ubuntu1
-          else
-            sudo apt-get install gdb
-          fi
+          # Don't use latest gdb v10 from Ubuntu toolchain PPA with regressions, use official v8
+          sudo apt-get install gdb=8.1.1-0ubuntu1
 
       - name: Try to restore cached LLVM
         uses: actions/cache@v2
@@ -132,20 +122,7 @@ jobs:
           fi
           ctest -V -R "lit-tests"
       - name: Run DMD testsuite
-        run: |
-          set -euxo pipefail
-          if [[ '${{ matrix.host_dc }}' == ldc-0.17.* ]]; then
-            # The -lowmem tests don't work with an ltsmaster host compiler
-            rm tests/d2/dmd-testsuite/runnable/{testptrref,xtest46}_gc.d
-            rm tests/d2/dmd-testsuite/fail_compilation/mixin_gc.d
-            # The @live tests neither (LDC segfaults)
-            rm tests/d2/dmd-testsuite/compilable/ob{1,2}.d
-            rm tests/d2/dmd-testsuite/fail_compilation/fob{1,2}.d
-            rm tests/d2/dmd-testsuite/fail_compilation/failob2.d
-            # Some __traits(getOverloads) tests neither
-            rm tests/d2/dmd-testsuite/compilable/{test21050,test21743}.d
-          fi
-          ctest -V -R "dmd-testsuite"
+        run: ctest -V -R "dmd-testsuite"
       - name: Run defaultlib unittests & druntime integration tests
         run: |
           set -euxo pipefail
