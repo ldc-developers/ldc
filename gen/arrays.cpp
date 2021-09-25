@@ -1329,6 +1329,10 @@ void DtoIndexBoundsCheck(const Loc &loc, DValue *arr, DValue *index) {
     // Length of pointers is unknown, ignore.
     return;
   }
+  if (auto ts = arrty->isTypeSArray()) {
+    if (ts->isIncomplete()) // importC
+      return;
+  }
 
   LLValue *const llIndex = DtoRVal(index);
   LLValue *const llLength = DtoArrayLen(arr);
