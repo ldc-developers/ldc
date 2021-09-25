@@ -500,6 +500,7 @@ immutable Msgtable[] msgtable =
     { "vector_size" },
     { "__func__" },
     { "noreturn" },
+    { "__pragma", "pragma" },
 
     // IN_LLVM: LDC-specific pragmas
     { "LDC_intrinsic" },
