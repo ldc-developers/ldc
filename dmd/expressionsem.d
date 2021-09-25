@@ -4430,6 +4430,26 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             }
             else if (exp.e1.op == TOK.type && (sc && sc.flags & SCOPE.Cfile))
             {
+                const numArgs = exp.arguments ? exp.arguments.length : 0;
+                if (e1org.parens && numArgs >= 1)
+                {
+                    /* Ambiguous cases arise from CParser where there is not enough
+                     * information to determine if we have a function call or a cast.
+                     *   ( type-name ) ( identifier ) ;
+                     *   ( identifier ) ( identifier ) ;
+                     * If exp.e1 is a type-name, then this is a cast.
+                     */
+                    Expression arg;
+                    foreach (a; (*exp.arguments)[])
+                    {
+                        arg = arg ? new CommaExp(a.loc, arg, a) : a;
+                    }
+                    auto t = exp.e1.isTypeExp().type;
+                    auto e = new CastExp(exp.loc, arg, t);
+                    result = e.expressionSemantic(sc);
+                    return;
+                }
+
                 /* Ambiguous cases arise from CParser where there is not enough
                  * information to determine if we have a function call or declaration.
                  *   type-name ( identifier ) ;
@@ -4437,7 +4457,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                  * If exp.e1 is a type-name, then this is a declaration. C11 does not
                  * have type construction syntax, so don't convert this to a cast().
                  */
-                if (exp.arguments && exp.arguments.dim == 1)
+                if (numArgs == 1)
                 {
                     Expression arg = (*exp.arguments)[0];
                     if (auto ie = (*exp.arguments)[0].isIdentifierExp())
@@ -6415,6 +6435,12 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                     assert(0);
                 return;
             }
+        }
+
+        if (sc.flags & SCOPE.Cfile && exp.ident != Id.__sizeof)
+        {
+            result = fieldLookup(exp.e1, sc, exp.ident);
+            return;
         }
 
         Expression e = exp.semanticY(sc, 1);
@@ -8721,6 +8747,11 @@ version (IN_LLVM)
                 }
 
                 e1x = e;
+            }
+            else if (sc.flags & SCOPE.Cfile && e1x.isDotIdExp())
+            {
+                auto die = e1x.isDotIdExp();
+                e1x = fieldLookup(die.e1, sc, die.ident);
             }
             else if (auto die = e1x.isDotIdExp())
             {

@@ -3553,6 +3553,13 @@ extern (C++) final class TypeSArray : TypeArray
         this.dim = dim;
     }
 
+    extern (D) this(Type t)  // for incomplete type
+    {
+        super(Tsarray, t);
+        //printf("TypeSArray()\n");
+        this.dim = new IntegerExp(0);
+    }
+
     override const(char)* kind() const
     {
         return "sarray";
@@ -3565,6 +3572,15 @@ extern (C++) final class TypeSArray : TypeArray
         auto result = new TypeSArray(t, e);
         result.mod = mod;
         return result;
+    }
+
+    /***
+     * C11 6.7.6.2-4 incomplete array type
+     * Returns: true if incomplete type
+     */
+    bool isIncomplete()
+    {
+        return dim.isIntegerExp() && dim.isIntegerExp().getInteger() == 0;
     }
 
     override d_uns64 size(const ref Loc loc)
