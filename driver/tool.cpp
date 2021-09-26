@@ -51,26 +51,22 @@ static std::string findProgramByName(llvm::StringRef name) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-std::string getProgram(const char *name, const llvm::cl::opt<std::string> *opt,
+std::string getProgram(const char *fallbackName,
+                       const llvm::cl::opt<std::string> *opt,
                        const char *envVar) {
-  std::string path;
-
+  std::string name;
   if (opt && !opt->empty()) {
-    path = findProgramByName(opt->c_str());
+    name = *opt;
+  } else {
+    if (envVar)
+      name = env::get(envVar);
+    if (name.empty()) // no or empty env var
+      name = fallbackName;
   }
 
-  if (path.empty() && envVar) {
-    const std::string prog = env::get(envVar);
-    if (!prog.empty())
-      path = findProgramByName(prog);
-  }
-
+  const std::string path = findProgramByName(name);
   if (path.empty()) {
-    path = findProgramByName(name);
-  }
-
-  if (path.empty()) {
-    error(Loc(), "failed to locate %s", name);
+    error(Loc(), "cannot find program `%s`", name.c_str());
     fatal();
   }
 
@@ -174,7 +170,7 @@ int executeToolAndWait(const std::string &tool_,
                        const std::vector<std::string> &args, bool verbose) {
   const auto tool = findProgramByName(tool_);
   if (tool.empty()) {
-    error(Loc(), "failed to locate %s", tool_.c_str());
+    error(Loc(), "cannot find program `%s`", tool_.c_str());
     return -1;
   }
 

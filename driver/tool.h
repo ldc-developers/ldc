@@ -26,7 +26,7 @@ extern llvm::cl::opt<std::string> linker;
 std::string getGcc();
 void appendTargetArgsForGcc(std::vector<std::string> &args);
 
-std::string getProgram(const char *name,
+std::string getProgram(const char *fallbackName,
                        const llvm::cl::opt<std::string> *opt = nullptr,
                        const char *envVar = nullptr);
 
