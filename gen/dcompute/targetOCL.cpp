@@ -12,6 +12,7 @@
 #include "dmd/id.h"
 #include "dmd/identifier.h"
 #include "dmd/template.h"
+#include "dmd/module.h"
 #include "gen/abi-spirv.h"
 #include "gen/dcompute/target.h"
 #include "gen/dcompute/druntime.h"
@@ -38,6 +39,7 @@
 
 namespace {
 class TargetOCL : public DComputeTarget {
+  bool usedImage;
 public:
   TargetOCL(llvm::LLVMContext &c, int oclversion)
       : DComputeTarget(c, oclversion, OpenCL, "ocl", "spv", createSPIRVABI(),
@@ -63,25 +65,35 @@ public:
     // opencl.used.optional.core.features
     // opencl.compiler.options
     // opencl.enable.FP_CONTRACT (-ffast-math)
-    llvm::Metadata *SPIRVerElts[] = {
+    {
+      llvm::Metadata *SPIRVerElts[] = {
         llvm::ConstantAsMetadata::get(
-            llvm::ConstantInt::get(llvm::Type::getInt32Ty(ctx), 1)),
+          llvm::ConstantInt::get(llvm::Type::getInt32Ty(ctx), 1)),
         llvm::ConstantAsMetadata::get(
-            llvm::ConstantInt::get(llvm::Type::getInt32Ty(ctx), 2))};
-    llvm::NamedMDNode *SPIRVerMD =
+          llvm::ConstantInt::get(llvm::Type::getInt32Ty(ctx), 2))};
+      llvm::NamedMDNode *SPIRVerMD =
         _ir->module.getOrInsertNamedMetadata("opencl.spir.version");
-    SPIRVerMD->addOperand(llvm::MDNode::get(ctx, SPIRVerElts));
-
+      SPIRVerMD->addOperand(llvm::MDNode::get(ctx, SPIRVerElts));
+    }
     // Add OpenCL version
-    llvm::Metadata *OCLVerElts[] = {
+    {
+      llvm::Metadata *OCLVerElts[] = {
         llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
-            llvm::Type::getInt32Ty(ctx), tversion / 100)),
+          llvm::Type::getInt32Ty(ctx), tversion / 100)),
         llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
-            llvm::Type::getInt32Ty(ctx), (tversion % 100) / 10))};
-    llvm::NamedMDNode *OCLVerMD =
+          llvm::Type::getInt32Ty(ctx), (tversion % 100) / 10))};
+      llvm::NamedMDNode *OCLVerMD =
         _ir->module.getOrInsertNamedMetadata("opencl.ocl.version");
-
-    OCLVerMD->addOperand(llvm::MDNode::get(ctx, OCLVerElts));
+      OCLVerMD->addOperand(llvm::MDNode::get(ctx, OCLVerElts));
+    }
+    if (usedImage) {
+      llvm::NamedMDNode *OCLUsedCoreFeatures =
+        _ir->module.getOrInsertNamedMetadata("opencl.used.optional.core.features");
+      llvm::Metadata *OCLUsedCoreFeaturesElts[] = {
+        llvm::MDString::get(ctx,"cl_images")
+      };
+      OCLUsedCoreFeatures->addOperand(llvm::MDNode::get(ctx, OCLUsedCoreFeaturesElts));
+    }
   }
   enum KernArgMD {
       KernArgMD_addr_space,
@@ -99,12 +111,9 @@ public:
 
     unsigned i = 0;
     // TODO: Handle Function attibutes
-    llvm::SmallVector<llvm::Metadata *, 8> kernelMDArgs;
-    kernelMDArgs.push_back(llvm::ConstantAsMetadata::get(llf));
-    // MDNode for the kernel argument address space qualifiers.
 
     std::array<llvm::SmallVector<llvm::Metadata *, 8>,count_KernArgMD> paramArgs;
-    std::array<const char*,count_KernArgMD> args = {{
+    std::array<llvm::StringRef,count_KernArgMD> args = {{
       "kernel_arg_addr_space",
       "kernel_arg_access_qual",
       "kernel_arg_type",
@@ -112,27 +121,15 @@ public:
       "kernel_arg_base_type",
       "kernel_arg_name"
     }};
-      
-    for (auto md : args) {
-      paramArgs[i].push_back(llvm::MDString::get(ctx, md));
-      i++;
-    }
 
     VarDeclarations *vs = fd->parameters;
     for (i = 0; i < vs->length; i++) {
       VarDeclaration *v = (*vs)[i];
       decodeTypes(paramArgs, v);
     }
-
-    for (auto &md : paramArgs)
-      kernelMDArgs.push_back(llvm::MDNode::get(ctx, md));
-    ///-------------------------------
-    /// TODO: Handle Function attibutes
-    ///-------------------------------
-    llvm::MDNode *kernelMDNode = llvm::MDNode::get(ctx, kernelMDArgs);
-    llvm::NamedMDNode *OpenCLKernelMetadata =
-        _ir->module.getOrInsertNamedMetadata("opencl.kernels");
-    OpenCLKernelMetadata->addOperand(kernelMDNode);
+    for (i = 0; i < count_KernArgMD; i++) {
+      llf->setMetadata(args[i],llvm::MDNode::get(ctx,paramArgs[i]));
+    }
   }
 
   std::string mod2str(MOD mod) {
@@ -162,7 +159,7 @@ public:
     return ss.str();
   }
 
-  void decodeTypes(std::array<llvm::SmallVector<llvm::Metadata *, 8>,count_KernArgMD> attrs,
+  void decodeTypes(std::array<llvm::SmallVector<llvm::Metadata *, 8>,count_KernArgMD>& attrs,
                    VarDeclaration *v)
   {
     llvm::Optional<DcomputePointer> ptr;
@@ -174,8 +171,29 @@ public:
     if (v->type->ty == TY::Tstruct &&
         (ptr = toDcomputePointer(static_cast<TypeStruct *>(v->type)->sym))) {
       addrspace = ptr->addrspace;
-      tyName = basicTypeToString(ptr->type) + "*";
-      baseTyName = tyName;
+      tyName = basicTypeToString(ptr->type);
+
+      auto ts = ptr->type->isTypeStruct();
+      if (ts && isFromLDC_OpenCL(ts->sym)) {
+        // TODO: Pipes
+        auto name = std::string(ts->toChars());
+        if (!usedImage && name.rfind("ldc.opencl.image",0) == 0)
+          usedImage = true;
+        // parse access qualifiers from ldc.opencl.*_XX_t types like ldc.opencl.image1d_ro_t
+        // 4 == length of "XX_t"
+        name = name.substr(name.length()-4, 2);
+        if (name == "ro")
+          accessQual = "read_only";
+        else if (name == "wo")
+          accessQual = "write_only";
+        else if (name == "rw")
+          accessQual = "read_write";
+        // ldc.opencl.{sampler_t, reserve_id_t} do not get an access qualifier
+      } else {
+        // things like e.g. GlobalPointer!opencl.image1d_[ro,wo,rw]_t/sampler_t must not have the additional *
+        // but all others e.g. GlobalPointer!int must
+        tyName += "*";
+      }
       // there is no volatile or restrict (yet) in D
       typeQuals = mod2str(ptr->type->mod);
       // TODO: Images and Pipes They are global pointers to opaques

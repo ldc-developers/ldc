@@ -23,6 +23,7 @@ class Dsymbol;
 class Type;
 
 bool isFromLDC_DCompute(Dsymbol *sym);
+bool isFromLDC_OpenCL(Dsymbol *sym);
 
 struct DcomputePointer {
   int addrspace;
