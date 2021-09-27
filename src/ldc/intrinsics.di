@@ -28,6 +28,8 @@ else version (LDC_LLVM_1000) enum LLVM_version = 1000;
 else version (LDC_LLVM_1100) enum LLVM_version = 1100;
 else version (LDC_LLVM_1101) enum LLVM_version = 1101;
 else version (LDC_LLVM_1200) enum LLVM_version = 1200;
+else version (LDC_LLVM_1300) enum LLVM_version = 1300;
+else version (LDC_LLVM_1400) enum LLVM_version = 1400;
 else static assert(false, "LDC LLVM version not supported");
 
 enum LLVM_atleast(int major) = (LLVM_version >= major * 100);
