@@ -183,7 +183,9 @@ task:
     rm llvm.tar.xz
   clone_submodules_early_script: |
     cd $CIRRUS_WORKING_DIR
-    git submodule update --init --depth $CIRRUS_CLONE_DEPTH
+    # remove --depth from following command because of
+    # https://github.com/ldc-developers/ldc/pull/3835#issuecomment-928517319
+    git submodule update --init # --depth $CIRRUS_CLONE_DEPTH
   remove_some_tests_script: |
     cd $CIRRUS_WORKING_DIR/tests/d2/dmd-testsuite
     # The -lowmem tests don't work with an ltsmaster host compiler
