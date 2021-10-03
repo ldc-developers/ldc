@@ -6,11 +6,10 @@ d: ldc-1.27.1
 
 env:
   global:
-    - LLVM_VERSION=12.0.0
-    - CC=gcc-8
-    - CXX=g++-8
+    - LLVM_VERSION: 13.0.0
+    - CLANG_VERSION: 12.0.1
     # FIXME: need to use ld.gold for linking LDC itself for now, fixed in frontend v2.099
-    - OPTS="-DBUILD_LTO_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DJITRT_EXTRA_LDFLAGS=-static-libstdc++ -DD_COMPILER_FLAGS=-linker=gold -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64"
+    - OPTS: '"-DBUILD_LTO_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DJITRT_EXTRA_LDFLAGS=-static-libstdc++ -DD_COMPILER_FLAGS=-linker=gold -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64"'
     - secure: "WfMv0kOqVU8+SgZUrwgzvzGvFbZvPmeIqrDJ+sotbzEtDeCcMuZmj/+8VuysXzpShXx/FxCoopWpAz30pedES8anGR3ciZruVPPsi22rOR5IBHuSnbamkmF11eQgRaDcj6GvZL7QeWLHBx6EN+C+mQFEVqRrD5avCO/K0RqWTD4="
 
 git:
@@ -19,7 +18,6 @@ git:
 addons:
   apt:
     packages:
-      - g++-8
       - gdb
       - ninja-build
       - p7zip-full
@@ -49,6 +47,13 @@ install:
     rm llvm.tar.xz || travis_terminate 1
   # Make lld the default linker (possibly with enabled assertions unfortunately)
   - sudo ln -sf "$PWD/llvm/bin/ld.lld" /usr/bin/ld
+  # Download & extract clang
+  - curl --max-time 300 --retry 3 -L -o clang.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-$CLANG_VERSION/clang+llvm-$CLANG_VERSION-aarch64-linux-gnu.tar.xz
+  - mkdir clang
+  - tar -xf clang.tar.xz --strip 1 -C clang
+  - rm clang.tar.xz
+  - export CC="$PWD/clang/bin/clang"
+  - export CXX="$PWD/clang/bin/clang++"
 
 script:
   - unset LD_LIBRARY_PATH
@@ -181,7 +186,7 @@ script:
     artifactName=ldc2-$artifactID-linux-aarch64
     mv installed $artifactName || travis_terminate 1
     artifact=$artifactName.tar.xz
-    tar -cf - $artifactName | 7za a $artifact -si -txz -mx9 || travis_terminate 1
+    tar -cf - $artifactName | 7za a $artifact -si -txz -mx9 -mmt8 || travis_terminate 1
     ls -lh $artifact || travis_terminate 1
   # Upload to GitHub release (only for commits on the master branch and tags)
   - |
