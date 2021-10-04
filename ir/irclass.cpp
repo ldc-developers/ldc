@@ -512,8 +512,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
 
       llvm::GlobalVariable *interfaceInfosZ = getInterfaceArraySymbol();
       llvm::Constant *c = llvm::ConstantExpr::getGetElementPtr(
-          isaPointer(interfaceInfosZ)->getElementType(), interfaceInfosZ, idxs,
-          true);
+          getPointeeType(interfaceInfosZ), interfaceInfosZ, idxs, true);
 
       constants.push_back(DtoBitCast(c, voidPtrTy));
     } else {
@@ -763,8 +762,8 @@ LLConstant *IrClass::getClassInfoInterfaces() {
   LLConstant *idxs[2] = {DtoConstSize_t(0),
                          DtoConstSize_t(n - cd->vtblInterfaces->length)};
 
-  LLConstant *ptr = llvm::ConstantExpr::getGetElementPtr(
-      isaPointer(ciarr)->getElementType(), ciarr, idxs, true);
+  LLConstant *ptr = llvm::ConstantExpr::getGetElementPtr(getPointeeType(ciarr),
+                                                         ciarr, idxs, true);
 
   // return as a slice
   return DtoConstSlice(DtoConstSize_t(cd->vtblInterfaces->length), ptr);

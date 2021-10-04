@@ -358,9 +358,10 @@ void replaceDynamicThreadLocals(llvm::Module &oldModule,
 llvm::Constant *getArrayPtr(llvm::Constant *array) {
   assert(nullptr != array);
   llvm::ConstantInt *zero = llvm::ConstantInt::get(
-      llvm::Type::getInt64Ty(array->getContext()), 0, false);
+      llvm::Type::getInt32Ty(array->getContext()), 0, false);
   llvm::Constant *idxs[] = {zero, zero};
-  return llvm::ConstantExpr::getGetElementPtr(nullptr, array, idxs, true);
+  return llvm::ConstantExpr::getGetElementPtr(getPointeeType(array), array,
+                                              idxs, true);
 }
 
 llvm::Constant *getI8Ptr(llvm::GlobalValue *val) {

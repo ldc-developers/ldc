@@ -100,10 +100,7 @@ void DtoSetArrayToNull(LLValue *v) {
   IF_LOG Logger::println("DtoSetArrayToNull");
   LOG_SCOPE;
 
-  assert(isaPointer(v));
-  LLType *t = v->getType()->getContainedType(0);
-
-  DtoStore(LLConstant::getNullValue(t), v);
+  DtoStore(LLConstant::getNullValue(getPointeeType(v)), v);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -488,10 +485,7 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
     return DtoBitCast(gvar, DtoType(arrty));
   }
 
-  LLConstant *idxs[2] = {DtoConstUint(0), DtoConstUint(0)};
-
-  LLConstant *gep = llvm::ConstantExpr::getGetElementPtr(
-      isaPointer(gvar)->getElementType(), gvar, idxs, true);
+  LLConstant *gep = DtoGEP(gvar, 0u, 0u);
   gep = llvm::ConstantExpr::getBitCast(gvar, getPtrToType(llelemty));
 
   return DtoConstSlice(DtoConstSize_t(arrlen), gep, arrty);
@@ -880,7 +874,7 @@ DSliceValue *DtoCatArrays(const Loc &loc, Type *arrayType, Expression *exp1,
     arrs.push_back(DtoSlicePtr(ce));
 
     // Create static array from slices
-    LLPointerType *ptrarraytype = isaPointer(arrs[0]->getType());
+    LLPointerType *ptrarraytype = isaPointer(arrs[0]);
     assert(ptrarraytype && "Expected pointer type");
     LLStructType *arraytype = isaStruct(ptrarraytype->getElementType());
     assert(arraytype && "Expected struct type");
