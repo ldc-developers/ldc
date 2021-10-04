@@ -619,8 +619,13 @@ if(LDC_WITH_LLD)
     else()
         set(LDC_LINKERFLAG_LIST -llldDriver -llldMinGW -llldCOFF -llldELF -l${LLD_MACHO} -llldWasm -llldYAML -llldReaderWriter -llldCommon -llldCore ${LDC_LINKERFLAG_LIST})
     endif()
-    if(APPLE AND LDC_LLVM_VER LESS 700) # LLVM 6.0.0 bug, should be fixed in 6.0.1
-        list(APPEND LDC_LINKERFLAG_LIST -lxml2)
+    if(APPLE)
+        if(LDC_LLVM_VER LESS 700) # LLVM 6.0.0 bug, should be fixed in 6.0.1
+            list(APPEND LDC_LINKERFLAG_LIST -lxml2)
+        endif()
+        if(NOT (LDC_LLVM_VER LESS 1300)) # LLD 13.0.0 on Mac needs libxar
+            list(APPEND LDC_LINKERFLAG_LIST -lxar)
+        endif()
     endif()
 endif()
 
