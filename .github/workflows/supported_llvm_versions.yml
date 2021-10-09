@@ -10,12 +10,12 @@ jobs:
           - job_name: Ubuntu 18.04, LLVM 12, latest LDC beta
             os: ubuntu-18.04
             host_dc: ldc-beta
-            llvm_version: "12.0.0"
+            llvm_version: "12.0.1"
             cmake_opts: ""
           - job_name: Ubuntu 18.04, LLVM 11, latest LDC beta
             os: ubuntu-18.04
             host_dc: ldc-beta
-            llvm_version: "11.0.1"
+            llvm_version: "11.1.0"
             cmake_opts: "-DRT_SUPPORT_SANITIZERS=ON"
           - job_name: Ubuntu 18.04, LLVM 9, latest LDC beta
             os: ubuntu-18.04
@@ -35,7 +35,7 @@ jobs:
           - job_name: Latest macOS, LLVM 10, latest DMD beta
             os: macos-latest
             host_dc: dmd-beta
-            llvm_version: "10.0.0"
+            llvm_version: "10.0.1"
             cmake_opts: "-DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON"
           - job_name: Latest macOS, LLVM 7, latest LDC beta
             os: macos-latest
