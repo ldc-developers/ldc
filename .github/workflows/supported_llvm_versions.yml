@@ -7,6 +7,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - job_name: Ubuntu 18.04, LLVM 13, latest LDC beta
+            os: ubuntu-18.04
+            host_dc: ldc-beta
+            llvm_version: "13.0.0"
+            cmake_opts: ""
           - job_name: Ubuntu 18.04, LLVM 12, latest LDC beta
             os: ubuntu-18.04
             host_dc: ldc-beta
