@@ -4669,15 +4669,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
         {
             UnaExp ue = cast(UnaExp)exp.e1;
 
-            Expression ue1 = ue.e1;
-            Expression ue1old = ue1; // need for 'right this' check
-            VarDeclaration v;
-            if (ue1.op == TOK.variable && (v = (cast(VarExp)ue1).var.isVarDeclaration()) !is null && v.needThis())
-            {
-                ue.e1 = new TypeExp(ue1.loc, ue1.type);
-                ue1 = null;
-            }
-
+            Expression ue1old = ue.e1; // need for 'right this' check
             DotVarExp dve;
             DotTemplateExp dte;
             Dsymbol s;
@@ -4696,7 +4688,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             }
 
             // Do overload resolution
-            exp.f = resolveFuncCall(exp.loc, sc, s, tiargs, ue1 ? ue1.type : null, exp.arguments, FuncResolveFlag.standard);
+            exp.f = resolveFuncCall(exp.loc, sc, s, tiargs, ue.e1.type, exp.arguments, FuncResolveFlag.standard);
             if (!exp.f || exp.f.errors || exp.f.type.ty == Terror)
                 return setError();
 
@@ -4708,7 +4700,6 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                 auto ad2 = b.sym;
                 ue.e1 = ue.e1.castTo(sc, ad2.type.addMod(ue.e1.type.mod));
                 ue.e1 = ue.e1.expressionSemantic(sc);
-                ue1 = ue.e1;
                 auto vi = exp.f.findVtblIndex(&ad2.vtbl, cast(int)ad2.vtbl.dim);
                 assert(vi >= 0);
                 exp.f = ad2.vtbl[vi].isFuncDeclaration();
@@ -11481,25 +11472,6 @@ version (IN_LLVM)
             return false;
         }
 
-        if (sc && sc.flags & SCOPE.Cfile)
-        {
-            // https://issues.dlang.org/show_bug.cgi?id=22262
-            // In C11, zero implicitly casts to a null pointer.
-            if ((t1.ty == Tpointer) != (t2.ty == Tpointer))
-            {
-                if (auto ie = exp.e1.isIntegerExp())
-                {
-                    if (ie.toInteger() == 0)
-                        exp.e1 = new NullExp(ie.loc, t2);
-                }
-                else if (auto ie = exp.e2.isIntegerExp())
-                {
-                    if (ie.toInteger() == 0)
-                        exp.e2 = new NullExp(ie.loc, t1);
-                }
-            }
-        }
-
         if (auto e = exp.op_overload(sc))
         {
             result = e;
@@ -12125,8 +12097,15 @@ Expression semanticX(DotIdExp exp, Scope* sc)
     return exp;
 }
 
-// Resolve e1.ident without seeing UFCS.
-// If flag == 1, stop "not a property" error and return NULL.
+/******************************
+ * Resolve properties, i.e. `e1.ident`, without seeing UFCS.
+ * Params:
+ *      exp = expression to resolve
+ *      sc = context
+ *      flag = if 1 then do not emit error messages, just return null
+ * Returns:
+ *      resolved expression, null if error
+ */
 Expression semanticY(DotIdExp exp, Scope* sc, int flag)
 {
     //printf("DotIdExp::semanticY(this = %p, '%s')\n", exp, exp.toChars());
@@ -12416,7 +12395,7 @@ Expression semanticY(DotIdExp exp, Scope* sc, int flag)
         // For `x.alignof` get the alignment of the variable, not the alignment of its type
         const explicitAlignment = exp.e1.isVarExp().var.isVarDeclaration().alignment;
         const naturalAlignment = exp.e1.type.alignsize();
-        const actualAlignment = (explicitAlignment == STRUCTALIGN_DEFAULT ? naturalAlignment : explicitAlignment);
+        const actualAlignment = explicitAlignment == STRUCTALIGN_DEFAULT ? naturalAlignment : explicitAlignment;
         e = new IntegerExp(exp.loc, actualAlignment, Type.tsize_t);
         return e;
     }

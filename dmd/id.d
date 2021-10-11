@@ -501,6 +501,11 @@ immutable Msgtable[] msgtable =
     { "__func__" },
     { "noreturn" },
     { "__pragma", "pragma" },
+    { "builtin_va_list", "__builtin_va_list" },
+    { "pack" },
+    { "show" },
+    { "push" },
+    { "pop" },
 
     // IN_LLVM: LDC-specific pragmas
     { "LDC_intrinsic" },
