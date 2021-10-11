@@ -34,7 +34,7 @@ if ((TARGET FileCheck) OR (EXISTS ${LLVM_ROOT_DIR}/bin/FileCheck))
   # already provided by LLVM
 else()
 # Build FileCheck for testing (build source version depending on LLVM version)
-set(FILECHECK_SRC FileCheck-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.cpp)
+set(FILECHECK_SRC FileCheck-${LLVM_VERSION_MAJOR}.cpp)
 if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${FILECHECK_SRC})
     add_executable(FileCheck ${FILECHECK_SRC})
     set_target_properties(
