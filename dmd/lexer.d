@@ -2961,7 +2961,7 @@ class Lexer
             return;
         }
 
-        void closingParen()
+        void closingParen() /* IN_LLVM: ltsmaster... */ nothrow
         {
             if (n.value != TOK.rightParenthesis)
             {
@@ -2970,7 +2970,7 @@ class Lexer
             skipToNextLine();
         }
 
-        void setPackAlign(ref const Token t)
+        void setPackAlign(ref const Token t) /* IN_LLVM: ltsmaster... */ nothrow
         {
             const n = t.unsvalue;
             if (n < 1 || n & (n - 1) || structalign_t.max < n)
