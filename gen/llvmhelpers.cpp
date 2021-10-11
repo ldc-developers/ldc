@@ -903,8 +903,8 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     Type *type = isSpecialRefVar(vd) ? vd->type->pointerTo() : vd->type;
 
     llvm::Value *allocainst;
-    LLType *lltype = DtoType(type);
-    if (gDataLayout->getTypeSizeInBits(lltype) == 0) {
+    LLType *lltype = DtoType(type); // void for noreturn
+    if (lltype->isVoidTy() || gDataLayout->getTypeSizeInBits(lltype) == 0) {
       allocainst = llvm::ConstantPointerNull::get(getPtrToType(lltype));
     } else if (type != vd->type) {
       allocainst = DtoAlloca(type, vd->toChars());
@@ -914,7 +914,8 @@ void DtoVarDeclaration(VarDeclaration *vd) {
 
     irLocal->value = allocainst;
 
-    gIR->DBuilder.EmitLocalVariable(allocainst, vd);
+    if (!lltype->isVoidTy())
+      gIR->DBuilder.EmitLocalVariable(allocainst, vd);
   }
 
   IF_LOG Logger::cout() << "llvm value for decl: " << *getIrLocal(vd)->value
