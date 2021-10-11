@@ -256,7 +256,7 @@ public:
         // value is a pointer to a struct or a static array, load from it
         // before returning.
         if (returnValue->getType() != funcType->getReturnType() &&
-            DtoIsInMemoryOnly(rt) && isaPointer(returnValue->getType())) {
+            DtoIsInMemoryOnly(rt) && isaPointer(returnValue)) {
           Logger::println("Loading value for return");
           returnValue = DtoLoad(returnValue);
         }

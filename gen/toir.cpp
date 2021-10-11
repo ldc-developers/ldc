@@ -381,12 +381,7 @@ public:
     Type *dtype = e->type->toBasetype();
 
     llvm::GlobalVariable *gvar = p->getCachedStringLiteral(e);
-
-    llvm::ConstantInt *zero =
-        LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0, false);
-    LLConstant *idxs[2] = {zero, zero};
-    LLConstant *arrptr = llvm::ConstantExpr::getGetElementPtr(
-        isaPointer(gvar)->getElementType(), gvar, idxs, true);
+    LLConstant *arrptr = DtoGEP(gvar, 0u, 0u);
 
     if (dtype->ty == TY::Tarray) {
       LLConstant *clen =
@@ -1924,7 +1919,7 @@ public:
       LLValue *rv = DtoRVal(r);
       if (lv->getType() != rv->getType()) {
         if (r->isNull()) {
-          rv = llvm::ConstantPointerNull::get(isaPointer(lv->getType()));
+          rv = llvm::ConstantPointerNull::get(isaPointer(lv));
         } else {
           rv = DtoBitCast(rv, lv->getType());
         }
@@ -2396,14 +2391,11 @@ public:
           DtoTypeInfoOf(e->loc, stripModifiers(aatype), /*base=*/false),
           DtoType(getAssociativeArrayTypeInfoType()));
 
-      LLConstant *idxs[2] = {DtoConstUint(0), DtoConstUint(0)};
-
       LLConstant *initval = arrayConst(keysInits, indexType);
       LLConstant *globalstore = new LLGlobalVariable(
           gIR->module, initval->getType(), false,
           LLGlobalValue::InternalLinkage, initval, ".aaKeysStorage");
-      LLConstant *slice = llvm::ConstantExpr::getGetElementPtr(
-          isaPointer(globalstore)->getElementType(), globalstore, idxs, true);
+      LLConstant *slice = DtoGEP(globalstore, 0u, 0u);
       slice = DtoConstSlice(DtoConstSize_t(e->keys->length), slice);
       LLValue *keysArray = DtoAggrPaint(slice, funcTy->getParamType(1));
 
@@ -2411,8 +2403,7 @@ public:
       globalstore = new LLGlobalVariable(gIR->module, initval->getType(), false,
                                          LLGlobalValue::InternalLinkage,
                                          initval, ".aaValuesStorage");
-      slice = llvm::ConstantExpr::getGetElementPtr(
-          isaPointer(globalstore)->getElementType(), globalstore, idxs, true);
+      slice = DtoGEP(globalstore, 0u, 0u);
       slice = DtoConstSlice(DtoConstSize_t(e->keys->length), slice);
       LLValue *valuesArray = DtoAggrPaint(slice, funcTy->getParamType(2));
 

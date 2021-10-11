@@ -314,12 +314,16 @@ LLIntegerType *DtoSize_t() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+LLType *getPointeeType(LLValue *pointer) {
+  return pointer->getType()->getPointerElementType();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 namespace {
 llvm::GetElementPtrInst *DtoGEP(LLValue *ptr, llvm::ArrayRef<LLValue *> indices,
                                 const char *name, llvm::BasicBlock *bb) {
-  LLPointerType *p = isaPointer(ptr);
-  assert(p && "GEP expects a pointer type");
-  auto gep = llvm::GetElementPtrInst::Create(p->getElementType(), ptr, indices,
+  auto gep = llvm::GetElementPtrInst::Create(getPointeeType(ptr), ptr, indices,
                                              name, bb ? bb : gIR->scopebb());
   gep->setIsInBounds(true);
   return gep;
@@ -349,10 +353,8 @@ LLValue *DtoGEP(LLValue *ptr, unsigned i0, unsigned i1, const char *name,
 }
 
 LLConstant *DtoGEP(LLConstant *ptr, unsigned i0, unsigned i1) {
-  LLPointerType *p = isaPointer(ptr);
-  assert(p && "GEP expects a pointer type");
   LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
-  return llvm::ConstantExpr::getGetElementPtr(p->getElementType(), ptr, indices,
+  return llvm::ConstantExpr::getGetElementPtr(getPointeeType(ptr), ptr, indices,
                                               /* InBounds = */ true);
 }
 
@@ -461,12 +463,8 @@ LLConstant *DtoConstFP(Type *t, const real_t value) {
 
 LLConstant *DtoConstCString(const char *str) {
   llvm::StringRef s(str ? str : "");
-
   LLGlobalVariable *gvar = gIR->getCachedStringLiteral(s);
-
-  LLConstant *idxs[] = {DtoConstUint(0), DtoConstUint(0)};
-  return llvm::ConstantExpr::getGetElementPtr(gvar->getInitializer()->getType(),
-                                              gvar, idxs, true);
+  return DtoGEP(gvar, 0u, 0u);
 }
 
 LLConstant *DtoConstString(const char *str) {

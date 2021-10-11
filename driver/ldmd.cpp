@@ -716,7 +716,7 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
     } else {
       const auto ext = ls::path::extension(p);
       if (
-#if LDC_LLVM_VER >= 1400
+#if LDC_LLVM_VER >= 1300
         ext.equals_insensitive(".exe")
 #else
         ext.equals_lower(".exe")

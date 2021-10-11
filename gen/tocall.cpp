@@ -510,8 +510,8 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
     auto ret =
       p->ir->CreateAtomicCmpXchg(ptr, cmp, val,
-#if LDC_LLVM_VER >= 1400
-                                 LLMaybeAlign(gDataLayout->getABITypeAlignment(val->getType())),
+#if LDC_LLVM_VER >= 1300
+                                 LLMaybeAlign(getABITypeAlign(val->getType())),
 #endif
                                  successOrdering, failureOrdering);
     ret->setWeak(isWeak);
@@ -558,8 +558,8 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     LLValue *val = DtoRVal(exp2);
     LLValue *ret =
         p->ir->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp(op), ptr, val,
-#if LDC_LLVM_VER >= 1400
-                               LLMaybeAlign(gDataLayout->getABITypeAlignment(val->getType())),
+#if LDC_LLVM_VER >= 1300
+                               LLMaybeAlign(getABITypeAlign(val->getType())),
 #endif
                                llvm::AtomicOrdering(atomicOrdering));
     result = new DImValue(exp2->type, ret);

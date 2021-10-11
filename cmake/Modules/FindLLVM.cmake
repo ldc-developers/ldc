@@ -32,7 +32,8 @@
 # We also want an user-specified LLVM_ROOT_DIR to take precedence over the
 # system default locations such as /usr/local/bin. Executing find_program()
 # multiples times is the approach recommended in the docs.
-set(llvm_config_names llvm-config-12.0 llvm-config120 llvm-config-12
+set(llvm_config_names llvm-config-13.0 llvm-config130 llvm-config-13
+                      llvm-config-12.0 llvm-config120 llvm-config-12
                       llvm-config-11.0 llvm-config110 llvm-config-11
                       llvm-config-10.0 llvm-config100 llvm-config-10
                       llvm-config-9.0 llvm-config90 llvm-config-9
@@ -49,9 +50,11 @@ if(APPLE)
     # extra fallbacks for MacPorts & Homebrew
     find_program(LLVM_CONFIG
         NAMES ${llvm_config_names}
-        PATHS /opt/local/libexec/llvm-11/bin  /opt/local/libexec/llvm-10/bin  /opt/local/libexec/llvm-9.0/bin
+        PATHS /opt/local/libexec/llvm-13/bin  /opt/local/libexec/llvm-12/bin
+              /opt/local/libexec/llvm-11/bin  /opt/local/libexec/llvm-10/bin  /opt/local/libexec/llvm-9.0/bin
               /opt/local/libexec/llvm-8.0/bin /opt/local/libexec/llvm-7.0/bin /opt/local/libexec/llvm-6.0/bin
               /opt/local/libexec/llvm/bin
+              /usr/local/opt/llvm@13/bin /usr/local/opt/llvm@12/bin
               /usr/local/opt/llvm@11/bin /usr/local/opt/llvm@10/bin /usr/local/opt/llvm@9/bin
               /usr/local/opt/llvm@8/bin  /usr/local/opt/llvm@7/bin  /usr/local/opt/llvm@6/bin
               /usr/local/opt/llvm/bin

@@ -43,7 +43,7 @@ void emitCoverageLinecountInc(const Loc &loc) {
   case opts::CoverageIncrement::atomic:
     // Do an atomic increment, so this works when multiple threads are executed.
     gIR->ir->CreateAtomicRMW(llvm::AtomicRMWInst::Add, ptr, DtoConstUint(1),
-#if LDC_LLVM_VER >= 1400
+#if LDC_LLVM_VER >= 1300
                              LLAlign(4),
 #endif
                              llvm::AtomicOrdering::Monotonic);

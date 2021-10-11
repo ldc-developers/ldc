@@ -36,7 +36,7 @@ void addMscrtLibs(bool useInternalToolchain, std::vector<std::string> &args) {
   // We need the vcruntime lib for druntime's exception handling (ldc.eh_msvc).
   // Pick one of the 4 variants matching the selected main UCRT lib.
 
-#if LDC_LLVM_VER >= 1400
+#if LDC_LLVM_VER >= 1300
 #define contains_lower contains_insensitive
 #define endswith_lower endswith_insensitive
 #endif

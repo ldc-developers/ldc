@@ -170,12 +170,7 @@ public:
     }
 
     llvm::GlobalVariable *gvar = p->getCachedStringLiteral(e);
-
-    llvm::ConstantInt *zero =
-        LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0, false);
-    LLConstant *idxs[2] = {zero, zero};
-    LLConstant *arrptr = llvm::ConstantExpr::getGetElementPtr(
-        isaPointer(gvar)->getElementType(), gvar, idxs, true);
+    LLConstant *arrptr = DtoGEP(gvar, 0u, 0u);
 
     if (t->ty == TY::Tpointer) {
       result = DtoBitCast(arrptr, DtoType(t));
@@ -200,8 +195,8 @@ public:
     if (t1b->ty == TY::Tpointer && e->e2->type->isintegral()) {
       llvm::Constant *ptr = toConstElem(e->e1, p);
       dinteger_t idx = undoStrideMul(e->loc, t1b, e->e2->toInteger());
-      result = llvm::ConstantExpr::getGetElementPtr(
-          isaPointer(ptr)->getElementType(), ptr, DtoConstSize_t(idx));
+      result = llvm::ConstantExpr::getGetElementPtr(getPointeeType(ptr), ptr,
+                                                    DtoConstSize_t(idx));
       return;
     }
 
@@ -219,8 +214,8 @@ public:
       dinteger_t idx = undoStrideMul(e->loc, t1b, e->e2->toInteger());
 
       llvm::Constant *negIdx = llvm::ConstantExpr::getNeg(DtoConstSize_t(idx));
-      result = llvm::ConstantExpr::getGetElementPtr(
-          isaPointer(ptr)->getElementType(), ptr, negIdx);
+      result = llvm::ConstantExpr::getGetElementPtr(getPointeeType(ptr), ptr,
+                                                    negIdx);
       return;
     }
 
@@ -271,9 +266,7 @@ public:
       }
       Type *type = vd->type->toBasetype();
       if (type->ty == TY::Tarray || type->ty == TY::Tdelegate) {
-        LLConstant *idxs[2] = {DtoConstSize_t(0), DtoConstSize_t(1)};
-        value = llvm::ConstantExpr::getGetElementPtr(
-            isaPointer(value)->getElementType(), value, idxs, true);
+        value = DtoGEP(value, 0u, 1u);
       }
       result = DtoBitCast(value, DtoType(tb));
     } else if (tb->ty == TY::Tclass && e->e1->type->ty == TY::Tclass &&
@@ -330,13 +323,15 @@ public:
 
       if (e->offset % elemSize == 0) {
         // We can turn this into a "nice" GEP.
-        result = llvm::ConstantExpr::getGetElementPtr(nullptr,
-            base, DtoConstSize_t(e->offset / elemSize));
+        result = llvm::ConstantExpr::getGetElementPtr(
+            getPointeeType(base), base, DtoConstSize_t(e->offset / elemSize));
       } else {
         // Offset isn't a multiple of base type size, just cast to i8* and
         // apply the byte offset.
-        result = llvm::ConstantExpr::getGetElementPtr(nullptr,
-            DtoBitCast(base, getVoidPtrType()), DtoConstSize_t(e->offset));
+        auto voidPtrType = getVoidPtrType();
+        result = llvm::ConstantExpr::getGetElementPtr(
+            voidPtrType->getElementType(), DtoBitCast(base, voidPtrType),
+            DtoConstSize_t(e->offset));
       }
     }
 
@@ -379,7 +374,7 @@ public:
       LLConstant *val = isaConstant(getIrGlobal(vd)->value);
       val = DtoBitCast(val, DtoType(vd->type->pointerTo()));
       LLConstant *gep = llvm::ConstantExpr::getGetElementPtr(
-          isaPointer(val)->getElementType(), val, idxs, true);
+          getPointeeType(val), val, idxs, true);
 
       // bitcast to requested type
       assert(e->type->toBasetype()->ty == TY::Tpointer);
@@ -506,10 +501,7 @@ public:
 
     // build a constant dynamic array reference with the .ptr field pointing
     // into store
-    LLConstant *idxs[2] = {DtoConstUint(0), DtoConstUint(0)};
-    LLConstant *globalstorePtr = llvm::ConstantExpr::getGetElementPtr(
-        isaPointer(store)->getElementType(), store, idxs, true);
-
+    LLConstant *globalstorePtr = DtoGEP(store, 0u, 0u);
     result = DtoConstSlice(DtoConstSize_t(e->elements->length), globalstorePtr);
   }
 

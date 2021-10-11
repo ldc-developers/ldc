@@ -5,13 +5,13 @@
 // RUN: %ldc -g -of=%t_g.exe %s
 // RUN: sed -e "/^\\/\\/ CDB:/!d" -e "s,// CDB:,," %s \
 // RUN:    | %cdb -snul -lines -y . %t_g.exe >%t_g.out
-// RUN: FileCheck %s -check-prefix=CHECK -check-prefix=%arch -check-prefix=CHECK-G -check-prefix=CHECK-G-%arch < %t_g.out
+// RUN: FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-G -check-prefix=CHECK-G-%arch < %t_g.out
 
 // -gc:
 // RUN: %ldc -gc -of=%t_gc.exe %s
 // RUN: sed -e "/^\\/\\/ CDB:/!d" -e "s,// CDB:,," %s \
 // RUN:    | %cdb -snul -lines -y . %t_gc.exe >%t_gc.out
-// RUN: FileCheck %s -check-prefix=CHECK -check-prefix=%arch -check-prefix=CHECK-GC -check-prefix=CHECK-GC-%arch < %t_gc.out
+// RUN: FileCheck %s -check-prefix=CHECK -check-prefix=CHECK-GC -check-prefix=CHECK-GC-%arch < %t_gc.out
 
 module args_cdb;
 import core.simd;
