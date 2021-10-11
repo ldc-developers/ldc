@@ -119,17 +119,18 @@ else
  *      ad = AlignmentDeclaration
  *      sc = context
  * Returns:
- *      alignment as numerical value that is never 0.
- *      STRUCTALIGN_DEFAULT is used instead.
- *      STRUCTALIGN_DEFAULT is returned for errors
+ *      ad with alignment value determined
  */
-structalign_t getAlignment(AlignDeclaration ad, Scope* sc)
+AlignDeclaration getAlignment(AlignDeclaration ad, Scope* sc)
 {
     if (ad.salign != ad.UNKNOWN)   // UNKNOWN is 0
-        return ad.salign;
+        return ad;
 
     if (!ad.exps)
-        return ad.salign = STRUCTALIGN_DEFAULT;
+    {
+        ad.salign = STRUCTALIGN_DEFAULT;
+        return ad;
+    }
 
     dinteger_t strictest = 0;   // strictest alignment
     bool errors;
@@ -163,7 +164,7 @@ structalign_t getAlignment(AlignDeclaration ad, Scope* sc)
     ad.salign = (errors || strictest == 0)  // C11 6.7.5-6 says alignment of 0 means no effect
                 ? STRUCTALIGN_DEFAULT
                 : cast(structalign_t) strictest;
-    return ad.salign;
+    return ad;
 }
 
 const(char)* getMessage(DeprecatedDeclaration dd)
@@ -944,6 +945,15 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
         {
             sc = sc.push();
             sc.stc &= ~(STC.TYPECTOR | STC.pure_ | STC.nothrow_ | STC.nogc | STC.ref_ | STC.disable);
+
+            if (sc.flags & SCOPE.Cfile &&
+                dsym.type.isTypeSArray() &&
+                dsym.type.isTypeSArray().isIncomplete() &&
+                dsym._init.isVoidInitializer() &&
+                !(dsym.storage_class & STC.field))
+            {
+                dsym.error("incomplete array type must have initializer");
+            }
 
             ExpInitializer ei = dsym._init.isExpInitializer();
 

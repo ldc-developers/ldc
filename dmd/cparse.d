@@ -1475,6 +1475,7 @@ final class CParser(AST) : Parser!AST
 
         auto symbolsSave = symbols;
         Specifier specifier;
+        specifier.packalign = this.packalign;
         auto tspec = cparseDeclarationSpecifiers(level, specifier);
 
         /* If a declarator does not follow, it is unnamed
@@ -2583,6 +2584,11 @@ final class CParser(AST) : Parser!AST
 
             Specifier specifier;
             auto tspec = cparseDeclarationSpecifiers(LVL.prototype, specifier);
+            if (tspec && specifier.mod & MOD.xconst)
+            {
+                tspec = toConst(tspec);
+                specifier.mod = MOD.xnone;      // 'used' it
+            }
 
             Identifier id;
             auto t = cparseDeclarator(DTR.xparameter, tspec, id, specifier);
@@ -2984,6 +2990,15 @@ final class CParser(AST) : Parser!AST
                 nextToken();
                 auto mloc = token.loc;
 
+                if (token.value == TOK.__attribute__)
+                {
+                    /* gnu-attributes can appear here, but just scan and ignore them
+                     * https://gcc.gnu.org/onlinedocs/gcc/Enumerator-Attributes.html
+                     */
+                    Specifier specifierx;
+                    cparseGnuAttributes(specifierx);
+                }
+
                 AST.Expression value;
                 if (token.value == TOK.assign)
                 {
@@ -3124,6 +3139,7 @@ final class CParser(AST) : Parser!AST
 
         auto symbolsSave = symbols;
         Specifier specifier;
+        specifier.packalign = this.packalign;
         auto tspec = cparseSpecifierQualifierList(LVL.member, specifier);
 
         /* If a declarator does not follow, it is unnamed
@@ -4126,6 +4142,7 @@ final class CParser(AST) : Parser!AST
         SCW scw;        /// storage-class specifiers
         MOD mod;        /// type qualifiers
         AST.Expressions*  alignExps;  /// alignment
+        structalign_t packalign = STRUCTALIGN_DEFAULT;  /// #pragma pack alignment value
     }
 
     /***********************
@@ -4292,12 +4309,22 @@ final class CParser(AST) : Parser!AST
      */
     private AST.Dsymbol applySpecifier(AST.Dsymbol s, ref Specifier specifier)
     {
+        //printf("applySpecifier() %s\n", s.toChars());
         if (specifier.alignExps)
         {
+            //printf("  applying _Alignas %s, packalign %d\n", (*specifier.alignExps)[0].toChars(), cast(int)specifier.packalign);
             // Wrap declaration in an AlignDeclaration
             auto decls = new AST.Dsymbols(1);
             (*decls)[0] = s;
             s = new AST.AlignDeclaration(s.loc, specifier.alignExps, decls);
+        }
+        else if (specifier.packalign != STRUCTALIGN_DEFAULT)
+        {
+            //printf("  applying packalign %d\n", cast(int)specifier.packalign);
+            // Wrap #pragma pack in an AlignDeclaration
+            auto decls = new AST.Dsymbols(1);
+            (*decls)[0] = s;
+            s = new AST.AlignDeclaration(s.loc, specifier.packalign, decls);
         }
         return s;
     }
