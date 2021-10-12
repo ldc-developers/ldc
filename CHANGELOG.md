@@ -1,3 +1,19 @@
+# LDC 1.28.0 (2021-10-13)
+
+#### Big news
+- Frontend, druntime and Phobos are at version [2.098.0+](https://dlang.org/changelog/2.098.0.html). (#3821, #3839, #3844)
+- Windows: `-dllimport=defaultLibsOnly` (e.g., implied by `-link-defaultlib-shared -fvisibility=hidden`) doesn't require `-linkonce-templates` anymore. (#3816)
+- dcompute: Add support for OpenCL image I/O. (#3835)
+
+#### Platform support
+- Supports LLVM 6.0 - 12.0.
+
+#### Bug fixes
+- Fix dynamic casts across binary boundaries (DLLs etc.). (dlang/druntime#3543)
+- Windows: Fix potentially wrongly caught exceptions due to non-unique `TypeInfo_Class` names. (#3520)
+- Don't silently ignore invalid external tool specifications. (#3841)
+- LLVM v11.1: Add missing PGO `ldc-profdata` tool.
+
 # LDC 1.27.1 (2021-08-14)
 
 #### Big news
