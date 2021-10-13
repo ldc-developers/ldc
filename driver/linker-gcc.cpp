@@ -587,22 +587,12 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
 void ArgsBuilder::addLinker() {
   llvm::StringRef linker = opts::linker;
 
-  // We have a default linker preference for Linux targets. It can be disabled
-  // via `-linker=` (explicitly empty).
-  if (global.params.targetTriple->isOSLinux() &&
+  // Default to ld.bfd for Android (placing .tdata and .tbss sections adjacent
+  // to each other as required by druntime's rt.sections_android, contrary to
+  // gold and lld as of Android NDK r21d).
+  if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android &&
       opts::linker.getNumOccurrences() == 0) {
-    // Default to ld.bfd for Android (placing .tdata and .tbss sections adjacent
-    // to each other as required by druntime's rt.sections_android, contrary to
-    // gold and lld as of Android NDK r21d).
-    if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
-      linker = "bfd";
-    }
-    // Otherwise default to ld.gold for Linux due to ld.bfd issues with ThinLTO
-    // (see #2278) and older bfd versions stripping llvm.used symbols (e.g.,
-    // ModuleInfo refs) with --gc-sections (see #2870).
-    else {
-      linker = "gold";
-    }
+    linker = "bfd";
   }
 
   if (!linker.empty())
