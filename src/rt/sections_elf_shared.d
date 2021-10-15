@@ -477,6 +477,11 @@ else
 // Compiler to runtime interface.
 ///////////////////////////////////////////////////////////////////////////////
 
+// link in rt.dso:
+import ldc.attributes : assumeUsed;
+extern(C) extern __gshared int __rt_dso_ref;
+@assumeUsed __gshared dummy = &__rt_dso_ref;
+
 version (Darwin)
     private alias ImageHeader = mach_header*;
 else version (Windows)
@@ -493,11 +498,6 @@ else version (Windows)
     alias GetTLSRange = void[] function() nothrow @nogc;
 
     extern(C) bool gc_isProxied() nothrow @nogc; // in core.internal.gc.proxy
-
-    // link in rt.dso_windows:
-    import ldc.attributes : assumeUsed;
-    extern(C) extern __gshared int __dso_windows_ref;
-    @assumeUsed __gshared dummy = &__dso_windows_ref;
 }
 
 /*

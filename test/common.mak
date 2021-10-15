@@ -26,7 +26,7 @@ ifeq (,$(findstring win,$(OS)))
 	DFLAGS += -L-lpthread -L-lm
 endif
 # LINK_SHARED may be set by importing makefile
-# LDC: -link-defaultlib-shared takes care of rpath, linking dso_windows.obj etc.
+# LDC: -link-defaultlib-shared takes care of rpath, linking ldc_rt.dso.o etc.
 DFLAGS+=$(if $(LINK_SHARED),-link-defaultlib-shared,)
 ifeq ($(BUILD),debug)
 	# LDC: link against debug druntime
