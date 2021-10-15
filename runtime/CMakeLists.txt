@@ -506,28 +506,25 @@ macro(compile_druntime d_flags lib_suffix path_suffix emit_bc all_at_once single
     )
 endmacro()
 
-set(dso_windows_o "")
-if("${TARGET_SYSTEM}" MATCHES "Windows")
-    # Windows: precompile rt.dso_windows object file & install to lib dir.
-    # The existing object file isn't reused to prevent *exported* symbols (only
-    # -link-defaultlib-shared for dllimport, no -fvisibility=public).
-    # This allows to create executables with -link-defaultlib-shared without
-    # any exports (and according extra linker files such as the import .lib).
-    set(dso_windows_bc "")
-    dc("${RUNTIME_DIR}/src/rt/dso_windows.d"
-       "${RUNTIME_DIR}/src"
-       "-conf=;${D_FLAGS};${D_FLAGS_RELEASE};-link-defaultlib-shared;${DRUNTIME_EXTRA_FLAGS};-I${RUNTIME_DIR}/src"
-       "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}"
-       "OFF" # emit_bc
-       "ON"  # all_at_once
-       "dso_windows" # single_obj_name
-       dso_windows_o
-       dso_windows_bc
-    )
-
-    add_custom_target(dso_windows DEPENDS ${dso_windows_o})
-    install(FILES ${dso_windows_o} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
-endif()
+set(rt_dso_o "")
+set(rt_dso_bc "")
+# Precompile rt.dso object file & install to lib dir.
+# The existing object file isn't reused to prevent *exported* symbols.
+# This allows to create executables with -link-defaultlib-shared without
+# any exports (and according extra linker files on Windows such as the
+# import .lib).
+dc("${RUNTIME_DIR}/src/rt/dso.d"
+    "${RUNTIME_DIR}/src"
+    "-conf=;${D_FLAGS};${D_FLAGS_RELEASE};-fvisibility=hidden;-dllimport=defaultLibsOnly;${DRUNTIME_EXTRA_FLAGS};-I${RUNTIME_DIR}/src"
+    "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}"
+    "OFF" # emit_bc
+    "ON"  # all_at_once
+    "ldc_rt.dso" # single_obj_name
+    rt_dso_o
+    rt_dso_bc
+)
+add_custom_target(rt_dso DEPENDS ${rt_dso_o})
+install(FILES ${rt_dso_o} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 
 # Sets up the targets for building the Phobos D object files, appending the
 # names of the (bitcode) files to link into the library to outlist_o (outlist_bc).
@@ -772,19 +769,16 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit
                             "OFF" "${all_d_files_at_once}" "${all_d_files_at_once}" phobos2_o phobos2_bc)
         endif()
 
-        if("${TARGET_SYSTEM}" MATCHES "Windows")
-            # also link-in special rt.dso_windows druntime module
-            list(APPEND phobos2_o ${dso_windows_o})
-        endif()
+        # also link-in special rt.dso druntime module
+        list(APPEND phobos2_o ${rt_dso_o})
 
         build_runtime_libs("${druntime_o}" "${druntime_bc}" "${phobos2_o}" "${phobos2_bc}"
                            "${c_flags}" "${ld_flags}" "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}"
                            "ON" "OFF" ${outlist_targets})
 
+        add_dependencies(phobos2-ldc${target_suffix} rt_dso)
         if(NOT phobos2_common STREQUAL "")
             add_dependencies(phobos2-ldc${target_suffix} ${phobos2_common})
-        elseif("${TARGET_SYSTEM}" MATCHES "Windows")
-            add_dependencies(phobos2-ldc${target_suffix} dso_windows)
         endif()
     endif()
 endmacro()
@@ -1030,9 +1024,9 @@ macro(compile_testrunner d_flags is_shared target_suffix extra_dir_suffix)
        test_runner_bc
     )
 
-    if("${is_shared}" STREQUAL "ON" AND "${TARGET_SYSTEM}" MATCHES "Windows")
-        # also link-in special rt.dso_windows druntime module
-        list(APPEND test_runner_o ${dso_windows_o})
+    if("${is_shared}" STREQUAL "ON")
+        # also link-in special rt.dso druntime module
+        list(APPEND test_runner_o ${rt_dso_o})
     endif()
 endmacro()
 
@@ -1167,8 +1161,8 @@ endmacro()
 
 function(add_tests d_files runner target_suffix)
     foreach(file ${d_files})
-        # skip rt.dso_* (no ModuleInfo)
-        if(NOT "${file}" MATCHES "druntime/src/rt/dso_")
+        # skip rt.dso (no ModuleInfo)
+        if(NOT "${file}" MATCHES "druntime/src/rt/dso.d")
             file_to_module_name(${file} module)
             add_test(NAME "${module}${target_suffix}"
                 WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"

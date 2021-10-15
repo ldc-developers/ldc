@@ -489,6 +489,14 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
     args.push_back(objfile);
   }
 
+  // add precompiled rt.dso object file (in lib directory) when linking
+  // against shared druntime
+  const auto &libDirs = ConfigFile::instance.libDirs();
+  if (!defaultLibNames.empty() && linkAgainstSharedDefaultLibs() &&
+      !libDirs.empty()) {
+    args.push_back((llvm::Twine(libDirs[0]) + "/ldc_rt.dso.o").str());
+  }
+
   // Link with profile-rt library when generating an instrumented binary.
   if (opts::isInstrumentingForPGO()) {
     addProfileRuntimeLinkFlags(*global.params.targetTriple);
@@ -533,7 +541,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   addUserSwitches();
 
   // lib dirs
-  for (const char *dir_c : ConfigFile::instance.libDirs()) {
+  for (const char *dir_c : libDirs) {
     const llvm::StringRef dir(dir_c);
     if (!dir.empty())
       args.push_back(("-L" + dir).str());
