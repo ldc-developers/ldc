@@ -1526,6 +1526,15 @@ version (IN_LLVM)
                     dchar c = slice[i];
                     if (c < 0x80)
                     {
+                        version (IN_LLVM)
+                        {
+                            // LDC: allow leading "\1" to prevent target-specific prefix
+                            if (i == 0 && c == '\1')
+                            {
+                                ++i;
+                                continue;
+                            }
+                        }
                         if (c.isValidMangling)
                         {
                             ++i;

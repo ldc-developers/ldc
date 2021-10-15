@@ -125,11 +125,15 @@ std::string getIRMangledName(VarDeclaration *vd) {
 }
 
 std::string getIRMangledFuncName(std::string baseMangle, LINK link) {
-  return gABI->mangleFunctionForLLVM(std::move(baseMangle), link);
+  return baseMangle[0] == '\1'
+             ? baseMangle
+             : gABI->mangleFunctionForLLVM(std::move(baseMangle), link);
 }
 
 std::string getIRMangledVarName(std::string baseMangle, LINK link) {
-  return gABI->mangleVariableForLLVM(std::move(baseMangle), link);
+  return baseMangle[0] == '\1'
+             ? baseMangle
+             : gABI->mangleVariableForLLVM(std::move(baseMangle), link);
 }
 
 std::string getIRMangledAggregateName(AggregateDeclaration *ad,
