@@ -148,10 +148,12 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
     args.push_back(objfile);
   }
 
-  // add precompiled rt.dso_windows object file (in lib directory) when linking
+  // add precompiled rt.dso object file (in lib directory) when linking
   // against shared druntime
-  if (!defaultLibNames.empty() && linkAgainstSharedDefaultLibs()) {
-    args.push_back("dso_windows.obj");
+  const auto &libDirs = ConfigFile::instance.libDirs();
+  if (!defaultLibNames.empty() && linkAgainstSharedDefaultLibs() &&
+      !libDirs.empty()) {
+    args.push_back((llvm::Twine(libDirs[0]) + "/ldc_rt.dso.obj").str());
   }
 
   // .res/.def files
@@ -197,7 +199,6 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
   }
 
   // lib dirs
-  const auto &libDirs = ConfigFile::instance.libDirs();
   for (const char *dir_c : libDirs) {
     const llvm::StringRef dir(dir_c);
     if (!dir.empty())
@@ -205,8 +206,7 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
   }
 
   if (useInternalToolchain && !libDirs.empty()) {
-    args.push_back(
-        (llvm::Twine("/LIBPATH:") + *libDirs.begin() + "/mingw").str());
+    args.push_back((llvm::Twine("/LIBPATH:") + libDirs[0] + "/mingw").str());
   }
 
   // default libs
