@@ -506,26 +506,6 @@ macro(compile_druntime d_flags lib_suffix path_suffix emit_bc all_at_once single
     )
 endmacro()
 
-set(rt_dso_o "")
-set(rt_dso_bc "")
-# Precompile rt.dso object file & install to lib dir.
-# The existing object file isn't reused to prevent *exported* symbols.
-# This allows to create executables with -link-defaultlib-shared without
-# any exports (and according extra linker files on Windows such as the
-# import .lib).
-dc("${RUNTIME_DIR}/src/rt/dso.d"
-    "${RUNTIME_DIR}/src"
-    "-conf=;${D_FLAGS};${D_FLAGS_RELEASE};-fvisibility=hidden;-dllimport=defaultLibsOnly;${DRUNTIME_EXTRA_FLAGS};-I${RUNTIME_DIR}/src"
-    "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}"
-    "OFF" # emit_bc
-    "ON"  # all_at_once
-    "ldc_rt.dso" # single_obj_name
-    rt_dso_o
-    rt_dso_bc
-)
-add_custom_target(rt_dso DEPENDS ${rt_dso_o})
-install(FILES ${rt_dso_o} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
-
 # Sets up the targets for building the Phobos D object files, appending the
 # names of the (bitcode) files to link into the library to outlist_o (outlist_bc).
 macro(compile_phobos2 d_flags lib_suffix path_suffix emit_bc all_at_once single_obj outlist_o outlist_bc)
@@ -760,6 +740,8 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit
                          "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}"
                          "OFF" "${all_d_files_at_once}" "OFF" druntime_o druntime_bc)
 
+        set(rt_dso_o "${PROJECT_BINARY_DIR}/objects${target_suffix}/rt/dso${CMAKE_C_OUTPUT_EXTENSION}")
+
         # compile Phobos with public visibility (and preferably to a single object file)
         if(phobos2_common STREQUAL "")
             set(phobos2_o "")
@@ -776,9 +758,23 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit
                            "${c_flags}" "${ld_flags}" "${lib_suffix}${SHARED_LIB_SUFFIX}" "${path_suffix}"
                            "ON" "OFF" ${outlist_targets})
 
-        add_dependencies(phobos2-ldc${target_suffix} rt_dso)
         if(NOT phobos2_common STREQUAL "")
             add_dependencies(phobos2-ldc${target_suffix} ${phobos2_common})
+        endif()
+
+        if("${lib_suffix}" STREQUAL "") # non-debug & non-unittest
+            # copy rt.dso to `ldc_rt.dso.o[bj]` in lib dir
+            add_custom_command(
+                TARGET druntime-ldc${target_suffix}
+                POST_BUILD COMMAND
+                cp ${rt_dso_o} ${CMAKE_BINARY_DIR}/lib${path_suffix}/ldc_rt.dso${CMAKE_C_OUTPUT_EXTENSION}
+            )
+            # and install it too
+            install(
+                FILES ${rt_dso_o}
+                DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${path_suffix}
+                RENAME ldc_rt.dso${CMAKE_C_OUTPUT_EXTENSION}
+            )
         endif()
     endif()
 endmacro()
@@ -1026,7 +1022,7 @@ macro(compile_testrunner d_flags is_shared target_suffix extra_dir_suffix)
 
     if("${is_shared}" STREQUAL "ON")
         # also link-in special rt.dso druntime module
-        list(APPEND test_runner_o ${rt_dso_o})
+        list(APPEND test_runner_o ${PROJECT_BINARY_DIR}/objects-unittest${target_suffix}/rt/dso${CMAKE_C_OUTPUT_EXTENSION})
     endif()
 endmacro()
 
