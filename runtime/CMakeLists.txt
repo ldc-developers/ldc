@@ -424,7 +424,7 @@ macro(dc src_files src_basedir d_flags output_basedir emit_bc all_at_once single
             set(renameCommand "")
             if(${emit_bc})
                 # rename generated *.bc to *.bc.o[bj]
-                set(renameCommand mv ${output_basedir}/${output_root}.bc ${output_bc})
+                set(renameCommand ${CMAKE_COMMAND} -E rename ${output_basedir}/${output_root}.bc ${output_bc})
                 list(APPEND outfiles ${output_bc})
             endif()
 
@@ -461,7 +461,7 @@ macro(dc src_files src_basedir d_flags output_basedir emit_bc all_at_once single
             string(REGEX REPLACE "${CMAKE_C_OUTPUT_EXTENSION}$" "" src_bc "${dst_bc}")
             add_custom_command(
                 OUTPUT ${new_o} ${new_bc} APPEND
-                COMMAND mv ${src_bc} ${dst_bc}
+                COMMAND ${CMAKE_COMMAND} -E rename ${src_bc} ${dst_bc}
             )
         endforeach()
     endif()
@@ -767,7 +767,7 @@ macro(build_runtime_variant d_flags c_flags ld_flags lib_suffix path_suffix emit
             add_custom_command(
                 TARGET druntime-ldc${target_suffix}
                 POST_BUILD COMMAND
-                cp ${rt_dso_o} ${CMAKE_BINARY_DIR}/lib${path_suffix}/ldc_rt.dso${CMAKE_C_OUTPUT_EXTENSION}
+                ${CMAKE_COMMAND} -E copy ${rt_dso_o} ${CMAKE_BINARY_DIR}/lib${path_suffix}/ldc_rt.dso${CMAKE_C_OUTPUT_EXTENSION}
             )
             # and install it too
             install(
