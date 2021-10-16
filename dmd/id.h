@@ -94,6 +94,7 @@ struct Id
     static Identifier *udaDynamicCompile;
     static Identifier *udaDynamicCompileConst;
     static Identifier *udaDynamicCompileEmit;
+    static Identifier *udaHidden;
     static Identifier *io;
 #endif
 };

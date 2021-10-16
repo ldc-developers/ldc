@@ -376,6 +376,9 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
     auto ident = sle->sd->ident;
     if (ident == Id::udaSection) {
       applyAttrSection(sle, gvar);
+    } else if (ident == Id::udaHidden) {
+      if (!decl->isExport()) // export visibility is stronger
+        gvar->setVisibility(LLGlobalValue::HiddenVisibility);
     } else if (ident == Id::udaOptStrategy || ident == Id::udaTarget) {
       sle->error(
           "Special attribute `ldc.attributes.%s` is only valid for functions",
@@ -423,6 +426,9 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
 #else
         func->addAttributes(LLAttributeList::FunctionIndex, attrs);
 #endif
+      } else if (ident == Id::udaHidden) {
+        if (!decl->isExport()) // export visibility is stronger
+          func->setVisibility(LLGlobalValue::HiddenVisibility);
       } else if (ident == Id::udaLLVMFastMathFlag) {
         applyAttrLLVMFastMathFlag(sle, irFunc);
       } else if (ident == Id::udaOptStrategy) {

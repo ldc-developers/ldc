@@ -274,21 +274,48 @@ void setLinkageAndVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
   setVisibility(sym, obj);
 }
 
+namespace {
+bool hasExportedLinkage(llvm::GlobalObject *obj) {
+  const auto l = obj->getLinkage();
+  return l == LLGlobalValue::ExternalLinkage ||
+         l == LLGlobalValue::WeakODRLinkage ||
+         l == LLGlobalValue::WeakAnyLinkage;
+}
+}
+
 void setVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
-  if (global.params.targetTriple->isOSWindows()) {
+  const auto &triple = *global.params.targetTriple;
+
+  const bool hasHiddenUDA = obj->hasHiddenVisibility();
+
+  if (triple.isOSWindows()) {
     bool isExported = sym->isExport();
-    if (!isExported && global.params.dllexport) {
-      const auto l = obj->getLinkage();
-      isExported = l == LLGlobalValue::ExternalLinkage ||
-                   l == LLGlobalValue::WeakODRLinkage ||
-                   l == LLGlobalValue::WeakAnyLinkage;
+    // also export with -fvisibility=public without @hidden
+    if (!isExported && global.params.dllexport && !hasHiddenUDA) {
+      isExported = hasExportedLinkage(obj);
+    }
+    // reset default visibility & DSO locality - on Windows, the DLL storage
+    // classes matter
+    if (hasHiddenUDA) {
+      obj->setVisibility(LLGlobalValue::DefaultVisibility);
+      obj->setDSOLocal(false);
     }
     obj->setDLLStorageClass(isExported ? LLGlobalValue::DLLExportStorageClass
                                        : LLGlobalValue::DefaultStorageClass);
   } else {
-    if (opts::symbolVisibility == opts::SymbolVisibility::hidden &&
-        !sym->isExport()) {
-      obj->setVisibility(LLGlobalValue::HiddenVisibility);
+    if (sym->isExport()) {
+      obj->setVisibility(LLGlobalValue::DefaultVisibility); // overrides @hidden
+    } else if (!hasHiddenUDA) {
+      // Hide with -fvisibility=hidden, or linkonce_odr etc.
+      // The Apple linker warns about hidden linkonce_odr symbols from object
+      // files compiled with -linkonce-templates being folded with *public*
+      // weak_odr symbols from non-linkonce-templates code (e.g., Phobos), so
+      // don't hide instantiated symbols for Mac.
+      if (opts::symbolVisibility == opts::SymbolVisibility::hidden ||
+          (!hasExportedLinkage(obj) &&
+           !(triple.isOSDarwin() && sym->isInstantiated()))) {
+        obj->setVisibility(LLGlobalValue::HiddenVisibility);
+      }
     }
   }
 }
