@@ -170,6 +170,17 @@ private struct _dynamicCompileEmit
 alias fastmath = AliasSeq!(llvmAttr("unsafe-fp-math", "true"), llvmFastMathFlag("fast"));
 
 /**
+ * Sets the visibility of a function or global variable to "hidden".
+ * Such symbols aren't directly accessible from outside the DSO
+ * (executable or DLL/.so/.dylib) and are resolved inside the DSO
+ * during linking. If unreferenced within the DSO, the linker can
+ * strip a hidden symbol.
+ * An `export` visibility overrides this attribute.
+ */
+immutable hidden = _hidden();
+private struct _hidden {}
+
+/**
  * Adds an LLVM attribute to a function, without checking the validity or
  * applicability of the attribute.
  * The attribute is specified as key-value pair:
