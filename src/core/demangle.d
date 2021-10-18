@@ -2644,11 +2644,18 @@ unittest
     static noreturn abort() { assert(false); }
     assert(demangle(abort.mangleof) == "pure nothrow @nogc @safe noreturn " ~ parent ~ "().abort()");
 
-    static void accept(noreturn) {}
-    assert(demangle(accept.mangleof) == "pure nothrow @nogc @safe void " ~ parent ~ "().accept(noreturn)");
+    version (LDC)
+    {
+        // FIXME: https://github.com/ldc-developers/ldc/issues/3853
+    }
+    else
+    {
+        static void accept(noreturn) {}
+        assert(demangle(accept.mangleof) == "pure nothrow @nogc @safe void " ~ parent ~ "().accept(noreturn)");
 
-    static void templ(T)(T, T) {}
-    assert(demangle(templ!noreturn.mangleof) == "pure nothrow @nogc @safe void " ~ parent ~ "().templ!(noreturn).templ(noreturn, noreturn)");
+        static void templ(T)(T, T) {}
+        assert(demangle(templ!noreturn.mangleof) == "pure nothrow @nogc @safe void " ~ parent ~ "().templ!(noreturn).templ(noreturn, noreturn)");
+    }
 
     static struct S(T) {}
     static void aggr(S!noreturn) { assert(0); }
