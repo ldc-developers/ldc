@@ -1381,6 +1381,7 @@ extern(C++) Type typeSemantic(Type type, const ref Loc loc, Scope* sc)
                                 stc, narg.type, narg.ident, narg.defaultArg, narg.userAttribDecl);
                         }
                         fparam.type = new TypeTuple(newparams);
+                        fparam.type = fparam.type.typeSemantic(loc, argsc);
                     }
                     fparam.storageClass = STC.parameter;
 
@@ -2365,7 +2366,7 @@ Expression getProperty(Type t, Scope* scope_, const ref Loc loc, Identifier iden
         {
             const explicitAlignment = mt.alignment();
             const naturalAlignment = mt.alignsize();
-            const actualAlignment = (explicitAlignment == STRUCTALIGN_DEFAULT ? naturalAlignment : explicitAlignment);
+            const actualAlignment = (explicitAlignment.isDefault() ? naturalAlignment : explicitAlignment.get());
             e = new IntegerExp(loc, actualAlignment, Type.tsize_t);
         }
         else if (ident == Id._init)
@@ -4768,6 +4769,7 @@ Expression defaultInit(Type mt, const ref Loc loc)
         }
         auto cond = IntegerExp.createBool(false);
         auto msg = new StringExp(loc, "Accessed expression of type `noreturn`");
+        msg.type = Type.tstring;
         auto ae = new AssertExp(loc, cond, msg);
         ae.type = mt;
         return ae;

@@ -213,15 +213,12 @@ bool IrTypeAggr::isPacked(AggregateDeclaration *ad) {
   unsigned aggregateAlignment = 1;
   if (ad->sizeok == Sizeok::done) {
     aggregateSize = ad->structsize;
+    aggregateAlignment = ad->alignsize;
 
-    const auto naturalAlignment = ad->alignsize;
-    auto explicitAlignment = STRUCTALIGN_DEFAULT;
-    if (auto sd = ad->isStructDeclaration())
-      explicitAlignment = sd->alignment;
-
-    aggregateAlignment = explicitAlignment == STRUCTALIGN_DEFAULT
-                             ? naturalAlignment
-                             : explicitAlignment;
+    if (auto sd = ad->isStructDeclaration()) {
+      if (!sd->alignment.isDefault() && !sd->alignment.isPack())
+        aggregateAlignment = sd->alignment.get();
+    }
   }
 
   // Classes apparently aren't padded; their size may not match the alignment.
@@ -232,16 +229,10 @@ bool IrTypeAggr::isPacked(AggregateDeclaration *ad) {
   // For unions, only a subset of the fields are actually used for the IR type -
   // don't care (about a few potentially needlessly packed IR structs).
   for (const auto field : ad->fields) {
-    const auto naturalFieldTypeAlignment = field->type->alignsize();
-    const auto explicitFieldTypeAlignment = field->type->alignment();
-    const auto fieldTypeAlignment =
-        explicitFieldTypeAlignment == STRUCTALIGN_DEFAULT
-            ? naturalFieldTypeAlignment
-            : explicitFieldTypeAlignment;
-
     // The aggregate size, aggregate alignment and the field offset need to be
     // multiples of the field type's alignment, otherwise the aggregate type is
     // unnaturally aligned, and LLVM would insert padding.
+    const unsigned fieldTypeAlignment = DtoAlignment(field->type);
     const auto mask = fieldTypeAlignment - 1;
     if ((aggregateSize | aggregateAlignment | field->offset) & mask)
       return true;

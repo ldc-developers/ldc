@@ -151,18 +151,25 @@ void DtoDeleteArray(const Loc &loc, DValue *arr) {
  ******************************************************************************/
 
 unsigned DtoAlignment(Type *type) {
-  structalign_t alignment = type->alignment();
-  if (alignment == STRUCTALIGN_DEFAULT) {
-    auto ts = type->toBasetype()->isTypeStruct();
-    if (!ts || ts->sym->members) // not an opaque struct
-      alignment = type->alignsize();
-  }
-  return (alignment == STRUCTALIGN_DEFAULT ? 0 : alignment);
+  const auto alignment = type->alignment();
+  if (!alignment.isDefault() && !alignment.isPack())
+    return alignment.get();
+
+  auto ts = type->toBasetype()->isTypeStruct();
+  return ts && !ts->sym->members ? 0 // opaque struct
+                                 : type->alignsize();
 }
 
 unsigned DtoAlignment(VarDeclaration *vd) {
-  return vd->alignment == STRUCTALIGN_DEFAULT ? DtoAlignment(vd->type)
-                                              : vd->alignment;
+  const unsigned typeAlignment = DtoAlignment(vd->type);
+  if (vd->alignment.isDefault())
+    return typeAlignment;
+
+  const unsigned explicitAlignValue = vd->alignment.get();
+  if (vd->alignment.isPack())
+    return std::min(typeAlignment, explicitAlignValue);
+
+  return explicitAlignValue;
 }
 
 /******************************************************************************
