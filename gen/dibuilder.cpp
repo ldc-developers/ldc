@@ -486,7 +486,7 @@ void DIBuilder::AddFields(AggregateDeclaration *ad, DIFile file,
   size_t narr = ad->fields.length;
   elems.reserve(narr);
   for (auto vd : ad->fields) {
-    if (vd->type->toBasetype()->ty == TY::Tnoreturn)
+    if (vd->type->toBasetype()->isTypeNoreturn())
       continue;
 
     elems.push_back(CreateMemberType(vd->loc.linnum, vd->type, file,
@@ -517,7 +517,7 @@ void DIBuilder::AddStaticMembers(AggregateDeclaration *ad, DIFile file,
         visitMembers(tmixin->members);
       } else if (auto vd = s->isVarDeclaration())
         if (vd->isDataseg() && !vd->aliassym /* TODO: tuples*/ &&
-            vd->type->toBasetype()->ty != TY::Tnoreturn) {
+            !vd->type->toBasetype()->isTypeNoreturn()) {
           llvm::MDNode *elem =
               CreateMemberType(vd->loc.linnum, vd->type, file, vd->toChars(), 0,
                                vd->visibility.kind,
@@ -1172,6 +1172,11 @@ void DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
   Logger::println("D to dwarf local variable");
   LOG_SCOPE;
 
+  if (vd->type->toBasetype()->isTypeNoreturn()) {
+    Logger::println("of type noreturn, skip");
+    return;
+  }
+
   auto &variableMap = IR->func()->variableMap;
   auto sub = variableMap.find(vd);
   if (sub != variableMap.end())
@@ -1276,6 +1281,11 @@ void DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
 
   Logger::println("D to dwarf global_variable");
   LOG_SCOPE;
+
+  if (vd->type->toBasetype()->isTypeNoreturn()) {
+    Logger::println("of type noreturn, skip");
+    return;
+  }
 
   assert(vd->isDataseg() ||
          (vd->storage_class & (STCconst | STCimmutable) && vd->_init));

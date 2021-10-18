@@ -1072,9 +1072,15 @@ LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr) {
 LLConstant *DtoConstInitializer(const Loc &loc, Type *type, Initializer *init) {
   LLConstant *_init = nullptr; // may return zero
   if (!init) {
-    IF_LOG Logger::println("const default initializer for %s", type->toChars());
-    Expression *initExp = defaultInit(type, loc);
-    _init = DtoConstExpInit(loc, type, initExp);
+    if (type->toBasetype()->isTypeNoreturn()) {
+      Logger::println("const noreturn initializer");
+      LLType *ty = DtoMemType(type);
+      _init = LLConstant::getNullValue(ty);
+    } else {
+      IF_LOG Logger::println("const default initializer for %s", type->toChars());
+      Expression *initExp = defaultInit(type, loc);
+      _init = DtoConstExpInit(loc, type, initExp);
+    }
   } else if (ExpInitializer *ex = init->isExpInitializer()) {
     Logger::println("const expression initializer");
     _init = DtoConstExpInit(loc, type, ex->exp);
