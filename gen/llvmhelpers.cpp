@@ -1091,7 +1091,7 @@ LLConstant *DtoConstInitializer(const Loc &loc, Type *type, Initializer *init) {
     Logger::println("const void initializer");
     LLType *ty = DtoMemType(type);
     _init = LLConstant::getNullValue(ty);
-  } else if (CInitializer *ci = init->isCInitializer()) {
+  } else if (init->isCInitializer()) {
     // TODO: ImportC
     error(loc, "LDC doesn't support C initializer lists yet");
     fatal();
