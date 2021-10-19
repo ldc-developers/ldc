@@ -1,7 +1,7 @@
-# LDC 1.28.0 (2021-10-13)
+# LDC 1.28.0 (2021-10-20)
 
 #### Big news
-- Frontend, druntime and Phobos are at version [2.098.0+](https://dlang.org/changelog/2.098.0.html). (#3821, #3839, #3844)
+- Frontend, druntime and Phobos are at version [2.098.0+](https://dlang.org/changelog/2.098.0.html). (#3821, #3839, #3844, #3852)
 - Windows: `-dllimport=defaultLibsOnly` (e.g., implied by `-link-defaultlib-shared -fvisibility=hidden`) doesn't require `-linkonce-templates` anymore. (#3816)
 - dcompute: Add support for OpenCL image I/O. (#3835)
 
