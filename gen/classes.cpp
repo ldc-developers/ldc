@@ -80,10 +80,7 @@ DValue *DtoNewClass(const Loc &loc, TypeClass *tc, NewExp *newexp) {
   LLValue *mem;
   bool doInit = true;
   if (newexp->onstack) {
-    unsigned alignment = tc->sym->alignsize;
-    if (alignment == STRUCTALIGN_DEFAULT)
-      alignment = 0;
-    mem = DtoRawAlloca(DtoType(tc)->getContainedType(0), alignment,
+    mem = DtoRawAlloca(DtoType(tc)->getContainedType(0), tc->sym->alignsize,
                        ".newclass_alloca");
   } else {
     const bool useEHAlloc = global.params.ehnogc && newexp->thrownew;

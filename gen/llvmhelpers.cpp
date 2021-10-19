@@ -151,18 +151,25 @@ void DtoDeleteArray(const Loc &loc, DValue *arr) {
  ******************************************************************************/
 
 unsigned DtoAlignment(Type *type) {
-  structalign_t alignment = type->alignment();
-  if (alignment == STRUCTALIGN_DEFAULT) {
-    auto ts = type->toBasetype()->isTypeStruct();
-    if (!ts || ts->sym->members) // not an opaque struct
-      alignment = type->alignsize();
-  }
-  return (alignment == STRUCTALIGN_DEFAULT ? 0 : alignment);
+  const auto alignment = type->alignment();
+  if (!alignment.isDefault() && !alignment.isPack())
+    return alignment.get();
+
+  auto ts = type->toBasetype()->isTypeStruct();
+  return ts && !ts->sym->members ? 0 // opaque struct
+                                 : type->alignsize();
 }
 
 unsigned DtoAlignment(VarDeclaration *vd) {
-  return vd->alignment == STRUCTALIGN_DEFAULT ? DtoAlignment(vd->type)
-                                              : vd->alignment;
+  const unsigned typeAlignment = DtoAlignment(vd->type);
+  if (vd->alignment.isDefault())
+    return typeAlignment;
+
+  const unsigned explicitAlignValue = vd->alignment.get();
+  if (vd->alignment.isPack())
+    return std::min(typeAlignment, explicitAlignValue);
+
+  return explicitAlignValue;
 }
 
 /******************************************************************************
@@ -1065,9 +1072,15 @@ LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr) {
 LLConstant *DtoConstInitializer(const Loc &loc, Type *type, Initializer *init) {
   LLConstant *_init = nullptr; // may return zero
   if (!init) {
-    IF_LOG Logger::println("const default initializer for %s", type->toChars());
-    Expression *initExp = defaultInit(type, loc);
-    _init = DtoConstExpInit(loc, type, initExp);
+    if (type->toBasetype()->isTypeNoreturn()) {
+      Logger::println("const noreturn initializer");
+      LLType *ty = DtoMemType(type);
+      _init = LLConstant::getNullValue(ty);
+    } else {
+      IF_LOG Logger::println("const default initializer for %s", type->toChars());
+      Expression *initExp = defaultInit(type, loc);
+      _init = DtoConstExpInit(loc, type, initExp);
+    }
   } else if (ExpInitializer *ex = init->isExpInitializer()) {
     Logger::println("const expression initializer");
     _init = DtoConstExpInit(loc, type, ex->exp);
@@ -1078,7 +1091,7 @@ LLConstant *DtoConstInitializer(const Loc &loc, Type *type, Initializer *init) {
     Logger::println("const void initializer");
     LLType *ty = DtoMemType(type);
     _init = LLConstant::getNullValue(ty);
-  } else if (CInitializer *ci = init->isCInitializer()) {
+  } else if (init->isCInitializer()) {
     // TODO: ImportC
     error(loc, "LDC doesn't support C initializer lists yet");
     fatal();

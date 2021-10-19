@@ -2299,7 +2299,9 @@ version (IN_LLVM)
      */
     structalign_t alignment()
     {
-        return STRUCTALIGN_DEFAULT;
+        structalign_t s;
+        s.setDefault();
+        return s;
     }
 
     /***************************************
@@ -4798,7 +4800,10 @@ extern (C++) final class TypeFunction : TypeNext
                             }
                         }
                         else
-                            m = arg.implicitConvTo(tprm);
+                        {
+                            import dmd.dcast : cimplicitConvTo;
+                            m = (sc && sc.flags & SCOPE.Cfile) ? arg.cimplicitConvTo(tprm) : arg.implicitConvTo(tprm);
+                        }
                     }
                     //printf("match %d\n", m);
                 }
@@ -5783,7 +5788,7 @@ extern (C++) final class TypeStruct : Type
 
     override structalign_t alignment()
     {
-        if (sym.alignment == 0)
+        if (sym.alignment.isUnknown())
             sym.size(sym.loc);
         return sym.alignment;
     }
@@ -6563,6 +6568,29 @@ extern (C++) final class TypeTuple : Type
             }
         }
         return false;
+    }
+
+    override MATCH implicitConvTo(Type to)
+    {
+        if (this == to)
+            return MATCH.exact;
+        if (auto tt = to.isTypeTuple())
+        {
+            if (arguments.dim == tt.arguments.dim)
+            {
+                MATCH m = MATCH.exact;
+                for (size_t i = 0; i < tt.arguments.dim; i++)
+                {
+                    Parameter arg1 = (*arguments)[i];
+                    Parameter arg2 = (*tt.arguments)[i];
+                    MATCH mi = arg1.type.implicitConvTo(arg2.type);
+                    if (mi < m)
+                        m = mi;
+                }
+                return m;
+            }
+        }
+        return MATCH.nomatch;
     }
 
     override void accept(Visitor v)

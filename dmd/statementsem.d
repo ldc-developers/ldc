@@ -2794,7 +2794,8 @@ version (IN_LLVM)
                 needswitcherror = true;
         }
 
-        if (!sc.sw.sdefault && (!ss.isFinal || needswitcherror || global.params.useAssert == CHECKENABLE.on))
+        if (!sc.sw.sdefault && !(sc.flags & SCOPE.Cfile) &&
+            (!ss.isFinal || needswitcherror || global.params.useAssert == CHECKENABLE.on))
         {
             ss.hasNoDefault = 1;
 

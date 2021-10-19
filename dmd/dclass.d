@@ -611,7 +611,7 @@ version (IN_LLVM) {} else
 
                 if (!b.sym.alignsize)
                     b.sym.alignsize = target.ptrsize;
-                alignmember(b.sym.alignsize, b.sym.alignsize, &offset);
+                alignmember(structalign_t(cast(ushort)b.sym.alignsize), b.sym.alignsize, &offset);
                 assert(bi < vtblInterfaces.dim);
 
                 BaseClass* bv = (*vtblInterfaces)[bi];
