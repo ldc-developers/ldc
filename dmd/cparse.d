@@ -3146,6 +3146,11 @@ final class CParser(AST) : Parser!AST
         Specifier specifier;
         specifier.packalign = this.packalign;
         auto tspec = cparseSpecifierQualifierList(LVL.member, specifier);
+        if (tspec && specifier.mod & MOD.xconst)
+        {
+            tspec = toConst(tspec);
+            specifier.mod = MOD.xnone;          // 'used' it
+        }
 
         /* If a declarator does not follow, it is unnamed
          */
@@ -3218,9 +3223,6 @@ final class CParser(AST) : Parser!AST
                 nextToken();
                 width = cparseConstantExp();
             }
-
-            if (specifier.mod & MOD.xconst)
-                dt = toConst(dt);
 
             /* GNU Extensions
              * struct-declarator:
