@@ -126,13 +126,13 @@ std::string getIRMangledName(VarDeclaration *vd) {
 
 std::string getIRMangledFuncName(std::string baseMangle, LINK link) {
   return baseMangle[0] == '\1'
-             ? baseMangle
+             ? std::move(baseMangle)
              : gABI->mangleFunctionForLLVM(std::move(baseMangle), link);
 }
 
 std::string getIRMangledVarName(std::string baseMangle, LINK link) {
   return baseMangle[0] == '\1'
-             ? baseMangle
+             ? std::move(baseMangle)
              : gABI->mangleVariableForLLVM(std::move(baseMangle), link);
 }
 
