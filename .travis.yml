@@ -35,10 +35,10 @@ install:
   # Download & extract LDC-flavoured LLVM
   - |
     assertsSuffix=""
-    if [[ "$TRAVIS_TAG" == "" ]]; then
-      echo 'Using LLVM with enabled assertions'
-      assertsSuffix="-withAsserts"
-    fi
+    #if [[ "$TRAVIS_TAG" == "" ]]; then
+    #  echo 'Using LLVM with enabled assertions'
+    #  assertsSuffix="-withAsserts"
+    #fi
     llvm_tag="CI"
     if [[ "$LLVM_VERSION" = *.* ]]; then llvm_tag="ldc-v$LLVM_VERSION"; fi
     llvm_url="https://github.com/ldc-developers/llvm-project/releases/download/$llvm_tag/llvm-$LLVM_VERSION-linux-aarch64$assertsSuffix.tar.xz"
@@ -51,6 +51,7 @@ script:
   - unset LD_LIBRARY_PATH
   - cmake --version
   - ninja --version
+  - git checkout v1.28.0
   # Build bootstrap LDC
   - mkdir bootstrap-ldc
   - cd bootstrap-ldc
@@ -170,11 +171,12 @@ script:
   - installed/bin/reggae --version -b ninja
   # Pack installation dir
   - |
-    if [[ "$TRAVIS_TAG" != "" ]]; then
-      artifactID=${TRAVIS_TAG:1}
-    else
-      artifactID=${TRAVIS_COMMIT:0:8}
-    fi
+    #if [[ "$TRAVIS_TAG" != "" ]]; then
+    #  artifactID=${TRAVIS_TAG:1}
+    #else
+    #  artifactID=${TRAVIS_COMMIT:0:8}
+    #fi
+    artifactID="1.28.0"
     artifactName=ldc2-$artifactID-linux-aarch64
     mv installed $artifactName || travis_terminate 1
     artifact=$artifactName.tar.xz
@@ -183,11 +185,11 @@ script:
   # Upload to GitHub release (only for commits on the master branch and tags)
   - |
     if [[ "$TRAVIS_TEST_RESULT" == "0" ]]; then
-      if [[ "$TRAVIS_TAG" != "" ]]; then
-        tools/upload-to-github.sh $TRAVIS_TAG ldc2-*.tar.xz || travis_terminate 1
-      elif [[ "$TRAVIS_PULL_REQUEST" = "false" && "$TRAVIS_BRANCH" = "master" ]]; then
-        tools/upload-to-github.sh CI ldc2-*.tar.xz || travis_terminate 1
-      fi
+      #if [[ "$TRAVIS_TAG" != "" ]]; then
+        tools/upload-to-github.sh v1.28.0 ldc2-*.tar.xz || travis_terminate 1
+      #elif [[ "$TRAVIS_PULL_REQUEST" = "false" && "$TRAVIS_BRANCH" = "master" ]]; then
+      #  tools/upload-to-github.sh CI ldc2-*.tar.xz || travis_terminate 1
+      #fi
     fi
 
 notifications:
