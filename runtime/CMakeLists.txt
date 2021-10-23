@@ -620,7 +620,8 @@ function(set_common_library_properties target name output_dir c_flags ld_flags i
     # linker default on Ubuntu 16.10 and above. As we might be building on an
     # older system (e.g. binary packages), we need to make sure the C parts are
     # built as PIC as well.
-    if("${TARGET_SYSTEM}" MATCHES "Linux")
+    # Same on OpenBSD.
+    if("${TARGET_SYSTEM}" MATCHES "Linux|OpenBSD")
         set_target_properties(${target} PROPERTIES
             POSITION_INDEPENDENT_CODE ON)
     endif()
