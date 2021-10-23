@@ -8,4 +8,8 @@
 // CHECK: .section  .init_array
 // CHECK: .section  .fini_array
 
-// No code needed to generate asm for a module.
+pragma(crt_constructor)
+void ctor() {}
+
+pragma(crt_destructor)
+void dtor() {}
