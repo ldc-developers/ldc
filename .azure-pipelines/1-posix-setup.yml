@@ -65,9 +65,7 @@ steps:
     tar -xf llvm.tar.xz --strip 1 -C llvm
     # Non-Mac: make lld the default linker (possibly with enabled assertions unfortunately)
     if [ "$CI_OS" != "osx" ]; then
-      #sudo ln -sf "$PWD/llvm/bin/ld.lld" /usr/bin/ld
-      # FIXME: https://github.com/ldc-developers/ldc/issues/3786
-      sudo ln -sf /usr/bin/ld.gold /usr/bin/ld
+      sudo ln -sf "$PWD/llvm/bin/ld.lld" /usr/bin/ld
     fi
     # Set PARALLEL_JOBS env variable and persist it for future steps
     if [ "$CI_OS" = "osx" ]; then
