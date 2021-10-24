@@ -165,6 +165,8 @@ private:
     {
         size_t _tlsMod;
         size_t _tlsSize;
+        version (LDC)
+            size_t _tlsAlignment;
     }
     else static if (SharedDarwin)
     {
@@ -187,7 +189,10 @@ private:
     {
         static if (SharedELF)
         {
-            return getTLSRange(_tlsMod, _tlsSize);
+            version (LDC)
+                return getTLSRange(_tlsMod, _tlsSize, _tlsAlignment);
+            else
+                return getTLSRange(_tlsMod, _tlsSize);
         }
         else static if (SharedDarwin)
         {
@@ -1029,12 +1034,7 @@ else
                     pdso._tlsMod = object.info.dlpi_tls_modid;
                 pdso._tlsSize = phdr.p_memsz;
                 version (LDC)
-                {
-                    // align to multiple of size_t to avoid misaligned scanning
-                    // (size is subtracted from TCB address to get base of TLS)
-                    immutable mask = size_t.sizeof - 1;
-                    pdso._tlsSize = (pdso._tlsSize + mask) & ~mask;
-                }
+                    pdso._tlsAlignment = phdr.p_align;
                 break;
 
             default:
@@ -1207,25 +1207,42 @@ version (LDC)
         version = Static_Linux_X86_Any;
 }
 
-void[] getTLSRange(size_t mod, size_t sz) nothrow @nogc
+// LDC: added `alignment` param
+void[] getTLSRange(size_t mod, size_t sz, size_t alignment) nothrow @nogc
 {
     version (Static_Linux_X86_Any)
     {
+        void* tcb;
         version (X86)
-            static void* endOfBlock() nothrow @nogc { asm nothrow @nogc { naked; mov EAX, GS:[0]; ret; } }
+            asm nothrow @nogc { "mov %%gs:0, %0" : "=r" (tcb); }
         else version (X86_64)
-            static void* endOfBlock() nothrow @nogc { asm nothrow @nogc { naked; mov RAX, FS:[0]; ret; } }
+            asm nothrow @nogc { "mov %%fs:0, %0" : "=r" (tcb); }
 
-        // FIXME: It is unclear whether aligning the area down to the next
-        // double-word is necessary and if so, on what systems, but at least
-        // some implementations seem to do it.
-        version (none)
+        void* start = tcb - sz;
+
+        // For non-ld.gold linkers, it seems to be necessary to align the
+        // pointer down according to the TLS alignment.
+        start = cast(void*) ((cast(size_t) start) & ~(alignment - 1));
+
+        version (unittest) // verify against __tls_get_addr for static druntime unittest runners
         {
-            immutable mask = (2 * size_t.sizeof) - 1;
-            sz = (sz + mask) & ~mask;
+            void* reference;
+            if (mod != 0)
+            {
+                auto ti = tls_index(mod, 0);
+                reference = __tls_get_addr(&ti);
+            }
+
+            if (reference != start)
+            {
+                import core.stdc.stdlib : abort;
+                fprintf(stderr, "ERROR: getTLSRange mismatch - %p\n", start);
+                fprintf(stderr, "                          vs. %p\n", reference);
+                abort();
+            }
         }
 
-        return (endOfBlock() - sz)[0 .. sz];
+        return start[0 .. sz];
     }
     else
     {
