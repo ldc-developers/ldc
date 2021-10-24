@@ -9,7 +9,8 @@ env:
     - LLVM_VERSION=12.0.0
     - CC=gcc-8
     - CXX=g++-8
-    - OPTS="-DBUILD_LTO_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DJITRT_EXTRA_LDFLAGS=-static-libstdc++ -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64"
+    # FIXME: need to use ld.gold for linking LDC itself for now, fixed in frontend v2.099
+    - OPTS="-DBUILD_LTO_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DJITRT_EXTRA_LDFLAGS=-static-libstdc++ -DD_COMPILER_FLAGS=-linker=gold -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64"
     - secure: "WfMv0kOqVU8+SgZUrwgzvzGvFbZvPmeIqrDJ+sotbzEtDeCcMuZmj/+8VuysXzpShXx/FxCoopWpAz30pedES8anGR3ciZruVPPsi22rOR5IBHuSnbamkmF11eQgRaDcj6GvZL7QeWLHBx6EN+C+mQFEVqRrD5avCO/K0RqWTD4="
 
 git:
@@ -46,6 +47,10 @@ install:
     mkdir -p llvm || travis_terminate 1
     tar -xf llvm.tar.xz --strip 1 -C llvm || travis_terminate 1
     rm llvm.tar.xz || travis_terminate 1
+  # Make lld the default linker (possibly with enabled assertions unfortunately)
+  #- sudo ln -sf "$PWD/llvm/bin/ld.lld" /usr/bin/ld
+  # FIXME: https://github.com/ldc-developers/ldc/issues/3786
+  - sudo ln -sf /usr/bin/ld.gold /usr/bin/ld
 
 script:
   - unset LD_LIBRARY_PATH

@@ -70,6 +70,9 @@ jobs:
           sudo apt-get update
           # Don't use latest gdb v10 from Ubuntu toolchain PPA with regressions, use official v8
           sudo apt-get install gdb=8.1.1-0ubuntu1
+      - name: "Linux: Make ld.gold the default linker"
+        if: runner.os == 'Linux'
+        run: sudo ln -sf /usr/bin/ld.gold /usr/bin/ld
 
       - name: Try to restore cached LLVM
         uses: actions/cache@v2
