@@ -318,8 +318,13 @@ public:
       return;
     }
 
-    // FIXME: This is #673 all over again.
-    if (!global.params.linkonceTemplates && !decl->needsCodegen()) {
+    // With -linkonce-templates, only non-speculative instances make it to
+    // module members (see `TemplateInstance.appendToModuleMember()`), and we
+    // don't need full needsCodegen() culling in that case; isDiscardable() is
+    // sufficient. Speculative ones are lazily emitted if actually referenced
+    // during codegen - per IR module.
+    if ((global.params.linkonceTemplates && decl->isDiscardable()) ||
+        (!global.params.linkonceTemplates && !decl->needsCodegen())) {
       Logger::println("Does not need codegen, skipping.");
       return;
     }
