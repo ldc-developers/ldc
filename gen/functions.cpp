@@ -1066,7 +1066,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
   fd->ir->setDefined();
 
-  if (fd->isUnitTestDeclaration() && !global.params.useUnitTests) {
+  if (fd->isUnitTestDeclaration() &&
+      (!global.params.useUnitTests || !fd->fbody)) {
     IF_LOG Logger::println("No code generation for unit test declaration %s",
                            fd->toChars());
     return;
