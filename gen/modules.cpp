@@ -325,6 +325,8 @@ void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
   auto thismref = defineDSOGlobal(thismrefIRMangle,
                                   DtoBitCast(thisModuleInfo, moduleInfoPtrTy));
   thismref->setSection(moduleInfoRefsSectionName);
+  // Ensure __minfo will not be discarded by ld -z start-stop-gc.
+  appendToUsed(gIR->module, {thismref});
   gIR->usedArray.push_back(thismref);
 
   if (!isFirst || style == RegistryStyle::sectionSimple) {
