@@ -741,7 +741,7 @@ DIType DIBuilder::CreateDelegateType(TypeDelegate *type) {
   const auto file = CreateFile();
 
   LLMetadata *elems[] = {
-      CreateMemberType(0, Type::tvoidptr, file, "context", 0,
+      CreateMemberType(0, Type::tvoidptr, file, "ptr", 0,
                        Visibility::public_),
       CreateMemberType(0, type->next->pointerTo(), file, "funcptr",
                        target.ptrsize, Visibility::public_)};
