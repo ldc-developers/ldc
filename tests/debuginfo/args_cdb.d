@@ -85,7 +85,7 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 
 // CDB: ?? dg
 // CHECK: int delegate()
-// CHECK-NEXT: context :
+// CHECK-NEXT: ptr :
 // CHECK-NEXT: funcptr :
 // CHECK-G-SAME: args_cdb.main.__lambda
 // CHECK-GC-SAME: args_cdb::main::__lambda
@@ -188,7 +188,7 @@ int byPtr(ubyte* ub, ushort* us, uint* ui, ulong* ul,
 // CHECK-NEXT: im : 9
 // CDB: ?? *dg
 // CHECK: int delegate()
-// CHECK-NEXT: context :
+// CHECK-NEXT: ptr :
 // CHECK-NEXT: funcptr :
 // CHECK-G-SAME: args_cdb.main.__lambda
 // CHECK-GC-SAME: args_cdb::main::__lambda
@@ -265,7 +265,7 @@ int byRef(ref ubyte ub, ref ushort us, ref uint ui, ref ulong ul,
 // CHECK-NEXT: im : 9
 // CDB: ?? *dg
 // CHECK: int delegate()
-// CHECK-NEXT: context :
+// CHECK-NEXT: ptr :
 // CHECK-NEXT: funcptr : {{0x[0-9a-f`]*}}
 // CHECK-G-SAME: args_cdb.main.__lambda
 // CHECK-GC-SAME: args_cdb::main::__lambda
