@@ -368,8 +368,6 @@ DIType DIBuilder::CreateEnumType(TypeEnum *type) {
 }
 
 DIType DIBuilder::CreatePointerType(TypePointer *type) {
-  llvm::Type *T = DtoType(type);
-
   // TODO: The addressspace is important for dcompute targets. See e.g.
   // https://www.mail-archive.com/dwarf-discuss@lists.dwarfstd.org/msg00326.html
   const llvm::Optional<unsigned> DWARFAddressSpace = llvm::None;
@@ -378,9 +376,7 @@ DIType DIBuilder::CreatePointerType(TypePointer *type) {
 
   return DBuilder.createPointerType(
       CreateTypeDescription(type->nextOf(), /*voidToUbyte=*/true),
-      getTypeAllocSize(T) * 8, // size (bits)
-      getABITypeAlign(T) * 8,  // align (bits)
-      DWARFAddressSpace, name);
+      target.ptrsize * 8, 0, DWARFAddressSpace, name);
 }
 
 DIType DIBuilder::CreateVectorType(TypeVector *type) {
@@ -773,9 +769,9 @@ DIType DIBuilder::CreateTypeDescription(Type *t, bool voidToUbyte) {
     return nullptr;
   if (t->ty == TY::Tnull) {
     // display null as void*
-    return DBuilder.createPointerType(CreateTypeDescription(Type::tvoid), 8, 8,
-                                      /* DWARFAddressSpace */ llvm::None,
-                                      "typeof(null)");
+    return DBuilder.createPointerType(
+        CreateTypeDescription(Type::tvoid), target.ptrsize * 8, 0,
+        /* DWARFAddressSpace */ llvm::None, "typeof(null)");
   }
   if (auto te = t->isTypeEnum())
     return CreateEnumType(te);
@@ -794,13 +790,11 @@ DIType DIBuilder::CreateTypeDescription(Type *t, bool voidToUbyte) {
   if (t->ty == TY::Tstruct)
     return CreateCompositeType(t);
   if (auto tc = t->isTypeClass()) {
-    LLType *T = DtoType(t);
     const auto aggregateDIType = CreateCompositeType(t);
     const auto name =
         (tc->sym->toPrettyChars(true) + llvm::StringRef("*")).str();
-    return DBuilder.createPointerType(aggregateDIType, getTypeAllocSize(T) * 8,
-                                      getABITypeAlign(T) * 8, llvm::None,
-                                      processDIName(name));
+    return DBuilder.createPointerType(aggregateDIType, target.ptrsize * 8, 0,
+                                      llvm::None, processDIName(name));
   }
   if (auto tf = t->isTypeFunction())
     return CreateFunctionType(tf);
