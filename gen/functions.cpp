@@ -946,14 +946,16 @@ bool eraseDummyAfterReturnBB(llvm::BasicBlock *bb) {
 
 /**
  * LLVM doesn't really support weak linkage for MSVC targets, it just prevents
- * inlining. We can emulate it though, by conceptually renaming the defined
- * function, only declaring the original function and embedding a linker
- * directive in the object file, instructing the linker to fall back to the weak
- * implementation if there's no strong definition.
+ * inlining. We can emulate it though, by renaming the defined function, only
+ * declaring the original function and embedding a linker directive in the
+ * object file, instructing the linker to fall back to the weak implementation
+ * if there's no strong definition.
  * The object file still needs to be pulled in by the linker for the directive
  * to be found.
  */
-void emulateWeakAnyLinkageForMSVC(LLFunction *func, LINK linkage) {
+void emulateWeakAnyLinkageForMSVC(IrFunction *irFunc, LINK linkage) {
+  LLFunction *func = irFunc->getLLVMFunc();
+
   const bool isWin32 = global.params.targetTriple->isArch32Bit();
 
   std::string mangleBuffer;
@@ -987,17 +989,22 @@ void emulateWeakAnyLinkageForMSVC(LLFunction *func, LINK linkage) {
       ("/ALTERNATENAME:" + finalMangle + "=" + finalWeakMangle).str();
   gIR->addLinkerOption(llvm::StringRef(linkerOption));
 
-  // work around LLVM assertion when cloning a function's debuginfos
-  func->setSubprogram(nullptr);
+  // rename existing function
+  const std::string oldName = func->getName().str();
+  func->setName("\1" + finalWeakMangle);
+  if (func->hasComdat()) {
+    func->setComdat(gIR->module.getOrInsertComdat(func->getName()));
+  }
 
-  llvm::ValueToValueMapTy dummy;
-  auto clone = llvm::CloneFunction(func, dummy);
-  clone->setName("\1" + finalWeakMangle);
-  setLinkage({LLGlobalValue::ExternalLinkage, func->hasComdat()}, clone);
+  // create a new body-less declaration with the old name
+  auto newFunc =
+      LLFunction::Create(func->getFunctionType(),
+                         LLGlobalValue::ExternalLinkage, oldName, &gIR->module);
 
-  // reduce the original definition to a declaration
-  setLinkage({LLGlobalValue::ExternalLinkage, false}, func);
-  func->deleteBody();
+  // replace existing and future uses of the old, renamed function with the new
+  // declaration
+  irFunc->setLLVMFunc(newFunc);
+  func->replaceNonMetadataUsesWith(newFunc);
 }
 
 } // anonymous namespace
@@ -1317,8 +1324,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
     // Push cleanup block that calls va_end to match the va_start call.
     {
-      auto *vaendBB =
-          llvm::BasicBlock::Create(gIR->context(), "vaend", gIR->topfunc());
+      auto *vaendBB = llvm::BasicBlock::Create(gIR->context(), "vaend", func);
       const auto savedInsertPoint = gIR->saveInsertPoint();
       gIR->ir->SetInsertPoint(vaendBB);
       gIR->ir->CreateCall(GET_INTRINSIC_DECL(vaend), llAp);
@@ -1379,7 +1385,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   if (func->getLinkage() == LLGlobalValue::WeakAnyLinkage &&
       !func->hasDLLExportStorageClass() &&
       global.params.targetTriple->isWindowsMSVCEnvironment()) {
-    emulateWeakAnyLinkageForMSVC(func, fd->linkage);
+    emulateWeakAnyLinkageForMSVC(irFunc, fd->linkage);
   }
 }
 
