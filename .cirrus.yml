@@ -200,9 +200,9 @@ task:
   << : *COMMON_STEPS_TEMPLATE
 
 task:
-  name: macOS 10.15 $TASK_NAME_SUFFIX
+  name: macOS 11.x $TASK_NAME_SUFFIX
   osx_instance:
-    image: catalina-xcode
+    image: big-sur-xcode
   timeout_in: 60m
   environment:
     CI_OS: osx
