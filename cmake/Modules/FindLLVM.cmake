@@ -143,6 +143,8 @@ else()
         string(REPLACE "-llibxml2.tbd" "-lxml2" LLVM_LDFLAGS ${LLVM_LDFLAGS})
         # remove libm (apparently not available for more recent Xcode versions)
         string(REPLACE " -lm" "" LLVM_LDFLAGS ${LLVM_LDFLAGS})
+        # and libz too
+        string(REPLACE " -lz" "" LLVM_LDFLAGS ${LLVM_LDFLAGS})
     endif()
 
     llvm_set(LIBRARY_DIRS libdir true)
