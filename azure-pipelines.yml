@@ -104,7 +104,9 @@ jobs:
   variables:
     CI_OS: osx
     ARCH: x86_64
-    BOOTSTRAP_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON
+    BOOTSTRAP_CMAKE_FLAGS: >
+      -DBUILD_LTO_LIBS=ON
+      -DD_COMPILER_FLAGS=-platformlib=pthread
     EXTRA_CMAKE_FLAGS: >
       -DBUILD_LTO_LIBS=ON
       -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"

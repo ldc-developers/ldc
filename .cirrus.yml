@@ -213,9 +213,9 @@ task:
     PARALLELISM: 12
     matrix:
       - TASK_NAME_SUFFIX: x64
-        EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
+        EXTRA_CMAKE_FLAGS: "-DD_COMPILER_FLAGS=-platformlib=pthread -DBUILD_LTO_LIBS=ON"
       - TASK_NAME_SUFFIX: x64 shared-libs-only
-        EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON"
+        EXTRA_CMAKE_FLAGS: "-DD_COMPILER_FLAGS=-platformlib=pthread -DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON"
   brew_cache:
     folder: "$HOME/Library/Caches/Homebrew"
   << : *INSTALL_MACOS_PREREQUISITES_TEMPLATE

@@ -653,7 +653,6 @@ void ArgsBuilder::addDefaultPlatformLibs() {
     args.push_back("-lrt");
     args.push_back("-ldl");
   // fallthrough
-  case llvm::Triple::Darwin:
   case llvm::Triple::MacOSX:
   case llvm::Triple::FreeBSD:
   case llvm::Triple::NetBSD:
@@ -662,6 +661,11 @@ void ArgsBuilder::addDefaultPlatformLibs() {
     addSoname = true;
     args.push_back("-lpthread");
     args.push_back("-lm");
+    break;
+
+  case llvm::Triple::Darwin:
+    addSoname = true;
+    args.push_back("-lpthread");
     break;
 
   case llvm::Triple::Solaris:
