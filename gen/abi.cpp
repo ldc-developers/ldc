@@ -185,13 +185,6 @@ bool TargetABI::preferPassByRef(Type *t) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-bool TargetABI::reverseExplicitParams(TypeFunction *tf) {
-  // Required by druntime for extern(D), except for `, ...`-style variadics.
-  return isExternD(tf) && tf->parameterList.length() > 1;
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
 void TargetABI::rewriteVarargs(IrFuncTy &fty,
                                std::vector<IrFuncTyArg *> &args) {
   for (auto arg : args) {
@@ -310,8 +303,6 @@ struct IntrinsicABI : TargetABI {
   bool returnInArg(TypeFunction *, bool) override { return false; }
 
   bool passByVal(TypeFunction *, Type *t) override { return false; }
-
-  bool reverseExplicitParams(TypeFunction *) override { return false; }
 
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     Type *ty = arg.type->toBasetype();

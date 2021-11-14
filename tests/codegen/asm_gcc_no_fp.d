@@ -13,7 +13,7 @@ byte32 xor(byte32 a, byte32 b)
     // CHECK-NEXT: .cfi_startproc
     byte32 r;
     // CHECK-NEXT: #APP
-    // CHECK-NEXT: vxorps %ymm0, %ymm1, %ymm0
+    // CHECK-NEXT: vxorps %ymm0, %ymm0, %ymm1
     // CHECK-NEXT: #NO_APP
     asm { "vxorps %0, %1, %2" : "=v" (r) : "v" (a), "v" (b); }
     // CHECK-NEXT: retq

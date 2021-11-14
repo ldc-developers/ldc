@@ -79,7 +79,7 @@ int byValue(ubyte ub, ushort us, uint ui, ulong ul,
 
 // check arguments with indirections
 // CDB: ?? c
-// CHECK: cdouble
+// CHECK: > struct cdouble
 // CHECK-NEXT: re : 8
 // CHECK-NEXT: im : 9
 

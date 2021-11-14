@@ -6,6 +6,7 @@
 - On Linux, LDC doesn't default to the `ld.gold` linker anymore. The combination of LLVM 13 and older gold linkers can apparently cause problems. We recommend using LLD, e.g., via `-linker=lld` or by setting your default `/usr/bin/ld` symlink; it's significantly faster too.
 - `-linkonce-templates` is less aggressive by default now and IMHO production-ready. (#3924)
 - When linking manually (not via LDC) against *shared* druntime, it is now required to link the bundled `lib/ldc_rt.dso.o[bj]` object file into each binary. It replaces the previously Windows-specific `dso_windows.obj`. (#3850)
+- Breaking `extern(D)` ABI change for all targets: formal parameters of non-variadic functions aren't reversed anymore, in line with the spec. For 32-bit x86, the *first* parameter is accordingly now potentially passed in EAX, not the last one. So non-variadic `extern(D)` functions with multiple explicit parameters will break if expecting parameters in specific registers or stack slots, e.g., naked DMD-style inline assembly. (#3873, ldc-developers/phobos@3d725fce8f0acb78bf6cb984a8462e81e8e1b715)
 
 #### Bug fixes
 - Linux: Make LTO work with LLD. (#3786, #3850)

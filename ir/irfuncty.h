@@ -105,9 +105,6 @@ struct IrFuncTy {
   using ArgList = std::vector<IrFuncTyArg *>;
   ArgList args;
 
-  // range of normal parameters to reverse
-  bool reverseParams = false;
-
   // reserved for ABI-specific data
   void *tag = nullptr;
 
