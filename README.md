@@ -67,6 +67,7 @@ the full feature set of official packages from GitHub**):
 | Nix/NixOS    | `nix-env -i ldc`                             |
 | Snap         | `snap install --classic --channel=edge ldc2` |
 | Ubuntu       | `apt install ldc`                            |
+| Void         | `xbps-install -S ldc`                        |
 
 ### Building from source
 
