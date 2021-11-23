@@ -65,6 +65,7 @@ the full feature set of official packages from GitHub**):
 | Gentoo       | `layman -a ldc`                              |
 | Homebrew     | `brew install ldc`                           |
 | Nix/NixOS    | `nix-env -i ldc`                             |
+| OpenBSD      | `pkg_add ldc`                                |
 | Snap         | `snap install --classic --channel=edge ldc2` |
 | Ubuntu       | `apt install ldc`                            |
 | Void         | `xbps-install -S ldc`                        |
