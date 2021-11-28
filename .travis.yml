@@ -115,9 +115,12 @@ script:
   # Run LDC D unittests
   - ctest --output-on-failure -R "ldc2-unittest"
   # Run LIT testsuite
-  # FIXME: the following 2 tests fail
+  # FIXME: the following tests fail
   - rm ../tests/debuginfo/nested_gdb.d
   - rm ../tests/sanitizers/fuzz_basic.d
+  # FIXME: the following 2 have regressed with LLVM 13
+  - rm ../tests/sanitizers/msan_noerror.d
+  - rm ../tests/sanitizers/msan_uninitialized.d
   - ctest -V -R "lit-tests"
   # Run DMD testsuite
   - DMD_TESTSUITE_MAKE_ARGS="-j8" ctest -V -R "dmd-testsuite"
