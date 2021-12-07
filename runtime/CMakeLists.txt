@@ -252,6 +252,12 @@ endif()
 
 if(LDC_WITH_LLD)
     set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"-link-internally\",")
+
+    # Default wasm stack is only 64kb, this is rather small, let's bump it to 1mb
+    set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"-z\", \"stack-size=1048576\",")
+
+    # Protect from stack overflow overwriting global memory
+    set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"--stack-first\",")
 endif()
 # LLD 8+ requires (new) `--export-dynamic` for WebAssembly (https://github.com/ldc-developers/ldc/issues/3023).
 if(NOT (LDC_LLVM_VER LESS 800))
