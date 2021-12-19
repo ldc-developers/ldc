@@ -46,6 +46,7 @@ import dmd.func;
 import dmd.globals;
 import dmd.id;
 import dmd.identifier;
+import dmd.importc;
 import dmd.init;
 import dmd.initsem;
 import dmd.hdrgen;
@@ -887,6 +888,10 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
 
         bool isBlit = false;
         d_uns64 sz;
+        if (sc.flags & SCOPE.Cfile && !dsym._init)
+        {
+            addDefaultCInitializer(dsym);
+        }
         if (!dsym._init &&
             !(dsym.storage_class & (STC.static_ | STC.gshared | STC.extern_)) &&
             fd &&
@@ -896,7 +901,7 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
         {
             // Provide a default initializer
 
-            //printf("Providing default initializer for '%s'\n", toChars());
+            //printf("Providing default initializer for '%s'\n", dsym.toChars());
             if (sz == SIZE_INVALID && dsym.type.ty != Terror)
                 dsym.error("size of type `%s` is invalid", dsym.type.toChars());
 
@@ -3961,15 +3966,15 @@ version (IN_LLVM)
             return;
 
         TypeFunction tf = ctd.type.toTypeFunction();
+        immutable dim = tf.parameterList.length;
+        auto sd = ad.isStructDeclaration();
 
         /* See if it's the default constructor
          * But, template constructor should not become a default constructor.
          */
         if (ad && (!ctd.parent.isTemplateInstance() || ctd.parent.isTemplateMixin()))
         {
-            immutable dim = tf.parameterList.length;
-
-            if (auto sd = ad.isStructDeclaration())
+            if (sd)
             {
                 if (dim == 0 && tf.parameterList.varargs == VarArg.none) // empty default ctor w/o any varargs
                 {
@@ -4012,6 +4017,24 @@ version (IN_LLVM)
             else if (dim == 0 && tf.parameterList.varargs == VarArg.none)
             {
                 ad.defaultCtor = ctd;
+            }
+        }
+        // https://issues.dlang.org/show_bug.cgi?id=22593
+        else if (auto ti = ctd.parent.isTemplateInstance())
+        {
+            if (sd && sd.hasCopyCtor && (dim == 1 || (dim > 1 && tf.parameterList[1].defaultArg)))
+            {
+                auto param = tf.parameterList[0];
+
+                // if the template instance introduces an rvalue constructor
+                // between the members of a struct declaration, we should check if a
+                // copy constructor exists and issue an error in that case.
+                if (!(param.storageClass & STC.ref_) && param.type.mutableOf().unSharedOf() == sd.type.mutableOf().unSharedOf())
+                {
+                    .error(ctd.loc, "Cannot define both an rvalue constructor and a copy constructor for `struct %s`", sd.toChars);
+                    .errorSupplemental(ti.loc, "Template instance `%s` creates a rvalue constructor for `struct %s`",
+                            ti.toChars(), sd.toChars());
+                }
             }
         }
     }

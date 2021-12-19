@@ -52,7 +52,7 @@ namespace llvm {
 // in expressionsem.d
 Expression *expressionSemantic(Expression *e, Scope *sc);
 // in typesem.d
-Expression *defaultInit(Type *mt, const Loc &loc);
+Expression *defaultInit(Type *mt, const Loc &loc, const bool isCfile = false);
 #endif
 
 void expandTuples(Expressions *exps);
@@ -820,6 +820,8 @@ public:
 
     DotTemplateInstanceExp *syntaxCopy();
     bool findTempDecl(Scope *sc);
+    bool checkType();
+    bool checkValue();
     void accept(Visitor *v) { v->visit(this); }
 };
 
