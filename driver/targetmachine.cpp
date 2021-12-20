@@ -75,10 +75,12 @@ static const char *getABI(const llvm::Triple &triple) {
         return "eabi";
       break;
     case llvm::Triple::ppc64:
-    case llvm::Triple::ppc64le:
       if (ABIName.startswith("elfv1"))
         return "elfv1";
       if (ABIName.startswith("elfv2"))
+        return "elfv2";
+      break;
+    case llvm::Triple::ppc64le:
         return "elfv2";
       break;
     default:
@@ -93,7 +95,10 @@ static const char *getABI(const llvm::Triple &triple) {
   case llvm::Triple::mips64el:
     return "n32";
   case llvm::Triple::ppc64:
-    return "elfv1";
+    if (ABIName.startswith("elfv1"))
+      return "elfv1";
+    if (ABIName.startswith("elfv2"))
+      return "elfv2";
   case llvm::Triple::ppc64le:
     return "elfv2";
   default:
