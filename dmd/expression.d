@@ -4026,7 +4026,7 @@ extern (C++) final class FuncExp : Expression
         }
         else
         {
-            assert(tok == TOK.function_ || tok == TOK.reserved && type.ty == Tpointer);
+            assert(tok == TOK.function_ || tok == TOK.reserved && type.ty == Tpointer || fd.errors);
             tx = tfx.pointerTo();
         }
         //printf("\ttx = %s, to = %s\n", tx.toChars(), to.toChars());
@@ -5007,6 +5007,31 @@ extern (C++) final class DotTemplateInstanceExp : UnaExp
             return false;
         }
         return ti.updateTempDecl(sc, s);
+    }
+
+    override bool checkType()
+    {
+        // Same logic as ScopeExp.checkType()
+        if (ti.tempdecl &&
+            ti.semantictiargsdone &&
+            ti.semanticRun == PASS.init)
+        {
+            error("partial %s `%s` has no type", ti.kind(), toChars());
+            return true;
+        }
+        return false;
+    }
+
+    override bool checkValue()
+    {
+        if (ti.tempdecl &&
+            ti.semantictiargsdone &&
+            ti.semanticRun == PASS.init)
+
+            error("partial %s `%s` has no value", ti.kind(), toChars());
+        else
+            error("%s `%s` has no value", ti.kind(), ti.toChars());
+        return true;
     }
 
     override void accept(Visitor v)

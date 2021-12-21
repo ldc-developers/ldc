@@ -498,6 +498,21 @@ version (IN_LLVM)
         return null;
     }
 
+    /**************************************
+     * Does this Dsymbol come from a C file?
+     * Returns:
+     *  true if it does
+     */
+     final bool isCsymbol()
+     {
+        if (Module m = getModule())
+        {
+            if (m.isCFile)
+                return true;
+        }
+        return false;
+    }
+
     /**********************************
      * Determine which Module a Dsymbol is in, as far as access rights go.
      */
@@ -1819,7 +1834,7 @@ extern (C++) final class WithScopeSymbol : ScopeDsymbol
         // Acts as proxy to the with class declaration
         Dsymbol s = null;
         Expression eold = null;
-        for (Expression e = withstate.exp; e != eold; e = resolveAliasThis(_scope, e))
+        for (Expression e = withstate.exp; e && e != eold; e = resolveAliasThis(_scope, e, true))
         {
             if (e.op == TOK.scope_)
             {
@@ -2462,7 +2477,9 @@ Dsymbol handleSymbolRedeclarations(ref Scope sc, Dsymbol s, Dsymbol s2, ScopeDsy
     auto vd2 = s2.isVarDeclaration(); // existing declaration
     if (vd && vd2)
     {
-        // if one is `static` and the other isn't
+        /* if one is `static` and the other isn't, the result is undefined
+         * behavior, C11 6.2.2.7
+         */
         if ((vd.storage_class ^ vd2.storage_class) & STC.static_)
             return collision();
 
@@ -2472,8 +2489,11 @@ Dsymbol handleSymbolRedeclarations(ref Scope sc, Dsymbol s, Dsymbol s2, ScopeDsy
         if (i1 && i2)
             return collision();         // can't both have initializers
 
-        if (i1)
+        if (i1)                         // vd is the definition
+        {
+            sds.symtab.update(vd);      // replace vd2 with the definition
             return vd;
+        }
 
         /* BUG: the types should match, which needs semantic() to be run on it
          *    extern int x;
@@ -2490,15 +2510,34 @@ Dsymbol handleSymbolRedeclarations(ref Scope sc, Dsymbol s, Dsymbol s2, ScopeDsy
     auto fd2 = s2.isFuncDeclaration(); // existing declaration
     if (fd && fd2)
     {
-        // if one is `static` and the other isn't
-        if ((fd.storage_class ^ fd2.storage_class) & STC.static_)
+        /* if one is `static` and the other isn't, the result is undefined
+         * behavior, C11 6.2.2.7
+         * However, match what gcc allows:
+         *    static int sun1(); int sun1() { return 0; }
+         * and:
+         *    static int sun2() { return 0; } int sun2();
+         * Both produce a static function.
+         *
+         * Both of these should fail:
+         *    int sun3(); static int sun3() { return 0; }
+         * and:
+         *    int sun4() { return 0; } static int sun4();
+         */
+        // if adding `static`
+        if (   fd.storage_class & STC.static_ &&
+            !(fd2.storage_class & STC.static_))
+        {
             return collision();
+        }
 
         if (fd.fbody && fd2.fbody)
             return collision();         // can't both have bodies
 
-        if (fd.fbody)
+        if (fd.fbody)                   // fd is the definition
+        {
+            sds.symtab.update(fd);      // replace fd2 in symbol table with fd
             return fd;
+        }
 
         /* BUG: just like with VarDeclaration, the types should match, which needs semantic() to be run on it.
          * FuncDeclaration::semantic2() can detect this, but it relies overnext being set.

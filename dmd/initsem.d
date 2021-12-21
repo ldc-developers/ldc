@@ -177,17 +177,19 @@ extern(C++) Initializer initializerSemantic(Initializer init, Scope* sc, ref Typ
                             break;
                     }
                 }
-                else if (fieldi >= nfields)
+                if (j >= nfields)
                 {
-                    error(i.loc, "too many initializers for `%s`", sd.toChars());
+                    error(i.value[j].loc, "too many initializers for `%s`", sd.toChars());
                     return err();
                 }
 
                 VarDeclaration vd = sd.fields[fieldi];
                 if (elems[fieldi])
                 {
-                    error(i.loc, "duplicate initializer for field `%s`", vd.toChars());
+                    error(i.value[j].loc, "duplicate initializer for field `%s`", vd.toChars());
                     errors = true;
+                    elems[fieldi] = ErrorExp.get(); // for better diagnostics on multiple errors
+                    ++fieldi;
                     continue;
                 }
 
@@ -198,9 +200,12 @@ extern(C++) Initializer initializerSemantic(Initializer init, Scope* sc, ref Typ
                          (vd.offset & (target.ptrsize - 1))) &&
                         sc.func && sc.func.setUnsafe())
                     {
-                        error(i.loc, "field `%s.%s` cannot assign to misaligned pointers in `@safe` code",
+                        error(i.value[j].loc, "field `%s.%s` cannot assign to misaligned pointers in `@safe` code",
                             sd.toChars(), vd.toChars());
                         errors = true;
+                        elems[fieldi] = ErrorExp.get(); // for better diagnostics on multiple errors
+                        ++fieldi;
+                        continue;
                     }
                 }
 
@@ -209,7 +214,7 @@ extern(C++) Initializer initializerSemantic(Initializer init, Scope* sc, ref Typ
                 {
                     if (vd.isOverlappedWith(v2) && elems[k])
                     {
-                        error(i.loc, "overlapping initialization for field `%s` and `%s`", v2.toChars(), vd.toChars());
+                        error(elems[k].loc, "overlapping initialization for field `%s` and `%s`", v2.toChars(), vd.toChars());
                         errors = true;
                         continue;
                     }
@@ -223,6 +228,8 @@ extern(C++) Initializer initializerSemantic(Initializer init, Scope* sc, ref Typ
                 if (ex.op == TOK.error)
                 {
                     errors = true;
+                    elems[fieldi] = ErrorExp.get(); // for better diagnostics on multiple errors
+                    ++fieldi;
                     continue;
                 }
 
@@ -425,11 +432,22 @@ extern(C++) Initializer initializerSemantic(Initializer init, Scope* sc, ref Typ
                 return i;
             }
             if (sc.flags & SCOPE.Cfile)
+            {
                 /* the interpreter turns (char*)"string" into &"string"[0] which then
                  * it cannot interpret. Resolve that case by doing optimize() first
                  */
                 i.exp = i.exp.optimize(WANTvalue);
-            i.exp = i.exp.ctfeInterpret();
+                if (i.exp.isSymOffExp())
+                {
+                    /* `static variable cannot be read at compile time`
+                     * https://issues.dlang.org/show_bug.cgi?id=22513
+                     * Maybe this would be better addressed in ctfeInterpret()?
+                     */
+                    needInterpret = NeedInterpret.INITnointerpret;
+                }
+            }
+            if (needInterpret)
+                i.exp = i.exp.ctfeInterpret();
             if (i.exp.op == TOK.voidExpression)
                 error(i.loc, "variables cannot be initialized with an expression of type `void`. Use `void` initialization instead.");
         }
@@ -726,10 +744,11 @@ extern(C++) Initializer initializerSemantic(Initializer init, Scope* sc, ref Typ
          * Params:
          *    t = element type
          *    dim = max number of elements
+         *    simple = true if array of simple elements
          * Returns:
          *    # of elements in array
          */
-        size_t array(Type t, size_t dim)
+        size_t array(Type t, size_t dim, ref bool simple)
         {
             //printf(" type %s i %d dim %d dil.length = %d\n", t.toChars(), cast(int)i, cast(int)dim, cast(int)dil.length);
             auto tn = t.nextOf().toBasetype();
@@ -771,14 +790,30 @@ extern(C++) Initializer initializerSemantic(Initializer init, Scope* sc, ref Typ
                 if (tnsa && di.initializer.isExpInitializer())
                 {
                     // no braces enclosing array initializer, so recurse
-                    array(tnsa, nelems);
+                    array(tnsa, nelems, simple);
                 }
                 else if (auto tns = tn.isTypeStruct())
                 {
-                    if (di.initializer.isExpInitializer())
+                    if (auto ei = di.initializer.isExpInitializer())
                     {
                         // no braces enclosing struct initializer
-                        dil[n].initializer = structs(tns);
+
+                        /* Disambiguate between an exp representing the entire
+                         * struct, and an exp representing the first field of the struct
+                        */
+                        if (needInterpret)
+                            sc = sc.startCTFE();
+                        ei.exp = ei.exp.expressionSemantic(sc);
+                        ei.exp = resolveProperties(sc, ei.exp);
+                        if (needInterpret)
+                            sc = sc.endCTFE();
+                        if (ei.exp.implicitConvTo(tn))
+                            di.initializer = elem(di.initializer); // the whole struct
+                        else
+                        {
+                            simple = false;
+                            dil[n].initializer = structs(tns); // the first field
+                        }
                     }
                     else
                         dil[n].initializer = elem(di.initializer);
@@ -796,7 +831,8 @@ extern(C++) Initializer initializerSemantic(Initializer init, Scope* sc, ref Typ
         }
 
         size_t dim = tsa.isIncomplete() ? dil.length : cast(size_t)tsa.dim.toInteger();
-        auto newdim = array(t, dim);
+        bool simple = true;
+        auto newdim = array(t, dim, simple);
 
         if (errors)
             return err();
@@ -827,7 +863,7 @@ extern(C++) Initializer initializerSemantic(Initializer init, Scope* sc, ref Typ
         /* If an array of simple elements, replace with an ArrayInitializer
          */
         auto tnb = tn.toBasetype();
-        if (!(tnb.isTypeSArray() || tnb.isTypeStruct()))
+        if (!tnb.isTypeSArray() && (!tnb.isTypeStruct() || simple))
         {
             auto ai = new ArrayInitializer(ci.loc);
             ai.dim = cast(uint) dil.length;
@@ -1321,6 +1357,3 @@ private bool hasNonConstPointers(Expression e)
     }
     return false;
 }
-
-
-
