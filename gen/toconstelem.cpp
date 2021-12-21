@@ -224,6 +224,30 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
+  void visit(SliceExp *e) override {
+    IF_LOG Logger::print("SliceExp::toConstElem: %s @ %s\n", e->toChars(),
+                         e->type->toChars());
+    LOG_SCOPE;
+
+    if (e->type->equivalent(e->e1->type)) {
+      if (!e->lwr && !e->upr) {
+        result = toConstElem(e->e1, p);
+        return;
+      }
+      if (auto se = e->e1->isStringExp())
+        if (auto lwr = e->lwr->isIntegerExp())
+          if (auto upr = e->upr->isIntegerExp())
+            if (lwr->toInteger() == 0 && upr->toInteger() == se->len) {
+              result = toConstElem(se, p);
+              return;
+            }
+    }
+
+    visit(static_cast<Expression *>(e));
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   void visit(CastExp *e) override {
     IF_LOG Logger::print("CastExp::toConstElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
