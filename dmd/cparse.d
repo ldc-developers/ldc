@@ -4394,13 +4394,16 @@ final class CParser(AST) : Parser!AST
          */
         genBuiltinFunc(Id.builtin_va_end, AST.VarArg.none);
 
-        /* struct __va_list_tag
-         * {
-         *    uint, uint, void*, void*
-         * }
-         */
-        auto s = new AST.StructDeclaration(Loc.initial, Id.va_list_tag, false);
-        symbols.push(s);
+        version (IN_LLVM) { /* not needed */ } else
+        {
+            /* struct __va_list_tag
+             * {
+             *    uint, uint, void*, void*
+             * }
+             */
+            auto s = new AST.StructDeclaration(Loc.initial, Id.va_list_tag, false);
+            symbols.push(s);
+        } // !IN_LLVM
     }
 
     //}

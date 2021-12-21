@@ -307,7 +307,8 @@ static LLType *getPtrToAtomicType(LLType *type) {
 bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
                             DValue *&result) {
   // va_start instruction
-  if (fndecl->llvmInternal == LLVMva_start) {
+  if (fndecl->llvmInternal == LLVMva_start ||
+      fndecl->ident == Id::builtin_va_start) {
     if (e->arguments->length < 1 || e->arguments->length > 2) {
       e->error("`va_start` instruction expects 1 (or 2) arguments");
       fatal();
@@ -326,7 +327,8 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
   }
 
   // va_copy instruction
-  if (fndecl->llvmInternal == LLVMva_copy) {
+  if (fndecl->llvmInternal == LLVMva_copy ||
+      fndecl->ident == Id::builtin_va_copy) {
     if (e->arguments->length != 2) {
       e->error("`va_copy` instruction expects 2 arguments");
       fatal();
@@ -354,6 +356,21 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     LLValue *llAp = gABI->prepareVaArg(ap);
     LLType *llType = DtoType(e->type);
     result = new DImValue(e->type, p->ir->CreateVAArg(llAp, llType));
+    return true;
+  }
+
+  // va_end instruction
+  if (fndecl->llvmInternal == LLVMva_end ||
+      fndecl->ident == Id::builtin_va_end) {
+    if (e->arguments->length != 1) {
+      e->error("`va_end` instruction expects 1 argument");
+      fatal();
+    }
+    DLValue *ap = toElem((*e->arguments)[0])->isLVal(); // va_list
+    assert(ap);
+    LLValue *llAp = gABI->prepareVaArg(ap);
+    p->ir->CreateCall(GET_INTRINSIC_DECL(vaend), llAp);
+    result = nullptr;
     return true;
   }
 
