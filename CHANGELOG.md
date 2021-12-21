@@ -1,3 +1,16 @@
+# LDC 1.28.1 (2022-01-13)
+
+#### Big news
+- Frontend, druntime and Phobos are at version [2.098.1+](https://dlang.org/changelog/2.098.0.html). (#3886, #3896)
+- New `@hidden` UDA (as counterpart of `export`). (#3855)
+- Support 'raw mangles' via leading `\1` in `pragma(mangle)` strings, e.g., to access magic linker symbols on Mac. (#3854)
+- New `@noSanitize` UDA to selectively disable sanitizer instrumentation of functions. (#3889)
+- WebAssembly: Larger default stack size (1 MB) and protection against stack overflow overwriting global memory. (#3882)
+
+#### Bug fixes
+- Linux x86/x64: Fix TLS range with static druntime and bfd/lld linkers. (#3849, https://github.com/ldc-developers/druntime/commit/ec3c0aafbf4b6f3345e276e21a26ffee077470cf)
+- Support `rdtscp` in DMD-style inline assembly. (#3895)
+
 # LDC 1.28.0 (2021-10-20)
 
 #### Big news
