@@ -36,6 +36,11 @@ version (LDC)
 
     version (PPC)   version = PPC_Any;
     version (PPC64) version = PPC_Any;
+
+    version (SupportSanitizers)
+    {
+        import ldc.sanitizers_optionally_linked;
+    }
 }
 
 
@@ -1288,6 +1293,13 @@ private extern (D) ThreadBase attachThread(ThreadBase _thisThread) @nogc nothrow
     StackContext* thisContext = &thisThread.m_main;
     assert( thisContext == thisThread.m_curr );
 
+    version (SupportSanitizers)
+    {
+        // Save this thread's fake stack handler, to be stored in each StackContext belonging to this thread.
+        thisThread.asan_fakestack  = asanGetCurrentFakeStack();
+        thisContext.asan_fakestack = thisThread.asan_fakestack;
+    }
+
     version (Windows)
     {
         thisThread.m_addr  = GetCurrentThreadId();
@@ -1378,6 +1390,12 @@ version (Windows)
             thisThread.m_hndl = GetCurrentThreadHandle();
             thisThread.tlsGCdataInit();
             Thread.setThis( thisThread );
+
+            version (SupportSanitizers)
+            {
+                // Save this thread's fake stack handler, to be stored in each StackContext belonging to this thread.
+                thisThread.asan_fakestack  = asanGetCurrentFakeStack();
+            }
         }
         else
         {
@@ -1386,7 +1404,18 @@ version (Windows)
             {
                 thisThread.tlsGCdataInit();
                 Thread.setThis( thisThread );
+
+                version (SupportSanitizers)
+                {
+                    // Save this thread's fake stack handler, to be stored in each StackContext belonging to this thread.
+                    thisThread.asan_fakestack  = asanGetCurrentFakeStack();
+                }
             });
+        }
+
+        version (SupportSanitizers)
+        {
+            thisContext.asan_fakestack = thisThread.asan_fakestack;
         }
 
         Thread.add( thisThread, false );

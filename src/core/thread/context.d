@@ -21,6 +21,11 @@ struct StackContext
     void* ehContext;
     StackContext* within;
     StackContext* next, prev;
+    version (SupportSanitizers)
+    {
+        // Stores the thread-specific fake stack handler for this StackContext. This is used while GC scanning this StackContext's stack.
+        void* asan_fakestack;
+    }
 }
 
 struct Callable

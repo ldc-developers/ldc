@@ -36,6 +36,8 @@ version (SupportSanitizers)
         mixin(pragmastring ~ q{
             void __sanitizer_start_switch_fiber(void** fake_stack_save, const(void)* bottom, size_t size);
             void __sanitizer_finish_switch_fiber(void* fake_stack_save, const(void)** bottom_old, size_t* size_old);
+            void* __asan_get_current_fake_stack();
+            void* __asan_addr_is_in_fake_stack(void *fake_stack, void *addr, void **beg, void **end);
         });
     }
 
@@ -54,6 +56,26 @@ version (SupportSanitizers)
         auto fptr = getOptionalSanitizerFunc!"__sanitizer_finish_switch_fiber"();
         if (fptr)
             fptr(fake_stack_save, bottom_old, size_old);
+    }
+
+    nothrow @nogc
+    void* asanGetCurrentFakeStack()
+    {
+        auto fptr = getOptionalSanitizerFunc!"__asan_get_current_fake_stack"();
+        if (fptr)
+            return fptr();
+        else
+            return null;
+    }
+
+    nothrow @nogc
+    void* asanAddressIsInFakeStack(void *fake_stack, void *addr, void **beg, void **end)
+    {
+        auto fptr = getOptionalSanitizerFunc!"__asan_addr_is_in_fake_stack"();
+        if (fptr)
+            return fptr(fake_stack, addr, beg, end);
+        else
+            return null;
     }
 
     // This uses the forward declaration of `functionName` and returns a pointer to that function

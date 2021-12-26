@@ -543,6 +543,10 @@ version (LDC)
     }
 
     version (Android) version = CheckFiberMigration;
+
+    // Fiber migration across threads is (probably) not possible with ASan fakestack enabled (different parts of the stack
+    // will contain fakestack pointers that were created on different threads...)
+    version (SupportSanitizers) version = CheckFiberMigration;
 }
 
 // Fiber support for SjLj style exceptions
@@ -1201,6 +1205,11 @@ private:
         //       base of the stack being allocated below.  However, doing so
         //       requires too much special logic to be worthwhile.
         m_ctxt = new StackContext;
+
+        version (SupportSanitizers)
+        {
+            // m_curThread is not initialized yet, so we have to wait with storing this StackContext's asan_fakestack handler until switchIn is called.
+        }
 
         version (Windows)
         {
@@ -1946,6 +1955,13 @@ private:
         else
         {
             m_curThread = tobj;
+        }
+
+        version (SupportSanitizers)
+        {
+            // Fiber migration across threads is (probably) not possible with fakestack enabled (different parts of the stack
+            // will contain fakestack pointers that were created on different threads...)
+            m_ctxt.asan_fakestack = m_curThread.asan_fakestack;
         }
 
         version (SjLj_Exceptions)

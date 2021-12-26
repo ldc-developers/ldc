@@ -136,6 +136,14 @@ class ThreadBase
     {
         assert(m_curr is &m_main);
 
+        version (SupportSanitizers)
+        {
+            // Save this thread's fake stack handler. This is to be used while GC scanning the stack contexts belonging to this thread.
+            import ldc.sanitizers_optionally_linked;
+            asan_fakestack = asanGetCurrentFakeStack();
+            m_main.asan_fakestack = asan_fakestack;
+        }
+
         m_main.bstack = getStackBottom();
         m_main.tstack = m_main.bstack;
         tlsGCdataInit();
@@ -473,6 +481,11 @@ package(core.thread):
     StackContext*       m_curr;
     bool                m_lock;
     private void*       m_tlsgcdata;
+    version (SupportSanitizers)
+    {
+        // Stores this thread's fake stack handler. This is to be stored into all StackContext's belonging to this thread (used for GC scanning).
+        void* asan_fakestack;
+    }
 
     ///////////////////////////////////////////////////////////////////////////
     // Thread Context and GC Scanning Support
@@ -1080,14 +1093,20 @@ private void scanAllTypeImpl(scope ScanAllThreadsTypeFn scan, void* curStackTop)
             // NOTE: We can't index past the bottom of the stack
             //       so don't do the "+1" if isStackGrowingDown.
             if (c.tstack && c.tstack < c.bstack)
+            {
                 scan(ScanType.stack, c.tstack, c.bstack);
+                version (SupportSanitizers) scanStackForASanFakeStack(scan, c.asan_fakestack, c.tstack, c.bstack);
+            }
         }
         else
         {
             assert(c.bstack <= c.tstack, "stack top can't be less than bottom");
 
             if (c.bstack && c.bstack < c.tstack)
+            {
                 scan(ScanType.stack, c.bstack, c.tstack + 1);
+                version (SupportSanitizers) scanStackForASanFakeStack(scan, c.asan_fakestack, c.bstack, c.tstack + 1);
+            }
         }
     }
 
@@ -1102,6 +1121,53 @@ private void scanAllTypeImpl(scope ScanAllThreadsTypeFn scan, void* curStackTop)
 
         if (t.m_tlsgcdata !is null)
             rt_tlsgc_scan(t.m_tlsgcdata, (p1, p2) => scan(ScanType.tls, p1, p2));
+    }
+}
+
+version (SupportSanitizers)
+private void scanStackForASanFakeStack(scope ScanAllThreadsTypeFn scan, void* fakestack, void* stackLowAddress, void* stackHighAddress) nothrow
+{
+    /+
+    When ASan fakestack is enabled (when Use After Return detection is enabled), function-local variables are stored on the heap,
+    instead of on the regular stack. This means that, without this function, GC scanning would not scan function-local variables.
+
+    A typical ASan-instrumented function looks like this:
+    ```C
+    void foo() {
+        char redzone1[32];
+        int local;
+        char redzone2[32+28];
+        char *fake_stack = __asan_stack_malloc(&local, 96); // <-- This is the pointer we are catching with `asanAddressIsInFakeStack`.
+        poison_redzones(fake_stack);
+        escape_addr(fake_stack + 32);
+        __asan_stack_free(stack, &local, 96)
+    }
+    ```
+    The GC scanning needs to include the fakeframe pointed to by `fake_stack`, because that fakeframe contains our the function-local variables.
+    We include that fakeframe by testing whether any pointers on the normal stack points to a fakeframe. If it does, we use normal scanning for that fake frame.
+
+    See https://github.com/google/sanitizers/wiki/AddressSanitizerUseAfterReturn
+    +/
+
+    import ldc.sanitizers_optionally_linked;
+
+    if (!fakestack)
+        return;
+
+    void* fakeframe_begin;
+    void* fakeframe_end;
+    for (void* p = stackLowAddress; p < stackHighAddress; p += (void*).sizeof)
+    {
+        // Check if this stack location is pointing to a fakeframe.
+        if (auto real_stack_frame = asanAddressIsInFakeStack(fakestack, *cast(void**)p, &fakeframe_begin, &fakeframe_end))
+        {
+            // Check that the fakeframe indeed falls within the stack range that we are supposed to be scanning (an optimization against rogue pointers).
+            if (real_stack_frame >= stackLowAddress && real_stack_frame < stackHighAddress)
+            {
+                // Fakeframe contains red zones that don't need scanning: no need to be precise about scan start and end (e.g. don't have to think about "+1" or not).
+                scan(ScanType.stack, fakeframe_begin, fakeframe_end);
+            }
+        }
     }
 }
 
