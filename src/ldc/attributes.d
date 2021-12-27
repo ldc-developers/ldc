@@ -254,6 +254,16 @@ enum cold = llvmAttr("cold");
 enum noplt = llvmAttr("nonlazybind");
 
 /**
+ * Disables a particular sanitizer for this function.
+ * Valid sanitizer names are all names accepted by `-fsanitize=` commandline option.
+ * Multiple sanitizers can be disabled by applying this UDA multiple times, e.g.
+ * `@noSanitize("address") `@noSanitize("thread")` to disable both ASan and TSan.
+ */
+struct noSanitize {
+    string sanitizerName;
+}
+
+/**
  * Sets the optimization strategy for a function.
  * Valid strategies are "none", "optsize", "minsize". The strategies are mutually exclusive.
  *
