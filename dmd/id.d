@@ -559,7 +559,8 @@ immutable Msgtable[] msgtable =
     { "udaDynamicCompileConst", "_dynamicCompileConst" },
     { "udaDynamicCompileEmit", "_dynamicCompileEmit" },
     { "udaHidden", "_hidden" },
-    
+    { "udaNoSanitize", "noSanitize" },
+
     // IN_LLVM: DCompute specific types and functionss
     { "dcompute" },
     { "dcPointer", "Pointer" },

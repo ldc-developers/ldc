@@ -8,6 +8,7 @@
 #include "dmd/id.h"
 #include "dmd/identifier.h"
 #include "dmd/module.h"
+#include "driver/cl_options_sanitizers.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -121,6 +122,32 @@ StructLiteralExp *getMagicAttribute(Dsymbol *sym, const Identifier *id,
   }
 
   return nullptr;
+}
+
+/// Calls `action` for each magic attribute with identifier `id` from
+/// the ldc magic module with identifier `from` (attributes or dcompute)
+/// applied to `sym`.
+void callForEachMagicAttribute(Dsymbol &sym, const Identifier *id,
+                               const Identifier *from,
+                               std::function<void(StructLiteralExp *)> action) {
+  if (!sym.userAttribDecl)
+    return;
+
+  // Loop over all UDAs and call `action` if a match was found.
+  Expressions *attrs = sym.userAttribDecl->getAttributes();
+  expandTuples(attrs);
+  for (auto &attr : *attrs) {
+    if (attr->op != TOKstructliteral)
+      continue;
+    auto sle = static_cast<StructLiteralExp *>(attr);
+    if (!isFromMagicModule(sle, from))
+      continue;
+    if (id != sle->sd->ident)
+      continue;
+
+    // Match found!
+    action(sle);
+  }
 }
 
 sinteger_t getIntElem(StructLiteralExp *sle, size_t idx) {
@@ -529,4 +556,26 @@ bool hasKernelAttr(Dsymbol *sym) {
   }
 
   return true;
+}
+
+/// Creates a mask (for &) of @ldc.attributes.noSanitize UDA applied to the
+/// function.
+/// If a bit is set in the mask, then the sanitizer is enabled.
+/// If a bit is not set in the mask, then the sanitizer is explicitly disabled
+/// by @noSanitize.
+unsigned getMaskFromNoSanitizeUDA(FuncDeclaration &fd) {
+  opts::SanitizerBits inverse_mask = opts::NoneSanitizer;
+
+  callForEachMagicAttribute(fd, Id::udaNoSanitize, Id::attributes,
+                            [&inverse_mask](StructLiteralExp *sle) {
+    checkStructElems(sle, {Type::tstring});
+    auto name = getFirstElemString(sle);
+    inverse_mask |= opts::parseSanitizerName(name, [&] {
+      sle->warning(
+          "Unrecognized sanitizer name '%s' for `@ldc.attributes.noSanitize`.",
+          name.str().c_str());
+    });
+  });
+
+  return ~inverse_mask;
 }
