@@ -49,28 +49,12 @@ cl::list<std::string> fSanitizeCoverage(
 
 llvm::SanitizerCoverageOptions sanitizerCoverageOptions;
 
-// Parse sanitizer name passed on commandline and return the corresponding
-// sanitizer bits.
-SanitizerCheck parseSanitizerName(llvm::StringRef name) {
-  SanitizerCheck parsedValue =
-      llvm::StringSwitch<SanitizerCheck>(name)
-          .Case("address", AddressSanitizer)
-          .Case("fuzzer", FuzzSanitizer)
-          .Case("memory", MemorySanitizer)
-          .Case("thread", ThreadSanitizer)
-          .Default(NoneSanitizer);
-
-  if (parsedValue == NoneSanitizer) {
-    error(Loc(), "Unrecognized -fsanitize value '%s'.", name.str().c_str());
-  }
-
-  return parsedValue;
-}
-
 SanitizerBits parseFSanitizeCmdlineParameter() {
   SanitizerBits retval = 0;
   for (const auto &name : fSanitize) {
-    SanitizerCheck check = parseSanitizerName(name);
+    SanitizerCheck check = parseSanitizerName(name, [&name] {
+      error(Loc(), "Unrecognized -fsanitize value '%s'.", name.c_str());
+    });
     retval |= SanitizerBits(check);
   }
   return retval;
@@ -138,6 +122,24 @@ void parseFSanitizeCoverageCmdlineParameter(llvm::SanitizerCoverageOptions &opts
 namespace opts {
 
 SanitizerBits enabledSanitizers = 0;
+
+// Parse sanitizer name passed on commandline and return the corresponding
+// sanitizer bits.
+SanitizerCheck parseSanitizerName(llvm::StringRef name,
+                                  std::function<void()> actionUponError) {
+  SanitizerCheck parsedValue = llvm::StringSwitch<SanitizerCheck>(name)
+                                   .Case("address", AddressSanitizer)
+                                   .Case("fuzzer", FuzzSanitizer)
+                                   .Case("memory", MemorySanitizer)
+                                   .Case("thread", ThreadSanitizer)
+                                   .Default(NoneSanitizer);
+
+  if (parsedValue == NoneSanitizer) {
+    actionUponError();
+  }
+
+  return parsedValue;
+}
 
 void initializeSanitizerOptionsFromCmdline()
 {

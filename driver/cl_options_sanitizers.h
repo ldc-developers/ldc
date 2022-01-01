@@ -19,6 +19,7 @@
 class FuncDeclaration;
 namespace llvm {
 class raw_ostream;
+class StringRef;
 }
 
 namespace opts {
@@ -36,9 +37,12 @@ enum SanitizerCheck : SanitizerBits {
 extern SanitizerBits enabledSanitizers;
 
 inline bool isAnySanitizerEnabled() { return enabledSanitizers; }
-inline bool isSanitizerEnabled(SanitizerCheck san) {
+inline bool isSanitizerEnabled(SanitizerBits san) {
   return enabledSanitizers & san;
 }
+
+SanitizerCheck parseSanitizerName(llvm::StringRef name,
+                                  std::function<void()> actionUponError);
 
 void initializeSanitizerOptionsFromCmdline();
 

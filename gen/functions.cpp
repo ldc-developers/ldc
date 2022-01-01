@@ -1202,16 +1202,19 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
   if (opts::isAnySanitizerEnabled() &&
       !opts::functionIsInSanitizerBlacklist(fd)) {
+    // Get the @noSanitize mask
+    auto noSanitizeMask = getMaskFromNoSanitizeUDA(*fd);
+
     // Set the required sanitizer attribute.
-    if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
+    if (opts::isSanitizerEnabled(opts::AddressSanitizer & noSanitizeMask)) {
       func->addFnAttr(LLAttribute::SanitizeAddress);
     }
 
-    if (opts::isSanitizerEnabled(opts::MemorySanitizer)) {
+    if (opts::isSanitizerEnabled(opts::MemorySanitizer & noSanitizeMask)) {
       func->addFnAttr(LLAttribute::SanitizeMemory);
     }
 
-    if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {
+    if (opts::isSanitizerEnabled(opts::ThreadSanitizer & noSanitizeMask)) {
       func->addFnAttr(LLAttribute::SanitizeThread);
     }
   }
