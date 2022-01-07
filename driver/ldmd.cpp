@@ -534,6 +534,12 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
       else if (strcmp(p + 1, "vtls") == 0) {
         ldcArgs.push_back("-transition=tls");
       }
+      /* -vasm [was added by https://github.com/dlang/dmd/pull/13447]
+       */
+      else if (strcmp(p + 1, "vasm") == 0) {
+        ldcArgs.push_back("--output-s");
+        ldcArgs.push_back("--x86-asm-syntax=intel");
+      }
       /* -vtemplates
        * -vcolumns
        * -vgc
