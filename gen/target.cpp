@@ -49,7 +49,8 @@ llvm::Type *getRealType(const llvm::Triple &triple) {
   // AArch64 targets except Darwin (64-bit) use 128-bit quadruple precision.
   // FIXME: PowerPC, SystemZ, ...
   if ((anyAarch64 && !triple.isOSDarwin()) ||
-      (isAndroid && a == llvm::Triple::x86_64)) {
+      (isAndroid && a == llvm::Triple::x86_64) ||
+      triple.isRISCV()) {
     return llvm::Type::getFP128Ty(ctx);
   }
 
