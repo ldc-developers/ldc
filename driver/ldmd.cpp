@@ -538,6 +538,7 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
        */
       else if (strcmp(p + 1, "vasm") == 0) {
         ldcArgs.push_back("--output-s");
+        ldcArgs.push_back("--output-o");
         ldcArgs.push_back("--x86-asm-syntax=intel");
       }
       /* -vtemplates
