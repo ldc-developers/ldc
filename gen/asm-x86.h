@@ -395,6 +395,7 @@ typedef enum {
   Op_0,
   Op_0_AX,
   Op_0_DXAX,
+  Op_0_DXCXAX,
   Op_Loop,
   Op_Flags,
   Op_F0_ST,
@@ -650,6 +651,7 @@ static AsmOpInfo asmOpInfo[N_AsmOpInfo] = {
     /* Op_0_AX      */ {{0, 0, 0}, 0, Clb_SizeAX},
     /* Op_0_DXAX    */ {{0, 0, 0}, 0, Clb_SizeDXAX}, // but for cwd/cdq -- how
                                                      // do know the size..
+    /* Op_0_DXCXAX*/   {{0, 0, 0}, 0, Clb_SizeDXAX | Clb_CX},
     /* Op_Loop      */ {{imm, 0, 0}, 0, Clb_CX},
     /* Op_Flags     */ {{0, 0, 0}, 0, Clb_Flags},
     /* Op_F0_ST     */ {{0, 0, 0}, 0, Clb_ST},
@@ -1527,6 +1529,13 @@ static AsmOpEnt opData[] = {
     {"rdpmc", Op_0_DXAX},
     //{"rdrand", XXXX},
     {"rdtsc", Op_0_DXAX},
+    /*
+        RDTSCP clobbers EDX:EAX and ECX
+        From the Intel manual:
+        EDX:EAX ← TimeStampCounter;
+        ECX ← IA32_TSC_AUX[31:0];
+    */
+    {"rdtscp", Op_0_DXCXAX},
     {"rep", Op_0},
     {"repe", Op_0},
     {"repne", Op_0},
