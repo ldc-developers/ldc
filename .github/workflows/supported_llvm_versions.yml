@@ -16,22 +16,22 @@ jobs:
             os: ubuntu-18.04
             host_dc: ldc-beta
             llvm_version: "11.1.0"
-            cmake_opts: "-DRT_SUPPORT_SANITIZERS=ON"
+            cmake_opts: "-DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON"
           - job_name: Ubuntu 18.04, LLVM 9, latest LDC beta
             os: ubuntu-18.04
             host_dc: ldc-beta
             llvm_version: "9.0.1"
-            cmake_opts: "-DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON"
+            cmake_opts: "-DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON"
           - job_name: Ubuntu 18.04, LLVM 8, latest LDC beta
             os: ubuntu-18.04
             host_dc: ldc-beta
             llvm_version: "8.0.0"
-            cmake_opts: "-DBUILD_SHARED_LIBS=OFF"
+            cmake_opts: "-DLIB_SUFFIX=64"
           - job_name: Ubuntu 18.04, LLVM 6, latest DMD beta
             os: ubuntu-18.04
             host_dc: dmd-beta
             llvm_version: "6.0.1"
-            cmake_opts: "-DLIB_SUFFIX=64 -DLDC_LINK_MANUALLY=ON"
+            cmake_opts: "-DLDC_LINK_MANUALLY=ON"
           - job_name: macOS 10.15, LLVM 10, latest DMD beta
             os: macos-10.15
             host_dc: dmd-beta

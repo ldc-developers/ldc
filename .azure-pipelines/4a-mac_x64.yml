@@ -38,9 +38,9 @@ steps:
       CMAKE_OSX_DEPLOYMENT_TARGET=$IOS_DEPLOYMENT_TARGET \
       BUILD_LTO_LIBS=ON
     mkdir installed/lib-{arm64,ios-arm64,ios-x86_64}
-    cp -a build-libs-arm64/lib/*.{a,dylib} installed/lib-arm64
-    cp -a build-libs-ios-arm64/lib/*.{a,dylib} installed/lib-ios-arm64
-    cp -a build-libs-ios-x86_64/lib/*.{a,dylib} installed/lib-ios-x86_64
+    cp -a build-libs-arm64/lib/*.{a,dylib,o} installed/lib-arm64
+    cp -a build-libs-ios-arm64/lib/*.{a,dylib,o} installed/lib-ios-arm64
+    cp -a build-libs-ios-x86_64/lib/*.{a,dylib,o} installed/lib-ios-x86_64
     sections="
     \"arm64-apple-macos\":
     {
