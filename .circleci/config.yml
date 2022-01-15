@@ -129,7 +129,7 @@ jobs:
     environment:
       - PARALLELISM: 4
       - CI_OS: osx
-      - LLVM_VERSION: 13.0.0
+      - LLVM_VERSION: 13.0.1
       - HOST_LDC_VERSION: 1.24.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
   macOS-x64-sharedLibsOnly:
@@ -139,7 +139,7 @@ jobs:
     environment:
       - PARALLELISM: 4
       - CI_OS: osx
-      - LLVM_VERSION: 13.0.0
+      - LLVM_VERSION: 13.0.1
       - HOST_LDC_VERSION: 1.24.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON"
 

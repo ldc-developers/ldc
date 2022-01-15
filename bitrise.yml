@@ -7,7 +7,7 @@ app:
     - BITRISE_PROJECT_PATH: ldc-build-runtime.tmp/TestRunner/TestRunner.xcodeproj
     - BITRISE_SCHEME: TestRunner
     - BITRISE_EXPORT_METHOD: development
-    - LLVM_VERSION: 13.0.0
+    - LLVM_VERSION: 13.0.1
     - HOST_LDC_VERSION: 1.24.0
     - IOS_VERSION: 12.0
 

@@ -6,7 +6,7 @@ d: ldc-1.27.1
 
 env:
   global:
-    - LLVM_VERSION: 13.0.0
+    - LLVM_VERSION: 13.0.1
     - CLANG_VERSION: 12.0.1
     # FIXME: need to use ld.gold for linking LDC itself for now, fixed in frontend v2.099
     - OPTS: '"-DBUILD_LTO_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DJITRT_EXTRA_LDFLAGS=-static-libstdc++ -DD_COMPILER_FLAGS=-linker=gold -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64"'
