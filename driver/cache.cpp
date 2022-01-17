@@ -54,13 +54,20 @@
 
 #if LDC_POSIX
 #include <unistd.h>
-// Returns true upon error.
-static bool createHardLink(const char *to, const char *from) {
-  return link(to, from) == -1;
+#include <errno.h>
+
+static std::error_code createHardLink(const char *to, const char *from) {
+  if (link(to, from) == 0)
+    return std::error_code(0, std::system_category());
+  else
+    return std::error_code(errno, std::system_category());
 }
-// Returns true upon error.
-static bool createSymLink(const char *to, const char *from) {
-  return symlink(to, from) == -1;
+
+static std::error_code createSymLink(const char *to, const char *from) {
+  if (symlink(to, from) == 0)
+    return std::error_code(0, std::system_category());
+  else
+    return std::error_code(errno, std::system_category());
 }
 #elif _WIN32
 #include <windows.h>
@@ -82,10 +89,10 @@ std::error_code widenPath(const llvm::Twine &Path8,
 #endif // LDC_LLVM_VER < 1100
 } // namespace sys
 } // namespace llvm
-// Returns true upon error.
+
 namespace {
 template <typename FType>
-bool createLink(FType f, const char *to, const char *from) {
+std::error_code createLink(FType f, const char *to, const char *from) {
   //===----------------------------------------------------------------------===//
   //
   // Code copied from LLVM 3.9 llvm/Support/Windows/Path.inc, distributed under
@@ -101,23 +108,23 @@ bool createLink(FType f, const char *to, const char *from) {
 
   llvm::SmallVector<wchar_t, 128> wide_from;
   llvm::SmallVector<wchar_t, 128> wide_to;
-  if (widenPath(from, wide_from))
-    return true;
-  if (widenPath(to, wide_to))
-    return true;
+  if (auto errorcode = widenPath(from, wide_from))
+    return errorcode;
+  if (auto errorcode = widenPath(to, wide_to))
+    return errorcode;
 
   if (!(*f)(wide_from.begin(), wide_to.begin(), NULL))
-    return true;
+    return std::error_code(GetLastError(), std::system_category());;
 
-  return false;
+  return std::error_code(0, std::system_category());
 }
 }
-// Returns true upon error.
-static bool createHardLink(const char *to, const char *from) {
+
+static std::error_code createHardLink(const char *to, const char *from) {
   return createLink(&CreateHardLinkW, to, from);
 }
-// Returns true upon error.
-static bool createSymLink(const char *to, const char *from) {
+
+static std::error_code createSymLink(const char *to, const char *from) {
   return createLink(&CreateSymbolicLinkW, to, from);
 }
 #endif
@@ -385,11 +392,13 @@ void cacheObjectFile(llvm::StringRef objectFile,
   if (opts::cacheDir.empty())
     return;
 
-  if (!llvm::sys::fs::exists(opts::cacheDir) &&
-      llvm::sys::fs::create_directories(opts::cacheDir)) {
-    error(Loc(), "Unable to create cache directory: %s",
-          opts::cacheDir.c_str());
-    fatal();
+  if (!llvm::sys::fs::exists(opts::cacheDir)) {
+    if (auto errorcode = llvm::sys::fs::create_directories(opts::cacheDir)) {
+      error(Loc(), "Unable to create cache directory: %s (errno %d: %s)",
+            opts::cacheDir.c_str(), errorcode.value(),
+            errorcode.message().c_str());
+      fatal();
+    }
   }
 
   // To prevent bad cache files, add files to the cache atomically: first copy
@@ -400,24 +409,32 @@ void cacheObjectFile(llvm::StringRef objectFile,
   storeCacheFileName(cacheObjectHash, cacheFile);
 
   llvm::SmallString<128> tempFile;
-  if (llvm::sys::fs::createUniqueFile(llvm::Twine(cacheFile) + ".tmp%%%%%%%",
-                                      tempFile)) {
-    error(Loc(), "Could not create name of temporary file in the cache.");
+  if (auto errorcode = llvm::sys::fs::createUniqueFile(
+          llvm::Twine(cacheFile) + ".tmp%%%%%%%", tempFile)) {
+    error(
+        Loc(),
+        "Could not create name of temporary file in the cache (errno %d: %s)",
+        errorcode.value(), errorcode.message().c_str());
     fatal();
   }
 
   IF_LOG Logger::println("Copy object file to temp file: %s to %s",
                          objectFile.str().c_str(), tempFile.c_str());
-  if (llvm::sys::fs::copy_file(objectFile, tempFile.c_str())) {
-    error(Loc(), "Failed to copy object file to cache: %s to %s",
-          objectFile.str().c_str(), tempFile.c_str());
+  if (auto errorcode = llvm::sys::fs::copy_file(objectFile, tempFile.c_str())) {
+    error(Loc(),
+          "Failed to copy object file to cache: %s to %s (errno %d: %s)",
+          objectFile.str().c_str(), tempFile.c_str(), errorcode.value(),
+          errorcode.message().c_str());
     fatal();
   }
   IF_LOG Logger::println("Rename temp file to cache file: %s to %s",
                          tempFile.c_str(), cacheFile.c_str());
-  if (llvm::sys::fs::rename(tempFile.c_str(), cacheFile.c_str())) {
-    error(Loc(), "Failed to rename temp file to cache file: %s to %s",
-          tempFile.c_str(), cacheFile.c_str());
+  if (auto errorcode =
+          llvm::sys::fs::rename(tempFile.c_str(), cacheFile.c_str())) {
+    error(Loc(),
+          "Failed to rename temp file to cache file: %s to %s (errno %d: %s)",
+          tempFile.c_str(), cacheFile.c_str(), errorcode.value(),
+          errorcode.message().c_str());
     fatal();
   }
 }
@@ -434,37 +451,50 @@ void recoverObjectFile(llvm::StringRef cacheObjectHash,
   case RetrievalMode::Copy: {
     IF_LOG Logger::println("Copy cached object file: %s -> %s",
                            cacheFile.c_str(), objectFile.str().c_str());
-    if (llvm::sys::fs::copy_file(cacheFile.c_str(), objectFile)) {
-      error(Loc(), "Failed to copy the cached file: %s -> %s",
-            cacheFile.c_str(), objectFile.str().c_str());
+    if (auto errorcode =
+            llvm::sys::fs::copy_file(cacheFile.c_str(), objectFile)) {
+      error(Loc(), "Failed to copy the cached file: %s -> %s (errno %d: %s)",
+            cacheFile.c_str(), objectFile.str().c_str(), errorcode.value(),
+            errorcode.message().c_str());
       fatal();
     }
   } break;
   case RetrievalMode::HardLink: {
     IF_LOG Logger::println("HardLink output to cached object file: %s -> %s",
                            objectFile.str().c_str(), cacheFile.c_str());
-    if (createHardLink(cacheFile.c_str(), objectFile.str().c_str())) {
-      error(Loc(), "Failed to create a hard link to the cached file: %s -> %s",
-            cacheFile.c_str(), objectFile.str().c_str());
+    if (auto errorcode =
+            createHardLink(cacheFile.c_str(), objectFile.str().c_str())) {
+      error(Loc(),
+            "Failed to create a hard link to the cached file: %s -> %s (errno "
+            "%d: %s)",
+            cacheFile.c_str(), objectFile.str().c_str(), errorcode.value(),
+            errorcode.message().c_str());
       fatal();
     }
   } break;
   case RetrievalMode::AnyLink: {
     IF_LOG Logger::println("Link output to cached object file: %s -> %s",
                            objectFile.str().c_str(), cacheFile.c_str());
-    if (llvm::sys::fs::create_link(cacheFile.c_str(), objectFile)) {
-      error(Loc(), "Failed to create a link to the cached file: %s -> %s",
-            cacheFile.c_str(), objectFile.str().c_str());
+    if (auto errorcode =
+            llvm::sys::fs::create_link(cacheFile.c_str(), objectFile)) {
+      error(
+          Loc(),
+          "Failed to create a link to the cached file: %s -> %s (errno %d: %s)",
+          cacheFile.c_str(), objectFile.str().c_str(), errorcode.value(),
+          errorcode.message().c_str());
       fatal();
     }
   } break;
   case RetrievalMode::SymLink: {
     IF_LOG Logger::println("SymLink output to cached object file: %s -> %s",
                            objectFile.str().c_str(), cacheFile.c_str());
-    if (createSymLink(cacheFile.c_str(), objectFile.str().c_str())) {
+    if (auto errorcode =
+            createSymLink(cacheFile.c_str(), objectFile.str().c_str())) {
       error(Loc(),
-            "Failed to create a symbolic link to the cached file: %s -> %s",
-            cacheFile.c_str(), objectFile.str().c_str());
+            "Failed to create a symbolic link to the cached file: %s -> %s "
+            "(errno %d: %s)",
+            cacheFile.c_str(), objectFile.str().c_str(), errorcode.value(),
+            errorcode.message().c_str());
       fatal();
     }
   } break;
