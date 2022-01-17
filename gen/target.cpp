@@ -31,30 +31,40 @@ TypeTuple *toArgTypes_sysv_x64(Type *t);
 TypeTuple *toArgTypes_aarch64(Type *t);
 
 namespace {
+// Returns the LL type to be used for D `real` (C `long double`).
 llvm::Type *getRealType(const llvm::Triple &triple) {
+  using llvm::Triple;
+
   auto &ctx = getGlobalContext();
 
-  const auto a = triple.getArch();
-  const bool anyX86 = (a == llvm::Triple::x86) || (a == llvm::Triple::x86_64);
-  const bool anyAarch64 =
-      (a == llvm::Triple::aarch64) || (a == llvm::Triple::aarch64_be);
-  const bool isAndroid = triple.getEnvironment() == llvm::Triple::Android;
-
-  // Only x86 has 80-bit extended precision.
-  // MSVC and Android/x86 use double precision, Android/x64 quadruple.
-  if (anyX86 && !triple.isWindowsMSVCEnvironment() && !isAndroid) {
-    return llvm::Type::getX86_FP80Ty(ctx);
+  // Android: x86 targets follow ARM, with emulated quad precision for x64
+  if (triple.getEnvironment() == llvm::Triple::Android) {
+    return triple.isArch64Bit() ? LLType::getFP128Ty(ctx)
+                                : LLType::getDoubleTy(ctx);
   }
 
-  // AArch64 targets except Darwin (64-bit) use 128-bit quadruple precision.
-  // FIXME: PowerPC, SystemZ, ...
-  if ((anyAarch64 && !triple.isOSDarwin()) ||
-      (isAndroid && a == llvm::Triple::x86_64)) {
-    return llvm::Type::getFP128Ty(ctx);
-  }
+  switch (triple.getArch()) {
+  case Triple::x86:
+  case Triple::x86_64:
+    // only x86 has 80-bit extended precision; MSVC uses double
+    return triple.isWindowsMSVCEnvironment() ? LLType::getDoubleTy(ctx)
+                                             : LLType::getX86_FP80Ty(ctx);
 
-  // 64-bit double precision for all other targets.
-  return llvm::Type::getDoubleTy(ctx);
+  case Triple::aarch64:
+  case Triple::aarch64_be:
+    // AArch64 has 128-bit quad precision; Apple uses double
+    return triple.isOSDarwin() ? LLType::getDoubleTy(ctx)
+                               : LLType::getFP128Ty(ctx);
+
+  case Triple::riscv32:
+  case Triple::riscv64:
+    return LLType::getFP128Ty(ctx);
+
+  default:
+    // 64-bit double precision for all other targets
+    // FIXME: PowerPC, SystemZ, ...
+    return LLType::getDoubleTy(ctx);
+  }
 }
 }
 
