@@ -102,6 +102,7 @@ jobs:
   pool:
     vmImage: 'macOS-11'
   variables:
+    CC: /usr/bin/cc
     CI_OS: osx
     ARCH: x86_64
     BOOTSTRAP_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON
@@ -135,6 +136,7 @@ jobs:
   pool:
     vmImage: 'macOS-11'
   variables:
+    CC: /usr/bin/cc
     CI_OS: osx
     ARCH: arm64
     EXTRA_CMAKE_FLAGS: >
