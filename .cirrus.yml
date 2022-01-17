@@ -205,8 +205,8 @@ task:
     image: big-sur-xcode
   timeout_in: 60m
   environment:
-    CC: /usr/bin/cc
     CI_OS: osx
+    EXTRA_CMAKE_FLAGS: "-DD_COMPILER_FLAGS=-gcc=/usr/bin/cc"
     LLVM_VERSION: 12.0.1
     # OS is preset to `darwin`
     OS: osx

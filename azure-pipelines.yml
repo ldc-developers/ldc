@@ -102,13 +102,14 @@ jobs:
   pool:
     vmImage: 'macOS-11'
   variables:
-    CC: /usr/bin/cc
     CI_OS: osx
     ARCH: x86_64
-    BOOTSTRAP_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON
+    BOOTSTRAP_CMAKE_FLAGS: >
+      -DBUILD_LTO_LIBS=ON
+      -DD_COMPILER_FLAGS="-gcc=/usr/bin/cc"
     EXTRA_CMAKE_FLAGS: >
       -DBUILD_LTO_LIBS=ON
-      -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
+      -DD_COMPILER_FLAGS="-gcc=/usr/bin/cc -O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
       -DEXTRA_CXXFLAGS=-flto=full
     MACOSX_DEPLOYMENT_TARGET: 10.9
     IOS_DEPLOYMENT_TARGET: 12.0
@@ -136,12 +137,12 @@ jobs:
   pool:
     vmImage: 'macOS-11'
   variables:
-    CC: /usr/bin/cc
     CI_OS: osx
     ARCH: arm64
+    BOOTSTRAP_CMAKE_FLAGS: -DD_COMPILER_FLAGS="-gcc=/usr/bin/cc"
     EXTRA_CMAKE_FLAGS: >
       -DBUILD_LTO_LIBS=ON
-      -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
+      -DD_COMPILER_FLAGS="-gcc=/usr/bin/cc -O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
       -DEXTRA_CXXFLAGS=-flto=full
     EXTRA_CMAKE_FLAGS_CROSS: -DCMAKE_OSX_ARCHITECTURES=arm64
     MACOSX_DEPLOYMENT_TARGET: 11.0
