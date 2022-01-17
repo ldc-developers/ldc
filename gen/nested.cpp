@@ -22,9 +22,21 @@
 #include "ir/irtypeaggr.h"
 #include "llvm/Analysis/ValueTracking.h"
 
-static unsigned getVthisIdx(AggregateDeclaration *ad) {
+namespace {
+unsigned getVthisIdx(AggregateDeclaration *ad) {
   return getFieldGEPIndex(ad, ad->vthis);
 }
+
+bool isNRVOVar(VarDeclaration *vd) {
+  if (auto fd = vd->toParent2()->isFuncDeclaration())
+    return fd->nrvo_can && vd == fd->nrvo_var && !fd->needsClosure();
+  return false;
+}
+
+bool captureByRef(VarDeclaration *vd) {
+  return vd->isReference() || isNRVOVar(vd);
+}
+} // anonymous namespace
 
 static void DtoCreateNestedContextType(FuncDeclaration *fd);
 
@@ -153,15 +165,14 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
     Logger::cout() << "Addr: " << *val << '\n';
     Logger::cout() << "of type: " << *val->getType() << '\n';
   }
-  const bool isRefOrOut = vd->isRef() || vd->isOut();
   if (isSpecialRefVar(vd)) {
     // Handled appropriately by makeVarDValue() and EmitLocalVariable(), pass
     // storage of pointer (reference lvalue).
-  } else if (byref || isRefOrOut) {
+  } else if (byref || captureByRef(vd)) {
     val = DtoAlignedLoad(val);
     // ref/out variables get a reference-debuginfo-type in EmitLocalVariable()
     // => don't dereference, use reference lvalue as address
-    if (!isRefOrOut)
+    if (!vd->isReference())
       gIR->DBuilder.OpDeref(dwarfAddrOps);
     IF_LOG {
       Logger::cout() << "Was byref, now: " << *irLocal->value << '\n';
@@ -396,7 +407,7 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
     irLocal.nestedDepth = depth;
 
     LLType *t = nullptr;
-    if (vd->isRef() || vd->isOut()) {
+    if (captureByRef(vd)) {
       t = DtoType(vd->type->pointerTo());
     } else if (isParam && (vd->storage_class & STClazy)) {
       // the type is a delegate (LL struct)
@@ -494,31 +505,37 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
         assert(parm->value);
         assert(parm->value->getType()->isPointerTy());
 
-        if (vd->isRef() || vd->isOut()) {
+        if (vd->isReference()) {
           Logger::println(
               "Captured by reference, copying pointer to nested frame");
           DtoAlignedStore(parm->value, gep);
           // pass GEP as reference lvalue to EmitLocalVariable()
         } else {
-          Logger::println("Copying to nested frame");
+          Logger::println("Moving to nested frame");
           // The parameter value is an alloca'd stack slot.
           // Copy to the nesting frame and leave the alloca for
           // the optimizers to clean up.
           DtoMemCpy(gep, parm->value);
           gep->takeName(parm->value);
-          parm->value = gep;
+          parm->value = gep; // update variable lvalue
         }
+      } else if (isNRVOVar(vd)) {
+        IF_LOG Logger::println(
+            "nested NRVO var: %s, copying pointer to nested frame",
+            vd->toChars());
+        assert(irFunc.sretArg);
+        DtoAlignedStore(irFunc.sretArg, gep);
+        assert(!irLocal->value);
+        irLocal->value = irFunc.sretArg;
+        gep = irFunc.sretArg; // lvalue for debuginfo
       } else {
-        IF_LOG Logger::println("nested var:   %s", vd->toChars());
+        IF_LOG Logger::println("nested var: %s, allocating in nested frame",
+                               vd->toChars());
         assert(!irLocal->value);
         irLocal->value = gep;
       }
 
-      if (global.params.symdebug) {
-        LLSmallVector<int64_t, 1> dwarfAddrOps;
-        gIR->DBuilder.EmitLocalVariable(gep, vd, nullptr, false, false, false,
-                                        dwarfAddrOps);
-      }
+      gIR->DBuilder.EmitLocalVariable(gep, vd);
     }
   }
 }
