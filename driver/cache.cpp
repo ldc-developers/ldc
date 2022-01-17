@@ -55,14 +55,14 @@
 #if LDC_POSIX
 #include <unistd.h>
 #include <errno.h>
-// Returns true upon error.
+
 static std::error_code createHardLink(const char *to, const char *from) {
   if (link(to, from) == 0)
     return std::error_code(0, std::system_category());
   else
     return std::error_code(errno, std::system_category());
 }
-// Returns true upon error.
+
 static std::error_code createSymLink(const char *to, const char *from) {
   if (symlink(to, from) == 0)
     return std::error_code(0, std::system_category());
@@ -89,7 +89,7 @@ std::error_code widenPath(const llvm::Twine &Path8,
 #endif // LDC_LLVM_VER < 1100
 } // namespace sys
 } // namespace llvm
-// Returns true upon error.
+
 namespace {
 template <typename FType>
 std::error_code createLink(FType f, const char *to, const char *from) {
@@ -119,11 +119,11 @@ std::error_code createLink(FType f, const char *to, const char *from) {
   return std::error_code(0, std::system_category());
 }
 }
-// Returns true upon error.
+
 static std::error_code createHardLink(const char *to, const char *from) {
   return createLink(&CreateHardLinkW, to, from);
 }
-// Returns true upon error.
+
 static std::error_code createSymLink(const char *to, const char *from) {
   return createLink(&CreateSymbolicLinkW, to, from);
 }
