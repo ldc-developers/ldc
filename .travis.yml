@@ -41,14 +41,14 @@ install:
     llvm_tag="CI"
     if [[ "$LLVM_VERSION" = *.* ]]; then llvm_tag="ldc-v$LLVM_VERSION"; fi
     llvm_url="https://github.com/ldc-developers/llvm-project/releases/download/$llvm_tag/llvm-$LLVM_VERSION-linux-aarch64$assertsSuffix.tar.xz"
-    curl --max-time 300 --retry 3 -L -o llvm.tar.xz $llvm_url || travis_terminate 1
+    curl -fL --retry 3 --max-time 300 -o llvm.tar.xz $llvm_url || travis_terminate 1
     mkdir -p llvm || travis_terminate 1
     tar -xf llvm.tar.xz --strip 1 -C llvm || travis_terminate 1
     rm llvm.tar.xz || travis_terminate 1
   # Make lld the default linker (possibly with enabled assertions unfortunately)
   - sudo ln -sf "$PWD/llvm/bin/ld.lld" /usr/bin/ld
   # Download & extract clang
-  - curl --max-time 300 --retry 3 -L -o clang.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-$CLANG_VERSION/clang+llvm-$CLANG_VERSION-aarch64-linux-gnu.tar.xz
+  - curl -fL --retry 3 --max-time 300 -o clang.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-$CLANG_VERSION/clang+llvm-$CLANG_VERSION-aarch64-linux-gnu.tar.xz
   - mkdir clang
   - tar -xf clang.tar.xz --strip 1 -C clang
   - rm clang.tar.xz
@@ -75,7 +75,7 @@ script:
   - bin/ldc2 -version || travis_terminate 1
   - cd ..
   # Build mimalloc (object file only)
-  - curl --max-time 60 --retry 3 -L -o mimalloc.tar.gz "https://github.com/microsoft/mimalloc/archive/refs/tags/$(cat packaging/mimalloc_version).tar.gz"
+  - curl -fL --retry 3 --max-time 60 -o mimalloc.tar.gz "https://github.com/microsoft/mimalloc/archive/refs/tags/$(cat packaging/mimalloc_version).tar.gz"
   - mkdir mimalloc
   - tar -xf mimalloc.tar.gz --strip 1 -C mimalloc
   - mkdir build-mimalloc
