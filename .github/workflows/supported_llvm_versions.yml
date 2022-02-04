@@ -10,7 +10,7 @@ jobs:
           - job_name: Ubuntu 18.04, LLVM 13, latest LDC beta
             os: ubuntu-18.04
             host_dc: ldc-beta
-            llvm_version: "ldc-13.0.1"
+            llvm_version: "13.0.0"
             cmake_opts: ""
           - job_name: Ubuntu 18.04, LLVM 12, latest LDC beta
             os: ubuntu-18.04
@@ -75,9 +75,6 @@ jobs:
           sudo apt-get update
           # Don't use latest gdb v10 from Ubuntu toolchain PPA with regressions, use official v8
           sudo apt-get install gdb=8.1.1-0ubuntu1
-      - name: "Linux: Make ld.gold the default linker"
-        if: runner.os == 'Linux'
-        run: sudo ln -sf /usr/bin/ld.gold /usr/bin/ld
 
       - name: Try to restore cached LLVM
         uses: actions/cache@v2
@@ -98,10 +95,7 @@ jobs:
             suffix='x86_64-linux-gnu-ubuntu-16.04'
           fi
           version='${{ matrix.llvm_version }}'
-          # vanilla v13.0.0 doesn't work with ld.gold, use LDC-LLVM v13.0.1 instead for now
-          if [[ "$version" == "ldc-13.0.1" ]]; then
-            llvm_url="https://github.com/ldc-developers/llvm-project/releases/download/ldc-v13.0.1/llvm-13.0.1-linux-x86_64.tar.xz"
-          elif [[ "$version" =~ ^(1.|9)\. ]]; then
+          if [[ "$version" =~ ^(1.|9)\. ]]; then
             llvm_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-$suffix.tar.xz"
           else
             llvm_url="http://releases.llvm.org/$version/clang+llvm-$version-$suffix.tar.xz"
@@ -110,6 +104,17 @@ jobs:
           mkdir -p llvm
           tar -xf llvm.tar.xz --strip 1 -C llvm
           rm llvm.tar.xz
+
+      - name: "Linux: Make ld.gold the default linker"
+        if: runner.os == 'Linux'
+        run: |
+          if [[ '${{ matrix.llvm_version }}' == 13.* ]]; then
+            echo "Using lld 13 for LLVM 13 to work around sporadic failures"
+            sudo ln -sf "$PWD/llvm/bin/ld.lld" /usr/bin/ld
+          else
+            sudo ln -sf /usr/bin/ld.gold /usr/bin/ld
+          fi
+          ld --version
 
       - name: Build LDC & LDC D unittests & defaultlib unittest runners with extra '${{ matrix.cmake_opts }}'
         run: |
