@@ -11,7 +11,7 @@ releaseTag=$1
 artifact=$2
 artifactFilename=$(basename $artifact)
 
-releaseID="$(set -eo pipefail; curl -fsS https://api.github.com/repos/ldc-developers/ldc/releases/tags/"$releaseTag" | grep -m 1 '^  "id":' || echo "<error>")"
+releaseID="$(set -eo pipefail; curl -fsS https://api.github.com/repos/ldc-developers/ldc/releases/tags/"$releaseTag" | grep '^  "id":' | head -n1 || echo "<error>")"
 if [ "$releaseID" == "<error>" ]; then
   echo "Error: no GitHub release found for tag '$releaseTag'" >&2
   exit 1
