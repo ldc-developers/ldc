@@ -7,7 +7,7 @@ app:
     - BITRISE_PROJECT_PATH: ldc-build-runtime.tmp/TestRunner/TestRunner.xcodeproj
     - BITRISE_SCHEME: TestRunner
     - BITRISE_EXPORT_METHOD: development
-    - LLVM_VERSION: 12.0.1
+    - LLVM_VERSION: 13.0.1
     - HOST_LDC_VERSION: 1.24.0
     - IOS_VERSION: 12.0
 
@@ -23,7 +23,7 @@ workflows:
             - content: |-
                 #!/bin/bash
                 set -ex
-                curl --max-time 300 --retry 3 -L "https://github.com/ldc-developers/llvm-project/releases/download/ldc-v${LLVM_VERSION}/llvm-${LLVM_VERSION}-osx-x86_64.tar.xz" -o llvm.tar.xz
+                curl -fL --retry 3 --max-time 300 "https://github.com/ldc-developers/llvm-project/releases/download/ldc-v${LLVM_VERSION}/llvm-${LLVM_VERSION}-osx-x86_64.tar.xz" -o llvm.tar.xz
                 tar xf llvm.tar.xz
                 envman add --key LLVM_ROOT_DIR --value "$(pwd)/llvm-${LLVM_VERSION}-osx-x86_64"
 
@@ -33,7 +33,7 @@ workflows:
             - content: |-
                 #!/bin/bash
                 set -ex
-                curl --max-time 300 --retry 3 -L "https://github.com/ldc-developers/ldc/releases/download/v${HOST_LDC_VERSION}/ldc2-${HOST_LDC_VERSION}-osx-x86_64.tar.xz" -o ldc.tar.xz
+                curl -fL --retry 3 --max-time 300 "https://github.com/ldc-developers/ldc/releases/download/v${HOST_LDC_VERSION}/ldc2-${HOST_LDC_VERSION}-osx-x86_64.tar.xz" -o ldc.tar.xz
                 tar xf ldc.tar.xz
                 envman add --key PATH --value "$(pwd)/ldc2-${HOST_LDC_VERSION}-osx-x86_64/bin:$PATH"
 

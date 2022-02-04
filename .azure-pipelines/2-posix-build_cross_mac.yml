@@ -19,9 +19,9 @@ steps:
     cd ..
     # Download & extract LDC-flavoured LLVM for macOS target
     if [[ "$LLVM_VERSION" = *.* ]]; then
-      curl --max-time 300 --retry 3 -L -o llvm-$ARCH.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$CI_OS-$ARCH.tar.xz
+      curl -fL --retry 3 --max-time 300 -o llvm-$ARCH.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$CI_OS-$ARCH.tar.xz
     else
-      curl --max-time 300 --retry 3 -L -o llvm-$ARCH.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/CI/llvm-$LLVM_VERSION-$CI_OS-$ARCH.tar.xz
+      curl -fL --retry 3 --max-time 300 -o llvm-$ARCH.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/CI/llvm-$LLVM_VERSION-$CI_OS-$ARCH.tar.xz
     fi
     mkdir llvm-$ARCH
     tar -xf llvm-$ARCH.tar.xz --strip 1 -C llvm-$ARCH
@@ -53,7 +53,7 @@ steps:
     cd ..
     export PATH="$PWD/ninja:$PATH"
     # Build mimalloc (object file only)
-    curl --max-time 60 --retry 3 -L -o mimalloc.tar.gz "https://github.com/microsoft/mimalloc/archive/refs/tags/$(cat $BUILD_SOURCESDIRECTORY/packaging/mimalloc_version).tar.gz"
+    curl -fL --retry 3 --max-time 60 -o mimalloc.tar.gz "https://github.com/microsoft/mimalloc/archive/refs/tags/$(cat $BUILD_SOURCESDIRECTORY/packaging/mimalloc_version).tar.gz"
     mkdir mimalloc
     tar -xf mimalloc.tar.gz --strip 1 -C mimalloc
     mkdir build-mimalloc

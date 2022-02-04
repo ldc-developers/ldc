@@ -73,7 +73,7 @@ install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
       $EXTRA_APT_PACKAGES
     python3 --version
     # Download & extract host LDC
-    curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-x86_64.tar.xz
+    curl -fL --retry 3 --max-time 300 -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-x86_64.tar.xz
     mkdir host-ldc
     tar -xf ldc2.tar.xz --strip 1 -C host-ldc
     rm ldc2.tar.xz
@@ -85,22 +85,22 @@ install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
     cd $CIRRUS_WORKING_DIR/..
     sysctl -n hw.logicalcpu
     # Download & extract CMake
-    curl --max-time 300 --retry 3 -L -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.20.3/cmake-3.20.3-macos-universal.tar.gz
+    curl -fL --retry 3 --max-time 300 -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.20.3/cmake-3.20.3-macos-universal.tar.gz
     mkdir cmake
     tar -xf cmake.tar.gz --strip 3 -C cmake
     rm cmake.tar.gz
     # Download & extract Ninja
-    curl --max-time 60 --retry 3 -OL https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-mac.zip
+    curl -fL --retry 3 --max-time 60 -O https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-mac.zip
     mkdir ninja
     tar -xf ninja-mac.zip -C ninja
     rm ninja-mac.zip
     # Download & extract LDC-flavoured LLVM with enabled assertions
-    curl --max-time 300 --retry 3 -L -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-osx-x86_64-withAsserts.tar.xz
+    curl -fL --retry 3 --max-time 300 -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-osx-x86_64-withAsserts.tar.xz
     mkdir llvm
     tar -xf llvm.tar.xz --strip 1 -C llvm
     rm llvm.tar.xz
     # Download & extract host LDC
-    curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-osx-x86_64.tar.xz
+    curl -fL --retry 3 --max-time 300 -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-osx-x86_64.tar.xz
     mkdir host-ldc
     tar -xf ldc2.tar.xz --strip 1 -C host-ldc
     rm ldc2.tar.xz
@@ -172,12 +172,12 @@ task:
       libcurl3 curl gdb python3 python3-pip tzdata unzip zip
     python3 --version
     # Download & extract host LDC
-    curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v0.17.6/ldc2-0.17.6-linux-x86_64.tar.xz
+    curl -fL --retry 3 --max-time 300 -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v0.17.6/ldc2-0.17.6-linux-x86_64.tar.xz
     mkdir host-ldc
     tar -xf ldc2.tar.xz --strip 1 -C host-ldc
     rm ldc2.tar.xz
     # Download & extract vanilla LLVM
-    curl --max-time 300 --retry 3 -L -o llvm.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-12.0.1/clang+llvm-12.0.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz
+    curl -fL --retry 3 --max-time 300 -o llvm.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-12.0.1/clang+llvm-12.0.1-x86_64-linux-gnu-ubuntu-16.04.tar.xz
     mkdir -p llvm
     tar -xf llvm.tar.xz --strip 1 -C llvm
     rm llvm.tar.xz
@@ -206,7 +206,7 @@ task:
   timeout_in: 60m
   environment:
     CI_OS: osx
-    LLVM_VERSION: 12.0.1
+    LLVM_VERSION: 13.0.1
     # OS is preset to `darwin`
     OS: osx
     PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
@@ -242,7 +242,7 @@ task:
     python3 --version
     python3 -m ensurepip
     # Download & extract host LDC
-    curl --max-time 300 --retry 3 -L -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-freebsd-x86_64.tar.xz
+    curl -fL --retry 3 --max-time 300 -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-freebsd-x86_64.tar.xz
     mkdir pre-ldc
     gtar -xf ldc2.tar.xz --strip 1 -C pre-ldc
   clone_submodules_early_script: |

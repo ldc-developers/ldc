@@ -18,7 +18,7 @@ steps:
       export CXX=$PWD/clang/bin/clang++
     fi
     # Build mimalloc (object file only)
-    curl --max-time 60 --retry 3 -L -o mimalloc.tar.gz "https://github.com/microsoft/mimalloc/archive/refs/tags/$(cat $BUILD_SOURCESDIRECTORY/packaging/mimalloc_version).tar.gz"
+    curl -fL --retry 3 --max-time 60 -o mimalloc.tar.gz "https://github.com/microsoft/mimalloc/archive/refs/tags/$(cat $BUILD_SOURCESDIRECTORY/packaging/mimalloc_version).tar.gz"
     mkdir mimalloc
     tar -xf mimalloc.tar.gz --strip 1 -C mimalloc
     mkdir build-mimalloc

@@ -18,7 +18,7 @@ steps:
     echo on
     cd ..
     :: Download & extract libcurl
-    curl --max-time 60 --retry 3 -L -o libcurl.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v8.0.0/libcurl-7.74.0-zlib-static-ipv6-sspi-schannel.7z 2>&1
+    curl -fL --retry 3 --max-time 60 -o libcurl.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v8.0.0/libcurl-7.74.0-zlib-static-ipv6-sspi-schannel.7z 2>&1
     mkdir libcurl
     cd libcurl
     7z x ../libcurl.7z > nul
@@ -32,7 +32,7 @@ steps:
     )
     cd ..
     :: Download & extract Ninja
-    curl --max-time 60 --retry 3 -L -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-win.zip 2>&1
+    curl -fL --retry 3 --max-time 60 -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-win.zip 2>&1
     mkdir ninja
     cd ninja
     7z x ../ninja.zip > nul
@@ -42,11 +42,11 @@ steps:
     python -m pip install --user lit
     python -c "import lit.main; lit.main.main();" --version . | head -n 1
     :: Download & extract host LDC
-    curl --max-time 300 --retry 3 -L -o ldc2.7z http://github.com/ldc-developers/ldc/releases/download/v%HOST_LDC_VERSION%/ldc2-%HOST_LDC_VERSION%-windows-multilib.7z 2>&1
+    curl -fL --retry 3 --max-time 300 -o ldc2.7z http://github.com/ldc-developers/ldc/releases/download/v%HOST_LDC_VERSION%/ldc2-%HOST_LDC_VERSION%-windows-multilib.7z 2>&1
     7z x ldc2.7z > nul
     mv ldc2-%HOST_LDC_VERSION%-windows-multilib host-ldc
     :: Download & extract GNU make (for druntime integration tests)
-    curl --max-time 60 --retry 3 -L -o make.7z https://dl.dropboxusercontent.com/s/4y36f5ydgrk4p5g/make-4.2.1.7z?dl=0 2>&1
+    curl -fL --retry 3 --max-time 60 -o make.7z https://dl.dropboxusercontent.com/s/4y36f5ydgrk4p5g/make-4.2.1.7z?dl=0 2>&1
     mkdir gnu
     cd gnu
     7z x ../make.7z > nul
@@ -57,13 +57,13 @@ steps:
     if not "%BUILD_SOURCEBRANCH:~0,10%" == "refs/tags/" ( set ASSERTS_SUFFIX=-withAsserts)
     set LLVM_RELEASE_TAG=CI
     echo "%LLVM_VERSION%" | find "." > nul && set LLVM_RELEASE_TAG=ldc-v%LLVM_VERSION%
-    curl --max-time 300 --retry 3 -L -o llvm.7z https://github.com/ldc-developers/llvm-project/releases/download/%LLVM_RELEASE_TAG%/llvm-%LLVM_VERSION%-windows-%ARCH%%ASSERTS_SUFFIX%.7z 2>&1
+    curl -fL --retry 3 --max-time 300 -o llvm.7z https://github.com/ldc-developers/llvm-project/releases/download/%LLVM_RELEASE_TAG%/llvm-%LLVM_VERSION%-windows-%ARCH%%ASSERTS_SUFFIX%.7z 2>&1
     mkdir llvm
     cd llvm
     7z x ../llvm.7z > nul
     cd ..
     :: Download & install clang
-    curl --max-time 300 --retry 3 -L -o clang.exe https://github.com/llvm/llvm-project/releases/download/llvmorg-%CLANG_VERSION%/LLVM-%CLANG_VERSION%-win64.exe 2>&1
+    curl -fL --retry 3 --max-time 300 -o clang.exe https://github.com/llvm/llvm-project/releases/download/llvmorg-%CLANG_VERSION%/LLVM-%CLANG_VERSION%-win64.exe 2>&1
     clang.exe /S
   displayName: Install prerequisites
 

@@ -11,11 +11,15 @@ releaseTag=$1
 artifact=$2
 artifactFilename=$(basename $artifact)
 
-releaseID="$(bash -c "curl -s https://api.github.com/repos/ldc-developers/ldc/releases/tags/$releaseTag | grep -m 1 '^  \"id\":'")"
+releaseID="$(set -eo pipefail; curl -fsS https://api.github.com/repos/ldc-developers/ldc/releases/tags/"$releaseTag" | grep -m 1 '^  "id":' || echo "<error>")"
+if [ "$releaseID" == "<error>" ]; then
+  echo "Error: no GitHub release found for tag '$releaseTag'" >&2
+  exit 1
+fi
 releaseID=${releaseID:8:-1}
 
 echo "Uploading $artifact to GitHub release $releaseTag ($releaseID)..."
-curl -s \
+curl -fsS \
   -H "Authorization: token $GITHUB_TOKEN" \
   -H "Content-Type: application/octet-stream" \
   --data-binary @$artifact \

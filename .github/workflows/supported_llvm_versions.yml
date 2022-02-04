@@ -7,6 +7,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - job_name: Ubuntu 18.04, LLVM 13, latest LDC beta
+            os: ubuntu-18.04
+            host_dc: ldc-beta
+            llvm_version: "ldc-13.0.1"
+            cmake_opts: ""
           - job_name: Ubuntu 18.04, LLVM 12, latest LDC beta
             os: ubuntu-18.04
             host_dc: ldc-beta
@@ -93,12 +98,15 @@ jobs:
             suffix='x86_64-linux-gnu-ubuntu-16.04'
           fi
           version='${{ matrix.llvm_version }}'
-          if [[ "$version" =~ ^(1.|9)\. ]]; then
+          # vanilla v13.0.0 doesn't work with ld.gold, use LDC-LLVM v13.0.1 instead for now
+          if [[ "$version" == "ldc-13.0.1" ]]; then
+            llvm_url="https://github.com/ldc-developers/llvm-project/releases/download/ldc-v13.0.1/llvm-13.0.1-linux-x86_64.tar.xz"
+          elif [[ "$version" =~ ^(1.|9)\. ]]; then
             llvm_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-$suffix.tar.xz"
           else
             llvm_url="http://releases.llvm.org/$version/clang+llvm-$version-$suffix.tar.xz"
           fi
-          curl --max-time 300 --retry 3 -L -o llvm.tar.xz $llvm_url
+          curl -fL --retry 3 --max-time 300 -o llvm.tar.xz $llvm_url
           mkdir -p llvm
           tar -xf llvm.tar.xz --strip 1 -C llvm
           rm llvm.tar.xz

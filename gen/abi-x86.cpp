@@ -259,8 +259,17 @@ struct X86TargetABI : TargetABI {
   void workaroundIssue1356(std::vector<IrFuncTyArg *> &args) const {
     if (isMSVC) {
       for (auto arg : args) {
-        if (arg->isByVal())
+        if (arg->isByVal()) {
+#if LDC_LLVM_VER < 1300
           arg->attrs.removeAttribute(LLAttribute::Alignment);
+#else
+          // Keep alignment for LLVM 13+, to prevent invalid `movaps` etc.,
+          // but limit to 4 (required according to runnable/ldc_cabi1.d).
+          auto align4 = LLAlign(4);
+          if (arg->attrs.getAlignment().getValueOr(align4) > align4)
+            arg->attrs.addAlignmentAttr(align4);
+#endif
+        }
       }
     }
   }

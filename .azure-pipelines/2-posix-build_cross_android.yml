@@ -21,14 +21,14 @@ steps:
     cd ..
     # Download & extract LDC-flavoured LLVM for Android target
     if [[ "$LLVM_VERSION" = *.* ]]; then
-      curl --max-time 300 --retry 3 -L -o llvm-$ARCH.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$CI_OS-$ARCH.tar.xz
+      curl -fL --retry 3 --max-time 300 -o llvm-$ARCH.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-$CI_OS-$ARCH.tar.xz
     else
-      curl --max-time 300 --retry 3 -L -o llvm-$ARCH.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/CI/llvm-$LLVM_VERSION-$CI_OS-$ARCH.tar.xz
+      curl -fL --retry 3 --max-time 300 -o llvm-$ARCH.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/CI/llvm-$LLVM_VERSION-$CI_OS-$ARCH.tar.xz
     fi
     mkdir llvm-$ARCH
     tar -xf llvm-$ARCH.tar.xz --strip 1 -C llvm-$ARCH
     # Download & extract Android NDK
-    curl --max-time 300 --retry 3 -OL https://dl.google.com/android/repository/android-ndk-$ANDROID_NDK_VERSION-linux-x86_64.zip
+    curl -fL --retry 3 --max-time 300 -O https://dl.google.com/android/repository/android-ndk-$ANDROID_NDK_VERSION-linux-x86_64.zip
     unzip android-ndk-$ANDROID_NDK_VERSION-linux-x86_64.zip > /dev/null
     rm android-ndk-$ANDROID_NDK_VERSION-linux-x86_64.zip
     # The NDK toolchain file enforces `-g` as base C[XX] flag - remove it to
