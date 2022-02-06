@@ -65,61 +65,48 @@ void AggrTypeBuilder::addAggregate(
   // field might require us to select that field.
   LLSmallVector<VarDeclaration *, 16> actualFields;
 
-  // literals: add the explicitly initialized fields first
-  if (explicitInits) { // note: may contain fields from base classes
-    if (ad->isClassDeclaration()) {
-      for (VarDeclaration *field : ad->fields) {
-        if (explicitInits->find(field) != explicitInits->end() &&
-            field->type->size() > 0) {
-          actualFields.push_back(field);
-        }
-      }
-    } else {
-      for (const auto &pair : *explicitInits) {
-        VarDeclaration *field = pair.first;
-        if (field->type->size() > 0) {
-          actualFields.push_back(field);
-        }
-      }
-    }
-  }
-
   // list of pairs: alias => actual field (same offset, same LL type)
   LLSmallVector<std::pair<VarDeclaration *, VarDeclaration *>, 16> aliasPairs;
 
-  // iterate over all fields in declaration order
-  for (VarDeclaration *field : ad->fields) {
-    // skip if explicitly initialized (already added)
-    if (explicitInits && explicitInits->find(field) != explicitInits->end())
-      continue;
+  // Iterate over all fields in declaration order, in 1 or 2 passes.
+  for (int pass = explicitInits ? 0 : 1; pass < 2; ++pass) {
+    for (VarDeclaration *field : ad->fields) {
+      // 1st pass: only for fields with explicit initializer
+      if (pass == 0 && explicitInits->find(field) == explicitInits->end())
+        continue;
 
-    const size_t f_begin = field->offset;
-    const size_t f_end = f_begin + field->type->size();
+      // 2nd pass: only for fields without explicit initializer
+      if (pass == 1 && explicitInits && explicitInits->find(field) != explicitInits->end())
+        continue;
 
-    // skip empty fields
-    if (f_begin == f_end)
-      continue;
+      const size_t f_begin = field->offset;
+      const size_t f_end = f_begin + field->type->size();
 
-    // check for overlap with existing fields
-    bool overlaps = false;
-    if (field->overlapped) {
-      for (const auto vd : actualFields) {
-        const size_t v_begin = vd->offset;
-        const size_t v_end = v_begin + vd->type->size();
+      // skip empty fields
+      if (f_begin == f_end)
+        continue;
 
-        if (v_begin < f_end && v_end > f_begin) {
-          overlaps = true;
-          if (aliases == Aliases::AddToVarGEPIndices && v_begin == f_begin &&
-              DtoMemType(vd->type) == DtoMemType(field->type)) {
-            aliasPairs.push_back(std::make_pair(field, vd));
+      // check for overlap with existing fields
+      bool overlaps = false;
+      if (field->overlapped) {
+        for (const auto vd : actualFields) {
+          const size_t v_begin = vd->offset;
+          const size_t v_end = v_begin + vd->type->size();
+
+          if (v_begin < f_end && v_end > f_begin) {
+            overlaps = true;
+            if (aliases == Aliases::AddToVarGEPIndices && v_begin == f_begin &&
+                DtoMemType(vd->type) == DtoMemType(field->type)) {
+              aliasPairs.push_back(std::make_pair(field, vd));
+            }
+            break;
           }
-          break;
         }
       }
-    }
 
-    if (!overlaps)
-      actualFields.push_back(field);
+      if (!overlaps)
+        actualFields.push_back(field);
+    }
   }
 
   // Now we can build a list of LLVM types for the actual LL fields.
