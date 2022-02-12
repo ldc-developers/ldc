@@ -149,17 +149,9 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       DtoAssign(loc, &field, &val, TOKblit);
     }
 
-    offset += vd->type->size();
-
-    // Also zero out padding bytes counted as being part of the type in DMD
-    // but not in LLVM; e.g. real/x86_fp80.
-    int implicitPadding =
-        vd->type->size() - gDataLayout->getTypeStoreSize(DtoType(vd->type));
-    assert(implicitPadding >= 0);
-    if (implicitPadding > 0) {
-      IF_LOG Logger::println("zeroing %d padding bytes", implicitPadding);
-      voidptr = write_zeroes(voidptr, offset - implicitPadding, offset);
-    }
+    // Make sure to zero out padding bytes counted as being part of the type in
+    // DMD but not in LLVM; e.g. real/x86_fp80.
+    offset += gDataLayout->getTypeStoreSize(DtoType(vd->type));
   }
 
   // initialize trailing padding
