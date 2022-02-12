@@ -101,21 +101,6 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
     Expression *expr =
         (index < elements->length ? (*elements)[index] : nullptr);
     if (expr || field == sd->vthis) {
-      // DMD issue #16471:
-      // There may be overlapping initializer expressions in some cases.
-      // Prefer the last expression in lexical (declaration) order to mimic DMD.
-      if (field->overlapped) {
-        const unsigned f_begin = field->offset;
-        const unsigned f_end = f_begin + field->type->size();
-        const auto newEndIt =
-            std::remove_if(data.begin(), data.end(), [=](const Data &d) {
-              unsigned v_begin = d.field->offset;
-              unsigned v_end = v_begin + d.field->type->size();
-              return v_begin < f_end && v_end > f_begin;
-            });
-        data.erase(newEndIt, data.end());
-      }
-
       data.push_back({field, expr});
     }
   }
