@@ -34,11 +34,7 @@ static inline size_t add_zeros(std::vector<llvm::Type *> &defaultTypes,
 }
 
 bool var_offset_sort_cb(const VarDeclaration *v1, const VarDeclaration *v2) {
-  if (v1 && v2) {
-    return v1->offset < v2->offset;
-  }
-  // sort NULL pointers towards the end
-  return v1 && !v2;
+  return v1->offset < v2->offset;
 }
 
 AggrTypeBuilder::AggrTypeBuilder(bool packed, unsigned offset)
@@ -56,24 +52,6 @@ void AggrTypeBuilder::addAggregate(AggregateDeclaration *ad) {
   addAggregate(ad, nullptr, Aliases::AddToVarGEPIndices);
 }
 
-namespace {
-enum FieldPriority {
-  FP_ExplicitVoid = 0, // lowest priority: fields with explicit void initializer
-  FP_Default = 1,      // default initializer
-  FP_Explicit = 2,     // explicit non-void initializer
-  FP_Value = 3,        // highest priority: values (for literals)
-};
-
-FieldPriority prioritize(VarDeclaration *field,
-                         const AggrTypeBuilder::VarInitMap *explicitInits) {
-  if (explicitInits && explicitInits->find(field) != explicitInits->end())
-    return FP_Value;
-  if (auto init = field->_init)
-    return !init->isVoidInitializer() ? FP_Explicit : FP_ExplicitVoid;
-  return FP_Default;
-}
-}
-
 void AggrTypeBuilder::addAggregate(
     AggregateDeclaration *ad, const AggrTypeBuilder::VarInitMap *explicitInits,
     AggrTypeBuilder::Aliases aliases) {
@@ -81,31 +59,26 @@ void AggrTypeBuilder::addAggregate(
   if (n == 0)
     return;
 
-  // prioritize overlapping fields
-  LLSmallVector<FieldPriority, 16> priorities;
-  priorities.reserve(n);
-  for (auto f : ad->fields) {
-    priorities.push_back(prioritize(f, explicitInits));
-    IF_LOG Logger::println("Field priority for %s: %d", f->toChars(),
-                           priorities.back());
-  }
-
-  // mirror the ad->fields array but only fill in contributors
-  LLSmallVector<VarDeclaration *, 16> data(n, nullptr);
+  // Unions may lead to overlapping fields, and we need to flatten them for LLVM
+  // IR. We usually take the first field (in declaration order) of an
+  // overlapping set, but a literal with an explicit initializer for a dominated
+  // field might require us to select that field.
+  LLSmallVector<VarDeclaration *, 16> actualFields;
 
   // list of pairs: alias => actual field (same offset, same LL type)
   LLSmallVector<std::pair<VarDeclaration *, VarDeclaration *>, 16> aliasPairs;
 
-  // one pass per priority in descending order
-  const auto minMaxPriority =
-      std::minmax_element(priorities.begin(), priorities.end());
-  for (int p = *minMaxPriority.second; p >= *minMaxPriority.first; p--) {
-    // iterate over fields of that priority, in declaration order
-    for (size_t index = 0; index < n; ++index) {
-      if (priorities[index] != p)
+  // Iterate over all fields in declaration order, in 1 or 2 passes.
+  for (int pass = explicitInits ? 0 : 1; pass < 2; ++pass) {
+    for (VarDeclaration *field : ad->fields) {
+      // 1st pass: only for fields with explicit initializer
+      if (pass == 0 && explicitInits->find(field) == explicitInits->end())
         continue;
 
-      VarDeclaration *field = ad->fields[index];
+      // 2nd pass: only for fields without explicit initializer
+      if (pass == 1 && explicitInits && explicitInits->find(field) != explicitInits->end())
+        continue;
+
       const size_t f_begin = field->offset;
       const size_t f_end = f_begin + field->type->size();
 
@@ -113,29 +86,26 @@ void AggrTypeBuilder::addAggregate(
       if (f_begin == f_end)
         continue;
 
-      // check for overlapping existing fields
+      // check for overlap with existing fields
       bool overlaps = false;
       if (field->overlapped) {
-        for (const auto vd : data) {
-          if (!vd)
-            continue;
-
+        for (const auto vd : actualFields) {
           const size_t v_begin = vd->offset;
           const size_t v_end = v_begin + vd->type->size();
 
           if (v_begin < f_end && v_end > f_begin) {
+            overlaps = true;
             if (aliases == Aliases::AddToVarGEPIndices && v_begin == f_begin &&
                 DtoMemType(vd->type) == DtoMemType(field->type)) {
               aliasPairs.push_back(std::make_pair(field, vd));
             }
-            overlaps = true;
             break;
           }
         }
       }
 
       if (!overlaps)
-        data[index] = field;
+        actualFields.push_back(field);
     }
   }
 
@@ -144,12 +114,9 @@ void AggrTypeBuilder::addAggregate(
   // indexable variables.
 
   // first we sort the list by offset
-  std::sort(data.begin(), data.end(), var_offset_sort_cb);
+  std::sort(actualFields.begin(), actualFields.end(), var_offset_sort_cb);
 
-  for (const auto vd : data) {
-    if (!vd)
-      continue;
-
+  for (const auto vd : actualFields) {
     if (vd->offset < m_offset) {
       // TODO: ImportC
       vd->error(

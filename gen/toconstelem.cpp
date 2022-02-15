@@ -548,11 +548,15 @@ public:
       const size_t nexprs = e->elements->length;
       for (size_t i = 0; i < nexprs; i++) {
         if (auto elem = (*e->elements)[i]) {
-          LLConstant *c = toConstElem(elem, p);
-          // extend i1 to i8
-          if (c->getType() == LLType::getInt1Ty(p->context()))
-            c = llvm::ConstantExpr::getZExt(c, LLType::getInt8Ty(p->context()));
-          varInits[e->sd->fields[i]] = c;
+          if (!elem->isVoidInitExp()) {
+            LLConstant *c = toConstElem(elem, p);
+            // extend i1 to i8
+            if (c->getType() == LLType::getInt1Ty(p->context())) {
+              c = llvm::ConstantExpr::getZExt(c,
+                                              LLType::getInt8Ty(p->context()));
+            }
+            varInits[e->sd->fields[i]] = c;
+          }
         }
       }
 
@@ -599,11 +603,13 @@ public:
           classHierachy.pop();
           for (size_t j = 0; j < cur->fields.length; ++j) {
             if (auto elem = (*value->elements)[i]) {
-              VarDeclaration *field = cur->fields[j];
-              IF_LOG Logger::println("Getting initializer for: %s",
-                                     field->toChars());
-              LOG_SCOPE;
-              varInits[field] = toConstElem(elem, p);
+              if (!elem->isVoidInitExp()) {
+                VarDeclaration *field = cur->fields[j];
+                IF_LOG Logger::println("Getting initializer for: %s",
+                                       field->toChars());
+                LOG_SCOPE;
+                varInits[field] = toConstElem(elem, p);
+              }
             }
             ++i;
           }

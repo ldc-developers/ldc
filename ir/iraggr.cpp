@@ -284,7 +284,9 @@ void IrAggr::addFieldInitializers(
   }
 
   AggrTypeBuilder b(false, offset);
-  b.addAggregate(decl, &explicitInitializers, AggrTypeBuilder::Aliases::Skip);
+  b.addAggregate(decl,
+                 explicitInitializers.empty() ? nullptr : &explicitInitializers,
+                 AggrTypeBuilder::Aliases::Skip);
   offset = b.currentOffset();
 
   const size_t baseLLFieldIndex = constants.size();

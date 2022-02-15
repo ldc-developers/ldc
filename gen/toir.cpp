@@ -101,21 +101,6 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
     Expression *expr =
         (index < elements->length ? (*elements)[index] : nullptr);
     if (expr || field == sd->vthis) {
-      // DMD issue #16471:
-      // There may be overlapping initializer expressions in some cases.
-      // Prefer the last expression in lexical (declaration) order to mimic DMD.
-      if (field->overlapped) {
-        const unsigned f_begin = field->offset;
-        const unsigned f_end = f_begin + field->type->size();
-        const auto newEndIt =
-            std::remove_if(data.begin(), data.end(), [=](const Data &d) {
-              unsigned v_begin = d.field->offset;
-              unsigned v_end = v_begin + d.field->type->size();
-              return v_begin < f_end && v_end > f_begin;
-            });
-        data.erase(newEndIt, data.end());
-      }
-
       data.push_back({field, expr});
     }
   }
@@ -164,17 +149,9 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       DtoAssign(loc, &field, &val, TOKblit);
     }
 
-    offset += vd->type->size();
-
-    // Also zero out padding bytes counted as being part of the type in DMD
-    // but not in LLVM; e.g. real/x86_fp80.
-    int implicitPadding =
-        vd->type->size() - gDataLayout->getTypeStoreSize(DtoType(vd->type));
-    assert(implicitPadding >= 0);
-    if (implicitPadding > 0) {
-      IF_LOG Logger::println("zeroing %d padding bytes", implicitPadding);
-      voidptr = write_zeroes(voidptr, offset - implicitPadding, offset);
-    }
+    // Make sure to zero out padding bytes counted as being part of the type in
+    // DMD but not in LLVM; e.g. real/x86_fp80.
+    offset += gDataLayout->getTypeStoreSize(DtoType(vd->type));
   }
 
   // initialize trailing padding
