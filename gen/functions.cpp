@@ -602,7 +602,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   } else if (defineOnDeclare(fdecl, /*isFunction=*/true)) {
     Logger::println("Function is inside a linkonce_odr template, will be "
                     "defined after declaration.");
-    if (fdecl->semanticRun < PASSsemantic3done) {
+    if (fdecl->semanticRun < PASS::semantic3done) {
       Logger::println("Function hasn't had sema3 run yet, running it now.");
       const bool semaSuccess = fdecl->functionSemantic3();
       (void)semaSuccess;
@@ -1052,7 +1052,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     return;
   }
 
-  if (fd->semanticRun == PASSsemanticdone) {
+  if (fd->semanticRun == PASS::semanticdone) {
     // This function failed semantic3() with errors but the errors were gagged.
     // In contrast to DMD we immediately bail out here, since other parts of
     // the codegen expect irFunc to be set for defined functions.
@@ -1102,7 +1102,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // nested context creation code.
   FuncDeclaration *parent = fd;
   while ((parent = getParentFunc(parent))) {
-    if (parent->semanticRun != PASSsemantic3done || parent->semantic3Errors) {
+    if (parent->semanticRun != PASS::semantic3done || parent->semantic3Errors) {
       IF_LOG Logger::println(
           "Ignoring nested function with unanalyzed parent.");
       return;
@@ -1114,7 +1114,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   assert(fd->ident != Id::empty);
 
-  if (fd->semanticRun != PASSsemantic3done) {
+  if (fd->semanticRun != PASS::semantic3done) {
     error(fd->loc,
           "Internal Compiler Error: function not fully analyzed; "
           "previous unreported errors compiling `%s`?",

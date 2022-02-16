@@ -1836,7 +1836,7 @@ public:
 
       // We need to actually codegen the function here, as literals are not
       // added to the module member list.
-      if (e->func->semanticRun == PASSsemantic3done) {
+      if (e->func->semanticRun == PASS::semantic3done) {
         Dsymbol *owner = e->func->toParent();
         while (!owner->isTemplateInstance() && owner->toParent()) {
           owner = owner->toParent();

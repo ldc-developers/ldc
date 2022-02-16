@@ -161,7 +161,7 @@ LLConstant *IrAggr::getDefaultInitializer(VarDeclaration *field) {
   if (field->_init) {
     // Issue 9057 workaround caused by issue 14666 fix, see DMD upstream
     // commit 069f570005.
-    if (field->semanticRun < PASSsemantic2done && field->_scope) {
+    if (field->semanticRun < PASS::semantic2done && field->_scope) {
       semantic2(field, field->_scope);
     }
     return DtoConstInitializer(field->_init->loc, field->type, field->_init);

@@ -156,7 +156,7 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
 
   IF_LOG Logger::println("Potential inlining candidate");
 
-  if (fdecl.semanticRun < PASSsemantic3) {
+  if (fdecl.semanticRun < PASS::semantic3) {
     IF_LOG Logger::println("Do semantic analysis");
     LOG_SCOPE
 
@@ -178,7 +178,7 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
       IF_LOG Logger::println("Errors occured during semantic analysis.");
       return false;
     }
-    assert(fdecl.semanticRun >= PASSsemantic3done);
+    assert(fdecl.semanticRun >= PASS::semantic3done);
   }
 
   // FuncDeclaration::naked is set by the AsmParser during semantic3 analysis,
