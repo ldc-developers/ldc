@@ -62,7 +62,7 @@ void DtoAddExtendAttr(Type *type, llvm::AttrBuilder &attrs);
 // LLType* DtoStructTypeFromArguments(Arguments* arguments);
 
 // delegate helpers
-LLValue *DtoDelegateEquals(TOK op, LLValue *lhs, LLValue *rhs);
+LLValue *DtoDelegateEquals(EXP op, LLValue *lhs, LLValue *rhs);
 
 // Returns the LLVM linkage to use for the definition of the given symbol,
 // based on whether it is a template or not.

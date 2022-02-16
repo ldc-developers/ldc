@@ -80,7 +80,7 @@ void DtoEnterMonitor(const Loc &loc, LLValue *v);
 void DtoLeaveMonitor(const Loc &loc, LLValue *v);
 
 // basic operations
-void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
+void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
                bool canSkipPostblit = false);
 
 DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl);
@@ -178,16 +178,16 @@ bool isLLVMUnsigned(Type *t);
 ///
 /// For some operations, the result can be a constant. In this case outConst is
 /// set to it, otherwise outPred is set to the predicate to use.
-void tokToICmpPred(TOK op, bool isUnsigned, llvm::ICmpInst::Predicate *outPred,
+void tokToICmpPred(EXP op, bool isUnsigned, llvm::ICmpInst::Predicate *outPred,
                    llvm::Value **outConst);
 
 /// Converts a DMD equality/identity operation token into the corresponding LLVM
 /// icmp predicate.
-llvm::ICmpInst::Predicate eqTokToICmpPred(TOK op, bool invert = false);
+llvm::ICmpInst::Predicate eqTokToICmpPred(EXP op, bool invert = false);
 
 /// For equality/identity operations, returns `(lhs1 == rhs1) & (lhs2 == rhs2)`.
 /// `(lhs1 != rhs1) | (lhs2 != rhs2)` for inequality/not-identity.
-LLValue *createIPairCmp(TOK op, LLValue *lhs1, LLValue *lhs2, LLValue *rhs1,
+LLValue *createIPairCmp(EXP op, LLValue *lhs1, LLValue *lhs2, LLValue *rhs1,
                         LLValue *rhs2);
 
 ////////////////////////////////////////////

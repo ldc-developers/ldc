@@ -572,7 +572,7 @@ Expression eval_llvmsin(Loc loc, FuncDeclaration fd, Expressions *arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.float64);
+    assert(arg0.op == EXP.float64);
     return new RealExp(loc, CTFloat.sin(arg0.toReal()), type);
 }
 
@@ -580,7 +580,7 @@ Expression eval_llvmcos(Loc loc, FuncDeclaration fd, Expressions *arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.float64);
+    assert(arg0.op == EXP.float64);
     return new RealExp(loc, CTFloat.cos(arg0.toReal()), type);
 }
 
@@ -588,7 +588,7 @@ Expression eval_llvmsqrt(Loc loc, FuncDeclaration fd, Expressions *arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.float64);
+    assert(arg0.op == EXP.float64);
     return new RealExp(loc, CTFloat.sqrt(arg0.toReal()), type);
 }
 
@@ -596,7 +596,7 @@ Expression eval_llvmexp(Loc loc, FuncDeclaration fd, Expressions *arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.float64);
+    assert(arg0.op == EXP.float64);
     return new RealExp(loc, CTFloat.exp(arg0.toReal()), type);
 }
 
@@ -604,7 +604,7 @@ Expression eval_llvmexp2(Loc loc, FuncDeclaration fd, Expressions *arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.float64);
+    assert(arg0.op == EXP.float64);
     return new RealExp(loc, CTFloat.exp2(arg0.toReal()), type);
 }
 
@@ -612,7 +612,7 @@ Expression eval_llvmlog(Loc loc, FuncDeclaration fd, Expressions *arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.float64);
+    assert(arg0.op == EXP.float64);
     return new RealExp(loc, CTFloat.log(arg0.toReal()), type);
 }
 
@@ -620,7 +620,7 @@ Expression eval_llvmlog2(Loc loc, FuncDeclaration fd, Expressions *arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.float64);
+    assert(arg0.op == EXP.float64);
     return new RealExp(loc, CTFloat.log2(arg0.toReal()), type);
 }
 
@@ -628,7 +628,7 @@ Expression eval_llvmlog10(Loc loc, FuncDeclaration fd, Expressions *arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.float64);
+    assert(arg0.op == EXP.float64);
     return new RealExp(loc, CTFloat.log10(arg0.toReal()), type);
 }
 
@@ -636,7 +636,7 @@ Expression eval_llvmfabs(Loc loc, FuncDeclaration fd, Expressions *arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.float64);
+    assert(arg0.op == EXP.float64);
     return new RealExp(loc, CTFloat.fabs(arg0.toReal()), type);
 }
 
@@ -644,9 +644,9 @@ Expression eval_llvmminnum(Loc loc, FuncDeclaration fd, Expressions *arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.float64);
+    assert(arg0.op == EXP.float64);
     Expression arg1 = (*arguments)[1];
-    assert(arg1.op == TOK.float64);
+    assert(arg1.op == EXP.float64);
     return new RealExp(loc, CTFloat.fmin(arg0.toReal(), arg1.toReal()), type);
 }
 
@@ -654,9 +654,9 @@ Expression eval_llvmmaxnum(Loc loc, FuncDeclaration fd, Expressions *arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.float64);
+    assert(arg0.op == EXP.float64);
     Expression arg1 = (*arguments)[1];
-    assert(arg1.op == TOK.float64);
+    assert(arg1.op == EXP.float64);
     return new RealExp(loc, CTFloat.fmax(arg0.toReal(), arg1.toReal()), type);
 }
 
@@ -664,7 +664,7 @@ Expression eval_llvmfloor(Loc loc, FuncDeclaration fd, Expressions *arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.float64);
+    assert(arg0.op == EXP.float64);
     return new RealExp(loc, CTFloat.floor(arg0.toReal()), type);
 }
 
@@ -672,7 +672,7 @@ Expression eval_llvmceil(Loc loc, FuncDeclaration fd, Expressions *arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.float64);
+    assert(arg0.op == EXP.float64);
     return new RealExp(loc, CTFloat.ceil(arg0.toReal()), type);
 }
 
@@ -680,7 +680,7 @@ Expression eval_llvmtrunc(Loc loc, FuncDeclaration fd, Expressions *arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.float64);
+    assert(arg0.op == EXP.float64);
     return new RealExp(loc, CTFloat.trunc(arg0.toReal()), type);
 }
 
@@ -688,7 +688,7 @@ Expression eval_llvmrint(Loc loc, FuncDeclaration fd, Expressions *arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.float64);
+    assert(arg0.op == EXP.float64);
     return new RealExp(loc, CTFloat.rint(arg0.toReal()), type);
 }
 
@@ -696,7 +696,7 @@ Expression eval_llvmnearbyint(Loc loc, FuncDeclaration fd, Expressions *argument
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.float64);
+    assert(arg0.op == EXP.float64);
     return new RealExp(loc, CTFloat.nearbyint(arg0.toReal()), type);
 }
 
@@ -704,7 +704,7 @@ Expression eval_llvmround(Loc loc, FuncDeclaration fd, Expressions *arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.float64);
+    assert(arg0.op == EXP.float64);
     return new RealExp(loc, CTFloat.round(arg0.toReal()), type);
 }
 
@@ -712,11 +712,11 @@ Expression eval_llvmfma(Loc loc, FuncDeclaration fd, Expressions *arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.float64);
+    assert(arg0.op == EXP.float64);
     Expression arg1 = (*arguments)[1];
-    assert(arg1.op == TOK.float64);
+    assert(arg1.op == EXP.float64);
     Expression arg2 = (*arguments)[2];
-    assert(arg2.op == TOK.float64);
+    assert(arg2.op == EXP.float64);
     return new RealExp(loc, CTFloat.fma(arg0.toReal(), arg1.toReal(), arg2.toReal()), type);
 }
 
@@ -724,9 +724,9 @@ Expression eval_llvmcopysign(Loc loc, FuncDeclaration fd, Expressions *arguments
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.float64);
+    assert(arg0.op == EXP.float64);
     Expression arg1 = (*arguments)[1];
-    assert(arg1.op == TOK.float64);
+    assert(arg1.op == EXP.float64);
     return new RealExp(loc, CTFloat.copysign(arg0.toReal(), arg1.toReal()), type);
 }
 
@@ -735,7 +735,7 @@ Expression eval_llvmbswap(Loc loc, FuncDeclaration fd, Expressions *arguments)
     Type type = getTypeOfOverloadedIntrinsic(fd);
 
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.int64);
+    assert(arg0.op == EXP.int64);
     uinteger_t n = arg0.toInteger();
     enum ulong BYTEMASK = 0x00FF00FF00FF00FF;
     enum ulong SHORTMASK = 0x0000FFFF0000FFFF;
@@ -773,7 +773,7 @@ Expression eval_llvmcttz(Loc loc, FuncDeclaration fd, Expressions *arguments)
     Type type = getTypeOfOverloadedIntrinsic(fd);
 
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.int64);
+    assert(arg0.op == EXP.int64);
     uinteger_t x = arg0.toInteger();
 
     int n = getBitsizeOfType(loc, type);
@@ -803,7 +803,7 @@ Expression eval_llvmctlz(Loc loc, FuncDeclaration fd, Expressions *arguments)
     Type type = getTypeOfOverloadedIntrinsic(fd);
 
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.int64);
+    assert(arg0.op == EXP.int64);
     uinteger_t x = arg0.toInteger();
     if (x == 0 && (*arguments)[1].toInteger())
         error(loc, "llvm.ctlz.i#(0) is undefined");
@@ -824,7 +824,7 @@ Expression eval_llvmctpop(Loc loc, FuncDeclaration fd, Expressions *arguments)
     Type type = getTypeOfOverloadedIntrinsic(fd);
 
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.int64);
+    assert(arg0.op == EXP.int64);
     uinteger_t n = arg0.toInteger();
     int cnt = 0;
     while (n)
@@ -840,7 +840,7 @@ Expression eval_llvmexpect(Loc loc, FuncDeclaration fd, Expressions *arguments)
     Type type = getTypeOfOverloadedIntrinsic(fd);
 
     Expression arg0 = (*arguments)[0];
-    assert(arg0.op == TOK.int64);
+    assert(arg0.op == EXP.int64);
 
     return new IntegerExp(loc, arg0.toInteger(), type);
 }

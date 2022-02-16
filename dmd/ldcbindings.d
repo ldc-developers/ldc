@@ -53,8 +53,9 @@ Expression createExpressionForIntOp(const ref Loc loc, TOK op, Expression e1, Ex
         case TOK.tilde:
             return new ComExp(loc, e1);
         case TOK.orOr:
+            return new LogicalExp(loc, EXP.orOr, e1, e2);
         case TOK.andAnd:
-            return new LogicalExp(loc, op, e1, e2);
+            return new LogicalExp(loc, EXP.andAnd, e1, e2);
         case TOK.or:
             return new OrExp(loc, e1, e2);
         case TOK.and:
@@ -62,18 +63,22 @@ Expression createExpressionForIntOp(const ref Loc loc, TOK op, Expression e1, Ex
         case TOK.xor:
             return new XorExp(loc, e1, e2);
         case TOK.equal:
+            return new EqualExp(EXP.equal, loc, e1, e2);
         case TOK.notEqual:
-            return new EqualExp(op, loc, e1, e2);
+            return new EqualExp(EXP.notEqual, loc, e1, e2);
         case TOK.greaterThan:
+            return new CmpExp(EXP.greaterThan, loc, e1, e2);
         case TOK.greaterOrEqual:
+            return new CmpExp(EXP.greaterOrEqual, loc, e1, e2);
         case TOK.lessThan:
+            return new CmpExp(EXP.lessThan, loc, e1, e2);
         case TOK.lessOrEqual:
-            return new CmpExp(op, loc, e1, e2);
+            return new CmpExp(EXP.lessOrEqual, loc, e1, e2);
         default:
             assert(0, "unknown integer operation");
     }
 }
 
-Expression createExpression(const ref Loc loc, TOK op) { return new Expression(loc, op, __traits(classInstanceSize, Expression)); }
+Expression createExpression(const ref Loc loc, EXP op) { return new Expression(loc, op, __traits(classInstanceSize, Expression)); }
 DsymbolExp createDsymbolExp(const ref Loc loc, Dsymbol s) { return new DsymbolExp(loc, s, /*hasOverloads=*/false); }
 AddrExp createAddrExp(const ref Loc loc, Expression e) { return new AddrExp(loc, e); }

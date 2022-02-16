@@ -48,6 +48,6 @@ DImValue *DtoComplexDiv(const Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
 DImValue *DtoComplexMod(const Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
 DImValue *DtoComplexNeg(const Loc &loc, Type *type, DRValue *val);
 
-llvm::Value *DtoComplexEquals(const Loc &loc, TOK op, DValue *lhs, DValue *rhs);
+llvm::Value *DtoComplexEquals(const Loc &loc, EXP op, DValue *lhs, DValue *rhs);
 
 DValue *DtoCastComplex(const Loc &loc, DValue *val, Type *to);

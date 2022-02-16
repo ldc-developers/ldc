@@ -2085,11 +2085,11 @@ struct AsmProcessor {
         ptrTypeIdentTable[i] = Identifier::idPool(ptrTypeNameTable[i]);
       }
 
-      Handled = createExpression(Loc(), TOKvoid);
+      Handled = createExpression(Loc(), EXP::void_);
 
       ident_seg = Identifier::idPool("seg");
 
-      eof_tok.value = TOKeof;
+      eof_tok.value = TOK::endOfFile;
       eof_tok.next = nullptr;
     }
   }
@@ -2112,7 +2112,7 @@ struct AsmProcessor {
   }
 
   void expectEnd() {
-    if (token->value != TOKeof) {
+    if (token->value != TOK::endOfFile) {
       stmt->error("expected end of statement"); // %% extra at end...
     }
   }
@@ -2148,22 +2148,22 @@ struct AsmProcessor {
     static const int N_ents = sizeof(opData) / sizeof(AsmOpEnt);
 
     switch (token->value) {
-    case TOKalign:
+    case TOK::align_:
       nextToken();
       return Op_Align;
-    case TOKin:
+    case TOK::in_:
       nextToken();
       opIdent = Id::___in;
       return Op_in;
-    case TOKint32: // "int"
+    case TOK::int32: // "int"
       nextToken();
       opIdent = Id::__int;
       return Op_SrcImm;
-    case TOKout:
+    case TOK::out_:
       nextToken();
       opIdent = Id::___out;
       return Op_out;
-    case TOKidentifier:
+    case TOK::identifier:
       // search for mnemonic below
       break;
     default:
@@ -2203,7 +2203,7 @@ struct AsmProcessor {
     opInfo = &asmOpInfo[op];
     memset(operands, 0, sizeof(operands));
 
-    if (token->value == TOKeof && op == Op_FMath0) {
+    if (token->value == TOK::endOfFile && op == Op_FMath0) {
 // no iteration for x86 vs. single iteration for x64
 #ifndef ASM_X86_64
       while (false)
@@ -2235,7 +2235,7 @@ struct AsmProcessor {
       return;
     }
 
-    while (token->value != TOKeof) {
+    while (token->value != TOK::endOfFile) {
       if (operand_i < Max_Operands) {
         operand = &operands[operand_i];
         operand->reg = operand->baseReg = operand->indexReg =
@@ -2247,9 +2247,9 @@ struct AsmProcessor {
         break;
       }
 
-      if (token->value == TOKcomma) {
+      if (token->value == TOK::comma) {
         nextToken();
-      } else if (token->value != TOKeof) {
+      } else if (token->value != TOK::endOfFile) {
         stmt->error("end of instruction expected, not `%s`", token->toChars());
         return;
       }
@@ -3102,8 +3102,8 @@ struct AsmProcessor {
     return true;
   }
 
-  bool isIntExp(Expression *exp) { return exp->op == TOKint64; }
-  bool isRegExp(Expression *exp) { return exp->op == TOKmod; } // ewww.%%
+  bool isIntExp(Expression *exp) { return exp->op == EXP::int64; }
+  bool isRegExp(Expression *exp) { return exp->op == EXP::mod; } // ewww.%%
   bool isLocalSize(Expression *exp) {
     // cleanup: make a static var
     auto ie = exp->isIdentifierExp();
@@ -3116,7 +3116,7 @@ struct AsmProcessor {
 
   Expression *newRegExp(int regno) {
     auto e = IntegerExp::create(Loc(), regno, Type::tint32);
-    e->op = TOKmod;
+    e->op = EXP::mod;
     return e;
   }
 
@@ -3210,7 +3210,7 @@ struct AsmProcessor {
           stmt->error("too many symbols in operand");
         }
       }
-    } else if (exp->op == TOKidentifier || exp->op == TOKdsymbol) {
+    } else if (exp->op == EXP::identifier || exp->op == EXP::dSymbol) {
       // %% localsize could be treated as a simple constant..
       // change to addSymbolDisp(e)
       if (!operand->symbolDisplacement.length) {
@@ -3253,10 +3253,10 @@ struct AsmProcessor {
 
   Expression *parseCondExp() {
     Expression *exp = parseLogOrExp();
-    if (token->value == TOKquestion) {
+    if (token->value == TOK::question) {
       nextToken();
       Expression *exp2 = parseCondExp();
-      if (token->value != TOKcolon) {
+      if (token->value != TOK::colon) {
         return exp;
       }
       nextToken();
@@ -3268,11 +3268,11 @@ struct AsmProcessor {
 
   Expression *parseLogOrExp() {
     Expression *exp = parseLogAndExp();
-    while (token->value == TOKoror) {
+    while (token->value == TOK::orOr) {
       nextToken();
       Expression *exp2 = parseLogAndExp();
       if (isIntExp(exp) && isIntExp(exp2)) {
-        exp = intOp(TOKandand, exp, exp2);
+        exp = intOp(TOK::andAnd, exp, exp2);
       } else {
         stmt->error("bad integral operand");
       }
@@ -3282,11 +3282,11 @@ struct AsmProcessor {
 
   Expression *parseLogAndExp() {
     Expression *exp = parseIncOrExp();
-    while (token->value == TOKoror) {
+    while (token->value == TOK::orOr) {
       nextToken();
       Expression *exp2 = parseIncOrExp();
       if (isIntExp(exp) && isIntExp(exp2)) {
-        exp = intOp(TOKoror, exp, exp2);
+        exp = intOp(TOK::orOr, exp, exp2);
       } else {
         stmt->error("bad integral operand");
       }
@@ -3296,11 +3296,11 @@ struct AsmProcessor {
 
   Expression *parseIncOrExp() {
     Expression *exp = parseXOrExp();
-    while (token->value == TOKor) {
+    while (token->value == TOK::or_) {
       nextToken();
       Expression *exp2 = parseXOrExp();
       if (isIntExp(exp) && isIntExp(exp2)) {
-        exp = intOp(TOKor, exp, exp2);
+        exp = intOp(TOK::or_, exp, exp2);
       } else {
         stmt->error("bad integral operand");
       }
@@ -3310,11 +3310,11 @@ struct AsmProcessor {
 
   Expression *parseXOrExp() {
     Expression *exp = parseAndExp();
-    while (token->value == TOKxor) {
+    while (token->value == TOK::xor_) {
       nextToken();
       Expression *exp2 = parseAndExp();
       if (isIntExp(exp) && isIntExp(exp2)) {
-        exp = intOp(TOKxor, exp, exp2);
+        exp = intOp(TOK::xor_, exp, exp2);
       } else {
         stmt->error("bad integral operand");
       }
@@ -3324,11 +3324,11 @@ struct AsmProcessor {
 
   Expression *parseAndExp() {
     Expression *exp = parseEqualExp();
-    while (token->value == TOKand) {
+    while (token->value == TOK::and_) {
       nextToken();
       Expression *exp2 = parseEqualExp();
       if (isIntExp(exp) && isIntExp(exp2)) {
-        exp = intOp(TOKand, exp, exp2);
+        exp = intOp(TOK::and_, exp, exp2);
       } else {
         stmt->error("bad integral operand");
       }
@@ -3339,7 +3339,7 @@ struct AsmProcessor {
   Expression *parseEqualExp() {
     const auto exp = parseRelExp();
     const auto tok = token->value;
-    if (tok != TOKequal && tok != TOKnotequal) {
+    if (tok != TOK::equal && tok != TOK::notEqual) {
       return exp;
     }
 
@@ -3357,7 +3357,8 @@ struct AsmProcessor {
   Expression *parseRelExp() {
     const auto exp = parseShiftExp();
     const auto tok = token->value;
-    if (tok != TOKgt && tok != TOKge && tok != TOKlt && tok != TOKle) {
+    if (tok != TOK::greaterThan && tok != TOK::greaterOrEqual &&
+        tok != TOK::lessThan && tok != TOK::lessOrEqual) {
       return exp;
     }
 
@@ -3379,9 +3380,9 @@ struct AsmProcessor {
     while (1) {
       TOK tv = token->value;
       switch (tv) {
-      case TOKshl:
-      case TOKshr:
-      case TOKushr:
+      case TOK::leftShift:
+      case TOK::rightShift:
+      case TOK::unsignedRightShift:
         nextToken();
         e2 = parseAddExp();
         e1 = intOp(tv, e1, e2);
@@ -3401,7 +3402,7 @@ struct AsmProcessor {
     while (1) {
       TOK tv = token->value;
       switch (tv) {
-      case TOKadd:
+      case TOK::add:
         nextToken();
         e2 = parseMultExp();
         if (isIntExp(e1) && isIntExp(e2)) {
@@ -3412,7 +3413,7 @@ struct AsmProcessor {
           e1 = Handled;
         }
         continue;
-      case TOKmin:
+      case TOK::min:
         // Note: no support for symbol address difference
         nextToken();
         e2 = parseMultExp();
@@ -3420,7 +3421,7 @@ struct AsmProcessor {
           e1 = intOp(tv, e1, e2);
         } else {
           slotExp(e1);
-          e2 = intOp(TOKmin, e2, nullptr); // verifies e2 is an int
+          e2 = intOp(TOK::min, e2, nullptr); // verifies e2 is an int
           slotExp(e2);
           e1 = Handled;
         }
@@ -3477,7 +3478,7 @@ struct AsmProcessor {
     while (1) {
       TOK tv = token->value;
       switch (tv) {
-      case TOKmul:
+      case TOK::mul:
         nextToken();
         e2 = parseMultExp();
         if (isIntExp(e1) && isIntExp(e2)) {
@@ -3488,8 +3489,8 @@ struct AsmProcessor {
           invalidExpression();
         }
         continue;
-      case TOKdiv:
-      case TOKmod:
+      case TOK::div:
+      case TOK::mod:
         nextToken();
         e2 = parseMultExp();
         e1 = intOp(tv, e1, e2);
@@ -3510,21 +3511,21 @@ struct AsmProcessor {
     // the spec'd syntax
     Expression *e;
 
-    if (token->value == TOKlbracket) {
+    if (token->value == TOK::leftBracket) {
       e = Handled;
     } else {
       e = parseUnaExp();
     }
 
     // DMD allows multiple bracket expressions.
-    while (token->value == TOKlbracket) {
+    while (token->value == TOK::leftBracket) {
       nextToken();
 
       operand->inBracket = operand->hasBracket = 1;
       slotExp(parseAsmExp());
       operand->inBracket = 0;
 
-      if (token->value == TOKrbracket) {
+      if (token->value == TOK::rightBracket) {
         nextToken();
       } else {
         stmt->error("missing `]`");
@@ -3536,27 +3537,27 @@ struct AsmProcessor {
 
   PtrType isPtrType(Token *tok) {
     switch (tok->value) {
-    case TOKint8:
+    case TOK::int8:
       return Byte_Ptr;
-    case TOKint16:
+    case TOK::int16:
       return Short_Ptr;
-    case TOKint32:
+    case TOK::int32:
       return Int_Ptr;
 #ifndef ASM_X86_64
 // 'long ptr' isn't accepted?
 #else
-    case TOKint64:
+    case TOK::int64:
       return QWord_Ptr;
 #endif
-    case TOKfloat32:
+    case TOK::float32:
       return Float_Ptr;
-    case TOKfloat64:
+    case TOK::float64:
       return Double_Ptr;
-    case TOKfloat80:
+    case TOK::float80:
       return global.params.targetTriple->isWindowsMSVCEnvironment()
                  ? Double_Ptr
                  : Extended_Ptr;
-    case TOKidentifier:
+    case TOK::identifier:
       for (int i = 0; i < N_PtrNames; i++) {
         if (tok->ident == ptrTypeIdentTable[i]) {
           return ptrTypeValueTable[i];
@@ -3574,7 +3575,8 @@ struct AsmProcessor {
     PtrType ptr_type;
 
     // First, check for type prefix.
-    if (token->value != TOKeof && peekToken()->value == TOKidentifier &&
+    if (token->value != TOK::endOfFile &&
+        peekToken()->value == TOK::identifier &&
         peekToken()->ident == Id::ptr) {
 
       ptr_type = isPtrType(token);
@@ -3594,7 +3596,7 @@ struct AsmProcessor {
 
     TOK tv = token->value;
     switch (tv) {
-    case TOKidentifier:
+    case TOK::identifier:
       if (token->ident == ident_seg) {
         nextToken();
         stmt->error("`seg` not supported");
@@ -3612,10 +3614,10 @@ struct AsmProcessor {
         break;
       }
       return e;
-    case TOKadd:
-    case TOKmin:
-    case TOKnot:
-    case TOKtilde:
+    case TOK::add:
+    case TOK::min:
+    case TOK::not_:
+    case TOK::tilde:
       nextToken();
       e = parseUnaExp();
       return intOp(tv, e, nullptr);
@@ -3632,15 +3634,15 @@ struct AsmProcessor {
 
     // get rid of short/long prefixes for branches
     if (opTakesLabel() &&
-        (token->value == TOKint16 || token->value == TOKint64)) {
+        (token->value == TOK::int16 || token->value == TOK::int64)) {
       nextToken();
     }
 
     switch (token->value) {
-    case TOKint32v:
-    case TOKuns32v:
-    case TOKint64v:
-    case TOKuns64v:
+    case TOK::int32Literal:
+    case TOK::uns32Literal:
+    case TOK::int64Literal:
+    case TOK::uns64Literal:
 // semantic here?
 #ifndef ASM_X86_64
       // %% for tok64 really should use 64bit type
@@ -3650,14 +3652,14 @@ struct AsmProcessor {
 #endif
       nextToken();
       break;
-    case TOKfloat32v:
-    case TOKfloat64v:
-    case TOKfloat80v:
+    case TOK::float32Literal:
+    case TOK::float64Literal:
+    case TOK::float80Literal:
       // %% need different types?
       e = RealExp::create(stmt->loc, token->floatvalue, Type::tfloat80);
       nextToken();
       break;
-    case TOKidentifier: {
+    case TOK::identifier: {
       ident = token->ident;
       nextToken();
 
@@ -3679,9 +3681,9 @@ struct AsmProcessor {
       // actually, DMD only supports on level...
       // X.y+Y.z[EBX] is supported, tho..
       // %% doesn't handle properties (check%%)
-      while (token->value == TOKdot) {
+      while (token->value == TOK::dot) {
         nextToken();
-        if (token->value == TOKidentifier) {
+        if (token->value == TOK::identifier) {
           e = DotIdExp::create(stmt->loc, e, token->ident);
           nextToken();
         } else {
@@ -3691,16 +3693,17 @@ struct AsmProcessor {
       }
 
       // check for reg first then dotexp is an error?
-      if (e->op == TOKidentifier) {
+      if (e->op == EXP::identifier) {
         for (int i = 0; i < N_Regs; i++) {
           if (ident == regInfo[i].ident) {
-            if (static_cast<Reg>(i) == Reg_ST && token->value == TOKlparen) {
+            if (static_cast<Reg>(i) == Reg_ST &&
+                token->value == TOK::leftParenthesis) {
               nextToken();
               switch (token->value) {
-              case TOKint32v:
-              case TOKuns32v:
-              case TOKint64v:
-              case TOKuns64v:
+              case TOK::int32Literal:
+              case TOK::uns32Literal:
+              case TOK::int64Literal:
+              case TOK::uns64Literal:
                 if (token->unsvalue < 8) {
                   e = newRegExp(static_cast<Reg>(Reg_ST + token->unsvalue));
                 } else {
@@ -3708,7 +3711,7 @@ struct AsmProcessor {
                   e = Handled;
                 }
                 nextToken();
-                if (token->value == TOKrparen) {
+                if (token->value == TOK::rightParenthesis) {
                   nextToken();
                 } else {
                   stmt->error("expected `)`");
@@ -3720,7 +3723,7 @@ struct AsmProcessor {
               invalidExpression();
               return Handled;
             }
-            if (token->value == TOKcolon) {
+            if (token->value == TOK::colon) {
               nextToken();
               if (operand->segmentPrefix != Reg_Invalid) {
                 stmt->error("too many segment prefixes");
@@ -3736,7 +3739,7 @@ struct AsmProcessor {
         }
       }
 
-      if (e->op == TOKidentifier) {
+      if (e->op == EXP::identifier) {
         // DMD uses labels secondarily to other symbols, so check
         // if IdentifierExp::semantic won't find anything.
         Dsymbol *scopesym;
@@ -3755,7 +3758,7 @@ struct AsmProcessor {
       e = e->optimize(WANTvalue);
 
       // Special case for floating point constant declarations.
-      if (e->op == TOKfloat64) {
+      if (e->op == EXP::float64) {
         Dsymbol *sym = sc->search(stmt->loc, ident, nullptr);
         if (sym) {
           VarDeclaration *v = sym->isVarDeclaration();
@@ -3768,7 +3771,7 @@ struct AsmProcessor {
       }
       return e;
     } break;
-    case TOKdollar:
+    case TOK::dollar:
       nextToken();
       ident = Id::dollar;
       goto do_dollar;
@@ -3841,8 +3844,10 @@ struct AsmProcessor {
       case Op_ds:
       case Op_di:
       case Op_dl:
-        if (token->value == TOKint32v || token->value == TOKuns32v ||
-            token->value == TOKint64v || token->value == TOKuns64v) {
+        if (token->value == TOK::int32Literal ||
+            token->value == TOK::uns32Literal ||
+            token->value == TOK::int64Literal ||
+            token->value == TOK::uns64Literal) {
           // As per usual with GNU, assume at least 32-bit host
           if (op != Op_dl) {
             insnTemplate << static_cast<d_uns32>(token->unsvalue);
@@ -3856,8 +3861,9 @@ struct AsmProcessor {
       case Op_df:
       case Op_dd:
       case Op_de:
-        if (token->value == TOKfloat32v || token->value == TOKfloat64v ||
-            token->value == TOKfloat80v) {
+        if (token->value == TOK::float32Literal ||
+            token->value == TOK::float64Literal ||
+            token->value == TOK::float80Literal) {
           if (op == Op_df) {
             const float value = static_cast<float>(token->floatvalue);
             insnTemplate << reinterpret_cast<const d_uns32 &>(value);
@@ -3907,14 +3913,14 @@ struct AsmProcessor {
       }
 
       nextToken();
-      if (token->value == TOKcomma) {
+      if (token->value == TOK::comma) {
         if (op == Op_de && realSizeInBits == 80) {
           insnTemplate << "\n\t.quad "; // switch from .short back to .quad
         } else {
           insnTemplate << ',';
         }
         nextToken();
-      } else if (token->value == TOKeof) {
+      } else if (token->value == TOK::endOfFile) {
         break;
       } else {
         stmt->error("expected comma");

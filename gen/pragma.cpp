@@ -25,7 +25,7 @@
 namespace {
 bool parseStringExp(Expression *e, const char *&res) {
   e = e->optimize(WANTvalue);
-  if (e->op != TOKstring) {
+  if (e->op != EXP::string_) {
     return false;
   }
   auto se = static_cast<StringExp *>(e);

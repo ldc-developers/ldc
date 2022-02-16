@@ -339,9 +339,9 @@ DValue *binUshr(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoBinNumericEquals(const Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
-  assert(op == TOKequal || op == TOKnotequal || op == TOKidentity ||
-         op == TOKnotidentity);
+LLValue *DtoBinNumericEquals(const Loc &loc, DValue *lhs, DValue *rhs, EXP op) {
+  assert(op == EXP::equal || op == EXP::notEqual || op == EXP::identity ||
+         op == EXP::notIdentity);
   Type *t = lhs->type->toBasetype();
   assert(t->isfloating());
   Logger::println("numeric equality");
@@ -361,19 +361,19 @@ LLValue *DtoBinNumericEquals(const Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoBinFloatsEquals(const Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
+LLValue *DtoBinFloatsEquals(const Loc &loc, DValue *lhs, DValue *rhs, EXP op) {
   LLValue *res = nullptr;
-  if (op == TOKequal || op == TOKnotequal) {
+  if (op == EXP::equal || op == EXP::notEqual) {
     LLValue *l = DtoRVal(lhs);
     LLValue *r = DtoRVal(rhs);
-    res = (op == TOKequal ? gIR->ir->CreateFCmpOEQ(l, r)
-                          : gIR->ir->CreateFCmpUNE(l, r));
+    res = (op == EXP::equal ? gIR->ir->CreateFCmpOEQ(l, r)
+                            : gIR->ir->CreateFCmpUNE(l, r));
     if (lhs->type->toBasetype()->ty == TY::Tvector) {
       res = mergeVectorEquals(res, op);
     }
   } else {
     const auto cmpop =
-        op == TOKidentity ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
+        op == EXP::identity ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;
     LLValue *sz = DtoConstSize_t(getTypeStoreSize(DtoType(lhs->type)));
     LLValue *val = DtoMemCmp(makeLValue(loc, lhs), makeLValue(loc, rhs), sz);
     res = gIR->ir->CreateICmp(cmpop, val,
@@ -385,7 +385,7 @@ LLValue *DtoBinFloatsEquals(const Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLValue *mergeVectorEquals(LLValue *resultsVector, TOK op) {
+LLValue *mergeVectorEquals(LLValue *resultsVector, EXP op) {
   // `resultsVector` is a vector of i1 values, the pair-wise results.
   // Bitcast to an integer and check the bits via additional integer
   // comparison.
@@ -393,11 +393,11 @@ LLValue *mergeVectorEquals(LLValue *resultsVector, TOK op) {
   LLType *integerType = LLType::getIntNTy(gIR->context(), sizeInBits);
   LLValue *v = DtoBitCast(resultsVector, integerType);
 
-  if (op == TOKequal) {
+  if (op == EXP::equal) {
     // all pairs must be equal for the vectors to be equal
     LLConstant *allEqual = LLConstant::getAllOnesValue(integerType);
     return gIR->ir->CreateICmpEQ(v, allEqual);
-  } else if (op == TOKnotequal) {
+  } else if (op == EXP::notEqual) {
     // any not-equal pair suffices for the vectors to be not-equal
     LLConstant *noneNotEqual = LLConstantInt::get(integerType, 0);
     return gIR->ir->CreateICmpNE(v, noneNotEqual);

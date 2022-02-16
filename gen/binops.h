@@ -56,9 +56,9 @@ DValue *binUshr(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                 bool loadLhsAfterRhs = false);
 
 llvm::Value *DtoBinNumericEquals(const Loc &loc, DValue *lhs, DValue *rhs,
-                                 TOK op);
+                                 EXP op);
 llvm::Value *DtoBinFloatsEquals(const Loc &loc, DValue *lhs, DValue *rhs,
-                                TOK op);
-llvm::Value *mergeVectorEquals(llvm::Value *resultsVector, TOK op);
+                                EXP op);
+llvm::Value *mergeVectorEquals(llvm::Value *resultsVector, EXP op);
 
 dinteger_t undoStrideMul(const Loc &loc, Type *t, dinteger_t offset);

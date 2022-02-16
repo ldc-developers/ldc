@@ -369,7 +369,7 @@ void DtoGoto(const Loc &loc, LabelDsymbol *target) {
 
 // is this a good approach at all ?
 
-void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, int op,
+void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
                bool canSkipPostblit) {
   IF_LOG Logger::println("DtoAssign()");
   LOG_SCOPE;
@@ -620,8 +620,8 @@ DValue *DtoCastDelegate(const Loc &loc, DValue *val, Type *to) {
     return DtoPaintType(loc, val, to);
   }
   if (to->toBasetype()->ty == TY::Tbool) {
-    return new DImValue(to,
-                        DtoDelegateEquals(TOKnotequal, DtoRVal(val), nullptr));
+    return new DImValue(
+        to, DtoDelegateEquals(EXP::notEqual, DtoRVal(val), nullptr));
   }
   error(loc, "invalid cast from `%s` to `%s`", val->type->toChars(),
         to->toChars());
@@ -1353,7 +1353,7 @@ LLValue *makeLValue(const Loc &loc, DValue *value) {
 
   LLValue *mem = DtoAlloca(value->type, ".makelvaluetmp");
   DLValue var(value->type, mem);
-  DtoAssign(loc, &var, value, TOKblit);
+  DtoAssign(loc, &var, value, EXP::blit);
   return mem;
 }
 
@@ -1361,8 +1361,9 @@ LLValue *makeLValue(const Loc &loc, DValue *value) {
 
 void callPostblit(const Loc &loc, Expression *exp, LLValue *val) {
   Type *tb = exp->type->toBasetype();
-  if ((exp->op == TOKvar || exp->op == TOKdotvar || exp->op == TOKstar ||
-       exp->op == TOKthis || exp->op == TOKindex) &&
+  if ((exp->op == EXP::variable || exp->op == EXP::dotVariable ||
+       exp->op == EXP::star || exp->op == EXP::this_ ||
+       exp->op == EXP::index) &&
       tb->ty == TY::Tstruct) {
     StructDeclaration *sd = static_cast<TypeStruct *>(tb)->sym;
     if (sd->postblit) {
@@ -1412,19 +1413,19 @@ void AppendFunctionToLLVMGlobalCtorsDtors(llvm::Function *func,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void tokToICmpPred(TOK op, bool isUnsigned, llvm::ICmpInst::Predicate *outPred,
+void tokToICmpPred(EXP op, bool isUnsigned, llvm::ICmpInst::Predicate *outPred,
                    llvm::Value **outConst) {
   switch (op) {
-  case TOKlt:
+  case EXP::lessThan:
     *outPred = isUnsigned ? llvm::ICmpInst::ICMP_ULT : llvm::ICmpInst::ICMP_SLT;
     break;
-  case TOKle:
+  case EXP::lessOrEqual:
     *outPred = isUnsigned ? llvm::ICmpInst::ICMP_ULE : llvm::ICmpInst::ICMP_SLE;
     break;
-  case TOKgt:
+  case EXP::greaterThan:
     *outPred = isUnsigned ? llvm::ICmpInst::ICMP_UGT : llvm::ICmpInst::ICMP_SGT;
     break;
-  case TOKge:
+  case EXP::greaterOrEqual:
     *outPred = isUnsigned ? llvm::ICmpInst::ICMP_UGE : llvm::ICmpInst::ICMP_SGE;
     break;
   default:
@@ -1434,11 +1435,11 @@ void tokToICmpPred(TOK op, bool isUnsigned, llvm::ICmpInst::Predicate *outPred,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-llvm::ICmpInst::Predicate eqTokToICmpPred(TOK op, bool invert) {
-  assert(op == TOKequal || op == TOKnotequal || op == TOKidentity ||
-         op == TOKnotidentity);
+llvm::ICmpInst::Predicate eqTokToICmpPred(EXP op, bool invert) {
+  assert(op == EXP::equal || op == EXP::notEqual || op == EXP::identity ||
+         op == EXP::notIdentity);
 
-  bool isEquality = (op == TOKequal || op == TOKidentity);
+  bool isEquality = (op == EXP::equal || op == EXP::identity);
   if (invert)
     isEquality = !isEquality;
 
@@ -1447,7 +1448,7 @@ llvm::ICmpInst::Predicate eqTokToICmpPred(TOK op, bool invert) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *createIPairCmp(TOK op, LLValue *lhs1, LLValue *lhs2, LLValue *rhs1,
+LLValue *createIPairCmp(EXP op, LLValue *lhs1, LLValue *lhs2, LLValue *rhs1,
                         LLValue *rhs2) {
   const auto predicate = eqTokToICmpPred(op);
 
@@ -1828,7 +1829,7 @@ FuncDeclaration *getParentFunc(Dsymbol *sym) {
     bool certainlyNewRoot =
         fd->isStatic() || (!fd->isThis() && fd->linkage != LINK::d) ||
         (fd->isFuncLiteralDeclaration() &&
-         static_cast<FuncLiteralDeclaration *>(fd)->tok == TOKfunction);
+         static_cast<FuncLiteralDeclaration *>(fd)->tok == TOK::function_);
     if (certainlyNewRoot) {
       return nullptr;
     }

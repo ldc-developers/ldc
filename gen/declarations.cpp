@@ -230,7 +230,7 @@ public:
 
     for (auto o : *decl->objects) {
       DsymbolExp *exp = static_cast<DsymbolExp *>(o);
-      assert(exp->op == TOKdsymbol);
+      assert(exp->op == EXP::dSymbol);
       exp->s->accept(this);
     }
   }

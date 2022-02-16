@@ -210,7 +210,7 @@ LLType *i1ToI8(LLType *t) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoDelegateEquals(TOK op, LLValue *lhs, LLValue *rhs) {
+LLValue *DtoDelegateEquals(EXP op, LLValue *lhs, LLValue *rhs) {
   Logger::println("Doing delegate equality");
   if (rhs == nullptr) {
     rhs = LLConstant::getNullValue(lhs->getType());

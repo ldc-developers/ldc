@@ -27,4 +27,4 @@ DLValue *DtoAAIndex(const Loc &loc, Type *type, DValue *aa, DValue *key,
                     bool lvalue);
 DValue *DtoAAIn(const Loc &loc, Type *type, DValue *aa, DValue *key);
 DValue *DtoAARemove(const Loc &loc, DValue *aa, DValue *key);
-llvm::Value *DtoAAEquals(const Loc &loc, TOK op, DValue *l, DValue *r);
+llvm::Value *DtoAAEquals(const Loc &loc, EXP op, DValue *l, DValue *r);
