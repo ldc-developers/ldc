@@ -89,7 +89,6 @@ Emplaces T.init.
 In contrast to `emplaceRef(chunk)`, there are no checks for disabled default
 constructors etc.
 +/
-// LDC: simplified via __traits(initSymbol)
 void emplaceInitializer(T)(scope ref T chunk) nothrow pure @trusted
 if (!is(T == const) && !is(T == immutable) && !is(T == inout))
 {

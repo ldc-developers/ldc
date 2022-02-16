@@ -18,6 +18,7 @@ version (CppRuntime_DigitalMars)
     import core.stdcpp.exception;
 
     extern (C++, "std"):
+    @nogc:
 
     class type_info
     {
@@ -29,8 +30,8 @@ version (CppRuntime_DigitalMars)
 
         //bool operator==(const type_info rhs) const;
         //bool operator!=(const type_info rhs) const;
-        final bool before(const type_info rhs) const;
-        final const(char)* name() const;
+        final bool before(const type_info rhs) const nothrow;
+        final const(char)* name() const nothrow;
     protected:
         //type_info();
     private:
@@ -61,6 +62,7 @@ else version (CppRuntime_Microsoft)
     import core.stdcpp.exception;
 
     extern (C++, "std"):
+    @nogc:
 
     struct __type_info_node
     {
@@ -73,8 +75,7 @@ else version (CppRuntime_Microsoft)
     class type_info
     {
     @nogc:
-        @weak // LDC
-        ~this() nothrow {}
+        @weak ~this() nothrow {}
         //bool operator==(const type_info rhs) const;
         //bool operator!=(const type_info rhs) const;
         final bool before(const type_info rhs) const nothrow;
@@ -89,11 +90,13 @@ else version (CppRuntime_Microsoft)
     class bad_cast : exception
     {
         extern(D) this(const(char)* msg = "bad cast") @nogc nothrow { super(msg); }
+        //virtual ~this();
     }
 
     class bad_typeid : exception
     {
         extern(D) this(const(char)* msg = "bad typeid") @nogc nothrow { super(msg); }
+        //virtual ~this();
     }
 }
 else version (CppRuntime_Gcc)
@@ -102,13 +105,13 @@ else version (CppRuntime_Gcc)
 
     extern (C++, "__cxxabiv1")
     {
-        class __class_type_info;
+        extern(C++, class) struct __class_type_info;
     }
 
     extern (C++, "std"):
+    @nogc:
 
-    abstract // LDC
-    class type_info
+    abstract class type_info
     {
     @nogc:
         @weak ~this() {}
@@ -127,7 +130,7 @@ else version (CppRuntime_Gcc)
         bool __is_pointer_p() const;
         bool __is_function_p() const;
         bool __do_catch(const type_info, void**, uint) const;
-        bool __do_upcast(const __class_type_info, void**) const;
+        bool __do_upcast(const __class_type_info*, void**) const;
 
     protected:
         const(char)* _name;
@@ -139,6 +142,7 @@ else version (CppRuntime_Gcc)
     {
     @nogc:
         extern(D) this() nothrow {}
+        //~this();
         @weak override const(char)* what() const nothrow { return "bad cast"; }
     }
 
@@ -146,6 +150,7 @@ else version (CppRuntime_Gcc)
     {
     @nogc:
         extern(D) this() nothrow {}
+        //~this();
         @weak override const(char)* what() const nothrow { return "bad typeid"; }
     }
 }

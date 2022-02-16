@@ -31,9 +31,6 @@ private struct NoHooks
     // static char[] parseType(ref Demangle, char[])
 }
 
-version (LDC) private enum isLDC = true;
-else          private enum isLDC = false;
-
 private struct Demangle(Hooks = NoHooks)
 {
     // NOTE: This implementation currently only works with mangled function
@@ -57,13 +54,13 @@ pure @safe:
     enum AddType { no, yes }
 
 
-    this( return const(char)[] buf_, return char[] dst_ = null )
+    this( return scope const(char)[] buf_, return scope char[] dst_ = null )
     {
         this( buf_, AddType.yes, dst_ );
     }
 
 
-    this( return const(char)[] buf_, AddType addType_, return char[] dst_ = null )
+    this( return scope const(char)[] buf_, AddType addType_, return scope char[] dst_ = null )
     {
         buf     = buf_;
         addType = addType_;
@@ -107,9 +104,8 @@ pure @safe:
 
         //throw new ParseException( msg );
         debug(info) printf( "error: %.*s\n", cast(int) msg.length, msg.ptr );
-        throw __ctfe ? new ParseException(msg) :
-              isLDC  ? cast(ParseException) __traits(initSymbol, ParseException).ptr
-                     : cast(ParseException) cast(void*) typeid(ParseException).initializer;
+        throw __ctfe ? new ParseException(msg)
+                     : cast(ParseException) __traits(initSymbol, ParseException).ptr;
 
     }
 
@@ -120,8 +116,7 @@ pure @safe:
 
         //throw new OverflowException( msg );
         debug(info) printf( "overflow: %.*s\n", cast(int) msg.length, msg.ptr );
-        throw isLDC ? cast(OverflowException) __traits(initSymbol, OverflowException).ptr
-                    : cast(OverflowException) cast(void*) typeid(OverflowException).initializer;
+        throw cast(OverflowException) __traits(initSymbol, OverflowException).ptr;
     }
 
 
@@ -348,6 +343,13 @@ pure @safe:
     {
         if ( pos++ >= buf.length )
             error();
+    }
+
+
+    void popFront(int i)
+    {
+        while (i--)
+            popFront();
     }
 
 
@@ -1232,6 +1234,59 @@ pure @safe:
                 break;
             }
             putComma(n);
+
+            /* Do special return, scope, ref, out combinations
+             */
+            int npops;
+            if ( 'M' == front && peek(1) == 'N' && peek(2) == 'k')
+            {
+                const c3 = peek(3);
+                if (c3 == 'J')
+                {
+                    put("scope return out ");   // MNkJ
+                    npops = 4;
+                }
+                else if (c3 == 'K')
+                {
+                    put("scope return ref ");   // MNkK
+                    npops = 4;
+                }
+            }
+            else if ('N' == front && peek(1) == 'k')
+            {
+                const c2 = peek(2);
+                if (c2 == 'J')
+                {
+                    put("return out ");         // NkJ
+                    npops = 3;
+                }
+                else if (c2 == 'K')
+                {
+                    put("return ref ");         // NkK
+                    npops = 3;
+                }
+                else if (c2 == 'M')
+                {
+                    const c3 = peek(3);
+                    if (c3 == 'J')
+                    {
+                        put("return scope out ");       // NkMJ
+                        npops = 4;
+                    }
+                    else if (c3 == 'K')
+                    {
+                        put("return scope ref ");       // NkMK
+                        npops = 4;
+                    }
+                    else
+                    {
+                        put("return scope ");           // NkM
+                        npops = 3;
+                    }
+                }
+            }
+            popFront(npops);
+
             if ( 'M' == front )
             {
                 popFront();
@@ -2416,7 +2471,7 @@ private template hasPlainMangling(FT) if (is(FT == function))
 {
     enum lnk = __traits(getLinkage, FT);
     // C || Windows
-    enum hasPlainMangling = lnk == "C" || lnk == "Windows";
+    enum hasPlainMangling = lnk == "C" || lnk == "Windows" || lnk == "System";
 }
 
 @safe pure nothrow unittest
@@ -2573,6 +2628,15 @@ else
          `nothrow @trusted ulong std.algorithm.iteration.FilterResult!(std.typecons.Tuple!(int, "a", int, "b", int, "c").`
         ~`Tuple.rename!([0:"c", 2:"a"]).rename().__lambda1, int[]).FilterResult.__xtoHash(ref const(std.algorithm.iteration.`
         ~`FilterResult!(std.typecons.Tuple!(int, "a", int, "b", int, "c").Tuple.rename!([0:"c", 2:"a"]).rename().__lambda1, int[]).FilterResult))`],
+
+        ["_D4test4rrs1FKPiZv",    "void test.rrs1(ref int*)"],
+        ["_D4test4rrs1FMNkJPiZv", "void test.rrs1(scope return out int*)"],
+        ["_D4test4rrs1FMNkKPiZv", "void test.rrs1(scope return ref int*)"],
+        ["_D4test4rrs1FNkJPiZv",  "void test.rrs1(return out int*)"],
+        ["_D4test4rrs1FNkKPiZv",  "void test.rrs1(return ref int*)"],
+        ["_D4test4rrs1FNkMJPiZv", "void test.rrs1(return scope out int*)"],
+        ["_D4test4rrs1FNkMKPiZv", "void test.rrs1(return scope ref int*)"],
+        ["_D4test4rrs1FNkMPiZv",  "void test.rrs1(return scope int*)"],
     ];
 
 

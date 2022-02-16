@@ -21,11 +21,11 @@ version (Supported):
 import core.stdcpp.xutility : __cplusplus, CppStdRevision;
 import core.attribute : weak;
 
-version (CppRuntime_DigitalMars)
-    version = GenericBaseException;
 version (CppRuntime_Gcc)
     version = GenericBaseException;
 version (CppRuntime_Clang)
+    version = GenericBaseException;
+version (CppRuntime_Sun)
     version = GenericBaseException;
 
 extern (C++, "std"):
@@ -86,6 +86,24 @@ version (GenericBaseException)
         extern(D) this(const(char)*, int = 1) nothrow { this(); } // compat with MS derived classes
     }
 }
+else version (CppRuntime_DigitalMars)
+{
+    ///
+    class exception
+    {
+    @nogc:
+        ///
+        this() nothrow {}
+        //virtual ~this();
+        void dtor() { }     // reserve slot in vtbl[]
+
+        ///
+        const(char)* what() const nothrow;
+
+    protected:
+        this(const(char)*, int = 1) nothrow { this(); } // compat with MS derived classes
+    }
+}
 else version (CppRuntime_Microsoft)
 {
     ///
@@ -95,12 +113,10 @@ else version (CppRuntime_Microsoft)
         ///
         extern(D) this(const(char)* message = "unknown", int = 1) nothrow { msg = message; }
         ///
-        @weak // LDC
-        ~this() nothrow {}
+        @weak ~this() nothrow {}
 
         ///
-        @weak // LDC
-        const(char)* what() const nothrow { return msg != null ? msg : "unknown exception"; }
+        @weak const(char)* what() const nothrow { return msg != null ? msg : "unknown exception"; }
 
         // TODO: do we want this? exceptions are classes... ref types.
 //        final ref exception opAssign(ref const(exception) e) nothrow { msg = e.msg; return this; }
@@ -120,15 +136,12 @@ else
 class bad_exception : exception
 {
 @nogc:
-    extern(D) private static immutable msg = "bad exception";
-
     ///
-    extern(D) this(const(char)* message = msg.ptr) nothrow { super(message); }
+    extern(D) this(const(char)* message = "bad exception") nothrow { super(message); }
 
     version (GenericBaseException)
     {
         ///
-        @weak // LDC
-        override const(char)* what() const nothrow { return msg.ptr; }
+        @weak override const(char)* what() const nothrow { return "bad exception"; }
     }
 }

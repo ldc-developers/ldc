@@ -21,7 +21,7 @@ ifneq (default,$(MODEL))
 endif
 CFLAGS_BASE:= $(MODEL_FLAG) $(PIC) -Wall
 # LDC: use -defaultlib=druntime-ldc instead of `-defaultlib= -L$(DRUNTIME[SO])`
-DFLAGS:=$(MODEL_FLAG) $(PIC) -w -I../../src -I../../import -I$(SRC) -defaultlib=druntime-ldc -dip1000
+DFLAGS:=$(MODEL_FLAG) $(PIC) -w -I../../src -I../../import -I$(SRC) -defaultlib=druntime-ldc -preview=dip1000
 ifeq (,$(findstring win,$(OS)))
 	DFLAGS += -L-lpthread -L-lm
 endif

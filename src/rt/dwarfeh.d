@@ -723,7 +723,7 @@ ClassInfo getClassInfo(_Unwind_Exception* exceptionObject, const(ubyte)* current
 {
     ExceptionHeader* eh = ExceptionHeader.toExceptionHeader(exceptionObject);
     Throwable ehobject = eh.object;
-    debug (EH_personality) writeln("start: %p '%.*s'", ehobject, cast(int)ehobject.classinfo.info.name.length, ehobject.classinfo.info.name.ptr);
+    debug (EH_personality) writeln("start: %p '%.*s'", ehobject, cast(int)(typeid(ehobject).info.name.length), ehobject.classinfo.info.name.ptr);
     for (ExceptionHeader* ehn = eh.next; ehn; ehn = ehn.next)
     {
         // like __dmd_personality_v0, don't combine when the exceptions are from different functions
@@ -734,7 +734,7 @@ ClassInfo getClassInfo(_Unwind_Exception* exceptionObject, const(ubyte)* current
             break;
         }
 
-        debug (EH_personality) writeln("ehn =   %p '%.*s'", ehn.object, cast(int)ehn.object.classinfo.info.name.length, ehn.object.classinfo.info.name.ptr);
+        debug (EH_personality) writeln("ehn =   %p '%.*s'", ehn.object, cast(int)(typeid(ehn.object).info.name.length), ehn.object.classinfo.info.name.ptr);
         Error e = cast(Error)ehobject;
         if (e is null || (cast(Error)ehn.object) !is null)
         {
@@ -742,7 +742,7 @@ ClassInfo getClassInfo(_Unwind_Exception* exceptionObject, const(ubyte)* current
         }
     }
     debug (EH_personality) writeln("end  : %p", ehobject);
-    return ehobject.classinfo;
+    return typeid(ehobject);
 }
 
 /******************************
@@ -1192,7 +1192,7 @@ int actionTableLookup(_Unwind_Exception* exceptionObject, uint actionRecordPtr, 
             entry = *cast(_Unwind_Ptr*)entry;
 
         ClassInfo ci = cast(ClassInfo)cast(void*)(entry);
-        if (ci.classinfo is __cpp_type_info_ptr.classinfo)
+        if (typeid(ci) is typeid(__cpp_type_info_ptr))
         {
             version (CppRuntime_Gcc)
             {
@@ -1218,8 +1218,7 @@ int actionTableLookup(_Unwind_Exception* exceptionObject, uint actionRecordPtr, 
 
         ap = apn + NextRecordPtr;
     }
-    terminate(__LINE__);
-    assert(0);
+    assert(false); // All other branches return
 }
 
 enum LsdaResult
