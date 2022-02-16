@@ -25,6 +25,4 @@
 
 #include "file.h"
 
-#include "outbuffer.h"
-
 #include "array.h"
