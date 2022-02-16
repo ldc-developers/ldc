@@ -682,6 +682,15 @@ version (IN_LLVM)
     if (global.errors)
         fatal();
 
+    if (!IN_LLVM && params.lib && params.objfiles.length == 0)
+    {
+        error(Loc.initial, "no input files");
+        return EXIT_FAILURE;
+    }
+
+    if (params.addMain && !global.hasMainFunction)
+        modules.push(moduleWithEmptyMain());
+
 version (IN_LLVM)
 {
     import core.memory : GC;
@@ -704,15 +713,6 @@ version (IN_LLVM)
 }
 else
 {
-    if (params.lib && params.objfiles.length == 0)
-    {
-        error(Loc.initial, "no input files");
-        return EXIT_FAILURE;
-    }
-
-    if (params.addMain && !global.hasMainFunction)
-        modules.push(moduleWithEmptyMain());
-
     generateCodeAndWrite(modules[], libmodules[], params.libname, params.objdir,
                          params.lib, params.obj, params.oneobj, params.multiobj,
                          params.verbose);
