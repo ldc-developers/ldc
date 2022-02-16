@@ -230,8 +230,12 @@ if(PHOBOS2_DIR)
 
     # Phobos C parts
     file(GLOB_RECURSE PHOBOS2_C ${PHOBOS2_DIR}/*.c)
-    # remove some obsolete zlib modules
-    list(REMOVE_ITEM PHOBOS2_C ${PHOBOS2_DIR}/etc/c/zlib/minigzip.c ${PHOBOS2_DIR}/etc/c/zlib/example.c)
+    # remove zlib test modules
+    list(REMOVE_ITEM PHOBOS2_C
+        ${PHOBOS2_DIR}/etc/c/zlib/test/example.c
+        ${PHOBOS2_DIR}/etc/c/zlib/test/infcover.c
+        ${PHOBOS2_DIR}/etc/c/zlib/test/minigzip.c
+    )
 endif()
 
 #
