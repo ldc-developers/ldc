@@ -5980,10 +5980,14 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
             scope v = new InstMemberWalker(tempinst.inst);
             tempinst.inst.accept(v);
 
-            // LDC: if `inst` was speculative, it was already appended to a root
-            //      module - unless using -linkonce-templates
-            if ((IN_LLVM && global.params.linkonceTemplates) ||
-                (!global.params.allInst && tempinst.minst)) // if inst was not speculative...
+            if (IN_LLVM && global.params.linkonceTemplates)
+            {
+                // with -linkonce-templates, an earlier speculative or non-root instance hasn't been appended to any module yet
+                assert(tempinst.inst.memberOf is null);
+                tempinst.inst.appendToModuleMember();
+            }
+            else if (!global.params.allInst &&
+                tempinst.minst) // if inst was not speculative...
             {
                 assert(!tempinst.minst.isRoot()); // ... it was previously appended to a non-root module
                 // Append again to the root module members[], so that the instance will
