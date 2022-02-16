@@ -122,7 +122,6 @@ void Target::_init(const Param &params) {
   is64bit = triple.isArch64Bit();
   isLP64 = gDataLayout->getPointerSizeInBits() == 64;
   run_noext = !triple.isOSWindows();
-  mscoff = isMSVC;
 
   if (isMSVC) {
     obj_ext = {3, "obj"};

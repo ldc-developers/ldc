@@ -5,10 +5,11 @@
 #   OS         = one of {osx,linux,freebsd,openbsd,netbsd,dragonflybsd,solaris}
 #   MODEL      = one of { 32, 64 }
 #   MODEL_FLAG = one of { -m32, -m64 }
+#   ARCH       = one of { x86, x86_64, aarch64 }
 #
 # Note:
 #   Keep this file in sync between druntime, phobos, and dmd repositories!
-# Source: https://github.com/dlang/dmd/blob/master/osmodel.mak
+# Source: https://github.com/dlang/dmd/blob/master/src/osmodel.mak
 
 
 ifeq (,$(OS))
@@ -56,15 +57,24 @@ ifeq (,$(MODEL))
   endif
   ifneq (,$(findstring $(uname_M),x86_64 amd64))
     MODEL:=64
+    ARCH:=x86_64
+  endif
+  ifneq (,$(findstring $(uname_M),aarch64 arm64))
+    # LDC: don't set MODEL
+    #MODEL:=64
+    ARCH:=aarch64
   endif
   ifneq (,$(findstring $(uname_M),i386 i586 i686))
     MODEL:=32
+    ARCH:=x86
   endif
   ifeq (,$(MODEL))
-    $(warning Cannot figure 32/64 model from uname -m: $(uname_M))
+    # LDC: only warn
+    $(warning Cannot figure 32/64 model and arch from uname -m: $(uname_M))
   endif
 endif
 
+# LDC: only set MODEL_FLAG if need be
 ifneq (,$(MODEL))
   ifneq (default,$(MODEL))
     MODEL_FLAG:=-m$(MODEL)

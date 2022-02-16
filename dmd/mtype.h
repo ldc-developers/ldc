@@ -1,10 +1,10 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (C) 1999-2021 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
- * http://www.digitalmars.com
+ * https://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
- * http://www.boost.org/LICENSE_1_0.txt
+ * https://www.boost.org/LICENSE_1_0.txt
  * https://github.com/dlang/dmd/blob/master/src/dmd/mtype.h
  */
 
@@ -120,6 +120,14 @@ enum MODFlags
 };
 typedef unsigned char MOD;
 
+enum class Covariant
+{
+    distinct = 0,
+    yes = 1,
+    no = 2,
+    fwdref = 3,
+};
+
 enum VarArgValues
 {
     VARARGnone     = 0,  /// fixed number of arguments
@@ -221,7 +229,8 @@ public:
     bool equivalent(Type *t);
     // kludge for template.isType()
     DYNCAST dyncast() const { return DYNCAST_TYPE; }
-    int covariant(Type *t, StorageClass *pstc = NULL);
+    size_t getUniqueID() const;
+    Covariant covariant(Type *t, StorageClass *pstc = NULL);
     const char *toChars() const;
     char *toPrettyChars(bool QualifyTypes = false);
     static void _init();
@@ -549,7 +558,6 @@ enum class PURE : unsigned char
     fwdref = 1,     // it's pure, but not known which level yet
     weak = 2,       // no mutable globals are read or written
     const_ = 3,     // parameters are values or const
-    strong = 4      // parameters are values or immutable
 };
 
 class Parameter : public ASTNode
@@ -710,9 +718,7 @@ public:
     Identifier *ident;
     Dsymbol *originalSymbol; // The symbol representing this identifier, before alias resolution
 
-#if IN_LLVM
     static TypeIdentifier *create(const Loc &loc, Identifier *ident);
-#endif
     const char *kind();
     TypeIdentifier *syntaxCopy();
     Dsymbol *toDsymbol(Scope *sc);

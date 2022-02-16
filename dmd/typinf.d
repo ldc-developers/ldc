@@ -1,9 +1,9 @@
 /**
- * Generate `TypeInfo` objects, which are needed for run-time introspection of classes.
+ * Generate `TypeInfo` objects, which are needed for run-time introspection of types.
  *
- * Copyright:   Copyright (C) 1999-2021 by The D Language Foundation, All Rights Reserved
- * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
- * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/typeinf.d, _typeinf.d)
  * Documentation:  https://dlang.org/phobos/dmd_typinf.html
  * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/typinf.d
@@ -32,8 +32,7 @@ import core.stdc.stdio;
  *      torig = the type to generate the `TypeInfo` object for
  *      sc    = the scope
  */
-extern (C++) // IN_LLVM
-void genTypeInfo(Loc loc, Type torig, Scope* sc)
+extern (C++) void genTypeInfo(const ref Loc loc, Type torig, Scope* sc)
 {
     // printf("genTypeInfo() %s\n", torig.toChars());
 
@@ -76,12 +75,13 @@ version (IN_LLVM)
 }
 else
 {
-        /* If this has a custom implementation in std/typeinfo, then
-         * do not generate a COMDAT for it.
-         */
-        if (!builtinTypeInfo(t))
+        // ClassInfos are generated as part of ClassDeclaration codegen
+        const isUnqualifiedClassInfo = (t.ty == Tclass && !t.mod);
+
+        // generate a COMDAT for other TypeInfos not available as builtins in
+        // druntime
+        if (!isUnqualifiedClassInfo && !builtinTypeInfo(t))
         {
-            // Generate COMDAT
             if (sc) // if in semantic() pass
             {
                 // Find module that will go all the way to an object file
@@ -109,7 +109,7 @@ else
  * Returns:
  *      The type of the `TypeInfo` object associated with `t`
  */
-extern (C++) Type getTypeInfoType(Loc loc, Type t, Scope* sc)
+extern (C++) Type getTypeInfoType(const ref Loc loc, Type t, Scope* sc)
 {
     assert(t.ty != Terror);
     genTypeInfo(loc, t, sc);
@@ -261,24 +261,24 @@ bool isSpeculativeType(Type t)
 
 /* ========================================================================= */
 
-/* These decide if there's an instance for them already in std.typeinfo,
- * because then the compiler doesn't need to build one.
+/* Indicates whether druntime already contains an appropriate TypeInfo instance
+ * for the specified type (in module rt.util.typeinfo).
  */
-// IN_LLVM: replaced `private` with `extern(C++)`
-extern(C++) bool builtinTypeInfo(Type t)
+extern (C++) bool builtinTypeInfo(Type t)
 {
-    // IN_LLVM: the Tclass case seems to be a DMD hack
-    //          (in order not to define ClassInfos in each referencing module)
-    if (t.isTypeBasic() || (!IN_LLVM && t.ty == Tclass) || t.ty == Tnull)
-        return !t.mod;
-    if (t.ty == Tarray)
+    if (!t.mod) // unqualified types only
     {
-        Type next = t.nextOf();
-        // strings are so common, make them builtin
-        return !t.mod &&
-               (next.isTypeBasic() !is null && !next.mod ||
-                next.ty == Tchar && next.mod == MODFlags.immutable_ ||
-                next.ty == Tchar && next.mod == MODFlags.const_);
+        // unqualified basic types + typeof(null)
+        if (t.isTypeBasic() || t.ty == Tnull)
+            return true;
+        // some unqualified arrays
+        if (t.ty == Tarray)
+        {
+            Type next = t.nextOf();
+            return (next.isTypeBasic() && !next.mod)                     // of unqualified basic types
+                || (next.ty == Tchar && next.mod == MODFlags.immutable_) // string
+                || (next.ty == Tchar && next.mod == MODFlags.const_);    // const(char)[]
+        }
     }
     return false;
 }

@@ -20,7 +20,7 @@ import dmd.errors;
 import dmd.globals;
 import dmd.root.array;
 import dmd.root.file;
-import dmd.root.outbuffer;
+import dmd.common.outbuffer;
 import dmd.root.string : toDString;
 
 // Thread local profiler instance (multithread currently not supported because compiler is single-threaded)

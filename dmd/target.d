@@ -15,9 +15,9 @@
  * - $(LINK2 https://github.com/ldc-developers/ldc, LDC repository)
  * - $(LINK2 https://github.com/D-Programming-GDC/gcc, GDC repository)
  *
- * Copyright:   Copyright (C) 1999-2021 by The D Language Foundation, All Rights Reserved
- * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
- * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/target.d, _target.d)
  * Documentation:  https://dlang.org/phobos/dmd_target.html
  * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/target.d
@@ -33,7 +33,7 @@ version (IN_LLVM)
     import gen.llvmhelpers : isTargetWindowsMSVC;
 }
 
-enum CPU
+enum CPU : ubyte
 {
     x87,
     mmx,
@@ -86,11 +86,12 @@ extern (C++) struct Target
     import dmd.dscope : Scope;
     import dmd.expression : Expression;
     import dmd.func : FuncDeclaration;
-    import dmd.globals : LINK, Loc, d_int64;
-    import dmd.astenums : TY;
+    import dmd.globals : Loc, d_int64;
+    import dmd.astenums : LINK, TY;
     import dmd.mtype : Type, TypeFunction, TypeTuple;
     import dmd.root.ctfloat : real_t;
     import dmd.statement : Statement;
+    import dmd.tokens : EXP;
 
     /// Bit decoding of the Target.OS
     enum OS : ubyte
@@ -98,7 +99,7 @@ extern (C++) struct Target
         /* These are mutually exclusive; one and only one is set.
          * Match spelling and casing of corresponding version identifiers
          */
-        Freestanding = 0,
+        none         = 0,
         linux        = 1,
         Windows      = 2,
         OSX          = 4,
@@ -110,6 +111,14 @@ extern (C++) struct Target
         // Combination masks
         all = linux | Windows | OSX | OpenBSD | FreeBSD | Solaris | DragonFlyBSD,
         Posix = linux | OSX | OpenBSD | FreeBSD | Solaris | DragonFlyBSD,
+    }
+
+    extern(D) enum ObjectFormat : ubyte
+    {
+        elf,
+        macho,
+        coff,
+        omf
     }
 
     OS os = defaultTargetOS();
@@ -147,7 +156,7 @@ version (IN_LLVM)
     const(char)[] lib_ext;    /// extension for static library files
     const(char)[] dll_ext;    /// extension for dynamic library files
     bool run_noext;           /// allow -run sources without extensions
-    bool mscoff = false;      // for Win32: write MsCoff object files instead of OMF
+    bool omfobj = false;      // for Win32: write OMF object files instead of MsCoff
     /**
      * Values representing all properties for floating point types
      */
@@ -159,12 +168,12 @@ version (IN_LLVM)
         real_t infinity;                    /// infinity value
         real_t epsilon;                     /// smallest increment to the value 1
 
-        d_int64 dig = T.dig;                /// number of decimal digits of precision
-        d_int64 mant_dig = T.mant_dig;      /// number of bits in mantissa
-        d_int64 max_exp = T.max_exp;        /// maximum int value such that 2$(SUPERSCRIPT `max_exp-1`) is representable
-        d_int64 min_exp = T.min_exp;        /// minimum int value such that 2$(SUPERSCRIPT `min_exp-1`) is representable as a normalized value
-        d_int64 max_10_exp = T.max_10_exp;  /// maximum int value such that 10$(SUPERSCRIPT `max_10_exp` is representable)
-        d_int64 min_10_exp = T.min_10_exp;  /// minimum int value such that 10$(SUPERSCRIPT `min_10_exp`) is representable as a normalized value
+        d_int64 dig;                        /// number of decimal digits of precision
+        d_int64 mant_dig;                   /// number of bits in mantissa
+        d_int64 max_exp;                    /// maximum int value such that 2$(SUPERSCRIPT `max_exp-1`) is representable
+        d_int64 min_exp;                    /// minimum int value such that 2$(SUPERSCRIPT `min_exp-1`) is representable as a normalized value
+        d_int64 max_10_exp;                 /// maximum int value such that 10$(SUPERSCRIPT `max_10_exp` is representable)
+        d_int64 min_10_exp;                 /// minimum int value such that 10$(SUPERSCRIPT `min_10_exp`) is representable as a normalized value
 
         extern (D) void initialize()
         {
@@ -173,6 +182,12 @@ version (IN_LLVM)
             nan = T.nan;
             infinity = T.infinity;
             epsilon = T.epsilon;
+            dig = T.dig;
+            mant_dig = T.mant_dig;
+            max_exp = T.max_exp;
+            min_exp = T.min_exp;
+            max_10_exp = T.max_10_exp;
+            min_10_exp = T.min_10_exp;
         }
     }
 
@@ -210,7 +225,7 @@ else // !IN_LLVM
      */
     extern (C++) void _init(ref const Param params)
     {
-        // is64bit, mscoff and cpu are initialized in parseCommandLine
+        // is64bit, omfobj and cpu are initialized in parseCommandLine
 
         this.params = &params;
 
@@ -273,10 +288,6 @@ else // !IN_LLVM
                 realpad = 6;
                 realalignsize = 16;
             }
-            else if (os == OS.Windows)
-            {
-                mscoff = true;
-            }
         }
 
         c.initialize(params, this);
@@ -307,6 +318,21 @@ else // !IN_LLVM
         }
         else
             assert(0, "unknown environment");
+    }
+
+    /**
+     Determine the object format to be used
+     */
+    extern(D) Target.ObjectFormat objectFormat()
+    {
+        if (os == Target.OS.OSX)
+            return Target.ObjectFormat.macho;
+        else if (os & Target.OS.Posix)
+            return Target.ObjectFormat.elf;
+        else if (os == Target.OS.Windows)
+            return omfobj ? Target.ObjectFormat.omf : Target.ObjectFormat.coff;
+        else
+            assert(0, "unkown object format");
     }
 
     /**
@@ -348,81 +374,7 @@ else // !IN_LLVM
         c.runtime   = triple.cenv;
         cpp.runtime = triple.cppenv;
     }
-    /**
-     * Add predefined global identifiers that are determied by the target
-     */
-    void addPredefinedGlobalIdentifiers() const
-    {
-        import dmd.cond : VersionCondition;
 
-        alias predef = VersionCondition.addPredefinedGlobalIdent;
-        if (cpu >= CPU.sse2)
-        {
-            predef("D_SIMD");
-            if (cpu >= CPU.avx)
-                predef("D_AVX");
-            if (cpu >= CPU.avx2)
-                predef("D_AVX2");
-        }
-        if (os & OS.Posix)
-            predef("Posix");
-        if (os & (OS.linux | OS.FreeBSD | OS.OpenBSD | OS.DragonFlyBSD | OS.Solaris))
-            predef("ELFv1");
-        switch (os)
-        {
-            case OS.Freestanding: { predef("FreeStanding"); break; }
-            case OS.linux:        { predef("linux");        break; }
-            case OS.Windows:      { predef("Windows");      break; }
-            case OS.OpenBSD:      { predef("OpenBSD");      break; }
-            case OS.DragonFlyBSD: { predef("DragonFlyBSD"); break; }
-            case OS.Solaris:      { predef("Solaris");      break; }
-            case OS.OSX:
-            {
-                predef("OSX");
-                // For legacy compatibility
-                predef("darwin");
-                break;
-            }
-            case OS.FreeBSD:
-            {
-                predef("FreeBSD");
-                switch (osMajor)
-                {
-                    case 10: predef("FreeBSD_10");  break;
-                    case 11: predef("FreeBSD_11"); break;
-                    case 12: predef("FreeBSD_12"); break;
-                    default: predef("FreeBSD_11"); break;
-                }
-                break;
-            }
-            default: assert(0);
-        }
-        c.addRuntimePredefinedGlobalIdent();
-        cpp.addRuntimePredefinedGlobalIdent();
-        if (is64bit)
-        {
-            VersionCondition.addPredefinedGlobalIdent("D_InlineAsm_X86_64");
-            VersionCondition.addPredefinedGlobalIdent("X86_64");
-            if (os & OS.Windows)
-            {
-                VersionCondition.addPredefinedGlobalIdent("Win64");
-            }
-        }
-        else
-        {
-            VersionCondition.addPredefinedGlobalIdent("D_InlineAsm"); //legacy
-            VersionCondition.addPredefinedGlobalIdent("D_InlineAsm_X86");
-            VersionCondition.addPredefinedGlobalIdent("X86");
-            if (os == OS.Windows)
-            {
-                VersionCondition.addPredefinedGlobalIdent("Win32");
-            }
-        }
-        if (isLP64)
-            VersionCondition.addPredefinedGlobalIdent("D_LP64");
-        else if (is64bit)
-            VersionCondition.addPredefinedGlobalIdent("X32");
-    }
     /**
      * Deinitializes the global state of the compiler.
      *
@@ -615,9 +567,9 @@ static if (!IN_LLVM)
      * Returns:
      *      true if the operation is supported or type is not a vector
      */
-    extern (C++) bool isVectorOpSupported(Type type, uint op, Type t2 = null)
+    extern (C++) bool isVectorOpSupported(Type type, EXP op, Type t2 = null)
     {
-        import dmd.tokens : TOK, Token;
+        import dmd.hdrgen : EXPtoString;
 
         auto tvec = type.isTypeVector();
         if (tvec is null)
@@ -637,12 +589,12 @@ static if (!IN_LLVM)
         bool supported = false;
         switch (op)
         {
-        case TOK.uadd:
+        case EXP.uadd:
             // Expression is a no-op, supported everywhere.
             supported = tvec.isscalar();
             break;
 
-        case TOK.negate:
+        case EXP.negate:
 version (IN_LLVM)
 {
             supported = tvec.isscalar();
@@ -675,25 +627,25 @@ else
 
 version (IN_LLVM)
 {
-        case TOK.lessThan, TOK.greaterThan, TOK.lessOrEqual, TOK.greaterOrEqual:
+        case EXP.lessThan, EXP.greaterThan, EXP.lessOrEqual, EXP.greaterOrEqual:
             supported = false;
             break;
-        case TOK.equal, TOK.notEqual, TOK.identity, TOK.notIdentity:
+        case EXP.equal, EXP.notEqual, EXP.identity, EXP.notIdentity:
             supported = true;
             break;
 }
 else
 {
-        case TOK.lessThan, TOK.greaterThan, TOK.lessOrEqual, TOK.greaterOrEqual, TOK.equal, TOK.notEqual, TOK.identity, TOK.notIdentity:
+        case EXP.lessThan, EXP.greaterThan, EXP.lessOrEqual, EXP.greaterOrEqual, EXP.equal, EXP.notEqual, EXP.identity, EXP.notIdentity:
             supported = false;
             break;
 } // !IN_LLVM
 
-        case TOK.leftShift, TOK.leftShiftAssign, TOK.rightShift, TOK.rightShiftAssign, TOK.unsignedRightShift, TOK.unsignedRightShiftAssign:
+        case EXP.leftShift, EXP.leftShiftAssign, EXP.rightShift, EXP.rightShiftAssign, EXP.unsignedRightShift, EXP.unsignedRightShiftAssign:
             supported = IN_LLVM && tvec.isintegral();
             break;
 
-        case TOK.add, TOK.addAssign, TOK.min, TOK.minAssign:
+        case EXP.add, EXP.addAssign, EXP.min, EXP.minAssign:
 version (IN_LLVM)
 {
             supported = tvec.isscalar();
@@ -724,7 +676,7 @@ else
 } // !IN_LLVM
             break;
 
-        case TOK.mul, TOK.mulAssign:
+        case EXP.mul, EXP.mulAssign:
 version (IN_LLVM)
 {
             supported = tvec.isscalar();
@@ -761,7 +713,7 @@ else
 } // !IN_LLVM
             break;
 
-        case TOK.div, TOK.divAssign:
+        case EXP.div, EXP.divAssign:
 version (IN_LLVM)
 {
             supported = tvec.isscalar();
@@ -786,11 +738,11 @@ else
 } // !IN_LLVM
             break;
 
-        case TOK.mod, TOK.modAssign:
+        case EXP.mod, EXP.modAssign:
             supported = IN_LLVM && tvec.isscalar();
             break;
 
-        case TOK.and, TOK.andAssign, TOK.or, TOK.orAssign, TOK.xor, TOK.xorAssign:
+        case EXP.and, EXP.andAssign, EXP.or, EXP.orAssign, EXP.xor, EXP.xorAssign:
 version (IN_LLVM)
 {
             supported = tvec.isintegral();
@@ -806,11 +758,11 @@ else
 } // !IN_LLVM
             break;
 
-        case TOK.not:
+        case EXP.not:
             supported = false;
             break;
 
-        case TOK.tilde:
+        case EXP.tilde:
 version (IN_LLVM)
 {
             supported = tvec.isintegral();
@@ -826,14 +778,14 @@ else
 } // !IN_LLVM
             break;
 
-        case TOK.pow, TOK.powAssign:
+        case EXP.pow, EXP.powAssign:
             supported = false;
             break;
 
         default:
             // import std.stdio : stderr, writeln;
             // stderr.writeln(op);
-            assert(0, "unhandled op " ~ Token.toString(cast(TOK)op));
+            assert(0, "unhandled op " ~ EXPtoString(cast(EXP)op));
         }
         return supported;
     }
@@ -859,6 +811,8 @@ version (IN_LLVM)
     Expression getTargetInfo(const(char)* name, const ref Loc loc);
     bool isCalleeDestroyingArgs(TypeFunction tf);
     bool libraryObjectMonitors(FuncDeclaration fd, Statement fbody) { return true; }
+    bool supportsLinkerDirective() const { return true; }
+
 }
 else // !IN_LLVM
 {
@@ -924,7 +878,7 @@ else // !IN_LLVM
 
         if (os == Target.OS.Windows && is64bit)
         {
-            // http://msdn.microsoft.com/en-us/library/7572ztz4.aspx
+            // https://msdn.microsoft.com/en-us/library/7572ztz4%28v=vs.100%29.aspx
             if (tns.ty == TY.Tcomplex32)
                 return true;
             if (tns.isscalar())
@@ -945,7 +899,7 @@ else // !IN_LLVM
                 return false;
             return true;
         }
-        else if (os == Target.OS.Windows && mscoff)
+        else if (os == Target.OS.Windows)
         {
             Type tb = tns.baseElemOf();
             if (tb.ty == TY.Tstruct)
@@ -1185,7 +1139,7 @@ else // !IN_LLVM
         {
             case objectFormat.stringof:
                 if (os == Target.OS.Windows)
-                    return stringExp(mscoff ? "coff" : "omf");
+                    return stringExp(omfobj ? "omf" : "coff" );
                 else if (os == Target.OS.OSX)
                     return stringExp("macho");
                 else
@@ -1195,9 +1149,9 @@ else // !IN_LLVM
             case cppRuntimeLibrary.stringof:
                 if (os == Target.OS.Windows)
                 {
-                    if (mscoff)
-                        return stringExp(params.mscrtlib);
-                    return stringExp("snn");
+                    if (omfobj)
+                        return stringExp("snn");
+                    return stringExp(params.mscrtlib);
                 }
                 return stringExp("");
             case cppStd.stringof:
@@ -1241,6 +1195,16 @@ else // !IN_LLVM
             return false;
         }
         return true;
+    }
+
+    /**
+     * Returns true if the target supports `pragma(linkerDirective)`.
+     * Returns:
+     *      `false` if the target does not support `pragma(linkerDirective)`.
+     */
+    extern (C++) bool supportsLinkerDirective() const
+    {
+        return os == Target.OS.Windows && !omfobj;
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -1300,7 +1264,7 @@ struct TargetC
                               /// https://docs.microsoft.com/en-us/cpp/cpp/cpp-bit-fields?view=msvc-160
         Gcc_Clang,            /// gcc and clang
     }
-
+    bool  crtDestructorsSupported = true; /// Not all platforms support crt_destructor
     ubyte longsize;           /// size of a C `long` or `unsigned long` type
     ubyte long_doublesize;    /// size of a C `long double`
     ubyte wchar_tsize;        /// size of a C `wchar_t` type
@@ -1339,7 +1303,7 @@ version (IN_LLVM) {} else
             wchar_tsize = 4;
 
         if (os == Target.OS.Windows)
-            runtime = target.mscoff ? Runtime.Microsoft : Runtime.DigitalMars;
+            runtime = target.omfobj ? Runtime.DigitalMars : Runtime.Microsoft;
         else if (os == Target.OS.linux)
         {
             // Note: This is overridden later by `-target=<triple>` if supplied.
@@ -1351,32 +1315,18 @@ version (IN_LLVM) {} else
         }
 
         if (os == Target.OS.Windows)
-            bitFieldStyle = target.mscoff ? BitFieldStyle.MS : BitFieldStyle.DM;
+            bitFieldStyle = target.omfobj ? BitFieldStyle.DM : BitFieldStyle.MS;
         else if (os & (Target.OS.linux | Target.OS.FreeBSD | Target.OS.OSX |
                        Target.OS.OpenBSD | Target.OS.DragonFlyBSD | Target.OS.Solaris))
             bitFieldStyle = BitFieldStyle.Gcc_Clang;
         else
             assert(0);
-    }
-
-    version (IN_LLVM) {} else
-    void addRuntimePredefinedGlobalIdent() const
-    {
-        import dmd.cond : VersionCondition;
-
-        alias predef = VersionCondition.addPredefinedGlobalIdent;
-        with (Runtime) switch (runtime)
+        /*
+            MacOS Monterey (12) does not support C runtime destructors.
+        */
+        if (os == Target.OS.OSX)
         {
-        default:
-        case Unspecified: return;
-        case Bionic:      return predef("CRuntime_Bionic");
-        case DigitalMars: return predef("CRuntime_DigitalMars");
-        case Glibc:       return predef("CRuntime_Glibc");
-        case Microsoft:   return predef("CRuntime_Microsoft");
-        case Musl:        return predef("CRuntime_Musl");
-        case Newlib:      return predef("CRuntime_Newlib");
-        case UClibc:      return predef("CRuntime_UClibc");
-        case WASI:        return predef("CRuntime_WASI");
+            crtDestructorsSupported = false;
         }
     }
 }
@@ -1390,7 +1340,7 @@ struct TargetCPP
     import dmd.dsymbol : Dsymbol;
     import dmd.dclass : ClassDeclaration;
     import dmd.func : FuncDeclaration;
-    import dmd.mtype : Parameter, Type;
+    import dmd.mtype : Type;
 
     enum Runtime : ubyte
     {
@@ -1404,6 +1354,7 @@ struct TargetCPP
     bool reverseOverloads;    /// set if overloaded functions are grouped and in reverse order (such as in dmc and cl)
     bool exceptions;          /// set if catching C++ exceptions is supported
     bool twoDtorInVtable;     /// target C++ ABI puts deleting and non-deleting destructor into vtable
+    bool splitVBasetable;     /// set if C++ ABI uses separate tables for virtual functions and virtual bases
     bool wrapDtorInExternD;   /// set if C++ dtors require a D wrapper to be callable from runtime
 version (IN_LLVM) {} else
 {
@@ -1419,18 +1370,21 @@ version (IN_LLVM) {} else
         else if (os == Target.OS.OSX)
             twoDtorInVtable = true;
         else if (os == Target.OS.Windows)
+        {
             reverseOverloads = true;
+            splitVBasetable = !target.omfobj;
+        }
         else
             assert(0);
         exceptions = (os & Target.OS.Posix) != 0;
         if (os == Target.OS.Windows)
-            runtime = target.mscoff ? Runtime.Microsoft : Runtime.DigitalMars;
+            runtime = target.omfobj ? Runtime.DigitalMars : Runtime.Microsoft;
         else if (os & (Target.OS.linux | Target.OS.DragonFlyBSD))
             runtime = Runtime.Gcc;
         else if (os & (Target.OS.OSX | Target.OS.FreeBSD | Target.OS.OpenBSD))
             runtime = Runtime.Clang;
         else if (os == Target.OS.Solaris)
-            runtime = Runtime.Sun;
+            runtime = Runtime.Gcc;
         else
             assert(0);
         // C++ and D ABI incompatible on all (?) x86 32-bit platforms
@@ -1447,7 +1401,7 @@ version (IN_LLVM) {} else
     extern (C++) const(char)* toMangle(Dsymbol s)
     {
         import dmd.cppmangle : toCppMangleItanium;
-        import dmd.cppmanglewin : toCppMangleMSVC;
+        import dmd.cppmanglewin : toCppMangleDMC, toCppMangleMSVC;
 
 version (IN_LLVM)
 {
@@ -1461,7 +1415,12 @@ else
         if (target.os & (Target.OS.linux | Target.OS.OSX | Target.OS.FreeBSD | Target.OS.OpenBSD | Target.OS.Solaris | Target.OS.DragonFlyBSD))
             return toCppMangleItanium(s);
         if (target.os == Target.OS.Windows)
-            return toCppMangleMSVC(s);
+        {
+            if (target.omfobj)
+                return toCppMangleDMC(s);
+            else
+                return toCppMangleMSVC(s);
+        }
         else
             assert(0, "fix this");
 }
@@ -1477,7 +1436,7 @@ else
     extern (C++) const(char)* typeInfoMangle(ClassDeclaration cd)
     {
         import dmd.cppmangle : cppTypeInfoMangleItanium;
-        import dmd.cppmanglewin : cppTypeInfoMangleMSVC;
+        import dmd.cppmanglewin : cppTypeInfoMangleDMC, cppTypeInfoMangleMSVC;
 
 version (IN_LLVM)
 {
@@ -1491,7 +1450,12 @@ else
         if (target.os & (Target.OS.linux | Target.OS.OSX | Target.OS.FreeBSD | Target.OS.OpenBSD | Target.OS.Solaris | Target.OS.DragonFlyBSD))
             return cppTypeInfoMangleItanium(cd);
         if (target.os == Target.OS.Windows)
-            return cppTypeInfoMangleMSVC(cd);
+        {
+            if (target.omfobj)
+                return cppTypeInfoMangleDMC(cd);
+            else
+                return cppTypeInfoMangleMSVC(cd);
+        }
         else
             assert(0, "fix this");
 }
@@ -1533,30 +1497,15 @@ else
 
     /**
      * Get the type that will really be used for passing the given argument
-     * to an `extern(C++)` function.
+     * to an `extern(C++)` function, or `null` if unhandled.
      * Params:
-     *      p = parameter to be passed.
+     *      t = type to be passed.
      * Returns:
-     *      `Type` to use for parameter `p`.
+     *      `Type` to use for type `t`.
      */
-    extern (C++) Type parameterType(Parameter p)
+    extern (C++) Type parameterType(Type t)
     {
-        import dmd.astenums : STC;
-        import dmd.globals : LINK;
-        import dmd.mtype : ParameterList, TypeDelegate, TypeFunction;
-        import dmd.typesem : merge;
-
-        Type t = p.type.merge2();
-        if (p.isReference())
-            t = t.referenceTo();
-        else if (p.storageClass & STC.lazy_)
-        {
-            // Mangle as delegate
-            auto tf = new TypeFunction(ParameterList(), t, LINK.d);
-            auto td = new TypeDelegate(tf);
-            t = td.merge();
-        }
-        return t;
+        return null;
     }
 
     /**
@@ -1588,24 +1537,6 @@ else
             return (baseClass.structsize + baseClass.alignsize - 1) & ~(baseClass.alignsize - 1);
         else
             return baseClass.structsize;
-    }
-
-    version (IN_LLVM) {} else
-    void addRuntimePredefinedGlobalIdent() const
-    {
-        import dmd.cond : VersionCondition;
-
-        alias predef = VersionCondition.addPredefinedGlobalIdent;
-        with (Runtime) switch (runtime)
-        {
-        default:
-        case Unspecified: return;
-        case Clang:       return predef("CppRuntime_Clang");
-        case DigitalMars: return predef("CppRuntime_DigitalMars");
-        case Gcc:         return predef("CppRuntime_Gcc");
-        case Microsoft:   return predef("CppRuntime_Microsoft");
-        case Sun:         return predef("CppRuntime_Sun");
-        }
     }
 }
 
@@ -1702,7 +1633,7 @@ struct Triple
             import dmd.root.string : startsWith;
             if (!arch.ptr.startsWith(str))
                 return false;
-            arch = arch[str.length-1 .. $-1];
+            arch = arch[str.length .. $];
             return true;
         }
 
@@ -1746,8 +1677,20 @@ struct Triple
         }
     }
 
-    Target.OS parseOS(const(char)[] _os, out ubyte _osMajor)
+    /********************************
+     * Parse OS and osMajor version number.
+     * Params:
+     *  _os = string to check for operating system followed by version number
+     *  osMajor = set to version number (if any), otherwise set to 0.
+     *            Set to 255 if version number is 255 or larger and error is generated
+     * Returns:
+     *  detected operating system, Target.OS.none if none
+     */
+    Target.OS parseOS(const(char)[] _os, out ubyte osMajor)
     {
+        import dmd.errors : error;
+        import dmd.globals : Loc;
+
         bool matches(const(char)[] str)
         {
             import dmd.root.string : startsWith;
@@ -1756,10 +1699,7 @@ struct Triple
             _os = _os[str.length .. $];
             return true;
         }
-        if (_os == "freestanding")
-            return Target.OS.Freestanding;
         Target.OS os;
-        _osMajor = 0;
         if (matches("darwin"))
             os = Target.OS.OSX;
         else if (matches("dragonfly"))
@@ -1775,17 +1715,49 @@ struct Triple
         else
         {
             unknown(_os, "operating system");
-            return Target.OS.Freestanding;
+            return Target.OS.none;
         }
-        while (_os.length)
+
+        bool overflow;
+        auto major = parseNumber(_os, overflow);
+        if (overflow || major >= 255)
         {
-            if (!('0' < _os[0] && _os[0] < '9'))
-                break;
-            osMajor *= 10;
-            osMajor = cast(ubyte)((_os[0] - '0') + osMajor);
-            _os = _os[1 .. $];
+            error(Loc.initial, "OS version overflowed max of 254");
+            major = 255;
         }
+        osMajor = cast(ubyte)major;
+
+        /* Note that anything after the number up to the end or '-',
+         * such as '.3.4.hello.betty', is ignored
+         */
+
         return os;
+    }
+
+    /*******************************
+     * Parses a decimal number out of the str and returns it.
+     * Params:
+     *  str = string to parse the number from, updated to text after the number
+     *  overflow = set to true iff an overflow happens
+     * Returns:
+     *  parsed number
+     */
+    private pure static
+    uint parseNumber(ref const(char)[] str, ref bool overflow)
+    {
+        auto s = str;
+        ulong n;
+        while (s.length)
+        {
+            const c = s[0];
+            if (c < '0' || '9' < c)
+                break;
+            n = n * 10 + (c - '0');
+            overflow |= (n > uint.max); // sticky overflow check
+            s = s[1 .. $];              // consume digit
+        }
+        str = s;
+        return cast(uint)n;
     }
 
     TargetC.Runtime parseCEnv(const(char)[] cenv)

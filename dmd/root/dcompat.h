@@ -1,9 +1,9 @@
 
-/* Copyright (C) 1999-2021 by The D Language Foundation, All Rights Reserved
+/* Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
- * http://www.digitalmars.com
+ * https://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
- * http://www.boost.org/LICENSE_1_0.txt
+ * https://www.boost.org/LICENSE_1_0.txt
  * https://github.com/dlang/dmd/blob/master/src/dmd/root/dcompat.h
  */
 
@@ -45,6 +45,9 @@ typedef unsigned d_size_t;
 typedef uint64_t d_size_t;
 #elif __APPLE__ && __LP64__ && LDC_HOST_DigitalMars && LDC_HOST_FE_VER >= 2079 && LDC_HOST_FE_VER <= 2081
 typedef uint64_t d_size_t;
+#elif defined(__OpenBSD__) && !defined(__LP64__)
+// size_t is 'unsigned long', which makes it mangle differently than D's 'uint'
+typedef unsigned d_size_t;
 #else
 typedef size_t d_size_t;
 #endif
