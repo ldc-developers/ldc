@@ -127,6 +127,7 @@ void case_as_label(int a, int b)
                 c = 2;   
             }
         }
+        goto case;
     case 2:
         // Can't elide
         if (false) {

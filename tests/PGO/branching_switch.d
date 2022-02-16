@@ -41,6 +41,7 @@ void bunch_of_branches(const uint two) {
       // PROFGEN: store {{.*}} @[[BoB]], i64 0, i64 7
       // never reached, no branch weights
       if (i != 11) {}
+      goto case;
 
     // PROFGEN: store {{.*}} @[[BoB]], i64 0, i64 8
     case two: // 1x
@@ -53,7 +54,7 @@ void bunch_of_branches(const uint two) {
     // PROFGEN: store {{.*}} @[[BoB]], i64 0, i64 10
     default: // 1 + 1*gototarget
       // PROFGEN: store {{.*}} @[[BoB]], i64 0, i64 11
-      // fall through
+      goto case;
 
     // PROFGEN: store {{.*}} @[[BoB]], i64 0, i64 12
     case 5: // 0 + 2*fallthrough

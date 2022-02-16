@@ -180,7 +180,7 @@ void c_switches() {
       // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 6
       // PROFUSE: br {{.*}} !prof ![[SW3:[0-9]+]]
       if (i) {}
-      // fallthrough
+      goto case;
     // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 7
     case 2:
       // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 8
@@ -214,7 +214,7 @@ void c_switches() {
       default:
       }
       // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 13
-      // fallthrough
+      goto default;
 
     // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 20
     default:
@@ -263,6 +263,7 @@ void d_switches() {
       // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 7
       // never reached, no branch weights
       if (i != 11) {}
+      goto case;
 
     // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 8
     case 2: // 1x
@@ -274,7 +275,7 @@ void d_switches() {
     // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 10
     default:
       // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 11
-      // fall through
+      goto case;
 
     // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 12
     case 5: // 2x (fallthrough)
