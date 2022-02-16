@@ -1123,7 +1123,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   if (fd->isUnitTestDeclaration()) {
-    getIrModule(gIR->dmodule)->unitTests.push_back(fd);
+    // ignore unparsed unittests from non-root modules
+    if (fd->fbody)
+      getIrModule(gIR->dmodule)->unitTests.push_back(fd);
   } else if (fd->isSharedStaticCtorDeclaration()) {
     getIrModule(gIR->dmodule)->sharedCtors.push_back(fd);
   } else if (StaticDtorDeclaration *dtorDecl =
