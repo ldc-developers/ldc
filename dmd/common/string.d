@@ -67,7 +67,7 @@ struct SmallBuffer(T)
     }
 
     // Force accesses to extent to be scoped.
-    scope inout extent()
+    /* ltsmaster: scope */ inout extent()
     {
         return _extent;
     }
