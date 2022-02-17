@@ -15,7 +15,6 @@
 #pragma once
 
 #include "dmd/aggregate.h"
-#include "dmd/root/root.h"
 #include "gen/dibuilder.h"
 #include "gen/objcgen.h"
 #include "ir/iraggr.h"

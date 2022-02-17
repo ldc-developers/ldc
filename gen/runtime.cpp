@@ -15,7 +15,6 @@
 #include "dmd/ldcbindings.h"
 #include "dmd/module.h"
 #include "dmd/mtype.h"
-#include "dmd/root/root.h"
 #include "dmd/target.h"
 #include "dmd/tokens.h"
 #include "driver/cl_options_instrumentation.h"

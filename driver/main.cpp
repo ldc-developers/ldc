@@ -19,7 +19,6 @@
 #include "dmd/module.h"
 #include "dmd/mtype.h"
 #include "dmd/root/rmem.h"
-#include "dmd/root/root.h"
 #include "dmd/scope.h"
 #include "dmd/target.h"
 #include "driver/args.h"
