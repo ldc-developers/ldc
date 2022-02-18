@@ -176,8 +176,11 @@ Where:\n\
 "  -extern-std=[h|help|?]\n\
                     list all supported standards\n"
 #endif
-"  -fPIC             generate position independent code\n\
-  -g                add symbolic debug info\n\
+"  -fPIC             generate position independent code\n"
+#if 0
+"  -fPIE             generate position independent executables\n"
+#endif
+"  -g                add symbolic debug info\n\
   -gdwarf=<version> add DWARF symbolic debug info\n\
   -gf               emit debug info for all referenced types\n\
   -gs               always emit stack frame\n"
@@ -188,8 +191,11 @@ Where:\n\
   -Hd=<directory>   write 'header' file to directory\n\
   -Hf=<filename>    write 'header' file to filename\n\
   -HC[=[silent|verbose]]\n\
-                    generate C++ 'header' file\n\
-  -HCd=<directory>  write C++ 'header' file to directory\n\
+                    generate C++ 'header' file\n"
+#if 0
+"  -HC=[?|h|help]    list available modes for C++ 'header' file generation\n"
+#endif
+"  -HCd=<directory>  write C++ 'header' file to directory\n\
   -HCf=<filename>   write C++ 'header' file to filename\n\
   --help            print help and exit\n\
   -I=<directory>    look for imports also in directory\n\
@@ -205,10 +211,9 @@ Where:\n\
 "  -m32mscoff        generate 32 bit code and write MS-COFF object files\n"
 #endif
 "  -m64              generate 64 bit code\n\
-  -main             add default main() (e.g. for unittesting)\n\
-  -makedeps         print module dependencies in Makefile compatible format to stdout\n\
-  -makedeps=<filename>\n\
-                    write module dependencies in Makefile compatible format to filename (only imports)\n\
+  -main             add default main() if not present already (e.g. for unittesting)\n\
+  -makedeps[=<filename>]\n\
+                    print dependencies in Makefile compatible format to filename or stdout\n\
   -man              open web browser on manual page\n"
 #if 0
 "  -map              generate linker .map file\n"
@@ -225,8 +230,11 @@ Where:\n\
   -o-               do not write object file\n\
   -od=<directory>   write object & library files to directory\n\
   -of=<filename>    name output file to filename\n\
-  -op               preserve source path for output files\n\
-  -preview=<name>   enable an upcoming language change identified by 'name'\n\
+  -op               preserve source path for output files\n"
+#if 0
+"  -os=<os>          sets target operating system to <os>\n"
+#endif
+"  -preview=<name>   enable an upcoming language change identified by 'name'\n\
   -preview=[h|help|?]\n\
                     list all upcoming language changes\n\
   -profile          profile runtime performance of generated code\n"
@@ -246,6 +254,7 @@ Where:\n\
                     list all language changes\n\
   -unittest         compile in unit tests\n\
   -v                verbose\n\
+  -vasm             generate additional textual assembly files (*.s)\n\
   -vcolumns         print character (column) numbers in diagnostics\n\
   -vdmd             print the underlying LDC command line\n\
   -verror-style=[digitalmars|gnu]\n\
@@ -530,16 +539,14 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         }
       }
       /* -v
-       */
-      else if (strcmp(p + 1, "vtls") == 0) {
-        ldcArgs.push_back("-transition=tls");
-      }
-      /* -vasm [was added by https://github.com/dlang/dmd/pull/13447]
+       * -vcg-ast
        */
       else if (strcmp(p + 1, "vasm") == 0) {
         ldcArgs.push_back("--output-s");
         ldcArgs.push_back("--output-o");
         ldcArgs.push_back("--x86-asm-syntax=intel");
+      } else if (strcmp(p + 1, "vtls") == 0) {
+        ldcArgs.push_back("-transition=tls");
       }
       /* -vtemplates
        * -vcolumns
@@ -577,6 +584,9 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         } else {
           goto Lerror;
         }
+      } else if (startsWith(p + 1, "os=")) {
+        error("please specify a full target triple via -mtriple instead of the "
+              "target OS (-os) alone");
       }
       /* -extern-std
        * -transition

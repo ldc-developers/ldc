@@ -1691,7 +1691,7 @@ version (IN_LLVM)
                 break;
             case "16997":
             case "intpromote":
-                params.fix16997 = true;
+                deprecation(Loc.initial, "`-transition=%s` is now the default behavior", name);
                 break;
             case "markdown":
                 params.markdown = true;
