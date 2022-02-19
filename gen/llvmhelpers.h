@@ -63,6 +63,8 @@ LLValue *DtoAllocaDump(LLValue *val, LLType *asType, int alignment = 0,
 void DtoAssert(Module *M, const Loc &loc, DValue *msg);
 void DtoCAssert(Module *M, const Loc &loc, LLValue *msg);
 
+void DtoThrow(const Loc &loc, DValue *e);
+
 // returns module file name
 LLConstant *DtoModuleFileName(Module *M, const Loc &loc);
 

@@ -270,7 +270,7 @@ LLValue *DtoAllocaDump(LLValue *val, LLType *asType, int alignment,
 }
 
 /******************************************************************************
- * ASSERT HELPER
+ * ASSERT HELPERS
  ******************************************************************************/
 
 void DtoAssert(Module *M, const Loc &loc, DValue *msg) {
@@ -337,6 +337,21 @@ void DtoCAssert(Module *M, const Loc &loc, LLValue *msg) {
   gIR->CreateCallOrInvoke(fn, args);
 
   gIR->ir->CreateUnreachable();
+}
+
+/******************************************************************************
+ * THROW HELPER
+ ******************************************************************************/
+
+void DtoThrow(const Loc &loc, DValue *e) {
+  LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_throw_exception");
+  LLValue *arg = DtoBitCast(DtoRVal(e), fn->getFunctionType()->getParamType(0));
+
+  gIR->CreateCallOrInvoke(fn, arg);
+  gIR->ir->CreateUnreachable();
+
+  llvm::BasicBlock *bb = gIR->insertBB("afterthrow");
+  gIR->ir->SetInsertPoint(bb);
 }
 
 /******************************************************************************

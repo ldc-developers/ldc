@@ -934,19 +934,7 @@ public:
     emitCoverageLinecountInc(stmt->loc);
 
     assert(stmt->exp);
-    DValue *e = toElemDtor(stmt->exp);
-
-    llvm::Function *fn =
-        getRuntimeFunction(stmt->loc, irs->module, "_d_throw_exception");
-    LLValue *arg =
-        DtoBitCast(DtoRVal(e), fn->getFunctionType()->getParamType(0));
-
-    irs->CreateCallOrInvoke(fn, arg);
-    irs->ir->CreateUnreachable();
-
-    // TODO: Should not be needed.
-    llvm::BasicBlock *bb = irs->insertBB("afterthrow");
-    irs->ir->SetInsertPoint(bb);
+    DtoThrow(stmt->loc, toElemDtor(stmt->exp));
   }
 
   //////////////////////////////////////////////////////////////////////////

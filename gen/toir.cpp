@@ -1587,6 +1587,19 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
+  void visit(ThrowExp *e) override {
+    IF_LOG Logger::print("ThrowExp::toElem: %s\n", e->toChars());
+    LOG_SCOPE;
+
+    auto &PGO = gIR->funcGen().pgo;
+    PGO.setCurrentStmt(e);
+
+    DtoThrow(e->loc, toElem(e->e1));
+    result = new DNullValue(e->type, llvm::UndefValue::get(DtoType(e->type)));
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   void visit(AssertExp *e) override {
     IF_LOG Logger::print("AssertExp::toElem: %s\n", e->toChars());
     LOG_SCOPE;
