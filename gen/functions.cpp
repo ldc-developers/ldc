@@ -651,7 +651,16 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
     if (fdecl->llvmInternal == LLVMextern_weak)
       linkage = llvm::GlobalValue::ExternalWeakLinkage;
     func = LLFunction::Create(functype, linkage, irMangle, &gIR->module);
-  } else if (func->getFunctionType() != functype) {
+  } else if (func->getFunctionType() == functype) {
+    // IR signature matches existing function
+  } else if (fdecl->isCsymbol() &&
+             func->getFunctionType() ==
+                 LLFunctionType::get(functype->getReturnType(),
+                                     functype->params(), false)) {
+    // ImportC: a variadic definition replaces a non-variadic declaration; keep
+    // existing non-variadic IR function
+    assert(func->isDeclaration());
+  } else {
     const auto existingTypeString = llvmTypeToString(func->getFunctionType());
     const auto newTypeString = llvmTypeToString(functype);
     error(fdecl->loc,
