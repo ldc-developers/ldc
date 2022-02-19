@@ -1841,11 +1841,10 @@ FuncDeclaration *getParentFunc(Dsymbol *sym) {
   // delegate) literals don't allow access to a parent context, even if they are
   // nested.
   if (FuncDeclaration *fd = sym->isFuncDeclaration()) {
-    bool certainlyNewRoot =
-        fd->isStatic() || (!fd->isThis() && fd->linkage != LINK::d) ||
-        (fd->isFuncLiteralDeclaration() &&
-         static_cast<FuncLiteralDeclaration *>(fd)->tok == TOK::function_);
-    if (certainlyNewRoot) {
+    if (auto fld = fd->isFuncLiteralDeclaration()) {
+      if (fld->tok == TOK::function_)
+        return nullptr;
+    } else if (fd->isStatic() || (!fd->isThis() && fd->linkage != LINK::d)) {
       return nullptr;
     }
   }
@@ -1856,7 +1855,8 @@ FuncDeclaration *getParentFunc(Dsymbol *sym) {
     }
   }
 
-  for (Dsymbol *parent = sym->parent; parent; parent = parent->parent) {
+  for (Dsymbol *parent = sym->toParent2(); parent;
+       parent = parent->toParent2()) {
     if (FuncDeclaration *fd = parent->isFuncDeclaration()) {
       return fd;
     }
