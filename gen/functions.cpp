@@ -635,10 +635,9 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   // hardcoded into druntime, even if the frontend type has D linkage (Bugzilla
   // issue 9028).
   const bool forceC = vafunc || DtoIsIntrinsic(fdecl) || fdecl->isMain();
-  const auto link = forceC ? LINK::c : f->linkage;
 
   // mangled name
-  const auto irMangle = getIRMangledName(fdecl, link);
+  const auto irMangle = getIRMangledName(fdecl, forceC ? LINK::c : f->linkage);
 
   // construct function
   LLFunctionType *functype = DtoFunctionType(fdecl);
@@ -674,7 +673,8 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
     fatal();
   }
 
-  func->setCallingConv(gABI->callingConv(link, f, fdecl));
+  func->setCallingConv(forceC ? gABI->callingConv(LINK::c)
+                              : gABI->callingConv(fdecl));
 
   IF_LOG Logger::cout() << "func = " << *func << std::endl;
 

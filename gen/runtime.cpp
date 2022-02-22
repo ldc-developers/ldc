@@ -275,7 +275,7 @@ struct LazyFunctionDeclarer {
         fn->addFnAttr(LLAttribute::UWTable);
       }
 
-      fn->setCallingConv(gABI->callingConv(linkage, dty));
+      fn->setCallingConv(gABI->callingConv(dty, false));
     }
   }
 };

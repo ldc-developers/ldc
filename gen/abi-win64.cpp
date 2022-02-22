@@ -100,15 +100,13 @@ public:
       : isMSVC(global.params.targetTriple->isWindowsMSVCEnvironment()),
         hfvaToArray(4) {}
 
-  llvm::CallingConv::ID callingConv(LINK l, TypeFunction *tf = nullptr,
-                                    FuncDeclaration *fd = nullptr) override {
-    // Use the vector calling convention for extern(D) (except for variadics)
-    // => let LLVM pass vectors in registers instead of passing a ref to a
-    // hidden copy (both cases handled by LLVM automatically for LL vectors
-    // which we don't rewrite).
-    return l == LINK::d && !(tf && tf->parameterList.varargs == VARARGvariadic)
-               ? llvm::CallingConv::X86_VectorCall
-               : llvm::CallingConv::C;
+  // Use the vector calling convention for extern(D) (except for variadics) =>
+  // let LLVM pass vectors in registers instead of passing a ref to a hidden
+  // copy (both cases handled by LLVM automatically for LL vectors which we
+  // don't rewrite).
+  llvm::CallingConv::ID callingConv(LINK l) override {
+    return l == LINK::d ? llvm::CallingConv::X86_VectorCall
+                        : llvm::CallingConv::C;
   }
 
   std::string mangleFunctionForLLVM(std::string name, LINK l) override {
