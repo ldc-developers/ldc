@@ -18,10 +18,23 @@ alias I = long;
 alias U = ulong;
 enum Ubits = uint(U.sizeof * 8);
 
-align(16) struct Cent
+// 32-bit MSVC: need default alignment due to https://github.com/ldc-developers/ldc/issues/1356
+version (LDC) version (CRuntime_Microsoft) version (Win32) version = LDC_MSVC32;
+version (LDC_MSVC32)
 {
-    U lo;      // low 64 bits
-    U hi;      // high 64 bits
+    struct Cent
+    {
+        U lo;      // low 64 bits
+        U hi;      // high 64 bits
+    }
+}
+else
+{
+    align(16) struct Cent
+    {
+        U lo;      // low 64 bits
+        U hi;      // high 64 bits
+    }
 }
 
 enum One = Cent(1);
