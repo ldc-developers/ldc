@@ -17,6 +17,7 @@
 #include "dmd/init.h"
 #include "dmd/nspace.h"
 #include "dmd/root/rmem.h"
+#include "dmd/target.h"
 #include "dmd/template.h"
 #include "driver/cl_options.h"
 #include "gen/classes.h"
@@ -440,7 +441,7 @@ public:
       }
     } else if (decl->ident == Id::linkerDirective) {
       // embed in object file (if supported)
-      if (triple.isWindowsMSVCEnvironment() || triple.isOSBinFormatMachO()) {
+      if (target.supportsLinkerDirective()) {
         assert(decl->args);
         llvm::SmallVector<llvm::StringRef, 2> args;
         args.reserve(decl->args->length);

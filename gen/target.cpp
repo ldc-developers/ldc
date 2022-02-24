@@ -325,3 +325,8 @@ bool Target::isCalleeDestroyingArgs(TypeFunction* tf) {
   return global.params.targetTriple->isWindowsMSVCEnvironment() ||
          tf->linkage != LINK::cpp;
 }
+
+bool Target::supportsLinkerDirective() const {
+  return global.params.targetTriple->isWindowsMSVCEnvironment() ||
+         global.params.targetTriple->isOSBinFormatMachO();
+}

@@ -811,8 +811,7 @@ version (IN_LLVM)
     Expression getTargetInfo(const(char)* name, const ref Loc loc);
     bool isCalleeDestroyingArgs(TypeFunction tf);
     bool libraryObjectMonitors(FuncDeclaration fd, Statement fbody) { return true; }
-    bool supportsLinkerDirective() const { return true; }
-
+    bool supportsLinkerDirective() const;
 }
 else // !IN_LLVM
 {
