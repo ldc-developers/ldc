@@ -93,7 +93,7 @@ else version (CppRuntime_DigitalMars)
     {
     @nogc:
         ///
-        this() nothrow {}
+        extern(D) this() nothrow {}
         //virtual ~this();
         void dtor() { }     // reserve slot in vtbl[]
 

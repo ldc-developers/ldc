@@ -155,8 +155,7 @@ version (Unicode) {
     alias SQLInstallDriverManagerW SQLInstallDriverManager;
     alias SQLInstallerErrorW SQLInstallerError;
     alias SQLInstallODBCW SQLInstallODBC;
-    deprecated ("Use SQLInstallTranslatorExW instead")
-    alias SQLInstallTranslatorW SQLInstallTranslator;
+    deprecated alias SQLInstallTranslatorW SQLInstallTranslator;
     alias SQLInstallTranslatorExW SQLInstallTranslatorEx;
     alias SQLPostInstallerErrorW SQLPostInstallerError;
     alias SQLReadFileDSNW SQLReadFileDSN;

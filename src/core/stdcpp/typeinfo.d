@@ -18,10 +18,10 @@ version (CppRuntime_DigitalMars)
     import core.stdcpp.exception;
 
     extern (C++, "std"):
-    @nogc:
 
     class type_info
     {
+    @nogc:
         void* pdata;
 
     public:
@@ -41,8 +41,9 @@ version (CppRuntime_DigitalMars)
 
     class bad_cast : exception
     {
-        this() nothrow { }
-        this(const bad_cast) nothrow { }
+    @nogc:
+        extern(D) this() nothrow { }
+        extern(D) this(const bad_cast) nothrow { }
         //bad_cast operator=(const bad_cast) nothrow { return this; }
         //virtual ~this() nothrow;
         override const(char)* what() const nothrow;
@@ -50,8 +51,9 @@ version (CppRuntime_DigitalMars)
 
     class bad_typeid : exception
     {
-        this() nothrow { }
-        this(const bad_typeid) nothrow { }
+    @nogc:
+        extern(D) this() nothrow { }
+        extern(D) this(const bad_typeid) nothrow { }
         //bad_typeid operator=(const bad_typeid) nothrow { return this; }
         //virtual ~this() nothrow;
         override const (char)* what() const nothrow;
@@ -62,7 +64,6 @@ else version (CppRuntime_Microsoft)
     import core.stdcpp.exception;
 
     extern (C++, "std"):
-    @nogc:
 
     struct __type_info_node
     {
@@ -89,13 +90,15 @@ else version (CppRuntime_Microsoft)
 
     class bad_cast : exception
     {
-        extern(D) this(const(char)* msg = "bad cast") @nogc nothrow { super(msg); }
+    @nogc:
+        extern(D) this(const(char)* msg = "bad cast") nothrow { super(msg); }
         //virtual ~this();
     }
 
     class bad_typeid : exception
     {
-        extern(D) this(const(char)* msg = "bad typeid") @nogc nothrow { super(msg); }
+    @nogc:
+        extern(D) this(const(char)* msg = "bad typeid") nothrow { super(msg); }
         //virtual ~this();
     }
 }
@@ -109,7 +112,6 @@ else version (CppRuntime_Gcc)
     }
 
     extern (C++, "std"):
-    @nogc:
 
     abstract class type_info
     {
@@ -136,6 +138,48 @@ else version (CppRuntime_Gcc)
         const(char)* _name;
 
         extern(D) this(const(char)* name) { _name = name; }
+    }
+
+    class bad_cast : exception
+    {
+    @nogc:
+        extern(D) this() nothrow {}
+        //~this();
+        @weak override const(char)* what() const nothrow { return "bad cast"; }
+    }
+
+    class bad_typeid : exception
+    {
+    @nogc:
+        extern(D) this() nothrow {}
+        //~this();
+        @weak override const(char)* what() const nothrow { return "bad typeid"; }
+    }
+}
+else version (CppRuntime_Clang)
+{
+    import core.stdcpp.exception;
+
+    extern (C++, "std"):
+
+    abstract class type_info
+    {
+    @nogc:
+        @weak ~this() {}
+        @weak final const(char)* name() const nothrow
+        {
+            return __type_name;
+        }
+        @weak final bool before(const type_info __arg) const nothrow
+        {
+            return __type_name < __arg.__type_name;
+        }
+        //bool operator==(const type_info) const;
+
+    protected:
+        const(char)* __type_name;
+
+        extern(D) this(const(char)* __n) { __type_name = __n; }
     }
 
     class bad_cast : exception
