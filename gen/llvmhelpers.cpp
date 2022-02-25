@@ -1855,8 +1855,7 @@ FuncDeclaration *getParentFunc(Dsymbol *sym) {
     }
   }
 
-  for (Dsymbol *parent = sym->toParent2(); parent;
-       parent = parent->toParent2()) {
+  for (Dsymbol *parent = sym->parent; parent; parent = parent->parent) {
     if (FuncDeclaration *fd = parent->isFuncDeclaration()) {
       return fd;
     }
