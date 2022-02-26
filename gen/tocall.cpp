@@ -451,7 +451,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     int atomicOrdering = (*e->arguments)[1]->toInteger();
 
     LLValue *ptr = DtoRVal(exp);
-    LLType *pointeeType = ptr->getType()->getContainedType(0);
+    LLType *pointeeType = getPointeeType(ptr);
     Type *retType = exp->type->nextOf();
 
     if (!pointeeType->isIntegerTy()) {
@@ -465,13 +465,18 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       }
     }
 
-    llvm::LoadInst *load = p->ir->CreateLoad(ptr);
-    if (auto alignment = getTypeAllocSize(load->getType())) {
+    const auto loadedType = getPointeeType(ptr);
+    llvm::LoadInst *load = p->ir->CreateLoad(
+#if LDC_LLVM_VER >= 800
+        loadedType,
+#endif
+        ptr);
+    if (auto alignment = getTypeAllocSize(loadedType)) {
       load->setAlignment(LLAlign(alignment));
     }
     load->setAtomic(llvm::AtomicOrdering(atomicOrdering));
     llvm::Value *val = load;
-    if (val->getType() != pointeeType) {
+    if (loadedType != pointeeType) {
       val = DtoAllocaDump(val, retType);
       result = new DLValue(retType, val);
     } else {

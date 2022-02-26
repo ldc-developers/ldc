@@ -164,7 +164,11 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
   gIR->DBuilder.EmitModuleCTor(ctor, fname.c_str());
 
   // get current beginning
-  LLValue *curbeg = builder.CreateLoad(mref, "current");
+  LLValue *curbeg = builder.CreateLoad(
+#if LDC_LLVM_VER >= 800
+      modulerefPtrTy,
+#endif
+      mref, "current");
 
   // put current beginning as the next of this one
   LLValue *gep = builder.CreateStructGEP(

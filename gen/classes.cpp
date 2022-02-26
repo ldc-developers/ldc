@@ -278,10 +278,9 @@ DValue *DtoCastClass(const Loc &loc, DValue *val, Type *_to) {
     LLValue *orig = DtoRVal(val);
     LLValue *v = orig;
     if (offset != 0) {
+      assert(offset > 0);
       v = DtoBitCast(v, getVoidPtrType());
-      LLValue *off =
-          LLConstantInt::get(LLType::getInt32Ty(gIR->context()), offset);
-      v = gIR->ir->CreateGEP(v, off);
+      v = DtoGEP1(v, DtoConstUint(offset));
     }
     IF_LOG {
       Logger::cout() << "V = " << *v << std::endl;
