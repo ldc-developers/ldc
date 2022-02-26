@@ -227,7 +227,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang"))
         append("-Wall -Wextra" LDC_CXXFLAGS)
     endif()
     # Disable some noisy warnings:
-    #  * -Wunused-parameter triggers for LLVM headers
+    #  * -Wunused-parameter and -Wcomment trigger for LLVM headers
     #  * -Wmissing-field-initializer leads to reams of warnings in gen/asm-*.h
     #  * -Wnon-virtual-dtor is something Walter has declined to let us fix upstream
     #    and it triggers for the visitors we need in our glue code
@@ -236,7 +236,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang"))
     #  * -Wgnu-anonymous-struct and -Wnested-anon-types trigger for tokens.h.
     #  * -Wgnu-redeclared-enum triggers for various frontend headers.
     #  * -Wunused-private-field triggers for expression.h.
-    append("-Wno-unused-parameter -Wno-missing-field-initializers -Wno-non-virtual-dtor" LDC_CXXFLAGS)
+    append("-Wno-unused-parameter -Wno-comment -Wno-missing-field-initializers -Wno-non-virtual-dtor" LDC_CXXFLAGS)
     if ((${CMAKE_CXX_COMPILER_ID} MATCHES "Clang"))
         append("-Wno-gnu-anonymous-struct -Wno-nested-anon-types -Wno-gnu-redeclared-enum -Wno-unused-private-field" LDC_CXXFLAGS)
         # clang trying to eagerly anticipate linker errors wrt. static class template
