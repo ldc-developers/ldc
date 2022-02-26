@@ -73,13 +73,13 @@ void DtoResolveStruct(StructDeclaration *sd, const Loc &callerLoc) {
 ///////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoStructEquals(TOK op, DValue *lhs, DValue *rhs) {
+LLValue *DtoStructEquals(EXP op, DValue *lhs, DValue *rhs) {
   Type *t = lhs->type->toBasetype();
   assert(t->ty == TY::Tstruct);
 
   // set predicate
   llvm::ICmpInst::Predicate cmpop;
-  if (op == TOKequal || op == TOKidentity) {
+  if (op == EXP::equal || op == EXP::identity) {
     cmpop = llvm::ICmpInst::ICMP_EQ;
   } else {
     cmpop = llvm::ICmpInst::ICMP_NE;

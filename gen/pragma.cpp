@@ -25,7 +25,7 @@
 namespace {
 bool parseStringExp(Expression *e, const char *&res) {
   e = e->optimize(WANTvalue);
-  if (e->op != TOKstring) {
+  if (e->op != EXP::string_) {
     return false;
   }
   auto se = static_cast<StringExp *>(e);
@@ -49,7 +49,7 @@ bool parseBoolExp(Expression *e, bool &res) {
   e = e->optimize(WANTvalue);
   if (auto i = e->isIntegerExp()) {
     if (e->type->equals(Type::tbool)) {
-      res = i->isBool(true);
+      res = (i->toInteger() != 0);
       return true;
     }
   }

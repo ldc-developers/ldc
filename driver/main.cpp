@@ -19,7 +19,6 @@
 #include "dmd/module.h"
 #include "dmd/mtype.h"
 #include "dmd/root/rmem.h"
-#include "dmd/root/root.h"
 #include "dmd/scope.h"
 #include "dmd/target.h"
 #include "driver/args.h"
@@ -910,6 +909,14 @@ void registerPredefinedVersions() {
     VersionCondition::addPredefinedGlobalIdent("assert");
   }
 
+  if (global.params.useIn == CHECKENABLEon) {
+    VersionCondition::addPredefinedGlobalIdent("D_PreConditions");
+  }
+
+  if (global.params.useOut == CHECKENABLEon) {
+    VersionCondition::addPredefinedGlobalIdent("D_PostConditions");
+  }
+
   if (global.params.useArrayBounds == CHECKENABLEoff) {
     VersionCondition::addPredefinedGlobalIdent("D_NoBoundsChecks");
   }
@@ -920,6 +927,10 @@ void registerPredefinedVersions() {
     VersionCondition::addPredefinedGlobalIdent("D_ModuleInfo");
     VersionCondition::addPredefinedGlobalIdent("D_Exceptions");
     VersionCondition::addPredefinedGlobalIdent("D_TypeInfo");
+  }
+
+  if (global.params.tracegc) {
+    VersionCondition::addPredefinedGlobalIdent("D_ProfileGC");
   }
 
   registerPredefinedTargetVersions();

@@ -105,7 +105,8 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
   sc->func->hasReturnExp |= 8;
 
   // GCC-style asm starts with a string literal or a `(`
-  if (s->tokens->value == TOKstring || s->tokens->value == TOKlparen) {
+  if (s->tokens->value == TOK::string_ ||
+      s->tokens->value == TOK::leftParenthesis) {
     auto gas = createGccAsmStatement(s->loc, s->tokens);
     return gccAsmSemantic(gas, sc);
   }
@@ -210,7 +211,7 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
       cns = i_cns;
       break;
     case Arg_Pointer:
-      assert(arg->expr->op == TOKvar);
+      assert(arg->expr->isVarExp());
       arg_val = DtoRVal(arg->expr);
       cns = p_cns;
 

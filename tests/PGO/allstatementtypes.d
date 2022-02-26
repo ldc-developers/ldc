@@ -21,7 +21,7 @@ extern(C):  // simplify name mangling for simpler string matching
 // PROFGEN-DAG: @[[FEL:__(llvm_profile_counters|profc)_foreach_loop]] ={{.*}} global [5 x i64] zeroinitializer
 // PROFGEN-DAG: @[[FERL:__(llvm_profile_counters|profc)_foreachrange_loop]] ={{.*}} global [6 x i64] zeroinitializer
 // PROFGEN-DAG: @[[LG:__(llvm_profile_counters|profc)_label_goto]] ={{.*}} global [7 x i64] zeroinitializer
-// PROFGEN-DAG: @[[SWC:__(llvm_profile_counters|profc)_c_switches]] ={{.*}} global [23 x i64] zeroinitializer
+// PROFGEN-DAG: @[[SWC:__(llvm_profile_counters|profc)_c_switches]] ={{.*}} global [24 x i64] zeroinitializer
 // PROFGEN-DAG: @[[DSW:__(llvm_profile_counters|profc)_d_switches]] ={{.*}} global [15 x i64] zeroinitializer
 // PROFGEN-DAG: @[[BOOL:__(llvm_profile_counters|profc)_booleanlogic]] ={{.*}} global [9 x i64] zeroinitializer
 // PROFGEN-DAG: @[[DW:__(llvm_profile_counters|profc)_do_while]] ={{.*}} global [6 x i64] zeroinitializer
@@ -180,7 +180,7 @@ void c_switches() {
       // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 6
       // PROFUSE: br {{.*}} !prof ![[SW3:[0-9]+]]
       if (i) {}
-      // fallthrough
+      goto case;
     // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 7
     case 2:
       // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 8
@@ -214,7 +214,7 @@ void c_switches() {
       default:
       }
       // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 13
-      // fallthrough
+      goto default;
 
     // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 20
     default:
@@ -226,7 +226,7 @@ void c_switches() {
     // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 4
   }
 
-  // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 22
+  // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 23
   // Never reached -> no weights
   if (weights[0]) {}
 
@@ -250,7 +250,7 @@ void d_switches() {
     // PROFUSE: ], !prof ![[DSW2:[0-9]+]]
     switch (i) {
     // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 3
-    case 1: // 2x (gototarget)
+    case 1: // 1 + 1*gototarget
       // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 4
 
       // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 5
@@ -263,6 +263,7 @@ void d_switches() {
       // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 7
       // never reached, no branch weights
       if (i != 11) {}
+      goto case;
 
     // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 8
     case 2: // 1x
@@ -272,12 +273,12 @@ void d_switches() {
       goto case 1;
 
     // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 10
-    default:
+    default: // 1 + 2*gototarget
       // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 11
-      // fall through
+      goto case;
 
     // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 12
-    case 5: // 2x (fallthrough)
+    case 5: // 0 + 3*fallthrough
       // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 13
       // PROFUSE: br {{.*}} !prof ![[DSW13:[0-9]+]]
       if (i != 5) {}
@@ -416,7 +417,7 @@ void main() {
 // PROFUSE-DAG: ![[SW1]] = !{!"branch_weights", i32 16, i32 1}
 // PROFUSE-DAG: ![[SW2]] = !{!"branch_weights", i32 6, i32 2, i32 3, i32 4, i32 5}
 // PROFUSE-DAG: ![[SW3]] = !{!"branch_weights", i32 1, i32 2}
-// PROFUSE-DAG: ![[SW4]] = !{!"branch_weights", i32 3, i32 2}
+// PROFUSE-DAG: ![[SW4]] = !{!"branch_weights", i32 3, i32 1}
 // PROFUSE-DAG: ![[SW5]] = !{!"branch_weights", i32 4, i32 1}
 // PROFUSE-DAG: ![[SW6]] = !{!"branch_weights", i32 5, i32 1}
 // PROFUSE-DAG: ![[SW7]] = !{!"branch_weights", i32 1, i32 2, i32 2, i32 2, i32 2}
@@ -428,7 +429,7 @@ void main() {
 // PROFUSE-DAG: ![[DSW2]] = !{!"branch_weights", i32 2, i32 2, i32 1, i32 2, i32 1}
 // PROFUSE-DAG: ![[DSW5]] = !{!"branch_weights", i32 2, i32 2}
 // PROFUSE-DAG: ![[DSW9]] = !{!"branch_weights", i32 1, i32 2}
-// PROFUSE-DAG: ![[DSW13]] = !{!"branch_weights", i32 4, i32 1}
+// PROFUSE-DAG: ![[DSW13]] = !{!"branch_weights", i32 1, i32 -1}
 
 // PROFUSE-DAG: ![[BOOL0]] = !{!"function_entry_count", i64 1}
 // PROFUSE-DAG: ![[BOOL1]] = !{!"branch_weights", i32 1, i32 2}

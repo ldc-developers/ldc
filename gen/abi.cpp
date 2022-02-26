@@ -164,6 +164,20 @@ bool TargetABI::skipReturnValueRewrite(IrFuncTy &fty) {
 
 //////////////////////////////////////////////////////////////////////////////
 
+llvm::CallingConv::ID TargetABI::callingConv(TypeFunction *tf, bool) {
+  return tf->parameterList.varargs == VARARGvariadic
+             ? static_cast<llvm::CallingConv::ID>(llvm::CallingConv::C)
+             : callingConv(tf->linkage);
+}
+
+llvm::CallingConv::ID TargetABI::callingConv(FuncDeclaration *fdecl) {
+  auto tf = fdecl->type->isTypeFunction();
+  assert(tf);
+  return callingConv(tf, fdecl->needThis() || fdecl->isNested());
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 bool TargetABI::preferPassByRef(Type *t) {
   // simple base heuristic: use a ref for all types > 2 machine words
   return t->size() > 2 * target.ptrsize;

@@ -36,26 +36,27 @@ struct X86TargetABI : TargetABI {
         !(os == Triple::Linux || os == Triple::Solaris || os == Triple::NetBSD);
   }
 
-  llvm::CallingConv::ID callingConv(LINK l, TypeFunction *tf = nullptr,
-                                    FuncDeclaration *fdecl = nullptr) override {
-    if (tf && tf->parameterList.varargs == VARARGvariadic)
-      return llvm::CallingConv::C;
-
+  llvm::CallingConv::ID callingConv(LINK l) override {
     switch (l) {
-    case LINK::c:
-    case LINK::objc:
-      return llvm::CallingConv::C;
-    case LINK::cpp:
-      return isMSVC && fdecl && fdecl->needThis()
-                 ? llvm::CallingConv::X86_ThisCall
-                 : llvm::CallingConv::C;
     case LINK::d:
     case LINK::default_:
     case LINK::windows:
       return llvm::CallingConv::X86_StdCall;
     default:
-      llvm_unreachable("Unhandled D linkage type.");
+      return llvm::CallingConv::C;
     }
+  }
+  llvm::CallingConv::ID callingConv(TypeFunction *tf,
+                                    bool withThisPtr) override {
+    if (tf->parameterList.varargs == VARARGvariadic)
+      return llvm::CallingConv::C;
+
+    // MSVC++ passes the `this` pointer in ECX (D: EAX)
+    // follow suit, incl. extern(C++) delegates
+    if (isMSVC && tf->linkage == LINK::cpp && withThisPtr)
+      return llvm::CallingConv::X86_ThisCall;
+
+    return callingConv(tf->linkage);
   }
 
   std::string mangleFunctionForLLVM(std::string name, LINK l) override {

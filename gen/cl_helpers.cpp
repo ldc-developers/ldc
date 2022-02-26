@@ -12,7 +12,6 @@
 #include "dmd/errors.h"
 #include "dmd/ldcbindings.h"
 #include "dmd/root/rmem.h"
-#include "dmd/root/root.h"
 #include <algorithm>
 #include <cctype> // isupper, tolower
 #include <stdarg.h>

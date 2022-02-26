@@ -41,6 +41,7 @@ void bunch_of_branches(const uint two) {
       // PROFGEN: store {{.*}} @[[BoB]], i64 0, i64 7
       // never reached, no branch weights
       if (i != 11) {}
+      goto case;
 
     // PROFGEN: store {{.*}} @[[BoB]], i64 0, i64 8
     case two: // 1x
@@ -51,12 +52,12 @@ void bunch_of_branches(const uint two) {
       goto case 1;
 
     // PROFGEN: store {{.*}} @[[BoB]], i64 0, i64 10
-    default: // 1 + 1*gototarget
+    default: // 1 + 2*gototarget
       // PROFGEN: store {{.*}} @[[BoB]], i64 0, i64 11
-      // fall through
+      goto case;
 
     // PROFGEN: store {{.*}} @[[BoB]], i64 0, i64 12
-    case 5: // 0 + 2*fallthrough
+    case 5: // 0 + 3*fallthrough
 
       // PROFGEN: store {{.*}} @[[BoB]], i64 0, i64 13
       // PROFUSE: br {{.*}} !prof ![[BoB13:[0-9]+]]
@@ -97,4 +98,4 @@ void main() {
 
 // PROFUSE-DAG: ![[BoB5]] = !{!"branch_weights", i32 2, i32 2}
 // PROFUSE-DAG: ![[BoB9]] = !{!"branch_weights", i32 1, i32 2}
-// PROFUSE-DAG: ![[BoB13]] = !{!"branch_weights", i32 4, i32 1}
+// PROFUSE-DAG: ![[BoB13]] = !{!"branch_weights", i32 1, i32 -1}

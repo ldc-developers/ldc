@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include "dmd/root/root.h"
-
 class Type;
 class Dsymbol;
 class VarDeclaration;

@@ -80,10 +80,14 @@ struct TargetABI {
 
   /// Returns the LLVM calling convention to be used for the given D linkage
   /// type on the target. Defaults to the C calling convention.
-  virtual llvm::CallingConv::ID callingConv(LINK l, TypeFunction *tf = nullptr,
-                                            FuncDeclaration *fdecl = nullptr) {
+  virtual llvm::CallingConv::ID callingConv(LINK) {
     return llvm::CallingConv::C;
   }
+  // By default, enforce C calling convention for (non-typesafe) variadics,
+  // otherwise forward to LINK overload.
+  virtual llvm::CallingConv::ID callingConv(TypeFunction *tf, bool withThisPtr);
+  // By default, forward to TypeFunction overload.
+  virtual llvm::CallingConv::ID callingConv(FuncDeclaration *fdecl);
 
   /// Applies any rewrites that might be required to accurately reproduce the
   /// passed function name on LLVM given a specific calling convention.

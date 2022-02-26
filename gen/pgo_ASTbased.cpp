@@ -347,8 +347,8 @@ struct MapRegionCounters : public StoppableVisitor {
   void visit(LogicalExp *expr) override {
     SKIP_VISITED(expr);
     CounterMap[expr] = NextCounter++;
-    Hash.combine(expr->op == TOKandand ? PGOHash::AndAndExpr
-                                       : PGOHash::OrOrExpr);
+    Hash.combine(expr->op == EXP::andAnd ? PGOHash::AndAndExpr
+                                         : PGOHash::OrOrExpr);
   }
 
 #undef SKIP_VISITED

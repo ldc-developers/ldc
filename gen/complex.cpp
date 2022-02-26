@@ -413,7 +413,7 @@ DImValue *DtoComplexNeg(const Loc &loc, Type *type, DRValue *val) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoComplexEquals(const Loc &loc, TOK op, DValue *lhs, DValue *rhs) {
+LLValue *DtoComplexEquals(const Loc &loc, EXP op, DValue *lhs, DValue *rhs) {
   DValue *lhs_re, *lhs_im, *rhs_re, *rhs_im;
 
   // lhs values
@@ -425,8 +425,8 @@ LLValue *DtoComplexEquals(const Loc &loc, TOK op, DValue *lhs, DValue *rhs) {
   LLValue *b1 = DtoBinFloatsEquals(loc, lhs_re, rhs_re, op);
   LLValue *b2 = DtoBinFloatsEquals(loc, lhs_im, rhs_im, op);
 
-  return (op == TOKequal || op == TOKidentity) ? gIR->ir->CreateAnd(b1, b2)
-                                               : gIR->ir->CreateOr(b1, b2);
+  return (op == EXP::equal || op == EXP::identity) ? gIR->ir->CreateAnd(b1, b2)
+                                                   : gIR->ir->CreateOr(b1, b2);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -477,7 +477,7 @@ DValue *DtoCastComplex(const Loc &loc, DValue *val, Type *_to) {
   }
   if (to->ty == TY::Tbool) {
     return new DImValue(
-        _to, DtoComplexEquals(loc, TOKnotequal, val, DtoNullValue(vty)));
+        _to, DtoComplexEquals(loc, EXP::notEqual, val, DtoNullValue(vty)));
   }
   if (to->isfloating() || to->isintegral()) {
     // FIXME: this loads both values, even when we only need one

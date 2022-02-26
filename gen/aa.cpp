@@ -181,7 +181,7 @@ DValue *DtoAARemove(const Loc &loc, DValue *aa, DValue *key) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoAAEquals(const Loc &loc, TOK op, DValue *l, DValue *r) {
+LLValue *DtoAAEquals(const Loc &loc, EXP op, DValue *l, DValue *r) {
   Type *t = l->type->toBasetype();
   assert(t == r->type->toBasetype() &&
          "aa equality is only defined for aas of same type");

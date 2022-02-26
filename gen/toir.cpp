@@ -136,7 +136,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       IF_LOG Logger::println("expr = %s", expr->toChars());
       // try to construct it in-place
       if (!toInPlaceConstruction(&field, expr)) {
-        DtoAssign(loc, &field, toElem(expr), TOKblit);
+        DtoAssign(loc, &field, toElem(expr), EXP::blit);
         if (expr->isLvalue())
           callPostblit(loc, expr, DtoLVal(&field));
       }
@@ -146,7 +146,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       LOG_SCOPE
       DImValue val(vd->type,
                    DtoBitCast(DtoNestedContext(loc, sd), DtoType(vd->type)));
-      DtoAssign(loc, &field, &val, TOKblit);
+      DtoAssign(loc, &field, &val, EXP::blit);
     }
 
     // Make sure to zero out padding bytes counted as being part of the type in
@@ -398,12 +398,12 @@ public:
     }
 
     // Initialization of ref variable?
-    // Can't just override ConstructExp::toElem because not all TOKconstruct
+    // Can't just override ConstructExp::toElem because not all EXP::construct
     // operations are actually instances of ConstructExp... Long live the DMD
     // coding style!
     if (static_cast<int>(e->memset) &
         static_cast<int>(MemorySet::referenceInit)) {
-      assert(e->op == TOKconstruct || e->op == TOKblit);
+      assert(e->op == EXP::construct || e->op == EXP::blit);
       auto ve = e->e1->isVarExp();
       assert(ve);
 
@@ -455,7 +455,7 @@ public:
     };
 
     // Try to construct the lhs in-place.
-    if (lhs->isLVal() && (e->op == TOKconstruct || e->op == TOKblit)) {
+    if (lhs->isLVal() && (e->op == EXP::construct || e->op == EXP::blit)) {
       if (toInPlaceConstruction(lhs->isLVal(), e->e2))
         return;
     }
@@ -471,7 +471,7 @@ public:
     // where `i` is a ref variable aliasing with a).
     // Be conservative with this optimization for now: only do the optimization
     // for struct `.init` assignment.
-    if (lhs->isLVal() && e->op == TOKassign) {
+    if (lhs->isLVal() && e->op == EXP::assign) {
       if (auto sle = e->e2->isStructLiteralExp()) {
         if (sle->useStaticInit) {
           if (toInPlaceConstruction(lhs->isLVal(), sle))
@@ -482,7 +482,8 @@ public:
 
     DValue *r = toElem(e->e2);
 
-    if (e->e1->type->toBasetype()->ty == TY::Tstruct && e->e2->op == TOKint64) {
+    if (e->e1->type->toBasetype()->ty == TY::Tstruct &&
+        e->e2->op == EXP::int64) {
       Logger::println("performing aggregate zero initialization");
       assert(e->e2->toInteger() == 0);
       LLValue *lval = DtoLVal(lhs);
@@ -497,11 +498,11 @@ public:
     // TODO: Should be cached in the frontend to avoid issues with the code
     // getting out of sync?
     bool lvalueElem = false;
-    if ((e->e2->op == TOKslice &&
+    if ((e->e2->op == EXP::slice &&
          static_cast<UnaExp *>(e->e2)->e1->isLvalue()) ||
-        (e->e2->op == TOKcast &&
+        (e->e2->op == EXP::cast_ &&
          static_cast<UnaExp *>(e->e2)->e1->isLvalue()) ||
-        (e->e2->op != TOKslice && e->e2->isLvalue())) {
+        (e->e2->op != EXP::slice && e->e2->isLvalue())) {
       lvalueElem = true;
     }
 
@@ -586,7 +587,7 @@ public:
     DValue *opResult = binOpFunc(e->loc, opType, lhsLVal, e->e2, true);
 
     DValue *assignedResult = DtoCast(e->loc, opResult, lhsLVal->type);
-    DtoAssign(e->loc, lhsLVal, assignedResult, TOKassign);
+    DtoAssign(e->loc, lhsLVal, assignedResult, EXP::assign);
 
     if (e->type->equals(lhsLVal->type))
       return lhsLVal;
@@ -659,7 +660,7 @@ public:
     if (e->f && e->f->isCtorDeclaration()) {
       if (auto dve = e->e1->isDotVarExp())
         if (auto ce = dve->e1->isCommaExp())
-          if (ce->e1->op == TOKdeclaration)
+          if (ce->e1->op == EXP::declaration)
             if (auto ve = ce->e2->isVarExp())
               if (auto vd = ve->var->isVarDeclaration())
                 if (vd->needsScopeDtor()) {
@@ -819,7 +820,7 @@ public:
 
     // The address of a StructLiteralExp can in fact be a global variable, check
     // for that instead of re-codegening the literal.
-    if (e->e1->op == TOKstructliteral) {
+    if (e->e1->op == EXP::structLiteral) {
       // lvalue literal must be a global, hence we can just use
       // toConstElem on the AddrExp to get the address.
       LLConstant *addr = toConstElem(e, p);
@@ -1199,16 +1200,16 @@ public:
     } else if (t->isfloating()) {
       llvm::FCmpInst::Predicate cmpop;
       switch (e->op) {
-      case TOKlt:
+      case EXP::lessThan:
         cmpop = llvm::FCmpInst::FCMP_OLT;
         break;
-      case TOKle:
+      case EXP::lessOrEqual:
         cmpop = llvm::FCmpInst::FCMP_OLE;
         break;
-      case TOKgt:
+      case EXP::greaterThan:
         cmpop = llvm::FCmpInst::FCMP_OGT;
         break;
-      case TOKge:
+      case EXP::greaterOrEqual:
         cmpop = llvm::FCmpInst::FCMP_OGE;
         break;
 
@@ -1288,10 +1289,10 @@ public:
       Logger::println("integral or pointer or interface");
       llvm::ICmpInst::Predicate cmpop;
       switch (e->op) {
-      case TOKequal:
+      case EXP::equal:
         cmpop = llvm::ICmpInst::ICMP_EQ;
         break;
-      case TOKnotequal:
+      case EXP::notEqual:
         cmpop = llvm::ICmpInst::ICMP_NE;
         break;
       default:
@@ -1357,33 +1358,33 @@ public:
       assert(e2type->isintegral());
       LLValue *one =
           LLConstantInt::get(val->getType(), 1, !e2type->isunsigned());
-      if (e->op == TOKplusplus) {
+      if (e->op == EXP::plusPlus) {
         post = llvm::BinaryOperator::CreateAdd(val, one, "", p->scopebb());
-      } else if (e->op == TOKminusminus) {
+      } else if (e->op == EXP::minusMinus) {
         post = llvm::BinaryOperator::CreateSub(val, one, "", p->scopebb());
       }
     } else if (e1type->ty == TY::Tpointer) {
-      assert(e->e2->op == TOKint64);
+      assert(e->e2->op == EXP::int64);
       LLConstant *offset =
-          e->op == TOKplusplus ? DtoConstUint(1) : DtoConstInt(-1);
+          e->op == EXP::plusPlus ? DtoConstUint(1) : DtoConstInt(-1);
       post = DtoGEP1(val, offset, "", p->scopebb());
     } else if (e1type->iscomplex()) {
       assert(e2type->iscomplex());
       LLValue *one = LLConstantFP::get(DtoComplexBaseType(e1type), 1.0);
       LLValue *re, *im;
       DtoGetComplexParts(e->loc, e1type, dv, re, im);
-      if (e->op == TOKplusplus) {
+      if (e->op == EXP::plusPlus) {
         re = llvm::BinaryOperator::CreateFAdd(re, one, "", p->scopebb());
-      } else if (e->op == TOKminusminus) {
+      } else if (e->op == EXP::minusMinus) {
         re = llvm::BinaryOperator::CreateFSub(re, one, "", p->scopebb());
       }
       DtoComplexSet(lval, re, im);
     } else if (e1type->isfloating()) {
       assert(e2type->isfloating());
       LLValue *one = DtoConstFP(e1type, ldouble(1.0));
-      if (e->op == TOKplusplus) {
+      if (e->op == EXP::plusPlus) {
         post = llvm::BinaryOperator::CreateFAdd(val, one, "", p->scopebb());
-      } else if (e->op == TOKminusminus) {
+      } else if (e->op == EXP::minusMinus) {
         post = llvm::BinaryOperator::CreateFSub(val, one, "", p->scopebb());
       }
     } else {
@@ -1501,7 +1502,7 @@ public:
 
       // try to construct it in-place
       if (!toInPlaceConstruction(&tmpvar, exp))
-        DtoAssign(e->loc, &tmpvar, toElem(exp), TOKblit);
+        DtoAssign(e->loc, &tmpvar, toElem(exp), EXP::blit);
 
       // return as pointer-to
       result = new DImValue(e->type, mem);
@@ -1582,6 +1583,19 @@ public:
 
     DValue *u = toElem(e->e1);
     result = new DImValue(e->type, DtoArrayLen(u));
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  void visit(ThrowExp *e) override {
+    IF_LOG Logger::print("ThrowExp::toElem: %s\n", e->toChars());
+    LOG_SCOPE;
+
+    auto &PGO = gIR->funcGen().pgo;
+    PGO.setCurrentStmt(e);
+
+    DtoThrow(e->loc, toElem(e->e1));
+    result = new DNullValue(e->type, llvm::UndefValue::get(DtoType(e->type)));
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1707,7 +1721,7 @@ public:
 
     DValue *u = toElem(e->e1);
 
-    const bool isAndAnd = (e->op == TOKandand); // otherwise OrOr
+    const bool isAndAnd = (e->op == EXP::andAnd); // otherwise OrOr
     llvm::BasicBlock *rhsBB = p->insertBB(isAndAnd ? "andand" : "oror");
     llvm::BasicBlock *endBB =
         p->insertBBAfter(rhsBB, isAndAnd ? "andandend" : "ororend");
@@ -1823,7 +1837,7 @@ public:
 
     LLValue *castfptr;
 
-    if (e->e1->op != TOKsuper && e->e1->op != TOKdottype &&
+    if (e->e1->op != EXP::super_ && e->e1->op != EXP::dotType &&
         e->func->isVirtual() && !e->func->isFinalFunc()) {
       castfptr = DtoVirtualFunctionPointer(u, e->func);
     } else if (e->func->isAbstract()) {
@@ -1835,7 +1849,7 @@ public:
 
       // We need to actually codegen the function here, as literals are not
       // added to the module member list.
-      if (e->func->semanticRun == PASSsemantic3done) {
+      if (e->func->semanticRun == PASS::semantic3done) {
         Dsymbol *owner = e->func->toParent();
         while (!owner->isTemplateInstance() && owner->toParent()) {
           owner = owner->toParent();
@@ -1901,23 +1915,23 @@ public:
           rv = DtoBitCast(rv, lv->getType());
         }
       }
-      eval = (e->op == TOKidentity) ? p->ir->CreateICmpEQ(lv, rv)
-                                    : p->ir->CreateICmpNE(lv, rv);
+      eval = (e->op == EXP::identity) ? p->ir->CreateICmpEQ(lv, rv)
+                                      : p->ir->CreateICmpNE(lv, rv);
     } else if (t1->ty == TY::Tsarray) {
       LLValue *lptr = DtoLVal(l);
       LLValue *rptr = DtoLVal(r);
       assert(lptr->getType() == rptr->getType());
-      eval = (e->op == TOKidentity) ? p->ir->CreateICmpEQ(lptr, rptr)
-                                    : p->ir->CreateICmpNE(lptr, rptr);
+      eval = (e->op == EXP::identity) ? p->ir->CreateICmpEQ(lptr, rptr)
+                                      : p->ir->CreateICmpNE(lptr, rptr);
     } else {
       LLValue *lv = DtoRVal(l);
       LLValue *rv = DtoRVal(r);
       assert(lv->getType() == rv->getType());
-      eval = (e->op == TOKidentity) ? p->ir->CreateICmpEQ(lv, rv)
-                                    : p->ir->CreateICmpNE(lv, rv);
+      eval = (e->op == EXP::identity) ? p->ir->CreateICmpEQ(lv, rv)
+                                      : p->ir->CreateICmpNE(lv, rv);
       if (t1->ty == TY::Tvector) {
-        eval = mergeVectorEquals(eval,
-                                 e->op == TOKidentity ? TOKequal : TOKnotequal);
+        eval = mergeVectorEquals(eval, e->op == EXP::identity ? EXP::equal
+                                                              : EXP::notEqual);
       }
     }
     result = new DImValue(e->type, eval);
@@ -2086,12 +2100,12 @@ public:
   //////////////////////////////////////////////////////////////////////////////
 
   void genFuncLiteral(FuncLiteralDeclaration *fd, FuncExp *e) {
-    if ((fd->tok == TOKreserved || fd->tok == TOKdelegate) &&
+    if ((fd->tok == TOK::reserved || fd->tok == TOK::delegate_) &&
         (e && e->type->ty == TY::Tpointer)) {
       // This is a lambda that was inferred to be a function literal instead
       // of a delegate, so set tok here in order to get correct types/mangling.
       // Horrible hack, but DMD does the same thing.
-      fd->tok = TOKfunction;
+      fd->tok = TOK::function_;
       fd->vthis = nullptr;
     }
 
@@ -2419,7 +2433,7 @@ public:
 
       // try to construct it in-place
       if (!toInPlaceConstruction(mem, eval))
-        DtoAssign(e->loc, mem, toElem(eval), TOKblit);
+        DtoAssign(e->loc, mem, toElem(eval), EXP::blit);
     }
   }
 

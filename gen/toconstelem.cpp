@@ -258,7 +258,7 @@ public:
 
     // string literal to dyn array:
     // reinterpret the string data as an array, calculate the length
-    if (e->e1->op == TOKstring && tb->ty == TY::Tarray) {
+    if (e->e1->op == EXP::string_ && tb->ty == TY::Tarray) {
 #if 0
             StringExp *strexp = static_cast<StringExp*>(e1);
             size_t datalen = strexp->sz * strexp->len;
@@ -278,7 +278,7 @@ public:
       result = llvm::ConstantExpr::getBitCast(toConstElem(e->e1, p), lltype);
     }
     // global variable to pointer
-    else if (tb->ty == TY::Tpointer && e->e1->op == TOKvar) {
+    else if (tb->ty == TY::Tpointer && e->e1->op == EXP::variable) {
       VarDeclaration *vd =
           static_cast<VarExp *>(e->e1)->var->isVarDeclaration();
       assert(vd);
@@ -294,7 +294,7 @@ public:
       }
       result = DtoBitCast(value, DtoType(tb));
     } else if (tb->ty == TY::Tclass && e->e1->type->ty == TY::Tclass &&
-               e->e1->op == TOKclassreference) {
+               e->e1->op == EXP::classReference) {
       auto cd = static_cast<ClassReferenceExp *>(e->e1)->originalClass();
       llvm::Constant *instance = toConstElem(e->e1, p);
       if (InterfaceDeclaration *it =
@@ -428,7 +428,7 @@ public:
       return;
     }
 
-    if (e->e1->op == TOKslice || e->e1->op == TOKdotvar) {
+    if (e->e1->op == EXP::slice || e->e1->op == EXP::dotVariable) {
       visit(static_cast<Expression *>(e));
       return;
     }
@@ -446,17 +446,17 @@ public:
     FuncLiteralDeclaration *fd = e->fd;
     assert(fd);
 
-    if (fd->tok == TOKreserved && e->type->ty == TY::Tpointer) {
+    if (fd->tok == TOK::reserved && e->type->ty == TY::Tpointer) {
       // This is a lambda that was inferred to be a function literal instead
       // of a delegate, so set tok here in order to get correct types/mangling.
       // Horrible hack, but DMD does the same thing in FuncExp::toElem and
       // other random places.
-      fd->tok = TOKfunction;
+      fd->tok = TOK::function_;
       fd->vthis = nullptr;
     }
 
-    if (fd->tok != TOKfunction) {
-      assert(fd->tok == TOKdelegate || fd->tok == TOKreserved);
+    if (fd->tok != TOK::function_) {
+      assert(fd->tok == TOK::delegate_ || fd->tok == TOK::reserved);
 
       // Only if the function doesn't access its nested context, we can emit a
       // constant delegate with context pointer being null.
@@ -477,7 +477,7 @@ public:
     result = DtoCallee(fd, false);
     assert(result);
 
-    if (fd->tok != TOKfunction) {
+    if (fd->tok != TOK::function_) {
       auto contextPtr = getNullPtr(getVoidPtrType());
       result = LLConstantStruct::getAnon(gIR->context(), {contextPtr, result});
     }

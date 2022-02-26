@@ -66,13 +66,9 @@ StructLiteralExp *getLdcAttributesStruct(Expression *attr) {
     return nullptr;
   }
 
-  if (e->op != TOKstructliteral) {
-    return nullptr;
-  }
-
-  auto sle = static_cast<StructLiteralExp *>(e);
-  if (isFromMagicModule(sle, Id::attributes)) {
-    return sle;
+  if (auto sle = e->isStructLiteralExp()) {
+    if (isFromMagicModule(sle, Id::attributes))
+      return sle;
   }
 
   return nullptr;
@@ -109,16 +105,10 @@ StructLiteralExp *getMagicAttribute(Dsymbol *sym, const Identifier *id,
   // Loop over all UDAs and early return the expression if a match was found.
   Expressions *attrs = sym->userAttribDecl->getAttributes();
   expandTuples(attrs);
-  for (auto &attr : *attrs) {
-    if (attr->op != TOKstructliteral)
-      continue;
-    auto sle = static_cast<StructLiteralExp *>(attr);
-    if (!isFromMagicModule(sle, from))
-      continue;
-
-    if (id == sle->sd->ident) {
-      return sle;
-    }
+  for (auto attr : *attrs) {
+    if (auto sle = attr->isStructLiteralExp())
+      if (isFromMagicModule(sle, from) && id == sle->sd->ident)
+        return sle;
   }
 
   return nullptr;
@@ -136,17 +126,10 @@ void callForEachMagicAttribute(Dsymbol &sym, const Identifier *id,
   // Loop over all UDAs and call `action` if a match was found.
   Expressions *attrs = sym.userAttribDecl->getAttributes();
   expandTuples(attrs);
-  for (auto &attr : *attrs) {
-    if (attr->op != TOKstructliteral)
-      continue;
-    auto sle = static_cast<StructLiteralExp *>(attr);
-    if (!isFromMagicModule(sle, from))
-      continue;
-    if (id != sle->sd->ident)
-      continue;
-
-    // Match found!
-    action(sle);
+  for (auto attr : *attrs) {
+    if (auto sle = attr->isStructLiteralExp())
+      if (isFromMagicModule(sle, from) && id == sle->sd->ident)
+        action(sle);
   }
 }
 

@@ -307,8 +307,7 @@ static LLType *getPtrToAtomicType(LLType *type) {
 bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
                             DValue *&result) {
   // va_start instruction
-  if (fndecl->llvmInternal == LLVMva_start ||
-      fndecl->ident == Id::builtin_va_start) {
+  if (fndecl->llvmInternal == LLVMva_start) {
     if (e->arguments->length < 1 || e->arguments->length > 2) {
       e->error("`va_start` instruction expects 1 (or 2) arguments");
       fatal();
@@ -327,8 +326,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
   }
 
   // va_copy instruction
-  if (fndecl->llvmInternal == LLVMva_copy ||
-      fndecl->ident == Id::builtin_va_copy) {
+  if (fndecl->llvmInternal == LLVMva_copy) {
     if (e->arguments->length != 2) {
       e->error("`va_copy` instruction expects 2 arguments");
       fatal();
@@ -360,8 +358,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
   }
 
   // va_end instruction
-  if (fndecl->llvmInternal == LLVMva_end ||
-      fndecl->ident == Id::builtin_va_end) {
+  if (fndecl->llvmInternal == LLVMva_end) {
     if (e->arguments->length != 1) {
       e->error("`va_end` instruction expects 1 argument");
       fatal();
@@ -701,6 +698,8 @@ public:
     addArguments();
   }
 
+  bool hasContext = false; // set after addImplicitArgs invocation
+
 private:
   // passed:
   std::vector<LLValue *> &args;
@@ -744,12 +743,13 @@ private:
            "Sret arg not sret or inreg?");
   }
 
-  // Adds an optional context/this pointer argument.
+  // Adds an optional context/this pointer argument and sets hasContext.
   void addContext() {
-    bool thiscall = irFty.arg_this;
-    bool nestedcall = irFty.arg_nest;
+    const bool thiscall = irFty.arg_this;
+    const bool nestedcall = irFty.arg_nest;
 
-    if (!thiscall && !isDelegateCall && !nestedcall)
+    hasContext = thiscall || nestedcall || isDelegateCall;
+    if (!hasContext)
       return;
 
     size_t index = args.size();
@@ -863,9 +863,6 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
   LLFunctionType *const callableTy =
       DtoExtractFunctionType(callable->getType());
   assert(callableTy);
-
-  const auto callconv =
-      gABI->callingConv(tf->linkage, tf, dfnval ? dfnval->func : nullptr);
 
   //     IF_LOG Logger::cout() << "callable: " << *callable << '\n';
 
@@ -1038,28 +1035,26 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
 
   // set calling convention and parameter attributes
   LLAttributeList &attrlist = attrs;
-  if (dfnval && dfnval->func) {
-    LLFunction *llfunc = llvm::dyn_cast<LLFunction>(DtoRVal(dfnval));
-    if (llfunc && llfunc->isIntrinsic()) // override intrinsic attrs
-    {
-      attrlist = llvm::Intrinsic::getAttributes(
-          gIR->context(),
-          static_cast<llvm::Intrinsic::ID>(llfunc->getIntrinsicID()));
-    } else {
-      call->setCallingConv(callconv);
+  if (auto cf = call->getCalledFunction()) {
+    call->setCallingConv(cf->getCallingConv());
+    if (cf->isIntrinsic()) { // override intrinsic attrs
+      attrlist =
+          llvm::Intrinsic::getAttributes(gIR->context(), cf->getIntrinsicID());
     }
+  } else if (dfnval) {
+    call->setCallingConv(gABI->callingConv(dfnval->func));
   } else {
-    call->setCallingConv(callconv);
+    call->setCallingConv(gABI->callingConv(tf, iab.hasContext));
   }
   // merge in function attributes set in callOrInvoke
 #if LDC_LLVM_VER >= 1400
   attrlist = attrlist.addFnAttributes(
-    gIR->context(),
-    llvm::AttrBuilder(call->getAttributes(), LLAttributeList::FunctionIndex));
+      gIR->context(),
+      llvm::AttrBuilder(call->getAttributes(), LLAttributeList::FunctionIndex));
 #else
   attrlist = attrlist.addAttributes(
-    gIR->context(), LLAttributeList::FunctionIndex,
-    llvm::AttrBuilder(call->getAttributes(), LLAttributeList::FunctionIndex));
+      gIR->context(), LLAttributeList::FunctionIndex,
+      llvm::AttrBuilder(call->getAttributes(), LLAttributeList::FunctionIndex));
 #endif
   call->setAttributes(attrlist);
 

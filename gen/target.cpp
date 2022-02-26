@@ -91,6 +91,8 @@ void Target::_init(const Param &params) {
     os = OS_DragonFlyBSD;
   } else if (triple.isOSSolaris()) {
     os = OS_Solaris;
+  } else {
+    os = OS_Freestanding;
   }
 
   osMajor = triple.getOSMajorVersion();
@@ -103,6 +105,7 @@ void Target::_init(const Param &params) {
   classinfosize = 0; // unused
   maxStaticDataSize = std::numeric_limits<unsigned long long>::max();
 
+  c.crtDestructorsSupported = true; // unused as of 2.099
   c.longsize = (ptrsize == 8) && !isMSVC ? 8 : 4;
   c.long_doublesize = realsize;
   c.wchar_tsize = triple.isOSWindows() ? 2 : 4;
@@ -112,6 +115,7 @@ void Target::_init(const Param &params) {
   cpp.reverseOverloads = isMSVC; // according to DMD, only for MSVC++
   cpp.exceptions = true;
   cpp.twoDtorInVtable = !isMSVC;
+  cpp.splitVBasetable = isMSVC;
   cpp.wrapDtorInExternD = triple.getArch() == llvm::Triple::x86;
 
   objc.supported = objc_isSupported(triple);
@@ -122,7 +126,7 @@ void Target::_init(const Param &params) {
   is64bit = triple.isArch64Bit();
   isLP64 = gDataLayout->getPointerSizeInBits() == 64;
   run_noext = !triple.isOSWindows();
-  mscoff = isMSVC;
+  omfobj = false;
 
   if (isMSVC) {
     obj_ext = {3, "obj"};
@@ -320,4 +324,9 @@ bool Target::isCalleeDestroyingArgs(TypeFunction* tf) {
   // callEE for extern(D) and MSVC++; callER for non-MSVC extern(C++)
   return global.params.targetTriple->isWindowsMSVCEnvironment() ||
          tf->linkage != LINK::cpp;
+}
+
+bool Target::supportsLinkerDirective() const {
+  return global.params.targetTriple->isWindowsMSVCEnvironment() ||
+         global.params.targetTriple->isOSBinFormatMachO();
 }

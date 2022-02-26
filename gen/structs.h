@@ -39,7 +39,7 @@ void DtoResolveStruct(StructDeclaration *sd);
 void DtoResolveStruct(StructDeclaration *sd, const Loc &callerLoc);
 
 /// Returns a boolean=true if the two structs are equal.
-llvm::Value *DtoStructEquals(TOK op, DValue *lhs, DValue *rhs);
+llvm::Value *DtoStructEquals(EXP op, DValue *lhs, DValue *rhs);
 
 /// Return the type returned by DtoUnpaddedStruct called on a value of the
 /// specified type.

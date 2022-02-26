@@ -353,9 +353,10 @@ static cl::list<std::string, StringsAdapter> stringImportPaths(
     "J", cl::desc("Look for string imports also in <directory>"),
     cl::value_desc("directory"), cl::location(strImpPathStore), cl::Prefix);
 
-static cl::opt<bool, true>
-    addMain("main", cl::desc("Add default main() (e.g. for unittesting)"),
-            cl::ZeroOrMore, cl::location(global.params.addMain));
+static cl::opt<bool, true> addMain(
+    "main", cl::ZeroOrMore, cl::location(global.params.addMain),
+    cl::desc(
+        "Add default main() if not present already (e.g. for unittesting)"));
 
 // -d-debug is a bit messy, it has 3 modes:
 // -d-debug=ident, -d-debug=level and -d-debug (without argument)

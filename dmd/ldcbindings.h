@@ -33,6 +33,6 @@ GccAsmStatement *createGccAsmStatement(const Loc &loc, Token *tokens);
 
 // for gen/asm-x86.h only:
 Expression *createExpressionForIntOp(const Loc &loc, TOK op, Expression *e1, Expression *e2);
-Expression *createExpression(const Loc &loc, TOK op);
+Expression *createExpression(const Loc &loc, EXP op);
 DsymbolExp *createDsymbolExp(const Loc &loc, Dsymbol *s);
 AddrExp *createAddrExp(const Loc &loc, Expression *e);

@@ -85,7 +85,7 @@ public:
     }
 
     // only expstmt supported in declarations
-    if (!stmt->exp || stmt->exp->op != TOKdeclaration) {
+    if (!stmt->exp || stmt->exp->op != EXP::declaration) {
       visit(static_cast<Statement *>(stmt));
       return;
     }
@@ -408,7 +408,7 @@ DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
   Expression *e = (*arguments)[0];
   IF_LOG Logger::println("code exp: %s", e->toChars());
   StringExp *se = static_cast<StringExp *>(e);
-  if (e->op != TOKstring || se->sz != 1) {
+  if (e->op != EXP::string_ || se->sz != 1) {
     e->error("`__asm` code argument is not a `char[]` string literal");
     fatal();
   }
@@ -419,7 +419,7 @@ DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
   e = (*arguments)[1];
   IF_LOG Logger::println("constraint exp: %s", e->toChars());
   se = static_cast<StringExp *>(e);
-  if (e->op != TOKstring || se->sz != 1) {
+  if (e->op != EXP::string_ || se->sz != 1) {
     e->error("`__asm` constraints argument is not a `char[]` string literal");
     fatal();
   }
