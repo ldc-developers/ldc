@@ -592,8 +592,8 @@ set(LDMD_EXE_FULL ${PROJECT_BINARY_DIR}/bin/${LDMD_EXE_NAME}${CMAKE_EXECUTABLE_S
 # LLVM flags into account.
 set(LDC_LINKERFLAG_LIST ${SANITIZE_LDFLAGS} ${LLVM_LIBRARIES} ${LLVM_LDFLAGS})
 if(MSVC)
-    # Issue 1297 – set LDC's stack to 8 MiB like on Linux and Mac (default: 1 MiB).
-    list(APPEND LDC_LINKERFLAG_LIST "/STACK:8388608")
+    # Issue 1297 – set LDC's stack to 16 MiB for Windows builds (default: 1 MiB).
+    list(APPEND LDC_LINKERFLAG_LIST "/STACK:16777216")
     # VS 2017+: Use undocumented /NOOPTTLS MS linker switch to keep on emitting
     # a .tls section. Required for older host druntime versions, otherwise the
     # GC TLS ranges are garbage starting with VS 2017 Update 15.3.
