@@ -1607,7 +1607,7 @@ DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl) {
   if (SymbolDeclaration *sdecl = decl->isSymbolDeclaration()) {
     // this is the static initialiser (init symbol) for aggregates
     AggregateDeclaration *ad = sdecl->dsym;
-    IF_LOG Logger::print("Sym: ad=%s\n", ad->toChars());
+    IF_LOG Logger::print("init symbol of %s\n", ad->toChars());
     DtoResolveDsymbol(ad);
     auto sd = ad->isStructDeclaration();
 
@@ -1733,24 +1733,33 @@ static bool isDefaultLibSymbol(Dsymbol *sym) {
             (md->packages.length > 1 && md->packages.ptr[1] == Id::io)));
 }
 
-bool defineOnDeclare(Dsymbol* sym, bool isFunction) {
-  if (global.params.linkonceTemplates)
-    return sym->isInstantiated();
-
-  // With -dllimport=defaultLibsOnly, an instantiated data symbol from a
-  // druntime/Phobos template may be assigned to an arbitrary binary (and culled
-  // from others via `needsCodegen()`). Define it in each referencing CU and
-  // never dllimport.
-  return !isFunction && global.params.dllimport == DLLImport::defaultLibsOnly &&
-         sym->isInstantiated() && isDefaultLibSymbol(sym);
+bool defineOnDeclare(Dsymbol* sym, bool) {
+  return global.params.linkonceTemplates && sym->isInstantiated();
 }
 
 bool dllimportDataSymbol(Dsymbol *sym) {
-  return sym->isExport() || global.params.dllimport == DLLImport::all ||
-         (global.params.dllimport == DLLImport::defaultLibsOnly &&
-          // exclude instantiated symbols from druntime/Phobos templates (see
-          // `defineOnDeclare()`)
-          !sym->isInstantiated() && isDefaultLibSymbol(sym));
+  if (!global.params.targetTriple->isOSWindows())
+    return false;
+
+  if (sym->isExport() || global.params.dllimport == DLLImport::all ||
+      (global.params.dllimport == DLLImport::defaultLibsOnly &&
+       isDefaultLibSymbol(sym))) {
+    // Okay, this symbol is a candidate. Use dllimport unless we have a
+    // guaranteed-codegen'd definition in a root module.
+    if (auto mod = sym->isModule()) {
+      return !mod->isRoot(); // non-root ModuleInfo symbol
+    } else if (sym->inNonRoot()) {
+      return true; // not instantiated, and defined in non-root
+    } else if (!global.params.linkonceTemplates &&
+               sym->isInstantiated()) {
+      return true; // instantiated but potentially culled (needsCodegen())
+    } else if (auto vd = sym->isVarDeclaration()) {
+      if (vd->storage_class & STCextern)
+        return true; // externally defined global variable
+    }
+  }
+
+  return false;
 }
 
 llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,

@@ -290,8 +290,12 @@ void setVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
 
   if (triple.isOSWindows()) {
     bool isExported = sym->isExport();
-    // also export with -fvisibility=public without @hidden
-    if (!isExported && global.params.dllexport && !hasHiddenUDA) {
+    // Also export (non-linkonce_odr) symbols
+    // * with -fvisibility=public without @hidden, or
+    // * if declared with dllimport (so potentially imported from other object
+    //   files / DLLs).
+    if (!isExported && ((global.params.dllexport && !hasHiddenUDA) ||
+                        obj->hasDLLImportStorageClass())) {
       isExported = hasExportedLinkage(obj);
     }
     // reset default visibility & DSO locality - on Windows, the DLL storage
