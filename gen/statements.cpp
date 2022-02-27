@@ -1365,7 +1365,7 @@ public:
     PGO.emitCounterIncrement(stmt);
 
     // get value for this iteration
-    LLValue *loadedKey = irs->ir->CreateLoad(keyvar);
+    LLValue *loadedKey = DtoLoad(keyvar);
     LLValue *gep = DtoGEP1(val, loadedKey);
 
     if (!stmt->value->isRef() && !stmt->value->isOut()) {

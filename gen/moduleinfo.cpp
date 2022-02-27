@@ -87,7 +87,11 @@ llvm::Function *buildForwarderFunction(
   for (auto gate : gates) {
     assert(getIrGlobal(gate));
     const auto val = getIrGlobal(gate)->value;
-    const auto rval = builder.CreateLoad(val, "vgate");
+    const auto rval = builder.CreateLoad(
+#if LDC_LLVM_VER >= 800
+        getPointeeType(val),
+#endif
+        val, "vgate");
     const auto res = builder.CreateAdd(rval, DtoConstUint(1), "vgate");
     builder.CreateStore(res, val);
   }

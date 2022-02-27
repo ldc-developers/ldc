@@ -184,12 +184,16 @@ private:
 
     Value *address = currentGlobal;
     for (auto i : currentGepPath) {
+      auto t = address->getType()->getPointerElementType();
       if (i <= 0xFFFFFFFFu) {
-        address = b.CreateConstInBoundsGEP2_32(
-            address->getType()->getPointerElementType(), address, 0,
-            static_cast<unsigned>(i));
+        address = b.CreateConstInBoundsGEP2_32(t, address, 0,
+                                               static_cast<unsigned>(i));
       } else {
-        address = b.CreateConstInBoundsGEP2_64(address, 0, i);
+        address = b.CreateConstInBoundsGEP2_64(
+#if LDC_LLVM_VER >= 800
+            t,
+#endif
+            address, 0, i);
       }
     }
 
@@ -207,9 +211,13 @@ private:
     auto ifbb = BasicBlock::Create(m.getContext(), "if", ctor);
     auto endbb = BasicBlock::Create(m.getContext(), "endif", ctor);
 
-    auto isStillNull =
-        b.CreateICmp(CmpInst::ICMP_EQ, b.CreateLoad(address, false),
-                     Constant::getNullValue(t));
+    auto isStillNull = b.CreateICmp(CmpInst::ICMP_EQ,
+                                    b.CreateLoad(
+#if LDC_LLVM_VER >= 800
+                                        t,
+#endif
+                                        address, false),
+                                    Constant::getNullValue(t));
     b.CreateCondBr(isStillNull, ifbb, endbb);
 
     b.SetInsertPoint(ifbb);

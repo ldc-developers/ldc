@@ -33,10 +33,10 @@ void emitCoverageLinecountInc(const Loc &loc) {
 
   // Increment the line counter:
   // Get GEP into _d_cover_data array...
+  LLType *i32Type = LLType::getInt32Ty(gIR->context());
   LLConstant *idxs[] = {DtoConstUint(0), DtoConstUint(line)};
   LLValue *ptr = llvm::ConstantExpr::getGetElementPtr(
-      LLArrayType::get(LLType::getInt32Ty(gIR->context()), m->numlines),
-      m->d_cover_data, idxs, true);
+      LLArrayType::get(i32Type, m->numlines), m->d_cover_data, idxs, true);
   // ...and generate the "increment" instruction(s)
   switch (opts::coverageIncrement) {
   case opts::CoverageIncrement::_default: // fallthrough
@@ -51,7 +51,11 @@ void emitCoverageLinecountInc(const Loc &loc) {
   case opts::CoverageIncrement::nonatomic: {
     // Do a non-atomic increment, user is responsible for correct results with
     // multithreaded execution
-    llvm::LoadInst *load = gIR->ir->CreateAlignedLoad(ptr, LLAlign(4));
+    llvm::LoadInst *load = gIR->ir->CreateAlignedLoad(
+#if LDC_LLVM_VER >= 800
+        i32Type,
+#endif
+        ptr, LLAlign(4));
     llvm::StoreInst *store = gIR->ir->CreateAlignedStore(
         gIR->ir->CreateAdd(load, DtoConstUint(1)), ptr, LLAlign(4));
     // add !nontemporal attribute, to inform the optimizer that caching is not
