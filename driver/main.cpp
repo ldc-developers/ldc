@@ -449,9 +449,9 @@ void parseCommandLine(Strings &sourceFiles) {
   global.params.output_mlir = opts::output_mlir ? OUTPUTFLAGset : OUTPUTFLAGno;
   global.params.output_s = opts::output_s ? OUTPUTFLAGset : OUTPUTFLAGno;
 
-  templateLinkage = global.params.linkonceTemplates
-                        ? LLGlobalValue::LinkOnceODRLinkage
-                        : LLGlobalValue::WeakODRLinkage;
+  templateLinkage = global.params.linkonceTemplates == LinkonceTemplates::no
+                        ? LLGlobalValue::WeakODRLinkage
+                        : LLGlobalValue::LinkOnceODRLinkage;
 
   if (global.params.run || !runargs.empty()) {
     // FIXME: how to properly detect the presence of a PositionalEatsArgs

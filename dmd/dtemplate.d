@@ -6241,7 +6241,7 @@ extern (C++) class TemplateInstance : ScopeDsymbol
     {
 version (IN_LLVM)
 {
-        assert(!global.params.linkonceTemplates);
+        assert(global.params.linkonceTemplates != LinkonceTemplates.aggressive);
 }
 
         // minst is finalized after the 1st invocation.
@@ -7370,7 +7370,7 @@ version (IN_LLVM)
 
 version (IN_LLVM)
 {
-        if (global.params.linkonceTemplates)
+        if (global.params.linkonceTemplates == LinkonceTemplates.aggressive)
         {
             // Skip if it's not a root module.
             if (!mi || !mi.isRoot())

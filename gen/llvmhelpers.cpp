@@ -1733,8 +1733,9 @@ static bool isDefaultLibSymbol(Dsymbol *sym) {
             (md->packages.length > 1 && md->packages.ptr[1] == Id::io)));
 }
 
-bool defineOnDeclare(Dsymbol* sym, bool) {
-  return global.params.linkonceTemplates && sym->isInstantiated();
+bool defineOnDeclare(Dsymbol *sym, bool) {
+  return global.params.linkonceTemplates != LinkonceTemplates::no &&
+         sym->isInstantiated();
 }
 
 bool dllimportDataSymbol(Dsymbol *sym) {
@@ -1750,7 +1751,7 @@ bool dllimportDataSymbol(Dsymbol *sym) {
       return !mod->isRoot(); // non-root ModuleInfo symbol
     } else if (sym->inNonRoot()) {
       return true; // not instantiated, and defined in non-root
-    } else if (!global.params.linkonceTemplates &&
+    } else if (global.params.linkonceTemplates == LinkonceTemplates::no &&
                sym->isInstantiated()) {
       return true; // instantiated but potentially culled (needsCodegen())
     } else if (auto vd = sym->isVarDeclaration()) {
