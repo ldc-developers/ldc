@@ -18,9 +18,9 @@ alias I = long;
 alias U = ulong;
 enum Ubits = uint(U.sizeof * 8);
 
-// 32-bit MSVC: need default alignment due to https://github.com/ldc-developers/ldc/issues/1356
-version (LDC) version (CRuntime_Microsoft) version (Win32) version = LDC_MSVC32;
-version (LDC_MSVC32)
+// 32-bit x86: need default alignment due to https://github.com/ldc-developers/ldc/issues/1356
+version (LDC) version (X86) version = LDC_X86;
+version (LDC_X86)
 {
     struct Cent
     {
