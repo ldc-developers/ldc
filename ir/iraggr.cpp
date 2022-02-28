@@ -53,17 +53,7 @@ bool IrAggr::suppressTypeInfo() const {
 //////////////////////////////////////////////////////////////////////////////
 
 bool IrAggr::useDLLImport() const {
-  if (!global.params.targetTriple->isOSWindows())
-    return false;
-
-  if (dllimportDataSymbol(aggrdecl)) {
-    // dllimport, unless defined in a root module (=> no extra indirection for
-    // other root modules, assuming *all* root modules will be linked together
-    // to one or more binaries).
-    return aggrdecl->inNonRoot();
-  }
-
-  return false;
+  return dllimportDataSymbol(aggrdecl);
 }
 
 //////////////////////////////////////////////////////////////////////////////

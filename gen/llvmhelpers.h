@@ -247,8 +247,7 @@ llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm);
 /// primarily for -linkonce-templates.
 bool defineOnDeclare(Dsymbol *sym, bool isFunction);
 
-/// Indicates whether the specified data symbol is a general dllimport
-/// candidate.
+/// Indicates whether the specified data symbol is to be declared as dllimport.
 bool dllimportDataSymbol(Dsymbol *sym);
 
 /// Tries to declare an LLVM global. If a variable with the same mangled name
