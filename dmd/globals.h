@@ -99,6 +99,13 @@ enum class FeatureState : signed char
 };
 
 #if IN_LLVM
+enum class LinkonceTemplates : char
+{
+    no,        // non-discardable weak_odr linkage
+    yes,       // discardable linkonce_odr linkage + lazily and recursively define all referenced instantiated symbols in each object file (define-on-declare)
+    aggressive // be more aggressive wrt. speculative instantiations - don't append to module members and skip needsCodegen() culling; rely on define-on-declare.
+};
+
 enum class DLLImport : char
 {
     none,
@@ -286,7 +293,7 @@ struct Param
 
     bool outputSourceLocations; // if true, output line tables.
 
-    bool linkonceTemplates; // -linkonce-templates
+    LinkonceTemplates linkonceTemplates; // -linkonce-templates
 
     // Windows-specific:
     bool dllexport;      // dllexport ~all defined symbols?

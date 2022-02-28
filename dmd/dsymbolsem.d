@@ -5890,8 +5890,8 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
         }
 
         // LDC: the tnext linked list is only used by TemplateInstance.needsCodegen(),
-        //      which is skipped with -linkonce-templates
-        if (!(IN_LLVM && global.params.linkonceTemplates))
+        //      which is skipped with -linkonce-templates-aggressive
+        if (!(IN_LLVM && global.params.linkonceTemplates == LinkonceTemplates.aggressive))
         {
             tempinst.tnext = tempinst.inst.tnext;
             tempinst.inst.tnext = tempinst;
@@ -5979,9 +5979,10 @@ void templateInstanceSemantic(TemplateInstance tempinst, Scope* sc, Expressions*
             scope v = new InstMemberWalker(tempinst.inst);
             tempinst.inst.accept(v);
 
-            if (IN_LLVM && global.params.linkonceTemplates)
+            if (IN_LLVM && global.params.linkonceTemplates == LinkonceTemplates.aggressive)
             {
-                // with -linkonce-templates, an earlier speculative or non-root instance hasn't been appended to any module yet
+                // with -linkonce-templates-aggressive, an earlier speculative or non-root instance
+                // hasn't been appended to any module yet
                 assert(tempinst.inst.memberOf is null);
                 tempinst.inst.appendToModuleMember();
             }

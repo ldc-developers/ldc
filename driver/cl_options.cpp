@@ -515,11 +515,16 @@ cl::opt<uint32_t, true> hashThreshold(
     "hash-threshold", cl::ZeroOrMore, cl::location(global.params.hashThreshold),
     cl::desc("Hash symbol names longer than this threshold (experimental)"));
 
-static cl::opt<bool, true> linkonceTemplates(
-    "linkonce-templates", cl::ZeroOrMore,
-    cl::location(global.params.linkonceTemplates),
-    cl::desc(
-        "Use linkonce_odr linkage for template symbols instead of weak_odr"));
+static cl::opt<LinkonceTemplates, true> linkonceTemplates(
+    cl::ZeroOrMore, cl::location(global.params.linkonceTemplates),
+    cl::values(
+        clEnumValN(LinkonceTemplates::yes, "linkonce-templates",
+                   "Use discardable linkonce_odr linkage for template symbols "
+                   "and lazily & recursively define all referenced "
+                   "instantiated symbols in each object file"),
+        clEnumValN(LinkonceTemplates::aggressive,
+                   "linkonce-templates-aggressive",
+                   "Experimental, more aggressive variant")));
 
 cl::opt<bool> disableLinkerStripDead(
     "disable-linker-strip-dead", cl::ZeroOrMore,
