@@ -69,17 +69,16 @@ struct Impl {
     if (!initializer)
       return false;
 
-    // set i to the initializer, skipping over an optional cast
-    auto i = initializer;
-    if (auto ce = dyn_cast<ConstantExpr>(i)) {
-      if (ce->isCast())
-        i = ce->getOperand(0);
+    // set i to the initializer, descending into GEPs and skipping over casts
+    auto i = skipOverCast(initializer);
+    if (auto gep = isGEP(i)) {
+      i = skipOverCast(gep->getOperand(0));
     }
 
     // check if i is a reference to a dllimport global
     if (auto globalRef = dyn_cast<GlobalVariable>(i)) {
       if (globalRef->hasDLLImportStorageClass()) {
-        onDLLImportReference(globalRef);
+        onDLLImportReference(globalRef, initializer);
         return true;
       }
       return false;
@@ -105,12 +104,13 @@ struct Impl {
   }
 
 private:
-  void onDLLImportReference(GlobalVariable *importedVar) {
+  void onDLLImportReference(GlobalVariable *importedVar,
+                            Constant *originalInitializer) {
     ++NumRelocations;
 
     // initialize at runtime:
     currentGlobal->setConstant(false);
-    appendToCRTConstructor(importedVar);
+    appendToCRTConstructor(importedVar, originalInitializer);
 
     const auto pathLength = currentGepPath.size();
     if (pathLength == 0) {
@@ -176,7 +176,8 @@ private:
     llvm::appendToGlobalCtors(m, ctor, 0);
   }
 
-  void appendToCRTConstructor(GlobalVariable *importedVar) {
+  void appendToCRTConstructor(GlobalVariable *importedVar,
+                              Constant *originalInitializer) {
     if (!ctor)
       createCRTConstructor();
 
@@ -197,10 +198,14 @@ private:
       }
     }
 
-    Value *value = importedVar;
+    Constant *value = importedVar;
     auto t = address->getType()->getPointerElementType();
-    if (value->getType() != t)
-      value = b.CreatePointerCast(value, t);
+    if (auto gep = isGEP(skipOverCast(originalInitializer))) {
+      Constant *newOperand =
+          createConstPointerCast(importedVar, gep->getOperand(0)->getType());
+      value = gep->getWithOperandReplaced(0, newOperand);
+    }
+    value = createConstPointerCast(value, t);
 
     // Only modify the field if the current value is still null from the static
     // initializer. This is important for multiple definitions of a (templated)
@@ -223,6 +228,28 @@ private:
     b.SetInsertPoint(ifbb);
     b.CreateStore(value, address);
     b.CreateBr(endbb);
+  }
+
+  static Constant *skipOverCast(Constant *value) {
+    if (auto ce = dyn_cast<ConstantExpr>(value)) {
+      if (ce->isCast())
+        return ce->getOperand(0);
+    }
+    return value;
+  }
+
+  static ConstantExpr *isGEP(Constant *value) {
+    if (auto ce = dyn_cast<ConstantExpr>(value)) {
+      if (ce->getOpcode() == Instruction::GetElementPtr)
+        return ce;
+    }
+    return nullptr;
+  }
+
+  static Constant *createConstPointerCast(Constant *value, Type *type) {
+    return value->getType() == type
+               ? value
+               : llvm::ConstantExpr::getPointerCast(value, type);
   }
 };
 }
