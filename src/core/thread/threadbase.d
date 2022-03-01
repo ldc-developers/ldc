@@ -18,6 +18,9 @@ import core.time;
 import core.sync.mutex;
 import core.stdc.stdlib : free, realloc;
 
+// LDC: Unconditionally change ABI to support sanitizers (adds fields to data structures)
+version(LDC) version = SupportSanitizers_ABI;
+
 private
 {
     import core.internal.traits : externDFunc;
@@ -481,7 +484,7 @@ package(core.thread):
     StackContext*       m_curr;
     bool                m_lock;
     private void*       m_tlsgcdata;
-    version (SupportSanitizers)
+    version (SupportSanitizers_ABI)
     {
         // Stores this thread's fake stack handler. This is to be stored into all StackContext's belonging to this thread (used for GC scanning).
         void* asan_fakestack;

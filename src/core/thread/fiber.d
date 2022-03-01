@@ -30,6 +30,9 @@ version (LDC)
     import ldc.attributes;
     import ldc.llvmasm;
 
+    // Unconditionally change ABI to support sanitizers (adds fields to data structures):
+    version = SupportSanitizers_ABI;
+    // But runtime code is conditionally added by `SupportSanitizers`:
     version (SupportSanitizers)
     {
         import ldc.sanitizers_optionally_linked;
@@ -2061,7 +2064,7 @@ private:
     ///////////////////////////////////////////////////////////////////////////
     // Address Sanitizer support
     ///////////////////////////////////////////////////////////////////////////
-    version (SupportSanitizers)
+    version (SupportSanitizers_ABI)
     {
     private:
         void* __fake_stack;
