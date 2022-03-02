@@ -133,6 +133,16 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
     args.push_back(global.params.symdebug ? "/OPT:NOICF" : "/OPT:ICF");
   }
 
+  const bool willLinkAgainstSharedDefaultLibs =
+      !defaultLibNames.empty() && linkAgainstSharedDefaultLibs();
+  if (willLinkAgainstSharedDefaultLibs) {
+    // Suppress linker warning LNK4217 wrt. 'importing locally defined symbol'
+    // (dllimport of symbol dllexported from the same binary), because there
+    // might be *many* of those (=> instantiated globals) if compiled without
+    // -linkonce-templates.
+    args.push_back("/IGNORE:4217");
+  }
+
   // add C runtime libs
   addMscrtLibs(useInternalToolchain, args);
 
@@ -151,8 +161,7 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
   // add precompiled rt.dso object file (in lib directory) when linking
   // against shared druntime
   const auto &libDirs = ConfigFile::instance.libDirs();
-  if (!defaultLibNames.empty() && linkAgainstSharedDefaultLibs() &&
-      !libDirs.empty()) {
+  if (willLinkAgainstSharedDefaultLibs && !libDirs.empty()) {
     args.push_back((llvm::Twine(libDirs[0]) + "/ldc_rt.dso.obj").str());
   }
 
