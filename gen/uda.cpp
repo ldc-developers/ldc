@@ -449,8 +449,9 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
         applyAttrTarget(sle, func, irFunc);
       } else if (ident == Id::udaAssumeUsed) {
         applyAttrAssumeUsed(*gIR, sle, func);
-      } else if (ident == Id::udaWeak || ident == Id::udaKernel) {
-        // @weak and @kernel are applied elsewhere
+      } else if (ident == Id::udaWeak || ident == Id::udaKernel ||
+                 ident == Id::udaNoSanitize) {
+        // These UDAs are applied elsewhere, thus should silently be ignored here.
       } else if (ident == Id::udaDynamicCompile) {
         irFunc->dynamicCompile = true;
       } else if (ident == Id::udaDynamicCompileEmit) {
