@@ -46,6 +46,7 @@ import core.thread;
 static import core.memory;
 
 version (GNU) import gcc.builtins;
+version (LDC) import ldc.attributes;
 
 debug (PRINTF_TO_FILE) import core.stdc.stdio : sprintf, fprintf, fopen, fflush, FILE;
 else                   import core.stdc.stdio : sprintf, printf; // needed to output profiling results
@@ -2259,6 +2260,7 @@ struct Gcx
     /**
      * Search a range of memory values and mark any pointers into the GC pool.
      */
+    @noSanitize("address") // LDC // This function must read the stack and therefore will scan redzones too.
     private void mark(bool precise, bool parallel, bool shared_mem)(ScanRange!precise rng) scope nothrow
     {
         alias toscan = scanStack!precise;
@@ -2508,6 +2510,8 @@ struct Gcx
     ToScanStack!(void*) toscanRoots;
 
     version (COLLECT_PARALLEL)
+    @noSanitize("address") // LDC // This function is passed ranges to scan for pointers.
+                                  // The ranges passed include stacks, and thus this function will access redzones.
     void collectRoots(void *pbot, void *ptop) scope nothrow
     {
         const minAddr = pooltable.minAddr;

@@ -1115,10 +1115,17 @@ void pureFree()(void* ptr) @system pure @nogc nothrow
 
     fakePureFree(y);
 
+  version (LDC_AddressSanitizer)
+  {
+    // Test must be disabled because ASan will report an error: requested allocation size 0xffffffffffffff00 (0x700 after adjustments for alignment, red zones etc.) exceeds maximum supported size of 0x10000000000
+  }
+  else
+  {
     // Workaround bug in glibc 2.26
     // See also: https://issues.dlang.org/show_bug.cgi?id=17956
     void* z = pureMalloc(size_t.max & ~255); // won't affect `errno`
     assert(errno == fakePureErrno()); // errno shouldn't change
+  }
   version (LDC)
   {
     // LLVM's 'Combine redundant instructions' optimization pass
