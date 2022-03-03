@@ -1128,6 +1128,9 @@ private void scanAllTypeImpl(scope ScanAllThreadsTypeFn scan, void* curStackTop)
 }
 
 version (SupportSanitizers)
+{
+import ldc.attributes;
+@noSanitize("address") // This function scans the stack including redzones.
 private void scanStackForASanFakeStack(scope ScanAllThreadsTypeFn scan, void* fakestack, void* stackLowAddress, void* stackHighAddress) nothrow
 {
     /+
@@ -1173,6 +1176,7 @@ private void scanStackForASanFakeStack(scope ScanAllThreadsTypeFn scan, void* fa
         }
     }
 }
+} // version (SupportSanitizers)
 
 version (Windows)
 {
