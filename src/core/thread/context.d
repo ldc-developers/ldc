@@ -12,7 +12,7 @@
 module core.thread.context;
 
 // LDC: Unconditionally change ABI to support sanitizers
-version(LDC) version = SupportSanitizers_ABI;
+version (LDC) version = SupportSanitizers_ABI;
 
 struct StackContext
 {

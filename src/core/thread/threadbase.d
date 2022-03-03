@@ -19,7 +19,7 @@ import core.sync.mutex;
 import core.stdc.stdlib : free, realloc;
 
 // LDC: Unconditionally change ABI to support sanitizers (adds fields to data structures)
-version(LDC) version = SupportSanitizers_ABI;
+version (LDC) version = SupportSanitizers_ABI;
 
 private
 {
