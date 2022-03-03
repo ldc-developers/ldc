@@ -1733,9 +1733,16 @@ static bool isDefaultLibSymbol(Dsymbol *sym) {
             (md->packages.length > 1 && md->packages.ptr[1] == Id::io)));
 }
 
-bool defineOnDeclare(Dsymbol *sym, bool) {
-  return global.params.linkonceTemplates != LinkonceTemplates::no &&
-         sym->isInstantiated();
+bool defineOnDeclare(Dsymbol *sym, bool isFunction) {
+  // -linkonce-templates: all instantiated symbols
+  if (global.params.linkonceTemplates != LinkonceTemplates::no)
+    return sym->isInstantiated();
+
+  // -dllimport=defaultLibsOnly: all data symbols instantiated from
+  // druntime/Phobos templates
+  // see https://github.com/ldc-developers/ldc/issues/3931
+  return !isFunction && global.params.dllimport == DLLImport::defaultLibsOnly &&
+         sym->isInstantiated() && isDefaultLibSymbol(sym);
 }
 
 bool dllimportDataSymbol(Dsymbol *sym) {
@@ -1747,17 +1754,15 @@ bool dllimportDataSymbol(Dsymbol *sym) {
        isDefaultLibSymbol(sym))) {
     // Okay, this symbol is a candidate. Use dllimport unless we have a
     // guaranteed-codegen'd definition in a root module.
-    if (auto mod = sym->isModule()) {
+    if (auto mod = sym->isModule())
       return !mod->isRoot(); // non-root ModuleInfo symbol
-    } else if (sym->inNonRoot()) {
+    if (sym->inNonRoot())
       return true; // not instantiated, and defined in non-root
-    } else if (global.params.linkonceTemplates == LinkonceTemplates::no &&
-               sym->isInstantiated()) {
+    if (sym->isInstantiated() && !defineOnDeclare(sym, false))
       return true; // instantiated but potentially culled (needsCodegen())
-    } else if (auto vd = sym->isVarDeclaration()) {
+    if (auto vd = sym->isVarDeclaration())
       if (vd->storage_class & STCextern)
         return true; // externally defined global variable
-    }
   }
 
   return false;
