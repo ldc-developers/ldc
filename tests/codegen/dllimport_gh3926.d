@@ -1,7 +1,6 @@
 // REQUIRES: Windows
 
-// RUN: %ldc -output-ll -dllimport=all             -of=%t_all.ll %s && FileCheck %s < %t_all.ll
-// RUN: %ldc -output-ll -dllimport=defaultLibsOnly -of=%t_dlo.ll %s && FileCheck %s < %t_dlo.ll
+// RUN: %ldc -output-ll -dllimport=all -of=%t.ll %s && FileCheck %s < %t.ll
 
 import std.variant : Variant; // pre-instantiated template
 

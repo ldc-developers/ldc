@@ -138,8 +138,8 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
   if (willLinkAgainstSharedDefaultLibs) {
     // Suppress linker warning LNK4217 wrt. 'importing locally defined symbol'
     // (dllimport of symbol dllexported from the same binary), because there
-    // might be *many* of those (=> instantiated globals) if compiled without
-    // -linkonce-templates.
+    // might be *many* of those (=> instantiated globals) if compiled with
+    // -dllimport=all (and without -linkonce-templates).
     args.push_back("/IGNORE:4217");
   }
 
