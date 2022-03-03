@@ -28,7 +28,7 @@ auto invoker(Dlg)(scope Dlg dlg) { return S!Dlg(dlg); }
 void main()
 {
     auto inv = f(2);
-// CHECK-NEXT: #1 {{.*}} in {{.*}}asan_use_after_return.d:[[@LINE+1]]
+// CHECK-NEXT: #1 {{.*}} in {{.*}}asan_use_after_return.d
     inv.dlg();
 }
 
