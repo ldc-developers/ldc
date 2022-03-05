@@ -371,10 +371,10 @@ void DtoResolveFunction(FuncDeclaration *fdecl, const bool willDeclare) {
     return; // ignore declaration completely
   }
 
-  if (fdecl->ir->isResolved()) {
+  if (fdecl->irSym->isResolved()) {
     return;
   }
-  fdecl->ir->setResolved();
+  fdecl->irSym->setResolved();
 
   Type *type = fdecl->type;
   // If errors occurred compiling it, such as bugzilla 6118
@@ -394,7 +394,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl, const bool willDeclare) {
         if (tempdecl->llvmInternal == LLVMva_arg) {
           Logger::println("magic va_arg found");
           fdecl->llvmInternal = LLVMva_arg;
-          fdecl->ir->setDefined();
+          fdecl->irSym->setDefined();
           return; // this gets mapped to an instruction so a declaration makes
                   // no sense
         }
@@ -415,7 +415,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl, const bool willDeclare) {
             fatal();
           }
           fdecl->llvmInternal = LLVMinline_asm;
-          fdecl->ir->setDefined();
+          fdecl->irSym->setDefined();
           return; // this gets mapped to a special inline asm call, no point in
                   // going on.
         } else if (tempdecl->llvmInternal == LLVMinline_ir) {
@@ -427,7 +427,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl, const bool willDeclare) {
           static_cast<TypeFunction *>(type)->linkage = LINK::c;
 
           DtoFunctionType(fdecl);
-          fdecl->ir->setDefined();
+          fdecl->irSym->setDefined();
           return; // this gets mapped to a special inline IR call, no point in
                   // going on.
         }
@@ -570,10 +570,10 @@ void onlyOneMainCheck(FuncDeclaration *fd) {
 void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   DtoResolveFunction(fdecl, /*willDeclare=*/true);
 
-  if (fdecl->ir->isDeclared()) {
+  if (fdecl->irSym->isDeclared()) {
     return;
   }
-  fdecl->ir->setDeclared();
+  fdecl->irSym->setDeclared();
 
   IF_LOG Logger::println("DtoDeclareFunction(%s): %s", fdecl->toPrettyChars(),
                          fdecl->loc.toChars());
@@ -1037,7 +1037,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     IF_LOG Logger::println("linkageAvailableExternally = true");
   }
 
-  if (fd->ir->isDefined()) {
+  if (fd->irSym->isDefined()) {
     llvm::Function *func = getIrFunc(fd)->getLLVMFunc();
     assert(func);
     if (!linkageAvailableExternally &&
@@ -1057,7 +1057,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
        static_cast<TypeFunction *>(fd->type)->next->ty == TY::Terror)) {
     IF_LOG Logger::println(
         "Ignoring; has error type, no return type or returns error type");
-    fd->ir->setDefined();
+    fd->irSym->setDefined();
     return;
   }
 
@@ -1073,14 +1073,14 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   DtoDeclareFunction(fd, /*willDefine=*/true);
-  assert(fd->ir->isDeclared());
+  assert(fd->irSym->isDeclared());
 
   // DtoDeclareFunction might also set the defined flag for functions we
   // should not touch.
-  if (fd->ir->isDefined()) {
+  if (fd->irSym->isDefined()) {
     return;
   }
-  fd->ir->setDefined();
+  fd->irSym->setDefined();
 
   if (fd->isUnitTestDeclaration() && !global.params.useUnitTests) {
     IF_LOG Logger::println("No code generation for unit test declaration %s",

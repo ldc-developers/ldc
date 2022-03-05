@@ -84,13 +84,13 @@ public:
 
     assert(!irs->dcomputetarget);
 
-    if (decl->ir->isDefined()) {
+    if (decl->irSym->isDefined()) {
       return;
     }
 
     if (decl->type->ty == TY::Terror) {
       decl->error("had semantic errors when compiling");
-      decl->ir->setDefined();
+      decl->irSym->setDefined();
       return;
     }
 
@@ -99,7 +99,7 @@ public:
     }
 
     DtoResolveClass(decl);
-    decl->ir->setDefined();
+    decl->irSym->setDefined();
 
     // Emit any members (e.g. final functions).
     for (auto m : *decl->members) {
@@ -120,13 +120,13 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE
 
-    if (decl->ir->isDefined()) {
+    if (decl->irSym->isDefined()) {
       return;
     }
 
     if (decl->type->ty == TY::Terror) {
       decl->error("had semantic errors when compiling");
-      decl->ir->setDefined();
+      decl->irSym->setDefined();
       return;
     }
 
@@ -136,7 +136,7 @@ public:
     }
 
     DtoResolveStruct(decl);
-    decl->ir->setDefined();
+    decl->irSym->setDefined();
 
     for (auto m : *decl->members) {
       m->accept(this);
@@ -179,13 +179,13 @@ public:
 
     assert(!irs->dcomputetarget);
 
-    if (decl->ir->isDefined()) {
+    if (decl->irSym->isDefined()) {
       return;
     }
 
     if (decl->type->ty == TY::Terror) {
       decl->error("had semantic errors when compiling");
-      decl->ir->setDefined();
+      decl->irSym->setDefined();
       return;
     }
 
@@ -194,7 +194,7 @@ public:
     }
 
     DtoResolveClass(decl);
-    decl->ir->setDefined();
+    decl->irSym->setDefined();
 
     for (auto m : *decl->members) {
       m->accept(this);
@@ -221,10 +221,10 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE
 
-    if (decl->ir->isDefined()) {
+    if (decl->irSym->isDefined()) {
       return;
     }
-    decl->ir->setDefined();
+    decl->irSym->setDefined();
 
     assert(decl->isexp);
     assert(decl->objects);
@@ -243,18 +243,18 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE;
 
-    if (decl->ir->isDefined()) {
+    if (decl->irSym->isDefined()) {
       return;
     }
 
     if (decl->type->ty == TY::Terror) {
       decl->error("had semantic errors when compiling");
-      decl->ir->setDefined();
+      decl->irSym->setDefined();
       return;
     }
 
     DtoResolveVariable(decl);
-    decl->ir->setDefined();
+    decl->irSym->setDefined();
 
     // just forward aliases
     if (decl->aliassym) {
@@ -303,11 +303,11 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE
 
-    if (decl->ir->isDefined()) {
+    if (decl->irSym->isDefined()) {
       Logger::println("Already defined, skipping.");
       return;
     }
-    decl->ir->setDefined();
+    decl->irSym->setDefined();
 
     if (isError(decl)) {
       Logger::println("Has errors, skipping.");
@@ -353,10 +353,10 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE
 
-    if (decl->ir->isDefined()) {
+    if (decl->irSym->isDefined()) {
       return;
     }
-    decl->ir->setDefined();
+    decl->irSym->setDefined();
 
     if (!isError(decl) && decl->members) {
       for (auto m : *decl->members) {

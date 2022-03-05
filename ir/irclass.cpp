@@ -589,7 +589,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
       FuncDeclaration *thunkFd = reinterpret_cast<FuncDeclaration *>(
           memcpy(new char[sizeof(FuncDeclaration)], (void *)fd,
                  sizeof(FuncDeclaration)));
-      thunkFd->ir = new IrDsymbol();
+      thunkFd->irSym = new IrDsymbol();
       auto thunkFunc = getIrFunc(thunkFd, true); // create the IrFunction
       thunkFunc->setLLVMFunc(thunk);
       thunkFunc->type = irFunc->type;

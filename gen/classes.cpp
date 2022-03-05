@@ -39,10 +39,10 @@
 // FIXME: this needs to be cleaned up
 
 void DtoResolveClass(ClassDeclaration *cd) {
-  if (cd->ir->isResolved()) {
+  if (cd->irSym->isResolved()) {
     return;
   }
-  cd->ir->setResolved();
+  cd->irSym->setResolved();
 
   IF_LOG Logger::println("DtoResolveClass(%s): %s", cd->toPrettyChars(),
                          cd->loc.toChars());

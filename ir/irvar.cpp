@@ -160,14 +160,14 @@ void IrGlobal::define() {
 
 IrVar *getIrVar(VarDeclaration *decl) {
   assert(isIrVarCreated(decl));
-  assert(decl->ir->irVar != NULL);
-  return decl->ir->irVar;
+  assert(decl->irSym->irVar != NULL);
+  return decl->irSym->irVar;
 }
 
 llvm::Value *getIrValue(VarDeclaration *decl) { return getIrVar(decl)->value; }
 
 bool isIrVarCreated(VarDeclaration *decl) {
-  int t = decl->ir->type();
+  int t = decl->irSym->type();
   bool isIrVar = t == IrDsymbol::GlobalType || t == IrDsymbol::LocalType ||
                  t == IrDsymbol::ParamterType || t == IrDsymbol::FieldType;
   assert(isIrVar || t == IrDsymbol::NotSet);
@@ -178,16 +178,16 @@ bool isIrVarCreated(VarDeclaration *decl) {
 
 IrGlobal *getIrGlobal(VarDeclaration *decl, bool create) {
   if (!isIrGlobalCreated(decl) && create) {
-    assert(decl->ir->irGlobal == NULL);
-    decl->ir->irGlobal = new IrGlobal(decl);
-    decl->ir->m_type = IrDsymbol::GlobalType;
+    assert(decl->irSym->irGlobal == NULL);
+    decl->irSym->irGlobal = new IrGlobal(decl);
+    decl->irSym->m_type = IrDsymbol::GlobalType;
   }
-  assert(decl->ir->irGlobal != NULL);
-  return decl->ir->irGlobal;
+  assert(decl->irSym->irGlobal != NULL);
+  return decl->irSym->irGlobal;
 }
 
 bool isIrGlobalCreated(VarDeclaration *decl) {
-  int t = decl->ir->type();
+  int t = decl->irSym->type();
   assert(t == IrDsymbol::GlobalType || t == IrDsymbol::NotSet);
   return t == IrDsymbol::GlobalType;
 }
@@ -196,16 +196,16 @@ bool isIrGlobalCreated(VarDeclaration *decl) {
 
 IrLocal *getIrLocal(VarDeclaration *decl, bool create) {
   if (!isIrLocalCreated(decl) && create) {
-    assert(decl->ir->irLocal == NULL);
-    decl->ir->irLocal = new IrLocal(decl);
-    decl->ir->m_type = IrDsymbol::LocalType;
+    assert(decl->irSym->irLocal == NULL);
+    decl->irSym->irLocal = new IrLocal(decl);
+    decl->irSym->m_type = IrDsymbol::LocalType;
   }
-  assert(decl->ir->irLocal != NULL);
-  return decl->ir->irLocal;
+  assert(decl->irSym->irLocal != NULL);
+  return decl->irSym->irLocal;
 }
 
 bool isIrLocalCreated(VarDeclaration *decl) {
-  int t = decl->ir->type();
+  int t = decl->irSym->type();
   assert(t == IrDsymbol::LocalType || t == IrDsymbol::ParamterType ||
          t == IrDsymbol::NotSet);
   return t == IrDsymbol::LocalType || t == IrDsymbol::ParamterType;
@@ -215,15 +215,15 @@ bool isIrLocalCreated(VarDeclaration *decl) {
 
 IrParameter *getIrParameter(VarDeclaration *decl, bool create) {
   if (!isIrParameterCreated(decl) && create) {
-    assert(decl->ir->irParam == NULL);
-    decl->ir->irParam = new IrParameter(decl);
-    decl->ir->m_type = IrDsymbol::ParamterType;
+    assert(decl->irSym->irParam == NULL);
+    decl->irSym->irParam = new IrParameter(decl);
+    decl->irSym->m_type = IrDsymbol::ParamterType;
   }
-  return decl->ir->irParam;
+  return decl->irSym->irParam;
 }
 
 bool isIrParameterCreated(VarDeclaration *decl) {
-  int t = decl->ir->type();
+  int t = decl->irSym->type();
   assert(t == IrDsymbol::ParamterType || t == IrDsymbol::NotSet);
   return t == IrDsymbol::ParamterType;
 }
@@ -232,16 +232,16 @@ bool isIrParameterCreated(VarDeclaration *decl) {
 
 IrField *getIrField(VarDeclaration *decl, bool create) {
   if (!isIrFieldCreated(decl) && create) {
-    assert(decl->ir->irField == NULL);
-    decl->ir->irField = new IrField(decl);
-    decl->ir->m_type = IrDsymbol::FieldType;
+    assert(decl->irSym->irField == NULL);
+    decl->irSym->irField = new IrField(decl);
+    decl->irSym->m_type = IrDsymbol::FieldType;
   }
-  assert(decl->ir->irField != NULL);
-  return decl->ir->irField;
+  assert(decl->irSym->irField != NULL);
+  return decl->irSym->irField;
 }
 
 bool isIrFieldCreated(VarDeclaration *decl) {
-  int t = decl->ir->type();
+  int t = decl->irSym->type();
   assert(t == IrDsymbol::FieldType || t == IrDsymbol::NotSet);
   return t == IrDsymbol::FieldType;
 }

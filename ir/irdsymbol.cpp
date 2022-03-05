@@ -12,7 +12,7 @@
 #include "ir/irdsymbol.h"
 #include "ir/irvar.h"
 
-// Callbacks for constructing/destructing Dsymbol.ir member.
+// Callbacks for constructing/destructing Dsymbol.irSym member.
 void* newIrDsymbol() { return static_cast<void*>(new IrDsymbol()); }
 void deleteIrDsymbol(void* sym) { delete static_cast<IrDsymbol*>(sym); }
 

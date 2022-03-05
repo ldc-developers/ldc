@@ -56,7 +56,7 @@ import dmd.visitor;
 
 version (IN_LLVM)
 {
-    // Functions to construct/destruct Dsymbol.ir
+    // Functions to construct/destruct Dsymbol.irSym
     extern (C++) void* newIrDsymbol();
     extern (C++) void deleteIrDsymbol(void*);
 }
@@ -252,7 +252,7 @@ extern (C++) class Dsymbol : ASTNode
     CPPNamespaceDeclaration cppnamespace;
 version (IN_LLVM)
 {
-    void* ir; // IrDsymbol*
+    void* irSym; // IrDsymbol*
     uint llvmInternal;
 }
 else
@@ -281,7 +281,7 @@ else
         loc = Loc(null, 0, 0);
 version (IN_LLVM)
 {
-        this.ir = newIrDsymbol();
+        this.irSym = newIrDsymbol();
 }
     }
 
@@ -292,7 +292,7 @@ version (IN_LLVM)
         this.ident = ident;
 version (IN_LLVM)
 {
-        this.ir = newIrDsymbol();
+        this.irSym = newIrDsymbol();
 }
     }
 
@@ -303,7 +303,7 @@ version (IN_LLVM)
         this.ident = ident;
 version (IN_LLVM)
 {
-        this.ir = newIrDsymbol();
+        this.irSym = newIrDsymbol();
 }
     }
 
@@ -311,8 +311,8 @@ version (IN_LLVM)
 {
     extern (D) final ~this()
     {
-        deleteIrDsymbol(this.ir);
-        this.ir = null;
+        deleteIrDsymbol(this.irSym);
+        this.irSym = null;
     }
 }
 
