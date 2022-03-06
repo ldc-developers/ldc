@@ -230,16 +230,30 @@ extern (C++) abstract class Declaration : Dsymbol
     // overridden symbol with pragma(mangle, "...")
     const(char)[] mangleOverride;
 
+version (IN_LLVM)
+{
+    import ir.irdsymbol : IrDsymbol;
+    IrDsymbol irSym;
+}
+
     final extern (D) this(Identifier ident)
     {
         super(ident);
         visibility = Visibility(Visibility.Kind.undefined);
+version (IN_LLVM)
+{
+        irSym.doRegister();
+}
     }
 
     final extern (D) this(const ref Loc loc, Identifier ident)
     {
         super(loc, ident);
         visibility = Visibility(Visibility.Kind.undefined);
+version (IN_LLVM)
+{
+        irSym.doRegister();
+}
     }
 
     override const(char)* kind() const

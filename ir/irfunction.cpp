@@ -85,18 +85,17 @@ bool IrFunction::isDynamicCompiled() const {
 
 IrFunction *getIrFunc(FuncDeclaration *decl, bool create) {
   if (!isIrFuncCreated(decl) && create) {
-    assert(decl->irSym->irFunc == NULL);
-    decl->irSym->irFunc = new IrFunction(decl);
-    decl->irSym->m_type = IrDsymbol::FuncType;
+    assert(decl->irSym.irFunc == NULL);
+    decl->irSym.irFunc = new IrFunction(decl);
+    decl->irSym.m_type = IrDsymbol::FuncType;
   }
-  assert(decl->irSym->irFunc != NULL);
-  return decl->irSym->irFunc;
+  assert(decl->irSym.irFunc != NULL);
+  return decl->irSym.irFunc;
 }
 
 bool isIrFuncCreated(FuncDeclaration *decl) {
   assert(decl);
-  assert(decl->irSym);
-  IrDsymbol::Type t = decl->irSym->type();
+  IrDsymbol::Type t = decl->irSym.type();
   assert(t == IrDsymbol::FuncType || t == IrDsymbol::NotSet);
   return t == IrDsymbol::FuncType;
 }

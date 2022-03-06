@@ -12,10 +12,6 @@
 #include "ir/irdsymbol.h"
 #include "ir/irvar.h"
 
-// Callbacks for constructing/destructing Dsymbol.irSym member.
-void* newIrDsymbol() { return static_cast<void*>(new IrDsymbol()); }
-void deleteIrDsymbol(void* sym) { delete static_cast<IrDsymbol*>(sym); }
-
 std::vector<IrDsymbol *> IrDsymbol::list;
 
 void IrDsymbol::resetAll() {
@@ -47,6 +43,10 @@ IrDsymbol::~IrDsymbol() {
   auto it = std::find(list.rbegin(), list.rend(), this).base();
   // base() returns the iterator _after_ the found position
   list.erase(--it);
+}
+
+void IrDsymbol::doRegister() {
+  list.push_back(this);
 }
 
 void IrDsymbol::reset() {

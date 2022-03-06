@@ -13,6 +13,10 @@
 #include "arraytypes.h"
 #include "dsymbol.h"
 
+#if IN_LLVM
+#include "ir/irdsymbol.h"
+#endif
+
 class Identifier;
 class TemplateInstance;
 class TemplateParameter;
@@ -278,6 +282,10 @@ private:
     unsigned short _nest;                // for recursive pretty printing detection, 3 MSBs reserved for flags
 public:
     unsigned char inuse;                 // for recursive expansion detection
+
+#if IN_LLVM
+    IrDsymbol irSym;
+#endif
 
     TemplateInstance *syntaxCopy(Dsymbol *);
     Dsymbol *toAlias();                 // resolve real symbol

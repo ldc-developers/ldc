@@ -35,10 +35,10 @@ void DtoResolveStruct(StructDeclaration *sd) { DtoResolveStruct(sd, sd->loc); }
 
 void DtoResolveStruct(StructDeclaration *sd, const Loc &callerLoc) {
   // Make sure to resolve each struct type exactly once.
-  if (sd->irSym->isResolved()) {
+  if (sd->irSym.isResolved()) {
     return;
   }
-  sd->irSym->setResolved();
+  sd->irSym.setResolved();
 
   IF_LOG Logger::println("Resolving struct type: %s (%s)", sd->toChars(),
                          sd->loc.toChars());

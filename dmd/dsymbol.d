@@ -54,13 +54,6 @@ import dmd.statement;
 import dmd.tokens;
 import dmd.visitor;
 
-version (IN_LLVM)
-{
-    // Functions to construct/destruct Dsymbol.irSym
-    extern (C++) void* newIrDsymbol();
-    extern (C++) void deleteIrDsymbol(void*);
-}
-
 /***************************************
  * Calls dg(Dsymbol *sym) for each Dsymbol.
  * If dg returns !=0, stops and returns that value else returns 0.
@@ -252,7 +245,6 @@ extern (C++) class Dsymbol : ASTNode
     CPPNamespaceDeclaration cppnamespace;
 version (IN_LLVM)
 {
-    void* irSym; // IrDsymbol*
     uint llvmInternal;
 }
 else
@@ -279,10 +271,6 @@ else
     {
         //printf("Dsymbol::Dsymbol(%p)\n", this);
         loc = Loc(null, 0, 0);
-version (IN_LLVM)
-{
-        this.irSym = newIrDsymbol();
-}
     }
 
     final extern (D) this(Identifier ident)
@@ -290,10 +278,6 @@ version (IN_LLVM)
         //printf("Dsymbol::Dsymbol(%p, ident)\n", this);
         this.loc = Loc(null, 0, 0);
         this.ident = ident;
-version (IN_LLVM)
-{
-        this.irSym = newIrDsymbol();
-}
     }
 
     final extern (D) this(const ref Loc loc, Identifier ident)
@@ -301,20 +285,7 @@ version (IN_LLVM)
         //printf("Dsymbol::Dsymbol(%p, ident)\n", this);
         this.loc = loc;
         this.ident = ident;
-version (IN_LLVM)
-{
-        this.irSym = newIrDsymbol();
-}
     }
-
-version (IN_LLVM)
-{
-    extern (D) final ~this()
-    {
-        deleteIrDsymbol(this.irSym);
-        this.irSym = null;
-    }
-}
 
     static Dsymbol create(Identifier ident)
     {

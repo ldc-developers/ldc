@@ -17,6 +17,8 @@ struct Escape;
 struct FileBuffer;
 
 #if IN_LLVM
+#include "ir/irdsymbol.h"
+
 namespace llvm {
     class GlobalVariable;
     class LLVMContext;
@@ -156,6 +158,8 @@ public:
 
     bool llvmForceLogging;
     bool noModuleInfo; /// Do not emit any module metadata.
+
+    IrDsymbol irSym;
 
     // Coverage analysis
     llvm::GlobalVariable

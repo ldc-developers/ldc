@@ -307,16 +307,16 @@ void IrAggr::addFieldInitializers(
 
 IrAggr *getIrAggr(AggregateDeclaration *decl, bool create) {
   if (!isIrAggrCreated(decl) && create) {
-    assert(decl->irSym->irAggr == nullptr);
+    assert(decl->irSym.irAggr == nullptr);
     if (auto cd = decl->isClassDeclaration()) {
-      decl->irSym->irAggr = new IrClass(cd);
+      decl->irSym.irAggr = new IrClass(cd);
     } else {
-      decl->irSym->irAggr = new IrStruct(decl->isStructDeclaration());
+      decl->irSym.irAggr = new IrStruct(decl->isStructDeclaration());
     }
-    decl->irSym->m_type = IrDsymbol::AggrType;
+    decl->irSym.m_type = IrDsymbol::AggrType;
   }
-  assert(decl->irSym->irAggr != nullptr);
-  return decl->irSym->irAggr;
+  assert(decl->irSym.irAggr != nullptr);
+  return decl->irSym.irAggr;
 }
 
 IrStruct *getIrAggr(StructDeclaration *sd, bool create) {
@@ -330,7 +330,7 @@ IrClass *getIrAggr(ClassDeclaration *cd, bool create) {
 }
 
 bool isIrAggrCreated(AggregateDeclaration *decl) {
-  int t = decl->irSym->type();
+  int t = decl->irSym.type();
   assert(t == IrDsymbol::AggrType || t == IrDsymbol::NotSet);
   return t == IrDsymbol::AggrType;
 }

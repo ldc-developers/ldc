@@ -15,6 +15,10 @@
 #include "objc.h"
 #include "tokens.h"
 
+#if IN_LLVM
+#include "ir/irdsymbol.h"
+#endif
+
 class Expression;
 class Statement;
 class LabelDsymbol;
@@ -120,6 +124,10 @@ public:
     short inuse;                // used to detect cycles
     uint8_t adFlags;
     DString mangleOverride;     // overridden symbol with pragma(mangle, "...")
+
+#if IN_LLVM
+    IrDsymbol irSym;
+#endif
 
     const char *kind() const;
     d_uns64 size(const Loc &loc);

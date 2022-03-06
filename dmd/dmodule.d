@@ -502,6 +502,11 @@ else
             setDocfile();
         if (doHdrGen)
             hdrfile = setOutfilename(global.params.hdrname, global.params.hdrdir, arg, hdr_ext);
+
+version (IN_LLVM)
+{
+        irSym.doRegister();
+}
     }
 
     extern (D) this(const(char)[] filename, Identifier ident, int doDocComment, int doHdrGen)
@@ -1517,6 +1522,9 @@ version (IN_LLVM)
 
     bool llvmForceLogging;
     bool noModuleInfo; /// Do not emit any module metadata.
+
+    import ir.irdsymbol : IrDsymbol;
+    IrDsymbol irSym;
 
     // Coverage analysis
     void* d_cover_valid;  // llvm::GlobalVariable* --> private immutable size_t[] _d_cover_valid;
