@@ -15,6 +15,11 @@
 #pragma once
 
 #include "gen/attributes.h"
+
+// "gen/llvmhelpers.h" declares `getGlobalContext`, but includes this header
+// so we can't #include it to rely on its definitions
+llvm::LLVMContext& getGlobalContext();
+
 #include "llvm/ADT/SmallVector.h"
 #include <vector>
 
@@ -76,7 +81,13 @@ struct IrFuncTyArg {
    *  @param byref Initial value for the 'byref' field. If true the initial
    *               LLVM Type will be of DtoType(type->pointerTo()), instead
    *               of just DtoType(type) */
-  IrFuncTyArg(Type *t, bool byref, llvm::AttrBuilder attrs = {});
+  IrFuncTyArg(Type *t, bool byref,
+#if LDC_LLVM_VER < 1500
+              llvm::AttrBuilder attrs = llvm::AttrBuilder {}
+#else
+              llvm::AttrBuilder attrs = llvm::AttrBuilder(getGlobalContext())
+#endif
+              );
   IrFuncTyArg(const IrFuncTyArg &) = delete;
 
   ~IrFuncTyArg();

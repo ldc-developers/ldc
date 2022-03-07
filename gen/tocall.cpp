@@ -131,7 +131,11 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
     Type *argType = argexps[i]->type;
     bool passByVal = gABI->passByVal(irFty.type, argType);
 
+#if LDC_LLVM_VER >= 1500
+    llvm::AttrBuilder initialAttrs(getGlobalContext());
+#else
     llvm::AttrBuilder initialAttrs;
+#endif
     if (passByVal) {
 #if LDC_LLVM_VER >= 1200
       initialAttrs.addByValAttr(DtoType(argType));
@@ -144,7 +148,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
       DtoAddExtendAttr(argType, initialAttrs);
     }
 
-    optionalIrArgs.push_back(new IrFuncTyArg(argType, passByVal, initialAttrs));
+    optionalIrArgs.push_back(new IrFuncTyArg(argType, passByVal, std::move(initialAttrs)));
     optionalIrArgs.back()->parametersIdx = i;
   }
 
@@ -1052,7 +1056,12 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
     call->setCallingConv(callconv);
   }
   // merge in function attributes set in callOrInvoke
-#if LDC_LLVM_VER >= 1400
+#if LDC_LLVM_VER >= 1500
+    auto attrbuildattribs = call->getAttributes().getFnAttrs();
+    attrlist = attrlist.addFnAttributes(
+      gIR->context(),
+      llvm::AttrBuilder(gIR->context(), attrbuildattribs));
+#elif LDC_LLVM_VER >= 1400
   attrlist = attrlist.addFnAttributes(
     gIR->context(),
     llvm::AttrBuilder(call->getAttributes(), LLAttributeList::FunctionIndex));

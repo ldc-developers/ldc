@@ -140,7 +140,12 @@ public:
   EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd, Type *type = nullptr,
                     bool isThisPtr = false, bool forceAsLocal = false,
                     bool isRefRVal = false,
-                    llvm::ArrayRef<int64_t> addr = llvm::ArrayRef<int64_t>());
+#if LDC_LLVM_VER >= 1500
+                    llvm::ArrayRef<uint64_t> addr = llvm::ArrayRef<uint64_t>()
+#else
+                    llvm::ArrayRef<int64_t> addr = llvm::ArrayRef<int64_t>()
+#endif
+                    );
 
   /// \brief Emits all things necessary for making debug info for a global
   /// variable vd.

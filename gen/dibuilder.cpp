@@ -1167,7 +1167,12 @@ void DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
 void DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
                                   Type *type, bool isThisPtr, bool forceAsLocal,
                                   bool isRefRVal,
-                                  llvm::ArrayRef<int64_t> addr) {
+#if LDC_LLVM_VER >= 1500
+                                  llvm::ArrayRef<uint64_t> addr
+#else
+                                  llvm::ArrayRef<int64_t> addr
+#endif
+                                  ) {
   if (!mustEmitFullDebugInfo())
     return;
 
