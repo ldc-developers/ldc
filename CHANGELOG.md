@@ -1,7 +1,7 @@
 # LDC master
 
 #### Big news
-- Frontend, druntime and Phobos are at version [2.099.0](https://dlang.org/changelog/2.099.0.html). (#3917, #3893)
+- Frontend, druntime and Phobos are at version [2.099.0+](https://dlang.org/changelog/2.099.0.html). (#3917, #3893, #3937)
 - Support for LLVM 13. The prebuilt packages use v13.0.1. (#3842)
 - On Linux, LDC doesn't default to the `ld.gold` linker anymore. The combination of LLVM 13 and older gold linkers can apparently cause problems. We recommend using LLD, e.g., via `-linker=lld` or by setting your default `/usr/bin/ld` symlink; it's significantly faster too.
 - `-linkonce-templates` is less aggressive by default now and IMHO production-ready. (#3924)
