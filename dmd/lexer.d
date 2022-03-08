@@ -314,15 +314,17 @@ class Lexer
                 goto case_ident;
 
             case 'r':
-                if (p[1] != '"')
+                if (Ccompile || p[1] != '"')
                     goto case_ident;
                 p++;
                 goto case '`';
             case '`':
+                if (Ccompile)
+                    goto default;
                 wysiwygStringConstant(t);
                 return;
             case 'x':
-                if (p[1] != '"')
+                if (Ccompile || p[1] != '"')
                     goto case_ident;
                 p++;
                 auto start = p;
@@ -332,6 +334,8 @@ class Lexer
                 error("Built-in hex string literals are obsolete, use `std.conv.hexString!%s` instead.", hexString.extractChars());
                 return;
             case 'q':
+                if (Ccompile)
+                    goto case_ident;
                 if (p[1] == '"')
                 {
                     p++;
@@ -605,6 +609,7 @@ class Lexer
                     endOfLine();
                     continue;
                 case '+':
+                    if (!Ccompile)
                     {
                         int nest;
                         startLoc = loc();
@@ -674,6 +679,7 @@ class Lexer
                         }
                         continue;
                     }
+                    break;
                 default:
                     break;
                 }
@@ -2710,6 +2716,8 @@ class Lexer
             case '2':
             case '3':
             case '4':
+                if (!linemarker)
+                    goto Lerr;
                 flags = true;   // linemarker flags seen
                 ++p;
                 if ('0' <= *p && *p <= '9')
