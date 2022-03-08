@@ -143,8 +143,7 @@ AttrSet IrFuncTy::getParamAttrs(bool passThisBeforeSret) {
   // Set attributes on the explicit parameters.
   const size_t n = args.size();
   for (size_t k = 0; k < n; k++) {
-    const size_t i = idx + (reverseParams ? (n - k - 1) : k);
-    newAttrs.addToParam(i, args[k]->attrs);
+    newAttrs.addToParam(idx + k, args[k]->attrs);
   }
 
   return newAttrs;

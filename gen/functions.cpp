@@ -222,8 +222,6 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     ++nextLLArgIdx;
   }
 
-  newIrFty.reverseParams = abi->reverseExplicitParams(f);
-
   // let the ABI rewrite the types as necessary
   abi->rewriteFunctionType(newIrFty);
 
@@ -254,15 +252,9 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     std::swap(argtypes[0], argtypes[1]);
   }
 
-  const size_t firstExplicitArg = argtypes.size();
   const size_t numExplicitLLArgs = irFty.args.size();
   for (size_t i = 0; i < numExplicitLLArgs; i++) {
     argtypes.push_back(irFty.args[i]->ltype);
-  }
-
-  // reverse params?
-  if (irFty.reverseParams && numExplicitLLArgs > 1) {
-    std::reverse(argtypes.begin() + firstExplicitArg, argtypes.end());
   }
 
   irFty.funcType =
@@ -791,9 +783,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
 
   unsigned int k = 0;
   for (; iarg != func->arg_end(); ++iarg) {
-    size_t llExplicitIdx = irFty.reverseParams ? irFty.args.size() - k - 1 : k;
-    ++k;
-    IrFuncTyArg *arg = irFty.args[llExplicitIdx];
+    IrFuncTyArg *arg = irFty.args[k++];
 
     if (!fdecl->parameters || arg->parametersIdx >= fdecl->parameters->length) {
       iarg->setName("unnamed");

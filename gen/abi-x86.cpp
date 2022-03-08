@@ -193,31 +193,31 @@ struct X86TargetABI : TargetABI {
         sret->attrs.addAttribute(LLAttribute::InReg);
       }
 
-      // ... otherwise try the last argument
+      // ... otherwise try the first argument
       else if (!fty.args.empty()) {
-        // The last parameter is passed in EAX rather than being pushed on the
+        // The first parameter is passed in EAX rather than being pushed on the
         // stack if the following conditions are met:
         //   * It fits in EAX.
         //   * It is not a 3 byte struct.
         //   * It is not a floating point type.
 
-        IrFuncTyArg *last = fty.args.back();
-        if (last->rewrite == &indirectByvalRewrite ||
-            (last->byref && !last->isByVal())) {
-          Logger::println("Putting last (byref) parameter in register");
-          last->attrs.addAttribute(LLAttribute::InReg);
+        IrFuncTyArg &first = *fty.args[0];
+        if (first.rewrite == &indirectByvalRewrite ||
+            (first.byref && !first.isByVal())) {
+          Logger::println("Putting first (byref) parameter in register");
+          first.attrs.addAttribute(LLAttribute::InReg);
         } else {
-          Type *lastTy = last->type->toBasetype();
-          auto sz = lastTy->size();
-          if (!lastTy->isfloating() && (sz == 1 || sz == 2 || sz == 4)) {
+          Type *firstTy = first.type->toBasetype();
+          auto sz = firstTy->size();
+          if (!firstTy->isfloating() && (sz == 1 || sz == 2 || sz == 4)) {
             // rewrite aggregates as integers to make inreg work
-            if (lastTy->ty == TY::Tstruct || lastTy->ty == TY::Tsarray) {
-              integerRewrite.applyTo(*last);
+            if (firstTy->ty == TY::Tstruct || firstTy->ty == TY::Tsarray) {
+              integerRewrite.applyTo(first);
               // undo byval semantics applied via passByVal() returning true
-              last->byref = false;
-              last->attrs.clear();
+              first.byref = false;
+              first.attrs.clear();
             }
-            last->attrs.addAttribute(LLAttribute::InReg);
+            first.attrs.addAttribute(LLAttribute::InReg);
           }
         }
       }

@@ -578,11 +578,10 @@ struct BindPayload(OF, F, int[] Index, Args...)
       static if (InvalidIndex != ind)
       {
         {
-          const ii = ParametersCount - i - 1; // reverse params
-          desc[ii].data = &(argStore.args[ind]);
-          desc[ii].size = (argStore.args[ind]).sizeof;
+          desc[i].data = &(argStore.args[ind]);
+          desc[i].size = (argStore.args[ind]).sizeof;
           alias T = FuncParams[i];
-          desc[ii].type = (isAggregateType!T || isDelegate!T || isStaticArray!T ? ParamType.Aggregate : ParamType.Simple);
+          desc[i].type = (isAggregateType!T || isDelegate!T || isStaticArray!T ? ParamType.Aggregate : ParamType.Simple);
         }
       }
     }

@@ -705,9 +705,6 @@ DIType DIBuilder::CreateAArrayType(TypeAArray *type) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// new calling convention constant being proposed as a Dwarf extension
-const unsigned DW_CC_D_dmd = 0x43;
-
 DISubroutineType DIBuilder::CreateFunctionType(Type *type) {
   TypeFunction *t = type->isTypeFunction();
   assert(t);
@@ -718,12 +715,7 @@ DISubroutineType DIBuilder::CreateFunctionType(Type *type) {
   LLMetadata *params = {CreateTypeDescription(retType)};
   auto paramsArray = DBuilder.getOrCreateTypeArray(params);
 
-  // The calling convention has to be recorded to distinguish
-  // extern(D) functions from extern(C++) ones.
-  unsigned CC =
-      getIrType(t, true)->getIrFuncTy().reverseParams ? DW_CC_D_dmd : 0;
-
-  return DBuilder.createSubroutineType(paramsArray, DIFlags::FlagZero, CC);
+  return DBuilder.createSubroutineType(paramsArray, DIFlags::FlagZero, 0);
 }
 
 DISubroutineType DIBuilder::CreateEmptyFunctionType() {

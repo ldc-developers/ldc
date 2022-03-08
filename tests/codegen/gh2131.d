@@ -1,7 +1,7 @@
 // RUN: %ldc -O3 -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 
 // CHECK:      define {{.*}}zeroext {{.*}}@{{.*}}_D6gh21313foo
-// CHECK-SAME: i1 zeroext %x_arg
+// CHECK-SAME: i1 {{(inreg )?}}zeroext %x_arg
 bool foo(bool x, ref bool o)
 {
     // CHECK-NOT: and i8

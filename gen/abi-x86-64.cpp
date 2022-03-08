@@ -295,24 +295,14 @@ void X86_64TargetABI::rewriteFunctionType(IrFuncTy &fty) {
   Logger::println("x86-64 ABI: Transforming argument types");
   LOG_SCOPE;
 
-  int begin = 0, end = fty.args.size(), step = 1;
-  if (fty.reverseParams) {
-    begin = end - 1;
-    end = -1;
-    step = -1;
-  }
-  for (int i = begin; i != end; i += step) {
-    IrFuncTyArg &arg = *fty.args[i];
-
-    if (arg.byref) {
-      if (!arg.isByVal() && regCount.int_regs > 0) {
+  for (IrFuncTyArg *arg : fty.args) {
+    if (arg->byref) {
+      if (!arg->isByVal() && regCount.int_regs > 0) {
         regCount.int_regs--;
       }
-
-      continue;
+    } else {
+      rewriteArgument(fty, *arg, regCount);
     }
-
-    rewriteArgument(fty, arg, regCount);
   }
 
   // regCount (fty.tag) is now in the state after all implicit & formal args,

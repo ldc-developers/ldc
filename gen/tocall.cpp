@@ -155,8 +155,6 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
   args.resize(implicitLLArgCount + explicitLLArgCount,
               static_cast<llvm::Value *>(nullptr));
 
-  // Iterate the explicit arguments from left to right in the D source,
-  // which is the reverse of the LLVM order if irFty.reverseParams is true.
   size_t dArgIndex = 0;
   for (size_t i = 0; i < explicitLLArgCount; ++i, ++dArgIndex) {
     const bool isVararg = (i >= formalLLArgCount);
@@ -199,9 +197,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
     llvm::Value *llVal = irFty.putArg(*irArg, dval, isLValueExp,
                                       dArgIndex == explicitDArgCount - 1);
 
-    const size_t llArgIdx =
-        implicitLLArgCount +
-        (irFty.reverseParams ? explicitLLArgCount - i - 1 : i);
+    const size_t llArgIdx = implicitLLArgCount + i;
     llvm::Type *const paramType =
         (isVararg ? nullptr : calleeType->getParamType(llArgIdx));
 

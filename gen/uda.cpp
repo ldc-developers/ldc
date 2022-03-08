@@ -191,12 +191,8 @@ void applyAttrAllocSize(StructLiteralExp *sle, IrFunction *irFunc) {
   unsigned offset = llvmNumParams - numUserParams;
 
   // Calculate the param indices for the function as defined in LLVM IR
-  auto llvmSizeIdx =
-      irFunc->irFty.reverseParams ? numUserParams - sizeArgIdx - 1 : sizeArgIdx;
-  auto llvmNumIdx =
-      irFunc->irFty.reverseParams ? numUserParams - numArgIdx - 1 : numArgIdx;
-  llvmSizeIdx += offset;
-  llvmNumIdx += offset;
+  const auto llvmSizeIdx = sizeArgIdx + offset;
+  const auto llvmNumIdx = numArgIdx + offset;
 
   llvm::AttrBuilder builder;
   if (numArgIdx >= 0) {
