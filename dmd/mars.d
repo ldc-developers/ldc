@@ -689,7 +689,22 @@ version (IN_LLVM)
     }
 
     if (params.addMain && !global.hasMainFunction)
+    {
+version (IN_LLVM)
+{
+        auto mainModule = moduleWithEmptyMain();
+        modules.push(mainModule);
+
+        if (!params.oneobj)
+            params.objfiles.push(mainModule.objfile.toChars());
+        else if (modules.length == 1)
+            params.objfiles.insert(0, mainModule.objfile.toChars());
+}
+else
+{
         modules.push(moduleWithEmptyMain());
+}
+    }
 
 version (IN_LLVM)
 {
