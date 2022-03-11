@@ -12,11 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define DEBUG_TYPE "dgc2stack"
-#if LDC_LLVM_VER < 700
-#define LLVM_DEBUG DEBUG
-#endif
-
 #include "gen/attributes.h"
 #include "metadata.h"
 #include "gen/passes/Passes.h"
@@ -41,6 +36,11 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
+
+#define DEBUG_TYPE "dgc2stack"
+#if LDC_LLVM_VER < 700
+#define LLVM_DEBUG DEBUG
+#endif
 
 using namespace llvm;
 

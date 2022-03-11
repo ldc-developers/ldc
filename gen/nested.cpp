@@ -125,7 +125,11 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
   // Make the DWARF variable address relative to the context pointer (ctx);
   // register all ops (offsetting, dereferencing) required to get there in the
   // following list.
+#if LDC_LLVM_VER >= 1500
+  LLSmallVector<uint64_t, 4> dwarfAddrOps;
+#else
   LLSmallVector<int64_t, 4> dwarfAddrOps;
+#endif
 
   const auto offsetToNthField = [&val, &dwarfAddrOps](unsigned fieldIndex,
                                                       const char *name = "") {

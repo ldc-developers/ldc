@@ -31,6 +31,10 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
+#if LDC_LLVM_VER >= 1500
+#include "llvm/Support/AArch64TargetParser.h"
+#include "llvm/Support/ARMTargetParser.h"
+#endif
 
 #if LDC_LLVM_VER >= 700
 #include "gen/optimizer.h"
