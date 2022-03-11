@@ -15,11 +15,6 @@
 #pragma once
 
 #include "gen/attributes.h"
-
-// "gen/llvmhelpers.h" declares `getGlobalContext`, but includes this header
-// so we can't #include it to rely on its definitions
-llvm::LLVMContext& getGlobalContext();
-
 #include "llvm/ADT/SmallVector.h"
 #include <vector>
 
