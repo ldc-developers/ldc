@@ -151,6 +151,8 @@ script:
   # Run dynamic-compile integration test
   # FIXME: disabled since LLVM 12, needs https://github.com/ldc-developers/ldc/pull/3184
   #- installed/bin/ldc2 -enable-dynamic-compile -run tests/dynamiccompile/array.d
+  # Run ImportC integration test
+  - installed/bin/ldc2 -run tests/d2/dmd-testsuite/runnable/test22597.c
   # Build & copy dub
   - export DMD="$PWD/installed/bin/ldmd2"
   - git clone --recursive https://github.com/dlang/dub.git
