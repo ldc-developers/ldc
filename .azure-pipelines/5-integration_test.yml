@@ -49,3 +49,9 @@ steps:
   displayName: Run dynamic-compile integration test
   # disabled since LLVM 12, needs https://github.com/ldc-developers/ldc/pull/3184
   condition: not(always())
+
+- bash: |
+    set -ex
+    cd ..
+    installed/bin/ldc2 -run $BUILD_SOURCESDIRECTORY/tests/d2/dmd-testsuite/runnable/test22597.c
+  displayName: Run ImportC integration test

@@ -290,6 +290,10 @@ task:
   run_dynamic_compile_integration_test_script: |
     cd $CIRRUS_WORKING_DIR/..
     installed/bin/ldc2 -enable-dynamic-compile -run $CIRRUS_WORKING_DIR/tests/dynamiccompile/array.d
+  # Run ImportC integration test
+  run_importC_integration_test_script: |
+    cd $CIRRUS_WORKING_DIR/..
+    installed/bin/ldc2 -run $CIRRUS_WORKING_DIR/tests/d2/dmd-testsuite/runnable/test22597.c
   # Build & copy dub
   build_dub_script: |
     cd $CIRRUS_WORKING_DIR/..

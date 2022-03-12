@@ -467,8 +467,10 @@ void parseCommandLine(Strings &sourceFiles) {
       } else {
         char const *name = runargs[0].c_str();
         char const *ext = FileName::ext(name);
-        if (ext && !FileName::equals(ext, "d") &&
-            !FileName::equals(ext, "di")) {
+        if (ext && !FileName::equals(ext, mars_ext.ptr) &&
+            !FileName::equals(ext, hdr_ext.ptr) &&
+            !FileName::equals(ext, i_ext.ptr) &&
+            !FileName::equals(ext, c_ext.ptr)) {
           error(Loc(), "-run must be followed by a source file, not '%s'",
                 name);
         }
