@@ -176,6 +176,18 @@ private:
     llvm::appendToGlobalCtors(m, ctor, 0);
   }
 
+  static Constant * getWithOperandReplaced(ConstantExpr * ce, unsigned OpNo, Constant *Op) {
+      assert(Op->getType() == ce->getOperand(OpNo)->getType() &&
+               "Replacing operand with value of different type!");
+        if (ce->getOperand(OpNo) == Op)
+          return const_cast<ConstantExpr*>(ce);
+
+        SmallVector<Constant*, 8> NewOps;
+        for (unsigned i = 0, e = ce->getNumOperands(); i != e; ++i)
+          NewOps.push_back(i == OpNo ? Op : ce->getOperand(i));
+
+        return ce->getWithOperands(NewOps);
+  }
   void appendToCRTConstructor(GlobalVariable *importedVar,
                               Constant *originalInitializer) {
     if (!ctor)
@@ -203,7 +215,7 @@ private:
     if (auto gep = isGEP(skipOverCast(originalInitializer))) {
       Constant *newOperand =
           createConstPointerCast(importedVar, gep->getOperand(0)->getType());
-      value = gep->getWithOperandReplaced(0, newOperand);
+      value = getWithOperandReplaced(gep, 0, newOperand);
     }
     value = createConstPointerCast(value, t);
 
