@@ -93,12 +93,12 @@ LLValue *DtoCallableValue(DValue *fn) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLFunctionType *DtoExtractFunctionType(LLType *type) {
+LLFunctionType *DtoExtractFunctionType(LLType *type, LLValue *val) {
   if (LLFunctionType *fty = isaFunction(type)) {
     return fty;
   }
   if (LLPointerType *pty = isaPointer(type)) {
-    if (LLFunctionType *fty = isaFunction(pty->getElementType())) {
+    if (LLFunctionType *fty = isaFunction(getPointeeType(val))) {
       return fty;
     }
   }
@@ -866,7 +866,7 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
   // get callee llvm value
   LLValue *callable = DtoCallableValue(fnval);
   LLFunctionType *const callableTy =
-      DtoExtractFunctionType(callable->getType());
+      DtoExtractFunctionType(callable->getType(), callable);
   assert(callableTy);
 
   //     IF_LOG Logger::cout() << "callable: " << *callable << '\n';

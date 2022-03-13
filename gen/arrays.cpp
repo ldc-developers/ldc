@@ -873,11 +873,16 @@ DSliceValue *DtoCatArrays(const Loc &loc, Type *arrayType, Expression *exp1,
     } while (ce->op == EXP::concatenate);
     arrs.push_back(DtoSlicePtr(ce));
 
+#if LDC_LLVM_VER < 1500
     // Create static array from slices
     LLPointerType *ptrarraytype = isaPointer(arrs[0]);
-    assert(ptrarraytype && "Expected pointer type");
     LLStructType *arraytype = isaStruct(ptrarraytype->getElementType());
+#else
+      LLStructType *arraytype = isaStruct(DtoType(arrayType));
+      LLPointerType *ptrarraytype = isaPointer(arrs[0]);
+#endif
     assert(arraytype && "Expected struct type");
+    assert(ptrarraytype && "Expected pointer type");
     LLArrayType *type = LLArrayType::get(arraytype, arrs.size());
     LLValue *array = DtoRawAlloca(type, 0, ".slicearray");
     unsigned int i = 0;

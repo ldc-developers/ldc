@@ -354,7 +354,7 @@ public:
         // apply the byte offset.
         auto voidPtrType = getVoidPtrType();
         result = llvm::ConstantExpr::getGetElementPtr(
-            voidPtrType->getElementType(), DtoBitCast(base, voidPtrType),
+            llvm::Type::getInt8Ty(gIR->context()), DtoBitCast(base, voidPtrType),
             DtoConstSize_t(e->offset));
       }
     }

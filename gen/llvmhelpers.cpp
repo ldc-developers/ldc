@@ -1783,6 +1783,8 @@ llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
   llvm::GlobalVariable *existing =
       module.getGlobalVariable(mangledName, /*AllowInternal=*/true);
   if (existing) {
+#if LDC_LLVM_VER < 1500
+    //FIXME: LLVM 15 removed getElementType()
     const auto existingType = existing->getType()->getElementType();
     if (existingType != type || existing->isConstant() != isConstant ||
         existing->isThreadLocal() != isThreadLocal) {
@@ -1802,6 +1804,7 @@ llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
       suppl("New IR type:     ", type, isConstant, isThreadLocal);
       fatal();
     }
+#endif
     return existing;
   }
 

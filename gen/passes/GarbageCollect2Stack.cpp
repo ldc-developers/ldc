@@ -199,8 +199,10 @@ public:
     assert(ArrTy && "Dynamic array type not a struct?");
     assert(isa<IntegerType>(ArrTy->getElementType(0)));
     const PointerType *PtrTy = cast<PointerType>(ArrTy->getElementType(1));
+#if LDC_LLVM_VER < 1500
+    //FIXME for LLVM 15
     Ty = PtrTy->getElementType();
-
+#endif
     // If the user explicitly disabled the limits, don't even check
     // whether the element count fits in 32 bits. This could cause
     // miscompilations for humongous arrays, but as the value "range"

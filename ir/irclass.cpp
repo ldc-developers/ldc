@@ -109,6 +109,8 @@ LLGlobalVariable *IrClass::getClassInfoSymbol(bool define) {
       // regular TypeInfo metadata
       emitTypeInfoMetadata(typeInfo, aggrdecl->type);
 
+//FIXME: LLVM15 this probably needs a refactor of DtoType for classes because getElementType() no longer exists
+#if LDC_LLVM_VER < 1500
       // Gather information
       LLType *type = DtoType(aggrdecl->type);
       LLType *bodyType = llvm::cast<LLPointerType>(type)->getElementType();
@@ -124,6 +126,7 @@ LLGlobalVariable *IrClass::getClassInfoSymbol(bool define) {
       llvm::NamedMDNode *node = gIR->module.getOrInsertNamedMetadata(metaname);
       node->addOperand(llvm::MDNode::get(
           gIR->context(), llvm::makeArrayRef(mdVals, CD_NumFields)));
+#endif
     }
 
     if (!define)
