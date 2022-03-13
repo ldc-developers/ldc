@@ -481,6 +481,19 @@ llvm::CallInst *DtoInlineAsmExpr(const Loc &loc, llvm::StringRef code,
   llvm::InlineAsm *ia = llvm::InlineAsm::get(FT, code, constraints, sideeffect);
 
   llvm::CallInst *call = gIR->ir->CreateCall(ia, operands, "");
+
+#if LDC_LLVM_VER >= 1500
+  {
+    int i = 0;
+    for (llvm::InlineAsm::ConstraintInfo& CI : ia->ParseConstraints()) {
+      if (CI.isIndirect)
+        call->addParamAttr(i, llvm::Attribute::get(getGlobalContext(),
+                                                   llvm::Attribute::ElementType,
+                                                   getPointeeType(operands[i])));
+        i++;
+    }
+  }
+#endif
   gIR->addInlineAsmSrcLoc(loc, call);
 
   return call;

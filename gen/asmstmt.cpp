@@ -694,9 +694,6 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   std::vector<LLType *> types;
   types.insert(types.end(), outtypes.begin(), outtypes.end());
   types.insert(types.end(), intypes.begin(), intypes.end());
-  //FIXME: LLVM 15 requires `elementtype` attribute for indirect constraints (i.e. "=*m)
-  // e.g.  Operand for indirect constraint must have elementtype attribute
-  // call void asm sideeffect "stp x19, x20, $0", "=*m,=*m"(i64* %6, i64* %7),
   llvm::FunctionType *fty = llvm::FunctionType::get(retty, types, false);
   IF_LOG Logger::cout() << "function type = " << *fty << '\n';
 
@@ -724,6 +721,18 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
 
   llvm::CallInst *call = p->ir->CreateCall(
       ia, args, retty == LLType::getVoidTy(gIR->context()) ? "" : "asm");
+#if LDC_LLVM_VER >= 1500
+  {
+    int i = 0;
+    for (llvm::InlineAsm::ConstraintInfo& CI : ia->ParseConstraints()) {
+      if (CI.isIndirect)
+        call->addParamAttr(i, llvm::Attribute::get(getGlobalContext(),
+                                                   llvm::Attribute::ElementType,
+                                                   types[i]));
+        i++;
+    }
+  }
+#endif
   p->addInlineAsmSrcLoc(stmt->loc, call);
 
   IF_LOG Logger::cout() << "Complete asm statement: " << *call << '\n';
