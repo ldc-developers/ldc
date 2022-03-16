@@ -595,6 +595,24 @@ void fixupUClibcEnv() {
   global.params.isUClibcEnvironment = true;
 }
 
+// Check for -newlib and strip out (supports -newlib and -eabi-newlib)
+void fixupNewlibEnv() {
+  llvm::Triple triple(mTargetTriple);
+  std::string envName(triple.getEnvironmentName());
+  size_t pos = envName.find("newlib");
+
+  if (pos == std::string::npos)
+    return;
+
+  envName.replace(pos, 6, "");
+  if (envName[envName.length() - 1] == '-') {
+      envName.replace(envName.length() - 1, 1, "");
+  }
+  triple.setEnvironmentName(envName);
+  mTargetTriple = triple.normalize();
+  global.params.isNewlibEnvironment = true;
+}
+
 /// Register the float ABI.
 /// Also defines D_HardFloat or D_SoftFloat depending if FPU should be used
 void registerPredefinedFloatABI(const char *soft, const char *hard,
@@ -872,6 +890,9 @@ void registerPredefinedTargetVersions() {
       llvm::StringRef osName = triple.getOSName();
       if (osName.empty() || osName == "unknown" || osName == "none") {
         VersionCondition::addPredefinedGlobalIdent("FreeStanding");
+        if (global.params.isNewlibEnvironment) {
+            VersionCondition::addPredefinedGlobalIdent("CRuntime_Newlib");
+        }
       } else {
         warning(Loc(), "unknown target OS: %s", osName.str().c_str());
       }
@@ -1087,6 +1108,7 @@ int cppmain() {
 
   // check and fix environment for uClibc
   fixupUClibcEnv();
+  fixupNewlibEnv();
 
   // create target machine and finalize floatABI
   gTargetMachine = createTargetMachine(
