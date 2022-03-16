@@ -595,20 +595,16 @@ void fixupUClibcEnv() {
   global.params.isUClibcEnvironment = true;
 }
 
-// Check for -newlib and strip out (supports -newlib and -eabi-newlib)
+// Strip out newlib
 void fixupNewlibEnv() {
-  llvm::Triple triple(mTargetTriple);
-  std::string envName(triple.getEnvironmentName());
-  size_t pos = envName.find("newlib");
-
+  std::string fullTriple(mTargetTriple);
+  size_t pos = fullTriple.find("newlib");
   if (pos == std::string::npos)
     return;
 
-  envName.replace(pos, 6, "");
-  if (envName[envName.length() - 1] == '-') {
-      envName.replace(envName.length() - 1, 1, "");
-  }
-  triple.setEnvironmentName(envName);
+  fullTriple.replace(pos, 6, "");
+
+  llvm::Triple triple(fullTriple);
   mTargetTriple = triple.normalize();
   global.params.isNewlibEnvironment = true;
 }
