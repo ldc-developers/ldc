@@ -316,7 +316,7 @@ struct TimeTraceProfiler
         {
             if (loc.filename)
             {
-                buf.writestring(loc.filename);
+                writeEscapeJSONString(buf, loc.filename.toDString());
                 if (loc.linnum)
                 {
                     buf.writeByte(':');
