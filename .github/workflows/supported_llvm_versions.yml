@@ -11,7 +11,8 @@ jobs:
             os: ubuntu-18.04
             host_dc: ldc-beta
             llvm_version: "14.0.0"
-            cmake_opts: "-DLDC_WITH_MLIR=OFF"
+            # the compiler-rt libs installation is somehow non-standard
+            cmake_opts: "-DLDC_WITH_MLIR=OFF -DLDC_INSTALL_LLVM_RUNTIME_LIBS_OS=x86_64-unknown-linux-gnu -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH="
           - job_name: Ubuntu 18.04, LLVM 13, latest LDC beta
             os: ubuntu-18.04
             host_dc: ldc-beta
