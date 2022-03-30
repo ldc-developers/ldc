@@ -46,7 +46,7 @@ foreach(LLVM_SUPPORTED_TARGET ${LLVM_TARGETS_TO_BUILD})
 endforeach()
 
 # Set MLIR support variables if it is found. Only try for LLVM >= 10.0.
-if(NOT (LDC_LLVM_VER LESS 1000))
+if(NOT (LDC_LLVM_VER LESS 1000) AND NOT LDC_WITH_MLIR STREQUAL "OFF")
     include(FindMLIR)
     if(MLIR_FOUND)
         message(STATUS "-- Building LDC with MLIR support (${MLIR_ROOT_DIR})")
