@@ -203,8 +203,7 @@ void generateBind(const Context &context, DynamicCompilerContext &jitContext,
                        : nullptr;
           };
 
-          auto ptype = llvm::cast<llvm::PointerType>(&type);
-          auto elemType = ptype->getElementType();
+          auto elemType = type.getPointerElementType();
           if (elemType->isFunctionTy()) {
             (void)size;
             assert(size == sizeof(void *));

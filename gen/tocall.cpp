@@ -98,7 +98,7 @@ LLFunctionType *DtoExtractFunctionType(LLType *type) {
     return fty;
   }
   if (LLPointerType *pty = isaPointer(type)) {
-    if (LLFunctionType *fty = isaFunction(pty->getElementType())) {
+    if (LLFunctionType *fty = isaFunction(pty->getPointerElementType())) {
       return fty;
     }
   }

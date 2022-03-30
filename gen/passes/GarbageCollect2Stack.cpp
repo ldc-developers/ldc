@@ -199,7 +199,7 @@ public:
     assert(ArrTy && "Dynamic array type not a struct?");
     assert(isa<IntegerType>(ArrTy->getElementType(0)));
     const PointerType *PtrTy = cast<PointerType>(ArrTy->getElementType(1));
-    Ty = PtrTy->getElementType();
+    Ty = PtrTy->getPointerElementType();
 
     // If the user explicitly disabled the limits, don't even check
     // whether the element count fits in 32 bits. This could cause

@@ -251,7 +251,7 @@ void setRtCompileVar(const Context &context, llvm::Module &module,
   assert(nullptr != init);
   auto var = module.getGlobalVariable(name);
   if (nullptr != var) {
-    auto type = var->getType()->getElementType();
+    auto type = var->getValueType();
     auto initializer =
         parseInitializer(module.getDataLayout(), *type, init,
                          [&](const std::string &str) { fatal(context, str); });
