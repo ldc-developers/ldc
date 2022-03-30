@@ -96,7 +96,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   } else {
     Type *rt = f->next;
     const bool byref = f->isref() && rt->toBasetype()->ty != TY::Tvoid;
-#if LDC_LLVM_VER >= 1500
+#if LDC_LLVM_VER >= 1400
       llvm::AttrBuilder attrs(getGlobalContext());
 #else
     llvm::AttrBuilder attrs;
@@ -104,7 +104,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
 
     if (abi->returnInArg(f, fd && fd->needThis())) {
       // sret return
-#if LDC_LLVM_VER >= 1500
+#if LDC_LLVM_VER >= 1400
       llvm::AttrBuilder sretAttrs(getGlobalContext());
 #else
       llvm::AttrBuilder sretAttrs;
@@ -130,7 +130,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
 
   if (thistype) {
     // Add the this pointer for member functions
-#if LDC_LLVM_VER >= 1500
+#if LDC_LLVM_VER >= 1400
     llvm::AttrBuilder attrs(getGlobalContext());
 #else
     llvm::AttrBuilder attrs;
@@ -144,7 +144,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     ++nextLLArgIdx;
   } else if (nesttype) {
     // Add the context pointer for nested functions
-#if LDC_LLVM_VER >= 1500
+#if LDC_LLVM_VER >= 1400
     llvm::AttrBuilder attrs(getGlobalContext());
 #else
     llvm::AttrBuilder attrs;
@@ -195,7 +195,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     bool passPointer = arg->storageClass & (STCref | STCout);
 
     Type *loweredDType = arg->type;
-#if LDC_LLVM_VER >= 1500
+#if LDC_LLVM_VER >= 1400
     llvm::AttrBuilder attrs(getGlobalContext());
 #else
     llvm::AttrBuilder attrs;

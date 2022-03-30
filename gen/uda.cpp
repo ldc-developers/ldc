@@ -194,7 +194,7 @@ void applyAttrAllocSize(StructLiteralExp *sle, IrFunction *irFunc) {
   const auto llvmSizeIdx = sizeArgIdx + offset;
   const auto llvmNumIdx = numArgIdx + offset;
 
-#if LDC_LLVM_VER >= 1500
+#if LDC_LLVM_VER >= 1400
   llvm::AttrBuilder builder(getGlobalContext());
 #else
   llvm::AttrBuilder builder;
@@ -429,7 +429,7 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       if (ident == Id::udaAllocSize) {
         applyAttrAllocSize(sle, irFunc);
       } else if (ident == Id::udaLLVMAttr) {
-#if LDC_LLVM_VER >= 1500
+#if LDC_LLVM_VER >= 1400
         llvm::AttrBuilder attrs(getGlobalContext());
 #else
         llvm::AttrBuilder attrs;

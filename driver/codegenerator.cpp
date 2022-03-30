@@ -24,7 +24,7 @@
 #include "gen/modules.h"
 #include "gen/runtime.h"
 #include "ir/irdsymbol.h"
-#if LDC_LLVM_VER >= 1500
+#if LDC_LLVM_VER >= 1400
 #include "llvm/IR/DiagnosticInfo.h"
 #endif
 #if LDC_LLVM_VER >= 1100
