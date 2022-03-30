@@ -7,6 +7,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - job_name: Ubuntu 18.04, LLVM 14, latest LDC beta
+            os: ubuntu-18.04
+            host_dc: ldc-beta
+            llvm_version: "14.0.0"
+            cmake_opts: "-DLDC_WITH_MLIR=OFF"
           - job_name: Ubuntu 18.04, LLVM 13, latest LDC beta
             os: ubuntu-18.04
             host_dc: ldc-beta
@@ -89,12 +94,14 @@ jobs:
             echo "Already cached"
             exit 0
           fi
+          version='${{ matrix.llvm_version }}'
           if [[ '${{ runner.os }}' == 'macOS' ]]; then
             suffix='x86_64-apple-darwin'
+          elif [[ "$version" == 14.* ]]; then
+            suffix='x86_64-linux-gnu-ubuntu-18.04'
           else
             suffix='x86_64-linux-gnu-ubuntu-16.04'
           fi
-          version='${{ matrix.llvm_version }}'
           if [[ "$version" =~ ^(1.|9)\. ]]; then
             llvm_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-$suffix.tar.xz"
           else
