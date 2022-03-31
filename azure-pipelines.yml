@@ -1,8 +1,8 @@
 # syntax: https://docs.microsoft.com/en-us/azure/devops/pipelines/yaml-schema
 
 variables:
-  LLVM_VERSION: 13.0.1
-  CLANG_VERSION: 12.0.1
+  LLVM_VERSION: 0567b64b
+  CLANG_VERSION: 14.0.0
   HOST_LDC_VERSION: 1.27.1
 
 trigger:
@@ -99,7 +99,7 @@ jobs:
 - job: macOS_x64
   timeoutInMinutes: 120
   pool:
-    vmImage: 'macOS-10.15'
+    vmImage: 'macOS-11'
   variables:
     CI_OS: osx
     ARCH: x86_64
@@ -108,7 +108,7 @@ jobs:
       -DBUILD_LTO_LIBS=ON
       -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
       -DEXTRA_CXXFLAGS=-flto=full
-    MACOSX_DEPLOYMENT_TARGET: 10.9
+    MACOSX_DEPLOYMENT_TARGET: 10.12
     IOS_DEPLOYMENT_TARGET: 12.0
   steps:
     - template: .azure-pipelines/1-posix-setup.yml
