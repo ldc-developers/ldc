@@ -17,7 +17,8 @@
 module ldc.profile;
 
 version = HASHED_FUNC_NAMES;
-version = PROFILEDATA_309_LAYOUT;
+
+import ldc.intrinsics : LLVM_version;
 
 @nogc:
 nothrow:
@@ -25,22 +26,26 @@ nothrow:
 /**
  * Data structure for profile data per instrumented function
  */
+// this has to match INSTR_PROF_DATA in profile-rt/InstrProfData.inc
 extern(C++) struct ProfileData {
-    // This has to match INSTR_PROF_DATA in profile-rt/InstrProfData.inc
-    version (PROFILEDATA_309_LAYOUT)
+    ulong NameRef;
+    ulong FuncHash;
+    static if (LLVM_version >= 1400)
     {
-        ulong NameRef;
-        ulong FuncHash;
-        ulong* Counters;
-        void* FunctionPointer;
-        void* Values;
-        uint NumCounters;
-        ushort NumValueSites;
+        private void* RelativeCounters;
+        inout(ulong)* Counters()() inout @property @trusted pure @nogc nothrow
+        {
+            return cast(inout(ulong)*) ((cast(size_t) &this) + cast(size_t) RelativeCounters);
+        }
     }
     else
     {
-        static assert(0, "unsupported LLVM version");
+        ulong* Counters;
     }
+    void* FunctionPointer;
+    void* Values;
+    uint NumCounters;
+    ushort NumValueSites;
 }
 
 // Symbols provided by profile-rt lib
