@@ -28,33 +28,33 @@ extern(C):  // simplify name mangling for simpler string matching
 
 // PROFGEN-LABEL: @for_loop()
 // PROFUSE-LABEL: @for_loop()
-// PROFGEN: store {{.*}} @[[FL]], i64 0, i64 0
+// PROFGEN: store {{.*}} @[[FL]], i{{32|64}} 0, i{{32|64}} 0
 // PROFUSE-SAME: !prof ![[FL0:[0-9]+]]
 void for_loop() {
   uint i;
-  // PROFGEN: store {{.*}} @[[FL]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[FL]], i{{32|64}} 0, i{{32|64}} 1
   // PROFUSE: br {{.*}} !prof ![[FL1:[0-9]+]]
   for (i = 0; i < 400; ++i) {
-    // PROFGEN: store {{.*}} @[[FL]], i64 0, i64 2
+    // PROFGEN: store {{.*}} @[[FL]], i{{32|64}} 0, i{{32|64}} 2
     // PROFUSE: br {{.*}} !prof ![[FL2:[0-9]+]]
     if (i > 389) {
         break;
     } else {
-      // PROFGEN: store {{.*}} @[[FL]], i64 0, i64 3
+      // PROFGEN: store {{.*}} @[[FL]], i{{32|64}} 0, i{{32|64}} 3
       // PROFUSE: br {{.*}} !prof ![[FL3:[0-9]+]]
       if (i) {}
     }
 
-    // PROFGEN: store {{.*}} @[[FL]], i64 0, i64 4
+    // PROFGEN: store {{.*}} @[[FL]], i{{32|64}} 0, i{{32|64}} 4
     // PROFUSE: br {{.*}} !prof ![[FL4:[0-9]+]]
     if (i > 2) {
         continue;
     }
   }
 
-  // PROFGEN: store {{.*}} @[[FL]], i64 0, i64 5
+  // PROFGEN: store {{.*}} @[[FL]], i{{32|64}} 0, i{{32|64}} 5
   // PROFUSE: br {{.*}} !prof ![[FL5:[0-9]+]]
-  // PROFGEN: store {{.*}} @[[FL]], i64 0, i64 6
+  // PROFGEN: store {{.*}} @[[FL]], i{{32|64}} 0, i{{32|64}} 6
   // PROFUSE: br {{.*}} !prof ![[FL6:[0-9]+]]
   for (uint a = i ? 2 : 1; /+ empty condition +/; ) {
     break;
@@ -63,22 +63,22 @@ void for_loop() {
 
 // PROFGEN-LABEL: @foreach_loop()
 // PROFUSE-LABEL: @foreach_loop()
-// PROFGEN: store {{.*}} @[[FEL]], i64 0, i64 0
+// PROFGEN: store {{.*}} @[[FEL]], i{{32|64}} 0, i{{32|64}} 0
 // PROFUSE-SAME: !prof ![[FEL0:[0-9]+]]
 void foreach_loop() {
-  // PROFGEN: store {{.*}} @[[FEL]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[FEL]], i{{32|64}} 0, i{{32|64}} 1
   // PROFUSE: br {{.*}} !prof ![[FEL1:[0-9]+]]
   foreach (i; 0..400) {
-    // PROFGEN: store {{.*}} @[[FEL]], i64 0, i64 2
+    // PROFGEN: store {{.*}} @[[FEL]], i{{32|64}} 0, i{{32|64}} 2
     // PROFUSE: br {{.*}} !prof ![[FEL2:[0-9]+]]
     if (i > 389) {
         break;
     } else {
-      // PROFGEN: store {{.*}} @[[FEL]], i64 0, i64 3
+      // PROFGEN: store {{.*}} @[[FEL]], i{{32|64}} 0, i{{32|64}} 3
       // PROFUSE: br {{.*}} !prof ![[FEL3:[0-9]+]]
       if (i) {}
     }
-    // PROFGEN: store {{.*}} @[[FEL]], i64 0, i64 4
+    // PROFGEN: store {{.*}} @[[FEL]], i{{32|64}} 0, i{{32|64}} 4
     // PROFUSE: br {{.*}} !prof ![[FEL4:[0-9]+]]
     if (i > 2) {
         continue;
@@ -88,26 +88,26 @@ void foreach_loop() {
 
 // PROFGEN-LABEL: @foreachrange_loop()
 // PROFUSE-LABEL: @foreachrange_loop()
-// PROFGEN: store {{.*}} @[[FERL]], i64 0, i64 0
+// PROFGEN: store {{.*}} @[[FERL]], i{{32|64}} 0, i{{32|64}} 0
 // PROFUSE-SAME: !prof ![[FERL0:[0-9]+]]
 void foreachrange_loop() {
   import std.range : iota;
   auto f = false;
-  // PROFGEN: store {{.*}} @[[FERL]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[FERL]], i{{32|64}} 0, i{{32|64}} 1
   // PROFUSE: br {{.*}} !prof ![[FERL1:[0-9]+]]
-  // PROFGEN: store {{.*}} @[[FERL]], i64 0, i64 2
+  // PROFGEN: store {{.*}} @[[FERL]], i{{32|64}} 0, i{{32|64}} 2
   // PROFUSE: br {{.*}} !prof ![[FERL2:[0-9]+]]
   foreach (i; f ? iota(0,200) : iota(0,400)) {
-    // PROFGEN: store {{.*}} @[[FERL]], i64 0, i64 3
+    // PROFGEN: store {{.*}} @[[FERL]], i{{32|64}} 0, i{{32|64}} 3
     // PROFUSE: br {{.*}} !prof ![[FERL3:[0-9]+]]
     if (i > 389) {
         break;
     } else {
-      // PROFGEN: store {{.*}} @[[FERL]], i64 0, i64 4
+      // PROFGEN: store {{.*}} @[[FERL]], i{{32|64}} 0, i{{32|64}} 4
       // PROFUSE: br {{.*}} !prof ![[FERL4:[0-9]+]]
       if (i) {}
     }
-    // PROFGEN: store {{.*}} @[[FERL]], i64 0, i64 5
+    // PROFGEN: store {{.*}} @[[FERL]], i{{32|64}} 0, i{{32|64}} 5
     // PROFUSE: br {{.*}} !prof ![[FERL5:[0-9]+]]
     if (i > 2) {
         continue;
@@ -118,14 +118,14 @@ void foreachrange_loop() {
 
 // PROFGEN-LABEL: @label_goto()
 // PROFUSE-LABEL: @label_goto()
-// PROFGEN: store {{.*}} @[[LG]], i64 0, i64 0
+// PROFGEN: store {{.*}} @[[LG]], i{{32|64}} 0, i{{32|64}} 0
 // PROFUSE-SAME: !prof ![[LG0:[0-9]+]]
 void label_goto() {
   int i = 0; // 1x
-  // PROFGEN: store {{.*}} @[[LG]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[LG]], i{{32|64}} 0, i{{32|64}} 1
 start:
   ++i; // 10x
-  // PROFGEN: store {{.*}} @[[LG]], i64 0, i64 2
+  // PROFGEN: store {{.*}} @[[LG]], i{{32|64}} 0, i{{32|64}} 2
   // PROFUSE: br {{.*}} !prof ![[LG2:[0-9]+]]
   if (i >= 10) // 10x
   {
@@ -133,23 +133,23 @@ start:
   }
   goto start; // 9x
 
-  // PROFGEN: store {{.*}} @[[LG]], i64 0, i64 3
+  // PROFGEN: store {{.*}} @[[LG]], i{{32|64}} 0, i{{32|64}} 3
   // PROFUSE-NOT: br {{.*}} !prof
   // PROFUSE: br
   if (i >= 567) {} // 0x (never reached -> no weights)
-// PROFGEN: store {{.*}} @[[LG]], i64 0, i64 4
+// PROFGEN: store {{.*}} @[[LG]], i{{32|64}} 0, i{{32|64}} 4
 doublelabel: // 0x
-// PROFGEN: store {{.*}} @[[LG]], i64 0, i64 5
+// PROFGEN: store {{.*}} @[[LG]], i{{32|64}} 0, i{{32|64}} 5
 end: // 1x
   ++i; // 1x
 // Also emit counter for label at end of function:
-// PROFGEN: store {{.*}} @[[LG]], i64 0, i64 6
+// PROFGEN: store {{.*}} @[[LG]], i{{32|64}} 0, i{{32|64}} 6
 emptylabel: // 1x
 }
 
 // PROFGEN-LABEL: @c_switches()
 // PROFUSE-LABEL: @c_switches()
-// PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 0
+// PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 0
 // PROFUSE-SAME: !prof ![[SW0:[0-9]+]]
 void c_switches() {
   static int[] weights = [1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5];
@@ -161,72 +161,72 @@ void c_switches() {
 
   // No cases -> no weights
   switch (weights[0]) {
-  // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 2
+  // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 2
   default:
     break;
   }
-  // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 1
 
 
-  // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 3
+  // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 3
   // PROFUSE: br {{.*}} !prof ![[SW1:[0-9]+]]
   for (int i = 0; i < weights.length; ++i) {
 
     // PROFUSE: switch {{.*}} [
     // PROFUSE: ], !prof ![[SW2:[0-9]+]]
     switch (weights[i]) {
-    // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 5
+    // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 5
     case 1:
-      // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 6
+      // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 6
       // PROFUSE: br {{.*}} !prof ![[SW3:[0-9]+]]
       if (i) {}
       goto case;
-    // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 7
+    // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 7
     case 2:
-      // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 8
+      // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 8
       // PROFUSE: br {{.*}} !prof ![[SW4:[0-9]+]]
       if (i) {}
       break;
-    // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 9
+    // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 9
     case 3:
-      // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 10
+      // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 10
       // PROFUSE: br {{.*}} !prof ![[SW5:[0-9]+]]
       if (i) {}
       continue;
-    // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 11
+    // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 11
     case 4:
-      // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 12
+      // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 12
       // PROFUSE: br {{.*}} !prof ![[SW6:[0-9]+]]
       if (i) {}
       // PROFUSE: switch {{.*}} [
       // PROFUSE: ], !prof ![[SW7:[0-9]+]]
       switch (i) {
-      // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 14
-      // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 15
-      // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 16
-      // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 17
+      // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 14
+      // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 15
+      // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 16
+      // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 17
       case 6: .. case 9:
-        // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 18
+        // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 18
         // PROFUSE: br {{.*}} !prof ![[SW8:[0-9]+]]
         if (i) {}
         continue;
-      // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 19
+      // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 19
       default:
       }
-      // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 13
+      // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 13
       goto default;
 
-    // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 20
+    // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 20
     default:
       // PROFUSE: br {{.*}} !prof ![[SW9:[0-9]+]]
-      // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 21
+      // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 21
       if (i == weights.length - 1)
         return;
     }
-    // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 4
+    // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 4
   }
 
-  // PROFGEN: store {{.*}} @[[SWC]], i64 0, i64 23
+  // PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 23
   // Never reached -> no weights
   if (weights[0]) {}
 
@@ -238,56 +238,56 @@ void c_switches() {
 // test the particulars of switches using D features
 // PROFGEN-LABEL: @d_switches()
 // PROFUSE-LABEL: @d_switches()
-// PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 0
+// PROFGEN: store {{.*}} @[[DSW]], i{{32|64}} 0, i{{32|64}} 0
 // PROFUSE-SAME: !prof ![[DSW0:[0-9]+]]
 void d_switches() {
   uint i;
-  // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[DSW]], i{{32|64}} 0, i{{32|64}} 1
   // PROFUSE: br {{.*}} !prof ![[DSW1:[0-9]+]]
   for (i = 1; i < 4; ++i) {
 
     // PROFUSE: switch {{.*}} [
     // PROFUSE: ], !prof ![[DSW2:[0-9]+]]
     switch (i) {
-    // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 3
+    // PROFGEN: store {{.*}} @[[DSW]], i{{32|64}} 0, i{{32|64}} 3
     case 1: // 1 + 1*gototarget
-      // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 4
+      // PROFGEN: store {{.*}} @[[DSW]], i{{32|64}} 0, i{{32|64}} 4
 
-      // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 5
+      // PROFGEN: store {{.*}} @[[DSW]], i{{32|64}} 0, i{{32|64}} 5
       // PROFUSE: br {{.*}} !prof ![[DSW5:[0-9]+]]
       if (i != 1) {}
       goto default;
 
-    // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 6
+    // PROFGEN: store {{.*}} @[[DSW]], i{{32|64}} 0, i{{32|64}} 6
     case 11: // 0x
-      // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 7
+      // PROFGEN: store {{.*}} @[[DSW]], i{{32|64}} 0, i{{32|64}} 7
       // never reached, no branch weights
       if (i != 11) {}
       goto case;
 
-    // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 8
+    // PROFGEN: store {{.*}} @[[DSW]], i{{32|64}} 0, i{{32|64}} 8
     case 2: // 1x
-      // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 9
+      // PROFGEN: store {{.*}} @[[DSW]], i{{32|64}} 0, i{{32|64}} 9
       // PROFUSE: br {{.*}} !prof ![[DSW9:[0-9]+]]
       if (i != 2) {}
       goto case 1;
 
-    // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 10
+    // PROFGEN: store {{.*}} @[[DSW]], i{{32|64}} 0, i{{32|64}} 10
     default: // 1 + 2*gototarget
-      // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 11
+      // PROFGEN: store {{.*}} @[[DSW]], i{{32|64}} 0, i{{32|64}} 11
       goto case;
 
-    // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 12
+    // PROFGEN: store {{.*}} @[[DSW]], i{{32|64}} 0, i{{32|64}} 12
     case 5: // 0 + 3*fallthrough
-      // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 13
+      // PROFGEN: store {{.*}} @[[DSW]], i{{32|64}} 0, i{{32|64}} 13
       // PROFUSE: br {{.*}} !prof ![[DSW13:[0-9]+]]
       if (i != 5) {}
       break;
     }
-    // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 2
+    // PROFGEN: store {{.*}} @[[DSW]], i{{32|64}} 0, i{{32|64}} 2
   }
 
-  // PROFGEN: store {{.*}} @[[DSW]], i64 0, i64 14
+  // PROFGEN: store {{.*}} @[[DSW]], i{{32|64}} 0, i{{32|64}} 14
   // PROFUSE: br {{.*}} !prof ![[DSW14:[0-9]+]]
   if (i) {}
 
@@ -297,34 +297,34 @@ void d_switches() {
 
 // PROFGEN-LABEL: @booleanlogic()
 // PROFUSE-LABEL: @booleanlogic()
-// PROFGEN: store {{.*}} @[[BOOL]], i64 0, i64 0
+// PROFGEN: store {{.*}} @[[BOOL]], i{{32|64}} 0, i{{32|64}} 0
 // PROFUSE-SAME: !prof ![[BOOL0:[0-9]+]]
 void booleanlogic() {
   bool t = true, f = false;
   bool x;
 
-  // PROFGEN: store {{.*}} @[[BOOL]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[BOOL]], i{{32|64}} 0, i{{32|64}} 1
   // PROFUSE: br {{.*}} !prof ![[BOOL1:[0-9]+]]
   x = f && t;
 
-  // PROFGEN: store {{.*}} @[[BOOL]], i64 0, i64 2
-  // PROFGEN: store {{.*}} @[[BOOL]], i64 0, i64 3
+  // PROFGEN: store {{.*}} @[[BOOL]], i{{32|64}} 0, i{{32|64}} 2
+  // PROFGEN: store {{.*}} @[[BOOL]], i{{32|64}} 0, i{{32|64}} 3
   // PROFUSE: br {{.*}} !prof ![[BOOL2:[0-9]+]]
   // 2nd is never reached -> no weights
   x = f && (f && t);
 
-  // PROFGEN: store {{.*}} @[[BOOL]], i64 0, i64 4
+  // PROFGEN: store {{.*}} @[[BOOL]], i{{32|64}} 0, i{{32|64}} 4
   // PROFUSE: br {{.*}} !prof ![[BOOL4:[0-9]+]]
   x = t || f;
 
-  // PROFGEN: store {{.*}} @[[BOOL]], i64 0, i64 6
-  // PROFGEN: store {{.*}} @[[BOOL]], i64 0, i64 5
+  // PROFGEN: store {{.*}} @[[BOOL]], i{{32|64}} 0, i{{32|64}} 6
+  // PROFGEN: store {{.*}} @[[BOOL]], i{{32|64}} 0, i{{32|64}} 5
   // PROFUSE: br {{.*}} !prof ![[BOOL6:[0-9]+]]
   // PROFUSE: br {{.*}} !prof ![[BOOL5:[0-9]+]]
   x = (f || f) || t;
 
-  // PROFGEN: store {{.*}} @[[BOOL]], i64 0, i64 7
-  // PROFGEN: store {{.*}} @[[BOOL]], i64 0, i64 8
+  // PROFGEN: store {{.*}} @[[BOOL]], i{{32|64}} 0, i{{32|64}} 7
+  // PROFGEN: store {{.*}} @[[BOOL]], i{{32|64}} 0, i{{32|64}} 8
   // PROFUSE: br {{.*}} !prof ![[BOOL7:[0-9]+]]
   // PROFUSE: br {{.*}} !prof ![[BOOL8:[0-9]+]]
   x = f ? t : (f && t);
@@ -335,21 +335,21 @@ void booleanlogic() {
 
 // PROFGEN-LABEL: @do_while()
 // PROFUSE-LABEL: @do_while()
-// PROFGEN: store {{.*}} @[[DW]], i64 0, i64 0
+// PROFGEN: store {{.*}} @[[DW]], i{{32|64}} 0, i{{32|64}} 0
 // PROFUSE-SAME: !prof ![[DW0:[0-9]+]]
 void do_while() {
   int i;
-  // PROFGEN: store {{.*}} @[[DW]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[DW]], i{{32|64}} 0, i{{32|64}} 1
   do {
     ++i;
 
-    // PROFGEN: store {{.*}} @[[DW]], i64 0, i64 2
+    // PROFGEN: store {{.*}} @[[DW]], i{{32|64}} 0, i{{32|64}} 2
     // PROFUSE: br {{.*}} !prof ![[DW2:[0-9]+]]
     if (i < 10) {
       continue;
     }
 
-    // PROFGEN: store {{.*}} @[[DW]], i64 0, i64 3
+    // PROFGEN: store {{.*}} @[[DW]], i{{32|64}} 0, i{{32|64}} 3
     // PROFUSE: br {{.*}} !prof ![[DW3:[0-9]+]]
     if (i >= 33) {
       break;
@@ -358,11 +358,11 @@ void do_while() {
   // PROFUSE: br {{.*}} !prof ![[DW1:[0-9]+]]
 
   // (while is lowered to a for statement)
-  // PROFGEN: store {{.*}} @[[DW]], i64 0, i64 4
+  // PROFGEN: store {{.*}} @[[DW]], i{{32|64}} 0, i{{32|64}} 4
   // PROFUSE: br {{.*}} !prof ![[DW4:[0-9]+]]
   while (i > 2) {
     --i;
-    // PROFGEN: store {{.*}} @[[DW]], i64 0, i64 5
+    // PROFGEN: store {{.*}} @[[DW]], i{{32|64}} 0, i{{32|64}} 5
     // PROFUSE: br {{.*}} !prof ![[DW5:[0-9]+]]
     if (i < 321) {}
   }

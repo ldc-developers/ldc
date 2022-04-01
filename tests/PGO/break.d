@@ -17,68 +17,68 @@ extern(C):  // simplify name mangling for simpler string matching
 
 // PROFGEN-LABEL: @testbreak({{.*}})
 // PROFUSE-LABEL: @testbreak({{.*}})
-// PROFGEN: store {{.*}} @[[BREAK]], i64 0, i64 0
+// PROFGEN: store {{.*}} @[[BREAK]], i{{32|64}} 0, i{{32|64}} 0
 // PROFUSE-SAME: !prof ![[BREAK0:[0-9]+]]
 void testbreak(bool a) {
 
-  // PROFGEN: store {{.*}} @[[BREAK]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[BREAK]], i{{32|64}} 0, i{{32|64}} 1
 outer:
-  // PROFGEN: store {{.*}} @[[BREAK]], i64 0, i64 2
+  // PROFGEN: store {{.*}} @[[BREAK]], i{{32|64}} 0, i{{32|64}} 2
   // PROFUSE: br {{.*}} !prof ![[BREAK2:[0-9]+]]
   foreach (i; 0..4) {
-    // PROFGEN: store {{.*}} @[[BREAK]], i64 0, i64 3
+    // PROFGEN: store {{.*}} @[[BREAK]], i{{32|64}} 0, i{{32|64}} 3
     // PROFUSE: br {{.*}} !prof ![[BREAK3:[0-9]+]]
     foreach (j; 0..4) {
-      // PROFGEN: store {{.*}} @[[BREAK]], i64 0, i64 4
+      // PROFGEN: store {{.*}} @[[BREAK]], i{{32|64}} 0, i{{32|64}} 4
       // PROFUSE: br {{.*}} !prof ![[BREAK4:[0-9]+]]
       if (i>0)
         break outer;
 
-      // PROFGEN: store {{.*}} @[[BREAK]], i64 0, i64 5
+      // PROFGEN: store {{.*}} @[[BREAK]], i{{32|64}} 0, i{{32|64}} 5
       // PROFUSE: br {{.*}} !prof ![[BREAK5:[0-9]+]]
       if (a) {}
     }
 
-    // PROFGEN: store {{.*}} @[[BREAK]], i64 0, i64 6
+    // PROFGEN: store {{.*}} @[[BREAK]], i{{32|64}} 0, i{{32|64}} 6
     // PROFUSE: br {{.*}} !prof ![[BREAK6:[0-9]+]]
     if (a) {}
   }
 
-  // PROFGEN: store {{.*}} @[[BREAK]], i64 0, i64 7
+  // PROFGEN: store {{.*}} @[[BREAK]], i{{32|64}} 0, i{{32|64}} 7
   // PROFUSE: br {{.*}} !prof ![[BREAK7:[0-9]+]]
   if (a) {}
 }
 
 // PROFGEN-LABEL: @testcontinue({{.*}})
 // PROFUSE-LABEL: @testcontinue({{.*}})
-// PROFGEN: store {{.*}} @[[CONT]], i64 0, i64 0
+// PROFGEN: store {{.*}} @[[CONT]], i{{32|64}} 0, i{{32|64}} 0
 // PROFUSE-SAME: !prof ![[CONT0:[0-9]+]]
 void testcontinue(bool a) {
 
-  // PROFGEN: store {{.*}} @[[CONT]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[CONT]], i{{32|64}} 0, i{{32|64}} 1
 outer:
-  // PROFGEN: store {{.*}} @[[CONT]], i64 0, i64 2
+  // PROFGEN: store {{.*}} @[[CONT]], i{{32|64}} 0, i{{32|64}} 2
   // PROFUSE: br {{.*}} !prof ![[CONT2:[0-9]+]]
   foreach (i; 0..4) {
-    // PROFGEN: store {{.*}} @[[CONT]], i64 0, i64 3
+    // PROFGEN: store {{.*}} @[[CONT]], i{{32|64}} 0, i{{32|64}} 3
     // PROFUSE: br {{.*}} !prof ![[CONT3:[0-9]+]]
     foreach (j; 0..4) {
-      // PROFGEN: store {{.*}} @[[CONT]], i64 0, i64 4
+      // PROFGEN: store {{.*}} @[[CONT]], i{{32|64}} 0, i{{32|64}} 4
       // PROFUSE: br {{.*}} !prof ![[CONT4:[0-9]+]]
       if (i>0)
         continue outer;
 
-      // PROFGEN: store {{.*}} @[[CONT]], i64 0, i64 5
+      // PROFGEN: store {{.*}} @[[CONT]], i{{32|64}} 0, i{{32|64}} 5
       // PROFUSE: br {{.*}} !prof ![[CONT5:[0-9]+]]
       if (a) {}
     }
 
-    // PROFGEN: store {{.*}} @[[CONT]], i64 0, i64 6
+    // PROFGEN: store {{.*}} @[[CONT]], i{{32|64}} 0, i{{32|64}} 6
     // PROFUSE: br {{.*}} !prof ![[CONT6:[0-9]+]]
     if (a) {}
   }
 
-  // PROFGEN: store {{.*}} @[[CONT]], i64 0, i64 7
+  // PROFGEN: store {{.*}} @[[CONT]], i{{32|64}} 0, i{{32|64}} 7
   // PROFUSE: br {{.*}} !prof ![[CONT7:[0-9]+]]
   if (a) {}
 }

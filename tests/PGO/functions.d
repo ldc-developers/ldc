@@ -32,10 +32,10 @@
 
 // PROFGEN-LABEL: define {{.*}} @{{.*}}simplefunction{{.*}}(
 // PROFUSE-LABEL: define {{.*}} @{{.*}}simplefunction{{.*}}(
-// PROFGEN: store {{.*}} @[[SMPL]], i64 0, i64 0
+// PROFGEN: store {{.*}} @[[SMPL]], i{{32|64}} 0, i{{32|64}} 0
 // PROFUSE-SAME: !prof ![[SMPL0:[0-9]+]]
 void simplefunction(int i) {
-  // PROFGEN: store {{.*}} @[[SMPL]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[SMPL]], i{{32|64}} 0, i{{32|64}} 1
   // PROFUSE: br {{.*}} !prof ![[SMPL1:[0-9]+]]
   if (i % 3) {}
 }
@@ -43,10 +43,10 @@ void simplefunction(int i) {
 
 // PROFGEN-LABEL: define {{.*}} @{{.*}}templatefunc{{.*}}(
 // PROFUSE-LABEL: define {{.*}} @{{.*}}templatefunc{{.*}}(
-// PROFGEN: store {{.*}} @[[TMPL]], i64 0, i64 0
+// PROFGEN: store {{.*}} @[[TMPL]], i{{32|64}} 0, i{{32|64}} 0
 // PROFUSE-SAME: !prof ![[TMPL0:[0-9]+]]
 void templatefunc(T)(T i) {
-  // PROFGEN: store {{.*}} @[[TMPL]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[TMPL]], i{{32|64}} 0, i{{32|64}} 1
   // PROFUSE: br {{.*}} !prof ![[TMPL1:[0-9]+]]
   if (i % 3) {}
 }
@@ -59,15 +59,15 @@ void call_templatefunc(int i) {
 
 // PROFGEN-LABEL: define {{.*}} @{{.*}}outerfunc{{.*}}(
 // PROFUSE-LABEL: define {{.*}} @{{.*}}outerfunc{{.*}}(
-// PROFGEN: store {{.*}} @[[OUTR]], i64 0, i64 0
+// PROFGEN: store {{.*}} @[[OUTR]], i{{32|64}} 0, i{{32|64}} 0
 // PROFUSE-SAME: !prof ![[OUTR0:[0-9]+]]
-// PROFGEN: store {{.*}} @[[OUTR]], i64 0, i64 1
+// PROFGEN: store {{.*}} @[[OUTR]], i{{32|64}} 0, i{{32|64}} 1
 // PROFUSE: br {{.*}} !prof ![[OUTR1:[0-9]+]]
 // PROFGEN-LABEL: define {{.*}} @{{.*}}nestedfunc{{.*}}(
 // PROFUSE-LABEL: define {{.*}} @{{.*}}nestedfunc{{.*}}(
-// PROFGEN: store {{.*}} @[[NEST]], i64 0, i64 0
+// PROFGEN: store {{.*}} @[[NEST]], i{{32|64}} 0, i{{32|64}} 0
 // PROFUSE-SAME: !prof ![[NEST0:[0-9]+]]
-// PROFGEN: store {{.*}} @[[NEST]], i64 0, i64 1
+// PROFGEN: store {{.*}} @[[NEST]], i{{32|64}} 0, i{{32|64}} 1
 // PROFUSE: br {{.*}} !prof ![[NEST1:[0-9]+]]
 void outerfunc(int i) {
   void nestedfunc(int i) {
@@ -83,9 +83,9 @@ void takedelegate(int i, int delegate(int) fd) {
 }
 // PROFGEN-LABEL: define {{.*}} @{{.*}}testanonymous{{.*}}lambda{{.*}}(
 // PROFUSE-LABEL: define {{.*}} @{{.*}}testanonymous{{.*}}lambda{{.*}}(
-// PROFGEN: store {{.*}} @[[LMBD]], i64 0, i64 0
+// PROFGEN: store {{.*}} @[[LMBD]], i{{32|64}} 0, i{{32|64}} 0
 // PROFUSE-SAME: !prof ![[LMBD0:[0-9]+]]
-// PROFGEN: store {{.*}} @[[LMBD]], i64 0, i64 1
+// PROFGEN: store {{.*}} @[[LMBD]], i{{32|64}} 0, i{{32|64}} 1
 // PROFUSE: br {{.*}} !prof ![[LMBD1:[0-9]+]]
 void testanonymous(int i) {
   takedelegate(i, (i) { if (i % 5) {} return i+1;} );
@@ -97,9 +97,9 @@ class Klass {
 
   // PROFGEN-LABEL: define {{.*}} @{{.*}}Klass{{.*}}__ctor{{.*}}(
   // PROFUSE-LABEL: define {{.*}} @{{.*}}Klass{{.*}}__ctor{{.*}}(
-  // PROFGEN: store {{.*}} @[[KCTR]], i64 0, i64 0
+  // PROFGEN: store {{.*}} @[[KCTR]], i{{32|64}} 0, i{{32|64}} 0
   // PROFUSE-SAME: !prof ![[KCTR0:[0-9]+]]
-  // PROFGEN: store {{.*}} @[[KCTR]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[KCTR]], i{{32|64}} 0, i{{32|64}} 1
   // PROFUSE: br {{.*}} !prof ![[KCTR1:[0-9]+]]
   this(int i) {
     a = i;
@@ -108,9 +108,9 @@ class Klass {
 
   // PROFGEN-LABEL: define {{.*}} @{{.*}}Klass{{.*}}__dtor{{.*}}(
   // PROFUSE-LABEL: define {{.*}} @{{.*}}Klass{{.*}}__dtor{{.*}}(
-  // PROFGEN: store {{.*}} @[[KDTR]], i64 0, i64 0
+  // PROFGEN: store {{.*}} @[[KDTR]], i{{32|64}} 0, i{{32|64}} 0
   // PROFUSE-SAME: !prof ![[KDTR0:[0-9]+]]
-  // PROFGEN: store {{.*}} @[[KDTR]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[KDTR]], i{{32|64}} 0, i{{32|64}} 1
   // PROFUSE: br {{.*}} !prof ![[KDTR1:[0-9]+]]
   ~this() {
     if (!(a % 3)) {}
@@ -118,9 +118,9 @@ class Klass {
 
   // PROFGEN-LABEL: define {{.*}} @{{.*}}Klass{{.*}}stdmethod{{.*}}(
   // PROFUSE-LABEL: define {{.*}} @{{.*}}Klass{{.*}}stdmethod{{.*}}(
-  // PROFGEN: store {{.*}} @[[KMTH]], i64 0, i64 0
+  // PROFGEN: store {{.*}} @[[KMTH]], i{{32|64}} 0, i{{32|64}} 0
   // PROFUSE-SAME: !prof ![[KMTH0:[0-9]+]]
-  // PROFGEN: store {{.*}} @[[KMTH]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[KMTH]], i{{32|64}} 0, i{{32|64}} 1
   // PROFUSE: br {{.*}} !prof ![[KMTH1:[0-9]+]]
   void stdmethod() {
     if (a % 4) {}
@@ -128,9 +128,9 @@ class Klass {
 
   // PROFGEN-LABEL: define {{.*}} @{{.*}}Klass{{.*}}staticmethod{{.*}}(
   // PROFUSE-LABEL: define {{.*}} @{{.*}}Klass{{.*}}staticmethod{{.*}}(
-  // PROFGEN: store {{.*}} @[[KSTC]], i64 0, i64 0
+  // PROFGEN: store {{.*}} @[[KSTC]], i{{32|64}} 0, i{{32|64}} 0
   // PROFUSE-SAME: !prof ![[KSTC0:[0-9]+]]
-  // PROFGEN: store {{.*}} @[[KSTC]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[KSTC]], i{{32|64}} 0, i{{32|64}} 1
   // PROFUSE: br {{.*}} !prof ![[KSTC1:[0-9]+]]
   static void staticmethod(int i) {
     if (i % 2) {}
@@ -143,9 +143,9 @@ struct Strukt {
 
   // PROFGEN-LABEL: define {{.*}} @{{.*}}Strukt{{.*}}__ctor{{.*}}(
   // PROFUSE-LABEL: define {{.*}} @{{.*}}Strukt{{.*}}__ctor{{.*}}(
-  // PROFGEN: store {{.*}} @[[SCTR]], i64 0, i64 0
+  // PROFGEN: store {{.*}} @[[SCTR]], i{{32|64}} 0, i{{32|64}} 0
   // PROFUSE-SAME: !prof ![[SCTR0:[0-9]+]]
-  // PROFGEN: store {{.*}} @[[SCTR]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[SCTR]], i{{32|64}} 0, i{{32|64}} 1
   // PROFUSE: br {{.*}} !prof ![[SCTR1:[0-9]+]]
   this(int i) {
     a = i;
@@ -154,9 +154,9 @@ struct Strukt {
 
   // PROFGEN-LABEL: define {{.*}} @{{.*}}Strukt{{.*}}stdmethod{{.*}}(
   // PROFUSE-LABEL: define {{.*}} @{{.*}}Strukt{{.*}}stdmethod{{.*}}(
-  // PROFGEN: store {{.*}} @[[SMTH]], i64 0, i64 0
+  // PROFGEN: store {{.*}} @[[SMTH]], i{{32|64}} 0, i{{32|64}} 0
   // PROFUSE-SAME: !prof ![[SMTH0:[0-9]+]]
-  // PROFGEN: store {{.*}} @[[SMTH]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[SMTH]], i{{32|64}} 0, i{{32|64}} 1
   // PROFUSE: br {{.*}} !prof ![[SMTH1:[0-9]+]]
   void stdmethod() {
     if (a % 4) {}
@@ -164,9 +164,9 @@ struct Strukt {
 
   // PROFGEN-LABEL: define {{.*}} @{{.*}}Strukt{{.*}}__dtor{{.*}}(
   // PROFUSE-LABEL: define {{.*}} @{{.*}}Strukt{{.*}}__dtor{{.*}}(
-  // PROFGEN: store {{.*}} @[[SDTR]], i64 0, i64 0
+  // PROFGEN: store {{.*}} @[[SDTR]], i{{32|64}} 0, i{{32|64}} 0
   // PROFUSE-SAME: !prof ![[SDTR0:[0-9]+]]
-  // PROFGEN: store {{.*}} @[[SDTR]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[SDTR]], i{{32|64}} 0, i{{32|64}} 1
   // PROFUSE: br {{.*}} !prof ![[SDTR1:[0-9]+]]
   ~this() {
     if (!(a % 3)) {}
@@ -175,11 +175,11 @@ struct Strukt {
 
 // PROFGEN-LABEL: define {{.*}} @{{.*}}contractprog{{.*}}(
 // PROFUSE-LABEL: define {{.*}} @{{.*}}contractprog{{.*}}(
-// PROFGEN: store {{.*}} @[[CNTR]], i64 0, i64 0
+// PROFGEN: store {{.*}} @[[CNTR]], i{{32|64}} 0, i{{32|64}} 0
 // PROFUSE-SAME: !prof ![[CNTR0:[0-9]+]]
 void contractprog(int i)
 in {
-  // PROFGEN: store {{.*}} @[[CNTR]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[CNTR]], i{{32|64}} 0, i{{32|64}} 1
   // PROFUSE: br {{.*}} !prof ![[CNTR1:[0-9]+]]
   if (i < 3) {}
 }
@@ -187,13 +187,13 @@ out {
   if (i < 6) {}
 }
 body {
-  // PROFGEN: store {{.*}} @[[CNTR]], i64 0, i64 2
+  // PROFGEN: store {{.*}} @[[CNTR]], i{{32|64}} 0, i{{32|64}} 2
   // PROFUSE: br {{.*}} !prof ![[CNTR2:[0-9]+]]
   if (i % 2) {}
 }
 // Out label+body:
-// PROFGEN: store {{.*}} @[[CNTR]], i64 0, i64 3
-// PROFGEN: store {{.*}} @[[CNTR]], i64 0, i64 4
+// PROFGEN: store {{.*}} @[[CNTR]], i{{32|64}} 0, i{{32|64}} 3
+// PROFGEN: store {{.*}} @[[CNTR]], i{{32|64}} 0, i{{32|64}} 4
 // PROFUSE: br {{.*}} !prof ![[CNTR4:[0-9]+]]
 
 
