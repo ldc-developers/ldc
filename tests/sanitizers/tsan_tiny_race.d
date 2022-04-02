@@ -22,7 +22,7 @@ int main() {
   barrier_init(&barrier, 2);
   auto t = new Thread(&thread1);
   t.start();
-// CHECK-DAG: _Dmain{{.*}}[[@LINE+1]]
+// CHECK-DAG: {{(_Dmain|D main).*}}[[@LINE+1]]
   global = 43;
   barrier_wait(&barrier);
   t.join();
