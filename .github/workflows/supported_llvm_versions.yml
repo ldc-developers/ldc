@@ -16,7 +16,7 @@ jobs:
           - job_name: Ubuntu 18.04, LLVM 13, latest LDC beta
             os: ubuntu-18.04
             host_dc: ldc-beta
-            llvm_version: "13.0.0"
+            llvm_version: "13.0.1"
             cmake_opts: ""
           - job_name: Ubuntu 18.04, LLVM 12, latest LDC beta
             os: ubuntu-18.04
@@ -98,8 +98,8 @@ jobs:
           version='${{ matrix.llvm_version }}'
           if [[ '${{ runner.os }}' == 'macOS' ]]; then
             suffix='x86_64-apple-darwin'
-          elif [[ "$version" == 14.* ]]; then
-            suffix='x86_64-linux-gnu-ubuntu-18.04'
+          elif [[ "$version" =~ ^1[3-9]\. ]]; then
+            suffix='x86_64-linux-gnu-ubuntu-18.04' # LLVM 13.0.1+
           else
             suffix='x86_64-linux-gnu-ubuntu-16.04'
           fi
