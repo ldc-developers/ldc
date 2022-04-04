@@ -35,7 +35,14 @@ extern(C++) struct ProfileData {
         private void* RelativeCounters;
         inout(ulong)* Counters()() inout @property @trusted pure @nogc nothrow
         {
-            return cast(inout(ulong)*) ((cast(size_t) &this) + cast(size_t) RelativeCounters);
+            version (Win64)
+            {
+                // RelativeCounters apparenly needs to be treated as signed 32-bit offset?!
+                assert((cast(size_t) RelativeCounters) >> 32 == 0);
+                return cast(inout(ulong)*) ((cast(size_t) &this) + cast(int) RelativeCounters);
+            }
+            else
+                return cast(inout(ulong)*) ((cast(size_t) &this) + cast(size_t) RelativeCounters);
         }
     }
     else
