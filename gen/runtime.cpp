@@ -496,8 +496,6 @@ static void buildRuntimeModule() {
 
   // Construct some attribute lists used below (possibly multiple times)
   AttrSet NoAttrs,
-      Attr_NoAlias(NoAttrs, LLAttributeList::ReturnIndex,
-                   llvm::Attribute::NoAlias),
       Attr_NoUnwind(NoAttrs, LLAttributeList::FunctionIndex,
                     llvm::Attribute::NoUnwind),
       Attr_ReadOnly(NoAttrs, LLAttributeList::FunctionIndex,
@@ -574,12 +572,10 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
 
   // void* _d_allocmemory(size_t sz)
-  createFwdDecl(LINK::c, voidPtrTy, {"_d_allocmemory"}, {sizeTy}, {},
-                Attr_NoAlias);
+  createFwdDecl(LINK::c, voidPtrTy, {"_d_allocmemory"}, {sizeTy});
 
   // void* _d_allocmemoryT(TypeInfo ti)
-  createFwdDecl(LINK::c, voidPtrTy, {"_d_allocmemoryT"}, {typeInfoTy}, {},
-                Attr_NoAlias);
+  createFwdDecl(LINK::c, voidPtrTy, {"_d_allocmemoryT"}, {typeInfoTy});
 
   // void[] _d_newarrayT (const TypeInfo ti, size_t length)
   // void[] _d_newarrayiT(const TypeInfo ti, size_t length)
@@ -623,16 +619,16 @@ static void buildRuntimeModule() {
   // Object _d_newclass(const ClassInfo ci)
   // Object _d_allocclass(const ClassInfo ci)
   createFwdDecl(LINK::c, objectTy, {"_d_newclass", "_d_allocclass"},
-                {classInfoTy}, {STCconst}, Attr_NoAlias);
+                {classInfoTy}, {STCconst});
 
   // Throwable _d_newThrowable(const ClassInfo ci)
   createFwdDecl(LINK::c, throwableTy, {"_d_newThrowable"}, {classInfoTy},
-                {STCconst}, Attr_NoAlias);
+                {STCconst});
 
   // void* _d_newitemT (TypeInfo ti)
   // void* _d_newitemiT(TypeInfo ti)
-  createFwdDecl(LINK::c, voidPtrTy, {"_d_newitemT", "_d_newitemiT"}, {typeInfoTy},
-                {0}, Attr_NoAlias);
+  createFwdDecl(LINK::c, voidPtrTy, {"_d_newitemT", "_d_newitemiT"},
+                {typeInfoTy}, {0});
 
   // void _d_delarray_t(void[]* p, const TypeInfo_Struct ti)
   createFwdDecl(LINK::c, voidTy, {"_d_delarray_t"},
@@ -712,7 +708,7 @@ static void buildRuntimeModule() {
   // void* _d_arraysetassign(void* p, void* value, int count, TypeInfo ti)
   // void* _d_arraysetctor(void* p, void* value, int count, TypeInfo ti)
   createFwdDecl(LINK::c, voidPtrTy, {"_d_arraysetassign", "_d_arraysetctor"},
-                {voidPtrTy, voidPtrTy, intTy, typeInfoTy}, {}, Attr_NoAlias);
+                {voidPtrTy, voidPtrTy, intTy, typeInfoTy});
 
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
