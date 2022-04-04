@@ -6,7 +6,7 @@ d: ldc-1.27.1
 
 env:
   global:
-    - LLVM_VERSION: 0567b64b
+    - LLVM_VERSION: 14.0.0
     - CLANG_VERSION: 14.0.0
     - OPTS: '"-DBUILD_LTO_LIBS=ON -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ -DJITRT_EXTRA_LDFLAGS=-static-libstdc++ -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64"'
     - secure: "WfMv0kOqVU8+SgZUrwgzvzGvFbZvPmeIqrDJ+sotbzEtDeCcMuZmj/+8VuysXzpShXx/FxCoopWpAz30pedES8anGR3ciZruVPPsi22rOR5IBHuSnbamkmF11eQgRaDcj6GvZL7QeWLHBx6EN+C+mQFEVqRrD5avCO/K0RqWTD4="

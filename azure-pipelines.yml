@@ -1,7 +1,7 @@
 # syntax: https://docs.microsoft.com/en-us/azure/devops/pipelines/yaml-schema
 
 variables:
-  LLVM_VERSION: 0567b64b
+  LLVM_VERSION: 14.0.0
   CLANG_VERSION: 14.0.0
   HOST_LDC_VERSION: 1.27.1
 
