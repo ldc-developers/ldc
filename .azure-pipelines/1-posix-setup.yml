@@ -36,7 +36,7 @@ steps:
         libcurl4 libcurl4:i386 \
         curl gdb=8.1.1-0ubuntu1 p7zip-full tzdata unzip zip python3-pip
       # Download & extract clang
-      curl -fL --retry 3 --max-time 300 -o clang.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-$CLANG_VERSION/clang+llvm-$CLANG_VERSION-x86_64-linux-gnu-ubuntu-18.04.tar.xz
+      curl -fL --retry 3 --max-time 300 -o clang.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-$CLANG_VERSION/clang+llvm-$CLANG_VERSION-x86_64-linux-gnu-ubuntu-16.04.tar.xz
       mkdir clang
       tar -xf clang.tar.xz --strip 1 -C clang
     fi
