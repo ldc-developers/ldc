@@ -1,8 +1,8 @@
 # syntax: https://docs.microsoft.com/en-us/azure/devops/pipelines/yaml-schema
 
 variables:
-  LLVM_VERSION: 13.0.1
-  CLANG_VERSION: 12.0.1
+  LLVM_VERSION: 14.0.0
+  CLANG_VERSION: 14.0.0
   HOST_LDC_VERSION: 1.27.1
 
 trigger:
@@ -99,16 +99,18 @@ jobs:
 - job: macOS_x64
   timeoutInMinutes: 120
   pool:
-    vmImage: 'macOS-10.15'
+    vmImage: 'macOS-11'
   variables:
     CI_OS: osx
     ARCH: x86_64
-    BOOTSTRAP_CMAKE_FLAGS: -DBUILD_LTO_LIBS=ON
+    BOOTSTRAP_CMAKE_FLAGS: >
+      -DBUILD_LTO_LIBS=ON
+      -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++
     EXTRA_CMAKE_FLAGS: >
       -DBUILD_LTO_LIBS=ON
-      -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
+      -DD_COMPILER_FLAGS="-gcc=/usr/bin/c++ -O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
       -DEXTRA_CXXFLAGS=-flto=full
-    MACOSX_DEPLOYMENT_TARGET: 10.9
+    MACOSX_DEPLOYMENT_TARGET: 10.12
     IOS_DEPLOYMENT_TARGET: 12.0
   steps:
     - template: .azure-pipelines/1-posix-setup.yml
@@ -132,10 +134,11 @@ jobs:
 - job: macOS_arm64
   timeoutInMinutes: 120
   pool:
-    vmImage: 'macOS-10.15'
+    vmImage: 'macOS-11'
   variables:
     CI_OS: osx
     ARCH: arm64
+    BOOTSTRAP_CMAKE_FLAGS: -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++
     EXTRA_CMAKE_FLAGS: >
       -DBUILD_LTO_LIBS=ON
       -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
