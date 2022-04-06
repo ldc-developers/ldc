@@ -262,11 +262,19 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
       (useInternalToolchain && opts::linker.empty())) {
     const auto fullArgs = getFullArgs("lld-link", args, global.params.verbose);
 
-    const bool success = lld::coff::link(fullArgs,
-                                         /*CanExitEarly=*/false
+    const bool canExitEarly = false;
+    const bool success = lld::coff::link(fullArgs
+#if LDC_LLVM_VER < 1400
+                                         ,
+                                         canExitEarly
+#endif
 #if LDC_LLVM_VER >= 1000
                                          ,
                                          llvm::outs(), llvm::errs()
+#endif
+#if LDC_LLVM_VER >= 1400
+                                                           ,
+                                         canExitEarly, false
 #endif
     );
 

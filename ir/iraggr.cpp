@@ -76,8 +76,7 @@ LLConstant *IrAggr::getInitSymbol(bool define) {
       assert(!initGlobal->hasInitializer() &&
              "existing init symbol not expected to be defined");
       assert((isBuiltinTypeInfo ||
-              initGlobal->getType()->getPointerElementType() ==
-                  getLLStructType()) &&
+              initGlobal->getValueType() == getLLStructType()) &&
              "type of existing init symbol declaration doesn't match");
     } else {
       // Init symbols of built-in TypeInfos need to be kept mutable as the type

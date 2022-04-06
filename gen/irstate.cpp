@@ -19,6 +19,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
+#include "llvm/IR/InlineAsm.h"
 #include <cstdarg>
 
 IRState *gIR = nullptr;
@@ -260,6 +261,29 @@ void IRState::addLinkerDependentLib(llvm::StringRef libraryName) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+llvm::CallInst *
+IRState::createInlineAsmCall(const Loc &loc, llvm::InlineAsm *ia,
+                             llvm::ArrayRef<llvm::Value *> args) {
+  llvm::CallInst *call = ir->CreateCall(ia, args);
+  addInlineAsmSrcLoc(loc, call);
+
+#if LDC_LLVM_VER >= 1400
+  // a non-indirect output constraint (=> return value of call) shifts the
+  // constraint/argument index mapping
+  ptrdiff_t i = call->getType()->isVoidTy() ? 0 : -1;
+  for (const auto &constraintInfo : ia->ParseConstraints()) {
+    if (constraintInfo.isIndirect) {
+      call->addParamAttr(i, llvm::Attribute::get(context(),
+                                                 llvm::Attribute::ElementType,
+                                                 getPointeeType(args[i])));
+    }
+    ++i;
+  }
+#endif
+
+  return call;
+}
 
 void IRState::addInlineAsmSrcLoc(const Loc &loc,
                                  llvm::CallInst *inlineAsmCall) {

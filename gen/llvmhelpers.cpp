@@ -1783,7 +1783,7 @@ llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
   llvm::GlobalVariable *existing =
       module.getGlobalVariable(mangledName, /*AllowInternal=*/true);
   if (existing) {
-    const auto existingType = existing->getType()->getElementType();
+    const auto existingType = existing->getValueType();
     if (existingType != type || existing->isConstant() != isConstant ||
         existing->isThreadLocal() != isThreadLocal) {
       error(loc,

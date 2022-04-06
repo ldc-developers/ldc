@@ -20,15 +20,10 @@
 IrFuncTyArg::IrFuncTyArg(Type *t, bool bref)
     : type(t),
       ltype(t != Type::tvoid && bref ? DtoType(t->pointerTo()) : DtoType(t)),
-      attrs(
-#if LDC_LLVM_VER < 1500
-        llvm::AttrBuilder {}
-#else
-        llvm::AttrBuilder(getGlobalContext())
+#if LDC_LLVM_VER >= 1400
+      attrs(getGlobalContext()),
 #endif
-      ),
-      byref(bref)
-{
+      byref(bref) {
   mem.addRange(&type, sizeof(type));
 }
 

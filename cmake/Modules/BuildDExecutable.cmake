@@ -94,7 +94,7 @@ function(build_d_executable target_name output_exe d_src_files compiler_args lin
         translate_linker_args(full_linker_args translated_linker_args)
 
         # We need to link against the C++ runtime library.
-        if(NOT MSVC AND "${D_COMPILER_ID}" STREQUAL "LDMD")
+        if(NOT MSVC AND "${D_COMPILER_ID}" STREQUAL "LDMD" AND NOT "${dflags}" MATCHES "(^|;)-gcc=")
             set(translated_linker_args "-gcc=${CMAKE_CXX_COMPILER}" ${translated_linker_args})
         endif()
 

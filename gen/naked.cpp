@@ -480,8 +480,7 @@ llvm::CallInst *DtoInlineAsmExpr(const Loc &loc, llvm::StringRef code,
   bool sideeffect = true;
   llvm::InlineAsm *ia = llvm::InlineAsm::get(FT, code, constraints, sideeffect);
 
-  llvm::CallInst *call = gIR->ir->CreateCall(ia, operands, "");
-  gIR->addInlineAsmSrcLoc(loc, call);
+  auto call = gIR->createInlineAsmCall(loc, ia, operands);
 
   return call;
 }

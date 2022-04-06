@@ -750,10 +750,18 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
 
     bool success = false;
     if (global.params.targetTriple->isOSBinFormatELF()) {
-      success = lld::elf::link(fullArgs, CanExitEarly
+      success = lld::elf::link(fullArgs
+#if LDC_LLVM_VER < 1400
+                               ,
+                               CanExitEarly
+#endif
 #if LDC_LLVM_VER >= 1000
                                ,
                                llvm::outs(), llvm::errs()
+#endif
+#if LDC_LLVM_VER >= 1400
+                                                 ,
+                               CanExitEarly, false
 #endif
       );
     } else if (global.params.targetTriple->isOSBinFormatMachO()) {
@@ -762,20 +770,32 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
 #else
       success = lld::mach_o::link(fullArgs
 #endif
-#if LDC_LLVM_VER >= 700
+#if LDC_LLVM_VER >= 700 && LDC_LLVM_VER < 1400
                                  ,
                                  CanExitEarly
+#endif
 #if LDC_LLVM_VER >= 1000
                                  ,
                                  llvm::outs(), llvm::errs()
 #endif
+#if LDC_LLVM_VER >= 1400
+                                                   ,
+                                 CanExitEarly, false
 #endif
       );
     } else if (global.params.targetTriple->isOSBinFormatCOFF()) {
       success = lld::mingw::link(fullArgs
+#if LDC_LLVM_VER >= 1000 && LDC_LLVM_VER < 1400
+                                 ,
+                                 CanExitEarly
+#endif
 #if LDC_LLVM_VER >= 1000
                                  ,
-                                 CanExitEarly, llvm::outs(), llvm::errs()
+                                 llvm::outs(), llvm::errs()
+#endif
+#if LDC_LLVM_VER >= 1400
+                                                   ,
+                                 CanExitEarly, false
 #endif
       );
     } else if (global.params.targetTriple->isOSBinFormatWasm()) {
@@ -784,10 +804,18 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
       //        but only on Linux?
       CanExitEarly = true;
 #endif
-      success = lld::wasm::link(fullArgs, CanExitEarly
+      success = lld::wasm::link(fullArgs
+#if LDC_LLVM_VER < 1400
+                                ,
+                                CanExitEarly
+#endif
 #if LDC_LLVM_VER >= 1000
                                 ,
                                 llvm::outs(), llvm::errs()
+#endif
+#if LDC_LLVM_VER >= 1400
+                                                  ,
+                                CanExitEarly, false
 #endif
       );
     } else {

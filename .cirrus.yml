@@ -200,22 +200,22 @@ task:
   << : *COMMON_STEPS_TEMPLATE
 
 task:
-  name: macOS 10.15 $TASK_NAME_SUFFIX
+  name: macOS 11 $TASK_NAME_SUFFIX
   osx_instance:
-    image: catalina-xcode
+    image: big-sur-xcode
   timeout_in: 60m
   environment:
     CI_OS: osx
-    LLVM_VERSION: 13.0.1
+    LLVM_VERSION: 14.0.0
     # OS is preset to `darwin`
     OS: osx
     PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
     PARALLELISM: 12
     matrix:
       - TASK_NAME_SUFFIX: x64
-        EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
+        EXTRA_CMAKE_FLAGS: "-DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON"
       - TASK_NAME_SUFFIX: x64 shared-libs-only
-        EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON"
+        EXTRA_CMAKE_FLAGS: "-DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON"
   brew_cache:
     folder: "$HOME/Library/Caches/Homebrew"
   << : *INSTALL_MACOS_PREREQUISITES_TEMPLATE

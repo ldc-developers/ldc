@@ -20,7 +20,7 @@ int main() {
   int tls_variable;
   barrier_init(&barrier, 2);
   auto tid = createLowLevelThread(() { thread1(tls_variable); });
-// CHECK-DAG: _Dmain{{.*}}[[@LINE+1]]
+// CHECK-DAG: {{(_Dmain|D main).*}}[[@LINE+1]]
   tls_variable = 43;
   barrier_wait(&barrier);
   joinLowLevelThread(tid);

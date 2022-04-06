@@ -98,7 +98,7 @@ LLFunctionType *DtoExtractFunctionType(LLType *type) {
     return fty;
   }
   if (LLPointerType *pty = isaPointer(type)) {
-    if (LLFunctionType *fty = isaFunction(pty->getElementType())) {
+    if (LLFunctionType *fty = isaFunction(pty->getPointerElementType())) {
       return fty;
     }
   }
@@ -131,7 +131,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
     Type *argType = argexps[i]->type;
     bool passByVal = gABI->passByVal(irFty.type, argType);
 
-#if LDC_LLVM_VER >= 1500
+#if LDC_LLVM_VER >= 1400
     llvm::AttrBuilder initialAttrs(getGlobalContext());
 #else
     llvm::AttrBuilder initialAttrs;
@@ -1052,15 +1052,10 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
     call->setCallingConv(gABI->callingConv(tf, iab.hasContext));
   }
   // merge in function attributes set in callOrInvoke
-#if LDC_LLVM_VER >= 1500
-    auto attrbuildattribs = call->getAttributes().getFnAttrs();
-    attrlist = attrlist.addFnAttributes(
-      gIR->context(),
-      llvm::AttrBuilder(gIR->context(), attrbuildattribs));
-#elif LDC_LLVM_VER >= 1400
+#if LDC_LLVM_VER >= 1400
+  auto attrbuildattribs = call->getAttributes().getFnAttrs();
   attrlist = attrlist.addFnAttributes(
-      gIR->context(),
-      llvm::AttrBuilder(call->getAttributes(), LLAttributeList::FunctionIndex));
+      gIR->context(), llvm::AttrBuilder(gIR->context(), attrbuildattribs));
 #else
   attrlist = attrlist.addAttributes(
       gIR->context(), LLAttributeList::FunctionIndex,

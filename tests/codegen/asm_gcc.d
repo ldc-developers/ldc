@@ -42,7 +42,7 @@ void indirectOutput(uint eax)
     uint[4] r = void;
     // CHECK-NEXT: %1 = load i32, i32* %eax
     // CHECK-NEXT: call void asm sideeffect "cpuid
-    // CHECK-SAME: "=*m,{eax},~{eax},~{ebx},~{ecx},~{edx}"([4 x i32]* %r, i32 %1), !srcloc
+    // CHECK-SAME: "=*m,{eax},~{eax},~{ebx},~{ecx},~{edx}"([4 x i32]* {{(elementtype\(\[4 x i32\]\) )?}}%r, i32 %1), !srcloc
     asm
     {
         `cpuid
@@ -61,7 +61,7 @@ void indirectInput(uint eax)
 {
     // CHECK-NEXT: %eax = alloca i32
     // CHECK-NEXT: store i32 %eax_arg, i32* %eax
-    // CHECK-NEXT: call void asm sideeffect "movl %eax, $0", "*m,~{eax}"(i32* %eax), !srcloc
+    // CHECK-NEXT: call void asm sideeffect "movl %eax, $0", "*m,~{eax}"(i32* {{(elementtype\(i32\) )?}}%eax), !srcloc
     asm { "movl %%eax, %0" : : "m" (eax) : "eax"; }
 }
 

@@ -352,9 +352,9 @@ public:
       } else {
         // Offset isn't a multiple of base type size, just cast to i8* and
         // apply the byte offset.
-        auto voidPtrType = getVoidPtrType();
+        auto i8 = LLType::getInt8Ty(gIR->context());
         result = llvm::ConstantExpr::getGetElementPtr(
-            voidPtrType->getElementType(), DtoBitCast(base, voidPtrType),
+            i8, DtoBitCast(base, i8->getPointerTo()),
             DtoConstSize_t(e->offset));
       }
     }

@@ -7,10 +7,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - job_name: Ubuntu 18.04, LLVM 14, latest LDC beta
+            os: ubuntu-18.04
+            host_dc: ldc-beta
+            llvm_version: "14.0.0"
+            # the compiler-rt libs installation is somehow non-standard
+            cmake_opts: "-DLDC_INSTALL_LLVM_RUNTIME_LIBS_OS=x86_64-unknown-linux-gnu -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH="
           - job_name: Ubuntu 18.04, LLVM 13, latest LDC beta
             os: ubuntu-18.04
             host_dc: ldc-beta
-            llvm_version: "13.0.0"
+            llvm_version: "13.0.1"
             cmake_opts: ""
           - job_name: Ubuntu 18.04, LLVM 12, latest LDC beta
             os: ubuntu-18.04
@@ -89,12 +95,14 @@ jobs:
             echo "Already cached"
             exit 0
           fi
+          version='${{ matrix.llvm_version }}'
           if [[ '${{ runner.os }}' == 'macOS' ]]; then
             suffix='x86_64-apple-darwin'
+          elif [[ "$version" =~ ^1[3-9]\. ]]; then
+            suffix='x86_64-linux-gnu-ubuntu-18.04' # LLVM 13.0.1+
           else
             suffix='x86_64-linux-gnu-ubuntu-16.04'
           fi
-          version='${{ matrix.llvm_version }}'
           if [[ "$version" =~ ^(1.|9)\. ]]; then
             llvm_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-$suffix.tar.xz"
           else
@@ -105,11 +113,11 @@ jobs:
           tar -xf llvm.tar.xz --strip 1 -C llvm
           rm llvm.tar.xz
 
-      - name: "Linux: Make ld.gold the default linker"
+      - name: "Linux: Make ld.gold or lld the default linker"
         if: runner.os == 'Linux'
         run: |
-          if [[ '${{ matrix.llvm_version }}' == 13.* ]]; then
-            echo "Using lld 13 for LLVM 13 to work around sporadic failures"
+          if [[ '${{ matrix.llvm_version }}' =~ ^1[3-9]\. ]]; then
+            echo "Using lld for LLVM 13+ to work around sporadic failures"
             sudo ln -sf "$PWD/llvm/bin/ld.lld" /usr/bin/ld
           else
             sudo ln -sf /usr/bin/ld.gold /usr/bin/ld

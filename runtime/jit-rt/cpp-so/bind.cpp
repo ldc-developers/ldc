@@ -81,7 +81,7 @@ allocParam(llvm::IRBuilder<> &builder, llvm::Type &srcType,
            llvm::function_ref<void(const std::string &)> errHandler,
            const BindOverride &override) {
   if (param.type == ParamType::Aggregate && srcType.isPointerTy()) {
-    auto elemType = llvm::cast<llvm::PointerType>(&srcType)->getElementType();
+    auto elemType = srcType.getPointerElementType();
     auto stackArg = builder.CreateAlloca(elemType);
     if (auto alignment = layout.getABITypeAlignment(elemType))
       stackArg->setAlignment(LLAlign(alignment));

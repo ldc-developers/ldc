@@ -144,7 +144,7 @@ void RTTIBuilder::push_funcptr(FuncDeclaration *fd, Type *castto) {
 }
 
 void RTTIBuilder::finalize(LLGlobalVariable *gvar) {
-  LLStructType *st = isaStruct(gvar->getType()->getPointerElementType());
+  LLStructType *st = isaStruct(gvar->getValueType());
   assert(st);
 
   // finalize the type if opaque (e.g., for ModuleInfos)

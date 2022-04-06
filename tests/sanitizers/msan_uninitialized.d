@@ -9,7 +9,7 @@
 // CHECK: MemorySanitizer: use-of-uninitialized-value
 
 // CHECK: Uninitialized value was created by an allocation of {{.*}} in the stack frame of function '_Dmain'
-// CHECK-NEXT: #0 {{.*}} in _Dmain {{.*}}msan_uninitialized.d:[[@LINE+1]]
+// CHECK-NEXT: #0 {{.* in (_Dmain|D main) .*}}msan_uninitialized.d:[[@LINE+1]]
 int main()
 {
     version (BUG)
