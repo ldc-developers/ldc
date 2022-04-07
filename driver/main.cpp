@@ -583,30 +583,24 @@ static void registerMipsABI() {
   }
 }
 
-// Check if triple environment name starts with "uclibc" and change it to "gnu"
-void fixupUClibcEnv() {
-  llvm::Triple triple(mTargetTriple);
-  if (triple.getEnvironmentName().find("uclibc") != 0)
+// Handle target environments not directly supported by LLVM.
+void fixupTripleEnv(std::string &tripleString) {
+  llvm::Triple triple(tripleString);
+  llvm::StringRef env = triple.getEnvironmentName();
+  std::string newEnv;
+
+  if (env.startswith("uclibc")) {
+    global.params.isUClibcEnvironment = true;
+    newEnv = ("gnu" + env.substr(6)).str(); // uclibceabihf => gnueabihf
+  } else if (env.startswith("newlib")) {
+    global.params.isNewlibEnvironment = true;
+    newEnv = env.substr(6).str(); // newlibeabi => eabi
+  } else {
     return;
-  std::string envName(triple.getEnvironmentName());
-  envName.replace(0, 6, "gnu");
-  triple.setEnvironmentName(envName);
-  mTargetTriple = triple.normalize();
-  global.params.isUClibcEnvironment = true;
-}
+  }
 
-// Strip out newlib
-void fixupNewlibEnv() {
-  std::string fullTriple(mTargetTriple);
-  size_t pos = fullTriple.find("newlib");
-  if (pos == std::string::npos)
-    return;
-
-  fullTriple.replace(pos, 6, "");
-
-  llvm::Triple triple(fullTriple);
-  mTargetTriple = triple.normalize();
-  global.params.isNewlibEnvironment = true;
+  triple.setEnvironmentName(newEnv);
+  tripleString = triple.normalize();
 }
 
 /// Register the float ABI.
@@ -1102,9 +1096,7 @@ int cppmain() {
     relocModel = llvm::Reloc::PIC_;
   }
 
-  // check and fix environment for uClibc
-  fixupUClibcEnv();
-  fixupNewlibEnv();
+  fixupTripleEnv(mTargetTriple);
 
   // create target machine and finalize floatABI
   gTargetMachine = createTargetMachine(
