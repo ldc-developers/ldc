@@ -1800,6 +1800,7 @@ extern(C++) Type typeSemantic(Type type, const ref Loc loc, Scope* sc)
             mtype.exp.ident != Id.derivedMembers &&
             mtype.exp.ident != Id.getMember &&
             mtype.exp.ident != Id.parent &&
+            mtype.exp.ident != Id.parameters &&
             mtype.exp.ident != Id.child &&
             mtype.exp.ident != Id.toType &&
             mtype.exp.ident != Id.getOverloads &&
@@ -2287,10 +2288,7 @@ RootObject compileTypeMixin(TypeMixin tm, Loc loc, Scope* sc)
         return null;
     }
 
-    Type t = o.isType();
-    Expression e = t ? t.typeToExpression() : o.isExpression();
-
-    return (!e && t) ? t : e;
+    return o;
 }
 
 
