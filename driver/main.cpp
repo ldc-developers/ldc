@@ -585,22 +585,14 @@ static void registerMipsABI() {
 
 // Handle target environments not directly supported by LLVM.
 void fixupTripleEnv(std::string &tripleString) {
-  llvm::Triple triple(tripleString);
-  llvm::StringRef env = triple.getEnvironmentName();
-  std::string newEnv;
-
-  if (env.startswith("uclibc")) {
+  size_t i;
+  if ((i = tripleString.find("-uclibc")) != std::string::npos) {
     global.params.isUClibcEnvironment = true;
-    newEnv = ("gnu" + env.substr(6)).str(); // uclibceabihf => gnueabihf
-  } else if (env.startswith("newlib")) {
+    tripleString.replace(i + 1, 6, "gnu"); // -uclibceabihf => -gnueabihf
+  } else if ((i = tripleString.find("-newlib")) != std::string::npos) {
     global.params.isNewlibEnvironment = true;
-    newEnv = env.substr(6).str(); // newlibeabi => eabi
-  } else {
-    return;
+    tripleString.replace(i + 1, 6, ""); // -newlibeabi => -eabi
   }
-
-  triple.setEnvironmentName(newEnv);
-  tripleString = triple.normalize();
 }
 
 /// Register the float ABI.
