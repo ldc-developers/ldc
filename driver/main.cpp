@@ -587,16 +587,16 @@ static void registerMipsABI() {
   }
 }
 
-// Check if triple environment name starts with "uclibc" and change it to "gnu"
-void fixupUClibcEnv() {
-  llvm::Triple triple(mTargetTriple);
-  if (triple.getEnvironmentName().find("uclibc") != 0)
-    return;
-  std::string envName(triple.getEnvironmentName());
-  envName.replace(0, 6, "gnu");
-  triple.setEnvironmentName(envName);
-  mTargetTriple = triple.normalize();
-  global.params.isUClibcEnvironment = true;
+// Handle target environments not directly supported by LLVM.
+void fixupTripleEnv(std::string &tripleString) {
+  size_t i;
+  if ((i = tripleString.find("-uclibc")) != std::string::npos) {
+    global.params.isUClibcEnvironment = true;
+    tripleString.replace(i + 1, 6, "gnu"); // -uclibceabihf => -gnueabihf
+  } else if ((i = tripleString.find("-newlib")) != std::string::npos) {
+    global.params.isNewlibEnvironment = true;
+    tripleString.replace(i + 1, 6, ""); // -newlibeabi => -eabi
+  }
 }
 
 /// Register the float ABI.
@@ -876,6 +876,9 @@ void registerPredefinedTargetVersions() {
       llvm::StringRef osName = triple.getOSName();
       if (osName.empty() || osName == "unknown" || osName == "none") {
         VersionCondition::addPredefinedGlobalIdent("FreeStanding");
+        if (global.params.isNewlibEnvironment) {
+            VersionCondition::addPredefinedGlobalIdent("CRuntime_Newlib");
+        }
       } else {
         warning(Loc(), "unknown target OS: %s", osName.str().c_str());
       }
@@ -1089,8 +1092,7 @@ int cppmain() {
     relocModel = llvm::Reloc::PIC_;
   }
 
-  // check and fix environment for uClibc
-  fixupUClibcEnv();
+  fixupTripleEnv(mTargetTriple);
 
   // create target machine and finalize floatABI
   gTargetMachine = createTargetMachine(

@@ -284,6 +284,7 @@ struct Param
 
     const llvm::Triple *targetTriple;
     bool isUClibcEnvironment; // not directly supported by LLVM
+    bool isNewlibEnvironment; // not directly supported by LLVM
 
     // Codegen cl options
     bool disableRedZone;
