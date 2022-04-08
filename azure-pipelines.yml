@@ -13,11 +13,11 @@ jobs:
 - job: Windows
   timeoutInMinutes: 120
   pool:
-    vmImage: 'windows-2019'
+    vmImage: 'windows-2022'
   variables:
     CI_OS: windows
     OS: windows
-    LDC_VSDIR: C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise
+    LDC_VSDIR: C:\Program Files\Microsoft Visual Studio\2022\Enterprise
   strategy:
     matrix:
       x64:
