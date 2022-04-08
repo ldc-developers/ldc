@@ -109,7 +109,7 @@ jobs:
       - PARALLELISM: 2
       - CI_OS: linux
       - LIBCLANG_COMMON_VERSION: "6.0"
-      - HOST_LDC_VERSION: 1.24.0
+      - HOST_LDC_VERSION: 1.29.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON"
   Ubuntu-20.04-sharedLibsOnly-gdmd:
     <<: *commonSteps
@@ -120,7 +120,7 @@ jobs:
       - CI_OS: linux
       - LIBCLANG_COMMON_VERSION: "10"
       - EXTRA_APT_PACKAGES: gdmd
-      - HOST_LDC_VERSION: 1.24.0
+      - HOST_LDC_VERSION: 1.29.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
   macOS-x64:
     <<: *commonSteps
@@ -130,7 +130,7 @@ jobs:
       - PARALLELISM: 4
       - CI_OS: osx
       - LLVM_VERSION: 14.0.0
-      - HOST_LDC_VERSION: 1.24.0
+      - HOST_LDC_VERSION: 1.29.0
       - EXTRA_CMAKE_FLAGS: "-DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON"
       - MACOSX_DEPLOYMENT_TARGET: 11.0 # silence `ld: warning: object file (…/libphobos2-ldc.a(adler32.c.o)) was built for newer macOS version (11.6) than being linked (11.0)`
   macOS-x64-sharedLibsOnly:
@@ -141,7 +141,7 @@ jobs:
       - PARALLELISM: 4
       - CI_OS: osx
       - LLVM_VERSION: 14.0.0
-      - HOST_LDC_VERSION: 1.24.0
+      - HOST_LDC_VERSION: 1.29.0
       - EXTRA_CMAKE_FLAGS: "-DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON"
       - MACOSX_DEPLOYMENT_TARGET: 11.0
 
