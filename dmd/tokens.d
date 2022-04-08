@@ -255,7 +255,7 @@ enum TOK : ubyte
     sizeof_,
     typedef_,
     unsigned,
-    volatile_, // IN_LLVM: renamed for ltsmaster compatibility
+    volatile,
     _Alignas,
     _Alignof,
     _Atomic,
@@ -564,7 +564,7 @@ private immutable TOK[] keywords =
     TOK.sizeof_,
     TOK.typedef_,
     TOK.unsigned,
-    TOK.volatile_,
+    TOK.volatile,
     TOK._Alignas,
     TOK._Alignof,
     TOK._Atomic,
@@ -607,7 +607,7 @@ static immutable TOK[TOK.max + 1] Ckeywords =
         enum Ckwds = [ auto_, break_, case_, char_, const_, continue_, default_, do_, float64, else_,
                        enum_, extern_, float32, for_, goto_, if_, inline, int32, int64, register,
                        restrict, return_, int16, signed, sizeof_, static_, struct_, switch_, typedef_,
-                       union_, unsigned, void_, volatile_, while_, asm_,
+                       union_, unsigned, void_, volatile, while_, asm_,
                        _Alignas, _Alignof, _Atomic, _Bool, _Complex, _Generic, _Imaginary, _Noreturn,
                        _Static_assert, _Thread_local, _import, __cdecl, __declspec, __stdcall, __attribute__ ];
 
@@ -862,7 +862,7 @@ extern (C++) struct Token
         TOK.sizeof_   : "sizeof",
         TOK.typedef_  : "typedef",
         TOK.unsigned  : "unsigned",
-        TOK.volatile_ : "volatile",
+        TOK.volatile  : "volatile",
         TOK._Alignas  : "_Alignas",
         TOK._Alignof  : "_Alignof",
         TOK._Atomic   : "_Atomic",

@@ -86,9 +86,7 @@ are up to date:
     $ git submodule update --init
 
 (DMD, GDC and LDC are supported as host compilers. For bootstrapping
-purposes, we recommend GDC via its `gdmd` wrapper. Alternatively, LDC 0.17,
-the last version not to require a D compiler, is maintained to some degree in
-the `ltsmaster` branch.)
+purposes, we recommend GDC via its `gdmd` wrapper.)
 
 Cross-compilation
 -----------------

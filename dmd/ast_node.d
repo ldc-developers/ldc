@@ -10,9 +10,8 @@
  */
 module dmd.ast_node;
 
-// IN_LLVM: no selective imports for ltsmaster compatibility
-import dmd.root.rootobject; // : RootObject;
-import dmd.visitor; // : Visitor;
+import dmd.root.rootobject : RootObject;
+import dmd.visitor : Visitor;
 
 /// The base class of all AST nodes.
 extern (C++) abstract class ASTNode : RootObject

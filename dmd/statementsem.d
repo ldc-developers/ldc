@@ -2491,7 +2491,7 @@ version (IN_LLVM)
 
         if (numcases)
         {
-            static int sort_compare(in CaseStatement* x, in CaseStatement* y) @trusted /* IN_LLVM: ltsmaster... */ nothrow
+            static int sort_compare(in CaseStatement* x, in CaseStatement* y) @trusted
             {
                 auto se1 = x.exp.isStringExp();
                 auto se2 = y.exp.isStringExp();

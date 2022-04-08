@@ -594,7 +594,7 @@ version (IN_LLVM) {} else
         assert(fd.selector);
         assert(fd.isMember);
     }
-    body
+    do
     {
         if (fd.toParent.isInterfaceDeclaration && fd.isFinal)
             return false;
@@ -677,7 +677,7 @@ version (IN_LLVM) {} else
     {
         assert(metaclass);
     }
-    body
+    do
     {
         if (cd.classKind == ClassKind.objc && fd.isStatic && !cd.objc.isMeta)
             return cd.objc.metaclass;
@@ -690,7 +690,7 @@ version (IN_LLVM) {} else
     {
         assert(fd.parent.isClassDeclaration);
     }
-    body
+    do
     {
         if (cd.classKind != ClassKind.objc)
             return;
@@ -728,7 +728,7 @@ version (IN_LLVM) {} else
     {
         assert(fd.selectorParameter is null);
     }
-    body
+    do
     {
         if (!fd.objc.selector)
             return null;
