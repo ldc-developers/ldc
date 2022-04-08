@@ -85,7 +85,7 @@ install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
     cd $CIRRUS_WORKING_DIR/..
     sysctl -n hw.logicalcpu
     # Download & extract CMake
-    curl -fL --retry 3 --max-time 300 -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.20.3/cmake-3.20.3-macos-universal.tar.gz
+    curl -fL --retry 3 --max-time 300 -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.22.3/cmake-3.22.3-macos-universal.tar.gz
     mkdir cmake
     tar -xf cmake.tar.gz --strip 3 -C cmake
     rm cmake.tar.gz
