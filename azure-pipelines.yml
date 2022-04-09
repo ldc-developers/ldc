@@ -150,6 +150,20 @@ jobs:
     - template: .azure-pipelines/4a-mac_ios.yml
     - template: .azure-pipelines/6-package.yml
 
+# Merges the x64 and arm64 macOS packages to a universal package.
+- job: macOS_universal
+  timeoutInMinutes: 30
+  pool:
+    vmImage: 'macOS-11'
+  variables:
+    CI_OS: osx
+    IOS_DEPLOYMENT_TARGET: 12.0
+  dependsOn:
+    - macOS_x64
+    - macOS_arm64
+  steps:
+    - template: .azure-pipelines/mac-merge.yml
+
 - job: Android
   timeoutInMinutes: 120
   pool:
@@ -192,8 +206,7 @@ jobs:
   dependsOn:
     - Windows_multilib
     - Linux_multilib
-    - macOS_x64
-    - macOS_arm64
+    - macOS_universal
     - Android
   # Only run for commits on the master branch and tags.
   condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')))
