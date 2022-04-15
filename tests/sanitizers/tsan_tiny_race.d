@@ -1,7 +1,6 @@
 // Test that ThreadSanitizer+LDC works on a very basic testcase.
 
 // REQUIRES: TSan
-// REQUIRES: atleast_llvm800
 
 // RUN: %ldc -g -fsanitize=thread %s -of=%t%exe
 // RUN: %deflake 20 %t%exe | FileCheck %s

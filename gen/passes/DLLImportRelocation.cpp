@@ -16,9 +16,6 @@
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "dllimport-relocation"
-#if LDC_LLVM_VER < 700
-#define LLVM_DEBUG DEBUG
-#endif
 
 #include "gen/passes/Passes.h"
 #include "llvm/ADT/Statistic.h"
@@ -190,11 +187,7 @@ private:
         address = b.CreateConstInBoundsGEP2_32(t, address, 0,
                                                static_cast<unsigned>(i));
       } else {
-        address = b.CreateConstInBoundsGEP2_64(
-#if LDC_LLVM_VER >= 800
-            t,
-#endif
-            address, 0, i);
+        address = b.CreateConstInBoundsGEP2_64(t, address, 0, i);
       }
     }
 
@@ -224,13 +217,9 @@ private:
     auto ifbb = BasicBlock::Create(m.getContext(), "if", ctor);
     auto endbb = BasicBlock::Create(m.getContext(), "endif", ctor);
 
-    auto isStillNull = b.CreateICmp(CmpInst::ICMP_EQ,
-                                    b.CreateLoad(
-#if LDC_LLVM_VER >= 800
-                                        t,
-#endif
-                                        address, false),
-                                    Constant::getNullValue(t));
+    auto isStillNull =
+        b.CreateICmp(CmpInst::ICMP_EQ, b.CreateLoad(t, address, false),
+                     Constant::getNullValue(t));
     b.CreateCondBr(isStillNull, ifbb, endbb);
 
     b.SetInsertPoint(ifbb);

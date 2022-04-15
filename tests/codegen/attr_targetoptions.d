@@ -1,4 +1,3 @@
-// REQUIRES: atleast_llvm800
 // Tests that our TargetMachine options are added as function attributes
 
 // RUN: %ldc -c -output-ll -of=%t.ll %s

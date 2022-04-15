@@ -98,12 +98,8 @@ static cl::opt<bool, true>
         cl::ZeroOrMore, cl::location(global.params.vgc));
 
 // Dummy data type for custom parsers where the help output shouldn't display
-// any value. cl::parser<bool> is final for LLVM < 9...
-#if LDC_LLVM_VER >= 900
+// any value.
 using DummyDataType = bool;
-#else
-enum class DummyDataType { dummy };
-#endif
 
 // `-vtemplates[=list-instances]` parser.
 struct VTemplatesParser : public cl::parser<DummyDataType> {

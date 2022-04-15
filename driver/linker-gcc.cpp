@@ -368,18 +368,10 @@ void ArgsBuilder::addXRayLinkFlags(const llvm::Triple &triple) {
     warning(Loc(), "XRay may not be fully supported on non-Linux target OS.");
 
   bool libraryFoundAndLinked = addCompilerRTArchiveLinkFlags("xray", triple);
-#if LDC_LLVM_VER >= 700
-  // Since LLVM 7, each XRay mode was split into its own library.
   if (libraryFoundAndLinked) {
     addCompilerRTArchiveLinkFlags("xray-basic", triple);
     addCompilerRTArchiveLinkFlags("xray-fdr", triple);
   }
-#else
-  // Before LLVM 7, XRay requires the C++ std library (but not on Darwin).
-  // Only link with the C++ stdlib when the XRay library was found.
-  if (libraryFoundAndLinked && !triple.isOSDarwin())
-    addCppStdlibLinkFlags(triple);
-#endif
 }
 
 // Returns true if library was found and added to link flags.
@@ -770,7 +762,7 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
 #else
       success = lld::mach_o::link(fullArgs
 #endif
-#if LDC_LLVM_VER >= 700 && LDC_LLVM_VER < 1400
+#if LDC_LLVM_VER < 1400
                                  ,
                                  CanExitEarly
 #endif
@@ -799,7 +791,7 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
 #endif
       );
     } else if (global.params.targetTriple->isOSBinFormatWasm()) {
-#if __linux__ && LDC_LLVM_VER >= 700
+#if __linux__
       // FIXME: segfault in cleanup (`freeArena()`) after successful linking,
       //        but only on Linux?
       CanExitEarly = true;

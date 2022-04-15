@@ -29,7 +29,7 @@
 #endif
 #if LDC_LLVM_VER >= 1100
 #include "llvm/IR/LLVMRemarkStreamer.h"
-#elif LDC_LLVM_VER >= 900
+#else
 #include "llvm/IR/RemarkStreamer.h"
 #endif
 #include "llvm/Support/FileSystem.h"
@@ -65,7 +65,6 @@ createAndSetDiagnosticsOutputFile(IRState &irs, llvm::LLVMContext &ctx,
     // If there is instrumentation data available, also output function hotness
     const bool withHotness = opts::isUsingPGOProfile();
 
-#if LDC_LLVM_VER >= 900
     auto remarksFileOrError =
 #if LDC_LLVM_VER >= 1100
         llvm::setupLLVMOptimizationRemarks(
@@ -80,23 +79,6 @@ createAndSetDiagnosticsOutputFile(IRState &irs, llvm::LLVMContext &ctx,
       fatal();
     }
     diagnosticsOutputFile = std::move(*remarksFileOrError);
-#else
-    std::error_code EC;
-    diagnosticsOutputFile = llvm::make_unique<llvm::ToolOutputFile>(
-        diagnosticsFilename, EC, llvm::sys::fs::F_None);
-    if (EC) {
-      irs.dmodule->error("Could not create file %s: %s",
-                         diagnosticsFilename.c_str(), EC.message().c_str());
-      fatal();
-    }
-
-    ctx.setDiagnosticsOutputFile(
-        llvm::make_unique<llvm::yaml::Output>(diagnosticsOutputFile->os()));
-
-    if (withHotness) {
-      ctx.setDiagnosticsHotnessRequested(true);
-    }
-#endif // LDC_LLVM_VER < 900
   }
 
   return diagnosticsOutputFile;
@@ -378,13 +360,7 @@ void CodeGenerator::writeMLIRModule(mlir::OwningModuleRef *module,
     const auto llpath = replaceExtensionWith(mlir_ext, filename);
     Logger::println("Writting MLIR to %s\n", llpath.c_str());
     std::error_code errinfo;
-    llvm::raw_fd_ostream aos(llpath, errinfo,
-#if LDC_LLVM_VER >= 900
-                             llvm::sys::fs::OF_None
-#else
-                             llvm::sys::fs::F_None
-#endif
-                             );
+    llvm::raw_fd_ostream aos(llpath, errinfo, llvm::sys::fs::OF_None);
 
     if (aos.has_error()) {
       error(Loc(), "Cannot write MLIR file '%s': %s", llpath.c_str(),

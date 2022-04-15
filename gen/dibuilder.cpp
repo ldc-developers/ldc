@@ -593,9 +593,7 @@ DIType DIBuilder::CreateCompositeType(Type *t) {
       auto dt = DBuilder.createInheritance(irAggr->diCompositeType,
                                            derivedFrom, // base class type
                                            0,           // offset of base class
-#if LDC_LLVM_VER >= 700
                                            0, // offset of virtual base pointer
-#endif
                                            DIFlags::FlagPublic);
       elems.push_back(dt);
     }
@@ -941,10 +939,8 @@ DISubprogram DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
   const auto scopeLine = lineNo; // FIXME
   const auto flags = DIFlags::FlagPrototyped;
   const auto isOptimized = isOptimizationEnabled();
-#if LDC_LLVM_VER >= 800
   const auto dispFlags =
       llvm::DISubprogram::toSPFlags(isLocalToUnit, isDefinition, isOptimized);
-#endif
 
   DISubroutineType diFnType = nullptr;
   if (!mustEmitFullDebugInfo()) {
@@ -954,17 +950,8 @@ DISubprogram DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
     // The return type is a nested struct, so for this particular
     // chicken-and-egg case we need to create a temporary subprogram.
     irFunc->diSubprogram = DBuilder.createTempFunctionFwdDecl(
-        scope, name, linkageName, file, lineNo, /*ty=*/nullptr,
-#if LDC_LLVM_VER < 800
-        isLocalToUnit, isDefinition,
-#endif
-        scopeLine, flags,
-#if LDC_LLVM_VER >= 800
-        dispFlags
-#else
-        isOptimized
-#endif
-    );
+        scope, name, linkageName, file, lineNo, /*ty=*/nullptr, scopeLine,
+        flags, dispFlags);
 
     // Now create subroutine type.
     diFnType = CreateFunctionType(fd->type);
@@ -988,21 +975,10 @@ DISubprogram DIBuilder::CreateFunction(DIScope scope, llvm::StringRef name,
                                        bool isLocalToUnit, bool isDefinition,
                                        bool isOptimized, unsigned scopeLine,
                                        DIFlags flags) {
-#if LDC_LLVM_VER >= 800
   const auto dispFlags =
       llvm::DISubprogram::toSPFlags(isLocalToUnit, isDefinition, isOptimized);
-#endif
   return DBuilder.createFunction(scope, name, linkageName, file, lineNo, ty,
-#if LDC_LLVM_VER < 800
-                                 isLocalToUnit, isDefinition,
-#endif
-                                 scopeLine, flags,
-#if LDC_LLVM_VER >= 800
-                                 dispFlags
-#else
-                                 isOptimized
-#endif
-  );
+                                 scopeLine, flags, dispFlags);
 }
 
 DISubprogram DIBuilder::EmitThunk(llvm::Function *Thunk, FuncDeclaration *fd) {

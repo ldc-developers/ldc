@@ -255,11 +255,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
 
   if (cpyObj) {
     // assign the caught exception to the location in the closure
-    auto val = irs.ir->CreateLoad(
-#if LDC_LLVM_VER >= 800
-        getPointeeType(exnObj),
-#endif
-        exnObj);
+    auto val = irs.ir->CreateLoad(getPointeeType(exnObj), exnObj);
     irs.ir->CreateStore(val, cpyObj);
     exnObj = cpyObj;
   }
@@ -743,13 +739,10 @@ llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
 
       // Compare the selector value from the unwinder against the expected
       // one and branch accordingly.
-      irs.ir->CreateCondBr(irs.ir->CreateICmpEQ(irs.ir->CreateLoad(
-#if LDC_LLVM_VER >= 800
-                                                    ehSelectorType,
-#endif
-                                                    ehSelectorSlot),
-                                                ehTypeId),
-                           cb.bodyBB, mismatchBB, cb.branchWeights);
+      irs.ir->CreateCondBr(
+          irs.ir->CreateICmpEQ(
+              irs.ir->CreateLoad(ehSelectorType, ehSelectorSlot), ehTypeId),
+          cb.bodyBB, mismatchBB, cb.branchWeights);
       irs.ir->SetInsertPoint(mismatchBB);
     }
   }

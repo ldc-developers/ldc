@@ -88,7 +88,6 @@ bool isRunArg(const char *arg) {
 ////////////////////////////////////////////////////////////////////////////////
 
 namespace {
-#if LDC_LLVM_VER >= 700
 std::vector<llvm::StringRef> toRefsVector(llvm::ArrayRef<const char *> args) {
   std::vector<llvm::StringRef> refs;
   refs.reserve(args.size());
@@ -96,7 +95,6 @@ std::vector<llvm::StringRef> toRefsVector(llvm::ArrayRef<const char *> args) {
     refs.emplace_back(arg);
   return refs;
 }
-#endif
 
 struct ResponseFile {
   llvm::SmallString<128> path;
@@ -117,7 +115,7 @@ struct ResponseFile {
     if (llvm::sys::commandLineFitsWithinSystemLimits(fullArgs[0], args))
       return true; // nothing to do
 
-#if defined(_WIN32) && LDC_LLVM_VER >= 700
+#if defined(_WIN32)
 #if LDC_LLVM_VER >= 1200
     const llvm::ErrorOr<std::wstring> wcontent =
         llvm::sys::flattenWindowsCommandLine(toRefsVector(args));
@@ -178,14 +176,8 @@ int executeAndWait(
     fullArgs.push_back(rspArg.c_str());
   }
 
-#if LDC_LLVM_VER >= 700
   const std::vector<llvm::StringRef> argv = toRefsVector(fullArgs);
   auto envVars = llvm::None;
-#else
-  fullArgs.push_back(nullptr); // terminate with null
-  auto argv = fullArgs.data();
-  auto envVars = nullptr;
-#endif
 
   return llvm::sys::ExecuteAndWait(argv[0], argv, envVars, {}, 0, 0, errorMsg);
 }

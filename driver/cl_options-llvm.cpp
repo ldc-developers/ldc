@@ -19,17 +19,15 @@
 #include "llvm/CodeGen/CommandFlags.h"
 static llvm::codegen::RegisterCodeGenFlags CGF;
 using namespace llvm;
-#elif LDC_LLVM_VER >= 700
-#include "llvm/CodeGen/CommandFlags.inc"
 #else
-#include "llvm/CodeGen/CommandFlags.def"
+#include "llvm/CodeGen/CommandFlags.inc"
 #endif
 
 static cl::opt<bool>
     DisableRedZone("disable-red-zone", cl::ZeroOrMore,
                    cl::desc("Do not emit code that uses the red zone."));
 
-#if LDC_LLVM_VER >= 800 && LDC_LLVM_VER < 1100
+#if LDC_LLVM_VER < 1100
 // legacy option
 static cl::opt<bool>
     disableFPElim("disable-fp-elim", cl::ZeroOrMore, cl::ReallyHidden,
@@ -66,11 +64,10 @@ Optional<CodeModel::Model> getCodeModel() {
 
 #if LDC_LLVM_VER >= 1300
 using FPK = llvm::FramePointerKind;
-#elif LDC_LLVM_VER >= 800
+#else
 using FPK = llvm::FramePointer::FP;
 #endif
 
-#if LDC_LLVM_VER >= 800
 llvm::Optional<FPK> framePointerUsage() {
 #if LDC_LLVM_VER >= 1100
   // Defaults to `FP::None`; no way to check if set explicitly by user except
@@ -84,13 +81,6 @@ llvm::Optional<FPK> framePointerUsage() {
   return llvm::None;
 #endif
 }
-#else
-cl::boolOrDefault disableFPElim() {
-  return ::DisableFPElim.getNumOccurrences() == 0
-             ? cl::BOU_UNSET
-             : ::DisableFPElim ? cl::BOU_TRUE : cl::BOU_FALSE;
-}
-#endif
 
 bool disableRedZone() { return ::DisableRedZone; }
 
@@ -148,11 +138,7 @@ void setFunctionAttributes(StringRef cpu, StringRef features,
 // the lld namespace. Define them here to prevent the LLD object from being
 // linked in with its conflicting command-line options.
 namespace lld {
-#if LDC_LLVM_VER >= 900
 TargetOptions initTargetOptionsFromCodeGenFlags() {
-#else
-TargetOptions InitTargetOptionsFromCodeGenFlags() {
-#endif
   return ::opts::InitTargetOptionsFromCodeGenFlags(llvm::Triple());
 }
 
@@ -162,26 +148,16 @@ Optional<Reloc::Model> getRelocModelFromCMModel() {
 }
 #endif
 
-#if LDC_LLVM_VER >= 900
 Optional<CodeModel::Model> getCodeModelFromCMModel() {
-#else
-Optional<CodeModel::Model> GetCodeModelFromCMModel() {
-#endif
   return ::opts::getCodeModel();
 }
 
-#if LDC_LLVM_VER >= 900
 std::string getCPUStr() { return ::opts::getCPUStr(); }
-#elif LDC_LLVM_VER >= 700
-std::string GetCPUStr() { return ::opts::getCPUStr(); }
-#endif
 
 #if LDC_LLVM_VER >= 1100
 std::vector<std::string> getMAttrs() { return codegen::getMAttrs(); }
-#elif LDC_LLVM_VER >= 900
+#else
 std::vector<std::string> getMAttrs() { return ::MAttrs; }
-#elif LDC_LLVM_VER >= 800
-std::vector<std::string> GetMAttrs() { return ::MAttrs; }
 #endif
 } // namespace lld
 #endif // LDC_WITH_LLD

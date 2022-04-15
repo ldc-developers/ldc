@@ -38,9 +38,6 @@
 #include <algorithm>
 
 #define DEBUG_TYPE "dgc2stack"
-#if LDC_LLVM_VER < 700
-#define LLVM_DEBUG DEBUG
-#endif
 
 using namespace llvm;
 
@@ -431,13 +428,7 @@ static void RemoveCall(LLCallBasePtr CB, const Analysis &A) {
 
   // Remove the runtime call.
   if (A.CGNode) {
-#if LDC_LLVM_VER >= 900
     A.CGNode->removeCallEdgeFor(*CB);
-#elif LDC_LLVM_VER >= 800
-    A.CGNode->removeCallEdgeFor(llvm::CallSite(CB));
-#else
-    A.CGNode->removeCallEdgeFor(CB);
-#endif
   }
   static_cast<Instruction *>(CB)->eraseFromParent();
 }
@@ -473,17 +464,10 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
 
       // Ignore non-calls.
       Instruction *Inst = &(*(I++));
-#if LDC_LLVM_VER >= 800
       auto CB = dyn_cast<CallBase>(Inst);
       if (!CB) {
         continue;
       }
-#else
-      LLCallBasePtr CB(Inst);
-      if (!CB->getInstruction()) {
-        continue;
-      }
-#endif
 
       // Ignore indirect calls and calls to non-external functions.
       Function *Callee = CB->getCalledFunction();
@@ -799,11 +783,7 @@ bool isSafeToStackAllocate(BasicBlock::iterator Alloc, Value *V,
     switch (I->getOpcode()) {
     case Instruction::Call:
     case Instruction::Invoke: {
-#if LDC_LLVM_VER >= 800
       auto CB = llvm::cast<CallBase>(I);
-#else
-      LLCallBasePtr CB(I);
-#endif
       // Not captured if the callee is readonly, doesn't return a copy through
       // its return value and doesn't unwind (a readonly function can leak bits
       // by throwing an exception or not depending on the input value).
