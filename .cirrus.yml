@@ -50,8 +50,7 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
       ctest -j$PARALLELISM --output-on-failure -E "$excludes"
 
 # Installs Ubuntu 18.04+ prerequisites.
-# Requires env variables HOST_LDC_VERSION and LIBCLANG_COMMON_VERSION and
-# supports optional EXTRA_APT_PACKAGES.
+# Requires env variables HOST_LDC_VERSION and EXTRA_APT_PACKAGES.
 install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
   install_prerequisites_script: |
     cd $CIRRUS_WORKING_DIR/..
@@ -68,8 +67,7 @@ install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
     apt-get -q update
     apt-get -yq install \
       git-core cmake ninja-build $gcc_pkg \
-      llvm-dev zlib1g-dev libclang-common-$LIBCLANG_COMMON_VERSION-dev \
-      $libcurl_pkg curl gdb python3 python3-pip tzdata unzip zip \
+      zlib1g-dev $libcurl_pkg curl gdb python3 python3-pip tzdata unzip zip \
       $EXTRA_APT_PACKAGES
     python3 --version
     # Download & extract host LDC
@@ -121,7 +119,7 @@ task:
   timeout_in: 60m
   environment:
     CI_OS: linux
-    LIBCLANG_COMMON_VERSION: "6.0"
+    EXTRA_APT_PACKAGES: "llvm-9-dev libclang-common-9-dev"
     EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON"
     PARALLELISM: 8
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
@@ -138,8 +136,7 @@ task:
   timeout_in: 60m
   environment:
     CI_OS: linux
-    LIBCLANG_COMMON_VERSION: "12"
-    EXTRA_APT_PACKAGES: "gdmd"
+    EXTRA_APT_PACKAGES: "gdmd llvm-dev libclang-common-12-dev"
     EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
     PARALLELISM: 8
     # for gdmd:
@@ -156,8 +153,8 @@ task:
   timeout_in: 60m
   environment:
     CI_OS: linux
-    LIBCLANG_COMMON_VERSION: "6.0"
     HOST_LDC_VERSION: 1.9.0
+    EXTRA_APT_PACKAGES: "llvm-9-dev libclang-common-9-dev"
     EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
     PARALLELISM: 8
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE

@@ -19,8 +19,7 @@ commonSteps: &commonSteps
             apt-get -q update
             apt-get -yq install \
               git-core cmake ninja-build $gcc_pkg \
-              llvm-dev zlib1g-dev libclang-common-$LIBCLANG_COMMON_VERSION-dev \
-              $libcurl_pkg curl gdb python3 python3-pip tzdata unzip zip \
+              zlib1g-dev $libcurl_pkg curl gdb python3 python3-pip tzdata unzip zip \
               $EXTRA_APT_PACKAGES
           else
             # Download & extract CMake
@@ -108,7 +107,7 @@ jobs:
     environment:
       - PARALLELISM: 2
       - CI_OS: linux
-      - LIBCLANG_COMMON_VERSION: "6.0"
+      - EXTRA_APT_PACKAGES: llvm-9-dev libclang-common-9-dev
       - HOST_LDC_VERSION: 1.24.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON"
   Ubuntu-20.04-sharedLibsOnly-gdmd:
@@ -118,8 +117,7 @@ jobs:
     environment:
       - PARALLELISM: 2
       - CI_OS: linux
-      - LIBCLANG_COMMON_VERSION: "10"
-      - EXTRA_APT_PACKAGES: gdmd
+      - EXTRA_APT_PACKAGES: gdmd llvm-dev libclang-common-10-dev
       - HOST_LDC_VERSION: 1.24.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
   macOS-x64:
