@@ -1220,7 +1220,6 @@ else // !IN_LLVM
         return is64bit || os == Target.OS.OSX;
     }
 
-    /++ LDC: syntax not supported by ltsmaster
     /**
      * Returns:
      *  true if generating code for POSIX
@@ -1231,7 +1230,6 @@ else // !IN_LLVM
     {
         return (os & Target.OS.Posix) != 0;
     }
-    ++/
 } // !IN_LLVM
 }
 

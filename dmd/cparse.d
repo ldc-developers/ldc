@@ -263,7 +263,7 @@ final class CParser(AST) : Parser!AST
 
         // type-qualifiers
         case TOK.const_:
-        case TOK.volatile_:
+        case TOK.volatile:
         case TOK.restrict:
         case TOK.__stdcall:
 
@@ -1895,16 +1895,15 @@ final class CParser(AST) : Parser!AST
         addFuncName = false;    // gets set to true if somebody references __func__ in this function
         const locFunc = token.loc;
 
-        // IN_LLVM: `body` renamed to `body_` for ltsmaster compatibility
-        auto body_ = cparseStatement(ParseStatementFlags.curly);  // don't start a new scope; continue with parameter scope
+        auto body = cparseStatement(ParseStatementFlags.curly);  // don't start a new scope; continue with parameter scope
         auto fd = new AST.FuncDeclaration(locFunc, prevloc, id, specifiersToSTC(LVL.global, specifier), ft, specifier.noreturn);
 
         if (addFuncName)
         {
             auto s = createFuncName(locFunc, id);
-            body_ = new AST.CompoundStatement(locFunc, s, body_);
+            body = new AST.CompoundStatement(locFunc, s, body);
         }
-        fd.fbody = body_;
+        fd.fbody = body;
 
         // TODO add `symbols` to the function's local symbol table `sc2` in FuncDeclaration::semantic3()
 
@@ -2073,7 +2072,7 @@ final class CParser(AST) : Parser!AST
 
                 // Type qualifiers
                 case TOK.const_:     modx = MOD.xconst;     break;
-                case TOK.volatile_:  modx = MOD.xvolatile;  break;
+                case TOK.volatile:   modx = MOD.xvolatile;  break;
                 case TOK.restrict:   modx = MOD.xrestrict;  break;
                 case TOK.__stdcall:  modx = MOD.x__stdcall; break;
 
@@ -2635,7 +2634,7 @@ final class CParser(AST) : Parser!AST
             switch (token.value)
             {
                 case TOK.const_:     mod |= MOD.xconst;     break;
-                case TOK.volatile_:  mod |= MOD.xvolatile;  break;
+                case TOK.volatile:   mod |= MOD.xvolatile;  break;
                 case TOK.restrict:   mod |= MOD.xrestrict;  break;
                 case TOK._Atomic:    mod |= MOD.x_Atomic;   break;
                 case TOK.__stdcall:  mod |= MOD.x__stdcall; break;
@@ -3002,7 +3001,7 @@ final class CParser(AST) : Parser!AST
             case TOK.int16:
             case TOK.inline:
             case TOK._Noreturn:
-            case TOK.volatile_:
+            case TOK.volatile:
             case TOK.signed:
             case TOK.auto_:
             case TOK.restrict:
@@ -3721,7 +3720,7 @@ final class CParser(AST) : Parser!AST
 
                 // type-qualifiers
                 case TOK.const_:
-                case TOK.volatile_:
+                case TOK.volatile:
                 case TOK.restrict:
                 case TOK.__stdcall:
                     t = peek(t);
@@ -3962,7 +3961,7 @@ final class CParser(AST) : Parser!AST
             {
                 case TOK.const_:
                 case TOK.restrict:
-                case TOK.volatile_:
+                case TOK.volatile:
                 case TOK._Atomic:
                 case TOK.__stdcall:
                     t = peek(t);
@@ -4016,7 +4015,7 @@ final class CParser(AST) : Parser!AST
                 // Type Qualifiers
                 case TOK.const_:
                 case TOK.restrict:
-                case TOK.volatile_:
+                case TOK.volatile:
                 case TOK.__stdcall:
 
                 // Type Specifiers

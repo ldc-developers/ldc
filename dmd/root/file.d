@@ -17,11 +17,8 @@ import core.stdc.stdlib;
 import core.stdc.string : strerror;
 import core.sys.posix.fcntl;
 import core.sys.posix.unistd;
-version (Windows) // IN_LLVM: ltsmaster...
-{
-    import core.sys.windows.winbase;
-    import core.sys.windows.winnt;
-}
+import core.sys.windows.winbase;
+import core.sys.windows.winnt;
 import dmd.root.filename;
 import dmd.root.rmem;
 import dmd.root.string;

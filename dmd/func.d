@@ -3332,7 +3332,7 @@ private bool traverseIndirections(Type ta, Type tb)
 {
     //printf("traverseIndirections(%s, %s)\n", ta.toChars(), tb.toChars());
 
-    static bool traverse(Type ta, Type tb, ref /* ltsmaster: scope */ AssocArray!(const(char)*, bool) table, bool reversePass)
+    static bool traverse(Type ta, Type tb, ref scope AssocArray!(const(char)*, bool) table, bool reversePass)
     {
         //printf("traverse(%s, %s)\n", ta.toChars(), tb.toChars());
         ta = ta.baseElemOf();

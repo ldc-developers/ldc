@@ -1065,7 +1065,7 @@ template hasLength(Range)
 }
 
 /// Implements the range interface primitive `front` for built-in arrays.
-@property ref inout(T) front(T)(/* IN_LLVM: ltsmaster... return */ scope inout(T)[] a) pure nothrow @nogc @safe
+@property ref inout(T) front(T)(return scope inout(T)[] a) pure nothrow @nogc @safe
 {
     assert(a.length, "Attempting to fetch the front of an empty array of " ~ T.stringof);
     return a[0];
@@ -1079,7 +1079,7 @@ pure nothrow @nogc @safe unittest
 }
 
 /// Implements the range interface primitive `empty` for types that obey $(LREF hasLength) property
-@property bool empty(T)(auto ref /* IN_LLVM: ltsmaster... scope */ T a)
+@property bool empty(T)(auto ref scope T a)
 if (is(typeof(a.length) : size_t))
 {
     return !a.length;
@@ -1103,7 +1103,7 @@ pure nothrow @safe unittest
 }
 
 /// Implements the range interface primitive `popFront` for built-in arrays.
-void popFront(T)(/* ltsmaster: scope */ ref inout(T)[] array) pure nothrow @nogc @safe
+void popFront(T)(/*scope*/ ref inout(T)[] array) pure nothrow @nogc @safe
 {                // does not compile with GDC 9 if this is `scope`
     assert(array.length, "Attempting to popFront() past the end of an array of " ~ T.stringof);
     array = array[1 .. $];

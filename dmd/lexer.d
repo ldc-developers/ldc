@@ -2778,7 +2778,7 @@ class Lexer
             return;
         }
 
-        void closingParen() /* IN_LLVM: ltsmaster... */ nothrow
+        void closingParen()
         {
             if (n.value != TOK.rightParenthesis)
             {
@@ -2787,7 +2787,7 @@ class Lexer
             skipToNextLine();
         }
 
-        void setPackAlign(ref const Token t) /* IN_LLVM: ltsmaster... */ nothrow
+        void setPackAlign(ref const Token t)
         {
             const n = t.unsvalue;
             if (n < 1 || n & (n - 1) || ushort.max < n)
@@ -3047,7 +3047,7 @@ class Lexer
          */
         OutBuffer buf;
 
-        void trimTrailingWhitespace() /* IN_LLVM: ltsmaster... */ nothrow
+        void trimTrailingWhitespace()
         {
             const s = buf[];
             auto len = s.length;
@@ -3390,7 +3390,6 @@ unittest
     diagnosticHandler = &expectDiagnosticHandler;
 
     void test(string sequence, string expectedError, dchar expectedReturnValue, uint expectedScanLength, bool Ccompile = false)
-    /* IN_LLVM: ltsmaster */ nothrow
     {
         uint errors = global.errors;
         gotError = false;

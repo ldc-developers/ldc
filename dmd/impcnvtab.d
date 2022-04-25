@@ -76,7 +76,7 @@ ImpCnvTab generateImpCnvTab()
         }
     }
 
-    void X(TY t1, TY t2, TY nt1, TY nt2, TY rt) /* IN_LLVM: ltsmaster... */ @nogc nothrow
+    void X(TY t1, TY t2, TY nt1, TY nt2, TY rt)
     {
         impCnvTab.impcnvResultTab[t1][t2] = rt;
         impCnvTab.impcnvResultTab[t2][t1] = rt;

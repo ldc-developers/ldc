@@ -432,23 +432,7 @@ Expression eval_bswap(Loc loc, FuncDeclaration fd, Expressions* arguments)
     uinteger_t n = arg0.toInteger();
     TY ty = arg0.type.toBasetype().ty;
     if (ty == Tint64 || ty == Tuns64)
-    {
-        version (LDC)
-        {
-            // ltsmaster has no core.bitop.bswap(ulong) overload
-            static if (!__traits(compiles, core.bitop.bswap(ulong.max)))
-            {
-                import ldc.intrinsics : llvm_bswap;
-                alias bswap64 = llvm_bswap!ulong;
-            }
-            else
-                alias bswap64 = core.bitop.bswap;
-        }
-        else
-            alias bswap64 = core.bitop.bswap;
-
-        return new IntegerExp(loc, bswap64(cast(ulong) n), arg0.type);
-    }
+        return new IntegerExp(loc, core.bitop.bswap(cast(ulong) n), arg0.type);
     else
         return new IntegerExp(loc, core.bitop.bswap(cast(uint) n), arg0.type);
 }
@@ -458,10 +442,7 @@ Expression eval_popcnt(Loc loc, FuncDeclaration fd, Expressions* arguments)
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == EXP.int64);
     uinteger_t n = arg0.toInteger();
-    version (LDC) // ltsmaster doesn't have popcnt(ulong)
-        return new IntegerExp(loc, core.bitop._popcnt(n), Type.tint32);
-    else
-        return new IntegerExp(loc, core.bitop.popcnt(n), Type.tint32);
+    return new IntegerExp(loc, core.bitop.popcnt(n), Type.tint32);
 }
 
 Expression eval_yl2x(Loc loc, FuncDeclaration fd, Expressions* arguments)
