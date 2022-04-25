@@ -5,6 +5,10 @@
   - All LLVM targets are enabled now (=> more targets for cross-compilation).
   - For the Mac package, the minimum supported macOS version has been raised to v10.12.
 - The minimum D version for bootstrapping has been raised to v2.079 (for GDC: v9.4), in line with DMD. (#3956)
+- The minimum LLVM version has been raised to v9.0. (#3960)
+
+#### Platform support
+- Supports LLVM 9.0 - 14.0.
 
 #### Bug fixes
 

@@ -13,45 +13,30 @@ jobs:
             llvm_version: "14.0.0"
             # the compiler-rt libs installation is somehow non-standard
             cmake_opts: "-DLDC_INSTALL_LLVM_RUNTIME_LIBS_OS=x86_64-unknown-linux-gnu -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH="
-          - job_name: Ubuntu 18.04, LLVM 13, latest LDC beta
-            os: ubuntu-18.04
-            host_dc: ldc-beta
-            llvm_version: "13.0.1"
-            cmake_opts: ""
           - job_name: Ubuntu 18.04, LLVM 12, latest LDC beta
             os: ubuntu-18.04
             host_dc: ldc-beta
             llvm_version: "12.0.1"
-            cmake_opts: ""
+            cmake_opts: "-DLIB_SUFFIX=64"
           - job_name: Ubuntu 18.04, LLVM 11, latest LDC beta
             os: ubuntu-18.04
             host_dc: ldc-beta
             llvm_version: "11.1.0"
             cmake_opts: "-DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON"
-          - job_name: Ubuntu 18.04, LLVM 9, latest LDC beta
-            os: ubuntu-18.04
-            host_dc: ldc-beta
-            llvm_version: "9.0.1"
-            cmake_opts: "-DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON"
-          - job_name: Ubuntu 18.04, LLVM 8, latest LDC beta
-            os: ubuntu-18.04
-            host_dc: ldc-beta
-            llvm_version: "8.0.0"
-            cmake_opts: "-DLIB_SUFFIX=64"
-          - job_name: Ubuntu 18.04, LLVM 6, latest DMD beta
+          - job_name: Ubuntu 18.04, LLVM 9, latest DMD beta
             os: ubuntu-18.04
             host_dc: dmd-beta
-            llvm_version: "6.0.1"
-            cmake_opts: "-DLDC_LINK_MANUALLY=ON"
+            llvm_version: "9.0.1"
+            cmake_opts: "-DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON"
           - job_name: macOS 10.15, LLVM 10, latest DMD beta
             os: macos-10.15
             host_dc: dmd-beta
             llvm_version: "10.0.1"
             cmake_opts: "-DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON"
-          - job_name: macOS 10.15, LLVM 7, latest LDC beta
+          - job_name: macOS 10.15, LLVM 13, latest LDC beta
             os: macos-10.15
             host_dc: ldc-beta
-            llvm_version: "7.0.0"
+            llvm_version: "13.0.1"
             cmake_opts: "-DBUILD_SHARED_LIBS=OFF"
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
@@ -86,7 +71,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: llvm
-          key: llvm-${{ matrix.llvm_version }}-ubuntu-16.04
+          key: llvm-${{ matrix.llvm_version }}-${{ matrix.os }}
 
       - name: Download & extract prebuilt vanilla LLVM ${{ matrix.llvm_version }}
         run: |
@@ -103,12 +88,7 @@ jobs:
           else
             suffix='x86_64-linux-gnu-ubuntu-16.04'
           fi
-          if [[ "$version" =~ ^(1.|9)\. ]]; then
-            llvm_url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-$suffix.tar.xz"
-          else
-            llvm_url="http://releases.llvm.org/$version/clang+llvm-$version-$suffix.tar.xz"
-          fi
-          curl -fL --retry 3 --max-time 300 -o llvm.tar.xz $llvm_url
+          curl -fL --retry 3 --max-time 300 -o llvm.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-$suffix.tar.xz
           mkdir -p llvm
           tar -xf llvm.tar.xz --strip 1 -C llvm
           rm llvm.tar.xz

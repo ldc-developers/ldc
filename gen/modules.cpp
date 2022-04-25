@@ -164,11 +164,7 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
   gIR->DBuilder.EmitModuleCTor(ctor, fname.c_str());
 
   // get current beginning
-  LLValue *curbeg = builder.CreateLoad(
-#if LDC_LLVM_VER >= 800
-      modulerefPtrTy,
-#endif
-      mref, "current");
+  LLValue *curbeg = builder.CreateLoad(modulerefPtrTy, mref, "current");
 
   // put current beginning as the next of this one
   LLValue *gep = builder.CreateStructGEP(
@@ -365,22 +361,14 @@ void loadInstrProfileData(IRState *irs) {
     irs->PGOReader = std::move(readerOrErr.get());
 
     if (!irs->module.getProfileSummary(
-#if LDC_LLVM_VER >= 900
-            /*is context sensitive profile=*/false
-#endif
-            )) {
+            /*is context sensitive profile=*/false)) {
       // Don't reset the summary. There is only one profile data file per LDC
       // invocation so the summary must be the same as the one that is already
       // set.
       irs->module.setProfileSummary(
-#if LDC_LLVM_VER >= 900
           irs->PGOReader->getSummary(/*is context sensitive profile=*/false)
               .getMD(irs->context()),
-          llvm::ProfileSummary::PSK_Instr
-#else
-          irs->PGOReader->getSummary().getMD(irs->context())
-#endif
-      );
+          llvm::ProfileSummary::PSK_Instr);
     }
   }
 }

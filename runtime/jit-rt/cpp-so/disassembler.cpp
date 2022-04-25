@@ -309,13 +309,7 @@ void disassemble(const llvm::TargetMachine &tm,
   // Streamer takes ownership of mip mab
   auto asmStreamer = unique(target.createAsmStreamer(
       ctx, llvm::make_unique<llvm::formatted_raw_ostream>(os), true, true,
-      mip.release(), nullptr,
-#if LDC_LLVM_VER >= 700
-      std::move(mab),
-#else
-      mab.release(),
-#endif
-      false));
+      mip.release(), nullptr, std::move(mab), false));
   if (nullptr == asmStreamer) {
     return;
   }
@@ -346,12 +340,7 @@ void disassemble(const llvm::TargetMachine &tm,
     const auto secIt = llvm::cantFail(symbol.getSection());
     if (object.section_end() != secIt) {
       const auto sec = *secIt;
-      llvm::StringRef data;
-#if LDC_LLVM_VER >= 900
-      data = llvm::cantFail(sec.getContents());
-#else
-      sec.getContents(data);
-#endif
+      llvm::StringRef data = llvm::cantFail(sec.getContents());
 
       if (llvm::object::SymbolRef::ST_Function ==
           llvm::cantFail(symbol.getType())) {

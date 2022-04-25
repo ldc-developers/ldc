@@ -15,9 +15,6 @@
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "simplify-drtcalls"
-#if LDC_LLVM_VER < 700
-#define LLVM_DEBUG DEBUG
-#endif
 
 #include "gen/passes/Passes.h"
 #include "gen/tollvm.h"
@@ -99,14 +96,9 @@ Value *LibCallOptimization::CastToCStr(Value *V, IRBuilder<> &B) {
 /// expects that the size has type 'intptr_t' and Dst/Src are pointers.
 Value *LibCallOptimization::EmitMemCpy(Value *Dst, Value *Src, Value *Len,
                                        unsigned Align, IRBuilder<> &B) {
-#if LDC_LLVM_VER >= 700
   auto A = LLMaybeAlign(Align);
   return B.CreateMemCpy(CastToCStr(Dst, B), A, CastToCStr(Src, B), A, Len,
                         false);
-#else
-  return B.CreateMemCpy(CastToCStr(Dst, B), CastToCStr(Src, B), Len, Align,
-                        false);
-#endif
 }
 
 //===----------------------------------------------------------------------===//

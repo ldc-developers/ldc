@@ -326,13 +326,9 @@ void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os) {
   const auto codeModel = opts::getCodeModel();
   if (codeModel.hasValue())
     hash_os << codeModel.getValue();
-#if LDC_LLVM_VER >= 800
   const auto framePointerUsage = opts::framePointerUsage();
   if (framePointerUsage.hasValue())
     hash_os << static_cast<int>(framePointerUsage.getValue());
-#else
-  hash_os << opts::disableFPElim();
-#endif
 }
 
 // Output to `hash_os` all environment flags that influence object code output
@@ -358,11 +354,7 @@ void calculateModuleHash(llvm::Module *m, llvm::SmallString<32> &str) {
   outputIR2ObjRelevantCmdlineArgs(hash_os);
   outputIR2ObjRelevantEnvironmentOpts(hash_os);
 
-#if LDC_LLVM_VER >= 700
   llvm::WriteBitcodeToFile(*m, hash_os);
-#else
-  llvm::WriteBitcodeToFile(m, hash_os);
-#endif
   hash_os.resultAsString(str);
   IF_LOG Logger::println("Module's LLVM bitcode hash is: %s", str.c_str());
 }
@@ -508,27 +500,14 @@ void recoverObjectFile(llvm::StringRef cacheObjectHash,
   {
     int FD;
     if (llvm::sys::fs::openFileForWrite(cacheFile.c_str(), FD,
-#if LDC_LLVM_VER >= 700
                                         llvm::sys::fs::CD_OpenExisting,
-#endif
-#if LDC_LLVM_VER >= 900
-                                        llvm::sys::fs::OF_Append
-#else
-                                        llvm::sys::fs::F_Append
-#endif
-                                        )) {
+                                        llvm::sys::fs::OF_Append)) {
       error(Loc(), "Failed to open the cached file for writing: %s",
             cacheFile.c_str());
       fatal();
     }
 
-#if LDC_LLVM_VER < 800
-#define SET_LAST_ACCESS_AND_MOD_TIME setLastModificationAndAccessTime
-#else
-#define SET_LAST_ACCESS_AND_MOD_TIME setLastAccessAndModificationTime
-#endif
-
-    if (llvm::sys::fs::SET_LAST_ACCESS_AND_MOD_TIME(FD, getTimeNow())) {
+    if (llvm::sys::fs::setLastAccessAndModificationTime(FD, getTimeNow())) {
       error(Loc(), "Failed to set the cached file modification time: %s",
             cacheFile.c_str());
       fatal();

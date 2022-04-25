@@ -418,12 +418,8 @@ void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes, unsigned align) {
   dst = DtoBitCast(dst, VoidPtrTy);
   src = DtoBitCast(src, VoidPtrTy);
 
-#if LDC_LLVM_VER >= 700
   auto A = LLMaybeAlign(align);
   gIR->ir->CreateMemCpy(dst, A, src, A, nbytes, false /*isVolatile*/);
-#else
-  gIR->ir->CreateMemCpy(dst, src, nbytes, align, false /*isVolatile*/);
-#endif
 }
 
 void DtoMemCpy(LLValue *dst, LLValue *src, bool withPadding, unsigned align) {
@@ -508,11 +504,7 @@ LLConstant *DtoConstString(const char *str) {
 
 namespace {
 llvm::LoadInst *DtoLoadImpl(LLValue *src, const char *name) {
-  return gIR->ir->CreateLoad(
-#if LDC_LLVM_VER >= 800
-      getPointeeType(src),
-#endif
-      src, name);
+  return gIR->ir->CreateLoad(getPointeeType(src), src, name);
 }
 }
 

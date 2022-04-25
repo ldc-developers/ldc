@@ -1,6 +1,6 @@
 // Test unitialized data access with MemorySanitizer
 
-// REQUIRES: MSan, atleast_llvm800
+// REQUIRES: MSan
 
 // RUN: %ldc -g -fsanitize=memory -run %s
 // RUN: %ldc -g -fsanitize=memory -fsanitize-memory-track-origins=2 -d-version=BUG %s -of=%t%exe

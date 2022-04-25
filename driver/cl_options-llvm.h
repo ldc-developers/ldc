@@ -26,10 +26,8 @@ llvm::Optional<llvm::Reloc::Model> getRelocModel();
 llvm::Optional<llvm::CodeModel::Model> getCodeModel();
 #if LDC_LLVM_VER >= 1300
 llvm::Optional<llvm::FramePointerKind> framePointerUsage();
-#elif LDC_LLVM_VER >= 800
-llvm::Optional<llvm::FramePointer::FP> framePointerUsage();
 #else
-llvm::cl::boolOrDefault disableFPElim();
+llvm::Optional<llvm::FramePointer::FP> framePointerUsage();
 #endif
 
 bool disableRedZone();

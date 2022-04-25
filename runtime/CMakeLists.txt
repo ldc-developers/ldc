@@ -264,9 +264,7 @@ if(LDC_WITH_LLD)
     set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"-link-internally\",")
 endif()
 # LLD 8+ requires (new) `--export-dynamic` for WebAssembly (https://github.com/ldc-developers/ldc/issues/3023).
-if(NOT (LDC_LLVM_VER LESS 800))
-    set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"-L--export-dynamic\",")
-endif()
+set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"-L--export-dynamic\",")
 
 # Directory filled with auto-generated import files
 set(LDC_BUILD_IMPORT_DIR "${PROJECT_BINARY_DIR}/import")
@@ -525,40 +523,7 @@ macro(compile_phobos2 d_flags lib_suffix path_suffix emit_bc all_at_once single_
     else()
         set(single_obj_name "")
     endif()
-
-    # Special case for Windows and emit_bc=ON:
-    # LLVM before v9.0 doesn't support naked DMD-style asm when generating bitcode.
-    # For 1 (Win64) / 3 (Win32) remaining modules, compile separately without generating
-    # the bitcode file (and adding the binary object file to outlist_bc instead).
-    set(phobos_src_files ${PHOBOS2_D})
-    if(${emit_bc} AND (LDC_LLVM_VER LESS 900 AND "${TARGET_SYSTEM}" MATCHES "Windows"))
-        set(naked_asm_src_files "${PHOBOS2_DIR}/std/internal/digest/sha_SSSE3.d")
-        if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-            list(APPEND naked_asm_src_files
-                "${PHOBOS2_DIR}/std/internal/math/biguintx86.d"
-                "${PHOBOS2_DIR}/std/internal/math/biguintcore.d"
-            )
-        endif()
-
-        list(REMOVE_ITEM phobos_src_files ${naked_asm_src_files})
-
-        set(naked_asm_o "")
-        dc("${naked_asm_src_files}"
-           "${PHOBOS2_DIR}"
-           "-conf=;${d_flags};${PHOBOS2_EXTRA_FLAGS};-I${RUNTIME_DIR}/src;-I${PHOBOS2_DIR}"
-           "${PROJECT_BINARY_DIR}/objects${target_suffix}"
-           "OFF" # emit_bc
-           "${all_at_once}"
-           ""    # single_obj_name
-           naked_asm_o
-           naked_asm_o
-        )
-
-        list(APPEND ${outlist_o} ${naked_asm_o})
-        list(APPEND ${outlist_bc} ${naked_asm_o})
-    endif()
-
-    dc("${phobos_src_files}"
+    dc("${PHOBOS2_D}"
        "${PHOBOS2_DIR}"
        "-conf=;${d_flags};${PHOBOS2_EXTRA_FLAGS};-I${RUNTIME_DIR}/src;-I${PHOBOS2_DIR}"
        "${PROJECT_BINARY_DIR}/objects${target_suffix}"

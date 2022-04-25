@@ -66,17 +66,7 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
   if (cb == ComputeBackend::SPIRV) {
 #ifdef LDC_LLVM_SUPPORTED_TARGET_SPIRV
     IF_LOG Logger::println("running createSPIRVWriterPass()");
-#if LDC_LLVM_VER >= 900
     std::ofstream out(filename, std::ofstream::binary);
-#else
-    std::error_code errinfo;
-    llvm::raw_fd_ostream out(filename, errinfo, llvm::sys::fs::F_None);
-    if (errinfo) {
-      error(Loc(), "cannot write file '%s': %s", filename,
-            errinfo.message().c_str());
-      fatal();
-    }
-#endif
     llvm::createSPIRVWriterPass(out)->runOnModule(m);
     IF_LOG Logger::println("Success.");
 #else
@@ -87,13 +77,7 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
   }
 
   std::error_code errinfo;
-  llvm::raw_fd_ostream out(filename, errinfo,
-#if LDC_LLVM_VER >= 900
-                           llvm::sys::fs::OF_None
-#else
-                           llvm::sys::fs::F_None
-#endif
-                           );
+  llvm::raw_fd_ostream out(filename, errinfo, llvm::sys::fs::OF_None);
   if (errinfo) {
     error(Loc(), "cannot write file '%s': %s", filename,
           errinfo.message().c_str());
@@ -115,14 +99,11 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 
   if (Target.addPassesToEmitFile(
           Passes,
-          out, // Output file
-#if LDC_LLVM_VER >= 700
+          out,     // Output file
           nullptr, // DWO output file
-#endif
           // Always generate assembly for ptx as it is an assembly format
           // The PTX backend fails if we pass anything else.
-          (cb == ComputeBackend::NVPTX) ? CGFT_AssemblyFile
-                                        : fileType,
+          (cb == ComputeBackend::NVPTX) ? CGFT_AssemblyFile : fileType,
           codeGenOptLevel())) {
     llvm_unreachable("no support for asm output");
   }
@@ -365,24 +346,14 @@ void writeModule(llvm::Module *m, const char *filename) {
                              : replaceExtensionWith(bc_ext, filename);
     Logger::println("Writing LLVM bitcode to: %s\n", bcpath.c_str());
     std::error_code errinfo;
-    llvm::raw_fd_ostream bos(bcpath.c_str(), errinfo,
-#if LDC_LLVM_VER >= 900
-                             llvm::sys::fs::OF_None
-#else
-                             llvm::sys::fs::F_None
-#endif
-                             );
+    llvm::raw_fd_ostream bos(bcpath.c_str(), errinfo, llvm::sys::fs::OF_None);
     if (bos.has_error()) {
       error(Loc(), "cannot write LLVM bitcode file '%s': %s", bcpath.c_str(),
             errinfo.message().c_str());
       fatal();
     }
 
-#if LDC_LLVM_VER >= 700
     auto &M = *m;
-#else
-    auto M = m;
-#endif
 
     if (opts::isUsingThinLTO()) {
       Logger::println("Creating module summary for ThinLTO");
@@ -406,13 +377,7 @@ void writeModule(llvm::Module *m, const char *filename) {
     const auto llpath = replaceExtensionWith(ll_ext, filename);
     Logger::println("Writing LLVM IR to: %s\n", llpath.c_str());
     std::error_code errinfo;
-    llvm::raw_fd_ostream aos(llpath.c_str(), errinfo,
-#if LDC_LLVM_VER >= 900
-                             llvm::sys::fs::OF_None
-#else
-                             llvm::sys::fs::F_None
-#endif
-                             );
+    llvm::raw_fd_ostream aos(llpath.c_str(), errinfo, llvm::sys::fs::OF_None);
     if (aos.has_error()) {
       error(Loc(), "cannot write LLVM IR file '%s': %s", llpath.c_str(),
             errinfo.message().c_str());
@@ -438,13 +403,7 @@ void writeModule(llvm::Module *m, const char *filename) {
     if (writeObj) {
       // Clone module if we have both output-o and output-s flags
       // to avoid running 'addPassesToEmitFile' passes twice on same module
-      auto clonedModule = llvm::CloneModule(
-#if LDC_LLVM_VER >= 700
-          *m
-#else
-          m
-#endif
-      );
+      auto clonedModule = llvm::CloneModule(*m);
       codegenModule(*gTargetMachine, *clonedModule, spath.c_str(),
                     CGFT_AssemblyFile);
     } else {

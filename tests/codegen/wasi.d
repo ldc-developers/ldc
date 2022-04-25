@@ -1,4 +1,4 @@
-// REQUIRES: atleast_llvm900, target_WebAssembly, link_WebAssembly
+// REQUIRES: target_WebAssembly, link_WebAssembly
 
 // emit textual IR *and* compile & link
 // RUN: %ldc -mtriple=wasm32-unknown-wasi -output-ll -output-o -of=%t.wasm %s

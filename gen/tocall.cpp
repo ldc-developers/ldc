@@ -466,11 +466,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     }
 
     const auto loadedType = getPointeeType(ptr);
-    llvm::LoadInst *load = p->ir->CreateLoad(
-#if LDC_LLVM_VER >= 800
-        loadedType,
-#endif
-        ptr);
+    llvm::LoadInst *load = p->ir->CreateLoad(loadedType, ptr);
     if (auto alignment = getTypeAllocSize(loadedType)) {
       load->setAlignment(LLAlign(alignment));
     }

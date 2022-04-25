@@ -1,6 +1,3 @@
-// older LLVM versions fail the test for longer vectors
-// REQUIRES: atleast_llvm700
-
 // RUN: %ldc -run %s
 
 void test(int length)()

@@ -517,7 +517,6 @@ void applyTargetMachineAttributes(llvm::Function &func,
   func.addFnAttr("no-infs-fp-math", TO.NoInfsFPMath ? "true" : "false");
   func.addFnAttr("no-nans-fp-math", TO.NoNaNsFPMath ? "true" : "false");
 
-#if LDC_LLVM_VER >= 800
   switch (whichFramePointersToEmit()) {
     case llvm::FramePointer::None:
       func.addFnAttr("frame-pointer", "none");
@@ -529,10 +528,6 @@ void applyTargetMachineAttributes(llvm::Function &func,
       func.addFnAttr("frame-pointer", "all");
       break;
   }
-#else // LDC_LLVM_VER < 800
-  func.addFnAttr("no-frame-pointer-elim",
-                 willEliminateFramePointer() ? "false" : "true");
-#endif
 #endif // LDC_LLVM_VER < 1000
 }
 
@@ -1278,16 +1273,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   // disable frame-pointer-elimination for functions with DMD-style inline asm
-  if (fd->hasReturnExp & 32)
-  {
-#if LDC_LLVM_VER >= 800
+  if (fd->hasReturnExp & 32) {
     func->addFnAttr(
         llvm::Attribute::get(gIR->context(), "frame-pointer", "all"));
-#else
-    func->addAttribute(
-        LLAttributeList::FunctionIndex,
-        llvm::Attribute::get(gIR->context(), "no-frame-pointer-elim", "true"));
-#endif
   }
 
   // give the 'this' parameter (an lvalue) storage and debug info
