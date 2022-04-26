@@ -23,8 +23,6 @@ void func()
     auto bar = [0, 1, 2];
     //CHECK: dcompute.d([[@LINE+1]]): Error: cannot use `new` in `@compute` code
     auto baz = new int;
-    //CHECK: dcompute.d([[@LINE+1]]): Error: cannot use `delete` in `@compute` code
-    delete baz;
 
     //CHECK: dcompute.d([[@LINE+1]]): Error: {{.*}} interfaces and classes not allowed in `@compute` code
     I i;
