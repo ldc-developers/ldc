@@ -117,18 +117,15 @@ jobs:
     - template: .azure-pipelines/2-posix-build_native.yml
     - template: .azure-pipelines/3-posix-test.yml
     - template: .azure-pipelines/4-install.yml
-    - template: .azure-pipelines/4a-mac_x64.yml
+    - template: .azure-pipelines/4a-mac_ios.yml
     - template: .azure-pipelines/5-integration_test.yml
     - script: |
         set -ex
         cd ..
-        installed/bin/ldc2 -mtriple="arm64-apple-macos" hello.d -of=hello_arm64
-        installed/bin/ldc2 -mtriple="arm64-apple-macos" hello.d -of=hello_arm64_shared -link-defaultlib-shared
-        installed/bin/ldc2 -mtriple="arm64-apple-ios$IOS_DEPLOYMENT_TARGET" hello.d -of=hello_ios_arm64
-        installed/bin/ldc2 -mtriple="arm64-apple-ios$IOS_DEPLOYMENT_TARGET" hello.d -of=hello_ios_arm64_shared -link-defaultlib-shared
-        installed/bin/ldc2 -mtriple="x86_64-apple-ios$IOS_DEPLOYMENT_TARGET" hello.d -of=hello_ios_x86_64
-        installed/bin/ldc2 -mtriple="x86_64-apple-ios$IOS_DEPLOYMENT_TARGET" hello.d -of=hello_ios_x86_64_shared -link-defaultlib-shared
-      displayName: 'Cross-compile & -link hello-world for arm64 and iOS'
+        triple="x86_64-apple-ios$IOS_DEPLOYMENT_TARGET"
+        installed/bin/ldc2 -mtriple="$triple" hello.d -of=hello_ios
+        installed/bin/ldc2 -mtriple="$triple" hello.d -of=hello_ios_shared -link-defaultlib-shared
+      displayName: 'Run iOS cross-compilation integration test'
     - template: .azure-pipelines/6-package.yml
 
 - job: macOS_arm64
@@ -150,7 +147,22 @@ jobs:
     - template: .azure-pipelines/1-posix-setup.yml
     - template: .azure-pipelines/2-posix-build_cross_mac.yml
     - template: .azure-pipelines/4-install.yml
+    - template: .azure-pipelines/4a-mac_ios.yml
     - template: .azure-pipelines/6-package.yml
+
+# Merges the x64 and arm64 macOS packages to a universal package.
+- job: macOS_universal
+  timeoutInMinutes: 30
+  pool:
+    vmImage: 'macOS-11'
+  variables:
+    CI_OS: osx
+    IOS_DEPLOYMENT_TARGET: 12.0
+  dependsOn:
+    - macOS_x64
+    - macOS_arm64
+  steps:
+    - template: .azure-pipelines/mac-merge.yml
 
 - job: Android
   timeoutInMinutes: 120
@@ -194,8 +206,7 @@ jobs:
   dependsOn:
     - Windows_multilib
     - Linux_multilib
-    - macOS_x64
-    - macOS_arm64
+    - macOS_universal
     - Android
   # Only run for commits on the master branch and tags.
   condition: and(succeeded(), or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')))

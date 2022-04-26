@@ -6,6 +6,7 @@
   - For the Mac package, the minimum supported macOS version has been raised to v10.12.
 - The minimum D version for bootstrapping has been raised to v2.079 (for GDC: v9.4), in line with DMD. (#3956)
 - The minimum LLVM version has been raised to v9.0. (#3960)
+- New prebuilt *universal* macOS package, runnable on both x86_64 and arm64, and enabling x86_64/arm64 macOS/iOS cross-compilation targets out of the box (`-mtriple={x86_64,arm64}-apple-{macos,ios12.0}`). The x86_64 package doesn't bundle any arm64 libs anymore; the arm64 package newly bundles iOS libs (arm64). (#3958)
 
 #### Platform support
 - Supports LLVM 9.0 - 14.0.
