@@ -69,6 +69,7 @@ script:
       -DCOMPILE_D_MODULES_SEPARATELY=ON \
       -DCOMPILE_ALL_D_FILES_AT_ONCE=OFF \
       -DLDC_LINK_MANUALLY=OFF \
+      -DBUILD_LTO_LIBS=ON \
       || travis_terminate 1
   - ninja -j8
   - bin/ldc2 -version || travis_terminate 1
@@ -97,6 +98,8 @@ script:
       -DINCLUDE_INSTALL_DIR="$installDir/import" \
       -DLDC_LINK_MANUALLY=OFF \
       -DALTERNATIVE_MALLOC_O="$PWD/../build-mimalloc/CMakeFiles/mimalloc-obj.dir/src/static.c.o" \
+      -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto" \
+      -DEXTRA_CXXFLAGS=-flto=full \
       $OPTS \
       || travis_terminate 1
     set +x
