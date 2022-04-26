@@ -10,6 +10,10 @@ TESTS += sentinel1 sentinel2 \
 		 sigmaskgc startbackgc concurrent precise_concurrent hospital
 endif
 
+ifeq ($(OS),linux)
+	TESTS+=issue22843
+endif
+
 SRC_GC = ../../src/core/internal/gc/impl/conservative/gc.d
 SRC = $(SRC_GC) ../../src/rt/lifetime.d
 # ../../src/object.d causes duplicate symbols
@@ -21,6 +25,20 @@ all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS)))
 $(ROOT)/%.done: $(ROOT)/%
 	@echo Testing $*
 	$(QUIET)$(TIMELIMIT)$(ROOT)/$* $(RUN_ARGS)
+	@touch $@
+
+# https://issues.dlang.org/show_bug.cgi?id=22843
+# needs to run under valgrind
+# versions before 3.13.0 don't handle clone() correctly, skip them
+$(ROOT)/issue22843.done: $(ROOT)/issue22843
+	@echo Testing issue22843
+	$(QUIET)if ! command -v valgrind >/dev/null; then \
+		echo valgrind not installed, skipping; \
+	elif valgrind --version | grep -Eq 'valgrind-3.([0-9]|1[012])\b'; then \
+		echo valgrind version too old, skipping; \
+	else \
+		$(TIMELIMIT)valgrind --quiet --tool=none $(ROOT)/issue22843 $(RUN_ARGS); \
+	fi
 	@touch $@
 
 $(ROOT)/sentinel: $(SRC)
@@ -83,6 +101,10 @@ $(ROOT)/nocollect: nocollect.d
 $(ROOT)/hospital: hospital.d
 	$(DMD) $(DFLAGS) -d -of$@ hospital.d
 $(ROOT)/hospital.done: RUN_ARGS += --DRT-gcopt=fork:1
+
+$(ROOT)/issue22843: issue22843.d
+	$(DMD) $(UDFLAGS) -of$@ issue22843.d
+$(ROOT)/issue22843.done: RUN_ARGS += "--DRT-gcopt=fork:1 initReserve:0 minPoolSize:1"
 
 clean:
 	rm -rf $(ROOT)

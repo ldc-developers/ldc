@@ -25,6 +25,8 @@ version (LDC)
 {
     // LDC doesn't support MSVC versions before VS2015
     FILE* __acrt_iob_func(int hnd);
+
+    __gshared ubyte msvcUsesUCRT = 1;
 }
 else // !LDC
 {
@@ -47,9 +49,9 @@ else // !LDC
     int _set_output_format(int format); // VS2013-
 
     immutable void* _nullfunc = null;
-} // !LDC
 
-__gshared ubyte msvcUsesUCRT;
+    __gshared ubyte msvcUsesUCRT;
+} // !LDC
 
 version (X86)
     enum cPrefix = "_";
@@ -63,13 +65,8 @@ mixin template declareAlternateName(string name, string alternateName)
 
 version (LDC)
 {
-    void init_msvc()
-    {
-        stdin = __acrt_iob_func(0);
-        stdout = __acrt_iob_func(1);
-        stderr = __acrt_iob_func(2);
-        msvcUsesUCRT = 1;
-    }
+    // dummy, used to link in this object file
+    void init_msvc() {}
 
     // needed for POSIX names
     pragma(lib, "oldnames.lib");
@@ -85,37 +82,34 @@ version (LDC)
 }
 else // !LDC
 {
-    mixin declareAlternateName!("__acrt_iob_func", "_nullfunc");
+    mixin declareAlternateName!("__acrt_iob_func", "_msvc_acrt_iob_func");
     mixin declareAlternateName!("__iob_func", "_nullfunc");
     mixin declareAlternateName!("_set_output_format", "_nullfunc");
 
+    private bool isAvailable(alias f)()
+    {
+        auto p = cast(void**) &f; // required to prevent frontend 'optimization'...
+        return p != &_nullfunc;
+    }
+
     void init_msvc()
     {
-        static bool isAvailable(alias f)()
-        {
-            auto p = cast(void**) &f; // required to prevent frontend 'optimization'...
-            return p != &_nullfunc;
-        }
-
-        if (isAvailable!__acrt_iob_func)
-        {
-            stdin = __acrt_iob_func(0);
-            stdout = __acrt_iob_func(1);
-            stderr = __acrt_iob_func(2);
-            msvcUsesUCRT = 1;
-        }
-        else if (isAvailable!__iob_func)
-        {
-            _iobuf* fp = __iob_func();
-            stdin  = cast(FILE*) &fp[0];
-            stdout = cast(FILE*) &fp[1];
-            stderr = cast(FILE*) &fp[2];
-        }
         if (isAvailable!_set_output_format)
         {
             enum _TWO_DIGIT_EXPONENT = 1;
             _set_output_format(_TWO_DIGIT_EXPONENT);
         }
+        else
+            msvcUsesUCRT = 1;
+    }
+
+    // VS2013- implements stdin/out/err using a macro, VS2015+ provides __acrt_iob_func
+    FILE* _msvc_acrt_iob_func(int hnd)
+    {
+        if (isAvailable!__iob_func)
+            return cast(FILE*) (__iob_func() + hnd);
+        else
+            assert(false);
     }
 
     // VS2015+ wraps (v)snprintf into an inlined function calling __stdio_common_vsprintf
