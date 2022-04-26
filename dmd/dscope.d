@@ -179,7 +179,7 @@ version (IN_LLVM)
             m = m.parent;
         m.addMember(null, sc.scopesym);
         m.parent = null; // got changed by addMember()
-        if (_module.isCFile)
+        if (_module.filetype == FileType.c)
             sc.flags |= SCOPE.Cfile;
         // Create the module scope underneath the global scope
         sc = sc.push(_module);
@@ -462,6 +462,8 @@ version (IN_LLVM)
 
                 if (sc.scopesym.isModule())
                     flags |= SearchUnqualifiedModule;        // tell Module.search() that SearchLocalsOnly is to be obeyed
+                else if (sc.flags & SCOPE.Cfile && sc.scopesym.isStructDeclaration())
+                    continue;                                // C doesn't have struct scope
 
                 if (Dsymbol s = sc.scopesym.search(loc, ident, flags))
                 {
@@ -697,7 +699,7 @@ version (IN_LLVM)
     }
 
     /********************************************
-     * Search enclosing scopes for ClassDeclaration.
+     * Search enclosing scopes for ClassDeclaration or StructDeclaration.
      */
     extern (C++) AggregateDeclaration getStructClassScope()
     {

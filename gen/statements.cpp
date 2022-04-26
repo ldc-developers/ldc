@@ -220,7 +220,7 @@ public:
           if (!e->isLVal() || DtoLVal(e) != sretPointer) {
             // call postblit if the expression is a D lvalue
             // exceptions: NRVO and special __result variable (out contracts)
-            bool doPostblit = !(fd->nrvo_can && fd->nrvo_var);
+            bool doPostblit = !(fd->isNRVO() && fd->nrvo_var);
             if (doPostblit) {
               if (auto ve = stmt->exp->isVarExp())
                 if (ve->var->isResult())

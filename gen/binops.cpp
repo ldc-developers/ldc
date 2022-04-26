@@ -23,7 +23,7 @@
 
 dinteger_t undoStrideMul(const Loc &loc, Type *t, dinteger_t offset) {
   assert(t->ty == TY::Tpointer);
-  d_uns64 elemSize = t->nextOf()->size(loc);
+  const auto elemSize = t->nextOf()->size(loc);
   assert((offset % elemSize) == 0 &&
          "Expected offset by an integer amount of elements");
 
@@ -53,7 +53,7 @@ RVals evalSides(DValue *lhs, Expression *rhs, bool loadLhsAfterRhs) {
 
 /// Tries to remove a MulExp by a constant value of baseSize from e. Returns
 /// NULL if not possible.
-Expression *extractNoStrideInc(Expression *e, d_uns64 baseSize, bool &negate) {
+Expression *extractNoStrideInc(Expression *e, dinteger_t baseSize, bool &negate) {
   MulExp *mul;
   while (true) {
     if (auto ne = e->isNegExp()) {

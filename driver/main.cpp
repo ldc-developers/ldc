@@ -1182,7 +1182,7 @@ void codegenModules(Modules &modules) {
     for (d_size_t i = modules.length; i-- > 0;) {
       Module *const m = modules[i];
 
-      if (m->isHdrFile)
+      if (m->filetype == FileType::dhdr)
         continue;
 
       if (global.params.verbose)

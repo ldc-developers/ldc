@@ -1543,8 +1543,8 @@ public:
         onstack = true;
       } else if (auto ve = e->e1->isVarExp()) {
         if (auto vd = ve->var->isVarDeclaration()) {
-          if (vd->onstack) {
-            DtoFinalizeScopeClass(e->loc, DtoRVal(dval), vd->onstackWithDtor);
+          if (vd->onstack()) {
+            DtoFinalizeScopeClass(e->loc, DtoRVal(dval), vd->onstackWithDtor());
             onstack = true;
           }
         }

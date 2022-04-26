@@ -11,8 +11,8 @@ if(NOT LDC_EXE)
     if(NOT LDC_EXE_FULL)
         message(FATAL_ERROR "Please define the path to the LDC executable via -DLDC_EXE_FULL=...")
     endif()
-    if(NOT DEFINED D_VERSION OR NOT DEFINED DMDFE_MINOR_VERSION OR NOT DEFINED DMDFE_PATCH_VERSION)
-        message(FATAL_ERROR "Please define the CMake variables D_VERSION, DMDFE_MINOR_VERSION and DMDFE_PATCH_VERSION.")
+    if(NOT DEFINED D_VERSION OR NOT DEFINED DMDFE_MINOR_VERSION)
+        message(FATAL_ERROR "Please define the CMake variables D_VERSION and DMDFE_MINOR_VERSION.")
     endif()
 
     # Helper function
@@ -31,7 +31,7 @@ endif()
 # Main configuration.
 #
 
-set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERSION})
+set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION})
 
 set(MULTILIB              OFF                                 CACHE BOOL   "Build both 32/64 bit runtime libraries")
 set(BUILD_LTO_LIBS        OFF                                 CACHE BOOL   "Also build the runtime as LLVM bitcode libraries for LTO")
@@ -560,7 +560,7 @@ function(set_common_library_properties target name output_dir c_flags ld_flags i
         COMPILE_FLAGS               "${c_flags}"
         LINK_FLAGS                  "${full_ldflags}"
         VERSION                     ${DMDFE_VERSION}
-        SOVERSION                   ${DMDFE_PATCH_VERSION}
+        SOVERSION                   ${DMDFE_MINOR_VERSION}
         LINKER_LANGUAGE             C
         MACOSX_RPATH                ON
     )
@@ -842,7 +842,7 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
         set(final_files_to_install)
         if(${lib_extension} STREQUAL ".dylib")
             set(final_path     ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${target_name}.${DMDFE_VERSION}.dylib)
-            set(dylib_symlink1 ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${target_name}.${DMDFE_PATCH_VERSION}.dylib)
+            set(dylib_symlink1 ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${target_name}.${DMDFE_MINOR_VERSION}.dylib)
             set(dylib_symlink2 ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${target_name}.dylib)
             set(final_files_to_install ${final_path} ${dylib_symlink1} ${dylib_symlink2})
             add_custom_command(
@@ -850,7 +850,7 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
                 COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}
                 COMMAND lipo ${multi_path} ${host_path} -create -output ${final_path}
                 COMMAND ln -s lib${target_name}.${DMDFE_VERSION}.dylib ${dylib_symlink1}
-                COMMAND ln -s lib${target_name}.${DMDFE_PATCH_VERSION}.dylib ${dylib_symlink2}
+                COMMAND ln -s lib${target_name}.${DMDFE_MINOR_VERSION}.dylib ${dylib_symlink2}
                 DEPENDS ${libtargets}
             )
         else()

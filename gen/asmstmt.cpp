@@ -278,7 +278,7 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
   // expects.
 
   // FIXME
-  //    if (! irs->func->naked) {
+  //    if (!irs->func->isNaked()) {
   assert(asmparser);
   for (size_t i = 0; i < code->regs.size(); i++) {
     if (code->regs[i]) {

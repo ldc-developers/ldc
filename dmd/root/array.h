@@ -331,4 +331,3 @@ struct Array
     }
 #endif // IN_LLVM
 };
-

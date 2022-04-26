@@ -2337,7 +2337,7 @@ struct AsmProcessor {
 
   void addOperand(const char *fmt, AsmArgType type, Expression *e,
                   AsmCode *asmcode, AsmArgMode mode = Mode_Input) {
-    if (sc->func->naked) {
+    if (sc->func->isNaked()) {
       switch (type) {
       case Arg_Integer:
         if (e->type->isunsigned()) {
@@ -2398,7 +2398,7 @@ struct AsmProcessor {
   void addOperand2(const char *fmtpre, const char *fmtpost, AsmArgType type,
                    Expression *e, AsmCode *asmcode,
                    AsmArgMode mode = Mode_Input) {
-    if (sc->func->naked) {
+    if (sc->func->isNaked()) {
       // taken from above
       stmt->error("only global variables can be referenced by identifier in "
                   "naked asm");
@@ -2991,15 +2991,15 @@ struct AsmProcessor {
 
             if (operand->indexReg == Reg_Invalid && decl->isVarDeclaration() &&
 #ifndef ASM_X86_64
-                ((operand->baseReg == Reg_EBP && !sc->func->naked) ||
-                 (operand->baseReg == Reg_ESP && sc->func->naked)))
+                ((operand->baseReg == Reg_EBP && !sc->func->isNaked()) ||
+                 (operand->baseReg == Reg_ESP && sc->func->isNaked())))
 #else
                 (((operand->baseReg == Reg_EBP ||
                    operand->baseReg == Reg_RBP) &&
-                  !sc->func->naked) ||
+                  !sc->func->isNaked()) ||
                  ((operand->baseReg == Reg_ESP ||
                    operand->baseReg == Reg_RSP) &&
-                  sc->func->naked)))
+                  sc->func->isNaked())))
 #endif
             {
 
@@ -3057,7 +3057,7 @@ struct AsmProcessor {
                 use_star = false;
               }
 
-              if (!sc->func->naked) // no addrexp in naked asm please :)
+              if (!sc->func->isNaked()) // no addrexp in naked asm please :)
               {
                 Type *tt = e->type->pointerTo();
                 e = createAddrExp(Loc(), e);
@@ -3825,7 +3825,7 @@ struct AsmProcessor {
 
   void doNaked() {
     // %% can we assume sc->func != 0?
-    sc->func->naked = 1;
+    sc->func->isNaked(true);
   }
 
   void doData() {
@@ -3850,7 +3850,7 @@ struct AsmProcessor {
             token->value == TOK::uns64Literal) {
           // As per usual with GNU, assume at least 32-bit host
           if (op != Op_dl) {
-            insnTemplate << static_cast<d_uns32>(token->unsvalue);
+            insnTemplate << static_cast<uint32_t>(token->unsvalue);
           } else {
             insnTemplate << token->unsvalue;
           }
@@ -3866,10 +3866,10 @@ struct AsmProcessor {
             token->value == TOK::float80Literal) {
           if (op == Op_df) {
             const float value = static_cast<float>(token->floatvalue);
-            insnTemplate << reinterpret_cast<const d_uns32 &>(value);
+            insnTemplate << reinterpret_cast<const uint32_t &>(value);
           } else if (op == Op_dd) {
             const double value = static_cast<double>(token->floatvalue);
-            insnTemplate << reinterpret_cast<const d_uns64 &>(value);
+            insnTemplate << reinterpret_cast<const uint64_t &>(value);
           } else if (op == Op_de) {
             llvm::APFloat value(0.0);
             CTFloat::toAPFloat(token->floatvalue, value);
@@ -3887,7 +3887,7 @@ struct AsmProcessor {
             if (realSizeInBits == 0)
               realSizeInBits = asInt.getBitWidth();
 
-            auto *ptr = reinterpret_cast<const d_uns64 *>(asInt.getRawData());
+            auto *ptr = reinterpret_cast<const uint64_t *>(asInt.getRawData());
             insnTemplate << ptr[0];
             if (realSizeInBits == 64) { // e.g., MSVC x86(_64)
               // nothing left to do
@@ -3896,7 +3896,7 @@ struct AsmProcessor {
             } else if (realSizeInBits == 80) {
               // DMD outputs 10 bytes, so we need to switch to .short here
               insnTemplate << "\n\t.short "
-                           << *reinterpret_cast<const d_uns16 *>(ptr + 1);
+                           << *reinterpret_cast<const uint16_t *>(ptr + 1);
             } else {
               stmt->error("unsupported target `real` size");
             }

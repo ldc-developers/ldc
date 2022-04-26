@@ -905,7 +905,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
   if (isIrLocalCreated(vd)) {
     // Nothing to do if it has already been allocated.
   } else if (gIR->func()->sretArg &&
-             ((gIR->func()->decl->nrvo_can &&
+             ((gIR->func()->decl->isNRVO() &&
                gIR->func()->decl->nrvo_var == vd) ||
               (vd->isResult() && !isSpecialRefVar(vd)))) {
     // Named Return Value Optimization (NRVO):
@@ -1695,7 +1695,7 @@ llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm) {
   std::vector<LLConstant *> vals;
   vals.reserve(len);
   for (size_t i = 0; i < se->numberOfCodeUnits(); ++i) {
-    vals.push_back(LLConstantInt::get(ct, se->charAt(i), false));
+    vals.push_back(LLConstantInt::get(ct, se->getCodeUnit(i), false));
   }
   if (zeroTerm) {
     vals.push_back(LLConstantInt::get(ct, 0, false));
