@@ -19,17 +19,14 @@ else
     static assert(false, "This module is only valid for LDC");
 }
 
-     version (LDC_LLVM_600)  enum LLVM_version =  600;
-else version (LDC_LLVM_700)  enum LLVM_version =  700;
-else version (LDC_LLVM_701)  enum LLVM_version =  701;
-else version (LDC_LLVM_800)  enum LLVM_version =  800;
-else version (LDC_LLVM_900)  enum LLVM_version =  900;
+     version (LDC_LLVM_900)  enum LLVM_version =  900;
 else version (LDC_LLVM_1000) enum LLVM_version = 1000;
 else version (LDC_LLVM_1100) enum LLVM_version = 1100;
 else version (LDC_LLVM_1101) enum LLVM_version = 1101;
 else version (LDC_LLVM_1200) enum LLVM_version = 1200;
 else version (LDC_LLVM_1300) enum LLVM_version = 1300;
 else version (LDC_LLVM_1400) enum LLVM_version = 1400;
+else version (LDC_LLVM_1500) enum LLVM_version = 1500;
 else static assert(false, "LDC LLVM version not supported");
 
 enum LLVM_atleast(int major) = (LLVM_version >= major * 100);
@@ -139,8 +136,6 @@ pragma(LDC_intrinsic, "llvm.thread.pointer")
 
 pure:
 
-static if (LLVM_version >= 700)
-{
 // The alignment parameter was removed from these memory intrinsics in LLVM 7.0. Instead, alignment
 // can be specified as an attribute on the ptr arguments.
 
@@ -202,37 +197,6 @@ void llvm_memset(T)(void* dst, ubyte val, T len, uint alignment, bool volatile_ 
         llvm_memset!T(dst, val, len, true);
     else
         llvm_memset!T(dst, val, len, false);
-}
-
-}
-else // LLVM_version < 700
-{
-
-/// The 'llvm.memcpy.*' intrinsics copy a block of memory from the source
-/// location to the destination location.
-/// Note that, unlike the standard libc function, the llvm.memcpy.* intrinsics do
-/// not return a value, and takes an extra alignment argument.
-pragma(LDC_intrinsic, "llvm.memcpy.p0i8.p0i8.i#")
-    void llvm_memcpy(T)(void* dst, const(void)* src, T len, uint alignment, bool volatile_ = false)
-        if (__traits(isIntegral, T));
-
-/// The 'llvm.memmove.*' intrinsics move a block of memory from the source
-/// location to the destination location. It is similar to the 'llvm.memcpy'
-/// intrinsic but allows the two memory locations to overlap.
-/// Note that, unlike the standard libc function, the llvm.memmove.* intrinsics
-/// do not return a value, and takes an extra alignment argument.
-pragma(LDC_intrinsic, "llvm.memmove.p0i8.p0i8.i#")
-    void llvm_memmove(T)(void* dst, const(void)* src, T len, uint alignment, bool volatile_ = false)
-        if (__traits(isIntegral, T));
-
-/// The 'llvm.memset.*' intrinsics fill a block of memory with a particular byte
-/// value.
-/// Note that, unlike the standard libc function, the llvm.memset intrinsic does
-/// not return a value, and takes an extra alignment argument.
-pragma(LDC_intrinsic, "llvm.memset.p0i8.i#")
-    void llvm_memset(T)(void* dst, ubyte val, T len, uint alignment, bool volatile_ = false)
-        if (__traits(isIntegral, T));
-
 }
 
 @safe:
@@ -368,8 +332,6 @@ pragma(LDC_intrinsic, "llvm.maxnum.f#")
     T llvm_maxnum(T)(T vala, T valb)
         if (__traits(isFloating, T));
 
-static if (LLVM_version >= 800)
-{
 /// The ‘llvm.minimum.*’ intrinsics return the minimum of the two arguments, propagating
 /// NaNs and treating -0.0 as less than +0.0.
 /// If either operand is a NaN, returns NaN. Otherwise returns the lesser of the two arguments.
@@ -387,7 +349,6 @@ pragma(LDC_intrinsic, "llvm.minimum.f#")
 pragma(LDC_intrinsic, "llvm.maximum.f#")
     T llvm_maximum(T)(T vala, T valb)
         if (__traits(isFloating, T));
-}
 
 //
 // BIT MANIPULATION INTRINSICS
@@ -425,8 +386,6 @@ pragma(LDC_intrinsic, "llvm.cttz.i#")
     T llvm_cttz(T)(T src, bool isZeroUndefined)
         if (__traits(isIntegral, T));
 
-static if (LLVM_version >= 700)
-{
 /// The ‘llvm.fshl’ family of intrinsic functions performs a funnel shift left:
 /// the first two values are concatenated as `{ a : b }` (`a` is the most
 /// significant bits of the wide value), the combined value is shifted left,
@@ -451,8 +410,6 @@ pragma(LDC_intrinsic, "llvm.fshr.i#")
     T llvm_fshr(T)(T a, T b, T shift)
         if (__traits(isIntegral, T));
 
-} // LLVM_version >= 700
-
 
 //
 // ATOMIC OPERATIONS AND SYNCHRONIZATION INTRINSICS
@@ -467,8 +424,8 @@ enum AtomicOrdering {
   Release = 5,
   AcquireRelease = 6,
   SequentiallyConsistent = 7
-};
-alias AtomicOrdering.SequentiallyConsistent DefaultOrdering;
+}
+alias DefaultOrdering = AtomicOrdering.SequentiallyConsistent;
 
 enum SynchronizationScope {
   SingleThread = 0,
@@ -598,8 +555,6 @@ pragma(LDC_intrinsic, "llvm.umul.with.overflow.i#")
     OverflowRet!(T) llvm_umul_with_overflow(T)(T lhs, T rhs)
         if (__traits(isIntegral, T));
 
-static if (LLVM_version >= 800)
-{
 //
 // SATURATION ARITHMETIC INTRINSICS
 //
@@ -642,7 +597,6 @@ pragma(LDC_intrinsic, "llvm.ssub.sat.i#")
 pragma(LDC_intrinsic, "llvm.usub.sat.i#")
     T llvm_usub_sat(T)(T lhs, T rhs)
         if (__traits(isIntegral, T));
-}
 
 //
 // GENERAL INTRINSICS
@@ -675,9 +629,7 @@ pragma(LDC_intrinsic, "llvm.expect.i#")
 pragma(LDC_intrinsic, "llvm.sideeffect")
     void llvm_sideeffect();
 
-version(WebAssembly)
-{
-static if (LLVM_version >= 700)
+version (WebAssembly)
 {
 /// Grows memory by a given delta and returns the previous size, or -1 if enough
 /// memory cannot be allocated.
@@ -699,5 +651,4 @@ pragma(LDC_intrinsic, "llvm.wasm.memory.grow.i32")
 /// https://webassembly.github.io/spec/core/exec/instructions.html#exec-memory-size
 pragma(LDC_intrinsic, "llvm.wasm.memory.size.i32")
     int llvm_wasm_memory_size(int mem);
-}
-}
+} // version (WebAssembly)
