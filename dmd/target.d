@@ -795,7 +795,6 @@ version (IN_LLVM)
 
     TypeTuple toArgTypes(Type t);
     bool isReturnOnStack(TypeFunction tf, bool needsThis);
-    // unused: ulong parameterSize(const ref Loc loc, Type t);
     bool preferPassByRef(Type t);
     Expression getTargetInfo(const(char)* name, const ref Loc loc);
     bool isCalleeDestroyingArgs(TypeFunction tf);

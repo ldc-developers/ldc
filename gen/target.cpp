@@ -106,7 +106,11 @@ void Target::_init(const Param &params) {
   maxStaticDataSize = std::numeric_limits<unsigned long long>::max();
 
   c.crtDestructorsSupported = true; // unused as of 2.099
+  c.boolsize = 1;
+  c.shortsize = 2;
+  c.intsize = 4;
   c.longsize = (ptrsize == 8) && !isMSVC ? 8 : 4;
+  c.long_longsize = 8;
   c.long_doublesize = realsize;
   c.wchar_tsize = triple.isOSWindows() ? 2 : 4;
   c.bitFieldStyle =
