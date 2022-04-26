@@ -924,6 +924,10 @@ void registerPredefinedVersions() {
     VersionCondition::addPredefinedGlobalIdent("D_PostConditions");
   }
 
+  if (global.params.useInvariants == CHECKENABLEon) {
+    VersionCondition::addPredefinedGlobalIdent("D_Invariants");
+  }
+
   if (global.params.useArrayBounds == CHECKENABLEoff) {
     VersionCondition::addPredefinedGlobalIdent("D_NoBoundsChecks");
   }
