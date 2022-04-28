@@ -2450,7 +2450,6 @@ version (IN_LLVM)
 
         const namelen = 19 + size_t.sizeof * 3 + slice.length + 1;
         name = namelen <= namebuf.length ? namebuf.ptr : cast(char*)Mem.check(malloc(namelen));
-        assert(name);
 
         length = sprintf(name, "_D%lluTypeInfo_%.*s6__initZ",
                 cast(ulong)(9 + slice.length), cast(int)slice.length, slice.ptr);

@@ -143,8 +143,6 @@ extern (C++) struct CTFloat
         static real_t nearbyint(real_t x) { return std.math.nearbyint(x); }
     }
 
-    static void _init();
-
     static bool isFloat32LiteralOutOfRange(const(char)* literal) @nogc;
     static bool isFloat64LiteralOutOfRange(const(char)* literal) @nogc;
   }
