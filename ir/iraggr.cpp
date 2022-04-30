@@ -147,16 +147,15 @@ add_zeros(llvm::SmallVectorImpl<llvm::Constant *> &constants,
 //////////////////////////////////////////////////////////////////////////////
 
 LLConstant *IrAggr::getDefaultInitializer(VarDeclaration *field) {
-  if (field->_init) {
-    // Issue 9057 workaround caused by issue 14666 fix, see DMD upstream
-    // commit 069f570005.
-    if (field->semanticRun < PASS::semantic2done && field->_scope) {
-      semantic2(field, field->_scope);
-    }
-    return DtoConstInitializer(field->_init->loc, field->type, field->_init);
+  // Issue 9057 workaround caused by issue 14666 fix, see DMD upstream
+  // commit 069f570005.
+  if (field->_init && field->semanticRun < PASS::semantic2done &&
+      field->_scope) {
+    semantic2(field, field->_scope);
   }
 
-  return DtoConstInitializer(field->loc, field->type);
+  return DtoConstInitializer(field->_init ? field->_init->loc : field->loc,
+                             field->type, field->_init, field->isCsymbol());
 }
 
 // return a constant array of type arrTypeD initialized with a constant value,

@@ -1084,7 +1084,8 @@ LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr) {
  * INITIALIZER HELPERS
  ******************************************************************************/
 
-LLConstant *DtoConstInitializer(const Loc &loc, Type *type, Initializer *init) {
+LLConstant *DtoConstInitializer(const Loc &loc, Type *type, Initializer *init,
+                                const bool isCfile) {
   LLConstant *_init = nullptr; // may return zero
   if (!init) {
     if (type->toBasetype()->isTypeNoreturn()) {
@@ -1093,7 +1094,7 @@ LLConstant *DtoConstInitializer(const Loc &loc, Type *type, Initializer *init) {
       _init = LLConstant::getNullValue(ty);
     } else {
       IF_LOG Logger::println("const default initializer for %s", type->toChars());
-      Expression *initExp = defaultInit(type, loc);
+      Expression *initExp = defaultInit(type, loc, isCfile);
       _init = DtoConstExpInit(loc, type, initExp);
     }
   } else if (ExpInitializer *ex = init->isExpInitializer()) {
@@ -1101,7 +1102,7 @@ LLConstant *DtoConstInitializer(const Loc &loc, Type *type, Initializer *init) {
     _init = DtoConstExpInit(loc, type, ex->exp);
   } else if (ArrayInitializer *ai = init->isArrayInitializer()) {
     Logger::println("const array initializer");
-    _init = DtoConstArrayInitializer(ai, type);
+    _init = DtoConstArrayInitializer(ai, type, isCfile);
   } else if (init->isVoidInitializer()) {
     Logger::println("const void initializer");
     LLType *ty = DtoMemType(type);

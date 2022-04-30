@@ -120,7 +120,7 @@ LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr = nullptr);
 
 // initializer helpers
 LLConstant *DtoConstInitializer(const Loc &loc, Type *type,
-                                Initializer *init = nullptr);
+                                Initializer *init, bool isCfile);
 LLConstant *DtoConstExpInit(const Loc &loc, Type *targetType, Expression *exp);
 
 // getting typeinfo of type, base=true casts to object.TypeInfo

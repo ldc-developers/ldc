@@ -32,7 +32,8 @@ llvm::ArrayType *DtoStaticArrayType(Type *sarrayTy);
 /// Creates a (global) constant with the element data for the given arary
 /// initializer. targetType is explicit because the frontend sometimes emits
 /// ArrayInitializers for vectors typed as static arrays.
-LLConstant *DtoConstArrayInitializer(ArrayInitializer *si, Type *targetType);
+LLConstant *DtoConstArrayInitializer(ArrayInitializer *si, Type *targetType,
+                                     const bool isCfile);
 
 LLConstant *DtoConstSlice(LLConstant *dim, LLConstant *ptr,
                           Type *type = nullptr);

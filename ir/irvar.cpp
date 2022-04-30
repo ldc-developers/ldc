@@ -130,7 +130,8 @@ void IrGlobal::define() {
     message("%s: `%s` is thread local", V->loc.toChars(), V->toChars());
   }
 
-  LLConstant *initVal = DtoConstInitializer(V->loc, V->type, V->_init);
+  LLConstant *initVal =
+      DtoConstInitializer(V->loc, V->type, V->_init, V->isCsymbol());
 
   // Set the initializer, swapping out the variable if the types do not
   // match.

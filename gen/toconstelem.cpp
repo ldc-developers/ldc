@@ -88,7 +88,8 @@ public:
       } else {
         vd->inuse++;
         // return the initializer
-        result = DtoConstInitializer(e->loc, e->type, vd->_init);
+        result =
+            DtoConstInitializer(e->loc, e->type, vd->_init, vd->isCsymbol());
         vd->inuse--;
       }
     }
