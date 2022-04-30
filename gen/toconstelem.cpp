@@ -346,7 +346,8 @@ public:
                              static_cast<unsigned long long>(e->offset),
                              elemSize);
 
-      if (e->offset % elemSize == 0) {
+      // importC: elemSize can be 0
+      if (elemSize && e->offset % elemSize == 0) {
         // We can turn this into a "nice" GEP.
         result = llvm::ConstantExpr::getGetElementPtr(
             getPointeeType(base), base, DtoConstSize_t(e->offset / elemSize));
