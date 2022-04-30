@@ -443,7 +443,7 @@ public:
     llvm::BasicBlock *elsebb =
         stmt->elsebody ? irs->insertBBAfter(ifbb, "else") : endbb;
 
-    if (cond_val->getType() != LLType::getInt1Ty(irs->context())) {
+    if (!cond_val->getType()->isIntegerTy(1)) {
       IF_LOG Logger::cout() << "if conditional: " << *cond_val << '\n';
       cond_val = DtoRVal(DtoCast(stmt->loc, cond_e, Type::tbool));
     }

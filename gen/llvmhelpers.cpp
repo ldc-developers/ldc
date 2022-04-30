@@ -1150,7 +1150,7 @@ LLConstant *DtoConstExpInit(const Loc &loc, Type *targetType, Expression *exp) {
     return llvm::Constant::getNullValue(targetLLType);
 
   // extend i1 to i8
-  if (llType == LLType::getInt1Ty(gIR->context())) {
+  if (llType->isIntegerTy(1)) {
     llType = LLType::getInt8Ty(gIR->context());
     val = llvm::ConstantExpr::getZExt(val, llType);
   }

@@ -553,7 +553,7 @@ public:
           if (!elem->isVoidInitExp()) {
             LLConstant *c = toConstElem(elem, p);
             // extend i1 to i8
-            if (c->getType() == LLType::getInt1Ty(p->context())) {
+            if (c->getType()->isIntegerTy(1)) {
               c = llvm::ConstantExpr::getZExt(c,
                                               LLType::getInt8Ty(p->context()));
             }
