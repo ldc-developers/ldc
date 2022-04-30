@@ -1331,6 +1331,13 @@ public:
       llvm_unreachable("Unsupported EqualExp type.");
     }
 
+    // optionally zero-extend i1 to larger integer type
+    LLType *llTy = DtoType(e->type);
+    if (eval->getType() != llTy) {
+      assert(llTy->isIntegerTy());
+      eval = new llvm::ZExtInst(eval, llTy, "", gIR->scopebb());
+    }
+
     result = new DImValue(e->type, eval);
   }
 
