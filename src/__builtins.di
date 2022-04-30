@@ -29,6 +29,38 @@ version (Posix)
         alias __va_list_tag = core.stdc.stdarg.__va_list_tag;
 }
 
+version (LDC)
+{
+    // For some targets, __builtin_va_list resolves to __va_list.
+    // Define it like we do in object.d.
+
+    version (ARM)     version = ARM_Any;
+    version (AArch64) version = ARM_Any;
+
+    // Define a __va_list alias if the platform uses an elaborate type, as it
+    // is referenced from implicitly generated code for D-style variadics, etc.
+    // LDC does not require people to manually import core.vararg like DMD does.
+    version (X86_64)
+    {
+        version (Win64) {} else
+        public import core.internal.vararg.sysv_x64 : __va_list;
+    }
+    else version (ARM_Any)
+    {
+        // Darwin does not use __va_list
+        version (OSX) {}
+        else version (iOS) {}
+        else version (TVOS) {}
+        else version (WatchOS) {}
+        else:
+
+        version (ARM)
+            public import core.stdc.stdarg : __va_list;
+        else version (AArch64)
+            public import core.internal.vararg.aarch64 : __va_list;
+    }
+}
+
 alias __builtin_va_start = core.stdc.stdarg.va_start;
 
 alias __builtin_va_end = core.stdc.stdarg.va_end;

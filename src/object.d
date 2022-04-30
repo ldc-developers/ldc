@@ -70,7 +70,7 @@ alias string  = immutable(char)[];
 alias wstring = immutable(wchar)[];
 alias dstring = immutable(dchar)[];
 
-version (LDC)
+version (LDC) // note: there's a copy for importC in __builtins.di
 {
     version (ARM)     version = ARM_Any;
     version (AArch64) version = ARM_Any;
