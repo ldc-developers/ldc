@@ -135,3 +135,31 @@ version (DigitalMars)
         ulong a, b;
     }
 }
+else version (LDC)
+{
+    import ldc.intrinsics;
+
+    double __builtin_inf()()  { return double.infinity; }
+    float  __builtin_inff()() { return float.infinity; }
+    real   __builtin_infl()() { return real.infinity; }
+
+    alias __builtin_huge_val  = __builtin_inf;
+    alias __builtin_huge_valf = __builtin_inff;
+    alias __builtin_huge_vall = __builtin_infl;
+
+    alias __builtin_fabs  = llvm_fabs!double;
+    alias __builtin_fabsf = llvm_fabs!float;
+    alias __builtin_fabsl = llvm_fabs!real;
+
+    alias __builtin_bswap16 = llvm_bswap!ushort;
+    alias __builtin_bswap32 = llvm_bswap!uint;
+    alias __builtin_bswap64 = llvm_bswap!ulong;
+
+    int   __builtin_constant_p(T)(T exp) { return 0; }
+    alias __builtin_expect = llvm_expect!long;
+    void* __builtin_assume_aligned()(const void* p, size_t align_, ...) { return cast(void*)p; }
+    void __builtin_assume(T)(lazy T arg) { }
+
+    import core.int128 : Cent;
+    alias __uint128_t = Cent;
+}
