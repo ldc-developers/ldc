@@ -1523,6 +1523,12 @@ version (IN_LLVM)
         return !!(this.flags & FUNCFLAG.naked);
     }
 
+    final void isNaked(bool v) @safe pure nothrow @nogc
+    {
+        if (v) this.flags |= FUNCFLAG.naked;
+        else this.flags &= ~FUNCFLAG.naked;
+    }
+
     final bool isGenerated() const scope @safe pure nothrow @nogc
     {
         return !!(this.flags & FUNCFLAG.generated);
@@ -1569,23 +1575,15 @@ version (IN_LLVM)
         return !!(this.flags & FUNCFLAG.CRTCtor);
     }
 
-    final bool isCrtDtor() const scope @safe pure nothrow @nogc
-    {
-        return !!(this.flags & FUNCFLAG.CRTDtor);
-    }
-
-version (IN_LLVM)
-{
-    final void isNaked(bool v) @safe pure nothrow @nogc
-    {
-        if (v) this.flags |= FUNCFLAG.naked;
-        else this.flags &= ~FUNCFLAG.naked;
-    }
-
     final void isCrtCtor(bool v) @safe pure nothrow @nogc
     {
         if (v) this.flags |= FUNCFLAG.CRTCtor;
         else this.flags &= ~FUNCFLAG.CRTCtor;
+    }
+
+    final bool isCrtDtor() const scope @safe pure nothrow @nogc
+    {
+        return !!(this.flags & FUNCFLAG.CRTDtor);
     }
 
     final void isCrtDtor(bool v) @safe pure nothrow @nogc
@@ -1593,7 +1591,6 @@ version (IN_LLVM)
         if (v) this.flags |= FUNCFLAG.CRTDtor;
         else this.flags &= ~FUNCFLAG.CRTDtor;
     }
-}
 
     /**************************************
      * The function is doing something that may allocate with the GC,

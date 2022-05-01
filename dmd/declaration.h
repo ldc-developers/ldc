@@ -681,6 +681,7 @@ public:
     bool isNRVO() const;
     void isNRVO(bool v);
     bool isNaked() const;
+    void isNaked(bool v);
     bool isGenerated() const;
     void isGenerated(bool v);
     bool isIntroducing() const;
@@ -690,13 +691,9 @@ public:
     bool hasDualContext() const;
     bool hasAlwaysInlines() const;
     bool isCrtCtor() const;
-    bool isCrtDtor() const;
-
-#if IN_LLVM
-    void isNaked(bool v);
     void isCrtCtor(bool v);
+    bool isCrtDtor() const;
     void isCrtDtor(bool v);
-#endif
 
     virtual bool isNested() const;
     AggregateDeclaration *isThis();

@@ -1335,6 +1335,8 @@ void realToMangleBuffer(OutBuffer* buf, real_t value)
 private
 extern (D) const(char)[] externallyMangledIdentifier(Declaration d)
 {
+    assert(!d.mangleOverride, "mangle overrides should have been handled earlier");
+
     const par = d.toParent(); //toParent() skips over mixin templates
     if (!par || par.isModule() || d.linkage == LINK.cpp ||
         (d.linkage == LINK.c && d.isCsymbol() &&
