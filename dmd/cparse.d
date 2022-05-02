@@ -30,6 +30,9 @@ import dmd.root.rootobject;
 import dmd.root.string;
 import dmd.tokens;
 
+version (LDC) private enum LDC_pre_2084 = __VERSION__ < 2084; // workaround bug with LDC < v1.14 host compilers
+else          private enum LDC_pre_2084 = false;
+
 /***********************************************************
  */
 final class CParser(AST) : Parser!AST
@@ -4768,7 +4771,10 @@ final class CParser(AST) : Parser!AST
         {
             /* Add id as null, so we can later distinguish it from a non-null typedef
              */
-            auto tab = cast(void*[void*])(typedefTab[$ - 1]);
+            static if (LDC_pre_2084)
+                auto tab = *cast(void*[void*]*) &(typedefTab[$ - 1]);
+            else
+                auto tab = cast(void*[void*])(typedefTab[$ - 1]);
             tab[cast(void*)id] = cast(void*)null;
         }
     }
@@ -4789,7 +4795,10 @@ final class CParser(AST) : Parser!AST
             if (pt && *pt)
                 t = *pt;
         }
-        auto tab = cast(void*[void*])(typedefTab[$ - 1]);
+        static if (LDC_pre_2084)
+            auto tab = *cast(void*[void*]*) &(typedefTab[$ - 1]);
+        else
+            auto tab = cast(void*[void*])(typedefTab[$ - 1]);
         tab[cast(void*)id] = cast(void*)t;
         typedefTab[$ - 1] = cast(void*)tab;
     }
@@ -4805,7 +4814,11 @@ final class CParser(AST) : Parser!AST
     {
         foreach_reverse (tab; typedefTab[])
         {
-            if (auto pt = cast(void*)id in cast(void*[void*])tab)
+            static if (LDC_pre_2084)
+                auto ctab = *cast(void*[void*]*) &tab;
+            else
+                auto ctab = cast(void*[void*])tab;
+            if (auto pt = cast(void*)id in ctab)
             {
                 return cast(AST.Type*)pt;
             }
