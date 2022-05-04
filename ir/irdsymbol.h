@@ -56,6 +56,7 @@ struct IrDsymbol {
   IrDsymbol(const IrDsymbol &s);
   ~IrDsymbol();
 
+  void doRegister();
   void reset();
 
   Type type() const { return m_type; }

@@ -5843,6 +5843,12 @@ extern (C++) class TemplateInstance : ScopeDsymbol
     private ushort _nest;       // for recursive pretty printing detection, 3 MSBs reserved for flags (below)
     ubyte inuse;                // for recursive expansion detection
 
+version (IN_LLVM)
+{
+    import ir.irdsymbol : IrDsymbol;
+    IrDsymbol irSym;
+}
+
     private enum Flag : uint
     {
         semantictiargsdone = 1u << (_nest.sizeof * 8 - 1), // MSB of _nest
@@ -5888,6 +5894,10 @@ extern (C++) class TemplateInstance : ScopeDsymbol
         }
         this.name = ident;
         this.tiargs = tiargs;
+version (IN_LLVM)
+{
+        irSym.doRegister();
+}
     }
 
     /*****************
@@ -5907,6 +5917,10 @@ extern (C++) class TemplateInstance : ScopeDsymbol
         this.semantictiargsdone = true;
         this.havetempdecl = true;
         assert(tempdecl._scope);
+version (IN_LLVM)
+{
+        irSym.doRegister();
+}
     }
 
     extern (D) static Objects* arraySyntaxCopy(Objects* objs)

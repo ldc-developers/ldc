@@ -406,10 +406,10 @@ public:
 
 // Builds all non-struct/class TypeInfos.
 void buildTypeInfo(TypeInfoDeclaration *decl) {
-  if (decl->ir->isDefined()) {
+  if (decl->irSym.isDefined()) {
     return;
   }
-  decl->ir->setDefined();
+  decl->irSym.setDefined();
 
   IF_LOG Logger::println("Building TypeInfo: %s", decl->toPrettyChars());
   LOG_SCOPE;
@@ -510,11 +510,11 @@ LLGlobalVariable *DtoResolveTypeInfo(TypeInfoDeclaration *tid) {
 
   assert(!gIR->dcomputetarget);
 
-  if (!tid->ir->isResolved()) {
+  if (!tid->irSym.isResolved()) {
     DeclareOrDefineVisitor v;
     tid->accept(&v);
 
-    tid->ir->setResolved();
+    tid->irSym.setResolved();
   }
 
   return llvm::cast<LLGlobalVariable>(getIrValue(tid));

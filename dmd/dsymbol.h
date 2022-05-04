@@ -176,7 +176,6 @@ public:
     /// C++ namespace this symbol belongs to
     CPPNamespaceDeclaration *namespace_;
 #if IN_LLVM
-    IrDsymbol *ir;
     unsigned llvmInternal;
 #else
     Symbol *csym;               // symbol for code generator

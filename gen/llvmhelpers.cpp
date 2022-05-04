@@ -868,10 +868,10 @@ void DtoResolveVariable(VarDeclaration *vd) {
            "manifest constant being codegen'd!");
 
     // don't duplicate work
-    if (vd->ir->isResolved()) {
+    if (vd->irSym.isResolved()) {
       return;
     }
-    vd->ir->setDeclared();
+    vd->irSym.setDeclared();
 
     auto irGlobal = getIrGlobal(vd, true);
     irGlobal->getValue();
@@ -898,7 +898,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     // A variable may not be really nested even if nextedrefs is not empty
     // in case it is referenced by a function inside __traits(compile) or
     // typeof.
-    // assert(vd->ir->irLocal && "irLocal is expected to be already set by
+    // assert(vd->irSym.irLocal && "irLocal is expected to be already set by
     // DtoCreateNestedContext");
   }
 

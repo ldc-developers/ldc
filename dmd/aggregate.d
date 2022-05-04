@@ -131,10 +131,20 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
     bool disableNew;                /// disallow allocations using `new`
     Sizeok sizeok = Sizeok.none;    /// set when structsize contains valid data
 
+version (IN_LLVM)
+{
+    import ir.irdsymbol : IrDsymbol;
+    IrDsymbol irSym;
+}
+
     final extern (D) this(const ref Loc loc, Identifier id)
     {
         super(loc, id);
         visibility = Visibility(Visibility.Kind.public_);
+version (IN_LLVM)
+{
+        irSym.doRegister();
+}
     }
 
     /***************************************

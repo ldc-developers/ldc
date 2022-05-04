@@ -106,7 +106,7 @@ DValue *DtoPaintType(const Loc &loc, DValue *val, Type *to);
 /// Makes sure the declarations corresponding to the given D symbol have been
 /// emitted to the currently processed LLVM module.
 ///
-/// This means that dsym->ir can be expected to set to reasonable values.
+/// This means that dsym->irSym can be expected to set to reasonable values.
 ///
 /// This function does *not* emit any (function, variable) *definitions*; this
 /// is done by Dsymbol::codegen.

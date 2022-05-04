@@ -13,6 +13,10 @@
 #include "dsymbol.h"
 #include "objc.h"
 
+#if IN_LLVM
+#include "ir/irdsymbol.h"
+#endif
+
 class AliasThis;
 class Identifier;
 class Type;
@@ -118,6 +122,10 @@ public:
     bool noDefaultCtor;         // no default construction
     bool disableNew;            // disallow allocations using `new`
     Sizeok sizeok;              // set when structsize contains valid data
+
+#if IN_LLVM
+    IrDsymbol irSym;
+#endif
 
     virtual Scope *newScope(Scope *sc);
     void setScope(Scope *sc);
