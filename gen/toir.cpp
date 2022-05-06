@@ -708,7 +708,7 @@ public:
       // as requested by bearophile, see if it's a C printf call and that it's
       // valid.
       if (global.params.warnings != DIAGNOSTICoff && checkPrintf) {
-        if (fndecl->linkage == LINK::c &&
+        if (fndecl->resolvedLinkage() == LINK::c &&
             strcmp(fndecl->ident->toChars(), "printf") == 0) {
           warnInvalidPrintfCall(e->loc, (*e->arguments)[0],
                                 e->arguments->length);

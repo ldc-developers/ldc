@@ -2371,7 +2371,7 @@ struct AsmProcessor {
             }
 
             // print out the mangle
-            if (prependExtraUnderscore(vd->linkage)) {
+            if (prependExtraUnderscore(vd->resolvedLinkage())) {
               insnTemplate << "_";
             }
             OutBuffer buf;
@@ -3043,7 +3043,7 @@ struct AsmProcessor {
             {
               use_star = false;
               // simply write out the mangle
-              if (prependExtraUnderscore(decl->linkage)) {
+              if (prependExtraUnderscore(decl->resolvedLinkage())) {
                 insnTemplate << "_";
               }
               OutBuffer buf;

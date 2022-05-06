@@ -560,7 +560,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
     nameBuf.writestring(mangledTargetName + 2);
 
     const auto thunkIRMangle =
-        getIRMangledFuncName(nameBuf.peekChars(), fd->linkage);
+        getIRMangledFuncName(nameBuf.peekChars(), fd->resolvedLinkage());
 
     llvm::Function *thunk = gIR->module.getFunction(thunkIRMangle);
     if (!thunk) {

@@ -1860,7 +1860,7 @@ FuncDeclaration *getParentFunc(Dsymbol *sym) {
     if (auto fld = fd->isFuncLiteralDeclaration()) {
       if (fld->tok == TOK::function_)
         return nullptr;
-    } else if (fd->isStatic() || (!fd->isThis() && fd->linkage != LINK::d)) {
+    } else if (fd->isStatic() || (!fd->isThis() && fd->_linkage != LINK::d)) {
       return nullptr;
     }
   }
