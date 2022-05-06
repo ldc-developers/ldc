@@ -152,8 +152,8 @@ void runCMake() {
     string[] args = [
         "cmake",
         "-DLDC_EXE_FULL=" ~ config.ldcExecutable,
-        "-DD_VERSION=@D_VERSION@",
         "-DDMDFE_MINOR_VERSION=@DMDFE_MINOR_VERSION@",
+        "-DDMDFE_PATCH_VERSION=@DMDFE_PATCH_VERSION@",
     ];
 
     if (config.targetSystem.length) args ~= "-DTARGET_SYSTEM=" ~ config.targetSystem.join(";");
