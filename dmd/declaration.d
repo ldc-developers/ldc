@@ -221,7 +221,7 @@ extern (C++) abstract class Declaration : Dsymbol
     Type originalType;  // before semantic analysis
     StorageClass storage_class = STC.undefined_;
     Visibility visibility;
-    LINK linkage = LINK.default_;
+    LINK _linkage = LINK.default_; // may be `LINK.system`; use `resolvedLinkage()` to resolve it
     short inuse;          // used to detect cycles
 
     ubyte adFlags;         // control re-assignment of AliasDeclaration (put here for packing reasons)
@@ -421,6 +421,12 @@ version (IN_LLVM) {} else
     final bool isStatic() const pure nothrow @nogc @safe
     {
         return (storage_class & STC.static_) != 0;
+    }
+
+    /// Returns the linkage, resolving the target-specific `System` one.
+    final LINK resolvedLinkage() const
+    {
+        return _linkage == LINK.system ? target.systemLinkage() : _linkage;
     }
 
     bool isDelete()
@@ -1926,7 +1932,7 @@ extern (C++) class TypeInfoDeclaration : VarDeclaration
         this.tinfo = tinfo;
         storage_class = STC.static_ | STC.gshared;
         visibility = Visibility(Visibility.Kind.public_);
-        linkage = LINK.c;
+        _linkage = LINK.c;
         alignment.set(target.ptrsize);
     }
 

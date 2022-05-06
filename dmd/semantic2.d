@@ -248,7 +248,7 @@ private extern(C++) final class Semantic2Visitor : Visitor
             return;
         }
 
-        UserAttributeDeclaration.checkGNUABITag(vd, vd.linkage);
+        UserAttributeDeclaration.checkGNUABITag(vd, vd._linkage);
 
         if (vd._init && !vd.toParent().isFuncDeclaration())
         {
@@ -389,6 +389,7 @@ private extern(C++) final class Semantic2Visitor : Visitor
             alias f1 = fd;
             auto tf1 = cast(TypeFunction) f1.type;
             auto parent1 = f1.toParent2();
+            const linkage1 = f1.resolvedLinkage();
 
             overloadApply(f1, (Dsymbol s)
             {
@@ -401,7 +402,7 @@ private extern(C++) final class Semantic2Visitor : Visitor
                     return 0;
 
                 // Functions with different manglings can never conflict
-                if (f1.linkage != f2.linkage)
+                if (linkage1 != f2.resolvedLinkage())
                     return 0;
 
                 // Functions with different names never conflict
@@ -438,12 +439,12 @@ private extern(C++) final class Semantic2Visitor : Visitor
                 // @@@DEPRECATED_2.104@@@
                 // Deprecated in 2020-08, make this an error in 2.104
                 if (parent1.isModule() &&
-                    f1.linkage != LINK.d && f1.linkage != LINK.cpp &&
+                    linkage1 != LINK.d && linkage1 != LINK.cpp &&
                     (!sameAttr || !sameParams)
                 )
                 {
                     f2.deprecation("cannot overload `extern(%s)` function at %s",
-                            linkageToChars(f1.linkage),
+                            linkageToChars(f1._linkage),
                             f1.loc.toChars());
                     return 0;
                 }
@@ -453,7 +454,7 @@ private extern(C++) final class Semantic2Visitor : Visitor
                     return 0;
 
                 // Different attributes don't conflict in extern(D)
-                if (!sameAttr && f1.linkage == LINK.d)
+                if (!sameAttr && linkage1 == LINK.d)
                     return 0;
 
                 error(f2.loc, "%s `%s%s` conflicts with previous declaration at %s",
@@ -470,7 +471,7 @@ private extern(C++) final class Semantic2Visitor : Visitor
             return;
         TypeFunction f = cast(TypeFunction) fd.type;
 
-        UserAttributeDeclaration.checkGNUABITag(fd, fd.linkage);
+        UserAttributeDeclaration.checkGNUABITag(fd, fd._linkage);
         //semantic for parameters' UDAs
         foreach (i, param; f.parameterList)
         {
@@ -653,7 +654,7 @@ private extern(C++) final class Semantic2Visitor : Visitor
                     {
                         //printf("            found\n");
                         // Check that calling conventions match
-                        if (fd.linkage != ifd.linkage)
+                        if (fd._linkage != ifd._linkage)
                             fd.error("linkage doesn't match interface function");
 
                         // Check that it is current
