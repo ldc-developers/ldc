@@ -351,7 +351,8 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
   // the one set at LLVM configure time.
   llvm::Triple triple;
   if (targetTriple.empty()) {
-    triple = llvm::Triple(llvm::sys::getDefaultTargetTriple());
+    triple = llvm::Triple(
+        llvm::Triple::normalize(llvm::sys::getDefaultTargetTriple()));
 
     // We only support OSX, so darwin should really be macosx.
     if (triple.getOS() == llvm::Triple::Darwin) {
