@@ -38,6 +38,13 @@
 #if LDC_LLVM_VER >= 1000
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 #endif
+#define LDC_LLVM_VER_NEW_PASSES 1300
+#if LDC_LLVM_VER >= LDC_LLVM_VER_NEW_PASSES
+#include "llvm/Passes/OptimizationLevel.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Transforms/Scalar/EarlyCSE.h"
+#include "llvm/Transforms/Instrumentation/PGOInstrumentation.h"
+#endif
 
 extern llvm::TargetMachine *gTargetMachine;
 using namespace llvm;
@@ -179,6 +186,7 @@ static void addGarbageCollect2StackPass(const PassManagerBuilder &builder,
   }
 }
 
+#if LDC_LLVM_VER < LDC_LLVM_VER_NEW_PASSES
 static void addAddressSanitizerPasses(const PassManagerBuilder &Builder,
                                       PassManagerBase &PM) {
   PM.add(createAddressSanitizerFunctionPass());
@@ -219,6 +227,73 @@ static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
 #else
   PM.add(
       createSanitizerCoverageModulePass(opts::getSanitizerCoverageOptions()));
+#endif
+}
+#endif
+#if LDC_LLVM_VER < LDC_LLVM_VER_NEW_PASSES
+static void addSanitizers(PassBuilder &PB) {
+
+  auto addXSanPasses = [&](SanitizerBits mask, void (*passAdder)(const PassManagerBuilder &Builder,
+                                                           PassManagerBase &PM)) {
+    if (opts::isSanitizerEnabled(mask) {
+      builder.addExtension(PassManagerBuilder::EP_OptimizerLast, passAdder);
+      builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0, passAdder);
+    }
+  }
+  addXSanPasses(opts::AddressSanitizer,  addAddressSanitizerPasses);
+  addXSanPasses(opts::MemorySanitizer,   addMemorySanitizerPass);
+  addXSanPasses(opts::ThreadSanitizer,   addThreadSanitizerPass);
+  addXSanPasses(opts::CoverageSanitizer, addSanitizerCoveragePass);
+}
+#else
+static void addSanitizers(PassBuilder &PB) {
+  PB.registerOptimizerLastEPCallback([&](ModulePassManager &MPM,
+                                         OptimizationLevel Level) {
+    if (opts::isSanitizerEnabled(opts::CoverageSanitizer)) {
+            MPM.addPass(
+                ModuleSanitizerCoveragePass(
+                    opts::getSanitizerCoverageOptions()));
+    }
+    if (opts::isSanitizerEnabled(opts::MemorySanitizer)) {
+      MemorySanitizerOptions options(fSanitizeMemoryTrackOrigins,
+                                     /*recover =*/ false,
+                                     /*kernel  =*/ false,
+                                     /*SanitizeMemoryParamRetval*/true);
+      MPM.addPass(ModuleMemorySanitizerPass(options));
+      FunctionPassManager FPM;
+      FPM.addPass(MemorySanitizerPass(options));
+      if (Level != OptimizationLevel::O0) {
+        // Comments from Clang:
+        //   MemorySanitizer inserts complex instrumentation that mostly
+        //   follows the logic of the original code, but operates on
+        //   "shadow" values. It can benefit from re-running some
+        //   general purpose optimization passes.
+        FPM.addPass(EarlyCSEPass());
+        //   TODO: Consider add more passes like in
+        //   addGeneralOptsForMemorySanitizer. EarlyCSEPass makes visible
+        //   difference on size. It's not clear if the rest is still
+        //   usefull. InstCombinePass breakes
+        //   compiler-rt/test/msan/select_origin.cpp.
+        // We used to add Reassociate, LICM, GVN, InstCombine and DeadStoreElimination
+        // Should we add those back?
+      }
+      MPM.addPass(createModuleToFunctionPassAdaptor(std::move(FPM)));
+    }
+    if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {
+      MPM.addPass(ModuleThreadSanitizerPass());
+      MPM.addPass(createModuleToFunctionPassAdaptor(ThreadSanitizerPass()));
+    }
+
+    if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
+      MPM.addPass(RequireAnalysisPass<ASanGlobalsMetadataAnalysis, llvm::Module>());
+      AddressSanitizerOptions options;
+      options.CompileKernel = false;
+      options.Recover = false;
+      options.UseAfterScope = true;  // TODO: Add options for these
+      //Opts.UseAfterReturn       //ditto
+      MPM.addPass(ModuleAddressSanitizerPass(options));
+    }
+  });
 #endif
 }
 
@@ -289,33 +364,7 @@ static void addOptimizationPasses(legacy::PassManagerBase &mpm,
   builder.SLPVectorize =
       disableSLPVectorization ? false : optLevel > 1 && sizeLevel < 2;
 
-  if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
-    builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-                         addAddressSanitizerPasses);
-    builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-                         addAddressSanitizerPasses);
-  }
-
-  if (opts::isSanitizerEnabled(opts::MemorySanitizer)) {
-    builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-                         addMemorySanitizerPass);
-    builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-                         addMemorySanitizerPass);
-  }
-
-  if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {
-    builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-                         addThreadSanitizerPass);
-    builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-                         addThreadSanitizerPass);
-  }
-
-  if (opts::isSanitizerEnabled(opts::CoverageSanitizer)) {
-    builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-                         addSanitizerCoveragePass);
-    builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-                         addSanitizerCoveragePass);
-  }
+  addSanitizers(builder);
 
   if (!disableLangSpecificPasses) {
     if (!disableSimplifyDruntimeCalls) {
