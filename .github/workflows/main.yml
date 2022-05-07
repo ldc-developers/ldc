@@ -11,18 +11,30 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - job_name: Linux x64
+          - job_name: Linux multilib
             os: ubuntu-18.04
             arch: x86_64
+            bootstrap_cmake_flags: -DBUILD_LTO_LIBS=ON
           - job_name: macOS x64
             os: macos-11
             arch: x86_64
+            bootstrap_cmake_flags: >
+              -DBUILD_LTO_LIBS=ON
+              -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++
           - job_name: Windows x64
             os: windows-2019
             arch: x64
+            bootstrap_cmake_flags: >
+              -DBUILD_LTO_LIBS=ON
+              -DCMAKE_C_COMPILER=clang-cl.exe
+              -DCMAKE_CXX_COMPILER=clang-cl.exe
           - job_name: Windows x86
             os: windows-2019
             arch: x86
+            bootstrap_cmake_flags: >
+              -DBUILD_LTO_LIBS=ON
+              -DCMAKE_C_COMPILER=clang-cl.exe
+              -DCMAKE_CXX_COMPILER=clang-cl.exe
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
     steps:
@@ -35,6 +47,11 @@ jobs:
         with:
           clang_version: ${{ env.CLANG_VERSION }}
           llvm_version: ${{ env.LLVM_VERSION }}
+          arch: ${{ matrix.arch }}
+      - name: Build bootstrap LDC
+        uses: ./.github/actions/2-build-bootstrap
+        with:
+          cmake_flags: ${{ matrix.bootstrap_cmake_flags }}
           arch: ${{ matrix.arch }}
 
   build-cross:
