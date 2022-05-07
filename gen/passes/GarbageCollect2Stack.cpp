@@ -369,7 +369,7 @@ public:
 namespace {
 /// This pass replaces GC calls with alloca's
 ///
-class GarbageCollect2Stack {
+struct GarbageCollect2Stack {
   StringMap<FunctionInfo *> KnownFunctions;
   Module *M;
 
@@ -379,26 +379,22 @@ class GarbageCollect2Stack {
   AllocClassFI AllocClass;
   UntypedMemoryFI AllocMemory;
 
-public:
   GarbageCollect2Stack();
 
   bool run(llvm::Function& function,
            DominatorTree &DT,
-           CallGraphWrapperPass *CGPass) const;
+           CallGraphWrapperPass *CGPass);
 
   static StringRef getPassName() { return "GarbageCollect2Stack"; }
 };
 
 class LLVM_LIBRARY_VISIBILITY GarbageCollect2StackLegacyPass : public FunctionPass {
-  static char ID; // Pass identification
-  GarbageCollect2Stack pass;
 
   bool doInitialization(Module &M) override {
     this->pass.M = &M;
     return false;
   }
-  GarbageCollect2StackLegacyPass() :
-    FunctionPass(ID), pass() {}
+
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addPreserved<CallGraphWrapperPass>();
@@ -409,7 +405,13 @@ class LLVM_LIBRARY_VISIBILITY GarbageCollect2StackLegacyPass : public FunctionPa
     return pass.run(F, DT, CGPass);
   }
   StringRef getPassName() const override { return GarbageCollect2Stack::getPassName(); }
-}
+
+public:
+  GarbageCollect2StackLegacyPass() :
+      FunctionPass(ID), pass() {}
+  static char ID; // Pass identification
+  GarbageCollect2Stack pass;
+};
 char GarbageCollect2StackLegacyPass::ID = 0;
 } // end anonymous namespace.
 
@@ -421,7 +423,7 @@ FunctionPass *createGarbageCollect2Stack() {
   return new GarbageCollect2StackLegacyPass();
 }
 
-GarbageCollect2StackL::GarbageCollect2Stack()
+GarbageCollect2Stack::GarbageCollect2Stack()
     : AllocMemoryT(ReturnType::Pointer, 0),
       NewArrayU(ReturnType::Array, 0, 1, false),
       NewArrayT(ReturnType::Array, 0, 1, true), AllocMemory(0) {
