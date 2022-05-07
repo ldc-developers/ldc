@@ -369,7 +369,7 @@ public:
 namespace {
 /// This pass replaces GC calls with alloca's
 ///
-class LLVM_LIBRARY_VISIBILITY GarbageCollect2Stack : public FunctionPass {
+class GarbageCollect2Stack {
   StringMap<FunctionInfo *> KnownFunctions;
   Module *M;
 
@@ -380,34 +380,49 @@ class LLVM_LIBRARY_VISIBILITY GarbageCollect2Stack : public FunctionPass {
   UntypedMemoryFI AllocMemory;
 
 public:
-  static char ID; // Pass identification
   GarbageCollect2Stack();
 
+  bool run(llvm::Function& function,
+           DominatorTree &DT,
+           CallGraphWrapperPass *CGPass) const;
+
+  static StringRef getPassName() { return "GarbageCollect2Stack"; }
+};
+
+class LLVM_LIBRARY_VISIBILITY GarbageCollect2StackLegacyPass : public FunctionPass {
+  static char ID; // Pass identification
+  GarbageCollect2Stack pass;
+
   bool doInitialization(Module &M) override {
-    this->M = &M;
+    this->pass.M = &M;
     return false;
   }
-
-  bool runOnFunction(Function &F) override;
-
+  GarbageCollect2StackLegacyPass() :
+    FunctionPass(ID), pass() {}
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addPreserved<CallGraphWrapperPass>();
   }
-};
-char GarbageCollect2Stack::ID = 0;
+  bool runOnFunction(Function &F) override {
+    DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    CallGraphWrapperPass *CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
+    return pass.run(F, DT, CGPass);
+  }
+  StringRef getPassName() const override { return GarbageCollect2Stack::getPassName(); }
+}
+char GarbageCollect2StackLegacyPass::ID = 0;
 } // end anonymous namespace.
 
-static RegisterPass<GarbageCollect2Stack>
+static RegisterPass<GarbageCollect2StackLegacyPass>
     X("dgc2stack", "Promote (GC'ed) heap allocations to stack");
 
 // Public interface to the pass.
 FunctionPass *createGarbageCollect2Stack() {
-  return new GarbageCollect2Stack();
+  return new GarbageCollect2StackLegacyPass();
 }
 
-GarbageCollect2Stack::GarbageCollect2Stack()
-    : FunctionPass(ID), AllocMemoryT(ReturnType::Pointer, 0),
+GarbageCollect2StackL::GarbageCollect2Stack()
+    : AllocMemoryT(ReturnType::Pointer, 0),
       NewArrayU(ReturnType::Array, 0, 1, false),
       NewArrayT(ReturnType::Array, 0, 1, true), AllocMemory(0) {
   KnownFunctions["_d_allocmemoryT"] = &AllocMemoryT;
@@ -442,12 +457,10 @@ isSafeToStackAllocate(BasicBlock::iterator Alloc, Value *V, DominatorTree &DT,
 
 /// runOnFunction - Top level algorithm.
 ///
-bool GarbageCollect2Stack::runOnFunction(Function &F) {
+bool GarbageCollect2Stack::run(Function &F, DominatorTree &DT, CallGraphWrapperPass *CGPass) {
   LLVM_DEBUG(errs() << "\nRunning -dgc2stack on function " << F.getName() << '\n');
 
   const DataLayout &DL = F.getParent()->getDataLayout();
-  DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  CallGraphWrapperPass *CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
   CallGraph *CG = CGPass ? &CGPass->getCallGraph() : nullptr;
   CallGraphNode *CGNode = CG ? (*CG)[&F] : nullptr;
 
