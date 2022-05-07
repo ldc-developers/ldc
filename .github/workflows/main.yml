@@ -1,16 +1,28 @@
 name: Main
 on: [push, pull_request]
 
+env:
+  CLANG_VERSION: 14.0.0
+  LLVM_VERSION: 14.0.0
+
 jobs:
-  build:
+  build-native:
     strategy:
       fail-fast: false
       matrix:
         include:
           - job_name: Linux x64
             os: ubuntu-18.04
+            arch: x86_64
+          - job_name: macOS x64
+            os: macos-11
+            arch: x86_64
           - job_name: Windows x64
             os: windows-2019
+            arch: x64
+          - job_name: Windows x86
+            os: windows-2019
+            arch: x86
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
     steps:
@@ -20,14 +32,13 @@ jobs:
           fetch-depth: 50
       - name: Setup
         uses: ./.github/actions/1-setup
-      - name: Posix setup
-        if: runner.os != 'Windows'
-        uses: ./.github/actions/1a-posix-setup
         with:
-          myInput: My little input
+          clang_version: ${{ env.CLANG_VERSION }}
+          llvm_version: ${{ env.LLVM_VERSION }}
+          arch: ${{ matrix.arch }}
 
-  build2:
-    name: Linux x64_2
+  build-cross:
+    name: Linux cross
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
@@ -36,8 +47,7 @@ jobs:
           fetch-depth: 50
       - name: Setup
         uses: ./.github/actions/1-setup
-      - name: Posix setup
-        uses: ./.github/actions/1a-posix-setup
         with:
-          myInput: My little input
-      - run: echo "MY_CUSTOM_ENV_VAR='$MY_CUSTOM_ENV_VAR'"
+          clang_version: ${{ env.CLANG_VERSION }}
+          llvm_version: ${{ env.LLVM_VERSION }}
+          arch: x86_64

@@ -1,10 +1,137 @@
 name: 1-setup
+inputs:
+  clang_version:
+    required: true
+  llvm_version:
+    required: true
+  arch:
+    required: true
 runs:
   using: composite
   steps:
+    - name: 'Linux: Install required apt packages'
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        set -eux
+        export DEBIAN_FRONTEND=noninteractive
+        sudo dpkg --add-architecture i386
+        sudo apt-get -q update
+        # Don't use latest gdb v10 from Ubuntu toolchain PPA with regressions, use official v8
+        sudo apt-get -yq install \
+          git-core cmake g++-multilib \
+          libcurl4 libcurl4:i386 \
+          curl gdb=8.1.1-0ubuntu1 p7zip-full tzdata unzip zip python3-pip
+
+    - name: 'Linux: Download & extract clang' # into ../clang
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+        curl -fL --retry 3 --max-time 300 -o clang.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-${{ inputs.clang_version }}/clang+llvm-${{ inputs.clang_version }}-x86_64-linux-gnu-ubuntu-18.04.tar.xz
+        mkdir clang
+        tar -xf clang.tar.xz --strip 1 -C clang
+        clang/bin/clang --version
+    - name: 'Windows: Install clang'
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+        curl -fL --retry 3 --max-time 300 -o clang.exe https://github.com/llvm/llvm-project/releases/download/llvmorg-${{ inputs.clang_version }}/LLVM-${{ inputs.clang_version }}-win64.exe
+        ./clang.exe //S # double-slash for bash
+        # C:\Program Files\LLVM\bin should already be in PATH
+        clang-cl --version
+
+    - name: Download & extract LDC-flavoured LLVM # into ../llvm
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+
+        version='${{ inputs.llvm_version }}'
+
+        if [[ "$version" = *.* ]]; then
+          tag="ldc-v$version"
+        else
+          tag=CI
+        fi
+
+        arch='${{ inputs.arch }}'
+
+        # use assertions for untagged builds
+        assertsSuffix="-withAsserts"
+        if [[ '${{ github.ref }}' = refs/tags/* ]]; then
+          assertsSuffix=""
+        fi
+
+        if [[ '${{ runner.os }}' == Windows ]]; then
+          curl -fL --retry 3 --max-time 300 -o llvm.7z https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-windows-$arch$assertsSuffix.7z
+          mkdir llvm
+          cd llvm
+          7z x ../llvm.7z >/dev/null
+          cd ..
+        else
+          if [[ '${{ runner.os }}' == Linux ]]; then
+            os=linux
+          elif [[ '${{ runner.os }}' == macOS ]]; then
+            os=osx
+          fi
+          curl -fL --retry 3 --max-time 300 -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-$os-$arch$assertsSuffix.tar.xz
+          mkdir llvm
+          tar -xf llvm.tar.xz --strip 1 -C llvm
+        fi
+
+        llvm/bin/llvm-config --version
+
+    - name: 'Linux: Make lld the default linker' # possibly with enabled assertions unfortunately
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        set -eux
+        sudo ln -sf "$(dirname "$PWD")/llvm/bin/ld.lld" /usr/bin/ld
+        ld --version
+
     - name: Install ninja
       uses: seanmiddleditch/gha-setup-ninja@v3
+
     - name: Install D host compiler
       uses: dlang-community/setup-dlang@v1.0.6
       with:
         compiler: ldc-latest
+
+    - name: Install lit
+      shell: bash
+      run: |
+        set -euxo pipefail
+        python3 --version
+        python3 -m pip install --user setuptools wheel
+        python3 -m pip install --user lit
+        python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
+
+    # the druntime tests require GNU make
+    - name: 'Windows: Make sure GNU make is installed'
+      if: runner.os == 'Windows'
+      shell: bash
+      run: make --version
+
+    - name: 'Windows: Download & extract libcurl' # into ../libcurl/ldc2
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+        curl -fL --retry 3 --max-time 60 -o libcurl.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v8.0.0/libcurl-7.74.0-zlib-static-ipv6-sspi-schannel.7z
+        mkdir libcurl
+        cd libcurl
+        7z x ../libcurl.7z >/dev/null
+        mkdir ldc2
+        if [[ '${{ inputs.arch }}' == x64 ]]; then
+          cp dmd2/windows/bin64/libcurl.dll ldc2/
+          cp dmd2/windows/lib64/*.* ldc2/
+        else
+          cp dmd2/windows/bin/libcurl.dll ldc2/
+          cp dmd2/windows/lib32mscoff/*.* ldc2/
+        fi
+        ls -lh ldc2/
