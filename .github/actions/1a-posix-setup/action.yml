@@ -1,0 +1,13 @@
+name: 1a-posix-setup
+inputs:
+  myInput:
+    required: true
+runs:
+  using: composite
+  steps:
+    - run: |
+        echo 'myInput: ${{ inputs.myInput }}'
+        echo "MY_CUSTOM_ENV_VAR=abc" >> $GITHUB_ENV
+      shell: bash
+    - run: echo 'Another step'
+      shell: bash

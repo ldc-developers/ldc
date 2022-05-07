@@ -1,0 +1,43 @@
+name: Main
+on: [push, pull_request]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - job_name: Linux x64
+            os: ubuntu-18.04
+          - job_name: Windows x64
+            os: windows-2019
+    name: ${{ matrix.job_name }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 50
+      - name: Setup
+        uses: ./.github/actions/1-setup
+      - name: Posix setup
+        if: runner.os != 'Windows'
+        uses: ./.github/actions/1a-posix-setup
+        with:
+          myInput: My little input
+
+  build2:
+    name: Linux x64_2
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 50
+      - name: Setup
+        uses: ./.github/actions/1-setup
+      - name: Posix setup
+        uses: ./.github/actions/1a-posix-setup
+        with:
+          myInput: My little input
+      - run: echo "MY_CUSTOM_ENV_VAR='$MY_CUSTOM_ENV_VAR'"
