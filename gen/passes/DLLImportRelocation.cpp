@@ -37,7 +37,7 @@ namespace {
 struct LLVM_LIBRARY_VISIBILITY DLLImportRelocation {
 
   // Returns true if the module has been changed.
-  bool run(Module &m) override;
+  bool run(Module &m);
 };
 
 struct LLVM_LIBRARY_VISIBILITY DLLImportRelocationLegacyPass : public ModulePass {
@@ -264,7 +264,7 @@ static RegisterPass<DLLImportRelocationLegacyPass>
       "Patch references to dllimported globals in static initializers");
 
 ModulePass *createDLLImportRelocationPass() {
-  return new DLLImportRelocation();
+  return new DLLImportRelocationLegacyPass();
 }
 
 bool DLLImportRelocation::run(Module &m) {
