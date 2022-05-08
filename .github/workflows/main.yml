@@ -112,6 +112,11 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
 
+      - name: Install LDC & make portable
+        uses: ./.github/actions/5-install
+        with:
+          arch: ${{ matrix.arch }}
+
 
   build-cross:
     name: Linux cross
