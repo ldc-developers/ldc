@@ -282,7 +282,7 @@ struct LLVM_LIBRARY_VISIBILITY ArraySliceCopyOpt : public LibCallOptimization {
 namespace {
 /// This pass optimizes library functions from the D runtime as used by LDC.
 ///
-class LLVM_LIBRARY_VISIBILITY SimplifyDRuntimeCalls {
+struct LLVM_LIBRARY_VISIBILITY SimplifyDRuntimeCalls {
   StringMap<LibCallOptimization *> Optimizations;
 
   // Array operations
@@ -293,7 +293,7 @@ class LLVM_LIBRARY_VISIBILITY SimplifyDRuntimeCalls {
   AllocationOpt Allocation;
 
   void InitOptimizations();
-  bool run(Function &F) override;
+  bool run(Function &F, AAResultsWrapperPass &AA);
 
   bool runOnce(Function &F, const DataLayout *DL, AAResultsWrapperPass &AA);
 };
@@ -305,7 +305,10 @@ public:
   static char ID; // Pass identification
   SimplifyDRuntimeCallsLegacyPass() : FunctionPass(ID) {}
 
-  bool runOnFunction(Function &F) override { return pass.run(F); }
+  bool runOnFunction(Function &F) override {
+    AAResultsWrapperPass &AA = getAnalysis<AAResultsWrapperPass>();
+    return pass.run(F, AA);
+  }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<AAResultsWrapperPass>();
@@ -358,7 +361,6 @@ bool SimplifyDRuntimeCalls::run(Function &F) {
   }
 
   const DataLayout *DL = &F.getParent()->getDataLayout();
-  AAResultsWrapperPass &AA = getAnalysis<AAResultsWrapperPass>();
 
   // Iterate to catch opportunities opened up by other optimizations,
   // such as calls that are only used as arguments to unused calls:
