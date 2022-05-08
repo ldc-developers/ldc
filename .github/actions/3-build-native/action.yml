@@ -1,4 +1,4 @@
-name: 2-build-bootstrap
+name: 3-build-native
 inputs:
   cmake_flags:
     required: false
@@ -8,45 +8,45 @@ inputs:
 runs:
   using: composite
   steps:
-    - shell: bash
-      run: |
-        cmake --version
-        ninja --version
-
-    - name: 'Posix: Build bootstrap LDC'
+    - name: 'Posix: Build LDC & LDC D unittests & defaultlib unittest runners'
       if: runner.os != 'Windows'
       shell: bash
       run: |
         set -eux
         cd ..
-        mkdir bootstrap-ldc
-        cd bootstrap-ldc
+        # TODO: mimalloc
+        installDir="$PWD/install"
+        mkdir build
+        cd build
         cmake -G Ninja ../ldc \
           -DCMAKE_BUILD_TYPE=Release \
           -DLLVM_ROOT_DIR="$PWD/../llvm" \
-          -DD_COMPILER=ldmd2 \
-          -DBUILD_SHARED_LIBS=OFF \
+          -DD_COMPILER="$PWD/../bootstrap-ldc/bin/ldmd2" \
+          -DCMAKE_INSTALL_PREFIX="$installDir" \
+          -DINCLUDE_INSTALL_DIR="$installDir/import" \
           -DLDC_LINK_MANUALLY=OFF \
           ${{ inputs.cmake_flags }}
-        ninja
+        ninja all ldc2-unittest all-test-runners
     # Windows: invoke CMake & ninja in MSVC env
-    - name: 'Windows: Build bootstrap LDC'
+    - name: 'Windows: Build LDC & LDC D unittests & defaultlib unittest runners'
       if: runner.os == 'Windows'
       shell: cmd
       run: |
         call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=${{ inputs.arch }}
         echo on
         cd ..
-        mkdir bootstrap-ldc
-        cd bootstrap-ldc
+        set "installDir=%CD%\install"
+        mkdir build
+        cd build
         cmake -G Ninja ../ldc ^
           -DCMAKE_BUILD_TYPE=Release ^
           "-DLLVM_ROOT_DIR=%CD%\..\llvm" ^
-          -DD_COMPILER=ldmd2 ^
-          -DBUILD_SHARED_LIBS=OFF ^
+          "-DD_COMPILER=%CD%\..\bootstrap-ldc\bin\ldmd2" ^
+          "-DCMAKE_INSTALL_PREFIX=%installDir%" ^
+          "-DINCLUDE_INSTALL_DIR=%installDir%\import" ^
           ${{ inputs.cmake_flags }}
         if %errorlevel% neq 0 exit /b %errorlevel%
-        ninja || exit /b
+        ninja all ldc2-unittest all-test-runners || exit /b
 
-    - run: ../bootstrap-ldc/bin/ldc2 --version
+    - run: ../build/bin/ldc2 --version
       shell: bash
