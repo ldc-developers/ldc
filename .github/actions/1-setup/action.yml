@@ -149,6 +149,7 @@ runs:
       if: runner.os == 'Windows' && inputs.arch == 'x86'
       shell: bash
       run: |
+        set -eux
         echo "CFLAGS=-m32" >> $GITHUB_ENV
         echo "CXXFLAGS=-m32" >> $GITHUB_ENV
         echo "ASMFLAGS=-m32" >> $GITHUB_ENV

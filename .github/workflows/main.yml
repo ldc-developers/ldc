@@ -118,6 +118,10 @@ jobs:
           arch: ${{ matrix.arch }}
       - name: Run a few integration tests against the installed compiler
         uses: ./.github/actions/6-integration-test
+      - name: Create package & upload artifact(s)
+        uses: ./.github/actions/7-package
+        with:
+          arch: ${{ matrix.arch }}
 
 
   build-cross:
