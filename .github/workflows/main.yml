@@ -116,6 +116,8 @@ jobs:
         uses: ./.github/actions/5-install
         with:
           arch: ${{ matrix.arch }}
+      - name: Run a few integration tests against the installed compiler
+        uses: ./.github/actions/6-integration-test
 
 
   build-cross:
