@@ -116,8 +116,23 @@ jobs:
         uses: ./.github/actions/5-install
         with:
           arch: ${{ matrix.arch }}
+      - name: 'macOS: Cross-compile iOS libraries, copy to install dir and extend ldc2.conf'
+        if: runner.os == 'macOS'
+        uses: ./.github/actions/5a-ios
+        with:
+          arch: ${{ matrix.arch }}
+
       - name: Run a few integration tests against the installed compiler
         uses: ./.github/actions/6-integration-test
+      - name: 'macOS: Run iOS cross-compilation integration test'
+        if: runner.os == 'macOS'
+        run: |
+          set -eux
+          cd ..
+          triple='${{ matrix.arch }}-apple-ios'
+          installed/bin/ldc2 -mtriple="$triple" hello.d -of=hello_ios
+          installed/bin/ldc2 -mtriple="$triple" hello.d -of=hello_ios_shared -link-defaultlib-shared
+
       - name: Create package & upload artifact(s)
         uses: ./.github/actions/7-package
         with:
