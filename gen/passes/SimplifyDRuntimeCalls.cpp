@@ -355,7 +355,7 @@ void SimplifyDRuntimeCalls::InitOptimizations() {
 
 /// runOnFunction - Top level algorithm.
 ///
-bool SimplifyDRuntimeCalls::run(Function &F) {
+bool SimplifyDRuntimeCalls::run(Function &F,  AAResultsWrapperPass &AA) {
   if (Optimizations.empty()) {
     InitOptimizations();
   }
