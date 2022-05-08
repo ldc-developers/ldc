@@ -34,7 +34,7 @@ namespace {
 struct LLVM_LIBRARY_VISIBILITY StripExternals {
   // run - Do the StripExternals pass on the specified module.
   //
-  bool run(Module &M) override;
+  bool run(Module &M);
 };
 
 
