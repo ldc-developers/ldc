@@ -282,7 +282,7 @@ struct LLVM_LIBRARY_VISIBILITY ArraySliceCopyOpt : public LibCallOptimization {
 namespace {
 /// This pass optimizes library functions from the D runtime as used by LDC.
 ///
-class LLVM_LIBRARY_VISIBILITY SimplifyDRuntimeCalls : public FunctionPass {
+class LLVM_LIBRARY_VISIBILITY SimplifyDRuntimeCalls {
   StringMap<LibCallOptimization *> Optimizations;
 
   // Array operations
@@ -292,28 +292,34 @@ class LLVM_LIBRARY_VISIBILITY SimplifyDRuntimeCalls : public FunctionPass {
   // GC allocations
   AllocationOpt Allocation;
 
-public:
-  static char ID; // Pass identification
-  SimplifyDRuntimeCalls() : FunctionPass(ID) {}
-
   void InitOptimizations();
-  bool runOnFunction(Function &F) override;
+  bool run(Function &F) override;
 
   bool runOnce(Function &F, const DataLayout *DL, AAResultsWrapperPass &AA);
+};
+
+class LLVM_LIBRARY_VISIBILITY SimplifyDRuntimeCallsLegacyPass : public FunctionPass {
+  SimplifyDRuntimeCalls pass;
+
+public:
+  static char ID; // Pass identification
+  SimplifyDRuntimeCallsLegacyPass() : FunctionPass(ID) {}
+
+  bool runOnFunction(Function &F) override { return pass.run(F); }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<AAResultsWrapperPass>();
   }
 };
-char SimplifyDRuntimeCalls::ID = 0;
+char SimplifyDRuntimeCallsLegacyPass::ID = 0;
 } // end anonymous namespace.
 
-static RegisterPass<SimplifyDRuntimeCalls> X("simplify-drtcalls",
-                                             "Simplify calls to D runtime");
+static RegisterPass<SimplifyDRuntimeCallsLegacyPass>
+    X("simplify-drtcalls","Simplify calls to D runtime");
 
 // Public interface to the pass.
 FunctionPass *createSimplifyDRuntimeCalls() {
-  return new SimplifyDRuntimeCalls();
+  return new SimplifyDRuntimeCallsLegacyPass();
 }
 
 /// Optimizations - Populate the Optimizations map with all the optimizations
@@ -346,7 +352,7 @@ void SimplifyDRuntimeCalls::InitOptimizations() {
 
 /// runOnFunction - Top level algorithm.
 ///
-bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
+bool SimplifyDRuntimeCalls::run(Function &F) {
   if (Optimizations.empty()) {
     InitOptimizations();
   }
