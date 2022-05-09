@@ -19,11 +19,11 @@ runs:
           cd ..
         else
           mkdir -p install/bin
-          cp build/bin/{ldc2,ldmd2,ldc-build-runtime,ldc-profdata,ldc-prune-cache} install/bin/
-          cp -R ldc-build-runtime.tmp/lib install/
-          cp build/lib/{libldc_rt.*,libLTO-ldc.dylib,LLVMgold-ldc.so} install/lib/ || true
+          cp build-cross/bin/{ldc2,ldmd2,ldc-build-runtime,ldc-profdata,ldc-prune-cache} install/bin/
+          cp -R build-cross-libs/lib install/
+          cp build-cross/lib/{libldc_rt.*,libLTO-ldc.dylib,LLVMgold-ldc.so} install/lib/ || true
           mkdir install/etc
-          cp build/bin/ldc2_install.conf install/etc/ldc2.conf
+          cp build-cross/bin/ldc2_install.conf install/etc/ldc2.conf
           cp -R ldc/packaging/bash_completion.d install/etc/
           mkdir install/import
           cp -R ldc/runtime/druntime/src/{core,etc,ldc,object.d,__builtins.di,importc.h} install/import/

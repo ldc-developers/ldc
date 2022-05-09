@@ -119,7 +119,7 @@ runs:
         echo "ARTIFACT_NAME=$artifactName" >> $GITHUB_ENV
 
     - name: 'Linux: Pack source dir'
-      if: runner.os == 'Linux'
+      if: runner.os == 'Linux' && inputs.os == ''
       shell: bash
       run: |
         set -eux

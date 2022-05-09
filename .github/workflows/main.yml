@@ -140,8 +140,20 @@ jobs:
 
 
   build-cross:
-    name: Linux cross
-    runs-on: ubuntu-18.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - job_name: Android armv7a
+            host_os: ubuntu-18.04
+            os: android
+            arch: armv7a
+          - job_name: Android aarch64
+            host_os: ubuntu-18.04
+            os: android
+            arch: aarch64
+    name: ${{ matrix.job_name }}
+    runs-on: ${{ matrix.host_os }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -153,3 +165,21 @@ jobs:
           clang_version: ${{ env.CLANG_VERSION }}
           llvm_version: ${{ env.LLVM_VERSION }}
           arch: x86_64
+      - name: Build bootstrap LDC
+        uses: ./.github/actions/2-build-bootstrap
+      - name: Cross-compile LDC to ${{ matrix.os }}/${{ matrix.arch }}
+        uses: ./.github/actions/3-build-cross
+        with:
+          arch: ${{ matrix.arch }}
+          os: ${{ matrix.os }}
+          llvm_version: ${{ env.LLVM_VERSION }}
+      - name: Install LDC & make portable
+        uses: ./.github/actions/5-install
+        with:
+          cross_compiling: true
+      - name: Create package & upload artifact(s)
+        uses: ./.github/actions/7-package
+        with:
+          arch: ${{ matrix.arch }}
+          os: ${{ matrix.os }}
+          cross_target_triple: ${{ env.CROSS_TRIPLE }}
