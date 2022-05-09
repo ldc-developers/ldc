@@ -1,0 +1,31 @@
+name: 5a-android-x86
+inputs:
+  arch:
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Cross-compile ${{ inputs.arch }} libraries & copy to install dir
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+
+        arch='${{ inputs.arch }}'
+        triple="$arch-${CROSS_TRIPLE#*-}"
+        abi="$arch"
+        if [[ "$arch" == i686 ]]; then
+          abi=x86
+        fi
+        IFS=$'\n' flags=( $(xargs -n1 <<<"$CROSS_CMAKE_FLAGS") )
+
+        # use bootstrap-ldc, which is guaranteed to be native
+        bootstrap-ldc/bin/ldc-build-runtime --ninja \
+          --buildDir="build-libs-$arch" \
+          --dFlags="-mtriple=$triple;-fvisibility=hidden" \
+          --ldcSrcDir="$PWD/ldc" \
+          "${flags[@]#-D}" \
+          ANDROID_ABI="$abi" # override the one in CROSS_CMAKE_FLAGS
+
+        mkdir "installed/lib-$arch"
+        cp "build-libs-$arch"/lib/*.a "installed/lib-$arch/"

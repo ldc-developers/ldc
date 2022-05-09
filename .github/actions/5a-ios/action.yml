@@ -4,15 +4,16 @@ inputs:
     required: true
   ios_deployment_target:
     required: false
-    default: 12.0
+    default: "12.0"
 runs:
   using: composite
   steps:
-    - name: Cross-compile iOS libraries, copy to install dir and extend ldc2.conf
+    - name: Cross-compile iOS libraries, copy to install dir & extend ldc2.conf
       shell: bash
       run: |
         set -eux
         cd ..
+
         arch='${{ inputs.arch }}'
         deployment_target='${{ inputs.ios_deployment_target }}'
         triple="$arch-apple-ios$deployment_target"

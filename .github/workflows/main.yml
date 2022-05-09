@@ -116,7 +116,7 @@ jobs:
         uses: ./.github/actions/5-install
         with:
           arch: ${{ matrix.arch }}
-      - name: 'macOS: Cross-compile iOS libraries, copy to install dir and extend ldc2.conf'
+      - name: 'macOS: Cross-compile iOS libraries, copy to install dir & extend ldc2.conf'
         if: runner.os == 'macOS'
         uses: ./.github/actions/5a-ios
         with:
@@ -148,10 +148,12 @@ jobs:
             host_os: ubuntu-18.04
             os: android
             arch: armv7a
+            android_x86_arch: i686
           - job_name: Android aarch64
             host_os: ubuntu-18.04
             os: android
             arch: aarch64
+            android_x86_arch: x86_64
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.host_os }}
     steps:
@@ -177,6 +179,11 @@ jobs:
         uses: ./.github/actions/5-install
         with:
           cross_compiling: true
+      - name: 'Android: Cross-compile ${{ matrix.android_x86_arch }} libraries & copy to install dir'
+        if: matrix.os == 'android'
+        uses: ./.github/actions/5a-android-x86
+        with:
+          arch: ${{ matrix.android_x86_arch }}
       - name: Create package & upload artifact(s)
         uses: ./.github/actions/7-package
         with:
