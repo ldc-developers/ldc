@@ -75,8 +75,8 @@ runs:
       shell: bash
       run: |
         set -euxo pipefail
-        [ -d artifacts ] || mkdir artifacts
         cd ..
+        mkdir artifacts
 
         if [[ '${{ github.ref }}' = refs/tags/v* ]]; then
           artifactID='${{ github.ref }}'
@@ -103,21 +103,41 @@ runs:
         artifactName="ldc2-$artifactID-$os-${{ inputs.arch }}"
         mv installed $artifactName
         if [[ '${{ runner.os }}' == Windows ]]; then
-          7z a -mx=9 ldc/artifacts/$artifactName.7z $artifactName >/dev/null
+          7z a -mx=9 artifacts/$artifactName.7z $artifactName >/dev/null
         else
           chmod -R go=rX $artifactName
           if [[ '${{ runner.os }}' == macOS ]]; then
             sudo chown -R root:wheel $artifactName
-            tar -cJf ldc/artifacts/$artifactName.tar.xz --options='compression-level=9' $artifactName
+            tar -cJf artifacts/$artifactName.tar.xz --options='compression-level=9' $artifactName
           else
-            tar -cf - --owner=0 --group=0 $artifactName | 7za a ldc/artifacts/$artifactName.tar.xz -si -txz -mx9
+            tar -cf - --owner=0 --group=0 $artifactName | 7za a artifacts/$artifactName.tar.xz -si -txz -mx9
           fi
         fi
 
-        # export ARTIFACT_NAME for uploading
+        # export ARTIFACT_{ID,NAME}
+        echo "ARTIFACT_ID=$artifactID" >> $GITHUB_ENV
         echo "ARTIFACT_NAME=$artifactName" >> $GITHUB_ENV
 
-    - name: Upload artifact
+    - name: 'Linux: Pack source dir'
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        set -eux
+        git clean -dffx
+        git submodule foreach git clean -dffx
+        cd ..
+        artifactName="ldc-$ARTIFACT_ID-src"
+        chmod -R go=rX ldc
+        GZIP=-9 tar -czf artifacts/$artifactName.tar.gz --exclude-vcs --owner=0 --group=0 --transform="s,^ldc,$artifactName," ldc
+        # unpack & create zip
+        tar -xf artifacts/$artifactName.tar.gz
+        zip -r -9 artifacts/$artifactName.zip $artifactName >/dev/null
+
+    - name: 'Move artifacts dir for uploading'
+      shell: bash
+      run: mv ../artifacts ./
+
+    - name: Upload artifact(s)
       uses: actions/upload-artifact@v3
       with:
         name: ${{ env.ARTIFACT_NAME }}
