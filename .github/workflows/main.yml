@@ -218,3 +218,18 @@ jobs:
           arch: ${{ matrix.arch }}
           os: ${{ matrix.os }}
           cross_target_triple: ${{ env.CROSS_TRIPLE }}
+
+
+  merge-macos:
+    name: macOS universal
+    runs-on: macos-11
+    needs:
+      - build-native
+      - build-cross
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 50
+      - name: Merge x86_64 and arm64 packages to universal one
+        uses: ./.github/actions/merge-macos

@@ -116,7 +116,7 @@ runs:
 
         # export ARTIFACT_{ID,NAME}
         echo "ARTIFACT_ID=$artifactID" >> $GITHUB_ENV
-        echo "ARTIFACT_NAME=$artifactName" >> $GITHUB_ENV
+        echo "ARTIFACT_NAME=$os-${{ inputs.arch }}" >> $GITHUB_ENV
 
     - name: 'Linux: Pack source dir'
       if: runner.os == 'Linux' && inputs.os == ''
