@@ -17,14 +17,16 @@ runs:
         if [[ "$arch" == i686 ]]; then
           abi=x86
         fi
-        IFS=$'\n' flags=( $(xargs -n1 <<<"$CROSS_CMAKE_FLAGS") )
+
+        # convert CROSS_CMAKE_FLAGS to array, stripping all `-D` prefixes
+        IFS=$'\n' flags=( $(xargs -n1 <<<"$CROSS_CMAKE_FLAGS" | cut -b3-) )
 
         # use bootstrap-ldc, which is guaranteed to be native
         bootstrap-ldc/bin/ldc-build-runtime --ninja \
           --buildDir="build-libs-$arch" \
           --dFlags="-mtriple=$triple;-fvisibility=hidden" \
           --ldcSrcDir="$PWD/ldc" \
-          "${flags[@]#-D}" \
+          "${flags[@]}" \
           ANDROID_ABI="$abi" # override the one in CROSS_CMAKE_FLAGS
 
         mkdir "installed/lib-$arch"

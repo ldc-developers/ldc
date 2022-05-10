@@ -6,6 +6,9 @@ inputs:
     required: true
   llvm_version:
     required: true
+  cmake_flags:
+    required: false
+    default: ''
   android_ndk_version:
     required: false
     default: r21e
@@ -49,9 +52,21 @@ runs:
             > llvm-cross/bin/llvm-config
           chmod 755 llvm-cross/bin/llvm-config
         else
-          echo TODO
-          exit 1
+          # copy from native LLVM
+          cp llvm/bin/llvm-config llvm-cross/bin/
         fi
+
+    - name: 'macOS: Set DFLAGS, CROSS_TRIPLE & CROSS_CMAKE_FLAGS'
+      if: inputs.os == 'osx'
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+        arch='${{ inputs.arch }}'
+        triple="$arch-apple-macos"
+        echo "DFLAGS=-mtriple=$triple -L-L$PWD/build-cross-libs/lib -Xcc=-target -Xcc=$triple -Xcc=-isysroot -Xcc=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk" >> $GITHUB_ENV
+        echo "CROSS_TRIPLE=$triple" >> $GITHUB_ENV
+        echo "CROSS_CMAKE_FLAGS=-DCMAKE_OSX_ARCHITECTURES=$arch" >> $GITHUB_ENV
 
     - name: 'Android: Download & extract NDK; set DFLAGS, CROSS_TRIPLE & CROSS_CMAKE_FLAGS'
       if: inputs.os == 'android'
@@ -80,13 +95,11 @@ runs:
         elif [[ "$arch" == aarch64 ]]; then
           triple="$arch-linux-android$apiLevel"
           cmakeFlags+=' -DANDROID_ABI=arm64-v8a'
-          cmakeFlags+=' -DLDC_INSTALL_LLVM_RUNTIME_LIBS_OS=android'
-          cmakeFlags+=' -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64-android'
         fi
         cmakeFlags+=" -DANDROID_NATIVE_API_LEVEL=$apiLevel"
         cmakeFlags+=" -DANDROID_STL=c++_static"
         cmakeFlags+=" -DCMAKE_TOOLCHAIN_FILE=$toolchainFile"
-        cmakeFlags+=" -DD_LINKER_ARGS=-fuse-ld=bfd;-L$PWD/build-cross-libs/lib;-lphobos2-ldc;-ldruntime-ldc"
+        cmakeFlags+=" -DLDC_LINK_MANUALLY=ON -DD_LINKER_ARGS=-fuse-ld=bfd;-L$PWD/build-cross-libs/lib;-lphobos2-ldc;-ldruntime-ldc"
 
         echo "DFLAGS=-mtriple=$triple -fvisibility=hidden -L-L$PWD/build-cross-libs/lib -gcc=$PWD/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/$triple-clang" >> $GITHUB_ENV
         echo "CROSS_TRIPLE=$triple" >> $GITHUB_ENV
@@ -95,14 +108,19 @@ runs:
     - name: Cross-compile default libraries
       shell: bash
       run: |
-        set -eux
+        set -euxo pipefail
         cd ..
-        IFS=$'\n' flags=( $(xargs -n1 <<<"$CROSS_CMAKE_FLAGS") )
+
+        flags='${{ inputs.cmake_flags }}' # may contain double-quotes
+        flags+=" $CROSS_CMAKE_FLAGS"
+        # convert to array, stripping all `-D` prefixes
+        IFS=$'\n' flags=( $(xargs -n1 <<<"$flags" | cut -b3-) )
+
         bootstrap-ldc/bin/ldc-build-runtime --ninja \
           --buildDir="build-cross-libs" \
           --dFlags="${DFLAGS// /;}" \
           --ldcSrcDir="$PWD/ldc" \
-          "${flags[@]#-D}" # strip all `-D` prefixes
+          "${flags[@]}"
 
     - name: Cross-compile LDC executables
       shell: bash
@@ -119,6 +137,7 @@ runs:
           -DD_COMPILER="$PWD/../bootstrap-ldc/bin/ldmd2" \
           -DCMAKE_INSTALL_PREFIX="$installDir" \
           -DINCLUDE_INSTALL_DIR="$installDir/import" \
+          -DLDC_LINK_MANUALLY=OFF \
           -DCMAKE_CROSSCOMPILING=True \
-          $CROSS_CMAKE_FLAGS
+          ${{ inputs.cmake_flags }} $CROSS_CMAKE_FLAGS
         ninja ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache
