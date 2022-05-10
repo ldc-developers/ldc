@@ -233,3 +233,15 @@ jobs:
           fetch-depth: 50
       - name: Merge x86_64 and arm64 packages to universal one
         uses: ./.github/actions/merge-macos
+
+  merge-windows:
+    name: Windows multilib
+    runs-on: windows-2019
+    needs: build-native
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 50
+      - name: Merge x64 and x86 packages to multilib one & build installer
+        uses: ./.github/actions/merge-windows

@@ -19,8 +19,6 @@ runs:
       run: |
         set -euxo pipefail
 
-        ls -R artifacts/
-
         mkdir ldc2-{x86_64,arm64}
         tar -xf artifacts/ldc2-*-x86_64.tar.xz --strip 1 -C ldc2-x86_64
         tar -xf artifacts/ldc2-*-arm64.tar.xz  --strip 1 -C ldc2-arm64
@@ -107,7 +105,7 @@ runs:
 
     - name: Run x86_64/arm64 macOS/iOS cross-compilation smoke tests
       shell: bash
-      run:
+      run: |
         set -eux
         echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > hello.d
         for os in macos ios; do
