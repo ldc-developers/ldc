@@ -1,4 +1,4 @@
-name: 3-build-cross
+name: Cross-compile LDC
 inputs:
   arch:
     required: true
@@ -19,7 +19,7 @@ runs:
   using: composite
   steps:
 
-    - name: Download & extract LDC-flavoured LLVM for ${{ inputs.os }}/${{ inputs.arch }} target # into ../llvm-cross
+    - name: Download & extract LDC-flavoured LLVM for ${{ inputs.os }}-${{ inputs.arch }} target # into ../llvm-cross
       shell: bash
       run: |
         set -eux
@@ -56,6 +56,7 @@ runs:
           cp llvm/bin/llvm-config llvm-cross/bin/
         fi
 
+    # set up DFLAGS to make bootstrap ldmd2 cross-compile/link
     - name: 'macOS: Set DFLAGS, CROSS_TRIPLE & CROSS_CMAKE_FLAGS'
       if: inputs.os == 'osx'
       shell: bash
@@ -68,7 +69,7 @@ runs:
         echo "CROSS_TRIPLE=$triple" >> $GITHUB_ENV
         echo "CROSS_CMAKE_FLAGS=-DCMAKE_OSX_ARCHITECTURES=$arch" >> $GITHUB_ENV
 
-    - name: 'Android: Download & extract NDK; set DFLAGS, CROSS_TRIPLE & CROSS_CMAKE_FLAGS'
+    - name: 'Android: Download & extract NDK, then set DFLAGS, CROSS_TRIPLE & CROSS_CMAKE_FLAGS'
       if: inputs.os == 'android'
       shell: bash
       run: |

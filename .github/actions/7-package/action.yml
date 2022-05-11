@@ -1,4 +1,4 @@
-name: 7-package
+name: Create package & upload artifact(s)
 inputs:
   arch:
     required: true
@@ -11,6 +11,7 @@ inputs:
 runs:
   using: composite
   steps:
+
     - name: Set DMD environment variable
       shell: bash
       run: |

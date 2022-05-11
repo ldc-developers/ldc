@@ -1,10 +1,11 @@
-name: 4d-test-libs
+name: Run defaultlib unittests & druntime integration tests
 inputs:
   arch:
     required: false # Windows only
 runs:
   using: composite
   steps:
+
     - name: 'Posix: Run defaultlib unittests & druntime integration tests'
       if: runner.os != 'Windows'
       shell: bash

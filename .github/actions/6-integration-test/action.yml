@@ -1,7 +1,8 @@
-name: 6-integration-test
+name: Run a few integration tests against the installed compiler
 runs:
   using: composite
   steps:
+
     - name: Generate hello.d
       shell: bash
       run: echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > ../hello.d

@@ -1,4 +1,4 @@
-name: merge-windows
+name: Merge x64 & x86 packages to multilib one & build installer
 runs:
   using: composite
   steps:
@@ -100,7 +100,7 @@ runs:
           "/DLDCDir=%CD%\%ARTIFACT_NAME%" ^
           packaging\windows_installer.iss
 
-    - name: Upload multilib package and installer
+    - name: Upload multilib package & installer
       uses: actions/upload-artifact@v3
       with:
         name: windows-multilib

@@ -1,4 +1,4 @@
-name: merge-windows
+name: Upload to GitHub
 runs:
   using: composite
   steps:

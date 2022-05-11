@@ -1,4 +1,4 @@
-name: 1-setup
+name: Install prerequisites
 inputs:
   clang_version:
     required: true
@@ -9,6 +9,7 @@ inputs:
 runs:
   using: composite
   steps:
+
     - name: 'Linux: Install required apt packages'
       if: runner.os == 'Linux'
       shell: bash
@@ -32,6 +33,7 @@ runs:
         curl -fL --retry 3 --max-time 300 -o clang.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-${{ inputs.clang_version }}/clang+llvm-${{ inputs.clang_version }}-x86_64-linux-gnu-ubuntu-18.04.tar.xz
         mkdir clang
         tar -xf clang.tar.xz --strip 1 -C clang
+        rm clang.tar.xz
         clang/bin/clang --version
     - name: 'Windows: Install clang'
       if: runner.os == 'Windows'
@@ -41,6 +43,7 @@ runs:
         cd ..
         curl -fL --retry 3 --max-time 300 -o clang.exe https://github.com/llvm/llvm-project/releases/download/llvmorg-${{ inputs.clang_version }}/LLVM-${{ inputs.clang_version }}-win64.exe
         ./clang.exe //S # double-slash for bash
+        rm clang.exe
         # C:\Program Files\LLVM\bin should already be in PATH
         clang-cl --version
 
@@ -71,6 +74,7 @@ runs:
           mkdir llvm
           cd llvm
           7z x ../llvm.7z >/dev/null
+          rm ../llvm.7z
           cd ..
         else
           if [[ '${{ runner.os }}' == Linux ]]; then
@@ -81,6 +85,7 @@ runs:
           curl -fL --retry 3 --max-time 300 -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-$os-$arch$assertsSuffix.tar.xz
           mkdir llvm
           tar -xf llvm.tar.xz --strip 1 -C llvm
+          rm llvm.tar.xz
         fi
 
         llvm/bin/llvm-config --version
@@ -100,7 +105,7 @@ runs:
       uses: dlang-community/setup-dlang@v1.0.6
       with:
         compiler: ldc-latest
-    - name: 'Posix: Clear LD_LIBRARY_PATH env variable'
+    - name: 'Posix: Clear LD_LIBRARY_PATH env variable' # don't use host druntime/Phobos .so/.dylib etc.
       if: runner.os != 'Windows'
       shell: bash
       run: echo "LD_LIBRARY_PATH=" >> $GITHUB_ENV
@@ -117,7 +122,7 @@ runs:
     # the druntime tests require GNU make
     - name: 'Windows: Make sure GNU make is installed'
       if: runner.os == 'Windows'
-      shell: bash
+      shell: cmd
       run: make --version
 
     - name: 'Windows: Download & extract libcurl' # into ../libcurl/ldc2
@@ -130,6 +135,7 @@ runs:
         mkdir libcurl
         cd libcurl
         7z x ../libcurl.7z >/dev/null
+        rm ../libcurl.7z
         mkdir ldc2
         if [[ '${{ inputs.arch }}' == x64 ]]; then
           cp dmd2/windows/bin64/libcurl.dll ldc2/
@@ -140,7 +146,7 @@ runs:
         fi
         ls -lh ldc2/
 
-    - name: 'Windows: Set LDC_VSDIR env variable'
+    - name: 'Windows: Set LDC_VSDIR env variable' # to somewhat speed-up MSVC auto-detection
       if: runner.os == 'Windows'
       shell: bash
       run: echo "LDC_VSDIR=$(vswhere -latest -property installationPath)" >> $GITHUB_ENV

@@ -1,4 +1,4 @@
-name: 5-install
+name: Install LDC & make portable
 inputs:
   arch:
     required: false # Windows only
@@ -8,11 +8,13 @@ inputs:
 runs:
   using: composite
   steps:
+
     - name: Install LDC
       shell: bash
       run: |
         set -eux
         cd ..
+
         if [[ '${{ inputs.cross_compiling }}' != true ]]; then
           cd build
           ninja install >/dev/null
@@ -32,6 +34,7 @@ runs:
           rm -rf install/import/etc/c/zlib
           cp -R ldc/runtime/phobos/std install/import/
         fi
+
         cp ldc/LICENSE install/
         if [[ '${{ runner.os }}' == Windows ]]; then
           cp ldc/packaging/README.txt install/
@@ -70,6 +73,8 @@ runs:
         mkdir mingw-w64-libs
         cd mingw-w64-libs
         7z x ../mingw-w64-libs.7z >/dev/null
+        rm ../mingw-w64-libs.7z
+
         if [[ '${{ inputs.arch }}' == x86 ]]; then
           model=32
         else

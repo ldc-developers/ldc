@@ -1,12 +1,11 @@
-name: 5a-android-x86
+name: 'Android: Cross-compile x86 libraries & copy to install dir'
 inputs:
   arch:
     required: true
 runs:
   using: composite
   steps:
-    - name: Cross-compile ${{ inputs.arch }} libraries & copy to install dir
-      shell: bash
+    - shell: bash
       run: |
         set -eux
         cd ..

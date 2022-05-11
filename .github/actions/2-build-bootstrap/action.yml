@@ -1,4 +1,4 @@
-name: 2-build-bootstrap
+name: Build bootstrap LDC
 inputs:
   cmake_flags:
     required: false
@@ -8,10 +8,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - shell: bash
-      run: |
-        cmake --version
-        ninja --version
 
     - name: 'Posix: Build bootstrap LDC'
       if: runner.os != 'Windows'
@@ -19,6 +15,8 @@ runs:
       run: |
         set -eux
         cd ..
+        cmake --version
+        ninja --version
         mkdir bootstrap-ldc
         cd bootstrap-ldc
         cmake -G Ninja ../ldc \

@@ -1,10 +1,11 @@
-name: 4b-test-lit
+name: Run LIT testsuite
 inputs:
   arch:
     required: false # Windows only
 runs:
   using: composite
   steps:
+
     - name: 'Posix: Run LIT testsuite'
       if: runner.os != 'Windows'
       shell: bash
