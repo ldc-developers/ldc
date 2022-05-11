@@ -12,7 +12,7 @@ jobs:
       matrix:
         include:
 
-          - job_name: Linux multilib
+          - job_name: Linux x86_64 multilib
             os: ubuntu-18.04
             arch: x86_64
             bootstrap_cmake_flags: -DBUILD_LTO_LIBS=ON
@@ -27,7 +27,7 @@ jobs:
               -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
               -DEXTRA_CXXFLAGS=-flto=full
 
-          - job_name: macOS x64
+          - job_name: macOS x86_64
             os: macos-11
             arch: x86_64
             bootstrap_cmake_flags: >-
@@ -189,7 +189,7 @@ jobs:
         uses: ./.github/actions/2-build-bootstrap
         with:
           cmake_flags: ${{ matrix.bootstrap_cmake_flags }}
-      - name: Cross-compile LDC to ${{ matrix.os }}/${{ matrix.arch }}
+      - name: Cross-compile LDC to ${{ matrix.os }}-${{ matrix.arch }}
         uses: ./.github/actions/3-build-cross
         with:
           arch: ${{ matrix.arch }}
@@ -245,3 +245,23 @@ jobs:
           fetch-depth: 50
       - name: Merge x64 and x86 packages to multilib one & build installer
         uses: ./.github/actions/merge-windows
+
+
+  upload-to-github:
+    name: Upload to GitHub
+    #if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-18.04
+    permissions:
+      contents: write
+    needs:
+      - build-native
+      - build-cross
+      - merge-macos
+      - merge-windows
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+          fetch-depth: 50
+      - name: Upload all artifacts to GitHub release
+        uses: ./.github/actions/upload-to-github

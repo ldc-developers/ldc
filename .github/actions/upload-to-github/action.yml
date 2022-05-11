@@ -1,0 +1,44 @@
+name: merge-windows
+runs:
+  using: composite
+  steps:
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: artifacts/
+
+    - name: Move artifact files out of their subdirs, compute hashes & set GITHUB_RELEASE_TAG
+      shell: bash
+      run: |
+        set -euxo pipefail
+
+        cd artifacts
+        mv */*.* ./
+        find . -type d -empty -delete
+        ls -lh
+
+        sha256sum * > sha256sums.txt
+
+        if [[ '${{ github.ref }}' = refs/tags/v* ]]; then
+          tag='${{ github.ref }}'
+          tag="${tag:11}"
+        else
+          tag=CI
+        fi
+        echo "GITHUB_RELEASE_TAG=$tag" >> $GITHUB_ENV
+
+    - name: Upload to GitHub release
+      uses: ncipollo/release-action@v1
+      with:
+        allowUpdates: true
+        artifactErrorsFailBuild: true
+        artifacts: artifacts/*
+        prerelease: true
+        omitPrereleaseDuringUpdate: true
+        omitName: true
+        omitBody: true
+        omitDraftDuringUpdate: true
+        tag: ${{ env.GITHUB_RELEASE_TAG }}
+        # master builds: remove existing artifacts for 'CI' release
+        #removeArtifacts: ${{ env.GITHUB_RELEASE_TAG == 'CI' }}
