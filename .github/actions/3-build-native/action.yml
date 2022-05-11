@@ -9,13 +9,16 @@ runs:
   using: composite
   steps:
 
+    - name: 'Posix: Build mimalloc'
+      if: runner.os != 'Windows'
+      uses: ./.github/actions/helper-mimalloc
+
     - name: 'Posix: Build LDC & LDC D unittests & defaultlib unittest runners'
       if: runner.os != 'Windows'
       shell: bash
       run: |
         set -eux
         cd ..
-        # TODO: mimalloc
         installDir="$PWD/install"
         mkdir build
         cd build
@@ -26,6 +29,7 @@ runs:
           -DCMAKE_INSTALL_PREFIX="$installDir" \
           -DINCLUDE_INSTALL_DIR="$installDir/import" \
           -DLDC_LINK_MANUALLY=OFF \
+          -DALTERNATIVE_MALLOC_O="$PWD/../build-mimalloc/CMakeFiles/mimalloc-obj.dir/src/static.c.o" \
           ${{ inputs.cmake_flags }}
         ninja all ldc2-unittest all-test-runners
     # Windows: invoke CMake & ninja in MSVC env

@@ -1,0 +1,22 @@
+name: Build mimalloc # object file only
+inputs:
+  cmake_flags:
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -eux
+        cd ..
+
+        curl -fL --retry 3 --max-time 60 -o mimalloc.tar.gz "https://github.com/microsoft/mimalloc/archive/refs/tags/$(cat ldc/packaging/mimalloc_version).tar.gz"
+        mkdir mimalloc
+        tar -xf mimalloc.tar.gz --strip 1 -C mimalloc
+
+        mkdir build-mimalloc
+        cd build-mimalloc
+        cmake -G Ninja ../mimalloc ${{ inputs.cmake_flags }}
+        ninja mimalloc-obj
+        ls -lh CMakeFiles/mimalloc-obj.dir/src/static.c.o

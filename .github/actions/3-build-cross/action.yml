@@ -106,6 +106,12 @@ runs:
         echo "CROSS_TRIPLE=$triple" >> $GITHUB_ENV
         echo "CROSS_CMAKE_FLAGS=$cmakeFlags" >> $GITHUB_ENV
 
+    - name: 'macOS: Build mimalloc'
+      if: inputs.os == 'osx'
+      uses: ./.github/actions/helper-mimalloc
+      with:
+        cmake_flags: ${{ env.CROSS_CMAKE_FLAGS }}
+
     - name: Cross-compile default libraries
       shell: bash
       run: |
@@ -128,7 +134,12 @@ runs:
       run: |
         set -eux
         cd ..
-        # TODO: mimalloc
+
+        mimallocFlag=''
+        if [[ -d build-mimalloc ]]; then
+          mimallocFlag="-DALTERNATIVE_MALLOC_O=$PWD/build-mimalloc/CMakeFiles/mimalloc-obj.dir/src/static.c.o"
+        fi
+
         installDir="$PWD/install"
         mkdir build-cross
         cd build-cross
@@ -140,5 +151,5 @@ runs:
           -DINCLUDE_INSTALL_DIR="$installDir/import" \
           -DLDC_LINK_MANUALLY=OFF \
           -DCMAKE_CROSSCOMPILING=True \
-          ${{ inputs.cmake_flags }} $CROSS_CMAKE_FLAGS
+          $mimallocFlag ${{ inputs.cmake_flags }} $CROSS_CMAKE_FLAGS
         ninja ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache
