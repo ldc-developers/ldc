@@ -8,7 +8,32 @@ runs:
       with:
         path: artifacts/
 
-    - name: Move artifact files out of their subdirs, compute hashes & set GITHUB_RELEASE_TAG
+    - name: Set GITHUB_RELEASE_TAG & ARTIFACT_ID
+      shell: bash
+      run: |
+        if [[ '${{ github.ref }}' = refs/tags/v* ]]; then
+          tag='${{ github.ref }}'
+          tag="${tag:10}"
+          artifactID="${tag:1}"
+        else
+          tag=CI
+          artifactID='${{ github.sha }}'
+          artifactID="${artifactID:0:8}"
+        fi
+        echo "GITHUB_RELEASE_TAG=$tag" >> $GITHUB_ENV
+        echo "ARTIFACT_ID=$artifactID" >> $GITHUB_ENV
+
+    - name: Download existing artifacts from GitHub release
+      #if: github.repository == 'ldc-developers/ldc'
+      uses: dsaltares/fetch-gh-release-asset@1.0.0
+      with:
+        version: tags/${{ env.GITHUB_RELEASE_TAG }}
+        regex: true
+        # only those with matching ARTIFACT_ID
+        file: ^ldc2-${{ env.ARTIFACT_ID }}-
+        target: existing-artifacts/
+
+    - name: Move artifact files out of their subdirs & compute hashes
       shell: bash
       run: |
         set -euxo pipefail
@@ -18,27 +43,26 @@ runs:
         find . -type d -empty -delete
         ls -lh
 
-        sha256sum * > sha256sums.txt
-
-        if [[ '${{ github.ref }}' = refs/tags/v* ]]; then
-          tag='${{ github.ref }}'
-          tag="${tag:11}"
-        else
-          tag=CI
+        # Extend by existing release artifacts *missing* from GitHub workflow,
+        # e.g., artifacts published by Travis/Cirrus CI etc.
+        # (They will be re-uploaded in the next step.)
+        if [[ -d ../existing-artifacts ]]; then
+          mv -n ../existing-artifacts/*.* ./
         fi
-        echo "GITHUB_RELEASE_TAG=$tag" >> $GITHUB_ENV
+
+        sha256sum * > sha256sums.txt
 
     - name: Upload to GitHub release
       uses: ncipollo/release-action@v1
       with:
+        tag: ${{ env.GITHUB_RELEASE_TAG }}
+        artifacts: artifacts/*
         allowUpdates: true
         artifactErrorsFailBuild: true
-        artifacts: artifacts/*
         prerelease: true
         omitPrereleaseDuringUpdate: true
         omitName: true
         omitBody: true
         omitDraftDuringUpdate: true
-        tag: ${{ env.GITHUB_RELEASE_TAG }}
         # master builds: remove existing artifacts for 'CI' release
-        #removeArtifacts: ${{ env.GITHUB_RELEASE_TAG == 'CI' }}
+        removeArtifacts: ${{ env.GITHUB_RELEASE_TAG == 'CI' }}

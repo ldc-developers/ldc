@@ -235,7 +235,7 @@ jobs:
       - build-cross
     steps:
       - uses: actions/checkout@v3
-      - name: Merge x86_64 and arm64 packages to universal one
+      - name: Merge x86_64 & arm64 packages to universal one
         uses: ./.github/actions/merge-macos
 
   merge-windows:
@@ -245,7 +245,7 @@ jobs:
     needs: build-native
     steps:
       - uses: actions/checkout@v3
-      - name: Merge x64 and x86 packages to multilib one & build installer
+      - name: Merge x64 & x86 packages to multilib one & build installer
         uses: ./.github/actions/merge-windows
 
 
