@@ -24,9 +24,8 @@ runs:
         mv ldc2-*-x64 ldc2-multilib
         cd ldc2-multilib
         mv lib lib64
-        cp -R ../ldc2-x86/lib ./
-        mv lib lib32
-        cp ../ldc2-x86/bin/*.dll ../ldc2-x86/bin/*.pdb lib32/
+        cp -R ../ldc2-x86/lib lib32
+        cp ../ldc2-x86/bin/*.{dll,pdb} lib32/
     - name: Merge ldc2.conf
       shell: pwsh
       run: |

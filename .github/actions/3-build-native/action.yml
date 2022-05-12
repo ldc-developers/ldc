@@ -37,18 +37,20 @@ runs:
       if: runner.os == 'Windows'
       shell: cmd
       run: |
-        call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=${{ inputs.arch }}
+        call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=${{ inputs.arch }} || exit /b
         echo on
-        cd ..
+        cd .. || exit /b
         set "installDir=%CD%\install"
-        mkdir build
-        cd build
+        mkdir build || exit /b
+        cd build || exit /b
         cmake -G Ninja ../ldc ^
           -DCMAKE_BUILD_TYPE=Release ^
           "-DLLVM_ROOT_DIR=%CD%\..\llvm" ^
           "-DD_COMPILER=%CD%\..\bootstrap-ldc\bin\ldmd2" ^
           "-DCMAKE_INSTALL_PREFIX=%installDir%" ^
           "-DINCLUDE_INSTALL_DIR=%installDir%\import" ^
+          -DCMAKE_C_COMPILER=clang-cl ^
+          -DCMAKE_CXX_COMPILER=clang-cl ^
           ${{ inputs.cmake_flags }}
         if %errorlevel% neq 0 exit /b %errorlevel%
         ninja all ldc2-unittest all-test-runners || exit /b

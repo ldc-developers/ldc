@@ -17,7 +17,7 @@ runs:
       # temporarily set OS/MODEL & add druntime/Phobos DLL dir to PATH
       run: |
         echo on
-        cd ..
+        cd .. || exit /b
         set OS=windows
         if "${{ inputs.arch }}" == x86 (set MODEL=32) else (set MODEL=64)
         :: git's usr/bin/bash, unlike its bin/bash, leaves PATH as-is

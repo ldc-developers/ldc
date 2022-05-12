@@ -122,8 +122,10 @@ jobs:
           bin/ldc2 --version
 
       - name: Run LDC D unittests
+        if: success() || failure()
         run: ctest --output-on-failure -R "ldc2-unittest"
       - name: Run LIT testsuite
+        if: success() || failure()
         run: |
           set -eux
           # LLVM 9: libclang_rt.fuzzer-x86_64.a not compiled with -fPIC
@@ -132,8 +134,10 @@ jobs:
           fi
           ctest -V -R "lit-tests"
       - name: Run DMD testsuite
+        if: success() || failure()
         run: ctest -V -R "dmd-testsuite"
       - name: Run defaultlib unittests & druntime integration tests
+        if: success() || failure()
         run: |
           set -eux
           excludes='dmd-testsuite|lit-tests|ldc2-unittest'

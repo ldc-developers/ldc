@@ -32,8 +32,10 @@ runs:
         git clone --recursive https://github.com/dlang/dub.git
         cd dub
         git checkout "$(cat ../ldc/packaging/dub_version)"
+
         DFLAGS='' $DMD -run build.d -O -w -linkonce-templates ${DFLAGS:-}
         cp bin/dub ../installed/bin/
+
         if [[ '${{ inputs.cross_target_triple }}' == '' ]]; then
           ../installed/bin/dub --version
         fi
@@ -46,6 +48,7 @@ runs:
         git clone --recursive https://github.com/dlang/tools.git dlang-tools
         cd dlang-tools
         git checkout "$(cat ../ldc/packaging/dlang-tools_version)"
+
         mkdir bin
         $DMD -w -de -dip1000 rdmd.d -of=bin/rdmd
         $DMD -w -de -dip1000 ddemangle.d -of=bin/ddemangle
@@ -60,14 +63,18 @@ runs:
         git clone --recursive https://github.com/atilaneves/reggae.git
         cd reggae
         git checkout "$(cat ../ldc/packaging/reggae_version)"
+
         archFlag=''
         if [[ '${{ inputs.cross_target_triple }}' != '' ]]; then
           archFlag='--arch=${{ inputs.cross_target_triple }}'
         fi
+
+        # use host compiler's dub, which is guaranteed to be native
         DFLAGS="-O -linkonce-templates ${DFLAGS:-}" dub build -v \
           --build-mode=allAtOnce --combined $archFlag \
           --compiler="$(dirname "$DMD")/ldc2"
         cp bin/reggae ../installed/bin/
+
         if [[ '${{ inputs.cross_target_triple }}' == '' ]]; then
           ../installed/bin/reggae --version -b ninja
         fi

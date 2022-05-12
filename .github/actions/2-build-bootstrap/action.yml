@@ -32,16 +32,18 @@ runs:
       if: runner.os == 'Windows'
       shell: cmd
       run: |
-        call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=${{ inputs.arch }}
+        call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=${{ inputs.arch }} || exit /b
         echo on
-        cd ..
-        mkdir bootstrap-ldc
-        cd bootstrap-ldc
+        cd .. || exit /b
+        mkdir bootstrap-ldc || exit /b
+        cd bootstrap-ldc || exit /b
         cmake -G Ninja ../ldc ^
           -DCMAKE_BUILD_TYPE=Release ^
           "-DLLVM_ROOT_DIR=%CD%\..\llvm" ^
           -DD_COMPILER=ldmd2 ^
           -DBUILD_SHARED_LIBS=OFF ^
+          -DCMAKE_C_COMPILER=clang-cl ^
+          -DCMAKE_CXX_COMPILER=clang-cl ^
           ${{ inputs.cmake_flags }}
         if %errorlevel% neq 0 exit /b %errorlevel%
         ninja || exit /b

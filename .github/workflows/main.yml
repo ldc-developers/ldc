@@ -7,7 +7,7 @@ on:
 
 env:
   CLANG_VERSION: 14.0.0
-  LLVM_VERSION: 14.0.0
+  LLVM_VERSION: 14.0.3
 
 jobs:
   build-native:
@@ -45,29 +45,19 @@ jobs:
           - job_name: Windows x64
             os: windows-2019
             arch: x64
-            bootstrap_cmake_flags: >-
-              -DBUILD_LTO_LIBS=ON
-              -DCMAKE_C_COMPILER=clang-cl.exe
-              -DCMAKE_CXX_COMPILER=clang-cl.exe
+            bootstrap_cmake_flags: -DBUILD_LTO_LIBS=ON
             extra_cmake_flags: >-
               -DBUILD_LTO_LIBS=ON
-              -DCMAKE_C_COMPILER=clang-cl.exe
-              -DCMAKE_CXX_COMPILER=clang-cl.exe
               "-DD_COMPILER_FLAGS=-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
               -DEXTRA_CXXFLAGS=-flto=full
 
           - job_name: Windows x86
             os: windows-2019
             arch: x86
-            bootstrap_cmake_flags: >-
-              -DBUILD_LTO_LIBS=ON
-              -DCMAKE_C_COMPILER=clang-cl.exe
-              -DCMAKE_CXX_COMPILER=clang-cl.exe
+            bootstrap_cmake_flags: -DBUILD_LTO_LIBS=ON
             # Undefined symbol errors with FullLTO; ThinLTO works.
             extra_cmake_flags: >-
               -DBUILD_LTO_LIBS=ON
-              -DCMAKE_C_COMPILER=clang-cl.exe
-              -DCMAKE_CXX_COMPILER=clang-cl.exe
               "-DD_COMPILER_FLAGS=-O -flto=thin -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
               -DEXTRA_CXXFLAGS=-flto=thin
 

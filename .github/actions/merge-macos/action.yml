@@ -41,6 +41,7 @@ runs:
         ios_version=${ios_triple_suffix:10}
 
         # ldc2.conf: replace the default section and add extra sections
+        # note: arm64-apple-ios section already exists
         sections="
         default:
         {
