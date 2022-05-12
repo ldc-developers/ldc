@@ -1,7 +1,7 @@
 # LDC master
 
 #### Big news
-- LLVM for prebuilt packages bumped to v14.0.0. (#3952)
+- LLVM for prebuilt packages bumped to v14.0.3. (#3952, #3979)
   - All LLVM targets are enabled now (=> more targets for cross-compilation).
   - For the Mac package, the minimum supported macOS version has been raised to v10.12.
 - The minimum D version for bootstrapping has been raised to v2.079 (for GDC: v9.4), in line with DMD. (#3956)

@@ -167,7 +167,7 @@ task:
   timeout_in: 60m
   environment:
     CI_OS: osx
-    LLVM_VERSION: 14.0.0
+    LLVM_VERSION: 14.0.3
     # OS is preset to `darwin`
     OS: osx
     PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
