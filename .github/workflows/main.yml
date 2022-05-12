@@ -1,3 +1,5 @@
+# https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions
+
 name: Main
 on:
   - pull_request
@@ -251,7 +253,7 @@ jobs:
 
   upload-to-github:
     name: Upload to GitHub
-    #if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master'
+    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs:

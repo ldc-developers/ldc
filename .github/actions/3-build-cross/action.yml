@@ -44,7 +44,7 @@ runs:
         if [[ '${{ inputs.os }}' == android ]]; then
           # Android: use a bash script template
           version="$(llvm/bin/llvm-config --version)" # from native LLVM
-          sed ldc/.azure-pipelines/android-llvm-config.in \
+          sed ldc/.github/actions/3-build-cross/android-llvm-config.in \
             -e "s|@LLVM_VERSION@|$version|g" \
             -e "s|@LLVM_INSTALL_DIR@|$PWD/llvm-cross|g" \
             -e "s|@LLVM_DEFAULT_TARGET_TRIPLE@|irrelevant-android-triple|g" \
