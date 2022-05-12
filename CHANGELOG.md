@@ -15,6 +15,9 @@
 
 #### Bug fixes
 
+#### Internals
+- Main CI was moved from Azure Pipelines to GitHub Actions. Any fork on GitHub can trivially reuse the fully automated prebuilt packages generation & upload to a GitHub release. (#3978)
+
 # LDC 1.29.0 (2022-04-08)
 
 #### Big news

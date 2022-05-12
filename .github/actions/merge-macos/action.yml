@@ -1,0 +1,144 @@
+name: Merge x86_64 & arm64 packages to universal one
+runs:
+  using: composite
+  steps:
+
+    - name: Download x86_64 artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: osx-x86_64
+        path: artifacts/
+    - name: Download arm64 artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: osx-arm64
+        path: artifacts/
+
+    - name: Extract & merge artifacts
+      shell: bash
+      run: |
+        set -euxo pipefail
+
+        mkdir ldc2-{x86_64,arm64}
+        tar -xf artifacts/ldc2-*-x86_64.tar.xz --strip 1 -C ldc2-x86_64
+        tar -xf artifacts/ldc2-*-arm64.tar.xz  --strip 1 -C ldc2-arm64
+
+        cp -R ldc2-x86_64 ldc2-universal
+        cd ldc2-universal
+
+        # rename/copy lib dirs
+        mv lib                            lib-x86_64
+        cp -R ../ldc2-arm64/lib           lib-arm64
+        cp -R ../ldc2-arm64/lib-ios-arm64 ./
+
+        # merge executables to universal ones
+        for exe in bin/*; do
+          rm $exe
+          lipo -create -output $exe ../ldc2-x86_64/$exe ../ldc2-arm64/$exe
+        done
+
+        ios_triple_suffix=$(grep -o -E '\-apple-ios[0-9\.]+' etc/ldc2.conf | head -n1)
+        ios_version=${ios_triple_suffix:10}
+
+        # ldc2.conf: replace the default section and add extra sections
+        # note: arm64-apple-ios section already exists
+        sections="
+        default:
+        {
+            // default switches injected before all explicit command-line switches
+            switches = [
+                \"-defaultlib=phobos2-ldc,druntime-ldc\",
+            ];
+            // default switches appended after all explicit command-line switches
+            post-switches = [
+                \"-I%%ldcbinarypath%%/../import\",
+            ];
+            // default directories to be searched for libraries when linking
+            lib-dirs = [];
+            // default rpath when linking against the shared default libs
+            rpath = \"\";
+        };
+
+        \"x86_64-apple-\":
+        {
+            switches = [
+                \"-defaultlib=phobos2-ldc,druntime-ldc\",
+                \"-Xcc=-target\",
+                \"-Xcc=x86_64-apple-macos\",
+            ];
+            lib-dirs = [
+                \"%%ldcbinarypath%%/../lib-x86_64\",
+            ];
+            rpath = \"%%ldcbinarypath%%/../lib-x86_64\";
+        };
+
+        \"arm64-apple-\":
+        {
+            switches = [
+                \"-defaultlib=phobos2-ldc,druntime-ldc\",
+                \"-Xcc=-target\",
+                \"-Xcc=arm64-apple-macos\",
+            ];
+            lib-dirs = [
+                \"%%ldcbinarypath%%/../lib-arm64\",
+            ];
+            rpath = \"%%ldcbinarypath%%/../lib-arm64\";
+        };
+
+        \"arm64-apple-ios\":
+        {
+            switches = [
+                \"-defaultlib=phobos2-ldc,druntime-ldc\",
+                \"-Xcc=-target\",
+                \"-Xcc=arm64-apple-ios$ios_version\",
+                \"-Xcc=-miphoneos-version-min=$ios_version\",
+                \"-Xcc=-isysroot\",
+                \"-Xcc=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk\",
+            ];
+            lib-dirs = [
+                \"%%ldcbinarypath%%/../lib-ios-arm64\",
+            ];
+            rpath = \"%%ldcbinarypath%%/../lib-ios-arm64\";
+        };"
+
+        perl -0777 -pi -e "s|\\ndefault:\\n.+?\\n\\};|$sections|s" etc/ldc2.conf
+        cat etc/ldc2.conf
+
+    - name: Run x86_64/arm64 macOS/iOS cross-compilation smoke tests
+      shell: bash
+      run: |
+        set -eux
+        echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > hello.d
+        for os in macos ios; do
+          for arch in x86_64 arm64; do
+            triple="$arch-apple-$os"
+            ldc2-universal/bin/ldc2 -mtriple="$triple" hello.d
+            ldc2-universal/bin/ldc2 -mtriple="$triple" hello.d -link-defaultlib-shared
+          done
+        done
+
+    - name: Pack universal package
+      shell: bash
+      run: |
+        set -eux
+        mkdir newArtifacts
+
+        if [[ '${{ github.ref }}' = refs/tags/v* ]]; then
+          artifactID='${{ github.ref }}'
+          artifactID="${artifactID:11}"
+        else
+          artifactID='${{ github.sha }}'
+          artifactID="${artifactID:0:8}"
+        fi
+
+        artifactName="ldc2-$artifactID-osx-universal"
+        mv ldc2-universal $artifactName
+        chmod -R go=rX $artifactName
+        sudo chown -R root:wheel $artifactName
+        tar -cJf newArtifacts/$artifactName.tar.xz --options='compression-level=9' $artifactName
+
+    - name: Upload universal package
+      uses: actions/upload-artifact@v3
+      with:
+        name: osx-universal
+        path: newArtifacts/

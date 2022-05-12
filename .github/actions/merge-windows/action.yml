@@ -1,0 +1,106 @@
+name: Merge x64 & x86 packages to multilib one & build installer
+runs:
+  using: composite
+  steps:
+
+    - name: Download x64 artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: windows-x64
+        path: artifacts/
+    - name: Download x86 artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: windows-x86
+        path: artifacts/
+
+    - name: Extract & merge artifacts
+      shell: bash
+      run: |
+        set -eux
+        7z x artifacts/ldc2-*-x64.7z >/dev/null
+        7z x artifacts/ldc2-*-x86.7z >/dev/null
+        mv ldc2-*-x86 ldc2-x86
+        mv ldc2-*-x64 ldc2-multilib
+        cd ldc2-multilib
+        mv lib lib64
+        cp -R ../ldc2-x86/lib lib32
+        cp ../ldc2-x86/bin/*.{dll,pdb} lib32/
+    - name: Merge ldc2.conf
+      shell: pwsh
+      run: |
+        cd ldc2-multilib
+        (cat etc\ldc2.conf).replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib64') | Set-Content etc\ldc2.conf
+        $conf32 = cat ..\ldc2-x86\etc\ldc2.conf -Raw
+        $conf32 = "`r`n""i[3-6]86-.*-windows-msvc"":" + $conf32.Substring($conf32.IndexOf("`r`ndefault:") + 10)
+        $conf32 = $conf32.Substring(0, $conf32.IndexOf("`r`n};`r`n") + 6)
+        $conf32 = $conf32.Replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib32')
+        Add-Content etc\ldc2.conf $conf32
+        cat etc\ldc2.conf
+
+    - name: Generate hello.d
+      shell: bash
+      run: |
+        set -eux
+        cat >hello.d <<EOF
+        void main() {
+          import std.process, std.stdio;
+          writefln("Hello world, %d bits", size_t.sizeof * 8);
+          assert(!environment.get("VSINSTALLDIR"));
+        }
+        EOF
+    - name: Run 32/64-bit hello-world smoke tests
+      shell: cmd
+      run: |
+        echo on
+        @echo Run 32/64-bit hello-world smoke test with internal toolchain
+        ldc2-multilib\bin\ldc2 -v -mscrtlib=vcruntime140 -run hello.d || exit /b
+        ldc2-multilib\bin\ldc2 -v -mscrtlib=vcruntime140 -m32 -run hello.d || exit /b
+
+        @echo Run 32/64-bit hello-world smoke test with MSVC auto-detection
+        ldc2-multilib\bin\ldc2 -v -run hello.d || exit /b
+        ldc2-multilib\bin\ldc2 -v -m32 -run hello.d || exit /b
+
+        @echo Run 32/64-bit hello-world smoke test with shared libs
+        set PATH=%CD%\ldc2-multilib\bin;%PATH%
+        ldc2-multilib\bin\ldc2 -link-defaultlib-shared -run hello.d || exit /b
+        set PATH=%CD%\ldc2-multilib\lib32;%PATH%
+        ldc2-multilib\bin\ldc2 -link-defaultlib-shared -m32 -run hello.d || exit /b
+
+    - name: Pack multilib package
+      shell: bash
+      run: |
+        set -eux
+        mkdir newArtifacts
+
+        if [[ '${{ github.ref }}' = refs/tags/v* ]]; then
+          artifactID='${{ github.ref }}'
+          artifactID="${artifactID:11}"
+        else
+          artifactID='${{ github.sha }}'
+          artifactID="${artifactID:0:8}"
+        fi
+
+        artifactName="ldc2-$artifactID-windows-multilib"
+        mv ldc2-multilib $artifactName
+        7z a -mx=9 newArtifacts/$artifactName.7z $artifactName >/dev/null
+
+        # export ARTIFACT_{ID,NAME}
+        echo "ARTIFACT_ID=$artifactID" >> $GITHUB_ENV
+        echo "ARTIFACT_NAME=$artifactName" >> $GITHUB_ENV
+
+    - name: Build installer
+      shell: cmd
+      run: |
+        echo on
+        "C:\Program Files (x86)\Inno Setup 6\iscc" ^
+          "/O%CD%\newArtifacts" ^
+          "/DLDCVersion=%ARTIFACT_ID%" ^
+          "/DLDCDir=%CD%\%ARTIFACT_NAME%" ^
+          packaging\windows_installer.iss
+
+    - name: Upload multilib package & installer
+      uses: actions/upload-artifact@v3
+      with:
+        name: windows-multilib
+        path: newArtifacts/

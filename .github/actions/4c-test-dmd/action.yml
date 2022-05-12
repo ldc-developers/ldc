@@ -1,0 +1,28 @@
+name: Run DMD testsuite
+inputs:
+  arch:
+    required: false # Windows only
+runs:
+  using: composite
+  steps:
+
+    - name: 'Posix: Run DMD testsuite'
+      if: runner.os != 'Windows'
+      shell: bash
+      run: cd ../build && ctest -V -R "dmd-testsuite"
+
+    - name: 'Windows: Run DMD testsuite'
+      if: runner.os == 'Windows'
+      shell: cmd
+      # temporarily set OS/MODEL & add druntime/Phobos DLL dir to PATH
+      run: |
+        echo on
+        cd .. || exit /b
+        set OS=windows
+        if "${{ inputs.arch }}" == x86 (set MODEL=32) else (set MODEL=64)
+        :: git's usr/bin/bash, unlike its bin/bash, leaves PATH as-is
+        set "PATH=%CD%\build\lib;C:\Program Files\Git\usr\bin;%PATH%"
+        call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=${{ inputs.arch }} || exit /b
+        echo on
+        cd build || exit /b
+        ctest -V -R "dmd-testsuite" || exit /b

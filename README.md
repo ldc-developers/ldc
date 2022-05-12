@@ -3,11 +3,11 @@ LDC – the LLVM-based D Compiler
 
 [![Latest release](https://img.shields.io/github/v/release/ldc-developers/ldc?include_prereleases&label=latest)][8]
 [![Latest stable release](https://img.shields.io/github/v/release/ldc-developers/ldc?label=stable)][0]
-[![Build status](https://img.shields.io/azure-devops/build/ldc-developers/ldc/1/master?label=Azure%20Pipelines&logo=Azure%20Pipelines)][1]
 [![Build status](https://img.shields.io/bitrise/1b36e52cf09e5308/master?label=Bitrise&logo=Bitrise&token=CSkvmRcSUiweaURFUJDMYw)][2]
 [![Build status](https://img.shields.io/circleci/project/github/ldc-developers/ldc/master?logo=CircleCI&label=CircleCI)][3]
 [![Build status](https://img.shields.io/cirrus/github/ldc-developers/ldc/master?label=Cirrus%20CI&logo=Cirrus%20CI)][4]
-[![Build status](https://img.shields.io/github/workflow/status/ldc-developers/ldc/Vanilla%20LLVM/master?label=GitHub%20Actions&logo=github)][7]
+[![Build status](https://img.shields.io/github/workflow/status/ldc-developers/ldc/Main/master?label=GitHub%20Actions%20%28main%29&logo=github)][7]
+[![Build status](https://img.shields.io/github/workflow/status/ldc-developers/ldc/Vanilla%20LLVM/master?label=GitHub%20Actions%20%28LLVM%29&logo=github)][7]
 [![Build status](https://img.shields.io/travis/com/ldc-developers/ldc/master?label=Travis%20CI&logo=Travis)][5]
 [![Bountysource](https://www.bountysource.com/badge/tracker?tracker_id=283332)][6]
 
@@ -115,7 +115,6 @@ Feedback of any kind is very much appreciated!
 
 
 [0]: https://github.com/ldc-developers/ldc/releases/latest
-[1]: https://dev.azure.com/ldc-developers/ldc/_build/latest?definitionId=1&branchName=master
 [2]: https://app.bitrise.io/app/1b36e52cf09e5308
 [3]: https://circleci.com/gh/ldc-developers/ldc/tree/master
 [4]: https://cirrus-ci.com/github/ldc-developers/ldc/master
