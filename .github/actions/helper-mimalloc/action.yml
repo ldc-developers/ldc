@@ -11,7 +11,8 @@ runs:
         set -eux
         cd ..
 
-        curl -fL --retry 3 --max-time 60 -o mimalloc.tar.gz "https://github.com/microsoft/mimalloc/archive/refs/tags/$(cat ldc/packaging/mimalloc_version).tar.gz"
+        curl -fL --retry 3 --max-time 60 -o mimalloc.tar.gz \
+          https://github.com/microsoft/mimalloc/archive/refs/tags/$(cat ldc/packaging/mimalloc_version).tar.gz
         mkdir mimalloc
         tar -xf mimalloc.tar.gz --strip 1 -C mimalloc
 

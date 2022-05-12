@@ -30,7 +30,8 @@ runs:
       run: |
         set -eux
         cd ..
-        curl -fL --retry 3 --max-time 300 -o clang.tar.xz https://github.com/llvm/llvm-project/releases/download/llvmorg-${{ inputs.clang_version }}/clang+llvm-${{ inputs.clang_version }}-x86_64-linux-gnu-ubuntu-18.04.tar.xz
+        curl -fL --retry 3 --max-time 300 -o clang.tar.xz \
+          https://github.com/llvm/llvm-project/releases/download/llvmorg-${{ inputs.clang_version }}/clang+llvm-${{ inputs.clang_version }}-x86_64-linux-gnu-ubuntu-18.04.tar.xz
         mkdir clang
         tar -xf clang.tar.xz --strip 1 -C clang
         rm clang.tar.xz
@@ -41,7 +42,8 @@ runs:
       run: |
         set -eux
         cd ..
-        curl -fL --retry 3 --max-time 300 -o clang.exe https://github.com/llvm/llvm-project/releases/download/llvmorg-${{ inputs.clang_version }}/LLVM-${{ inputs.clang_version }}-win64.exe
+        curl -fL --retry 3 --max-time 300 -o clang.exe \
+          https://github.com/llvm/llvm-project/releases/download/llvmorg-${{ inputs.clang_version }}/LLVM-${{ inputs.clang_version }}-win64.exe
         ./clang.exe //S # double-slash for bash
         rm clang.exe
         # C:\Program Files\LLVM\bin should already be in PATH
@@ -70,7 +72,8 @@ runs:
         fi
 
         if [[ '${{ runner.os }}' == Windows ]]; then
-          curl -fL --retry 3 --max-time 300 -o llvm.7z https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-windows-$arch$assertsSuffix.7z
+          curl -fL --retry 3 --max-time 300 -o llvm.7z \
+            https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-windows-$arch$assertsSuffix.7z
           mkdir llvm
           cd llvm
           7z x ../llvm.7z >/dev/null
@@ -82,7 +85,8 @@ runs:
           elif [[ '${{ runner.os }}' == macOS ]]; then
             os=osx
           fi
-          curl -fL --retry 3 --max-time 300 -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-$os-$arch$assertsSuffix.tar.xz
+          curl -fL --retry 3 --max-time 300 -o llvm.tar.xz \
+            https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-$os-$arch$assertsSuffix.tar.xz
           mkdir llvm
           tar -xf llvm.tar.xz --strip 1 -C llvm
           rm llvm.tar.xz
@@ -102,7 +106,7 @@ runs:
       uses: seanmiddleditch/gha-setup-ninja@v3
 
     - name: Install D host compiler
-      uses: dlang-community/setup-dlang@v1.0.6
+      uses: dlang-community/setup-dlang@v1
       with:
         compiler: ldc-latest
     - name: 'Posix: Clear LD_LIBRARY_PATH env variable' # don't use host druntime/Phobos .so/.dylib etc.
@@ -131,7 +135,8 @@ runs:
       run: |
         set -eux
         cd ..
-        curl -fL --retry 3 --max-time 60 -o libcurl.7z https://github.com/ldc-developers/mingw-w64-libs/releases/download/v8.0.0/libcurl-7.74.0-zlib-static-ipv6-sspi-schannel.7z
+        curl -fL --retry 3 --max-time 60 -o libcurl.7z \
+          https://github.com/ldc-developers/mingw-w64-libs/releases/download/v8.0.0/libcurl-7.74.0-zlib-static-ipv6-sspi-schannel.7z
         mkdir libcurl
         cd libcurl
         7z x ../libcurl.7z >/dev/null

@@ -31,7 +31,7 @@ runs:
           tag=CI
         fi
         curl -fL --retry 3 --max-time 300 -o llvm-cross.tar.xz \
-          "https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-${{ inputs.os }}-${{ inputs.arch }}.tar.xz"
+          https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-${{ inputs.os }}-${{ inputs.arch }}.tar.xz
         mkdir llvm-cross
         tar -xf llvm-cross.tar.xz --strip 1 -C llvm-cross
         rm llvm-cross.tar.xz
@@ -77,7 +77,7 @@ runs:
         cd ..
         version='${{ inputs.android_ndk_version }}'
         curl -fL --retry 3 --max-time 300 -o android-ndk.zip \
-          "https://dl.google.com/android/repository/android-ndk-$version-linux-x86_64.zip"
+          https://dl.google.com/android/repository/android-ndk-$version-linux-x86_64.zip
         unzip android-ndk.zip >/dev/null
         mv "android-ndk-$version" android-ndk
         rm android-ndk.zip
