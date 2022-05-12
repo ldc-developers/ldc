@@ -34,12 +34,19 @@ STATISTIC(NumRelocations,
           "Total number of patched references to dllimported globals");
 
 namespace {
-struct LLVM_LIBRARY_VISIBILITY DLLImportRelocation : public ModulePass {
-  static char ID; // Pass identification, replacement for typeid
-  DLLImportRelocation() : ModulePass(ID) {}
+struct LLVM_LIBRARY_VISIBILITY DLLImportRelocation {
 
   // Returns true if the module has been changed.
-  bool runOnModule(Module &m) override;
+  bool run(Module &m);
+};
+
+struct LLVM_LIBRARY_VISIBILITY DLLImportRelocationLegacyPass : public ModulePass {
+  static char ID; // Pass identification, replacement for typeid
+  DLLImportRelocationLegacyPass() : ModulePass(ID) {}
+
+  DLLImportRelocation pass;
+  // Returns true if the module has been changed.
+  bool runOnModule(Module &m) override { return pass.run(m); };
 };
 
 struct Impl {
@@ -251,16 +258,16 @@ private:
 };
 }
 
-char DLLImportRelocation::ID = 0;
-static RegisterPass<DLLImportRelocation>
+char DLLImportRelocationLegacyPass::ID = 0;
+static RegisterPass<DLLImportRelocationLegacyPass>
     X("dllimport-relocation",
       "Patch references to dllimported globals in static initializers");
 
 ModulePass *createDLLImportRelocationPass() {
-  return new DLLImportRelocation();
+  return new DLLImportRelocationLegacyPass();
 }
 
-bool DLLImportRelocation::runOnModule(Module &m) {
+bool DLLImportRelocation::run(Module &m) {
   Impl impl(m);
   bool hasChanged = false;
 

@@ -31,23 +31,30 @@ STATISTIC(NumFunctions, "Number of function bodies removed");
 STATISTIC(NumVariables, "Number of global initializers removed");
 
 namespace {
-struct LLVM_LIBRARY_VISIBILITY StripExternals : public ModulePass {
-  static char ID; // Pass identification, replacement for typeid
-  StripExternals() : ModulePass(ID) {}
-
+struct LLVM_LIBRARY_VISIBILITY StripExternals {
   // run - Do the StripExternals pass on the specified module.
   //
-  bool runOnModule(Module &M) override;
+  bool run(Module &M);
+};
+
+
+struct LLVM_LIBRARY_VISIBILITY StripExternalsLegacyPass : public ModulePass {
+  static char ID; // Pass identification, replacement for typeid
+  StripExternalsLegacyPass() : ModulePass(ID) {}
+  StripExternals pass;
+  // run - Do the StripExternals pass on the specified module.
+  //
+    bool runOnModule(Module &M) override { return pass.run(M); };
 };
 }
 
-char StripExternals::ID = 0;
-static RegisterPass<StripExternals>
+char StripExternalsLegacyPass::ID = 0;
+static RegisterPass<StripExternalsLegacyPass>
     X("strip-externals", "Strip available_externally bodies and initializers");
 
-ModulePass *createStripExternalsPass() { return new StripExternals(); }
+ModulePass *createStripExternalsPass() { return new StripExternalsLegacyPass(); }
 
-bool StripExternals::runOnModule(Module &M) {
+bool StripExternals::run(Module &M) {
   bool Changed = false;
 
   for (auto I = M.begin(); I != M.end();) {
