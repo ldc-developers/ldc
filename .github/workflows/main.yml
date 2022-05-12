@@ -1,0 +1,263 @@
+# https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions
+
+name: Main
+on:
+  - pull_request
+  - push
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CLANG_VERSION: 14.0.0
+  LLVM_VERSION: 14.0.3
+
+jobs:
+  build-native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+
+          - job_name: Linux x86_64 multilib
+            os: ubuntu-18.04
+            arch: x86_64
+            bootstrap_cmake_flags: -DBUILD_LTO_LIBS=ON
+            # To improve portability of the generated binaries, link the C++ standard library statically.
+            extra_cmake_flags: >-
+              -DMULTILIB=ON
+              -DBUILD_LTO_LIBS=ON
+              -DCMAKE_C_COMPILER=/home/runner/work/ldc/clang/bin/clang
+              -DCMAKE_CXX_COMPILER=/home/runner/work/ldc/clang/bin/clang++
+              -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++
+              -DJITRT_EXTRA_LDFLAGS=-static-libstdc++
+              -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
+              -DEXTRA_CXXFLAGS=-flto=full
+
+          - job_name: macOS x86_64
+            os: macos-11
+            arch: x86_64
+            bootstrap_cmake_flags: >-
+              -DBUILD_LTO_LIBS=ON
+              -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++
+            extra_cmake_flags: >-
+              -DBUILD_LTO_LIBS=ON
+              -DD_COMPILER_FLAGS="-gcc=/usr/bin/c++ -O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
+              -DEXTRA_CXXFLAGS=-flto=full
+
+          - job_name: Windows x64
+            os: windows-2019
+            arch: x64
+            bootstrap_cmake_flags: -DBUILD_LTO_LIBS=ON
+            extra_cmake_flags: >-
+              -DBUILD_LTO_LIBS=ON
+              "-DD_COMPILER_FLAGS=-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
+              -DEXTRA_CXXFLAGS=-flto=full
+
+          - job_name: Windows x86
+            os: windows-2019
+            arch: x86
+            bootstrap_cmake_flags: -DBUILD_LTO_LIBS=ON
+            # Undefined symbol errors with FullLTO; ThinLTO works.
+            extra_cmake_flags: >-
+              -DBUILD_LTO_LIBS=ON
+              "-DD_COMPILER_FLAGS=-O -flto=thin -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
+              -DEXTRA_CXXFLAGS=-flto=thin
+
+    name: ${{ matrix.job_name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    env:
+      MACOSX_DEPLOYMENT_TARGET: 10.12
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+          fetch-depth: 50
+      - name: Install prerequisites
+        uses: ./.github/actions/1-setup
+        with:
+          clang_version: ${{ env.CLANG_VERSION }}
+          llvm_version: ${{ env.LLVM_VERSION }}
+          arch: ${{ matrix.arch }}
+      - name: Build bootstrap LDC
+        uses: ./.github/actions/2-build-bootstrap
+        with:
+          cmake_flags: ${{ matrix.bootstrap_cmake_flags }}
+          arch: ${{ matrix.arch }}
+      - name: Build LDC & LDC D unittests & defaultlib unittest runners
+        uses: ./.github/actions/3-build-native
+        with:
+          cmake_flags: ${{ matrix.extra_cmake_flags }}
+          arch: ${{ matrix.arch }}
+
+      - name: Run LDC D unittests
+        if: success() || failure()
+        uses: ./.github/actions/4a-test-ldc2
+      - name: Run LIT testsuite
+        if: success() || failure()
+        uses: ./.github/actions/4b-test-lit
+        with:
+          arch: ${{ matrix.arch }}
+      - name: Run DMD testsuite
+        if: success() || failure()
+        uses: ./.github/actions/4c-test-dmd
+        with:
+          arch: ${{ matrix.arch }}
+      - name: Run defaultlib unittests & druntime integration tests
+        if: success() || failure()
+        uses: ./.github/actions/4d-test-libs
+        with:
+          arch: ${{ matrix.arch }}
+
+      - name: Install LDC & make portable
+        uses: ./.github/actions/5-install
+        with:
+          arch: ${{ matrix.arch }}
+      - name: 'macOS: Cross-compile iOS libraries, copy to install dir & extend ldc2.conf'
+        if: runner.os == 'macOS'
+        uses: ./.github/actions/5a-ios
+        with:
+          arch: ${{ matrix.arch }}
+
+      - name: Run a few integration tests against the installed compiler
+        uses: ./.github/actions/6-integration-test
+      - name: 'macOS: Run iOS cross-compilation integration test'
+        if: runner.os == 'macOS'
+        run: |
+          set -eux
+          cd ..
+          triple='${{ matrix.arch }}-apple-ios'
+          installed/bin/ldc2 -mtriple="$triple" hello.d -of=hello_ios
+          installed/bin/ldc2 -mtriple="$triple" hello.d -of=hello_ios_shared -link-defaultlib-shared
+
+      - name: Create package & upload artifact(s)
+        uses: ./.github/actions/7-package
+        with:
+          arch: ${{ matrix.arch }}
+
+
+  # Cross-compilation jobs for non-native targets.
+  # druntime/Phobos/LDC unittests aren't built; all test stages are skipped.
+  build-cross:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+
+          - job_name: macOS arm64
+            host_os: macos-11
+            os: osx
+            arch: arm64
+            bootstrap_cmake_flags: -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++
+            extra_cmake_flags: >-
+              -DBUILD_LTO_LIBS=ON
+              -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
+              -DEXTRA_CXXFLAGS=-flto=full
+
+          - job_name: Android armv7a
+            host_os: ubuntu-18.04
+            os: android
+            arch: armv7a
+            android_x86_arch: i686
+
+          - job_name: Android aarch64
+            host_os: ubuntu-18.04
+            os: android
+            arch: aarch64
+            android_x86_arch: x86_64
+            extra_cmake_flags: >-
+              -DLDC_INSTALL_LLVM_RUNTIME_LIBS_OS=linux
+              -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64-android
+
+    name: ${{ matrix.job_name }}
+    runs-on: ${{ matrix.host_os }}
+    timeout-minutes: 60
+    env:
+      MACOSX_DEPLOYMENT_TARGET: 11.0
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+          fetch-depth: 50
+      - name: Install prerequisites
+        uses: ./.github/actions/1-setup
+        with:
+          clang_version: ${{ env.CLANG_VERSION }}
+          llvm_version: ${{ env.LLVM_VERSION }}
+          arch: x86_64
+      - name: Build bootstrap LDC
+        uses: ./.github/actions/2-build-bootstrap
+        with:
+          cmake_flags: ${{ matrix.bootstrap_cmake_flags }}
+      - name: Cross-compile LDC to ${{ matrix.os }}-${{ matrix.arch }}
+        uses: ./.github/actions/3-build-cross
+        with:
+          arch: ${{ matrix.arch }}
+          os: ${{ matrix.os }}
+          llvm_version: ${{ env.LLVM_VERSION }}
+          cmake_flags: ${{ matrix.extra_cmake_flags }}
+
+      - name: Install LDC & make portable
+        uses: ./.github/actions/5-install
+        with:
+          cross_compiling: true
+      - name: 'macOS: Cross-compile iOS libraries, copy to install dir & extend ldc2.conf'
+        if: matrix.os == 'osx'
+        uses: ./.github/actions/5a-ios
+        with:
+          arch: ${{ matrix.arch }}
+      - name: 'Android: Cross-compile ${{ matrix.android_x86_arch }} libraries & copy to install dir'
+        if: matrix.os == 'android'
+        uses: ./.github/actions/5a-android-x86
+        with:
+          arch: ${{ matrix.android_x86_arch }}
+
+      - name: Create package & upload artifact(s)
+        uses: ./.github/actions/7-package
+        with:
+          arch: ${{ matrix.arch }}
+          os: ${{ matrix.os }}
+          cross_target_triple: ${{ env.CROSS_TRIPLE }}
+
+
+  merge-macos:
+    name: macOS universal
+    runs-on: macos-latest
+    timeout-minutes: 30
+    needs:
+      - build-native
+      - build-cross
+    steps:
+      - uses: actions/checkout@v3
+      - name: Merge x86_64 & arm64 packages to universal one
+        uses: ./.github/actions/merge-macos
+
+  merge-windows:
+    name: Windows multilib
+    runs-on: windows-latest
+    timeout-minutes: 30
+    needs: build-native
+    steps:
+      - uses: actions/checkout@v3
+      - name: Merge x64 & x86 packages to multilib one & build installer
+        uses: ./.github/actions/merge-windows
+
+
+  upload-to-github:
+    name: Upload to GitHub
+    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs:
+      - build-native
+      - build-cross
+      - merge-macos
+      - merge-windows
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+      - name: Upload all artifacts to GitHub release
+        uses: ./.github/actions/upload-to-github

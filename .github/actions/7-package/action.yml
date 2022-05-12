@@ -1,0 +1,152 @@
+name: Create package & upload artifact(s)
+inputs:
+  arch:
+    required: true
+  os:
+    required: false
+    default: '' # native
+  cross_target_triple:
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+
+    - name: Set DMD environment variable
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+        if [[ '${{ inputs.cross_target_triple }}' != '' ]]; then
+          DMD="$PWD/bootstrap-ldc/bin/ldmd2"
+        else
+          DMD="$PWD/installed/bin/ldmd2"
+        fi
+        echo "DMD=$DMD" >> $GITHUB_ENV
+
+    - name: Build & copy dub
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+        git clone --recursive https://github.com/dlang/dub.git
+        cd dub
+        git checkout "$(cat ../ldc/packaging/dub_version)"
+
+        DFLAGS='' $DMD -run build.d -O -w -linkonce-templates ${DFLAGS:-}
+        cp bin/dub ../installed/bin/
+
+        if [[ '${{ inputs.cross_target_triple }}' == '' ]]; then
+          ../installed/bin/dub --version
+        fi
+
+    - name: Build & copy dlang tools
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+        git clone --recursive https://github.com/dlang/tools.git dlang-tools
+        cd dlang-tools
+        git checkout "$(cat ../ldc/packaging/dlang-tools_version)"
+
+        mkdir bin
+        $DMD -w -de -dip1000 rdmd.d -of=bin/rdmd
+        $DMD -w -de -dip1000 ddemangle.d -of=bin/ddemangle
+        $DMD -w -de -dip1000 DustMite/dustmite.d DustMite/splitter.d DustMite/polyhash.d -of=bin/dustmite
+        cp bin/{rdmd,ddemangle,dustmite} ../installed/bin/
+
+    - name: Build & copy reggae
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+        git clone --recursive https://github.com/atilaneves/reggae.git
+        cd reggae
+        git checkout "$(cat ../ldc/packaging/reggae_version)"
+
+        archFlag=''
+        if [[ '${{ inputs.cross_target_triple }}' != '' ]]; then
+          archFlag='--arch=${{ inputs.cross_target_triple }}'
+        fi
+
+        # use host compiler's dub, which is guaranteed to be native
+        DFLAGS="-O -linkonce-templates ${DFLAGS:-}" dub build -v \
+          --build-mode=allAtOnce --combined $archFlag \
+          --compiler="$(dirname "$DMD")/ldc2"
+        cp bin/reggae ../installed/bin/
+
+        if [[ '${{ inputs.cross_target_triple }}' == '' ]]; then
+          ../installed/bin/reggae --version -b ninja
+        fi
+
+    - name: Pack installation dir
+      shell: bash
+      run: |
+        set -euxo pipefail
+        cd ..
+        mkdir artifacts
+
+        if [[ '${{ github.ref }}' = refs/tags/v* ]]; then
+          artifactID='${{ github.ref }}'
+          artifactID="${artifactID:11}"
+        else
+          artifactID='${{ github.sha }}'
+          artifactID="${artifactID:0:8}"
+        fi
+
+        os='${{ inputs.os }}'
+        if [[ "$os" == '' ]]; then
+          if [[ '${{ runner.os }}' == Linux ]]; then
+            os=linux
+          elif [[ '${{ runner.os }}' == macOS ]]; then
+            os=osx
+          elif [[ '${{ runner.os }}' == Windows ]]; then
+            os=windows
+          else
+            echo "Error: unknown OS '${{ runner.os }}'"
+            exit 1
+          fi
+        fi
+
+        artifactName="ldc2-$artifactID-$os-${{ inputs.arch }}"
+        mv installed $artifactName
+        if [[ '${{ runner.os }}' == Windows ]]; then
+          7z a -mx=9 artifacts/$artifactName.7z $artifactName >/dev/null
+        else
+          chmod -R go=rX $artifactName
+          if [[ '${{ runner.os }}' == macOS ]]; then
+            sudo chown -R root:wheel $artifactName
+            tar -cJf artifacts/$artifactName.tar.xz --options='compression-level=9' $artifactName
+          else
+            tar -cf - --owner=0 --group=0 $artifactName | 7za a artifacts/$artifactName.tar.xz -si -txz -mx9
+          fi
+        fi
+
+        # export ARTIFACT_{ID,NAME}
+        echo "ARTIFACT_ID=$artifactID" >> $GITHUB_ENV
+        echo "ARTIFACT_NAME=$os-${{ inputs.arch }}" >> $GITHUB_ENV
+
+    - name: 'Linux: Pack source dir'
+      if: runner.os == 'Linux' && inputs.os == ''
+      shell: bash
+      run: |
+        set -eux
+        git clean -dffx
+        git submodule foreach git clean -dffx
+        cd ..
+        artifactName="ldc-$ARTIFACT_ID-src"
+        chmod -R go=rX ldc
+        GZIP=-9 tar -czf artifacts/$artifactName.tar.gz --exclude-vcs --owner=0 --group=0 --transform="s,^ldc,$artifactName," ldc
+        # unpack & create zip
+        tar -xf artifacts/$artifactName.tar.gz
+        zip -r -9 artifacts/$artifactName.zip $artifactName >/dev/null
+
+    - name: 'Move artifacts dir for uploading'
+      shell: bash
+      run: mv ../artifacts ./
+
+    - name: Upload artifact(s)
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ env.ARTIFACT_NAME }}
+        path: artifacts/
