@@ -82,7 +82,7 @@ runs:
         fi
 
         artifactName="ldc2-$artifactID-windows-multilib"
-        mv ldc2-multilib $artifactName
+        cp -R ldc2-multilib $artifactName # copy, not move - sporadic 'permission denied' errors…
         7z a -mx=9 newArtifacts/$artifactName.7z $artifactName >/dev/null
 
         # export ARTIFACT_{ID,NAME}
