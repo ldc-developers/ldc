@@ -2,7 +2,6 @@
 
 #### Big news
 - Frontend, druntime and Phobos are at version [2.100.0](https://dlang.org/changelog/2.100.0.html). (#3970)
-- LLVM for prebuilt packages bumped to v14.0.0. (#3952)
 - LLVM for prebuilt packages bumped to v14.0.3. (#3952, #3979)
   - All LLVM targets are enabled now (=> more targets for cross-compilation).
   - For the Mac package, the minimum supported macOS version has been raised to v10.12.
