@@ -1,0 +1,26 @@
+name: Build LDC with PGO instrumentation & gather profile from compiling default libs
+inputs:
+  cmake_flags:
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+
+    - name: Build LDC with PGO instrumentation & gather profiles from compiling default libs
+      uses: ./.github/actions/helper-build-ldc
+      with:
+        build_dir: pgo-ldc
+        host_dc: ../bootstrap-ldc/bin/ldmd2
+        cmake_flags: >-
+          -DBUILD_SHARED_LIBS=OFF
+          -DDFLAGS_LDC="-fprofile-instr-generate=$PWD/%p.profraw"
+          ${{ inputs.cmake_flags }}
+
+    - name: Merge PGO profiles # to ../pgo-ldc/merged.profdata
+      shell: bash
+      run: |
+        set -eux
+        cd ../pgo-ldc
+        ../bootstrap-ldc/bin/ldc-profdata merge --output=merged.profdata *.profraw
+        ls -lh *.prof{data,raw}

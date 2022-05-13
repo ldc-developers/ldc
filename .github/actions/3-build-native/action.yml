@@ -5,6 +5,9 @@ inputs:
     default: ''
   arch:
     required: false # Windows only
+  with_pgo:
+    required: false
+    default: false
 runs:
   using: composite
   steps:
@@ -22,6 +25,7 @@ runs:
         cmake_flags: >-
           ${{ runner.os != 'Windows' && '-DALTERNATIVE_MALLOC_O="$PWD/../build-mimalloc/CMakeFiles/mimalloc-obj.dir/src/static.c.o"' || '' }}
           ${{ inputs.cmake_flags }}
+          ${{ inputs.with_pgo == 'true' && '-DDFLAGS_LDC=-fprofile-instr-use=../pgo-ldc/merged.profdata' || '' }}
         build_targets: all ldc2-unittest all-test-runners
         arch: ${{ inputs.arch }}
 

@@ -444,7 +444,6 @@ endif()
 #
 # Configure the build system to use LTO and/or PGO while building LDC
 #
-set(DFLAGS_LDC "")
 include(HandleLTOPGOBuildOptions)
 
 #

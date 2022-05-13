@@ -34,6 +34,7 @@ jobs:
               -DJITRT_EXTRA_LDFLAGS=-static-libstdc++
               -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
               -DEXTRA_CXXFLAGS=-flto=full
+            with_pgo: true
 
           - job_name: macOS x86_64
             os: macos-11
@@ -86,11 +87,17 @@ jobs:
         with:
           cmake_flags: ${{ matrix.bootstrap_cmake_flags }}
           arch: ${{ matrix.arch }}
+      - name: Build LDC with PGO instrumentation & gather profile from compiling default libs
+        if: matrix.with_pgo
+        uses: ./.github/actions/2a-build-pgo
+        with:
+          cmake_flags: ${{ matrix.bootstrap_cmake_flags }}
       - name: Build LDC & LDC D unittests & defaultlib unittest runners
         uses: ./.github/actions/3-build-native
         with:
           cmake_flags: ${{ matrix.extra_cmake_flags }}
           arch: ${{ matrix.arch }}
+          with_pgo: ${{ matrix.with_pgo }}
 
       - name: Run LDC D unittests
         if: success() || failure()
