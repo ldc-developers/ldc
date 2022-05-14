@@ -14,7 +14,7 @@ runs:
         host_dc: ../bootstrap-ldc/bin/ldmd2
         cmake_flags: >-
           -DBUILD_SHARED_LIBS=OFF
-          -DDFLAGS_LDC="-fprofile-instr-generate=$PWD/%p.profraw"
+          -DDFLAGS_LDC="-fprofile-generate=$PWD/%p.profraw"
           ${{ inputs.cmake_flags }}
 
     - name: Merge PGO profiles # to ../pgo-ldc/merged.profdata
