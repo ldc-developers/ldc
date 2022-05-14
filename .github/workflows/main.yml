@@ -56,6 +56,7 @@ jobs:
               -DBUILD_LTO_LIBS=ON
               "-DD_COMPILER_FLAGS=-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
               -DEXTRA_CXXFLAGS=-flto=full
+            with_pgo: true
 
           - job_name: Windows x86
             os: windows-2019
@@ -66,6 +67,7 @@ jobs:
               -DBUILD_LTO_LIBS=ON
               "-DD_COMPILER_FLAGS=-O -flto=thin -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
               -DEXTRA_CXXFLAGS=-flto=thin
+            with_pgo: true
 
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
@@ -93,6 +95,7 @@ jobs:
         uses: ./.github/actions/2a-build-pgo
         with:
           cmake_flags: ${{ matrix.bootstrap_cmake_flags }}
+          arch: ${{ matrix.arch }}
       - name: Build LDC & LDC D unittests & defaultlib unittest runners
         uses: ./.github/actions/3-build-native
         with:
