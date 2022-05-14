@@ -9,6 +9,9 @@ inputs:
   cmake_flags:
     required: false
     default: ''
+  with_pgo:
+    required: false
+    default: false
   android_ndk_version:
     required: false
     default: r21e
@@ -140,5 +143,6 @@ runs:
           -DCMAKE_CROSSCOMPILING=True
           ${{ inputs.os == 'osx' && '-DALTERNATIVE_MALLOC_O="$PWD/../build-mimalloc/CMakeFiles/mimalloc-obj.dir/src/static.c.o"' || '' }}
           ${{ inputs.cmake_flags }}
+          ${{ inputs.with_pgo == 'true' && '-DDFLAGS_LDC=-fprofile-use=../pgo-ldc/merged.profdata' || '' }}
           ${{ env.CROSS_CMAKE_FLAGS }}
         build_targets: ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache
