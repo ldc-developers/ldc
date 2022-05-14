@@ -9,44 +9,22 @@ runs:
   using: composite
   steps:
 
-    - name: 'Posix: Build bootstrap LDC'
-      if: runner.os != 'Windows'
+    - name: Check CMake and ninja versions
       shell: bash
       run: |
         set -eux
-        cd ..
         cmake --version
         ninja --version
-        mkdir bootstrap-ldc
-        cd bootstrap-ldc
-        cmake -G Ninja ../ldc \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DLLVM_ROOT_DIR="$PWD/../llvm" \
-          -DD_COMPILER=ldmd2 \
-          -DBUILD_SHARED_LIBS=OFF \
-          -DLDC_LINK_MANUALLY=OFF \
+
+    - name: Build bootstrap LDC
+      uses: ./.github/actions/helper-build-ldc
+      with:
+        build_dir: bootstrap-ldc
+        host_dc: ldmd2
+        cmake_flags: >-
+          -DBUILD_SHARED_LIBS=OFF
           ${{ inputs.cmake_flags }}
-        ninja
-    # Windows: invoke CMake & ninja in MSVC env
-    - name: 'Windows: Build bootstrap LDC'
-      if: runner.os == 'Windows'
-      shell: cmd
-      run: |
-        call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=${{ inputs.arch }} || exit /b
-        echo on
-        cd .. || exit /b
-        mkdir bootstrap-ldc || exit /b
-        cd bootstrap-ldc || exit /b
-        cmake -G Ninja ../ldc ^
-          -DCMAKE_BUILD_TYPE=Release ^
-          "-DLLVM_ROOT_DIR=%CD%\..\llvm" ^
-          -DD_COMPILER=ldmd2 ^
-          -DBUILD_SHARED_LIBS=OFF ^
-          -DCMAKE_C_COMPILER=clang-cl ^
-          -DCMAKE_CXX_COMPILER=clang-cl ^
-          ${{ inputs.cmake_flags }}
-        if %errorlevel% neq 0 exit /b %errorlevel%
-        ninja || exit /b
+        arch: ${{ inputs.arch }}
 
     - run: ../bootstrap-ldc/bin/ldc2 --version
       shell: bash

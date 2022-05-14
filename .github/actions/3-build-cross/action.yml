@@ -89,7 +89,7 @@ runs:
 
         arch='${{ inputs.arch }}'
         apiLevel='${{ inputs.android_api_level }}'
-        cmakeFlags='-DTARGET_SYSTEM=Android;Linux;UNIX'
+        cmakeFlags="-DTARGET_SYSTEM='Android;Linux;UNIX'"
         if [[ "$arch" == armv7a ]]; then
           triple="$arch-linux-androideabi$apiLevel"
           cmakeFlags+=' -DANDROID_ABI=armeabi-v7a'
@@ -100,7 +100,7 @@ runs:
         cmakeFlags+=" -DANDROID_NATIVE_API_LEVEL=$apiLevel"
         cmakeFlags+=" -DANDROID_STL=c++_static"
         cmakeFlags+=" -DCMAKE_TOOLCHAIN_FILE=$toolchainFile"
-        cmakeFlags+=" -DLDC_LINK_MANUALLY=ON -DD_LINKER_ARGS=-fuse-ld=bfd;-L$PWD/build-cross-libs/lib;-lphobos2-ldc;-ldruntime-ldc"
+        cmakeFlags+=" -DLDC_LINK_MANUALLY=ON -DD_LINKER_ARGS='-fuse-ld=bfd;-L$PWD/build-cross-libs/lib;-lphobos2-ldc;-ldruntime-ldc'"
 
         echo "DFLAGS=-mtriple=$triple -fvisibility=hidden -L-L$PWD/build-cross-libs/lib -gcc=$PWD/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/$triple-clang" >> $GITHUB_ENV
         echo "CROSS_TRIPLE=$triple" >> $GITHUB_ENV
@@ -130,26 +130,15 @@ runs:
           "${flags[@]}"
 
     - name: Cross-compile LDC executables
-      shell: bash
-      run: |
-        set -eux
-        cd ..
-
-        mimallocFlag=''
-        if [[ -d build-mimalloc ]]; then
-          mimallocFlag="-DALTERNATIVE_MALLOC_O=$PWD/build-mimalloc/CMakeFiles/mimalloc-obj.dir/src/static.c.o"
-        fi
-
-        installDir="$PWD/install"
-        mkdir build-cross
-        cd build-cross
-        cmake -G Ninja ../ldc \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DLLVM_ROOT_DIR="$PWD/../llvm-cross" \
-          -DD_COMPILER="$PWD/../bootstrap-ldc/bin/ldmd2" \
-          -DCMAKE_INSTALL_PREFIX="$installDir" \
-          -DINCLUDE_INSTALL_DIR="$installDir/import" \
-          -DLDC_LINK_MANUALLY=OFF \
-          -DCMAKE_CROSSCOMPILING=True \
-          $mimallocFlag ${{ inputs.cmake_flags }} $CROSS_CMAKE_FLAGS
-        ninja ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache
+      uses: ./.github/actions/helper-build-ldc
+      with:
+        build_dir: build-cross
+        host_dc: ../bootstrap-ldc/bin/ldmd2
+        llvm_dir: llvm-cross
+        specify_install_dir: true
+        cmake_flags: >-
+          -DCMAKE_CROSSCOMPILING=True
+          ${{ inputs.os == 'osx' && '-DALTERNATIVE_MALLOC_O="$PWD/../build-mimalloc/CMakeFiles/mimalloc-obj.dir/src/static.c.o"' || '' }}
+          ${{ inputs.cmake_flags }}
+          ${{ env.CROSS_CMAKE_FLAGS }}
+        build_targets: ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache

@@ -1,0 +1,65 @@
+name: Build LDC
+inputs:
+  build_dir: # name only, with implicit ../ prefix
+    required: true
+  host_dc:
+    required: true
+  llvm_dir: # name only, with implicit ../ prefix
+    required: false
+    default: llvm
+  specify_install_dir:
+    required: false
+    default: false
+  cmake_flags:
+    required: false
+    default: ''
+  build_targets:
+    required: false
+    default: '' # all
+  arch:
+    required: false # Windows only
+runs:
+  using: composite
+  steps:
+
+    - if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+        installDir="$PWD/install"
+        mkdir '${{ inputs.build_dir }}'
+        cd '${{ inputs.build_dir }}'
+        cmake -G Ninja ../ldc \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DLLVM_ROOT_DIR="$PWD/../${{ inputs.llvm_dir }}" \
+          -DD_COMPILER='${{ inputs.host_dc }}' \
+          -DLDC_LINK_MANUALLY=OFF \
+          ${{ inputs.specify_install_dir == 'true' && '-DCMAKE_INSTALL_PREFIX="$installDir"' || '' }} \
+          ${{ inputs.specify_install_dir == 'true' && '-DINCLUDE_INSTALL_DIR="$installDir/import"' || '' }} \
+          ${{ inputs.cmake_flags }}
+
+        ninja ${{ inputs.build_targets }}
+
+    # Windows: invoke CMake & ninja in MSVC env
+    - if: runner.os == 'Windows'
+      shell: cmd
+      run: |
+        call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=${{ inputs.arch }} || exit /b
+        echo on
+        cd .. || exit /b
+        set installDir=%CD%\install
+        mkdir "${{ inputs.build_dir }}" || exit /b
+        cd "${{ inputs.build_dir }}" || exit /b
+        cmake -G Ninja ..\ldc ^
+          -DCMAKE_BUILD_TYPE=Release ^
+          "-DLLVM_ROOT_DIR=%CD%\..\${{ inputs.llvm_dir }}" ^
+          "-DD_COMPILER=${{ inputs.host_dc }}" ^
+          -DCMAKE_C_COMPILER=clang-cl ^
+          -DCMAKE_CXX_COMPILER=clang-cl ^
+          ${{ inputs.specify_install_dir == 'true' && '"-DCMAKE_INSTALL_PREFIX=%installDir%"' || '' }} ^
+          ${{ inputs.specify_install_dir == 'true' && '"-DINCLUDE_INSTALL_DIR=%installDir%\import"' || '' }} ^
+          ${{ inputs.cmake_flags }}
+        if %errorlevel% neq 0 exit /b %errorlevel%
+
+        ninja ${{ inputs.build_targets }} || exit /b
