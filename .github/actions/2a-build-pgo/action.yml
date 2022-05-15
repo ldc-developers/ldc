@@ -1,6 +1,6 @@
 name: Build LDC with PGO instrumentation & gather profile from compiling default libs
 inputs:
-  cmake_flags:
+  extra_d_flags: # applying to the D executables, not the runtime
     required: false
     default: ''
   arch:
@@ -18,7 +18,8 @@ runs:
         cmake_flags: >-
           -DBUILD_SHARED_LIBS=OFF
           "-DDFLAGS_LDC=-fprofile-generate -vp-counters-per-site=1.5"
-          ${{ inputs.cmake_flags }}
+        #  -DEXTRA_CXXFLAGS=-fprofile-generate
+        extra_d_flags: ${{ inputs.extra_d_flags }}
         arch: ${{ inputs.arch }}
       env:
         LLVM_PROFILE_FILE: ${{ github.workspace }}/../pgo-ldc/%p.profraw

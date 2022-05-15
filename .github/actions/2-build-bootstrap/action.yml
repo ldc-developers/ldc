@@ -3,6 +3,9 @@ inputs:
   cmake_flags:
     required: false
     default: ''
+  extra_d_flags: # applying to the D executables, not the runtime
+    required: false
+    default: ''
   arch:
     required: false # Windows only
 runs:
@@ -24,6 +27,7 @@ runs:
         cmake_flags: >-
           -DBUILD_SHARED_LIBS=OFF
           ${{ inputs.cmake_flags }}
+        extra_d_flags: ${{ inputs.extra_d_flags }}
         arch: ${{ inputs.arch }}
 
     - run: ../bootstrap-ldc/bin/ldc2 --version

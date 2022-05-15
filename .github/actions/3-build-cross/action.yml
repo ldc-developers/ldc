@@ -9,6 +9,12 @@ inputs:
   cmake_flags:
     required: false
     default: ''
+  extra_d_flags: # applying to the D executables, not the runtime
+    required: false
+    default: ''
+  lto_mode: # full | thin | none
+    required: false
+    default: none
   with_pgo:
     required: false
     default: false
@@ -141,8 +147,10 @@ runs:
         specify_install_dir: true
         cmake_flags: >-
           -DCMAKE_CROSSCOMPILING=True
-          ${{ inputs.os == 'osx' && '-DALTERNATIVE_MALLOC_O="$PWD/../build-mimalloc/CMakeFiles/mimalloc-obj.dir/src/static.c.o"' || '' }}
           ${{ inputs.cmake_flags }}
-          ${{ inputs.with_pgo == 'true' && '-DDFLAGS_LDC=-fprofile-use=../pgo-ldc/merged.profdata' || '' }}
           ${{ env.CROSS_CMAKE_FLAGS }}
+        extra_d_flags: ${{ inputs.extra_d_flags }}
+        with_mimalloc: ${{ inputs.os == 'osx' }}
+        lto_mode: ${{ inputs.lto_mode }}
+        with_pgo: ${{ inputs.with_pgo }}
         build_targets: ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache
