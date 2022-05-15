@@ -14,12 +14,13 @@ runs:
       with:
         build_dir: pgo-ldc
         host_dc: ../bootstrap-ldc/bin/ldmd2
-        # we need to escape `%p` as `%%p` on Windows (batch shell)
         cmake_flags: >-
           -DBUILD_SHARED_LIBS=OFF
-          "-DDFLAGS_LDC=-fprofile-generate=${{ runner.os == 'Windows' && '%CD%\%%p' || '$PWD/%p' }}.profraw"
+          -DDFLAGS_LDC=-fprofile-generate
           ${{ inputs.cmake_flags }}
         arch: ${{ inputs.arch }}
+      env:
+        LLVM_PROFILE_FILE: ${{ github.workspace }}/../pgo-ldc/%p.profraw
 
     - name: Merge PGO profiles # to ../pgo-ldc/merged.profdata
       shell: bash
