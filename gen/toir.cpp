@@ -168,6 +168,16 @@ void pushVarDtorCleanup(IRState *p, VarDeclaration *vd) {
   toElemDtor(vd->edtor);
   p->funcGen().scopes.pushCleanup(beginBB, p->scopebb());
 }
+
+DImValue *zextInteger(LLValue *val, Type *to) {
+  assert(val->getType()->isIntegerTy(1));
+  LLType *llTy = DtoType(to);
+  if (val->getType() != llTy) {
+    assert(llTy->isIntegerTy());
+    val = gIR->ir->CreateZExt(val, llTy);
+  }
+  return new DImValue(to, val);
+}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -698,7 +708,7 @@ public:
       // as requested by bearophile, see if it's a C printf call and that it's
       // valid.
       if (global.params.warnings != DIAGNOSTICoff && checkPrintf) {
-        if (fndecl->linkage == LINK::c &&
+        if (fndecl->resolvedLinkage() == LINK::c &&
             strcmp(fndecl->ident->toChars(), "printf") == 0) {
           warnInvalidPrintfCall(e->loc, (*e->arguments)[0],
                                 e->arguments->length);
@@ -1262,7 +1272,7 @@ public:
       llvm_unreachable("Unsupported CmpExp type");
     }
 
-    result = new DImValue(e->type, eval);
+    result = zextInteger(eval, e->type);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1331,7 +1341,7 @@ public:
       llvm_unreachable("Unsupported EqualExp type.");
     }
 
-    result = new DImValue(e->type, eval);
+    result = zextInteger(eval, e->type);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1543,8 +1553,8 @@ public:
         onstack = true;
       } else if (auto ve = e->e1->isVarExp()) {
         if (auto vd = ve->var->isVarDeclaration()) {
-          if (vd->onstack) {
-            DtoFinalizeScopeClass(e->loc, DtoRVal(dval), vd->onstackWithDtor);
+          if (vd->onstack()) {
+            DtoFinalizeScopeClass(e->loc, DtoRVal(dval), vd->onstackWithDtor());
             onstack = true;
           }
         }
@@ -1706,7 +1716,7 @@ public:
     LLConstant *zero = DtoConstBool(false);
     b = p->ir->CreateICmpEQ(b, zero);
 
-    result = new DImValue(e->type, b);
+    result = zextInteger(b, e->type);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1782,7 +1792,7 @@ public:
       resval = phi;
     }
 
-    result = new DImValue(e->type, resval);
+    result = zextInteger(resval, e->type);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1882,12 +1892,12 @@ public:
 
     // handle dynarray specially
     if (t1->ty == TY::Tarray) {
-      result = new DImValue(e->type, DtoDynArrayIs(e->op, l, r));
+      result = zextInteger(DtoDynArrayIs(e->op, l, r), e->type);
       return;
     }
     // also structs
     if (t1->ty == TY::Tstruct) {
-      result = new DImValue(e->type, DtoStructEquals(e->op, l, r));
+      result = zextInteger(DtoStructEquals(e->op, l, r), e->type);
       return;
     }
 
@@ -1934,7 +1944,7 @@ public:
                                                               : EXP::notEqual);
       }
     }
-    result = new DImValue(e->type, eval);
+    result = zextInteger(eval, e->type);
   }
 
   //////////////////////////////////////////////////////////////////////////////

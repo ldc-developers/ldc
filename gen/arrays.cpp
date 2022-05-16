@@ -353,7 +353,7 @@ static void DtoSetArray(DValue *array, LLValue *dim, LLValue *ptr) {
 ////////////////////////////////////////////////////////////////////////////////
 
 LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
-                                     Type *targetType) {
+                                     Type *targetType, const bool isCfile) {
   IF_LOG Logger::println("DtoConstArrayInitializer: %s | %s",
                          arrinit->toChars(), targetType->toChars());
   LOG_SCOPE;
@@ -416,7 +416,7 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
             static_cast<unsigned long long>(j));
     }
 
-    LLConstant *c = DtoConstInitializer(val->loc, elemty, val);
+    LLConstant *c = DtoConstInitializer(val->loc, elemty, val, isCfile);
     assert(c);
     if (c->getType() != llelemty) {
       mismatch = true;
@@ -443,7 +443,8 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
     }
 
     if (!elemDefaultInit) {
-      elemDefaultInit = DtoConstInitializer(arrinit->loc, elemty);
+      elemDefaultInit =
+          DtoConstInitializer(arrinit->loc, elemty, nullptr, isCfile);
       if (elemDefaultInit->getType() != llelemty) {
         mismatch = true;
       }
@@ -579,7 +580,7 @@ llvm::Constant *arrayLiteralToConst(IRState *p, ArrayLiteralExp *ale) {
   for (unsigned i = 0; i < ale->elements->length; ++i) {
     llvm::Constant *val = toConstElem(indexArrayLiteral(ale, i), p);
     // extend i1 to i8
-    if (val->getType() == LLType::getInt1Ty(p->context()))
+    if (val->getType()->isIntegerTy(1))
       val = llvm::ConstantExpr::getZExt(val, LLType::getInt8Ty(p->context()));
     if (!elementType) {
       elementType = val->getType();

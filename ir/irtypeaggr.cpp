@@ -88,7 +88,7 @@ void AggrTypeBuilder::addAggregate(
 
       // check for overlap with existing fields
       bool overlaps = false;
-      if (field->overlapped) {
+      if (field->overlapped()) {
         for (const auto vd : actualFields) {
           const size_t v_begin = vd->offset;
           const size_t v_end = v_begin + vd->type->size();

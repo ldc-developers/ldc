@@ -87,7 +87,7 @@ void IrGlobal::declare() {
     if (!V->isThreadlocal()) {
       // implicitly include extern(D) globals with -dllimport
       useDLLImport =
-          (V->isExport() || V->linkage == LINK::d) && dllimportDataSymbol(V);
+          (V->isExport() || V->_linkage == LINK::d) && dllimportDataSymbol(V);
     }
   }
 
@@ -130,7 +130,8 @@ void IrGlobal::define() {
     message("%s: `%s` is thread local", V->loc.toChars(), V->toChars());
   }
 
-  LLConstant *initVal = DtoConstInitializer(V->loc, V->type, V->_init);
+  LLConstant *initVal =
+      DtoConstInitializer(V->loc, V->type, V->_init, V->isCsymbol());
 
   // Set the initializer, swapping out the variable if the types do not
   // match.

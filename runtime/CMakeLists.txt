@@ -11,8 +11,8 @@ if(NOT LDC_EXE)
     if(NOT LDC_EXE_FULL)
         message(FATAL_ERROR "Please define the path to the LDC executable via -DLDC_EXE_FULL=...")
     endif()
-    if(NOT DEFINED D_VERSION OR NOT DEFINED DMDFE_MINOR_VERSION OR NOT DEFINED DMDFE_PATCH_VERSION)
-        message(FATAL_ERROR "Please define the CMake variables D_VERSION, DMDFE_MINOR_VERSION and DMDFE_PATCH_VERSION.")
+    if(NOT DEFINED DMDFE_MINOR_VERSION OR NOT DEFINED DMDFE_PATCH_VERSION)
+        message(FATAL_ERROR "Please define the CMake variables DMDFE_MINOR_VERSION and DMDFE_PATCH_VERSION.")
     endif()
 
     # Helper function
@@ -30,8 +30,6 @@ endif()
 #
 # Main configuration.
 #
-
-set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERSION})
 
 set(MULTILIB              OFF                                 CACHE BOOL   "Build both 32/64 bit runtime libraries")
 set(BUILD_LTO_LIBS        OFF                                 CACHE BOOL   "Also build the runtime as LLVM bitcode libraries for LTO")
@@ -559,8 +557,8 @@ function(set_common_library_properties target name output_dir c_flags ld_flags i
         COMPILE_DEFINITIONS         "LDC=1"
         COMPILE_FLAGS               "${c_flags}"
         LINK_FLAGS                  "${full_ldflags}"
-        VERSION                     ${DMDFE_VERSION}
-        SOVERSION                   ${DMDFE_PATCH_VERSION}
+        VERSION                     ${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERSION}
+        SOVERSION                   ${DMDFE_MINOR_VERSION}
         LINKER_LANGUAGE             C
         MACOSX_RPATH                ON
     )

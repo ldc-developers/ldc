@@ -102,7 +102,7 @@ enum class TY : uint8_t
     TMAX
 };
 
-#define SIZE_INVALID (~(d_uns64)0)   // error return from size() functions
+#define SIZE_INVALID (~(uinteger_t)0)   // error return from size() functions
 
 
 /**
@@ -111,6 +111,7 @@ enum class TY : uint8_t
  */
 enum MODFlags
 {
+    MODnone      = 0, // default (mutable)
     MODconst     = 1, // type is const
     MODimmutable = 4, // type is immutable
     MODshared    = 2, // type is shared
@@ -235,8 +236,8 @@ public:
     char *toPrettyChars(bool QualifyTypes = false);
     static void _init();
 
-    d_uns64 size();
-    virtual d_uns64 size(const Loc &loc);
+    uinteger_t size();
+    virtual uinteger_t size(const Loc &loc);
     virtual unsigned alignsize();
     Type *trySemantic(const Loc &loc, Scope *sc);
     Type *merge2();
@@ -362,7 +363,7 @@ public:
     const char *kind();
     TypeError *syntaxCopy();
 
-    d_uns64 size(const Loc &loc);
+    uinteger_t size(const Loc &loc);
     Expression *defaultInitLiteral(const Loc &loc);
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -398,7 +399,7 @@ public:
 
     const char *kind();
     TypeBasic *syntaxCopy();
-    d_uns64 size(const Loc &loc) /*const*/;
+    uinteger_t size(const Loc &loc) /*const*/;
     unsigned alignsize();
     bool isintegral();
     bool isfloating() /*const*/;
@@ -423,7 +424,7 @@ public:
     static TypeVector *create(Type *basetype);
     const char *kind();
     TypeVector *syntaxCopy();
-    d_uns64 size(const Loc &loc);
+    uinteger_t size(const Loc &loc);
     unsigned alignsize();
     bool isintegral();
     bool isfloating();
@@ -453,7 +454,7 @@ public:
     const char *kind();
     TypeSArray *syntaxCopy();
     bool isIncomplete();
-    d_uns64 size(const Loc &loc);
+    uinteger_t size(const Loc &loc);
     unsigned alignsize();
     bool isString();
     bool isZeroInit(const Loc &loc);
@@ -476,7 +477,7 @@ class TypeDArray : public TypeArray
 public:
     const char *kind();
     TypeDArray *syntaxCopy();
-    d_uns64 size(const Loc &loc) /*const*/;
+    uinteger_t size(const Loc &loc) /*const*/;
     unsigned alignsize() /*const*/;
     bool isString();
     bool isZeroInit(const Loc &loc) /*const*/;
@@ -496,7 +497,7 @@ public:
     static TypeAArray *create(Type *t, Type *index);
     const char *kind();
     TypeAArray *syntaxCopy();
-    d_uns64 size(const Loc &loc);
+    uinteger_t size(const Loc &loc);
     bool isZeroInit(const Loc &loc) /*const*/;
     bool isBoolean() /*const*/;
     bool hasPointers() /*const*/;
@@ -512,7 +513,7 @@ public:
     static TypePointer *create(Type *t);
     const char *kind();
     TypePointer *syntaxCopy();
-    d_uns64 size(const Loc &loc) /*const*/;
+    uinteger_t size(const Loc &loc) /*const*/;
     MATCH implicitConvTo(Type *to);
     MATCH constConv(Type *to);
     bool isscalar() /*const*/;
@@ -527,7 +528,7 @@ class TypeReference : public TypeNext
 public:
     const char *kind();
     TypeReference *syntaxCopy();
-    d_uns64 size(const Loc &loc) /*const*/;
+    uinteger_t size(const Loc &loc) /*const*/;
     bool isZeroInit(const Loc &loc) /*const*/;
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -600,8 +601,8 @@ public:
     // .next is the return type
 
     ParameterList parameterList; // function parameters
+    uint16_t bitFields;
     LINK linkage;                // calling convention
-    unsigned funcFlags;
     TRUST trust;                 // level of trust
     PURE purity;                 // PURExxxx
     char inuse;
@@ -613,7 +614,6 @@ public:
     void purityLevel();
     bool hasLazyParameters();
     bool isDstyleVariadic() const;
-    bool parameterEscapes(Parameter *p);
     StorageClass parameterStorageClass(Parameter *p);
     Type *addStorageClass(StorageClass stc);
 
@@ -630,6 +630,8 @@ public:
     void isref(bool v);
     bool isreturn() const;
     void isreturn(bool v);
+    bool isreturnscope() const;
+    void isreturnscope(bool v);
     bool isScopeQual() const;
     void isScopeQual(bool v);
     bool isreturninferred() const;
@@ -658,7 +660,7 @@ public:
     const char *kind();
     TypeDelegate *syntaxCopy();
     Type *addStorageClass(StorageClass stc);
-    d_uns64 size(const Loc &loc) /*const*/;
+    uinteger_t size(const Loc &loc) /*const*/;
     unsigned alignsize() /*const*/;
     MATCH implicitConvTo(Type *to);
     bool isZeroInit(const Loc &loc) /*const*/;
@@ -678,7 +680,7 @@ class TypeTraits : public Type
 
     const char *kind();
     TypeTraits *syntaxCopy();
-    d_uns64 size(const Loc &loc);
+    uinteger_t size(const Loc &loc);
     Dsymbol *toDsymbol(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -707,7 +709,7 @@ public:
     void addIdent(Identifier *ident);
     void addInst(TemplateInstance *inst);
     void addIndex(RootObject *expr);
-    d_uns64 size(const Loc &loc);
+    uinteger_t size(const Loc &loc);
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -747,7 +749,7 @@ public:
     const char *kind();
     TypeTypeof *syntaxCopy();
     Dsymbol *toDsymbol(Scope *sc);
-    d_uns64 size(const Loc &loc);
+    uinteger_t size(const Loc &loc);
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -781,7 +783,7 @@ public:
 
     static TypeStruct *create(StructDeclaration *sym);
     const char *kind();
-    d_uns64 size(const Loc &loc);
+    uinteger_t size(const Loc &loc);
     unsigned alignsize();
     TypeStruct *syntaxCopy();
     Dsymbol *toDsymbol(Scope *sc);
@@ -811,7 +813,7 @@ public:
 
     const char *kind();
     TypeEnum *syntaxCopy();
-    d_uns64 size(const Loc &loc);
+    uinteger_t size(const Loc &loc);
     unsigned alignsize();
     Type *memType(const Loc &loc = Loc());
     Dsymbol *toDsymbol(Scope *sc);
@@ -847,7 +849,7 @@ public:
     CPPMANGLE cppmangle;
 
     const char *kind();
-    d_uns64 size(const Loc &loc) /*const*/;
+    uinteger_t size(const Loc &loc) /*const*/;
     TypeClass *syntaxCopy();
     Dsymbol *toDsymbol(Scope *sc);
     ClassDeclaration *isClassHandle();
@@ -902,7 +904,7 @@ public:
     MATCH implicitConvTo(Type *to);
     bool isBoolean() /*const*/;
 
-    d_uns64 size(const Loc &loc) /*const*/;
+    uinteger_t size(const Loc &loc) /*const*/;
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -914,7 +916,7 @@ public:
     MATCH implicitConvTo(Type* to);
     MATCH constConv(Type* to);
     bool isBoolean() /* const */;
-    d_uns64 size(const Loc& loc) /* const */;
+    uinteger_t size(const Loc& loc) /* const */;
     unsigned alignsize();
 
     void accept(Visitor *v) { v->visit(this); }

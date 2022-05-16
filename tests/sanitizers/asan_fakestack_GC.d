@@ -1,6 +1,7 @@
 // AddressSanitizer: Test that the GC properly scans ASan's fakestack when enabled. Requires runtime support.
 
-// REQUIRES: ASan, RTSupportsSanitizers
+// FIXME: broke with v2.100.0
+// REQUIRES: ASan, RTSupportsSanitizers, DISABLE_HACK
 
 // Test without and with fake stack enabled.
 

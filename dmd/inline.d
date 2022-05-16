@@ -464,7 +464,7 @@ public:
             if (ids.fd && e.var == ids.fd.vthis)
             {
                 result = new VarExp(e.loc, ids.vthis);
-                if (ids.fd.isThis2)
+                if (ids.fd.hasDualContext())
                     result = new AddrExp(e.loc, result);
                 result.type = e.type;
                 return;
@@ -497,7 +497,7 @@ public:
                 assert(fdv);
                 result = new VarExp(e.loc, ids.vthis);
                 result.type = ids.vthis.type;
-                if (ids.fd.isThis2)
+                if (ids.fd.hasDualContext())
                 {
                     // &__this
                     result = new AddrExp(e.loc, result);
@@ -507,7 +507,7 @@ public:
                 {
                     auto f = s.isFuncDeclaration();
                     AggregateDeclaration ad;
-                    if (f && f.isThis2)
+                    if (f && f.hasDualContext())
                     {
                         if (f.hasNestedFrameRefs())
                         {
@@ -589,7 +589,7 @@ public:
                 return;
             }
             result = new VarExp(e.loc, ids.vthis);
-            if (ids.fd.isThis2)
+            if (ids.fd.hasDualContext())
             {
                 // __this[0]
                 result.type = ids.vthis.type;
@@ -609,7 +609,7 @@ public:
         {
             assert(ids.vthis);
             result = new VarExp(e.loc, ids.vthis);
-            if (ids.fd.isThis2)
+            if (ids.fd.hasDualContext())
             {
                 // __this[0]
                 result.type = ids.vthis.type;
@@ -725,28 +725,10 @@ version (IN_LLVM) {} else
             auto ne = e.copy().isNewExp();
             ne.thisexp = doInlineAs!Expression(e.thisexp, ids);
             ne.argprefix = doInlineAs!Expression(e.argprefix, ids);
-            ne.newargs = arrayExpressionDoInline(e.newargs);
             ne.arguments = arrayExpressionDoInline(e.arguments);
             result = ne;
 
             semanticTypeInfo(null, e.type);
-        }
-
-        override void visit(DeleteExp e)
-        {
-            visit(cast(UnaExp)e);
-
-            Type tb = e.e1.type.toBasetype();
-            if (tb.ty == Tarray)
-            {
-                Type tv = tb.nextOf().baseElemOf();
-                if (auto ts = tv.isTypeStruct())
-                {
-                    auto sd = ts.sym;
-                    if (sd.dtor)
-                        semanticTypeInfo(null, ts);
-                }
-            }
         }
 
         override void visit(UnaExp e)
@@ -1279,7 +1261,7 @@ public:
         if (e.op == EXP.construct && e.e2.op == EXP.call)
         {
             auto ce = e.e2.isCallExp();
-            if (ce.f && ce.f.nrvo_can && ce.f.nrvo_var) // NRVO
+            if (ce.f && ce.f.isNRVO() && ce.f.nrvo_var) // NRVO
             {
                 if (auto ve = e.e1.isVarExp())
                 {
@@ -1564,7 +1546,7 @@ public:
         if (fd.isUnitTestDeclaration() && !global.params.useUnitTests ||
             fd.flags & FUNCFLAG.inlineScanned)
             return;
-        if (fd.fbody && !fd.naked)
+        if (fd.fbody && !fd.isNaked())
         {
             auto againsave = again;
             auto parentsave = parent;
@@ -1925,7 +1907,7 @@ private void expandInline(Loc callLoc, FuncDeclaration fd, FuncDeclaration paren
             auto tmp = Identifier.generateId("__retvar");
             vret = new VarDeclaration(fd.loc, eret.type, tmp, ei);
             vret.storage_class |= STC.temp | STC.ref_;
-            vret.linkage = LINK.d;
+            vret._linkage = LINK.d;
             vret.parent = parent;
 
             ei.exp = new ConstructExp(fd.loc, vret, eret);
@@ -1950,7 +1932,7 @@ private void expandInline(Loc callLoc, FuncDeclaration fd, FuncDeclaration paren
             vret = new VarDeclaration(fd.loc, fd.nrvo_var.type, tmp, new VoidInitializer(fd.loc));
             assert(!tf.isref);
             vret.storage_class = STC.temp | STC.rvalue;
-            vret.linkage = tf.linkage;
+            vret._linkage = tf.linkage;
             vret.parent = parent;
 
             auto de = new DeclarationExp(fd.loc, vret);
@@ -1968,7 +1950,7 @@ private void expandInline(Loc callLoc, FuncDeclaration fd, FuncDeclaration paren
     {
         Expression e0;
         ethis = Expression.extractLast(ethis, e0);
-        assert(vthis2 || !fd.isThis2);
+        assert(vthis2 || !fd.hasDualContext());
         if (vthis2)
         {
             // void*[2] __this = [ethis, this]
@@ -2008,7 +1990,7 @@ private void expandInline(Loc callLoc, FuncDeclaration fd, FuncDeclaration paren
                 vthis.storage_class = STC.ref_;
             else
                 vthis.storage_class = STC.in_;
-            vthis.linkage = LINK.d;
+            vthis._linkage = LINK.d;
             vthis.parent = parent;
 
             ei.exp = new ConstructExp(fd.loc, vthis, ethis);
@@ -2036,7 +2018,7 @@ private void expandInline(Loc callLoc, FuncDeclaration fd, FuncDeclaration paren
             auto ei = new ExpInitializer(vfrom.loc, arg);
             auto vto = new VarDeclaration(vfrom.loc, vfrom.type, vfrom.ident, ei);
             vto.storage_class |= vfrom.storage_class & (STC.temp | STC.IOR | STC.lazy_ | STC.nodtor);
-            vto.linkage = vfrom.linkage;
+            vto._linkage = vfrom._linkage;
             vto.parent = parent;
             //printf("vto = '%s', vto.storage_class = x%x\n", vto.toChars(), vto.storage_class);
             //printf("vto.parent = '%s'\n", parent.toChars());
@@ -2171,7 +2153,7 @@ private void expandInline(Loc callLoc, FuncDeclaration fd, FuncDeclaration paren
             auto tmp = Identifier.generateId("__inlineretval");
             auto vd = new VarDeclaration(callLoc, tf.next, tmp, ei);
             vd.storage_class = STC.temp | (tf.isref ? STC.ref_ : STC.rvalue);
-            vd.linkage = tf.linkage;
+            vd._linkage = tf.linkage;
             vd.parent = parent;
 
             ei.exp = new ConstructExp(callLoc, vd, e);
@@ -2344,7 +2326,7 @@ private bool expNeedsDtor(Expression exp)
                 s = s.toAlias();
                 if (s != vd)
                     return Dsymbol_needsDtor(s);
-                else if (vd.isStatic() || vd.storage_class & (STC.extern_ | STC.tls | STC.gshared | STC.manifest))
+                else if (vd.isStatic() || vd.storage_class & (STC.extern_ | STC.gshared | STC.manifest))
                     return;
                 if (vd.needsScopeDtor())
                 {

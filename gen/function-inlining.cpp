@@ -183,7 +183,7 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
 
   // FuncDeclaration::naked is set by the AsmParser during semantic3 analysis,
   // and so this check can only be done at this late point.
-  if (fdecl.naked) {
+  if (fdecl.isNaked()) {
     IF_LOG Logger::println("Naked asm functions cannot be inlined.");
     return false;
   }

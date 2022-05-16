@@ -905,7 +905,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
   if (isIrLocalCreated(vd)) {
     // Nothing to do if it has already been allocated.
   } else if (gIR->func()->sretArg &&
-             ((gIR->func()->decl->nrvo_can &&
+             ((gIR->func()->decl->isNRVO() &&
                gIR->func()->decl->nrvo_var == vd) ||
               (vd->isResult() && !isSpecialRefVar(vd)))) {
     // Named Return Value Optimization (NRVO):
@@ -1084,7 +1084,8 @@ LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr) {
  * INITIALIZER HELPERS
  ******************************************************************************/
 
-LLConstant *DtoConstInitializer(const Loc &loc, Type *type, Initializer *init) {
+LLConstant *DtoConstInitializer(const Loc &loc, Type *type, Initializer *init,
+                                const bool isCfile) {
   LLConstant *_init = nullptr; // may return zero
   if (!init) {
     if (type->toBasetype()->isTypeNoreturn()) {
@@ -1093,7 +1094,7 @@ LLConstant *DtoConstInitializer(const Loc &loc, Type *type, Initializer *init) {
       _init = LLConstant::getNullValue(ty);
     } else {
       IF_LOG Logger::println("const default initializer for %s", type->toChars());
-      Expression *initExp = defaultInit(type, loc);
+      Expression *initExp = defaultInit(type, loc, isCfile);
       _init = DtoConstExpInit(loc, type, initExp);
     }
   } else if (ExpInitializer *ex = init->isExpInitializer()) {
@@ -1101,7 +1102,7 @@ LLConstant *DtoConstInitializer(const Loc &loc, Type *type, Initializer *init) {
     _init = DtoConstExpInit(loc, type, ex->exp);
   } else if (ArrayInitializer *ai = init->isArrayInitializer()) {
     Logger::println("const array initializer");
-    _init = DtoConstArrayInitializer(ai, type);
+    _init = DtoConstArrayInitializer(ai, type, isCfile);
   } else if (init->isVoidInitializer()) {
     Logger::println("const void initializer");
     LLType *ty = DtoMemType(type);
@@ -1149,7 +1150,7 @@ LLConstant *DtoConstExpInit(const Loc &loc, Type *targetType, Expression *exp) {
     return llvm::Constant::getNullValue(targetLLType);
 
   // extend i1 to i8
-  if (llType == LLType::getInt1Ty(gIR->context())) {
+  if (llType->isIntegerTy(1)) {
     llType = LLType::getInt8Ty(gIR->context());
     val = llvm::ConstantExpr::getZExt(val, llType);
   }
@@ -1695,7 +1696,7 @@ llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm) {
   std::vector<LLConstant *> vals;
   vals.reserve(len);
   for (size_t i = 0; i < se->numberOfCodeUnits(); ++i) {
-    vals.push_back(LLConstantInt::get(ct, se->charAt(i), false));
+    vals.push_back(LLConstantInt::get(ct, se->getCodeUnit(i), false));
   }
   if (zeroTerm) {
     vals.push_back(LLConstantInt::get(ct, 0, false));
@@ -1859,7 +1860,7 @@ FuncDeclaration *getParentFunc(Dsymbol *sym) {
     if (auto fld = fd->isFuncLiteralDeclaration()) {
       if (fld->tok == TOK::function_)
         return nullptr;
-    } else if (fd->isStatic() || (!fd->isThis() && fd->linkage != LINK::d)) {
+    } else if (fd->isStatic() || (!fd->isThis() && fd->_linkage != LINK::d)) {
       return nullptr;
     }
   }

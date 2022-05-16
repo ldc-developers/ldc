@@ -155,7 +155,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   }
 
   bool hasObjCSelector = false;
-  if (fd && fd->linkage == LINK::objc && thistype) {
+  if (fd && fd->_linkage == LINK::objc && thistype) {
     if (fd->objc.selector) {
       hasObjCSelector = true;
     } else if (fd->parent->isClassDeclaration()) {
@@ -433,7 +433,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl, const bool willDeclare) {
         } else if (tempdecl->llvmInternal == LLVMinline_ir) {
           Logger::println("magic inline ir found");
           fdecl->llvmInternal = LLVMinline_ir;
-          fdecl->linkage = LINK::c;
+          fdecl->_linkage = LINK::c;
           Type *type = fdecl->type;
           assert(type->ty == TY::Tfunction);
           static_cast<TypeFunction *>(type)->linkage = LINK::c;
@@ -733,10 +733,10 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
     }
   }
 
-  if (fdecl->isCrtCtorDtor & 1) {
+  if (fdecl->isCrtCtor()) {
     AppendFunctionToLLVMGlobalCtorsDtors(func, fdecl->priority, true);
   }
-  if (fdecl->isCrtCtorDtor & 2) {
+  if (fdecl->isCrtDtor()) {
     AppendFunctionToLLVMGlobalCtorsDtors(func, fdecl->priority, false);
   }
 
@@ -835,7 +835,7 @@ static LinkageWithCOMDAT lowerFuncLinkage(FuncDeclaration *fdecl) {
   // A body-less declaration always needs to be marked as external in LLVM
   // (also e.g. naked template functions which would otherwise be weak_odr,
   // but where the definition is in module-level inline asm).
-  if (!fdecl->fbody || fdecl->naked) {
+  if (!fdecl->fbody || fdecl->isNaked()) {
     return LinkageWithCOMDAT(LLGlobalValue::ExternalLinkage, false);
   }
 
@@ -853,7 +853,7 @@ void verifyScopedDestructionInClosure(FuncDeclaration *fd) {
       // Because the value needs to survive the end of the scope!
       v->error("has scoped destruction, cannot build closure");
     }
-    if (v->isargptr) {
+    if (v->isargptr()) {
       // See https://issues.dlang.org/show_bug.cgi?id=2479
       // This is actually a bug, but better to produce a nice
       // message at compile time rather than memory corruption at runtime
@@ -1116,7 +1116,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // nested context creation code.
   FuncDeclaration *parent = fd;
   while ((parent = getParentFunc(parent))) {
-    if (parent->semanticRun != PASS::semantic3done || parent->semantic3Errors) {
+    if (parent->semanticRun != PASS::semantic3done ||
+        parent->hasSemantic3Errors()) {
       IF_LOG Logger::println(
           "Ignoring nested function with unanalyzed parent.");
       return;
@@ -1180,7 +1181,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   };
 
   // if this function is naked, we take over right away! no standard processing!
-  if (fd->naked) {
+  if (fd->isNaked()) {
     DtoDefineNakedFunction(fd);
     return;
   }
@@ -1268,7 +1269,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   emitInstrumentationFnEnter(fd);
 
   if (global.params.trace && fd->emitInstrumentation && !fd->isCMain() &&
-      !fd->naked) {
+      !fd->isNaked()) {
     emitDMDStyleFunctionTrace(*gIR, fd, funcGen);
   }
 
@@ -1397,7 +1398,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   if (func->getLinkage() == LLGlobalValue::WeakAnyLinkage &&
       !func->hasDLLExportStorageClass() &&
       global.params.targetTriple->isWindowsMSVCEnvironment()) {
-    emulateWeakAnyLinkageForMSVC(irFunc, fd->linkage);
+    emulateWeakAnyLinkageForMSVC(irFunc, fd->resolvedLinkage());
   }
 }
 

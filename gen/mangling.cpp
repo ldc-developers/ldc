@@ -121,7 +121,7 @@ std::string getIRMangledName(VarDeclaration *vd) {
 
   // TODO: Cache the result?
 
-  return getIRMangledVarName(mangleBuf.peekChars(), vd->linkage);
+  return getIRMangledVarName(mangleBuf.peekChars(), vd->resolvedLinkage());
 }
 
 std::string getIRMangledFuncName(std::string baseMangle, LINK link) {

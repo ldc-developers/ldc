@@ -88,7 +88,8 @@ public:
       } else {
         vd->inuse++;
         // return the initializer
-        result = DtoConstInitializer(e->loc, e->type, vd->_init);
+        result =
+            DtoConstInitializer(e->loc, e->type, vd->_init, vd->isCsymbol());
         vd->inuse--;
       }
     }
@@ -345,7 +346,8 @@ public:
                              static_cast<unsigned long long>(e->offset),
                              elemSize);
 
-      if (e->offset % elemSize == 0) {
+      // importC: elemSize can be 0
+      if (elemSize && e->offset % elemSize == 0) {
         // We can turn this into a "nice" GEP.
         result = llvm::ConstantExpr::getGetElementPtr(
             getPointeeType(base), base, DtoConstSize_t(e->offset / elemSize));
@@ -551,7 +553,7 @@ public:
           if (!elem->isVoidInitExp()) {
             LLConstant *c = toConstElem(elem, p);
             // extend i1 to i8
-            if (c->getType() == LLType::getInt1Ty(p->context())) {
+            if (c->getType()->isIntegerTy(1)) {
               c = llvm::ConstantExpr::getZExt(c,
                                               LLType::getInt8Ty(p->context()));
             }

@@ -217,10 +217,10 @@ LLConstant *IrClass::getVtblInit() {
       // If inferring return type and semantic3 has not been run, do it now.
       // This pops up in some other places in the frontend as well, however
       // it is probably a bug that it still occurs that late.
-      if (fd->inferRetType && !fd->type->nextOf()) {
+      if (fd->inferRetType() && !fd->type->nextOf()) {
         Logger::println("Running late functionSemantic to infer return type.");
         if (!fd->functionSemantic()) {
-          if (fd->semantic3Errors) {
+          if (fd->hasSemantic3Errors()) {
             Logger::println(
                 "functionSemantic failed; using null for vtbl entry.");
             constants.push_back(getNullValue(voidPtrType));
@@ -560,7 +560,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
     nameBuf.writestring(mangledTargetName + 2);
 
     const auto thunkIRMangle =
-        getIRMangledFuncName(nameBuf.peekChars(), fd->linkage);
+        getIRMangledFuncName(nameBuf.peekChars(), fd->resolvedLinkage());
 
     llvm::Function *thunk = gIR->module.getFunction(thunkIRMangle);
     if (!thunk) {

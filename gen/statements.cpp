@@ -220,7 +220,7 @@ public:
           if (!e->isLVal() || DtoLVal(e) != sretPointer) {
             // call postblit if the expression is a D lvalue
             // exceptions: NRVO and special __result variable (out contracts)
-            bool doPostblit = !(fd->nrvo_can && fd->nrvo_var);
+            bool doPostblit = !(fd->isNRVO() && fd->nrvo_var);
             if (doPostblit) {
               if (auto ve = stmt->exp->isVarExp())
                 if (ve->var->isResult())
@@ -443,7 +443,7 @@ public:
     llvm::BasicBlock *elsebb =
         stmt->elsebody ? irs->insertBBAfter(ifbb, "else") : endbb;
 
-    if (cond_val->getType() != LLType::getInt1Ty(irs->context())) {
+    if (!cond_val->getType()->isIntegerTy(1)) {
       IF_LOG Logger::cout() << "if conditional: " << *cond_val << '\n';
       cond_val = DtoRVal(DtoCast(stmt->loc, cond_e, Type::tbool));
     }

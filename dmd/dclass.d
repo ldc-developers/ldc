@@ -208,7 +208,7 @@ version (IN_LLVM) {} else
 
         super(loc, id);
 
-        __gshared const(char)* msg = "only object.d can define this reserved class name";
+        static immutable msg = "only object.d can define this reserved class name";
 
         if (baseclasses)
         {
@@ -235,37 +235,37 @@ version (IN_LLVM) {} else
             if (id == Id.TypeInfo)
             {
                 if (!inObject)
-                    error("%s", msg);
+                    error("%s", msg.ptr);
                 Type.dtypeinfo = this;
             }
             if (id == Id.TypeInfo_Class)
             {
                 if (!inObject)
-                    error("%s", msg);
+                    error("%s", msg.ptr);
                 Type.typeinfoclass = this;
             }
             if (id == Id.TypeInfo_Interface)
             {
                 if (!inObject)
-                    error("%s", msg);
+                    error("%s", msg.ptr);
                 Type.typeinfointerface = this;
             }
             if (id == Id.TypeInfo_Struct)
             {
                 if (!inObject)
-                    error("%s", msg);
+                    error("%s", msg.ptr);
                 Type.typeinfostruct = this;
             }
             if (id == Id.TypeInfo_Pointer)
             {
                 if (!inObject)
-                    error("%s", msg);
+                    error("%s", msg.ptr);
                 Type.typeinfopointer = this;
             }
             if (id == Id.TypeInfo_Array)
             {
                 if (!inObject)
-                    error("%s", msg);
+                    error("%s", msg.ptr);
                 Type.typeinfoarray = this;
             }
             if (id == Id.TypeInfo_StaticArray)
@@ -277,61 +277,61 @@ version (IN_LLVM) {} else
             if (id == Id.TypeInfo_AssociativeArray)
             {
                 if (!inObject)
-                    error("%s", msg);
+                    error("%s", msg.ptr);
                 Type.typeinfoassociativearray = this;
             }
             if (id == Id.TypeInfo_Enum)
             {
                 if (!inObject)
-                    error("%s", msg);
+                    error("%s", msg.ptr);
                 Type.typeinfoenum = this;
             }
             if (id == Id.TypeInfo_Function)
             {
                 if (!inObject)
-                    error("%s", msg);
+                    error("%s", msg.ptr);
                 Type.typeinfofunction = this;
             }
             if (id == Id.TypeInfo_Delegate)
             {
                 if (!inObject)
-                    error("%s", msg);
+                    error("%s", msg.ptr);
                 Type.typeinfodelegate = this;
             }
             if (id == Id.TypeInfo_Tuple)
             {
                 if (!inObject)
-                    error("%s", msg);
+                    error("%s", msg.ptr);
                 Type.typeinfotypelist = this;
             }
             if (id == Id.TypeInfo_Const)
             {
                 if (!inObject)
-                    error("%s", msg);
+                    error("%s", msg.ptr);
                 Type.typeinfoconst = this;
             }
             if (id == Id.TypeInfo_Invariant)
             {
                 if (!inObject)
-                    error("%s", msg);
+                    error("%s", msg.ptr);
                 Type.typeinfoinvariant = this;
             }
             if (id == Id.TypeInfo_Shared)
             {
                 if (!inObject)
-                    error("%s", msg);
+                    error("%s", msg.ptr);
                 Type.typeinfoshared = this;
             }
             if (id == Id.TypeInfo_Wild)
             {
                 if (!inObject)
-                    error("%s", msg);
+                    error("%s", msg.ptr);
                 Type.typeinfowild = this;
             }
             if (id == Id.TypeInfo_Vector)
             {
                 if (!inObject)
-                    error("%s", msg);
+                    error("%s", msg.ptr);
                 Type.typeinfovector = this;
             }
         }
@@ -339,32 +339,32 @@ version (IN_LLVM) {} else
         if (id == Id.Object)
         {
             if (!inObject)
-                error("%s", msg);
+                error("%s", msg.ptr);
             object = this;
         }
 
         if (id == Id.Throwable)
         {
             if (!inObject)
-                error("%s", msg);
+                error("%s", msg.ptr);
             throwable = this;
         }
         if (id == Id.Exception)
         {
             if (!inObject)
-                error("%s", msg);
+                error("%s", msg.ptr);
             exception = this;
         }
         if (id == Id.Error)
         {
             if (!inObject)
-                error("%s", msg);
+                error("%s", msg.ptr);
             errorException = this;
         }
         if (id == Id.cpp_type_info_ptr)
         {
             if (!inObject)
-                error("%s", msg);
+                error("%s", msg.ptr);
             cpp_type_info_ptr = this;
         }
 
@@ -987,7 +987,7 @@ version (IN_LLVM) {} else
             auto var = new VarDeclaration(loc, vtype, Identifier.idPool("__vtbl"), null, STC.immutable_ | STC.static_);
             var.addMember(null, this);
             var.isdataseg = 1;
-            var.linkage = LINK.d;
+            var._linkage = LINK.d;
             var.semanticRun = PASS.semanticdone; // no more semantic wanted
             vtblsym = var;
         }

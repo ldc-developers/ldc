@@ -157,14 +157,12 @@ public:
 
   void visit(NewExp *e) override {
     recurse(e->thisexp);
-    recurse(e->newargs);
     recurse(e->argprefix);
     recurse(e->arguments);
   }
 
   void visit(NewAnonClassExp *e) override {
     recurse(e->thisexp);
-    recurse(e->newargs);
     recurse(e->arguments);
   }
 
@@ -396,13 +394,12 @@ public:
   }
 
   void visit(NewExp *e) override {
-    call_visitor(e) || recurse(e->thisexp) || recurse(e->newargs) ||
-        recurse(e->argprefix) || recurse(e->arguments);
+    call_visitor(e) || recurse(e->thisexp) || recurse(e->argprefix) ||
+        recurse(e->arguments);
   }
 
   void visit(NewAnonClassExp *e) override {
-    call_visitor(e) || recurse(e->thisexp) || recurse(e->newargs) ||
-        recurse(e->arguments);
+    call_visitor(e) || recurse(e->thisexp) || recurse(e->arguments);
   }
 
   void visit(UnaExp *e) override { call_visitor(e) || recurse(e->e1); }
