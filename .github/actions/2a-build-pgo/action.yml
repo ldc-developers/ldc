@@ -18,7 +18,9 @@ runs:
         cmake_flags: >-
           -DBUILD_SHARED_LIBS=OFF
           "-DDFLAGS_LDC=-fprofile-generate -vp-counters-per-site=1.5"
-        #  -DEXTRA_CXXFLAGS=-fprofile-generate
+          -DEXTRA_CXXFLAGS=-fprofile-instr-generate
+          ${{ runner.os == 'Linux' && '-DCMAKE_C_COMPILER="$PWD/../clang/bin/clang"' || '' }}
+          ${{ runner.os == 'Linux' && '-DCMAKE_CXX_COMPILER="$PWD/../clang/bin/clang++"' || '' }}
         extra_d_flags: ${{ inputs.extra_d_flags }}
         arch: ${{ inputs.arch }}
       env:
