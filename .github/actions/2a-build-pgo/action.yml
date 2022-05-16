@@ -14,10 +14,10 @@ runs:
       with:
         build_dir: pgo-ldc
         host_dc: ../bootstrap-ldc/bin/ldmd2
-        # on Windows, we tweak -vp-counters-per-site to avoid `LLVM Profile Warning: Unable to track new values: Running out of static counters.`
+        # tweak -vp-counters-per-site to avoid `LLVM Profile Warning: Unable to track new values: Running out of static counters.`
         cmake_flags: >-
           -DBUILD_SHARED_LIBS=OFF
-          "-DDFLAGS_LDC=-fprofile-generate${{ runner.os == 'Windows' && ' -vp-counters-per-site=1.5' || '' }}"
+          "-DDFLAGS_LDC=-fprofile-generate -vp-counters-per-site=1.5"
           ${{ inputs.cmake_flags }}
         arch: ${{ inputs.arch }}
       env:
