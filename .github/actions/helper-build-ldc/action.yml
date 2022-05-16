@@ -34,7 +34,8 @@ runs:
   using: composite
   steps:
 
-    - name: Set LDC_ADVANCED_CMAKE_FLAGS
+    - name: Compute advanced CMake flags
+      id: compute_advanced_cmake_flags
       shell: bash
       run: |
         set -eux
@@ -64,10 +65,7 @@ runs:
           flags+="\"-DEXTRA_CXXFLAGS=${cxx_flags[*]}\" "
         fi
 
-        if [[ "$flags" != '' ]]; then
-          flags=${flags:0:-1} # strip trailing space
-        fi
-        echo "LDC_ADVANCED_CMAKE_FLAGS=$flags" >> $GITHUB_ENV
+        echo "::set-output name=CMAKE_FLAGS::$flags"
 
     - if: runner.os != 'Windows'
       shell: bash
@@ -85,7 +83,7 @@ runs:
           ${{ inputs.specify_install_dir == 'true' && '-DCMAKE_INSTALL_PREFIX="$installDir"' || '' }} \
           ${{ inputs.specify_install_dir == 'true' && '-DINCLUDE_INSTALL_DIR="$installDir/import"' || '' }} \
           ${{ inputs.cmake_flags }} \
-          ${{ env.LDC_ADVANCED_CMAKE_FLAGS }}
+          ${{ steps.compute_advanced_cmake_flags.outputs.CMAKE_FLAGS }}
 
         ninja ${{ inputs.build_targets }}
 
@@ -108,7 +106,7 @@ runs:
           ${{ inputs.specify_install_dir == 'true' && '"-DCMAKE_INSTALL_PREFIX=%installDir%"' || '' }} ^
           ${{ inputs.specify_install_dir == 'true' && '"-DINCLUDE_INSTALL_DIR=%installDir%\import"' || '' }} ^
           ${{ inputs.cmake_flags }} ^
-          ${{ env.LDC_ADVANCED_CMAKE_FLAGS }}
+          ${{ steps.compute_advanced_cmake_flags.outputs.CMAKE_FLAGS }}
         if %errorlevel% neq 0 exit /b %errorlevel%
 
         ninja ${{ inputs.build_targets }} || exit /b
