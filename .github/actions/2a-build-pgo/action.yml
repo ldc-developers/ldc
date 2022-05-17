@@ -3,6 +3,9 @@ inputs:
   extra_d_flags: # applying to the D executables, not the runtime
     required: false
     default: ''
+  lto_mode: # full | thin | none
+    required: false
+    default: full
   arch:
     required: false # Windows only
 runs:
@@ -18,10 +21,11 @@ runs:
         cmake_flags: >-
           -DBUILD_SHARED_LIBS=OFF
           "-DDFLAGS_LDC=-fprofile-generate -vp-counters-per-site=1.5"
-          -DEXTRA_CXXFLAGS=-fprofile-instr-generate
           ${{ runner.os == 'Linux' && '-DCMAKE_C_COMPILER="$PWD/../clang/bin/clang"' || '' }}
           ${{ runner.os == 'Linux' && '-DCMAKE_CXX_COMPILER="$PWD/../clang/bin/clang++"' || '' }}
         extra_d_flags: ${{ inputs.extra_d_flags }}
+        extra_cxx_flags: -fprofile-instr-generate
+        lto_mode: ${{ inputs.lto_mode }}
         arch: ${{ inputs.arch }}
       env:
         LLVM_PROFILE_FILE: ${{ github.workspace }}/../pgo-ldc/%p.profraw

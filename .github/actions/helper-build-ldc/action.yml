@@ -16,6 +16,9 @@ inputs:
   extra_d_flags: # applying to the D executables, not the runtime
     required: false
     default: ''
+  extra_cxx_flags: # for the ldc2 executable
+    required: false
+    default: ''
   with_mimalloc:
     required: false
     default: false
@@ -48,7 +51,7 @@ runs:
         fi
 
         d_flags=(${{ inputs.extra_d_flags }})
-        cxx_flags=()
+        cxx_flags=(${{ inputs.extra_cxx_flags }})
         if [[ "$lto_mode" != none ]]; then
           d_flags+=(-O -flto="$lto_mode" -defaultlib=phobos2-ldc-lto,druntime-ldc-lto)
           cxx_flags+=(-flto="$lto_mode")

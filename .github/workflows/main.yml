@@ -66,6 +66,7 @@ jobs:
         uses: ./.github/actions/2a-build-pgo
         with:
           extra_d_flags: ${{ matrix.extra_d_flags }}
+          lto_mode: ${{ matrix.lto_mode || 'full' }}
           arch: ${{ matrix.arch }}
       - name: Build LDC & LDC D unittests & defaultlib unittest runners
         uses: ./.github/actions/3-build-native
@@ -170,12 +171,14 @@ jobs:
       - name: Build bootstrap LDC
         uses: ./.github/actions/2-build-bootstrap
         with:
+          cmake_flags: ${{ (matrix.lto_mode || 'none') != 'none' && '-DBUILD_LTO_LIBS=ON' || '' }}
           extra_d_flags: ${{ matrix.extra_bootstrap_d_flags }}
       - name: Build LDC with PGO instrumentation & gather profile from compiling default libs
         if: matrix.with_pgo
         uses: ./.github/actions/2a-build-pgo
         with:
           extra_d_flags: ${{ matrix.extra_bootstrap_d_flags }}
+          lto_mode: ${{ matrix.lto_mode || 'none' }}
       - name: Cross-compile LDC to ${{ matrix.os }}-${{ matrix.arch }}
         uses: ./.github/actions/3-build-cross
         with:
