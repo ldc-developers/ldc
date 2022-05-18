@@ -18,6 +18,10 @@ runs:
     - name: 'Posix: Build mimalloc'
       if: runner.os != 'Windows'
       uses: ./.github/actions/helper-mimalloc
+      with:
+        cmake_flags: >-
+          "-DCMAKE_C_COMPILER=${{ runner.os != 'Windows' && '$PWD/../clang/bin/clang' || 'clang-cl' }}"
+          "-DCMAKE_CXX_COMPILER=${{ runner.os != 'Windows' && '$PWD/../clang/bin/clang++' || 'clang-cl' }}"
 
     - name: Build LDC & LDC D unittests & defaultlib unittest runners
       uses: ./.github/actions/helper-build-ldc
@@ -25,7 +29,10 @@ runs:
         build_dir: build
         host_dc: ../bootstrap-ldc/bin/ldmd2
         specify_install_dir: true
-        cmake_flags: ${{ inputs.cmake_flags }}
+        cmake_flags: >-
+          ${{ inputs.cmake_flags }}
+          "-DCMAKE_C_COMPILER=${{ runner.os != 'Windows' && '$PWD/../clang/bin/clang' || 'clang-cl' }}"
+          "-DCMAKE_CXX_COMPILER=${{ runner.os != 'Windows' && '$PWD/../clang/bin/clang++' || 'clang-cl' }}"
         extra_d_flags: ${{ inputs.extra_d_flags }}
         with_mimalloc: ${{ runner.os != 'Windows' }}
         lto_mode: ${{ inputs.lto_mode }}

@@ -21,8 +21,8 @@ runs:
         cmake_flags: >-
           -DBUILD_SHARED_LIBS=OFF
           "-DDFLAGS_LDC=-fprofile-generate -vp-counters-per-site=1.5"
-          ${{ runner.os != 'Windows' && '-DCMAKE_C_COMPILER="$PWD/../clang/bin/clang"' || '' }}
-          ${{ runner.os != 'Windows' && '-DCMAKE_CXX_COMPILER="$PWD/../clang/bin/clang++"' || '' }}
+          "-DCMAKE_C_COMPILER=${{ runner.os != 'Windows' && '$PWD/../clang/bin/clang' || 'clang-cl' }}"
+          "-DCMAKE_CXX_COMPILER=${{ runner.os != 'Windows' && '$PWD/../clang/bin/clang++' || 'clang-cl' }}"
         extra_d_flags: ${{ inputs.extra_d_flags }}
         extra_cxx_flags: -fprofile-generate
         lto_mode: ${{ inputs.lto_mode }}

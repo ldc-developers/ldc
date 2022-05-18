@@ -25,16 +25,11 @@ jobs:
             # To improve portability of the generated binaries, link the C++ standard library statically.
             extra_cmake_flags: >-
               -DMULTILIB=ON
-              -DCMAKE_C_COMPILER=/home/runner/work/ldc/clang/bin/clang
-              -DCMAKE_CXX_COMPILER=/home/runner/work/ldc/clang/bin/clang++
               -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++
               -DJITRT_EXTRA_LDFLAGS=-static-libstdc++
           - job_name: macOS x86_64
             os: macos-11
             arch: x86_64
-            extra_cmake_flags: >-
-              -DCMAKE_C_COMPILER=/Users/runner/work/ldc/clang/bin/clang
-              -DCMAKE_CXX_COMPILER=/Users/runner/work/ldc/clang/bin/clang++
             extra_d_flags: -gcc=/usr/bin/c++
           - job_name: Windows x64
             os: windows-2019

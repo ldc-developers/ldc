@@ -27,6 +27,8 @@ runs:
         cmake_flags: >-
           -DBUILD_SHARED_LIBS=OFF
           ${{ inputs.cmake_flags }}
+          "-DCMAKE_C_COMPILER=${{ runner.os != 'Windows' && '$PWD/../clang/bin/clang' || 'clang-cl' }}"
+          "-DCMAKE_CXX_COMPILER=${{ runner.os != 'Windows' && '$PWD/../clang/bin/clang++' || 'clang-cl' }}"
         extra_d_flags: ${{ inputs.extra_d_flags }}
         arch: ${{ inputs.arch }}
 
