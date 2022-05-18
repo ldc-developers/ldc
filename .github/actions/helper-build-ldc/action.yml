@@ -58,7 +58,7 @@ runs:
         fi
         if [[ "$with_pgo" == true ]]; then
           flags+="-DDFLAGS_LDC=-fprofile-use=../pgo-ldc/merged.profdata "
-          cxx_flags+=(-fprofile-instr-use=../pgo-ldc/merged.profdata)
+          cxx_flags+=(-fprofile-use=../pgo-ldc/merged.profdata)
         fi
 
         if [[ "${#d_flags[@]}" -gt 0 ]]; then
