@@ -24,14 +24,18 @@ runs:
           libcurl4 libcurl4:i386 \
           curl gdb=8.1.1-0ubuntu1 p7zip-full tzdata unzip zip python3-pip
 
-    - name: 'Linux: Download & extract clang' # into ../clang
-      if: runner.os == 'Linux'
+    - name: 'Posix: Download & extract clang' # into ../clang
+      if: runner.os != 'Windows'
       shell: bash
       run: |
         set -eux
         cd ..
+        os="linux-gnu-ubuntu-18.04"
+        if [[ '${{ runner.os }}' == macOS ]]; then
+          os="apple-darwin"
+        fi
         curl -fL --retry 3 --max-time 300 -o clang.tar.xz \
-          https://github.com/llvm/llvm-project/releases/download/llvmorg-${{ inputs.clang_version }}/clang+llvm-${{ inputs.clang_version }}-x86_64-linux-gnu-ubuntu-18.04.tar.xz
+          https://github.com/llvm/llvm-project/releases/download/llvmorg-${{ inputs.clang_version }}/clang+llvm-${{ inputs.clang_version }}-x86_64-$os.tar.xz
         mkdir clang
         tar -xf clang.tar.xz --strip 1 -C clang
         rm clang.tar.xz

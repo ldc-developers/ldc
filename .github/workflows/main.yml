@@ -32,6 +32,9 @@ jobs:
           - job_name: macOS x86_64
             os: macos-11
             arch: x86_64
+            extra_cmake_flags: >-
+              -DCMAKE_C_COMPILER=/Users/runner/work/ldc/clang/bin/clang
+              -DCMAKE_CXX_COMPILER=/Users/runner/work/ldc/clang/bin/clang++
             extra_d_flags: -gcc=/usr/bin/c++
           - job_name: Windows x64
             os: windows-2019
