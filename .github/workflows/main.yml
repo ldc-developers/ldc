@@ -134,7 +134,10 @@ jobs:
             os: osx
             arch: arm64
             extra_bootstrap_d_flags: -gcc=/usr/bin/c++
-            extra_cmake_flags: -DBUILD_LTO_LIBS=ON
+            extra_cmake_flags: >-
+              -DBUILD_LTO_LIBS=ON
+              -DCMAKE_C_COMPILER=/Users/runner/work/ldc/clang/bin/clang
+              -DCMAKE_CXX_COMPILER=/Users/runner/work/ldc/clang/bin/clang++
             lto_mode: full
             with_pgo: true
           - job_name: Android armv7a
@@ -185,7 +188,7 @@ jobs:
           llvm_version: ${{ env.LLVM_VERSION }}
           cmake_flags: ${{ matrix.extra_cmake_flags }}
           lto_mode: ${{ matrix.lto_mode || 'none' }}
-          with_pgo: ${{ matrix.with_pgo == 'true' }}
+          with_pgo: ${{ matrix.with_pgo }}
 
       - name: Install LDC & make portable
         uses: ./.github/actions/5-install
