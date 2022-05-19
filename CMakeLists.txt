@@ -137,6 +137,8 @@ set(COMPILE_D_MODULES_SEPARATELY OFF CACHE BOOL "Compile each D module separatel
 
 set(LDC_ENABLE_ASSERTIONS "${LLVM_ENABLE_ASSERTIONS}" CACHE BOOL "Enable LDC assertions. Defaults to the LLVM assertions mode; overriding may cause LDC segfaults!")
 
+set(EXTRA_DFLAGS_LDC "" CACHE STRING "Extra D compiler flags for the ldc2 executable only, e.g., for PGO.")
+
 # Allow user to specify mimalloc.o location, to be linked with `ldc2` only
 set(ALTERNATIVE_MALLOC_O   ""     CACHE STRING "If specified, adds ALTERNATIVE_MALLOC_O object file to LDC link, to override the CRT malloc.")
 
@@ -677,7 +679,7 @@ build_d_executable(
     "${LDC_EXE}"
     "${LDC_EXE_FULL}"
     "${LDC_D_SOURCE_FILES}"
-    "${DFLAGS_BUILD_TYPE} ${DFLAGS_LDC}"
+    "${DFLAGS_BUILD_TYPE} ${DFLAGS_LDC} ${EXTRA_DFLAGS_LDC}"
     "${ALTERNATIVE_MALLOC_O};${LDC_LINKERFLAG_LIST}"
     "${FE_RES}"
     "${LDC_LIB}"

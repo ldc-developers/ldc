@@ -57,7 +57,7 @@ runs:
           cxx_flags+=(-flto="$lto_mode")
         fi
         if [[ "$with_pgo" == true ]]; then
-          flags+="-DDFLAGS_LDC=-fprofile-use=../pgo-ldc/merged.profdata "
+          flags+="-DEXTRA_DFLAGS_LDC=-fprofile-use=../pgo-ldc/merged.profdata "
           cxx_flags+=(-fprofile-use=../pgo-ldc/merged.profdata)
         fi
 

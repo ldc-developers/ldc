@@ -22,7 +22,7 @@ runs:
           -DBUILD_SHARED_LIBS=OFF
           "-DCMAKE_C_COMPILER=${{ runner.os != 'Windows' && '$PWD/../clang/bin/clang' || 'clang-cl' }}"
           "-DCMAKE_CXX_COMPILER=${{ runner.os != 'Windows' && '$PWD/../clang/bin/clang++' || 'clang-cl' }}"
-          "-DDFLAGS_LDC=-fprofile-generate -vp-counters-per-site=1.5"
+          "-DEXTRA_DFLAGS_LDC=-fprofile-generate -vp-counters-per-site=1.5"
         extra_d_flags: ${{ inputs.extra_d_flags }}
         extra_cxx_flags: -fprofile-generate -mllvm -vp-counters-per-site=1.5
         lto_mode: ${{ inputs.lto_mode }}
