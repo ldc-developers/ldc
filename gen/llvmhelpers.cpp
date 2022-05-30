@@ -771,58 +771,45 @@ DValue *DtoPaintType(const Loc &loc, DValue *val, Type *to) {
   IF_LOG Logger::println("repainting from '%s' to '%s'", from->toChars(),
                          to->toChars());
 
-  if (from->ty == TY::Tarray) {
-    Type *at = to->toBasetype();
-    assert(at->ty == TY::Tarray);
-    Type *elem = at->nextOf()->pointerTo();
-    if (DSliceValue *slice = val->isSlice()) {
-      return new DSliceValue(to, slice->getLength(),
-                             DtoBitCast(slice->getPtr(), DtoType(elem)));
-    }
-    if (val->isLVal()) {
-      LLValue *ptr = DtoLVal(val);
-      ptr = DtoBitCast(ptr, DtoType(at->pointerTo()));
-      return new DLValue(to, ptr);
-    }
-    LLValue *len, *ptr;
-    len = DtoArrayLen(val);
-    ptr = DtoArrayPtr(val);
-    ptr = DtoBitCast(ptr, DtoType(elem));
-    return new DImValue(to, DtoAggrPair(len, ptr));
-  }
-  if (from->ty == TY::Tdelegate) {
-    Type *dgty = to->toBasetype();
-    assert(dgty->ty == TY::Tdelegate);
-    if (val->isLVal()) {
-      LLValue *ptr = DtoLVal(val);
-      assert(isaPointer(ptr));
-      ptr = DtoBitCast(ptr, DtoPtrToType(dgty));
-      IF_LOG Logger::cout() << "dg ptr: " << *ptr << '\n';
-      return new DLValue(to, ptr);
-    }
-    LLValue *dg = DtoRVal(val);
-    LLValue *context = gIR->ir->CreateExtractValue(dg, 0, ".context");
-    LLValue *funcptr = gIR->ir->CreateExtractValue(dg, 1, ".funcptr");
-    funcptr = DtoBitCast(funcptr, DtoType(dgty)->getContainedType(1));
-    LLValue *aggr = DtoAggrPair(context, funcptr);
-    IF_LOG Logger::cout() << "dg: " << *aggr << '\n';
-    return new DImValue(to, aggr);
-  }
-  if (from->ty == TY::Tpointer || from->ty == TY::Tclass ||
-      from->ty == TY::Taarray) {
-    Type *b = to->toBasetype();
-    assert(b->ty == TY::Tpointer || b->ty == TY::Tclass ||
-           b->ty == TY::Taarray);
-    LLValue *ptr = DtoBitCast(DtoRVal(val), DtoType(b));
-    return new DImValue(to, ptr);
-  }
-  if (from->ty == TY::Tsarray) {
-    assert(to->toBasetype()->ty == TY::Tsarray);
-    LLValue *ptr = DtoBitCast(DtoLVal(val), DtoPtrToType(to));
+  Type *tb = to->toBasetype();
+
+  if (val->isLVal()) {
+    auto ptr = DtoBitCast(DtoLVal(val), DtoPtrToType(tb));
     return new DLValue(to, ptr);
   }
-  assert(DtoType(from) == DtoType(to));
-  return new DImValue(to, DtoRVal(val));
+
+  if (auto slice = val->isSlice()) {
+    if (tb->ty == TY::Tarray) {
+      auto ptr = DtoBitCast(slice->getPtr(), DtoPtrToType(tb->nextOf()));
+      return new DSliceValue(to, slice->getLength(), ptr);
+    }
+  } else if (auto func = val->isFunc()) {
+    if (tb->ty == TY::Tdelegate) {
+      auto funcptr =
+          DtoBitCast(DtoRVal(func), DtoType(tb)->getContainedType(1));
+      return new DFuncValue(to, func->func, funcptr, func->vthis);
+    }
+  } else { // generic rvalue
+    LLValue *rval = DtoRVal(val);
+    LLType *tll = DtoType(tb);
+
+    if (rval->getType() == tll) {
+      return new DImValue(to, rval);
+    }
+    if (rval->getType()->isPointerTy() && tll->isPointerTy()) {
+      return new DImValue(to, DtoBitCast(rval, tll));
+    }
+    if (from->ty == TY::Tdelegate && tb->ty == TY::Tdelegate) {
+      LLValue *context = gIR->ir->CreateExtractValue(rval, 0, ".context");
+      LLValue *funcptr = gIR->ir->CreateExtractValue(rval, 1, ".funcptr");
+      funcptr = DtoBitCast(funcptr, tll->getContainedType(1));
+      return new DImValue(to, DtoAggrPair(context, funcptr));
+    }
+  }
+
+  error(loc, "ICE: unexpected type repaint from `%s` to `%s`", from->toChars(),
+        to->toChars());
+  fatal();
 }
 
 /******************************************************************************

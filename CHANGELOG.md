@@ -13,6 +13,7 @@
 - Supports LLVM 9.0 - 14.0.
 
 #### Bug fixes
+- Report unexpected type repaints as fatal ICEs instead of crashing. (#3990, #3991)
 
 #### Internals
 - Main CI was moved from Azure Pipelines to GitHub Actions. Any fork on GitHub can trivially reuse the fully automated prebuilt packages generation & upload to a GitHub release. (#3978)
