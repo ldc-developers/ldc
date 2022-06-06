@@ -67,3 +67,13 @@ struct AnotherContainer {
 static assert(AnotherContainer.alignof == 2);
 static assert(AnotherContainer.sizeof == 6);
 static assert(AnotherContainer.two.offsetof == 2);
+
+// reference all types
+void foo()
+{
+    Container a;
+    Container2 b;
+    PackedContainer2 c;
+    WeirdContainer d;
+    AnotherContainer e;
+}

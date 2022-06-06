@@ -11,21 +11,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_CL_OPTIONS_SANITIZERS_H
-#define LDC_DRIVER_CL_OPTIONS_SANITIZERS_H
+#pragma once
 
 #include "gen/cl_helpers.h"
 #include "llvm/Transforms/Instrumentation.h"
 
-#if LDC_LLVM_VER >= 400
-// Enable coverage sanitizer options from LLVM 4.0 to simplify our code: earlier
-// versions do not have all options available.
-#define ENABLE_COVERAGE_SANITIZER
-#endif
-
 class FuncDeclaration;
 namespace llvm {
 class raw_ostream;
+class StringRef;
 }
 
 namespace opts {
@@ -43,20 +37,19 @@ enum SanitizerCheck : SanitizerBits {
 extern SanitizerBits enabledSanitizers;
 
 inline bool isAnySanitizerEnabled() { return enabledSanitizers; }
-inline bool isSanitizerEnabled(SanitizerCheck san) {
+inline bool isSanitizerEnabled(SanitizerBits san) {
   return enabledSanitizers & san;
 }
 
+SanitizerCheck parseSanitizerName(llvm::StringRef name,
+                                  std::function<void()> actionUponError);
+
 void initializeSanitizerOptionsFromCmdline();
 
-#ifdef ENABLE_COVERAGE_SANITIZER
 llvm::SanitizerCoverageOptions getSanitizerCoverageOptions();
-#endif
 
 void outputSanitizerSettings(llvm::raw_ostream &hash_os);
 
 bool functionIsInSanitizerBlacklist(FuncDeclaration *funcDecl);
 
 } // namespace opts
-
-#endif // LDC_DRIVER_CL_OPTIONS_SANITIZERS_H

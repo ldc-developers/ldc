@@ -1,5 +1,3 @@
-// REQUIRES: atleast_llvm400
-
 // Automatic output filename generation from LL output file
 // RUN: %ldc -c -betterC -O3 -g -fsave-optimization-record -output-ll -of=%t.1.ll %s \
 // RUN: && FileCheck %s --check-prefix=LLVM < %t.1.ll \
@@ -14,7 +12,7 @@ int alwaysInlined(int a) { return a; }
 int foo()
 {
     // LLVM: 8329424
-    // YAML: File: save_optimization_record.d, Line: [[@LINE+1]]
+    // YAML: File: {{.*}}save_optimization_record.d{{.*[[:space:]]?.*}}Line: [[@LINE+1]]
     return 8329423 + alwaysInlined(1);
 }
 

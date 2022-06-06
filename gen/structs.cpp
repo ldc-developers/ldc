@@ -7,11 +7,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "aggregate.h"
-#include "declaration.h"
-#include "init.h"
-#include "module.h"
-#include "mtype.h"
+#include "gen/structs.h"
+
+#include "dmd/aggregate.h"
+#include "dmd/declaration.h"
+#include "dmd/errors.h"
+#include "dmd/init.h"
+#include "dmd/module.h"
+#include "dmd/mtype.h"
 #include "gen/arrays.h"
 #include "gen/dvalue.h"
 #include "gen/functions.h"
@@ -19,9 +22,9 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
-#include "gen/structs.h"
 #include "gen/tollvm.h"
 #include "ir/iraggr.h"
+#include "ir/irdsymbol.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/ManagedStatic.h"
 #include <algorithm>
@@ -30,7 +33,7 @@
 
 void DtoResolveStruct(StructDeclaration *sd) { DtoResolveStruct(sd, sd->loc); }
 
-void DtoResolveStruct(StructDeclaration *sd, Loc &callerLoc) {
+void DtoResolveStruct(StructDeclaration *sd, const Loc &callerLoc) {
   // Make sure to resolve each struct type exactly once.
   if (sd->ir->isResolved()) {
     return;
@@ -45,7 +48,7 @@ void DtoResolveStruct(StructDeclaration *sd, Loc &callerLoc) {
   DtoType(sd->type);
 
   // if it's a forward declaration, all bets are off. The type should be enough
-  if (sd->sizeok != SIZEOKdone) {
+  if (sd->sizeok != Sizeok::done) {
     error(callerLoc, "struct `%s.%s` unknown size", sd->getModule()->toChars(),
           sd->toChars());
     fatal();
@@ -70,20 +73,20 @@ void DtoResolveStruct(StructDeclaration *sd, Loc &callerLoc) {
 ///////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoStructEquals(TOK op, DValue *lhs, DValue *rhs) {
+LLValue *DtoStructEquals(EXP op, DValue *lhs, DValue *rhs) {
   Type *t = lhs->type->toBasetype();
-  assert(t->ty == Tstruct);
+  assert(t->ty == TY::Tstruct);
 
   // set predicate
   llvm::ICmpInst::Predicate cmpop;
-  if (op == TOKequal || op == TOKidentity) {
+  if (op == EXP::equal || op == EXP::identity) {
     cmpop = llvm::ICmpInst::ICMP_EQ;
   } else {
     cmpop = llvm::ICmpInst::ICMP_NE;
   }
 
   // empty struct? EQ always true, NE always false
-  if (static_cast<TypeStruct *>(t)->sym->fields.dim == 0) {
+  if (static_cast<TypeStruct *>(t)->sym->fields.length == 0) {
     return DtoConstBool(cmpop == llvm::ICmpInst::ICMP_EQ);
   }
 
@@ -100,7 +103,7 @@ LLValue *DtoStructEquals(TOK op, DValue *lhs, DValue *rhs) {
 /// specified type.
 /// Union types will get expanded into a struct, with a type for each member.
 LLType *DtoUnpaddedStructType(Type *dty) {
-  assert(dty->ty == Tstruct);
+  assert(dty->ty == TY::Tstruct);
 
   typedef llvm::DenseMap<Type *, llvm::StructType *> CacheT;
   static llvm::ManagedStatic<CacheT> cache;
@@ -113,11 +116,11 @@ LLType *DtoUnpaddedStructType(Type *dty) {
   VarDeclarations &fields = sty->sym->fields;
 
   std::vector<LLType *> types;
-  types.reserve(fields.dim);
+  types.reserve(fields.length);
 
-  for (unsigned i = 0; i < fields.dim; i++) {
+  for (unsigned i = 0; i < fields.length; i++) {
     LLType *fty;
-    if (fields[i]->type->ty == Tstruct) {
+    if (fields[i]->type->ty == TY::Tstruct) {
       // Nested structs are the only members that can contain padding
       fty = DtoUnpaddedStructType(fields[i]->type);
     } else {
@@ -135,16 +138,16 @@ LLType *DtoUnpaddedStructType(Type *dty) {
 /// Note: v must be a pointer to a struct, but the return value will be a
 ///       first-class struct value.
 LLValue *DtoUnpaddedStruct(Type *dty, LLValue *v) {
-  assert(dty->ty == Tstruct);
+  assert(dty->ty == TY::Tstruct);
   TypeStruct *sty = static_cast<TypeStruct *>(dty);
   VarDeclarations &fields = sty->sym->fields;
 
   LLValue *newval = llvm::UndefValue::get(DtoUnpaddedStructType(dty));
 
-  for (unsigned i = 0; i < fields.dim; i++) {
+  for (unsigned i = 0; i < fields.length; i++) {
     LLValue *fieldptr = DtoIndexAggregate(v, sty->sym, fields[i]);
     LLValue *fieldval;
-    if (fields[i]->type->ty == Tstruct) {
+    if (fields[i]->type->ty == TY::Tstruct) {
       // Nested structs are the only members that can contain padding
       fieldval = DtoUnpaddedStruct(fields[i]->type, fieldptr);
     } else {
@@ -157,14 +160,14 @@ LLValue *DtoUnpaddedStruct(Type *dty, LLValue *v) {
 
 /// Undo the transformation performed by DtoUnpaddedStruct, writing to lval.
 void DtoPaddedStruct(Type *dty, LLValue *v, LLValue *lval) {
-  assert(dty->ty == Tstruct);
+  assert(dty->ty == TY::Tstruct);
   TypeStruct *sty = static_cast<TypeStruct *>(dty);
   VarDeclarations &fields = sty->sym->fields;
 
-  for (unsigned i = 0; i < fields.dim; i++) {
+  for (unsigned i = 0; i < fields.length; i++) {
     LLValue *fieldptr = DtoIndexAggregate(lval, sty->sym, fields[i]);
     LLValue *fieldval = DtoExtractValue(v, i);
-    if (fields[i]->type->ty == Tstruct) {
+    if (fields[i]->type->ty == TY::Tstruct) {
       // Nested structs are the only members that can contain padding
       DtoPaddedStruct(fields[i]->type, fieldval, fieldptr);
     } else {

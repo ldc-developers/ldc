@@ -19,7 +19,6 @@
 // RUN: %ldc %s -c -of=%t%obj -cache=%t-dir -disable-simplify-libcalls       -vv | FileCheck --check-prefix=NO_HIT %s
 // RUN: %ldc %s -c -of=%t%obj -cache=%t-dir -disable-gc2stack                -vv | FileCheck --check-prefix=NO_HIT %s
 // RUN: %ldc %s -c -of=%t%obj -cache=%t-dir -enable-inlining                 -vv | FileCheck --check-prefix=NO_HIT %s
-// RUN: %ldc %s -c -of=%t%obj -cache=%t-dir -unit-at-a-time=false            -vv | FileCheck --check-prefix=NO_HIT %s
 // RUN: %ldc %s -c -of=%t%obj -cache=%t-dir -strip-debug                     -vv | FileCheck --check-prefix=NO_HIT %s
 // RUN: %ldc %s -c -of=%t%obj -cache=%t-dir -disable-loop-unrolling          -vv | FileCheck --check-prefix=NO_HIT %s
 // RUN: %ldc %s -c -of=%t%obj -cache=%t-dir -disable-loop-vectorization      -vv | FileCheck --check-prefix=NO_HIT %s

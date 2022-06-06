@@ -1,18 +1,15 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Semantic analysis of template parameters.
  *
- * Template implementation.
- *
- * Copyright:   Copyright (c) 1999-2017 by The D Language Foundation, All Rights Reserved
- * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
- * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/templateparamsem.d, _templateparamsem.d)
+ * Documentation:  https://dlang.org/phobos/dmd_templateparamsem.html
+ * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/templateparamsem.d
  */
 
 module dmd.templateparamsem;
-
-// Online documentation: https://dlang.org/phobos/dmd_templateparamsem.html
 
 import dmd.arraytypes;
 import dmd.dsymbol;
@@ -22,7 +19,6 @@ import dmd.globals;
 import dmd.expression;
 import dmd.expressionsem;
 import dmd.root.rootobject;
-import dmd.semantic;
 import dmd.mtype;
 import dmd.typesem;
 import dmd.visitor;
@@ -91,8 +87,8 @@ private extern (C++) final class TemplateParameterSemanticVisitor : Visitor
                 sc = sc.endCTFE();
                 e = e.implicitCastTo(sc, tvp.valType);
                 e = e.ctfeInterpret();
-                if (e.op == TOKint64 || e.op == TOKfloat64 ||
-                    e.op == TOKcomplex80 || e.op == TOKnull || e.op == TOKstring)
+                if (e.op == EXP.int64 || e.op == EXP.float64 ||
+                    e.op == EXP.complex80 || e.op == EXP.null_ || e.op == EXP.string_)
                     tvp.specValue = e;
             }
 
@@ -104,7 +100,7 @@ private extern (C++) final class TemplateParameterSemanticVisitor : Visitor
                 sc = sc.endCTFE();
                 e = e.implicitCastTo(sc, tvp.valType);
                 e = e.ctfeInterpret();
-                if (e.op == TOKint64)
+                if (e.op == EXP.int64)
                     tvp.defaultValue = e;
             }
         }
@@ -146,25 +142,49 @@ private extern (C++) final class TemplateParameterSemanticVisitor : Visitor
  */
 RootObject aliasParameterSemantic(Loc loc, Scope* sc, RootObject o, TemplateParameters* parameters)
 {
-    if (o)
+    if (!o)
+        return null;
+
+    Expression ea = isExpression(o);
+    RootObject eaCTFE()
     {
-        Expression ea = isExpression(o);
-        Type ta = isType(o);
-        if (ta && (!parameters || !reliesOnTident(ta, parameters)))
-        {
-            Dsymbol s = ta.toDsymbol(sc);
-            if (s)
-                o = s;
-            else
-                o = ta.typeSemantic(loc, sc);
-        }
-        else if (ea)
-        {
-            sc = sc.startCTFE();
-            ea = ea.expressionSemantic(sc);
-            sc = sc.endCTFE();
-            o = ea.ctfeInterpret();
-        }
+        sc = sc.startCTFE();
+        ea = ea.expressionSemantic(sc);
+        sc = sc.endCTFE();
+        return ea.ctfeInterpret();
     }
+    Type ta = isType(o);
+    if (ta && (!parameters || !reliesOnTident(ta, parameters)))
+    {
+        Dsymbol s = ta.toDsymbol(sc);
+        if (s)
+            return s;
+        else if (TypeInstance ti = ta.isTypeInstance())
+        {
+            Type t;
+            const errors = global.errors;
+            ta.resolve(loc, sc, ea, t, s);
+            // if we had an error evaluating the symbol, suppress further errors
+            if (!t && errors != global.errors)
+                return Type.terror;
+            // We might have something that looks like a type
+            // but is actually an expression or a dsymbol
+            // see https://issues.dlang.org/show_bug.cgi?id=16472
+            if (t)
+                return t.typeSemantic(loc, sc);
+            else if (ea)
+            {
+                return eaCTFE();
+            }
+            else if (s)
+                return s;
+            else
+                assert(0);
+        }
+        else
+            return ta.typeSemantic(loc, sc);
+    }
+    else if (ea)
+        return eaCTFE();
     return o;
 }

@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_IR_IRVAR_H
-#define LDC_IR_IRVAR_H
+#pragma once
 
 #include "llvm/IR/Type.h"
 #include "llvm/IR/DebugInfo.h"
@@ -35,12 +34,15 @@ struct IrVar {
 struct IrGlobal : IrVar {
   explicit IrGlobal(VarDeclaration *v) : IrVar(v) {}
 
-  llvm::Constant *constInit = nullptr;
-
   // This var is used by a naked function.
   bool nakedUse = false;
 
+  llvm::Value *getValue(bool define = false);
   llvm::Type *getType() { return value->getType()->getContainedType(0); }
+
+private:
+  void declare();
+  void define();
 };
 
 // represents a local variable variable
@@ -82,5 +84,3 @@ bool isIrParameterCreated(VarDeclaration *decl);
 
 IrField *getIrField(VarDeclaration *decl, bool create = false);
 bool isIrFieldCreated(VarDeclaration *decl);
-
-#endif

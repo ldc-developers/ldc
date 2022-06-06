@@ -28,7 +28,7 @@ class ExceptionThree : Exception {
 
 // PROFGEN-LABEL: @scope_stmts(
 // PROFUSE-LABEL: @scope_stmts(
-// PROFGEN: store {{.*}} @[[SCP]], i64 0, i64 0
+// PROFGEN: store {{.*}} @[[SCP]], i{{32|64}} 0, i{{32|64}} 0
 // PROFUSE-SAME: !prof ![[SCP0:[0-9]+]]
 void scope_stmts(bool fail) {
   int i;
@@ -50,10 +50,10 @@ void scope_stmts(bool fail) {
 
 // PROFGEN-LABEL: @try_catch()
 // PROFUSE-LABEL: @try_catch()
-// PROFGEN: store {{.*}} @[[TC]], i64 0, i64 0
+// PROFGEN: store {{.*}} @[[TC]], i{{32|64}} 0, i{{32|64}} 0
 // PROFUSE-SAME: !prof ![[TC0:[0-9]+]]
 void try_catch() {
-  // PROFGEN: store {{.*}} @[[TC]], i64 0, i64 1
+  // PROFGEN: store {{.*}} @[[TC]], i{{32|64}} 0, i{{32|64}} 1
   // PROFUSE: br {{.*}} !prof ![[TC1:[0-9]+]]
   for (int i = 0; i < 6; ++i) { // 6 : 0 (branch taken)
 
@@ -80,19 +80,19 @@ void try_catch() {
     }
 
     // Try body:  if(i < 2)
-    // PROFGEN: store {{.*}} @[[TC]], i64 0, i64 5
+    // PROFGEN: store {{.*}} @[[TC]], i{{32|64}} 0, i{{32|64}} 5
     // More try body:  if(i < 5)
-    // PROFGEN: store {{.*}} @[[TC]], i64 0, i64 6
+    // PROFGEN: store {{.*}} @[[TC]], i{{32|64}} 0, i{{32|64}} 6
     // ExceptionTwo body:
-    // PROFGEN: store {{.*}} @[[TC]], i64 0, i64 3
+    // PROFGEN: store {{.*}} @[[TC]], i{{32|64}} 0, i{{32|64}} 3
     // More ExceptionTwo body:  if(i)
-    // PROFGEN: store {{.*}} @[[TC]], i64 0, i64 7
+    // PROFGEN: store {{.*}} @[[TC]], i{{32|64}} 0, i{{32|64}} 7
     // ExceptionThree body:
-    // PROFGEN: store {{.*}} @[[TC]], i64 0, i64 4
+    // PROFGEN: store {{.*}} @[[TC]], i{{32|64}} 0, i{{32|64}} 4
     // More ExceptionThree body:  if(i)
-    // PROFGEN: store {{.*}} @[[TC]], i64 0, i64 8
+    // PROFGEN: store {{.*}} @[[TC]], i{{32|64}} 0, i{{32|64}} 8
     // Try end:
-    // PROFGEN: store {{.*}} @[[TC]], i64 0, i64 2
+    // PROFGEN: store {{.*}} @[[TC]], i{{32|64}} 0, i{{32|64}} 2
 
     // Try body:  if(i < 2)
     // PROFUSE: br {{.*}} !prof ![[TC5:[0-9]+]]
@@ -110,7 +110,7 @@ void try_catch() {
 
 // PROFGEN-LABEL: @try_finally()
 // PROFUSE-LABEL: @try_finally()
-// PROFGEN: store {{.*}} @[[TF]], i64 0, i64 0
+// PROFGEN: store {{.*}} @[[TF]], i{{32|64}} 0, i{{32|64}} 0
 // PROFUSE-SAME: !prof ![[TF0:[0-9]+]]
 void try_finally() {
   int i;

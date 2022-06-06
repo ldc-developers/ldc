@@ -1,43 +1,44 @@
 /**
- * Compiler implementation of the D programming language
- * http://dlang.org
+ * Open an online manual page.
  *
- * Copyright: Copyright (c) 1999-2017 by The D Language Foundation, All Rights Reserved
- * Authors:   Walter Bright, http://www.digitalmars.com
- * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Copyright: Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Authors:   Walter Bright, https://www.digitalmars.com
+ * License:   $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:    $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/root/man.d, root/_man.d)
+ * Documentation:  https://dlang.org/phobos/dmd_root_man.html
+ * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/root/man.d
  */
 
 module dmd.root.man;
-
-// Online documentation: https://dlang.org/phobos/dmd_root_man.html
 
 import core.stdc.stdio;
 import core.stdc.stdlib;
 import core.stdc.string;
 import core.sys.posix.unistd;
-import core.sys.windows.windows;
 
 version (Windows)
 {
-    extern (C++) void browse(const(char)* url)
+    import core.sys.windows.shellapi;
+    import core.sys.windows.winuser;
+
+    extern (C++) void browse(const(char)* url) nothrow @nogc
     in
     {
         assert(strncmp(url, "http://", 7) == 0 || strncmp(url, "https://", 8) == 0);
     }
-    body
+    do
     {
         ShellExecuteA(null, "open", url, null, null, SW_SHOWNORMAL);
     }
 }
 else version (OSX)
 {
-    extern (C++) void browse(const(char)* url)
+    extern (C++) void browse(const(char)* url) nothrow @nogc
     in
     {
         assert(strncmp(url, "http://", 7) == 0 || strncmp(url, "https://", 8) == 0);
     }
-    body
+    do
     {
         pid_t childpid;
         const(char)*[5] args;
@@ -66,12 +67,12 @@ else version (OSX)
 }
 else version (Posix)
 {
-    extern (C++) void browse(const(char)* url)
+    extern (C++) void browse(const(char)* url) nothrow @nogc
     in
     {
         assert(strncmp(url, "http://", 7) == 0 || strncmp(url, "https://", 8) == 0);
     }
-    body
+    do
     {
         pid_t childpid;
         const(char)*[3] args;

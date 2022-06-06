@@ -61,7 +61,6 @@ void foo2()
 {
 }
 
-// CHECK-DAG: attributes #[[OPTNONE]] = {{.*}} optnone
-// CHECK-DAG: attributes #[[OPTNONE]] = {{.*}} noinline
+// CHECK-DAG: attributes #[[OPTNONE]] = {{.*}} noinline {{.*}} optnone
 // CHECK-DAG: attributes #[[OPTSIZE]] = {{.*}} optsize
 // CHECK-DAG: attributes #[[MINSIZE]] = {{.*}} minsize

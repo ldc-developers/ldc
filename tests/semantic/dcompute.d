@@ -23,15 +23,13 @@ void func()
     auto bar = [0, 1, 2];
     //CHECK: dcompute.d([[@LINE+1]]): Error: cannot use `new` in `@compute` code
     auto baz = new int;
-    //CHECK: dcompute.d([[@LINE+1]]): Error: cannot use `delete` in `@compute` code
-    delete baz;
 
     //CHECK: dcompute.d([[@LINE+1]]): Error: {{.*}} interfaces and classes not allowed in `@compute` code
     I i;
     //CHECK: dcompute.d([[@LINE+1]]): Error: {{.*}} interfaces and classes not allowed in `@compute` code
     C cc;
     int[] quux;
-    //CHECK: dcompute.d([[@LINE+1]]): Error: setting `length` in `@compute` code not allowed
+    //CHECK: dcompute.d([[@LINE+1]]): Error: can only call functions from other `@compute` modules in `@compute` code
     quux.length = 1;
     //CHECK: dcompute.d([[@LINE+1]]): Error: cannot use operator `~=` in `@compute` code
     quux ~= 42;
@@ -81,13 +79,10 @@ void func()
     //CHECK-NOT: Error:
     scope(exit)
         func2();
-
-    //CHECK: dcompute.d([[@LINE+1]]): Error: asm not allowed in `@compute` code
-    asm {ret;}
 }
 
 void func1() {}
 void func2() {}
 
-//CHECK: dcompute.d([[@LINE+1]]): Error: pragma lib linking additional libraries not supported in `@compute` code
+//CHECK: dcompute.d([[@LINE+1]]): Error: pragma `lib` linking additional libraries not supported in `@compute` code
 pragma(lib, "bar");

@@ -7,10 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_MS_CXX_HELPER_H
-#define LDC_GEN_MS_CXX_HELPER_H
+#pragma once
 
-#if LDC_LLVM_VER >= 308
 #include "gen/irstate.h"
 
 llvm::StructType *getTypeDescriptorType(IRState &irs,
@@ -30,6 +28,3 @@ void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
                  llvm::Value *funclet);
 
 bool isCatchSwitchBlock(llvm::BasicBlock* bb);
-
-#endif // LDC_LLVM_VER >= 308
-#endif // LDC_GEN_MS_CXX_HELPER_H

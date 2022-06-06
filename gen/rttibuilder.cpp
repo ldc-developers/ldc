@@ -8,8 +8,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/rttibuilder.h"
-#include "aggregate.h"
-#include "mtype.h"
+
+#include "dmd/aggregate.h"
+#include "dmd/mangle.h"
+#include "dmd/mtype.h"
 #include "gen/arrays.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
@@ -20,18 +22,19 @@
 #include "ir/iraggr.h"
 #include "ir/irfunction.h"
 
-RTTIBuilder::RTTIBuilder(AggregateDeclaration *base_class) {
-  DtoResolveDsymbol(base_class);
+// in dmd/opover.d:
+AggregateDeclaration *isAggregate(Type *t);
 
-  base = base_class;
-  basetype = static_cast<TypeClass *>(base->type);
+RTTIBuilder::RTTIBuilder(Type *baseType) {
+  const auto ad = isAggregate(baseType);
+  assert(ad && "not an aggregate type");
 
-  baseir = getIrAggr(base);
-  assert(baseir && "no IrStruct for TypeInfo base class");
+  DtoResolveDsymbol(ad);
 
-  prevFieldEnd = 0;
+  if (auto cd = ad->isClassDeclaration()) {
+    const auto baseir = getIrAggr(cd);
+    assert(baseir && "no IrAggr for TypeInfo base class");
 
-  if (base->isClassDeclaration()) {
     // just start with adding the vtbl
     push(baseir->getVtblSymbol());
     // and monitor
@@ -42,13 +45,8 @@ RTTIBuilder::RTTIBuilder(AggregateDeclaration *base_class) {
 void RTTIBuilder::push(llvm::Constant *C) {
   // We need to explicitly zero any padding bytes as per TDPL §7.1.1 (and
   // also match the struct type lowering code here).
-  const uint64_t fieldStart =
-#if LDC_LLVM_VER >= 309
-    llvm::alignTo
-#else
-    llvm::RoundUpToAlignment
-#endif
-    (prevFieldEnd, gDataLayout->getABITypeAlignment(C->getType()));
+  const uint64_t fieldStart = llvm::alignTo(
+      prevFieldEnd, gDataLayout->getABITypeAlignment(C->getType()));
 
   const uint64_t paddingBytes = fieldStart - prevFieldEnd;
   if (paddingBytes) {
@@ -64,11 +62,7 @@ void RTTIBuilder::push_null(Type *T) { push(getNullValue(DtoType(T))); }
 
 void RTTIBuilder::push_null_vp() { push(getNullValue(getVoidPtrType())); }
 
-void RTTIBuilder::push_typeinfo(Type *t) { push(DtoTypeInfoOf(t)); }
-
-void RTTIBuilder::push_classinfo(ClassDeclaration *cd) {
-  push(getIrAggr(cd)->getClassInfoSymbol());
-}
+void RTTIBuilder::push_typeinfo(Type *t) { push(DtoTypeInfoOf(Loc(), t)); }
 
 void RTTIBuilder::push_string(const char *str) { push(DtoConstString(str)); }
 
@@ -87,12 +81,12 @@ void RTTIBuilder::push_void_array(llvm::Constant *CI, Type *valtype,
   mangleToBuffer(mangle_sym, &initname);
   initname.writestring(".rtti.voidarr.data");
 
-  const LinkageWithCOMDAT lwc(TYPEINFO_LINKAGE_TYPE, supportsCOMDAT());
+  const LinkageWithCOMDAT lwc(TYPEINFO_LINKAGE_TYPE, needsCOMDAT());
 
-  auto G = new LLGlobalVariable(gIR->module, CI->getType(), true,
-                                lwc.first, CI, initname.peekString());
+  auto G = new LLGlobalVariable(gIR->module, CI->getType(), true, lwc.first, CI,
+                                initname.peekChars());
   setLinkage(lwc, G);
-  G->setAlignment(DtoAlignment(valtype));
+  G->setAlignment(LLMaybeAlign(DtoAlignment(valtype)));
 
   push_void_array(getTypeAllocSize(CI->getType()), G);
 }
@@ -113,12 +107,12 @@ void RTTIBuilder::push_array(llvm::Constant *CI, uint64_t dim, Type *valtype,
   initname.writestring(tmpStr.c_str());
   initname.writestring(".data");
 
-  const LinkageWithCOMDAT lwc(TYPEINFO_LINKAGE_TYPE, supportsCOMDAT());
+  const LinkageWithCOMDAT lwc(TYPEINFO_LINKAGE_TYPE, needsCOMDAT());
 
-  auto G = new LLGlobalVariable(gIR->module, CI->getType(), true,
-                                lwc.first, CI, initname.peekString());
+  auto G = new LLGlobalVariable(gIR->module, CI->getType(), true, lwc.first, CI,
+                                initname.peekChars());
   setLinkage(lwc, G);
-  G->setAlignment(DtoAlignment(valtype));
+  G->setAlignment(LLMaybeAlign(DtoAlignment(valtype)));
 
   push_array(dim, DtoBitCast(G, DtoType(valtype->pointerTo())));
 }
@@ -137,7 +131,6 @@ void RTTIBuilder::push_size_as_vp(uint64_t s) {
 
 void RTTIBuilder::push_funcptr(FuncDeclaration *fd, Type *castto) {
   if (fd) {
-    DtoResolveFunction(fd);
     LLConstant *F = DtoCallee(fd);
     if (castto) {
       F = DtoBitCast(F, DtoType(castto));
@@ -151,7 +144,7 @@ void RTTIBuilder::push_funcptr(FuncDeclaration *fd, Type *castto) {
 }
 
 void RTTIBuilder::finalize(LLGlobalVariable *gvar) {
-  LLStructType *st = isaStruct(gvar->getType()->getPointerElementType());
+  LLStructType *st = isaStruct(gvar->getValueType());
   assert(st);
 
   // finalize the type if opaque (e.g., for ModuleInfos)

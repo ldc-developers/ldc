@@ -11,14 +11,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef __LDC_IR_IRTYPECLASS_H__
-#define __LDC_IR_IRTYPECLASS_H__
+#pragma once
 
 #include "ir/irtypeaggr.h"
 #include "llvm/IR/DerivedTypes.h"
 
 template <typename TYPE> struct Array;
+class ClassDeclaration;
 using FuncDeclarations = Array<class FuncDeclaration *>;
+class TypeClass;
 
 ///
 class IrTypeClass : public IrTypeAggr {
@@ -80,5 +81,3 @@ protected:
   /// to index map.
   void addInterfaceToMap(ClassDeclaration *inter, size_t index);
 };
-
-#endif

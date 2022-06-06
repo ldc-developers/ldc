@@ -7,12 +7,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "errors.h"
+#include "dmd/errors.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
+#include "driver/configfile.h"
 #include "driver/exe_path.h"
 #include "driver/ldc-version.h"
+#include "driver/linker.h"
 #include "driver/tool.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
@@ -22,6 +24,10 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
+
+#if LDC_WITH_LLD
+#include "lld/Common/Driver.h"
+#endif
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -46,26 +52,29 @@ public:
   virtual ~ArgsBuilder() = default;
 
   void build(llvm::StringRef outputPath,
-             llvm::cl::boolOrDefault fullyStaticFlag);
+             const std::vector<std::string> &defaultLibNames);
 
 private:
   virtual void addSanitizers(const llvm::Triple &triple);
-  virtual void addASanLinkFlags(const llvm::Triple &triple);
+  virtual void addSanitizerLinkFlags(const llvm::Triple &triple,
+                                     const llvm::StringRef sanitizerName,
+                                     const llvm::StringRef fallbackFlag);
   virtual void addFuzzLinkFlags(const llvm::Triple &triple);
   virtual void addCppStdlibLinkFlags(const llvm::Triple &triple);
   virtual void addProfileRuntimeLinkFlags(const llvm::Triple &triple);
   virtual void addXRayLinkFlags(const llvm::Triple &triple);
+  virtual bool addCompilerRTArchiveLinkFlags(llvm::StringRef baseName,
+                                             const llvm::Triple &triple);
 
   virtual void addLinker();
   virtual void addUserSwitches();
-  void addDefaultLibs();
+  void addDefaultPlatformLibs();
   virtual void addTargetFlags();
 
-#if LDC_LLVM_VER >= 309
-  void addLTOGoldPluginFlags();
+  void addLTOGoldPluginFlags(bool requirePlugin);
   void addDarwinLTOFlags();
   void addLTOLinkFlags();
-#endif
+  bool isLldDefaultLinker();
 
   virtual void addLdFlag(const llvm::Twine &flag) {
     args.push_back(("-Wl," + flag).str());
@@ -78,8 +87,6 @@ private:
 
 //////////////////////////////////////////////////////////////////////////////
 // LTO functionality
-
-#if LDC_LLVM_VER >= 309
 
 std::string getLTOGoldPluginPath() {
   if (!ltoLibrary.empty()) {
@@ -94,6 +101,9 @@ std::string getLTOGoldPluginPath() {
       exe_path::prependLibDir("LLVMgold-ldc.so"),
       // Perhaps the user copied the plugin to LDC's lib dir.
       exe_path::prependLibDir("LLVMgold.so"),
+#ifdef LDC_LLVM_LIBDIR
+      LDC_LLVM_LIBDIR "/LLVMgold.so",
+#endif
 #if __LP64__
       "/usr/local/lib64/LLVMgold.so",
 #endif
@@ -117,8 +127,9 @@ std::string getLTOGoldPluginPath() {
   }
 }
 
-void ArgsBuilder::addLTOGoldPluginFlags() {
-  addLdFlag("-plugin", getLTOGoldPluginPath());
+void ArgsBuilder::addLTOGoldPluginFlags(bool requirePlugin) {
+  if (requirePlugin)
+    addLdFlag("-plugin", getLTOGoldPluginPath());
 
   if (opts::isUsingThinLTO())
     addLdFlag("-plugin-opt=thinlto");
@@ -133,13 +144,11 @@ void ArgsBuilder::addLTOGoldPluginFlags() {
   optChars[13] = '0' + std::min<char>(optLevel(), 3);
   addLdFlag(optChars);
 
-#if LDC_LLVM_VER >= 400
   const llvm::TargetOptions &TO = gTargetMachine->Options;
   if (TO.FunctionSections)
     addLdFlag("-plugin-opt=-function-sections");
   if (TO.DataSections)
     addLdFlag("-plugin-opt=-data-sections");
-#endif
 }
 
 // Returns an empty string when libLTO.dylib was not specified nor found.
@@ -156,6 +165,12 @@ std::string getLTOdylibPath() {
     if (llvm::sys::fs::exists(searchPath))
       return searchPath;
 
+#ifdef LDC_LLVM_LIBDIR
+    searchPath = LDC_LLVM_LIBDIR "/libLTO.dylib";
+    if (llvm::sys::fs::exists(searchPath))
+      return searchPath;
+#endif
+
     return "";
   }
 }
@@ -163,8 +178,7 @@ std::string getLTOdylibPath() {
 void ArgsBuilder::addDarwinLTOFlags() {
   std::string dylibPath = getLTOdylibPath();
   if (!dylibPath.empty()) {
-    args.push_back("-lto_library");
-    args.push_back(std::move(dylibPath));
+    addLdFlag("-lto_library", dylibPath);
   }
 }
 
@@ -175,14 +189,27 @@ void ArgsBuilder::addLTOLinkFlags() {
       global.params.targetTriple->isOSNetBSD() ||
       global.params.targetTriple->isOSOpenBSD() ||
       global.params.targetTriple->isOSDragonFly()) {
-    // Assume that ld.gold or ld.bfd is used with plugin support.
-    addLTOGoldPluginFlags();
+    // LLD supports LLVM LTO natively, do not add the plugin itself.
+    // Otherwise, assume that ld.gold or ld.bfd is used with plugin support.
+    bool isLld = opts::linker == "lld" || useInternalLLDForLinking() ||
+                 (opts::linker.empty() && isLldDefaultLinker());
+    addLTOGoldPluginFlags(!isLld);
   } else if (global.params.targetTriple->isOSDarwin()) {
     addDarwinLTOFlags();
   }
 }
 
-#endif // LDC_LLVM_VER >= 309
+bool ArgsBuilder::isLldDefaultLinker() {
+  auto triple = global.params.targetTriple;
+  if (triple->isOSFreeBSD()) {
+    if (triple->getOSMajorVersion() >= 12 &&
+        triple->getArch() == llvm::Triple::ArchType::x86_64)
+      return true;
+    if (triple->getArch() == llvm::Triple::ArchType::aarch64)
+      return true;
+  }
+  return false;
+}
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -193,31 +220,28 @@ llvm::StringRef getCompilerRTArchName(const llvm::Triple &triple) {
   return triple.getArchName();
 }
 
-// Returns the libname as full path and with arch suffix and extension.
-// For example, with name="libldc_rt.fuzzer", the returned string is
-// "libldc_rt.fuzzer_osx.a" on Darwin.
-std::string getFullCompilerRTLibPath(const llvm::Triple &triple,
-                                     llvm::StringRef name,
-                                     bool sharedLibrary = false) {
-  if (triple.isOSDarwin()) {
-    return exe_path::prependLibDir(
-        name + (sharedLibrary ? "_osx_dynamic.dylib" : "_osx.a"));
-  } else {
-    return exe_path::prependLibDir(name + "-" + getCompilerRTArchName(triple) +
-                                   (sharedLibrary ? ".so" : ".a"));
-  }
+// Appends arch suffix and extension.
+// E.g., for name="libclang_rt.fuzzer" and sharedLibrary=false, returns
+// "libclang_rt.fuzzer_osx.a" on Darwin.
+std::string getCompilerRTLibFilename(const llvm::Twine &name,
+                                     const llvm::Triple &triple,
+                                     bool sharedLibrary) {
+  return (triple.isOSDarwin()
+              ? name + (sharedLibrary ? "_osx_dynamic.dylib" : "_osx.a")
+              : name + "-" + getCompilerRTArchName(triple) +
+                    (sharedLibrary ? ".so" : ".a"))
+      .str();
 }
 
 // Clang's RT libs are in a subdir of the lib dir.
-// Returns the libname as full path and with arch suffix and extension.
-// For example, with name="libclang_rt.asan" and sharedLibrary=true, the
-// returned string is
-// "clang/6.0.0/lib/darwin/libclang_rt.asan_osx_dynamic.dylib" on Darwin.
+// E.g., for name="libclang_rt.asan" and sharedLibrary=true, returns
+// "clang/6.0.0/lib/darwin/libclang_rt.asan_osx_dynamic.dylib" on
+// Darwin.
 // This function is "best effort", the path may not be what Clang does...
 // See clang/lib/Driver/Toolchain.cpp.
-std::string getFullClangCompilerRTLibPath(const llvm::Triple &triple,
-                                          llvm::StringRef name,
-                                          bool sharedLibrary = false) {
+std::string getRelativeClangCompilerRTLibPath(const llvm::Twine &name,
+                                              const llvm::Triple &triple,
+                                              bool sharedLibrary) {
   llvm::StringRef OSName =
       triple.isOSDarwin()
           ? "darwin"
@@ -227,41 +251,75 @@ std::string getFullClangCompilerRTLibPath(const llvm::Triple &triple,
                          "/lib/" + OSName + "/" + name)
                             .str();
 
-  if (triple.isOSDarwin()) {
-    return exe_path::prependLibDir(
-        llvm::Twine(relPath) +
-        (sharedLibrary ? "_osx_dynamic.dylib" : "_osx.a"));
-  } else {
-    return exe_path::prependLibDir(llvm::Twine(relPath) + "-" +
-                                   getCompilerRTArchName(triple) +
-                                   (sharedLibrary ? ".so" : ".a"));
-  }
+  return getCompilerRTLibFilename(relPath, triple, sharedLibrary);
 }
 
-void ArgsBuilder::addASanLinkFlags(const llvm::Triple &triple) {
-  // Examples: "libclang_rt.asan-x86_64.a" or "libclang_rt.asan-arm.a" and
-  // "libclang_rt.asan-x86_64.so"
+void appendFullLibPathCandidates(std::vector<std::string> &paths,
+                                 const llvm::Twine &filename) {
+  llvm::SmallString<128> candidate;
+  for (const char *dir : ConfigFile::instance.libDirs()) {
+    candidate = dir;
+    llvm::sys::path::append(candidate, filename);
+    paths.emplace_back(candidate.data(), candidate.size());
+  }
+
+  // for backwards compatibility
+  paths.push_back(exe_path::prependLibDir(filename));
+
+#ifdef LDC_LLVM_LIBDIR
+  candidate = LDC_LLVM_LIBDIR;
+  llvm::sys::path::append(candidate, filename);
+  paths.emplace_back(candidate.data(), candidate.size());
+#endif
+}
+
+// Returns candidates of full paths to a compiler-rt lib.
+// E.g., for baseName="asan" and sharedLibrary=false, returns something like
+// [ "<libDir>/libldc_rt.asan.a",
+//   "<libDir>/libclang_rt.asan_osx.a",
+//   "<libDir>/clang/6.0.0/lib/darwin/libclang_rt.asan_osx.a" ].
+std::vector<std::string>
+getFullCompilerRTLibPathCandidates(llvm::StringRef baseName,
+                                   const llvm::Triple &triple,
+                                   bool sharedLibrary = false) {
+  std::vector<std::string> r;
+  const auto ldcRT =
+      ("libldc_rt." + baseName +
+       (!sharedLibrary ? ".a" : triple.isOSDarwin() ? ".dylib" : ".so"))
+          .str();
+  appendFullLibPathCandidates(r, ldcRT);
+  const auto clangRT = getCompilerRTLibFilename("libclang_rt." + baseName,
+                                                triple, sharedLibrary);
+  appendFullLibPathCandidates(r, clangRT);
+  const auto fullClangRT = getRelativeClangCompilerRTLibPath(
+      "libclang_rt." + baseName, triple, sharedLibrary);
+  appendFullLibPathCandidates(r, fullClangRT);
+  return r;
+}
+
+void ArgsBuilder::addSanitizerLinkFlags(const llvm::Triple &triple,
+                                        const llvm::StringRef sanitizerName,
+                                        const llvm::StringRef fallbackFlag) {
+  // Examples: "libclang_rt.tsan-x86_64.a" or "libclang_rt.tsan-arm.a" and
+  // "libclang_rt.tsan-x86_64.so"
 
   // TODO: let user choose to link with shared lib.
   // In case of shared ASan, I think we also need to statically link with
   // libclang_rt.asan-preinit-<arch>.a on Linux. On Darwin, the only option is
   // to use the shared library.
-  bool linkSharedASan = triple.isOSDarwin();
-  std::string searchPaths[] = {
-      getFullCompilerRTLibPath(triple, "libldc_rt.asan", linkSharedASan),
-      getFullCompilerRTLibPath(triple, "libclang_rt.asan", linkSharedASan),
-      getFullClangCompilerRTLibPath(triple, "libclang_rt.asan", linkSharedASan),
-  };
+  bool linkSharedLibrary = triple.isOSDarwin();
+  const auto searchPaths =
+      getFullCompilerRTLibPathCandidates(sanitizerName, triple, linkSharedLibrary);
 
   for (const auto &filepath : searchPaths) {
-    IF_LOG Logger::println("Searching ASan lib: %s", filepath.c_str());
+    IF_LOG Logger::println("Searching sanitizer lib: %s", filepath.c_str());
 
     if (llvm::sys::fs::exists(filepath) &&
         !llvm::sys::fs::is_directory(filepath)) {
       IF_LOG Logger::println("Found, linking with %s", filepath.c_str());
       args.push_back(filepath);
 
-      if (linkSharedASan) {
+      if (linkSharedLibrary) {
         // Add @executable_path to rpath to support having the shared lib copied
         // with the executable.
         args.push_back("-rpath");
@@ -270,33 +328,22 @@ void ArgsBuilder::addASanLinkFlags(const llvm::Triple &triple) {
         // Add the path to the resource dir to rpath to support using the shared
         // lib from the default location without copying.
         args.push_back("-rpath");
-        args.push_back(llvm::sys::path::parent_path(filepath));
+        args.push_back(std::string(llvm::sys::path::parent_path(filepath)));
       }
 
       return;
     }
   }
 
-  // When we reach here, we did not find the ASan library.
-  // Fallback, requires Clang. The asan library contains a versioned symbol
-  // name and a linker error will happen when the LDC-LLVM and Clang-LLVM
-  // versions don't match.
-  args.push_back("-fsanitize=address");
+  // When we reach here, we did not find the sanitizer library.
+  // Fallback, requires Clang.
+  args.emplace_back(fallbackFlag);
 }
 
 // Adds all required link flags for -fsanitize=fuzzer when libFuzzer library is
 // found.
 void ArgsBuilder::addFuzzLinkFlags(const llvm::Triple &triple) {
-  std::string searchPaths[] = {
-#if LDC_LLVM_VER >= 600
-    getFullCompilerRTLibPath(triple, "libldc_rt.fuzzer"),
-    getFullCompilerRTLibPath(triple, "libclang_rt.fuzzer"),
-    getFullClangCompilerRTLibPath(triple, "libclang_rt.fuzzer"),
-#else
-    exe_path::prependLibDir("libFuzzer.a"),
-    exe_path::prependLibDir("libLLVMFuzzer.a"),
-#endif
-  };
+  const auto searchPaths = getFullCompilerRTLibPathCandidates("fuzzer", triple);
 
   for (const auto &filepath : searchPaths) {
     IF_LOG Logger::println("Searching libFuzzer: %s", filepath.c_str());
@@ -317,27 +364,40 @@ void ArgsBuilder::addFuzzLinkFlags(const llvm::Triple &triple) {
 // Adds all required link flags for -fxray-instrument when the xray library is
 // found.
 void ArgsBuilder::addXRayLinkFlags(const llvm::Triple &triple) {
-  std::string searchPaths[] = {
-    getFullCompilerRTLibPath(triple, "libldc_rt.xray"),
-    getFullCompilerRTLibPath(triple, "libclang_rt.xray"),
-    getFullClangCompilerRTLibPath(triple, "libclang_rt.xray"),
-  };
-
-  bool linkerDarwin = triple.isOSDarwin();
   if (!triple.isOSLinux())
-    warning(Loc(), "XRay is not (fully) supported on non-Linux target OS.");
+    warning(Loc(), "XRay may not be fully supported on non-Linux target OS.");
 
-  for (const auto &filepath : searchPaths) {
-    if (!linkerDarwin)
-      addLdFlag("--whole-archive");
-
-    args.push_back(filepath);
-
-    if (!linkerDarwin)
-      addLdFlag("--no-whole-archive");
-
-    return;
+  bool libraryFoundAndLinked = addCompilerRTArchiveLinkFlags("xray", triple);
+  if (libraryFoundAndLinked) {
+    addCompilerRTArchiveLinkFlags("xray-basic", triple);
+    addCompilerRTArchiveLinkFlags("xray-fdr", triple);
   }
+}
+
+// Returns true if library was found and added to link flags.
+bool ArgsBuilder::addCompilerRTArchiveLinkFlags(llvm::StringRef baseName,
+                                                const llvm::Triple &triple) {
+  const bool linkerDarwin = triple.isOSDarwin();
+  const auto searchPaths = getFullCompilerRTLibPathCandidates(baseName, triple);
+  for (const auto &filepath : searchPaths) {
+    IF_LOG Logger::println("Searching runtime library: %s", filepath.c_str());
+
+    if (llvm::sys::fs::exists(filepath) &&
+        !llvm::sys::fs::is_directory(filepath)) {
+      if (!linkerDarwin)
+        addLdFlag("--whole-archive");
+
+      IF_LOG Logger::println("Found, linking with %s", filepath.c_str());
+      args.push_back(filepath);
+
+      if (!linkerDarwin)
+        addLdFlag("--no-whole-archive");
+
+      return true;
+    }
+  }
+
+  return false;
 }
 
 void ArgsBuilder::addCppStdlibLinkFlags(const llvm::Triple &triple) {
@@ -360,6 +420,9 @@ void ArgsBuilder::addCppStdlibLinkFlags(const llvm::Triple &triple) {
     break;
   case llvm::Triple::Darwin:
   case llvm::Triple::MacOSX:
+  case llvm::Triple::IOS:
+  case llvm::Triple::WatchOS:
+  case llvm::Triple::TvOS:
   case llvm::Triple::FreeBSD:
     args.push_back("-lc++");
     break;
@@ -371,19 +434,14 @@ void ArgsBuilder::addCppStdlibLinkFlags(const llvm::Triple &triple) {
 
 // Adds all required link flags for PGO.
 void ArgsBuilder::addProfileRuntimeLinkFlags(const llvm::Triple &triple) {
-  std::string searchPaths[] = {
-    getFullCompilerRTLibPath(triple, "libldc_rt.profile"),
-    getFullCompilerRTLibPath(triple, "libclang_rt.profile"),
-    getFullClangCompilerRTLibPath(triple, "libclang_rt.profile"),
-  };
+  const auto searchPaths =
+      getFullCompilerRTLibPathCandidates("profile", triple);
 
-#if LDC_LLVM_VER >= 308
   if (global.params.targetTriple->isOSLinux()) {
     // For Linux, explicitly define __llvm_profile_runtime as undefined
     // symbol, so that the initialization part of profile-rt is linked in.
     addLdFlag("-u", llvm::getInstrProfRuntimeHookVarName());
   }
-#endif
 
   for (const auto &filepath : searchPaths) {
     IF_LOG Logger::println("Searching profile runtime: %s", filepath.c_str());
@@ -398,33 +456,37 @@ void ArgsBuilder::addProfileRuntimeLinkFlags(const llvm::Triple &triple) {
 
 void ArgsBuilder::addSanitizers(const llvm::Triple &triple) {
   if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
-    addASanLinkFlags(triple);
+    addSanitizerLinkFlags(triple, "asan", "-fsanitize=address");
   }
 
   if (opts::isSanitizerEnabled(opts::FuzzSanitizer)) {
     addFuzzLinkFlags(triple);
   }
 
-  // TODO: instead of this, we should link with our own sanitizer libraries
-  // because LDC's LLVM version could be different from the system clang.
   if (opts::isSanitizerEnabled(opts::MemorySanitizer)) {
-    args.push_back("-fsanitize=memory");
+    addSanitizerLinkFlags(triple, "msan", "-fsanitize=memory");
   }
 
-  // TODO: instead of this, we should link with our own sanitizer libraries
-  // because LDC's LLVM version could be different from the system clang.
   if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {
-    args.push_back("-fsanitize=thread");
+    addSanitizerLinkFlags(triple, "tsan", "-fsanitize=thread");
   }
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
 void ArgsBuilder::build(llvm::StringRef outputPath,
-                        llvm::cl::boolOrDefault fullyStaticFlag) {
+                        const std::vector<std::string> &defaultLibNames) {
   // object files
   for (auto objfile : global.params.objfiles) {
     args.push_back(objfile);
+  }
+
+  // add precompiled rt.dso object file (in lib directory) when linking
+  // against shared druntime
+  const auto &libDirs = ConfigFile::instance.libDirs();
+  if (!defaultLibNames.empty() && linkAgainstSharedDefaultLibs() &&
+      !libDirs.empty()) {
+    args.push_back((llvm::Twine(libDirs[0]) + "/ldc_rt.dso.o").str());
   }
 
   // Link with profile-rt library when generating an instrumented binary.
@@ -449,12 +511,12 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
     args.push_back("-shared");
   }
 
-  if (fullyStaticFlag == llvm::cl::BOU_TRUE) {
+  if (linkFullyStatic() == llvm::cl::BOU_TRUE) {
     args.push_back("-static");
   }
 
   args.push_back("-o");
-  args.push_back(outputPath);
+  args.push_back(std::string(outputPath));
 
   addSanitizers(*global.params.targetTriple);
 
@@ -462,22 +524,43 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
     addXRayLinkFlags(*global.params.targetTriple);
   }
 
-#if LDC_LLVM_VER >= 309
   // Add LTO link flags before adding the user link switches, such that the user
   // can pass additional options to the LTO plugin.
   if (opts::isUsingLTO())
     addLTOLinkFlags();
-#endif
 
   addLinker();
   addUserSwitches();
+
+  // lib dirs
+  for (const char *dir_c : libDirs) {
+    const llvm::StringRef dir(dir_c);
+    if (!dir.empty())
+      args.push_back(("-L" + dir).str());
+  }
+
+  // default libs
+  for (const auto &name : defaultLibNames) {
+    args.push_back("-l" + name);
+  }
 
   // libs added via pragma(lib, libname)
   for (auto ls : global.params.linkswitches) {
     args.push_back(ls);
   }
 
-  if (global.params.targetTriple->getOS() == llvm::Triple::Linux) {
+  // -rpath if linking against shared default libs or ldc-jit
+  if (linkAgainstSharedDefaultLibs() || opts::enableDynamicCompile) {
+    llvm::StringRef rpath = ConfigFile::instance.rpath();
+    if (!rpath.empty())
+      addLdFlag("-rpath", rpath);
+  }
+
+  if (global.params.targetTriple->getOS() == llvm::Triple::Linux ||
+      (global.params.targetTriple->getOS() == llvm::Triple::FreeBSD &&
+       (useInternalLLDForLinking() ||
+        (!opts::linker.empty() && opts::linker != "bfd") ||
+        (opts::linker.empty() && isLldDefaultLinker())))) {
     // Make sure we don't do --gc-sections when generating a profile-
     // instrumented binary. The runtime relies on magic sections, which
     // would be stripped by gc-section on older version of ld, see bug:
@@ -487,7 +570,14 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
     }
   }
 
-  addDefaultLibs();
+  const auto explicitPlatformLibs = getExplicitPlatformLibs();
+  if (explicitPlatformLibs.hasValue()) {
+    for (const auto &name : explicitPlatformLibs.getValue()) {
+      args.push_back("-l" + name);
+    }
+  } else {
+    addDefaultPlatformLibs();
+  }
 
   addTargetFlags();
 }
@@ -495,8 +585,18 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
 //////////////////////////////////////////////////////////////////////////////
 
 void ArgsBuilder::addLinker() {
-  if (!opts::linker.empty())
-    args.push_back("-fuse-ld=" + opts::linker);
+  llvm::StringRef linker = opts::linker;
+
+  // Default to ld.bfd for Android (placing .tdata and .tbss sections adjacent
+  // to each other as required by druntime's rt.sections_android, contrary to
+  // gold and lld as of Android NDK r21d).
+  if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android &&
+      opts::linker.getNumOccurrences() == 0) {
+    linker = "bfd";
+  }
+
+  if (!linker.empty())
+    args.push_back(("-fuse-ld=" + linker).str());
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -534,7 +634,7 @@ void ArgsBuilder::addUserSwitches() {
 
 //////////////////////////////////////////////////////////////////////////////
 
-void ArgsBuilder::addDefaultLibs() {
+void ArgsBuilder::addDefaultPlatformLibs() {
   bool addSoname = false;
 
   const auto &triple = *global.params.targetTriple;
@@ -547,12 +647,14 @@ void ArgsBuilder::addDefaultLibs() {
       args.push_back("-lm");
       break;
     }
+    if (triple.isMusl() && !global.params.betterC) {
+      args.push_back("-lunwind"); // for druntime backtrace
+    }
     args.push_back("-lrt");
+    args.push_back("-ldl");
   // fallthrough
   case llvm::Triple::Darwin:
   case llvm::Triple::MacOSX:
-    args.push_back("-ldl");
-  // fallthrough
   case llvm::Triple::FreeBSD:
   case llvm::Triple::NetBSD:
   case llvm::Triple::OpenBSD:
@@ -589,12 +691,10 @@ void ArgsBuilder::addDefaultLibs() {
 
 //////////////////////////////////////////////////////////////////////////////
 
-void ArgsBuilder::addTargetFlags() {
-  appendTargetArgsForGcc(args);
-}
+void ArgsBuilder::addTargetFlags() { appendTargetArgsForGcc(args); }
 
 //////////////////////////////////////////////////////////////////////////////
-// (Yet unused) specialization for plain ld.
+// Specialization for plain ld.
 
 class LdArgsBuilder : public ArgsBuilder {
   void addSanitizers(const llvm::Triple &triple) override {}
@@ -626,18 +726,119 @@ class LdArgsBuilder : public ArgsBuilder {
 
 //////////////////////////////////////////////////////////////////////////////
 
-int linkObjToBinaryGcc(llvm::StringRef outputPath, bool useInternalLinker,
-                       llvm::cl::boolOrDefault fullyStaticFlag) {
-  // find gcc for linking
-  const std::string tool = getGcc();
+int linkObjToBinaryGcc(llvm::StringRef outputPath,
+                       const std::vector<std::string> &defaultLibNames) {
+#if LDC_WITH_LLD
+  if (useInternalLLDForLinking()) {
+    LdArgsBuilder argsBuilder;
+    argsBuilder.build(outputPath, defaultLibNames);
+
+    const auto fullArgs =
+        getFullArgs("lld", argsBuilder.args, global.params.verbose);
+
+    // CanExitEarly == true means that LLD can and will call `exit()` when
+    // errors occur.
+    bool CanExitEarly = false;
+
+    bool success = false;
+    if (global.params.targetTriple->isOSBinFormatELF()) {
+      success = lld::elf::link(fullArgs
+#if LDC_LLVM_VER < 1400
+                               ,
+                               CanExitEarly
+#endif
+#if LDC_LLVM_VER >= 1000
+                               ,
+                               llvm::outs(), llvm::errs()
+#endif
+#if LDC_LLVM_VER >= 1400
+                                                 ,
+                               CanExitEarly, false
+#endif
+      );
+    } else if (global.params.targetTriple->isOSBinFormatMachO()) {
+#if LDC_LLVM_VER >= 1200
+      success = lld::macho::link(fullArgs
+#else
+      success = lld::mach_o::link(fullArgs
+#endif
+#if LDC_LLVM_VER < 1400
+                                 ,
+                                 CanExitEarly
+#endif
+#if LDC_LLVM_VER >= 1000
+                                 ,
+                                 llvm::outs(), llvm::errs()
+#endif
+#if LDC_LLVM_VER >= 1400
+                                                   ,
+                                 CanExitEarly, false
+#endif
+      );
+    } else if (global.params.targetTriple->isOSBinFormatCOFF()) {
+      success = lld::mingw::link(fullArgs
+#if LDC_LLVM_VER >= 1000 && LDC_LLVM_VER < 1400
+                                 ,
+                                 CanExitEarly
+#endif
+#if LDC_LLVM_VER >= 1000
+                                 ,
+                                 llvm::outs(), llvm::errs()
+#endif
+#if LDC_LLVM_VER >= 1400
+                                                   ,
+                                 CanExitEarly, false
+#endif
+      );
+    } else if (global.params.targetTriple->isOSBinFormatWasm()) {
+#if __linux__
+      // FIXME: segfault in cleanup (`freeArena()`) after successful linking,
+      //        but only on Linux?
+      CanExitEarly = true;
+#endif
+      success = lld::wasm::link(fullArgs
+#if LDC_LLVM_VER < 1400
+                                ,
+                                CanExitEarly
+#endif
+#if LDC_LLVM_VER >= 1000
+                                ,
+                                llvm::outs(), llvm::errs()
+#endif
+#if LDC_LLVM_VER >= 1400
+                                                  ,
+                                CanExitEarly, false
+#endif
+      );
+    } else {
+      error(Loc(), "unknown target binary format for internal linking");
+    }
+
+    if (!success)
+      error(Loc(), "linking with LLD failed");
+
+    return success ? 0 : 1;
+  }
+#endif
+
+  // build command-line for gcc-compatible linker driver
+  // exception: invoke (ld-compatible) linker directly for WebAssembly targets
+  std::string tool;
+  std::unique_ptr<ArgsBuilder> argsBuilder;
+  if (global.params.targetTriple->isOSBinFormatWasm()) {
+    tool = getProgram("wasm-ld", &opts::linker);
+    argsBuilder = llvm::make_unique<LdArgsBuilder>();
+  } else {
+    tool = getGcc();
+    argsBuilder = llvm::make_unique<ArgsBuilder>();
+  }
 
   // build arguments
-  ArgsBuilder argsBuilder;
-  argsBuilder.build(outputPath, fullyStaticFlag);
+  argsBuilder->build(outputPath, defaultLibNames);
 
   Logger::println("Linking with: ");
   Stream logstr = Logger::cout();
-  for (const auto &arg : argsBuilder.args) {
+  for (const auto &arg : argsBuilder->args) {
     if (!arg.empty()) {
       logstr << "'" << arg << "' ";
     }
@@ -645,5 +846,5 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath, bool useInternalLinker,
   logstr << "\n"; // FIXME where's flush ?
 
   // try to call linker
-  return executeToolAndWait(tool, argsBuilder.args, global.params.verbose);
+  return executeToolAndWait(tool, argsBuilder->args, global.params.verbose);
 }

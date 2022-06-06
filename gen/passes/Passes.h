@@ -11,10 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_PASSES_H
-#define LDC_PASSES_H
+#pragma once
 
-#include "gen/metadata.h"
 namespace llvm {
 class FunctionPass;
 class ModulePass;
@@ -27,4 +25,4 @@ llvm::FunctionPass *createGarbageCollect2Stack();
 
 llvm::ModulePass *createStripExternalsPass();
 
-#endif
+llvm::ModulePass *createDLLImportRelocationPass();

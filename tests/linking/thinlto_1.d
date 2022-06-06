@@ -1,6 +1,5 @@
 // Test ThinLTO commandline flag
 
-// REQUIRES: atleast_llvm309
 // REQUIRES: LTO
 
 // RUN: %ldc %s -of=%t%obj -c -flto=thin -vv | FileCheck %s

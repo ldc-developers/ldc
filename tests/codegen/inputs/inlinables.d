@@ -102,3 +102,9 @@ pragma(inline, true) T template_foo(T)(T i)
 {
     return i;
 }
+
+void call_enforce_with_default_template_params()
+{
+    import std.exception;
+    enforce(true, { assert(0); });
+}

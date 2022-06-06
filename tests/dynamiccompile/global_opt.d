@@ -1,6 +1,4 @@
 
-// Asm is output disabled with old llvm versions
-// REQUIRES: atleast_llvm500
 // RUN: %ldc -enable-dynamic-compile -run %s
 
 import std.array;

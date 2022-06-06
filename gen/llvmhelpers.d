@@ -19,5 +19,4 @@ import dmd.dtemplate;
 /// Fixup an overloaded intrinsic name string.
 extern (C++) void DtoSetFuncDeclIntrinsicName(TemplateInstance ti, TemplateDeclaration td, FuncDeclaration fd);
 
-extern (C++) bool isArchx86_64();
 extern (C++) bool isTargetWindowsMSVC();

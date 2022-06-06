@@ -15,15 +15,14 @@
 
 #include "driver/cl_options_instrumentation.h"
 
-#include "errors.h"
-#include "globals.h"
+#include "dmd/errors.h"
+#include "dmd/globals.h"
 #include "gen/to_string.h"
 #include "llvm/ADT/Triple.h"
 
 namespace {
 namespace cl = llvm::cl;
 
-#if LDC_LLVM_VER >= 309
 /// Option for generating IR-based PGO instrumentation (LLVM pass)
 cl::opt<std::string> IRPGOInstrGenFile(
     "fprofile-generate", cl::value_desc("filename"),
@@ -37,7 +36,6 @@ cl::opt<std::string> IRPGOInstrUseFile(
     "fprofile-use", cl::ZeroOrMore, cl::value_desc("filename"),
     cl::desc("Use instrumentation data for profile-guided optimization"),
     cl::ValueRequired);
-#endif
 
 /// Option for generating frontend-based PGO instrumentation
 cl::opt<std::string> ASTPGOInstrGenFile(
@@ -53,14 +51,10 @@ cl::opt<std::string> ASTPGOInstrUseFile(
     cl::desc("Use instrumentation data for profile-guided optimization"),
     cl::ValueRequired);
 
-#if LDC_LLVM_VER >= 500
 cl::opt<int> fXRayInstructionThreshold(
     "fxray-instruction-threshold", cl::value_desc("value"),
     cl::desc("Sets the minimum function size to instrument with XRay"),
     cl::init(200), cl::ZeroOrMore, cl::ValueRequired);
-#else
-constexpr int fXRayInstructionThreshold = 200;
-#endif
 
 } // anonymous namespace
 
@@ -78,11 +72,9 @@ static cl::opt<bool> dmdFunctionTrace(
     "fdmd-trace-functions", cl::ZeroOrMore,
     cl::desc("DMD-style runtime performance profiling of generated code"));
 
-#if LDC_LLVM_VER >= 500
 cl::opt<bool> fXRayInstrument(
     "fxray-instrument", cl::ZeroOrMore,
     cl::desc("Generate XRay instrumentation sleds on function entry and exit"));
-#endif
 
 llvm::StringRef getXRayInstructionThresholdString() {
   // The instruction threshold is constant during one compiler invoke, so we
@@ -96,39 +88,24 @@ void initializeInstrumentationOptionsFromCmdline(const llvm::Triple &triple) {
   if (ASTPGOInstrGenFile.getNumOccurrences() > 0) {
     pgoMode = PGO_ASTBasedInstr;
     if (ASTPGOInstrGenFile.empty()) {
-#if LDC_LLVM_VER >= 309
       // profile-rt provides a default filename by itself
       global.params.datafileInstrProf = nullptr;
-#else
-      global.params.datafileInstrProf = "default.profraw";
-#endif
     } else {
-      initFromPathString(global.params.datafileInstrProf, ASTPGOInstrGenFile);
+      global.params.datafileInstrProf = fromPathString(ASTPGOInstrGenFile).ptr;
     }
   } else if (!ASTPGOInstrUseFile.empty()) {
     pgoMode = PGO_ASTBasedUse;
-    initFromPathString(global.params.datafileInstrProf, ASTPGOInstrUseFile);
-  }
-#if LDC_LLVM_VER >= 309
-  else if (IRPGOInstrGenFile.getNumOccurrences() > 0) {
+    global.params.datafileInstrProf = fromPathString(ASTPGOInstrUseFile).ptr;
+  } else if (IRPGOInstrGenFile.getNumOccurrences() > 0) {
     pgoMode = PGO_IRBasedInstr;
     if (IRPGOInstrGenFile.empty()) {
       global.params.datafileInstrProf = "default_%m.profraw";
     } else {
-      initFromPathString(global.params.datafileInstrProf, IRPGOInstrGenFile);
+      global.params.datafileInstrProf = fromPathString(IRPGOInstrGenFile).ptr;
     }
   } else if (!IRPGOInstrUseFile.empty()) {
     pgoMode = PGO_IRBasedUse;
-    initFromPathString(global.params.datafileInstrProf, IRPGOInstrUseFile);
-  }
-#endif
-
-  // There is a bug in (our use of?) LLVM where codegen errors with
-  // PGO_IRBasedInstr for Windows targets. So disable IRBased PGO on Windows for
-  // now.
-  if ((pgoMode == PGO_IRBasedInstr) && triple.isOSWindows()) {
-    error(Loc(),
-          "'-fprofile-generate' is not yet supported for Windows targets.");
+    global.params.datafileInstrProf = fromPathString(IRPGOInstrUseFile).ptr;
   }
 
   if (dmdFunctionTrace)

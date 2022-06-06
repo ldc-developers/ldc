@@ -12,21 +12,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_IR_IRFUNCTY_H
-#define LDC_IR_IRFUNCTY_H
-
-#include "llvm/ADT/SmallVector.h"
+#pragma once
 
 #include "gen/attributes.h"
+#include "llvm/ADT/SmallVector.h"
+#include <vector>
 
 #if defined(_MSC_VER)
-#include "array.h"
+#include "dmd/root/array.h"
 #endif
-
-#include <vector>
 
 class DValue;
 class Type;
+class TypeFunction;
 struct ABIRewrite;
 namespace llvm {
 class Type;
@@ -48,14 +46,14 @@ struct IrFuncTyArg {
 
   /// The index of the declaration in the FuncDeclaration::parameters array
   /// corresponding to this argument.
-  size_t parametersIdx = 0;
+  size_t parametersIdx = -1;
 
   /// This is the final LLVM Type used for the parameter/return value type
   llvm::Type *ltype = nullptr;
 
   /** These are the final LLVM attributes used for the function.
    *  Must be valid for the LLVM Type and byref setting */
-  AttrBuilder attrs;
+  llvm::AttrBuilder attrs;
 
   /** 'true' if the final LLVM argument is a LLVM reference type.
    *  Must be true when the D Type is a value type, but the final
@@ -78,11 +76,18 @@ struct IrFuncTyArg {
    *  @param byref Initial value for the 'byref' field. If true the initial
    *               LLVM Type will be of DtoType(type->pointerTo()), instead
    *               of just DtoType(type) */
-  IrFuncTyArg(Type *t, bool byref, AttrBuilder attrs = AttrBuilder());
+  IrFuncTyArg(Type *t, bool byref);
+  IrFuncTyArg(Type *t, bool byref, llvm::AttrBuilder);
+  IrFuncTyArg(const IrFuncTyArg &) = delete;
+
+  ~IrFuncTyArg();
 };
 
 // represents a function type
 struct IrFuncTy {
+  // D type
+  TypeFunction *type;
+
   // The final LLVM type
   llvm::FunctionType *funcType = nullptr;
 
@@ -101,9 +106,6 @@ struct IrFuncTy {
   using ArgList = std::vector<IrFuncTyArg *>;
   ArgList args;
 
-  // range of normal parameters to reverse
-  bool reverseParams = false;
-
   // reserved for ABI-specific data
   void *tag = nullptr;
 
@@ -111,11 +113,11 @@ struct IrFuncTy {
   llvm::Value *getRetRVal(Type *dty, llvm::Value *val);
   llvm::Value *getRetLVal(Type *dty, llvm::Value *val);
 
-  llvm::Value *putParam(const IrFuncTyArg &arg, DValue *dval,
-                        bool isModifiableLvalue);
+  llvm::Value *putArg(const IrFuncTyArg &arg, DValue *dval, bool isLValueExp,
+                      bool isLastArgExp);
   llvm::Value *getParamLVal(Type *dty, size_t idx, llvm::Value *val);
 
   AttrSet getParamAttrs(bool passThisBeforeSret);
-};
 
-#endif
+  IrFuncTy(TypeFunction *tf) : type(tf) {}
+};

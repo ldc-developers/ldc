@@ -10,30 +10,32 @@
 #include "ir/irfunction.h"
 
 #include "driver/cl_options.h"
+#include "gen/functions.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/irstate.h"
 #include "gen/tollvm.h"
 #include "ir/irdsymbol.h"
 
-IrFunction::IrFunction(FuncDeclaration *fd) : FMF(opts::defaultFMF) {
+IrFunction::IrFunction(FuncDeclaration *fd)
+    : irFty(nullptr /*set immediately below*/), FMF(opts::defaultFMF) {
   decl = fd;
 
   Type *t = fd->type->toBasetype();
-  assert(t->ty == Tfunction);
+  assert(t->ty == TY::Tfunction);
   type = static_cast<TypeFunction *>(t);
+
+  irFty.type = type;
 }
 
 void IrFunction::setNeverInline() {
-  assert(!func->getAttributes().hasAttribute(LLAttributeSet::FunctionIndex,
-                                             llvm::Attribute::AlwaysInline) &&
+  assert(!func->hasFnAttribute(llvm::Attribute::AlwaysInline) &&
          "function can't be never- and always-inline at the same time");
   func->addFnAttr(llvm::Attribute::NoInline);
 }
 
 void IrFunction::setAlwaysInline() {
-  assert(!func->getAttributes().hasAttribute(LLAttributeSet::FunctionIndex,
-                                             llvm::Attribute::NoInline) &&
+  assert(!func->hasFnAttribute(llvm::Attribute::NoInline) &&
          "function can't be never- and always-inline at the same time");
   func->addFnAttr(llvm::Attribute::AlwaysInline);
 }
@@ -77,6 +79,10 @@ llvm::Function *IrFunction::getLLVMCallee() const {
   return rtCompileFunc != nullptr ? rtCompileFunc : func;
 }
 
+bool IrFunction::isDynamicCompiled() const {
+  return dynamicCompile || dynamicCompileEmit;
+}
+
 IrFunction *getIrFunc(FuncDeclaration *decl, bool create) {
   if (!isIrFuncCreated(decl) && create) {
     assert(decl->ir->irFunc == NULL);
@@ -95,12 +101,10 @@ bool isIrFuncCreated(FuncDeclaration *decl) {
   return t == IrDsymbol::FuncType;
 }
 
-llvm::Function *DtoFunction(FuncDeclaration *decl, bool create) {
-  assert(decl != nullptr);
-  return getIrFunc(decl, create)->getLLVMFunc();
-}
-
 llvm::Function *DtoCallee(FuncDeclaration *decl, bool create) {
   assert(decl != nullptr);
-  return getIrFunc(decl, create)->getLLVMCallee();
+  if (create) {
+    DtoDeclareFunction(decl);
+  }
+  return getIrFunc(decl)->getLLVMCallee();
 }

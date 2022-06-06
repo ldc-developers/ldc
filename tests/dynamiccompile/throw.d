@@ -2,6 +2,9 @@
 // exceptions is broken on windows
 // win64 issue https://bugs.llvm.org//show_bug.cgi?id=24233
 // XFAIL: Windows
+//
+// Also, some issue on Arm
+// XFAIL: host_ARM
 // RUN: %ldc -enable-dynamic-compile -run %s
 
 import std.exception;

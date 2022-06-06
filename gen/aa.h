@@ -11,12 +11,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_AA_H
-#define LDC_GEN_AA_H
+#pragma once
 
-#include "tokens.h"
+#include "dmd/tokens.h"
 
-enum TOK;
 class DValue;
 class DLValue;
 struct Loc;
@@ -25,9 +23,8 @@ namespace llvm {
 class Value;
 }
 
-DLValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key, bool lvalue);
-DValue *DtoAAIn(Loc &loc, Type *type, DValue *aa, DValue *key);
-DValue *DtoAARemove(Loc &loc, DValue *aa, DValue *key);
-llvm::Value *DtoAAEquals(Loc &loc, TOK op, DValue *l, DValue *r);
-
-#endif // LDC_GEN_AA_H
+DLValue *DtoAAIndex(const Loc &loc, Type *type, DValue *aa, DValue *key,
+                    bool lvalue);
+DValue *DtoAAIn(const Loc &loc, Type *type, DValue *aa, DValue *key);
+DValue *DtoAARemove(const Loc &loc, DValue *aa, DValue *key);
+llvm::Value *DtoAAEquals(const Loc &loc, EXP op, DValue *l, DValue *r);

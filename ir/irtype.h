@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef __LDC_IR_IRTYPE_H__
-#define __LDC_IR_IRTYPE_H__
+#pragma once
 
 #include "ir/irfuncty.h"
 
@@ -183,8 +182,9 @@ public:
 protected:
   ///
   explicit IrTypeVector(Type *dt, llvm::Type *lt);
-
-  static llvm::Type *vector2llvm(Type *dt);
 };
 
-#endif
+//////////////////////////////////////////////////////////////////////////////
+
+/// Returns a reference to the IrType* associated with the specified D type.
+IrType *&getIrType(Type *t, bool create = false);

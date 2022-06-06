@@ -12,8 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_LINKER_H
-#define LDC_DRIVER_LINKER_H
+#pragma once
+
+#include "llvm/Support/CommandLine.h" // for llvm::cl::boolOrDefault
 
 namespace llvm {
 class Module;
@@ -21,6 +22,37 @@ class LLVMContext;
 }
 
 template <typename TYPE> struct Array;
+
+/**
+ * Indicates whether -link-internally is enabled.
+ */
+bool useInternalLLDForLinking();
+
+/**
+ * Indicates the status of the -static command-line option.
+ */
+llvm::cl::boolOrDefault linkFullyStatic();
+
+/**
+ * Indicates whether the command-line options select shared druntime/Phobos for
+ * linking.
+ */
+bool linkAgainstSharedDefaultLibs();
+
+/**
+ * Returns the -platformlib library names, if specified.
+ */
+llvm::Optional<std::vector<std::string>> getExplicitPlatformLibs();
+
+/**
+ * Returns the value of -mscrtlib.
+ */
+llvm::StringRef getExplicitMscrtLibName();
+
+/**
+ * Returns the name of the MS C runtime library to link with.
+ */
+llvm::StringRef getMscrtLibName(const bool *useInternalToolchain = nullptr);
 
 /**
  * Inserts bitcode files passed on the commandline into a module.
@@ -35,6 +67,11 @@ void insertBitcodeFiles(llvm::Module &M, llvm::LLVMContext &Ctx,
 int linkObjToBinary();
 
 /**
+ * Returns the path to the binary previously linked with linkObjToBinary.
+ */
+const char *getPathToProducedBinary();
+
+/**
  * Delete the executable that was previously linked with linkObjToBinary.
  */
 void deleteExeFile();
@@ -44,5 +81,3 @@ void deleteExeFile();
  * @return the return status of the executable.
  */
 int runProgram();
-
-#endif // LDC_DRIVER_LINKER_H

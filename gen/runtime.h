@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_RUNTIME_H
-#define LDC_GEN_RUNTIME_H
+#pragma once
 
 namespace llvm {
 class Function;
@@ -22,6 +21,7 @@ class Module;
 
 struct Loc;
 class FuncDeclaration;
+class Type;
 
 // D runtime support helpers
 bool initRuntime();
@@ -32,7 +32,29 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
 
 llvm::Function *getCAssertFunction(const Loc &loc, llvm::Module &target);
 
+llvm::Function *getUnwindResumeFunction(const Loc &loc, llvm::Module &target);
+
 void emitInstrumentationFnEnter(FuncDeclaration *decl);
 void emitInstrumentationFnLeave(FuncDeclaration *decl);
 
-#endif // LDC_GEN_RUNTIME_H
+Type *getObjectType();
+Type *getTypeInfoType();
+Type *getEnumTypeInfoType();
+Type *getPointerTypeInfoType();
+Type *getArrayTypeInfoType();
+Type *getStaticArrayTypeInfoType();
+Type *getAssociativeArrayTypeInfoType();
+Type *getVectorTypeInfoType();
+Type *getFunctionTypeInfoType();
+Type *getDelegateTypeInfoType();
+Type *getClassInfoType();
+Type *getInterfaceTypeInfoType();
+Type *getStructTypeInfoType();
+Type *getTupleTypeInfoType();
+Type *getConstTypeInfoType();
+Type *getInvariantTypeInfoType();
+Type *getSharedTypeInfoType();
+Type *getInoutTypeInfoType();
+Type *getThrowableType();
+Type *getCppTypeInfoPtrType();
+Type *getModuleInfoType();

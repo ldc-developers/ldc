@@ -7,33 +7,26 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "dmd/declaration.h"
+#include "dmd/dsymbol.h"
+#include "dmd/errors.h"
+#include "dmd/ldcbindings.h"
+#include "dmd/scope.h"
+#include "dmd/statement.h"
+#include "gen/dvalue.h"
+#include "gen/functions.h"
+#include "gen/irstate.h"
 #include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
+#include "gen/logger.h"
+#include "gen/tollvm.h"
+#include "ir/irfunction.h"
 #include "llvm/IR/InlineAsm.h"
-
-//#include "d-gcc-includes.h"
-//#include "total.h"
-#include "mars.h"
-#include "statement.h"
-#include "scope.h"
-#include "declaration.h"
-#include "dsymbol.h"
-
 #include <cassert>
-#include <deque>
 #include <cstring>
+#include <deque>
 #include <string>
 #include <sstream>
-
-//#include "d-lang.h"
-//#include "d-codegen.h"
-
-#include "gen/irstate.h"
-#include "gen/dvalue.h"
-#include "gen/tollvm.h"
-#include "gen/logger.h"
-#include "gen/llvmhelpers.h"
-#include "gen/functions.h"
-#include "ir/irfunction.h"
 
 typedef enum {
   Arg_Integer,
@@ -72,7 +65,7 @@ struct AsmCode {
 
 struct AsmParserCommon {
   virtual ~AsmParserCommon() = default;
-  virtual void run(Scope *sc, AsmStatement *asmst) = 0;
+  virtual void run(Scope *sc, InlineAsmStatement *asmst) = 0;
   virtual std::string getRegName(int i) = 0;
 };
 AsmParserCommon *asmparser = nullptr;
@@ -93,27 +86,52 @@ AsmParserCommon *asmparser = nullptr;
 static void replace_func_name(IRState *p, std::string &insnt) {
   static const std::string needle("<<func>>");
 
-  OutBuffer mangleBuf;
-  mangleToBuffer(p->func()->decl, &mangleBuf);
+  const char *mangle = mangleExact(p->func()->decl);
 
   size_t pos;
   while (std::string::npos != (pos = insnt.find(needle))) {
     // This will only happen for few instructions, and only once for those.
-    insnt.replace(pos, needle.size(), mangleBuf.peekString());
+    insnt.replace(pos, needle.size(), mangle);
   }
 }
 
+Statement *gccAsmSemantic(GccAsmStatement *s, Scope *sc);
+
 Statement *asmSemantic(AsmStatement *s, Scope *sc) {
+  if (!s->tokens) {
+    return nullptr;
+  }
+
+  sc->func->hasReturnExp |= 8;
+
+  // GCC-style asm starts with a string literal or a `(`
+  if (s->tokens->value == TOK::string_ ||
+      s->tokens->value == TOK::leftParenthesis) {
+    auto gas = createGccAsmStatement(s->loc, s->tokens);
+    return gccAsmSemantic(gas, sc);
+  }
+
+  // this is DMD-style asm
+  sc->func->hasReturnExp |= 32;
+
+  auto ias = createInlineAsmStatement(s->loc, s->tokens);
+  s = ias;
+
   bool err = false;
   llvm::Triple const &t = *global.params.targetTriple;
   if (!(t.getArch() == llvm::Triple::x86 ||
         t.getArch() == llvm::Triple::x86_64)) {
-    s->error("inline asm is not supported for the \"%s\" architecture",
-             t.getArchName().str().c_str());
+    s->error(
+        "DMD-style `asm { op; }` statements are not supported for the \"%s\" "
+        "architecture.",
+        t.getArchName().str().c_str());
+    errorSupplemental(s->loc, "Use GDC-style `asm { \"op\" : …; }` syntax or "
+                              "`ldc.llvmasm.__asm` instead.");
     err = true;
   }
   if (!global.params.useInlineAsm) {
-    s->error("inline asm is not allowed when the -noasm switch is used");
+    s->error(
+        "the `asm` statement is not allowed when the -noasm switch is used");
     err = true;
   }
   if (err) {
@@ -125,14 +143,6 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
 
   // puts(toChars());
 
-  sc->func->hasReturnExp |= 8;
-
-  // empty statement -- still do the above things because they might be
-  // expected?
-  if (!s->tokens) {
-    return s;
-  }
-
   if (!asmparser) {
     if (t.getArch() == llvm::Triple::x86) {
       asmparser = new AsmParserx8632::AsmParser;
@@ -141,17 +151,17 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
     }
   }
 
-  asmparser->run(sc, s);
+  asmparser->run(sc, ias);
 
   return s;
 }
 
-void AsmStatement_toIR(AsmStatement *stmt, IRState *irs) {
-  IF_LOG Logger::println("AsmStatement::toIR(): %s", stmt->loc.toChars());
+void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
+  IF_LOG Logger::println("InlineAsmStatement::toIR(): %s", stmt->loc.toChars());
   LOG_SCOPE;
 
   // sanity check
-  assert(irs->func()->decl->hasReturnExp & 8);
+  assert((irs->func()->decl->hasReturnExp & 40) == 40);
 
   // get asm block
   IRAsmBlock *asmblock = irs->asmBlock;
@@ -201,7 +211,7 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState *irs) {
       cns = i_cns;
       break;
     case Arg_Pointer:
-      assert(arg->expr->op == TOKvar);
+      assert(arg->expr->isVarExp());
       arg_val = DtoRVal(arg->expr);
       cns = p_cns;
 
@@ -226,8 +236,8 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState *irs) {
     case Arg_FrameRelative:
       // FIXME
       llvm_unreachable("Arg_FrameRelative not supported.");
-    /*          if (arg->expr->op == TOKvar)
-                    arg_val = ((VarExp *) arg->expr)->var->toSymbol()->Stree;
+    /*          if (auto ve = arg->expr->isVarExp())
+                    arg_val = ve->var->toSymbol()->Stree;
                 else
                     assert(0);
                 if ( getFrameRelativeValue(arg_val, & var_frame_offset) ) {
@@ -268,7 +278,7 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState *irs) {
   // expects.
 
   // FIXME
-  //    if (! irs->func->naked) {
+  //    if (!irs->func->isNaked()) {
   assert(asmparser);
   for (size_t i = 0; i < code->regs.size(); i++) {
     if (code->regs[i]) {
@@ -350,7 +360,8 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState *irs) {
       // Change update operand to pure output operand.
       oc = mw_cns;
 
-      // Add input operand with same value, with original as "matching output".
+      // Add input operand with same value, with original as "matching
+      // output".
       std::ostringstream ss;
       ss << '*' << (n + asmblock->outputcount);
       // Must be at the back; unused operands before used ones screw up
@@ -464,6 +475,23 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
                          stmt->loc.toChars());
   LOG_SCOPE;
 
+  const bool isCompoundGccAsmStatement =
+      (stmt->statements && stmt->statements->length &&
+       stmt->statements->front()->isGccAsmStatement());
+  if (isCompoundGccAsmStatement) {
+    for (Statement *s : *stmt->statements) {
+      if (auto gas = s->isGccAsmStatement()) {
+        Statement_toIR(gas, p);
+      } else {
+        s->error("DMD-style assembly statement unsupported within GCC-style "
+                 "`asm` block");
+        fatal();
+      }
+    }
+
+    return;
+  }
+
   // disable inlining by default
   if (!p->func()->decl->allowInlining) {
     p->func()->setNeverInline();
@@ -476,8 +504,13 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   p->asmBlock = asmblock;
 
   // do asm statements
-  for (unsigned i = 0; i < stmt->statements->dim; i++) {
-    if (Statement *s = (*stmt->statements)[i]) {
+  for (Statement *s : *stmt->statements) {
+    if (s) {
+      if (s->isGccAsmStatement()) {
+        s->error("GCC-style assembly statement unsupported within DMD-style "
+                 "`asm` block");
+        fatal();
+      }
       Statement_toIR(s, p);
     }
   }
@@ -498,9 +531,10 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     FuncDeclaration *fd = gIR->func()->decl;
     OutBuffer mangleBuf;
     mangleToBuffer(fd, &mangleBuf);
-    const char *fdmangle = mangleBuf.peekString();
+    const char *fdmangle = mangleBuf.peekChars();
 
-    // we use a simple static counter to make sure the new end labels are unique
+    // we use a simple static counter to make sure the new end labels are
+    // unique
     static size_t uniqueLabelsId = 0;
     std::ostringstream asmGotoEndLabel;
     printLabelName(asmGotoEndLabel, fdmangle, "_llvm_asm_end");
@@ -514,41 +548,33 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
 
     int n_goto = 1;
 
-    size_t n = asmblock->s.size();
-    for (size_t i = 0; i < n; ++i) {
-      IRAsmStmt *a = asmblock->s[i];
-
+    for (IRAsmStmt *a : asmblock->s) {
       // skip non-branch statements
-      if (!a->isBranchToLabel) {
+      LabelDsymbol *const targetLabel = a->isBranchToLabel;
+      if (!targetLabel) {
         continue;
       }
+      Identifier *const ident = targetLabel->ident;
 
       // if internal, no special handling is necessary, skip
-      std::vector<Identifier *>::const_iterator it, end;
-      end = asmblock->internalLabels.end();
-      bool skip = false;
-      for (auto il : asmblock->internalLabels) {
-        if (il->equals(a->isBranchToLabel->ident)) {
-          skip = true;
-        }
-      }
-      if (skip) {
+      if (llvm::any_of(asmblock->internalLabels,
+                       [ident](Identifier *i) { return i->equals(ident); })) {
         continue;
       }
 
       // if we already set things up for this branch target, skip
-      if (gotoToVal.find(a->isBranchToLabel) != gotoToVal.end()) {
+      if (gotoToVal.find(targetLabel) != gotoToVal.end()) {
         continue;
       }
 
       // record that the jump needs to be handled in the post-asm dispatcher
-      gotoToVal[a->isBranchToLabel] = n_goto;
+      gotoToVal[targetLabel] = n_goto;
 
       // provide an in-asm target for the branch and set value
       IF_LOG Logger::println(
           "statement '%s' references outer label '%s': creating forwarder",
-          a->code.c_str(), a->isBranchToLabel->ident->toChars());
-      printLabelName(code, fdmangle, a->isBranchToLabel->ident->toChars());
+          a->code.c_str(), ident->toChars());
+      printLabelName(code, fdmangle, ident->toChars());
       code << ":\n\t";
       code << "movl $<<in" << n_goto << ">>, $<<out0>>\n";
       // FIXME: Store the value -> label mapping somewhere, so it can be
@@ -582,7 +608,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   bool useabiret = false;
   p->asmBlock->asmBlock->abiret = nullptr;
   if (thisfunc->fbody->endsWithAsm() == stmt &&
-      thisfunc->type->nextOf()->ty != Tvoid) {
+      thisfunc->type->nextOf()->ty != TY::Tvoid) {
     // there can't be goto forwarders in this case
     assert(gotoToVal.empty());
     emitABIReturnAsmStmt(asmblock, stmt->loc, thisfunc);
@@ -693,8 +719,10 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
 
   llvm::InlineAsm *ia = llvm::InlineAsm::get(fty, code, out_c, true);
 
-  llvm::CallInst *call = p->ir->CreateCall(
-      ia, args, retty == LLType::getVoidTy(gIR->context()) ? "" : "asm");
+  auto call = p->createInlineAsmCall(stmt->loc, ia, args);
+  if (!retty->isVoidTy()) {
+    call->setName("asm");
+  }
 
   IF_LOG Logger::cout() << "Complete asm statement: " << *call << '\n';
 
@@ -719,8 +747,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     // make new blocks
     llvm::BasicBlock *bb = p->insertBB("afterasmgotoforwarder");
 
-    llvm::LoadInst *val =
-        p->ir->CreateLoad(jump_target, "__llvm_jump_target_value");
+    auto val = DtoLoad(jump_target, "__llvm_jump_target_value");
     llvm::SwitchInst *sw = p->ir->CreateSwitch(val, bb, gotoToVal.size());
 
     // add all cases
@@ -730,18 +757,19 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
                                      pair.second),
                   casebb);
 
-      p->scope() = IRScope(casebb);
+      p->ir->SetInsertPoint(casebb);
       DtoGoto(stmt->loc, pair.first);
     }
 
-    p->scope() = IRScope(bb);
+    p->ir->SetInsertPoint(bb);
   }
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-void AsmStatement_toNakedIR(AsmStatement *stmt, IRState *irs) {
-  IF_LOG Logger::println("AsmStatement::toNakedIR(): %s", stmt->loc.toChars());
+void AsmStatement_toNakedIR(InlineAsmStatement *stmt, IRState *irs) {
+  IF_LOG Logger::println("InlineAsmStatement::toNakedIR(): %s",
+                         stmt->loc.toChars());
   LOG_SCOPE;
 
   // is there code?

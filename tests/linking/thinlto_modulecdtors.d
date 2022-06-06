@@ -1,7 +1,7 @@
 // ThinLTO: Test that module ctors/dtors are called
 
-// REQUIRES: atleast_llvm309
 // REQUIRES: LTO
+// UNSUPPORTED: FreeBSD
 
 // RUN: %ldc -flto=thin -O3 -run %s | FileCheck %s
 

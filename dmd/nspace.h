@@ -1,18 +1,14 @@
-/**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
- *
- * Copyright:   Copyright (c) 1999-2017 by The D Language Foundation, All Rights Reserved
- * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
- * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+
+/* Compiler implementation of the D programming language
+ * Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * written by Walter Bright
+ * https://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * https://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/dlang/dmd/blob/master/src/dmd/nspace.h
  */
 
-#ifndef DMD_NSPACE_H
-#define DMD_NSPACE_H
-
-#ifdef __DMC__
 #pragma once
-#endif /* __DMC__ */
 
 #include "dsymbol.h"
 
@@ -23,17 +19,14 @@
 class Nspace : public ScopeDsymbol
 {
   public:
-    Dsymbol *syntaxCopy(Dsymbol *s);
+    Expression *identExp;
+    Nspace *syntaxCopy(Dsymbol *s);
     void addMember(Scope *sc, ScopeDsymbol *sds);
     void setScope(Scope *sc);
-    bool oneMember(Dsymbol **ps, Identifier *ident);
-    Dsymbol *search(Loc loc, Identifier *ident, int flags = SearchLocalsOnly);
-    int apply(Dsymbol_apply_ft_t fp, void *param);
+    Dsymbol *search(const Loc &loc, Identifier *ident, int flags = SearchLocalsOnly);
     bool hasPointers();
-    void setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion);
+    void setFieldOffset(AggregateDeclaration *ad, FieldState& fieldState, bool isunion);
     const char *kind() const;
     Nspace *isNspace() { return this; }
     void accept(Visitor *v) { v->visit(this); }
 };
-
-#endif /* DMD_NSPACE_H */

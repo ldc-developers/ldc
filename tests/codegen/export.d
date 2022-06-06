@@ -5,16 +5,34 @@
 
 export
 {
-    // CHECK-DAG: @{{.*}}exportedGlobal{{.*}} = dllexport
-    extern(C) __gshared void* exportedGlobal;
+    // non-TLS:
+    __gshared
+    {
+        // CHECK: @{{.*}}exportedGlobal{{.*}} = dllexport
+        void* exportedGlobal;
 
-    // CHECK-DAG: @{{.*}}importedGlobal{{.*}} = external dllimport
-    extern(C) extern __gshared void* importedGlobal;
+        // CHECK: @{{.*}}importedGlobal{{.*}} = external dllimport
+        extern void* importedGlobal;
+    }
 
-    // CHECK-DAG: define dllexport {{.*}}_D6export11exportedFooFZv
+    // TLS: unsupported => linker errors
+    version (all)
+    {
+        // CHECK: @{{.*}}exportedTlsGlobal{{.*}} = thread_local
+        // CHECK-NOT: dllexport
+        void* exportedTlsGlobal;
+
+        // CHECK: @{{.*}}importedTlsGlobal{{.*}} = external thread_local
+        // CHECK-NOT: dllimport
+        extern void* importedTlsGlobal;
+    }
+
+    // CHECK: define dllexport {{.*}}_D6export11exportedFooFZv
     void exportedFoo() {}
 
-    // CHECK-DAG: declare dllimport {{.*}}_D6export11importedFooFZv
+    // CHECK: declare
+    // CHECK-NOT: dllimport
+    // CHECK-SAME: _D6export11importedFooFZv
     void importedFoo();
 }
 

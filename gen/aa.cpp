@@ -8,10 +8,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/aa.h"
-#include "aggregate.h"
-#include "declaration.h"
-#include "module.h"
-#include "mtype.h"
+
+#include "dmd/aggregate.h"
+#include "dmd/declaration.h"
+#include "dmd/module.h"
+#include "dmd/mtype.h"
 #include "gen/arrays.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"
@@ -24,17 +25,17 @@
 #include "ir/irmodule.h"
 
 // returns the keytype typeinfo
-static LLConstant *to_keyti(DValue *aa, LLType *targetType) {
+static LLConstant *to_keyti(const Loc &loc, DValue *aa, LLType *targetType) {
   // keyti param
-  assert(aa->type->toBasetype()->ty == Taarray);
+  assert(aa->type->toBasetype()->ty == TY::Taarray);
   TypeAArray *aatype = static_cast<TypeAArray *>(aa->type->toBasetype());
-  LLConstant *ti = DtoTypeInfoOf(aatype->index, /*base=*/false);
+  LLConstant *ti = DtoTypeInfoOf(loc, aatype->index, /*base=*/false);
   return DtoBitCast(ti, targetType);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DLValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key,
+DLValue *DtoAAIndex(const Loc &loc, Type *type, DValue *aa, DValue *key,
                     bool lvalue) {
   // D2:
   // call:
@@ -60,16 +61,14 @@ DLValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key,
   LLValue *ret;
   if (lvalue) {
     LLValue *rawAATI =
-        DtoTypeInfoOf(aa->type->unSharedOf()->mutableOf(), /*base=*/false);
+        DtoTypeInfoOf(loc, aa->type->unSharedOf()->mutableOf(), /*base=*/false);
     LLValue *castedAATI = DtoBitCast(rawAATI, funcTy->getParamType(1));
     LLValue *valsize = DtoConstSize_t(getTypeAllocSize(DtoType(type)));
     ret = gIR->CreateCallOrInvoke(func, aaval, castedAATI, valsize, pkey,
-                                  "aa.index")
-              .getInstruction();
+                                  "aa.index");
   } else {
-    LLValue *keyti = to_keyti(aa, funcTy->getParamType(1));
-    ret = gIR->CreateCallOrInvoke(func, aaval, keyti, pkey, "aa.index")
-              .getInstruction();
+    LLValue *keyti = to_keyti(loc, aa, funcTy->getParamType(1));
+    ret = gIR->CreateCallOrInvoke(func, aaval, keyti, pkey, "aa.index");
   }
 
   // cast return value
@@ -89,20 +88,18 @@ DLValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key,
     gIR->ir->CreateCondBr(cond, okbb, failbb);
 
     // set up failbb to call the array bounds error runtime function
-
-    gIR->scope() = IRScope(failbb);
-
-    DtoBoundsCheckFailCall(gIR, loc);
+    gIR->ir->SetInsertPoint(failbb);
+    emitRangeError(gIR, loc);
 
     // if ok, proceed in okbb
-    gIR->scope() = IRScope(okbb);
+    gIR->ir->SetInsertPoint(okbb);
   }
   return new DLValue(type, ret);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoAAIn(Loc &loc, Type *type, DValue *aa, DValue *key) {
+DValue *DtoAAIn(const Loc &loc, Type *type, DValue *aa, DValue *key) {
   // D1:
   // call:
   // extern(C) void* _aaIn(AA aa*, TypeInfo keyti, void* pkey)
@@ -126,15 +123,14 @@ DValue *DtoAAIn(Loc &loc, Type *type, DValue *aa, DValue *key) {
   aaval = DtoBitCast(aaval, funcTy->getParamType(0));
 
   // keyti param
-  LLValue *keyti = to_keyti(aa, funcTy->getParamType(1));
+  LLValue *keyti = to_keyti(loc, aa, funcTy->getParamType(1));
 
   // pkey param
   LLValue *pkey = makeLValue(loc, key);
   pkey = DtoBitCast(pkey, getVoidPtrType());
 
   // call runtime
-  LLValue *ret = gIR->CreateCallOrInvoke(func, aaval, keyti, pkey, "aa.in")
-                     .getInstruction();
+  LLValue *ret = gIR->CreateCallOrInvoke(func, aaval, keyti, pkey, "aa.in");
 
   // cast return value
   LLType *targettype = DtoType(type);
@@ -147,7 +143,7 @@ DValue *DtoAAIn(Loc &loc, Type *type, DValue *aa, DValue *key) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoAARemove(Loc &loc, DValue *aa, DValue *key) {
+DValue *DtoAARemove(const Loc &loc, DValue *aa, DValue *key) {
   // D1:
   // call:
   // extern(C) void _aaDel(AA aa, TypeInfo keyti, void* pkey)
@@ -171,21 +167,21 @@ DValue *DtoAARemove(Loc &loc, DValue *aa, DValue *key) {
   aaval = DtoBitCast(aaval, funcTy->getParamType(0));
 
   // keyti param
-  LLValue *keyti = to_keyti(aa, funcTy->getParamType(1));
+  LLValue *keyti = to_keyti(loc, aa, funcTy->getParamType(1));
 
   // pkey param
   LLValue *pkey = makeLValue(loc, key);
   pkey = DtoBitCast(pkey, funcTy->getParamType(2));
 
   // call runtime
-  LLCallSite call = gIR->CreateCallOrInvoke(func, aaval, keyti, pkey);
+  LLValue *res = gIR->CreateCallOrInvoke(func, aaval, keyti, pkey);
 
-  return new DImValue(Type::tbool, call.getInstruction());
+  return new DImValue(Type::tbool, res);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoAAEquals(Loc &loc, TOK op, DValue *l, DValue *r) {
+LLValue *DtoAAEquals(const Loc &loc, EXP op, DValue *l, DValue *r) {
   Type *t = l->type->toBasetype();
   assert(t == r->type->toBasetype() &&
          "aa equality is only defined for aas of same type");
@@ -194,10 +190,9 @@ LLValue *DtoAAEquals(Loc &loc, TOK op, DValue *l, DValue *r) {
 
   LLValue *aaval = DtoBitCast(DtoRVal(l), funcTy->getParamType(1));
   LLValue *abval = DtoBitCast(DtoRVal(r), funcTy->getParamType(2));
-  LLValue *aaTypeInfo = DtoTypeInfoOf(t);
+  LLValue *aaTypeInfo = DtoTypeInfoOf(loc, t);
   LLValue *res =
-      gIR->CreateCallOrInvoke(func, aaTypeInfo, aaval, abval, "aaEqRes")
-          .getInstruction();
+      gIR->CreateCallOrInvoke(func, aaTypeInfo, aaval, abval, "aaEqRes");
 
   const auto predicate = eqTokToICmpPred(op, /* invert = */ true);
   res = gIR->ir->CreateICmp(predicate, res, DtoConstInt(0));

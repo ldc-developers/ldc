@@ -1,20 +1,19 @@
 /**
- * Compiler implementation of the D programming language
- * http://dlang.org
+ * Provide the root object that classes in dmd inherit from.
  *
- * Copyright: Copyright (c) 1999-2017 by The D Language Foundation, All Rights Reserved
- * Authors:   Walter Bright, http://www.digitalmars.com
- * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Copyright: Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Authors:   Walter Bright, https://www.digitalmars.com
+ * License:   $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:    $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/root/rootobject.d, root/_rootobject.d)
+ * Documentation:  https://dlang.org/phobos/dmd_root_rootobject.html
+ * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/root/rootobject.d
  */
 
 module dmd.root.rootobject;
 
-// Online documentation: https://dlang.org/phobos/dmd_root_rootobject.html
-
 import core.stdc.stdio;
 
-import dmd.root.outbuffer;
+import dmd.common.outbuffer;
 
 /***********************************************************
  */
@@ -30,6 +29,8 @@ enum DYNCAST : int
     parameter,
     statement,
     condition,
+    templateparameter,
+    initializer,
 }
 
 /***********************************************************
@@ -41,29 +42,22 @@ extern (C++) class RootObject
     {
     }
 
-    bool equals(RootObject o)
+    bool equals(const RootObject o) const
     {
         return o is this;
     }
 
-    int compare(RootObject)
+    const(char)* toChars() const
     {
         assert(0);
     }
 
-    void print()
+    ///
+    extern(D) const(char)[] toString() const
     {
-        printf("%s %p\n", toChars(), this);
-    }
-
-    const(char)* toChars()
-    {
-        assert(0);
-    }
-
-    void toBuffer(OutBuffer* buf) nothrow pure @nogc @safe
-    {
-        assert(0);
+        import core.stdc.string : strlen;
+        auto p = this.toChars();
+        return p[0 .. strlen(p)];
     }
 
     DYNCAST dyncast() const nothrow pure @nogc @safe

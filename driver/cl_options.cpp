@@ -8,13 +8,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "driver/cl_options.h"
-#include "mars.h"
+
 #include "gen/cl_helpers.h"
 #include "gen/logger.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Target/TargetMachine.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Target/TargetMachine.h"
 
 namespace opts {
 
@@ -22,33 +22,6 @@ namespace opts {
 llvm::SmallVector<const char *, 32> allArguments;
 
 cl::OptionCategory linkingCategory("Linking options");
-
-/* Option parser that defaults to zero when no explicit number is given.
- * i.e.:  -cov    --> value = 0
- *        -cov=9  --> value = 9
- *        -cov=101 --> error, value must be in range [0..100]
- */
-struct CoverageParser : public cl::parser<unsigned char> {
-  explicit CoverageParser(cl::Option &O) : cl::parser<unsigned char>(O) {}
-
-  bool parse(cl::Option &O, llvm::StringRef /*ArgName*/, llvm::StringRef Arg,
-             unsigned char &Val) {
-    if (Arg == "") {
-      Val = 0;
-      return false;
-    }
-
-    if (Arg.getAsInteger(0, Val)) {
-      return O.error("'" + Arg +
-                     "' value invalid for required coverage percentage");
-    }
-
-    if (Val > 100) {
-      return O.error("Required coverage percentage must be <= 100");
-    }
-    return false;
-  }
-};
 
 // Positional options first, in order:
 cl::list<std::string> fileList(cl::Positional, cl::desc("files"));
@@ -62,20 +35,22 @@ cl::list<std::string> runargs(
 cl::opt<bool> invokedByLDMD("ldmd", cl::desc("Invoked by LDMD?"),
                             cl::ZeroOrMore, cl::ReallyHidden);
 
-static cl::opt<ubyte, true> useDeprecated(
-    cl::desc("Allow deprecated code/language features:"), cl::ZeroOrMore,
-    clEnumValues(clEnumValN(0, "de", "Do not allow deprecated features"),
-                 clEnumValN(1, "d", "Silently allow deprecated features"),
-                 clEnumValN(2, "dw",
-                            "Warn about the use of deprecated features")),
-    cl::location(global.params.useDeprecated), cl::init(2));
+static cl::opt<Diagnostic, true> useDeprecated(
+    cl::desc("Allow deprecated language features and symbols:"), cl::ZeroOrMore,
+    cl::location(global.params.useDeprecated), cl::init(DIAGNOSTICinform),
+    cl::values(
+        clEnumValN(DIAGNOSTICoff, "d",
+                   "Silently allow deprecated features and symbols"),
+        clEnumValN(DIAGNOSTICinform, "dw",
+                   "Issue a message when deprecated features or "
+                   "symbols are used (default)"),
+        clEnumValN(
+            DIAGNOSTICerror, "de",
+            "Issue an error when deprecated features or symbols are used "
+            "(halt compilation)")));
 
-cl::opt<bool, true>
-    enforcePropertySyntax("property", cl::desc("Enforce property syntax"),
-                          cl::ZeroOrMore, cl::ReallyHidden,
-                          cl::location(global.params.enforcePropertySyntax));
-
-cl::opt<bool> compileOnly("c", cl::desc("Do not link"), cl::ZeroOrMore);
+cl::opt<bool> compileOnly("c", cl::desc("Compile only, do not link"),
+                          cl::ZeroOrMore);
 
 static cl::opt<bool, true> createStaticLib("lib", cl::ZeroOrMore,
                                            cl::desc("Create static library"),
@@ -84,6 +59,31 @@ static cl::opt<bool, true> createStaticLib("lib", cl::ZeroOrMore,
 static cl::opt<bool, true>
     createSharedLib("shared", cl::desc("Create shared library (DLL)"),
                     cl::ZeroOrMore, cl::location(global.params.dll));
+
+cl::opt<SymbolVisibility> symbolVisibility(
+    "fvisibility", cl::ZeroOrMore, cl::desc("Default visibility of symbols"),
+    cl::init(SymbolVisibility::default_),
+    cl::values(
+        clEnumValN(
+            SymbolVisibility::default_, "default",
+            "Hidden for Windows targets without -shared, otherwise public"),
+        clEnumValN(SymbolVisibility::hidden, "hidden",
+                   "Only export symbols marked with 'export'"),
+        clEnumValN(SymbolVisibility::public_, "public", "Export all symbols")));
+
+cl::opt<DLLImport, true> dllimport(
+    "dllimport", cl::ZeroOrMore, cl::location(global.params.dllimport),
+    cl::desc("Windows only: which extern(D) global variables to dllimport "
+             "implicitly if not defined in a root module"),
+    cl::values(
+        clEnumValN(DLLImport::none, "none",
+                   "None (default with -link-defaultlib-shared=false)"),
+        clEnumValN(DLLImport::defaultLibsOnly, "defaultLibsOnly",
+                   "Only druntime/Phobos symbols (default with "
+                   "-link-defaultlib-shared and -fvisibility=hidden)."),
+        clEnumValN(DLLImport::all, "all",
+                   "All (default with -link-defaultlib-shared and "
+                   "-fvisibility=public)")));
 
 static cl::opt<bool, true> verbose("v", cl::desc("Verbose"), cl::ZeroOrMore,
                                    cl::location(global.params.verbose));
@@ -96,6 +96,37 @@ static cl::opt<bool, true>
 static cl::opt<bool, true>
     vgc("vgc", cl::desc("List all gc allocations including hidden ones"),
         cl::ZeroOrMore, cl::location(global.params.vgc));
+
+// Dummy data type for custom parsers where the help output shouldn't display
+// any value.
+using DummyDataType = bool;
+
+// `-vtemplates[=list-instances]` parser.
+struct VTemplatesParser : public cl::parser<DummyDataType> {
+  explicit VTemplatesParser(cl::Option &O) : cl::parser<DummyDataType>(O) {}
+
+  bool parse(cl::Option &O, llvm::StringRef /*ArgName*/, llvm::StringRef Arg,
+             DummyDataType & /*Val*/) {
+    global.params.vtemplates = true;
+
+    if (Arg.empty()) {
+      return false;
+    }
+
+    if (Arg == "list-instances") {
+      global.params.vtemplatesListInstances = true;
+      return false;
+    }
+
+    return O.error("unsupported value '" + Arg + "'");
+  }
+};
+
+static cl::opt<DummyDataType, false, VTemplatesParser> vtemplates(
+    "vtemplates", cl::ZeroOrMore, cl::ValueOptional,
+    cl::desc("List statistics on template instantiations\n"
+             "Use -vtemplates=list-instances to additionally show all "
+             "instantiation contexts for each template"));
 
 static cl::opt<bool, true> verbose_cg("v-cg", cl::desc("Verbose codegen"),
                                       cl::ZeroOrMore,
@@ -115,26 +146,66 @@ static cl::opt<bool, true>
                      cl::desc("Show errors from speculative compiles such as "
                               "__traits(compiles,...)"));
 
-static cl::opt<ubyte, true> warnings(
+static cl::opt<bool, true> printErrorContext(
+    "verrors-context", cl::ZeroOrMore,
+    cl::location(global.params.printErrorContext),
+    cl::desc(
+        "Show error messages with the context of the erroring source line"));
+
+static cl::opt<MessageStyle, true> verrorStyle(
+    "verror-style", cl::ZeroOrMore, cl::location(global.params.messageStyle),
+    cl::desc(
+        "Set the style for file/line number annotations on compiler messages"),
+    cl::values(
+        clEnumValN(MESSAGESTYLEdigitalmars, "digitalmars",
+                   "'file(line[,column]): message' (default)"),
+        clEnumValN(MESSAGESTYLEgnu, "gnu",
+                   "'file:line[:column]: message', conforming to the GNU "
+                   "standard used by gcc and clang")),
+    cl::init(MESSAGESTYLEdigitalmars));
+
+static cl::opt<Diagnostic, true> warnings(
     cl::desc("Warnings:"), cl::ZeroOrMore, cl::location(global.params.warnings),
-    clEnumValues(
-        clEnumValN(1, "w", "Enable warnings as errors (compilation will halt)"),
-        clEnumValN(2, "wi",
+    cl::values(
+        clEnumValN(DIAGNOSTICerror, "w",
+                   "Enable warnings as errors (compilation will halt)"),
+        clEnumValN(DIAGNOSTICinform, "wi",
                    "Enable warnings as messages (compilation will continue)")),
-    cl::init(0));
+    cl::init(DIAGNOSTICoff));
 
 static cl::opt<bool, true> ignoreUnsupportedPragmas(
     "ignore", cl::desc("Ignore unsupported pragmas"), cl::ZeroOrMore,
     cl::location(global.params.ignoreUnsupportedPragmas));
 
-static cl::opt<ubyte, true> debugInfo(
+static cl::opt<CppStdRevision, true> cplusplus(
+    "extern-std", cl::ZeroOrMore,
+    cl::desc("C++ standard for name mangling compatibility"),
+    cl::location(global.params.cplusplus),
+    cl::values(
+        clEnumValN(CppStdRevisionCpp98, "c++98",
+                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `199711`"),
+        clEnumValN(
+            CppStdRevisionCpp11, "c++11",
+            "Sets `__traits(getTargetInfo, \"cppStd\")` to `201103` (default)"),
+        clEnumValN(CppStdRevisionCpp14, "c++14",
+                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `201402`"),
+        clEnumValN(CppStdRevisionCpp17, "c++17",
+                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `201703`"),
+        clEnumValN(CppStdRevisionCpp20, "c++20",
+                   "Sets `__traits(getTargetInfo, \"cppStd\")` to `202002`")));
+
+static cl::opt<unsigned char, true> debugInfo(
     cl::desc("Generating debug information:"), cl::ZeroOrMore,
-    clEnumValues(
+    cl::values(
         clEnumValN(1, "g", "Add symbolic debug info"),
         clEnumValN(2, "gc",
                    "Add symbolic debug info, optimize for non D debuggers"),
         clEnumValN(3, "gline-tables-only", "Add line tables only")),
     cl::location(global.params.symdebug), cl::init(0));
+
+cl::opt<bool> emitDwarfDebugInfo(
+    "gdwarf", cl::ZeroOrMore,
+    cl::desc("Emit DWARF debuginfo (instead of CodeView) for MSVC targets"));
 
 cl::opt<bool> noAsm("noasm", cl::desc("Disallow use of inline assembler"),
                     cl::ZeroOrMore);
@@ -161,6 +232,9 @@ cl::opt<bool> output_bc("output-bc", cl::desc("Write LLVM bitcode"),
                         cl::ZeroOrMore);
 
 cl::opt<bool> output_ll("output-ll", cl::desc("Write LLVM IR"), cl::ZeroOrMore);
+
+cl::opt<bool> output_mlir("output-mlir", cl::desc("Write MLIR"),
+    cl::ZeroOrMore);
 
 cl::opt<bool> output_s("output-s", cl::desc("Write native assembly"),
                        cl::ZeroOrMore);
@@ -195,6 +269,9 @@ cl::opt<std::string> jsonFile("Xf", cl::desc("Write JSON file to <filename>"),
                               cl::value_desc("filename"), cl::Prefix,
                               cl::ZeroOrMore);
 
+// supported by DMD, but still undocumented
+cl::list<std::string> jsonFields("Xi", cl::ReallyHidden, cl::value_desc("field"));
+
 // Header generation options
 static cl::opt<bool, true>
     doHdrGen("H", cl::desc("Generate 'header' file"), cl::ZeroOrMore,
@@ -212,6 +289,51 @@ cl::opt<bool>
     hdrKeepAllBodies("Hkeep-all-bodies", cl::ZeroOrMore,
                      cl::desc("Keep all function bodies in .di files"));
 
+// C++ header generation options
+
+// `-HC[=silent|verbose]` parser. Required for defaulting to `silent`.
+struct HCParser : public cl::parser<CxxHeaderMode> {
+  explicit HCParser(cl::Option &O) : cl::parser<CxxHeaderMode>(O) {}
+
+  bool parse(cl::Option &O, llvm::StringRef /*ArgName*/, llvm::StringRef Arg,
+             CxxHeaderMode &Val) {
+    if (Arg.empty() || Arg == "silent") {
+      Val = CxxHeaderMode::silent;
+      return false;
+    }
+    if (Arg == "verbose") {
+      Val = CxxHeaderMode::verbose;
+      return false;
+    }
+
+    return O.error("unsupported value '" + Arg + "'");
+  }
+};
+
+static cl::opt<CxxHeaderMode, true, HCParser> doCxxHdrGen(
+    "HC", cl::ZeroOrMore, cl::desc("Generate C++ header file"),
+    cl::location(global.params.doCxxHdrGeneration), cl::ValueOptional,
+    cl::values(
+        clEnumValN(CxxHeaderMode::silent, "silent",
+                   "Only list extern(C[++]) declarations (default)"),
+        clEnumValN(
+            CxxHeaderMode::verbose, "verbose",
+            "Also add comments for ignored declarations (e.g. extern(D))")));
+
+cl::opt<std::string>
+    cxxHdrDir("HCd", cl::ZeroOrMore, cl::Prefix,
+              cl::desc("Write C++ 'header' file to <directory>"),
+              cl::value_desc("directory"));
+
+cl::opt<std::string>
+    cxxHdrFile("HCf", cl::ZeroOrMore, cl::Prefix,
+               cl::desc("Write C++ 'header' file to <filename>"),
+               cl::value_desc("filename"));
+
+cl::opt<std::string> mixinFile("mixin", cl::ZeroOrMore,
+                               cl::desc("Expand and save mixins to <filename>"),
+                               cl::value_desc("filename"));
+
 static cl::opt<bool, true> unittest("unittest", cl::ZeroOrMore,
                                     cl::desc("Compile in unit tests"),
                                     cl::location(global.params.useUnitTests));
@@ -227,29 +349,19 @@ static cl::list<std::string, StringsAdapter> stringImportPaths(
     "J", cl::desc("Look for string imports also in <directory>"),
     cl::value_desc("directory"), cl::location(strImpPathStore), cl::Prefix);
 
-static cl::opt<bool, true>
-    addMain("main", cl::desc("Add default main() (e.g. for unittesting)"),
-            cl::ZeroOrMore, cl::location(global.params.addMain));
+static cl::opt<bool, true> addMain(
+    "main", cl::ZeroOrMore, cl::location(global.params.addMain),
+    cl::desc(
+        "Add default main() if not present already (e.g. for unittesting)"));
 
 // -d-debug is a bit messy, it has 3 modes:
 // -d-debug=ident, -d-debug=level and -d-debug (without argument)
-// That last of these must be acted upon immediately to ensure proper
-// interaction with other options, so it needs some special handling:
+// The last one represents `-d-debug=1`, so it needs some special handling:
 std::vector<std::string> debugArgs;
 
 struct D_DebugStorage {
   void push_back(const std::string &str) {
-    if (str.empty()) {
-      // Bare "-d-debug" has a special meaning.
-      global.params.useAssert = CHECKENABLEon;
-      global.params.useArrayBounds = CHECKENABLEon;
-      global.params.useInvariants = true;
-      global.params.useIn = true;
-      global.params.useOut = true;
-      debugArgs.push_back("1");
-    } else {
-      debugArgs.push_back(str);
-    }
+    debugArgs.push_back(str.empty() ? "1" : str);
   }
 };
 
@@ -268,9 +380,17 @@ cl::list<std::string> versions(
     cl::desc("Compile in version code >= <level> or identified by <idents>"));
 
 cl::list<std::string> transitions(
-    "transition", cl::CommaSeparated, cl::value_desc("idents"),
-    cl::desc(
-        "Help with language change identified by <idents>, use ? for list"));
+    "transition", cl::CommaSeparated, cl::value_desc("name"),
+    cl::desc("Help with language change identified by <name>, use ? for list"));
+
+cl::list<std::string>
+    previews("preview", cl::CommaSeparated, cl::value_desc("name"),
+             cl::desc("Enable an upcoming language change "
+                      "identified by <name>, use ? for list"));
+
+cl::list<std::string> reverts(
+    "revert", cl::CommaSeparated, cl::value_desc("name"),
+    cl::desc("Revert language change identified by <name>, use ? for list"));
 
 cl::list<std::string>
     linkerSwitches("L", cl::desc("Pass <linkerflag> to the linker"),
@@ -278,22 +398,21 @@ cl::list<std::string>
                    cl::Prefix);
 
 cl::list<std::string>
-    ccSwitches("Xcc", cl::CommaSeparated,
-               cl::desc("Pass <ccflag> to GCC/Clang for linking"),
+    ccSwitches("Xcc", cl::desc("Pass <ccflag> to GCC/Clang for linking"),
                cl::value_desc("ccflag"), cl::cat(linkingCategory));
 
 cl::opt<std::string>
     moduleDeps("deps", cl::ValueOptional, cl::ZeroOrMore,
                cl::value_desc("filename"),
-               cl::desc("Write module dependencies to filename (only imports). "
+               cl::desc("Write module dependencies to <filename> (only imports). "
                         "'-deps' alone prints module dependencies "
                         "(imports/file/version/debug/lib)"));
 
-cl::opt<cl::boolOrDefault>
-    staticFlag("static", llvm::cl::ZeroOrMore,
-               llvm::cl::desc("Create a statically linked binary, including "
-                              "all system dependencies"),
-               cl::cat(linkingCategory));
+cl::opt<std::string>
+    makeDeps("makedeps", cl::ValueOptional, cl::ZeroOrMore,
+             cl::value_desc("filename"),
+             cl::desc("Write module dependencies in Makefile compatible format "
+                      "to <filename>/stdout (only imports)"));
 
 cl::opt<bool> m32bits("m32", cl::desc("32 bit target"), cl::ZeroOrMore);
 
@@ -306,14 +425,21 @@ cl::opt<std::string>
     mABI("mabi", cl::ZeroOrMore, cl::Hidden, cl::init(""),
          cl::desc("The name of the ABI to be targeted from the backend"));
 
+static Strings *pModFileAliasStrings = &global.params.modFileAliasStrings;
 static StringsAdapter
-    modFileAliasStringsStore("mv", global.params.modFileAliasStrings);
+    modFileAliasStringsStore("mv", pModFileAliasStrings);
 static cl::list<std::string, StringsAdapter> modFileAliasStrings(
     "mv", cl::desc("Use <filespec> as source file for <package.module>"),
     cl::value_desc("<package.module>=<filespec>"),
     cl::location(modFileAliasStringsStore));
 
-FloatABI::Type floatABI; // Storage for the dynamically created float-abi option.
+cl::list<std::string> includeModulePatterns(
+    "i", cl::desc("Include imported modules in the compilation"),
+    cl::value_desc("pattern"),
+    cl::ValueOptional); // DMD allows omitting a value with special meaning
+
+// Storage for the dynamically created float-abi option.
+FloatABI::Type floatABI;
 
 static cl::opt<CHECKENABLE, true, FlagParser<CHECKENABLE>>
     asserts("asserts", cl::ZeroOrMore, cl::desc("(*) Enable assertions"),
@@ -323,22 +449,31 @@ static cl::opt<CHECKENABLE, true, FlagParser<CHECKENABLE>>
 static cl::opt<CHECKENABLE, true> boundsCheck(
     "boundscheck", cl::ZeroOrMore, cl::desc("Array bounds check"),
     cl::location(global.params.useArrayBounds), cl::init(CHECKENABLEdefault),
-    clEnumValues(clEnumValN(CHECKENABLEoff, "off", "Disabled"),
-                 clEnumValN(CHECKENABLEsafeonly, "safeonly",
-                            "Enabled for @safe functions only"),
-                 clEnumValN(CHECKENABLEon, "on", "Enabled for all functions")));
+    cl::values(clEnumValN(CHECKENABLEoff, "off", "Disabled"),
+               clEnumValN(CHECKENABLEsafeonly, "safeonly",
+                          "Enabled for @safe functions only"),
+               clEnumValN(CHECKENABLEon, "on", "Enabled for all functions")));
 
-static cl::opt<bool, true, FlagParser<bool>>
+static cl::opt<CHECKENABLE, true, FlagParser<CHECKENABLE>> switchErrors(
+    "switch-errors", cl::ZeroOrMore,
+    cl::desc("(*) Enable runtime errors for unhandled switch cases"),
+    cl::location(global.params.useSwitchError), cl::init(CHECKENABLEdefault));
+
+static cl::opt<CHECKENABLE, true, FlagParser<CHECKENABLE>>
     invariants("invariants", cl::ZeroOrMore, cl::desc("(*) Enable invariants"),
-               cl::location(global.params.useInvariants), cl::init(true));
+               cl::location(global.params.useInvariants),
+               cl::init(CHECKENABLEdefault));
 
-static cl::opt<bool, true, FlagParser<bool>> preconditions(
-    "preconditions", cl::ZeroOrMore, cl::location(global.params.useIn),
-    cl::desc("(*) Enable function preconditions"), cl::init(true));
+static cl::opt<CHECKENABLE, true, FlagParser<CHECKENABLE>>
+    preconditions("preconditions", cl::ZeroOrMore,
+                  cl::location(global.params.useIn),
+                  cl::desc("(*) Enable function preconditions"),
+                  cl::init(CHECKENABLEdefault));
 
-static cl::opt<bool, true, FlagParser<bool>>
+static cl::opt<CHECKENABLE, true, FlagParser<CHECKENABLE>>
     postconditions("postconditions", cl::ZeroOrMore,
-                   cl::location(global.params.useOut), cl::init(true),
+                   cl::location(global.params.useOut),
+                   cl::init(CHECKENABLEdefault),
                    cl::desc("(*) Enable function postconditions"));
 
 static MultiSetter ContractsSetter(false, &global.params.useIn,
@@ -347,14 +482,25 @@ static cl::opt<MultiSetter, true, FlagParser<bool>>
     contracts("contracts", cl::ZeroOrMore, cl::location(ContractsSetter),
               cl::desc("(*) Enable function pre- and post-conditions"));
 
-bool invReleaseMode = true;
-static MultiSetter ReleaseSetter(true, &invReleaseMode,
-                                 &global.params.useInvariants,
-                                 &global.params.useOut, &global.params.useIn,
-                                 nullptr);
-static cl::opt<MultiSetter, true, cl::parser<bool>>
-    release("release", cl::ZeroOrMore, cl::location(ReleaseSetter),
-            cl::desc("Disables asserts, invariants, contracts and boundscheck"),
+static cl::opt<CHECKACTION, true> checkAction(
+    "checkaction", cl::ZeroOrMore, cl::location(global.params.checkAction),
+    cl::desc("Action to take when an assert/boundscheck/final-switch fails"),
+    cl::init(CHECKACTION_D),
+    cl::values(
+        clEnumValN(CHECKACTION_D, "D",
+                   "Usual D behavior of throwing an AssertError"),
+        clEnumValN(CHECKACTION_C, "C",
+                   "Call the C runtime library assert failure function"),
+        clEnumValN(CHECKACTION_halt, "halt",
+                   "Halt the program execution (very lightweight)"),
+        clEnumValN(CHECKACTION_context, "context",
+                   "Use D assert with context information (when available)")));
+
+static cl::opt<bool, true>
+    release("release", cl::ZeroOrMore, cl::location(global.params.release),
+            cl::desc("Compile release version, defaulting to disabled "
+                     "asserts/contracts/invariants, and bounds checks in @safe "
+                     "functions only"),
             cl::ValueDisallowed);
 
 cl::opt<bool, true>
@@ -365,26 +511,32 @@ cl::opt<uint32_t, true> hashThreshold(
     "hash-threshold", cl::ZeroOrMore, cl::location(global.params.hashThreshold),
     cl::desc("Hash symbol names longer than this threshold (experimental)"));
 
-cl::opt<bool> linkonceTemplates(
-    "linkonce-templates", cl::ZeroOrMore,
-    cl::desc(
-        "Use linkonce_odr linkage for template symbols instead of weak_odr"));
+static cl::opt<LinkonceTemplates, true> linkonceTemplates(
+    cl::ZeroOrMore, cl::location(global.params.linkonceTemplates),
+    cl::values(
+        clEnumValN(LinkonceTemplates::yes, "linkonce-templates",
+                   "Use discardable linkonce_odr linkage for template symbols "
+                   "and lazily & recursively define all referenced "
+                   "instantiated symbols in each object file"),
+        clEnumValN(LinkonceTemplates::aggressive,
+                   "linkonce-templates-aggressive",
+                   "Experimental, more aggressive variant")));
 
 cl::opt<bool> disableLinkerStripDead(
     "disable-linker-strip-dead", cl::ZeroOrMore,
     cl::desc("Do not try to remove unused symbols during linking"),
     cl::cat(linkingCategory));
 
+cl::opt<bool> noPLT(
+    "fno-plt", cl::ZeroOrMore,
+    cl::desc("Do not use the PLT to make function calls"));
+
 // Math options
 bool fFastMath; // Storage for the dynamically created ffast-math option.
 llvm::FastMathFlags defaultFMF;
 void setDefaultMathOptions(llvm::TargetOptions &targetOptions) {
   if (fFastMath) {
-#if LDC_LLVM_VER >= 600
     defaultFMF.setFast();
-#else
-    defaultFMF.setUnsafeAlgebra();
-#endif
     targetOptions.UnsafeFPMath = true;
   }
 }
@@ -394,51 +546,102 @@ cl::opt<bool, true>
             cl::desc("Generate code for all template instantiations"));
 
 cl::opt<unsigned, true> nestedTemplateDepth(
-    "template-depth", cl::ZeroOrMore, cl::location(global.params.nestedTmpl),
+    "template-depth", cl::ZeroOrMore, cl::location(global.recursionLimit),
     cl::init(500),
-    cl::desc(
-        "Set maximum number of nested template instantiations (experimental)"));
+    cl::desc("Set maximum number of nested template instantiations"));
 
-cl::opt<bool, true>
-    useDIP25("dip25", cl::ZeroOrMore, cl::location(global.params.useDIP25),
-             cl::desc("Implement http://wiki.dlang.org/DIP25 (experimental)"));
-
-cl::opt<bool> useDIP1000(
-    "dip1000", cl::ZeroOrMore,
-    cl::desc("Implement http://wiki.dlang.org/DIP1000 (experimental)"));
-
-cl::opt<bool, true> useDIP1008("dip1008", cl::ZeroOrMore,
-                               cl::location(global.params.ehnogc),
-                               cl::desc("Implement DIP1008 (experimental)"));
+// legacy options superseded by `-preview=dip<N>`
+cl::opt<bool> useDIP25("dip25", cl::ZeroOrMore, cl::ReallyHidden,
+                       cl::desc("Implement DIP25 (sealed references)"));
+cl::opt<bool> useDIP1000("dip1000", cl::ZeroOrMore, cl::ReallyHidden,
+                         cl::desc("Implement DIP1000 (scoped pointers)"));
+static cl::opt<bool, true>
+    useDIP1008("dip1008", cl::ZeroOrMore, cl::location(global.params.ehnogc),
+               cl::desc("Implement DIP1008 (@nogc Throwable)"),
+               cl::ReallyHidden);
 
 cl::opt<bool, true> betterC(
     "betterC", cl::ZeroOrMore, cl::location(global.params.betterC),
     cl::desc("Omit generating some runtime information and helper functions"));
 
-cl::opt<unsigned char, true, CoverageParser> coverageAnalysis(
-    "cov", cl::ZeroOrMore, cl::location(global.params.covPercent),
-    cl::desc("Compile-in code coverage analysis\n(use -cov=n for n% "
-             "minimum required coverage)"),
-    cl::ValueOptional, cl::init(127));
+// `-cov[=<n>|ctfe]` parser.
+struct CoverageParser : public cl::parser<DummyDataType> {
+  explicit CoverageParser(cl::Option &O) : cl::parser<DummyDataType>(O) {}
 
-#if LDC_LLVM_VER >= 309
+  bool parse(cl::Option &O, llvm::StringRef /*ArgName*/, llvm::StringRef Arg,
+             DummyDataType & /*Val*/) {
+    global.params.cov = true;
+
+    if (Arg.empty()) {
+      return false;
+    }
+
+    if (Arg == "ctfe") {
+      global.params.ctfe_cov = true;
+      return false;
+    }
+
+    unsigned char percent = 0;
+    if (Arg.getAsInteger(0, percent)) {
+      return O.error("'" + Arg +
+                     "' value invalid for required coverage percentage");
+    }
+
+    if (percent > 100) {
+      return O.error("required coverage percentage must be <= 100");
+    }
+
+    global.params.covPercent = percent;
+    return false;
+  }
+};
+
+static cl::opt<DummyDataType, false, CoverageParser> coverageAnalysis(
+    "cov", cl::ZeroOrMore, cl::ValueOptional,
+    cl::desc("Compile-in code coverage analysis and .lst file generation\n"
+             "Use -cov=<n> for n% minimum required coverage\n"
+             "Use -cov=ctfe to include code executed during CTFE"));
+
+cl::opt<CoverageIncrement> coverageIncrement(
+    "cov-increment", cl::ZeroOrMore,
+    cl::desc("Set the type of coverage line count increment instruction"),
+    cl::init(CoverageIncrement::_default),
+    cl::values(clEnumValN(CoverageIncrement::_default, "default",
+                          "Use the default (atomic)"),
+               clEnumValN(CoverageIncrement::atomic, "atomic", "Atomic increment"),
+               clEnumValN(CoverageIncrement::nonatomic, "non-atomic",
+                          "Non-atomic increment (not thread safe)"),
+               clEnumValN(CoverageIncrement::boolean, "boolean",
+                          "Don't read, just set counter to 1")));
+
+// Compilation time tracing options
+cl::opt<bool> fTimeTrace(
+    "ftime-trace", cl::ZeroOrMore,
+    cl::desc("Turn on time profiler. Generates JSON file "
+             "based on the output filename (also see --ftime-trace-file)."));
+cl::opt<unsigned> fTimeTraceGranularity(
+    "ftime-trace-granularity", cl::ZeroOrMore, cl::init(500),
+    cl::desc(
+        "Minimum time granularity (in microseconds) traced by time profiler"));
+cl::opt<std::string>
+fTimeTraceFile("ftime-trace-file",
+               cl::desc("Specify time trace file destination"),
+               cl::value_desc("filename"));
+
 cl::opt<LTOKind> ltoMode(
     "flto", cl::ZeroOrMore, cl::desc("Set LTO mode, requires linker support"),
     cl::init(LTO_None),
-    clEnumValues(
+    cl::values(
         clEnumValN(LTO_Full, "full", "Merges all input into a single module"),
         clEnumValN(LTO_Thin, "thin",
                    "Parallel importing and codegen (faster than 'full')")));
-#endif
 
-#if LDC_LLVM_VER >= 400
 cl::opt<std::string>
     saveOptimizationRecord("fsave-optimization-record",
                            cl::value_desc("filename"),
                            cl::desc("Generate a YAML optimization record file "
                                     "of optimizations performed by LLVM"),
                            cl::ValueOptional);
-#endif
 
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
 cl::list<std::string>
@@ -467,15 +670,15 @@ cl::opt<bool> dynamicCompileTlsWorkaround(
     cl::Hidden);
 #endif
 
-static cl::extrahelp footer(
-    "\n"
-    "-d-debug can also be specified without options, in which case it enables "
-    "all\n"
-    "debug checks (i.e. (asserts, boundschecks, contracts and invariants) as "
-    "well\n"
-    "as acting as -d-debug=1\n\n"
-    "Options marked with (*) also have a -disable-FOO variant with inverted\n"
-    "meaning.\n");
+static cl::extrahelp
+    footer("\n"
+           "-d-debug can also be specified without options, in which case it "
+           "enables all debug checks (i.e. asserts, boundschecks, contracts "
+           "and invariants) as well as acting as -d-debug=1.\n\n"
+           "Boolean options can take an optional value, e.g., "
+           "-link-defaultlib-shared=<true,false>.\n"
+           "Boolean options marked with (*) also have a -disable-FOO variant "
+           "with inverted meaning.\n");
 
 /// Create commandline options that may clash with LLVM's options (depending on
 /// LLVM version and on LLVM configuration), and that thus cannot be created
@@ -512,7 +715,7 @@ void createClashingOptions() {
   new cl::opt<FloatABI::Type, true>(
       "float-abi", cl::desc("ABI/operations to use for floating-point types:"),
       cl::ZeroOrMore, cl::location(floatABI), cl::init(FloatABI::Default),
-      clEnumValues(
+      cl::values(
           clEnumValN(FloatABI::Default, "default",
                      "Target default floating-point ABI"),
           clEnumValN(FloatABI::Soft, "soft",
@@ -528,60 +731,122 @@ void createClashingOptions() {
 /// to be useful for end users from the -help output.
 void hideLLVMOptions() {
   static const char *const hiddenOptions[] = {
-      "aarch64-neon-syntax", "arm-add-build-attributes", "arm-implicit-it",
-      "asm-instrumentation", "asm-show-inst", "atomic-counter-update-promoted",
-      "bounds-checking-single-trap", "code-model", "cppfname", "cppfor",
-      "cppgen", "cvp-dont-process-adds", "debug-counter", "debugger-tune",
-      "denormal-fp-math", "disable-debug-info-verifier",
-      "disable-objc-arc-checkforcfghazards", "disable-spill-fusing",
-      "do-counter-promotion", "emulated-tls", "enable-correct-eh-support",
-      "enable-fp-mad", "enable-implicit-null-checks", "enable-load-pre",
+      "aarch64-neon-syntax", "aarch64-use-aa",
+      "abort-on-max-devirt-iterations-reached",
+      "addrsig", "align-loops", "allow-ginsert-as-artifact",
+      "amdgpu-bypass-slow-div", "amdgpu-disable-loop-alignment",
+      "amdgpu-disable-power-sched", "amdgpu-dpp-combine",
+      "amdgpu-dump-hsa-metadata", "amdgpu-enable-flat-scratch",
+      "amdgpu-enable-global-sgpr-addr", "amdgpu-enable-merge-m0",
+      "amdgpu-promote-alloca-to-vector-limit",
+      "amdgpu-reserve-vgpr-for-sgpr-spill", "amdgpu-sdwa-peephole",
+      "amdgpu-use-aa-in-codegen", "amdgpu-verify-hsa-metadata",
+      "amdgpu-vgpr-index-mode", "arm-add-build-attributes",
+      "arm-implicit-it", "asm-instrumentation", "asm-show-inst",
+      "atomic-counter-update-promoted", "atomic-first-counter",
+      "basic-block-sections",
+      "basicblock-sections", "bounds-checking-single-trap",
+      "cfg-hide-cold-paths",
+      "cfg-hide-deoptimize-paths", "cfg-hide-unreachable-paths",
+      "code-model", "cost-kind", "cppfname", "cppfor", "cppgen",
+      "cvp-dont-add-nowrap-flags",
+      "cvp-dont-process-adds", "debug-counter", "debug-entry-values",
+      "debugger-tune", "debugify-level", "debugify-quiet",
+      "debug-info-correlate",
+      "denormal-fp-math", "denormal-fp-math-f32", "disable-debug-info-verifier",
+      "disable-i2p-p2i-opt",
+      "disable-objc-arc-checkforcfghazards", "disable-promote-alloca-to-lds",
+      "disable-promote-alloca-to-vector", "disable-slp-vectorization",
+      "disable-spill-fusing",
+      "do-counter-promotion", "dot-cfg-mssa", "dwarf64", "emit-call-site-info",
+      "emscripten-cxx-exceptions-allowed",
+      "emscripten-cxx-exceptions-whitelist",
+      "emulated-tls", "enable-correct-eh-support",
+      "enable-cse-in-irtranslator", "enable-cse-in-legalizer",
+      "enable-emscripten-cxx-exceptions", "enable-emscripten-sjlj",
+      "enable-fp-mad", "enable-gvn-hoist", "enable-gvn-memdep",
+      "enable-gvn-sink", "enable-implicit-null-checks",
+      "enable-load-in-loop-pre",
+      "enable-load-pre", "enable-loop-simplifycfg-term-folding",
       "enable-misched", "enable-name-compression", "enable-no-infs-fp-math",
       "enable-no-nans-fp-math", "enable-no-signed-zeros-fp-math",
       "enable-no-trapping-fp-math", "enable-objc-arc-annotations",
       "enable-objc-arc-opts", "enable-pie", "enable-scoped-noalias",
+      "enable-split-backedge-in-load-pre",
       "enable-tbaa", "enable-unsafe-fp-math", "exception-model",
       "exhaustive-register-search", "expensive-combines",
-      "fatal-assembler-warnings", "filter-print-funcs", "gpsize",
+      "experimental-debug-variable-locations",
+      "fatal-assembler-warnings", "filter-print-funcs",
+      "force-dwarf-frame-section", "force-opaque-pointers",
+      "fs-profile-debug-bw-threshold", "fs-profile-debug-prob-diff-threshold",
+      "generate-merged-base-profiles",
+      "gpsize", "hash-based-counter-split",
+      "hot-cold-split", "ignore-xcoff-visibility",
       "imp-null-check-page-size", "imp-null-max-insts-to-consider",
-      "incremental-linker-compatible", "instcombine-maxarray-size",
-      "internalize-public-api-file", "internalize-public-api-list",
-      "iterative-counter-promotion", "join-liveintervals", "jump-table-type",
-      "limit-float-precision", "max-counter-promotions",
-      "max-counter-promotions-per-loop", "mc-relax-all",
-      "mc-x86-disable-arith-relaxation", "meabi", "memop-size-large",
-      "memop-size-range", "merror-missing-parenthesis",
-      "merror-noncontigious-register", "mfuture-regs", "mips-compact-branches",
-      "mips16-constant-islands", "mips16-hard-float", "mlsm", "mno-compound",
+      "import-all-index", "incremental-linker-compatible",
+      "instcombine-code-sinking", "instcombine-guard-widening-window",
+      "instcombine-max-iterations", "instcombine-max-num-phis",
+      "instcombine-maxarray-size", "instcombine-negator-enabled",
+      "instcombine-negator-max-depth", "instcombine-unsafe-select-transform",
+      "instrprof-atomic-counter-update-all", "internalize-public-api-file",
+      "internalize-public-api-list", "iterative-counter-promotion",
+      "join-liveintervals", "jump-table-type", "limit-float-precision",
+      "lto-embed-bitcode", "matrix-default-layout", "matrix-propagate-shape",
+      "max-counter-promotions", "max-counter-promotions-per-loop",
+      "mc-relax-all", "mc-x86-disable-arith-relaxation", "mcabac", "meabi",
+      "memop-size-large", "memop-size-range", "merror-missing-parenthesis",
+      "merror-noncontigious-register", "mfuture-regs", "mhvx",
+      "mips-compact-branches", "mips16-constant-islands", "mips16-hard-float",
+      "mir-strip-debugify-only", "mlsm", "mno-compound",
       "mno-fixup", "mno-ldc1-sdc1", "mno-pairing", "mwarn-missing-parenthesis",
       "mwarn-noncontigious-register", "mwarn-sign-mismatch",
-      "no-discriminators", "nozero-initialized-in-bss", "nvptx-sched4reg",
-      "objc-arc-annotation-target-identifier", "pie-copy-relocations",
+      "no-discriminators", "no-type-check", "no-xray-index",
+      "nozero-initialized-in-bss", "nvptx-sched4reg",
+      "objc-arc-annotation-target-identifier", "opaque-pointers",
+      "pie-copy-relocations", "poison-checking-function-local",
       "polly-dump-after", "polly-dump-after-file", "polly-dump-before",
       "polly-dump-before-file", "pre-RA-sched", "print-after-all",
-      "print-before-all", "print-machineinstrs",
+      "print-before-all", "print-machineinstrs", "print-module-scope",
+      "print-pipeline-passes",
       "profile-estimator-loop-weight", "profile-estimator-loop-weight",
       "profile-file", "profile-info-file", "profile-verifier-noassert",
+      "pseudo-probe-for-profiling",
       "r600-ir-structurize", "rdf-dump", "rdf-limit", "recip", "regalloc",
-      "relax-elf-relocations", "rewrite-map-file", "rng-seed",
-      "safepoint-ir-verifier-print-only",
+      "relax-elf-relocations", "remarks-section", "rewrite-map-file", "rng-seed",
+      "runtime-counter-relocation", "safepoint-ir-verifier-print-only",
       "sample-profile-check-record-coverage",
       "sample-profile-check-sample-coverage",
       "sample-profile-inline-hot-threshold",
       "sample-profile-max-propagate-iterations", "shrink-wrap", "simplify-mir",
+      "skip-ret-exit-block",
       "speculative-counter-promotion-max-exiting",
       "speculative-counter-promotion-to-loop", "spiller", "spirv-debug",
-      "spirv-erase-cl-md", "spirv-mem2reg", "spvbool-validate",
-      "stack-alignment", "stack-symbol-ordering", "stackmap-version",
-      "static-func-full-module-prefix", "static-func-strip-dirname-prefix",
-      "stats", "stats-json", "strip-debug", "struct-path-tbaa", "summary-file",
-      "tailcallopt", "thread-model", "time-passes",
-      "unfold-element-atomic-memcpy-max-elements", "unique-section-names",
-      "unit-at-a-time", "use-ctors", "verify-debug-info", "verify-dom-info",
-      "verify-loop-info", "verify-loop-lcssa", "verify-machine-dom-info",
-      "verify-regalloc", "verify-region-info", "verify-scev",
-      "verify-scev-maps", "vp-counters-per-site", "vp-static-alloc",
-      "x86-early-ifcvt", "x86-recip-refinement-steps", "x86-use-vzeroupper",
+      "spirv-erase-cl-md", "spirv-lower-const-expr", "spirv-mem2reg",
+      "spirv-no-deref-attr", "spirv-text", "spirv-verify-regularize-passes",
+      "split-machine-functions", "spv-lower-saddwithoverflow-validate",
+      "spvbool-validate", "spvmemmove-validate",
+      "stack-alignment", "stack-protector-guard",
+      "stack-protector-guard-offset", "stack-protector-guard-reg",
+      "stack-size-section", "stack-symbol-ordering",
+      "stackmap-version", "static-func-full-module-prefix",
+      "static-func-strip-dirname-prefix", "stats", "stats-json", "strict-dwarf",
+      "strip-debug", "struct-path-tbaa", "summary-file", "swift-async-fp",
+      "tail-predication", "tailcallopt", "thinlto-assume-merged",
+      "thread-model", "time-passes", "time-trace-granularity", "tls-size",
+      "unfold-element-atomic-memcpy-max-elements",
+      "unique-basic-block-section-names", "unique-bb-section-names",
+      "unique-section-names", "unit-at-a-time", "use-ctors",
+      "vec-extabi", "verify-debug-info", "verify-dom-info",
+      "verify-legalizer-debug-locs", "verify-loop-info",
+      "verify-loop-lcssa", "verify-machine-dom-info", "verify-regalloc",
+      "verify-region-info", "verify-scev", "verify-scev-maps",
+      "vp-counters-per-site", "vp-static-alloc",
+      "wasm-enable-eh", "wasm-enable-sjlj",
+      "x86-align-branch", "x86-align-branch-boundary",
+      "x86-branches-within-32B-boundaries", "x86-early-ifcvt",
+      "x86-pad-max-prefix-size",
+      "x86-recip-refinement-steps", "x86-use-vzeroupper",
+      "xcoff-traceback-table",
 
       // We enable -fdata-sections/-ffunction-sections by default where it makes
       // sense for reducing code size, so hide them to avoid confusion.
@@ -589,8 +854,7 @@ void hideLLVMOptions() {
       // We need our own switch as these two are defined by LLVM and linked to
       // static TargetMachine members, but the default we want to use depends
       // on the target triple (and thus we do not know it until after the
-      // command
-      // line has been parsed).
+      // command line has been parsed).
       "fdata-sections", "ffunction-sections", "data-sections",
       "function-sections"};
 

@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_PRAGMA_H
-#define LDC_GEN_PRAGMA_H
+#pragma once
 
 #include <string>
 
@@ -58,6 +57,3 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *sym, LDCPragma llvm_intern
 bool DtoCheckProfileInstrPragma(Expression *arg, bool &value);
 bool DtoIsIntrinsic(FuncDeclaration *fd);
 bool DtoIsVaIntrinsic(FuncDeclaration *fd);
-
-
-#endif // LDC_GEN_PRAGMA_H

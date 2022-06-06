@@ -15,8 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_PGO_ASTBASED_H
-#define LDC_GEN_PGO_ASTBASED_H
+#pragma once
 
 #include "gen/llvm.h"
 #include "llvm/ProfileData/InstrProf.h"
@@ -41,13 +40,8 @@ class ForeachRangeStatement;
 class CodeGenPGO {
 public:
   CodeGenPGO()
-      : NumRegionCounters(0), FunctionHash(0), CurrentRegionCount(0)
-#if LDC_LLVM_VER >= 309
-        ,
-        NumValueSites({{0}})
-#endif
-  {
-  }
+      : NumRegionCounters(0), FunctionHash(0), CurrentRegionCount(0),
+        NumValueSites({{0}}) {}
 
   /// Whether or not we emit PGO instrumentation for the current function.
   bool emitsInstrumentation() const { return emitInstrumentation; }
@@ -124,7 +118,6 @@ public:
 
   /// Adds profiling instrumentation/annotation of indirect calls to `funcPtr`
   /// for callsite `callSite`.
-  /// Does nothing for LLVM < 3.9.
   void emitIndirectCallPGO(llvm::Instruction *callSite, llvm::Value *funcPtr);
 
   /// Adds profiling instrumentation/annotation of a certain value.
@@ -134,7 +127,6 @@ public:
   /// code site `valueSite`, and the to be profiled value is given by
   /// `value`. `value` should be of LLVM i64 type, unless `ptrCastNeeded` is
   /// true, in which case a ptrtoint cast to i64 is added.
-  /// Does nothing for LLVM < 3.9.
   void valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
                     llvm::Value *value, bool ptrCastNeeded);
 
@@ -150,10 +142,8 @@ private:
   std::vector<uint64_t> RegionCounts;
   uint64_t CurrentRegionCount;
 
-#if LDC_LLVM_VER >= 309
   std::array<unsigned, llvm::IPVK_Last + 1> NumValueSites;
   std::unique_ptr<llvm::InstrProfRecord> ProfRecord;
-#endif
 
   /// \brief A flag that is set to false when instrumentation code should not be
   /// emitted for this function.
@@ -173,14 +163,9 @@ private:
   void setFuncName(llvm::Function *Fn);
   void setFuncName(llvm::StringRef Name,
                    llvm::GlobalValue::LinkageTypes Linkage);
-#if LDC_LLVM_VER < 308
-  void createFuncNameVar(llvm::GlobalValue::LinkageTypes Linkage);
-#endif
   void mapRegionCounters(const FuncDeclaration *D);
   void computeRegionCounts(const FuncDeclaration *D);
   void applyFunctionAttributes(llvm::Function *Fn);
   void loadRegionCounts(llvm::IndexedInstrProfReader *PGOReader,
                         const FuncDeclaration *D);
 };
-
-#endif //  LDC_GEN_PGO_ASTBASED_H

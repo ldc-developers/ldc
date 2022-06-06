@@ -14,10 +14,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_ABI_H
-#define LDC_GEN_ABI_H
+#pragma once
 
-#include "mars.h"
+#include "dmd/globals.h"
 #include "gen/dvalue.h"
 #include "llvm/IR/CallingConv.h"
 #include <vector>
@@ -25,6 +24,7 @@
 class Type;
 class TypeFunction;
 class TypeStruct;
+class TypeTuple;
 struct IrFuncTy;
 struct IrFuncTyArg;
 class FuncDeclaration;
@@ -42,7 +42,7 @@ struct ABIRewrite {
   virtual ~ABIRewrite() = default;
 
   /// Transforms the D argument to a suitable LL argument.
-  virtual llvm::Value *put(DValue *v, bool isModifiableLvalue) = 0;
+  virtual llvm::Value *put(DValue *v, bool isLValueExp, bool isLastArgExp) = 0;
 
   /// Transforms the LL parameter back and returns the address for the D
   /// parameter.
@@ -57,17 +57,15 @@ struct ABIRewrite {
   /// specified D type.
   virtual llvm::Type *type(Type *t) = 0;
 
+  /// Applies this rewrite to the specified argument, adapting it where
+  /// necessary.
+  virtual void applyTo(IrFuncTyArg &arg, llvm::Type *finalLType = nullptr);
+
 protected:
   /***** Static Helpers *****/
 
   /// Returns the address of a D value, storing it to memory first if need be.
   static llvm::Value *getAddressOf(DValue *v);
-
-  /// Loads a LL value of a specified type from memory. The element type of the
-  /// provided pointer doesn't need to match the value type (=> suitable for
-  /// bit-casting).
-  static llvm::Value *loadFromMemory(llvm::Value *address, llvm::Type *asType,
-                                     const char *name = ".bitcast_result");
 };
 
 // interface called by codegen
@@ -82,10 +80,14 @@ struct TargetABI {
 
   /// Returns the LLVM calling convention to be used for the given D linkage
   /// type on the target. Defaults to the C calling convention.
-  virtual llvm::CallingConv::ID callingConv(LINK l, TypeFunction *tf = nullptr,
-                                            FuncDeclaration *fdecl = nullptr) {
+  virtual llvm::CallingConv::ID callingConv(LINK) {
     return llvm::CallingConv::C;
   }
+  // By default, enforce C calling convention for (non-typesafe) variadics,
+  // otherwise forward to LINK overload.
+  virtual llvm::CallingConv::ID callingConv(TypeFunction *tf, bool withThisPtr);
+  // By default, forward to TypeFunction overload.
+  virtual llvm::CallingConv::ID callingConv(FuncDeclaration *fdecl);
 
   /// Applies any rewrites that might be required to accurately reproduce the
   /// passed function name on LLVM given a specific calling convention.
@@ -116,13 +118,19 @@ struct TargetABI {
   }
 
   /// Returns true if the D function uses sret (struct return).
+  /// `needsThis` is true if the function type is for a non-static member
+  /// function.
   ///
   /// A LL sret function doesn't really return a struct (in fact, it returns
   /// void); it merely just sets a struct which has been pre-allocated by the
   /// caller.
   /// The address is passed as additional function parameter using the StructRet
   /// attribute.
-  virtual bool returnInArg(TypeFunction *tf) = 0;
+  virtual bool returnInArg(TypeFunction *tf, bool needsThis) = 0;
+
+  /// Returns true if the specified parameter type (a POD) should be passed by
+  /// ref for `in` params with -preview=in.
+  virtual bool preferPassByRef(Type *t);
 
   /// Returns true if the D type is passed using the LLVM ByVal attribute.
   ///
@@ -133,14 +141,14 @@ struct TargetABI {
   /// parameter.
   /// The LL caller needs to pass a pointer to the original argument (the memcpy
   /// source).
-  virtual bool passByVal(Type *t) = 0;
+  virtual bool passByVal(TypeFunction *tf, Type *t) = 0;
 
   /// Returns true if the 'this' argument is to be passed before the 'sret'
   /// argument.
   virtual bool passThisBeforeSret(TypeFunction *tf) { return false; }
 
   /// Called to give ABI the chance to rewrite the types
-  virtual void rewriteFunctionType(TypeFunction *t, IrFuncTy &fty) = 0;
+  virtual void rewriteFunctionType(IrFuncTy &fty) = 0;
   virtual void rewriteVarargs(IrFuncTy &fty, std::vector<IrFuncTyArg *> &args);
   virtual void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) {}
 
@@ -167,10 +175,21 @@ struct TargetABI {
 
   /***** Static Helpers *****/
 
-  /// Check if struct 't' is a Homogeneous Floating-point Aggregate (HFA)
-  /// consisting of up to 4 of same floating point type.  If so, optionally
-  /// produce the rewriteType: an array of that floating point type
-  static bool isHFA(TypeStruct *t, llvm::Type **rewriteType = nullptr, const int maxFloats = 4);
+  /// Check if `t` is a Homogeneous Floating-point Aggregate (HFA) or
+  /// Homogeneous Vector Aggregate (HVA). If so, optionally produce the
+  /// rewriteType: an array of its fundamental type.
+  static bool isHFVA(Type *t, int maxNumElements,
+                     llvm::Type **hfvaType = nullptr);
+
+  /// Check if `t` is a Homogeneous Vector Aggregate (HVA). If so, optionally
+  /// produce the rewriteType: an array of its fundamental type.
+  static bool isHVA(Type *t, int maxNumElements,
+                    llvm::Type **hvaType = nullptr);
+
+  /// Uses the front-end toArgTypes* machinery and returns an appropriate LL
+  /// type if arguments of the specified D type are to be rewritten in order to
+  /// be passed correctly in registers.
+  static llvm::Type *getRewrittenArgType(Type *t);
 
 protected:
 
@@ -181,16 +200,21 @@ protected:
   /// * complex number
   static bool isAggregate(Type *t);
 
-  /// The frontend uses magic structs to express the variable-sized C types
-  /// ((unsigned) long, long double) for C++ mangling purposes.
-  static bool isMagicCppStruct(Type *t);
-
   /// Returns true if the D type is a Plain-Old-Datatype, optionally excluding
   /// structs with constructors from that definition.
   static bool isPOD(Type *t, bool excludeStructsWithCtor = false);
 
   /// Returns true if the D type can be bit-cast to an integer of the same size.
   static bool canRewriteAsInt(Type *t, bool include64bit = true);
-};
 
-#endif
+  /// Returns true if the D function type uses extern(D) linkage *and* isn't a
+  /// D-style variadic function.
+  static bool isExternD(TypeFunction *tf);
+
+  /// Returns the type tuple produced by the front-end's toArgTypes* machinery.
+  static TypeTuple *getArgTypes(Type *t);
+
+  static llvm::Type *getRewrittenArgType(Type *t, TypeTuple *argTypes);
+
+  static bool skipReturnValueRewrite(IrFuncTy &fty);
+};

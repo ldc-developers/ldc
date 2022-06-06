@@ -1,17 +1,17 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Generate `TypeInfo` objects, which are needed for run-time introspection of types.
  *
- * Copyright:   Copyright (c) 1999-2017 by The D Language Foundation, All Rights Reserved
- * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
- * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/typeinf.d, _typeinf.d)
+ * Documentation:  https://dlang.org/phobos/dmd_typinf.html
+ * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/typinf.d
  */
 
 module dmd.typinf;
 
-// Online documentation: https://dlang.org/phobos/dmd_typinf.html
-
+import dmd.astenums;
 import dmd.declaration;
 import dmd.dmodule;
 import dmd.dscope;
@@ -22,22 +22,35 @@ import dmd.globals;
 import dmd.gluelayer;
 import dmd.mtype;
 import dmd.visitor;
-
-version (IN_LLVM)
-{
-    import dmd.dsymbol;
-    extern (C++) void Declaration_codegen(Dsymbol decl);
-}
+import core.stdc.stdio;
 
 /****************************************************
- * Get the exact TypeInfo.
+ * Generates the `TypeInfo` object associated with `torig` if it
+ * hasn't already been generated
+ * Params:
+ *      loc   = the location for reporting line numbers in errors
+ *      torig = the type to generate the `TypeInfo` object for
+ *      sc    = the scope
  */
-extern (C++) void genTypeInfo(Type torig, Scope* sc)
+extern (C++) void genTypeInfo(const ref Loc loc, Type torig, Scope* sc)
 {
-    //printf("Type::genTypeInfo() %p, %s\n", this, toChars());
+    // printf("genTypeInfo() %s\n", torig.toChars());
+
+    // Even when compiling without `useTypeInfo` (e.g. -betterC) we should
+    // still be able to evaluate `TypeInfo` at compile-time, just not at runtime.
+    // https://issues.dlang.org/show_bug.cgi?id=18472
+    if (!sc || !(sc.flags & SCOPE.ctfe))
+    {
+        if (!global.params.useTypeInfo)
+        {
+            .error(loc, "`TypeInfo` cannot be used with -betterC");
+            fatal();
+        }
+    }
+
     if (!Type.dtypeinfo)
     {
-        torig.error(Loc(), "TypeInfo not found. object.d may be incorrectly installed or corrupt, compile with -v switch");
+        .error(loc, "`object.TypeInfo` could not be found, but is implicitly used");
         fatal();
     }
 
@@ -56,12 +69,19 @@ extern (C++) void genTypeInfo(Type torig, Scope* sc)
             t.vtinfo = getTypeInfoDeclaration(t);
         assert(t.vtinfo);
 
-        /* If this has a custom implementation in std/typeinfo, then
-         * do not generate a COMDAT for it.
-         */
-        if (!builtinTypeInfo(t))
+version (IN_LLVM)
+{
+        // LDC handles emission in the codegen layer
+}
+else
+{
+        // ClassInfos are generated as part of ClassDeclaration codegen
+        const isUnqualifiedClassInfo = (t.ty == Tclass && !t.mod);
+
+        // generate a COMDAT for other TypeInfos not available as builtins in
+        // druntime
+        if (!isUnqualifiedClassInfo && !builtinTypeInfo(t))
         {
-            // Generate COMDAT
             if (sc) // if in semantic() pass
             {
                 // Find module that will go all the way to an object file
@@ -70,26 +90,33 @@ extern (C++) void genTypeInfo(Type torig, Scope* sc)
             }
             else // if in obj generation pass
             {
-                version (IN_LLVM)
-                    Declaration_codegen(t.vtinfo);
-                else
-                    toObjFile(t.vtinfo, global.params.multiobj);
+                toObjFile(t.vtinfo, global.params.multiobj);
             }
         }
+} // !IN_LLVM
     }
     if (!torig.vtinfo)
         torig.vtinfo = t.vtinfo; // Types aren't merged, but we can share the vtinfo's
     assert(torig.vtinfo);
 }
 
-extern (C++) Type getTypeInfoType(Type t, Scope* sc)
+/****************************************************
+ * Gets the type of the `TypeInfo` object associated with `t`
+ * Params:
+ *      loc = the location for reporting line nunbers in errors
+ *      t   = the type to get the type of the `TypeInfo` object for
+ *      sc  = the scope
+ * Returns:
+ *      The type of the `TypeInfo` object associated with `t`
+ */
+extern (C++) Type getTypeInfoType(const ref Loc loc, Type t, Scope* sc)
 {
     assert(t.ty != Terror);
-    genTypeInfo(t, sc);
+    genTypeInfo(loc, t, sc);
     return t.vtinfo.type;
 }
 
-extern (C++) TypeInfoDeclaration getTypeInfoDeclaration(Type t)
+private TypeInfoDeclaration getTypeInfoDeclaration(Type t)
 {
     //printf("Type::getTypeInfoDeclaration() %s\n", t.toChars());
     switch (t.ty)
@@ -125,146 +152,133 @@ extern (C++) TypeInfoDeclaration getTypeInfoDeclaration(Type t)
     }
 }
 
-extern (C++) bool isSpeculativeType(Type t)
+version (IN_LLVM)
 {
-    extern (C++) final class SpeculativeTypeVisitor : Visitor
+    // LDC handles TypeInfo emission in the codegen layer
+    // => no need to take care of speculative types.
+}
+else
+{
+
+/**************************************************
+ * Returns:
+ *      true if any part of type t is speculative.
+ *      if t is null, returns false.
+ */
+bool isSpeculativeType(Type t)
+{
+    static bool visitVector(TypeVector t)
     {
-        alias visit = Visitor.visit;
-    public:
-        bool result;
-
-        extern (D) this()
-        {
-        }
-
-        override void visit(Type t)
-        {
-            Type tb = t.toBasetype();
-            if (tb != t)
-                tb.accept(this);
-        }
-
-        override void visit(TypeNext t)
-        {
-            if (t.next)
-                t.next.accept(this);
-        }
-
-        override void visit(TypeBasic t)
-        {
-        }
-
-        override void visit(TypeVector t)
-        {
-            t.basetype.accept(this);
-        }
-
-        override void visit(TypeAArray t)
-        {
-            t.index.accept(this);
-            visit(cast(TypeNext)t);
-        }
-
-        override void visit(TypeFunction t)
-        {
-            visit(cast(TypeNext)t);
-            // Currently TypeInfo_Function doesn't store parameter types.
-        }
-
-        override void visit(TypeStruct t)
-        {
-            StructDeclaration sd = t.sym;
-            if (auto ti = sd.isInstantiated())
-            {
-                if (!ti.needsCodegen())
-                {
-                    if (ti.minst || sd.requestTypeInfo)
-                        return;
-
-                    /* https://issues.dlang.org/show_bug.cgi?id=14425
-                     * TypeInfo_Struct would refer the members of
-                     * struct (e.g. opEquals via xopEquals field), so if it's instantiated
-                     * in speculative context, TypeInfo creation should also be
-                     * stopped to avoid 'unresolved symbol' linker errors.
-                     */
-                    /* When -debug/-unittest is specified, all of non-root instances are
-                     * automatically changed to speculative, and here is always reached
-                     * from those instantiated non-root structs.
-                     * Therefore, if the TypeInfo is not auctually requested,
-                     * we have to elide its codegen.
-                     */
-                    result |= true;
-                    return;
-                }
-            }
-            else
-            {
-                //assert(!sd.inNonRoot() || sd.requestTypeInfo);    // valid?
-            }
-        }
-
-        override void visit(TypeClass t)
-        {
-            ClassDeclaration sd = t.sym;
-            if (auto ti = sd.isInstantiated())
-            {
-                if (!ti.needsCodegen() && !ti.minst)
-                {
-                    result |= true;
-                }
-            }
-        }
-
-
-        override void visit(TypeTuple t)
-        {
-            if (t.arguments)
-            {
-                for (size_t i = 0; i < t.arguments.dim; i++)
-                {
-                    Type tprm = (*t.arguments)[i].type;
-                    if (tprm)
-                        tprm.accept(this);
-                    if (result)
-                        return;
-                }
-            }
-        }
+        return isSpeculativeType(t.basetype);
     }
 
-    scope SpeculativeTypeVisitor v = new SpeculativeTypeVisitor();
-    t.accept(v);
-    return v.result;
+    static bool visitAArray(TypeAArray t)
+    {
+        return isSpeculativeType(t.index) ||
+               isSpeculativeType(t.next);
+    }
+
+    static bool visitStruct(TypeStruct t)
+    {
+        StructDeclaration sd = t.sym;
+        if (auto ti = sd.isInstantiated())
+        {
+            if (!ti.needsCodegen())
+            {
+                if (ti.minst || sd.requestTypeInfo)
+                    return false;
+
+                /* https://issues.dlang.org/show_bug.cgi?id=14425
+                 * TypeInfo_Struct would refer the members of
+                 * struct (e.g. opEquals via xopEquals field), so if it's instantiated
+                 * in speculative context, TypeInfo creation should also be
+                 * stopped to avoid 'unresolved symbol' linker errors.
+                 */
+                /* When -debug/-unittest is specified, all of non-root instances are
+                 * automatically changed to speculative, and here is always reached
+                 * from those instantiated non-root structs.
+                 * Therefore, if the TypeInfo is not auctually requested,
+                 * we have to elide its codegen.
+                 */
+                return true;
+            }
+        }
+        else
+        {
+            //assert(!sd.inNonRoot() || sd.requestTypeInfo);    // valid?
+        }
+        return false;
+    }
+
+    static bool visitClass(TypeClass t)
+    {
+        ClassDeclaration sd = t.sym;
+        if (auto ti = sd.isInstantiated())
+        {
+            if (!ti.needsCodegen() && !ti.minst)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+    static bool visitTuple(TypeTuple t)
+    {
+        if (t.arguments)
+        {
+            foreach (arg; *t.arguments)
+            {
+                if (isSpeculativeType(arg.type))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    if (!t)
+        return false;
+    Type tb = t.toBasetype();
+    switch (tb.ty)
+    {
+        case Tvector:   return visitVector(tb.isTypeVector());
+        case Taarray:   return visitAArray(tb.isTypeAArray());
+        case Tstruct:   return visitStruct(tb.isTypeStruct());
+        case Tclass:    return visitClass(tb.isTypeClass());
+        case Ttuple:    return visitTuple(tb.isTypeTuple());
+        case Tenum:     return false;
+        default:
+        return isSpeculativeType(tb.nextOf());
+
+        /* For TypeFunction, TypeInfo_Function doesn't store parameter types,
+         * so only the .next (the return type) is checked here.
+         */
+    }
 }
+
+} // !IN_LLVM
 
 /* ========================================================================= */
 
-/* These decide if there's an instance for them already in std.typeinfo,
- * because then the compiler doesn't need to build one.
+/* Indicates whether druntime already contains an appropriate TypeInfo instance
+ * for the specified type (in module rt.util.typeinfo).
  */
-// IN_LLVM: replaced `private` with `extern(C++)`
-extern(C++) bool builtinTypeInfo(Type t)
+extern (C++) bool builtinTypeInfo(Type t)
 {
-  version (IN_LLVM)
-  {
-    // FIXME: if I enable for Tclass, the way LDC does typeinfo will cause
-    // a bunch of linker errors to missing ClassInfo init symbols.
-    if (t.isTypeBasic() || t.ty == Tnull)
-        return !t.mod;
-  }
-  else
-  {
-    if (t.isTypeBasic() || t.ty == Tclass || t.ty == Tnull)
-        return !t.mod;
-  }
-    if (t.ty == Tarray)
+    if (!t.mod) // unqualified types only
     {
-        Type next = t.nextOf();
-        // strings are so common, make them builtin
-        return !t.mod &&
-               (next.isTypeBasic() !is null && !next.mod ||
-                next.ty == Tchar && next.mod == MODimmutable ||
-                next.ty == Tchar && next.mod == MODconst);
+        // unqualified basic types + typeof(null)
+        if (t.isTypeBasic() || t.ty == Tnull)
+            return true;
+        // some unqualified arrays
+        if (t.ty == Tarray)
+        {
+            Type next = t.nextOf();
+            return (next.isTypeBasic() && !next.mod)                     // of unqualified basic types
+                || (next.ty == Tchar && next.mod == MODFlags.immutable_) // string
+                || (next.ty == Tchar && next.mod == MODFlags.const_);    // const(char)[]
+        }
     }
     return false;
 }

@@ -9,28 +9,38 @@
 
 #include "disassembler.h"
 
+#include <algorithm>
 #include <unordered_map>
 
-#include <llvm/ADT/Triple.h>
-#include <llvm/MC/MCAsmBackend.h>
-#include <llvm/MC/MCAsmInfo.h>
-#include <llvm/MC/MCCodeEmitter.h>
-#include <llvm/MC/MCContext.h>
-#include <llvm/MC/MCDisassembler/MCDisassembler.h>
-#include <llvm/MC/MCDisassembler/MCSymbolizer.h>
-#include <llvm/MC/MCInst.h>
-#include <llvm/MC/MCInstPrinter.h>
-#include <llvm/MC/MCInstrAnalysis.h>
-#include <llvm/MC/MCObjectFileInfo.h>
-#include <llvm/MC/MCRegisterInfo.h>
-#include <llvm/MC/MCStreamer.h>
-#include <llvm/MC/MCSubtargetInfo.h>
-#include <llvm/Object/ObjectFile.h>
-#include <llvm/Support/Error.h>
-#include <llvm/Support/TargetRegistry.h>
-#include <llvm/Target/TargetMachine.h>
+#include "llvm/ADT/Triple.h"
+#include "llvm/MC/MCAsmBackend.h"
+#include "llvm/MC/MCAsmInfo.h"
+#include "llvm/MC/MCCodeEmitter.h"
+#include "llvm/MC/MCContext.h"
+#include "llvm/MC/MCDisassembler/MCDisassembler.h"
+#include "llvm/MC/MCDisassembler/MCSymbolizer.h"
+#include "llvm/MC/MCInst.h"
+#include "llvm/MC/MCInstPrinter.h"
+#include "llvm/MC/MCInstrAnalysis.h"
+#include "llvm/MC/MCObjectFileInfo.h"
+#include "llvm/MC/MCRegisterInfo.h"
+#include "llvm/MC/MCStreamer.h"
+#include "llvm/MC/MCSubtargetInfo.h"
+#include "llvm/Object/ObjectFile.h"
+#include "llvm/Support/Error.h"
+#if LDC_LLVM_VER >= 1400
+#include "llvm/MC/TargetRegistry.h"
+#else
+#include "llvm/Support/TargetRegistry.h"
+#endif
+#include "llvm/Target/TargetMachine.h"
 
-#if LDC_LLVM_VER >= 500
+#if LDC_LLVM_VER >= 1000
+namespace llvm {
+using std::make_unique;
+}
+#endif
+
 namespace {
 template <typename T> std::unique_ptr<T> unique(T *ptr) {
   return std::unique_ptr<T>(ptr);
@@ -119,16 +129,31 @@ void printFunction(const llvm::MCDisassembler &disasm,
          pos += size) {
       llvm::MCInst inst;
 
+      std::string comment;
+      llvm::raw_string_ostream commentStream(comment);
       auto status = disasm.getInstruction(inst, size, data.slice(pos), pos,
-                                          llvm::nulls(), llvm::nulls());
+#if LDC_LLVM_VER < 1000
+                                          llvm::nulls(),
+#endif
+                                          commentStream);
 
       switch (status) {
       case llvm::MCDisassembler::Fail:
-        streamer.EmitRawText("failed to disassemble");
+#if LDC_LLVM_VER >= 1100
+        streamer.emitRawText(
+#else
+        streamer.EmitRawText(
+#endif
+            "failed to disassemble");
         return;
 
       case llvm::MCDisassembler::SoftFail:
-        streamer.EmitRawText("potentially undefined instruction encoding:");
+#if LDC_LLVM_VER >= 1100
+        streamer.emitRawText(
+#else
+        streamer.EmitRawText(
+#endif
+            "potentially undefined instruction encoding:");
         LLVM_FALLTHROUGH;
 
       case llvm::MCDisassembler::Success:
@@ -141,9 +166,22 @@ void printFunction(const llvm::MCDisassembler &disasm,
           }
         } else if (Stage::Emit == stage) {
           if (auto label = symTable.getTargetLabel(pos)) {
+#if LDC_LLVM_VER >= 1100
+            streamer.emitLabel(label);
+#else
             streamer.EmitLabel(label);
+#endif
           }
+          commentStream.flush();
+          if (!comment.empty()) {
+            streamer.AddComment(comment);
+            comment.clear();
+          }
+#if LDC_LLVM_VER >= 1100
+          streamer.emitInstruction(inst, sti);
+#else
           streamer.EmitInstruction(inst, sti);
+#endif
         }
         break;
       }
@@ -193,22 +231,30 @@ public:
     return false;
   }
 
-  virtual void tryAddingPcLoadReferenceComment(llvm::raw_ostream & /*cStream*/,
-                                               int64_t /*Value*/,
+  virtual void tryAddingPcLoadReferenceComment(llvm::raw_ostream &cStream,
+                                               int64_t Value,
                                                uint64_t /*Address*/) override {
-    // Nothing
+    if (Value >= 0) {
+      if (auto sym =
+              symTable.getExternalSymbolRel(static_cast<uint64_t>(Value))) {
+        cStream << sym->getName();
+      }
+    }
   }
 };
 
-void processRelocations(SymTable &symTable,
+void processRelocations(SymTable &symTable, uint64_t offset,
                         const llvm::object::ObjectFile &object,
                         const llvm::object::SectionRef &sec) {
   for (const auto &reloc : sec.relocations()) {
     const auto symIt = reloc.getSymbol();
     if (object.symbol_end() != symIt) {
       const auto sym = *symIt;
-      symTable.addExternalSymbolRel(reloc.getOffset(),
-                                    llvm::cantFail(sym.getName()));
+      auto relOffet = reloc.getOffset();
+      if (relOffet >= offset) {
+        symTable.addExternalSymbolRel(relOffet - offset,
+                                      llvm::cantFail(sym.getName()));
+      }
     }
   }
 }
@@ -231,13 +277,8 @@ void disassemble(const llvm::TargetMachine &tm,
 
   llvm::MCObjectFileInfo mofi;
   llvm::MCContext ctx(mai, mri, &mofi);
-#if LDC_LLVM_VER >= 600
   mofi.InitMCObjectFileInfo(tm.getTargetTriple(), tm.isPositionIndependent(),
                             ctx, tm.getCodeModel() == llvm::CodeModel::Large);
-#else
-  mofi.InitMCObjectFileInfo(tm.getTargetTriple(), tm.isPositionIndependent(),
-                            tm.getCodeModel(), ctx);
-#endif
 
   auto disasm = unique(target.createMCDisassembler(*sti, ctx));
   if (nullptr == disasm) {
@@ -259,66 +300,89 @@ void disassemble(const llvm::TargetMachine &tm,
     return;
   }
 
-  auto mce = unique(target.createMCCodeEmitter(*mii, *mri, ctx));
-  if (nullptr == mce) {
-    return;
-  }
-
   llvm::MCTargetOptions opts;
-  auto mab = unique(target.createMCAsmBackend(
-#if LDC_LLVM_VER >= 600
-      *sti, *mri, opts)
-#else
-      *mri, tm.getTargetTriple().getTriple(), tm.getTargetCPU(), opts)
-#endif
-  );
+  auto mab = unique(target.createMCAsmBackend(*sti, *mri, opts));
   if (nullptr == mab) {
     return;
   }
 
-  // Streamer takes ownership of mip mce mab
+  // Streamer takes ownership of mip mab
   auto asmStreamer = unique(target.createAsmStreamer(
-      ctx, llvm::make_unique<llvm::formatted_raw_ostream>(os), false, true,
-      mip.release(), mce.release(), mab.release(), false));
+      ctx, llvm::make_unique<llvm::formatted_raw_ostream>(os), true, true,
+      mip.release(), nullptr, std::move(mab), false));
   if (nullptr == asmStreamer) {
     return;
   }
 
   asmStreamer->InitSections(false);
 
+  std::unordered_map<uint64_t, std::vector<uint64_t>> sectionsToProcess;
+  for (const auto &symbol : object.symbols()) {
+    const auto secIt = llvm::cantFail(symbol.getSection());
+    if (object.section_end() != secIt) {
+#if LDC_LLVM_VER >= 1100
+      auto offset = llvm::cantFail(symbol.getValue());
+#else
+      auto offset = symbol.getValue();
+#endif
+      sectionsToProcess[secIt->getIndex()].push_back(offset);
+    }
+  }
+  for (auto &sec : sectionsToProcess) {
+    auto &vec = sec.second;
+    std::sort(vec.begin(), vec.end());
+    auto end = std::unique(vec.begin(), vec.end());
+    vec.erase(end, vec.end());
+  }
+
   for (const auto &symbol : object.symbols()) {
     const auto name = llvm::cantFail(symbol.getName());
     const auto secIt = llvm::cantFail(symbol.getSection());
     if (object.section_end() != secIt) {
       const auto sec = *secIt;
-      llvm::StringRef data;
-      sec.getContents(data);
-      llvm::ArrayRef<uint8_t> buff(
-          reinterpret_cast<const uint8_t *>(data.data()), data.size());
+      llvm::StringRef data = llvm::cantFail(sec.getContents());
+
       if (llvm::object::SymbolRef::ST_Function ==
           llvm::cantFail(symbol.getType())) {
         symTable.reset();
         symTable.addLabel(0, 0, name); // Function start
-        processRelocations(symTable, object, sec);
+#if LDC_LLVM_VER >= 1100
+        auto offset = llvm::cantFail(symbol.getValue());
+#else
+        auto offset = symbol.getValue();
+#endif
+        processRelocations(symTable, offset, object, sec);
 
         // TODO: something more optimal
         for (const auto &globalSec : object.sections()) {
+#if LDC_LLVM_VER >= 1000
+          auto rs = globalSec.getRelocatedSection();
+          if (rs && *rs == secIt) {
+#else
           if (globalSec.getRelocatedSection() == secIt) {
-            processRelocations(symTable, object, globalSec);
+#endif
+            processRelocations(symTable, offset, object, globalSec);
           }
         }
+        auto size = data.size() - offset;
+        auto &ranges = sectionsToProcess[sec.getIndex()];
+        if (!ranges.empty()) {
+          for (std::size_t i = 0; i < ranges.size() - 1; ++i) {
+            if (ranges[i] == offset) {
+              size = std::min(size, ranges[i + 1] - offset);
+            }
+          }
+        }
+        llvm::ArrayRef<uint8_t> buff(
+            reinterpret_cast<const uint8_t *>(data.data() + offset), size);
 
         printFunction(*disasm, *mcia, buff, symTable, *sti, *asmStreamer);
+#if LDC_LLVM_VER >= 1100
+        asmStreamer->emitRawText("");
+#else
         asmStreamer->EmitRawText("");
+#endif
       }
     }
   }
 }
-#else
-void disassemble(const llvm::TargetMachine & /*tm*/,
-                 const llvm::object::ObjectFile & /*object*/,
-                 llvm::raw_ostream &os) {
-  os << "Asm output not supported";
-  os.flush();
-}
-#endif

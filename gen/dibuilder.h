@@ -7,23 +7,22 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_DIBUILDER_H
-#define LDC_GEN_DIBUILDER_H
+#pragma once
 
+#include "gen/tollvm.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/Type.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DIBuilder.h"
-
-#include "gen/tollvm.h"
-#include "mars.h"
+#include "llvm/IR/Type.h"
 
 struct IRState;
 
 class ClassDeclaration;
 class Dsymbol;
 class FuncDeclaration;
+class Import;
 class Module;
 class Type;
 class VarDeclaration;
@@ -43,16 +42,20 @@ extern const llvm::DataLayout *gDataLayout;
 namespace ldc {
 
 // Define some basic types
-typedef llvm::DIType *DIType;
-typedef llvm::DIFile *DIFile;
-typedef llvm::DIGlobalVariable *DIGlobalVariable;
-typedef llvm::DILocalVariable *DILocalVariable;
-typedef llvm::DIExpression *DIExpression;
-typedef llvm::DILexicalBlock *DILexicalBlock;
-typedef llvm::DIScope *DIScope;
-typedef llvm::DISubroutineType *DISubroutineType;
-typedef llvm::DISubprogram *DISubprogram;
-typedef llvm::DICompileUnit *DICompileUnit;
+using DIType = llvm::DIType *;
+using DICompositeType = llvm::DICompositeType *;
+using DIFile = llvm::DIFile *;
+using DIGlobalVariable = llvm::DIGlobalVariable *;
+using DILocalVariable = llvm::DILocalVariable *;
+using DIExpression = llvm::DIExpression *;
+using DILexicalBlock = llvm::DILexicalBlock *;
+using DINamespace = llvm::DINamespace *;
+using DIScope = llvm::DIScope *;
+using DISubroutineType = llvm::DISubroutineType *;
+using DISubprogram = llvm::DISubprogram *;
+using DIModule = llvm::DIModule *;
+using DICompileUnit = llvm::DICompileUnit *;
+using DIFlags = llvm::DINode::DIFlags;
 
 class DIBuilder {
   IRState *const IR;
@@ -60,13 +63,14 @@ class DIBuilder {
 
   DICompileUnit CUNode;
 
-  const bool isTargetMSVCx64;
+  const bool emitCodeView;
+  const bool emitColumnInfo;
+
+  llvm::DenseMap<Declaration*, llvm::TypedTrackingMDRef<llvm::MDNode>> StaticDataMemberCache;
 
   DICompileUnit GetCU() {
     return CUNode;
   }
-
-  Loc currentLoc;
 
 public:
   explicit DIBuilder(IRState *const IR);
@@ -74,6 +78,16 @@ public:
   /// \brief Emit the Dwarf compile_unit global for a Module m.
   /// \param m        Module to emit as compile unit.
   void EmitCompileUnit(Module *m);
+
+  /// \brief Emit the Dwarf module global for a Module m.
+  /// \param m        Module to emit (either as definition or declaration).
+  DIModule EmitModule(Module *m);
+
+  DINamespace EmitNamespace(Dsymbol *sym, llvm::StringRef name);
+
+  /// \brief Emit the Dwarf imported entity and module global for an Import im.
+  /// \param im        Import to emit.
+  void EmitImport(Import *im);
 
   /// \brief Emit the Dwarf subprogram global for a function declaration fd.
   /// \param fd       Function declaration to emit as subprogram.
@@ -98,18 +112,13 @@ public:
   /// \brief Emits debug info for function start
   void EmitFuncStart(FuncDeclaration *fd);
 
-  /// \brief Emits debug info for function end
-  void EmitFuncEnd(FuncDeclaration *fd);
-
   /// \brief Emits debug info for block start
-  void EmitBlockStart(Loc &loc);
+  void EmitBlockStart(const Loc &loc);
 
   /// \brief Emits debug info for block end
   void EmitBlockEnd();
 
-  Loc GetCurrentLoc() const;
-
-  void EmitStopPoint(Loc &loc);
+  void EmitStopPoint(const Loc &loc);
 
   void EmitValue(llvm::Value *val, VarDeclaration *vd);
 
@@ -131,7 +140,12 @@ public:
   EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd, Type *type = nullptr,
                     bool isThisPtr = false, bool forceAsLocal = false,
                     bool isRefRVal = false,
-                    llvm::ArrayRef<int64_t> addr = llvm::ArrayRef<int64_t>());
+#if LDC_LLVM_VER >= 1400
+                    llvm::ArrayRef<uint64_t> addr = llvm::ArrayRef<uint64_t>()
+#else
+                    llvm::ArrayRef<int64_t> addr = llvm::ArrayRef<int64_t>()
+#endif
+                    );
 
   /// \brief Emits all things necessary for making debug info for a global
   /// variable vd.
@@ -143,36 +157,48 @@ public:
   void Finalize();
 
 private:
-  llvm::LLVMContext &getContext();
-  Module *getDefinedModule(Dsymbol *s);
+  DIScope GetSymbolScope(Dsymbol *s);
   DIScope GetCurrentScope();
+  llvm::StringRef GetNameAndScope(Dsymbol *sym, DIScope &scope);
   void Declare(const Loc &loc, llvm::Value *storage, ldc::DILocalVariable divar,
                ldc::DIExpression diexpr);
   void SetValue(const Loc &loc, llvm::Value *value, ldc::DILocalVariable divar,
                 ldc::DIExpression diexpr);
   void AddFields(AggregateDeclaration *sd, ldc::DIFile file,
                  llvm::SmallVector<llvm::Metadata *, 16> &elems);
-  DIFile CreateFile(Loc &loc);
-  DIFile CreateFile();
-  DIFile CreateFile(Dsymbol* decl);
+  void AddStaticMembers(AggregateDeclaration *sd, ldc::DIFile file,
+                 llvm::SmallVector<llvm::Metadata *, 16> &elems);
+  DIFile CreateFile(const char *filename = nullptr);
+  DIFile CreateFile(const Loc &loc);
+  DIFile CreateFile(Dsymbol *decl);
   DIType CreateBasicType(Type *type);
-  DIType CreateEnumType(Type *type);
-  DIType CreatePointerType(Type *type);
-  DIType CreateVectorType(Type *type);
+  DIType CreateEnumType(TypeEnum *type);
+  DIType CreatePointerType(TypePointer *type);
+  DIType CreateVectorType(TypeVector *type);
   DIType CreateComplexType(Type *type);
   DIType CreateMemberType(unsigned linnum, Type *type, DIFile file,
-                          const char *c_name, unsigned offset, PROTKIND);
+                          const char *c_name, unsigned offset, Visibility::Kind,
+                          bool isStatic = false, DIScope scope = nullptr);
+  DISubprogram CreateFunction(DIScope scope, llvm::StringRef name,
+                              llvm::StringRef linkageName, DIFile file,
+                              unsigned lineNo, DISubroutineType ty,
+                              bool isLocalToUnit, bool isDefinition,
+                              bool isOptimized, unsigned scopeLine,
+                              DIFlags flags);
   DIType CreateCompositeType(Type *type);
-  DIType CreateArrayType(Type *type);
-  DIType CreateSArrayType(Type *type);
-  DIType CreateAArrayType(Type *type);
+  DIType CreateArrayType(TypeArray *type);
+  DIType CreateSArrayType(TypeSArray *type);
+  DIType CreateAArrayType(TypeAArray *type);
   DISubroutineType CreateFunctionType(Type *type);
   DISubroutineType CreateEmptyFunctionType();
-  DIType CreateDelegateType(Type *type);
-  DIType CreateTypeDescription(Type *type);
+  DIType CreateDelegateType(TypeDelegate *type);
+  DIType CreateUnspecifiedType(Dsymbol *sym);
+  DIType CreateTypeDescription(Type *type, bool voidToUbyte = false);
 
   bool mustEmitFullDebugInfo();
   bool mustEmitLocationsDebugInfo();
+
+  unsigned getColumn(const Loc &loc) const;
 
 public:
   template <typename T>
@@ -183,7 +209,7 @@ public:
 
     uint64_t offset =
         gDataLayout->getStructLayout(type)->getElementOffset(index);
-    addr.push_back(llvm::dwarf::DW_OP_plus);
+    addr.push_back(llvm::dwarf::DW_OP_plus_uconst);
     addr.push_back(offset);
   }
 
@@ -207,5 +233,3 @@ public:
 };
 
 } // namespace ldc
-
-#endif

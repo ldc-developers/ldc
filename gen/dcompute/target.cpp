@@ -10,7 +10,7 @@
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
 
 #include "dmd/dsymbol.h"
-#include "dmd/mars.h"
+#include "dmd/errors.h"
 #include "dmd/module.h"
 #include "dmd/scope.h"
 #include "driver/linker.h"
@@ -19,11 +19,18 @@
 #include "gen/dcompute/target.h"
 #include "gen/llvmhelpers.h"
 #include "gen/runtime.h"
-#include <string>
+#include "ir/irtypestruct.h"
+
 
 void DComputeTarget::doCodeGen(Module *m) {
+  // Reset any generated type info for dcompute types.
+  // The ll types get generated when the host code gets
+  // gen'd which means the address space info is not
+  // properly set.
+  IrTypeStruct::resetDComputeTypes();
+
   // process module members
-  for (unsigned k = 0; k < m->members->dim; k++) {
+  for (unsigned k = 0; k < m->members->length; k++) {
     Dsymbol *dsym = (*m->members)[k];
     assert(dsym);
     Declaration_codegen(dsym, _ir);
@@ -48,10 +55,12 @@ void DComputeTarget::writeModule() {
 
   std::string filename;
   llvm::raw_string_ostream os(filename);
+  const bool is64 = global.params.targetTriple->isArch64Bit();
   os << opts::dcomputeFilePrefix << '_' << short_name << tversion << '_'
-     << (global.params.is64bit ? 64 : 32) << '.' << binSuffix;
+     << (is64 ? 64 : 32) << '.' << binSuffix;
 
-  const char *path = FileName::combine(global.params.objdir, os.str().c_str());
+  const char *path =
+      FileName::combine(global.params.objdir.ptr, os.str().c_str());
 
   ::writeModule(&_ir->module, path);
 

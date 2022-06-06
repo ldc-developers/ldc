@@ -11,14 +11,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_IR_IRDSYMBOL_H
-#define LDC_IR_IRDSYMBOL_H
+#pragma once
 
 #include <vector>
 
 struct IrModule;
 struct IrFunction;
-struct IrAggr;
+class IrAggr;
 struct IrGlobal;
 struct IrLocal;
 struct IrParameter;
@@ -46,7 +45,7 @@ struct IrDsymbol {
     FieldType
   };
 
-  enum State { Initial, Resolved, Declared, Initialized, Defined };
+  enum State { Initial, Resolved, Declared, Defined };
 
   static std::vector<IrDsymbol *> list;
   static void resetAll();
@@ -64,12 +63,10 @@ struct IrDsymbol {
 
   bool isResolved() const { return m_state >= Resolved; }
   bool isDeclared() const { return m_state >= Declared; }
-  bool isInitialized() const { return m_state >= Initialized; }
   bool isDefined() const { return m_state >= Defined; }
 
   void setResolved();
   void setDeclared();
-  void setInitialized();
   void setDefined();
 
 private:
@@ -96,5 +93,3 @@ private:
   Type m_type = Type::NotSet;
   State m_state = State::Initial;
 };
-
-#endif

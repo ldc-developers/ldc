@@ -9,23 +9,29 @@
 
 #include "gen/functions.h"
 
-#include "aggregate.h"
-#include "declaration.h"
-#include "id.h"
-#include "init.h"
-#include "ldcbindings.h"
-#include "module.h"
-#include "mtype.h"
-#include "statement.h"
-#include "template.h"
+#include "dmd/aggregate.h"
+#include "dmd/declaration.h"
+#include "dmd/errors.h"
+#include "dmd/expression.h"
+#include "dmd/id.h"
+#include "dmd/identifier.h"
+#include "dmd/init.h"
+#include "dmd/mangle.h"
+#include "dmd/module.h"
+#include "dmd/mtype.h"
+#include "dmd/statement.h"
+#include "dmd/target.h"
+#include "dmd/template.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
+#include "driver/timetrace.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/dcompute/target.h"
 #include "gen/dvalue.h"
+#include "gen/dynamiccompile.h"
 #include "gen/funcgenstate.h"
 #include "gen/function-inlining.h"
 #include "gen/inlineir.h"
@@ -40,26 +46,30 @@
 #include "gen/pgo_ASTbased.h"
 #include "gen/pragma.h"
 #include "gen/runtime.h"
-#include "gen/dynamiccompile.h"
 #include "gen/scope_exit.h"
 #include "gen/tollvm.h"
 #include "gen/uda.h"
+#include "ir/irdsymbol.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 #include <iostream>
 
+bool isAnyMainFunction(FuncDeclaration *fd) {
+  return fd->isMain() || fd->isCMain();
+}
+
 llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
-                                    Type *nesttype, bool isMain, bool isCtor,
-                                    bool isIntrinsic, bool hasSel) {
+                                    Type *nesttype, FuncDeclaration *fd) {
   IF_LOG Logger::println("DtoFunctionType(%s)", type->toChars());
   LOG_SCOPE
 
   // sanity check
-  assert(type->ty == Tfunction);
+  assert(type->ty == TY::Tfunction);
   TypeFunction *f = static_cast<TypeFunction *>(type);
   assert(f->next && "Encountered function type with invalid return type; "
                     "trying to codegen function ignored by the frontend?");
@@ -69,59 +79,90 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     return irFty.funcType;
   }
 
-  TargetABI *abi = (isIntrinsic ? TargetABI::getIntrinsic() : gABI);
+  TargetABI *abi = fd && DtoIsIntrinsic(fd) ? TargetABI::getIntrinsic() : gABI;
 
   // Do not modify irFty yet; this function may be called recursively if any
   // of the argument types refer to this type.
-  IrFuncTy newIrFty;
+  IrFuncTy newIrFty(f);
 
   // The index of the next argument on the LLVM level.
   unsigned nextLLArgIdx = 0;
 
+  const bool isMain = fd && isAnyMainFunction(fd);
   if (isMain) {
-    // _Dmain always returns i32, no matter what the type in the D main() is.
+    // D and C main functions always return i32, even if declared as returning
+    // void.
     newIrFty.ret = new IrFuncTyArg(Type::tint32, false);
   } else {
     Type *rt = f->next;
-    const bool byref = f->isref && rt->toBasetype()->ty != Tvoid;
-    AttrBuilder attrs;
+    const bool byref = f->isref() && rt->toBasetype()->ty != TY::Tvoid;
+#if LDC_LLVM_VER >= 1400
+      llvm::AttrBuilder attrs(getGlobalContext());
+#else
+    llvm::AttrBuilder attrs;
+#endif
 
-    if (abi->returnInArg(f)) {
+    if (abi->returnInArg(f, fd && fd->needThis())) {
       // sret return
-      newIrFty.arg_sret = new IrFuncTyArg(
-          rt, true,
-          AttrBuilder().add(LLAttribute::StructRet).add(LLAttribute::NoAlias));
+#if LDC_LLVM_VER >= 1400
+      llvm::AttrBuilder sretAttrs(getGlobalContext());
+#else
+      llvm::AttrBuilder sretAttrs;
+#endif
+#if LDC_LLVM_VER >= 1200
+      sretAttrs.addStructRetAttr(DtoType(rt));
+#else
+      sretAttrs.addAttribute(LLAttribute::StructRet);
+#endif
+      sretAttrs.addAttribute(LLAttribute::NoAlias);
       if (unsigned alignment = DtoAlignment(rt))
-        newIrFty.arg_sret->attrs.addAlignment(alignment);
+        sretAttrs.addAlignmentAttr(alignment);
+      newIrFty.arg_sret = new IrFuncTyArg(rt, true, std::move(sretAttrs));
       rt = Type::tvoid;
       ++nextLLArgIdx;
     } else {
       // sext/zext return
-      attrs.add(DtoShouldExtend(byref ? rt->pointerTo() : rt));
+      DtoAddExtendAttr(byref ? rt->pointerTo() : rt, attrs);
     }
-    newIrFty.ret = new IrFuncTyArg(rt, byref, attrs);
+    newIrFty.ret = new IrFuncTyArg(rt, byref, std::move(attrs));
   }
   ++nextLLArgIdx;
 
   if (thistype) {
     // Add the this pointer for member functions
-    AttrBuilder attrs;
-    attrs.add(LLAttribute::NonNull);
-    if (isCtor) {
-      attrs.add(LLAttribute::Returned);
+#if LDC_LLVM_VER >= 1400
+    llvm::AttrBuilder attrs(getGlobalContext());
+#else
+    llvm::AttrBuilder attrs;
+#endif
+    attrs.addAttribute(LLAttribute::NonNull);
+    if (fd && fd->isCtorDeclaration()) {
+      attrs.addAttribute(LLAttribute::Returned);
     }
-    newIrFty.arg_this =
-        new IrFuncTyArg(thistype, thistype->toBasetype()->ty == Tstruct, attrs);
+    newIrFty.arg_this = new IrFuncTyArg(
+        thistype, thistype->toBasetype()->ty == TY::Tstruct, std::move(attrs));
     ++nextLLArgIdx;
   } else if (nesttype) {
     // Add the context pointer for nested functions
-    AttrBuilder attrs;
-    attrs.add(LLAttribute::NonNull);
-    newIrFty.arg_nest = new IrFuncTyArg(nesttype, false, attrs);
+#if LDC_LLVM_VER >= 1400
+    llvm::AttrBuilder attrs(getGlobalContext());
+#else
+    llvm::AttrBuilder attrs;
+#endif
+    attrs.addAttribute(LLAttribute::NonNull);
+    newIrFty.arg_nest = new IrFuncTyArg(nesttype, false, std::move(attrs));
     ++nextLLArgIdx;
   }
 
-  if (hasSel) {
+  bool hasObjCSelector = false;
+  if (fd && fd->_linkage == LINK::objc && thistype) {
+    if (fd->objc.selector) {
+      hasObjCSelector = true;
+    } else if (fd->parent->isClassDeclaration()) {
+      fd->error("Objective-C `@selector` is missing");
+    }
+  }
+  if (hasObjCSelector) {
     // TODO: make arg_objcselector to match dmd type
     newIrFty.arg_objcSelector = new IrFuncTyArg(Type::tvoidptr, false);
     ++nextLLArgIdx;
@@ -129,61 +170,80 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
 
   // Non-typesafe variadics (both C and D styles) are also variadics on the LLVM
   // level.
-  const bool isLLVMVariadic = (f->varargs == 1);
-  if (isLLVMVariadic && f->linkage == LINKd) {
+  const bool isLLVMVariadic = (f->parameterList.varargs == VARARGvariadic);
+  if (isLLVMVariadic && f->linkage == LINK::d) {
     // Add extra `_arguments` parameter for D-style variadic functions.
     newIrFty.arg_arguments =
-        new IrFuncTyArg(Type::dtypeinfo->type->arrayOf(), false);
+        new IrFuncTyArg(getTypeInfoType()->arrayOf(), false);
     ++nextLLArgIdx;
   }
 
-  // if this _Dmain() doesn't have an argument, we force it to have one
-  const size_t numExplicitDArgs = Parameter::dim(f->parameters);
+  const size_t numExplicitDArgs = f->parameterList.length();
 
-  if (isMain && numExplicitDArgs == 0) {
+  // if this _Dmain() doesn't have an argument, we force it to have one
+  if (isMain && f->linkage != LINK::c && numExplicitDArgs == 0) {
     Type *mainargs = Type::tchar->arrayOf()->arrayOf();
     newIrFty.args.push_back(new IrFuncTyArg(mainargs, false));
     ++nextLLArgIdx;
   }
 
   for (size_t i = 0; i < numExplicitDArgs; ++i) {
-    Parameter *arg = Parameter::getNth(f->parameters, i);
+    Parameter *arg = Parameter::getNth(f->parameterList.parameters, i);
 
     // Whether the parameter is passed by LLVM value or as a pointer to the
     // alloca/….
     bool passPointer = arg->storageClass & (STCref | STCout);
 
     Type *loweredDType = arg->type;
-    AttrBuilder attrs;
+#if LDC_LLVM_VER >= 1400
+    llvm::AttrBuilder attrs(getGlobalContext());
+#else
+    llvm::AttrBuilder attrs;
+#endif
     if (arg->storageClass & STClazy) {
       // Lazy arguments are lowered to delegates.
       Logger::println("lazy param");
-      auto ltf = TypeFunction::create(nullptr, arg->type, 0, LINKd);
-      auto ltd = createTypeDelegate(ltf);
-      loweredDType = ltd;
+      auto ltf = TypeFunction::create(nullptr, arg->type, VARARGnone, LINK::d);
+      auto ltd = TypeDelegate::create(ltf);
+      loweredDType = merge(ltd);
     } else if (passPointer) {
       // ref/out
-      attrs.addDereferenceable(loweredDType->size());
+      auto ts = loweredDType->toBasetype()->isTypeStruct();
+      if (ts && !ts->sym->members) {
+        // opaque struct
+        attrs.addAttribute(LLAttribute::NonNull);
+#if LDC_LLVM_VER >= 1100
+        attrs.addAttribute(LLAttribute::NoUndef);
+#endif
+      } else {
+        attrs.addDereferenceableAttr(loweredDType->size());
+      }
     } else {
-      if (abi->passByVal(loweredDType)) {
+      if (abi->passByVal(f, loweredDType)) {
         // LLVM ByVal parameters are pointers to a copy in the function
         // parameters stack. The caller needs to provide a pointer to the
         // original argument.
-        attrs.addByVal(DtoAlignment(loweredDType));
+#if LDC_LLVM_VER >= 1200
+        attrs.addByValAttr(DtoType(loweredDType));
+#else
+        attrs.addAttribute(LLAttribute::ByVal);
+#endif
+        if (auto alignment = DtoAlignment(loweredDType))
+          attrs.addAlignmentAttr(alignment);
         passPointer = true;
       } else {
         // Add sext/zext as needed.
-        attrs.add(DtoShouldExtend(loweredDType));
+        DtoAddExtendAttr(loweredDType, attrs);
       }
     }
 
-    newIrFty.args.push_back(new IrFuncTyArg(loweredDType, passPointer, attrs));
+    newIrFty.args.push_back(new IrFuncTyArg(loweredDType, passPointer, std::move(attrs)));
     newIrFty.args.back()->parametersIdx = i;
     ++nextLLArgIdx;
   }
 
   // let the ABI rewrite the types as necessary
-  abi->rewriteFunctionType(f, newIrFty);
+  abi->rewriteFunctionType(newIrFty);
 
   // Now we can modify irFty safely.
   irFty = std::move(newIrFty);
@@ -212,15 +272,9 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     std::swap(argtypes[0], argtypes[1]);
   }
 
-  const size_t firstExplicitArg = argtypes.size();
   const size_t numExplicitLLArgs = irFty.args.size();
   for (size_t i = 0; i < numExplicitLLArgs; i++) {
     argtypes.push_back(irFty.args[i]->ltype);
-  }
-
-  // reverse params?
-  if (irFty.reverseParams && numExplicitLLArgs > 1) {
-    std::reverse(argtypes.begin() + firstExplicitArg, argtypes.end());
   }
 
   irFty.funcType =
@@ -265,7 +319,6 @@ llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl) {
   }
 
   Type *dthis = nullptr, *dnest = nullptr;
-  bool hasSel = false;
 
   if (fdecl->ident == Id::ensure || fdecl->ident == Id::require) {
     FuncDeclaration *p = fdecl->parent->isFuncDeclaration();
@@ -286,23 +339,18 @@ llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl) {
     } else {
       IF_LOG Logger::println("chars: %s type: %s kind: %s", fdecl->toChars(),
                              fdecl->type->toChars(), fdecl->kind());
-      llvm_unreachable("needThis, but invalid parent declaration.");
+      fdecl->error("requires a dual-context, which is not yet supported by LDC");
+      if (!global.gag)
+        fatal();
+      return LLFunctionType::get(LLType::getVoidTy(gIR->context()),
+                                 /*isVarArg=*/false);
     }
   } else if (fdecl->isNested()) {
     dnest = Type::tvoid->pointerTo();
   }
 
-  if (fdecl->linkage == LINKobjc && dthis) {
-    if (fdecl->selector) {
-      hasSel = true;
-    } else if (fdecl->parent->isClassDeclaration()) {
-      fdecl->error("Objective-C `@selector` is missing");
-    }
-  }
-
   LLFunctionType *functype = DtoFunctionType(
-      fdecl->type, getIrFunc(fdecl, true)->irFty, dthis, dnest, fdecl->isMain(),
-      fdecl->isCtorDeclaration(), DtoIsIntrinsic(fdecl), hasSel);
+      fdecl->type, getIrFunc(fdecl, true)->irFty, dthis, dnest, fdecl);
 
   return functype;
 }
@@ -328,7 +376,7 @@ static llvm::Function *DtoDeclareVaFunction(FuncDeclaration *fdecl) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoResolveFunction(FuncDeclaration *fdecl) {
+void DtoResolveFunction(FuncDeclaration *fdecl, const bool willDeclare) {
   if ((!global.params.useUnitTests || !fdecl->type) &&
       fdecl->isUnitTestDeclaration()) {
     IF_LOG Logger::println("Ignoring unittest %s", fdecl->toPrettyChars());
@@ -342,9 +390,9 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
 
   Type *type = fdecl->type;
   // If errors occurred compiling it, such as bugzilla 6118
-  if (type && type->ty == Tfunction) {
+  if (type && type->ty == TY::Tfunction) {
     Type *next = static_cast<TypeFunction *>(type)->next;
-    if (!next || next->ty == Terror) {
+    if (!next || next->ty == TY::Terror) {
       return;
     }
   }
@@ -360,7 +408,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
           fdecl->llvmInternal = LLVMva_arg;
           fdecl->ir->setDefined();
           return; // this gets mapped to an instruction so a declaration makes
-                  // no sence
+                  // no sense
         }
         if (tempdecl->llvmInternal == LLVMva_start) {
           Logger::println("magic va_start found");
@@ -368,12 +416,12 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
         } else if (tempdecl->llvmInternal == LLVMintrinsic) {
           Logger::println("overloaded intrinsic found");
           assert(fdecl->llvmInternal == LLVMintrinsic);
-          assert(fdecl->mangleOverride);
+          assert(fdecl->mangleOverride.length);
         } else if (tempdecl->llvmInternal == LLVMinline_asm) {
           Logger::println("magic inline asm found");
           TypeFunction *tf = static_cast<TypeFunction *>(fdecl->type);
-          if (tf->varargs != 1 ||
-              (fdecl->parameters && fdecl->parameters->dim != 0)) {
+          if (tf->parameterList.varargs != VARARGvariadic ||
+              (fdecl->parameters && fdecl->parameters->length != 0)) {
             tempdecl->error("invalid `__asm` declaration, must be a D style "
                             "variadic with no explicit parameters");
             fatal();
@@ -385,10 +433,10 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
         } else if (tempdecl->llvmInternal == LLVMinline_ir) {
           Logger::println("magic inline ir found");
           fdecl->llvmInternal = LLVMinline_ir;
-          fdecl->linkage = LINKc;
+          fdecl->_linkage = LINK::c;
           Type *type = fdecl->type;
-          assert(type->ty == Tfunction);
-          static_cast<TypeFunction *>(type)->linkage = LINKc;
+          assert(type->ty == TY::Tfunction);
+          static_cast<TypeFunction *>(type)->linkage = LINK::c;
 
           DtoFunctionType(fdecl);
           fdecl->ir->setDefined();
@@ -406,9 +454,13 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
   LOG_SCOPE;
 
   // queue declaration unless the function is abstract without body
-  if (!fdecl->isAbstract() || fdecl->fbody) {
+  if (!willDeclare && (!fdecl->isAbstract() || fdecl->fbody)) {
     DtoDeclareFunction(fdecl);
   }
+}
+
+void DtoResolveFunction(FuncDeclaration *fdecl) {
+  return DtoResolveFunction(fdecl, false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -433,35 +485,50 @@ void applyParamAttrsToLLFunc(TypeFunction *f, IrFuncTy &irFty,
 /// does the same). See https://llvm.org/bugs/show_bug.cgi?id=23172
 void applyTargetMachineAttributes(llvm::Function &func,
                                   const llvm::TargetMachine &target) {
-  const llvm::TargetOptions &TO = target.Options;
+  const auto dcompute = gIR->dcomputetarget;
 
-  // TODO: implement commandline switches to change the default values.
   // TODO: (correctly) apply these for NVPTX (but not for SPIRV).
-  if (!gIR->dcomputetarget) {
-    // Target CPU capabilities
-    func.addFnAttr("target-cpu", target.getTargetCPU());
-    auto featStr = target.getTargetFeatureString();
-    if (!featStr.empty())
-      func.addFnAttr("target-features", featStr);
-  }
-  // Floating point settings
-  func.addFnAttr("unsafe-fp-math", TO.UnsafeFPMath ? "true" : "false");
-  const bool lessPreciseFPMADOption =
-#if LDC_LLVM_VER >= 500
-      // This option was removed from llvm::TargetOptions in LLVM 5.0.
-      // Clang sets this to true when `-cl-mad-enable` is passed (OpenCL only).
-      // TODO: implement interface for this option.
-      false;
+  if (dcompute && dcompute->target == DComputeTarget::OpenCL)
+    return;
+  const auto cpu = dcompute ? "" : target.getTargetCPU();
+  const auto features = dcompute ? "" : target.getTargetFeatureString();
+
+#if LDC_LLVM_VER >= 1000
+  opts::setFunctionAttributes(cpu, features, func);
+  if (opts::fFastMath) // -ffast-math[=true] overrides -enable-unsafe-fp-math
+    func.addFnAttr("unsafe-fp-math", "true");
+  if (!func.hasFnAttribute("frame-pointer")) // not explicitly set by user
+    func.addFnAttr("frame-pointer", isOptimizationEnabled() ? "none" : "all");
 #else
-      TO.LessPreciseFPMADOption;
-#endif
+  if (!cpu.empty())
+    func.addFnAttr("target-cpu", cpu);
+  if (!features.empty())
+    func.addFnAttr("target-features", features);
+
+  // Floating point settings
+  const auto &TO = target.Options;
+  func.addFnAttr("unsafe-fp-math", TO.UnsafeFPMath ? "true" : "false");
+  // This option was removed from llvm::TargetOptions in LLVM 5.0.
+  // Clang sets this to true when `-cl-mad-enable` is passed (OpenCL only).
+  // TODO: implement interface for this option.
+  const bool lessPreciseFPMADOption = false;
   func.addFnAttr("less-precise-fpmad",
                  lessPreciseFPMADOption ? "true" : "false");
   func.addFnAttr("no-infs-fp-math", TO.NoInfsFPMath ? "true" : "false");
   func.addFnAttr("no-nans-fp-math", TO.NoNaNsFPMath ? "true" : "false");
 
-  func.addFnAttr("no-frame-pointer-elim",
-                 willEliminateFramePointer() ? "false" : "true");
+  switch (whichFramePointersToEmit()) {
+    case llvm::FramePointer::None:
+      func.addFnAttr("frame-pointer", "none");
+      break;
+    case llvm::FramePointer::NonLeaf:
+      func.addFnAttr("frame-pointer", "non-leaf");
+      break;
+    case llvm::FramePointer::All:
+      func.addFnAttr("frame-pointer", "all");
+      break;
+  }
+#endif // LDC_LLVM_VER < 1000
 }
 
 void applyXRayAttributes(FuncDeclaration &fdecl, llvm::Function &func) {
@@ -476,12 +543,39 @@ void applyXRayAttributes(FuncDeclaration &fdecl, llvm::Function &func) {
   }
 }
 
+void onlyOneMainCheck(FuncDeclaration *fd) {
+  if (!fd->fbody) // multiple *declarations* are fine
+    return;
+
+  // We'd actually want all possible main functions to be mutually exclusive.
+  // Unfortunately, a D main implies a C main, so only check C mains with
+  // -betterC.
+  const bool isOSWindows = global.params.targetTriple->isOSWindows();
+  if (fd->isMain() || (global.params.betterC && fd->isCMain()) ||
+      (isOSWindows && (fd->isWinMain() || fd->isDllMain()))) {
+    // global - across all modules compiled in this compiler invocation
+    static Loc mainLoc;
+    if (!mainLoc.filename) {
+      mainLoc = fd->loc;
+      assert(mainLoc.filename);
+    } else {
+      const char *otherMainNames =
+          isOSWindows ? ", `WinMain`, or `DllMain`" : "";
+      const char *mainSwitch =
+          global.params.addMain ? ", -main switch added another `main()`" : "";
+      error(fd->loc,
+            "only one `main`%s allowed%s. Previously found `main` at %s",
+            otherMainNames, mainSwitch, mainLoc.toChars());
+    }
+  }
+}
+
 } // anonymous namespace
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoDeclareFunction(FuncDeclaration *fdecl) {
-  DtoResolveFunction(fdecl);
+void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
+  DtoResolveFunction(fdecl, /*willDeclare=*/true);
 
   if (fdecl->ir->isDeclared()) {
     return;
@@ -508,10 +602,26 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   // Check if fdecl should be defined too for cross-module inlining.
   // If true, semantic is fully done for fdecl which is needed for some code
   // below (e.g. code that uses fdecl->vthis).
-  const bool defineAtEnd = defineAsExternallyAvailable(*fdecl);
-  if (defineAtEnd) {
-    IF_LOG Logger::println(
-        "Function is an externally_available inline candidate.");
+  bool defineAtEnd = false;
+  bool defineAsAvailableExternally = false;
+  if (willDefine) {
+    // will be defined anyway after declaration
+  } else if (defineOnDeclare(fdecl, /*isFunction=*/true)) {
+    Logger::println("Function is inside a linkonce_odr template, will be "
+                    "defined after declaration.");
+    if (fdecl->semanticRun < PASS::semantic3done) {
+      Logger::println("Function hasn't had sema3 run yet, running it now.");
+      const bool semaSuccess = fdecl->functionSemantic3();
+      (void)semaSuccess;
+      assert(semaSuccess);
+      Module::runDeferredSemantic3();
+    }
+    defineAtEnd = true;
+  } else if (defineAsExternallyAvailable(*fdecl)) {
+    Logger::println("Function is an externally_available inline candidate, "
+                    "will be defined after declaration.");
+    defineAtEnd = true;
+    defineAsAvailableExternally = true;
   }
 
   // get TypeFunction*
@@ -532,39 +642,65 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   // hardcoded into druntime, even if the frontend type has D linkage (Bugzilla
   // issue 9028).
   const bool forceC = vafunc || DtoIsIntrinsic(fdecl) || fdecl->isMain();
-  const auto link = forceC ? LINKc : f->linkage;
 
   // mangled name
-  const auto irMangle = getIRMangledName(fdecl, link);
+  const auto irMangle = getIRMangledName(fdecl, forceC ? LINK::c : f->linkage);
 
   // construct function
   LLFunctionType *functype = DtoFunctionType(fdecl);
   LLFunction *func = vafunc ? vafunc : gIR->module.getFunction(irMangle);
   if (!func) {
     // All function declarations are "external" - any other linkage type
-    // is set when actually defining the function.
-    func = LLFunction::Create(functype, llvm::GlobalValue::ExternalLinkage,
-                              irMangle, &gIR->module);
-  } else if (func->getFunctionType() != functype) {
+    // is set when actually defining the function, except extern_weak.
+    auto linkage = llvm::GlobalValue::ExternalLinkage;
+    // Apply pragma(LDC_extern_weak)
+    if (fdecl->llvmInternal == LLVMextern_weak)
+      linkage = llvm::GlobalValue::ExternalWeakLinkage;
+    func = LLFunction::Create(functype, linkage, irMangle, &gIR->module);
+  } else if (func->getFunctionType() == functype) {
+    // IR signature matches existing function
+  } else if (fdecl->isCsymbol() &&
+             func->getFunctionType() ==
+                 LLFunctionType::get(functype->getReturnType(),
+                                     functype->params(), false)) {
+    // ImportC: a variadic definition replaces a non-variadic declaration; keep
+    // existing non-variadic IR function
+    assert(func->isDeclaration());
+  } else {
+    const auto existingTypeString = llvmTypeToString(func->getFunctionType());
+    const auto newTypeString = llvmTypeToString(functype);
     error(fdecl->loc,
           "Function type does not match previously declared "
           "function with the same mangled name: `%s`",
           mangleExact(fdecl));
+    errorSupplemental(fdecl->loc, "Previous IR type: %s",
+                      existingTypeString.c_str());
+    errorSupplemental(fdecl->loc, "New IR type:      %s",
+                      newTypeString.c_str());
     fatal();
   }
 
-  func->setCallingConv(gABI->callingConv(link, f, fdecl));
-
-  if (global.params.isWindows && fdecl->isExport()) {
-    func->setDLLStorageClass(fdecl->isImportedSymbol()
-                                 ? LLGlobalValue::DLLImportStorageClass
-                                 : LLGlobalValue::DLLExportStorageClass);
-  }
+  func->setCallingConv(forceC ? gABI->callingConv(LINK::c)
+                              : gABI->callingConv(fdecl));
 
   IF_LOG Logger::cout() << "func = " << *func << std::endl;
 
   // add func to IRFunc
   irFunc->setLLVMFunc(func);
+
+  // First apply the TargetMachine attributes and NonLazyBind attribute,
+  // such that they can be overridden by UDAs.
+  applyTargetMachineAttributes(*func, *gTargetMachine);
+  if (!fdecl->fbody && opts::noPLT) {
+    // Add `NonLazyBind` attribute to function declarations,
+    // the codegen options allow skipping PLT.
+    func->addFnAttr(LLAttribute::NonLazyBind);
+  }
+  if (f->next->toBasetype()->ty == TY::Tnoreturn) {
+    func->addFnAttr(LLAttribute::NoReturn);
+  }
+
+  applyFuncDeclUDAs(fdecl, irFunc);
 
   // parameter attributes
   if (!DtoIsIntrinsic(fdecl)) {
@@ -574,45 +710,34 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     }
   }
 
-  // First apply the TargetMachine attributes, such that they can be overridden
-  // by UDAs.
-  applyTargetMachineAttributes(*func, *gTargetMachine);
-  applyFuncDeclUDAs(fdecl, irFunc);
-
-  if(irFunc->dynamicCompile) {
+  if (irFunc->isDynamicCompiled()) {
     declareDynamicCompiledFunction(gIR, irFunc);
   }
 
-  if (irFunc->targetCpuOverridden ||
-      irFunc->targetFeaturesOverridden) {
+  if (irFunc->targetCpuOverridden || irFunc->targetFeaturesOverridden) {
     gIR->targetCpuOrFeaturesOverridden.push_back(irFunc);
   }
 
-  // main
-  if (fdecl->isMain()) {
-    // Detect multiple main functions, which is disallowed. DMD checks this
-    // in the glue code, so we need to do it here as well.
-    if (gIR->mainFunc) {
-      error(fdecl->loc, "only one `main` function allowed");
-    }
-    gIR->mainFunc = func;
-  }
+  // Detect multiple main function definitions, which is disallowed.
+  // DMD checks this in the glue code, so we need to do it here as well.
+  onlyOneMainCheck(fdecl);
 
   // Set inlining attribute
   if (fdecl->neverInline) {
     irFunc->setNeverInline();
   } else {
-    if (fdecl->inlining == PINLINEalways) {
+    if (fdecl->inlining == PINLINE::always) {
       irFunc->setAlwaysInline();
-    } else if (fdecl->inlining == PINLINEnever) {
+    } else if (fdecl->inlining == PINLINE::never) {
       irFunc->setNeverInline();
     }
   }
 
-  if (fdecl->llvmInternal == LLVMglobal_crt_ctor ||
-      fdecl->llvmInternal == LLVMglobal_crt_dtor) {
-    AppendFunctionToLLVMGlobalCtorsDtors(
-        func, fdecl->priority, fdecl->llvmInternal == LLVMglobal_crt_ctor);
+  if (fdecl->isCrtCtor()) {
+    AppendFunctionToLLVMGlobalCtorsDtors(func, fdecl->priority, true);
+  }
+  if (fdecl->isCrtDtor()) {
+    AppendFunctionToLLVMGlobalCtorsDtors(func, fdecl->priority, false);
   }
 
   IrFuncTy &irFty = irFunc->irFty;
@@ -673,11 +798,9 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
 
   unsigned int k = 0;
   for (; iarg != func->arg_end(); ++iarg) {
-    size_t llExplicitIdx = irFty.reverseParams ? irFty.args.size() - k - 1 : k;
-    ++k;
-    IrFuncTyArg *arg = irFty.args[llExplicitIdx];
+    IrFuncTyArg *arg = irFty.args[k++];
 
-    if (!fdecl->parameters || arg->parametersIdx >= fdecl->parameters->dim) {
+    if (!fdecl->parameters || arg->parametersIdx >= fdecl->parameters->length) {
       iarg->setName("unnamed");
       continue;
     }
@@ -692,10 +815,13 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
 
   // Now that this function is declared, also define it if needed.
   if (defineAtEnd) {
-    IF_LOG Logger::println(
-        "Function is an externally_available inline candidate: define it now.");
-    DtoDefineFunction(fdecl, true);
+    IF_LOG Logger::println("Define function after declaration:");
+    DtoDefineFunction(fdecl, defineAsAvailableExternally);
   }
+}
+
+void DtoDeclareFunction(FuncDeclaration *fdecl) {
+  return DtoDeclareFunction(fdecl, false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -709,7 +835,7 @@ static LinkageWithCOMDAT lowerFuncLinkage(FuncDeclaration *fdecl) {
   // A body-less declaration always needs to be marked as external in LLVM
   // (also e.g. naked template functions which would otherwise be weak_odr,
   // but where the definition is in module-level inline asm).
-  if (!fdecl->fbody || fdecl->naked) {
+  if (!fdecl->fbody || fdecl->isNaked()) {
     return LinkageWithCOMDAT(LLGlobalValue::ExternalLinkage, false);
   }
 
@@ -719,9 +845,7 @@ static LinkageWithCOMDAT lowerFuncLinkage(FuncDeclaration *fdecl) {
 // LDC has the same problem with destructors of struct arguments in closures
 // as DMD, so we copy the failure detection
 void verifyScopedDestructionInClosure(FuncDeclaration *fd) {
-  for (size_t i = 0; i < fd->closureVars.dim; i++) {
-    VarDeclaration *v = fd->closureVars[i];
-
+  for (VarDeclaration *v : fd->closureVars) {
     // Hack for the case fail_compilation/fail10666.d, until
     // proper issue https://issues.dlang.org/show_bug.cgi?id=5730 fix will come.
     bool isScopeDtorParam = v->edtor && (v->storage_class & STCparameter);
@@ -729,7 +853,7 @@ void verifyScopedDestructionInClosure(FuncDeclaration *fd) {
       // Because the value needs to survive the end of the scope!
       v->error("has scoped destruction, cannot build closure");
     }
-    if (v->isargptr) {
+    if (v->isargptr()) {
       // See https://issues.dlang.org/show_bug.cgi?id=2479
       // This is actually a bug, but better to produce a nice
       // message at compile time rather than memory corruption at runtime
@@ -748,15 +872,9 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
   // index in the IrFuncTy args array separately.
   size_t llArgIdx = 0;
 
-  for (size_t i = 0; i < parameters.dim; ++i) {
-    auto *const vd = parameters[i];
+  for (VarDeclaration *vd : parameters) {
+    Type *paramType = vd->type;
     IrParameter *irparam = getIrParameter(vd);
-
-    // vd->type (parameter) and irparam->arg->type (argument) don't always
-    // match.
-    // E.g., for a lazy parameter of type T, vd->type is T (with lazy storage
-    // class) while irparam->arg->type is the delegate type.
-    Type *const paramType = (irparam ? irparam->arg->type : vd->type);
 
     if (!irparam) {
       // This is a parameter that is not passed on the LLVM level.
@@ -764,8 +882,15 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
       // we do not store to here.
       irparam = getIrParameter(vd, true);
       irparam->value = DtoAlloca(vd, vd->ident->toChars());
+    } else if (!irparam->value) {
+      // Captured parameter not passed on the LLVM level.
+      assert(irparam->nestedIndex >= 0);
+      irparam->value = DtoAlloca(vd, vd->ident->toChars());
     } else {
-      assert(irparam->value);
+      // vd->type (parameter) and irparam->arg->type (argument) don't always
+      // match. E.g., for a lazy parameter of type T, vd->type is T (with lazy
+      // storage class) while irparam->arg->type is the delegate type.
+      paramType = irparam->arg->type;
 
       if (irparam->arg->byref) {
         // The argument is an appropriate lvalue passed by reference.
@@ -784,7 +909,7 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
 
     // The debuginfos for captured params are handled later by
     // DtoCreateNestedContext().
-    if (global.params.symdebug && vd->nestedrefs.dim == 0) {
+    if (global.params.symdebug && vd->nestedrefs.length == 0) {
       // Reference (ref/out) parameters have no storage themselves as they are
       // constant pointers, so pass the reference rvalue to EmitLocalVariable().
       gIR->DBuilder.EmitLocalVariable(irparam->value, vd, paramType, false,
@@ -813,18 +938,103 @@ void emitDMDStyleFunctionTrace(IRState &irs, FuncDeclaration *fd,
   // Push cleanup block that calls _c_trace_epi at function exit.
   {
     auto traceEpilogBB = irs.insertBB("trace_epi");
-    auto saveScope = irs.scope();
-    irs.scope() = IRScope(traceEpilogBB);
+    const auto savedInsertPoint = irs.saveInsertPoint();
+    irs.ir->SetInsertPoint(traceEpilogBB);
     irs.ir->CreateCall(
         getRuntimeFunction(fd->endloc, irs.module, "_c_trace_epi"));
     funcGen.scopes.pushCleanup(traceEpilogBB, irs.scopebb());
-    irs.scope() = saveScope;
   }
+}
+
+// If the specified block is trivially unreachable, erases it and returns true.
+// This is a common case because it happens when 'return' is the last statement
+// in a function.
+bool eraseDummyAfterReturnBB(llvm::BasicBlock *bb) {
+  if (pred_begin(bb) == pred_end(bb) &&
+      bb != &bb->getParent()->getEntryBlock()) {
+    bb->eraseFromParent();
+    return true;
+  }
+  return false;
+}
+
+/**
+ * LLVM doesn't really support weak linkage for MSVC targets, it just prevents
+ * inlining. We can emulate it though, by renaming the defined function, only
+ * declaring the original function and embedding a linker directive in the
+ * object file, instructing the linker to fall back to the weak implementation
+ * if there's no strong definition.
+ * The object file still needs to be pulled in by the linker for the directive
+ * to be found.
+ */
+void emulateWeakAnyLinkageForMSVC(IrFunction *irFunc, LINK linkage) {
+  LLFunction *func = irFunc->getLLVMFunc();
+
+  const bool isWin32 = global.params.targetTriple->isArch32Bit();
+
+  std::string mangleBuffer;
+  llvm::StringRef finalMangle = func->getName();
+  if (finalMangle[0] == '\1') {
+    finalMangle = finalMangle.substr(1);
+  } else if (isWin32) {
+    // implicit underscore prefix for Win32
+    mangleBuffer = ("_" + finalMangle).str();
+    finalMangle = mangleBuffer;
+  }
+
+  std::string finalWeakMangle = finalMangle.str();
+  if (linkage == LINK::cpp) {
+    assert(finalMangle.startswith("?"));
+    // prepend `__weak_` to first identifier
+    size_t offset = finalMangle.startswith("??$") ? 3 : 1;
+    finalWeakMangle.insert(offset, "__weak_");
+  } else if (linkage == LINK::d) {
+    const size_t offset = isWin32 ? 1 : 0;
+    assert(finalMangle.substr(offset).startswith("_D"));
+    // prepend a `__weak` package
+    finalWeakMangle.insert(offset + 2, "6__weak");
+  } else {
+    // prepend `__weak_`
+    const size_t offset = isWin32 && finalMangle.startswith("_") ? 1 : 0;
+    finalWeakMangle.insert(offset, "__weak_");
+  }
+
+  const std::string linkerOption =
+      ("/ALTERNATENAME:" + finalMangle + "=" + finalWeakMangle).str();
+  gIR->addLinkerOption(llvm::StringRef(linkerOption));
+
+  // rename existing function
+  const std::string oldName = func->getName().str();
+  func->setName("\1" + finalWeakMangle);
+  if (func->hasComdat()) {
+    func->setComdat(gIR->module.getOrInsertComdat(func->getName()));
+  }
+
+  // create a new body-less declaration with the old name
+  auto newFunc =
+      LLFunction::Create(func->getFunctionType(),
+                         LLGlobalValue::ExternalLinkage, oldName, &gIR->module);
+
+  // replace existing and future uses of the old, renamed function with the new
+  // declaration
+  irFunc->setLLVMFunc(newFunc);
+  func->replaceNonMetadataUsesWith(newFunc);
 }
 
 } // anonymous namespace
 
 void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
+  TimeTraceScope timeScope([fd]() {
+                             std::string name("Codegen func ");
+                             name += fd->toChars();
+                             return name;
+                           },
+                           [fd]() {
+                             std::string detail = fd->toPrettyChars();
+                             return detail;
+                           },
+                           fd->loc);
+
   IF_LOG Logger::println("DtoDefineFunction(%s): %s", fd->toPrettyChars(),
                          fd->loc.toChars());
   LOG_SCOPE;
@@ -834,28 +1044,29 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   if (fd->ir->isDefined()) {
     llvm::Function *func = getIrFunc(fd)->getLLVMFunc();
-    assert(nullptr != func);
+    assert(func);
     if (!linkageAvailableExternally &&
         (func->getLinkage() == llvm::GlobalValue::AvailableExternallyLinkage)) {
-      // Fix linkage
+      // Fix linkage and visibility
       const auto lwc = lowerFuncLinkage(fd);
       setLinkage(lwc, func);
+      setVisibility(fd, func);
     }
     return;
   }
 
-  if ((fd->type && fd->type->ty == Terror) ||
-      (fd->type && fd->type->ty == Tfunction &&
+  if ((fd->type && fd->type->ty == TY::Terror) ||
+      (fd->type && fd->type->ty == TY::Tfunction &&
        static_cast<TypeFunction *>(fd->type)->next == nullptr) ||
-      (fd->type && fd->type->ty == Tfunction &&
-       static_cast<TypeFunction *>(fd->type)->next->ty == Terror)) {
+      (fd->type && fd->type->ty == TY::Tfunction &&
+       static_cast<TypeFunction *>(fd->type)->next->ty == TY::Terror)) {
     IF_LOG Logger::println(
         "Ignoring; has error type, no return type or returns error type");
     fd->ir->setDefined();
     return;
   }
 
-  if (fd->semanticRun == PASSsemanticdone) {
+  if (fd->semanticRun == PASS::semanticdone) {
     // This function failed semantic3() with errors but the errors were gagged.
     // In contrast to DMD we immediately bail out here, since other parts of
     // the codegen expect irFunc to be set for defined functions.
@@ -866,12 +1077,19 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     fatal();
   }
 
-  DtoResolveFunction(fd);
+  DtoDeclareFunction(fd, /*willDefine=*/true);
+  assert(fd->ir->isDeclared());
+
+  // DtoDeclareFunction might also set the defined flag for functions we
+  // should not touch.
+  if (fd->ir->isDefined()) {
+    return;
+  }
+  fd->ir->setDefined();
 
   if (fd->isUnitTestDeclaration() && !global.params.useUnitTests) {
     IF_LOG Logger::println("No code generation for unit test declaration %s",
                            fd->toChars());
-    fd->ir->setDefined();
     return;
   }
 
@@ -881,26 +1099,14 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
       IF_LOG Logger::println(
           "No code generation for typeinfo member %s in @compute code",
           fd->toChars());
-      fd->ir->setDefined();
       return;
     }
   }
 
-  if (!linkageAvailableExternally && !alreadyOrWillBeDefined(*fd)) {
+  if (!linkageAvailableExternally && skipCodegen(*fd)) {
     IF_LOG Logger::println("Skipping '%s'.", fd->toPrettyChars());
-    fd->ir->setDefined();
     return;
   }
-
-  DtoDeclareFunction(fd);
-  assert(fd->ir->isDeclared());
-
-  // DtoResolveFunction might also set the defined flag for functions we
-  // should not touch.
-  if (fd->ir->isDefined()) {
-    return;
-  }
-  fd->ir->setDefined();
 
   // We cannot emit nested functions with parents that have not gone through
   // semantic analysis. This can happen as DMD leaks some template instances
@@ -910,7 +1116,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // nested context creation code.
   FuncDeclaration *parent = fd;
   while ((parent = getParentFunc(parent))) {
-    if (parent->semanticRun != PASSsemantic3done || parent->semantic3Errors) {
+    if (parent->semanticRun != PASS::semantic3done ||
+        parent->hasSemantic3Errors()) {
       IF_LOG Logger::println(
           "Ignoring nested function with unanalyzed parent.");
       return;
@@ -922,7 +1129,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   assert(fd->ident != Id::empty);
 
-  if (fd->semanticRun != PASSsemantic3done) {
+  if (fd->semanticRun != PASS::semantic3done) {
     error(fd->loc,
           "Internal Compiler Error: function not fully analyzed; "
           "previous unreported errors compiling `%s`?",
@@ -931,7 +1138,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   if (fd->isUnitTestDeclaration()) {
-    getIrModule(gIR->dmodule)->unitTests.push_back(fd);
+    // ignore unparsed unittests from non-root modules
+    if (fd->fbody)
+      getIrModule(gIR->dmodule)->unitTests.push_back(fd);
   } else if (fd->isSharedStaticCtorDeclaration()) {
     getIrModule(gIR->dmodule)->sharedCtors.push_back(fd);
   } else if (StaticDtorDeclaration *dtorDecl =
@@ -949,12 +1158,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     }
   }
 
-  // if this function is naked, we take over right away! no standard processing!
-  if (fd->naked) {
-    DtoDefineNakedFunction(fd);
-    return;
-  }
-
   if (!fd->fbody) {
     return;
   }
@@ -970,22 +1173,29 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     return;
   }
 
-  SCOPE_EXIT {
-    if (irFunc->dynamicCompile) {
-      defineDynamicCompiledFunction(gIR, irFunc);
-    }
-  };
-
-  // debug info
-  irFunc->diSubprogram = gIR->DBuilder.EmitSubProgram(fd);
-
-  IF_LOG Logger::println("Doing function body for: %s", fd->toChars());
   gIR->funcGenStates.emplace_back(new FuncGenState(*irFunc, *gIR));
   auto &funcGen = gIR->funcGen();
   SCOPE_EXIT {
     assert(&gIR->funcGen() == &funcGen);
     gIR->funcGenStates.pop_back();
   };
+
+  // if this function is naked, we take over right away! no standard processing!
+  if (fd->isNaked()) {
+    DtoDefineNakedFunction(fd);
+    return;
+  }
+
+  SCOPE_EXIT {
+    if (irFunc->isDynamicCompiled()) {
+      defineDynamicCompiledFunction(gIR, irFunc);
+    }
+  };
+
+  // debug info
+  gIR->DBuilder.EmitSubProgram(fd);
+
+  IF_LOG Logger::println("Doing function body for: %s", fd->toChars());
 
   const auto f = static_cast<TypeFunction *>(fd->type->toBasetype());
   IrFuncTy &irFty = irFunc->irFty;
@@ -1000,9 +1210,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
            lwc.first != llvm::GlobalValue::LinkOnceAnyLinkage);
   } else {
     setLinkage(lwc, func);
+    setVisibility(fd, func);
   }
-
-  assert(!func->hasDLLImportStorageClass());
 
   // function attributes
   if (gABI->needsUnwindTables()) {
@@ -1010,16 +1219,19 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
   if (opts::isAnySanitizerEnabled() &&
       !opts::functionIsInSanitizerBlacklist(fd)) {
+    // Get the @noSanitize mask
+    auto noSanitizeMask = getMaskFromNoSanitizeUDA(*fd);
+
     // Set the required sanitizer attribute.
-    if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
+    if (opts::isSanitizerEnabled(opts::AddressSanitizer & noSanitizeMask)) {
       func->addFnAttr(LLAttribute::SanitizeAddress);
     }
 
-    if (opts::isSanitizerEnabled(opts::MemorySanitizer)) {
+    if (opts::isSanitizerEnabled(opts::MemorySanitizer & noSanitizeMask)) {
       func->addFnAttr(LLAttribute::SanitizeMemory);
     }
 
-    if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {
+    if (opts::isSanitizerEnabled(opts::ThreadSanitizer & noSanitizeMask)) {
       func->addFnAttr(LLAttribute::SanitizeThread);
     }
   }
@@ -1028,49 +1240,43 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   llvm::BasicBlock *beginbb =
       llvm::BasicBlock::Create(gIR->context(), "", func);
 
-  gIR->scopes.push_back(IRScope(beginbb));
+  // set up the IRBuilder scope for the function
+  const auto savedIRBuilderScope = gIR->setInsertPoint(beginbb);
+  gIR->ir->setFastMathFlags(irFunc->FMF);
+  gIR->DBuilder.EmitFuncStart(fd);
 
-// Set the FastMath options for this function scope.
-#if LDC_LLVM_VER >= 308
-  gIR->scopes.back().builder.setFastMathFlags(irFunc->FMF);
-#else
-  gIR->scopes.back().builder.SetFastMathFlags(irFunc->FMF);
-#endif
+  // @naked: emit body and return, no prologue/epilogue
+  if (func->hasFnAttribute(llvm::Attribute::Naked)) {
+    Statement_toIR(fd->fbody, gIR);
+    const bool wasDummy = eraseDummyAfterReturnBB(gIR->scopebb());
+    if (!wasDummy && !gIR->scopereturned()) {
+      // this is what clang does to prevent LLVM complaining about
+      // non-terminated function
+      gIR->ir->CreateUnreachable();
+    }
+    return;
+  }
 
   // create alloca point
   // this gets erased when the function is complete, so alignment etc does not
   // matter at all
   llvm::Instruction *allocaPoint =
       new llvm::AllocaInst(LLType::getInt32Ty(gIR->context()),
-#if LDC_LLVM_VER >= 500
                            0, // Address space
-#endif
                            "alloca_point", beginbb);
   funcGen.allocapoint = allocaPoint;
 
-  // debug info - after all allocas, but before any llvm.dbg.declare etc
-  gIR->DBuilder.EmitFuncStart(fd);
-
   emitInstrumentationFnEnter(fd);
 
-  if (global.params.trace && !fd->isCMain() && !fd->naked)
+  if (global.params.trace && fd->emitInstrumentation && !fd->isCMain() &&
+      !fd->isNaked()) {
     emitDMDStyleFunctionTrace(*gIR, fd, funcGen);
+  }
 
-  // disable frame-pointer-elimination for functions with inline asm
-  if (fd->hasReturnExp & 8) // has inline asm
-  {
-#if LDC_LLVM_VER >= 309
-    func->addAttribute(
-        LLAttributeSet::FunctionIndex,
-        llvm::Attribute::get(gIR->context(), "no-frame-pointer-elim", "true"));
-    func->addAttribute(
-        LLAttributeSet::FunctionIndex,
-        llvm::Attribute::get(gIR->context(), "no-frame-pointer-elim-non-leaf"));
-#else
-    // hack: emit a call to llvm_eh_unwind_init
-    LLFunction *hack = GET_INTRINSIC_DECL(eh_unwind_init);
-    gIR->ir->CreateCall(hack, {});
-#endif
+  // disable frame-pointer-elimination for functions with DMD-style inline asm
+  if (fd->hasReturnExp & 32) {
+    func->addFnAttr(
+        llvm::Attribute::get(gIR->context(), "frame-pointer", "all"));
   }
 
   // give the 'this' parameter (an lvalue) storage and debug info
@@ -1085,7 +1291,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
         LLType *targetThisType = thismem->getType();
         thismem = DtoBitCast(thismem, getVoidPtrType());
         auto off = DtoConstInt(-fd->interfaceVirtual->offset);
-        thismem = DtoGEP1(thismem, off, true);
+        thismem = DtoGEP1(thismem, off);
         thismem = DtoBitCast(thismem, targetThisType);
       }
       thismem = DtoAllocaDump(thismem, 0, "this");
@@ -1096,11 +1302,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     getIrParameter(fd->vthis)->value = thismem;
 
     gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis, nullptr, true);
-  }
-
-  // give the 'nestArg' parameter (an lvalue) storage
-  if (irFty.arg_nest) {
-    irFunc->nestArg = DtoAllocaDump(irFunc->nestArg, 0, "nestedFrame");
   }
 
   // define all explicit parameters
@@ -1119,14 +1320,14 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   // D varargs: prepare _argptr and _arguments
-  if (f->linkage == LINKd && f->varargs == 1) {
+  if (f->isDstyleVariadic()) {
     // allocate _argptr (of type core.stdc.stdarg.va_list)
-    Type *const argptrType = typeSemantic(Type::tvalist, fd->loc, fd->_scope);
-    LLValue *argptrMem = DtoAlloca(argptrType, "_argptr_mem");
+    Type *tvalist = target.va_listType(fd->loc, fd->_scope);
+    LLValue *argptrMem = DtoAlloca(tvalist, "_argptr_mem");
     irFunc->_argptr = argptrMem;
 
     // initialize _argptr with a call to the va_start intrinsic
-    DLValue argptrVal(argptrType, argptrMem);
+    DLValue argptrVal(tvalist, argptrMem);
     LLValue *llAp = gABI->prepareVaStart(&argptrVal);
     llvm::CallInst::Create(GET_INTRINSIC_DECL(vastart), llAp, "",
                            gIR->scopebb());
@@ -1136,13 +1337,11 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
     // Push cleanup block that calls va_end to match the va_start call.
     {
-      auto *vaendBB =
-          llvm::BasicBlock::Create(gIR->context(), "vaend", gIR->topfunc());
-      IRScope saveScope = gIR->scope();
-      gIR->scope() = IRScope(vaendBB);
+      auto *vaendBB = llvm::BasicBlock::Create(gIR->context(), "vaend", func);
+      const auto savedInsertPoint = gIR->saveInsertPoint();
+      gIR->ir->SetInsertPoint(vaendBB);
       gIR->ir->CreateCall(GET_INTRINSIC_DECL(vaend), llAp);
       funcGen.scopes.pushCleanup(vaendBB, gIR->scopebb());
-      gIR->scope() = saveScope;
     }
   }
 
@@ -1158,19 +1357,13 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
       if (!funcGen.retBlock)
         funcGen.retBlock = gIR->insertBB("return");
       funcGen.scopes.runCleanups(0, funcGen.retBlock);
-      gIR->scope() = IRScope(funcGen.retBlock);
+      gIR->ir->SetInsertPoint(funcGen.retBlock);
     }
     funcGen.scopes.popCleanups(0);
   }
 
-  llvm::BasicBlock *bb = gIR->scopebb();
-  if (pred_begin(bb) == pred_end(bb) &&
-      bb != &bb->getParent()->getEntryBlock()) {
-    // This block is trivially unreachable, so just delete it.
-    // (This is a common case because it happens when 'return'
-    // is the last statement in a function)
-    bb->eraseFromParent();
-  } else if (!gIR->scopereturned()) {
+  const bool wasDummy = eraseDummyAfterReturnBB(gIR->scopebb());
+  if (!wasDummy && !gIR->scopereturned()) {
     // llvm requires all basic blocks to end with a TerminatorInst but DMD does
     // not put a return statement in automatically, so we do it here.
 
@@ -1180,19 +1373,15 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     gIR->DBuilder.EmitStopPoint(fd->endloc);
     if (func->getReturnType() == LLType::getVoidTy(gIR->context())) {
       gIR->ir->CreateRetVoid();
-    } else if (!fd->isMain()) {
-      CompoundAsmStatement *asmb = fd->fbody->endsWithAsm();
-      if (asmb) {
-        assert(asmb->abiret);
-        gIR->ir->CreateRet(asmb->abiret);
-      } else {
-        gIR->ir->CreateRet(llvm::UndefValue::get(func->getReturnType()));
-      }
-    } else {
+    } else if (isAnyMainFunction(fd)) {
       gIR->ir->CreateRet(LLConstant::getNullValue(func->getReturnType()));
+    } else if (auto asmb = fd->fbody->endsWithAsm()) {
+      assert(asmb->abiret);
+      gIR->ir->CreateRet(asmb->abiret);
+    } else {
+      gIR->ir->CreateRet(llvm::UndefValue::get(func->getReturnType()));
     }
   }
-  gIR->DBuilder.EmitFuncEnd(fd);
 
   // erase alloca point
   if (allocaPoint->getParent()) {
@@ -1201,11 +1390,15 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     allocaPoint = nullptr;
   }
 
-  gIR->scopes.pop_back();
-
   if (gIR->dcomputetarget && hasKernelAttr(fd)) {
     auto fn = gIR->module.getFunction(fd->mangleString);
     gIR->dcomputetarget->addKernelMetadata(fd, fn);
+  }
+
+  if (func->getLinkage() == LLGlobalValue::WeakAnyLinkage &&
+      !func->hasDLLExportStorageClass() &&
+      global.params.targetTriple->isWindowsMSVCEnvironment()) {
+    emulateWeakAnyLinkageForMSVC(irFunc, fd->resolvedLinkage());
   }
 }
 
@@ -1227,29 +1420,10 @@ DValue *DtoArgument(Parameter *fnarg, Expression *argexp) {
 
   // lazy arg
   if (fnarg && (fnarg->storageClass & STClazy)) {
-    assert(argexp->type->toBasetype()->ty == Tdelegate);
+    assert(argexp->type->toBasetype()->ty == TY::Tdelegate);
     assert(!arg->isLVal());
     return arg;
   }
 
   return arg;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-int binary(const char *p, const char **tab, int high) {
-  int i = 0, j = high, k, l;
-  do {
-    k = (i + j) / 2;
-    l = strcmp(p, tab[k]);
-    if (!l) {
-      return k;
-    }
-    if (l < 0) {
-      j = k;
-    } else {
-      i = k + 1;
-    }
-  } while (i != j);
-  return -1;
 }

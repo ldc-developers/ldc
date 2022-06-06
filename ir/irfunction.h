@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_IR_IRFUNCTION_H
-#define LDC_IR_IRFUNCTION_H
+#pragma once
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseMapInfo.h"
@@ -49,6 +48,8 @@ struct IrFunction {
   /// Returns the associated LLVM function to be used for calls (potentially
   /// some sort of wrapper, e.g., a JIT wrapper).
   llvm::Function *getLLVMCallee() const;
+
+  bool isDynamicCompiled() const;
 
   FuncDeclaration *decl = nullptr;
   TypeFunction *type = nullptr;
@@ -90,6 +91,9 @@ struct IrFunction {
   /// This functions was marked for dynamic compilation
   bool dynamicCompile = false;
 
+  /// This functions was marked emit-only for dynamic compilation
+  bool dynamicCompileEmit = false;
+
   /// Dynamic compilation thunk, all attempts to call or take address of the
   /// original function will be redirected to it
   llvm::Function *rtCompileFunc = nullptr;
@@ -101,12 +105,6 @@ private:
 IrFunction *getIrFunc(FuncDeclaration *decl, bool create = false);
 bool isIrFuncCreated(FuncDeclaration *decl);
 
-/// Returns the associated LLVM function.
-/// Use DtoCallee() for the LLVM function to be used for calls.
-llvm::Function *DtoFunction(FuncDeclaration *decl, bool create = false);
-
 /// Returns the associated LLVM function to be used for calls (potentially
 /// some sort of wrapper, e.g., a JIT wrapper).
-llvm::Function *DtoCallee(FuncDeclaration *decl, bool create = false);
-
-#endif
+llvm::Function *DtoCallee(FuncDeclaration *decl, bool create = true);

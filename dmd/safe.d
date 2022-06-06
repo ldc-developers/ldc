@@ -1,24 +1,28 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Checks whether member access or array casting is allowed in `@safe` code.
  *
- * Copyright:   Copyright (c) 1999-2017 by The D Language Foundation, All Rights Reserved
- * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
- * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Specification: $(LINK2 https://dlang.org/spec/function.html#function-safety, Function Safety)
+ *
+ * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/safe.d, _safe.d)
+ * Documentation:  https://dlang.org/phobos/dmd_safe.html
+ * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/safe.d
  */
 
 module dmd.safe;
 
-// Online documentation: https://dlang.org/phobos/dmd_safe.html
-
 import core.stdc.stdio;
 
 import dmd.aggregate;
+import dmd.astenums;
 import dmd.dclass;
 import dmd.declaration;
 import dmd.dscope;
 import dmd.expression;
+import dmd.id;
+import dmd.identifier;
 import dmd.mtype;
 import dmd.target;
 import dmd.tokens;
@@ -41,37 +45,56 @@ import dmd.tokens;
 
 bool checkUnsafeAccess(Scope* sc, Expression e, bool readonly, bool printmsg)
 {
-    if (e.op != TOKdotvar)
+    //printf("checkUnsafeAccess(e: '%s', readonly: %d, printmsg: %d)\n", e.toChars(), readonly, printmsg);
+    if (e.op != EXP.dotVariable)
         return false;
     DotVarExp dve = cast(DotVarExp)e;
     if (VarDeclaration v = dve.var.isVarDeclaration())
     {
         if (sc.intypeof || !sc.func || !sc.func.isSafeBypassingInference())
             return false;
-
         auto ad = v.toParent2().isAggregateDeclaration();
         if (!ad)
             return false;
 
-        if (v.overlapped && v.type.hasPointers() && sc.func.setUnsafe())
+        // needed to set v.overlapped and v.overlapUnsafe
+        if (ad.sizeok != Sizeok.done)
+            ad.determineSize(ad.loc);
+
+        const hasPointers = v.type.hasPointers();
+        if (hasPointers)
         {
-            if (printmsg)
-                e.error("field %s.%s cannot access pointers in @safe code that overlap other fields",
-                    ad.toChars(), v.toChars());
-            return true;
+            if (v.overlapped && sc.func.setUnsafe())
+            {
+                if (printmsg)
+                    e.error("field `%s.%s` cannot access pointers in `@safe` code that overlap other fields",
+                        ad.toChars(), v.toChars());
+                return true;
+            }
+        }
+
+        if (v.type.hasInvariant())
+        {
+            if (v.overlapped && sc.func.setUnsafe())
+            {
+                if (printmsg)
+                    e.error("field `%s.%s` cannot access structs with invariants in `@safe` code that overlap other fields",
+                        ad.toChars(), v.toChars());
+                return true;
+            }
         }
 
         if (readonly || !e.type.isMutable())
             return false;
 
-        if (v.type.hasPointers() && v.type.toBasetype().ty != Tstruct)
+        if (hasPointers && v.type.toBasetype().ty != Tstruct)
         {
-            if ((ad.type.alignment() < Target.ptrsize ||
-                 (v.offset & (Target.ptrsize - 1))) &&
+            if ((!ad.type.alignment.isDefault() && ad.type.alignment.get() < target.ptrsize ||
+                 (v.offset & (target.ptrsize - 1))) &&
                 sc.func.setUnsafe())
             {
                 if (printmsg)
-                    e.error("field %s.%s cannot modify misaligned pointers in @safe code",
+                    e.error("field `%s.%s` cannot modify misaligned pointers in `@safe` code",
                         ad.toChars(), v.toChars());
                 return true;
             }
@@ -80,7 +103,7 @@ bool checkUnsafeAccess(Scope* sc, Expression e, bool readonly, bool printmsg)
         if (v.overlapUnsafe && sc.func.setUnsafe())
         {
              if (printmsg)
-                 e.error("field %s.%s cannot modify fields in @safe code that overlap fields with other storage classes",
+                 e.error("field `%s.%s` cannot modify fields in `@safe` code that overlap fields with other storage classes",
                     ad.toChars(), v.toChars());
              return true;
         }
@@ -110,31 +133,33 @@ bool isSafeCast(Expression e, Type tfrom, Type tto)
     auto tfromb = tfrom.toBasetype();
     auto ttob = tto.toBasetype();
 
-    if (ttob.ty == Tclass && tfrom.ty == Tclass)
+    if (ttob.ty == Tclass && tfromb.ty == Tclass)
     {
-        ClassDeclaration cdfrom = tfrom.isClassHandle();
+        ClassDeclaration cdfrom = tfromb.isClassHandle();
         ClassDeclaration cdto = ttob.isClassHandle();
 
         int offset;
-        if (!cdfrom.isBaseOf(cdto, &offset))
+        if (!cdfrom.isBaseOf(cdto, &offset) &&
+            !((cdfrom.isInterfaceDeclaration() || cdto.isInterfaceDeclaration())
+                && cdfrom.classKind == ClassKind.d && cdto.classKind == ClassKind.d))
             return false;
 
         if (cdfrom.isCPPinterface() || cdto.isCPPinterface())
             return false;
 
-        if (!MODimplicitConv(tfrom.mod, ttob.mod))
+        if (!MODimplicitConv(tfromb.mod, ttob.mod))
             return false;
         return true;
     }
 
-    if (ttob.ty == Tarray && tfrom.ty == Tsarray) // https://issues.dlang.org/show_bug.cgi?id=12502
-        tfrom = tfrom.nextOf().arrayOf();
+    if (ttob.ty == Tarray && tfromb.ty == Tsarray) // https://issues.dlang.org/show_bug.cgi?id=12502
+        tfromb = tfromb.nextOf().arrayOf();
 
-    if (ttob.ty == Tarray   && tfrom.ty == Tarray ||
-        ttob.ty == Tpointer && tfrom.ty == Tpointer)
+    if (ttob.ty == Tarray   && tfromb.ty == Tarray ||
+        ttob.ty == Tpointer && tfromb.ty == Tpointer)
     {
         Type ttobn = ttob.nextOf().toBasetype();
-        Type tfromn = tfrom.nextOf().toBasetype();
+        Type tfromn = tfromb.nextOf().toBasetype();
 
         /* From void[] to anything mutable is unsafe because:
          *  int*[] api;
@@ -145,7 +170,7 @@ bool isSafeCast(Expression e, Type tfrom, Type tto)
          */
         if (tfromn.ty == Tvoid && ttobn.isMutable())
         {
-            if (ttob.ty == Tarray && e.op == TOKarrayliteral)
+            if (ttob.ty == Tarray && e.op == EXP.arrayLiteral)
                 return true;
             return false;
         }
@@ -175,3 +200,29 @@ bool isSafeCast(Expression e, Type tfrom, Type tto)
     return false;
 }
 
+/*************************************************
+ * Check for unsafe use of `.ptr` or `.funcptr`
+ * Params:
+ *      sc = context
+ *      e = expression for error messages
+ *      id = `ptr` or `funcptr`
+ *      flag = DotExpFlag
+ * Returns:
+ *      true if error
+ */
+bool checkUnsafeDotExp(Scope* sc, Expression e, Identifier id, int flag)
+{
+    if (!(flag & DotExpFlag.noDeref) && // this use is attempting a dereference
+        sc.func &&                      // inside a function
+        !sc.intypeof &&                 // allow unsafe code in typeof expressions
+        !(sc.flags & SCOPE.debug_) &&   // allow unsafe code in debug statements
+        sc.func.setUnsafe())            // infer this function to be unsafe
+    {
+        if (id == Id.ptr)
+            e.error("`%s.ptr` cannot be used in `@safe` code, use `&%s[0]` instead", e.toChars(), e.toChars());
+        else
+            e.error("`%s.%s` cannot be used in `@safe` code", e.toChars(), id.toChars());
+        return true;
+    }
+    return false;
+}

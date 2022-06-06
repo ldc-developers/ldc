@@ -5,6 +5,7 @@
 
 module dmd.transitivevisitor;
 
+import dmd.astenums;
 import dmd.permissivevisitor;
 import dmd.tokens;
 import dmd.root.rootobject;
@@ -16,7 +17,9 @@ import core.stdc.stdio;
 extern(C++) class ParseTimeTransitiveVisitor(AST) : PermissiveVisitor!AST
 {
     alias visit = PermissiveVisitor!AST.visit;
-    mixin ParseVisitMethods!AST;
+
+    mixin ParseVisitMethods!AST __methods;
+    alias visit = __methods.visit;
 }
 
 /* This mixin implements the AST traversal logic for parse time AST nodes. The same code
@@ -31,19 +34,19 @@ package mixin template ParseVisitMethods(AST)
     override void visit(AST.ExpStatement s)
     {
         //printf("Visiting ExpStatement\n");
-        if (s.exp && s.exp.op == TOKdeclaration)
-        {
-            (cast(AST.DeclarationExp)s.exp).declaration.accept(this);
-            return;
-        }
         if (s.exp)
-            s.exp.accept(this);
+        {
+            if (auto de = s.exp.isDeclarationExp())
+                de.declaration.accept(this);
+            else
+                s.exp.accept(this);
+        }
     }
 
     override void visit(AST.CompileStatement s)
     {
         //printf("Visiting CompileStatement\n");
-        s.exp.accept(this);
+        visitArgs(s.exps);
     }
 
     override void visit(AST.CompoundStatement s)
@@ -56,16 +59,22 @@ package mixin template ParseVisitMethods(AST)
         }
     }
 
-    private void visitVarDecl(AST.VarDeclaration v)
+    void visitVarDecl(AST.VarDeclaration v)
     {
         //printf("Visiting VarDeclaration\n");
         if (v.type)
             visitType(v.type);
         if (v._init)
         {
-            auto ie = v._init.isExpInitializer();
-            if (ie && (ie.exp.op == TOKconstruct || ie.exp.op == TOKblit))
-                (cast(AST.AssignExp)ie.exp).e2.accept(this);
+            if (auto ie = v._init.isExpInitializer())
+            {
+                if (auto ce = ie.exp.isConstructExp())
+                    ce.e2.accept(this);
+                else if (auto be = ie.exp.isBlitExp())
+                    be.e2.accept(this);
+                else
+                    v._init.accept(this);
+            }
             else
                 v._init.accept(this);
         }
@@ -76,15 +85,19 @@ package mixin template ParseVisitMethods(AST)
         //printf("Visiting CompoundDeclarationStatement\n");
         foreach (sx; *s.statements)
         {
-            auto ds = sx ? sx.isExpStatement() : null;
-            if (ds && ds.exp.op == TOKdeclaration)
+            if (!sx)
+                continue;
+            if (auto ds = sx.isExpStatement())
             {
-                auto d = (cast(AST.DeclarationExp)ds.exp).declaration;
-                assert(d.isDeclaration());
-                if (auto v = d.isVarDeclaration())
-                    visitVarDecl(v);
-                else
-                    d.accept(this);
+                if (auto de = ds.exp.isDeclarationExp())
+                {
+                    auto d = de.declaration;
+                    assert(d.isDeclaration());
+                    if (auto v = d.isVarDeclaration())
+                        visitVarDecl(v);
+                    else
+                        d.accept(this);
+                }
             }
         }
     }
@@ -168,7 +181,7 @@ package mixin template ParseVisitMethods(AST)
             s.elsebody.accept(this);
     }
 
-    private void visitArgs(AST.Expressions* expressions, AST.Expression basis = null)
+    void visitArgs(AST.Expressions* expressions, AST.Expression basis = null)
     {
         if (!expressions || !expressions.dim)
             return;
@@ -272,9 +285,9 @@ package mixin template ParseVisitMethods(AST)
         s.finalbody.accept(this);
     }
 
-    override void visit(AST.OnScopeStatement s)
+    override void visit(AST.ScopeGuardStatement s)
     {
-        //printf("Visiting OnScopeStatement\n");
+        //printf("Visiting ScopeGuardStatement\n");
         s.statement.accept(this);
     }
 
@@ -298,7 +311,7 @@ package mixin template ParseVisitMethods(AST)
             imp.accept(this);
     }
 
-    private void visit(AST.Catch c)
+    void visit(AST.Catch c)
     {
         //printf("Visiting Catch\n");
         if (c.type)
@@ -310,21 +323,21 @@ package mixin template ParseVisitMethods(AST)
 //   Type Nodes
 //============================================================
 
-    private void visitType(AST.Type t)
+    void visitType(AST.Type t)
     {
         //printf("Visiting Type\n");
         if (!t)
             return;
-        if (t.ty == AST.Tfunction)
+        if (auto tf = t.isTypeFunction())
         {
-            visitFunctionType(cast(AST.TypeFunction)t, null);
+            visitFunctionType(tf, null);
             return;
         }
         else
             t.accept(this);
     }
 
-    private void visitFunctionType(AST.TypeFunction t, AST.TemplateDeclaration td)
+    void visitFunctionType(AST.TypeFunction t, AST.TemplateDeclaration td)
     {
         if (t.next)
             visitType(t.next);
@@ -333,10 +346,10 @@ package mixin template ParseVisitMethods(AST)
             foreach (p; *td.origParameters)
                 p.accept(this);
         }
-        visitParameters(t.parameters);
+        visitParameters(t.parameterList.parameters);
     }
 
-    private void visitParameters(AST.Parameters* parameters)
+    void visitParameters(AST.Parameters* parameters)
     {
         if (parameters)
         {
@@ -379,9 +392,9 @@ package mixin template ParseVisitMethods(AST)
     override void visit(AST.TypePointer t)
     {
         //printf("Visiting TypePointer\n");
-        if (t.next.ty == AST.Tfunction)
+        if (auto tf = t.next.isTypeFunction())
         {
-            visitFunctionType(cast(AST.TypeFunction)t.next, null);
+            visitFunctionType(tf, null);
         }
         else
             t.next.accept(this);
@@ -402,10 +415,10 @@ package mixin template ParseVisitMethods(AST)
     override void visit(AST.TypeDelegate t)
     {
         //printf("Visiting TypeDelegate\n");
-        visitFunctionType(cast(AST.TypeFunction)t.next, null);
+        visitFunctionType(t.next.isTypeFunction(), null);
     }
 
-    private void visitTypeQualified(AST.TypeQualified t)
+    void visitTypeQualified(AST.TypeQualified t)
     {
         //printf("Visiting TypeQualified\n");
         foreach (id; t.idents)
@@ -459,6 +472,16 @@ package mixin template ParseVisitMethods(AST)
         t.upr.accept(this);
     }
 
+    override void visit(AST.TypeTraits t)
+    {
+        t.exp.accept(this);
+    }
+
+    override void visit(AST.TypeMixin t)
+    {
+        visitArgs(t.exps);
+    }
+
 //      Miscellaneous
 //========================================================
 
@@ -481,7 +504,7 @@ package mixin template ParseVisitMethods(AST)
 
 //      Declarations
 //=========================================================
-    private void visitAttribDeclaration(AST.AttribDeclaration d)
+    void visitAttribDeclaration(AST.AttribDeclaration d)
     {
         if (d.decl)
             foreach (de; *d.decl)
@@ -519,9 +542,9 @@ package mixin template ParseVisitMethods(AST)
         visitAttribDeclaration(cast(AST.AttribDeclaration)d);
     }
 
-    override void visit(AST.ProtDeclaration d)
+    override void visit(AST.VisibilityDeclaration d)
     {
-        //printf("Visiting ProtDeclaration\n");
+        //printf("Visiting VisibilityDeclaration\n");
         visitAttribDeclaration(cast(AST.AttribDeclaration)d);
     }
 
@@ -560,7 +583,7 @@ package mixin template ParseVisitMethods(AST)
     override void visit(AST.CompileDeclaration d)
     {
         //printf("Visiting compileDeclaration\n");
-        d.exp.accept(this);
+        visitArgs(d.exps);
     }
 
     override void visit(AST.UserAttributeDeclaration d)
@@ -570,19 +593,30 @@ package mixin template ParseVisitMethods(AST)
         visitAttribDeclaration(cast(AST.AttribDeclaration)d);
     }
 
-    private void visitFuncBody(AST.FuncDeclaration f)
+    void visitFuncBody(AST.FuncDeclaration f)
     {
         //printf("Visiting funcBody\n");
-        if (!f.fbody)
-            return;
-        if (f.frequire)
-            f.frequire.accept(this);
-        if (f.fensure)
-            f.fensure.accept(this);
-        f.fbody.accept(this);
+        if (f.frequires)
+        {
+            foreach (frequire; *f.frequires)
+            {
+                frequire.accept(this);
+            }
+        }
+        if (f.fensures)
+        {
+            foreach (fensure; *f.fensures)
+            {
+                fensure.ensure.accept(this);
+            }
+        }
+        if (f.fbody)
+        {
+            f.fbody.accept(this);
+        }
     }
 
-    private void visitBaseClasses(AST.ClassDeclaration d)
+    void visitBaseClasses(AST.ClassDeclaration d)
     {
         //printf("Visiting ClassDeclaration\n");
         if (!d || !d.baseclasses.dim)
@@ -591,7 +625,7 @@ package mixin template ParseVisitMethods(AST)
             visitType(b.type);
     }
 
-    private bool visitEponymousMember(AST.TemplateDeclaration d)
+    bool visitEponymousMember(AST.TemplateDeclaration d)
     {
         //printf("Visiting EponymousMember\n");
         if (!d.members || d.members.dim != 1)
@@ -603,7 +637,7 @@ package mixin template ParseVisitMethods(AST)
         if (AST.FuncDeclaration fd = onemember.isFuncDeclaration())
         {
             assert(fd.type);
-            visitFunctionType(cast(AST.TypeFunction)fd.type, d);
+            visitFunctionType(fd.type.isTypeFunction(), d);
             if (d.constraint)
                 d.constraint.accept(this);
             visitFuncBody(fd);
@@ -634,9 +668,16 @@ package mixin template ParseVisitMethods(AST)
             visitTemplateParameters(d.parameters);
             if (vd._init)
             {
-                AST.ExpInitializer ie = vd._init.isExpInitializer();
-                if (ie && (ie.exp.op == TOKconstruct || ie.exp.op == TOKblit))
-                    (cast(AST.AssignExp)ie.exp).e2.accept(this);
+                // note similarity of this code with visitVarDecl()
+                if (auto ie = vd._init.isExpInitializer())
+                {
+                    if (auto ce = ie.exp.isConstructExp())
+                        ce.e2.accept(this);
+                    else if (auto be = ie.exp.isBlitExp())
+                        be.e2.accept(this);
+                    else
+                        vd._init.accept(this);
+                }
                 else
                     vd._init.accept(this);
 
@@ -647,7 +688,7 @@ package mixin template ParseVisitMethods(AST)
         return false;
     }
 
-    private void visitTemplateParameters(AST.TemplateParameters* parameters)
+    void visitTemplateParameters(AST.TemplateParameters* parameters)
     {
         if (!parameters || !parameters.dim)
             return;
@@ -669,7 +710,7 @@ package mixin template ParseVisitMethods(AST)
             s.accept(this);
     }
 
-    private void visitObject(RootObject oarg)
+    void visitObject(RootObject oarg)
     {
         if (auto t = AST.isType(oarg))
         {
@@ -687,7 +728,7 @@ package mixin template ParseVisitMethods(AST)
         }
     }
 
-    private void visitTiargs(AST.TemplateInstance ti)
+    void visitTiargs(AST.TemplateInstance ti)
     {
         //printf("Visiting tiargs\n");
         if (!ti.tiargs)
@@ -760,6 +801,15 @@ package mixin template ParseVisitMethods(AST)
             visitType(d.type);
     }
 
+    override void visit(AST.AliasAssign d)
+    {
+        //printf("Visting AliasAssign\n");
+        if (d.aliassym)
+            d.aliassym.accept(this);
+        else
+            visitType(d.type);
+    }
+
     override void visit(AST.VarDeclaration d)
     {
         //printf("Visiting VarDeclaration\n");
@@ -769,7 +819,7 @@ package mixin template ParseVisitMethods(AST)
     override void visit(AST.FuncDeclaration f)
     {
         //printf("Visiting FuncDeclaration\n");
-        auto tf = cast(AST.TypeFunction)f.type;
+        auto tf = f.type.isTypeFunction();
         visitType(tf);
         visitFuncBody(f);
     }
@@ -777,12 +827,12 @@ package mixin template ParseVisitMethods(AST)
     override void visit(AST.FuncLiteralDeclaration f)
     {
         //printf("Visiting FuncLiteralDeclaration\n");
-        if (f.type.ty == AST.Terror)
+        if (f.type.ty == Terror)
             return;
-        AST.TypeFunction tf = cast(AST.TypeFunction)f.type;
+        auto tf = f.type.isTypeFunction();
         if (!f.inferRetType && tf.next)
             visitType(tf.next);
-        visitParameters(tf.parameters);
+        visitParameters(tf.parameterList.parameters);
         AST.CompoundStatement cs = f.fbody.isCompoundStatement();
         AST.Statement s = !cs ? f.fbody : null;
         AST.ReturnStatement rs = s ? s.isReturnStatement() : null;
@@ -831,15 +881,6 @@ package mixin template ParseVisitMethods(AST)
     override void visit(AST.NewDeclaration d)
     {
         //printf("Visiting NewDeclaration\n");
-        visitParameters(d.parameters);
-        visitFuncBody(d);
-    }
-
-    override void visit(AST.DeleteDeclaration d)
-    {
-        //printf("Visiting DeleteDeclaration\n");
-        visitParameters(d.parameters);
-        visitFuncBody(d);
     }
 
 //   Initializers
@@ -869,6 +910,20 @@ package mixin template ParseVisitMethods(AST)
     {
         //printf("Visiting ExpInitializer\n");
         ei.exp.accept(this);
+    }
+
+    override void visit(AST.CInitializer ci)
+    {
+        //printf("Visiting CInitializer\n");
+        foreach (di; ci.initializerList)
+        {
+            foreach (des; (*di.designatorList)[])
+            {
+                if (des.exp)
+                    des.exp.accept(this);
+            }
+            di.initializer.accept(this);
+        }
     }
 
 //      Expressions
@@ -908,8 +963,6 @@ package mixin template ParseVisitMethods(AST)
         //printf("Visiting NewExp\n");
         if (e.thisexp)
             e.thisexp.accept(this);
-        if (e.newargs && e.newargs.dim)
-            visitArgs(e.newargs);
         visitType(e.newtype);
         if (e.arguments && e.arguments.dim)
             visitArgs(e.arguments);
@@ -920,8 +973,6 @@ package mixin template ParseVisitMethods(AST)
         //printf("Visiting NewAnonClassExp\n");
         if (e.thisexp)
             e.thisexp.accept(this);
-        if (e.newargs && e.newargs.dim)
-            visitArgs(e.newargs);
         if (e.arguments && e.arguments.dim)
             visitArgs(e.arguments);
         if (e.cd)
@@ -988,10 +1039,10 @@ package mixin template ParseVisitMethods(AST)
         e.e2.accept(this);
     }
 
-    override void visit(AST.CompileExp e)
+    override void visit(AST.MixinExp e)
     {
-        //printf("Visiting CompileExp\n");
-        e.e1.accept(this);
+        //printf("Visiting MixinExp\n");
+        visitArgs(e.exps);
     }
 
     override void visit(AST.ImportExp e)
@@ -1068,18 +1119,30 @@ package mixin template ParseVisitMethods(AST)
         e.e1.accept(this);
     }
 
-    override void visit(AST.PreExp e)
-    {
-        //printf("Visiting PreExp\n");
-        e.e1.accept(this);
-    }
-
     override void visit(AST.CondExp e)
     {
         //printf("Visiting CondExp\n");
         e.econd.accept(this);
         e.e1.accept(this);
         e.e2.accept(this);
+    }
+
+    override void visit(AST.GenericExp e)
+    {
+        //printf("Visiting GenericExp\n");
+        e.cntlExp.accept(this);
+        foreach (i; 0 .. (*e.types).length)
+        {
+            if (auto t = (*e.types)[i])  // null means default case
+                t.accept(this);
+            (*e.exps )[i].accept(this);
+        }
+    }
+
+    override void visit(AST.ThrowExp e)
+    {
+        //printf("Visiting ThrowExp\n");
+        e.e1.accept(this);
     }
 
 // Template Parameter

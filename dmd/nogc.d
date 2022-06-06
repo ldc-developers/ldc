@@ -1,19 +1,21 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Checks that a function marked `@nogc` does not invoke the Garbage Collector.
  *
- * Copyright:   Copyright (c) 1999-2017 by The D Language Foundation, All Rights Reserved
- * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
- * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Specification: $(LINK2 https://dlang.org/spec/function.html#nogc-functions, No-GC Functions)
+ *
+ * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/nogc.d, _nogc.d)
+ * Documentation:  https://dlang.org/phobos/dmd_nogc.html
+ * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/nogc.d
  */
 
 module dmd.nogc;
 
-// Online documentation: https://dlang.org/phobos/dmd_nogc.html
-
 import dmd.aggregate;
 import dmd.apply;
+import dmd.astenums;
 import dmd.declaration;
 import dmd.dscope;
 import dmd.expression;
@@ -29,7 +31,7 @@ import dmd.visitor;
  */
 extern (C++) final class NOGCVisitor : StoppableVisitor
 {
-    alias visit = super.visit;
+    alias visit = typeof(super).visit;
 public:
     FuncDeclaration f;
     bool err;
@@ -53,7 +55,7 @@ public:
     {
         // Note that, walkPostorder does not support DeclarationExp today.
         VarDeclaration v = e.declaration.isVarDeclaration();
-        if (v && !(v.storage_class & STCmanifest) && !v.isDataseg() && v._init)
+        if (v && !(v.storage_class & STC.manifest) && !v.isDataseg() && v._init)
         {
             if (ExpInitializer ei = v._init.isExpInitializer())
             {
@@ -64,6 +66,24 @@ public:
 
     override void visit(CallExp e)
     {
+        import dmd.id : Id;
+        import core.stdc.stdio : printf;
+        if (!e.f)
+            return;
+
+        // Treat lowered hook calls as their original expressions.
+        auto fd = stripHookTraceImpl(e.f);
+        if (fd.ident == Id._d_arraysetlengthT)
+        {
+            if (f.setGC())
+            {
+                e.error("setting `length` in `@nogc` %s `%s` may cause a GC allocation",
+                    f.kind(), f.toPrettyChars());
+                err = true;
+                return;
+            }
+            f.printGCUsage(e.loc, "setting `length` may cause a GC allocation");
+        }
     }
 
     override void visit(ArrayLiteralExp e)
@@ -72,12 +92,12 @@ public:
             return;
         if (f.setGC())
         {
-            e.error("array literal in @nogc %s '%s' may cause GC allocation",
+            e.error("array literal in `@nogc` %s `%s` may cause a GC allocation",
                 f.kind(), f.toPrettyChars());
             err = true;
             return;
         }
-        f.printGCUsage(e.loc, "array literal may cause GC allocation");
+        f.printGCUsage(e.loc, "array literal may cause a GC allocation");
     }
 
     override void visit(AssocArrayLiteralExp e)
@@ -86,12 +106,12 @@ public:
             return;
         if (f.setGC())
         {
-            e.error("associative array literal in @nogc %s '%s' may cause GC allocation",
+            e.error("associative array literal in `@nogc` %s `%s` may cause a GC allocation",
                 f.kind(), f.toPrettyChars());
             err = true;
             return;
         }
-        f.printGCUsage(e.loc, "associative array literal may cause GC allocation");
+        f.printGCUsage(e.loc, "associative array literal may cause a GC allocation");
     }
 
     override void visit(NewExp e)
@@ -103,57 +123,29 @@ public:
         }
         if (e.onstack)
             return;
-        if (e.allocator)
-            return;
         if (global.params.ehnogc && e.thrownew)
             return;                     // separate allocator is called for this, not the GC
         if (f.setGC())
         {
-            e.error("cannot use 'new' in @nogc %s '%s'",
+            e.error("cannot use `new` in `@nogc` %s `%s`",
                 f.kind(), f.toPrettyChars());
             err = true;
             return;
         }
-        f.printGCUsage(e.loc, "'new' causes GC allocation");
+        f.printGCUsage(e.loc, "`new` causes a GC allocation");
     }
 
     override void visit(DeleteExp e)
     {
-        if (e.e1.op == TOKvar)
+        if (VarExp ve = e.e1.isVarExp())
         {
-            VarDeclaration v = (cast(VarExp)e.e1).var.isVarDeclaration();
+            VarDeclaration v = ve.var.isVarDeclaration();
             if (v && v.onstack)
                 return; // delete for scope allocated class object
         }
 
-        Type tb = e.e1.type.toBasetype();
-        AggregateDeclaration ad = null;
-        switch (tb.ty)
-        {
-        case Tclass:
-            ad = (cast(TypeClass)tb).sym;
-            break;
-
-        case Tpointer:
-            tb = (cast(TypePointer)tb).next.toBasetype();
-            if (tb.ty == Tstruct)
-                ad = (cast(TypeStruct)tb).sym;
-            break;
-
-        default:
-            break;
-        }
-        if (ad && ad.aggDelete)
-            return;
-
-        if (f.setGC())
-        {
-            e.error("cannot use 'delete' in @nogc %s '%s'",
-                f.kind(), f.toPrettyChars());
-            err = true;
-            return;
-        }
-        f.printGCUsage(e.loc, "'delete' requires GC");
+        // Semantic should have already handled this case.
+        assert(0);
     }
 
     override void visit(IndexExp e)
@@ -163,27 +155,27 @@ public:
         {
             if (f.setGC())
             {
-                e.error("indexing an associative array in @nogc %s '%s' may cause GC allocation",
+                e.error("indexing an associative array in `@nogc` %s `%s` may cause a GC allocation",
                     f.kind(), f.toPrettyChars());
                 err = true;
                 return;
             }
-            f.printGCUsage(e.loc, "indexing an associative array may cause GC allocation");
+            f.printGCUsage(e.loc, "indexing an associative array may cause a GC allocation");
         }
     }
 
     override void visit(AssignExp e)
     {
-        if (e.e1.op == TOKarraylength)
+        if (e.e1.op == EXP.arrayLength)
         {
             if (f.setGC())
             {
-                e.error("setting 'length' in @nogc %s '%s' may cause GC allocation",
+                e.error("setting `length` in `@nogc` %s `%s` may cause a GC allocation",
                     f.kind(), f.toPrettyChars());
                 err = true;
                 return;
             }
-            f.printGCUsage(e.loc, "setting 'length' may cause GC allocation");
+            f.printGCUsage(e.loc, "setting `length` may cause a GC allocation");
         }
     }
 
@@ -191,36 +183,61 @@ public:
     {
         if (f.setGC())
         {
-            e.error("cannot use operator ~= in @nogc %s '%s'",
+            e.error("cannot use operator `~=` in `@nogc` %s `%s`",
                 f.kind(), f.toPrettyChars());
             err = true;
             return;
         }
-        f.printGCUsage(e.loc, "operator ~= may cause GC allocation");
+        f.printGCUsage(e.loc, "operator `~=` may cause a GC allocation");
     }
 
     override void visit(CatExp e)
     {
         if (f.setGC())
         {
-            e.error("cannot use operator ~ in @nogc %s '%s'",
+            e.error("cannot use operator `~` in `@nogc` %s `%s`",
                 f.kind(), f.toPrettyChars());
             err = true;
             return;
         }
-        f.printGCUsage(e.loc, "operator ~ may cause GC allocation");
+        f.printGCUsage(e.loc, "operator `~` may cause a GC allocation");
     }
 }
 
-extern (C++) Expression checkGC(Scope* sc, Expression e)
+Expression checkGC(Scope* sc, Expression e)
 {
     FuncDeclaration f = sc.func;
-    if (e && e.op != TOKerror && f && sc.intypeof != 1 && !(sc.flags & SCOPEctfe) && (f.type.ty == Tfunction && (cast(TypeFunction)f.type).isnogc || (f.flags & FUNCFLAG.nogcInprocess) || global.params.vgc))
+    if (e && e.op != EXP.error && f && sc.intypeof != 1 && !(sc.flags & SCOPE.ctfe) &&
+           (f.type.ty == Tfunction &&
+            (cast(TypeFunction)f.type).isnogc || (f.flags & FUNCFLAG.nogcInprocess) || global.params.vgc) &&
+           !(sc.flags & SCOPE.debug_))
     {
         scope NOGCVisitor gcv = new NOGCVisitor(f);
         walkPostorder(e, gcv);
         if (gcv.err)
-            return new ErrorExp();
+            return ErrorExp.get();
     }
     return e;
+}
+
+/**
+ * Removes `_d_HookTraceImpl` if found from `fd`.
+ * This is needed to be able to find hooks that are called though the hook's `*Trace` wrapper.
+ * Parameters:
+ *  fd = The function declaration to remove `_d_HookTraceImpl` from
+ */
+private FuncDeclaration stripHookTraceImpl(FuncDeclaration fd)
+{
+    import dmd.id : Id;
+    import dmd.dsymbol : Dsymbol;
+    import dmd.root.rootobject : RootObject, DYNCAST;
+
+    if (fd.ident != Id._d_HookTraceImpl)
+        return fd;
+
+    // Get the Hook from the second template parameter
+    auto templateInstance = fd.parent.isTemplateInstance;
+    RootObject hook = (*templateInstance.tiargs)[1];
+    assert(hook.dyncast() == DYNCAST.dsymbol, "Expected _d_HookTraceImpl's second template parameter to be an alias to the hook!");
+    return (cast(Dsymbol)hook).isFuncDeclaration;
 }

@@ -28,6 +28,11 @@ static assert(false, "LDC_DynamicCompilation is not defined");
   writeln("baz");
 }
 
+@dynamicCompile int bzz(int a, int b)
+{
+  return a + b;
+}
+
 void main(string[] args)
 {
   void run(CompilerSettings settings)
@@ -38,6 +43,7 @@ void main(string[] args)
     baz();
     int function() fptr = &bar;
     assert(12 == fptr());
+    assert(15 == bzz(7, 8));
   }
 
   foreach(i;0..4)

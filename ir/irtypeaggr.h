@@ -7,8 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_IR_IRTYPEAGGR_H
-#define LDC_IR_IRTYPEAGGR_H
+#pragma once
 
 #include "ir/irtype.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -67,10 +66,6 @@ public:
   void getMemberLocation(VarDeclaration *var, unsigned &fieldIndex,
                          unsigned &byteOffset) const;
 
-  /// Composite type debug description. This is not only to cache, but also
-  /// used for resolving forward references.
-  llvm::DIType *diCompositeType = nullptr;
-
   /// true, if the LLVM struct type for the aggregate is declared as packed
   bool packed = false;
 
@@ -95,5 +90,3 @@ protected:
   /// offset.
   VarGEPIndices varGEPIndices;
 };
-
-#endif

@@ -7,18 +7,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "module.h"
-#include "errors.h"
-#include "id.h"
-#include "hdrgen.h"
-#include "json.h"
-#include "mars.h"
-#include "mtype.h"
-#include "identifier.h"
-#include "rmem.h"
-#include "root.h"
-#include "scope.h"
+#include "dmd/compiler.h"
+#include "dmd/cond.h"
+#include "dmd/errors.h"
+#include "dmd/id.h"
+#include "dmd/identifier.h"
+#include "dmd/hdrgen.h"
+#include "dmd/json.h"
+#include "dmd/ldcbindings.h"
+#include "dmd/mars.h"
+#include "dmd/module.h"
+#include "dmd/mtype.h"
+#include "dmd/root/rmem.h"
+#include "dmd/scope.h"
 #include "dmd/target.h"
+#include "driver/args.h"
 #include "driver/cache.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
@@ -29,7 +32,10 @@
 #include "driver/exe_path.h"
 #include "driver/ldc-version.h"
 #include "driver/linker.h"
+#include "driver/plugins.h"
 #include "driver/targetmachine.h"
+#include "driver/timetrace.h"
+#include "gen/abi.h"
 #include "gen/cl_helpers.h"
 #include "gen/irstate.h"
 #include "gen/ldctraits.h"
@@ -37,59 +43,50 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
-#include "gen/metadata.h"
 #include "gen/modules.h"
 #include "gen/objcgen.h"
 #include "gen/optimizer.h"
+#include "gen/passes/metadata.h"
 #include "gen/passes/Passes.h"
 #include "gen/runtime.h"
 #include "gen/uda.h"
-#include "gen/abi.h"
+#include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/LinkAllIR.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Path.h"
-#if LDC_LLVM_VER >= 308
 #include "llvm/Support/StringSaver.h"
-#endif
+#if LDC_LLVM_VER >= 1400
+#include "llvm/MC/TargetRegistry.h"
+#else
 #include "llvm/Support/TargetRegistry.h"
+#endif
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
-#if LDC_LLVM_VER >= 600
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
-#else
-#include "llvm/Target/TargetSubtargetInfo.h"
+#if LDC_MLIR_ENABLED
+#include "mlir/IR/MLIRContext.h"
 #endif
-#include "llvm/LinkAllIR.h"
-#include "llvm/IR/LLVMContext.h"
 #include <assert.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+
 #if _WIN32
+#include "llvm/Support/ConvertUTF.h"
 #include <windows.h>
 #endif
-
-// Needs Type already declared.
-#include "cond.h"
-
-// From druntime/src/core/runtime.d.
-extern "C" {
-int rt_init();
-}
 
 // In dmd/doc.d
 void gendocfile(Module *m);
 
+// In dmd/mars.d
+void generateJson(Modules *modules);
+
 using namespace opts;
-
-extern void getenv_setargv(const char *envvar, int *pargc, char ***pargv);
-
-static cl::opt<bool> noDefaultLib(
-    "nodefaultlib", cl::ZeroOrMore, cl::Hidden,
-    cl::desc("Don't add a default library for linking implicitly"));
 
 static StringsAdapter impPathsStore("I", global.params.imppath);
 static cl::list<std::string, StringsAdapter>
@@ -97,36 +94,19 @@ static cl::list<std::string, StringsAdapter>
                 cl::value_desc("directory"), cl::location(impPathsStore),
                 cl::Prefix);
 
-static cl::opt<std::string>
-    defaultLib("defaultlib", cl::ZeroOrMore, cl::value_desc("lib1,lib2,..."),
-               cl::desc("Default libraries to link with (overrides previous)"),
-               cl::cat(linkingCategory));
+// Note: this option is parsed manually in C main().
+static cl::opt<bool> enableGC(
+    "lowmem", cl::ZeroOrMore,
+    cl::desc("Enable the garbage collector for the LDC front-end. This reduces "
+             "the compiler memory requirements but increases compile times."));
 
-static cl::opt<std::string> debugLib(
-    "debuglib", cl::ZeroOrMore, cl::Hidden, cl::value_desc("lib1,lib2,..."),
-    cl::desc("Debug versions of default libraries (overrides previous). If the "
-             "option is omitted, LDC will append -debug to the -defaultlib "
-             "names when linking with -link-defaultlib-debug"),
-    cl::cat(linkingCategory));
-
-static cl::opt<bool> linkDefaultLibDebug(
-    "link-defaultlib-debug", cl::ZeroOrMore,
-    cl::desc("Link with debug versions of default libraries"),
-    cl::cat(linkingCategory));
-static cl::alias _linkDebugLib("link-debuglib", cl::Hidden,
-                               cl::aliasopt(linkDefaultLibDebug),
-                               cl::desc("Alias for -link-defaultlib-debug"),
-                               cl::cat(linkingCategory));
-
-static cl::opt<bool> linkDefaultLibShared(
-    "link-defaultlib-shared", cl::ZeroOrMore,
-    cl::desc("Link with shared versions of default libraries"),
-    cl::cat(linkingCategory));
+namespace {
 
 // This function exits the program.
 void printVersion(llvm::raw_ostream &OS) {
-  OS << "LDC - the LLVM D compiler (" << global.ldc_version << "):\n";
-  OS << "  based on DMD " << global.version << " and LLVM " << global.llvm_version << "\n";
+  OS << "LDC - the LLVM D compiler (" << ldc::ldc_version << "):\n";
+  OS << "  based on DMD " << ldc::dmd_version << " and LLVM "
+     << ldc::llvm_version << "\n";
   OS << "  built with " << ldc::built_with_Dcompiler_version << "\n";
 #if defined(__has_feature)
 #if __has_feature(address_sanitizer)
@@ -134,8 +114,11 @@ void printVersion(llvm::raw_ostream &OS) {
 #endif
 #endif
   OS << "  Default target: " << llvm::sys::getDefaultTargetTriple() << "\n";
-  std::string CPU = llvm::sys::getHostCPUName();
-  if (CPU == "generic") {
+  std::string CPU(llvm::sys::getHostCPUName());
+  if (CPU == "generic" || env::has("SOURCE_DATE_EPOCH")) {
+    // Env variable SOURCE_DATE_EPOCH indicates that a reproducible build is
+    // wanted. Don't print the actual host CPU in such an environment to aid
+    // in man page generation etc.
     CPU = "(unknown)";
   }
   OS << "  Host CPU: " << CPU << "\n";
@@ -146,23 +129,10 @@ void printVersion(llvm::raw_ostream &OS) {
   // redirecting stdout to a file.
   OS.flush();
 
-  llvm::TargetRegistry::printRegisteredTargetsForVersion(
-#if LDC_LLVM_VER >= 600
-    OS
-#endif
-    );
+  llvm::TargetRegistry::printRegisteredTargetsForVersion(OS);
 
   exit(EXIT_SUCCESS);
 }
-
-// This function exits the program.
-void printVersionStdout() {
-  printVersion(llvm::outs());
-  assert(false);
-}
-
-
-namespace {
 
 // Helper function to handle -d-debug=* and -d-version=*
 void processVersions(std::vector<std::string> &list, const char *type,
@@ -182,7 +152,7 @@ void processVersions(std::vector<std::string> &list, const char *type,
       char *cstr = mem.xstrdup(value);
       if (Identifier::isValidIdentifier(cstr)) {
         if (!globalIDs)
-          globalIDs = new Strings();
+          globalIDs = createStrings();
         globalIDs->push(cstr);
         continue;
       } else {
@@ -192,67 +162,52 @@ void processVersions(std::vector<std::string> &list, const char *type,
   }
 }
 
-// Helper function to handle -transition=*
-void processTransitions(std::vector<std::string> &list) {
-  for (const auto &i : list) {
-    if (i == "?") {
-      printf("\n"
-             "Language changes listed by -transition=id:\n"
-             "  =all           list information on all language changes\n"
-             "  =checkimports  give deprecation messages about 10378 "
-             "anomalies\n"
-             "  =complex,14488 list all usages of complex or imaginary types\n"
-             "  =field,3449    list all non-mutable fields which occupy an "
-             "object instance\n"
-             "  =import,10378  revert to single phase name lookup\n"
-             "  =intpromote,16997 fix integral promotions for unary + - ~ operators\n"
-             "  =tls           list all variables going into thread local "
-             "storage\n");
-      exit(EXIT_SUCCESS);
-    } else if (i == "all") {
-      global.params.vtls = true;
-      global.params.vfield = true;
-      global.params.vcomplex = true;
-      global.params.bug10378 = true;   // not set in DMD
-      global.params.check10378 = true; // not set in DMD
-    } else if (i == "checkimports") {
-      global.params.check10378 = true;
-    } else if (i == "complex" || i == "14488") {
-      global.params.vcomplex = true;
-    } else if (i == "field" || i == "3449") {
-      global.params.vfield = true;
-    } else if (i == "import" || i == "10378") {
-      global.params.bug10378 = true;
-    } else if (i == "intpromote" || i == "16997") {
-      global.params.fix16997 = true;
-    } else if (i == "tls") {
-      global.params.vtls = true;
-    } else {
-      error(Loc(), "Invalid transition %s", i.c_str());
-    }
-  }
-}
-
+// Tries to parse the value of `-[-]<option>{=, }<value>` at `args[i]`.
 template <int N> // option length incl. terminating null
 void tryParse(const llvm::SmallVectorImpl<const char *> &args, size_t i,
-              const char *&output, const char (&option)[N]) {
-  if (strncmp(args[i], option, N - 1) != 0)
+              const char *&value, const char (&option)[N]) {
+  const char *arg = args[i];
+  if (arg[0] != '-')
     return;
 
-  char nextChar = args[i][N - 1];
+  const char *start = arg + (arg[1] == '-' ? 2 : 1);
+  if (strncmp(start, option, N - 1) != 0)
+    return;
+
+  const char nextChar = start[N - 1];
   if (nextChar == '=')
-    output = args[i] + N;
+    value = start + N;
   else if (nextChar == 0 && i < args.size() - 1)
-    output = args[i + 1];
+    value = args[i + 1];
+}
+
+bool tryParseLowmem(const llvm::SmallVectorImpl<const char *> &args) {
+  bool lowmem = false;
+  for (size_t i = 1; i < args.size(); ++i) {
+    if (args::isRunArg(args[i]))
+      break;
+
+    llvm::StringRef arg = args[i];
+    if (arg.startswith("-lowmem") || arg.startswith("--lowmem")) {
+      auto remainder = arg.substr(arg[1] == '-' ? 8 : 7);
+      if (remainder.empty()) {
+        lowmem = true;
+      } else if (remainder[0] == '=') {
+        auto value = remainder.substr(1);
+        lowmem = (value == "true" || value == "TRUE");
+      }
+    }
+  }
+  return lowmem;
 }
 
 const char *
 tryGetExplicitConfFile(const llvm::SmallVectorImpl<const char *> &args) {
   const char *conf = nullptr;
-  // begin at the back => use latest -conf specification
-  assert(args.size() >= 1);
-  for (size_t i = args.size() - 1; !conf && i >= 1; --i) {
-    tryParse(args, i, conf, "-conf");
+  for (size_t i = 1; i < args.size(); ++i) {
+    if (args::isRunArg(args[i]))
+      break;
+    tryParse(args, i, conf, "conf");
   }
   return conf;
 }
@@ -262,22 +217,36 @@ tryGetExplicitTriple(const llvm::SmallVectorImpl<const char *> &args) {
   // most combinations of flags are illegal, this mimicks command line
   //  behaviour for legal ones only
   llvm::Triple triple(llvm::sys::getDefaultTargetTriple());
+  unsigned explicitBitness = 0;
   const char *mtriple = nullptr;
   const char *march = nullptr;
   for (size_t i = 1; i < args.size(); ++i) {
-    if (sizeof(void *) != 4 && strcmp(args[i], "-m32") == 0) {
+    if (args::isRunArg(args[i]))
+      break;
+
+    const llvm::StringRef arg = args[i];
+    if (arg == "-m32" || arg == "--m32") {
+      explicitBitness = 32;
+    } else if (arg == "-m64" || arg == "--m64") {
+      explicitBitness = 64;
+    } else {
+      tryParse(args, i, mtriple, "mtriple");
+      tryParse(args, i, march, "march");
+    }
+  }
+
+  // -m{32,64} and -mtriple/-march are mutually exclusive (checked later on)
+  if (explicitBitness) {
+    if (!triple.isArch32Bit() && explicitBitness == 32) {
       triple = triple.get32BitArchVariant();
       if (triple.getArch() == llvm::Triple::ArchType::x86)
         triple.setArchName("i686"); // instead of i386
-      return triple;
+    } else if (!triple.isArch64Bit() && explicitBitness == 64) {
+      triple = triple.get64BitArchVariant();
     }
-
-    if (sizeof(void *) != 8 && strcmp(args[i], "-m64") == 0)
-      return triple.get64BitArchVariant();
-
-    tryParse(args, i, mtriple, "-mtriple");
-    tryParse(args, i, march, "-march");
+    return triple;
   }
+
   if (mtriple)
     triple = llvm::Triple(llvm::Triple::normalize(mtriple));
   if (march) {
@@ -287,41 +256,16 @@ tryGetExplicitTriple(const llvm::SmallVectorImpl<const char *> &args) {
   return triple;
 }
 
-void expandResponseFiles(llvm::BumpPtrAllocator &A,
-                         llvm::SmallVectorImpl<const char *> &args) {
-#if LDC_LLVM_VER >= 308
-  llvm::StringSaver Saver(A);
-  cl::ExpandResponseFiles(Saver,
-#ifdef _WIN32
-                          cl::TokenizeWindowsCommandLine
-#else
-                          cl::TokenizeGNUCommandLine
-#endif
-                          ,
-                          args);
-#endif
-}
-
 /// Parses switches from the command line, any response files and the global
 /// config file and sets up global.params accordingly.
 ///
 /// Returns a list of source file names.
-void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
-                      bool &helpOnly) {
-  global.params.argv0 = exe_path::getExePath().data();
-
-  // Set up `opts::allArguments`, the combined list of command line arguments.
-  using opts::allArguments;
-
-  // initialize with the actual command line
-  allArguments.insert(allArguments.end(), argv, argv + argc);
-
-  // expand response files (`@<file>`) in-place
-  llvm::BumpPtrAllocator allocator;
-  expandResponseFiles(allocator, allArguments);
+void parseCommandLine(Strings &sourceFiles) {
+  const auto &exePath = exe_path::getExePath();
+  global.params.argv0 = {exePath.length(), exePath.data()};
 
   // read config file
-  ConfigFile cfg_file;
+  ConfigFile &cfg_file = ConfigFile::instance;
   const char *explicitConfFile = tryGetExplicitConfFile(allArguments);
   const std::string cfg_triple = tryGetExplicitTriple(allArguments).getTriple();
   // just ignore errors for now, they are still printed
@@ -330,23 +274,32 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   cfg_file.extendCommandLine(allArguments);
 
   // finalize by expanding response files specified in config file
-  expandResponseFiles(allocator, allArguments);
+  args::expandResponseFiles(allArguments);
 
-#if LDC_LLVM_VER >= 600
   cl::SetVersionPrinter(&printVersion);
-#else
-  cl::SetVersionPrinter(&printVersionStdout);
-#endif
 
   opts::hideLLVMOptions();
   opts::createClashingOptions();
 
-  cl::ParseCommandLineOptions(allArguments.size(),
-                              const_cast<char **>(allArguments.data()),
+  // Filter out druntime options in the cmdline, e.g., to configure the GC.
+  std::vector<const char *> filteredArgs;
+  filteredArgs.reserve(allArguments.size());
+  for (size_t i = 0; i < allArguments.size(); ++i) {
+    const char *arg = allArguments[i];
+    if (args::isRunArg(arg)) {
+      filteredArgs.insert(filteredArgs.end(), allArguments.begin() + i,
+                          allArguments.end());
+      break;
+    }
+    if (strncmp(arg, "--DRT-", 6) != 0)
+      filteredArgs.push_back(arg);
+  }
+
+  cl::ParseCommandLineOptions(filteredArgs.size(),
+                              const_cast<char **>(filteredArgs.data()),
                               "LDC - the LLVM D compiler\n");
 
-  helpOnly = opts::printTargetFeaturesHelp();
-  if (helpOnly) {
+  if (opts::printTargetFeaturesHelp()) {
     auto triple = llvm::Triple(cfg_triple);
     std::string errMsg;
     if (auto target = lookupTarget("", triple, errMsg)) {
@@ -357,52 +310,69 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
       error(Loc(), "%s", errMsg.c_str());
       fatal();
     }
-    return;
+    exit(EXIT_SUCCESS);
   }
+
+  if (!cfg_file.path().empty())
+    global.inifilename = dupPathString(cfg_file.path());
 
   // Print some information if -v was passed
   // - path to compiler binary
   // - version number
   // - used config file
   if (global.params.verbose) {
-    fprintf(global.stdmsg, "binary    %s\n", exe_path::getExePath().c_str());
-    fprintf(global.stdmsg, "version   %s (DMD %s, LLVM %s)\n",
-            global.ldc_version, global.version, global.llvm_version);
-    const std::string path = cfg_file.path();
-    if (!path.empty()) {
-      fprintf(global.stdmsg, "config    %s (%s)\n", path.c_str(),
-              cfg_triple.c_str());
+    message("binary    %s", exe_path::getExePath().c_str());
+    message("version   %s (DMD %s, LLVM %s)", ldc::ldc_version,
+            ldc::dmd_version, ldc::llvm_version);
+    if (global.inifilename.length) {
+      message("config    %.*s (%s)", (int)global.inifilename.length,
+              global.inifilename.ptr, cfg_triple.c_str());
     }
   }
 
   // Negated options
   global.params.link = !compileOnly;
   global.params.obj = !dontWriteObj;
-  global.params.release = !opts::invReleaseMode;
   global.params.useInlineAsm = !noAsm;
 
-  // String options: std::string --> char*
-  opts::initFromPathString(global.params.objname, objectFile);
-  opts::initFromPathString(global.params.objdir, objectDir);
+  // String options
+  global.params.objname = opts::fromPathString(objectFile);
+  global.params.objdir = opts::fromPathString(objectDir);
 
-  opts::initFromPathString(global.params.docdir, ddocDir);
-  opts::initFromPathString(global.params.docname, ddocFile);
-  global.params.doDocComments |= global.params.docdir || global.params.docname;
+  global.params.docdir = opts::fromPathString(ddocDir);
+  global.params.docname = opts::fromPathString(ddocFile);
+  global.params.doDocComments |=
+      global.params.docdir.length || global.params.docname.length;
 
-  opts::initFromPathString(global.params.jsonfilename, jsonFile);
-  if (global.params.jsonfilename) {
+  global.params.jsonfilename = opts::fromPathString(jsonFile);
+  if (global.params.jsonfilename.length || !jsonFields.empty()) {
     global.params.doJsonGeneration = true;
   }
 
-  opts::initFromPathString(global.params.hdrdir, hdrDir);
-  opts::initFromPathString(global.params.hdrname, hdrFile);
+  global.params.hdrdir = opts::fromPathString(hdrDir);
+  global.params.hdrname = opts::fromPathString(hdrFile);
   global.params.doHdrGeneration |=
-      global.params.hdrdir || global.params.hdrname;
+      global.params.hdrdir.length || global.params.hdrname.length;
+
+  global.params.cxxhdrdir = opts::fromPathString(cxxHdrDir);
+  global.params.cxxhdrname = opts::fromPathString(cxxHdrFile);
+  if (global.params.doCxxHdrGeneration == CxxHeaderMode::none &&
+      (global.params.cxxhdrdir.length || global.params.cxxhdrname.length)) {
+    global.params.doCxxHdrGeneration = CxxHeaderMode::silent;
+  }
+
+  global.params.mixinFile = opts::fromPathString(mixinFile).ptr;
 
   if (moduleDeps.getNumOccurrences() != 0) {
-    global.params.moduleDeps = new OutBuffer;
+    global.params.moduleDeps = createOutBuffer();
     if (!moduleDeps.empty())
       global.params.moduleDepsFile = opts::dupPathString(moduleDeps);
+  }
+
+  if (makeDeps.getNumOccurrences() != 0) {
+    global.params.emitMakeDeps = true;
+    if (!makeDeps.empty())
+      global.params.makeDepsFile = opts::dupPathString(makeDeps);
   }
 
 #if _WIN32
@@ -410,17 +380,35 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     if (!paths)
       return;
     for (auto &path : *paths)
-      path = opts::dupPathString(path);
+      path = opts::dupPathString(path).ptr;
   };
   toWinPaths(global.params.imppath);
   toWinPaths(global.params.fileImppath);
 #endif
 
-#if LDC_LLVM_VER >= 400
+  for (const auto &field : jsonFields) {
+    const unsigned flag = tryParseJsonField(field.c_str());
+    if (flag == 0) {
+      error(Loc(), "unknown JSON field `-Xi=%s`", field.c_str());
+    } else {
+      global.params.jsonFieldFlags |= flag;
+    }
+  }
+
+  includeImports = !opts::includeModulePatterns.empty();
+  for (const auto &pattern : opts::includeModulePatterns) {
+    // a value-less `-i` only enables `includeImports`
+    if (!pattern.empty())
+      ::includeModulePatterns.push_back(pattern.c_str());
+  }
+  // When including imports, their object files aren't tracked in
+  // global.params.objfiles etc. Enforce `-singleobj` to avoid related issues.
+  if (includeImports)
+    global.params.oneobj = true;
+
   if (saveOptimizationRecord.getNumOccurrences() > 0) {
     global.params.outputSourceLocations = true;
   }
-#endif
 
   opts::initializeSanitizerOptionsFromCmdline();
 
@@ -429,26 +417,45 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   processVersions(versions, "version", global.params.versionlevel,
                   global.params.versionids);
 
-  processTransitions(transitions);
+  for (const auto &id : transitions)
+    parseTransitionOption(global.params, id.c_str());
+  for (const auto &id : previews)
+    parsePreviewOption(global.params, id.c_str());
+  for (const auto &id : reverts)
+    parseRevertOption(global.params, id.c_str());
 
-  if (useDIP1000) {
-    global.params.useDIP25 = true;
-    global.params.vsafe = true;
+  if (global.params.useDIP1021) // DIP1021 implies DIP1000
+    global.params.useDIP1000 = FeatureState::enabled;
+  // legacy -dip1000 option
+  if (global.params.useDIP1000 == FeatureState::default_ &&
+      opts::useDIP1000.getNumOccurrences()) {
+    global.params.useDIP1000 =
+        opts::useDIP1000 ? FeatureState::enabled : FeatureState::disabled;
+  }
+
+  if (global.params.useDIP1000 == FeatureState::enabled) // DIP1000 implies DIP25
+    global.params.useDIP25 = FeatureState::enabled;
+  // legacy -dip25 option
+  if (global.params.useDIP25 == FeatureState::default_ &&
+      opts::useDIP25.getNumOccurrences()) {
+    global.params.useDIP25 =
+        opts::useDIP25 ? FeatureState::enabled : FeatureState::disabled;
   }
 
   global.params.output_o =
       (opts::output_o == cl::BOU_UNSET &&
-       !(opts::output_bc || opts::output_ll || opts::output_s))
+       !(opts::output_bc || opts::output_ll || opts::output_s ||
+         opts::output_mlir))
           ? OUTPUTFLAGdefault
           : opts::output_o == cl::BOU_TRUE ? OUTPUTFLAGset : OUTPUTFLAGno;
   global.params.output_bc = opts::output_bc ? OUTPUTFLAGset : OUTPUTFLAGno;
   global.params.output_ll = opts::output_ll ? OUTPUTFLAGset : OUTPUTFLAGno;
+  global.params.output_mlir = opts::output_mlir ? OUTPUTFLAGset : OUTPUTFLAGno;
   global.params.output_s = opts::output_s ? OUTPUTFLAGset : OUTPUTFLAGno;
 
-  global.params.cov = (global.params.covPercent <= 100);
-
-  templateLinkage = opts::linkonceTemplates ? LLGlobalValue::LinkOnceODRLinkage
-                                            : LLGlobalValue::WeakODRLinkage;
+  templateLinkage = global.params.linkonceTemplates == LinkonceTemplates::no
+                        ? LLGlobalValue::WeakODRLinkage
+                        : LLGlobalValue::LinkOnceODRLinkage;
 
   if (global.params.run || !runargs.empty()) {
     // FIXME: how to properly detect the presence of a PositionalEatsArgs
@@ -464,8 +471,10 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
       } else {
         char const *name = runargs[0].c_str();
         char const *ext = FileName::ext(name);
-        if (ext && !FileName::equals(ext, "d") &&
-            !FileName::equals(ext, "di")) {
+        if (ext && !FileName::equals(ext, mars_ext.ptr) &&
+            !FileName::equals(ext, hdr_ext.ptr) &&
+            !FileName::equals(ext, i_ext.ptr) &&
+            !FileName::equals(ext, c_ext.ptr)) {
           error(Loc(), "-run must be followed by a source file, not '%s'",
                 name);
         }
@@ -476,111 +485,57 @@ void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
       global.params.run = false;
       error(Loc(), "Expected at least one argument to '-run'\n");
     }
+
+    // -run: enforce -oq and -cleanup-obj for non-conflicting temporary objects
+    if (global.params.run) {
+      global.params.fullyQualifiedObjectFiles = true;
+      global.params.cleanupObjectFiles = true;
+    }
   }
 
   sourceFiles.reserve(fileList.size());
   for (const auto &file : fileList) {
     if (!file.empty()) {
-      if (file == "-") {
-        sourceFiles.push("__stdin.d");
-      } else {
-        char *copy = opts::dupPathString(file);
-        sourceFiles.push(copy);
-      }
+      sourceFiles.push(file == "-" ? "__stdin.d"
+                                   : opts::dupPathString(file).ptr);
     }
   }
-
-  // default libraries
-  if (noDefaultLib) {
-    deprecation(Loc(), "-nodefaultlib is deprecated, as -defaultlib now "
-                       "overrides the existing list instead of appending to "
-                       "it. Please use the latter instead.");
-  } else if (!global.params.betterC) {
-    if (linkDefaultLibShared && staticFlag == cl::BOU_TRUE) {
-      error(Loc(), "Can't use -link-defaultlib-shared and -static together");
-    }
-
-    const bool addDebugSuffix =
-        (linkDefaultLibDebug && debugLib.getNumOccurrences() == 0);
-    // Default to shared default libs for DLLs compiled without -static.
-    const bool addSharedSuffix =
-        linkDefaultLibShared ||
-        (linkDefaultLibShared.getNumOccurrences() == 0 && global.params.dll &&
-         staticFlag != cl::BOU_TRUE);
-
-    // Parse comma-separated default library list.
-    std::stringstream libNames(
-        linkDefaultLibDebug && !addDebugSuffix ? debugLib : defaultLib);
-    while (libNames.good()) {
-      std::string lib;
-      std::getline(libNames, lib, ',');
-      if (lib.empty()) {
-        continue;
-      }
-
-      std::ostringstream os;
-      os << "-l" << lib;
-      if (addDebugSuffix)
-        os << "-debug";
-      if (addSharedSuffix)
-        os << "-shared";
-
-      char *arg = mem.xstrdup(os.str().c_str());
-      global.params.linkswitches.push(arg);
-    }
-  }
-
-  if (global.params.betterC) {
-    global.params.checkAction = CHECKACTION_C;
-    global.params.useModuleInfo = false;
-    global.params.useTypeInfo = false;
-    global.params.useExceptions = false;
-  }
-
-  if (global.params.useUnitTests) {
-    global.params.useAssert = CHECKENABLEon;
-  }
-
-  // -release downgrades default checks
-  if (global.params.useArrayBounds == CHECKENABLEdefault)
-    global.params.useArrayBounds = global.params.release ? CHECKENABLEsafeonly : CHECKENABLEon;
-  if (global.params.useAssert == CHECKENABLEdefault)
-    global.params.useAssert = global.params.release ? CHECKENABLEoff : CHECKENABLEon;
-  if (global.params.useSwitchError == CHECKENABLEdefault)
-    global.params.useSwitchError = global.params.release ? CHECKENABLEoff : CHECKENABLEon;
 
   // LDC output determination
 
   // if we don't link and there's no `-output-*` switch but an `-of` one,
   // autodetect type of desired 'object' file from file extension
-  if (!global.params.link && !global.params.lib && global.params.objname &&
+  if (!global.params.link && !global.params.lib &&
+      global.params.objname.length &&
       global.params.output_o == OUTPUTFLAGdefault) {
-    const char *ext = FileName::ext(global.params.objname);
+    const char *ext = FileName::ext(global.params.objname.ptr);
     if (!ext) {
       // keep things as they are
     } else if (opts::output_ll.getNumOccurrences() == 0 &&
-               strcmp(ext, global.ll_ext) == 0) {
+               strcmp(ext, ll_ext.ptr) == 0) {
       global.params.output_ll = OUTPUTFLAGset;
       global.params.output_o = OUTPUTFLAGno;
     } else if (opts::output_bc.getNumOccurrences() == 0 &&
-               strcmp(ext, global.bc_ext) == 0) {
+               strcmp(ext, bc_ext.ptr) == 0) {
       global.params.output_bc = OUTPUTFLAGset;
       global.params.output_o = OUTPUTFLAGno;
     } else if (opts::output_s.getNumOccurrences() == 0 &&
-               strcmp(ext, global.s_ext) == 0) {
+               strcmp(ext, s_ext.ptr) == 0) {
       global.params.output_s = OUTPUTFLAGset;
+      global.params.output_o = OUTPUTFLAGno;
+    } else if (opts::output_mlir.getNumOccurrences() == 0 &&
+               strcmp(ext, mlir_ext.ptr) == 0) {
+      global.params.output_mlir = OUTPUTFLAGset;
       global.params.output_o = OUTPUTFLAGno;
     }
   }
 
-  // only link if possible
-  if (!global.params.obj || !global.params.output_o || global.params.lib) {
-    global.params.link = false;
+#ifndef LDC_MLIR_ENABLED
+  if (global.params.output_mlir == OUTPUTFLAGset) {
+    error(Loc(), "MLIR output requested but this LDC was built without MLIR support");
+    fatal();
   }
-
-  if (global.params.lib && global.params.dll) {
-    error(Loc(), "-lib and -shared switches cannot be used together");
-  }
+#endif
 
   if (soname.getNumOccurrences() > 0 && !global.params.dll) {
     error(Loc(), "-soname can be used only when building a shared library");
@@ -604,20 +559,11 @@ void initializePasses() {
   initializeInstrumentation(Registry);
   initializeAnalysis(Registry);
   initializeCodeGen(Registry);
-#if LDC_LLVM_VER >= 309
   initializeGlobalISel(Registry);
-#endif
   initializeTarget(Registry);
 
 // Initialize passes not included above
-#if LDC_LLVM_VER < 308
-  initializeIPA(Registry);
-#endif
-#if LDC_LLVM_VER >= 400
   initializeRewriteSymbolsLegacyPassPass(Registry);
-#else
-  initializeRewriteSymbolsPass(Registry);
-#endif
   initializeSjLjEHPreparePass(Registry);
 }
 
@@ -641,25 +587,38 @@ static void registerMipsABI() {
   }
 }
 
+// Handle target environments not directly supported by LLVM.
+void fixupTripleEnv(std::string &tripleString) {
+  size_t i;
+  if ((i = tripleString.find("-uclibc")) != std::string::npos) {
+    global.params.isUClibcEnvironment = true;
+    tripleString.replace(i + 1, 6, "gnu"); // -uclibceabihf => -gnueabihf
+  } else if ((i = tripleString.find("-newlib")) != std::string::npos) {
+    global.params.isNewlibEnvironment = true;
+    tripleString.replace(i + 1, 6, ""); // -newlibeabi => -eabi
+  }
+}
+
 /// Register the float ABI.
 /// Also defines D_HardFloat or D_SoftFloat depending if FPU should be used
 void registerPredefinedFloatABI(const char *soft, const char *hard,
                                 const char *softfp = nullptr) {
-  // Use target floating point unit instead of s/w float routines
-  // FIXME: This is a semantic change!
-  bool useFPU = gTargetMachine->Options.FloatABIType == llvm::FloatABI::Hard;
-  VersionCondition::addPredefinedGlobalIdent(useFPU ? "D_HardFloat"
-                                                    : "D_SoftFloat");
-
-  if (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Soft) {
-    VersionCondition::addPredefinedGlobalIdent(useFPU && softfp ? softfp
-                                                                : soft);
-  } else if (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Hard) {
-    assert(useFPU && "Should be using the FPU if using float-abi=hard");
+  switch (floatABI) {
+  case FloatABI::Soft:
+    VersionCondition::addPredefinedGlobalIdent(soft);
+    break;
+  case FloatABI::SoftFP:
+    VersionCondition::addPredefinedGlobalIdent(softfp ? softfp : soft);
+    break;
+  case FloatABI::Hard:
     VersionCondition::addPredefinedGlobalIdent(hard);
-  } else {
-    assert(0 && "FloatABIType neither Soft or Hard");
+    break;
+  default:
+    llvm_unreachable("Unknown float ABI");
   }
+
+  VersionCondition::addPredefinedGlobalIdent(
+      floatABI == FloatABI::Soft ? "D_SoftFloat" : "D_HardFloat");
 }
 
 /// Registers the predefined versions specific to the current target triple
@@ -713,9 +672,14 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("AArch64");
     registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat", "ARM_SoftFP");
     break;
+  case llvm::Triple::avr:
+    VersionCondition::addPredefinedGlobalIdent("AVR");
+    VersionCondition::addPredefinedGlobalIdent("D_SoftFloat");
+    break;
   case llvm::Triple::mips:
   case llvm::Triple::mipsel:
     VersionCondition::addPredefinedGlobalIdent("MIPS");
+    VersionCondition::addPredefinedGlobalIdent("MIPS32");
     registerPredefinedFloatABI("MIPS_SoftFloat", "MIPS_HardFloat");
     registerMipsABI();
     break;
@@ -728,18 +692,12 @@ void registerPredefinedTargetVersions() {
   case llvm::Triple::msp430:
     VersionCondition::addPredefinedGlobalIdent("MSP430");
     break;
-#if defined RISCV_LLVM_DEV || LDC_LLVM_VER >= 400
-#if defined RISCV_LLVM_DEV
-  case llvm::Triple::riscv:
-#else
   case llvm::Triple::riscv32:
-#endif
     VersionCondition::addPredefinedGlobalIdent("RISCV32");
     break;
   case llvm::Triple::riscv64:
     VersionCondition::addPredefinedGlobalIdent("RISCV64");
     break;
-#endif
   case llvm::Triple::sparc:
     // FIXME: Detect SPARC v8+ (SPARC_V8Plus).
     VersionCondition::addPredefinedGlobalIdent("SPARC");
@@ -763,10 +721,13 @@ void registerPredefinedTargetVersions() {
         "S390X"); // For backwards compatibility.
     VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
     break;
+  case llvm::Triple::wasm32:
+  case llvm::Triple::wasm64:
+    VersionCondition::addPredefinedGlobalIdent("WebAssembly");
+    break;
   default:
-    error(Loc(), "invalid cpu architecture specified: %s",
-          triple.getArchName().str().c_str());
-    fatal();
+    warning(Loc(), "unknown target CPU architecture: %s",
+            triple.getArchName().str().c_str());
   }
 
   // endianness
@@ -777,8 +738,10 @@ void registerPredefinedTargetVersions() {
   }
 
   // Set versions for arch bitwidth
-  if (global.params.isLP64) {
+  if (gDataLayout->getPointerSizeInBits() == 64) {
     VersionCondition::addPredefinedGlobalIdent("D_LP64");
+  } else if (triple.isArch64Bit()) {
+    VersionCondition::addPredefinedGlobalIdent("D_X32");
   } else if (triple.isArch16Bit()) {
     VersionCondition::addPredefinedGlobalIdent("D_P16");
   }
@@ -787,16 +750,16 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("D_PIC");
   }
 
-  /* LDC doesn't support DMD's core.simd interface.
   if (arch == llvm::Triple::x86 || arch == llvm::Triple::x86_64) {
+    /* LDC doesn't support DMD's core.simd interface.
     if (traitsTargetHasFeature("sse2"))
       VersionCondition::addPredefinedGlobalIdent("D_SIMD");
+    */
     if (traitsTargetHasFeature("avx"))
       VersionCondition::addPredefinedGlobalIdent("D_AVX");
     if (traitsTargetHasFeature("avx2"))
       VersionCondition::addPredefinedGlobalIdent("D_AVX2");
   }
-  */
 
   // parse the OS out of the target triple
   // see http://gcc.gnu.org/install/specific.html for details
@@ -804,10 +767,11 @@ void registerPredefinedTargetVersions() {
   switch (triple.getOS()) {
   case llvm::Triple::Win32:
     VersionCondition::addPredefinedGlobalIdent("Windows");
-    VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64"
-                                                                     : "Win32");
+    VersionCondition::addPredefinedGlobalIdent(triple.isArch64Bit() ? "Win64"
+                                                                    : "Win32");
     if (triple.isWindowsMSVCEnvironment()) {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Microsoft");
+      VersionCondition::addPredefinedGlobalIdent("CppRuntime_Microsoft");
     }
     if (triple.isWindowsGNUEnvironment()) {
       VersionCondition::addPredefinedGlobalIdent(
@@ -826,12 +790,16 @@ void registerPredefinedTargetVersions() {
     if (triple.getEnvironment() == llvm::Triple::Android) {
       VersionCondition::addPredefinedGlobalIdent("Android");
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Bionic");
-#if LDC_LLVM_VER >= 309
     } else if (triple.isMusl()) {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Musl");
-#endif
+      VersionCondition::addPredefinedGlobalIdent("CppRuntime_Gcc");
+      // use libunwind for backtraces
+      VersionCondition::addPredefinedGlobalIdent("DRuntime_Use_Libunwind");
+    } else if (global.params.isUClibcEnvironment) {
+      VersionCondition::addPredefinedGlobalIdent("CRuntime_UClibc");
     } else {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Glibc");
+      VersionCondition::addPredefinedGlobalIdent("CppRuntime_Gcc");
     }
     break;
   case llvm::Triple::Haiku:
@@ -844,18 +812,28 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent(
         "darwin"); // For backwards compatibility.
     VersionCondition::addPredefinedGlobalIdent("Posix");
+    VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang");
     break;
   case llvm::Triple::FreeBSD:
     VersionCondition::addPredefinedGlobalIdent("FreeBSD");
+    if (unsigned major = triple.getOSMajorVersion()) {
+      const auto withMajor = "FreeBSD_" + std::to_string(major);
+      VersionCondition::addPredefinedGlobalIdent(withMajor.c_str());
+    } else {
+      warning(Loc(), "FreeBSD major version not specified in target triple");
+    }
     VersionCondition::addPredefinedGlobalIdent("Posix");
+    VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang");
     break;
   case llvm::Triple::Solaris:
     VersionCondition::addPredefinedGlobalIdent("Solaris");
     VersionCondition::addPredefinedGlobalIdent("Posix");
+    VersionCondition::addPredefinedGlobalIdent("CppRuntime_Sun");
     break;
   case llvm::Triple::DragonFly:
     VersionCondition::addPredefinedGlobalIdent("DragonFlyBSD");
     VersionCondition::addPredefinedGlobalIdent("Posix");
+    VersionCondition::addPredefinedGlobalIdent("CppRuntime_Gcc");
     break;
   case llvm::Triple::NetBSD:
     VersionCondition::addPredefinedGlobalIdent("NetBSD");
@@ -864,20 +842,50 @@ void registerPredefinedTargetVersions() {
   case llvm::Triple::OpenBSD:
     VersionCondition::addPredefinedGlobalIdent("OpenBSD");
     VersionCondition::addPredefinedGlobalIdent("Posix");
+    VersionCondition::addPredefinedGlobalIdent("CppRuntime_Gcc");
     break;
   case llvm::Triple::AIX:
     VersionCondition::addPredefinedGlobalIdent("AIX");
     VersionCondition::addPredefinedGlobalIdent("Posix");
     break;
+  case llvm::Triple::IOS:
+    VersionCondition::addPredefinedGlobalIdent("iOS");
+    VersionCondition::addPredefinedGlobalIdent("Posix");
+    VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang");
+    break;
+  case llvm::Triple::TvOS:
+    VersionCondition::addPredefinedGlobalIdent("TVOS");
+    VersionCondition::addPredefinedGlobalIdent("Posix");
+    VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang");
+    break;
+  case llvm::Triple::WatchOS:
+    VersionCondition::addPredefinedGlobalIdent("WatchOS");
+    VersionCondition::addPredefinedGlobalIdent("Posix");
+    VersionCondition::addPredefinedGlobalIdent("CppRuntime_Clang");
+    break;
+  case llvm::Triple::WASI:
+    VersionCondition::addPredefinedGlobalIdent("WASI");
+    VersionCondition::addPredefinedGlobalIdent("CRuntime_WASI");
+    break;
   default:
     if (triple.getEnvironment() == llvm::Triple::Android) {
       VersionCondition::addPredefinedGlobalIdent("Android");
     } else {
-      warning(Loc(), "unknown OS for target '%s'", triple.str().c_str());
+      llvm::StringRef osName = triple.getOSName();
+      if (osName.empty() || osName == "unknown" || osName == "none") {
+        VersionCondition::addPredefinedGlobalIdent("FreeStanding");
+        if (global.params.isNewlibEnvironment) {
+            VersionCondition::addPredefinedGlobalIdent("CRuntime_Newlib");
+        }
+      } else {
+        warning(Loc(), "unknown target OS: %s", osName.str().c_str());
+      }
     }
     break;
   }
 }
+
+} // anonymous namespace
 
 /// Registers all predefined D version identifiers for the current
 /// configuration with VersionCondition.
@@ -908,12 +916,32 @@ void registerPredefinedVersions() {
     VersionCondition::addPredefinedGlobalIdent("assert");
   }
 
+  if (global.params.useIn == CHECKENABLEon) {
+    VersionCondition::addPredefinedGlobalIdent("D_PreConditions");
+  }
+
+  if (global.params.useOut == CHECKENABLEon) {
+    VersionCondition::addPredefinedGlobalIdent("D_PostConditions");
+  }
+
+  if (global.params.useInvariants == CHECKENABLEon) {
+    VersionCondition::addPredefinedGlobalIdent("D_Invariants");
+  }
+
   if (global.params.useArrayBounds == CHECKENABLEoff) {
     VersionCondition::addPredefinedGlobalIdent("D_NoBoundsChecks");
   }
 
   if (global.params.betterC) {
     VersionCondition::addPredefinedGlobalIdent("D_BetterC");
+  } else {
+    VersionCondition::addPredefinedGlobalIdent("D_ModuleInfo");
+    VersionCondition::addPredefinedGlobalIdent("D_Exceptions");
+    VersionCondition::addPredefinedGlobalIdent("D_TypeInfo");
+  }
+
+  if (global.params.tracegc) {
+    VersionCondition::addPredefinedGlobalIdent("D_ProfileGC");
   }
 
   registerPredefinedTargetVersions();
@@ -946,21 +974,77 @@ void registerPredefinedVersions() {
 #undef STR
 }
 
-} // anonymous namespace
+static llvm::SmallString<32> tempObjectsDir;
 
-int cppmain(int argc, char **argv) {
-#if LDC_LLVM_VER >= 309
-  llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
+// With -cleanup-obj, potentially invoked (once) by Module.setOutfilename() to
+// create a unique temporary directory for generated object files (if -od hasn't
+// been specified), e.g., `/tmp/objtmp-ldc-688445`.
+const char *createTempObjectsDir() {
+  assert(tempObjectsDir.empty());
+
+  auto ec = llvm::sys::fs::createUniqueDirectory("objtmp-ldc", tempObjectsDir);
+  if (ec) {
+    error(Loc(),
+          "failed to create temporary directory for object files: %s\n%s",
+          tempObjectsDir.c_str(), ec.message().c_str());
+    fatal();
+  }
+
+  return tempObjectsDir.c_str();
+}
+
+/// LDC's entry point, C main.
+/// Without `-lowmem`, we need to switch to the bump-pointer allocation scheme
+/// right from the start, before any module ctors are run, so we need this hook
+/// before druntime is initialized and `_Dmain` is called.
+#if LDC_WINDOWS_WMAIN
+int wmain(int argc, const wchar_t **originalArgv)
 #else
-  llvm::sys::PrintStackTraceOnErrorSignal();
+int main(int argc, const char **originalArgv)
 #endif
+{
+  // initialize `opts::allArguments` with the UTF-8 command-line args
+  args::getCommandLineArguments(argc, originalArgv, allArguments);
 
-  exe_path::initialize(argv[0]);
+  llvm::sys::PrintStackTraceOnErrorSignal(allArguments[0]);
+
+  // expand response files (`@<file>`, e.g., used by dub) in-place
+  args::expandResponseFiles(allArguments);
+
+  if (!tryParseLowmem(allArguments))
+    mem.disableGC();
+
+  // Only pass --DRT-* options (before a first potential -run) to _d_run_main;
+  // we don't need any args for _Dmain.
+  llvm::SmallVector<const args::CArgChar *, 4> drunmainArgs;
+  drunmainArgs.push_back(originalArgv[0]);
+  for (size_t i = 1; i < allArguments.size(); ++i) {
+    const char *arg = allArguments[i];
+    if (args::isRunArg(arg))
+      break;
+    if (strncmp(arg, "--DRT-", 6) == 0) {
+#if LDC_WINDOWS_WMAIN
+      // cannot use originalArgv, as the arg may originate from a response file
+      llvm::SmallVector<wchar_t, 64> warg;
+      llvm::sys::windows::UTF8ToUTF16(arg, warg);
+      warg.push_back(0);
+      drunmainArgs.push_back(wcsdup(warg.data()));
+#else
+      drunmainArgs.push_back(arg);
+#endif
+    }
+  }
+
+  // move on to _d_run_main, _Dmain, and finally cppmain below
+  return args::forwardToDruntime(drunmainArgs.size(), drunmainArgs.data());
+}
+
+int cppmain() {
+  exe_path::initialize(allArguments[0]);
 
   global._init();
-  global.version = ldc::dmd_version;
-  global.ldc_version = ldc::ldc_version;
-  global.llvm_version = ldc::llvm_version;
+  global.ldc_version = {strlen(ldc::ldc_version), ldc::ldc_version};
+  global.llvm_version = {strlen(ldc::llvm_version), ldc::llvm_version};
 
   // Initialize LLVM before parsing the command line so that --version shows
   // registered targets.
@@ -972,21 +1056,20 @@ int cppmain(int argc, char **argv) {
 
   initializePasses();
 
-  bool helpOnly;
   Strings files;
-  parseCommandLine(argc, argv, files, helpOnly);
+  parseCommandLine(files);
 
-  if (helpOnly) {
-    return 0;
-  }
-
-  if (files.dim == 0) {
-    cl::PrintHelpMessage();
-    return EXIT_FAILURE;
+  if (allArguments.size() == 1) {
+    cl::PrintHelpMessage(/*Hidden=*/false, /*Categorized=*/true);
+    exit(EXIT_FAILURE);
   }
 
   if (global.errors) {
     fatal();
+  }
+
+  if (opts::fTimeTrace) {
+    initializeTimeTrace(opts::fTimeTraceGranularity, 0, opts::allArguments[0]);
   }
 
   // Set up the TargetMachine.
@@ -1007,14 +1090,13 @@ int cppmain(int argc, char **argv) {
   }
 
   auto relocModel = getRelocModel();
-#if LDC_LLVM_VER >= 309
   if (global.params.dll && !relocModel.hasValue()) {
-#else
-  if (global.params.dll && relocModel == llvm::Reloc::Default) {
-#endif
     relocModel = llvm::Reloc::PIC_;
   }
 
+  fixupTripleEnv(mTargetTriple);
+
+  // create target machine and finalize floatABI
   gTargetMachine = createTargetMachine(
       mTargetTriple, arch, opts::getCPUStr(), opts::getFeaturesStr(), bitness,
       floatABI, relocModel, opts::getCodeModel(), codeGenOptLevel(),
@@ -1022,60 +1104,75 @@ int cppmain(int argc, char **argv) {
 
   opts::setDefaultMathOptions(gTargetMachine->Options);
 
-#if LDC_LLVM_VER >= 308
   static llvm::DataLayout DL = gTargetMachine->createDataLayout();
   gDataLayout = &DL;
-#else
-  gDataLayout = gTargetMachine->getDataLayout();
-#endif
 
-  {
-    llvm::Triple *triple = new llvm::Triple(gTargetMachine->getTargetTriple());
-    global.params.targetTriple = triple;
-    global.params.isLinux = triple->isOSLinux();
-    global.params.isOSX = triple->isOSDarwin();
-    global.params.isWindows = triple->isOSWindows();
-    global.params.isFreeBSD = triple->isOSFreeBSD();
-    global.params.isOpenBSD = triple->isOSOpenBSD();
-    global.params.isSolaris = triple->isOSSolaris();
-    global.params.isLP64 = gDataLayout->getPointerSizeInBits() == 64;
-    global.params.is64bit = triple->isArch64Bit();
-    global.params.hasObjectiveC = objc_isSupported(*triple);
-    global.params.dwarfVersion = gTargetMachine->Options.MCOptions.DwarfVersion;
-    // mscoff enables slightly different handling of interface functions
-    // in the front end
-    global.params.mscoff = triple->isKnownWindowsMSVCEnvironment();
-    if (global.params.mscoff)
-      global.obj_ext = "obj";
+  llvm::Triple *triple = new llvm::Triple(gTargetMachine->getTargetTriple());
+  global.params.targetTriple = triple;
+
+  global.params.dwarfVersion = gTargetMachine->Options.MCOptions.DwarfVersion;
+
+  // -gdwarf implies -g if not specified explicitly
+  if (opts::emitDwarfDebugInfo && global.params.symdebug == 0) {
+    global.params.symdebug = 1;
+  }
+
+  if (triple->isOSWindows()) {
+    const auto v = opts::symbolVisibility.getValue();
+    global.params.dllexport =
+        v == opts::SymbolVisibility::public_ ||
+        // default with -shared
+        (v == opts::SymbolVisibility::default_ && global.params.dll);
+    if (opts::dllimport.getNumOccurrences() == 0) {
+      global.params.dllimport =
+          !linkAgainstSharedDefaultLibs() ? DLLImport::none
+          : global.params.dllexport       ? DLLImport::all
+                                          : DLLImport::defaultLibsOnly;
+    }
+  } else {
+    global.params.dllexport = false;
+    global.params.dllimport = DLLImport::none;
   }
 
   // allocate the target abi
   gABI = TargetABI::getTarget();
 
-  if (global.params.targetTriple->isOSWindows()) {
-    global.dll_ext = "dll";
-    global.lib_ext = (global.params.mscoff ? "lib" : "a");
-  } else {
-    global.dll_ext = global.params.targetTriple->isOSDarwin() ? "dylib" : "so";
-    global.lib_ext = "a";
+  opts::initializeInstrumentationOptionsFromCmdline(*triple);
+
+  loadAllPlugins();
+
+  int status;
+  {
+    TimeTraceScope timeScope("ExecuteCompiler");
+    Strings libmodules;
+    status = mars_mainBody(global.params, files, libmodules);
   }
 
-  opts::initializeInstrumentationOptionsFromCmdline(
-      *global.params.targetTriple);
+  // try to remove the temp objects dir if created for -cleanup-obj
+  if (!tempObjectsDir.empty())
+    llvm::sys::fs::remove(tempObjectsDir);
 
-  Strings libmodules;
-  return mars_mainBody(files, libmodules);
-}
+  std::string fTimeTraceFile = opts::fTimeTraceFile;
+  writeTimeTraceProfile(fTimeTraceFile.empty() ? "" : fTimeTraceFile.c_str());
+  deinitializeTimeTrace();
 
-void addDefaultVersionIdentifiers() {
-  registerPredefinedVersions();
-  printPredefinedVersions();
+  llvm::llvm_shutdown();
+
+  return status;
 }
 
 void codegenModules(Modules &modules) {
   // Generate one or more object/IR/bitcode files/dcompute kernels.
   if (global.params.obj && !modules.empty()) {
+    TimeTraceScope timeScope("Codegen all modules");
+
+#if LDC_MLIR_ENABLED
+    mlir::MLIRContext mlircontext;
+    ldc::CodeGenerator cg(getGlobalContext(), mlircontext,
+                          global.params.oneobj);
+#else
     ldc::CodeGenerator cg(getGlobalContext(), global.params.oneobj);
+#endif
     DComputeCodeGenManager dccg(getGlobalContext());
     std::vector<Module *> computeModules;
     // When inlining is enabled, we are calling semantic3 on function
@@ -1086,23 +1183,36 @@ void codegenModules(Modules &modules) {
     // Therefore, codegen is done in reverse order with members[0] last, to make
     // sure these functions (added to members[0] by members[x>0]) are
     // codegenned.
-    for (d_size_t i = modules.dim; i-- > 0;) {
+    for (d_size_t i = modules.length; i-- > 0;) {
       Module *const m = modules[i];
+
+      if (m->filetype == FileType::dhdr)
+        continue;
+
       if (global.params.verbose)
-        fprintf(global.stdmsg, "code      %s\n", m->toChars());
+        message("code      %s", m->toChars());
 
       const auto atCompute = hasComputeAttr(m);
       if (atCompute == DComputeCompileFor::hostOnly ||
-           atCompute == DComputeCompileFor::hostAndDevice)
-      {
-        cg.emit(m);
+          atCompute == DComputeCompileFor::hostAndDevice) {
+        TimeTraceScope timeScope(
+            ("Codegen module " + llvm::SmallString<20>(m->toChars()))
+                .str()
+                .c_str(),
+            m->loc);
+#if LDC_MLIR_ENABLED
+        if (global.params.output_mlir == OUTPUTFLAGset)
+          cg.emitMLIR(m);
+        else
+#endif
+          cg.emit(m);
       }
       if (atCompute != DComputeCompileFor::hostOnly) {
         computeModules.push_back(m);
         if (atCompute == DComputeCompileFor::deviceOnly) {
           // Remove m's object file from list of object files
-          auto s = m->objfile->name->str;
-          for (size_t j = 0; j < global.params.objfiles.dim; j++) {
+          auto s = m->objfile.toChars();
+          for (size_t j = 0; j < global.params.objfiles.length; j++) {
             if (s == global.params.objfiles[j]) {
               global.params.objfiles.remove(j);
               break;
@@ -1115,19 +1225,27 @@ void codegenModules(Modules &modules) {
     }
 
     if (!computeModules.empty()) {
-      for (auto& mod : computeModules)
+      TimeTraceScope timeScope("Codegen DCompute device modules");
+      for (auto &mod : computeModules) {
+        TimeTraceScope timeScope(("Codegen DCompute device module " +
+                                  llvm::SmallString<20>(mod->toChars()))
+                                     .str()
+                                     .c_str(),
+                                 mod->loc);
         dccg.emit(mod);
-
-      dccg.writeModules();
+      }
     }
-    // We may have removed all object files, if so don't link.
-    if (global.params.objfiles.dim == 0)
-      global.params.link = false;
+    dccg.writeModules();
 
+    // We may have removed all object files, if so don't link.
+    if (global.params.objfiles.length == 0)
+      global.params.link = false;
   }
 
-  cache::pruneCache();
+  {
+    TimeTraceScope timeScope("Prune object file cache");
+    cache::pruneCache();
+  }
 
   freeRuntime();
-  llvm::llvm_shutdown();
 }

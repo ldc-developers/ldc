@@ -1,10 +1,9 @@
 // Test Fuzz+ASan functionality
 
-// REQUIRES: atleast_llvm500
 // REQUIRES: Fuzzer, ASan
 
-// See https://github.com/ldc-developers/ldc/issues/2222 for -disable-fp-elim
-// RUN: %ldc -g -fsanitize=address,fuzzer -disable-fp-elim %s -of=%t%exe
+// See https://github.com/ldc-developers/ldc/issues/2222 for %disable_fp_elim
+// RUN: %ldc -g -fsanitize=address,fuzzer %disable_fp_elim %s -of=%t%exe
 // RUN: not %t%exe 2>&1 | FileCheck %s
 
 bool FuzzMe(ubyte* data, size_t dataSize)
@@ -42,6 +41,3 @@ extern (C) int LLVMFuzzerTestOneInput(const(ubyte*) data, size_t size)
 
     return 0;
 }
-
-// The test unit should start with "FUZ"
-// CHECK: FUZ

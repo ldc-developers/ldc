@@ -8,30 +8,37 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/dcompute/druntime.h"
-#include "dmd/dsymbol.h"
-#include "dmd/module.h"
-#include "dmd/identifier.h"
-#include "dmd/template.h"
-#include "dmd/declaration.h"
-#include "dmd/aggregate.h"
-#include "id.h"
 
-bool isFromLDC_DCompute(Dsymbol *sym) {
+#include "dmd/aggregate.h"
+#include "dmd/declaration.h"
+#include "dmd/dsymbol.h"
+#include "dmd/expression.h"
+#include "dmd/id.h"
+#include "dmd/identifier.h"
+#include "dmd/module.h"
+#include "dmd/template.h"
+
+bool isFromLDC_Mod(Dsymbol *sym, Identifier* id) {
   auto mod = sym->getModule();
   if (!mod)
     return false;
   auto moduleDecl = mod->md;
   if (!moduleDecl)
     return false;
-  if (!moduleDecl->packages)
+
+  if (moduleDecl->packages.length != 1)
+    return false;
+  if (moduleDecl->packages.ptr[0] != Id::ldc)
     return false;
 
-  if (moduleDecl->packages->dim != 1)
-    return false;
-  if ((*moduleDecl->packages)[0] != Id::ldc)
-    return false;
+  return moduleDecl->id == id;
+}
 
-  return moduleDecl->id == Id::dcompute;
+bool isFromLDC_DCompute(Dsymbol *sym) {
+  return isFromLDC_Mod(sym,Id::dcompute);
+}
+bool isFromLDC_OpenCL(Dsymbol *sym) {
+  return isFromLDC_Mod(sym,Id::opencl);
 }
 
 llvm::Optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd) {

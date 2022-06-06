@@ -11,8 +11,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_TOOBJ_H
-#define LDC_DRIVER_TOOBJ_H
+#pragma once
+#include <string>
+#include "dmd/root/dcompat.h"
 
 namespace llvm {
 class Module;
@@ -20,4 +21,5 @@ class Module;
 
 void writeModule(llvm::Module *m, const char *filename);
 
-#endif
+std::string replaceExtensionWith(const DArray<const char> &ext,
+                                 const char *filename);

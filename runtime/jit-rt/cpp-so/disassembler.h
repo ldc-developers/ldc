@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef DISASSEMBLER_H
-#define DISASSEMBLER_H
+#pragma once
 
 namespace llvm {
 namespace object {
@@ -24,5 +23,3 @@ class raw_ostream;
 
 void disassemble(const llvm::TargetMachine &tm,
                  const llvm::object::ObjectFile &object, llvm::raw_ostream &os);
-
-#endif // DISASSEMBLER_H

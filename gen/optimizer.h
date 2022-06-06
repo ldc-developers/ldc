@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_OPTIMIZER_H
-#define LDC_GEN_OPTIMIZER_H
+#pragma once
 
 // For llvm::CodeGenOpt::Level
 #include "llvm/Support/CodeGen.h"
@@ -35,7 +34,9 @@ bool willInline();
 
 bool willCrossModuleInline();
 
-bool willEliminateFramePointer();
+#if LDC_LLVM_VER < 1000
+llvm::FramePointer::FP whichFramePointersToEmit();
+#endif
 
 unsigned optLevel();
 
@@ -46,5 +47,3 @@ llvm::CodeGenOpt::Level codeGenOptLevel();
 void verifyModule(llvm::Module *m);
 
 void outputOptimizationSettings(llvm::raw_ostream &hash_os);
-
-#endif

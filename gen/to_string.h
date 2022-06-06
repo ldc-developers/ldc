@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TO_STRING_H
-#define TO_STRING_H
+#pragma once
 
 #include <sstream>
 #include <string>
@@ -27,5 +26,3 @@ template <class T> const std::string to_string(const T &val) {
 }
 
 } // namespace ldc
-
-#endif // TO_STRING_H

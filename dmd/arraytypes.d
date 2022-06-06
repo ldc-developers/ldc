@@ -1,16 +1,15 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Provide aliases for arrays of certain declarations or statements.
  *
- * Copyright:   Copyright (c) 1999-2017 by The D Language Foundation, All Rights Reserved
- * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
- * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/arraytypes.d, _arraytypes.d)
+ * Documentation:  https://dlang.org/phobos/dmd_arraytypes.html
+ * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/arraytypes.d
  */
 
 module dmd.arraytypes;
-
-// Online documentation: https://dlang.org/phobos/dmd_arraytypes.html
 
 import dmd.dclass;
 import dmd.declaration;
@@ -35,6 +34,7 @@ alias BaseClasses = Array!(BaseClass*);
 alias ClassDeclarations = Array!(ClassDeclaration);
 alias Dsymbols = Array!(Dsymbol);
 alias Objects = Array!(RootObject);
+alias DtorDeclarations = Array!(DtorDeclaration);
 alias FuncDeclarations = Array!(FuncDeclaration);
 alias Parameters = Array!(Parameter);
 alias Initializers = Array!(Initializer);
@@ -51,3 +51,6 @@ alias GotoCaseStatements = Array!(GotoCaseStatement);
 alias ReturnStatements = Array!(ReturnStatement);
 alias GotoStatements = Array!(GotoStatement);
 alias TemplateInstances = Array!(TemplateInstance);
+alias Ensures = Array!(Ensure);
+alias Designators = Array!(Designator);
+alias DesigInits = Array!(DesigInit);

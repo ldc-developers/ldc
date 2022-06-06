@@ -1,24 +1,21 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Implements conversion from expressions to delegates for lazy parameters.
  *
- * Copyright:   Copyright (c) 1999-2017 by The D Language Foundation, All Rights Reserved
- * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
- * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Specification: $(LINK2 https://dlang.org/spec/function.html#lazy-params, Lazy Parameters)
+ *
+ * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/delegatize.d, _delegatize.d)
+ * Documentation:  https://dlang.org/phobos/dmd_delegatize.html
+ * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/delegatize.d
  */
 
 module dmd.delegatize;
 
-/**
- * Documentation:
- *  https://dlang.org/phobos/dmd_delegatize.html
- * Coverage:
- *  https://codecov.io/gh/dlang/dmd/src/master/src/dmd/delegatize.d
- */
-
 import core.stdc.stdio;
 import dmd.apply;
+import dmd.astenums;
 import dmd.declaration;
 import dmd.dscope;
 import dmd.dsymbol;
@@ -26,9 +23,9 @@ import dmd.expression;
 import dmd.expressionsem;
 import dmd.func;
 import dmd.globals;
+import dmd.init;
 import dmd.initsem;
 import dmd.mtype;
-import dmd.semantic;
 import dmd.statement;
 import dmd.tokens;
 import dmd.visitor;
@@ -46,14 +43,14 @@ import dmd.visitor;
  * Returns:
  *  A delegate literal
  */
-extern (C++) Expression toDelegate(Expression e, Type t, Scope* sc)
+Expression toDelegate(Expression e, Type t, Scope* sc)
 {
     //printf("Expression::toDelegate(t = %s) %s\n", t.toChars(), e.toChars());
     Loc loc = e.loc;
-    auto tf = new TypeFunction(null, t, 0, LINKd);
+    auto tf = new TypeFunction(ParameterList(), t, LINK.d);
     if (t.hasWild())
-        tf.mod = MODwild;
-    auto fld = new FuncLiteralDeclaration(loc, loc, tf, TOKdelegate, null);
+        tf.mod = MODFlags.wild;
+    auto fld = new FuncLiteralDeclaration(loc, loc, tf, TOK.delegate_, null);
     lambdaSetParent(e, fld);
 
     sc = sc.push();
@@ -61,7 +58,7 @@ extern (C++) Expression toDelegate(Expression e, Type t, Scope* sc)
     bool r = lambdaCheckForNestedRef(e, sc);
     sc = sc.pop();
     if (r)
-        return new ErrorExp();
+        return ErrorExp.get();
 
     Statement s;
     if (t.ty == Tvoid)
@@ -88,8 +85,27 @@ private void lambdaSetParent(Expression e, FuncDeclaration fd)
 {
     extern (C++) final class LambdaSetParent : StoppableVisitor
     {
-        alias visit = super.visit;
+        alias visit = typeof(super).visit;
         FuncDeclaration fd;
+
+        private void setParent(Dsymbol s)
+        {
+            VarDeclaration vd = s.isVarDeclaration();
+            FuncDeclaration pfd = s.parent ? s.parent.isFuncDeclaration() : null;
+            s.parent = fd;
+            if (!vd || !pfd)
+                return;
+            // move to fd's closure when applicable
+            foreach (i; 0 .. pfd.closureVars.dim)
+            {
+                if (vd == pfd.closureVars[i])
+                {
+                    pfd.closureVars.remove(i);
+                    fd.closureVars.push(vd);
+                    break;
+                }
+            }
+        }
 
     public:
         extern (D) this(FuncDeclaration fd)
@@ -103,7 +119,8 @@ private void lambdaSetParent(Expression e, FuncDeclaration fd)
 
         override void visit(DeclarationExp e)
         {
-            e.declaration.parent = fd;
+            setParent(e.declaration);
+            e.declaration.accept(this);
         }
 
         override void visit(IndexExp e)
@@ -111,7 +128,8 @@ private void lambdaSetParent(Expression e, FuncDeclaration fd)
             if (e.lengthVar)
             {
                 //printf("lengthVar\n");
-                e.lengthVar.parent = fd;
+                setParent(e.lengthVar);
+                e.lengthVar.accept(this);
             }
         }
 
@@ -120,7 +138,45 @@ private void lambdaSetParent(Expression e, FuncDeclaration fd)
             if (e.lengthVar)
             {
                 //printf("lengthVar\n");
-                e.lengthVar.parent = fd;
+                setParent(e.lengthVar);
+                e.lengthVar.accept(this);
+            }
+        }
+
+        override void visit(Dsymbol)
+        {
+        }
+
+        override void visit(VarDeclaration v)
+        {
+            if (v._init)
+                v._init.accept(this);
+        }
+
+        override void visit(Initializer)
+        {
+        }
+
+        override void visit(ExpInitializer ei)
+        {
+            walkPostorder(ei.exp ,this);
+        }
+
+        override void visit(StructInitializer si)
+        {
+            foreach (i, const id; si.field)
+                if (Initializer iz = si.value[i])
+                    iz.accept(this);
+        }
+
+        override void visit(ArrayInitializer ai)
+        {
+            foreach (i, ex; ai.index)
+            {
+                if (ex)
+                    walkPostorder(ex, this);
+                if (Initializer iz = ai.value[i])
+                    iz.accept(this);
             }
         }
     }
@@ -139,11 +195,11 @@ private void lambdaSetParent(Expression e, FuncDeclaration fd)
  * Returns:
  *      true if error occurs.
  */
-extern (C++) bool lambdaCheckForNestedRef(Expression e, Scope* sc)
+bool lambdaCheckForNestedRef(Expression e, Scope* sc)
 {
     extern (C++) final class LambdaCheckForNestedRef : StoppableVisitor
     {
-        alias visit = super.visit;
+        alias visit = typeof(super).visit;
     public:
         Scope* sc;
         bool result;
@@ -161,20 +217,20 @@ extern (C++) bool lambdaCheckForNestedRef(Expression e, Scope* sc)
         {
             VarDeclaration v = e.var.isVarDeclaration();
             if (v)
-                result = v.checkNestedReference(sc, Loc());
+                result = v.checkNestedReference(sc, Loc.initial);
         }
 
         override void visit(VarExp e)
         {
             VarDeclaration v = e.var.isVarDeclaration();
             if (v)
-                result = v.checkNestedReference(sc, Loc());
+                result = v.checkNestedReference(sc, Loc.initial);
         }
 
         override void visit(ThisExp e)
         {
             if (e.var)
-                result = e.var.checkNestedReference(sc, Loc());
+                result = e.var.checkNestedReference(sc, Loc.initial);
         }
 
         override void visit(DeclarationExp e)
@@ -182,7 +238,7 @@ extern (C++) bool lambdaCheckForNestedRef(Expression e, Scope* sc)
             VarDeclaration v = e.declaration.isVarDeclaration();
             if (v)
             {
-                result = v.checkNestedReference(sc, Loc());
+                result = v.checkNestedReference(sc, Loc.initial);
                 if (result)
                     return;
                 /* Some expressions cause the frontend to create a temporary.
@@ -236,14 +292,14 @@ bool ensureStaticLinkTo(Dsymbol s, Dsymbol p)
             // https://issues.dlang.org/show_bug.cgi?id=15332
             // change to delegate if fd is actually nested.
             if (auto fld = fd.isFuncLiteralDeclaration())
-                fld.tok = TOKdelegate;
+                fld.tok = TOK.delegate_;
         }
         if (auto ad = s.isAggregateDeclaration())
         {
-            if (ad.storage_class & STCstatic)
+            if (ad.storage_class & STC.static_)
                 break;
         }
-        s = s.toParent2();
+        s = s.toParentP(p);
     }
     return false;
 }

@@ -1,22 +1,16 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (c) 2009-2014 by The D Language Foundation
- * All Rights Reserved
+ * Copyright (C) 2009-2022 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
- * http://www.digitalmars.com
+ * https://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
- * http://www.boost.org/LICENSE_1_0.txt
- * https://github.com/dlang/dmd/blob/master/src/aliasthis.h
+ * https://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/dlang/dmd/blob/master/src/dmd/aliasthis.h
  */
 
-#ifndef DMD_ALIASTHIS_H
-#define DMD_ALIASTHIS_H
-
-#ifdef __DMC__
 #pragma once
-#endif /* __DMC__ */
 
-#include "mars.h"
+#include "globals.h"
 #include "dsymbol.h"
 
 /**************************************************************/
@@ -26,11 +20,12 @@ class AliasThis : public Dsymbol
 public:
    // alias Identifier this;
     Identifier *ident;
+    Dsymbol    *sym;
+    bool       isDeprecated_;
 
-    Dsymbol *syntaxCopy(Dsymbol *);
+    AliasThis *syntaxCopy(Dsymbol *);
     const char *kind() const;
     AliasThis *isAliasThis() { return this; }
     void accept(Visitor *v) { v->visit(this); }
+    bool isDeprecated() const { return this->isDeprecated_; }
 };
-
-#endif

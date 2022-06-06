@@ -1,6 +1,11 @@
 # Build gen_gccbuiltins tools to generate D module from LLVM's list of
 # GCC-style intrinsics.
 
+if(CMAKE_CROSSCOMPILING)
+    message(STATUS "NOT building gen_gccbuiltins utility when cross-compiling (you can use host LDC's ldc/gccbuiltins_*.di files)")
+    return()
+endif()
+
 # The LLVM_INCLUDE_DIR definition is not always set, e.g. on Windows.
 # strip off anything but the first path
 string(REGEX REPLACE ";.*$" "" LLVM_INC_DIR "${LLVM_INCLUDE_DIRS}")
@@ -11,24 +16,25 @@ else()
     string(REGEX REPLACE "/llvm(/IR)?$" "" LLVM_INTRINSIC_TD_PATH ${LLVM_INTRINSIC_TD_PATH})
     message(STATUS "Using path for Intrinsics.td: ${LLVM_INTRINSIC_TD_PATH}")
 endif()
-append("-DLLVM_INTRINSIC_TD_PATH=\"${LLVM_INTRINSIC_TD_PATH}\"" CMAKE_CXX_FLAGS )
 
 add_executable(gen_gccbuiltins gen_gccbuiltins.cpp)
 
 set_target_properties(
     gen_gccbuiltins PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
+    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS} \"-DLLVM_INTRINSIC_TD_PATH=R\\\"(${LLVM_INTRINSIC_TD_PATH})\\\"\""
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
-target_link_libraries(gen_gccbuiltins ${LLVM_TABLEGEN_LIBRARY} ${LLVM_LIBRARIES} ${PTHREAD_LIBS} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
+target_link_libraries(gen_gccbuiltins ${LLVM_TABLEGEN_LIBRARY} ${LLVM_LIBRARIES} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(gen_gccbuiltins dl)
 endif()
 
-
+if ((TARGET FileCheck) OR (EXISTS ${LLVM_ROOT_DIR}/bin/FileCheck))
+  # already provided by LLVM
+else()
 # Build FileCheck for testing (build source version depending on LLVM version)
-set(FILECHECK_SRC FileCheck-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.cpp)
+set(FILECHECK_SRC FileCheck-${LLVM_VERSION_MAJOR}.cpp)
 if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${FILECHECK_SRC})
     add_executable(FileCheck ${FILECHECK_SRC})
     set_target_properties(
@@ -37,11 +43,18 @@ if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${FILECHECK_SRC})
         COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
         LINK_FLAGS "${SANITIZE_LDFLAGS}"
     )
-    target_link_libraries(FileCheck  ${LLVM_LIBRARIES} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
+    if(NOT (LDC_LLVM_VER LESS 1200))
+        target_link_libraries(FileCheck LLVMFileCheck)
+    endif()
+    target_link_libraries(FileCheck ${LLVM_LIBRARIES} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
 else()
-    message(STATUS "Skip building FileCheck, assuming it can be found in LLVM bin directory")
+    message(STATUS "Skip building FileCheck (source not found), assuming it can be found in LLVM bin directory")
+endif()
 endif()
 
+if ((TARGET not) OR (EXISTS ${LLVM_ROOT_DIR}/bin/not))
+  # already provided by LLVM
+else()
 # Build `not` for testing
 add_executable(not not.cpp)
 set_target_properties(
@@ -50,4 +63,5 @@ set_target_properties(
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
-target_link_libraries(not  ${LLVM_LIBRARIES} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
+target_link_libraries(not  ${LLVM_LIBRARIES} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
+endif()

@@ -1,10 +1,9 @@
 // RUN: %ldc -c -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 
-pragma(LDC_inline_ir)
-    R inlineIREx(string prefix, string code, string suffix, R, P...)(P);
+import ldc.llvmasm;
 
-alias inlineIREx!("", "store i32 %1, i32* %0, !nontemporal !0", "!0 = !{i32 1}", void, int*, int) nontemporalStore;
-alias inlineIREx!("!0 = !{i32 1}", "%i = load i32, i32* %0, !nontemporal !0\nret i32 %i", "", int, const int*) nontemporalLoad;
+alias __irEx!("", "store i32 %1, i32* %0, !nontemporal !0", "!0 = !{i32 1}", void, int*, int) nontemporalStore;
+alias __irEx!("!0 = !{i32 1}", "%i = load i32, i32* %0, !nontemporal !0\nret i32 %i", "", int, const int*) nontemporalLoad;
 
 int foo(const int* src)
 {

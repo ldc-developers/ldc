@@ -7,12 +7,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/llvm.h"
-#include "mars.h"
+#include "dmd/enum.h"
+#include "dmd/id.h"
 #include "gen/abi-generic.h"
 #include "gen/abi.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"
+#include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
@@ -20,13 +21,14 @@
 #include "ir/irfuncty.h"
 
 struct X86TargetABI : TargetABI {
-  const bool isOSX;
+  const bool isDarwin;
   const bool isMSVC;
   bool returnStructsInRegs;
   IntegerRewrite integerRewrite;
+  IndirectByvalRewrite indirectByvalRewrite;
 
   X86TargetABI()
-      : isOSX(global.params.targetTriple->isMacOSX()),
+      : isDarwin(global.params.targetTriple->isOSDarwin()),
         isMSVC(global.params.targetTriple->isWindowsMSVCEnvironment()) {
     using llvm::Triple;
     auto os = global.params.targetTriple->getOS();
@@ -34,89 +36,79 @@ struct X86TargetABI : TargetABI {
         !(os == Triple::Linux || os == Triple::Solaris || os == Triple::NetBSD);
   }
 
-  llvm::CallingConv::ID callingConv(LINK l, TypeFunction *tf = nullptr,
-                                    FuncDeclaration *fdecl = nullptr) override {
-    if (tf && tf->varargs == 1)
-      return llvm::CallingConv::C;
-
+  llvm::CallingConv::ID callingConv(LINK l) override {
     switch (l) {
-    case LINKc:
-    case LINKobjc:
-      return llvm::CallingConv::C;
-    case LINKcpp:
-      return isMSVC && fdecl && fdecl->isThis()
-                 ? llvm::CallingConv::X86_ThisCall
-                 : llvm::CallingConv::C;
-    case LINKd:
-    case LINKdefault:
-    case LINKpascal:
-    case LINKwindows:
+    case LINK::d:
+    case LINK::default_:
+    case LINK::windows:
       return llvm::CallingConv::X86_StdCall;
     default:
-      llvm_unreachable("Unhandled D linkage type.");
+      return llvm::CallingConv::C;
     }
+  }
+  llvm::CallingConv::ID callingConv(TypeFunction *tf,
+                                    bool withThisPtr) override {
+    if (tf->parameterList.varargs == VARARGvariadic)
+      return llvm::CallingConv::C;
+
+    // MSVC++ passes the `this` pointer in ECX (D: EAX)
+    // follow suit, incl. extern(C++) delegates
+    if (isMSVC && tf->linkage == LINK::cpp && withThisPtr)
+      return llvm::CallingConv::X86_ThisCall;
+
+    return callingConv(tf->linkage);
   }
 
   std::string mangleFunctionForLLVM(std::string name, LINK l) override {
-    switch (l) {
-    case LINKc:
-    case LINKobjc:
-    case LINKpascal:
-    case LINKwindows:
-      break;
-    case LINKcpp:
-      if (global.params.targetTriple->isOSWindows()) {
-        // Prepend a 0x1 byte to prevent LLVM from prepending the C underscore.
-        name.insert(0, "\1");
-      }
-      // on OSX, let LLVM prepend the underscore
-      break;
-    case LINKd:
-    case LINKdefault:
-      if (global.params.targetTriple->isOSWindows()) {
+    if (global.params.targetTriple->isOSWindows()) {
+      if (l == LINK::d || l == LINK::default_) {
         // Prepend a 0x1 byte to prevent LLVM from applying MS stdcall mangling:
-        // _D… => __D…@<paramssize>
+        // _D… => __D…@<paramssize>, and add extra underscore manually.
+        name.insert(0, "\1_");
+      } else if (l == LINK::cpp && name[0] == '?') {
+        // Prepend a 0x1 byte to prevent LLVM from prepending the C underscore
+        // for MSVC++ symbols (starting with '?').
         name.insert(0, "\1");
       }
-      // on OSX, let LLVM prepend the underscore
-      break;
-    default:
-      llvm_unreachable("Unhandled D linkage type.");
     }
     return name;
   }
 
   std::string mangleVariableForLLVM(std::string name, LINK l) override {
-    switch (l) {
-    case LINKc:
-    case LINKobjc:
-    case LINKpascal:
-    case LINKwindows:
-      break;
-    case LINKcpp:
-    case LINKd:
-    case LINKdefault:
-      if (global.params.targetTriple->isOSWindows()) {
-        // Prepend a 0x1 byte to prevent LLVM from prepending the C underscore.
-        name.insert(0, "\1");
-      }
-      // on OSX, let LLVM prepend the underscore
-      break;
-    default:
-      llvm_unreachable("Unhandled D linkage type.");
+    if (global.params.targetTriple->isOSWindows() && l == LINK::cpp &&
+        name[0] == '?') {
+      // Prepend a 0x1 byte to prevent LLVM from prepending the C underscore for
+      // MSVC++ symbols (starting with '?').
+      name.insert(0, "\1");
     }
     return name;
   }
 
-  bool returnInArg(TypeFunction *tf) override {
-    if (tf->isref)
+  // Helper folding the magic __c_complex_{float,double,real} enums to the basic
+  // complex type.
+  static Type *getExtraLoweredReturnType(TypeFunction *tf) {
+    Type *rt = tf->next;
+    if (auto te = rt->isTypeEnum()) {
+      auto id = te->sym->ident;
+      if (id == Id::__c_complex_float)
+        return Type::tcomplex32;
+      if (id == Id::__c_complex_double)
+        return Type::tcomplex64;
+      if (id == Id::__c_complex_real)
+        return Type::tcomplex80;
+    }
+    return rt->toBasetype();
+  }
+
+  bool returnInArg(TypeFunction *tf, bool needsThis) override {
+    if (tf->isref())
       return false;
 
-    Type *rt = tf->next->toBasetype();
-    const bool externD = (tf->linkage == LINKd && tf->varargs != 1);
+    Type *rt = getExtraLoweredReturnType(tf);
+    const bool externD = isExternD(tf);
 
-    // non-aggregates and magic C++ structs are returned directly
-    if (!isAggregate(rt) || isMagicCppStruct(rt))
+    // non-aggregates are returned directly
+    if (!isAggregate(rt))
       return false;
 
     // complex numbers
@@ -127,15 +119,22 @@ struct X86TargetABI : TargetABI {
       // extern(C) and all others:
       // * cfloat will be rewritten as 64-bit integer and returned in registers
       // * sret for cdouble and creal
-      return rt->ty != Tcomplex32;
+      return rt->ty != TY::Tcomplex32;
     }
 
     // non-extern(D): some OSs don't return structs in registers at all
     if (!externD && !returnStructsInRegs)
       return true;
 
+    const bool isMSVCpp = isMSVC && tf->linkage == LINK::cpp;
+
+    // for non-static member functions, MSVC++ enforces sret for all structs
+    if (isMSVCpp && needsThis && rt->ty == TY::Tstruct) {
+      return true;
+    }
+
     // force sret for non-POD structs
-    const bool excludeStructsWithCtor = (isMSVC && tf->linkage == LINKcpp);
+    const bool excludeStructsWithCtor = isMSVCpp;
     if (!isPOD(rt, excludeStructsWithCtor))
       return true;
 
@@ -144,23 +143,35 @@ struct X86TargetABI : TargetABI {
     return !canRewriteAsInt(rt);
   }
 
-  bool passByVal(Type *t) override {
+  bool passByVal(TypeFunction *tf, Type *t) override {
+    // indirectly by-value for non-POD args (except for MSVC++)
+    const bool isMSVCpp = isMSVC && tf->linkage == LINK::cpp;
+    if (!isMSVCpp && !isPOD(t))
+      return false;
+
     // pass all structs and static arrays with the LLVM byval attribute
     return DtoIsInMemoryOnly(t);
   }
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
-    const bool externD = (tf->linkage == LINKd && tf->varargs != 1);
+  void rewriteFunctionType(IrFuncTy &fty) override {
+    const bool externD = isExternD(fty.type);
 
     // return value:
-    if (!fty.ret->byref) {
-      Type *rt = tf->next->toBasetype(); // for sret, rt == void
-      if (isAggregate(rt) && !isMagicCppStruct(rt) && canRewriteAsInt(rt) &&
+    if (!skipReturnValueRewrite(fty)) {
+      Type *rt = getExtraLoweredReturnType(fty.type);
+      if (isAggregate(rt) && canRewriteAsInt(rt) &&
           // don't rewrite cfloat for extern(D)
-          !(externD && rt->ty == Tcomplex32) &&
-          !integerRewrite.isObsoleteFor(fty.ret->ltype)) {
-        fty.ret->rewrite = &integerRewrite;
-        fty.ret->ltype = integerRewrite.type(fty.ret->type);
+          !(externD && rt->ty == TY::Tcomplex32)) {
+        integerRewrite.applyToIfNotObsolete(*fty.ret);
+      }
+    }
+
+    // non-POD args are passed indirectly by-value (except for MSVC++)
+    const bool isMSVCpp = isMSVC && fty.type->linkage == LINK::cpp;
+    if (!isMSVCpp) {
+      for (auto arg : fty.args) {
+        if (!arg->byref && !isPOD(arg->type))
+          indirectByvalRewrite.applyTo(*arg);
       }
     }
 
@@ -170,50 +181,45 @@ struct X86TargetABI : TargetABI {
       // try an implicit argument...
       if (fty.arg_this) {
         Logger::println("Putting 'this' in register");
-        fty.arg_this->attrs.add(LLAttribute::InReg);
+        fty.arg_this->attrs.addAttribute(LLAttribute::InReg);
       } else if (fty.arg_nest) {
         Logger::println("Putting context ptr in register");
-        fty.arg_nest->attrs.add(LLAttribute::InReg);
+        fty.arg_nest->attrs.addAttribute(LLAttribute::InReg);
       } else if (IrFuncTyArg *sret = fty.arg_sret) {
         Logger::println("Putting sret ptr in register");
         // sret and inreg are incompatible, but the ABI requires the
         // sret parameter to be in EAX in this situation...
-        sret->attrs.remove(LLAttribute::StructRet).add(LLAttribute::InReg);
+        sret->attrs.removeAttribute(LLAttribute::StructRet);
+        sret->attrs.addAttribute(LLAttribute::InReg);
       }
 
-      // ... otherwise try the last argument
+      // ... otherwise try the first argument
       else if (!fty.args.empty()) {
-        // The last parameter is passed in EAX rather than being pushed on the
+        // The first parameter is passed in EAX rather than being pushed on the
         // stack if the following conditions are met:
         //   * It fits in EAX.
         //   * It is not a 3 byte struct.
         //   * It is not a floating point type.
 
-        IrFuncTyArg *last = fty.args.back();
-        Type *lastTy = last->type->toBasetype();
-        unsigned sz = lastTy->size();
-
-        if (last->byref && !last->isByVal()) {
-          Logger::println("Putting last (byref) parameter in register");
-          last->attrs.add(LLAttribute::InReg);
-        } else if (!lastTy->isfloating() && (sz == 1 || sz == 2 || sz == 4)) {
-          // rewrite aggregates as integers to make inreg work
-          if (lastTy->ty == Tstruct || lastTy->ty == Tsarray) {
-            last->rewrite = &integerRewrite;
-            last->ltype = integerRewrite.type(last->type);
-            // undo byval semantics applied via passByVal() returning true
-            last->byref = false;
-            last->attrs.clear();
+        IrFuncTyArg &first = *fty.args[0];
+        if (first.rewrite == &indirectByvalRewrite ||
+            (first.byref && !first.isByVal())) {
+          Logger::println("Putting first (byref) parameter in register");
+          first.attrs.addAttribute(LLAttribute::InReg);
+        } else {
+          Type *firstTy = first.type->toBasetype();
+          auto sz = firstTy->size();
+          if (!firstTy->isfloating() && (sz == 1 || sz == 2 || sz == 4)) {
+            // rewrite aggregates as integers to make inreg work
+            if (firstTy->ty == TY::Tstruct || firstTy->ty == TY::Tsarray) {
+              integerRewrite.applyTo(first);
+              // undo byval semantics applied via passByVal() returning true
+              first.byref = false;
+              first.attrs.clear();
+            }
+            first.attrs.addAttribute(LLAttribute::InReg);
           }
-          last->attrs.add(LLAttribute::InReg);
         }
-      }
-
-      // all other arguments are passed on the stack, don't rewrite
-
-      // reverse parameter order
-      if (fty.args.size() > 1) {
-        fty.reverseParams = true;
       }
     }
 
@@ -221,14 +227,14 @@ struct X86TargetABI : TargetABI {
 
     // Clang does not pass empty structs, while it seems that GCC does,
     // at least on Linux x86. We don't know whether the C compiler will
-    // be Clang or GCC, so just assume Clang on OS X and G++ on Linux.
-    if (externD || !isOSX)
+    // be Clang or GCC, so just assume Clang on Darwin and G++ on Linux.
+    if (externD || !isDarwin)
       return;
 
     size_t i = 0;
     while (i < fty.args.size()) {
       Type *type = fty.args[i]->type->toBasetype();
-      if (type->ty == Tstruct) {
+      if (type->ty == TY::Tstruct) {
         // Do not pass empty structs at all for C++ ABI compatibility.
         // Tests with clang reveal that more complex "empty" types, for
         // example a struct containing an empty struct, are not
@@ -254,15 +260,24 @@ struct X86TargetABI : TargetABI {
   void workaroundIssue1356(std::vector<IrFuncTyArg *> &args) const {
     if (isMSVC) {
       for (auto arg : args) {
-        if (arg->isByVal())
-          arg->attrs.remove(LLAttribute::Alignment);
+        if (arg->isByVal()) {
+#if LDC_LLVM_VER < 1300
+          arg->attrs.removeAttribute(LLAttribute::Alignment);
+#else
+          // Keep alignment for LLVM 13+, to prevent invalid `movaps` etc.,
+          // but limit to 4 (required according to runnable/ldc_cabi1.d).
+          auto align4 = LLAlign(4);
+          if (arg->attrs.getAlignment().getValueOr(align4) > align4)
+            arg->attrs.addAlignmentAttr(align4);
+#endif
+        }
       }
     }
   }
 
   const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override {
     // see objc/message.h for objc_msgSend selection rules
-    assert(isOSX);
+    assert(isDarwin);
     if (fty.arg_sret) {
       return "objc_msgSend_stret";
     }

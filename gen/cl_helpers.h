@@ -12,16 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_CL_HELPERS_H
-#define LDC_GEN_CL_HELPERS_H
+#pragma once
 
+#include "dmd/globals.h" // for CHECKENABLE enum
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
-#include "globals.h" // for CHECKENABLE enum
-
-#if LDC_LLVM_VER >= 500
-#define LLVM_END_WITH_NULL
-#endif
 
 template <typename TYPE> struct Array;
 typedef Array<const char *> Strings;
@@ -29,12 +24,12 @@ typedef Array<const char *> Strings;
 namespace opts {
 namespace cl = llvm::cl;
 
-/// Duplicate the string and replace '/' with '\' on Windows.
-char *dupPathString(const std::string &src);
+/// Duplicate the string (incl. null-termination) and replace '/' with '\' on
+/// Windows.
+DString dupPathString(llvm::StringRef src);
 
 /// Helper function to handle -of, -od, etc.
-/// llvm::cl::opt<std::string> --> char*
-void initFromPathString(const char *&dest, const cl::opt<std::string> &src);
+DString fromPathString(const cl::opt<std::string> &src);
 
 /// Helper class to determine values
 template <class DT> struct FlagParserDataType {};
@@ -48,6 +43,10 @@ template <> struct FlagParserDataType<cl::boolOrDefault> {
   static cl::boolOrDefault true_val() { return cl::BOU_TRUE; }
   static cl::boolOrDefault false_val() { return cl::BOU_FALSE; }
 };
+
+inline bool getFlagOrDefault(cl::boolOrDefault value, bool defaultValue) {
+  return value == cl::BOU_UNSET ? defaultValue : value == cl::BOU_TRUE;
+}
 
 template <> struct FlagParserDataType<CHECKENABLE> {
   static CHECKENABLE true_val() { return CHECKENABLEon; }
@@ -84,22 +83,12 @@ public:
   // Implement virtual functions needed by generic_parser_base
   unsigned getNumOptions() const override { return 0; }
 
-#if LDC_LLVM_VER >= 400
-  llvm::StringRef
-#else
-  const char *
-#endif
-  getOption(unsigned N) const override {
+  llvm::StringRef getOption(unsigned N) const override {
     llvm_unreachable("Unexpected call");
     return "";
   }
 
-#if LDC_LLVM_VER >= 400
-  llvm::StringRef
-#else
-  const char *
-#endif
-  getDescription(unsigned N) const override {
+  llvm::StringRef getDescription(unsigned N) const override {
     llvm_unreachable("Unexpected call");
     return "";
   }
@@ -137,11 +126,7 @@ public:
     return true;
   }
 
-#if LDC_LLVM_VER >= 308
   void getExtraOptionNames(llvm::SmallVectorImpl<llvm::StringRef> &Names) {
-#else
-  void getExtraOptionNames(llvm::SmallVectorImpl<const char *> &Names) {
-#endif
     for (auto I = switches.begin() + 1, E = switches.end(); I != E; ++I) {
       Names.push_back(I->first.data());
     }
@@ -166,11 +151,12 @@ private:
 
 /// Helper class for options that set multiple flags
 class MultiSetter {
-  std::vector<bool *> locations;
+  std::vector<CHECKENABLE *> locations;
   bool invert;
   explicit MultiSetter(bool); // not implemented, disable auto-conversion
 public:
-  MultiSetter(bool invert, bool *p, ...) LLVM_END_WITH_NULL;
+  // end with a nullptr
+  MultiSetter(bool invert, CHECKENABLE *p, ...);
 
   void operator=(bool val);
 };
@@ -194,17 +180,3 @@ public:
   void push_back(const std::string &str) { push_back(str.c_str()); }
 };
 }
-
-
-#if LDC_LLVM_VER >= 400
-#define clEnumValues llvm::cl::values
-#else
-template <typename DataType, typename... OptsTy>
-llvm::cl::ValuesClass<DataType> clEnumValues(const char *Arg, DataType Val,
-                                             const char *Desc,
-                                             OptsTy... Options) {
-  return llvm::cl::values(Arg, Val, Desc, Options..., clEnumValEnd);
-}
-#endif
-
-#endif

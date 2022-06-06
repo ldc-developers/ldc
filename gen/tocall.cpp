@@ -7,11 +7,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "declaration.h"
-#include "id.h"
-#include "mtype.h"
-#include "target.h"
-#include "pragma.h"
+#include "dmd/compiler.h"
+#include "dmd/declaration.h"
+#include "dmd/errors.h"
+#include "dmd/expression.h"
+#include "dmd/id.h"
+#include "dmd/mtype.h"
+#include "dmd/target.h"
 #include "gen/abi.h"
 #include "gen/classes.h"
 #include "gen/dvalue.h"
@@ -22,6 +24,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/nested.h"
+#include "gen/pragma.h"
 #include "gen/tollvm.h"
 #include "gen/runtime.h"
 #include "ir/irfunction.h"
@@ -37,18 +40,15 @@ IrFuncTy &DtoIrTypeFunction(DValue *fnval) {
     }
   }
 
-  Type *type = stripModifiers(fnval->type->toBasetype());
-  DtoType(type);
-  assert(type->ctype);
-  return type->ctype->getIrFuncTy();
+  return getIrType(fnval->type->toBasetype(), true)->getIrFuncTy();
 }
 
 TypeFunction *DtoTypeFunction(DValue *fnval) {
   Type *type = fnval->type->toBasetype();
-  if (type->ty == Tfunction) {
+  if (type->ty == TY::Tfunction) {
     return static_cast<TypeFunction *>(type);
   }
-  if (type->ty == Tdelegate) {
+  if (type->ty == TY::Tdelegate) {
     // FIXME: There is really no reason why the function type should be
     // unmerged at this stage, but the frontend still seems to produce such
     // cases; for example for the uint(uint) next type of the return type of
@@ -63,7 +63,7 @@ TypeFunction *DtoTypeFunction(DValue *fnval) {
     // root cause.
 
     Type *next = merge(type->nextOf());
-    assert(next->ty == Tfunction);
+    assert(next->ty == TY::Tfunction);
     return static_cast<TypeFunction *>(next);
   }
 
@@ -74,13 +74,13 @@ TypeFunction *DtoTypeFunction(DValue *fnval) {
 
 LLValue *DtoCallableValue(DValue *fn) {
   Type *type = fn->type->toBasetype();
-  if (type->ty == Tfunction) {
+  if (type->ty == TY::Tfunction) {
     return DtoRVal(fn);
   }
-  if (type->ty == Tdelegate) {
+  if (type->ty == TY::Tdelegate) {
     if (fn->isLVal()) {
       LLValue *dg = DtoLVal(fn);
-      LLValue *funcptr = DtoGEPi(dg, 0, 1);
+      LLValue *funcptr = DtoGEP(dg, 0, 1);
       return DtoLoad(funcptr, ".funcptr");
     }
     LLValue *dg = DtoRVal(fn);
@@ -98,7 +98,7 @@ LLFunctionType *DtoExtractFunctionType(LLType *type) {
     return fty;
   }
   if (LLPointerType *pty = isaPointer(type)) {
-    if (LLFunctionType *fty = isaFunction(pty->getElementType())) {
+    if (LLFunctionType *fty = isaFunction(pty->getPointerElementType())) {
       return fty;
     }
   }
@@ -119,7 +119,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
   const size_t formalLLArgCount = irFty.args.size();
 
   // Number of formal arguments in the D call expression (excluding varargs).
-  const int formalDArgCount = Parameter::dim(formalParams);
+  const size_t formalDArgCount = Parameter::dim(formalParams);
 
   // The number of explicit arguments in the D call expression (including
   // varargs), not all of which necessarily generate a LLVM argument.
@@ -129,16 +129,26 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
   std::vector<IrFuncTyArg *> optionalIrArgs;
   for (size_t i = formalDArgCount; i < explicitDArgCount; i++) {
     Type *argType = argexps[i]->type;
-    bool passByVal = gABI->passByVal(argType);
+    bool passByVal = gABI->passByVal(irFty.type, argType);
 
-    AttrBuilder initialAttrs;
+#if LDC_LLVM_VER >= 1400
+    llvm::AttrBuilder initialAttrs(getGlobalContext());
+#else
+    llvm::AttrBuilder initialAttrs;
+#endif
     if (passByVal) {
-      initialAttrs.addByVal(DtoAlignment(argType));
+#if LDC_LLVM_VER >= 1200
+      initialAttrs.addByValAttr(DtoType(argType));
+#else
+      initialAttrs.addAttribute(LLAttribute::ByVal);
+#endif
+      if (auto alignment = DtoAlignment(argType))
+        initialAttrs.addAlignmentAttr(alignment);
     } else {
-      initialAttrs.add(DtoShouldExtend(argType));
+      DtoAddExtendAttr(argType, initialAttrs);
     }
 
-    optionalIrArgs.push_back(new IrFuncTyArg(argType, passByVal, initialAttrs));
+    optionalIrArgs.push_back(new IrFuncTyArg(argType, passByVal, std::move(initialAttrs)));
     optionalIrArgs.back()->parametersIdx = i;
   }
 
@@ -149,8 +159,6 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
   args.resize(implicitLLArgCount + explicitLLArgCount,
               static_cast<llvm::Value *>(nullptr));
 
-  // Iterate the explicit arguments from left to right in the D source,
-  // which is the reverse of the LLVM order if irFty.reverseParams is true.
   size_t dArgIndex = 0;
   for (size_t i = 0; i < explicitLLArgCount; ++i, ++dArgIndex) {
     const bool isVararg = (i >= formalLLArgCount);
@@ -163,8 +171,10 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
 
     // Make sure to evaluate argument expressions for which there's no LL
     // parameter (e.g., empty structs for some ABIs).
-    for (; dArgIndex < irArg->parametersIdx; ++dArgIndex) {
-      toElem(argexps[dArgIndex]);
+    if (irArg->parametersIdx < formalDArgCount) {
+      for (; dArgIndex < irArg->parametersIdx; ++dArgIndex) {
+        toElem(argexps[dArgIndex]);
+      }
     }
 
     Expression *const argexp = argexps[dArgIndex];
@@ -174,17 +184,24 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
     // evaluate argument expression
     DValue *const dval = DtoArgument(formalParam, argexp);
 
-    // check whether it is an lvalue which might be modified by later argument
-    // expressions
-    const bool isModifiableLvalue =
-        argexp->isLvalue() && dArgIndex != explicitDArgCount - 1;
-
     // load from lvalue/let TargetABI rewrite it/...
-    llvm::Value *llVal = irFty.putParam(*irArg, dval, isModifiableLvalue);
+    bool isLValueExp = argexp->isLvalue();
+    // regard temporaries as rvalues here
+    if (isLValueExp) {
+      auto ae = argexp;
+      if (auto ce = ae->isCommaExp())
+        ae = ce->getTail();
+      if (auto ve = ae->isVarExp()) {
+        if (auto vd = ve->var->isVarDeclaration()) {
+          if (vd->storage_class & STCtemp)
+            isLValueExp = false;
+        }
+      }
+    }
+    llvm::Value *llVal = irFty.putArg(*irArg, dval, isLValueExp,
+                                      dArgIndex == explicitDArgCount - 1);
 
-    const size_t llArgIdx =
-        implicitLLArgCount +
-        (irFty.reverseParams ? explicitLLArgCount - i - 1 : i);
+    const size_t llArgIdx = implicitLLArgCount + i;
     llvm::Type *const paramType =
         (isVararg ? nullptr : calleeType->getParamType(llArgIdx));
 
@@ -238,7 +255,7 @@ static LLValue *getTypeinfoArrayArgumentForDVarArg(Expressions *argexps,
   const size_t numVariadicArgs = numArgExps - begin;
 
   // build type info array
-  LLType *typeinfotype = DtoType(Type::dtypeinfo->type);
+  LLType *typeinfotype = DtoType(getTypeInfoType());
   LLArrayType *typeinfoarraytype =
       LLArrayType::get(typeinfotype, numVariadicArgs);
 
@@ -250,7 +267,8 @@ static LLValue *getTypeinfoArrayArgumentForDVarArg(Expressions *argexps,
   std::vector<LLConstant *> vtypeinfos;
   vtypeinfos.reserve(numVariadicArgs);
   for (size_t i = begin; i < numArgExps; i++) {
-    vtypeinfos.push_back(DtoTypeInfoOf((*argexps)[i]->type));
+    Expression *argExp = (*argexps)[i];
+    vtypeinfos.push_back(DtoTypeInfoOf(argExp->loc, argExp->type));
   }
 
   // apply initializer
@@ -261,7 +279,7 @@ static LLValue *getTypeinfoArrayArgumentForDVarArg(Expressions *argexps,
   LLConstant *pinits[] = {
       DtoConstSize_t(numVariadicArgs),
       llvm::ConstantExpr::getBitCast(typeinfomem, getPtrToType(typeinfotype))};
-  LLType *tiarrty = DtoType(Type::dtypeinfo->type->arrayOf());
+  LLType *tiarrty = DtoType(getTypeInfoType()->arrayOf());
   tiinits = LLConstantStruct::get(isaStruct(tiarrty),
                                   llvm::ArrayRef<LLConstant *>(pinits));
   LLValue *typeinfoarrayparam = new llvm::GlobalVariable(
@@ -273,11 +291,24 @@ static LLValue *getTypeinfoArrayArgumentForDVarArg(Expressions *argexps,
 
 ////////////////////////////////////////////////////////////////////////////////
 
+static LLType *getPtrToAtomicType(LLType *type) {
+  switch (const size_t N = getTypeBitSize(type)) {
+  case 8:
+  case 16:
+  case 32:
+  case 64:
+  case 128:
+    return LLType::getIntNPtrTy(gIR->context(), static_cast<unsigned>(N));
+  default:
+    return nullptr;
+  }
+}
+
 bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
                             DValue *&result) {
   // va_start instruction
   if (fndecl->llvmInternal == LLVMva_start) {
-    if (e->arguments->dim < 1 || e->arguments->dim > 2) {
+    if (e->arguments->length < 1 || e->arguments->length > 2) {
       e->error("`va_start` instruction expects 1 (or 2) arguments");
       fatal();
     }
@@ -296,7 +327,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
   // va_copy instruction
   if (fndecl->llvmInternal == LLVMva_copy) {
-    if (e->arguments->dim != 2) {
+    if (e->arguments->length != 2) {
       e->error("`va_copy` instruction expects 2 arguments");
       fatal();
     }
@@ -310,7 +341,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
   // va_arg instruction
   if (fndecl->llvmInternal == LLVMva_arg) {
-    if (e->arguments->dim != 1) {
+    if (e->arguments->length != 1) {
       e->error("`va_arg` instruction expects 1 argument");
       fatal();
     }
@@ -326,15 +357,29 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     return true;
   }
 
+  // va_end instruction
+  if (fndecl->llvmInternal == LLVMva_end) {
+    if (e->arguments->length != 1) {
+      e->error("`va_end` instruction expects 1 argument");
+      fatal();
+    }
+    DLValue *ap = toElem((*e->arguments)[0])->isLVal(); // va_list
+    assert(ap);
+    LLValue *llAp = gABI->prepareVaArg(ap);
+    p->ir->CreateCall(GET_INTRINSIC_DECL(vaend), llAp);
+    result = nullptr;
+    return true;
+  }
+
   // C alloca
   if (fndecl->llvmInternal == LLVMalloca) {
-    if (e->arguments->dim != 1) {
+    if (e->arguments->length != 1) {
       e->error("`alloca` expects 1 argument");
       fatal();
     }
     Expression *exp = (*e->arguments)[0];
     DValue *expv = toElem(exp);
-    if (expv->type->toBasetype()->ty != Tint32) {
+    if (expv->type->toBasetype()->ty != TY::Tint32) {
       expv = DtoCast(e->loc, expv, Type::tint32);
     }
     result = new DImValue(e->type,
@@ -345,31 +390,23 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
   // fence instruction
   if (fndecl->llvmInternal == LLVMfence) {
-    if (e->arguments->dim < 1 || e->arguments->dim > 2) {
+    if (e->arguments->length < 1 || e->arguments->length > 2) {
       e->error("`fence` instruction expects 1 (or 2) arguments");
       fatal();
     }
     auto atomicOrdering =
         static_cast<llvm::AtomicOrdering>((*e->arguments)[0]->toInteger());
-#if LDC_LLVM_VER >= 500
     llvm::SyncScope::ID scope = llvm::SyncScope::System;
-    if (e->arguments->dim == 2) {
+    if (e->arguments->length == 2) {
       scope = static_cast<llvm::SyncScope::ID>((*e->arguments)[1]->toInteger());
     }
-#else
-    auto scope = llvm::SynchronizationScope::CrossThread;
-    if (e->arguments->dim == 2) {
-      scope = static_cast<llvm::SynchronizationScope>(
-          (*e->arguments)[1]->toInteger());
-    }
-#endif
     p->ir->CreateFence(atomicOrdering, scope);
     return true;
   }
 
   // atomic store instruction
   if (fndecl->llvmInternal == LLVMatomic_store) {
-    if (e->arguments->dim != 3) {
+    if (e->arguments->length != 3) {
       e->error("atomic store instruction expects 3 arguments");
       fatal();
     }
@@ -382,43 +419,30 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     LLType *pointeeType = ptr->getType()->getContainedType(0);
 
     LLValue *val = nullptr;
-    if (!pointeeType->isIntegerTy()) {
-      if (pointeeType->isStructTy()) {
-        val = DtoLVal(dval);
-        switch (size_t N = getTypeBitSize(pointeeType)) {
-        case 8:
-        case 16:
-        case 32:
-        case 64:
-        case 128: {
-          LLType *intPtrType =
-              LLType::getIntNPtrTy(gIR->context(), static_cast<unsigned>(N));
-          val = DtoLoad(DtoBitCast(val, intPtrType));
-          ptr = DtoBitCast(ptr, intPtrType);
-          break;
-        }
-        default:
-          goto errorStore;
-        }
-      } else {
-      errorStore:
-        e->error("atomic store only supports integer types, not `%s`",
-                 exp1->type->toChars());
-        fatal();
-      }
-    } else {
+    if (pointeeType->isIntegerTy()) {
       val = DtoRVal(dval);
+    } else if (auto intPtrType = getPtrToAtomicType(pointeeType)) {
+      ptr = DtoBitCast(ptr, intPtrType);
+      auto lval = makeLValue(exp1->loc, dval);
+      val = DtoLoad(DtoBitCast(lval, intPtrType));
+    } else {
+      e->error(
+          "atomic store only supports types of size 1/2/4/8/16 bytes, not `%s`",
+          exp1->type->toChars());
+      fatal();
     }
 
     llvm::StoreInst *ret = p->ir->CreateStore(val, ptr);
     ret->setAtomic(llvm::AtomicOrdering(atomicOrdering));
-    ret->setAlignment(getTypeAllocSize(val->getType()));
+    if (auto alignment = getTypeAllocSize(val->getType())) {
+      ret->setAlignment(LLAlign(alignment));
+    }
     return true;
   }
 
   // atomic load instruction
   if (fndecl->llvmInternal == LLVMatomic_load) {
-    if (e->arguments->dim != 2) {
+    if (e->arguments->length != 2) {
       e->error("atomic load instruction expects 2 arguments");
       fatal();
     }
@@ -427,36 +451,28 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     int atomicOrdering = (*e->arguments)[1]->toInteger();
 
     LLValue *ptr = DtoRVal(exp);
-    LLType *pointeeType = ptr->getType()->getContainedType(0);
+    LLType *pointeeType = getPointeeType(ptr);
     Type *retType = exp->type->nextOf();
 
     if (!pointeeType->isIntegerTy()) {
-      if (pointeeType->isStructTy()) {
-        switch (const size_t N = getTypeBitSize(pointeeType)) {
-        case 8:
-        case 16:
-        case 32:
-        case 64:
-        case 128:
-          ptr = DtoBitCast(ptr, LLType::getIntNPtrTy(gIR->context(),
-                                                     static_cast<unsigned>(N)));
-          break;
-        default:
-          goto errorLoad;
-        }
+      if (auto intPtrType = getPtrToAtomicType(pointeeType)) {
+        ptr = DtoBitCast(ptr, intPtrType);
       } else {
-      errorLoad:
-        e->error("atomic load only supports integer types, not `%s`",
+        e->error("atomic load only supports types of size 1/2/4/8/16 bytes, "
+                 "not `%s`",
                  retType->toChars());
         fatal();
       }
     }
 
-    llvm::LoadInst *load = p->ir->CreateLoad(ptr);
-    load->setAlignment(getTypeAllocSize(load->getType()));
+    const auto loadedType = getPointeeType(ptr);
+    llvm::LoadInst *load = p->ir->CreateLoad(loadedType, ptr);
+    if (auto alignment = getTypeAllocSize(loadedType)) {
+      load->setAlignment(LLAlign(alignment));
+    }
     load->setAtomic(llvm::AtomicOrdering(atomicOrdering));
     llvm::Value *val = load;
-    if (val->getType() != pointeeType) {
+    if (loadedType != pointeeType) {
       val = DtoAllocaDump(val, retType);
       result = new DLValue(retType, val);
     } else {
@@ -467,14 +483,23 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
   // cmpxchg instruction
   if (fndecl->llvmInternal == LLVMatomic_cmp_xchg) {
-    if (e->arguments->dim != 4) {
-      e->error("`cmpxchg` instruction expects 4 arguments");
+    if (e->arguments->length != 6) {
+      e->error("`cmpxchg` instruction expects 6 arguments");
+      fatal();
+    }
+    if (e->type->ty != TY::Tstruct) {
+      e->error("`cmpxchg` instruction returns a struct");
       fatal();
     }
     Expression *exp1 = (*e->arguments)[0];
     Expression *exp2 = (*e->arguments)[1];
     Expression *exp3 = (*e->arguments)[2];
-    auto atomicOrdering = llvm::AtomicOrdering((*e->arguments)[3]->toInteger());
+    const auto successOrdering =
+        llvm::AtomicOrdering((*e->arguments)[3]->toInteger());
+    const auto failureOrdering =
+        llvm::AtomicOrdering((*e->arguments)[4]->toInteger());
+    const bool isWeak = (*e->arguments)[5]->toInteger() != 0;
+
     LLValue *ptr = DtoRVal(exp1);
     LLType *pointeeType = ptr->getType()->getContainedType(0);
     DValue *dcmp = toElem(exp2);
@@ -482,52 +507,46 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
     LLValue *cmp = nullptr;
     LLValue *val = nullptr;
-    if (!pointeeType->isIntegerTy()) {
-      if (pointeeType->isStructTy()) {
-        switch (const size_t N = getTypeBitSize(pointeeType)) {
-        case 8:
-        case 16:
-        case 32:
-        case 64:
-        case 128: {
-          LLType *intPtrType =
-              LLType::getIntNPtrTy(gIR->context(), static_cast<unsigned>(N));
-          ptr = DtoBitCast(ptr, intPtrType);
-          cmp = DtoLoad(DtoBitCast(DtoLVal(dcmp), intPtrType));
-          val = DtoLoad(DtoBitCast(DtoLVal(dval), intPtrType));
-          break;
-        }
-        default:
-          goto errorCmpxchg;
-        }
-      } else {
-      errorCmpxchg:
-        e->error("`cmpxchg` only supports integer types, not `%s`",
-                 exp2->type->toChars());
-        fatal();
-      }
-    } else {
+    if (pointeeType->isIntegerTy()) {
       cmp = DtoRVal(dcmp);
       val = DtoRVal(dval);
+    } else if (auto intPtrType = getPtrToAtomicType(pointeeType)) {
+      ptr = DtoBitCast(ptr, intPtrType);
+      auto cmpLVal = makeLValue(exp2->loc, dcmp);
+      cmp = DtoLoad(DtoBitCast(cmpLVal, intPtrType));
+      auto lval = makeLValue(exp3->loc, dval);
+      val = DtoLoad(DtoBitCast(lval, intPtrType));
+    } else {
+      e->error(
+          "`cmpxchg` only supports types of size 1/2/4/8/16 bytes, not `%s`",
+          exp2->type->toChars());
+      fatal();
     }
 
-    LLValue *ret = p->ir->CreateAtomicCmpXchg(ptr, cmp, val, atomicOrdering,
-                                              atomicOrdering);
-    // Use the same quickfix as for dragonegg - see r210956
-    ret = p->ir->CreateExtractValue(ret, 0);
-    if (ret->getType() != pointeeType) {
-      ret = DtoAllocaDump(ret, exp3->type);
-      result = new DLValue(exp3->type, ret);
-    } else {
-      result = new DImValue(exp3->type, ret);
-    }
+    auto ret =
+      p->ir->CreateAtomicCmpXchg(ptr, cmp, val,
+#if LDC_LLVM_VER >= 1300
+                                 llvm::MaybeAlign(), // default alignment
+#endif
+                                 successOrdering, failureOrdering);
+    ret->setWeak(isWeak);
+
+    // we return a struct; allocate on stack and store to both fields manually
+    // (avoiding DtoAllocaDump() due to bad optimized codegen, most likely
+    // because of i1)
+    auto mem = DtoAlloca(e->type);
+    DtoStore(p->ir->CreateExtractValue(ret, 0),
+             DtoBitCast(DtoGEP(mem, 0u, 0), ptr->getType()));
+    DtoStoreZextI8(p->ir->CreateExtractValue(ret, 1), DtoGEP(mem, 0, 1));
+
+    result = new DLValue(e->type, mem);
     return true;
   }
 
   // atomicrmw instruction
   if (fndecl->llvmInternal == LLVMatomic_rmw) {
-    if (e->arguments->dim != 3) {
-      e->error("`atomic_rmw` instruction expects 3 arguments");
+    if (e->arguments->length != 3) {
+      e->error("`atomicrmw` instruction expects 3 arguments");
       fatal();
     }
 
@@ -538,7 +557,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     int op = 0;
     for (;; ++op) {
       if (ops[op] == nullptr) {
-        e->error("unknown atomic_rmw operation `%s`",
+        e->error("unknown `atomicrmw` operation `%s`",
                  fndecl->intrinsicName);
         fatal();
       }
@@ -554,6 +573,9 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     LLValue *val = DtoRVal(exp2);
     LLValue *ret =
         p->ir->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp(op), ptr, val,
+#if LDC_LLVM_VER >= 1300
+                               llvm::MaybeAlign(), // default alignment
+#endif
                                llvm::AtomicOrdering(atomicOrdering));
     result = new DImValue(exp2->type, ret);
     return true;
@@ -564,7 +586,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       fndecl->llvmInternal == LLVMbitop_btr ||
       fndecl->llvmInternal == LLVMbitop_btc ||
       fndecl->llvmInternal == LLVMbitop_bts) {
-    if (e->arguments->dim != 2) {
+    if (e->arguments->length != 2) {
       e->error("bitop intrinsic expects 2 arguments");
       fatal();
     }
@@ -578,7 +600,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     assert(bitmask == 31 || bitmask == 63);
     // auto q = cast(size_t*)ptr + (bitnum >> (64bit ? 6 : 5));
     LLValue *q = DtoBitCast(ptr, DtoSize_t()->getPointerTo());
-    q = DtoGEP1(q, p->ir->CreateLShr(bitnum, bitmask == 63 ? 6 : 5), true, "bitop.q");
+    q = DtoGEP1(q, p->ir->CreateLShr(bitnum, bitmask == 63 ? 6 : 5), "bitop.q");
 
     // auto mask = 1 << (bitnum & bitmask);
     LLValue *mask =
@@ -619,7 +641,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
   }
 
   if (fndecl->llvmInternal == LLVMbitop_vld) {
-    if (e->arguments->dim != 1) {
+    if (e->arguments->length != 1) {
       e->error("`bitop.vld` intrinsic expects 1 argument");
       fatal();
     }
@@ -632,7 +654,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
   }
 
   if (fndecl->llvmInternal == LLVMbitop_vst) {
-    if (e->arguments->dim != 2) {
+    if (e->arguments->length != 2) {
       e->error("`bitop.vst` intrinsic expects 2 arguments");
       fatal();
     }
@@ -654,13 +676,13 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 class ImplicitArgumentsBuilder {
 public:
   ImplicitArgumentsBuilder(std::vector<LLValue *> &args, AttrSet &attrs,
-                           Loc &loc, DValue *fnval,
+                           const Loc &loc, DValue *fnval,
                            LLFunctionType *llCalleeType, Expressions *argexps,
                            Type *resulttype, LLValue *sretPointer)
       : args(args), attrs(attrs), loc(loc), fnval(fnval), argexps(argexps),
         resulttype(resulttype), sretPointer(sretPointer),
         // computed:
-        isDelegateCall(fnval->type->toBasetype()->ty == Tdelegate),
+        isDelegateCall(fnval->type->toBasetype()->ty == TY::Tdelegate),
         dfnval(fnval->isFunc()), irFty(DtoIrTypeFunction(fnval)),
         tf(DtoTypeFunction(fnval)),
         llArgTypesBegin(llCalleeType->param_begin()) {}
@@ -677,11 +699,13 @@ public:
     addArguments();
   }
 
+  bool hasContext = false; // set after addImplicitArgs invocation
+
 private:
   // passed:
   std::vector<LLValue *> &args;
   AttrSet &attrs;
-  Loc &loc;
+  const Loc &loc;
   DValue *const fnval;
   Expressions *const argexps;
   Type *const resulttype;
@@ -713,19 +737,20 @@ private:
     attrs.addToParam(index, irFty.arg_sret->attrs);
 
     // verify that sret and/or inreg attributes are set
-    const AttrBuilder &sretAttrs = irFty.arg_sret->attrs;
+    const auto &sretAttrs = irFty.arg_sret->attrs;
     (void)sretAttrs;
     assert((sretAttrs.contains(LLAttribute::StructRet) ||
             sretAttrs.contains(LLAttribute::InReg)) &&
            "Sret arg not sret or inreg?");
   }
 
-  // Adds an optional context/this pointer argument.
+  // Adds an optional context/this pointer argument and sets hasContext.
   void addContext() {
-    bool thiscall = irFty.arg_this;
-    bool nestedcall = irFty.arg_nest;
+    const bool thiscall = irFty.arg_this;
+    const bool nestedcall = irFty.arg_nest;
 
-    if (!thiscall && !isDelegateCall && !nestedcall)
+    hasContext = thiscall || nestedcall || isDelegateCall;
+    if (!hasContext)
       return;
 
     size_t index = args.size();
@@ -734,24 +759,23 @@ private:
     if (dfnval && (dfnval->func->ident == Id::ensure ||
                    dfnval->func->ident == Id::require)) {
       // can be the this "context" argument for a contract invocation
-      // (in D2, we do not generate a full nested contexts for
-      // __require/__ensure as the needed parameters are passed
-      // explicitly, while in D1, the normal nested function handling
-      // mechanisms are used)
-      LLValue *thisptr = DtoLoad(gIR->func()->thisArg);
+      // (pass a pointer to the aggregate `this` pointer, which can naturally be
+      // used as the contract's parent context in case the contract features
+      // nested functions capturing `this` from the contract's parent)
+      LLValue *thisptrLval = gIR->func()->thisArg;
       if (auto parentfd = dfnval->func->parent->isFuncDeclaration()) {
         if (auto iface = parentfd->parent->isInterfaceDeclaration()) {
           // an interface contract expects the interface pointer, not the
           //  class pointer
           Type *thistype = gIR->func()->decl->vthis->type;
           if (thistype != iface->type) {
-            DImValue *dthis = new DImValue(thistype, thisptr);
-            thisptr = DtoRVal(DtoCastClass(loc, dthis, iface->type));
+            DImValue *dthis = new DImValue(thistype, DtoLoad(thisptrLval));
+            thisptrLval = DtoAllocaDump(DtoCastClass(loc, dthis, iface->type));
           }
         }
       }
-      LLValue *thisarg = DtoBitCast(thisptr, getVoidPtrType());
-      args.push_back(thisarg);
+      LLValue *contextptr = DtoBitCast(thisptrLval, getVoidPtrType());
+      args.push_back(contextptr);
     } else if (thiscall && dfnval && dfnval->vthis) {
       // ... or a normal 'this' argument
       LLValue *thisarg = DtoBitCast(dfnval->vthis, llArgType);
@@ -760,7 +784,7 @@ private:
       // ... or a delegate context arg
       LLValue *ctxarg;
       if (fnval->isLVal()) {
-        ctxarg = DtoLoad(DtoGEPi(DtoLVal(fnval), 0, 0), ".ptr");
+        ctxarg = DtoLoad(DtoGEP(DtoLVal(fnval), 0u, 0), ".ptr");
       } else {
         ctxarg = gIR->ir->CreateExtractValue(DtoRVal(fnval), 0, ".ptr");
       }
@@ -789,7 +813,7 @@ private:
 
     if (irFty.arg_objcSelector) {
       assert(dfnval);
-      const auto selector = dfnval->func->selector;
+      const auto selector = dfnval->func->objc.selector;
       assert(selector);
       LLGlobalVariable *selptr = gIR->objc.getMethVarRef(*selector);
       args.push_back(DtoBitCast(DtoLoad(selptr), getVoidPtrType()));
@@ -802,7 +826,7 @@ private:
       return;
     }
 
-    int numFormalParams = Parameter::dim(tf->parameters);
+    int numFormalParams = tf->parameterList.length();
     LLValue *argumentsArg =
         getTypeinfoArrayArgumentForDVarArg(argexps, numFormalParams);
 
@@ -814,7 +838,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 
 // FIXME: this function is a mess !
-DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
+DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
                         Expressions *arguments, LLValue *sretPointer) {
   IF_LOG Logger::println("DtoCallFunction()");
   LOG_SCOPE
@@ -840,9 +864,6 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   LLFunctionType *const callableTy =
       DtoExtractFunctionType(callable->getType());
   assert(callableTy);
-
-  const auto callconv =
-      gABI->callingConv(tf->linkage, tf, dfnval ? dfnval->func : nullptr);
 
   //     IF_LOG Logger::cout() << "callable: " << *callable << '\n';
 
@@ -876,7 +897,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
 
   if (arguments) {
     addExplicitArguments(args, attrs, irFty, callableTy, *arguments,
-                         tf->parameters);
+                         tf->parameterList.parameters);
   }
 
   if (irFty.arg_objcSelector) {
@@ -888,26 +909,24 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   // call the function
-  LLCallSite call =
-      gIR->funcGen().callOrInvoke(callable, args, "", tf->isnothrow);
+  LLCallBasePtr call = gIR->funcGen().callOrInvoke(callable, callableTy, args,
+                                                   "", tf->isnothrow());
 
-#if LDC_LLVM_VER >= 309
   // PGO: Insert instrumentation or attach profile metadata at indirect call
   // sites.
-  if (!call.getCalledFunction()) {
+  if (!call->getCalledFunction()) {
     auto &PGO = gIR->funcGen().pgo;
-    PGO.emitIndirectCallPGO(call.getInstruction(), callable);
+    PGO.emitIndirectCallPGO(call, callable);
   }
-#endif
 
   // get return value
   const int sretArgIndex =
       (irFty.arg_sret && irFty.arg_this && gABI->passThisBeforeSret(tf) ? 1
                                                                         : 0);
-  LLValue *retllval =
-      (irFty.arg_sret ? args[sretArgIndex] : call.getInstruction());
+  LLValue *retllval = irFty.arg_sret ? args[sretArgIndex]
+                                     : static_cast<llvm::Instruction *>(call);
   bool retValIsLVal =
-      (tf->isref && returnTy != Tvoid) || (irFty.arg_sret != nullptr);
+      (tf->isref() && returnTy != TY::Tvoid) || (irFty.arg_sret != nullptr);
 
   if (!retValIsLVal) {
     // let the ABI transform the return value back
@@ -926,30 +945,41 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
     IF_LOG Logger::println("repainting return value from '%s' to '%s'",
                            returntype->toChars(), rbase->toChars());
     switch (rbase->ty) {
-    case Tarray:
-      if (tf->isref) {
+    case TY::Tarray:
+      if (tf->isref()) {
         retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
       } else {
         retllval = DtoAggrPaint(retllval, DtoType(rbase));
       }
       break;
 
-    case Tsarray:
-      // nothing ?
-      break;
+    case TY::Tsarray:
+      if (nextbase->ty == TY::Tvector && !tf->isref()) {
+        if (retValIsLVal) {
+          retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
+        } else {
+          // static arrays need to be dumped to memory; use vector alignment
+          retllval =
+              DtoAllocaDump(retllval, DtoType(rbase), DtoAlignment(nextbase),
+                            ".vector_to_sarray_tmp");
+          retValIsLVal = true;
+        }
+        break;
+      }
+      goto unknownMismatch;
 
-    case Tclass:
-    case Taarray:
-    case Tpointer:
-      if (tf->isref) {
+    case TY::Tclass:
+    case TY::Taarray:
+    case TY::Tpointer:
+      if (tf->isref()) {
         retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
       } else {
         retllval = DtoBitCast(retllval, DtoType(rbase));
       }
       break;
 
-    case Tstruct:
-      if (nextbase->ty == Taarray && !tf->isref) {
+    case TY::Tstruct:
+      if (nextbase->ty == TY::Taarray && !tf->isref()) {
         // In the D2 frontend, the associative array type and its
         // object.AssociativeArray representation are used
         // interchangably in some places. However, AAs are returned
@@ -962,9 +992,10 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
         retValIsLVal = true;
         break;
       }
-    // Fall through.
+      goto unknownMismatch;
 
     default:
+    unknownMismatch:
       // Unfortunately, DMD has quirks resp. bugs with regard to name
       // mangling: For voldemort-type functions which return a nested
       // struct, the mangled name of the return type changes during
@@ -1004,30 +1035,29 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   // set calling convention and parameter attributes
-  LLAttributeSet &attrlist = attrs;
-  if (dfnval && dfnval->func) {
-    LLFunction *llfunc = llvm::dyn_cast<LLFunction>(DtoRVal(dfnval));
-    if (llfunc && llfunc->isIntrinsic()) // override intrinsic attrs
-    {
-      attrlist = llvm::Intrinsic::getAttributes(
-          gIR->context(),
-          static_cast<llvm::Intrinsic::ID>(llfunc->getIntrinsicID()));
-    } else {
-      call.setCallingConv(callconv);
+  LLAttributeList &attrlist = attrs;
+  if (auto cf = call->getCalledFunction()) {
+    call->setCallingConv(cf->getCallingConv());
+    if (cf->isIntrinsic()) { // override intrinsic attrs
+      attrlist =
+          llvm::Intrinsic::getAttributes(gIR->context(), cf->getIntrinsicID());
     }
+  } else if (dfnval) {
+    call->setCallingConv(gABI->callingConv(dfnval->func));
   } else {
-    call.setCallingConv(callconv);
+    call->setCallingConv(gABI->callingConv(tf, iab.hasContext));
   }
   // merge in function attributes set in callOrInvoke
-#if LDC_LLVM_VER >= 500
-  attrlist = attrlist.addAttributes(
-      gIR->context(), LLAttributeSet::FunctionIndex,
-      llvm::AttrBuilder(call.getAttributes(), LLAttributeSet::FunctionIndex));
+#if LDC_LLVM_VER >= 1400
+  auto attrbuildattribs = call->getAttributes().getFnAttrs();
+  attrlist = attrlist.addFnAttributes(
+      gIR->context(), llvm::AttrBuilder(gIR->context(), attrbuildattribs));
 #else
   attrlist = attrlist.addAttributes(
-      gIR->context(), LLAttributeSet::FunctionIndex, call.getAttributes());
+      gIR->context(), LLAttributeList::FunctionIndex,
+      llvm::AttrBuilder(call->getAttributes(), LLAttributeList::FunctionIndex));
 #endif
-  call.setAttributes(attrlist);
+  call->setAttributes(attrlist);
 
   // Special case for struct constructor calls: For temporaries, using the
   // this pointer value returned from the constructor instead of the alloca
@@ -1041,6 +1071,10 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
 
   if (retValIsLVal) {
     return new DLValue(resulttype, retllval);
+  }
+
+  if (rbase->ty == TY::Tarray) {
+    return new DSliceValue(resulttype, retllval);
   }
 
   return new DImValue(resulttype, retllval);

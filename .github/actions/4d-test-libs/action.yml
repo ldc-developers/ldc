@@ -1,0 +1,36 @@
+name: Run defaultlib unittests & druntime integration tests
+inputs:
+  arch:
+    required: false # Windows only
+runs:
+  using: composite
+  steps:
+
+    - name: 'Posix: Run defaultlib unittests & druntime integration tests'
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        set -eux
+        cd ../build
+        if [[ '${{ runner.os }}' == macOS ]]; then
+          N=$(sysctl -n hw.logicalcpu)
+        else
+          N=$(nproc)
+        fi
+        ctest -j$N --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
+
+    - name: 'Windows: Run defaultlib unittests & druntime integration tests'
+      if: runner.os == 'Windows'
+      shell: cmd
+      # temporarily set OS/MODEL & add druntime/Phobos/libcurl DLL dirs to PATH
+      run: |
+        echo on
+        cd .. || exit /b
+        set OS=windows
+        if "${{ inputs.arch }}" == x86 (set MODEL=32) else (set MODEL=64)
+        :: git's usr/bin/bash, unlike its bin/bash, leaves PATH as-is
+        set "PATH=%CD%\build\lib;%CD%\libcurl\ldc2;C:\Program Files\Git\usr\bin;%PATH%"
+        call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=${{ matrix.arch }} || exit /b
+        echo on
+        cd build || exit /b
+        ctest -j4 --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest" || exit /b

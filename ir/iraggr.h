@@ -12,30 +12,28 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_IR_IRAGGR_H
-#define LDC_IR_IRAGGR_H
+#pragma once
 
+#include "dmd/aggregate.h"
 #include "llvm/ADT/SmallVector.h"
 #include <map>
 #include <vector>
 
-// DMD forward declarations
 class StructInitializer;
 
 namespace llvm {
 class Constant;
+class DIType;
+class GlobalVariable;
 class StructType;
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-// represents a struct or class
-// it is used during codegen to hold all the vital info we need
-struct IrAggr {
-  /// Constructor.
-  explicit IrAggr(AggregateDeclaration *aggr)
-      : aggrdecl(aggr), type(aggr->type) {}
-
+/// Represents a struct or class/interface.
+/// It is used during codegen to hold all the vital info we need.
+class IrAggr {
+public:
   //////////////////////////////////////////////////////////////////////////
   // public fields,
   // FIXME this is basically stuff I just haven't gotten around to yet.
@@ -46,35 +44,27 @@ struct IrAggr {
   /// Aggregate D type.
   Type *type = nullptr;
 
+  /// Composite type debug description. This is not only to cache, but also
+  /// used for resolving forward references.
+  llvm::DIType *diCompositeType = nullptr;
+
   //////////////////////////////////////////////////////////////////////////
 
-  // Returns the static default initializer of a field.
+  /// Returns the static default initializer of a field.
   static llvm::Constant *getDefaultInitializer(VarDeclaration *field);
 
   //////////////////////////////////////////////////////////////////////////
 
-  /// Create the __initZ symbol lazily.
-  llvm::Constant *&getInitSymbol();
+  virtual ~IrAggr() = default;
+
+  /// Creates the __initZ symbol lazily.
+  llvm::Constant *getInitSymbol(bool define = false);
   /// Builds the __initZ initializer constant lazily.
   llvm::Constant *getDefaultInit();
 
-  /// Create the __vtblZ symbol lazily.
-  llvm::GlobalVariable *getVtblSymbol();
-  /// Builds the __vtblZ initializer constant lazily.
-  llvm::Constant *getVtblInit();
-
-  /// Create the __ClassZ/__InterfaceZ symbol lazily.
-  llvm::GlobalVariable *getClassInfoSymbol();
-  /// Builds the __ClassZ/__InterfaceZ initializer constant lazily.
-  llvm::Constant *getClassInfoInit();
-
-  /// Create the __interfaceInfos symbol lazily.
-  llvm::GlobalVariable *getInterfaceArraySymbol();
-
-  //////////////////////////////////////////////////////////////////////////
-
-  /// Initialize interface.
-  void initializeInterface();
+  /// Whether to suppress the TypeInfo definition for the aggregate via
+  /// `-betterC`, no `object.TypeInfo`, or `pragma(LDC_no_typeinfo)`.
+  bool suppressTypeInfo() const;
 
   //////////////////////////////////////////////////////////////////////////
 
@@ -95,52 +85,16 @@ protected:
   /// Static default initializer constant.
   llvm::Constant *constInit = nullptr;
 
-  /// Vtbl global.
-  llvm::GlobalVariable *vtbl = nullptr;
-  /// Vtbl initializer constant.
-  llvm::Constant *constVtbl = nullptr;
+  /// TypeInfo global.
+  llvm::GlobalVariable *typeInfo = nullptr;
+  /// TypeInfo initializer constant.
+  llvm::Constant *constTypeInfo = nullptr;
 
-  /// ClassInfo global.
-  llvm::GlobalVariable *classInfo = nullptr;
-  /// ClassInfo initializer constant.
-  llvm::Constant *constClassInfo = nullptr;
+  explicit IrAggr(AggregateDeclaration *aggr)
+      : aggrdecl(aggr), type(aggr->type) {}
 
-  using ClassGlobalMap =
-      std::map<std::pair<ClassDeclaration *, size_t>, llvm::GlobalVariable *>;
-
-  /// Map from pairs of <interface vtbl,index> to global variable, implemented
-  /// by this class. The same interface can appear multiple times, so index is
-  /// another way to specify the thunk offset
-  ClassGlobalMap interfaceVtblMap;
-
-  /// Interface info array global.
-  /// Basically: static object.Interface[num_interfaces]
-  llvm::GlobalVariable *classInterfacesArray = nullptr;
-
-  /// std::vector of BaseClass*
-  using BaseClassVector = std::vector<BaseClass *>;
-
-  /// Array of all interface vtbl implementations - in order - implemented
-  /// by this class.
-  /// Corresponds to the Interface instances needed to be output.
-  BaseClassVector interfacesWithVtbls;
-
-  //////////////////////////////////////////////////////////////////////////
-
-  /// Returns vtbl for interface implementation, creates it if not already
-  /// built.
-  llvm::GlobalVariable *getInterfaceVtbl(BaseClass *b, bool new_inst,
-                                         size_t interfaces_index);
-
-  // FIXME make this a member instead
-  friend llvm::Constant *DtoDefineClassInfo(ClassDeclaration *cd);
-
-  /// Create the Interface[] interfaces ClassInfo field initializer.
-  llvm::Constant *getClassInfoInterfaces();
-
-  /// Returns true, if the LLVM struct type for the aggregate is declared as
-  /// packed
-  bool isPacked() const;
+  // Use dllimport for *declared* init symbol, TypeInfo and vtable?
+  bool useDLLImport() const;
 
 private:
   llvm::StructType *llStructType = nullptr;
@@ -152,12 +106,86 @@ private:
   void addFieldInitializers(llvm::SmallVectorImpl<llvm::Constant *> &constants,
                             const VarInitMap &explicitInitializers,
                             AggregateDeclaration *decl, unsigned &offset,
-                            bool populateInterfacesWithVtbls);
+                            unsigned &interfaceVtblIndex);
+};
+
+/// Represents a struct.
+class IrStruct : public IrAggr {
+public:
+  explicit IrStruct(StructDeclaration *sd) : IrAggr(sd) {}
+
+  /// Creates the TypeInfo_Struct symbol lazily.
+  llvm::GlobalVariable *getTypeInfoSymbol(bool define = false);
+
+private:
+  /// Builds the TypeInfo_Struct initializer constant lazily.
+  llvm::Constant *getTypeInfoInit();
+};
+
+/// Represents a class/interface.
+class IrClass : public IrAggr {
+public:
+  explicit IrClass(ClassDeclaration *cd);
+
+  /// Creates the __ClassZ/__InterfaceZ symbol lazily.
+  llvm::GlobalVariable *getClassInfoSymbol(bool define = false);
+
+  /// Creates the __vtblZ symbol lazily.
+  llvm::GlobalVariable *getVtblSymbol(bool define = false);
+
+  /// Defines all interface vtbls.
+  void defineInterfaceVtbls();
+
+private:
+  /// Vtbl global.
+  llvm::GlobalVariable *vtbl = nullptr;
+  /// Vtbl initializer constant.
+  llvm::Constant *constVtbl = nullptr;
+
+  /// Map from pairs of <interface vtbl,index> to global variable, implemented
+  /// by this class. The same interface can appear multiple times, so index is
+  /// another way to specify the thunk offset
+  std::map<std::pair<ClassDeclaration *, size_t>, llvm::GlobalVariable *>
+      interfaceVtblMap;
+
+  /// Interface info array global.
+  /// Basically: static object.Interface[num_interfaces]
+  llvm::GlobalVariable *classInterfacesArray = nullptr;
+
+  /// Array of all interface vtbl implementations - in order - implemented
+  /// by this class.
+  /// Corresponds to the Interface instances needed to be output.
+  std::vector<BaseClass *> interfacesWithVtbls;
+
+  void addInterfaceVtbls(ClassDeclaration *cd);
+
+  /// Builds the __ClassZ/__InterfaceZ initializer constant lazily.
+  llvm::Constant *getClassInfoInit();
+
+  /// Builds the __vtblZ initializer constant lazily.
+  llvm::Constant *getVtblInit();
+
+  /// Returns the vtbl for an interface implementation.
+  llvm::GlobalVariable *getInterfaceVtblSymbol(BaseClass *b,
+                                               size_t interfaces_index,
+                                               bool define = false);
+  /// Defines the vtbl for an interface implementation.
+  llvm::Constant *getInterfaceVtblInit(BaseClass *b, size_t interfaces_index);
+
+  /// Creates the __interfaceInfos symbol lazily.
+  llvm::GlobalVariable *getInterfaceArraySymbol();
+
+  /// Create the Interface[] interfaces ClassInfo field initializer.
+  llvm::Constant *getClassInfoInterfaces();
+
+  // FIXME: IrAggr::createInitializerConstant() needs full access
+  friend class IrAggr;
 };
 
 //////////////////////////////////////////////////////////////////////////////
 
 IrAggr *getIrAggr(AggregateDeclaration *decl, bool create = false);
-bool isIrAggrCreated(AggregateDeclaration *decl);
+IrStruct *getIrAggr(StructDeclaration *sd, bool create = false);
+IrClass *getIrAggr(ClassDeclaration *cd, bool create = false);
 
-#endif
+bool isIrAggrCreated(AggregateDeclaration *decl);

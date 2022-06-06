@@ -7,39 +7,46 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "errors.h"
+#include "dmd/errors.h"
+#include "driver/args.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
+#include "driver/cl_options_sanitizers.h"
+#include "driver/configfile.h"
+#include "driver/exe_path.h"
+#include "driver/linker.h"
 #include "driver/tool.h"
 #include "gen/logger.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 
 #if LDC_WITH_LLD
-#include "lld/Driver/Driver.h"
+#include "lld/Common/Driver.h"
 #endif
-
-//////////////////////////////////////////////////////////////////////////////
-
-static llvm::cl::opt<std::string>
-    mscrtlib("mscrtlib", llvm::cl::ZeroOrMore,
-             llvm::cl::desc("MS C runtime library to link with"),
-             llvm::cl::value_desc("libcmt[d]|msvcrt[d]"),
-             llvm::cl::cat(opts::linkingCategory));
 
 //////////////////////////////////////////////////////////////////////////////
 
 namespace {
 
-void addMscrtLibs(std::vector<std::string> &args,
-                  llvm::cl::boolOrDefault fullyStaticFlag) {
-  llvm::StringRef mscrtlibName = mscrtlib;
-  if (mscrtlibName.empty()) {
-    // default to static release variant
-    mscrtlibName = fullyStaticFlag != llvm::cl::BOU_FALSE ? "libcmt" : "msvcrt";
-  }
+void addMscrtLibs(bool useInternalToolchain, std::vector<std::string> &args) {
+  const auto mscrtlibName = getMscrtLibName(&useInternalToolchain);
 
   args.push_back(("/DEFAULTLIB:" + mscrtlibName).str());
 
-  const bool isStatic = mscrtlibName.startswith_lower("libcmt");
+  // We need the vcruntime lib for druntime's exception handling (ldc.eh_msvc).
+  // Pick one of the 4 variants matching the selected main UCRT lib.
+
+#if LDC_LLVM_VER >= 1300
+#define contains_lower contains_insensitive
+#define endswith_lower endswith_insensitive
+#endif
+  if (useInternalToolchain) {
+    assert(mscrtlibName.contains_lower("vcruntime"));
+    return;
+  }
+
+  const bool isStatic = mscrtlibName.contains_lower("libcmt");
+
   const bool isDebug =
       mscrtlibName.endswith_lower("d") || mscrtlibName.endswith_lower("d.lib");
 
@@ -49,19 +56,54 @@ void addMscrtLibs(std::vector<std::string> &args,
   args.push_back(("/DEFAULTLIB:" + prefix + "vcruntime" + suffix).str());
 }
 
+void addLibIfFound(std::vector<std::string> &args, const llvm::Twine &name) {
+  for (const char *dir : ConfigFile::instance.libDirs()) {
+    llvm::SmallString<128> candidate(dir);
+    llvm::sys::path::append(candidate, name);
+    if (llvm::sys::fs::exists(candidate)) {
+      args.emplace_back(candidate.data(), candidate.size());
+      return;
+    }
+  }
+}
+
+void addSanitizerLibs(std::vector<std::string> &args) {
+  if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
+    args.push_back("ldc_rt.asan.lib");
+  }
+  if (opts::isSanitizerEnabled(opts::FuzzSanitizer)) {
+    args.push_back("ldc_rt.fuzzer.lib");
+    args.push_back("/SUBSYSTEM:CONSOLE"); // pull main() from fuzzer lib
+  }
+
+  // TODO: remaining sanitizers
+}
+
 } // anonymous namespace
 
 //////////////////////////////////////////////////////////////////////////////
 
-int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
-                        llvm::cl::boolOrDefault fullyStaticFlag) {
+int linkObjToBinaryMSVC(llvm::StringRef outputPath,
+                        const std::vector<std::string> &defaultLibNames) {
   if (!opts::ccSwitches.empty()) {
     error(Loc(), "-Xcc is not supported for MSVC");
     fatal();
   }
 
 #ifdef _WIN32
-  windows::setupMsvcEnvironment();
+  windows::MsvcEnvironmentScope msvcEnv;
+
+  const bool forceMSVC = env::has(L"LDC_VSDIR_FORCE");
+  const bool useInternalToolchain =
+      (!forceMSVC && getExplicitMscrtLibName().contains_lower("vcruntime")) ||
+      !msvcEnv.setup();
+
+  if (forceMSVC && useInternalToolchain) {
+    warning(Loc(), "no Visual C++ installation found for linking, falling back "
+                   "to MinGW-based libraries");
+  }
+#else
+  const bool useInternalToolchain = true;
 #endif
 
   // build arguments
@@ -71,7 +113,7 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
 
   // specify that the image will contain a table of safe exception handlers
   // and can handle addresses >2GB (32bit only)
-  if (!global.params.is64bit) {
+  if (global.params.targetTriple->isArch32Bit()) {
     args.push_back("/SAFESEH");
     args.push_back("/LARGEADDRESSAWARE");
   }
@@ -86,11 +128,23 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
     args.push_back("/OPT:NOREF");
   } else {
     args.push_back("/OPT:REF");
-    args.push_back("/OPT:ICF");
+    // don't fold identical COMDATs (e.g., functions) if debuginfos are enabled,
+    // otherwise breakpoints may not be hit
+    args.push_back(global.params.symdebug ? "/OPT:NOICF" : "/OPT:ICF");
+  }
+
+  const bool willLinkAgainstSharedDefaultLibs =
+      !defaultLibNames.empty() && linkAgainstSharedDefaultLibs();
+  if (willLinkAgainstSharedDefaultLibs) {
+    // Suppress linker warning LNK4217 wrt. 'importing locally defined symbol'
+    // (dllimport of symbol dllexported from the same binary), because there
+    // might be *many* of those (=> instantiated globals) if compiled with
+    // -dllimport=all (and without -linkonce-templates).
+    args.push_back("/IGNORE:4217");
   }
 
   // add C runtime libs
-  addMscrtLibs(args, fullyStaticFlag);
+  addMscrtLibs(useInternalToolchain, args);
 
   // specify creation of DLL
   if (global.params.dll) {
@@ -104,18 +158,18 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
     args.push_back(objfile);
   }
 
-  // .res/.def files
-  if (global.params.resfile)
-    args.push_back(global.params.resfile);
-  if (global.params.deffile)
-    args.push_back(std::string("/DEF:") + global.params.deffile);
-
-  // Link with profile-rt library when generating an instrumented binary
-  if (opts::isInstrumentingForPGO()) {
-    args.push_back("ldc-profile-rt.lib");
-    // profile-rt depends on ws2_32 for symbol `gethostname`
-    args.push_back("ws2_32.lib");
+  // add precompiled rt.dso object file (in lib directory) when linking
+  // against shared druntime
+  const auto &libDirs = ConfigFile::instance.libDirs();
+  if (willLinkAgainstSharedDefaultLibs && !libDirs.empty()) {
+    args.push_back((llvm::Twine(libDirs[0]) + "/ldc_rt.dso.obj").str());
   }
+
+  // .res/.def files
+  if (global.params.resfile.length)
+    args.push_back(global.params.resfile.ptr);
+  if (global.params.deffile.length)
+    args.push_back(std::string("/DEF:") + global.params.deffile.ptr);
 
   if (opts::enableDynamicCompile) {
     args.push_back("ldc-jit-rt.lib");
@@ -125,6 +179,15 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
   // user libs
   for (auto libfile : global.params.libfiles) {
     args.push_back(libfile);
+  }
+
+  // LLVM compiler-rt libs
+  addLibIfFound(args, "ldc_rt.builtins.lib");
+  addSanitizerLibs(args);
+  if (opts::isInstrumentingForPGO()) {
+    args.push_back("ldc_rt.profile.lib");
+    // it depends on ws2_32 for symbol `gethostname`
+    args.push_back("ws2_32.lib");
   }
 
   // additional linker switches
@@ -144,22 +207,46 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
     addSwitch(str);
   }
 
+  // lib dirs
+  for (const char *dir_c : libDirs) {
+    const llvm::StringRef dir(dir_c);
+    if (!dir.empty())
+      args.push_back(("/LIBPATH:" + dir).str());
+  }
+
+  if (useInternalToolchain && !libDirs.empty()) {
+    args.push_back((llvm::Twine("/LIBPATH:") + libDirs[0] + "/mingw").str());
+  }
+
+  // default libs
+  for (const auto &name : defaultLibNames) {
+    args.push_back(name + ".lib");
+  }
+
+  // libs added via pragma(lib, libname) - should be empty due to embedded
+  // references in object file
   for (auto ls : global.params.linkswitches) {
     addSwitch(ls);
   }
 
-  // default libs
-  // TODO check which libaries are necessary
-  args.push_back("kernel32.lib");
-  args.push_back("user32.lib");
-  args.push_back("gdi32.lib");
-  args.push_back("winspool.lib");
-  args.push_back("shell32.lib"); // required for dmain2.d
-  args.push_back("ole32.lib");
-  args.push_back("oleaut32.lib");
-  args.push_back("uuid.lib");
-  args.push_back("comdlg32.lib");
-  args.push_back("advapi32.lib");
+  auto explicitPlatformLibs = getExplicitPlatformLibs();
+  if (explicitPlatformLibs.hasValue()) {
+    for (auto &lib : explicitPlatformLibs.getValue()) {
+      args.push_back(llvm::sys::path::has_extension(lib) ? std::move(lib)
+                                                         : lib + ".lib");
+    }
+  } else {
+    // default platform libs
+    // TODO check which libaries are necessary
+    args.insert(args.end(),
+                {"kernel32.lib", "user32.lib", "gdi32.lib", "winspool.lib",
+                 "shell32.lib", // required for dmain2.d
+                 "ole32.lib", "oleaut32.lib", "uuid.lib", "comdlg32.lib",
+                 "advapi32.lib",
+                 // these get pulled in by druntime (rt/msvc.c); include
+                 // explicitly for -betterC convenience (issue #3035)
+                 "oldnames.lib", "legacy_stdio_definitions.lib"});
+  }
 
   Logger::println("Linking with: ");
   Stream logstr = Logger::cout();
@@ -171,11 +258,26 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
   logstr << "\n"; // FIXME where's flush ?
 
 #if LDC_WITH_LLD
-  if (useInternalLinker) {
-    const auto fullArgs =
-        getFullArgs("lld-link.exe", args, global.params.verbose);
+  if (useInternalLLDForLinking() ||
+      (useInternalToolchain && opts::linker.empty())) {
+    const auto fullArgs = getFullArgs("lld-link", args, global.params.verbose);
 
-    const bool success = lld::coff::link(fullArgs);
+    const bool canExitEarly = false;
+    const bool success = lld::coff::link(fullArgs
+#if LDC_LLVM_VER < 1400
+                                         ,
+                                         canExitEarly
+#endif
+#if LDC_LLVM_VER >= 1000
+                                         ,
+                                         llvm::outs(), llvm::errs()
+#endif
+#if LDC_LLVM_VER >= 1400
+                                                           ,
+                                         canExitEarly, false
+#endif
+    );
+
     if (!success)
       error(Loc(), "linking with LLD failed");
 
@@ -185,8 +287,14 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath, bool useInternalLinker,
 
   // try to call linker
   std::string linker = opts::linker;
-  if (linker.empty())
-    linker = "link.exe";
+  if (linker.empty()) {
+#ifdef _WIN32
+    // default to lld-link.exe for LTO
+    linker = opts::isUsingLTO() ? "lld-link.exe" : "link.exe";
+#else
+    linker = "lld-link";
+#endif
+  }
 
   return executeToolAndWait(linker, args, global.params.verbose);
 }

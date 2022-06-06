@@ -1,6 +1,6 @@
 //===-- gen/abi-mips64.cpp - MIPS64 ABI description ------------*- C++ -*-===//
 //
-//                         LDC – the LLVM D compiler
+//                         LDC â€“ the LLVM D compiler
 //
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
@@ -25,8 +25,8 @@ struct MIPS64TargetABI : TargetABI {
 
   explicit MIPS64TargetABI(const bool Is64Bit) : Is64Bit(Is64Bit) {}
 
-  bool returnInArg(TypeFunction *tf) override {
-    if (tf->isref) {
+  bool returnInArg(TypeFunction *tf, bool) override {
+    if (tf->isref()) {
       return false;
     }
 
@@ -39,15 +39,15 @@ struct MIPS64TargetABI : TargetABI {
     // because otherwise LLVM tries to actually return the array in a number
     // of physical registers, which leads, depending on the target, to
     // either horrendous codegen or backend crashes.
-    return (rt->ty == Tstruct || rt->ty == Tsarray);
+    return (rt->ty == TY::Tstruct || rt->ty == TY::Tsarray);
   }
 
-  bool passByVal(Type *t) override {
+  bool passByVal(TypeFunction *, Type *t) override {
     TY ty = t->toBasetype()->ty;
-    return ty == Tstruct || ty == Tsarray;
+    return ty == TY::Tstruct || ty == TY::Tsarray;
   }
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
+  void rewriteFunctionType(IrFuncTy &fty) override {
     if (!fty.ret->byref) {
       rewriteArgument(fty, *fty.ret);
     }
@@ -56,11 +56,6 @@ struct MIPS64TargetABI : TargetABI {
       if (!arg->byref) {
         rewriteArgument(fty, *arg);
       }
-    }
-
-    // extern(D): reverse parameter order for non variadics, for DMD-compliance
-    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
-      fty.reverseParams = true;
     }
   }
 

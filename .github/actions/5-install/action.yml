@@ -1,0 +1,84 @@
+name: Install LDC & make portable
+inputs:
+  arch:
+    required: false # Windows only
+  cross_compiling:
+    required: false
+    default: false
+runs:
+  using: composite
+  steps:
+
+    - name: Install LDC
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+
+        if [[ '${{ inputs.cross_compiling }}' != true ]]; then
+          cd build
+          ninja install >/dev/null
+          cd ..
+        else
+          mkdir -p install/bin
+          cp build-cross/bin/{ldc2,ldmd2,ldc-build-runtime,ldc-profdata,ldc-prune-cache} install/bin/
+          cp -R build-cross-libs/lib install/
+          cp build-cross/lib/{libldc_rt.*,libLTO-ldc.dylib,LLVMgold-ldc.so} install/lib/ || true
+          mkdir install/etc
+          cp build-cross/bin/ldc2_install.conf install/etc/ldc2.conf
+          cp -R ldc/packaging/bash_completion.d install/etc/
+          mkdir install/import
+          cp -R ldc/runtime/druntime/src/{core,etc,ldc,object.d,__builtins.di,importc.h} install/import/
+          cp bootstrap-ldc/runtime/import/ldc/gccbuiltins_*.di install/import/ldc/
+          cp -R ldc/runtime/phobos/etc/c install/import/etc/
+          rm -rf install/import/etc/c/zlib
+          cp -R ldc/runtime/phobos/std install/import/
+        fi
+
+        cp ldc/LICENSE install/
+        if [[ '${{ runner.os }}' == Windows ]]; then
+          cp ldc/packaging/README.txt install/
+        else
+          cp ldc/packaging/README install/
+        fi
+
+    - name: Make portable
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+        absInstallDir="$PWD/install"
+        if [[ '${{ runner.os }}' == Windows ]]; then
+          # /d/a/1/install => D:/a/1/install
+          absInstallDir=$(cygpath --mixed "$absInstallDir")
+        fi
+        perl -pi -e "s|$absInstallDir/|%%ldcbinarypath%%/../|g" install/etc/ldc2.conf
+        cat install/etc/ldc2.conf
+
+    - name: Rename the installation dir to test portability
+      shell: bash
+      run: mv ../install ../installed
+
+    - name: 'Windows: Copy curl & MinGW-w64-based libs'
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+
+        cp libcurl/ldc2/libcurl.dll installed/bin/
+        cp libcurl/ldc2/*.* installed/lib/
+
+        curl -fL --retry 3 --max-time 60 -o mingw-w64-libs.7z \
+          https://github.com/ldc-developers/mingw-w64-libs/releases/download/v8.0.0/mingw-w64-libs-v8.0.0.7z
+        mkdir mingw-w64-libs
+        cd mingw-w64-libs
+        7z x ../mingw-w64-libs.7z >/dev/null
+        rm ../mingw-w64-libs.7z
+
+        if [[ '${{ inputs.arch }}' == x86 ]]; then
+          model=32
+        else
+          model=64
+        fi
+        cp -r "lib$model" ../installed/lib/mingw

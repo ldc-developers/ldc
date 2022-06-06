@@ -1,21 +1,23 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Handles operator overloading.
  *
- * Copyright:   Copyright (c) 1999-2017 by The D Language Foundation, All Rights Reserved
- * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
- * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Specification: $(LINK2 https://dlang.org/spec/operatoroverloading.html, Operator Overloading)
+ *
+ * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/opover.d, _opover.d)
+ * Documentation:  https://dlang.org/phobos/dmd_opover.html
+ * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/opover.d
  */
 
 module dmd.opover;
-
-// Online documentation: https://dlang.org/phobos/dmd_opover.html
 
 import core.stdc.stdio;
 import dmd.aggregate;
 import dmd.aliasthis;
 import dmd.arraytypes;
+import dmd.astenums;
 import dmd.dclass;
 import dmd.declaration;
 import dmd.dscope;
@@ -27,10 +29,10 @@ import dmd.expression;
 import dmd.expressionsem;
 import dmd.func;
 import dmd.globals;
+import dmd.hdrgen;
 import dmd.id;
 import dmd.identifier;
 import dmd.mtype;
-import dmd.semantic;
 import dmd.statement;
 import dmd.tokens;
 import dmd.typesem;
@@ -40,23 +42,23 @@ import dmd.visitor;
  * Determine if operands of binary op can be reversed
  * to fit operator overload.
  */
-extern (C++) bool isCommutative(TOK op)
+bool isCommutative(EXP op)
 {
     switch (op)
     {
-    case TOKadd:
-    case TOKmul:
-    case TOKand:
-    case TOKor:
-    case TOKxor:
+    case EXP.add:
+    case EXP.mul:
+    case EXP.and:
+    case EXP.or:
+    case EXP.xor:
     // EqualExp
-    case TOKequal:
-    case TOKnotequal:
+    case EXP.equal:
+    case EXP.notEqual:
     // CmpExp
-    case TOKlt:
-    case TOKle:
-    case TOKgt:
-    case TOKge:
+    case EXP.lessThan:
+    case EXP.lessOrEqual:
+    case EXP.greaterThan:
+    case EXP.greaterOrEqual:
         return true;
     default:
         break;
@@ -69,424 +71,232 @@ extern (C++) bool isCommutative(TOK op)
  */
 private Identifier opId(Expression e)
 {
-    extern (C++) final class OpIdVisitor : Visitor
+    switch (e.op)
     {
-        alias visit = Visitor.visit;
-    public:
-        Identifier id;
-
-        override void visit(Expression e)
-        {
-            assert(0);
-        }
-
-        override void visit(UAddExp e)
-        {
-            id = Id.uadd;
-        }
-
-        override void visit(NegExp e)
-        {
-            id = Id.neg;
-        }
-
-        override void visit(ComExp e)
-        {
-            id = Id.com;
-        }
-
-        override void visit(CastExp e)
-        {
-            id = Id._cast;
-        }
-
-        override void visit(InExp e)
-        {
-            id = Id.opIn;
-        }
-
-        override void visit(PostExp e)
-        {
-            id = (e.op == TOKplusplus) ? Id.postinc : Id.postdec;
-        }
-
-        override void visit(AddExp e)
-        {
-            id = Id.add;
-        }
-
-        override void visit(MinExp e)
-        {
-            id = Id.sub;
-        }
-
-        override void visit(MulExp e)
-        {
-            id = Id.mul;
-        }
-
-        override void visit(DivExp e)
-        {
-            id = Id.div;
-        }
-
-        override void visit(ModExp e)
-        {
-            id = Id.mod;
-        }
-
-        override void visit(PowExp e)
-        {
-            id = Id.pow;
-        }
-
-        override void visit(ShlExp e)
-        {
-            id = Id.shl;
-        }
-
-        override void visit(ShrExp e)
-        {
-            id = Id.shr;
-        }
-
-        override void visit(UshrExp e)
-        {
-            id = Id.ushr;
-        }
-
-        override void visit(AndExp e)
-        {
-            id = Id.iand;
-        }
-
-        override void visit(OrExp e)
-        {
-            id = Id.ior;
-        }
-
-        override void visit(XorExp e)
-        {
-            id = Id.ixor;
-        }
-
-        override void visit(CatExp e)
-        {
-            id = Id.cat;
-        }
-
-        override void visit(AssignExp e)
-        {
-            id = Id.assign;
-        }
-
-        override void visit(AddAssignExp e)
-        {
-            id = Id.addass;
-        }
-
-        override void visit(MinAssignExp e)
-        {
-            id = Id.subass;
-        }
-
-        override void visit(MulAssignExp e)
-        {
-            id = Id.mulass;
-        }
-
-        override void visit(DivAssignExp e)
-        {
-            id = Id.divass;
-        }
-
-        override void visit(ModAssignExp e)
-        {
-            id = Id.modass;
-        }
-
-        override void visit(AndAssignExp e)
-        {
-            id = Id.andass;
-        }
-
-        override void visit(OrAssignExp e)
-        {
-            id = Id.orass;
-        }
-
-        override void visit(XorAssignExp e)
-        {
-            id = Id.xorass;
-        }
-
-        override void visit(ShlAssignExp e)
-        {
-            id = Id.shlass;
-        }
-
-        override void visit(ShrAssignExp e)
-        {
-            id = Id.shrass;
-        }
-
-        override void visit(UshrAssignExp e)
-        {
-            id = Id.ushrass;
-        }
-
-        override void visit(CatAssignExp e)
-        {
-            id = Id.catass;
-        }
-
-        override void visit(PowAssignExp e)
-        {
-            id = Id.powass;
-        }
-
-        override void visit(EqualExp e)
-        {
-            id = Id.eq;
-        }
-
-        override void visit(CmpExp e)
-        {
-            id = Id.cmp;
-        }
-
-        override void visit(ArrayExp e)
-        {
-            id = Id.index;
-        }
-
-        override void visit(PtrExp e)
-        {
-            id = Id.opStar;
-        }
+    case EXP.uadd:                      return Id.uadd;
+    case EXP.negate:                    return Id.neg;
+    case EXP.tilde:                     return Id.com;
+    case EXP.cast_:                     return Id._cast;
+    case EXP.in_:                       return Id.opIn;
+    case EXP.plusPlus:                  return Id.postinc;
+    case EXP.minusMinus:                return Id.postdec;
+    case EXP.add:                       return Id.add;
+    case EXP.min:                       return Id.sub;
+    case EXP.mul:                       return Id.mul;
+    case EXP.div:                       return Id.div;
+    case EXP.mod:                       return Id.mod;
+    case EXP.pow:                       return Id.pow;
+    case EXP.leftShift:                 return Id.shl;
+    case EXP.rightShift:                return Id.shr;
+    case EXP.unsignedRightShift:        return Id.ushr;
+    case EXP.and:                       return Id.iand;
+    case EXP.or:                        return Id.ior;
+    case EXP.xor:                       return Id.ixor;
+    case EXP.concatenate:               return Id.cat;
+    case EXP.assign:                    return Id.assign;
+    case EXP.addAssign:                 return Id.addass;
+    case EXP.minAssign:                 return Id.subass;
+    case EXP.mulAssign:                 return Id.mulass;
+    case EXP.divAssign:                 return Id.divass;
+    case EXP.modAssign:                 return Id.modass;
+    case EXP.powAssign:                 return Id.powass;
+    case EXP.leftShiftAssign:           return Id.shlass;
+    case EXP.rightShiftAssign:          return Id.shrass;
+    case EXP.unsignedRightShiftAssign:  return Id.ushrass;
+    case EXP.andAssign:                 return Id.andass;
+    case EXP.orAssign:                  return Id.orass;
+    case EXP.xorAssign:                 return Id.xorass;
+    case EXP.concatenateAssign:         return Id.catass;
+    case EXP.equal:                     return Id.eq;
+    case EXP.lessThan:
+    case EXP.lessOrEqual:
+    case EXP.greaterThan:
+    case EXP.greaterOrEqual:            return Id.cmp;
+    case EXP.array:                     return Id.index;
+    case EXP.star:                      return Id.opStar;
+    default:                            assert(0);
     }
-
-    scope OpIdVisitor v = new OpIdVisitor();
-    e.accept(v);
-    return v.id;
 }
 
 /***********************************
  * Get Identifier for reverse operator overload,
- * NULL if not supported for this operator.
+ * `null` if not supported for this operator.
  */
 private Identifier opId_r(Expression e)
 {
-    extern (C++) final class OpIdRVisitor : Visitor
+    switch (e.op)
     {
-        alias visit = Visitor.visit;
-    public:
-        Identifier id;
-
-        override void visit(Expression e)
-        {
-            id = null;
-        }
-
-        override void visit(InExp e)
-        {
-            id = Id.opIn_r;
-        }
-
-        override void visit(AddExp e)
-        {
-            id = Id.add_r;
-        }
-
-        override void visit(MinExp e)
-        {
-            id = Id.sub_r;
-        }
-
-        override void visit(MulExp e)
-        {
-            id = Id.mul_r;
-        }
-
-        override void visit(DivExp e)
-        {
-            id = Id.div_r;
-        }
-
-        override void visit(ModExp e)
-        {
-            id = Id.mod_r;
-        }
-
-        override void visit(PowExp e)
-        {
-            id = Id.pow_r;
-        }
-
-        override void visit(ShlExp e)
-        {
-            id = Id.shl_r;
-        }
-
-        override void visit(ShrExp e)
-        {
-            id = Id.shr_r;
-        }
-
-        override void visit(UshrExp e)
-        {
-            id = Id.ushr_r;
-        }
-
-        override void visit(AndExp e)
-        {
-            id = Id.iand_r;
-        }
-
-        override void visit(OrExp e)
-        {
-            id = Id.ior_r;
-        }
-
-        override void visit(XorExp e)
-        {
-            id = Id.ixor_r;
-        }
-
-        override void visit(CatExp e)
-        {
-            id = Id.cat_r;
-        }
+    case EXP.in_:               return Id.opIn_r;
+    case EXP.add:               return Id.add_r;
+    case EXP.min:               return Id.sub_r;
+    case EXP.mul:               return Id.mul_r;
+    case EXP.div:               return Id.div_r;
+    case EXP.mod:               return Id.mod_r;
+    case EXP.pow:               return Id.pow_r;
+    case EXP.leftShift:         return Id.shl_r;
+    case EXP.rightShift:        return Id.shr_r;
+    case EXP.unsignedRightShift:return Id.ushr_r;
+    case EXP.and:               return Id.iand_r;
+    case EXP.or:                return Id.ior_r;
+    case EXP.xor:               return Id.ixor_r;
+    case EXP.concatenate:       return Id.cat_r;
+    default:                    return null;
     }
-
-    scope OpIdRVisitor v = new OpIdRVisitor();
-    e.accept(v);
-    return v.id;
-}
-
-/************************************
- * If type is a class or struct, return the symbol for it,
- * else NULL
- */
-extern (C++) AggregateDeclaration isAggregate(Type t)
-{
-    t = t.toBasetype();
-    if (t.ty == Tclass)
-    {
-        return (cast(TypeClass)t).sym;
-    }
-    else if (t.ty == Tstruct)
-    {
-        return (cast(TypeStruct)t).sym;
-    }
-    return null;
 }
 
 /*******************************************
  * Helper function to turn operator into template argument list
  */
-extern (C++) Objects* opToArg(Scope* sc, TOK op)
+Objects* opToArg(Scope* sc, EXP op)
 {
     /* Remove the = from op=
      */
     switch (op)
     {
-    case TOKaddass:
-        op = TOKadd;
+    case EXP.addAssign:
+        op = EXP.add;
         break;
-    case TOKminass:
-        op = TOKmin;
+    case EXP.minAssign:
+        op = EXP.min;
         break;
-    case TOKmulass:
-        op = TOKmul;
+    case EXP.mulAssign:
+        op = EXP.mul;
         break;
-    case TOKdivass:
-        op = TOKdiv;
+    case EXP.divAssign:
+        op = EXP.div;
         break;
-    case TOKmodass:
-        op = TOKmod;
+    case EXP.modAssign:
+        op = EXP.mod;
         break;
-    case TOKandass:
-        op = TOKand;
+    case EXP.andAssign:
+        op = EXP.and;
         break;
-    case TOKorass:
-        op = TOKor;
+    case EXP.orAssign:
+        op = EXP.or;
         break;
-    case TOKxorass:
-        op = TOKxor;
+    case EXP.xorAssign:
+        op = EXP.xor;
         break;
-    case TOKshlass:
-        op = TOKshl;
+    case EXP.leftShiftAssign:
+        op = EXP.leftShift;
         break;
-    case TOKshrass:
-        op = TOKshr;
+    case EXP.rightShiftAssign:
+        op = EXP.rightShift;
         break;
-    case TOKushrass:
-        op = TOKushr;
+    case EXP.unsignedRightShiftAssign:
+        op = EXP.unsignedRightShift;
         break;
-    case TOKcatass:
-        op = TOKcat;
+    case EXP.concatenateAssign:
+        op = EXP.concatenate;
         break;
-    case TOKpowass:
-        op = TOKpow;
+    case EXP.powAssign:
+        op = EXP.pow;
         break;
     default:
         break;
     }
-    Expression e = new StringExp(Loc(), cast(char*)Token.toChars(op));
+    Expression e = new StringExp(Loc.initial, EXPtoString(op));
     e = e.expressionSemantic(sc);
     auto tiargs = new Objects();
     tiargs.push(e);
     return tiargs;
 }
 
+// Try alias this on first operand
+private Expression checkAliasThisForLhs(AggregateDeclaration ad, Scope* sc, BinExp e)
+{
+    if (!ad || !ad.aliasthis)
+        return null;
+
+    /* Rewrite (e1 op e2) as:
+     *      (e1.aliasthis op e2)
+     */
+    if (isRecursiveAliasThis(e.att1, e.e1.type))
+        return null;
+    //printf("att %s e1 = %s\n", Token.toChars(e.op), e.e1.type.toChars());
+    BinExp be = cast(BinExp)e.copy();
+    // Resolve 'alias this' but in case of assigment don't resolve properties yet
+    // because 'e1 = e2' could mean 'e1(e2)' or 'e1() = e2'
+    bool findOnly = (e.op == EXP.assign);
+    be.e1 = resolveAliasThis(sc, e.e1, true, findOnly);
+    if (!be.e1)
+        return null;
+
+    Expression result;
+    if (be.op == EXP.concatenateAssign)
+        result = be.op_overload(sc);
+    else
+        result = be.trySemantic(sc);
+
+    return result;
+}
+
+// Try alias this on second operand
+private Expression checkAliasThisForRhs(AggregateDeclaration ad, Scope* sc, BinExp e)
+{
+    if (!ad || !ad.aliasthis)
+        return null;
+    /* Rewrite (e1 op e2) as:
+     *      (e1 op e2.aliasthis)
+     */
+    if (isRecursiveAliasThis(e.att2, e.e2.type))
+        return null;
+    //printf("att %s e2 = %s\n", Token.toChars(e.op), e.e2.type.toChars());
+    BinExp be = cast(BinExp)e.copy();
+    be.e2 = resolveAliasThis(sc, e.e2, true);
+    if (!be.e2)
+        return null;
+
+    Expression result;
+    if (be.op == EXP.concatenateAssign)
+        result = be.op_overload(sc);
+    else
+        result = be.trySemantic(sc);
+
+    return result;
+}
+
 /************************************
  * Operator overload.
  * Check for operator overload, if so, replace
  * with function call.
- * Return NULL if not an operator overload.
+ * Params:
+ *      e = expression with operator
+ *      sc = context
+ *      pop = if not null, is set to the operator that was actually overloaded,
+ *            which may not be `e.op`. Happens when operands are reversed to
+ *            match an overload
+ * Returns:
+ *      `null` if not an operator overload,
+ *      otherwise the lowered expression
  */
-extern (C++) Expression op_overload(Expression e, Scope* sc)
+Expression op_overload(Expression e, Scope* sc, EXP* pop = null)
 {
-    extern (C++) final class OpOverload : Visitor
-    {
-        alias visit = Visitor.visit;
-    public:
-        Scope* sc;
-        Expression result;
-
-        extern (D) this(Scope* sc)
-        {
-            this.sc = sc;
-        }
-
-        override void visit(Expression e)
+        Expression visit(Expression e)
         {
             assert(0);
         }
 
-        override void visit(UnaExp e)
+        Expression visitUna(UnaExp e)
         {
             //printf("UnaExp::op_overload() (%s)\n", e.toChars());
-            if (e.e1.op == TOKarray)
+            Expression result;
+            if (auto ae = e.e1.isArrayExp())
             {
-                ArrayExp ae = cast(ArrayExp)e.e1;
                 ae.e1 = ae.e1.expressionSemantic(sc);
                 ae.e1 = resolveProperties(sc, ae.e1);
                 Expression ae1old = ae.e1;
-                const(bool) maybeSlice = (ae.arguments.dim == 0 || ae.arguments.dim == 1 && (*ae.arguments)[0].op == TOKinterval);
+                const(bool) maybeSlice = (ae.arguments.dim == 0 || ae.arguments.dim == 1 && (*ae.arguments)[0].op == EXP.interval);
                 IntervalExp ie = null;
                 if (maybeSlice && ae.arguments.dim)
                 {
-                    assert((*ae.arguments)[0].op == TOKinterval);
-                    ie = cast(IntervalExp)(*ae.arguments)[0];
+                    ie = (*ae.arguments)[0].isIntervalExp();
                 }
                 while (true)
                 {
-                    if (ae.e1.op == TOKerror)
+                    if (ae.e1.op == EXP.error)
                     {
-                        result = ae.e1;
-                        return;
+                        return ae.e1;
                     }
                     Expression e0 = null;
                     Expression ae1save = ae.e1;
@@ -501,8 +311,8 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                         result = resolveOpDollar(sc, ae, &e0);
                         if (!result) // op(a[i..j]) might be: a.opSliceUnary!(op)(i, j)
                             goto Lfallback;
-                        if (result.op == TOKerror)
-                            return;
+                        if (result.op == EXP.error)
+                            return result;
                         /* Rewrite op(a[arguments]) as:
                          *      a.opIndexUnary!(op)(arguments)
                          */
@@ -516,8 +326,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                             result = result.expressionSemantic(sc);
                         if (result)
                         {
-                            result = Expression.combine(e0, result);
-                            return;
+                            return Expression.combine(e0, result);
                         }
                     }
                 Lfallback:
@@ -525,8 +334,8 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     {
                         // Deal with $
                         result = resolveOpDollar(sc, ae, ie, &e0);
-                        if (result.op == TOKerror)
-                            return;
+                        if (result.op == EXP.error)
+                            return result;
                         /* Rewrite op(a[i..j]) as:
                          *      a.opSliceUnary!(op)(i, j)
                          */
@@ -541,13 +350,11 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                         result = new CallExp(e.loc, result, a);
                         result = result.expressionSemantic(sc);
                         result = Expression.combine(e0, result);
-                        return;
+                        return result;
                     }
                     // Didn't find it. Forward to aliasthis
-                    if (ad.aliasthis && t1b != ae.att1)
+                    if (ad.aliasthis && !isRecursiveAliasThis(ae.att1, ae.e1.type))
                     {
-                        if (!ae.att1 && t1b.checkAliasThisRec())
-                            ae.att1 = t1b;
                         /* Rewrite op(a[arguments]) as:
                          *      op(a.aliasthis[arguments])
                          */
@@ -562,29 +369,14 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
             }
             e.e1 = e.e1.expressionSemantic(sc);
             e.e1 = resolveProperties(sc, e.e1);
-            if (e.e1.op == TOKerror)
+            if (e.e1.op == EXP.error)
             {
-                result = e.e1;
-                return;
+                return e.e1;
             }
             AggregateDeclaration ad = isAggregate(e.e1.type);
             if (ad)
             {
                 Dsymbol fd = null;
-                version (all)
-                {
-                    // Old way, kept for compatibility with D1
-                    if (e.op != TOKpreplusplus && e.op != TOKpreminusminus)
-                    {
-                        fd = search_function(ad, opId(e));
-                        if (fd)
-                        {
-                            // Rewrite +e1 as e1.add()
-                            result = build_overload(e.loc, sc, e.e1, null, fd);
-                            return;
-                        }
-                    }
-                }
                 /* Rewrite as:
                  *      e1.opUnary!(op)()
                  */
@@ -595,45 +387,56 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     result = new DotTemplateInstanceExp(e.loc, e.e1, fd.ident, tiargs);
                     result = new CallExp(e.loc, result);
                     result = result.expressionSemantic(sc);
-                    return;
+                    return result;
+                }
+                // D1-style operator overloads, deprecated
+                if (e.op != EXP.prePlusPlus && e.op != EXP.preMinusMinus)
+                {
+                    auto id = opId(e);
+                    fd = search_function(ad, id);
+                    if (fd)
+                    {
+                        // @@@DEPRECATED_2.110@@@.
+                        // Deprecated in 2.088, made an error in 2.100
+                        e.error("`%s` is obsolete.  Use `opUnary(string op)() if (op == \"%s\")` instead.", id.toChars(), EXPtoString(e.op).ptr);
+                        return ErrorExp.get();
+                    }
                 }
                 // Didn't find it. Forward to aliasthis
-                if (ad.aliasthis && e.e1.type != e.att1)
+                if (ad.aliasthis && !isRecursiveAliasThis(e.att1, e.e1.type))
                 {
                     /* Rewrite op(e1) as:
                      *      op(e1.aliasthis)
                      */
-                    //printf("att una %s e1 = %s\n", Token::toChars(op), this.e1.type.toChars());
+                    //printf("att una %s e1 = %s\n", EXPtoString(op).ptr, this.e1.type.toChars());
                     Expression e1 = new DotIdExp(e.loc, e.e1, ad.aliasthis.ident);
                     UnaExp ue = cast(UnaExp)e.copy();
-                    if (!ue.att1 && e.e1.type.checkAliasThisRec())
-                        ue.att1 = e.e1.type;
                     ue.e1 = e1;
                     result = ue.trySemantic(sc);
-                    return;
+                    return result;
                 }
             }
+            return result;
         }
 
-        override void visit(ArrayExp ae)
+        Expression visitArray(ArrayExp ae)
         {
             //printf("ArrayExp::op_overload() (%s)\n", ae.toChars());
             ae.e1 = ae.e1.expressionSemantic(sc);
             ae.e1 = resolveProperties(sc, ae.e1);
             Expression ae1old = ae.e1;
-            const(bool) maybeSlice = (ae.arguments.dim == 0 || ae.arguments.dim == 1 && (*ae.arguments)[0].op == TOKinterval);
+            const(bool) maybeSlice = (ae.arguments.dim == 0 || ae.arguments.dim == 1 && (*ae.arguments)[0].op == EXP.interval);
             IntervalExp ie = null;
             if (maybeSlice && ae.arguments.dim)
             {
-                assert((*ae.arguments)[0].op == TOKinterval);
-                ie = cast(IntervalExp)(*ae.arguments)[0];
+                ie = (*ae.arguments)[0].isIntervalExp();
             }
+            Expression result;
             while (true)
             {
-                if (ae.e1.op == TOKerror)
+                if (ae.e1.op == EXP.error)
                 {
-                    result = ae.e1;
-                    return;
+                    return ae.e1;
                 }
                 Expression e0 = null;
                 Expression ae1save = ae.e1;
@@ -644,22 +447,21 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                 {
                     // If the non-aggregate expression ae.e1 is indexable or sliceable,
                     // convert it to the corresponding concrete expression.
-                    if (t1b.ty == Tpointer || t1b.ty == Tsarray || t1b.ty == Tarray || t1b.ty == Taarray ||
-                        t1b.ty == Ttuple || t1b.ty == Tvector || ae.e1.op == TOKtype)
+                    if (isIndexableNonAggregate(t1b) || ae.e1.op == EXP.type)
                     {
                         // Convert to SliceExp
                         if (maybeSlice)
                         {
                             result = new SliceExp(ae.loc, ae.e1, ie);
                             result = result.expressionSemantic(sc);
-                            return;
+                            return result;
                         }
                         // Convert to IndexExp
                         if (ae.arguments.dim == 1)
                         {
                             result = new IndexExp(ae.loc, ae.e1, (*ae.arguments)[0]);
                             result = result.expressionSemantic(sc);
-                            return;
+                            return result;
                         }
                     }
                     break;
@@ -670,8 +472,8 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     result = resolveOpDollar(sc, ae, &e0);
                     if (!result) // a[i..j] might be: a.opSlice(i, j)
                         goto Lfallback;
-                    if (result.op == TOKerror)
-                        return;
+                    if (result.op == EXP.error)
+                        return result;
                     /* Rewrite e1[arguments] as:
                      *      e1.opIndex(arguments)
                      */
@@ -684,24 +486,29 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                         result = result.expressionSemantic(sc);
                     if (result)
                     {
-                        result = Expression.combine(e0, result);
-                        return;
+                        return Expression.combine(e0, result);
                     }
                 }
             Lfallback:
-                if (maybeSlice && ae.e1.op == TOKtype)
+                if (maybeSlice && ae.e1.op == EXP.type)
                 {
                     result = new SliceExp(ae.loc, ae.e1, ie);
                     result = result.expressionSemantic(sc);
                     result = Expression.combine(e0, result);
-                    return;
+                    return result;
                 }
                 if (maybeSlice && search_function(ad, Id.slice))
                 {
                     // Deal with $
                     result = resolveOpDollar(sc, ae, ie, &e0);
-                    if (result.op == TOKerror)
-                        return;
+
+                    if (result.op == EXP.error)
+                    {
+                        if (!e0 && !search_function(ad, Id.dollar)) {
+                            ae.loc.errorSupplemental("Aggregate declaration '%s' does not define 'opDollar'", ae.e1.toChars());
+                        }
+                        return result;
+                    }
                     /* Rewrite a[i..j] as:
                      *      a.opSlice(i, j)
                      */
@@ -715,13 +522,11 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     result = new CallExp(ae.loc, result, a);
                     result = result.expressionSemantic(sc);
                     result = Expression.combine(e0, result);
-                    return;
+                    return result;
                 }
                 // Didn't find it. Forward to aliasthis
-                if (ad.aliasthis && t1b != ae.att1)
+                if (ad.aliasthis && !isRecursiveAliasThis(ae.att1, ae.e1.type))
                 {
-                    if (!ae.att1 && t1b.checkAliasThisRec())
-                        ae.att1 = t1b;
                     //printf("att arr e1 = %s\n", this.e1.type.toChars());
                     /* Rewrite op(a[arguments]) as:
                      *      op(a.aliasthis[arguments])
@@ -734,15 +539,17 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
             }
             ae.e1 = ae1old; // recovery
             ae.lengthVar = null;
+            return result;
         }
 
         /***********************************************
          * This is mostly the same as UnaryExp::op_overload(), but has
          * a different rewrite.
          */
-        override void visit(CastExp e)
+        Expression visitCast(CastExp e)
         {
             //printf("CastExp::op_overload() (%s)\n", e.toChars());
+            Expression result;
             AggregateDeclaration ad = isAggregate(e.e1.type);
             if (ad)
             {
@@ -759,8 +566,7 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                         if (fd.isFuncDeclaration())
                         {
                             // Rewrite as:  e1.opCast()
-                            result = build_overload(e.loc, sc, e.e1, null, fd);
-                            return;
+                            return build_overload(e.loc, sc, e.e1, null, fd);
                         }
                     }
                     auto tiargs = new Objects();
@@ -768,24 +574,27 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     result = new DotTemplateInstanceExp(e.loc, e.e1, fd.ident, tiargs);
                     result = new CallExp(e.loc, result);
                     result = result.expressionSemantic(sc);
-                    return;
+                    return result;
                 }
                 // Didn't find it. Forward to aliasthis
-                if (ad.aliasthis)
+                if (ad.aliasthis && !isRecursiveAliasThis(e.att1, e.e1.type))
                 {
                     /* Rewrite op(e1) as:
                      *      op(e1.aliasthis)
                      */
-                    Expression e1 = new DotIdExp(e.loc, e.e1, ad.aliasthis.ident);
-                    result = e.copy();
-                    (cast(UnaExp)result).e1 = e1;
-                    result = result.trySemantic(sc);
-                    return;
+                    if (auto e1 = resolveAliasThis(sc, e.e1, true))
+                    {
+                        result = e.copy();
+                        (cast(UnaExp)result).e1 = e1;
+                        result = result.op_overload(sc);
+                        return result;
+                    }
                 }
             }
+            return result;
         }
 
-        override void visit(BinExp e)
+        Expression visitBin(BinExp e)
         {
             //printf("BinExp::op_overload() (%s)\n", e.toChars());
             Identifier id = opId(e);
@@ -795,53 +604,40 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
             int argsset = 0;
             AggregateDeclaration ad1 = isAggregate(e.e1.type);
             AggregateDeclaration ad2 = isAggregate(e.e2.type);
-            if (e.op == TOKassign && ad1 == ad2)
+            if (e.op == EXP.assign && ad1 == ad2)
             {
                 StructDeclaration sd = ad1.isStructDeclaration();
-                if (sd && !sd.hasIdentityAssign)
+                if (sd &&
+                    (!sd.hasIdentityAssign ||
+                     /* Do a blit if we can and the rvalue is something like .init,
+                      * where a postblit is not necessary.
+                      */
+                     (sd.hasBlitAssign && !e.e2.isLvalue())))
                 {
                     /* This is bitwise struct assignment. */
-                    return;
+                    return null;
                 }
             }
             Dsymbol s = null;
             Dsymbol s_r = null;
-            version (all)
-            {
-                // the old D1 scheme
-                if (ad1 && id)
-                {
-                    s = search_function(ad1, id);
-                }
-                if (ad2 && id_r)
-                {
-                    s_r = search_function(ad2, id_r);
-                    // https://issues.dlang.org/show_bug.cgi?id=12778
-                    // If both x.opBinary(y) and y.opBinaryRight(x) found,
-                    // and they are exactly same symbol, x.opBinary(y) should be preferred.
-                    if (s_r && s_r == s)
-                        s_r = null;
-                }
-            }
             Objects* tiargs = null;
-            if (e.op == TOKplusplus || e.op == TOKminusminus)
+            if (e.op == EXP.plusPlus || e.op == EXP.minusMinus)
             {
                 // Bug4099 fix
                 if (ad1 && search_function(ad1, Id.opUnary))
-                    return;
+                    return null;
             }
-            if (!s && !s_r && e.op != TOKequal && e.op != TOKnotequal && e.op != TOKassign && e.op != TOKplusplus && e.op != TOKminusminus)
+            if (e.op != EXP.equal && e.op != EXP.notEqual && e.op != EXP.assign && e.op != EXP.plusPlus && e.op != EXP.minusMinus)
             {
-                /* Try the new D2 scheme, opBinary and opBinaryRight
+                /* Try opBinary and opBinaryRight
                  */
                 if (ad1)
                 {
                     s = search_function(ad1, Id.opBinary);
                     if (s && !s.isTemplateDeclaration())
                     {
-                        e.e1.error("%s.opBinary isn't a template", e.e1.toChars());
-                        result = new ErrorExp();
-                        return;
+                        e.e1.error("`%s.opBinary` isn't a template", e.e1.toChars());
+                        return ErrorExp.get();
                     }
                 }
                 if (ad2)
@@ -849,9 +645,8 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     s_r = search_function(ad2, Id.opBinaryRight);
                     if (s_r && !s_r.isTemplateDeclaration())
                     {
-                        e.e2.error("%s.opBinaryRight isn't a template", e.e2.toChars());
-                        result = new ErrorExp();
-                        return;
+                        e.e2.error("`%s.opBinaryRight` isn't a template", e.e2.toChars());
+                        return ErrorExp.get();
                     }
                     if (s_r && s_r == s) // https://issues.dlang.org/show_bug.cgi?id=12778
                         s_r = null;
@@ -862,6 +657,40 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     id = Id.opBinary;
                     id_r = Id.opBinaryRight;
                     tiargs = opToArg(sc, e.op);
+                }
+            }
+            if (!s && !s_r)
+            {
+                // Try the D1-style operators, deprecated
+                if (ad1 && id)
+                {
+                    s = search_function(ad1, id);
+                    if (s && id != Id.assign)
+                    {
+                        // @@@DEPRECATED_2.110@@@.
+                        // Deprecated in 2.088, made an error in 2.100
+                        if (id == Id.postinc || id == Id.postdec)
+                            e.error("`%s` is obsolete.  Use `opUnary(string op)() if (op == \"%s\")` instead.", id.toChars(), EXPtoString(e.op).ptr);
+                        else
+                            e.error("`%s` is obsolete.  Use `opBinary(string op)(...) if (op == \"%s\")` instead.", id.toChars(), EXPtoString(e.op).ptr);
+                        return ErrorExp.get();
+                    }
+                }
+                if (ad2 && id_r)
+                {
+                    s_r = search_function(ad2, id_r);
+                    // https://issues.dlang.org/show_bug.cgi?id=12778
+                    // If both x.opBinary(y) and y.opBinaryRight(x) found,
+                    // and they are exactly same symbol, x.opBinary(y) should be preferred.
+                    if (s_r && s_r == s)
+                        s_r = null;
+                    if (s_r)
+                    {
+                        // @@@DEPRECATED_2.110@@@.
+                        // Deprecated in 2.088, made an error in 2.100
+                        e.error("`%s` is obsolete.  Use `opBinaryRight(string op)(...) if (op == \"%s\")` instead.", id_r.toChars(), EXPtoString(e.op).ptr);
+                        return ErrorExp.get();
+                    }
                 }
             }
             if (s || s_r)
@@ -878,57 +707,53 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                 args2[0] = e.e2;
                 expandTuples(&args2);
                 argsset = 1;
-                Match m;
-                m.last = MATCH.nomatch;
+                MatchAccumulator m;
                 if (s)
                 {
-                    functionResolve(&m, s, e.loc, sc, tiargs, e.e1.type, &args2);
-                    if (m.lastf && (m.lastf.errors || m.lastf.semantic3Errors))
+                    functionResolve(m, s, e.loc, sc, tiargs, e.e1.type, &args2);
+                    if (m.lastf && (m.lastf.errors || m.lastf.hasSemantic3Errors()))
                     {
-                        result = new ErrorExp();
-                        return;
+                        return ErrorExp.get();
                     }
                 }
                 FuncDeclaration lastf = m.lastf;
                 if (s_r)
                 {
-                    functionResolve(&m, s_r, e.loc, sc, tiargs, e.e2.type, &args1);
-                    if (m.lastf && (m.lastf.errors || m.lastf.semantic3Errors))
+                    functionResolve(m, s_r, e.loc, sc, tiargs, e.e2.type, &args1);
+                    if (m.lastf && (m.lastf.errors || m.lastf.hasSemantic3Errors()))
                     {
-                        result = new ErrorExp();
-                        return;
+                        return ErrorExp.get();
                     }
                 }
                 if (m.count > 1)
                 {
                     // Error, ambiguous
-                    e.error("overloads %s and %s both match argument list for %s", m.lastf.type.toChars(), m.nextf.type.toChars(), m.lastf.toChars());
+                    e.error("overloads `%s` and `%s` both match argument list for `%s`", m.lastf.type.toChars(), m.nextf.type.toChars(), m.lastf.toChars());
                 }
-                else if (m.last <= MATCH.nomatch)
+                else if (m.last == MATCH.nomatch)
                 {
-                    m.lastf = m.anyf;
                     if (tiargs)
                         goto L1;
+                    m.lastf = null;
                 }
-                if (e.op == TOKplusplus || e.op == TOKminusminus)
+                if (e.op == EXP.plusPlus || e.op == EXP.minusMinus)
                 {
                     // Kludge because operator overloading regards e++ and e--
                     // as unary, but it's implemented as a binary.
                     // Rewrite (e1 ++ e2) as e1.postinc()
                     // Rewrite (e1 -- e2) as e1.postdec()
-                    result = build_overload(e.loc, sc, e.e1, null, m.lastf ? m.lastf : s);
+                    return build_overload(e.loc, sc, e.e1, null, m.lastf ? m.lastf : s);
                 }
-                else if (lastf && m.lastf == lastf || !s_r && m.last <= MATCH.nomatch)
+                else if (lastf && m.lastf == lastf || !s_r && m.last == MATCH.nomatch)
                 {
                     // Rewrite (e1 op e2) as e1.opfunc(e2)
-                    result = build_overload(e.loc, sc, e.e1, e.e2, m.lastf ? m.lastf : s);
+                    return build_overload(e.loc, sc, e.e1, e.e2, m.lastf ? m.lastf : s);
                 }
                 else
                 {
                     // Rewrite (e1 op e2) as e2.opfunc_r(e1)
-                    result = build_overload(e.loc, sc, e.e2, e.e1, m.lastf ? m.lastf : s_r);
+                    return build_overload(e.loc, sc, e.e2, e.e1, m.lastf ? m.lastf : s_r);
                 }
-                return;
             }
         L1:
             version (all)
@@ -964,179 +789,135 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                             args2[0] = e.e2;
                             expandTuples(&args2);
                         }
-                        Match m;
-                        m.last = MATCH.nomatch;
+                        MatchAccumulator m;
                         if (s_r)
                         {
-                            functionResolve(&m, s_r, e.loc, sc, tiargs, e.e1.type, &args2);
-                            if (m.lastf && (m.lastf.errors || m.lastf.semantic3Errors))
+                            functionResolve(m, s_r, e.loc, sc, tiargs, e.e1.type, &args2);
+                            if (m.lastf && (m.lastf.errors || m.lastf.hasSemantic3Errors()))
                             {
-                                result = new ErrorExp();
-                                return;
+                                return ErrorExp.get();
                             }
                         }
                         FuncDeclaration lastf = m.lastf;
                         if (s)
                         {
-                            functionResolve(&m, s, e.loc, sc, tiargs, e.e2.type, &args1);
-                            if (m.lastf && (m.lastf.errors || m.lastf.semantic3Errors))
+                            functionResolve(m, s, e.loc, sc, tiargs, e.e2.type, &args1);
+                            if (m.lastf && (m.lastf.errors || m.lastf.hasSemantic3Errors()))
                             {
-                                result = new ErrorExp();
-                                return;
+                                return ErrorExp.get();
                             }
                         }
                         if (m.count > 1)
                         {
                             // Error, ambiguous
-                            e.error("overloads %s and %s both match argument list for %s", m.lastf.type.toChars(), m.nextf.type.toChars(), m.lastf.toChars());
+                            e.error("overloads `%s` and `%s` both match argument list for `%s`", m.lastf.type.toChars(), m.nextf.type.toChars(), m.lastf.toChars());
                         }
-                        else if (m.last <= MATCH.nomatch)
+                        else if (m.last == MATCH.nomatch)
                         {
-                            m.lastf = m.anyf;
+                            m.lastf = null;
                         }
-                        if (lastf && m.lastf == lastf || !s && m.last <= MATCH.nomatch)
+
+                        if (lastf && m.lastf == lastf || !s && m.last == MATCH.nomatch)
                         {
                             // Rewrite (e1 op e2) as e1.opfunc_r(e2)
-                            result = build_overload(e.loc, sc, e.e1, e.e2, m.lastf ? m.lastf : s_r);
+                            return build_overload(e.loc, sc, e.e1, e.e2, m.lastf ? m.lastf : s_r);
                         }
                         else
                         {
                             // Rewrite (e1 op e2) as e2.opfunc(e1)
-                            result = build_overload(e.loc, sc, e.e2, e.e1, m.lastf ? m.lastf : s);
+                            Expression result = build_overload(e.loc, sc, e.e2, e.e1, m.lastf ? m.lastf : s);
+                            // When reversing operands of comparison operators,
+                            // need to reverse the sense of the op
+                            if (pop)
+                                *pop = reverseRelation(e.op);
+                            return result;
                         }
-                        // When reversing operands of comparison operators,
-                        // need to reverse the sense of the op
-                        switch (e.op)
-                        {
-                        case TOKlt:
-                            e.op = TOKgt;
-                            break;
-                        case TOKgt:
-                            e.op = TOKlt;
-                            break;
-                        case TOKle:
-                            e.op = TOKge;
-                            break;
-                        case TOKge:
-                            e.op = TOKle;
-                            break;
-                        default:
-                            break;
-                        }
-                        return;
                     }
                 }
             }
-            // Try alias this on first operand
-            if (ad1 && ad1.aliasthis && !(e.op == TOKassign && ad2 && ad1 == ad2)) // https://issues.dlang.org/show_bug.cgi?id=2943
+
+            Expression rewrittenLhs;
+            if (!(e.op == EXP.assign && ad2 && ad1 == ad2)) // https://issues.dlang.org/show_bug.cgi?id=2943
             {
-                /* Rewrite (e1 op e2) as:
-                 *      (e1.aliasthis op e2)
-                 */
-                if (e.att1 && e.e1.type == e.att1)
-                    return;
-                //printf("att bin e1 = %s\n", this.e1.type.toChars());
-                Expression e1 = new DotIdExp(e.loc, e.e1, ad1.aliasthis.ident);
-                BinExp be = cast(BinExp)e.copy();
-                if (!be.att1 && e.e1.type.checkAliasThisRec())
-                    be.att1 = e.e1.type;
-                be.e1 = e1;
-                result = be.trySemantic(sc);
-                return;
+                if (Expression result = checkAliasThisForLhs(ad1, sc, e))
+                {
+                    /* https://issues.dlang.org/show_bug.cgi?id=19441
+                     *
+                     * alias this may not be used for partial assignment.
+                     * If a struct has a single member which is aliased this
+                     * directly or aliased to a ref getter function that returns
+                     * the mentioned member, then alias this may be
+                     * used since the object will be fully initialised.
+                     * If the struct is nested, the context pointer is considered
+                     * one of the members, hence the `ad1.fields.dim == 2 && ad1.vthis`
+                     * condition.
+                     */
+                    if (result.op != EXP.assign)
+                        return result;     // i.e: Rewrote `e1 = e2` -> `e1(e2)`
+
+                    auto ae = result.isAssignExp();
+                    if (ae.e1.op != EXP.dotVariable)
+                        return result;     // i.e: Rewrote `e1 = e2` -> `e1() = e2`
+
+                    auto dve = ae.e1.isDotVarExp();
+                    if (auto ad = dve.var.isMember2())
+                    {
+                        // i.e: Rewrote `e1 = e2` -> `e1.some.var = e2`
+                        // Ensure that `var` is the only field member in `ad`
+                        if (ad.fields.dim == 1 || (ad.fields.dim == 2 && ad.vthis))
+                        {
+                            if (dve.var == ad.aliasthis.sym)
+                                return result;
+                        }
+                    }
+                    rewrittenLhs = ae.e1;
+                }
             }
-            // Try alias this on second operand
-            /* https://issues.dlang.org/show_bug.cgi?id=2943
-             * make sure that when we're copying the struct, we don't
-             * just copy the alias this member
-             */
-            if (ad2 && ad2.aliasthis && !(e.op == TOKassign && ad1 && ad1 == ad2))
+            if (!(e.op == EXP.assign && ad1 && ad1 == ad2)) // https://issues.dlang.org/show_bug.cgi?id=2943
             {
-                /* Rewrite (e1 op e2) as:
-                 *      (e1 op e2.aliasthis)
-                 */
-                if (e.att2 && e.e2.type == e.att2)
-                    return;
-                //printf("att bin e2 = %s\n", e.e2.type.toChars());
-                Expression e2 = new DotIdExp(e.loc, e.e2, ad2.aliasthis.ident);
-                BinExp be = cast(BinExp)e.copy();
-                if (!be.att2 && e.e2.type.checkAliasThisRec())
-                    be.att2 = e.e2.type;
-                be.e2 = e2;
-                result = be.trySemantic(sc);
-                return;
+                if (Expression result = checkAliasThisForRhs(ad2, sc, e))
+                    return result;
             }
-            return;
+            if (rewrittenLhs)
+            {
+                e.error("cannot use `alias this` to partially initialize variable `%s` of type `%s`. Use `%s`",
+                        e.e1.toChars(), ad1.toChars(), rewrittenLhs.toChars());
+                return ErrorExp.get();
+            }
+            return null;
         }
 
-        override void visit(EqualExp e)
+        Expression visitEqual(EqualExp e)
         {
             //printf("EqualExp::op_overload() (%s)\n", e.toChars());
             Type t1 = e.e1.type.toBasetype();
             Type t2 = e.e2.type.toBasetype();
 
-            /* Check for array equality.
+            /* Array equality is handled by expressionSemantic() potentially
+             * lowering to object.__equals(), which takes care of overloaded
+             * operators for the element types.
              */
-            if ((t1.ty == Tarray || t1.ty == Tsarray)
-                && (t2.ty == Tarray || t2.ty == Tsarray))
+            if ((t1.ty == Tarray || t1.ty == Tsarray) &&
+                (t2.ty == Tarray || t2.ty == Tsarray))
             {
-                bool needsDirectEq()
-                {
-                    Type t1n = t1.nextOf().toBasetype();
-                    Type t2n = t2.nextOf().toBasetype();
-                    if (((t1n.ty == Tchar || t1n.ty == Twchar || t1n.ty == Tdchar) &&
-                         (t2n.ty == Tchar || t2n.ty == Twchar || t2n.ty == Tdchar)) ||
-                        (t1n.ty == Tvoid || t2n.ty == Tvoid))
-                    {
-                        return false;
-                    }
-                    if (t1n.constOf() != t2n.constOf())
-                        return true;
-
-                    Type t = t1n;
-                    while (t.toBasetype().nextOf())
-                        t = t.nextOf().toBasetype();
-                    if (t.ty != Tstruct)
-                        return false;
-
-                    semanticTypeInfo(sc, t);
-                    return (cast(TypeStruct)t).sym.hasIdentityEquals;
-                }
-
-                if (needsDirectEq() && !(t1.ty == Tarray && t2.ty == Tarray))
-                {
-                    /* Rewrite as:
-                     *      _ArrayEq(e1, e2)
-                     */
-                    Expression eeq = new IdentifierExp(e.loc, Id._ArrayEq);
-                    result = new CallExp(e.loc, eeq, e.e1, e.e2);
-                    if (e.op == TOKnotequal)
-                        result = new NotExp(e.loc, result);
-                    result = result.trySemantic(sc); // for better error message
-                    if (!result)
-                    {
-                        e.error("cannot compare %s and %s", t1.toChars(), t2.toChars());
-                        result = new ErrorExp();
-                    }
-                    return;
-                }
+                return null;
             }
 
             /* Check for class equality with null literal or typeof(null).
              */
-            if (t1.ty == Tclass && e.e2.op == TOKnull ||
-                t2.ty == Tclass && e.e1.op == TOKnull)
+            if (t1.ty == Tclass && e.e2.op == EXP.null_ ||
+                t2.ty == Tclass && e.e1.op == EXP.null_)
             {
-                e.error("use '%s' instead of '%s' when comparing with null",
-                    Token.toChars(e.op == TOKequal ? TOKidentity : TOKnotidentity),
-                    Token.toChars(e.op));
-                result = new ErrorExp();
-                return;
+                e.error("use `%s` instead of `%s` when comparing with `null`",
+                    EXPtoString(e.op == EXP.equal ? EXP.identity : EXP.notIdentity).ptr,
+                    EXPtoString(e.op).ptr);
+                return ErrorExp.get();
             }
             if (t1.ty == Tclass && t2.ty == Tnull ||
                 t1.ty == Tnull && t2.ty == Tclass)
             {
                 // Comparing a class with typeof(null) should not call opEquals
-                return;
+                return null;
             }
 
             /* Check for class equality.
@@ -1162,30 +943,26 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     if (cd2.isInterfaceDeclaration())
                         e2x = new CastExp(e.loc, e.e2, t2.isMutable() ? to : to.constOf());
 
-                    result = new IdentifierExp(e.loc, Id.empty);
+                    Expression result = new IdentifierExp(e.loc, Id.empty);
                     result = new DotIdExp(e.loc, result, Id.object);
                     result = new DotIdExp(e.loc, result, Id.eq);
                     result = new CallExp(e.loc, result, e1x, e2x);
-                    if (e.op == TOKnotequal)
+                    if (e.op == EXP.notEqual)
                         result = new NotExp(e.loc, result);
                     result = result.expressionSemantic(sc);
-                    return;
+                    return result;
                 }
             }
 
-            result = compare_overload(e, sc, Id.eq);
-            if (result)
+            if (Expression result = compare_overload(e, sc, Id.eq, null))
             {
-                if (result.op == TOKcall && e.op == TOKnotequal)
+                if (lastComma(result).op == EXP.call && e.op == EXP.notEqual)
                 {
                     result = new NotExp(result.loc, result);
                     result = result.expressionSemantic(sc);
                 }
-                return;
+                return result;
             }
-
-            if (t1.ty == Tarray && t2.ty == Tarray)
-                return;
 
             /* Check for pointer equality.
              */
@@ -1199,31 +976,30 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                  * This is just a rewriting for deterministic AST representation
                  * as the backend input.
                  */
-                auto op2 = e.op == TOKequal ? TOKidentity : TOKnotidentity;
-                result = new IdentityExp(op2, e.loc, e.e1, e.e2);
-                result = result.expressionSemantic(sc);
-                return;
+                auto op2 = e.op == EXP.equal ? EXP.identity : EXP.notIdentity;
+                Expression r = new IdentityExp(op2, e.loc, e.e1, e.e2);
+                return r.expressionSemantic(sc);
             }
 
             /* Check for struct equality without opEquals.
              */
             if (t1.ty == Tstruct && t2.ty == Tstruct)
             {
-                auto sd = (cast(TypeStruct)t1).sym;
-                if (sd != (cast(TypeStruct)t2).sym)
-                    return;
+                auto sd = t1.isTypeStruct().sym;
+                if (sd != t2.isTypeStruct().sym)
+                    return null;
 
                 import dmd.clone : needOpEquals;
-                if (!needOpEquals(sd))
+                if (!global.params.fieldwise && !needOpEquals(sd))
                 {
                     // Use bitwise equality.
-                    auto op2 = e.op == TOKequal ? TOKidentity : TOKnotidentity;
-                    result = new IdentityExp(op2, e.loc, e.e1, e.e2);
-                    result = result.expressionSemantic(sc);
-                    return;
+                    auto op2 = e.op == EXP.equal ? EXP.identity : EXP.notIdentity;
+                    Expression r = new IdentityExp(op2, e.loc, e.e1, e.e2);
+                    return r.expressionSemantic(sc);
                 }
 
                 /* Do memberwise equality.
+                 * https://dlang.org/spec/expression.html#equality_expressions
                  * Rewrite:
                  *      e1 == e2
                  * as:
@@ -1233,49 +1009,53 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                  * also compare the parent class's equality. Otherwise, compares
                  * the identity of parent context through void*.
                  */
-                if (e.att1 && t1 == e.att1) return;
-                if (e.att2 && t2 == e.att2) return;
+                if (e.att1 && t1.equivalent(e.att1)) return null;
+                if (e.att2 && t2.equivalent(e.att2)) return null;
 
-                e = cast(EqualExp)e.copy();
+                e = e.copy().isEqualExp();
                 if (!e.att1) e.att1 = t1;
                 if (!e.att2) e.att2 = t2;
                 e.e1 = new DotIdExp(e.loc, e.e1, Id._tupleof);
                 e.e2 = new DotIdExp(e.loc, e.e2, Id._tupleof);
-                result = e.expressionSemantic(sc);
+
+                auto sc2 = sc.push();
+                sc2.flags |= SCOPE.noaccesscheck;
+                Expression r = e.expressionSemantic(sc2);
+                sc2.pop();
 
                 /* https://issues.dlang.org/show_bug.cgi?id=15292
                  * if the rewrite result is same with the original,
                  * the equality is unresolvable because it has recursive definition.
                  */
-                if (result.op == e.op &&
-                    (cast(EqualExp)result).e1.type.toBasetype() == t1)
+                if (r.op == e.op &&
+                    r.isEqualExp().e1.type.toBasetype() == t1)
                 {
-                    e.error("cannot compare %s because its auto generated member-wise equality has recursive definition",
+                    e.error("cannot compare `%s` because its auto generated member-wise equality has recursive definition",
                         t1.toChars());
-                    result = new ErrorExp();
+                    return ErrorExp.get();
                 }
-                return;
+                return r;
             }
 
             /* Check for tuple equality.
              */
-            if (e.e1.op == TOKtuple && e.e2.op == TOKtuple)
+            if (e.e1.op == EXP.tuple && e.e2.op == EXP.tuple)
             {
-                auto tup1 = cast(TupleExp)e.e1;
-                auto tup2 = cast(TupleExp)e.e2;
+                auto tup1 = e.e1.isTupleExp();
+                auto tup2 = e.e2.isTupleExp();
                 size_t dim = tup1.exps.dim;
                 if (dim != tup2.exps.dim)
                 {
-                    e.error("mismatched tuple lengths, %d and %d",
+                    e.error("mismatched tuple lengths, `%d` and `%d`",
                         cast(int)dim, cast(int)tup2.exps.dim);
-                    result = new ErrorExp();
-                    return;
+                    return ErrorExp.get();
                 }
 
+                Expression result;
                 if (dim == 0)
                 {
                     // zero-length tuple comparison should always return true or false.
-                    result = new IntegerExp(e.loc, (e.op == TOKequal), Type.tbool);
+                    result = IntegerExp.createBool(e.op == EXP.equal);
                 }
                 else
                 {
@@ -1289,51 +1069,49 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
 
                         if (!result)
                             result = eeq;
-                        else if (e.op == TOKequal)
-                            result = new LogicalExp(e.loc, TOKandand, result, eeq);
+                        else if (e.op == EXP.equal)
+                            result = new LogicalExp(e.loc, EXP.andAnd, result, eeq);
                         else
-                            result = new LogicalExp(e.loc, TOKoror, result, eeq);
+                            result = new LogicalExp(e.loc, EXP.orOr, result, eeq);
                     }
                     assert(result);
                 }
-                result = Expression.combine(Expression.combine(tup1.e0, tup2.e0), result);
+                result = Expression.combine(tup1.e0, tup2.e0, result);
                 result = result.expressionSemantic(sc);
 
-                return;
+                return result;
             }
+            return null;
         }
 
-        override void visit(CmpExp e)
+        Expression visitCmp(CmpExp e)
         {
             //printf("CmpExp:: () (%s)\n", e.toChars());
-            result = compare_overload(e, sc, Id.cmp);
+            return compare_overload(e, sc, Id.cmp, pop);
         }
 
         /*********************************
          * Operator overloading for op=
          */
-        override void visit(BinAssignExp e)
+        Expression visitBinAssign(BinAssignExp e)
         {
             //printf("BinAssignExp::op_overload() (%s)\n", e.toChars());
-            if (e.e1.op == TOKarray)
+            if (auto ae = e.e1.isArrayExp())
             {
-                ArrayExp ae = cast(ArrayExp)e.e1;
                 ae.e1 = ae.e1.expressionSemantic(sc);
                 ae.e1 = resolveProperties(sc, ae.e1);
                 Expression ae1old = ae.e1;
-                const(bool) maybeSlice = (ae.arguments.dim == 0 || ae.arguments.dim == 1 && (*ae.arguments)[0].op == TOKinterval);
+                const(bool) maybeSlice = (ae.arguments.dim == 0 || ae.arguments.dim == 1 && (*ae.arguments)[0].op == EXP.interval);
                 IntervalExp ie = null;
                 if (maybeSlice && ae.arguments.dim)
                 {
-                    assert((*ae.arguments)[0].op == TOKinterval);
-                    ie = cast(IntervalExp)(*ae.arguments)[0];
+                    ie = (*ae.arguments)[0].isIntervalExp();
                 }
                 while (true)
                 {
-                    if (ae.e1.op == TOKerror)
+                    if (ae.e1.op == EXP.error)
                     {
-                        result = ae.e1;
-                        return;
+                        return ae.e1;
                     }
                     Expression e0 = null;
                     Expression ae1save = ae.e1;
@@ -1345,14 +1123,14 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                     if (search_function(ad, Id.opIndexOpAssign))
                     {
                         // Deal with $
-                        result = resolveOpDollar(sc, ae, &e0);
+                        Expression result = resolveOpDollar(sc, ae, &e0);
                         if (!result) // (a[i..j] op= e2) might be: a.opSliceOpAssign!(op)(e2, i, j)
                             goto Lfallback;
-                        if (result.op == TOKerror)
-                            return;
+                        if (result.op == EXP.error)
+                            return result;
                         result = e.e2.expressionSemantic(sc);
-                        if (result.op == TOKerror)
-                            return;
+                        if (result.op == EXP.error)
+                            return result;
                         e.e2 = result;
                         /* Rewrite a[arguments] op= e2 as:
                          *      a.opIndexOpAssign!(op)(e2, arguments)
@@ -1368,20 +1146,19 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                             result = result.expressionSemantic(sc);
                         if (result)
                         {
-                            result = Expression.combine(e0, result);
-                            return;
+                            return Expression.combine(e0, result);
                         }
                     }
                 Lfallback:
                     if (maybeSlice && search_function(ad, Id.opSliceOpAssign))
                     {
                         // Deal with $
-                        result = resolveOpDollar(sc, ae, ie, &e0);
-                        if (result.op == TOKerror)
-                            return;
+                        Expression result = resolveOpDollar(sc, ae, ie, &e0);
+                        if (result.op == EXP.error)
+                            return result;
                         result = e.e2.expressionSemantic(sc);
-                        if (result.op == TOKerror)
-                            return;
+                        if (result.op == EXP.error)
+                            return result;
                         e.e2 = result;
                         /* Rewrite (a[i..j] op= e2) as:
                          *      a.opSliceOpAssign!(op)(e2, i, j)
@@ -1398,13 +1175,11 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                         result = new CallExp(e.loc, result, a);
                         result = result.expressionSemantic(sc);
                         result = Expression.combine(e0, result);
-                        return;
+                        return result;
                     }
                     // Didn't find it. Forward to aliasthis
-                    if (ad.aliasthis && t1b != ae.att1)
+                    if (ad.aliasthis && !isRecursiveAliasThis(ae.att1, ae.e1.type))
                     {
-                        if (!ae.att1 && t1b.checkAliasThisRec())
-                            ae.att1 = t1b;
                         /* Rewrite (a[arguments] op= e2) as:
                          *      a.aliasthis[arguments] op= e2
                          */
@@ -1417,49 +1192,52 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                 ae.e1 = ae1old; // recovery
                 ae.lengthVar = null;
             }
-            result = e.binSemanticProp(sc);
+            Expression result = e.binSemanticProp(sc);
             if (result)
-                return;
+                return result;
             // Don't attempt 'alias this' if an error occurred
             if (e.e1.type.ty == Terror || e.e2.type.ty == Terror)
             {
-                result = new ErrorExp();
-                return;
+                return ErrorExp.get();
             }
             Identifier id = opId(e);
             Expressions args2;
             AggregateDeclaration ad1 = isAggregate(e.e1.type);
             Dsymbol s = null;
-            version (all)
+            Objects* tiargs = null;
+            /* Try opOpAssign
+             */
+            if (ad1)
             {
-                // the old D1 scheme
-                if (ad1 && id)
+                s = search_function(ad1, Id.opOpAssign);
+                if (s && !s.isTemplateDeclaration())
                 {
-                    s = search_function(ad1, id);
+                    e.error("`%s.opOpAssign` isn't a template", e.e1.toChars());
+                    return ErrorExp.get();
                 }
             }
-            Objects* tiargs = null;
-            if (!s)
+            // Set tiargs, the template argument list, which will be the operator string
+            if (s)
             {
-                /* Try the new D2 scheme, opOpAssign
-                 */
-                if (ad1)
-                {
-                    s = search_function(ad1, Id.opOpAssign);
-                    if (s && !s.isTemplateDeclaration())
-                    {
-                        e.error("%s.opOpAssign isn't a template", e.e1.toChars());
-                        result = new ErrorExp();
-                        return;
-                    }
-                }
-                // Set tiargs, the template argument list, which will be the operator string
+                id = Id.opOpAssign;
+                tiargs = opToArg(sc, e.op);
+            }
+
+            // Try D1-style operator overload, deprecated
+            if (!s && ad1 && id)
+            {
+                s = search_function(ad1, id);
                 if (s)
                 {
-                    id = Id.opOpAssign;
-                    tiargs = opToArg(sc, e.op);
+                    // @@@DEPRECATED_2.110@@@.
+                    // Deprecated in 2.088, made an error in 2.100
+                    scope char[] op = EXPtoString(e.op).dup;
+                    op[$-1] = '\0'; // remove trailing `=`
+                    e.error("`%s` is obsolete.  Use `opOpAssign(string op)(...) if (op == \"%s\")` instead.", id.toChars(), op.ptr);
+                    return ErrorExp.get();
                 }
             }
+
             if (s)
             {
                 /* Try:
@@ -1468,80 +1246,65 @@ extern (C++) Expression op_overload(Expression e, Scope* sc)
                 args2.setDim(1);
                 args2[0] = e.e2;
                 expandTuples(&args2);
-                Match m;
-                m.last = MATCH.nomatch;
+                MatchAccumulator m;
                 if (s)
                 {
-                    functionResolve(&m, s, e.loc, sc, tiargs, e.e1.type, &args2);
-                    if (m.lastf && (m.lastf.errors || m.lastf.semantic3Errors))
+                    functionResolve(m, s, e.loc, sc, tiargs, e.e1.type, &args2);
+                    if (m.lastf && (m.lastf.errors || m.lastf.hasSemantic3Errors()))
                     {
-                        result = new ErrorExp();
-                        return;
+                        return ErrorExp.get();
                     }
                 }
                 if (m.count > 1)
                 {
                     // Error, ambiguous
-                    e.error("overloads %s and %s both match argument list for %s", m.lastf.type.toChars(), m.nextf.type.toChars(), m.lastf.toChars());
+                    e.error("overloads `%s` and `%s` both match argument list for `%s`", m.lastf.type.toChars(), m.nextf.type.toChars(), m.lastf.toChars());
                 }
-                else if (m.last <= MATCH.nomatch)
+                else if (m.last == MATCH.nomatch)
                 {
-                    m.lastf = m.anyf;
                     if (tiargs)
                         goto L1;
+                    m.lastf = null;
                 }
                 // Rewrite (e1 op e2) as e1.opOpAssign(e2)
-                result = build_overload(e.loc, sc, e.e1, e.e2, m.lastf ? m.lastf : s);
-                return;
+                return build_overload(e.loc, sc, e.e1, e.e2, m.lastf ? m.lastf : s);
             }
         L1:
-            // Try alias this on first operand
-            if (ad1 && ad1.aliasthis)
-            {
-                /* Rewrite (e1 op e2) as:
-                 *      (e1.aliasthis op e2)
-                 */
-                if (e.att1 && e.e1.type == e.att1)
-                    return;
-                //printf("att %s e1 = %s\n", Token::toChars(e.op), e.e1.type.toChars());
-                Expression e1 = new DotIdExp(e.loc, e.e1, ad1.aliasthis.ident);
-                BinExp be = cast(BinExp)e.copy();
-                if (!be.att1 && e.e1.type.checkAliasThisRec())
-                    be.att1 = e.e1.type;
-                be.e1 = e1;
-                result = be.trySemantic(sc);
-                return;
-            }
-            // Try alias this on second operand
-            AggregateDeclaration ad2 = isAggregate(e.e2.type);
-            if (ad2 && ad2.aliasthis)
-            {
-                /* Rewrite (e1 op e2) as:
-                 *      (e1 op e2.aliasthis)
-                 */
-                if (e.att2 && e.e2.type == e.att2)
-                    return;
-                //printf("att %s e2 = %s\n", Token::toChars(e.op), e.e2.type.toChars());
-                Expression e2 = new DotIdExp(e.loc, e.e2, ad2.aliasthis.ident);
-                BinExp be = cast(BinExp)e.copy();
-                if (!be.att2 && e.e2.type.checkAliasThisRec())
-                    be.att2 = e.e2.type;
-                be.e2 = e2;
-                result = be.trySemantic(sc);
-                return;
-            }
-        }
-    }
+            result = checkAliasThisForLhs(ad1, sc, e);
+            if (result || !s) // no point in trying Rhs alias-this if there's no overload of any kind in lhs
+                return result;
 
-    scope OpOverload v = new OpOverload(sc);
-    e.accept(v);
-    return v.result;
+            return checkAliasThisForRhs(isAggregate(e.e2.type), sc, e);
+        }
+
+    if (pop)
+        *pop = e.op;
+
+    switch (e.op)
+    {
+        case EXP.cast_         : return visitCast(e.isCastExp());
+        case EXP.array         : return visitArray(e.isArrayExp());
+
+        case EXP.notEqual      :
+        case EXP.equal         : return visitEqual(e.isEqualExp());
+
+        case EXP.lessOrEqual   :
+        case EXP.greaterThan   :
+        case EXP.greaterOrEqual:
+        case EXP.lessThan      : return visitCmp(cast(CmpExp)e);
+
+        default:
+            if (auto ex = e.isBinAssignExp()) return visitBinAssign(ex);
+            if (auto ex = e.isBinExp())       return visitBin(ex);
+            if (auto ex = e.isUnaExp())       return visitUna(ex);
+            return visit(e);
+    }
 }
 
 /******************************************
  * Common code for overloading of EqualExp and CmpExp
  */
-extern (C++) Expression compare_overload(BinExp e, Scope* sc, Identifier id)
+private Expression compare_overload(BinExp e, Scope* sc, Identifier id, EXP* pop)
 {
     //printf("BinExp::compare_overload(id = %s) %s\n", id.toChars(), e.toChars());
     AggregateDeclaration ad1 = isAggregate(e.e1.type);
@@ -1566,16 +1329,13 @@ extern (C++) Expression compare_overload(BinExp e, Scope* sc, Identifier id)
          *      b.opEquals(a)
          * and see which is better.
          */
-        Expressions args1;
-        Expressions args2;
-        args1.setDim(1);
+        Expressions args1 = Expressions(1);
         args1[0] = e.e1;
         expandTuples(&args1);
-        args2.setDim(1);
+        Expressions args2 = Expressions(1);
         args2[0] = e.e2;
         expandTuples(&args2);
-        Match m;
-        m.last = MATCH.nomatch;
+        MatchAccumulator m;
         if (0 && s && s_r)
         {
             printf("s  : %s\n", s.toPrettyChars());
@@ -1583,17 +1343,17 @@ extern (C++) Expression compare_overload(BinExp e, Scope* sc, Identifier id)
         }
         if (s)
         {
-            functionResolve(&m, s, e.loc, sc, tiargs, e.e1.type, &args2);
-            if (m.lastf && (m.lastf.errors || m.lastf.semantic3Errors))
-                return new ErrorExp();
+            functionResolve(m, s, e.loc, sc, tiargs, e.e1.type, &args2);
+            if (m.lastf && (m.lastf.errors || m.lastf.hasSemantic3Errors()))
+                return ErrorExp.get();
         }
         FuncDeclaration lastf = m.lastf;
         int count = m.count;
         if (s_r)
         {
-            functionResolve(&m, s_r, e.loc, sc, tiargs, e.e2.type, &args1);
-            if (m.lastf && (m.lastf.errors || m.lastf.semantic3Errors))
-                return new ErrorExp();
+            functionResolve(m, s_r, e.loc, sc, tiargs, e.e2.type, &args1);
+            if (m.lastf && (m.lastf.errors || m.lastf.hasSemantic3Errors()))
+                return ErrorExp.get();
         }
         if (m.count > 1)
         {
@@ -1611,15 +1371,15 @@ extern (C++) Expression compare_overload(BinExp e, Scope* sc, Identifier id)
             if (!(m.lastf == lastf && m.count == 2 && count == 1))
             {
                 // Error, ambiguous
-                e.error("overloads %s and %s both match argument list for %s", m.lastf.type.toChars(), m.nextf.type.toChars(), m.lastf.toChars());
+                e.error("overloads `%s` and `%s` both match argument list for `%s`", m.lastf.type.toChars(), m.nextf.type.toChars(), m.lastf.toChars());
             }
         }
-        else if (m.last <= MATCH.nomatch)
+        else if (m.last == MATCH.nomatch)
         {
-            m.lastf = m.anyf;
+            m.lastf = null;
         }
         Expression result;
-        if (lastf && m.lastf == lastf || !s_r && m.last <= MATCH.nomatch)
+        if (lastf && m.lastf == lastf || !s_r && m.last == MATCH.nomatch)
         {
             // Rewrite (e1 op e2) as e1.opfunc(e2)
             result = build_overload(e.loc, sc, e.e1, e.e2, m.lastf ? m.lastf : s);
@@ -1630,71 +1390,29 @@ extern (C++) Expression compare_overload(BinExp e, Scope* sc, Identifier id)
             result = build_overload(e.loc, sc, e.e2, e.e1, m.lastf ? m.lastf : s_r);
             // When reversing operands of comparison operators,
             // need to reverse the sense of the op
-            switch (e.op)
-            {
-            case TOKlt:
-                e.op = TOKgt;
-                break;
-            case TOKgt:
-                e.op = TOKlt;
-                break;
-            case TOKle:
-                e.op = TOKge;
-                break;
-            case TOKge:
-                e.op = TOKle;
-                break;
-            default:
-                break;
-            }
+            if (pop)
+                *pop = reverseRelation(e.op);
         }
         return result;
     }
-    // Try alias this on first operand
-    if (ad1 && ad1.aliasthis)
-    {
-        /* Rewrite (e1 op e2) as:
-         *      (e1.aliasthis op e2)
-         */
-        if (e.att1 && e.e1.type == e.att1)
-            return null;
-        //printf("att cmp_bin e1 = %s\n", e.e1.type.toChars());
-        Expression e1 = new DotIdExp(e.loc, e.e1, ad1.aliasthis.ident);
-        BinExp be = cast(BinExp)e.copy();
-        if (!be.att1 && e.e1.type.checkAliasThisRec())
-            be.att1 = e.e1.type;
-        be.e1 = e1;
-        return be.trySemantic(sc);
-    }
-    // Try alias this on second operand
-    if (ad2 && ad2.aliasthis)
-    {
-        /* Rewrite (e1 op e2) as:
-         *      (e1 op e2.aliasthis)
-         */
-        if (e.att2 && e.e2.type == e.att2)
-            return null;
-        //printf("att cmp_bin e2 = %s\n", e.e2.type.toChars());
-        Expression e2 = new DotIdExp(e.loc, e.e2, ad2.aliasthis.ident);
-        BinExp be = cast(BinExp)e.copy();
-        if (!be.att2 && e.e2.type.checkAliasThisRec())
-            be.att2 = e.e2.type;
-        be.e2 = e2;
-        return be.trySemantic(sc);
-    }
-    return null;
+    /*
+     * https://issues.dlang.org/show_bug.cgi?id=16657
+     * at this point, no matching opEquals was found for structs,
+     * so we should not follow the alias this comparison code.
+     */
+    if ((e.op == EXP.equal || e.op == EXP.notEqual) && ad1 == ad2)
+        return null;
+    Expression result = checkAliasThisForLhs(ad1, sc, e);
+    return result ? result : checkAliasThisForRhs(isAggregate(e.e2.type), sc, e);
 }
 
 /***********************************
  * Utility to build a function call out of this reference and argument.
  */
-extern (C++) Expression build_overload(Loc loc, Scope* sc, Expression ethis, Expression earg, Dsymbol d)
+Expression build_overload(const ref Loc loc, Scope* sc, Expression ethis, Expression earg, Dsymbol d)
 {
     assert(d);
     Expression e;
-    //printf("build_overload(id = '%s')\n", id.toChars());
-    //earg.print();
-    //earg.type.print();
     Declaration decl = d.isDeclaration();
     if (decl)
         e = new DotVarExp(loc, ethis, decl, false);
@@ -1708,9 +1426,9 @@ extern (C++) Expression build_overload(Loc loc, Scope* sc, Expression ethis, Exp
 /***************************************
  * Search for function funcid in aggregate ad.
  */
-extern (C++) Dsymbol search_function(ScopeDsymbol ad, Identifier funcid)
+Dsymbol search_function(ScopeDsymbol ad, Identifier funcid)
 {
-    Dsymbol s = ad.search(Loc(), funcid);
+    Dsymbol s = ad.search(Loc.initial, funcid);
     if (s)
     {
         //printf("search_function: s = '%s'\n", s.kind());
@@ -1726,141 +1444,160 @@ extern (C++) Dsymbol search_function(ScopeDsymbol ad, Identifier funcid)
     return null;
 }
 
-extern (C++) bool inferAggregate(ForeachStatement fes, Scope* sc, ref Dsymbol sapply)
+/**************************************
+ * Figure out what is being foreach'd over by looking at the ForeachAggregate.
+ * Params:
+ *      sc = context
+ *      isForeach = true for foreach, false for foreach_reverse
+ *      feaggr = ForeachAggregate
+ *      sapply = set to function opApply/opApplyReverse, or delegate, or null.
+ *               Overload resolution is not done.
+ * Returns:
+ *      true if successfully figured it out; feaggr updated with semantic analysis.
+ *      false for failed, which is an error.
+ */
+bool inferForeachAggregate(Scope* sc, bool isForeach, ref Expression feaggr, out Dsymbol sapply)
 {
-    //printf("inferAggregate(%s)\n", fes.aggr.toChars());
-    Identifier idapply = (fes.op == TOKforeach) ? Id.apply : Id.applyReverse;
-    Identifier idfront = (fes.op == TOKforeach) ? Id.Ffront : Id.Fback;
-    int sliced = 0;
-    Type tab;
+    //printf("inferForeachAggregate(%s)\n", feaggr.toChars());
+    bool sliced;
     Type att = null;
-    Expression aggr = fes.aggr;
-    AggregateDeclaration ad;
+    auto aggr = feaggr;
     while (1)
     {
         aggr = aggr.expressionSemantic(sc);
         aggr = resolveProperties(sc, aggr);
         aggr = aggr.optimize(WANTvalue);
-        if (!aggr.type || aggr.op == TOKerror)
-            goto Lerr;
-        tab = aggr.type.toBasetype();
+        if (!aggr.type || aggr.op == EXP.error)
+            return false;
+        Type tab = aggr.type.toBasetype();
         switch (tab.ty)
         {
-        case Tarray:
-        case Tsarray:
-        case Ttuple:
-        case Taarray:
+        case Tarray:            // https://dlang.org/spec/statement.html#foreach_over_arrays
+        case Tsarray:           // https://dlang.org/spec/statement.html#foreach_over_arrays
+        case Ttuple:            // https://dlang.org/spec/statement.html#foreach_over_tuples
+        case Taarray:           // https://dlang.org/spec/statement.html#foreach_over_associative_arrays
             break;
+
         case Tclass:
-            ad = (cast(TypeClass)tab).sym;
-            goto Laggr;
         case Tstruct:
-            ad = (cast(TypeStruct)tab).sym;
-            goto Laggr;
-        Laggr:
+        {
+            AggregateDeclaration ad = (tab.ty == Tclass) ? tab.isTypeClass().sym
+                                                         : tab.isTypeStruct().sym;
             if (!sliced)
             {
-                sapply = search_function(ad, idapply);
+                sapply = search_function(ad, isForeach ? Id.apply : Id.applyReverse);
                 if (sapply)
                 {
+                    // https://dlang.org/spec/statement.html#foreach_over_struct_and_classes
                     // opApply aggregate
                     break;
                 }
-                if (fes.aggr.op != TOKtype)
+                if (feaggr.op != EXP.type)
                 {
-                    Expression rinit = new ArrayExp(aggr.loc, fes.aggr);
+                    /* See if rewriting `aggr` to `aggr[]` will work
+                     */
+                    Expression rinit = new ArrayExp(aggr.loc, feaggr);
                     rinit = rinit.trySemantic(sc);
-                    if (rinit) // if application of [] succeeded
+                    if (rinit) // if it worked
                     {
                         aggr = rinit;
-                        sliced = 1;
+                        sliced = true;  // only try it once
                         continue;
                     }
                 }
             }
-            if (ad.search(Loc(), idfront))
+            if (ad.search(Loc.initial, isForeach ? Id.Ffront : Id.Fback))
             {
+                // https://dlang.org/spec/statement.html#foreach-with-ranges
                 // range aggregate
                 break;
             }
             if (ad.aliasthis)
             {
-                if (att == tab)
-                    goto Lerr;
-                if (!att && tab.checkAliasThisRec())
-                    att = tab;
+                if (isRecursiveAliasThis(att, tab))     // error, circular alias this
+                    return false;
                 aggr = resolveAliasThis(sc, aggr);
                 continue;
             }
-            goto Lerr;
-        case Tdelegate:
-            if (aggr.op == TOKdelegate)
+            return false;
+        }
+
+        case Tdelegate:        // https://dlang.org/spec/statement.html#foreach_over_delegates
+            if (auto de = aggr.isDelegateExp())
             {
-                sapply = (cast(DelegateExp)aggr).func;
+                sapply = de.func;
             }
             break;
+
         case Terror:
             break;
+
         default:
-            goto Lerr;
+            return false;
         }
-        break;
+        feaggr = aggr;
+        return true;
     }
-    fes.aggr = aggr;
-    return true;
-Lerr:
-    return false;
+    assert(0);
 }
 
 /*****************************************
- * Given array of parameters and an aggregate type,
+ * Given array of foreach parameters and an aggregate type,
+ * find best opApply overload,
  * if any of the parameter types are missing, attempt to infer
  * them from the aggregate type.
+ * Params:
+ *      fes = the foreach statement
+ *      sc = context
+ *      sapply = null or opApply or delegate, overload resolution has not been done.
+ *               Do overload resolution on sapply.
+ * Returns:
+ *      false for errors
  */
-extern (C++) bool inferApplyArgTypes(ForeachStatement fes, Scope* sc, ref Dsymbol sapply)
+bool inferApplyArgTypes(ForeachStatement fes, Scope* sc, ref Dsymbol sapply)
 {
     if (!fes.parameters || !fes.parameters.dim)
         return false;
     if (sapply) // prefer opApply
     {
-        for (size_t u = 0; u < fes.parameters.dim; u++)
+        foreach (Parameter p; *fes.parameters)
         {
-            Parameter p = (*fes.parameters)[u];
             if (p.type)
             {
                 p.type = p.type.typeSemantic(fes.loc, sc);
                 p.type = p.type.addStorageClass(p.storageClass);
             }
         }
+
+        // Determine ethis for sapply
         Expression ethis;
         Type tab = fes.aggr.type.toBasetype();
         if (tab.ty == Tclass || tab.ty == Tstruct)
             ethis = fes.aggr;
         else
         {
-            assert(tab.ty == Tdelegate && fes.aggr.op == TOKdelegate);
-            ethis = (cast(DelegateExp)fes.aggr).e1;
+            assert(tab.ty == Tdelegate && fes.aggr.op == EXP.delegate_);
+            ethis = fes.aggr.isDelegateExp().e1;
         }
+
         /* Look for like an
          *  int opApply(int delegate(ref Type [, ...]) dg);
          * overload
          */
-        FuncDeclaration fd = sapply.isFuncDeclaration();
-        if (fd)
+        if (FuncDeclaration fd = sapply.isFuncDeclaration())
         {
-            sapply = inferApplyArgTypesX(ethis, fd, fes.parameters);
+            if (auto fdapply = findBestOpApplyMatch(ethis, fd, fes.parameters))
+            {
+                // Fill in any missing types on foreach parameters[]
+                matchParamsToOpApply(fdapply.type.isTypeFunction(), fes.parameters, true);
+                sapply = fdapply;
+                return true;
+            }
+            return false;
         }
-        return sapply !is null;
+        return true;   // shouldn't this be false?
     }
-    /* Return if no parameters need types.
-     */
-    for (size_t u = 0; u < fes.parameters.dim; u++)
-    {
-        Parameter p = (*fes.parameters)[u];
-        if (!p.type)
-            break;
-    }
-    AggregateDeclaration ad;
+
     Parameter p = (*fes.parameters)[0];
     Type taggr = fes.aggr.type;
     assert(taggr);
@@ -1885,17 +1622,18 @@ extern (C++) bool inferApplyArgTypes(ForeachStatement fes, Scope* sc, ref Dsymbo
             p.type = p.type.addStorageClass(p.storageClass);
         }
         break;
+
     case Taarray:
         {
-            TypeAArray taa = cast(TypeAArray)tab;
+            TypeAArray taa = tab.isTypeAArray();
             if (fes.parameters.dim == 2)
             {
                 if (!p.type)
                 {
                     p.type = taa.index; // key type
                     p.type = p.type.addStorageClass(p.storageClass);
-                    if (p.storageClass & STCref) // key must not be mutated via ref
-                        p.type = p.type.addMod(MODconst);
+                    if (p.storageClass & STC.ref_) // key must not be mutated via ref
+                        p.type = p.type.addMod(MODFlags.const_);
                 }
                 p = (*fes.parameters)[1];
             }
@@ -1906,21 +1644,20 @@ extern (C++) bool inferApplyArgTypes(ForeachStatement fes, Scope* sc, ref Dsymbo
             }
             break;
         }
+
     case Tclass:
-        ad = (cast(TypeClass)tab).sym;
-        goto Laggr;
     case Tstruct:
-        ad = (cast(TypeStruct)tab).sym;
-        goto Laggr;
-    Laggr:
+    {
+        AggregateDeclaration ad = (tab.ty == Tclass) ? tab.isTypeClass().sym
+                                                     : tab.isTypeStruct().sym;
         if (fes.parameters.dim == 1)
         {
             if (!p.type)
             {
                 /* Look for a front() or back() overload
                  */
-                Identifier id = (fes.op == TOKforeach) ? Id.Ffront : Id.Fback;
-                Dsymbol s = ad.search(Loc(), id);
+                Identifier id = (fes.op == TOK.foreach_) ? Id.Ffront : Id.Fback;
+                Dsymbol s = ad.search(Loc.initial, id);
                 FuncDeclaration fd = s ? s.isFuncDeclaration() : null;
                 if (fd)
                 {
@@ -1936,37 +1673,51 @@ extern (C++) bool inferApplyArgTypes(ForeachStatement fes, Scope* sc, ref Dsymbo
                 {
                 }
                 else if (s && s.isDeclaration())
-                    p.type = (cast(Declaration)s).type;
+                    p.type = s.isDeclaration().type;
                 else
                     break;
             }
             break;
         }
         break;
+    }
+
     case Tdelegate:
-        {
-            if (!inferApplyArgTypesY(cast(TypeFunction)tab.nextOf(), fes.parameters))
-                return false;
-            break;
-        }
+    {
+        auto td = tab.isTypeDelegate();
+        if (!matchParamsToOpApply(td.next.isTypeFunction(), fes.parameters, true))
+            return false;
+        break;
+    }
+
     default:
         break; // ignore error, caught later
     }
     return true;
 }
 
-private Dsymbol inferApplyArgTypesX(Expression ethis, FuncDeclaration fstart, Parameters* parameters)
+/*********************************************
+ * Find best overload match on fstart given ethis and parameters[].
+ * Params:
+ *      ethis = expression to use for `this`
+ *      fstart = opApply or foreach delegate
+ *      parameters = ForeachTypeList (i.e. foreach parameters)
+ * Returns:
+ *      best match if there is one, null if error
+ */
+private FuncDeclaration findBestOpApplyMatch(Expression ethis, FuncDeclaration fstart, Parameters* parameters)
 {
     MOD mod = ethis.type.mod;
     MATCH match = MATCH.nomatch;
     FuncDeclaration fd_best;
     FuncDeclaration fd_ambig;
+
     overloadApply(fstart, (Dsymbol s)
     {
         auto f = s.isFuncDeclaration();
         if (!f)
-            return 0;
-        auto tf = cast(TypeFunction)f.type;
+            return 0;           // continue
+        auto tf = f.type.isTypeFunction();
         MATCH m = MATCH.exact;
         if (f.isThis())
         {
@@ -1975,7 +1726,7 @@ private Dsymbol inferApplyArgTypesX(Expression ethis, FuncDeclaration fstart, Pa
             else if (mod != tf.mod)
                 m = MATCH.constant;
         }
-        if (!inferApplyArgTypesY(tf, parameters, 1))
+        if (!matchParamsToOpApply(tf, parameters, false))
             m = MATCH.nomatch;
         if (m > match)
         {
@@ -1983,67 +1734,123 @@ private Dsymbol inferApplyArgTypesX(Expression ethis, FuncDeclaration fstart, Pa
             fd_ambig = null;
             match = m;
         }
-        else if (m == match)
-            fd_ambig = f;
-        return 0;
+        else if (m == match && m > MATCH.nomatch)
+        {
+            assert(fd_best);
+            auto bestTf = fd_best.type.isTypeFunction();
+            assert(bestTf);
+
+            // Found another overload with different attributes?
+            // e.g. @system vs. @safe opApply
+            bool ambig = tf.attributesEqual(bestTf);
+
+            // opApplies with identical attributes could still accept
+            // different function bodies as delegate
+            // => different parameters or attributes
+            if (ambig)
+            {
+                // Fetch the delegates that receive the function body
+                auto tfBody = tf.parameterList[0].type.isTypeDelegate().next;
+                assert(tfBody);
+
+                auto bestBody = bestTf.parameterList[0].type.isTypeDelegate().next;
+                assert(bestBody);
+
+                // Ignore covariant matches, as later on it can be redone
+                // after the opApply delegate has its attributes inferred.
+                ambig = !(tfBody.covariant(bestBody) == Covariant.yes || bestBody.covariant(tfBody) == Covariant.yes);
+            }
+
+            if (ambig)
+                fd_ambig = f;                           // not covariant, so ambiguous
+        }
+        return 0;               // continue
     });
 
-    if (fd_best)
+    if (fd_ambig)
     {
-        inferApplyArgTypesY(cast(TypeFunction)fd_best.type, parameters);
-        if (fd_ambig)
-        {
-            .error(ethis.loc, "%s.%s matches more than one declaration:\n%s:     %s\nand:\n%s:     %s",
-                ethis.toChars(), fstart.ident.toChars(),
-                fd_best.loc.toChars(), fd_best.type.toChars(),
-                fd_ambig.loc.toChars(), fd_ambig.type.toChars());
-            fd_best = null;
-        }
+        .error(ethis.loc, "`%s.%s` matches more than one declaration:\n`%s`:     `%s`\nand:\n`%s`:     `%s`",
+            ethis.toChars(), fstart.ident.toChars(),
+            fd_best.loc.toChars(), fd_best.type.toChars(),
+            fd_ambig.loc.toChars(), fd_ambig.type.toChars());
+        return null;
     }
+
     return fd_best;
 }
 
 /******************************
- * Infer parameters from type of function.
+ * Determine if foreach parameters match opApply parameters.
+ * Infer missing foreach parameter types from type of opApply delegate.
+ * Params:
+ *      tf = type of opApply or delegate
+ *      parameters = foreach parameters
+ *      infer = infer missing parameter types
  * Returns:
- *      1 match for this function
- *      0 no match for this function
+ *      true for match for this function
+ *      false for no match for this function
  */
-private int inferApplyArgTypesY(TypeFunction tf, Parameters* parameters, int flags = 0)
+private bool matchParamsToOpApply(TypeFunction tf, Parameters* parameters, bool infer)
 {
-    size_t nparams;
-    Parameter p;
-    if (Parameter.dim(tf.parameters) != 1)
-        goto Lnomatch;
-    p = Parameter.getNth(tf.parameters, 0);
-    if (p.type.ty != Tdelegate)
-        goto Lnomatch;
-    tf = cast(TypeFunction)p.type.nextOf();
-    assert(tf.ty == Tfunction);
-    /* We now have tf, the type of the delegate. Match it against
-     * the parameters, filling in missing parameter types.
+    enum nomatch = false;
+
+    /* opApply/delegate has exactly one parameter, and that parameter
+     * is a delegate that looks like:
+     *     int opApply(int delegate(ref Type [, ...]) dg);
      */
-    nparams = Parameter.dim(tf.parameters);
-    if (nparams == 0 || tf.varargs)
-        goto Lnomatch; // not enough parameters
-    if (parameters.dim != nparams)
-        goto Lnomatch; // not enough parameters
-    for (size_t u = 0; u < nparams; u++)
+    if (tf.parameterList.length != 1)
+        return nomatch;
+
+    /* Get the type of opApply's dg parameter
+     */
+    Parameter p0 = tf.parameterList[0];
+    auto de = p0.type.isTypeDelegate();
+    if (!de)
+        return nomatch;
+    TypeFunction tdg = de.next.isTypeFunction();
+
+    /* We now have tdg, the type of the delegate.
+     * tdg's parameters must match that of the foreach arglist (i.e. parameters).
+     * Fill in missing types in parameters.
+     */
+    const nparams = tdg.parameterList.length;
+    if (nparams == 0 || nparams != parameters.dim || tdg.parameterList.varargs != VarArg.none)
+        return nomatch; // parameter mismatch
+
+    foreach (u, p; *parameters)
     {
-        p = (*parameters)[u];
-        Parameter param = Parameter.getNth(tf.parameters, u);
+        Parameter param = tdg.parameterList[u];
         if (p.type)
         {
             if (!p.type.equals(param.type))
-                goto Lnomatch;
+                return nomatch;
         }
-        else if (!flags)
+        else if (infer)
         {
             p.type = param.type;
             p.type = p.type.addStorageClass(p.storageClass);
         }
     }
-    return 1;
-Lnomatch:
-    return 0;
+    return true;
+}
+
+/**
+ * Reverse relational operator, eg >= becomes <=
+ * Note this is not negation.
+ * Params:
+ *      op = comparison operator to reverse
+ * Returns:
+ *      reverse of op
+ */
+private EXP reverseRelation(EXP op) pure
+{
+    switch (op)
+    {
+        case EXP.greaterOrEqual:  op = EXP.lessOrEqual;    break;
+        case EXP.greaterThan:     op = EXP.lessThan;       break;
+        case EXP.lessOrEqual:     op = EXP.greaterOrEqual; break;
+        case EXP.lessThan:        op = EXP.greaterThan;    break;
+        default:                  break;
+    }
+    return op;
 }

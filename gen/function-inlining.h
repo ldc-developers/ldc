@@ -11,19 +11,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_FUNCTION_INLINING_H
-#define LDC_GEN_FUNCTION_INLINING_H
+#pragma once
 
 class FuncDeclaration;
 
 /// Check whether the frontend knows that the function is already defined
-/// in some other module (see DMD's FuncDeclaration::toObjFile).
-bool alreadyOrWillBeDefined(FuncDeclaration &fdecl);
+/// in some other module (see DMD's `FuncDeclaration_toObjFile()`).
+bool skipCodegen(FuncDeclaration &fdecl);
 
 /// Returns whether `fdecl` should be emitted with externally_available
 /// linkage to make it available for inlining.
 ///
 /// If true, `semantic3` will have been run on the declaration.
 bool defineAsExternallyAvailable(FuncDeclaration &fdecl);
-
-#endif

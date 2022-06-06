@@ -13,42 +13,43 @@
   http://infocenter.arm.com/help/topic/com.arm.doc.ihi0042f/IHI0042F_aapcs.pdf
 */
 
-#include "ldcbindings.h"
+#include "gen/abi-arm.h"
+
+#include "dmd/identifier.h"
 #include "gen/abi.h"
 #include "gen/abi-generic.h"
-#include "gen/abi-arm.h"
 #include "llvm/Target/TargetMachine.h"
 
 struct ArmTargetABI : TargetABI {
-  HFAToArray hfaToArray;
+  HFVAToArray hfvaToArray;
   CompositeToArray32 compositeToArray32;
   CompositeToArray64 compositeToArray64;
   IntegerRewrite integerRewrite;
 
-  bool returnInArg(TypeFunction *tf) override {
+  bool returnInArg(TypeFunction *tf, bool) override {
     // AAPCS 5.4 wants composites > 4-bytes returned by arg except for
     // Homogeneous Aggregates of up-to 4 float types (6.1.2.1) - an HFA.
     // TODO: see if Tsarray should be candidate for HFA.
-    if (tf->isref)
+    if (tf->isref())
       return false;
     Type *rt = tf->next->toBasetype();
 
     if (!isPOD(rt))
       return true;
 
-    return rt->ty == Tsarray ||
-           (rt->ty == Tstruct && rt->size() > 4 &&
-             (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Soft ||
-             !isHFA((TypeStruct *)rt)));
+    return rt->ty == TY::Tsarray ||
+           (rt->ty == TY::Tstruct && rt->size() > 4 &&
+            (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Soft ||
+             !isHFVA(rt, hfvaToArray.maxElements)));
   }
 
-  bool passByVal(Type *t) override {
+  bool passByVal(TypeFunction *, Type *t) override {
     // AAPCS does not use an indirect arg to pass aggregates, however
     // clang uses byval for types > 64-bytes, then llvm backend
     // converts back to non-byval.  Without this special handling the
     // optimzer generates bad code (e.g. std.random unittest crash).
     t = t->toBasetype();
-    return ((t->ty == Tsarray || t->ty == Tstruct) && t->size() > 64);
+    return ((t->ty == TY::Tsarray || t->ty == TY::Tstruct) && t->size() > 64);
 
     // Note: byval can have a codegen problem with -O1 and higher.
     // What happens is that load instructions are being incorrectly
@@ -68,27 +69,21 @@ struct ArmTargetABI : TargetABI {
     // problem is better understood.
   }
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
+  void rewriteFunctionType(IrFuncTy &fty) override {
     Type *retTy = fty.ret->type->toBasetype();
-    if (!fty.ret->byref && retTy->ty == Tstruct) {
+    if (!fty.ret->byref && retTy->ty == TY::Tstruct) {
       // Rewrite HFAs only because union HFAs are turned into IR types that are
       // non-HFA and messes up register selection
-      if (isHFA((TypeStruct *)retTy, &fty.ret->ltype)) {
-        fty.ret->rewrite = &hfaToArray;
+      if (isHFVA(retTy, hfvaToArray.maxElements, &fty.ret->ltype)) {
+        hfvaToArray.applyTo(*fty.ret, fty.ret->ltype);
       } else {
-        fty.ret->rewrite = &integerRewrite;
-        fty.ret->ltype = integerRewrite.type(fty.ret->type);
+        integerRewrite.applyTo(*fty.ret);
       }
     }
 
     for (auto arg : fty.args) {
       if (!arg->byref)
         rewriteArgument(fty, *arg);
-    }
-
-    // extern(D): reverse parameter order for non variadics, for DMD-compliance
-    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
-      fty.reverseParams = true;
     }
   }
 
@@ -103,18 +98,16 @@ struct ArmTargetABI : TargetABI {
     // TODO: want to also rewrite Tsarray as i32 arrays, but sometimes
     // llvm selects an aligned ldrd instruction even though the ptr is
     // unaligned (e.g. walking through members of array char[5][]).
-    // if (ty->ty == Tstruct || ty->ty == Tsarray)
-    if (ty->ty == Tstruct) {
+    // if (ty->ty == TY::Tstruct || ty->ty == TY::Tsarray)
+    if (ty->ty == TY::Tstruct) {
       // Rewrite HFAs only because union HFAs are turned into IR types that are
       // non-HFA and messes up register selection
-      if (isHFA((TypeStruct *)ty, &arg.ltype)) {
-        arg.rewrite = &hfaToArray;
+      if (isHFVA(ty, hfvaToArray.maxElements, &arg.ltype)) {
+        hfvaToArray.applyTo(arg, arg.ltype);
       } else if (DtoAlignment(ty) <= 4) {
-        arg.rewrite = &compositeToArray32;
-        arg.ltype = compositeToArray32.type(arg.type);
+        compositeToArray32.applyTo(arg);
       } else {
-        arg.rewrite = &compositeToArray64;
-        arg.ltype = compositeToArray64.type(arg.type);
+        compositeToArray64.applyTo(arg);
       }
     }
   }
@@ -124,9 +117,7 @@ struct ArmTargetABI : TargetABI {
     // using TypeIdentifier here is a bit wonky but works, as long as the name
     // is actually available in the scope (this is what DMD does, so if a better
     // solution is found there, this should be adapted).
-    static const llvm::StringRef ident = "__va_list";
-    return (createTypeIdentifier(
-        Loc(), Identifier::idPool(ident.data(), ident.size())));
+    return TypeIdentifier::create(Loc(), Identifier::idPool("__va_list"));
   }
 
   const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override {

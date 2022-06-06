@@ -13,23 +13,48 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "driver/cl_options.h"
 #include "driver/targetmachine.h"
+
+#include "dmd/errors.h"
+#include "driver/cl_options.h"
+#include "gen/logger.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
+#include "llvm/IR/Module.h"
+#include "llvm/MC/MCObjectFileInfo.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/TargetParser.h"
+#if LDC_LLVM_VER >= 1400
+#include "llvm/MC/TargetRegistry.h"
+#else
 #include "llvm/Support/TargetRegistry.h"
+#endif
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
-#include "llvm/IR/Module.h"
-#include "mars.h"
-#include "driver/cl_options.h"
-#include "gen/logger.h"
+#if LDC_LLVM_VER >= 1400
+#include "llvm/Support/AArch64TargetParser.h"
+#include "llvm/Support/ARMTargetParser.h"
+#endif
+
+#include "gen/optimizer.h"
+
+#ifdef LDC_LLVM_SUPPORTS_MACHO_DWARF_LINE_AS_REGULAR_SECTION
+// LDC-LLVM >= 6.0.1:
+// On Mac, emit __debug_line section in __DWARF segment as regular (non-debug)
+// section, like DMD, to enable file/line infos in backtraces. See
+// https://github.com/dlang/dmd/commit/2bf7d0db29416eacbb01a91e6502140e354ee0ef.
+static llvm::cl::opt<bool, true> preserveDwarfLineSection(
+    "preserve-dwarf-line-section",
+    llvm::cl::desc("Mac: preserve DWARF line section during linking for "
+                   "file/line infos in backtraces. Defaults to true."),
+    llvm::cl::Hidden, llvm::cl::ZeroOrMore,
+    llvm::cl::location(ldc::emitMachODwarfLineAsRegularSection),
+    llvm::cl::init(true));
+#endif
 
 static const char *getABI(const llvm::Triple &triple) {
   llvm::StringRef ABIName(opts::mABI);
@@ -89,20 +114,12 @@ MipsABI::Type getMipsABI() {
   if (strncmp(opts::mABI.c_str(), "eabi", 4) == 0)
     return MipsABI::EABI;
 
-#if LDC_LLVM_VER >= 308
   const llvm::DataLayout dl = gTargetMachine->createDataLayout();
-#else
-  const llvm::DataLayout &dl = *gTargetMachine->getDataLayout();
-#endif
 
   if (dl.getPointerSizeInBits() == 64)
     return MipsABI::N64;
 
-#if LDC_LLVM_VER >= 309
   const auto largestInt = dl.getLargestLegalIntTypeSizeInBits();
-#else
-  const auto largestInt = dl.getLargestLegalIntTypeSize();
-#endif
   return (largestInt == 64) ? MipsABI::N32 : MipsABI::O32;
 }
 
@@ -113,6 +130,13 @@ static std::string getX86TargetCPU(const llvm::Triple &triple) {
   if (triple.isOSDarwin()) {
     return triple.isArch64Bit() ? "core2" : "yonah";
   }
+
+  // All x86 devices running Android have core2 as their common
+  // denominator.
+  if (triple.getEnvironment() == llvm::Triple::Android) {
+    return "core2";
+  }
+
   // Everything else goes to x86-64 in 64-bit mode.
   if (triple.isArch64Bit()) {
     return "x86-64";
@@ -122,9 +146,6 @@ static std::string getX86TargetCPU(const llvm::Triple &triple) {
   }
   if (triple.getOSName().startswith("openbsd")) {
     return "i486";
-  }
-  if (triple.getOSName().startswith("bitrig")) {
-    return "i686";
   }
   if (triple.getOSName().startswith("freebsd")) {
     return "i486";
@@ -138,51 +159,22 @@ static std::string getX86TargetCPU(const llvm::Triple &triple) {
   if (triple.getOSName().startswith("dragonfly")) {
     return "i486";
   }
-  // All x86 devices running Android have core2 as their common
-  // denominator. This makes a better choice than pentium4.
-  if (triple.getEnvironment() == llvm::Triple::Android) {
-    return "core2";
 
-    // Fallback to p4.
-  }
+  // Fallback to p4.
   return "pentium4";
 }
 
 static std::string getARMTargetCPU(const llvm::Triple &triple) {
-#if LDC_LLVM_VER >= 308
   auto defaultCPU = llvm::ARM::getDefaultCPU(triple.getArchName());
+
+  // 32-bit Android: default to cortex-a8
+  if (defaultCPU == "generic" &&
+      triple.getEnvironment() == llvm::Triple::Android) {
+    return "cortex-a8";
+  }
+
   if (!defaultCPU.empty())
-    return defaultCPU;
-#else
-  auto defaultCPU = llvm::StringSwitch<const char *>(triple.getArchName())
-                        .Cases("armv2", "armv2a", "arm2")
-                        .Case("armv3", "arm6")
-                        .Case("armv3m", "arm7m")
-                        .Case("armv4", "strongarm")
-                        .Case("armv4t", "arm7tdmi")
-                        .Cases("armv5", "armv5t", "arm10tdmi")
-                        .Cases("armv5e", "armv5te", "arm1026ejs")
-                        .Case("armv5tej", "arm926ej-s")
-                        .Cases("armv6", "armv6k", "arm1136jf-s")
-                        .Case("armv6j", "arm1136j-s")
-                        .Cases("armv6z", "armv6zk", "arm1176jzf-s")
-                        .Case("armv6t2", "arm1156t2-s")
-                        .Cases("armv6m", "armv6-m", "cortex-m0")
-                        .Cases("armv7", "armv7a", "armv7-a", "cortex-a8")
-                        .Cases("armv7l", "armv7-l", "cortex-a8")
-                        .Cases("armv7f", "armv7-f", "cortex-a9-mp")
-                        .Cases("armv7s", "armv7-s", "swift")
-                        .Cases("armv7r", "armv7-r", "cortex-r4")
-                        .Cases("armv7m", "armv7-m", "cortex-m3")
-                        .Cases("armv7em", "armv7e-m", "cortex-m4")
-                        .Cases("armv8", "armv8a", "armv8-a", "cortex-a53")
-                        .Case("ep9312", "ep9312")
-                        .Case("iwmmxt", "iwmmxt")
-                        .Case("xscale", "xscale")
-                        .Default(nullptr);
-  if (defaultCPU)
-    return defaultCPU;
-#endif
+    return std::string(defaultCPU);
 
   // Return the most base CPU with thumb interworking supported by LLVM.
   return (triple.getEnvironment() == llvm::Triple::GNUEABIHF) ? "arm1176jzf-s"
@@ -190,13 +182,19 @@ static std::string getARMTargetCPU(const llvm::Triple &triple) {
 }
 
 static std::string getAArch64TargetCPU(const llvm::Triple &triple) {
-#if LDC_LLVM_VER >= 309
   auto defaultCPU = llvm::AArch64::getDefaultCPU(triple.getArchName());
   if (!defaultCPU.empty())
-    return defaultCPU;
-#endif
+    return std::string(defaultCPU);
 
   return "generic";
+}
+
+static std::string getRiscv32TargetCPU(const llvm::Triple &triple) {
+  return "generic-rv32";
+}
+
+static std::string getRiscv64TargetCPU(const llvm::Triple &triple) {
+  return "generic-rv64";
 }
 
 /// Returns the LLVM name of the default CPU for the provided target triple.
@@ -216,6 +214,10 @@ static std::string getTargetCPU(const llvm::Triple &triple) {
   case llvm::Triple::aarch64:
   case llvm::Triple::aarch64_be:
     return getAArch64TargetCPU(triple);
+  case llvm::Triple::riscv32:
+    return getRiscv32TargetCPU(triple);
+  case llvm::Triple::riscv64:
+    return getRiscv64TargetCPU(triple);
   }
 }
 
@@ -248,10 +250,7 @@ static const char *getLLVMArchSuffixForARM(llvm::StringRef CPU) {
 
 static FloatABI::Type getARMFloatABI(const llvm::Triple &triple,
                                      const char *llvmArchSuffix) {
-  switch (triple.getOS()) {
-  case llvm::Triple::Darwin:
-  case llvm::Triple::MacOSX:
-  case llvm::Triple::IOS: {
+  if (triple.isOSDarwin()) {
     // Darwin defaults to "softfp" for v6 and v7.
     if (llvm::StringRef(llvmArchSuffix).startswith("v6") ||
         llvm::StringRef(llvmArchSuffix).startswith("v7")) {
@@ -260,35 +259,34 @@ static FloatABI::Type getARMFloatABI(const llvm::Triple &triple,
     return FloatABI::Soft;
   }
 
-  case llvm::Triple::FreeBSD:
+  if (triple.isOSFreeBSD()) {
     // FreeBSD defaults to soft float
     return FloatABI::Soft;
+  }
 
+  if (triple.getVendorName().startswith("hardfloat"))
+    return FloatABI::Hard;
+  if (triple.getVendorName().startswith("softfloat"))
+    return FloatABI::SoftFP;
+
+  switch (triple.getEnvironment()) {
+  case llvm::Triple::GNUEABIHF:
+    return FloatABI::Hard;
+  case llvm::Triple::GNUEABI:
+    return FloatABI::SoftFP;
+  case llvm::Triple::EABI:
+    // EABI is always AAPCS, and if it was not marked 'hard', it's softfp
+    return FloatABI::SoftFP;
+  case llvm::Triple::Android: {
+    if (llvm::StringRef(llvmArchSuffix).startswith("v7")) {
+      return FloatABI::SoftFP;
+    }
+    return FloatABI::Soft;
+  }
   default:
-    if (triple.getVendorName().startswith("hardfloat"))
-      return FloatABI::Hard;
-    if (triple.getVendorName().startswith("softfloat"))
-      return FloatABI::SoftFP;
-
-    switch (triple.getEnvironment()) {
-    case llvm::Triple::GNUEABIHF:
-      return FloatABI::Hard;
-    case llvm::Triple::GNUEABI:
-      return FloatABI::SoftFP;
-    case llvm::Triple::EABI:
-      // EABI is always AAPCS, and if it was not marked 'hard', it's softfp
-      return FloatABI::SoftFP;
-    case llvm::Triple::Android: {
-      if (llvm::StringRef(llvmArchSuffix).startswith("v7")) {
-        return FloatABI::SoftFP;
-      }
-      return FloatABI::Soft;
-    }
-    default:
-      // Assume "soft".
-      // TODO: Warn the user we are guessing.
-      return FloatABI::Soft;
-    }
+    // Assume "soft".
+    // TODO: Warn the user we are guessing.
+    return FloatABI::Soft;
   }
 }
 
@@ -316,8 +314,7 @@ const llvm::Target *lookupTarget(const std::string &arch, llvm::Triple &triple,
 
     if (!target) {
       errorMsg = "invalid target architecture '" + arch +
-                 "', see "
-                 "-version for a list of supported targets.";
+                 "', see -version for a list of supported targets.";
       return nullptr;
     }
 
@@ -345,20 +342,17 @@ llvm::TargetMachine *
 createTargetMachine(const std::string targetTriple, const std::string arch,
                     std::string cpu, const std::string featuresString,
                     const ExplicitBitness::Type bitness,
-                    FloatABI::Type floatABI,
-#if LDC_LLVM_VER >= 309
+                    FloatABI::Type &floatABI,
                     llvm::Optional<llvm::Reloc::Model> relocModel,
-#else
-                    llvm::Reloc::Model relocModel,
-#endif
-                    const llvm::CodeModel::Model codeModel,
+                    llvm::Optional<llvm::CodeModel::Model> codeModel,
                     const llvm::CodeGenOpt::Level codeGenOptLevel,
                     const bool noLinkerStripDead) {
   // Determine target triple. If the user didn't explicitly specify one, use
   // the one set at LLVM configure time.
   llvm::Triple triple;
   if (targetTriple.empty()) {
-    triple = llvm::Triple(llvm::sys::getDefaultTargetTriple());
+    triple = llvm::Triple(
+        llvm::Triple::normalize(llvm::sys::getDefaultTargetTriple()));
 
     // We only support OSX, so darwin should really be macosx.
     if (triple.getOS() == llvm::Triple::Darwin) {
@@ -366,9 +360,9 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
     }
 
     // Handle -m32/-m64.
-    if (sizeof(void *) != 8 && bitness == ExplicitBitness::M64) {
+    if (!triple.isArch64Bit() && bitness == ExplicitBitness::M64) {
       triple = triple.get64BitArchVariant();
-    } else if (sizeof(void *) != 4 && bitness == ExplicitBitness::M32) {
+    } else if (!triple.isArch32Bit() && bitness == ExplicitBitness::M32) {
       triple = triple.get32BitArchVariant();
       if (triple.getArch() == llvm::Triple::ArchType::x86)
         triple.setArchName("i686"); // instead of i386
@@ -411,23 +405,21 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
 
   splitAndAddFeatures(featuresString);
 
+  // checks if the features include ±<feature>
+  auto hasFeature = [&features](llvm::StringRef feature) {
+    return std::any_of(
+        features.begin(), features.end(),
+        [feature](llvm::StringRef f) { return f.substr(1) == feature; });
+  };
+
   // cmpxchg16b is not available on old 64bit CPUs. Enable code generation
   // if the user did not make an explicit choice.
-  if (cpu == "x86-64") {
-    const bool has_cx16 =
-        std::any_of(features.begin(), features.end(),
-                    [](llvm::StringRef f) { return f.substr(1) == "cx16"; });
-    if (!has_cx16) {
-      features.push_back("+cx16");
-    }
+  if (cpu == "x86-64" && !hasFeature("cx16")) {
+    features.push_back("+cx16");
   }
 
-// Handle cases where LLVM picks wrong default relocModel
-#if LDC_LLVM_VER >= 309
+  // Handle cases where LLVM picks wrong default relocModel
   if (!relocModel.hasValue()) {
-#else
-  if (relocModel == llvm::Reloc::Default) {
-#endif
     if (triple.isOSDarwin()) {
       // Darwin defaults to PIC (and as of 10.7.5/LLVM 3.1-3.3, TLS use leads
       // to crashes for non-PIC code). LLVM doesn't handle this.
@@ -454,24 +446,25 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
     }
   }
 
-  llvm::TargetOptions targetOptions = opts::InitTargetOptionsFromCodeGenFlags();
+  llvm::TargetOptions targetOptions =
+      opts::InitTargetOptionsFromCodeGenFlags(triple);
+
   if (targetOptions.MCOptions.ABIName.empty())
     targetOptions.MCOptions.ABIName = getABI(triple);
 
-  auto ldcFloatABI = floatABI;
-  if (ldcFloatABI == FloatABI::Default) {
+  if (floatABI == FloatABI::Default) {
     switch (triple.getArch()) {
     default: // X86, ...
-      ldcFloatABI = FloatABI::Hard;
+      floatABI = FloatABI::Hard;
       break;
     case llvm::Triple::arm:
     case llvm::Triple::thumb:
-      ldcFloatABI = getARMFloatABI(triple, getLLVMArchSuffixForARM(cpu));
+      floatABI = getARMFloatABI(triple, getLLVMArchSuffixForARM(cpu));
       break;
     }
   }
 
-  switch (ldcFloatABI) {
+  switch (floatABI) {
   default:
     llvm_unreachable("Floating point ABI type unknown.");
   case FloatABI::Soft:
@@ -487,14 +480,22 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
   }
 
   // Right now, we only support linker-level dead code elimination on Linux
-  // using the GNU toolchain (based on ld's --gc-sections flag). The Apple ld
-  // on OS X supports a similar flag (-dead_strip) that doesn't require
-  // emitting the symbols into different sections. The MinGW ld doesn't seem
-  // to support --gc-sections at all, and FreeBSD needs more investigation.
+  // and FreeBSD using GNU or LLD linkers (based on the --gc-sections flag).
+  // The Apple ld on OS X supports a similar flag (-dead_strip) that doesn't
+  // require emitting the symbols into different sections. The MinGW ld doesn't
+  // seem to support --gc-sections at all.
   if (!noLinkerStripDead && (triple.getOS() == llvm::Triple::Linux ||
+                             triple.getOS() == llvm::Triple::FreeBSD ||
                              triple.getOS() == llvm::Triple::Win32)) {
     targetOptions.FunctionSections = true;
     targetOptions.DataSections = true;
+  }
+
+  // On Android, we depend on a custom TLS emulation scheme implemented in our
+  // LLVM fork. LLVM 7+ enables regular emutls by default; prevent that.
+  if (triple.getEnvironment() == llvm::Triple::Android) {
+    targetOptions.EmulatedTLS = false;
+    targetOptions.ExplicitEmulatedTLS = true;
   }
 
   const std::string finalFeaturesString =
@@ -507,7 +508,7 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
   }
 
   return target->createTargetMachine(triple.str(), cpu, finalFeaturesString,
-                                     targetOptions, relocModel, opts::getCodeModel(),
+                                     targetOptions, relocModel, codeModel,
                                      codeGenOptLevel);
 }
 

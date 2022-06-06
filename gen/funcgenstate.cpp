@@ -9,6 +9,7 @@
 
 #include "gen/funcgenstate.h"
 
+#include "dmd/identifier.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/ms-cxx-helper.h"
@@ -101,3 +102,51 @@ llvm::BasicBlock *SwitchCaseTargets::getOrCreate(Statement *stmt,
 FuncGenState::FuncGenState(IrFunction &irFunc, IRState &irs)
     : irFunc(irFunc), scopes(irs), jumpTargets(scopes), switchTargets(),
       irs(irs) {}
+
+LLCallBasePtr FuncGenState::callOrInvoke(llvm::Value *callee,
+                                         llvm::FunctionType *calleeType,
+                                         llvm::ArrayRef<llvm::Value *> args,
+                                         const char *name, bool isNothrow) {
+  // If this is a direct call, we might be able to use the callee attributes
+  // to our advantage.
+  llvm::Function *calleeFn = llvm::dyn_cast<llvm::Function>(callee);
+
+  // Ignore 'nothrow' if there are active catch blocks handling non-Exception
+  // Throwables.
+  if (isNothrow && scopes.isCatchingNonExceptions())
+    isNothrow = false;
+
+  // Intrinsics don't support invoking and 'nounwind' functions don't need it.
+  const bool doesNotThrow =
+      isNothrow || global.params.betterC ||
+      (calleeFn && (calleeFn->isIntrinsic() || calleeFn->doesNotThrow()));
+
+  // calls inside a funclet must be annotated with its value
+  llvm::SmallVector<llvm::OperandBundleDef, 2> BundleList;
+
+#if LDC_LLVM_VER >= 1100
+  llvm::FunctionCallee calleeArg(calleeType, callee);
+#else
+  auto calleeArg = callee;
+#endif
+
+  if (doesNotThrow || scopes.empty()) {
+    auto call = irs.ir->CreateCall(calleeArg, args, BundleList, name);
+    if (calleeFn) {
+      call->setAttributes(calleeFn->getAttributes());
+    }
+    return call;
+  }
+
+  llvm::BasicBlock *landingPad = scopes.getLandingPad();
+
+  llvm::BasicBlock *postinvoke = irs.insertBB("postinvoke");
+  auto invoke = irs.ir->CreateInvoke(calleeArg, postinvoke, landingPad, args,
+                                     BundleList, name);
+  if (calleeFn) {
+    invoke->setAttributes(calleeFn->getAttributes());
+  }
+
+  irs.ir->SetInsertPoint(postinvoke);
+  return invoke;
+}

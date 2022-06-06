@@ -7,22 +7,23 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "module.h"
-#include "aggregate.h"
-#include "attrib.h"
-#include "declaration.h"
-#include "enum.h"
-#include "id.h"
-#include "import.h"
-#include "init.h"
-#include "mars.h"
-#include "module.h"
-#include "mtype.h"
-#include "scope.h"
-#include "statement.h"
-#include "target.h"
-#include "template.h"
+#include "dmd/aggregate.h"
+#include "dmd/attrib.h"
+#include "dmd/declaration.h"
+#include "dmd/enum.h"
+#include "dmd/errors.h"
+#include "dmd/id.h"
+#include "dmd/import.h"
+#include "dmd/init.h"
+#include "dmd/mangle.h"
+#include "dmd/module.h"
+#include "dmd/mtype.h"
+#include "dmd/scope.h"
+#include "dmd/statement.h"
+#include "dmd/target.h"
+#include "dmd/template.h"
 #include "driver/cl_options_instrumentation.h"
+#include "driver/timetrace.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/functions.h"
@@ -40,15 +41,14 @@
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "ir/irvar.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Path.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/ProfileData/InstrProfReader.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 
 #if _AIX || __sun
@@ -65,10 +65,10 @@ static llvm::cl::opt<bool, true>
              llvm::cl::desc("Write object files with fully qualified names"),
              llvm::cl::location(global.params.fullyQualifiedObjectFiles));
 
-void Module::checkAndAddOutputFile(File *file) {
+void Module::checkAndAddOutputFile(const FileName &file) {
   static std::map<std::string, Module *> files;
 
-  std::string key(file->name->str);
+  std::string key(file.toChars());
   auto i = files.find(key);
   if (i != files.end()) {
     Module *previousMod = i->second;
@@ -82,56 +82,27 @@ void Module::checkAndAddOutputFile(File *file) {
   files.emplace(std::move(key), this);
 }
 
-void Module::makeObjectFilenameUnique() {
-  assert(objfile);
-
-  const char *ext = FileName::ext(objfile->name->str);
-  const char *stem = FileName::removeExt(objfile->name->str);
-
-  llvm::SmallString<128> unique;
-  auto EC = llvm::sys::fs::createUniqueFile(
-      llvm::Twine(stem) + "-%%%%%%%." + ext, unique);
-  if (!EC) // success
-    objfile->name->str = mem.xstrdup(unique.c_str());
-}
-
 namespace {
-/// Ways the druntime module registry system can be implemented.
+/// Ways the druntime ModuleInfo registry system can be implemented.
 enum class RegistryStyle {
-  /// Modules are inserted into a linked list starting at the _Dmodule_ref
-  /// global.
+  /// ModuleInfo refs are inserted into a linked list starting at the
+  /// _Dmodule_ref global.
   legacyLinkedList,
 
-  /// Module references are emitted into the .minfo section.
-  sectionMSVC,
-
-  /// Module references are emitted into the .minfo section. Global
-  /// constructors/destructors make sure _d_dso_registry is invoked once per ELF
-  /// object.
-  sectionELF,
-
-  /// Module references are emitted into the .minfo section. Global
-  /// constructors/destructors make sure _d_dso_registry is invoked once per
-  /// shared object. A "TLS anchor" function to identify the TLS range
-  /// corresponding to this image is also passed to druntime.
-  sectionDarwin
+  /// Pointers to defined ModuleInfos are emitted into the special .minfo /
+  /// __minfo section. A linked binary then contains pointers to all ModuleInfos
+  /// of linked object files in that section.
+  section,
 };
 
-/// Returns the module registry style to use for the current target triple.
+/// Returns the ModuleInfo registry style to use for the current target triple.
 RegistryStyle getModuleRegistryStyle() {
-  const auto t = global.params.targetTriple;
-
-  if (t->isWindowsMSVCEnvironment()) {
-    return RegistryStyle::sectionMSVC;
-  }
-
-  if (t->isMacOSX()) {
-    return RegistryStyle::sectionDarwin;
-  }
-
-  if (t->isOSLinux() || t->isOSFreeBSD() ||
-      t->isOSNetBSD() || t->isOSOpenBSD() || t->isOSDragonFly()) {
-    return RegistryStyle::sectionELF;
+  const auto &t = *global.params.targetTriple;
+  if (t.isOSWindows() || t.getEnvironment() == llvm::Triple::Android ||
+      t.isOSBinFormatWasm() || t.isOSDarwin() || t.isOSLinux() ||
+      t.isOSFreeBSD() || t.isOSNetBSD() || t.isOSOpenBSD() ||
+      t.isOSDragonFly()) {
+    return RegistryStyle::section;
   }
 
   return RegistryStyle::legacyLinkedList;
@@ -156,7 +127,7 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
   // linked list
   LLFunction *ctor =
       LLFunction::Create(fty, LLGlobalValue::InternalLinkage,
-                         getIRMangledFuncName(fname, LINKd), &gIR->module);
+                         getIRMangledFuncName(fname, LINK::d), &gIR->module);
 
   // provide the default initializer
   LLStructType *modulerefTy = DtoModuleReferenceType();
@@ -169,18 +140,17 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
 
   // create the ModuleReference node for this module
   const auto thismrefIRMangle = getIRMangledModuleRefSymbolName(moduleMangle);
-  Loc loc;
-  LLGlobalVariable *thismref = getOrCreateGlobal(
-      loc, gIR->module, modulerefTy, false, LLGlobalValue::InternalLinkage,
-      thismrefinit, thismrefIRMangle);
+  LLGlobalVariable *thismref =
+      defineGlobal(Loc(), gIR->module, thismrefIRMangle, thismrefinit,
+                   LLGlobalValue::InternalLinkage, false);
   // make sure _Dmodule_ref is declared
-  const auto mrefIRMangle = getIRMangledVarName("_Dmodule_ref", LINKc);
+  const auto mrefIRMangle = getIRMangledVarName("_Dmodule_ref", LINK::c);
   LLConstant *mref = gIR->module.getNamedGlobal(mrefIRMangle);
   LLType *modulerefPtrTy = getPtrToType(modulerefTy);
   if (!mref) {
-    mref = new LLGlobalVariable(gIR->module, modulerefPtrTy, false,
-                                LLGlobalValue::ExternalLinkage, nullptr,
-                                mrefIRMangle);
+    mref =
+        declareGlobal(Loc(), gIR->module, modulerefPtrTy, mrefIRMangle, false,
+                      false, global.params.dllimport != DLLImport::none);
   }
   mref = DtoBitCast(mref, getPtrToType(modulerefPtrTy));
 
@@ -194,7 +164,7 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
   gIR->DBuilder.EmitModuleCTor(ctor, fname.c_str());
 
   // get current beginning
-  LLValue *curbeg = builder.CreateLoad(mref, "current");
+  LLValue *curbeg = builder.CreateLoad(modulerefPtrTy, mref, "current");
 
   // put current beginning as the next of this one
   LLValue *gep = builder.CreateStructGEP(
@@ -210,278 +180,33 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
   return ctor;
 }
 
-/// Builds a void*() function with hidden visibility that returns the address of
-/// a dummy TLS global (also with hidden visibility).
-///
-/// The global is non-zero-initialised and aligned to 16 bytes.
-llvm::Function *buildGetTLSAnchor() {
-  // Create a dummmy TLS global private to this module.
-  const auto one =
-      llvm::ConstantInt::get(llvm::Type::getInt8Ty(gIR->context()), 1);
-  const auto anchor = getOrCreateGlobal(
-      Loc(), gIR->module, one->getType(), false,
-      llvm::GlobalValue::LinkOnceODRLinkage, one, "ldc.tls_anchor", true);
-  anchor->setVisibility(llvm::GlobalValue::HiddenVisibility);
-  anchor->setAlignment(16);
-
-  const auto getAnchor =
-      llvm::Function::Create(llvm::FunctionType::get(getVoidPtrType(), false),
-                             llvm::GlobalValue::LinkOnceODRLinkage,
-                             "ldc.get_tls_anchor", &gIR->module);
-  getAnchor->setVisibility(llvm::GlobalValue::HiddenVisibility);
-
-  IRBuilder<> builder(llvm::BasicBlock::Create(gIR->context(), "", getAnchor));
-  builder.CreateRet(anchor);
-
-  return getAnchor;
-}
-
-/// Builds the ldc.register_dso function, which is called by the global
-/// {c, d}tors to invoke _d_dso_registry.
-///
-/// Pseudocode:
-/// void ldc.register_dso(bool isShutdown, void* minfoUsedPointer) {
-///   if (dsoInitialized == isShutdown) {
-///     dsoInitialized = !isShutdown;
-///     auto record = {1, dsoSlot, minfoBeg, minfoEnd[, getTlsAnchor],
-///       minfoUsedPointer};
-///     _d_dso_registry(cast(CompilerDSOData*)&record);
-///   }
-/// }
-///
-/// On Darwin platforms, the record contains an extra pointer to a function
-/// which returns the address of a TLS global.
-llvm::Function *buildRegisterDSO(RegistryStyle style,
-                                 llvm::Value *dsoInitialized,
-                                 llvm::Value *dsoSlot, llvm::Value *minfoBeg,
-                                 llvm::Value *minfoEnd) {
-  llvm::Type *argTypes[] = {llvm::Type::getInt1Ty(gIR->context()),
-                            llvm::Type::getInt8PtrTy(gIR->context())};
-  const auto fnType = llvm::FunctionType::get(
-      llvm::Type::getVoidTy(gIR->context()), argTypes, false);
-  const auto fn =
-      llvm::Function::Create(fnType, llvm::GlobalValue::LinkOnceODRLinkage,
-                             "ldc.register_dso", &gIR->module);
-  fn->setVisibility(llvm::GlobalValue::HiddenVisibility);
-  auto argIt = fn->arg_begin();
-  const auto isShutdown = &*argIt;
-  isShutdown->setName("isShutdown");
-  ++argIt;
-  const auto minfoUsedPointer = &*argIt;
-  minfoUsedPointer->setName("minfoUsedPointer");
-
-  // Never inline – the functions is only called on startup/shutdown, hence
-  // it isn't worth the increase in code size.
-  fn->addFnAttr(llvm::Attribute::NoInline);
-
-  const auto dsoRegistry =
-      getRuntimeFunction(Loc(), gIR->module, "_d_dso_registry");
-  const auto recordPtrTy = dsoRegistry->getFunctionType()->getContainedType(1);
-
-  llvm::Function *getTlsAnchorPtr = nullptr;
-  if (style == RegistryStyle::sectionDarwin) {
-    getTlsAnchorPtr = buildGetTLSAnchor();
-  }
-
-  const auto entryBB = llvm::BasicBlock::Create(gIR->context(), "", fn);
-  const auto initBB = llvm::BasicBlock::Create(gIR->context(), "init", fn);
-  const auto endBB = llvm::BasicBlock::Create(gIR->context(), "end", fn);
-
-  {
-    IRBuilder<> b(entryBB);
-    const auto loadedFlag =
-        b.CreateTrunc(b.CreateLoad(dsoInitialized), b.getInt1Ty());
-    const auto condEval =
-        b.CreateICmp(llvm::ICmpInst::ICMP_EQ, loadedFlag, isShutdown);
-    b.CreateCondBr(condEval, initBB, endBB);
-  }
-  {
-    IRBuilder<> b(initBB);
-    const auto newFlag = b.CreateXor(isShutdown, b.getTrue());
-    b.CreateStore(b.CreateZExt(newFlag, b.getInt8Ty()), dsoInitialized);
-
-    llvm::Constant *version = DtoConstSize_t(1);
-    llvm::SmallVector<llvm::Type *, 6> memberTypes;
-    memberTypes.push_back(version->getType());
-    memberTypes.push_back(dsoSlot->getType());
-    memberTypes.push_back(minfoBeg->getType());
-    memberTypes.push_back(minfoEnd->getType());
-    if (style == RegistryStyle::sectionDarwin) {
-      memberTypes.push_back(getTlsAnchorPtr->getType());
-    }
-    memberTypes.push_back(minfoUsedPointer->getType());
-    llvm::StructType *stype =
-        llvm::StructType::get(gIR->context(), memberTypes, false);
-    llvm::Value *record = b.CreateAlloca(stype);
-
-    unsigned i = 0;
-    b.CreateStore(version, b.CreateStructGEP(stype, record, i++));
-    b.CreateStore(dsoSlot, b.CreateStructGEP(stype, record, i++));
-    b.CreateStore(minfoBeg, b.CreateStructGEP(stype, record, i++));
-    b.CreateStore(minfoEnd, b.CreateStructGEP(stype, record, i++));
-    if (style == RegistryStyle::sectionDarwin) {
-      b.CreateStore(getTlsAnchorPtr, b.CreateStructGEP(stype, record, i++));
-    }
-    b.CreateStore(minfoUsedPointer, b.CreateStructGEP(stype, record, i++));
-
-    b.CreateCall(dsoRegistry, b.CreateBitCast(record, recordPtrTy));
-    b.CreateBr(endBB);
-  }
-  {
-    IRBuilder<> b(endBB);
-    b.CreateRetVoid();
-  }
-
-  return fn;
-}
-
-void emitModuleRefToSection(RegistryStyle style, std::string moduleMangle,
+// Emits a pointer to the specified ModuleInfo into the special
+// .minfo (COFF & MachO) / __minfo section.
+void emitModuleRefToSection(std::string moduleMangle,
                             llvm::Constant *thisModuleInfo) {
-  assert(style == RegistryStyle::sectionMSVC ||
-         style == RegistryStyle::sectionELF ||
-         style == RegistryStyle::sectionDarwin);
-  // Only for the first D module to be emitted into this llvm::Module we need to
-  // create the global ctors/dtors. The magic linker symbols used to get the
-  // start and end of the .minfo section also only need to be emitted for the
-  // first D module.
-  // For all subsequent ones, we just need to emit an additional reference into
-  // the .minfo section (even with --gc-sections, the section is already kept
-  // alive by the first module's reference being used in the ctor/dtor
-  // functions).
-  const bool isFirst = !gIR->module.getGlobalVariable("ldc.dso_slot");
+  const auto moduleInfoPtrTy = DtoPtrToType(getModuleInfoType());
 
-  llvm::Type *const moduleInfoPtrTy = DtoPtrToType(Module::moduleinfo->type);
+  const auto &triple = *global.params.targetTriple;
   const auto sectionName =
-      style == RegistryStyle::sectionMSVC
+      triple.isOSBinFormatCOFF()
           ? ".minfo"
-          : style == RegistryStyle::sectionDarwin ? "__DATA,.minfo" : "__minfo";
+          : triple.isOSBinFormatMachO() ? "__DATA,.minfo" : "__minfo";
 
   const auto thismrefIRMangle =
       getIRMangledModuleRefSymbolName(moduleMangle.c_str());
-  auto thismref = new llvm::GlobalVariable(
-      gIR->module, moduleInfoPtrTy,
-      false, // FIXME: mRelocModel != llvm::Reloc::PIC_
-      llvm::GlobalValue::LinkOnceODRLinkage,
-      DtoBitCast(thisModuleInfo, moduleInfoPtrTy), thismrefIRMangle);
+  auto thismref = defineGlobal(Loc(), gIR->module, thismrefIRMangle,
+                               DtoBitCast(thisModuleInfo, moduleInfoPtrTy),
+                               LLGlobalValue::LinkOnceODRLinkage, false, false);
+  thismref->setVisibility(LLGlobalValue::HiddenVisibility);
   thismref->setSection(sectionName);
   gIR->usedArray.push_back(thismref);
-
-  // Android doesn't need register_dso and friends- see rt.sections_android-
-  // so bail out here.
-  if (!isFirst || style == RegistryStyle::sectionMSVC ||
-      global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
-    // Nothing left to do.
-    return;
-  }
-
-  // Use magic linker symbol names to obtain the begin and end of the .minfo
-  // section.
-  const auto magicBeginSymbolName = (style == RegistryStyle::sectionDarwin)
-                                        ? "\1section$start$__DATA$.minfo"
-                                        : "__start___minfo";
-  const auto magicEndSymbolName = (style == RegistryStyle::sectionDarwin)
-                                      ? "\1section$end$__DATA$.minfo"
-                                      : "__stop___minfo";
-  auto minfoBeg = new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy, false,
-                                           llvm::GlobalValue::ExternalLinkage,
-                                           nullptr, magicBeginSymbolName);
-  auto minfoEnd = new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy, false,
-                                           llvm::GlobalValue::ExternalLinkage,
-                                           nullptr, magicEndSymbolName);
-  minfoBeg->setVisibility(llvm::GlobalValue::HiddenVisibility);
-  minfoEnd->setVisibility(llvm::GlobalValue::HiddenVisibility);
-
-  // Build the ctor to invoke _d_dso_registry.
-
-  // This is the DSO slot for use by the druntime implementation.
-  auto dsoSlot =
-      new llvm::GlobalVariable(gIR->module, getVoidPtrType(), false,
-                               llvm::GlobalValue::LinkOnceODRLinkage,
-                               getNullPtr(getVoidPtrType()), "ldc.dso_slot");
-  dsoSlot->setVisibility(llvm::GlobalValue::HiddenVisibility);
-
-  // Okay, so the theory is easy: We want to have one global constructor and
-  // destructor per object (i.e. executable/shared library) that calls
-  // _d_dso_registry with the respective DSO record. However, there are a
-  // couple of issues that make this harder than necessary:
-  //
-  //  1) The natural way to implement the "one-per-image" part would be to
-  //     emit a weak reference to a weak function into a .ctors.<somename>
-  //     section (llvm.global_ctors doesn't support the necessary
-  //     functionality, so we'd use our knowledge of the linker script to work
-  //     around that). But as of LLVM 3.4, emitting a symbol both as weak and
-  //     into a custom section is not supported by the MC layer. Thus, we have
-  //     to use a normal ctor/dtor and manually ensure that we only perform
-  //     the call once. This is done by introducing ldc.dso_initialized.
-  //
-  //  2) To make sure the .minfo section isn't removed by the linker when
-  //     using --gc-sections, we need to keep a reference to it around in
-  //     _every_ object file (as --gc-sections works per object file). The
-  //     natural place for this is the ctor, where we just load a reference
-  //     on the stack after the DSO record (to ensure LLVM doesn't optimize
-  //     it out). However, this way, we need to have at least one ctor
-  //     instance per object file be pulled into the final executable. We
-  //     do this here by making the module mangle string part of its name,
-  //     even thoguht this is slightly wasteful on -singleobj builds.
-  //
-  // It might be a better idea to simply use a custom linker script (using
-  // INSERT AFTER… so as to still keep the default one) to avoid all these
-  // problems. This would mean that it is no longer safe to link D objects
-  // directly using e.g. "g++ dcode.o cppcode.o", though.
-
-  auto dsoInitialized = new llvm::GlobalVariable(
-      gIR->module, llvm::Type::getInt8Ty(gIR->context()), false,
-      llvm::GlobalValue::LinkOnceODRLinkage,
-      llvm::ConstantInt::get(llvm::Type::getInt8Ty(gIR->context()), 0),
-      "ldc.dso_initialized");
-  dsoInitialized->setVisibility(llvm::GlobalValue::HiddenVisibility);
-
-  // There is no reason for this cast to void*, other than that removing it
-  // seems to trigger a bug in the llvm::Linker (at least on LLVM 3.4)
-  // causing it to not merge the %object.ModuleInfo types properly. This
-  // manifests itself in a type mismatch assertion being triggered on the
-  // minfoUsedPointer store in the ctor as soon as the optimizer runs.
-  llvm::Value *minfoRefPtr = DtoBitCast(thismref, getVoidPtrType());
-
-  const auto registerDSO =
-      buildRegisterDSO(style, dsoInitialized, dsoSlot, minfoBeg, minfoEnd);
-
-  std::string ctorName = "ldc.dso_ctor.";
-  ctorName += moduleMangle;
-  const auto dsoCtor = llvm::Function::Create(
-      llvm::FunctionType::get(llvm::Type::getVoidTy(gIR->context()), false),
-      llvm::GlobalValue::LinkOnceODRLinkage, ctorName, &gIR->module);
-  dsoCtor->setVisibility(llvm::GlobalValue::HiddenVisibility);
-  {
-    const auto bb = llvm::BasicBlock::Create(gIR->context(), "", dsoCtor);
-    IRBuilder<> b{bb};
-    LLValue *params[] = {b.getFalse(), minfoRefPtr};
-    b.CreateCall(registerDSO, params);
-    b.CreateRetVoid();
-  }
-  llvm::appendToGlobalCtors(gIR->module, dsoCtor, 65535);
-
-  std::string dtorName = "ldc.dso_dtor.";
-  dtorName += moduleMangle;
-  const auto dsoDtor = llvm::Function::Create(
-      llvm::FunctionType::get(llvm::Type::getVoidTy(gIR->context()), false),
-      llvm::GlobalValue::LinkOnceODRLinkage, dtorName, &gIR->module);
-  dsoDtor->setVisibility(llvm::GlobalValue::HiddenVisibility);
-  {
-    const auto bb = llvm::BasicBlock::Create(gIR->context(), "", dsoDtor);
-    IRBuilder<> b{bb};
-    LLValue *params[] = {b.getTrue(), minfoRefPtr};
-    b.CreateCall(registerDSO, params);
-    b.CreateRetVoid();
-  }
-  llvm::appendToGlobalDtors(gIR->module, dsoDtor, 65535);
 }
 
 // Add module-private variables and functions for coverage analysis.
 void addCoverageAnalysis(Module *m) {
   IF_LOG {
     Logger::println("Adding coverage analysis for module %s (%d lines)",
-                    m->srcfile->toChars(), m->numlines);
+                    m->srcfile.toChars(), m->numlines);
     Logger::indent();
   }
 
@@ -505,7 +230,7 @@ void addCoverageAnalysis(Module *m) {
     llvm::ConstantAggregateZero *zeroinitializer =
         llvm::ConstantAggregateZero::get(type);
     m->d_cover_valid = new llvm::GlobalVariable(
-        gIR->module, type, true, LLGlobalValue::InternalLinkage,
+        gIR->module, type, /*isConstant=*/true, LLGlobalValue::InternalLinkage,
         zeroinitializer, "_d_cover_valid");
     LLConstant *idxs[] = {DtoConstUint(0), DtoConstUint(0)};
     d_cover_valid_slice =
@@ -528,16 +253,22 @@ void addCoverageAnalysis(Module *m) {
 
     LLArrayType *type =
         LLArrayType::get(LLType::getInt32Ty(gIR->context()), m->numlines);
-    llvm::ConstantAggregateZero *zeroinitializer =
-        llvm::ConstantAggregateZero::get(type);
-    m->d_cover_data = new llvm::GlobalVariable(
-        gIR->module, type, false, LLGlobalValue::InternalLinkage,
-        zeroinitializer, "_d_cover_data");
-    LLConstant *idxs[] = {DtoConstUint(0), DtoConstUint(0)};
-    d_cover_data_slice =
-        DtoConstSlice(DtoConstSize_t(type->getArrayNumElements()),
-                      llvm::ConstantExpr::getGetElementPtr(
-                          type, m->d_cover_data, idxs, true));
+
+    llvm::Constant *init;
+    if (!m->ctfe_cov) {
+      init = llvm::ConstantAggregateZero::get(type);
+    } else {
+      std::vector<unsigned> initData(m->numlines);
+      m->initCoverageDataWithCtfeCoverage(initData.data());
+      init = llvm::ConstantDataArray::get(gIR->context(), initData);
+    }
+
+    m->d_cover_data = new llvm::GlobalVariable(gIR->module, type, false,
+                                               LLGlobalValue::InternalLinkage,
+                                               init, "_d_cover_data");
+
+    d_cover_data_slice = DtoConstSlice(DtoConstSize_t(m->numlines),
+                                       DtoGEP(m->d_cover_data, 0, 0));
   }
 
   // Create "static constructor" that calls _d_cover_register2(string filename,
@@ -549,7 +280,7 @@ void addCoverageAnalysis(Module *m) {
   mangleBuf.writestring("_D");
   mangleToBuffer(m, &mangleBuf);
   mangleBuf.writestring("12_coverageanalysisCtor1FZv");
-  const char *ctorname = mangleBuf.peekString();
+  const char *ctorname = mangleBuf.peekChars();
 
   {
     IF_LOG Logger::println("Build Coverage Analysis constructor: %s", ctorname);
@@ -558,8 +289,8 @@ void addCoverageAnalysis(Module *m) {
         LLFunctionType::get(LLType::getVoidTy(gIR->context()), {}, false);
     ctor =
         LLFunction::Create(ctorTy, LLGlobalValue::InternalLinkage,
-                           getIRMangledFuncName(ctorname, LINKd), &gIR->module);
-    ctor->setCallingConv(gABI->callingConv(LINKd));
+                           getIRMangledFuncName(ctorname, LINK::d), &gIR->module);
+    ctor->setCallingConv(gABI->callingConv(LINK::d));
     // Set function attributes. See functions.cpp:DtoDefineFunction()
     if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
       ctor->addFnAttr(LLAttribute::UWTable);
@@ -571,7 +302,7 @@ void addCoverageAnalysis(Module *m) {
     // Set up call to _d_cover_register2
     llvm::Function *fn =
         getRuntimeFunction(Loc(), gIR->module, "_d_cover_register2");
-    LLValue *args[] = {DtoConstString(m->srcfile->name->toChars()),
+    LLValue *args[] = {DtoConstString(m->srcfile.toChars()),
                        d_cover_valid_slice, d_cover_data_slice,
                        DtoConstUbyte(global.params.covPercent)};
     // Check if argument types are correct
@@ -619,7 +350,6 @@ void loadInstrProfileData(IRState *irs) {
 
     auto readerOrErr =
         llvm::IndexedInstrProfReader::create(global.params.datafileInstrProf);
-#if LDC_LLVM_VER >= 309
     if (auto E = readerOrErr.takeError()) {
       handleAllErrors(std::move(E), [&](const llvm::ErrorInfoBase &EI) {
         irs->dmodule->error("Could not read profile file '%s': %s",
@@ -628,34 +358,18 @@ void loadInstrProfileData(IRState *irs) {
       });
       fatal();
     }
-#else
-    std::error_code EC = readerOrErr.getError();
-    if (EC) {
-      irs->dmodule->error("Could not read profile file '%s': %s",
-                          global.params.datafileInstrProf,
-                          EC.message().c_str());
-      fatal();
-    }
-#endif
     irs->PGOReader = std::move(readerOrErr.get());
 
-#if LDC_LLVM_VER >= 309
-    if (!irs->module.getProfileSummary()) {
+    if (!irs->module.getProfileSummary(
+            /*is context sensitive profile=*/false)) {
       // Don't reset the summary. There is only one profile data file per LDC
       // invocation so the summary must be the same as the one that is already
       // set.
       irs->module.setProfileSummary(
-          irs->PGOReader->getSummary().getMD(irs->context()));
+          irs->PGOReader->getSummary(/*is context sensitive profile=*/false)
+              .getMD(irs->context()),
+          llvm::ProfileSummary::PSK_Instr);
     }
-#elif LDC_LLVM_VER == 308
-    auto maxCount = irs->PGOReader->getMaximumFunctionCount();
-    if (!irs->module.getMaximumFunctionCount()) {
-      // Don't reset the max function count. There is only one profile data file
-      // per LDC invocation so the information must be the same as the one that
-      // is already set.
-      irs->module.setMaximumFunctionCount(maxCount);
-    }
-#endif
   }
 }
 
@@ -665,23 +379,27 @@ void registerModuleInfo(Module *m) {
 
   OutBuffer mangleBuf;
   mangleToBuffer(m, &mangleBuf);
-  const char *mangle = mangleBuf.peekString();
+  const char *mangle = mangleBuf.peekChars();
 
   if (style == RegistryStyle::legacyLinkedList) {
     const auto miCtor = build_module_reference_and_ctor(mangle, moduleInfoSym);
     AppendFunctionToLLVMGlobalCtorsDtors(miCtor, 65535, true);
   } else {
-    emitModuleRefToSection(style, mangle, moduleInfoSym);
+    emitModuleRefToSection(mangle, moduleInfoSym);
   }
 }
 }
 
 void codegenModule(IRState *irs, Module *m) {
+  TimeTraceScope timeScope("Generate IR", m->toChars(), m->loc);
+
   assert(!irs->dmodule &&
          "irs->module not null, codegen already in progress?!");
   irs->dmodule = m;
   assert(!gIR && "gIR not null, codegen already in progress?!");
   gIR = irs;
+
+  irs->DBuilder.EmitModule(m);
 
   initRuntime();
 
@@ -698,7 +416,7 @@ void codegenModule(IRState *irs, Module *m) {
 
   // process module members
   // NOTE: m->members may grow during codegen
-  for (unsigned k = 0; k < m->members->dim; k++) {
+  for (d_size_t k = 0; k < m->members->length; k++) {
     Dsymbol *dsym = (*m->members)[k];
     assert(dsym);
     Declaration_codegen(dsym);
@@ -708,9 +426,11 @@ void codegenModule(IRState *irs, Module *m) {
     fatal();
   }
 
-  // Skip emission of all the additional module metadata if requested by the
-  // user or the betterC switch is on.
-  if (global.params.useModuleInfo && !m->noModuleInfo) {
+  // Skip emission of all the additional module metadata if:
+  // a) the -betterC switch is on,
+  // b) requested explicitly by the user via pragma(LDC_no_moduleinfo), or if
+  // c) there's no ModuleInfo declaration.
+  if (global.params.useModuleInfo && !m->noModuleInfo && Module::moduleinfo) {
     // generate ModuleInfo
     registerModuleInfo(m);
   }

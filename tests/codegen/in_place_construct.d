@@ -37,7 +37,7 @@ S returnNRVO()
 {
     // make sure NRVO zero-initializes the sret pointee directly
     // CHECK: %1 = bitcast %in_place_construct.S* %.sret_arg to i8*
-    // CHECK: call void @llvm.memset.{{.*}}(i8* %1, i8 0,
+    // CHECK: call void @llvm.memset.{{.*}}(i8*{{[a-z0-9 ]*}} %1, i8 0,
     const S r;
     return r;
 }
@@ -49,7 +49,7 @@ body
 {
     // make sure NRVO zero-initializes the sret pointee directly
     // CHECK: %1 = bitcast %in_place_construct.S* %.sret_arg to i8*
-    // CHECK: call void @llvm.memset.{{.*}}(i8* %1, i8 0,
+    // CHECK: call void @llvm.memset.{{.*}}(i8*{{[a-z0-9 ]*}} %1, i8 0,
     const S r;
     return r;
 

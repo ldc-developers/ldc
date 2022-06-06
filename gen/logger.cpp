@@ -7,8 +7,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mars.h"
+#include "gen/logger.h"
+
+#include "dmd/errors.h"
+#include "gen/irstate.h"
+#include "llvm/IR/GlobalValue.h"
+#include "llvm/IR/Value.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/raw_os_ostream.h"
 #include <cassert>
 #include <cstdarg>
 #include <cstdio>
@@ -16,14 +23,6 @@
 #include <fstream>
 #include <iostream>
 #include <string>
-
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/raw_os_ostream.h"
-#include "llvm/IR/Value.h"
-
-#include "gen/logger.h"
-#include "gen/irstate.h"
 
 void Stream::writeType(std::ostream &OS, const llvm::Type &Ty) {
   llvm::raw_os_ostream raw(OS);
@@ -115,7 +114,7 @@ void print(const char *fmt, ...) {
     va_end(va);
   }
 }
-void attention(Loc &loc, const char *fmt, ...) {
+void attention(const Loc &loc, const char *fmt, ...) {
   va_list va;
   va_start(va, fmt);
   vwarning(loc, fmt, va);

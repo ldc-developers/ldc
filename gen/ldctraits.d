@@ -39,7 +39,7 @@ Expression semanticTraitsLDC(TraitsExp e, Scope* sc)
         }
 
         auto cpu = traitsGetTargetCPU();
-        auto se = new StringExp(e.loc, cast(void*)cpu.ptr, cpu.length);
+        auto se = new StringExp(e.loc, cpu.ptr[0 .. cpu.length]);
         return se.expressionSemantic(sc);
     }
     if (e.ident == Id.targetHasFeature)
@@ -47,14 +47,14 @@ Expression semanticTraitsLDC(TraitsExp e, Scope* sc)
         if (arg_count != 1)
         {
             e.error("__traits %s expects one argument, not %u", e.ident.toChars(), cast(uint)arg_count);
-            return new ErrorExp();
+            return ErrorExp.get();
         }
 
         auto ex = isExpression((*e.args)[0]);
         if (!ex)
         {
             e.error("expression expected as argument of __traits %s", e.ident.toChars());
-            return new ErrorExp();
+            return ErrorExp.get();
         }
         ex = ex.ctfeInterpret();
 
@@ -62,11 +62,12 @@ Expression semanticTraitsLDC(TraitsExp e, Scope* sc)
         if (!se || se.len == 0)
         {
             e.error("string expected as argument of __traits %s instead of %s", e.ident.toChars(), ex.toChars());
-            return new ErrorExp();
+            return ErrorExp.get();
         }
 
         se = se.toUTF8(sc);
-        auto featureFound = traitsTargetHasFeature(Dstring(se.len, se.toPtr()));
+        auto str = se.peekString();
+        auto featureFound = traitsTargetHasFeature(Dstring(str.length, str.ptr));
         return new IntegerExp(e.loc, featureFound ? 1 : 0, Type.tbool);
     }
     return null;

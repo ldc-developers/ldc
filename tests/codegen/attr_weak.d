@@ -1,20 +1,23 @@
-// Test linking+running a program with @weak function
+// Test linking+running a program with @weak functions
 
 // RUN: %ldc -O3 %S/inputs/attr_weak_input.d -c -of=%t-dir/attr_weak_input%obj
-// RUN: %ldc -O3 %t-dir/attr_weak_input%obj %s -of=%t%exe
+// RUN: %ldc -O3 %s %t-dir/attr_weak_input%obj -of=%t%exe
 // RUN: %t%exe
 
 
 import ldc.attributes;
 
-// Should be overridden by attr_weak_input.d (but only because its object
-// file is specified before this one for the linker).
-// The @weak attribute prevents the optimizer from making any assumptions
-// though, so the call below is not inlined.
+// should take precedence over and not conflict with weak attr_weak_input.return_two
+extern(C) int return_two() {
+    return 123;
+}
+
+// should be overridden by strong attr_weak_input.return_seven
 extern(C) @weak int return_seven() {
-  return 1;
+  return 456;
 }
 
 void main() {
+  assert( return_two() == 123 );
   assert( return_seven() == 7 );
 }

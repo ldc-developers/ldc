@@ -6,7 +6,12 @@ import platform
 import string
 import re
 import subprocess
+import glob
 from distutils.version import LooseVersion
+
+# Cmake Boolean options
+ON = True
+OFF = False
 
 ## Auto-initialized variables by cmake:
 config.ldc2_bin            = "@LDC2_BIN@"
@@ -22,6 +27,13 @@ config.llvm_targetsstr     = "@LLVM_TARGETS_TO_BUILD@"
 config.default_target_bits = @DEFAULT_TARGET_BITS@
 config.with_PGO            = True
 config.dynamic_compile     = @LDC_DYNAMIC_COMPILE@
+config.plugins_supported   = @LDC_ENABLE_PLUGINS@
+config.gnu_make_bin        = "@GNU_MAKE_BIN@"
+config.ldc_host_arch       = "@LLVM_NATIVE_ARCH@"
+config.ldc_with_lld        = @LDC_WITH_LLD@
+config.spirv_enabled       = @LLVM_SPIRV_FOUND@
+config.rt_supports_sanitizers = @RT_SUPPORT_SANITIZERS@
+config.shared_rt_libs_only = "@BUILD_SHARED_LIBS@" == "ON"
 
 config.name = 'LDC'
 
@@ -47,7 +59,7 @@ config.excludes = [
 if not config.with_PGO:
     config.excludes.append('PGO')
 
-# Exclude runtime compilation tests when it's disabled
+# Exclude dynamic compilation tests when it's disabled
 if not config.dynamic_compile:
     config.excludes.append('dynamiccompile')
 
@@ -56,18 +68,27 @@ env_cc = os.environ.get('CC', '')
 if env_cc:
     config.environment['CC'] = env_cc
 
+env_cxx = os.environ.get('CXX', '')
+if env_cxx:
+    config.environment['CXX'] = env_cxx
+
+if (platform.system() == 'Windows'):
+    config.environment['VSINSTALLDIR'] = os.environ['VSINSTALLDIR']
+    config.environment['PATH'] = os.environ['PATH']
+    config.environment['LIB'] = os.environ['LIB']
+
 # Define available features so that we can disable tests depending on LLVM version
 config.available_features.add("llvm%d" % config.llvm_version)
-# LLVM version history: 3.8, 3.9, 4.0, 5.0, ...
-# config.llvm_version: 308, 309, 400, 500, ...
-# plusoneable_llvmversion: 38, 39, 40, 50, ...
+# LLVM version history: 3.9, 4.0, 5.0, ...
+# config.llvm_version: 309, 400, 500, ...
+# plusoneable_llvmversion: 39, 40, 50, ...
 plusoneable_llvmversion = config.llvm_version // 10  + config.llvm_version%10
-for version in range(37, plusoneable_llvmversion+1):
+for version in range(60, plusoneable_llvmversion+1):
     config.available_features.add("atleast_llvm%d0%d" % (version//10, version%10))
-for version in range(plusoneable_llvmversion, 91):
+for version in range(plusoneable_llvmversion, 141):
     config.available_features.add("atmost_llvm%d0%d" % (version//10, version%10))
 
-# Define OS as available feature (Windows, Darwin, Linux)
+# Define OS as available feature (Windows, Darwin, Linux, FreeBSD...)
 config.available_features.add(platform.system())
 
 # Define available features based on what LLVM can target
@@ -75,32 +96,45 @@ config.available_features.add(platform.system())
 for t in config.llvm_targetsstr.split(';'):
     config.available_features.add('target_' + t)
 
+if config.spirv_enabled:
+    config.available_features.add('target_SPIRV')
+
+if config.rt_supports_sanitizers:
+    config.available_features.add('RTSupportsSanitizers')
+
 # Add specific features for Windows x86/x64 testing
 if (platform.system() == 'Windows') and (config.default_target_bits == 32):
     config.available_features.add('Windows_x86')
 if (platform.system() == 'Windows') and (config.default_target_bits == 64):
     config.available_features.add('Windows_x64')
 
+# Define available features based on host arch
+# Examples: 'host_X86', 'host_ARM', 'host_PowerPC', 'host_AArch64'
+if (config.ldc_host_arch != ''):
+    config.available_features.add('host_' + config.ldc_host_arch)
+
 # Add "LTO" feature if linker support and LTO plugin are available
-# (LTO is supported from LLVM 3.9)
-canDoLTO = False
-if (config.llvm_version >= 309):
-    if (platform.system() == 'Darwin'):
-        command = ['ld', '-v']
-        p = subprocess.Popen(command, stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE, universal_newlines=True)
-        text = p.stderr.read()
-        if ("LTO support" in text and os.path.isfile(config.ldc2_lib_dir + '/libLTO-ldc.dylib')):
-            canDoLTO = True
-    elif (platform.system() == 'Linux'):
-        command = ['ld', '-plugin']
-        p = subprocess.Popen(command, stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE, universal_newlines=True)
-        text = p.stderr.read()
-        if ("plugin: missing argument" in text and os.path.isfile(config.ldc2_lib_dir + '/LLVMgold-ldc.so')):
-            canDoLTO = True
+if (platform.system() == 'Windows'):
+    canDoLTO = config.ldc_with_lld
+elif (platform.system() == 'Darwin'):
+    canDoLTO = os.path.exists('@LLVM_LIBRARY_DIRS@/libLTO.dylib')
+else:
+    canDoLTO = os.path.exists('@LLVM_LIBRARY_DIRS@/LLVMgold.so')
 if canDoLTO:
     config.available_features.add('LTO')
+
+if config.ldc_with_lld:
+    config.available_features.add('internal_lld')
+
+# Add "link_WebAssembly" feature if we can link wasm (-link-internally or wasm-ld in PATH).
+if config.ldc_with_lld:
+    config.available_features.add('link_WebAssembly')
+else:
+    try:
+        if (subprocess.call(["wasm-ld", "--version"]) == 0):
+            config.available_features.add('link_WebAssembly')
+    except OSError:
+        pass
 
 config.target_triple = '(unused)'
 
@@ -111,13 +145,14 @@ config.test_exec_root = os.path.dirname(__file__)
 path = os.path.pathsep.join( (config.test_source_root, config.environment['PATH']) )
 config.environment['PATH'] = path
 
-# add LDC bin dir to the path
+# Add LDC and LLVM bin dir to the path
 # Give priority to LDC's version of LLVM tools (we need FileCheck with certain bug fixes)
-path = os.path.pathsep.join( (config.ldc2_bin_dir, config.environment['PATH']) )
+path = os.path.pathsep.join( (config.ldc2_bin_dir, config.llvm_tools_dir, config.environment['PATH']) )
 config.environment['PATH'] = path
 
 # Add substitutions
 config.substitutions.append( ('%ldc', config.ldc2_bin) )
+config.substitutions.append( ('%gnu_make', config.gnu_make_bin) )
 config.substitutions.append( ('%profdata', config.ldcprofdata_bin) )
 config.substitutions.append( ('%prunecache', config.ldcprunecache_bin) )
 config.substitutions.append( ('%llvm-spirv', os.path.join(config.llvm_tools_dir, 'llvm-spirv')) )
@@ -133,10 +168,17 @@ if (platform.system() == 'Windows'):
     config.substitutions.append( ('%obj', '.obj') )
     config.substitutions.append( ('%exe', '.exe') )
     config.substitutions.append( ('%lib', '.lib') )
+    config.substitutions.append( ('%so', '.dll') )
+    config.substitutions.append( ('%diff_binary ', 'fc /b ') )
 else:
     config.substitutions.append( ('%obj', '.o') )
     config.substitutions.append( ('%exe', '') )
     config.substitutions.append( ('%lib', '.a') )
+    if (platform.system() == 'Darwin'):
+        config.substitutions.append( ('%so', '.dylib') )
+    else:
+        config.substitutions.append( ('%so', '.so') )
+    config.substitutions.append( ('%diff_binary ', 'cmp -s ') )
 
 # Add cdb substitution
 if (platform.system() == 'Windows') and (config.default_target_bits == 32):
@@ -148,10 +190,10 @@ if (platform.system() == 'Windows') and (config.default_target_bits == 64):
 
 if (platform.system() == 'Windows') and os.path.isfile( cdb ):
     config.available_features.add('cdb')
-    config.substitutions.append( ('%cdb', '"' + string.replace( cdb, '\\', '\\\\') + '"') )
+    config.substitutions.append( ('%cdb', '"' + cdb.replace('\\', '\\\\') + '"') )
 
 # Check whether GDB is present
-if lit.util.which('gdb', config.environment['PATH']):
+if (platform.system() != 'Windows') and lit.util.which('gdb', config.environment['PATH']):
     config.available_features.add('gdb')
     gdb_dflags = ''
     command = ['gdb', '--version']
@@ -163,4 +205,26 @@ if lit.util.which('gdb', config.environment['PATH']):
         gdb_version = m.group(1)
         if LooseVersion(gdb_version) < LooseVersion('7.8'):
             gdb_dflags = '-dwarf-version=2'
+        elif LooseVersion(gdb_version) >= LooseVersion('8.0'):
+            config.available_features.add('atleast_gdb80')
+
     config.substitutions.append( ('%_gdb_dflags', gdb_dflags) )
+
+# Add substitutions for functionality across different LLVM versions
+if config.llvm_version >= 800:
+    config.substitutions.append( ('%disable_fp_elim', '-frame-pointer=all') )
+    config.substitutions.append( ('%enable_fp_elim', '-frame-pointer=none') )
+else:
+    config.substitutions.append( ('%disable_fp_elim', '-disable-fp-elim') )
+    config.substitutions.append( ('%enable_fp_elim', '-disable-fp-elim=false') )
+
+if 'LD_LIBRARY_PATH' in os.environ:
+    libs = []
+    for lib_path in [s for s in os.environ['LD_LIBRARY_PATH'].split(':') if s]:
+        for pattern in ['*ldc-jit*','*druntime-ldc*','*phobos2-ldc*']:
+            libs += glob.glob(os.path.join(lib_path, pattern))
+
+    if libs:
+        print('Warning: LDC runtime libs found in LD_LIBRARY_PATH:')
+        for l in libs:
+            print(l)

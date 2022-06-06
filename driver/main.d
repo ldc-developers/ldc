@@ -1,4 +1,4 @@
-//===-- driver/main.d - General LLVM codegen helpers ----------*- D -*-===//
+//===-- driver/main.d - D entry point -----------------------------*- D -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -7,30 +7,70 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Functions for driver/main.cpp
+// D entry point for LDC/LDMD, just forwarding to cppmain().
 //
 //===----------------------------------------------------------------------===//
 
 module driver.main;
 
-import dmd.globals;
-import dmd.root.file;
-import dmd.root.outbuffer;
+// In driver/main.cpp or driver/ldmd.cpp
+extern(C++) int cppmain();
 
-// In driver/main.cpp
-extern(C++) int cppmain(int argc, char **argv);
-
-/+ Having a main() in D-source solves a few issues with building/linking with
- + DMD on Windows, with the extra benefit of implicitly initializing the D runtime.
+/+ We use this manual D main for druntime initialization via a manual
+ + _d_run_main() call in the C main() in driver/{main,ldmd}.cpp.
  +/
-int main()
+extern(C) int _Dmain(string[])
 {
-    // For now, even just the frontend does not work with GC enabled, so we need
-    // to disable it entirely.
-    import core.memory;
-    GC.disable();
+    version (Windows)
+        switchConsoleCodePageToUTF8();
 
-    import core.runtime;
-    auto args = Runtime.cArgs();
-    return cppmain(args.argc, cast(char**)args.argv);
+    return cppmain();
+}
+
+// We use UTF-8 for narrow strings, on Windows too.
+version (Windows)
+{
+    import core.sys.windows.wincon;
+    import core.sys.windows.windef : UINT;
+
+    private:
+
+    __gshared UINT originalCP, originalOutputCP;
+
+    void switchConsoleCodePageToUTF8()
+    {
+        import core.stdc.stdlib : atexit;
+        import core.sys.windows.winnls : CP_UTF8;
+
+        originalCP = GetConsoleCP();
+        originalOutputCP = GetConsoleOutputCP();
+
+        SetConsoleCP(CP_UTF8);
+        SetConsoleOutputCP(CP_UTF8);
+
+        // atexit handlers are also called when exiting via exit() etc.;
+        // that's the reason this isn't a RAII struct.
+        atexit(&resetConsoleCodePage);
+    }
+
+    extern(C) void resetConsoleCodePage()
+    {
+        SetConsoleCP(originalCP);
+        SetConsoleOutputCP(originalOutputCP);
+    }
+}
+
+// TLS bracketing symbols required for our custom TLS emulation on Android
+// as we don't have a D main() function for LDC and LDMD.
+version (Android)
+{
+    import ldc.attributes;
+
+    extern(C) __gshared
+    {
+        @section(".tdata")
+        int _tlsstart = 0;
+        @section(".tcommon")
+        int _tlsend = 0;
+    }
 }

@@ -1,0 +1,1 @@
+src:*fsanitize_blacklist_file2.d

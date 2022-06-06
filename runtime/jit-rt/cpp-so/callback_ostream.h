@@ -12,11 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef CALLBACK_OSTREAM_H
-#define CALLBACK_OSTREAM_H
+#pragma once
 
-#include <llvm/ADT/STLExtras.h>
-#include <llvm/Support/raw_ostream.h>
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/raw_ostream.h"
 
 class CallbackOstream : public llvm::raw_ostream {
   using CallbackT = llvm::function_ref<void(const char *, size_t)>;
@@ -30,5 +29,3 @@ class CallbackOstream : public llvm::raw_ostream {
 public:
   explicit CallbackOstream(CallbackT c);
 };
-
-#endif // CALLBACK_OSTREAM_H

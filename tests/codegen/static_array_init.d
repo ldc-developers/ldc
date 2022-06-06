@@ -8,7 +8,7 @@ void bytes_scalar()
     // CHECK:      define {{.*}}_D17static_array_init12bytes_scalarFZv
     // CHECK-NEXT:   %myBytes = alloca [32 x i8], align 1
     // CHECK-NEXT:   %1 = bitcast [32 x i8]* %myBytes to i8*
-    // CHECK-NEXT:   call void @llvm.memset{{.*}}(i8* %1, i8 123, i{{(32|64)}} 32
+    // CHECK-NEXT:   call void @llvm.memset{{.*}}(i8*{{[a-z0-9 ]*}} %1, i8 123, i{{(32|64)}} 32
 }
 
 void bytes_scalar(byte arg)
@@ -21,7 +21,7 @@ void bytes_scalar(byte arg)
     // CHECK-NEXT:   store i8 %arg_arg, i8* %arg
     // CHECK-NEXT:   %1 = bitcast [32 x i8]* %myBytes to i8*
     // CHECK-NEXT:   %2 = load {{.*}}i8* %arg
-    // CHECK-NEXT:   call void @llvm.memset{{.*}}(i8* %1, i8 %2, i{{(32|64)}} 32
+    // CHECK-NEXT:   call void @llvm.memset{{.*}}(i8*{{[a-z0-9 ]*}} %1, i8 %2, i{{(32|64)}} 32
 }
 
 void ints_scalar()
@@ -63,7 +63,7 @@ void bytes(byte[] arg)
     // CHECK:      define {{.*}}_D17static_array_init5bytesFAgZv
     // CHECK:        %myBytes = alloca [4 x i8], align 1
     // CHECK:        %1 = bitcast [4 x i8]* %myBytes to i8*
-    // CHECK:        call void @llvm.memcpy{{.*}}(i8* %1, i8* %.ptr, i{{(32|64)}} 4
+    // CHECK:        call void @llvm.memcpy{{.*}}(i8*{{[a-z0-9 ]*}} %1, i8*{{[a-z0-9 ]*}} %.ptr, i{{(32|64)}} 4
 }
 
 void ints()
@@ -85,7 +85,7 @@ void ints(ref int[4] arg)
     // CHECK-NEXT:   %2 = bitcast i32* %1 to i8*
     // CHECK-NEXT:   %3 = bitcast [4 x i32]* %arg to i32*
     // CHECK-NEXT:   %4 = bitcast i32* %3 to i8*
-    // CHECK-NEXT:   call void @llvm.memcpy{{.*}}(i8* %2, i8* %4, i{{(32|64)}} 16
+    // CHECK-NEXT:   call void @llvm.memcpy{{.*}}(i8*{{[a-z0-9 ]*}} %2, i8*{{[a-z0-9 ]*}} %4, i{{(32|64)}} 16
 }
 
 void bytes_scalar_2d()
@@ -96,7 +96,7 @@ void bytes_scalar_2d()
     // CHECK-NEXT:   %myBytes = alloca [8 x [4 x i8]], align 1
     // CHECK-NEXT:   %1 = bitcast [8 x [4 x i8]]* %myBytes to [32 x i8]*
     // CHECK-NEXT:   %2 = bitcast [32 x i8]* %1 to i8*
-    // CHECK-NEXT:   call void @llvm.memset{{.*}}(i8* %2, i8 123, i{{(32|64)}} 32
+    // CHECK-NEXT:   call void @llvm.memset{{.*}}(i8*{{[a-z0-9 ]*}} %2, i8 123, i{{(32|64)}} 32
 }
 
 void ints_scalar_2d(immutable int arg)

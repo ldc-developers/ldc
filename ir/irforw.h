@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_IR_IRFORW_H
-#define LDC_IR_IRFORW_H
+#pragma once
 
 // dmd forward declarations
 class Module;
@@ -53,5 +52,3 @@ class PointerType;
 class BasicBlock;
 class Instruction;
 }
-
-#endif

@@ -1,14 +1,16 @@
+// See GH issue #2709
+
 // REQUIRES: target_SPIRV
 // RUN: %ldc -c -mdcompute-targets=ocl-220 -m64 -mdcompute-file-prefix=addrspace -output-ll -output-o %s && FileCheck %s --check-prefix=LL < addrspace_ocl220_64.ll \
 // RUN: && %llvm-spirv -to-text addrspace_ocl220_64.spv && FileCheck %s --check-prefix=SPT < addrspace_ocl220_64.spt
 @compute(CompileFor.deviceOnly) module dcompute_cl_addrspaces;
 import ldc.dcompute;
 
-// LL: %"ldc.dcompute.Pointer!(cast(AddrSpace)0u, float).Pointer" = type { float* }
-// LL: %"ldc.dcompute.Pointer!(cast(AddrSpace)1u, float).Pointer" = type { float addrspace(1)* }
-// LL: %"ldc.dcompute.Pointer!(cast(AddrSpace)2u, float).Pointer" = type { float addrspace(2)* }
-// LL: %"ldc.dcompute.Pointer!(cast(AddrSpace)3u, immutable(float)).Pointer" = type { float addrspace(3)* }
-// LL: %"ldc.dcompute.Pointer!(cast(AddrSpace)4u, float).Pointer" = type { float addrspace(4)* }
+// LL: %"ldc.dcompute.Pointer!(AddrSpace.Private, float).Pointer" = type { float* }
+// LL: %"ldc.dcompute.Pointer!(AddrSpace.Global, float).Pointer" = type { float addrspace(1)* }
+// LL: %"ldc.dcompute.Pointer!(AddrSpace.Shared, float).Pointer" = type { float addrspace(2)* }
+// LL: %"ldc.dcompute.Pointer!(AddrSpace.Constant, immutable(float)).Pointer" = type { float addrspace(3)* }
+// LL: %"ldc.dcompute.Pointer!(AddrSpace.Generic, float).Pointer" = type { float addrspace(4)* }
 
 // SPT-DAG: 2 TypeVoid [[VOID_ID:[0-9]+]]
 // SPT-DAG: 3 TypeFloat [[FLOAT_ID:[0-9]+]] 32

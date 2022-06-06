@@ -1,27 +1,19 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (c) 1999-2016 by The D Language Foundation
- * All Rights Reserved
+ * Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
- * http://www.digitalmars.com
+ * https://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
- * http://www.boost.org/LICENSE_1_0.txt
- * https://github.com/dlang/dmd/blob/master/src/aggregate.h
+ * https://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/dlang/dmd/blob/master/src/dmd/aggregate.h
  */
 
-#ifndef DMD_AGGREGATE_H
-#define DMD_AGGREGATE_H
-
-#ifdef __DMC__
 #pragma once
-#endif /* __DMC__ */
-
-#include "root.h"
 
 #include "dsymbol.h"
-#include "declaration.h"
 #include "objc.h"
 
+class AliasThis;
 class Identifier;
 class Type;
 class TypeFunction;
@@ -29,66 +21,68 @@ class Expression;
 class FuncDeclaration;
 class CtorDeclaration;
 class DtorDeclaration;
-class InvariantDeclaration;
-class NewDeclaration;
-class DeleteDeclaration;
 class InterfaceDeclaration;
 class TypeInfoClassDeclaration;
 class VarDeclaration;
 
-enum Sizeok
+enum class Sizeok : uint8_t
 {
-    SIZEOKnone,         // size of aggregate is not yet able to compute
-    SIZEOKfwd,          // size of aggregate is ready to compute
-    SIZEOKdone,         // size of aggregate is set correctly
+    none,         // size of aggregate is not yet able to compute
+    fwd,          // size of aggregate is ready to compute
+    inProcess,    // in the midst of computing the size
+    done          // size of aggregate is set correctly
 };
 
-enum Baseok
+enum class Baseok : uint8_t
 {
-    BASEOKnone,         // base classes not computed yet
-    BASEOKin,           // in process of resolving base classes
-    BASEOKdone,         // all base classes are resolved
-    BASEOKsemanticdone, // all base classes semantic done
+    none,         // base classes not computed yet
+    in,           // in process of resolving base classes
+    done,         // all base classes are resolved
+    semanticdone  // all base classes semantic done
 };
 
-enum StructPOD
+enum class ThreeState : uint8_t
 {
-    ISPODno,            // struct is not POD
-    ISPODyes,           // struct is POD
-    ISPODfwd,           // POD not yet computed
+    none,         // value not yet computed
+    no,           // value is false
+    yes,          // value is true
 };
 
-enum Abstract
+FuncDeclaration *search_toString(StructDeclaration *sd);
+
+enum class ClassKind : uint8_t
 {
-    ABSfwdref = 0,      // whether an abstract class is not yet computed
-    ABSyes,             // is abstract class
-    ABSno,              // is not abstract class
+  /// the aggregate is a d(efault) struct/class/interface
+  d,
+  /// the aggregate is a C++ struct/class/interface
+  cpp,
+  /// the aggregate is an Objective-C class/interface
+  objc,
+  /// the aggregate is a C struct
+  c,
 };
 
-FuncDeclaration *hasIdentityOpAssign(AggregateDeclaration *ad, Scope *sc);
-FuncDeclaration *buildOpAssign(StructDeclaration *sd, Scope *sc);
-bool needOpEquals(StructDeclaration *sd);
-FuncDeclaration *buildOpEquals(StructDeclaration *sd, Scope *sc);
-FuncDeclaration *buildXopEquals(StructDeclaration *sd, Scope *sc);
-FuncDeclaration *buildXopCmp(StructDeclaration *sd, Scope *sc);
-FuncDeclaration *buildXtoHash(StructDeclaration *ad, Scope *sc);
-FuncDeclaration *buildPostBlit(StructDeclaration *sd, Scope *sc);
-FuncDeclaration *buildDtor(AggregateDeclaration *ad, Scope *sc);
-FuncDeclaration *buildInv(AggregateDeclaration *ad, Scope *sc);
+struct MangleOverride
+{
+    Dsymbol *agg;
+    Identifier *id;
+};
 
 class AggregateDeclaration : public ScopeDsymbol
 {
 public:
     Type *type;
     StorageClass storage_class;
-    Prot protection;
     unsigned structsize;        // size of struct
     unsigned alignsize;         // size of struct for alignment purposes
     VarDeclarations fields;     // VarDeclaration fields
-    Sizeok sizeok;              // set when structsize contains valid data
     Dsymbol *deferred;          // any deferred semantic2() or semantic3() symbol
-    bool isdeprecated;          // true if deprecated
 
+    ClassKind classKind;        // specifies the linkage type
+    CPPMANGLE cppmangle;
+
+    // overridden symbol with pragma(mangle, "...")
+    MangleOverride *mangleOverride;
     /* !=NULL if is nested
      * pointing to the dsymbol that directly enclosing it.
      * 1. The function that enclosing it (nested struct and class)
@@ -98,11 +92,10 @@ public:
      */
     Dsymbol *enclosing;
     VarDeclaration *vthis;      // 'this' parameter if this aggregate is nested
+    VarDeclaration *vthis2;     // 'this' parameter if this aggregate is a template and is nested
     // Special member functions
     FuncDeclarations invs;              // Array of invariants
     FuncDeclaration *inv;               // invariant
-    NewDeclaration *aggNew;             // allocator
-    DeleteDeclaration *aggDelete;       // deallocator
 
     Dsymbol *ctor;                      // CtorDeclaration or TemplateDeclaration
 
@@ -110,41 +103,47 @@ public:
     // it would be stored in TypeInfo_Class.defaultConstructor
     CtorDeclaration *defaultCtor;
 
-    Dsymbol *aliasthis;         // forward unresolved lookups to aliasthis
-    bool noDefaultCtor;         // no default construction
+    AliasThis *aliasthis;       // forward unresolved lookups to aliasthis
 
-    FuncDeclarations dtors;     // Array of destructors
-    FuncDeclaration *dtor;      // aggregate destructor
+    DtorDeclarations userDtors; // user-defined destructors (`~this()`) - mixins can yield multiple ones
+    DtorDeclaration *aggrDtor;  // aggregate destructor calling userDtors and fieldDtor (and base class aggregate dtor for C++ classes)
+    DtorDeclaration *dtor;      // the aggregate destructor exposed as `__xdtor` alias
+                                // (same as aggrDtor, except for C++ classes with virtual dtor on Windows)
+    DtorDeclaration *tidtor;    // aggregate destructor used in TypeInfo (must have extern(D) ABI)
+    DtorDeclaration *fieldDtor; // function destructing (non-inherited) fields
 
     Expression *getRTInfo;      // pointer to GC info generated by object.RTInfo(this)
 
+    Visibility visibility;
+    bool noDefaultCtor;         // no default construction
+    bool disableNew;            // disallow allocations using `new`
+    Sizeok sizeok;              // set when structsize contains valid data
+
     virtual Scope *newScope(Scope *sc);
     void setScope(Scope *sc);
-    bool determineFields();
-    bool determineSize(Loc loc);
+    size_t nonHiddenFields();
+    bool determineSize(const Loc &loc);
     virtual void finalizeSize() = 0;
-    d_uns64 size(Loc loc);
-    bool checkOverlappedFields();
-    bool fill(Loc loc, Expressions *elements, bool ctorinit);
-    static void alignmember(structalign_t salign, unsigned size, unsigned *poffset);
-    static unsigned placeField(unsigned *nextoffset,
-        unsigned memsize, unsigned memalignsize, structalign_t memalign,
-        unsigned *paggsize, unsigned *paggalignsize, bool isunion);
+    uinteger_t size(const Loc &loc);
+    bool fill(const Loc &loc, Expressions *elements, bool ctorinit);
     Type *getType();
-    bool isDeprecated();         // is aggregate deprecated?
-    bool isNested();
-    void makeNested();
-    bool isExport();
+    bool isDeprecated() const;         // is aggregate deprecated?
+    void setDeprecated();
+    bool isNested() const;
+    bool isExport() const;
     Dsymbol *searchCtor();
 
-    Prot prot();
+    Visibility visible();
 
     // 'this' type
     Type *handleType() { return type; }
 
+    bool hasInvariant();
+
+#if !IN_LLVM
     // Back end
-    Symbol *stag;               // tag symbol for debug data
-    Symbol *sinit;
+    void *sinit;
+#endif
 
     AggregateDeclaration *isAggregateDeclaration() { return this; }
     void accept(Visitor *v) { v->visit(this); }
@@ -152,19 +151,29 @@ public:
 
 struct StructFlags
 {
-    typedef unsigned Type;
-    enum Enum
+    enum Type
     {
-        hasPointers = 0x1, // NB: should use noPointers as in ClassFlags
+        none = 0x0,
+        hasPointers = 0x1  // NB: should use noPointers as in ClassFlags
     };
 };
 
 class StructDeclaration : public AggregateDeclaration
 {
 public:
-    int zeroInit;               // !=0 if initialize with 0 fill
+    bool zeroInit;              // !=0 if initialize with 0 fill
     bool hasIdentityAssign;     // true if has identity opAssign
+    bool hasBlitAssign;         // true if opAssign is a blit
     bool hasIdentityEquals;     // true if has identity opEquals
+    bool hasNoFields;           // has no fields
+    bool hasCopyCtor;           // copy constructor
+#if !IN_LLVM
+    // Even if struct is defined as non-root symbol, some built-in operations
+    // (e.g. TypeidExp, NewExp, ArrayLiteralExp, etc) request its TypeInfo.
+    // For those, today TypeInfo_Struct is generated in COMDAT.
+    bool requestTypeInfo;
+#endif
+
     FuncDeclarations postblits; // Array of postblit functions
     FuncDeclaration *postblit;  // aggregate postblit
 
@@ -175,34 +184,30 @@ public:
     static FuncDeclaration *xerrcmp;     // object.xopCmp
 
     structalign_t alignment;    // alignment applied outside of the struct
-    StructPOD ispod;            // if struct is POD
+    ThreeState ispod;           // if struct is POD
 
-    // For 64 bit Efl function call/return ABI
-    Type *arg1type;
-    Type *arg2type;
+    // ABI-specific type(s) if the struct can be passed in registers
+    TypeTuple *argTypes;
 
-    // Even if struct is defined as non-root symbol, some built-in operations
-    // (e.g. TypeidExp, NewExp, ArrayLiteralExp, etc) request its TypeInfo.
-    // For those, today TypeInfo_Struct is generated in COMDAT.
-    bool requestTypeInfo;
-
-    static StructDeclaration *create(Loc loc, Identifier *id);
-    Dsymbol *syntaxCopy(Dsymbol *s);
-    void semanticTypeInfoMembers();
-    Dsymbol *search(Loc, Identifier *ident, int flags = SearchLocalsOnly);
+    static StructDeclaration *create(const Loc &loc, Identifier *id, bool inObject);
+    StructDeclaration *syntaxCopy(Dsymbol *s);
+    Dsymbol *search(const Loc &loc, Identifier *ident, int flags = SearchLocalsOnly);
     const char *kind() const;
     void finalizeSize();
-    bool fit(Loc loc, Scope *sc, Expressions *elements, Type *stype);
     bool isPOD();
 
     StructDeclaration *isStructDeclaration() { return this; }
     void accept(Visitor *v) { v->visit(this); }
+
+    unsigned numArgTypes() const;
+    Type *argType(unsigned index);
+    bool hasRegularCtor(bool checkDisabled = false);
 };
 
 class UnionDeclaration : public StructDeclaration
 {
 public:
-    Dsymbol *syntaxCopy(Dsymbol *s);
+    UnionDeclaration *syntaxCopy(Dsymbol *s);
     const char *kind() const;
 
     UnionDeclaration *isUnionDeclaration() { return this; }
@@ -222,18 +227,14 @@ struct BaseClass
     DArray<BaseClass> baseInterfaces;   // if BaseClass is an interface, these
                                         // are a copy of the InterfaceDeclaration::interfaces
 
-    BaseClass();
-    BaseClass(Type *type);
-
     bool fillVtbl(ClassDeclaration *cd, FuncDeclarations *vtbl, int newinstance);
-    void copyBaseInterfaces(BaseClasses *);
 };
 
 struct ClassFlags
 {
-    typedef unsigned Type;
-    enum Enum
+    enum Type
     {
+        none = 0x0,
         isCOMclass = 0x1,
         noPointers = 0x2,
         hasOffTi = 0x4,
@@ -242,18 +243,8 @@ struct ClassFlags
         hasTypeInfo = 0x20,
         isAbstract = 0x40,
         isCPPclass = 0x80,
-        hasDtor = 0x100,
+        hasDtor = 0x100
     };
-};
-
-enum ClassKind
-{
-    /// the class is a d(efault) class
-    d,
-    /// the class is a C++ interface
-    cpp,
-    /// the class is an Objective-C class/interface
-    objc
 };
 
 class ClassDeclaration : public AggregateDeclaration
@@ -283,29 +274,31 @@ public:
     TypeInfoClassDeclaration *vclassinfo;       // the ClassInfo object for this ClassDeclaration
     bool com;                           // true if this is a COM class (meaning it derives from IUnknown)
     bool stack;                         // true if this is a scope class
-    ClassKind classKind;                // specifies the linkage type
+    int cppDtorVtblIndex;               // slot reserved for the virtual destructor [extern(C++)]
     bool inuse;                         // to prevent recursive attempts
-    bool isActuallyAnonymous;           // true if this class has an identifier, but was originally declared anonymous
-                                        // used in support of https://issues.dlang.org/show_bug.cgi?id=17371
 
-    Abstract isabstract;                // 0: fwdref, 1: is abstract class, 2: not abstract
+    ThreeState isabstract;              // if abstract class
     Baseok baseok;                      // set the progress of base classes resolving
+    ObjcClassDeclaration objc;          // Data for a class declaration that is needed for the Objective-C integration
+#if !IN_LLVM
     Symbol *cpp_type_info_ptr_sym;      // cached instance of class Id.cpp_type_info_ptr
+#endif
 
-    static ClassDeclaration *create(Loc loc, Identifier *id, BaseClasses *baseclasses, Dsymbols *members, bool inObject);
-    Dsymbol *syntaxCopy(Dsymbol *s);
+    static ClassDeclaration *create(const Loc &loc, Identifier *id, BaseClasses *baseclasses, Dsymbols *members, bool inObject);
+    const char *toPrettyChars(bool QualifyTypes = false);
+    ClassDeclaration *syntaxCopy(Dsymbol *s);
     Scope *newScope(Scope *sc);
     bool isBaseOf2(ClassDeclaration *cd);
 
     #define OFFSET_RUNTIME 0x76543210
     #define OFFSET_FWDREF 0x76543211
     virtual bool isBaseOf(ClassDeclaration *cd, int *poffset);
-    bool isAnonymous();
 
     bool isBaseInfoComplete();
-    Dsymbol *search(Loc, Identifier *ident, int flags = SearchLocalsOnly);
+    Dsymbol *search(const Loc &loc, Identifier *ident, int flags = SearchLocalsOnly);
     ClassDeclaration *searchBase(Identifier *ident);
     void finalizeSize();
+    bool hasMonitor();
     bool isFuncHidden(FuncDeclaration *fd);
     FuncDeclaration *findFunc(Identifier *ident, TypeFunction *tf);
     bool isCOMclass() const;
@@ -317,9 +310,11 @@ public:
     const char *kind() const;
 
     void addLocalClass(ClassDeclarations *);
+    void addObjcSymbols(ClassDeclarations *classes, ClassDeclarations *categories);
 
     // Back end
-    Symbol *vtblsym;
+    Dsymbol *vtblsym;
+    Dsymbol *vtblSymbol();
 
     ClassDeclaration *isClassDeclaration() { return (ClassDeclaration *)this; }
     void accept(Visitor *v) { v->visit(this); }
@@ -328,10 +323,9 @@ public:
 class InterfaceDeclaration : public ClassDeclaration
 {
 public:
-    Dsymbol *syntaxCopy(Dsymbol *s);
+    InterfaceDeclaration *syntaxCopy(Dsymbol *s);
     Scope *newScope(Scope *sc);
     bool isBaseOf(ClassDeclaration *cd, int *poffset);
-    bool isBaseOf(BaseClass *bc, int *poffset);
     const char *kind() const;
     int vtblOffset() const;
     bool isCPPinterface() const;
@@ -340,5 +334,3 @@ public:
     InterfaceDeclaration *isInterfaceDeclaration() { return this; }
     void accept(Visitor *v) { v->visit(this); }
 };
-
-#endif /* DMD_AGGREGATE_H */

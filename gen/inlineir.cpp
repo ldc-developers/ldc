@@ -1,26 +1,27 @@
 #include "gen/inlineir.h"
 
+#include "dmd/declaration.h"
+#include "dmd/errors.h"
 #include "dmd/expression.h"
+#include "dmd/identifier.h"
 #include "dmd/mtype.h"
+#include "dmd/template.h"
 #include "gen/attributes.h"
-#include "gen/llvmhelpers.h"
-#include "declaration.h"
-#include "template.h"
 #include "gen/irstate.h"
+#include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 #include "gen/to_string.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/SourceMgr.h"
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/Linker/Linker.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/SourceMgr.h"
 
 namespace {
 
 /// Sets LLVMContext::setDiscardValueNames(false) upon construction and restores
 /// the previous value upon destruction.
 struct TempDisableDiscardValueNames {
-#if LDC_LLVM_VER >= 309
   llvm::LLVMContext &ctx;
   bool previousValue;
 
@@ -30,23 +31,25 @@ struct TempDisableDiscardValueNames {
   }
 
   ~TempDisableDiscardValueNames() { ctx.setDiscardValueNames(previousValue); }
-#else
-  TempDisableDiscardValueNames(llvm::LLVMContext &context) {}
-#endif
 };
 
 /// Adds the idol's function attributes to the wannabe
 /// Note: don't add function _parameter_ attributes
 void copyFnAttributes(llvm::Function *wannabe, llvm::Function *idol) {
   auto attrSet = idol->getAttributes();
+#if LDC_LLVM_VER >= 1400
+  auto fnAttrSet = attrSet.getFnAttrs();
+  wannabe->addFnAttrs(llvm::AttrBuilder(getGlobalContext(), fnAttrSet));
+#else
   auto fnAttrSet = attrSet.getFnAttributes();
-  wannabe->addAttributes(LLAttributeSet::FunctionIndex, fnAttrSet);
+  wannabe->addAttributes(LLAttributeList::FunctionIndex, fnAttrSet);
+#endif
 }
 
-std::string exprToString(StringExp *strexp) {
-  assert(strexp != nullptr);
-  assert(strexp->sz == 1);
-  return std::string(strexp->toPtr(), strexp->numberOfCodeUnits());
+llvm::StringRef exprToString(StringExp *strexp) {
+  assert(strexp);
+  auto str = strexp->peekString();
+  return {str.ptr, str.length};
 }
 } // anonymous namespace
 
@@ -75,13 +78,12 @@ void DtoCheckInlineIRPragma(Identifier *ident, Dsymbol *s) {
     //   R inlineIREx(string prefix, string code, string suffix, R, P...)(P);
 
     TemplateParameters &params = *td->parameters;
-    bool valid_params =
-        (params.dim == 3 || params.dim == 5) &&
-        params[params.dim - 2]->isTemplateTypeParameter() &&
-        params[params.dim - 1]->isTemplateTupleParameter();
+    bool valid_params = (params.length == 3 || params.length == 5) &&
+                        params[params.length - 2]->isTemplateTypeParameter() &&
+                        params[params.length - 1]->isTemplateTupleParameter();
 
     if (valid_params) {
-      for (d_size_t i = 0; i < (params.dim - 2); ++i) {
+      for (d_size_t i = 0; i < (params.length - 2); ++i) {
         TemplateValueParameter *p0 = params[i]->isTemplateValueParameter();
         valid_params = valid_params && p0 && p0->valType == Type::tstring;
       }
@@ -102,7 +104,7 @@ void DtoCheckInlineIRPragma(Identifier *ident, Dsymbol *s) {
   }
 }
 
-DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
+DValue *DtoInlineIRExpr(const Loc &loc, FuncDeclaration *fdecl,
                         Expressions *arguments, LLValue *sretPointer) {
   IF_LOG Logger::println("DtoInlineIRExpr @ %s", loc.toChars());
   LOG_SCOPE;
@@ -127,12 +129,10 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
     // pragma(LDC_inline_ir)
     //   R inlineIREx(string prefix, string code, string suffix, R, P...)(P);
     Objects &objs = tinst->tdtypes;
-    assert(objs.dim == 3 || objs.dim == 5);
-    const bool isExtended = (objs.dim == 5);
+    assert(objs.length == 3 || objs.length == 5);
+    const bool isExtended = (objs.length == 5);
 
-    std::string prefix;
-    std::string code;
-    std::string suffix;
+    llvm::StringRef prefix, code, suffix;
     if (isExtended) {
       Expression *a0 = isExpression(objs[0]);
       assert(a0);
@@ -167,9 +167,8 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
     }
     stream << "define " << *DtoType(ret) << " @" << mangled_name << "(";
 
-    for (size_t i = 0;;) {
+    for (size_t i = 0; i < arg_types.length; ++i) {
       Type *ty = isType(arg_types[i]);
-      // assert(ty);
       if (!ty) {
         error(tinst->loc,
               "All parameters of a template defined with pragma "
@@ -177,21 +176,16 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
               ", should be types");
         fatal();
       }
+      if (i != 0)
+        stream << ", ";
       stream << *DtoType(ty);
-
-      i++;
-      if (i >= arg_types.dim) {
-        break;
-      }
-
-      stream << ", ";
     }
 
-    if (ret->ty == Tvoid) {
-      code.append("\nret void");
+    stream << ")\n{\n" << code;
+    if (ret->ty == TY::Tvoid) {
+      stream << "\nret void";
     }
-
-    stream << ")\n{\n" << code << "\n}";
+    stream << "\n}";
     if (!suffix.empty()) {
       stream << "\n" << suffix;
     }
@@ -201,7 +195,7 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
     std::unique_ptr<llvm::Module> m =
         llvm::parseAssemblyString(stream.str().c_str(), err, gIR->context());
 
-    std::string errstr = err.getMessage();
+    std::string errstr(err.getMessage());
     if (!errstr.empty()) {
       error(tinst->loc,
             "can't parse inline LLVM IR:\n`%s`\n%s\n%s\nThe input string "
@@ -209,15 +203,12 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
             err.getLineContents().str().c_str(),
             (std::string(err.getColumnNo(), ' ') + '^').c_str(), errstr.c_str(),
             stream.str().c_str());
+      fatal();
     }
 
     m->setDataLayout(gIR->module.getDataLayout());
 
-#if LDC_LLVM_VER >= 308
     llvm::Linker(gIR->module).linkInModule(std::move(m));
-#else
-    llvm::Linker(&gIR->module).linkInModule(m.get());
-#endif
   }
 
   // 2. Call the function that was just defined and return the returnvalue
@@ -241,7 +232,7 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
 
     // Build the runtime arguments
     llvm::SmallVector<llvm::Value *, 8> args;
-    args.reserve(arguments->dim);
+    args.reserve(arguments->length);
     for (auto arg : *arguments) {
       args.push_back(DtoRVal(arg));
     }
@@ -254,12 +245,10 @@ DValue *DtoInlineIRExpr(Loc &loc, FuncDeclaration *fdecl,
       return new DLValue(type, sretPointer);
     }
 
-    // work around missing tuple support for users of the return value
-    if (type->toBasetype()->ty == Tstruct) {
-      // make a copy
-      llvm::Value *mem = DtoAlloca(type, ".__ir_tuple_ret");
-      DtoStore(rv, DtoBitCast(mem, getPtrToType(rv->getType())));
-      return new DLValue(type, mem);
+    // dump struct and static array return values to memory
+    if (DtoIsInMemoryOnly(type->toBasetype())) {
+      LLValue *lval = DtoAllocaDump(rv, type, ".__ir_ret");
+      return new DLValue(type, lval);
     }
 
     // return call as im value

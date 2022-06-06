@@ -12,20 +12,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_TYPEINF_H
-#define LDC_GEN_TYPEINF_H
+#pragma once
 
-struct IRState;
-struct Scope;
+struct Loc;
 class Type;
 class TypeInfoDeclaration;
 
-void DtoResolveTypeInfo(TypeInfoDeclaration *tid);
-TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(Type *t, Scope *sc);
-void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p);
-void TypeInfoClassDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p);
+bool builtinTypeInfo(Type *t); // in dmd/typinf.d
 
-// defined in dmd/typinf.d:
-bool isSpeculativeType(Type *t);
+namespace llvm {
+class GlobalVariable;
+}
 
-#endif
+TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(const Loc &loc,
+                                                    Type *forType);
+llvm::GlobalVariable *DtoResolveTypeInfo(TypeInfoDeclaration *tid);
+
+// Adds some metadata for use by optimization passes.
+void emitTypeInfoMetadata(llvm::GlobalVariable *typeinfoGlobal, Type *forType);

@@ -13,16 +13,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_TOLLVM_H
-#define LDC_GEN_TOLLVM_H
+#pragma once
 
-#include "attrib.h"
-#include "declaration.h"
-#include "tokens.h"
-#include "mtype.h"
+#include "dmd/attrib.h"
+#include "dmd/declaration.h"
+#include "dmd/tokens.h"
+#include "dmd/mtype.h"
+#include "gen/attributes.h"
 #include "gen/llvm.h"
 #include "gen/structs.h"
-#include "gen/attributes.h"
 
 // D->LLVM type handling stuff
 
@@ -55,40 +54,48 @@ bool DtoIsInMemoryOnly(Type *type);
 // address as additional parameter to the callee, which will set it up.
 bool DtoIsReturnInArg(CallExp *ce);
 
-// should argument be zero or sign extended
-LLAttribute DtoShouldExtend(Type *type);
+// Adds an appropriate attribute if the type should be zero or sign extended.
+void DtoAddExtendAttr(Type *type, llvm::AttrBuilder &attrs);
 
 // tuple helper
 // takes a arguments list and makes a struct type out of them
 // LLType* DtoStructTypeFromArguments(Arguments* arguments);
 
 // delegate helpers
-LLValue *DtoDelegateEquals(TOK op, LLValue *lhs, LLValue *rhs);
+LLValue *DtoDelegateEquals(EXP op, LLValue *lhs, LLValue *rhs);
 
 // Returns the LLVM linkage to use for the definition of the given symbol,
 // based on whether it is a template or not.
 typedef std::pair<llvm::GlobalValue::LinkageTypes, bool> LinkageWithCOMDAT;
 LinkageWithCOMDAT DtoLinkage(Dsymbol *sym);
 
-bool supportsCOMDAT();
+bool needsCOMDAT();
 void setLinkage(LinkageWithCOMDAT lwc, llvm::GlobalObject *obj);
-void setLinkage(Dsymbol *sym, llvm::GlobalObject *obj);
+// Sets linkage and visibility of the specified IR symbol based on the specified
+// D symbol.
+void setLinkageAndVisibility(Dsymbol *sym, llvm::GlobalObject *obj);
+// Hides or exports the specified IR symbol depending on its linkage,
+// `-fvisibility` and the specified D symbol's visibility.
+void setVisibility(Dsymbol *sym, llvm::GlobalObject *obj);
 
 // some types
 LLIntegerType *DtoSize_t();
 LLStructType *DtoModuleReferenceType();
 
-// getelementptr helpers
-LLValue *DtoGEP1(LLValue *ptr, LLValue *i0, bool inBounds,
-                 const char *name = "", llvm::BasicBlock *bb = nullptr);
-LLValue *DtoGEP(LLValue *ptr, LLValue *i0, LLValue *i1, bool inBounds,
-                const char *name = "", llvm::BasicBlock *bb = nullptr);
+// Returns the pointee type of the specified pointer value.
+LLType *getPointeeType(LLValue *pointer);
 
-LLValue *DtoGEPi1(LLValue *ptr, unsigned i0, const char *name = "",
-                  llvm::BasicBlock *bb = nullptr);
-LLValue *DtoGEPi(LLValue *ptr, unsigned i0, unsigned i1, const char *name = "",
+// getelementptr helpers
+LLValue *DtoGEP1(LLValue *ptr, LLValue *i0, const char *name = "",
                  llvm::BasicBlock *bb = nullptr);
-LLConstant *DtoGEPi(LLConstant *ptr, unsigned i0, unsigned i1);
+LLValue *DtoGEP(LLValue *ptr, LLValue *i0, LLValue *i1, const char *name = "",
+                llvm::BasicBlock *bb = nullptr);
+
+LLValue *DtoGEP1(LLValue *ptr, unsigned i0, const char *name = "",
+                 llvm::BasicBlock *bb = nullptr);
+LLValue *DtoGEP(LLValue *ptr, unsigned i0, unsigned i1, const char *name = "",
+                llvm::BasicBlock *bb = nullptr);
+LLConstant *DtoGEP(LLConstant *ptr, unsigned i0, unsigned i1);
 
 // to constant helpers
 LLConstantInt *DtoConstSize_t(uint64_t);
@@ -204,5 +211,3 @@ void DtoMemCpy(LLValue *dst, LLValue *src, bool withPadding = false,
  * Generates a call to C memcmp.
  */
 LLValue *DtoMemCmp(LLValue *lhs, LLValue *rhs, LLValue *nbytes);
-
-#endif // LDC_GEN_TOLLVM_H

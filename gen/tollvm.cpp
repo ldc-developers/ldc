@@ -8,12 +8,16 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/tollvm.h"
-#include "aggregate.h"
-#include "declaration.h"
-#include "dsymbol.h"
-#include "id.h"
-#include "init.h"
-#include "module.h"
+
+#include "dmd/aggregate.h"
+#include "dmd/declaration.h"
+#include "dmd/dsymbol.h"
+#include "dmd/expression.h"
+#include "dmd/id.h"
+#include "dmd/init.h"
+#include "dmd/module.h"
+#include "dmd/target.h"
+#include "driver/cl_options.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
@@ -38,28 +42,24 @@
 bool DtoIsInMemoryOnly(Type *type) {
   Type *typ = type->toBasetype();
   TY t = typ->ty;
-  return (t == Tstruct || t == Tsarray);
-}
-
-RET retStyle(TypeFunction *tf) {
-  bool sret = gABI->returnInArg(tf);
-  return sret ? RETstack : RETregs;
+  return (t == TY::Tstruct || t == TY::Tsarray);
 }
 
 bool DtoIsReturnInArg(CallExp *ce) {
-  TypeFunction *tf = static_cast<TypeFunction *>(ce->e1->type->toBasetype());
-  if (tf->ty == Tfunction && (!ce->f || !DtoIsIntrinsic(ce->f))) {
-    return retStyle(tf) == RETstack;
+  Type *t = ce->e1->type->toBasetype();
+  if (t->ty == TY::Tfunction && (!ce->f || !DtoIsIntrinsic(ce->f))) {
+    return gABI->returnInArg(static_cast<TypeFunction *>(t),
+                             ce->f && ce->f->needThis());
   }
   return false;
 }
 
-LLAttribute DtoShouldExtend(Type *type) {
+void DtoAddExtendAttr(Type *type, llvm::AttrBuilder &attrs) {
   type = type->toBasetype();
-  if (type->isintegral() && type->ty != Tvector && type->size() <= 2) {
-    return type->isunsigned() ? LLAttribute::ZExt : LLAttribute::SExt;
+  if (type->isintegral() && type->ty != TY::Tvector && type->size() <= 2) {
+    attrs.addAttribute(type->isunsigned() ? LLAttribute::ZExt
+                                          : LLAttribute::SExt);
   }
-  return LLAttribute::None;
 }
 
 LLType *DtoType(Type *t) {
@@ -72,85 +72,98 @@ LLType *DtoType(Type *t) {
   IF_LOG Logger::println("Building type: %s", t->toChars());
   LOG_SCOPE;
 
-  assert(t);
   switch (t->ty) {
   // basic types
-  case Tvoid:
-  case Tint8:
-  case Tuns8:
-  case Tint16:
-  case Tuns16:
-  case Tint32:
-  case Tuns32:
-  case Tint64:
-  case Tuns64:
-  case Tint128:
-  case Tuns128:
-  case Tfloat32:
-  case Tfloat64:
-  case Tfloat80:
-  case Timaginary32:
-  case Timaginary64:
-  case Timaginary80:
-  case Tcomplex32:
-  case Tcomplex64:
-  case Tcomplex80:
-  // case Tbit:
-  case Tbool:
-  case Tchar:
-  case Twchar:
-  case Tdchar: {
+  case TY::Tvoid:
+  case TY::Tint8:
+  case TY::Tuns8:
+  case TY::Tint16:
+  case TY::Tuns16:
+  case TY::Tint32:
+  case TY::Tuns32:
+  case TY::Tint64:
+  case TY::Tuns64:
+  case TY::Tint128:
+  case TY::Tuns128:
+  case TY::Tfloat32:
+  case TY::Tfloat64:
+  case TY::Tfloat80:
+  case TY::Timaginary32:
+  case TY::Timaginary64:
+  case TY::Timaginary80:
+  case TY::Tcomplex32:
+  case TY::Tcomplex64:
+  case TY::Tcomplex80:
+  // case TY::Tbit:
+  case TY::Tbool:
+  case TY::Tchar:
+  case TY::Twchar:
+  case TY::Tdchar:
+  case TY::Tnoreturn: {
     return IrTypeBasic::get(t)->getLLType();
   }
 
   // pointers
-  case Tnull:
-  case Tpointer: {
+  case TY::Tnull:
+  case TY::Tpointer: {
     return IrTypePointer::get(t)->getLLType();
   }
 
   // arrays
-  case Tarray: {
+  case TY::Tarray: {
     return IrTypeArray::get(t)->getLLType();
   }
 
-  case Tsarray: {
+  case TY::Tsarray: {
     return IrTypeSArray::get(t)->getLLType();
   }
 
   // aggregates
-  case Tstruct: {
-    TypeStruct *ts = static_cast<TypeStruct *>(t);
-    if (ts->sym->type->ctype) {
-      // This should not happen, but the frontend seems to be buggy. Not
-      // sure if this is the best way to handle the situation, but we
-      // certainly don't want to override ts->sym->type->ctype.
-      IF_LOG Logger::cout()
-          << "Struct with multiple Types detected: " << ts->toChars() << " ("
-          << ts->sym->locToChars() << ")" << std::endl;
-      return ts->sym->type->ctype->getLLType();
+  case TY::Tstruct:
+  case TY::Tclass: {
+    const auto isStruct = t->ty == TY::Tstruct;
+    AggregateDeclaration *ad;
+    if (isStruct) {
+      ad = static_cast<TypeStruct *>(t)->sym;
+    } else {
+      ad = static_cast<TypeClass *>(t)->sym;
     }
-    return IrTypeStruct::get(ts->sym)->getLLType();
-  }
-  case Tclass: {
-    TypeClass *tc = static_cast<TypeClass *>(t);
-    if (tc->sym->type->ctype) {
-      // See Tstruct case.
-      IF_LOG Logger::cout()
-          << "Class with multiple Types detected: " << tc->toChars() << " ("
-          << tc->sym->locToChars() << ")" << std::endl;
-      return tc->sym->type->ctype->getLLType();
+    if (ad->type->ty == TY::Terror) {
+      static LLStructType *opaqueErrorType =
+          LLStructType::create(gIR->context(), Type::terror->toChars());
+      return opaqueErrorType;
     }
-    return IrTypeClass::get(tc->sym)->getLLType();
+    Type *adType = stripModifiers(ad->type);
+    if (adType->ctype) {
+      /* This should not happen, but e.g. can for aggregates whose mangled name
+       * contains a lambda which got promoted from a delegate to a function.
+       * We certainly don't want to override adType->ctype, and not associate
+       * an IrType to multiple Types either (see e.g.
+       * IrTypeStruct::resetDComputeTypes()).
+       * This means there are some aggregate Types which don't have an
+       * associated ctype, so getIrType() should always be fed with its
+       * AggregateDeclaration::type.
+       */
+      IF_LOG {
+        Logger::println("Aggregate with multiple Types detected: %s (%s)",
+                        ad->toPrettyChars(), ad->locToChars());
+        LOG_SCOPE;
+        Logger::println("Existing deco:    %s", adType->deco);
+        Logger::println("Mismatching deco: %s", t->deco);
+      }
+      return adType->ctype->getLLType();
+    }
+    return isStruct ? IrTypeStruct::get(ad->isStructDeclaration())->getLLType()
+                    : IrTypeClass::get(ad->isClassDeclaration())->getLLType();
   }
 
   // functions
-  case Tfunction: {
+  case TY::Tfunction: {
     return IrTypeFunction::get(t)->getLLType();
   }
 
   // delegates
-  case Tdelegate: {
+  case TY::Tdelegate: {
     return IrTypeDelegate::get(t)->getLLType();
   }
 
@@ -158,7 +171,7 @@ LLType *DtoType(Type *t) {
   // enum
 
   // FIXME: maybe just call toBasetype first ?
-  case Tenum: {
+  case TY::Tenum: {
     Type *bt = t->toBasetype();
     assert(bt);
     if (t == bt) {
@@ -171,12 +184,11 @@ LLType *DtoType(Type *t) {
   }
 
   // associative arrays
-  case Taarray:
+  case TY::Taarray:
     return getVoidPtrType();
 
-  case Tvector: {
+  case TY::Tvector:
     return IrTypeVector::get(t)->getLLType();
-  }
 
   default:
     llvm_unreachable("Unknown class of D Type!");
@@ -189,22 +201,16 @@ LLType *DtoMemType(Type *t) { return i1ToI8(voidToI8(DtoType(t))); }
 LLPointerType *DtoPtrToType(Type *t) { return DtoMemType(t)->getPointerTo(); }
 
 LLType *voidToI8(LLType *t) {
-  if (t == LLType::getVoidTy(gIR->context())) {
-    return LLType::getInt8Ty(gIR->context());
-  }
-  return t;
+  return t->isVoidTy() ? LLType::getInt8Ty(t->getContext()) : t;
 }
 
 LLType *i1ToI8(LLType *t) {
-  if (t == LLType::getInt1Ty(gIR->context())) {
-    return LLType::getInt8Ty(gIR->context());
-  }
-  return t;
+  return t->isIntegerTy(1) ? LLType::getInt8Ty(t->getContext()) : t;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoDelegateEquals(TOK op, LLValue *lhs, LLValue *rhs) {
+LLValue *DtoDelegateEquals(EXP op, LLValue *lhs, LLValue *rhs) {
   Logger::println("Doing delegate equality");
   if (rhs == nullptr) {
     rhs = LLConstant::getNullValue(lhs->getType());
@@ -222,29 +228,100 @@ LLValue *DtoDelegateEquals(TOK op, LLValue *lhs, LLValue *rhs) {
 ////////////////////////////////////////////////////////////////////////////////
 
 LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
-  auto linkage = (DtoIsTemplateInstance(sym) ? templateLinkage
-                                             : LLGlobalValue::ExternalLinkage);
-
-  // If @(ldc.attributes.weak) is applied, override the linkage to WeakAny
+  LLGlobalValue::LinkageTypes linkage = LLGlobalValue::ExternalLinkage;
   if (hasWeakUDA(sym)) {
     linkage = LLGlobalValue::WeakAnyLinkage;
+  } else {
+    // Function (incl. delegate) literals are emitted into each referencing
+    // compilation unit, so use linkonce_odr for all lambdas and all global
+    // variables they define.
+    auto potentialLambda = sym;
+    if (auto vd = sym->isVarDeclaration()) {
+      if (vd->isDataseg())
+        potentialLambda = vd->toParent2();
+    }
+
+    if (potentialLambda->isFuncLiteralDeclaration()) {
+      linkage = LLGlobalValue::LinkOnceODRLinkage;
+    } else if (sym->isInstantiated()) {
+      linkage = templateLinkage;
+    }
   }
 
-  return {linkage, supportsCOMDAT()};
+  return {linkage, needsCOMDAT()};
 }
 
-bool supportsCOMDAT() {
-  return !global.params.targetTriple->isOSBinFormatMachO();
+bool needsCOMDAT() {
+  /* For MSVC targets (and probably MinGW too), linkonce[_odr] and weak[_odr]
+   * linkages don't work and need to be emulated via COMDATs to prevent multiple
+   * definition errors when linking.
+   * Simply emit all functions in COMDATs, not just templates, for aggressive
+   * linker stripping (/OPT:REF and /OPT:ICF with MS linker/LLD), analogous to
+   * using /Gy with the MS compiler.
+   * https://docs.microsoft.com/en-us/cpp/build/reference/opt-optimizations?view=vs-2019
+   */
+  return global.params.targetTriple->isOSBinFormatCOFF();
 }
 
 void setLinkage(LinkageWithCOMDAT lwc, llvm::GlobalObject *obj) {
   obj->setLinkage(lwc.first);
-  if (lwc.second)
-    obj->setComdat(gIR->module.getOrInsertComdat(obj->getName()));
+  obj->setComdat(lwc.second ? gIR->module.getOrInsertComdat(obj->getName())
+                            : nullptr);
 }
 
-void setLinkage(Dsymbol *sym, llvm::GlobalObject *obj) {
+void setLinkageAndVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
   setLinkage(DtoLinkage(sym), obj);
+  setVisibility(sym, obj);
+}
+
+namespace {
+bool hasExportedLinkage(llvm::GlobalObject *obj) {
+  const auto l = obj->getLinkage();
+  return l == LLGlobalValue::ExternalLinkage ||
+         l == LLGlobalValue::WeakODRLinkage ||
+         l == LLGlobalValue::WeakAnyLinkage;
+}
+}
+
+void setVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
+  const auto &triple = *global.params.targetTriple;
+
+  const bool hasHiddenUDA = obj->hasHiddenVisibility();
+
+  if (triple.isOSWindows()) {
+    bool isExported = sym->isExport();
+    // Also export (non-linkonce_odr) symbols
+    // * with -fvisibility=public without @hidden, or
+    // * if declared with dllimport (so potentially imported from other object
+    //   files / DLLs).
+    if (!isExported && ((global.params.dllexport && !hasHiddenUDA) ||
+                        obj->hasDLLImportStorageClass())) {
+      isExported = hasExportedLinkage(obj);
+    }
+    // reset default visibility & DSO locality - on Windows, the DLL storage
+    // classes matter
+    if (hasHiddenUDA) {
+      obj->setVisibility(LLGlobalValue::DefaultVisibility);
+      obj->setDSOLocal(false);
+    }
+    obj->setDLLStorageClass(isExported ? LLGlobalValue::DLLExportStorageClass
+                                       : LLGlobalValue::DefaultStorageClass);
+  } else {
+    if (sym->isExport()) {
+      obj->setVisibility(LLGlobalValue::DefaultVisibility); // overrides @hidden
+    } else if (!hasHiddenUDA) {
+      // Hide with -fvisibility=hidden, or linkonce_odr etc.
+      // The Apple linker warns about hidden linkonce_odr symbols from object
+      // files compiled with -linkonce-templates being folded with *public*
+      // weak_odr symbols from non-linkonce-templates code (e.g., Phobos), so
+      // don't hide instantiated symbols for Mac.
+      if (opts::symbolVisibility == opts::SymbolVisibility::hidden ||
+          (!hasExportedLinkage(obj) &&
+           !(triple.isOSDarwin() && sym->isInstantiated()))) {
+        obj->setVisibility(LLGlobalValue::HiddenVisibility);
+      }
+    }
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -253,13 +330,11 @@ LLIntegerType *DtoSize_t() {
   // the type of size_t does not change once set
   static LLIntegerType *t = nullptr;
   if (t == nullptr) {
-    auto triple = global.params.targetTriple;
-
-    if (triple->isArch64Bit()) {
+    if (target.ptrsize == 8) {
       t = LLType::getInt64Ty(gIR->context());
-    } else if (triple->isArch32Bit()) {
+    } else if (target.ptrsize == 4) {
       t = LLType::getInt32Ty(gIR->context());
-    } else if (triple->isArch16Bit()) {
+    } else if (target.ptrsize == 2) {
       t = LLType::getInt16Ty(gIR->context());
     } else {
       llvm_unreachable("Unsupported size_t width");
@@ -270,48 +345,48 @@ LLIntegerType *DtoSize_t() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+LLType *getPointeeType(LLValue *pointer) {
+  return pointer->getType()->getPointerElementType();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 namespace {
 llvm::GetElementPtrInst *DtoGEP(LLValue *ptr, llvm::ArrayRef<LLValue *> indices,
-                                bool inBounds, const char *name,
-                                llvm::BasicBlock *bb) {
-  LLPointerType *p = isaPointer(ptr);
-  assert(p && "GEP expects a pointer type");
-  auto gep = llvm::GetElementPtrInst::Create(
-      p->getElementType(), ptr, indices, name, bb ? bb : gIR->scopebb());
-  gep->setIsInBounds(inBounds);
+                                const char *name, llvm::BasicBlock *bb) {
+  auto gep = llvm::GetElementPtrInst::Create(getPointeeType(ptr), ptr, indices,
+                                             name, bb ? bb : gIR->scopebb());
+  gep->setIsInBounds(true);
   return gep;
 }
 }
 
-LLValue *DtoGEP1(LLValue *ptr, LLValue *i0, bool inBounds, const char *name,
+LLValue *DtoGEP1(LLValue *ptr, LLValue *i0, const char *name,
                  llvm::BasicBlock *bb) {
-  return DtoGEP(ptr, i0, inBounds, name, bb);
+  return DtoGEP(ptr, i0, name, bb);
 }
 
-LLValue *DtoGEP(LLValue *ptr, LLValue *i0, LLValue *i1, bool inBounds,
-                const char *name, llvm::BasicBlock *bb) {
+LLValue *DtoGEP(LLValue *ptr, LLValue *i0, LLValue *i1, const char *name,
+                llvm::BasicBlock *bb) {
   LLValue *indices[] = {i0, i1};
-  return DtoGEP(ptr, indices, inBounds, name, bb);
+  return DtoGEP(ptr, indices, name, bb);
 }
 
-LLValue *DtoGEPi1(LLValue *ptr, unsigned i0, const char *name,
-                  llvm::BasicBlock *bb) {
-  return DtoGEP(ptr, DtoConstUint(i0), /* inBounds = */ true, name, bb);
-}
-
-LLValue *DtoGEPi(LLValue *ptr, unsigned i0, unsigned i1, const char *name,
+LLValue *DtoGEP1(LLValue *ptr, unsigned i0, const char *name,
                  llvm::BasicBlock *bb) {
-  LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
-  return DtoGEP(ptr, indices, /* inBounds = */ true, name, bb);
+  return DtoGEP(ptr, DtoConstUint(i0), name, bb);
 }
 
-LLConstant *DtoGEPi(LLConstant *ptr, unsigned i0, unsigned i1) {
-  LLPointerType *p = isaPointer(ptr);
-  (void)p;
-  assert(p && "GEP expects a pointer type");
+LLValue *DtoGEP(LLValue *ptr, unsigned i0, unsigned i1, const char *name,
+                llvm::BasicBlock *bb) {
   LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
-  return llvm::ConstantExpr::getGetElementPtr(
-      p->getElementType(), ptr, indices, /* InBounds = */ true);
+  return DtoGEP(ptr, indices, name, bb);
+}
+
+LLConstant *DtoGEP(LLConstant *ptr, unsigned i0, unsigned i1) {
+  LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
+  return llvm::ConstantExpr::getGetElementPtr(getPointeeType(ptr), ptr, indices,
+                                              /* InBounds = */ true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -321,7 +396,7 @@ void DtoMemSet(LLValue *dst, LLValue *val, LLValue *nbytes, unsigned align) {
 
   dst = DtoBitCast(dst, VoidPtrTy);
 
-  gIR->ir->CreateMemSet(dst, val, nbytes, align, false /*isVolatile*/);
+  gIR->ir->CreateMemSet(dst, val, nbytes, LLMaybeAlign(align), false /*isVolatile*/);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -343,11 +418,8 @@ void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes, unsigned align) {
   dst = DtoBitCast(dst, VoidPtrTy);
   src = DtoBitCast(src, VoidPtrTy);
 
-#if LDC_LLVM_VER >= 700
-  gIR->ir->CreateMemCpy(dst, align, src, align, nbytes, false /*isVolatile*/);
-#else
-  gIR->ir->CreateMemCpy(dst, src, nbytes, align, false /*isVolatile*/);
-#endif
+  auto A = LLMaybeAlign(align);
+  gIR->ir->CreateMemCpy(dst, A, src, A, nbytes, false /*isVolatile*/);
 }
 
 void DtoMemCpy(LLValue *dst, LLValue *src, bool withPadding, unsigned align) {
@@ -418,28 +490,8 @@ LLConstant *DtoConstFP(Type *t, const real_t value) {
 
 LLConstant *DtoConstCString(const char *str) {
   llvm::StringRef s(str ? str : "");
-
-  const auto it = gIR->stringLiteral1ByteCache.find(s);
-  llvm::GlobalVariable *gvar =
-      it == gIR->stringLiteral1ByteCache.end() ? nullptr : it->getValue();
-
-  if (gvar == nullptr) {
-    llvm::Constant *init =
-        llvm::ConstantDataArray::getString(gIR->context(), s, true);
-    gvar = new llvm::GlobalVariable(gIR->module, init->getType(), true,
-                                    llvm::GlobalValue::PrivateLinkage, init,
-                                    ".str");
-#if LDC_LLVM_VER >= 309
-    gvar->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-#else
-    gvar->setUnnamedAddr(true);
-#endif
-    gIR->stringLiteral1ByteCache[s] = gvar;
-  }
-
-  LLConstant *idxs[] = {DtoConstUint(0), DtoConstUint(0)};
-  return llvm::ConstantExpr::getGetElementPtr(gvar->getInitializer()->getType(),
-                                              gvar, idxs, true);
+  LLGlobalVariable *gvar = gIR->getCachedStringLiteral(s);
+  return DtoGEP(gvar, 0u, 0u);
 }
 
 LLConstant *DtoConstString(const char *str) {
@@ -450,38 +502,46 @@ LLConstant *DtoConstString(const char *str) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+namespace {
+llvm::LoadInst *DtoLoadImpl(LLValue *src, const char *name) {
+  return gIR->ir->CreateLoad(getPointeeType(src), src, name);
+}
+}
+
 LLValue *DtoLoad(LLValue *src, const char *name) {
-  return gIR->ir->CreateLoad(src, name);
+  return DtoLoadImpl(src, name);
 }
 
 // Like DtoLoad, but the pointer is guaranteed to be aligned appropriately for
 // the type.
 LLValue *DtoAlignedLoad(LLValue *src, const char *name) {
-  llvm::LoadInst *ld = gIR->ir->CreateLoad(src, name);
-  ld->setAlignment(getABITypeAlign(ld->getType()));
+  llvm::LoadInst *ld = DtoLoadImpl(src, name);
+  if (auto alignment = getABITypeAlign(ld->getType())) {
+    ld->setAlignment(LLAlign(alignment));
+  }
   return ld;
 }
 
 LLValue *DtoVolatileLoad(LLValue *src, const char *name) {
-  llvm::LoadInst *ld = gIR->ir->CreateLoad(src, name);
+  llvm::LoadInst *ld = DtoLoadImpl(src, name);
   ld->setVolatile(true);
   return ld;
 }
 
 void DtoStore(LLValue *src, LLValue *dst) {
-  assert(src->getType() != llvm::Type::getInt1Ty(gIR->context()) &&
+  assert(!src->getType()->isIntegerTy(1) &&
          "Should store bools as i8 instead of i1.");
   gIR->ir->CreateStore(src, dst);
 }
 
 void DtoVolatileStore(LLValue *src, LLValue *dst) {
-  assert(src->getType() != llvm::Type::getInt1Ty(gIR->context()) &&
+  assert(!src->getType()->isIntegerTy(1) &&
          "Should store bools as i8 instead of i1.");
   gIR->ir->CreateStore(src, dst)->setVolatile(true);
 }
 
 void DtoStoreZextI8(LLValue *src, LLValue *dst) {
-  if (src->getType() == llvm::Type::getInt1Ty(gIR->context())) {
+  if (src->getType()->isIntegerTy(1)) {
     llvm::Type *i8 = llvm::Type::getInt8Ty(gIR->context());
     assert(dst->getType()->getContainedType(0) == i8);
     src = gIR->ir->CreateZExt(src, i8);
@@ -492,10 +552,12 @@ void DtoStoreZextI8(LLValue *src, LLValue *dst) {
 // Like DtoStore, but the pointer is guaranteed to be aligned appropriately for
 // the type.
 void DtoAlignedStore(LLValue *src, LLValue *dst) {
-  assert(src->getType() != llvm::Type::getInt1Ty(gIR->context()) &&
+  assert(!src->getType()->isIntegerTy(1) &&
          "Should store bools as i8 instead of i1.");
   llvm::StoreInst *st = gIR->ir->CreateStore(src, dst);
-  st->setAlignment(getABITypeAlign(src->getType()));
+  if (auto alignment = getABITypeAlign(src->getType())) {
+    st->setAlignment(LLAlign(alignment));
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -658,8 +720,7 @@ LLStructType *DtoModuleReferenceType() {
   LLStructType *st = LLStructType::create(gIR->context(), "ModuleReference");
 
   // add members
-  LLType *types[] = {getPtrToType(st),
-                     DtoType(Module::moduleinfo->type->pointerTo())};
+  LLType *types[] = {getPtrToType(st), DtoPtrToType(getModuleInfoType())};
 
   // resolve type
   st->setBody(types);

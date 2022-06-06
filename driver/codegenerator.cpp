@@ -9,33 +9,40 @@
 
 #include "driver/codegenerator.h"
 
-#include "id.h"
-#include "mars.h"
-#include "module.h"
-#include "scope.h"
+#include "dmd/compiler.h"
+#include "dmd/errors.h"
+#include "dmd/globals.h"
+#include "dmd/id.h"
+#include "dmd/module.h"
+#include "dmd/scope.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/linker.h"
 #include "driver/toobj.h"
+#include "gen/dynamiccompile.h"
 #include "gen/logger.h"
 #include "gen/modules.h"
 #include "gen/runtime.h"
-#include "gen/dynamiccompile.h"
+#include "ir/irdsymbol.h"
+#if LDC_LLVM_VER >= 1400
+#include "llvm/IR/DiagnosticInfo.h"
+#endif
+#if LDC_LLVM_VER >= 1100
+#include "llvm/IR/LLVMRemarkStreamer.h"
+#else
+#include "llvm/IR/RemarkStreamer.h"
+#endif
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/YAMLTraits.h"
-
-/// The module with the frontend-generated C main() definition.
-extern Module *entrypoint; // defined in dmd/mars.d
-
-/// The module that contains the actual D main() (_Dmain) definition.
-extern Module *rootHasMain; // defined in dmd/mars.d
-
-#if LDC_LLVM_VER < 600
-namespace llvm {
-  using ToolOutputFile = tool_output_file;
-}
+#if LDC_MLIR_ENABLED
+#if LDC_LLVM_VER >= 1200
+#include "mlir/IR/BuiltinOps.h"
+#else
+#include "mlir/IR/Module.h"
+#endif
+#include "mlir/IR/MLIRContext.h"
 #endif
 
 namespace {
@@ -45,7 +52,6 @@ createAndSetDiagnosticsOutputFile(IRState &irs, llvm::LLVMContext &ctx,
                                   llvm::StringRef filename) {
   std::unique_ptr<llvm::ToolOutputFile> diagnosticsOutputFile;
 
-#if LDC_LLVM_VER >= 400
   // Set LLVM Diagnostics outputfile if requested
   if (opts::saveOptimizationRecord.getNumOccurrences() > 0) {
     llvm::SmallString<128> diagnosticsFilename;
@@ -56,82 +62,34 @@ createAndSetDiagnosticsOutputFile(IRState &irs, llvm::LLVMContext &ctx,
       llvm::sys::path::replace_extension(diagnosticsFilename, "opt.yaml");
     }
 
-    std::error_code EC;
-    diagnosticsOutputFile = llvm::make_unique<llvm::ToolOutputFile>(
-        diagnosticsFilename, EC, llvm::sys::fs::F_None);
-    if (EC) {
+    // If there is instrumentation data available, also output function hotness
+    const bool withHotness = opts::isUsingPGOProfile();
+
+    auto remarksFileOrError =
+#if LDC_LLVM_VER >= 1100
+        llvm::setupLLVMOptimizationRemarks(
+#else
+        llvm::setupOptimizationRemarks(
+#endif
+            ctx, diagnosticsFilename, "", "", withHotness);
+    if (llvm::Error e = remarksFileOrError.takeError()) {
       irs.dmodule->error("Could not create file %s: %s",
-                         diagnosticsFilename.c_str(), EC.message().c_str());
+                         diagnosticsFilename.c_str(),
+                         llvm::toString(std::move(e)).c_str());
       fatal();
     }
-
-    ctx.setDiagnosticsOutputFile(
-        llvm::make_unique<llvm::yaml::Output>(diagnosticsOutputFile->os()));
-
-    // If there is instrumentation data available, also output function hotness
-    if (opts::isUsingPGOProfile()) {
-#if LDC_LLVM_VER >= 500
-      ctx.setDiagnosticsHotnessRequested(true);
-#else
-      ctx.setDiagnosticHotnessRequested(true);
-#endif
-    }
+    diagnosticsOutputFile = std::move(*remarksFileOrError);
   }
-#endif
 
   return diagnosticsOutputFile;
 }
 
-} // anonymous namespace
+void addLinkerMetadata(llvm::Module &M, const char *name,
+                       llvm::ArrayRef<llvm::MDNode *> newOperands) {
+  if (newOperands.empty())
+    return;
 
-namespace {
-
-#if LDC_LLVM_VER < 500
-/// Add the Linker Options module flag.
-/// If the flag is already present, merge it with the new data.
-void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
-  if (!M.getModuleFlag("Linker Options")) {
-    M.addModuleFlag(llvm::Module::AppendUnique, "Linker Options",
-                    llvm::MDNode::get(ctx, irs.LinkerMetadataArgs));
-  } else {
-    // Merge the Linker Options with the pre-existing one
-    // (this can happen when passing a .bc file on the commandline)
-
-    auto *moduleFlags = M.getModuleFlagsMetadata();
-    for (unsigned i = 0, e = moduleFlags->getNumOperands(); i < e; ++i) {
-      auto *flag = moduleFlags->getOperand(i);
-      if (flag->getNumOperands() < 3)
-        continue;
-      auto optionsMDString =
-          llvm::dyn_cast_or_null<llvm::MDString>(flag->getOperand(1));
-      if (!optionsMDString || optionsMDString->getString() != "Linker Options")
-        continue;
-
-      // If we reach here, we found the Linker Options flag.
-
-      // Add the old Linker Options to our LinkerMetadataArgs list.
-      auto *oldLinkerOptions = llvm::cast<llvm::MDNode>(flag->getOperand(2));
-      for (const auto &Option : oldLinkerOptions->operands()) {
-        irs.LinkerMetadataArgs.push_back(Option);
-      }
-
-      // Replace Linker Options with a newly created list.
-      llvm::Metadata *Ops[3] = {
-          llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
-              llvm::Type::getInt32Ty(ctx), llvm::Module::AppendUnique)),
-          llvm::MDString::get(ctx, "Linker Options"),
-          llvm::MDNode::get(ctx, irs.LinkerMetadataArgs)};
-      moduleFlags->setOperand(i, llvm::MDNode::get(ctx, Ops));
-
-      break;
-    }
-  }
-}
-#else
-/// Add the "llvm.linker.options" metadata.
-/// If the metadata is already present, merge it with the new data.
-void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
-  auto *linkerOptionsMD = M.getOrInsertNamedMetadata("llvm.linker.options");
+  llvm::NamedMDNode *node = M.getOrInsertNamedMetadata(name);
 
   // Add the new operands in front of the existing ones, such that linker
   // options of .bc files passed on the cmdline are put _after_ the compiled .d
@@ -139,19 +97,26 @@ void emitLinkerOptions(IRState &irs, llvm::Module &M, llvm::LLVMContext &ctx) {
 
   // Temporarily store metadata nodes that are already present
   llvm::SmallVector<llvm::MDNode *, 5> oldMDNodes;
-  for (auto *MD : linkerOptionsMD->operands())
+  for (auto *MD : node->operands())
     oldMDNodes.push_back(MD);
 
   // Clear the list and add the new metadata nodes.
-  linkerOptionsMD->clearOperands();
-  for (auto *MD : irs.LinkerMetadataArgs)
-    linkerOptionsMD->addOperand(MD);
+  node->clearOperands();
+  for (auto *MD : newOperands)
+    node->addOperand(MD);
 
   // Re-add metadata nodes that were already present
   for (auto *MD : oldMDNodes)
-    linkerOptionsMD->addOperand(MD);
+    node->addOperand(MD);
 }
-#endif
+
+/// Add the "llvm.{linker.options,dependent-libraries}" metadata.
+/// If the metadata is already present, merge it with the new data.
+void emitLinkerOptions(IRState &irs) {
+  llvm::Module &M = irs.module;
+  addLinkerMetadata(M, "llvm.linker.options", irs.linkerOptions);
+  addLinkerMetadata(M, "llvm.dependent-libraries", irs.linkerDependentLibs);
+}
 
 void emitLLVMUsedArray(IRState &irs) {
   if (irs.usedArray.empty()) {
@@ -172,27 +137,72 @@ void emitLLVMUsedArray(IRState &irs) {
   llvmUsed->setSection("llvm.metadata");
 }
 
-}
-
-namespace ldc {
-CodeGenerator::CodeGenerator(llvm::LLVMContext &context, bool singleObj)
-    : context_(context), moduleCount_(0), singleObj_(singleObj), ir_(nullptr) {
-  if (!ClassDeclaration::object) {
-    error(Loc(), "declaration for class `Object` not found; druntime not "
-                 "configured properly");
-    fatal();
+bool inlineAsmDiagnostic(IRState *irs, const llvm::SMDiagnostic &d,
+                         unsigned locCookie) {
+  if (!locCookie) {
+    d.print(nullptr, llvm::errs());
+    return true;
   }
 
-#if LDC_LLVM_VER >= 309
+  // replace the `<inline asm>` dummy filename by the LOC of the actual D
+  // expression/statement (`myfile.d(123)`)
+  const Loc &loc = irs->getInlineAsmSrcLoc(locCookie);
+  const char *filename = loc.toChars(/*showColumns*/ false);
+
+  // keep on using llvm::SMDiagnostic::print() for nice, colorful output
+  llvm::SMDiagnostic d2(*d.getSourceMgr(), d.getLoc(), filename, d.getLineNo(),
+                        d.getColumnNo(), d.getKind(), d.getMessage(),
+                        d.getLineContents(), d.getRanges(), d.getFixIts());
+  d2.print(nullptr, llvm::errs());
+  return true;
+}
+
+#if LDC_LLVM_VER < 1300
+void inlineAsmDiagnosticHandler(const llvm::SMDiagnostic &d, void *context,
+                                unsigned locCookie) {
+  if (d.getKind() == llvm::SourceMgr::DK_Error)
+    ++global.errors;
+  inlineAsmDiagnostic(static_cast<IRState *>(context), d, locCookie);
+}
+#else
+struct InlineAsmDiagnosticHandler : public llvm::DiagnosticHandler {
+  IRState *irs;
+  InlineAsmDiagnosticHandler(IRState *irs) : irs(irs) {}
+
+    // return false to defer to LLVMContext::diagnose()
+  bool handleDiagnostics(const llvm::DiagnosticInfo &DI) override {
+    if (DI.getKind() != llvm::DK_SrcMgr)
+        return false;
+
+    const auto &DISM = llvm::cast<llvm::DiagnosticInfoSrcMgr>(DI);
+    if (DISM.getKind() == llvm::SourceMgr::DK_Error)
+      ++global.errors;
+    return inlineAsmDiagnostic(irs, DISM.getSMDiag(), DISM.getLocCookie());
+  }
+};
+#endif
+
+} // anonymous namespace
+
+namespace ldc {
+CodeGenerator::CodeGenerator(llvm::LLVMContext &context,
+#if LDC_MLIR_ENABLED
+                             mlir::MLIRContext &mlirContext,
+#endif
+                             bool singleObj)
+    : context_(context),
+#if LDC_MLIR_ENABLED
+      mlirContext_(mlirContext),
+#endif
+      moduleCount_(0), singleObj_(singleObj), ir_(nullptr) {
   // Set the context to discard value names when not generating textual IR.
   if (!global.params.output_ll) {
     context_.setDiscardValueNames(true);
   }
-#endif
 }
 
 CodeGenerator::~CodeGenerator() {
-  if (singleObj_) {
+  if (singleObj_ && moduleCount_ > 0) {
     // For singleObj builds, the first object file name is the one for the first
     // source file (e.g., `b.o` for `ldc2 a.o b.d c.d`).
     const char *filename = global.params.objfiles[0];
@@ -217,13 +227,9 @@ void CodeGenerator::prepareLLModule(Module *m) {
   // See http://llvm.org/bugs/show_bug.cgi?id=11479 – just use the source file
   // name, as it should not collide with a symbol name used somewhere in the
   // module.
-  ir_ = new IRState(m->srcfile->toChars(), context_);
+  ir_ = new IRState(m->srcfile.toChars(), context_);
   ir_->module.setTargetTriple(global.params.targetTriple->str());
-#if LDC_LLVM_VER >= 308
   ir_->module.setDataLayout(*gDataLayout);
-#else
-  ir_->module.setDataLayout(gDataLayout->getStringRepresentation());
-#endif
 
   // TODO: Make ldc::DIBuilder per-Module to be able to emit several CUs for
   // single-object compilations?
@@ -242,30 +248,36 @@ void CodeGenerator::finishLLModule(Module *m) {
   if (moduleCount_ == 1) {
     insertBitcodeFiles(ir_->module, ir_->context(), global.params.bitcodeFiles);
   }
-
-  writeAndFreeLLModule(m->objfile->name->str);
+  writeAndFreeLLModule(m->objfile.toChars());
 }
 
 void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   ir_->objc.finalize();
 
-  // Issue #1829: make sure all replaced global variables are replaced
-  // everywhere.
-  ir_->replaceGlobals();
-
   ir_->DBuilder.Finalize();
   generateBitcodeForDynamicCompile(ir_);
 
   emitLLVMUsedArray(*ir_);
-  emitLinkerOptions(*ir_, ir_->module, ir_->context());
+  emitLinkerOptions(*ir_);
+
+  // Issue #1829: make sure all replaced global variables are replaced
+  // everywhere.
+  ir_->replaceGlobals();
 
   // Emit ldc version as llvm.ident metadata.
   llvm::NamedMDNode *IdentMetadata =
       ir_->module.getOrInsertNamedMetadata("llvm.ident");
   std::string Version("ldc version ");
-  Version.append(global.ldc_version);
+  Version.append(global.ldc_version.ptr, global.ldc_version.length);
   llvm::Metadata *IdentNode[] = {llvm::MDString::get(ir_->context(), Version)};
   IdentMetadata->addOperand(llvm::MDNode::get(ir_->context(), IdentNode));
+
+#if LDC_LLVM_VER < 1300
+  context_.setInlineAsmDiagnosticHandler(inlineAsmDiagnosticHandler, ir_);
+#else
+  context_.setDiagnosticHandler(
+          std::make_unique<InlineAsmDiagnosticHandler>(ir_));
+#endif
 
   std::unique_ptr<llvm::ToolOutputFile> diagnosticsOutputFile =
       createAndSetDiagnosticsOutputFile(*ir_, context_, filename);
@@ -279,23 +291,6 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   ir_ = nullptr;
 }
 
-namespace {
-/// Emits a declaration for the given symbol, which is assumed to be of type
-/// i8*, and defines a second globally visible i8* that contains the address
-/// of the first symbol.
-void emitSymbolAddrGlobal(llvm::Module &lm, const char *symbolName,
-                          const char *addrName) {
-  llvm::Type *voidPtr =
-      llvm::PointerType::get(llvm::Type::getInt8Ty(lm.getContext()), 0);
-  auto targetSymbol = new llvm::GlobalVariable(
-      lm, voidPtr, false, llvm::GlobalValue::ExternalWeakLinkage, nullptr,
-      symbolName);
-  new llvm::GlobalVariable(
-      lm, voidPtr, false, llvm::GlobalValue::ExternalLinkage,
-      llvm::ConstantExpr::getBitCast(targetSymbol, voidPtr), addrName);
-}
-}
-
 void CodeGenerator::emit(Module *m) {
   bool const loggerWasEnabled = Logger::enabled();
   if (m->llvmForceLogging && !loggerWasEnabled) {
@@ -306,7 +301,7 @@ void CodeGenerator::emit(Module *m) {
   LOG_SCOPE;
 
   if (global.params.verbose_cg) {
-    printf("codegen: %s (%s)\n", m->toPrettyChars(), m->srcfile->toChars());
+    printf("codegen: %s (%s)\n", m->toPrettyChars(), m->srcfile.toChars());
   }
 
   if (global.errors) {
@@ -317,32 +312,6 @@ void CodeGenerator::emit(Module *m) {
   prepareLLModule(m);
 
   codegenModule(ir_, m);
-  if (m == rootHasMain) {
-    codegenModule(ir_, entrypoint);
-
-    if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
-      // On Android, bracket TLS data with the symbols _tlsstart and _tlsend, as
-      // done with dmd
-      auto startSymbol = new llvm::GlobalVariable(
-          ir_->module, llvm::Type::getInt32Ty(ir_->module.getContext()), false,
-          llvm::GlobalValue::ExternalLinkage,
-          llvm::ConstantInt::get(ir_->module.getContext(), APInt(32, 0)),
-          "_tlsstart", &*(ir_->module.global_begin()));
-      startSymbol->setSection(".tdata");
-
-      auto endSymbol = new llvm::GlobalVariable(
-          ir_->module, llvm::Type::getInt32Ty(ir_->module.getContext()), false,
-          llvm::GlobalValue::ExternalLinkage,
-          llvm::ConstantInt::get(ir_->module.getContext(), APInt(32, 0)),
-          "_tlsend");
-      endSymbol->setSection(".tcommon");
-    } else if (global.params.targetTriple->isOSLinux()) {
-      // On Linux, strongly define the excecutabe BSS bracketing symbols in
-      // the main module for druntime use (see rt.sections_elf_shared).
-      emitSymbolAddrGlobal(ir_->module, "__bss_start", "_d_execBssBegAddr");
-      emitSymbolAddrGlobal(ir_->module, "_end", "_d_execBssEndAddr");
-    }
-  }
 
   finishLLModule(m);
 
@@ -350,4 +319,58 @@ void CodeGenerator::emit(Module *m) {
     Logger::disable();
   }
 }
+
+#if LDC_MLIR_ENABLED
+void CodeGenerator::emitMLIR(Module *m) {
+  bool const loggerWasEnabled = Logger::enabled();
+  if (m->llvmForceLogging && !loggerWasEnabled) {
+    Logger::enable();
+  }
+
+  IF_LOG Logger::println("CodeGenerator::emitMLIR(%s)", m->toPrettyChars());
+  LOG_SCOPE;
+
+  if (global.params.verbose_cg) {
+    printf("codegen: %s (%s)\n", m->toPrettyChars(), m->srcfile.toChars());
+  }
+
+  if (global.errors) {
+    Logger::println("Aborting because of errors");
+    fatal();
+  }
+
+  mlir::OwningModuleRef module;
+  /*module = mlirGen(mlirContext, m, irs);
+  if(!module){
+    IF_LOG Logger::println("Error generating MLIR:'%s'", llpath.c_str());
+    fatal();
+  }*/
+
+  writeMLIRModule(&module, m->objfile.toChars());
+
+  if (m->llvmForceLogging && !loggerWasEnabled) {
+    Logger::disable();
+  }
+}
+
+void CodeGenerator::writeMLIRModule(mlir::OwningModuleRef *module,
+                                    const char *filename) {
+  // Write MLIR
+  if (global.params.output_mlir) {
+    const auto llpath = replaceExtensionWith(mlir_ext, filename);
+    Logger::println("Writting MLIR to %s\n", llpath.c_str());
+    std::error_code errinfo;
+    llvm::raw_fd_ostream aos(llpath, errinfo, llvm::sys::fs::OF_None);
+
+    if (aos.has_error()) {
+      error(Loc(), "Cannot write MLIR file '%s': %s", llpath.c_str(),
+            errinfo.message().c_str());
+      fatal();
+    }
+
+    // module->print(aos);
+  }
+}
+
+#endif
 }

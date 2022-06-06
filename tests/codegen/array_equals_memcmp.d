@@ -2,7 +2,7 @@
 // More importantly: test that memcmp is _not_ used when it is not valid.
 
 // RUN: %ldc -c -output-ll -of=%t.ll %s && FileCheck %s --check-prefix=LLVM < %t.ll
-// RUN: %ldc -c -output-s  -of=%t.s  %s && FileCheck %s --check-prefix=ASM  < %t.s
+// RUN: %ldc -O3 -c -output-s  -of=%t.s  %s && FileCheck %s --check-prefix=ASM  < %t.s
 // RUN: %ldc -O3 -run %s
 
 module mod;
@@ -69,7 +69,7 @@ bool four_bools(bool[4] a, bool[4] b)
     // LLVM: call i32 @memcmp({{.*}}, {{.*}}, i{{32|64}} 4)
 
     // Make sure that LLVM recognizes and optimizes-out the call to memcmp for 4 byte arrays:
-    // ASM-NOT: memcmp
+    // ASM-NOT: {{(mem|b)cmp}}
     return a == b;
 }
 

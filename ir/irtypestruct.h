@@ -7,8 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_IR_IRTYPESTRUCT_H
-#define LDC_IR_IRTYPESTRUCT_H
+#pragma once
 
 #include "ir/irtypeaggr.h"
 
@@ -24,9 +23,15 @@ public:
   ///
   IrTypeStruct *isStruct() override { return this; }
 
+  ///
+  static void resetDComputeTypes();
+  
 protected:
   ///
   explicit IrTypeStruct(StructDeclaration *sd);
+
+  ///
+  static std::vector<IrTypeStruct*> dcomputeTypes;
 
   /// StructDeclaration this type represents.
   StructDeclaration *sd = nullptr;
@@ -34,5 +39,3 @@ protected:
   /// DMD TypeStruct of this type.
   TypeStruct *ts = nullptr;
 };
-
-#endif

@@ -1,30 +1,21 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (c) 1999-2016 by The D Language Foundation
- * All Rights Reserved
+ * Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
- * http://www.digitalmars.com
+ * https://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
- * http://www.boost.org/LICENSE_1_0.txt
- * https://github.com/dlang/dmd/blob/master/src/enum.h
+ * https://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/dlang/dmd/blob/master/src/dmd/enum.h
  */
 
-#ifndef DMD_ENUM_H
-#define DMD_ENUM_H
-
-#ifdef __DMC__
 #pragma once
-#endif /* __DMC__ */
 
-#include "root.h"
 #include "dsymbol.h"
 #include "declaration.h"
-#include "tokens.h"
 
 class Identifier;
 class Type;
 class Expression;
-class VarDeclaration;
 
 class EnumDeclaration : public ScopeDsymbol
 {
@@ -39,7 +30,7 @@ public:
      */
     Type *type;                 // the TypeEnum
     Type *memtype;              // type of the members
-    Prot protection;
+    Visibility visibility;
 
     Expression *maxval;
     Expression *minval;
@@ -49,22 +40,24 @@ public:
     bool added;
     int inuse;
 
-    Dsymbol *syntaxCopy(Dsymbol *s);
+    EnumDeclaration *syntaxCopy(Dsymbol *s);
     void addMember(Scope *sc, ScopeDsymbol *sds);
     void setScope(Scope *sc);
     bool oneMember(Dsymbol **ps, Identifier *ident);
     Type *getType();
     const char *kind() const;
-    Dsymbol *search(Loc, Identifier *ident, int flags = SearchLocalsOnly);
-    bool isDeprecated();                // is Dsymbol deprecated?
-    Prot prot();
-    Expression *getMaxMinValue(Loc loc, Identifier *id);
-    Expression *getDefaultValue(Loc loc);
-    Type *getMemtype(Loc loc);
+    Dsymbol *search(const Loc &loc, Identifier *ident, int flags = SearchLocalsOnly);
+    bool isDeprecated() const;                // is Dsymbol deprecated?
+    Visibility visible();
+    bool isSpecial() const;
+    Expression *getDefaultValue(const Loc &loc);
+    Type *getMemtype(const Loc &loc);
 
     EnumDeclaration *isEnumDeclaration() { return this; }
 
+#if !IN_LLVM
     Symbol *sinit;
+#endif
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -87,12 +80,9 @@ public:
 
     EnumDeclaration *ed;
 
-    Dsymbol *syntaxCopy(Dsymbol *s);
+    EnumMember *syntaxCopy(Dsymbol *s);
     const char *kind() const;
-    Expression *getVarExp(Loc loc, Scope *sc);
 
     EnumMember *isEnumMember() { return this; }
     void accept(Visitor *v) { v->visit(this); }
 };
-
-#endif /* DMD_ENUM_H */

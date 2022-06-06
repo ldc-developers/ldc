@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_TOOL_H
-#define LDC_DRIVER_TOOL_H
+#pragma once
 
 #include <vector>
 #include <string>
@@ -27,28 +26,39 @@ extern llvm::cl::opt<std::string> linker;
 std::string getGcc();
 void appendTargetArgsForGcc(std::vector<std::string> &args);
 
-std::string getProgram(const char *name,
+std::string getProgram(const char *fallbackName,
                        const llvm::cl::opt<std::string> *opt = nullptr,
                        const char *envVar = nullptr);
 
 void createDirectoryForFileOrFail(llvm::StringRef fileName);
 
-std::vector<const char *> getFullArgs(const std::string &tool,
+// NB: `args` must outlive the returned vector!
+std::vector<const char *> getFullArgs(const char *tool,
                                       const std::vector<std::string> &args,
                                       bool printVerbose);
 
 int executeToolAndWait(const std::string &tool,
-                       std::vector<std::string> const &args,
+                       const std::vector<std::string> &args,
                        bool verbose = false);
 
 #ifdef _WIN32
 
 namespace windows {
-// Tries to set up the MSVC environment variables and returns true if
-// successful.
-bool setupMsvcEnvironment();
-}
+// Returns true if a usable MSVC installation is available.
+bool isMsvcAvailable();
 
-#endif
+struct MsvcEnvironmentScope {
+  // Tries to set up the MSVC environment variables for the current process and
+  // returns true if successful. The original environment is restored on
+  // destruction.
+  bool setup();
+
+  ~MsvcEnvironmentScope();
+
+private:
+  // for each changed env var: name & original value
+  std::vector<std::pair<std::wstring, wchar_t *>> rollback;
+};
+}
 
 #endif

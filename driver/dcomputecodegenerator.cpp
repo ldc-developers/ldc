@@ -43,8 +43,8 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
 
 #if LDC_LLVM_SUPPORTED_TARGET_NVPTX
 #define CUDA_VALID_VER_INIT 100, 110, 120, 130, 200, 210, 300, 350, 370,\
- 500, 520, 600, 610, 620
-  const std::array<int, 14> valid_cuda_versions = {{CUDA_VALID_VER_INIT}};
+ 500, 520, 600, 610, 620, 700, 720, 750, 800
+  const std::array<int, 18> valid_cuda_versions = {{CUDA_VALID_VER_INIT}};
 
   if (s.substr(0, 5) == "cuda-") {
     const int v = atoi(s.c_str() + 5);
@@ -55,19 +55,23 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
   }
 #endif
 
-#define XSTR(x) #x
-#define STR(x) XSTR((x))
+#define STR(x) #x
+#define XSTR(x) STR(x)
 
   error(Loc(),
         "unrecognised or invalid DCompute targets: the format is ocl-xy0 "
         "for OpenCl x.y and cuda-xy0 for CUDA CC x.y."
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV
-        " Valid versions for OpenCl are " STR(OCL_VALID_VER_INIT) "."
+        " Valid versions for OpenCl are " XSTR((OCL_VALID_VER_INIT)) "."
 #endif
 #if LDC_LLVM_SUPPORTED_TARGET_NVPTX
-        " Valid versions for CUDA are " STR(CUDA_VALID_VER_INIT)
+        " Valid versions for CUDA are " XSTR((CUDA_VALID_VER_INIT))
 #endif
   );
+
+#undef XSTR
+#undef STR
+
   fatal();
   return nullptr;
 }

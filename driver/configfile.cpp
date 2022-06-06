@@ -8,15 +8,18 @@
 //===----------------------------------------------------------------------===//
 
 #include "driver/configfile.h"
+
+#include "driver/args.h"
 #include "driver/exe_path.h"
-#include "mars.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/Regex.h"
 #include <cassert>
 #include <cstring>
 #include <iostream>
 #include <string>
+
 #if _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include "llvm/Support/ConvertUTF.h"
@@ -29,6 +32,10 @@
 
 namespace sys = llvm::sys;
 
+#if defined(_WIN32)
+using llvm::UTF16;
+#endif
+
 // dummy only; needs to be parsed manually earlier as the switches contained in
 // the config file are injected into the command line options fed to the parser
 static llvm::cl::opt<std::string>
@@ -37,12 +44,15 @@ static llvm::cl::opt<std::string>
 
 #if _WIN32
 std::string getUserHomeDirectory() {
-  char buff[MAX_PATH];
-  HRESULT res = SHGetFolderPathA(NULL, CSIDL_FLAG_CREATE | CSIDL_APPDATA, NULL,
-                                 SHGFP_TYPE_CURRENT, buff);
+  wchar_t buff[MAX_PATH];
+  HRESULT res = SHGetFolderPathW(nullptr, CSIDL_FLAG_CREATE | CSIDL_APPDATA,
+                                 nullptr, SHGFP_TYPE_CURRENT, buff);
   if (res != S_OK)
     assert(0 && "Failed to get user home directory");
-  return buff;
+  std::string result;
+  llvm::convertUTF16ToUTF8String(
+      {reinterpret_cast<UTF16 *>(&buff[0]), wcslen(buff)}, result);
+  return result;
 }
 #else
 std::string getUserHomeDirectory() {
@@ -56,28 +66,18 @@ static bool ReadPathFromRegistry(llvm::SmallString<128> &p) {
   HKEY hkey;
   bool res = false;
   // FIXME: Version number should be a define.
-  if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,
-                   _T("SOFTWARE\\ldc-developers\\LDC\\0.11.0"), NULL,
-                   KEY_QUERY_VALUE, &hkey) == ERROR_SUCCESS) {
+  if (RegOpenKeyExW(HKEY_LOCAL_MACHINE,
+                    L"SOFTWARE\\ldc-developers\\LDC\\0.11.0", 0,
+                    KEY_QUERY_VALUE, &hkey) == ERROR_SUCCESS) {
     DWORD length;
-    if (RegGetValue(hkey, NULL, _T("Path"), RRF_RT_REG_SZ, NULL, NULL,
-                    &length) == ERROR_SUCCESS) {
-      TCHAR *data = static_cast<TCHAR *>(_alloca(length * sizeof(TCHAR)));
-      if (RegGetValue(hkey, NULL, _T("Path"), RRF_RT_REG_SZ, NULL, data,
-                      &length) == ERROR_SUCCESS) {
-#if UNICODE
-#if LDC_LLVM_VER >= 400
-        using UTF16 = llvm::UTF16;
-#endif
-        std::string out;
-        res = llvm::convertUTF16ToUTF8String(
-            llvm::ArrayRef<UTF16>(reinterpret_cast<UTF16 *>(data), length),
-            out);
-        p = out;
-#else
-        p = std::string(data);
-        res = true;
-#endif
+    if (RegGetValueW(hkey, nullptr, L"Path", RRF_RT_REG_SZ, nullptr, nullptr,
+                     &length) == ERROR_SUCCESS) {
+      std::vector<wchar_t> buffer;
+      buffer.reserve(length);
+      const auto data = buffer.data();
+      if (RegGetValueW(hkey, nullptr, L"Path", RRF_RT_REG_SZ, nullptr, data,
+                       &length) == ERROR_SUCCESS) {
+        res = !llvm::sys::windows::UTF16ToUTF8(data, length, p);
       }
     }
     RegCloseKey(hkey);
@@ -96,7 +96,7 @@ bool ConfigFile::locate(std::string &pathstr) {
   {                                                                            \
     sys::path::append(p, filename);                                            \
     if (sys::fs::exists(p.str())) {                                            \
-      pathstr = p.str();                                                       \
+      pathstr = {p.data(), p.size()};                                          \
       return true;                                                             \
     }                                                                          \
   }
@@ -139,20 +139,16 @@ bool ConfigFile::locate(std::string &pathstr) {
     APPEND_FILENAME_AND_RETURN_IF_EXISTS
   }
 #else
-#define STR(x) #x
-#define XSTR(x) STR(x)
   // try the install-prefix/etc
-  p = XSTR(LDC_INSTALL_PREFIX);
+  p = LDC_INSTALL_PREFIX;
   sys::path::append(p, "etc");
   APPEND_FILENAME_AND_RETURN_IF_EXISTS
 
   // try the install-prefix/etc/ldc
-  p = XSTR(LDC_INSTALL_PREFIX);
+  p = LDC_INSTALL_PREFIX;
   sys::path::append(p, "etc");
   sys::path::append(p, "ldc");
   APPEND_FILENAME_AND_RETURN_IF_EXISTS
-#undef XSTR
-#undef STR
 
   // try /etc (absolute path)
   p = "/etc";
@@ -170,7 +166,7 @@ bool ConfigFile::locate(std::string &pathstr) {
   return false;
 }
 
-bool ConfigFile::read(const char *explicitConfFile, const char *section) {
+bool ConfigFile::read(const char *explicitConfFile, const char *triple) {
   std::string pathstr;
   // explicitly provided by user in command line?
   if (explicitConfFile) {
@@ -199,7 +195,7 @@ bool ConfigFile::read(const char *explicitConfFile, const char *section) {
   pathcstr = strdup(pathstr.c_str());
   auto binpath = exe_path::getBinDir();
 
-  return readConfig(pathcstr, section, binpath.c_str());
+  return readConfig(pathcstr, triple, binpath.c_str());
 }
 
 void ConfigFile::extendCommandLine(llvm::SmallVectorImpl<const char *> &args) {
@@ -209,11 +205,15 @@ void ConfigFile::extendCommandLine(llvm::SmallVectorImpl<const char *> &args) {
   // append 'post-switches', but before a first potential '-run'
   size_t runIndex = 0;
   for (size_t i = 1; i < args.size(); ++i) {
-    if (strcmp(args[i], "-run") == 0 || strcmp(args[i], "--run") == 0) {
+    if (args::isRunArg(args[i])) {
       runIndex = i;
       break;
     }
   }
   args.insert(runIndex == 0 ? args.end() : args.begin() + runIndex,
               postSwitches.begin(), postSwitches.end());
+}
+
+bool ConfigFile::sectionMatches(const char *section, const char *triple) {
+  return llvm::Regex(section).match(triple);
 }

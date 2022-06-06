@@ -15,17 +15,18 @@
 
 #include "gen/pgo_ASTbased.h"
 
-#include "globals.h"
-#include "init.h"
-#include "statement.h"
-#include "llvm.h"
+#include "dmd/errors.h"
+#include "dmd/expression.h"
+#include "dmd/globals.h"
+#include "dmd/init.h"
+#include "dmd/statement.h"
 #include "driver/cl_options_instrumentation.h"
 #include "gen/cl_helpers.h"
 #include "gen/irstate.h"
+#include "gen/llvm.h"
 #include "gen/logger.h"
 #include "gen/recursivevisitor.h"
 #include "gen/tollvm.h"
-
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/ProfileData/InstrProfReader.h"
@@ -33,14 +34,12 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MD5.h"
 
-#if LDC_LLVM_VER >= 309
 namespace {
 llvm::cl::opt<bool, false, opts::FlagParser<bool>> enablePGOIndirectCalls(
     "pgo-indirect-calls", llvm::cl::ZeroOrMore, llvm::cl::Hidden,
-    llvm::cl::desc("(*) Enable PGO of indirect calls (LLVM >= 3.9)"),
+    llvm::cl::desc("(*) Enable PGO of indirect calls"),
     llvm::cl::init(true));
 }
-#endif
 
 /// \brief Stable hasher for PGO region counters.
 ///
@@ -103,6 +102,7 @@ public:
     ConditionalExpr,
     AndAndExpr,
     OrOrExpr,
+    UnrolledLoopIterationScope,
 
     // Keep this last.  It's for the static assert that follows.
     LastHashType
@@ -136,18 +136,16 @@ public:
       return Working;
 
     // Check for remaining work in Working.
-    if (Working)
-      MD5.update(Working);
+    if (Working) {
+      using namespace llvm::support;
+      uint64_t Swapped = endian::byte_swap<uint64_t, little>(Working);
+      MD5.update(llvm::makeArrayRef((uint8_t *)&Swapped, sizeof(Swapped)));
+    }
 
     // Finalize the MD5 and return the hash.
     llvm::MD5::MD5Result Result;
     MD5.final(Result);
-#if LDC_LLVM_VER >= 500
     return Result.low();
-#else
-    using namespace llvm::support;
-    return endian::read<uint64_t, little, unaligned>(Result);
-#endif
   }
 };
 
@@ -179,11 +177,39 @@ struct MapRegionCounters : public StoppableVisitor {
     }                                                                          \
   } while (0)
 
-  void visit(Statement *stmt) override {}
-  void visit(Expression *exp) override {}
-  void visit(Declaration *decl) override {}
-  void visit(Initializer *init) override {}
-  void visit(Dsymbol *dsym) override {}
+  void visit(Statement *stmt) override {
+    // If this assert fails, a new statement type was added to the frontend, and
+    // thus we need to decide on how to handle PGO calculations for that, both
+    // in MapRegionCounters and in ComputeRegionCounts.
+    assert(0 && "All statement types should be explicitly handled to avoid "
+                "missing new statement types in MapRegionCounters and "
+                "ComputeRegionCounts");
+  }
+  void visit(CompoundStatement *) override {}
+  void visit(ExpStatement *) override {}
+  void visit(ImportStatement *) override {}
+  void visit(ScopeStatement *) override {}
+  void visit(ReturnStatement *) override {}
+  void visit(StaticAssertStatement *) override {}
+  void visit(CompileStatement *) override {}
+  void visit(ScopeGuardStatement *) override {}
+  void visit(ConditionalStatement *) override {}
+  void visit(StaticForeachStatement *) override {}
+  void visit(PragmaStatement *) override {}
+  void visit(BreakStatement *) override {}
+  void visit(ContinueStatement *) override {}
+  void visit(GotoDefaultStatement *) override {}
+  void visit(GotoCaseStatement *) override {}
+  void visit(GotoStatement *) override {}
+  void visit(SynchronizedStatement *) override {}
+  void visit(WithStatement *) override {}
+  void visit(ThrowStatement *) override {}
+  void visit(AsmStatement *) override {}
+
+  void visit(Expression *) override {}
+  void visit(Declaration *) override {}
+  void visit(Initializer *) override {}
+  void visit(Dsymbol *) override {}
 
   void visit(FuncDeclaration *fd) override {
     if (NextCounter) {
@@ -230,6 +256,23 @@ struct MapRegionCounters : public StoppableVisitor {
     SKIP_VISITED(stmt);
     CounterMap[stmt] = NextCounter++;
     Hash.combine(PGOHash::ForeachRangeStmt);
+  }
+
+  void visit(UnrolledLoopStatement *stmt) override {
+    // Continues and breaks in the scopes of UnrolledLoop iterations can "goto"
+    // to "labels" at the start of the next iteration or end of the loop. We
+    // should therefore treat each unrolled loop iteration the same as
+    // LabelStatements (with redundant counting of the first iteration which is
+    // always executed).
+    // The counter for the UnrolledLoopStatement itself counts the
+    // exit block of the 'loop'.
+    SKIP_VISITED(stmt);
+    CounterMap[stmt] = NextCounter++;
+    Hash.combine(PGOHash::UnrolledLoopIterationScope);
+    for (auto s : *stmt->statements) {
+      CounterMap[s] = NextCounter++;
+      Hash.combine(PGOHash::UnrolledLoopIterationScope);
+    }
   }
 
   void visit(LabelStatement *stmt) override {
@@ -304,8 +347,8 @@ struct MapRegionCounters : public StoppableVisitor {
   void visit(LogicalExp *expr) override {
     SKIP_VISITED(expr);
     CounterMap[expr] = NextCounter++;
-    Hash.combine(expr->op == TOKandand ? PGOHash::AndAndExpr
-                                       : PGOHash::OrOrExpr);
+    Hash.combine(expr->op == EXP::andAnd ? PGOHash::AndAndExpr
+                                         : PGOHash::OrOrExpr);
   }
 
 #undef SKIP_VISITED
@@ -452,6 +495,29 @@ struct ComputeRegionCounts : public RecursiveVisitor {
     }
 
     CurrentCount = 0;
+    RecordNextStmtCount = true;
+  }
+
+  void visit(UnrolledLoopStatement *S) override {
+    RecordStmtCount(S);
+
+    // The iterations can still have `break` and `continue` even though we are
+    // no longer in a loop. We need to provide this BreakContinue struct for
+    // those breaks&continues to refer to, but we do not use it otherwise.
+    BreakContinueStack.push_back(BreakContinue());
+
+    // Iteration statement counters track the entry block of each iteration
+    // (redundant for first iteration)
+    for (auto iteration_stmt : *S->statements) {
+      setCount(PGO.getRegionCount(iteration_stmt));
+      RecordNextStmtCount = true;
+      recurse(iteration_stmt);
+    }
+
+    BreakContinueStack.pop_back();
+
+    // UnrolledLoopStatement counter tracks the continuation after the statement.
+    setCount(PGO.getRegionCount(S));
     RecordNextStmtCount = true;
   }
 
@@ -762,7 +828,6 @@ RootObject *CodeGenPGO::getCounterPtr(const RootObject *ptr,
 
 void CodeGenPGO::setFuncName(llvm::StringRef Name,
                              llvm::GlobalValue::LinkageTypes Linkage) {
-#if LDC_LLVM_VER >= 308
   llvm::IndexedInstrProfReader *PGOReader = gIR->getPGOReader();
   FuncName = llvm::getPGOFuncName(Name, Linkage, "",
                                   PGOReader ? PGOReader->getVersion()
@@ -775,54 +840,16 @@ void CodeGenPGO::setFuncName(llvm::StringRef Name,
     // If Linkage is private, and the function is in a comdat "any" group, set
     // the linkage to internal to prevent LLVM from erroring with "comdat global
     // value has private linkage".
-    if (supportsCOMDAT() &&
+    if (needsCOMDAT() &&
         FuncNameVar->getLinkage() == llvm::GlobalValue::PrivateLinkage) {
       FuncNameVar->setLinkage(llvm::GlobalValue::InternalLinkage);
     }
   }
-#else
-  llvm::StringRef RawFuncName = Name;
-  // Function names may be prefixed with a binary '1' to indicate
-  // that the backend should not modify the symbols due to any platform
-  // naming convention. Do not include that '1' in the PGO profile name.
-  if (RawFuncName[0] == '\1')
-    RawFuncName = RawFuncName.substr(1);
-  FuncName = RawFuncName;
-
-  // If we're generating a profile, create a variable for the name.
-  if (opts::isInstrumentingForASTBasedPGO() && emitInstrumentation)
-    createFuncNameVar(Linkage);
-#endif
 }
 
 void CodeGenPGO::setFuncName(llvm::Function *fn) {
   setFuncName(fn->getName(), fn->getLinkage());
 }
-
-#if LDC_LLVM_VER < 308
-void CodeGenPGO::createFuncNameVar(llvm::GlobalValue::LinkageTypes Linkage) {
-  // We generally want to match the function's linkage, but available_externally
-  // and extern_weak both have the wrong semantics, and anything that doesn't
-  // need to link across compilation units doesn't need to be visible at all.
-  if (Linkage == llvm::GlobalValue::ExternalWeakLinkage)
-    Linkage = llvm::GlobalValue::LinkOnceAnyLinkage;
-  else if (Linkage == llvm::GlobalValue::AvailableExternallyLinkage)
-    Linkage = llvm::GlobalValue::LinkOnceODRLinkage;
-  else if (Linkage == llvm::GlobalValue::InternalLinkage ||
-           Linkage == llvm::GlobalValue::ExternalLinkage)
-    Linkage = llvm::GlobalValue::PrivateLinkage;
-
-  auto *value =
-      llvm::ConstantDataArray::getString(gIR->context(), FuncName, false);
-  FuncNameVar =
-      new llvm::GlobalVariable(gIR->module, value->getType(), true, Linkage,
-                               value, "__llvm_profile_name_" + FuncName);
-
-  // Hide the symbol so that we correctly get a copy for each executable.
-  if (!llvm::GlobalValue::isLocalLinkage(FuncNameVar->getLinkage()))
-    FuncNameVar->setVisibility(llvm::GlobalValue::HiddenVisibility);
-}
-#endif
 
 void CodeGenPGO::assignRegionCounters(const FuncDeclaration *D,
                                       llvm::Function *fn) {
@@ -889,20 +916,12 @@ void CodeGenPGO::loadRegionCounts(llvm::IndexedInstrProfReader *PGOReader,
                                   const FuncDeclaration *fd) {
   RegionCounts.clear();
 
-#if LDC_LLVM_VER >= 309
   llvm::Expected<llvm::InstrProfRecord> RecordExpected =
       PGOReader->getInstrProfRecord(FuncName, FunctionHash);
   auto EC = RecordExpected.takeError();
-#else
-  auto EC = PGOReader->getFunctionCounts(FuncName, FunctionHash, RegionCounts);
-#endif
 
   if (EC) {
-#if LDC_LLVM_VER >= 309
     auto IPE = llvm::InstrProfError::take(std::move(EC));
-#else
-    auto IPE = EC;
-#endif
     if (IPE == llvm::instrprof_error::unknown_function) {
       IF_LOG Logger::println("No profile data for function: %s",
                              FuncName.c_str());
@@ -936,11 +955,9 @@ void CodeGenPGO::loadRegionCounts(llvm::IndexedInstrProfReader *PGOReader,
     return;
   }
 
-#if LDC_LLVM_VER >= 309
   ProfRecord =
       llvm::make_unique<llvm::InstrProfRecord>(std::move(RecordExpected.get()));
   RegionCounts = ProfRecord->Counts;
-#endif
 
   IF_LOG Logger::println("Loaded profile data for function: %s",
                          FuncName.c_str());
@@ -1071,15 +1088,12 @@ llvm::MDNode *CodeGenPGO::createProfileWeightsForeachRange(
 
 void CodeGenPGO::emitIndirectCallPGO(llvm::Instruction *callSite,
                                      llvm::Value *funcPtr) {
-#if LDC_LLVM_VER >= 309
   if (enablePGOIndirectCalls)
     valueProfile(llvm::IPVK_IndirectCallTarget, callSite, funcPtr, true);
-#endif
 }
 
 void CodeGenPGO::valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
                               llvm::Value *value, bool ptrCastNeeded) {
-#if LDC_LLVM_VER >= 309
   if (!value || !valueSite)
     return;
 
@@ -1117,5 +1131,4 @@ void CodeGenPGO::valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
 
     NumValueSites[valueKind]++;
   }
-#endif // LLVM >= 3.9
 }

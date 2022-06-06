@@ -8,17 +8,20 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/abi.h"
-#include "mars.h"
-#include "id.h"
-#include "gen/abi-generic.h"
+
+#include "dmd/expression.h"
+#include "dmd/id.h"
+#include "dmd/identifier.h"
+#include "dmd/target.h"
 #include "gen/abi-aarch64.h"
 #include "gen/abi-arm.h"
+#include "gen/abi-generic.h"
 #include "gen/abi-mips64.h"
 #include "gen/abi-ppc.h"
 #include "gen/abi-ppc64le.h"
 #include "gen/abi-win64.h"
-#include "gen/abi-x86-64.h"
 #include "gen/abi-x86.h"
+#include "gen/abi-x86-64.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
@@ -29,10 +32,20 @@
 #include "ir/irfuncty.h"
 #include <algorithm>
 
+// in dmd/argtypes_aarch64.d:
+bool isHFVA(Type *t, int maxNumElements, Type **rewriteType);
+
 //////////////////////////////////////////////////////////////////////////////
 
 llvm::Value *ABIRewrite::getRVal(Type *dty, LLValue *v) {
   return DtoLoad(DtoBitCast(getLVal(dty, v), DtoType(dty)->getPointerTo()));
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+void ABIRewrite::applyTo(IrFuncTyArg &arg, LLType *finalLType) {
+  arg.rewrite = this;
+  arg.ltype = finalLType ? finalLType : this->type(arg.type);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -43,171 +56,80 @@ LLValue *ABIRewrite::getAddressOf(DValue *v) {
   return DtoAllocaDump(v, ".getAddressOf_dump");
 }
 
-LLValue *ABIRewrite::loadFromMemory(LLValue *address, LLType *asType,
-                                    const char *name) {
-  LLType *pointerType = address->getType();
-  assert(pointerType->isPointerTy());
-  LLType *pointeeType = pointerType->getPointerElementType();
+//////////////////////////////////////////////////////////////////////////////
 
-  if (asType == pointeeType) {
-    return DtoLoad(address, name);
+bool TargetABI::isHFVA(Type *t, int maxNumElements, LLType **hfvaType) {
+  Type *rewriteType = nullptr;
+  if (::isHFVA(t, maxNumElements, &rewriteType)) {
+    if (hfvaType)
+      *hfvaType = DtoType(rewriteType);
+    return true;
   }
+  return false;
+}
 
-  if (getTypeStoreSize(asType) > getTypeAllocSize(pointeeType)) {
-    // not enough allocated memory
-    LLValue *paddedDump = DtoRawAlloca(asType, 0, ".loadFromMemory_paddedDump");
-    DtoMemCpy(paddedDump, address,
-              DtoConstSize_t(getTypeAllocSize(pointeeType)));
-    return DtoLoad(paddedDump, name);
+bool TargetABI::isHVA(Type *t, int maxNumElements, LLType **hvaType) {
+  Type *rewriteType = nullptr;
+  if (::isHFVA(t, maxNumElements, &rewriteType) &&
+      rewriteType->nextOf()->ty == TY::Tvector) {
+    if (hvaType)
+      *hvaType = DtoType(rewriteType);
+    return true;
   }
-
-  address = DtoBitCast(address, getPtrToType(asType),
-                       ".loadFromMemory_bitCastAddress");
-  return DtoLoad(address, name);
+  return false;
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-// A Homogeneous Floating-point Aggregate (HFA) is an ARM/AArch64 concept that
-// consists of up to 4 of same floating point type.  D floats of same size are
-// considered as same (e.g. ifloat and float are same).  It is the aggregate
-// final data layout that matters so nested structs, unions, and sarrays can
-// result in an HFA.
-//
-// simple HFAs: struct F1 {float f;}  struct D4 {double a,b,c,d;}
-// interesting HFA: struct {F1[2] vals; float weight;}
-
-namespace {
-bool isNestedHFA(const TypeStruct *t, d_uns64 &floatSize, int &num,
-                 uinteger_t adim) {
-  // Used internally by isHFA() to check struct recursively for HFA-ness.
-  // Return true if struct 't' is part of an HFA where 'floatSize' is sizeof
-  // the float and 'num' is number of these floats so far.  On return, 'num'
-  // is updated to the total number of floats in the HFA.  Set 'floatSize'
-  // to 0 discover the sizeof the float.  When struct 't' is part of an
-  // sarray, 'adim' is the dimension of that array, otherwise it is 1.
-  VarDeclarations fields = t->sym->fields;
-
-  // HFA can't contains an empty struct
-  if (fields.dim == 0)
-    return false;
-
-  // Accumulate number of floats in HFA
-  int n;
-
-  // For unions, need to find field with most floats
-  int maxn = num;
-
-  for (size_t i = 0; i < fields.dim; ++i) {
-    Type *field = fields[i]->type;
-
-    // reset to initial num floats (all union fields are at offset 0)
-    if (fields[i]->offset == 0)
-      n = num;
-
-    // reset dim to dimension of sarray we are in (will be 1 if not)
-    uinteger_t dim = adim;
-
-    // Field is an array.  Process the arrayof type and multiply dim by
-    // array dim.  Note that empty arrays immediately exclude this struct
-    // from HFA status.
-    if (field->ty == Tsarray) {
-      TypeSArray *array = (TypeSArray *)field;
-      if (array->dim->toUInteger() == 0)
-        return false;
-      field = array->nextOf();
-      dim *= array->dim->toUInteger();
-    }
-
-    if (field->ty == Tstruct) {
-      if (!isNestedHFA((TypeStruct *)field, floatSize, n, dim))
-        return false;
-    } else if (field->isfloating()) {
-      d_uns64 sz = field->size();
-      n += dim;
-
-      if (field->iscomplex()) {
-        sz /= 2; // complex is 2 floats, adjust sz
-        n += dim;
-      }
-
-      if (floatSize == 0) // discovered floatSize
-        floatSize = sz;
-      else if (sz != floatSize) // different float size, reject
-        return false;
-
-      //if (n > 4)
-      //  return false; // too many floats for HFA, reject
-    } else {
-      return false; // reject all other types
-    }
-
-    if (n > maxn)
-      maxn = n;
+TypeTuple *TargetABI::getArgTypes(Type *t) {
+  // try to reuse cached argTypes of StructDeclarations
+  if (auto ts = t->toBasetype()->isTypeStruct()) {
+    auto sd = ts->sym;
+    if (sd->sizeok == Sizeok::done)
+      return sd->argTypes;
   }
 
-  num = maxn;
-  return true;
-}
+  return target.toArgTypes(t);
 }
 
-bool TargetABI::isHFA(TypeStruct *t, llvm::Type **rewriteType, const int maxFloats) {
-  d_uns64 floatSize = 0;
-  int num = 0;
-
-  if (isNestedHFA(t, floatSize, num, 1)) {
-    if (num <= maxFloats) {
-      if (rewriteType) {
-        llvm::Type *floatType = nullptr;
-        switch (floatSize) {
-          case 4:
-            floatType = llvm::Type::getFloatTy(gIR->context());
-            break;
-          case 8:
-            floatType = llvm::Type::getDoubleTy(gIR->context());
-            break;
-          case 16:
-            floatType = llvm::Type::getFP128Ty(gIR->context());
-            break;
-          default:
-            llvm_unreachable("Unexpected size for float type");
-        }
-        *rewriteType = LLArrayType::get(floatType, num);
-      }
-      return true;
-    }
+LLType *TargetABI::getRewrittenArgType(Type *t, TypeTuple *argTypes) {
+  if (!argTypes || argTypes->arguments->empty() ||
+      (argTypes->arguments->length == 1 &&
+       argTypes->arguments->front()->type == t)) {
+    return nullptr; // don't rewrite
   }
-  return false;
+
+  auto &args = *argTypes->arguments;
+  assert(args.length <= 2);
+  return args.length == 1
+             ? DtoType(args[0]->type)
+             : LLStructType::get(gIR->context(), {DtoType(args[0]->type),
+                                                  DtoType(args[1]->type)});
 }
+
+LLType *TargetABI::getRewrittenArgType(Type *t) {
+  return getRewrittenArgType(t, getArgTypes(t));
+}
+
+//////////////////////////////////////////////////////////////////////////////
 
 bool TargetABI::isAggregate(Type *t) {
   TY ty = t->toBasetype()->ty;
   // FIXME: dynamic arrays can currently not be rewritten as they are used
   //        by runtime functions, for which we don't apply the rewrites yet
   //        when calling them
-  return ty == Tstruct || ty == Tsarray ||
-         /*ty == Tarray ||*/ ty == Tdelegate || t->iscomplex();
-}
-
-bool TargetABI::isMagicCppStruct(Type *t) {
-  t = t->toBasetype();
-  if (t->ty != Tstruct) {
-    return false;
-  }
-
-  Identifier *id = static_cast<TypeStruct *>(t)->sym->ident;
-  return (id == Id::__c_long) || (id == Id::__c_ulong) ||
-         (id == Id::__c_long_double);
+  return ty == TY::Tstruct || ty == TY::Tsarray ||
+         /*ty == TY::Tarray ||*/ ty == TY::Tdelegate || t->iscomplex();
 }
 
 namespace {
 bool hasCtor(StructDeclaration *s) {
   if (s->ctor)
     return true;
-  for (size_t i = 0; i < s->fields.dim; i++) {
-    Type *tf = s->fields[i]->type->baseElemOf();
-    if (tf->ty == Tstruct) {
-      if (hasCtor(static_cast<TypeStruct *>(tf)->sym))
+  for (VarDeclaration *field : s->fields) {
+    Type *tf = field->type->baseElemOf();
+    if (auto tstruct = tf->isTypeStruct()) {
+      if (hasCtor(tstruct->sym))
         return true;
     }
   }
@@ -216,8 +138,8 @@ bool hasCtor(StructDeclaration *s) {
 }
 
 bool TargetABI::isPOD(Type *t, bool excludeStructsWithCtor) {
-  t = t->toBasetype();
-  if (t->ty != Tstruct)
+  t = t->baseElemOf();
+  if (t->ty != TY::Tstruct)
     return true;
   StructDeclaration *sd = static_cast<TypeStruct *>(t)->sym;
   return sd->isPOD() && !(excludeStructsWithCtor && hasCtor(sd));
@@ -226,6 +148,39 @@ bool TargetABI::isPOD(Type *t, bool excludeStructsWithCtor) {
 bool TargetABI::canRewriteAsInt(Type *t, bool include64bit) {
   auto size = t->toBasetype()->size();
   return size == 1 || size == 2 || size == 4 || (include64bit && size == 8);
+}
+
+bool TargetABI::isExternD(TypeFunction *tf) {
+  return tf->linkage == LINK::d && tf->parameterList.varargs != VARARGvariadic;
+}
+
+bool TargetABI::skipReturnValueRewrite(IrFuncTy &fty) {
+  if (fty.ret->byref)
+    return true;
+
+  auto ty = fty.ret->type->toBasetype()->ty;
+  return ty == TY::Tvoid || ty == TY::Tnoreturn;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+llvm::CallingConv::ID TargetABI::callingConv(TypeFunction *tf, bool) {
+  return tf->parameterList.varargs == VARARGvariadic
+             ? static_cast<llvm::CallingConv::ID>(llvm::CallingConv::C)
+             : callingConv(tf->linkage);
+}
+
+llvm::CallingConv::ID TargetABI::callingConv(FuncDeclaration *fdecl) {
+  auto tf = fdecl->type->isTypeFunction();
+  assert(tf);
+  return callingConv(tf, fdecl->needThis() || fdecl->isNested());
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+bool TargetABI::preferPassByRef(Type *t) {
+  // simple base heuristic: use a ref for all types > 2 machine words
+  return t->size() > 2 * target.ptrsize;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -281,8 +236,8 @@ const char *TargetABI::objcMsgSendFunc(Type *ret, IrFuncTy &fty) {
 
 // Some reasonable defaults for when we don't know what ABI to use.
 struct UnknownTargetABI : TargetABI {
-  bool returnInArg(TypeFunction *tf) override {
-    if (tf->isref) {
+  bool returnInArg(TypeFunction *tf, bool) override {
+    if (tf->isref()) {
       return false;
     }
 
@@ -291,12 +246,14 @@ struct UnknownTargetABI : TargetABI {
     // of physical registers, which leads, depending on the target, to
     // either horrendous codegen or backend crashes.
     Type *rt = tf->next->toBasetype();
-    return (rt->ty == Tstruct || rt->ty == Tsarray);
+    return passByVal(tf, rt);
   }
 
-  bool passByVal(Type *t) override { return t->toBasetype()->ty == Tstruct; }
+  bool passByVal(TypeFunction *, Type *t) override {
+    return DtoIsInMemoryOnly(t);
+  }
 
-  void rewriteFunctionType(TypeFunction *t, IrFuncTy &fty) override {
+  void rewriteFunctionType(IrFuncTy &) override {
     // why?
   }
 };
@@ -317,7 +274,7 @@ TargetABI *TargetABI::getTarget() {
   case llvm::Triple::mipsel:
   case llvm::Triple::mips64:
   case llvm::Triple::mips64el:
-    return getMIPS64TargetABI(global.params.is64bit);
+    return getMIPS64TargetABI(global.params.targetTriple->isArch64Bit());
   case llvm::Triple::ppc:
   case llvm::Triple::ppc64:
     return getPPCTargetABI(global.params.targetTriple->isArch64Bit());
@@ -343,13 +300,13 @@ TargetABI *TargetABI::getTarget() {
 struct IntrinsicABI : TargetABI {
   RemoveStructPadding remove_padding;
 
-  bool returnInArg(TypeFunction *tf) override { return false; }
+  bool returnInArg(TypeFunction *, bool) override { return false; }
 
-  bool passByVal(Type *t) override { return false; }
+  bool passByVal(TypeFunction *, Type *t) override { return false; }
 
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     Type *ty = arg.type->toBasetype();
-    if (ty->ty != Tstruct) {
+    if (ty->ty != TY::Tstruct) {
       return;
     }
     // TODO: Check that no unions are passed in or returned.
@@ -357,15 +314,14 @@ struct IntrinsicABI : TargetABI {
     LLType *abiTy = DtoUnpaddedStructType(arg.type);
 
     if (abiTy && abiTy != arg.ltype) {
-      arg.ltype = abiTy;
-      arg.rewrite = &remove_padding;
+      remove_padding.applyTo(arg, abiTy);
     }
   }
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
+  void rewriteFunctionType(IrFuncTy &fty) override {
     if (!fty.arg_sret) {
       Type *rt = fty.ret->type->toBasetype();
-      if (rt->ty == Tstruct) {
+      if (rt->ty == TY::Tstruct) {
         Logger::println("Intrinsic ABI: Transforming return type");
         rewriteArgument(fty, *fty.ret);
       }

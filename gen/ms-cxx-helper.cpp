@@ -1,26 +1,24 @@
 //===-- ms-cxx-helper.cpp -------------------------------------------------===//
 //
-//                         LDC – the LLVM D compiler
+//                         LDC â€“ the LLVM D compiler
 //
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
 //
 //===----------------------------------------------------------------------===//
 
-#if LDC_LLVM_VER >= 308
-
-#include "target.h"
 #include "gen/ms-cxx-helper.h"
+
+#include "dmd/target.h"
+#include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
-#include "gen/irstate.h"
+#include "gen/mangling.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
-
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/CFG.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "llvm/IR/CFG.h"
 
 llvm::BasicBlock *getUnwindDest(llvm::Instruction *I) {
   if (auto II = llvm::dyn_cast<llvm::InvokeInst>(I))
@@ -63,12 +61,8 @@ void remapBlocks(std::vector<llvm::BasicBlock *> &blocks,
   for (llvm::BasicBlock *bb : blocks)
     for (auto &I : *bb) {
       llvm::RemapInstruction(&I, VMap,
-#if LDC_LLVM_VER == 308
-                             llvm::RF_IgnoreMissingEntries
-#else
-                             llvm::RF_IgnoreMissingLocals
-#endif
-                                 | llvm::RF_NoModuleLevelChanges);
+                             llvm::RF_IgnoreMissingLocals |
+                                 llvm::RF_NoModuleLevelChanges);
     }
 }
 
@@ -164,21 +158,25 @@ llvm::StructType *getTypeDescriptorType(IRState &irs,
 
 llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd) {
   if (cd->isCPPclass()) {
-    const char *name = Target::cppTypeInfoMangle(cd);
-    return getOrCreateGlobal(
-        cd->loc, irs.module, getVoidPtrType(), /*isConstant=*/true,
-        LLGlobalValue::ExternalLinkage, /*init=*/nullptr, name);
+    const char *name = target.cpp.typeInfoMangle(cd);
+    return declareGlobal(cd->loc, irs.module, getVoidPtrType(), name,
+                         /*isConstant*/ true, false,
+                         /*useDLLImport*/ cd->isExport());
   }
 
-  auto classInfoPtr = getIrAggr(cd, true)->getClassInfoSymbol();
-  llvm::GlobalVariable *&Var = irs.TypeDescriptorMap[classInfoPtr];
+  llvm::GlobalVariable *&Var = irs.TypeDescriptorMap[cd];
   if (Var)
     return Var;
 
-  // first character skipped in debugger output, so we add 'D' as prefix
-  std::string TypeNameString = "D";
-  TypeNameString.append(cd->toPrettyChars());
-  std::string TypeDescName = TypeNameString + "@TypeDescriptor";
+  auto classInfoPtr = getIrAggr(cd, true)->getClassInfoSymbol();
+
+  // The type name must match the expectation in druntime's ldc.eh_msvc - the
+  // TypeInfo_Class name with a 'D' prefix (the first character is skipped in
+  // debugger output).
+  const auto TypeNameString =
+      (llvm::Twine("D") + cd->toPrettyChars(/*QualifyTypes=*/true)).str();
+
+  const auto TypeDescName = getIRMangledAggregateName(cd, "@TypeDescriptor");
 
   // Declare and initialize the TypeDescriptor.
   llvm::Constant *Fields[] = {
@@ -188,11 +186,12 @@ llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd) {
       llvm::ConstantDataArray::getString(gIR->context(), TypeNameString)};
   llvm::StructType *TypeDescriptorType =
       getTypeDescriptorType(irs, classInfoPtr, TypeNameString);
-  Var = new llvm::GlobalVariable(
-      gIR->module, TypeDescriptorType, /*Constant=*/false,
-      LLGlobalVariable::InternalLinkage, // getLinkageForRTTI(Type),
-      llvm::ConstantStruct::get(TypeDescriptorType, Fields), TypeDescName);
+
+  const LinkageWithCOMDAT lwc = {LLGlobalVariable::LinkOnceODRLinkage, true};
+  Var = defineGlobal(cd->loc, gIR->module, TypeDescName,
+                     llvm::ConstantStruct::get(TypeDescriptorType, Fields),
+                     lwc.first, /*isConstant=*/true);
+  setLinkage(lwc, Var);
+
   return Var;
 }
-
-#endif // LDC_LLVM_VER >= 308

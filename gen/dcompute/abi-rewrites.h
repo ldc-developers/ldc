@@ -11,30 +11,25 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_DCOMPUTE_ABI_REWRITES_H
-#define LDC_GEN_DCOMPUTE_ABI_REWRITES_H
+#pragma once
 
-#include "gen/abi.h"
-#include "gen/dcompute/druntime.h"
-#include "gen/irstate.h"
-#include "gen/llvmhelpers.h"
-#include "gen/logger.h"
-#include "gen/structs.h"
-#include "gen/tollvm.h"
+#include "gen/abi-generic.h"
 
 struct DComputePointerRewrite : ABIRewrite {
+  LLValue *put(DValue *v, bool isLValueExp, bool) override {
+    LLValue *address = DtoLVal(v);
+    address = DtoGEP(address, 0u, 0u);
+    return DtoLoad(address, ".DComputePointerRewrite_arg");
+  }
+
+  LLValue *getLVal(Type *dty, LLValue *v) override {
+    LLValue *mem = DtoAlloca(dty, ".DComputePointerRewrite_param_storage");
+    DtoStore(v, DtoGEP(mem, 0u, 0u));
+    return mem;
+  }
+
   LLType *type(Type *t) override {
     auto ptr = toDcomputePointer(static_cast<TypeStruct *>(t)->sym);
     return ptr->toLLVMType(true);
   }
-  LLValue *getLVal(Type *dty, LLValue *v) override {
-    // TODO: Is this correct?
-    return DtoAllocaDump(v, this->type(dty));
-  }
-  LLValue *put(DValue *dv, bool) override {
-    LLValue *address = getAddressOf(dv);
-    LLType *t = this->type(dv->type);
-    return loadFromMemory(address, t);
-  }
 };
-#endif

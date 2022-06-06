@@ -8,13 +8,18 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/irstate.h"
-#include "declaration.h"
-#include "mtype.h"
-#include "statement.h"
+
+#include "dmd/declaration.h"
+#include "dmd/expression.h"
+#include "dmd/identifier.h"
+#include "dmd/mtype.h"
+#include "dmd/statement.h"
 #include "gen/funcgenstate.h"
 #include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
+#include "llvm/IR/InlineAsm.h"
 #include <cstdarg>
 
 IRState *gIR = nullptr;
@@ -23,55 +28,39 @@ const llvm::DataLayout *gDataLayout = nullptr;
 TargetABI *gABI = nullptr;
 
 ////////////////////////////////////////////////////////////////////////////////
-IRScope::IRScope() : builder(gIR->context()) { begin = nullptr; }
-
-IRScope::IRScope(llvm::BasicBlock *b) : begin(b), builder(b) {}
-
-IRScope &IRScope::operator=(const IRScope &rhs) {
-  begin = rhs.begin;
-  builder.SetInsertPoint(begin);
-  return *this;
-}
-
-////////////////////////////////////////////////////////////////////////////////
 IRState::IRState(const char *name, llvm::LLVMContext &context)
-    : module(name, context), objc(module), DBuilder(this) {
+    : builder(context), module(name, context), objc(module), DBuilder(this) {
   ir.state = this;
+  mem.addRange(&inlineAsmLocs, sizeof(inlineAsmLocs));
 }
 
-IRState::~IRState() {}
+IRState::~IRState() { mem.removeRange(&inlineAsmLocs); }
 
 FuncGenState &IRState::funcGen() {
   assert(!funcGenStates.empty() && "Function stack is empty!");
   return *funcGenStates.back();
 }
 
-IrFunction *IRState::func() {
-  return &funcGen().irFunc;
+IrFunction *IRState::func() { return &funcGen().irFunc; }
+
+llvm::Function *IRState::topfunc() { return func()->getLLVMFunc(); }
+
+llvm::Instruction *IRState::topallocapoint() { return funcGen().allocapoint; }
+
+std::unique_ptr<IRBuilderScope> IRState::setInsertPoint(llvm::BasicBlock *bb) {
+  auto savedScope = llvm::make_unique<IRBuilderScope>(builder);
+  builder.SetInsertPoint(bb);
+  return savedScope;
 }
 
-llvm::Function *IRState::topfunc() {
-  return func()->getLLVMFunc();
-}
-
-llvm::Instruction *IRState::topallocapoint() {
-  return funcGen().allocapoint;
-}
-
-IRScope &IRState::scope() {
-  assert(!scopes.empty());
-  return scopes.back();
-}
-
-llvm::BasicBlock *IRState::scopebb() {
-  IRScope &s = scope();
-  assert(s.begin);
-  return s.begin;
+std::unique_ptr<llvm::IRBuilderBase::InsertPointGuard>
+IRState::saveInsertPoint() {
+  return llvm::make_unique<llvm::IRBuilderBase::InsertPointGuard>(builder);
 }
 
 bool IRState::scopereturned() {
-  // return scope().returned;
-  return !scopebb()->empty() && scopebb()->back().isTerminator();
+  auto bb = scopebb();
+  return !bb->empty() && bb->back().isTerminator();
 }
 
 llvm::BasicBlock *IRState::insertBBBefore(llvm::BasicBlock *successor,
@@ -90,40 +79,43 @@ llvm::BasicBlock *IRState::insertBB(const llvm::Twine &name) {
   return insertBBAfter(scopebb(), name);
 }
 
-LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, const char *Name) {
-  LLSmallVector<LLValue *, 1> args;
-  return funcGen().callOrInvoke(Callee, args, Name);
+llvm::Instruction *IRState::CreateCallOrInvoke(LLFunction *Callee,
+                                               const char *Name) {
+  return CreateCallOrInvoke(Callee, {}, Name);
 }
 
-LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
-                                       const char *Name) {
-  LLValue *args[] = {Arg1};
-  return funcGen().callOrInvoke(Callee, args, Name);
+llvm::Instruction *IRState::CreateCallOrInvoke(LLFunction *Callee,
+                                               llvm::ArrayRef<LLValue *> Args,
+                                               const char *Name,
+                                               bool isNothrow) {
+  return funcGen().callOrInvoke(Callee, Callee->getFunctionType(), Args, Name,
+                                isNothrow);
 }
 
-LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
-                                       LLValue *Arg2, const char *Name) {
-  LLValue *args[] = {Arg1, Arg2};
-  return funcGen().callOrInvoke(Callee, args, Name);
+llvm::Instruction *IRState::CreateCallOrInvoke(LLFunction *Callee,
+                                               LLValue *Arg1,
+                                               const char *Name) {
+  return CreateCallOrInvoke(Callee, llvm::ArrayRef<LLValue *>(Arg1), Name);
 }
 
-LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
-                                       LLValue *Arg2, LLValue *Arg3,
-                                       const char *Name) {
-  LLValue *args[] = {Arg1, Arg2, Arg3};
-  return funcGen().callOrInvoke(Callee, args, Name);
+llvm::Instruction *IRState::CreateCallOrInvoke(LLFunction *Callee,
+                                               LLValue *Arg1, LLValue *Arg2,
+                                               const char *Name) {
+  return CreateCallOrInvoke(Callee, {Arg1, Arg2}, Name);
 }
 
-LLCallSite IRState::CreateCallOrInvoke(LLValue *Callee, LLValue *Arg1,
-                                       LLValue *Arg2, LLValue *Arg3,
-                                       LLValue *Arg4, const char *Name) {
-  LLValue *args[] = {Arg1, Arg2, Arg3, Arg4};
-  return funcGen().callOrInvoke(Callee, args, Name);
+llvm::Instruction *IRState::CreateCallOrInvoke(LLFunction *Callee,
+                                               LLValue *Arg1, LLValue *Arg2,
+                                               LLValue *Arg3,
+                                               const char *Name) {
+  return CreateCallOrInvoke(Callee, {Arg1, Arg2, Arg3}, Name);
 }
 
-bool IRState::isMainFunc(const IrFunction *func) const {
-  assert(func != nullptr);
-  return func->getLLVMFunc() == mainFunc;
+llvm::Instruction *IRState::CreateCallOrInvoke(LLFunction *Callee,
+                                               LLValue *Arg1, LLValue *Arg2,
+                                               LLValue *Arg3, LLValue *Arg4,
+                                               const char *Name) {
+  return CreateCallOrInvoke(Callee, {Arg1, Arg2, Arg3, Arg4}, Name);
 }
 
 bool IRState::emitArrayBoundsChecks() {
@@ -137,13 +129,15 @@ bool IRState::emitArrayBoundsChecks() {
   }
 
   Type *t = func()->decl->type;
-  return t->ty == Tfunction && ((TypeFunction *)t)->trust == TRUSTsafe;
+  return t->ty == TY::Tfunction && ((TypeFunction *)t)->trust == TRUST::safe;
 }
 
-LLConstant *IRState::setGlobalVarInitializer(LLGlobalVariable *&globalVar,
-                                             LLConstant *initializer) {
+LLConstant *
+IRState::setGlobalVarInitializer(LLGlobalVariable *&globalVar,
+                                 LLConstant *initializer,
+                                 Dsymbol *symbolForLinkageAndVisibility) {
   if (initializer->getType() == globalVar->getType()->getContainedType(0)) {
-    globalVar->setInitializer(initializer);
+    defineGlobal(globalVar, initializer, symbolForLinkageAndVisibility);
     return globalVar;
   }
 
@@ -151,13 +145,15 @@ LLConstant *IRState::setGlobalVarInitializer(LLGlobalVariable *&globalVar,
   // It inherits most properties from the existing globalVar.
   auto globalHelperVar = new LLGlobalVariable(
       module, initializer->getType(), globalVar->isConstant(),
-      globalVar->getLinkage(), initializer, "", nullptr,
+      globalVar->getLinkage(), nullptr, "", nullptr,
       globalVar->getThreadLocalMode());
-  globalHelperVar->setAlignment(globalVar->getAlignment());
+  globalHelperVar->setAlignment(LLMaybeAlign(globalVar->getAlignment()));
   globalHelperVar->setComdat(globalVar->getComdat());
   globalHelperVar->setDLLStorageClass(globalVar->getDLLStorageClass());
   globalHelperVar->setSection(globalVar->getSection());
   globalHelperVar->takeName(globalVar);
+
+  defineGlobal(globalHelperVar, initializer, symbolForLinkageAndVisibility);
 
   // Replace all existing uses of globalVar by the bitcast pointer.
   auto castHelperVar = DtoBitCast(globalHelperVar, globalVar->getType());
@@ -183,18 +179,142 @@ void IRState::replaceGlobals() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+LLConstant *IRState::getStructLiteralConstant(StructLiteralExp *sle) const {
+  return static_cast<LLConstant *>(structLiteralConstants.lookup(sle->origin));
+}
+
+void IRState::setStructLiteralConstant(StructLiteralExp *sle,
+                                       LLConstant *constant) {
+  structLiteralConstants[sle->origin] = constant;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+namespace {
+template <typename F>
+LLGlobalVariable *
+getCachedStringLiteralImpl(llvm::Module &module,
+                           llvm::StringMap<LLGlobalVariable *> &cache,
+                           llvm::StringRef key, F initFactory) {
+  auto iter = cache.find(key);
+  if (iter != cache.end()) {
+    return iter->second;
+  }
+
+  LLConstant *constant = initFactory();
+
+  auto gvar =
+      new LLGlobalVariable(module, constant->getType(), true,
+                           LLGlobalValue::PrivateLinkage, constant, ".str");
+  gvar->setUnnamedAddr(LLGlobalValue::UnnamedAddr::Global);
+
+  cache[key] = gvar;
+
+  return gvar;
+}
+}
+
+LLGlobalVariable *IRState::getCachedStringLiteral(StringExp *se) {
+  llvm::StringMap<LLGlobalVariable *> *cache;
+  switch (se->sz) {
+  default:
+    llvm_unreachable("Unknown char type");
+  case 1:
+    cache = &cachedStringLiterals;
+    break;
+  case 2:
+    cache = &cachedWstringLiterals;
+    break;
+  case 4:
+    cache = &cachedDstringLiterals;
+    break;
+  }
+
+  const DArray<const unsigned char> keyData = se->peekData();
+  const llvm::StringRef key(reinterpret_cast<const char *>(keyData.ptr),
+                            keyData.length);
+
+  return getCachedStringLiteralImpl(module, *cache, key, [se]() {
+    return buildStringLiteralConstant(se, true);
+  });
+}
+
+LLGlobalVariable *IRState::getCachedStringLiteral(llvm::StringRef s) {
+  return getCachedStringLiteralImpl(module, cachedStringLiterals, s, [&]() {
+    return llvm::ConstantDataArray::getString(context(), s, true);
+  });
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void IRState::addLinkerOption(llvm::ArrayRef<llvm::StringRef> options) {
+  llvm::SmallVector<llvm::Metadata *, 2> mdStrings;
+  mdStrings.reserve(options.size());
+  for (const auto &s : options)
+    mdStrings.push_back(llvm::MDString::get(context(), s));
+  linkerOptions.push_back(llvm::MDNode::get(context(), mdStrings));
+}
+
+void IRState::addLinkerDependentLib(llvm::StringRef libraryName) {
+  auto n = llvm::MDString::get(context(), libraryName);
+  linkerDependentLibs.push_back(llvm::MDNode::get(context(), n));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+llvm::CallInst *
+IRState::createInlineAsmCall(const Loc &loc, llvm::InlineAsm *ia,
+                             llvm::ArrayRef<llvm::Value *> args) {
+  llvm::CallInst *call = ir->CreateCall(ia, args);
+  addInlineAsmSrcLoc(loc, call);
+
+#if LDC_LLVM_VER >= 1400
+  // a non-indirect output constraint (=> return value of call) shifts the
+  // constraint/argument index mapping
+  ptrdiff_t i = call->getType()->isVoidTy() ? 0 : -1;
+  for (const auto &constraintInfo : ia->ParseConstraints()) {
+    if (constraintInfo.isIndirect) {
+      call->addParamAttr(i, llvm::Attribute::get(context(),
+                                                 llvm::Attribute::ElementType,
+                                                 getPointeeType(args[i])));
+    }
+    ++i;
+  }
+#endif
+
+  return call;
+}
+
+void IRState::addInlineAsmSrcLoc(const Loc &loc,
+                                 llvm::CallInst *inlineAsmCall) {
+  // Simply use a stack of Loc* per IR module, and use index+1 as 32-bit
+  // cookie to be mapped back by the InlineAsmDiagnosticHandler.
+  // 0 is not a valid cookie.
+  inlineAsmLocs.push_back(loc);
+  auto srcLocCookie = static_cast<unsigned>(inlineAsmLocs.size());
+
+  auto constant =
+      LLConstantInt::get(LLType::getInt32Ty(context()), srcLocCookie);
+  inlineAsmCall->setMetadata(
+      "srcloc",
+      llvm::MDNode::get(context(), llvm::ConstantAsMetadata::get(constant)));
+}
+
+const Loc &IRState::getInlineAsmSrcLoc(unsigned srcLocCookie) const {
+  assert(srcLocCookie > 0 && srcLocCookie <= inlineAsmLocs.size());
+  return inlineAsmLocs[srcLocCookie - 1];
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 IRBuilder<> *IRBuilderHelper::operator->() {
-  IRBuilder<> &b = state->scope().builder;
-  assert(b.GetInsertBlock() != NULL);
+  IRBuilder<> &b = state->builder;
+  assert(b.GetInsertBlock());
   return &b;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 bool useMSVCEH() {
-#if LDC_LLVM_VER >= 308
   return global.params.targetTriple->isWindowsMSVCEnvironment();
-#else
-  return false;
-#endif
 }

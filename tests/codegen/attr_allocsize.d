@@ -1,7 +1,5 @@
 // Test ldc.attributes.allocSize
 
-// REQUIRES: atleast_llvm309
-
 // RUN: %ldc -O3 -c -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 
 import ldc.attributes;
@@ -41,5 +39,5 @@ class A
 
 // CHECK-DAG: attributes #[[ATTR0]] ={{.*}} allocsize(1,0)
 // CHECK-DAG: attributes #[[ATTR1]] ={{.*}} allocsize(2)
-// CHECK-DAG: attributes #[[ATTR2]] ={{.*}} allocsize(3,1)
-// CHECK-DAG: attributes #[[ATTR3]] ={{.*}} allocsize(4,2)
+// CHECK-DAG: attributes #[[ATTR2]] ={{.*}} allocsize(0,2)
+// CHECK-DAG: attributes #[[ATTR3]] ={{.*}} allocsize(1,3)

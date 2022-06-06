@@ -1,10 +1,9 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Code for generating .json descriptions of the module when passing the `-X` flag to dmd.
  *
- * Copyright:   Copyright (c) 1999-2017 by The D Language Foundation, All Rights Reserved
- * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
- * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/json.d, _json.d)
  * Documentation:  https://dlang.org/phobos/dmd_json.html
  * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/json.d
@@ -16,7 +15,9 @@ import core.stdc.stdio;
 import core.stdc.string;
 import dmd.aggregate;
 import dmd.arraytypes;
+import dmd.astenums;
 import dmd.attrib;
+import dmd.cond;
 import dmd.dclass;
 import dmd.declaration;
 import dmd.denum;
@@ -24,6 +25,7 @@ import dmd.dimport;
 import dmd.dmodule;
 import dmd.dsymbol;
 import dmd.dtemplate;
+import dmd.errors;
 import dmd.expression;
 import dmd.func;
 import dmd.globals;
@@ -31,8 +33,17 @@ import dmd.hdrgen;
 import dmd.id;
 import dmd.identifier;
 import dmd.mtype;
-import dmd.root.outbuffer;
+import dmd.common.outbuffer;
+import dmd.root.rootobject;
+import dmd.root.string;
+import dmd.target;
 import dmd.visitor;
+
+version(Windows) {
+    extern (C) char* getcwd(char* buffer, size_t maxlen);
+} else {
+    import core.sys.posix.unistd : getcwd;
+}
 
 private extern (C++) final class ToJsonVisitor : Visitor
 {
@@ -40,24 +51,25 @@ private extern (C++) final class ToJsonVisitor : Visitor
 public:
     OutBuffer* buf;
     int indentLevel;
-    const(char)* filename;
+    const(char)[] filename;
 
     extern (D) this(OutBuffer* buf)
     {
         this.buf = buf;
     }
 
+
     void indent()
     {
-        if (buf.offset >= 1 && buf.data[buf.offset - 1] == '\n')
+        if (buf.length >= 1 && (*buf)[buf.length - 1] == '\n')
             for (int i = 0; i < indentLevel; i++)
                 buf.writeByte(' ');
     }
 
     void removeComma()
     {
-        if (buf.offset >= 2 && buf.data[buf.offset - 2] == ',' && (buf.data[buf.offset - 1] == '\n' || buf.data[buf.offset - 1] == ' '))
-            buf.offset -= 2;
+        if (buf.length >= 2 && (*buf)[buf.length - 2] == ',' && ((*buf)[buf.length - 1] == '\n' || (*buf)[buf.length - 1] == ' '))
+            buf.setsize(buf.length - 2);
     }
 
     void comma()
@@ -76,11 +88,10 @@ public:
         buf.writeByte('\"');
     }
 
-    void stringPart(const(char)* s)
+    extern(D) void stringPart(const char[] s)
     {
-        for (; *s; s++)
+        foreach (char c; s)
         {
-            char c = cast(char)*s;
             switch (c)
             {
             case '\n':
@@ -121,7 +132,7 @@ public:
     /*********************************
      * Encode string into buf, and wrap it in double quotes.
      */
-    void value(const(char)* s)
+    extern(D) void value(const char[] s)
     {
         stringStart();
         stringPart(s);
@@ -146,7 +157,7 @@ public:
     /*********************************
      * Item is an intented value and a comma, for use in arrays
      */
-    void item(const(char)* s)
+    extern(D) void item(const char[] s)
     {
         indent();
         value(s);
@@ -160,7 +171,7 @@ public:
         comma();
     }
 
-    void itemBool(bool b)
+    void itemBool(const bool b)
     {
         indent();
         valueBool(b);
@@ -179,9 +190,9 @@ public:
     {
         indentLevel--;
         removeComma();
-        if (buf.offset >= 2 && buf.data[buf.offset - 2] == '[' && buf.data[buf.offset - 1] == '\n')
-            buf.offset -= 1;
-        else if (!(buf.offset >= 1 && buf.data[buf.offset - 1] == '['))
+        if (buf.length >= 2 && (*buf)[buf.length - 2] == '[' && (*buf)[buf.length - 1] == '\n')
+            buf.setsize(buf.length - 1);
+        else if (!(buf.length >= 1 && (*buf)[buf.length - 1] == '['))
         {
             buf.writestring("\n");
             indent();
@@ -202,8 +213,8 @@ public:
     {
         indentLevel--;
         removeComma();
-        if (buf.offset >= 2 && buf.data[buf.offset - 2] == '{' && buf.data[buf.offset - 1] == '\n')
-            buf.offset -= 1;
+        if (buf.length >= 2 && (*buf)[buf.length - 2] == '{' && (*buf)[buf.length - 1] == '\n')
+            buf.setsize(buf.length - 1);
         else
         {
             buf.writestring("\n");
@@ -214,14 +225,21 @@ public:
     }
 
     // Json object property functions
-    void propertyStart(const(char)* name)
+    extern(D) void propertyStart(const char[] name)
     {
         indent();
         value(name);
         buf.writestring(" : ");
     }
 
-    void property(const(char)* name, const(char)* s)
+    /**
+    Write the given string object property only if `s` is not null.
+
+    Params:
+     name = the name of the object property
+     s = the string value of the object property
+    */
+    extern(D) void property(const char[] name, const char[] s)
     {
         if (s is null)
             return;
@@ -230,121 +248,109 @@ public:
         comma();
     }
 
-    void property(const(char)* name, int i)
+    /**
+    Write the given string object property.
+
+    Params:
+     name = the name of the object property
+     s = the string value of the object property
+    */
+    extern(D) void requiredProperty(const char[] name, const char[] s)
+    {
+        propertyStart(name);
+        if (s is null)
+            buf.writestring("null");
+        else
+            value(s);
+        comma();
+    }
+
+    extern(D) void property(const char[] name, int i)
     {
         propertyStart(name);
         value(i);
         comma();
     }
 
-    void propertyBool(const(char)* name, bool b)
+    extern(D) void propertyBool(const char[] name, const bool b)
     {
         propertyStart(name);
         valueBool(b);
         comma();
     }
 
-    void property(const(char)* name, TRUST trust)
+    extern(D) void property(const char[] name, TRUST trust)
     {
-        switch (trust)
+        final switch (trust)
         {
-        case TRUSTdefault:
+        case TRUST.default_:
             // Should not be printed
             //property(name, "default");
             break;
-        case TRUSTsystem:
-            property(name, "system");
-            break;
-        case TRUSTtrusted:
-            property(name, "trusted");
-            break;
-        case TRUSTsafe:
-            property(name, "safe");
-            break;
-        default:
-            assert(false);
+        case TRUST.system:  return property(name, "system");
+        case TRUST.trusted: return property(name, "trusted");
+        case TRUST.safe:    return property(name, "safe");
         }
     }
 
-    void property(const(char)* name, PURE purity)
+    extern(D) void property(const char[] name, PURE purity)
     {
-        switch (purity)
+        final switch (purity)
         {
-        case PUREimpure:
+        case PURE.impure:
             // Should not be printed
             //property(name, "impure");
             break;
-        case PUREweak:
-            property(name, "weak");
-            break;
-        case PUREconst:
-            property(name, "const");
-            break;
-        case PUREstrong:
-            property(name, "strong");
-            break;
-        case PUREfwdref:
-            property(name, "fwdref");
-            break;
-        default:
-            assert(false);
+        case PURE.weak:     return property(name, "weak");
+        case PURE.const_:   return property(name, "strong");
+        case PURE.fwdref:   return property(name, "fwdref");
         }
     }
 
-    void property(const(char)* name, LINK linkage)
+    extern(D) void property(const char[] name, const LINK linkage)
     {
-        switch (linkage)
+        final switch (linkage)
         {
-        case LINKdefault:
+        case LINK.default_:
             // Should not be printed
             //property(name, "default");
             break;
-        case LINKd:
+        case LINK.d:
             // Should not be printed
             //property(name, "d");
             break;
-        case LINKc:
-            property(name, "c");
-            break;
-        case LINKcpp:
-            property(name, "cpp");
-            break;
-        case LINKwindows:
-            property(name, "windows");
-            break;
-        case LINKpascal:
-            property(name, "pascal");
-            break;
-        default:
-            assert(false);
+        case LINK.system:   return property(name, "system");
+        case LINK.c:        return property(name, "c");
+        case LINK.cpp:      return property(name, "cpp");
+        case LINK.windows:  return property(name, "windows");
+        case LINK.objc:     return property(name, "objc");
         }
     }
 
-    void propertyStorageClass(const(char)* name, StorageClass stc)
+    extern(D) void propertyStorageClass(const char[] name, StorageClass stc)
     {
-        stc &= STCStorageClass;
+        stc &= STC.visibleStorageClasses;
         if (stc)
         {
             propertyStart(name);
             arrayStart();
             while (stc)
             {
-                const(char)* p = stcToChars(stc);
-                assert(p);
+                auto p = stcToString(stc);
+                assert(p.length);
                 item(p);
             }
             arrayEnd();
         }
     }
 
-    void property(const(char)* linename, const(char)* charname, Loc* loc)
+    extern(D) void property(const char[] linename, const char[] charname, const ref Loc loc)
     {
-        if (loc)
+        if (loc.isValid())
         {
-            const(char)* filename = loc.filename;
-            if (filename)
+            if (auto filename = loc.filename.toDString)
             {
-                if (!this.filename || strcmp(filename, this.filename))
+                if (filename != this.filename)
                 {
                     this.filename = filename;
                     property("file", filename);
@@ -359,26 +365,26 @@ public:
         }
     }
 
-    void property(const(char)* name, Type type)
+    extern(D) void property(const char[] name, Type type)
     {
         if (type)
         {
-            property(name, type.toChars());
+            property(name, type.toString());
         }
     }
 
-    void property(const(char)* name, const(char)* deconame, Type type)
+    extern(D) void property(const char[] name, const char[] deconame, Type type)
     {
         if (type)
         {
             if (type.deco)
-                property(deconame, type.deco);
+                property(deconame, type.deco.toDString);
             else
-                property(name, type.toChars());
+                property(name, type.toString());
         }
     }
 
-    void property(const(char)* name, Parameters* parameters)
+    extern(D) void property(const char[] name, Parameters* parameters)
     {
         if (parameters is null || parameters.dim == 0)
             return;
@@ -391,11 +397,11 @@ public:
                 Parameter p = (*parameters)[i];
                 objectStart();
                 if (p.ident)
-                    property("name", p.ident.toChars());
+                    property("name", p.ident.toString());
                 property("type", "deco", p.type);
                 propertyStorageClass("storageClass", p.storageClass);
                 if (p.defaultArg)
-                    property("default", p.defaultArg.toChars());
+                    property("default", p.defaultArg.toString());
                 objectEnd();
             }
         }
@@ -409,35 +415,47 @@ public:
             return;
         if (!s.isTemplateDeclaration()) // TemplateDeclaration::kind() acts weird sometimes
         {
-            property("name", s.toChars());
-            property("kind", s.kind());
+            property("name", s.toString());
+            if (s.isStaticCtorDeclaration())
+            {
+                property("kind", s.isSharedStaticCtorDeclaration()
+                         ? "shared static constructor" : "static constructor");
+            }
+            else if (s.isStaticDtorDeclaration())
+            {
+                property("kind", s.isSharedStaticDtorDeclaration()
+                         ? "shared static destructor" : "static destructor");
+            }
+            else
+                property("kind", s.kind.toDString);
         }
-        if (s.prot().kind != PROTpublic) // TODO: How about package(names)?
-            property("protection", protectionToChars(s.prot().kind));
+        // TODO: How about package(names)?
+        property("protection", visibilityToString(s.visible().kind));
         if (EnumMember em = s.isEnumMember())
         {
             if (em.origValue)
-                property("value", em.origValue.toChars());
+                property("value", em.origValue.toString());
         }
-        property("comment", s.comment);
-        property("line", "char", &s.loc);
+        property("comment", s.comment.toDString);
+        property("line", "char", s.loc);
     }
 
     void jsonProperties(Declaration d)
     {
-        if (d.storage_class & STClocal)
+        if (d.storage_class & STC.local)
             return;
         jsonProperties(cast(Dsymbol)d);
         propertyStorageClass("storageClass", d.storage_class);
+        property("linkage", d._linkage);
         property("type", "deco", d.type);
         // Emit originalType if it differs from type
         if (d.type != d.originalType && d.originalType)
         {
-            const(char)* ostr = d.originalType.toChars();
+            auto ostr = d.originalType.toString();
             if (d.type)
             {
-                const(char)* tstr = d.type.toChars();
-                if (strcmp(tstr, ostr))
+                auto tstr = d.type.toString();
+                if (ostr != tstr)
                 {
                     //printf("tstr = %s, ostr = %s\n", tstr, ostr);
                     property("originalType", ostr);
@@ -454,7 +472,7 @@ public:
         if (td.onemember && td.onemember.isCtorDeclaration())
             property("name", "this"); // __ctor -> this
         else
-            property("name", td.ident.toChars()); // Foo(T) -> Foo
+            property("name", td.ident.toString()); // Foo(T) -> Foo
     }
 
     /* ========================================================================== */
@@ -466,11 +484,11 @@ public:
     {
         objectStart();
         if (s.md)
-            property("name", s.md.toChars());
-        property("kind", s.kind());
-        filename = s.srcfile.toChars();
+            property("name", s.md.toString());
+        property("kind", s.kind.toDString);
+        filename = s.srcfile.toString();
         property("file", filename);
-        property("comment", s.comment);
+        property("comment", s.comment.toDString);
         propertyStart("members");
         arrayStart();
         for (size_t i = 0; i < s.members.dim; i++)
@@ -488,25 +506,20 @@ public:
         objectStart();
         propertyStart("name");
         stringStart();
-        if (s.packages && s.packages.dim)
-        {
-            for (size_t i = 0; i < s.packages.dim; i++)
-            {
-                Identifier pid = (*s.packages)[i];
-                stringPart(pid.toChars());
-                buf.writeByte('.');
-            }
+        foreach (const pid; s.packages){
+            stringPart(pid.toString());
+            buf.writeByte('.');
         }
-        stringPart(s.id.toChars());
+        stringPart(s.id.toString());
         stringEnd();
         comma();
-        property("kind", s.kind());
-        property("comment", s.comment);
-        property("line", "char", &s.loc);
-        if (s.prot().kind != PROTpublic)
-            property("protection", protectionToChars(s.prot().kind));
+        property("kind", s.kind.toDString);
+        property("comment", s.comment.toDString);
+        property("line", "char", s.loc);
+        if (s.visible().kind != Visibility.Kind.public_)
+            property("protection", visibilityToString(s.visible().kind));
         if (s.aliasId)
-            property("alias", s.aliasId.toChars());
+            property("alias", s.aliasId.toString());
         bool hasRenamed = false;
         bool hasSelective = false;
         for (size_t i = 0; i < s.aliases.dim; i++)
@@ -526,10 +539,10 @@ public:
             objectStart();
             for (size_t i = 0; i < s.aliases.dim; i++)
             {
-                Identifier name = s.names[i];
-                Identifier _alias = s.aliases[i];
+                const name = s.names[i];
+                const _alias = s.aliases[i];
                 if (_alias)
-                    property(_alias.toChars(), name.toChars());
+                    property(_alias.toString(), name.toString());
             }
             objectEnd();
         }
@@ -538,11 +551,10 @@ public:
             // import foo : target1;
             propertyStart("selective");
             arrayStart();
-            for (size_t i = 0; i < s.names.dim; i++)
+            foreach (i, name; s.names)
             {
-                Identifier name = s.names[i];
                 if (!s.aliases[i])
-                    item(name.toChars());
+                    item(name.toString());
             }
             arrayEnd();
         }
@@ -564,9 +576,10 @@ public:
 
     override void visit(ConditionalDeclaration d)
     {
-        if (d.condition.inc)
+        if (d.condition.inc != Include.notComputed)
         {
             visit(cast(AttribDeclaration)d);
+            return; // Don't visit the if/else bodies again below
         }
         Dsymbols* ds = d.decl ? d.decl : d.elsedecl;
         for (size_t i = 0; i < ds.dim; i++)
@@ -601,7 +614,7 @@ public:
         {
             if (cd.baseClass && cd.baseClass.ident != Id.Object)
             {
-                property("base", cd.baseClass.toPrettyChars(true));
+                property("base", cd.baseClass.toPrettyChars(true).toDString);
             }
             if (cd.interfaces.length)
             {
@@ -609,7 +622,7 @@ public:
                 arrayStart();
                 foreach (b; cd.interfaces)
                 {
-                    item(b.sym.toPrettyChars(true));
+                    item(b.sym.toPrettyChars(true).toDString);
                 }
                 arrayEnd();
             }
@@ -634,8 +647,8 @@ public:
         jsonProperties(d);
         TypeFunction tf = cast(TypeFunction)d.type;
         if (tf && tf.ty == Tfunction)
-            property("parameters", tf.parameters);
-        property("endline", "endchar", &d.endloc);
+            property("parameters", tf.parameterList.parameters);
+        property("endline", "endchar", d.endloc);
         if (d.foverrides.dim)
         {
             propertyStart("overrides");
@@ -643,7 +656,7 @@ public:
             for (size_t i = 0; i < d.foverrides.dim; i++)
             {
                 FuncDeclaration fd = d.foverrides[i];
-                item(fd.toPrettyChars());
+                item(fd.toPrettyChars().toDString);
             }
             arrayEnd();
         }
@@ -672,9 +685,9 @@ public:
         {
             TemplateParameter s = (*d.parameters)[i];
             objectStart();
-            property("name", s.ident.toChars());
-            TemplateTypeParameter type = s.isTemplateTypeParameter();
-            if (type)
+            property("name", s.ident.toString());
+
+            if (auto type = s.isTemplateTypeParameter())
             {
                 if (s.isTemplateThisParameter())
                     property("kind", "this");
@@ -683,38 +696,39 @@ public:
                 property("type", "deco", type.specType);
                 property("default", "defaultDeco", type.defaultType);
             }
-            TemplateValueParameter value = s.isTemplateValueParameter();
-            if (value)
+
+            if (auto value = s.isTemplateValueParameter())
             {
                 property("kind", "value");
                 property("type", "deco", value.valType);
                 if (value.specValue)
-                    property("specValue", value.specValue.toChars());
+                    property("specValue", value.specValue.toString());
                 if (value.defaultValue)
-                    property("defaultValue", value.defaultValue.toChars());
+                    property("defaultValue", value.defaultValue.toString());
             }
-            TemplateAliasParameter _alias = s.isTemplateAliasParameter();
-            if (_alias)
+
+            if (auto _alias = s.isTemplateAliasParameter())
             {
                 property("kind", "alias");
                 property("type", "deco", _alias.specType);
                 if (_alias.specAlias)
-                    property("specAlias", _alias.specAlias.toChars());
+                    property("specAlias", _alias.specAlias.toString());
                 if (_alias.defaultAlias)
-                    property("defaultAlias", _alias.defaultAlias.toChars());
+                    property("defaultAlias", _alias.defaultAlias.toString());
             }
-            TemplateTupleParameter tuple = s.isTemplateTupleParameter();
-            if (tuple)
+
+            if (auto tuple = s.isTemplateTupleParameter())
             {
                 property("kind", "tuple");
             }
+
             objectEnd();
         }
         arrayEnd();
         Expression expression = d.constraint;
         if (expression)
         {
-            property("constraint", expression.toChars());
+            property("constraint", expression.toString());
         }
         propertyStart("members");
         arrayStart();
@@ -768,16 +782,16 @@ public:
 
     override void visit(VarDeclaration d)
     {
-        if (d.storage_class & STClocal)
+        if (d.storage_class & STC.local)
             return;
         objectStart();
         jsonProperties(d);
         if (d._init)
-            property("init", d._init.toChars());
+            property("init", d._init.toString());
         if (d.isField())
             property("offset", d.offset);
-        if (d.alignment && d.alignment != STRUCTALIGN_DEFAULT)
-            property("align", d.alignment);
+        if (!d.alignment.isUnknown() && !d.alignment.isDefault())
+            property("align", d.alignment.get());
         objectEnd();
     }
 
@@ -787,19 +801,281 @@ public:
         jsonProperties(d);
         objectEnd();
     }
+
+    /**
+    Generate an array of module objects that represent the syntax of each
+    "root module".
+
+    Params:
+     modules = array of the "root modules"
+    */
+    private void generateModules(Modules* modules)
+    {
+        arrayStart();
+        if (modules)
+        {
+            foreach (m; *modules)
+            {
+                if (global.params.verbose)
+                    message("json gen %s", m.toChars());
+                m.accept(this);
+            }
+        }
+        arrayEnd();
+    }
+
+    /**
+    Generate the "compilerInfo" object which contains information about the compiler
+    such as the filename, version, supported features, etc.
+    */
+    private void generateCompilerInfo()
+    {
+        import dmd.target : target;
+        objectStart();
+        requiredProperty("vendor", global.vendor);
+        requiredProperty("version", global.versionString());
+        property("__VERSION__", global.versionNumber());
+        requiredProperty("interface", determineCompilerInterface());
+        property("size_t", size_t.sizeof);
+        propertyStart("platforms");
+        arrayStart();
+        if (target.os == Target.OS.Windows)
+        {
+            item("windows");
+        }
+        else
+        {
+            item("posix");
+            if (target.os == Target.OS.linux)
+                item("linux");
+            else if (target.os == Target.OS.OSX)
+                item("osx");
+            else if (target.os == Target.OS.FreeBSD)
+            {
+                item("freebsd");
+                item("bsd");
+            }
+            else if (target.os == Target.OS.OpenBSD)
+            {
+                item("openbsd");
+                item("bsd");
+            }
+            else if (target.os == Target.OS.Solaris)
+            {
+                item("solaris");
+                item("bsd");
+            }
+        }
+        arrayEnd();
+
+        propertyStart("architectures");
+        arrayStart();
+        item(target.architectureName);
+        arrayEnd();
+
+        propertyStart("predefinedVersions");
+        arrayStart();
+        if (global.versionids)
+        {
+            foreach (const versionid; *global.versionids)
+            {
+                item(versionid.toString());
+            }
+        }
+        arrayEnd();
+
+        propertyStart("supportedFeatures");
+        {
+            objectStart();
+            scope(exit) objectEnd();
+            propertyBool("includeImports", true);
+        }
+        objectEnd();
+    }
+
+    /**
+    Generate the "buildInfo" object which contains information specific to the
+    current build such as CWD, importPaths, configFile, etc.
+    */
+    private void generateBuildInfo()
+    {
+        objectStart();
+        requiredProperty("cwd", getcwd(null, 0).toDString);
+        requiredProperty("argv0", global.params.argv0);
+        requiredProperty("config", global.inifilename);
+        requiredProperty("libName", global.params.libname);
+
+        propertyStart("importPaths");
+        arrayStart();
+        if (global.params.imppath)
+        {
+            foreach (importPath; *global.params.imppath)
+            {
+                item(importPath.toDString);
+            }
+        }
+        arrayEnd();
+
+        propertyStart("objectFiles");
+        arrayStart();
+        foreach (objfile; global.params.objfiles)
+        {
+            item(objfile.toDString);
+        }
+        arrayEnd();
+
+        propertyStart("libraryFiles");
+        arrayStart();
+        foreach (lib; global.params.libfiles)
+        {
+            item(lib.toDString);
+        }
+        arrayEnd();
+
+        propertyStart("ddocFiles");
+        arrayStart();
+        foreach (ddocFile; global.params.ddocfiles)
+        {
+            item(ddocFile.toDString);
+        }
+        arrayEnd();
+
+        requiredProperty("mapFile", global.params.mapfile);
+        requiredProperty("resourceFile", global.params.resfile);
+        requiredProperty("defFile", global.params.deffile);
+
+        objectEnd();
+    }
+
+    /**
+    Generate the "semantics" object which contains a 'modules' field representing
+    semantic information about all the modules used in the compilation such as
+    module name, isRoot, contentImportedFiles, etc.
+    */
+    private void generateSemantics()
+    {
+        objectStart();
+        propertyStart("modules");
+        arrayStart();
+        foreach (m; Module.amodules)
+        {
+            objectStart();
+            requiredProperty("name", m.md ? m.md.toString() : null);
+            requiredProperty("file", m.srcfile.toString());
+            propertyBool("isRoot", m.isRoot());
+            if(m.contentImportedFiles.dim > 0)
+            {
+                propertyStart("contentImports");
+                arrayStart();
+                foreach (file; m.contentImportedFiles)
+                {
+                    item(file.toDString);
+                }
+                arrayEnd();
+            }
+            objectEnd();
+        }
+        arrayEnd();
+        objectEnd();
+    }
 }
 
 extern (C++) void json_generate(OutBuffer* buf, Modules* modules)
 {
     scope ToJsonVisitor json = new ToJsonVisitor(buf);
-    json.arrayStart();
-    for (size_t i = 0; i < modules.dim; i++)
+    // write trailing newline
+    scope(exit) buf.writeByte('\n');
+
+    if (global.params.jsonFieldFlags == 0)
     {
-        Module m = (*modules)[i];
-        if (global.params.verbose)
-            fprintf(global.stdmsg, "json gen %s\n", m.toChars());
-        m.accept(json);
+        // Generate the original format, which is just an array
+        // of modules representing their syntax.
+        json.generateModules(modules);
+        json.removeComma();
     }
-    json.arrayEnd();
-    json.removeComma();
+    else
+    {
+        // Generate the new format which is an object where each
+        // output option is its own field.
+
+        json.objectStart();
+        if (global.params.jsonFieldFlags & JsonFieldFlags.compilerInfo)
+        {
+            json.propertyStart("compilerInfo");
+            json.generateCompilerInfo();
+        }
+        if (global.params.jsonFieldFlags & JsonFieldFlags.buildInfo)
+        {
+            json.propertyStart("buildInfo");
+            json.generateBuildInfo();
+        }
+        if (global.params.jsonFieldFlags & JsonFieldFlags.modules)
+        {
+            json.propertyStart("modules");
+            json.generateModules(modules);
+        }
+        if (global.params.jsonFieldFlags & JsonFieldFlags.semantics)
+        {
+            json.propertyStart("semantics");
+            json.generateSemantics();
+        }
+        json.objectEnd();
+    }
+}
+
+/**
+A string listing the name of each JSON field. Useful for errors messages.
+*/
+enum jsonFieldNames = () {
+    string s;
+    string prefix = "";
+    foreach (idx, enumName; __traits(allMembers, JsonFieldFlags))
+    {
+        static if (idx > 0)
+        {
+            s ~= prefix ~ "`" ~ enumName ~ "`";
+            prefix = ", ";
+        }
+    }
+    return s;
+}();
+
+/**
+Parse the given `fieldName` and return its corresponding JsonFieldFlags value.
+
+Params:
+ fieldName = the field name to parse
+
+Returns: JsonFieldFlags.none on error, otherwise the JsonFieldFlags value
+         corresponding to the given fieldName.
+*/
+extern (C++) JsonFieldFlags tryParseJsonField(const(char)* fieldName)
+{
+    auto fieldNameString = fieldName.toDString();
+    foreach (idx, enumName; __traits(allMembers, JsonFieldFlags))
+    {
+        static if (idx > 0)
+        {
+            if (fieldNameString == enumName)
+                return __traits(getMember, JsonFieldFlags, enumName);
+        }
+    }
+    return JsonFieldFlags.none;
+}
+
+/**
+Determines and returns the compiler interface which is one of `dmd`, `ldc`,
+`gdc` or `sdc`. Returns `null` if no interface can be determined.
+*/
+private extern(D) string determineCompilerInterface()
+{
+    if (global.vendor == "Digital Mars D")
+        return "dmd";
+    if (global.vendor == "LDC")
+        return "ldc";
+    if (global.vendor == "GNU D")
+        return "gdc";
+    if (global.vendor == "SDC")
+        return "sdc";
+    return null;
 }

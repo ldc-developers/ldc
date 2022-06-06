@@ -99,30 +99,17 @@ class GroupSetting : Setting
 
 Setting[] parseConfigFile(const(char)* filename)
 {
-    auto dFilename = filename[0 .. strlen(filename)].idup;
+    import dmd.globals : Loc;
+    import dmd.root.string : toDString;
+    import dmd.utils;
 
-    auto file = fopen(filename, "r");
-    if (!file)
-    {
-        throw new Exception("could not open config file " ~
-                            dFilename ~ " for reading");
-    }
-
-    fseek(file, 0, SEEK_END);
-    const fileLength = ftell(file);
-    rewind(file);
-
-    auto content = new char[fileLength];
-    const numRead = fread(content.ptr, 1, fileLength, file);
-    fclose(file);
+    auto content = readFile(Loc.initial, filename).extractSlice();
 
     // skip UTF-8 BOM
-    int start = 0;
-    if (numRead >= 3 && content[0 .. 3] == "\xEF\xBB\xBF")
-        start = 3;
-    content = content[start .. numRead];
+    if (content.length >= 3 && content[0 .. 3] == "\xEF\xBB\xBF")
+        content = content[3 .. $];
 
-    auto parser = Parser(cast(string) content, dFilename);
+    auto parser = Parser(cast(string) content, cast(string) filename.toDString);
     return parser.parseConfig();
 }
 
@@ -136,7 +123,7 @@ EBNF grammar.
 It is a subset of the libconfig grammar (http://www.hyperrealm.com/libconfig).
 
 config  =   { ows , setting } , ows ;
-setting =   name , (":" | "=") , value , [";" | ","] ;
+setting =   (name | string) , (":" | "=") , value , [";" | ","] ;
 name    =   alpha , { alpha | digit | "_" | "-" } ;
 value   =   string | array | group ;
 array   =   "[" , ows ,
@@ -231,8 +218,8 @@ struct Parser
     {
         enum fmt = "Error while reading config file: %.*s\nline %d: %.*s";
         char[1024] buf;
-        auto len = snprintf(buf.ptr, buf.length, fmt, filename.length,
-                            filename.ptr, lineNum, msg.length, msg.ptr);
+        auto len = snprintf(buf.ptr, buf.length, fmt, cast(int) filename.length,
+                            filename.ptr, lineNum, cast(int) msg.length, msg.ptr);
         throw new Exception(buf[0 .. len].idup);
     }
 
@@ -445,14 +432,20 @@ struct Parser
 
     Setting parseSetting()
     {
-        immutable name = accept(Token.name);
+        string name;
+        auto t = getTok(name);
+        if (t != Token.name && t != Token.str)
+        {
+            unexpectedTokenError(t, Token.name, name);
+            assert(false);
+        }
 
         accept(Token.assign);
 
         Setting res = parseValue(name);
 
         string s;
-        immutable t = getTok(s);
+        t = getTok(s);
         if (t != Token.semicolon && t != Token.comma)
         {
             ungetTok(t, s);
@@ -567,25 +560,25 @@ unittest
 `// comment
 
 // comment
-group-1: {};
+group-1_2: {};
 // comment
-Group-2:
+"86(_64)?-.*linux\\.?":
 {
     // comment
     scalar = "abc";
     // comment
-    Array_1 = [ "a" ];
+    Array_1-2 = [ "a" ];
 };
 `;
 
     auto settings = Parser(input).parseConfig();
     assert(settings.length == 2);
 
-    assert(settings[0].name == "group-1");
+    assert(settings[0].name == "group-1_2");
     assert(settings[0].type == Setting.Type.group);
     assert((cast(GroupSetting) settings[0]).children == []);
 
-    assert(settings[1].name == "Group-2");
+    assert(settings[1].name == "86(_64)?-.*linux\\.?");
     assert(settings[1].type == Setting.Type.group);
     auto group2 = cast(GroupSetting) settings[1];
     assert(group2.children.length == 2);
@@ -594,7 +587,7 @@ Group-2:
     assert(group2.children[0].type == Setting.Type.scalar);
     assert((cast(ScalarSetting) group2.children[0]).val == "abc");
 
-    assert(group2.children[1].name == "Array_1");
+    assert(group2.children[1].name == "Array_1-2");
     assert(group2.children[1].type == Setting.Type.array);
     assert((cast(ArraySetting) group2.children[1]).vals == [ "a" ]);
 }

@@ -18,7 +18,7 @@
 // PROFGEN: @[[MAIN:__(llvm_profile_counters|profc)__Dmain]] ={{.*}} global [1 x i64] zeroinitializer
 
 // PROFGEN-LABEL: @_Dmain(
-// PROFGEN: store {{.*}} @[[MAIN]], i64 0, i64 0
+// PROFGEN: store {{.*}} @[[MAIN]], i{{32|64}} 0, i{{32|64}} 0
 @safe:
 void main() {
   int[] array = [1,2,3];

@@ -11,11 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_ABI_NVPTX_H
-#define LDC_GEN_ABI_NVPTX_H
+#pragma once
 
 struct TargetABI;
 
 TargetABI *createNVPTXABI();
-
-#endif

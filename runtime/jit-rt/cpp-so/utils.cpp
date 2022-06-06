@@ -22,7 +22,7 @@ void fatal(const Context &context, const std::string &reason) {
   if (nullptr != context.fatalHandler) {
     context.fatalHandler(context.fatalHandlerData, reason.c_str());
   } else {
-    fprintf(stderr, "Runtime compiler fatal: %s\n", reason.c_str());
+    fprintf(stderr, "Dynamic compiler fatal: %s\n", reason.c_str());
     fflush(stderr);
     abort();
   }

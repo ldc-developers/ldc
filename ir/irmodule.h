@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_IR_IRMODULE_H
-#define LDC_IR_IRMODULE_H
+#pragma once
 
 #include <list>
 
@@ -22,6 +21,7 @@ class Module;
 namespace llvm {
 class GlobalVariable;
 class Function;
+class DIModule;
 }
 
 struct IrModule {
@@ -44,10 +44,10 @@ struct IrModule {
   FuncDeclList unitTests;
   llvm::Function *coverageCtor = nullptr;
 
+  llvm::DIModule *diModule = nullptr;
+
 private:
   llvm::GlobalVariable *moduleInfoVar = nullptr;
 };
 
 IrModule *getIrModule(Module *m);
-
-#endif

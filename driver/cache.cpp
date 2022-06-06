@@ -30,6 +30,7 @@
 #include "driver/cache.h"
 
 #include "dmd/errors.h"
+#include "dmd/target.h"
 #include "driver/cache_pruning.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_sanitizers.h"
@@ -37,13 +38,8 @@
 #include "gen/logger.h"
 #include "gen/optimizer.h"
 
-#if LDC_LLVM_VER >= 400
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Support/Chrono.h"
-#else
-#include "llvm/Bitcode/ReaderWriter.h"
-#include "llvm/Support/TimeValue.h"
-#endif
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/Path.h"
@@ -58,29 +54,45 @@
 
 #if LDC_POSIX
 #include <unistd.h>
-// Returns true upon error.
-static bool createHardLink(const char *to, const char *from) {
-  return link(to, from) == -1;
+#include <errno.h>
+
+static std::error_code createHardLink(const char *to, const char *from) {
+  if (link(to, from) == 0)
+    return std::error_code(0, std::system_category());
+  else
+    return std::error_code(errno, std::system_category());
 }
-// Returns true upon error.
-static bool createSymLink(const char *to, const char *from) {
-  return symlink(to, from) == -1;
+
+static std::error_code createSymLink(const char *to, const char *from) {
+  if (symlink(to, from) == 0)
+    return std::error_code(0, std::system_category());
+  else
+    return std::error_code(errno, std::system_category());
 }
 #elif _WIN32
 #include <windows.h>
 namespace llvm {
 namespace sys {
+#if LDC_LLVM_VER >= 1100
+namespace windows {
+// Fwd declaration to an internal LLVM function.
+std::error_code widenPath(const llvm::Twine &Path8,
+                          llvm::SmallVectorImpl<wchar_t> &Path16,
+                          size_t MaxPathLen = MAX_PATH);
+}
+#else
 namespace path {
 // Fwd declaration to an internal LLVM function.
 std::error_code widenPath(const llvm::Twine &Path8,
                           llvm::SmallVectorImpl<wchar_t> &Path16);
 }
-}
-}
-// Returns true upon error.
+#endif // LDC_LLVM_VER < 1100
+} // namespace sys
+} // namespace llvm
+
 namespace {
 template <typename FType>
-bool createLink(FType f, const char *to, const char *from) {
+std::error_code createLink(FType f, const char *to, const char *from) {
   //===----------------------------------------------------------------------===//
   //
   // Code copied from LLVM 3.9 llvm/Support/Windows/Path.inc, distributed under
@@ -88,25 +100,31 @@ bool createLink(FType f, const char *to, const char *from) {
   //
   //===----------------------------------------------------------------------===//
 
+#if LDC_LLVM_VER >= 1100
+  using llvm::sys::windows::widenPath;
+#else
+  using llvm::sys::path::widenPath;
+#endif
+
   llvm::SmallVector<wchar_t, 128> wide_from;
   llvm::SmallVector<wchar_t, 128> wide_to;
-  if (llvm::sys::path::widenPath(from, wide_from))
-    return true;
-  if (llvm::sys::path::widenPath(to, wide_to))
-    return true;
+  if (auto errorcode = widenPath(from, wide_from))
+    return errorcode;
+  if (auto errorcode = widenPath(to, wide_to))
+    return errorcode;
 
   if (!(*f)(wide_from.begin(), wide_to.begin(), NULL))
-    return true;
+    return std::error_code(GetLastError(), std::system_category());;
 
-  return false;
+  return std::error_code(0, std::system_category());
 }
 }
-// Returns true upon error.
-static bool createHardLink(const char *to, const char *from) {
+
+static std::error_code createHardLink(const char *to, const char *from) {
   return createLink(&CreateHardLinkW, to, from);
 }
-// Returns true upon error.
-static bool createSymLink(const char *to, const char *from) {
+
+static std::error_code createSymLink(const char *to, const char *from) {
   return createLink(&CreateSymbolicLinkW, to, from);
 }
 #endif
@@ -144,7 +162,7 @@ llvm::cl::opt<RetrievalMode> cacheRecoveryMode(
     "cache-retrieval", llvm::cl::ZeroOrMore,
     llvm::cl::desc("Set the cache retrieval mechanism (default: copy)."),
     llvm::cl::init(RetrievalMode::Copy),
-    clEnumValues(
+    llvm::cl::values(
         clEnumValN(RetrievalMode::Copy, "copy",
                    "Make a copy of the cache file"),
         clEnumValN(RetrievalMode::HardLink, "hardlink",
@@ -169,14 +187,10 @@ bool isPruningEnabled() {
   return false;
 }
 
-#if LDC_LLVM_VER >= 400
 llvm::sys::TimePoint<std::chrono::seconds> getTimeNow() {
   using namespace std::chrono;
   return time_point_cast<seconds>(system_clock::now());
 }
-#else
-llvm::sys::TimeValue getTimeNow() { return llvm::sys::TimeValue::now(); }
-#endif
 
 /// A raw_ostream that creates a hash of what is written to it.
 /// This class does not encounter output errors.
@@ -209,8 +223,9 @@ public:
 void storeCacheFileName(llvm::StringRef cacheObjectHash,
                         llvm::SmallString<128> &filePath) {
   filePath = opts::cacheDir;
-  llvm::sys::path::append(filePath, llvm::Twine("ircache_") + cacheObjectHash +
-                                        "." + global.obj_ext);
+  llvm::sys::path::append(
+      filePath, llvm::Twine("ircache_") + cacheObjectHash + "." +
+                    llvm::StringRef(target.obj_ext.ptr, target.obj_ext.length));
 }
 
 // Output to `hash_os` all commandline flags, and try to skip the ones that have
@@ -305,15 +320,15 @@ void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os) {
   hash_os << opts::getCPUStr();
   hash_os << opts::getFeaturesStr();
   hash_os << opts::floatABI;
-#if LDC_LLVM_VER >= 309
   const auto relocModel = opts::getRelocModel();
   if (relocModel.hasValue())
     hash_os << relocModel.getValue();
-#else
-  hash_os << opts::getRelocModel();
-#endif
-  hash_os << opts::getCodeModel();
-  hash_os << opts::disableFPElim();
+  const auto codeModel = opts::getCodeModel();
+  if (codeModel.hasValue())
+    hash_os << codeModel.getValue();
+  const auto framePointerUsage = opts::framePointerUsage();
+  if (framePointerUsage.hasValue())
+    hash_os << static_cast<int>(framePointerUsage.getValue());
 }
 
 // Output to `hash_os` all environment flags that influence object code output
@@ -330,7 +345,7 @@ void calculateModuleHash(llvm::Module *m, llvm::SmallString<32> &str) {
   raw_hash_ostream hash_os;
 
   // Let hash depend on the compiler version:
-  hash_os << global.ldc_version << global.version << global.llvm_version
+  hash_os << ldc::ldc_version << ldc::dmd_version << ldc::llvm_version
           << ldc::built_with_Dcompiler_version;
 
   // Let hash depend on compile flags that change the outputted obj file,
@@ -339,7 +354,7 @@ void calculateModuleHash(llvm::Module *m, llvm::SmallString<32> &str) {
   outputIR2ObjRelevantCmdlineArgs(hash_os);
   outputIR2ObjRelevantEnvironmentOpts(hash_os);
 
-  llvm::WriteBitcodeToFile(m, hash_os);
+  llvm::WriteBitcodeToFile(*m, hash_os);
   hash_os.resultAsString(str);
   IF_LOG Logger::println("Module's LLVM bitcode hash is: %s", str.c_str());
 }
@@ -369,11 +384,13 @@ void cacheObjectFile(llvm::StringRef objectFile,
   if (opts::cacheDir.empty())
     return;
 
-  if (!llvm::sys::fs::exists(opts::cacheDir) &&
-      llvm::sys::fs::create_directories(opts::cacheDir)) {
-    error(Loc(), "Unable to create cache directory: %s",
-          opts::cacheDir.c_str());
-    fatal();
+  if (!llvm::sys::fs::exists(opts::cacheDir)) {
+    if (auto errorcode = llvm::sys::fs::create_directories(opts::cacheDir)) {
+      error(Loc(), "Unable to create cache directory: %s (errno %d: %s)",
+            opts::cacheDir.c_str(), errorcode.value(),
+            errorcode.message().c_str());
+      fatal();
+    }
   }
 
   // To prevent bad cache files, add files to the cache atomically: first copy
@@ -384,24 +401,32 @@ void cacheObjectFile(llvm::StringRef objectFile,
   storeCacheFileName(cacheObjectHash, cacheFile);
 
   llvm::SmallString<128> tempFile;
-  if (llvm::sys::fs::createUniqueFile(llvm::Twine(cacheFile) + ".tmp%%%%%%%",
-                                      tempFile)) {
-    error(Loc(), "Could not create name of temporary file in the cache.");
+  if (auto errorcode = llvm::sys::fs::createUniqueFile(
+          llvm::Twine(cacheFile) + ".tmp%%%%%%%", tempFile)) {
+    error(
+        Loc(),
+        "Could not create name of temporary file in the cache (errno %d: %s)",
+        errorcode.value(), errorcode.message().c_str());
     fatal();
   }
 
   IF_LOG Logger::println("Copy object file to temp file: %s to %s",
                          objectFile.str().c_str(), tempFile.c_str());
-  if (llvm::sys::fs::copy_file(objectFile, tempFile.c_str())) {
-    error(Loc(), "Failed to copy object file to cache: %s to %s",
-          objectFile.str().c_str(), tempFile.c_str());
+  if (auto errorcode = llvm::sys::fs::copy_file(objectFile, tempFile.c_str())) {
+    error(Loc(),
+          "Failed to copy object file to cache: %s to %s (errno %d: %s)",
+          objectFile.str().c_str(), tempFile.c_str(), errorcode.value(),
+          errorcode.message().c_str());
     fatal();
   }
   IF_LOG Logger::println("Rename temp file to cache file: %s to %s",
                          tempFile.c_str(), cacheFile.c_str());
-  if (llvm::sys::fs::rename(tempFile.c_str(), cacheFile.c_str())) {
-    error(Loc(), "Failed to rename temp file to cache file: %s to %s",
-          tempFile.c_str(), cacheFile.c_str());
+  if (auto errorcode =
+          llvm::sys::fs::rename(tempFile.c_str(), cacheFile.c_str())) {
+    error(Loc(),
+          "Failed to rename temp file to cache file: %s to %s (errno %d: %s)",
+          tempFile.c_str(), cacheFile.c_str(), errorcode.value(),
+          errorcode.message().c_str());
     fatal();
   }
 }
@@ -418,37 +443,50 @@ void recoverObjectFile(llvm::StringRef cacheObjectHash,
   case RetrievalMode::Copy: {
     IF_LOG Logger::println("Copy cached object file: %s -> %s",
                            cacheFile.c_str(), objectFile.str().c_str());
-    if (llvm::sys::fs::copy_file(cacheFile.c_str(), objectFile)) {
-      error(Loc(), "Failed to copy the cached file: %s -> %s",
-            cacheFile.c_str(), objectFile.str().c_str());
+    if (auto errorcode =
+            llvm::sys::fs::copy_file(cacheFile.c_str(), objectFile)) {
+      error(Loc(), "Failed to copy the cached file: %s -> %s (errno %d: %s)",
+            cacheFile.c_str(), objectFile.str().c_str(), errorcode.value(),
+            errorcode.message().c_str());
       fatal();
     }
   } break;
   case RetrievalMode::HardLink: {
     IF_LOG Logger::println("HardLink output to cached object file: %s -> %s",
                            objectFile.str().c_str(), cacheFile.c_str());
-    if (createHardLink(cacheFile.c_str(), objectFile.str().c_str())) {
-      error(Loc(), "Failed to create a hard link to the cached file: %s -> %s",
-            cacheFile.c_str(), objectFile.str().c_str());
+    if (auto errorcode =
+            createHardLink(cacheFile.c_str(), objectFile.str().c_str())) {
+      error(Loc(),
+            "Failed to create a hard link to the cached file: %s -> %s (errno "
+            "%d: %s)",
+            cacheFile.c_str(), objectFile.str().c_str(), errorcode.value(),
+            errorcode.message().c_str());
       fatal();
     }
   } break;
   case RetrievalMode::AnyLink: {
     IF_LOG Logger::println("Link output to cached object file: %s -> %s",
                            objectFile.str().c_str(), cacheFile.c_str());
-    if (llvm::sys::fs::create_link(cacheFile.c_str(), objectFile)) {
-      error(Loc(), "Failed to create a link to the cached file: %s -> %s",
-            cacheFile.c_str(), objectFile.str().c_str());
+    if (auto errorcode =
+            llvm::sys::fs::create_link(cacheFile.c_str(), objectFile)) {
+      error(
+          Loc(),
+          "Failed to create a link to the cached file: %s -> %s (errno %d: %s)",
+          cacheFile.c_str(), objectFile.str().c_str(), errorcode.value(),
+          errorcode.message().c_str());
       fatal();
     }
   } break;
   case RetrievalMode::SymLink: {
     IF_LOG Logger::println("SymLink output to cached object file: %s -> %s",
                            objectFile.str().c_str(), cacheFile.c_str());
-    if (createSymLink(cacheFile.c_str(), objectFile.str().c_str())) {
+    if (auto errorcode =
+            createSymLink(cacheFile.c_str(), objectFile.str().c_str())) {
       error(Loc(),
-            "Failed to create a symbolic link to the cached file: %s -> %s",
-            cacheFile.c_str(), objectFile.str().c_str());
+            "Failed to create a symbolic link to the cached file: %s -> %s "
+            "(errno %d: %s)",
+            cacheFile.c_str(), objectFile.str().c_str(), errorcode.value(),
+            errorcode.message().c_str());
       fatal();
     }
   } break;
@@ -462,13 +500,14 @@ void recoverObjectFile(llvm::StringRef cacheObjectHash,
   {
     int FD;
     if (llvm::sys::fs::openFileForWrite(cacheFile.c_str(), FD,
-                                        llvm::sys::fs::F_Append)) {
+                                        llvm::sys::fs::CD_OpenExisting,
+                                        llvm::sys::fs::OF_Append)) {
       error(Loc(), "Failed to open the cached file for writing: %s",
             cacheFile.c_str());
       fatal();
     }
 
-    if (llvm::sys::fs::setLastModificationAndAccessTime(FD, getTimeNow())) {
+    if (llvm::sys::fs::setLastAccessAndModificationTime(FD, getTimeNow())) {
       error(Loc(), "Failed to set the cached file modification time: %s",
             cacheFile.c_str());
       fatal();

@@ -1,0 +1,30 @@
+name: Build bootstrap LDC
+inputs:
+  cmake_flags:
+    required: false
+    default: ''
+  arch:
+    required: false # Windows only
+runs:
+  using: composite
+  steps:
+
+    - name: Check CMake and ninja versions
+      shell: bash
+      run: |
+        set -eux
+        cmake --version
+        ninja --version
+
+    - name: Build bootstrap LDC
+      uses: ./.github/actions/helper-build-ldc
+      with:
+        build_dir: bootstrap-ldc
+        host_dc: ldmd2
+        cmake_flags: >-
+          -DBUILD_SHARED_LIBS=OFF
+          ${{ inputs.cmake_flags }}
+        arch: ${{ inputs.arch }}
+
+    - run: ../bootstrap-ldc/bin/ldc2 --version
+      shell: bash

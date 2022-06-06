@@ -1,5 +1,3 @@
-// REQUIRES: atleast_llvm500
-
 // RUN: %ldc -c -output-ll -fxray-instrument -of=%t.ll %s && FileCheck %s < %t.ll
 
 import ldc.attributes;

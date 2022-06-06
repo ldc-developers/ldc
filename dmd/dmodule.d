@@ -1,16 +1,17 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Defines a package and module.
  *
- * Copyright:   Copyright (c) 1999-2017 by The D Language Foundation, All Rights Reserved
- * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
- * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Specification: $(LINK2 https://dlang.org/spec/module.html, Modules)
+ *
+ * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/dmodule.d, _dmodule.d)
+ * Documentation:  https://dlang.org/phobos/dmd_dmodule.html
+ * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/dmodule.d
  */
 
 module dmd.dmodule;
-
-// Online documentation: https://dlang.org/phobos/dmd_dmodule.html
 
 import core.stdc.stdio;
 import core.stdc.stdlib;
@@ -18,6 +19,8 @@ import core.stdc.string;
 import dmd.aggregate;
 import dmd.arraytypes;
 import dmd.astcodegen;
+import dmd.astenums;
+import dmd.compiler;
 import dmd.gluelayer;
 import dmd.dimport;
 import dmd.dmacro;
@@ -27,107 +30,31 @@ import dmd.dsymbol;
 import dmd.dsymbolsem;
 import dmd.errors;
 import dmd.expression;
+import dmd.expressionsem;
+import dmd.file_manager;
 import dmd.globals;
 import dmd.id;
 import dmd.identifier;
 import dmd.parse;
+import dmd.cparse;
+import dmd.root.array;
 import dmd.root.file;
 import dmd.root.filename;
-import dmd.root.outbuffer;
+import dmd.common.outbuffer;
 import dmd.root.port;
-import dmd.semantic;
+import dmd.root.rmem;
+import dmd.root.rootobject;
+import dmd.root.string;
+import dmd.semantic2;
+import dmd.semantic3;
 import dmd.target;
+import dmd.utils;
 import dmd.visitor;
-version(IN_LLVM)
-{
-    import dmd.root.aav;
-    import dmd.root.array;
-    import dmd.root.rmem;
-}
 
-version(Windows) {
-    extern (C) char* getcwd(char* buffer, size_t maxlen);
-} else {
-    import core.sys.posix.unistd : getcwd;
-}
-
-/* ===========================  ===================== */
-/********************************************
- * Look for the source file if it's different from filename.
- * Look for .di, .d, directory, and along global.path.
- * Does not open the file.
- * Output:
- *      path            the path where the file was found if it was not the current directory
- * Input:
- *      filename        as supplied by the user
- *      global.path
- * Returns:
- *      NULL if it's not different from filename.
- */
-extern (C++) const(char)* lookForSourceFile(const(char)** path, const(char)* filename)
+version (IN_LLVM)
 {
-    *path = null;
-    /* Search along global.path for .di file, then .d file.
-     */
-    const(char)* sdi = FileName.forceExt(filename, global.hdr_ext);
-    if (FileName.exists(sdi) == 1)
-        return sdi;
-    const(char)* sd = FileName.forceExt(filename, global.mars_ext);
-    if (FileName.exists(sd) == 1)
-        return sd;
-    if (FileName.exists(filename) == 2)
-    {
-        /* The filename exists and it's a directory.
-         * Therefore, the result should be: filename/package.d
-         * iff filename/package.d is a file
-         */
-        const(char)* ni = FileName.combine(filename, "package.di");
-        if (FileName.exists(ni) == 1)
-            return ni;
-        FileName.free(ni);
-        const(char)* n = FileName.combine(filename, "package.d");
-        if (FileName.exists(n) == 1)
-            return n;
-        FileName.free(n);
-    }
-    if (FileName.absolute(filename))
-        return null;
-    if (!global.path)
-        return null;
-    for (size_t i = 0; i < global.path.dim; i++)
-    {
-        const(char)* p = (*global.path)[i];
-        const(char)* n = FileName.combine(p, sdi);
-        if (FileName.exists(n) == 1) {
-            *path = p;
-            return n;
-        }
-        FileName.free(n);
-        n = FileName.combine(p, sd);
-        if (FileName.exists(n) == 1) {
-            *path = p;
-            return n;
-        }
-        FileName.free(n);
-        const(char)* b = FileName.removeExt(filename);
-        n = FileName.combine(p, b);
-        FileName.free(b);
-        if (FileName.exists(n) == 2)
-        {
-            const(char)* n2i = FileName.combine(n, "package.di");
-            if (FileName.exists(n2i) == 1)
-                return n2i;
-            FileName.free(n2i);
-            const(char)* n2 = FileName.combine(n, "package.d");
-            if (FileName.exists(n2) == 1) {
-                *path = p;
-                return n2;
-            }
-            FileName.free(n2);
-        }
-        FileName.free(n);
-    }
-    return null;
+    // in driver/main.cpp
+    extern (C++) const(char)* createTempObjectsDir();
 }
 
 // function used to call semantic3 on a module's dependencies
@@ -136,7 +63,7 @@ void semantic3OnDependencies(Module m)
     if (!m)
         return;
 
-    if (m.semanticRun > PASSsemantic3)
+    if (m.semanticRun > PASS.semantic3)
         return;
 
     m.semantic3(null);
@@ -145,36 +72,116 @@ void semantic3OnDependencies(Module m)
         semantic3OnDependencies(m.aimports[i]);
 }
 
-enum PKG : int
+/**
+ * Remove generated .di files on error and exit
+ */
+void removeHdrFilesAndFail(ref Param params, ref Modules modules) nothrow
 {
-    PKGunknown,     // not yet determined whether it's a package.d or not
-    PKGmodule,      // already determined that's an actual package.d
-    PKGpackage,     // already determined that's an actual package
+    if (params.doHdrGeneration)
+    {
+        foreach (m; modules)
+        {
+            if (m.filetype == FileType.dhdr)
+                continue;
+            File.remove(m.hdrfile.toChars());
+        }
+    }
+
+    fatal();
 }
 
-alias PKGunknown = PKG.PKGunknown;
-alias PKGmodule = PKG.PKGmodule;
-alias PKGpackage = PKG.PKGpackage;
+/**
+ * Converts a chain of identifiers to the filename of the module
+ *
+ * Params:
+ *  packages = the names of the "parent" packages
+ *  ident = the name of the child package or module
+ *
+ * Returns:
+ *  the filename of the child package or module
+ */
+private const(char)[] getFilename(Identifier[] packages, Identifier ident) nothrow
+{
+    const(char)[] filename = ident.toString();
+
+    if (packages.length == 0)
+        return filename;
+
+    OutBuffer buf;
+    OutBuffer dotmods;
+    auto modAliases = &global.params.modFileAliasStrings;
+
+    void checkModFileAlias(const(char)[] p)
+    {
+        /* Check and replace the contents of buf[] with
+        * an alias string from global.params.modFileAliasStrings[]
+        */
+        dotmods.writestring(p);
+        foreach_reverse (const m; *modAliases)
+        {
+            const q = strchr(m, '=');
+            assert(q);
+            if (dotmods.length == q - m && memcmp(dotmods.peekChars(), m, q - m) == 0)
+            {
+                buf.setsize(0);
+                auto rhs = q[1 .. strlen(q)];
+                if (rhs.length > 0 && (rhs[$ - 1] == '/' || rhs[$ - 1] == '\\'))
+                    rhs = rhs[0 .. $ - 1]; // remove trailing separator
+                buf.writestring(rhs);
+                break; // last matching entry in ms[] wins
+            }
+        }
+        dotmods.writeByte('.');
+    }
+
+    foreach (pid; packages)
+    {
+        const p = pid.toString();
+        buf.writestring(p);
+        if (modAliases.dim)
+            checkModFileAlias(p);
+        version (Windows)
+            enum FileSeparator = '\\';
+        else
+            enum FileSeparator = '/';
+        buf.writeByte(FileSeparator);
+    }
+    buf.writestring(filename);
+    if (modAliases.dim)
+        checkModFileAlias(filename);
+    buf.writeByte(0);
+    filename = buf.extractSlice()[0 .. $ - 1];
+
+    return filename;
+}
 
 /***********************************************************
  */
 extern (C++) class Package : ScopeDsymbol
 {
-    PKG isPkgMod;
+    PKG isPkgMod = PKG.unknown;
     uint tag;        // auto incremented tag, used to mask package tree in scopes
-    Module mod;     // !=null if isPkgMod == PKGmodule
+    Module mod;     // !=null if isPkgMod == PKG.module_
 
-    final extern (D) this(Identifier ident)
+    final extern (D) this(const ref Loc loc, Identifier ident) nothrow
     {
-        super(ident);
-        this.isPkgMod = PKGunknown;
+        super(loc, ident);
         __gshared uint packageTag;
         this.tag = packageTag++;
     }
 
-    override const(char)* kind() const
+    override const(char)* kind() const nothrow
     {
         return "package";
+    }
+
+    override bool equals(const RootObject o) const
+    {
+        // custom 'equals' for bug 17441. "package a" and "module a" are not equal
+        if (this == o)
+            return true;
+        auto p = cast(Package)o;
+        return p && isModule() == p.isModule() && ident.equals(p.ident);
     }
 
     /****************************************************
@@ -186,52 +193,49 @@ extern (C++) class Package : ScopeDsymbol
      *      *pparent        the rightmost package, i.e. pkg2, or NULL if no packages
      *      *ppkg           the leftmost package, i.e. pkg1, or NULL if no packages
      */
-    static DsymbolTable resolve(Identifiers* packages, Dsymbol* pparent, Package* ppkg)
+    extern (D) static DsymbolTable resolve(Identifier[] packages, Dsymbol* pparent, Package* ppkg)
     {
         DsymbolTable dst = Module.modules;
         Dsymbol parent = null;
         //printf("Package::resolve()\n");
         if (ppkg)
             *ppkg = null;
-        if (packages)
+        foreach (pid; packages)
         {
-            for (size_t i = 0; i < packages.dim; i++)
+            Package pkg;
+            Dsymbol p = dst.lookup(pid);
+            if (!p)
             {
-                Identifier pid = (*packages)[i];
-                Package pkg;
-                Dsymbol p = dst.lookup(pid);
-                if (!p)
-                {
-                    pkg = new Package(pid);
-                    dst.insert(pkg);
-                    pkg.parent = parent;
+                pkg = new Package(Loc.initial, pid);
+                dst.insert(pkg);
+                pkg.parent = parent;
+                pkg.symtab = new DsymbolTable();
+            }
+            else
+            {
+                pkg = p.isPackage();
+                assert(pkg);
+                // It might already be a module, not a package, but that needs
+                // to be checked at a higher level, where a nice error message
+                // can be generated.
+                // dot net needs modules and packages with same name
+                // But we still need a symbol table for it
+                if (!pkg.symtab)
                     pkg.symtab = new DsymbolTable();
-                }
-                else
-                {
-                    pkg = p.isPackage();
-                    assert(pkg);
-                    // It might already be a module, not a package, but that needs
-                    // to be checked at a higher level, where a nice error message
-                    // can be generated.
-                    // dot net needs modules and packages with same name
-                    // But we still need a symbol table for it
-                    if (!pkg.symtab)
-                        pkg.symtab = new DsymbolTable();
-                }
-                parent = pkg;
-                dst = pkg.symtab;
-                if (ppkg && !*ppkg)
-                    *ppkg = pkg;
-                if (pkg.isModule())
-                {
-                    // Return the module so that a nice error message can be generated
-                    if (ppkg)
-                        *ppkg = cast(Package)p;
-                    break;
-                }
+            }
+            parent = pkg;
+            dst = pkg.symtab;
+            if (ppkg && !*ppkg)
+                *ppkg = pkg;
+            if (pkg.isModule())
+            {
+                // Return the module so that a nice error message can be generated
+                if (ppkg)
+                    *ppkg = cast(Package)p;
+                break;
             }
         }
+
         if (pparent)
             *pparent = parent;
         return dst;
@@ -264,7 +268,7 @@ extern (C++) class Package : ScopeDsymbol
         return isAncestorPackageOf(pkg.parent.isPackage());
     }
 
-    override Dsymbol search(Loc loc, Identifier ident, int flags = SearchLocalsOnly)
+    override Dsymbol search(const ref Loc loc, Identifier ident, int flags = SearchLocalsOnly)
     {
         //printf("%s Package.search('%s', flags = x%x)\n", toChars(), ident.toChars(), flags);
         flags &= ~SearchLocalsOnly;  // searching an import is always transitive
@@ -287,11 +291,33 @@ extern (C++) class Package : ScopeDsymbol
 
     final Module isPackageMod()
     {
-        if (isPkgMod == PKGmodule)
+        if (isPkgMod == PKG.module_)
         {
             return mod;
         }
         return null;
+    }
+
+    /**
+     * Checks for the existence of a package.d to set isPkgMod appropriately
+     * if isPkgMod == PKG.unknown
+     */
+    final void resolvePKGunknown()
+    {
+        if (isModule())
+            return;
+        if (isPkgMod != PKG.unknown)
+            return;
+
+        Identifier[] packages;
+        for (Dsymbol s = this.parent; s; s = s.parent)
+            packages ~= s.ident;
+        reverse(packages);
+
+        if (FileManager.lookForSourceFile(getFilename(packages, ident), global.path ? (*global.path)[] : null))
+            Module.load(Loc.initial, packages, this.ident);
+        else
+            isPkgMod = PKG.package_;
     }
 }
 
@@ -299,40 +325,50 @@ extern (C++) class Package : ScopeDsymbol
  */
 extern (C++) final class Module : Package
 {
-    extern (C++) static __gshared Module rootModule;
-    extern (C++) static __gshared DsymbolTable modules; // symbol table of all modules
-    extern (C++) static __gshared Modules amodules;     // array of all modules
-    extern (C++) static __gshared Dsymbols deferred;    // deferred Dsymbol's needing semantic() run on them
-    extern (C++) static __gshared Dsymbols deferred2;   // deferred Dsymbol's needing semantic2() run on them
-    extern (C++) static __gshared Dsymbols deferred3;   // deferred Dsymbol's needing semantic3() run on them
-    extern (C++) static __gshared uint dprogress;       // progress resolving the deferred list
+    extern (C++) __gshared Module rootModule;
+    extern (C++) __gshared DsymbolTable modules; // symbol table of all modules
+    extern (C++) __gshared Modules amodules;     // array of all modules
+    extern (C++) __gshared Dsymbols deferred;    // deferred Dsymbol's needing semantic() run on them
+    extern (C++) __gshared Dsymbols deferred2;   // deferred Dsymbol's needing semantic2() run on them
+    extern (C++) __gshared Dsymbols deferred3;   // deferred Dsymbol's needing semantic3() run on them
+    extern (C++) __gshared uint dprogress;       // progress resolving the deferred list
 
     static void _init()
     {
         modules = new DsymbolTable();
     }
 
-    extern (C++) static __gshared AggregateDeclaration moduleinfo;
+    /**
+     * Deinitializes the global state of the compiler.
+     *
+     * This can be used to restore the state set by `_init` to its original
+     * state.
+     */
+    static void deinitialize()
+    {
+        modules = modules.init;
+    }
 
-    const(char)* arg;           // original argument name
+    extern (C++) __gshared AggregateDeclaration moduleinfo;
+
+    const(char)[] arg;           // original argument name
     ModuleDeclaration* md;      // if !=null, the contents of the ModuleDeclaration declaration
-    File* srcfile;              // input source file
-    const(char)* srcfilePath;   // the path prefix to the srcfile if it applies
-    File* objfile;              // output .obj file
-    File* hdrfile;              // 'header' file
-    File* docfile;              // output documentation file
+    const FileName srcfile;     // input source file
+    // IN_LLVM: keep both following file names mutable (for -oq)
+    /*const*/ FileName objfile; // output .obj file
+    /*const*/ FileName hdrfile; // 'header' file
+    FileName docfile;           // output documentation file
+    const(ubyte)[] src;         /// Raw content of the file
     uint errors;                // if any errors in file
     uint numlines;              // number of lines in source file
-    int isDocFile;              // if it is a documentation input file, not D source
+    FileType filetype;          // source file type
+    bool hasAlwaysInlines;      // contains references to functions that must be inlined
     bool isPackageFile;         // if it is a package.d
+    Package pkg;                // if isPackageFile is true, the Package that contains this package.d
+    Strings contentImportedFiles; // array of files whose content was imported
     int needmoduleinfo;
-    /**
-       How many unit tests have been seen so far in this module. Makes it so the
-       unit test name is reproducible regardless of whether it's compiled
-       separately or all at once.
-     */
-    uint unitTestCounter;       // how many unittests have been seen so far
     int selfimports;            // 0: don't know, 1: does not, 2: does
+    Dsymbol[void*] tagSymTab;   /// ImportC: tag symbols that conflict with other symbols used as the index
 
     /*************************************
      * Return true if module imports itself.
@@ -342,11 +378,11 @@ extern (C++) final class Module : Package
         //printf("Module::selfImports() %s\n", toChars());
         if (selfimports == 0)
         {
-            for (size_t i = 0; i < amodules.dim; i++)
-                amodules[i].insearch = 0;
+            foreach (Module m; amodules)
+                m.insearch = 0;
             selfimports = imports(this) + 1;
-            for (size_t i = 0; i < amodules.dim; i++)
-                amodules[i].insearch = 0;
+            foreach (Module m; amodules)
+                m.insearch = 0;
         }
         return selfimports == 2;
     }
@@ -361,20 +397,19 @@ extern (C++) final class Module : Package
         //printf("Module::rootImports() %s\n", toChars());
         if (rootimports == 0)
         {
-            for (size_t i = 0; i < amodules.dim; i++)
-                amodules[i].insearch = 0;
+            foreach (Module m; amodules)
+                m.insearch = 0;
             rootimports = 1;
-            for (size_t i = 0; i < amodules.dim; ++i)
+            foreach (Module m; amodules)
             {
-                Module m = amodules[i];
                 if (m.isRoot() && imports(m))
                 {
                     rootimports = 2;
                     break;
                 }
             }
-            for (size_t i = 0; i < amodules.dim; i++)
-                amodules[i].insearch = 0;
+            foreach (Module m; amodules)
+                m.insearch = 0;
         }
         return rootimports == 2;
     }
@@ -384,9 +419,13 @@ extern (C++) final class Module : Package
     Dsymbol searchCacheSymbol;  // cached value of search
     int searchCacheFlags;       // cached flags
 
-    // module from command line we're imported from,
-    // i.e. a module that will be taken all the
-    // way to an object file
+    /**
+     * A root module is one that will be compiled all the way to
+     * object code.  This field holds the root module that caused
+     * this module to be loaded.  If this module is a root module,
+     * then it will be set to `this`.  This is used to determine
+     * ownership of template instantiation.
+     */
     Module importedFrom;
 
     Dsymbols* decldefs;         // top level declarations for this Module
@@ -401,158 +440,117 @@ extern (C++) final class Module : Package
     Identifiers* versionids;    // version identifiers
     Identifiers* versionidsNot; // forward referenced version identifiers
 
-    Macro* macrotable;          // document comment macros
-    Escape* escapetable;        // document comment escapes
+    MacroTable macrotable;      // document comment macros
+    Escape* _escapetable;       // document comment escapes
 
     size_t nameoffset;          // offset of module name from start of ModuleInfo
     size_t namelen;             // length of module name in characters
 
-    extern (D) this(const(char)* filename, Identifier ident, int doDocComment, int doHdrGen)
+    extern (D) this(const ref Loc loc, const(char)[] filename, Identifier ident, int doDocComment, int doHdrGen)
     {
-        super(ident);
-        const(char)* srcfilename;
-        //printf("Module::Module(filename = '%s', ident = '%s')\n", filename, ident.toChars());
+        super(loc, ident);
+        const(char)[] srcfilename;
+        //printf("Module::Module(filename = '%.*s', ident = '%s')\n", cast(int)filename.length, filename.ptr, ident.toChars());
         this.arg = filename;
-        srcfilename = FileName.defaultExt(filename, global.mars_ext);
-        if (global.run_noext && global.params.run && !FileName.ext(filename) && FileName.exists(srcfilename) == 0 && FileName.exists(filename) == 1)
+        srcfilename = FileName.defaultExt(filename, mars_ext);
+        if (target.run_noext && global.params.run &&
+            !FileName.ext(filename) &&
+            FileName.exists(srcfilename) == 0 &&
+            FileName.exists(filename) == 1)
         {
-            FileName.free(srcfilename);
+            FileName.free(srcfilename.ptr);
             srcfilename = FileName.removeExt(filename); // just does a mem.strdup(filename)
         }
-        else if (!FileName.equalsExt(srcfilename, global.mars_ext) && !FileName.equalsExt(srcfilename, global.hdr_ext) && !FileName.equalsExt(srcfilename, "dd"))
+        else if (!FileName.equalsExt(srcfilename, mars_ext) &&
+                 !FileName.equalsExt(srcfilename, hdr_ext) &&
+                 !FileName.equalsExt(srcfilename, c_ext) &&
+                 !FileName.equalsExt(srcfilename, i_ext) &&
+                 !FileName.equalsExt(srcfilename, dd_ext))
         {
-            error("source file name '%s' must have .%s extension", srcfilename, global.mars_ext);
+
+            error("source file name '%.*s' must have .%.*s extension",
+                  cast(int)srcfilename.length, srcfilename.ptr,
+                  cast(int)mars_ext.length, mars_ext.ptr);
             fatal();
         }
-        srcfile = new File(srcfilename);
-        if(!FileName.absolute(srcfilename)) {
-            srcfilePath = getcwd(null, 0);
-        }
-version(IN_LLVM)
+
+        srcfile = FileName(srcfilename);
+version (IN_LLVM)
 {
-        const(char)* objExt;
+        const(char)[] objExt;
         if (global.params.output_o)
-            objExt = global.obj_ext;
+            objExt = target.obj_ext;
         else if (global.params.output_bc)
-            objExt = global.bc_ext;
+            objExt = bc_ext;
         else if (global.params.output_ll)
-            objExt = global.ll_ext;
+            objExt = ll_ext;
         else if (global.params.output_s)
-            objExt = global.s_ext;
+            objExt = s_ext;
+        else if (global.params.output_mlir)
+            objExt = mlir_ext;
 
         if (objExt)
-            objfile = setOutfile(global.params.objname, global.params.objdir, filename, objExt);
+            objfile = setOutfilename(global.params.objname, global.params.objdir, filename, objExt);
 }
 else
 {
-        objfile = setOutfile(global.params.objname, global.params.objdir, filename, global.obj_ext);
+        objfile = setOutfilename(global.params.objname, global.params.objdir, filename, target.obj_ext);
 }
         if (doDocComment)
             setDocfile();
         if (doHdrGen)
-            hdrfile = setOutfile(global.params.hdrname, global.params.hdrdir, arg, global.hdr_ext);
-        //objfile = new File(objfilename);
+            hdrfile = setOutfilename(global.params.hdrname, global.params.hdrdir, arg, hdr_ext);
+    }
+
+    extern (D) this(const(char)[] filename, Identifier ident, int doDocComment, int doHdrGen)
+    {
+        this(Loc.initial, filename, ident, doDocComment, doHdrGen);
     }
 
     static Module create(const(char)* filename, Identifier ident, int doDocComment, int doHdrGen)
     {
-        return new Module(filename, ident, doDocComment, doHdrGen);
+        return create(filename.toDString, ident, doDocComment, doHdrGen);
     }
 
-    static Module load(Loc loc, Identifiers* packages, Identifier ident)
+    extern (D) static Module create(const(char)[] filename, Identifier ident, int doDocComment, int doHdrGen)
+    {
+        return new Module(Loc.initial, filename, ident, doDocComment, doHdrGen);
+    }
+
+    extern (C++) static Module load(const ref Loc loc, Identifiers* packages, Identifier ident)
+    {
+        return load(loc, packages ? (*packages)[] : null, ident);
+    }
+
+    extern (D) static Module load(const ref Loc loc, Identifier[] packages, Identifier ident)
     {
         //printf("Module::load(ident = '%s')\n", ident.toChars());
         // Build module filename by turning:
         //  foo.bar.baz
         // into:
         //  foo\bar\baz
-        auto filename = ident.toChars();
-        if (packages && packages.dim)
-        {
-            OutBuffer buf;
-            OutBuffer dotmods;
-            auto ms = global.params.modFileAliasStrings;
-            const msdim = ms ? ms.dim : 0;
+        const(char)[] filename = getFilename(packages, ident);
+        // Look for the source file
+        if (const result = FileManager.lookForSourceFile(filename, global.path ? (*global.path)[] : null))
+            filename = result; // leaks
 
-            void checkModFileAlias(const(char)* p)
-            {
-                /* Check and replace the contents of buf[] with
-                 * an alias string from global.params.modFileAliasStrings[]
-                 */
-                dotmods.writestring(p);
-            Lmain:
-                for (size_t j = msdim; j--;)
-                {
-                    const m = (*ms)[j];
-                    const q = strchr(m, '=');
-                    assert(q);
-                    if (dotmods.offset <= q - m && memcmp(dotmods.peekString(), m, q - m) == 0)
-                    {
-                        buf.reset();
-                        auto qlen = strlen(q + 1);
-                        if (qlen && (q[qlen] == '/' || q[qlen] == '\\'))
-                            --qlen;             // remove trailing separator
-                        buf.writestring(q[1 .. qlen + 1]);
-                        break Lmain;            // last matching entry in ms[] wins
-                    }
-                }
-                dotmods.writeByte('.');
-            }
+        auto m = new Module(loc, filename, ident, 0, 0);
 
-            for (size_t i = 0; i < packages.dim; i++)
-            {
-                Identifier pid = (*packages)[i];
-                const p = pid.toChars();
-                buf.writestring(p);
-                if (msdim)
-                    checkModFileAlias(p);
-                version (Windows)
-                {
-                    buf.writeByte('\\');
-                }
-                else
-                {
-                    buf.writeByte('/');
-                }
-            }
-            buf.writestring(filename);
-            if (msdim)
-                checkModFileAlias(filename);
-            buf.writeByte(0);
-            filename = buf.extractData();
-        }
-        auto m = new Module(filename, ident, 0, 0);
-        m.loc = loc;
-        /* Look for the source file
-         */
-        const(char)* path;
-        const(char)* result = lookForSourceFile(&path, filename);
-        if (result)
-        {
-            m.srcfile = new File(result);
-            if(path) {
-                m.srcfilePath = path;
-            } else if(!FileName.absolute(result)) {
-                m.srcfilePath = getcwd(null, 0);
-            }
-        }
         if (!m.read(loc))
             return null;
         if (global.params.verbose)
         {
-            fprintf(global.stdmsg, "import    ");
-            if (packages)
+            OutBuffer buf;
+            foreach (pid; packages)
             {
-                for (size_t i = 0; i < packages.dim; i++)
-                {
-                    Identifier pid = (*packages)[i];
-                    fprintf(global.stdmsg, "%s.", pid.toChars());
-                }
+                buf.writestring(pid.toString());
+                buf.writeByte('.');
             }
-            fprintf(global.stdmsg, "%s\t(%s)\n", ident.toChars(), m.srcfile.toChars());
+            buf.printf("%s\t(%s)", ident.toChars(), m.srcfile.toChars());
+            message("import    %s", buf.peekChars());
         }
-        m = m.parse();
-        Target.loadModule(m);
+        if((m = m.parse()) is null) return null;
+
         return m;
     }
 
@@ -571,242 +569,341 @@ else
      *      global.params.preservePaths     get output path from arg
      *      srcfile Input file - output file name must not match input file
      */
-    File* setOutfile(const(char)* name, const(char)* dir, const(char)* arg, const(char)* ext)
+    extern(D) FileName setOutfilename(const(char)[] name, const(char)[] dir, const(char)[] arg, const(char)[] ext)
     {
-        const(char)* docfilename;
+        const(char)[] docfilename;
         if (name)
         {
             docfilename = name;
         }
         else
         {
-            const(char)* argdoc;
+            const(char)[] argdoc;
+            OutBuffer buf;
+            if (arg == "__stdin.d")
+            {
+                version (Posix)
+                    import core.sys.posix.unistd : getpid;
+                else version (Windows)
+                    import core.sys.windows.winbase : getpid = GetCurrentProcessId;
+                buf.printf("__stdin_%d.d", getpid());
+                arg = buf[];
+            }
             if (global.params.preservePaths)
                 argdoc = arg;
             else
                 argdoc = FileName.name(arg);
-          version (IN_LLVM)
-          {
-            if (global.params.fullyQualifiedObjectFiles)
+            if (IN_LLVM && global.params.fullyQualifiedObjectFiles)
             {
-                const fqn = md ? md.toChars() : toChars();
+                const fqn = md ? md.toString() : toString();
                 argdoc = FileName.replaceName(argdoc, fqn);
 
                 // add ext, otherwise forceExt will make nested.module into nested.<ext>
-                const len = strlen(argdoc);
-                const extlen = strlen(ext);
-                char* s = cast(char*)mem.xmalloc(len + 1 + extlen + 1);
-                memcpy(s, argdoc, len);
-                s[len] = '.';
-                memcpy(s + len + 1, ext, extlen + 1); // incl. terminating null
+                const bufferLength = argdoc.length + 1 + ext.length + /* null terminator */ 1;
+                char[] s = new char[bufferLength];
+                s[0 .. argdoc.length] = argdoc[];
+                s[argdoc.length] = '.';
+                s[$-1-ext.length .. $-1] = ext[];
+                s[$-1] = 0;
                 argdoc = s;
             }
-          }
             // If argdoc doesn't have an absolute path, make it relative to dir
             if (!FileName.absolute(argdoc))
             {
+version (IN_LLVM)
+{
+                if (!dir.length && global.params.cleanupObjectFiles)
+                {
+                    __gshared const(char)[] tempObjectsDir;
+                    if (!tempObjectsDir.length)
+                        tempObjectsDir = createTempObjectsDir().toDString;
+
+                    dir = tempObjectsDir;
+                }
+}
                 //FileName::ensurePathExists(dir);
                 argdoc = FileName.combine(dir, argdoc);
             }
             docfilename = FileName.forceExt(argdoc, ext);
         }
-        if (FileName.equals(docfilename, srcfile.name.str))
+        if (FileName.equals(docfilename, srcfile.toString()))
         {
-            error("source file and output file have same name '%s'", srcfile.name.str);
+            error("source file and output file have same name '%s'", srcfile.toChars());
             fatal();
         }
-        return new File(docfilename);
+        return FileName(docfilename);
     }
 
-    void setDocfile()
+    extern (D) void setDocfile()
     {
-        docfile = setOutfile(global.params.docname, global.params.docdir, arg, global.doc_ext);
+        docfile = setOutfilename(global.params.docname, global.params.docdir, arg, doc_ext);
     }
 
-    // read file, returns 'true' if succeed, 'false' otherwise.
-    bool read(Loc loc)
+    /**
+     * Trigger the relevant semantic error when a file cannot be read
+     *
+     * We special case `object.d` as a failure is likely to be a rare
+     * but difficult to diagnose case for the user. Packages also require
+     * special handling to avoid exposing the compiler's internals.
+     *
+     * Params:
+     *  loc = The location at which the file read originated (e.g. import)
+     */
+    private void onFileReadError(const ref Loc loc)
     {
-        //printf("Module::read('%s') file '%s'\n", toChars(), srcfile.toChars());
-        if (srcfile.read())
+        if (FileName.equals(srcfile.toString(), "object.d"))
         {
-            if (!strcmp(srcfile.toChars(), "object.d"))
-            {
-                .error(loc, "cannot find source code for runtime library file 'object.d'");
-version(IN_LLVM)
+            .error(loc, "cannot find source code for runtime library file 'object.d'");
+version (IN_LLVM)
 {
-                errorSupplemental(loc, "ldc2 might not be correctly installed.");
-                errorSupplemental(loc, "Please check your ldc2.conf configuration file.");
-                errorSupplemental(loc, "Installation instructions can be found at http://wiki.dlang.org/LDC.");
+            errorSupplemental(loc, "ldc2 might not be correctly installed.");
+            errorSupplemental(loc, "Please check your ldc2.conf configuration file.");
+            errorSupplemental(loc, "Installation instructions can be found at http://wiki.dlang.org/LDC.");
 }
 else
 {
-                errorSupplemental(loc, "dmd might not be correctly installed. Run 'dmd -man' for installation instructions.");
-                errorSupplemental(loc, "config file: %s", FileName.canonicalName(global.inifilename));
+            errorSupplemental(loc, "dmd might not be correctly installed. Run 'dmd -man' for installation instructions.");
+            const dmdConfFile = global.inifilename.length ? FileName.canonicalName(global.inifilename) : "not found";
+            errorSupplemental(loc, "config file: %.*s", cast(int)dmdConfFile.length, dmdConfFile.ptr);
 }
+        }
+        else if (FileName.ext(this.arg) || !loc.isValid())
+        {
+            // Modules whose original argument name has an extension, or do not
+            // have a valid location come from the command-line.
+            // Error that their file cannot be found and return early.
+            .error(loc, "cannot find input file `%s`", srcfile.toChars());
+        }
+        else
+        {
+            // if module is not named 'package' but we're trying to read 'package.d', we're looking for a package module
+            bool isPackageMod = (strcmp(toChars(), "package") != 0) && (strcmp(srcfile.name(), package_d) == 0 || (strcmp(srcfile.name(), package_di) == 0));
+            if (isPackageMod)
+                .error(loc, "importing package '%s' requires a 'package.d' file which cannot be found in '%s'", toChars(), srcfile.toChars());
+            else
+            {
+                .error(loc, "unable to read module `%s`", toChars());
+                const pkgfile = FileName.combine(FileName.removeExt(srcfile.toString()), package_d);
+                .errorSupplemental(loc, "Expected '%s' or '%s' in one of the following import paths:",
+                    srcfile.toChars(), pkgfile.ptr);
+            }
+        }
+        if (!global.gag)
+        {
+            /* Print path
+             */
+            if (global.path)
+            {
+                foreach (i, p; *global.path)
+                    fprintf(stderr, "import path[%llu] = %s\n", cast(ulong)i, p);
             }
             else
             {
-                // if module is not named 'package' but we're trying to read 'package.d', we're looking for a package module
-                bool isPackageMod = (strcmp(toChars(), "package") != 0) && (strcmp(srcfile.name.name(), "package.d") == 0 || (strcmp(srcfile.name.name(), "package.di") == 0));
-                if (isPackageMod)
-                    .error(loc, "importing package '%s' requires a 'package.d' file which cannot be found in '%s'", toChars(), srcfile.toChars());
-                else
-                    error(loc, "is in file '%s' which cannot be read", srcfile.toChars());
+                fprintf(stderr, "Specify path to file '%s' with -I switch\n", srcfile.toChars());
             }
-            if (!global.gag)
-            {
-                /* Print path
-                 */
-                if (global.path)
-                {
-                    for (size_t i = 0; i < global.path.dim; i++)
-                    {
-                        const(char)* p = (*global.path)[i];
-                        fprintf(stderr, "import path[%llu] = %s\n", cast(ulong)i, p);
-                    }
-                }
-                else
-                    fprintf(stderr, "Specify path to file '%s' with -I switch\n", srcfile.toChars());
-                fatal();
-            }
-            return false;
+
+            removeHdrFilesAndFail(global.params, Module.amodules);
         }
-        return true;
     }
 
-    // syntactic parse
+    /**
+     * Reads the file from `srcfile` and loads the source buffer.
+     *
+     * If makefile module dependency is requested, we add this module
+     * to the list of dependencies from here.
+     *
+     * Params:
+     *  loc = the location
+     *
+     * Returns: `true` if successful
+     */
+    bool read(const ref Loc loc)
+    {
+        if (this.src)
+            return true; // already read
+
+        //printf("Module::read('%s') file '%s'\n", toChars(), srcfile.toChars());
+        if (auto result = global.fileManager.lookup(srcfile))
+        {
+            this.src = result;
+            if (global.params.emitMakeDeps)
+                global.params.makeDeps.push(srcfile.toChars());
+            return true;
+        }
+
+        this.onFileReadError(loc);
+        return false;
+    }
+
+    /// syntactic parse
     Module parse()
     {
-        //printf("Module::parse(srcfile='%s') this=%p\n", srcfile.name.toChars(), this);
-        const(char)* srcname = srcfile.name.toChars();
+        return parseModule!ASTCodegen();
+    }
+
+    /// ditto
+    extern (D) Module parseModule(AST)()
+    {
+        enum Endian { little, big}
+        enum SourceEncoding { utf16, utf32}
+
+        /*
+         * Convert a buffer from UTF32 to UTF8
+         * Params:
+         *    Endian = is the buffer big/little endian
+         *    buf = buffer of UTF32 data
+         * Returns:
+         *    input buffer reencoded as UTF8
+         */
+
+        char[] UTF32ToUTF8(Endian endian)(const(char)[] buf)
+        {
+            static if (endian == Endian.little)
+                alias readNext = Port.readlongLE;
+            else
+                alias readNext = Port.readlongBE;
+
+            if (buf.length & 3)
+            {
+                error("odd length of UTF-32 char source %llu", cast(ulong) buf.length);
+                return null;
+            }
+
+            const (uint)[] eBuf = cast(const(uint)[])buf;
+
+            OutBuffer dbuf;
+            dbuf.reserve(eBuf.length);
+
+            foreach (i; 0 .. eBuf.length)
+            {
+                const u = readNext(&eBuf[i]);
+                if (u & ~0x7F)
+                {
+                    if (u > 0x10FFFF)
+                    {
+                        error("UTF-32 value %08x greater than 0x10FFFF", u);
+                        return null;
+                    }
+                    dbuf.writeUTF8(u);
+                }
+                else
+                    dbuf.writeByte(u);
+            }
+            dbuf.writeByte(0); //add null terminator
+            return dbuf.extractSlice();
+        }
+
+        /*
+         * Convert a buffer from UTF16 to UTF8
+         * Params:
+         *    Endian = is the buffer big/little endian
+         *    buf = buffer of UTF16 data
+         * Returns:
+         *    input buffer reencoded as UTF8
+         */
+
+        char[] UTF16ToUTF8(Endian endian)(const(char)[] buf)
+        {
+            static if (endian == Endian.little)
+                alias readNext = Port.readwordLE;
+            else
+                alias readNext = Port.readwordBE;
+
+            if (buf.length & 1)
+            {
+                error("odd length of UTF-16 char source %llu", cast(ulong) buf.length);
+                return null;
+            }
+
+            const (ushort)[] eBuf = cast(const(ushort)[])buf;
+
+            OutBuffer dbuf;
+            dbuf.reserve(eBuf.length);
+
+            //i will be incremented in the loop for high codepoints
+            foreach (ref i; 0 .. eBuf.length)
+            {
+                uint u = readNext(&eBuf[i]);
+                if (u & ~0x7F)
+                {
+                    if (0xD800 <= u && u < 0xDC00)
+                    {
+                        i++;
+                        if (i >= eBuf.length)
+                        {
+                            error("surrogate UTF-16 high value %04x at end of file", u);
+                            return null;
+                        }
+                        const u2 = readNext(&eBuf[i]);
+                        if (u2 < 0xDC00 || 0xE000 <= u2)
+                        {
+                            error("surrogate UTF-16 low value %04x out of range", u2);
+                            return null;
+                        }
+                        u = (u - 0xD7C0) << 10;
+                        u |= (u2 - 0xDC00);
+                    }
+                    else if (u >= 0xDC00 && u <= 0xDFFF)
+                    {
+                        error("unpaired surrogate UTF-16 value %04x", u);
+                        return null;
+                    }
+                    else if (u == 0xFFFE || u == 0xFFFF)
+                    {
+                        error("illegal UTF-16 value %04x", u);
+                        return null;
+                    }
+                    dbuf.writeUTF8(u);
+                }
+                else
+                    dbuf.writeByte(u);
+            }
+            dbuf.writeByte(0); //add a terminating null byte
+            return dbuf.extractSlice();
+        }
+
+        const(char)* srcname = srcfile.toChars();
         //printf("Module::parse(srcname = '%s')\n", srcname);
-        isPackageFile = (strcmp(srcfile.name.name(), "package.d") == 0 ||
-                         strcmp(srcfile.name.name(), "package.di") == 0);
-        char* buf = cast(char*)srcfile.buffer;
-        size_t buflen = srcfile.len;
-        if (buflen >= 2)
+        isPackageFile = (strcmp(srcfile.name(), package_d) == 0 ||
+                         strcmp(srcfile.name(), package_di) == 0);
+        const(char)[] buf = cast(const(char)[]) this.src;
+
+        bool needsReencoding = true;
+        bool hasBOM = true; //assume there's a BOM
+        Endian endian;
+        SourceEncoding sourceEncoding;
+
+        if (buf.length >= 2)
         {
             /* Convert all non-UTF-8 formats to UTF-8.
-             * BOM : http://www.unicode.org/faq/utf_bom.html
+             * BOM : https://www.unicode.org/faq/utf_bom.html
              * 00 00 FE FF  UTF-32BE, big-endian
              * FF FE 00 00  UTF-32LE, little-endian
              * FE FF        UTF-16BE, big-endian
              * FF FE        UTF-16LE, little-endian
              * EF BB BF     UTF-8
              */
-            uint le;
-            uint bom = 1; // assume there's a BOM
             if (buf[0] == 0xFF && buf[1] == 0xFE)
             {
-                if (buflen >= 4 && buf[2] == 0 && buf[3] == 0)
-                {
-                    // UTF-32LE
-                    le = 1;
-                Lutf32:
-                    OutBuffer dbuf;
-                    uint* pu = cast(uint*)buf;
-                    uint* pumax = &pu[buflen / 4];
-                    if (buflen & 3)
-                    {
-                        error("odd length of UTF-32 char source %u", buflen);
-                        fatal();
-                    }
-                    dbuf.reserve(buflen / 4);
-                    for (pu += bom; pu < pumax; pu++)
-                    {
-                        uint u;
-                        u = le ? Port.readlongLE(pu) : Port.readlongBE(pu);
-                        if (u & ~0x7F)
-                        {
-                            if (u > 0x10FFFF)
-                            {
-                                error("UTF-32 value %08x greater than 0x10FFFF", u);
-                                fatal();
-                            }
-                            dbuf.writeUTF8(u);
-                        }
-                        else
-                            dbuf.writeByte(u);
-                    }
-                    dbuf.writeByte(0); // add 0 as sentinel for scanner
-                    buflen = dbuf.offset - 1; // don't include sentinel in count
-                    buf = dbuf.extractData();
-                }
-                else
-                {
-                    // UTF-16LE (X86)
-                    // Convert it to UTF-8
-                    le = 1;
-                Lutf16:
-                    OutBuffer dbuf;
-                    ushort* pu = cast(ushort*)buf;
-                    ushort* pumax = &pu[buflen / 2];
-                    if (buflen & 1)
-                    {
-                        error("odd length of UTF-16 char source %u", buflen);
-                        fatal();
-                    }
-                    dbuf.reserve(buflen / 2);
-                    for (pu += bom; pu < pumax; pu++)
-                    {
-                        uint u;
-                        u = le ? Port.readwordLE(pu) : Port.readwordBE(pu);
-                        if (u & ~0x7F)
-                        {
-                            if (u >= 0xD800 && u <= 0xDBFF)
-                            {
-                                uint u2;
-                                if (++pu > pumax)
-                                {
-                                    error("surrogate UTF-16 high value %04x at end of file", u);
-                                    fatal();
-                                }
-                                u2 = le ? Port.readwordLE(pu) : Port.readwordBE(pu);
-                                if (u2 < 0xDC00 || u2 > 0xDFFF)
-                                {
-                                    error("surrogate UTF-16 low value %04x out of range", u2);
-                                    fatal();
-                                }
-                                u = (u - 0xD7C0) << 10;
-                                u |= (u2 - 0xDC00);
-                            }
-                            else if (u >= 0xDC00 && u <= 0xDFFF)
-                            {
-                                error("unpaired surrogate UTF-16 value %04x", u);
-                                fatal();
-                            }
-                            else if (u == 0xFFFE || u == 0xFFFF)
-                            {
-                                error("illegal UTF-16 value %04x", u);
-                                fatal();
-                            }
-                            dbuf.writeUTF8(u);
-                        }
-                        else
-                            dbuf.writeByte(u);
-                    }
-                    dbuf.writeByte(0); // add 0 as sentinel for scanner
-                    buflen = dbuf.offset - 1; // don't include sentinel in count
-                    buf = dbuf.extractData();
-                }
+                endian = Endian.little;
+
+                sourceEncoding = buf.length >= 4 && buf[2] == 0 && buf[3] == 0
+                                 ? SourceEncoding.utf32
+                                 : SourceEncoding.utf16;
             }
             else if (buf[0] == 0xFE && buf[1] == 0xFF)
             {
-                // UTF-16BE
-                le = 0;
-                goto Lutf16;
+                endian = Endian.big;
+                sourceEncoding = SourceEncoding.utf16;
             }
-            else if (buflen >= 4 && buf[0] == 0 && buf[1] == 0 && buf[2] == 0xFE && buf[3] == 0xFF)
+            else if (buf.length >= 4 && buf[0] == 0 && buf[1] == 0 && buf[2] == 0xFE && buf[3] == 0xFF)
             {
-                // UTF-32BE
-                le = 0;
-                goto Lutf32;
+                endian = Endian.big;
+                sourceEncoding = SourceEncoding.utf32;
             }
-            else if (buflen >= 3 && buf[0] == 0xEF && buf[1] == 0xBB && buf[2] == 0xBF)
+            else if (buf.length >= 3 && buf[0] == 0xEF && buf[1] == 0xBB && buf[2] == 0xBF)
             {
-                // UTF-8
-                buf += 3;
-                buflen -= 3;
+                needsReencoding = false;//utf8 with BOM
             }
             else
             {
@@ -814,52 +911,74 @@ else
                  * the first char of D source must be ASCII to
                  * figure out the encoding.
                  */
-                bom = 0;
-                if (buflen >= 4)
+                hasBOM = false;
+                if (buf.length >= 4 && buf[1] == 0 && buf[2] == 0 && buf[3] == 0)
                 {
-                    if (buf[1] == 0 && buf[2] == 0 && buf[3] == 0)
-                    {
-                        // UTF-32LE
-                        le = 1;
-                        goto Lutf32;
-                    }
-                    else if (buf[0] == 0 && buf[1] == 0 && buf[2] == 0)
-                    {
-                        // UTF-32BE
-                        le = 0;
-                        goto Lutf32;
-                    }
+                    endian = Endian.little;
+                    sourceEncoding = SourceEncoding.utf32;
                 }
-                if (buflen >= 2)
+                else if (buf.length >= 4 && buf[0] == 0 && buf[1] == 0 && buf[2] == 0)
                 {
-                    if (buf[1] == 0)
-                    {
-                        // UTF-16LE
-                        le = 1;
-                        goto Lutf16;
-                    }
-                    else if (buf[0] == 0)
-                    {
-                        // UTF-16BE
-                        le = 0;
-                        goto Lutf16;
-                    }
+                    endian = Endian.big;
+                    sourceEncoding = SourceEncoding.utf32;
                 }
-                // It's UTF-8
-                if (buf[0] >= 0x80)
+                else if (buf.length >= 2 && buf[1] == 0) //try to check for UTF-16
                 {
-                    error("source file must start with BOM or ASCII character, not \\x%02X", buf[0]);
-                    fatal();
+                    endian = Endian.little;
+                    sourceEncoding = SourceEncoding.utf16;
+                }
+                else if (buf[0] == 0)
+                {
+                    endian = Endian.big;
+                    sourceEncoding = SourceEncoding.utf16;
+                }
+                else {
+                    // It's UTF-8
+                    needsReencoding = false;
+                    if (buf[0] >= 0x80)
+                    {
+                        error("source file must start with BOM or ASCII character, not \\x%02X", buf[0]);
+                        return null;
+                    }
                 }
             }
+            //throw away BOM
+            if (hasBOM)
+            {
+                if (!needsReencoding) buf = buf[3..$];// utf-8 already
+                else if (sourceEncoding == SourceEncoding.utf32) buf = buf[4..$];
+                else buf = buf[2..$]; //utf 16
+            }
         }
+        // Assume the buffer is from memory and has not be read from disk. Assume UTF-8.
+        else if (buf.length >= 1 && (buf[0] == '\0' || buf[0] == 0x1A))
+            needsReencoding = false;
+         //printf("%s, %d, %d, %d\n", srcfile.name.toChars(), needsReencoding, endian == Endian.little, sourceEncoding == SourceEncoding.utf16);
+        if (needsReencoding)
+        {
+            if (sourceEncoding == SourceEncoding.utf16)
+            {
+                buf = endian == Endian.little
+                      ? UTF16ToUTF8!(Endian.little)(buf)
+                      : UTF16ToUTF8!(Endian.big)(buf);
+            }
+            else
+            {
+                buf = endian == Endian.little
+                      ? UTF32ToUTF8!(Endian.little)(buf)
+                      : UTF32ToUTF8!(Endian.big)(buf);
+            }
+            // an error happened on UTF conversion
+            if (buf is null) return null;
+        }
+
         /* If it starts with the string "Ddoc", then it's a documentation
          * source file.
          */
-        if (buflen >= 4 && memcmp(buf, cast(char*)"Ddoc", 4) == 0)
+        if (buf.length>= 4 && buf[0..4] == "Ddoc")
         {
-            comment = buf + 4;
-            isDocFile = 1;
+            comment = buf.ptr + 4;
+            filetype = FileType.ddoc;
             if (!docfile)
                 setDocfile();
             return this;
@@ -869,43 +988,92 @@ else
          * but do not have to if they have the .dd extension.
          * https://issues.dlang.org/show_bug.cgi?id=15465
          */
-        if (FileName.equalsExt(arg, "dd"))
+        if (FileName.equalsExt(arg, dd_ext))
         {
-            comment = buf; // the optional Ddoc, if present, is handled above.
-            isDocFile = 1;
+            comment = buf.ptr; // the optional Ddoc, if present, is handled above.
+            filetype = FileType.ddoc;
             if (!docfile)
                 setDocfile();
             return this;
         }
+        /* If it has the extension ".di", it is a "header" file.
+         */
+        if (FileName.equalsExt(arg, hdr_ext))
+            filetype = FileType.dhdr;
+
+        /// Promote `this` to a root module if requested via `-i`
+        void checkCompiledImport()
         {
-            scope p = new Parser!ASTCodegen(this, buf[0 .. buflen], docfile !is null);
-            p.nextToken();
-            members = p.parseModule();
-            md = p.md;
-            numlines = p.scanloc.linnum;
-            if (p.errors)
-                ++global.errors;
+            if (!this.isRoot() && Compiler.onImport(this))
+                this.importedFrom = this;
         }
-        if (srcfile._ref == 0)
-            .free(srcfile.buffer);
-        srcfile.buffer = null;
-        srcfile.len = 0;
+
+        DsymbolTable dst;
+        Package ppack = null;
+
+        /* If it has the extension ".c", it is a "C" file.
+         * If it has the extension ".i", it is a preprocessed "C" file.
+         */
+        if (FileName.equalsExt(arg, c_ext) || FileName.equalsExt(arg, i_ext))
+        {
+            filetype = FileType.c;
+
+            scope p = new CParser!AST(this, buf, cast(bool) docfile, target.c);
+            p.nextToken();
+            checkCompiledImport();
+            members = p.parseModule();
+            assert(!p.md); // C doesn't have module declarations
+            numlines = p.scanloc.linnum;
+        }
+        else
+        {
+            scope p = new Parser!AST(this, buf, cast(bool) docfile);
+            p.nextToken();
+            p.parseModuleDeclaration();
+            md = p.md;
+
+            if (md)
+            {
+                /* A ModuleDeclaration, md, was provided.
+                * The ModuleDeclaration sets the packages this module appears in, and
+                * the name of this module.
+                */
+                this.ident = md.id;
+                dst = Package.resolve(md.packages, &this.parent, &ppack);
+            }
+
+            // Done after parsing the module header because `module x.y.z` may override the file name
+            checkCompiledImport();
+
+            members = p.parseModuleContent();
+            numlines = p.scanloc.linnum;
+        }
+
         /* The symbol table into which the module is to be inserted.
          */
-        DsymbolTable dst;
+
         if (md)
         {
-            /* A ModuleDeclaration, md, was provided.
-             * The ModuleDeclaration sets the packages this module appears in, and
-             * the name of this module.
-             */
-            this.ident = md.id;
-            Package ppack = null;
-            dst = Package.resolve(md.packages, &this.parent, &ppack);
+            // Mark the package path as accessible from the current module
+            // https://issues.dlang.org/show_bug.cgi?id=21661
+            // Code taken from Import.addPackageAccess()
+            if (md.packages.length > 0)
+            {
+                // module a.b.c.d;
+                auto p = ppack; // a
+                addAccessiblePackage(p, Visibility(Visibility.Kind.private_));
+                foreach (id; md.packages[1 .. $]) // [b, c]
+                {
+                    p = cast(Package) p.symtab.lookup(id);
+                    if (p is null)
+                        break;
+                    addAccessiblePackage(p, Visibility(Visibility.Kind.private_));
+                }
+            }
             assert(dst);
             Module m = ppack ? ppack.isModule() : null;
-            if (m && (strcmp(m.srcfile.name.name(), "package.d") != 0 &&
-                      strcmp(m.srcfile.name.name(), "package.di") != 0))
+            if (m && (strcmp(m.srcfile.name(), package_d) != 0 &&
+                      strcmp(m.srcfile.name(), package_di) != 0))
             {
                 .error(md.loc, "package name '%s' conflicts with usage as a module name in file %s", ppack.toPrettyChars(), m.srcfile.toChars());
             }
@@ -920,58 +1088,6 @@ else
              */
             if (!Identifier.isValidIdentifier(this.ident.toChars()))
                 error("has non-identifier characters in filename, use module declaration instead");
-        }
-        // Add internal used functions in 'object' module members.
-        if (!parent && ident == Id.object)
-        {
-            immutable code_ArrayEq = "bool _ArrayEq(T1, T2)(T1[] a, T2[] b) {\n if (a.length != b.length) return false;\n foreach (size_t i; 0 .. a.length) { if (a[i] != b[i]) return false; }\n return true; }\n";
-            immutable code_ArrayPostblit = "void _ArrayPostblit(T)(T[] a) { foreach (ref T e; a) e.__xpostblit(); }\n";
-            immutable code_ArrayDtor = "void _ArrayDtor(T)(T[] a) { foreach_reverse (ref T e; a) e.__xdtor(); }\n";
-            immutable code_xopEquals = "bool _xopEquals(in void*, in void*) { throw new Error(\"TypeInfo.equals is not implemented\"); }\n";
-            immutable code_xopCmp = "bool _xopCmp(in void*, in void*) { throw new Error(\"TypeInfo.compare is not implemented\"); }\n";
-            Identifier arreq = Id._ArrayEq;
-            Identifier xopeq = Identifier.idPool("_xopEquals");
-            Identifier xopcmp = Identifier.idPool("_xopCmp");
-            for (size_t i = 0; i < members.dim; i++)
-            {
-                Dsymbol sx = (*members)[i];
-                if (!sx)
-                    continue;
-                if (arreq && sx.ident == arreq)
-                    arreq = null;
-                if (xopeq && sx.ident == xopeq)
-                    xopeq = null;
-                if (xopcmp && sx.ident == xopcmp)
-                    xopcmp = null;
-            }
-            if (arreq)
-            {
-                scope p = new Parser!ASTCodegen(loc, this, code_ArrayEq, false);
-                p.nextToken();
-                members.append(p.parseDeclDefs(0));
-            }
-            {
-                scope p = new Parser!ASTCodegen(loc, this, code_ArrayPostblit, false);
-                p.nextToken();
-                members.append(p.parseDeclDefs(0));
-            }
-            {
-                scope p = new Parser!ASTCodegen(loc, this, code_ArrayDtor, false);
-                p.nextToken();
-                members.append(p.parseDeclDefs(0));
-            }
-            if (xopeq)
-            {
-                scope p = new Parser!ASTCodegen(loc, this, code_xopEquals, false);
-                p.nextToken();
-                members.append(p.parseDeclDefs(0));
-            }
-            if (xopcmp)
-            {
-                scope p = new Parser!ASTCodegen(loc, this, code_xopCmp, false);
-                p.nextToken();
-                members.append(p.parseDeclDefs(0));
-            }
         }
         // Insert module into the symbol table
         Dsymbol s = this;
@@ -991,15 +1107,27 @@ else
              *
              * To avoid the conflict:
              * 1. If preceding package name insertion had occurred by Package::resolve,
-             *    later package.d loading will change Package::isPkgMod to PKGmodule and set Package::mod.
+             *    reuse the previous wrapping 'Package' if it exists
              * 2. Otherwise, 'package.d' wrapped by 'Package' is inserted to the internal tree in here.
+             *
+             * Then change Package::isPkgMod to PKG.module_ and set Package::mod.
+             *
+             * Note that the 'wrapping Package' is the Package that contains package.d and other submodules,
+             * the one inserted to the symbol table.
              */
-            auto p = new Package(ident);
+            auto ps = dst.lookup(ident);
+            Package p = ps ? ps.isPackage() : null;
+            if (p is null)
+            {
+                p = new Package(Loc.initial, ident);
+                p.tag = this.tag; // reuse the same package tag
+                p.symtab = new DsymbolTable();
+            }
+            this.tag = p.tag; // reuse the 'older' package tag
+            this.pkg = p;
             p.parent = this.parent;
-            p.isPkgMod = PKGmodule;
+            p.isPkgMod = PKG.module_;
             p.mod = this;
-            p.tag = this.tag; // reuse the same package tag
-            p.symtab = new DsymbolTable();
             s = p;
         }
         if (!dst.insert(s))
@@ -1011,7 +1139,7 @@ else
             assert(prev);
             if (Module mprev = prev.isModule())
             {
-                if (FileName.compare(srcname, mprev.srcfile.toChars()) != 0)
+                if (!FileName.equals(srcname, mprev.srcfile.toChars()))
                     error(loc, "from file %s conflicts with another module %s from file %s", srcname, mprev.toChars(), mprev.srcfile.toChars());
                 else if (isRoot() && mprev.isRoot())
                     error(loc, "from file %s is specified twice on the command line", srcname);
@@ -1023,15 +1151,9 @@ else
             }
             else if (Package pkg = prev.isPackage())
             {
-                if (pkg.isPkgMod == PKGunknown && isPackageFile)
-                {
-                    /* If the previous inserted Package is not yet determined as package.d,
-                     * link it to the actual module.
-                     */
-                    pkg.isPkgMod = PKGmodule;
-                    pkg.mod = this;
-                    pkg.tag = this.tag; // reuse the same package tag
-                }
+                // 'package.d' loaded after a previous 'Package' insertion
+                if (isPackageFile)
+                    amodules.push(this); // Add to global array of all modules
                 else
                     error(md ? md.loc : loc, "from file %s conflicts with package name %s", srcname, pkg.toChars());
             }
@@ -1043,6 +1165,7 @@ else
             // Add to global array of all modules
             amodules.push(this);
         }
+        Compiler.onParseModule(this);
         return this;
     }
 
@@ -1051,31 +1174,32 @@ else
         //printf("+Module::importAll(this = %p, '%s'): parent = %p\n", this, toChars(), parent);
         if (_scope)
             return; // already done
-        if (isDocFile)
+        if (filetype == FileType.ddoc)
         {
             error("is a Ddoc file, cannot import it");
             return;
         }
-        if (md && md.msg)
-        {
-            if (StringExp se = md.msg.toStringExp())
-                md.msg = se;
-            else
-                md.msg.error("string expected, not '%s'", md.msg.toChars());
-        }
+
         /* Note that modules get their own scope, from scratch.
          * This is so regardless of where in the syntax a module
          * gets imported, it is unaffected by context.
          * Ignore prevsc.
          */
         Scope* sc = Scope.createGlobal(this); // create root scope
+
+        if (md && md.msg)
+            md.msg = semanticString(sc, md.msg, "deprecation message");
+
         // Add import of "object", even for the "object" module.
         // If it isn't there, some compiler rewrites, like
         //    classinst == classinst -> .object.opEquals(classinst, classinst)
         // would fail inside object.d.
-        if (members.dim == 0 || (*members)[0].ident != Id.object)
+        if (filetype != FileType.c &&
+            (members.dim == 0 ||
+             (*members)[0].ident != Id.object ||
+             (*members)[0].isImport() is null))
         {
-            auto im = new Import(Loc(), null, Id.object, null, 0);
+            auto im = new Import(Loc.initial, null, Id.object, null, 0);
             members.shift(im);
         }
         if (!symtab)
@@ -1106,7 +1230,7 @@ else
             s.importAll(sc);
         }
         sc = sc.pop();
-        sc.pop(); // 2 pops because Scope::createGlobal() created 2
+        sc.pop(); // 2 pops because Scope.createGlobal() created 2
     }
 
     /**********************************
@@ -1116,13 +1240,36 @@ else
     int needModuleInfo()
     {
         //printf("needModuleInfo() %s, %d, %d\n", toChars(), needmoduleinfo, global.params.cov);
-version(IN_LLVM)
-        return needmoduleinfo;
-else
-        return needmoduleinfo || global.params.cov;
+        return needmoduleinfo || (!IN_LLVM && global.params.cov);
     }
 
-    override Dsymbol search(Loc loc, Identifier ident, int flags = SearchLocalsOnly)
+    /*******************************************
+     * Print deprecation warning if we're deprecated, when
+     * this module is imported from scope sc.
+     *
+     * Params:
+     *  sc = the scope into which we are imported
+     *  loc = the location of the import statement
+     */
+    void checkImportDeprecation(const ref Loc loc, Scope* sc)
+    {
+        if (md && md.isdeprecated && !sc.isDeprecated)
+        {
+            Expression msg = md.msg;
+            if (StringExp se = msg ? msg.toStringExp() : null)
+            {
+                const slice = se.peekString();
+                if (slice.length)
+                {
+                    deprecation(loc, "is deprecated - %.*s", cast(int)slice.length, slice.ptr);
+                    return;
+                }
+            }
+            deprecation(loc, "is deprecated");
+        }
+    }
+
+    override Dsymbol search(const ref Loc loc, Identifier ident, int flags = SearchLocalsOnly)
     {
         /* Since modules can be circularly referenced,
          * need to stop infinite recursive searches.
@@ -1163,7 +1310,7 @@ else
         return s;
     }
 
-    override bool isPackageAccessible(Package p, Prot protection, int flags = 0)
+    override bool isPackageAccessible(Package p, Visibility visibility, int flags = 0)
     {
         if (insearch) // don't follow import cycles
             return false;
@@ -1171,8 +1318,8 @@ else
         scope (exit)
             insearch = false;
         if (flags & IgnorePrivateImports)
-            protection = Prot(PROTpublic); // only consider public imports
-        return super.isPackageAccessible(p, protection);
+            visibility = Visibility(Visibility.Kind.public_); // only consider public imports
+        return super.isPackageAccessible(p, visibility);
     }
 
     override Dsymbol symtabInsert(Dsymbol s)
@@ -1184,27 +1331,27 @@ else
     void deleteObjFile()
     {
         if (global.params.obj)
-            objfile.remove();
+            File.remove(objfile.toChars());
         if (docfile)
-            docfile.remove();
+            File.remove(docfile.toChars());
     }
 
     /*******************************************
      * Can't run semantic on s now, try again later.
      */
-    static void addDeferredSemantic(Dsymbol s)
+    extern (D) static void addDeferredSemantic(Dsymbol s)
     {
         //printf("Module::addDeferredSemantic('%s')\n", s.toChars());
         deferred.push(s);
     }
 
-    static void addDeferredSemantic2(Dsymbol s)
+    extern (D) static void addDeferredSemantic2(Dsymbol s)
     {
         //printf("Module::addDeferredSemantic2('%s')\n", s.toChars());
         deferred2.push(s);
     }
 
-    static void addDeferredSemantic3(Dsymbol s)
+    extern (D) static void addDeferredSemantic3(Dsymbol s)
     {
         //printf("Module::addDeferredSemantic3('%s')\n", s.toChars());
         deferred3.push(s);
@@ -1218,7 +1365,7 @@ else
         if (dprogress == 0)
             return;
 
-        static __gshared int nested;
+        __gshared int nested;
         if (nested)
             return;
         //if (deferred.dim) printf("+Module::runDeferredSemantic(), len = %d\n", deferred.dim);
@@ -1241,14 +1388,13 @@ else
             }
             else
             {
-                todo = cast(Dsymbol*)malloc(len * Dsymbol.sizeof);
-                assert(todo);
+                todo = cast(Dsymbol*)Mem.check(malloc(len * Dsymbol.sizeof));
                 todoalloc = todo;
             }
             memcpy(todo, deferred.tdata(), len * Dsymbol.sizeof);
             deferred.setDim(0);
 
-            for (size_t i = 0; i < len; i++)
+            foreach (i; 0..len)
             {
                 Dsymbol s = todo[i];
                 s.dsymbolSemantic(null);
@@ -1297,13 +1443,10 @@ else
         a.setDim(0);
     }
 
-    static void clearCache()
+    extern (D) static void clearCache() nothrow
     {
-        for (size_t i = 0; i < amodules.dim; i++)
-        {
-            Module m = amodules[i];
+        foreach (Module m; amodules)
             m.searchCacheIdent = null;
-        }
     }
 
     /************************************
@@ -1311,20 +1454,16 @@ else
      * return true if it imports m.
      * Can be used to detect circular imports.
      */
-    int imports(Module m)
+    int imports(Module m) nothrow
     {
         //printf("%s Module::imports(%s)\n", toChars(), m.toChars());
         version (none)
         {
-            for (size_t i = 0; i < aimports.dim; i++)
-            {
-                Module mi = cast(Module)aimports.data[i];
-                printf("\t[%d] %s\n", i, mi.toChars());
-            }
+            foreach (i, Module mi; aimports)
+                printf("\t[%d] %s\n", cast(int) i, mi.toChars());
         }
-        for (size_t i = 0; i < aimports.dim; i++)
+        foreach (Module mi; aimports)
         {
-            Module mi = aimports[i];
             if (mi == m)
                 return true;
             if (!mi.insearch)
@@ -1338,19 +1477,42 @@ else
         return false;
     }
 
-    bool isRoot()
+    bool isRoot() nothrow
     {
         return this.importedFrom == this;
     }
 
     // true if the module source file is directly
     // listed in command line.
-    bool isCoreModule(Identifier ident)
+    bool isCoreModule(Identifier ident) nothrow
     {
         return this.ident == ident && parent && parent.ident == Id.core && !parent.parent;
     }
 
     // Back end
+version (IN_LLVM)
+{
+    //llvm::Module* genLLVMModule(llvm::LLVMContext& context);
+    void checkAndAddOutputFile(const ref FileName file);
+
+    bool llvmForceLogging;
+    bool noModuleInfo; /// Do not emit any module metadata.
+
+    // Coverage analysis
+    void* d_cover_valid;  // llvm::GlobalVariable* --> private immutable size_t[] _d_cover_valid;
+    void* d_cover_data;   // llvm::GlobalVariable* --> private uint[] _d_cover_data;
+    Array!size_t d_cover_valid_init; // initializer for _d_cover_valid
+
+    void initCoverageDataWithCtfeCoverage(uint* data) const
+    {
+        assert(ctfe_cov, "Don't call if there's no CTFE data");
+        foreach (line, count; ctfe_cov)
+            if (line) // 1-based
+                data[line - 1] = count;
+    }
+}
+else
+{
     int doppelganger; // sub-module
     Symbol* cov; // private uint[] __coverage;
     uint* covb; // bit array of valid code line numbers
@@ -1361,23 +1523,11 @@ else
     Symbol* sshareddtor; // module shared destructor
     Symbol* stest; // module unit test
     Symbol* sfilename; // symbol for filename
+}
 
-    version(IN_LLVM)
-    {
-        //llvm::Module* genLLVMModule(llvm::LLVMContext& context);
-        void checkAndAddOutputFile(File* file);
-        void makeObjectFilenameUnique();
+    uint[uint] ctfe_cov; /// coverage information from ctfe execution_count[line]
 
-        bool llvmForceLogging;
-        bool noModuleInfo; /// Do not emit any module metadata.
-
-        // Coverage analysis
-        void* d_cover_valid;  // llvm::GlobalVariable* --> private immutable size_t[] _d_cover_valid;
-        void* d_cover_data;   // llvm::GlobalVariable* --> private uint[] _d_cover_data;
-        Array!size_t d_cover_valid_init; // initializer for _d_cover_valid
-    }
-
-    override inout(Module) isModule() inout
+    override inout(Module) isModule() inout nothrow
     {
         return this;
     }
@@ -1392,7 +1542,7 @@ else
      * Params:
      *    buf = The buffer to write to
      */
-    void fullyQualifiedName(ref OutBuffer buf)
+    void fullyQualifiedName(ref OutBuffer buf) nothrow
     {
         buf.writestring(ident.toString());
 
@@ -1402,19 +1552,29 @@ else
             buf.prependstring(package_.ident.toChars());
         }
     }
+
+    /** Lazily initializes and returns the escape table.
+    Turns out it eats a lot of memory.
+    */
+    extern(D) Escape* escapetable() nothrow
+    {
+        if (!_escapetable)
+            _escapetable = new Escape();
+        return _escapetable;
+    }
 }
 
 /***********************************************************
  */
-struct ModuleDeclaration
+extern (C++) struct ModuleDeclaration
 {
     Loc loc;
     Identifier id;
-    Identifiers* packages;  // array of Identifier's representing packages
+    Identifier[] packages;  // array of Identifier's representing packages
     bool isdeprecated;      // if it is a deprecated module
     Expression msg;
 
-    extern (D) this(Loc loc, Identifiers* packages, Identifier id, Expression msg, bool isdeprecated)
+    extern (D) this(const ref Loc loc, Identifier[] packages, Identifier id, Expression msg, bool isdeprecated)
     {
         this.loc = loc;
         this.packages = packages;
@@ -1423,19 +1583,21 @@ struct ModuleDeclaration
         this.isdeprecated = isdeprecated;
     }
 
-    extern (C++) const(char)* toChars()
+    extern (C++) const(char)* toChars() const
     {
         OutBuffer buf;
-        if (packages && packages.dim)
+        foreach (pid; packages)
         {
-            for (size_t i = 0; i < packages.dim; i++)
-            {
-                Identifier pid = (*packages)[i];
-                buf.writestring(pid.toChars());
-                buf.writeByte('.');
-            }
+            buf.writestring(pid.toString());
+            buf.writeByte('.');
         }
-        buf.writestring(id.toChars());
-        return buf.extractString();
+        buf.writestring(id.toString());
+        return buf.extractChars();
+    }
+
+    /// Provide a human readable representation
+    extern (D) const(char)[] toString() const
+    {
+        return this.toChars().toDString;
     }
 }

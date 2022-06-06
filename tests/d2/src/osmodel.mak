@@ -1,5 +1,16 @@
-# This Makefile snippet detects the OS and the architecture MODEL
-# Keep this file in sync between druntime, phobos, and dmd repositories!
+#   osmodel.mak
+#
+# Detects and sets the macros:
+#
+#   OS         = one of {osx,linux,freebsd,openbsd,netbsd,dragonflybsd,solaris}
+#   MODEL      = one of { 32, 64 }
+#   MODEL_FLAG = one of { -m32, -m64 }
+#   ARCH       = one of { x86, x86_64, aarch64 }
+#
+# Note:
+#   Keep this file in sync between druntime, phobos, and dmd repositories!
+# Source: https://github.com/dlang/dmd/blob/master/src/osmodel.mak
+
 
 ifeq (,$(OS))
   uname_S:=$(shell uname -s)
@@ -17,6 +28,9 @@ ifeq (,$(OS))
   endif
   ifeq (NetBSD,$(uname_S))
     OS:=netbsd
+  endif
+  ifeq (DragonFly,$(uname_S))
+    OS:=dragonflybsd
   endif
   ifeq (Solaris,$(uname_S))
     OS:=solaris
@@ -43,13 +57,26 @@ ifeq (,$(MODEL))
   endif
   ifneq (,$(findstring $(uname_M),x86_64 amd64))
     MODEL:=64
+    ARCH:=x86_64
+  endif
+  ifneq (,$(findstring $(uname_M),aarch64 arm64))
+    # LDC: don't set MODEL
+    #MODEL:=64
+    ARCH:=aarch64
   endif
   ifneq (,$(findstring $(uname_M),i386 i586 i686))
     MODEL:=32
+    ARCH:=x86
   endif
   ifeq (,$(MODEL))
-    $(error Cannot figure 32/64 model from uname -m: $(uname_M))
+    # LDC: only warn
+    $(warning Cannot figure 32/64 model and arch from uname -m: $(uname_M))
   endif
 endif
 
-MODEL_FLAG:=-m$(MODEL)
+# LDC: only set MODEL_FLAG if need be
+ifneq (,$(MODEL))
+  ifneq (default,$(MODEL))
+    MODEL_FLAG:=-m$(MODEL)
+  endif
+endif

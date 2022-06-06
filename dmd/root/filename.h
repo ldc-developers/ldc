@@ -1,42 +1,33 @@
 
-/* Copyright (c) 1999-2016 by The D Language Foundation
- * All Rights Reserved, written by Walter Bright
- * http://www.digitalmars.com
+/* Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * written by Walter Bright
+ * https://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
- * (See accompanying file LICENSE or copy at http://www.boost.org/LICENSE_1_0.txt)
- * https://github.com/dlang/dmd/blob/master/src/root/filename.h
+ * https://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/dlang/dmd/blob/master/src/dmd/root/filename.h
  */
 
-#ifndef FILENAME_H
-#define FILENAME_H
-
-#if __DMC__
 #pragma once
-#endif
 
 #include "array.h"
+#include "dcompat.h"
 
-class RootObject;
-
-template <typename TYPE> struct Array;
 typedef Array<const char *> Strings;
 
 struct FileName
 {
-    const char *str;
-    FileName(const char *str);
-    bool equals(RootObject *obj);
+private:
+    DString str;
+public:
     static bool equals(const char *name1, const char *name2);
-    int compare(RootObject *obj);
-    static int compare(const char *name1, const char *name2);
     static bool absolute(const char *name);
+    static const char *toAbsolute(const char *name, const char *base = NULL);
     static const char *ext(const char *);
     const char *ext();
     static const char *removeExt(const char *str);
     static const char *name(const char *);
     const char *name();
     static const char *path(const char *);
-    static const char *replaceName(const char *path, const char *name);
 
     static const char *combine(const char *path, const char *name);
     static Strings *splitPath(const char *path);
@@ -47,13 +38,14 @@ struct FileName
     bool equalsExt(const char *ext);
 
     static const char *searchPath(Strings *path, const char *name, bool cwd);
-    static const char *safeSearchPath(Strings *path, const char *name);
     static int exists(const char *name);
     static bool ensurePathExists(const char *path);
     static const char *canonicalName(const char *name);
 
     static void free(const char *str);
     const char *toChars() const;
-};
 
+#if IN_LLVM
+    void reset(const char *str);
 #endif
+};

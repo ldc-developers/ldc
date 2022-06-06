@@ -15,7 +15,6 @@ struct S17237
 int4 globalIntFour;
 // CHECK-DAG: globalIntFour{{.*}} = {{.*}} align 16
 S17237 globalStruct;
-// CHECK-DAG: constant %{{.*}}.S17237 zeroinitializer{{(, comdat)?}}, align 32
 // CHECK-DAG: @{{.*}}globalStruct{{.*}}S17237{{\"?}} = {{.*}} zeroinitializer{{(, comdat)?}}, align 32
 
 // CHECK-LABEL: define <8 x i32> @foo(

@@ -1,0 +1,54 @@
+name: Run a few integration tests against the installed compiler
+runs:
+  using: composite
+  steps:
+
+    - name: Generate hello.d
+      shell: bash
+      run: echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > ../hello.d
+
+    - name: Run hello-world integration test with shared libs
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+        if [[ '${{ runner.os }}' == Windows ]]; then
+          # add druntime/Phobos DLL dir to PATH
+          export PATH="$PWD/installed/bin:$PATH"
+        fi
+        installed/bin/ldc2 hello.d -link-defaultlib-shared
+        ./hello
+        if [[ '${{ runner.os }}' == Linux ]]; then
+          installed/bin/ldc2 hello.d -m32 -link-defaultlib-shared
+          ./hello
+        fi
+
+    - name: Run hello-world integration test with LTO
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+        for mode in thin full; do
+          installed/bin/ldc2 hello.d -of=hello_$mode -flto=$mode -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
+          ./hello_$mode
+        done
+
+    - name: Run dynamic-compile integration test
+      # disabled since LLVM 12, needs https://github.com/ldc-developers/ldc/pull/3184
+      if: '!always()'
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+        if [[ '${{ runner.os }}' == Windows ]]; then
+          # add ldc-jit.dll dir to PATH
+          export PATH="$PWD/installed/bin:$PATH"
+        fi
+        installed/bin/ldc2 -enable-dynamic-compile -run ldc/tests/dynamiccompile/array.d
+
+    - name: Run ImportC integration test
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+        installed/bin/ldc2 -run ldc/tests/d2/dmd-testsuite/runnable/test22597.c

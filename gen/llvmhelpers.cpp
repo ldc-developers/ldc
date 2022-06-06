@@ -8,14 +8,22 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/llvmhelpers.h"
-#include "gen/cl_helpers.h"
-#include "declaration.h"
-#include "expression.h"
+
+#include "dmd/declaration.h"
+#include "dmd/errors.h"
+#include "dmd/expression.h"
+#include "dmd/id.h"
+#include "dmd/identifier.h"
+#include "dmd/init.h"
+#include "dmd/module.h"
+#include "dmd/template.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
+#include "gen/cl_helpers.h"
 #include "gen/classes.h"
 #include "gen/complex.h"
 #include "gen/dvalue.h"
+#include "gen/dynamiccompile.h"
 #include "gen/funcgenstate.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
@@ -28,44 +36,34 @@
 #include "gen/tollvm.h"
 #include "gen/typinf.h"
 #include "gen/uda.h"
-#include "id.h"
-#include "init.h"
+#include "ir/irdsymbol.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "ir/irtypeaggr.h"
-#include "mars.h"
-#include "module.h"
-#include "template.h"
 #include "llvm/MC/MCAsmInfo.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/ManagedStatic.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
-#include "llvm/Support/ManagedStatic.h"
 #include <stack>
-
-#include "llvm/Support/CommandLine.h"
-#include "gen/dynamiccompile.h"
 
 llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel(
     "fthread-model", llvm::cl::ZeroOrMore, llvm::cl::desc("Thread model"),
     llvm::cl::init(llvm::GlobalVariable::GeneralDynamicTLSModel),
-    clEnumValues(clEnumValN(llvm::GlobalVariable::GeneralDynamicTLSModel,
-                            "global-dynamic",
-                            "Global dynamic TLS model (default)"),
-                 clEnumValN(llvm::GlobalVariable::LocalDynamicTLSModel,
-                            "local-dynamic", "Local dynamic TLS model"),
-                 clEnumValN(llvm::GlobalVariable::InitialExecTLSModel,
-                            "initial-exec", "Initial exec TLS model"),
-                 clEnumValN(llvm::GlobalVariable::LocalExecTLSModel,
-                            "local-exec", "Local exec TLS model")));
+    llvm::cl::values(clEnumValN(llvm::GlobalVariable::GeneralDynamicTLSModel,
+                                "global-dynamic",
+                                "Global dynamic TLS model (default)"),
+                     clEnumValN(llvm::GlobalVariable::LocalDynamicTLSModel,
+                                "local-dynamic", "Local dynamic TLS model"),
+                     clEnumValN(llvm::GlobalVariable::InitialExecTLSModel,
+                                "initial-exec", "Initial exec TLS model"),
+                     clEnumValN(llvm::GlobalVariable::LocalExecTLSModel,
+                                "local-exec", "Local exec TLS model")));
 
 /******************************************************************************
  * Simple Triple helpers for DFE
  * TODO: find better location for this
  ******************************************************************************/
-bool isArchx86_64() {
-  return global.params.targetTriple->getArch() == llvm::Triple::x86_64;
-}
-
 bool isTargetWindowsMSVC() {
   return global.params.targetTriple->isWindowsMSVCEnvironment();
 }
@@ -81,67 +79,67 @@ llvm::LLVMContext &getGlobalContext() { return *GlobalContext; }
  * DYNAMIC MEMORY HELPERS
  ******************************************************************************/
 
-LLValue *DtoNew(Loc &loc, Type *newtype) {
+LLValue *DtoNew(const Loc &loc, Type *newtype) {
   // get runtime function
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_allocmemoryT");
   // get type info
-  LLConstant *ti = DtoTypeInfoOf(newtype);
+  LLConstant *ti = DtoTypeInfoOf(loc, newtype);
   assert(isaPointer(ti));
   // call runtime allocator
-  LLValue *mem = gIR->CreateCallOrInvoke(fn, ti, ".gc_mem").getInstruction();
+  LLValue *mem = gIR->CreateCallOrInvoke(fn, ti, ".gc_mem");
   // cast
   return DtoBitCast(mem, DtoPtrToType(newtype), ".gc_mem");
 }
 
-LLValue *DtoNewStruct(Loc &loc, TypeStruct *newtype) {
+LLValue *DtoNewStruct(const Loc &loc, TypeStruct *newtype) {
   llvm::Function *fn = getRuntimeFunction(
       loc, gIR->module,
       newtype->isZeroInit(newtype->sym->loc) ? "_d_newitemT" : "_d_newitemiT");
-  LLConstant *ti = DtoTypeInfoOf(newtype);
-  LLValue *mem = gIR->CreateCallOrInvoke(fn, ti, ".gc_struct").getInstruction();
+  LLConstant *ti = DtoTypeInfoOf(loc, newtype);
+  LLValue *mem = gIR->CreateCallOrInvoke(fn, ti, ".gc_struct");
   return DtoBitCast(mem, DtoPtrToType(newtype), ".gc_struct");
 }
 
-void DtoDeleteMemory(Loc &loc, DValue *ptr) {
+void DtoDeleteMemory(const Loc &loc, DValue *ptr) {
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delmemory");
   LLValue *lval = (ptr->isLVal() ? DtoLVal(ptr) : makeLValue(loc, ptr));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
 }
 
-void DtoDeleteStruct(Loc &loc, DValue *ptr) {
+void DtoDeleteStruct(const Loc &loc, DValue *ptr) {
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delstruct");
   LLValue *lval = (ptr->isLVal() ? DtoLVal(ptr) : makeLValue(loc, ptr));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)),
-      DtoBitCast(DtoTypeInfoOf(ptr->type->nextOf()),
+      DtoBitCast(DtoTypeInfoOf(loc, ptr->type->nextOf()),
                  fn->getFunctionType()->getParamType(1)));
 }
 
-void DtoDeleteClass(Loc &loc, DValue *inst) {
+void DtoDeleteClass(const Loc &loc, DValue *inst) {
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delclass");
   LLValue *lval = (inst->isLVal() ? DtoLVal(inst) : makeLValue(loc, inst));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
 }
 
-void DtoDeleteInterface(Loc &loc, DValue *inst) {
+void DtoDeleteInterface(const Loc &loc, DValue *inst) {
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delinterface");
   LLValue *lval = (inst->isLVal() ? DtoLVal(inst) : makeLValue(loc, inst));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
 }
 
-void DtoDeleteArray(Loc &loc, DValue *arr) {
+void DtoDeleteArray(const Loc &loc, DValue *arr) {
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delarray_t");
   llvm::FunctionType *fty = fn->getFunctionType();
 
   // the TypeInfo argument must be null if the type has no dtor
   Type *elementType = arr->type->nextOf();
-  bool hasDtor = (elementType->toBasetype()->ty == Tstruct &&
+  bool hasDtor = (elementType->toBasetype()->ty == TY::Tstruct &&
                   elementType->needsDestruction());
-  LLValue *typeInfo = (!hasDtor ? getNullPtr(fty->getParamType(1))
-                                : DtoTypeInfoOf(elementType));
+  LLValue *typeInfo = !hasDtor ? getNullPtr(fty->getParamType(1))
+                               : DtoTypeInfoOf(loc, elementType);
 
   LLValue *lval = (arr->isLVal() ? DtoLVal(arr) : makeLValue(loc, arr));
   gIR->CreateCallOrInvoke(fn, DtoBitCast(lval, fty->getParamType(0)),
@@ -153,16 +151,25 @@ void DtoDeleteArray(Loc &loc, DValue *arr) {
  ******************************************************************************/
 
 unsigned DtoAlignment(Type *type) {
-  structalign_t alignment = type->alignment();
-  if (alignment == STRUCTALIGN_DEFAULT) {
-    alignment = type->alignsize();
-  }
-  return (alignment == STRUCTALIGN_DEFAULT ? 0 : alignment);
+  const auto alignment = type->alignment();
+  if (!alignment.isDefault() && !alignment.isPack())
+    return alignment.get();
+
+  auto ts = type->toBasetype()->isTypeStruct();
+  return ts && !ts->sym->members ? 0 // opaque struct
+                                 : type->alignsize();
 }
 
 unsigned DtoAlignment(VarDeclaration *vd) {
-  return vd->alignment == STRUCTALIGN_DEFAULT ? DtoAlignment(vd->type)
-                                              : vd->alignment;
+  const unsigned typeAlignment = DtoAlignment(vd->type);
+  if (vd->alignment.isDefault())
+    return typeAlignment;
+
+  const unsigned explicitAlignValue = vd->alignment.get();
+  if (vd->alignment.isPack())
+    return std::min(typeAlignment, explicitAlignValue);
+
+  return explicitAlignValue;
 }
 
 /******************************************************************************
@@ -181,36 +188,32 @@ llvm::AllocaInst *DtoArrayAlloca(Type *type, unsigned arraysize,
                                  const char *name) {
   LLType *lltype = DtoType(type);
   auto ai = new llvm::AllocaInst(
-      lltype,
-#if LDC_LLVM_VER >= 500
-      gIR->module.getDataLayout().getAllocaAddrSpace(),
-#endif
+      lltype, gIR->module.getDataLayout().getAllocaAddrSpace(),
       DtoConstUint(arraysize), name, gIR->topallocapoint());
-  ai->setAlignment(DtoAlignment(type));
+  if (auto alignment = DtoAlignment(type)) {
+    ai->setAlignment(LLAlign(alignment));
+  }
   return ai;
 }
 
 llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
                                const char *name) {
-  auto ai =
-      new llvm::AllocaInst(lltype,
-#if LDC_LLVM_VER >= 500
-                           gIR->module.getDataLayout().getAllocaAddrSpace(),
-#endif
-                           name, gIR->topallocapoint());
+  auto ai = new llvm::AllocaInst(
+      lltype, gIR->module.getDataLayout().getAllocaAddrSpace(), name,
+      gIR->topallocapoint());
   if (alignment) {
-    ai->setAlignment(alignment);
+    ai->setAlignment(LLAlign(alignment));
   }
   return ai;
 }
 
-LLValue *DtoGcMalloc(Loc &loc, LLType *lltype, const char *name) {
+LLValue *DtoGcMalloc(const Loc &loc, LLType *lltype, const char *name) {
   // get runtime function
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_allocmemory");
   // parameters
   LLValue *size = DtoConstSize_t(getTypeAllocSize(lltype));
   // call runtime allocator
-  LLValue *mem = gIR->CreateCallOrInvoke(fn, size, name).getInstruction();
+  LLValue *mem = gIR->CreateCallOrInvoke(fn, size, name);
   // cast
   return DtoBitCast(mem, getPtrToType(lltype), name);
 }
@@ -267,10 +270,10 @@ LLValue *DtoAllocaDump(LLValue *val, LLType *asType, int alignment,
 }
 
 /******************************************************************************
- * ASSERT HELPER
+ * ASSERT HELPERS
  ******************************************************************************/
 
-void DtoAssert(Module *M, Loc &loc, DValue *msg) {
+void DtoAssert(Module *M, const Loc &loc, DValue *msg) {
   // func
   const char *fname = msg ? "_d_assert_msg" : "_d_assert";
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, fname);
@@ -290,20 +293,21 @@ void DtoAssert(Module *M, Loc &loc, DValue *msg) {
   args.push_back(DtoConstUint(loc.linnum));
 
   // call
-  gIR->funcGen().callOrInvoke(fn, args);
+  gIR->CreateCallOrInvoke(fn, args);
 
   // after assert is always unreachable
   gIR->ir->CreateUnreachable();
 }
 
-void DtoCAssert(Module *M, Loc &loc, LLValue *msg) {
-  const auto file = DtoConstCString(loc.filename ? loc.filename
-                                                 : M->srcfile->name->toChars());
+void DtoCAssert(Module *M, const Loc &loc, LLValue *msg) {
+  const auto &triple = *global.params.targetTriple;
+  const auto file =
+      DtoConstCString(loc.filename ? loc.filename : M->srcfile.toChars());
   const auto line = DtoConstUint(loc.linnum);
   const auto fn = getCAssertFunction(loc, gIR->module);
 
   llvm::SmallVector<LLValue *, 4> args;
-  if (global.params.targetTriple->isOSDarwin()) {
+  if (triple.isOSDarwin()) {
     const auto irFunc = gIR->func();
     const auto funcName =
         irFunc && irFunc->decl ? irFunc->decl->toPrettyChars() : "";
@@ -311,8 +315,16 @@ void DtoCAssert(Module *M, Loc &loc, LLValue *msg) {
     args.push_back(file);
     args.push_back(line);
     args.push_back(msg);
-  } else if (global.params.targetTriple->getEnvironment() ==
-             llvm::Triple::Android) {
+  } else if (triple.isOSSolaris() || triple.isMusl() ||
+             global.params.isUClibcEnvironment) {
+    const auto irFunc = gIR->func();
+    const auto funcName =
+        (irFunc && irFunc->decl) ? irFunc->decl->toPrettyChars() : "";
+    args.push_back(msg);
+    args.push_back(file);
+    args.push_back(line);
+    args.push_back(DtoConstCString(funcName));
+  } else if (triple.getEnvironment() == llvm::Triple::Android) {
     args.push_back(file);
     args.push_back(line);
     args.push_back(msg);
@@ -322,9 +334,24 @@ void DtoCAssert(Module *M, Loc &loc, LLValue *msg) {
     args.push_back(line);
   }
 
-  gIR->funcGen().callOrInvoke(fn, args);
+  gIR->CreateCallOrInvoke(fn, args);
 
   gIR->ir->CreateUnreachable();
+}
+
+/******************************************************************************
+ * THROW HELPER
+ ******************************************************************************/
+
+void DtoThrow(const Loc &loc, DValue *e) {
+  LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_throw_exception");
+  LLValue *arg = DtoBitCast(DtoRVal(e), fn->getFunctionType()->getParamType(0));
+
+  gIR->CreateCallOrInvoke(fn, arg);
+  gIR->ir->CreateUnreachable();
+
+  llvm::BasicBlock *bb = gIR->insertBB("afterthrow");
+  gIR->ir->SetInsertPoint(bb);
 }
 
 /******************************************************************************
@@ -332,15 +359,14 @@ void DtoCAssert(Module *M, Loc &loc, LLValue *msg) {
  ******************************************************************************/
 
 LLConstant *DtoModuleFileName(Module *M, const Loc &loc) {
-  return DtoConstString(loc.filename ? loc.filename
-                                     : M->srcfile->name->toChars());
+  return DtoConstString(loc.filename ? loc.filename : M->srcfile.toChars());
 }
 
 /******************************************************************************
  * GOTO HELPER
  ******************************************************************************/
 
-void DtoGoto(Loc &loc, LabelDsymbol *target) {
+void DtoGoto(const Loc &loc, LabelDsymbol *target) {
   assert(!gIR->scopereturned());
 
   LabelStatement *lblstmt = target->statement;
@@ -358,19 +384,19 @@ void DtoGoto(Loc &loc, LabelDsymbol *target) {
 
 // is this a good approach at all ?
 
-void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
+void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
                bool canSkipPostblit) {
   IF_LOG Logger::println("DtoAssign()");
   LOG_SCOPE;
 
   Type *t = lhs->type->toBasetype();
-  assert(t->ty != Tvoid && "Cannot assign values of type void.");
+  assert(t->ty != TY::Tvoid && "Cannot assign values of type void.");
 
-  if (t->ty == Tbool) {
+  if (t->ty == TY::Tbool) {
     DtoStoreZextI8(DtoRVal(rhs), DtoLVal(lhs));
-  } else if (t->ty == Tstruct) {
+  } else if (t->ty == TY::Tstruct) {
     // don't copy anything to empty structs
-    if (static_cast<TypeStruct *>(t)->sym->fields.dim > 0) {
+    if (static_cast<TypeStruct *>(t)->sym->fields.length > 0) {
       llvm::Value *src = DtoLVal(rhs);
       llvm::Value *dst = DtoLVal(lhs);
 
@@ -380,9 +406,9 @@ void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
       if (src != dst)
         DtoMemCpy(dst, src);
     }
-  } else if (t->ty == Tarray || t->ty == Tsarray) {
+  } else if (t->ty == TY::Tarray || t->ty == TY::Tsarray) {
     DtoArrayAssign(loc, lhs, rhs, op, canSkipPostblit);
-  } else if (t->ty == Tdelegate) {
+  } else if (t->ty == TY::Tdelegate) {
     LLValue *l = DtoLVal(lhs);
     LLValue *r = DtoRVal(rhs);
     IF_LOG {
@@ -390,8 +416,8 @@ void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
       Logger::cout() << "rhs: " << *r << '\n';
     }
     DtoStore(r, l);
-  } else if (t->ty == Tclass) {
-    assert(rhs->type->toBasetype()->ty == Tclass);
+  } else if (t->ty == TY::Tclass) {
+    assert(rhs->type->toBasetype()->ty == TY::Tclass);
     LLValue *l = DtoLVal(lhs);
     LLValue *r = DtoRVal(rhs);
     IF_LOG {
@@ -451,13 +477,13 @@ DValue *DtoNullValue(Type *type, Loc loc) {
   }
   // integer, floating, pointer, assoc array, delegate and class have no special
   // representation
-  if (basetype->isintegral() || basetype->isfloating() || basety == Tpointer ||
-      basety == Tnull || basety == Tclass || basety == Tdelegate ||
-      basety == Taarray) {
+  if (basetype->isintegral() || basetype->isfloating() ||
+      basety == TY::Tpointer || basety == TY::Tnull || basety == TY::Tclass ||
+      basety == TY::Tdelegate || basety == TY::Taarray) {
     return new DNullValue(type, LLConstant::getNullValue(lltype));
   }
   // dynamic array
-  if (basety == Tarray) {
+  if (basety == TY::Tarray) {
     LLValue *len = DtoConstSize_t(0);
     LLValue *ptr = getNullPtr(DtoPtrToType(basetype->nextOf()));
     return new DSliceValue(type, len, ptr);
@@ -470,7 +496,7 @@ DValue *DtoNullValue(Type *type, Loc loc) {
  * CASTING HELPERS
  ******************************************************************************/
 
-DValue *DtoCastInt(Loc &loc, DValue *val, Type *_to) {
+DValue *DtoCastInt(const Loc &loc, DValue *val, Type *_to) {
   LLType *tolltype = DtoType(_to);
 
   Type *to = _to->toBasetype();
@@ -485,13 +511,13 @@ DValue *DtoCastInt(Loc &loc, DValue *val, Type *_to) {
   size_t fromsz = from->size();
   size_t tosz = to->size();
 
-  if (to->ty == Tbool) {
+  if (to->ty == TY::Tbool) {
     LLValue *zero = LLConstantInt::get(rval->getType(), 0, false);
     rval = gIR->ir->CreateICmpNE(rval, zero);
   } else if (to->isintegral()) {
-    if (fromsz < tosz || from->ty == Tbool) {
+    if (fromsz < tosz || from->ty == TY::Tbool) {
       IF_LOG Logger::cout() << "cast to: " << *tolltype << '\n';
-      if (isLLVMUnsigned(from) || from->ty == Tbool) {
+      if (isLLVMUnsigned(from) || from->ty == TY::Tbool) {
         rval = new llvm::ZExtInst(rval, tolltype, "", gIR->scopebb());
       } else {
         rval = new llvm::SExtInst(rval, tolltype, "", gIR->scopebb());
@@ -509,7 +535,7 @@ DValue *DtoCastInt(Loc &loc, DValue *val, Type *_to) {
     } else {
       rval = new llvm::SIToFPInst(rval, tolltype, "", gIR->scopebb());
     }
-  } else if (to->ty == Tpointer) {
+  } else if (to->ty == TY::Tpointer) {
     IF_LOG Logger::cout() << "cast pointer: " << *tolltype << '\n';
     rval = gIR->ir->CreateIntToPtr(rval, tolltype);
   } else {
@@ -521,24 +547,25 @@ DValue *DtoCastInt(Loc &loc, DValue *val, Type *_to) {
   return new DImValue(_to, rval);
 }
 
-DValue *DtoCastPtr(Loc &loc, DValue *val, Type *to) {
+DValue *DtoCastPtr(const Loc &loc, DValue *val, Type *to) {
   LLType *tolltype = DtoType(to);
 
   Type *totype = to->toBasetype();
   Type *fromtype = val->type->toBasetype();
   (void)fromtype;
-  assert(fromtype->ty == Tpointer || fromtype->ty == Tfunction);
+  assert(fromtype->ty == TY::Tpointer || fromtype->ty == TY::Tfunction);
 
   LLValue *rval;
 
-  if (totype->ty == Tpointer || totype->ty == Tclass) {
+  if (totype->ty == TY::Tpointer || totype->ty == TY::Tclass ||
+      totype->ty == TY::Taarray) {
     LLValue *src = DtoRVal(val);
     IF_LOG {
       Logger::cout() << "src: " << *src << '\n';
       Logger::cout() << "to type: " << *tolltype << '\n';
     }
     rval = DtoBitCast(src, tolltype);
-  } else if (totype->ty == Tbool) {
+  } else if (totype->ty == TY::Tbool) {
     LLValue *src = DtoRVal(val);
     LLValue *zero = LLConstant::getNullValue(src->getType());
     rval = gIR->ir->CreateICmpNE(src, zero);
@@ -553,7 +580,7 @@ DValue *DtoCastPtr(Loc &loc, DValue *val, Type *to) {
   return new DImValue(to, rval);
 }
 
-DValue *DtoCastFloat(Loc &loc, DValue *val, Type *to) {
+DValue *DtoCastFloat(const Loc &loc, DValue *val, Type *to) {
   if (val->type == to) {
     return val;
   }
@@ -569,7 +596,7 @@ DValue *DtoCastFloat(Loc &loc, DValue *val, Type *to) {
 
   LLValue *rval;
 
-  if (totype->ty == Tbool) {
+  if (totype->ty == TY::Tbool) {
     rval = DtoRVal(val);
     LLValue *zero = LLConstant::getNullValue(rval->getType());
     rval = gIR->ir->CreateFCmpUNE(rval, zero);
@@ -603,44 +630,40 @@ DValue *DtoCastFloat(Loc &loc, DValue *val, Type *to) {
   return new DImValue(to, rval);
 }
 
-DValue *DtoCastDelegate(Loc &loc, DValue *val, Type *to) {
-  if (to->toBasetype()->ty == Tdelegate) {
+DValue *DtoCastDelegate(const Loc &loc, DValue *val, Type *to) {
+  if (to->toBasetype()->ty == TY::Tdelegate) {
     return DtoPaintType(loc, val, to);
   }
-  if (to->toBasetype()->ty == Tbool) {
-    return new DImValue(to,
-                        DtoDelegateEquals(TOKnotequal, DtoRVal(val), nullptr));
+  if (to->toBasetype()->ty == TY::Tbool) {
+    return new DImValue(
+        to, DtoDelegateEquals(EXP::notEqual, DtoRVal(val), nullptr));
   }
   error(loc, "invalid cast from `%s` to `%s`", val->type->toChars(),
         to->toChars());
   fatal();
 }
 
-DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
-  assert(val->type->toBasetype()->ty == Tvector);
+DValue *DtoCastVector(const Loc &loc, DValue *val, Type *to) {
+  assert(val->type->toBasetype()->ty == TY::Tvector);
   Type *totype = to->toBasetype();
   LLType *tolltype = DtoType(to);
 
-  if (totype->ty == Tsarray) {
-    // If possible, we need to cast only the address of the vector without
-    // creating a copy, because, besides the fact that this seem to be the
-    // language semantics, DMD rewrites e.g. float4.array to
-    // cast(float[4])array.
+  if (totype->ty == TY::Tsarray) {
+    // Reinterpret-cast without copy if the source vector is in memory.
     if (val->isLVal()) {
       LLValue *vector = DtoLVal(val);
-      IF_LOG Logger::cout() << "src: " << *vector << "to type: " << *tolltype
+      IF_LOG Logger::cout() << "src: " << *vector << " to type: " << *tolltype
                             << " (casting address)\n";
       return new DLValue(to, DtoBitCast(vector, getPtrToType(tolltype)));
     }
 
     LLValue *vector = DtoRVal(val);
-    IF_LOG Logger::cout() << "src: " << *vector << "to type: " << *tolltype
+    IF_LOG Logger::cout() << "src: " << *vector << " to type: " << *tolltype
                           << " (creating temporary)\n";
-    LLValue *array = DtoAlloca(to);
-    DtoStore(vector, DtoBitCast(array, getPtrToType(vector->getType())));
+    LLValue *array = DtoAllocaDump(vector, tolltype, DtoAlignment(val->type));
     return new DLValue(to, array);
   }
-  if (totype->ty == Tvector && to->size() == val->type->size()) {
+  if (totype->ty == TY::Tvector && to->size() == val->type->size()) {
     return new DImValue(to, DtoBitCast(DtoRVal(val), tolltype));
   }
   error(loc, "invalid cast from `%s` to `%s`", val->type->toChars(),
@@ -648,9 +671,9 @@ DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
   fatal();
 }
 
-DValue *DtoCastStruct(Loc &loc, DValue *val, Type *to) {
+DValue *DtoCastStruct(const Loc &loc, DValue *val, Type *to) {
   Type *const totype = to->toBasetype();
-  if (totype->ty == Tstruct) {
+  if (totype->ty == TY::Tstruct) {
     // This a cast to repaint a struct to another type, which the language
     // allows for identical layouts (opCast() and so on have been lowered
     // earlier by the frontend).
@@ -665,19 +688,25 @@ DValue *DtoCastStruct(Loc &loc, DValue *val, Type *to) {
   fatal();
 }
 
-DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
+DValue *DtoCast(const Loc &loc, DValue *val, Type *to) {
   Type *fromtype = val->type->toBasetype();
   Type *totype = to->toBasetype();
 
-  if (fromtype->ty == Taarray) {
+  if (fromtype->ty == TY::Taarray) {
+    if (totype->ty == TY::Taarray) {
+      // reinterpret-cast keeping lvalue-ness, IR types will match up
+      if (val->isLVal())
+        return new DLValue(to, DtoLVal(val));
+      return new DImValue(to, DtoRVal(val));
+    }
     // DMD allows casting AAs to void*, even if they are internally
     // implemented as structs.
-    if (totype->ty == Tpointer) {
+    if (totype->ty == TY::Tpointer) {
       IF_LOG Logger::println("Casting AA to pointer.");
       LLValue *rval = DtoBitCast(DtoRVal(val), DtoType(to));
       return new DImValue(to, rval);
     }
-    if (totype->ty == Tbool) {
+    if (totype->ty == TY::Tbool) {
       IF_LOG Logger::println("Casting AA to bool.");
       LLValue *rval = DtoRVal(val);
       LLValue *zero = LLConstant::getNullValue(rval->getType());
@@ -693,7 +722,7 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
                          to->toChars());
   LOG_SCOPE;
 
-  if (fromtype->ty == Tvector) {
+  if (fromtype->ty == TY::Tvector) {
     // First, handle vector types (which can also be isintegral()).
     return DtoCastVector(loc, val, to);
   }
@@ -708,26 +737,21 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
   }
 
   switch (fromtype->ty) {
-  case Tclass:
+  case TY::Tclass:
     return DtoCastClass(loc, val, to);
-  case Tarray:
-  case Tsarray:
+  case TY::Tarray:
+  case TY::Tsarray:
     return DtoCastArray(loc, val, to);
-  case Tpointer:
-  case Tfunction:
+  case TY::Tpointer:
+  case TY::Tfunction:
     return DtoCastPtr(loc, val, to);
-  case Tdelegate:
+  case TY::Tdelegate:
     return DtoCastDelegate(loc, val, to);
-  case Tstruct:
+  case TY::Tstruct:
     return DtoCastStruct(loc, val, to);
-  case Tnull:
+  case TY::Tnull:
+  case TY::Tnoreturn:
     return DtoNullValue(to, loc);
-  case Taarray:
-    if (totype->ty == Taarray) {
-      // Do nothing, the types will match up anyway.
-      return new DImValue(to, DtoRVal(val));
-    }
-  // fall-through
   default:
     error(loc, "invalid cast from `%s` to `%s`", val->type->toChars(),
           to->toChars());
@@ -737,14 +761,14 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoPaintType(Loc &loc, DValue *val, Type *to) {
+DValue *DtoPaintType(const Loc &loc, DValue *val, Type *to) {
   Type *from = val->type->toBasetype();
   IF_LOG Logger::println("repainting from '%s' to '%s'", from->toChars(),
                          to->toChars());
 
-  if (from->ty == Tarray) {
+  if (from->ty == TY::Tarray) {
     Type *at = to->toBasetype();
-    assert(at->ty == Tarray);
+    assert(at->ty == TY::Tarray);
     Type *elem = at->nextOf()->pointerTo();
     if (DSliceValue *slice = val->isSlice()) {
       return new DSliceValue(to, slice->getLength(),
@@ -761,9 +785,9 @@ DValue *DtoPaintType(Loc &loc, DValue *val, Type *to) {
     ptr = DtoBitCast(ptr, DtoType(elem));
     return new DImValue(to, DtoAggrPair(len, ptr));
   }
-  if (from->ty == Tdelegate) {
+  if (from->ty == TY::Tdelegate) {
     Type *dgty = to->toBasetype();
-    assert(dgty->ty == Tdelegate);
+    assert(dgty->ty == TY::Tdelegate);
     if (val->isLVal()) {
       LLValue *ptr = DtoLVal(val);
       assert(isaPointer(ptr));
@@ -779,36 +803,21 @@ DValue *DtoPaintType(Loc &loc, DValue *val, Type *to) {
     IF_LOG Logger::cout() << "dg: " << *aggr << '\n';
     return new DImValue(to, aggr);
   }
-  if (from->ty == Tpointer || from->ty == Tclass || from->ty == Taarray) {
+  if (from->ty == TY::Tpointer || from->ty == TY::Tclass ||
+      from->ty == TY::Taarray) {
     Type *b = to->toBasetype();
-    assert(b->ty == Tpointer || b->ty == Tclass || b->ty == Taarray);
+    assert(b->ty == TY::Tpointer || b->ty == TY::Tclass ||
+           b->ty == TY::Taarray);
     LLValue *ptr = DtoBitCast(DtoRVal(val), DtoType(b));
     return new DImValue(to, ptr);
   }
-  if (from->ty == Tsarray) {
-    assert(to->toBasetype()->ty == Tsarray);
+  if (from->ty == TY::Tsarray) {
+    assert(to->toBasetype()->ty == TY::Tsarray);
     LLValue *ptr = DtoBitCast(DtoLVal(val), DtoPtrToType(to));
     return new DLValue(to, ptr);
   }
   assert(DtoType(from) == DtoType(to));
   return new DImValue(to, DtoRVal(val));
-}
-
-/******************************************************************************
- * TEMPLATE HELPERS
- ******************************************************************************/
-
-TemplateInstance *DtoIsTemplateInstance(Dsymbol *s) {
-  if (!s) {
-    return nullptr;
-  }
-  if (s->isTemplateInstance() && !s->isTemplateMixin()) {
-    return s->isTemplateInstance();
-  }
-  if (s->parent) {
-    return DtoIsTemplateInstance(s->parent);
-  }
-  return nullptr;
 }
 
 /******************************************************************************
@@ -830,8 +839,9 @@ void DtoResolveDsymbol(Dsymbol *dsym) {
 }
 
 void DtoResolveVariable(VarDeclaration *vd) {
-  if (vd->isTypeInfoDeclaration()) {
-    return DtoResolveTypeInfo(static_cast<TypeInfoDeclaration *>(vd));
+  if (auto tid = vd->isTypeInfoDeclaration()) {
+    DtoResolveTypeInfo(tid);
+    return;
   }
 
   IF_LOG Logger::println("DtoResolveVariable(%s)", vd->toPrettyChars());
@@ -863,69 +873,8 @@ void DtoResolveVariable(VarDeclaration *vd) {
     }
     vd->ir->setDeclared();
 
-    getIrGlobal(vd, true);
-
-    IF_LOG {
-      if (vd->parent) {
-        Logger::println("parent: %s (%s)", vd->parent->toChars(),
-                        vd->parent->kind());
-      } else {
-        Logger::println("parent: null");
-      }
-    }
-
-    // If a const/immutable value has a proper initializer (not "= void"),
-    // it cannot be assigned again in a static constructor. Thus, we can
-    // emit it as read-only data.
-    const bool isLLConst = (vd->isConst() || vd->isImmutable()) && vd->_init &&
-                           !vd->_init->isVoidInitializer();
-
-    assert(!vd->ir->isInitialized());
-    if (gIR->dmodule) {
-      vd->ir->setInitialized();
-    }
-    const auto irMangle = getIRMangledName(vd);
-
-    // Since the type of a global must exactly match the type of its
-    // initializer, we cannot know the type until after we have emitted the
-    // latter (e.g. in case of unions, …). However, it is legal for the
-    // initializer to refer to the address of the variable. Thus, we first
-    // create a global with the generic type (note the assignment to
-    // vd->ir->irGlobal->value!), and in case we also do an initializer
-    // with a different type later, swap it out and replace any existing
-    // uses with bitcasts to the previous type.
-
-    // We always start out with external linkage; any other type is set
-    // when actually defining it in VarDeclaration::codegen.
-    llvm::GlobalValue::LinkageTypes linkage =
-        llvm::GlobalValue::ExternalLinkage;
-    if (vd->llvmInternal == LLVMextern_weak) {
-      linkage = llvm::GlobalValue::ExternalWeakLinkage;
-    }
-
-    llvm::GlobalVariable *gvar =
-        getOrCreateGlobal(vd->loc, gIR->module, DtoMemType(vd->type), isLLConst,
-                          linkage, nullptr, irMangle, vd->isThreadlocal());
-    auto varIr = getIrGlobal(vd);
-    varIr->value = gvar;
-
-    // Set the alignment (it is important not to use type->alignsize because
-    // VarDeclarations can have an align() attribute independent of the type
-    // as well).
-    gvar->setAlignment(DtoAlignment(vd));
-
-    // Windows: initialize DLL storage class with `dllimport` for `export`ed
-    // symbols
-    if (global.params.isWindows && vd->isExport()) {
-      gvar->setDLLStorageClass(LLGlobalValue::DLLImportStorageClass);
-    }
-
-    applyVarDeclUDAs(vd, gvar);
-    if (varIr->dynamicCompileConst) {
-      addDynamicCompiledVar(gIR, varIr);
-    }
-
-    IF_LOG Logger::cout() << *gvar << '\n';
+    auto irGlobal = getIrGlobal(vd, true);
+    irGlobal->getValue();
   }
 }
 
@@ -942,7 +891,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
   IF_LOG Logger::println("DtoVarDeclaration(vdtype = %s)", vd->type->toChars());
   LOG_SCOPE
 
-  if (vd->nestedrefs.dim) {
+  if (vd->nestedrefs.length) {
     IF_LOG Logger::println(
         "has nestedref set (referenced by nested function/delegate)");
 
@@ -955,9 +904,10 @@ void DtoVarDeclaration(VarDeclaration *vd) {
 
   if (isIrLocalCreated(vd)) {
     // Nothing to do if it has already been allocated.
-  } else if (gIR->func()->sretArg && ((gIR->func()->decl->nrvo_can &&
-                                       gIR->func()->decl->nrvo_var == vd) ||
-                                      vd->isResult())) {
+  } else if (gIR->func()->sretArg &&
+             ((gIR->func()->decl->isNRVO() &&
+               gIR->func()->decl->nrvo_var == vd) ||
+              (vd->isResult() && !isSpecialRefVar(vd)))) {
     // Named Return Value Optimization (NRVO):
     // T f() {
     //   T ret;        // &ret == hidden pointer
@@ -966,6 +916,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     // }
     assert(!isSpecialRefVar(vd) && "Can this happen?");
     getIrLocal(vd, true)->value = gIR->func()->sretArg;
+    gIR->DBuilder.EmitLocalVariable(gIR->func()->sretArg, vd);
   } else {
     // normal stack variable, allocate storage on the stack if it has not
     // already been done
@@ -974,8 +925,8 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     Type *type = isSpecialRefVar(vd) ? vd->type->pointerTo() : vd->type;
 
     llvm::Value *allocainst;
-    LLType *lltype = DtoType(type);
-    if (gDataLayout->getTypeSizeInBits(lltype) == 0) {
+    LLType *lltype = DtoType(type); // void for noreturn
+    if (lltype->isVoidTy() || gDataLayout->getTypeSizeInBits(lltype) == 0) {
       allocainst = llvm::ConstantPointerNull::get(getPtrToType(lltype));
     } else if (type != vd->type) {
       allocainst = DtoAlloca(type, vd->toChars());
@@ -985,7 +936,8 @@ void DtoVarDeclaration(VarDeclaration *vd) {
 
     irLocal->value = allocainst;
 
-    gIR->DBuilder.EmitLocalVariable(allocainst, vd);
+    if (!lltype->isVoidTy())
+      gIR->DBuilder.EmitLocalVariable(allocainst, vd);
   }
 
   IF_LOG Logger::cout() << "llvm value for decl: " << *getIrLocal(vd)->value
@@ -1041,7 +993,7 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
     Logger::println("AttribDeclaration");
     // choose the right set in case this is a conditional declaration
     if (auto d = a->include(nullptr)) {
-      for (unsigned i = 0; i < d->dim; ++i) {
+      for (unsigned i = 0; i < d->length; ++i) {
         DtoDeclarationExp((*d)[i]);
       }
     }
@@ -1054,7 +1006,7 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
     Logger::println("TupleDeclaration");
     assert(tupled->isexp && "Non-expression tuple decls not handled yet.");
     assert(tupled->objects);
-    for (unsigned i = 0; i < tupled->objects->dim; ++i) {
+    for (unsigned i = 0; i < tupled->objects->length; ++i) {
       auto exp = static_cast<DsymbolExp *>((*tupled->objects)[i]);
       DtoDeclarationExp(exp->s);
     }
@@ -1092,7 +1044,7 @@ LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr) {
   // nested variable?
   // A variable may not be really nested even if nextedrefs is not empty
   // in case it is referenced by a function inside __traits(compile) or typeof.
-  if (var->nestedrefs.dim && isIrLocalCreated(var)) {
+  if (var->nestedrefs.length && isIrLocalCreated(var)) {
     if (!irLocal->value) {
       assert(addr);
       irLocal->value = addr;
@@ -1132,22 +1084,33 @@ LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr) {
  * INITIALIZER HELPERS
  ******************************************************************************/
 
-LLConstant *DtoConstInitializer(Loc &loc, Type *type, Initializer *init) {
+LLConstant *DtoConstInitializer(const Loc &loc, Type *type, Initializer *init,
+                                const bool isCfile) {
   LLConstant *_init = nullptr; // may return zero
   if (!init) {
-    IF_LOG Logger::println("const default initializer for %s", type->toChars());
-    Expression *initExp = type->defaultInit();
-    _init = DtoConstExpInit(loc, type, initExp);
+    if (type->toBasetype()->isTypeNoreturn()) {
+      Logger::println("const noreturn initializer");
+      LLType *ty = DtoMemType(type);
+      _init = LLConstant::getNullValue(ty);
+    } else {
+      IF_LOG Logger::println("const default initializer for %s", type->toChars());
+      Expression *initExp = defaultInit(type, loc, isCfile);
+      _init = DtoConstExpInit(loc, type, initExp);
+    }
   } else if (ExpInitializer *ex = init->isExpInitializer()) {
     Logger::println("const expression initializer");
     _init = DtoConstExpInit(loc, type, ex->exp);
   } else if (ArrayInitializer *ai = init->isArrayInitializer()) {
     Logger::println("const array initializer");
-    _init = DtoConstArrayInitializer(ai, type);
+    _init = DtoConstArrayInitializer(ai, type, isCfile);
   } else if (init->isVoidInitializer()) {
     Logger::println("const void initializer");
     LLType *ty = DtoMemType(type);
     _init = LLConstant::getNullValue(ty);
+  } else if (init->isCInitializer()) {
+    // TODO: ImportC
+    error(loc, "LDC doesn't support C initializer lists yet");
+    fatal();
   } else {
     // StructInitializer is no longer suposed to make it to the glue layer
     // in DMD 2.064.
@@ -1159,7 +1122,7 @@ LLConstant *DtoConstInitializer(Loc &loc, Type *type, Initializer *init) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp) {
+LLConstant *DtoConstExpInit(const Loc &loc, Type *targetType, Expression *exp) {
   IF_LOG Logger::println("DtoConstExpInit(targetType = %s, exp = %s)",
                          targetType->toChars(), exp->toChars());
   LOG_SCOPE
@@ -1187,7 +1150,7 @@ LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp) {
     return llvm::Constant::getNullValue(targetLLType);
 
   // extend i1 to i8
-  if (llType == LLType::getInt1Ty(gIR->context())) {
+  if (llType->isIntegerTy(1)) {
     llType = LLType::getInt8Ty(gIR->context());
     val = llvm::ConstantExpr::getZExt(val, llType);
   }
@@ -1195,7 +1158,7 @@ LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp) {
   if (llType == targetLLType)
     return val;
 
-  if (baseTargetType->ty == Tsarray) {
+  if (baseTargetType->ty == TY::Tsarray) {
     Logger::println("Building constant array initializer from scalar.");
 
     assert(baseValType->size() > 0);
@@ -1205,7 +1168,7 @@ LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp) {
     // may be a multi-dimensional array init, e.g., `char[2][3] x = 0xff`
     baseValType = stripModifiers(baseValType);
     LLSmallVector<size_t, 4> dims; // { 3, 2 }
-    for (auto t = baseTargetType; t->ty == Tsarray;) {
+    for (auto t = baseTargetType; t->ty == TY::Tsarray;) {
       dims.push_back(static_cast<TypeSArray *>(t)->dim->toUInteger());
       auto elementType = stripModifiers(t->nextOf()->toBasetype());
       if (elementType->equals(baseValType))
@@ -1226,14 +1189,21 @@ LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp) {
     return val;
   }
 
-  if (baseTargetType->ty == Tvector) {
+  if (baseTargetType->ty == TY::Tvector) {
     Logger::println("Building constant vector initializer from scalar.");
 
     TypeVector *tv = static_cast<TypeVector *>(baseTargetType);
-    assert(tv->basetype->ty == Tsarray);
+    assert(tv->basetype->ty == TY::Tsarray);
     dinteger_t elemCount =
         static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();
-    return llvm::ConstantVector::getSplat(elemCount, val);
+#if LDC_LLVM_VER >= 1200
+    const auto elementCount = llvm::ElementCount::getFixed(elemCount);
+#elif LDC_LLVM_VER >= 1100
+    const auto elementCount = llvm::ElementCount(elemCount, false);
+#else
+    const auto elementCount = elemCount;
+#endif
+    return llvm::ConstantVector::getSplat(elementCount, val);
   }
 
   if (llType->isIntegerTy() && targetLLType->isIntegerTy()) {
@@ -1257,21 +1227,17 @@ LLConstant *DtoConstExpInit(Loc &loc, Type *targetType, Expression *exp) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLConstant *DtoTypeInfoOf(Type *type, bool base) {
+LLConstant *DtoTypeInfoOf(const Loc &loc, Type *type, bool base) {
   IF_LOG Logger::println("DtoTypeInfoOf(type = '%s', base='%d')",
                          type->toChars(), base);
   LOG_SCOPE
 
-  TypeInfoDeclaration *tidecl = getOrCreateTypeInfoDeclaration(type, nullptr);
-  assert(tidecl);
-  Declaration_codegen(tidecl);
-  assert(getIrGlobal(tidecl)->value != NULL);
-  LLConstant *c = isaConstant(getIrGlobal(tidecl)->value);
-  assert(c != NULL);
+  auto tidecl = getOrCreateTypeInfoDeclaration(loc, type);
+  auto tiglobal = DtoResolveTypeInfo(tidecl);
   if (base) {
-    return llvm::ConstantExpr::getBitCast(c, DtoType(Type::dtypeinfo->type));
+    return llvm::ConstantExpr::getBitCast(tiglobal, DtoType(getTypeInfoType()));
   }
-  return c;
+  return tiglobal;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1288,35 +1254,46 @@ static char *DtoOverloadedIntrinsicName(TemplateInstance *ti,
   }
 
   // for now use the size in bits of the first template param in the instance
-  assert(ti->tdtypes.dim == 1);
-  Type *T = static_cast<Type *>(ti->tdtypes.data[0]);
+  assert(ti->tdtypes.length == 1);
+  Type *T = static_cast<Type *>(ti->tdtypes[0]);
 
-  char prefix = T->isreal() ? 'f' : T->isintegral() ? 'i' : 0;
-  if (!prefix) {
+  char prefix;
+  if (T->isfloating() && !T->iscomplex()) {
+    prefix = 'f';
+  } else if (T->isintegral()) {
+    prefix = 'i';
+  } else {
     ti->error("has invalid template parameter for intrinsic: `%s`",
               T->toChars());
     fatal(); // or LLVM asserts
   }
 
-  llvm::Type *dtype(DtoType(T));
-  char tmp[21]; // probably excessive, but covers a uint64_t
-  sprintf(tmp, "%lu",
-          static_cast<unsigned long>(gDataLayout->getTypeSizeInBits(dtype)));
+  std::string name = td->intrinsicName;
 
-  // replace # in name with bitsize
-  std::string name(td->intrinsicName);
+  // replace `{f,i}#` by `{f,i}<bitsize>` (int: `i32`) or
+  // `v<vector length>{f,i}<vector element bitsize>` (float4: `v4f32`)
+  llvm::Type *dtype = DtoType(T);
+  std::string replacement;
+  if (dtype->isPPC_FP128Ty()) { // special case
+    replacement = "ppcf128";
+  } else if (dtype->isVectorTy()) {
+#if LDC_LLVM_VER >= 1100
+    auto vectorType = llvm::cast<llvm::FixedVectorType>(dtype);
+#else
+    auto vectorType = llvm::cast<llvm::VectorType>(dtype);
+#endif
+    llvm::raw_string_ostream stream(replacement);
+    stream << 'v' << vectorType->getNumElements() << prefix
+           << gDataLayout->getTypeSizeInBits(vectorType->getElementType());
+    stream.flush();
+  } else {
+    replacement = prefix + std::to_string(gDataLayout->getTypeSizeInBits(dtype));
+  }
 
-  std::string needle("#");
   size_t pos;
-  while (std::string::npos != (pos = name.find(needle))) {
+  while (std::string::npos != (pos = name.find('#'))) {
     if (pos > 0 && name[pos - 1] == prefix) {
-      // Check for special PPC128 double
-      if (dtype->isPPC_FP128Ty()) {
-        name.insert(pos - 1, "ppc");
-        pos += 3;
-      }
-      // Properly prefixed, insert bitwidth.
-      name.replace(pos, 1, tmp);
+      name.replace(pos - 1, 2, replacement);
     } else {
       if (pos && (name[pos - 1] == 'i' || name[pos - 1] == 'f')) {
         // Wrong type character.
@@ -1343,8 +1320,8 @@ void DtoSetFuncDeclIntrinsicName(TemplateInstance *ti, TemplateDeclaration *td,
                                  FuncDeclaration *fd) {
   if (fd->llvmInternal == LLVMintrinsic) {
     fd->intrinsicName = DtoOverloadedIntrinsicName(ti, td);
-    fd->mangleOverride =
-        fd->intrinsicName ? strdup(fd->intrinsicName) : nullptr;
+    const auto cstr = fd->intrinsicName;
+    fd->mangleOverride = {cstr ? strlen(cstr) : 0, cstr};
   } else {
     fd->intrinsicName = td->intrinsicName ? strdup(td->intrinsicName) : nullptr;
   }
@@ -1371,7 +1348,7 @@ size_t getMemberSize(Type *type) {
 ////////////////////////////////////////////////////////////////////////////////
 
 Type *stripModifiers(Type *type, bool transitive) {
-  if (type->ty == Tfunction) {
+  if (type->ty == TY::Tfunction) {
     return type;
   }
 
@@ -1383,7 +1360,7 @@ Type *stripModifiers(Type *type, bool transitive) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *makeLValue(Loc &loc, DValue *value) {
+LLValue *makeLValue(const Loc &loc, DValue *value) {
   if (value->isLVal())
     return DtoLVal(value);
 
@@ -1392,17 +1369,18 @@ LLValue *makeLValue(Loc &loc, DValue *value) {
 
   LLValue *mem = DtoAlloca(value->type, ".makelvaluetmp");
   DLValue var(value->type, mem);
-  DtoAssign(loc, &var, value, TOKblit);
+  DtoAssign(loc, &var, value, EXP::blit);
   return mem;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void callPostblit(Loc &loc, Expression *exp, LLValue *val) {
+void callPostblit(const Loc &loc, Expression *exp, LLValue *val) {
   Type *tb = exp->type->toBasetype();
-  if ((exp->op == TOKvar || exp->op == TOKdotvar || exp->op == TOKstar ||
-       exp->op == TOKthis || exp->op == TOKindex) &&
-      tb->ty == Tstruct) {
+  if ((exp->op == EXP::variable || exp->op == EXP::dotVariable ||
+       exp->op == EXP::star || exp->op == EXP::this_ ||
+       exp->op == EXP::index) &&
+      tb->ty == TY::Tstruct) {
     StructDeclaration *sd = static_cast<TypeStruct *>(tb)->sym;
     if (sd->postblit) {
       FuncDeclaration *fd = sd->postblit;
@@ -1410,10 +1388,9 @@ void callPostblit(Loc &loc, Expression *exp, LLValue *val) {
         fd->toParent()->error(
             loc, "is not copyable because it is annotated with `@disable`");
       }
-      DtoResolveFunction(fd);
       Expressions args;
       DFuncValue dfn(fd, DtoCallee(fd), val);
-      DtoCallFunction(loc, Type::basic[Tvoid], &dfn, &args);
+      DtoCallFunction(loc, Type::tvoid, &dfn, &args);
     }
   }
 }
@@ -1426,17 +1403,15 @@ bool isSpecialRefVar(VarDeclaration *vd) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-bool isLLVMUnsigned(Type *t) { return t->isunsigned() || t->ty == Tpointer; }
+bool isLLVMUnsigned(Type *t) {
+  return t->isunsigned() || t->ty == TY::Tpointer;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
 void printLabelName(std::ostream &target, const char *func_mangle,
                     const char *label_name) {
-  target << gTargetMachine->getMCAsmInfo()
-                ->getPrivateGlobalPrefix()
-#if LDC_LLVM_VER >= 400
-                .str()
-#endif
+  target << gTargetMachine->getMCAsmInfo()->getPrivateGlobalPrefix().str()
          << func_mangle << "_" << label_name;
 }
 
@@ -1454,36 +1429,20 @@ void AppendFunctionToLLVMGlobalCtorsDtors(llvm::Function *func,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void tokToICmpPred(TOK op, bool isUnsigned, llvm::ICmpInst::Predicate *outPred,
+void tokToICmpPred(EXP op, bool isUnsigned, llvm::ICmpInst::Predicate *outPred,
                    llvm::Value **outConst) {
   switch (op) {
-  case TOKlt:
-  case TOKul:
+  case EXP::lessThan:
     *outPred = isUnsigned ? llvm::ICmpInst::ICMP_ULT : llvm::ICmpInst::ICMP_SLT;
     break;
-  case TOKle:
-  case TOKule:
+  case EXP::lessOrEqual:
     *outPred = isUnsigned ? llvm::ICmpInst::ICMP_ULE : llvm::ICmpInst::ICMP_SLE;
     break;
-  case TOKgt:
-  case TOKug:
+  case EXP::greaterThan:
     *outPred = isUnsigned ? llvm::ICmpInst::ICMP_UGT : llvm::ICmpInst::ICMP_SGT;
     break;
-  case TOKge:
-  case TOKuge:
+  case EXP::greaterOrEqual:
     *outPred = isUnsigned ? llvm::ICmpInst::ICMP_UGE : llvm::ICmpInst::ICMP_SGE;
-    break;
-  case TOKue:
-    *outPred = llvm::ICmpInst::ICMP_EQ;
-    break;
-  case TOKlg:
-    *outPred = llvm::ICmpInst::ICMP_NE;
-    break;
-  case TOKleg:
-    *outConst = LLConstantInt::getTrue(gIR->context());
-    break;
-  case TOKunord:
-    *outConst = LLConstantInt::getFalse(gIR->context());
     break;
   default:
     llvm_unreachable("Invalid comparison operation");
@@ -1492,11 +1451,11 @@ void tokToICmpPred(TOK op, bool isUnsigned, llvm::ICmpInst::Predicate *outPred,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-llvm::ICmpInst::Predicate eqTokToICmpPred(TOK op, bool invert) {
-  assert(op == TOKequal || op == TOKnotequal || op == TOKidentity ||
-         op == TOKnotidentity);
+llvm::ICmpInst::Predicate eqTokToICmpPred(EXP op, bool invert) {
+  assert(op == EXP::equal || op == EXP::notEqual || op == EXP::identity ||
+         op == EXP::notIdentity);
 
-  bool isEquality = (op == TOKequal || op == TOKidentity);
+  bool isEquality = (op == EXP::equal || op == EXP::identity);
   if (invert)
     isEquality = !isEquality;
 
@@ -1505,7 +1464,7 @@ llvm::ICmpInst::Predicate eqTokToICmpPred(TOK op, bool invert) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *createIPairCmp(TOK op, LLValue *lhs1, LLValue *lhs2, LLValue *rhs1,
+LLValue *createIPairCmp(EXP op, LLValue *lhs1, LLValue *lhs2, LLValue *rhs1,
                         LLValue *rhs2) {
   const auto predicate = eqTokToICmpPred(op);
 
@@ -1520,7 +1479,7 @@ LLValue *createIPairCmp(TOK op, LLValue *lhs1, LLValue *lhs2, LLValue *rhs1,
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
+DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl) {
   IF_LOG Logger::println("DtoSymbolAddress ('%s' of type '%s')",
                          decl->toChars(), decl->type->toChars());
   LOG_SCOPE
@@ -1568,17 +1527,23 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
     // typeinfo
     if (TypeInfoDeclaration *tid = vd->isTypeInfoDeclaration()) {
       Logger::println("TypeInfoDeclaration");
-      DtoResolveTypeInfo(tid);
-      assert(getIrValue(tid));
       LLType *vartype = DtoType(type);
-      LLValue *m = getIrValue(tid);
+      LLValue *m = DtoResolveTypeInfo(tid);
       if (m->getType() != getPtrToType(vartype)) {
         m = gIR->ir->CreateBitCast(m, vartype);
       }
       return new DImValue(type, m);
     }
+    // special vtbl symbol, used by LDC as alias to the actual vtbl (with
+    // different type and mangled name)
+    if (vd->isClassMember() && vd == vd->isClassMember()->vtblsym) {
+      Logger::println("vtbl symbol");
+      auto cd = vd->isClassMember();
+      return new DLValue(
+          type, DtoBitCast(getIrAggr(cd)->getVtblSymbol(), DtoPtrToType(type)));
+    }
     // nested variable
-    if (vd->nestedrefs.dim) {
+    if (vd->nestedrefs.length) {
       Logger::println("nested variable");
       return DtoNestedVariable(loc, type, vd);
     }
@@ -1595,7 +1560,7 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       }
       if (vd->storage_class & STClazy) {
         Logger::println("lazy parameter");
-        assert(type->ty == Tdelegate);
+        assert(type->ty == TY::Tdelegate);
       }
       assert(!isSpecialRefVar(vd) && "Code not expected to handle special "
                                      "ref vars, although it can easily be "
@@ -1618,9 +1583,8 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
     // We need to codegen the function here, because literals are not added
     // to the module member list.
     DtoDefineFunction(flitdecl);
-    assert(DtoCallee(flitdecl));
 
-    return new DFuncValue(flitdecl, DtoCallee(flitdecl));
+    return new DFuncValue(flitdecl, DtoCallee(flitdecl, false));
   }
 
   if (FuncDeclaration *fdecl = decl->isFuncDeclaration()) {
@@ -1642,23 +1606,38 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
   }
 
   if (SymbolDeclaration *sdecl = decl->isSymbolDeclaration()) {
-    // this seems to be the static initialiser for structs
-    Type *sdecltype = sdecl->type->toBasetype();
-    IF_LOG Logger::print("Sym: type=%s\n", sdecltype->toChars());
-    assert(sdecltype->ty == Tstruct);
-    TypeStruct *ts = static_cast<TypeStruct *>(sdecltype);
-    assert(ts->sym);
-    DtoResolveStruct(ts->sym);
+    // this is the static initialiser (init symbol) for aggregates
+    AggregateDeclaration *ad = sdecl->dsym;
+    IF_LOG Logger::print("init symbol of %s\n", ad->toChars());
+    DtoResolveDsymbol(ad);
+    auto sd = ad->isStructDeclaration();
 
-    LLValue *initsym = getIrAggr(ts->sym)->getInitSymbol();
-    initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
-    return new DLValue(type, initsym);
+    // LDC extension: void[]-typed `__traits(initSymbol)`, for classes too
+    auto tb = sdecl->type->toBasetype();
+    if (tb->ty != TY::Tstruct) {
+      assert(tb->ty == TY::Tarray && tb->nextOf()->ty == TY::Tvoid);
+      const auto size = DtoConstSize_t(ad->structsize);
+      llvm::Constant *ptr =
+          sd && sd->zeroInit
+              ? getNullValue(getVoidPtrType())
+              : DtoBitCast(getIrAggr(ad)->getInitSymbol(), getVoidPtrType());
+      return new DSliceValue(type, size, ptr);
+    }
+
+    assert(sd);
+    if (sd->zeroInit) {
+      error(loc, "no init symbol for zero-initialized struct");
+      fatal();
+    }
+
+    LLValue *initsym = getIrAggr(sd)->getInitSymbol();
+    return new DLValue(type, DtoBitCast(initsym, DtoPtrToType(sd->type)));
   }
 
   llvm_unreachable("Unimplemented VarExp type");
 }
 
-llvm::Constant *DtoConstSymbolAddress(Loc &loc, Declaration *decl) {
+llvm::Constant *DtoConstSymbolAddress(const Loc &loc, Declaration *decl) {
   // Make sure 'this' isn't needed.
   // TODO: This check really does not belong here, should be moved to
   // semantic analysis in the frontend.
@@ -1691,28 +1670,19 @@ llvm::Constant *DtoConstSymbolAddress(Loc &loc, Declaration *decl) {
   }
   // static function
   if (FuncDeclaration *fd = decl->isFuncDeclaration()) {
-    DtoResolveFunction(fd);
     return DtoCallee(fd);
   }
 
   llvm_unreachable("Taking constant address not implemented.");
 }
 
-llvm::StringMap<llvm::GlobalVariable *> *
-stringLiteralCacheForType(Type *charType) {
-  switch (charType->size()) {
-  default:
-    llvm_unreachable("Unknown char type");
-  case 1:
-    return &gIR->stringLiteral1ByteCache;
-  case 2:
-    return &gIR->stringLiteral2ByteCache;
-  case 4:
-    return &gIR->stringLiteral4ByteCache;
-  }
-}
-
 llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm) {
+  if (se->sz == 1) {
+    const DString data = se->peekString();
+    return llvm::ConstantDataArray::getString(
+        gIR->context(), {data.ptr, data.length}, zeroTerm);
+  }
+
   Type *dtype = se->type->toBasetype();
   Type *cty = dtype->nextOf()->toBasetype();
 
@@ -1726,7 +1696,7 @@ llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm) {
   std::vector<LLConstant *> vals;
   vals.reserve(len);
   for (size_t i = 0; i < se->numberOfCodeUnits(); ++i) {
-    vals.push_back(LLConstantInt::get(ct, se->charAt(i), false));
+    vals.push_back(LLConstantInt::get(ct, se->getCodeUnit(i), false));
   }
   if (zeroTerm) {
     vals.push_back(LLConstantInt::get(ct, 0, false));
@@ -1734,19 +1704,103 @@ llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm) {
   return LLConstantArray::get(at, vals);
 }
 
-llvm::GlobalVariable *getOrCreateGlobal(const Loc &loc, llvm::Module &module,
-                                        llvm::Type *type, bool isConstant,
-                                        llvm::GlobalValue::LinkageTypes linkage,
-                                        llvm::Constant *init,
-                                        llvm::StringRef name,
-                                        bool isThreadLocal) {
-  llvm::GlobalVariable *existing = module.getGlobalVariable(name, true);
+std::string llvmTypeToString(llvm::Type *type) {
+  std::string result;
+  llvm::raw_string_ostream stream(result);
+  stream << *type;
+  stream.flush();
+  return result;
+}
+
+// Is the specified symbol defined in the druntime/Phobos libs?
+// For instantiated symbols: is the template declared in druntime/Phobos?
+static bool isDefaultLibSymbol(Dsymbol *sym) {
+  auto mod = sym->getModule();
+  if (!mod)
+    return false;
+
+  auto md = mod->md;
+  if (!md)
+    return false;
+
+  if (md->packages.length == 0)
+    return md->id == Id::object || md->id == Id::std;
+
+  auto p = md->packages.ptr[0];
+  return p == Id::core || p == Id::etc || p == Id::ldc ||
+         (p == Id::std &&
+          // 3rd-party package: std.io (https://github.com/MartinNowak/io/)
+          !((md->packages.length == 1 && md->id == Id::io) ||
+            (md->packages.length > 1 && md->packages.ptr[1] == Id::io)));
+}
+
+bool defineOnDeclare(Dsymbol *sym, bool isFunction) {
+  // -linkonce-templates: all instantiated symbols
+  if (global.params.linkonceTemplates != LinkonceTemplates::no)
+    return sym->isInstantiated();
+
+  // -dllimport=defaultLibsOnly: all data symbols instantiated from
+  // druntime/Phobos templates
+  // see https://github.com/ldc-developers/ldc/issues/3931
+  return !isFunction && global.params.dllimport == DLLImport::defaultLibsOnly &&
+         sym->isInstantiated() && isDefaultLibSymbol(sym);
+}
+
+bool dllimportDataSymbol(Dsymbol *sym) {
+  if (!global.params.targetTriple->isOSWindows())
+    return false;
+
+  if (sym->isExport() || global.params.dllimport == DLLImport::all ||
+      (global.params.dllimport == DLLImport::defaultLibsOnly &&
+       isDefaultLibSymbol(sym))) {
+    // Okay, this symbol is a candidate. Use dllimport unless we have a
+    // guaranteed-codegen'd definition in a root module.
+    if (auto mod = sym->isModule())
+      return !mod->isRoot(); // non-root ModuleInfo symbol
+    if (sym->inNonRoot())
+      return true; // not instantiated, and defined in non-root
+    if (sym->isInstantiated() && !defineOnDeclare(sym, false))
+      return true; // instantiated but potentially culled (needsCodegen())
+    if (auto vd = sym->isVarDeclaration())
+      if (vd->storage_class & STCextern)
+        return true; // externally defined global variable
+  }
+
+  return false;
+}
+
+llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
+                                    llvm::Type *type,
+                                    llvm::StringRef mangledName,
+                                    bool isConstant, bool isThreadLocal,
+                                    bool useDLLImport) {
+  // No TLS support for WebAssembly and AVR; spare users from having to add
+  // __gshared everywhere.
+  const auto arch = global.params.targetTriple->getArch();
+  if (arch == llvm::Triple::wasm32 || arch == llvm::Triple::wasm64 ||
+      arch == llvm::Triple::avr)
+    isThreadLocal = false;
+
+  llvm::GlobalVariable *existing =
+      module.getGlobalVariable(mangledName, /*AllowInternal=*/true);
   if (existing) {
-    if (existing->getType()->getElementType() != type) {
+    const auto existingType = existing->getValueType();
+    if (existingType != type || existing->isConstant() != isConstant ||
+        existing->isThreadLocal() != isThreadLocal) {
       error(loc,
             "Global variable type does not match previous declaration with "
             "same mangled name: `%s`",
-            name.str().c_str());
+            mangledName.str().c_str());
+      const auto suppl = [&loc](const char *prefix, LLType *type,
+                                bool isConstant, bool isThreadLocal) {
+        const auto typeName = llvmTypeToString(type);
+        errorSupplemental(loc, "%s %s, %s, %s", prefix, typeName.c_str(),
+                          isConstant ? "const" : "mutable",
+                          isThreadLocal ? "thread-local" : "non-thread-local");
+      };
+      suppl("Previous IR type:", existingType, existing->isConstant(),
+            existing->isThreadLocal());
+      suppl("New IR type:     ", type, isConstant, isThreadLocal);
       fatal();
     }
     return existing;
@@ -1755,14 +1809,43 @@ llvm::GlobalVariable *getOrCreateGlobal(const Loc &loc, llvm::Module &module,
   // Use a command line option for the thread model.
   // On PPC there is only local-exec available - in this case just ignore the
   // command line.
-  const llvm::GlobalVariable::ThreadLocalMode tlsModel =
+  const auto tlsModel =
       isThreadLocal
-          ? (global.params.targetTriple->getArch() == llvm::Triple::ppc
-                 ? llvm::GlobalVariable::LocalExecTLSModel
-                 : clThreadModel.getValue())
+          ? (arch == llvm::Triple::ppc ? llvm::GlobalVariable::LocalExecTLSModel
+                                       : clThreadModel.getValue())
           : llvm::GlobalVariable::NotThreadLocal;
-  return new llvm::GlobalVariable(module, type, isConstant, linkage, init, name,
-                                  nullptr, tlsModel);
+
+  auto gvar = new llvm::GlobalVariable(module, type, isConstant,
+                                       llvm::GlobalValue::ExternalLinkage,
+                                       nullptr, mangledName, nullptr, tlsModel);
+
+  if (useDLLImport && global.params.targetTriple->isOSWindows())
+    gvar->setDLLStorageClass(LLGlobalValue::DLLImportStorageClass);
+
+  return gvar;
+}
+
+void defineGlobal(llvm::GlobalVariable *global, llvm::Constant *init,
+                  Dsymbol *symbolForLinkageAndVisibility) {
+  assert(global->isDeclaration() && "Global variable already defined");
+  assert(init);
+  global->setInitializer(init);
+  if (symbolForLinkageAndVisibility)
+    setLinkageAndVisibility(symbolForLinkageAndVisibility, global);
+}
+
+llvm::GlobalVariable *defineGlobal(const Loc &loc, llvm::Module &module,
+                                   llvm::StringRef mangledName,
+                                   llvm::Constant *init,
+                                   llvm::GlobalValue::LinkageTypes linkage,
+                                   bool isConstant, bool isThreadLocal) {
+  assert(init);
+  auto global =
+      declareGlobal(loc, module, init->getType(), mangledName, isConstant,
+                    isThreadLocal, /*useDLLImport*/ false);
+  defineGlobal(global, init, nullptr);
+  global->setLinkage(linkage);
+  return global;
 }
 
 FuncDeclaration *getParentFunc(Dsymbol *sym) {
@@ -1770,14 +1853,14 @@ FuncDeclaration *getParentFunc(Dsymbol *sym) {
     return nullptr;
   }
 
-  // Static functions and function (not delegate) literals don't allow
-  // access to a parent context, even if they are nested.
+  // Static functions, non-extern(D) non-member functions and function (not
+  // delegate) literals don't allow access to a parent context, even if they are
+  // nested.
   if (FuncDeclaration *fd = sym->isFuncDeclaration()) {
-    bool certainlyNewRoot =
-        fd->isStatic() ||
-        (fd->isFuncLiteralDeclaration() &&
-         static_cast<FuncLiteralDeclaration *>(fd)->tok == TOKfunction);
-    if (certainlyNewRoot) {
+    if (auto fld = fd->isFuncLiteralDeclaration()) {
+      if (fld->tok == TOK::function_)
+        return nullptr;
+    } else if (fd->isStatic() || (!fd->isThis() && fd->_linkage != LINK::d)) {
       return nullptr;
     }
   }
@@ -1813,27 +1896,32 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   // ourselves, DtoType below would be enough.
   DtoResolveDsymbol(ad);
 
-  // Cast the pointer we got to the canonical struct type the indices are
-  // based on.
-  LLType *st = DtoType(ad->type);
-  if (ad->isStructDeclaration()) {
-    st = getPtrToType(st);
-  }
-  src = DtoBitCast(src, st);
-
-  // Look up field to index and any offset to apply.
+  // Look up field to index or offset to apply.
   unsigned fieldIndex;
   unsigned byteOffset;
-  assert(ad->type->ctype->isAggr());
-  static_cast<IrTypeAggr *>(ad->type->ctype)
-      ->getMemberLocation(vd, fieldIndex, byteOffset);
+  auto irTypeAggr = getIrType(ad->type)->isAggr();
+  assert(irTypeAggr);
+  irTypeAggr->getMemberLocation(vd, fieldIndex, byteOffset);
 
-  LLValue *val = DtoGEPi(src, 0, fieldIndex);
-
+  LLValue *val = src;
   if (byteOffset) {
-    // Cast to void* to apply byte-wise offset.
+    assert(fieldIndex == 0);
+    // Cast to void* to apply byte-wise offset from object start.
     val = DtoBitCast(val, getVoidPtrType());
-    val = DtoGEPi1(val, byteOffset);
+    val = DtoGEP1(val, byteOffset);
+  } else {
+    if (ad->structsize == 0) { // can happen for extern(C) structs
+      assert(fieldIndex == 0);
+    } else {
+      // Cast the pointer we got to the canonical struct type the indices are
+      // based on.
+      LLType *st = DtoType(ad->type);
+      if (ad->isStructDeclaration()) {
+        st = getPtrToType(st);
+      }
+      val = DtoBitCast(val, st);
+      val = DtoGEP(val, 0, fieldIndex);
+    }
   }
 
   // Cast the (possibly void*) pointer to the canonical variable type.
@@ -1846,9 +1934,9 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
 unsigned getFieldGEPIndex(AggregateDeclaration *ad, VarDeclaration *vd) {
   unsigned fieldIndex;
   unsigned byteOffset;
-  assert(ad->type->ctype->isAggr());
-  static_cast<IrTypeAggr *>(ad->type->ctype)
-      ->getMemberLocation(vd, fieldIndex, byteOffset);
+  auto irTypeAggr = getIrType(ad->type)->isAggr();
+  assert(irTypeAggr);
+  irTypeAggr->getMemberLocation(vd, fieldIndex, byteOffset);
   assert(byteOffset == 0 && "Cannot address field by a simple GEP.");
   return fieldIndex;
 }
@@ -1870,8 +1958,8 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
     // The type of globals is determined by their initializer, and the front-end
     // may inject implicit casts for class references and static arrays.
     assert(vd->isDataseg() || (vd->storage_class & STCextern) ||
-           type->toBasetype()->ty == Tclass ||
-           type->toBasetype()->ty == Tsarray);
+           type->toBasetype()->ty == TY::Tclass ||
+           type->toBasetype()->ty == TY::Tsarray);
     llvm::Type *pointeeType = val->getType()->getPointerElementType();
     if (isSpecialRef)
       pointeeType = pointeeType->getPointerElementType();

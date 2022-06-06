@@ -17,29 +17,48 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_CODEGENERATOR_H
-#define LDC_DRIVER_CODEGENERATOR_H
+#pragma once
 
 #include "gen/irstate.h"
+
+#if LDC_MLIR_ENABLED
+namespace mlir {
+class MLIRContext;
+class OwningModuleRef;
+}
+#endif
 
 namespace ldc {
 
 class CodeGenerator {
 public:
-  CodeGenerator(llvm::LLVMContext &context, bool singleObj);
+  CodeGenerator(llvm::LLVMContext &context,
+#if LDC_MLIR_ENABLED
+                mlir::MLIRContext &mlirContext,
+#endif
+                bool singleObj);
+
   ~CodeGenerator();
   void emit(Module *m);
+
+#if LDC_MLIR_ENABLED
+  void emitMLIR(Module *m);
+#endif
 
 private:
   void prepareLLModule(Module *m);
   void finishLLModule(Module *m);
   void writeAndFreeLLModule(const char *filename);
+#if LDC_MLIR_ENABLED
+  void writeMLIRModule(mlir::OwningModuleRef *module, const char *filename);
+#endif
 
   llvm::LLVMContext &context_;
+#if LDC_MLIR_ENABLED
+  mlir::MLIRContext &mlirContext_;
+#endif
   int moduleCount_;
   bool const singleObj_;
   IRState *ir_;
 };
 }
-
-#endif

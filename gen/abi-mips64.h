@@ -11,11 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_ABI_MIPS64_H
-#define LDC_GEN_ABI_MIPS64_H
+#pragma once
 
 struct TargetABI;
 
 TargetABI *getMIPS64TargetABI(bool Is64Bit);
-
-#endif

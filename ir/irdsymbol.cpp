@@ -67,12 +67,6 @@ void IrDsymbol::setDeclared() {
   }
 }
 
-void IrDsymbol::setInitialized() {
-  if (m_state < Initialized) {
-    m_state = Initialized;
-  }
-}
-
 void IrDsymbol::setDefined() {
   if (m_state < Defined) {
     m_state = Defined;

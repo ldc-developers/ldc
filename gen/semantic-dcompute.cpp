@@ -19,6 +19,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "dmd/declaration.h"
+#include "dmd/expression.h"
+#include "dmd/id.h"
 #include "dmd/identifier.h"
 #include "dmd/module.h"
 #include "dmd/template.h"
@@ -26,7 +28,6 @@
 #include "gen/logger.h"
 #include "gen/recursivevisitor.h"
 #include "gen/uda.h"
-#include "id.h"
 
 struct DComputeSemanticAnalyser : public StoppableVisitor {
   FuncDeclaration *currentFunction;
@@ -48,7 +49,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
       return false;
 
     Objects *tiargs = inst->tiargs;
-    size_t i = 0, len = tiargs->dim;
+    size_t i = 0, len = tiargs->length;
     IF_LOG Logger::println("checking against: %s (%p) (dyncast=%d)",
                            f->toPrettyChars(), (void *)f, f->dyncast());
     LOG_SCOPE
@@ -57,7 +58,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
       if (o->dyncast() != DYNCAST_EXPRESSION)
         continue;
       Expression *e = (Expression *)o;
-      if (e->op != TOKfunction)
+      if (e->op != EXP::function_)
         continue;
       if (f->equals((((FuncExp *)e)->fd))) {
         IF_LOG Logger::println("match");
@@ -91,12 +92,12 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
       return;
     }
 
-    if (decl->type->ty == Taarray) {
+    if (decl->type->ty == TY::Taarray) {
       decl->error("associative arrays not allowed in `@compute` code");
       stop = true;
     }
     // includes interfaces
-    else if (decl->type->ty == Tclass) {
+    else if (decl->type->ty == TY::Tclass) {
       decl->error("interfaces and classes not allowed in `@compute` code");
     }
   }
@@ -111,7 +112,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
   // Nogc enforcement.
   // No need to check AssocArrayLiteral because AA's are banned anyway
   void visit(ArrayLiteralExp *e) override {
-    if (e->type->ty != Tarray || !e->elements || !e->elements->dim)
+    if (e->type->ty != TY::Tarray || !e->elements || !e->elements->length)
       return;
     e->error("array literal in `@compute` code not allowed");
     stop = true;
@@ -127,7 +128,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
   }
   // No need to check IndexExp because AA's are banned anyway
   void visit(AssignExp *e) override {
-    if (e->e1->op == TOKarraylength) {
+    if (e->e1->op == EXP::arrayLength) {
       e->error("setting `length` in `@compute` code not allowed");
       stop = true;
     }
@@ -171,20 +172,35 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     stop = true;
   }
   void visit(SwitchStatement *e) override {
-    if (e->condition->op == TOKcall &&
-        static_cast<CallExp *>(e->condition)->f->ident == Id::__switch) {
-      e->error("cannot `switch` on strings in `@compute` code");
-      stop = true;
+    if (auto ce = e->condition->isCallExp()) {
+      if (ce->f->ident == Id::__switch) {
+        e->error("cannot `switch` on strings in `@compute` code");
+        stop = true;
+      }
     }
   }
 
   void visit(IfStatement *stmt) override {
+    // Don't descend into ctfe only code
+    if (auto ve = stmt->condition->isVarExp()) {
+      if (ve->var->ident == Id::ctfe) {
+        if (stmt->elsebody)
+          visit(stmt->elsebody);
+        stop = true;
+      }
+    } else if (auto ne = stmt->condition->isNotExp()) {
+      if (auto ve = ne->e1->isVarExp()) {
+        if (ve->var->ident == Id::ctfe) {
+          visit(stmt->ifbody);
+          stop = true;
+        }
+      }
+    }
     // Code inside an if(__dcompute_reflect(0,0)) { ...} is explicitly
     // for the host and is therefore allowed to call non @compute functions.
     // Thus, the if-statement body's code should not be checked for
     // @compute semantics and the recursive visitor should stop here.
-    if (stmt->condition->op == TOKcall) {
-      auto ce = (CallExp *)stmt->condition;
+    if (auto ce = stmt->condition->isCallExp()) {
       if (ce->f && ce->f->ident == Id::dcReflect) {
         auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
         if (arg1 == DComputeTarget::Host)
@@ -230,11 +246,20 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     IF_LOG Logger::println("current function = %s", fd->toChars());
     currentFunction = fd;
   }
-    
+
   void visit(TemplateDeclaration*) override {
     // Don't try to analyse uninstansiated templates.
     stop = true;
   }
+
+  void visit(TemplateInstance *ti) override {
+    // object.RTInfo(Impl) template instantiations are skipped during codegen,
+    // as they contain unsupported global variables.
+    if (ti->tempdecl == Type::rtinfo || ti->tempdecl == Type::rtinfoImpl) {
+      stop = true;
+    }
+  }
+
   // Override the default assert(0) behavior of Visitor:
   void visit(Statement *) override {}   // do nothing
   void visit(Expression *) override {}  // do nothing
@@ -246,7 +271,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
 void dcomputeSemanticAnalysis(Module *m) {
   DComputeSemanticAnalyser v;
   RecursiveWalker r(&v);
-  for (unsigned k = 0; k < m->members->dim; k++) {
+  for (unsigned k = 0; k < m->members->length; k++) {
     Dsymbol *dsym = (*m->members)[k];
     assert(dsym);
     IF_LOG Logger::println("dcomputeSema: %s: %s", m->toPrettyChars(),

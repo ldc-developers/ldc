@@ -1,6 +1,11 @@
-module dmd.permissivevisitor;
+/**
+ * A visitor that facilitates the traversal of subsets of the AST.
+ *
+ * Documentation:  https://dlang.org/phobos/dmd_permissivevisitor.html
+ * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/permissivevisitor.d
+ */
 
-// Online documentation: https://dlang.org/phobos/dmd_permissivevisitor.html
+module dmd.permissivevisitor;
 
 import dmd.parsetimevisitor;
 

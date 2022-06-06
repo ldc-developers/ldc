@@ -1,17 +1,15 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (c) 2013-2014 by The D Language Foundation
- * All Rights Reserved
- * http://www.digitalmars.com
+ * Copyright (C) 2013-2022 by The D Language Foundation, All Rights Reserved
+ * https://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
- * http://www.boost.org/LICENSE_1_0.txt
- * https://github.com/dlang/dmd/blob/master/src/visitor.h
+ * https://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/dlang/dmd/blob/master/src/dmd/visitor.h
  */
 
-#ifndef DMD_VISITOR_H
-#define DMD_VISITOR_H
+#pragma once
 
-#include <assert.h>
+#include "root/dsystem.h"
 
 class Statement;
 class ErrorStatement;
@@ -48,12 +46,14 @@ class SynchronizedStatement;
 class WithStatement;
 class TryCatchStatement;
 class TryFinallyStatement;
-class OnScopeStatement;
+class ScopeGuardStatement;
 class ThrowStatement;
 class DebugStatement;
 class GotoStatement;
 class LabelStatement;
 class AsmStatement;
+class InlineAsmStatement;
+class GccAsmStatement;
 class CompoundAsmStatement;
 class ImportStatement;
 
@@ -81,6 +81,10 @@ class TypeClass;
 class TypeTuple;
 class TypeSlice;
 class TypeNull;
+class TypeNoreturn;
+class TypeTraits;
+class TypeMixin;
+class TypeTag;
 
 class Dsymbol;
 
@@ -98,7 +102,8 @@ class StorageClassDeclaration;
 class DeprecatedDeclaration;
 class LinkDeclaration;
 class CPPMangleDeclaration;
-class ProtDeclaration;
+class CPPNamespaceDeclaration;
+class VisibilityDeclaration;
 class AlignDeclaration;
 class AnonDeclaration;
 class PragmaDeclaration;
@@ -107,6 +112,7 @@ class StaticIfDeclaration;
 class CompileDeclaration;
 class StaticForeachDeclaration;
 class UserAttributeDeclaration;
+class ForwardingAttribDeclaration;
 
 class ScopeDsymbol;
 class TemplateDeclaration;
@@ -118,6 +124,7 @@ class Module;
 class WithScopeSymbol;
 class ArrayScopeSymbol;
 class Nspace;
+class AliasAssign;
 
 class AggregateDeclaration;
 class StructDeclaration;
@@ -132,6 +139,7 @@ class OverDeclaration;
 class VarDeclaration;
 class SymbolDeclaration;
 class ThisDeclaration;
+class BitFieldDeclaration;
 
 class TypeInfoDeclaration;
 class TypeInfoStructDeclaration;
@@ -164,7 +172,6 @@ class SharedStaticDtorDeclaration;
 class InvariantDeclaration;
 class UnitTestDeclaration;
 class NewDeclaration;
-class DeleteDeclaration;
 
 class Initializer;
 class VoidInitializer;
@@ -172,6 +179,7 @@ class ErrorInitializer;
 class StructInitializer;
 class ArrayInitializer;
 class ExpInitializer;
+class CInitializer;
 
 class Expression;
 class IntegerExp;
@@ -189,6 +197,8 @@ class TupleExp;
 class ArrayLiteralExp;
 class AssocArrayLiteralExp;
 class StructLiteralExp;
+class CompoundLiteralExp;
+class ObjcClassReferenceExp;
 class TypeExp;
 class ScopeExp;
 class TemplateExp;
@@ -207,9 +217,10 @@ class IsExp;
 class UnaExp;
 class BinExp;
 class BinAssignExp;
-class CompileExp;
+class MixinExp;
 class ImportExp;
 class AssertExp;
+class ThrowExp;
 class DotIdExp;
 class DotTemplateExp;
 class DotVarExp;
@@ -226,6 +237,7 @@ class NotExp;
 class DeleteExp;
 class CastExp;
 class VectorExp;
+class VectorArrayExp;
 class SliceExp;
 class ArrayLengthExp;
 class IntervalExp;
@@ -282,6 +294,7 @@ class PrettyFuncInitExp;
 class ClassReferenceExp;
 class VoidInitExp;
 class ThrownExceptionExp;
+class GenericExp;
 
 class TemplateParameter;
 class TemplateTypeParameter;
@@ -319,6 +332,7 @@ public:
     virtual void visit(StaticAssert *s) { visit((Dsymbol *)s); }
     virtual void visit(DebugSymbol *s) { visit((Dsymbol *)s); }
     virtual void visit(VersionSymbol *s) { visit((Dsymbol *)s); }
+    virtual void visit(AliasAssign *s) { visit((Dsymbol *)s); }
 
     // ScopeDsymbols
     virtual void visit(Package *s) { visit((ScopeDsymbol *)s); }
@@ -342,7 +356,6 @@ public:
     virtual void visit(InvariantDeclaration *s) { visit((FuncDeclaration *)s); }
     virtual void visit(UnitTestDeclaration *s) { visit((FuncDeclaration *)s); }
     virtual void visit(NewDeclaration *s) { visit((FuncDeclaration *)s); }
-    virtual void visit(DeleteDeclaration *s) { visit((FuncDeclaration *)s); }
     virtual void visit(StaticCtorDeclaration *s) { visit((FuncDeclaration *)s); }
     virtual void visit(StaticDtorDeclaration *s) { visit((FuncDeclaration *)s); }
     virtual void visit(SharedStaticCtorDeclaration *s) { visit((StaticCtorDeclaration *)s); }
@@ -355,7 +368,8 @@ public:
     virtual void visit(AnonDeclaration *s) { visit((AttribDeclaration *)s); }
     virtual void visit(AlignDeclaration *s) { visit((AttribDeclaration *)s); }
     virtual void visit(CPPMangleDeclaration *s) { visit((AttribDeclaration *)s); }
-    virtual void visit(ProtDeclaration *s) { visit((AttribDeclaration *)s); }
+    virtual void visit(CPPNamespaceDeclaration *s) { visit((AttribDeclaration *)s); }
+    virtual void visit(VisibilityDeclaration *s) { visit((AttribDeclaration *)s); }
     virtual void visit(PragmaDeclaration *s) { visit((AttribDeclaration *)s); }
     virtual void visit(StorageClassDeclaration *s) { visit((AttribDeclaration *)s); }
     virtual void visit(ConditionalDeclaration *s) { visit((AttribDeclaration *)s); }
@@ -371,6 +385,7 @@ public:
     virtual void visit(ClassDeclaration *s) { visit((AggregateDeclaration *)s); }
     virtual void visit(InterfaceDeclaration *s) { visit((ClassDeclaration *)s); }
     virtual void visit(TemplateMixin *s) { visit((TemplateInstance *)s); }
+    virtual void visit(BitFieldDeclaration *s) { visit((VarDeclaration *)s); }
 
     // Statements
     virtual void visit(ImportStatement *s) { visit((Statement *)s); }
@@ -385,7 +400,7 @@ public:
     virtual void visit(ForeachRangeStatement *s) { visit((Statement *)s); }
     virtual void visit(ForeachStatement *s) { visit((Statement *)s); }
     virtual void visit(IfStatement *s) { visit((Statement *)s); }
-    virtual void visit(OnScopeStatement *s) { visit((Statement *)s); }
+    virtual void visit(ScopeGuardStatement *s) { visit((Statement *)s); }
     virtual void visit(ConditionalStatement *s) { visit((Statement *)s); }
     virtual void visit(StaticForeachStatement *s) { visit((Statement *)s); }
     virtual void visit(PragmaStatement *s) { visit((Statement *)s); }
@@ -411,10 +426,15 @@ public:
     virtual void visit(CompoundDeclarationStatement *s) { visit((CompoundStatement *)s); }
     virtual void visit(CompoundAsmStatement *s) { visit((CompoundStatement *)s); }
 
+    // AsmStatements
+    virtual void visit(InlineAsmStatement *s) { visit((AsmStatement *)s); }
+    virtual void visit(GccAsmStatement *s) { visit((AsmStatement *)s); }
+
     // Types
     virtual void visit(TypeBasic *t) { visit((Type *)t); }
     virtual void visit(TypeError *t) { visit((Type *)t); }
     virtual void visit(TypeNull *t) { visit((Type *)t); }
+    virtual void visit(TypeNoreturn *t) { visit((Type *)t); }
     virtual void visit(TypeVector *t) { visit((Type *)t); }
     virtual void visit(TypeEnum *t) { visit((Type *)t); }
     virtual void visit(TypeTuple *t) { visit((Type *)t); }
@@ -422,6 +442,9 @@ public:
     virtual void visit(TypeStruct *t) { visit((Type *)t); }
     virtual void visit(TypeNext *t) { visit((Type *)t); }
     virtual void visit(TypeQualified *t) { visit((Type *)t); }
+    virtual void visit(TypeTraits *t) { visit((Type *)t); }
+    virtual void visit(TypeMixin *t) { visit((Type *)t); }
+    virtual void visit(TypeTag *t) { visit((Type *)t); }
 
     // TypeNext
     virtual void visit(TypeReference *t) { visit((TypeNext *)t); }
@@ -455,6 +478,7 @@ public:
     virtual void visit(NewExp *e) { visit((Expression *)e); }
     virtual void visit(AssocArrayLiteralExp *e) { visit((Expression *)e); }
     virtual void visit(ArrayLiteralExp *e) { visit((Expression *)e); }
+    virtual void visit(MixinExp *e) { visit((Expression *)e); }
     virtual void visit(FuncExp *e) { visit((Expression *)e); }
     virtual void visit(IntervalExp *e) { visit((Expression *)e); }
     virtual void visit(TypeExp *e) { visit((Expression *)e); }
@@ -468,6 +492,7 @@ public:
     virtual void visit(SymbolExp *e) { visit((Expression *)e); }
     virtual void visit(TupleExp *e) { visit((Expression *)e); }
     virtual void visit(ThisExp *e) { visit((Expression *)e); }
+    virtual void visit(GenericExp *e) { visit((Expression *)e); }
 
     // Miscellaneous
     virtual void visit(VarExp *e) { visit((SymbolExp *)e); }
@@ -487,7 +512,7 @@ public:
     virtual void visit(CallExp *e) { visit((UnaExp *)e); }
     virtual void visit(DotIdExp *e) { visit((UnaExp *)e); }
     virtual void visit(AssertExp *e) { visit((UnaExp *)e); }
-    virtual void visit(CompileExp *e) { visit((UnaExp *)e); }
+    virtual void visit(ThrowExp *e) { visit((UnaExp *)e); }
     virtual void visit(ImportExp *e) { visit((UnaExp *)e); }
     virtual void visit(DotTemplateInstanceExp *e) { visit((UnaExp *)e); }
     virtual void visit(ArrayExp *e) { visit((UnaExp *)e); }
@@ -558,6 +583,7 @@ public:
     virtual void visit(StructInitializer *i) { visit((Initializer *)i); }
     virtual void visit(ArrayInitializer *i) { visit((Initializer *)i); }
     virtual void visit(VoidInitializer *i) { visit((Initializer *)i); }
+    virtual void visit(CInitializer *i) { visit((Initializer *)i); }
 };
 
 class Visitor : public ParseTimeVisitor
@@ -579,6 +605,7 @@ public:
     virtual void visit(ArrayScopeSymbol *s) { visit((ScopeDsymbol *)s); }
     virtual void visit(OverDeclaration *s) { visit((Declaration *)s); }
     virtual void visit(SymbolDeclaration *s) { visit((Declaration *)s); }
+    virtual void visit(ForwardingAttribDeclaration *s) { visit((AttribDeclaration *)s); }
     virtual void visit(ThisDeclaration *s) { visit((VarDeclaration *)s); }
     virtual void visit(TypeInfoDeclaration *s) { visit((VarDeclaration *)s); }
     virtual void visit(TypeInfoStructDeclaration *s) { visit((TypeInfoDeclaration *)s); }
@@ -602,6 +629,8 @@ public:
     virtual void visit(ErrorExp *e) { visit((Expression *)e); }
     virtual void visit(ComplexExp *e) { visit((Expression *)e); }
     virtual void visit(StructLiteralExp *e) { visit((Expression *)e); }
+    virtual void visit(CompoundLiteralExp *e) { visit((Expression *)e); }
+    virtual void visit(ObjcClassReferenceExp *e) { visit((Expression *)e); }
     virtual void visit(SymOffExp *e) { visit((SymbolExp *)e); }
     virtual void visit(OverExp *e) { visit((Expression *)e); }
     virtual void visit(HaltExp *e) { visit((Expression *)e); }
@@ -610,6 +639,7 @@ public:
     virtual void visit(DelegateExp *e) { visit((UnaExp *)e); }
     virtual void visit(DotTypeExp *e) { visit((UnaExp *)e); }
     virtual void visit(VectorExp *e) { visit((UnaExp *)e); }
+    virtual void visit(VectorArrayExp *e) { visit((UnaExp *)e); }
     virtual void visit(SliceExp *e) { visit((UnaExp *)e); }
     virtual void visit(ArrayLengthExp *e) { visit((UnaExp *)e); }
     virtual void visit(DelegatePtrExp *e) { visit((UnaExp *)e); }
@@ -630,5 +660,3 @@ public:
     bool stop;
     StoppableVisitor() : stop(false) {}
 };
-
-#endif /* DMD_VISITOR_H */

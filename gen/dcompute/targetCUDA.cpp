@@ -11,7 +11,7 @@
 
 #include "gen/dcompute/target.h"
 #include "gen/dcompute/druntime.h"
-#include "gen/metadata.h"
+#include "gen/passes/metadata.h"
 #include "gen/abi-nvptx.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
@@ -32,13 +32,14 @@ public:
             // see $LLVM_ROOT/docs/docs/NVPTXUsage.rst section Address Spaces
             {{5, 1, 3, 4, 0}}) {
 
-    const bool is64 = global.params.is64bit;
+    const bool is64 = global.params.targetTriple->isArch64Bit();
     auto tripleString = is64 ? "nvptx64-nvidia-cuda" : "nvptx-nvidia-cuda";
 
+    auto floatABI = ::FloatABI::Hard;
     targetMachine = createTargetMachine(
         tripleString, is64 ? "nvptx64" : "nvptx",
         "sm_" + ldc::to_string(tversion / 10), {},
-        is64 ? ExplicitBitness::M64 : ExplicitBitness::M32, ::FloatABI::Hard,
+        is64 ? ExplicitBitness::M64 : ExplicitBitness::M32, floatABI,
         llvm::Reloc::Static, llvm::CodeModel::Medium, codeGenOptLevel(), false);
 
     _ir = new IRState("dcomputeTargetCUDA", ctx);

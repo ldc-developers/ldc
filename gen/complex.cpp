@@ -8,8 +8,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/complex.h"
-#include "declaration.h"
-#include "mtype.h"
+
+#include "dmd/declaration.h"
+#include "dmd/errors.h"
+#include "dmd/mtype.h"
 #include "gen/binops.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"
@@ -31,12 +33,12 @@ LLType *DtoComplexBaseType(Type *t) {
   switch (t->toBasetype()->ty) {
   default:
     llvm_unreachable("Unexpected complex floating point type");
-  case Tcomplex32:
-    return DtoType(Type::basic[Tfloat32]);
-  case Tcomplex64:
-    return DtoType(Type::basic[Tfloat64]);
-  case Tcomplex80:
-    return DtoType(Type::basic[Tfloat80]);
+  case TY::Tcomplex32:
+    return DtoType(Type::tfloat32);
+  case TY::Tcomplex64:
+    return DtoType(Type::tfloat64);
+  case TY::Tcomplex80:
+    return DtoType(Type::tfloat80);
   }
 }
 
@@ -47,13 +49,13 @@ LLConstant *DtoConstComplex(Type *_ty, real_t re, real_t im) {
   switch (_ty->toBasetype()->ty) {
   default:
     llvm_unreachable("Unexpected complex floating point type");
-  case Tcomplex32:
+  case TY::Tcomplex32:
     base = Type::tfloat32;
     break;
-  case Tcomplex64:
+  case TY::Tcomplex64:
     base = Type::tfloat64;
     break;
-  case Tcomplex80:
+  case TY::Tcomplex80:
     base = Type::tfloat80;
     break;
   }
@@ -66,7 +68,7 @@ LLConstant *DtoConstComplex(Type *_ty, real_t re, real_t im) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoComplex(Loc &loc, Type *to, DValue *val) {
+DValue *DtoComplex(const Loc &loc, Type *to, DValue *val) {
   LLType *complexTy = DtoType(to);
 
   Type *baserety;
@@ -74,15 +76,15 @@ DValue *DtoComplex(Loc &loc, Type *to, DValue *val) {
   switch (to->toBasetype()->ty) {
   default:
     llvm_unreachable("Unexpected complex floating point type");
-  case Tcomplex32:
+  case TY::Tcomplex32:
     baserety = Type::tfloat32;
     baseimty = Type::timaginary32;
     break;
-  case Tcomplex64:
+  case TY::Tcomplex64:
     baserety = Type::tfloat64;
     baseimty = Type::timaginary64;
     break;
-  case Tcomplex80:
+  case TY::Tcomplex80:
     baserety = Type::tfloat80;
     baseimty = Type::timaginary80;
     break;
@@ -106,28 +108,28 @@ DValue *DtoComplex(Loc &loc, Type *to, DValue *val) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void DtoComplexSet(LLValue *c, LLValue *re, LLValue *im) {
-  DtoStore(re, DtoGEPi(c, 0, 0));
-  DtoStore(im, DtoGEPi(c, 0, 1));
+  DtoStore(re, DtoGEP(c, 0u, 0));
+  DtoStore(im, DtoGEP(c, 0, 1));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoGetComplexParts(Loc &loc, Type *to, DValue *val, DValue *&re,
+void DtoGetComplexParts(const Loc &loc, Type *to, DValue *val, DValue *&re,
                         DValue *&im) {
   Type *baserety;
   Type *baseimty;
   switch (to->toBasetype()->ty) {
   default:
     llvm_unreachable("Unexpected complex floating point type");
-  case Tcomplex32:
+  case TY::Tcomplex32:
     baserety = Type::tfloat32;
     baseimty = Type::timaginary32;
     break;
-  case Tcomplex64:
+  case TY::Tcomplex64:
     baserety = Type::tfloat64;
     baseimty = Type::timaginary64;
     break;
-  case Tcomplex80:
+  case TY::Tcomplex80:
     baserety = Type::tfloat80;
     baseimty = Type::timaginary80;
     break;
@@ -139,10 +141,8 @@ void DtoGetComplexParts(Loc &loc, Type *to, DValue *val, DValue *&re,
     DValue *v = DtoCastComplex(loc, val, to);
     if (to->iscomplex()) {
       if (v->isLVal()) {
-        LLValue *reVal =
-            DtoGEPi(DtoLVal(v), 0, 0, ".re_part");
-        LLValue *imVal =
-            DtoGEPi(DtoLVal(v), 0, 1, ".im_part");
+        LLValue *reVal = DtoGEP(DtoLVal(v), 0u, 0, ".re_part");
+        LLValue *imVal = DtoGEP(DtoLVal(v), 0, 1, ".im_part");
         re = new DLValue(baserety, reVal);
         im = new DLValue(baseimty, imVal);
       } else {
@@ -172,7 +172,7 @@ void DtoGetComplexParts(Loc &loc, Type *to, DValue *val, DValue *&re,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoGetComplexParts(Loc &loc, Type *to, DValue *val, LLValue *&re,
+void DtoGetComplexParts(const Loc &loc, Type *to, DValue *val, LLValue *&re,
                         LLValue *&im) {
   DValue *dre, *dim;
   DtoGetComplexParts(loc, to, val, dre, dim);
@@ -182,7 +182,8 @@ void DtoGetComplexParts(Loc &loc, Type *to, DValue *val, LLValue *&re,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoComplexAdd(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
+DImValue *DtoComplexAdd(const Loc &loc, Type *type, DRValue *lhs,
+                        DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
   // lhs values
@@ -213,7 +214,8 @@ DImValue *DtoComplexAdd(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoComplexMin(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
+DImValue *DtoComplexMin(const Loc &loc, Type *type, DRValue *lhs,
+                        DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
   // lhs values
@@ -244,7 +246,8 @@ DImValue *DtoComplexMin(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoComplexMul(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
+DImValue *DtoComplexMul(const Loc &loc, Type *type, DRValue *lhs,
+                        DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
   // lhs values
@@ -297,7 +300,8 @@ DImValue *DtoComplexMul(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoComplexDiv(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
+DImValue *DtoComplexDiv(const Loc &loc, Type *type, DRValue *lhs,
+                        DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
   // lhs values
@@ -370,7 +374,8 @@ DImValue *DtoComplexDiv(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoComplexMod(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
+DImValue *DtoComplexMod(const Loc &loc, Type *type, DRValue *lhs,
+                        DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im, *divisor;
 
   // lhs values
@@ -391,7 +396,7 @@ DImValue *DtoComplexMod(Loc &loc, Type *type, DRValue *lhs, DRValue *rhs) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoComplexNeg(Loc &loc, Type *type, DRValue *val) {
+DImValue *DtoComplexNeg(const Loc &loc, Type *type, DRValue *val) {
   llvm::Value *a, *b, *re, *im;
 
   // values
@@ -408,7 +413,7 @@ DImValue *DtoComplexNeg(Loc &loc, Type *type, DRValue *val) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoComplexEquals(Loc &loc, TOK op, DValue *lhs, DValue *rhs) {
+LLValue *DtoComplexEquals(const Loc &loc, EXP op, DValue *lhs, DValue *rhs) {
   DValue *lhs_re, *lhs_im, *rhs_re, *rhs_im;
 
   // lhs values
@@ -420,15 +425,13 @@ LLValue *DtoComplexEquals(Loc &loc, TOK op, DValue *lhs, DValue *rhs) {
   LLValue *b1 = DtoBinFloatsEquals(loc, lhs_re, rhs_re, op);
   LLValue *b2 = DtoBinFloatsEquals(loc, lhs_im, rhs_im, op);
 
-  if (op == TOKequal) {
-    return gIR->ir->CreateAnd(b1, b2);
-  }
-  return gIR->ir->CreateOr(b1, b2);
+  return (op == EXP::equal || op == EXP::identity) ? gIR->ir->CreateAnd(b1, b2)
+                                                   : gIR->ir->CreateOr(b1, b2);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoCastComplex(Loc &loc, DValue *val, Type *_to) {
+DValue *DtoCastComplex(const Loc &loc, DValue *val, Type *_to) {
   Type *to = _to->toBasetype();
   Type *vty = val->type->toBasetype();
   if (to->iscomplex()) {
@@ -459,22 +462,22 @@ DValue *DtoCastComplex(Loc &loc, DValue *val, Type *_to) {
     switch (vty->ty) {
     default:
       llvm_unreachable("Unexpected complex floating point type");
-    case Tcomplex32:
+    case TY::Tcomplex32:
       extractty = Type::timaginary32;
       break;
-    case Tcomplex64:
+    case TY::Tcomplex64:
       extractty = Type::timaginary64;
       break;
-    case Tcomplex80:
+    case TY::Tcomplex80:
       extractty = Type::timaginary80;
       break;
     }
     auto im = new DImValue(extractty, impart);
     return DtoCastFloat(loc, im, to);
   }
-  if (to->ty == Tbool) {
+  if (to->ty == TY::Tbool) {
     return new DImValue(
-        _to, DtoComplexEquals(loc, TOKnotequal, val, DtoNullValue(vty)));
+        _to, DtoComplexEquals(loc, EXP::notEqual, val, DtoNullValue(vty)));
   }
   if (to->isfloating() || to->isintegral()) {
     // FIXME: this loads both values, even when we only need one
@@ -484,13 +487,13 @@ DValue *DtoCastComplex(Loc &loc, DValue *val, Type *_to) {
     switch (vty->ty) {
     default:
       llvm_unreachable("Unexpected complex floating point type");
-    case Tcomplex32:
+    case TY::Tcomplex32:
       extractty = Type::tfloat32;
       break;
-    case Tcomplex64:
+    case TY::Tcomplex64:
       extractty = Type::tfloat64;
       break;
-    case Tcomplex80:
+    case TY::Tcomplex80:
       extractty = Type::tfloat80;
       break;
     }

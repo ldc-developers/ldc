@@ -1,21 +1,24 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Perform constant folding of arithmetic expressions.
  *
- * Copyright:   Copyright (c) 1999-2017 by The D Language Foundation, All Rights Reserved
- * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
- * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * The routines in this module are called from `optimize.d`.
+ *
+ * Specification: $(LINK2 https://dlang.org/spec/float.html#fp_const_folding, Floating Point Constant Folding)
+ *
+ * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/constfold.d, _constfold.d)
+ * Documentation:  https://dlang.org/phobos/dmd_constfold.html
+ * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/constfold.d
  */
 
 module dmd.constfold;
 
-// Online documentation: https://dlang.org/phobos/dmd_constfold.html
-
 import core.stdc.string;
 import core.stdc.stdio;
 import dmd.arraytypes;
-import dmd.complex;
+import dmd.astenums;
 import dmd.ctfeexpr;
 import dmd.declaration;
 import dmd.dstruct;
@@ -23,18 +26,14 @@ import dmd.errors;
 import dmd.expression;
 import dmd.globals;
 import dmd.mtype;
+import dmd.root.complex;
 import dmd.root.ctfloat;
 import dmd.root.port;
 import dmd.root.rmem;
+import dmd.root.utf;
 import dmd.sideeffect;
 import dmd.target;
 import dmd.tokens;
-import dmd.utf;
-
-version(IN_LLVM)
-{
-    import gen.dpragma;
-}
 
 private enum LOG = false;
 
@@ -48,21 +47,26 @@ private Expression expType(Type type, Expression e)
     return e;
 }
 
-/* ================================== isConst() ============================== */
-extern (C++) int isConst(Expression e)
+/************************************
+ * Returns:
+ *    true if e is a constant
+ */
+int isConst(Expression e)
 {
     //printf("Expression::isConst(): %s\n", e.toChars());
     switch (e.op)
     {
-    case TOKint64:
-    case TOKfloat64:
-    case TOKcomplex80:
+    case EXP.int64:
+    case EXP.float64:
+    case EXP.complex80:
         return 1;
-    case TOKnull:
+    case EXP.null_:
         return 0;
-    case TOKsymoff:
-version(IN_LLVM)
+    case EXP.symbolOffset:
+version (IN_LLVM)
 {
+        import gen.dpragma : LDCPragma;
+
         // We don't statically know anything about the address of a weak symbol
         // if there is no offset. With an offset, we can at least say that it is
         // non-zero.
@@ -79,14 +83,24 @@ version(IN_LLVM)
     assert(0);
 }
 
+/**********************************
+ * Initialize a EXP.cantExpression Expression.
+ * Params:
+ *      ue = where to write it
+ */
+void cantExp(out UnionExp ue)
+{
+    emplaceExp!(CTFEExp)(&ue, EXP.cantExpression);
+}
+
 /* =============================== constFold() ============================== */
 /* The constFold() functions were redundant with the optimize() ones,
  * and so have been folded in with them.
  */
 /* ========================================================================== */
-extern (C++) UnionExp Neg(Type type, Expression e1)
+UnionExp Neg(Type type, Expression e1)
 {
-    UnionExp ue;
+    UnionExp ue = void;
     Loc loc = e1.loc;
     if (e1.type.isreal())
     {
@@ -107,33 +121,28 @@ extern (C++) UnionExp Neg(Type type, Expression e1)
     return ue;
 }
 
-extern (C++) UnionExp Com(Type type, Expression e1)
+UnionExp Com(Type type, Expression e1)
 {
-    UnionExp ue;
+    UnionExp ue = void;
     Loc loc = e1.loc;
     emplaceExp!(IntegerExp)(&ue, loc, ~e1.toInteger(), type);
     return ue;
 }
 
-extern (C++) UnionExp Not(Type type, Expression e1)
+UnionExp Not(Type type, Expression e1)
 {
-    UnionExp ue;
+    UnionExp ue = void;
     Loc loc = e1.loc;
-    emplaceExp!(IntegerExp)(&ue, loc, e1.isBool(false) ? 1 : 0, type);
+    // BUG: Should be replaced with e1.toBool().get(), but this is apparently
+    //      executed for some expressions that cannot be const-folded
+    //      To be fixed in another PR
+    emplaceExp!(IntegerExp)(&ue, loc, e1.toBool().hasValue(false) ? 1 : 0, type);
     return ue;
 }
 
-private UnionExp Bool(Type type, Expression e1)
+UnionExp Add(const ref Loc loc, Type type, Expression e1, Expression e2)
 {
-    UnionExp ue;
-    Loc loc = e1.loc;
-    emplaceExp!(IntegerExp)(&ue, loc, e1.isBool(true) ? 1 : 0, type);
-    return ue;
-}
-
-extern (C++) UnionExp Add(Loc loc, Type type, Expression e1, Expression e2)
-{
-    UnionExp ue;
+    UnionExp ue = void;
     static if (LOG)
     {
         printf("Add(e1 = %s, e2 = %s)\n", e1.toChars(), e2.toChars());
@@ -151,11 +160,11 @@ extern (C++) UnionExp Add(Loc loc, Type type, Expression e1, Expression e2)
         // This rigamarole is necessary so that -0.0 doesn't get
         // converted to +0.0 by doing an extraneous add with +0.0
         auto c1 = complex_t(CTFloat.zero);
-        real_t r1 = 0;
-        real_t i1 = 0;
+        real_t r1 = CTFloat.zero;
+        real_t i1 = CTFloat.zero;
         auto c2 = complex_t(CTFloat.zero);
-        real_t r2 = 0;
-        real_t i2 = 0;
+        real_t r2 = CTFloat.zero;
+        real_t i2 = CTFloat.zero;
         auto v = complex_t(CTFloat.zero);
         int x;
         if (e1.type.isreal())
@@ -221,15 +230,13 @@ extern (C++) UnionExp Add(Loc loc, Type type, Expression e1, Expression e2)
         }
         emplaceExp!(ComplexExp)(&ue, loc, v, type);
     }
-    else if (e1.op == TOKsymoff)
+    else if (SymOffExp soe = e1.isSymOffExp())
     {
-        SymOffExp soe = cast(SymOffExp)e1;
         emplaceExp!(SymOffExp)(&ue, loc, soe.var, soe.offset + e2.toInteger());
         ue.exp().type = type;
     }
-    else if (e2.op == TOKsymoff)
+    else if (SymOffExp soe = e2.isSymOffExp())
     {
-        SymOffExp soe = cast(SymOffExp)e2;
         emplaceExp!(SymOffExp)(&ue, loc, soe.var, soe.offset + e1.toInteger());
         ue.exp().type = type;
     }
@@ -238,9 +245,9 @@ extern (C++) UnionExp Add(Loc loc, Type type, Expression e1, Expression e2)
     return ue;
 }
 
-extern (C++) UnionExp Min(Loc loc, Type type, Expression e1, Expression e2)
+UnionExp Min(const ref Loc loc, Type type, Expression e1, Expression e2)
 {
-    UnionExp ue;
+    UnionExp ue = void;
     if (type.isreal())
     {
         emplaceExp!(RealExp)(&ue, loc, e1.toReal() - e2.toReal(), type);
@@ -254,11 +261,11 @@ extern (C++) UnionExp Min(Loc loc, Type type, Expression e1, Expression e2)
         // This rigamarole is necessary so that -0.0 doesn't get
         // converted to +0.0 by doing an extraneous add with +0.0
         auto c1 = complex_t(CTFloat.zero);
-        real_t r1 = 0;
-        real_t i1 = 0;
+        real_t r1 = CTFloat.zero;
+        real_t i1 = CTFloat.zero;
         auto c2 = complex_t(CTFloat.zero);
-        real_t r2 = 0;
-        real_t i2 = 0;
+        real_t r2 = CTFloat.zero;
+        real_t i2 = CTFloat.zero;
         auto v = complex_t(CTFloat.zero);
         int x;
         if (e1.type.isreal())
@@ -324,9 +331,8 @@ extern (C++) UnionExp Min(Loc loc, Type type, Expression e1, Expression e2)
         }
         emplaceExp!(ComplexExp)(&ue, loc, v, type);
     }
-    else if (e1.op == TOKsymoff)
+    else if (SymOffExp soe = e1.isSymOffExp())
     {
-        SymOffExp soe = cast(SymOffExp)e1;
         emplaceExp!(SymOffExp)(&ue, loc, soe.var, soe.offset - e2.toInteger());
         ue.exp().type = type;
     }
@@ -337,13 +343,13 @@ extern (C++) UnionExp Min(Loc loc, Type type, Expression e1, Expression e2)
     return ue;
 }
 
-extern (C++) UnionExp Mul(Loc loc, Type type, Expression e1, Expression e2)
+UnionExp Mul(const ref Loc loc, Type type, Expression e1, Expression e2)
 {
-    UnionExp ue;
+    UnionExp ue = void;
     if (type.isfloating())
     {
         auto c = complex_t(CTFloat.zero);
-        real_t r = 0;
+        real_t r = CTFloat.zero;
         if (e1.type.isreal())
         {
             r = e1.toReal();
@@ -386,33 +392,17 @@ extern (C++) UnionExp Mul(Loc loc, Type type, Expression e1, Expression e2)
     return ue;
 }
 
-extern (C++) UnionExp Div(Loc loc, Type type, Expression e1, Expression e2)
+UnionExp Div(const ref Loc loc, Type type, Expression e1, Expression e2)
 {
-    UnionExp ue;
+    UnionExp ue = void;
     if (type.isfloating())
     {
         auto c = complex_t(CTFloat.zero);
-        //e1.type.print();
-        //e2.type.print();
         if (e2.type.isreal())
         {
             if (e1.type.isreal())
             {
-                version (all)
-                {
-                    // Work around redundant REX.W prefix breaking Valgrind
-                    // when built with affected versions of DMD.
-                    // https://issues.dlang.org/show_bug.cgi?id=14952
-                    // This can be removed once compiling with DMD 2.068 or
-                    // older is no longer supported.
-                    const r1 = e1.toReal();
-                    const r2 = e2.toReal();
-                    emplaceExp!(RealExp)(&ue, loc, r1 / r2, type);
-                }
-                else
-                {
-                    emplaceExp!(RealExp)(&ue, loc, e1.toReal() / e2.toReal(), type);
-                }
+                emplaceExp!(RealExp)(&ue, loc, e1.toReal() / e2.toReal(), type);
                 return ue;
             }
             const r = e2.toReal();
@@ -477,9 +467,9 @@ extern (C++) UnionExp Div(Loc loc, Type type, Expression e1, Expression e2)
     return ue;
 }
 
-extern (C++) UnionExp Mod(Loc loc, Type type, Expression e1, Expression e2)
+UnionExp Mod(const ref Loc loc, Type type, Expression e1, Expression e2)
 {
-    UnionExp ue;
+    UnionExp ue = void;
     if (type.isfloating())
     {
         auto c = complex_t(CTFloat.zero);
@@ -542,8 +532,9 @@ extern (C++) UnionExp Mod(Loc loc, Type type, Expression e1, Expression e2)
     return ue;
 }
 
-extern (C++) UnionExp Pow(Loc loc, Type type, Expression e1, Expression e2)
+UnionExp Pow(const ref Loc loc, Type type, Expression e1, Expression e2)
 {
+    //printf("Pow()\n");
     UnionExp ue;
     // Handle integer power operations.
     if (e2.type.isintegral())
@@ -554,7 +545,7 @@ extern (C++) UnionExp Pow(Loc loc, Type type, Expression e1, Expression e2)
         {
             if (e1.type.isintegral())
             {
-                emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+                cantExp(ue);
                 return ue;
             }
             // Don't worry about overflow, from now on n is unsigned.
@@ -611,26 +602,26 @@ extern (C++) UnionExp Pow(Loc loc, Type type, Expression e1, Expression e2)
         // x ^^ y for x < 0 and y not an integer is not defined; so set result as NaN
         if (e1.toReal() < CTFloat.zero)
         {
-            emplaceExp!(RealExp)(&ue, loc, Target.RealProperties.nan, type);
+            emplaceExp!(RealExp)(&ue, loc, target.RealProperties.nan, type);
         }
         else
-            emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+            cantExp(ue);
     }
     else
-        emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+        cantExp(ue);
     return ue;
 }
 
-extern (C++) UnionExp Shl(Loc loc, Type type, Expression e1, Expression e2)
+UnionExp Shl(const ref Loc loc, Type type, Expression e1, Expression e2)
 {
-    UnionExp ue;
+    UnionExp ue = void;
     emplaceExp!(IntegerExp)(&ue, loc, e1.toInteger() << e2.toInteger(), type);
     return ue;
 }
 
-extern (C++) UnionExp Shr(Loc loc, Type type, Expression e1, Expression e2)
+UnionExp Shr(const ref Loc loc, Type type, Expression e1, Expression e2)
 {
-    UnionExp ue;
+    UnionExp ue = void;
     dinteger_t value = e1.toInteger();
     dinteger_t dcount = e2.toInteger();
     assert(dcount <= 0xFFFFFFFF);
@@ -638,31 +629,31 @@ extern (C++) UnionExp Shr(Loc loc, Type type, Expression e1, Expression e2)
     switch (e1.type.toBasetype().ty)
     {
     case Tint8:
-        value = cast(d_int8)value >> count;
+        value = cast(byte)value >> count;
         break;
     case Tuns8:
     case Tchar:
-        value = cast(d_uns8)value >> count;
+        value = cast(ubyte)value >> count;
         break;
     case Tint16:
-        value = cast(d_int16)value >> count;
+        value = cast(short)value >> count;
         break;
     case Tuns16:
     case Twchar:
-        value = cast(d_uns16)value >> count;
+        value = cast(ushort)value >> count;
         break;
     case Tint32:
-        value = cast(d_int32)value >> count;
+        value = cast(int)value >> count;
         break;
     case Tuns32:
     case Tdchar:
-        value = cast(d_uns32)value >> count;
+        value = cast(uint)value >> count;
         break;
     case Tint64:
-        value = cast(d_int64)value >> count;
+        value = cast(long)value >> count;
         break;
     case Tuns64:
-        value = cast(d_uns64)value >> count;
+        value = cast(ulong)value >> count;
         break;
     case Terror:
         emplaceExp!(ErrorExp)(&ue);
@@ -674,9 +665,9 @@ extern (C++) UnionExp Shr(Loc loc, Type type, Expression e1, Expression e2)
     return ue;
 }
 
-extern (C++) UnionExp Ushr(Loc loc, Type type, Expression e1, Expression e2)
+UnionExp Ushr(const ref Loc loc, Type type, Expression e1, Expression e2)
 {
-    UnionExp ue;
+    UnionExp ue = void;
     dinteger_t value = e1.toInteger();
     dinteger_t dcount = e2.toInteger();
     assert(dcount <= 0xFFFFFFFF);
@@ -687,22 +678,22 @@ extern (C++) UnionExp Ushr(Loc loc, Type type, Expression e1, Expression e2)
     case Tuns8:
     case Tchar:
         // Possible only with >>>=. >>> always gets promoted to int.
-        value = (value & 0xFF) >> count;
+        value = (value & 0xFF) >>> count;
         break;
     case Tint16:
     case Tuns16:
     case Twchar:
         // Possible only with >>>=. >>> always gets promoted to int.
-        value = (value & 0xFFFF) >> count;
+        value = (value & 0xFFFF) >>> count;
         break;
     case Tint32:
     case Tuns32:
     case Tdchar:
-        value = (value & 0xFFFFFFFF) >> count;
+        value = (value & 0xFFFFFFFF) >>> count;
         break;
     case Tint64:
     case Tuns64:
-        value = cast(d_uns64)value >> count;
+        value = value >>> count;
         break;
     case Terror:
         emplaceExp!(ErrorExp)(&ue);
@@ -714,95 +705,93 @@ extern (C++) UnionExp Ushr(Loc loc, Type type, Expression e1, Expression e2)
     return ue;
 }
 
-extern (C++) UnionExp And(Loc loc, Type type, Expression e1, Expression e2)
+UnionExp And(const ref Loc loc, Type type, Expression e1, Expression e2)
 {
-    UnionExp ue;
+    UnionExp ue = void;
     emplaceExp!(IntegerExp)(&ue, loc, e1.toInteger() & e2.toInteger(), type);
     return ue;
 }
 
-extern (C++) UnionExp Or(Loc loc, Type type, Expression e1, Expression e2)
+UnionExp Or(const ref Loc loc, Type type, Expression e1, Expression e2)
 {
-    UnionExp ue;
+    UnionExp ue = void;
     emplaceExp!(IntegerExp)(&ue, loc, e1.toInteger() | e2.toInteger(), type);
     return ue;
 }
 
-extern (C++) UnionExp Xor(Loc loc, Type type, Expression e1, Expression e2)
+UnionExp Xor(const ref Loc loc, Type type, Expression e1, Expression e2)
 {
     //printf("Xor(linnum = %d, e1 = %s, e2 = %s)\n", loc.linnum, e1.toChars(), e2.toChars());
-    UnionExp ue;
+    UnionExp ue = void;
     emplaceExp!(IntegerExp)(&ue, loc, e1.toInteger() ^ e2.toInteger(), type);
     return ue;
 }
 
-/* Also returns TOKcantexp if cannot be computed.
+/* Also returns EXP.cantExpression if cannot be computed.
  */
-extern (C++) UnionExp Equal(TOK op, Loc loc, Type type, Expression e1, Expression e2)
+UnionExp Equal(EXP op, const ref Loc loc, Type type, Expression e1, Expression e2)
 {
-    UnionExp ue;
+    UnionExp ue = void;
     int cmp = 0;
-    real_t r1 = 0;
-    real_t r2 = 0;
+    real_t r1 = CTFloat.zero;
+    real_t r2 = CTFloat.zero;
     //printf("Equal(e1 = %s, e2 = %s)\n", e1.toChars(), e2.toChars());
-    assert(op == TOKequal || op == TOKnotequal);
-    if (e1.op == TOKnull)
+    assert(op == EXP.equal || op == EXP.notEqual);
+    if (e1.op == EXP.null_)
     {
-        if (e2.op == TOKnull)
+        if (e2.op == EXP.null_)
             cmp = 1;
-        else if (e2.op == TOKstring)
+        else if (StringExp es2 = e2.isStringExp())
         {
-            StringExp es2 = cast(StringExp)e2;
             cmp = (0 == es2.len);
         }
-        else if (e2.op == TOKarrayliteral)
+        else if (ArrayLiteralExp es2 = e2.isArrayLiteralExp())
         {
-            ArrayLiteralExp es2 = cast(ArrayLiteralExp)e2;
             cmp = !es2.elements || (0 == es2.elements.dim);
         }
         else
         {
-            emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+            cantExp(ue);
             return ue;
         }
     }
-    else if (e2.op == TOKnull)
+    else if (e2.op == EXP.null_)
     {
-        if (e1.op == TOKstring)
+        if (StringExp es1 = e1.isStringExp())
         {
-            StringExp es1 = cast(StringExp)e1;
             cmp = (0 == es1.len);
         }
-        else if (e1.op == TOKarrayliteral)
+        else if (ArrayLiteralExp es1 = e1.isArrayLiteralExp())
         {
-            ArrayLiteralExp es1 = cast(ArrayLiteralExp)e1;
             cmp = !es1.elements || (0 == es1.elements.dim);
         }
         else
         {
-            emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+            cantExp(ue);
             return ue;
         }
     }
-    else if (e1.op == TOKstring && e2.op == TOKstring)
+    else if (e1.op == EXP.string_ && e2.op == EXP.string_)
     {
-        StringExp es1 = cast(StringExp)e1;
-        StringExp es2 = cast(StringExp)e2;
+        StringExp es1 = e1.isStringExp();
+        StringExp es2 = e2.isStringExp();
         if (es1.sz != es2.sz)
         {
             assert(global.errors);
-            emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+            cantExp(ue);
             return ue;
         }
-        if (es1.len == es2.len && memcmp(es1.string, es2.string, es1.sz * es1.len) == 0)
+        const data1 = es1.peekData();
+        const data2 = es2.peekData();
+        if (es1.len == es2.len && memcmp(data1.ptr, data2.ptr, es1.sz * es1.len) == 0)
             cmp = 1;
         else
             cmp = 0;
     }
-    else if (e1.op == TOKarrayliteral && e2.op == TOKarrayliteral)
+    else if (e1.op == EXP.arrayLiteral && e2.op == EXP.arrayLiteral)
     {
-        ArrayLiteralExp es1 = cast(ArrayLiteralExp)e1;
-        ArrayLiteralExp es2 = cast(ArrayLiteralExp)e2;
+        ArrayLiteralExp es1 = e1.isArrayLiteralExp();
+        ArrayLiteralExp es2 = e2.isArrayLiteralExp();
         if ((!es1.elements || !es1.elements.dim) && (!es2.elements || !es2.elements.dim))
             cmp = 1; // both arrays are empty
         else if (!es1.elements || !es2.elements)
@@ -813,9 +802,9 @@ extern (C++) UnionExp Equal(TOK op, Loc loc, Type type, Expression e1, Expressio
         {
             for (size_t i = 0; i < es1.elements.dim; i++)
             {
-                auto ee1 = es1.getElement(i);
-                auto ee2 = es2.getElement(i);
-                ue = Equal(TOKequal, loc, Type.tint32, ee1, ee2);
+                auto ee1 = es1[i];
+                auto ee2 = es2[i];
+                ue = Equal(EXP.equal, loc, Type.tint32, ee1, ee2);
                 if (CTFEExp.isCantExp(ue.exp()))
                     return ue;
                 cmp = cast(int)ue.exp().toInteger();
@@ -824,7 +813,7 @@ extern (C++) UnionExp Equal(TOK op, Loc loc, Type type, Expression e1, Expressio
             }
         }
     }
-    else if (e1.op == TOKarrayliteral && e2.op == TOKstring)
+    else if (e1.op == EXP.arrayLiteral && e2.op == EXP.string_)
     {
         // Swap operands and use common code
         Expression etmp = e1;
@@ -832,11 +821,11 @@ extern (C++) UnionExp Equal(TOK op, Loc loc, Type type, Expression e1, Expressio
         e2 = etmp;
         goto Lsa;
     }
-    else if (e1.op == TOKstring && e2.op == TOKarrayliteral)
+    else if (e1.op == EXP.string_ && e2.op == EXP.arrayLiteral)
     {
     Lsa:
-        StringExp es1 = cast(StringExp)e1;
-        ArrayLiteralExp es2 = cast(ArrayLiteralExp)e2;
+        StringExp es1 = e1.isStringExp();
+        ArrayLiteralExp es2 = e2.isArrayLiteralExp();
         size_t dim1 = es1.len;
         size_t dim2 = es2.elements ? es2.elements.dim : 0;
         if (dim1 != dim2)
@@ -844,13 +833,13 @@ extern (C++) UnionExp Equal(TOK op, Loc loc, Type type, Expression e1, Expressio
         else
         {
             cmp = 1; // if dim1 winds up being 0
-            for (size_t i = 0; i < dim1; i++)
+            foreach (i; 0 .. dim1)
             {
-                uinteger_t c = es1.charAt(i);
-                auto ee2 = es2.getElement(i);
+                uinteger_t c = es1.getCodeUnit(i);
+                auto ee2 = es2[i];
                 if (ee2.isConst() != 1)
                 {
-                    emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+                    cantExp(ue);
                     return ue;
                 }
                 cmp = (c == ee2.toInteger());
@@ -859,10 +848,10 @@ extern (C++) UnionExp Equal(TOK op, Loc loc, Type type, Expression e1, Expressio
             }
         }
     }
-    else if (e1.op == TOKstructliteral && e2.op == TOKstructliteral)
+    else if (e1.op == EXP.structLiteral && e2.op == EXP.structLiteral)
     {
-        StructLiteralExp es1 = cast(StructLiteralExp)e1;
-        StructLiteralExp es2 = cast(StructLiteralExp)e2;
+        StructLiteralExp es1 = e1.isStructLiteralExp();
+        StructLiteralExp es2 = e2.isStructLiteralExp();
         if (es1.sd != es2.sd)
             cmp = 0;
         else if ((!es1.elements || !es1.elements.dim) && (!es2.elements || !es2.elements.dim))
@@ -885,8 +874,8 @@ extern (C++) UnionExp Equal(TOK op, Loc loc, Type type, Expression e1, Expressio
                     cmp = 0;
                     break;
                 }
-                ue = Equal(TOKequal, loc, Type.tint32, ee1, ee2);
-                if (ue.exp().op == TOKcantexp)
+                ue = Equal(EXP.equal, loc, Type.tint32, ee1, ee2);
+                if (ue.exp().op == EXP.cantExpression)
                     return ue;
                 cmp = cast(int)ue.exp().toInteger();
                 if (cmp == 0)
@@ -896,7 +885,7 @@ extern (C++) UnionExp Equal(TOK op, Loc loc, Type type, Expression e1, Expressio
     }
     else if (e1.isConst() != 1 || e2.isConst() != 1)
     {
-        emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+        cantExp(ue);
         return ue;
     }
     else if (e1.type.isreal())
@@ -929,85 +918,87 @@ extern (C++) UnionExp Equal(TOK op, Loc loc, Type type, Expression e1, Expressio
     }
     else
     {
-        emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+        cantExp(ue);
         return ue;
     }
-    if (op == TOKnotequal)
+    if (op == EXP.notEqual)
         cmp ^= 1;
     emplaceExp!(IntegerExp)(&ue, loc, cmp, type);
     return ue;
 }
 
-extern (C++) UnionExp Identity(TOK op, Loc loc, Type type, Expression e1, Expression e2)
+UnionExp Identity(EXP op, const ref Loc loc, Type type, Expression e1, Expression e2)
 {
-    UnionExp ue;
+    UnionExp ue = void;
     int cmp;
-    if (e1.op == TOKnull)
+    if (e1.op == EXP.null_)
     {
-        cmp = (e2.op == TOKnull);
+        cmp = (e2.op == EXP.null_);
     }
-    else if (e2.op == TOKnull)
+    else if (e2.op == EXP.null_)
     {
         cmp = 0;
     }
-    else if (e1.op == TOKsymoff && e2.op == TOKsymoff)
+    else if (e1.op == EXP.symbolOffset && e2.op == EXP.symbolOffset)
     {
-        SymOffExp es1 = cast(SymOffExp)e1;
-        SymOffExp es2 = cast(SymOffExp)e2;
+        SymOffExp es1 = e1.isSymOffExp();
+        SymOffExp es2 = e2.isSymOffExp();
         cmp = (es1.var == es2.var && es1.offset == es2.offset);
     }
     else
     {
         if (e1.type.isreal())
         {
-            cmp = RealEquals(e1.toReal(), e2.toReal());
+            cmp = CTFloat.isIdentical(e1.toReal(), e2.toReal());
         }
         else if (e1.type.isimaginary())
         {
-            cmp = RealEquals(e1.toImaginary(), e2.toImaginary());
+            cmp = RealIdentical(e1.toImaginary(), e2.toImaginary());
         }
         else if (e1.type.iscomplex())
         {
             complex_t v1 = e1.toComplex();
             complex_t v2 = e2.toComplex();
-            cmp = RealEquals(creall(v1), creall(v2)) && RealEquals(cimagl(v1), cimagl(v1));
+            cmp = RealIdentical(creall(v1), creall(v2)) && RealIdentical(cimagl(v1), cimagl(v1));
         }
         else
         {
-            ue = Equal((op == TOKidentity) ? TOKequal : TOKnotequal, loc, type, e1, e2);
+            ue = Equal((op == EXP.identity) ? EXP.equal : EXP.notEqual, loc, type, e1, e2);
             return ue;
         }
     }
-    if (op == TOKnotidentity)
+    if (op == EXP.notIdentity)
         cmp ^= 1;
     emplaceExp!(IntegerExp)(&ue, loc, cmp, type);
     return ue;
 }
 
-extern (C++) UnionExp Cmp(TOK op, Loc loc, Type type, Expression e1, Expression e2)
+UnionExp Cmp(EXP op, const ref Loc loc, Type type, Expression e1, Expression e2)
 {
-    UnionExp ue;
+    UnionExp ue = void;
     dinteger_t n;
-    real_t r1 = 0;
-    real_t r2 = 0;
+    real_t r1 = CTFloat.zero;
+    real_t r2 = CTFloat.zero;
     //printf("Cmp(e1 = %s, e2 = %s)\n", e1.toChars(), e2.toChars());
-    if (e1.op == TOKstring && e2.op == TOKstring)
+    if (e1.op == EXP.string_ && e2.op == EXP.string_)
     {
-        StringExp es1 = cast(StringExp)e1;
-        StringExp es2 = cast(StringExp)e2;
+        StringExp es1 = e1.isStringExp();
+        StringExp es2 = e2.isStringExp();
         size_t sz = es1.sz;
         assert(sz == es2.sz);
         size_t len = es1.len;
         if (es2.len < len)
             len = es2.len;
-        int rawCmp = memcmp(es1.string, es2.string, sz * len);
+        const data1 = es1.peekData();
+        const data2 = es1.peekData();
+        int rawCmp = memcmp(data1.ptr, data2.ptr, sz * len);
         if (rawCmp == 0)
             rawCmp = cast(int)(es1.len - es2.len);
         n = specificCmp(op, rawCmp);
     }
     else if (e1.isConst() != 1 || e2.isConst() != 1)
     {
-        emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+        cantExp(ue);
         return ue;
     }
     else if (e1.type.isreal())
@@ -1042,13 +1033,13 @@ extern (C++) UnionExp Cmp(TOK op, Loc loc, Type type, Expression e1, Expression 
     return ue;
 }
 
-/* Also returns TOKcantexp if cannot be computed.
+/* Also returns EXP.cantExpression if cannot be computed.
  *  to: type to cast to
  *  type: type to paint the result
  */
-extern (C++) UnionExp Cast(Loc loc, Type type, Type to, Expression e1)
+UnionExp Cast(const ref Loc loc, Type type, Type to, Expression e1)
 {
-    UnionExp ue;
+    UnionExp ue = void;
     Type tb = to.toBasetype();
     Type typeb = type.toBasetype();
     //printf("Cast(type = %s, to = %s, e1 = %s)\n", type.toChars(), to.toChars(), e1.toChars());
@@ -1058,10 +1049,16 @@ extern (C++) UnionExp Cast(Loc loc, Type type, Type to, Expression e1)
         emplaceExp!(UnionExp)(&ue, e1);
         return ue;
     }
-    if (e1.op == TOKvector && (cast(TypeVector)e1.type).basetype.equals(type) && type.equals(to))
+    if (e1.op == EXP.vector && (cast(TypeVector)e1.type).basetype.equals(type) && type.equals(to))
     {
-        Expression ex = (cast(VectorExp)e1).e1;
+        Expression ex = e1.isVectorExp().e1;
         emplaceExp!(UnionExp)(&ue, ex);
+        return ue;
+    }
+    if (e1.type.toBasetype.equals(type) && type.equals(to))
+    {
+        emplaceExp!(UnionExp)(&ue, e1);
+        ue.exp().type = type;
         return ue;
     }
     if (e1.type.implicitConvTo(to) >= MATCH.constant || to.implicitConvTo(e1.type) >= MATCH.constant)
@@ -1077,14 +1074,14 @@ extern (C++) UnionExp Cast(Loc loc, Type type, Type to, Expression e1)
     }
     /* Allow casting from one string type to another
      */
-    if (e1.op == TOKstring)
+    if (e1.op == EXP.string_)
     {
         if (tb.ty == Tarray && typeb.ty == Tarray && tb.nextOf().size() == typeb.nextOf().size())
         {
             goto L1;
         }
     }
-    if (e1.op == TOKarrayliteral && typeb == tb)
+    if (e1.op == EXP.arrayLiteral && typeb == tb)
     {
     L1:
         Expression ex = expType(to, e1);
@@ -1093,11 +1090,18 @@ extern (C++) UnionExp Cast(Loc loc, Type type, Type to, Expression e1)
     }
     if (e1.isConst() != 1)
     {
-        emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+        cantExp(ue);
     }
     else if (tb.ty == Tbool)
     {
-        emplaceExp!(IntegerExp)(&ue, loc, e1.toInteger() != 0, type);
+        const opt = e1.toBool();
+        if (opt.isEmpty())
+        {
+            cantExp(ue);
+            return ue;
+        }
+
+        emplaceExp!(IntegerExp)(&ue, loc, opt.get(), type);
     }
     else if (type.isintegral())
     {
@@ -1108,31 +1112,31 @@ extern (C++) UnionExp Cast(Loc loc, Type type, Type to, Expression e1)
             switch (typeb.ty)
             {
             case Tint8:
-                result = cast(d_int8)cast(sinteger_t)r;
+                result = cast(byte)cast(sinteger_t)r;
                 break;
             case Tchar:
             case Tuns8:
-                result = cast(d_uns8)cast(dinteger_t)r;
+                result = cast(ubyte)cast(dinteger_t)r;
                 break;
             case Tint16:
-                result = cast(d_int16)cast(sinteger_t)r;
+                result = cast(short)cast(sinteger_t)r;
                 break;
             case Twchar:
             case Tuns16:
-                result = cast(d_uns16)cast(dinteger_t)r;
+                result = cast(ushort)cast(dinteger_t)r;
                 break;
             case Tint32:
-                result = cast(d_int32)r;
+                result = cast(int)r;
                 break;
             case Tdchar:
             case Tuns32:
-                result = cast(d_uns32)r;
+                result = cast(uint)r;
                 break;
             case Tint64:
-                result = cast(d_int64)r;
+                result = cast(long)r;
                 break;
             case Tuns64:
-                result = cast(d_uns64)r;
+                result = cast(ulong)r;
                 break;
             default:
                 assert(0);
@@ -1165,9 +1169,9 @@ extern (C++) UnionExp Cast(Loc loc, Type type, Type to, Expression e1)
     }
     else if (tb.ty == Tvoid)
     {
-        emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+        cantExp(ue);
     }
-    else if (tb.ty == Tstruct && e1.op == TOKint64)
+    else if (tb.ty == Tstruct && e1.op == EXP.int64)
     {
         // Struct = 0;
         StructDeclaration sd = tb.toDsymbol(null).isStructDeclaration();
@@ -1179,7 +1183,7 @@ extern (C++) UnionExp Cast(Loc loc, Type type, Type to, Expression e1)
             UnionExp zero;
             emplaceExp!(IntegerExp)(&zero, 0);
             ue = Cast(loc, v.type, v.type, zero.exp());
-            if (ue.exp().op == TOKcantexp)
+            if (ue.exp().op == EXP.cantExpression)
                 return ue;
             elements.push(ue.exp().copy());
         }
@@ -1199,24 +1203,21 @@ extern (C++) UnionExp Cast(Loc loc, Type type, Type to, Expression e1)
     return ue;
 }
 
-extern (C++) UnionExp ArrayLength(Type type, Expression e1)
+UnionExp ArrayLength(Type type, Expression e1)
 {
-    UnionExp ue;
+    UnionExp ue = void;
     Loc loc = e1.loc;
-    if (e1.op == TOKstring)
+    if (StringExp es1 = e1.isStringExp())
     {
-        StringExp es1 = cast(StringExp)e1;
         emplaceExp!(IntegerExp)(&ue, loc, es1.len, type);
     }
-    else if (e1.op == TOKarrayliteral)
+    else if (ArrayLiteralExp ale = e1.isArrayLiteralExp())
     {
-        ArrayLiteralExp ale = cast(ArrayLiteralExp)e1;
         size_t dim = ale.elements ? ale.elements.dim : 0;
         emplaceExp!(IntegerExp)(&ue, loc, dim, type);
     }
-    else if (e1.op == TOKassocarrayliteral)
+    else if (AssocArrayLiteralExp ale = e1.isAssocArrayLiteralExp)
     {
-        AssocArrayLiteralExp ale = cast(AssocArrayLiteralExp)e1;
         size_t dim = ale.keys.dim;
         emplaceExp!(IntegerExp)(&ue, loc, dim, type);
     }
@@ -1226,21 +1227,21 @@ extern (C++) UnionExp ArrayLength(Type type, Expression e1)
         emplaceExp!(UnionExp)(&ue, e);
     }
     else
-        emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+        cantExp(ue);
     return ue;
 }
 
-/* Also return TOKcantexp if this fails
+/* Also return EXP.cantExpression if this fails
  */
-extern (C++) UnionExp Index(Type type, Expression e1, Expression e2)
+UnionExp Index(Type type, Expression e1, Expression e2, bool indexIsInBounds)
 {
-    UnionExp ue;
+    UnionExp ue = void;
     Loc loc = e1.loc;
     //printf("Index(e1 = %s, e2 = %s)\n", e1.toChars(), e2.toChars());
     assert(e1.type);
-    if (e1.op == TOKstring && e2.op == TOKint64)
+    if (e1.op == EXP.string_ && e2.op == EXP.int64)
     {
-        StringExp es1 = cast(StringExp)e1;
+        StringExp es1 = e1.isStringExp();
         uinteger_t i = e2.toInteger();
         if (i >= es1.len)
         {
@@ -1249,94 +1250,92 @@ extern (C++) UnionExp Index(Type type, Expression e1, Expression e2)
         }
         else
         {
-            emplaceExp!(IntegerExp)(&ue, loc, es1.charAt(i), type);
+            emplaceExp!(IntegerExp)(&ue, loc, es1.getCodeUnit(cast(size_t) i), type);
         }
     }
-    else if (e1.type.toBasetype().ty == Tsarray && e2.op == TOKint64)
+    else if (e1.type.toBasetype().ty == Tsarray && e2.op == EXP.int64)
     {
         TypeSArray tsa = cast(TypeSArray)e1.type.toBasetype();
         uinteger_t length = tsa.dim.toInteger();
         uinteger_t i = e2.toInteger();
-        if (i >= length)
+        if (i >= length && (e1.op == EXP.arrayLiteral || !indexIsInBounds))
         {
+            // C code only checks bounds if an ArrayLiteralExp
             e1.error("array index %llu is out of bounds `%s[0 .. %llu]`", i, e1.toChars(), length);
             emplaceExp!(ErrorExp)(&ue);
         }
-        else if (e1.op == TOKarrayliteral)
+        else if (ArrayLiteralExp ale = e1.isArrayLiteralExp())
         {
-            ArrayLiteralExp ale = cast(ArrayLiteralExp)e1;
-            auto e = ale.getElement(cast(size_t)i);
+            auto e = ale[cast(size_t)i];
             e.type = type;
             e.loc = loc;
             if (hasSideEffect(e))
-                emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+                cantExp(ue);
             else
                 emplaceExp!(UnionExp)(&ue, e);
         }
         else
-            emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+            cantExp(ue);
     }
-    else if (e1.type.toBasetype().ty == Tarray && e2.op == TOKint64)
+    else if (e1.type.toBasetype().ty == Tarray && e2.op == EXP.int64)
     {
         uinteger_t i = e2.toInteger();
-        if (e1.op == TOKarrayliteral)
+        if (ArrayLiteralExp ale = e1.isArrayLiteralExp())
         {
-            ArrayLiteralExp ale = cast(ArrayLiteralExp)e1;
             if (i >= ale.elements.dim)
             {
-                e1.error("array index %llu is out of bounds `%s[0 .. %u]`", i, e1.toChars(), ale.elements.dim);
+                e1.error("array index %llu is out of bounds `%s[0 .. %llu]`", i, e1.toChars(), cast(ulong) ale.elements.dim);
                 emplaceExp!(ErrorExp)(&ue);
             }
             else
             {
-                auto e = ale.getElement(cast(size_t)i);
+                auto e = ale[cast(size_t)i];
                 e.type = type;
                 e.loc = loc;
                 if (hasSideEffect(e))
-                    emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+                    cantExp(ue);
                 else
                     emplaceExp!(UnionExp)(&ue, e);
             }
         }
         else
-            emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+            cantExp(ue);
     }
-    else if (e1.op == TOKassocarrayliteral)
+    else if (AssocArrayLiteralExp ae = e1.isAssocArrayLiteralExp())
     {
-        AssocArrayLiteralExp ae = cast(AssocArrayLiteralExp)e1;
         /* Search the keys backwards, in case there are duplicate keys
          */
         for (size_t i = ae.keys.dim; i;)
         {
             i--;
             Expression ekey = (*ae.keys)[i];
-            ue = Equal(TOKequal, loc, Type.tbool, ekey, e2);
+            ue = Equal(EXP.equal, loc, Type.tbool, ekey, e2);
             if (CTFEExp.isCantExp(ue.exp()))
                 return ue;
-            if (ue.exp().isBool(true))
+            if (ue.exp().toBool().hasValue(true))
             {
                 Expression e = (*ae.values)[i];
                 e.type = type;
                 e.loc = loc;
                 if (hasSideEffect(e))
-                    emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+                    cantExp(ue);
                 else
                     emplaceExp!(UnionExp)(&ue, e);
                 return ue;
             }
         }
-        emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+        cantExp(ue);
     }
     else
-        emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+        cantExp(ue);
     return ue;
 }
 
-/* Also return TOKcantexp if this fails
+/* Also return EXP.cantExpression if this fails
  */
-extern (C++) UnionExp Slice(Type type, Expression e1, Expression lwr, Expression upr)
+UnionExp Slice(Type type, Expression e1, Expression lwr, Expression upr)
 {
-    UnionExp ue;
+    UnionExp ue = void;
     Loc loc = e1.loc;
     static if (LOG)
     {
@@ -1348,58 +1347,60 @@ extern (C++) UnionExp Slice(Type type, Expression e1, Expression lwr, Expression
             printf("\tupr = %s\n", upr.toChars());
         }
     }
-    if (e1.op == TOKstring && lwr.op == TOKint64 && upr.op == TOKint64)
+
+    if (e1.op == EXP.string_ && lwr.op == EXP.int64 && upr.op == EXP.int64)
     {
-        StringExp es1 = cast(StringExp)e1;
-        uinteger_t ilwr = lwr.toInteger();
-        uinteger_t iupr = upr.toInteger();
-        if (iupr > es1.len || ilwr > iupr)
-        {
-            e1.error("string slice `[%llu .. %llu]` is out of bounds", ilwr, iupr);
-            emplaceExp!(ErrorExp)(&ue);
-        }
+        StringExp es1 = e1.isStringExp();
+        const uinteger_t ilwr = lwr.toInteger();
+        const uinteger_t iupr = upr.toInteger();
+        if (sliceBoundsCheck(0, es1.len, ilwr, iupr))
+            cantExp(ue);   // https://issues.dlang.org/show_bug.cgi?id=18115
         else
         {
-            size_t len = cast(size_t)(iupr - ilwr);
-            ubyte sz = es1.sz;
+            const len = cast(size_t)(iupr - ilwr);
+            const sz = es1.sz;
             void* s = mem.xmalloc(len * sz);
-            memcpy(cast(char*)s, es1.string + ilwr * sz, len * sz);
-            emplaceExp!(StringExp)(&ue, loc, s, len, es1.postfix);
-            StringExp es = cast(StringExp)ue.exp();
-            es.sz = sz;
+            const data1 = es1.peekData();
+            memcpy(s, data1.ptr + ilwr * sz, len * sz);
+            emplaceExp!(StringExp)(&ue, loc, s[0 .. len * sz], len, sz, es1.postfix);
+            StringExp es = ue.exp().isStringExp();
             es.committed = es1.committed;
             es.type = type;
         }
     }
-    else if (e1.op == TOKarrayliteral && lwr.op == TOKint64 && upr.op == TOKint64 && !hasSideEffect(e1))
+    else if (e1.op == EXP.arrayLiteral && lwr.op == EXP.int64 && upr.op == EXP.int64 && !hasSideEffect(e1))
     {
-        ArrayLiteralExp es1 = cast(ArrayLiteralExp)e1;
-        uinteger_t ilwr = lwr.toInteger();
-        uinteger_t iupr = upr.toInteger();
-        if (iupr > es1.elements.dim || ilwr > iupr)
-        {
-            e1.error("array slice `[%llu .. %llu]` is out of bounds", ilwr, iupr);
-            emplaceExp!(ErrorExp)(&ue);
-        }
+        ArrayLiteralExp es1 = e1.isArrayLiteralExp();
+        const uinteger_t ilwr = lwr.toInteger();
+        const uinteger_t iupr = upr.toInteger();
+        if (sliceBoundsCheck(0, es1.elements.dim, ilwr, iupr))
+            cantExp(ue);
         else
         {
-            auto elements = new Expressions();
-            elements.setDim(cast(size_t)(iupr - ilwr));
+            auto elements = new Expressions(cast(size_t)(iupr - ilwr));
             memcpy(elements.tdata(), es1.elements.tdata() + ilwr, cast(size_t)(iupr - ilwr) * ((*es1.elements)[0]).sizeof);
-            emplaceExp!(ArrayLiteralExp)(&ue, e1.loc, elements);
-            ue.exp().type = type;
+            emplaceExp!(ArrayLiteralExp)(&ue, e1.loc, type, elements);
         }
     }
     else
-        emplaceExp!(CTFEExp)(&ue, TOKcantexp);
-    assert(ue.exp().type);
+        cantExp(ue);
     return ue;
+}
+
+/* Check whether slice `[newlwr .. newupr]` is in the range `[lwr .. upr]`
+ */
+bool sliceBoundsCheck(uinteger_t lwr, uinteger_t upr, uinteger_t newlwr, uinteger_t newupr) pure
+{
+    assert(lwr <= upr);
+    return !(newlwr <= newupr &&
+             lwr <= newlwr &&
+             newupr <= upr);
 }
 
 /* Set a slice of char/integer array literal 'existingAE' from a string 'newval'.
  * existingAE[firstIndex..firstIndex+newval.length] = newval.
  */
-extern (C++) void sliceAssignArrayLiteralFromString(ArrayLiteralExp existingAE, const StringExp newval, size_t firstIndex)
+void sliceAssignArrayLiteralFromString(ArrayLiteralExp existingAE, const StringExp newval, size_t firstIndex)
 {
     const len = newval.len;
     Type elemType = existingAE.type.nextOf();
@@ -1413,44 +1414,48 @@ extern (C++) void sliceAssignArrayLiteralFromString(ArrayLiteralExp existingAE, 
 /* Set a slice of string 'existingSE' from a char array literal 'newae'.
  *   existingSE[firstIndex..firstIndex+newae.length] = newae.
  */
-extern (C++) void sliceAssignStringFromArrayLiteral(StringExp existingSE, ArrayLiteralExp newae, size_t firstIndex)
+void sliceAssignStringFromArrayLiteral(StringExp existingSE, ArrayLiteralExp newae, size_t firstIndex)
 {
-    assert(existingSE.ownedByCtfe != OWNEDcode);
+    assert(existingSE.ownedByCtfe != OwnedBy.code);
     foreach (j; 0 .. newae.elements.dim)
     {
-        existingSE.setCodeUnit(firstIndex + j, cast(dchar)newae.getElement(j).toInteger());
+        existingSE.setCodeUnit(firstIndex + j, cast(dchar)newae[j].toInteger());
     }
 }
 
 /* Set a slice of string 'existingSE' from a string 'newstr'.
  *   existingSE[firstIndex..firstIndex+newstr.length] = newstr.
  */
-extern (C++) void sliceAssignStringFromString(StringExp existingSE, const StringExp newstr, size_t firstIndex)
+void sliceAssignStringFromString(StringExp existingSE, const StringExp newstr, size_t firstIndex)
 {
-    assert(existingSE.ownedByCtfe != OWNEDcode);
+    assert(existingSE.ownedByCtfe != OwnedBy.code);
     size_t sz = existingSE.sz;
     assert(sz == newstr.sz);
-    memcpy(existingSE.string + firstIndex * sz, newstr.string, sz * newstr.len);
+    auto data1 = existingSE.borrowData();
+    const data2 = newstr.peekData();
+    memcpy(data1.ptr + firstIndex * sz, data2.ptr, data2.length);
 }
 
 /* Compare a string slice with another string slice.
  * Conceptually equivalent to memcmp( se1[lo1..lo1+len],  se2[lo2..lo2+len])
  */
-extern (C++) int sliceCmpStringWithString(const StringExp se1, const StringExp se2, size_t lo1, size_t lo2, size_t len)
+int sliceCmpStringWithString(const StringExp se1, const StringExp se2, size_t lo1, size_t lo2, size_t len)
 {
     size_t sz = se1.sz;
     assert(sz == se2.sz);
-    return memcmp(se1.string + sz * lo1, se2.string + sz * lo2, sz * len);
+    const data1 = se1.peekData();
+    const data2 = se2.peekData();
+    return memcmp(data1.ptr + sz * lo1, data2.ptr + sz * lo2, sz * len);
 }
 
 /* Compare a string slice with an array literal slice
  * Conceptually equivalent to memcmp( se1[lo1..lo1+len],  ae2[lo2..lo2+len])
  */
-extern (C++) int sliceCmpStringWithArray(const StringExp se1, ArrayLiteralExp ae2, size_t lo1, size_t lo2, size_t len)
+int sliceCmpStringWithArray(const StringExp se1, ArrayLiteralExp ae2, size_t lo1, size_t lo2, size_t len)
 {
     foreach (j; 0 .. len)
     {
-        const val2 = cast(dchar)ae2.getElement(j + lo2).toInteger();
+        const val2 = cast(dchar)ae2[j + lo2].toInteger();
         const val1 = se1.getCodeUnit(j + lo1);
         const int c = val1 - val2;
         if (c)
@@ -1459,46 +1464,88 @@ extern (C++) int sliceCmpStringWithArray(const StringExp se1, ArrayLiteralExp ae
     return 0;
 }
 
-/* Also return TOKcantexp if this fails
+/** Copy element `Expressions` in the parameters when they're `ArrayLiteralExp`s.
+ * Params:
+ *      e1  = If it's ArrayLiteralExp, its `elements` will be copied.
+ *            Otherwise, `e1` itself will be pushed into the new `Expressions`.
+ *      e2  = If it's not `null`, it will be pushed/appended to the new
+ *            `Expressions` by the same way with `e1`.
+ * Returns:
+ *      Newly allocated `Expressions`. Note that it points to the original
+ *      `Expression` values in e1 and e2.
  */
-extern (C++) UnionExp Cat(Type type, Expression e1, Expression e2)
+private Expressions* copyElements(Expression e1, Expression e2 = null)
 {
-    UnionExp ue;
+    auto elems = new Expressions();
+
+    void append(ArrayLiteralExp ale)
+    {
+        if (!ale.elements)
+            return;
+        auto d = elems.dim;
+        elems.append(ale.elements);
+        foreach (ref el; (*elems)[d .. elems.dim])
+        {
+            if (!el)
+                el = ale.basis;
+        }
+    }
+
+    if (auto ale = e1.isArrayLiteralExp())
+        append(ale);
+    else
+        elems.push(e1);
+
+    if (e2)
+    {
+        if (auto ale = e2.isArrayLiteralExp())
+            append(ale);
+        else
+            elems.push(e2);
+    }
+
+    return elems;
+}
+
+/* Also return EXP.cantExpression if this fails
+ */
+UnionExp Cat(const ref Loc loc, Type type, Expression e1, Expression e2)
+{
+    UnionExp ue = void;
     Expression e = CTFEExp.cantexp;
-    Loc loc = e1.loc;
     Type t;
     Type t1 = e1.type.toBasetype();
     Type t2 = e2.type.toBasetype();
     //printf("Cat(e1 = %s, e2 = %s)\n", e1.toChars(), e2.toChars());
     //printf("\tt1 = %s, t2 = %s, type = %s\n", t1.toChars(), t2.toChars(), type.toChars());
-    if (e1.op == TOKnull && (e2.op == TOKint64 || e2.op == TOKstructliteral))
+    if (e1.op == EXP.null_ && (e2.op == EXP.int64 || e2.op == EXP.structLiteral))
     {
         e = e2;
         t = t1;
         goto L2;
     }
-    else if ((e1.op == TOKint64 || e1.op == TOKstructliteral) && e2.op == TOKnull)
+    else if ((e1.op == EXP.int64 || e1.op == EXP.structLiteral) && e2.op == EXP.null_)
     {
         e = e1;
         t = t2;
     L2:
         Type tn = e.type.toBasetype();
-        if (tn.ty == Tchar || tn.ty == Twchar || tn.ty == Tdchar)
+        if (tn.ty.isSomeChar)
         {
             // Create a StringExp
             if (t.nextOf())
                 t = t.nextOf().toBasetype();
-            ubyte sz = cast(ubyte)t.size();
+            const sz = cast(ubyte)t.size();
             dinteger_t v = e.toInteger();
-            size_t len = (t.ty == tn.ty) ? 1 : utf_codeLength(sz, cast(dchar)v);
+            const len = (t.ty == tn.ty) ? 1 : utf_codeLength(sz, cast(dchar)v);
             void* s = mem.xmalloc(len * sz);
             if (t.ty == tn.ty)
                 Port.valcpy(s, v, sz);
             else
                 utf_encode(sz, s, cast(dchar)v);
-            emplaceExp!(StringExp)(&ue, loc, s, len);
-            StringExp es = cast(StringExp)ue.exp();
-            es.sz = sz;
+            emplaceExp!(StringExp)(&ue, loc, s[0 .. len * sz], len, sz);
+            StringExp es = ue.exp().isStringExp();
+            es.type = type;
             es.committed = 1;
         }
         else
@@ -1506,21 +1553,19 @@ extern (C++) UnionExp Cat(Type type, Expression e1, Expression e2)
             // Create an ArrayLiteralExp
             auto elements = new Expressions();
             elements.push(e);
-            emplaceExp!(ArrayLiteralExp)(&ue, e.loc, elements);
+            emplaceExp!(ArrayLiteralExp)(&ue, e.loc, type, elements);
         }
-        ue.exp().type = type;
         assert(ue.exp().type);
         return ue;
     }
-    else if (e1.op == TOKnull && e2.op == TOKnull)
+    else if (e1.op == EXP.null_ && e2.op == EXP.null_)
     {
         if (type == e1.type)
         {
             // Handle null ~= null
             if (t1.ty == Tarray && t2 == t1.nextOf())
             {
-                emplaceExp!(ArrayLiteralExp)(&ue, e1.loc, e2);
-                ue.exp().type = type;
+                emplaceExp!(ArrayLiteralExp)(&ue, e1.loc, type, e2);
                 assert(ue.exp().type);
                 return ue;
             }
@@ -1541,11 +1586,11 @@ extern (C++) UnionExp Cat(Type type, Expression e1, Expression e2)
         assert(ue.exp().type);
         return ue;
     }
-    else if (e1.op == TOKstring && e2.op == TOKstring)
+    else if (e1.op == EXP.string_ && e2.op == EXP.string_)
     {
         // Concatenate the strings
-        StringExp es1 = cast(StringExp)e1;
-        StringExp es2 = cast(StringExp)e2;
+        StringExp es1 = e1.isStringExp();
+        StringExp es2 = e2.isStringExp();
         size_t len = es1.len + es2.len;
         ubyte sz = es1.sz;
         if (sz != es2.sz)
@@ -1554,109 +1599,108 @@ extern (C++) UnionExp Cat(Type type, Expression e1, Expression e2)
              *   auto s = "foo"d ~ "bar"c;
              */
             assert(global.errors);
-            emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+            cantExp(ue);
             assert(ue.exp().type);
             return ue;
         }
         void* s = mem.xmalloc(len * sz);
-        memcpy(cast(char*)s, es1.string, es1.len * sz);
-        memcpy(cast(char*)s + es1.len * sz, es2.string, es2.len * sz);
-        emplaceExp!(StringExp)(&ue, loc, s, len);
-        StringExp es = cast(StringExp)ue.exp();
-        es.sz = sz;
+        const data1 = es1.peekData();
+        const data2 = es2.peekData();
+        memcpy(cast(char*)s, data1.ptr, es1.len * sz);
+        memcpy(cast(char*)s + es1.len * sz, data2.ptr, es2.len * sz);
+        emplaceExp!(StringExp)(&ue, loc, s[0 .. len * sz], len, sz);
+        StringExp es = ue.exp().isStringExp();
         es.committed = es1.committed | es2.committed;
         es.type = type;
         assert(ue.exp().type);
         return ue;
     }
-    else if (e2.op == TOKstring && e1.op == TOKarrayliteral && t1.nextOf().isintegral())
+    else if (e2.op == EXP.string_ && e1.op == EXP.arrayLiteral && t1.nextOf().isintegral())
     {
         // [chars] ~ string --> [chars]
-        StringExp es = cast(StringExp)e2;
-        ArrayLiteralExp ea = cast(ArrayLiteralExp)e1;
+        StringExp es = e2.isStringExp();
+        ArrayLiteralExp ea = e1.isArrayLiteralExp();
         size_t len = es.len + ea.elements.dim;
-        auto elems = new Expressions();
-        elems.setDim(len);
+        auto elems = new Expressions(len);
         for (size_t i = 0; i < ea.elements.dim; ++i)
         {
-            (*elems)[i] = ea.getElement(i);
+            (*elems)[i] = ea[i];
         }
-        emplaceExp!(ArrayLiteralExp)(&ue, e1.loc, elems);
-        ArrayLiteralExp dest = cast(ArrayLiteralExp)ue.exp();
-        dest.type = type;
+        emplaceExp!(ArrayLiteralExp)(&ue, e1.loc, type, elems);
+        ArrayLiteralExp dest = ue.exp().isArrayLiteralExp();
         sliceAssignArrayLiteralFromString(dest, es, ea.elements.dim);
         assert(ue.exp().type);
         return ue;
     }
-    else if (e1.op == TOKstring && e2.op == TOKarrayliteral && t2.nextOf().isintegral())
+    else if (e1.op == EXP.string_ && e2.op == EXP.arrayLiteral && t2.nextOf().isintegral())
     {
         // string ~ [chars] --> [chars]
-        StringExp es = cast(StringExp)e1;
-        ArrayLiteralExp ea = cast(ArrayLiteralExp)e2;
+        StringExp es = e1.isStringExp();
+        ArrayLiteralExp ea = e2.isArrayLiteralExp();
         size_t len = es.len + ea.elements.dim;
-        auto elems = new Expressions();
-        elems.setDim(len);
+        auto elems = new Expressions(len);
         for (size_t i = 0; i < ea.elements.dim; ++i)
         {
-            (*elems)[es.len + i] = ea.getElement(i);
+            (*elems)[es.len + i] = ea[i];
         }
-        emplaceExp!(ArrayLiteralExp)(&ue, e1.loc, elems);
-        ArrayLiteralExp dest = cast(ArrayLiteralExp)ue.exp();
-        dest.type = type;
+        emplaceExp!(ArrayLiteralExp)(&ue, e1.loc, type, elems);
+        ArrayLiteralExp dest = ue.exp().isArrayLiteralExp();
         sliceAssignArrayLiteralFromString(dest, es, 0);
         assert(ue.exp().type);
         return ue;
     }
-    else if (e1.op == TOKstring && e2.op == TOKint64)
+    else if (e1.op == EXP.string_ && e2.op == EXP.int64)
     {
         // string ~ char --> string
-        StringExp es1 = cast(StringExp)e1;
+        StringExp es1 = e1.isStringExp();
         StringExp es;
-        ubyte sz = es1.sz;
+        const sz = es1.sz;
         dinteger_t v = e2.toInteger();
         // Is it a concatenation of homogenous types?
         // (char[] ~ char, wchar[]~wchar, or dchar[]~dchar)
         bool homoConcat = (sz == t2.size());
-        size_t len = es1.len;
-        len += homoConcat ? 1 : utf_codeLength(sz, cast(dchar)v);
+        const len = es1.len + (homoConcat ? 1 : utf_codeLength(sz, cast(dchar)v));
         void* s = mem.xmalloc(len * sz);
-        memcpy(s, es1.string, es1.len * sz);
+        const data1 = es1.peekData();
+        memcpy(s, data1.ptr, data1.length);
         if (homoConcat)
             Port.valcpy(cast(char*)s + (sz * es1.len), v, sz);
         else
             utf_encode(sz, cast(char*)s + (sz * es1.len), cast(dchar)v);
-        emplaceExp!(StringExp)(&ue, loc, s, len);
-        es = cast(StringExp)ue.exp();
-        es.sz = sz;
+        emplaceExp!(StringExp)(&ue, loc, s[0 .. len * sz], len, sz);
+        es = ue.exp().isStringExp();
         es.committed = es1.committed;
         es.type = type;
         assert(ue.exp().type);
         return ue;
     }
-    else if (e1.op == TOKint64 && e2.op == TOKstring)
+    else if (e1.op == EXP.int64 && e2.op == EXP.string_)
     {
-        // Concatenate the strings
-        StringExp es2 = cast(StringExp)e2;
-        size_t len = 1 + es2.len;
-        ubyte sz = es2.sz;
+        // [w|d]?char ~ string --> string
+        // We assume that we only ever prepend one char of the same type
+        // (wchar,dchar) as the string's characters.
+        StringExp es2 = e2.isStringExp();
+        const len = 1 + es2.len;
+        const sz = es2.sz;
         dinteger_t v = e1.toInteger();
         void* s = mem.xmalloc(len * sz);
-        memcpy(cast(char*)s, &v, sz);
-        memcpy(cast(char*)s + sz, es2.string, es2.len * sz);
-        emplaceExp!(StringExp)(&ue, loc, s, len);
-        StringExp es = cast(StringExp)ue.exp();
+        Port.valcpy(cast(char*)s, v, sz);
+        const data2 = es2.peekData();
+        memcpy(cast(char*)s + sz, data2.ptr, data2.length);
+        emplaceExp!(StringExp)(&ue, loc, s[0 .. len * sz], len, sz);
+        StringExp es = ue.exp().isStringExp();
         es.sz = sz;
         es.committed = es2.committed;
         es.type = type;
         assert(ue.exp().type);
         return ue;
     }
-    else if (e1.op == TOKarrayliteral && e2.op == TOKarrayliteral && t1.nextOf().equals(t2.nextOf()))
+    else if (e1.op == EXP.arrayLiteral && e2.op == EXP.arrayLiteral && t1.nextOf().equals(t2.nextOf()))
     {
         // Concatenate the arrays
-        auto elems = ArrayLiteralExp.copyElements(e1, e2);
+        auto elems = copyElements(e1, e2);
 
-        emplaceExp!(ArrayLiteralExp)(&ue, e1.loc, elems);
+        emplaceExp!(ArrayLiteralExp)(&ue, e1.loc, cast(Type)null, elems);
 
         e = ue.exp();
         if (type.toBasetype().ty == Tsarray)
@@ -1668,19 +1712,19 @@ extern (C++) UnionExp Cat(Type type, Expression e1, Expression e2)
         assert(ue.exp().type);
         return ue;
     }
-    else if (e1.op == TOKarrayliteral && e2.op == TOKnull && t1.nextOf().equals(t2.nextOf()))
+    else if (e1.op == EXP.arrayLiteral && e2.op == EXP.null_ && t1.nextOf().equals(t2.nextOf()))
     {
         e = e1;
         goto L3;
     }
-    else if (e1.op == TOKnull && e2.op == TOKarrayliteral && t1.nextOf().equals(t2.nextOf()))
+    else if (e1.op == EXP.null_ && e2.op == EXP.arrayLiteral && t1.nextOf().equals(t2.nextOf()))
     {
         e = e2;
     L3:
         // Concatenate the array with null
-        auto elems = ArrayLiteralExp.copyElements(e);
+        auto elems = copyElements(e);
 
-        emplaceExp!(ArrayLiteralExp)(&ue, e.loc, elems);
+        emplaceExp!(ArrayLiteralExp)(&ue, e.loc, cast(Type)null, elems);
 
         e = ue.exp();
         if (type.toBasetype().ty == Tsarray)
@@ -1692,13 +1736,13 @@ extern (C++) UnionExp Cat(Type type, Expression e1, Expression e2)
         assert(ue.exp().type);
         return ue;
     }
-    else if ((e1.op == TOKarrayliteral || e1.op == TOKnull) && e1.type.toBasetype().nextOf() && e1.type.toBasetype().nextOf().equals(e2.type))
+    else if ((e1.op == EXP.arrayLiteral || e1.op == EXP.null_) && e1.type.toBasetype().nextOf() && e1.type.toBasetype().nextOf().equals(e2.type))
     {
-        auto elems = (e1.op == TOKarrayliteral)
-                ? ArrayLiteralExp.copyElements(e1) : new Expressions();
+        auto elems = (e1.op == EXP.arrayLiteral)
+                ? copyElements(e1) : new Expressions();
         elems.push(e2);
 
-        emplaceExp!(ArrayLiteralExp)(&ue, e1.loc, elems);
+        emplaceExp!(ArrayLiteralExp)(&ue, loc, cast(Type)null, elems);
 
         e = ue.exp();
         if (type.toBasetype().ty == Tsarray)
@@ -1710,11 +1754,11 @@ extern (C++) UnionExp Cat(Type type, Expression e1, Expression e2)
         assert(ue.exp().type);
         return ue;
     }
-    else if (e2.op == TOKarrayliteral && e2.type.toBasetype().nextOf().equals(e1.type))
+    else if (e2.op == EXP.arrayLiteral && e2.type.toBasetype().nextOf().equals(e1.type))
     {
-        auto elems = ArrayLiteralExp.copyElements(e1, e2);
+        auto elems = copyElements(e1, e2);
 
-        emplaceExp!(ArrayLiteralExp)(&ue, e2.loc, elems);
+        emplaceExp!(ArrayLiteralExp)(&ue, loc, cast(Type)null, elems);
 
         e = ue.exp();
         if (type.toBasetype().ty == Tsarray)
@@ -1726,13 +1770,13 @@ extern (C++) UnionExp Cat(Type type, Expression e1, Expression e2)
         assert(ue.exp().type);
         return ue;
     }
-    else if (e1.op == TOKnull && e2.op == TOKstring)
+    else if (e1.op == EXP.null_ && e2.op == EXP.string_)
     {
         t = e1.type;
         e = e2;
         goto L1;
     }
-    else if (e1.op == TOKstring && e2.op == TOKnull)
+    else if (e1.op == EXP.string_ && e2.op == EXP.null_)
     {
         e = e1;
         t = e2.type;
@@ -1742,9 +1786,8 @@ extern (C++) UnionExp Cat(Type type, Expression e1, Expression e2)
         {
             auto expressions = new Expressions();
             expressions.push(e);
-            emplaceExp!(ArrayLiteralExp)(&ue, loc, expressions);
+            emplaceExp!(ArrayLiteralExp)(&ue, loc, t, expressions);
             e = ue.exp();
-            e.type = t;
         }
         else
         {
@@ -1753,41 +1796,39 @@ extern (C++) UnionExp Cat(Type type, Expression e1, Expression e2)
         }
         if (!e.type.equals(type))
         {
-            StringExp se = cast(StringExp)e.copy();
+            StringExp se = e.copy().isStringExp();
             e = se.castTo(null, type);
             emplaceExp!(UnionExp)(&ue, e);
             e = ue.exp();
         }
     }
     else
-        emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+        cantExp(ue);
     assert(ue.exp().type);
     return ue;
 }
 
-extern (C++) UnionExp Ptr(Type type, Expression e1)
+UnionExp Ptr(Type type, Expression e1)
 {
     //printf("Ptr(e1 = %s)\n", e1.toChars());
-    UnionExp ue;
-    if (e1.op == TOKadd)
+    UnionExp ue = void;
+    if (AddExp ae = e1.isAddExp())
     {
-        AddExp ae = cast(AddExp)e1;
-        if (ae.e1.op == TOKaddress && ae.e2.op == TOKint64)
+        if (AddrExp ade = ae.e1.isAddrExp())
         {
-            AddrExp ade = cast(AddrExp)ae.e1;
-            if (ade.e1.op == TOKstructliteral)
-            {
-                StructLiteralExp se = cast(StructLiteralExp)ade.e1;
-                uint offset = cast(uint)ae.e2.toInteger();
-                Expression e = se.getField(type, offset);
-                if (e)
+            if (ae.e2.op == EXP.int64)
+                if (StructLiteralExp se = ade.e1.isStructLiteralExp())
                 {
-                    emplaceExp!(UnionExp)(&ue, e);
-                    return ue;
+                    uint offset = cast(uint)ae.e2.toInteger();
+                    Expression e = se.getField(type, offset);
+                    if (e)
+                    {
+                        emplaceExp!(UnionExp)(&ue, e);
+                        return ue;
+                    }
                 }
-            }
         }
     }
-    emplaceExp!(CTFEExp)(&ue, TOKcantexp);
+    cantExp(ue);
     return ue;
 }

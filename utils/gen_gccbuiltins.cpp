@@ -52,19 +52,9 @@ string dtype(Record* rec, bool readOnlyMem)
         type = type.substr(i);
     }
 
-    if(vec.size() > 0 && type.size() > 0)
-    {
-        int typeSize, vecElements;
-        if(
-            sscanf(vec.c_str(), "%d", &vecElements) == 1 &&
-            sscanf(type.c_str() + 1, "%d", &typeSize) == 1 &&
-            typeSize * vecElements > 256)
-        {
-            return "";
-        }
-    }
-
-    if(type == "i8")
+    if(type == "i1" && vec.empty())
+        return "bool";
+    else if(type == "i8")
         return "byte" + vec;
     else if(type == "i16")
         return "short" + vec;
@@ -80,16 +70,17 @@ string dtype(Record* rec, bool readOnlyMem)
         return "";
 }
 
-string attributes(ListInit* propertyList)
+StringRef attributes(ListInit* propertyList)
 {
-    string prop =
-        propertyList->size()
-        ? propertyList->getElementAsRecord(0)->getName() : "";
+  const auto prop = propertyList->size()
+                    ? propertyList->getElementAsRecord(0)->getName()
+                    : "";
 
-    return
-        prop == "IntrNoMem" ? " pure @safe" :
-        prop == "IntrReadArgMem" ? " pure" :
-        prop == "IntrReadWriteArgMem" ? " pure" : "";
+  if (prop == "IntrNoMem")
+    return " pure @safe";
+  if (prop == "IntrReadArgMem" || prop == "IntrReadWriteArgMem")
+    return " pure";
+  return "";
 }
 
 void processRecord(raw_ostream& os, Record& rec, string arch)
@@ -97,8 +88,8 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
     if(!rec.getValue("GCCBuiltinName"))
         return;
 
-    string builtinName = rec.getValueAsString("GCCBuiltinName");
-    string name =  rec.getName();
+    const StringRef builtinName = rec.getValueAsString("GCCBuiltinName");
+    string name = rec.getName().str();
 
     if(name.substr(0, 4) != "int_" || name.find(arch) == string::npos)
         return;
@@ -107,14 +98,9 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
     replace(name.begin(), name.end(), '_', '.');
     name = string("llvm.") + name;
 
-#if LDC_LLVM_VER >= 309
     ListInit* propsList = rec.getValueAsListInit("IntrProperties");
-#else
-    ListInit* propsList = rec.getValueAsListInit("Properties");
-#endif
-    string prop =
-        propsList->size()
-        ? propsList->getElementAsRecord(0)->getName() : "";
+    const StringRef prop =
+        propsList->size() ? propsList->getElementAsRecord(0)->getName() : "";
 
     bool readOnlyMem = prop == "IntrReadArgMem" || prop == "IntrReadMem";
 
@@ -143,8 +129,8 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
     else
         return;
 
-    os << "pragma(LDC_intrinsic, \"" + name + "\")\n    ";
-    os << ret + " " + builtinName + "(";
+    os << "pragma(LDC_intrinsic, \"" << name << "\")\n    ";
+    os << ret << " " << builtinName << "(";
 
     if(params.size())
         os << params[0];
@@ -152,7 +138,7 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
     for(size_t i = 1; i < params.size(); i++)
         os << ", " << params[i];
 
-    os << ")" + attributes(propsList) + ";\n\n";
+    os << ")" << attributes(propsList) << ";\n\n";
 }
 
 std::string arch;
@@ -185,17 +171,13 @@ int main(int argc, char** argv)
         return 1;
     }
 
-#define STR(x) #x
-#define XSTR(x) STR(x)
-    llvm::SmallString<128> file(XSTR(LLVM_INTRINSIC_TD_PATH));
+    llvm::SmallString<128> file(LLVM_INTRINSIC_TD_PATH);
     sys::path::append(file, "llvm");
     sys::path::append(file, "IR");
     sys::path::append(file, "Intrinsics.td");
 
-    string iStr = string("-I=") + string(XSTR(LLVM_INTRINSIC_TD_PATH));
+    string iStr = string("-I=") + LLVM_INTRINSIC_TD_PATH;
     string oStr = string("-o=") + argv[1];
-#undef XSTR
-#undef STR
 
     vector<char*> args2(argv, argv + 1);
     args2.push_back(const_cast<char*>(file.c_str()));

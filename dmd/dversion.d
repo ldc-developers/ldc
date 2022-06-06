@@ -1,18 +1,18 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Defines a `Dsymbol` for `version = identifier` and `debug = identifier` statements.
  *
- * Copyright:   Copyright (c) 1999-2017 by The D Language Foundation, All Rights Reserved
- * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
- * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Specification: $(LINK2 https://dlang.org/spec/version.html#version-specification, Version Specification),
+ *                $(LINK2 https://dlang.org/spec/version.html#debug_specification, Debug Specification).
+ *
+ * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/dversion.d, _dversion.d)
  * Documentation:  https://dlang.org/phobos/dmd_dversion.html
  * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/dversion.d
  */
 
 module dmd.dversion;
-
-// Online documentation: https://dlang.org/phobos/dmd_dversion.html
 
 import dmd.arraytypes;
 import dmd.cond;
@@ -22,7 +22,7 @@ import dmd.dsymbol;
 import dmd.dsymbolsem;
 import dmd.globals;
 import dmd.identifier;
-import dmd.root.outbuffer;
+import dmd.common.outbuffer;
 import dmd.visitor;
 
 /***********************************************************
@@ -34,22 +34,22 @@ extern (C++) final class DebugSymbol : Dsymbol
 {
     uint level;
 
-    extern (D) this(Loc loc, Identifier ident)
+    extern (D) this(const ref Loc loc, Identifier ident)
     {
-        super(ident);
-        this.loc = loc;
+        super(loc, ident);
     }
 
-    extern (D) this(Loc loc, uint level)
+    extern (D) this(const ref Loc loc, uint level)
     {
+        super(loc, null);
         this.level = level;
-        this.loc = loc;
     }
 
-    override Dsymbol syntaxCopy(Dsymbol s)
+    override DebugSymbol syntaxCopy(Dsymbol s)
     {
         assert(!s);
         auto ds = new DebugSymbol(loc, ident);
+        ds.comment = comment;
         ds.level = level;
         return ds;
     }
@@ -62,7 +62,7 @@ extern (C++) final class DebugSymbol : Dsymbol
         {
             OutBuffer buf;
             buf.print(level);
-            return buf.extractString();
+            return buf.extractChars();
         }
     }
 
@@ -108,6 +108,11 @@ extern (C++) final class DebugSymbol : Dsymbol
         return "debug";
     }
 
+    override inout(DebugSymbol) isDebugSymbol() inout
+    {
+        return this;
+    }
+
     override void accept(Visitor v)
     {
         v.visit(this);
@@ -123,27 +128,27 @@ extern (C++) final class VersionSymbol : Dsymbol
 {
     uint level;
 
-    extern (D) this(Loc loc, Identifier ident)
+    extern (D) this(const ref Loc loc, Identifier ident)
     {
-        super(ident);
-        this.loc = loc;
+        super(loc, ident);
     }
 
-    extern (D) this(Loc loc, uint level)
+    extern (D) this(const ref Loc loc, uint level)
     {
+        super(loc, null);
         this.level = level;
-        this.loc = loc;
     }
 
-    override Dsymbol syntaxCopy(Dsymbol s)
+    override VersionSymbol syntaxCopy(Dsymbol s)
     {
         assert(!s);
         auto ds = ident ? new VersionSymbol(loc, ident)
                         : new VersionSymbol(loc, level);
+        ds.comment = comment;
         return ds;
     }
 
-    override const(char)* toChars() nothrow
+    override const(char)* toChars() const nothrow
     {
         if (ident)
             return ident.toChars();
@@ -151,7 +156,7 @@ extern (C++) final class VersionSymbol : Dsymbol
         {
             OutBuffer buf;
             buf.print(level);
-            return buf.extractString();
+            return buf.extractChars();
         }
     }
 
@@ -196,6 +201,11 @@ extern (C++) final class VersionSymbol : Dsymbol
     override const(char)* kind() const nothrow
     {
         return "version";
+    }
+
+    override inout(VersionSymbol) isVersionSymbol() inout
+    {
+        return this;
     }
 
     override void accept(Visitor v)

@@ -42,7 +42,7 @@ int disabled(int i)
 }
 
 // PROFGEN-LABEL: @bunch_of_branches_enabled(
-int bunch_of_branches_enabled(int i, int two)
+int bunch_of_branches_enabled(int i, const int two)
 {
     pragma(LDC_profile_instr, true);
 
@@ -63,7 +63,7 @@ int bunch_of_branches_enabled(int i, int two)
 // PROFGEN-LABEL: @bunch_of_branches_disabled(
 // PROFGEN-NOT: casecntr
 // PROFGEN-NOT: defaultcntr
-int bunch_of_branches_disabled(int i, int two)
+int bunch_of_branches_disabled(int i, const int two)
 {
     pragma(LDC_profile_instr, false);
 

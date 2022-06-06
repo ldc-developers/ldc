@@ -1,6 +1,6 @@
-//===-- gen/abi-ppc-64.h - PPC64 ABI description ----------------*- C++ -*-===//
+//===-- gen/abi-aarch-64.h - AArch64 ABI description ------------*- C++ -*-===//
 //
-//                         LDC – the LLVM D compiler
+//                         LDC â€“ the LLVM D compiler
 //
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
@@ -11,11 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_ABI_AARCH64_H
-#define LDC_GEN_ABI_AARCH64_H
+#pragma once
 
 struct TargetABI;
 
 TargetABI *getAArch64TargetABI();
-
-#endif

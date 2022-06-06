@@ -22,14 +22,14 @@
 #include "gen/tollvm.h"
 
 struct PPC64LETargetABI : TargetABI {
-  HFAToArray hfaToArray;
+  HFVAToArray hfvaToArray;
   CompositeToArray64 compositeToArray64;
   IntegerRewrite integerRewrite;
 
-  explicit PPC64LETargetABI() : hfaToArray(8) {}
+  explicit PPC64LETargetABI() : hfvaToArray(8) {}
 
-  bool returnInArg(TypeFunction *tf) override {
-    if (tf->isref) {
+  bool returnInArg(TypeFunction *tf, bool) override {
+    if (tf->isref()) {
       return false;
     }
 
@@ -38,16 +38,16 @@ struct PPC64LETargetABI : TargetABI {
     if (!isPOD(rt))
       return true;
 
-    return passByVal(rt);
+    return passByVal(tf, rt);
   }
 
-  bool passByVal(Type *t) override {
+  bool passByVal(TypeFunction *, Type *t) override {
     t = t->toBasetype();
-    return t->ty == Tsarray || (t->ty == Tstruct && t->size() > 16 &&
-                                !isHFA((TypeStruct *)t, nullptr, 8));
+    return t->ty == TY::Tsarray || (t->ty == TY::Tstruct && t->size() > 16 &&
+                                    !isHFVA(t, hfvaToArray.maxElements));
   }
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
+  void rewriteFunctionType(IrFuncTy &fty) override {
     // return value
     if (!fty.ret->byref) {
       rewriteArgument(fty, *fty.ret);
@@ -59,28 +59,22 @@ struct PPC64LETargetABI : TargetABI {
         rewriteArgument(fty, *arg);
       }
     }
-
-    // extern(D): reverse parameter order for non variadics, for DMD-compliance
-    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
-      fty.reverseParams = true;
-    }
   }
 
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     Type *ty = arg.type->toBasetype();
-    if (ty->ty == Tstruct || ty->ty == Tsarray) {
-      if (ty->ty == Tstruct && isHFA((TypeStruct *)ty, &arg.ltype, 8)) {
-        arg.rewrite = &hfaToArray;
-        arg.ltype = hfaToArray.type(arg.type);
+    if (ty->ty == TY::Tstruct || ty->ty == TY::Tsarray) {
+      if (ty->ty == TY::Tstruct &&
+          isHFVA(ty, hfvaToArray.maxElements, &arg.ltype)) {
+        hfvaToArray.applyTo(arg, arg.ltype);
       } else if (canRewriteAsInt(ty, true)) {
-        arg.rewrite = &integerRewrite;
-        arg.ltype = integerRewrite.type(arg.type);
+        integerRewrite.applyTo(arg);
       } else {
-        arg.rewrite = &compositeToArray64;
-        arg.ltype = compositeToArray64.type(arg.type);
+        compositeToArray64.applyTo(arg);
       }
     } else if (ty->isintegral()) {
-      arg.attrs.add(ty->isunsigned() ? LLAttribute::ZExt : LLAttribute::SExt);
+      arg.attrs.addAttribute(ty->isunsigned() ? LLAttribute::ZExt
+                                              : LLAttribute::SExt);
     }
   }
 };

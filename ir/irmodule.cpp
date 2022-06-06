@@ -8,9 +8,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "ir/irmodule.h"
-#include "module.h"
-#include "gen/llvm.h"
+
+#include "dmd/module.h"
 #include "gen/irstate.h"
+#include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
 #include "gen/mangling.h"
 #include "gen/tollvm.h"
 #include "ir/irdsymbol.h"
@@ -25,9 +27,12 @@ llvm::GlobalVariable *IrModule::moduleInfoSymbol() {
 
   const auto irMangle = getIRMangledModuleInfoSymbolName(M);
 
-  moduleInfoVar = new llvm::GlobalVariable(
-      gIR->module, llvm::StructType::create(gIR->context()), false,
-      llvm::GlobalValue::ExternalLinkage, nullptr, irMangle);
+  const bool useDLLImport = !M->isRoot() && dllimportDataSymbol(M);
+
+  moduleInfoVar = declareGlobal(Loc(), gIR->module,
+                                llvm::StructType::create(gIR->context()),
+                                irMangle, false, false, useDLLImport);
+
   return moduleInfoVar;
 }
 

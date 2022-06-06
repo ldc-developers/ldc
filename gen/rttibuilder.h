@@ -12,39 +12,30 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_RTTIBUILDER_H
-#define LDC_GEN_RTTIBUILDER_H
+#pragma once
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Constant.h"
 
-class AggregateDeclaration;
 class ClassDeclaration;
 class Dsymbol;
 class FuncDeclaration;
-struct IrGlobal;
-struct IrAggr;
 class Type;
-class TypeClass;
 namespace llvm {
 class StructType;
 class GlobalVariable;
 }
 
 class RTTIBuilder {
-  AggregateDeclaration *base;
-  TypeClass *basetype;
-  IrAggr *baseir;
-
   /// The offset (in bytes) at which the previously pushed field ended.
-  uint64_t prevFieldEnd;
+  uint64_t prevFieldEnd = 0;
 
 public:
   // 15 is enough for any D2 ClassInfo including 64 bit pointer alignment
   // padding
   llvm::SmallVector<llvm::Constant *, 15> inits;
 
-  explicit RTTIBuilder(AggregateDeclaration *base_class);
+  explicit RTTIBuilder(Type *baseType);
 
   void push(llvm::Constant *C);
   void push_null(Type *T);
@@ -55,7 +46,6 @@ public:
   void push_size_as_vp(uint64_t s);
   void push_string(const char *str);
   void push_typeinfo(Type *t);
-  void push_classinfo(ClassDeclaration *cd);
 
   /// pushes the function pointer or a null void* if it cannot.
   void push_funcptr(FuncDeclaration *fd, Type *castto = nullptr);
@@ -85,5 +75,3 @@ public:
   /// Creates the initializer constant and assigns it to the global.
   llvm::Constant *get_constant(llvm::StructType *initType);
 };
-
-#endif

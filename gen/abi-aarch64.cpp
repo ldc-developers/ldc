@@ -7,151 +7,173 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// The Procedure Call Standard can be found here:
-// http://infocenter.arm.com/help/topic/com.arm.doc.ihi0055b/IHI0055B_aapcs64.pdf
+// The AArch64 Procedure Call Standard (AAPCS64) can be found here:
+// https://github.com/ARM-software/abi-aa/blob/master/aapcs64/aapcs64.rst
 //
 //===----------------------------------------------------------------------===//
 
-#include "ldcbindings.h"
-#include "gen/abi.h"
-#include "gen/abi-generic.h"
 #include "gen/abi-aarch64.h"
 
-struct AArch64TargetABI : TargetABI {
-  HFAToArray hfaToArray;
-  CompositeToArray64 compositeToArray64;
-  IntegerRewrite integerRewrite;
+#include "dmd/identifier.h"
+#include "dmd/nspace.h"
+#include "gen/abi.h"
+#include "gen/abi-generic.h"
 
-  bool returnInArg(TypeFunction *tf) override {
-    if (tf->isref) {
+/**
+ * AAPCS64 uses a special native va_list type, a struct aliased as
+ * object.__va_list in druntime. Apple diverges and uses a simple char*
+ * pointer.
+ * __va_list arguments are never passed by value, only by reference (even though
+ * the mangled function name indicates otherwise!). This requires a little bit
+ * of compiler magic in the following implementations.
+ */
+struct AArch64TargetABI : TargetABI {
+private:
+  const bool isDarwin;
+  IndirectByvalRewrite indirectByvalRewrite;
+  ArgTypesRewrite argTypesRewrite;
+
+  bool isAAPCS64VaList(Type *t) {
+    if (isDarwin)
+      return false;
+
+    // look for a __va_list struct in a `std` C++ namespace
+    if (auto ts = t->isTypeStruct()) {
+      auto sd = ts->sym;
+      if (strcmp(sd->ident->toChars(), "__va_list") == 0) {
+        if (auto ns = sd->parent->isNspace()) {
+          return strcmp(ns->toChars(), "std") == 0;
+        }
+      }
+    }
+
+    return false;
+  }
+
+public:
+  AArch64TargetABI() : isDarwin(global.params.targetTriple->isOSDarwin()) {}
+
+  bool returnInArg(TypeFunction *tf, bool) override {
+    if (tf->isref()) {
       return false;
     }
 
     Type *rt = tf->next->toBasetype();
+    if (rt->ty == TY::Tstruct || rt->ty == TY::Tsarray) {
+      auto argTypes = getArgTypes(rt);
+      return !argTypes // FIXME: get rid of sret workaround for 0-sized return
+                       //        values (static arrays with 0 elements)
+             || argTypes->arguments->empty();
+    }
 
-    if (!isPOD(rt))
-      return true;
-
-    return passByVal(rt);
+    return false;
   }
 
-  bool passByVal(Type *t) override {
+  // Prefer a ref if the POD cannot be passed in registers, i.e., if
+  // IndirectByvalRewrite would be applied.
+  bool preferPassByRef(Type *t) override {
     t = t->toBasetype();
-    return t->ty == Tsarray ||
-           (t->ty == Tstruct && t->size() > 16 && !isHFA((TypeStruct *)t));
+
+    if (!(t->ty == TY::Tstruct || t->ty == TY::Tsarray))
+      return false;
+
+    auto argTypes = getArgTypes(t);
+    return argTypes // not 0-sized
+        && argTypes->arguments->empty(); // cannot be passed in registers
   }
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
-    Type *retTy = fty.ret->type->toBasetype();
-    if (!fty.ret->byref && retTy->ty == Tstruct) {
-      // Rewrite HFAs only because union HFAs are turned into IR types that are
-      // non-HFA and messes up register selection
-      if (isHFA((TypeStruct *)retTy, &fty.ret->ltype)) {
-        fty.ret->rewrite = &hfaToArray;
-        fty.ret->ltype = hfaToArray.type(fty.ret->type);
-      }
-      else {
-        fty.ret->rewrite = &integerRewrite;
-        fty.ret->ltype = integerRewrite.type(fty.ret->type);
-      }
+  bool passByVal(TypeFunction *, Type *) override { return false; }
+
+  void rewriteFunctionType(IrFuncTy &fty) override {
+    if (!skipReturnValueRewrite(fty)) {
+      rewriteArgument(fty, *fty.ret, /*isReturnVal=*/true);
     }
 
     for (auto arg : fty.args) {
       if (!arg->byref)
-        rewriteArgument(fty, *arg);
+        rewriteArgument(fty, *arg, /*isReturnVal=*/false);
     }
 
-    // extern(D): reverse parameter order for non variadics, for DMD-compliance
-    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
-      fty.reverseParams = true;
+    // remove 0-sized args (static arrays with 0 elements) and, for Darwin,
+    // empty POD structs too
+    size_t i = 0;
+    while (i < fty.args.size()) {
+      auto arg = fty.args[i];
+      if (!arg->byref) {
+        auto tb = arg->type->toBasetype();
+
+        if (tb->size() == 0) {
+          fty.args.erase(fty.args.begin() + i);
+          continue;
+        }
+
+        // https://developer.apple.com/library/archive/documentation/Xcode/Conceptual/iPhoneOSABIReference/Articles/ARM64FunctionCallingConventions.html#//apple_ref/doc/uid/TP40013702-SW1
+        if (isDarwin) {
+          if (auto ts = tb->isTypeStruct()) {
+            if (ts->sym->fields.empty() && ts->sym->isPOD()) {
+              fty.args.erase(fty.args.begin() + i);
+              continue;
+            }
+          }
+        }
+      }
+
+      ++i;
     }
   }
 
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
-    // FIXME
-    Type *ty = arg.type->toBasetype();
+    return rewriteArgument(fty, arg, /*isReturnVal=*/false);
+  }
 
-    if (ty->ty == Tstruct || ty->ty == Tsarray) {
-      // Rewrite HFAs only because union HFAs are turned into IR types that are
-      // non-HFA and messes up register selection
-      if (ty->ty == Tstruct && isHFA((TypeStruct *)ty, &arg.ltype)) {
-        arg.rewrite = &hfaToArray;
-        arg.ltype = hfaToArray.type(arg.type);
-      }
-      else {
-        arg.rewrite = &compositeToArray64;
-        arg.ltype = compositeToArray64.type(arg.type);
-      }
+  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg, bool isReturnVal) {
+    Type *t = arg.type->toBasetype();
+
+    if (!isAggregate(t))
+      return;
+
+    // compiler magic: pass va_list args implicitly by reference
+    if (!isReturnVal && isAAPCS64VaList(t)) {
+      arg.byref = true;
+      arg.ltype = arg.ltype->getPointerTo();
+      return;
+    }
+
+    auto argTypes = getArgTypes(t);
+    if (!argTypes)
+      return; // don't rewrite 0-sized types
+
+    if (argTypes->arguments->empty()) {
+      // non-PODs and larger non-HFVA aggregates are passed as pointer to
+      // hidden copy
+      indirectByvalRewrite.applyTo(arg);
+      return;
+    }
+
+    // LLVM seems to take care of the rest when rewriting as follows, close to
+    // what clang emits:
+
+    auto rewrittenType = getRewrittenArgType(t, argTypes);
+    if (!rewrittenType)
+      return;
+
+    if (rewrittenType->isIntegerTy()) {
+      argTypesRewrite.applyToIfNotObsolete(arg, rewrittenType);
+    } else {
+      // in most cases, a LL array of either floats/vectors (HFVAs) or i64
+      argTypesRewrite.applyTo(arg, rewrittenType);
     }
   }
 
-  /**
-  * The AACPS64 uses a special native va_list type:
-  *
-  * typedef struct __va_list {
-  *     void *__stack; // next stack param
-  *     void *__gr_top; // end of GP arg reg save area
-  *     void *__vr_top; // end of FP/SIMD arg reg save area
-  *     int __gr_offs; // offset from __gr_top to next GP register arg
-  *     int __vr_offs; // offset from __vr_top to next FP/SIMD register arg
-  * } va_list;
-  *
-  * In druntime, the struct is defined as core.stdc.stdarg.__va_list; the
-  * actually used core.stdc.stdarg.va_list type is a raw char* pointer though to
-  * achieve byref semantics.
-  * This requires a little bit of compiler magic in the following
-  * implementations.
-  */
-
-  LLType *getValistType() {
-    LLType *intType = LLType::getInt32Ty(gIR->context());
-    LLType *voidPointerType = getVoidPtrType();
-
-    std::vector<LLType *> parts;      // struct __va_list {
-    parts.push_back(voidPointerType); //   void *__stack;
-    parts.push_back(voidPointerType); //   void *__gr_top;
-    parts.push_back(voidPointerType); //   void *__vr_top;
-    parts.push_back(intType);         //   int __gr_offs;
-    parts.push_back(intType);         //   int __vr_offs; };
-
-    return LLStructType::get(gIR->context(), parts);
-  }
-
-  LLValue *prepareVaStart(DLValue *ap) override {
-    // Since the user only created a char* pointer (ap) on the stack before
-    // invoking va_start, we first need to allocate the actual __va_list struct
-    // and set `ap` to its address.
-    LLValue *valistmem = DtoRawAlloca(getValistType(), 0, "__va_list_mem");
-    DtoStore(valistmem,
-             DtoBitCast(DtoLVal(ap), getPtrToType(valistmem->getType())));
-    // Pass a i8* pointer to the actual struct to LLVM's va_start intrinsic.
-    return DtoBitCast(valistmem, getVoidPtrType());
-  }
-
-  void vaCopy(DLValue *dest, DValue *src) override {
-    // Analog to va_start, we first need to allocate a new __va_list struct on
-    // the stack and set `dest` to its address.
-    LLValue *valistmem = DtoRawAlloca(getValistType(), 0, "__va_list_mem");
-    DtoStore(valistmem,
-             DtoBitCast(DtoLVal(dest), getPtrToType(valistmem->getType())));
-    // Then fill the new struct with a bitcopy of the source struct.
-    // `src` is a char* pointer to the source struct.
-    DtoMemCpy(valistmem, DtoRVal(src));
-  }
-
-  LLValue *prepareVaArg(DLValue *ap) override {
-    // Pass a i8* pointer to the actual __va_list struct to LLVM's va_arg
-    // intrinsic.
-    return DtoRVal(ap);
-  }
-
   Type *vaListType() override {
+    if (isDarwin)
+      return TargetABI::vaListType(); // char*
+
     // We need to pass the actual va_list type for correct mangling. Simply
     // using TypeIdentifier here is a bit wonky but works, as long as the name
-    // is actually available in the scope (this is what DMD does, so if a better
-    // solution is found there, this should be adapted).
-    static const llvm::StringRef ident = "__va_list";
-    return (createTypeIdentifier(Loc(), Identifier::idPool(ident.data(), ident.size())));
+    // is actually available in the scope (this is what DMD does, so if a
+    // better solution is found there, this should be adapted).
+    return TypeIdentifier::create(Loc(), Identifier::idPool("__va_list"));
   }
 
   const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override {

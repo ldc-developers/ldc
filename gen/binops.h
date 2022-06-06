@@ -1,14 +1,14 @@
 //===-- gen/binops.h - Binary numeric operations ----------------*- C++ -*-===//
 //
-//                         LDC – the LLVM D compiler
+//                         LDC â€“ the LLVM D compiler
 //
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
 //
 //===----------------------------------------------------------------------===//
 
-#include "globals.h"
-#include "tokens.h"
+#include "dmd/globals.h"
+#include "dmd/tokens.h"
 
 class Expression;
 class Type;
@@ -21,42 +21,44 @@ class Value;
 class DValue;
 
 // lhs + rhs
-DValue *binAdd(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binAdd(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs = false);
 // lhs - rhs
-DValue *binMin(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binMin(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs = false);
 // lhs * rhs
-DValue *binMul(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binMul(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs = false);
 // lhs / rhs
-DValue *binDiv(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binDiv(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs = false);
 // lhs % rhs
-DValue *binMod(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binMod(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs = false);
 
 // lhs & rhs
-DValue *binAnd(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binAnd(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs = false);
 // lhs | rhs
-DValue *binOr(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binOr(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
               bool loadLhsAfterRhs = false);
 // lhs ^ rhs
-DValue *binXor(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binXor(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs = false);
 // lhs << rhs
-DValue *binShl(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binShl(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs = false);
 // lhs >> rhs
-DValue *binShr(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binShr(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs = false);
 // lhs >>> rhs
-DValue *binUshr(Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binUshr(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                 bool loadLhsAfterRhs = false);
 
-llvm::Value *DtoBinNumericEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op);
-llvm::Value *DtoBinFloatsEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op);
-llvm::Value *mergeVectorEquals(llvm::Value *resultsVector, TOK op);
+llvm::Value *DtoBinNumericEquals(const Loc &loc, DValue *lhs, DValue *rhs,
+                                 EXP op);
+llvm::Value *DtoBinFloatsEquals(const Loc &loc, DValue *lhs, DValue *rhs,
+                                EXP op);
+llvm::Value *mergeVectorEquals(llvm::Value *resultsVector, EXP op);
 
-dinteger_t undoStrideMul(Loc &loc, Type *t, dinteger_t offset);
+dinteger_t undoStrideMul(const Loc &loc, Type *t, dinteger_t offset);

@@ -11,11 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_ABI_PPC_H
-#define LDC_GEN_ABI_PPC_H
+#pragma once
 
 struct TargetABI;
 
 TargetABI *getPPCTargetABI(bool Is64Bit);
-
-#endif

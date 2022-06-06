@@ -1,0 +1,148 @@
+name: Cross-compile LDC
+inputs:
+  arch:
+    required: true
+  os:
+    required: true
+  llvm_version:
+    required: true
+  cmake_flags:
+    required: false
+    default: ''
+  with_pgo:
+    required: false
+    default: false
+  android_ndk_version:
+    required: false
+    default: r21e
+  android_api_level:
+    required: false
+    default: 21
+runs:
+  using: composite
+  steps:
+
+    - name: Download & extract LDC-flavoured LLVM for ${{ inputs.os }}-${{ inputs.arch }} target # into ../llvm-cross
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+        version='${{ inputs.llvm_version }}'
+        if [[ "$version" = *.* ]]; then
+          tag="ldc-v$version"
+        else
+          tag=CI
+        fi
+        curl -fL --retry 3 --max-time 300 -o llvm-cross.tar.xz \
+          https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-${{ inputs.os }}-${{ inputs.arch }}.tar.xz
+        mkdir llvm-cross
+        tar -xf llvm-cross.tar.xz --strip 1 -C llvm-cross
+        rm llvm-cross.tar.xz
+
+    - name: Make non-native llvm-config runnable on host
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+        if [[ '${{ inputs.os }}' == android ]]; then
+          # Android: use a bash script template
+          version="$(llvm/bin/llvm-config --version)" # from native LLVM
+          sed ldc/.github/actions/3-build-cross/android-llvm-config.in \
+            -e "s|@LLVM_VERSION@|$version|g" \
+            -e "s|@LLVM_INSTALL_DIR@|$PWD/llvm-cross|g" \
+            -e "s|@LLVM_DEFAULT_TARGET_TRIPLE@|irrelevant-android-triple|g" \
+            -e "s|@LLVM_TARGETS@|AArch64 ARM X86 WebAssembly|g" \
+            > llvm-cross/bin/llvm-config
+          chmod 755 llvm-cross/bin/llvm-config
+        else
+          # copy from native LLVM
+          cp llvm/bin/llvm-config llvm-cross/bin/
+        fi
+
+    # set up DFLAGS to make bootstrap ldmd2 cross-compile/link
+    - name: 'macOS: Set DFLAGS, CROSS_TRIPLE & CROSS_CMAKE_FLAGS'
+      if: inputs.os == 'osx'
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+        arch='${{ inputs.arch }}'
+        triple="$arch-apple-macos"
+        echo "DFLAGS=-mtriple=$triple -L-L$PWD/build-cross-libs/lib -Xcc=-target -Xcc=$triple -Xcc=-isysroot -Xcc=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk" >> $GITHUB_ENV
+        echo "CROSS_TRIPLE=$triple" >> $GITHUB_ENV
+        echo "CROSS_CMAKE_FLAGS=-DCMAKE_OSX_ARCHITECTURES=$arch" >> $GITHUB_ENV
+
+    - name: 'Android: Download & extract NDK, then set DFLAGS, CROSS_TRIPLE & CROSS_CMAKE_FLAGS'
+      if: inputs.os == 'android'
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+        version='${{ inputs.android_ndk_version }}'
+        curl -fL --retry 3 --max-time 300 -o android-ndk.zip \
+          https://dl.google.com/android/repository/android-ndk-$version-linux-x86_64.zip
+        unzip android-ndk.zip >/dev/null
+        mv "android-ndk-$version" android-ndk
+        rm android-ndk.zip
+
+        # The NDK toolchain file enforces `-g` as base C[XX] flag - remove it to
+        # *significantly* reduce executable sizes
+        toolchainFile="$PWD/android-ndk/build/cmake/android.toolchain.cmake"
+        sed -i 's|^  -g$||' "$toolchainFile"
+
+        arch='${{ inputs.arch }}'
+        apiLevel='${{ inputs.android_api_level }}'
+        cmakeFlags="-DTARGET_SYSTEM='Android;Linux;UNIX'"
+        if [[ "$arch" == armv7a ]]; then
+          triple="$arch-linux-androideabi$apiLevel"
+          cmakeFlags+=' -DANDROID_ABI=armeabi-v7a'
+        elif [[ "$arch" == aarch64 ]]; then
+          triple="$arch-linux-android$apiLevel"
+          cmakeFlags+=' -DANDROID_ABI=arm64-v8a'
+        fi
+        cmakeFlags+=" -DANDROID_NATIVE_API_LEVEL=$apiLevel"
+        cmakeFlags+=" -DANDROID_STL=c++_static"
+        cmakeFlags+=" -DCMAKE_TOOLCHAIN_FILE=$toolchainFile"
+        cmakeFlags+=" -DLDC_LINK_MANUALLY=ON -DD_LINKER_ARGS='-fuse-ld=bfd;-L$PWD/build-cross-libs/lib;-lphobos2-ldc;-ldruntime-ldc'"
+
+        echo "DFLAGS=-mtriple=$triple -fvisibility=hidden -L-L$PWD/build-cross-libs/lib -gcc=$PWD/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/$triple-clang" >> $GITHUB_ENV
+        echo "CROSS_TRIPLE=$triple" >> $GITHUB_ENV
+        echo "CROSS_CMAKE_FLAGS=$cmakeFlags" >> $GITHUB_ENV
+
+    - name: 'macOS: Build mimalloc'
+      if: inputs.os == 'osx'
+      uses: ./.github/actions/helper-mimalloc
+      with:
+        cmake_flags: ${{ env.CROSS_CMAKE_FLAGS }}
+
+    - name: Cross-compile default libraries
+      shell: bash
+      run: |
+        set -euxo pipefail
+        cd ..
+
+        flags='${{ inputs.cmake_flags }}' # may contain double-quotes
+        flags+=" $CROSS_CMAKE_FLAGS"
+        # convert to array, stripping all `-D` prefixes
+        IFS=$'\n' flags=( $(xargs -n1 <<<"$flags" | cut -b3-) )
+
+        bootstrap-ldc/bin/ldc-build-runtime --ninja \
+          --buildDir="build-cross-libs" \
+          --dFlags="${DFLAGS// /;}" \
+          --ldcSrcDir="$PWD/ldc" \
+          "${flags[@]}"
+
+    - name: Cross-compile LDC executables
+      uses: ./.github/actions/helper-build-ldc
+      with:
+        build_dir: build-cross
+        host_dc: ../bootstrap-ldc/bin/ldmd2
+        llvm_dir: llvm-cross
+        specify_install_dir: true
+        cmake_flags: >-
+          -DCMAKE_CROSSCOMPILING=True
+          ${{ inputs.os == 'osx' && '-DALTERNATIVE_MALLOC_O="$PWD/../build-mimalloc/CMakeFiles/mimalloc-obj.dir/src/static.c.o"' || '' }}
+          ${{ inputs.cmake_flags }}
+          ${{ inputs.with_pgo == 'true' && '-DDFLAGS_LDC=-fprofile-use=../pgo-ldc/merged.profdata' || '' }}
+          ${{ env.CROSS_CMAKE_FLAGS }}
+        build_targets: ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache

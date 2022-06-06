@@ -1,16 +1,14 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (c) 2013-2014 by The D Language Foundation
- * All Rights Reserved
+ * Copyright (C) 2013-2022 by The D Language Foundation, All Rights Reserved
  * written by Iain Buclaw
- * http://www.digitalmars.com
+ * https://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
- * http://www.boost.org/LICENSE_1_0.txt
- * https://github.com/dlang/dmd/blob/master/src/target.h
+ * https://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/dlang/dmd/blob/master/src/dmd/target.h
  */
 
-#ifndef TARGET_H
-#define TARGET_H
+#pragma once
 
 // This file contains a data structure that describes a back-end target.
 // At present it is incomplete, but in future it should grow to contain
@@ -21,74 +19,211 @@
 class ClassDeclaration;
 class Dsymbol;
 class Expression;
+class FuncDeclaration;
+class Statement;
 class Type;
-class Module;
-struct OutBuffer;
+class TypeTuple;
+class TypeFunction;
+
+#if IN_LLVM
+namespace llvm { class Type; }
+#endif
+
+enum class CPU : unsigned char
+{
+    x87,
+    mmx,
+    sse,
+    sse2,
+    sse3,
+    ssse3,
+    sse4_1,
+    sse4_2,
+    avx,                // AVX1 instruction set
+    avx2,               // AVX2 instruction set
+    avx512,             // AVX-512 instruction set
+
+    // Special values that don't survive past the command line processing
+    baseline,           // (default) the minimum capability CPU
+    native              // the machine the compiler is being run on
+};
+
+struct TargetC
+{
+    enum class Runtime : unsigned char
+    {
+        Unspecified,
+        Bionic,
+        DigitalMars,
+        Glibc,
+        Microsoft,
+        Musl,
+        Newlib,
+        UClibc,
+        WASI,
+    };
+
+    enum class BitFieldStyle : unsigned char
+    {
+        Unspecified,
+        DM,                   // Digital Mars 32 bit C compiler
+        MS,                   // Microsoft 32 and 64 bit C compilers
+                              // https://docs.microsoft.com/en-us/cpp/c-language/c-bit-fields?view=msvc-160
+                              // https://docs.microsoft.com/en-us/cpp/cpp/cpp-bit-fields?view=msvc-160
+        Gcc_Clang,            // gcc and clang
+    };
+
+    uint8_t crtDestructorsSupported; // Not all platforms support crt_destructor
+    uint8_t boolsize;            // size of a C '_Bool' type
+    uint8_t shortsize;           // size of a C 'short' or 'unsigned short' type
+    uint8_t intsize;             // size of a C 'int' or 'unsigned int' type
+    uint8_t longsize;            // size of a C 'long' or 'unsigned long' type
+    uint8_t long_longsize;       // size of a C 'long long' or 'unsigned long long' type
+    uint8_t long_doublesize;     // size of a C 'long double'
+    uint8_t wchar_tsize;         // size of a C 'wchar_t' type
+#if !IN_LLVM
+    Runtime runtime;
+#endif
+    BitFieldStyle bitFieldStyle; // different C compilers do it differently
+};
+
+struct TargetCPP
+{
+    enum class Runtime : unsigned char
+    {
+        Unspecified,
+        Clang,
+        DigitalMars,
+        Gcc,
+        Microsoft,
+        Sun
+    };
+    bool reverseOverloads;    // with dmc and cl, overloaded functions are grouped and in reverse order
+    bool exceptions;          // set if catching C++ exceptions is supported
+    bool twoDtorInVtable;     // target C++ ABI puts deleting and non-deleting destructor into vtable
+    bool splitVBasetable;     // set if C++ ABI uses separate tables for virtual functions and virtual bases
+    bool wrapDtorInExternD;   // set if C++ dtors require a D wrapper to be callable from runtime
+#if !IN_LLVM
+    Runtime runtime;
+#endif
+
+    const char *toMangle(Dsymbol *s);
+    const char *typeInfoMangle(ClassDeclaration *cd);
+    const char *thunkMangle(FuncDeclaration *fd, int offset);
+    const char *typeMangle(Type *t);
+    Type *parameterType(Type *p);
+    bool fundamentalType(const Type *t, bool& isFundamental);
+    unsigned derivedClassOffset(ClassDeclaration *baseClass);
+};
+
+struct TargetObjC
+{
+    bool supported;     // set if compiler can interface with Objective-C
+};
 
 struct Target
 {
-    static int ptrsize;
-    static int realsize;             // size a real consumes in memory
-    static int realpad;              // 'padding' added to the CPU real size to bring it up to realsize
-    static int realalignsize;        // alignment for reals
-    static bool reverseCppOverloads; // with dmc and cl, overloaded functions are grouped and in reverse order
-    static bool cppExceptions;       // set if catching C++ exceptions is supported
-    static int c_longsize;           // size of a C 'long' or 'unsigned long' type
-    static int c_long_doublesize;    // size of a C 'long double'
-    static int classinfosize;        // size of 'ClassInfo'
-    static unsigned long long maxStaticDataSize;  // maximum size of static data
-
-#if IN_LLVM
-    struct FPTypeProperties
+    typedef unsigned char OS;
+    enum
     {
-        real_t max, min_normal, nan, snan, infinity, epsilon;
-        d_int64 dig, mant_dig, max_exp, min_exp, max_10_exp, min_10_exp;
+        /* These are mutually exclusive; one and only one is set.
+         * Match spelling and casing of corresponding version identifiers
+         */
+        OS_Freestanding = 0,
+        OS_linux        = 1,
+        OS_Windows      = 2,
+        OS_OSX          = 4,
+        OS_OpenBSD      = 8,
+        OS_FreeBSD      = 0x10,
+        OS_Solaris      = 0x20,
+        OS_DragonFlyBSD = 0x40,
+
+        // Combination masks
+        all = OS_linux | OS_Windows | OS_OSX | OS_OpenBSD | OS_FreeBSD | OS_Solaris | OS_DragonFlyBSD,
+        Posix = OS_linux | OS_OSX | OS_OpenBSD | OS_FreeBSD | OS_Solaris | OS_DragonFlyBSD,
     };
 
-    static FPTypeProperties FloatProperties;
-    static FPTypeProperties DoubleProperties;
-    static FPTypeProperties RealProperties;
-#else
+    OS os;
+    uint8_t osMajor;
+    // D ABI
+    uint8_t ptrsize;
+#if IN_LLVM
+    llvm::Type *realType;
+#endif
+    uint8_t realsize;           // size a real consumes in memory
+    uint8_t realpad;            // 'padding' added to the CPU real size to bring it up to realsize
+    uint8_t realalignsize;      // alignment for reals
+    uint8_t classinfosize;      // size of 'ClassInfo'
+    uint64_t maxStaticDataSize; // maximum size of static data
+
+    // C ABI
+    TargetC c;
+
+    // C++ ABI
+    TargetCPP cpp;
+
+    // Objective-C ABI
+    TargetObjC objc;
+
+    DString architectureName;    // name of the platform architecture (e.g. X86_64)
+    CPU cpu;                // CPU instruction set to target
+    bool is64bit;           // generate 64 bit code for x86_64; true by default for 64 bit dmd
+    bool isLP64;            // pointers are 64 bits
+
+    // Environmental
+    DString obj_ext;    /// extension for object files
+    DString lib_ext;    /// extension for static library files
+    DString dll_ext;    /// extension for dynamic library files
+    bool run_noext;     /// allow -run sources without extensions
+    bool omfobj;        /// for Win32: write OMF object files instead of COFF
+
     template <typename T>
     struct FPTypeProperties
     {
-        static real_t max;
-        static real_t min_normal;
-        static real_t nan;
-        static real_t snan;
-        static real_t infinity;
-        static real_t epsilon;
+        real_t max;
+        real_t min_normal;
+        real_t nan;
+        real_t infinity;
+        real_t epsilon;
 
-        static d_int64 dig;
-        static d_int64 mant_dig;
-        static d_int64 max_exp;
-        static d_int64 min_exp;
-        static d_int64 max_10_exp;
-        static d_int64 min_10_exp;
+        int64_t dig;
+        int64_t mant_dig;
+        int64_t max_exp;
+        int64_t min_exp;
+        int64_t max_10_exp;
+        int64_t min_10_exp;
     };
 
-    typedef FPTypeProperties<float> FloatProperties;
-    typedef FPTypeProperties<double> DoubleProperties;
-    typedef FPTypeProperties<real_t> RealProperties;
+    FPTypeProperties<float> FloatProperties;
+    FPTypeProperties<double> DoubleProperties;
+    FPTypeProperties<real_t> RealProperties;
+
+private:
+    Type *tvalist;
+    const Param *params;
+
+#if IN_LLVM
+    void initFPTypeProperties();
 #endif
 
-    static void _init();
+public:
+    void _init(const Param& params);
     // Type sizes and support.
-    static unsigned alignsize(Type *type);
-    static unsigned fieldalign(Type *type);
-    static unsigned critsecsize();
-    static Type *va_listType();  // get type of va_list
-    static int isVectorTypeSupported(int sz, Type *type);
-    static bool isVectorOpSupported(Type *type, TOK op, Type *t2 = NULL);
-    // CTFE support for cross-compilation.
-    static Expression *paintAsType(Expression *e, Type *type);
+    unsigned alignsize(Type *type);
+    unsigned fieldalign(Type *type);
+    Type *va_listType(const Loc &loc, Scope *sc);  // get type of va_list
+    int isVectorTypeSupported(int sz, Type *type);
+    bool isVectorOpSupported(Type *type, EXP op, Type *t2 = NULL);
     // ABI and backend.
-    static void loadModule(Module *m);
-    static void prefixName(OutBuffer *buf, LINK linkage);
-    static const char *toCppMangle(Dsymbol *s);
-    static const char *cppTypeInfoMangle(ClassDeclaration *cd);
-    static const char *cppTypeMangle(Type *t);
-    static LINK systemLinkage();
+    LINK systemLinkage();
+    TypeTuple *toArgTypes(Type *t);
+    bool isReturnOnStack(TypeFunction *tf, bool needsThis);
+    bool preferPassByRef(Type *t);
+    Expression *getTargetInfo(const char* name, const Loc& loc);
+    bool isCalleeDestroyingArgs(TypeFunction* tf);
+    bool libraryObjectMonitors(FuncDeclaration *fd, Statement *fbody);
+    bool supportsLinkerDirective() const;
+    void addPredefinedGlobalIdentifiers() const;
 };
 
-#endif
+extern Target target;

@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef OPTIMIZER_HPP
-#define OPTIMIZER_HPP
+#pragma once
 
 #include <memory>
 
@@ -37,5 +36,3 @@ void optimizeModule(const Context &context, llvm::TargetMachine &targetMachine,
 
 void setRtCompileVar(const Context &context, llvm::Module &module,
                      const char *name, const void *init);
-
-#endif // OPTIMIZER_HPP

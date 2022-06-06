@@ -13,8 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_CL_OPTIONS_INSTRUMENTATION_H
-#define LDC_DRIVER_CL_OPTIONS_INSTRUMENTATION_H
+#pragma once
 
 #include "gen/cl_helpers.h"
 
@@ -27,11 +26,7 @@ namespace cl = llvm::cl;
 
 extern cl::opt<bool> instrumentFunctions;
 
-#if LDC_LLVM_VER >= 500
 extern cl::opt<bool> fXRayInstrument;
-#else
-constexpr bool fXRayInstrument = false;
-#endif
 llvm::StringRef getXRayInstructionThresholdString();
 
 /// This initializes the instrumentation options, and checks the validity of the
@@ -63,4 +58,3 @@ inline bool isInstrumentingForIRBasedPGO() {
 inline bool isUsingIRBasedPGOProfile() { return pgoMode == PGO_IRBasedUse; }
 
 } // namespace opts
-#endif // LDC_DRIVER_CL_OPTIONS_INSTRUMENTATION_H

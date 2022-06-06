@@ -7,8 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_IR2OBJ_CACHE_H
-#define LDC_DRIVER_IR2OBJ_CACHE_H
+#pragma once
 
 #include <string>
 
@@ -30,5 +29,3 @@ void recoverObjectFile(llvm::StringRef cacheObjectHash,
 /// Prune the cache to avoid filling up disk space.
 void pruneCache();
 }
-
-#endif

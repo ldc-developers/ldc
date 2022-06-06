@@ -1,22 +1,22 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Provides an AST printer for debugging.
  *
- * Copyright:   Copyright (c) 1999-2017 by The D Language Foundation, All Rights Reserved
- * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
- * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/printast.d, _printast.d)
+ * Documentation:  https://dlang.org/phobos/dmd_printast.html
+ * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/printast.d
  */
 
 module dmd.printast;
-
-// Online documentation: https://dlang.org/phobos/dmd_printast.html
 
 import core.stdc.stdio;
 
 import dmd.expression;
 import dmd.tokens;
 import dmd.visitor;
+import dmd.hdrgen;
 
 /********************
  * Print AST data structure in a nice format.
@@ -46,18 +46,56 @@ extern (C++) final class PrintASTVisitor : Visitor
     override void visit(Expression e)
     {
         printIndent(indent);
-        printf("%s %s\n", Token.toChars(e.op), e.type ? e.type.toChars() : "");
+        auto s = EXPtoString(e.op);
+        printf("%.*s %s\n", cast(int)s.length, s.ptr, e.type ? e.type.toChars() : "");
+    }
+
+    override void visit(IntegerExp e)
+    {
+        printIndent(indent);
+        printf("Integer %lld %s\n", e.toInteger(), e.type ? e.type.toChars() : "");
+    }
+
+    override void visit(RealExp e)
+    {
+        printIndent(indent);
+
+        import dmd.hdrgen : floatToBuffer;
+        import dmd.common.outbuffer : OutBuffer;
+        OutBuffer buf;
+        floatToBuffer(e.type, e.value, &buf, false);
+        printf("Real %s %s\n", buf.peekChars(), e.type ? e.type.toChars() : "");
     }
 
     override void visit(StructLiteralExp e)
     {
         printIndent(indent);
-        printf("%s %s, %s\n", Token.toChars(e.op), e.type ? e.type.toChars() : "", e.toChars());
+        auto s = EXPtoString(e.op);
+        printf("%.*s %s, %s\n", cast(int)s.length, s.ptr, e.type ? e.type.toChars() : "", e.toChars());
     }
 
     override void visit(SymbolExp e)
     {
-        visit(cast(Expression)e);
+        printIndent(indent);
+        printf("Symbol %s\n", e.type ? e.type.toChars() : "");
+        printIndent(indent + 2);
+        printf(".var: %s\n", e.var ? e.var.toChars() : "");
+    }
+
+    override void visit(SymOffExp e)
+    {
+        printIndent(indent);
+        printf("SymOff %s\n", e.type ? e.type.toChars() : "");
+        printIndent(indent + 2);
+        printf(".var: %s\n", e.var ? e.var.toChars() : "");
+        printIndent(indent + 2);
+        printf(".offset: %llx\n", e.offset);
+    }
+
+    override void visit(VarExp e)
+    {
+        printIndent(indent);
+        printf("Var %s\n", e.type ? e.type.toChars() : "");
         printIndent(indent + 2);
         printf(".var: %s\n", e.var ? e.var.toChars() : "");
     }
@@ -71,7 +109,8 @@ extern (C++) final class PrintASTVisitor : Visitor
 
     override void visit(DotIdExp e)
     {
-        visit(cast(Expression)e);
+        printIndent(indent);
+        printf("DotId %s\n", e.type ? e.type.toChars() : "");
         printIndent(indent + 2);
         printf(".ident: %s\n", e.ident.toChars());
         printAST(e.e1, indent + 2);
@@ -83,9 +122,76 @@ extern (C++) final class PrintASTVisitor : Visitor
         printAST(e.e1, indent + 2);
     }
 
+    override void visit(CastExp e)
+    {
+        printIndent(indent);
+        auto s = EXPtoString(e.op);
+        printf("%.*s %s\n", cast(int)s.length, s.ptr, e.type ? e.type.toChars() : "");
+        printIndent(indent + 2);
+        printf(".to: %s\n", e.to.toChars());
+        printAST(e.e1, indent + 2);
+    }
+
+    override void visit(VectorExp e)
+    {
+        printIndent(indent);
+        printf("Vector %s\n", e.type ? e.type.toChars() : "");
+        printIndent(indent + 2);
+        printf(".to: %s\n", e.to.toChars());
+        printAST(e.e1, indent + 2);
+    }
+
+    override void visit(VectorArrayExp e)
+    {
+        printIndent(indent);
+        printf("VectorArray %s\n", e.type ? e.type.toChars() : "");
+        printAST(e.e1, indent + 2);
+    }
+
+    override void visit(DotVarExp e)
+    {
+        printIndent(indent);
+        printf("DotVar %s\n", e.type ? e.type.toChars() : "");
+        printIndent(indent + 2);
+        printf(".var: %s\n", e.var.toChars());
+        printAST(e.e1, indent + 2);
+    }
+
     override void visit(BinExp e)
     {
         visit(cast(Expression)e);
+        printAST(e.e1, indent + 2);
+        printAST(e.e2, indent + 2);
+    }
+
+    override void visit(AssignExp e)
+    {
+        printIndent(indent);
+        printf("Assign %s\n", e.type ? e.type.toChars() : "");
+        printAST(e.e1, indent + 2);
+        printAST(e.e2, indent + 2);
+    }
+
+    override void visit(ConstructExp e)
+    {
+        printIndent(indent);
+        printf("Construct %s\n", e.type ? e.type.toChars() : "");
+        printAST(e.e1, indent + 2);
+        printAST(e.e2, indent + 2);
+    }
+
+    override void visit(BlitExp e)
+    {
+        printIndent(indent);
+        printf("Blit %s\n", e.type ? e.type.toChars() : "");
+        printAST(e.e1, indent + 2);
+        printAST(e.e2, indent + 2);
+    }
+
+    override void visit(IndexExp e)
+    {
+        printIndent(indent);
+        printf("Index %s\n", e.type ? e.type.toChars() : "");
         printAST(e.e1, indent + 2);
         printAST(e.e2, indent + 2);
     }
@@ -103,5 +209,3 @@ extern (C++) final class PrintASTVisitor : Visitor
             putc(' ', stdout);
     }
 }
-
-

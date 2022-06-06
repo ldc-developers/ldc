@@ -26,11 +26,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_RECURSIVEVISITOR_H
-#define LDC_GEN_RECURSIVEVISITOR_H
+#pragma once
 
 #include "dmd/attrib.h"
 #include "dmd/declaration.h"
+#include "dmd/errors.h"
 #include "dmd/init.h"
 #include "dmd/statement.h"
 #include "dmd/visitor.h"
@@ -98,8 +98,8 @@ public:
     recurse(stmt->_body);
   }
 
-  void visit(OnScopeStatement *stmt) override {
-    stmt->error("Internal Compiler Error: OnScopeStatement should have been "
+  void visit(ScopeGuardStatement *stmt) override {
+    stmt->error("Internal Compiler Error: ScopeGuardStatement should have been "
                 "lowered by frontend.");
     fatal();
   }
@@ -157,14 +157,12 @@ public:
 
   void visit(NewExp *e) override {
     recurse(e->thisexp);
-    recurse(e->newargs);
     recurse(e->argprefix);
     recurse(e->arguments);
   }
 
   void visit(NewAnonClassExp *e) override {
     recurse(e->thisexp);
-    recurse(e->newargs);
     recurse(e->arguments);
   }
 
@@ -286,7 +284,7 @@ public:
 
   using Visitor::visit;
 
-  void visit(AttribDeclaration* ad) override {
+  void visit(AttribDeclaration *ad) override {
     call_visitor(ad) || recurse(ad->decl);
   }
 
@@ -337,7 +335,7 @@ public:
         recurse(stmt->_body);
   }
 
-  void visit(OnScopeStatement *stmt) override {
+  void visit(ScopeGuardStatement *stmt) override {
     call_visitor(stmt) || recurse(stmt->statement);
   }
 
@@ -388,7 +386,7 @@ public:
         recurse(stmt->_body);
   }
 
-  void visit(PragmaStatement* stmt) override {
+  void visit(PragmaStatement *stmt) override {
     call_visitor(stmt) || recurse(stmt->_body);
   }
   void visit(DebugStatement *stmt) override {
@@ -396,13 +394,12 @@ public:
   }
 
   void visit(NewExp *e) override {
-    call_visitor(e) || recurse(e->thisexp) || recurse(e->newargs) ||
-        recurse(e->argprefix) || recurse(e->arguments);
+    call_visitor(e) || recurse(e->thisexp) || recurse(e->argprefix) ||
+        recurse(e->arguments);
   }
 
   void visit(NewAnonClassExp *e) override {
-    call_visitor(e) || recurse(e->thisexp) || recurse(e->newargs) ||
-        recurse(e->arguments);
+    call_visitor(e) || recurse(e->thisexp) || recurse(e->arguments);
   }
 
   void visit(UnaExp *e) override { call_visitor(e) || recurse(e->e1); }
@@ -476,5 +473,3 @@ public:
   void visit(Initializer *init) override { call_visitor(init); }
   void visit(Dsymbol *init) override {}
 };
-
-#endif // LDC_GEN_RECURSIVEVISITOR_H

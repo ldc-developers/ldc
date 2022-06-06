@@ -1,6 +1,6 @@
 //===-- trycatchfinally.cpp -------------------------------------*- C++ -*-===//
 //
-//                         LDC – the LLVM D compiler
+//                         LDC â€“ the LLVM D compiler
 //
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
@@ -9,15 +9,20 @@
 
 #include "gen/trycatchfinally.h"
 
-#include "statement.h"
-#include "target.h"
+#include "dmd/errors.h"
+#include "dmd/expression.h"
+#include "dmd/statement.h"
+#include "dmd/target.h"
 #include "gen/classes.h"
 #include "gen/funcgenstate.h"
 #include "gen/llvmhelpers.h"
+#include "gen/mangling.h"
 #include "gen/ms-cxx-helper.h"
+#include "gen/rttibuilder.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
+#include "ir/irtypeclass.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -37,12 +42,10 @@ TryCatchScope::TryCatchScope(IRState &irs, llvm::Value *ehPtrSlot,
         return true;
       });
 
-#if LDC_LLVM_VER >= 308
   if (useMSVCEH()) {
     emitCatchBodiesMSVC(irs, ehPtrSlot);
     return;
   }
-#endif
   emitCatchBodies(irs, ehPtrSlot);
 }
 
@@ -65,12 +68,12 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
     uint64_t uncaughtCount;
   };
   llvm::SmallVector<CBPrototype, 8> cbPrototypes;
-  cbPrototypes.reserve(stmt->catches->dim);
+  cbPrototypes.reserve(stmt->catches->length);
 
   for (auto c : *stmt->catches) {
     auto catchBB =
         irs.insertBBBefore(endbb, llvm::Twine("catch.") + c->type->toChars());
-    irs.scope() = IRScope(catchBB);
+    irs.ir->SetInsertPoint(catchBB);
     irs.DBuilder.EmitBlockStart(c->loc);
     PGO.emitCounterIncrement(c);
 
@@ -78,7 +81,7 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
     const bool isCPPclass = cd->isCPPclass();
 
     const auto enterCatchFn = getRuntimeFunction(
-        Loc(), irs.module,
+        c->loc, irs.module,
         isCPPclass ? "__cxa_begin_catch" : "_d_eh_enter_catch");
     const auto ptr = DtoLoad(ehPtrSlot);
     const auto throwableObj = irs.ir->CreateCall(enterCatchFn, ptr);
@@ -148,7 +151,7 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
     uncaughtCount += it->catchCount;
   }
 
-  catchBlocks.reserve(stmt->catches->dim);
+  catchBlocks.reserve(stmt->catches->length);
 
   for (const auto &p : cbPrototypes) {
     auto branchWeights =
@@ -158,10 +161,31 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
 
     LLGlobalVariable *ci;
     if (p.cd->isCPPclass()) {
-      const char *name = Target::cppTypeInfoMangle(p.cd);
-      ci = getOrCreateGlobal(
-          p.cd->loc, irs.module, getVoidPtrType(), /*isConstant=*/true,
-          LLGlobalValue::ExternalLinkage, /*init=*/nullptr, name);
+      // Wrap std::type_info pointers inside a __cpp_type_info_ptr class
+      // instance so that the personality routine may differentiate C++ catch
+      // clauses from D ones.
+      const auto wrapperMangle =
+          getIRMangledAggregateName(p.cd, "18_cpp_type_info_ptr");
+
+      ci = irs.module.getGlobalVariable(wrapperMangle);
+      if (!ci) {
+        const char *name = target.cpp.typeInfoMangle(p.cd);
+        auto cpp_ti = declareGlobal(
+            p.cd->loc, irs.module, getVoidPtrType(), name,
+            /*isConstant*/ true, false, /*useDLLImport*/ p.cd->isExport());
+
+        const auto cppTypeInfoPtrType = getCppTypeInfoPtrType();
+        RTTIBuilder b(cppTypeInfoPtrType);
+        b.push(cpp_ti);
+
+        auto wrapperType = llvm::cast<llvm::StructType>(
+            getIrType(cppTypeInfoPtrType)->isClass()->getMemoryLLType());
+        auto wrapperInit = b.get_constant(wrapperType);
+
+        ci = defineGlobal(p.cd->loc, irs.module, wrapperMangle, wrapperInit,
+                          LLGlobalValue::LinkOnceODRLinkage,
+                          /*isConstant=*/true);
+      }
     } else {
       ci = getIrAggr(p.cd)->getClassInfoSymbol();
     }
@@ -169,8 +193,6 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
     catchBlocks.push_back({ci, p.catchBB, branchWeights});
   }
 }
-
-#if LDC_LLVM_VER >= 308
 
 namespace {
 void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
@@ -190,23 +212,19 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
 
     // redirect scope to avoid the generation of debug info before the
     // catchpad
-    IRScope save = irs.scope();
-    irs.scope() = IRScope(gIR->topallocapoint()->getParent());
-    irs.scope().builder.SetInsertPoint(gIR->topallocapoint());
+    const auto savedInsertPoint = irs.saveInsertPoint();
+    irs.ir->SetInsertPoint(gIR->topallocapoint());
     DtoDeclarationExp(var);
 
     // catch handler will be outlined, so always treat as a nested reference
     exnObj = getIrValue(var);
 
-    if (var->nestedrefs.dim) {
+    if (var->nestedrefs.length) {
       // if variable needed in a closure, use a stack temporary and copy it
       // when caught
       cpyObj = exnObj;
       exnObj = DtoAlloca(var->type, "exnObj");
     }
-    irs.scope() = save;
-    irs.DBuilder.EmitStopPoint(ctch->loc); // re-set debug loc after the
-                                           // SetInsertPoint(allocaInst) call
   } else if (ctch->type) {
     // catch without var
     exnObj = DtoAlloca(ctch->type, "exnObj");
@@ -225,7 +243,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
   } else {
     // catch all
     typeDesc = LLConstant::getNullValue(getVoidPtrType());
-    clssInfo = LLConstant::getNullValue(DtoType(Type::typeinfoclass->type));
+    clssInfo = LLConstant::getNullValue(DtoType(getClassInfoType()));
   }
 
   // "catchpad within %switch [TypeDescriptor, 0, &caughtObject]" must be
@@ -237,7 +255,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
 
   if (cpyObj) {
     // assign the caught exception to the location in the closure
-    auto val = irs.ir->CreateLoad(exnObj);
+    auto val = irs.ir->CreateLoad(getPointeeType(exnObj), exnObj);
     irs.ir->CreateStore(val, cpyObj);
     exnObj = cpyObj;
   }
@@ -247,11 +265,11 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
   // outside the catch funclet
   llvm::BasicBlock *catchhandler = irs.insertBB("catchhandler");
   llvm::CatchReturnInst::Create(catchpad, catchhandler, irs.scopebb());
-  irs.scope() = IRScope(catchhandler);
+  irs.ir->SetInsertPoint(catchhandler);
   irs.funcGen().pgo.emitCounterIncrement(ctch);
   if (!isCPPclass) {
     auto enterCatchFn =
-        getRuntimeFunction(Loc(), irs.module, "_d_eh_enter_catch");
+        getRuntimeFunction(ctch->loc, irs.module, "_d_eh_enter_catch");
     irs.CreateCallOrInvoke(enterCatchFn, DtoBitCast(exnObj, getVoidPtrType()),
                            clssInfo);
   }
@@ -267,14 +285,14 @@ void TryCatchScope::emitCatchBodiesMSVC(IRState &irs, llvm::Value *) {
   llvm::BasicBlock *unwindto =
       scopes.currentCleanupScope() > 0 ? scopes.getLandingPad() : nullptr;
   auto catchSwitchInst = llvm::CatchSwitchInst::Create(
-      llvm::ConstantTokenNone::get(irs.context()), unwindto, stmt->catches->dim,
-      "", catchSwitchBlock);
+      llvm::ConstantTokenNone::get(irs.context()), unwindto,
+      stmt->catches->length, "", catchSwitchBlock);
 
   for (auto c : *stmt->catches) {
     auto catchBB =
         irs.insertBBBefore(endbb, llvm::Twine("catch.") + c->type->toChars());
 
-    irs.scope() = IRScope(catchBB);
+    irs.ir->SetInsertPoint(catchBB);
     irs.DBuilder.EmitBlockStart(c->loc);
 
     emitBeginCatchMSVC(irs, c, catchSwitchInst);
@@ -298,22 +316,18 @@ void TryCatchScope::emitCatchBodiesMSVC(IRState &irs, llvm::Value *) {
   if (!irs.func()->hasLLVMPersonalityFn()) {
     const char *personality = "__CxxFrameHandler3";
     irs.func()->setLLVMPersonalityFn(
-        getRuntimeFunction(Loc(), irs.module, personality));
+        getRuntimeFunction(stmt->loc, irs.module, personality));
   }
 }
-
-#endif // LDC_LLVM_VER >= 308
 
 ////////////////////////////////////////////////////////////////////////////////
 
 CleanupScope::CleanupScope(llvm::BasicBlock *beginBlock,
                            llvm::BasicBlock *endBlock) {
-#if LDC_LLVM_VER >= 308
   if (useMSVCEH()) {
     findSuccessors(blocks, beginBlock, endBlock);
     return;
   }
-#endif
   blocks.push_back(beginBlock);
   if (endBlock != beginBlock)
     blocks.push_back(endBlock);
@@ -321,10 +335,8 @@ CleanupScope::CleanupScope(llvm::BasicBlock *beginBlock,
 
 llvm::BasicBlock *CleanupScope::run(IRState &irs, llvm::BasicBlock *sourceBlock,
                                     llvm::BasicBlock *continueWith) {
-#if LDC_LLVM_VER >= 308
   if (useMSVCEH())
     return runCopying(irs, sourceBlock, continueWith);
-#endif
 
   if (exitTargets.empty() || (exitTargets.size() == 1 &&
                               exitTargets[0].branchTarget == continueWith)) {
@@ -344,13 +356,11 @@ llvm::BasicBlock *CleanupScope::run(IRState &irs, llvm::BasicBlock *sourceBlock,
   // We need a branch selector if we are here...
   if (!branchSelector) {
     // ... and have not created one yet, so do so now.
-    branchSelector = new llvm::AllocaInst(llvm::Type::getInt32Ty(irs.context()),
-#if LDC_LLVM_VER >= 500
-                                          irs.module.getDataLayout().getAllocaAddrSpace(),
-#endif
-                                          llvm::Twine("branchsel.") +
-                                              beginBlock()->getName(),
-                                          irs.topallocapoint());
+    llvm::Type *branchSelectorType = llvm::Type::getInt32Ty(irs.context());
+    branchSelector = new llvm::AllocaInst(
+        branchSelectorType, irs.module.getDataLayout().getAllocaAddrSpace(),
+        llvm::Twine("branchsel.") + beginBlock()->getName(),
+        irs.topallocapoint());
 
     // Now we also need to store 0 to it to keep the paths that go to the
     // only existing branch target the same.
@@ -361,7 +371,11 @@ llvm::BasicBlock *CleanupScope::run(IRState &irs, llvm::BasicBlock *sourceBlock,
     // And convert the BranchInst to the existing branch target to a
     // SelectInst so we can append the other cases to it.
     endBlock()->getTerminator()->eraseFromParent();
-    llvm::Value *sel = new llvm::LoadInst(branchSelector, "", endBlock());
+    llvm::Value *sel = new llvm::LoadInst(
+#if LDC_LLVM_VER >= 1100
+        branchSelectorType,
+#endif
+        branchSelector, "", endBlock());
     llvm::SwitchInst::Create(
         sel, exitTargets[0].branchTarget,
         1, // Expected number of branches, only for pre-allocating.
@@ -405,7 +419,6 @@ llvm::BasicBlock *CleanupScope::run(IRState &irs, llvm::BasicBlock *sourceBlock,
   return beginBlock();
 }
 
-#if LDC_LLVM_VER >= 308
 llvm::BasicBlock *CleanupScope::runCopying(IRState &irs,
                                            llvm::BasicBlock *sourceBlock,
                                            llvm::BasicBlock *continueWith,
@@ -456,7 +469,6 @@ llvm::BasicBlock *CleanupScope::runCopying(IRState &irs,
   }
   return exitTarget.cleanupBlocks.front();
 }
-#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -494,9 +506,7 @@ void TryCatchFinallyScopes::pushTryCatch(TryCatchStatement *stmt,
 void TryCatchFinallyScopes::popTryCatch() {
   tryCatchScopes.pop_back();
   if (useMSVCEH()) {
-#if LDC_LLVM_VER >= 308
     assert(isCatchSwitchBlock(cleanupScopes.back().beginBlock()));
-#endif
     popCleanups(currentCleanupScope() - 1);
   } else {
     landingPadsPerCleanupScope[currentCleanupScope()].pop_back();
@@ -564,12 +574,10 @@ void TryCatchFinallyScopes::runCleanups(CleanupCursor targetScope,
 void TryCatchFinallyScopes::runCleanups(CleanupCursor sourceScope,
                                         CleanupCursor targetScope,
                                         llvm::BasicBlock *continueWith) {
-#if LDC_LLVM_VER >= 308
   if (useMSVCEH()) {
     runCleanupCopies(sourceScope, targetScope, continueWith);
     return;
   }
-#endif
 
   assert(targetScope <= sourceScope);
 
@@ -591,7 +599,6 @@ void TryCatchFinallyScopes::runCleanups(CleanupCursor sourceScope,
   }
 }
 
-#if LDC_LLVM_VER >= 308
 void TryCatchFinallyScopes::runCleanupCopies(CleanupCursor sourceScope,
                                              CleanupCursor targetScope,
                                              llvm::BasicBlock *continueWith) {
@@ -606,7 +613,6 @@ void TryCatchFinallyScopes::runCleanupCopies(CleanupCursor sourceScope,
   // Insert the unconditional branch to the first cleanup block.
   irs.ir->CreateBr(continueWith);
 }
-#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -660,36 +666,29 @@ TryCatchFinallyScopes::getLandingPadRef(CleanupCursor scope) {
 
 namespace {
   llvm::LandingPadInst *createLandingPadInst(IRState &irs) {
-    LLType *retType =
-      LLStructType::get(LLType::getInt8PtrTy(irs.context()),
-        LLType::getInt32Ty(irs.context())
-#if LDC_LLVM_VER < 500
-        , nullptr
-#endif
-      );
-  if (!irs.func()->hasLLVMPersonalityFn()) {
-    irs.func()->setLLVMPersonalityFn(
-        getRuntimeFunction(Loc(), irs.module, "_d_eh_personality"));
-  }
+    LLType *retType = LLStructType::get(LLType::getInt8PtrTy(irs.context()),
+                                        LLType::getInt32Ty(irs.context()));
+    if (!irs.func()->hasLLVMPersonalityFn()) {
+      irs.func()->setLLVMPersonalityFn(
+          getRuntimeFunction(Loc(), irs.module, "_d_eh_personality"));
+    }
   return irs.ir->CreateLandingPad(retType, 0);
 }
 }
 
 llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
-#if LDC_LLVM_VER >= 308
   if (useMSVCEH()) {
     assert(currentCleanupScope() > 0);
     return emitLandingPadMSVC(currentCleanupScope() - 1);
   }
-#endif
 
   // save and rewrite scope
-  IRScope savedIRScope = irs.scope();
+  const auto savedInsertPoint = irs.saveInsertPoint();
 
   // insert landing pads at the end of the function, in emission order,
   // to improve human-readability of the IR
   llvm::BasicBlock *beginBB = irs.insertBBBefore(nullptr, "landingPad");
-  irs.scope() = IRScope(beginBB);
+  irs.ir->SetInsertPoint(beginBB);
 
   llvm::LandingPadInst *landingPad = createLandingPadInst(irs);
 
@@ -699,8 +698,9 @@ llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
   irs.ir->CreateStore(ehPtr, getOrCreateEhPtrSlot());
 
   llvm::Value *ehSelector = DtoExtractValue(landingPad, 1);
+  const auto ehSelectorType = ehSelector->getType();
   if (!ehSelectorSlot)
-    ehSelectorSlot = DtoRawAlloca(ehSelector->getType(), 0, "eh.selector");
+    ehSelectorSlot = DtoRawAlloca(ehSelectorType, 0, "eh.selector");
   irs.ir->CreateStore(ehSelector, ehSelectorSlot);
 
   // Add landingpad clauses, emit finallys and 'if' chain to catch the
@@ -719,7 +719,7 @@ llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
       llvm::BasicBlock *afterCleanupBB =
           irs.insertBB(beginBB->getName() + llvm::Twine(".after.cleanup"));
       runCleanups(lastCleanup, newCleanup, afterCleanupBB);
-      irs.scope() = IRScope(afterCleanupBB);
+      irs.ir->SetInsertPoint(afterCleanupBB);
       lastCleanup = newCleanup;
     }
 
@@ -740,9 +740,10 @@ llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
       // Compare the selector value from the unwinder against the expected
       // one and branch accordingly.
       irs.ir->CreateCondBr(
-          irs.ir->CreateICmpEQ(irs.ir->CreateLoad(ehSelectorSlot), ehTypeId),
+          irs.ir->CreateICmpEQ(
+              irs.ir->CreateLoad(ehSelectorType, ehSelectorSlot), ehTypeId),
           cb.bodyBB, mismatchBB, cb.branchWeights);
-      irs.scope() = IRScope(mismatchBB);
+      irs.ir->SetInsertPoint(mismatchBB);
     }
   }
 
@@ -760,7 +761,6 @@ llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
     irs.ir->CreateBr(resumeUnwindBlock);
   }
 
-  irs.scope() = savedIRScope;
   return beginBB;
 }
 
@@ -775,19 +775,17 @@ llvm::BasicBlock *TryCatchFinallyScopes::getOrCreateResumeUnwindBlock() {
     resumeUnwindBlock = irs.insertBB("eh.resume");
 
     llvm::BasicBlock *oldBB = irs.scopebb();
-    irs.scope() = IRScope(resumeUnwindBlock);
+    irs.ir->SetInsertPoint(resumeUnwindBlock);
 
-    llvm::Function *resumeFn =
-        getRuntimeFunction(Loc(), irs.module, "_d_eh_resume_unwind");
+    llvm::Function *resumeFn = getUnwindResumeFunction(Loc(), irs.module);
     irs.ir->CreateCall(resumeFn, DtoLoad(getOrCreateEhPtrSlot()));
     irs.ir->CreateUnreachable();
 
-    irs.scope() = IRScope(oldBB);
+    irs.ir->SetInsertPoint(oldBB);
   }
   return resumeUnwindBlock;
 }
 
-#if LDC_LLVM_VER >= 308
 llvm::BasicBlock *
 TryCatchFinallyScopes::emitLandingPadMSVC(CleanupCursor cleanupScope) {
   if (!irs.func()->hasLLVMPersonalityFn()) {
@@ -841,9 +839,7 @@ TryCatchFinallyScopes::runCleanupPad(CleanupCursor scope,
   //  can place an exception frame (but not done here)
   auto frame = getNullPtr(getVoidPtrType());
 
-  auto savedInsertBlock = irs.ir->GetInsertBlock();
-  auto savedInsertPoint = irs.ir->GetInsertPoint();
-  auto savedDbgLoc = irs.DBuilder.GetCurrentLoc();
+  const auto savedInsertPoint = irs.saveInsertPoint();
 
   auto endFn = getRuntimeFunction(Loc(), irs.module, "_d_leave_cleanup");
   irs.ir->SetInsertPoint(cleanupret);
@@ -862,9 +858,5 @@ TryCatchFinallyScopes::runCleanupPad(CleanupCursor scope,
       beginFn, frame, {llvm::OperandBundleDef("funclet", cleanuppad)}, "");
   llvm::BranchInst::Create(copybb, cleanupret, exec, cleanupbb);
 
-  irs.ir->SetInsertPoint(savedInsertBlock, savedInsertPoint);
-  irs.DBuilder.EmitStopPoint(savedDbgLoc);
-
   return cleanupbb;
 }
-#endif

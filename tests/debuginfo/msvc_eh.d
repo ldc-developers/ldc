@@ -1,5 +1,4 @@
 // Checks that !dbg is being attached to MSVC EH/cleanup runtime calls.
-// REQUIRES: atleast_llvm308
 // REQUIRES: Windows
 // RUN: %ldc -g -c -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 

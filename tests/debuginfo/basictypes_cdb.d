@@ -1,10 +1,10 @@
-// REQUIRES: atleast_llvm309
+
 // REQUIRES: Windows
 // REQUIRES: cdb
 // RUN: %ldc -g -of=%t.exe %s
 // RUN: sed -e "/^\\/\\/ CDB:/!d" -e "s,// CDB:,," %s \
 // RUN:    | %cdb -snul -lines -y . %t.exe >%t.out
-// RUN: FileCheck %s -check-prefix=CHECK -check-prefix=%arch < %t.out
+// RUN: FileCheck %s < %t.out
 
 // modulename explicitly unspecified to check implicit function name when breaking
 void main()
@@ -37,11 +37,12 @@ int basic_types()
     cdouble cd = 17 + 18i;
     creal cr = 19 + 20i;
     typeof(null) np = null;
-    
+
     c = c;
 // CDB: ld basictypes_cdb*
-// CDB: bp `basictypes_cdb.d:41`
+// CDB: bp0 /1 `basictypes_cdb.d:43`
 // CDB: g
+// CHECK: Breakpoint 0 hit
 // CHECK: !basictypes_cdb.basic_types
 
 // enable case sensitive symbol lookup
@@ -77,6 +78,7 @@ int basic_types()
 // CDB: ?? cr
 // CHECK: +0x000 re : 19
 // CHECK: +0x008 im : 20
+
     return 1;
 }
 // CDB: q

@@ -16,6 +16,7 @@
 #include "dmd/declaration.h"
 #include "dmd/dsymbol.h"
 #include "dmd/identifier.h"
+#include "dmd/mangle.h"
 #include "dmd/module.h"
 #include "gen/abi.h"
 #include "gen/irstate.h"
@@ -58,12 +59,10 @@ std::string hashSymbolName(llvm::StringRef name, Dsymbol *symb) {
   {
     auto moddecl = symb->getModule()->md;
     assert(moddecl);
-    if (auto packages = moddecl->packages) {
-      for (auto package : *packages) {
-        llvm::StringRef str = package->toChars();
-        ret += ldc::to_string(str.size());
-        ret += str;
-      }
+    for (size_t i = 0; i < moddecl->packages.length; ++i) {
+      llvm::StringRef str = moddecl->packages.ptr[i]->toChars();
+      ret += ldc::to_string(str.size());
+      ret += str;
     }
     llvm::StringRef str = moddecl->id->toChars();
     ret += ldc::to_string(str.size());
@@ -101,7 +100,7 @@ std::string getIRMangledName(FuncDeclaration *fdecl, LINK link) {
   std::string mangledName = mangleExact(fdecl);
 
   // Hash the name if necessary
-  if (((link == LINKd) || (link == LINKdefault)) &&
+  if (((link == LINK::d) || (link == LINK::default_)) &&
       (global.params.hashThreshold != 0) &&
       (mangledName.length() > global.params.hashThreshold)) {
 
@@ -122,25 +121,28 @@ std::string getIRMangledName(VarDeclaration *vd) {
 
   // TODO: Cache the result?
 
-  return getIRMangledVarName(mangleBuf.peekString(), vd->linkage);
+  return getIRMangledVarName(mangleBuf.peekChars(), vd->resolvedLinkage());
 }
 
 std::string getIRMangledFuncName(std::string baseMangle, LINK link) {
-  return gABI->mangleFunctionForLLVM(std::move(baseMangle), link);
+  return baseMangle[0] == '\1'
+             ? std::move(baseMangle)
+             : gABI->mangleFunctionForLLVM(std::move(baseMangle), link);
 }
 
 std::string getIRMangledVarName(std::string baseMangle, LINK link) {
-  return gABI->mangleVariableForLLVM(std::move(baseMangle), link);
+  return baseMangle[0] == '\1'
+             ? std::move(baseMangle)
+             : gABI->mangleVariableForLLVM(std::move(baseMangle), link);
 }
 
-namespace {
 std::string getIRMangledAggregateName(AggregateDeclaration *ad,
-                                    const char *suffix) {
+                                      const char *suffix) {
   std::string ret = "_D";
 
   OutBuffer mangleBuf;
   mangleToBuffer(ad, &mangleBuf);
-  llvm::StringRef mangledAggrName = mangleBuf.peekString();
+  llvm::StringRef mangledAggrName = mangleBuf.peekChars();
 
   if (shouldHashAggrName(mangledAggrName)) {
     ret += hashSymbolName(mangledAggrName, ad);
@@ -151,8 +153,7 @@ std::string getIRMangledAggregateName(AggregateDeclaration *ad,
   if (suffix)
     ret += suffix;
 
-  return getIRMangledVarName(std::move(ret), LINKd);
-}
+  return getIRMangledVarName(std::move(ret), LINK::d);
 }
 
 std::string getIRMangledInitSymbolName(AggregateDeclaration *aggrdecl) {
@@ -174,7 +175,7 @@ std::string getIRMangledInterfaceInfosSymbolName(ClassDeclaration *cd) {
   mangledName.writestring("_D");
   mangleToBuffer(cd, &mangledName);
   mangledName.writestring("16__interfaceInfosZ");
-  return getIRMangledVarName(mangledName.peekString(), LINKd);
+  return getIRMangledVarName(mangledName.peekChars(), LINK::d);
 }
 
 std::string getIRMangledModuleInfoSymbolName(Module *module) {
@@ -182,10 +183,10 @@ std::string getIRMangledModuleInfoSymbolName(Module *module) {
   mangledName.writestring("_D");
   mangleToBuffer(module, &mangledName);
   mangledName.writestring("12__ModuleInfoZ");
-  return getIRMangledVarName(mangledName.peekString(), LINKd);
+  return getIRMangledVarName(mangledName.peekChars(), LINK::d);
 }
 
 std::string getIRMangledModuleRefSymbolName(const char *moduleMangle) {
   return getIRMangledVarName(
-      (llvm::Twine("_D") + moduleMangle + "11__moduleRefZ").str(), LINKd);
+      (llvm::Twine("_D") + moduleMangle + "11__moduleRefZ").str(), LINK::d);
 }

@@ -9,12 +9,15 @@
 
 #include "gen/function-inlining.h"
 
-#include "declaration.h"
-#include "globals.h"
-#include "id.h"
-#include "module.h"
-#include "statement.h"
-#include "template.h"
+#include "dmd/declaration.h"
+#include "dmd/errors.h"
+#include "dmd/expression.h"
+#include "dmd/globals.h"
+#include "dmd/id.h"
+#include "dmd/module.h"
+#include "dmd/statement.h"
+#include "dmd/template.h"
+#include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
 #include "gen/recursivevisitor.h"
@@ -69,10 +72,13 @@ bool isInlineCandidate(FuncDeclaration &fdecl) {
 
 } // end anonymous namespace
 
-bool alreadyOrWillBeDefined(FuncDeclaration &fdecl) {
+bool skipCodegen(FuncDeclaration &fdecl) {
+  if (fdecl.isFuncLiteralDeclaration()) // emitted into each referencing CU
+    return false;
+
   for (FuncDeclaration *f = &fdecl; f;) {
-    if (!f->isInstantiated() && f->inNonRoot()) {
-      return false;
+    if (f->inNonRoot()) { // false if instantiated
+      return true;
     }
     if (f->isNested()) {
       f = f->toParent2()->isFuncDeclaration();
@@ -80,31 +86,22 @@ bool alreadyOrWillBeDefined(FuncDeclaration &fdecl) {
       break;
     }
   }
-  return true;
+  return false;
 }
 
 bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
   IF_LOG Logger::println("Enter defineAsExternallyAvailable");
   LOG_SCOPE
 
-  // FIXME: For now, disable all cross-module inlining (also of pragma(inline, true)
-  // functions). This check should be removed when cross-module inlining has
-  // become more stable.
-  // There are related `FIXME`s in a few lit-based `codegen/inlining_*.d` tests.
-  if (!willCrossModuleInline()) {
-    IF_LOG Logger::println("Cross-module inlining fully disabled.");
-    return false;
-  }
-
   // Implementation note: try to do cheap checks first.
 
-  if (fdecl.neverInline || fdecl.inlining == PINLINEnever) {
+  if (fdecl.neverInline || fdecl.inlining == PINLINE::never) {
     IF_LOG Logger::println("pragma(inline, false) specified");
     return false;
   }
 
   // pragma(inline, true) functions will be inlined even at -O0
-  if (fdecl.inlining == PINLINEalways) {
+  if (fdecl.inlining == PINLINE::always) {
     IF_LOG Logger::println(
         "pragma(inline, true) specified, overrides cmdline flags");
   } else if (!willCrossModuleInline()) {
@@ -112,6 +109,11 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
     return false;
   }
 
+  if (fdecl.isFuncLiteralDeclaration()) {
+    // defined as discardable linkonce_odr in each referencing CU
+    IF_LOG Logger::println("isFuncLiteralDeclaration() == true");
+    return false;
+  }
   if (fdecl.isUnitTestDeclaration()) {
     IF_LOG Logger::println("isUnitTestDeclaration() == true");
     return false;
@@ -136,28 +138,10 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
     return false;
   }
 
-  // TODO: Fix inlining functions from object.d. Currently errors because of
-  // TypeInfo type-mismatch issue (TypeInfo classes get special treatment by the
-  // compiler). To start working on it: comment-out this check and druntime will
-  // fail to compile.
-  if (fdecl.getModule()->ident == Id::object) {
-    IF_LOG Logger::println("Inlining of object.d functions is disabled");
-    return false;
-  }
-
-  if (fdecl.semanticRun >= PASSsemantic3) {
-    // If semantic analysis has come this far, the function will be defined
-    // elsewhere and should not get the available_externally attribute from
-    // here.
-    // TODO: This check prevents inlining of nested functions.
-    IF_LOG Logger::println("Semantic analysis already completed");
-    return false;
-  }
-
-  if (alreadyOrWillBeDefined(fdecl)) {
-    // This check is needed because of ICEs happening because of unclear issues
-    // upon changing the codegen order without this check.
-    IF_LOG Logger::println("Function will be defined later.");
+  Module *module = fdecl.getModule();
+  if (module == gIR->dmodule || (module->isRoot() && global.params.oneobj)) {
+    IF_LOG Logger::println(
+        "Function will be regularly defined later in this compilation unit.");
     return false;
   }
 
@@ -167,12 +151,12 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
     return false;
   }
 
-  if (fdecl.inlining != PINLINEalways && !isInlineCandidate(fdecl))
+  if (fdecl.inlining != PINLINE::always && !isInlineCandidate(fdecl))
     return false;
 
   IF_LOG Logger::println("Potential inlining candidate");
 
-  {
+  if (fdecl.semanticRun < PASS::semantic3) {
     IF_LOG Logger::println("Do semantic analysis");
     LOG_SCOPE
 
@@ -194,12 +178,12 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
       IF_LOG Logger::println("Errors occured during semantic analysis.");
       return false;
     }
-    assert(fdecl.semanticRun >= PASSsemantic3done);
+    assert(fdecl.semanticRun >= PASS::semantic3done);
   }
 
   // FuncDeclaration::naked is set by the AsmParser during semantic3 analysis,
   // and so this check can only be done at this late point.
-  if (fdecl.naked) {
+  if (fdecl.isNaked()) {
     IF_LOG Logger::println("Naked asm functions cannot be inlined.");
     return false;
   }

@@ -7,10 +7,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "expression.h"
-#include "declaration.h"
-#include "statement.h"
-#include "template.h"
+#include "dmd/declaration.h"
+#include "dmd/errors.h"
+#include "dmd/expression.h"
+#include "dmd/identifier.h"
+#include "dmd/mangle.h"
+#include "dmd/statement.h"
+#include "dmd/template.h"
 #include "gen/dvalue.h"
 #include "gen/funcgenstate.h"
 #include "gen/irstate.h"
@@ -24,7 +27,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 // FIXME: Integrate these functions
-void AsmStatement_toNakedIR(AsmStatement *stmt, IRState *irs);
+void AsmStatement_toNakedIR(InlineAsmStatement *stmt, IRState *irs);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -42,12 +45,12 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(Statement *stmt) override {
-    error(Loc(), "Statement not allowed in naked function");
+    error(stmt->loc, "Statement not allowed in naked function");
   }
 
   //////////////////////////////////////////////////////////////////////////
 
-  void visit(AsmStatement *stmt) override {
+  void visit(InlineAsmStatement *stmt) override {
     AsmStatement_toNakedIR(stmt, irs);
   }
 
@@ -82,7 +85,7 @@ public:
     }
 
     // only expstmt supported in declarations
-    if (!stmt->exp || stmt->exp->op != TOKdeclaration) {
+    if (!stmt->exp || stmt->exp->op != EXP::declaration) {
       visit(static_cast<Statement *>(stmt));
       return;
     }
@@ -139,8 +142,6 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   IF_LOG Logger::println("DtoDefineNakedFunction(%s)", mangleExact(fd));
   LOG_SCOPE;
 
-  gIR->funcGenStates.emplace_back(new FuncGenState(*getIrFunc(fd), *gIR));
-
   // we need to do special processing on the body, since we only want
   // to allow actual inline asm blocks to reach the final asm output
 
@@ -153,70 +154,58 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   const char *mangle = mangleExact(fd);
   std::string fullmangle; // buffer only
 
-  std::ostringstream tmpstr;
-
   const auto &triple = *global.params.targetTriple;
   bool const isWin = triple.isOSWindows();
-  bool const isOSX = (triple.getOS() == llvm::Triple::Darwin ||
-                      triple.getOS() == llvm::Triple::MacOSX);
+  bool const isDarwin = triple.isOSDarwin();
 
   // osx is different
   // also mangling has an extra underscore prefixed
-  if (isOSX) {
+  if (isDarwin) {
     fullmangle += '_';
     fullmangle += mangle;
     mangle = fullmangle.c_str();
 
-    std::string section = "text";
-    bool weak = false;
-    if (DtoIsTemplateInstance(fd)) {
-      tmpstr << "section\t__TEXT,__textcoal_nt,coalesced,pure_instructions";
-      section = tmpstr.str();
-      weak = true;
-    }
-    asmstr << "\t." << section << std::endl;
-    asmstr << "\t.align\t4, 0x90" << std::endl;
+    asmstr << "\t.section\t__TEXT,__text,regular,pure_instructions"
+           << std::endl;
     asmstr << "\t.globl\t" << mangle << std::endl;
-    if (weak) {
+    if (fd->isInstantiated()) {
       asmstr << "\t.weak_definition\t" << mangle << std::endl;
     }
+    asmstr << "\t.p2align\t4, 0x90" << std::endl;
     asmstr << mangle << ":" << std::endl;
   }
   // Windows is different
   else if (isWin) {
-    // prepend extra underscore for Win32 C symbols
-    if (triple.isArch32Bit() && fd->linkage != LINKcpp &&
-        fd->linkage != LINKd && fd->linkage != LINKdefault) {
+    // mangled names starting with '?' (MSVC++ symbols) apparently need quoting
+    if (mangle[0] == '?') {
+      fullmangle += '"';
+      fullmangle += mangle;
+      fullmangle += '"';
+      mangle = fullmangle.c_str();
+    } else if (triple.isArch32Bit()) {
+      // prepend extra underscore for Windows x86
       fullmangle += '_';
       fullmangle += mangle;
-      mangle = fullmangle.c_str();
-    }
-    // leading ? apparently needs quoting
-    else if (mangle[0] == '?') {
-      fullmangle += '"';
-      fullmangle += mangle;
-      fullmangle += '"';
       mangle = fullmangle.c_str();
     }
 
     asmstr << "\t.def\t" << mangle << ";" << std::endl;
     // hard code these two numbers for now since gas ignores .scl and llvm
     // is defaulting to .type 32 for everything I have seen
-    asmstr << "\t.scl 2;" << std::endl;
-    asmstr << "\t.type 32;" << std::endl;
+    asmstr << "\t.scl\t2;" << std::endl;
+    asmstr << "\t.type\t32;" << std::endl;
     asmstr << "\t.endef" << std::endl;
 
-    if (DtoIsTemplateInstance(fd)) {
-      asmstr << "\t.section\t.text$" << mangle << ",\"xr\"" << std::endl;
-      asmstr << "\t.linkonce\tdiscard" << std::endl;
+    if (fd->isInstantiated()) {
+      asmstr << "\t.section\t.text,\"xr\",discard," << mangle << std::endl;
     } else {
       asmstr << "\t.text" << std::endl;
     }
     asmstr << "\t.globl\t" << mangle << std::endl;
-    asmstr << "\t.align\t16, 0x90" << std::endl;
+    asmstr << "\t.p2align\t4, 0x90" << std::endl;
     asmstr << mangle << ":" << std::endl;
   } else {
-    if (DtoIsTemplateInstance(fd)) {
+    if (fd->isInstantiated()) {
       asmstr << "\t.section\t.text." << mangle << ",\"axG\",@progbits,"
              << mangle << ",comdat" << std::endl;
       asmstr << "\t.weak\t" << mangle << std::endl;
@@ -224,7 +213,7 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
       asmstr << "\t.text" << std::endl;
       asmstr << "\t.globl\t" << mangle << std::endl;
     }
-    asmstr << "\t.align\t16, 0x90" << std::endl;
+    asmstr << "\t.p2align\t4, 0x90" << std::endl;
     asmstr << "\t.type\t" << mangle << ",@function" << std::endl;
     asmstr << mangle << ":" << std::endl;
   }
@@ -241,7 +230,7 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
 
   // emit size after body
   // llvm does this on linux, but not on osx or Win
-  if (!(isWin || isOSX)) {
+  if (!(isWin || isDarwin)) {
     asmstr << "\t.size\t" << mangle << ", .-" << mangle << std::endl
            << std::endl;
   }
@@ -249,12 +238,18 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   gIR->module.appendModuleInlineAsm(asmstr.str());
   asmstr.str("");
 
-  gIR->funcGenStates.pop_back();
+  if (global.params.dllexport ||
+      (global.params.targetTriple->isOSWindows() && fd->isExport())) {
+    // Embed a linker switch telling the MS linker to export the naked function.
+    // This mimics the effect of the dllexport attribute for regular functions.
+    const auto linkerSwitch = std::string("/EXPORT:") + mangle;
+    gIR->addLinkerOption(llvm::StringRef(linkerSwitch));
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
+void emitABIReturnAsmStmt(IRAsmBlock *asmblock, const Loc &loc,
                           FuncDeclaration *fdecl) {
   IF_LOG Logger::println("emitABIReturnAsmStmt(%s)", mangleExact(fdecl));
   LOG_SCOPE;
@@ -268,16 +263,13 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
   // FIXME: This should probably be handled by the TargetABI somehow.
   //        It should be able to do this for a greater variety of types.
 
-  // x86
-  if (global.params.targetTriple->getArch() == llvm::Triple::x86) {
-    const LINK l = fdecl->linkage;
-    (void)l;
-    assert((l == LINKd || l == LINKc || l == LINKwindows) &&
-           "invalid linkage for asm implicit return");
+  const auto &triple = *global.params.targetTriple;
+  Type *const rt = fdecl->type->nextOf()->toBasetype();
 
-    Type *rt = fdecl->type->nextOf()->toBasetype();
-    if (rt->isintegral() || rt->ty == Tpointer || rt->ty == Tclass ||
-        rt->ty == Taarray) {
+  // x86
+  if (triple.getArch() == llvm::Triple::x86) {
+    if (rt->isintegral() || rt->ty == TY::Tpointer || rt->ty == TY::Tclass ||
+        rt->ty == TY::Taarray) {
       if (rt->size() == 8) {
         as->out_c = "=A,";
       } else {
@@ -285,16 +277,16 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
       }
     } else if (rt->isfloating()) {
       if (rt->iscomplex()) {
-        if (fdecl->linkage == LINKd) {
+        if (fdecl->_linkage == LINK::d) {
           // extern(D) always returns on the FPU stack
           as->out_c = "={st},={st(1)},";
           asmblock->retn = 2;
-        } else if (rt->ty == Tcomplex32) {
-          // extern(C) cfloat is return as i64
+        } else if (rt->ty == TY::Tcomplex32) {
+          // non-extern(D) cfloat is returned as i64
           as->out_c = "=A,";
           asmblock->retty = LLType::getInt64Ty(gIR->context());
         } else {
-          // cdouble and creal extern(C) are returned in pointer
+          // non-extern(D) cdouble and creal are returned via sret
           // don't add anything!
           asmblock->retty = LLType::getVoidTy(gIR->context());
           asmblock->retn = 0;
@@ -303,7 +295,7 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
       } else {
         as->out_c = "={st},";
       }
-    } else if (rt->ty == Tarray || rt->ty == Tdelegate) {
+    } else if (rt->ty == TY::Tarray || rt->ty == TY::Tdelegate) {
       as->out_c = "={ax},={dx},";
       asmblock->retn = 2;
 #if 0
@@ -317,7 +309,7 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
       as->out_c = "=*m,=*m,";
       LLValue* tmp = DtoRawAlloca(llretTy, 0, ".tmp_asm_ret");
       as->out.push_back( tmp );
-      as->out.push_back( DtoGEPi(tmp, 0,1) );
+      as->out.push_back( DtoGEP(tmp, 0, 1) );
       as->code = "movd %eax, $<<out0>>" "\n\t" "mov %edx, $<<out1>>";
 
       // fix asmblock
@@ -339,45 +331,48 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
   }
 
   // x86_64
-  else if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
-    LINK l = fdecl->linkage;
-    /* TODO: Check if this works with extern(Windows), completely untested.
-     *       In particular, returning cdouble may not work with
-     *       extern(Windows) since according to X86CallingConv.td it
-     *       doesn't allow XMM1 to be used.
-     * (So is extern(C), but that should be fine as the calling convention
-     * is identical to that of extern(D))
-     */
-    assert((l == LINKd || l == LINKc || l == LINKwindows) &&
-           "invalid linkage for asm implicit return");
-
-    Type *rt = fdecl->type->nextOf()->toBasetype();
-    if (rt->isintegral() || rt->ty == Tpointer || rt->ty == Tclass ||
-        rt->ty == Taarray) {
+  else if (triple.getArch() == llvm::Triple::x86_64) {
+    if (rt->isintegral() || rt->ty == TY::Tpointer || rt->ty == TY::Tclass ||
+        rt->ty == TY::Taarray) {
       as->out_c = "={ax},";
     } else if (rt->isfloating()) {
-      if (rt == Type::tcomplex80) {
+      const bool isWin64 = triple.isOSWindows();
+
+      if (rt == Type::tcomplex80 && !isWin64) {
         // On x87 stack, re=st, im=st(1)
         as->out_c = "={st},={st(1)},";
         asmblock->retn = 2;
-      } else if (rt == Type::tfloat80 || rt == Type::timaginary80) {
+      } else if ((rt == Type::tfloat80 || rt == Type::timaginary80) &&
+                 !triple.isWindowsMSVCEnvironment()) {
         // On x87 stack
         as->out_c = "={st},";
-      } else if (l != LINKd && rt == Type::tcomplex32) {
-        // LLVM and GCC disagree on how to return {float, float}.
-        // For compatibility, use the GCC/LLVM-GCC way for extern(C/Windows)
-        // extern(C) cfloat -> %xmm0 (extract two floats)
-        as->out_c = "={xmm0},";
-        asmblock->retty = LLType::getDoubleTy(gIR->context());
+      } else if (rt == Type::tcomplex32) {
+        if (isWin64) {
+          // cfloat on Win64 -> %rax
+          as->out_c = "={ax},";
+          asmblock->retty = LLType::getInt64Ty(gIR->context());
+        } else {
+          // cfloat on Posix -> %xmm0 (extract two floats)
+          as->out_c = "={xmm0},";
+          asmblock->retty = LLType::getDoubleTy(gIR->context());
+        }
       } else if (rt->iscomplex()) {
-        // cdouble and extern(D) cfloat -> re=%xmm0, im=%xmm1
-        as->out_c = "={xmm0},={xmm1},";
-        asmblock->retn = 2;
+        if (isWin64) {
+          // Win64: cdouble and creal are returned via sret
+          // don't add anything!
+          asmblock->retty = LLType::getVoidTy(gIR->context());
+          asmblock->retn = 0;
+          return;
+        } else {
+          // cdouble on Posix -> re=%xmm0, im=%xmm1
+          as->out_c = "={xmm0},={xmm1},";
+          asmblock->retn = 2;
+        }
       } else {
         // Plain float/double/ifloat/idouble
         as->out_c = "={xmm0},";
       }
-    } else if (rt->ty == Tarray || rt->ty == Tdelegate) {
+    } else if (rt->ty == TY::Tarray || rt->ty == TY::Tdelegate) {
       as->out_c = "={ax},={dx},";
       asmblock->retn = 2;
     } else {
@@ -389,9 +384,10 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
 
   // unsupported
   else {
-    error(loc, "this target (%s) does not implement inline asm falling off the "
-               "end of the function",
-          global.params.targetTriple->str().c_str());
+    error(loc,
+          "this target (%s) does not implement inline asm falling off the end "
+          "of the function",
+          triple.str().c_str());
     fatal();
   }
 
@@ -403,55 +399,80 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
 
 // sort of kinda related to naked ...
 
-DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
-                         LLValue *sretPointer) {
-  IF_LOG Logger::println("DtoInlineAsmExpr @ %s", loc.toChars());
-  LOG_SCOPE;
-
+DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
+                         Expressions *arguments, LLValue *sretPointer) {
   assert(fd->toParent()->isTemplateInstance() && "invalid inline __asm expr");
-  assert(arguments->dim >= 2 && "invalid __asm call");
+  assert(arguments->length >= 2 && "invalid __asm call");
 
   // get code param
   Expression *e = (*arguments)[0];
   IF_LOG Logger::println("code exp: %s", e->toChars());
   StringExp *se = static_cast<StringExp *>(e);
-  if (e->op != TOKstring || se->sz != 1) {
+  if (e->op != EXP::string_ || se->sz != 1) {
     e->error("`__asm` code argument is not a `char[]` string literal");
     fatal();
   }
-  std::string code(se->toPtr(), se->numberOfCodeUnits());
+  const DString codeStr = se->peekString();
+  const llvm::StringRef code = {codeStr.ptr, codeStr.length};
 
   // get constraints param
   e = (*arguments)[1];
   IF_LOG Logger::println("constraint exp: %s", e->toChars());
   se = static_cast<StringExp *>(e);
-  if (e->op != TOKstring || se->sz != 1) {
+  if (e->op != EXP::string_ || se->sz != 1) {
     e->error("`__asm` constraints argument is not a `char[]` string literal");
     fatal();
   }
-  std::string constraints(se->toPtr(), se->numberOfCodeUnits());
+  const DString constraintsStr = se->peekString();
+  const llvm::StringRef constraints = {constraintsStr.ptr,
+                                       constraintsStr.length};
 
   // build runtime arguments
-  size_t n = arguments->dim;
-
-  LLSmallVector<llvm::Value *, 8> args;
-  args.reserve(n - 2);
-  std::vector<LLType *> argtypes;
-  argtypes.reserve(n - 2);
-
-  for (size_t i = 2; i < n; i++) {
-    args.push_back(DtoRVal((*arguments)[i]));
-    argtypes.push_back(args.back()->getType());
+  const size_t n = arguments->length - 2;
+  LLSmallVector<LLValue *, 8> operands;
+  operands.reserve(n);
+  for (size_t i = 0; i < n; i++) {
+    operands.push_back(DtoRVal((*arguments)[2 + i]));
   }
 
+  Type *returnType = fd->type->nextOf();
+  LLType *irReturnType = DtoType(returnType->toBasetype());
+
+  LLValue *rv =
+      DtoInlineAsmExpr(loc, code, constraints, operands, irReturnType);
+
+  // work around missing tuple support for users of the return value
+  if (sretPointer || returnType->ty == TY::Tstruct) {
+    auto lvalue = sretPointer;
+    if (!lvalue)
+      lvalue = DtoAlloca(returnType, ".__asm_tuple_ret");
+    DtoStore(rv, DtoBitCast(lvalue, getPtrToType(irReturnType)));
+    return new DLValue(returnType, lvalue);
+  }
+
+  // return call as im value
+  return new DImValue(returnType, rv);
+}
+
+llvm::CallInst *DtoInlineAsmExpr(const Loc &loc, llvm::StringRef code,
+                                 llvm::StringRef constraints,
+                                 llvm::ArrayRef<llvm::Value *> operands,
+                                 llvm::Type *returnType) {
+  IF_LOG Logger::println("DtoInlineAsmExpr @ %s", loc.toChars());
+  LOG_SCOPE;
+
+  LLSmallVector<LLType *, 8> operandTypes;
+  operandTypes.reserve(operands.size());
+  for (auto *o : operands)
+    operandTypes.push_back(o->getType());
+
   // build asm function type
-  Type *type = fd->type->nextOf();
-  LLType *ret_type = DtoType(type->toBasetype());
-  llvm::FunctionType *FT = llvm::FunctionType::get(ret_type, argtypes, false);
+  llvm::FunctionType *FT =
+      llvm::FunctionType::get(returnType, operandTypes, false);
 
   // make sure the constraints are valid
   if (!llvm::InlineAsm::Verify(FT, constraints)) {
-    e->error("`__asm` constraint argument is invalid");
+    error(loc, "inline asm constraints are invalid");
     fatal();
   }
 
@@ -459,21 +480,7 @@ DValue *DtoInlineAsmExpr(Loc &loc, FuncDeclaration *fd, Expressions *arguments,
   bool sideeffect = true;
   llvm::InlineAsm *ia = llvm::InlineAsm::get(FT, code, constraints, sideeffect);
 
-  llvm::Value *rv = gIR->ir->CreateCall(ia, args, "");
+  auto call = gIR->createInlineAsmCall(loc, ia, operands);
 
-  if (sretPointer) {
-    DtoStore(rv, DtoBitCast(sretPointer, getPtrToType(ret_type)));
-    return new DLValue(type, sretPointer);
-  }
-
-  // work around missing tuple support for users of the return value
-  if (type->ty == Tstruct) {
-    // make a copy
-    llvm::Value *mem = DtoAlloca(type, ".__asm_tuple_ret");
-    DtoStore(rv, DtoBitCast(mem, getPtrToType(ret_type)));
-    return new DLValue(type, mem);
-  }
-
-  // return call as im value
-  return new DImValue(type, rv);
+  return call;
 }

@@ -11,10 +11,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_STRUCTS_H
-#define LDC_GEN_STRUCTS_H
+#pragma once
 
-#include "tokens.h"
+#include "dmd/tokens.h"
 #include <vector>
 
 class DValue;
@@ -37,10 +36,10 @@ class Value;
  * (only for better diagnosis)
  */
 void DtoResolveStruct(StructDeclaration *sd);
-void DtoResolveStruct(StructDeclaration *sd, Loc &callerLoc);
+void DtoResolveStruct(StructDeclaration *sd, const Loc &callerLoc);
 
 /// Returns a boolean=true if the two structs are equal.
-llvm::Value *DtoStructEquals(TOK op, DValue *lhs, DValue *rhs);
+llvm::Value *DtoStructEquals(EXP op, DValue *lhs, DValue *rhs);
 
 /// Return the type returned by DtoUnpaddedStruct called on a value of the
 /// specified type.
@@ -55,5 +54,3 @@ llvm::Value *DtoUnpaddedStruct(Type *dty, llvm::Value *v);
 
 /// Undo the transformation performed by DtoUnpaddedStruct, writing to lval.
 void DtoPaddedStruct(Type *dty, llvm::Value *v, llvm::Value *lval);
-
-#endif

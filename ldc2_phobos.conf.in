@@ -1,19 +1,44 @@
 // See comments in driver/config.d in ldc source tree for grammar description of
 // this config file.
 
-// The default group is required
+// For cross-compilation, you can add sections for specific target triples by
+// naming the sections as (quoted) regex patterns. See LDC's `-v` output
+// (`config` line) to figure out your normalized triple, depending on the used
+// `-mtriple`, `-m32` etc. E.g.:
+//
+//     "^arm.*-linux-gnueabihf$": { … };
+//     "86(_64)?-.*-linux": { … };
+//     "i[3-6]86-.*-windows-msvc": { … };
+//
+// Later sections take precedence and override settings from previous matching
+// sections while inheriting unspecified settings from previous sections.
+// A `default` section always matches (treated as ".*") and is therefore usually
+// the first section.
 default:
 {
     // default switches injected before all explicit command-line switches
     switches = [
-        "-I@RUNTIME_DIR@/src",
-        "-I@PROFILERT_DIR@/d",
-        "-I@JITRT_DIR@/d",
-        "-I@PHOBOS2_DIR@",@SHARED_LIBS_RPATH@
-        "-defaultlib=phobos2-ldc,druntime-ldc"@ADDITIONAL_DEFAULT_LDC_SWITCHES@
+        "-defaultlib=phobos2-ldc,druntime-ldc",@ADDITIONAL_DEFAULT_LDC_SWITCHES@
     ];
     // default switches appended after all explicit command-line switches
     post-switches = [
-        "-L-L@CMAKE_BINARY_DIR@/lib@LIB_SUFFIX@",@MULTILIB_ADDITIONAL_PATH@
+        "-I@RUNTIME_DIR@/src",
+        "-I@LDC_BUILD_IMPORT_DIR@",
+        "-I@JITRT_DIR@/d",
+        "-I@PHOBOS2_DIR@",
     ];
+    // default directories to be searched for libraries when linking
+    lib-dirs = [
+        "@CMAKE_BINARY_DIR@/lib@LIB_SUFFIX@",
+    ];
+    // default rpath when linking against the shared default libs
+    rpath = "@SHARED_LIBS_RPATH@";
+};
+
+"^wasm(32|64)-":
+{
+    switches = [
+        "-defaultlib=",@WASM_DEFAULT_LDC_SWITCHES@
+    ];
+    lib-dirs = [];
 };

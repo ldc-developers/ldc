@@ -1,16 +1,17 @@
 /**
- * Compiler implementation of the
- * $(LINK2 http://www.dlang.org, D programming language).
+ * Declarations for back-end functions that the front-end invokes.
  *
- * Copyright:   Copyright (c) 1999-2017 by The D Language Foundation, All Rights Reserved
- * Authors:     $(LINK2 http://www.digitalmars.com, Walter Bright)
- * License:     $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * This 'glues' either the DMC or GCC back-end to the front-end.
+ *
+ * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
+ * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/gluelayer.d, _gluelayer.d)
+ * Documentation:  https://dlang.org/phobos/dmd_gluelayer.html
+ * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/gluelayer.d
  */
 
 module dmd.gluelayer;
-
-// Online documentation: https://dlang.org/phobos/dmd_gluelayer.html
 
 import dmd.dmodule;
 import dmd.dscope;
@@ -21,25 +22,21 @@ import dmd.root.file;
 
 version (IN_LLVM)
 {
-    struct Symbol;
-    struct code;
-    struct block;
-    struct Blockx;
-    struct elem;
-    struct TYPE;
-    alias type = TYPE;
-
     extern (C++)
     {
+        struct AsmCode;
+
+        // < 2.072: no `extern (C++, class)` support
+        /*extern (C++, class)*/ struct IrType;
+
         Statement asmSemantic(AsmStatement s, Scope* sc);
-        RET retStyle(TypeFunction tf);
-        void objc_initSymbols() {}
     }
+
+    alias code = AsmCode;
+    alias type = IrType;
 }
 else version (NoBackend)
 {
-    import dmd.lib : Library;
-
     struct Symbol;
     struct code;
     struct block;
@@ -50,50 +47,59 @@ else version (NoBackend)
 
     extern (C++)
     {
-        // glue
-        void obj_write_deferred(Library library)        {}
-        void obj_start(char* srcfile)                   {}
-        void obj_end(Library library, File* objfile)    {}
-        void genObjFile(Module m, bool multiobj)        {}
-
-        // msc
-        void backend_init() {}
-        void backend_term() {}
-
         // iasm
-        Statement asmSemantic(AsmStatement s, Scope* sc) { assert(0); }
+        Statement asmSemantic(AsmStatement s, Scope* sc)
+        {
+            sc.func.hasReturnExp = 8;
+            return null;
+        }
 
         // toir
-        RET retStyle(TypeFunction tf)               { return RETregs; }
         void toObjFile(Dsymbol ds, bool multiobj)   {}
 
-        void objc_initSymbols() {}
+        extern(C++) abstract class ObjcGlue
+        {
+            static void initialize() {}
+        }
     }
 }
-else
+else version (MARS)
 {
-    import dmd.lib : Library;
-
     public import dmd.backend.cc : block, Blockx, Symbol;
     public import dmd.backend.type : type;
     public import dmd.backend.el : elem;
-    public import dmd.backend.code : code;
+    public import dmd.backend.code_x86 : code;
 
     extern (C++)
     {
-        void obj_write_deferred(Library library);
-        void obj_start(char* srcfile);
-        void obj_end(Library library, File* objfile);
-        void genObjFile(Module m, bool multiobj);
-
-        void backend_init();
-        void backend_term();
-
         Statement asmSemantic(AsmStatement s, Scope* sc);
 
-        RET retStyle(TypeFunction tf);
         void toObjFile(Dsymbol ds, bool multiobj);
 
-        void objc_initSymbols();
+        extern(C++) abstract class ObjcGlue
+        {
+            static void initialize();
+        }
     }
 }
+else version (IN_GCC)
+{
+    extern (C++) union tree_node;
+
+    alias Symbol = tree_node;
+    alias code = tree_node;
+    alias type = tree_node;
+
+    extern (C++)
+    {
+        Statement asmSemantic(AsmStatement s, Scope* sc);
+    }
+
+    // stubs
+    extern(C++) abstract class ObjcGlue
+    {
+        static void initialize() {}
+    }
+}
+else
+    static assert(false, "Unsupported compiler backend");

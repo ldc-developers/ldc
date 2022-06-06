@@ -1,5 +1,4 @@
-// Test that maximum function counts are set correctly (LLVM >= 3.8)
-// REQUIRES: atleast_llvm309
+// Test that maximum function counts are set correctly
 // REQUIRES: PGO_RT
 
 // RUN: %ldc -fprofile-instr-generate=%t.profraw -run %s  \

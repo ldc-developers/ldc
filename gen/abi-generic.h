@@ -11,8 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_ABI_GENERIC_H
-#define LDC_GEN_ABI_GENERIC_H
+#pragma once
 
 #include "gen/abi.h"
 #include "gen/irstate.h"
@@ -25,10 +24,24 @@ struct LLTypeMemoryLayout {
   // Structs and static arrays are folded recursively to scalars or anonymous
   // structs.
   // Pointer types are folded to an integer type.
+  // Vector types are folded to a universal vector type.
   static LLType *fold(LLType *type) {
-    // T* => integer
+    // T* => same-sized integer
     if (type->isPointerTy()) {
       return LLIntegerType::get(gIR->context(), getTypeBitSize(type));
+    }
+
+    // <N x T> => same-sized <M x i8>
+    if (type->isVectorTy()) {
+      const size_t sizeInBits = getTypeBitSize(type);
+      assert(sizeInBits % 8 == 0);
+      return llvm::VectorType::get(LLIntegerType::get(gIR->context(), 8),
+                                   sizeInBits / 8
+#if LDC_LLVM_VER >= 1100
+                                   ,
+                                   /*Scalable=*/false
+#endif
+      );
     }
 
     if (LLStructType *structType = isaStruct(type)) {
@@ -84,7 +97,7 @@ struct LLTypeMemoryLayout {
 
 /// Removes padding fields for (non-union-containing!) structs
 struct RemoveStructPadding : ABIRewrite {
-  LLValue *put(DValue *v, bool) override {
+  LLValue *put(DValue *v, bool, bool) override {
     return DtoUnpaddedStruct(v->type->toBasetype(), DtoLVal(v));
   }
 
@@ -105,10 +118,76 @@ struct RemoveStructPadding : ABIRewrite {
 //////////////////////////////////////////////////////////////////////////////
 
 /**
- * Rewrites any parameter to an integer of the same or next bigger size via
- * bit-casting.
+ * Base for ABI rewrites bit-casting an argument to another LL type.
+ * If the argument isn't in memory already, it is dumped to memory to perform
+ * the bit-cast.
  */
-struct IntegerRewrite : ABIRewrite {
+struct BaseBitcastABIRewrite : ABIRewrite {
+  static unsigned getMaxAlignment(LLType *llType, Type *dType) {
+    return std::max(getABITypeAlign(llType), DtoAlignment(dType));
+  }
+
+  LLValue *put(DValue *dv, bool, bool) override {
+    LLType *asType = type(dv->type);
+    const unsigned alignment = getMaxAlignment(asType, dv->type);
+    const char *name = ".BaseBitcastABIRewrite_arg";
+
+    if (!dv->isLVal()) {
+      LLValue *dump = DtoAllocaDump(dv, asType, alignment,
+                                    ".BaseBitcastABIRewrite_arg_storage");
+      return DtoLoad(dump, name);
+    }
+
+    LLValue *address = DtoLVal(dv);
+    LLType *pointeeType = address->getType()->getPointerElementType();
+
+    if (getTypeStoreSize(asType) > getTypeAllocSize(pointeeType) ||
+        alignment > DtoAlignment(dv->type)) {
+      // not enough allocated memory or insufficiently aligned
+      LLValue *paddedDump = DtoRawAlloca(
+          asType, alignment, ".BaseBitcastABIRewrite_padded_arg_storage");
+      DtoMemCpy(paddedDump, address,
+                DtoConstSize_t(getTypeAllocSize(pointeeType)));
+      return DtoLoad(paddedDump, name);
+    }
+
+    address = DtoBitCast(address, getPtrToType(asType));
+    return DtoLoad(address, name);
+  }
+
+  LLValue *getLVal(Type *dty, LLValue *v) override {
+    const unsigned alignment = getMaxAlignment(v->getType(), dty);
+    return DtoAllocaDump(v, DtoType(dty), alignment,
+                         ".BaseBitcastABIRewrite_param_storage");
+  }
+
+  void applyToIfNotObsolete(IrFuncTyArg &arg, LLType *finalLType = nullptr) {
+    if (!finalLType)
+      finalLType = type(arg.type);
+    if (!LLTypeMemoryLayout::typesAreEquivalent(arg.ltype, finalLType))
+      applyTo(arg, finalLType);
+  }
+};
+
+//////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Bit-casts an argument based on the front-end toArgTypes* machinery.
+ */
+struct ArgTypesRewrite : BaseBitcastABIRewrite {
+  LLType *type(Type *t) override {
+    LLType *rewrittenType = TargetABI::getRewrittenArgType(t->toBasetype());
+    assert(rewrittenType);
+    return rewrittenType;
+  }
+};
+
+//////////////////////////////////////////////////////////////////////////////
+
+/**
+ * Bit-casts an argument to an integer of the same or next bigger size.
+ */
+struct IntegerRewrite : BaseBitcastABIRewrite {
   static LLType *getIntegerType(unsigned minSizeInBytes) {
     if (minSizeInBytes > 16) {
       return nullptr;
@@ -143,54 +222,32 @@ struct IntegerRewrite : ABIRewrite {
     return LLIntegerType::get(gIR->context(), size * 8);
   }
 
-  static bool isObsoleteFor(LLType *llType) {
-    if (!llType->isSized()) // e.g., opaque types
-    {
-      IF_LOG Logger::cout() << "IntegerRewrite: not rewriting non-sized type "
-                            << *llType << '\n';
-      return true;
-    }
-
-    LLType *integerType = getIntegerType(getTypeStoreSize(llType));
-    return LLTypeMemoryLayout::typesAreEquivalent(llType, integerType);
-  }
-
-  LLValue *put(DValue *dv, bool) override {
-    LLValue *address = getAddressOf(dv);
-    LLType *integerType = getIntegerType(dv->type->size());
-    return loadFromMemory(address, integerType);
-  }
-
-  LLValue *getLVal(Type *dty, LLValue *v) override {
-    return DtoAllocaDump(v, dty, ".IntegerRewrite_dump");
-  }
-
   LLType *type(Type *t) override { return getIntegerType(t->size()); }
 };
 
 //////////////////////////////////////////////////////////////////////////////
 
 /**
- * Implements explicit ByVal semantics defined like this:
+ * Implements indirect high-level-by-value semantics defined like this:
  * Instead of passing a copy of the original argument directly to the callee,
  * the caller makes a bitcopy on its stack first and then passes a pointer to
  * that copy to the callee.
  * The pointer is passed as regular parameter and hence occupies either a
  * register or a function parameters stack slot.
  *
- * This differs from LLVM's ByVal attribute for pointer parameters.
- * The ByVal attribute instructs LLVM to pass the pointed-to argument directly
- * as a copy on the function parameters stack. In this case, there's no need to
- * pass an explicit pointer; the address is implicit.
+ * This differs from LLVM's byval attribute for pointer parameters.
+ * The byval attribute instructs LLVM to bitcopy the IR argument pointee onto
+ * the callee parameters stack. The callee's IR parameter is an implicit pointer
+ * to that private copy.
  */
-struct ExplicitByvalRewrite : ABIRewrite {
-  const unsigned minAlignment;
+struct IndirectByvalRewrite : ABIRewrite {
+  LLValue *put(DValue *v, bool isLValueExp, bool) override {
+    // if the argument expression is an rvalue and the LL value already in
+    // memory, then elide an additional copy
+    if (!isLValueExp && v->isLVal())
+      return DtoLVal(v);
 
-  explicit ExplicitByvalRewrite(unsigned minAlignment = 16)
-      : minAlignment(minAlignment) {}
-
-  LLValue *put(DValue *v, bool) override {
-    return DtoAllocaDump(v, alignment(v->type), ".ExplicitByvalRewrite_dump");
+    return DtoAllocaDump(v, ".hidden_copy_for_IndirectByvalRewrite");
   }
 
   LLValue *getLVal(Type *dty, LLValue *v) override {
@@ -199,82 +256,53 @@ struct ExplicitByvalRewrite : ABIRewrite {
 
   LLType *type(Type *t) override { return DtoPtrToType(t); }
 
-  unsigned alignment(Type *dty) const {
-    return std::max(minAlignment, DtoAlignment(dty));
+  void applyTo(IrFuncTyArg &arg, LLType *finalLType = nullptr) override {
+    ABIRewrite::applyTo(arg, finalLType);
+
+    // the copy is treated as a local variable of the callee
+    // hence add the NoAlias and NoCapture attributes
+    auto &attrs = arg.attrs;
+    attrs.clear();
+    attrs.addAttribute(LLAttribute::NoAlias);
+    attrs.addAttribute(LLAttribute::NoCapture);
+    if (auto alignment = DtoAlignment(arg.type))
+      attrs.addAlignmentAttr(alignment);
   }
 };
+
+//////////////////////////////////////////////////////////////////////////////
 
 /**
- * Rewrite Homogeneous Homogeneous Floating-point Aggregate (HFA) as array of
- * float type.
+ * Bit-casts a Homogeneous Floating-point/Vector Aggregate (HFVA) to an array
+ * of floats/vectors.
  */
-struct HFAToArray : ABIRewrite {
-  const int maxFloats = 4;
+struct HFVAToArray : BaseBitcastABIRewrite {
+  const int maxElements;
 
-  HFAToArray(const int max = 4) : maxFloats(max) {}
-
-  LLValue *put(DValue *dv, bool) override {
-    Logger::println("rewriting HFA %s -> as array", dv->type->toChars());
-    LLType *t = type(dv->type);
-    return DtoLoad(DtoBitCast(DtoLVal(dv), getPtrToType(t)));
-  }
-
-  LLValue *getLVal(Type *dty, LLValue *v) override {
-    Logger::println("rewriting array -> as HFA %s", dty->toChars());
-    return DtoAllocaDump(v, dty, ".HFAToArray_dump");
-  }
+  HFVAToArray(int max = 4) : maxElements(max) {}
 
   LLType *type(Type *t) override {
-    assert(t->ty == Tstruct);
-    LLType *floatArrayType = nullptr;
-    if (TargetABI::isHFA((TypeStruct *)t, &floatArrayType, maxFloats))
-      return floatArrayType;
-    llvm_unreachable("Type t should be an HFA");
+    LLType *hfvaType = nullptr;
+    if (TargetABI::isHFVA(t, maxElements, &hfvaType))
+      return hfvaType;
+    llvm_unreachable("Type t should be an HFVA");
   }
 };
+
+//////////////////////////////////////////////////////////////////////////////
 
 /**
- * Rewrite a composite as array of i64.
+ * Bit-casts an argument to an array of integers of the specified size.
  */
-struct CompositeToArray64 : ABIRewrite {
-  LLValue *put(DValue *dv, bool) override {
-    Logger::println("rewriting %s -> as i64 array", dv->type->toChars());
-    LLType *t = type(dv->type);
-    return DtoLoad(DtoBitCast(DtoLVal(dv), getPtrToType(t)));
-  }
-
-  LLValue *getLVal(Type *dty, LLValue *v) override {
-    Logger::println("rewriting i64 array -> as %s", dty->toChars());
-    return DtoAllocaDump(v, dty, ".CompositeToArray64_dump");
-  }
-
+template <int elementSize> struct CompositeToArray : BaseBitcastABIRewrite {
   LLType *type(Type *t) override {
-    // An i64 array that will hold Type 't'
-    size_t sz = (t->size() + 7) / 8;
-    return LLArrayType::get(LLIntegerType::get(gIR->context(), 64), sz);
+    size_t length = (t->size() + elementSize - 1) / elementSize;
+    return LLArrayType::get(LLIntegerType::get(gIR->context(), elementSize * 8),
+                            length);
   }
 };
 
-/**
- * Rewrite a composite as array of i32.
- */
-struct CompositeToArray32 : ABIRewrite {
-  LLValue *put(DValue *dv, bool) override {
-    Logger::println("rewriting %s -> as i32 array", dv->type->toChars());
-    LLType *t = type(dv->type);
-    return DtoLoad(DtoBitCast(DtoLVal(dv), getPtrToType(t)));
-  }
-
-  LLValue *getLVal(Type *dty, LLValue *v) override {
-    Logger::println("rewriting i32 array -> as %s", dty->toChars());
-    return DtoAllocaDump(v, dty, ".CompositeToArray32_dump");
-  }
-
-  LLType *type(Type *t) override {
-    // An i32 array that will hold Type 't'
-    size_t sz = (t->size() + 3) / 4;
-    return LLArrayType::get(LLIntegerType::get(gIR->context(), 32), sz);
-  }
-};
-
-#endif
+// Bit-casts to an array of i32.
+using CompositeToArray32 = CompositeToArray<4>;
+// Bit-casts to an array of i64.
+using CompositeToArray64 = CompositeToArray<8>;

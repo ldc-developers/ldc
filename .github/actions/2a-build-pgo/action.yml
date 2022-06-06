@@ -1,0 +1,32 @@
+name: Build LDC with PGO instrumentation & gather profile from compiling default libs
+inputs:
+  cmake_flags:
+    required: false
+    default: ''
+  arch:
+    required: false # Windows only
+runs:
+  using: composite
+  steps:
+
+    - name: Build LDC with PGO instrumentation & gather profiles from compiling default libs
+      uses: ./.github/actions/helper-build-ldc
+      with:
+        build_dir: pgo-ldc
+        host_dc: ../bootstrap-ldc/bin/ldmd2
+        # tweak -vp-counters-per-site to avoid `LLVM Profile Warning: Unable to track new values: Running out of static counters.`
+        cmake_flags: >-
+          -DBUILD_SHARED_LIBS=OFF
+          "-DDFLAGS_LDC=-fprofile-generate -vp-counters-per-site=1.5"
+          ${{ inputs.cmake_flags }}
+        arch: ${{ inputs.arch }}
+      env:
+        LLVM_PROFILE_FILE: ${{ github.workspace }}/../pgo-ldc/%p.profraw
+
+    - name: Merge PGO profiles # to ../pgo-ldc/merged.profdata
+      shell: bash
+      run: |
+        set -eux
+        cd ../pgo-ldc
+        ../bootstrap-ldc/bin/ldc-profdata merge --output=merged.profdata *.profraw
+        ls -lh *.prof{data,raw}

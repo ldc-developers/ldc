@@ -1,0 +1,6 @@
+name: Run LDC D unittests
+runs:
+  using: composite
+  steps:
+    - run: cd ../build && ctest --output-on-failure -R "ldc2-unittest"
+      shell: bash

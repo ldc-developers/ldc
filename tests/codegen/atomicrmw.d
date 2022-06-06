@@ -36,5 +36,5 @@ void main() {
 
   r = atomicOp!"+="(x, 1.0f);
   assert(x == r);
-  // CHECK: = cmpxchg i8*
+  // CHECK: = cmpxchg weak i8*
 }

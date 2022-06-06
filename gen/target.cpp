@@ -9,56 +9,153 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ldcbindings.h"
-#include "target.h"
+#include "dmd/errors.h"
+#include "dmd/expression.h"
+#include "dmd/ldcbindings.h"
+#include "dmd/mtype.h"
+#include "dmd/target.h"
+#include "driver/cl_options.h"
+#include "driver/linker.h"
 #include "gen/abi.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
-#include "mars.h"
-#include "mtype.h"
 #include <assert.h>
-
-#if !defined(_MSC_VER)
-#include <pthread.h>
-#endif
 
 using llvm::APFloat;
 
-void Target::_init() {
+// in dmd/argtypes_x86.d:
+TypeTuple *toArgTypes_x86(Type *t);
+// in dmd/argtypes_sysv_x64.d:
+TypeTuple *toArgTypes_sysv_x64(Type *t);
+// in dmd/argtypes_aarch64.d:
+TypeTuple *toArgTypes_aarch64(Type *t);
+
+namespace {
+// Returns the LL type to be used for D `real` (C `long double`).
+llvm::Type *getRealType(const llvm::Triple &triple) {
+  using llvm::Triple;
+
+  auto &ctx = getGlobalContext();
+
+  // Android: x86 targets follow ARM, with emulated quad precision for x64
+  if (triple.getEnvironment() == llvm::Triple::Android) {
+    return triple.isArch64Bit() ? LLType::getFP128Ty(ctx)
+                                : LLType::getDoubleTy(ctx);
+  }
+
+  switch (triple.getArch()) {
+  case Triple::x86:
+  case Triple::x86_64:
+    // only x86 has 80-bit extended precision; MSVC uses double
+    return triple.isWindowsMSVCEnvironment() ? LLType::getDoubleTy(ctx)
+                                             : LLType::getX86_FP80Ty(ctx);
+
+  case Triple::aarch64:
+  case Triple::aarch64_be:
+    // AArch64 has 128-bit quad precision; Apple uses double
+    return triple.isOSDarwin() ? LLType::getDoubleTy(ctx)
+                               : LLType::getFP128Ty(ctx);
+
+  case Triple::riscv32:
+  case Triple::riscv64:
+    return LLType::getFP128Ty(ctx);
+
+  default:
+    // 64-bit double precision for all other targets
+    // FIXME: PowerPC, SystemZ, ...
+    return LLType::getDoubleTy(ctx);
+  }
+}
+}
+
+void Target::_init(const Param &params) {
+  this->params = &params;
+
+  CTFloat::initialize();
+  initFPTypeProperties();
+
+  const auto &triple = *params.targetTriple;
+  const bool isMSVC = triple.isWindowsMSVCEnvironment();
+
+  if (triple.isOSLinux()) {
+    os = OS_linux;
+  } else if (triple.isOSDarwin()) {
+    os = OS_OSX;
+  } else if (triple.isOSWindows()) {
+    os = OS_Windows;
+  } else if (triple.isOSFreeBSD()) {
+    os = OS_FreeBSD;
+  } else if (triple.isOSOpenBSD()) {
+    os = OS_OpenBSD;
+  } else if (triple.isOSDragonFly()) {
+    os = OS_DragonFlyBSD;
+  } else if (triple.isOSSolaris()) {
+    os = OS_Solaris;
+  } else {
+    os = OS_Freestanding;
+  }
+
+  osMajor = triple.getOSMajorVersion();
+
   ptrsize = gDataLayout->getPointerSize();
-
-  llvm::Type *const real = DtoType(Type::basic[Tfloat80]);
-  realsize = gDataLayout->getTypeAllocSize(real);
-  realpad = realsize - gDataLayout->getTypeStoreSize(real);
-  realalignsize = gDataLayout->getABITypeAlignment(real);
-
-  // according to DMD, only for MSVC++:
-  reverseCppOverloads = global.params.targetTriple->isWindowsMSVCEnvironment();
-
-  cppExceptions = true;
-
-  c_longsize = global.params.is64bit ? 8 : 4;
-  c_long_doublesize = realsize;
+  realType = getRealType(triple);
+  realsize = gDataLayout->getTypeAllocSize(realType);
+  realpad = realsize - gDataLayout->getTypeStoreSize(realType);
+  realalignsize = gDataLayout->getABITypeAlignment(realType);
   classinfosize = 0; // unused
   maxStaticDataSize = std::numeric_limits<unsigned long long>::max();
 
-  // {Float,Double,Real}Properties have been initialized with the D host
-  // compiler's properties.
-  // Now finalize RealProperties for the target's `real` type.
+  c.crtDestructorsSupported = true; // unused as of 2.099
+  c.boolsize = 1;
+  c.shortsize = 2;
+  c.intsize = 4;
+  c.longsize = (ptrsize == 8) && !isMSVC ? 8 : 4;
+  c.long_longsize = 8;
+  c.long_doublesize = realsize;
+  c.wchar_tsize = triple.isOSWindows() ? 2 : 4;
+  c.bitFieldStyle =
+      isMSVC ? TargetC::BitFieldStyle::MS : TargetC::BitFieldStyle::Gcc_Clang;
 
-  const auto targetRealSemantics = &real->getFltSemantics();
-#if LDC_LLVM_VER >= 400
+  cpp.reverseOverloads = isMSVC; // according to DMD, only for MSVC++
+  cpp.exceptions = true;
+  cpp.twoDtorInVtable = !isMSVC;
+  cpp.splitVBasetable = isMSVC;
+  cpp.wrapDtorInExternD = triple.getArch() == llvm::Triple::x86;
+
+  objc.supported = objc_isSupported(triple);
+
+  const llvm::StringRef archName = triple.getArchName();
+  architectureName = {archName.size(), archName.data()};
+
+  is64bit = triple.isArch64Bit();
+  isLP64 = gDataLayout->getPointerSizeInBits() == 64;
+  run_noext = !triple.isOSWindows();
+  omfobj = false;
+
+  if (isMSVC) {
+    obj_ext = {3, "obj"};
+    lib_ext = {3, "lib"};
+  } else {
+    obj_ext = {1, "o"};
+    lib_ext = {1, "a"};
+  }
+
+  if (triple.isOSWindows()) {
+    dll_ext = {3, "dll"};
+  } else if (triple.isOSDarwin()) {
+    dll_ext = {5, "dylib"};
+  } else {
+    dll_ext = {2, "so"};
+  }
+
+  // Finalize RealProperties for the target's `real` type.
+
+  const auto targetRealSemantics = &realType->getFltSemantics();
   const auto IEEEdouble = &APFloat::IEEEdouble();
   const auto x87DoubleExtended = &APFloat::x87DoubleExtended();
   const auto IEEEquad = &APFloat::IEEEquad();
-#else
-  const auto IEEEdouble = &APFloat::IEEEdouble;
-  const auto x87DoubleExtended = &APFloat::x87DoubleExtended;
-  const auto IEEEquad = &APFloat::IEEEquad;
-#endif
 
   RealProperties.nan = CTFloat::nan;
-  RealProperties.snan = CTFloat::initVal;
   RealProperties.infinity = CTFloat::infinity;
 
   if (targetRealSemantics == IEEEdouble) {
@@ -107,7 +204,7 @@ void Target::_init() {
  */
 unsigned Target::alignsize(Type *type) {
   assert(type->isTypeBasic());
-  if (type->ty == Tvoid) {
+  if (type->ty == TY::Tvoid) {
     return 1;
   }
   return gDataLayout->getABITypeAlignment(DtoType(type));
@@ -118,150 +215,122 @@ unsigned Target::alignsize(Type *type) {
  */
 unsigned Target::fieldalign(Type *type) { return DtoAlignment(type); }
 
-/******************************
- * Return size of alias Mutex in druntime/src/rt/monitor_.d, or, more precisely,
- * the size of the native critical section as 2nd field in struct
- * D_CRITICAL_SECTION (after a pointer). D_CRITICAL_SECTION is pointer-size
- * aligned, so the returned field size is a multiple of pointer-size.
+Type *Target::va_listType(const Loc &loc, Scope *sc) {
+  if (!tvalist)
+    tvalist = typeSemantic(gABI->vaListType(), loc, sc);
+  return tvalist;
+}
+
+/**
+ * Gets vendor-specific type mangling for C++ ABI.
+ * Params:
+ *      t = type to inspect
+ * Returns:
+ *      string if type is mangled specially on target
+ *      null if unhandled
  */
-unsigned Target::critsecsize() {
-  const bool is64bit = global.params.is64bit;
+const char *TargetCPP::typeMangle(Type *t) {
+  if (t->ty == TY::Tfloat80) {
+    const auto &triple = *global.params.targetTriple;
+    // `long double` on Android/x64 is __float128 and mangled as `g`
+    bool isAndroidX64 = triple.getEnvironment() == llvm::Triple::Android &&
+                        triple.getArch() == llvm::Triple::x86_64;
+    return isAndroidX64 ? "g" : "e";
+  }
+  return nullptr;
+}
 
-  // Windows: sizeof(CRITICAL_SECTION)
-  if (global.params.isWindows)
-    return is64bit ? 40 : 24;
-
-  // POSIX: sizeof(pthread_mutex_t)
-  // based on druntime/src/core/sys/posix/sys/types.d
+TypeTuple *Target::toArgTypes(Type *t) {
   const auto &triple = *global.params.targetTriple;
   const auto arch = triple.getArch();
-  switch (triple.getOS()) {
-  case llvm::Triple::Linux:
-    if (triple.getEnvironment() == llvm::Triple::Android)
-      return Target::ptrsize; // 32-bit integer rounded up to pointer size
-    if (arch == llvm::Triple::aarch64 || arch == llvm::Triple::aarch64_be)
-      return 48;
-    return is64bit ? 40 : 24;
+  if (arch == llvm::Triple::x86)
+    return toArgTypes_x86(t);
+  if (arch == llvm::Triple::x86_64 && !triple.isOSWindows())
+    return toArgTypes_sysv_x64(t);
+  if (arch == llvm::Triple::aarch64 || arch == llvm::Triple::aarch64_be)
+    return toArgTypes_aarch64(t);
+  return nullptr;
+}
 
-  case llvm::Triple::MacOSX:
-    return is64bit ? 64 : 44;
-  
-  case llvm::Triple::NetBSD:
-    return is64bit ? 48 : 28;
+bool Target::isReturnOnStack(TypeFunction *tf, bool needsThis) {
+  return gABI->returnInArg(tf, needsThis);
+}
 
-  case llvm::Triple::FreeBSD:
-  case llvm::Triple::OpenBSD:
-  case llvm::Triple::DragonFly:
-    return Target::ptrsize;
+bool Target::preferPassByRef(Type *t) { return gABI->preferPassByRef(t); }
 
-  case llvm::Triple::Solaris:
-    return 24;
+Expression *Target::getTargetInfo(const char *name_, const Loc &loc) {
+  const llvm::StringRef name(name_);
+  const auto &triple = *global.params.targetTriple;
 
-  default:
-    break;
+  const auto createStringExp = [&loc](const char *value) {
+    return value ? StringExp::create(loc, const_cast<char *>(value)) : nullptr;
+  };
+
+  if (name == "objectFormat") {
+    const char *objectFormat = nullptr;
+    if (triple.isOSBinFormatCOFF()) {
+      objectFormat = "coff";
+    } else if (triple.isOSBinFormatMachO()) {
+      objectFormat = "macho";
+    } else if (triple.isOSBinFormatELF()) {
+      objectFormat = "elf";
+    } else if (triple.isOSBinFormatWasm()) {
+      objectFormat = "wasm";
+    }
+    return createStringExp(objectFormat);
   }
 
-#ifndef _MSC_VER
-  unsigned hostSize = sizeof(pthread_mutex_t);
-  warning(Loc(), "Assuming critical section size = %u bytes", hostSize);
-  return hostSize;
-#else
-  error(Loc(), "Unknown critical section size");
-  fatal();
-  return 0;
+  if (name == "floatAbi") {
+    const char *floatAbi = nullptr;
+    if (opts::floatABI == FloatABI::Hard) {
+      floatAbi = "hard";
+    } else if (opts::floatABI == FloatABI::Soft) {
+      floatAbi = "soft";
+    } else if (opts::floatABI == FloatABI::SoftFP) {
+      floatAbi = "softfp";
+    }
+    return createStringExp(floatAbi);
+  }
+
+  if (name == "cppRuntimeLibrary") {
+    const char *cppRuntimeLibrary = "";
+    if (triple.isWindowsMSVCEnvironment()) {
+      auto mscrtlib = getMscrtLibName().str();
+      cppRuntimeLibrary = mem.xstrdup(mscrtlib.c_str());
+    }
+    return createStringExp(cppRuntimeLibrary);
+  }
+
+  if (name == "cppStd") {
+    return IntegerExp::create(
+        Loc(), static_cast<unsigned>(global.params.cplusplus), Type::tint32);
+  }
+
+#if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
+  if (name == "dcomputeTargets") {
+    Expressions* exps = createExpressions();
+    for (auto &targ : opts::dcomputeTargets) {
+        exps->push(createStringExp(mem.xstrdup(targ.c_str())));
+    }
+    return TupleExp::create(loc, exps);
+  }
+
+  if (name == "dcomputeFilePrefix") {
+    return createStringExp(
+                mem.xstrdup(opts::dcomputeFilePrefix.c_str()));
+  }
 #endif
+
+  return nullptr;
 }
 
-Type *Target::va_listType() { return gABI->vaListType(); }
-
-/******************************
- * Check if the given type is supported for this target
- * 0: supported
- * 1: not supported
- * 2: wrong size
- * 3: wrong base type
- */
-int Target::isVectorTypeSupported(int sz, Type *type) {
-  // FIXME: Is it possible to query the LLVM target about supported vectors?
-  return 0;
+bool Target::isCalleeDestroyingArgs(TypeFunction* tf) {
+  // callEE for extern(D) and MSVC++; callER for non-MSVC extern(C++)
+  return global.params.targetTriple->isWindowsMSVCEnvironment() ||
+         tf->linkage != LINK::cpp;
 }
 
-/******************************
- * Checks whether the target supports operation `op` for vectors of type `type`.
- * For binary ops `t2` is the type of the 2nd operand.
- */
-bool Target::isVectorOpSupported(Type *type, TOK op, Type *t2) {
-  // FIXME
-  return true;
+bool Target::supportsLinkerDirective() const {
+  return global.params.targetTriple->isWindowsMSVCEnvironment() ||
+         global.params.targetTriple->isOSBinFormatMachO();
 }
-
-/******************************
- * Encode the given expression, which is assumed to be an rvalue literal
- * as another type for use in CTFE.
- * This corresponds roughly to the idiom *(Type *)&e.
- */
-Expression *Target::paintAsType(Expression *e, Type *type) {
-  union {
-    d_int32 int32value;
-    d_int64 int64value;
-    float float32value;
-    double float64value;
-  } u;
-
-  assert(e->type->size() == type->size());
-
-  switch (e->type->ty) {
-  case Tint32:
-  case Tuns32:
-    u.int32value = static_cast<d_int32>(e->toInteger());
-    break;
-
-  case Tint64:
-  case Tuns64:
-    u.int64value = static_cast<d_int64>(e->toInteger());
-    break;
-
-  case Tfloat32:
-    u.float32value = e->toReal();
-    break;
-
-  case Tfloat64:
-    u.float64value = e->toReal();
-    break;
-
-  default:
-    llvm_unreachable("Unsupported source type");
-  }
-
-  switch (type->ty) {
-  case Tint32:
-  case Tuns32:
-    return createIntegerExp(e->loc, u.int32value, type);
-
-  case Tint64:
-  case Tuns64:
-    return createIntegerExp(e->loc, u.int64value, type);
-
-  case Tfloat32:
-    return createRealExp(e->loc, u.float32value, type);
-
-  case Tfloat64:
-    return createRealExp(e->loc, u.float64value, type);
-
-  default:
-    llvm_unreachable("Unsupported target type");
-  }
-}
-
-/******************************
- * For the given module, perform any post parsing analysis.
- * Certain compiler backends (ie: GDC) have special placeholder
- * modules whose source are empty, but code gets injected
- * immediately after loading.
- */
-void Target::loadModule(Module *m) {}
-
-/******************************
- *
- */
-void Target::prefixName(OutBuffer *buf, LINK linkage) {}

@@ -1,10 +1,10 @@
-// REQUIRES: atleast_llvm309
+
 // REQUIRES: Windows
 // REQUIRES: cdb
 // RUN: %ldc -g -of=%t.exe %s
 // RUN: sed -e "/^\\/\\/ CDB:/!d" -e "s,// CDB:,," %s \
 // RUN:    | %cdb -snul -lines -y . %t.exe >%t.out
-// RUN: FileCheck %s -check-prefix=CHECK -check-prefix=%arch < %t.out
+// RUN: FileCheck %s < %t.out
 module vector;
 
 import core.simd;
@@ -12,8 +12,9 @@ import core.simd;
 // CDB: ld /f vector_cdb*
 // enable case sensitive symbol lookup
 // CDB: .symopt-1
-// CDB: bp `vector_cdb.d:91`
+// CDB: bp0 /1 `vector_cdb.d:92`
 // CDB: g
+// CHECK: Breakpoint 0 hit
 // CDB: dv /t
 
 int main()

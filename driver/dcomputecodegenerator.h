@@ -7,8 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_DRIVER_DCOMPUTECODEGENERATOR_H
-#define LDC_DRIVER_DCOMPUTECODEGENERATOR_H
+#pragma once
 
 #include "gen/dcompute/target.h"
 #include "llvm/ADT/SmallVector.h"
@@ -33,5 +32,3 @@ public:
   DComputeCodeGenManager(llvm::LLVMContext &c);
   ~DComputeCodeGenManager();
 };
-
-#endif

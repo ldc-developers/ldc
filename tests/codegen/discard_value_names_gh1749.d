@@ -1,7 +1,5 @@
 // Test value name discarding when creating non-textual IR.
 
-// REQUIRES: atleast_llvm309
-
 // RUN: %ldc %S/inputs/input_discard_valuename.d -c -output-ll -of=%t.bar.ll && FileCheck %S/inputs/input_discard_valuename.d < %t.bar.ll
 
 // Output a bitcode file (i.e. with discarded names) and input it into a second LDC command that outputs textual IR.

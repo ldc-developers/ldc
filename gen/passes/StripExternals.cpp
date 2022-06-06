@@ -17,37 +17,44 @@
 
 #define DEBUG_TYPE "strip-externals"
 
-#include "Passes.h"
-
+#include "gen/passes/Passes.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
-#include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+
 using namespace llvm;
 
 STATISTIC(NumFunctions, "Number of function bodies removed");
 STATISTIC(NumVariables, "Number of global initializers removed");
 
 namespace {
-struct LLVM_LIBRARY_VISIBILITY StripExternals : public ModulePass {
-  static char ID; // Pass identification, replacement for typeid
-  StripExternals() : ModulePass(ID) {}
-
+struct LLVM_LIBRARY_VISIBILITY StripExternals {
   // run - Do the StripExternals pass on the specified module.
   //
-  bool runOnModule(Module &M) override;
+  bool run(Module &M);
+};
+
+
+struct LLVM_LIBRARY_VISIBILITY StripExternalsLegacyPass : public ModulePass {
+  static char ID; // Pass identification, replacement for typeid
+  StripExternalsLegacyPass() : ModulePass(ID) {}
+  StripExternals pass;
+  // run - Do the StripExternals pass on the specified module.
+  //
+    bool runOnModule(Module &M) override { return pass.run(M); };
 };
 }
 
-char StripExternals::ID = 0;
-static RegisterPass<StripExternals>
+char StripExternalsLegacyPass::ID = 0;
+static RegisterPass<StripExternalsLegacyPass>
     X("strip-externals", "Strip available_externally bodies and initializers");
 
-ModulePass *createStripExternalsPass() { return new StripExternals(); }
+ModulePass *createStripExternalsPass() { return new StripExternalsLegacyPass(); }
 
-bool StripExternals::runOnModule(Module &M) {
+bool StripExternals::run(Module &M) {
   bool Changed = false;
 
   for (auto I = M.begin(); I != M.end();) {
@@ -57,14 +64,14 @@ bool StripExternals::runOnModule(Module &M) {
       Changed = true;
       ++NumFunctions;
       if (I->use_empty()) {
-        DEBUG(errs() << "Deleting function: " << *I);
+        LLVM_DEBUG(errs() << "Deleting function: " << *I);
         auto todelete = I;
         ++I;
         todelete->eraseFromParent();
         continue;
       } else {
         I->deleteBody();
-        DEBUG(errs() << "Deleted function body: " << *I);
+        LLVM_DEBUG(errs() << "Deleted function body: " << *I);
       }
     }
     ++I;
@@ -77,7 +84,7 @@ bool StripExternals::runOnModule(Module &M) {
       Changed = true;
       ++NumVariables;
       if (I->use_empty()) {
-        DEBUG(errs() << "Deleting global: " << *I);
+        LLVM_DEBUG(errs() << "Deleting global: " << *I);
         auto todelete = I;
         ++I;
         todelete->eraseFromParent();
@@ -85,7 +92,7 @@ bool StripExternals::runOnModule(Module &M) {
       } else {
         I->setInitializer(nullptr);
         I->setLinkage(GlobalValue::ExternalLinkage);
-        DEBUG(errs() << "Deleted initializer: " << *I);
+        LLVM_DEBUG(errs() << "Deleted initializer: " << *I);
       }
     }
     ++I;

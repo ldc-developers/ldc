@@ -9,6 +9,9 @@
 
 #include "gen/moduleinfo.h"
 
+#include "dmd/errors.h"
+#include "dmd/mangle.h"
+#include "dmd/module.h"
 #include "gen/abi.h"
 #include "gen/classes.h"
 #include "gen/irstate.h"
@@ -16,10 +19,10 @@
 #include "gen/logger.h"
 #include "gen/mangling.h"
 #include "gen/rttibuilder.h"
+#include "gen/runtime.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "ir/irtype.h"
-#include "module.h"
 
 // These must match the values in druntime/src/object_.d
 #define MIstandalone 0x4
@@ -56,11 +59,11 @@ llvm::Function *buildForwarderFunction(
   const auto fnTy =
       LLFunctionType::get(LLType::getVoidTy(gIR->context()), {}, false);
 
-  const auto irMangle = getIRMangledFuncName(name, LINKd);
+  const auto irMangle = getIRMangledFuncName(name, LINK::d);
   assert(gIR->module.getFunction(irMangle) == NULL);
   llvm::Function *fn = llvm::Function::Create(
       fnTy, llvm::GlobalValue::InternalLinkage, irMangle, &gIR->module);
-  fn->setCallingConv(gABI->callingConv(LINKd));
+  fn->setCallingConv(gABI->callingConv(LINK::d));
 
   // Emit the body, consisting of...
   const auto bb = llvm::BasicBlock::Create(gIR->context(), "", fn);
@@ -69,21 +72,22 @@ llvm::Function *buildForwarderFunction(
   ldc::DISubprogram dis = gIR->DBuilder.EmitModuleCTor(fn, name.c_str());
   if (global.params.symdebug) {
     // Need _some_ debug info to avoid inliner bug, see GitHub issue #998.
-    builder.SetCurrentDebugLocation(llvm::DebugLoc::get(0, 0, dis));
+    builder.SetCurrentDebugLocation(
+        llvm::DILocation::get(gIR->context(), 0, 0, dis));
   }
 
   // ... calling the given functions, and...
   for (auto func : funcs) {
     const auto f = DtoCallee(func);
     const auto call = builder.CreateCall(f, {});
-    call->setCallingConv(gABI->callingConv(func->linkage));
+    call->setCallingConv(gABI->callingConv(func));
   }
 
   // ... incrementing the gate variables.
   for (auto gate : gates) {
     assert(getIrGlobal(gate));
     const auto val = getIrGlobal(gate)->value;
-    const auto rval = builder.CreateLoad(val, "vgate");
+    const auto rval = builder.CreateLoad(getPointeeType(val), val, "vgate");
     const auto res = builder.CreateAdd(rval, DtoConstUint(1), "vgate");
     builder.CreateStore(res, val);
   }
@@ -99,7 +103,7 @@ std::string getMangledName(Module *m, const char *suffix) {
   mangleToBuffer(m, &buf);
   if (suffix)
     buf.writestring(suffix);
-  return buf.peekString();
+  return buf.peekChars();
 }
 }
 
@@ -132,7 +136,7 @@ llvm::Function *buildModuleSharedDtor(Module *m) {
 
 /// Builds the (constant) data content for the importedModules[] array.
 llvm::Constant *buildImportedModules(Module *m, size_t &count) {
-  const auto moduleInfoPtrTy = DtoPtrToType(Module::moduleinfo->type);
+  const auto moduleInfoPtrTy = DtoPtrToType(getModuleInfoType());
 
   std::vector<LLConstant *> importInits;
   for (auto mod : m->aimports) {
@@ -154,7 +158,7 @@ llvm::Constant *buildImportedModules(Module *m, size_t &count) {
 
 /// Builds the (constant) data content for the localClasses[] array.
 llvm::Constant *buildLocalClasses(Module *m, size_t &count) {
-  const auto classinfoTy = Type::typeinfoclass->type->ctype->getLLType();
+  const auto classinfoTy = DtoType(getClassInfoType());
 
   ClassDeclarations aclasses;
   for (auto s : *m->members) {
@@ -171,7 +175,7 @@ llvm::Constant *buildLocalClasses(Module *m, size_t &count) {
       continue;
     }
 
-    if (cd->sizeok != SIZEOKdone) {
+    if (cd->sizeok != Sizeok::done) {
       IF_LOG Logger::println(
           "skipping opaque class declaration '%s' in moduleinfo",
           cd->toPrettyChars());
@@ -193,16 +197,15 @@ llvm::Constant *buildLocalClasses(Module *m, size_t &count) {
 }
 
 llvm::GlobalVariable *genModuleInfo(Module *m) {
-  if (!Module::moduleinfo) {
-    m->error("object.d is missing the `ModuleInfo` struct");
-    fatal();
-  }
+  // check declaration in object.d
+  const auto moduleInfoType = getModuleInfoType();
+  const auto moduleInfoDecl = Module::moduleinfo;
 
   // The "new-style" ModuleInfo records are variable-length, with the presence
   // of the various fields indicated by a certain flag bit. The base struct
   // should consist only of the _flags/_index fields (the latter of which is
   // unused).
-  if (Module::moduleinfo->structsize != 4 + 4) {
+  if (moduleInfoDecl->structsize != 4 + 4) {
     m->error("Unexpected size of struct `object.ModuleInfo`; "
              "druntime version does not match compiler (see -v)");
     fatal();
@@ -262,7 +265,7 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
   }
 
   // Now, start building the initialiser for the ModuleInfo instance.
-  RTTIBuilder b(Module::moduleinfo);
+  RTTIBuilder b(moduleInfoType);
 
   b.push_uint(flags);
   b.push_uint(0); // index
@@ -308,6 +311,9 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
   // Create a global symbol with the above initialiser.
   LLGlobalVariable *moduleInfoSym = getIrModule(m)->moduleInfoSymbol();
   b.finalize(moduleInfoSym);
-  setLinkage({LLGlobalValue::ExternalLinkage, supportsCOMDAT()}, moduleInfoSym);
+  setLinkage({LLGlobalValue::ExternalLinkage, needsCOMDAT()}, moduleInfoSym);
+  if (global.params.dllexport) {
+    moduleInfoSym->setDLLStorageClass(LLGlobalValue::DLLExportStorageClass);
+  }
   return moduleInfoSym;
 }

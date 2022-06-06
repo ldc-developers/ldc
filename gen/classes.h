@@ -12,8 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_CLASSES_H
-#define LDC_GEN_CLASSES_H
+#pragma once
 
 #include "gen/structs.h"
 
@@ -26,21 +25,14 @@ class TypeClass;
 /// Resolves the llvm type for a class declaration
 void DtoResolveClass(ClassDeclaration *cd);
 
-/// Builds the initializer of cd's ClassInfo.
-/// FIXME: this should be put into IrStruct and eventually IrClass.
-llvm::Constant *DtoDefineClassInfo(ClassDeclaration *cd);
-
-DValue *DtoNewClass(Loc &loc, TypeClass *type, NewExp *newexp);
+DValue *DtoNewClass(const Loc &loc, TypeClass *type, NewExp *newexp);
 void DtoInitClass(TypeClass *tc, llvm::Value *dst);
-void DtoFinalizeClass(Loc &loc, llvm::Value *inst);
-void DtoFinalizeScopeClass(Loc &loc, llvm::Value *inst, ClassDeclaration *cd);
+void DtoFinalizeClass(const Loc &loc, llvm::Value *inst);
+void DtoFinalizeScopeClass(const Loc &loc, llvm::Value *inst, bool hasDtor);
 
-DValue *DtoCastClass(Loc &loc, DValue *val, Type *to);
-DValue *DtoDynamicCastObject(Loc &loc, DValue *val, Type *to);
+DValue *DtoCastClass(const Loc &loc, DValue *val, Type *to);
+DValue *DtoDynamicCastObject(const Loc &loc, DValue *val, Type *to);
 
-DValue *DtoDynamicCastInterface(Loc &loc, DValue *val, Type *to);
+DValue *DtoDynamicCastInterface(const Loc &loc, DValue *val, Type *to);
 
-llvm::Value *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl,
-                                       const char *name);
-
-#endif
+llvm::Value *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl);
