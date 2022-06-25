@@ -457,6 +457,9 @@ void ArgsBuilder::addProfileRuntimeLinkFlags(const llvm::Triple &triple) {
 void ArgsBuilder::addSanitizers(const llvm::Triple &triple) {
   if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
     addSanitizerLinkFlags(triple, "asan", "-fsanitize=address");
+  } else if (opts::isSanitizerEnabled(opts::LeakSanitizer)) {
+    // If ASan is enabled, it includes LSan. So only add LSan link flags if ASan is _not_ enabled already.
+    addSanitizerLinkFlags(triple, "lsan", "-fsanitize=leak");
   }
 
   if (opts::isSanitizerEnabled(opts::FuzzSanitizer)) {

@@ -130,6 +130,7 @@ SanitizerCheck parseSanitizerName(llvm::StringRef name,
   SanitizerCheck parsedValue = llvm::StringSwitch<SanitizerCheck>(name)
                                    .Case("address", AddressSanitizer)
                                    .Case("fuzzer", FuzzSanitizer)
+                                   .Case("leak", LeakSanitizer)
                                    .Case("memory", MemorySanitizer)
                                    .Case("thread", ThreadSanitizer)
                                    .Default(NoneSanitizer);
