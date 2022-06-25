@@ -17,6 +17,7 @@
 #include "dmd/scope.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
+#include "driver/cl_options_sanitizers.h"
 #include "driver/linker.h"
 #include "driver/toobj.h"
 #include "gen/dynamiccompile.h"
@@ -195,8 +196,11 @@ CodeGenerator::CodeGenerator(llvm::LLVMContext &context,
       mlirContext_(mlirContext),
 #endif
       moduleCount_(0), singleObj_(singleObj), ir_(nullptr) {
-  // Set the context to discard value names when not generating textual IR.
-  if (!global.params.output_ll) {
+  // Set the context to discard value names when not generating textual IR and
+  // when ASan or MSan are not enabled.
+  if (!global.params.output_ll &&
+      !opts::isSanitizerEnabled(opts::AddressSanitizer |
+                                opts::MemorySanitizer)) {
     context_.setDiscardValueNames(true);
   }
 }
