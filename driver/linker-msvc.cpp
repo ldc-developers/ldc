@@ -70,6 +70,9 @@ void addLibIfFound(std::vector<std::string> &args, const llvm::Twine &name) {
 void addSanitizerLibs(std::vector<std::string> &args) {
   if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
     args.push_back("ldc_rt.asan.lib");
+  } else if (opts::isSanitizerEnabled(opts::LeakSanitizer)) {
+    // If ASan is enabled, it includes LSan. So only add LSan link flags if ASan is _not_ enabled already.
+    args.push_back("ldc_rt.lsan.lib");
   }
   if (opts::isSanitizerEnabled(opts::FuzzSanitizer)) {
     args.push_back("ldc_rt.fuzzer.lib");

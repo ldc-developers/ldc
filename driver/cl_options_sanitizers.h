@@ -32,7 +32,8 @@ enum SanitizerCheck : SanitizerBits {
   FuzzSanitizer = 1 << 1,
   MemorySanitizer = 1 << 2,
   ThreadSanitizer = 1 << 3,
-  CoverageSanitizer = 1 << 4
+  CoverageSanitizer = 1 << 4,
+  LeakSanitizer = 1 << 5,
 };
 extern SanitizerBits enabledSanitizers;
 
