@@ -2,6 +2,8 @@
 
 // REQUIRES: LSan
 
+// UNSUPPORTED: Windows, FreeBSD
+
 // RUN: %ldc -g -fsanitize=address %s -of=%t_asan%exe
 // RUN: not env %env_asan_opts=detect_leaks=true %t_asan%exe 2>&1 | FileCheck %s
 // RUN: %ldc -g -fsanitize=leak %s -of=%t%exe
