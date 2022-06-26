@@ -1,6 +1,6 @@
 // Test leak detection with LSan
 
-// REQUIRES: LSan
+// REQUIRES: LSan && atleast_llvm1000
 
 // UNSUPPORTED: Windows, FreeBSD
 
