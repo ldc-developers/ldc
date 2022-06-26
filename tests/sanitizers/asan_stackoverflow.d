@@ -17,10 +17,9 @@ void foo(int* arr)
 // CHECK-NEXT: #0 {{.*}} in {{.*main.*}} {{.*}}asan_stackoverflow.d:[[@LINE+1]]
 void main()
 {
-    // TODO: add test for the name of the variable that is overflown. Right now we get this message:
-    //[32, 72) '' <== Memory access at offset 72 overflows this variable
-    // C HECK: 'a'{{.*}} <== {{.*}} overflows this variable
-    int[10] a;
+    // Test for the name of the variable that is overflown.
+    // CHECK: 'aiaiaiaiaiaiai'{{.*}} <== {{.*}} overflows this variable
+    int[10] aiaiaiaiaiaiai;
     int b;
-    foo(&a[0]);
+    foo(&aiaiaiaiaiaiai[0]);
 }

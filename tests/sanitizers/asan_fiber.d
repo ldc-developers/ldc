@@ -27,8 +27,9 @@ void foo(int* ptr)
 // CHECK-NEXT: #0 {{.*}} in {{.*prefoo.*}} {{.*}}asan_fiber.d:[[@LINE+1]]
 void prefoo()
 {
-    int[10] a;
-    foo(&a[0]);
+    // CHECK: 'aiaiaiaiaiaiaiaiaiai'{{.*}} <== {{.*}} overflows this variable
+    int[10] aiaiaiaiaiaiaiaiaiai;
+    foo(&aiaiaiaiaiaiaiaiaiai[0]);
 }
 
 void main()

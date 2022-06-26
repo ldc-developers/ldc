@@ -36,13 +36,14 @@ void foo(int* arr)
 // FAKESTACK: #0 {{.*}} in {{.*main.*}} {{.*}}asan_fiber_main.d:[[@LINE+1]]
 void main()
 {
-    int[10] a;
+    // FAKESTACK: 'abcdabcdabcd'{{.*}} <== {{.*}} overflows this variable
+    int[10] abcdabcdabcd;
     int b;
 
     // Use an extra variable instead of passing `&a[0]` directly to `foo`.
     // This is to keep `a` on the stack: `ptr` may be heap allocated because
     // it is used in the lambda (delegate).
-    int* ptr = &a[0];
+    int* ptr = &abcdabcdabcd[0];
     auto fib = new Fiber(() => foo(ptr));
     fib.call();
     version (BAD_AFTER_YIELD)
