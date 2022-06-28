@@ -37,6 +37,9 @@ version (LDC)
     version (PPC)   version = PPC_Any;
     version (PPC64) version = PPC_Any;
 
+    version (RISCV32) version = RISCV_Any;
+    version (RISCV64) version = RISCV_Any;
+
     version (SupportSanitizers)
     {
         import ldc.sanitizers_optionally_linked;
@@ -1570,6 +1573,27 @@ in (fn)
             }}
             asm pure nothrow @nogc { (store ~ " $29, %0") : "=m" (sp); }
             asm pure nothrow @nogc { ".set at"; }
+        }
+        else version (RISCV_Any)
+        {
+            version (RISCV32)      enum store = "sw";
+            else version (RISCV64) enum store = "sd";
+            else static assert(0);
+
+            // Callee-save registers, according to RISCV Calling Convention
+            // https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc
+            size_t[24] regs = void;
+            static foreach (i; 0 .. 12)
+            {{
+                enum int j = i;
+                asm pure nothrow @nogc { (store ~ " s"~j.stringof~", %0") : "=m" (regs[i]); }
+            }}
+            static foreach (i; 0 .. 12)
+            {{
+                enum int j = i;
+                asm pure nothrow @nogc { ("f" ~ store ~ " fs"~j.stringof~", %0") : "=m" (regs[i + 12]); }
+            }}
+            asm pure nothrow @nogc { (store ~ " sp, %0") : "=m" (sp); }
         }
         else
         {
