@@ -17,6 +17,7 @@
 #include "gen/abi-arm.h"
 #include "gen/abi-generic.h"
 #include "gen/abi-mips64.h"
+#include "gen/abi-riscv64.h"
 #include "gen/abi-ppc.h"
 #include "gen/abi-ppc64le.h"
 #include "gen/abi-win64.h"
@@ -275,6 +276,8 @@ TargetABI *TargetABI::getTarget() {
   case llvm::Triple::mips64:
   case llvm::Triple::mips64el:
     return getMIPS64TargetABI(global.params.targetTriple->isArch64Bit());
+  case llvm::Triple::riscv64:
+    return getRISCV64TargetABI();
   case llvm::Triple::ppc:
   case llvm::Triple::ppc64:
     return getPPCTargetABI(global.params.targetTriple->isArch64Bit());
