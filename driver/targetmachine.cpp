@@ -421,6 +421,7 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
   }
 
   if (triple.getArch() == llvm::Triple::riscv64 && !hasFeature("d")) {
+    // Support Double-Precision Floating-Point by default.
     features.push_back("+d");
   }
 
