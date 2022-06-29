@@ -23,21 +23,21 @@ struct Integer2Rewrite : BaseBitcastABIRewrite {
   }
 };
 
-struct flattenedFields {
-  struct flattenedField {
+struct FlattenedFields {
+  struct FlattenedField {
     Type *ty = nullptr;
     unsigned offset = 0;
   };
-  flattenedField fields[2];
+  FlattenedField fields[2];
   int length = 0; // use -1 to represent "no need to rewrite" condition
 };
 
-flattenedFields visitStructFields(Type *ty, unsigned baseOffset) {
+FlattenedFields visitStructFields(Type *ty, unsigned baseOffset) {
   // recursively visit a POD struct to flatten it
   // FIXME: may cause low performance
   // dmd may cache argtypes in some other architectures as a TypeTuple, but we
   // need to additionally store field offsets to realign later
-  flattenedFields result;
+  FlattenedFields result;
   if (auto ts = ty->toBasetype()->isTypeStruct()) {
     for (auto fi : ts->sym->fields) {
       auto sub = visitStructFields(fi->type, baseOffset + fi->offset);
@@ -126,7 +126,7 @@ struct HardfloatRewrite : ABIRewrite {
     }
     return ret;
   }
-  LLType *type(Type *ty, const flattenedFields &flat) {
+  LLType *type(Type *ty, const FlattenedFields &flat) {
     if (flat.length == 1) {
       return LLStructType::get(gIR->context(), {DtoType(flat.fields[0].ty)},
                                false);
