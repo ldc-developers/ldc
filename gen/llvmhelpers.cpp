@@ -392,6 +392,11 @@ void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
   Type *t = lhs->type->toBasetype();
   assert(t->ty != TY::Tvoid && "Cannot assign values of type void.");
 
+  if (t->ty == TY::Tnoreturn) {
+    // nothing to assign
+    return;
+  }
+
   if (t->ty == TY::Tbool) {
     DtoStoreZextI8(DtoRVal(rhs), DtoLVal(lhs));
   } else if (t->ty == TY::Tstruct) {
