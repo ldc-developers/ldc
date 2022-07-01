@@ -158,7 +158,6 @@ private:
         }
     }
 
-    void** _slot;
     ModuleGroup _moduleGroup;
     Array!(void[]) _gcRanges;
     static if (SharedELF)
@@ -542,7 +541,6 @@ package extern(C) void _d_dso_registry(void* arg)
 
         DSO* pdso = cast(DSO*).calloc(1, DSO.sizeof);
         static assert(__traits(isZeroInit, DSO));
-        pdso._slot = data._slot;
         *data._slot = pdso; // store backlink in library record
 
         version (Windows)
