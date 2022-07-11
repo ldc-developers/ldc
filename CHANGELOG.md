@@ -1,6 +1,7 @@
 # LDC master
 
 #### Big news
+- LLVM for prebuilt packages bumped to v14.0.6. (#4010)
 
 #### Platform support
 
