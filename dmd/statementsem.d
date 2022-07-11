@@ -2919,10 +2919,20 @@ version (IN_LLVM)
             rs.error("`return` statements cannot be in contracts");
             errors = true;
         }
-        if (sc.os && sc.os.tok != TOK.onScopeFailure)
+        if (sc.os)
         {
-            rs.error("`return` statements cannot be in `%s` bodies", Token.toChars(sc.os.tok));
-            errors = true;
+            // @@@DEPRECATED_2.112@@@
+            // Deprecated in 2.100, transform into an error in 2.112
+            if (sc.os.tok == TOK.onScopeFailure)
+            {
+                rs.deprecation("`return` statements cannot be in `scope(failure)` bodies.");
+                deprecationSupplemental(rs.loc, "Use try-catch blocks for this purpose");
+            }
+            else
+            {
+                rs.error("`return` statements cannot be in `%s` bodies", Token.toChars(sc.os.tok));
+                errors = true;
+            }
         }
         if (sc.tf)
         {
