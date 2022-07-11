@@ -199,7 +199,7 @@ task:
   install_prerequisites_script: |
     cd $CIRRUS_WORKING_DIR/..
     sysctl -n hw.ncpu
-    pkg install -y git cmake ninja gmake llvm bash gtar p7zip
+    pkg install -y git cmake ninja gmake llvm bash gtar 7-zip
     python3 --version
     python3 -m ensurepip
     # Download & extract host LDC
@@ -298,7 +298,7 @@ task:
     artifactName=ldc2-$artifactID-$CI_OS-x86_64
     mv installed $artifactName
     chmod -R go=rX $artifactName
-    gtar -cf - --owner=0 --group=0 $artifactName | 7za a artifacts/$artifactName.tar.xz -si -txz -mx9
+    gtar -cf - --owner=0 --group=0 $artifactName | 7z a artifacts/$artifactName.tar.xz -si -txz -mx9
   # Upload to GitHub release (only for commits on the master branch and tags)
   upload_to_github_script: |
     cd $CIRRUS_WORKING_DIR
