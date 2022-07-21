@@ -49,7 +49,7 @@ jobs:
             with_pgo: true
 
           - job_name: Windows x64
-            os: windows-2019
+            os: windows-2022
             arch: x64
             bootstrap_cmake_flags: -DBUILD_LTO_LIBS=ON
             extra_cmake_flags: >-
@@ -59,7 +59,7 @@ jobs:
             with_pgo: true
 
           - job_name: Windows x86
-            os: windows-2019
+            os: windows-2022
             arch: x86
             bootstrap_cmake_flags: -DBUILD_LTO_LIBS=ON
             # Undefined symbol errors with FullLTO; ThinLTO works.
