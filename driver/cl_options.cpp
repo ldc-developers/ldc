@@ -541,6 +541,10 @@ void setDefaultMathOptions(llvm::TargetOptions &targetOptions) {
   }
 }
 
+cl::opt<bool>
+    fNoDiscardValueNames("fno-discard-value-names", cl::ZeroOrMore,
+                         cl::desc("Do not discard value names in LLVM IR"));
+
 cl::opt<bool, true>
     allinst("allinst", cl::ZeroOrMore, cl::location(global.params.allInst),
             cl::desc("Generate code for all template instantiations"));

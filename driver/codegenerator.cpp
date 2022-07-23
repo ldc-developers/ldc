@@ -198,7 +198,7 @@ CodeGenerator::CodeGenerator(llvm::LLVMContext &context,
       moduleCount_(0), singleObj_(singleObj), ir_(nullptr) {
   // Set the context to discard value names when not generating textual IR and
   // when ASan or MSan are not enabled.
-  if (!global.params.output_ll &&
+  if (!global.params.output_ll && !opts::fNoDiscardValueNames &&
       !opts::isSanitizerEnabled(opts::AddressSanitizer |
                                 opts::MemorySanitizer)) {
     context_.setDiscardValueNames(true);
