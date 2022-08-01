@@ -1878,8 +1878,8 @@ FuncDeclaration *getParentFunc(Dsymbol *sym) {
   return nullptr;
 }
 
-LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
-                           VarDeclaration *vd) {
+DValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
+                          VarDeclaration *vd, Type *fieldType) {
   IF_LOG Logger::println("Indexing aggregate field %s:", vd->toPrettyChars());
   LOG_SCOPE;
 
@@ -1888,6 +1888,15 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   // ourselves, DtoType below would be enough.
   DtoResolveDsymbol(ad);
 
+  if (!fieldType)
+    fieldType = vd->type;
+
+  // TODO: return a (shifted & masked) rvalue for bit fields
+  if (vd->isBitFieldDeclaration()) {
+    vd->error("LDC doesn't support bit fields yet");
+    fatal();
+  }
+
   // Look up field to index or offset to apply.
   unsigned fieldIndex;
   unsigned byteOffset;
@@ -1895,12 +1904,12 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   assert(irTypeAggr);
   irTypeAggr->getMemberLocation(vd, fieldIndex, byteOffset);
 
-  LLValue *val = src;
+  LLValue *ptr = src;
   if (byteOffset) {
     assert(fieldIndex == 0);
     // Cast to void* to apply byte-wise offset from object start.
-    val = DtoBitCast(val, getVoidPtrType());
-    val = DtoGEP1(val, byteOffset);
+    ptr = DtoBitCast(ptr, getVoidPtrType());
+    ptr = DtoGEP1(ptr, byteOffset);
   } else {
     if (ad->structsize == 0) { // can happen for extern(C) structs
       assert(fieldIndex == 0);
@@ -1911,16 +1920,16 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
       if (ad->isStructDeclaration()) {
         st = getPtrToType(st);
       }
-      val = DtoBitCast(val, st);
-      val = DtoGEP(val, 0, fieldIndex);
+      ptr = DtoBitCast(ptr, st);
+      ptr = DtoGEP(ptr, 0, fieldIndex);
     }
   }
 
   // Cast the (possibly void*) pointer to the canonical variable type.
-  val = DtoBitCast(val, DtoPtrToType(vd->type));
+  ptr = DtoBitCast(ptr, DtoPtrToType(fieldType));
 
-  IF_LOG Logger::cout() << "Value: " << *val << '\n';
-  return val;
+  IF_LOG Logger::cout() << "Pointer: " << *ptr << '\n';
+  return new DLValue(fieldType, ptr);
 }
 
 unsigned getFieldGEPIndex(AggregateDeclaration *ad, VarDeclaration *vd) {

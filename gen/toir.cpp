@@ -115,6 +115,17 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
     const auto vd = d.field;
     const auto expr = d.expr;
 
+    IF_LOG Logger::println("initializing field: %s %s (+%u)",
+                           vd->type->toChars(), vd->toChars(), vd->offset);
+    LOG_SCOPE
+
+    // TODO: bit fields!
+
+    // get a pointer to this field
+    assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
+                                   "vars, although it can easily be made to.");
+    DValue *field = DtoIndexAggregate(mem, sd, vd);
+
     // initialize any padding so struct comparisons work
     if (vd->offset != offset) {
       assert(vd->offset > offset);
@@ -122,23 +133,15 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       offset = vd->offset;
     }
 
-    IF_LOG Logger::println("initializing field: %s %s (+%u)",
-                           vd->type->toChars(), vd->toChars(), vd->offset);
-    LOG_SCOPE
-
-    // get a pointer to this field
-    assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
-                                   "vars, although it can easily be made to.");
-    DLValue field(vd->type, DtoIndexAggregate(mem, sd, vd));
-
     // initialize the field
     if (expr) {
       IF_LOG Logger::println("expr = %s", expr->toChars());
+
       // try to construct it in-place
-      if (!toInPlaceConstruction(&field, expr)) {
-        DtoAssign(loc, &field, toElem(expr), EXP::blit);
+      if (!toInPlaceConstruction(field->isLVal(), expr)) {
+        DtoAssign(loc, field, toElem(expr), EXP::blit);
         if (expr->isLvalue())
-          callPostblit(loc, expr, DtoLVal(&field));
+          callPostblit(loc, expr, DtoLVal(field));
       }
     } else {
       assert(vd == sd->vthis);
@@ -146,8 +149,10 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       LOG_SCOPE
       DImValue val(vd->type,
                    DtoBitCast(DtoNestedContext(loc, sd), DtoType(vd->type)));
-      DtoAssign(loc, &field, &val, EXP::blit);
+      DtoAssign(loc, field, &val, EXP::blit);
     }
+
+    delete field;
 
     // Make sure to zero out padding bytes counted as being part of the type in
     // DMD but not in LLVM; e.g. real/x86_fp80.
@@ -447,6 +452,8 @@ public:
         rewrittenLhsStaticArray = toElem(se->e1, true);
     }
 
+    // TODO: bit fields!
+
     DValue *const lhs = (rewrittenLhsStaticArray ? rewrittenLhsStaticArray
                                                  : toElem(e->e1, true));
 
@@ -585,6 +592,8 @@ public:
 
   template <BinOpFunc binOpFunc, bool useLValTypeForBinOp>
   static DValue *binAssign(BinAssignExp *e) {
+    // TODO: bit fields?!
+
     Expression *lvalExp = getLValExp(e->e1);
     DValue *lhsLVal = toElem(lvalExp);
 
@@ -912,32 +921,30 @@ public:
 
     Type *e1type = e->e1->type->toBasetype();
 
-    // Logger::println("e1type=%s", e1type->toChars());
-    // Logger::cout() << *DtoType(e1type) << '\n';
-
     if (VarDeclaration *vd = e->var->isVarDeclaration()) {
-      LLValue *arrptr;
+      AggregateDeclaration *ad;
+      LLValue *aggrPtr;
       // indexing struct pointer
       if (e1type->ty == TY::Tpointer) {
-        assert(e1type->nextOf()->ty == TY::Tstruct);
-        TypeStruct *ts = static_cast<TypeStruct *>(e1type->nextOf());
-        arrptr = DtoIndexAggregate(DtoRVal(l), ts->sym, vd);
+        auto ts = e1type->nextOf()->isTypeStruct();
+        assert(ts);
+        ad = ts->sym;
+        aggrPtr = DtoRVal(l);
       }
       // indexing normal struct
-      else if (e1type->ty == TY::Tstruct) {
-        TypeStruct *ts = static_cast<TypeStruct *>(e1type);
-        arrptr = DtoIndexAggregate(DtoLVal(l), ts->sym, vd);
+      else if (auto ts = e1type->isTypeStruct()) {
+        ad = ts->sym;
+        aggrPtr = DtoLVal(l);
       }
       // indexing class
-      else if (e1type->ty == TY::Tclass) {
-        TypeClass *tc = static_cast<TypeClass *>(e1type);
-        arrptr = DtoIndexAggregate(DtoRVal(l), tc->sym, vd);
+      else if (auto tc = e1type->isTypeClass()) {
+        ad = tc->sym;
+        aggrPtr = DtoRVal(l);
       } else {
         llvm_unreachable("Unknown DotVarExp type for VarDeclaration.");
       }
 
-      // Logger::cout() << "mem: " << *arrptr << '\n';
-      result = new DLValue(e->type, DtoBitCast(arrptr, DtoPtrToType(e->type)));
+      result = DtoIndexAggregate(aggrPtr, ad, vd, e->type);
     } else if (FuncDeclaration *fdecl = e->var->isFuncDeclaration()) {
       // This is a bit more convoluted than it would need to be, because it
       // has to take templated interface methods into account, for which

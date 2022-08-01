@@ -281,6 +281,8 @@ void IrAggr::addFieldInitializers(
   const size_t numNewLLFields = b.defaultTypes().size();
   constants.resize(constants.size() + numNewLLFields, nullptr);
 
+  // TODO: bit fields! (possibly overlapping and missing in varGEPIndices)
+
   // add explicit and non-overlapping implicit initializers
   for (const auto &pair : b.varGEPIndices()) {
     const auto field = pair.first;

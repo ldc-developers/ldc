@@ -86,9 +86,9 @@ void AggrTypeBuilder::addAggregate(
       if (f_begin == f_end)
         continue;
 
-      // check for overlap with existing fields
+      // check for overlap with existing fields (on a byte level, not bits)
       bool overlaps = false;
-      if (field->overlapped()) {
+      if (field->overlapped() || field->isBitFieldDeclaration()) {
         for (const auto vd : actualFields) {
           const size_t v_begin = vd->offset;
           const size_t v_end = v_begin + vd->type->size();
@@ -117,12 +117,7 @@ void AggrTypeBuilder::addAggregate(
   std::sort(actualFields.begin(), actualFields.end(), var_offset_sort_cb);
 
   for (const auto vd : actualFields) {
-    if (vd->offset < m_offset) {
-      // TODO: ImportC
-      vd->error(
-          "overlaps previous field. LDC doesn't support C bit fields yet");
-      fatal();
-    }
+    assert(vd->offset >= m_offset);
 
     // Add an explicit field for any padding so we can zero it, as per TDPL
     // §7.1.1.
@@ -210,6 +205,8 @@ bool IrTypeAggr::isPacked(AggregateDeclaration *ad) {
 
 void IrTypeAggr::getMemberLocation(VarDeclaration *var, unsigned &fieldIndex,
                                    unsigned &byteOffset) const {
+  assert(!var->isBitFieldDeclaration());
+
   // Note: The interface is a bit more general than what we actually return.
   // Specifically, the frontend offset information we use for overlapping
   // fields is always based at the object start.

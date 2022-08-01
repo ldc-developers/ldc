@@ -145,15 +145,16 @@ LLValue *DtoUnpaddedStruct(Type *dty, LLValue *v) {
   LLValue *newval = llvm::UndefValue::get(DtoUnpaddedStructType(dty));
 
   for (unsigned i = 0; i < fields.length; i++) {
-    LLValue *fieldptr = DtoIndexAggregate(v, sty->sym, fields[i]);
+    DValue *field = DtoIndexAggregate(v, sty->sym, fields[i]);
     LLValue *fieldval;
     if (fields[i]->type->ty == TY::Tstruct) {
       // Nested structs are the only members that can contain padding
-      fieldval = DtoUnpaddedStruct(fields[i]->type, fieldptr);
+      fieldval = DtoUnpaddedStruct(fields[i]->type, DtoLVal(field));
     } else {
-      fieldval = DtoLoad(fieldptr);
+      fieldval = DtoRVal(field);
     }
     newval = DtoInsertValue(newval, fieldval, i);
+    delete field;
   }
   return newval;
 }
@@ -165,13 +166,14 @@ void DtoPaddedStruct(Type *dty, LLValue *v, LLValue *lval) {
   VarDeclarations &fields = sty->sym->fields;
 
   for (unsigned i = 0; i < fields.length; i++) {
-    LLValue *fieldptr = DtoIndexAggregate(lval, sty->sym, fields[i]);
+    DValue *field = DtoIndexAggregate(lval, sty->sym, fields[i]);
     LLValue *fieldval = DtoExtractValue(v, i);
     if (fields[i]->type->ty == TY::Tstruct) {
       // Nested structs are the only members that can contain padding
-      DtoPaddedStruct(fields[i]->type, fieldval, fieldptr);
+      DtoPaddedStruct(fields[i]->type, fieldval, DtoLVal(field));
     } else {
-      DtoStoreZextI8(fieldval, fieldptr);
+      DtoStoreZextI8(fieldval, DtoLVal(field));
     }
+    delete field;
   }
 }
