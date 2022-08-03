@@ -293,10 +293,21 @@ void IrAggr::addFieldInitializers(
 
     LLConstant *&constant = constants[baseLLFieldIndex + fieldIndex];
     if (auto bf = field->isBitFieldDeclaration()) {
+      // multiple bit fields can map to a single IR field (of integer type)
       if (init->isNullValue()) {
-        // fine, nothing to do
+        // no bits to set
       } else {
-        // TODO: shift & mask, then merge with possibly existing constant
+        using llvm::APInt;
+        const auto fieldType = b.defaultTypes()[fieldIndex];
+        const auto intSizeInBits = fieldType->getIntegerBitWidth();
+        const APInt oldVal = constant ? constant->getUniqueInteger()
+                                      : APInt(intSizeInBits, 0);
+        const APInt bfVal = init->getUniqueInteger().zextOrTrunc(intSizeInBits);
+        const APInt mask = APInt::getLowBitsSet(intSizeInBits, bf->fieldWidth)
+                           << bf->bitOffset;
+        assert(!oldVal.intersects(mask) && "has masked bits set already");
+        const APInt newVal = oldVal | ((bfVal << bf->bitOffset) & mask);
+        constant = LLConstant::getIntegerValue(fieldType, newVal);
       }
     } else {
       assert(!constant);
