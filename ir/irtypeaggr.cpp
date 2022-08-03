@@ -65,6 +65,58 @@ void AggrTypeBuilder::addAggregate(
   // field might require us to select that field.
   LLSmallVector<VarDeclaration *, 16> actualFields;
 
+  // Bit fields additionally complicate matters. E.g.:
+  // struct S {
+  //   unsigned char ub:6;
+  //   _Bool b:1;
+  //   unsigned ui:25;
+  // };
+  auto getFieldEnd = [](VarDeclaration *vd) {
+    auto bf = vd->isBitFieldDeclaration();
+    return vd->offset +
+           (bf ? (bf->bitOffset + bf->fieldWidth + 7) / 8 : vd->type->size());
+  };
+  auto getFieldType = [](VarDeclaration *vd) -> LLType * {
+    if (auto bf = vd->isBitFieldDeclaration()) {
+      const auto sizeInBytes = (bf->bitOffset + bf->fieldWidth + 7) / 8;
+      return LLIntegerType::get(gIR->context(), sizeInBytes * 8);
+    }
+    return DtoMemType(vd->type);
+  };
+  LLSmallVector<BitFieldDeclaration *, 16> allBitFieldDecls;
+  for (VarDeclaration *field : ad->fields) {
+    if (auto bf = field->isBitFieldDeclaration()) {
+      printf(".: %s: byte offset %d, bit offset %d, type size %d\n", bf->toChars(), bf->offset, bf->bitOffset, (int) bf->type->size());
+      allBitFieldDecls.push_back(bf);
+    }
+  }
+  std::map<VarDeclaration *, BitFieldDeclaration *> bitFieldsMap;
+  if (!allBitFieldDecls.empty()) {
+    // TODO: this flattens all bit fields, even if overlapping via unions
+    // could probably be done properly in a single pass, grouping *consecutive* bit fields only
+    std::sort(allBitFieldDecls.begin(), allBitFieldDecls.end(),
+              [](BitFieldDeclaration *a, BitFieldDeclaration *b) {
+                // 1) ascendingly by start byte offset
+                if (a->offset != b->offset)
+                  return a->offset < b->offset;
+                // 2) descendingly by end bit offset
+                return a->bitOffset + a->fieldWidth >
+                       b->bitOffset + b->fieldWidth;
+              });
+
+    BitFieldDeclaration *currentDominantField = nullptr;
+    for (BitFieldDeclaration *bf : allBitFieldDecls) {
+      if (!currentDominantField) {
+        currentDominantField = bf;
+      } else if (bf->offset > currentDominantField->offset) {
+        const auto currentEnd = getFieldEnd(currentDominantField);
+        assert(currentEnd <= bf->offset); // might break for unions
+        currentDominantField = bf;
+      }
+      bitFieldsMap[bf] = currentDominantField;
+    }
+  }
+
   // list of pairs: alias => actual field (same offset, same LL type)
   LLSmallVector<std::pair<VarDeclaration *, VarDeclaration *>, 16> aliasPairs;
 
@@ -79,8 +131,13 @@ void AggrTypeBuilder::addAggregate(
       if (pass == 1 && explicitInits && explicitInits->find(field) != explicitInits->end())
         continue;
 
+      // skip dominated bit fields
+      auto it = bitFieldsMap.find(field);
+      if (it != bitFieldsMap.end() && it->second != field)
+        continue;
+
       const size_t f_begin = field->offset;
-      const size_t f_end = f_begin + field->type->size();
+      const size_t f_end = getFieldEnd(field);
 
       // skip empty fields
       if (f_begin == f_end)
@@ -89,15 +146,15 @@ void AggrTypeBuilder::addAggregate(
       // check for overlap with existing fields (on a byte level, not bits)
       bool overlaps = false;
       if (field->overlapped() || field->isBitFieldDeclaration()) {
-        for (const auto vd : actualFields) {
-          const size_t v_begin = vd->offset;
-          const size_t v_end = v_begin + vd->type->size();
+        for (const auto existing : actualFields) {
+          const size_t e_begin = existing->offset;
+          const size_t e_end = getFieldEnd(existing);
 
-          if (v_begin < f_end && v_end > f_begin) {
+          if (e_begin < f_end && e_end > f_begin) {
             overlaps = true;
-            if (aliases == Aliases::AddToVarGEPIndices && v_begin == f_begin &&
-                DtoMemType(vd->type) == DtoMemType(field->type)) {
-              aliasPairs.push_back(std::make_pair(field, vd));
+            if (aliases == Aliases::AddToVarGEPIndices && e_begin == f_begin &&
+                getFieldType(existing) == getFieldType(field)) {
+              aliasPairs.push_back(std::make_pair(field, existing));
             }
             break;
           }
@@ -127,10 +184,11 @@ void AggrTypeBuilder::addAggregate(
     }
 
     // add default type
-    m_defaultTypes.push_back(DtoMemType(vd->type));
+    LLType *fieldType = getFieldType(vd);
+    m_defaultTypes.push_back(fieldType);
 
     // advance offset to right past this field
-    m_offset += getMemberSize(vd->type);
+    m_offset += getTypeAllocSize(fieldType); //getMemberSize(vd->type);
 
     // set the field index
     m_varGEPIndices[vd] = m_fieldIndex;
@@ -139,6 +197,14 @@ void AggrTypeBuilder::addAggregate(
     for (const auto &pair : aliasPairs) {
       if (pair.second == vd)
         m_varGEPIndices[pair.first] = m_fieldIndex;
+    }
+
+    // map the dominated other bit fields to this field/GEP index too
+    if (vd->isBitFieldDeclaration()) {
+      for (const auto &pair : bitFieldsMap) {
+        if (pair.second == vd && pair.first != vd)
+          m_varGEPIndices[pair.first] = m_fieldIndex;
+      }
     }
 
     ++m_fieldIndex;

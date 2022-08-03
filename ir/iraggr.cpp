@@ -281,23 +281,33 @@ void IrAggr::addFieldInitializers(
   const size_t numNewLLFields = b.defaultTypes().size();
   constants.resize(constants.size() + numNewLLFields, nullptr);
 
-  // TODO: bit fields! (possibly overlapping and missing in varGEPIndices)
-
   // add explicit and non-overlapping implicit initializers
   for (const auto &pair : b.varGEPIndices()) {
     const auto field = pair.first;
     const size_t fieldIndex = pair.second;
 
     const auto explicitIt = explicitInitializers.find(field);
-    llvm::Constant *init = (explicitIt != explicitInitializers.end()
+    LLConstant *init = (explicitIt != explicitInitializers.end()
                                 ? explicitIt->second
                                 : getDefaultInitializer(field));
 
-    constants[baseLLFieldIndex + fieldIndex] =
-        FillSArrayDims(field->type, init);
+    LLConstant *&constant = constants[baseLLFieldIndex + fieldIndex];
+    if (auto bf = field->isBitFieldDeclaration()) {
+      if (init->isNullValue()) {
+        // fine, nothing to do
+      } else {
+        // TODO: shift & mask, then merge with possibly existing constant
+      }
+    } else {
+      assert(!constant);
+      constant = FillSArrayDims(field->type, init);
+    }
   }
 
-  // zero out remaining padding fields
+  // TODO: sanity check that all explicit initializers have been dealt with?
+  //       (potential issue for bitfields in unions...)
+
+  // zero out remaining fields (padding and/or zero-initialized bit fields)
   for (size_t i = 0; i < numNewLLFields; i++) {
     auto &init = constants[baseLLFieldIndex + i];
     if (!init)
