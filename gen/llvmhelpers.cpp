@@ -1321,24 +1321,6 @@ void DtoSetFuncDeclIntrinsicName(TemplateInstance *ti, TemplateDeclaration *td,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-size_t getMemberSize(Type *type) {
-  const dinteger_t dSize = type->size();
-  llvm::Type *const llType = DtoType(type);
-  if (!llType->isSized()) {
-    // Forward reference in a cycle or similar, we need to trust the D type.
-    return dSize;
-  }
-
-  const uint64_t llSize = gDataLayout->getTypeAllocSize(llType);
-  assert(llSize <= dSize &&
-         "LLVM type is bigger than the corresponding D type, "
-         "might lead to aggregate layout mismatch.");
-
-  return llSize;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 Type *stripModifiers(Type *type, bool transitive) {
   if (type->ty == TY::Tfunction) {
     return type;

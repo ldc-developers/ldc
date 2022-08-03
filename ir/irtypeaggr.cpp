@@ -86,7 +86,7 @@ void AggrTypeBuilder::addAggregate(
   LLSmallVector<BitFieldDeclaration *, 16> allBitFieldDecls;
   for (VarDeclaration *field : ad->fields) {
     if (auto bf = field->isBitFieldDeclaration()) {
-      printf(".: %s: byte offset %d, bit offset %d, type size %d\n", bf->toChars(), bf->offset, bf->bitOffset, (int) bf->type->size());
+      //printf(".: %s: byte offset %d, bit offset %d, type size %d\n", bf->toChars(), bf->offset, bf->bitOffset, (int) bf->type->size());
       allBitFieldDecls.push_back(bf);
     }
   }
@@ -188,7 +188,12 @@ void AggrTypeBuilder::addAggregate(
     m_defaultTypes.push_back(fieldType);
 
     // advance offset to right past this field
-    m_offset += getTypeAllocSize(fieldType); //getMemberSize(vd->type);
+    if (!fieldType->isSized()) {
+      // forward reference in a cycle or similar, we need to trust the D type
+      m_offset += vd->type->size();
+    } else {
+      m_offset += getTypeAllocSize(fieldType);
+    }
 
     // set the field index
     m_varGEPIndices[vd] = m_fieldIndex;

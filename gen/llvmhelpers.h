@@ -152,10 +152,6 @@ llvm::CallInst *DtoInlineAsmExpr(const Loc &loc, llvm::StringRef code,
                                  llvm::ArrayRef<llvm::Value *> operands,
                                  llvm::Type *returnType);
 
-/// Returns the size the LLVM type for a member variable of the given type will
-/// take up in a struct (in bytes). This does not include padding in any way.
-size_t getMemberSize(Type *type);
-
 /// Returns the llvm::Value of the passed DValue, making sure that it is an
 /// lvalue (has a memory address), so it can be passed to the D runtime
 /// functions without problems.
