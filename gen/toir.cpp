@@ -111,9 +111,9 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
   });
 
   unsigned offset = 0;
-  for (const auto &d : data) {
-    const auto vd = d.field;
-    const auto expr = d.expr;
+  for (size_t i = 0; i < data.size(); ++i) {
+    const auto vd = data[i].field;
+    const auto expr = data[i].expr;
 
     IF_LOG Logger::println("initializing field: %s %s (+%u)",
                            vd->type->toChars(), vd->toChars(), vd->offset);
@@ -126,37 +126,74 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       offset = vd->offset;
     }
 
+    // get a pointer to this field
     LLValue *ptr = DtoIndexAggregate(mem, sd, vd);
 
-    // TODO: bit fields!
-
-    // get a pointer to this field
-    assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
-                                   "vars, although it can easily be made to.");
-    DLValue field(vd->type, DtoBitCast(ptr, DtoPtrToType(vd->type)));
-
-    // initialize the field
-    if (expr) {
-      IF_LOG Logger::println("expr = %s", expr->toChars());
-
-      // try to construct it in-place
-      if (!toInPlaceConstruction(&field, expr)) {
-        DtoAssign(loc, &field, toElem(expr), EXP::blit);
-        if (expr->isLvalue())
-          callPostblit(loc, expr, DtoLVal(&field));
+    if (vd->isBitFieldDeclaration()) {
+      // collect all bit fields at the current byte offset
+      LLSmallVector<BitFieldDeclaration *, 8> bitFields;
+      unsigned maxSizeInBytes = 0;
+      for (size_t j = i; j < data.size(); ++j) {
+        if (auto bf = data[j].field->isBitFieldDeclaration()) {
+          if (bf->offset == vd->offset) {
+            bitFields.push_back(bf);
+            const auto sizeInBytes = (bf->bitOffset + bf->fieldWidth + 7) / 8;
+            if (sizeInBytes > maxSizeInBytes)
+              maxSizeInBytes = sizeInBytes;
+            continue;
+          }
+        }
+        break;
       }
-    } else {
-      assert(vd == sd->vthis);
-      IF_LOG Logger::println("initializing vthis");
-      LOG_SCOPE
-      DImValue val(vd->type,
-                   DtoBitCast(DtoNestedContext(loc, sd), DtoType(vd->type)));
-      DtoAssign(loc, &field, &val, EXP::blit);
-    }
 
-    // Make sure to zero out padding bytes counted as being part of the type in
-    // DMD but not in LLVM; e.g. real/x86_fp80.
-    offset += gDataLayout->getTypeStoreSize(DtoType(vd->type));
+      // merge all initializers to a single value
+      const auto intType =
+          LLIntegerType::get(gIR->context(), maxSizeInBytes * 8);
+      LLValue *val = LLConstant::getNullValue(intType);
+      for (size_t j = 0; j < bitFields.size(); ++j) {
+        const auto bf = bitFields[j];
+        const auto bfExpr = data[i + j].expr;
+        assert(bfExpr);
+        auto bfVal = DtoRVal(bfExpr);
+        bfVal = gIR->ir->CreateZExtOrTrunc(bfVal, intType);
+        const auto mask =
+            llvm::APInt::getLowBitsSet(intType->getBitWidth(), bf->fieldWidth);
+        bfVal = gIR->ir->CreateAnd(bfVal, mask);
+        bfVal = gIR->ir->CreateShl(bfVal, bf->bitOffset);
+        val = gIR->ir->CreateOr(val, bfVal);
+      }
+
+      gIR->ir->CreateAlignedStore(val, DtoBitCast(ptr, getPtrToType(intType)),
+                                  LLMaybeAlign(1));
+      offset += maxSizeInBytes;
+
+      i += bitFields.size() - 1; // skip the other bit fields
+    } else {
+      DLValue field(vd->type, DtoBitCast(ptr, DtoPtrToType(vd->type)));
+
+      // initialize the field
+      if (expr) {
+        IF_LOG Logger::println("expr = %s", expr->toChars());
+
+        // try to construct it in-place
+        if (!toInPlaceConstruction(&field, expr)) {
+          DtoAssign(loc, &field, toElem(expr), EXP::blit);
+          if (expr->isLvalue())
+            callPostblit(loc, expr, DtoLVal(&field));
+        }
+      } else {
+        assert(vd == sd->vthis);
+        IF_LOG Logger::println("initializing vthis");
+        LOG_SCOPE
+        DImValue val(vd->type,
+                     DtoBitCast(DtoNestedContext(loc, sd), DtoType(vd->type)));
+        DtoAssign(loc, &field, &val, EXP::blit);
+      }
+
+      // Make sure to zero out padding bytes counted as being part of the type
+      // in DMD but not in LLVM; e.g. real/x86_fp80.
+      offset += gDataLayout->getTypeStoreSize(DtoType(vd->type));
+    }
   }
 
   // initialize trailing padding
