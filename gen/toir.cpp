@@ -119,13 +119,6 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
                            vd->type->toChars(), vd->toChars(), vd->offset);
     LOG_SCOPE
 
-    // TODO: bit fields!
-
-    // get a pointer to this field
-    assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
-                                   "vars, although it can easily be made to.");
-    DValue *field = DtoIndexAggregate(mem, sd, vd);
-
     // initialize any padding so struct comparisons work
     if (vd->offset != offset) {
       assert(vd->offset > offset);
@@ -133,15 +126,24 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       offset = vd->offset;
     }
 
+    LLValue *ptr = DtoIndexAggregate(mem, sd, vd);
+
+    // TODO: bit fields!
+
+    // get a pointer to this field
+    assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
+                                   "vars, although it can easily be made to.");
+    DLValue field(vd->type, DtoBitCast(ptr, DtoPtrToType(vd->type)));
+
     // initialize the field
     if (expr) {
       IF_LOG Logger::println("expr = %s", expr->toChars());
 
       // try to construct it in-place
-      if (!toInPlaceConstruction(field->isLVal(), expr)) {
-        DtoAssign(loc, field, toElem(expr), EXP::blit);
+      if (!toInPlaceConstruction(&field, expr)) {
+        DtoAssign(loc, &field, toElem(expr), EXP::blit);
         if (expr->isLvalue())
-          callPostblit(loc, expr, DtoLVal(field));
+          callPostblit(loc, expr, DtoLVal(&field));
       }
     } else {
       assert(vd == sd->vthis);
@@ -149,10 +151,8 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       LOG_SCOPE
       DImValue val(vd->type,
                    DtoBitCast(DtoNestedContext(loc, sd), DtoType(vd->type)));
-      DtoAssign(loc, field, &val, EXP::blit);
+      DtoAssign(loc, &field, &val, EXP::blit);
     }
-
-    delete field;
 
     // Make sure to zero out padding bytes counted as being part of the type in
     // DMD but not in LLVM; e.g. real/x86_fp80.
@@ -944,7 +944,36 @@ public:
         llvm_unreachable("Unknown DotVarExp type for VarDeclaration.");
       }
 
-      result = DtoIndexAggregate(aggrPtr, ad, vd, e->type);
+      LLValue *ptr = DtoIndexAggregate(aggrPtr, ad, vd);
+
+      // special case for bit fields: return a (shifted & masked) rvalue
+      if (auto bf = vd->isBitFieldDeclaration()) {
+        const auto sizeInBytes = (bf->bitOffset + bf->fieldWidth + 7) / 8;
+        const auto sizeInBits = sizeInBytes * 8;
+        const auto intType = LLIntegerType::get(gIR->context(), sizeInBits);
+        ptr = DtoBitCast(ptr, getPtrToType(intType));
+        LLValue *val = gIR->ir->CreateAlignedLoad(intType, ptr, LLMaybeAlign(1));
+        if (bf->type->isunsigned()) {
+          if (auto n = bf->bitOffset)
+            val = gIR->ir->CreateLShr(val, n);
+          const auto mask = llvm::APInt::getLowBitsSet(sizeInBits, bf->fieldWidth);
+          val = gIR->ir->CreateAnd(val, mask);
+          val = gIR->ir->CreateZExtOrTrunc(val, DtoType(bf->type));
+        } else {
+          // shift-left to make the MSB the sign bit
+          if (auto n = sizeInBits - (bf->bitOffset + bf->fieldWidth))
+            val = gIR->ir->CreateShl(val, n);
+          // then arithmetic-shift-right
+          if (auto n = sizeInBits - bf->fieldWidth)
+            val = gIR->ir->CreateAShr(val, n);
+          val = gIR->ir->CreateSExtOrTrunc(val, DtoType(bf->type));
+        }
+        result = new DImValue(e->type, val);
+      } else {
+        // Cast the (possibly void*) pointer to the canonical variable type.
+        ptr = DtoBitCast(ptr, DtoPtrToType(e->type));
+        result = new DLValue(e->type, ptr);
+      }
     } else if (FuncDeclaration *fdecl = e->var->isFuncDeclaration()) {
       // This is a bit more convoluted than it would need to be, because it
       // has to take templated interface methods into account, for which
