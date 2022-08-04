@@ -276,8 +276,6 @@ bool IrTypeAggr::isPacked(AggregateDeclaration *ad) {
 
 void IrTypeAggr::getMemberLocation(VarDeclaration *var, unsigned &fieldIndex,
                                    unsigned &byteOffset) const {
-  assert(!var->isBitFieldDeclaration());
-
   // Note: The interface is a bit more general than what we actually return.
   // Specifically, the frontend offset information we use for overlapping
   // fields is always based at the object start.

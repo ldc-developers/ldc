@@ -1873,12 +1873,6 @@ DValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   if (!fieldType)
     fieldType = vd->type;
 
-  // TODO: return a (shifted & masked) rvalue for bit fields
-  if (vd->isBitFieldDeclaration()) {
-    vd->error("LDC doesn't support bit fields yet");
-    fatal();
-  }
-
   // Look up field to index or offset to apply.
   unsigned fieldIndex;
   unsigned byteOffset;
@@ -1905,6 +1899,31 @@ DValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
       ptr = DtoBitCast(ptr, st);
       ptr = DtoGEP(ptr, 0, fieldIndex);
     }
+  }
+
+  // special case for bit fields: return a (shifted & masked) rvalue
+  if (auto bf = vd->isBitFieldDeclaration()) {
+    const auto sizeInBytes = (bf->bitOffset + bf->fieldWidth + 7) / 8;
+    const auto sizeInBits = sizeInBytes * 8;
+    const auto intType = LLIntegerType::get(gIR->context(), sizeInBits);
+    ptr = DtoBitCast(ptr, getPtrToType(intType));
+    LLValue *val = gIR->ir->CreateAlignedLoad(intType, ptr, LLMaybeAlign(1));
+    if (bf->type->isunsigned()) {
+      if (auto n = bf->bitOffset)
+        val = gIR->ir->CreateLShr(val, n);
+      const auto mask = llvm::APInt::getLowBitsSet(sizeInBits, bf->fieldWidth);
+      val = gIR->ir->CreateAnd(val, mask);
+      val = gIR->ir->CreateZExtOrTrunc(val, DtoType(fieldType));
+    } else {
+      // shift-left to make the MSB the sign bit
+      if (auto n = sizeInBits - (bf->bitOffset + bf->fieldWidth))
+        val = gIR->ir->CreateShl(val, n);
+      // then arithmetic-shift-right
+      if (auto n = sizeInBits - bf->fieldWidth)
+        val = gIR->ir->CreateAShr(val, n);
+      val = gIR->ir->CreateSExtOrTrunc(val, DtoType(fieldType));
+    }
+    return new DImValue(fieldType, val);
   }
 
   // Cast the (possibly void*) pointer to the canonical variable type.
