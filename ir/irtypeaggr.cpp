@@ -67,9 +67,10 @@ void AggrTypeBuilder::addAggregate(
 
   // Bit fields additionally complicate matters. E.g.:
   // struct S {
-  //   unsigned char ub:6;
-  //   _Bool b:1;
-  //   unsigned ui:25;
+  //   unsigned char a:7; // byte offset 0, bit offset 0, bit width 7
+  //   _Bool b:1;         // byte offset 0, bit offset 7, bit width 1
+  //   _Bool c:1;         // byte offset 1, bit offset 0, bit width 1
+  //   unsigned ui:23;    // byte offset 1, bit offset 1, bit width 23
   // };
   auto getFieldEnd = [](VarDeclaration *vd) {
     auto bf = vd->isBitFieldDeclaration();
@@ -83,57 +84,54 @@ void AggrTypeBuilder::addAggregate(
     }
     return DtoMemType(vd->type);
   };
-  LLSmallVector<BitFieldDeclaration *, 16> allBitFieldDecls;
-  for (VarDeclaration *field : ad->fields) {
-    if (auto bf = field->isBitFieldDeclaration()) {
-      //printf(".: %s: byte offset %d, bit offset %d, type size %d\n", bf->toChars(), bf->offset, bf->bitOffset, (int) bf->type->size());
-      allBitFieldDecls.push_back(bf);
-    }
-  }
-  std::map<VarDeclaration *, BitFieldDeclaration *> bitFieldsMap;
-  if (!allBitFieldDecls.empty()) {
-    // TODO: this flattens all bit fields, even if overlapping via unions
-    // could probably be done properly in a single pass, grouping *consecutive* bit fields only
-    std::sort(allBitFieldDecls.begin(), allBitFieldDecls.end(),
-              [](BitFieldDeclaration *a, BitFieldDeclaration *b) {
-                // 1) ascendingly by start byte offset
-                if (a->offset != b->offset)
-                  return a->offset < b->offset;
-                // 2) descendingly by end bit offset
-                return a->bitOffset + a->fieldWidth >
-                       b->bitOffset + b->fieldWidth;
-              });
-
-    BitFieldDeclaration *currentDominantField = nullptr;
-    for (BitFieldDeclaration *bf : allBitFieldDecls) {
-      if (!currentDominantField) {
-        currentDominantField = bf;
-      } else if (bf->offset > currentDominantField->offset) {
-        const auto currentEnd = getFieldEnd(currentDominantField);
-        assert(currentEnd <= bf->offset); // might break for unions
-        currentDominantField = bf;
-      }
-      bitFieldsMap[bf] = currentDominantField;
-    }
-  }
 
   // list of pairs: alias => actual field (same offset, same LL type)
   LLSmallVector<std::pair<VarDeclaration *, VarDeclaration *>, 16> aliasPairs;
 
   // Iterate over all fields in declaration order, in 1 or 2 passes.
   for (int pass = explicitInits ? 0 : 1; pass < 2; ++pass) {
-    for (VarDeclaration *field : ad->fields) {
+    for (size_t i = 0; i < ad->fields.length; ++i) {
+      VarDeclaration *field = ad->fields[i];
+      bool haveExplicitInit =
+          explicitInits && explicitInits->find(field) != explicitInits->end();
+
+      const auto bf = field->isBitFieldDeclaration();
+      if (bf) {
+        // group all consecutive bit fields at the same byte offset (and with
+        // non-overlapping bits)
+        const auto startIndex = i;
+        size_t j; // endIndex
+        unsigned bitEnd = bf->bitOffset + bf->fieldWidth;
+        for (j = i + 1; j < ad->fields.length; ++j) {
+          if (auto bf2 = ad->fields[j]->isBitFieldDeclaration()) {
+            if (bf2->offset == bf->offset && bf2->bitOffset >= bitEnd) {
+              bitEnd = bf2->bitOffset + bf2->fieldWidth;
+              if (!haveExplicitInit) {
+                haveExplicitInit = explicitInits && explicitInits->find(bf2) !=
+                                                        explicitInits->end();
+              }
+              continue;
+            }
+          }
+          break;
+        }
+
+        // use the last bit field (with the highest bits) for the whole group
+        i = j - 1; // skip the other bit fields in the fields loop
+        field = ad->fields[i];
+
+        // create unconditional aliases for the other bit fields in the group
+        for (size_t k = startIndex; k < i; ++k) {
+          aliasPairs.push_back(std::make_pair(ad->fields[k], field));
+        }
+      }
+
       // 1st pass: only for fields with explicit initializer
-      if (pass == 0 && explicitInits->find(field) == explicitInits->end())
+      if (pass == 0 && !haveExplicitInit)
         continue;
 
       // 2nd pass: only for fields without explicit initializer
-      if (pass == 1 && explicitInits && explicitInits->find(field) != explicitInits->end())
-        continue;
-
-      // skip dominated bit fields
-      auto it = bitFieldsMap.find(field);
-      if (it != bitFieldsMap.end() && it->second != field)
+      if (pass == 1 && haveExplicitInit)
         continue;
 
       const size_t f_begin = field->offset;
@@ -145,7 +143,7 @@ void AggrTypeBuilder::addAggregate(
 
       // check for overlap with existing fields (on a byte level, not bits)
       bool overlaps = false;
-      if (field->overlapped() || field->isBitFieldDeclaration()) {
+      if (bf || field->overlapped()) {
         for (const auto existing : actualFields) {
           const size_t e_begin = existing->offset;
           const size_t e_end = getFieldEnd(existing);
@@ -174,7 +172,11 @@ void AggrTypeBuilder::addAggregate(
   std::sort(actualFields.begin(), actualFields.end(), var_offset_sort_cb);
 
   for (const auto vd : actualFields) {
-    assert(vd->offset >= m_offset);
+    if (vd->offset < m_offset) {
+      vd->error(
+          "overlaps previous field. This is an ICE, please file an LDC issue.");
+      fatal();
+    }
 
     // Add an explicit field for any padding so we can zero it, as per TDPL
     // §7.1.1.
@@ -192,7 +194,9 @@ void AggrTypeBuilder::addAggregate(
       // forward reference in a cycle or similar, we need to trust the D type
       m_offset += vd->type->size();
     } else {
-      m_offset += getTypeAllocSize(fieldType);
+      const auto llSize = getTypeAllocSize(fieldType);
+      assert(llSize <= vd->type->size() || vd->isBitFieldDeclaration());
+      m_offset += llSize;
     }
 
     // set the field index
@@ -202,14 +206,6 @@ void AggrTypeBuilder::addAggregate(
     for (const auto &pair : aliasPairs) {
       if (pair.second == vd)
         m_varGEPIndices[pair.first] = m_fieldIndex;
-    }
-
-    // map the dominated other bit fields to this field/GEP index too
-    if (vd->isBitFieldDeclaration()) {
-      for (const auto &pair : bitFieldsMap) {
-        if (pair.second == vd && pair.first != vd)
-          m_varGEPIndices[pair.first] = m_fieldIndex;
-      }
     }
 
     ++m_fieldIndex;
