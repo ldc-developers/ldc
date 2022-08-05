@@ -397,6 +397,11 @@ void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
     return;
   }
 
+  if (auto bfLVal = lhs->isBitFieldLVal()) {
+    bfLVal->store(DtoRVal(rhs));
+    return;
+  }
+
   if (t->ty == TY::Tbool) {
     DtoStoreZextI8(DtoRVal(rhs), DtoLVal(lhs));
   } else if (t->ty == TY::Tstruct) {

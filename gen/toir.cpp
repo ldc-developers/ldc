@@ -478,51 +478,6 @@ public:
       }
     }
 
-    // Handle assignments to bit fields (no lvalues).
-    if (auto dve = e->e1->isDotVarExp()) {
-      if (auto bf = dve->var->isBitFieldDeclaration()) {
-        const auto aggr = dve->e1;
-
-        AggregateDeclaration *ad;
-        const auto at = aggr->type->toBasetype();
-        if (auto ts = at->isTypeStruct()) {
-          ad = ts->sym;
-        } else if (auto tc = at->isTypeClass()) {
-          ad = tc->sym;
-        } else {
-          llvm_unreachable("Unknown aggregate type being indexed.");
-        }
-
-        const auto sizeInBits = (bf->bitOffset + bf->fieldWidth + 7) / 8 * 8;
-        const auto intType = LLIntegerType::get(gIR->context(), sizeInBits);
-
-        const auto aggrPtr = DtoLVal(aggr);
-        const auto val = DtoRVal(e->e2);
-
-        const auto ptr = DtoBitCast(DtoIndexAggregate(aggrPtr, ad, bf),
-                                    getPtrToType(intType));
-
-        const auto mask =
-            llvm::APInt::getLowBitsSet(sizeInBits, bf->fieldWidth);
-        const auto oldVal =
-            gIR->ir->CreateAlignedLoad(intType, ptr, LLMaybeAlign(1));
-        const auto maskedOldVal =
-            gIR->ir->CreateAnd(oldVal, ~(mask << bf->bitOffset));
-
-        auto bfVal = gIR->ir->CreateZExtOrTrunc(val, intType);
-        bfVal = gIR->ir->CreateAnd(bfVal, mask);
-        if (auto n = bf->bitOffset)
-          bfVal = gIR->ir->CreateShl(bfVal, n);
-
-        const auto newVal = gIR->ir->CreateOr(maskedOldVal, bfVal);
-        gIR->ir->CreateAlignedStore(newVal, ptr, LLMaybeAlign(1));
-
-        // return the untainted rhs rvalue
-        result = new DImValue(e->type, val);
-        return;
-      }
-    }
-
     // The front-end sometimes rewrites a static-array-lhs to a slice, e.g.,
     // when initializing a static array with an array literal.
     // Use the static array as lhs in that case.
@@ -672,8 +627,6 @@ public:
 
   template <BinOpFunc binOpFunc, bool useLValTypeForBinOp>
   static DValue *binAssign(BinAssignExp *e) {
-    // TODO: bit fields?!
-
     Expression *lvalExp = getLValExp(e->e1);
     DValue *lhsLVal = toElem(lvalExp);
 
@@ -1026,29 +979,9 @@ public:
 
       LLValue *ptr = DtoIndexAggregate(aggrPtr, ad, vd);
 
-      // special case for bit fields: return a (shifted & masked) rvalue
+      // special case for bit fields (no real lvalues)
       if (auto bf = vd->isBitFieldDeclaration()) {
-        const auto sizeInBytes = (bf->bitOffset + bf->fieldWidth + 7) / 8;
-        const auto sizeInBits = sizeInBytes * 8;
-        const auto intType = LLIntegerType::get(gIR->context(), sizeInBits);
-        ptr = DtoBitCast(ptr, getPtrToType(intType));
-        LLValue *val = gIR->ir->CreateAlignedLoad(intType, ptr, LLMaybeAlign(1));
-        if (bf->type->isunsigned()) {
-          if (auto n = bf->bitOffset)
-            val = gIR->ir->CreateLShr(val, n);
-          const auto mask = llvm::APInt::getLowBitsSet(sizeInBits, bf->fieldWidth);
-          val = gIR->ir->CreateAnd(val, mask);
-          val = gIR->ir->CreateZExtOrTrunc(val, DtoType(bf->type));
-        } else {
-          // shift-left to make the MSB the sign bit
-          if (auto n = sizeInBits - (bf->bitOffset + bf->fieldWidth))
-            val = gIR->ir->CreateShl(val, n);
-          // then arithmetic-shift-right
-          if (auto n = sizeInBits - bf->fieldWidth)
-            val = gIR->ir->CreateAShr(val, n);
-          val = gIR->ir->CreateSExtOrTrunc(val, DtoType(bf->type));
-        }
-        result = new DImValue(e->type, val);
+        result = new DBitFieldLValue(e->type, ptr, bf);
       } else {
         // Cast the (possibly void*) pointer to the canonical variable type.
         ptr = DtoBitCast(ptr, DtoPtrToType(e->type));

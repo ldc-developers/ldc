@@ -19,11 +19,13 @@
 class Type;
 class Dsymbol;
 class VarDeclaration;
+class BitFieldDeclaration;
 class FuncDeclaration;
 
 namespace llvm {
 class Value;
 class Type;
+class IntegerType;
 class Constant;
 }
 
@@ -34,6 +36,7 @@ class DConstValue;
 class DNullValue;
 class DLValue;
 class DSpecialRefValue;
+class DBitFieldLValue;
 class DSliceValue;
 class DFuncValue;
 
@@ -57,6 +60,7 @@ public:
 
   virtual DLValue *isLVal() { return nullptr; }
   virtual DSpecialRefValue *isSpecialRef() { return nullptr; }
+  virtual DBitFieldLValue *isBitFieldLVal() { return nullptr; }
 
   virtual DRValue *isRVal() { return nullptr; }
   virtual DImValue *isIm() { return nullptr; }
@@ -174,6 +178,25 @@ public:
   llvm::Value *getRefStorage() { return val; }
 
   DSpecialRefValue *isSpecialRef() override { return this; }
+};
+
+/// Represents (very) special 'lvalues' for bit fields.
+class DBitFieldLValue : public DValue {
+public:
+  DBitFieldLValue(Type *t, llvm::Value *ptr, BitFieldDeclaration *bf);
+
+  DBitFieldLValue *isBitFieldLVal() override { return this; }
+
+  // Loads, masks and shifts the relevant bits from memory.
+  DRValue *getRVal() override;
+
+  // Masks and shifts the specified bits and stores them to memory.
+  void store(llvm::Value *value);
+
+private:
+  BitFieldDeclaration *const bf;
+  llvm::IntegerType *const intType; // covering all bytes from bf->offset to the
+                                    // byte the highest bit is in
 };
 
 inline llvm::Value *DtoRVal(DValue *v) { return v->getRVal()->val; }
