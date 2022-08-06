@@ -85,10 +85,17 @@ StringRef attributes(ListInit* propertyList)
 
 void processRecord(raw_ostream& os, Record& rec, string arch)
 {
+#if LDC_LLVM_VER >= 1200
+    llvm::Optional<StringRef> recval = rec.getValueAsOptionalString();
+    if (!recval)
+        return;
+    const StringRef builtinName = recval.get();
+#else
     if(!rec.getValue("GCCBuiltinName"))
         return;
 
     const StringRef builtinName = rec.getValueAsString("GCCBuiltinName");
+#endif
     string name = rec.getName().str();
 
     if(name.substr(0, 4) != "int_" || name.find(arch) == string::npos)
