@@ -67,7 +67,8 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
   const auto t = new IrTypeClass(cd);
   getIrType(cd->type) = t;
 
-  IF_LOG Logger::println("Instance size: %u", cd->structsize);
+  const unsigned instanceSize = cd->structsize;
+  IF_LOG Logger::println("Instance size: %u", instanceSize);
 
   // This class may contain an align declaration. See GitHub #726.
   t->packed = false;
@@ -97,7 +98,8 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
     t->addClassData(builder, cd);
 
     // add tail padding
-    builder.addTailPadding(cd->structsize);
+    if (instanceSize) // can be 0 for opaque classes
+      builder.addTailPadding(instanceSize);
   }
 
   // set struct body and copy GEP indices

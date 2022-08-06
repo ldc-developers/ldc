@@ -223,6 +223,8 @@ void AggrTypeBuilder::alignCurrentOffset(unsigned alignment) {
 }
 
 void AggrTypeBuilder::addTailPadding(unsigned aggregateSize) {
+  assert(m_offset <= aggregateSize &&
+         "IR aggregate type is larger than the corresponding D type");
   if (m_offset < aggregateSize)
     add_zeros(m_defaultTypes, m_offset, aggregateSize);
 }
