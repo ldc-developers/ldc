@@ -205,7 +205,7 @@ TypeFunction *DtoTypeFunction(DValue *fnval);
 LLValue *DtoCallableValue(DValue *fn);
 
 ///
-LLFunctionType *DtoExtractFunctionType(LLType *type);
+LLFunctionType *DtoCallableType(DValue *val);
 
 /// Checks whether fndecl is an intrinsic that requires special lowering. If so,
 /// emits the code for it and returns true, settings result to the resulting

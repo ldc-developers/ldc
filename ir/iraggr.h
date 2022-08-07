@@ -96,11 +96,12 @@ protected:
   // Use dllimport for *declared* init symbol, TypeInfo and vtable?
   bool useDLLImport() const;
 
-private:
   llvm::StructType *llStructType = nullptr;
 
+public:
   llvm::StructType *getLLStructType();
 
+private:
   /// Recursively adds all the initializers for the given aggregate and, in
   /// case of a class type, all its base classes.
   void addFieldInitializers(llvm::SmallVectorImpl<llvm::Constant *> &constants,

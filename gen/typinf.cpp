@@ -435,7 +435,7 @@ void buildTypeInfo(TypeInfoDeclaration *decl) {
     assert(isBuiltin && "existing global expected to be the init symbol of a "
                         "built-in TypeInfo");
   } else {
-    LLType *type = DtoType(decl->type)->getPointerElementType();
+      LLType *type = DtoType(decl->type)->getPointerElementType();
     // We need to keep the symbol mutable as the type is not declared as
     // immutable on the D side, and e.g. synchronized() can be used on the
     // implicit monitor.

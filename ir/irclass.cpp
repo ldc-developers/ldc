@@ -110,8 +110,7 @@ LLGlobalVariable *IrClass::getClassInfoSymbol(bool define) {
       emitTypeInfoMetadata(typeInfo, aggrdecl->type);
 
       // Gather information
-      LLType *type = DtoType(aggrdecl->type);
-      LLType *bodyType = type->getPointerElementType();
+      LLType *bodyType = llStructType;
       bool hasDestructor = (aggrdecl->dtor != nullptr);
       // Construct the fields
       llvm::Metadata *mdVals[CD_NumFields];
@@ -512,7 +511,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
 
       llvm::GlobalVariable *interfaceInfosZ = getInterfaceArraySymbol();
       llvm::Constant *c = llvm::ConstantExpr::getGetElementPtr(
-          getPointeeType(interfaceInfosZ), interfaceInfosZ, idxs, true);
+          interfaceInfosZ->getValueType(), interfaceInfosZ, idxs, true);
 
       constants.push_back(DtoBitCast(c, voidPtrTy));
     } else {

@@ -158,6 +158,7 @@ public:
 
   DLValue *isLVal() override { return this; }
 
+  llvm::Type *memoryType();
 protected:
   DLValue(llvm::Value *v, Type *t) : DValue(t, v) {}
 

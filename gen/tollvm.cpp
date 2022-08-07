@@ -568,6 +568,11 @@ LLType *stripAddrSpaces(LLType *t)
   if(gIR->dcomputetarget == nullptr)
     return t;
 
+#if LDC_LLVM_VER >= 1500
+   // Opqaue pointers only
+   if (t->isPointerTy())
+       return llvm::PointerType::get(gIR->context(), 0);
+#else
   int indirections = 0;
   while (t->isPointerTy()) {
     indirections++;
@@ -575,6 +580,7 @@ LLType *stripAddrSpaces(LLType *t)
   }
   while (indirections-- != 0)
      t = t->getPointerTo(0);
+#endif
 
   return t;
 }

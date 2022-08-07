@@ -125,6 +125,10 @@ DLValue::DLValue(Type *t, LLValue *v) : DValue(t, v) {
          stripAddrSpaces(v->getType()) == DtoPtrToType(t));
 }
 
+llvm::Type *DLValue::memoryType() {
+    return DtoMemType(type);
+}
+
 DRValue *DLValue::getRVal() {
   if (DtoIsInMemoryOnly(type)) {
     llvm_unreachable("getRVal() for memory-only type");

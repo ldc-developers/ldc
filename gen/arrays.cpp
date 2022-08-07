@@ -877,7 +877,7 @@ DSliceValue *DtoCatArrays(const Loc &loc, Type *arrayType, Expression *exp1,
     // Create static array from slices
     LLPointerType *ptrarraytype = isaPointer(arrs[0]);
     assert(ptrarraytype && "Expected pointer type");
-    LLStructType *arraytype = isaStruct(ptrarraytype->getPointerElementType());
+    LLStructType *arraytype = isaStruct(DtoType(arrayType));
     assert(arraytype && "Expected struct type");
     LLArrayType *type = LLArrayType::get(arraytype, arrs.size());
     LLValue *array = DtoRawAlloca(type, 0, ".slicearray");

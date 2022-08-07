@@ -232,12 +232,12 @@ LLValue *DtoAllocaDump(DValue *val, Type *asType, const char *name) {
 
 LLValue *DtoAllocaDump(DValue *val, LLType *asType, int alignment,
                        const char *name) {
-  if (val->isLVal()) {
+  if (DLValue * dlval = val->isLVal()) {
     LLValue *lval = DtoLVal(val);
     LLType *asMemType = i1ToI8(voidToI8(asType));
     LLValue *copy = DtoRawAlloca(asMemType, alignment, name);
     const auto minSize =
-        std::min(getTypeAllocSize(lval->getType()->getPointerElementType()),
+        std::min(getTypeAllocSize(dlval->memoryType()),
                  getTypeAllocSize(asMemType));
     const auto minAlignment =
         std::min(DtoAlignment(val->type), static_cast<unsigned>(alignment));
@@ -1947,6 +1947,7 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
     expectedType = expectedType->getPointerTo();
 
   if (val->getType() != expectedType) {
+#if LDC_LLVM_VER < 1500
     // The type of globals is determined by their initializer, and the front-end
     // may inject implicit casts for class references and static arrays.
     assert(vd->isDataseg() || (vd->storage_class & STCextern) ||
@@ -1959,6 +1960,7 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
     // work as well.
     assert(getTypeStoreSize(DtoType(type)) <= getTypeStoreSize(pointeeType) &&
            "LValue type mismatch, encountered type too small.");
+#endif
     val = DtoBitCast(val, expectedType);
   }
 

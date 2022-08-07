@@ -132,14 +132,15 @@ struct BaseBitcastABIRewrite : ABIRewrite {
     const unsigned alignment = getMaxAlignment(asType, dv->type);
     const char *name = ".BaseBitcastABIRewrite_arg";
 
-    if (!dv->isLVal()) {
+    DLValue * ldv = dv->isLVal();
+    if (!ldv) {
       LLValue *dump = DtoAllocaDump(dv, asType, alignment,
                                     ".BaseBitcastABIRewrite_arg_storage");
       return DtoLoad(dump, name);
     }
 
-    LLValue *address = DtoLVal(dv);
-    LLType *pointeeType = address->getType()->getPointerElementType();
+    LLValue *address = DtoLVal(ldv);
+    LLType *pointeeType = ldv->memoryType();
 
     if (getTypeStoreSize(asType) > getTypeAllocSize(pointeeType) ||
         alignment > DtoAlignment(dv->type)) {

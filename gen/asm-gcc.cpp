@@ -209,12 +209,13 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
 
       if (isOutput) {
         assert(e->isLvalue() && "should have been caught by front-end");
-        LLValue *lval = DtoLVal(e);
+        DLValue * dlval = static_cast<DLValue*>(toElem(e));
+        LLValue *lval = DtoLVal(dlval);
         if (isIndirect) {
           operands.push_back(lval);
         } else {
           outputLVals.push_back(lval);
-          outputTypes.push_back(lval->getType()->getPointerElementType());
+          outputTypes.push_back(dlval->memoryType());
         }
       } else {
         if (isIndirect && !e->isLvalue()) {
