@@ -512,7 +512,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
 
       llvm::GlobalVariable *interfaceInfosZ = getInterfaceArraySymbol();
       llvm::Constant *c = llvm::ConstantExpr::getGetElementPtr(
-          getPointeeType(interfaceInfosZ), interfaceInfosZ, idxs, true);
+            interfaceInfosZ->getValueType(), interfaceInfosZ, idxs, true);
 
       constants.push_back(DtoBitCast(c, voidPtrTy));
     } else {
