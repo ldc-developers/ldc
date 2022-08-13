@@ -61,6 +61,9 @@ public:
   llvm::Constant *getInitSymbol(bool define = false);
   /// Builds the __initZ initializer constant lazily.
   llvm::Constant *getDefaultInit();
+  /// Return the LLVM type of this Aggregate (w/o the reference for classes)
+  llvm::StructType *getLLStructType();
+
 
   /// Whether to suppress the TypeInfo definition for the aggregate via
   /// `-betterC`, no `object.TypeInfo`, or `pragma(LDC_no_typeinfo)`.
@@ -98,8 +101,6 @@ protected:
 
 private:
   llvm::StructType *llStructType = nullptr;
-
-  llvm::StructType *getLLStructType();
 
   /// Recursively adds all the initializers for the given aggregate and, in
   /// case of a class type, all its base classes.
