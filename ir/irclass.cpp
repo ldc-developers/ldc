@@ -110,8 +110,7 @@ LLGlobalVariable *IrClass::getClassInfoSymbol(bool define) {
       emitTypeInfoMetadata(typeInfo, aggrdecl->type);
 
       // Gather information
-      LLType *type = DtoType(aggrdecl->type);
-      LLType *bodyType = type->getPointerElementType();
+      LLType *bodyType = getLLStructType();
       bool hasDestructor = (aggrdecl->dtor != nullptr);
       // Construct the fields
       llvm::Metadata *mdVals[CD_NumFields];
