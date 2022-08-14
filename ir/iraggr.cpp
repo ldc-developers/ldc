@@ -205,8 +205,9 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
 
   // Add the initializers for the member fields.
   unsigned dummy = 0;
-  addFieldInitializers(constants, explicitInitializers, aggrdecl, offset,
-                       dummy);
+  bool isPacked = false;
+  addFieldInitializers(constants, explicitInitializers, aggrdecl, offset, dummy,
+                       isPacked);
 
   // tail padding?
   const size_t structsize = aggrdecl->size(Loc());
@@ -219,7 +220,7 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
   for (auto c : constants)
     types.push_back(c->getType());
 
-  auto llStructType = getLLStructType();
+  const auto llStructType = getLLStructType();
   bool isCompatible = (types.size() == llStructType->getNumElements());
   if (isCompatible) {
     for (size_t i = 0; i < types.size(); i++) {
@@ -231,10 +232,16 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
   }
 
   // build constant
-  const bool isPacked = getIrType(type)->isAggr()->packed;
-  LLStructType *llType =
-      isCompatible ? llStructType
-                   : LLStructType::get(gIR->context(), types, isPacked);
+  LLStructType *llType = llStructType;
+  if (!isCompatible) {
+    // Note: isPacked only reflects whether there are misaligned IR fields,
+    // not checking whether the aggregate contains appropriate tail padding.
+    // So the resulting constant might contain more (implicit) tail padding than
+    // the actual type, which should be harmless.
+    llType = LLStructType::get(gIR->context(), types, isPacked);
+    assert(getTypeAllocSize(llType) >= structsize);
+  }
+
   llvm::Constant *c = LLConstantStruct::get(llType, constants);
   IF_LOG Logger::cout() << "final initializer: " << *c << std::endl;
   return c;
@@ -243,12 +250,12 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
 void IrAggr::addFieldInitializers(
     llvm::SmallVectorImpl<llvm::Constant *> &constants,
     const VarInitMap &explicitInitializers, AggregateDeclaration *decl,
-    unsigned &offset, unsigned &interfaceVtblIndex) {
+    unsigned &offset, unsigned &interfaceVtblIndex, bool &isPacked) {
 
   if (ClassDeclaration *cd = decl->isClassDeclaration()) {
     if (cd->baseClass) {
       addFieldInitializers(constants, explicitInitializers, cd->baseClass,
-                           offset, interfaceVtblIndex);
+                           offset, interfaceVtblIndex, isPacked);
     }
 
     // has interface vtbls?
@@ -271,11 +278,13 @@ void IrAggr::addFieldInitializers(
     }
   }
 
-  AggrTypeBuilder b(false, offset);
+  AggrTypeBuilder b(offset);
   b.addAggregate(decl,
                  explicitInitializers.empty() ? nullptr : &explicitInitializers,
                  AggrTypeBuilder::Aliases::Skip);
   offset = b.currentOffset();
+  if (!isPacked)
+    isPacked = b.isPacked();
 
   const size_t baseLLFieldIndex = constants.size();
   const size_t numNewLLFields = b.defaultTypes().size();

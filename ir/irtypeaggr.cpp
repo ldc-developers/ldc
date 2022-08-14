@@ -37,15 +37,18 @@ bool var_offset_sort_cb(const VarDeclaration *v1, const VarDeclaration *v2) {
   return v1->offset < v2->offset;
 }
 
-AggrTypeBuilder::AggrTypeBuilder(bool packed, unsigned offset)
-    : m_offset(offset), m_packed(packed) {
+AggrTypeBuilder::AggrTypeBuilder(unsigned offset) : m_offset(offset) {
   m_defaultTypes.reserve(32);
 }
 
 void AggrTypeBuilder::addType(llvm::Type *type, unsigned size) {
+  const unsigned fieldAlignment = getABITypeAlign(type);
+  assert(fieldAlignment);
+  assert((m_offset & (fieldAlignment - 1)) == 0 && "Field is misaligned");
   m_defaultTypes.push_back(type);
   m_offset += size;
   m_fieldIndex++;
+  m_maxFieldIRAlignment = std::max(m_maxFieldIRAlignment, fieldAlignment);
 }
 
 void AggrTypeBuilder::addAggregate(AggregateDeclaration *ad) {
@@ -189,15 +192,23 @@ void AggrTypeBuilder::addAggregate(
     LLType *fieldType = getFieldType(vd);
     m_defaultTypes.push_back(fieldType);
 
-    // advance offset to right past this field
+    unsigned fieldAlignment, fieldSize;
     if (!fieldType->isSized()) {
       // forward reference in a cycle or similar, we need to trust the D type
-      m_offset += vd->type->size();
+      fieldAlignment = DtoAlignment(vd->type);
+      fieldSize = vd->type->size();
     } else {
-      const auto llSize = getTypeAllocSize(fieldType);
-      assert(llSize <= vd->type->size() || vd->isBitFieldDeclaration());
-      m_offset += llSize;
+      fieldAlignment = getABITypeAlign(fieldType);
+      fieldSize = getTypeAllocSize(fieldType);
+      assert(fieldSize <= vd->type->size() || vd->isBitFieldDeclaration());
     }
+
+    // advance offset to right past this field
+    if (!m_packed) {
+      assert(fieldAlignment);
+      m_packed = ((m_offset & (fieldAlignment - 1)) != 0);
+    }
+    m_offset += fieldSize;
 
     // set the field index
     m_varGEPIndices[vd] = m_fieldIndex;
@@ -209,12 +220,12 @@ void AggrTypeBuilder::addAggregate(
     }
 
     ++m_fieldIndex;
+
+    m_maxFieldIRAlignment = std::max(m_maxFieldIRAlignment, fieldAlignment);
   }
 }
 
 void AggrTypeBuilder::alignCurrentOffset(unsigned alignment) {
-  m_overallAlignment = std::max(alignment, m_overallAlignment);
-
   unsigned aligned = (m_offset + alignment - 1) & ~(alignment - 1);
   if (m_offset < aligned) {
     m_fieldIndex += add_zeros(m_defaultTypes, m_offset, aligned);
@@ -227,6 +238,10 @@ void AggrTypeBuilder::addTailPadding(unsigned aggregateSize) {
          "IR aggregate type is larger than the corresponding D type");
   if (m_offset < aggregateSize)
     add_zeros(m_defaultTypes, m_offset, aggregateSize);
+
+  // check if the aggregate size makes it packed in IR terms
+  if (!m_packed && (aggregateSize & (m_maxFieldIRAlignment - 1)))
+    m_packed = true;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -236,41 +251,6 @@ IrTypeAggr::IrTypeAggr(AggregateDeclaration *ad)
     : IrType(ad->type,
              LLStructType::create(gIR->context(), ad->toPrettyChars())),
       aggr(ad) {}
-
-bool IrTypeAggr::isPacked(AggregateDeclaration *ad) {
-  // If the aggregate's size is unknown, any field with type alignment > 1 will
-  // make it packed.
-  unsigned aggregateSize = ~0u;
-  unsigned aggregateAlignment = 1;
-  if (ad->sizeok == Sizeok::done) {
-    aggregateSize = ad->structsize;
-    aggregateAlignment = ad->alignsize;
-
-    if (auto sd = ad->isStructDeclaration()) {
-      if (!sd->alignment.isDefault() && !sd->alignment.isPack())
-        aggregateAlignment = sd->alignment.get();
-    }
-  }
-
-  // Classes apparently aren't padded; their size may not match the alignment.
-  assert((ad->isClassDeclaration() ||
-          (aggregateSize & (aggregateAlignment - 1)) == 0) &&
-         "Size not a multiple of alignment?");
-
-  // For unions, only a subset of the fields are actually used for the IR type -
-  // don't care (about a few potentially needlessly packed IR structs).
-  for (const auto field : ad->fields) {
-    // The aggregate size, aggregate alignment and the field offset need to be
-    // multiples of the field type's alignment, otherwise the aggregate type is
-    // unnaturally aligned, and LLVM would insert padding.
-    const unsigned fieldTypeAlignment = DtoAlignment(field->type);
-    const auto mask = fieldTypeAlignment - 1;
-    if ((aggregateSize | aggregateAlignment | field->offset) & mask)
-      return true;
-  }
-
-  return false;
-}
 
 void IrTypeAggr::getMemberLocation(VarDeclaration *var, unsigned &fieldIndex,
                                    unsigned &byteOffset) const {

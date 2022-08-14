@@ -70,13 +70,7 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
   const unsigned instanceSize = cd->structsize;
   IF_LOG Logger::println("Instance size: %u", instanceSize);
 
-  // This class may contain an align declaration. See GitHub #726.
-  t->packed = false;
-  for (auto base = cd; base != nullptr && !t->packed; base = base->baseClass) {
-    t->packed = isPacked(base);
-  }
-
-  AggrTypeBuilder builder(t->packed);
+  AggrTypeBuilder builder;
 
   // add vtbl
   builder.addType(llvm::PointerType::get(t->vtbl_type, 0), target.ptrsize);
@@ -89,9 +83,7 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
     // classes have monitor and fields
     if (!cd->isCPPclass() && !cd->isCPPinterface()) {
       // add monitor
-      builder.addType(
-          llvm::PointerType::get(llvm::Type::getInt8Ty(gIR->context()), 0),
-          target.ptrsize);
+      builder.addType(getVoidPtrType(), target.ptrsize);
     }
 
     // add data members recursively
@@ -103,7 +95,7 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
   }
 
   // set struct body and copy GEP indices
-  isaStruct(t->type)->setBody(builder.defaultTypes(), t->packed);
+  isaStruct(t->type)->setBody(builder.defaultTypes(), builder.isPacked());
   t->varGEPIndices = builder.varGEPIndices();
 
   IF_LOG Logger::cout() << "class type: " << *t->type << std::endl;

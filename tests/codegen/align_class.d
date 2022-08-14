@@ -1,17 +1,17 @@
 // RUN: %ldc -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 // RUN: %ldc -run %s
 
-struct S16 { align(16) int a; }
+struct S16 { align(16) short a; }
 
-class D     { align(32) int d = 0xDD; }
-// CHECK: %align_class.D = type { [5 x i8*]*, i8*, [{{(16|24)}} x i8], i32 }
+class D     { align(32) short d = 0xDD; }
+// CHECK: %align_class.D = type <{ [5 x i8*]*, i8*, [{{(16|24)}} x i8], i16 }>
 class E : D { S16 s16 = S16(0xEE); }
-// CHECK: %align_class.E = type { [5 x i8*]*, i8*, [{{(16|24)}} x i8], i32, [12 x i8], %align_class.S16 }
-class F : D { align(64) int f = 0xFF; }
-// CHECK: %align_class.F = type { [5 x i8*]*, i8*, [{{(16|24)}} x i8], i32, [28 x i8], i32 }
+// CHECK: %align_class.E = type { [5 x i8*]*, i8*, [{{(16|24)}} x i8], i16, [14 x i8], %align_class.S16 }
+class F : D { align(64) short f = 0xFF; }
+// CHECK: %align_class.F = type <{ [5 x i8*]*, i8*, [{{(16|24)}} x i8], i16, [30 x i8], i16 }>
 
-extern(C++) class CppClass { align(32) int a = 0xAA; }
-// CHECK: %align_class.CppClass = type { [0 x i8*]*, [{{(24|28)}} x i8], i32 }
+extern(C++) class CppClass { align(32) short a = 0xAA; }
+// CHECK: %align_class.CppClass = type <{ [0 x i8*]*, [{{(24|28)}} x i8], i16 }>
 
 void main()
 {
