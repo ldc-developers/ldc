@@ -33,10 +33,6 @@ static inline size_t add_zeros(std::vector<llvm::Type *> &defaultTypes,
   return paddingSize ? 1 : 0;
 }
 
-bool var_offset_sort_cb(const VarDeclaration *v1, const VarDeclaration *v2) {
-  return v1->offset < v2->offset;
-}
-
 AggrTypeBuilder::AggrTypeBuilder(unsigned offset) : m_offset(offset) {
   m_defaultTypes.reserve(32);
 }
@@ -66,96 +62,106 @@ void AggrTypeBuilder::addAggregate(
   // IR. We usually take the first field (in declaration order) of an
   // overlapping set, but a literal with an explicit initializer for a dominated
   // field might require us to select that field.
-  LLSmallVector<VarDeclaration *, 16> actualFields;
+  struct Data {
+    VarDeclaration *field;
+    LLType *llType;
+    uint64_t size;
+  };
+  LLSmallVector<Data, 16> actualFields;
+
+  // list of pairs: alias => actual field (same offset, same LL type (not
+  // checked for bit fields))
+  LLSmallVector<std::pair<VarDeclaration *, VarDeclaration *>, 16> aliasPairs;
 
   // Bit fields additionally complicate matters. E.g.:
   // struct S {
   //   unsigned char a:7; // byte offset 0, bit offset 0, bit width 7
   //   _Bool b:1;         // byte offset 0, bit offset 7, bit width 1
   //   _Bool c:1;         // byte offset 1, bit offset 0, bit width 1
-  //   unsigned ui:23;    // byte offset 1, bit offset 1, bit width 23
+  //   unsigned d:22;     // byte offset 1, bit offset 1, bit width 22
+  //   _Bool e:1;         // byte offset 3, bit offset 7, bit width 1
   // };
-  auto getFieldEnd = [](VarDeclaration *vd) {
-    auto bf = vd->isBitFieldDeclaration();
-    return vd->offset +
-           (bf ? (bf->bitOffset + bf->fieldWidth + 7) / 8 : vd->type->size());
-  };
-  auto getFieldType = [](VarDeclaration *vd) -> LLType * {
-    if (auto bf = vd->isBitFieldDeclaration()) {
-      const auto sizeInBytes = (bf->bitOffset + bf->fieldWidth + 7) / 8;
-      return LLIntegerType::get(gIR->context(), sizeInBytes * 8);
-    }
-    return DtoMemType(vd->type);
-  };
+  // => group 1: byte offset 0, size 1 (`a`, with alias `b`)
+  //    group 2: byte offset 1, size 3 (`c`, with alias `d` and extra member `e`
+  //             (with greater byte offset))
 
-  // list of pairs: alias => actual field (same offset, same LL type)
-  LLSmallVector<std::pair<VarDeclaration *, VarDeclaration *>, 16> aliasPairs;
+  // list of pairs: extra bit field member (greater byte offset) => first member
+  // of bit field group
+  LLSmallVector<std::pair<BitFieldDeclaration *, BitFieldDeclaration *>, 8>
+      extraBitFieldMembers;
 
   // Iterate over all fields in declaration order, in 1 or 2 passes.
   for (int pass = explicitInits ? 0 : 1; pass < 2; ++pass) {
     for (size_t i = 0; i < ad->fields.length; ++i) {
-      VarDeclaration *field = ad->fields[i];
+      const auto field = ad->fields[i];
+
       bool haveExplicitInit =
           explicitInits && explicitInits->find(field) != explicitInits->end();
+      uint64_t fieldSize = field->type->size();
 
-      const auto bf = field->isBitFieldDeclaration();
-      if (bf) {
-        // group all consecutive bit fields at the same byte offset (and with
-        // non-overlapping bits)
-        const auto startIndex = i;
-        size_t j; // endIndex
-        unsigned bitEnd = bf->bitOffset + bf->fieldWidth;
-        for (j = i + 1; j < ad->fields.length; ++j) {
-          if (auto bf2 = ad->fields[j]->isBitFieldDeclaration()) {
-            if (bf2->offset == bf->offset && bf2->bitOffset >= bitEnd) {
-              bitEnd = bf2->bitOffset + bf2->fieldWidth;
-              if (!haveExplicitInit) {
-                haveExplicitInit = explicitInits && explicitInits->find(bf2) !=
-                                                        explicitInits->end();
-              }
-              continue;
+      const bool isBitField = field->isBitFieldDeclaration() != nullptr;
+      if (isBitField) {
+        const auto group = BitFieldGroup::startingFrom(
+            i, ad->fields.length, [ad](size_t i) { return ad->fields[i]; });
+
+        if (!haveExplicitInit && explicitInits) {
+          haveExplicitInit = llvm::any_of(
+              group.bitFields, [explicitInits](BitFieldDeclaration *bf) {
+                return explicitInits->find(bf) != explicitInits->end();
+              });
+        }
+
+        fieldSize = group.sizeInBytes;
+
+        // final pass: create unconditional aliases/extra members for the other
+        // bit fields
+        if (pass == 1) {
+          for (size_t j = 1; j < group.bitFields.size(); ++j) {
+            auto bf = group.bitFields[j];
+            if (bf->offset == group.byteOffset) {
+              aliasPairs.push_back({bf, field});
+            } else {
+              extraBitFieldMembers.push_back(
+                  {bf, field->isBitFieldDeclaration()});
             }
           }
-          break;
         }
 
-        // use the last bit field (with the highest bits) for the whole group
-        i = j - 1; // skip the other bit fields in the fields loop
-        field = ad->fields[i];
-
-        // create unconditional aliases for the other bit fields in the group
-        for (size_t k = startIndex; k < i; ++k) {
-          aliasPairs.push_back(std::make_pair(ad->fields[k], field));
-        }
+        // skip the other bit fields in this pass
+        i += group.bitFields.size() - 1; 
       }
 
       // 1st pass: only for fields with explicit initializer
       if (pass == 0 && !haveExplicitInit)
         continue;
 
-      // 2nd pass: only for fields without explicit initializer
+      // final pass: only for fields without explicit initializer
       if (pass == 1 && haveExplicitInit)
         continue;
 
-      const size_t f_begin = field->offset;
-      const size_t f_end = getFieldEnd(field);
-
       // skip empty fields
-      if (f_begin == f_end)
+      if (fieldSize == 0)
         continue;
+
+      const uint64_t f_begin = field->offset;
+      const uint64_t f_end = f_begin + fieldSize;
+
+      const auto llType =
+          isBitField ? LLIntegerType::get(gIR->context(), fieldSize * 8)
+                     : DtoMemType(field->type);
 
       // check for overlap with existing fields (on a byte level, not bits)
       bool overlaps = false;
-      if (bf || field->overlapped()) {
-        for (const auto existing : actualFields) {
-          const size_t e_begin = existing->offset;
-          const size_t e_end = getFieldEnd(existing);
+      if (isBitField || field->overlapped()) {
+        for (const auto &existing : actualFields) {
+          const uint64_t e_begin = existing.field->offset;
+          const uint64_t e_end = e_begin + existing.size;
 
           if (e_begin < f_end && e_end > f_begin) {
             overlaps = true;
             if (aliases == Aliases::AddToVarGEPIndices && e_begin == f_begin &&
-                getFieldType(existing) == getFieldType(field)) {
-              aliasPairs.push_back(std::make_pair(field, existing));
+                existing.llType == llType) {
+              aliasPairs.push_back(std::make_pair(field, existing.field));
             }
             break;
           }
@@ -163,7 +169,7 @@ void AggrTypeBuilder::addAggregate(
       }
 
       if (!overlaps)
-        actualFields.push_back(field);
+        actualFields.push_back({field, llType, fieldSize});
     }
   }
 
@@ -172,9 +178,15 @@ void AggrTypeBuilder::addAggregate(
   // indexable variables.
 
   // first we sort the list by offset
-  std::sort(actualFields.begin(), actualFields.end(), var_offset_sort_cb);
+  std::sort(actualFields.begin(), actualFields.end(),
+            [](const Data &l, const Data &r) {
+              return l.field->offset < r.field->offset;
+            });
 
-  for (const auto vd : actualFields) {
+  for (const auto &af : actualFields) {
+    const auto vd = af.field;
+    const auto llType = af.llType;
+
     if (vd->offset < m_offset) {
       vd->error(
           "overlaps previous field. This is an ICE, please file an LDC issue.");
@@ -189,18 +201,21 @@ void AggrTypeBuilder::addAggregate(
     }
 
     // add default type
-    LLType *fieldType = getFieldType(vd);
-    m_defaultTypes.push_back(fieldType);
+    m_defaultTypes.push_back(llType);
 
     unsigned fieldAlignment, fieldSize;
-    if (!fieldType->isSized()) {
+    if (!llType->isSized()) {
       // forward reference in a cycle or similar, we need to trust the D type
       fieldAlignment = DtoAlignment(vd->type);
-      fieldSize = vd->type->size();
+      fieldSize = af.size;
     } else {
-      fieldAlignment = getABITypeAlign(fieldType);
-      fieldSize = getTypeAllocSize(fieldType);
-      assert(fieldSize <= vd->type->size() || vd->isBitFieldDeclaration());
+      fieldAlignment = getABITypeAlign(llType);
+      if (vd->isBitFieldDeclaration()) {
+        fieldSize = af.size; // an IR integer of possibly non-power-of-2 size
+      } else {
+        fieldSize = getTypeAllocSize(llType);
+        assert(fieldSize <= af.size);
+      }
     }
 
     // advance offset to right past this field
@@ -217,6 +232,12 @@ void AggrTypeBuilder::addAggregate(
     for (const auto &pair : aliasPairs) {
       if (pair.second == vd)
         m_varGEPIndices[pair.first] = m_fieldIndex;
+    }
+
+    // store extra bit field members of this group
+    for (const auto &pair : extraBitFieldMembers) {
+      if (pair.second == vd)
+        m_extraBitFieldMembers.push_back(pair);
     }
 
     ++m_fieldIndex;
@@ -265,4 +286,42 @@ void IrTypeAggr::getMemberLocation(VarDeclaration *var, unsigned &fieldIndex,
     fieldIndex = 0;
     byteOffset = var->offset;
   }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+BitFieldGroup BitFieldGroup::startingFrom(
+    size_t startFieldIndex, size_t numTotalFields,
+    std::function<VarDeclaration *(size_t i)> getFieldFn) {
+  BitFieldGroup group;
+
+  for (size_t i = startFieldIndex; i < numTotalFields; ++i) {
+    auto bf = getFieldFn(i)->isBitFieldDeclaration();
+    if (!bf)
+      break;
+
+    unsigned bitOffset = bf->bitOffset;
+    if (i == startFieldIndex) {
+      group.byteOffset = bf->offset;
+    } else if (bf->offset >= group.byteOffset + group.sizeInBytes ||
+               bf->offset < group.byteOffset) { // unions
+      // starts a new bit field group
+      break;
+    } else {
+      // the byte offset might not match the group's
+      bitOffset += (bf->offset - group.byteOffset) * 8;
+    }
+
+    const auto sizeInBytes = (bitOffset + bf->fieldWidth + 7) / 8;
+    group.sizeInBytes = std::max(group.sizeInBytes, sizeInBytes);
+
+    group.bitFields.push_back(bf);
+  }
+
+  return group;
+}
+
+unsigned BitFieldGroup::getBitOffset(BitFieldDeclaration *member) const {
+  assert(member->offset >= byteOffset);
+  return (member->offset - byteOffset) * 8 + member->bitOffset;
 }

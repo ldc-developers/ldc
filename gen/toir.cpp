@@ -126,42 +126,29 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
     }
 
     if (vd->isBitFieldDeclaration()) {
-      // collect all bit fields at the current byte offset
-      size_t j; // endIndex
-      unsigned maxSizeInBytes = 0;
-      for (j = i; j < data.size(); ++j) {
-        if (auto bf = data[j].field->isBitFieldDeclaration()) {
-          if (bf->offset == vd->offset) {
-            const auto sizeInBytes = (bf->bitOffset + bf->fieldWidth + 7) / 8;
-            if (sizeInBytes > maxSizeInBytes)
-              maxSizeInBytes = sizeInBytes;
-            continue;
-          }
-        }
-        break;
-      }
+      const auto group = BitFieldGroup::startingFrom(
+          i, data.size(), [&data](size_t i) { return data[i].field; });
 
       IF_LOG Logger::println("initializing bit field group: (+%u, %u bytes)",
-                             vd->offset, maxSizeInBytes);
+                             group.byteOffset, group.sizeInBytes);
       LOG_SCOPE
 
-      // get a pointer to this field
+      // get a pointer to this group's IR field
       const auto ptr = DtoIndexAggregate(mem, sd, vd);
 
       // merge all initializers to a single value
       const auto intType =
-          LLIntegerType::get(gIR->context(), maxSizeInBytes * 8);
+          LLIntegerType::get(gIR->context(), group.sizeInBytes * 8);
       LLValue *val = LLConstant::getNullValue(intType);
-      for (size_t k = i; k < j; ++k) {
-        const auto bf = data[k].field->isBitFieldDeclaration();
-        assert(bf);
-        const auto bfExpr = data[k].expr;
+      for (size_t j = 0; j < group.bitFields.size(); ++j) {
+        const auto bf = group.bitFields[j];
+        const auto bfExpr = data[i + j].expr;
         assert(bfExpr);
 
+        const unsigned bitOffset = group.getBitOffset(bf);
         IF_LOG Logger::println("bit field: %s %s (bit offset %u, width %u): %s",
-                               bf->type->toChars(), bf->toChars(),
-                               bf->bitOffset, bf->fieldWidth,
-                               bfExpr->toChars());
+                               bf->type->toChars(), bf->toChars(), bitOffset,
+                               bf->fieldWidth, bfExpr->toChars());
         LOG_SCOPE
 
         auto bfVal = DtoRVal(bfExpr);
@@ -169,17 +156,17 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
         const auto mask =
             llvm::APInt::getLowBitsSet(intType->getBitWidth(), bf->fieldWidth);
         bfVal = gIR->ir->CreateAnd(bfVal, mask);
-        if (auto n = bf->bitOffset)
-          bfVal = gIR->ir->CreateShl(bfVal, n);
+        if (bitOffset)
+          bfVal = gIR->ir->CreateShl(bfVal, bitOffset);
         val = gIR->ir->CreateOr(val, bfVal);
       }
 
       IF_LOG Logger::cout() << "merged IR value: " << *val << '\n';
       gIR->ir->CreateAlignedStore(val, DtoBitCast(ptr, getPtrToType(intType)),
                                   LLMaybeAlign(1));
-      offset += maxSizeInBytes;
+      offset += group.sizeInBytes;
 
-      i = j - 1; // skip the other bit fields of the group
+      i += group.bitFields.size() - 1; // skip the other bit fields of the group
     } else {
       IF_LOG Logger::println("initializing field: %s %s (+%u)",
                              vd->type->toChars(), vd->toChars(), vd->offset);

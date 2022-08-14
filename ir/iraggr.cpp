@@ -290,38 +290,65 @@ void IrAggr::addFieldInitializers(
   const size_t numNewLLFields = b.defaultTypes().size();
   constants.resize(constants.size() + numNewLLFields, nullptr);
 
-  // add explicit and non-overlapping implicit initializers
-  for (const auto &pair : b.varGEPIndices()) {
-    const auto field = pair.first;
-    const size_t fieldIndex = pair.second;
-
+  const auto getFieldInit = [&explicitInitializers](VarDeclaration *field) {
     const auto explicitIt = explicitInitializers.find(field);
-    LLConstant *init = (explicitIt != explicitInitializers.end()
-                                ? explicitIt->second
-                                : getDefaultInitializer(field));
+    return explicitIt != explicitInitializers.end()
+               ? explicitIt->second
+               : getDefaultInitializer(field);
+  };
+
+  const auto addToBitFieldGroup = [&](BitFieldDeclaration *bf,
+                                      unsigned fieldIndex, unsigned bitOffset) {
+    LLConstant *init = getFieldInit(bf);
+    if (init->isNullValue()) {
+      // no bits to set
+      return;
+    }
 
     LLConstant *&constant = constants[baseLLFieldIndex + fieldIndex];
+
+    using llvm::APInt;
+    const auto fieldType = b.defaultTypes()[fieldIndex];
+    const auto intSizeInBits = fieldType->getIntegerBitWidth();
+    const APInt oldVal =
+        constant ? constant->getUniqueInteger() : APInt(intSizeInBits, 0);
+    const APInt bfVal = init->getUniqueInteger().zextOrTrunc(intSizeInBits);
+    const APInt mask = APInt::getLowBitsSet(intSizeInBits, bf->fieldWidth)
+                       << bitOffset;
+    assert(!oldVal.intersects(mask) && "has masked bits set already");
+    const APInt newVal = oldVal | ((bfVal << bitOffset) & mask);
+
+    constant = LLConstant::getIntegerValue(fieldType, newVal);
+  };
+
+  // add explicit and non-overlapping implicit initializers
+  const auto &gepIndices = b.varGEPIndices();
+  for (const auto &pair : gepIndices) {
+    const auto field = pair.first;
+    const auto fieldIndex = pair.second;
+
     if (auto bf = field->isBitFieldDeclaration()) {
       // multiple bit fields can map to a single IR field (of integer type)
-      if (init->isNullValue()) {
-        // no bits to set
-      } else {
-        using llvm::APInt;
-        const auto fieldType = b.defaultTypes()[fieldIndex];
-        const auto intSizeInBits = fieldType->getIntegerBitWidth();
-        const APInt oldVal = constant ? constant->getUniqueInteger()
-                                      : APInt(intSizeInBits, 0);
-        const APInt bfVal = init->getUniqueInteger().zextOrTrunc(intSizeInBits);
-        const APInt mask = APInt::getLowBitsSet(intSizeInBits, bf->fieldWidth)
-                           << bf->bitOffset;
-        assert(!oldVal.intersects(mask) && "has masked bits set already");
-        const APInt newVal = oldVal | ((bfVal << bf->bitOffset) & mask);
-        constant = LLConstant::getIntegerValue(fieldType, newVal);
-      }
+      addToBitFieldGroup(bf, fieldIndex, bf->bitOffset);
     } else {
+      LLConstant *&constant = constants[baseLLFieldIndex + fieldIndex];
       assert(!constant);
-      constant = FillSArrayDims(field->type, init);
+      constant = FillSArrayDims(field->type, getFieldInit(field));
     }
+  }
+
+  // add extra bit field members (greater byte offset than the group's first
+  // member)
+  for (const auto &pair : b.extraBitFieldMembers()) {
+    const auto bf = pair.first;
+    const auto primary = pair.second;
+
+    const auto fieldIndexIt = gepIndices.find(primary);
+    assert(fieldIndexIt != gepIndices.end());
+
+    assert(bf->offset > primary->offset);
+    addToBitFieldGroup(bf, fieldIndexIt->second,
+                       (bf->offset - primary->offset) * 8 + bf->bitOffset);
   }
 
   // TODO: sanity check that all explicit initializers have been dealt with?

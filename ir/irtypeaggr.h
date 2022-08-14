@@ -21,9 +21,12 @@ class StructType;
 }
 
 class AggregateDeclaration;
+class BitFieldDeclaration;
 class VarDeclaration;
 
 using VarGEPIndices = std::map<VarDeclaration *, unsigned>;
+using ExtraBitFieldMembers =
+    std::vector<std::pair<BitFieldDeclaration *, BitFieldDeclaration *>>;
 
 class AggrTypeBuilder {
 public:
@@ -42,12 +45,18 @@ public:
     return m_defaultTypes;
   }
   const VarGEPIndices &varGEPIndices() const { return m_varGEPIndices; }
+  const ExtraBitFieldMembers &extraBitFieldMembers() const {
+    return m_extraBitFieldMembers;
+  }
   bool isPacked() const { return m_packed; }
   unsigned currentOffset() const { return m_offset; }
 
 protected:
   std::vector<llvm::Type *> m_defaultTypes;
   VarGEPIndices m_varGEPIndices;
+  // list of pairs: extra bit field member (greater byte offset) => first member
+  // of bit field group
+  ExtraBitFieldMembers m_extraBitFieldMembers;
   unsigned m_offset = 0;
   unsigned m_fieldIndex = 0;
   unsigned m_maxFieldIRAlignment = 1;
@@ -82,4 +91,17 @@ protected:
   /// the field index of a variable in the frontend, it only stores the byte
   /// offset.
   VarGEPIndices varGEPIndices;
+};
+
+// A helper for aggregating consecutive bit fields to a group.
+struct BitFieldGroup {
+  unsigned byteOffset = 0;  // from aggregate start
+  unsigned sizeInBytes = 0; // to cover the highest bit
+  llvm::SmallVector<BitFieldDeclaration *, 8> bitFields;
+
+  static BitFieldGroup
+  startingFrom(size_t startFieldIndex, size_t numTotalFields,
+               std::function<VarDeclaration *(size_t i)> getFieldFn);
+
+  unsigned getBitOffset(BitFieldDeclaration *member) const;
 };
