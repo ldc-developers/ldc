@@ -514,8 +514,8 @@ LLValue *DtoLoad(LLValue *src, const char *name) {
 
 // Like DtoLoad, but the pointer is guaranteed to be aligned appropriately for
 // the type.
-LLValue *DtoAlignedLoad(LLValue *src, const char *name) {
-  llvm::LoadInst *ld = DtoLoadImpl(getPointeeType(src), src, name);
+LLValue *DtoAlignedLoad(LLType *type, LLValue *src, const char *name) {
+  llvm::LoadInst *ld = DtoLoadImpl(type, src, name);
   if (auto alignment = getABITypeAlign(ld->getType())) {
     ld->setAlignment(LLAlign(alignment));
   }

@@ -111,7 +111,7 @@ LLConstant *DtoConstBool(bool);
 // llvm wrappers
 LLValue *DtoLoad(LLValue *src, const char *name = "");
 LLValue *DtoVolatileLoad(LLValue *src, const char *name = "");
-LLValue *DtoAlignedLoad(LLValue *src, const char *name = "");
+LLValue *DtoAlignedLoad(LLType *type, LLValue *src, const char *name = "");
 void DtoStore(LLValue *src, LLValue *dst);
 void DtoVolatileStore(LLValue *src, LLValue *dst);
 void DtoStoreZextI8(LLValue *src, LLValue *dst);
