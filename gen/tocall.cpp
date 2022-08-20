@@ -649,7 +649,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
     Expression *exp1 = (*e->arguments)[0];
     LLValue *ptr = DtoRVal(exp1);
-    result = new DImValue(e->type, DtoVolatileLoad(ptr));
+    result = new DImValue(e->type, DtoVolatileLoad(DtoType(e->type), ptr));
     return true;
   }
 
