@@ -503,19 +503,19 @@ LLConstant *DtoConstString(const char *str) {
 ////////////////////////////////////////////////////////////////////////////////
 
 namespace {
-llvm::LoadInst *DtoLoadImpl(LLValue *src, const char *name) {
-  return gIR->ir->CreateLoad(getPointeeType(src), src, name);
+llvm::LoadInst *DtoLoadImpl(LLType *type, LLValue *src, const char *name) {
+  return gIR->ir->CreateLoad(type, src, name);
 }
 }
 
 LLValue *DtoLoad(LLValue *src, const char *name) {
-  return DtoLoadImpl(src, name);
+  return DtoLoadImpl(getPointeeType(src), src, name);
 }
 
 // Like DtoLoad, but the pointer is guaranteed to be aligned appropriately for
 // the type.
 LLValue *DtoAlignedLoad(LLValue *src, const char *name) {
-  llvm::LoadInst *ld = DtoLoadImpl(src, name);
+  llvm::LoadInst *ld = DtoLoadImpl(getPointeeType(src), src, name);
   if (auto alignment = getABITypeAlign(ld->getType())) {
     ld->setAlignment(LLAlign(alignment));
   }
@@ -523,7 +523,7 @@ LLValue *DtoAlignedLoad(LLValue *src, const char *name) {
 }
 
 LLValue *DtoVolatileLoad(LLValue *src, const char *name) {
-  llvm::LoadInst *ld = DtoLoadImpl(src, name);
+  llvm::LoadInst *ld = DtoLoadImpl(getPointeeType(src), src, name);
   ld->setVolatile(true);
   return ld;
 }
