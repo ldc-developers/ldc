@@ -522,8 +522,8 @@ LLValue *DtoAlignedLoad(LLValue *src, const char *name) {
   return ld;
 }
 
-LLValue *DtoVolatileLoad(LLValue *src, const char *name) {
-  llvm::LoadInst *ld = DtoLoadImpl(getPointeeType(src), src, name);
+LLValue *DtoVolatileLoad(LLType *type, LLValue *src, const char *name) {
+  llvm::LoadInst *ld = DtoLoadImpl(type, src, name);
   ld->setVolatile(true);
   return ld;
 }
