@@ -304,6 +304,19 @@ static LLType *getPtrToAtomicType(LLType *type) {
   }
 }
 
+static LLType *getAtomicType(LLType *type) {
+  switch (const size_t N = getTypeBitSize(type)) {
+  case 8:
+  case 16:
+  case 32:
+  case 64:
+  case 128:
+    return llvm::IntegerType::get(gIR->context(), static_cast<unsigned>(N));
+  default:
+    return nullptr;
+  }
+}
+
 bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
                             DValue *&result) {
   // va_start instruction
@@ -451,12 +464,14 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     int atomicOrdering = (*e->arguments)[1]->toInteger();
 
     LLValue *ptr = DtoRVal(exp);
-    LLType *pointeeType = getPointeeType(ptr);
+    LLType *pointeeType = DtoType(e->type);
+    LLType *loadedType  = pointeeType;
     Type *retType = exp->type->nextOf();
 
     if (!pointeeType->isIntegerTy()) {
       if (auto intPtrType = getPtrToAtomicType(pointeeType)) {
         ptr = DtoBitCast(ptr, intPtrType);
+        loadedType = getAtomicType(pointeeType);
       } else {
         e->error("atomic load only supports types of size 1/2/4/8/16 bytes, "
                  "not `%s`",
@@ -465,7 +480,6 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       }
     }
 
-    const auto loadedType = getPointeeType(ptr);
     llvm::LoadInst *load = p->ir->CreateLoad(loadedType, ptr);
     if (auto alignment = getTypeAllocSize(loadedType)) {
       load->setAlignment(LLAlign(alignment));
