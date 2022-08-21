@@ -355,12 +355,12 @@ void replaceDynamicThreadLocals(llvm::Module &oldModule,
   }
 }
 
-llvm::Constant *getArrayPtr(llvm::Constant *array) {
+llvm::Constant *getArrayPtr(llvm::Type *type, llvm::Constant *array) {
   assert(nullptr != array);
   llvm::ConstantInt *zero = llvm::ConstantInt::get(
       llvm::Type::getInt32Ty(array->getContext()), 0, false);
   llvm::Constant *idxs[] = {zero, zero};
-  return llvm::ConstantExpr::getGetElementPtr(getPointeeType(array), array,
+  return llvm::ConstantExpr::getGetElementPtr(type, array,
                                               idxs, true);
 }
 
@@ -379,7 +379,7 @@ getArrayAndSize(llvm::Module &module, llvm::Type *elemType,
       module, arrayType, true, llvm::GlobalValue::PrivateLinkage,
       llvm::ConstantArray::get(arrayType, elements), ".str");
   return std::make_pair(
-      getArrayPtr(arrVar),
+      getArrayPtr(arrVar->getValueType() ,arrVar),
       llvm::ConstantInt::get(module.getContext(), APInt(32, elements.size())));
 }
 
@@ -394,7 +394,7 @@ void createStaticI8Array(llvm::Module &mod, llvm::GlobalVariable *var,
                            dataLen),
       true, llvm::GlobalValue::InternalLinkage,
       llvm::ConstantDataArray::get(mod.getContext(), arr), ".str");
-  var->setInitializer(getArrayPtr(gvar));
+  var->setInitializer(getArrayPtr(gvar->getValueType(), gvar));
   if (nullptr != varLen) {
     varLen->setInitializer(
         llvm::ConstantInt::get(mod.getContext(), APInt(32, dataLen)));
