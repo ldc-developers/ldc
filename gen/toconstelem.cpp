@@ -196,7 +196,7 @@ public:
     if (t1b->ty == TY::Tpointer && e->e2->type->isintegral()) {
       llvm::Constant *ptr = toConstElem(e->e1, p);
       dinteger_t idx = undoStrideMul(e->loc, t1b, e->e2->toInteger());
-      result = llvm::ConstantExpr::getGetElementPtr(getPointeeType(ptr), ptr,
+      result = llvm::ConstantExpr::getGetElementPtr(DtoType(e->e1->type), ptr,
                                                     DtoConstSize_t(idx));
       return;
     }
@@ -215,7 +215,7 @@ public:
       dinteger_t idx = undoStrideMul(e->loc, t1b, e->e2->toInteger());
 
       llvm::Constant *negIdx = llvm::ConstantExpr::getNeg(DtoConstSize_t(idx));
-      result = llvm::ConstantExpr::getGetElementPtr(getPointeeType(ptr), ptr,
+      result = llvm::ConstantExpr::getGetElementPtr(DtoType(e->e1->type), ptr,
                                                     negIdx);
       return;
     }
@@ -350,7 +350,7 @@ public:
       if (elemSize && e->offset % elemSize == 0) {
         // We can turn this into a "nice" GEP.
         result = llvm::ConstantExpr::getGetElementPtr(
-            getPointeeType(base), base, DtoConstSize_t(e->offset / elemSize));
+            DtoType(e->var->type), base, DtoConstSize_t(e->offset / elemSize));
       } else {
         // Offset isn't a multiple of base type size, just cast to i8* and
         // apply the byte offset.
@@ -400,7 +400,7 @@ public:
       LLConstant *val = isaConstant(getIrGlobal(vd)->value);
       val = DtoBitCast(val, DtoType(vd->type->pointerTo()));
       LLConstant *gep = llvm::ConstantExpr::getGetElementPtr(
-          getPointeeType(val), val, idxs, true);
+          DtoType(vd->type), val, idxs, true);
 
       // bitcast to requested type
       assert(e->type->toBasetype()->ty == TY::Tpointer);
