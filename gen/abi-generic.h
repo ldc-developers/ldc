@@ -139,7 +139,7 @@ struct BaseBitcastABIRewrite : ABIRewrite {
     }
 
     LLValue *address = DtoLVal(dv);
-    LLType *pointeeType = address->getType()->getPointerElementType();
+    LLType *pointeeType = DtoType(dv->type);
 
     if (getTypeStoreSize(asType) > getTypeAllocSize(pointeeType) ||
         alignment > DtoAlignment(dv->type)) {
