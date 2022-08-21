@@ -76,11 +76,11 @@ LLArrayType *DtoStaticArrayType(Type *t) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoSetArrayToNull(LLValue *v) {
+void DtoSetArrayToNull(DValue *v) {
   IF_LOG Logger::println("DtoSetArrayToNull");
   LOG_SCOPE;
 
-  DtoStore(LLConstant::getNullValue(getPointeeType(v)), v);
+  DtoStore(LLConstant::getNullValue(DtoType(v->type)), DtoLVal(v));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -215,7 +215,7 @@ void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
   if (t->ty == TY::Tarray && !lhs->isSlice()) {
     assert(t2->ty == TY::Tarray || t2->ty == TY::Tsarray);
     if (rhs->isNull()) {
-      DtoSetArrayToNull(DtoLVal(lhs));
+      DtoSetArrayToNull(lhs);
     } else {
       DtoSetArray(lhs, DtoArrayLen(rhs), DtoArrayPtr(rhs));
     }
