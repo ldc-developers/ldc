@@ -761,7 +761,7 @@ LLConstant *IrClass::getClassInfoInterfaces() {
   LLConstant *idxs[2] = {DtoConstSize_t(0),
                          DtoConstSize_t(n - cd->vtblInterfaces->length)};
 
-  LLConstant *ptr = llvm::ConstantExpr::getGetElementPtr(getPointeeType(ciarr),
+  LLConstant *ptr = llvm::ConstantExpr::getGetElementPtr(ciarr->getValueType(),
                                                          ciarr, idxs, true);
 
   // return as a slice
