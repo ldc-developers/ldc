@@ -109,7 +109,10 @@ LLConstant *DtoConstString(const char *);
 LLConstant *DtoConstBool(bool);
 
 // llvm wrappers
+struct DLValue;
 LLValue *DtoLoad(LLValue *src, const char *name = "");
+LLValue *DtoLoad(DLValue *src, const char *name = "");
+LLValue *DtoLoad(LLType *, LLValue *src, const char *name = "");
 LLValue *DtoVolatileLoad(LLType *, LLValue *src, const char *name = "");
 LLValue *DtoAlignedLoad(LLType *type, LLValue *src, const char *name = "");
 void DtoStore(LLValue *src, LLValue *dst);
