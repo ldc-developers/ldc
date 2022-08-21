@@ -214,7 +214,7 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
           operands.push_back(lval);
         } else {
           outputLVals.push_back(lval);
-          outputTypes.push_back(lval->getType()->getPointerElementType());
+          outputTypes.push_back(DtoType(e->type));
         }
       } else {
         if (isIndirect && !e->isLvalue()) {
