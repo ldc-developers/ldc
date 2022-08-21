@@ -255,7 +255,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
 
   if (cpyObj) {
     // assign the caught exception to the location in the closure
-    auto val = irs.ir->CreateLoad(getPointeeType(exnObj), exnObj);
+    auto val = irs.ir->CreateLoad(DtoType(var->type), exnObj);
     irs.ir->CreateStore(val, cpyObj);
     exnObj = cpyObj;
   }
