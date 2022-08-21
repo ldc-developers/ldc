@@ -189,53 +189,52 @@ void generateBind(const Context &context, DynamicCompilerContext &jitContext,
     assert(bindPtr != nullptr);
     assert(bindFuncs.end() == bindFuncs.find(bindPtr));
     auto funcToInline = getIrFunc(originalFunc);
-    if (funcToInline != nullptr) {
-      auto exampleIrFunc = getIrFunc(exampleFunc);
-      assert(exampleIrFunc != nullptr);
-      auto errhandler = [&](const std::string &str) { fatal(context, str); };
-      auto overrideHandler = [&](llvm::Type &type, const void *data,
-                                 size_t size) -> llvm::Constant * {
-        if (type.isPointerTy()) {
-          auto getBindFunc = [&]() {
-            auto handle = *static_cast<void *const *>(data);
-            return handle != nullptr && jitContext.hasBindFunction(handle)
-                       ? handle
-                       : nullptr;
-          };
-
-          auto elemType = type.getPointerElementType();
-          if (elemType->isFunctionTy()) {
-            (void)size;
-            assert(size == sizeof(void *));
-            auto val = *reinterpret_cast<void *const *>(data);
-            if (val != nullptr) {
-              auto ret = getIrFunc(val);
-              if (ret != nullptr && ret->getType() != &type) {
-                return llvm::ConstantExpr::getBitCast(ret, &type);
-              }
-              return ret;
-            }
-          } else if (auto handle = getBindFunc()) {
-            auto it = bindFuncs.find(handle);
-            assert(bindFuncs.end() != it);
-            auto bindIrFunc = it->second;
-            auto funcPtrType = bindIrFunc->getType();
-            auto globalVar1 = new llvm::GlobalVariable(
-                module, funcPtrType, true, llvm::GlobalValue::PrivateLinkage,
-                bindIrFunc, ".jit_bind_handle");
-            return llvm::ConstantExpr::getBitCast(globalVar1, &type);
-          }
-        }
-        return nullptr;
-      };
-      auto func =
-          bindParamsToFunc(module, *funcToInline, *exampleIrFunc, params,
-                           errhandler, BindOverride(overrideHandler));
-      moduleInfo.addBindHandle(func->getName(), bindPtr);
-      bindFuncs.insert({bindPtr, func});
-    } else {
-      fatal(context, "Bind: function body not available");
+    if (funcToInline == nullptr) {
+        fatal(context, "Bind: function body not available");
     }
+    auto exampleIrFunc = getIrFunc(exampleFunc);
+    assert(exampleIrFunc != nullptr);
+    auto errhandler = [&](const std::string &str) { fatal(context, str); };
+    auto overrideHandler = [&](llvm::Type &type, const void *data,
+                               size_t size) -> llvm::Constant * {
+      if (type.isPointerTy()) {
+        auto getBindFunc = [&]() {
+          auto handle = *static_cast<void *const *>(data);
+          return handle != nullptr && jitContext.hasBindFunction(handle)
+                     ? handle
+                     : nullptr;
+        };
+
+        auto elemType = type.getPointerElementType();
+        if (elemType->isFunctionTy()) {
+          (void)size;
+          assert(size == sizeof(void *));
+          auto val = *reinterpret_cast<void *const *>(data);
+          if (val != nullptr) {
+            auto ret = getIrFunc(val);
+            if (ret != nullptr && ret->getType() != &type) {
+              return llvm::ConstantExpr::getBitCast(ret, &type);
+            }
+            return ret;
+          }
+        } else if (auto handle = getBindFunc()) {
+          auto it = bindFuncs.find(handle);
+          assert(bindFuncs.end() != it);
+          auto bindIrFunc = it->second;
+          auto funcPtrType = bindIrFunc->getType();
+          auto globalVar1 = new llvm::GlobalVariable(
+              module, funcPtrType, true, llvm::GlobalValue::PrivateLinkage,
+              bindIrFunc, ".jit_bind_handle");
+          return llvm::ConstantExpr::getBitCast(globalVar1, &type);
+        }
+      }
+      return nullptr;
+    };
+    auto func =
+        bindParamsToFunc(module, *funcToInline, *exampleIrFunc, params,
+                         errhandler, BindOverride(overrideHandler));
+    moduleInfo.addBindHandle(func->getName(), bindPtr);
+    bindFuncs.insert({bindPtr, func});
   };
   for (auto &&bind : jitContext.getBindInstances()) {
     auto bindPtr = bind.first;
