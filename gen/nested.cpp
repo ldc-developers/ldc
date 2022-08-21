@@ -173,7 +173,7 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
     // Handled appropriately by makeVarDValue() and EmitLocalVariable(), pass
     // storage of pointer (reference lvalue).
   } else if (byref || captureByRef(vd)) {
-    val = DtoAlignedLoad(getPointeeType(val), val);
+    val = DtoAlignedLoad(DtoType(vd->type), val);
     // ref/out variables get a reference-debuginfo-type in EmitLocalVariable()
     // => don't dereference, use reference lvalue as address
     if (!vd->isReference())
