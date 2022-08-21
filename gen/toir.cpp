@@ -1571,8 +1571,8 @@ public:
     // dyn array
     else if (et->ty == TY::Tarray) {
       DtoDeleteArray(e->loc, dval);
-      if (dval->isLVal()) {
-        DtoSetArrayToNull(DtoLVal(dval));
+      if (DLValue *ldval = dval->isLVal()) {
+        DtoSetArrayToNull(ldval);
       }
     }
     // unknown/invalid
