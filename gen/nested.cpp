@@ -138,7 +138,7 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
   };
   const auto dereference = [&val, &dwarfAddrOps](const char *name = "") {
     gIR->DBuilder.OpDeref(dwarfAddrOps);
-    val = DtoAlignedLoad(val, name);
+    val = DtoAlignedLoad(getPointeeType(val), val, name);
   };
 
   const auto vardepth = irLocal->nestedDepth;
@@ -173,7 +173,7 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
     // Handled appropriately by makeVarDValue() and EmitLocalVariable(), pass
     // storage of pointer (reference lvalue).
   } else if (byref || captureByRef(vd)) {
-    val = DtoAlignedLoad(val);
+    val = DtoAlignedLoad(getPointeeType(val), val);
     // ref/out variables get a reference-debuginfo-type in EmitLocalVariable()
     // => don't dereference, use reference lvalue as address
     if (!vd->isReference())
@@ -310,10 +310,10 @@ LLValue *DtoNestedContext(const Loc &loc, Dsymbol *sym) {
       IF_LOG Logger::println(
           "Calling sibling function or directly nested function");
     } else {
-      val = DtoBitCast(val,
-                       LLPointerType::getUnqual(getIrFunc(ctxfd)->frameType));
+      llvm::StructType *type = getIrFunc(ctxfd)->frameType;
+      val = DtoBitCast(val, LLPointerType::getUnqual(type));
       val = DtoGEP(val, 0, neededDepth);
-      val = DtoAlignedLoad(
+      val = DtoAlignedLoad(type->getElementType(neededDepth),
           val, (std::string(".frame.") + frameToPass->toChars()).c_str());
     }
   }
