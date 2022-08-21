@@ -52,26 +52,6 @@ LLValue *DtoSlice(Expression *e) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static LLValue *DtoSlicePtr(Expression *e) {
-  DValue *dval = toElem(e);
-  Loc loc;
-  LLStructType *type = DtoArrayType(LLType::getInt8Ty(gIR->context()));
-  Type *vt = dval->type->toBasetype();
-  if (vt->ty == TY::Tarray) {
-    return makeLValue(loc, dval);
-  }
-
-  bool isStaticArray = vt->ty == TY::Tsarray;
-  LLValue *val = isStaticArray ? DtoLVal(dval) : makeLValue(loc, dval);
-  LLValue *array = DtoRawAlloca(type, 0, ".array");
-  LLValue *len = isStaticArray ? DtoArrayLen(dval) : DtoConstSize_t(1);
-  DtoStore(len, DtoGEP(array, 0u, 0));
-  DtoStore(DtoBitCast(val, getVoidPtrType()), DtoGEP(array, 0, 1));
-  return array;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 LLStructType *DtoArrayType(Type *arrayTy) {
   assert(arrayTy->nextOf());
   llvm::Type *elems[] = {DtoSize_t(), DtoPtrToType(arrayTy->nextOf())};
@@ -853,6 +833,27 @@ DSliceValue *DtoCatAssignArray(const Loc &loc, DValue *arr, Expression *exp) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+static LLValue *DtoSlicePtr(DValue *dval) {
+  Loc loc;
+  Type *vt = dval->type->toBasetype();
+  if (vt->ty == TY::Tarray) {
+    return makeLValue(loc, dval);
+  }
+
+  bool isStaticArray = vt->ty == TY::Tsarray;
+  LLValue *val = isStaticArray ? DtoLVal(dval) : makeLValue(loc, dval);
+  LLStructType *i8arrty = DtoArrayType(LLType::getInt8Ty(gIR->context()));
+  LLValue *array = DtoRawAlloca(i8arrty, 0, ".array");
+  LLValue *len = isStaticArray ? DtoArrayLen(dval) : DtoConstSize_t(1);
+  DtoStore(len, DtoGEP(array, 0u, 0));
+  DtoStore(DtoBitCast(val, getVoidPtrType()), DtoGEP(array, 0, 1));
+  return array;
+}
+
+static LLValue *DtoSlicePtr(Expression *e) {
+    return DtoSlicePtr(toElem(e));
+}
+
 DSliceValue *DtoCatArrays(const Loc &loc, Type *arrayType, Expression *exp1,
                           Expression *exp2) {
   IF_LOG Logger::println("DtoCatAssignArray");
@@ -867,7 +868,8 @@ DSliceValue *DtoCatArrays(const Loc &loc, Type *arrayType, Expression *exp1,
     // Create array of slices
     typedef llvm::SmallVector<llvm::Value *, 16> ArgVector;
     ArgVector arrs;
-    arrs.push_back(DtoSlicePtr(exp2));
+    DValue * dval = toElem(exp2);
+    arrs.push_back(DtoSlicePtr(dval));
     do {
       arrs.push_back(DtoSlicePtr(ce->e2));
       ce = static_cast<CatExp *>(ce->e1);
@@ -877,7 +879,9 @@ DSliceValue *DtoCatArrays(const Loc &loc, Type *arrayType, Expression *exp1,
     // Create static array from slices
     LLPointerType *ptrarraytype = isaPointer(arrs[0]);
     assert(ptrarraytype && "Expected pointer type");
-    LLStructType *arraytype = isaStruct(ptrarraytype->getPointerElementType());
+    LLStructType *arraytype = dval->type->toBasetype()->ty == TY::Tarray ?
+                isaStruct(DtoType(dval->type->toBasetype())) :
+                DtoArrayType(LLType::getInt8Ty(gIR->context()));
     assert(arraytype && "Expected struct type");
     LLArrayType *type = LLArrayType::get(arraytype, arrs.size());
     LLValue *array = DtoRawAlloca(type, 0, ".slicearray");
