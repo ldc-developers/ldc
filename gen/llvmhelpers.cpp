@@ -237,7 +237,7 @@ LLValue *DtoAllocaDump(DValue *val, LLType *asType, int alignment,
     LLType *asMemType = i1ToI8(voidToI8(asType));
     LLValue *copy = DtoRawAlloca(asMemType, alignment, name);
     const auto minSize =
-        std::min(getTypeAllocSize(lval->getType()->getPointerElementType()),
+        std::min(getTypeAllocSize(DtoType(val->type)),
                  getTypeAllocSize(asMemType));
     const auto minAlignment =
         std::min(DtoAlignment(val->type), static_cast<unsigned>(alignment));
