@@ -121,6 +121,7 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
   const auto frameType = LLPointerType::getUnqual(irfunc->frameType);
   IF_LOG { Logger::cout() << "casting to: " << *irfunc->frameType << '\n'; }
   LLValue *val = DtoBitCast(ctx, frameType);
+  llvm::Type *valType = irfunc->frameType;
 
   // Make the DWARF variable address relative to the context pointer (ctx);
   // register all ops (offsetting, dereferencing) required to get there in the
@@ -131,14 +132,17 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
   LLSmallVector<int64_t, 4> dwarfAddrOps;
 #endif
 
-  const auto offsetToNthField = [&val, &dwarfAddrOps](unsigned fieldIndex,
-                                                      const char *name = "") {
+  const auto offsetToNthField = [&val, &dwarfAddrOps, &valType]
+                                (unsigned fieldIndex,const char *name = "") {
     gIR->DBuilder.OpOffset(dwarfAddrOps, val, fieldIndex);
+    assert(valType->isStructTy);
     val = DtoGEP(val, 0, fieldIndex, name);
+    getStructElementType
+    valType = isaStruct(valType)->getStructElementType(fieldIndex);
   };
-  const auto dereference = [&val, &dwarfAddrOps](const char *name = "") {
+  const auto dereference = [&val, &dwarfAddrOps, &valType](const char *name = "") {
     gIR->DBuilder.OpDeref(dwarfAddrOps);
-    val = DtoAlignedLoad(getPointeeType(val), val, name);
+    val = DtoAlignedLoad(valType, val, name);
   };
 
   const auto vardepth = irLocal->nestedDepth;
