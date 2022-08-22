@@ -513,6 +513,14 @@ LLValue *DtoLoad(LLValue *src, const char *name) {
   return DtoLoadImpl(getPointeeType(src), src, name);
 }
 
+LLValue *DtoLoad(LLType* type, LLValue *src, const char *name) {
+  return DtoLoadImpl(type, src, name);
+}
+
+LLValue *DtoLoad(DLValue *src, const char *name) {
+  return DtoLoadImpl(DtoType(src->type), DtoLVal(src), name);
+}
+
 // Like DtoLoad, but the pointer is guaranteed to be aligned appropriately for
 // the type.
 LLValue *DtoAlignedLoad(LLType *type, LLValue *src, const char *name) {
