@@ -37,7 +37,9 @@ Portable stand-alone binary builds (and a Windows installer) for common
 platforms (incl. Linux, macOS, Windows, FreeBSD and Android) are available
 at the [GitHub release page](https://github.com/ldc-developers/ldc/releases).
 For Windows, the [Visual D installer](https://rainers.github.io/visuald/visuald/StartPage.html)
-also comes with a bundled LDC.
+also comes with a bundled LDC. Note for Windows, [Microsoft Visual C++
+Redistributable](//docs.microsoft.com/cpp/windows/latest-supported-vc-redist) is
+required in some cases as well.
 
 For bleeding-edge users, we also provide the [latest successful Continuous
 Integration builds](https://github.com/ldc-developers/ldc/releases/tag/CI)
