@@ -36,6 +36,15 @@ bool isNRVOVar(VarDeclaration *vd) {
 bool captureByRef(VarDeclaration *vd) {
   return vd->isReference() || isNRVOVar(vd);
 }
+LLValue *loadThisPtr(AggregateDeclaration *ad, IrFunction &irfunc) {
+  if (ad->isClassDeclaration()) {
+      return DtoLoad(DtoType(irfunc.irFty.arg_this->type),
+                     irfunc.thisArg);
+  }
+
+  return irfunc.thisArg;
+}
+
 } // anonymous namespace
 
 static void DtoCreateNestedContextType(FuncDeclaration *fd);
@@ -80,8 +89,8 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
   } else if (AggregateDeclaration *ad = irfunc->decl->isMember2()) {
     Logger::println(
         "Current function is member of nested class, loading vthis");
-    LLValue *val =
-        ad->isClassDeclaration() ? DtoLoad(irfunc->thisArg) : irfunc->thisArg;
+    LLValue *val = loadThisPtr(ad, *irfunc);
+
     for (; ad; ad = ad->toParent2()->isAggregateDeclaration()) {
       assert(ad->vthis);
       val = DtoLoad(DtoGEP(val, 0, getVthisIdx(ad), ".vthis"));
@@ -262,7 +271,7 @@ LLValue *DtoNestedContext(const Loc &loc, Dsymbol *sym) {
   } else if (irFunc.thisArg) {
     // or just have a this argument
     AggregateDeclaration *ad = irFunc.decl->isMember2();
-    val = ad->isClassDeclaration() ? DtoLoad(irFunc.thisArg) : irFunc.thisArg;
+    val = loadThisPtr(ad, irFunc);
     if (!ad->vthis) {
       // This is just a plain 'outer' reference of a class nested in a
       // function (but without any variables in the nested context).
@@ -472,8 +481,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
         AggregateDeclaration *ad = fd->isMember2();
         assert(ad);
         assert(ad->vthis);
-        LLValue *thisptr =
-            ad->isClassDeclaration() ? DtoLoad(irFunc.thisArg) : irFunc.thisArg;
+        LLValue *thisptr = loadThisPtr(ad, irFunc);
         IF_LOG Logger::println("Indexing to 'this'");
         src = DtoLoad(DtoGEP(thisptr, 0, getVthisIdx(ad), ".vthis"));
       }
