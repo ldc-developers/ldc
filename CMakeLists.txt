@@ -36,6 +36,7 @@ find_package(LLVM 9.0 REQUIRED
     selectiondag support tablegen target transformutils vectorize
     windowsmanifest ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
+message(STATUS "Using LLVM Version ${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}")
 # Remove LLVMTableGen library from list of libraries
 string(REGEX MATCH "[^;]*LLVMTableGen[^;]*" LLVM_TABLEGEN_LIBRARY "${LLVM_LIBRARIES}")
 string(REGEX REPLACE "[^;]*LLVMTableGen[^;]*;?" "" LLVM_LIBRARIES "${LLVM_LIBRARIES}")
