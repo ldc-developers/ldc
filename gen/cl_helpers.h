@@ -157,6 +157,7 @@ class MultiSetter {
 public:
   // end with a nullptr
   MultiSetter(bool invert, CHECKENABLE *p, ...);
+  MultiSetter() = default;
 
   void operator=(bool val);
 };
