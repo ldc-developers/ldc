@@ -107,9 +107,9 @@ DValue *DtoComplex(const Loc &loc, Type *to, DValue *val) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoComplexSet(LLValue *c, LLValue *re, LLValue *im) {
-  DtoStore(re, DtoGEP(c, 0u, 0));
-  DtoStore(im, DtoGEP(c, 0, 1));
+void DtoComplexSet(LLType* ty, LLValue *c, LLValue *re, LLValue *im) {
+  DtoStore(re, DtoGEP(ty, c, 0u, 0));
+  DtoStore(im, DtoGEP(ty, c, 0, 1));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
