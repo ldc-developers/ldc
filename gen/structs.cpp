@@ -151,7 +151,7 @@ LLValue *DtoUnpaddedStruct(Type *dty, LLValue *v) {
       // Nested structs are the only members that can contain padding
       fieldval = DtoUnpaddedStruct(fields[i]->type, fieldptr);
     } else {
-      fieldval = DtoLoad(fieldptr);
+      fieldval = DtoLoad(DtoType(fields[i]->type), fieldptr);
     }
     newval = DtoInsertValue(newval, fieldval, i);
   }
