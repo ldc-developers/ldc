@@ -258,7 +258,7 @@ public:
         if (returnValue->getType() != funcType->getReturnType() &&
             DtoIsInMemoryOnly(rt) && isaPointer(returnValue)) {
           Logger::println("Loading value for return");
-          returnValue = DtoLoad(returnValue);
+          returnValue = DtoLoad(funcType->getReturnType(), returnValue);
         }
 
         // can happen for classes
@@ -313,8 +313,9 @@ public:
           irs->DBuilder.EmitStopPoint(fd->endloc);
         }
 
-        irs->ir->CreateRet(useRetValSlot ? DtoLoad(funcGen.retValSlot)
-                                         : returnValue);
+        irs->ir->CreateRet(
+            useRetValSlot ? DtoLoad(funcType->getReturnType(), funcGen.retValSlot)
+                          : returnValue);
       } else {
         irs->ir->CreateRetVoid();
       }
@@ -1345,7 +1346,7 @@ public:
     irs->ir->SetInsertPoint(condbb);
 
     LLValue *done = nullptr;
-    LLValue *load = DtoLoad(keyvar);
+    LLValue *load = DtoLoad(keytype, keyvar);
     if (stmt->op == TOK::foreach_) {
       done = irs->ir->CreateICmpULT(load, niters);
     } else if (stmt->op == TOK::foreach_reverse_) {
@@ -1365,7 +1366,7 @@ public:
     PGO.emitCounterIncrement(stmt);
 
     // get value for this iteration
-    LLValue *loadedKey = DtoLoad(keyvar);
+    LLValue *loadedKey = DtoLoad(keytype, keyvar);
     LLValue *gep = DtoGEP1(val, loadedKey);
 
     if (!stmt->value->isRef() && !stmt->value->isOut()) {
@@ -1393,7 +1394,7 @@ public:
     // next
     irs->ir->SetInsertPoint(nextbb);
     if (stmt->op == TOK::foreach_) {
-      LLValue *load = DtoLoad(keyvar);
+      LLValue *load = DtoLoad(keytype, keyvar);
       load = irs->ir->CreateAdd(load, LLConstantInt::get(keytype, 1, false));
       DtoStore(load, keyvar);
     }
@@ -1427,8 +1428,8 @@ public:
 
     // handle key
     assert(stmt->key->type->isintegral());
-    LLValue *keyval = DtoRawVarDeclaration(stmt->key);
-
+    LLValue *keyval  = DtoRawVarDeclaration(stmt->key);
+    LLType  *keytype = DtoType(stmt->key->type);
     // store initial value in key
     if (stmt->op == TOK::foreach_) {
       DtoStore(lower, keyval);
@@ -1449,7 +1450,7 @@ public:
     irs->ir->SetInsertPoint(condbb);
 
     // first we test that lwr < upr
-    lower = DtoLoad(keyval);
+    lower = DtoLoad(keytype, keyval);
     assert(lower->getType() == upper->getType());
     llvm::ICmpInst::Predicate cmpop;
     if (isLLVMUnsigned(stmt->key->type)) {
@@ -1475,7 +1476,7 @@ public:
 
     // reverse foreach decrements here
     if (stmt->op == TOK::foreach_reverse_) {
-      LLValue *v = DtoLoad(keyval);
+      LLValue *v = DtoLoad(keytype, keyval);
       LLValue *one = LLConstantInt::get(v->getType(), 1, false);
       v = irs->ir->CreateSub(v, one);
       DtoStore(v, keyval);
@@ -1498,7 +1499,7 @@ public:
 
     // forward foreach increments here
     if (stmt->op == TOK::foreach_) {
-      LLValue *v = DtoLoad(keyval);
+      LLValue *v = DtoLoad(keytype, keyval);
       LLValue *one = LLConstantInt::get(v->getType(), 1, false);
       v = irs->ir->CreateAdd(v, one);
       DtoStore(v, keyval);
