@@ -83,7 +83,7 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
     const auto enterCatchFn = getRuntimeFunction(
         c->loc, irs.module,
         isCPPclass ? "__cxa_begin_catch" : "_d_eh_enter_catch");
-    const auto ptr = DtoLoad(ehPtrSlot);
+    const auto ptr = DtoLoad(getVoidPtrType(), ehPtrSlot);
     const auto throwableObj = irs.ir->CreateCall(enterCatchFn, ptr);
 
     // For catches that use the Throwable object, create storage for it.
@@ -778,7 +778,7 @@ llvm::BasicBlock *TryCatchFinallyScopes::getOrCreateResumeUnwindBlock() {
     irs.ir->SetInsertPoint(resumeUnwindBlock);
 
     llvm::Function *resumeFn = getUnwindResumeFunction(Loc(), irs.module);
-    irs.ir->CreateCall(resumeFn, DtoLoad(getOrCreateEhPtrSlot()));
+    irs.ir->CreateCall(resumeFn, DtoLoad(getVoidPtrType(), getOrCreateEhPtrSlot()));
     irs.ir->CreateUnreachable();
 
     irs.ir->SetInsertPoint(oldBB);
