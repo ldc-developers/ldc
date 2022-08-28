@@ -1358,7 +1358,7 @@ public:
     LLValue *const lval = DtoLVal(dv);
     toElem(e->e2);
 
-    LLValue *val = DtoLoad(lval);
+    LLValue *val = DtoLoad(DtoType(dv->type), lval);
     LLValue *post = nullptr;
 
     Type *e1type = e->e1->type->toBasetype();
@@ -2676,8 +2676,8 @@ public:
         // to an Interface instance, which has the type info as its first
         // member, so we have to add an extra layer of indirection.
         resultType = getInterfaceTypeInfoType();
-        typinf = DtoLoad(
-            DtoBitCast(typinf, DtoType(resultType->pointerTo()->pointerTo())));
+        LLType *pres = DtoType(resultType->pointerTo());
+        typinf = DtoLoad(pres, DtoBitCast(typinf, pres->getPointerTo()));
       } else {
         resultType = getClassInfoType();
         typinf = DtoBitCast(typinf, DtoType(resultType->pointerTo()));
