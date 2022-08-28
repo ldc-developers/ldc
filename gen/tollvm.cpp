@@ -362,6 +362,34 @@ llvm::GetElementPtrInst *DtoGEP(LLType * type,LLValue *ptr,
 }
 }
 
+LLValue *DtoGEP1(LLType * ptrty, LLValue *ptr, LLValue *i0, const char *name,
+                 llvm::BasicBlock *bb) {
+  return DtoGEP(ptrty, ptr, i0, name, bb);
+}
+
+LLValue *DtoGEP(LLType * ptrty, LLValue *ptr, LLValue *i0, LLValue *i1, const char *name,
+                llvm::BasicBlock *bb) {
+  LLValue *indices[] = {i0, i1};
+  return DtoGEP(ptrty, ptr, indices, name, bb);
+}
+
+LLValue *DtoGEP1(LLType * ptrty, LLValue *ptr, unsigned i0, const char *name,
+                 llvm::BasicBlock *bb) {
+  return DtoGEP(ptrty, ptr, DtoConstUint(i0), name, bb);
+}
+
+LLValue *DtoGEP(LLType * ptrty, LLValue *ptr, unsigned i0, unsigned i1, const char *name,
+                llvm::BasicBlock *bb) {
+  LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
+  return DtoGEP(ptrty, ptr, indices, name, bb);
+}
+
+LLConstant *DtoGEP(LLType * ptrty, LLConstant *ptr, unsigned i0, unsigned i1) {
+  LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
+  return llvm::ConstantExpr::getGetElementPtr(ptrty, ptr, indices,
+                                              /* InBounds = */ true);
+}
+
 LLValue *DtoGEP1(LLValue *ptr, LLValue *i0, const char *name,
                  llvm::BasicBlock *bb) {
   return DtoGEP(getPointeeType(ptr), ptr, i0, name, bb);
@@ -369,8 +397,7 @@ LLValue *DtoGEP1(LLValue *ptr, LLValue *i0, const char *name,
 
 LLValue *DtoGEP(LLValue *ptr, LLValue *i0, LLValue *i1, const char *name,
                 llvm::BasicBlock *bb) {
-  LLValue *indices[] = {i0, i1};
-  return DtoGEP(getPointeeType(ptr), ptr, indices, name, bb);
+  return DtoGEP(getPointeeType(ptr), ptr, i0, i1, name, bb);
 }
 
 LLValue *DtoGEP1(LLValue *ptr, unsigned i0, const char *name,
@@ -380,14 +407,12 @@ LLValue *DtoGEP1(LLValue *ptr, unsigned i0, const char *name,
 
 LLValue *DtoGEP(LLValue *ptr, unsigned i0, unsigned i1, const char *name,
                 llvm::BasicBlock *bb) {
-  LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
-  return DtoGEP(getPointeeType(ptr), ptr, indices, name, bb);
+  return DtoGEP(getPointeeType(ptr), ptr, i0, i1, name, bb);
 }
 
 LLConstant *DtoGEP(LLConstant *ptr, unsigned i0, unsigned i1) {
+  return DtoGEP(getPointeeType(ptr), ptr, i0, i1);
   LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
-  return llvm::ConstantExpr::getGetElementPtr(getPointeeType(ptr), ptr, indices,
-                                              /* InBounds = */ true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
