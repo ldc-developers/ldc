@@ -1291,7 +1291,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
         LLType *targetThisType = thismem->getType();
         thismem = DtoBitCast(thismem, getVoidPtrType());
         auto off = DtoConstInt(-fd->interfaceVirtual->offset);
-        thismem = DtoGEP1(thismem, off);
+        thismem = DtoGEP1(llvm::Type::getInt8Ty(gIR->context()), thismem, off);
         thismem = DtoBitCast(thismem, targetThisType);
       }
       thismem = DtoAllocaDump(thismem, 0, "this");
