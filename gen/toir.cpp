@@ -1388,7 +1388,7 @@ public:
       } else if (e->op == EXP::minusMinus) {
         re = llvm::BinaryOperator::CreateFSub(re, one, "", p->scopebb());
       }
-      DtoComplexSet(lval, re, im);
+      DtoComplexSet(DtoType(dv->type), lval, re, im);
     } else if (e1type->isfloating()) {
       assert(e2type->isfloating());
       LLValue *one = DtoConstFP(e1type, ldouble(1.0));
