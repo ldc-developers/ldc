@@ -171,7 +171,7 @@ public:
     }
 
     llvm::GlobalVariable *gvar = p->getCachedStringLiteral(e);
-    LLConstant *arrptr = DtoGEP(gvar, 0u, 0u);
+    LLConstant *arrptr = DtoGEP(gvar->getValueType(), gvar, 0u, 0u);
 
     if (t->ty == TY::Tpointer) {
       result = DtoBitCast(arrptr, DtoType(t));
@@ -284,14 +284,15 @@ public:
           static_cast<VarExp *>(e->e1)->var->isVarDeclaration();
       assert(vd);
       DtoResolveVariable(vd);
+      IrGlobal *irg = getIrGlobal(vd);
       LLConstant *value =
-          isIrGlobalCreated(vd) ? isaConstant(getIrGlobal(vd)->value) : nullptr;
+          isIrGlobalCreated(vd) ? isaConstant(irg->value) : nullptr;
       if (!value) {
         goto Lerr;
       }
       Type *type = vd->type->toBasetype();
       if (type->ty == TY::Tarray || type->ty == TY::Tdelegate) {
-        value = DtoGEP(value, 0u, 1u);
+        value = DtoGEP(irg->getType(), value, 0u, 1u);
       }
       result = DtoBitCast(value, DtoType(tb));
     } else if (tb->ty == TY::Tclass && e->e1->type->ty == TY::Tclass &&
@@ -309,7 +310,7 @@ public:
         assert(i_index != ~0UL);
 
         // offset pointer
-        instance = DtoGEP(instance, 0, i_index);
+        instance = DtoGEP(DtoType(e->e1->type), instance, 0, i_index);
       }
       result = DtoBitCast(instance, DtoType(tb));
     } else {
@@ -527,7 +528,7 @@ public:
 
     // build a constant dynamic array reference with the .ptr field pointing
     // into store
-    LLConstant *globalstorePtr = DtoGEP(store, 0u, 0u);
+    LLConstant *globalstorePtr = DtoGEP(arrtype, store, 0u, 0u);
     result = DtoConstSlice(DtoConstSize_t(e->elements->length), globalstorePtr);
   }
 
