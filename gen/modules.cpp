@@ -268,7 +268,8 @@ void addCoverageAnalysis(Module *m) {
                                                init, "_d_cover_data");
 
     d_cover_data_slice = DtoConstSlice(DtoConstSize_t(m->numlines),
-                                       DtoGEP(m->d_cover_data, 0, 0));
+                                       DtoGEP(m->d_cover_data->getValueType(),
+                                              m->d_cover_data, 0, 0));
   }
 
   // Create "static constructor" that calls _d_cover_register2(string filename,
