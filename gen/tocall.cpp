@@ -212,7 +212,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
         ((!isVararg && !isaPointer(paramType)) ||
          (isVararg && !irArg->byref && !irArg->isByVal()))) {
       Logger::println("Loading struct type for function argument");
-      llVal = DtoLoad(llVal);
+      llVal = DtoLoad(DtoType(dval->type), llVal);
     }
 
     // parameter type mismatch, this is hard to get rid of
@@ -286,7 +286,7 @@ static LLValue *getTypeinfoArrayArgumentForDVarArg(Expressions *argexps,
       gIR->module, tiarrty, true, llvm::GlobalValue::InternalLinkage, tiinits,
       "._arguments.array");
 
-  return DtoLoad(typeinfoarrayparam);
+  return DtoLoad(tiarrty, typeinfoarrayparam);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -435,9 +435,10 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     if (pointeeType->isIntegerTy()) {
       val = DtoRVal(dval);
     } else if (auto intPtrType = getPtrToAtomicType(pointeeType)) {
+      LLType *atype = getAtomicType(pointeeType);
       ptr = DtoBitCast(ptr, intPtrType);
       auto lval = makeLValue(exp1->loc, dval);
-      val = DtoLoad(DtoBitCast(lval, intPtrType));
+      val = DtoLoad(atype, DtoBitCast(lval, intPtrType));
     } else {
       e->error(
           "atomic store only supports types of size 1/2/4/8/16 bytes, not `%s`",
@@ -525,11 +526,12 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       cmp = DtoRVal(dcmp);
       val = DtoRVal(dval);
     } else if (auto intPtrType = getPtrToAtomicType(pointeeType)) {
+      LLType *atype = getAtomicType(pointeeType);
       ptr = DtoBitCast(ptr, intPtrType);
       auto cmpLVal = makeLValue(exp2->loc, dcmp);
-      cmp = DtoLoad(DtoBitCast(cmpLVal, intPtrType));
+      cmp = DtoLoad(atype, DtoBitCast(cmpLVal, intPtrType));
       auto lval = makeLValue(exp3->loc, dval);
-      val = DtoLoad(DtoBitCast(lval, intPtrType));
+      val = DtoLoad(atype, DtoBitCast(lval, intPtrType));
     } else {
       e->error(
           "`cmpxchg` only supports types of size 1/2/4/8/16 bytes, not `%s`",
@@ -623,7 +625,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
     // auto result = (*q & mask) ? -1 : 0;
     LLValue *val =
-        p->ir->CreateZExt(DtoLoad(q, "bitop.tmp"), DtoSize_t(), "bitop.val");
+        p->ir->CreateZExt(DtoLoad(DtoSize_t(), q, "bitop.tmp"), DtoSize_t(), "bitop.val");
     LLValue *ret = p->ir->CreateAnd(val, mask, "bitop.tmp");
     ret = p->ir->CreateICmpNE(ret, DtoConstSize_t(0), "bitop.tmp");
     ret = p->ir->CreateSelect(ret, DtoConstInt(-1), DtoConstInt(0),
@@ -783,7 +785,7 @@ private:
           //  class pointer
           Type *thistype = gIR->func()->decl->vthis->type;
           if (thistype != iface->type) {
-            DImValue *dthis = new DImValue(thistype, DtoLoad(thisptrLval));
+            DImValue *dthis = new DImValue(thistype, DtoLoad(DtoType(thistype),thisptrLval));
             thisptrLval = DtoAllocaDump(DtoCastClass(loc, dthis, iface->type));
           }
         }
@@ -798,7 +800,7 @@ private:
       // ... or a delegate context arg
       LLValue *ctxarg;
       if (fnval->isLVal()) {
-        ctxarg = DtoLoad(DtoGEP(DtoLVal(fnval), 0u, 0), ".ptr");
+        ctxarg = DtoLoad(getVoidPtrType(), DtoGEP(DtoLVal(fnval), 0u, 0), ".ptr");
       } else {
         ctxarg = gIR->ir->CreateExtractValue(DtoRVal(fnval), 0, ".ptr");
       }
@@ -830,7 +832,8 @@ private:
       const auto selector = dfnval->func->objc.selector;
       assert(selector);
       LLGlobalVariable *selptr = gIR->objc.getMethVarRef(*selector);
-      args.push_back(DtoBitCast(DtoLoad(selptr), getVoidPtrType()));
+      args.push_back(DtoBitCast(DtoLoad(selptr->getValueType(), selptr),
+                                getVoidPtrType()));
     }
   }
 
