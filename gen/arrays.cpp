@@ -123,9 +123,10 @@ static void DtoArrayInit(const Loc &loc, LLValue *ptr, LLValue *length,
   // replace current scope
   gIR->ir->SetInsertPoint(condbb);
 
+  LLType *sz = DtoSize_t();
   // create the condition
   LLValue *cond_val =
-      gIR->ir->CreateICmpNE(DtoLoad(itr), length, "arrayinit.condition");
+      gIR->ir->CreateICmpNE(DtoLoad(sz, itr), length, "arrayinit.condition");
 
   // conditional branch
   assert(!gIR->scopereturned());
@@ -134,7 +135,7 @@ static void DtoArrayInit(const Loc &loc, LLValue *ptr, LLValue *length,
   // rewrite scope
   gIR->ir->SetInsertPoint(bodybb);
 
-  LLValue *itr_val = DtoLoad(itr);
+  LLValue *itr_val = DtoLoad(sz,itr);
   // assign array element value
   DLValue arrayelem(elementValue->type->toBasetype(),
                     DtoGEP1(ptr, itr_val, "arrayinit.arrayelem"));
@@ -746,7 +747,7 @@ DSliceValue *DtoNewMulDimDynArray(const Loc &loc, Type *arrayType,
 
   // call allocator
   LLValue *newptr =
-      gIR->CreateCallOrInvoke(fn, arrayTypeInfo, DtoLoad(darray), ".gc_mem");
+      gIR->CreateCallOrInvoke(fn, arrayTypeInfo, DtoLoad(dtype, darray), ".gc_mem");
 
   IF_LOG Logger::cout() << "final ptr = " << *newptr << '\n';
 
@@ -888,7 +889,7 @@ DSliceValue *DtoCatArrays(const Loc &loc, Type *arrayType, Expression *exp1,
     unsigned int i = 0;
     for (ArgVector::reverse_iterator I = arrs.rbegin(), E = arrs.rend(); I != E;
          ++I) {
-      LLValue *v = DtoLoad(DtoBitCast(*I, ptrarraytype));
+      LLValue *v = DtoLoad(arraytype, DtoBitCast(*I, ptrarraytype));
       DtoStore(v, DtoGEP(array, 0, i++, ".slice"));
     }
 
@@ -896,9 +897,9 @@ DSliceValue *DtoCatArrays(const Loc &loc, Type *arrayType, Expression *exp1,
     LLValue *array2 = DtoRawAlloca(type2, 0, ".array");
     DtoStore(DtoConstSize_t(arrs.size()), DtoGEP(array2, 0u, 0, ".len"));
     DtoStore(DtoBitCast(array, ptrarraytype), DtoGEP(array2, 0, 1, ".ptr"));
-    LLValue *val =
-        DtoLoad(DtoBitCast(array2, getPtrToType(DtoArrayType(DtoArrayType(
-                                       LLType::getInt8Ty(gIR->context()))))));
+    LLType *bytearrarr = DtoArrayType(DtoArrayType(LLType::getInt8Ty(gIR->context())));
+    LLType *pbytearrarr = getPtrToType(bytearrarr);
+    LLValue *val = DtoLoad(bytearrarr, DtoBitCast(array2, pbytearrarr));
 
     // TypeInfo ti
     args.push_back(DtoTypeInfoOf(loc, arrayType));
