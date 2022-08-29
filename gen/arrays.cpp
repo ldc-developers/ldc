@@ -851,6 +851,13 @@ static LLValue *DtoSlicePtr(DValue *dval) {
   return array;
 }
 
+static llvm::StructType *DtoSlicePtrType(DValue *dval) {
+  if(dval->type->toBasetype()->ty == TY::Tarray)
+    return isaStruct(DtoType(dval->type->toBasetype()));
+  else
+    return DtoArrayType(LLType::getInt8Ty(gIR->context()));
+}
+
 static LLValue *DtoSlicePtr(Expression *e) {
     return DtoSlicePtr(toElem(e));
 }
@@ -880,9 +887,7 @@ DSliceValue *DtoCatArrays(const Loc &loc, Type *arrayType, Expression *exp1,
     // Create static array from slices
     LLPointerType *ptrarraytype = isaPointer(arrs[0]);
     assert(ptrarraytype && "Expected pointer type");
-    LLStructType *arraytype = dval->type->toBasetype()->ty == TY::Tarray ?
-                isaStruct(DtoType(dval->type->toBasetype())) :
-                DtoArrayType(LLType::getInt8Ty(gIR->context()));
+    LLStructType *arraytype = DtoSlicePtrType(dval);
     assert(arraytype && "Expected struct type");
     LLArrayType *type = LLArrayType::get(arraytype, arrs.size());
     LLValue *array = DtoRawAlloca(type, 0, ".slicearray");
@@ -910,14 +915,14 @@ DSliceValue *DtoCatArrays(const Loc &loc, Type *arrayType, Expression *exp1,
 
     // TypeInfo ti
     args.push_back(DtoTypeInfoOf(loc, arrayType));
-    // byte[] x
-    LLValue *val = DtoLoad(DtoSlicePtr(exp1));
-    val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(1));
-    args.push_back(val);
-    // byte[] y
-    val = DtoLoad(DtoSlicePtr(exp2));
-    val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(2));
-    args.push_back(val);
+
+    auto loadArray = [fn](Expression* e, int paramTypeIdx) {
+      DValue * dval = toElem(e);
+      LLValue *val = DtoLoad(DtoSlicePtrType(dval), DtoSlicePtr(e));
+      return DtoAggrPaint(val, fn->getFunctionType()->getParamType(paramTypeIdx));
+    };
+    args.push_back(loadArray(exp1,1));
+    args.push_back(loadArray(exp2,2));
   }
 
   auto newArray = gIR->CreateCallOrInvoke(fn, args, ".appendedArray");
