@@ -45,6 +45,10 @@ LLValue *loadThisPtr(AggregateDeclaration *ad, IrFunction &irfunc) {
   return irfunc.thisArg;
 }
 
+LLValue *indexVThis(AggregateDeclaration *ad,  LLValue* val) {
+    return DtoLoad(DtoGEP(val, 0, getVthisIdx(ad), ".vthis"));
+}
+
 } // anonymous namespace
 
 static void DtoCreateNestedContextType(FuncDeclaration *fd);
@@ -93,7 +97,7 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
 
     for (; ad; ad = ad->toParent2()->isAggregateDeclaration()) {
       assert(ad->vthis);
-      val = DtoLoad(DtoGEP(val, 0, getVthisIdx(ad), ".vthis"));
+      val = indexVThis(ad, val);
     }
     ctx = val;
     skipDIDeclaration = true;
@@ -277,7 +281,7 @@ LLValue *DtoNestedContext(const Loc &loc, Dsymbol *sym) {
       // function (but without any variables in the nested context).
       return val;
     }
-    val = DtoLoad(DtoGEP(val, 0, getVthisIdx(ad), ".vthis"));
+    val = indexVThis(ad, val);
   } else {
     if (sym->isFuncDeclaration()) {
       // If we are here, the function actually needs its nested context
@@ -483,7 +487,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
         assert(ad->vthis);
         LLValue *thisptr = loadThisPtr(ad, irFunc);
         IF_LOG Logger::println("Indexing to 'this'");
-        src = DtoLoad(DtoGEP(thisptr, 0, getVthisIdx(ad), ".vthis"));
+        src = indexVThis(ad, thisptr);
       }
       if (depth > 1) {
         src = DtoBitCast(src, getVoidPtrType());
