@@ -46,7 +46,10 @@ LLValue *loadThisPtr(AggregateDeclaration *ad, IrFunction &irfunc) {
 }
 
 LLValue *indexVThis(AggregateDeclaration *ad,  LLValue* val) {
-    return DtoLoad(DtoGEP(val, 0, getVthisIdx(ad), ".vthis"));
+  llvm::StructType *st = getIrAggr(ad, true)->getLLStructType();
+  unsigned idx = getVthisIdx(ad);
+  return DtoLoad(st->getElementType(idx),
+                 DtoGEP(st, val, 0, idx, ".vthis"));
 }
 
 } // anonymous namespace
