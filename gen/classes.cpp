@@ -105,7 +105,7 @@ DValue *DtoNewClass(const Loc &loc, TypeClass *tc, NewExp *newexp) {
     LOG_SCOPE;
     unsigned idx = getFieldGEPIndex(tc->sym, tc->sym->vthis);
     LLValue *src = DtoRVal(newexp->thisexp);
-    LLValue *dst = DtoGEP(mem, 0, idx);
+    LLValue *dst = DtoGEP(getIrAggr(tc->sym)->getLLStructType(), mem, 0, idx);
     IF_LOG Logger::cout() << "dst: " << *dst << "\nsrc: " << *src << '\n';
     DtoStore(src, DtoBitCast(dst, getPtrToType(src->getType())));
   }
@@ -141,9 +141,10 @@ void DtoInitClass(TypeClass *tc, LLValue *dst) {
   DtoResolveClass(tc->sym);
 
   IrClass *irClass = getIrAggr(tc->sym);
+  llvm::StructType *st = irClass->getLLStructType();
 
   // Set vtable field. Doing this seperately might be optimized better.
-  LLValue *tmp = DtoGEP(dst, 0u, 0, "vtbl");
+  LLValue *tmp = DtoGEP(st, dst, 0u, 0, "vtbl");
   LLValue *val =
       DtoBitCast(irClass->getVtblSymbol(), tmp->getType()->getContainedType(0));
   DtoStore(val, tmp);
@@ -151,7 +152,7 @@ void DtoInitClass(TypeClass *tc, LLValue *dst) {
   // For D classes, set the monitor field to null.
   const bool isCPPclass = tc->sym->isCPPclass() ? true : false;
   if (!isCPPclass) {
-    tmp = DtoGEP(dst, 0, 1, "monitor");
+    tmp = DtoGEP(st, dst, 0, 1, "monitor");
     val = LLConstant::getNullValue(tmp->getType()->getContainedType(0));
     DtoStore(val, tmp);
   }
@@ -164,12 +165,12 @@ void DtoInitClass(TypeClass *tc, LLValue *dst) {
     return;
   }
 
-  LLValue *dstarr = DtoGEP(dst, 0, firstDataIdx);
+  LLValue *dstarr = DtoGEP(st, dst, 0, firstDataIdx);
 
   // init symbols might not have valid types
   LLValue *initsym = irClass->getInitSymbol();
   initsym = DtoBitCast(initsym, DtoType(tc));
-  LLValue *srcarr = DtoGEP(initsym, 0, firstDataIdx);
+  LLValue *srcarr = DtoGEP(st, initsym, 0, firstDataIdx);
 
   DtoMemCpy(dstarr, srcarr, DtoConstSize_t(dataBytes));
 }
