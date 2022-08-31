@@ -137,8 +137,8 @@ static void DtoArrayInit(const Loc &loc, LLValue *ptr, LLValue *length,
 
   LLValue *itr_val = DtoLoad(sz,itr);
   // assign array element value
-  DLValue arrayelem(elementValue->type->toBasetype(),
-                    DtoGEP1(ptr, itr_val, "arrayinit.arrayelem"));
+  Type *elemty = elementValue->type->toBasetype();
+  DLValue arrayelem(elemty, DtoGEP1(i1ToI8(DtoType(elemty)), ptr, itr_val, "arrayinit.arrayelem"));
   DtoAssign(loc, &arrayelem, elementValue, EXP::blit);
 
   // increment iterator
@@ -326,9 +326,10 @@ void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
 static void DtoSetArray(DValue *array, LLValue *dim, LLValue *ptr) {
   IF_LOG Logger::println("SetArray");
   LLValue *arr = DtoLVal(array);
-  assert(isaStruct(arr->getType()->getContainedType(0)));
-  DtoStore(dim, DtoGEP(arr, 0u, 0));
-  DtoStore(ptr, DtoGEP(arr, 0, 1));
+  LLType *s = isaStruct(arr->getType()->getContainedType(0));
+  assert(s);
+  DtoStore(dim, DtoGEP(s, arr, 0u, 0));
+  DtoStore(ptr, DtoGEP(s, arr, 0, 1));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
