@@ -468,7 +468,7 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
     return DtoBitCast(gvar, DtoType(arrty));
   }
 
-  LLConstant *gep = DtoGEP(gvar, 0u, 0u);
+  LLConstant *gep = DtoGEP(gvar->getValueType(), gvar, 0u, 0u);
   gep = llvm::ConstantExpr::getBitCast(gvar, getPtrToType(llelemty));
 
   return DtoConstSlice(DtoConstSize_t(arrlen), gep, arrty);
@@ -1179,7 +1179,8 @@ LLValue *DtoArrayLen(DValue *v) {
       return DtoConstSize_t(0);
     }
     if (v->isLVal()) {
-      return DtoLoad(DtoGEP(DtoLVal(v), 0u, 0), ".len");
+      return DtoLoad(DtoSize_t(),
+                     DtoGEP(DtoType(v->type), DtoLVal(v), 0u, 0), ".len");
     }
     auto slice = v->isSlice();
     assert(slice);
