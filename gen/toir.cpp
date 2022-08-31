@@ -1554,7 +1554,7 @@ public:
       } else if (auto ve = e->e1->isVarExp()) {
         if (auto vd = ve->var->isVarDeclaration()) {
           if (vd->onstack()) {
-            DtoFinalizeScopeClass(e->loc, DtoRVal(dval), vd->onstackWithDtor());
+            DtoFinalizeScopeClass(e->loc, dval, vd->onstackWithDtor());
             onstack = true;
           }
         }
