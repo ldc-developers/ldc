@@ -18,6 +18,7 @@
 
 class ClassDeclaration;
 class CtorDeclaration;
+class DValue;
 class FuncDeclaration;
 class NewExp;
 class TypeClass;
@@ -28,7 +29,7 @@ void DtoResolveClass(ClassDeclaration *cd);
 DValue *DtoNewClass(const Loc &loc, TypeClass *type, NewExp *newexp);
 void DtoInitClass(TypeClass *tc, llvm::Value *dst);
 void DtoFinalizeClass(const Loc &loc, llvm::Value *inst);
-void DtoFinalizeScopeClass(const Loc &loc, llvm::Value *inst, bool hasDtor);
+void DtoFinalizeScopeClass(const Loc &loc, DValue* dval, bool hasDtor);
 
 DValue *DtoCastClass(const Loc &loc, DValue *val, Type *to);
 DValue *DtoDynamicCastObject(const Loc &loc, DValue *val, Type *to);

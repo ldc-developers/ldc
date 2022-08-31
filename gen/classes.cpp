@@ -188,7 +188,8 @@ void DtoFinalizeClass(const Loc &loc, LLValue *inst) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoFinalizeScopeClass(const Loc &loc, LLValue *inst, bool hasDtor) {
+void DtoFinalizeScopeClass(const Loc &loc, DValue* dval, bool hasDtor) {
+  llvm::Value* inst = DtoRVal(dval);
   if (!isOptimizationEnabled() || hasDtor) {
     DtoFinalizeClass(loc, inst);
     return;
@@ -199,7 +200,9 @@ void DtoFinalizeScopeClass(const Loc &loc, LLValue *inst, bool hasDtor) {
   llvm::BasicBlock *ifbb = gIR->insertBB("if");
   llvm::BasicBlock *endbb = gIR->insertBBAfter(ifbb, "endif");
 
-  const auto monitor = DtoLoad(DtoGEP(inst, 0, 1), ".monitor");
+  llvm::StructType *st = getIrAggr(static_cast<TypeClass *>(dval->type)->sym)
+                                ->getLLStructType();
+  const auto monitor = DtoLoad(st->getElementType(1), DtoGEP(st, inst, 0, 1), ".monitor");
   const auto hasMonitor =
       gIR->ir->CreateICmp(llvm::CmpInst::ICMP_NE, monitor,
                           getNullValue(monitor->getType()), ".hasMonitor");
