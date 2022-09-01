@@ -409,7 +409,8 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl) {
   // sanity checks
   assert(fdecl->isVirtual());
   assert(!fdecl->isFinalFunc());
-  assert(inst->type->toBasetype()->ty == TY::Tclass);
+  TypeClass * tc = inst->type->toBasetype()->isTypeClass();
+  assert(tc);
   // slot 0 is always ClassInfo/Interface* unless it is a CPP class
   assert(fdecl->vtblIndex > 0 ||
          (fdecl->vtblIndex == 0 &&
@@ -419,15 +420,18 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl) {
   LLValue *vthis = DtoRVal(inst);
   IF_LOG Logger::cout() << "vthis: " << *vthis << '\n';
 
+  IrClass * irc = getIrAggr(tc->sym, true);
   LLValue *funcval = vthis;
   // get the vtbl for objects
-  funcval = DtoGEP(funcval, 0u, 0);
+  llvm::GlobalVariable* vtblsym = irc->getVtblSymbol();
+  funcval = DtoGEP(irc->getLLStructType(), funcval, 0u, 0);
   // load vtbl ptr
-  funcval = DtoLoad(funcval);
+  funcval = DtoLoad(vtblsym->getType(), funcval);
   // index vtbl
   const std::string name = fdecl->toChars();
   const auto vtblname = name + "@vtbl";
-  funcval = DtoGEP(funcval, 0, fdecl->vtblIndex, vtblname.c_str());
+  funcval = DtoGEP(vtblsym->getValueType(),
+                   funcval, 0, fdecl->vtblIndex, vtblname.c_str());
   // load opaque pointer
   funcval = DtoAlignedLoad(getVoidPtrType(), funcval);
 
