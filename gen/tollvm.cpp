@@ -412,7 +412,6 @@ LLValue *DtoGEP(LLValue *ptr, unsigned i0, unsigned i1, const char *name,
 
 LLConstant *DtoGEP(LLConstant *ptr, unsigned i0, unsigned i1) {
   return DtoGEP(getPointeeType(ptr), ptr, i0, i1);
-  LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -517,7 +516,7 @@ LLConstant *DtoConstFP(Type *t, const real_t value) {
 LLConstant *DtoConstCString(const char *str) {
   llvm::StringRef s(str ? str : "");
   LLGlobalVariable *gvar = gIR->getCachedStringLiteral(s);
-  return DtoGEP(gvar, 0u, 0u);
+  return DtoGEP(gvar->getValueType(), gvar, 0u, 0u);
 }
 
 LLConstant *DtoConstString(const char *str) {
