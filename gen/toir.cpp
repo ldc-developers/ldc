@@ -2210,13 +2210,13 @@ public:
             e->loc, arrayType,
             new DConstValue(Type::tsize_t, DtoConstSize_t(len)), false);
         initializeArrayLiteral(
-            p, e, DtoBitCast(dynSlice->getPtr(), getPtrToType(llStoType)));
+            p, e, DtoBitCast(dynSlice->getPtr(), getPtrToType(llStoType)), llStoType);
         result = dynSlice;
       }
     } else {
       llvm::Value *storage =
           DtoRawAlloca(llStoType, DtoAlignment(e->type), "arrayliteral");
-      initializeArrayLiteral(p, e, storage);
+      initializeArrayLiteral(p, e, storage, llStoType);
       if (arrayType->ty == TY::Tsarray) {
         result = new DLValue(e->type, storage);
       } else if (arrayType->ty == TY::Tpointer) {
@@ -2815,7 +2815,7 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
   else if (auto al = rhs->isArrayLiteralExp()) {
     if (lhs->type->toBasetype()->ty == TY::Tsarray) {
       Logger::println("success, in-place-constructing array literal");
-      initializeArrayLiteral(gIR, al, DtoLVal(lhs));
+      initializeArrayLiteral(gIR, al, DtoLVal(lhs), DtoMemType(lhs->type));
       return true;
     }
   }

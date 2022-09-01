@@ -588,7 +588,8 @@ llvm::Constant *arrayLiteralToConst(IRState *p, ArrayLiteralExp *ale) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale, LLValue *dstMem) {
+void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale,
+                            LLValue *dstMem, LLType *dstType) {
   size_t elemCount = ale->elements->length;
 
   // Don't try to write nothing to a zero-element array, we might represent it
@@ -618,7 +619,7 @@ void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale, LLValue *dstMem) {
     for (size_t i = 0; i < elemCount; ++i) {
       Expression *rhsExp = indexArrayLiteral(ale, i);
 
-      LLValue *lhsPtr = DtoGEP(dstMem, 0, i, "", p->scopebb());
+      LLValue *lhsPtr = DtoGEP(dstType, dstMem, 0, i, "", p->scopebb());
       DLValue lhs(rhsExp->type, DtoBitCast(lhsPtr, DtoPtrToType(rhsExp->type)));
 
       // try to construct it in-place
