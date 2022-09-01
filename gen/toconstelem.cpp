@@ -635,13 +635,13 @@ public:
       if (InterfaceDeclaration *it = targetClass->isInterfaceDeclaration()) {
         assert(it->isBaseOf(origClass, NULL));
 
+        IrTypeClass *itc = getIrType(origClass->type)->isClass();
         // find interface impl
-        size_t i_index =
-            getIrType(origClass->type)->isClass()->getInterfaceIndex(it);
+        size_t i_index = itc->getInterfaceIndex(it);
         assert(i_index != ~0UL);
 
         // offset pointer
-        result = DtoGEP(result, 0, i_index);
+        result = DtoGEP(itc->getMemoryLLType(), result, 0, i_index);
       }
     }
 
