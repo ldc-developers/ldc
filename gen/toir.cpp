@@ -65,7 +65,7 @@ bool walkPostorder(Expression *e, StoppableVisitor *v);
 
 static LLValue *write_zeroes(LLValue *mem, unsigned start, unsigned end) {
   mem = DtoBitCast(mem, getVoidPtrType());
-  LLValue *gep = DtoGEP1(mem, start, ".padding");
+  LLValue *gep = DtoGEP1(LLType::getInt8Ty(gIR->context()), mem, start, ".padding");
   DtoMemSetZero(gep, DtoConstSize_t(end - start));
   return mem;
 }
@@ -368,7 +368,7 @@ public:
     Type *dtype = e->type->toBasetype();
 
     llvm::GlobalVariable *gvar = p->getCachedStringLiteral(e);
-    LLConstant *arrptr = DtoGEP(gvar, 0u, 0u);
+    LLConstant *arrptr = DtoGEP(gvar->getValueType(), gvar, 0u, 0u);
 
     if (dtype->ty == TY::Tarray) {
       LLConstant *clen =
@@ -799,7 +799,7 @@ public:
         uint64_t elemSize = gDataLayout->getTypeAllocSize(elemType);
         if (e->offset % elemSize == 0) {
           // We can turn this into a "nice" GEP.
-          offsetValue = DtoGEP1(baseValue, e->offset / elemSize);
+          offsetValue = DtoGEP1(DtoType(base->type), baseValue, e->offset / elemSize);
         }
       }
 
@@ -807,7 +807,8 @@ public:
         // Offset isn't a multiple of base type size, just cast to i8* and
         // apply the byte offset.
         offsetValue =
-            DtoGEP1(DtoBitCast(baseValue, getVoidPtrType()), e->offset);
+            DtoGEP1(LLType::getInt8Ty(gIR->context()),
+                    DtoBitCast(baseValue, getVoidPtrType()), e->offset);
       }
     }
 
@@ -2396,7 +2397,7 @@ public:
       LLConstant *globalstore = new LLGlobalVariable(
           gIR->module, initval->getType(), false,
           LLGlobalValue::InternalLinkage, initval, ".aaKeysStorage");
-      LLConstant *slice = DtoGEP(globalstore, 0u, 0u);
+      LLConstant *slice = DtoGEP(initval->getType(), globalstore, 0u, 0u);
       slice = DtoConstSlice(DtoConstSize_t(e->keys->length), slice);
       LLValue *keysArray = DtoAggrPaint(slice, funcTy->getParamType(1));
 
@@ -2404,7 +2405,7 @@ public:
       globalstore = new LLGlobalVariable(gIR->module, initval->getType(), false,
                                          LLGlobalValue::InternalLinkage,
                                          initval, ".aaValuesStorage");
-      slice = DtoGEP(globalstore, 0u, 0u);
+      slice = DtoGEP(initval->getType(), globalstore, 0u, 0u);
       slice = DtoConstSlice(DtoConstSize_t(e->keys->length), slice);
       LLValue *valuesArray = DtoAggrPaint(slice, funcTy->getParamType(2));
 
@@ -2412,7 +2413,7 @@ public:
                                             valuesArray, "aa");
       if (basetype->ty != TY::Taarray) {
         LLValue *tmp = DtoAlloca(e->type, "aaliteral");
-        DtoStore(aa, DtoGEP(tmp, 0u, 0));
+        DtoStore(aa, DtoGEP(DtoType(e->type), tmp, 0u, 0));
         result = new DLValue(e->type, tmp);
       } else {
         result = new DImValue(e->type, aa);
@@ -2451,8 +2452,9 @@ public:
 
   DValue *toGEP(UnaExp *exp, unsigned index) {
     // (&a.foo).funcptr is a case where toElem(e1) is genuinely not an l-value.
-    LLValue *val = makeLValue(exp->loc, toElem(exp->e1));
-    LLValue *v = DtoGEP(val, 0, index);
+    DValue * dv = toElem(exp->e1);
+    LLValue *val = makeLValue(exp->loc, dv);
+    LLValue *v = DtoGEP(DtoType(dv->type),  val, 0, index);
     return new DLValue(exp->type, DtoBitCast(v, DtoPtrToType(exp->type)));
   }
 
@@ -2508,12 +2510,12 @@ public:
     for (auto exp : *e->exps) {
       types.push_back(DtoMemType(exp->type));
     }
-    LLValue *val =
-        DtoRawAlloca(LLStructType::get(gIR->context(), types), 0, ".tuple");
+    llvm::StructType *st = llvm::StructType::get(gIR->context(), types);
+    LLValue *val = DtoRawAlloca(st, 0, ".tuple");
     for (size_t i = 0; i < e->exps->length; i++) {
       Expression *el = (*e->exps)[i];
       DValue *ep = toElem(el);
-      LLValue *gep = DtoGEP(val, 0, i);
+      LLValue *gep = DtoGEP(st, val, 0, i);
       if (DtoIsInMemoryOnly(el->type)) {
         DtoMemCpy(gep, DtoLVal(ep));
       } else if (el->type->ty != TY::Tvoid) {
