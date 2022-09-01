@@ -625,7 +625,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
       LLValue *&thisArg = args[thisArgIndex];
       LLType *targetThisType = thisArg->getType();
       thisArg = DtoBitCast(thisArg, getVoidPtrType());
-      thisArg = DtoGEP1(thisArg, DtoConstInt(-thunkOffset));
+      thisArg = DtoGEP1(LLType::getInt8Ty(gIR->context()), thisArg, DtoConstInt(-thunkOffset));
       thisArg = DtoBitCast(thisArg, targetThisType);
 
       // all calls that might be subject to inlining into a caller with debug
