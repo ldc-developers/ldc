@@ -2662,16 +2662,19 @@ public:
       Type *t = ex->type->toBasetype();
       assert(t->ty == TY::Tclass);
 
+      ClassDeclaration *sym = static_cast<TypeClass *>(t)->sym;
+      IrClass *irc = getIrAggr(sym, true);
       LLValue *val = DtoRVal(ex);
 
       // Get and load vtbl pointer.
-      llvm::Value *vtbl = DtoLoad(DtoGEP(val, 0u, 0));
+      llvm::GlobalVariable* vtblsym = irc->getVtblSymbol();
+      llvm::Value *vtbl = DtoLoad(vtblsym->getType(), DtoGEP(irc->getLLStructType(), val, 0u, 0));
 
       // TypeInfo ptr is first vtbl entry.
-      llvm::Value *typinf = DtoGEP(vtbl, 0u, 0);
+      llvm::Value *typinf = DtoGEP(vtblsym->getValueType(), vtbl, 0u, 0);
 
       Type *resultType;
-      if (static_cast<TypeClass *>(t)->sym->isInterfaceDeclaration()) {
+      if (sym->isInterfaceDeclaration()) {
         // For interfaces, the first entry in the vtbl is actually a pointer
         // to an Interface instance, which has the type info as its first
         // member, so we have to add an extra layer of indirection.
