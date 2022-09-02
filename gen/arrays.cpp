@@ -808,9 +808,10 @@ void DtoCatAssignElement(const Loc &loc, DValue *array, Expression *exp) {
   // Assign to the new last element.
   LLValue *newLength = DtoArrayLen(array);
   LLValue *ptr = DtoArrayPtr(array);
+  LLType *ptrty = i1ToI8(DtoType(array->type->nextOf()));
   LLValue *lastIndex =
       gIR->ir->CreateSub(newLength, DtoConstSize_t(1), ".lastIndex");
-  LLValue *lastElemPtr = DtoGEP1(ptr, lastIndex, ".lastElem");
+  LLValue *lastElemPtr = DtoGEP1(ptrty, ptr, lastIndex, ".lastElem");
   DLValue lastElem(arrayType->nextOf(), lastElemPtr);
   DtoAssign(loc, &lastElem, expVal, EXP::blit);
   callPostblit(loc, exp, lastElemPtr);
