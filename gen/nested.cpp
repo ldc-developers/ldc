@@ -134,10 +134,10 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
   // Extract variable from nested context
 
   assert(irfunc->frameType);
-  const auto frameType = LLPointerType::getUnqual(irfunc->frameType);
+  const auto pframeType = LLPointerType::getUnqual(irfunc->frameType);
   IF_LOG { Logger::cout() << "casting to: " << *irfunc->frameType << '\n'; }
-  LLValue *val = DtoBitCast(ctx, frameType);
-
+  LLValue *val = DtoBitCast(ctx, pframeType);
+  llvm::StructType *currFrame = irfunc->frameType;
   // Make the DWARF variable address relative to the context pointer (ctx);
   // register all ops (offsetting, dereferencing) required to get there in the
   // following list.
@@ -147,14 +147,10 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
   LLSmallVector<int64_t, 4> dwarfAddrOps;
 #endif
 
-  const auto offsetToNthField = [&val, &dwarfAddrOps](unsigned fieldIndex,
+  const auto offsetToNthField = [&val, &dwarfAddrOps, &currFrame](unsigned fieldIndex,
                                                       const char *name = "") {
     gIR->DBuilder.OpOffset(dwarfAddrOps, val, fieldIndex);
-    val = DtoGEP(val, 0, fieldIndex, name);
-  };
-  const auto dereference = [&val, &dwarfAddrOps](const char *name = "") {
-    gIR->DBuilder.OpDeref(dwarfAddrOps);
-    val = DtoAlignedLoad(getPointeeType(val), val, name);
+    val = DtoGEP(currFrame, val, 0, fieldIndex, name);
   };
 
   const auto vardepth = irLocal->nestedDepth;
@@ -176,7 +172,10 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
     IF_LOG Logger::println("Lower depth");
     offsetToNthField(vardepth);
     IF_LOG Logger::cout() << "Frame index: " << *val << '\n';
-    dereference((std::string(".frame.") + vdparent->toChars()).c_str());
+    currFrame = getIrFunc(fd)->frameType;
+    gIR->DBuilder.OpDeref(dwarfAddrOps);
+    val = DtoAlignedLoad(currFrame->getPointerTo(), val,
+                         (std::string(".frame.") + vdparent->toChars()).c_str());
     IF_LOG Logger::cout() << "Frame: " << *val << '\n';
   }
 
