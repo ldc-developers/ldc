@@ -327,7 +327,7 @@ LLValue *DtoNestedContext(const Loc &loc, Dsymbol *sym) {
     } else {
       llvm::StructType *type = getIrFunc(ctxfd)->frameType;
       val = DtoBitCast(val, LLPointerType::getUnqual(type));
-      val = DtoGEP(val, 0, neededDepth);
+      val = DtoGEP(type, val, 0, neededDepth);
       val = DtoAlignedLoad(type->getElementType(neededDepth),
           val, (std::string(".frame.") + frameToPass->toChars()).c_str());
     }
