@@ -226,7 +226,8 @@ void DtoResolveNestedContext(const Loc &loc, AggregateDeclaration *decl,
     DtoResolveDsymbol(decl);
 
     unsigned idx = getVthisIdx(decl);
-    LLValue *gep = DtoGEP(value, 0, idx, ".vthis");
+    llvm::StructType *st = getIrAggr(decl, true)->getLLStructType();
+    LLValue *gep = DtoGEP(st, value, 0, idx, ".vthis");
     DtoStore(DtoBitCast(nest, gep->getType()->getContainedType(0)), gep);
   }
 }
