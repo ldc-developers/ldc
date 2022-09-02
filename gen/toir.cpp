@@ -1037,17 +1037,19 @@ public:
 
     LLValue *arrptr = nullptr;
     if (e1type->ty == TY::Tpointer) {
-      arrptr = DtoGEP1(DtoRVal(l), DtoRVal(r));
+      arrptr = DtoGEP1(DtoMemType(e1type->nextOf()), DtoRVal(l), DtoRVal(r));
     } else if (e1type->ty == TY::Tsarray) {
       if (p->emitArrayBoundsChecks() && !e->indexIsInBounds) {
         DtoIndexBoundsCheck(e->loc, l, r);
       }
-      arrptr = DtoGEP(DtoLVal(l), DtoConstUint(0), DtoRVal(r));
+      LLType *elt = DtoMemType(e1type->nextOf());
+      LLType *arrty = llvm::ArrayType::get(elt, e1type->isTypeSArray()->dim->isIntegerExp()->getInteger());
+      arrptr = DtoGEP(arrty, DtoLVal(l), DtoConstUint(0), DtoRVal(r));
     } else if (e1type->ty == TY::Tarray) {
       if (p->emitArrayBoundsChecks() && !e->indexIsInBounds) {
         DtoIndexBoundsCheck(e->loc, l, r);
       }
-      arrptr = DtoGEP1(DtoArrayPtr(l), DtoRVal(r));
+      arrptr = DtoGEP1(DtoMemType(l->type->nextOf()), DtoArrayPtr(l), DtoRVal(r));
     } else if (e1type->ty == TY::Taarray) {
       result = DtoAAIndex(e->loc, e->type, l, r, e->modifiable);
       return;
