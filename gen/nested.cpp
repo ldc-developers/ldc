@@ -501,7 +501,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
       // Copy nestArg into framelist; the outer frame is not in the list of
       // pointers
       src = DtoBitCast(src, frameType->getContainedType(depth - 1));
-      LLValue *gep = DtoGEP(frame, 0, depth - 1);
+      LLValue *gep = DtoGEP(frameType, frame, 0, depth - 1);
       DtoAlignedStore(src, gep);
     }
 
@@ -516,7 +516,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
       }
 
       IrLocal *irLocal = getIrLocal(vd);
-      LLValue *gep = DtoGEP(frame, 0, irLocal->nestedIndex, vd->toChars());
+      LLValue *gep = DtoGEP(frameType, frame, 0, irLocal->nestedIndex, vd->toChars());
       if (vd->isParameter()) {
         IF_LOG Logger::println("nested param: %s", vd->toChars());
         LOG_SCOPE
