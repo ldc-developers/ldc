@@ -551,9 +551,10 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     // (avoiding DtoAllocaDump() due to bad optimized codegen, most likely
     // because of i1)
     auto mem = DtoAlloca(e->type);
+    llvm::Type* memty = DtoType(e->type);
     DtoStore(p->ir->CreateExtractValue(ret, 0),
-             DtoBitCast(DtoGEP(mem, 0u, 0), ptr->getType()));
-    DtoStoreZextI8(p->ir->CreateExtractValue(ret, 1), DtoGEP(mem, 0, 1));
+             DtoBitCast(DtoGEP(memty, mem, 0u, 0), ptr->getType()));
+    DtoStoreZextI8(p->ir->CreateExtractValue(ret, 1), DtoGEP(memty, mem, 0, 1));
 
     result = new DLValue(e->type, mem);
     return true;
@@ -616,7 +617,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     assert(bitmask == 31 || bitmask == 63);
     // auto q = cast(size_t*)ptr + (bitnum >> (64bit ? 6 : 5));
     LLValue *q = DtoBitCast(ptr, DtoSize_t()->getPointerTo());
-    q = DtoGEP1(q, p->ir->CreateLShr(bitnum, bitmask == 63 ? 6 : 5), "bitop.q");
+    q = DtoGEP1(DtoSize_t(), q, p->ir->CreateLShr(bitnum, bitmask == 63 ? 6 : 5), "bitop.q");
 
     // auto mask = 1 << (bitnum & bitmask);
     LLValue *mask =
@@ -800,7 +801,7 @@ private:
       // ... or a delegate context arg
       LLValue *ctxarg;
       if (fnval->isLVal()) {
-        ctxarg = DtoLoad(getVoidPtrType(), DtoGEP(DtoLVal(fnval), 0u, 0), ".ptr");
+        ctxarg = DtoLoad(getVoidPtrType(), DtoGEP(DtoType(fnval->type), DtoLVal(fnval), 0u, 0), ".ptr");
       } else {
         ctxarg = gIR->ir->CreateExtractValue(DtoRVal(fnval), 0, ".ptr");
       }
