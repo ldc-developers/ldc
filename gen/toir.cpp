@@ -2544,6 +2544,7 @@ public:
       return DtoRVal(DtoCast(e->loc, element, elementType));
     };
 
+    LLType *dstType = DtoType(e->type);
     Type *tsrc = e->e1->type->toBasetype();
     if (auto lit = e->e1->isArrayLiteralExp()) {
       // Optimization for array literals: check for a fully static literal and
@@ -2571,7 +2572,7 @@ public:
         DtoStore(vectorConstant, dstMem);
       } else {
         for (unsigned i = 0; i < N; ++i) {
-          DtoStore(llElements[i], DtoGEP(dstMem, 0, i));
+          DtoStore(llElements[i], DtoGEP(dstType, dstMem, 0, i));
         }
       }
     } else if (tsrc->ty == TY::Tarray || tsrc->ty == TY::Tsarray) {
@@ -2597,7 +2598,7 @@ public:
         for (unsigned i = 0; i < N; ++i) {
           DLValue srcElement(srcElementType, DtoGEP1(arrayPtr, i));
           LLValue *llVal = getCastElement(&srcElement);
-          DtoStore(llVal, DtoGEP(dstMem, 0, i));
+          DtoStore(llVal, DtoGEP(dstType, dstMem, 0, i));
         }
       }
     } else {
@@ -2618,7 +2619,7 @@ public:
         DtoStore(vectorConstant, dstMem);
       } else {
         for (unsigned int i = 0; i < N; ++i) {
-          DtoStore(llElement, DtoGEP(dstMem, 0, i));
+          DtoStore(llElement, DtoGEP(dstType, dstMem, 0, i));
         }
       }
     }
