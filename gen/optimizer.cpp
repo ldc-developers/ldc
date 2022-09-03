@@ -168,9 +168,7 @@ static inline void legacyAddPass(PassManagerBase &pm, Pass *pass) {
     pm.add(createVerifierPass());
   }
 }
-#endif
 
-#if LDC_LLVM_VER < 1500
 static void legacyAddStripExternalsPass(const PassManagerBuilder &builder,
                                   PassManagerBase &pm) {
   if (builder.OptLevel >= 1) {
@@ -178,35 +176,27 @@ static void legacyAddStripExternalsPass(const PassManagerBuilder &builder,
     legacyAddPass(pm, createGlobalDCEPass());
   }
 }
-#endif
 
-#if LDC_LLVM_VER < 1500
 static void legacyAddSimplifyDRuntimeCallsPass(const PassManagerBuilder &builder,
                                          PassManagerBase &pm) {
   if (builder.OptLevel >= 2 && builder.SizeLevel == 0) {
     legacyAddPass(pm, createSimplifyDRuntimeCalls());
   }
 }
-#endif
 
-#if LDC_LLVM_VER < 1500
 static void legacyAddGarbageCollect2StackPass(const PassManagerBuilder &builder,
                                         PassManagerBase &pm) {
   if (builder.OptLevel >= 2 && builder.SizeLevel == 0) {
     legacyAddPass(pm, createGarbageCollect2Stack());
   }
 }
-#endif
 
-#if LDC_LLVM_VER < 1500
 static void legacyAddAddressSanitizerPasses(const PassManagerBuilder &Builder,
                                       PassManagerBase &PM) {
   PM.add(createAddressSanitizerFunctionPass());
   PM.add(createModuleAddressSanitizerLegacyPassPass());
 }
-#endif
 
-#if LDC_LLVM_VER < 1500
 static void legacyAddMemorySanitizerPass(const PassManagerBuilder &Builder,
                                    PassManagerBase &PM) {
   int trackOrigins = fSanitizeMemoryTrackOrigins;
@@ -227,16 +217,12 @@ static void legacyAddMemorySanitizerPass(const PassManagerBuilder &Builder,
     PM.add(createDeadStoreEliminationPass());
   }
 }
-#endif
 
-#if LDC_LLVM_VER < 1500
 static void legacyAddThreadSanitizerPass(const PassManagerBuilder &Builder,
                                    PassManagerBase &PM) {
   PM.add(createThreadSanitizerLegacyPassPass());
 }
-#endif
 
-#if LDC_LLVM_VER < 1500
 static void legacyAddSanitizerCoveragePass(const PassManagerBuilder &Builder,
                                      legacy::PassManagerBase &PM) {
 #if LDC_LLVM_VER >= 1000
@@ -247,9 +233,7 @@ static void legacyAddSanitizerCoveragePass(const PassManagerBuilder &Builder,
       createSanitizerCoverageModulePass(opts::getSanitizerCoverageOptions()));
 #endif
 }
-#endif
 
-#if LDC_LLVM_VER < 1500
 // Adds PGO instrumentation generation and use passes.
 static void legacyAddPGOPasses(PassManagerBuilder &builder,
                          legacy::PassManagerBase &mpm, unsigned optLevel) {
@@ -272,9 +256,7 @@ static void legacyAddPGOPasses(PassManagerBuilder &builder,
     builder.PGOInstrUse = global.params.datafileInstrProf;
   }
 }
-#endif
 
-#if LCD_LLVM_VER < 1500
 /**
  * Adds a set of optimization passes to the given module/function pass
  * managers based on the given optimization and size reduction levels.
@@ -367,7 +349,82 @@ static void legacyAddOptimizationPasses(legacy::PassManagerBase &mpm,
   builder.populateFunctionPassManager(fpm);
   builder.populateModulePassManager(mpm);
 }
+
+// This function runs optimization passes based on command line arguments.
+// Returns true if any optimization passes were invoked.
+bool legacy_ldc_optimize_module(llvm::Module *M) {
+  // Create a PassManager to hold and optimize the collection of
+  // per-module passes we are about to build.
+  legacy::PassManager mpm;
+
+  // Dont optimise spirv modules because turning GEPs into extracts triggers
+  // asserts in the IR -> SPIR-V translation pass. SPIRV doesn't have a target
+  // machine, so any optimisation passes that rely on it to provide analysis,
+  // like DCE can't be run.
+  // The optimisation is supposed to happen between the SPIRV -> native machine
+  // code pass of the consumer of the binary.
+  // TODO: run rudimentary optimisations to improve IR debuggability.
+  if (getComputeTargetType(M) == ComputeBackend::SPIRV)
+    return false;
+
+  // Add an appropriate TargetLibraryInfo pass for the module's triple.
+  TargetLibraryInfoImpl *tlii =
+      new TargetLibraryInfoImpl(Triple(M->getTargetTriple()));
+
+  // The -disable-simplify-libcalls flag actually disables all builtin optzns.
+  if (disableSimplifyLibCalls)
+    tlii->disableAllFunctions();
+
+  mpm.add(new TargetLibraryInfoWrapperPass(*tlii));
+
+  // The DataLayout is already set at the module (in module.cpp,
+  // method Module::genLLVMModule())
+  // FIXME: Introduce new command line switch default-data-layout to
+  // override the module data layout
+
+  // Add internal analysis passes from the target machine.
+  mpm.add(createTargetTransformInfoWrapperPass(
+      gTargetMachine->getTargetIRAnalysis()));
+
+  // Also set up a manager for the per-function passes.
+  legacy::FunctionPassManager fpm(M);
+
+  // Add internal analysis passes from the target machine.
+  fpm.add(createTargetTransformInfoWrapperPass(
+      gTargetMachine->getTargetIRAnalysis()));
+
+  // If the -strip-debug command line option was specified, add it before
+  // anything else.
+  if (stripDebug) {
+    mpm.add(createStripSymbolsPass(true));
+  }
+
+  legacyAddOptimizationPasses(mpm, fpm, optLevel(), sizeLevel());
+
+  if (global.params.dllimport != DLLImport::none) {
+    mpm.add(createDLLImportRelocationPass());
+  }
+
+  // Run per-function passes.
+  fpm.doInitialization();
+  for (auto &F : *M) {
+    fpm.run(F);
+  }
+  fpm.doFinalization();
+
+  // Run per-module passes.
+  mpm.run(*M);
+
+  // Verify the resulting module.
+  if (!noVerify) {
+    verifyModule(M);
+  }
+
+  // Report that we run some passes.
+  return true;
+}
 #endif
+
 #if LDC_LLVM_VER >= 1400
 /**
  * Adds a set of optimization passes to the given module/function pass
@@ -462,84 +519,7 @@ static void addOptimizationPasses(ModulePassManager &mpm,
 //  builder.populateFunctionPassManager(fpm);
 //  builder.populateModulePassManager(mpm);
 }
-#endif
-#if LDC_VERSION < 1500
-////////////////////////////////////////////////////////////////////////////////
-// This function runs optimization passes based on command line arguments.
-// Returns true if any optimization passes were invoked.
-bool legacy_ldc_optimize_module(llvm::Module *M) {
-  // Create a PassManager to hold and optimize the collection of
-  // per-module passes we are about to build.
-  legacy::PassManager mpm;
 
-  // Dont optimise spirv modules because turning GEPs into extracts triggers
-  // asserts in the IR -> SPIR-V translation pass. SPIRV doesn't have a target
-  // machine, so any optimisation passes that rely on it to provide analysis,
-  // like DCE can't be run.
-  // The optimisation is supposed to happen between the SPIRV -> native machine
-  // code pass of the consumer of the binary.
-  // TODO: run rudimentary optimisations to improve IR debuggability.
-  if (getComputeTargetType(M) == ComputeBackend::SPIRV)
-    return false;
-
-  // Add an appropriate TargetLibraryInfo pass for the module's triple.
-  TargetLibraryInfoImpl *tlii =
-      new TargetLibraryInfoImpl(Triple(M->getTargetTriple()));
-
-  // The -disable-simplify-libcalls flag actually disables all builtin optzns.
-  if (disableSimplifyLibCalls)
-    tlii->disableAllFunctions();
-
-  mpm.add(new TargetLibraryInfoWrapperPass(*tlii));
-
-  // The DataLayout is already set at the module (in module.cpp,
-  // method Module::genLLVMModule())
-  // FIXME: Introduce new command line switch default-data-layout to
-  // override the module data layout
-
-  // Add internal analysis passes from the target machine.
-  mpm.add(createTargetTransformInfoWrapperPass(
-      gTargetMachine->getTargetIRAnalysis()));
-
-  // Also set up a manager for the per-function passes.
-  legacy::FunctionPassManager fpm(M);
-
-  // Add internal analysis passes from the target machine.
-  fpm.add(createTargetTransformInfoWrapperPass(
-      gTargetMachine->getTargetIRAnalysis()));
-
-  // If the -strip-debug command line option was specified, add it before
-  // anything else.
-  if (stripDebug) {
-    mpm.add(createStripSymbolsPass(true));
-  }
-
-  legacyAddOptimizationPasses(mpm, fpm, optLevel(), sizeLevel());
-
-  if (global.params.dllimport != DLLImport::none) {
-    mpm.add(createDLLImportRelocationPass());
-  }
-
-  // Run per-function passes.
-  fpm.doInitialization();
-  for (auto &F : *M) {
-    fpm.run(F);
-  }
-  fpm.doFinalization();
-
-  // Run per-module passes.
-  mpm.run(*M);
-
-  // Verify the resulting module.
-  if (!noVerify) {
-    verifyModule(M);
-  }
-
-  // Report that we run some passes.
-  return true;
-}
-#endif
-#if LDC_LLVM_VER >= 1400
 ////////////////////////////////////////////////////////////////////////////////
 // This function runs optimization passes based on command line arguments.
 // Returns true if any optimization passes were invoked.
@@ -626,7 +606,7 @@ bool ldc_optimize_module(llvm::Module *M) {
   return legacy_ldc_optimize_module(M);
 #elif LDC_LLVM_VER < 1500
   return passmanager==0 ? legacy_ldc_optimize_module(M)
-                       : new_ldc_optimize_module(M);
+                        : new_ldc_optimize_module(M);
 #else
   return ldc_optimize_module(M);
 #endif
