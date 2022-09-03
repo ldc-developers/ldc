@@ -950,6 +950,13 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
+  static llvm::PointerType * getWithSamePointeeType(llvm::PointerType *p, unsigned as) {
+#if LDC_LLVM_VER >= 1300
+    return llvm::PointerType::getWithSamePointeeType(p, as);
+#else
+    return p->getPointerElementType()->getPointerTo(as);
+#endif
+  }
   void visit(DotVarExp *e) override {
     IF_LOG Logger::print("DotVarExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
@@ -985,14 +992,24 @@ public:
         llvm_unreachable("Unknown DotVarExp type for VarDeclaration.");
       }
 
-      auto ptr = DtoLVal(DtoIndexAggregate(aggrPtr, ad, vd));
+      auto ptr = DtoIndexAggregate(aggrPtr, ad, vd);
 
       // special case for bit fields (no real lvalues)
       if (auto bf = vd->isBitFieldDeclaration()) {
-        result = new DBitFieldLValue(e->type, ptr, bf);
+        result = new DBitFieldLValue(e->type, DtoLVal(ptr), bf);
       } else {
-        ptr = DtoBitCast(ptr, DtoPtrToType(e->type));
-        result = new DLValue(e->type, ptr);
+        LLType *ptrty = nullptr;
+        if (ptr->lltype == nullptr) {
+          // noreturn
+        }
+        else if (llvm::PointerType *p = isaPointer(ptr->lltype)) {
+          unsigned as = p->getAddressSpace();
+            ptrty = getWithSamePointeeType(isaPointer(DtoType(e->type)), as);
+        }
+        else
+            ptrty = DtoType(e->type);
+        result = new DLValue(e->type, ptrty ? i1ToI8(ptrty) : nullptr,
+                             DtoBitCast(DtoLVal(ptr), DtoPtrToType(e->type)));
       }
     } else if (FuncDeclaration *fdecl = e->var->isFuncDeclaration()) {
       // This is a bit more convoluted than it would need to be, because it

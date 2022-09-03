@@ -1882,9 +1882,11 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   unsigned off = irTypeAggr->getMemberLocation(vd, isFieldIdx);
 
   LLValue *ptr = src;
+  LLType * ty = nullptr;
   if (!isFieldIdx) {
     // Cast to void* to apply byte-wise offset from object start.
     ptr = DtoBitCast(ptr, getVoidPtrType());
+    ty = DtoType(vd->type);
     ptr = DtoGEP1(llvm::Type::getInt8Ty(gIR->context()), ptr, off);
   } else {
     if (ad->structsize == 0) { // can happen for extern(C) structs
@@ -1902,6 +1904,7 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
         st = DtoType(ad->type);
         pst = getPtrToType(st);
       }
+      ty = isaStruct(st)->getElementType(off);
       ptr = DtoBitCast(ptr, pst);
       ptr = DtoGEP(st, ptr, 0, off);
     }
@@ -1911,7 +1914,8 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   ptr = DtoBitCast(ptr, DtoPtrToType(vd->type));
 
   IF_LOG Logger::cout() << "Pointer: " << *ptr << '\n';
-  return new DLValue(vd->type, ptr);
+  // ty->isVoidTy() means vd->type is a noreturn
+  return new DLValue(vd->type, ty->isVoidTy() ? nullptr : i1ToI8(ty), ptr);
 }
 
 unsigned getFieldGEPIndex(AggregateDeclaration *ad, VarDeclaration *vd) {

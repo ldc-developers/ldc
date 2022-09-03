@@ -118,7 +118,24 @@ bool DFuncValue::definedInFuncEntryBB() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DLValue::DLValue(Type *t, LLValue *v) : DValue(t, v) {
+DLValue::DLValue(Type *t, LLValue *v) :
+  DLValue(t, t->toBasetype()->ty == TY::Ttuple ?
+                nullptr :
+                DtoMemType(t),
+          v)
+{}
+
+DLValue::DLValue(Type *t, LLType * llt, LLValue *v) : DValue(t, v) {
+  lltype = llt;
+#if 1600 > LDC_LLVM_VER && LDC_LLVM_VER >= 1400
+  if (isSpecialRef())
+    assert(lltype == nullptr || isaPointer(val->getType())->isOpaque() || 
+           lltype == val->getType()->getPointerElementType()
+                                   ->getPointerElementType());
+  else
+    assert(lltype == nullptr ||
+           isaPointer(val->getType())->isOpaqueOrPointeeTypeMatches(lltype));
+#endif
   // v may be an addrspace qualified pointer so strip it before doing a pointer
   // equality check.
   assert(t->toBasetype()->ty == TY::Ttuple ||
@@ -130,8 +147,12 @@ DRValue *DLValue::getRVal() {
     llvm_unreachable("getRVal() for memory-only type");
     return nullptr;
   }
+  if (!lltype) {
+    llvm_unreachable("getRVal() for a tuple or noreturn");
+    return nullptr;
+  }
 
-  LLValue *rval = DtoLoad(val->getType()->getPointerElementType(), val);
+  LLValue *rval = DtoLoad(lltype, val);
 
   const auto ty = type->toBasetype()->ty;
   if (ty == TY::Tbool) {

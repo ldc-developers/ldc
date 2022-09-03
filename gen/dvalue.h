@@ -156,6 +156,8 @@ public:
 class DLValue : public DValue {
 public:
   DLValue(Type *t, llvm::Value *v);
+  DLValue(Type *t, llvm::Type *llt, llvm::Value *v);
+  llvm::Type *lltype;
 
   DRValue *getRVal() override;
   virtual DLValue *getLVal() { return this; }
