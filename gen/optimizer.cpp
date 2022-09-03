@@ -110,16 +110,11 @@ static cl::opt<int> fSanitizeMemoryTrackOrigins(
     cl::desc(
         "Enable origins tracking in MemorySanitizer (0=disabled, default)"));
 
-static cl::opt<bool> useNewPassManager(
-    "use-new-pass-manager", cl::ZeroOrMore,
-     cl::desc("Use the new pass manger instead of the old"));
-
-static cl::opt<signed char> passmanager(
+static cl::opt<signed char> passmanager("passmanger",
     cl::desc("Setting the passmanger (new,legacy):"), cl::ZeroOrMore, cl::init(0),
     cl::values(
-        clEnumValN(0, "legacy", "Use the legacy passmanager (available with LLVM14 and below) "),
-        clEnumValN(1, "new", "Use the new passmanager (available LLVM14 and above)")),
-    cl::init(0));
+        clEnumValN(0, "legacy", "Use the legacy passmanager (available for LLVM14 and below) "),
+        clEnumValN(1, "new", "Use the new passmanager (available for LLVM14 and above)")));
 
 unsigned optLevel() {
   // Use -O2 as a base for the size-optimization levels.
