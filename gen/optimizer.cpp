@@ -13,6 +13,7 @@
 #include "gen/cl_helpers.h"
 #include "gen/logger.h"
 #include "gen/passes/Passes.h"
+#include "llvm/Passes/PassBuilder.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
@@ -21,6 +22,7 @@
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/LegacyPassNameParser.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -421,6 +423,27 @@ bool legacy_ldc_optimize_module(llvm::Module *M) {
 #endif
 
 #if LDC_LLVM_VER >= 1400
+//FIXME: Something wrong with this:
+/*template <typename PassT>
+static inline void addPass<PassT>(ModulePassManager &mpm, PassT &pass) {
+  mpm.addPass(pass);
+
+  if (verifyEach) {
+    mpm.addPass(VerifierPass());
+  }
+}
+*/
+static void addAddressSanitizerPasses(ModulePassManager &mpm,
+                                      OptimizationLevel level ) {
+  AddressSanitizerOptions aso;
+  //FIXME: Where do we get these options from
+  aso.CompileKernel = false;
+  
+  mpm.addPass(ModuleAddressSanitizerPass(aso));
+  if (verifyEach) {
+    mpm.addPass(VerifierPass());
+  }
+}
 /**
  * Adds a set of optimization passes to the given module/function pass
  * managers based on the given optimization and size reduction levels.
@@ -428,14 +451,36 @@ bool legacy_ldc_optimize_module(llvm::Module *M) {
  * The selection mirrors Clang behavior and is based on LLVM's
  * PassManagerBuilder.
  */
-static void addOptimizationPasses(ModulePassManager &mpm,
-                                  FunctionPassManager &fpm,
-                                  unsigned optLevel, unsigned sizeLevel) {
-  if (!noVerify) {
-    //FIXME
-    //fpm.addPass(createVerifierPass());
+//Run optimization passes using the new pass manager
+void runOptimizationPasses(llvm::Module *M) {
+  // Create a ModulePassManager to hold and optimize the collection of
+  // per-module passes we are about to build.
+  
+  unsigned optLevelVal = optLevel();
+  unsigned sizeLevelVal = sizeLevel();
+  
+  TargetMachine* tm;
+  
+  std::string triple = M->getTargetTriple();
+  std::string error;
+  const llvm::Target *target = TargetRegistry::lookupTarget(triple, error);
+  if (!target) {
+    return;
   }
-//  PassManagerBuilder builder;
+  //FIXME: Where can we find these
+  Optional<llvm::CodeModel::Model> cm = None;
+  std::string featuresStr;
+  Optional<llvm::Reloc::Model> rm = None;
+  llvm::TargetOptions options;
+  //FIXME: Not sure that this works in all cases
+  CodeGenOpt::Level optLev = (CodeGenOpt::Level) optLevelVal;
+                                            
+
+  tm = target->createTargetMachine(triple, "", featuresStr, options, rm, cm, optLev);
+
+
+  PipelineTuningOptions pto;
+  
 //  builder.OptLevel = optLevel;
 //  builder.SizeLevel = sizeLevel;
 //  builder.PrepareForLTO = opts::isUsingLTO();
@@ -447,30 +492,58 @@ static void addOptimizationPasses(ModulePassManager &mpm,
 //  } else {
 //    builder.Inliner = createAlwaysInlinerLegacyPass();
 //  }
-//  builder.DisableUnrollLoops = optLevel == 0;
-//
-//  builder.DisableUnrollLoops = (disableLoopUnrolling.getNumOccurrences() > 0)
-//                                   ? disableLoopUnrolling
-//                                   : optLevel == 0;
-//
-//  // This is final, unless there is a #pragma vectorize enable
-//  if (disableLoopVectorization) {
-//    builder.LoopVectorize = false;
-//    // If option wasn't forced via cmd line (-vectorize-loops, -loop-vectorize)
-//  } else if (!builder.LoopVectorize) {
-//    builder.LoopVectorize = optLevel > 1 && sizeLevel < 2;
-//  }
-//
-//  // When #pragma vectorize is on for SLP, do the same as above
-//  builder.SLPVectorize =
-//      disableSLPVectorization ? false : optLevel > 1 && sizeLevel < 2;
-//
-//  if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
+  pto.LoopUnrolling = optLevelVal > 0;
+
+  pto.LoopUnrolling = !((disableLoopUnrolling.getNumOccurrences() > 0)
+                                   ? disableLoopUnrolling
+                                   : optLevelVal == 0);
+
+  // This is final, unless there is a #pragma vectorize enable
+  if (disableLoopVectorization) {
+    pto.LoopVectorization = false;
+    // If option wasn't forced via cmd line (-vectorize-loops, -loop-vectorize)
+  } else if (!pto.LoopVectorization) {
+    pto.LoopVectorization = optLevelVal > 1 && sizeLevelVal < 2;
+  }
+
+  // When #pragma vectorize is on for SLP, do the same as above
+  pto.SLPVectorization =
+      disableSLPVectorization ? false : optLevelVal > 1 && sizeLevelVal < 2;
+
+  PassBuilder pb(tm, pto);
+ 
+  LoopAnalysisManager lam;
+  FunctionAnalysisManager fam;
+  CGSCCAnalysisManager cgam;
+  ModuleAnalysisManager mam;
+
+  pb.registerModuleAnalyses(mam);
+  pb.registerCGSCCAnalyses(cgam);
+  pb.registerFunctionAnalyses(fam);
+  pb.registerLoopAnalyses(lam);
+  pb.crossRegisterProxies(lam, fam, cgam, mam);
+
+  ModulePassManager mpm;
+
+  // Also set up a manager for the per-function passes.
+  FunctionPassManager fpm;
+
+  mpm.addPass(createModuleToFunctionPassAdaptor(std::move(fpm)));
+  
+  if (!noVerify) {
+    fpm.addPass(VerifierPass());
+  }
+
+  if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
+    pb.registerOptimizerLastEPCallback([&](ModulePassManager &mpm,
+                                        OptimizationLevel level) {
+        addAddressSanitizerPasses(mpm,level);
+    });
 //    builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
 //                         legacyAddAddressSanitizerPasses);
 //    builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
 //                         legacyAddAddressSanitizerPasses);
-//  }
+  }
 //
 //  if (opts::isSanitizerEnabled(opts::MemorySanitizer)) {
 //    builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
@@ -513,17 +586,63 @@ static void addOptimizationPasses(ModulePassManager &mpm,
 //
 //  builder.populateFunctionPassManager(fpm);
 //  builder.populateModulePassManager(mpm);
+  mpm.run(*M,mam);
 }
+//Run codgen passes using the legacy pass manager
+void runCodegenPasses(llvm::Module* M) {
+  legacy::PassManager mpm;
 
+  // Add an appropriate TargetLibraryInfo pass for the module's triple.
+  TargetLibraryInfoImpl *tlii =
+      new TargetLibraryInfoImpl(Triple(M->getTargetTriple()));
+
+  // The -disable-simplify-libcalls flag actually disables all builtin optzns.
+  if (disableSimplifyLibCalls)
+    tlii->disableAllFunctions();
+
+  mpm.add(new TargetLibraryInfoWrapperPass(*tlii));
+
+  // The DataLayout is already set at the module (in module.cpp,
+  // method Module::genLLVMModule())
+  // FIXME: Introduce new command line switch default-data-layout to
+  // override the module data layout
+
+  // Add internal analysis passes from the target machine.
+  mpm.add(createTargetTransformInfoWrapperPass(
+      gTargetMachine->getTargetIRAnalysis()));
+
+  // Also set up a manager for the per-function passes.
+  legacy::FunctionPassManager fpm(M);
+
+  // Add internal analysis passes from the target machine.
+  fpm.add(createTargetTransformInfoWrapperPass(
+      gTargetMachine->getTargetIRAnalysis()));
+
+  // If the -strip-debug command line option was specified, add it before
+  // anything else.
+  if (stripDebug) {
+    mpm.add(createStripSymbolsPass(true));
+  }
+
+  if (global.params.dllimport != DLLImport::none) {
+    mpm.add(createDLLImportRelocationPass());
+  }
+
+  // Run per-function passes.
+  fpm.doInitialization();
+  for (auto &F : *M) {
+    fpm.run(F);
+  }
+  fpm.doFinalization();
+
+  // Run per-module passes.
+  mpm.run(*M);
+
+}
 ////////////////////////////////////////////////////////////////////////////////
 // This function runs optimization passes based on command line arguments.
 // Returns true if any optimization passes were invoked.
 bool new_ldc_optimize_module(llvm::Module *M) {
-  // Create a ModulePassManager to hold and optimize the collection of
-  // per-module passes we are about to build.
-
-  ModulePassManager mpm;
-  ModuleAnalysisManager mam;
   // Dont optimise spirv modules because turning GEPs into extracts triggers
   // asserts in the IR -> SPIR-V translation pass. SPIRV doesn't have a target
   // machine, so any optimisation passes that rely on it to provide analysis,
@@ -534,53 +653,8 @@ bool new_ldc_optimize_module(llvm::Module *M) {
   if (getComputeTargetType(M) == ComputeBackend::SPIRV)
     return false;
 
-  // Add an appropriate TargetLibraryInfo pass for the module's triple.
-  TargetLibraryInfoImpl *tlii =
-      new TargetLibraryInfoImpl(Triple(M->getTargetTriple()));
-
-  // The -disable-simplify-libcalls flag actually disables all builtin optzns.
-  if (disableSimplifyLibCalls)
-    tlii->disableAllFunctions();
-
-  // FIXME: Not correct 
-  //mpm.addPass(new TargetLibraryInfoWrapperPass(*tlii));
-
-  // The DataLayout is already set at the module (in module.cpp,
-  // method Module::genLLVMModule())
-  // FIXME: Introduce new command line switch default-data-layout to
-  // override the module data layout
-
-  // Add internal analysis passes from the target machine.
-  //FIXME: Not sure how to do this with new pass manager
-  //mpm.addPass(createTargetTransformInfoWrapperPass(
-  //    gTargetMachine->getTargetIRAnalysis()));
-
-  // Also set up a manager for the per-function passes.
-  FunctionPassManager fpm;
-
-  // Add internal analysis passes from the target machine.
-  //FIXME: Not sure how to do this with new pass manager
-  //fpm.addPass(createTargetTransformInfoWrapperPass(
-  //    gTargetMachine->getTargetIRAnalysis()));
-  
-  mpm.addPass(createModuleToFunctionPassAdaptor(std::move(fpm)));
-  // If the -strip-debug command line option was specified, add it before
-  // anything else.
-  if (stripDebug) {
-    //FIXME: Not sure how to deal with this
-    //mpm.addPass(createStripSymbolsPass(true));
-  }
-  
-  addOptimizationPasses(mpm, fpm, optLevel(), sizeLevel());
-
-  if (global.params.dllimport != DLLImport::none) {
-    //FIXME: Not sure how to deal with this
-    //mpm.addPass(createDLLImportRelocationPass());
-  }
-
-  // Run per-module passes.
-  mpm.run(*M,mam);
-
+  runOptimizationPasses(M);
+  runCodegenPasses(M);
   // Verify the resulting module.
   if (!noVerify) {
     verifyModule(M);
