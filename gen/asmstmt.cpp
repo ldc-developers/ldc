@@ -732,7 +732,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     if (block->retfixup) {
       block->asmBlock->abiret = (*block->retfixup)(p->ir, call);
     } else if (p->asmBlock->retemu) {
-      block->asmBlock->abiret = DtoLoad(block->asmBlock->abiret);
+      block->asmBlock->abiret = DtoLoad(block->retty, block->asmBlock->abiret);
     } else {
       block->asmBlock->abiret = call;
     }
