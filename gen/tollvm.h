@@ -97,21 +97,6 @@ LLValue *DtoGEP(LLType * ptrty, LLValue *ptr, unsigned i0, unsigned i1, const ch
                 llvm::BasicBlock *bb = nullptr);
 LLConstant *DtoGEP(LLType * ptrty, LLConstant *ptr, unsigned i0, unsigned i1);
 
-[[deprecated("Deprecated as part of the opaque pointer changes")]]
-LLValue *DtoGEP1(LLValue *ptr, LLValue *i0, const char *name = "",
-                 llvm::BasicBlock *bb = nullptr);
-[[deprecated("Deprecated as part of the opaque pointer changes")]]
-LLValue *DtoGEP(LLValue *ptr, LLValue *i0, LLValue *i1, const char *name = "",
-                llvm::BasicBlock *bb = nullptr);
-[[deprecated("Deprecated as part of the opaque pointer changes")]]
-LLValue *DtoGEP1(LLValue *ptr, unsigned i0, const char *name = "",
-                 llvm::BasicBlock *bb = nullptr);
-[[deprecated("Deprecated as part of the opaque pointer changes")]]
-LLValue *DtoGEP(LLValue *ptr, unsigned i0, unsigned i1, const char *name = "",
-                llvm::BasicBlock *bb = nullptr);
-[[deprecated("Deprecated as part of the opaque pointer changes")]]
-LLConstant *DtoGEP(LLConstant *ptr, unsigned i0, unsigned i1);
-
 // to constant helpers
 LLConstantInt *DtoConstSize_t(uint64_t);
 LLConstantInt *DtoConstUint(unsigned i);
