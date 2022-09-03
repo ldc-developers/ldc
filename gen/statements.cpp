@@ -1367,7 +1367,7 @@ public:
 
     // get value for this iteration
     LLValue *loadedKey = DtoLoad(keytype, keyvar);
-    LLValue *gep = DtoGEP1(val, loadedKey);
+    LLValue *gep = DtoGEP1(DtoMemType(aggrval->type->nextOf()), val, loadedKey);
 
     if (!stmt->value->isRef() && !stmt->value->isOut()) {
       // Copy value to local variable, and use it as the value variable.
