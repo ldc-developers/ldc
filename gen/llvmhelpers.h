@@ -201,12 +201,6 @@ IrFuncTy &DtoIrTypeFunction(DValue *fnval);
 ///
 TypeFunction *DtoTypeFunction(DValue *fnval);
 
-///
-LLValue *DtoCallableValue(DValue *fn);
-
-///
-LLFunctionType *DtoExtractFunctionType(LLType *type);
-
 /// Checks whether fndecl is an intrinsic that requires special lowering. If so,
 /// emits the code for it and returns true, settings result to the resulting
 /// DValue (if any). If the call does not correspond to a "magic" intrinsic,

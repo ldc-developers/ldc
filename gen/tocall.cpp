@@ -24,6 +24,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/nested.h"
+#include "gen/mangling.h"
 #include "gen/pragma.h"
 #include "gen/tollvm.h"
 #include "gen/runtime.h"
@@ -68,41 +69,6 @@ TypeFunction *DtoTypeFunction(DValue *fnval) {
   }
 
   llvm_unreachable("Cannot get TypeFunction* from non lazy/function/delegate");
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-LLValue *DtoCallableValue(DValue *fn) {
-  Type *type = fn->type->toBasetype();
-  if (type->ty == TY::Tfunction) {
-    return DtoRVal(fn);
-  }
-  if (type->ty == TY::Tdelegate) {
-    if (fn->isLVal()) {
-      LLValue *dg = DtoLVal(fn);
-      LLValue *funcptr = DtoGEP(dg, 0, 1);
-      return DtoLoad(funcptr, ".funcptr");
-    }
-    LLValue *dg = DtoRVal(fn);
-    assert(isaStruct(dg));
-    return gIR->ir->CreateExtractValue(dg, 1, ".funcptr");
-  }
-
-  llvm_unreachable("Not a callable type.");
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-LLFunctionType *DtoExtractFunctionType(LLType *type) {
-  if (LLFunctionType *fty = isaFunction(type)) {
-    return fty;
-  }
-  if (LLPointerType *pty = isaPointer(type)) {
-    if (LLFunctionType *fty = isaFunction(pty->getPointerElementType())) {
-      return fty;
-    }
-  }
-  return nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -855,6 +821,26 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////
 
+static LLValue *DtoCallableValue(llvm::FunctionType * ft,DValue *fn) {
+  Type *type = fn->type->toBasetype();
+  if (type->ty == TY::Tfunction) {
+    return DtoRVal(fn);
+  }
+  if (type->ty == TY::Tdelegate) {
+    if (fn->isLVal()) {
+      LLValue *dg = DtoLVal(fn);
+      llvm::StructType *st = isaStruct(DtoType(fn->type));
+      LLValue *funcptr = DtoGEP(st, dg, 0, 1);
+      return DtoLoad(ft->getPointerTo(), funcptr, ".funcptr");
+    }
+    LLValue *dg = DtoRVal(fn);
+    assert(isaStruct(dg));
+    return gIR->ir->CreateExtractValue(dg, 1, ".funcptr");
+  }
+
+  llvm_unreachable("Not a callable type.");
+}
+
 // FIXME: this function is a mess !
 DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
                         Expressions *arguments, LLValue *sretPointer) {
@@ -878,10 +864,15 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   // get callee llvm value
-  LLValue *callable = DtoCallableValue(fnval);
-  LLFunctionType *const callableTy =
-      DtoExtractFunctionType(callable->getType());
-  assert(callableTy);
+  LLValue *callable = DtoCallableValue(irFty.funcType, fnval);
+  LLFunctionType *callableTy = irFty.funcType;
+  if (dfnval && dfnval->func->isCsymbol()) {
+    // See note in DtoDeclareFunction about K&R foward declared (void) functions
+    // later defined as (...) functions. We want to use the non-variadic one.
+    if (irFty.funcType->getNumParams() == 0 && irFty.funcType->isVarArg())
+      callableTy = gIR->module.getFunction(getIRMangledName(dfnval->func, LINK::c))
+                                ->getFunctionType();
+  }
 
   //     IF_LOG Logger::cout() << "callable: " << *callable << '\n';
 
