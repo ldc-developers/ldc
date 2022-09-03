@@ -1138,7 +1138,7 @@ public:
       }
 
       // offset by lower
-      eptr = DtoGEP1(getBasePointer(), vlo, "lowerbound");
+      eptr = DtoGEP1(DtoMemType(etype->nextOf()), getBasePointer(), vlo, "lowerbound");
 
       // adjust length
       elen = p->ir->CreateSub(vup, vlo);
@@ -1380,7 +1380,7 @@ public:
       assert(e->e2->op == EXP::int64);
       LLConstant *offset =
           e->op == EXP::plusPlus ? DtoConstUint(1) : DtoConstInt(-1);
-      post = DtoGEP1(val, offset, "", p->scopebb());
+      post = DtoGEP1(DtoType(dv->type->nextOf()), val, offset, "", p->scopebb());
     } else if (e1type->iscomplex()) {
       assert(e2type->iscomplex());
       LLValue *one = LLConstantFP::get(DtoComplexBaseType(e1type), 1.0);
@@ -2591,14 +2591,16 @@ public:
         Logger::println("dynamic array expression, assume matching length");
       }
 
-      LLValue *arrayPtr = DtoArrayPtr(toElem(e->e1));
+      DValue *e1 = toElem(e->e1);
+      LLValue *arrayPtr = DtoArrayPtr(e1);
       Type *srcElementType = tsrc->nextOf();
 
       if (DtoMemType(elementType) == DtoMemType(srcElementType)) {
         DtoMemCpy(dstMem, arrayPtr);
       } else {
         for (unsigned i = 0; i < N; ++i) {
-          DLValue srcElement(srcElementType, DtoGEP1(arrayPtr, i));
+          LLValue *gep = DtoGEP1(DtoMemType(e1->type->nextOf()), arrayPtr, i);
+          DLValue srcElement(srcElementType, gep);
           LLValue *llVal = getCastElement(&srcElement);
           DtoStore(llVal, DtoGEP(dstType, dstMem, 0, i));
         }
