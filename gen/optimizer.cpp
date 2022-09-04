@@ -36,6 +36,7 @@
 #include "llvm/Transforms/Instrumentation/MemorySanitizer.h"
 #include "llvm/Transforms/Instrumentation/ThreadSanitizer.h"
 #include "llvm/Transforms/Instrumentation/AddressSanitizer.h"
+#include "llvm/Transforms/Instrumentation/AddressSanitizerOptions.h"
 #if LDC_LLVM_VER >= 1000
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 #endif
@@ -424,7 +425,7 @@ bool legacy_ldc_optimize_module(llvm::Module *M) {
 #if LDC_LLVM_VER >= 1400
 //FIXME: Something still wrong with this:
 template <typename PassT>
-static inline void addPass(ModulePassManager &mpm, PassT pass) {
+static inline void addPass_(ModulePassManager &mpm, PassT pass) {
   mpm.addPass(pass);
 
   if (verifyEach) {
@@ -437,15 +438,15 @@ static void addAddressSanitizerPasses(ModulePassManager &mpm,
   AddressSanitizerOptions aso;
   aso.CompileKernel = false;
   aso.Recover = false;
-  //FIXME: Should aso.UseAfterScope and aso.UseAfterReturn be set?
-  //
+  aso.UseAfterScope = true;
+  aso.UseAfterReturn = AsanDetectStackUseAfterReturnMode::Always;
   //FIXME: Would like to call instead of three lines after
-  //addPass(mpm,ModuleAddressSanitizerPass(aso));
+  addPass_(mpm,ModuleAddressSanitizerPass(aso));
 
-  mpm.addPass(ModuleAddressSanitizerPass(aso));
+  /*mpm.addPass(ModuleAddressSanitizerPass(aso));
   if (verifyEach) {
     mpm.addPass(VerifierPass());
-  }
+  }*/
 }
 /**
  * Adds a set of optimization passes to the given module/function pass
