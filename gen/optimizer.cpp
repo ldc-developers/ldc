@@ -19,7 +19,6 @@
 #include "driver/targetmachine.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/InlineCost.h"
-#include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/DataLayout.h"
@@ -38,9 +37,11 @@
 #include "llvm/Transforms/Instrumentation/ThreadSanitizer.h"
 #include "llvm/Transforms/Instrumentation/AddressSanitizer.h"
 #include "llvm/Transforms/Instrumentation/AddressSanitizerOptions.h"
+#if LDC_LLVM_VER >= 1400
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
 #include "llvm/Transforms/Scalar/LICM.h"
 #include "llvm/Transforms/Scalar/Reassociate.h"
+#endif
 #if LDC_LLVM_VER >= 1000
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 #endif
