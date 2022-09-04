@@ -429,6 +429,21 @@ bool legacy_ldc_optimize_module(llvm::Module *M) {
 
 #if LDC_LLVM_VER >= 1400
 
+static OptimizationLevel getOptimizationLevel(){
+  switch(optimizeLevel) {
+    case 0: return OptimizationLevel::O0;
+    case 1: return OptimizationLevel::O1;
+    case 2: return OptimizationLevel::O2;
+    case 3:
+    case 4:
+    case 5: return OptimizationLevel::O3;
+    case -1: return OptimizationLevel::Os;
+    case -2: return OptimizationLevel::Oz;
+  }
+  //This should never be reached
+  return OptimizationLevel::O0;
+}
+
 static void addAddressSanitizerPasses(ModulePassManager &mpm,
                                       OptimizationLevel level ) {
   AddressSanitizerOptions aso;
@@ -595,29 +610,7 @@ void runOptimizationPasses(llvm::Module *M) {
 //  builder.populateFunctionPassManager(fpm);
 //  builder.populateModulePassManager(mpm);
 
-  OptimizationLevel level;
-  switch(optimizeLevel) {
-    case 0:
-      level = OptimizationLevel::O0;
-      break;
-    case 1:
-      level = OptimizationLevel::O1;
-      break;
-    case 2:
-      level = OptimizationLevel::O2;
-      break;
-    case 3:
-    case 4:
-    case 5:
-      level = OptimizationLevel::O3;
-      break;
-    case -1:
-      level = OptimizationLevel::Os;
-      break;
-    case -2:
-      level = OptimizationLevel::Oz;
-      break;
-  }  
+  OptimizationLevel level = getOptimizationLevel();
 
   if (optLevelVal == 0) {
     mpm = pb.buildO0DefaultPipeline(level, opts::isUsingLTO() || opts::isUsingThinLTO());
