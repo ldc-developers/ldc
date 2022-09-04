@@ -13,7 +13,6 @@
 #include "gen/cl_helpers.h"
 #include "gen/logger.h"
 #include "gen/passes/Passes.h"
-#include "llvm/Passes/PassBuilder.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
@@ -22,13 +21,13 @@
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/MC/TargetRegistry.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/LegacyPassNameParser.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/LinkAllPasses.h"
+#include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Instrumentation.h"
@@ -423,22 +422,26 @@ bool legacy_ldc_optimize_module(llvm::Module *M) {
 #endif
 
 #if LDC_LLVM_VER >= 1400
-//FIXME: Something wrong with this:
-/*template <typename PassT>
-static inline void addPass<PassT>(ModulePassManager &mpm, PassT &pass) {
+//FIXME: Something still wrong with this:
+template <typename PassT>
+static inline void addPass(ModulePassManager &mpm, PassT pass) {
   mpm.addPass(pass);
 
   if (verifyEach) {
     mpm.addPass(VerifierPass());
   }
 }
-*/
+
 static void addAddressSanitizerPasses(ModulePassManager &mpm,
                                       OptimizationLevel level ) {
   AddressSanitizerOptions aso;
-  //FIXME: Where do we get these options from
   aso.CompileKernel = false;
-  
+  aso.Recover = false;
+  //FIXME: Should aso.UseAfterScope and aso.UseAfterReturn be set?
+  //
+  //FIXME: Would like to call instead of three lines after
+  //addPass(mpm,ModuleAddressSanitizerPass(aso));
+
   mpm.addPass(ModuleAddressSanitizerPass(aso));
   if (verifyEach) {
     mpm.addPass(VerifierPass());
@@ -459,25 +462,6 @@ void runOptimizationPasses(llvm::Module *M) {
   unsigned optLevelVal = optLevel();
   unsigned sizeLevelVal = sizeLevel();
   
-  TargetMachine* tm;
-  
-  std::string triple = M->getTargetTriple();
-  std::string error;
-  const llvm::Target *target = TargetRegistry::lookupTarget(triple, error);
-  if (!target) {
-    return;
-  }
-  //FIXME: Where can we find these
-  Optional<llvm::CodeModel::Model> cm = None;
-  std::string featuresStr;
-  Optional<llvm::Reloc::Model> rm = None;
-  llvm::TargetOptions options;
-  //FIXME: Not sure that this works in all cases
-  CodeGenOpt::Level optLev = (CodeGenOpt::Level) optLevelVal;
-                                            
-
-  tm = target->createTargetMachine(triple, "", featuresStr, options, rm, cm, optLev);
-
 
   PipelineTuningOptions pto;
   
@@ -510,7 +494,7 @@ void runOptimizationPasses(llvm::Module *M) {
   pto.SLPVectorization =
       disableSLPVectorization ? false : optLevelVal > 1 && sizeLevelVal < 2;
 
-  PassBuilder pb(tm, pto);
+  PassBuilder pb(gTargetMachine, pto);
  
   LoopAnalysisManager lam;
   FunctionAnalysisManager fam;
@@ -677,7 +661,7 @@ bool ldc_optimize_module(llvm::Module *M) {
   return passmanager==0 ? legacy_ldc_optimize_module(M)
                         : new_ldc_optimize_module(M);
 #else
-  return ldc_optimize_module(M);
+  return new_ldc_optimize_module(M);
 #endif
 }
 
