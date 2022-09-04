@@ -117,8 +117,23 @@ bool DFuncValue::definedInFuncEntryBB() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+DLValue::DLValue(Type *t, LLValue *v) :
+   DLValue(t, t->toBasetype()->ty == TY::Ttuple ?
+                 nullptr :
+                 DtoMemType(t),
+           v)
+ {}
 
-DLValue::DLValue(Type *t, LLValue *v) : DValue(t, v) {
+DLValue::DLValue(Type *t, LLType *llt, LLValue *v) : DValue(t, v) {
+  lltype = llt;
+
+  if (isSpecialRef())
+    assert(lltype == nullptr ||
+           lltype == val->getType()->getPointerElementType()
+                                   ->getPointerElementType());
+  else
+    assert(lltype == nullptr ||
+           lltype == val->getType()->getPointerElementType());
   // v may be an addrspace qualified pointer so strip it before doing a pointer
   // equality check.
   assert(t->toBasetype()->ty == TY::Ttuple ||

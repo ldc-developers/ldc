@@ -2527,7 +2527,7 @@ public:
                  gep);
       }
     }
-    result = new DLValue(e->type, val);
+    result = new DLValue(e->type, nullptr, val);
   }
 
   //////////////////////////////////////////////////////////////////////////////
