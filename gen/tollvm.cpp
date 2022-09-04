@@ -345,12 +345,6 @@ LLIntegerType *DtoSize_t() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLType *getPointeeType(LLValue *pointer) {
-  return pointer->getType()->getPointerElementType();
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 namespace {
 llvm::GetElementPtrInst *DtoGEP(LLType * type,LLValue *ptr,
                                 llvm::ArrayRef<LLValue *> indices,
@@ -507,10 +501,6 @@ namespace {
 llvm::LoadInst *DtoLoadImpl(LLType *type, LLValue *src, const char *name) {
   return gIR->ir->CreateLoad(type, src, name);
 }
-}
-
-LLValue *DtoLoad(LLValue *src, const char *name) {
-  return DtoLoadImpl(getPointeeType(src), src, name);
 }
 
 LLValue *DtoLoad(LLType* type, LLValue *src, const char *name) {

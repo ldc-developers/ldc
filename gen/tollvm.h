@@ -82,9 +82,6 @@ void setVisibility(Dsymbol *sym, llvm::GlobalObject *obj);
 LLIntegerType *DtoSize_t();
 LLStructType *DtoModuleReferenceType();
 
-// Returns the pointee type of the specified pointer value.
-LLType *getPointeeType(LLValue *pointer);
-
 // getelementptr helpers
 LLValue *DtoGEP1(LLType * ptrty,LLValue *ptr, LLValue *i0, const char *name = "",
                  llvm::BasicBlock *bb = nullptr);
@@ -110,8 +107,6 @@ LLConstant *DtoConstBool(bool);
 
 // llvm wrappers
 class DLValue;
-[[deprecated("Deprecated as part of the opaque pointer changes")]]
-LLValue *DtoLoad(LLValue *src, const char *name = "");
 LLValue *DtoLoad(DLValue *src, const char *name = "");
 LLValue *DtoLoad(LLType *, LLValue *src, const char *name = "");
 LLValue *DtoVolatileLoad(LLType *, LLValue *src, const char *name = "");

@@ -131,7 +131,7 @@ DRValue *DLValue::getRVal() {
     return nullptr;
   }
 
-  LLValue *rval = DtoLoad(val);
+  LLValue *rval = DtoLoad(val->getType()->getPointerElementType(), val);
 
   const auto ty = type->toBasetype()->ty;
   if (ty == TY::Tbool) {

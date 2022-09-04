@@ -276,7 +276,7 @@ IRState::createInlineAsmCall(const Loc &loc, llvm::InlineAsm *ia,
     if (constraintInfo.isIndirect) {
       call->addParamAttr(i, llvm::Attribute::get(context(),
                                                  llvm::Attribute::ElementType,
-                                                 getPointeeType(args[i])));
+                                                 args[i]->getType()->getPointerElementType()));
     }
     ++i;
   }
