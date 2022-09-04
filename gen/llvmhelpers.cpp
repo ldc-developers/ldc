@@ -1889,21 +1889,19 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   DtoResolveDsymbol(ad);
 
   // Look up field to index or offset to apply.
-  unsigned fieldIndex;
-  unsigned byteOffset;
   auto irTypeAggr = getIrType(ad->type)->isAggr();
   assert(irTypeAggr);
-  irTypeAggr->getMemberLocation(vd, fieldIndex, byteOffset);
+  bool isFieldIdx;
+  unsigned off = irTypeAggr->getMemberLocation(vd, isFieldIdx);
 
   LLValue *val = src;
-  if (byteOffset) {
-    assert(fieldIndex == 0);
+  if (!isFieldIdx) {
     // Cast to void* to apply byte-wise offset from object start.
     val = DtoBitCast(val, getVoidPtrType());
-    val = DtoGEP1(llvm::Type::getInt8Ty(gIR->context()), val, byteOffset);
+    val = DtoGEP1(llvm::Type::getInt8Ty(gIR->context()), val, off);
   } else {
     if (ad->structsize == 0) { // can happen for extern(C) structs
-      assert(fieldIndex == 0);
+      assert(off == 0);
     } else {
       // Cast the pointer we got to the canonical struct type the indices are
       // based on.
@@ -1918,7 +1916,7 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
         pst = getPtrToType(st);
       }
       val = DtoBitCast(val, pst);
-      val = DtoGEP(st, val, 0, fieldIndex);
+      val = DtoGEP(st, val, 0, off);
     }
   }
 
@@ -1930,13 +1928,12 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
 }
 
 unsigned getFieldGEPIndex(AggregateDeclaration *ad, VarDeclaration *vd) {
-  unsigned fieldIndex;
-  unsigned byteOffset;
   auto irTypeAggr = getIrType(ad->type)->isAggr();
   assert(irTypeAggr);
-  irTypeAggr->getMemberLocation(vd, fieldIndex, byteOffset);
-  assert(byteOffset == 0 && "Cannot address field by a simple GEP.");
-  return fieldIndex;
+  bool isFieldIdx;
+  unsigned off = irTypeAggr->getMemberLocation(vd, isFieldIdx);
+  assert(isFieldIdx && "Cannot address field by a simple GEP.");
+  return off;
 }
 
 DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
