@@ -129,16 +129,16 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
     // get a pointer to this field
     assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
                                    "vars, although it can easily be made to.");
-    DLValue field(vd->type, DtoIndexAggregate(mem, sd, vd));
+    DLValue *field = DtoIndexAggregate(mem, sd, vd);
 
     // initialize the field
     if (expr) {
       IF_LOG Logger::println("expr = %s", expr->toChars());
       // try to construct it in-place
-      if (!toInPlaceConstruction(&field, expr)) {
-        DtoAssign(loc, &field, toElem(expr), EXP::blit);
+      if (!toInPlaceConstruction(field, expr)) {
+        DtoAssign(loc, field, toElem(expr), EXP::blit);
         if (expr->isLvalue())
-          callPostblit(loc, expr, DtoLVal(&field));
+          callPostblit(loc, expr, DtoLVal(field));
       }
     } else {
       assert(vd == sd->vthis);
@@ -146,7 +146,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       LOG_SCOPE
       DImValue val(vd->type,
                    DtoBitCast(DtoNestedContext(loc, sd), DtoType(vd->type)));
-      DtoAssign(loc, &field, &val, EXP::blit);
+      DtoAssign(loc, field, &val, EXP::blit);
     }
 
     // Make sure to zero out padding bytes counted as being part of the type in
@@ -917,7 +917,7 @@ public:
     // Logger::cout() << *DtoType(e1type) << '\n';
 
     if (VarDeclaration *vd = e->var->isVarDeclaration()) {
-      LLValue *arrptr;
+      DLValue *arrptr;
       // indexing struct pointer
       if (e1type->ty == TY::Tpointer) {
         assert(e1type->nextOf()->ty == TY::Tstruct);
@@ -937,8 +937,9 @@ public:
         llvm_unreachable("Unknown DotVarExp type for VarDeclaration.");
       }
 
-      // Logger::cout() << "mem: " << *arrptr << '\n';
-      result = new DLValue(e->type, DtoBitCast(arrptr, DtoPtrToType(e->type)));
+      // Logger::cout() << "mem: " << *DtoLVal(arrptr) << '\n';
+      result = new DLValue(e->type, DtoBitCast(DtoLVal(arrptr),
+                                               DtoPtrToType(e->type)));
     } else if (FuncDeclaration *fdecl = e->var->isFuncDeclaration()) {
       // This is a bit more convoluted than it would need to be, because it
       // has to take templated interface methods into account, for which
