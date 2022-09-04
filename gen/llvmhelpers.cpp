@@ -1878,7 +1878,7 @@ FuncDeclaration *getParentFunc(Dsymbol *sym) {
   return nullptr;
 }
 
-LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
+DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
                            VarDeclaration *vd) {
   IF_LOG Logger::println("Indexing aggregate field %s:", vd->toPrettyChars());
   LOG_SCOPE;
@@ -1924,7 +1924,7 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   val = DtoBitCast(val, DtoPtrToType(vd->type));
 
   IF_LOG Logger::cout() << "Value: " << *val << '\n';
-  return val;
+  return new DLValue(vd->type, val);
 }
 
 unsigned getFieldGEPIndex(AggregateDeclaration *ad, VarDeclaration *vd) {
