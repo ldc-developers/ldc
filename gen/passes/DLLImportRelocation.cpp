@@ -188,18 +188,23 @@ private:
     IRBuilder<> b(&ctor->back());
 
     Value *address = currentGlobal;
+    Type * t = currentGlobal->getValueType();
     for (auto i : currentGepPath) {
-      auto t = address->getType()->getPointerElementType();
       if (i <= 0xFFFFFFFFu) {
         address = b.CreateConstInBoundsGEP2_32(t, address, 0,
                                                static_cast<unsigned>(i));
       } else {
         address = b.CreateConstInBoundsGEP2_64(t, address, 0, i);
       }
+      if (StructType *st = dyn_cast<StructType>(t))
+        t = st->getElementType(i);
+      else if (ArrayType *at = dyn_cast<ArrayType>(t))
+        t = at->getElementType();
+      else if (PointerType *pt = dyn_cast<PointerType>(t))
+        llvm_unreachable("Shouldn't be trying to GEP a pointer in initializer");
     }
 
     Constant *value = importedVar;
-    auto t = address->getType()->getPointerElementType();
     if (auto gep = isGEP(skipOverCast(originalInitializer))) {
       Constant *newOperand =
           createConstPointerCast(importedVar, gep->getOperand(0)->getType());
