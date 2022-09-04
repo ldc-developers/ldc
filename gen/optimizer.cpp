@@ -434,7 +434,7 @@ static void addAddressSanitizerPasses(ModulePassManager &mpm,
   aso.CompileKernel = false;
   aso.Recover = false;
   aso.UseAfterScope = true;
-  aso.UseAfterReturn = AsanDetectStackUseAfterReturnMode::Always;
+  aso.UseAfterReturn = AsanDetectStackUseAfterReturnMode::Runtime;
 
   mpm.addPass(ModuleAddressSanitizerPass(aso));
   if (verifyEach) {
