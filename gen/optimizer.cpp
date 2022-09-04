@@ -19,6 +19,7 @@
 #include "driver/targetmachine.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/InlineCost.h"
+#include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/DataLayout.h"
@@ -37,6 +38,9 @@
 #include "llvm/Transforms/Instrumentation/ThreadSanitizer.h"
 #include "llvm/Transforms/Instrumentation/AddressSanitizer.h"
 #include "llvm/Transforms/Instrumentation/AddressSanitizerOptions.h"
+#include "llvm/Transforms/Scalar/EarlyCSE.h"
+#include "llvm/Transforms/Scalar/LICM.h"
+#include "llvm/Transforms/Scalar/Reassociate.h"
 #if LDC_LLVM_VER >= 1000
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 #endif
@@ -423,15 +427,6 @@ bool legacy_ldc_optimize_module(llvm::Module *M) {
 #endif
 
 #if LDC_LLVM_VER >= 1400
-//FIXME: Something still wrong with this:
-template <typename PassT>
-static inline void addPass_(ModulePassManager &mpm, PassT pass) {
-  mpm.addPass(pass);
-
-  if (verifyEach) {
-    mpm.addPass(VerifierPass());
-  }
-}
 
 static void addAddressSanitizerPasses(ModulePassManager &mpm,
                                       OptimizationLevel level ) {
@@ -440,13 +435,45 @@ static void addAddressSanitizerPasses(ModulePassManager &mpm,
   aso.Recover = false;
   aso.UseAfterScope = true;
   aso.UseAfterReturn = AsanDetectStackUseAfterReturnMode::Always;
-  //FIXME: Would like to call instead of three lines after
-  addPass_(mpm,ModuleAddressSanitizerPass(aso));
 
-  /*mpm.addPass(ModuleAddressSanitizerPass(aso));
+  mpm.addPass(ModuleAddressSanitizerPass(aso));
   if (verifyEach) {
     mpm.addPass(VerifierPass());
-  }*/
+  }
+}
+
+static void addMemorySanitizerPass(FunctionPassManager &fpm,
+                                      OptimizationLevel level ) {
+  int trackOrigins = fSanitizeMemoryTrackOrigins;
+  bool recover = false;
+  bool kernel = false;
+  fpm.addPass(MemorySanitizerPass(
+      MemorySanitizerOptions{trackOrigins, recover, kernel}));
+
+  // MemorySanitizer inserts complex instrumentation that mostly follows
+  // the logic of the original code, but operates on "shadow" values.
+  // It can benefit from re-running some general purpose optimization passes.
+  if (level != OptimizationLevel::O0) {
+    fpm.addPass(EarlyCSEPass());
+    fpm.addPass(ReassociatePass());
+//FIXME: Can't figure this out yet
+//    fpm.addPass(LICMPass());
+    fpm.addPass(GVNPass());
+//FIXME: Ditto
+//    fpm.addPass(InstructionCombiningPass());
+//    fpm.addPass(DeadStoreEliminationPass());
+  }
+}
+static void addThreadSanitizerPass(ModulePassManager &mpm, FunctionPassManager &fpm,
+                                      OptimizationLevel level ) {
+  mpm.addPass(ModuleThreadSanitizerPass());
+  fpm.addPass(ThreadSanitizerPass());
+}
+
+static void addSanitizerCoveragePass(ModulePassManager &mpm, FunctionPassManager &fpm,
+                                      OptimizationLevel level ) {
+  mpm.addPass(ModuleSanitizerCoveragePass(
+      opts::getSanitizerCoverageOptions()));
 }
 /**
  * Adds a set of optimization passes to the given module/function pass
@@ -513,7 +540,6 @@ void runOptimizationPasses(llvm::Module *M) {
   // Also set up a manager for the per-function passes.
   FunctionPassManager fpm;
 
-  mpm.addPass(createModuleToFunctionPassAdaptor(std::move(fpm)));
   
   if (!noVerify) {
     fpm.addPass(VerifierPass());
@@ -524,32 +550,28 @@ void runOptimizationPasses(llvm::Module *M) {
                                         OptimizationLevel level) {
         addAddressSanitizerPasses(mpm,level);
     });
-//    builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-//                         legacyAddAddressSanitizerPasses);
-//    builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-//                         legacyAddAddressSanitizerPasses);
   }
-//
-//  if (opts::isSanitizerEnabled(opts::MemorySanitizer)) {
-//    builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-//                         legacyAddMemorySanitizerPass);
-//    builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-//                         legacyAddMemorySanitizerPass);
-//  }
-//
-//  if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {
-//    builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-//                         legacyAddThreadSanitizerPass);
-//    builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-//                         legacyAddThreadSanitizerPass);
-//  }
-//
-//  if (opts::isSanitizerEnabled(opts::CoverageSanitizer)) {
-//    builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-//                         legacyAddSanitizerCoveragePass);
-//    builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-//                         legacyAddSanitizerCoveragePass);
-//  }
+
+  if (opts::isSanitizerEnabled(opts::MemorySanitizer)) {
+    pb.registerOptimizerLastEPCallback([&](ModulePassManager &mpm,
+                                        OptimizationLevel level) {
+        addMemorySanitizerPass(fpm,level);
+    });
+  }
+
+  if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {
+    pb.registerOptimizerLastEPCallback([&](ModulePassManager &mpm,
+                                        OptimizationLevel level) {
+        addThreadSanitizerPass(mpm, fpm,level);
+    });
+  }
+
+  if (opts::isSanitizerEnabled(opts::CoverageSanitizer)) {
+    pb.registerOptimizerLastEPCallback([&](ModulePassManager &mpm,
+                                        OptimizationLevel level) {
+        addSanitizerCoveragePass(mpm, fpm,level);
+    });
+  }
 //
 //  if (!disableLangSpecificPasses) {
 //    if (!disableSimplifyDruntimeCalls) {
@@ -571,6 +593,42 @@ void runOptimizationPasses(llvm::Module *M) {
 //
 //  builder.populateFunctionPassManager(fpm);
 //  builder.populateModulePassManager(mpm);
+
+  OptimizationLevel level;
+  switch(optimizeLevel) {
+    case 0:
+      level = OptimizationLevel::O0;
+      break;
+    case 1:
+      level = OptimizationLevel::O1;
+      break;
+    case 2:
+      level = OptimizationLevel::O2;
+      break;
+    case 3:
+    case 4:
+    case 5:
+      level = OptimizationLevel::O3;
+      break;
+    case -1:
+      level = OptimizationLevel::Os;
+      break;
+    case -2:
+      level = OptimizationLevel::Oz;
+      break;
+  }  
+
+  if (optLevelVal == 0) {
+    mpm = pb.buildO0DefaultPipeline(level, opts::isUsingLTO() || opts::isUsingThinLTO());
+  } else if (opts::isUsingThinLTO()) {
+    mpm = pb.buildThinLTOPreLinkDefaultPipeline(level);
+  } else if (opts::isUsingLTO()) {
+    mpm = pb.buildLTOPreLinkDefaultPipeline(level);
+  } else {
+    mpm = pb.buildPerModuleDefaultPipeline(level);
+  }
+
+  mpm.addPass(createModuleToFunctionPassAdaptor(std::move(fpm)));
   mpm.run(*M,mam);
 }
 //Run codgen passes using the legacy pass manager
