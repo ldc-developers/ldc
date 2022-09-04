@@ -208,17 +208,16 @@ bool IrTypeAggr::isPacked(AggregateDeclaration *ad) {
   return false;
 }
 
-void IrTypeAggr::getMemberLocation(VarDeclaration *var, unsigned &fieldIndex,
-                                   unsigned &byteOffset) const {
+unsigned IrTypeAggr::getMemberLocation(VarDeclaration *var, bool& isFieldIdx) const {
   // Note: The interface is a bit more general than what we actually return.
   // Specifically, the frontend offset information we use for overlapping
   // fields is always based at the object start.
   auto it = varGEPIndices.find(var);
   if (it != varGEPIndices.end()) {
-    fieldIndex = it->second;
-    byteOffset = 0;
+    isFieldIdx = true;
+    return it->second;
   } else {
-    fieldIndex = 0;
-    byteOffset = var->offset;
+    isFieldIdx = false;
+    return var->offset;
   }
 }
