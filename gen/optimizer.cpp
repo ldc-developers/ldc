@@ -38,6 +38,9 @@
 #include "llvm/Transforms/Instrumentation/AddressSanitizer.h"
 #if LDC_LLVM_VER >= 1400
 #include "llvm/Transforms/Instrumentation/AddressSanitizerOptions.h"
+#include "llvm/Transforms/Instrumentation/InstrProfiling.h"
+#include "llvm/Transforms/Instrumentation/PGOInstrumentation.h"
+#include "llvm/Transforms/IPO/GlobalDCE.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
 #include "llvm/Transforms/Scalar/LICM.h"
 #include "llvm/Transforms/Scalar/Reassociate.h"
@@ -117,13 +120,11 @@ static cl::opt<int> fSanitizeMemoryTrackOrigins(
     cl::desc(
         "Enable origins tracking in MemorySanitizer (0=disabled, default)"));
 
-#if LDC_LLVM_VER < 1500 && LDC_LLVM_VER >= 1400
 static cl::opt<signed char> passmanager("passmanger",
     cl::desc("Setting the passmanger (new,legacy):"), cl::ZeroOrMore, cl::init(1),
     cl::values(
         clEnumValN(0, "legacy", "Use the legacy passmanager (available for LLVM14 and below) "),
         clEnumValN(1, "new", "Use the new passmanager (available for LLVM14 and above)")));
-#endif
 
 unsigned optLevel() {
   // Use -O2 as a base for the size-optimization levels.
@@ -494,6 +495,88 @@ static void addSanitizerCoveragePass(ModulePassManager &mpm, FunctionPassManager
   mpm.addPass(ModuleSanitizerCoveragePass(
       opts::getSanitizerCoverageOptions()));
 }
+// Adds PGO instrumentation generation and use passes.
+static void addPGOPasses(ModulePassManager &mpm, FunctionPassManager &fpm,
+                                      OptimizationLevel level ) {
+  if (opts::isInstrumentingForASTBasedPGO()) {
+    InstrProfOptions options;
+    options.NoRedZone = global.params.disableRedZone;
+    if (global.params.datafileInstrProf)
+      options.InstrProfileOutput = global.params.datafileInstrProf;
+    mpm.addPass(InstrProfiling(options));
+  } else if (opts::isUsingASTBasedPGOProfile()) {
+    // We are generating code with PGO profile information available.
+    // Do indirect call promotion from -O1
+    if (level != OptimizationLevel::O0) {
+      mpm.addPass(PGOIndirectCallPromotion());
+    }
+  }
+}
+
+static void addStripExternalsPass(ModulePassManager &mpm, FunctionPassManager &fpm,
+                                      OptimizationLevel level ) {
+
+  if (level == OptimizationLevel::O1 || level == OptimizationLevel::O2 ||
+      level == OptimizationLevel::O3) {
+//FIXME: Update and uncomment this once gen/passes/StripExternals.cpp is updated to
+// work with the new pass manager.
+//
+//    mpm.addPass(StripExternalsPass());
+//    if (verifyEach) {
+//      mpm.addPass(VerifierPass());
+//    }
+//    mpm.addPass(GlobalDCEPass());
+//    if (verifyEach) {
+//      mpm.addPass(VerifierPass());
+//    }
+  }
+}
+
+static void addSimplifyDRuntimeCallsPass(ModulePassManager &mpm, FunctionPassManager &fpm,
+                                      LoopPassManager &lpm, OptimizationLevel level ) {
+  if (level == OptimizationLevel::O2  || level == OptimizationLevel::O3) {
+//FIXME: Update and uncomment this once gen/passes/SimplifyDRuntimeCalls.cpp is updated to
+// work with the new pass manager.
+//    mpm.addPass(SimplifyDRuntimeCalls());
+//    if (verifyEach) {
+//      mpm.addPass(VerifierPass());
+//    }
+  }
+}
+
+static void addGarbageCollect2StackPass(ModulePassManager &mpm, FunctionPassManager &fpm,
+                                      LoopPassManager &lpm, OptimizationLevel level ) {
+  if (level == OptimizationLevel::O2  || level == OptimizationLevel::O3) {
+//FIXME: Update and uncomment this once gen/passes/GarbageCollect2Stack.cpp is updated to
+// work with the new pass manager.
+//    mpm.addPass(GarbageCollect2Stack());
+//    if (verifyEach) {
+//      mpm.addPass(VerifierPass());
+//    }
+  }
+}
+
+
+static PGOOptions getPGOOptions() {
+ //FIXME: Do we have these anywhere?
+ bool debugInfoForProfiling=false;
+ bool pseudoProbeForProfiling=false;
+ if (opts::isInstrumentingForIRBasedPGO()) {
+    return PGOOptions(global.params.datafileInstrProf, "", "",
+                     PGOOptions::PGOAction::IRInstr,
+                     PGOOptions::CSPGOAction::NoCSAction,
+                     debugInfoForProfiling, pseudoProbeForProfiling);
+  } else if (opts::isUsingIRBasedPGOProfile()) {
+    return PGOOptions(global.params.datafileInstrProf, "", "",
+                     PGOOptions::PGOAction::IRUse,
+                     PGOOptions::CSPGOAction::NoCSAction,
+                     debugInfoForProfiling, pseudoProbeForProfiling);
+  }
+  return PGOOptions("", "", "",
+                    PGOOptions::PGOAction::NoAction,
+                    PGOOptions::CSPGOAction::NoCSAction,
+                    debugInfoForProfiling, pseudoProbeForProfiling);
+}
 static PipelineTuningOptions getPipelineTuningOptions(unsigned optLevelVal, unsigned sizeLevelVal) {
   PipelineTuningOptions pto;
 
@@ -528,10 +611,10 @@ static PipelineTuningOptions getPipelineTuningOptions(unsigned optLevelVal, unsi
 void runOptimizationPasses(llvm::Module *M) {
   // Create a ModulePassManager to hold and optimize the collection of
   // per-module passes we are about to build.
-  
+
   unsigned optLevelVal = optLevel();
   unsigned sizeLevelVal = sizeLevel();
-  
+
 //  builder.OptLevel = optLevel;
 //  builder.SizeLevel = sizeLevel;
 //  builder.PrepareForLTO = opts::isUsingLTO();
@@ -544,8 +627,9 @@ void runOptimizationPasses(llvm::Module *M) {
 //    builder.Inliner = createAlwaysInlinerLegacyPass();
 //  }
 
-  PassBuilder pb(gTargetMachine, getPipelineTuningOptions(optLevelVal, sizeLevelVal));
- 
+  PassBuilder pb(gTargetMachine, getPipelineTuningOptions(optLevelVal, sizeLevelVal),
+                 getPGOOptions());
+
   LoopAnalysisManager lam;
   FunctionAnalysisManager fam;
   CGSCCAnalysisManager cgam;
@@ -562,7 +646,9 @@ void runOptimizationPasses(llvm::Module *M) {
   // Also set up a manager for the per-function passes.
   FunctionPassManager fpm;
 
-  
+  // Also set up manger for the per-loop passes.
+  LoopPassManager lpm;
+
   if (!noVerify) {
     fpm.addPass(VerifierPass());
   }
@@ -570,53 +656,55 @@ void runOptimizationPasses(llvm::Module *M) {
   if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
     pb.registerOptimizerLastEPCallback([&](ModulePassManager &mpm,
                                         OptimizationLevel level) {
-        addAddressSanitizerPasses(mpm,level);
+      addAddressSanitizerPasses(mpm,level);
     });
   }
 
   if (opts::isSanitizerEnabled(opts::MemorySanitizer)) {
     pb.registerOptimizerLastEPCallback([&](ModulePassManager &mpm,
                                         OptimizationLevel level) {
-        addMemorySanitizerPass(fpm,level);
+      addMemorySanitizerPass(fpm,level);
     });
   }
 
   if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {
     pb.registerOptimizerLastEPCallback([&](ModulePassManager &mpm,
                                         OptimizationLevel level) {
-        addThreadSanitizerPass(mpm, fpm,level);
+      addThreadSanitizerPass(mpm, fpm,level);
     });
   }
 
   if (opts::isSanitizerEnabled(opts::CoverageSanitizer)) {
     pb.registerOptimizerLastEPCallback([&](ModulePassManager &mpm,
                                         OptimizationLevel level) {
-        addSanitizerCoveragePass(mpm, fpm,level);
+      addSanitizerCoveragePass(mpm, fpm,level);
     });
   }
-//
-//  if (!disableLangSpecificPasses) {
-//    if (!disableSimplifyDruntimeCalls) {
-//      builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
-//                           legacyAddSimplifyDRuntimeCallsPass);
-//    }
-//
-//    if (!disableGCToStack) {
-//      builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
-//                           legacyAddGarbageCollect2StackPass);
-//    }
-//  }
-//
-//  // EP_OptimizerLast does not exist in LLVM 3.0, add it manually below.
-//  builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-//                       legacyAddStripExternalsPass);
-//
-//  legacyAddPGOPasses(builder, mpm, optLevel);
-//
-//  builder.populateFunctionPassManager(fpm);
-//  builder.populateModulePassManager(mpm);
 
+  if (!disableLangSpecificPasses) {
+    if (!disableSimplifyDruntimeCalls) {
+      pb.registerLoopOptimizerEndEPCallback([&](LoopPassManager &lpm,
+                                          OptimizationLevel level) {
+        addSimplifyDRuntimeCallsPass(mpm,fpm,lpm,level);
+      });
+    }
+
+    if (!disableGCToStack) {
+      pb.registerLoopOptimizerEndEPCallback([&](LoopPassManager &lpm,
+                                          OptimizationLevel level) {
+        addGarbageCollect2StackPass(mpm,fpm,lpm,level);
+      });
+    }
+  }
+
+  pb.registerOptimizerLastEPCallback([&](ModulePassManager &mpm,
+                                      OptimizationLevel level) {
+    addStripExternalsPass(mpm, fpm,level);
+  });
   OptimizationLevel level = getOptimizationLevel();
+
+  addPGOPasses(mpm, fpm, level);
+
 
   if (optLevelVal == 0) {
     mpm = pb.buildO0DefaultPipeline(level, opts::isUsingLTO() || opts::isUsingThinLTO());
@@ -628,6 +716,7 @@ void runOptimizationPasses(llvm::Module *M) {
     mpm = pb.buildPerModuleDefaultPipeline(level);
   }
 
+  fpm.addPass(createFunctionToLoopPassAdaptor(std::move(lpm)));
   mpm.addPass(createModuleToFunctionPassAdaptor(std::move(fpm)));
   mpm.run(*M,mam);
 }
