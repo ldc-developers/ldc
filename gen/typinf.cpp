@@ -93,6 +93,11 @@ void emitTypeInfoMetadata(LLGlobalVariable *typeinfoGlobal, Type *forType) {
       auto val = llvm::UndefValue::get(DtoType(forType));
       meta->addOperand(llvm::MDNode::get(gIR->context(),
                                          llvm::ConstantAsMetadata::get(val)));
+      if (TypeArray *ta = t->isTypeDArray()) {
+        auto val2 = llvm::UndefValue::get(DtoMemType(ta->nextOf()));
+        meta->addOperand(llvm::MDNode::get(gIR->context(),
+                                           llvm::ConstantAsMetadata::get(val2)));
+      }
     }
   }
 }
