@@ -1950,6 +1950,7 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
     expectedType = expectedType->getPointerTo();
 
   if (val->getType() != expectedType) {
+#if LDC_LLVM_VER < 1500
     // The type of globals is determined by their initializer, and the front-end
     // may inject implicit casts for class references and static arrays.
     assert(vd->isDataseg() || (vd->storage_class & STCextern) ||
@@ -1962,6 +1963,7 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
     // work as well.
     assert(getTypeStoreSize(DtoType(type)) <= getTypeStoreSize(pointeeType) &&
            "LValue type mismatch, encountered type too small.");
+#endif
     val = DtoBitCast(val, expectedType);
   }
 
