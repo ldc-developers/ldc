@@ -117,11 +117,13 @@ static cl::opt<int> fSanitizeMemoryTrackOrigins(
     cl::desc(
         "Enable origins tracking in MemorySanitizer (0=disabled, default)"));
 
+#if LDC_LLVM_VER < 1500 && LDC_LLVM_VER >= 1400
 static cl::opt<signed char> passmanager("passmanger",
-    cl::desc("Setting the passmanger (new,legacy):"), cl::ZeroOrMore, cl::init(0),
+    cl::desc("Setting the passmanger (new,legacy):"), cl::ZeroOrMore, cl::init(1),
     cl::values(
         clEnumValN(0, "legacy", "Use the legacy passmanager (available for LLVM14 and below) "),
         clEnumValN(1, "new", "Use the new passmanager (available for LLVM14 and above)")));
+#endif
 
 unsigned optLevel() {
   // Use -O2 as a base for the size-optimization levels.
@@ -441,6 +443,7 @@ static OptimizationLevel getOptimizationLevel(){
     case -2: return OptimizationLevel::Oz;
   }
   //This should never be reached
+  llvm_unreachable("Unexpected optimizeLevel.");
   return OptimizationLevel::O0;
 }
 
@@ -491,35 +494,9 @@ static void addSanitizerCoveragePass(ModulePassManager &mpm, FunctionPassManager
   mpm.addPass(ModuleSanitizerCoveragePass(
       opts::getSanitizerCoverageOptions()));
 }
-/**
- * Adds a set of optimization passes to the given module/function pass
- * managers based on the given optimization and size reduction levels.
- *
- * The selection mirrors Clang behavior and is based on LLVM's
- * PassManagerBuilder.
- */
-//Run optimization passes using the new pass manager
-void runOptimizationPasses(llvm::Module *M) {
-  // Create a ModulePassManager to hold and optimize the collection of
-  // per-module passes we are about to build.
-  
-  unsigned optLevelVal = optLevel();
-  unsigned sizeLevelVal = sizeLevel();
-  
-
+static PipelineTuningOptions getPipelineTuningOptions(unsigned optLevelVal, unsigned sizeLevelVal) {
   PipelineTuningOptions pto;
-  
-//  builder.OptLevel = optLevel;
-//  builder.SizeLevel = sizeLevel;
-//  builder.PrepareForLTO = opts::isUsingLTO();
-//  builder.PrepareForThinLTO = opts::isUsingThinLTO();
-//
-//  if (willInline()) {
-//    auto params = llvm::getInlineParams(optLevel, sizeLevel);
-//    builder.Inliner = createFunctionInliningPass(params);
-//  } else {
-//    builder.Inliner = createAlwaysInlinerLegacyPass();
-//  }
+
   pto.LoopUnrolling = optLevelVal > 0;
 
   pto.LoopUnrolling = !((disableLoopUnrolling.getNumOccurrences() > 0)
@@ -538,7 +515,36 @@ void runOptimizationPasses(llvm::Module *M) {
   pto.SLPVectorization =
       disableSLPVectorization ? false : optLevelVal > 1 && sizeLevelVal < 2;
 
-  PassBuilder pb(gTargetMachine, pto);
+  return pto;
+}
+/**
+ * Adds a set of optimization passes to the given module/function pass
+ * managers based on the given optimization and size reduction levels.
+ *
+ * The selection mirrors Clang behavior and is based on LLVM's
+ * PassManagerBuilder.
+ */
+//Run optimization passes using the new pass manager
+void runOptimizationPasses(llvm::Module *M) {
+  // Create a ModulePassManager to hold and optimize the collection of
+  // per-module passes we are about to build.
+  
+  unsigned optLevelVal = optLevel();
+  unsigned sizeLevelVal = sizeLevel();
+  
+//  builder.OptLevel = optLevel;
+//  builder.SizeLevel = sizeLevel;
+//  builder.PrepareForLTO = opts::isUsingLTO();
+//  builder.PrepareForThinLTO = opts::isUsingThinLTO();
+//
+//  if (willInline()) {
+//    auto params = llvm::getInlineParams(optLevel, sizeLevel);
+//    builder.Inliner = createFunctionInliningPass(params);
+//  } else {
+//    builder.Inliner = createAlwaysInlinerLegacyPass();
+//  }
+
+  PassBuilder pb(gTargetMachine, getPipelineTuningOptions(optLevelVal, sizeLevelVal));
  
   LoopAnalysisManager lam;
   FunctionAnalysisManager fam;
