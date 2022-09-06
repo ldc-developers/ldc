@@ -77,10 +77,11 @@ struct IRAsmStmt {
   IRAsmStmt() : isBranchToLabel(nullptr) {}
 
   std::string code;
-  std::string out_c;
-  std::string in_c;
-  std::vector<LLValue *> out;
-  std::vector<LLValue *> in;
+  struct Operands {
+    std::string c; // contraint
+    std::vector<LLValue *> ops;
+  };
+  Operands out, in;
 
   // if this is nonzero, it contains the target label
   LabelDsymbol *isBranchToLabel;
