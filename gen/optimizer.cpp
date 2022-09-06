@@ -557,7 +557,7 @@ static void addGarbageCollect2StackPass(ModulePassManager &mpm, FunctionPassMana
 }
 
 
-static PGOOptions getPGOOptions() {
+static llvm::Optional<PGOOptions> getPGOOptions() {
  //FIXME: Do we have these anywhere?
  bool debugInfoForProfiling=false;
  bool pseudoProbeForProfiling=false;
@@ -572,10 +572,7 @@ static PGOOptions getPGOOptions() {
                      PGOOptions::CSPGOAction::NoCSAction,
                      debugInfoForProfiling, pseudoProbeForProfiling);
   }
-  return PGOOptions("", "", "",
-                    PGOOptions::PGOAction::NoAction,
-                    PGOOptions::CSPGOAction::NoCSAction,
-                    debugInfoForProfiling, pseudoProbeForProfiling);
+  return None;
 }
 static PipelineTuningOptions getPipelineTuningOptions(unsigned optLevelVal, unsigned sizeLevelVal) {
   PipelineTuningOptions pto;
