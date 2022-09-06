@@ -567,15 +567,36 @@ LLType *stripAddrSpaces(LLType *t)
   if(gIR->dcomputetarget == nullptr)
     return t;
 
+  llvm::PointerType *pt = isaPointer(t);
+  if (!pt)
+    return t;
+
+#if LDC_LLVM_VER >= 1600
+  return getVoidPtrType();
+#elif LDC_LLVM_VER >= 1400
+  if (pt->isOpaque())
+    return getVoidPtrType();
+  else {
+    int indirections = 0;
+    while (t->isPointerTy()) {
+      indirections++;
+      t = t->getPointerElementType();
+    }
+    while (indirections-- != 0)
+      t = t->getPointerTo(0);
+  }
+  return t;
+#else
   int indirections = 0;
   while (t->isPointerTy()) {
     indirections++;
     t = t->getPointerElementType();
   }
   while (indirections-- != 0)
-     t = t->getPointerTo(0);
+    t = t->getPointerTo(0);
 
   return t;
+#endif
 }
 
 LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name) {
