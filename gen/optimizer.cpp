@@ -149,7 +149,7 @@ llvm::CodeGenOpt::Level codeGenOptLevel() {
   return llvm::CodeGenOpt::Default;
 }
 
-static inline void addPass(PassManagerBase &pm, Pass *pass) {
+static inline void legacyAddPass(PassManagerBase &pm, Pass *pass) {
   pm.add(pass);
 
   if (verifyEach) {
@@ -157,35 +157,35 @@ static inline void addPass(PassManagerBase &pm, Pass *pass) {
   }
 }
 
-static void addStripExternalsPass(const PassManagerBuilder &builder,
+static void legacyAddStripExternalsPass(const PassManagerBuilder &builder,
                                   PassManagerBase &pm) {
   if (builder.OptLevel >= 1) {
-    addPass(pm, createStripExternalsPass());
-    addPass(pm, createGlobalDCEPass());
+    legacyAddPass(pm, createStripExternalsPass());
+    legacyAddPass(pm, createGlobalDCEPass());
   }
 }
 
-static void addSimplifyDRuntimeCallsPass(const PassManagerBuilder &builder,
+static void legacyAddSimplifyDRuntimeCallsPass(const PassManagerBuilder &builder,
                                          PassManagerBase &pm) {
   if (builder.OptLevel >= 2 && builder.SizeLevel == 0) {
-    addPass(pm, createSimplifyDRuntimeCalls());
+    legacyAddPass(pm, createSimplifyDRuntimeCalls());
   }
 }
 
-static void addGarbageCollect2StackPass(const PassManagerBuilder &builder,
+static void legacyAddGarbageCollect2StackPass(const PassManagerBuilder &builder,
                                         PassManagerBase &pm) {
   if (builder.OptLevel >= 2 && builder.SizeLevel == 0) {
-    addPass(pm, createGarbageCollect2Stack());
+    legacyAddPass(pm, createGarbageCollect2Stack());
   }
 }
 
-static void addAddressSanitizerPasses(const PassManagerBuilder &Builder,
+static void legacyAddAddressSanitizerPasses(const PassManagerBuilder &Builder,
                                       PassManagerBase &PM) {
   PM.add(createAddressSanitizerFunctionPass());
   PM.add(createModuleAddressSanitizerLegacyPassPass());
 }
 
-static void addMemorySanitizerPass(const PassManagerBuilder &Builder,
+static void legacyAddMemorySanitizerPass(const PassManagerBuilder &Builder,
                                    PassManagerBase &PM) {
   int trackOrigins = fSanitizeMemoryTrackOrigins;
   bool recover = false;
@@ -206,12 +206,12 @@ static void addMemorySanitizerPass(const PassManagerBuilder &Builder,
   }
 }
 
-static void addThreadSanitizerPass(const PassManagerBuilder &Builder,
+static void legacyAddThreadSanitizerPass(const PassManagerBuilder &Builder,
                                    PassManagerBase &PM) {
   PM.add(createThreadSanitizerLegacyPassPass());
 }
 
-static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
+static void legacyAddSanitizerCoveragePass(const PassManagerBuilder &Builder,
                                      legacy::PassManagerBase &PM) {
 #if LDC_LLVM_VER >= 1000
   PM.add(createModuleSanitizerCoverageLegacyPassPass(
@@ -223,7 +223,7 @@ static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
 }
 
 // Adds PGO instrumentation generation and use passes.
-static void addPGOPasses(PassManagerBuilder &builder,
+static void legacyAddPGOPasses(PassManagerBuilder &builder,
                          legacy::PassManagerBase &mpm, unsigned optLevel) {
   if (opts::isInstrumentingForASTBasedPGO()) {
     InstrProfOptions options;
@@ -252,7 +252,7 @@ static void addPGOPasses(PassManagerBuilder &builder,
  * The selection mirrors Clang behavior and is based on LLVM's
  * PassManagerBuilder.
  */
-static void addOptimizationPasses(legacy::PassManagerBase &mpm,
+static void legacyAddOptimizationPasses(legacy::PassManagerBase &mpm,
                                   legacy::FunctionPassManager &fpm,
                                   unsigned optLevel, unsigned sizeLevel) {
   if (!noVerify) {
@@ -291,49 +291,49 @@ static void addOptimizationPasses(legacy::PassManagerBase &mpm,
 
   if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
     builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-                         addAddressSanitizerPasses);
+                         legacyAddAddressSanitizerPasses);
     builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-                         addAddressSanitizerPasses);
+                         legacyAddAddressSanitizerPasses);
   }
 
   if (opts::isSanitizerEnabled(opts::MemorySanitizer)) {
     builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-                         addMemorySanitizerPass);
+                         legacyAddMemorySanitizerPass);
     builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-                         addMemorySanitizerPass);
+                         legacyAddMemorySanitizerPass);
   }
 
   if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {
     builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-                         addThreadSanitizerPass);
+                         legacyAddThreadSanitizerPass);
     builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-                         addThreadSanitizerPass);
+                         legacyAddThreadSanitizerPass);
   }
 
   if (opts::isSanitizerEnabled(opts::CoverageSanitizer)) {
     builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-                         addSanitizerCoveragePass);
+                         legacyAddSanitizerCoveragePass);
     builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
-                         addSanitizerCoveragePass);
+                         legacyAddSanitizerCoveragePass);
   }
 
   if (!disableLangSpecificPasses) {
     if (!disableSimplifyDruntimeCalls) {
       builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
-                           addSimplifyDRuntimeCallsPass);
+                           legacyAddSimplifyDRuntimeCallsPass);
     }
 
     if (!disableGCToStack) {
       builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
-                           addGarbageCollect2StackPass);
+                           legacyAddGarbageCollect2StackPass);
     }
   }
 
   // EP_OptimizerLast does not exist in LLVM 3.0, add it manually below.
   builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
-                       addStripExternalsPass);
+                       legacyAddStripExternalsPass);
 
-  addPGOPasses(builder, mpm, optLevel);
+  legacyAddPGOPasses(builder, mpm, optLevel);
 
   builder.populateFunctionPassManager(fpm);
   builder.populateModulePassManager(mpm);
@@ -389,7 +389,7 @@ bool ldc_optimize_module(llvm::Module *M) {
     mpm.add(createStripSymbolsPass(true));
   }
 
-  addOptimizationPasses(mpm, fpm, optLevel(), sizeLevel());
+  legacyAddOptimizationPasses(mpm, fpm, optLevel(), sizeLevel());
 
   if (global.params.dllimport != DLLImport::none) {
     mpm.add(createDLLImportRelocationPass());
