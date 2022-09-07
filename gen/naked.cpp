@@ -271,19 +271,19 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, const Loc &loc,
     if (rt->isintegral() || rt->ty == TY::Tpointer || rt->ty == TY::Tclass ||
         rt->ty == TY::Taarray) {
       if (rt->size() == 8) {
-        as->out_c = "=A,";
+        as->out.c = "=A,";
       } else {
-        as->out_c = "={ax},";
+        as->out.c = "={ax},";
       }
     } else if (rt->isfloating()) {
       if (rt->iscomplex()) {
         if (fdecl->_linkage == LINK::d) {
           // extern(D) always returns on the FPU stack
-          as->out_c = "={st},={st(1)},";
+          as->out.c = "={st},={st(1)},";
           asmblock->retn = 2;
         } else if (rt->ty == TY::Tcomplex32) {
           // non-extern(D) cfloat is returned as i64
-          as->out_c = "=A,";
+          as->out.c = "=A,";
           asmblock->retty = LLType::getInt64Ty(gIR->context());
         } else {
           // non-extern(D) cdouble and creal are returned via sret
@@ -293,10 +293,10 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, const Loc &loc,
           return;
         }
       } else {
-        as->out_c = "={st},";
+        as->out.c = "={st},";
       }
     } else if (rt->ty == TY::Tarray || rt->ty == TY::Tdelegate) {
-      as->out_c = "={ax},={dx},";
+      as->out.c = "={ax},={dx},";
       asmblock->retn = 2;
 #if 0
       // this is to show how to allocate a temporary for the return value
@@ -306,7 +306,7 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, const Loc &loc,
       // numbered output when the asm block in finalized
 
       // generate asm
-      as->out_c = "=*m,=*m,";
+      as->out.c = "=*m,=*m,";
       LLValue* tmp = DtoRawAlloca(llretTy, 0, ".tmp_asm_ret");
       as->out.push_back( tmp );
       as->out.push_back( DtoGEP(tmp, 0, 1) );
@@ -334,26 +334,26 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, const Loc &loc,
   else if (triple.getArch() == llvm::Triple::x86_64) {
     if (rt->isintegral() || rt->ty == TY::Tpointer || rt->ty == TY::Tclass ||
         rt->ty == TY::Taarray) {
-      as->out_c = "={ax},";
+      as->out.c = "={ax},";
     } else if (rt->isfloating()) {
       const bool isWin64 = triple.isOSWindows();
 
       if (rt == Type::tcomplex80 && !isWin64) {
         // On x87 stack, re=st, im=st(1)
-        as->out_c = "={st},={st(1)},";
+        as->out.c = "={st},={st(1)},";
         asmblock->retn = 2;
       } else if ((rt == Type::tfloat80 || rt == Type::timaginary80) &&
                  !triple.isWindowsMSVCEnvironment()) {
         // On x87 stack
-        as->out_c = "={st},";
+        as->out.c = "={st},";
       } else if (rt == Type::tcomplex32) {
         if (isWin64) {
           // cfloat on Win64 -> %rax
-          as->out_c = "={ax},";
+          as->out.c = "={ax},";
           asmblock->retty = LLType::getInt64Ty(gIR->context());
         } else {
           // cfloat on Posix -> %xmm0 (extract two floats)
-          as->out_c = "={xmm0},";
+          as->out.c = "={xmm0},";
           asmblock->retty = LLType::getDoubleTy(gIR->context());
         }
       } else if (rt->iscomplex()) {
@@ -365,15 +365,15 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, const Loc &loc,
           return;
         } else {
           // cdouble on Posix -> re=%xmm0, im=%xmm1
-          as->out_c = "={xmm0},={xmm1},";
+          as->out.c = "={xmm0},={xmm1},";
           asmblock->retn = 2;
         }
       } else {
         // Plain float/double/ifloat/idouble
-        as->out_c = "={xmm0},";
+        as->out.c = "={xmm0},";
       }
     } else if (rt->ty == TY::Tarray || rt->ty == TY::Tdelegate) {
-      as->out_c = "={ax},={dx},";
+      as->out.c = "={ax},={dx},";
       asmblock->retn = 2;
     } else {
       error(loc, "unimplemented return type `%s` for implicit abi return",
@@ -430,16 +430,23 @@ DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
   // build runtime arguments
   const size_t n = arguments->length - 2;
   LLSmallVector<LLValue *, 8> operands;
+  LLSmallVector<LLType *, 8> indirectTypes;
   operands.reserve(n);
+  indirectTypes.reserve(n);
   for (size_t i = 0; i < n; i++) {
     operands.push_back(DtoRVal((*arguments)[2 + i]));
+    Type *t = (*arguments)[2 + i]->type;
+    LLType *indirectType = nullptr;
+    if (TypePointer *tp = t->isTypePointer())
+      indirectType = DtoType(tp->nextOf());
+    indirectTypes.push_back(indirectType);
   }
 
   Type *returnType = fd->type->nextOf();
   LLType *irReturnType = DtoType(returnType->toBasetype());
 
   LLValue *rv =
-      DtoInlineAsmExpr(loc, code, constraints, operands, irReturnType);
+      DtoInlineAsmExpr(loc, code, constraints, operands, indirectTypes,  irReturnType);
 
   // work around missing tuple support for users of the return value
   if (sretPointer || returnType->ty == TY::Tstruct) {
@@ -457,6 +464,7 @@ DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
 llvm::CallInst *DtoInlineAsmExpr(const Loc &loc, llvm::StringRef code,
                                  llvm::StringRef constraints,
                                  llvm::ArrayRef<llvm::Value *> operands,
+                                 llvm::ArrayRef<llvm::Type *> indirectTypes,
                                  llvm::Type *returnType) {
   IF_LOG Logger::println("DtoInlineAsmExpr @ %s", loc.toChars());
   LOG_SCOPE;
@@ -486,7 +494,7 @@ llvm::CallInst *DtoInlineAsmExpr(const Loc &loc, llvm::StringRef code,
   bool sideeffect = true;
   llvm::InlineAsm *ia = llvm::InlineAsm::get(FT, code, constraints, sideeffect);
 
-  auto call = gIR->createInlineAsmCall(loc, ia, operands);
+  auto call = gIR->createInlineAsmCall(loc, ia, operands, indirectTypes);
 
   return call;
 }
