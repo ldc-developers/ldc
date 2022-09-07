@@ -602,42 +602,42 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   std::string code;
   size_t asmIdx = asmblock->retn;
 
+  using AsmStmtFunc = std::function<const IRAsmStmt::Operands&(IRAsmStmt*)>;
+  auto fillArgBlock = [&asmblock, &code, &asmIdx]
+                        (ArgBlock& ab, bool appendToCode, std::string prefix,
+                         AsmStmtFunc& curr, AsmStmtFunc& other) {
+    size_t n = asmblock->s.size();
+    for (size_t i = 0; i < n; ++i) {
+      IRAsmStmt *a = asmblock->s[i];
+      assert(a);
+      auto op = curr(a);
+      size_t onn = op.ops.size();
+      for (size_t j = 0; j < onn; ++j) {
+        ab.args.push_back(op.ops[j]);
+        ab.types.push_back(op.ops[j]->getType());
+      }
+      if (!op.c.empty()) {
+        ab.c += op.c;
+      }
+      remap_args(a->code, onn + other(a).ops.size(), asmIdx, prefix);
+      asmIdx += onn;
+      if (appendToCode) {
+        if (!code.empty()) {
+          code += "\n\t";
+        }
+        code += a->code;
+      }
+    }
+  };
+  AsmStmtFunc out_f = [](IRAsmStmt *a) { return a->out; };
+  AsmStmtFunc in_f  = [](IRAsmStmt *a) { return a->in;  };
+
   Logger::println("do outputs");
-  size_t n = asmblock->s.size();
-  for (size_t i = 0; i < n; ++i) {
-    IRAsmStmt *a = asmblock->s[i];
-    assert(a);
-    size_t onn = a->out.ops.size();
-    for (size_t j = 0; j < onn; ++j) {
-      out.args.push_back(a->out.ops[j]);
-      out.types.push_back(a->out.ops[j]->getType());
-    }
-    if (!a->out.c.empty()) {
-      out.c += a->out.c;
-    }
-    remap_args(a->code, onn + a->in.ops.size(), asmIdx, "<<out");
-    asmIdx += onn;
-  }
+  fillArgBlock(out, false, "<<out", out_f, in_f);
 
   Logger::println("do inputs");
-  for (size_t i = 0; i < n; ++i) {
-    IRAsmStmt *a = asmblock->s[i];
-    assert(a);
-    size_t inn = a->in.ops.size();
-    for (size_t j = 0; j < inn; ++j) {
-      in.args.push_back(a->in.ops[j]);
-      in.types.push_back(a->in.ops[j]->getType());
-    }
-    if (!a->in.c.empty()) {
-      in.c += a->in.c;
-    }
-    remap_args(a->code, inn + a->out.ops.size(), asmIdx, "<<in");
-    asmIdx += inn;
-    if (!code.empty()) {
-      code += "\n\t";
-    }
-    code += a->code;
-  }
+  fillArgBlock(in, true, "<<in", in_f, out_f);
+
   asmblock->s.clear();
 
   // append inputs
