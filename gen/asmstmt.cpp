@@ -593,12 +593,11 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   }
 
   // build asm block
-  std::vector<LLValue *> outargs;
-  std::vector<LLValue *> inargs;
-  std::vector<LLType *> outtypes;
-  std::vector<LLType *> intypes;
-  std::string out_c;
-  std::string in_c;
+  struct ArgBlock {
+    std::vector<LLValue *> args;
+    std::vector<LLType *> types;
+    std::string c;
+  } in, out;
   std::string clobbers;
   std::string code;
   size_t asmIdx = asmblock->retn;
@@ -610,11 +609,11 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     assert(a);
     size_t onn = a->out.ops.size();
     for (size_t j = 0; j < onn; ++j) {
-      outargs.push_back(a->out.ops[j]);
-      outtypes.push_back(a->out.ops[j]->getType());
+      out.args.push_back(a->out.ops[j]);
+      out.types.push_back(a->out.ops[j]->getType());
     }
     if (!a->out.c.empty()) {
-      out_c += a->out.c;
+      out.c += a->out.c;
     }
     remap_args(a->code, onn + a->in.ops.size(), asmIdx, "<<out");
     asmIdx += onn;
@@ -626,11 +625,11 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     assert(a);
     size_t inn = a->in.ops.size();
     for (size_t j = 0; j < inn; ++j) {
-      inargs.push_back(a->in.ops[j]);
-      intypes.push_back(a->in.ops[j]->getType());
+      in.args.push_back(a->in.ops[j]);
+      in.types.push_back(a->in.ops[j]->getType());
     }
     if (!a->in.c.empty()) {
-      in_c += a->in.c;
+      in.c += a->in.c;
     }
     remap_args(a->code, inn + a->out.ops.size(), asmIdx, "<<in");
     asmIdx += inn;
@@ -642,21 +641,21 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   asmblock->s.clear();
 
   // append inputs
-  out_c += in_c;
+  out.c += in.c;
 
   // append clobbers
   for (const auto &c : asmblock->clobs) {
-    out_c += c;
+    out.c += c;
   }
 
   // remove excessive comma
-  if (!out_c.empty()) {
-    out_c.resize(out_c.size() - 1);
+  if (!out.c.empty()) {
+    out.c.resize(out.c.size() - 1);
   }
 
   IF_LOG {
     Logger::println("code = \"%s\"", code.c_str());
-    Logger::println("constraints = \"%s\"", out_c.c_str());
+    Logger::println("constraints = \"%s\"", out.c.c_str());
   }
 
   // build return types
@@ -669,14 +668,14 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
 
   // build argument types
   std::vector<LLType *> types;
-  types.insert(types.end(), outtypes.begin(), outtypes.end());
-  types.insert(types.end(), intypes.begin(), intypes.end());
+  types.insert(types.end(), out.types.begin(), out.types.end());
+  types.insert(types.end(), in.types.begin(), in.types.end());
   llvm::FunctionType *fty = llvm::FunctionType::get(retty, types, false);
   IF_LOG Logger::cout() << "function type = " << *fty << '\n';
 
   std::vector<LLValue *> args;
-  args.insert(args.end(), outargs.begin(), outargs.end());
-  args.insert(args.end(), inargs.begin(), inargs.end());
+  args.insert(args.end(), out.args.begin(), out.args.end());
+  args.insert(args.end(), in.args.begin(), in.args.end());
 
   IF_LOG {
     Logger::cout() << "Arguments:" << '\n';
@@ -694,7 +693,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     Logger::undent();
   }
 
-  llvm::InlineAsm *ia = llvm::InlineAsm::get(fty, code, out_c, true);
+  llvm::InlineAsm *ia = llvm::InlineAsm::get(fty, code, out.c, true);
 
   auto call = p->createInlineAsmCall(stmt->loc, ia, args);
   if (!retty->isVoidTy()) {
