@@ -412,11 +412,11 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
   // push asm statement
   auto asmStmt = new IRAsmStmt;
   asmStmt->code = code->insnTemplate;
-  asmStmt->out_c = llvmOutConstraints;
-  asmStmt->in_c = llvmInConstraints;
-  asmStmt->out.insert(asmStmt->out.begin(), output_values.begin(),
+  asmStmt->out.c = llvmOutConstraints;
+  asmStmt->in.c = llvmInConstraints;
+  asmStmt->out.ops.insert(asmStmt->out.ops.begin(), output_values.begin(),
                       output_values.end());
-  asmStmt->in.insert(asmStmt->in.begin(), input_values.begin(),
+  asmStmt->in.ops.insert(asmStmt->in.ops.begin(), input_values.begin(),
                      input_values.end());
   asmStmt->isBranchToLabel = stmt->isBranchToLabel;
   asmblock->s.push_back(asmStmt);
@@ -579,8 +579,8 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
       code << "movl $<<in" << n_goto << ">>, $<<out0>>\n";
       // FIXME: Store the value -> label mapping somewhere, so it can be
       // referenced later
-      outSetterStmt->in.push_back(DtoConstUint(n_goto));
-      outSetterStmt->in_c += "i,";
+      outSetterStmt->in.ops.push_back(DtoConstUint(n_goto));
+      outSetterStmt->in.c += "i,";
       code << asmGotoEnd;
 
       ++n_goto;
@@ -593,8 +593,8 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
       // create storage for and initialize the temporary
       jump_target = DtoAllocaDump(DtoConstUint(0), 0, "__llvm_jump_target");
       // setup variable for output from asm
-      outSetterStmt->out_c = "=*m,";
-      outSetterStmt->out.push_back(jump_target);
+      outSetterStmt->out.c = "=*m,";
+      outSetterStmt->out.ops.push_back(jump_target);
 
       asmblock->s.push_back(outSetterStmt);
     } else {
@@ -631,15 +631,15 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   for (size_t i = 0; i < n; ++i) {
     IRAsmStmt *a = asmblock->s[i];
     assert(a);
-    size_t onn = a->out.size();
+    size_t onn = a->out.ops.size();
     for (size_t j = 0; j < onn; ++j) {
-      outargs.push_back(a->out[j]);
-      outtypes.push_back(a->out[j]->getType());
+      outargs.push_back(a->out.ops[j]);
+      outtypes.push_back(a->out.ops[j]->getType());
     }
-    if (!a->out_c.empty()) {
-      out_c += a->out_c;
+    if (!a->out.c.empty()) {
+      out_c += a->out.c;
     }
-    remap_outargs(a->code, onn + a->in.size(), asmIdx);
+    remap_outargs(a->code, onn + a->in.ops.size(), asmIdx);
     asmIdx += onn;
   }
 
@@ -647,15 +647,15 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   for (size_t i = 0; i < n; ++i) {
     IRAsmStmt *a = asmblock->s[i];
     assert(a);
-    size_t inn = a->in.size();
+    size_t inn = a->in.ops.size();
     for (size_t j = 0; j < inn; ++j) {
-      inargs.push_back(a->in[j]);
-      intypes.push_back(a->in[j]->getType());
+      inargs.push_back(a->in.ops[j]);
+      intypes.push_back(a->in.ops[j]->getType());
     }
-    if (!a->in_c.empty()) {
-      in_c += a->in_c;
+    if (!a->in.c.empty()) {
+      in_c += a->in.c;
     }
-    remap_inargs(a->code, inn + a->out.size(), asmIdx);
+    remap_inargs(a->code, inn + a->out.ops.size(), asmIdx);
     asmIdx += inn;
     if (!code.empty()) {
       code += "\n\t";
