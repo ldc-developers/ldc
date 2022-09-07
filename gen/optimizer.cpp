@@ -640,8 +640,16 @@ void runOptimizationPasses(llvm::Module *M) {
   ModulePassManager mpm;
 
   if (!noVerify) {
-    mpm.addPass(createModuleToFunctionPassAdaptor(VerifierPass()));
+    pb.registerPipelineStartEPCallback([&](ModulePassManager &mpm,
+                                          OptimizationLevel level) {
+      mpm.addPass(createModuleToFunctionPassAdaptor(VerifierPass()));
+    });
   }
+
+  pb.registerPipelineStartEPCallback([&](ModulePassManager &mpm,
+                                        OptimizationLevel level) {
+    addPGOPasses(mpm, level);
+  });
 
   if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
     pb.registerOptimizerLastEPCallback([&](ModulePassManager &mpm,
@@ -694,6 +702,8 @@ void runOptimizationPasses(llvm::Module *M) {
     addStripExternalsPass(mpm, level);
   });
 
+
+
   OptimizationLevel level = getOptimizationLevel();
 
   if (optLevelVal == 0) {
@@ -706,7 +716,6 @@ void runOptimizationPasses(llvm::Module *M) {
     mpm = pb.buildPerModuleDefaultPipeline(level);
   }
   
-  addPGOPasses(mpm, level);
 
   mpm.run(*M,mam);
 }
