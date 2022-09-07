@@ -695,7 +695,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
 
   llvm::InlineAsm *ia = llvm::InlineAsm::get(fty, code, out.c, true);
 
-  auto call = p->createInlineAsmCall(stmt->loc, ia, args);
+  auto call = p->createInlineAsmCall(stmt->loc, ia, args, {});
   if (!retty->isVoidTy()) {
     call->setName("asm");
   }

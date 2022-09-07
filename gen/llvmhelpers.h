@@ -150,6 +150,7 @@ DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
 llvm::CallInst *DtoInlineAsmExpr(const Loc &loc, llvm::StringRef code,
                                  llvm::StringRef constraints,
                                  llvm::ArrayRef<llvm::Value *> operands,
+                                 llvm::ArrayRef<llvm::Type *> indirectTypes,
                                  llvm::Type *returnType);
 
 /// Returns the size the LLVM type for a member variable of the given type will

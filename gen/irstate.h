@@ -268,7 +268,8 @@ public:
   void addLinkerDependentLib(llvm::StringRef libraryName);
 
   llvm::CallInst *createInlineAsmCall(const Loc &loc, llvm::InlineAsm *ia,
-                                      llvm::ArrayRef<llvm::Value *> args);
+                                      llvm::ArrayRef<llvm::Value *> args,
+                                      llvm::ArrayRef<llvm::Type *> indirectTypes);
   void addInlineAsmSrcLoc(const Loc &loc, llvm::CallInst *inlineAsmCall);
   const Loc &getInlineAsmSrcLoc(unsigned srcLocCookie) const;
 

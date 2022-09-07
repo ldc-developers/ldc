@@ -439,7 +439,7 @@ DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
   LLType *irReturnType = DtoType(returnType->toBasetype());
 
   LLValue *rv =
-      DtoInlineAsmExpr(loc, code, constraints, operands, irReturnType);
+      DtoInlineAsmExpr(loc, code, constraints, operands, {},  irReturnType);
 
   // work around missing tuple support for users of the return value
   if (sretPointer || returnType->ty == TY::Tstruct) {
@@ -457,6 +457,7 @@ DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
 llvm::CallInst *DtoInlineAsmExpr(const Loc &loc, llvm::StringRef code,
                                  llvm::StringRef constraints,
                                  llvm::ArrayRef<llvm::Value *> operands,
+                                 llvm::ArrayRef<llvm::Type *> indirectTypes,
                                  llvm::Type *returnType) {
   IF_LOG Logger::println("DtoInlineAsmExpr @ %s", loc.toChars());
   LOG_SCOPE;
@@ -486,7 +487,7 @@ llvm::CallInst *DtoInlineAsmExpr(const Loc &loc, llvm::StringRef code,
   bool sideeffect = true;
   llvm::InlineAsm *ia = llvm::InlineAsm::get(FT, code, constraints, sideeffect);
 
-  auto call = gIR->createInlineAsmCall(loc, ia, operands);
+  auto call = gIR->createInlineAsmCall(loc, ia, operands, indirectTypes);
 
   return call;
 }
