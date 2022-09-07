@@ -425,35 +425,12 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
 //////////////////////////////////////////////////////////////////////////////
 
 // rewrite argument indices to the block scope indices
-static void remap_outargs(std::string &insnt, size_t nargs, size_t idx) {
+static void remap_args(std::string &insnt, size_t nargs, size_t idx,
+                       const std::string& prefix) {
   static const std::string digits[10] = {"0", "1", "2", "3", "4",
                                          "5", "6", "7", "8", "9"};
   assert(nargs <= 10);
 
-  static const std::string prefix("<<out");
-  static const std::string suffix(">>");
-  std::string argnum;
-  std::string needle;
-  char buf[10];
-  for (unsigned i = 0; i < nargs; i++) {
-    needle = prefix + digits[i] + suffix;
-    size_t pos = insnt.find(needle);
-    if (std::string::npos != pos) {
-      sprintf(buf, "%llu", static_cast<unsigned long long>(idx++));
-    }
-    while (std::string::npos != (pos = insnt.find(needle))) {
-      insnt.replace(pos, needle.size(), buf);
-    }
-  }
-}
-
-// rewrite argument indices to the block scope indices
-static void remap_inargs(std::string &insnt, size_t nargs, size_t idx) {
-  static const std::string digits[10] = {"0", "1", "2", "3", "4",
-                                         "5", "6", "7", "8", "9"};
-  assert(nargs <= 10);
-
-  static const std::string prefix("<<in");
   static const std::string suffix(">>");
   std::string argnum;
   std::string needle;
@@ -639,7 +616,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     if (!a->out.c.empty()) {
       out_c += a->out.c;
     }
-    remap_outargs(a->code, onn + a->in.ops.size(), asmIdx);
+    remap_args(a->code, onn + a->in.ops.size(), asmIdx, "<<out");
     asmIdx += onn;
   }
 
@@ -655,7 +632,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     if (!a->in.c.empty()) {
       in_c += a->in.c;
     }
-    remap_inargs(a->code, inn + a->out.ops.size(), asmIdx);
+    remap_args(a->code, inn + a->out.ops.size(), asmIdx, "<<in");
     asmIdx += inn;
     if (!code.empty()) {
       code += "\n\t";
