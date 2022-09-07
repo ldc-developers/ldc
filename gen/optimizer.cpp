@@ -693,10 +693,8 @@ void runOptimizationPasses(llvm::Module *M) {
                                       OptimizationLevel level) {
     addStripExternalsPass(mpm, level);
   });
+
   OptimizationLevel level = getOptimizationLevel();
-
-  addPGOPasses(mpm, level);
-
 
   if (optLevelVal == 0) {
     mpm = pb.buildO0DefaultPipeline(level, opts::isUsingLTO() || opts::isUsingThinLTO());
@@ -707,6 +705,8 @@ void runOptimizationPasses(llvm::Module *M) {
   } else {
     mpm = pb.buildPerModuleDefaultPipeline(level);
   }
+  
+  addPGOPasses(mpm, level);
 
   mpm.run(*M,mam);
 }
