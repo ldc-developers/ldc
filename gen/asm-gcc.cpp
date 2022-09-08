@@ -211,13 +211,12 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
       if (isOutput) {
         assert(e->isLvalue() && "should have been caught by front-end");
         LLValue *lval = DtoLVal(e);
+        indirectTypes.push_back(DtoType(e->type));
         if (isIndirect) {
           operands.push_back(lval);
-          indirectTypes.push_back(DtoType(e->type));
         } else {
           outputLVals.push_back(lval);
           outputTypes.push_back(DtoType(e->type));
-          indirectTypes.push_back(nullptr);
         }
       } else {
         if (isIndirect && !e->isLvalue()) {
@@ -230,7 +229,9 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
 
         LLValue *inputVal = isIndirect ? DtoLVal(e) : DtoRVal(e);
         operands.push_back(inputVal);
-        LLType *indirectType = isIndirect ? DtoType(e->type) : nullptr;
+        LLType *indirectType = isaPointer(inputVal->getType()) ?
+                                      DtoType(e->type) :
+                                      nullptr;
         indirectTypes.push_back(indirectType);
       }
     }
