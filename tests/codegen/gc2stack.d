@@ -1,5 +1,5 @@
-// RUN: %ldc -O2 -c -output-ll -of=%t.ll --passmanger=legacy %s && FileCheck %s < %t.ll 
-// RUN: %ldc -O2 -disable-gc2stack -c -output-ll -of=%t.ll --passmanger=legacy %s && FileCheck %s --check-prefix NOOPT < %t.ll
+// RUN: %ldc -O2 -c -output-ll -of=%t.ll --passmanager=legacy %s && FileCheck %s < %t.ll 
+// RUN: %ldc -O2 -disable-gc2stack -c -output-ll -of=%t.ll --passmanager=legacy %s && FileCheck %s --check-prefix NOOPT < %t.ll
 
 class Bar
 {
