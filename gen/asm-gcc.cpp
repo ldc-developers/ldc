@@ -229,6 +229,8 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
 
         LLValue *inputVal = isIndirect ? DtoLVal(e) : DtoRVal(e);
         operands.push_back(inputVal);
+        if (isIndirect)
+          indirectTypes.push_back(DtoType(e->type));
       }
     }
   }
