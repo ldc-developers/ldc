@@ -277,7 +277,7 @@ IRState::createInlineAsmCall(const Loc &loc, llvm::InlineAsm *ia,
     
   for (const auto &constraintInfo : ia->ParseConstraints()) {
     if (constraintInfo.isIndirect) {
-      llvm::Type *indirectType = indirectLen != 0 && indirectTypes[indirectIdx] ?
+      llvm::Type *indirectType = indirectLen != 0 ?
                                     indirectTypes[indirectIdx] :
                                     args[i]->getType()->getPointerElementType();
         
