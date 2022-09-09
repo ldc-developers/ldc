@@ -430,23 +430,16 @@ DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
   // build runtime arguments
   const size_t n = arguments->length - 2;
   LLSmallVector<LLValue *, 8> operands;
-  LLSmallVector<LLType *, 8> indirectTypes;
   operands.reserve(n);
-  indirectTypes.reserve(n);
   for (size_t i = 0; i < n; i++) {
     operands.push_back(DtoRVal((*arguments)[2 + i]));
-    Type *t = (*arguments)[2 + i]->type;
-    LLType *indirectType = nullptr;
-    if (TypePointer *tp = t->isTypePointer())
-      indirectType = DtoType(tp->nextOf());
-    indirectTypes.push_back(indirectType);
   }
 
   Type *returnType = fd->type->nextOf();
   LLType *irReturnType = DtoType(returnType->toBasetype());
 
   LLValue *rv =
-      DtoInlineAsmExpr(loc, code, constraints, operands, indirectTypes,  irReturnType);
+      DtoInlineAsmExpr(loc, code, constraints, operands, {},  irReturnType);
 
   // work around missing tuple support for users of the return value
   if (sretPointer || returnType->ty == TY::Tstruct) {
