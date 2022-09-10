@@ -120,6 +120,11 @@ void appendTargetArgsForGcc(std::vector<std::string> &args) {
     }
     return;
 
+  case Triple::riscv64:
+      args.push_back("-march=rv64gc");
+      args.push_back("-mabi=lp64d");
+    return;
+
   default:
     break;
   }

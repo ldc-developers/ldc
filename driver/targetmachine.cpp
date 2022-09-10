@@ -102,6 +102,8 @@ static const char *getABI(const llvm::Triple &triple) {
     return "elfv1";
   case llvm::Triple::ppc64le:
     return "elfv2";
+  case llvm::Triple::riscv64:
+    return "lp64d";
   default:
     return "";
   }
@@ -416,6 +418,11 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
   // if the user did not make an explicit choice.
   if (cpu == "x86-64" && !hasFeature("cx16")) {
     features.push_back("+cx16");
+  }
+
+  if (triple.getArch() == llvm::Triple::riscv64 && !hasFeature("d")) {
+    // Support Double-Precision Floating-Point by default.
+    features.push_back("+d");
   }
 
   // Handle cases where LLVM picks wrong default relocModel
