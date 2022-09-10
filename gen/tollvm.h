@@ -142,6 +142,7 @@ llvm::Argument *isaArgument(LLValue *v);
 LLGlobalVariable *isaGlobalVar(LLValue *v);
 
 // llvm::T::get(...) wrappers
+LLType *getI8Type();
 LLPointerType *getPtrToType(LLType *t);
 LLPointerType *getVoidPtrType();
 llvm::ConstantPointerNull *getNullPtr(LLType *t);

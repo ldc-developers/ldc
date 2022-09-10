@@ -700,6 +700,8 @@ llvm::GlobalVariable *isaGlobalVar(LLValue *v) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+LLType *getI8Type() { return LLType::getInt8Ty(gIR->context()); }
+
 LLPointerType *getPtrToType(LLType *t) {
   if (t == LLType::getVoidTy(gIR->context()))
     t = LLType::getInt8Ty(gIR->context());
