@@ -182,9 +182,10 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
   static std::string memory_name = "memory";
 
   AsmCode *code = static_cast<AsmCode *>(stmt->asmcode);
-  std::vector<LLValue *> input_values;
+  auto asmStmt = new IRAsmStmt;
+  asmStmt->isBranchToLabel = stmt->isBranchToLabel;
+
   std::vector<std::string> input_constraints;
-  std::vector<LLValue *> output_values;
   std::vector<std::string> output_constraints;
   std::vector<std::string> clobbers;
 
@@ -264,11 +265,11 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
 
     if (is_input) {
       arg_map[i] = --input_idx;
-      input_values.push_back(arg_val);
+      asmStmt->in.ops.push_back(arg_val);
       input_constraints.push_back(cns);
     } else {
       arg_map[i] = n_outputs++;
-      output_values.push_back(arg_val);
+      asmStmt->out.ops.push_back(arg_val);
       output_constraints.push_back(cns);
     }
   }
@@ -346,8 +347,6 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
   }
 
   // rewrite GCC-style constraints to LLVM-style constraints
-  std::string llvmOutConstraints;
-  std::string llvmInConstraints;
   int n = 0;
   for (auto &oc : output_constraints) {
     // rewrite update constraint to in and out constraints
@@ -367,17 +366,17 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
       // Must be at the back; unused operands before used ones screw up
       // numbering.
       input_constraints.push_back(ss.str());
-      input_values.push_back(output_values[n]);
+      asmStmt->in.ops.push_back(asmStmt->out.ops[n]);
     }
-    llvmOutConstraints += oc;
-    llvmOutConstraints += ",";
+    asmStmt->out.c += oc;
+    asmStmt->out.c += ",";
     n++;
   }
   asmblock->outputcount += n;
 
   for (const auto &ic : input_constraints) {
-    llvmInConstraints += ic;
-    llvmInConstraints += ",";
+    asmStmt->in.c += ic;
+    asmStmt->in.c += ",";
   }
 
   std::string clobstr;
@@ -391,7 +390,7 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
       Logger::println("Output values:");
       LOG_SCOPE
       size_t i = 0;
-      for (auto ov : output_values) {
+      for (auto ov : asmStmt->out.ops) {
         Logger::cout() << "Out " << i++ << " = " << *ov << '\n';
       }
     }
@@ -399,7 +398,7 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
       Logger::println("Input values:");
       LOG_SCOPE
       size_t i = 0;
-      for (auto iv : input_values) {
+      for (auto iv : asmStmt->in.ops) {
         Logger::cout() << "In  " << i++ << " = " << *iv << '\n';
       }
     }
@@ -410,15 +409,8 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
   replace_func_name(irs, code->insnTemplate);
 
   // push asm statement
-  auto asmStmt = new IRAsmStmt;
+
   asmStmt->code = code->insnTemplate;
-  asmStmt->out.c = llvmOutConstraints;
-  asmStmt->in.c = llvmInConstraints;
-  asmStmt->out.ops.insert(asmStmt->out.ops.begin(), output_values.begin(),
-                      output_values.end());
-  asmStmt->in.ops.insert(asmStmt->in.ops.begin(), input_values.begin(),
-                     input_values.end());
-  asmStmt->isBranchToLabel = stmt->isBranchToLabel;
   asmblock->s.push_back(asmStmt);
 }
 
