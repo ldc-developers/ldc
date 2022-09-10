@@ -397,46 +397,50 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
   IF_LOG Logger::cout() << "Function " << fd->toChars() << " has depth "
                         << depth << '\n';
 
-  AggrTypeBuilder builder(false);
+  AggrTypeBuilder builder;
 
   if (depth != 0) {
     assert(innerFrameType);
-    unsigned ptrSize = gDataLayout->getPointerSize();
     // Add frame pointer types for all but last frame
     for (unsigned i = 0; i < (depth - 1); ++i) {
-      builder.addType(innerFrameType->getElementType(i), ptrSize);
+      builder.addType(innerFrameType->getElementType(i), target.ptrsize);
     }
     // Add frame pointer type for last frame
-    builder.addType(LLPointerType::getUnqual(innerFrameType), ptrSize);
+    builder.addType(LLPointerType::getUnqual(innerFrameType), target.ptrsize);
   }
 
   // Add the direct nested variables of this function, and update their
   // indices to match.
   // TODO: optimize ordering for minimal space usage?
+  unsigned maxAlignment = 1;
   for (auto vd : fd->closureVars) {
-    unsigned alignment = DtoAlignment(vd);
-    if (alignment > 1) {
-      builder.alignCurrentOffset(alignment);
-    }
-
     const bool isParam = vd->isParameter();
 
-    IrLocal &irLocal =
-        *(isParam ? getIrParameter(vd, true) : getIrLocal(vd, true));
-    irLocal.nestedIndex = builder.currentFieldIndex();
-    irLocal.nestedDepth = depth;
-
     LLType *t = nullptr;
+    unsigned alignment = 0;
     if (captureByRef(vd)) {
       t = DtoType(vd->type->pointerTo());
+      alignment = target.ptrsize;
     } else if (isParam && (vd->storage_class & STClazy)) {
       // the type is a delegate (LL struct)
       auto tf = TypeFunction::create(nullptr, vd->type, VARARGnone, LINK::d);
       auto td = TypeDelegate::create(tf);
       t = DtoType(td);
+      alignment = target.ptrsize;
     } else {
       t = DtoMemType(vd->type);
+      alignment = DtoAlignment(vd);
     }
+
+    if (alignment > 1) {
+      builder.alignCurrentOffset(alignment);
+      maxAlignment = std::max(maxAlignment, alignment);
+    }
+
+    IrLocal &irLocal =
+        *(isParam ? getIrParameter(vd, true) : getIrLocal(vd, true));
+    irLocal.nestedIndex = builder.currentFieldIndex();
+    irLocal.nestedDepth = depth;
 
     builder.addType(t, getTypeAllocSize(t));
 
@@ -444,15 +448,15 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
                           << *t << "\n";
   }
 
-  LLStructType *frameType =
-      LLStructType::create(gIR->context(), builder.defaultTypes(),
-                           std::string("nest.") + fd->toChars());
+  LLStructType *frameType = LLStructType::create(
+      gIR->context(), builder.defaultTypes(),
+      std::string("nest.") + fd->toChars(), builder.isPacked());
 
   IF_LOG Logger::cout() << "frameType = " << *frameType << '\n';
 
   // Store type in IrFunction
   irFunc.frameType = frameType;
-  irFunc.frameTypeAlignment = builder.overallAlignment();
+  irFunc.frameTypeAlignment = maxAlignment;
 }
 
 void DtoCreateNestedContext(FuncGenState &funcGen) {

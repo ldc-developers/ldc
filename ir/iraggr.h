@@ -107,7 +107,7 @@ private:
   void addFieldInitializers(llvm::SmallVectorImpl<llvm::Constant *> &constants,
                             const VarInitMap &explicitInitializers,
                             AggregateDeclaration *decl, unsigned &offset,
-                            unsigned &interfaceVtblIndex);
+                            unsigned &interfaceVtblIndex, bool &isPacked);
 };
 
 /// Represents a struct.

@@ -205,8 +205,9 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
 
   // Add the initializers for the member fields.
   unsigned dummy = 0;
-  addFieldInitializers(constants, explicitInitializers, aggrdecl, offset,
-                       dummy);
+  bool isPacked = false;
+  addFieldInitializers(constants, explicitInitializers, aggrdecl, offset, dummy,
+                       isPacked);
 
   // tail padding?
   const size_t structsize = aggrdecl->size(Loc());
@@ -219,7 +220,7 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
   for (auto c : constants)
     types.push_back(c->getType());
 
-  auto llStructType = getLLStructType();
+  const auto llStructType = getLLStructType();
   bool isCompatible = (types.size() == llStructType->getNumElements());
   if (isCompatible) {
     for (size_t i = 0; i < types.size(); i++) {
@@ -231,10 +232,16 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
   }
 
   // build constant
-  const bool isPacked = getIrType(type)->isAggr()->packed;
-  LLStructType *llType =
-      isCompatible ? llStructType
-                   : LLStructType::get(gIR->context(), types, isPacked);
+  LLStructType *llType = llStructType;
+  if (!isCompatible) {
+    // Note: isPacked only reflects whether there are misaligned IR fields,
+    // not checking whether the aggregate contains appropriate tail padding.
+    // So the resulting constant might contain more (implicit) tail padding than
+    // the actual type, which should be harmless.
+    llType = LLStructType::get(gIR->context(), types, isPacked);
+    assert(getTypeAllocSize(llType) >= structsize);
+  }
+
   llvm::Constant *c = LLConstantStruct::get(llType, constants);
   IF_LOG Logger::cout() << "final initializer: " << *c << std::endl;
   return c;
@@ -243,12 +250,12 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
 void IrAggr::addFieldInitializers(
     llvm::SmallVectorImpl<llvm::Constant *> &constants,
     const VarInitMap &explicitInitializers, AggregateDeclaration *decl,
-    unsigned &offset, unsigned &interfaceVtblIndex) {
+    unsigned &offset, unsigned &interfaceVtblIndex, bool &isPacked) {
 
   if (ClassDeclaration *cd = decl->isClassDeclaration()) {
     if (cd->baseClass) {
       addFieldInitializers(constants, explicitInitializers, cd->baseClass,
-                           offset, interfaceVtblIndex);
+                           offset, interfaceVtblIndex, isPacked);
     }
 
     // has interface vtbls?
@@ -271,31 +278,83 @@ void IrAggr::addFieldInitializers(
     }
   }
 
-  AggrTypeBuilder b(false, offset);
+  AggrTypeBuilder b(offset);
   b.addAggregate(decl,
                  explicitInitializers.empty() ? nullptr : &explicitInitializers,
                  AggrTypeBuilder::Aliases::Skip);
   offset = b.currentOffset();
+  if (!isPacked)
+    isPacked = b.isPacked();
 
   const size_t baseLLFieldIndex = constants.size();
   const size_t numNewLLFields = b.defaultTypes().size();
   constants.resize(constants.size() + numNewLLFields, nullptr);
 
-  // add explicit and non-overlapping implicit initializers
-  for (const auto &pair : b.varGEPIndices()) {
-    const auto field = pair.first;
-    const size_t fieldIndex = pair.second;
-
+  const auto getFieldInit = [&explicitInitializers](VarDeclaration *field) {
     const auto explicitIt = explicitInitializers.find(field);
-    llvm::Constant *init = (explicitIt != explicitInitializers.end()
-                                ? explicitIt->second
-                                : getDefaultInitializer(field));
+    return explicitIt != explicitInitializers.end()
+               ? explicitIt->second
+               : getDefaultInitializer(field);
+  };
 
-    constants[baseLLFieldIndex + fieldIndex] =
-        FillSArrayDims(field->type, init);
+  const auto addToBitFieldGroup = [&](BitFieldDeclaration *bf,
+                                      unsigned fieldIndex, unsigned bitOffset) {
+    LLConstant *init = getFieldInit(bf);
+    if (init->isNullValue()) {
+      // no bits to set
+      return;
+    }
+
+    LLConstant *&constant = constants[baseLLFieldIndex + fieldIndex];
+
+    using llvm::APInt;
+    const auto fieldType = b.defaultTypes()[fieldIndex];
+    const auto intSizeInBits = fieldType->getIntegerBitWidth();
+    const APInt oldVal =
+        constant ? constant->getUniqueInteger() : APInt(intSizeInBits, 0);
+    const APInt bfVal = init->getUniqueInteger().zextOrTrunc(intSizeInBits);
+    const APInt mask = APInt::getLowBitsSet(intSizeInBits, bf->fieldWidth)
+                       << bitOffset;
+    assert(!oldVal.intersects(mask) && "has masked bits set already");
+    const APInt newVal = oldVal | ((bfVal << bitOffset) & mask);
+
+    constant = LLConstant::getIntegerValue(fieldType, newVal);
+  };
+
+  // add explicit and non-overlapping implicit initializers
+  const auto &gepIndices = b.varGEPIndices();
+  for (const auto &pair : gepIndices) {
+    const auto field = pair.first;
+    const auto fieldIndex = pair.second;
+
+    if (auto bf = field->isBitFieldDeclaration()) {
+      // multiple bit fields can map to a single IR field (of integer type)
+      addToBitFieldGroup(bf, fieldIndex, bf->bitOffset);
+    } else {
+      LLConstant *&constant = constants[baseLLFieldIndex + fieldIndex];
+      assert(!constant);
+      constant = FillSArrayDims(field->type, getFieldInit(field));
+    }
   }
 
-  // zero out remaining padding fields
+  // add extra bit field members (greater byte offset than the group's first
+  // member)
+  for (const auto &pair : b.extraBitFieldMembers()) {
+    const auto bf = pair.first;
+    const auto primary = pair.second;
+
+    const auto fieldIndexIt = gepIndices.find(primary);
+    assert(fieldIndexIt != gepIndices.end());
+
+    assert(bf->offset > primary->offset);
+    addToBitFieldGroup(bf, fieldIndexIt->second,
+                       (bf->offset - primary->offset) * 8 + bf->bitOffset);
+  }
+
+  // TODO: sanity check that all explicit initializers have been dealt with?
+  //       (potential issue for bitfields in unions...)
+
+  // zero out remaining fields (padding and/or zero-initialized bit fields)
   for (size_t i = 0; i < numNewLLFields; i++) {
     auto &init = constants[baseLLFieldIndex + i];
     if (!init)
