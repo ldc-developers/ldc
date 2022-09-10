@@ -89,12 +89,14 @@ DValue *emitPointerOffset(Loc loc, DValue *base, Expression *offset,
   // pointer elements. We try to undo this before resorting to
   // temporarily bitcasting the pointer to i8.
 
+  LLType * llBaseTy = nullptr;
   LLValue *llBase = nullptr;
   LLValue *llOffset = nullptr;
   LLValue *llResult = nullptr;
 
   if (offset->isConst()) {
     llBase = DtoRVal(base);
+    llBaseTy = DtoMemType(base->type->nextOf());
     dinteger_t byteOffset = offset->toInteger();
     if (byteOffset == 0) {
       llResult = llBase;
@@ -107,15 +109,18 @@ DValue *emitPointerOffset(Loc loc, DValue *base, Expression *offset,
     auto rvals =
         evalSides(base, noStrideInc ? noStrideInc : offset, loadLhsAfterRhs);
     llBase = DtoRVal(rvals.lhs);
+    llBaseTy = DtoMemType(rvals.lhs->type->nextOf());
     llOffset = DtoRVal(rvals.rhs);
-    if (!noStrideInc) // byte offset => cast base to i8*
+    if (!noStrideInc) { // byte offset => cast base to i8*
+      llBaseTy = LLType::getInt8Ty(gIR->context());
       llBase = DtoBitCast(llBase, getVoidPtrType());
+    }
   }
 
   if (!llResult) {
     if (negateOffset)
       llOffset = gIR->ir->CreateNeg(llOffset);
-    llResult = DtoGEP1(llBase, llOffset);
+    llResult = DtoGEP1(llBaseTy, llBase, llOffset);
   }
 
   return new DImValue(resultType, DtoBitCast(llResult, DtoType(resultType)));

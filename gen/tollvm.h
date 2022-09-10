@@ -82,20 +82,17 @@ void setVisibility(Dsymbol *sym, llvm::GlobalObject *obj);
 LLIntegerType *DtoSize_t();
 LLStructType *DtoModuleReferenceType();
 
-// Returns the pointee type of the specified pointer value.
-LLType *getPointeeType(LLValue *pointer);
-
 // getelementptr helpers
-LLValue *DtoGEP1(LLValue *ptr, LLValue *i0, const char *name = "",
+LLValue *DtoGEP1(LLType * ptrty,LLValue *ptr, LLValue *i0, const char *name = "",
                  llvm::BasicBlock *bb = nullptr);
-LLValue *DtoGEP(LLValue *ptr, LLValue *i0, LLValue *i1, const char *name = "",
+LLValue *DtoGEP(LLType * ptrty,LLValue *ptr, LLValue *i0, LLValue *i1, const char *name = "",
                 llvm::BasicBlock *bb = nullptr);
 
-LLValue *DtoGEP1(LLValue *ptr, unsigned i0, const char *name = "",
+LLValue *DtoGEP1(LLType * ptrty, LLValue *ptr, unsigned i0, const char *name = "",
                  llvm::BasicBlock *bb = nullptr);
-LLValue *DtoGEP(LLValue *ptr, unsigned i0, unsigned i1, const char *name = "",
+LLValue *DtoGEP(LLType * ptrty, LLValue *ptr, unsigned i0, unsigned i1, const char *name = "",
                 llvm::BasicBlock *bb = nullptr);
-LLConstant *DtoGEP(LLConstant *ptr, unsigned i0, unsigned i1);
+LLConstant *DtoGEP(LLType * ptrty, LLConstant *ptr, unsigned i0, unsigned i1);
 
 // to constant helpers
 LLConstantInt *DtoConstSize_t(uint64_t);
@@ -109,9 +106,11 @@ LLConstant *DtoConstString(const char *);
 LLConstant *DtoConstBool(bool);
 
 // llvm wrappers
-LLValue *DtoLoad(LLValue *src, const char *name = "");
-LLValue *DtoVolatileLoad(LLValue *src, const char *name = "");
-LLValue *DtoAlignedLoad(LLValue *src, const char *name = "");
+class DLValue;
+LLValue *DtoLoad(DLValue *src, const char *name = "");
+LLValue *DtoLoad(LLType *, LLValue *src, const char *name = "");
+LLValue *DtoVolatileLoad(LLType *, LLValue *src, const char *name = "");
+LLValue *DtoAlignedLoad(LLType *type, LLValue *src, const char *name = "");
 void DtoStore(LLValue *src, LLValue *dst);
 void DtoVolatileStore(LLValue *src, LLValue *dst);
 void DtoStoreZextI8(LLValue *src, LLValue *dst);

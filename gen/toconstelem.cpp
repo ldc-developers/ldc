@@ -171,7 +171,7 @@ public:
     }
 
     llvm::GlobalVariable *gvar = p->getCachedStringLiteral(e);
-    LLConstant *arrptr = DtoGEP(gvar, 0u, 0u);
+    LLConstant *arrptr = DtoGEP(gvar->getValueType(), gvar, 0u, 0u);
 
     if (t->ty == TY::Tpointer) {
       result = DtoBitCast(arrptr, DtoType(t));
@@ -196,7 +196,7 @@ public:
     if (t1b->ty == TY::Tpointer && e->e2->type->isintegral()) {
       llvm::Constant *ptr = toConstElem(e->e1, p);
       dinteger_t idx = undoStrideMul(e->loc, t1b, e->e2->toInteger());
-      result = llvm::ConstantExpr::getGetElementPtr(getPointeeType(ptr), ptr,
+      result = llvm::ConstantExpr::getGetElementPtr(DtoType(e->e1->type), ptr,
                                                     DtoConstSize_t(idx));
       return;
     }
@@ -215,7 +215,7 @@ public:
       dinteger_t idx = undoStrideMul(e->loc, t1b, e->e2->toInteger());
 
       llvm::Constant *negIdx = llvm::ConstantExpr::getNeg(DtoConstSize_t(idx));
-      result = llvm::ConstantExpr::getGetElementPtr(getPointeeType(ptr), ptr,
+      result = llvm::ConstantExpr::getGetElementPtr(DtoType(e->e1->type), ptr,
                                                     negIdx);
       return;
     }
@@ -284,14 +284,15 @@ public:
           static_cast<VarExp *>(e->e1)->var->isVarDeclaration();
       assert(vd);
       DtoResolveVariable(vd);
+      IrGlobal *irg = getIrGlobal(vd);
       LLConstant *value =
-          isIrGlobalCreated(vd) ? isaConstant(getIrGlobal(vd)->value) : nullptr;
+          isIrGlobalCreated(vd) ? isaConstant(irg->value) : nullptr;
       if (!value) {
         goto Lerr;
       }
       Type *type = vd->type->toBasetype();
       if (type->ty == TY::Tarray || type->ty == TY::Tdelegate) {
-        value = DtoGEP(value, 0u, 1u);
+        value = DtoGEP(irg->getType(), value, 0u, 1u);
       }
       result = DtoBitCast(value, DtoType(tb));
     } else if (tb->ty == TY::Tclass && e->e1->type->ty == TY::Tclass &&
@@ -309,7 +310,7 @@ public:
         assert(i_index != ~0UL);
 
         // offset pointer
-        instance = DtoGEP(instance, 0, i_index);
+        instance = DtoGEP(DtoType(e->e1->type), instance, 0, i_index);
       }
       result = DtoBitCast(instance, DtoType(tb));
     } else {
@@ -350,7 +351,7 @@ public:
       if (elemSize && e->offset % elemSize == 0) {
         // We can turn this into a "nice" GEP.
         result = llvm::ConstantExpr::getGetElementPtr(
-            getPointeeType(base), base, DtoConstSize_t(e->offset / elemSize));
+            DtoType(e->var->type), base, DtoConstSize_t(e->offset / elemSize));
       } else {
         // Offset isn't a multiple of base type size, just cast to i8* and
         // apply the byte offset.
@@ -400,7 +401,7 @@ public:
       LLConstant *val = isaConstant(getIrGlobal(vd)->value);
       val = DtoBitCast(val, DtoType(vd->type->pointerTo()));
       LLConstant *gep = llvm::ConstantExpr::getGetElementPtr(
-          getPointeeType(val), val, idxs, true);
+          DtoType(vd->type), val, idxs, true);
 
       // bitcast to requested type
       assert(e->type->toBasetype()->ty == TY::Tpointer);
@@ -527,7 +528,7 @@ public:
 
     // build a constant dynamic array reference with the .ptr field pointing
     // into store
-    LLConstant *globalstorePtr = DtoGEP(store, 0u, 0u);
+    LLConstant *globalstorePtr = DtoGEP(arrtype, store, 0u, 0u);
     result = DtoConstSlice(DtoConstSize_t(e->elements->length), globalstorePtr);
   }
 
@@ -634,13 +635,13 @@ public:
       if (InterfaceDeclaration *it = targetClass->isInterfaceDeclaration()) {
         assert(it->isBaseOf(origClass, NULL));
 
+        IrTypeClass *itc = getIrType(origClass->type)->isClass();
         // find interface impl
-        size_t i_index =
-            getIrType(origClass->type)->isClass()->getInterfaceIndex(it);
+        size_t i_index = itc->getInterfaceIndex(it);
         assert(i_index != ~0UL);
 
         // offset pointer
-        result = DtoGEP(result, 0, i_index);
+        result = DtoGEP(itc->getMemoryLLType(), result, 0, i_index);
       }
     }
 

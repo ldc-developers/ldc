@@ -93,6 +93,11 @@ void emitTypeInfoMetadata(LLGlobalVariable *typeinfoGlobal, Type *forType) {
       auto val = llvm::UndefValue::get(DtoType(forType));
       meta->addOperand(llvm::MDNode::get(gIR->context(),
                                          llvm::ConstantAsMetadata::get(val)));
+      if (TypeArray *ta = t->isTypeDArray()) {
+        auto val2 = llvm::UndefValue::get(DtoMemType(ta->nextOf()));
+        meta->addOperand(llvm::MDNode::get(gIR->context(),
+                                           llvm::ConstantAsMetadata::get(val2)));
+      }
     }
   }
 }
@@ -435,7 +440,9 @@ void buildTypeInfo(TypeInfoDeclaration *decl) {
     assert(isBuiltin && "existing global expected to be the init symbol of a "
                         "built-in TypeInfo");
   } else {
-    LLType *type = DtoType(decl->type)->getPointerElementType();
+    DtoType(decl->type);
+    TypeClass *tclass = decl->type->isTypeClass();
+    LLType *type = getIrType(tclass)->isClass()->getMemoryLLType();
     // We need to keep the symbol mutable as the type is not declared as
     // immutable on the D side, and e.g. synchronized() can be used on the
     // implicit monitor.

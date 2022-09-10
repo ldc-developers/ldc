@@ -60,7 +60,7 @@ struct Analysis {
   CallGraph *CG;
   CallGraphNode *CGNode;
 
-  llvm::Type *getTypeFor(Value *typeinfo) const;
+  llvm::Type *getTypeFor(Value *typeinfo, unsigned OperandNo) const;
 };
 }
 
@@ -157,15 +157,15 @@ static bool isKnownLessThan(Value *Val, uint64_t Limit, const Analysis &A) {
 }
 
 class TypeInfoFI : public FunctionInfo {
+public:
   unsigned TypeInfoArgNr;
 
-public:
   TypeInfoFI(ReturnType::Type returnType, unsigned tiArgNr)
       : FunctionInfo(returnType), TypeInfoArgNr(tiArgNr) {}
 
   bool analyze(LLCallBasePtr CB, const Analysis &A) override {
     Value *TypeInfo = CB->getArgOperand(TypeInfoArgNr);
-    Ty = A.getTypeFor(TypeInfo);
+    Ty = A.getTypeFor(TypeInfo, 0);
     if (!Ty) {
       return false;
     }
@@ -190,14 +190,8 @@ public:
     }
 
     arrSize = CB->getArgOperand(ArrSizeArgNr);
-
-    // Extract the element type from the array type.
-    const StructType *ArrTy = dyn_cast<StructType>(Ty);
-    assert(ArrTy && "Dynamic array type not a struct?");
-    assert(isa<IntegerType>(ArrTy->getElementType(0)));
-    const PointerType *PtrTy = cast<PointerType>(ArrTy->getElementType(1));
-    Ty = PtrTy->getPointerElementType();
-
+    Value *TypeInfo = CB->getArgOperand(TypeInfoArgNr);
+    Ty = A.getTypeFor(TypeInfo, 1);
     // If the user explicitly disabled the limits, don't even check
     // whether the element count fits in 32 bits. This could cause
     // miscompilations for humongous arrays, but as the value "range"
@@ -551,7 +545,7 @@ bool GarbageCollect2Stack::run(Function &F, DominatorTree &DT, CallGraphWrapperP
   return Changed;
 }
 
-llvm::Type *Analysis::getTypeFor(Value *typeinfo) const {
+llvm::Type *Analysis::getTypeFor(Value *typeinfo, unsigned OperandNo) const {
   GlobalVariable *ti_global =
       dyn_cast<GlobalVariable>(typeinfo->stripPointerCasts());
   if (!ti_global) {
@@ -561,11 +555,11 @@ llvm::Type *Analysis::getTypeFor(Value *typeinfo) const {
   const auto metaname = getMetadataName(TD_PREFIX, ti_global);
 
   NamedMDNode *meta = M.getNamedMetadata(metaname);
-  if (!meta || meta->getNumOperands() != 1) {
+  if (!meta || (meta->getNumOperands() != 1 && meta->getNumOperands() != 2) ) {
     return nullptr;
   }
 
-  MDNode *node = meta->getOperand(0);
+  MDNode *node = meta->getOperand(OperandNo);
   return llvm::cast<llvm::ConstantAsMetadata>(node->getOperand(0))->getType();
 }
 

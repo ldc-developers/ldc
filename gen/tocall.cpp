@@ -24,6 +24,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/nested.h"
+#include "gen/mangling.h"
 #include "gen/pragma.h"
 #include "gen/tollvm.h"
 #include "gen/runtime.h"
@@ -68,41 +69,6 @@ TypeFunction *DtoTypeFunction(DValue *fnval) {
   }
 
   llvm_unreachable("Cannot get TypeFunction* from non lazy/function/delegate");
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-LLValue *DtoCallableValue(DValue *fn) {
-  Type *type = fn->type->toBasetype();
-  if (type->ty == TY::Tfunction) {
-    return DtoRVal(fn);
-  }
-  if (type->ty == TY::Tdelegate) {
-    if (fn->isLVal()) {
-      LLValue *dg = DtoLVal(fn);
-      LLValue *funcptr = DtoGEP(dg, 0, 1);
-      return DtoLoad(funcptr, ".funcptr");
-    }
-    LLValue *dg = DtoRVal(fn);
-    assert(isaStruct(dg));
-    return gIR->ir->CreateExtractValue(dg, 1, ".funcptr");
-  }
-
-  llvm_unreachable("Not a callable type.");
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-LLFunctionType *DtoExtractFunctionType(LLType *type) {
-  if (LLFunctionType *fty = isaFunction(type)) {
-    return fty;
-  }
-  if (LLPointerType *pty = isaPointer(type)) {
-    if (LLFunctionType *fty = isaFunction(pty->getPointerElementType())) {
-      return fty;
-    }
-  }
-  return nullptr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -212,7 +178,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
         ((!isVararg && !isaPointer(paramType)) ||
          (isVararg && !irArg->byref && !irArg->isByVal()))) {
       Logger::println("Loading struct type for function argument");
-      llVal = DtoLoad(llVal);
+      llVal = DtoLoad(DtoType(dval->type), llVal);
     }
 
     // parameter type mismatch, this is hard to get rid of
@@ -286,7 +252,7 @@ static LLValue *getTypeinfoArrayArgumentForDVarArg(Expressions *argexps,
       gIR->module, tiarrty, true, llvm::GlobalValue::InternalLinkage, tiinits,
       "._arguments.array");
 
-  return DtoLoad(typeinfoarrayparam);
+  return DtoLoad(tiarrty, typeinfoarrayparam);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -299,6 +265,19 @@ static LLType *getPtrToAtomicType(LLType *type) {
   case 64:
   case 128:
     return LLType::getIntNPtrTy(gIR->context(), static_cast<unsigned>(N));
+  default:
+    return nullptr;
+  }
+}
+
+static LLType *getAtomicType(LLType *type) {
+  switch (const size_t N = getTypeBitSize(type)) {
+  case 8:
+  case 16:
+  case 32:
+  case 64:
+  case 128:
+    return llvm::IntegerType::get(gIR->context(), static_cast<unsigned>(N));
   default:
     return nullptr;
   }
@@ -422,9 +401,10 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     if (pointeeType->isIntegerTy()) {
       val = DtoRVal(dval);
     } else if (auto intPtrType = getPtrToAtomicType(pointeeType)) {
+      LLType *atype = getAtomicType(pointeeType);
       ptr = DtoBitCast(ptr, intPtrType);
       auto lval = makeLValue(exp1->loc, dval);
-      val = DtoLoad(DtoBitCast(lval, intPtrType));
+      val = DtoLoad(atype, DtoBitCast(lval, intPtrType));
     } else {
       e->error(
           "atomic store only supports types of size 1/2/4/8/16 bytes, not `%s`",
@@ -451,12 +431,14 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     int atomicOrdering = (*e->arguments)[1]->toInteger();
 
     LLValue *ptr = DtoRVal(exp);
-    LLType *pointeeType = getPointeeType(ptr);
+    LLType *pointeeType = DtoType(e->type);
+    LLType *loadedType  = pointeeType;
     Type *retType = exp->type->nextOf();
 
     if (!pointeeType->isIntegerTy()) {
       if (auto intPtrType = getPtrToAtomicType(pointeeType)) {
         ptr = DtoBitCast(ptr, intPtrType);
+        loadedType = getAtomicType(pointeeType);
       } else {
         e->error("atomic load only supports types of size 1/2/4/8/16 bytes, "
                  "not `%s`",
@@ -465,7 +447,6 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       }
     }
 
-    const auto loadedType = getPointeeType(ptr);
     llvm::LoadInst *load = p->ir->CreateLoad(loadedType, ptr);
     if (auto alignment = getTypeAllocSize(loadedType)) {
       load->setAlignment(LLAlign(alignment));
@@ -511,11 +492,12 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       cmp = DtoRVal(dcmp);
       val = DtoRVal(dval);
     } else if (auto intPtrType = getPtrToAtomicType(pointeeType)) {
+      LLType *atype = getAtomicType(pointeeType);
       ptr = DtoBitCast(ptr, intPtrType);
       auto cmpLVal = makeLValue(exp2->loc, dcmp);
-      cmp = DtoLoad(DtoBitCast(cmpLVal, intPtrType));
+      cmp = DtoLoad(atype, DtoBitCast(cmpLVal, intPtrType));
       auto lval = makeLValue(exp3->loc, dval);
-      val = DtoLoad(DtoBitCast(lval, intPtrType));
+      val = DtoLoad(atype, DtoBitCast(lval, intPtrType));
     } else {
       e->error(
           "`cmpxchg` only supports types of size 1/2/4/8/16 bytes, not `%s`",
@@ -535,9 +517,10 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     // (avoiding DtoAllocaDump() due to bad optimized codegen, most likely
     // because of i1)
     auto mem = DtoAlloca(e->type);
+    llvm::Type* memty = DtoType(e->type);
     DtoStore(p->ir->CreateExtractValue(ret, 0),
-             DtoBitCast(DtoGEP(mem, 0u, 0), ptr->getType()));
-    DtoStoreZextI8(p->ir->CreateExtractValue(ret, 1), DtoGEP(mem, 0, 1));
+             DtoBitCast(DtoGEP(memty, mem, 0u, 0), ptr->getType()));
+    DtoStoreZextI8(p->ir->CreateExtractValue(ret, 1), DtoGEP(memty, mem, 0, 1));
 
     result = new DLValue(e->type, mem);
     return true;
@@ -600,7 +583,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     assert(bitmask == 31 || bitmask == 63);
     // auto q = cast(size_t*)ptr + (bitnum >> (64bit ? 6 : 5));
     LLValue *q = DtoBitCast(ptr, DtoSize_t()->getPointerTo());
-    q = DtoGEP1(q, p->ir->CreateLShr(bitnum, bitmask == 63 ? 6 : 5), "bitop.q");
+    q = DtoGEP1(DtoSize_t(), q, p->ir->CreateLShr(bitnum, bitmask == 63 ? 6 : 5), "bitop.q");
 
     // auto mask = 1 << (bitnum & bitmask);
     LLValue *mask =
@@ -609,7 +592,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
     // auto result = (*q & mask) ? -1 : 0;
     LLValue *val =
-        p->ir->CreateZExt(DtoLoad(q, "bitop.tmp"), DtoSize_t(), "bitop.val");
+        p->ir->CreateZExt(DtoLoad(DtoSize_t(), q, "bitop.tmp"), DtoSize_t(), "bitop.val");
     LLValue *ret = p->ir->CreateAnd(val, mask, "bitop.tmp");
     ret = p->ir->CreateICmpNE(ret, DtoConstSize_t(0), "bitop.tmp");
     ret = p->ir->CreateSelect(ret, DtoConstInt(-1), DtoConstInt(0),
@@ -649,7 +632,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
     Expression *exp1 = (*e->arguments)[0];
     LLValue *ptr = DtoRVal(exp1);
-    result = new DImValue(e->type, DtoVolatileLoad(ptr));
+    result = new DImValue(e->type, DtoVolatileLoad(DtoType(e->type), ptr));
     return true;
   }
 
@@ -769,7 +752,7 @@ private:
           //  class pointer
           Type *thistype = gIR->func()->decl->vthis->type;
           if (thistype != iface->type) {
-            DImValue *dthis = new DImValue(thistype, DtoLoad(thisptrLval));
+            DImValue *dthis = new DImValue(thistype, DtoLoad(DtoType(thistype),thisptrLval));
             thisptrLval = DtoAllocaDump(DtoCastClass(loc, dthis, iface->type));
           }
         }
@@ -784,7 +767,7 @@ private:
       // ... or a delegate context arg
       LLValue *ctxarg;
       if (fnval->isLVal()) {
-        ctxarg = DtoLoad(DtoGEP(DtoLVal(fnval), 0u, 0), ".ptr");
+        ctxarg = DtoLoad(getVoidPtrType(), DtoGEP(DtoType(fnval->type), DtoLVal(fnval), 0u, 0), ".ptr");
       } else {
         ctxarg = gIR->ir->CreateExtractValue(DtoRVal(fnval), 0, ".ptr");
       }
@@ -816,7 +799,8 @@ private:
       const auto selector = dfnval->func->objc.selector;
       assert(selector);
       LLGlobalVariable *selptr = gIR->objc.getMethVarRef(*selector);
-      args.push_back(DtoBitCast(DtoLoad(selptr), getVoidPtrType()));
+      args.push_back(DtoBitCast(DtoLoad(selptr->getValueType(), selptr),
+                                getVoidPtrType()));
     }
   }
 
@@ -836,6 +820,26 @@ private:
 };
 
 ////////////////////////////////////////////////////////////////////////////////
+
+static LLValue *DtoCallableValue(llvm::FunctionType * ft,DValue *fn) {
+  Type *type = fn->type->toBasetype();
+  if (type->ty == TY::Tfunction) {
+    return DtoRVal(fn);
+  }
+  if (type->ty == TY::Tdelegate) {
+    if (fn->isLVal()) {
+      LLValue *dg = DtoLVal(fn);
+      llvm::StructType *st = isaStruct(DtoType(fn->type));
+      LLValue *funcptr = DtoGEP(st, dg, 0, 1);
+      return DtoLoad(ft->getPointerTo(), funcptr, ".funcptr");
+    }
+    LLValue *dg = DtoRVal(fn);
+    assert(isaStruct(dg));
+    return gIR->ir->CreateExtractValue(dg, 1, ".funcptr");
+  }
+
+  llvm_unreachable("Not a callable type.");
+}
 
 // FIXME: this function is a mess !
 DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
@@ -860,10 +864,15 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   // get callee llvm value
-  LLValue *callable = DtoCallableValue(fnval);
-  LLFunctionType *const callableTy =
-      DtoExtractFunctionType(callable->getType());
-  assert(callableTy);
+  LLValue *callable = DtoCallableValue(irFty.funcType, fnval);
+  LLFunctionType *callableTy = irFty.funcType;
+  if (dfnval && dfnval->func->isCsymbol()) {
+    // See note in DtoDeclareFunction about K&R foward declared (void) functions
+    // later defined as (...) functions. We want to use the non-variadic one.
+    if (irFty.funcType->getNumParams() == 0 && irFty.funcType->isVarArg())
+      callableTy = gIR->module.getFunction(getIRMangledName(dfnval->func, LINK::c))
+                                ->getFunctionType();
+  }
 
   //     IF_LOG Logger::cout() << "callable: " << *callable << '\n';
 

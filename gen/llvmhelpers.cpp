@@ -237,7 +237,7 @@ LLValue *DtoAllocaDump(DValue *val, LLType *asType, int alignment,
     LLType *asMemType = i1ToI8(voidToI8(asType));
     LLValue *copy = DtoRawAlloca(asMemType, alignment, name);
     const auto minSize =
-        std::min(getTypeAllocSize(lval->getType()->getPointerElementType()),
+        std::min(getTypeAllocSize(DtoType(val->type)),
                  getTypeAllocSize(asMemType));
     const auto minAlignment =
         std::min(DtoAlignment(val->type), static_cast<unsigned>(alignment));
@@ -1865,7 +1865,7 @@ FuncDeclaration *getParentFunc(Dsymbol *sym) {
   return nullptr;
 }
 
-LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
+DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
                            VarDeclaration *vd) {
   IF_LOG Logger::println("Indexing aggregate field %s:", vd->toPrettyChars());
   LOG_SCOPE;
@@ -1876,45 +1876,51 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   DtoResolveDsymbol(ad);
 
   // Look up field to index or offset to apply.
-  unsigned fieldIndex;
-  unsigned byteOffset;
   auto irTypeAggr = getIrType(ad->type)->isAggr();
   assert(irTypeAggr);
-  irTypeAggr->getMemberLocation(vd, fieldIndex, byteOffset);
+  bool isFieldIdx;
+  unsigned off = irTypeAggr->getMemberLocation(vd, isFieldIdx);
 
   LLValue *ptr = src;
-  if (byteOffset) {
-    assert(fieldIndex == 0);
+  if (!isFieldIdx) {
     // Cast to void* to apply byte-wise offset from object start.
     ptr = DtoBitCast(ptr, getVoidPtrType());
-    ptr = DtoGEP1(ptr, byteOffset);
+    ptr = DtoGEP1(llvm::Type::getInt8Ty(gIR->context()), ptr, off);
   } else {
     if (ad->structsize == 0) { // can happen for extern(C) structs
-      assert(fieldIndex == 0);
+      assert(off == 0);
     } else {
       // Cast the pointer we got to the canonical struct type the indices are
       // based on.
-      LLType *st = DtoType(ad->type);
-      if (ad->isStructDeclaration()) {
-        st = getPtrToType(st);
+      LLType *st = nullptr;
+      LLType *pst = nullptr;
+      if (ad->isClassDeclaration()) {
+        st = getIrAggr(ad)->getLLStructType();
+        pst = DtoType(ad->type);
       }
-      ptr = DtoBitCast(ptr, st);
-      ptr = DtoGEP(ptr, 0, fieldIndex);
+      else {
+        st = DtoType(ad->type);
+        pst = getPtrToType(st);
+      }
+      ptr = DtoBitCast(ptr, pst);
+      ptr = DtoGEP(st, ptr, 0, off);
     }
   }
 
+  // Cast the (possibly void*) pointer to the canonical variable type.
+  ptr = DtoBitCast(ptr, DtoPtrToType(vd->type));
+
   IF_LOG Logger::cout() << "Pointer: " << *ptr << '\n';
-  return ptr;
+  return new DLValue(vd->type, ptr);
 }
 
 unsigned getFieldGEPIndex(AggregateDeclaration *ad, VarDeclaration *vd) {
-  unsigned fieldIndex;
-  unsigned byteOffset;
   auto irTypeAggr = getIrType(ad->type)->isAggr();
   assert(irTypeAggr);
-  irTypeAggr->getMemberLocation(vd, fieldIndex, byteOffset);
-  assert(byteOffset == 0 && "Cannot address field by a simple GEP.");
-  return fieldIndex;
+  bool isFieldIdx;
+  unsigned off = irTypeAggr->getMemberLocation(vd, isFieldIdx);
+  assert(isFieldIdx && "Cannot address field by a simple GEP.");
+  return off;
 }
 
 DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
@@ -1931,6 +1937,7 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
     expectedType = expectedType->getPointerTo();
 
   if (val->getType() != expectedType) {
+#if LDC_LLVM_VER < 1500
     // The type of globals is determined by their initializer, and the front-end
     // may inject implicit casts for class references and static arrays.
     assert(vd->isDataseg() || (vd->storage_class & STCextern) ||
@@ -1943,6 +1950,7 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
     // work as well.
     assert(getTypeStoreSize(DtoType(type)) <= getTypeStoreSize(pointeeType) &&
            "LValue type mismatch, encountered type too small.");
+#endif
     val = DtoBitCast(val, expectedType);
   }
 

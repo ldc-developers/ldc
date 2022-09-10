@@ -38,7 +38,8 @@ bool isHFVA(Type *t, int maxNumElements, Type **rewriteType);
 //////////////////////////////////////////////////////////////////////////////
 
 llvm::Value *ABIRewrite::getRVal(Type *dty, LLValue *v) {
-  return DtoLoad(DtoBitCast(getLVal(dty, v), DtoType(dty)->getPointerTo()));
+  llvm::Type *t = DtoType(dty);
+  return DtoLoad(t, DtoBitCast(getLVal(dty, v), t->getPointerTo()));
 }
 
 //////////////////////////////////////////////////////////////////////////////

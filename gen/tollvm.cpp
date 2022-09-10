@@ -345,47 +345,42 @@ LLIntegerType *DtoSize_t() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLType *getPointeeType(LLValue *pointer) {
-  return pointer->getType()->getPointerElementType();
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 namespace {
-llvm::GetElementPtrInst *DtoGEP(LLValue *ptr, llvm::ArrayRef<LLValue *> indices,
+llvm::GetElementPtrInst *DtoGEP(LLType * type,LLValue *ptr,
+                                llvm::ArrayRef<LLValue *> indices,
                                 const char *name, llvm::BasicBlock *bb) {
-  auto gep = llvm::GetElementPtrInst::Create(getPointeeType(ptr), ptr, indices,
+  auto gep = llvm::GetElementPtrInst::Create(type, ptr, indices,
                                              name, bb ? bb : gIR->scopebb());
   gep->setIsInBounds(true);
   return gep;
 }
 }
 
-LLValue *DtoGEP1(LLValue *ptr, LLValue *i0, const char *name,
+LLValue *DtoGEP1(LLType * ptrty, LLValue *ptr, LLValue *i0, const char *name,
                  llvm::BasicBlock *bb) {
-  return DtoGEP(ptr, i0, name, bb);
+  return DtoGEP(ptrty, ptr, i0, name, bb);
 }
 
-LLValue *DtoGEP(LLValue *ptr, LLValue *i0, LLValue *i1, const char *name,
+LLValue *DtoGEP(LLType * ptrty, LLValue *ptr, LLValue *i0, LLValue *i1, const char *name,
                 llvm::BasicBlock *bb) {
   LLValue *indices[] = {i0, i1};
-  return DtoGEP(ptr, indices, name, bb);
+  return DtoGEP(ptrty, ptr, indices, name, bb);
 }
 
-LLValue *DtoGEP1(LLValue *ptr, unsigned i0, const char *name,
+LLValue *DtoGEP1(LLType * ptrty, LLValue *ptr, unsigned i0, const char *name,
                  llvm::BasicBlock *bb) {
-  return DtoGEP(ptr, DtoConstUint(i0), name, bb);
+  return DtoGEP(ptrty, ptr, DtoConstUint(i0), name, bb);
 }
 
-LLValue *DtoGEP(LLValue *ptr, unsigned i0, unsigned i1, const char *name,
+LLValue *DtoGEP(LLType * ptrty, LLValue *ptr, unsigned i0, unsigned i1, const char *name,
                 llvm::BasicBlock *bb) {
   LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
-  return DtoGEP(ptr, indices, name, bb);
+  return DtoGEP(ptrty, ptr, indices, name, bb);
 }
 
-LLConstant *DtoGEP(LLConstant *ptr, unsigned i0, unsigned i1) {
+LLConstant *DtoGEP(LLType * ptrty, LLConstant *ptr, unsigned i0, unsigned i1) {
   LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
-  return llvm::ConstantExpr::getGetElementPtr(getPointeeType(ptr), ptr, indices,
+  return llvm::ConstantExpr::getGetElementPtr(ptrty, ptr, indices,
                                               /* InBounds = */ true);
 }
 
@@ -491,7 +486,7 @@ LLConstant *DtoConstFP(Type *t, const real_t value) {
 LLConstant *DtoConstCString(const char *str) {
   llvm::StringRef s(str ? str : "");
   LLGlobalVariable *gvar = gIR->getCachedStringLiteral(s);
-  return DtoGEP(gvar, 0u, 0u);
+  return DtoGEP(gvar->getValueType(), gvar, 0u, 0u);
 }
 
 LLConstant *DtoConstString(const char *str) {
@@ -503,27 +498,31 @@ LLConstant *DtoConstString(const char *str) {
 ////////////////////////////////////////////////////////////////////////////////
 
 namespace {
-llvm::LoadInst *DtoLoadImpl(LLValue *src, const char *name) {
-  return gIR->ir->CreateLoad(getPointeeType(src), src, name);
+llvm::LoadInst *DtoLoadImpl(LLType *type, LLValue *src, const char *name) {
+  return gIR->ir->CreateLoad(type, src, name);
 }
 }
 
-LLValue *DtoLoad(LLValue *src, const char *name) {
-  return DtoLoadImpl(src, name);
+LLValue *DtoLoad(LLType* type, LLValue *src, const char *name) {
+  return DtoLoadImpl(type, src, name);
+}
+
+LLValue *DtoLoad(DLValue *src, const char *name) {
+  return DtoLoadImpl(DtoType(src->type), DtoLVal(src), name);
 }
 
 // Like DtoLoad, but the pointer is guaranteed to be aligned appropriately for
 // the type.
-LLValue *DtoAlignedLoad(LLValue *src, const char *name) {
-  llvm::LoadInst *ld = DtoLoadImpl(src, name);
+LLValue *DtoAlignedLoad(LLType *type, LLValue *src, const char *name) {
+  llvm::LoadInst *ld = DtoLoadImpl(type, src, name);
   if (auto alignment = getABITypeAlign(ld->getType())) {
     ld->setAlignment(LLAlign(alignment));
   }
   return ld;
 }
 
-LLValue *DtoVolatileLoad(LLValue *src, const char *name) {
-  llvm::LoadInst *ld = DtoLoadImpl(src, name);
+LLValue *DtoVolatileLoad(LLType *type, LLValue *src, const char *name) {
+  llvm::LoadInst *ld = DtoLoadImpl(type, src, name);
   ld->setVolatile(true);
   return ld;
 }
@@ -568,15 +567,36 @@ LLType *stripAddrSpaces(LLType *t)
   if(gIR->dcomputetarget == nullptr)
     return t;
 
+  llvm::PointerType *pt = isaPointer(t);
+  if (!pt)
+    return t;
+
+#if LDC_LLVM_VER >= 1600
+  return getVoidPtrType();
+#elif LDC_LLVM_VER >= 1400
+  if (pt->isOpaque())
+    return getVoidPtrType();
+  else {
+    int indirections = 0;
+    while (t->isPointerTy()) {
+      indirections++;
+      t = t->getPointerElementType();
+    }
+    while (indirections-- != 0)
+      t = t->getPointerTo(0);
+  }
+  return t;
+#else
   int indirections = 0;
   while (t->isPointerTy()) {
     indirections++;
     t = t->getPointerElementType();
   }
   while (indirections-- != 0)
-     t = t->getPointerTo(0);
+    t = t->getPointerTo(0);
 
   return t;
+#endif
 }
 
 LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name) {

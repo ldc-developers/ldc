@@ -132,7 +132,7 @@ void findDefaultTarget();
 /// Returns a pointer to the given member field of an aggregate.
 ///
 /// 'src' is a pointer to the start of the memory of an 'ad' instance.
-LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
+DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
                            VarDeclaration *vd);
 
 /// Returns the index of a given member variable in the resulting LLVM type of
@@ -150,6 +150,7 @@ DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
 llvm::CallInst *DtoInlineAsmExpr(const Loc &loc, llvm::StringRef code,
                                  llvm::StringRef constraints,
                                  llvm::ArrayRef<llvm::Value *> operands,
+                                 llvm::ArrayRef<llvm::Type *> indirectTypes,
                                  llvm::Type *returnType);
 
 /// Returns the llvm::Value of the passed DValue, making sure that it is an
@@ -196,12 +197,6 @@ LLValue *createIPairCmp(EXP op, LLValue *lhs1, LLValue *lhs2, LLValue *rhs1,
 IrFuncTy &DtoIrTypeFunction(DValue *fnval);
 ///
 TypeFunction *DtoTypeFunction(DValue *fnval);
-
-///
-LLValue *DtoCallableValue(DValue *fn);
-
-///
-LLFunctionType *DtoExtractFunctionType(LLType *type);
 
 /// Checks whether fndecl is an intrinsic that requires special lowering. If so,
 /// emits the code for it and returns true, settings result to the resulting

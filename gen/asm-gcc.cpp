@@ -200,6 +200,7 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
 
   LLSmallVector<LLValue *, 8> outputLVals;
   LLSmallVector<LLType *, 8> outputTypes;
+  LLSmallVector<LLType *, 8> indirectTypes;
   LLSmallVector<LLValue *, 8> operands;
   if (stmt->args) {
     for (size_t i = 0; i < stmt->args->length; ++i) {
@@ -212,9 +213,10 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
         LLValue *lval = DtoLVal(e);
         if (isIndirect) {
           operands.push_back(lval);
+          indirectTypes.push_back(DtoType(e->type));
         } else {
           outputLVals.push_back(lval);
-          outputTypes.push_back(lval->getType()->getPointerElementType());
+          outputTypes.push_back(DtoType(e->type));
         }
       } else {
         if (isIndirect && !e->isLvalue()) {
@@ -227,6 +229,8 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
 
         LLValue *inputVal = isIndirect ? DtoLVal(e) : DtoRVal(e);
         operands.push_back(inputVal);
+        if (isIndirect)
+          indirectTypes.push_back(DtoType(e->type));
       }
     }
   }
@@ -238,7 +242,8 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
                       : LLStructType::get(irs->context(), outputTypes);
 
   LLValue *rval =
-      DtoInlineAsmExpr(stmt->loc, insn, constraints, operands, returnType);
+      DtoInlineAsmExpr(stmt->loc, insn, constraints, operands,
+                       indirectTypes, returnType);
 
   if (N == 1) {
     DtoStore(rval, outputLVals[0]);

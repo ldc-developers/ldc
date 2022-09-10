@@ -72,8 +72,7 @@ public:
   /// Returns the index of the field in the LLVM struct type that corresponds
   /// to the given member variable, plus the offset to the actual field start
   /// due to overlapping (union) fields, if any.
-  void getMemberLocation(VarDeclaration *var, unsigned &fieldIndex,
-                         unsigned &byteOffset) const;
+  unsigned getMemberLocation(VarDeclaration *var, bool& isFieldIdx) const;
 
 protected:
   ///

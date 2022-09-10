@@ -182,9 +182,10 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
   static std::string memory_name = "memory";
 
   AsmCode *code = static_cast<AsmCode *>(stmt->asmcode);
-  std::vector<LLValue *> input_values;
+  auto asmStmt = new IRAsmStmt;
+  asmStmt->isBranchToLabel = stmt->isBranchToLabel;
+
   std::vector<std::string> input_constraints;
-  std::vector<LLValue *> output_values;
   std::vector<std::string> output_constraints;
   std::vector<std::string> clobbers;
 
@@ -264,11 +265,11 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
 
     if (is_input) {
       arg_map[i] = --input_idx;
-      input_values.push_back(arg_val);
+      asmStmt->in.ops.push_back(arg_val);
       input_constraints.push_back(cns);
     } else {
       arg_map[i] = n_outputs++;
-      output_values.push_back(arg_val);
+      asmStmt->out.ops.push_back(arg_val);
       output_constraints.push_back(cns);
     }
   }
@@ -346,8 +347,6 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
   }
 
   // rewrite GCC-style constraints to LLVM-style constraints
-  std::string llvmOutConstraints;
-  std::string llvmInConstraints;
   int n = 0;
   for (auto &oc : output_constraints) {
     // rewrite update constraint to in and out constraints
@@ -367,17 +366,17 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
       // Must be at the back; unused operands before used ones screw up
       // numbering.
       input_constraints.push_back(ss.str());
-      input_values.push_back(output_values[n]);
+      asmStmt->in.ops.push_back(asmStmt->out.ops[n]);
     }
-    llvmOutConstraints += oc;
-    llvmOutConstraints += ",";
+    asmStmt->out.c += oc;
+    asmStmt->out.c += ",";
     n++;
   }
   asmblock->outputcount += n;
 
   for (const auto &ic : input_constraints) {
-    llvmInConstraints += ic;
-    llvmInConstraints += ",";
+    asmStmt->in.c += ic;
+    asmStmt->in.c += ",";
   }
 
   std::string clobstr;
@@ -391,7 +390,7 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
       Logger::println("Output values:");
       LOG_SCOPE
       size_t i = 0;
-      for (auto ov : output_values) {
+      for (auto ov : asmStmt->out.ops) {
         Logger::cout() << "Out " << i++ << " = " << *ov << '\n';
       }
     }
@@ -399,7 +398,7 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
       Logger::println("Input values:");
       LOG_SCOPE
       size_t i = 0;
-      for (auto iv : input_values) {
+      for (auto iv : asmStmt->in.ops) {
         Logger::cout() << "In  " << i++ << " = " << *iv << '\n';
       }
     }
@@ -410,50 +409,20 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
   replace_func_name(irs, code->insnTemplate);
 
   // push asm statement
-  auto asmStmt = new IRAsmStmt;
+
   asmStmt->code = code->insnTemplate;
-  asmStmt->out_c = llvmOutConstraints;
-  asmStmt->in_c = llvmInConstraints;
-  asmStmt->out.insert(asmStmt->out.begin(), output_values.begin(),
-                      output_values.end());
-  asmStmt->in.insert(asmStmt->in.begin(), input_values.begin(),
-                     input_values.end());
-  asmStmt->isBranchToLabel = stmt->isBranchToLabel;
   asmblock->s.push_back(asmStmt);
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
 // rewrite argument indices to the block scope indices
-static void remap_outargs(std::string &insnt, size_t nargs, size_t idx) {
+static void remap_args(std::string &insnt, size_t nargs, size_t idx,
+                       const std::string& prefix) {
   static const std::string digits[10] = {"0", "1", "2", "3", "4",
                                          "5", "6", "7", "8", "9"};
   assert(nargs <= 10);
 
-  static const std::string prefix("<<out");
-  static const std::string suffix(">>");
-  std::string argnum;
-  std::string needle;
-  char buf[10];
-  for (unsigned i = 0; i < nargs; i++) {
-    needle = prefix + digits[i] + suffix;
-    size_t pos = insnt.find(needle);
-    if (std::string::npos != pos) {
-      sprintf(buf, "%llu", static_cast<unsigned long long>(idx++));
-    }
-    while (std::string::npos != (pos = insnt.find(needle))) {
-      insnt.replace(pos, needle.size(), buf);
-    }
-  }
-}
-
-// rewrite argument indices to the block scope indices
-static void remap_inargs(std::string &insnt, size_t nargs, size_t idx) {
-  static const std::string digits[10] = {"0", "1", "2", "3", "4",
-                                         "5", "6", "7", "8", "9"};
-  assert(nargs <= 10);
-
-  static const std::string prefix("<<in");
   static const std::string suffix(">>");
   std::string argnum;
   std::string needle;
@@ -579,8 +548,8 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
       code << "movl $<<in" << n_goto << ">>, $<<out0>>\n";
       // FIXME: Store the value -> label mapping somewhere, so it can be
       // referenced later
-      outSetterStmt->in.push_back(DtoConstUint(n_goto));
-      outSetterStmt->in_c += "i,";
+      outSetterStmt->in.ops.push_back(DtoConstUint(n_goto));
+      outSetterStmt->in.c += "i,";
       code << asmGotoEnd;
 
       ++n_goto;
@@ -593,8 +562,8 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
       // create storage for and initialize the temporary
       jump_target = DtoAllocaDump(DtoConstUint(0), 0, "__llvm_jump_target");
       // setup variable for output from asm
-      outSetterStmt->out_c = "=*m,";
-      outSetterStmt->out.push_back(jump_target);
+      outSetterStmt->out.c = "=*m,";
+      outSetterStmt->out.ops.push_back(jump_target);
 
       asmblock->s.push_back(outSetterStmt);
     } else {
@@ -616,12 +585,11 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   }
 
   // build asm block
-  std::vector<LLValue *> outargs;
-  std::vector<LLValue *> inargs;
-  std::vector<LLType *> outtypes;
-  std::vector<LLType *> intypes;
-  std::string out_c;
-  std::string in_c;
+  struct ArgBlock {
+    std::vector<LLValue *> args;
+    std::vector<LLType *> types;
+    std::string c;
+  } in, out;
   std::string clobbers;
   std::string code;
   size_t asmIdx = asmblock->retn;
@@ -631,15 +599,15 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   for (size_t i = 0; i < n; ++i) {
     IRAsmStmt *a = asmblock->s[i];
     assert(a);
-    size_t onn = a->out.size();
+    size_t onn = a->out.ops.size();
     for (size_t j = 0; j < onn; ++j) {
-      outargs.push_back(a->out[j]);
-      outtypes.push_back(a->out[j]->getType());
+      out.args.push_back(a->out.ops[j]);
+      out.types.push_back(a->out.ops[j]->getType());
     }
-    if (!a->out_c.empty()) {
-      out_c += a->out_c;
+    if (!a->out.c.empty()) {
+      out.c += a->out.c;
     }
-    remap_outargs(a->code, onn + a->in.size(), asmIdx);
+    remap_args(a->code, onn + a->in.ops.size(), asmIdx, "<<out");
     asmIdx += onn;
   }
 
@@ -647,15 +615,15 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   for (size_t i = 0; i < n; ++i) {
     IRAsmStmt *a = asmblock->s[i];
     assert(a);
-    size_t inn = a->in.size();
+    size_t inn = a->in.ops.size();
     for (size_t j = 0; j < inn; ++j) {
-      inargs.push_back(a->in[j]);
-      intypes.push_back(a->in[j]->getType());
+      in.args.push_back(a->in.ops[j]);
+      in.types.push_back(a->in.ops[j]->getType());
     }
-    if (!a->in_c.empty()) {
-      in_c += a->in_c;
+    if (!a->in.c.empty()) {
+      in.c += a->in.c;
     }
-    remap_inargs(a->code, inn + a->out.size(), asmIdx);
+    remap_args(a->code, inn + a->out.ops.size(), asmIdx, "<<in");
     asmIdx += inn;
     if (!code.empty()) {
       code += "\n\t";
@@ -665,21 +633,21 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   asmblock->s.clear();
 
   // append inputs
-  out_c += in_c;
+  out.c += in.c;
 
   // append clobbers
   for (const auto &c : asmblock->clobs) {
-    out_c += c;
+    out.c += c;
   }
 
   // remove excessive comma
-  if (!out_c.empty()) {
-    out_c.resize(out_c.size() - 1);
+  if (!out.c.empty()) {
+    out.c.resize(out.c.size() - 1);
   }
 
   IF_LOG {
     Logger::println("code = \"%s\"", code.c_str());
-    Logger::println("constraints = \"%s\"", out_c.c_str());
+    Logger::println("constraints = \"%s\"", out.c.c_str());
   }
 
   // build return types
@@ -692,14 +660,14 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
 
   // build argument types
   std::vector<LLType *> types;
-  types.insert(types.end(), outtypes.begin(), outtypes.end());
-  types.insert(types.end(), intypes.begin(), intypes.end());
+  types.insert(types.end(), out.types.begin(), out.types.end());
+  types.insert(types.end(), in.types.begin(), in.types.end());
   llvm::FunctionType *fty = llvm::FunctionType::get(retty, types, false);
   IF_LOG Logger::cout() << "function type = " << *fty << '\n';
 
   std::vector<LLValue *> args;
-  args.insert(args.end(), outargs.begin(), outargs.end());
-  args.insert(args.end(), inargs.begin(), inargs.end());
+  args.insert(args.end(), out.args.begin(), out.args.end());
+  args.insert(args.end(), in.args.begin(), in.args.end());
 
   IF_LOG {
     Logger::cout() << "Arguments:" << '\n';
@@ -717,9 +685,9 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     Logger::undent();
   }
 
-  llvm::InlineAsm *ia = llvm::InlineAsm::get(fty, code, out_c, true);
+  llvm::InlineAsm *ia = llvm::InlineAsm::get(fty, code, out.c, true);
 
-  auto call = p->createInlineAsmCall(stmt->loc, ia, args);
+  auto call = p->createInlineAsmCall(stmt->loc, ia, args, {});
   if (!retty->isVoidTy()) {
     call->setName("asm");
   }
@@ -732,7 +700,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     if (block->retfixup) {
       block->asmBlock->abiret = (*block->retfixup)(p->ir, call);
     } else if (p->asmBlock->retemu) {
-      block->asmBlock->abiret = DtoLoad(block->asmBlock->abiret);
+      block->asmBlock->abiret = DtoLoad(block->retty, block->asmBlock->abiret);
     } else {
       block->asmBlock->abiret = call;
     }
@@ -747,7 +715,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     // make new blocks
     llvm::BasicBlock *bb = p->insertBB("afterasmgotoforwarder");
 
-    auto val = DtoLoad(jump_target, "__llvm_jump_target_value");
+    auto val = DtoLoad(LLType::getInt32Ty(gIR->context()), jump_target, "__llvm_jump_target_value");
     llvm::SwitchInst *sw = p->ir->CreateSwitch(val, bb, gotoToVal.size());
 
     // add all cases

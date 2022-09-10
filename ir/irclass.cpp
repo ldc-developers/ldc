@@ -110,8 +110,7 @@ LLGlobalVariable *IrClass::getClassInfoSymbol(bool define) {
       emitTypeInfoMetadata(typeInfo, aggrdecl->type);
 
       // Gather information
-      LLType *type = DtoType(aggrdecl->type);
-      LLType *bodyType = type->getPointerElementType();
+      LLType *bodyType = getLLStructType();
       bool hasDestructor = (aggrdecl->dtor != nullptr);
       // Construct the fields
       llvm::Metadata *mdVals[CD_NumFields];
@@ -512,7 +511,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
 
       llvm::GlobalVariable *interfaceInfosZ = getInterfaceArraySymbol();
       llvm::Constant *c = llvm::ConstantExpr::getGetElementPtr(
-          getPointeeType(interfaceInfosZ), interfaceInfosZ, idxs, true);
+            interfaceInfosZ->getValueType(), interfaceInfosZ, idxs, true);
 
       constants.push_back(DtoBitCast(c, voidPtrTy));
     } else {
@@ -626,7 +625,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
       LLValue *&thisArg = args[thisArgIndex];
       LLType *targetThisType = thisArg->getType();
       thisArg = DtoBitCast(thisArg, getVoidPtrType());
-      thisArg = DtoGEP1(thisArg, DtoConstInt(-thunkOffset));
+      thisArg = DtoGEP1(LLType::getInt8Ty(gIR->context()), thisArg, DtoConstInt(-thunkOffset));
       thisArg = DtoBitCast(thisArg, targetThisType);
 
       // all calls that might be subject to inlining into a caller with debug
@@ -762,7 +761,7 @@ LLConstant *IrClass::getClassInfoInterfaces() {
   LLConstant *idxs[2] = {DtoConstSize_t(0),
                          DtoConstSize_t(n - cd->vtblInterfaces->length)};
 
-  LLConstant *ptr = llvm::ConstantExpr::getGetElementPtr(getPointeeType(ciarr),
+  LLConstant *ptr = llvm::ConstantExpr::getGetElementPtr(ciarr->getValueType(),
                                                          ciarr, idxs, true);
 
   // return as a slice
