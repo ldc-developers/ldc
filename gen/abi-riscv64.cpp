@@ -6,6 +6,11 @@
 // file for details.
 //
 //===----------------------------------------------------------------------===//
+//
+// ABI spec:
+// https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc
+//
+//===----------------------------------------------------------------------===//
 
 #include "gen/abi.h"
 #include "gen/abi-generic.h"
