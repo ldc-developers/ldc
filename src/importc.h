@@ -33,6 +33,12 @@
  */
 #define __fastcall
 
+/* Microsoft builtin types */
+#define __int8 char
+#define __int16 short
+#define __int32 int
+#define __int64 long long
+
 /*********************
  * Obsolete detritus
  */
@@ -42,16 +48,21 @@
 #define __far
 #define __near
 #define __handle
-#define __inline        // ImportC does its own notion of inlining
+#define __inline        /* ImportC does its own notion of inlining */
 #define __pascal
 
 /****************************
  * __extension__ is a GNU C extension. It suppresses warnings
  * when placed before an expression.
  */
-#define __extension__  // ignore it, as ImportC doesn't do warnings
+#define __extension__  /* ignore it, as ImportC doesn't do warnings */
 
 /****************************
  * Define it to do what other C compilers do.
  */
-#define __builtin_offsetof(t,i) ((size_t)((char *)&((t *)0)->i - (char *)0))
+#define __builtin_offsetof(t,i) ((typeof(sizeof(0)))((char *)&((t *)0)->i - (char *)0))
+
+/***************************
+ * C11 6.10.8.3 Conditional feature macros
+ */
+#define __STDC_NO_VLA__ 1
