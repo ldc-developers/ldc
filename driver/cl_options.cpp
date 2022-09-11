@@ -249,7 +249,7 @@ static cl::opt<bool, true>
 
 // DDoc options
 static cl::opt<bool, true> doDdoc("D", cl::desc("Generate documentation"),
-                                  cl::location(global.params.doDocComments),
+                                  cl::location(global.params.ddoc.doOutput),
                                   cl::ZeroOrMore);
 
 cl::opt<std::string>
@@ -263,7 +263,7 @@ cl::opt<std::string>
 // Json options
 static cl::opt<bool, true> doJson("X", cl::desc("Generate JSON file"),
                                   cl::ZeroOrMore,
-                                  cl::location(global.params.doJsonGeneration));
+                                  cl::location(global.params.json.doOutput));
 
 cl::opt<std::string> jsonFile("Xf", cl::desc("Write JSON file to <filename>"),
                               cl::value_desc("filename"), cl::Prefix,
@@ -275,7 +275,7 @@ cl::list<std::string> jsonFields("Xi", cl::ReallyHidden, cl::value_desc("field")
 // Header generation options
 static cl::opt<bool, true>
     doHdrGen("H", cl::desc("Generate 'header' file"), cl::ZeroOrMore,
-             cl::location(global.params.doHdrGeneration));
+             cl::location(global.params.dihdr.doOutput));
 
 cl::opt<std::string> hdrDir("Hd", cl::ZeroOrMore, cl::Prefix,
                             cl::desc("Write 'header' file to <directory>"),
@@ -292,17 +292,19 @@ cl::opt<bool>
 // C++ header generation options
 
 // `-HC[=silent|verbose]` parser. Required for defaulting to `silent`.
-struct HCParser : public cl::parser<CxxHeaderMode> {
-  explicit HCParser(cl::Option &O) : cl::parser<CxxHeaderMode>(O) {}
+struct HCParser : public cl::parser<DummyDataType> {
+  explicit HCParser(cl::Option &O) : cl::parser<DummyDataType>(O) {}
 
   bool parse(cl::Option &O, llvm::StringRef /*ArgName*/, llvm::StringRef Arg,
-             CxxHeaderMode &Val) {
+             DummyDataType & /*Val*/) {
+    global.params.cxxhdr.doOutput = true;
+
     if (Arg.empty() || Arg == "silent") {
-      Val = CxxHeaderMode::silent;
       return false;
     }
+
     if (Arg == "verbose") {
-      Val = CxxHeaderMode::verbose;
+      global.params.cxxhdr.fullOutput = true;
       return false;
     }
 
@@ -310,15 +312,11 @@ struct HCParser : public cl::parser<CxxHeaderMode> {
   }
 };
 
-static cl::opt<CxxHeaderMode, true, HCParser> doCxxHdrGen(
-    "HC", cl::ZeroOrMore, cl::desc("Generate C++ header file"),
-    cl::location(global.params.doCxxHdrGeneration), cl::ValueOptional,
-    cl::values(
-        clEnumValN(CxxHeaderMode::silent, "silent",
-                   "Only list extern(C[++]) declarations (default)"),
-        clEnumValN(
-            CxxHeaderMode::verbose, "verbose",
-            "Also add comments for ignored declarations (e.g. extern(D))")));
+static cl::opt<DummyDataType, false, HCParser>
+    doCxxHdrGen("HC", cl::ZeroOrMore, cl::ValueOptional,
+                cl::desc("Generate C++ header file\n"
+                         "Use -HC=verbose to add comments for ignored "
+                         "declarations (e.g. extern(D))"));
 
 cl::opt<std::string>
     cxxHdrDir("HCd", cl::ZeroOrMore, cl::Prefix,

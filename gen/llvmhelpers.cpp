@@ -1597,14 +1597,14 @@ DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl) {
       assert(tb->ty == TY::Tarray && tb->nextOf()->ty == TY::Tvoid);
       const auto size = DtoConstSize_t(ad->structsize);
       llvm::Constant *ptr =
-          sd && sd->zeroInit
+          sd && sd->zeroInit()
               ? getNullValue(getVoidPtrType())
               : DtoBitCast(getIrAggr(ad)->getInitSymbol(), getVoidPtrType());
       return new DSliceValue(type, size, ptr);
     }
 
     assert(sd);
-    if (sd->zeroInit) {
+    if (sd->zeroInit()) {
       error(loc, "no init symbol for zero-initialized struct");
       fatal();
     }

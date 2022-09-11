@@ -502,10 +502,10 @@ package (dmd) extern (C++) final class StatementSemanticVisitor : Visitor
     override void visit(ForwardingStatement ss)
     {
         assert(ss.sym);
-        for (Scope* csc = sc; !ss.sym.forward; csc = csc.enclosing)
+        for (Scope* csc = sc; !ss.sym.parent; csc = csc.enclosing)
         {
             assert(csc);
-            ss.sym.forward = csc.scopesym;
+            ss.sym.parent = csc.scopesym;
         }
         sc = sc.push(ss.sym);
         sc.sbreak = ss;
@@ -733,9 +733,26 @@ package (dmd) extern (C++) final class StatementSemanticVisitor : Visitor
         {
             assert(oaggr.type);
 
-            fs.error("invalid `foreach` aggregate `%s` of type `%s`", oaggr.toChars(), oaggr.type.toPrettyChars());
-            if (isAggregate(fs.aggr.type))
-                fs.loc.errorSupplemental("maybe define `opApply()`, range primitives, or use `.tupleof`");
+            fs.error("invalid `%s` aggregate `%s` of type `%s`",
+                Token.toChars(fs.op), oaggr.toChars(), oaggr.type.toPrettyChars());
+
+            if (auto ad = isAggregate(fs.aggr.type))
+            {
+                if (fs.op == TOK.foreach_reverse_)
+                {
+                    fs.loc.errorSupplemental("`foreach_reverse` works with bidirectional ranges"~
+                        " (implementing `back` and `popBack`), aggregates implementing" ~
+                        " `opApplyReverse`, or the result of an aggregate's `.tupleof` property");
+                    fs.loc.errorSupplemental("https://dlang.org/phobos/std_range_primitives.html#isBidirectionalRange");
+                }
+                else
+                {
+                    fs.loc.errorSupplemental("`foreach` works with input ranges"~
+                        " (implementing `front` and `popFront`), aggregates implementing" ~
+                        " `opApply`, or the result of an aggregate's `.tupleof` property");
+                    fs.loc.errorSupplemental("https://dlang.org/phobos/std_range_primitives.html#isInputRange");
+                }
+            }
 
             return setError();
         }
@@ -1618,9 +1635,8 @@ package (dmd) extern (C++) final class StatementSemanticVisitor : Visitor
         /*IN_LLVM*/ bool enforceSizeTIndex)
     {
         auto params = new Parameters();
-        foreach (i; 0 .. fs.parameters.dim)
+        foreach (i, p; *fs.parameters)
         {
-            Parameter p = (*fs.parameters)[i];
             StorageClass stc = STC.ref_ | (p.storageClass & STC.scope_);
             Identifier id;
 
@@ -2992,7 +3008,8 @@ version (IN_LLVM)
             /* Void-return function can have void / noreturn typed expression
              * on return statement.
              */
-            const convToVoid = rs.exp.type.ty == Tvoid || rs.exp.type.ty == Tnoreturn;
+            auto texp = rs.exp.type;
+            const convToVoid = texp.ty == Tvoid || texp.ty == Tnoreturn;
 
             if (tbret && tbret.ty == Tvoid || convToVoid)
             {
@@ -3003,6 +3020,26 @@ version (IN_LLVM)
                     rs.exp = new CastExp(rs.loc, rs.exp, Type.tvoid);
                     rs.exp = rs.exp.expressionSemantic(sc);
                 }
+
+                // https://issues.dlang.org/show_bug.cgi?id=23063
+                if (texp.isTypeNoreturn() && !rs.exp.isAssertExp() && !rs.exp.isThrowExp() && !rs.exp.isCallExp())
+                {
+                    auto msg = new StringExp(rs.exp.loc, "Accessed expression of type `noreturn`");
+                    msg.type = Type.tstring;
+                    rs.exp = new AssertExp(rs.loc, IntegerExp.literal!0, msg);
+                    rs.exp.type = texp;
+                }
+
+                // @@@DEPRECATED_2.111@@@
+                const olderrors = global.startGagging();
+                // uncomment to turn deprecation into an error when
+                // deprecation cycle is over
+                if (discardValue(rs.exp))
+                {
+                    //errors = true;
+                }
+                if (global.endGagging(olderrors))
+                    rs.exp.deprecation("`%s` has no effect", rs.exp.toChars());
 
                 /* Replace:
                  *      return exp;
@@ -3662,13 +3699,13 @@ version (IN_LLVM)
 
         if (!global.params.useExceptions)
         {
-            tcs.error("Cannot use try-catch statements with -betterC");
+            tcs.error("cannot use try-catch statements with -betterC");
             return setError();
         }
 
         if (!ClassDeclaration.throwable)
         {
-            tcs.error("Cannot use try-catch statements because `object.Throwable` was not declared");
+            tcs.error("cannot use try-catch statements because `object.Throwable` was not declared");
             return setError();
         }
 
@@ -3807,6 +3844,13 @@ version (IN_LLVM)
 
         if (oss.tok != TOK.onScopeExit)
         {
+            // https://issues.dlang.org/show_bug.cgi?id=23159
+            if (!global.params.useExceptions)
+            {
+                oss.error("`%s` cannot be used with -betterC", Token.toChars(oss.tok));
+                return setError();
+            }
+
             // scope(success) and scope(failure) are rewritten to try-catch(-finally) statement,
             // so the generated catch block cannot be placed in finally block.
             // See also Catch::semantic.
@@ -3870,13 +3914,13 @@ version (IN_LLVM)
     {
         if (!global.params.useExceptions)
         {
-            loc.error("Cannot use `throw` statements with -betterC");
+            loc.error("cannot use `throw` statements with -betterC");
             return false;
         }
 
         if (!ClassDeclaration.throwable)
         {
-            loc.error("Cannot use `throw` statements because `object.Throwable` was not declared");
+            loc.error("cannot use `throw` statements because `object.Throwable` was not declared");
             return false;
         }
 
@@ -4035,8 +4079,10 @@ version (IN_LLVM)
             cas.error("`asm` statement is assumed to be impure - mark it with `pure` if it is not");
         if (!(cas.stc & STC.nogc) && sc.func.setGC())
             cas.error("`asm` statement is assumed to use the GC - mark it with `@nogc` if it does not");
-        if (!(cas.stc & (STC.trusted | STC.safe)) && sc.func.setUnsafe())
-            cas.error("`asm` statement is assumed to be `@system` - mark it with `@trusted` if it is not");
+        if (!(cas.stc & (STC.trusted | STC.safe)))
+        {
+            sc.setUnsafe(false, cas.loc, "`asm` statement is assumed to be `@system` - mark it with `@trusted` if it is not");
+        }
 
         sc.pop();
         result = cas;
@@ -4140,10 +4186,10 @@ void catchSemantic(Catch c, Scope* sc)
             error(c.loc, "catching C++ class objects not supported for this target");
             c.errors = true;
         }
-        if (sc.func && !sc.intypeof && !c.internalCatch && sc.func.setUnsafe())
+        if (!c.internalCatch)
         {
-            error(c.loc, "cannot catch C++ class objects in `@safe` code");
-            c.errors = true;
+            if (sc.setUnsafe(false, c.loc, "cannot catch C++ class objects in `@safe` code"))
+                c.errors = true;
         }
     }
     else if (cd != ClassDeclaration.throwable && !ClassDeclaration.throwable.isBaseOf(cd, null))
@@ -4151,11 +4197,11 @@ void catchSemantic(Catch c, Scope* sc)
         error(c.loc, "can only catch class objects derived from `Throwable`, not `%s`", c.type.toChars());
         c.errors = true;
     }
-    else if (sc.func && !sc.intypeof && !c.internalCatch && ClassDeclaration.exception &&
-             cd != ClassDeclaration.exception && !ClassDeclaration.exception.isBaseOf(cd, null) &&
-             sc.func.setUnsafe())
+    else if (!c.internalCatch && ClassDeclaration.exception &&
+            cd != ClassDeclaration.exception && !ClassDeclaration.exception.isBaseOf(cd, null) &&
+            sc.setUnsafe(false, c.loc,
+                "can only catch class objects derived from `Exception` in `@safe` code, not `%s`", c.type))
     {
-        error(c.loc, "can only catch class objects derived from `Exception` in `@safe` code, not `%s`", c.type.toChars());
         c.errors = true;
     }
     else if (global.params.ehnogc)
@@ -4419,7 +4465,7 @@ public auto makeTupleForeach(Scope* sc, bool isStatic, bool isDecl, ForeachState
         if (!skip && dim == 2)
         {
             // Declare key
-            if (p.storageClass & (STC.out_ | STC.ref_ | STC.lazy_))
+            if (p.isReference() || p.isLazy())
             {
                 fs.error("no storage class for key `%s`", p.ident.toChars());
                 return returnEarly();
@@ -4491,19 +4537,21 @@ public auto makeTupleForeach(Scope* sc, bool isStatic, bool isDecl, ForeachState
                 Dsymbol ds = null;
                 if (!(storageClass & STC.manifest))
                 {
-                    if ((isStatic || tb.ty == Tfunction || storageClass&STC.alias_) && e.op == EXP.variable)
-                        ds = (cast(VarExp)e).var;
-                    else if (e.op == EXP.template_)
-                        ds = (cast(TemplateExp)e).td;
-                    else if (e.op == EXP.scope_)
-                        ds = (cast(ScopeExp)e).sds;
-                    else if (e.op == EXP.function_)
+                    if (isStatic || tb.ty == Tfunction || storageClass & STC.alias_)
                     {
-                        auto fe = cast(FuncExp)e;
-                        ds = fe.td ? cast(Dsymbol)fe.td : fe.fd;
+                        if (auto ve = e.isVarExp())
+                            ds = ve.var;
+                        else if (auto dve = e.isDotVarExp())
+                            ds = dve.var;
                     }
-                    else if (e.op == EXP.overloadSet)
-                        ds = (cast(OverExp)e).vars;
+                    if (auto te = e.isTemplateExp())
+                        ds = te.td;
+                    else if (auto se = e.isScopeExp())
+                        ds = se.sds;
+                    else if (auto fe = e.isFuncExp())
+                        ds = fe.td ? fe.td : fe.fd;
+                    else if (auto oe = e.isOverExp())
+                        ds = oe.vars;
                 }
                 else if (storageClass & STC.alias_)
                 {
@@ -4620,6 +4668,7 @@ public auto makeTupleForeach(Scope* sc, bool isStatic, bool isDecl, ForeachState
                 auto field = Identifier.idPool(StaticForeach.tupleFieldName.ptr,StaticForeach.tupleFieldName.length);
                 Expression access = new DotIdExp(loc, e, field);
                 access = expressionSemantic(access, sc);
+                access = access.optimize(WANTvalue);
                 if (!tuple) return returnEarly();
                 //printf("%s\n",tuple.toChars());
                 foreach (l; 0 .. dim)
@@ -4937,7 +4986,7 @@ private Statement toStatement(Dsymbol s)
     }
     else
     {
-        .error(Loc.initial, "Internal Compiler Error: cannot mixin %s `%s`\n", s.kind(), s.toChars());
+        .error(Loc.initial, "internal compiler error: cannot mixin %s `%s`\n", s.kind(), s.toChars());
         result = new ErrorStatement();
     }
 

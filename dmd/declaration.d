@@ -339,7 +339,7 @@ version (IN_LLVM) {} else
         {
             if (ctor.isCpCtor && ctor.isGenerated())
             {
-                .error(loc, "Generating an `inout` copy constructor for `struct %s` failed, therefore instances of it are uncopyable", parent.toPrettyChars());
+                .error(loc, "generating an `inout` copy constructor for `struct %s` failed, therefore instances of it are uncopyable", parent.toPrettyChars());
                 return true;
             }
         }
@@ -659,23 +659,46 @@ extern (C++) final class TupleDeclaration : Declaration
     override bool needThis()
     {
         //printf("TupleDeclaration::needThis(%s)\n", toChars());
-        for (size_t i = 0; i < objects.dim; i++)
+        return isexp ? foreachVar((s) { return s.needThis(); }) != 0 : false;
+    }
+
+    /***********************************************************
+     * Calls dg(Dsymbol) for each Dsymbol, which should be a VarDeclaration
+     * inside VarExp (isexp == true).
+     * Params:
+     *    dg = delegate to call for each Dsymbol
+     */
+    extern (D) void foreachVar(scope void delegate(Dsymbol) dg)
+    {
+        assert(isexp);
+        foreach (o; *objects)
         {
-            RootObject o = (*objects)[i];
-            if (o.dyncast() == DYNCAST.expression)
-            {
-                Expression e = cast(Expression)o;
-                if (DsymbolExp ve = e.isDsymbolExp())
-                {
-                    Declaration d = ve.s.isDeclaration();
-                    if (d && d.needThis())
-                    {
-                        return true;
-                    }
-                }
-            }
+            if (auto e = o.isExpression())
+                if (auto ve = e.isVarExp())
+                    dg(ve.var);
         }
-        return false;
+    }
+
+    /***********************************************************
+     * Calls dg(Dsymbol) for each Dsymbol, which should be a VarDeclaration
+     * inside VarExp (isexp == true).
+     * If dg returns !=0, stops and returns that value else returns 0.
+     * Params:
+     *    dg = delegate to call for each Dsymbol
+     * Returns:
+     *    last value returned by dg()
+     */
+    extern (D) int foreachVar(scope int delegate(Dsymbol) dg)
+    {
+        assert(isexp);
+        foreach (o; *objects)
+        {
+            if (auto e = o.isExpression())
+                if (auto ve = e.isVarExp())
+                    if(auto ret = dg(ve.var))
+                        return ret;
+        }
+        return 0;
     }
 
     override inout(TupleDeclaration) isTupleDeclaration() inout
@@ -1149,15 +1172,7 @@ version (IN_LLVM)
             // If this variable was really a tuple, set the offsets for the tuple fields
             TupleDeclaration v2 = aliassym.isTupleDeclaration();
             assert(v2);
-            for (size_t i = 0; i < v2.objects.dim; i++)
-            {
-                RootObject o = (*v2.objects)[i];
-                assert(o.dyncast() == DYNCAST.expression);
-                Expression e = cast(Expression)o;
-                assert(e.op == EXP.dSymbol);
-                DsymbolExp se = e.isDsymbolExp();
-                se.s.setFieldOffset(ad, fieldState, isunion);
-            }
+            v2.foreachVar((s) { s.setFieldOffset(ad, fieldState, isunion); });
             return;
         }
 
@@ -1519,7 +1534,7 @@ version (IN_LLVM)
         uint oldgag = global.gag;
         if (global.gag)
         {
-            Dsymbol sym = toParent().isAggregateDeclaration();
+            Dsymbol sym = isMember();
             if (sym && !sym.isSpeculative())
                 global.gag = 0;
         }
@@ -1702,6 +1717,32 @@ extern (C++) class BitFieldDeclaration : VarDeclaration
     override void accept(Visitor v)
     {
         v.visit(this);
+    }
+
+    /***********************************
+     * Retrieve the .min or .max values.
+     * Only valid after semantic analysis.
+     * Params:
+     *  id = Id.min or Id.max
+     * Returns:
+     *  the min or max value
+     */
+    final ulong getMinMax(Identifier id)
+    {
+        const width = fieldWidth;
+        const uns = type.isunsigned();
+        const min = id == Id.min;
+        ulong v;
+        assert(width != 0);  // should have been rejected in semantic pass
+        if (width == ulong.sizeof * 8)
+            v = uns ? (min ? ulong.min : ulong.max)
+                    : (min ?  long.min :  long.max);
+        else
+            v = uns ? (min ? 0
+                           : (1L << width) - 1)
+                    : (min ? -(1L << (width - 1))
+                           :  (1L << (width - 1)) - 1);
+        return v;
     }
 
     override final void setFieldOffset(AggregateDeclaration ad, ref FieldState fieldState, bool isunion)

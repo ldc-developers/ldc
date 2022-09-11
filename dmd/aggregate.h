@@ -120,20 +120,20 @@ public:
     Sizeok sizeok;              // set when structsize contains valid data
 
     virtual Scope *newScope(Scope *sc);
-    void setScope(Scope *sc);
+    void setScope(Scope *sc) override final;
     size_t nonHiddenFields();
     bool determineSize(const Loc &loc);
     virtual void finalizeSize() = 0;
-    uinteger_t size(const Loc &loc);
+    uinteger_t size(const Loc &loc) override final;
     bool fill(const Loc &loc, Expressions *elements, bool ctorinit);
-    Type *getType();
-    bool isDeprecated() const;         // is aggregate deprecated?
+    Type *getType() override final;
+    bool isDeprecated() const override final; // is aggregate deprecated?
     void setDeprecated();
     bool isNested() const;
-    bool isExport() const;
+    bool isExport() const override final;
     Dsymbol *searchCtor();
 
-    Visibility visible();
+    Visibility visible() override final;
 
     // 'this' type
     Type *handleType() { return type; }
@@ -145,8 +145,8 @@ public:
     void *sinit;
 #endif
 
-    AggregateDeclaration *isAggregateDeclaration() { return this; }
-    void accept(Visitor *v) { v->visit(this); }
+    AggregateDeclaration *isAggregateDeclaration() override final { return this; }
+    void accept(Visitor *v) override { v->visit(this); }
 };
 
 struct StructFlags
@@ -161,19 +161,6 @@ struct StructFlags
 class StructDeclaration : public AggregateDeclaration
 {
 public:
-    bool zeroInit;              // !=0 if initialize with 0 fill
-    bool hasIdentityAssign;     // true if has identity opAssign
-    bool hasBlitAssign;         // true if opAssign is a blit
-    bool hasIdentityEquals;     // true if has identity opEquals
-    bool hasNoFields;           // has no fields
-    bool hasCopyCtor;           // copy constructor
-#if !IN_LLVM
-    // Even if struct is defined as non-root symbol, some built-in operations
-    // (e.g. TypeidExp, NewExp, ArrayLiteralExp, etc) request its TypeInfo.
-    // For those, today TypeInfo_Struct is generated in COMDAT.
-    bool requestTypeInfo;
-#endif
-
     FuncDeclarations postblits; // Array of postblit functions
     FuncDeclaration *postblit;  // aggregate postblit
 
@@ -183,35 +170,56 @@ public:
     static FuncDeclaration *xerreq;      // object.xopEquals
     static FuncDeclaration *xerrcmp;     // object.xopCmp
 
-    structalign_t alignment;    // alignment applied outside of the struct
-    ThreeState ispod;           // if struct is POD
-
     // ABI-specific type(s) if the struct can be passed in registers
     TypeTuple *argTypes;
 
+    structalign_t alignment;    // alignment applied outside of the struct
+    ThreeState ispod;           // if struct is POD
+private:
+    uint8_t bitFields;
+public:
     static StructDeclaration *create(const Loc &loc, Identifier *id, bool inObject);
-    StructDeclaration *syntaxCopy(Dsymbol *s);
-    Dsymbol *search(const Loc &loc, Identifier *ident, int flags = SearchLocalsOnly);
-    const char *kind() const;
-    void finalizeSize();
+    StructDeclaration *syntaxCopy(Dsymbol *s) override;
+    Dsymbol *search(const Loc &loc, Identifier *ident, int flags = SearchLocalsOnly) override final;
+    const char *kind() const override;
+    void finalizeSize() override final;
     bool isPOD();
+    bool zeroInit() const;          // !=0 if initialize with 0 fill
+    bool zeroInit(bool v);
+    bool hasIdentityAssign() const; // true if has identity opAssign
+    bool hasIdentityAssign(bool v);
+    bool hasBlitAssign() const;     // true if opAssign is a blit
+    bool hasBlitAssign(bool v);
+    bool hasIdentityEquals() const; // true if has identity opEquals
+    bool hasIdentityEquals(bool v);
+    bool hasNoFields() const;       // has no fields
+    bool hasNoFields(bool v);
+    bool hasCopyCtor() const;       // copy constructor
+    bool hasCopyCtor(bool v);
+#if !IN_LLVM
+    // Even if struct is defined as non-root symbol, some built-in operations
+    // (e.g. TypeidExp, NewExp, ArrayLiteralExp, etc) request its TypeInfo.
+    // For those, today TypeInfo_Struct is generated in COMDAT.
+    bool requestTypeInfo() const;
+    bool requestTypeInfo(bool v);
+#endif
 
-    StructDeclaration *isStructDeclaration() { return this; }
-    void accept(Visitor *v) { v->visit(this); }
+    StructDeclaration *isStructDeclaration() override final { return this; }
+    void accept(Visitor *v) override { v->visit(this); }
 
     unsigned numArgTypes() const;
     Type *argType(unsigned index);
     bool hasRegularCtor(bool checkDisabled = false);
 };
 
-class UnionDeclaration : public StructDeclaration
+class UnionDeclaration final : public StructDeclaration
 {
 public:
-    UnionDeclaration *syntaxCopy(Dsymbol *s);
-    const char *kind() const;
+    UnionDeclaration *syntaxCopy(Dsymbol *s) override;
+    const char *kind() const override;
 
-    UnionDeclaration *isUnionDeclaration() { return this; }
-    void accept(Visitor *v) { v->visit(this); }
+    UnionDeclaration *isUnionDeclaration() override { return this; }
+    void accept(Visitor *v) override { v->visit(this); }
 };
 
 struct BaseClass
@@ -285,9 +293,9 @@ public:
 #endif
 
     static ClassDeclaration *create(const Loc &loc, Identifier *id, BaseClasses *baseclasses, Dsymbols *members, bool inObject);
-    const char *toPrettyChars(bool QualifyTypes = false);
-    ClassDeclaration *syntaxCopy(Dsymbol *s);
-    Scope *newScope(Scope *sc);
+    const char *toPrettyChars(bool QualifyTypes = false) override;
+    ClassDeclaration *syntaxCopy(Dsymbol *s) override;
+    Scope *newScope(Scope *sc) override;
     bool isBaseOf2(ClassDeclaration *cd);
 
     #define OFFSET_RUNTIME 0x76543210
@@ -295,9 +303,9 @@ public:
     virtual bool isBaseOf(ClassDeclaration *cd, int *poffset);
 
     bool isBaseInfoComplete();
-    Dsymbol *search(const Loc &loc, Identifier *ident, int flags = SearchLocalsOnly);
+    Dsymbol *search(const Loc &loc, Identifier *ident, int flags = SearchLocalsOnly) override final;
     ClassDeclaration *searchBase(Identifier *ident);
-    void finalizeSize();
+    void finalizeSize() override;
     bool hasMonitor();
     bool isFuncHidden(FuncDeclaration *fd);
     FuncDeclaration *findFunc(Identifier *ident, TypeFunction *tf);
@@ -307,30 +315,30 @@ public:
     virtual bool isCPPinterface() const;
     bool isAbstract();
     virtual int vtblOffset() const;
-    const char *kind() const;
+    const char *kind() const override;
 
-    void addLocalClass(ClassDeclarations *);
-    void addObjcSymbols(ClassDeclarations *classes, ClassDeclarations *categories);
+    void addLocalClass(ClassDeclarations *) override final;
+    void addObjcSymbols(ClassDeclarations *classes, ClassDeclarations *categories) override final;
 
     // Back end
     Dsymbol *vtblsym;
     Dsymbol *vtblSymbol();
 
-    ClassDeclaration *isClassDeclaration() { return (ClassDeclaration *)this; }
-    void accept(Visitor *v) { v->visit(this); }
+    ClassDeclaration *isClassDeclaration() override final { return (ClassDeclaration *)this; }
+    void accept(Visitor *v) override { v->visit(this); }
 };
 
-class InterfaceDeclaration : public ClassDeclaration
+class InterfaceDeclaration final : public ClassDeclaration
 {
 public:
-    InterfaceDeclaration *syntaxCopy(Dsymbol *s);
-    Scope *newScope(Scope *sc);
-    bool isBaseOf(ClassDeclaration *cd, int *poffset);
-    const char *kind() const;
-    int vtblOffset() const;
-    bool isCPPinterface() const;
-    bool isCOMinterface() const;
+    InterfaceDeclaration *syntaxCopy(Dsymbol *s) override;
+    Scope *newScope(Scope *sc) override;
+    bool isBaseOf(ClassDeclaration *cd, int *poffset) override;
+    const char *kind() const override;
+    int vtblOffset() const override;
+    bool isCPPinterface() const override;
+    bool isCOMinterface() const override;
 
-    InterfaceDeclaration *isInterfaceDeclaration() { return this; }
-    void accept(Visitor *v) { v->visit(this); }
+    InterfaceDeclaration *isInterfaceDeclaration() override { return this; }
+    void accept(Visitor *v) override { v->visit(this); }
 };

@@ -150,4 +150,5 @@ struct Scope
     structalign_t alignment();
 
     bool isDeprecated() const;
+    bool isFromSpeculativeSemanticContext() const;
 };

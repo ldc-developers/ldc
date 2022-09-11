@@ -2300,7 +2300,7 @@ public:
       if (!dstMem)
         dstMem = DtoAlloca(e->type, ".structliteral");
 
-      if (sd->zeroInit) {
+      if (sd->zeroInit()) {
         DtoMemSetZero(dstMem);
       } else {
         LLValue *initsym = getIrAggr(sd)->getInitSymbol();
@@ -2819,7 +2819,7 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
         auto sd = symdecl->dsym->isStructDeclaration();
         assert(sd);
         DtoResolveStruct(sd);
-        if (sd->zeroInit) {
+        if (sd->zeroInit()) {
           Logger::println("success, zeroing out");
           DtoMemSetZero(DtoLVal(lhs));
           return true;

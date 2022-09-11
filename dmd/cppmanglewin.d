@@ -91,7 +91,7 @@ private extern (D) bool checkImmutableShared(Type type, Loc loc)
 {
     if (type.isImmutable() || type.isShared())
     {
-        error(loc, "Internal Compiler Error: `shared` or `immutable` types cannot be mapped to C++ (%s)", type.toChars());
+        error(loc, "internal compiler error: `shared` or `immutable` types cannot be mapped to C++ (%s)", type.toChars());
         fatal();
         return true;
     }
@@ -159,7 +159,7 @@ public:
         if (checkImmutableShared(type, loc))
             return;
 
-        error(loc, "Internal Compiler Error: type `%s` cannot be mapped to C++\n", type.toChars());
+        error(loc, "internal compiler error: type `%s` cannot be mapped to C++\n", type.toChars());
         fatal(); //Fatal, because this error should be handled in frontend
     }
 
@@ -613,7 +613,7 @@ extern(D):
         // fake mangling for fields to fix https://issues.dlang.org/show_bug.cgi?id=16525
         if (!(d.storage_class & (STC.extern_ | STC.field | STC.gshared)))
         {
-            d.error("Internal Compiler Error: C++ static non-__gshared non-extern variables not supported");
+            d.error("internal compiler error: C++ static non-__gshared non-extern variables not supported");
             fatal();
         }
         buf.writeByte('?');
@@ -795,7 +795,7 @@ extern(D):
     {
         if (!tv.valType.isintegral())
         {
-            sym.error("Internal Compiler Error: C++ %s template value parameter is not supported", tv.valType.toChars());
+            sym.error("internal compiler error: C++ %s template value parameter is not supported", tv.valType.toChars());
             fatal();
             return;
         }
@@ -874,7 +874,7 @@ extern(D):
                 }
                 else
                 {
-                    sym.error("Internal Compiler Error: C++ templates support only integral value, type parameters, alias templates and alias function parameters");
+                    sym.error("internal compiler error: C++ templates support only integral value, type parameters, alias templates and alias function parameters");
                     fatal();
                 }
             }
@@ -882,7 +882,7 @@ extern(D):
         }
         else
         {
-            sym.error("Internal Compiler Error: `%s` is unsupported parameter for C++ template", o.toChars());
+            sym.error("internal compiler error: `%s` is unsupported parameter for C++ template", o.toChars());
             fatal();
         }
     }
@@ -1032,7 +1032,7 @@ extern(D):
             }
             else
             {
-                sym.error("Internal Compiler Error: C++ templates support only integral value, type parameters, alias templates and alias function parameters");
+                sym.error("internal compiler error: C++ templates support only integral value, type parameters, alias templates and alias function parameters");
                 fatal();
             }
         }
@@ -1289,7 +1289,7 @@ extern(D):
                 Type t = p.type.merge2();
                 if (p.isReference())
                     t = t.referenceTo();
-                else if (p.storageClass & STC.lazy_)
+                else if (p.isLazy())
                 {
                     // Mangle as delegate
                     auto tf = new TypeFunction(ParameterList(), t, LINK.d);
@@ -1300,7 +1300,7 @@ extern(D):
                     t = cpptype;
                 if (t.ty == Tsarray)
                 {
-                    error(loc, "Internal Compiler Error: unable to pass static array to `extern(C++)` function.");
+                    error(loc, "internal compiler error: unable to pass static array to `extern(C++)` function.");
                     errorSupplemental(loc, "Use pointer instead.");
                     assert(0);
                 }

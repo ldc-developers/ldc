@@ -77,7 +77,7 @@ void semantic3OnDependencies(Module m)
  */
 void removeHdrFilesAndFail(ref Param params, ref Modules modules) nothrow
 {
-    if (params.doHdrGeneration)
+    if (params.dihdr.doOutput)
     {
         foreach (m; modules)
         {
@@ -370,6 +370,9 @@ extern (C++) final class Module : Package
     int selfimports;            // 0: don't know, 1: does not, 2: does
     Dsymbol[void*] tagSymTab;   /// ImportC: tag symbols that conflict with other symbols used as the index
 
+    private OutBuffer defines;  // collect all the #define lines here
+
+
     /*************************************
      * Return true if module imports itself.
      */
@@ -499,7 +502,7 @@ else
         if (doDocComment)
             setDocfile();
         if (doHdrGen)
-            hdrfile = setOutfilename(global.params.hdrname, global.params.hdrdir, arg, hdr_ext);
+            hdrfile = setOutfilename(global.params.dihdr.name, global.params.dihdr.dir, arg, hdr_ext);
     }
 
     extern (D) this(const(char)[] filename, Identifier ident, int doDocComment, int doHdrGen)
@@ -636,7 +639,7 @@ version (IN_LLVM)
 
     extern (D) void setDocfile()
     {
-        docfile = setOutfilename(global.params.docname, global.params.docdir, arg, doc_ext);
+        docfile = setOutfilename(global.params.ddoc.name, global.params.ddoc.dir, arg, doc_ext);
     }
 
     /**
@@ -723,11 +726,29 @@ else
             return true; // already read
 
         //printf("Module::read('%s') file '%s'\n", toChars(), srcfile.toChars());
-        if (auto result = global.fileManager.lookup(srcfile))
+
+        /* Preprocess the file if it's a .c file
+         */
+        FileName filename = srcfile;
+        bool ifile = false;             // did we generate a .i file
+        scope (exit)
+        {
+            if (ifile)
+                File.remove(filename.toChars());        // remove generated file
+        }
+
+        if (global.preprocess &&
+            FileName.equalsExt(srcfile.toString(), c_ext) &&
+            FileName.exists(srcfile.toString()))
+        {
+            filename = global.preprocess(srcfile, loc, ifile, &defines);  // run C preprocessor
+        }
+
+        if (auto result = global.fileManager.lookup(filename))
         {
             this.src = result;
-            if (global.params.emitMakeDeps)
-                global.params.makeDeps.push(srcfile.toChars());
+            if (global.params.makeDeps.doOutput)
+                global.params.makeDeps.files.push(srcfile.toChars());
             return true;
         }
 
@@ -1018,7 +1039,7 @@ else
         {
             filetype = FileType.c;
 
-            scope p = new CParser!AST(this, buf, cast(bool) docfile, target.c);
+            scope p = new CParser!AST(this, buf, cast(bool) docfile, target.c, &defines);
             p.nextToken();
             checkCompiledImport();
             members = p.parseModule();

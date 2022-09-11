@@ -148,7 +148,7 @@ public:
       IrStruct *ir = getIrAggr(decl);
 
       // Define the __initZ symbol.
-      if (!decl->zeroInit) {
+      if (!decl->zeroInit()) {
         ir->getInitSymbol(/*define=*/true);
       }
 
