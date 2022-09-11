@@ -307,7 +307,23 @@ LLValue *DtoNestedContext(const Loc &loc, Dsymbol *sym) {
     IF_LOG Logger::println("Current function is %s", ctxfd->toChars());
     if (fromParent) {
       ctxfd = getParentFunc(ctxfd);
-      assert(ctxfd && "Context from outer function, but no outer function?");
+
+      /*
+       The following can happen with
+       class Outer {
+           class Inner {
+               auto opSlice() {
+                   struct Range {
+                       void foo() {}
+                   }
+                   return Range();
+               }
+           }
+       }
+       see https://github.com/ldc-developers/ldc/issues/4130
+       */
+      if (!ctxfd)
+        ctxfd = irFunc.decl;
     }
     IF_LOG Logger::println("Context is from %s", ctxfd->toChars());
 
