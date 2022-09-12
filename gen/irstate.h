@@ -78,8 +78,10 @@ struct IRAsmStmt {
 
   std::string code;
   struct Operands {
+    Operands() = default;
     std::string c; // contraint
     std::vector<LLValue *> ops;
+    std::vector<Type *> dTypes;
   };
   Operands out, in;
 
