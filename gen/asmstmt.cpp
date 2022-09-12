@@ -267,12 +267,10 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
       arg_map[i] = --input_idx;
       asmStmt->in.ops.push_back(arg_val);
       input_constraints.push_back(cns);
-      asmStmt->in.dTypes.push_back(arg->expr->type);
     } else {
       arg_map[i] = n_outputs++;
       asmStmt->out.ops.push_back(arg_val);
       output_constraints.push_back(cns);
-      asmStmt->out.dTypes.push_back(arg->expr->type);
     }
   }
 
