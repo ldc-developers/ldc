@@ -441,6 +441,14 @@ static void remap_args(std::string &insnt, size_t nargs, size_t idx,
   }
 }
 
+struct ArgBlock {
+  ArgBlock() = default;
+  std::vector<LLValue *> args;
+  std::vector<LLType *> types;
+  std::vector<Type *> dTypes;
+  std::string c;
+};
+
 void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   IF_LOG Logger::println("CompoundAsmStatement::toIR(): %s",
                          stmt->loc.toChars());
@@ -587,11 +595,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   }
 
   // build asm block
-  struct ArgBlock {
-    std::vector<LLValue *> args;
-    std::vector<LLType *> types;
-    std::string c;
-  } in, out;
+  ArgBlock in, out;
   std::string clobbers;
   std::string code;
   size_t asmIdx = asmblock->retn;
@@ -605,6 +609,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     for (size_t j = 0; j < onn; ++j) {
       out.args.push_back(a->out.ops[j]);
       out.types.push_back(a->out.ops[j]->getType());
+      out.dTypes.push_back(a->out.dTypes[j]);
     }
     if (!a->out.c.empty()) {
       out.c += a->out.c;
@@ -621,6 +626,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     for (size_t j = 0; j < inn; ++j) {
       in.args.push_back(a->in.ops[j]);
       in.types.push_back(a->in.ops[j]->getType());
+      in.dTypes.push_back(a->in.dTypes[j]);
     }
     if (!a->in.c.empty()) {
       in.c += a->in.c;
