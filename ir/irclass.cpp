@@ -426,7 +426,7 @@ LLConstant *IrClass::getClassInfoInit() {
   }
 
   // build the initializer
-  LLType *initType = getClassInfoSymbol()->getType()->getContainedType(0);
+  LLType *initType = getClassInfoSymbol()->getValueType();
   constTypeInfo = b.get_constant(isaStruct(initType));
 
   return constTypeInfo;
