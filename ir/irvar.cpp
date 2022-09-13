@@ -51,6 +51,9 @@ LLValue *IrGlobal::getValue(bool define) {
   return value;
 }
 
+llvm::Type *IrGlobal::getType() {
+  return llvm::dyn_cast<llvm::GlobalVariable>(value)->getValueType();
+}
 void IrGlobal::declare() {
   Logger::println("Declaring global: %s", V->toChars());
   LOG_SCOPE
