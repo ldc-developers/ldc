@@ -131,7 +131,7 @@ DRValue *DLValue::getRVal() {
     return nullptr;
   }
 
-  LLValue *rval = DtoLoad(val->getType()->getPointerElementType(), val);
+  LLValue *rval = DtoLoad(DtoMemType(type), val);
 
   const auto ty = type->toBasetype()->ty;
   if (ty == TY::Tbool) {
@@ -219,4 +219,36 @@ void DBitFieldLValue::store(LLValue *value) {
 
   const auto newVal = gIR->ir->CreateOr(maskedOldVal, bfVal);
   gIR->ir->CreateAlignedStore(newVal, ptr, LLMaybeAlign(1));
+}
+
+DDcomputeLValue::DDcomputeLValue(Type *t, llvm::Type * llt, LLValue *v) : DLValue(t, v) {
+    lltype = llt;
+}
+DRValue *DDcomputeLValue::getRVal() {
+  if (DtoIsInMemoryOnly(type)) {
+    llvm_unreachable("getRVal() for memory-only type");
+    return nullptr;
+  }
+  
+  LLValue *rval = DtoLoad(lltype, val);
+  
+  const auto ty = type->toBasetype()->ty;
+  if (ty == TY::Tbool) {
+    assert(rval->getType() == llvm::Type::getInt8Ty(gIR->context()));
+  
+    if (isOptimizationEnabled()) {
+      // attach range metadata for i8 being loaded: [0, 2)
+      llvm::MDBuilder mdBuilder(gIR->context());
+      llvm::cast<llvm::LoadInst>(rval)->setMetadata(
+          llvm::LLVMContext::MD_range,
+          mdBuilder.createRange(llvm::APInt(8, 0), llvm::APInt(8, 2)));
+    }
+  
+    // truncate to i1
+    rval = gIR->ir->CreateTrunc(rval, llvm::Type::getInt1Ty(gIR->context()));
+  } else if (ty == TY::Tarray) {
+    return new DSliceValue(type, rval);
+  }
+  
+  return new DImValue(type, rval);
 }
