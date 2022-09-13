@@ -295,7 +295,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     assert(ap);
     // variadic extern(D) function with implicit _argptr?
     if (LLValue *argptrMem = p->func()->_argptr) {
-      DtoMemCpy(DtoLVal(ap), argptrMem); // ap = _argptr
+      DtoMemCpy(DtoType(ap->type), DtoLVal(ap), argptrMem); // ap = _argptr
     } else {
       LLValue *llAp = gABI->prepareVaStart(ap);
       p->ir->CreateCall(GET_INTRINSIC_DECL(vastart), llAp, "");

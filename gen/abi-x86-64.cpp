@@ -364,7 +364,7 @@ void X86_64TargetABI::vaCopy(DLValue *dest, DValue *src) {
            DtoBitCast(DtoLVal(dest), getPtrToType(valistmem->getType())));
   // Then fill the new struct with a bitcopy of the source struct.
   // `src` is a __va_list_tag* pointer to the source struct.
-  DtoMemCpy(valistmem, DtoRVal(src));
+  DtoMemCpy(getValistType(), valistmem, DtoRVal(src));
 }
 
 LLValue *X86_64TargetABI::prepareVaArg(DLValue *ap) {

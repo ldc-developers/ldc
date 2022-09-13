@@ -418,7 +418,7 @@ void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes, unsigned align) {
   gIR->ir->CreateMemCpy(dst, A, src, A, nbytes, false /*isVolatile*/);
 }
 
-void DtoMemCpy(LLValue *dst, LLValue *src, bool withPadding, unsigned align) {
+void DtoMemCpy(LLType *type, LLValue *dst, LLValue *src, bool withPadding, unsigned align) {
   LLType *pointee = dst->getType()->getContainedType(0);
   uint64_t n =
       withPadding ? getTypeAllocSize(pointee) : getTypeStoreSize(pointee);

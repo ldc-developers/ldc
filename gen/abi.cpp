@@ -208,7 +208,7 @@ LLValue *TargetABI::prepareVaStart(DLValue *ap) {
 void TargetABI::vaCopy(DLValue *dest, DValue *src) {
   LLValue *llDest = DtoLVal(dest);
   if (src->isLVal()) {
-    DtoMemCpy(llDest, DtoLVal(src));
+    DtoMemCpy(DtoType(dest->type), llDest, DtoLVal(src));
   } else {
     DtoStore(DtoRVal(src), llDest);
   }

@@ -2325,7 +2325,7 @@ public:
         LLValue *initsym = getIrAggr(sd)->getInitSymbol();
         initsym = DtoBitCast(initsym, DtoType(e->type->pointerTo()));
         assert(dstMem->getType() == initsym->getType());
-        DtoMemCpy(dstMem, initsym);
+        DtoMemCpy(DtoType(e->type), dstMem, initsym);
       }
 
       return new DLValue(e->type, dstMem);
@@ -2593,7 +2593,7 @@ public:
       DValue *ep = toElem(el);
       LLValue *gep = DtoGEP(st, val, 0, i);
       if (DtoIsInMemoryOnly(el->type)) {
-        DtoMemCpy(gep, DtoLVal(ep));
+        DtoMemCpy(st->getContainedType(i), gep, DtoLVal(ep));
       } else if (el->type->ty != TY::Tvoid) {
         DtoStoreZextI8(DtoRVal(ep), gep);
       } else {
@@ -2670,7 +2670,7 @@ public:
       Type *srcElementType = tsrc->nextOf();
 
       if (DtoMemType(elementType) == DtoMemType(srcElementType)) {
-        DtoMemCpy(dstMem, arrayPtr);
+        DtoMemCpy(dstType, dstMem, arrayPtr);
       } else {
         for (unsigned i = 0; i < N; ++i) {
           LLValue *gep = DtoGEP1(DtoMemType(e1->type->nextOf()), arrayPtr, i);
