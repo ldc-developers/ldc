@@ -213,16 +213,6 @@ public:
     addr.push_back(offset);
   }
 
-  template <typename T> void OpOffset(T &addr, llvm::Value *val, int index) {
-    if (!global.params.symdebug) {
-      return;
-    }
-
-    llvm::StructType *type = isaStruct(val->getType()->getContainedType(0));
-    assert(type);
-    OpOffset(addr, type, index);
-  }
-
   template <typename T> void OpDeref(T &addr) {
     if (!global.params.symdebug) {
       return;
