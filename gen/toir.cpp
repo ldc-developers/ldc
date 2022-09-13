@@ -65,8 +65,9 @@ bool walkPostorder(Expression *e, StoppableVisitor *v);
 
 static LLValue *write_zeroes(LLValue *mem, unsigned start, unsigned end) {
   mem = DtoBitCast(mem, getVoidPtrType());
-  LLValue *gep = DtoGEP1(LLType::getInt8Ty(gIR->context()), mem, start, ".padding");
-  DtoMemSetZero(gep, DtoConstSize_t(end - start));
+  LLType *i8 = LLType::getInt8Ty(gIR->context());
+  LLValue *gep = DtoGEP1(i8, mem, start, ".padding");
+  DtoMemSetZero(i8, gep, DtoConstSize_t(end - start));
   return mem;
 }
 
@@ -546,7 +547,7 @@ public:
       Logger::println("performing aggregate zero initialization");
       assert(e->e2->toInteger() == 0);
       LLValue *lval = DtoLVal(lhs);
-      DtoMemSetZero(lval);
+      DtoMemSetZero(DtoType(lhs->type), lval);
       TypeStruct *ts = static_cast<TypeStruct *>(e->e1->type);
       if (ts->sym->isNested() && ts->sym->vthis)
         DtoResolveNestedContext(e->loc, ts->sym, lval);
@@ -2319,7 +2320,7 @@ public:
         dstMem = DtoAlloca(e->type, ".structliteral");
 
       if (sd->zeroInit) {
-        DtoMemSetZero(dstMem);
+        DtoMemSetZero(DtoType(e->type), dstMem);
       } else {
         LLValue *initsym = getIrAggr(sd)->getInitSymbol();
         initsym = DtoBitCast(initsym, DtoType(e->type->pointerTo()));
@@ -2839,7 +2840,7 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
         DtoResolveStruct(sd);
         if (sd->zeroInit) {
           Logger::println("success, zeroing out");
-          DtoMemSetZero(DtoLVal(lhs));
+          DtoMemSetZero(DtoType(lhs->type) ,DtoLVal(lhs));
           return true;
         }
       }
