@@ -80,7 +80,7 @@ DValue *DtoNewClass(const Loc &loc, TypeClass *tc, NewExp *newexp) {
   LLValue *mem;
   bool doInit = true;
   if (newexp->onstack) {
-    mem = DtoRawAlloca(DtoType(tc)->getContainedType(0), tc->sym->alignsize,
+    mem = DtoRawAlloca(getIrAggr(tc->sym)->getLLStructType(), tc->sym->alignsize,
                        ".newclass_alloca");
   } else {
     const bool useEHAlloc = global.params.ehnogc && newexp->thrownew;
@@ -153,7 +153,7 @@ void DtoInitClass(TypeClass *tc, LLValue *dst) {
   const bool isCPPclass = tc->sym->isCPPclass() ? true : false;
   if (!isCPPclass) {
     tmp = DtoGEP(st, dst, 0, 1, "monitor");
-    val = LLConstant::getNullValue(tmp->getType()->getContainedType(0));
+    val = LLConstant::getNullValue(getVoidPtrType());
     DtoStore(val, tmp);
   }
 
