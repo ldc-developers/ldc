@@ -395,7 +395,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
     DValue *dval = toElem(exp1);
     LLValue *ptr = DtoRVal(exp2);
-    LLType *pointeeType = ptr->getType()->getContainedType(0);
+    LLType *pointeeType = DtoType(exp2->type->isTypePointer()->nextOf());
 
     LLValue *val = nullptr;
     if (pointeeType->isIntegerTy()) {
@@ -482,7 +482,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     const bool isWeak = (*e->arguments)[5]->toInteger() != 0;
 
     LLValue *ptr = DtoRVal(exp1);
-    LLType *pointeeType = ptr->getType()->getContainedType(0);
+    LLType *pointeeType = DtoType(exp1->type->isTypePointer()->nextOf());
     DValue *dcmp = toElem(exp2);
     DValue *dval = toElem(exp3);
 
