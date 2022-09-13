@@ -145,8 +145,7 @@ void DtoInitClass(TypeClass *tc, LLValue *dst) {
 
   // Set vtable field. Doing this seperately might be optimized better.
   LLValue *tmp = DtoGEP(st, dst, 0u, 0, "vtbl");
-  LLValue *val =
-      DtoBitCast(irClass->getVtblSymbol(), tmp->getType()->getContainedType(0));
+  LLValue *val = irClass->getVtblSymbol();
   DtoStore(val, tmp);
 
   // For D classes, set the monitor field to null.
