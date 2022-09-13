@@ -402,7 +402,7 @@ void DtoMemSetZero(LLType *type, LLValue *dst, LLValue *nbytes, unsigned align) 
 }
 
 void DtoMemSetZero(LLType *type, LLValue *dst, unsigned align) {
-  uint64_t n = getTypeStoreSize(dst->getType()->getContainedType(0));
+  uint64_t n = getTypeStoreSize(type);
   DtoMemSetZero(type, dst, DtoConstSize_t(n), align);
 }
 
@@ -543,7 +543,6 @@ void DtoVolatileStore(LLValue *src, LLValue *dst) {
 void DtoStoreZextI8(LLValue *src, LLValue *dst) {
   if (src->getType()->isIntegerTy(1)) {
     llvm::Type *i8 = llvm::Type::getInt8Ty(gIR->context());
-    assert(dst->getType()->getContainedType(0) == i8);
     src = gIR->ir->CreateZExt(src, i8);
   }
   gIR->ir->CreateStore(src, dst);
