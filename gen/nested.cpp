@@ -149,7 +149,7 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
 
   const auto offsetToNthField = [&val, &dwarfAddrOps, &currFrame](unsigned fieldIndex,
                                                       const char *name = "") {
-    gIR->DBuilder.OpOffset(dwarfAddrOps, val, fieldIndex);
+    gIR->DBuilder.OpOffset(dwarfAddrOps, currFrame, fieldIndex);
     val = DtoGEP(currFrame, val, 0, fieldIndex, name);
   };
 
