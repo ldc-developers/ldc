@@ -28,7 +28,7 @@
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 
-static void DtoSetArray(DValue *array, LLValue *dim, LLValue *ptr);
+static void DtoSetArray(DValue *array, DValue *rhs);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -218,7 +218,7 @@ void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
     if (rhs->isNull()) {
       DtoSetArrayToNull(lhs);
     } else {
-      DtoSetArray(lhs, DtoArrayLen(rhs), DtoArrayPtr(rhs));
+      DtoSetArray(lhs, rhs);
     }
     return;
   }
@@ -323,13 +323,13 @@ void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static void DtoSetArray(DValue *array, LLValue *dim, LLValue *ptr) {
+static void DtoSetArray(DValue *array, DValue *rhs) {
   IF_LOG Logger::println("SetArray");
   LLValue *arr = DtoLVal(array);
-  LLType *s = isaStruct(arr->getType()->getContainedType(0));
+  LLType *s = DtoType(array->type);
   assert(s);
-  DtoStore(dim, DtoGEP(s, arr, 0u, 0));
-  DtoStore(ptr, DtoGEP(s, arr, 0, 1));
+  DtoStore(DtoArrayLen(rhs), DtoGEP(s, arr, 0u, 0));
+  DtoStore(DtoArrayPtr(rhs), DtoGEP(s, arr, 0, 1));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
