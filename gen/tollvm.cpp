@@ -397,13 +397,13 @@ void DtoMemSet(LLValue *dst, LLValue *val, LLValue *nbytes, unsigned align) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoMemSetZero(LLValue *dst, LLValue *nbytes, unsigned align) {
+void DtoMemSetZero(LLType *type, LLValue *dst, LLValue *nbytes, unsigned align) {
   DtoMemSet(dst, DtoConstUbyte(0), nbytes, align);
 }
 
-void DtoMemSetZero(LLValue *dst, unsigned align) {
+void DtoMemSetZero(LLType *type, LLValue *dst, unsigned align) {
   uint64_t n = getTypeStoreSize(dst->getType()->getContainedType(0));
-  DtoMemSetZero(dst, DtoConstSize_t(n), align);
+  DtoMemSetZero(type, dst, DtoConstSize_t(n), align);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

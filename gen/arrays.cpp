@@ -254,7 +254,7 @@ void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
       const size_t elementSize = getTypeAllocSize(DtoMemType(elemType));
       if (rhs->isNull()) {
         LLValue *lhsSize = computeSize(lhsLength, elementSize);
-        DtoMemSetZero(lhsPtr, lhsSize);
+        DtoMemSetZero(getI8Type(), lhsPtr, lhsSize);
       } else {
         bool knownInBounds =
             isConstructing || (t->ty == TY::Tsarray && t2->ty == TY::Tsarray);
