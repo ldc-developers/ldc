@@ -1064,12 +1064,12 @@ bool validCompareWithMemcmp(DValue *l, DValue *r) {
 
 // Create a call instruction to memcmp.
 llvm::CallInst *callMemcmp(const Loc &loc, IRState &irs, LLValue *l_ptr,
-                           LLValue *r_ptr, LLValue *numElements) {
+                           LLValue *r_ptr, LLValue *numElements, LLType *elemty) {
   assert(l_ptr && r_ptr && numElements);
   LLFunction *fn = getRuntimeFunction(loc, gIR->module, "memcmp");
   assert(fn);
   auto sizeInBytes = numElements;
-  size_t elementSize = getTypeAllocSize(l_ptr->getType()->getContainedType(0));
+  size_t elementSize = getTypeAllocSize(elemty);
   if (elementSize != 1) {
     sizeInBytes = irs.ir->CreateMul(sizeInBytes, DtoConstSize_t(elementSize));
   }
@@ -1099,7 +1099,7 @@ LLValue *DtoArrayEqCmp_memcmp(const Loc &loc, DValue *l, DValue *r,
       (r->type->toBasetype()->ty == TY::Tsarray);
   if (staticArrayComparison) {
     // TODO: simply codegen when comparing static arrays with different length (int[3] == int[2])
-    return callMemcmp(loc, irs, l_ptr, r_ptr, l_length);
+    return callMemcmp(loc, irs, l_ptr, r_ptr, l_length, DtoMemType(l->type->nextOf()));
   }
 
   // First compare the array lengths
@@ -1116,7 +1116,7 @@ LLValue *DtoArrayEqCmp_memcmp(const Loc &loc, DValue *l, DValue *r,
   // The array comparison is UB for non-zero length, and memcmp will correctly
   // return 0 (equality) when the length is zero.
   irs.ir->SetInsertPoint(memcmpBB);
-  auto memcmpAnswer = callMemcmp(loc, irs, l_ptr, r_ptr, l_length);
+  auto memcmpAnswer = callMemcmp(loc, irs, l_ptr, r_ptr, l_length, DtoMemType(l->type->nextOf()));
   irs.ir->CreateBr(memcmpEndBB);
 
   // Merge the result of length check and memcmp call into a phi node.
