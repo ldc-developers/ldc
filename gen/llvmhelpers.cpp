@@ -434,7 +434,7 @@ void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
       Logger::cout() << "l : " << *l << '\n';
       Logger::cout() << "r : " << *r << '\n';
     }
-    r = DtoBitCast(r, l->getType()->getContainedType(0));
+    r = DtoBitCast(r, DtoType(lhs->type));
     DtoStore(r, l);
   } else if (t->iscomplex()) {
     LLValue *dst = DtoLVal(lhs);
@@ -447,7 +447,7 @@ void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
       Logger::cout() << "lhs: " << *l << '\n';
       Logger::cout() << "rhs: " << *r << '\n';
     }
-    LLType *lit = l->getType()->getContainedType(0);
+    LLType *lit = DtoType(lhs->type);
     if (r->getType() != lit) {
       r = DtoRVal(DtoCast(loc, rhs, lhs->type));
       IF_LOG {
