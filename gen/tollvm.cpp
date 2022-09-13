@@ -178,7 +178,7 @@ LLType *DtoType(Type *t) {
       // This is an enum forward reference that is only legal when referenced
       // through an indirection (e.g. "enum E; void foo(E* p);"). For lack of a
       // better choice, make the outer indirection a void pointer.
-      return getVoidPtrType()->getContainedType(0);
+      return getI8Type();
     }
     return DtoType(bt);
   }
