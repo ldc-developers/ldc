@@ -322,7 +322,7 @@ public:
     }
 
     // Should be i8.
-    Ty = CB->getType()->getContainedType(0);
+    Ty = llvm::Type::getInt8Ty(CB->getContext());
     return true;
   }
 
