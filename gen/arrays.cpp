@@ -33,9 +33,7 @@ static void DtoSetArray(DValue *array, DValue *rhs);
 ////////////////////////////////////////////////////////////////////////////////
 
 namespace {
-LLValue *DtoSlice(LLValue *ptr, LLValue *length, LLType *elemType = nullptr) {
-  if (!elemType)
-    elemType = ptr->getType()->getContainedType(0);
+LLValue *DtoSlice(LLValue *ptr, LLValue *length, LLType *elemType) {
   elemType = i1ToI8(voidToI8(elemType));
   return DtoAggrPair(length, DtoBitCast(ptr, elemType->getPointerTo()));
 }
@@ -44,7 +42,7 @@ LLValue *DtoSlice(Expression *e) {
   DValue *dval = toElem(e);
   if (dval->type->toBasetype()->ty == TY::Tsarray) {
     // Convert static array to slice
-    return DtoSlice(DtoLVal(dval), DtoArrayLen(dval));
+    return DtoSlice(DtoLVal(dval), DtoArrayLen(dval), DtoType(dval->type->nextOf()));
   }
   return DtoRVal(dval);
 }
@@ -274,16 +272,16 @@ void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
     } else if (isConstructing) {
       LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_arrayctor");
       gIR->CreateCallOrInvoke(fn, DtoTypeInfoOf(loc, elemType),
-                              DtoSlice(rhsPtr, rhsLength),
-                              DtoSlice(lhsPtr, lhsLength));
+                              DtoSlice(rhsPtr, rhsLength, getI8Type()),
+                              DtoSlice(lhsPtr, lhsLength, getI8Type()));
     } else { // assigning
       LLValue *tmpSwap = DtoAlloca(elemType, "arrayAssign.tmpSwap");
       LLFunction *fn = getRuntimeFunction(
           loc, gIR->module,
           !canSkipPostblit ? "_d_arrayassign_l" : "_d_arrayassign_r");
       gIR->CreateCallOrInvoke(
-          fn, DtoTypeInfoOf(loc, elemType), DtoSlice(rhsPtr, rhsLength),
-          DtoSlice(lhsPtr, lhsLength), DtoBitCast(tmpSwap, getVoidPtrType()));
+          fn, DtoTypeInfoOf(loc, elemType), DtoSlice(rhsPtr, rhsLength, getI8Type()),
+          DtoSlice(lhsPtr, lhsLength, getI8Type()), DtoBitCast(tmpSwap, getVoidPtrType()));
     }
   } else {
     // scalar rhs:
