@@ -273,18 +273,14 @@ IRState::createInlineAsmCall(const Loc &loc, llvm::InlineAsm *ia,
   // a non-indirect output constraint (=> return value of call) shifts the
   // constraint/argument index mapping
   ptrdiff_t i = call->getType()->isVoidTy() ? 0 : -1;
-  size_t indirectIdx = 0, indirectLen = indirectTypes.size();
+  size_t indirectIdx = 0;
     
   for (const auto &constraintInfo : ia->ParseConstraints()) {
     if (constraintInfo.isIndirect) {
-      llvm::Type *indirectType = indirectLen != 0 ?
-                                    indirectTypes[indirectIdx] :
-                                    args[i]->getType()->getPointerElementType();
-        
       call->addParamAttr(i, llvm::Attribute::get(
                                 context(),
                                 llvm::Attribute::ElementType,
-                                indirectType));
+                                indirectTypes[indirectIdx]));
       ++indirectIdx;
     }
     ++i;
