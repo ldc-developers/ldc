@@ -136,7 +136,7 @@ LLConstant *
 IRState::setGlobalVarInitializer(LLGlobalVariable *&globalVar,
                                  LLConstant *initializer,
                                  Dsymbol *symbolForLinkageAndVisibility) {
-  if (initializer->getType() == globalVar->getType()->getContainedType(0)) {
+  if (initializer->getType() == globalVar->getValueType()) {
     defineGlobal(globalVar, initializer, symbolForLinkageAndVisibility);
     return globalVar;
   }
