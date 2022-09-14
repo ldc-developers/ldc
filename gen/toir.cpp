@@ -844,7 +844,7 @@ public:
     if (e->offset == 0) {
       offsetValue = baseValue;
     } else {
-      LLType *elemType = baseValue->getType()->getContainedType(0);
+      LLType *elemType = DtoType(base->type);
       if (elemType->isSized()) {
         uint64_t elemSize = gDataLayout->getTypeAllocSize(elemType);
         if (e->offset % elemSize == 0) {
@@ -1641,7 +1641,7 @@ public:
         DtoDeleteClass(e->loc, dval); // sets dval to null
       } else if (dval->isLVal()) {
         LLValue *lval = DtoLVal(dval);
-        DtoStore(LLConstant::getNullValue(lval->getType()->getContainedType(0)),
+        DtoStore(LLConstant::getNullValue(DtoType(dval->type)),
                  lval);
       }
     }
