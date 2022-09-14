@@ -293,7 +293,7 @@ void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
     if (!needsDestruction && !needsPostblit) {
       // fast version
       const size_t lhsElementSize =
-          getTypeAllocSize(realLhsPtr->getType()->getContainedType(0));
+          getTypeAllocSize(DtoMemType(lhs->type->nextOf()));
       LLType *rhsType = DtoMemType(t2);
       const size_t rhsSize = getTypeAllocSize(rhsType);
       LLValue *actualPtr = DtoBitCast(realLhsPtr, rhsType->getPointerTo());
