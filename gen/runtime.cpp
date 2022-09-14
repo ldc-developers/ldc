@@ -273,6 +273,7 @@ struct LazyFunctionDeclarer {
       // NOTE: There are several occurances if this line.
       if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
         fn->addFnAttr(LLAttribute::UWTable);
+        fn->setUWTableKind(llvm::UWTableKind::Default);
       }
 
       fn->setCallingConv(gABI->callingConv(dty, false));

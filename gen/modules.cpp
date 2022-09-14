@@ -295,6 +295,7 @@ void addCoverageAnalysis(Module *m) {
     // Set function attributes. See functions.cpp:DtoDefineFunction()
     if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
       ctor->addFnAttr(LLAttribute::UWTable);
+      ctor->setUWTableKind(llvm::UWTableKind::Default);
     }
 
     llvm::BasicBlock *bb = llvm::BasicBlock::Create(gIR->context(), "", ctor);
