@@ -712,7 +712,7 @@ private:
 
     LLValue *pointer = sretPointer;
     if (!pointer) {
-      pointer = DtoRawAlloca(llArgType->getContainedType(0),
+      pointer = DtoRawAlloca(DtoType(tf->nextOf()),
                              DtoAlignment(resulttype), ".sret_tmp");
     }
 
