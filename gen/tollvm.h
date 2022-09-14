@@ -205,7 +205,7 @@ void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes, unsigned align = 1);
  * @param withPadding Use the dst pointee's padded size, not its store size.
  * @param align The minimum alignment of the source and destination memory.
  */
-void DtoMemCpy(LLValue *dst, LLValue *src, bool withPadding = false,
+void DtoMemCpy(LLType *type, LLValue *dst, LLValue *src, bool withPadding = false,
                unsigned align = 1);
 
 /**

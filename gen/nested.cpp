@@ -538,7 +538,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
           // The parameter value is an alloca'd stack slot.
           // Copy to the nesting frame and leave the alloca for
           // the optimizers to clean up.
-          DtoMemCpy(gep, parm->value);
+          DtoMemCpy(frameType->getContainedType(irLocal->nestedIndex), gep, parm->value);
           gep->takeName(parm->value);
           parm->value = gep; // update variable lvalue
         }
