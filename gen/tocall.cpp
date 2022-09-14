@@ -708,8 +708,6 @@ private:
     }
 
     size_t index = args.size();
-    LLType *llArgType = *(llArgTypesBegin + index);
-
     LLValue *pointer = sretPointer;
     if (!pointer) {
       pointer = DtoRawAlloca(DtoType(tf->nextOf()),
