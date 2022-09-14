@@ -567,7 +567,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
                                   needsCOMDAT());
       const auto callee = irFunc->getLLVMCallee();
       thunk = LLFunction::Create(
-          isaFunction(callee->getType()->getContainedType(0)), lwc.first,
+          callee->getFunctionType(), lwc.first,
           thunkIRMangle, &gIR->module);
       setLinkage(lwc, thunk);
       thunk->copyAttributesFrom(callee);
