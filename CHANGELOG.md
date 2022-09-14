@@ -1,8 +1,10 @@
 # LDC master
 
 #### Big news
+- Bit fields support. (#4015)
 
 #### Platform support
+- Initial ABI support for 64-bit RISC-V. (#4007)
 
 #### Bug fixes
 

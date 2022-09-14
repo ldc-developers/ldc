@@ -65,8 +65,9 @@ bool walkPostorder(Expression *e, StoppableVisitor *v);
 
 static LLValue *write_zeroes(LLValue *mem, unsigned start, unsigned end) {
   mem = DtoBitCast(mem, getVoidPtrType());
-  LLValue *gep = DtoGEP1(LLType::getInt8Ty(gIR->context()), mem, start, ".padding");
-  DtoMemSetZero(gep, DtoConstSize_t(end - start));
+  LLType *i8 = LLType::getInt8Ty(gIR->context());
+  LLValue *gep = DtoGEP1(i8, mem, start, ".padding");
+  DtoMemSetZero(i8, gep, DtoConstSize_t(end - start));
   return mem;
 }
 
@@ -111,52 +112,101 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
   });
 
   unsigned offset = 0;
-  for (const auto &d : data) {
-    const auto vd = d.field;
-    const auto expr = d.expr;
+  for (size_t i = 0; i < data.size(); ++i) {
+    const auto vd = data[i].field;
+    const auto expr = data[i].expr;
 
     // initialize any padding so struct comparisons work
     if (vd->offset != offset) {
-      assert(vd->offset > offset);
+      if (vd->offset < offset) {
+        error(loc, "ICE: overlapping initializers for struct literal");
+        fatal();
+      }
       voidptr = write_zeroes(voidptr, offset, vd->offset);
       offset = vd->offset;
     }
 
-    IF_LOG Logger::println("initializing field: %s %s (+%u)",
-                           vd->type->toChars(), vd->toChars(), vd->offset);
-    LOG_SCOPE
+    if (vd->isBitFieldDeclaration()) {
+      const auto group = BitFieldGroup::startingFrom(
+          i, data.size(), [&data](size_t i) { return data[i].field; });
 
-    // get a pointer to this field
-    assert(!isSpecialRefVar(vd) && "Code not expected to handle special ref "
-                                   "vars, although it can easily be made to.");
-    DLValue *field = DtoIndexAggregate(mem, sd, vd);
-
-    // initialize the field
-    if (expr) {
-      IF_LOG Logger::println("expr = %s", expr->toChars());
-      // try to construct it in-place
-      if (!toInPlaceConstruction(field, expr)) {
-        DtoAssign(loc, field, toElem(expr), EXP::blit);
-        if (expr->isLvalue())
-          callPostblit(loc, expr, DtoLVal(field));
-      }
-    } else {
-      assert(vd == sd->vthis);
-      IF_LOG Logger::println("initializing vthis");
+      IF_LOG Logger::println("initializing bit field group: (+%u, %u bytes)",
+                             group.byteOffset, group.sizeInBytes);
       LOG_SCOPE
-      DImValue val(vd->type,
-                   DtoBitCast(DtoNestedContext(loc, sd), DtoType(vd->type)));
-      DtoAssign(loc, field, &val, EXP::blit);
-    }
 
-    // Make sure to zero out padding bytes counted as being part of the type in
-    // DMD but not in LLVM; e.g. real/x86_fp80.
-    offset += gDataLayout->getTypeStoreSize(DtoType(vd->type));
+      // get a pointer to this group's IR field
+      const auto ptr = DtoLVal(DtoIndexAggregate(mem, sd, vd));
+
+      // merge all initializers to a single value
+      const auto intType =
+          LLIntegerType::get(gIR->context(), group.sizeInBytes * 8);
+      LLValue *val = LLConstant::getNullValue(intType);
+      for (size_t j = 0; j < group.bitFields.size(); ++j) {
+        const auto bf = group.bitFields[j];
+        const auto bfExpr = data[i + j].expr;
+        assert(bfExpr);
+
+        const unsigned bitOffset = group.getBitOffset(bf);
+        IF_LOG Logger::println("bit field: %s %s (bit offset %u, width %u): %s",
+                               bf->type->toChars(), bf->toChars(), bitOffset,
+                               bf->fieldWidth, bfExpr->toChars());
+        LOG_SCOPE
+
+        auto bfVal = DtoRVal(bfExpr);
+        bfVal = gIR->ir->CreateZExtOrTrunc(bfVal, intType);
+        const auto mask =
+            llvm::APInt::getLowBitsSet(intType->getBitWidth(), bf->fieldWidth);
+        bfVal = gIR->ir->CreateAnd(bfVal, mask);
+        if (bitOffset)
+          bfVal = gIR->ir->CreateShl(bfVal, bitOffset);
+        val = gIR->ir->CreateOr(val, bfVal);
+      }
+
+      IF_LOG Logger::cout() << "merged IR value: " << *val << '\n';
+      gIR->ir->CreateAlignedStore(val, DtoBitCast(ptr, getPtrToType(intType)),
+                                  LLMaybeAlign(1));
+      offset += group.sizeInBytes;
+
+      i += group.bitFields.size() - 1; // skip the other bit fields of the group
+    } else {
+      IF_LOG Logger::println("initializing field: %s %s (+%u)",
+                             vd->type->toChars(), vd->toChars(), vd->offset);
+      LOG_SCOPE
+
+      const auto field = DtoIndexAggregate(mem, sd, vd);
+
+      // initialize the field
+      if (expr) {
+        IF_LOG Logger::println("expr = %s", expr->toChars());
+        // try to construct it in-place
+        if (!toInPlaceConstruction(field, expr)) {
+          DtoAssign(loc, field, toElem(expr), EXP::blit);
+          if (expr->isLvalue())
+            callPostblit(loc, expr, DtoLVal(field));
+        }
+      } else {
+        assert(vd == sd->vthis);
+        IF_LOG Logger::println("initializing vthis");
+        LOG_SCOPE
+        DImValue val(vd->type,
+                     DtoBitCast(DtoNestedContext(loc, sd), DtoType(vd->type)));
+        DtoAssign(loc, field, &val, EXP::blit);
+      }
+
+      // Make sure to zero out padding bytes counted as being part of the type
+      // in DMD but not in LLVM; e.g. real/x86_fp80.
+      offset += gDataLayout->getTypeStoreSize(DtoType(vd->type));
+    }
   }
 
   // initialize trailing padding
-  if (sd->structsize != offset)
+  if (sd->structsize != offset) {
+    if (sd->structsize < offset) {
+      error(loc, "ICE: struct literal size exceeds struct size");
+      fatal();
+    }
     voidptr = write_zeroes(voidptr, offset, sd->structsize);
+  }
 }
 
 namespace {
@@ -497,7 +547,7 @@ public:
       Logger::println("performing aggregate zero initialization");
       assert(e->e2->toInteger() == 0);
       LLValue *lval = DtoLVal(lhs);
-      DtoMemSetZero(lval);
+      DtoMemSetZero(DtoType(lhs->type), lval);
       TypeStruct *ts = static_cast<TypeStruct *>(e->e1->type);
       if (ts->sym->isNested() && ts->sym->vthis)
         DtoResolveNestedContext(e->loc, ts->sym, lval);
@@ -794,7 +844,7 @@ public:
     if (e->offset == 0) {
       offsetValue = baseValue;
     } else {
-      LLType *elemType = baseValue->getType()->getContainedType(0);
+      LLType *elemType = DtoType(base->type);
       if (elemType->isSized()) {
         uint64_t elemSize = gDataLayout->getTypeAllocSize(elemType);
         if (e->offset % elemSize == 0) {
@@ -899,6 +949,14 @@ public:
     result = new DLValue(e->type, DtoBitCast(V, DtoPtrToType(e->type)));
   }
 
+  static llvm::PointerType * getWithSamePointeeType(llvm::PointerType *p, unsigned as) {
+#if LDC_LLVM_VER >= 1300
+    return llvm::PointerType::getWithSamePointeeType(p, as);
+#else
+    return p->getPointerElementType()->getPointerTo(as);
+#endif
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   void visit(DotVarExp *e) override {
@@ -913,33 +971,48 @@ public:
 
     Type *e1type = e->e1->type->toBasetype();
 
-    // Logger::println("e1type=%s", e1type->toChars());
-    // Logger::cout() << *DtoType(e1type) << '\n';
-
     if (VarDeclaration *vd = e->var->isVarDeclaration()) {
-      DLValue *arrptr;
+      AggregateDeclaration *ad;
+      LLValue *aggrPtr;
       // indexing struct pointer
       if (e1type->ty == TY::Tpointer) {
-        assert(e1type->nextOf()->ty == TY::Tstruct);
-        TypeStruct *ts = static_cast<TypeStruct *>(e1type->nextOf());
-        arrptr = DtoIndexAggregate(DtoRVal(l), ts->sym, vd);
+        auto ts = e1type->nextOf()->isTypeStruct();
+        assert(ts);
+        ad = ts->sym;
+        aggrPtr = DtoRVal(l);
       }
       // indexing normal struct
-      else if (e1type->ty == TY::Tstruct) {
-        TypeStruct *ts = static_cast<TypeStruct *>(e1type);
-        arrptr = DtoIndexAggregate(DtoLVal(l), ts->sym, vd);
+      else if (auto ts = e1type->isTypeStruct()) {
+        ad = ts->sym;
+        aggrPtr = DtoLVal(l);
       }
       // indexing class
-      else if (e1type->ty == TY::Tclass) {
-        TypeClass *tc = static_cast<TypeClass *>(e1type);
-        arrptr = DtoIndexAggregate(DtoRVal(l), tc->sym, vd);
+      else if (auto tc = e1type->isTypeClass()) {
+        ad = tc->sym;
+        aggrPtr = DtoRVal(l);
       } else {
         llvm_unreachable("Unknown DotVarExp type for VarDeclaration.");
       }
 
-      // Logger::cout() << "mem: " << *DtoLVal(arrptr) << '\n';
-      result = new DLValue(e->type, DtoBitCast(DtoLVal(arrptr),
-                                               DtoPtrToType(e->type)));
+      auto ptr = DtoIndexAggregate(aggrPtr, ad, vd);
+
+      // special case for bit fields (no real lvalues), and address spaced pointers
+      if (auto bf = vd->isBitFieldDeclaration()) {
+        result = new DBitFieldLValue(e->type, DtoLVal(ptr), bf);
+      } else if (auto d = ptr->isDDcomputeLVal()) {
+        LLType *ptrty = nullptr;
+        if (llvm::PointerType *p = isaPointer(d->lltype)) {
+          unsigned as = p->getAddressSpace();
+          ptrty = getWithSamePointeeType(isaPointer(DtoType(e->type)), as);
+        }
+        else
+           ptrty = DtoType(e->type);
+        result = new DDcomputeLValue(e->type, i1ToI8(ptrty),
+                                     DtoBitCast(DtoLVal(d), DtoPtrToType(e->type)));
+      } else {
+        LLValue *p = DtoBitCast(DtoLVal(ptr), DtoPtrToType(e->type));
+        result = new DLValue(e->type, p);
+      }
     } else if (FuncDeclaration *fdecl = e->var->isFuncDeclaration()) {
       // This is a bit more convoluted than it would need to be, because it
       // has to take templated interface methods into account, for which
@@ -1568,7 +1641,7 @@ public:
         DtoDeleteClass(e->loc, dval); // sets dval to null
       } else if (dval->isLVal()) {
         LLValue *lval = DtoLVal(dval);
-        DtoStore(LLConstant::getNullValue(lval->getType()->getContainedType(0)),
+        DtoStore(LLConstant::getNullValue(DtoType(dval->type)),
                  lval);
       }
     }
@@ -2247,12 +2320,12 @@ public:
         dstMem = DtoAlloca(e->type, ".structliteral");
 
       if (sd->zeroInit) {
-        DtoMemSetZero(dstMem);
+        DtoMemSetZero(DtoType(e->type), dstMem);
       } else {
         LLValue *initsym = getIrAggr(sd)->getInitSymbol();
         initsym = DtoBitCast(initsym, DtoType(e->type->pointerTo()));
         assert(dstMem->getType() == initsym->getType());
-        DtoMemCpy(dstMem, initsym);
+        DtoMemCpy(DtoType(e->type), dstMem, initsym);
       }
 
       return new DLValue(e->type, dstMem);
@@ -2520,7 +2593,7 @@ public:
       DValue *ep = toElem(el);
       LLValue *gep = DtoGEP(st, val, 0, i);
       if (DtoIsInMemoryOnly(el->type)) {
-        DtoMemCpy(gep, DtoLVal(ep));
+        DtoMemCpy(st->getContainedType(i), gep, DtoLVal(ep));
       } else if (el->type->ty != TY::Tvoid) {
         DtoStoreZextI8(DtoRVal(ep), gep);
       } else {
@@ -2597,7 +2670,7 @@ public:
       Type *srcElementType = tsrc->nextOf();
 
       if (DtoMemType(elementType) == DtoMemType(srcElementType)) {
-        DtoMemCpy(dstMem, arrayPtr);
+        DtoMemCpy(dstType, dstMem, arrayPtr);
       } else {
         for (unsigned i = 0; i < N; ++i) {
           LLValue *gep = DtoGEP1(DtoMemType(e1->type->nextOf()), arrayPtr, i);
@@ -2767,7 +2840,7 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
         DtoResolveStruct(sd);
         if (sd->zeroInit) {
           Logger::println("success, zeroing out");
-          DtoMemSetZero(DtoLVal(lhs));
+          DtoMemSetZero(DtoType(lhs->type) ,DtoLVal(lhs));
           return true;
         }
       }

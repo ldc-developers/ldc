@@ -182,9 +182,10 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
   static std::string memory_name = "memory";
 
   AsmCode *code = static_cast<AsmCode *>(stmt->asmcode);
-  std::vector<LLValue *> input_values;
+  auto asmStmt = new IRAsmStmt;
+  asmStmt->isBranchToLabel = stmt->isBranchToLabel;
+
   std::vector<std::string> input_constraints;
-  std::vector<LLValue *> output_values;
   std::vector<std::string> output_constraints;
   std::vector<std::string> clobbers;
 
@@ -264,12 +265,14 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
 
     if (is_input) {
       arg_map[i] = --input_idx;
-      input_values.push_back(arg_val);
+      asmStmt->in.ops.push_back(arg_val);
       input_constraints.push_back(cns);
+      asmStmt->in.dTypes.push_back(arg->expr->type);
     } else {
       arg_map[i] = n_outputs++;
-      output_values.push_back(arg_val);
+      asmStmt->out.ops.push_back(arg_val);
       output_constraints.push_back(cns);
+      asmStmt->out.dTypes.push_back(arg->expr->type);
     }
   }
 
@@ -346,8 +349,6 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
   }
 
   // rewrite GCC-style constraints to LLVM-style constraints
-  std::string llvmOutConstraints;
-  std::string llvmInConstraints;
   int n = 0;
   for (auto &oc : output_constraints) {
     // rewrite update constraint to in and out constraints
@@ -367,17 +368,18 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
       // Must be at the back; unused operands before used ones screw up
       // numbering.
       input_constraints.push_back(ss.str());
-      input_values.push_back(output_values[n]);
+      asmStmt->in.ops.push_back(asmStmt->out.ops[n]);
+      asmStmt->in.dTypes.push_back(asmStmt->out.dTypes[n]);
     }
-    llvmOutConstraints += oc;
-    llvmOutConstraints += ",";
+    asmStmt->out.c += oc;
+    asmStmt->out.c += ",";
     n++;
   }
   asmblock->outputcount += n;
 
   for (const auto &ic : input_constraints) {
-    llvmInConstraints += ic;
-    llvmInConstraints += ",";
+    asmStmt->in.c += ic;
+    asmStmt->in.c += ",";
   }
 
   std::string clobstr;
@@ -391,7 +393,7 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
       Logger::println("Output values:");
       LOG_SCOPE
       size_t i = 0;
-      for (auto ov : output_values) {
+      for (auto ov : asmStmt->out.ops) {
         Logger::cout() << "Out " << i++ << " = " << *ov << '\n';
       }
     }
@@ -399,7 +401,7 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
       Logger::println("Input values:");
       LOG_SCOPE
       size_t i = 0;
-      for (auto iv : input_values) {
+      for (auto iv : asmStmt->in.ops) {
         Logger::cout() << "In  " << i++ << " = " << *iv << '\n';
       }
     }
@@ -410,15 +412,8 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
   replace_func_name(irs, code->insnTemplate);
 
   // push asm statement
-  auto asmStmt = new IRAsmStmt;
+
   asmStmt->code = code->insnTemplate;
-  asmStmt->out.c = llvmOutConstraints;
-  asmStmt->in.c = llvmInConstraints;
-  asmStmt->out.ops.insert(asmStmt->out.ops.begin(), output_values.begin(),
-                      output_values.end());
-  asmStmt->in.ops.insert(asmStmt->in.ops.begin(), input_values.begin(),
-                     input_values.end());
-  asmStmt->isBranchToLabel = stmt->isBranchToLabel;
   asmblock->s.push_back(asmStmt);
 }
 
@@ -557,6 +552,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
       // FIXME: Store the value -> label mapping somewhere, so it can be
       // referenced later
       outSetterStmt->in.ops.push_back(DtoConstUint(n_goto));
+      outSetterStmt->in.dTypes.push_back(Type::tuns32);
       outSetterStmt->in.c += "i,";
       code << asmGotoEnd;
 
@@ -572,6 +568,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
       // setup variable for output from asm
       outSetterStmt->out.c = "=*m,";
       outSetterStmt->out.ops.push_back(jump_target);
+      outSetterStmt->out.dTypes.push_back(Type::tuns32);
 
       asmblock->s.push_back(outSetterStmt);
     } else {
@@ -594,8 +591,10 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
 
   // build asm block
   struct ArgBlock {
+    ArgBlock() = default;
     std::vector<LLValue *> args;
     std::vector<LLType *> types;
+    std::vector<Type *> dTypes;
     std::string c;
   } in, out;
   std::string clobbers;
@@ -611,6 +610,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     for (size_t j = 0; j < onn; ++j) {
       out.args.push_back(a->out.ops[j]);
       out.types.push_back(a->out.ops[j]->getType());
+      out.dTypes.push_back(a->out.dTypes[j]);
     }
     if (!a->out.c.empty()) {
       out.c += a->out.c;
@@ -627,6 +627,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     for (size_t j = 0; j < inn; ++j) {
       in.args.push_back(a->in.ops[j]);
       in.types.push_back(a->in.ops[j]->getType());
+      in.dTypes.push_back(a->in.dTypes[j]);
     }
     if (!a->in.c.empty()) {
       in.c += a->in.c;
@@ -676,6 +677,33 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   std::vector<LLValue *> args;
   args.insert(args.end(), out.args.begin(), out.args.end());
   args.insert(args.end(), in.args.begin(), in.args.end());
+    
+  auto constraintInfo = llvm::InlineAsm::ParseConstraints(out.c);
+  assert(constraintInfo.size() >= out.dTypes.size() + in.dTypes.size());
+  std::vector<LLType *> indirectTypes;
+  indirectTypes.reserve(out.dTypes.size() + in.dTypes.size());
+  size_t i = asmblock->retn;
+    
+  for (Type *t : out.dTypes) {
+    assert(constraintInfo[i].Type == llvm::InlineAsm::ConstraintPrefix::isOutput);
+    if (constraintInfo[i].isIndirect) {
+      if (TypePointer *pt = t->isTypePointer())
+        indirectTypes.push_back(DtoMemType(pt->nextOf()));
+      else
+        indirectTypes.push_back(DtoMemType(t));
+    }
+    i++;
+  }
+  for (Type *t : in.dTypes) {
+    assert(constraintInfo[i].Type == llvm::InlineAsm::ConstraintPrefix::isInput);
+    if (constraintInfo[i].isIndirect) {
+      if (TypePointer *pt = t->isTypePointer())
+        indirectTypes.push_back(DtoType(pt->nextOf()));
+      else
+        indirectTypes.push_back(DtoType(t));
+    }
+    i++;
+  }
 
   IF_LOG {
     Logger::cout() << "Arguments:" << '\n';
@@ -693,9 +721,21 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     Logger::undent();
   }
 
+  for (; i < constraintInfo.size(); i++) {
+    if (!constraintInfo[i].isIndirect)
+      continue;
+    llvm::errs() << "unhandled indirect constraint in" << out.c << "\nindex i = " << i << '\n';
+    llvm::errs() << "function type = " << *fty << '\n';
+    for (size_t j = 0; j < indirectTypes.size(); j++) {
+      llvm::errs() << " " << *(indirectTypes[j]) << '\n';
+    }
+          
+    llvm_unreachable("unhandled indirect constraint");
+  }
+
   llvm::InlineAsm *ia = llvm::InlineAsm::get(fty, code, out.c, true);
 
-  auto call = p->createInlineAsmCall(stmt->loc, ia, args, {});
+  auto call = p->createInlineAsmCall(stmt->loc, ia, args, indirectTypes);
   if (!retty->isVoidTy()) {
     call->setName("asm");
   }

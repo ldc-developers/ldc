@@ -83,16 +83,17 @@ LLIntegerType *DtoSize_t();
 LLStructType *DtoModuleReferenceType();
 
 // getelementptr helpers
-LLValue *DtoGEP1(LLType * ptrty,LLValue *ptr, LLValue *i0, const char *name = "",
-                 llvm::BasicBlock *bb = nullptr);
-LLValue *DtoGEP(LLType * ptrty,LLValue *ptr, LLValue *i0, LLValue *i1, const char *name = "",
-                llvm::BasicBlock *bb = nullptr);
+LLValue *DtoGEP1(LLType *pointeeTy, LLValue *ptr, LLValue *i0,
+                 const char *name = "", llvm::BasicBlock *bb = nullptr);
+LLValue *DtoGEP(LLType *pointeeTy, LLValue *ptr, LLValue *i0, LLValue *i1,
+                const char *name = "", llvm::BasicBlock *bb = nullptr);
 
-LLValue *DtoGEP1(LLType * ptrty, LLValue *ptr, unsigned i0, const char *name = "",
-                 llvm::BasicBlock *bb = nullptr);
-LLValue *DtoGEP(LLType * ptrty, LLValue *ptr, unsigned i0, unsigned i1, const char *name = "",
-                llvm::BasicBlock *bb = nullptr);
-LLConstant *DtoGEP(LLType * ptrty, LLConstant *ptr, unsigned i0, unsigned i1);
+LLValue *DtoGEP1(LLType *pointeeTy, LLValue *ptr, unsigned i0,
+                 const char *name = "", llvm::BasicBlock *bb = nullptr);
+LLValue *DtoGEP(LLType *pointeeTy, LLValue *ptr, unsigned i0, unsigned i1,
+                const char *name = "", llvm::BasicBlock *bb = nullptr);
+LLConstant *DtoGEP(LLType *pointeeTy, LLConstant *ptr, unsigned i0,
+                   unsigned i1);
 
 // to constant helpers
 LLConstantInt *DtoConstSize_t(uint64_t);
@@ -142,6 +143,7 @@ llvm::Argument *isaArgument(LLValue *v);
 LLGlobalVariable *isaGlobalVar(LLValue *v);
 
 // llvm::T::get(...) wrappers
+LLType *getI8Type();
 LLPointerType *getPtrToType(LLType *t);
 LLPointerType *getVoidPtrType();
 llvm::ConstantPointerNull *getNullPtr(LLType *t);
@@ -176,7 +178,7 @@ void DtoMemSet(LLValue *dst, LLValue *val, LLValue *nbytes, unsigned align = 1);
  * @param nbytes Number of bytes to overwrite.
  * @param align The minimum alignment of the destination memory.
  */
-void DtoMemSetZero(LLValue *dst, LLValue *nbytes, unsigned align = 1);
+void DtoMemSetZero(LLType *type, LLValue *dst, LLValue *nbytes, unsigned align = 1);
 
 /**
  * The same as DtoMemSetZero but figures out the size itself based on the
@@ -184,7 +186,7 @@ void DtoMemSetZero(LLValue *dst, LLValue *nbytes, unsigned align = 1);
  * @param dst Destination memory.
  * @param align The minimum alignment of the destination memory.
  */
-void DtoMemSetZero(LLValue *dst, unsigned align = 1);
+void DtoMemSetZero(LLType *type, LLValue *dst, unsigned align = 1);
 
 /**
  * Generates a call to llvm.memcpy.i32 (or i64 depending on architecture).
@@ -203,7 +205,7 @@ void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes, unsigned align = 1);
  * @param withPadding Use the dst pointee's padded size, not its store size.
  * @param align The minimum alignment of the source and destination memory.
  */
-void DtoMemCpy(LLValue *dst, LLValue *src, bool withPadding = false,
+void DtoMemCpy(LLType *type, LLValue *dst, LLValue *src, bool withPadding = false,
                unsigned align = 1);
 
 /**

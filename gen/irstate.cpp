@@ -136,7 +136,7 @@ LLConstant *
 IRState::setGlobalVarInitializer(LLGlobalVariable *&globalVar,
                                  LLConstant *initializer,
                                  Dsymbol *symbolForLinkageAndVisibility) {
-  if (initializer->getType() == globalVar->getType()->getContainedType(0)) {
+  if (initializer->getType() == globalVar->getValueType()) {
     defineGlobal(globalVar, initializer, symbolForLinkageAndVisibility);
     return globalVar;
   }
@@ -273,18 +273,15 @@ IRState::createInlineAsmCall(const Loc &loc, llvm::InlineAsm *ia,
   // a non-indirect output constraint (=> return value of call) shifts the
   // constraint/argument index mapping
   ptrdiff_t i = call->getType()->isVoidTy() ? 0 : -1;
-  size_t indirectLen = indirectTypes.size();
+  size_t indirectIdx = 0;
     
   for (const auto &constraintInfo : ia->ParseConstraints()) {
     if (constraintInfo.isIndirect) {
-      llvm::Type *indirectType = indirectLen != 0 && indirectTypes[i] ?
-                                    indirectTypes[i] :
-                                    args[i]->getType()->getPointerElementType();
-        
       call->addParamAttr(i, llvm::Attribute::get(
                                 context(),
                                 llvm::Attribute::ElementType,
-                                indirectType));
+                                indirectTypes[indirectIdx]));
+      ++indirectIdx;
     }
     ++i;
   }

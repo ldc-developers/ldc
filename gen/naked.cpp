@@ -427,26 +427,51 @@ DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
   const llvm::StringRef constraints = {constraintsStr.ptr,
                                        constraintsStr.length};
 
+  auto constraintInfo = llvm::InlineAsm::ParseConstraints(constraints);
   // build runtime arguments
   const size_t n = arguments->length - 2;
   LLSmallVector<LLValue *, 8> operands;
   LLSmallVector<LLType *, 8> indirectTypes;
   operands.reserve(n);
-  indirectTypes.reserve(n);
-  for (size_t i = 0; i < n; i++) {
-    operands.push_back(DtoRVal((*arguments)[2 + i]));
-    Type *t = (*arguments)[2 + i]->type;
-    LLType *indirectType = nullptr;
-    if (TypePointer *tp = t->isTypePointer())
-      indirectType = DtoType(tp->nextOf());
-    indirectTypes.push_back(indirectType);
+    
+  Type *returnType = fd->type->nextOf();
+  const size_t cisize = constraintInfo.size();
+  const size_t minRequired = n + (returnType->ty == TY::Tvoid ? 0 : 1);
+  if (cisize < minRequired) {
+      se->error("insufficient number of constraints (%d) for number of additional arguments %s(%d)",
+                cisize,
+                returnType->ty == TY::Tvoid ? "" : "and return type ",
+                minRequired);
+      fatal();
   }
 
-  Type *returnType = fd->type->nextOf();
+  size_t i = 0;
+  for (; i < n; i++) {
+    Expression *ee = (*arguments)[2 + i];
+    operands.push_back(DtoRVal(ee));
+    if (constraintInfo[i].isIndirect) {
+      if (TypePointer *pt = ee->type->isTypePointer())
+        indirectTypes.push_back(DtoType(pt->nextOf()));
+      else
+        indirectTypes.push_back(DtoType(ee->type));
+    }
+  }
+
   LLType *irReturnType = DtoType(returnType->toBasetype());
 
+  for (; i < cisize; i++) {
+    if (!constraintInfo[i].isIndirect)
+      continue;
+    if (constraintInfo[i].Type == llvm::InlineAsm::ConstraintPrefix::isOutput) {
+      indirectTypes.push_back(DtoType(returnType));
+    } else {
+      error(loc, "indirect constraint %d doesn't correspond to an argument or output", (unsigned)i);
+      fatal();
+    }
+  }
+
   LLValue *rv =
-      DtoInlineAsmExpr(loc, code, constraints, operands, indirectTypes,  irReturnType);
+      DtoInlineAsmExpr(loc, code, constraints, operands, indirectTypes, irReturnType);
 
   // work around missing tuple support for users of the return value
   if (sretPointer || returnType->ty == TY::Tstruct) {
@@ -478,17 +503,20 @@ llvm::CallInst *DtoInlineAsmExpr(const Loc &loc, llvm::StringRef code,
   llvm::FunctionType *FT =
       llvm::FunctionType::get(returnType, operandTypes, false);
 
-  // make sure the constraints are valid
-  if (!llvm::InlineAsm::
 #if LDC_LLVM_VER < 1500
-      Verify
+  // make sure the constraints are valid
+  if (!llvm::InlineAsm::Verify(FT, constraints)) {
+      error(loc, "inline asm constraints are invalid");
+      fatal();
+  }
 #else
-      verify
-#endif
-      (FT, constraints)) {
+  if (auto err = llvm::InlineAsm::verify(FT, constraints)) {
     error(loc, "inline asm constraints are invalid");
+    llvm::errs() << err;
     fatal();
   }
+#endif
+
 
   // build asm call
   bool sideeffect = true;

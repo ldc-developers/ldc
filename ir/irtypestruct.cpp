@@ -65,8 +65,6 @@ IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
     return t;
   }
 
-  t->packed = isPacked(sd);
-
   if(isFromLDC_DCompute(sd)) {
     dcomputeTypes.push_back(t);
   }
@@ -83,15 +81,15 @@ IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
     llvm::SmallVector<LLType *, 1> body;
     body.push_back(DtoMemType(p->type)->getPointerTo(realAS));
 
-    isaStruct(t->type)->setBody(body, t->packed);
+    isaStruct(t->type)->setBody(body, false);
     VarGEPIndices v;
     v[sd->fields[0]] = 0;
     t->varGEPIndices = v;
   } else {
-    AggrTypeBuilder builder(t->packed);
+    AggrTypeBuilder builder;
     builder.addAggregate(sd);
     builder.addTailPadding(sd->structsize);
-    isaStruct(t->type)->setBody(builder.defaultTypes(), t->packed);
+    isaStruct(t->type)->setBody(builder.defaultTypes(), builder.isPacked());
     t->varGEPIndices = builder.varGEPIndices();
   }
 

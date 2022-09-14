@@ -341,8 +341,8 @@ if(TARGET gen_gccbuiltins)
     )
   endfunction()
 
-  set(target_arch "AArch64;AMDGPU;ARM;Mips;NVPTX;PowerPC;SystemZ;X86")
-  set(target_name "aarch64;amdgcn;arm;mips;nvvm;ppc;s390;x86")
+  set(target_arch "AArch64;AMDGPU;ARM;Mips;RISCV;NVPTX;PowerPC;SystemZ;X86")
+  set(target_name "aarch64;amdgcn;arm;mips;riscv;nvvm;ppc;s390;x86")
 
   foreach(target ${LLVM_TARGETS_TO_BUILD})
     list(FIND target_arch ${target} idx)

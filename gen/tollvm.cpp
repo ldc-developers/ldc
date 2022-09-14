@@ -178,7 +178,7 @@ LLType *DtoType(Type *t) {
       // This is an enum forward reference that is only legal when referenced
       // through an indirection (e.g. "enum E; void foo(E* p);"). For lack of a
       // better choice, make the outer indirection a void pointer.
-      return getVoidPtrType()->getContainedType(0);
+      return getI8Type();
     }
     return DtoType(bt);
   }
@@ -346,41 +346,42 @@ LLIntegerType *DtoSize_t() {
 ////////////////////////////////////////////////////////////////////////////////
 
 namespace {
-llvm::GetElementPtrInst *DtoGEP(LLType * type,LLValue *ptr,
+llvm::GetElementPtrInst *DtoGEP(LLType *pointeeTy, LLValue *ptr,
                                 llvm::ArrayRef<LLValue *> indices,
                                 const char *name, llvm::BasicBlock *bb) {
-  auto gep = llvm::GetElementPtrInst::Create(type, ptr, indices,
-                                             name, bb ? bb : gIR->scopebb());
+  auto gep = llvm::GetElementPtrInst::Create(pointeeTy, ptr, indices, name,
+                                             bb ? bb : gIR->scopebb());
   gep->setIsInBounds(true);
   return gep;
 }
 }
 
-LLValue *DtoGEP1(LLType * ptrty, LLValue *ptr, LLValue *i0, const char *name,
+LLValue *DtoGEP1(LLType *pointeeTy, LLValue *ptr, LLValue *i0, const char *name,
                  llvm::BasicBlock *bb) {
-  return DtoGEP(ptrty, ptr, i0, name, bb);
+  return DtoGEP(pointeeTy, ptr, i0, name, bb);
 }
 
-LLValue *DtoGEP(LLType * ptrty, LLValue *ptr, LLValue *i0, LLValue *i1, const char *name,
-                llvm::BasicBlock *bb) {
+LLValue *DtoGEP(LLType *pointeeTy, LLValue *ptr, LLValue *i0, LLValue *i1,
+                const char *name, llvm::BasicBlock *bb) {
   LLValue *indices[] = {i0, i1};
-  return DtoGEP(ptrty, ptr, indices, name, bb);
+  return DtoGEP(pointeeTy, ptr, indices, name, bb);
 }
 
-LLValue *DtoGEP1(LLType * ptrty, LLValue *ptr, unsigned i0, const char *name,
+LLValue *DtoGEP1(LLType *pointeeTy, LLValue *ptr, unsigned i0, const char *name,
                  llvm::BasicBlock *bb) {
-  return DtoGEP(ptrty, ptr, DtoConstUint(i0), name, bb);
+  return DtoGEP(pointeeTy, ptr, DtoConstUint(i0), name, bb);
 }
 
-LLValue *DtoGEP(LLType * ptrty, LLValue *ptr, unsigned i0, unsigned i1, const char *name,
-                llvm::BasicBlock *bb) {
+LLValue *DtoGEP(LLType *pointeeTy, LLValue *ptr, unsigned i0, unsigned i1,
+                const char *name, llvm::BasicBlock *bb) {
   LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
-  return DtoGEP(ptrty, ptr, indices, name, bb);
+  return DtoGEP(pointeeTy, ptr, indices, name, bb);
 }
 
-LLConstant *DtoGEP(LLType * ptrty, LLConstant *ptr, unsigned i0, unsigned i1) {
+LLConstant *DtoGEP(LLType *pointeeTy, LLConstant *ptr, unsigned i0,
+                   unsigned i1) {
   LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
-  return llvm::ConstantExpr::getGetElementPtr(ptrty, ptr, indices,
+  return llvm::ConstantExpr::getGetElementPtr(pointeeTy, ptr, indices,
                                               /* InBounds = */ true);
 }
 
@@ -396,13 +397,13 @@ void DtoMemSet(LLValue *dst, LLValue *val, LLValue *nbytes, unsigned align) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoMemSetZero(LLValue *dst, LLValue *nbytes, unsigned align) {
+void DtoMemSetZero(LLType *type, LLValue *dst, LLValue *nbytes, unsigned align) {
   DtoMemSet(dst, DtoConstUbyte(0), nbytes, align);
 }
 
-void DtoMemSetZero(LLValue *dst, unsigned align) {
-  uint64_t n = getTypeStoreSize(dst->getType()->getContainedType(0));
-  DtoMemSetZero(dst, DtoConstSize_t(n), align);
+void DtoMemSetZero(LLType *type, LLValue *dst, unsigned align) {
+  uint64_t n = getTypeStoreSize(type);
+  DtoMemSetZero(type, dst, DtoConstSize_t(n), align);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -417,10 +418,9 @@ void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes, unsigned align) {
   gIR->ir->CreateMemCpy(dst, A, src, A, nbytes, false /*isVolatile*/);
 }
 
-void DtoMemCpy(LLValue *dst, LLValue *src, bool withPadding, unsigned align) {
-  LLType *pointee = dst->getType()->getContainedType(0);
+void DtoMemCpy(LLType *type, LLValue *dst, LLValue *src, bool withPadding, unsigned align) {
   uint64_t n =
-      withPadding ? getTypeAllocSize(pointee) : getTypeStoreSize(pointee);
+      withPadding ? getTypeAllocSize(type) : getTypeStoreSize(type);
   DtoMemCpy(dst, src, DtoConstSize_t(n), align);
 }
 
@@ -542,7 +542,6 @@ void DtoVolatileStore(LLValue *src, LLValue *dst) {
 void DtoStoreZextI8(LLValue *src, LLValue *dst) {
   if (src->getType()->isIntegerTy(1)) {
     llvm::Type *i8 = llvm::Type::getInt8Ty(gIR->context());
-    assert(dst->getType()->getContainedType(0) == i8);
     src = gIR->ir->CreateZExt(src, i8);
   }
   gIR->ir->CreateStore(src, dst);
@@ -699,6 +698,8 @@ llvm::GlobalVariable *isaGlobalVar(LLValue *v) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+LLType *getI8Type() { return LLType::getInt8Ty(gIR->context()); }
 
 LLPointerType *getPtrToType(LLType *t) {
   if (t == LLType::getVoidTy(gIR->context()))

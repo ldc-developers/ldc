@@ -397,6 +397,11 @@ void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
     return;
   }
 
+  if (auto bfLVal = lhs->isBitFieldLVal()) {
+    bfLVal->store(DtoRVal(rhs));
+    return;
+  }
+
   if (t->ty == TY::Tbool) {
     DtoStoreZextI8(DtoRVal(rhs), DtoLVal(lhs));
   } else if (t->ty == TY::Tstruct) {
@@ -409,7 +414,7 @@ void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
       // time as to not emit an invalid (overlapping) memcpy on trivial
       // struct self-assignments like 'A a; a = a;'.
       if (src != dst)
-        DtoMemCpy(dst, src);
+        DtoMemCpy(DtoType(lhs->type), dst, src);
     }
   } else if (t->ty == TY::Tarray || t->ty == TY::Tsarray) {
     DtoArrayAssign(loc, lhs, rhs, op, canSkipPostblit);
@@ -429,7 +434,7 @@ void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
       Logger::cout() << "l : " << *l << '\n';
       Logger::cout() << "r : " << *r << '\n';
     }
-    r = DtoBitCast(r, l->getType()->getContainedType(0));
+    r = DtoBitCast(r, DtoType(lhs->type));
     DtoStore(r, l);
   } else if (t->iscomplex()) {
     LLValue *dst = DtoLVal(lhs);
@@ -442,7 +447,7 @@ void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
       Logger::cout() << "lhs: " << *l << '\n';
       Logger::cout() << "rhs: " << *r << '\n';
     }
-    LLType *lit = l->getType()->getContainedType(0);
+    LLType *lit = DtoType(lhs->type);
     if (r->getType() != lit) {
       r = DtoRVal(DtoCast(loc, rhs, lhs->type));
       IF_LOG {
@@ -1321,24 +1326,6 @@ void DtoSetFuncDeclIntrinsicName(TemplateInstance *ti, TemplateDeclaration *td,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-size_t getMemberSize(Type *type) {
-  const dinteger_t dSize = type->size();
-  llvm::Type *const llType = DtoType(type);
-  if (!llType->isSized()) {
-    // Forward reference in a cycle or similar, we need to trust the D type.
-    return dSize;
-  }
-
-  const uint64_t llSize = gDataLayout->getTypeAllocSize(llType);
-  assert(llSize <= dSize &&
-         "LLVM type is bigger than the corresponding D type, "
-         "might lead to aggregate layout mismatch.");
-
-  return llSize;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 Type *stripModifiers(Type *type, bool transitive) {
   if (type->ty == TY::Tfunction) {
     return type;
@@ -1894,11 +1881,13 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   bool isFieldIdx;
   unsigned off = irTypeAggr->getMemberLocation(vd, isFieldIdx);
 
-  LLValue *val = src;
+  LLValue *ptr = src;
+  LLType * ty = nullptr;
   if (!isFieldIdx) {
     // Cast to void* to apply byte-wise offset from object start.
-    val = DtoBitCast(val, getVoidPtrType());
-    val = DtoGEP1(llvm::Type::getInt8Ty(gIR->context()), val, off);
+    ptr = DtoBitCast(ptr, getVoidPtrType());
+    ptr = DtoGEP1(llvm::Type::getInt8Ty(gIR->context()), ptr, off);
+    ty = DtoType(vd->type);
   } else {
     if (ad->structsize == 0) { // can happen for extern(C) structs
       assert(off == 0);
@@ -1915,16 +1904,21 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
         st = DtoType(ad->type);
         pst = getPtrToType(st);
       }
-      val = DtoBitCast(val, pst);
-      val = DtoGEP(st, val, 0, off);
+      ptr = DtoBitCast(ptr, pst);
+      ptr = DtoGEP(st, ptr, 0, off);
+      ty = isaStruct(st)->getElementType(off);
     }
   }
 
   // Cast the (possibly void*) pointer to the canonical variable type.
-  val = DtoBitCast(val, DtoPtrToType(vd->type));
+  ptr = DtoBitCast(ptr, DtoPtrToType(vd->type));
 
-  IF_LOG Logger::cout() << "Value: " << *val << '\n';
-  return new DLValue(vd->type, val);
+  IF_LOG Logger::cout() << "Pointer: " << *ptr << '\n';
+  if (auto p = isaPointer(ty)) {
+    if (p->getAddressSpace())
+      return new DDcomputeLValue(vd->type, p, ptr);
+  }
+  return new DLValue(vd->type, ptr);
 }
 
 unsigned getFieldGEPIndex(AggregateDeclaration *ad, VarDeclaration *vd) {

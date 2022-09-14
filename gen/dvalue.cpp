@@ -131,7 +131,7 @@ DRValue *DLValue::getRVal() {
     return nullptr;
   }
 
-  LLValue *rval = DtoLoad(val->getType()->getPointerElementType(), val);
+  LLValue *rval = DtoLoad(DtoMemType(type), val);
 
   const auto ty = type->toBasetype()->ty;
   if (ty == TY::Tbool) {
@@ -166,4 +166,89 @@ DRValue *DSpecialRefValue::getRVal() {
 
 DLValue *DSpecialRefValue::getLVal() {
   return new DLValue(type, DtoLoad(DtoPtrToType(type), val));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+DBitFieldLValue::DBitFieldLValue(Type *t, LLValue *ptr, BitFieldDeclaration *bf)
+    : DValue(t, ptr), bf(bf),
+      intType(LLIntegerType::get(
+          gIR->context(), (bf->bitOffset + bf->fieldWidth + 7) / 8 * 8)) {
+  assert(ptr->getType()->isPointerTy());
+}
+
+DRValue *DBitFieldLValue::getRVal() {
+  const auto sizeInBits = intType->getBitWidth();
+  const auto ptr = DtoBitCast(val, getPtrToType(intType));
+  LLValue *v = gIR->ir->CreateAlignedLoad(intType, ptr, LLMaybeAlign(1));
+
+  if (bf->type->isunsigned()) {
+    if (auto n = bf->bitOffset)
+      v = gIR->ir->CreateLShr(v, n);
+    const auto mask = llvm::APInt::getLowBitsSet(sizeInBits, bf->fieldWidth);
+    v = gIR->ir->CreateAnd(v, mask);
+    v = gIR->ir->CreateZExtOrTrunc(v, DtoType(bf->type));
+  } else {
+    // shift-left to make the MSB the sign bit
+    if (auto n = sizeInBits - (bf->bitOffset + bf->fieldWidth))
+      v = gIR->ir->CreateShl(v, n);
+    // then arithmetic-shift-right
+    if (auto n = sizeInBits - bf->fieldWidth)
+      v = gIR->ir->CreateAShr(v, n);
+    v = gIR->ir->CreateSExtOrTrunc(v, DtoType(bf->type));
+  }
+
+  return new DImValue(type, v);
+}
+
+void DBitFieldLValue::store(LLValue *value) {
+  assert(value->getType()->isIntegerTy());
+
+  const auto ptr = DtoBitCast(val, getPtrToType(intType));
+
+  const auto mask =
+      llvm::APInt::getLowBitsSet(intType->getBitWidth(), bf->fieldWidth);
+  const auto oldVal = gIR->ir->CreateAlignedLoad(intType, ptr, LLMaybeAlign(1));
+  const auto maskedOldVal =
+      gIR->ir->CreateAnd(oldVal, ~(mask << bf->bitOffset));
+
+  auto bfVal = gIR->ir->CreateZExtOrTrunc(value, intType);
+  bfVal = gIR->ir->CreateAnd(bfVal, mask);
+  if (auto n = bf->bitOffset)
+    bfVal = gIR->ir->CreateShl(bfVal, n);
+
+  const auto newVal = gIR->ir->CreateOr(maskedOldVal, bfVal);
+  gIR->ir->CreateAlignedStore(newVal, ptr, LLMaybeAlign(1));
+}
+
+DDcomputeLValue::DDcomputeLValue(Type *t, llvm::Type * llt, LLValue *v) : DLValue(t, v) {
+    lltype = llt;
+}
+DRValue *DDcomputeLValue::getRVal() {
+  if (DtoIsInMemoryOnly(type)) {
+    llvm_unreachable("getRVal() for memory-only type");
+    return nullptr;
+  }
+  
+  LLValue *rval = DtoLoad(lltype, val);
+  
+  const auto ty = type->toBasetype()->ty;
+  if (ty == TY::Tbool) {
+    assert(rval->getType() == llvm::Type::getInt8Ty(gIR->context()));
+  
+    if (isOptimizationEnabled()) {
+      // attach range metadata for i8 being loaded: [0, 2)
+      llvm::MDBuilder mdBuilder(gIR->context());
+      llvm::cast<llvm::LoadInst>(rval)->setMetadata(
+          llvm::LLVMContext::MD_range,
+          mdBuilder.createRange(llvm::APInt(8, 0), llvm::APInt(8, 2)));
+    }
+  
+    // truncate to i1
+    rval = gIR->ir->CreateTrunc(rval, llvm::Type::getInt1Ty(gIR->context()));
+  } else if (ty == TY::Tarray) {
+    return new DSliceValue(type, rval);
+  }
+  
+  return new DImValue(type, rval);
 }
