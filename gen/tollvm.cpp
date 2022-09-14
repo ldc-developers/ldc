@@ -419,9 +419,8 @@ void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes, unsigned align) {
 }
 
 void DtoMemCpy(LLType *type, LLValue *dst, LLValue *src, bool withPadding, unsigned align) {
-  LLType *pointee = dst->getType()->getContainedType(0);
   uint64_t n =
-      withPadding ? getTypeAllocSize(pointee) : getTypeStoreSize(pointee);
+      withPadding ? getTypeAllocSize(type) : getTypeStoreSize(type);
   DtoMemCpy(dst, src, DtoConstSize_t(n), align);
 }
 
