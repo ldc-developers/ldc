@@ -217,7 +217,7 @@ public:
     Dsymbol *aliassym;
 
     const char *kind() const override;
-    bool equals(const RootObject *o) const override;
+    bool equals(const RootObject * const o) const override;
     bool overloadInsert(Dsymbol *s) override;
 
     Dsymbol *toAlias() override;
@@ -656,7 +656,7 @@ public:
     FuncDeclaration *syntaxCopy(Dsymbol *) override;
     bool functionSemantic();
     bool functionSemantic3();
-    bool equals(const RootObject *o) const override final;
+    bool equals(const RootObject * const o) const override final;
 
     int overrides(FuncDeclaration *fd);
     int findVtblIndex(Dsymbols *vtbl, int dim);
