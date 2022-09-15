@@ -241,7 +241,7 @@ public:
     void accept(Visitor *v) override { v->visit(this); }
 
 #if IN_LLVM
-    virtual CompoundAsmStatement *endsWithAsm();
+    CompoundAsmStatement *endsWithAsm() override;
 #endif
 };
 
@@ -809,7 +809,7 @@ public:
     void accept(Visitor *v) override { v->visit(this); }
 
 #if IN_LLVM
-    CompoundAsmStatement* endsWithAsm();
+    CompoundAsmStatement *endsWithAsm() override;
 #endif
 };
 
