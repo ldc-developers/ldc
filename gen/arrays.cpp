@@ -827,7 +827,7 @@ DSliceValue *DtoCatAssignArray(const Loc &loc, DValue *arr, Expression *exp) {
   LLValue *newArray = gIR->CreateCallOrInvoke(
       fn, DtoTypeInfoOf(loc, arrayType),
       DtoBitCast(DtoLVal(arr), fn->getFunctionType()->getParamType(1)),
-      DtoAggrPaint(DtoSlice(exp), fn->getFunctionType()->getParamType(2)),
+      DtoSlicePaint(DtoSlice(exp), fn->getFunctionType()->getParamType(2)),
       ".appendedArray");
 
   return getSlice(arrayType, newArray);
@@ -920,7 +920,7 @@ DSliceValue *DtoCatArrays(const Loc &loc, Type *arrayType, Expression *exp1,
     auto loadArray = [fn](Expression* e, int paramTypeIdx) {
       DValue * dval = toElem(e);
       LLValue *val = DtoLoad(DtoSlicePtrType(dval), DtoSlicePtr(dval));
-      return DtoAggrPaint(val, fn->getFunctionType()->getParamType(paramTypeIdx));
+      return DtoSlicePaint(val, fn->getFunctionType()->getParamType(paramTypeIdx));
     };
     // byte[] x
     args.push_back(loadArray(exp1,1));
@@ -988,9 +988,9 @@ LLValue *DtoArrayEqCmp_impl(const Loc &loc, const char *func, DValue *l,
   LLSmallVector<LLValue *, 3> args;
 
   // get values, reinterpret cast to void[]
-  args.push_back(DtoAggrPaint(DtoRVal(l),
+  args.push_back(DtoSlicePaint(DtoRVal(l),
                               DtoArrayType(LLType::getInt8Ty(gIR->context()))));
-  args.push_back(DtoAggrPaint(DtoRVal(r),
+  args.push_back(DtoSlicePaint(DtoRVal(r),
                               DtoArrayType(LLType::getInt8Ty(gIR->context()))));
 
   // pass array typeinfo ?
