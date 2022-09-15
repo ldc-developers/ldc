@@ -188,7 +188,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
         Logger::cout() << "expects: " << *paramType << '\n';
       }
       if (isaStruct(llVal)) {
-        llVal = DtoAggrPaint(llVal, paramType);
+        llVal = DtoSlicePaint(llVal, paramType);
       } else {
         llVal = DtoBitCast(llVal, paramType);
       }
@@ -956,7 +956,7 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
       if (tf->isref()) {
         retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
       } else {
-        retllval = DtoAggrPaint(retllval, DtoType(rbase));
+        retllval = DtoSlicePaint(retllval, DtoType(rbase));
       }
       break;
 

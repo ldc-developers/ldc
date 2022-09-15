@@ -161,7 +161,7 @@ unsigned int getABITypeAlign(LLType *t);
 LLValue *DtoAggrPair(LLType *type, LLValue *V1, LLValue *V2,
                      const char *name = "");
 LLValue *DtoAggrPair(LLValue *V1, LLValue *V2, const char *name = "");
-LLValue *DtoAggrPaint(LLValue *aggr, LLType *as);
+LLValue *DtoSlicePaint(LLValue *aggr, LLType *as);
 
 /**
  * Generates a call to llvm.memset.i32 (or i64 depending on architecture).
