@@ -37,15 +37,6 @@ LLValue *DtoSlice(LLValue *ptr, LLValue *length, LLType *elemType) {
   elemType = i1ToI8(voidToI8(elemType));
   return DtoAggrPair(length, DtoBitCast(ptr, elemType->getPointerTo()));
 }
-
-LLValue *DtoSlice(Expression *e) {
-  DValue *dval = toElem(e);
-  if (dval->type->toBasetype()->ty == TY::Tsarray) {
-    // Convert static array to slice
-    return DtoSlice(DtoLVal(dval), DtoArrayLen(dval), DtoType(dval->type->nextOf()));
-  }
-  return DtoRVal(dval);
-}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -787,57 +778,6 @@ DSliceValue *DtoResizeDynArray(const Loc &loc, Type *arrayType, DValue *array,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoCatAssignElement(const Loc &loc, DValue *array, Expression *exp) {
-  IF_LOG Logger::println("DtoCatAssignElement");
-  LOG_SCOPE;
-
-  assert(array);
-
-  Type *arrayType = array->type->toBasetype();
-
-  // Evaluate the expression to be appended first; it may affect the array.
-  DValue *expVal = toElem(exp);
-
-  // The druntime function extends the slice in-place (length += 1, ptr
-  // potentially moved to a new block).
-  LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_arrayappendcTX");
-  gIR->CreateCallOrInvoke(
-      fn, DtoTypeInfoOf(loc, arrayType),
-      DtoBitCast(DtoLVal(array), fn->getFunctionType()->getParamType(1)),
-      DtoConstSize_t(1), ".appendedArray");
-
-  // Assign to the new last element.
-  LLValue *newLength = DtoArrayLen(array);
-  LLValue *ptr = DtoArrayPtr(array);
-  LLType *ptrty = i1ToI8(DtoType(array->type->nextOf()));
-  LLValue *lastIndex =
-      gIR->ir->CreateSub(newLength, DtoConstSize_t(1), ".lastIndex");
-  LLValue *lastElemPtr = DtoGEP1(ptrty, ptr, lastIndex, ".lastElem");
-  DLValue lastElem(arrayType->nextOf(), lastElemPtr);
-  DtoAssign(loc, &lastElem, expVal, EXP::blit);
-  callPostblit(loc, exp, lastElemPtr);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-DSliceValue *DtoCatAssignArray(const Loc &loc, DValue *arr, Expression *exp) {
-  IF_LOG Logger::println("DtoCatAssignArray");
-  LOG_SCOPE;
-  Type *arrayType = arr->type;
-
-  LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_arrayappendT");
-  // Call _d_arrayappendT(TypeInfo ti, byte[] *px, byte[] y)
-  LLValue *newArray = gIR->CreateCallOrInvoke(
-      fn, DtoTypeInfoOf(loc, arrayType),
-      DtoBitCast(DtoLVal(arr), fn->getFunctionType()->getParamType(1)),
-      DtoSlicePaint(DtoSlice(exp), fn->getFunctionType()->getParamType(2)),
-      ".appendedArray");
-
-  return getSlice(arrayType, newArray);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 static LLValue *DtoSlicePtr(DValue *dval) {
   Loc loc;
   Type *vt = dval->type->toBasetype();
@@ -868,7 +808,7 @@ static LLValue *DtoSlicePtr(Expression *e) {
 
 DSliceValue *DtoCatArrays(const Loc &loc, Type *arrayType, Expression *exp1,
                           Expression *exp2) {
-  IF_LOG Logger::println("DtoCatAssignArray");
+  IF_LOG Logger::println("DtoCatArrays");
   LOG_SCOPE;
 
   llvm::SmallVector<llvm::Value *, 3> args;

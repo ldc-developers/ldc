@@ -2174,13 +2174,9 @@ public:
         // append dchar to wchar[]
         DtoAppendDCharToUnicodeString(e->loc, result, e->e2);
       }
-    } else if (e1type->equals(e2type)) {
-      // append array
-      DSliceValue *slice = DtoCatAssignArray(e->loc, result, e->e2);
-      DtoStore(DtoRVal(slice), DtoLVal(result));
     } else {
-      // append element
-      DtoCatAssignElement(e->loc, result, e->e2);
+      e->error("ICE: array append should have been lowered to `_d_arrayappend{T,cTX}`!");
+      fatal();
     }
   }
 
