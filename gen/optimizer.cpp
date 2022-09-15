@@ -121,7 +121,7 @@ static cl::opt<int> fSanitizeMemoryTrackOrigins(
         "Enable origins tracking in MemorySanitizer (0=disabled, default)"));
 
 static cl::opt<signed char> passmanager("passmanager",
-    cl::desc("Setting the passmanager (new,legacy):"), cl::ZeroOrMore, cl::init(1),
+    cl::desc("Setting the passmanager (new,legacy):"), cl::ZeroOrMore, cl::init(0),
     cl::values(
         clEnumValN(0, "legacy", "Use the legacy passmanager (available for LLVM14 and below) "),
         clEnumValN(1, "new", "Use the new passmanager (available for LLVM14 and above)")));
@@ -478,6 +478,7 @@ static void addMemorySanitizerPass(FunctionPassManager &fpm,
   if (level != OptimizationLevel::O0) {
     fpm.addPass(EarlyCSEPass());
     fpm.addPass(ReassociatePass());
+    //FIXME: Fix these parameters
     fpm.addPass(createFunctionToLoopPassAdaptor(LICMPass(128,128,false)));
     fpm.addPass(GVNPass());
     //FIXME: Not sure what to do with these?
