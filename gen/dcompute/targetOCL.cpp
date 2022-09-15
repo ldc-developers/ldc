@@ -42,7 +42,7 @@ class TargetOCL : public DComputeTarget {
   bool usedImage;
 public:
   TargetOCL(llvm::LLVMContext &c, int oclversion)
-      : DComputeTarget(c, oclversion, OpenCL, "ocl", "spv", createSPIRVABI(),
+      : DComputeTarget(c, oclversion, ID::OpenCL, "ocl", "spv", createSPIRVABI(),
                        // Map from nomimal DCompute address space to OpenCL
                        // address. For OpenCL this is a no-op.
                        {{0, 1, 2, 3, 4}}) {
