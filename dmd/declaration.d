@@ -679,6 +679,12 @@ extern (C++) final class TupleDeclaration : Declaration
         }
     }
 
+    version (IN_LLVM)
+    final void foreachVar(Visitor v)
+    {
+        foreachVar(sym => sym.accept(v));
+    }
+
     /***********************************************************
      * Calls dg(Dsymbol) for each Dsymbol, which should be a VarDeclaration
      * inside VarExp (isexp == true).
