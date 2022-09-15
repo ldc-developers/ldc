@@ -203,7 +203,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     if (auto ce = stmt->condition->isCallExp()) {
       if (ce->f && ce->f->ident == Id::dcReflect) {
         auto arg1 = (DComputeTarget::ID)(*ce->arguments)[0]->toInteger();
-        if (arg1 == DComputeTarget::Host)
+        if (arg1 == DComputeTarget::ID::Host)
           stop = true;
       }
     }

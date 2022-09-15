@@ -26,7 +26,7 @@ class TargetCUDA : public DComputeTarget {
 public:
   TargetCUDA(llvm::LLVMContext &c, int sm)
       : DComputeTarget(
-            c, sm, CUDA, "cuda", "ptx", createNVPTXABI(),
+            c, sm, ID::CUDA, "cuda", "ptx", createNVPTXABI(),
 
             // Map from nominal DCompute address space to NVPTX address space.
             // see $LLVM_ROOT/docs/docs/NVPTXUsage.rst section Address Spaces

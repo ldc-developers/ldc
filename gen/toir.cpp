@@ -2475,7 +2475,7 @@ public:
           LLGlobalValue::InternalLinkage, initval, ".aaKeysStorage");
       LLConstant *slice = DtoGEP(initval->getType(), globalstore, 0u, 0u);
       slice = DtoConstSlice(DtoConstSize_t(e->keys->length), slice);
-      LLValue *keysArray = DtoAggrPaint(slice, funcTy->getParamType(1));
+      LLValue *keysArray = DtoSlicePaint(slice, funcTy->getParamType(1));
 
       initval = arrayConst(valuesInits, vtype);
       globalstore = new LLGlobalVariable(gIR->module, initval->getType(), false,
@@ -2483,7 +2483,7 @@ public:
                                          initval, ".aaValuesStorage");
       slice = DtoGEP(initval->getType(), globalstore, 0u, 0u);
       slice = DtoConstSlice(DtoConstSize_t(e->keys->length), slice);
-      LLValue *valuesArray = DtoAggrPaint(slice, funcTy->getParamType(2));
+      LLValue *valuesArray = DtoSlicePaint(slice, funcTy->getParamType(2));
 
       LLValue *aa = gIR->CreateCallOrInvoke(func, aaTypeInfo, keysArray,
                                             valuesArray, "aa");

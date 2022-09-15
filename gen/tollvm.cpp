@@ -765,7 +765,7 @@ LLValue *DtoAggrPair(LLValue *V1, LLValue *V2, const char *name) {
   return DtoAggrPair(t, V1, V2, name);
 }
 
-LLValue *DtoAggrPaint(LLValue *aggr, LLType *as) {
+LLValue *DtoSlicePaint(LLValue *aggr, LLType *as) {
   if (aggr->getType() == as) {
     return aggr;
   }
