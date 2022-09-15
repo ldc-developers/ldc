@@ -178,7 +178,7 @@ LLType *DtoType(Type *t) {
       // This is an enum forward reference that is only legal when referenced
       // through an indirection (e.g. "enum E; void foo(E* p);"). For lack of a
       // better choice, make the outer indirection a void pointer.
-      return getVoidPtrType()->getContainedType(0);
+      return getI8Type();
     }
     return DtoType(bt);
   }
@@ -397,13 +397,13 @@ void DtoMemSet(LLValue *dst, LLValue *val, LLValue *nbytes, unsigned align) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoMemSetZero(LLValue *dst, LLValue *nbytes, unsigned align) {
+void DtoMemSetZero(LLType *type, LLValue *dst, LLValue *nbytes, unsigned align) {
   DtoMemSet(dst, DtoConstUbyte(0), nbytes, align);
 }
 
-void DtoMemSetZero(LLValue *dst, unsigned align) {
-  uint64_t n = getTypeStoreSize(dst->getType()->getContainedType(0));
-  DtoMemSetZero(dst, DtoConstSize_t(n), align);
+void DtoMemSetZero(LLType *type, LLValue *dst, unsigned align) {
+  uint64_t n = getTypeStoreSize(type);
+  DtoMemSetZero(type, dst, DtoConstSize_t(n), align);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -418,10 +418,9 @@ void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes, unsigned align) {
   gIR->ir->CreateMemCpy(dst, A, src, A, nbytes, false /*isVolatile*/);
 }
 
-void DtoMemCpy(LLValue *dst, LLValue *src, bool withPadding, unsigned align) {
-  LLType *pointee = dst->getType()->getContainedType(0);
+void DtoMemCpy(LLType *type, LLValue *dst, LLValue *src, bool withPadding, unsigned align) {
   uint64_t n =
-      withPadding ? getTypeAllocSize(pointee) : getTypeStoreSize(pointee);
+      withPadding ? getTypeAllocSize(type) : getTypeStoreSize(type);
   DtoMemCpy(dst, src, DtoConstSize_t(n), align);
 }
 
@@ -543,7 +542,6 @@ void DtoVolatileStore(LLValue *src, LLValue *dst) {
 void DtoStoreZextI8(LLValue *src, LLValue *dst) {
   if (src->getType()->isIntegerTy(1)) {
     llvm::Type *i8 = llvm::Type::getInt8Ty(gIR->context());
-    assert(dst->getType()->getContainedType(0) == i8);
     src = gIR->ir->CreateZExt(src, i8);
   }
   gIR->ir->CreateStore(src, dst);
@@ -767,7 +765,7 @@ LLValue *DtoAggrPair(LLValue *V1, LLValue *V2, const char *name) {
   return DtoAggrPair(t, V1, V2, name);
 }
 
-LLValue *DtoAggrPaint(LLValue *aggr, LLType *as) {
+LLValue *DtoSlicePaint(LLValue *aggr, LLType *as) {
   if (aggr->getType() == as) {
     return aggr;
   }

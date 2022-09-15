@@ -27,7 +27,7 @@ class DComputeTarget {
 public:
   llvm::LLVMContext &ctx;
   int tversion; // OpenCL or CUDA CC version:major*100 + minor*10
-  enum ID { Host = 0, OpenCL = 1, CUDA = 2 };
+  enum class ID { Host = 0, OpenCL = 1, CUDA = 2 };
   ID target;    // ID for codegen time conditional compilation.
   const char *short_name;
   const char *binSuffix;

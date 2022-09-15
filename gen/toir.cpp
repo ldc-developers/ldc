@@ -65,8 +65,9 @@ bool walkPostorder(Expression *e, StoppableVisitor *v);
 
 static LLValue *write_zeroes(LLValue *mem, unsigned start, unsigned end) {
   mem = DtoBitCast(mem, getVoidPtrType());
-  LLValue *gep = DtoGEP1(LLType::getInt8Ty(gIR->context()), mem, start, ".padding");
-  DtoMemSetZero(gep, DtoConstSize_t(end - start));
+  LLType *i8 = LLType::getInt8Ty(gIR->context());
+  LLValue *gep = DtoGEP1(i8, mem, start, ".padding");
+  DtoMemSetZero(i8, gep, DtoConstSize_t(end - start));
   return mem;
 }
 
@@ -546,7 +547,7 @@ public:
       Logger::println("performing aggregate zero initialization");
       assert(e->e2->toInteger() == 0);
       LLValue *lval = DtoLVal(lhs);
-      DtoMemSetZero(lval);
+      DtoMemSetZero(DtoType(lhs->type), lval);
       TypeStruct *ts = static_cast<TypeStruct *>(e->e1->type);
       if (ts->sym->isNested() && ts->sym->vthis)
         DtoResolveNestedContext(e->loc, ts->sym, lval);
@@ -843,7 +844,7 @@ public:
     if (e->offset == 0) {
       offsetValue = baseValue;
     } else {
-      LLType *elemType = baseValue->getType()->getContainedType(0);
+      LLType *elemType = DtoType(base->type);
       if (elemType->isSized()) {
         uint64_t elemSize = gDataLayout->getTypeAllocSize(elemType);
         if (e->offset % elemSize == 0) {
@@ -948,6 +949,14 @@ public:
     result = new DLValue(e->type, DtoBitCast(V, DtoPtrToType(e->type)));
   }
 
+  static llvm::PointerType * getWithSamePointeeType(llvm::PointerType *p, unsigned as) {
+#if LDC_LLVM_VER >= 1300
+    return llvm::PointerType::getWithSamePointeeType(p, as);
+#else
+    return p->getPointerElementType()->getPointerTo(as);
+#endif
+  }
+
   //////////////////////////////////////////////////////////////////////////////
 
   void visit(DotVarExp *e) override {
@@ -985,14 +994,24 @@ public:
         llvm_unreachable("Unknown DotVarExp type for VarDeclaration.");
       }
 
-      auto ptr = DtoLVal(DtoIndexAggregate(aggrPtr, ad, vd));
+      auto ptr = DtoIndexAggregate(aggrPtr, ad, vd);
 
-      // special case for bit fields (no real lvalues)
+      // special case for bit fields (no real lvalues), and address spaced pointers
       if (auto bf = vd->isBitFieldDeclaration()) {
-        result = new DBitFieldLValue(e->type, ptr, bf);
+        result = new DBitFieldLValue(e->type, DtoLVal(ptr), bf);
+      } else if (auto d = ptr->isDDcomputeLVal()) {
+        LLType *ptrty = nullptr;
+        if (llvm::PointerType *p = isaPointer(d->lltype)) {
+          unsigned as = p->getAddressSpace();
+          ptrty = getWithSamePointeeType(isaPointer(DtoType(e->type)), as);
+        }
+        else
+           ptrty = DtoType(e->type);
+        result = new DDcomputeLValue(e->type, i1ToI8(ptrty),
+                                     DtoBitCast(DtoLVal(d), DtoPtrToType(e->type)));
       } else {
-        ptr = DtoBitCast(ptr, DtoPtrToType(e->type));
-        result = new DLValue(e->type, ptr);
+        LLValue *p = DtoBitCast(DtoLVal(ptr), DtoPtrToType(e->type));
+        result = new DLValue(e->type, p);
       }
     } else if (FuncDeclaration *fdecl = e->var->isFuncDeclaration()) {
       // This is a bit more convoluted than it would need to be, because it
@@ -1622,7 +1641,7 @@ public:
         DtoDeleteClass(e->loc, dval); // sets dval to null
       } else if (dval->isLVal()) {
         LLValue *lval = DtoLVal(dval);
-        DtoStore(LLConstant::getNullValue(lval->getType()->getContainedType(0)),
+        DtoStore(LLConstant::getNullValue(DtoType(dval->type)),
                  lval);
       }
     }
@@ -2301,12 +2320,12 @@ public:
         dstMem = DtoAlloca(e->type, ".structliteral");
 
       if (sd->zeroInit()) {
-        DtoMemSetZero(dstMem);
+        DtoMemSetZero(DtoType(e->type), dstMem);
       } else {
         LLValue *initsym = getIrAggr(sd)->getInitSymbol();
         initsym = DtoBitCast(initsym, DtoType(e->type->pointerTo()));
         assert(dstMem->getType() == initsym->getType());
-        DtoMemCpy(dstMem, initsym);
+        DtoMemCpy(DtoType(e->type), dstMem, initsym);
       }
 
       return new DLValue(e->type, dstMem);
@@ -2456,7 +2475,7 @@ public:
           LLGlobalValue::InternalLinkage, initval, ".aaKeysStorage");
       LLConstant *slice = DtoGEP(initval->getType(), globalstore, 0u, 0u);
       slice = DtoConstSlice(DtoConstSize_t(e->keys->length), slice);
-      LLValue *keysArray = DtoAggrPaint(slice, funcTy->getParamType(1));
+      LLValue *keysArray = DtoSlicePaint(slice, funcTy->getParamType(1));
 
       initval = arrayConst(valuesInits, vtype);
       globalstore = new LLGlobalVariable(gIR->module, initval->getType(), false,
@@ -2464,7 +2483,7 @@ public:
                                          initval, ".aaValuesStorage");
       slice = DtoGEP(initval->getType(), globalstore, 0u, 0u);
       slice = DtoConstSlice(DtoConstSize_t(e->keys->length), slice);
-      LLValue *valuesArray = DtoAggrPaint(slice, funcTy->getParamType(2));
+      LLValue *valuesArray = DtoSlicePaint(slice, funcTy->getParamType(2));
 
       LLValue *aa = gIR->CreateCallOrInvoke(func, aaTypeInfo, keysArray,
                                             valuesArray, "aa");
@@ -2574,7 +2593,7 @@ public:
       DValue *ep = toElem(el);
       LLValue *gep = DtoGEP(st, val, 0, i);
       if (DtoIsInMemoryOnly(el->type)) {
-        DtoMemCpy(gep, DtoLVal(ep));
+        DtoMemCpy(st->getContainedType(i), gep, DtoLVal(ep));
       } else if (el->type->ty != TY::Tvoid) {
         DtoStoreZextI8(DtoRVal(ep), gep);
       } else {
@@ -2651,7 +2670,7 @@ public:
       Type *srcElementType = tsrc->nextOf();
 
       if (DtoMemType(elementType) == DtoMemType(srcElementType)) {
-        DtoMemCpy(dstMem, arrayPtr);
+        DtoMemCpy(dstType, dstMem, arrayPtr);
       } else {
         for (unsigned i = 0; i < N; ++i) {
           LLValue *gep = DtoGEP1(DtoMemType(e1->type->nextOf()), arrayPtr, i);
@@ -2821,7 +2840,7 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
         DtoResolveStruct(sd);
         if (sd->zeroInit()) {
           Logger::println("success, zeroing out");
-          DtoMemSetZero(DtoLVal(lhs));
+          DtoMemSetZero(DtoType(lhs->type) ,DtoLVal(lhs));
           return true;
         }
       }

@@ -38,7 +38,7 @@ struct IrGlobal : IrVar {
   bool nakedUse = false;
 
   llvm::Value *getValue(bool define = false);
-  llvm::Type *getType() { return value->getType()->getContainedType(0); }
+  llvm::Type *getType();
 
 private:
   void declare();

@@ -426,7 +426,7 @@ LLConstant *IrClass::getClassInfoInit() {
   }
 
   // build the initializer
-  LLType *initType = getClassInfoSymbol()->getType()->getContainedType(0);
+  LLType *initType = getClassInfoSymbol()->getValueType();
   constTypeInfo = b.get_constant(isaStruct(initType));
 
   return constTypeInfo;
@@ -567,7 +567,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
                                   needsCOMDAT());
       const auto callee = irFunc->getLLVMCallee();
       thunk = LLFunction::Create(
-          isaFunction(callee->getType()->getContainedType(0)), lwc.first,
+          callee->getFunctionType(), lwc.first,
           thunkIRMangle, &gIR->module);
       setLinkage(lwc, thunk);
       thunk->copyAttributesFrom(callee);

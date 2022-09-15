@@ -185,9 +185,9 @@ public:
         // from being repeated in its parameters. Might need to be
         // extended, but GEPs/PHIs are the most common ones.
         os << ", type = " << *val.getType();
-      } else if (isa<AllocaInst>(&val)) {
+      } else if (auto ai = dyn_cast<AllocaInst>(&val)) {
         os << ", size/byte = "
-           << DL.getTypeAllocSize(val.getType()->getContainedType(0));
+           << DL.getTypeAllocSize(ai->getAllocatedType());
       }
       os << ']';
     }

@@ -188,7 +188,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
         Logger::cout() << "expects: " << *paramType << '\n';
       }
       if (isaStruct(llVal)) {
-        llVal = DtoAggrPaint(llVal, paramType);
+        llVal = DtoSlicePaint(llVal, paramType);
       } else {
         llVal = DtoBitCast(llVal, paramType);
       }
@@ -295,7 +295,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     assert(ap);
     // variadic extern(D) function with implicit _argptr?
     if (LLValue *argptrMem = p->func()->_argptr) {
-      DtoMemCpy(DtoLVal(ap), argptrMem); // ap = _argptr
+      DtoMemCpy(DtoType(ap->type), DtoLVal(ap), argptrMem); // ap = _argptr
     } else {
       LLValue *llAp = gABI->prepareVaStart(ap);
       p->ir->CreateCall(GET_INTRINSIC_DECL(vastart), llAp, "");
@@ -395,7 +395,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
     DValue *dval = toElem(exp1);
     LLValue *ptr = DtoRVal(exp2);
-    LLType *pointeeType = ptr->getType()->getContainedType(0);
+    LLType *pointeeType = DtoType(exp2->type->isTypePointer()->nextOf());
 
     LLValue *val = nullptr;
     if (pointeeType->isIntegerTy()) {
@@ -482,7 +482,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     const bool isWeak = (*e->arguments)[5]->toInteger() != 0;
 
     LLValue *ptr = DtoRVal(exp1);
-    LLType *pointeeType = ptr->getType()->getContainedType(0);
+    LLType *pointeeType = DtoType(exp1->type->isTypePointer()->nextOf());
     DValue *dcmp = toElem(exp2);
     DValue *dval = toElem(exp3);
 
@@ -708,11 +708,9 @@ private:
     }
 
     size_t index = args.size();
-    LLType *llArgType = *(llArgTypesBegin + index);
-
     LLValue *pointer = sretPointer;
     if (!pointer) {
-      pointer = DtoRawAlloca(llArgType->getContainedType(0),
+      pointer = DtoRawAlloca(DtoType(tf->nextOf()),
                              DtoAlignment(resulttype), ".sret_tmp");
     }
 
@@ -958,7 +956,7 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
       if (tf->isref()) {
         retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
       } else {
-        retllval = DtoAggrPaint(retllval, DtoType(rbase));
+        retllval = DtoSlicePaint(retllval, DtoType(rbase));
       }
       break;
 

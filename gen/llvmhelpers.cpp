@@ -414,7 +414,7 @@ void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
       // time as to not emit an invalid (overlapping) memcpy on trivial
       // struct self-assignments like 'A a; a = a;'.
       if (src != dst)
-        DtoMemCpy(dst, src);
+        DtoMemCpy(DtoType(lhs->type), dst, src);
     }
   } else if (t->ty == TY::Tarray || t->ty == TY::Tsarray) {
     DtoArrayAssign(loc, lhs, rhs, op, canSkipPostblit);
@@ -434,7 +434,7 @@ void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
       Logger::cout() << "l : " << *l << '\n';
       Logger::cout() << "r : " << *r << '\n';
     }
-    r = DtoBitCast(r, l->getType()->getContainedType(0));
+    r = DtoBitCast(r, DtoType(lhs->type));
     DtoStore(r, l);
   } else if (t->iscomplex()) {
     LLValue *dst = DtoLVal(lhs);
@@ -447,7 +447,7 @@ void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
       Logger::cout() << "lhs: " << *l << '\n';
       Logger::cout() << "rhs: " << *r << '\n';
     }
-    LLType *lit = l->getType()->getContainedType(0);
+    LLType *lit = DtoType(lhs->type);
     if (r->getType() != lit) {
       r = DtoRVal(DtoCast(loc, rhs, lhs->type));
       IF_LOG {
@@ -1882,10 +1882,12 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   unsigned off = irTypeAggr->getMemberLocation(vd, isFieldIdx);
 
   LLValue *ptr = src;
+  LLType * ty = nullptr;
   if (!isFieldIdx) {
     // Cast to void* to apply byte-wise offset from object start.
     ptr = DtoBitCast(ptr, getVoidPtrType());
     ptr = DtoGEP1(llvm::Type::getInt8Ty(gIR->context()), ptr, off);
+    ty = DtoType(vd->type);
   } else {
     if (ad->structsize == 0) { // can happen for extern(C) structs
       assert(off == 0);
@@ -1904,6 +1906,7 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
       }
       ptr = DtoBitCast(ptr, pst);
       ptr = DtoGEP(st, ptr, 0, off);
+      ty = isaStruct(st)->getElementType(off);
     }
   }
 
@@ -1911,6 +1914,10 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   ptr = DtoBitCast(ptr, DtoPtrToType(vd->type));
 
   IF_LOG Logger::cout() << "Pointer: " << *ptr << '\n';
+  if (auto p = isaPointer(ty)) {
+    if (p->getAddressSpace())
+      return new DDcomputeLValue(vd->type, p, ptr);
+  }
   return new DLValue(vd->type, ptr);
 }
 
