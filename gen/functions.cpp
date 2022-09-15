@@ -1216,6 +1216,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // function attributes
   if (gABI->needsUnwindTables()) {
     func->addFnAttr(LLAttribute::UWTable);
+#if LDC_LLVM_VER >= 1500
+    func->setUWTableKind(llvm::UWTableKind::Default);
+#endif
   }
   if (opts::isAnySanitizerEnabled() &&
       !opts::functionIsInSanitizerBlacklist(fd)) {
