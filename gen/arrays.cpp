@@ -919,10 +919,12 @@ DSliceValue *DtoCatArrays(const Loc &loc, Type *arrayType, Expression *exp1,
 
     auto loadArray = [fn](Expression* e, int paramTypeIdx) {
       DValue * dval = toElem(e);
-      LLValue *val = DtoLoad(DtoSlicePtrType(dval), DtoSlicePtr(e));
+      LLValue *val = DtoLoad(DtoSlicePtrType(dval), DtoSlicePtr(dval));
       return DtoAggrPaint(val, fn->getFunctionType()->getParamType(paramTypeIdx));
     };
+    // byte[] x
     args.push_back(loadArray(exp1,1));
+    // byte[] y
     args.push_back(loadArray(exp2,2));
   }
 
