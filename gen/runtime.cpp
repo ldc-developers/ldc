@@ -696,13 +696,8 @@ static void buildRuntimeModule() {
   createFwdDecl(LINK::c, voidArrayTy, {"_d_arrayassign_l", "_d_arrayassign_r"},
                 {typeInfoTy, voidArrayTy, voidArrayTy, voidPtrTy});
 
-  // void[] _d_arrayctor(TypeInfo ti, void[] from, void[] to)
-  createFwdDecl(LINK::c, voidArrayTy, {"_d_arrayctor"},
-                {typeInfoTy, voidArrayTy, voidArrayTy});
-
   // void* _d_arraysetassign(void* p, void* value, int count, TypeInfo ti)
-  // void* _d_arraysetctor(void* p, void* value, int count, TypeInfo ti)
-  createFwdDecl(LINK::c, voidPtrTy, {"_d_arraysetassign", "_d_arraysetctor"},
+  createFwdDecl(LINK::c, voidPtrTy, {"_d_arraysetassign"},
                 {voidPtrTy, voidPtrTy, intTy, typeInfoTy});
 
   //////////////////////////////////////////////////////////////////////////////

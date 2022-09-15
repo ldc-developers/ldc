@@ -270,10 +270,10 @@ void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
                   knownInBounds);
       }
     } else if (isConstructing) {
-      LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_arrayctor");
-      gIR->CreateCallOrInvoke(fn, DtoTypeInfoOf(loc, elemType),
-                              DtoSlice(rhsPtr, rhsLength, getI8Type()),
-                              DtoSlice(lhsPtr, lhsLength, getI8Type()));
+      error(
+          loc,
+          "ICE: array construction should have been lowered to `_d_arrayctor`");
+      fatal();
     } else { // assigning
       LLValue *tmpSwap = DtoAlloca(elemType, "arrayAssign.tmpSwap");
       LLFunction *fn = getRuntimeFunction(
@@ -306,10 +306,13 @@ void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
                 : gIR->ir->CreateExactUDiv(lhsSize, DtoConstSize_t(rhsSize));
       }
       DtoArrayInit(loc, actualPtr, actualLength, rhs);
+    } else if (isConstructing) {
+      error(loc, "ICE: array construction should have been lowered to "
+                 "`_d_arraysetctor`");
+      fatal();
     } else {
-      LLFunction *fn = getRuntimeFunction(loc, gIR->module,
-                                          isConstructing ? "_d_arraysetctor"
-                                                         : "_d_arraysetassign");
+      LLFunction *fn =
+          getRuntimeFunction(loc, gIR->module, "_d_arraysetassign");
       gIR->CreateCallOrInvoke(
           fn, lhsPtr, DtoBitCast(makeLValue(loc, rhs), getVoidPtrType()),
           gIR->ir->CreateTruncOrBitCast(lhsLength,
