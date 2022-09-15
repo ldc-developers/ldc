@@ -17,7 +17,7 @@
 #include <string>
 #include <algorithm>
 
-#if !(LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX)
+#if !(LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX || LDC_LLVM_SUPPORTED_TARGET_DirectX)
 
 DComputeCodeGenManager::DComputeCodeGenManager(llvm::LLVMContext &c) : ctx(c) {}
 void DComputeCodeGenManager::emit(Module *) {}
@@ -55,17 +55,33 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
   }
 #endif
 
+#if LDC_LLVM_SUPPORTED_TARGET_DirectX
+#define DIRECTX_VALID_VER_INIT 600, 610, 620, 630
+  const std::array<int, 4> valid_dx_versions = {{DIRECTX_VALID_VER_INIT}};
+
+  if (s.substr(0, 3) == "dx-") {
+    const int v = atoi(s.c_str() + 3);
+    if (std::find(valid_dx_versions.begin(), valid_dx_versions.end(), v) !=
+        valid_cuda_versions.end()) {
+      return createDirectXTarget(ctx, v);
+    }
+  }
+#endif
+
 #define STR(x) #x
 #define XSTR(x) STR(x)
 
   error(Loc(),
         "unrecognised or invalid DCompute targets: the format is ocl-xy0 "
-        "for OpenCl x.y and cuda-xy0 for CUDA CC x.y."
+        "for OpenCl x.y, cuda-xy0 for CUDA CC x.y and dx-xy0 for DirectX Shadermodel x.y"
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV
-        " Valid versions for OpenCl are " XSTR((OCL_VALID_VER_INIT)) "."
+        "\n\tValid versions for OpenCl are " XSTR((OCL_VALID_VER_INIT)) "."
 #endif
 #if LDC_LLVM_SUPPORTED_TARGET_NVPTX
-        " Valid versions for CUDA are " XSTR((CUDA_VALID_VER_INIT))
+        "\n\tValid versions for CUDA are " XSTR((CUDA_VALID_VER_INIT))
+#endif
+#if LDC_LLVM_SUPPORTED_TARGET_DirectX
+        "\n\tValid versions for DirectX are " XSTR((DIRECTX_VALID_VER_INIT))
 #endif
   );
 
