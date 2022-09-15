@@ -488,7 +488,7 @@ void applyTargetMachineAttributes(llvm::Function &func,
   const auto dcompute = gIR->dcomputetarget;
 
   // TODO: (correctly) apply these for NVPTX (but not for SPIRV).
-  if (dcompute && dcompute->target == DComputeTarget::OpenCL)
+  if (dcompute && dcompute->target == DComputeTarget::ID::OpenCL)
     return;
   const auto cpu = dcompute ? "" : target.getTargetCPU();
   const auto features = dcompute ? "" : target.getTargetFeatureString();

@@ -364,7 +364,7 @@ public:
     auto arg2 = (*ce->arguments)[1]->toInteger();
     auto dct = irs->dcomputetarget;
     if (!dct) {
-      return arg1 == DComputeTarget::Host;
+      return arg1 == DComputeTarget::ID::Host;
     } else {
       return arg1 == dct->target &&
              (!arg2 || arg2 == static_cast<dinteger_t>(dct->tversion));
