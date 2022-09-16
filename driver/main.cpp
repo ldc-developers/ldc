@@ -1090,9 +1090,15 @@ int cppmain() {
   }
 
   auto relocModel = getRelocModel();
+#if LDC_LLVM_VER >= 1600
+  if (global.params.dll && !relocModel.has_value()) {
+    relocModel = llvm::Reloc::PIC_;
+  }
+#else
   if (global.params.dll && !relocModel.hasValue()) {
     relocModel = llvm::Reloc::PIC_;
   }
+#endif
 
   fixupTripleEnv(mTargetTriple);
 
