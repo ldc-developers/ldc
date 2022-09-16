@@ -458,19 +458,29 @@ static void addAddressSanitizerPasses(ModulePassManager &mpm,
   aso.UseAfterScope = true;
   aso.UseAfterReturn = AsanDetectStackUseAfterReturnMode::Runtime;
 
+#if LDC_LLVM_VER >= 1600
+  mpm.addPass(AddressSanitizerPass(aso));
+#else
   mpm.addPass(ModuleAddressSanitizerPass(aso));
+#endif
   if (verifyEach) {
     mpm.addPass(VerifierPass());
   }
 }
 
-static void addMemorySanitizerPass(FunctionPassManager &fpm,
-                                      OptimizationLevel level ) {
+static void addMemorySanitizerPass(ModulePassManager &mpm,
+                                   FunctionPassManager &fpm,
+                                   OptimizationLevel level ) {
   int trackOrigins = fSanitizeMemoryTrackOrigins;
   bool recover = false;
   bool kernel = false;
+#if LDC_LLVM_VER >= 1600
+  mpm.addPass(MemorySanitizerPass(
+      MemorySanitizerOptions{trackOrigins, recover, kernel}));
+#else
   fpm.addPass(MemorySanitizerPass(
       MemorySanitizerOptions{trackOrigins, recover, kernel}));
+#endif
 
   // MemorySanitizer inserts complex instrumentation that mostly follows
   // the logic of the original code, but operates on "shadow" values.
@@ -494,8 +504,13 @@ static void addThreadSanitizerPass(ModulePassManager &mpm,
 
 static void addSanitizerCoveragePass(ModulePassManager &mpm,
                                       OptimizationLevel level ) {
+#if LDC_LLVM_VER >= 1600
+  mpm.addPass(SanitizerCoveragePass(
+      opts::getSanitizerCoverageOptions()));
+#else
   mpm.addPass(ModuleSanitizerCoveragePass(
       opts::getSanitizerCoverageOptions()));
+#endif
 }
 // Adds PGO instrumentation generation and use passes.
 static void addPGOPasses(ModulePassManager &mpm,
@@ -665,7 +680,7 @@ void runOptimizationPasses(llvm::Module *M) {
     pb.registerOptimizerLastEPCallback([&](ModulePassManager &mpm,
                                         OptimizationLevel level) {
       FunctionPassManager fpm;
-      addMemorySanitizerPass(fpm,level);
+      addMemorySanitizerPass(mpm, fpm,level);
       mpm.addPass(createModuleToFunctionPassAdaptor(std::move(fpm)));
     });
   }
