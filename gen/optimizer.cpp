@@ -641,22 +641,25 @@ void runOptimizationPasses(llvm::Module *M) {
 //  } else {
 //    builder.Inliner = createAlwaysInlinerLegacyPass();
 //  }
-
-   llvm::PassInstrumentationCallbacks passInstrumentationCallbacks;
-
-   llvm::OptNoneInstrumentation optNoneInstrumentation(false);
-
-   optNoneInstrumentation.registerCallbacks(passInstrumentationCallbacks);
-
-
-
-  PassBuilder pb(gTargetMachine, getPipelineTuningOptions(optLevelVal, sizeLevelVal),
-                 getPGOOptions(), &passInstrumentationCallbacks);
-
   LoopAnalysisManager lam;
   FunctionAnalysisManager fam;
   CGSCCAnalysisManager cgam;
   ModuleAnalysisManager mam;
+
+
+  PassInstrumentationCallbacks pic;
+  PrintPassOptions ppo;
+  //FIXME: Where should these come from
+  bool debugLogging = false;
+  ppo.Indent = false; 
+  ppo.SkipAnalyses = false;
+  StandardInstrumentations si(debugLogging, verifyEach, ppo);
+
+  si.registerCallbacks(pic, &fam);
+
+  PassBuilder pb(gTargetMachine, getPipelineTuningOptions(optLevelVal, sizeLevelVal),
+                 getPGOOptions(), &pic);
+
 
   pb.registerModuleAnalyses(mam);
   pb.registerCGSCCAnalyses(cgam);
