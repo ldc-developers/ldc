@@ -321,14 +321,30 @@ void outputIR2ObjRelevantCmdlineArgs(llvm::raw_ostream &hash_os) {
   hash_os << opts::getFeaturesStr();
   hash_os << opts::floatABI;
   const auto relocModel = opts::getRelocModel();
+#if LDC_LLVM_VER >= 1600
+  if (relocModel.has_value())
+    hash_os << relocModel.value();
+#else
   if (relocModel.hasValue())
     hash_os << relocModel.getValue();
+#endif
   const auto codeModel = opts::getCodeModel();
+#if LDC_LLVM_VER >= 1600
+  if (codeModel.has_value())
+    hash_os << codeModel.value();
+#else
   if (codeModel.hasValue())
     hash_os << codeModel.getValue();
+#endif
+
   const auto framePointerUsage = opts::framePointerUsage();
+#if LDC_LLVM_VER >= 1600
+  if (framePointerUsage.has_value())
+    hash_os << static_cast<int>(framePointerUsage.value());
+#else
   if (framePointerUsage.hasValue())
     hash_os << static_cast<int>(framePointerUsage.getValue());
+#endif
 }
 
 // Output to `hash_os` all environment flags that influence object code output
