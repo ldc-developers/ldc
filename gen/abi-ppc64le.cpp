@@ -15,7 +15,6 @@
 
 #include "gen/abi.h"
 #include "gen/abi-generic.h"
-#include "gen/abi-ppc64le.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"

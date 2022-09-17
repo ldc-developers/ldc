@@ -13,8 +13,6 @@
   http://infocenter.arm.com/help/topic/com.arm.doc.ihi0042f/IHI0042F_aapcs.pdf
 */
 
-#include "gen/abi-arm.h"
-
 #include "dmd/identifier.h"
 #include "gen/abi.h"
 #include "gen/abi-generic.h"

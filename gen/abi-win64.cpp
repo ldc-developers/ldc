@@ -12,8 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/abi-win64.h"
-
 #include "dmd/mtype.h"
 #include "dmd/declaration.h"
 #include "dmd/aggregate.h"

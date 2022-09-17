@@ -1,4 +1,4 @@
-//===-- gen/abi-aarch-64.h - AArch64 ABI description ------------*- C++ -*-===//
+//===-- gen/abi-targets.h - ABI description for targets ---------*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -16,3 +16,25 @@
 struct TargetABI;
 
 TargetABI *getAArch64TargetABI();
+
+TargetABI *getArmTargetABI();
+
+TargetABI *getMIPS64TargetABI(bool Is64Bit);
+
+TargetABI *createNVPTXABI();
+
+TargetABI *getPPCTargetABI(bool Is64Bit);
+
+TargetABI *getPPC64LETargetABI();
+
+TargetABI *getRISCV64TargetABI();
+
+TargetABI *createSPIRVABI();
+
+TargetABI *getWin64TargetABI();
+
+TargetABI *getX86_64TargetABI();
+
+TargetABI *getX86TargetABI();
+
+

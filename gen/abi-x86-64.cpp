@@ -25,8 +25,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/abi-x86-64.h"
-
 #include "dmd/aggregate.h"
 #include "dmd/declaration.h"
 #include "dmd/enum.h"
@@ -36,7 +34,6 @@
 #include "dmd/target.h"
 #include "gen/abi.h"
 #include "gen/abi-generic.h"
-#include "gen/abi-x86-64.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
