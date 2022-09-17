@@ -37,6 +37,7 @@
 #include "llvm/Transforms/Instrumentation/AddressSanitizer.h"
 #if LDC_LLVM_VER >= 1400
 #include "llvm/Passes/PassBuilder.h"
+#include "llvm/Passes/StandardInstrumentations.h"
 #include "llvm/Transforms/Instrumentation/AddressSanitizerOptions.h"
 #include "llvm/Transforms/Instrumentation/InstrProfiling.h"
 #include "llvm/Transforms/Instrumentation/PGOInstrumentation.h"
@@ -121,7 +122,7 @@ static cl::opt<int> fSanitizeMemoryTrackOrigins(
         "Enable origins tracking in MemorySanitizer (0=disabled, default)"));
 
 static cl::opt<signed char> passmanager("passmanager",
-    cl::desc("Setting the passmanager (new,legacy):"), cl::ZeroOrMore, cl::init(0),
+    cl::desc("Setting the passmanager (new,legacy):"), cl::ZeroOrMore, cl::init(1),
     cl::values(
         clEnumValN(0, "legacy", "Use the legacy passmanager (available for LLVM14 and below) "),
         clEnumValN(1, "new", "Use the new passmanager (available for LLVM14 and above)")));
@@ -641,8 +642,16 @@ void runOptimizationPasses(llvm::Module *M) {
 //    builder.Inliner = createAlwaysInlinerLegacyPass();
 //  }
 
+   llvm::PassInstrumentationCallbacks passInstrumentationCallbacks;
+
+   llvm::OptNoneInstrumentation optNoneInstrumentation(false);
+
+   optNoneInstrumentation.registerCallbacks(passInstrumentationCallbacks);
+
+
+
   PassBuilder pb(gTargetMachine, getPipelineTuningOptions(optLevelVal, sizeLevelVal),
-                 getPGOOptions());
+                 getPGOOptions(), &passInstrumentationCallbacks);
 
   LoopAnalysisManager lam;
   FunctionAnalysisManager fam;
