@@ -574,11 +574,20 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   }
 
   const auto explicitPlatformLibs = getExplicitPlatformLibs();
+#if LDC_LLVM_VER >= 1600
+  if (explicitPlatformLibs.has_value()) {
+    for (const auto &name : explicitPlatformLibs.value()) {
+      args.push_back("-l" + name);
+    }
+  }
+#else
   if (explicitPlatformLibs.hasValue()) {
     for (const auto &name : explicitPlatformLibs.getValue()) {
       args.push_back("-l" + name);
     }
-  } else {
+  }
+#endif
+  else {
     addDefaultPlatformLibs();
   }
 
