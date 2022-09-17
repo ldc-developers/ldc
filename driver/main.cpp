@@ -100,6 +100,9 @@ static cl::opt<bool> enableGC(
     cl::desc("Enable the garbage collector for the LDC front-end. This reduces "
              "the compiler memory requirements but increases compile times."));
 
+// Deprecated options
+extern llvm::cl::opt<bool> checkPrintf;
+
 namespace {
 
 // This function exits the program.
@@ -883,6 +886,11 @@ void registerPredefinedTargetVersions() {
     }
     break;
   }
+
+  //Issue deprecations for deprecated arguments
+  // N.B `-nodefaultlib` is checked in `getDefaultLibNames`
+  if (checkPrintf)
+    deprecation(Loc(), "'-check-printf-calls' is deprecated, use `pragma(printf)` instead.");
 }
 
 } // anonymous namespace

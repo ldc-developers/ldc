@@ -56,7 +56,7 @@
 #include <stdio.h>
 
 llvm::cl::opt<bool> checkPrintf(
-    "check-printf-calls", llvm::cl::ZeroOrMore,
+    "check-printf-calls", llvm::cl::ZeroOrMore, llvm::cl::ReallyHidden,
     llvm::cl::desc("Validate printf call format strings against arguments"));
 
 bool walkPostorder(Expression *e, StoppableVisitor *v);
