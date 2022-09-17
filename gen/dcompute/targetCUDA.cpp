@@ -12,7 +12,7 @@
 #include "gen/dcompute/target.h"
 #include "gen/dcompute/druntime.h"
 #include "gen/passes/metadata.h"
-#include "gen/abi-nvptx.h"
+#include "gen/abi-targets.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
 #include "gen/to_string.h"
