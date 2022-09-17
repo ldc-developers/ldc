@@ -1,7 +1,7 @@
 // REQUIRES: Plugins
 
 // RUN: %gnu_make -f %S/Makefile
-// RUN: %ldc -c -output-ll -plugin=./addFuncEntryCallPass.so -of=%t.ll %s
+// RUN: %ldc -passmanager=legacy -c -output-ll -plugin=./addFuncEntryCallPass.so -of=%t.ll %s
 // RUN: FileCheck %s < %t.ll
 
 // CHECK: define {{.*}}testfunction
