@@ -426,7 +426,12 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
   }
 
   // Handle cases where LLVM picks wrong default relocModel
-  if (!relocModel.hasValue()) {
+#if LDC_LLVM_VER >= 1600
+  if (relocModel.has_value()) {}
+#else
+  if (relocModel.hasValue()) {}
+#endif
+  else {
     if (triple.isOSDarwin()) {
       // Darwin defaults to PIC (and as of 10.7.5/LLVM 3.1-3.3, TLS use leads
       // to crashes for non-PIC code). LLVM doesn't handle this.
