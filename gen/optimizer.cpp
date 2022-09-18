@@ -37,6 +37,7 @@
 #include "llvm/Transforms/Instrumentation/AddressSanitizer.h"
 #if LDC_LLVM_VER >= 1400
 #include "llvm/Passes/PassBuilder.h"
+#include "llvm/Passes/StandardInstrumentations.h"
 #include "llvm/Transforms/Instrumentation/AddressSanitizerOptions.h"
 #include "llvm/Transforms/Instrumentation/InstrProfiling.h"
 #include "llvm/Transforms/Instrumentation/PGOInstrumentation.h"
@@ -640,14 +641,25 @@ void runOptimizationPasses(llvm::Module *M) {
 //  } else {
 //    builder.Inliner = createAlwaysInlinerLegacyPass();
 //  }
-
-  PassBuilder pb(gTargetMachine, getPipelineTuningOptions(optLevelVal, sizeLevelVal),
-                 getPGOOptions());
-
   LoopAnalysisManager lam;
   FunctionAnalysisManager fam;
   CGSCCAnalysisManager cgam;
   ModuleAnalysisManager mam;
+
+
+  PassInstrumentationCallbacks pic;
+  PrintPassOptions ppo;
+  //FIXME: Where should these come from
+  bool debugLogging = false;
+  ppo.Indent = false; 
+  ppo.SkipAnalyses = false;
+  StandardInstrumentations si(debugLogging, verifyEach, ppo);
+
+  si.registerCallbacks(pic, &fam);
+
+  PassBuilder pb(gTargetMachine, getPipelineTuningOptions(optLevelVal, sizeLevelVal),
+                 getPGOOptions(), &pic);
+
 
   pb.registerModuleAnalyses(mam);
   pb.registerCGSCCAnalyses(cgam);
