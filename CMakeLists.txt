@@ -62,6 +62,7 @@ endif()
 
 # Check and adapt for LLVMSPIRVLib (Khronos SPIRV-LLVM-Translator)
 set(LLVM_SPIRV_FOUND OFF)
+if (LDC_LLVM_VER LESS 1600)
 if(MSVC)
     if(EXISTS "${LLVM_LIBRARY_DIRS}/LLVMSPIRVLib.lib")
         set(LLVM_SPIRV_FOUND ON)
@@ -96,6 +97,7 @@ if(LLVM_SPIRV_FOUND)
     add_definitions("-DLDC_LLVM_SUPPORTED_TARGET_SPIRV=1")
 else()
     message(STATUS "-- Building LDC without SPIR-V support: not found")
+endif()
 endif()
 
 #
