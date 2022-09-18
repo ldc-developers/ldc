@@ -17,6 +17,8 @@
 #include "gen/dcompute/target.h"
 #include "gen/dcompute/druntime.h"
 #include "gen/logger.h"
+#include "gen/optimizer.h"
+#include "driver/targetmachine.h"
 #include "llvm/Transforms/Scalar.h"
 #include <cstring>
 #include <string>
@@ -49,9 +51,19 @@ public:
     const bool is64 = global.params.targetTriple->isArch64Bit();
 
     _ir = new IRState("dcomputeTargetOCL", ctx);
-    _ir->module.setTargetTriple(is64 ? SPIR_TARGETTRIPLE64
-                                     : SPIR_TARGETTRIPLE32);
+    std::string targTriple = is64 ? SPIR_TARGETTRIPLE64
+                                  : SPIR_TARGETTRIPLE32;
+    _ir->module.setTargetTriple(targTriple);
 
+#if LDC_LLVM_VER >= 1600
+    auto floatABI = ::FloatABI::Hard;
+    targetMachine = createTargetMachine(
+            targTriple,
+            is64 ? "spirv64" : "spirv32",
+            "", {},
+            is64 ? ExplicitBitness::M64 : ExplicitBitness::M32, floatABI,
+            llvm::Reloc::Static, llvm::CodeModel::Medium, codeGenOptLevel(), false);
+#endif
     _ir->module.setDataLayout(is64 ? SPIR_DATALAYOUT64 : SPIR_DATALAYOUT32);
     _ir->dcomputetarget = this;
   }
