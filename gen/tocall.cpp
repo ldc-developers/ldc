@@ -14,7 +14,7 @@
 #include "dmd/id.h"
 #include "dmd/mtype.h"
 #include "dmd/target.h"
-#include "gen/abi.h"
+#include "gen/abi/abi.h"
 #include "gen/classes.h"
 #include "gen/dvalue.h"
 #include "gen/funcgenstate.h"

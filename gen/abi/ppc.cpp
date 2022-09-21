@@ -19,8 +19,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/abi.h"
-#include "gen/abi-generic.h"
+#include "gen/abi/abi.h"
+#include "gen/abi/generic.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"

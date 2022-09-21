@@ -36,7 +36,7 @@
 #include "driver/plugins.h"
 #include "driver/targetmachine.h"
 #include "driver/timetrace.h"
-#include "gen/abi.h"
+#include "gen/abi/abi.h"
 #include "gen/irstate.h"
 #include "gen/ldctraits.h"
 #include "gen/linkage.h"

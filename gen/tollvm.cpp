@@ -18,7 +18,7 @@
 #include "dmd/module.h"
 #include "dmd/target.h"
 #include "driver/cl_options.h"
-#include "gen/abi.h"
+#include "gen/abi/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/complex.h"

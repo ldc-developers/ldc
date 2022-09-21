@@ -15,7 +15,7 @@
 #include "dmd/mangle.h"
 #include "dmd/mtype.h"
 #include "dmd/target.h"
-#include "gen/abi.h"
+#include "gen/abi/abi.h"
 #include "gen/arrays.h"
 #include "gen/funcgenstate.h"
 #include "gen/functions.h"

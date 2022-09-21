@@ -14,8 +14,8 @@
 */
 
 #include "dmd/identifier.h"
-#include "gen/abi.h"
-#include "gen/abi-generic.h"
+#include "gen/abi/abi.h"
+#include "gen/abi/generic.h"
 #include "llvm/Target/TargetMachine.h"
 
 struct ArmTargetABI : TargetABI {

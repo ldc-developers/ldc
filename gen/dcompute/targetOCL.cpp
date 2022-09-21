@@ -13,7 +13,7 @@
 #include "dmd/identifier.h"
 #include "dmd/template.h"
 #include "dmd/module.h"
-#include "gen/abi-targets.h"
+#include "gen/abi/targets.h"
 #include "gen/dcompute/target.h"
 #include "gen/dcompute/druntime.h"
 #include "gen/logger.h"

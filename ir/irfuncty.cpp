@@ -10,7 +10,7 @@
 #include "ir/irfuncty.h"
 
 #include "dmd/mtype.h"
-#include "gen/abi.h"
+#include "gen/abi/abi.h"
 #include "gen/dvalue.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"

@@ -7,14 +7,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/abi.h"
+#include "gen/abi/abi.h"
 
 #include "dmd/expression.h"
 #include "dmd/id.h"
 #include "dmd/identifier.h"
 #include "dmd/target.h"
-#include "gen/abi-targets.h"
-#include "gen/abi-generic.h"
+#include "gen/abi/targets.h"
+#include "gen/abi/generic.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"

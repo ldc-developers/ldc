@@ -18,7 +18,7 @@
 #include "dmd/target.h"
 #include "dmd/tokens.h"
 #include "driver/cl_options_instrumentation.h"
-#include "gen/abi.h"
+#include "gen/abi/abi.h"
 #include "gen/attributes.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"

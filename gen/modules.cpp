@@ -24,7 +24,7 @@
 #include "dmd/template.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/timetrace.h"
-#include "gen/abi.h"
+#include "gen/abi/abi.h"
 #include "gen/arrays.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"

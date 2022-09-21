@@ -14,8 +14,8 @@
 
 #include "dmd/identifier.h"
 #include "dmd/nspace.h"
-#include "gen/abi.h"
-#include "gen/abi-generic.h"
+#include "gen/abi/abi.h"
+#include "gen/abi/generic.h"
 
 /**
  * AAPCS64 uses a special native va_list type, a struct aliased as
