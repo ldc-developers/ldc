@@ -72,12 +72,12 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
     std::ofstream out(filename, std::ofstream::binary);
     llvm::createSPIRVWriterPass(out)->runOnModule(m);
     IF_LOG Logger::println("Success.");
+    return;
 #endif
 #else
     error(Loc(), "Trying to target SPIRV, but LDC is not built to do so!");
-#endif
-
     return;
+#endif
   }
 
   std::error_code errinfo;

@@ -156,6 +156,7 @@ config.substitutions.append( ('%gnu_make', config.gnu_make_bin) )
 config.substitutions.append( ('%profdata', config.ldcprofdata_bin) )
 config.substitutions.append( ('%prunecache', config.ldcprunecache_bin) )
 config.substitutions.append( ('%llvm-spirv', os.path.join(config.llvm_tools_dir, 'llvm-spirv')) )
+config.substitutions.append( ('%llc', os.path.join(config.llvm_tools_dir, 'llc')) )
 config.substitutions.append( ('%runtimedir', config.ldc2_runtime_dir ) )
 
 # Add platform-dependent file extension substitutions
