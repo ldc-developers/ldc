@@ -1,4 +1,4 @@
-//===-- gen/cl_helpers.h - Complex number code generation -------*- C++ -*-===//
+//===-- gen/complex.h - Complex number code generation ----------*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
