@@ -530,6 +530,10 @@ ComputeBackend::Type getComputeTargetType(llvm::Module* m) {
     return ComputeBackend::SPIRV;
   else if (a == llvm::Triple::nvptx || a == llvm::Triple::nvptx64)
     return ComputeBackend::NVPTX;
+#if LDC_LLVM_VER >= 1600
+  else if (a == llvm::Triple::dxil)
+    return ComputeBackend::DirectX;
+#endif
   else
     return ComputeBackend::None;
 }
