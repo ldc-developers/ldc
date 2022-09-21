@@ -12,7 +12,7 @@
 #include "dmd/errors.h"
 #include "dmd/mangle.h"
 #include "dmd/module.h"
-#include "gen/abi.h"
+#include "gen/abi/abi.h"
 #include "gen/classes.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"

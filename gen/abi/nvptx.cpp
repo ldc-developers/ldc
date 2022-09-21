@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/abi.h"
+#include "gen/abi/abi.h"
 #include "gen/dcompute/druntime.h"
 #include "gen/uda.h"
 #include "dmd/declaration.h"

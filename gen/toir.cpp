@@ -21,7 +21,7 @@
 #include "dmd/root/rmem.h"
 #include "dmd/template.h"
 #include "gen/aa.h"
-#include "gen/abi.h"
+#include "gen/abi/abi.h"
 #include "gen/arrays.h"
 #include "gen/binops.h"
 #include "gen/classes.h"

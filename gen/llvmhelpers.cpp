@@ -17,7 +17,7 @@
 #include "dmd/init.h"
 #include "dmd/module.h"
 #include "dmd/template.h"
-#include "gen/abi.h"
+#include "gen/abi/abi.h"
 #include "gen/arrays.h"
 #include "gen/cl_helpers.h"
 #include "gen/classes.h"
