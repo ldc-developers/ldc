@@ -15,7 +15,7 @@
 
 #pragma once
 
-#include "gen/cl_helpers.h"
+#include "driver/cl_helpers.h"
 
 namespace llvm {
 class Triple;

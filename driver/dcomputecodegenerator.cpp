@@ -9,8 +9,8 @@
 
 #include "driver/dcomputecodegenerator.h"
 #include "driver/cl_options.h"
+#include "driver/cl_helpers.h"
 #include "dmd/errors.h"
-#include "gen/cl_helpers.h"
 #include "ir/irdsymbol.h"
 #include "llvm/Support/CommandLine.h"
 #include <array>

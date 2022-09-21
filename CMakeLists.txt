@@ -371,6 +371,7 @@ file(GLOB_RECURSE DRV_SRC_D  driver/*.d)
 set(DRV_SRC
     driver/args.cpp
     driver/cache.cpp
+    driver/cl_helpers.cpp
     driver/cl_options.cpp
     driver/cl_options_instrumentation.cpp
     driver/cl_options_sanitizers.cpp
@@ -394,6 +395,7 @@ set(DRV_HDR
     driver/args.h
     driver/cache.h
     driver/cache_pruning.h
+    driver/cl_helpers.h
     driver/cl_options.h
     driver/cl_options_instrumentation.h
     driver/cl_options_sanitizers.h
