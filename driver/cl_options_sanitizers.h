@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include "gen/cl_helpers.h"
+#include "driver/cl_helpers.h"
 #include "llvm/Transforms/Instrumentation.h"
 
 class FuncDeclaration;

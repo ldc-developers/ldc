@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/cl_helpers.h"
+#include "driver/cl_helpers.h"
 
 #include "dmd/errors.h"
 #include "dmd/ldcbindings.h"
