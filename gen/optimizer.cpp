@@ -122,7 +122,7 @@ static cl::opt<int> fSanitizeMemoryTrackOrigins(
         "Enable origins tracking in MemorySanitizer (0=disabled, default)"));
 
 static cl::opt<signed char> passmanager("passmanager",
-    cl::desc("Setting the passmanager (new,legacy):"), cl::ZeroOrMore, cl::init(1),
+    cl::desc("Setting the passmanager (new,legacy):"), cl::ZeroOrMore, cl::init(0),
     cl::values(
         clEnumValN(0, "legacy", "Use the legacy passmanager (available for LLVM14 and below) "),
         clEnumValN(1, "new", "Use the new passmanager (available for LLVM14 and above)")));
