@@ -233,12 +233,22 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
   }
 
   auto explicitPlatformLibs = getExplicitPlatformLibs();
+#if LDC_LLVM_VER >= 1600
+  if (explicitPlatformLibs.has_value()) {
+    for (auto &lib : explicitPlatformLibs.value()) {
+      args.push_back(llvm::sys::path::has_extension(lib) ? std::move(lib)
+                                                         : lib + ".lib");
+    }
+  }
+#else
   if (explicitPlatformLibs.hasValue()) {
     for (auto &lib : explicitPlatformLibs.getValue()) {
       args.push_back(llvm::sys::path::has_extension(lib) ? std::move(lib)
                                                          : lib + ".lib");
     }
-  } else {
+  }
+#endif
+  else {
     // default platform libs
     // TODO check which libaries are necessary
     args.insert(args.end(),
