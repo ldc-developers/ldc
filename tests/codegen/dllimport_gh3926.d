@@ -24,8 +24,8 @@ void foo()
 
 // should set the vptr:
 // CHECK:      if:
-// CHECK-NEXT: store [{{[0-9]+}} x i8*]* @_D15TypeInfo_Struct6__vtblZ,
+// CHECK-NEXT: store {{\[[0-9]+ x i8\*\]\*|ptr}} @_D15TypeInfo_Struct6__vtblZ,
 
 // should set m_init.ptr:
 // CHECK:      if1:
-// CHECK-NEXT: store i8* getelementptr inbounds ({{.*}} @_D3std7variant__T8VariantN{{.*}}6__initZ, i32 0, i32 0, i32 0),
+// CHECK-NEXT: store {{i8\*|ptr}} getelementptr inbounds ({{.*}} @_D3std7variant__T8VariantN{{.*}}6__initZ, i32 0, i32 0, i32 0),
