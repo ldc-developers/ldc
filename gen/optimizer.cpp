@@ -12,6 +12,7 @@
 #include "dmd/errors.h"
 #include "gen/logger.h"
 #include "gen/passes/GarbageCollect2Stack.h"
+#include "gen/passes/StripExternals.h"
 #include "gen/passes/Passes.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
@@ -536,17 +537,14 @@ static void addStripExternalsPass(ModulePassManager &mpm,
 
   if (level == OptimizationLevel::O1 || level == OptimizationLevel::O2 ||
       level == OptimizationLevel::O3) {
-//FIXME: Update and uncomment this once gen/passes/StripExternals.cpp is updated to
-// work with the new pass manager.
-//
-//    mpm.addPass(StripExternalsPass());
-//    if (verifyEach) {
-//      mpm.addPass(VerifierPass());
-//    }
-//    mpm.addPass(GlobalDCEPass());
-//    if (verifyEach) {
-//      mpm.addPass(VerifierPass());
-//    }
+    mpm.addPass(StripExternalsPass());
+    if (verifyEach) {
+      mpm.addPass(VerifierPass());
+    }
+    mpm.addPass(GlobalDCEPass());
+    if (verifyEach) {
+      mpm.addPass(VerifierPass());
+    }
   }
 }
 
@@ -565,8 +563,6 @@ static void addSimplifyDRuntimeCallsPass(ModulePassManager &mpm,
 static void addGarbageCollect2StackPass(ModulePassManager &mpm,
                                          OptimizationLevel level ) {
   if (level == OptimizationLevel::O2  || level == OptimizationLevel::O3) {
-//FIXME: Update and uncomment this once gen/passes/GarbageCollect2Stack.cpp is updated to
-// work with the new pass manager.
     FunctionPassManager fpm;
     fpm.addPass(GarbageCollect2StackPass());
     if (verifyEach) {
