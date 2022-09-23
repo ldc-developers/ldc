@@ -8,33 +8,33 @@ void main() {
 
   r = atomicOp!"+="(x, uint(257));
   assert(x == r);
-  // CHECK: = atomicrmw add i8*
+  // CHECK: = atomicrmw add {{i8\*|ptr}}
 
   r = atomicOp!"+="(x, int(-263));
   assert(x == r);
-  // CHECK: = atomicrmw add i8*
+  // CHECK: = atomicrmw add {{i8\*|ptr}}
 
   r = atomicOp!"-="(x, ushort(257));
   assert(x == r);
-  // CHECK: = atomicrmw sub i8*
+  // CHECK: = atomicrmw sub {{i8\*|ptr}}
 
   r = atomicOp!"-="(x, short(-263));
   assert(x == r);
-  // CHECK: = atomicrmw sub i8*
+  // CHECK: = atomicrmw sub {{i8\*|ptr}}
 
   r = atomicOp!"&="(x, ubyte(255));
   assert(x == r);
-  // CHECK: = atomicrmw and i8*
+  // CHECK: = atomicrmw and {{i8\*|ptr}}
 
   r = atomicOp!"|="(x, short(3));
   assert(x == r);
-  // CHECK: = atomicrmw or i8*
+  // CHECK: = atomicrmw or {{i8\*|ptr}}
 
   r = atomicOp!"^="(x, int(3));
   assert(x == r);
-  // CHECK: = atomicrmw xor i8*
+  // CHECK: = atomicrmw xor {{i8\*|ptr}}
 
   r = atomicOp!"+="(x, 1.0f);
   assert(x == r);
-  // CHECK: = cmpxchg weak i8*
+  // CHECK: = cmpxchg weak {{i8\*|ptr}}
 }
