@@ -11,6 +11,7 @@
 
 #include "dmd/errors.h"
 #include "gen/logger.h"
+#include "gen/passes/GarbageCollect2Stack.h"
 #include "gen/passes/Passes.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
@@ -566,10 +567,12 @@ static void addGarbageCollect2StackPass(ModulePassManager &mpm,
   if (level == OptimizationLevel::O2  || level == OptimizationLevel::O3) {
 //FIXME: Update and uncomment this once gen/passes/GarbageCollect2Stack.cpp is updated to
 // work with the new pass manager.
-//    mpm.addPass(GarbageCollect2Stack());
-//    if (verifyEach) {
-//      mpm.addPass(VerifierPass());
-//    }
+    FunctionPassManager fpm;
+    fpm.addPass(GarbageCollect2StackPass());
+    if (verifyEach) {
+      fpm.addPass(VerifierPass());
+    }
+    mpm.addPass(createModuleToFunctionPassAdaptor(std::move(fpm)));
   }
 }
 
@@ -650,7 +653,7 @@ void runOptimizationPasses(llvm::Module *M) {
   PrintPassOptions ppo;
   //FIXME: Where should these come from
   bool debugLogging = false;
-  ppo.Indent = false; 
+  ppo.Indent = false;
   ppo.SkipAnalyses = false;
   StandardInstrumentations si(debugLogging, verifyEach, ppo);
 
@@ -659,12 +662,6 @@ void runOptimizationPasses(llvm::Module *M) {
   PassBuilder pb(gTargetMachine, getPipelineTuningOptions(optLevelVal, sizeLevelVal),
                  getPGOOptions(), &pic);
 
-
-  pb.registerModuleAnalyses(mam);
-  pb.registerCGSCCAnalyses(cgam);
-  pb.registerFunctionAnalyses(fam);
-  pb.registerLoopAnalyses(lam);
-  pb.crossRegisterProxies(lam, fam, cgam, mam);
 
   ModulePassManager mpm;
 
@@ -717,9 +714,13 @@ void runOptimizationPasses(llvm::Module *M) {
         addSimplifyDRuntimeCallsPass(mpm,level);
       });
     }
-
     if (!disableGCToStack) {
-      pb.registerLoopOptimizerEndEPCallback([&](LoopPassManager &lpm,
+//FIX ME: This should be checked
+      fam.registerPass([&] { return DominatorTreeAnalysis(); });
+      mam.registerPass([&] { return  CallGraphAnalysis(); });
+//FIX ME: Is this registerOptimizerLastEPCallback correct here
+//(had registerLoopOptimizerEndEPCallback) but that seems wrong
+      pb.registerOptimizerLastEPCallback([&](ModulePassManager &mpm,
                                           OptimizationLevel level) {
         addGarbageCollect2StackPass(mpm,level);
       });
@@ -731,6 +732,11 @@ void runOptimizationPasses(llvm::Module *M) {
     addStripExternalsPass(mpm, level);
   });
 
+  pb.registerModuleAnalyses(mam);
+  pb.registerCGSCCAnalyses(cgam);
+  pb.registerFunctionAnalyses(fam);
+  pb.registerLoopAnalyses(lam);
+  pb.crossRegisterProxies(lam, fam, cgam, mam);
 
 
   OptimizationLevel level = getOptimizationLevel();
