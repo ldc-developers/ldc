@@ -15,6 +15,7 @@
 #pragma once
 
 class Dsymbol;
+class UserAttributeDeclaration;
 class FuncDeclaration;
 class VarDeclaration;
 struct IrFunction;
@@ -27,6 +28,7 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar);
 
 bool hasWeakUDA(Dsymbol *sym);
 bool hasKernelAttr(Dsymbol *sym);
+bool hasRestrict(UserAttributeDeclaration *uattrs);
 /// Must match ldc.dcompute.Compilefor + 1 == DComputeCompileFor
 enum class DComputeCompileFor : int
 {

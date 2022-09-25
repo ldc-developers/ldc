@@ -93,13 +93,15 @@ void checkStructElems(StructLiteralExp *sle, ArrayParam<Type *> elemTypes) {
 /// Returns the StructLiteralExp magic attribute with identifier `id` from
 /// the ldc magic module with identifier `from` (attributes or dcompute)
 /// if it is applied to `sym`, otherwise returns nullptr.
-StructLiteralExp *getMagicAttribute(Dsymbol *sym, const Identifier *id,
+///
+StructLiteralExp *getMagicAttribute(UserAttributeDeclaration* uattrs,
+                                    const Identifier *id,
                                     const Identifier *from) {
-  if (!sym->userAttribDecl)
+  if (!uattrs)
     return nullptr;
 
   // Loop over all UDAs and early return the expression if a match was found.
-  Expressions *attrs = sym->userAttribDecl->getAttributes();
+  Expressions *attrs = uattrs->getAttributes();
   expandTuples(attrs);
   for (auto attr : *attrs) {
     if (auto sle = attr->isStructLiteralExp())
@@ -108,6 +110,13 @@ StructLiteralExp *getMagicAttribute(Dsymbol *sym, const Identifier *id,
   }
 
   return nullptr;
+}
+StructLiteralExp *getMagicAttribute(Dsymbol *sym, const Identifier *id,
+                                    const Identifier *from) {
+  if (!sym->userAttribDecl)
+    return nullptr;
+
+  return getMagicAttribute(sym->userAttribDecl, id, from);
 }
 
 /// Calls `action` for each magic attribute with identifier `id` from
@@ -540,6 +549,15 @@ bool hasKernelAttr(Dsymbol *sym) {
   }
 
   return true;
+}
+
+bool hasRestrict(UserAttributeDeclaration *uattrs) {
+  auto sle = getMagicAttribute(uattrs, Id::udaLLVMAttr, Id::attributes);
+  if (!sle)
+    return false;
+
+  checkStructElems(sle, {Type::tstring, Type::tstring});
+  return getStringElem(sle, 0) == "noalias";
 }
 
 /// Creates a mask (for &) of @ldc.attributes.noSanitize UDA applied to the

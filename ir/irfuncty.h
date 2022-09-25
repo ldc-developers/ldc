@@ -60,6 +60,11 @@ struct IrFuncTyArg {
    *  LLVM Type is a reference type! */
   bool byref = false;
 
+  /** 'true' if this arg is the length part of an array parameter that is
+      broken into length + ptr
+   */
+  bool isArrayLength;
+
   /** Pointer to the ABIRewrite structure needed to rewrite LLVM ValueS
    *  to match the final LLVM Type when passing arguments and getting
    *  return values */
@@ -76,8 +81,8 @@ struct IrFuncTyArg {
    *  @param byref Initial value for the 'byref' field. If true the initial
    *               LLVM Type will be of DtoType(type->pointerTo()), instead
    *               of just DtoType(type) */
-  IrFuncTyArg(Type *t, bool byref);
-  IrFuncTyArg(Type *t, bool byref, llvm::AttrBuilder);
+  IrFuncTyArg(Type *t, bool byref, bool isArrayLength = false);
+  IrFuncTyArg(Type *t, bool byref, bool isArrayLength, llvm::AttrBuilder);
   IrFuncTyArg(const IrFuncTyArg &) = delete;
 
   ~IrFuncTyArg();
