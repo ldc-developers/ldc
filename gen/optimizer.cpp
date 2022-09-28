@@ -13,6 +13,7 @@
 #include "gen/logger.h"
 #include "gen/passes/GarbageCollect2Stack.h"
 #include "gen/passes/StripExternals.h"
+#include "gen/passes/SimplifyDRuntimeCalls.h"
 #include "gen/passes/Passes.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
@@ -551,12 +552,12 @@ static void addStripExternalsPass(ModulePassManager &mpm,
 static void addSimplifyDRuntimeCallsPass(ModulePassManager &mpm,
                                       OptimizationLevel level ) {
   if (level == OptimizationLevel::O2  || level == OptimizationLevel::O3) {
-//FIXME: Update and uncomment this once gen/passes/SimplifyDRuntimeCalls.cpp is updated to
-// work with the new pass manager.
-//    mpm.addPass(SimplifyDRuntimeCalls());
-//    if (verifyEach) {
-//      mpm.addPass(VerifierPass());
-//    }
+    FunctionPassManager fpm;
+    fpm.addPass(SimplifyDRuntimeCallsPass());
+    if (verifyEach) {
+      fpm.addPass(VerifierPass());
+    }
+    mpm.addPass(createModuleToFunctionPassAdaptor(std::move(fpm)));
   }
 }
 
@@ -705,7 +706,9 @@ void runOptimizationPasses(llvm::Module *M) {
 
   if (!disableLangSpecificPasses) {
     if (!disableSimplifyDruntimeCalls) {
-      pb.registerLoopOptimizerEndEPCallback([&](LoopPassManager &lpm,
+//FIX ME: Is this registerOptimizerLastEPCallback correct here
+//(had registerLoopOptimizerEndEPCallback) but that seems wrong
+      pb.registerOptimizerLastEPCallback([&](ModulePassManager &mpm,
                                           OptimizationLevel level) {
         addSimplifyDRuntimeCallsPass(mpm,level);
       });
