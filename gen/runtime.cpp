@@ -18,7 +18,7 @@
 #include "dmd/target.h"
 #include "dmd/tokens.h"
 #include "driver/cl_options_instrumentation.h"
-#include "gen/abi.h"
+#include "gen/abi/abi.h"
 #include "gen/attributes.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
@@ -273,6 +273,9 @@ struct LazyFunctionDeclarer {
       // NOTE: There are several occurances if this line.
       if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
         fn->addFnAttr(LLAttribute::UWTable);
+#if LDC_LLVM_VER >= 1500
+        fn->setUWTableKind(llvm::UWTableKind::Default);
+#endif
       }
 
       fn->setCallingConv(gABI->callingConv(dty, false));

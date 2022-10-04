@@ -14,9 +14,9 @@
 
 #pragma once
 
+#include "driver/cl_helpers.h"
 #include "driver/cl_options-llvm.h"
 #include "driver/targetmachine.h"
-#include "gen/cl_helpers.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/CommandLine.h"

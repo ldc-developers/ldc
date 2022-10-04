@@ -17,6 +17,7 @@
 #define DEBUG_TYPE "simplify-drtcalls"
 
 #include "gen/passes/Passes.h"
+#include "gen/passes/SimplifyDRuntimeCalls.h"
 #include "gen/tollvm.h"
 #include "gen/runtime.h"
 #include "llvm/ADT/Statistic.h"
@@ -38,54 +39,17 @@ using namespace llvm;
 STATISTIC(NumSimplified, "Number of runtime calls simplified");
 STATISTIC(NumDeleted, "Number of runtime calls deleted");
 
-//===----------------------------------------------------------------------===//
-// Optimizer Base Class
-//===----------------------------------------------------------------------===//
-
-/// This class is the abstract base class for the set of optimizations that
-/// corresponds to one library call.
-namespace {
-class LLVM_LIBRARY_VISIBILITY LibCallOptimization {
-protected:
-  Function *Caller;
-  bool *Changed;
-  const DataLayout *DL;
-  AliasAnalysis *AA;
-  LLVMContext *Context;
-
-  /// CastToCStr - Return V if it is an i8*, otherwise cast it to i8*.
-  Value *CastToCStr(Value *V, IRBuilder<> &B);
-
-  /// EmitMemCpy - Emit a call to the memcpy function to the builder.  This
-  /// always expects that the size has type 'intptr_t' and Dst/Src are pointers.
-  Value *EmitMemCpy(Value *Dst, Value *Src, Value *Len, unsigned Align,
-                    IRBuilder<> &B);
-
-public:
-  LibCallOptimization() = default;
-  virtual ~LibCallOptimization() = default;
-
-  /// CallOptimizer - This pure virtual method is implemented by base classes to
-  /// do various optimizations.  If this returns null then no transformation was
-  /// performed.  If it returns CI, then it transformed the call and CI is to be
-  /// deleted.  If it returns something else, replace CI with the new value and
-  /// delete CI.
-  virtual Value *CallOptimizer(Function *Callee, CallInst *CI,
-                               IRBuilder<> &B) = 0;
-
-  Value *OptimizeCall(CallInst *CI, bool &Changed, const DataLayout *DL,
-                      AliasAnalysis &AA, IRBuilder<> &B) {
-    Caller = CI->getParent()->getParent();
-    this->Changed = &Changed;
-    this->DL = DL;
-    this->AA = &AA;
-    if (CI->getCalledFunction()) {
-      Context = &CI->getCalledFunction()->getContext();
-    }
-    return CallOptimizer(CI->getCalledFunction(), CI, B);
+Value *LibCallOptimization::OptimizeCall(CallInst *CI, bool &Changed, const DataLayout *DL,
+                    AliasAnalysis &AA, IRBuilder<> &B) {
+  Caller = CI->getParent()->getParent();
+  this->Changed = &Changed;
+  this->DL = DL;
+  this->AA = &AA;
+  if (CI->getCalledFunction()) {
+    Context = &CI->getCalledFunction()->getContext();
   }
-};
-} // End anonymous namespace.
+  return CallOptimizer(CI->getCalledFunction(), CI, B);
+}
 
 /// CastToCStr - Return V if it is an i8*, otherwise cast it to i8*.
 Value *LibCallOptimization::CastToCStr(Value *V, IRBuilder<> &B) {
@@ -105,99 +69,94 @@ Value *LibCallOptimization::EmitMemCpy(Value *Dst, Value *Src, Value *Len,
 // Miscellaneous LibCall Optimizations
 //===----------------------------------------------------------------------===//
 
-namespace {
 //===---------------------------------------===//
 // '_d_arraysetlengthT'/'_d_arraysetlengthiT' Optimizations
 
-/// ArraySetLengthOpt - remove libcall for arr.length = N if N <= arr.length
-struct LLVM_LIBRARY_VISIBILITY ArraySetLengthOpt : public LibCallOptimization {
-  Value *CallOptimizer(Function *Callee, CallInst *CI,
-                       IRBuilder<> &B) override {
-    // Verify we have a reasonable prototype for _d_arraysetlength[i]T
-    const FunctionType *FT = Callee->getFunctionType();
-    if (Callee->arg_size() != 4 || !isa<PointerType>(FT->getReturnType()) ||
-        !isa<IntegerType>(FT->getParamType(1)) ||
-        FT->getParamType(1) != FT->getParamType(2) ||
-        FT->getParamType(3) != FT->getReturnType()) {
-      return nullptr;
+Value *ArraySetLengthOpt::CallOptimizer(Function *Callee, CallInst *CI,
+                     IRBuilder<> &B) {
+  // Verify we have a reasonable prototype for _d_arraysetlength[i]T
+  const FunctionType *FT = Callee->getFunctionType();
+  if (Callee->arg_size() != 4 || !isa<PointerType>(FT->getReturnType()) ||
+      !isa<IntegerType>(FT->getParamType(1)) ||
+      FT->getParamType(1) != FT->getParamType(2) ||
+      FT->getParamType(3) != FT->getReturnType()) {
+    return nullptr;
+  }
+
+  // Whether or not this allocates is irrelevant if the result isn't used.
+  // Just delete if that's the case.
+  if (CI->use_empty()) {
+    return CI;
+  }
+
+  Value *NewLen = CI->getOperand(1);
+  if (Constant *NewCst = dyn_cast<Constant>(NewLen)) {
+    Value *Data = CI->getOperand(3);
+
+    // For now, we just catch the simplest of cases.
+    //
+    // TODO: Implement a more general way to compare old and new
+    //       lengths, to catch cases like "arr.length = arr.length - 1;"
+    //       (But beware of unsigned overflow! For example, we can't
+    //       safely transform that example if arr.length may be 0)
+
+    // Setting length to 0 never reallocates, so replace by data argument
+    if (NewCst->isNullValue()) {
+      return Data;
     }
 
-    // Whether or not this allocates is irrelevant if the result isn't used.
-    // Just delete if that's the case.
-    if (CI->use_empty()) {
-      return CI;
-    }
-
-    Value *NewLen = CI->getOperand(1);
-    if (Constant *NewCst = dyn_cast<Constant>(NewLen)) {
-      Value *Data = CI->getOperand(3);
-
-      // For now, we just catch the simplest of cases.
-      //
-      // TODO: Implement a more general way to compare old and new
-      //       lengths, to catch cases like "arr.length = arr.length - 1;"
-      //       (But beware of unsigned overflow! For example, we can't
-      //       safely transform that example if arr.length may be 0)
-
-      // Setting length to 0 never reallocates, so replace by data argument
-      if (NewCst->isNullValue()) {
-        return Data;
-      }
-
-      // If both lengths are constant integers, see if NewLen <= OldLen
-      Value *OldLen = CI->getOperand(2);
-      if (ConstantInt *OldInt = dyn_cast<ConstantInt>(OldLen)) {
-        if (ConstantInt *NewInt = dyn_cast<ConstantInt>(NewCst)) {
-          if (NewInt->getValue().ule(OldInt->getValue())) {
-            return Data;
-          }
+    // If both lengths are constant integers, see if NewLen <= OldLen
+    Value *OldLen = CI->getOperand(2);
+    if (ConstantInt *OldInt = dyn_cast<ConstantInt>(OldLen)) {
+      if (ConstantInt *NewInt = dyn_cast<ConstantInt>(NewCst)) {
+        if (NewInt->getValue().ule(OldInt->getValue())) {
+          return Data;
         }
       }
     }
-    return nullptr;
   }
-};
+  return nullptr;
+}
 
 /// AllocationOpt - Common optimizations for various GC allocations.
-struct LLVM_LIBRARY_VISIBILITY AllocationOpt : public LibCallOptimization {
-  Value *CallOptimizer(Function *Callee, CallInst *CI,
-                       IRBuilder<> &B) override {
-    // Allocations are never equal to constants, so remove any equality
-    // comparisons to constants. (Most importantly comparisons to null at
-    // the start of inlined member functions)
-    for (CallInst::use_iterator I = CI->use_begin(), E = CI->use_end();
-         I != E;) {
-      Instruction *User = cast<Instruction>(*I++);
+Value *AllocationOpt::CallOptimizer(Function *Callee, CallInst *CI,
+                     IRBuilder<> &B) {
+  // Allocations are never equal to constants, so remove any equality
+  // comparisons to constants. (Most importantly comparisons to null at
+  // the start of inlined member functions)
+  for (CallInst::use_iterator I = CI->use_begin(), E = CI->use_end();
+       I != E;) {
+    Instruction *User = cast<Instruction>(*I++);
 
-      if (ICmpInst *Cmp = dyn_cast<ICmpInst>(User)) {
-        if (!Cmp->isEquality()) {
-          continue;
-        }
-        Constant *C = nullptr;
-        if ((C = dyn_cast<Constant>(Cmp->getOperand(0))) ||
-            (C = dyn_cast<Constant>(Cmp->getOperand(1)))) {
-          Value *Result =
-              ConstantInt::get(B.getInt1Ty(), !Cmp->isTrueWhenEqual());
-          Cmp->replaceAllUsesWith(Result);
-          // Don't delete the comparison because there may be an
-          // iterator to it. Instead, set the operands to constants
-          // and let dead code elimination clean it up later.
-          // (It doesn't matter that this changes the value of the
-          // icmp because it's not used anymore anyway)
-          Cmp->setOperand(0, C);
-          Cmp->setOperand(1, C);
-          *Changed = true;
-        }
+    if (ICmpInst *Cmp = dyn_cast<ICmpInst>(User)) {
+      if (!Cmp->isEquality()) {
+        continue;
+      }
+      Constant *C = nullptr;
+      if ((C = dyn_cast<Constant>(Cmp->getOperand(0))) ||
+          (C = dyn_cast<Constant>(Cmp->getOperand(1)))) {
+        Value *Result =
+            ConstantInt::get(B.getInt1Ty(), !Cmp->isTrueWhenEqual());
+        Cmp->replaceAllUsesWith(Result);
+        // Don't delete the comparison because there may be an
+        // iterator to it. Instead, set the operands to constants
+        // and let dead code elimination clean it up later.
+        // (It doesn't matter that this changes the value of the
+        // icmp because it's not used anymore anyway)
+        Cmp->setOperand(0, C);
+        Cmp->setOperand(1, C);
+        *Changed = true;
       }
     }
-
-    // If it's not used (anymore), pre-emptively GC it.
-    if (CI->use_empty()) {
-      return CI;
-    }
-    return nullptr;
   }
-};
+
+  // If it's not used (anymore), pre-emptively GC it.
+  if (CI->use_empty()) {
+    return CI;
+  }
+  return nullptr;
+}
+
 
 // This module will also be used in jit runtime
 // copy these function here to avoid dependencies on rest of compiler
@@ -226,77 +185,58 @@ llvm::ConstantInt *DtoConstSize_t(llvm::LLVMContext &context,
 }
 
 /// ArraySliceCopyOpt - Turn slice copies into llvm.memcpy when safe
-struct LLVM_LIBRARY_VISIBILITY ArraySliceCopyOpt : public LibCallOptimization {
-  Value *CallOptimizer(Function *Callee, CallInst *CI,
-                       IRBuilder<> &B) override {
-    // Verify we have a reasonable prototype for _d_array_slice_copy
-    const FunctionType *FT = Callee->getFunctionType();
-    const llvm::Type *VoidPtrTy = PointerType::getUnqual(B.getInt8Ty());
-    if (Callee->arg_size() != 5 || FT->getReturnType() != B.getVoidTy() ||
-        FT->getParamType(0) != VoidPtrTy ||
-        !isa<IntegerType>(FT->getParamType(1)) ||
-        FT->getParamType(2) != VoidPtrTy ||
-        FT->getParamType(3) != FT->getParamType(1) ||
-        FT->getParamType(4) != FT->getParamType(1)) {
-      return nullptr;
-    }
-
-    Value *DstLength = CI->getOperand(1);
-
-    // Check the lengths match
-    if (CI->getOperand(3) != DstLength) {
-      return nullptr;
-    }
-
-    const auto ElemSz = llvm::cast<ConstantInt>(CI->getOperand(4));
-
-    // Assume unknown size unless we have constant length
-    std::uint64_t Sz = llvm::MemoryLocation::UnknownSize;
-    if (ConstantInt *Int = dyn_cast<ConstantInt>(DstLength)) {
-      Sz = (Int->getValue() * ElemSz->getValue()).getZExtValue();
-    }
-
-    // Check if the pointers may alias
-    if (AA->alias(CI->getOperand(0), Sz, CI->getOperand(2), Sz)) {
-      return nullptr;
-    }
-
-    // Equal length and the pointers definitely don't alias, so it's safe to
-    // replace the call with memcpy
-    auto size = Sz != llvm::MemoryLocation::UnknownSize
-                    ? DtoConstSize_t(Callee->getContext(),
-                                     Callee->getParent()->getDataLayout(), Sz)
-                    : B.CreateMul(DstLength, ElemSz);
-    return EmitMemCpy(CI->getOperand(0), CI->getOperand(2), size, 1, B);
+Value *ArraySliceCopyOpt::CallOptimizer(Function *Callee, CallInst *CI,
+                     IRBuilder<> &B) {
+  // Verify we have a reasonable prototype for _d_array_slice_copy
+  const FunctionType *FT = Callee->getFunctionType();
+  const llvm::Type *VoidPtrTy = PointerType::getUnqual(B.getInt8Ty());
+  if (Callee->arg_size() != 5 || FT->getReturnType() != B.getVoidTy() ||
+      FT->getParamType(0) != VoidPtrTy ||
+      !isa<IntegerType>(FT->getParamType(1)) ||
+      FT->getParamType(2) != VoidPtrTy ||
+      FT->getParamType(3) != FT->getParamType(1) ||
+      FT->getParamType(4) != FT->getParamType(1)) {
+    return nullptr;
   }
-};
+
+  Value *DstLength = CI->getOperand(1);
+
+  // Check the lengths match
+  if (CI->getOperand(3) != DstLength) {
+    return nullptr;
+  }
+
+  const auto ElemSz = llvm::cast<ConstantInt>(CI->getOperand(4));
+
+  // Assume unknown size unless we have constant length
+  std::uint64_t Sz = llvm::MemoryLocation::UnknownSize;
+  if (ConstantInt *Int = dyn_cast<ConstantInt>(DstLength)) {
+    Sz = (Int->getValue() * ElemSz->getValue()).getZExtValue();
+  }
+
+  // Check if the pointers may alias
+  if (AA->alias(CI->getOperand(0), Sz, CI->getOperand(2), Sz)) {
+    return nullptr;
+  }
+
+  // Equal length and the pointers definitely don't alias, so it's safe to
+  // replace the call with memcpy
+  auto size = Sz != llvm::MemoryLocation::UnknownSize
+                  ? DtoConstSize_t(Callee->getContext(),
+                                   Callee->getParent()->getDataLayout(), Sz)
+                  : B.CreateMul(DstLength, ElemSz);
+  return EmitMemCpy(CI->getOperand(0), CI->getOperand(2), size, 1, B);
+}
+
 
 // TODO: More optimizations! :)
 
-} // end anonymous namespace.
 
 //===----------------------------------------------------------------------===//
 // SimplifyDRuntimeCalls Pass Implementation
 //===----------------------------------------------------------------------===//
 
-namespace {
-/// This pass optimizes library functions from the D runtime as used by LDC.
-///
-struct LLVM_LIBRARY_VISIBILITY SimplifyDRuntimeCalls {
-  StringMap<LibCallOptimization *> Optimizations;
 
-  // Array operations
-  ArraySetLengthOpt ArraySetLength;
-  ArraySliceCopyOpt ArraySliceCopy;
-
-  // GC allocations
-  AllocationOpt Allocation;
-
-  void InitOptimizations();
-  bool run(Function &F, AAResultsWrapperPass &AA);
-
-  bool runOnce(Function &F, const DataLayout *DL, AAResultsWrapperPass &AA);
-};
 
 class LLVM_LIBRARY_VISIBILITY SimplifyDRuntimeCallsLegacyPass : public FunctionPass {
   SimplifyDRuntimeCalls pass;
@@ -306,8 +246,11 @@ public:
   SimplifyDRuntimeCallsLegacyPass() : FunctionPass(ID) {}
 
   bool runOnFunction(Function &F) override {
-    AAResultsWrapperPass &AA = getAnalysis<AAResultsWrapperPass>();
-    return pass.run(F, AA);
+    auto getAA = [&]() -> AAResults& {
+      return getAnalysis<AAResultsWrapperPass>().getAAResults();
+    };
+
+    return pass.run(F, getAA);
   }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
@@ -315,7 +258,6 @@ public:
   }
 };
 char SimplifyDRuntimeCallsLegacyPass::ID = 0;
-} // end anonymous namespace.
 
 static RegisterPass<SimplifyDRuntimeCallsLegacyPass>
     X("simplify-drtcalls","Simplify calls to D runtime");
@@ -355,7 +297,7 @@ void SimplifyDRuntimeCalls::InitOptimizations() {
 
 /// runOnFunction - Top level algorithm.
 ///
-bool SimplifyDRuntimeCalls::run(Function &F,  AAResultsWrapperPass &AA) {
+bool SimplifyDRuntimeCalls::run(Function &F,  std::function<AAResults& ()> getAA) {
   if (Optimizations.empty()) {
     InitOptimizations();
   }
@@ -369,6 +311,7 @@ bool SimplifyDRuntimeCalls::run(Function &F,  AAResultsWrapperPass &AA) {
   // before the second one.
   bool EverChanged = false;
   bool Changed;
+  AAResults& AA = getAA();
   do {
     Changed = runOnce(F, DL, AA);
     EverChanged |= Changed;
@@ -378,7 +321,7 @@ bool SimplifyDRuntimeCalls::run(Function &F,  AAResultsWrapperPass &AA) {
 }
 
 bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout *DL,
-                                    AAResultsWrapperPass &AAP) {
+                                    AAResults &AA) {
   IRBuilder<> Builder(F.getContext());
 
   bool Changed = false;
@@ -411,7 +354,6 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout *DL,
       --ciIt;
       Builder.SetInsertPoint(&BB, I);
 
-      AliasAnalysis &AA = AAP.getAAResults();
       // Try to optimize this call.
       Value *Result = OMI->second->OptimizeCall(CI, Changed, DL, AA, Builder);
       if (Result == nullptr) {

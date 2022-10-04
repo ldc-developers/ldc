@@ -23,6 +23,7 @@
 #include "dmd/target.h"
 #include "driver/args.h"
 #include "driver/cache.h"
+#include "driver/cl_helpers.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
@@ -35,8 +36,7 @@
 #include "driver/plugins.h"
 #include "driver/targetmachine.h"
 #include "driver/timetrace.h"
-#include "gen/abi.h"
-#include "gen/cl_helpers.h"
+#include "gen/abi/abi.h"
 #include "gen/irstate.h"
 #include "gen/ldctraits.h"
 #include "gen/linkage.h"
@@ -99,6 +99,9 @@ static cl::opt<bool> enableGC(
     "lowmem", cl::ZeroOrMore,
     cl::desc("Enable the garbage collector for the LDC front-end. This reduces "
              "the compiler memory requirements but increases compile times."));
+
+// Deprecated options
+extern llvm::cl::opt<bool> checkPrintf;
 
 namespace {
 
@@ -883,6 +886,11 @@ void registerPredefinedTargetVersions() {
     }
     break;
   }
+
+  //Issue deprecations for deprecated arguments
+  // N.B `-nodefaultlib` is checked in `getDefaultLibNames`
+  if (checkPrintf)
+    deprecation(Loc(), "'-check-printf-calls' is deprecated, use `pragma(printf)` instead.");
 }
 
 } // anonymous namespace
@@ -1090,9 +1098,15 @@ int cppmain() {
   }
 
   auto relocModel = getRelocModel();
+#if LDC_LLVM_VER >= 1600
+  if (global.params.dll && !relocModel.has_value()) {
+    relocModel = llvm::Reloc::PIC_;
+  }
+#else
   if (global.params.dll && !relocModel.hasValue()) {
     relocModel = llvm::Reloc::PIC_;
   }
+#endif
 
   fixupTripleEnv(mTargetTriple);
 

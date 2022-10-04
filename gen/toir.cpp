@@ -21,7 +21,7 @@
 #include "dmd/root/rmem.h"
 #include "dmd/template.h"
 #include "gen/aa.h"
-#include "gen/abi.h"
+#include "gen/abi/abi.h"
 #include "gen/arrays.h"
 #include "gen/binops.h"
 #include "gen/classes.h"
@@ -44,7 +44,6 @@
 #include "gen/structs.h"
 #include "gen/tollvm.h"
 #include "gen/typinf.h"
-#include "gen/warnings.h"
 #include "ir/irfunction.h"
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
@@ -56,7 +55,7 @@
 #include <stdio.h>
 
 llvm::cl::opt<bool> checkPrintf(
-    "check-printf-calls", llvm::cl::ZeroOrMore,
+    "check-printf-calls", llvm::cl::ZeroOrMore, llvm::cl::ReallyHidden,
     llvm::cl::desc("Validate printf call format strings against arguments"));
 
 bool walkPostorder(Expression *e, StoppableVisitor *v);
@@ -754,17 +753,6 @@ public:
     // handle magic intrinsics (mapping to instructions)
     if (dfnval && dfnval->func) {
       FuncDeclaration *fndecl = dfnval->func;
-
-      // as requested by bearophile, see if it's a C printf call and that it's
-      // valid.
-      if (global.params.warnings != DIAGNOSTICoff && checkPrintf) {
-        if (fndecl->resolvedLinkage() == LINK::c &&
-            strcmp(fndecl->ident->toChars(), "printf") == 0) {
-          warnInvalidPrintfCall(e->loc, (*e->arguments)[0],
-                                e->arguments->length);
-        }
-      }
-
       DValue *result = nullptr;
       if (DtoLowerMagicIntrinsic(p, fndecl, e, result))
         return result;

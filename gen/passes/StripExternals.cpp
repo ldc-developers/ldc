@@ -18,6 +18,7 @@
 #define DEBUG_TYPE "strip-externals"
 
 #include "gen/passes/Passes.h"
+#include "gen/passes/StripExternals.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Pass.h"
@@ -30,13 +31,6 @@ using namespace llvm;
 STATISTIC(NumFunctions, "Number of function bodies removed");
 STATISTIC(NumVariables, "Number of global initializers removed");
 
-namespace {
-struct LLVM_LIBRARY_VISIBILITY StripExternals {
-  // run - Do the StripExternals pass on the specified module.
-  //
-  bool run(Module &M);
-};
-
 
 struct LLVM_LIBRARY_VISIBILITY StripExternalsLegacyPass : public ModulePass {
   static char ID; // Pass identification, replacement for typeid
@@ -46,7 +40,6 @@ struct LLVM_LIBRARY_VISIBILITY StripExternalsLegacyPass : public ModulePass {
   //
     bool runOnModule(Module &M) override { return pass.run(M); };
 };
-}
 
 char StripExternalsLegacyPass::ID = 0;
 static RegisterPass<StripExternalsLegacyPass>

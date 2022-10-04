@@ -13,7 +13,7 @@
 
 #pragma once
 
-#include "gen/abi.h"
+#include "gen/abi/abi.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"

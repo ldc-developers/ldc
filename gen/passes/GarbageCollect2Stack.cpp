@@ -14,7 +14,7 @@
 
 #include "gen/attributes.h"
 #include "metadata.h"
-#include "gen/passes/Passes.h"
+#include "gen/passes/GarbageCollect2Stack.h"
 #include "gen/runtime.h"
 #include "llvm/Pass.h"
 #include "llvm/Analysis/CallGraph.h"
@@ -23,6 +23,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
@@ -53,29 +54,27 @@ static cl::opt<unsigned>
               cl::desc("Require allocs to be smaller than n bytes to be "
                        "promoted, 0 to ignore."));
 
-namespace {
-struct Analysis {
-  const DataLayout &DL;
-  const Module &M;
-  CallGraph *CG;
-  CallGraphNode *CGNode;
+struct G2StackAnalysis {
+  const llvm::DataLayout &DL;
+  const llvm::Module &M;
+  llvm::CallGraph *CG;
+  llvm::CallGraphNode *CGNode;
 
-  llvm::Type *getTypeFor(Value *typeinfo, unsigned OperandNo) const;
+  llvm::Type *getTypeFor(llvm::Value *typeinfo, unsigned OperandNo) const;
 };
-}
 
 //===----------------------------------------------------------------------===//
 // Helper functions
 //===----------------------------------------------------------------------===//
 
 void EmitMemSet(IRBuilder<> &B, Value *Dst, Value *Val, Value *Len,
-                const Analysis &A) {
+                const G2StackAnalysis &A) {
   Dst = B.CreateBitCast(Dst, PointerType::getUnqual(B.getInt8Ty()));
 
 #if LDC_LLVM_VER >= 1000
   MaybeAlign Align(1);
 #else
-  unsigned Align = 1; 
+  unsigned Align = 1;
 #endif
 
   auto CS = B.CreateMemSet(Dst, Val, Len, Align, false /*isVolatile*/);
@@ -86,7 +85,7 @@ void EmitMemSet(IRBuilder<> &B, Value *Dst, Value *Val, Value *Len,
 }
 
 static void EmitMemZero(IRBuilder<> &B, Value *Dst, Value *Len,
-                        const Analysis &A) {
+                        const G2StackAnalysis &A) {
   EmitMemSet(B, Dst, ConstantInt::get(B.getInt8Ty(), 0), Len, A);
 }
 
@@ -94,44 +93,21 @@ static void EmitMemZero(IRBuilder<> &B, Value *Dst, Value *Len,
 // Helpers for specific types of GC calls.
 //===----------------------------------------------------------------------===//
 
-namespace {
-namespace ReturnType {
-enum Type {
-  Pointer, /// Function returns a pointer to the allocated memory.
-  Array    /// Function returns the allocated memory as an array slice.
-};
+//namespace {
+
+Value* FunctionInfo::promote(LLCallBasePtr CB, IRBuilder<> &B, const G2StackAnalysis &A) {
+  NumGcToStack++;
+
+  auto &BB = CB->getCaller()->getEntryBlock();
+  Instruction *Begin = &(*BB.begin());
+
+  // FIXME: set alignment on alloca?
+  return new AllocaInst(Ty,
+      BB.getModule()->getDataLayout().getAllocaAddrSpace(),
+      ".nongc_mem", Begin);
 }
 
-class FunctionInfo {
-protected:
-  llvm::Type *Ty;
-
-public:
-  ReturnType::Type ReturnType;
-
-  // Analyze the current call, filling in some fields. Returns true if
-  // this is an allocation we can stack-allocate.
-  virtual bool analyze(LLCallBasePtr CB, const Analysis &A) = 0;
-
-  // Returns the alloca to replace this call.
-  // It will always be inserted before the call.
-  virtual Value *promote(LLCallBasePtr CB, IRBuilder<> &B, const Analysis &A) {
-    NumGcToStack++;
-
-    auto &BB = CB->getCaller()->getEntryBlock();
-    Instruction *Begin = &(*BB.begin());
-
-    // FIXME: set alignment on alloca?
-    return new AllocaInst(Ty,
-                          BB.getModule()->getDataLayout().getAllocaAddrSpace(),
-                          ".nongc_mem", Begin);
-  }
-
-  explicit FunctionInfo(ReturnType::Type returnType) : ReturnType(returnType) {}
-  virtual ~FunctionInfo() = default;
-};
-
-static bool isKnownLessThan(Value *Val, uint64_t Limit, const Analysis &A) {
+static bool isKnownLessThan(Value *Val, uint64_t Limit, const G2StackAnalysis &A) {
   unsigned BitsLimit = Log2_64(Limit);
 
   // LLVM's alloca ueses an i32 for the number of elements.
@@ -156,231 +132,169 @@ static bool isKnownLessThan(Value *Val, uint64_t Limit, const Analysis &A) {
   return true;
 }
 
-class TypeInfoFI : public FunctionInfo {
-public:
-  unsigned TypeInfoArgNr;
-
-  TypeInfoFI(ReturnType::Type returnType, unsigned tiArgNr)
-      : FunctionInfo(returnType), TypeInfoArgNr(tiArgNr) {}
-
-  bool analyze(LLCallBasePtr CB, const Analysis &A) override {
-    Value *TypeInfo = CB->getArgOperand(TypeInfoArgNr);
-    Ty = A.getTypeFor(TypeInfo, 0);
-    if (!Ty) {
-      return false;
-    }
-    return A.DL.getTypeAllocSize(Ty) < SizeLimit;
+bool TypeInfoFI::analyze(LLCallBasePtr CB, const G2StackAnalysis &A) {
+  Value *TypeInfo = CB->getArgOperand(TypeInfoArgNr);
+  Ty = A.getTypeFor(TypeInfo, 0);
+  if (!Ty) {
+    return false;
   }
-};
-
-class ArrayFI : public TypeInfoFI {
-  int ArrSizeArgNr;
-  bool Initialized;
-  Value *arrSize;
-
-public:
-  ArrayFI(ReturnType::Type returnType, unsigned tiArgNr, unsigned arrSizeArgNr,
-          bool initialized)
-      : TypeInfoFI(returnType, tiArgNr), ArrSizeArgNr(arrSizeArgNr),
-        Initialized(initialized) {}
-
-  bool analyze(LLCallBasePtr CB, const Analysis &A) override {
-    if (!TypeInfoFI::analyze(CB, A)) {
-      return false;
-    }
-
-    arrSize = CB->getArgOperand(ArrSizeArgNr);
-    Value *TypeInfo = CB->getArgOperand(TypeInfoArgNr);
-    Ty = A.getTypeFor(TypeInfo, 1);
-    // If the user explicitly disabled the limits, don't even check
-    // whether the element count fits in 32 bits. This could cause
-    // miscompilations for humongous arrays, but as the value "range"
-    // (set bits) inference algorithm is rather limited, this is
-    // useful for experimenting.
-    if (SizeLimit > 0) {
-      uint64_t ElemSize = A.DL.getTypeAllocSize(Ty);
-      if (!isKnownLessThan(arrSize, SizeLimit / ElemSize, A)) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  Value *promote(LLCallBasePtr CB, IRBuilder<> &B, const Analysis &A) override {
-    // If the allocation is of constant size it's best to put it in the
-    // entry block, so do so if we're not already there.
-    // For dynamically-sized allocations it's best to avoid the overhead
-    // of allocating them if possible, so leave those where they are.
-    // While we're at it, update statistics too.
-    const IRBuilderBase::InsertPointGuard savedInsertPoint(B);
-    if (isa<Constant>(arrSize)) {
-      BasicBlock &Entry = CB->getCaller()->getEntryBlock();
-      if (B.GetInsertBlock() != &Entry) {
-        B.SetInsertPoint(&Entry, Entry.begin());
-      }
-      NumGcToStack++;
-    } else {
-      NumToDynSize++;
-    }
-
-    // Convert array size to 32 bits if necessary
-    Value *count = B.CreateIntCast(arrSize, B.getInt32Ty(), false);
-    AllocaInst *alloca =
-        B.CreateAlloca(Ty, count, ".nongc_mem"); // FIXME: align?
-
-    if (Initialized) {
-      // For now, only zero-init is supported.
-      uint64_t size = A.DL.getTypeStoreSize(Ty);
-      Value *TypeSize = ConstantInt::get(arrSize->getType(), size);
-      // Use the original B to put initialization at the
-      // allocation site.
-      Value *Size = B.CreateMul(TypeSize, arrSize);
-      EmitMemZero(B, alloca, Size, A);
-    }
-
-    if (ReturnType == ReturnType::Array) {
-      Value *arrStruct = llvm::UndefValue::get(CB->getType());
-      arrStruct = B.CreateInsertValue(arrStruct, arrSize, 0);
-      Value *memPtr =
-          B.CreateBitCast(alloca, PointerType::getUnqual(B.getInt8Ty()));
-      arrStruct = B.CreateInsertValue(arrStruct, memPtr, 1);
-      return arrStruct;
-    }
-
-    return alloca;
-  }
-};
-
-// FunctionInfo for _d_allocclass
-class AllocClassFI : public FunctionInfo {
-public:
-  bool analyze(LLCallBasePtr CB, const Analysis &A) override {
-    if (CB->arg_size() != 1) {
-      return false;
-    }
-    Value *arg = CB->getArgOperand(0)->stripPointerCasts();
-    GlobalVariable *ClassInfo = dyn_cast<GlobalVariable>(arg);
-    if (!ClassInfo) {
-      return false;
-    }
-
-    const auto metaname = getMetadataName(CD_PREFIX, ClassInfo);
-
-    NamedMDNode *meta = A.M.getNamedMetadata(metaname);
-    if (!meta) {
-      return false;
-    }
-
-    MDNode *node = static_cast<MDNode *>(meta->getOperand(0));
-    if (!node || node->getNumOperands() != CD_NumFields) {
-      return false;
-    }
-
-    // Inserting destructor calls is not implemented yet, so classes
-    // with destructors are ignored for now.
-    auto hasDestructor =
-        mdconst::dyn_extract<Constant>(node->getOperand(CD_Finalize));
-    if (hasDestructor == nullptr ||
-        hasDestructor != ConstantInt::getFalse(A.M.getContext())) {
-      return false;
-    }
-
-    Ty = mdconst::dyn_extract<Constant>(node->getOperand(CD_BodyType))
-             ->getType();
-    return A.DL.getTypeAllocSize(Ty) < SizeLimit;
-  }
-
-  // The default promote() should be fine.
-
-  AllocClassFI() : FunctionInfo(ReturnType::Pointer) {}
-};
-
-/// Describes runtime functions that allocate a chunk of memory with a
-/// given size.
-class UntypedMemoryFI : public FunctionInfo {
-  unsigned SizeArgNr;
-  Value *SizeArg;
-
-public:
-  bool analyze(LLCallBasePtr CB, const Analysis &A) override {
-    if (CB->arg_size() < SizeArgNr + 1) {
-      return false;
-    }
-
-    SizeArg = CB->getArgOperand(SizeArgNr);
-
-    // If the user explicitly disabled the limits, don't even check
-    // whether the allocated size fits in 32 bits. This could cause
-    // miscompilations for humongous allocations, but as the value
-    // "range" (set bits) inference algorithm is rather limited, this
-    // is useful for experimenting.
-    if (SizeLimit > 0) {
-      if (!isKnownLessThan(SizeArg, SizeLimit, A)) {
-        return false;
-      }
-    }
-
-    // Should be i8.
-    Ty = llvm::Type::getInt8Ty(CB->getContext());
-    return true;
-  }
-
-  Value *promote(LLCallBasePtr CB, IRBuilder<> &B, const Analysis &A) override {
-    // If the allocation is of constant size it's best to put it in the
-    // entry block, so do so if we're not already there.
-    // For dynamically-sized allocations it's best to avoid the overhead
-    // of allocating them if possible, so leave those where they are.
-    // While we're at it, update statistics too.
-    const IRBuilderBase::InsertPointGuard savedInsertPoint(B);
-    if (isa<Constant>(SizeArg)) {
-      BasicBlock &Entry = CB->getCaller()->getEntryBlock();
-      if (B.GetInsertBlock() != &Entry) {
-        B.SetInsertPoint(&Entry, Entry.begin());
-      }
-      NumGcToStack++;
-    } else {
-      NumToDynSize++;
-    }
-
-    // Convert array size to 32 bits if necessary
-    Value *count = B.CreateIntCast(SizeArg, B.getInt32Ty(), false);
-    AllocaInst *alloca =
-        B.CreateAlloca(Ty, count, ".nongc_mem"); // FIXME: align?
-
-    return B.CreateBitCast(alloca, CB->getType());
-  }
-
-  explicit UntypedMemoryFI(unsigned sizeArgNr)
-      : FunctionInfo(ReturnType::Pointer), SizeArgNr(sizeArgNr) {}
-};
+  return A.DL.getTypeAllocSize(Ty) < SizeLimit;
 }
+
+bool ArrayFI::analyze(LLCallBasePtr CB, const G2StackAnalysis &A) {
+  if (!TypeInfoFI::analyze(CB, A)) {
+    return false;
+  }
+
+  arrSize = CB->getArgOperand(ArrSizeArgNr);
+  Value *TypeInfo = CB->getArgOperand(TypeInfoArgNr);
+  Ty = A.getTypeFor(TypeInfo, 1);
+  // If the user explicitly disabled the limits, don't even check
+  // whether the element count fits in 32 bits. This could cause
+  // miscompilations for humongous arrays, but as the value "range"
+  // (set bits) inference algorithm is rather limited, this is
+  // useful for experimenting.
+  if (SizeLimit > 0) {
+    uint64_t ElemSize = A.DL.getTypeAllocSize(Ty);
+    if (!isKnownLessThan(arrSize, SizeLimit / ElemSize, A)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+Value* ArrayFI::promote(LLCallBasePtr CB, IRBuilder<> &B, const G2StackAnalysis &A) {
+  // If the allocation is of constant size it's best to put it in the
+  // entry block, so do so if we're not already there.
+  // For dynamically-sized allocations it's best to avoid the overhead
+  // of allocating them if possible, so leave those where they are.
+  // While we're at it, update statistics too.
+  const IRBuilderBase::InsertPointGuard savedInsertPoint(B);
+  if (isa<Constant>(arrSize)) {
+    BasicBlock &Entry = CB->getCaller()->getEntryBlock();
+    if (B.GetInsertBlock() != &Entry) {
+      B.SetInsertPoint(&Entry, Entry.begin());
+    }
+    NumGcToStack++;
+  } else {
+    NumToDynSize++;
+  }
+
+  // Convert array size to 32 bits if necessary
+  Value *count = B.CreateIntCast(arrSize, B.getInt32Ty(), false);
+  AllocaInst *alloca =
+      B.CreateAlloca(Ty, count, ".nongc_mem"); // FIXME: align?
+
+  if (Initialized) {
+    // For now, only zero-init is supported.
+    uint64_t size = A.DL.getTypeStoreSize(Ty);
+    Value *TypeSize = ConstantInt::get(arrSize->getType(), size);
+    // Use the original B to put initialization at the
+    // allocation site.
+    Value *Size = B.CreateMul(TypeSize, arrSize);
+    EmitMemZero(B, alloca, Size, A);
+  }
+
+  if (ReturnType == ReturnType::Array) {
+    Value *arrStruct = llvm::UndefValue::get(CB->getType());
+    arrStruct = B.CreateInsertValue(arrStruct, arrSize, 0);
+    Value *memPtr =
+        B.CreateBitCast(alloca, PointerType::getUnqual(B.getInt8Ty()));
+    arrStruct = B.CreateInsertValue(arrStruct, memPtr, 1);
+    return arrStruct;
+  }
+
+  return alloca;
+}
+bool AllocClassFI::analyze(LLCallBasePtr CB, const G2StackAnalysis &A) {
+  if (CB->arg_size() != 1) {
+    return false;
+  }
+  Value *arg = CB->getArgOperand(0)->stripPointerCasts();
+  GlobalVariable *ClassInfo = dyn_cast<GlobalVariable>(arg);
+  if (!ClassInfo) {
+    return false;
+  }
+
+  const auto metaname = getMetadataName(CD_PREFIX, ClassInfo);
+
+  NamedMDNode *meta = A.M.getNamedMetadata(metaname);
+  if (!meta) {
+    return false;
+  }
+
+  MDNode *node = static_cast<MDNode *>(meta->getOperand(0));
+  if (!node || node->getNumOperands() != CD_NumFields) {
+    return false;
+  }
+
+  // Inserting destructor calls is not implemented yet, so classes
+  // with destructors are ignored for now.
+  auto hasDestructor =
+      mdconst::dyn_extract<Constant>(node->getOperand(CD_Finalize));
+  if (hasDestructor == nullptr ||
+      hasDestructor != ConstantInt::getFalse(A.M.getContext())) {
+    return false;
+  }
+
+  Ty = mdconst::dyn_extract<Constant>(node->getOperand(CD_BodyType))
+           ->getType();
+  return A.DL.getTypeAllocSize(Ty) < SizeLimit;
+}
+bool UntypedMemoryFI::analyze(LLCallBasePtr CB, const G2StackAnalysis &A) {
+  if (CB->arg_size() < SizeArgNr + 1) {
+    return false;
+  }
+
+  SizeArg = CB->getArgOperand(SizeArgNr);
+
+  // If the user explicitly disabled the limits, don't even check
+  // whether the allocated size fits in 32 bits. This could cause
+  // miscompilations for humongous allocations, but as the value
+  // "range" (set bits) inference algorithm is rather limited, this
+  // is useful for experimenting.
+  if (SizeLimit > 0) {
+    if (!isKnownLessThan(SizeArg, SizeLimit, A)) {
+      return false;
+    }
+  }
+
+  // Should be i8.
+  Ty = llvm::Type::getInt8Ty(CB->getContext());
+  return true;
+}
+Value* UntypedMemoryFI::promote(LLCallBasePtr CB, IRBuilder<> &B, const G2StackAnalysis &A) {
+  // If the allocation is of constant size it's best to put it in the
+  // entry block, so do so if we're not already there.
+  // For dynamically-sized allocations it's best to avoid the overhead
+  // of allocating them if possible, so leave those where they are.
+  // While we're at it, update statistics too.
+  const IRBuilderBase::InsertPointGuard savedInsertPoint(B);
+  if (isa<Constant>(SizeArg)) {
+    BasicBlock &Entry = CB->getCaller()->getEntryBlock();
+    if (B.GetInsertBlock() != &Entry) {
+      B.SetInsertPoint(&Entry, Entry.begin());
+    }
+    NumGcToStack++;
+  } else {
+    NumToDynSize++;
+  }
+
+  // Convert array size to 32 bits if necessary
+  Value *count = B.CreateIntCast(SizeArg, B.getInt32Ty(), false);
+  AllocaInst *alloca =
+      B.CreateAlloca(Ty, count, ".nongc_mem"); // FIXME: align?
+
+  return B.CreateBitCast(alloca, CB->getType());
+}
+//}
 
 //===----------------------------------------------------------------------===//
 // GarbageCollect2Stack Pass Implementation
 //===----------------------------------------------------------------------===//
 
-namespace {
-/// This pass replaces GC calls with alloca's
-///
-struct GarbageCollect2Stack {
-  StringMap<FunctionInfo *> KnownFunctions;
-  Module *M;
-
-  TypeInfoFI AllocMemoryT;
-  ArrayFI NewArrayU;
-  ArrayFI NewArrayT;
-  AllocClassFI AllocClass;
-  UntypedMemoryFI AllocMemory;
-
-  GarbageCollect2Stack();
-
-  bool run(llvm::Function& function,
-           DominatorTree &DT,
-           CallGraphWrapperPass *CGPass);
-
-  static StringRef getPassName() { return "GarbageCollect2Stack"; }
-};
+//namespace {
 
 class LLVM_LIBRARY_VISIBILITY GarbageCollect2StackLegacyPass : public FunctionPass {
 
@@ -394,9 +308,17 @@ class LLVM_LIBRARY_VISIBILITY GarbageCollect2StackLegacyPass : public FunctionPa
     AU.addPreserved<CallGraphWrapperPass>();
   }
   bool runOnFunction(Function &F) override {
-    DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-    CallGraphWrapperPass *CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
-    return pass.run(F, DT, CGPass);
+
+    auto getDT = [&]() -> DominatorTree& {
+      return getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    };
+
+    auto getCG = [&]() -> CallGraph* {
+      CallGraphWrapperPass* const CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
+      return CGPass ? &CGPass->getCallGraph() : nullptr;
+    };
+
+    return pass.run(F, getDT, getCG);
   }
   StringRef getPassName() const override { return GarbageCollect2Stack::getPassName(); }
 
@@ -406,9 +328,9 @@ public:
   static char ID; // Pass identification
   GarbageCollect2Stack pass;
 };
-char GarbageCollect2StackLegacyPass::ID = 0;
-} // end anonymous namespace.
 
+char GarbageCollect2StackLegacyPass::ID = 0;
+//} // end anonymous namespace.
 static RegisterPass<GarbageCollect2StackLegacyPass>
     X("dgc2stack", "Promote (GC'ed) heap allocations to stack");
 
@@ -421,14 +343,9 @@ GarbageCollect2Stack::GarbageCollect2Stack()
     : AllocMemoryT(ReturnType::Pointer, 0),
       NewArrayU(ReturnType::Array, 0, 1, false),
       NewArrayT(ReturnType::Array, 0, 1, true), AllocMemory(0) {
-  KnownFunctions["_d_allocmemoryT"] = &AllocMemoryT;
-  KnownFunctions["_d_newarrayU"] = &NewArrayU;
-  KnownFunctions["_d_newarrayT"] = &NewArrayT;
-  KnownFunctions["_d_allocclass"] = &AllocClass;
-  KnownFunctions["_d_allocmemory"] = &AllocMemory;
 }
 
-static void RemoveCall(LLCallBasePtr CB, const Analysis &A) {
+static void RemoveCall(LLCallBasePtr CB, const G2StackAnalysis &A) {
   // For an invoke instruction, we insert a branch to the normal target BB
   // immediately before it. Ideally, we would find a way to not invalidate
   // the dominator tree here.
@@ -453,14 +370,13 @@ isSafeToStackAllocate(BasicBlock::iterator Alloc, Value *V, DominatorTree &DT,
 
 /// runOnFunction - Top level algorithm.
 ///
-bool GarbageCollect2Stack::run(Function &F, DominatorTree &DT, CallGraphWrapperPass *CGPass) {
+bool GarbageCollect2Stack::run(Function &F, std::function<DominatorTree& ()> getDT, std::function<CallGraph* ()> getCG) {
   LLVM_DEBUG(errs() << "\nRunning -dgc2stack on function " << F.getName() << '\n');
-
+  DominatorTree& DT = getDT();
+  CallGraph* CG = getCG();
   const DataLayout &DL = F.getParent()->getDataLayout();
-  CallGraph *CG = CGPass ? &CGPass->getCallGraph() : nullptr;
   CallGraphNode *CGNode = CG ? (*CG)[&F] : nullptr;
-
-  Analysis A = {DL, *M, CG, CGNode};
+  G2StackAnalysis A = {DL, *F.getParent(), CG, CGNode};
 
   BasicBlock &Entry = F.getEntryBlock();
 
@@ -485,13 +401,20 @@ bool GarbageCollect2Stack::run(Function &F, DominatorTree &DT, CallGraphWrapperP
         continue;
       }
 
+
+      //FunctionInfo *info = OMI->getValue();
+      FunctionInfo *info = StringSwitch<FunctionInfo*>(Callee->getName())
+     .Case("_d_allocmemoryT", &AllocMemoryT)
+     .Case("_d_newarrayU",    &NewArrayU)
+     .Case("_d_newarrayT",    &NewArrayT)
+     .Case("_d_allocclass",   &AllocClass)
+     .Case("_d_allocmemory",  &AllocMemory)
+     .Default(nullptr);
+      
       // Ignore unknown calls.
-      auto OMI = KnownFunctions.find(Callee->getName());
-      if (OMI == KnownFunctions.end()) {
+      if (!info) {
         continue;
       }
-
-      FunctionInfo *info = OMI->getValue();
 
       if (static_cast<Instruction *>(CB)->use_empty()) {
         Changed = true;
@@ -502,7 +425,7 @@ bool GarbageCollect2Stack::run(Function &F, DominatorTree &DT, CallGraphWrapperP
 
       LLVM_DEBUG(errs() << "GarbageCollect2Stack inspecting: " << *CB);
 
-      if (!info->analyze(CB, A)) {
+      if ( !info->analyze(CB, A)) {
         continue;
       }
 
@@ -545,7 +468,7 @@ bool GarbageCollect2Stack::run(Function &F, DominatorTree &DT, CallGraphWrapperP
   return Changed;
 }
 
-llvm::Type *Analysis::getTypeFor(Value *typeinfo, unsigned OperandNo) const {
+llvm::Type *G2StackAnalysis::getTypeFor(Value *typeinfo, unsigned OperandNo) const {
   GlobalVariable *ti_global =
       dyn_cast<GlobalVariable>(typeinfo->stripPointerCasts());
   if (!ti_global) {

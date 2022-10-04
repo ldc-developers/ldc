@@ -22,7 +22,7 @@ extern int declaredGlobal;
 // make sure the ModuleInfo ref is emitted into the __minfo section:
 
 // CHECK: @_D4wasi11__moduleRefZ = linkonce_odr hidden global %object.ModuleInfo* {{.*}}, section "__minfo"
-// CHECK: @llvm.used = appending global [1 x i8*] [i8* {{.*}} @_D4wasi11__moduleRefZ
+// CHECK: @llvm.used = appending global [1 x {{i8\*|ptr}}] [{{i8\*|ptr}} {{.*}} @_D4wasi11__moduleRefZ
 
 
 // test the magic linker symbols via linkability of the following:

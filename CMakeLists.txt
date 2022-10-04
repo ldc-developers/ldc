@@ -62,6 +62,7 @@ endif()
 
 # Check and adapt for LLVMSPIRVLib (Khronos SPIRV-LLVM-Translator)
 set(LLVM_SPIRV_FOUND OFF)
+if (LDC_LLVM_VER LESS 1600)
 if(MSVC)
     if(EXISTS "${LLVM_LIBRARY_DIRS}/LLVMSPIRVLib.lib")
         set(LLVM_SPIRV_FOUND ON)
@@ -96,6 +97,7 @@ if(LLVM_SPIRV_FOUND)
     add_definitions("-DLDC_LLVM_SUPPORTED_TARGET_SPIRV=1")
 else()
     message(STATUS "-- Building LDC without SPIR-V support: not found")
+endif()
 endif()
 
 #
@@ -359,8 +361,8 @@ configure_file(driver/ldc_version.d.in driver/ldc_version.d)
 file(GLOB_RECURSE FE_SRC_D   dmd/*.d)
 file(GLOB_RECURSE FE_HDR     dmd/*.h)
 file(GLOB_RECURSE FE_RES     dmd/res/*.*)
-file(GLOB_RECURSE GEN_SRC    gen/*.cpp)
-file(GLOB_RECURSE GEN_HDR    gen/*.h)
+file(GLOB_RECURSE GEN_SRC    gen/*.cpp gen/abi/*.cpp)
+file(GLOB_RECURSE GEN_HDR    gen/*.h gen/abi/*.h)
 file(GLOB_RECURSE GEN_SRC_D  gen/*.d)
 file(GLOB_RECURSE IR_SRC     ir/*.cpp)
 file(GLOB_RECURSE IR_HDR     ir/*.h)
@@ -369,6 +371,7 @@ file(GLOB_RECURSE DRV_SRC_D  driver/*.d)
 set(DRV_SRC
     driver/args.cpp
     driver/cache.cpp
+    driver/cl_helpers.cpp
     driver/cl_options.cpp
     driver/cl_options_instrumentation.cpp
     driver/cl_options_sanitizers.cpp
@@ -392,6 +395,7 @@ set(DRV_HDR
     driver/args.h
     driver/cache.h
     driver/cache_pruning.h
+    driver/cl_helpers.h
     driver/cl_options.h
     driver/cl_options_instrumentation.h
     driver/cl_options_sanitizers.h

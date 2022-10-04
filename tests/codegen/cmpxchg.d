@@ -6,7 +6,7 @@ import core.atomic;
 bool foo(int cmp)
 {
     static shared int g;
-    // CHECK-NEXT: %1 = cmpxchg i32*
+    // CHECK-NEXT: %1 = cmpxchg {{i32\*|ptr}}
     // CHECK-NEXT: %2 = extractvalue { i32, i1 } %1, 1
     // CHECK-NEXT: ret i1 %2
     return cas(&g, cmp, 456);
@@ -17,7 +17,7 @@ double bar(double cmp)
 {
     static shared double g;
     // CHECK-NEXT: %1 = bitcast double %cmp_arg to i64
-    // CHECK-NEXT: %2 = cmpxchg weak i64*
+    // CHECK-NEXT: %2 = cmpxchg weak {{i64\*|ptr}}
     casWeak(&g, &cmp, 456.0);
     // CHECK-NEXT: %3 = extractvalue { i64, i1 } %2, 0
     // CHECK-NEXT: %4 = bitcast i64 %3 to double

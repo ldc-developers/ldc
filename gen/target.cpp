@@ -16,7 +16,7 @@
 #include "dmd/target.h"
 #include "driver/cl_options.h"
 #include "driver/linker.h"
-#include "gen/abi.h"
+#include "gen/abi/abi.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include <assert.h>

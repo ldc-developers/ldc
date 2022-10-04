@@ -9,7 +9,6 @@
 
 #include "driver/cl_options.h"
 
-#include "gen/cl_helpers.h"
 #include "gen/logger.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Operator.h"
