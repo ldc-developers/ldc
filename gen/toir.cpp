@@ -415,20 +415,30 @@ public:
     LOG_SCOPE;
 
     Type *dtype = e->type->toBasetype();
+    const auto stringLength = e->numberOfCodeUnits();
+
+    if (auto tsa = dtype->isTypeSArray()) {
+      const auto arrayLength = tsa->dim->toInteger();
+      assert(arrayLength >= stringLength);
+      // ImportC: static array length may exceed string length incl. null
+      // terminator - bypass string-literal cache and create a separate constant
+      // with zero-initialized tail
+      if (arrayLength > stringLength + 1) {
+        auto constant = buildStringLiteralConstant(e, arrayLength);
+        result = new DLValue(e->type, constant);
+        return;
+      }
+    }
 
     llvm::GlobalVariable *gvar = p->getCachedStringLiteral(e);
     LLConstant *arrptr = DtoGEP(gvar->getValueType(), gvar, 0u, 0u);
 
     if (dtype->ty == TY::Tarray) {
-      LLConstant *clen =
-          LLConstantInt::get(DtoSize_t(), e->numberOfCodeUnits(), false);
+      LLConstant *clen = LLConstantInt::get(DtoSize_t(), stringLength, false);
       result = new DSliceValue(e->type, DtoConstSlice(clen, arrptr, dtype));
     } else if (dtype->ty == TY::Tsarray) {
-      Type *cty = dtype->nextOf()->toBasetype();
-      LLType *ct = DtoMemType(cty);
-      LLType *dstType =
-          getPtrToType(LLArrayType::get(ct, e->numberOfCodeUnits()));
-      result = new DLValue(e->type, DtoBitCast(gvar, dstType));
+      // array length matches string length with or without null terminator
+      result = new DLValue(e->type, DtoBitCast(gvar, DtoPtrToType(dtype)));
     } else if (dtype->ty == TY::Tpointer) {
       result = new DImValue(e->type, DtoBitCast(arrptr, DtoType(dtype)));
     } else {

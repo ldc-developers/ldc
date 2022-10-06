@@ -1654,30 +1654,31 @@ llvm::Constant *DtoConstSymbolAddress(const Loc &loc, Declaration *decl) {
   llvm_unreachable("Taking constant address not implemented.");
 }
 
-llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm) {
-  if (se->sz == 1) {
+llvm::Constant *buildStringLiteralConstant(StringExp *se,
+                                           uint64_t bufferLength) {
+  const auto stringLength = se->numberOfCodeUnits();
+  assert(bufferLength >= stringLength);
+
+  if (se->sz == 1 && bufferLength <= stringLength + 1) {
     const DString data = se->peekString();
+    const bool nullTerminate = (bufferLength == stringLength + 1);
     return llvm::ConstantDataArray::getString(
-        gIR->context(), {data.ptr, data.length}, zeroTerm);
+        gIR->context(), {data.ptr, data.length}, nullTerminate);
   }
 
   Type *dtype = se->type->toBasetype();
   Type *cty = dtype->nextOf()->toBasetype();
-
   LLType *ct = DtoMemType(cty);
-  auto len = se->numberOfCodeUnits();
-  if (zeroTerm) {
-    len += 1;
-  }
-  LLArrayType *at = LLArrayType::get(ct, len);
+  LLArrayType *at = LLArrayType::get(ct, bufferLength);
 
   std::vector<LLConstant *> vals;
-  vals.reserve(len);
-  for (size_t i = 0; i < se->numberOfCodeUnits(); ++i) {
+  vals.reserve(bufferLength);
+  for (uint64_t i = 0; i < stringLength; ++i) {
     vals.push_back(LLConstantInt::get(ct, se->getCodeUnit(i), false));
   }
-  if (zeroTerm) {
-    vals.push_back(LLConstantInt::get(ct, 0, false));
+  const auto nullChar = LLConstantInt::get(ct, 0, false);
+  for (uint64_t i = stringLength; i < bufferLength; ++i) {
+    vals.push_back(nullChar);
   }
   return LLConstantArray::get(at, vals);
 }

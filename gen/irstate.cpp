@@ -235,7 +235,8 @@ LLGlobalVariable *IRState::getCachedStringLiteral(StringExp *se) {
                             keyData.length);
 
   return getCachedStringLiteralImpl(module, *cache, key, [se]() {
-    return buildStringLiteralConstant(se, true);
+    // null-terminate
+    return buildStringLiteralConstant(se, se->numberOfCodeUnits() + 1);
   });
 }
 
