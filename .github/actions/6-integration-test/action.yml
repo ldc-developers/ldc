@@ -31,6 +31,10 @@ runs:
         for mode in thin full; do
           installed/bin/ldc2 hello.d -of=hello_$mode -flto=$mode -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
           ./hello_$mode
+          if [[ '${{ runner.os }}' == Linux ]]; then
+            installed/bin/ldc2 hello.d -m32 -of=hello_$mode-32 -flto=$mode -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
+            ./hello_$mode-32
+          fi
         done
 
     - name: Run dynamic-compile integration test

@@ -799,6 +799,9 @@ build_jit_runtime("${D_FLAGS};${D_FLAGS_RELEASE}" "${RT_CFLAGS}" "${LD_FLAGS}" "
 # Add the (static- and release-only) bitcode libraries.
 if(BUILD_LTO_LIBS AND (NOT ${BUILD_SHARED_LIBS} STREQUAL "ON"))
     list(APPEND libs_to_install druntime-ldc-lto phobos2-ldc-lto)
+    if(MULTILIB)
+        list(APPEND libs_to_install druntime-ldc-lto_${MULTILIB_SUFFIX} phobos2-ldc-lto_${MULTILIB_SUFFIX})
+    endif()
 endif()
 
 foreach(libname ${libs_to_install})
