@@ -530,6 +530,20 @@ cl::opt<bool> noPLT(
     "fno-plt", cl::ZeroOrMore,
     cl::desc("Do not use the PLT to make function calls"));
 
+cl::opt<CFProtection> cfProtection(
+    "fcf-protection", cl::ZeroOrMore,
+    cl::desc("instrument control-flow architecture protection"),
+    cl::init(CFProtection::none),
+    cl::values(
+        clEnumValN(CFProtection::none, "none",
+                   "Disable CET completely (this is the default)"),
+        clEnumValN(CFProtection::branch, "branch",
+                   "Enable indirect branch tracking"),
+        clEnumValN(CFProtection::return_, "return",
+                   "Enable shadow stack"),
+        clEnumValN(CFProtection::full, "full",
+                   "Enable both `branch` and `return`")));
+
 // Math options
 bool fFastMath; // Storage for the dynamically created ffast-math option.
 llvm::FastMathFlags defaultFMF;

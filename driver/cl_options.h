@@ -90,6 +90,14 @@ extern cl::opt<bool> noPLT;
 extern cl::opt<bool> useDIP25;
 extern cl::opt<bool> useDIP1000;
 
+enum class CFProtection {
+    none,
+    branch,
+    return_,
+    full,
+};
+extern cl::opt<CFProtection> cfProtection;
+
 // Math options
 extern bool fFastMath;
 extern llvm::FastMathFlags defaultFMF;

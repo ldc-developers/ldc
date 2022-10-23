@@ -235,6 +235,19 @@ void CodeGenerator::prepareLLModule(Module *m) {
   ir_->module.setTargetTriple(global.params.targetTriple->str());
   ir_->module.setDataLayout(*gDataLayout);
 
+  // Currently, controll-flow architecture protection is x86 only.
+  auto arch = global.params.targetTriple->getArch();
+  if (arch == llvm::Triple::x86 || arch == llvm::Triple::x86_64) {
+    if (opts::cfProtection == opts::CFProtection::branch || opts::cfProtection == opts::CFProtection::full) {
+      // Indicate that we want to instrument branch control flow protection.
+      ir_->module.addModuleFlag(llvm::Module::Override, "cf-protection-branch", 1);
+    }
+    if (opts::cfProtection == opts::CFProtection::return_ || opts::cfProtection == opts::CFProtection::full) {
+      // Indicate that we want to instrument return control flow protection.
+      ir_->module.addModuleFlag(llvm::Module::Override, "cf-protection-return", 1);
+    }
+  }
+
   // TODO: Make ldc::DIBuilder per-Module to be able to emit several CUs for
   // single-object compilations?
   ir_->DBuilder.EmitCompileUnit(m);
