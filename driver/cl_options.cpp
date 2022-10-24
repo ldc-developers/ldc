@@ -538,9 +538,9 @@ cl::opt<CFProtection> cfProtection(
         clEnumValN(CFProtection::none, "none",
                    "Disable CET completely (this is the default)"),
         clEnumValN(CFProtection::branch, "branch",
-                   "Enable indirect branch tracking"),
+                   "Enable branch control flow protection"),
         clEnumValN(CFProtection::return_, "return",
-                   "Enable shadow stack"),
+                   "Enable return control flow protection"),
         clEnumValN(CFProtection::full, "full",
                    "Enable both `branch` and `return`")));
 

@@ -237,14 +237,20 @@ void CodeGenerator::prepareLLModule(Module *m) {
 
   // Currently, controll-flow architecture protection is x86 only.
   auto arch = global.params.targetTriple->getArch();
-  if (arch == llvm::Triple::x86 || arch == llvm::Triple::x86_64) {
-    if (opts::cfProtection == opts::CFProtection::branch || opts::cfProtection == opts::CFProtection::full) {
+  if (opts::cfProtection == opts::CFProtection::branch || opts::cfProtection == opts::CFProtection::full) {
+    if (arch == llvm::Triple::x86 || arch == llvm::Triple::x86_64) {
       // Indicate that we want to instrument branch control flow protection.
       ir_->module.addModuleFlag(llvm::Module::Override, "cf-protection-branch", 1);
+    } else {
+      warning(Loc(), "Ignoring -fcf-protection options: branch control flow protection is not supported this architecture");
     }
-    if (opts::cfProtection == opts::CFProtection::return_ || opts::cfProtection == opts::CFProtection::full) {
+  }
+  if (opts::cfProtection == opts::CFProtection::return_ || opts::cfProtection == opts::CFProtection::full) {
+    if (arch == llvm::Triple::x86 || arch == llvm::Triple::x86_64) {
       // Indicate that we want to instrument return control flow protection.
       ir_->module.addModuleFlag(llvm::Module::Override, "cf-protection-return", 1);
+    } else {
+      warning(Loc(), "Ignoring -fcf-protection options: return control flow protection is not supported this architecture");
     }
   }
 

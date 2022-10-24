@@ -18,13 +18,16 @@
 void foo() {}
 
 // UNDEFINED-NOT: !"cf-protection-branch"
-// NONE-NOT: !"cf-protection-branch"
-// BRANCH: !"cf-protection-branch", i32 1
-// RETURN-NOT: !"cf-protection-branch"
-// FULL: !"cf-protection-branch", i32 1
-
 // UNDEFINED-NOT: !"cf-protection-return"
+
+// NONE-NOT: !"cf-protection-branch"
 // NONE-NOT: !"cf-protection-return"
+
+// BRANCH: !"cf-protection-branch", i32 1
 // BRANCH-NOT: !"cf-protection-return"
+
+// RETURN-NOT: !"cf-protection-branch"
 // RETURN: !"cf-protection-return", i32 1
+
+// FULL: !"cf-protection-branch", i32 1
 // FULL: !"cf-protection-return", i32 1
