@@ -243,10 +243,10 @@ void CodeGenerator::prepareLLModule(Module *m) {
 #if LDC_LLVM_VER >= 1500
       ir_->module.addModuleFlag(llvm::Module::Min, "cf-protection-branch", 1);
 #else
-      ir_->module.addModuleFlag(llvm::Module::Override, "cf-protection-branch", 1);
+      warning(Loc(), "Ignoring -fcf-protection options: branch control flow protection is not supported in this LLVM version");
 #endif
     } else {
-      warning(Loc(), "Ignoring -fcf-protection options: branch control flow protection is not supported this architecture");
+      warning(Loc(), "Ignoring -fcf-protection options: branch control flow protection is not supported in this architecture");
     }
   }
   if (opts::cfProtection == opts::CFProtection::return_ || opts::cfProtection == opts::CFProtection::full) {
@@ -255,10 +255,10 @@ void CodeGenerator::prepareLLModule(Module *m) {
 #if LDC_LLVM_VER >= 1500
       ir_->module.addModuleFlag(llvm::Module::Min, "cf-protection-return", 1);
 #else
-      ir_->module.addModuleFlag(llvm::Module::Override, "cf-protection-return", 1);
+      warning(Loc(), "Ignoring -fcf-protection options: return control flow protection is not supported in this LLVM version");
 #endif
     } else {
-      warning(Loc(), "Ignoring -fcf-protection options: return control flow protection is not supported this architecture");
+      warning(Loc(), "Ignoring -fcf-protection options: return control flow protection is not supported in this architecture");
     }
   }
 

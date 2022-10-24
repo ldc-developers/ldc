@@ -1,3 +1,4 @@
+// REQUIRES: atleast_llvm1500
 // REQUIRES: target_X86
 
 // RUN: %ldc -mtriple=x86_64 -output-ll -of=%t_undefined.ll %s
