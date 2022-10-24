@@ -1,18 +1,18 @@
 // REQUIRES: target_X86
 
-// RUN: %ldc -output-ll -of=%t_undefined.ll %s
+// RUN: %ldc -mtriple=x86_64 -output-ll -of=%t_undefined.ll %s
 // RUN : FileCheck %s --check-prefix=UNDEFINED < %t_undefined.ll
 
-// RUN: %ldc -fcf-protection=none -output-ll -of=%t_none.ll %s
+// RUN: %ldc -mtriple=x86_64 -fcf-protection=none -output-ll -of=%t_none.ll %s
 // RUN: FileCheck %s --check-prefix=NONE < %t_none.ll
 
-// RUN: %ldc -fcf-protection=branch -output-ll -of=%t_branch.ll %s
+// RUN: %ldc -mtriple=x86_64 -fcf-protection=branch -output-ll -of=%t_branch.ll %s
 // RUN: FileCheck %s --check-prefix=BRANCH < %t_branch.ll
 
-// RUN: %ldc -fcf-protection=return -output-ll -of=%t_return.ll %s
+// RUN: %ldc -mtriple=x86_64 -fcf-protection=return -output-ll -of=%t_return.ll %s
 // RUN: FileCheck %s --check-prefix=RETURN < %t_return.ll
 
-// RUN: %ldc -fcf-protection=full -output-ll -of=%t_full.ll %s
+// RUN: %ldc -mtriple=x86_64 -fcf-protection=full -output-ll -of=%t_full.ll %s
 // RUN: FileCheck %s --check-prefix=FULL < %t_full.ll
 
 void foo() {}
