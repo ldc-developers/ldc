@@ -147,7 +147,7 @@ set(JITRT_DIR ${PROJECT_SOURCE_DIR}/jit-rt CACHE PATH "jit runtime root director
 #
 
 # druntime D parts
-file(GLOB_RECURSE DRUNTIME_D ${RUNTIME_DIR}/src/*.d)
+file(GLOB_RECURSE DRUNTIME_D ${RUNTIME_DIR}/src/*.d ${RUNTIME_DIR}/src/*.di)
 list(REMOVE_ITEM DRUNTIME_D ${RUNTIME_DIR}/src/test_runner.d)
 # remove unsupported etc/linux/memoryerror.d (see issue #1915)
 list(REMOVE_ITEM DRUNTIME_D ${RUNTIME_DIR}/src/etc/linux/memoryerror.d)
@@ -410,6 +410,10 @@ macro(dc src_files src_basedir d_flags output_basedir emit_bc all_at_once single
         file(RELATIVE_PATH relative_src_file ${src_basedir} ${f})
         get_filename_component(name ${relative_src_file} NAME_WE)
         get_filename_component(path ${relative_src_file} PATH)
+        get_filename_component(extension ${relative_src_file} LAST_EXT)
+        if("${extension}" STREQUAL ".di")
+            continue()
+        endif()
         if("${path}" STREQUAL "")
             set(output_root ${name})
         else()
