@@ -32,7 +32,8 @@
 # We also want an user-specified LLVM_ROOT_DIR to take precedence over the
 # system default locations such as /usr/local/bin. Executing find_program()
 # multiples times is the approach recommended in the docs.
-set(llvm_config_names llvm-config-14.0 llvm-config140 llvm-config-14
+set(llvm_config_names llvm-config-15.0 llvm-config150 llvm-config-15
+                      llvm-config-14.0 llvm-config140 llvm-config-14
                       llvm-config-13.0 llvm-config130 llvm-config-13
                       llvm-config-12.0 llvm-config120 llvm-config-12
                       llvm-config-11.0 llvm-config110 llvm-config-11
@@ -48,9 +49,11 @@ if(APPLE)
     # extra fallbacks for MacPorts & Homebrew
     find_program(LLVM_CONFIG
         NAMES ${llvm_config_names}
-        PATHS /opt/local/libexec/llvm-14/bin  /opt/local/libexec/llvm-13/bin  /opt/local/libexec/llvm-12/bin
+        PATHS /opt/local/libexec/llvm-15/bin
+              /opt/local/libexec/llvm-14/bin  /opt/local/libexec/llvm-13/bin  /opt/local/libexec/llvm-12/bin
               /opt/local/libexec/llvm-11/bin  /opt/local/libexec/llvm-10/bin  /opt/local/libexec/llvm-9.0/bin
               /opt/local/libexec/llvm/bin
+              /usr/local/opt/llvm@15/bin
               /usr/local/opt/llvm@14/bin /usr/local/opt/llvm@13/bin /usr/local/opt/llvm@12/bin
               /usr/local/opt/llvm@11/bin /usr/local/opt/llvm@10/bin /usr/local/opt/llvm@9/bin
               /usr/local/opt/llvm/bin
@@ -123,6 +126,8 @@ else()
 
     # The LLVM version string _may_ contain a git/svn suffix, so match only the x.y.z part
     string(REGEX MATCH "^[0-9]+[.][0-9]+[.][0-9]+" LLVM_VERSION_BASE_STRING "${LLVM_VERSION_STRING}")
+    string(REGEX REPLACE "([0-9]+).*" "\\1" LLVM_VERSION_MAJOR "${LLVM_VERSION_STRING}" )
+    string(REGEX REPLACE "[0-9]+\\.([0-9]+).*[A-Za-z]*" "\\1" LLVM_VERSION_MINOR "${LLVM_VERSION_STRING}" )
 
     llvm_set(SHARED_MODE shared-mode)
     if(LLVM_SHARED_MODE STREQUAL "shared")
@@ -136,6 +141,11 @@ else()
     string(REPLACE "\n" " " LLVM_LDFLAGS "${LLVM_LDFLAGS} ${LLVM_SYSTEM_LIBS}")
     if(APPLE) # unclear why/how this happens
         string(REPLACE "-llibxml2.tbd" "-lxml2" LLVM_LDFLAGS ${LLVM_LDFLAGS})
+    endif()
+
+    if(${LLVM_VERSION_MAJOR} LESS "15")
+        # Versions below 15.0 do not support component windowsdriver
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "windowsdriver")
     endif()
 
     llvm_set(LIBRARY_DIRS libdir true)
@@ -180,9 +190,6 @@ else()
     if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
         string(REPLACE "-Wno-maybe-uninitialized " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
     endif()
-
-    string(REGEX REPLACE "([0-9]+).*" "\\1" LLVM_VERSION_MAJOR "${LLVM_VERSION_STRING}" )
-    string(REGEX REPLACE "[0-9]+\\.([0-9]+).*[A-Za-z]*" "\\1" LLVM_VERSION_MINOR "${LLVM_VERSION_STRING}" )
 
     if (${LLVM_VERSION_STRING} VERSION_LESS ${LLVM_FIND_VERSION})
         _LLVM_FAIL("Unsupported LLVM version ${LLVM_VERSION_STRING} found (${LLVM_CONFIG}). At least version ${LLVM_FIND_VERSION} is required. You can also set variables 'LLVM_ROOT_DIR' or 'LLVM_CONFIG' to use a different LLVM installation.")
