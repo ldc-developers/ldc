@@ -123,12 +123,6 @@ static cl::opt<int> fSanitizeMemoryTrackOrigins(
     cl::desc(
         "Enable origins tracking in MemorySanitizer (0=disabled, default)"));
 
-static cl::opt<signed char> passmanager("passmanager",
-    cl::desc("Setting the passmanager (new,legacy):"), cl::ZeroOrMore, cl::init(0),
-    cl::values(
-        clEnumValN(0, "legacy", "Use the legacy passmanager (available for LLVM14 and below) "),
-        clEnumValN(1, "new", "Use the new passmanager (available for LLVM14 and above)")));
-
 unsigned optLevel() {
   // Use -O2 as a base for the size-optimization levels.
   return optimizeLevel >= 0 ? optimizeLevel : 2;
@@ -839,8 +833,8 @@ bool ldc_optimize_module(llvm::Module *M) {
 #if LDC_LLVM_VER < 1400
   return legacy_ldc_optimize_module(M);
 #elif LDC_LLVM_VER < 1500
-  return passmanager==0 ? legacy_ldc_optimize_module(M)
-                        : new_ldc_optimize_module(M);
+  return opts::passmanager == 0 ? legacy_ldc_optimize_module(M)
+                                : new_ldc_optimize_module(M);
 #else
   return new_ldc_optimize_module(M);
 #endif
