@@ -16,7 +16,7 @@ extern(C):  // simplify name mangling for simpler string matching
 
 // PROFGEN-LABEL: @bunch_of_branches(i32
 // PROFUSE-LABEL: @bunch_of_branches(i32
-// PROFGEN: store {{.*}} @[[BoB]], i{{32|64}} 0, i{{32|64}} 0
+// PROFGEN: store {{.*}} @[[BoB]]
 // PROFUSE-SAME: !prof ![[BoB0:[0-9]+]]
 void bunch_of_branches(const uint two) {
   uint i;

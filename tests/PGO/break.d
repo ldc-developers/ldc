@@ -17,7 +17,7 @@ extern(C):  // simplify name mangling for simpler string matching
 
 // PROFGEN-LABEL: @testbreak({{.*}})
 // PROFUSE-LABEL: @testbreak({{.*}})
-// PROFGEN: store {{.*}} @[[BREAK]], i{{32|64}} 0, i{{32|64}} 0
+// PROFGEN: store {{.*}} @[[BREAK]]
 // PROFUSE-SAME: !prof ![[BREAK0:[0-9]+]]
 void testbreak(bool a) {
 
@@ -51,7 +51,7 @@ outer:
 
 // PROFGEN-LABEL: @testcontinue({{.*}})
 // PROFUSE-LABEL: @testcontinue({{.*}})
-// PROFGEN: store {{.*}} @[[CONT]], i{{32|64}} 0, i{{32|64}} 0
+// PROFGEN: store {{.*}} @[[CONT]]
 // PROFUSE-SAME: !prof ![[CONT0:[0-9]+]]
 void testcontinue(bool a) {
 

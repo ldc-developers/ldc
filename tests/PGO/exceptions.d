@@ -28,7 +28,7 @@ class ExceptionThree : Exception {
 
 // PROFGEN-LABEL: @scope_stmts(
 // PROFUSE-LABEL: @scope_stmts(
-// PROFGEN: store {{.*}} @[[SCP]], i{{32|64}} 0, i{{32|64}} 0
+// PROFGEN: store {{.*}} @[[SCP]]
 // PROFUSE-SAME: !prof ![[SCP0:[0-9]+]]
 void scope_stmts(bool fail) {
   int i;
@@ -50,7 +50,7 @@ void scope_stmts(bool fail) {
 
 // PROFGEN-LABEL: @try_catch()
 // PROFUSE-LABEL: @try_catch()
-// PROFGEN: store {{.*}} @[[TC]], i{{32|64}} 0, i{{32|64}} 0
+// PROFGEN: store {{.*}} @[[TC]]
 // PROFUSE-SAME: !prof ![[TC0:[0-9]+]]
 void try_catch() {
   // PROFGEN: store {{.*}} @[[TC]], i{{32|64}} 0, i{{32|64}} 1
@@ -110,7 +110,7 @@ void try_catch() {
 
 // PROFGEN-LABEL: @try_finally()
 // PROFUSE-LABEL: @try_finally()
-// PROFGEN: store {{.*}} @[[TF]], i{{32|64}} 0, i{{32|64}} 0
+// PROFGEN: store {{.*}} @[[TF]]
 // PROFUSE-SAME: !prof ![[TF0:[0-9]+]]
 void try_finally() {
   int i;
