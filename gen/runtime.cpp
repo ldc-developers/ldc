@@ -272,9 +272,10 @@ struct LazyFunctionDeclarer {
       // FIXME: Move to better place (abi-x86-64.cpp?)
       // NOTE: There are several occurances if this line.
       if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
-        fn->addFnAttr(LLAttribute::UWTable);
 #if LDC_LLVM_VER >= 1500
         fn->setUWTableKind(llvm::UWTableKind::Default);
+#else
+        fn->addFnAttr(LLAttribute::UWTable);
 #endif
       }
 
