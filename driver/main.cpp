@@ -546,6 +546,20 @@ void parseCommandLine(Strings &sourceFiles) {
 
   global.params.hdrStripPlainFunctions = !opts::hdrKeepAllBodies;
   global.params.disableRedZone = opts::disableRedZone();
+
+  // Passmanager selection options depend on LLVM version
+#if LDC_LLVM_VER < 1400
+  // LLVM < 14 only supports the legacy passmanager
+  if (opts::passmanager != 0) {
+    error(Loc(), "LLVM version 13 or below only supports --passmanager=legacy");
+  }
+#endif
+#if LDC_LLVM_VER >= 1500
+  // LLVM >= 15 only supports the new passmanager
+  if (opts::passmanager != 1) {
+    error(Loc(), "LLVM version 15 or above only supports --passmanager=new");
+  }
+#endif
 }
 
 void initializePasses() {

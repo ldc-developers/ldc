@@ -90,6 +90,8 @@ extern cl::opt<bool> noPLT;
 extern cl::opt<bool> useDIP25;
 extern cl::opt<bool> useDIP1000;
 
+extern cl::opt<signed char> passmanager;
+
 // Math options
 extern bool fFastMath;
 extern llvm::FastMathFlags defaultFMF;
