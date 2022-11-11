@@ -530,7 +530,7 @@ cl::opt<bool> noPLT(
     "fno-plt", cl::ZeroOrMore,
     cl::desc("Do not use the PLT to make function calls"));
 
-cl::opt<signed char> passmanager("passmanager",
+static cl::opt<signed char> passmanager("passmanager",
     cl::desc("Setting the passmanager (new,legacy):"), cl::ZeroOrMore,
     #if LDC_LLVM_VER < 1500
       cl::init(0),
@@ -540,6 +540,7 @@ cl::opt<signed char> passmanager("passmanager",
     cl::values(
         clEnumValN(0, "legacy", "Use the legacy passmanager (available for LLVM14 and below) "),
         clEnumValN(1, "new", "Use the new passmanager (available for LLVM14 and above)")));
+bool isUsingLegacyPassManager() { return passmanager == 0; }
 
 // Math options
 bool fFastMath; // Storage for the dynamically created ffast-math option.
