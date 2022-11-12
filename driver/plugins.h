@@ -9,4 +9,7 @@
 
 #pragma once
 
+#include "llvm/Passes/PassBuilder.h"
+
 void loadAllPlugins();
+void registerAllPluginsWithPassBuilder(llvm::PassBuilder &PB);

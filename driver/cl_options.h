@@ -90,7 +90,7 @@ extern cl::opt<bool> noPLT;
 extern cl::opt<bool> useDIP25;
 extern cl::opt<bool> useDIP1000;
 
-extern cl::opt<signed char> passmanager;
+bool isUsingLegacyPassManager();
 
 // Math options
 extern bool fFastMath;
