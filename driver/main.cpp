@@ -574,6 +574,7 @@ void initializePasses() {
 #endif
   initializeVectorization(Registry);
   initializeInstCombine(Registry);
+  initializeAggressiveInstCombine(Registry);
   initializeIPO(Registry);
 #if LDC_LLVM_VER < 1600
   initializeInstrumentation(Registry);
