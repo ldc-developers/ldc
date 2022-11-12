@@ -46,6 +46,11 @@ jobs:
             host_dc: ldc-beta
             llvm_version: 13.0.1
             cmake_flags: -DBUILD_SHARED_LIBS=OFF
+          - job_name: macOS 10.15, LLVM 15, latest LDC beta
+            os: macos-10.15
+            host_dc: ldc-beta
+            llvm_version: 15.0.3
+            cmake_flags: -DBUILD_SHARED_LIBS=OFF
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
     steps:
