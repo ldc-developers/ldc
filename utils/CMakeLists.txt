@@ -30,7 +30,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(gen_gccbuiltins dl)
 endif()
 
-if ((TARGET FileCheck) OR (EXISTS ${LLVM_ROOT_DIR}/bin/FileCheck1))
+if ((TARGET FileCheck) OR (EXISTS ${LLVM_ROOT_DIR}/bin/FileCheck))
   # already provided by LLVM
   message(STATUS "Skip building FileCheck, it is already provided by LLVM")
 else()
