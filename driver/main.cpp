@@ -569,11 +569,16 @@ void initializePasses() {
   initializeCore(Registry);
   initializeTransformUtils(Registry);
   initializeScalarOpts(Registry);
+#if LDC_LLVM_VER < 1600
   initializeObjCARCOpts(Registry);
+#endif
   initializeVectorization(Registry);
   initializeInstCombine(Registry);
+  initializeAggressiveInstCombine(Registry);
   initializeIPO(Registry);
+#if LDC_LLVM_VER < 1600
   initializeInstrumentation(Registry);
+#endif
   initializeAnalysis(Registry);
   initializeCodeGen(Registry);
   initializeGlobalISel(Registry);
