@@ -993,6 +993,13 @@ void registerPredefinedVersions() {
     VersionCondition::addPredefinedGlobalIdent("LDC_ThreadSanitizer");
   }
 
+#if LDC_LLVM_VER >= 1400
+  // A version identifier for whether opaque pointers are enabled or not. (needed e.g. for intrinsic mangling)
+  if (!getGlobalContext().supportsTypedPointers()) {
+    VersionCondition::addPredefinedGlobalIdent("LDC_LLVM_OpaquePointers");
+  }
+#endif
+
 // Expose LLVM version to runtime
 #define STR(x) #x
 #define XSTR(x) STR(x)
