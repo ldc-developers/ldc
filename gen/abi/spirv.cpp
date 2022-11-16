@@ -16,8 +16,9 @@
 
 struct SPIRVTargetABI : TargetABI {
   DComputePointerRewrite pointerRewite;
-  llvm::CallingConv::ID callingConv(LINK) override {
-    llvm_unreachable("expected FuncDeclaration overload to be used");
+  llvm::CallingConv::ID callingConv(LINK l) override {
+      assert(l == LINK::c);
+      return llvm::CallingConv::SPIR_FUNC;
   }
   llvm::CallingConv::ID callingConv(FuncDeclaration *fdecl) override {
     return hasKernelAttr(fdecl) ? llvm::CallingConv::SPIR_KERNEL

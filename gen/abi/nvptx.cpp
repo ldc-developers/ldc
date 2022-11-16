@@ -16,8 +16,9 @@
 
 struct NVPTXTargetABI : TargetABI {
   DComputePointerRewrite pointerRewite;
-  llvm::CallingConv::ID callingConv(LINK) override {
-    llvm_unreachable("expected FuncDeclaration overload to be used");
+  llvm::CallingConv::ID callingConv(LINK l) override {
+      assert(l == LINK::c);
+      return llvm::CallingConv::PTX_Device;
   }
   llvm::CallingConv::ID callingConv(FuncDeclaration *fdecl) override {
     return hasKernelAttr(fdecl) ? llvm::CallingConv::PTX_Kernel
