@@ -66,3 +66,53 @@ static void addFuncEntryCallPass(const PassManagerBuilder &,
 static RegisterStandardPasses
     RegisterFuncEntryCallPass0(PassManagerBuilder::EP_EnabledOnOptLevel0,
                                addFuncEntryCallPass);
+
+
+
+#if LLVM_VERSION >= 1400
+// Implementation of plugin for the new passmanager
+
+#include "llvm/IR/PassManager.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Passes/PassPlugin.h"
+
+namespace {
+
+struct MyPass : public PassInfoMixin<MyPass> {
+
+  // The first argument of the run() function defines on what level
+  // of granularity your pass will run (e.g. Module, Function).
+  // The second argument is the corresponding AnalysisManager
+  // (e.g ModuleAnalysisManager, FunctionAnalysisManager)
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &MAM) {
+    FuncEntryCallPass pass;
+
+    pass.doInitialization(M);
+
+    for (Function &F : M.functions()) {
+      if (!F.isDeclaration())
+        pass.runOnFunction(F);
+    }
+
+    return PreservedAnalyses::none();
+  }
+};
+}
+
+// This part is the new way of registering your pass
+extern "C" ::llvm::PassPluginLibraryInfo LLVM_ATTRIBUTE_WEAK
+llvmGetPassPluginInfo() {
+  return {
+    LLVM_PLUGIN_API_VERSION, "MyPass", "v0.1",
+    [](PassBuilder &PB) {
+      PB.registerPipelineStartEPCallback(
+        [](ModulePassManager &mpm, OptimizationLevel) {
+            mpm.addPass(MyPass());
+        }
+      );
+    }
+  };
+}
+
+#endif
+

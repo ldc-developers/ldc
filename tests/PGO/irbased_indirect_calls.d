@@ -50,8 +50,8 @@ int main()
     {
         select_func(i);
 
-        // PROFUSE:  [[REG1:%[0-9]+]] = load void ()*, void ()** @foo
-        // PROFUSE:  [[REG2:%[0-9]+]] = icmp eq void ()* [[REG1]], @hot
+        // PROFUSE:  [[REG1:%[0-9]+]] = load {{void \(\)\*, void \(\)\*\*|ptr, ptr}} @foo
+        // PROFUSE:  [[REG2:%[0-9]+]] = icmp eq {{void \(\)\*|ptr}} [[REG1]], @hot
         // PROFUSE:  call void @hot()
         // PROFUSE:  call void [[REG1]]()
 

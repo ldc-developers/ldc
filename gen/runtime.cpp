@@ -32,6 +32,9 @@
 #include "ir/irtypefunction.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/Attributes.h"
+#if LDC_LLVM_VER >= 1600
+#include "llvm/IR/ModRef.h"
+#endif
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -272,9 +275,10 @@ struct LazyFunctionDeclarer {
       // FIXME: Move to better place (abi-x86-64.cpp?)
       // NOTE: There are several occurances if this line.
       if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
-        fn->addFnAttr(LLAttribute::UWTable);
 #if LDC_LLVM_VER >= 1500
         fn->setUWTableKind(llvm::UWTableKind::Default);
+#else
+        fn->addFnAttr(LLAttribute::UWTable);
 #endif
       }
 
@@ -467,7 +471,8 @@ static Type *rt_dg2() {
 
 static void buildRuntimeModule() {
   Logger::println("building runtime module");
-  M = new llvm::Module("ldc internal runtime", gIR->context());
+  auto &context = gIR->context();
+  M = new llvm::Module("ldc internal runtime", context);
 
   Type *voidTy = Type::tvoid;
   Type *boolTy = Type::tbool;
@@ -496,8 +501,14 @@ static void buildRuntimeModule() {
   AttrSet NoAttrs,
       Attr_NoUnwind(NoAttrs, LLAttributeList::FunctionIndex,
                     llvm::Attribute::NoUnwind),
+#if LDC_LLVM_VER >= 1600
+      Attr_ReadOnly(llvm::AttributeList().addFnAttribute(
+          context, llvm::Attribute::getWithMemoryEffects(
+                       context, llvm::MemoryEffects::readOnly()))),
+#else
       Attr_ReadOnly(NoAttrs, LLAttributeList::FunctionIndex,
                     llvm::Attribute::ReadOnly),
+#endif
       Attr_Cold(NoAttrs, LLAttributeList::FunctionIndex, llvm::Attribute::Cold),
       Attr_Cold_NoReturn(Attr_Cold, LLAttributeList::FunctionIndex,
                          llvm::Attribute::NoReturn),

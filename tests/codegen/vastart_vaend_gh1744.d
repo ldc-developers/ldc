@@ -12,7 +12,7 @@ module mod;
 // OPT3-LABEL: define {{.*}} @{{.*}}void_three_return_paths
 void void_three_return_paths(int a, ...)
 {
-    // OPT3: call void @llvm.va_start({{.*}} %[[VA:[0-9]+]])
+    // OPT3: call void @llvm.va_start({{.*}} %[[VA:[_0-9a-zA-Z]+]])
     // OPT3-NOT: return_two
     return_two();
 

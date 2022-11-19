@@ -546,6 +546,20 @@ void parseCommandLine(Strings &sourceFiles) {
 
   global.params.dihdr.fullOutput = opts::hdrKeepAllBodies;
   global.params.disableRedZone = opts::disableRedZone();
+
+  // Passmanager selection options depend on LLVM version
+#if LDC_LLVM_VER < 1400
+  // LLVM < 14 only supports the legacy passmanager
+  if (!opts::isUsingLegacyPassManager()) {
+    error(Loc(), "LLVM version 13 or below only supports --passmanager=legacy");
+  }
+#endif
+#if LDC_LLVM_VER >= 1500
+  // LLVM >= 15 only supports the new passmanager
+  if (opts::isUsingLegacyPassManager()) {
+    error(Loc(), "LLVM version 15 or above only supports --passmanager=new");
+  }
+#endif
 }
 
 void initializePasses() {
@@ -555,11 +569,16 @@ void initializePasses() {
   initializeCore(Registry);
   initializeTransformUtils(Registry);
   initializeScalarOpts(Registry);
+#if LDC_LLVM_VER < 1600
   initializeObjCARCOpts(Registry);
+#endif
   initializeVectorization(Registry);
   initializeInstCombine(Registry);
+  initializeAggressiveInstCombine(Registry);
   initializeIPO(Registry);
+#if LDC_LLVM_VER < 1600
   initializeInstrumentation(Registry);
+#endif
   initializeAnalysis(Registry);
   initializeCodeGen(Registry);
   initializeGlobalISel(Registry);
@@ -973,6 +992,13 @@ void registerPredefinedVersions() {
   if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {
     VersionCondition::addPredefinedGlobalIdent("LDC_ThreadSanitizer");
   }
+
+#if LDC_LLVM_VER >= 1400
+  // A version identifier for whether opaque pointers are enabled or not. (needed e.g. for intrinsic mangling)
+  if (!getGlobalContext().supportsTypedPointers()) {
+    VersionCondition::addPredefinedGlobalIdent("LDC_LLVM_OpaquePointers");
+  }
+#endif
 
 // Expose LLVM version to runtime
 #define STR(x) #x

@@ -18,6 +18,7 @@
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
+#include "driver/plugins.h"
 #include "driver/targetmachine.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/InlineCost.h"
@@ -122,12 +123,6 @@ static cl::opt<int> fSanitizeMemoryTrackOrigins(
     "fsanitize-memory-track-origins", cl::ZeroOrMore, cl::init(0),
     cl::desc(
         "Enable origins tracking in MemorySanitizer (0=disabled, default)"));
-
-static cl::opt<signed char> passmanager("passmanager",
-    cl::desc("Setting the passmanager (new,legacy):"), cl::ZeroOrMore, cl::init(0),
-    cl::values(
-        clEnumValN(0, "legacy", "Use the legacy passmanager (available for LLVM14 and below) "),
-        clEnumValN(1, "new", "Use the new passmanager (available for LLVM14 and above)")));
 
 unsigned optLevel() {
   // Use -O2 as a base for the size-optimization levels.
@@ -731,6 +726,8 @@ void runOptimizationPasses(llvm::Module *M) {
     addStripExternalsPass(mpm, level);
   });
 
+  registerAllPluginsWithPassBuilder(pb);
+
   pb.registerModuleAnalyses(mam);
   pb.registerCGSCCAnalyses(cgam);
   pb.registerFunctionAnalyses(fam);
@@ -839,8 +836,8 @@ bool ldc_optimize_module(llvm::Module *M) {
 #if LDC_LLVM_VER < 1400
   return legacy_ldc_optimize_module(M);
 #elif LDC_LLVM_VER < 1500
-  return passmanager==0 ? legacy_ldc_optimize_module(M)
-                        : new_ldc_optimize_module(M);
+  return opts::isUsingLegacyPassManager() ? legacy_ldc_optimize_module(M)
+                                          : new_ldc_optimize_module(M);
 #else
   return new_ldc_optimize_module(M);
 #endif

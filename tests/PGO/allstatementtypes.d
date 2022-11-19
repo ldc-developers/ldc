@@ -28,7 +28,7 @@ extern(C):  // simplify name mangling for simpler string matching
 
 // PROFGEN-LABEL: @for_loop()
 // PROFUSE-LABEL: @for_loop()
-// PROFGEN: store {{.*}} @[[FL]], i{{32|64}} 0, i{{32|64}} 0
+// PROFGEN: store {{.*}} @[[FL]]
 // PROFUSE-SAME: !prof ![[FL0:[0-9]+]]
 void for_loop() {
   uint i;
@@ -63,7 +63,7 @@ void for_loop() {
 
 // PROFGEN-LABEL: @foreach_loop()
 // PROFUSE-LABEL: @foreach_loop()
-// PROFGEN: store {{.*}} @[[FEL]], i{{32|64}} 0, i{{32|64}} 0
+// PROFGEN: store {{.*}} @[[FEL]]
 // PROFUSE-SAME: !prof ![[FEL0:[0-9]+]]
 void foreach_loop() {
   // PROFGEN: store {{.*}} @[[FEL]], i{{32|64}} 0, i{{32|64}} 1
@@ -88,7 +88,7 @@ void foreach_loop() {
 
 // PROFGEN-LABEL: @foreachrange_loop()
 // PROFUSE-LABEL: @foreachrange_loop()
-// PROFGEN: store {{.*}} @[[FERL]], i{{32|64}} 0, i{{32|64}} 0
+// PROFGEN: store {{.*}} @[[FERL]]
 // PROFUSE-SAME: !prof ![[FERL0:[0-9]+]]
 void foreachrange_loop() {
   import std.range : iota;
@@ -118,7 +118,7 @@ void foreachrange_loop() {
 
 // PROFGEN-LABEL: @label_goto()
 // PROFUSE-LABEL: @label_goto()
-// PROFGEN: store {{.*}} @[[LG]], i{{32|64}} 0, i{{32|64}} 0
+// PROFGEN: store {{.*}} @[[LG]]
 // PROFUSE-SAME: !prof ![[LG0:[0-9]+]]
 void label_goto() {
   int i = 0; // 1x
@@ -149,7 +149,7 @@ emptylabel: // 1x
 
 // PROFGEN-LABEL: @c_switches()
 // PROFUSE-LABEL: @c_switches()
-// PROFGEN: store {{.*}} @[[SWC]], i{{32|64}} 0, i{{32|64}} 0
+// PROFGEN: store {{.*}} @[[SWC]]
 // PROFUSE-SAME: !prof ![[SW0:[0-9]+]]
 void c_switches() {
   static int[] weights = [1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5];
@@ -238,7 +238,7 @@ void c_switches() {
 // test the particulars of switches using D features
 // PROFGEN-LABEL: @d_switches()
 // PROFUSE-LABEL: @d_switches()
-// PROFGEN: store {{.*}} @[[DSW]], i{{32|64}} 0, i{{32|64}} 0
+// PROFGEN: store {{.*}} @[[DSW]]
 // PROFUSE-SAME: !prof ![[DSW0:[0-9]+]]
 void d_switches() {
   uint i;
@@ -297,7 +297,7 @@ void d_switches() {
 
 // PROFGEN-LABEL: @booleanlogic()
 // PROFUSE-LABEL: @booleanlogic()
-// PROFGEN: store {{.*}} @[[BOOL]], i{{32|64}} 0, i{{32|64}} 0
+// PROFGEN: store {{.*}} @[[BOOL]]
 // PROFUSE-SAME: !prof ![[BOOL0:[0-9]+]]
 void booleanlogic() {
   bool t = true, f = false;
@@ -335,7 +335,7 @@ void booleanlogic() {
 
 // PROFGEN-LABEL: @do_while()
 // PROFUSE-LABEL: @do_while()
-// PROFGEN: store {{.*}} @[[DW]], i{{32|64}} 0, i{{32|64}} 0
+// PROFGEN: store {{.*}} @[[DW]]
 // PROFUSE-SAME: !prof ![[DW0:[0-9]+]]
 void do_while() {
   int i;

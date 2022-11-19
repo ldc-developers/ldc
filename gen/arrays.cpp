@@ -229,7 +229,7 @@ void DtoArrayAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
   LLValue *realRhsArrayPtr = (t2->ty == TY::Tarray || t2->ty == TY::Tsarray)
                                  ? DtoArrayPtr(rhs)
                                  : nullptr;
-  if (realRhsArrayPtr && realRhsArrayPtr->getType() == realLhsPtr->getType()) {
+  if (realRhsArrayPtr && DtoMemType(t2->nextOf()) == DtoMemType(t->nextOf())) {
     // T[]  = T[]      T[]  = T[n]
     // T[n] = T[n]     T[n] = T[]
     LLValue *rhsPtr = DtoBitCast(realRhsArrayPtr, getVoidPtrType());
