@@ -1,6 +1,6 @@
 # set from top makefile
 # LDC: we have no top makefile, include osmodel.mak for OS
-include ../../../../tests/d2/src/osmodel.mak
+include ../../../../dmd/osmodel.mak
 #OS:=
 MODEL:=
 BUILD:=
