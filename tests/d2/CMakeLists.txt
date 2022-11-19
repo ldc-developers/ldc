@@ -24,7 +24,7 @@ else()
     set(gdb_flags "OFF")
 endif()
 
-set(DMD_TESTSUITE_SRC_DIR ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite)
+set(DMD_TESTSUITE_SRC_DIR ${PROJECT_SOURCE_DIR}/tests/dmd)
 set(RUN_DMD_TESTSUITE_EXE_FULL ${CMAKE_CURRENT_BINARY_DIR}/run-dmd-testsuite${CMAKE_EXECUTABLE_SUFFIX})
 add_custom_command(
     OUTPUT  ${RUN_DMD_TESTSUITE_EXE_FULL}

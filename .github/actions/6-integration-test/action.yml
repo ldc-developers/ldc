@@ -55,4 +55,4 @@ runs:
       run: |
         set -eux
         cd ..
-        installed/bin/ldc2 -run ldc/tests/d2/dmd-testsuite/runnable/test22597.c
+        installed/bin/ldc2 -run ldc/tests/dmd/runnable/test22597.c
