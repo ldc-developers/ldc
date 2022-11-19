@@ -649,6 +649,12 @@ dmd -cov -unittest myprog.d
                     $(LI $(I windows): Windows)
                 )`
         ),
+        Option("P=<preprocessorflag>",
+            "pass preprocessorflag to C preprocessor",
+            `Pass $(I preprocessorflag) to
+            $(WINDOWS sppn.exe or cl.exe)
+            $(UNIX cpp)`,
+        ),
         Option("preview=<name>",
             "enable an upcoming language change identified by 'name'",
             `Preview an upcoming language change identified by $(I id)`,
@@ -678,7 +684,7 @@ dmd -cov -unittest myprog.d
             )`,
         ),
         Option("release",
-            "compile release version",
+            "contracts and asserts are not emitted, and bounds checking is performed only in @safe functions",
             `Compile release version, which means not emitting run-time
             checks for contracts and asserts. Array bounds checking is not
             done for system and trusted functions, and assertion failures
@@ -826,8 +832,6 @@ dmd -cov -unittest myprog.d
             "give deprecation messages about all usages of complex or imaginary types", true, true),
         Feature("tls", "vtls",
             "list all variables going into thread local storage"),
-        Feature("vmarkdown", "vmarkdown",
-            "list instances of Markdown replacements in Ddoc"),
         Feature("in", "vin",
             "list all usages of 'in' on parameter"),
     ];
@@ -838,7 +842,6 @@ dmd -cov -unittest myprog.d
         Feature("dip1000", "useDIP1000",
                 "revert DIP1000 changes https://github.com/dlang/DIPs/blob/master/DIPs/other/DIP1000.md (Scoped Pointers)"),
         Feature("intpromote", "fix16997", "revert integral promotions for unary + - ~ operators"),
-        Feature("markdown", "markdown", "disable Markdown replacements in Ddoc"),
         Feature("dtorfields", "dtorFields", "don't destruct fields of partially constructed objects"),
     ];
 
@@ -852,6 +855,7 @@ dmd -cov -unittest myprog.d
             "implement https://github.com/dlang/DIPs/blob/master/DIPs/other/DIP1008.md (@nogc Throwable)"),
         Feature("dip1021", "useDIP1021",
             "implement https://github.com/dlang/DIPs/blob/master/DIPs/accepted/DIP1021.md (Mutable function arguments)"),
+        Feature("bitfields", "bitfields", "add bitfields https://github.com/dlang/dlang.org/pull/3190"),
         Feature("fieldwise", "fieldwise", "use fieldwise comparisons for struct equality"),
         Feature("fixAliasThis", "fixAliasThis",
             "when a symbol is resolved, check alias this scope before going to upper scopes"),
@@ -869,9 +873,8 @@ dmd -cov -unittest myprog.d
             "'in' contracts of overridden methods must be a superset of parent contract"),
         Feature("shortenedMethods", "shortenedMethods",
             "allow use of => for methods and top-level functions in addition to lambdas"),
-        // DEPRECATED previews
-        // trigger deprecation message once D repositories don't use this flag anymore
-        Feature("markdown", "markdown", "enable Markdown replacements in Ddoc", false, false),
+        Feature("fixImmutableConv", "fixImmutableConv",
+            "disallow unsound immutable conversions that were formerly incorrectly permitted"),
     ];
 }
 

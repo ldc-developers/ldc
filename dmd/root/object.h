@@ -26,7 +26,9 @@ enum DYNCAST
     DYNCAST_TUPLE,
     DYNCAST_PARAMETER,
     DYNCAST_STATEMENT,
-    DYNCAST_TEMPLATEPARAMETER
+    DYNCAST_CONDITION,
+    DYNCAST_TEMPLATEPARAMETER,
+    DYNCAST_INITIALIZER
 };
 
 /*
@@ -37,7 +39,7 @@ class RootObject
 public:
     RootObject() { }
 
-    virtual bool equals(const RootObject *o) const;
+    virtual bool equals(const RootObject * const o) const;
 
     /**
      * Pretty-print an Object. Useful for debugging the old-fashioned way.

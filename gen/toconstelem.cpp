@@ -165,8 +165,9 @@ public:
     Type *const t = e->type->toBasetype();
 
     if (auto ts = t->isTypeSArray()) {
-      bool zeroTerm = ts->dim->toInteger() == e->numberOfCodeUnits() + 1;
-      result = buildStringLiteralConstant(e, zeroTerm);
+      const auto arrayLength = ts->dim->toInteger();
+      assert(arrayLength >= e->numberOfCodeUnits());
+      result = buildStringLiteralConstant(e, arrayLength);
       return;
     }
 

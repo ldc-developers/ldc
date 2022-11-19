@@ -148,7 +148,7 @@ public:
       IrStruct *ir = getIrAggr(decl);
 
       // Define the __initZ symbol.
-      if (!decl->zeroInit) {
+      if (!decl->zeroInit()) {
         ir->getInitSymbol(/*define=*/true);
       }
 
@@ -226,14 +226,7 @@ public:
     }
     decl->ir->setDefined();
 
-    assert(decl->isexp);
-    assert(decl->objects);
-
-    for (auto o : *decl->objects) {
-      DsymbolExp *exp = static_cast<DsymbolExp *>(o);
-      assert(exp->op == EXP::dSymbol);
-      exp->s->accept(this);
-    }
+    decl->foreachVar(this);
   }
 
   //////////////////////////////////////////////////////////////////////////

@@ -57,14 +57,15 @@
 #include <cassert>
 #include <cstdio>
 
-void genTypeInfo(const Loc &loc, Type *torig, Scope *sc); // in dmd/typinf.d
+// in dmd/typinf.d:
+void genTypeInfo(Expression *e, const Loc &loc, Type *torig, Scope *sc);
 
 TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(const Loc &loc, Type *forType) {
   IF_LOG Logger::println("getOrCreateTypeInfoDeclaration(): %s",
                          forType->toChars());
   LOG_SCOPE
 
-  genTypeInfo(loc, forType, nullptr);
+  genTypeInfo(nullptr, loc, forType, nullptr);
 
   return forType->vtinfo;
 }

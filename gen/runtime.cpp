@@ -604,14 +604,6 @@ static void buildRuntimeModule() {
                 {"_d_arraysetlengthT", "_d_arraysetlengthiT"},
                 {typeInfoTy, sizeTy, voidArrayPtrTy}, {STCconst, 0, 0});
 
-  // byte[] _d_arrayappendcTX(const TypeInfo ti, ref byte[] px, size_t n)
-  createFwdDecl(LINK::c, voidArrayTy, {"_d_arrayappendcTX"},
-                {typeInfoTy, voidArrayTy, sizeTy}, {STCconst, STCref, 0});
-
-  // void[] _d_arrayappendT(const TypeInfo ti, ref byte[] x, byte[] y)
-  createFwdDecl(LINK::c, voidArrayTy, {"_d_arrayappendT"},
-                {typeInfoTy, voidArrayTy, voidArrayTy}, {STCconst, STCref, 0});
-
   // void[] _d_arrayappendcd(ref byte[] x, dchar c)
   // void[] _d_arrayappendwd(ref byte[] x, dchar c)
   createFwdDecl(LINK::c, voidArrayTy, {"_d_arrayappendcd", "_d_arrayappendwd"},
@@ -710,13 +702,8 @@ static void buildRuntimeModule() {
   createFwdDecl(LINK::c, voidArrayTy, {"_d_arrayassign_l", "_d_arrayassign_r"},
                 {typeInfoTy, voidArrayTy, voidArrayTy, voidPtrTy});
 
-  // void[] _d_arrayctor(TypeInfo ti, void[] from, void[] to)
-  createFwdDecl(LINK::c, voidArrayTy, {"_d_arrayctor"},
-                {typeInfoTy, voidArrayTy, voidArrayTy});
-
   // void* _d_arraysetassign(void* p, void* value, int count, TypeInfo ti)
-  // void* _d_arraysetctor(void* p, void* value, int count, TypeInfo ti)
-  createFwdDecl(LINK::c, voidPtrTy, {"_d_arraysetassign", "_d_arraysetctor"},
+  createFwdDecl(LINK::c, voidPtrTy, {"_d_arraysetassign"},
                 {voidPtrTy, voidPtrTy, intTy, typeInfoTy});
 
   //////////////////////////////////////////////////////////////////////////////

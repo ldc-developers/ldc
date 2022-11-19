@@ -232,7 +232,8 @@ LLConstant *toConstantArray(LLType *ct, LLArrayType *at, T *str, size_t len,
   return LLConstantArray::get(at, vals);
 }
 
-llvm::Constant *buildStringLiteralConstant(StringExp *se, bool zeroTerm);
+llvm::Constant *buildStringLiteralConstant(StringExp *se,
+                                           uint64_t bufferLength);
 
 /// Returns true if the specified symbol is to be defined on declaration,
 /// primarily for -linkonce-templates.

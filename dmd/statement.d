@@ -719,7 +719,7 @@ extern (C++) final class UnrolledLoopStatement : Statement
 
 /***********************************************************
  */
-extern (C++) class ScopeStatement : Statement
+extern (C++) final class ScopeStatement : Statement
 {
     Statement statement;
     Loc endloc;                 // location of closing curly bracket
@@ -784,7 +784,7 @@ extern (C++) final class ForwardingStatement : Statement
 
     extern (D) this(const ref Loc loc, Statement statement)
     {
-        auto sym = new ForwardingScopeDsymbol(null);
+        auto sym = new ForwardingScopeDsymbol();
         sym.symtab = new DsymbolTable();
         this(loc, sym, statement);
     }

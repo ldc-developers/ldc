@@ -31,7 +31,7 @@ void func()
     int[] quux;
     //CHECK: dcompute.d([[@LINE+1]]): Error: can only call functions from other `@compute` modules in `@compute` code
     quux.length = 1;
-    //CHECK: dcompute.d([[@LINE+1]]): Error: cannot use operator `~=` in `@compute` code
+    //CHECK: dcompute.d([[@LINE+1]]): Error: can only call functions from other `@compute` modules in `@compute` code
     quux ~= 42;
     //CHECK: dcompute.d([[@LINE+1]]): Error: cannot use operator `~` in `@compute` code
     cast(void) (quux ~ 1);

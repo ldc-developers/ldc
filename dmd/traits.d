@@ -132,6 +132,7 @@ shared static this()
         "getVirtualFunctions",
         "getVirtualMethods",
         "classInstanceSize",
+        "classInstanceAlignment",
         "allMembers",
         "derivedMembers",
         "isSame",
@@ -1211,7 +1212,7 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
         else
             assert(0);
     }
-    if (e.ident == Id.classInstanceSize)
+    if (e.ident == Id.classInstanceSize || e.ident == Id.classInstanceAlignment)
     {
         if (dim != 1)
             return dimError(1);
@@ -1234,7 +1235,7 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
             return ErrorExp.get();
         }
 
-        return new IntegerExp(e.loc, cd.structsize, Type.tsize_t);
+        return new IntegerExp(e.loc, e.ident == Id.classInstanceSize ? cd.structsize : cd.alignsize, Type.tsize_t);
     }
     if (e.ident == Id.getAliasThis)
     {
@@ -1574,7 +1575,7 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
         auto s = getDsymbol(o);
         if (!s)
         {
-            e.error("In expression `%s` `%s` can't have members", e.toChars(), o.toChars());
+            e.error("in expression `%s` `%s` can't have members", e.toChars(), o.toChars());
             e.errorSupplemental("`%s` must evaluate to either a module, a struct, an union, a class, an interface or a template instantiation", o.toChars());
 
             return ErrorExp.get();
@@ -1595,7 +1596,7 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
         auto sds = s.isScopeDsymbol();
         if (!sds || sds.isTemplateDeclaration())
         {
-            e.error("In expression `%s` %s `%s` has no members", e.toChars(), s.kind(), s.toChars());
+            e.error("in expression `%s` %s `%s` has no members", e.toChars(), s.kind(), s.toChars());
             e.errorSupplemental("`%s` must evaluate to either a module, a struct, an union, a class, an interface or a template instantiation", s.toChars());
             return ErrorExp.get();
         }

@@ -191,6 +191,8 @@ extern(C++) final class SemanticTimeTraceVisitor(SemaVisitor) : Visitor
 
     override void visit(InterfaceDeclaration idec) { semavisitor.visit(idec); }
 
+    override void visit(TupleDeclaration td) { semavisitor.visit(td); }
+
     override void visit(BitFieldDeclaration bfd) { semavisitor.visit(bfd); }
 }
 
