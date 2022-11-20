@@ -4,7 +4,7 @@
 
 // REQUIRES: Windows
 
-// RUN: %ldc -mscrtlib=libcmt                         -run "%S\..\d2\dmd-testsuite\runnable\eh.d"
-// RUN: %ldc -mscrtlib=libcmtd -link-defaultlib-debug -run "%S\..\d2\dmd-testsuite\runnable\eh.d"
-// RUN: %ldc -mscrtlib=msvcrt  -link-defaultlib-debug -run "%S\..\d2\dmd-testsuite\runnable\eh.d"
-// RUN: %ldc -mscrtlib=msvcrtd                        -run "%S\..\d2\dmd-testsuite\runnable\eh.d"
+// RUN: %ldc -mscrtlib=libcmt                         -run "%S\..\dmd\runnable\eh.d"
+// RUN: %ldc -mscrtlib=libcmtd -link-defaultlib-debug -run "%S\..\dmd\runnable\eh.d"
+// RUN: %ldc -mscrtlib=msvcrt  -link-defaultlib-debug -run "%S\..\dmd\runnable\eh.d"
+// RUN: %ldc -mscrtlib=msvcrtd                        -run "%S\..\dmd\runnable\eh.d"

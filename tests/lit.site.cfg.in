@@ -50,7 +50,7 @@ config.suffixes = ['.d',
 # directories.
 config.excludes = [
     'inputs',
-    'd2',
+    'dmd',
     'CMakeLists.txt',
     'runlit.py',
 ]

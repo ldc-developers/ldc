@@ -5,5 +5,5 @@
 	path = runtime/phobos
 	url = https://github.com/ldc-developers/phobos.git
 [submodule "tests/d2/dmd-testsuite"]
-	path = tests/d2/dmd-testsuite
+	path = tests/dmd
 	url = https://github.com/ldc-developers/dmd-testsuite.git

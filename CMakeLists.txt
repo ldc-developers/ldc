@@ -874,7 +874,7 @@ else()
     message(STATUS "Runtime file runtime/druntime/src/object.d not found, will build ldc binaries but not the standard library.")
 endif()
 if(D_VERSION EQUAL 2)
-    add_subdirectory(tests/d2)
+    add_subdirectory(tests/dmd)
 endif()
 add_subdirectory(tests)
 
