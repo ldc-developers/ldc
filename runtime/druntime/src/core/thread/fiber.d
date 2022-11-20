@@ -16,6 +16,31 @@ import core.thread.threadgroup;
 import core.thread.types;
 import core.thread.context;
 
+version (OSX)
+    version = Darwin;
+else version (iOS)
+    version = Darwin;
+else version (TVOS)
+    version = Darwin;
+else version (WatchOS)
+    version = Darwin;
+
+version (LDC)
+{
+    import ldc.attributes;
+    import ldc.llvmasm;
+
+    // Unconditionally change ABI to support sanitizers (adds fields to data structures):
+    version = SupportSanitizers_ABI;
+    // But runtime code is conditionally added by `SupportSanitizers`:
+    version (SupportSanitizers)
+    {
+        import ldc.sanitizers_optionally_linked;
+    }
+}
+else
+    private enum assumeUsed = null;
+
 ///////////////////////////////////////////////////////////////////////////////
 // Fiber Platform Detection
 ///////////////////////////////////////////////////////////////////////////////
@@ -87,6 +112,8 @@ private
         }
         else version (Posix)
         {
+            version = AsmPPC64_Posix;
+            version = AsmExternal;
             version = AlignFiberStackTo16Byte;
         }
     }
@@ -154,10 +181,15 @@ private
     import core.exception : onOutOfMemoryError;
     import core.stdc.stdlib : abort;
 
-    extern (C) void fiber_entryPoint() nothrow
+    extern (C) void fiber_entryPoint() nothrow /* LDC */ @assumeUsed
     {
         Fiber   obj = Fiber.getThis();
         assert( obj );
+
+        version (SupportSanitizers)
+        {
+            informSanitizerOfFinishSwitchFiber(obj.__fake_stack, &obj.__from_stack_bottom, &obj.__from_stack_size);
+        }
 
         assert( Thread.getThis().m_curr is obj.m_ctxt );
         atomicStore!(MemoryOrder.raw)(*cast(shared)&Thread.getThis().m_lock, false);
@@ -186,6 +218,122 @@ private
       extern (C) void fiber_switchContext( void** oldp, void* newp ) nothrow @nogc;
       version (AArch64)
           extern (C) void fiber_trampoline() nothrow;
+  }
+  else version (LDC_Windows)
+  {
+    extern (C) void fiber_switchContext( void** oldp, void* newp ) nothrow @nogc @naked
+    {
+        version (X86)
+        {
+            pragma(LDC_never_inline);
+
+            __asm(
+               `// save current stack state
+                push %ebp
+                mov  %esp, %ebp
+                push %edi
+                push %esi
+                push %ebx
+                push %fs:(0)
+                push %fs:(4)
+                push %fs:(8)
+                push %eax
+
+                // store oldp again with more accurate address
+                mov 8(%ebp), %eax
+                mov %esp, (%eax)
+                // load newp to begin context switch
+                mov 12(%ebp), %esp
+
+                // load saved state from new stack
+                pop %eax
+                pop %fs:(8)
+                pop %fs:(4)
+                pop %fs:(0)
+                pop %ebx
+                pop %esi
+                pop %edi
+                pop %ebp
+
+                // 'return' to complete switch
+                pop %ecx
+                jmp *%ecx`,
+                "~{memory},~{ebp},~{esp},~{eax},~{ebx},~{ecx},~{esi},~{edi}"
+            );
+        }
+        else version (X86_64)
+        {
+            // This inline asm assumes a return address has been pushed onto the stack
+            // (and so a stack not aligned to 16 bytes).
+            pragma(LDC_never_inline);
+
+            __asm(
+               `// save current stack state
+                push %rbp
+                mov  %rsp, %rbp
+                push %r12
+                push %r13
+                push %r14
+                push %r15
+                push %rdi
+                push %rsi
+                // 7 registers = 56 bytes; stack is now aligned to 16 bytes
+                sub $$0xA0, %rsp
+                movdqa %xmm6, 0x90(%rsp)
+                movdqa %xmm7, 0x80(%rsp)
+                movdqa %xmm8, 0x70(%rsp)
+                movdqa %xmm9, 0x60(%rsp)
+                movdqa %xmm10, 0x50(%rsp)
+                movdqa %xmm11, 0x40(%rsp)
+                movdqa %xmm12, 0x30(%rsp)
+                movdqa %xmm13, 0x20(%rsp)
+                movdqa %xmm14, 0x10(%rsp)
+                movdqa %xmm15, (%rsp)
+                push %rbx
+                xor  %rax, %rax
+                push %gs:(%rax)
+                push %gs:8(%rax)
+                push %gs:16(%rax)
+
+                // store oldp
+                mov %rsp, (%rcx)
+                // load newp to begin context switch
+                mov %rdx, %rsp
+
+                // load saved state from new stack
+                pop %gs:16(%rax)
+                pop %gs:8(%rax)
+                pop %gs:(%rax)
+                pop %rbx;
+                movdqa (%rsp), %xmm15
+                movdqa 0x10(%rsp), %xmm14
+                movdqa 0x20(%rsp), %xmm13
+                movdqa 0x30(%rsp), %xmm12
+                movdqa 0x40(%rsp), %xmm11
+                movdqa 0x50(%rsp), %xmm10
+                movdqa 0x60(%rsp), %xmm9
+                movdqa 0x70(%rsp), %xmm8
+                movdqa 0x80(%rsp), %xmm7
+                movdqa 0x90(%rsp), %xmm6
+                add $$0xA0, %rsp
+                pop %rsi
+                pop %rdi
+                pop %r15
+                pop %r14
+                pop %r13
+                pop %r12
+                pop %rbp
+
+                // 'return' to complete switch
+                pop %rcx
+                jmp *%rcx`,
+                "~{memory},~{rbp},~{rsp},~{rax},~{rbx},~{rcx},~{rsi},~{rdi},~{r12},~{r13},~{r14},~{r15}," ~
+                "~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15}"
+            );
+        }
+        else
+            static assert(false);
+    }
   }
   else
     extern (C) void fiber_switchContext( void** oldp, void* newp ) nothrow @nogc
@@ -383,6 +531,92 @@ private
     }
 }
 
+// Detect when a Fiber migrates between Threads for systems in which it may be
+// unsafe to do so.  A unittest below helps decide if CheckFiberMigration
+// should be set for your system.
+
+version (LDC)
+{
+    version (Darwin)
+    {
+        version (ARM) version = CheckFiberMigration;
+        version (AArch64) version = CheckFiberMigration;
+        version (X86) version = CheckFiberMigration;
+        version (X86_64) version = CheckFiberMigration;
+    }
+
+    version (Android) version = CheckFiberMigration;
+
+    // Fiber migration across threads is (probably) not possible with ASan fakestack enabled (different parts of the stack
+    // will contain fakestack pointers that were created on different threads...)
+    version (SupportSanitizers) version = CheckFiberMigration;
+}
+
+// Fiber support for SjLj style exceptions
+//
+// Exception handling based on setjmp/longjmp tracks the unwind points with a
+// linked list stack managed by _Unwind_SjLj_Register and
+// _Unwind_SjLj_Unregister.  In the context of Fibers, the stack needs to be
+// Fiber local, otherwise unwinding could weave through functions on other
+// Fibers as opposed to just the current Fiber.  The solution is to give each
+// Fiber a m_sjljExStackTop.
+//
+// Two implementations known to have this SjLj stack design are GCC's libgcc
+// and darwin libunwind for ARM (iOS).  Functions to get/set the current SjLj
+// stack are named differently in each implmentation:
+//
+// https://github.com/gcc-mirror/gcc/blob/master/libgcc/unwind-sjlj.c
+//
+// libgcc
+//   struct SjLj_Function_Context* _Unwind_SjLj_GetContext(void)
+//   void _Unwind_SjLj_SetContext(struct SjLj_Function_Context *fc)
+//
+// http://www.opensource.apple.com/source/libunwind/libunwind-30/src/Unwind-sjlj.c
+//
+// darwin (OS X)
+//   _Unwind_FunctionContext* __Unwind_SjLj_GetTopOfFunctionStack();
+//   void __Unwind_SjLj_SetTopOfFunctionStack(_Unwind_FunctionContext* fc);
+//
+// These functions are not extern but if we peek at the implementations it
+// turns out that _Unwind_SjLj_Register and _Unwind_SjLj_Unregister in both
+// libraries will manipulate the stack as we need.
+
+version (GNU_SjLj_Exceptions) version = SjLj_Exceptions;
+version (iOS) version(ARM)    version = SjLj_Exceptions;
+
+version (SjLj_Exceptions)
+private
+{
+    // libgcc struct SjLj_Function_Context and darwin struct
+    // _Unwind_FunctionContext have same initial layout so can get away with
+    // one type to mimic header of both here.
+    struct SjLjFuncContext
+    {
+        SjLjFuncContext* prev;
+        // rest of this struc we don't care about in swapSjLjStackTop below.
+    }
+
+    extern(C) @nogc nothrow
+    {
+        void _Unwind_SjLj_Register(SjLjFuncContext* fc);
+        void _Unwind_SjLj_Unregister(SjLjFuncContext* fc);
+    }
+
+    // Swap in a new stack top, returning the previous one
+    SjLjFuncContext* swapSjLjStackTop(SjLjFuncContext* newtop) @nogc nothrow
+    {
+        // register a dummy context to retrieve stack top, then plop our new
+        // stack top in its place before unregistering, making it the new top.
+        SjLjFuncContext fc;
+        _Unwind_SjLj_Register(&fc);
+
+        SjLjFuncContext* prevtop = fc.prev;
+        fc.prev = newtop;
+        _Unwind_SjLj_Unregister(&fc);
+
+        return prevtop;
+    }
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Fiber
@@ -784,6 +1018,39 @@ class Fiber
         return m_state;
     }
 
+    /**
+     * Return true if migrating a Fiber between Threads is unsafe on this
+     * system.  This is due to compiler optimizations that cache thread local
+     * variable addresses.  When Fiber.yield() returns on a different
+     * Thread, the addresses refer to the previous Thread's variables.
+     */
+    static @property bool migrationUnsafe() nothrow
+    {
+        version (CheckFiberMigration)
+            return true;
+        else
+            return false;
+    }
+
+    /**
+     * Allow this Fiber to be resumed on a different thread for systems where
+     * Fiber migration is unsafe (migrationUnsafe() is true).  Otherwise the
+     * first time a Fiber is resumed on a different Thread, a ThreadException
+     * is thrown.  This provides the programmer a reminder to be careful and
+     * helps detect such usage in libraries being ported from other systems.
+     *
+     * Fiber migration on such systems can be done safely if you control all
+     * the code and know that thread locals are not involved.
+     *
+     * For systems without this issue, allowMigration does nothing, as you are
+     * always free to migrate.
+     */
+    final void allowMigration() nothrow
+    {
+        // Does nothing if checking is disabled
+        version (CheckFiberMigration)
+            m_allowMigration = true;
+    }
 
     ///////////////////////////////////////////////////////////////////////////
     // Actions on Calling Fiber
@@ -894,6 +1161,18 @@ private:
     Throwable           m_unhandled;
     State               m_state;
 
+    // Set first time switchIn called to indicate this Fiber's Thread
+    Thread              m_curThread;
+
+    version (CheckFiberMigration)
+    {
+        bool m_allowMigration;
+    }
+
+    version (SjLj_Exceptions)
+    {
+        SjLjFuncContext* m_sjljExStackTop;
+    }
 
 private:
     ///////////////////////////////////////////////////////////////////////////
@@ -924,6 +1203,11 @@ private:
         //       base of the stack being allocated below.  However, doing so
         //       requires too much special logic to be worthwhile.
         m_ctxt = new StackContext;
+
+        version (SupportSanitizers)
+        {
+            // m_curThread is not initialized yet, so we have to wait with storing this StackContext's asan_fakestack handler until switchIn is called.
+        }
 
         version (Windows)
         {
@@ -1174,15 +1458,26 @@ private:
             __gshared static fp_t finalHandler = null;
             if ( finalHandler is null )
             {
-                static EXCEPTION_REGISTRATION* fs0() nothrow
+                version (LDC)
                 {
-                    asm pure nothrow @nogc
+                    static EXCEPTION_REGISTRATION* fs0() nothrow @naked
                     {
-                        naked;
-                        mov EAX, FS:[0];
-                        ret;
+                        return __asm!(EXCEPTION_REGISTRATION*)("mov %fs:(0), $0", "=r");
                     }
                 }
+                else
+                {
+                    static EXCEPTION_REGISTRATION* fs0() nothrow
+                    {
+                        asm pure nothrow @nogc
+                        {
+                            naked;
+                            mov EAX, FS:[0];
+                            ret;
+                        }
+                    }
+                }
+
                 auto reg = fs0();
                 while ( reg.next != sehChainEnd ) reg = reg.next;
 
@@ -1220,15 +1515,31 @@ private:
             // to be shifted by 8 bytes for the first call, as fiber_entryPoint
             // is an actual function expecting a stack which is not aligned
             // to 16 bytes.
-            static void trampoline()
+            version (LDC)
             {
-                asm pure nothrow @nogc
+                static void trampoline() @naked
                 {
-                    naked;
-                    sub RSP, 32; // Shadow space (Win64 calling convention)
-                    call fiber_entryPoint;
-                    xor RCX, RCX; // This should never be reached, as
-                    jmp RCX;      // fiber_entryPoint must never return.
+                    __asm(
+                       `sub $$32, %rsp
+                        call fiber_entryPoint
+                        xor %rcx, %rcx
+                        jmp *%rcx`,
+                        "~{rsp},~{rcx}"
+                    );
+                }
+            }
+            else
+            {
+                static void trampoline()
+                {
+                    asm pure nothrow @nogc
+                    {
+                        naked;
+                        sub RSP, 32; // Shadow space (Win64 calling convention)
+                        call fiber_entryPoint;
+                        xor RCX, RCX; // This should never be reached, as
+                        jmp RCX;      // fiber_entryPoint must never return.
+                    }
                 }
             }
 
@@ -1319,6 +1630,120 @@ private:
                 pstack += int.sizeof * 20;
             }
 
+            assert( (cast(size_t) pstack & 0x0f) == 0 );
+        }
+        else version (AsmPPC64_Posix)
+        {
+            version (StackGrowsDown) {}
+            else static assert(0);
+
+            /*
+             * The stack frame uses the standard layout except for floating
+             * point and vector registers.
+             *
+             * ELFv2:
+             * +------------------------+
+             * | TOC Pointer Doubleword | SP+24
+             * +------------------------+
+             * | LR Save Doubleword     | SP+16
+             * +------------------------+
+             * | Reserved               | SP+12
+             * +------------------------+
+             * | CR Save Word           | SP+8
+             * +------------------------+
+             * | Back Chain             | SP+176 <-- Previous function
+             * +------------------------+
+             * | GPR Save Area (14-31)  | SP+32
+             * +------------------------+
+             * | TOC Pointer Doubleword | SP+24
+             * +------------------------+
+             * | LR Save Doubleword     | SP+16
+             * +------------------------+
+             * | Reserved               | SP+12
+             * +------------------------+
+             * | CR Save Word           | SP+8
+             * +------------------------+
+             * | Back Chain             | SP+0   <-- Stored stack pointer
+             * +------------------------+
+             * | VR Save Area (20-31)   | SP-16
+             * +------------------------+
+             * | FPR Save Area (14-31)  | SP-200
+             * +------------------------+
+             *
+             * ELFv1:
+             * +------------------------+
+             * | Parameter Save Area    | SP+48
+             * +------------------------+
+             * | TOC Pointer Doubleword | SP+40
+             * +------------------------+
+             * | Link editor doubleword | SP+32
+             * +------------------------+
+             * | Compiler Doubleword    | SP+24
+             * +------------------------+
+             * | LR Save Doubleword     | SP+16
+             * +------------------------+
+             * | Reserved               | SP+12
+             * +------------------------+
+             * | CR Save Word           | SP+8
+             * +------------------------+
+             * | Back Chain             | SP+256 <-- Previous function
+             * +------------------------+
+             * | GPR Save Area (14-31)  | SP+112
+             * +------------------------+
+             * | Parameter Save Area    | SP+48
+             * +------------------------+
+             * | TOC Pointer Doubleword | SP+40
+             * +------------------------+
+             * | Link editor doubleword | SP+32
+             * +------------------------+
+             * | Compiler Doubleword    | SP+24
+             * +------------------------+
+             * | LR Save Doubleword     | SP+16
+             * +------------------------+
+             * | Reserved               | SP+12
+             * +------------------------+
+             * | CR Save Word           | SP+8
+             * +------------------------+
+             * | Back Chain             | SP+0   <-- Stored stack pointer
+             * +------------------------+
+             * | VR Save Area (20-31)   | SP-16
+             * +------------------------+
+             * | FPR Save Area (14-31)  | SP-200
+             * +------------------------+
+             */
+            assert( (cast(size_t) pstack & 0x0f) == 0 );
+            version (ELFv1)
+            {
+                pstack -= size_t.sizeof * 8;                // Parameter Save Area
+                push( 0x00000000_00000000 );                // TOC Pointer Doubleword
+                push( 0x00000000_00000000 );                // Link editor doubleword
+                push( 0x00000000_00000000 );                // Compiler Doubleword
+                push( cast(size_t) &fiber_entryPoint );     // LR Save Doubleword
+                push( 0x00000000_00000000 );                // CR Save Word
+                push( 0x00000000_00000000 );                // Back Chain
+                size_t backchain = cast(size_t) pstack;     // Save back chain
+                pstack -= size_t.sizeof * 18;               // GPR Save Area
+                pstack -= size_t.sizeof * 8;                // Parameter Save Area
+                push( 0x00000000_00000000 );                // TOC Pointer Doubleword
+                push( 0x00000000_00000000 );                // Link editor doubleword
+                push( 0x00000000_00000000 );                // Compiler Doubleword
+                push( 0x00000000_00000000 );                // LR Save Doubleword
+                push( 0x00000000_00000000 );                // CR Save Word
+                push( backchain );                          // Back Chain
+            }
+            else
+            {
+                push( 0x00000000_00000000 );                // TOC Pointer Doubleword
+                push( cast(size_t) &fiber_entryPoint );     // LR Save Doubleword
+                push( 0x00000000_00000000 );                // CR Save Word
+                push( 0x00000000_00000000 );                // Back Chain
+                size_t backchain = cast(size_t) pstack;     // Save back chain
+                pstack -= size_t.sizeof * 18;               // GPR Save Area
+                push( 0x00000000_00000000 );                // TOC Pointer Doubleword
+                push( 0x00000000_00000000 );                // LR Save Doubleword
+                push( 0x00000000_00000000 );                // CR Save Word
+                push( backchain );                          // Back Chain
+            }
             assert( (cast(size_t) pstack & 0x0f) == 0 );
         }
         else version (AsmPPC_Darwin)
@@ -1496,9 +1921,49 @@ private:
     //
     final void switchIn() nothrow @nogc
     {
+        version (LDC) pragma(inline, false);
+
         Thread  tobj = Thread.getThis();
         void**  oldp = &tobj.m_curr.tstack;
         void*   newp = m_ctxt.tstack;
+
+        version (CheckFiberMigration)
+        {
+            if (m_curThread is null || m_allowMigration)
+                m_curThread = tobj;
+            else if (tobj !is m_curThread)
+            {
+                // allocate and construct a ThreadException manually for @nogc
+                import core.stdc.stdlib : malloc;
+                import core.thread.threadbase : ThreadException;
+                enum threadExceptionSize = __traits(classInstanceSize, ThreadException);
+                if (auto e = cast(ThreadException) malloc(threadExceptionSize))
+                {
+                    import core.lifetime : emplace;
+                    emplace(e,
+                        "Migrating Fibers between Threads on this platform may lead " ~
+                        "to incorrect thread local variable access.  To allow " ~
+                        "migration anyway, call Fiber.allowMigration()");
+                    m_unhandled = e;
+                    // the exception will leak...
+                }
+                return;
+            }
+        }
+        else
+        {
+            m_curThread = tobj;
+        }
+
+        version (SupportSanitizers)
+        {
+            // Fiber migration across threads is (probably) not possible with fakestack enabled (different parts of the stack
+            // will contain fakestack pointers that were created on different threads...)
+            m_ctxt.asan_fakestack = m_curThread.asan_fakestack;
+        }
+
+        version (SjLj_Exceptions)
+            SjLjFuncContext* oldsjlj = swapSjLjStackTop(m_sjljExStackTop);
 
         // NOTE: The order of operations here is very important.  The current
         //       stack top must be stored before m_lock is set, and pushContext
@@ -1515,13 +1980,32 @@ private:
         atomicStore!(MemoryOrder.raw)(*cast(shared)&tobj.m_lock, true);
         tobj.pushContext( m_ctxt );
 
+        version (SupportSanitizers)
+        {
+            version (StackGrowsDown)
+                auto new_bottom = m_ctxt.bstack - m_size;
+            else
+                auto new_bottom = m_ctxt.bstack;
+
+            informSanitizerOfStartSwitchFiber(&__fake_stack, new_bottom, m_size);
+        }
+
         fiber_switchContext( oldp, newp );
+
+        version (SupportSanitizers)
+        {
+            informSanitizerOfFinishSwitchFiber((m_state == State.TERM) ? null : __fake_stack,
+                                               &__from_stack_bottom, &__from_stack_size);
+        }
 
         // NOTE: As above, these operations must be performed in a strict order
         //       to prevent Bad Things from happening.
         tobj.popContext();
         atomicStore!(MemoryOrder.raw)(*cast(shared)&tobj.m_lock, false);
         tobj.m_curr.tstack = tobj.m_curr.bstack;
+
+        version (SjLj_Exceptions)
+            m_sjljExStackTop = swapSjLjStackTop(oldsjlj);
     }
 
 
@@ -1530,7 +2014,9 @@ private:
     //
     final void switchOut() nothrow @nogc
     {
-        Thread  tobj = Thread.getThis();
+        version (LDC) pragma(inline, false);
+
+        Thread  tobj = m_curThread;
         void**  oldp = &m_ctxt.tstack;
         void*   newp = tobj.m_curr.within.tstack;
 
@@ -1548,16 +2034,37 @@ private:
         *oldp = getStackTop();
         atomicStore!(MemoryOrder.raw)(*cast(shared)&tobj.m_lock, true);
 
+        version (SupportSanitizers)
+        {
+            informSanitizerOfStartSwitchFiber(&__fake_stack, __from_stack_bottom, __from_stack_size);
+        }
+
         fiber_switchContext( oldp, newp );
+
+        version (SupportSanitizers)
+        {
+            informSanitizerOfFinishSwitchFiber(__fake_stack, &__from_stack_bottom, &__from_stack_size);
+        }
 
         // NOTE: As above, these operations must be performed in a strict order
         //       to prevent Bad Things from happening.
         // NOTE: If use of this fiber is multiplexed across threads, the thread
         //       executing here may be different from the one above, so get the
         //       current thread handle before unlocking, etc.
-        tobj = Thread.getThis();
+        tobj = m_curThread;
         atomicStore!(MemoryOrder.raw)(*cast(shared)&tobj.m_lock, false);
         tobj.m_curr.tstack = tobj.m_curr.bstack;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Address Sanitizer support
+    ///////////////////////////////////////////////////////////////////////////
+    version (SupportSanitizers_ABI)
+    {
+    private:
+        void* __fake_stack;
+        const(void)* __from_stack_bottom;
+        size_t __from_stack_size;
     }
 }
 
@@ -1675,6 +2182,91 @@ unittest
     group.joinAll();
 }
 
+// Try to detect if version CheckFiberMigration should be set, or if it is
+// set, make sure it behaves properly.  The issue is that thread local addr
+// may be cached by the compiler and that doesn't play well when Fibers
+// migrate between Threads.  This may only happen when optimization
+// enabled.  For that reason, should run this unittest with various
+// optimization levels.
+//
+// https://github.com/ldc-developers/ldc/issues/666
+unittest
+{
+    static int tls;
+
+    static yield_noinline()
+    {
+        import ldc.intrinsics;
+        pragma(LDC_never_inline);
+        Fiber.yield();
+    }
+
+    auto f = new Fiber(
+    {
+        ++tls;                               // happens on main thread
+        yield_noinline();
+        ++tls;                               // happens on other thread,
+        // 1 if tls addr uncached, 2 if addr was cached
+    });
+
+    auto t = new Thread(
+    {
+        assert(tls == 0);
+
+        version (CheckFiberMigration)
+        {
+            import core.thread.threadbase : ThreadException;
+            try
+            {
+                f.call();
+                assert(false, "Should get ThreadException when Fiber migrated");
+            }
+            catch (ThreadException ex)
+            {
+            }
+
+            f.allowMigration();
+        }
+
+        f.call();
+        // tls may be 0 (wrong) or 1 (good) depending on thread local handling
+        // by compiler
+    });
+
+    assert(tls == 0);
+    f.call();
+    assert(tls == 1);
+
+    t.start();
+    t.join();
+
+    version (CheckFiberMigration)
+    {
+        assert(Fiber.migrationUnsafe);
+    }
+    else version (FiberMigrationTest)
+    {
+        assert(!Fiber.migrationUnsafe);
+        // If thread local addr not cached (correct behavior), then tls should
+        // still be 1.
+        assert(tls != 2,
+               "Not safe to migrate Fibers between Threads on your system. " ~
+               "Consider setting version CheckFiberMigration for this system " ~
+               "in thread.d");
+        // verify un-cached correct case
+        assert(tls == 1);
+    }
+    else
+    {
+        if (tls == 2)
+        {
+            import core.stdc.stdio : puts;
+            puts("Not safe to migrate Fibers between Threads on your system. " ~
+                 "Consider setting version CheckFiberMigration for this system " ~
+                 "in thread.d");
+        }
+    }
+}
 
 // Multiple threads running shared fibers
 unittest
@@ -1709,6 +2301,7 @@ unittest
     foreach (ref fib; fibs)
     {
         fib = new TestFiber();
+        fib.allowMigration();
     }
 
     auto group = new ThreadGroup();
@@ -1990,9 +2583,16 @@ version (AsmX86_64_Windows)
         testNonvolatileRegister!("R13")();
         testNonvolatileRegister!("R14")();
         testNonvolatileRegister!("R15")();
+      version (LDC)
+      {
+        // FIXME: fails with `-O` (unless in separate object file)
+      }
+      else
+      {
         testNonvolatileRegister!("RDI")();
         testNonvolatileRegister!("RSI")();
         testNonvolatileRegister!("RBX")();
+      }
 
         testNonvolatileRegisterSSE!("XMM6")();
         testNonvolatileRegisterSSE!("XMM7")();

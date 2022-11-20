@@ -14,6 +14,8 @@
  */
 module rt.cmath2;
 
+version (LDC) {} else:
+
 import core.stdc.math;
 
 extern (C):

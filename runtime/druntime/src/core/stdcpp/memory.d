@@ -11,6 +11,12 @@
 
 module core.stdcpp.memory;
 
+// LDC: empty module for unsupported C++ runtimes
+version (CppRuntime_Microsoft)  version = Supported;
+else version (CppRuntime_Gcc)   version = Supported;
+else version (CppRuntime_Clang) version = Supported;
+version (Supported):
+
 public import core.stdcpp.allocator;
 
 import core.stdcpp.xutility : StdNamespace;

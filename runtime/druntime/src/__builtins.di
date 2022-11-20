@@ -27,6 +27,38 @@ version (Posix)
         alias __va_list_tag = imported!"core.stdc.stdarg".__va_list_tag;
 }
 
+version (LDC)
+{
+    // For some targets, __builtin_va_list resolves to __va_list.
+    // Define it like we do in object.d.
+
+    version (ARM)     version = ARM_Any;
+    version (AArch64) version = ARM_Any;
+
+    // Define a __va_list alias if the platform uses an elaborate type, as it
+    // is referenced from implicitly generated code for D-style variadics, etc.
+    // LDC does not require people to manually import core.vararg like DMD does.
+    version (X86_64)
+    {
+        version (Win64) {} else
+        public import core.internal.vararg.sysv_x64 : __va_list;
+    }
+    else version (ARM_Any)
+    {
+        // Darwin does not use __va_list
+        version (OSX) {}
+        else version (iOS) {}
+        else version (TVOS) {}
+        else version (WatchOS) {}
+        else:
+
+        version (ARM)
+            public import core.stdc.stdarg : __va_list;
+        else version (AArch64)
+            public import core.internal.vararg.aarch64 : __va_list;
+    }
+}
+
 alias __builtin_va_start = imported!"core.stdc.stdarg".va_start;
 
 alias __builtin_va_end = imported!"core.stdc.stdarg".va_end;
@@ -101,4 +133,32 @@ version (DigitalMars)
     {
         ulong a, b;
     }
+}
+else version (LDC)
+{
+    import ldc.intrinsics;
+
+    double __builtin_inf()()  { return double.infinity; }
+    float  __builtin_inff()() { return float.infinity; }
+    real   __builtin_infl()() { return real.infinity; }
+
+    alias __builtin_huge_val  = __builtin_inf;
+    alias __builtin_huge_valf = __builtin_inff;
+    alias __builtin_huge_vall = __builtin_infl;
+
+    alias __builtin_fabs  = llvm_fabs!double;
+    alias __builtin_fabsf = llvm_fabs!float;
+    alias __builtin_fabsl = llvm_fabs!real;
+
+    alias __builtin_bswap16 = llvm_bswap!ushort;
+    alias __builtin_bswap32 = llvm_bswap!uint;
+    alias __builtin_bswap64 = llvm_bswap!ulong;
+
+    int   __builtin_constant_p(T)(T exp) { return 0; }
+    alias __builtin_expect = llvm_expect!long;
+    void* __builtin_assume_aligned()(const void* p, size_t align_, ...) { return cast(void*)p; }
+    void __builtin_assume(T)(lazy T arg) { }
+
+    import core.int128 : Cent;
+    alias __uint128_t = Cent;
 }

@@ -1,8 +1,14 @@
 include ../common.mak
 
-TESTS := attributes sentinel sentinel1 sentinel2 printf memstomp invariant logging \
-		 precise precisegc forkgc forkgc2 \
-		 sigmaskgc startbackgc recoverfree nocollect concurrent precise_concurrent hospital
+TESTS := attributes sentinel printf memstomp invariant logging \
+		 precise precisegc \
+		 recoverfree nocollect
+# LDC: disable POSIX-specific tests on Windows
+ifeq (,$(findstring win,$(OS)))
+TESTS += sentinel1 sentinel2 \
+		 forkgc forkgc2 \
+		 sigmaskgc startbackgc concurrent precise_concurrent hospital
+endif
 
 ifeq ($(OS),linux)
 	TESTS+=issue22843

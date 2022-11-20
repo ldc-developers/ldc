@@ -21,27 +21,37 @@ extern(C):
 nothrow:
 @nogc:
 
-// VS2013- FILE.
-struct _iobuf
+version (LDC)
 {
-    char* _ptr;
-    int   _cnt;
-    char* _base;
-    int   _flag;
-    int   _file;
-    int   _charbuf;
-    int   _bufsiz;
-    char* _tmpfname;
+    // LDC doesn't support MSVC versions before VS2015
+    FILE* __acrt_iob_func(int hnd);
+
+    __gshared ubyte msvcUsesUCRT = 1;
 }
+else // !LDC
+{
+    // VS2013- FILE.
+    struct _iobuf
+    {
+        char* _ptr;
+        int   _cnt;
+        char* _base;
+        int   _flag;
+        int   _file;
+        int   _charbuf;
+        int   _bufsiz;
+        char* _tmpfname;
+    }
 
-FILE* __acrt_iob_func(int hnd);     // VS2015+
-_iobuf* __iob_func();               // VS2013-
+    FILE* __acrt_iob_func(int hnd);     // VS2015+
+    _iobuf* __iob_func();               // VS2013-
 
-int _set_output_format(int format); // VS2013-
+    int _set_output_format(int format); // VS2013-
 
-immutable void* _nullfunc = null;
+    immutable void* _nullfunc = null;
 
-__gshared ubyte msvcUsesUCRT;
+    __gshared ubyte msvcUsesUCRT;
+} // !LDC
 
 version (X86)
     enum cPrefix = "_";
@@ -53,153 +63,172 @@ mixin template declareAlternateName(string name, string alternateName)
     mixin(`pragma(linkerDirective, "/alternatename:` ~ cPrefix~name ~ `=` ~ cPrefix~alternateName ~ `");`);
 }
 
-mixin declareAlternateName!("__acrt_iob_func", "_msvc_acrt_iob_func");
-mixin declareAlternateName!("__iob_func", "_nullfunc");
-mixin declareAlternateName!("_set_output_format", "_nullfunc");
-
-private bool isAvailable(alias f)()
+version (LDC)
 {
-    auto p = cast(void**) &f; // required to prevent frontend 'optimization'...
-    return p != &_nullfunc;
+    // dummy, used to link in this object file
+    void init_msvc() {}
+
+    // needed for POSIX names
+    pragma(lib, "oldnames.lib");
+    // VS2015+: printf/scanf family defined inline in C headers
+    pragma(lib, "legacy_stdio_definitions.lib");
+
+    // The MinGW-w64 libs don't provide _(_)chkstk; fall back to the
+    // implementation in LLVM's builtins compiler-rt lib.
+    version (X86_64)
+        mixin declareAlternateName!("__chkstk", "___chkstk_ms");
+    else
+        mixin declareAlternateName!("_chkstk", "__chkstk"); // `__chkstk_ms` isn't the MS-compatible one!
 }
-
-void init_msvc()
+else // !LDC
 {
-    if (isAvailable!_set_output_format)
+    mixin declareAlternateName!("__acrt_iob_func", "_msvc_acrt_iob_func");
+    mixin declareAlternateName!("__iob_func", "_nullfunc");
+    mixin declareAlternateName!("_set_output_format", "_nullfunc");
+
+    private bool isAvailable(alias f)()
     {
-        enum _TWO_DIGIT_EXPONENT = 1;
-        _set_output_format(_TWO_DIGIT_EXPONENT);
+        auto p = cast(void**) &f; // required to prevent frontend 'optimization'...
+        return p != &_nullfunc;
     }
-    else
-        msvcUsesUCRT = 1;
-}
 
-// VS2013- implements stdin/out/err using a macro, VS2015+ provides __acrt_iob_func
-FILE* _msvc_acrt_iob_func(int hnd)
-{
-    if (isAvailable!__iob_func)
-        return cast(FILE*) (__iob_func() + hnd);
-    else
-        assert(false);
-}
-
-// VS2015+ wraps (v)snprintf into an inlined function calling __stdio_common_vsprintf
-//  wrap it back to the original function if it doesn't exist in the C library
-int _msvc_stdio_common_vsprintf(
-    ulong options,
-    char* buffer,
-    size_t buffer_count,
-    const char* format,
-    void* locale,
-    va_list arglist
-)
-{
-    enum _CRT_INTERNAL_PRINTF_STANDARD_SNPRINTF_BEHAVIOR = 2;
-    int r = _vsnprintf(buffer, buffer_count, format, arglist);
-    if ((options & _CRT_INTERNAL_PRINTF_STANDARD_SNPRINTF_BEHAVIOR) &&
-        (buffer_count != 0 && buffer))
+    void init_msvc()
     {
-        // mimic vsnprintf semantics for most use cases
-        if (r == buffer_count)
+        if (isAvailable!_set_output_format)
         {
-            buffer[buffer_count - 1] = 0;
-            return r;
+            enum _TWO_DIGIT_EXPONENT = 1;
+            _set_output_format(_TWO_DIGIT_EXPONENT);
         }
-        if (r == -1)
+        else
+            msvcUsesUCRT = 1;
+    }
+
+    // VS2013- implements stdin/out/err using a macro, VS2015+ provides __acrt_iob_func
+    FILE* _msvc_acrt_iob_func(int hnd)
+    {
+        if (isAvailable!__iob_func)
+            return cast(FILE*) (__iob_func() + hnd);
+        else
+            assert(false);
+    }
+
+    // VS2015+ wraps (v)snprintf into an inlined function calling __stdio_common_vsprintf
+    //  wrap it back to the original function if it doesn't exist in the C library
+    int _msvc_stdio_common_vsprintf(
+        ulong options,
+        char* buffer,
+        size_t buffer_count,
+        const char* format,
+        void* locale,
+        va_list arglist
+    )
+    {
+        enum _CRT_INTERNAL_PRINTF_STANDARD_SNPRINTF_BEHAVIOR = 2;
+        int r = _vsnprintf(buffer, buffer_count, format, arglist);
+        if ((options & _CRT_INTERNAL_PRINTF_STANDARD_SNPRINTF_BEHAVIOR) &&
+            (buffer_count != 0 && buffer))
         {
-            buffer[buffer_count - 1] = 0;
-            return _vsnprintf(null, 0, format, arglist);
+            // mimic vsnprintf semantics for most use cases
+            if (r == buffer_count)
+            {
+                buffer[buffer_count - 1] = 0;
+                return r;
+            }
+            if (r == -1)
+            {
+                buffer[buffer_count - 1] = 0;
+                return _vsnprintf(null, 0, format, arglist);
+            }
         }
+        return r;
     }
-    return r;
-}
 
-mixin declareAlternateName!("__stdio_common_vsprintf", "_msvc_stdio_common_vsprintf");
+    mixin declareAlternateName!("__stdio_common_vsprintf", "_msvc_stdio_common_vsprintf");
 
-// VS2015+ provides C99-conformant (v)snprintf functions, so weakly
-// link to legacy _(v)snprintf (not C99-conformant!) for VS2013- only
+    // VS2015+ provides C99-conformant (v)snprintf functions, so weakly
+    // link to legacy _(v)snprintf (not C99-conformant!) for VS2013- only
 
-mixin declareAlternateName!("snprintf", "_snprintf");
-mixin declareAlternateName!("vsnprintf", "_vsnprintf");
+    mixin declareAlternateName!("snprintf", "_snprintf");
+    mixin declareAlternateName!("vsnprintf", "_vsnprintf");
 
-// VS2013- implements these functions as macros, VS2015+ provides symbols
+    // VS2013- implements these functions as macros, VS2015+ provides symbols
 
-mixin declareAlternateName!("_fputc_nolock", "_msvc_fputc_nolock");
-mixin declareAlternateName!("_fgetc_nolock", "_msvc_fgetc_nolock");
-mixin declareAlternateName!("rewind", "_msvc_rewind");
-mixin declareAlternateName!("clearerr", "_msvc_clearerr");
-mixin declareAlternateName!("feof", "_msvc_feof");
-mixin declareAlternateName!("ferror", "_msvc_ferror");
-mixin declareAlternateName!("fileno", "_msvc_fileno");
+    mixin declareAlternateName!("_fputc_nolock", "_msvc_fputc_nolock");
+    mixin declareAlternateName!("_fgetc_nolock", "_msvc_fgetc_nolock");
+    mixin declareAlternateName!("rewind", "_msvc_rewind");
+    mixin declareAlternateName!("clearerr", "_msvc_clearerr");
+    mixin declareAlternateName!("feof", "_msvc_feof");
+    mixin declareAlternateName!("ferror", "_msvc_ferror");
+    mixin declareAlternateName!("fileno", "_msvc_fileno");
 
-// VS2013- helper functions
-int _filbuf(_iobuf* fp);
-int _flsbuf(int c, _iobuf* fp);
+    // VS2013- helper functions
+    int _filbuf(_iobuf* fp);
+    int _flsbuf(int c, _iobuf* fp);
 
-mixin declareAlternateName!("_filbuf", "_nullfunc");
-mixin declareAlternateName!("_flsbuf", "_nullfunc");
+    mixin declareAlternateName!("_filbuf", "_nullfunc");
+    mixin declareAlternateName!("_flsbuf", "_nullfunc");
 
-int _msvc_fputc_nolock(int c, _iobuf* fp)
-{
-    fp._cnt--;
-    if (fp._cnt >= 0)
+    int _msvc_fputc_nolock(int c, _iobuf* fp)
     {
-        *fp._ptr = cast(char) c;
-        fp._ptr++;
-        return cast(char) c;
+        fp._cnt--;
+        if (fp._cnt >= 0)
+        {
+            *fp._ptr = cast(char) c;
+            fp._ptr++;
+            return cast(char) c;
+        }
+        else
+            return _flsbuf(c, fp);
     }
-    else
-        return _flsbuf(c, fp);
-}
 
-int _msvc_fgetc_nolock(_iobuf* fp)
-{
-    fp._cnt--;
-    if (fp._cnt >= 0)
+    int _msvc_fgetc_nolock(_iobuf* fp)
     {
-        const char c = *fp._ptr;
-        fp._ptr++;
-        return c;
+        fp._cnt--;
+        if (fp._cnt >= 0)
+        {
+            const char c = *fp._ptr;
+            fp._ptr++;
+            return c;
+        }
+        else
+            return _filbuf(fp);
     }
-    else
-        return _filbuf(fp);
-}
 
-enum
-{
-    SEEK_SET = 0,
-    _IOEOF   = 0x10,
-    _IOERR   = 0x20
-}
+    enum
+    {
+        SEEK_SET = 0,
+        _IOEOF   = 0x10,
+        _IOERR   = 0x20
+    }
 
-int fseek(_iobuf* stream, int offset, int origin);
+    int fseek(_iobuf* stream, int offset, int origin);
 
-void _msvc_rewind(_iobuf* stream)
-{
-    fseek(stream, 0, SEEK_SET);
-    stream._flag &= ~_IOERR;
-}
+    void _msvc_rewind(_iobuf* stream)
+    {
+        fseek(stream, 0, SEEK_SET);
+        stream._flag &= ~_IOERR;
+    }
 
-void _msvc_clearerr(_iobuf* stream)
-{
-    stream._flag &= ~(_IOERR | _IOEOF);
-}
+    void _msvc_clearerr(_iobuf* stream)
+    {
+        stream._flag &= ~(_IOERR | _IOEOF);
+    }
 
-int  _msvc_feof(_iobuf* stream)
-{
-    return stream._flag & _IOEOF;
-}
+    int  _msvc_feof(_iobuf* stream)
+    {
+        return stream._flag & _IOEOF;
+    }
 
-int  _msvc_ferror(_iobuf* stream)
-{
-    return stream._flag & _IOERR;
-}
+    int  _msvc_ferror(_iobuf* stream)
+    {
+        return stream._flag & _IOERR;
+    }
 
-int  _msvc_fileno(_iobuf* stream)
-{
-    return stream._file;
-}
-
+    int  _msvc_fileno(_iobuf* stream)
+    {
+        return stream._file;
+    }
+} // !LDC
 
 
 /**

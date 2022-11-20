@@ -68,6 +68,21 @@ extern (C) void* _d_allocmemory(size_t sz) @weak
     return GC.malloc(sz);
 }
 
+
+version (LDC)
+{
+
+/**
+ * for allocating a single POD value
+ */
+extern (C) void* _d_allocmemoryT(TypeInfo ti) @weak
+{
+    return GC.malloc(ti.tsize(), !(ti.flags() & 1) ? BlkAttr.NO_SCAN : 0);
+}
+
+} // version (LDC)
+
+
 /**
 Create a new class instance.
 
@@ -81,7 +96,9 @@ Params:
 
 Returns: newly created object
 */
-extern (C) Object _d_newclass(const ClassInfo ci) @weak
+// adapted for LDC
+pragma(inline, true)
+private extern (D) Object _d_newclass(bool initialize)(const ClassInfo ci)
 {
     import core.stdc.stdlib;
     import core.exception : onOutOfMemoryError;
@@ -127,11 +144,34 @@ extern (C) Object _d_newclass(const ClassInfo ci) @weak
         printf("init[4] = %x\n", (cast(uint*) init)[4]);
     }
 
+  static if (initialize) // LDC
+  {
     // initialize it
     p[0 .. init.length] = init[];
+  }
 
     debug(PRINTF) printf("initialization done\n");
     return cast(Object) p;
+}
+
+version (LDC)
+{
+
+/**
+ *
+ */
+extern (C) Object _d_newclass(const ClassInfo ci) @weak
+{
+    return _d_newclass!true(ci);
+}
+
+// Initialization is performed in DtoNewClass(), so only allocate
+// the class in druntime (LDC issue #966).
+extern (C) Object _d_allocclass(const ClassInfo ci) @weak
+{
+    return _d_newclass!false(ci);
+}
+
 }
 
 

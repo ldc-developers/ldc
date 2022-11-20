@@ -858,6 +858,16 @@ extern (C)
 // TLS storage shared for all errors, chaining might create circular reference
 private align(2 * size_t.sizeof) void[256] _store;
 
+version (LDC) version (Windows)
+{
+    version = LDC_Windows;
+
+    // cannot access TLS globals directly across DLL boundaries, e.g.,
+    // when instantiating `staticError` below in another DLL
+    pragma(inline, false) // could be safely inlined in the binary containing druntime only
+    private ref getStore() { return _store; }
+}
+
 // only Errors for now as those are rarely chained
 private T staticError(T, Args...)(auto ref Args args)
     if (is(T : Error))
@@ -868,7 +878,12 @@ private T staticError(T, Args...)(auto ref Args args)
         static assert(__traits(classInstanceSize, T) <= _store.length,
                       T.stringof ~ " is too large for staticError()");
 
-        return cast(T) _store.ptr;
+        version (LDC_Windows)
+            auto store = &getStore();
+        else
+            auto store = &_store;
+
+        return cast(T) store.ptr;
     }
     auto res = (cast(T function() @trusted pure nothrow @nogc) &get)();
     import core.lifetime : emplace;

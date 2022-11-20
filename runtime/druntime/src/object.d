@@ -70,6 +70,35 @@ alias string  = immutable(char)[];
 alias wstring = immutable(wchar)[];
 alias dstring = immutable(dchar)[];
 
+version (LDC) // note: there's a copy for importC in __builtins.di
+{
+    version (ARM)     version = ARM_Any;
+    version (AArch64) version = ARM_Any;
+
+    // Define a __va_list alias if the platform uses an elaborate type, as it
+    // is referenced from implicitly generated code for D-style variadics, etc.
+    // LDC does not require people to manually import core.vararg like DMD does.
+    version (X86_64)
+    {
+        version (Win64) {} else
+        public import core.internal.vararg.sysv_x64 : __va_list;
+    }
+    else version (ARM_Any)
+    {
+        // Darwin does not use __va_list
+        version (OSX) {}
+        else version (iOS) {}
+        else version (TVOS) {}
+        else version (WatchOS) {}
+        else:
+
+        version (ARM)
+            public import core.stdc.stdarg : __va_list;
+        else version (AArch64)
+            public import core.internal.vararg.aarch64 : __va_list;
+    }
+}
+
 version (D_ObjectiveC)
 {
     deprecated("explicitly import `selector` instead using: `import core.attribute : selector;`")
@@ -700,7 +729,21 @@ class TypeInfo
      * be returned. For static arrays, this returns the default initializer for
      * a single element of the array, use `tsize` to get the correct size.
      */
+version (LDC)
+{
+    // LDC uses TypeInfo's vtable for the typeof(null) type:
+    //   %"typeid(typeof(null))" = type { %object.TypeInfo.__vtbl*, i8* }
+    // Therefore this class cannot be abstract, and all methods need implementations.
+    // Tested by test14754() in runnable/inline.d, and a unittest below.
+    const(void)[] initializer() nothrow pure const @trusted @nogc
+    {
+        return (cast(const(void)*) null)[0 .. typeof(null).sizeof];
+    }
+}
+else
+{
     abstract const(void)[] initializer() nothrow pure const @safe @nogc;
+}
 
     /** Get flags for type: 1 means GC should scan for pointers,
     2 means arg of this type is passed in SIMD register(s) if available */
@@ -729,6 +772,11 @@ class TypeInfo
     /** Return info used by the garbage collector to do precise collection.
      */
     @property immutable(void)* rtInfo() nothrow pure const @safe @nogc { return rtinfoHasPointers; } // better safe than sorry
+}
+
+version (LDC) unittest
+{
+    auto t = new TypeInfo; // test that TypeInfo is not an abstract class. Needed for instantiating typeof(null).
 }
 
 @system unittest
@@ -2828,7 +2876,18 @@ extern (C)
 {
     // from druntime/src/rt/aaA.d
 
-    private struct AA { void* impl; }
+    version (LDC)
+    {
+        /* The real type is (non-importable) `rt.aaA.Impl*`;
+         * the compiler uses `void*` for its prototypes.
+         */
+        private alias AA = void*;
+    }
+    else
+    {
+        private struct AA { void* impl; }
+    }
+
     // size_t _aaLen(in AA aa) pure nothrow @nogc;
     private void* _aaGetY(scope AA* paa, const TypeInfo_AssociativeArray ti, const size_t valsz, const scope void* pkey) pure nothrow;
     private void* _aaGetX(scope AA* paa, const TypeInfo_AssociativeArray ti, const size_t valsz, const scope void* pkey, out bool found) pure nothrow;

@@ -12,6 +12,168 @@ module core.internal.atomic;
 
 import core.atomic : MemoryOrder, has128BitCAS;
 
+version (LDC)
+{
+    import ldc.intrinsics;
+
+    pragma(inline, true):
+
+    inout(T) atomicLoad(MemoryOrder order = MemoryOrder.seq, T)(inout(T)* src) pure nothrow @nogc @trusted
+    {
+        alias A = _AtomicType!T;
+        A result = llvm_atomic_load!A(cast(shared A*) src, _ordering!(order));
+        return *cast(inout(T)*) &result;
+    }
+
+    void atomicStore(MemoryOrder order = MemoryOrder.seq, T)(T* dest, T value) pure nothrow @nogc @trusted
+    {
+        alias A = _AtomicType!T;
+        llvm_atomic_store!A(*cast(A*) &value, cast(shared A*) dest, _ordering!(order));
+    }
+
+    T atomicFetchAdd(MemoryOrder order = MemoryOrder.seq, T)(T* dest, T value) pure nothrow @nogc @trusted
+    {
+        alias A = _AtomicType!T;
+        return llvm_atomic_rmw_add!A(cast(shared A*) dest, value, _ordering!(order));
+    }
+
+    T atomicFetchSub(MemoryOrder order = MemoryOrder.seq, T)(T* dest, T value) pure nothrow @nogc @trusted
+    {
+        alias A = _AtomicType!T;
+        return llvm_atomic_rmw_sub!A(cast(shared A*) dest, value, _ordering!(order));
+    }
+
+    T atomicExchange(MemoryOrder order = MemoryOrder.seq, bool result = true, T)(T* dest, T value) pure nothrow @nogc @trusted
+    {
+        alias A = _AtomicType!T;
+        A result = llvm_atomic_rmw_xchg!A(cast(shared A*) dest, *cast(A*) &value, _ordering!(order));
+        return *cast(T*) &result;
+    }
+
+    bool atomicCompareExchange(bool weak = false, MemoryOrder succ = MemoryOrder.seq, MemoryOrder fail = MemoryOrder.seq, T)(T* dest, T* compare, T value) pure nothrow @nogc @trusted
+    {
+        alias A = _AtomicType!T;
+        auto result = llvm_atomic_cmp_xchg!A(cast(shared A*) dest, *cast(A*) compare, *cast(A*) &value,
+            _ordering!(succ), _ordering!(fail), weak);
+        *compare = *cast(T*) &result.previousValue;
+        return result.exchanged;
+    }
+    bool atomicCompareExchangeWeak(MemoryOrder succ = MemoryOrder.seq, MemoryOrder fail = MemoryOrder.seq, T)(T* dest, T* compare, T value) pure nothrow @nogc @trusted
+    {
+        return atomicCompareExchange!(true, succ, fail, T)(dest, compare, value);
+    }
+    bool atomicCompareExchangeStrong(MemoryOrder succ = MemoryOrder.seq, MemoryOrder fail = MemoryOrder.seq, T)(T* dest, T* compare, T value) pure nothrow @nogc @trusted
+    {
+        return atomicCompareExchange!(false, succ, fail, T)(dest, compare, value);
+    }
+
+    bool atomicCompareExchangeNoResult(bool weak = false, MemoryOrder succ = MemoryOrder.seq, MemoryOrder fail = MemoryOrder.seq, T)(T* dest, const T compare, T value) pure nothrow @nogc @trusted
+    {
+        alias A = _AtomicType!T;
+        auto result = llvm_atomic_cmp_xchg!A(cast(shared A*) dest, *cast(A*) &compare, *cast(A*) &value,
+            _ordering!(succ), _ordering!(fail), weak);
+        return result.exchanged;
+    }
+    bool atomicCompareExchangeWeakNoResult(MemoryOrder succ = MemoryOrder.seq, MemoryOrder fail = MemoryOrder.seq, T)(T* dest, const T compare, T value) pure nothrow @nogc @trusted
+    {
+        return atomicCompareExchangeNoResult!(true, succ, fail, T)(dest, compare, value);
+    }
+    bool atomicCompareExchangeStrongNoResult(MemoryOrder succ = MemoryOrder.seq, MemoryOrder fail = MemoryOrder.seq, T)(T* dest, const T compare, T value) pure nothrow @nogc @trusted
+    {
+        return atomicCompareExchangeNoResult!(false, succ, fail, T)(dest, compare, value);
+    }
+
+    void atomicFence(MemoryOrder order = MemoryOrder.seq)() pure nothrow @nogc @trusted
+    {
+        llvm_memory_fence(_ordering!(order));
+    }
+
+    void pause() pure nothrow @nogc @trusted
+    {
+        version (X86)
+            enum inst = "pause";
+        else version (X86_64)
+            enum inst = "pause";
+        else version (ARM)
+        {
+            // requires v6k+ (e.g., -mtriple=armv6k-linux-gnueabihf)
+            static if (__traits(targetHasFeature, "v6k"))
+                enum inst = "yield";
+            else
+                enum inst = null;
+        }
+        else version (AArch64)
+            enum inst = "yield";
+        else version (MIPS32)
+        {
+            // requires ISA r2+ (e.g., -mcpu=mips32r2)
+            static if (__traits(targetHasFeature, "mips32r2"))
+                enum inst = "pause";
+            else
+                enum inst = null;
+        }
+        else version (MIPS64)
+        {
+            // requires ISA r2+ (e.g., -mcpu=mips64r2)
+            static if (__traits(targetHasFeature, "mips64r2"))
+                enum inst = "pause";
+            else
+                enum inst = null;
+        }
+        else
+            enum inst = null; // TODO?
+
+        static if (inst !is null)
+            asm pure nothrow @nogc @trusted { (inst); }
+    }
+
+    template _ordering(MemoryOrder ms)
+    {
+        static if (ms == MemoryOrder.acq)
+            enum _ordering = AtomicOrdering.Acquire;
+        else static if (ms == MemoryOrder.rel)
+            enum _ordering = AtomicOrdering.Release;
+        else static if (ms == MemoryOrder.acq_rel)
+            enum _ordering = AtomicOrdering.AcquireRelease;
+        else static if (ms == MemoryOrder.seq)
+            enum _ordering = AtomicOrdering.SequentiallyConsistent;
+        else static if (ms == MemoryOrder.raw)
+        {
+            // Note that C/C++ 'relaxed' is not the same as NoAtomic/Unordered,
+            // but Monotonic.
+            enum _ordering = AtomicOrdering.Monotonic;
+        }
+        else
+            static assert(0);
+    }
+
+    private template _AtomicType(T)
+    {
+        static if (T.sizeof == ubyte.sizeof)
+            alias _AtomicType = ubyte;
+        else static if (T.sizeof == ushort.sizeof)
+            alias _AtomicType = ushort;
+        else static if (T.sizeof == uint.sizeof)
+            alias _AtomicType = uint;
+        else static if (T.sizeof == ulong.sizeof)
+            alias _AtomicType = ulong;
+        else static if (T.sizeof == 2*ulong.sizeof && has128BitCAS)
+        {
+            struct UCent
+            {
+                ulong value1;
+                ulong value2;
+            }
+
+            alias _AtomicType = UCent;
+        }
+        else
+            static assert(is(_AtomicType!T),
+                "Cannot atomically load/store type of size " ~ T.sizeof.stringof);
+    }
+}
+else: // !LDC
+
 version (DigitalMars)
 {
     private

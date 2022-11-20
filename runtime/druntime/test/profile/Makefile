@@ -1,8 +1,10 @@
 include ../common.mak
 
-TESTS:=profile profilegc both
+# LDC doesn't support -profile=gc yet
+#TESTS:=profile profilegc both
+TESTS:=profile
 
-DIFF:=diff
+DIFF:=diff --strip-trailing-cr
 GREP:=grep
 
 .PHONY: all clean

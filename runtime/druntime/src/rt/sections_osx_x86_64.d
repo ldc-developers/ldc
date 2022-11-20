@@ -11,6 +11,8 @@
  */
 module rt.sections_osx_x86_64;
 
+version (LDC) { /* implemented in rt.sections_elf_shared */ } else:
+
 version (OSX)
     version = Darwin;
 else version (iOS)

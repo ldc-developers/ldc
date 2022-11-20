@@ -21,6 +21,31 @@ import core.time;
 import core.exception : onOutOfMemoryError;
 import core.internal.traits : externDFunc;
 
+version (LDC)
+{
+    import ldc.attributes;
+    import ldc.llvmasm;
+
+    version (Windows) version = LDC_Windows;
+
+    version (ARM)     version = ARM_Any;
+    version (AArch64) version = ARM_Any;
+
+    version (MIPS32) version = MIPS_Any;
+    version (MIPS64) version = MIPS_Any;
+
+    version (PPC)   version = PPC_Any;
+    version (PPC64) version = PPC_Any;
+
+    version (RISCV32) version = RISCV_Any;
+    version (RISCV64) version = RISCV_Any;
+
+    version (SupportSanitizers)
+    {
+        import ldc.sanitizers_optionally_linked;
+    }
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // Platform Detection and Memory Allocation
@@ -128,9 +153,11 @@ version (GNU)
  */
 private extern(C) void* _d_eh_swapContext(void* newContext) nothrow @nogc;
 
-version (DigitalMars)
+// LDC: changed from `version (DigitalMars)`
+version (all)
 {
-    version (Windows)
+    // LDC: changed from `version (Windows)`
+    version (CRuntime_Microsoft)
     {
         extern(D) void* swapContext(void* newContext) nothrow @nogc
         {
@@ -291,7 +318,19 @@ class Thread : ThreadBase
         else version (Posix)
         {
             if (m_addr != m_addr.init)
-                pthread_detach( m_addr );
+            {
+                version (LDC)
+                {
+                    // don't detach the main thread, TSan doesn't like it:
+                    // https://github.com/ldc-developers/ldc/issues/3519
+                    if (!isMainThread())
+                        pthread_detach( m_addr );
+                }
+                else
+                {
+                    pthread_detach( m_addr );
+                }
+            }
             m_addr = m_addr.init;
         }
         version (Darwin)
@@ -423,6 +462,12 @@ class Thread : ThreadBase
                 onThreadError( "Error initializing thread stack size" );
         }
 
+        version (Shared)
+        {
+            auto ps = cast(void**).malloc(2 * size_t.sizeof);
+            if (ps is null) onOutOfMemoryError();
+        }
+
         version (Windows)
         {
             // NOTE: If a thread is just executing DllMain()
@@ -435,7 +480,11 @@ class Thread : ThreadBase
             // Solution: Create the thread in suspended state and then
             //       add and resume it with slock acquired
             assert(m_sz <= uint.max, "m_sz must be less than or equal to uint.max");
-            m_hndl = cast(HANDLE) _beginthreadex( null, cast(uint) m_sz, &thread_entryPoint, cast(void*) this, CREATE_SUSPENDED, &m_addr );
+            version (Shared)
+                auto threadArg = cast(void*) ps;
+            else
+                auto threadArg = cast(void*) this;
+            m_hndl = cast(HANDLE) _beginthreadex( null, cast(uint) m_sz, &thread_entryPoint, threadArg, CREATE_SUSPENDED, &m_addr );
             if ( cast(size_t) m_hndl == 0 )
                 onThreadError( "Error creating thread" );
         }
@@ -446,28 +495,36 @@ class Thread : ThreadBase
             ++nAboutToStart;
             pAboutToStart = cast(ThreadBase*)realloc(pAboutToStart, Thread.sizeof * nAboutToStart);
             pAboutToStart[nAboutToStart - 1] = this;
-            version (Windows)
-            {
-                if ( ResumeThread( m_hndl ) == -1 )
-                    onThreadError( "Error resuming thread" );
-            }
-            else version (Posix)
+
+            version (Posix)
             {
                 // NOTE: This is also set to true by thread_entryPoint, but set it
                 //       here as well so the calling thread will see the isRunning
                 //       state immediately.
                 atomicStore!(MemoryOrder.raw)(m_isRunning, true);
                 scope( failure ) atomicStore!(MemoryOrder.raw)(m_isRunning, false);
+            }
 
-                version (Shared)
+            version (Shared)
+            {
+                auto libs = externDFunc!("rt.sections_elf_shared.pinLoadedLibraries",
+                                         void* function() @nogc nothrow)();
+
+                ps[0] = cast(void*)this;
+                ps[1] = cast(void*)libs;
+
+                version (Windows)
                 {
-                    auto libs = externDFunc!("rt.sections_elf_shared.pinLoadedLibraries",
-                                             void* function() @nogc nothrow)();
-
-                    auto ps = cast(void**).malloc(2 * size_t.sizeof);
-                    if (ps is null) onOutOfMemoryError();
-                    ps[0] = cast(void*)this;
-                    ps[1] = cast(void*)libs;
+                    if ( ResumeThread( m_hndl ) == -1 )
+                    {
+                        externDFunc!("rt.sections_elf_shared.unpinLoadedLibraries",
+                                     void function(void*) @nogc nothrow)(libs);
+                        .free(ps);
+                        onThreadError( "Error resuming thread" );
+                    }
+                }
+                else version (Posix)
+                {
                     if ( pthread_create( &m_addr, &attr, &thread_entryPoint, ps ) != 0 )
                     {
                         externDFunc!("rt.sections_elf_shared.unpinLoadedLibraries",
@@ -476,14 +533,27 @@ class Thread : ThreadBase
                         onThreadError( "Error creating thread" );
                     }
                 }
-                else
+            }
+            else
+            {
+                version (Windows)
+                {
+                    if ( ResumeThread( m_hndl ) == -1 )
+                        onThreadError( "Error resuming thread" );
+                }
+                else version (Posix)
                 {
                     if ( pthread_create( &m_addr, &attr, &thread_entryPoint, cast(void*) this ) != 0 )
                         onThreadError( "Error creating thread" );
                 }
+            }
+
+            version (Posix)
+            {
                 if ( pthread_attr_destroy( &attr ) != 0 )
                     onThreadError( "Error destroying thread attributes" );
             }
+
             version (Darwin)
             {
                 m_tmach = pthread_mach_thread_np( m_addr );
@@ -1226,6 +1296,13 @@ private extern (D) ThreadBase attachThread(ThreadBase _thisThread) @nogc nothrow
     StackContext* thisContext = &thisThread.m_main;
     assert( thisContext == thisThread.m_curr );
 
+    version (SupportSanitizers)
+    {
+        // Save this thread's fake stack handler, to be stored in each StackContext belonging to this thread.
+        thisThread.asan_fakestack  = asanGetCurrentFakeStack();
+        thisContext.asan_fakestack = thisThread.asan_fakestack;
+    }
+
     version (Windows)
     {
         thisThread.m_addr  = GetCurrentThreadId();
@@ -1319,6 +1396,12 @@ version (Windows)
             thisThread.m_hndl = GetCurrentThreadHandle();
             thisThread.tlsGCdataInit();
             Thread.setThis( thisThread );
+
+            version (SupportSanitizers)
+            {
+                // Save this thread's fake stack handler, to be stored in each StackContext belonging to this thread.
+                thisThread.asan_fakestack  = asanGetCurrentFakeStack();
+            }
         }
         else
         {
@@ -1327,7 +1410,18 @@ version (Windows)
             {
                 thisThread.tlsGCdataInit();
                 Thread.setThis( thisThread );
+
+                version (SupportSanitizers)
+                {
+                    // Save this thread's fake stack handler, to be stored in each StackContext belonging to this thread.
+                    thisThread.asan_fakestack  = asanGetCurrentFakeStack();
+                }
             });
+        }
+
+        version (SupportSanitizers)
+        {
+            thisContext.asan_fakestack = thisThread.asan_fakestack;
         }
 
         Thread.add( thisThread, false );
@@ -1406,6 +1500,106 @@ in (fn)
             mov sp[RBP], RSP;
         }
     }
+    else version (LDC)
+    {
+        version (PPC_Any)
+        {
+            // Nonvolatile registers, according to:
+            // System V Application Binary Interface
+            // PowerPC Processor Supplement, September 1995
+            // ELFv1: 64-bit PowerPC ELF ABI Supplement 1.9, July 2004
+            // ELFv2: Power Architecture, 64-Bit ELV V2 ABI Specification,
+            //        OpenPOWER ABI for Linux Supplement, July 2014
+            size_t[18] regs = void;
+            static foreach (i; 0 .. regs.length)
+            {{
+                enum int j = 14 + i; // source register
+                static if (j == 21)
+                {
+                    // Work around LLVM bug 21443 (http://llvm.org/bugs/show_bug.cgi?id=21443)
+                    // Because we clobber r0 a different register is chosen
+                    asm pure nothrow @nogc { ("std "~j.stringof~", %0") : "=m" (regs[i]) : : "r0"; }
+                }
+                else
+                    asm pure nothrow @nogc { ("std "~j.stringof~", %0") : "=m" (regs[i]); }
+            }}
+
+            asm pure nothrow @nogc { "std 1, %0" : "=m" (sp); }
+        }
+        else version (AArch64)
+        {
+            // Callee-save registers, x19-x28 according to AAPCS64, section
+            // 5.1.1.  Include x29 fp because it optionally can be a callee
+            // saved reg
+            size_t[11] regs = void;
+            // store the registers in pairs
+            asm pure nothrow @nogc
+            {
+                "stp x19, x20, %0" : "=m" (regs[ 0]), "=m" (regs[1]);
+                "stp x21, x22, %0" : "=m" (regs[ 2]), "=m" (regs[3]);
+                "stp x23, x24, %0" : "=m" (regs[ 4]), "=m" (regs[5]);
+                "stp x25, x26, %0" : "=m" (regs[ 6]), "=m" (regs[7]);
+                "stp x27, x28, %0" : "=m" (regs[ 8]), "=m" (regs[9]);
+                "str x29, %0"      : "=m" (regs[10]);
+                "mov %0, sp"       : "=r" (sp);
+            }
+        }
+        else version (ARM)
+        {
+            // Callee-save registers, according to AAPCS, section 5.1.1.
+            // arm and thumb2 instructions
+            size_t[8] regs = void;
+            asm pure nothrow @nogc
+            {
+                "stm %0, {r4-r11}" : : "r" (regs.ptr) : "memory";
+                "mov %0, sp"       : "=r" (sp);
+            }
+        }
+        else version (MIPS_Any)
+        {
+            version (MIPS32)      enum store = "sw";
+            else version (MIPS64) enum store = "sd";
+            else static assert(0);
+
+            // Callee-save registers, according to MIPS Calling Convention
+            // and MIPSpro N32 ABI Handbook, chapter 2, table 2-1.
+            // FIXME: Should $28 (gp) and $30 (s8) be saved, too?
+            size_t[8] regs = void;
+            asm pure nothrow @nogc { ".set noat"; }
+            static foreach (i; 0 .. regs.length)
+            {{
+                enum int j = 16 + i; // source register
+                asm pure nothrow @nogc { (store ~ " $"~j.stringof~", %0") : "=m" (regs[i]); }
+            }}
+            asm pure nothrow @nogc { (store ~ " $29, %0") : "=m" (sp); }
+            asm pure nothrow @nogc { ".set at"; }
+        }
+        else version (RISCV_Any)
+        {
+            version (RISCV32)      enum store = "sw";
+            else version (RISCV64) enum store = "sd";
+            else static assert(0);
+
+            // Callee-save registers, according to RISCV Calling Convention
+            // https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc
+            size_t[24] regs = void;
+            static foreach (i; 0 .. 12)
+            {{
+                enum int j = i;
+                asm pure nothrow @nogc { (store ~ " s"~j.stringof~", %0") : "=m" (regs[i]); }
+            }}
+            static foreach (i; 0 .. 12)
+            {{
+                enum int j = i;
+                asm pure nothrow @nogc { ("f" ~ store ~ " fs"~j.stringof~", %0") : "=m" (regs[i + 12]); }
+            }}
+            asm pure nothrow @nogc { (store ~ " sp, %0") : "=m" (sp); }
+        }
+        else
+        {
+            static assert(false, "Architecture not supported.");
+        }
+    }
     else
     {
         static assert(false, "Architecture not supported.");
@@ -1461,6 +1655,52 @@ extern (C) @nogc nothrow
 }
 
 
+version (LDC)
+{
+    version (X86)      version = LDC_stackTopAsm;
+    version (X86_64)   version = LDC_stackTopAsm;
+    version (ARM_Any)  version = LDC_stackTopAsm;
+    version (PPC_Any)  version = LDC_stackTopAsm;
+    version (MIPS_Any) version = LDC_stackTopAsm;
+
+    version (LDC_stackTopAsm)
+    {
+        /* The inline assembler is written in a style that the code can be inlined.
+         * If it isn't, the function is still naked, so the caller's stack pointer
+         * is used nevertheless.
+         */
+        package extern(D) void* getStackTop() nothrow @nogc @naked
+        {
+            version (X86)
+                return __asm!(void*)("movl %esp, $0", "=r");
+            else version (X86_64)
+                return __asm!(void*)("movq %rsp, $0", "=r");
+            else version (ARM_Any)
+                return __asm!(void*)("mov $0, sp", "=r");
+            else version (PPC_Any)
+                return __asm!(void*)("mr $0, 1", "=r");
+            else version (MIPS_Any)
+                return __asm!(void*)("move $0, $$sp", "=r");
+            else
+                static assert(0);
+        }
+    }
+    else
+    {
+        /* The use of intrinsic llvm_frameaddress is a reasonable default for
+         * cpu architectures without assembler support from LLVM. Because of
+         * the slightly different meaning the function must neither be inlined
+         * nor naked.
+         */
+        package extern(D) void* getStackTop() nothrow @nogc
+        {
+            import ldc.intrinsics;
+            pragma(LDC_never_inline);
+            return llvm_frameaddress(0);
+        }
+    }
+}
+else
 package extern(D) void* getStackTop() nothrow @nogc
 {
     version (D_InlineAsm_X86)
@@ -1474,6 +1714,19 @@ package extern(D) void* getStackTop() nothrow @nogc
 }
 
 
+version (LDC_Windows)
+{
+    package extern(D) void* getStackBottom() nothrow @nogc @naked
+    {
+        version (X86)
+            return __asm!(void*)("mov %fs:(4), $0", "=r");
+        else version (X86_64)
+            return __asm!(void*)("mov %gs:0($1), $0", "=r,r", 8);
+        else
+            static assert(false, "Architecture not supported.");
+    }
+}
+else
 package extern(D) void* getStackBottom() nothrow @nogc
 {
     version (Windows)
@@ -2042,8 +2295,25 @@ version (Windows)
         //
         extern (Windows) uint thread_entryPoint( void* arg ) nothrow
         {
-            Thread  obj = cast(Thread) arg;
+            version (Shared)
+            {
+                Thread obj = cast(Thread)(cast(void**)arg)[0];
+                auto loadedLibraries = (cast(void**)arg)[1];
+                .free(arg);
+            }
+            else
+            {
+                Thread obj = cast(Thread)arg;
+            }
             assert( obj );
+
+            // loadedLibraries need to be inherited from parent thread
+            // before initilizing GC for TLS (rt_tlsgc_init)
+            version (Shared)
+            {
+                externDFunc!("rt.sections_elf_shared.inheritLoadedLibraries",
+                             void function(void*) @nogc nothrow)(loadedLibraries);
+            }
 
             obj.initDataStorage();
 
@@ -2088,6 +2358,11 @@ version (Windows)
                     append( t );
                 }
                 rt_moduleTlsDtor();
+                version (Shared)
+                {
+                    externDFunc!("rt.sections_elf_shared.cleanupLoadedLibraries",
+                                 void function() @nogc nothrow)();
+                }
             }
             catch ( Throwable t )
             {

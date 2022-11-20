@@ -48,7 +48,9 @@ extern (C)
     }
 }
 
-version (Win32)
+version (LDC)
+    public import rt.deh_win64_posix;
+else version (Win32)
     public import rt.deh_win32;
 else version (Win64)
     public import rt.deh_win64_posix;

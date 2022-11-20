@@ -10,6 +10,9 @@
 
 module rt.sections;
 
+version (LDC)
+    public import rt.sections_ldc;
+
 version (OSX)
     version = Darwin;
 else version (iOS)
@@ -42,7 +45,9 @@ else version (Solaris)
     public import rt.sections_solaris;
 else version (Darwin)
 {
-    version (X86_64)
+    version (LDC)
+        public import rt.sections_elf_shared;
+    else version (X86_64)
         public import rt.sections_osx_x86_64;
     else version (X86)
         public import rt.sections_osx_x86;
@@ -52,7 +57,12 @@ else version (Darwin)
 else version (CRuntime_DigitalMars)
     public import rt.sections_win32;
 else version (CRuntime_Microsoft)
-    public import rt.sections_win64;
+{
+    version (LDC)
+        public import rt.sections_elf_shared;
+    else
+        public import rt.sections_win64;
+}
 else version (CRuntime_Bionic)
     public import rt.sections_android;
 else version (CRuntime_UClibc)

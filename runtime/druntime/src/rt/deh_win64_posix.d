@@ -16,10 +16,23 @@
 
 module rt.deh_win64_posix;
 
-version (Win64)
-    version = Win64_Posix;
-version (Posix)
-    version = Win64_Posix;
+version (LDC)
+{
+    // LDC only needs _d_eh_swapContext
+    version (CRuntime_Microsoft)
+    {
+        // _d_eh_swapContext implemented in ldc.eh_msvc
+    }
+    else
+        version = Win64_Posix;
+}
+else
+{
+	version (Win64)
+	    version = Win64_Posix;
+	version (Posix)
+	    version = Win64_Posix;
+}
 
 version (Win64_Posix):
 
@@ -31,6 +44,9 @@ else version (TVOS)
     version = Darwin;
 else version (WatchOS)
     version = Darwin;
+
+version (LDC) {} else
+{
 
 //debug=PRINTF;
 debug(PRINTF) import core.stdc.stdio : printf;
@@ -88,6 +104,8 @@ struct FuncTable
     uint fsize;         // size of function in bytes
 }
 
+} // !LDC
+
 private
 {
     struct InFlight
@@ -108,6 +126,8 @@ private
         return old;
     }
 }
+
+version (LDC) {} else:
 
 void terminate()
 {

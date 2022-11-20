@@ -11,6 +11,8 @@
 
 module rt.llmath;
 
+version (LDC) {} else:
+
 extern (C):
 
 

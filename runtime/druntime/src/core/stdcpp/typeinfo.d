@@ -199,4 +199,7 @@ else version (CppRuntime_Clang)
     }
 }
 else
+{
+    version (LDC) { /* empty module for unsupported C++ runtimes */ } else
     static assert(0, "Missing std::type_info binding for this platform");
+}

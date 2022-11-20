@@ -60,8 +60,16 @@ extern(C) int runTests()
 {
     try
         runTestsImpl();
-    catch (Throwable)
+    catch (Throwable t)
+    {
+        version (LDC)
+        {
+            auto s = t.toString();
+            import core.stdc.stdio : fprintf, stderr;
+            fprintf(stderr, "%.*s\n", cast(int) s.length, s.ptr);
+        }
         return 0;
+    }
     return 1;
 }
 

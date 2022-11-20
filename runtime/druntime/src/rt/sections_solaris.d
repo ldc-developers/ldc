@@ -14,6 +14,8 @@
 
 module rt.sections_solaris;
 
+version (LDC) { /* implemented in rt.sections_ldc */ } else:
+
 version (Solaris)
 {
     version = SolarisOrOpenBSD;

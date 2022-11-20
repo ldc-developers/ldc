@@ -130,6 +130,11 @@ extern (C) int rt_init()
         thread_init();
         // TODO: fixme - calls GC.addRange -> Initializes GC
         initStaticDataGC();
+        version (LDC) version (CRuntime_Microsoft)
+        {
+            import ldc.eh_msvc;
+            msvc_eh_init();
+        }
         rt_moduleCtor();
         rt_moduleTlsCtor();
         return 1;

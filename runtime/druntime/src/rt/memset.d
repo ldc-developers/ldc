@@ -14,6 +14,8 @@
  */
 module rt.memset;
 
+version (LDC) {} else:
+
 import rt.util.utility : d_cdouble, d_creal;
 
 extern (C)

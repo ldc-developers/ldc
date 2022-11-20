@@ -11,6 +11,9 @@
 
 module core.thread.context;
 
+// LDC: Unconditionally change ABI to support sanitizers
+version (LDC) version = SupportSanitizers_ABI;
+
 struct StackContext
 {
     void* bstack, tstack;
@@ -21,6 +24,11 @@ struct StackContext
     void* ehContext;
     StackContext* within;
     StackContext* next, prev;
+    version (SupportSanitizers_ABI)
+    {
+        // Stores the thread-specific fake stack handler for this StackContext. This is used while GC scanning this StackContext's stack.
+        void* asan_fakestack;
+    }
 }
 
 struct Callable

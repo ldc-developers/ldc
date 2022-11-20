@@ -47,6 +47,9 @@ else version (ExtExecinfo_GNUFmt)
 else version (ExtExecinfo_SolarisFmt)
     version = _extExecinfo;
 
+// LDC: embed libexecinfo dependency (supported since LLD v9)
+version (LDC) version (FreeBSD) pragma(lib, "execinfo");
+
 version (linux)
 {
     version (CRuntime_Glibc)

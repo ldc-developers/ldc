@@ -1,5 +1,7 @@
 # set from top makefile
-OS:=
+# LDC: we have no top makefile, include osmodel.mak for OS
+include ../../../../dmd/osmodel.mak
+#OS:=
 MODEL:=
 BUILD:=
 DMD:=
@@ -18,15 +20,29 @@ ifneq (default,$(MODEL))
 	MODEL_FLAG:=-m$(MODEL)
 endif
 CFLAGS_BASE:= $(MODEL_FLAG) $(PIC) -Wall
-DFLAGS:=$(MODEL_FLAG) $(PIC) -w -I../../src -I../../import -I$(SRC) -defaultlib= -debuglib= -preview=dip1000 -L-lpthread -L-lm
+# LDC: use -defaultlib=druntime-ldc instead of `-defaultlib= -L$(DRUNTIME[SO])`
+DFLAGS:=$(MODEL_FLAG) $(PIC) -w -I../../src -I../../import -I$(SRC) -defaultlib=druntime-ldc -preview=dip1000
+ifeq (,$(findstring win,$(OS)))
+	DFLAGS += -L-lpthread -L-lm
+endif
 # LINK_SHARED may be set by importing makefile
-DFLAGS+=$(if $(LINK_SHARED),-L$(DRUNTIMESO),-L$(DRUNTIME))
+# LDC: -link-defaultlib-shared takes care of rpath, linking ldc_rt.dso.o etc.
+DFLAGS+=$(if $(LINK_SHARED),-link-defaultlib-shared,)
 ifeq ($(BUILD),debug)
-	DFLAGS += -g -debug
-	CFLAGS := $(CFLAGS_BASE) -g
+	# LDC: link against debug druntime
+	DFLAGS += -g -debug -link-defaultlib-debug
+	ifeq (,$(findstring win,$(OS)))
+		CFLAGS := $(CFLAGS_BASE) -g
+	else
+		CFLAGS := $(CFLAGS_BASE) /Zi
+	endif
 else
 	DFLAGS += -O -release
-	CFLAGS := $(CFLAGS_BASE) -O3
+	ifeq (,$(findstring win,$(OS)))
+		CFLAGS := $(CFLAGS_BASE) -O3
+	else
+		CFLAGS := $(CFLAGS_BASE) /O2
+	endif
 endif
 CXXFLAGS_BASE := $(CFLAGS_BASE)
 CXXFLAGS:=$(CFLAGS)

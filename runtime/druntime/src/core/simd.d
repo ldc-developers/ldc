@@ -87,7 +87,41 @@ static if (is(Vector!(uint[16])))   alias Vector!(uint[16])   uint16;       ///
 static if (is(Vector!(long[8])))    alias Vector!(long[8])    long8;        ///
 static if (is(Vector!(ulong[8])))   alias Vector!(ulong[8])   ulong8;       ///
 
-version (D_SIMD)
+version (LDC)
+{
+    public import ldc.simd : loadUnaligned, storeUnaligned;
+
+    /*********************
+    * Emit prefetch instruction.
+    * Params:
+    *    address = address to be prefetched
+    *    writeFetch = true for write fetch, false for read fetch
+    *    locality = 0..3 (0 meaning least local, 3 meaning most local)
+    */
+    pragma(inline, true)
+    void prefetch(bool writeFetch, ubyte locality)(const(void)* address)
+    {
+        import ldc.intrinsics : llvm_prefetch;
+        static assert(locality < 4, "0..3 expected for locality");
+        enum dataCache = 1;
+        llvm_prefetch(address, writeFetch, locality, dataCache);
+    }
+
+    unittest
+    {
+        float[4] data = [ 0.5, 1, 1.5, 2 ];
+        auto ptr = &data[0];
+
+        prefetch!(false, 0)(ptr);
+        auto v = loadUnaligned!float4(ptr);
+        v *= 2;
+        storeUnaligned!float4(v, ptr);
+
+        float[4] expected = [ 1, 2, 3, 4 ];
+        assert(data == expected);
+    }
+}
+else version (D_SIMD)
 {
     /** XMM opcodes that conform to the following:
     *
@@ -600,6 +634,7 @@ version (D_SIMD)
         else
             return cast(V)__simd(XMM.LODDQU, *cast(const void16*)p);
     }
+} // D_SIMD (keep loadUnaligned unittest for LDC)
 
     @system
     unittest
@@ -645,6 +680,8 @@ version (D_SIMD)
         }
     }
 
+version (D_SIMD) // LDC
+{
     /*************************************
     * Store vector to unaligned address.
     * This is a compiler intrinsic.
@@ -676,6 +713,7 @@ version (D_SIMD)
         else
             return cast(V)__simd_sto(XMM.STODQU, *cast(void16*)p, value);
     }
+} // D_SIMD (keep storeUnaligned unittest for LDC)
 
     @system
     unittest
@@ -724,4 +762,4 @@ version (D_SIMD)
             test!float4();
         }
     }
-}
+//} no D_SIMD scope to terminate for LDC

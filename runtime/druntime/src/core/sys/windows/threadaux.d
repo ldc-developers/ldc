@@ -21,6 +21,8 @@ import core.stdc.stdlib;
 
 public import core.thread;
 
+version (LDC) import ldc.attributes, ldc.llvmasm;
+
 extern(Windows)
 HANDLE OpenThread(DWORD dwDesiredAccess, BOOL bInheritHandle, DWORD dwThreadId) nothrow @nogc;
 
@@ -162,6 +164,17 @@ struct thread_aux
     }
 
     // get linear address of TEB of current thread
+  version (LDC)
+  {
+    static void** getTEB() nothrow @nogc @naked
+    {
+        version (Win32)      return __asm!(void**)("mov %fs:(0x18), $0", "=r");
+        else version (Win64) return __asm!(void**)("mov %gs:0($1), $0", "=r,r", 0x30);
+        else static assert(false);
+    }
+  }
+  else
+  {
     static void** getTEB() nothrow @nogc
     {
         version (Win32)
@@ -188,6 +201,7 @@ struct thread_aux
             static assert(false);
         }
     }
+  }
 
     // get the stack bottom (the top address) of the thread with the given handle
     static void* getThreadStackBottom( HANDLE hnd ) nothrow @nogc
@@ -351,6 +365,16 @@ void* GetTlsDataAddress( uint id ) nothrow
     void* tls = GetTlsDataAddress( hnd );
     CloseHandle( hnd );
     return tls;
+}
+
+// get the address of the entry in the TLS array for the current thread
+// use C mangling to access it from msvc.c
+extern(C) void** GetTlsEntryAdr()
+{
+    if( void** teb = getTEB() )
+        if( void** tlsarray = cast(void**) teb[11] )
+            return tlsarray + _tls_index;
+    return null;
 }
 
 ///////////////////////////////////////////////////////////////////

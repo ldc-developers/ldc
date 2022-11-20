@@ -35,15 +35,29 @@ private enum HASH_EMPTY = 0;
 private enum HASH_DELETED = 0x1;
 private enum HASH_FILLED_MARK = size_t(1) << 8 * size_t.sizeof - 1;
 
-/// Opaque AA wrapper
-struct AA
+version (LDC)
 {
-    Impl* impl;
-    alias impl this;
+    // The compiler uses `void*` for its prototypes.
+    // Don't wrap in a struct to maintain ABI compatibility.
+    alias AA = Impl*;
 
-    private @property bool empty() const pure nothrow @nogc
+    private bool empty(scope const AA impl) pure nothrow @nogc
     {
         return impl is null || !impl.length;
+    }
+}
+else
+{
+    /// Opaque AA wrapper
+    struct AA
+    {
+        Impl* impl;
+        alias impl this;
+
+        private @property bool empty() const pure nothrow @nogc
+        {
+            return impl is null || !impl.length;
+        }
     }
 }
 
@@ -924,6 +938,11 @@ extern (C) pure nothrow @nogc @safe
 }
 
 // Most tests are now in test_aa.d
+
+// LDC_FIXME: Cannot compile these tests in this module (and this module only)
+// because the public signatures of the various functions are different from
+// the ones used here (AA vs. void*).
+version (LDC) {} else:
 
 // test postblit for AA literals
 unittest

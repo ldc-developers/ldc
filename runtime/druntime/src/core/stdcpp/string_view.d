@@ -11,6 +11,12 @@
 
 module core.stdcpp.string_view;
 
+// LDC: empty module for unsupported C++ runtimes
+version (CppRuntime_Microsoft)  version = Supported;
+else version (CppRuntime_Gcc)   version = Supported;
+else version (CppRuntime_Clang) version = Supported;
+version (Supported):
+
 import core.stdc.stddef : wchar_t;
 import core.stdcpp.xutility : StdNamespace;
 

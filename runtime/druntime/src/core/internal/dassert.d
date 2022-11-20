@@ -262,7 +262,10 @@ private string miniFormat(V)(const scope ref V v)
     else static if (__traits(isFloating, V))
     {
         import core.stdc.stdio : sprintf;
-        import core.stdc.config : LD = c_long_double;
+        version (LDC)
+            alias LD = real;
+        else
+            import core.stdc.config : LD = c_long_double;
 
         // No suitable replacement for sprintf in druntime ATM
         if (__ctfe)

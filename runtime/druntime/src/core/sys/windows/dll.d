@@ -445,6 +445,12 @@ bool dll_process_attach( HINSTANCE hInstance, bool attach_threads,
 
     Runtime.initialize();
 
+  version (Shared)
+  {
+    return true;
+  }
+  else
+  {
     if ( !attach_threads )
         return true;
 
@@ -462,6 +468,7 @@ bool dll_process_attach( HINSTANCE hInstance, bool attach_threads,
             }
             return true;
         }, null );
+  } // !Shared
 }
 
 // same as above, but only usable if druntime is linked statically
@@ -482,6 +489,8 @@ bool dll_process_attach( HINSTANCE hInstance, bool attach_threads = true )
 // to be called from DllMain with reason DLL_PROCESS_DETACH
 void dll_process_detach( HINSTANCE hInstance, bool detach_threads = true )
 {
+  version (Shared) { /* not needed */ } else
+  {
     // notify core.thread.joinLowLevelThread that the DLL is about to be unloaded
     thread_DLLProcessDetaching = true;
 
@@ -501,6 +510,7 @@ void dll_process_detach( HINSTANCE hInstance, bool detach_threads = true )
                 }
                 return true;
             }, null );
+  } // !Shared
 
     Runtime.terminate();
 }
@@ -514,6 +524,8 @@ static ~this() { tlsCtorRun = false; }
 // to be called from DllMain with reason DLL_THREAD_ATTACH
 bool dll_thread_attach( bool attach_thread = true, bool initTls = true )
 {
+  version (Shared) { /* not needed */ } else
+  {
     // if the OS has not prepared TLS for us, don't attach to the thread
     //  (happened when running under x64 OS)
     auto tid = GetCurrentThreadId();
@@ -527,12 +539,15 @@ bool dll_thread_attach( bool attach_thread = true, bool initTls = true )
         if ( initTls && !tlsCtorRun ) // avoid duplicate calls
             rt_moduleTlsCtor();
     }
+  } // !Shared
     return true;
 }
 
 // to be called from DllMain with reason DLL_THREAD_DETACH
 bool dll_thread_detach( bool detach_thread = true, bool exitTls = true )
 {
+  version (Shared) { /* not needed */ } else
+  {
     // if the OS has not prepared TLS for us, we did not attach to the thread
     if ( !GetTlsDataAddress( GetCurrentThreadId() ) )
          return false;
@@ -543,6 +558,7 @@ bool dll_thread_detach( bool detach_thread = true, bool exitTls = true )
         if ( detach_thread )
             thread_detachThis();
     }
+  } // !Shared
     return true;
 }
 
