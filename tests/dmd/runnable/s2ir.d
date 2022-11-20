@@ -17,6 +17,13 @@ void test1()
     int i;
     __gshared int j;
 
+    version (LDC)
+    {
+        // Local variables in nested functions (which by definition have no
+        // stack frame the compiler can know about) are ill-defined and will not
+        // be supported by LDC in the forseeable future.
+    }
+    else
     version (D_InlineAsm_X86)
     {
         asm

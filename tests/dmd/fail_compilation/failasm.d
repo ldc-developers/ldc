@@ -1,8 +1,8 @@
-/*
+/* DISABLED: LDC_not_x86
 REQUIRED_ARGS: -m32
 TEST_OUTPUT:
 ---
-fail_compilation/failasm.d(111): Error: use -m64 to compile 64 bit instructions
+fail_compilation/failasm.d(111): Error: unknown operand size `long`
 ---
 */
 

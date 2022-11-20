@@ -1,5 +1,9 @@
 // PERMUTE_ARGS: -release -g
 
+// LDC
+import ldc.attributes : optStrategy;
+pragma(inline, false):
+
 version(Windows) {}
 else version(X86_64)
 {
@@ -654,6 +658,7 @@ bool check( TEST data )
 
 TEST data1 = { 1, "RDI hidden pointer" };
 
+@optStrategy("none") {
 T test1_asm( T, int n )( int i )
 {
         asm {
@@ -676,6 +681,7 @@ void test1()
 
         assert( check( data1 ) );
 }
+} // @optStrategy
 
 /************************************************************************/
 // test2 Pass Struct in Registers
@@ -683,6 +689,7 @@ void test1()
 
 TEST data2 = { 2, "RDI struct pointer" };
 
+@optStrategy("none") {
 T test2_asm( T, int n )( T t )
 {
         typeof(.dump) dump = void;
@@ -735,12 +742,14 @@ void test2()
 
         assert( check( data2 ) );
 }
+} // @optStrategy
 
 /************************************************************************/
 // test3
 
 TEST data3 = { 3, "Check Return Register value" };
 
+@optStrategy("none") {
 void test3_run( T, int n )( )
 {
         typeof(.dump) dump;
@@ -784,12 +793,14 @@ ulong mask(ulong n)
                 return ~0UL;
         return 2^^( n*8 ) - 1;
 }
+} // @optStrategy
 
 /************************************************************************/
 // test4
 
 TEST data4 = { 4, "Check Input Register value" };
 
+@optStrategy("none") {
 void test4_run( T, int n )( T t )
 {
         typeof(.dump) dump = void;
@@ -828,6 +839,7 @@ void test4()
         }
         assert( check( data4 ) );
 }
+} // @optStrategy
 
 
 } // end version(Run_X86_64_Tests)

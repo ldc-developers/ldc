@@ -1,3 +1,4 @@
+// DISABLED: LDC // -gx is unsupported
 // REQUIRED_ARGS: -gx
 
 // https://issues.dlang.org/show_bug.cgi?id=15779

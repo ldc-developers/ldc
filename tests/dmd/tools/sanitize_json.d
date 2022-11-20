@@ -140,6 +140,8 @@ void sanitizeCompilerInfo(ref JSONValue[string] buildInfo)
     removeArray(&buildInfo["platforms"]);
     removeArray(&buildInfo["architectures"]);
     removeArray(&buildInfo["predefinedVersions"]);
+    version (LDC)
+        buildInfo["interface"] = JSONValue("dmd"); // not "ldc"
 }
 void sanitizeBuildInfo(ref JSONValue[string] buildInfo)
 {
@@ -147,6 +149,11 @@ void sanitizeBuildInfo(ref JSONValue[string] buildInfo)
     removeString(&buildInfo["argv0"]);
     removeString(&buildInfo["config"]);
     removeString(&buildInfo["libName"]);
+    version (LDC)
+    {
+        removeArray(&buildInfo["importPaths"]);
+    }
+    else
     {
         auto importPaths = buildInfo["importPaths"].array;
         foreach(ref path; importPaths)
@@ -202,7 +209,7 @@ void sanitizeSemantics(ref JSONValue[string] semantics)
     {
         auto semanticModule = semanticModuleNode.object();
         auto moduleName = semanticModule.getOptionalString("name");
-        if(moduleName.startsWith("std.", "core.", "etc.", "rt.") || moduleName == "object")
+        if(moduleName.startsWith("std.", "core.", "etc.", "rt.", /*LDC*/ "ldc.") || moduleName == "object")
         {
            // remove druntime/phobos modules since they can change for each
            // platform

@@ -1,9 +1,4 @@
-/*
-TEST_OUTPUT:
----
-block displacement of -130 exceeds the maximum offset of -128 to 127.
----
-*/
+// DISABLED: LDC // DMD assembler restriction test - not clear how this applies to LDC.
 
 void foo()
 {

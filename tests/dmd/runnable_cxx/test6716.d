@@ -1,5 +1,6 @@
 // EXTRA_CPP_SOURCES: test6716.cpp
 
+version(LDC) {} else
 version(Windows)
 {
     // without main, there is no implicit reference to the runtime library

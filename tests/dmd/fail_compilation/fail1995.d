@@ -6,7 +6,7 @@ fail_compilation/fail1995.d(12): Error: file `"SomeFile.txt"` cannot be found or
 fail_compilation/fail1995.d(12):        Path(s) searched (as provided by `-J`):
 fail_compilation/fail1995.d(12):        [0]: `does_not_exists` (path not found)
 fail_compilation/fail1995.d(12):        [1]: `fail_compilation/fail1995.d` (not a directory)
-fail_compilation/fail1995.d(12):        [2]: `fail_compilation/`
+fail_compilation/fail1995.d(12):        [2]: `fail_compilation$r:[/\\]$`
 ---
  */
 immutable string Var = import("SomeFile.txt");

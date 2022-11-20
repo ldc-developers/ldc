@@ -1,4 +1,5 @@
-// PERMUTE_ARGS: -fPIC -O -fPIE
+// LDC: removed unsupported -fPIE
+// PERMUTE_ARGS: -fPIC -O
 // DISABLED: win32 win64
 
 extern (C) int printf(const char*, ...);

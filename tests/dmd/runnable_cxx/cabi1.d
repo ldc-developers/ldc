@@ -239,6 +239,19 @@ void test16()
 
 /******************************************/
 
+// see https://issues.dlang.org/show_bug.cgi?id=13957
+struct S13957 { double a; ulong b; }
+
+extern (C) bool ctest13957(ubyte x, S13957, ubyte y);
+
+void test13957()
+{
+  const s = S13957(1.25, 0x1020304);
+  assert(ctest13957(81, s, 83));
+}
+
+/******************************************/
+
 int main()
 {
     test1();
@@ -257,6 +270,7 @@ else
     test14();
     test15();
     test16();
+    test13957();
 
     return 0;
 }

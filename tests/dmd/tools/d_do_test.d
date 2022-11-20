@@ -20,6 +20,8 @@
 */
 module d_do_test;
 
+version (LDC) version (CRuntime_Microsoft) version = LDC_MSVC;
+
 import std.algorithm;
 import std.array;
 import std.conv;
@@ -140,6 +142,7 @@ struct EnvData
     bool printRuntime;           /// `PRINT_RUNTIME`: Print time spent on a single test
     bool usingMicrosoftCompiler; /// Using Visual Studio toolchain
     bool tryDisabled;            /// `TRY_DISABLED`:Silently try disabled tests (ignore failure and report success)
+    version (LDC) bool noArchVariant;
 }
 
 /++
@@ -178,6 +181,7 @@ immutable(EnvData) processEnvironment()
     envData.autoUpdate     = environment.get("AUTO_UPDATE", "") == "1";
     envData.printRuntime   = environment.get("PRINT_RUNTIME", "") == "1";
     envData.tryDisabled    = environment.get("TRY_DISABLED") == "1";
+    version (LDC) envData.noArchVariant = environment.get("NO_ARCH_VARIANT") == "1";
 
     enforce(envData.sep.length == 1,
         "Path separator must be a single character, not: `"~envData.sep~"`");
@@ -186,6 +190,8 @@ immutable(EnvData) processEnvironment()
     {
         if (envData.os != "windows")
             envData.ccompiler = "c++";
+        else version (LDC_MSVC)
+            envData.ccompiler = "cl.exe";
         else if (envData.model == "32omf")
             envData.ccompiler = "dmc";
         else if (envData.model == "64")
@@ -613,6 +619,26 @@ string getDisabledReason(string[] disabledPlatforms, const ref EnvData envData)
     if (i != -1)
         return "on " ~ disabledPlatforms[i];
 
+    version (LDC)
+    {
+        version (X86)         enum isX86 = true;
+        else version (X86_64) enum isX86 = true;
+        else                  enum isX86 = false;
+
+        // additionally support `DISABLED: LDC`
+        if (disabledPlatforms.canFind("LDC"))
+            return "for LDC";
+
+        // additionally support `DISABLED: LDC_not_x86` (e.g., for tests with DMD-style inline asm)
+        if (!isX86 && disabledPlatforms.canFind("LDC_not_x86"))
+            return "for LDC_not_x86";
+
+        // additionally support `DISABLED: LDC_<OS>[<model>]`
+        const j = disabledPlatforms.countUntil!(p => p.startsWith("LDC_") && target.canFind(p[4 .. $]));
+        if (j != -1)
+            return "on " ~ disabledPlatforms[j];
+    }
+
     return null;
 }
 
@@ -679,7 +705,32 @@ bool gatherTestParameters(ref TestArgs testArgs, string input_dir, string input_
     // remove permute args enforced as required anyway
     if (testArgs.requiredArgs.length && testArgs.permuteArgs.length)
     {
-        const required = split(testArgs.requiredArgs);
+        version (LDC)
+        {
+            /*
+             * Additionally exclude some permute args which are uninteresting
+             * for LDC due to the split in
+             *
+             * * dmd-testsuite, requiring `-O`, which basically implies `-inline`
+             *   too (except for a here irrelevant header generation detail), and
+             * * dmd-testsuite-debug, requiring `-g -link-defaultlib-debug`.
+             *
+             * In case the original permute args specify both `-O` and `-g`, only
+             * 2 of 4 combinations will be tested (`-O` and `-g`), excluding the
+             * rather uninteresting `-O -g` (which would otherwise be tested twice)
+             * and `` (which is untestable anyway).
+             * Similarly, a `-inline` alone without `-O` isn't interesting for
+             * additional test coverage, as it just controls an LLVM optimization
+             * pass.
+             * Ditto for `-fPIC`, which is enabled by default for most targets.
+             */
+            static immutable permuteArgsExcludedByLDC = ["-O", "-inline", "-g", "-fPIC"];
+            const required = split(testArgs.requiredArgs) ~ permuteArgsExcludedByLDC;
+        }
+        else
+        {
+            const required = split(testArgs.requiredArgs);
+        }
         const newPermuteArgs = split(testArgs.permuteArgs)
             .filter!(a => !required.canFind(a))
             .join(" ");
@@ -689,6 +740,19 @@ bool gatherTestParameters(ref TestArgs testArgs, string input_dir, string input_
     // tests can override -verrors by using REQUIRED_ARGS
     if (testArgs.mode == TestMode.FAIL_COMPILE)
         testArgs.requiredArgs = "-verrors=0 " ~ testArgs.requiredArgs;
+
+    version (LDC)
+    {
+        // *.c tests: make sure not to pull in ldc_rt.dso.o for BUILD_SHARED_LIBS=ON builds
+        // (with implicit -link-defaultlib-shared)
+        if (input_file.extension() == ".c")
+        {
+            if (testArgs.requiredArgs.length)
+                testArgs.requiredArgs ~= " -defaultlib=";
+            else
+                testArgs.requiredArgs = "-defaultlib=";
+        }
+    }
 
     {
         string argSetsStr;
@@ -1080,7 +1144,7 @@ unittest
  */
 bool collectExtraSources (in string input_dir, in string output_dir, in string[] extraSources,
                           ref string[] sources, in EnvData envData, in string compiler,
-                          const(char)[] cxxflags, ref File logfile)
+                          const(char)[] cxxflags, ref File logfile, /*LDC*/ in bool objC = false)
 {
     foreach (cur; extraSources)
     {
@@ -1091,7 +1155,7 @@ bool collectExtraSources (in string input_dir, in string output_dir, in string[]
         {
             command ~= ` /c /nologo `~curSrc~` /Fo`~curObj;
         }
-        else if (envData.compiler == "dmd" && envData.os == "windows" && envData.model == "32omf")
+        else if (/*LDC*/ envData.noArchVariant || (envData.compiler == "dmd" && envData.os == "windows" && envData.model == "32omf"))
         {
             command ~= " -c "~curSrc~" -o"~curObj;
         }
@@ -1287,6 +1351,10 @@ bool compareOutput(string output, string refoutput, const ref EnvData envData)
     // If no output is expected, only check that nothing was captured.
     if (refoutput.length == 0)
         return (output.length == 0) ? true : false;
+
+    version (LDC)
+    refoutput = refoutput.replace("// Automatically generated by Digital Mars D Compiler",
+                                  "// Automatically generated by LDC Compiler");
 
     for ( ; ; )
     {
@@ -1553,9 +1621,25 @@ int tryMain(string[] args)
     const test_base_name = input_file.baseName();
     const test_name      = test_base_name.stripExtension();
 
-    const result_path    = envData.results_dir ~ envData.sep;
+    version (LDC_MSVC)
+    {
+        const result_path    = (envData.results_dir ~ envData.sep).replace("/", `\`);
+    }
+    else
+    {
+        const result_path    = envData.results_dir ~ envData.sep;
+    }
     const output_dir     = result_path ~ input_dir;
     const output_file    = result_path ~ input_file ~ ".out";
+
+    version (LDC)
+    {
+        if (test_base_name.startsWith("gdb") && environment.get("GDB_FLAGS") == "OFF")
+        {
+            writefln(" ... %-30s [DISABLED due to GDB_FLAGS=OFF]", input_file);
+            return 0;
+        }
+    }
 
     TestArgs testArgs;
     switch (input_dir)
@@ -1651,7 +1735,7 @@ int tryMain(string[] args)
         !collectExtraSources(input_dir, output_dir, testArgs.cppSources, testArgs.sources, envData, envData.ccompiler, testArgs.cxxflags, f) ||
 
         //prepare objc extra sources
-        !collectExtraSources(input_dir, output_dir, testArgs.objcSources, testArgs.sources, envData, "clang", null, f)
+        !collectExtraSources(input_dir, output_dir, testArgs.objcSources, testArgs.sources, envData, "clang", null, f, /*LDC, objC=*/true)
     )
     {
         writeln();
@@ -1688,12 +1772,31 @@ int tryMain(string[] args)
             string compile_output;
             if (!testArgs.compileSeparately)
             {
+                version (LDC)
+                {
+                    /**
+                     * HACK: Some tests use -lib. For a relative output_dir, it is required to
+                     * pass -of=<filename_without_path> for the static library to end up in
+                     * the output_dir specified via -od, as (L)DMD treats relative -of paths
+                     * for static libs (and static libs only!) as relative to the -od dir.
+                     *
+                     * E.g., `ldmd2 -lib -od=../obj -of=../obj/mylib.a` generates
+                     * `../obj/../obj/mylib.a` => change to `ldmd2 -lib -od=../obj -of=mylib.a`.
+                     */
+                    string fixupOf(string of)
+                    {
+                        return (" " ~ testArgs.requiredArgs ~ " ").canFind(" -lib ")
+                            ? baseName(of)
+                            : of;
+                    }
+                }
+
                 string objfile = output_dir ~ envData.sep ~ test_name ~ "_" ~ to!string(permuteIndex) ~ envData.obj;
                 toCleanup ~= objfile;
 
                 command = format("%s -conf= -m%s -I%s %s %s -od%s -of%s %s %s%s %s", envData.dmd, envData.model, input_dir,
                         testArgs.requiredArgs, permutedArgs, output_dir,
-                        (testArgs.mode == TestMode.RUN || testArgs.link ? test_app_dmd : objfile),
+                        fixupOf(testArgs.mode == TestMode.RUN || testArgs.link ? test_app_dmd : objfile),
                         argSet,
                         (testArgs.mode == TestMode.RUN || testArgs.link ? "" : "-c "),
                         join(testArgs.sources, " "),
@@ -2093,7 +2196,12 @@ static this()
         const runTest = [testScriptExe];
         outfile.writeln("\n[RUN_TEST] ", escapeShellCommand(runTest));
         outfile.flush();
-        auto runTestProc = std.process.spawnProcess(runTest, stdin, outfile, outfile, null, keepFilesOpen);
+        // LDC: propagate C(++) compiler from envData as CC env var (required by cpp_header_gen test)
+        version (LDC)
+            const string[string] runEnv = ["CC": envData.ccompiler];
+        else
+            const string[string] runEnv = null;
+        auto runTestProc = std.process.spawnProcess(runTest, stdin, outfile, outfile, runEnv, keepFilesOpen);
         const exitCode = wait(runTestProc);
 
         if (exitCode == 125) // = DISABLED from tools/dshell_prebuilt.d

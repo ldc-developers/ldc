@@ -1,3 +1,4 @@
+// DISABLED: LDC
 // EXTRA_OBJC_SOURCES:
 
 import core.attribute : selector;

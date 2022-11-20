@@ -1,4 +1,4 @@
-/*
+/* DISABLED: LDC // irrelevant CLI difference
 PERMUTE_ARGS:
 REQUIRED_ARGS: -makedeps=${RESULTS_DIR}/compilable/makedeps.dep -makedeps=other-file.dep -Jcompilable/extra-files -Icompilable/extra-files
 TEST_OUTPUT:

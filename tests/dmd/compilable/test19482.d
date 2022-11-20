@@ -16,6 +16,7 @@ static foreach (i; 0 .. 1)
     static assert(__traits(getCppNamespaces, i).length == 0);
     static assert(__traits(getVisibility, i) == "public");
 
+    pragma(mangle, "x") // immutable(int) cannot be C++-mangled
     extern int x;
     static assert(is(typeof(x) == immutable int));
     static assert(__traits(getLinkage, x) == "C++");

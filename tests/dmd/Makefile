@@ -39,10 +39,14 @@ else
     SHELL=/bin/bash
 endif
 QUIET=@
+BASH_RESULTS_DIR=$(RESULTS_DIR)
 export RESULTS_DIR=test_results
 export MODEL
 
 ifeq ($(findstring win,$(OS)),win)
+    SHELL=bash.exe
+    BASH_RESULTS_DIR=$(subst /,\\\\,$(RESULTS_DIR))
+
     export EXE=.exe
 
     PIC?=0
@@ -50,7 +54,8 @@ ifeq ($(findstring win,$(OS)),win)
     DRUNTIME_PATH=..\..\druntime
     PHOBOS_PATH=..\..\..\phobos
     export DFLAGS=-I$(DRUNTIME_PATH)\import -I$(PHOBOS_PATH)
-    export LIB=$(PHOBOS_PATH)
+    # LDC: don't override crucial LIB environment variable
+    #export LIB=$(PHOBOS_PATH)
 
     # auto-tester might run the testsuite with a different $(MODEL) than DMD
     # has been compiled with. Hence we manually check which binary exists.
@@ -106,6 +111,22 @@ ifeq ($(HOST_DMD),)
         HOST_DMD = dmd
     endif
 endif
+
+####
+
+export GDB_FLAGS
+
+# disable tests based on arch
+ifeq ($(OS),linux)
+    ARCH:=$(shell uname -m)
+
+    ifneq (,$(filter arm% aarch64% ppc64le%,$(ARCH)))
+        # tell d_do_test.d to ignore MODEL
+        export NO_ARCH_VARIANT=1
+    endif
+endif
+
+####
 
 # Required version for -lowmem
 LOW_MEM_MIN_VERSION = v2.086.0

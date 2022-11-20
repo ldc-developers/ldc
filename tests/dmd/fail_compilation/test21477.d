@@ -1,4 +1,5 @@
 /* REQUIRED_ARGS: -betterC
+DISABLED: LDC // no expression info in error msg
 TEST_OUTPUT:
 ---
 fail_compilation/test21477.d(103): Error: expression `[1]` uses the GC and cannot be used with switch `-betterC`

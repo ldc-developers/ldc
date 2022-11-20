@@ -1,4 +1,4 @@
-/*
+/* DISABLED: LDC_not_x86 LDC // differing output
 TEST_OUTPUT:
 ---
 fail_compilation/fail152.d(16): Error: cannot use type `double` as an operand

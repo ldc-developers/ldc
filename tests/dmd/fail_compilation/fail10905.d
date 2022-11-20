@@ -1,4 +1,4 @@
-/*
+/* DISABLED: LDC // works as expected
 REQUIRED_ARGS: -m64
 TEST_OUTPUT:
 ---

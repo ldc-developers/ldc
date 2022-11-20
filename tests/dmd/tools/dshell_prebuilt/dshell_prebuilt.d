@@ -47,7 +47,8 @@ private alias requiredEnvVars = AliasSeq!(
     "EXE", "OBJ",
     "DMD", "DFLAGS",
     "OS", "SEP", "DSEP",
-    "BUILD"
+    "BUILD",
+    "BUILD_SHARED_LIBS" // LDC - passed through from CMake
 );
 private alias optionalEnvVars = AliasSeq!(
     "CC", "PIC_FLAG"

@@ -1,7 +1,7 @@
-/*
+/* DISABLED: LDC_not_x86
 TEST_OUTPUT:
 ---
-fail_compilation/diag15235.d(11): Error: cannot have two symbols in addressing mode
+fail_compilation/diag15235.d(11): Error: too many registers memory operand
 ---
 */
 

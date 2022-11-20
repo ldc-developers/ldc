@@ -1,3 +1,4 @@
+// DISABLED: LDC
 // EXTRA_OBJC_SOURCES: objc_objc_msgSend.m
 // REQUIRED_ARGS: -L-framework -LFoundation
 
@@ -102,8 +103,8 @@ void test_double64()
 
 void main()
 {
-    // test_stret();
-    // test_fp2ret();
+    test_stret();
+    test_fp2ret();
     test_fpret();
     test_float32();
     test_double64();

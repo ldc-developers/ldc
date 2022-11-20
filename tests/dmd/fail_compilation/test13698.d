@@ -2,6 +2,7 @@
 // REQUIRED_ARGS: -m64
 // https://issues.dlang.org/show_bug.cgi?id=13698
 /*
+DISABLED: LDC // unsupported __simd syntax
 TEST_OUTPUT:
 ---
 fail_compilation/test13698.d(16): Error: constant expression expected, not `cast(void)b`

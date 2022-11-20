@@ -248,6 +248,18 @@ S16 ctest16(char x, S16 s, char y) {
 }
 
 
+/**********************************************/
+
+typedef struct S13957 {
+  double a;
+  unsigned long long b;
+} S13957;
+
+bool ctest13957(char x, S13957 s, char y) {
+  return s.a == 1.25 && s.b == 0x1020304;
+}
+
+
 
 #if __cplusplus
 }

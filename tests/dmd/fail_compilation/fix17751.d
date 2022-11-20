@@ -1,4 +1,5 @@
 /* REQUIRED_ARGS: -m64
+ * DISABLED: LDC // unsupported __simd syntax
  * TEST_OUTPUT:
 ---
 fail_compilation/fix17751.d(15): Error: last parameter to `__simd()` must be a constant

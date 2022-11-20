@@ -30,6 +30,9 @@ void main()
 
         if (o1 is o2) assert(0);
     }
+    // LDC: no common subexpression elimination (CSE)
+    version (LDC) {}
+    else
     {
         auto p1 = pa();
         auto p2 = pa();

@@ -766,16 +766,26 @@ struct S8658
     int[16385] a;
 }
 
+// LDC_FIXME: The LLVM x86 backend suffers from this as well - an
+//            argument's size in bytes seems to be limited to 16 bits.
+version (LDC) version (X86) version = LDC_X86;
+
+version (LDC_X86) {} else
+{
 void foo8658(S8658 s)
 {
     int x;
+}
 }
 
 void test8658()
 {
     S8658 s;
+  version (LDC_X86) {} else
+  {
     for(int i = 0; i < 1000; i++)
         foo8658(s);
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -2262,6 +2272,13 @@ void test21325() @safe
 ////////////////////////////////////////////////////////////////////////
 // https://issues.dlang.org/show_bug.cgi?id=16274
 
+version (LDC)
+{
+    // LDC doesn't accept such signature hacks
+    void test16274() {}
+}
+else
+{
 extern(C) int pair(short a, ushort b, byte c, ubyte d);
 
 struct S
@@ -2285,6 +2302,7 @@ void test16274()
     version (X86)
         pair(-1, 2, -3, 4);
 }
+} // !LDC
 
 ////////////////////////////////////////////////////////////////////////
 // https://issues.dlang.org/show_bug.cgi?id=16268

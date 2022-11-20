@@ -1,3 +1,4 @@
+// DISABLED: LDC
 // EXTRA_OBJC_SOURCES: objc_class.m
 // REQUIRED_ARGS: -L-framework -LFoundation
 

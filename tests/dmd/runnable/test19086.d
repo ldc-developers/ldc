@@ -3,8 +3,11 @@
 // PERMUTE_ARGS:
 // DISABLED: osx
 
+version (LDC) version (Win32) version = LDC_Win32;
+
 void run19086()
 {
+	version (LDC) pragma(inline, false);
 	long x = 1;
 	int y = 0;
 #line 20
@@ -23,7 +26,14 @@ void test19086()
 	catch(Exception e)
 	{
 		int line = findLineStackTrace(e.toString(), "run19086");
+version (LDC_Win32)
+{
+		// FIXME: no file/line infos
+}
+else
+{
 		assert(line >= 20 && line <= 21);
+}
 	}
 }
 

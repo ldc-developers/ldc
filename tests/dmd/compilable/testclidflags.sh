@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# LDC doesn't print the DFLAGS environment variable as part of -v output
+# DISABLED: LDC
+
 # Windows-WSL: Export DFLAGS s.t. the windows executable sees the required changes
 export WSLENV="DFLAGS"
 

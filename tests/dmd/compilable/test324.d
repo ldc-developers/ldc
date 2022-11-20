@@ -1,3 +1,4 @@
+// DISABLED: LDC
 /* TEST_OUTPUT:
 ---
 compilable/test324.d(17): Deprecation: function `test324.main.doStuff!((i)

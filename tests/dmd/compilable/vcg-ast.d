@@ -2,6 +2,7 @@
 REQUIRED_ARGS: -vcg-ast -o-
 PERMUTE_ARGS:
 OUTPUT_FILES: compilable/vcg-ast.d.cg
+TRANSFORM_OUTPUT: remove_lines(LDC_profile_instr)
 TEST_OUTPUT_FILE: extra-files/vcg-ast.d.cg
 */
 

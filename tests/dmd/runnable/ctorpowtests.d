@@ -150,6 +150,11 @@ int containsAsm()
         asm { nop; }
     else version (D_InlineAsm_X86_64)
         asm { nop; }
+    else version (LDC)
+    {
+        import ldc.llvmasm;
+        __asm("", "");
+    }
     return 0;
 }
 

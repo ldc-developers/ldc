@@ -48,7 +48,11 @@ int main() {
 }
 EOF
 
-${CC} -m${MODEL} -c -o ${C_FILE}${OBJ} $C_FILE
+# LDC-specific
+CC_MODEL="-m${MODEL}"
+if [ "${NO_ARCH_VARIANT-0}" = "1" ]; then CC_MODEL=""; fi
+
+${CC} ${CC_MODEL} -c -o ${C_FILE}${OBJ} $C_FILE
 ar rcs ${C_LIB} ${C_FILE}${OBJ}
 
 ${DMD} -m${MODEL} -lib -of${D_LIB} ${D_FILE}

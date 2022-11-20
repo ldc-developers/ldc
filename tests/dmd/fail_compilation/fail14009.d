@@ -1,7 +1,7 @@
-/*
+/* DISABLED: LDC_not_x86
 TEST_OUTPUT:
 ---
-fail_compilation/fail14009.d(12): Error: expression expected not `:`
+fail_compilation/fail14009.d(12): Error: end of instruction expected, not `:`
 ---
 */
 

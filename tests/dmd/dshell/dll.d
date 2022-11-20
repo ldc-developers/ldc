@@ -2,7 +2,12 @@ import dshell;
 
 int main()
 {
-    version (Windows) if (Vars.MODEL == "32omf") // Avoid optlink
+    version (LDC)
+    {
+        if (Vars.BUILD_SHARED_LIBS == "OFF")
+            return DISABLED;
+    }
+    else version (Windows) if (Vars.MODEL == "32omf") // Avoid optlink
         return DISABLED;
 
     version (DigitalMars)
@@ -23,7 +28,10 @@ int main()
         // Segfaults without PIC - using hardcoded -fPIC and not $PIC_FLAG as
         // the latter can be set to an empty string.
         enum dllExtra = `-fPIC`;
-        enum mainExtra = `-fPIC -L-L$OUTPUT_BASE -L$DLL`;
+        version (LDC) // shared default libs for the executable too
+            enum mainExtra = `-fPIC -L-L$OUTPUT_BASE -L$DLL -link-defaultlib-shared`;
+        else
+            enum mainExtra = `-fPIC -L-L$OUTPUT_BASE -L$DLL`;
     }
 
     run(`$DMD -m$MODEL -shared -od=$OUTPUT_BASE -of=$DLL $SRC/mydll.d ` ~ dllExtra);

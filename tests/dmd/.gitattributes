@@ -1,0 +1,4 @@
+# The following text files require strict end of line rules
+compilable/extra-files/makedeps-import.txt text eol=lf
+fail_compilation/extra-files/makedeps-import.txt text eol=lf
+

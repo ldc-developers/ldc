@@ -1,4 +1,5 @@
 /* https://issues.dlang.org/show_bug.cgi?id=23058
+ * DISABLED: LDC // unsupported initializer lists
  */
 
 int printf(const char *s, ...);

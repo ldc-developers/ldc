@@ -1,3 +1,5 @@
+// LDC: not implemented yet (issue #2670)
+// DISABLED: LDC
 // EXTRA_OBJC_SOURCES:
 // REQUIRED_ARGS: -L-framework -LFoundation
 

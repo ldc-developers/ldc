@@ -1,4 +1,4 @@
-/*
+/* DISABLED: LDC // unsupported __simd syntax
 REQUIRED_ARGS: -m64
 TEST_OUTPUT:
 ---

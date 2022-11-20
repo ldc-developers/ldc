@@ -155,6 +155,7 @@ class C13147
     {
         static if (x86iasm)
             asm { naked; ret; }
+        else // LDC doesn't allow non-ASM statements in naked functions
         return this;
     }
 }

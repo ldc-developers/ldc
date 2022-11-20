@@ -1,5 +1,5 @@
 // REQUIRED_ARGS: -w -de
-
+// DISABLED: LDC_not_x86
 void foo() pure nothrow @nogc @safe
 {
     asm pure nothrow @nogc @trusted

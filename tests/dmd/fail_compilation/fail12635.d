@@ -1,4 +1,4 @@
-/*
+/* DISABLED: LDC_not_x86
 TEST_OUTPUT:
 ---
 fail_compilation/fail12635.d(13): Error: Cannot generate a segment prefix for a branching instruction

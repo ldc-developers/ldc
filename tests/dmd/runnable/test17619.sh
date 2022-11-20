@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# DMD codegen test failing on linux-x86 with non-eliminated frame pointers
+# DISABLED: LDC
+
 if [ ${OS} != "linux" ]; then
     echo "Skipping test17619 on ${OS}."
     exit 0

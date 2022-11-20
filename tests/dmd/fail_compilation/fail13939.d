@@ -1,5 +1,5 @@
 // REQUIRED_ARGS: -o- -fPIC
-// DISABLED: win32 win64
+// DISABLED: win32 win64 LDC // LDC: works as expected
 /*
 TEST_OUTPUT:
 ---

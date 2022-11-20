@@ -14,6 +14,9 @@ extern(C)
         int snprintf(char*, size_t, const char*, ...);
 }
 
+version (LDC) static if (real.mant_dig != 64)
+    version = LDC_NoX87;
+
 /*************************************/
 
 // https://www.digitalmars.com/d/archives/digitalmars/D/bugs/4766.html
@@ -640,7 +643,11 @@ in
 }
 do
 {
-    version (D_InlineAsm_X86)
+    version (LDC_NoX87)
+    {
+        return 0;
+    }
+    else version (D_InlineAsm_X86)
     {
         version (linux)
         {
@@ -825,6 +832,7 @@ void test47()
 
     r = (56.1L + (32.7L + 6L * x) * x);
     assert(r == poly_c(x, pp));
+  version (LDC_NoX87) {} else
     version (D_InlineAsm_X86)
         assert(r == poly_asm(x, pp));
 }

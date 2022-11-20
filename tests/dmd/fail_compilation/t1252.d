@@ -1,7 +1,7 @@
-/*
+/* DISABLED: LDC_not_x86
 TEST_OUTPUT:
 ---
-fail_compilation/t1252.d(20): Error: property of basic type `int` expected
+fail_compilation/t1252.d(20): Error: end of instruction expected, not `int`
 ---
 */
 module t1252;

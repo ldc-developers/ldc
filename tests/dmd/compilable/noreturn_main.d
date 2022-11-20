@@ -8,6 +8,9 @@ ARG_SETS: -version=Use_Extended_C_Main
 ARG_SETS(windows64): -version=Use_Win_Main
 ARG_SETS(windows64): -version=Use_Dll_Main -shared
 
+LDC: -shared defaults to -fvisibility=public => link.exe emits line about import .lib and .exp
+TRANSFORM_OUTPUT(windows64): remove_lines("Creating library")
+
 LINK:
 */
 

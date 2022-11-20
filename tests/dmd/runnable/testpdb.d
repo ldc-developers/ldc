@@ -1,14 +1,26 @@
-// REQUIRED_ARGS: -gf -mixin=${RESULTS_DIR}/runnable/testpdb.mixin
+// LDC: add -disable-linker-strip-dead
+// REQUIRED_ARGS: -gf -mixin=${RESULTS_DIR}/runnable/testpdb.mixin -disable-linker-strip-dead
 // PERMUTE_ARGS:
 
 import core.time;
 import core.demangle;
+import ldc.attributes;
 
+@optStrategy("none") // LDC
 void main(string[] args)
 {
     // https://issues.dlang.org/show_bug.cgi?id=4014
     // -gf should drag in full definitions of Object, TickDuration and ClockType
+  version (LDC)
+  {
+    // `Object` has no explicit fields; DMD emits debuginfos about methods which LDC doesn't.
+    // So use `Exception` with fields instead.
+    Exception e = new Exception("abc");
+  }
+  else
+  {
     Object o = new Object;
+  }
     TickDuration duration; // struct
     ClockType ct; // enumerator
 
@@ -25,9 +37,18 @@ void main(string[] args)
 
         // dumpSymbols(globals, SymTagEnum.SymTagNull, null, 0);
 
+      version (LDC)
+      {
+        IDiaSymbol excsym = searchSymbol(globals, "object.Exception");
+        testSymbolHasChildren(excsym, "object.Exception");
+        excsym.Release();
+      }
+      else
+      {
         IDiaSymbol objsym = searchSymbol(globals, "object.Object");
         testSymbolHasChildren(objsym, "object.Object");
         objsym.Release();
+      }
 
         IDiaSymbol ticksym = searchSymbol(globals, "core.time.TickDuration");
         testSymbolHasChildren(ticksym, "core.time.TickDuration");
@@ -105,9 +126,12 @@ void testLineNumbers15432(IDiaSession session, IDiaSymbol globals)
 
     //dumpLineNumbers(lines, funcRange);
 
+  version (LDC) {} else
+  {
     assert (lines[$-1].line == lineAfterTest15432 - 1);
     ubyte codeByte = lines[$-1].addr[0];
     assert(codeByte == 0x48 || codeByte == 0x5d || codeByte == 0xc3); // should be one of "mov rsp,rbp", "pop rbp" or "ret"
+  }
 }
 
 void testLineNumbers19747(IDiaSession session, IDiaSymbol globals)
@@ -119,10 +143,13 @@ void testLineNumbers19747(IDiaSession session, IDiaSymbol globals)
     assert(lines, "no line number info for test19747");
 
     //dumpLineNumbers(lines, funcRange);
+  version (LDC) {} else
+  {
     bool found = false;
     foreach(ln; lines)
         found = found || ln.line == lineScopeExitTest19747;
     assert(found);
+  }
 }
 
 int test19719()
@@ -142,12 +169,19 @@ void testLineNumbers19719(IDiaSession session, IDiaSymbol globals)
 
     test19719();
 
+  version (LDC)
+  {
+    // LDC_FIXME: issue #3015
+  }
+  else
+  {
     //dumpLineNumbers(lines, funcRange);
     wstring mixinfile = "testpdb.mixin";
     bool found = false;
     foreach(ln; lines)
         found = found || (ln.srcfile.length >= mixinfile.length && ln.srcfile[$-mixinfile.length .. $] == mixinfile);
     assert(found);
+  }
 }
 
 
@@ -168,6 +202,12 @@ S18984 test18984(IDiaSession session, IDiaSymbol globals)
     IDiaEnumSymbols enumSymbols;
     HRESULT hr = funcsym.findChildren(SymTagEnum.SymTagNull, "s", NameSearchOptions.nsfCaseSensitive, &enumSymbols);
     enumSymbols || assert(false, funcName ~ " no children");
+  version (LDC)
+  {
+    // invalid debuginfo for NRVO variable `s`
+  }
+  else
+  {
     ULONG fetched;
     IDiaSymbol symbol;
     enumSymbols.Next(1, &symbol, &fetched) == S_OK || assert(false, funcName ~ " no children");
@@ -184,6 +224,7 @@ S18984 test18984(IDiaSession session, IDiaSymbol globals)
         offset == -4 || assert(false, funcName ~ " 's' not pointing to hidden argument");
 
     symbol.Release();
+  }
     enumSymbols.Release();
 
     S18984 s = S18984(1, 2, 3);
@@ -264,6 +305,12 @@ void test19307(IDiaSession session, IDiaSymbol globals)
 {
     foo19307();
 
+  version (LDC)
+  {
+    // different debuginfo emission
+  }
+  else
+  {
     testClosureVar(globals, "testpdb.foo19307", "__closptr", "x");
     testClosureVar(globals, "testpdb.foo19307.nested", "__capture", "x");
     testClosureVar(globals, "testpdb.foo19307.nested", "__closptr", "y");
@@ -272,6 +319,7 @@ void test19307(IDiaSession session, IDiaSymbol globals)
     testClosureVar(globals, "testpdb.Struct.foo", "__closptr", "this", "member");
     testClosureVar(globals, "testpdb.Struct.foo.nested", "__capture", "localOfMethod");
     testClosureVar(globals, "testpdb.Struct.foo.nested", "__capture", "__chain", "member");
+  }
 }
 
 ///////////////////////////////////////////////
@@ -305,7 +353,8 @@ class C19318
             x++;
             C19318_px = &x;
             y++;
-            version(D_InlineAsm_X86_64)
+            version (LDC) {}
+            else version(D_InlineAsm_X86_64)
                 asm
                 {
                     mov RAX,__capture;
@@ -326,6 +375,12 @@ void test19318(IDiaSession session, IDiaSymbol globals)
 {
     foo19318(5);
 
+  version (LDC)
+  {
+    // different debuginfo emission
+  }
+  else
+  {
     testClosureVar(globals, "testpdb.foo19318", "x");
     testClosureVar(globals, "testpdb.foo19318.nested", "__capture", "x");
     testClosureVar(globals, "testpdb.foo19318.nested", "__capture", "z");
@@ -337,6 +392,7 @@ void test19318(IDiaSession session, IDiaSymbol globals)
     int off;
     sym.get_offset(&off);
     assert(off == C19318_px - C19318_capture);
+  }
 }
 
 ///////////////////////////////////////////////
@@ -352,6 +408,12 @@ void testE982(IDiaSession session, IDiaSymbol globals)
     IDiaSymbol funcSym = searchSymbol(globals, "testpdb.testE982");
     funcSym || assert(false, "testpdb.testE982 not found");
 
+  version (LDC)
+  {
+    // somehow the local isn't found by name as `funcSym` child
+  }
+  else
+  {
     string varName = "testpdb.testE982.ee";
     IDiaSymbol varSym = searchSymbol(funcSym, "ee");
     varSym || assert(false, varName ~ " not found");
@@ -363,6 +425,7 @@ void testE982(IDiaSession session, IDiaSymbol globals)
     scope(exit) SysFreeString(typename);
     wchar[] wtypename = typename[0..wcslen(typename)];
     wcscmp(typename, "testpdb.E982") == 0 || assert(false, varName ~ ": unexpected type name " ~ toUTF8(wtypename));
+  }
 }
 
 ///////////////////////////////////////////////
@@ -440,6 +503,12 @@ mixin("struct Class18147 { int " ~ members18147 ~ "member10000;}");
 
 void test18147(IDiaSession session, IDiaSymbol globals)
 {
+  version (LDC)
+  {
+    // hitting CodeView-related assertions with LLVM 9...
+  }
+  else
+  {
     Enumerator18147 anE;
     Struct18147 aS;
     Class18147 aC;
@@ -482,7 +551,7 @@ void test18147(IDiaSession session, IDiaSymbol globals)
     classMember9999 || assert(false, "testpdb.Class18147.member9999 not found");
     classMember9999.get_offset(&off);
     off == Class18147.member9999.offsetof || assert(false, "testpdb.Class18147.member9999 bad offset");
-
+  } // !LDC
 }
 
 ///////////////////////////////////////////////
@@ -1183,6 +1252,7 @@ IDiaSymbol searchSymbol(IDiaSymbol parent, const(wchar)* name, SymTagEnum tag = 
         if (hr == S_OK)
         {
             scope(exit) SysFreeString(symname);
+            //printf(".: Symbol: %S\n", symname);
             if (wcscmp(symname, name) == 0)
                 break;
         }

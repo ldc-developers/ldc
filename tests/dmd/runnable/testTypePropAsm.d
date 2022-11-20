@@ -1,3 +1,6 @@
+// LDC: not implemented
+// DISABLED: LDC
+
 module testTypePropAsm;
 
 alias Seq(T...) = T;

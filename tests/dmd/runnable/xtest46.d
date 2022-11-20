@@ -3116,12 +3116,14 @@ template map(fun...)
 
 void test139()
 {
+    /* LDC: FIXME - https://github.com/ldc-developers/ldc/issues/2361
     double[] x;
     alias typeof(map!"a"(x)) T;
     T a = void;
     auto b = map!"a"(x);
     auto c = [map!"a"(x)];
     T[3] d = void;
+    */
 }
 
 

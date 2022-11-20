@@ -1,4 +1,4 @@
-/*
+/* DISABLED: LDC // passes due to slightly different semantics
 TEST_OUTPUT:
 ----
 fail_compilation/test17868b.d(9): Error: pragma `crt_constructor` can only apply to a single declaration

@@ -1,4 +1,4 @@
-/*
+/* DISABLED: LDC // `-i=` is equivalent to `-i` for LDC
 REQUIRED_ARGS: -i=
 TEST_OUTPUT:
 ----

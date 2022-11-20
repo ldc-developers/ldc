@@ -1,3 +1,4 @@
+// DISABLED: LDC // IR types conflict for `array` declaration/definition
 // https://issues.dlang.org/show_bug.cgi?id=22585
 
 extern const unsigned char array[];

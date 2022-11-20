@@ -2,6 +2,13 @@
 DISABLED: win32 win64 osx32 linux32 freebsd32
 */
 
+version (X86_64) {} else version = not_X86_64;
+version (not_X86_64)
+{
+    void main() {}
+}
+else:
+
 void chkArgTypes(S, V...)()
 {
     //pragma(msg, S);

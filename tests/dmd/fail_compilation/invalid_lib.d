@@ -1,4 +1,4 @@
-/*
+/* DISABLED: LDC // no library scanning from LDC side
 REQUIRED_ARGS: -lib
 REQUIRED_ARGS(linux freebsd osx openbsd): fail_compilation/extra-files/fake.a
 REQUIRED_ARGS(windows): -m32 fail_compilation/extra-files/fake.lib

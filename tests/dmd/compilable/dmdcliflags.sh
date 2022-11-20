@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# these advanced CLI tests are too DMD-specific for LDMD
+# DISABLED: LDC
+
 GREP="$(command -v grep)"
 
 # grep -q can exit with a 141 on early exits

@@ -51,11 +51,21 @@ void test3()
 
 /***************************************************/
 
+void if_false()
+{
+    if (false) {
+        int i = 1;
+    }
+}
+
+/***************************************************/
+
 int main(string[] args)
 {
     dmd_coverDestPath(args[1]);
     test1();
     test2();
     test3();
+    if_false();
     return 0;
 }

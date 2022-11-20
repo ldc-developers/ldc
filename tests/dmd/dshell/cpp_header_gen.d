@@ -40,11 +40,18 @@ int main()
         stdout.flush();
     }
 
+    // LDC: don't specify -m<model> for C compiler for non-x86 targets, it's mostly unsupported.
+    version (X86)         enum X86_Any = true;
+    else version (X86_64) enum X86_Any = true;
+    else                  enum X86_Any = false;
+
     version (Windows)
-        run([CC, "/c", "/Fo" ~ Vars.CPP_OBJ, "/I" ~ OUTPUT_BASE, "/I" ~ EXTRA_FILES ~"/../../../src/dmd/root", Vars.SOURCE_DIR ~ "/app.cpp"]);
+        run([CC, "/c", "/Fo" ~ Vars.CPP_OBJ, "/I" ~ OUTPUT_BASE, "/I" ~ EXTRA_FILES ~"/../../../../../dmd/root", Vars.SOURCE_DIR ~ "/app.cpp"]);
+    else static if (X86_Any)
+        run("$CC -std=c++11 -m$MODEL -c -o $CPP_OBJ -I$OUTPUT_BASE -I$EXTRA_FILES/../../../../../dmd/root $SOURCE_DIR/app.cpp");
     else
-        run("$CC -m$MODEL -c -o $CPP_OBJ -I$OUTPUT_BASE -I$EXTRA_FILES/../../../src/dmd/root $SOURCE_DIR/app.cpp");
-    run("$DMD -m$MODEL -conf= -of=$HEADER_EXE $LIB $CPP_OBJ");
+        run("$CC -std=c++11 -c -o $CPP_OBJ -I$OUTPUT_BASE -I$EXTRA_FILES/../../../../../dmd/root $SOURCE_DIR/app.cpp");
+    run("$DMD -m$MODEL -of=$HEADER_EXE $LIB $CPP_OBJ");
     run("$HEADER_EXE");
 
     return 0;

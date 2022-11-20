@@ -1,4 +1,4 @@
-/*
+/* DISABLED: LDC_win // Visual C++ runtime apparently doesn't like stdout output in crt_destructor
 REQUIRED_ARGS: -betterC
 RUN_OUTPUT:
 ---

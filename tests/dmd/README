@@ -1,0 +1,27 @@
+DMD D2 test suite
+=================
+
+This repository contains a mirror of the D2 test suite as found in
+the test/ directory of the official DMD repository [1].
+
+It is intended for use as Git submodule in the development of LDC or
+other alternative compilers.
+
+The 'master' branch and all tags contain a pristine copy of the files
+in the DMD repository, the 'ldc' branch also has some LDC-specific
+adjustments and fixes.
+
+
+Updating the repository
+-----------------------
+
+Updates from upstream are folded in using the update-dmd-testsuite
+script found in the ldc-scripts repository [2]. It performs a new
+history rewrite on the DMD repository each time, so please leave
+the master branch (or any tags, ...) alone, as this would change the
+SHA-1 commit ids and thus break the process.
+
+
+
+[1] https://github.com/D-Programming-Language/dmd
+[2] https://github.com/ldc-developers/ldc-scripts

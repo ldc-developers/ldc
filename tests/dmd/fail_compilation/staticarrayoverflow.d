@@ -1,4 +1,4 @@
-/*
+/* DISABLED: LDC // no hardcoded limit for static array size
 REQUIRED_ARGS: -m64
 TEST_OUTPUT:
 ---
@@ -13,7 +13,7 @@ fail_compilation/staticarrayoverflow.d(27): Error: variable `staticarrayoverflow
 ---
 */
 
-
+version (LDC) { /* don't attempt to compile, OOM error can take a while */ } else:
 
 struct S
 {

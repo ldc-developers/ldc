@@ -548,6 +548,7 @@ void test9348()
     }
 }
 
+/+ LDC_FIXME: See discussion at D-Programming-Language/dmd#2175.
 /***************************************************/
 // https://issues.dlang.org/show_bug.cgi?id=9987
 
@@ -566,6 +567,7 @@ static if (is(object.ModuleInfo == class))
     static assert(__traits(classInstanceSize, object.ModuleInfo) !=
                   __traits(classInstanceSize, ModuleInfo));
 }
++/
 
 /***************************************************/
 // https://issues.dlang.org/show_bug.cgi?id=10158

@@ -1,10 +1,13 @@
 // REQUIRED_ARGS: -g
 // REQUIRED_ARGS(linux freebsd dragonflybsd): -L-export-dynamic
+// LDC (required for Win32 and -O): REQUIRED_ARGS(windows): -link-debuglib
 // PERMUTE_ARGS:
 // DISABLED: osx
 
 import core.stdc.stdio;
+import ldc.attributes;
 
+@optStrategy("none") // otherwise LDC fails on Windows with -O
 void main()
 {
     fun(1);

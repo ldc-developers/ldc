@@ -1,3 +1,11 @@
+/* DISABLED: LDC
+ *
+ * This is a DMD codegen regression test which takes veeery long and severely
+ * impacts parallelizability of dmd-testsuite. As d_do_test tries to run
+ * disabled tests too, we need to disable the whole module.
+ */
+version (LDC) { /* will fail because of missing main */ } else:
+
 // PERMUTE_ARGS:
 
 // COMDAT folding increases runtime by > 80x

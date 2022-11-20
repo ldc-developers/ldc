@@ -1,4 +1,4 @@
-/*
+/* DISABLED: LDC // codegen bails out: Function type does not match previously declared function with the same mangled name
 Reduced from the assertion failure in the glue layer when compiling DWT.
 A `compilable` test because it needs codegen.
 

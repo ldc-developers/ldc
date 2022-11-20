@@ -1,6 +1,9 @@
+// DISABLED: LDC_not_x86
+
 // REQUIRED_ARGS: -m64
 /*
-TEST_OUTPUT:
+// LDC: compiles
+test_output:
 ---
 fail_compilation/iasm1.d(103): Error: bad type/size of operands `and`
 fail_compilation/iasm1.d(104): Error: bad type/size of operands `and`
@@ -22,7 +25,8 @@ void test100(ulong bar)
 /*
 TEST_OUTPUT:
 ---
-fail_compilation/iasm1.d(213): Error: bad type/size of operands `opDispatch!"foo"`
+fail_compilation/iasm1.d(213): Error: invalid operand
+fail_compilation/iasm1.d(213): Error: invalid operand
 ---
 */
 
@@ -50,11 +54,9 @@ void test2()
 
 /* TEST_OUTPUT:
 ---
-fail_compilation/iasm1.d(306): Error: operand cannot have both R8 and [R9]
-fail_compilation/iasm1.d(307): Error: operand cannot have both RDX and 0x3
-fail_compilation/iasm1.d(308): Error: cannot have two symbols in addressing mode
-fail_compilation/iasm1.d(309): Error: cannot have two symbols in addressing mode
-fail_compilation/iasm1.d(310): Error: cannot have two symbols in addressing mode
+fail_compilation/iasm1.d(306): Error: end of instruction expected, not `R8`
+fail_compilation/iasm1.d(307): Error: end of instruction expected, not `RDX`
+fail_compilation/iasm1.d(310): Error: end of instruction expected, not `RCX`
 ---
 */
 
@@ -81,7 +83,7 @@ void test3()
 /*
 TEST_OUTPUT:
 ---
-fail_compilation/iasm1.d(403): Error: expression expected not `;`
+fail_compilation/iasm1.d(403): Error: missing `]`
 ---
 */
 
@@ -114,7 +116,9 @@ void test5()
 
 /*********************************************/
 
-/* TEST_OUTPUT:
+/*
+// LDC: compiles
+test_output:
 ---
 fail_compilation/iasm1.d(615): Error: delegate `iasm1.test6.__foreachbody1` label `L1` is undefined
 ---

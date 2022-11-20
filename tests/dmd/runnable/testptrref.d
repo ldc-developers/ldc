@@ -1,5 +1,8 @@
-
-version(CRuntime_Microsoft)
+version (LDC)
+{
+    // no DMD-specific section-bracketing symbols
+}
+else version(CRuntime_Microsoft)
 {
     extern(C)
     {

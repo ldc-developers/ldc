@@ -1,5 +1,5 @@
 import dshell;
-import std.algorithm : find;
+import std.algorithm : canFind, find;
 
 int main()
 {

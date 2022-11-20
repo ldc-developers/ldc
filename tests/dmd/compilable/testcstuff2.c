@@ -1,4 +1,5 @@
 // check bugs in the expression parser
+// DISABLED: LDC // unsupported initializer lists
 
 /***************************************************/
 // https://issues.dlang.org/show_bug.cgi?id=21931

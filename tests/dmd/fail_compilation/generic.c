@@ -28,7 +28,9 @@ int test4()
         long double: 5,
         double: 4);
 }
-_Static_assert(test4() == 4 + (sizeof(long double) == 8), "in");
+// LDC: adapted assertion - DMD maps 64-bit C `long double` to D `double`
+//      for LDC, C `long double` always corresponds to D `real`
+_Static_assert(test4() == 4 /*+ (sizeof(long double) == 8)*/, "in");
 
 #line 100
 

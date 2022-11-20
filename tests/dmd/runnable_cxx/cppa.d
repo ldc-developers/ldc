@@ -1003,6 +1003,15 @@ void fuzz()
 
 /****************************************/
 
+version (LDC)
+{
+    version (CRuntime_Microsoft)
+        version = LDC_CppEH;
+    else version (CppRuntime_Gcc)
+        version = LDC_CppEH;
+    // FIXME: support libc++ too
+}
+
 extern (C++)
 {
     void throwit();
@@ -1011,14 +1020,22 @@ extern (C++)
 void testeh()
 {
     printf("testeh()\n");
-    version (linux)
+
+    version (LDC_CppEH) // LDC: was `version (linux)`
     {
-        version (X86_64)
+        version (all)   // LDC: was `version (X86_64)`
         {
             bool caught;
             try
             {
-                throwit();
+                try
+                {
+                    throwit();
+                }
+                catch (Throwable t)
+                {
+                    assert(false, "caught a Throwable, expected an std::exception");
+                }
             }
             catch (std.exception e)
             {
@@ -1031,9 +1048,9 @@ void testeh()
 
 /****************************************/
 
-version (linux)
+version (LDC_CppEH) // LDC: was `version (linux)`
 {
-    version (X86_64)
+    version (all)   // LDC: was `version (X86_64)`
     {
         bool raii_works = false;
         struct RAIITest
@@ -1076,9 +1093,9 @@ extern (C++) { void throwle(); void throwpe(); }
 void testeh3()
 {
     printf("testeh3()\n");
-    version (linux)
+    version (LDC_CppEH) // LDC: was `version (linux)`
     {
-        version (X86_64)
+        version (all)   // LDC: was `version (X86_64)`
         {
             bool caught = false;
             try
@@ -1587,17 +1604,11 @@ void test18966()
     i.vf();
     assert(i.x == 300);
 
-    // TODO: Allocating + constructing a C++ class with the D GC is not
-    //       supported on Posix. The returned pointer (probably from C++ ctor)
-    //       seems to be an offset and not the actual object address.
-    version (Windows)
-    {
-        auto a = new A18966;
-        assert(a.calledOverloads[0..2] == "A\0");
+    auto a = new A18966;
+    assert(a.calledOverloads[0..2] == "A\0");
 
-        auto b = new B18966;
-        assert(b.calledOverloads[0..3] == "AB\0");
-    }
+    auto b = new B18966;
+    assert(b.calledOverloads[0..3] == "AB\0");
 
     auto c = new C18966;
     assert(c.calledOverloads[0..4] == "ABC\0");

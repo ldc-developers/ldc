@@ -1,5 +1,7 @@
 // REQUIRED_ARGS: -c
 // PERMUTE_ARGS:
+// LDC depends on proper TypeInfo declarations (fields)
+// DISABLED: LDC
 module object;
 
 class Object { }

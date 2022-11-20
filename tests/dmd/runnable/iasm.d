@@ -1,3 +1,4 @@
+// DISABLED: LDC // FIXME: only disable DMD-specific parts
 // PERMUTE_ARGS:
 
 // Copyright (c) 1999-2016 by The D Language Foundation

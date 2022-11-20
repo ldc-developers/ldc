@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# This tests the vector codegen of DMD's backend. Unnecessarily brittle
+# (depends on objdump, etc.) and assumes that AVX/AVX2 are available on the
+# system running the tests. Covered by LLVM's CodeGen tests.
+# DISABLED: LDC
+
 export LC_ALL=C
 src_file=${EXTRA_FILES}/${TEST_NAME}.d
 expect_file=${EXTRA_FILES}/${TEST_NAME}.out

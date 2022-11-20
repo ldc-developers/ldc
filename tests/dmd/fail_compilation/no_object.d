@@ -1,5 +1,7 @@
 /*
 DFLAGS:
+LDC: just a different error msg
+DISABLED: LDC
 TEST_OUTPUT:
 ---
 Error: cannot find source code for runtime library file 'object.d'

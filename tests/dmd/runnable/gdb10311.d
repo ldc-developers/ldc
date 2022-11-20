@@ -1,4 +1,4 @@
-/*
+/* DISABLED: LDC // even without optimizations "x optimized-out"
 REQUIRED_ARGS: -g
 PERMUTE_ARGS:
 GDB_SCRIPT:

@@ -1,4 +1,4 @@
-/*
+/* DISABLED: LDC // not all error messages are true for LDC; replaced by ldc_diag8425.d
 REQUIRED_ARGS: -m64 -o-
 TEST_OUTPUT:
 ---

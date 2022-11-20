@@ -1,4 +1,5 @@
-// REQUIRED_ARGS: -mcpu=avx2
+// LDC: don't enforce -mcpu
+// required_args: -mcpu=avx2
 import core.simd;
 
 static if (__traits(compiles, double4))

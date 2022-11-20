@@ -1,4 +1,5 @@
 /* https://issues.dlang.org/show_bug.cgi?id=23054 */
+// DISABLED: LDC // FIXME - importC special case for struct literals
 
 struct S { int x; };
 struct S* s = &(struct S){1};

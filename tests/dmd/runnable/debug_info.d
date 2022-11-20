@@ -1,5 +1,14 @@
 // REQUIRED_ARGS: -g
 
+/* DISABLED: LDC
+ *
+ * This would require setting Mach-O section flags in order to prevent the OSX
+ * linker from stripping the DWARF sections, see
+ * https://github.com/dlang/dmd/commit/2bf7d0d.
+ * druntime's rt.backtrace could alternatively be extended to support .dSYM
+ * files, see https://stackoverflow.com/a/32299029/3215806 (and further links).
+ */
+
 void main()
 {
     version(OSX) testDebugLineMacOS();

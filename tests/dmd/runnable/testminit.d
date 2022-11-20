@@ -1,10 +1,11 @@
 /*
 EXTRA_SOURCES: imports/testminitAA.d imports/testminitBB.d
 PERMUTE_ARGS:
+LDC: adapt output to reversed AA/BB order (benign, due to reversed modules codegen order)
 RUN_OUTPUT:
 ---
-AA
 BB
+AA
 hello
 Success
 ---

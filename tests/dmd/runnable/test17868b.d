@@ -1,4 +1,4 @@
-/*
+/* DISABLED: LDC_win // Visual C++ runtime apparently doesn't like stdout output in crt_destructor
 REQUIRED_ARGS: -betterC
 RUN_OUTPUT:
 ---
@@ -21,8 +21,15 @@ void ctor_dtor_1()
     initialized = true;
 }
 
-pragma(crt_constructor)
-__gshared int var; // ignored for anything but functions
+version (LDC)
+{
+    // not ignored, errors out
+}
+else
+{
+    pragma(crt_constructor)
+    __gshared int var; // ignored for anything but functions
+}
 
 pragma(crt_constructor)
 {

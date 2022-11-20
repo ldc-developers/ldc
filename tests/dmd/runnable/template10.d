@@ -1,3 +1,4 @@
+// DISABLED: LDC
 // PERMUTE_ARGS: -inline
 /* TEST_OUTPUT:
 ---

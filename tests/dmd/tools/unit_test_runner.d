@@ -260,9 +260,9 @@ string[] buildCmdArgs(string runnerPath, string outputPath, const string[] testF
         "-version=MARS",
         "-version=DMDLIB",
         "-unittest",
-        "-J" ~ buildOutputPath,
-        "-Jsrc/dmd/res",
-        "-Isrc",
+        // LDC: no `"-J" ~ buildOutputPath,`
+        "-J" ~ compilerRootDir.buildPath("dmd/res"), // LDC: was `"-Jsrc/dmd/res",`
+        "-I" ~ compilerRootDir, // LDC: was `"-Isrc",`
         "-I" ~ unitTestDir,
         "-i",
         "-main",

@@ -1,3 +1,4 @@
+// DISABLED: LDC_not_x86
 // PERMUTE_ARGS:
 
 import core.stdc.stdio;

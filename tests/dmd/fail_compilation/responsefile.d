@@ -1,8 +1,8 @@
 // REQUIRED_ARGS: @ABC
 
-/*
+/* LDC: expected output slightly adapted
 TEST_OUTPUT:
 ---
-Error: cannot open response file '@ABC'
+Error: Could not read response file.
 ---
 */

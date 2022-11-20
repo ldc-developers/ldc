@@ -1,4 +1,4 @@
-/*
+/* DISABLED: LDC // differing output as LDC allows for a single optional integer argument (priority)
 TEST_OUTPUT:
 ----
 fail_compilation/test17868.d(10): Error: pragma `crt_constructor` takes no argument

@@ -1,8 +1,10 @@
-/*
+/* DISABLED: LDC_not_x86
 TEST_OUTPUT:
 ---
-fail_compilation/fail3354.d(16): Error: 4 operands found for `fldz` instead of the expected 0
-fail_compilation/fail3354.d(17): Error: 4 operands found for `fld` instead of the expected 1
+fail_compilation/fail3354.d(18): Error: too many operands for instruction
+fail_compilation/fail3354.d(18): Error: wrong number of operands
+fail_compilation/fail3354.d(19): Error: too many operands for instruction
+fail_compilation/fail3354.d(19): Error: wrong number of operands
 ---
 */
 

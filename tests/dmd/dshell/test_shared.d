@@ -2,6 +2,8 @@ import dshell;
 
 int main()
 {
+    version (LDC) return DISABLED; // requires shared libs and a patched cmdline below; hardly worth it
+
     if (OS != "linux")
     {
         writefln("Skipping shared library test on %s.", OS);

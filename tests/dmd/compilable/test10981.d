@@ -1,3 +1,4 @@
+// DISABLED: LDC // we ICE here due to https://issues.dlang.org/show_bug.cgi?id=15650; re-enable when fixed
 void foo(int i)
 in
 {

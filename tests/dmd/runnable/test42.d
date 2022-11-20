@@ -2773,6 +2773,13 @@ void test174()
 
 void badvariadic(...) {}
 
+version (LDC)
+{
+    // nothing bad about that variadic function
+    static assert(__traits(compiles, badvariadic())); // works with DMD too
+    static assert(is(typeof(mixin(badvariadic())) == void)); // as should be
+}
+else
 static assert(!is(typeof(mixin(badvariadic()))));
 
 /***************************************************/

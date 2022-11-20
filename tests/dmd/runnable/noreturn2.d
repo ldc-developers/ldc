@@ -1,4 +1,5 @@
 /*
+DISABLED: LDC // FIXME: https://github.com/ldc-developers/ldc/issues/3853
 PERMUTE_ARGS: -O -inline
 RUN_OUTPUT:
 ---

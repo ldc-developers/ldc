@@ -1,4 +1,5 @@
 /*
+DISABLED: LDC
 REQUIRED_ARGS: -conf=compilable/extra-files/empty.conf --help
 PERMUTE_ARGS:
 TEST_OUTPUT:

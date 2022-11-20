@@ -1,4 +1,4 @@
-/*
+/* DISABLED: LDC // FIXME - LLVM complains: `Attributes 'noinline and alwaysinline' are incompatible!`
 REQUIRED_ARGS: -inline -wi
 TEST_OUTPUT:
 ---

@@ -1,4 +1,4 @@
-
+// DISABLED: LDC // unsupported initializer lists
 int printf(const char *, ...);
 void exit(int);
 

@@ -1,3 +1,4 @@
+// DISABLED: LDC // broken for dmd, too: https://issues.dlang.org/show_bug.cgi?id=15943
 __gshared private:
     int j;
     extern(C++, ns) int k;

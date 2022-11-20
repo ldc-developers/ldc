@@ -1,5 +1,8 @@
 #! /usr/bin/env bash
 
+# this test would require -link-defaultlib-shared, which isn't available with BUILD_SHARED_LIBS=OFF
+# DISABLED: LDC
+
 # bypassing this test:
 #  - on windows
 #  - on FreeBSD 32 bits

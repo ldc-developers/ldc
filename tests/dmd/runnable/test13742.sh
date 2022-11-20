@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# https://github.com/ldc-developers/ldc/issues/2538: runnable-extra-files-lib13742a.lst is not generated
+# DISABLED: LDC
 
 $DMD -m${MODEL} -I${EXTRA_FILES} -lib -cov -of${OUTPUT_BASE}${LIBEXT} ${EXTRA_FILES}${SEP}lib13742a.d ${EXTRA_FILES}${SEP}lib13742b.d
 $DMD -m${MODEL} -I${EXTRA_FILES} -cov -of${OUTPUT_BASE}${EXE} ${EXTRA_FILES}${SEP}test13742.d ${OUTPUT_BASE}${LIBEXT}

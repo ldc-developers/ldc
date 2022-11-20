@@ -17,6 +17,8 @@ import std.algorithm, std.conv, std.datetime, std.exception, std.file, std.forma
 
 import tools.paths;
 
+version (LDC) version = IN_LLVM;
+
 const scriptDir = __FILE_FULL_PATH__.dirName.buildNormalizedPath;
 immutable testDirs = ["runnable", "runnable_cxx", "dshell", "compilable", "fail_compilation"];
 shared bool verbose; // output verbose logging
@@ -72,6 +74,15 @@ immutable struct TestTool
 
 int main(string[] args)
 {
+    version (IN_LLVM)
+    {
+        // Append any space-separated extra arguments in env var DMD_TESTSUITE_MAKE_ARGS.
+        // Primarily used to limit the number of parallel jobs (`-j<N>`).
+        const makeArgs = environment.get("DMD_TESTSUITE_MAKE_ARGS");
+        if (makeArgs.length)
+            args ~= split(makeArgs);
+    }
+
     try
         return tryMain(args);
     catch (SilentQuit sq)
@@ -123,7 +134,8 @@ Options:
     }
 
     // allow overwrites from the environment
-    hostDMD = environment.get("HOST_DMD", "dmd");
+    version (IN_LLVM) hostDMD = environment.get("DMD", "ldmd2");
+    else              hostDMD = environment.get("HOST_DMD", "dmd");
     unitTestRunnerCommand = resultsDir.buildPath("unit_test_runner").exeName;
 
     // bootstrap all needed environment variables
@@ -427,6 +439,7 @@ Target[] predefinedTargets(string[] targets)
                 break;
 
             case "all":
+                version (IN_LLVM) { /* unit_tests not supported yet */ } else
                 newTargets ~= createUnitTestTarget();
                 foreach (testDir; testDirs)
                     newTargets.put(findFiles(testDir).map!createTestTarget);
@@ -514,13 +527,30 @@ string[string] getEnvironment()
     env["RESULTS_DIR"] = resultsDir;
     env["OS"] = os;
     env["MODEL"] = model;
+    version (IN_LLVM) {} else
     env["DMD_MODEL"] = dmdModel;
     env["BUILD"] = build;
     env["EXE"] = exeExtension;
     env["DMD"] = dmdPath;
     env.setDefault("DMD_TEST_COVERAGE", "0");
 
+  version (IN_LLVM)
+  {
+    version (X86)         enum X86_Any = true;
+    else version (X86_64) enum X86_Any = true;
+    else                  enum X86_Any = false;
+
+    // Don't specify -m<model> for C(++) compiler for non-x86 targets,
+    // it's mostly unsupported.
+    static if (!X86_Any)
+        env["NO_ARCH_VARIANT"] = "1";
+
+    env.setDefault("BUILD_SHARED_LIBS", "OFF"); // passed through from CMake
+  }
+  else
+  {
     const generatedSuffix = "generated/%s/%s/%s".format(os, build, model);
+  }
 
     version(Windows)
     {
@@ -528,10 +558,13 @@ string[string] getEnvironment()
         env["OBJ"] = ".obj";
         env["DSEP"] = `\\`;
         env["SEP"] = `\`;
+      version (IN_LLVM) {} else
+      {
         auto druntimePath = environment.get("DRUNTIME_PATH", testPath(`..\..\druntime`));
         auto phobosPath = environment.get("PHOBOS_PATH", testPath(`..\..\..\phobos`));
         env["DFLAGS"] = `-I"%s\import" -I"%s"`.format(druntimePath, phobosPath);
         env["LIB"] = phobosPath ~ ";" ~ environment.get("LIB");
+      }
     }
     else
     {
@@ -539,6 +572,13 @@ string[string] getEnvironment()
         env["OBJ"] = ".o";
         env["DSEP"] = "/";
         env["SEP"] = "/";
+
+      version (IN_LLVM)
+      {
+        env["PIC_FLAG"] = "";
+      }
+      else
+      {
         auto druntimePath = environment.get("DRUNTIME_PATH", testPath(`../../druntime`));
         auto phobosPath = environment.get("PHOBOS_PATH", testPath(`../../../phobos`));
 
@@ -557,6 +597,7 @@ string[string] getEnvironment()
 
         if (pic)
             env["REQUIRED_ARGS"] = environment.get("REQUIRED_ARGS") ~ " " ~ env["PIC_FLAG"];
+      }
 
         version(OSX)
             version(X86_64)

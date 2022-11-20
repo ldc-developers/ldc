@@ -1,3 +1,4 @@
+// DISABLED: LDC
 // REQUIRED_ARGS: -inline
 // PERMUTE_ARGS: -O -release -g
 import std.file, std.stdio;
