@@ -212,7 +212,7 @@ extern (C++) struct CTFloat
   else
   {
     @system
-    static real_t parse(const(char)* literal, bool* isOutOfRange = null)
+    static real_t parse(const(char)* literal, out bool isOutOfRange)
     {
         errno = 0;
         version(CRuntime_DigitalMars)
@@ -227,8 +227,7 @@ extern (C++) struct CTFloat
         else
             auto r = strtold(literal, null);
         version(CRuntime_DigitalMars) __locale_decpoint = save;
-        if (isOutOfRange)
-            *isOutOfRange = (errno == ERANGE);
+        isOutOfRange = (errno == ERANGE);
         return r;
     }
 

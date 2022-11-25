@@ -1189,7 +1189,7 @@ else
 
                 fd = new FuncDeclaration(fd.loc, fd.endloc, fd.ident, fd.storage_class, tf);
                 fd.parent = ti;
-                fd.flags |= FUNCFLAG.inferRetType;
+                fd.inferRetType = true;
 
                 // Shouldn't run semantic on default arguments and return type.
                 foreach (ref param; *tf.parameterList.parameters)
@@ -1343,7 +1343,7 @@ else
 
         Loc instLoc = ti.loc;
         Objects* tiargs = ti.tiargs;
-        auto dedargs = new Objects();
+        auto dedargs = new Objects(parameters.dim);
         Objects* dedtypes = &ti.tdtypes; // for T:T*, the dedargs is the T*, dedtypes is the T
 
         version (none)
@@ -1362,7 +1362,6 @@ else
 
         assert(_scope);
 
-        dedargs.setDim(parameters.dim);
         dedargs.zero();
 
         dedtypes.setDim(parameters.dim);
@@ -1527,7 +1526,7 @@ else
             }
         }
 
-        if (toParent().isModule() || (_scope.stc & STC.static_))
+        if (toParent().isModule())
             tthis = null;
         if (tthis)
         {
@@ -1550,7 +1549,7 @@ else
             }
 
             // Match attributes of tthis against attributes of fd
-            if (fd.type && !fd.isCtorDeclaration())
+            if (fd.type && !fd.isCtorDeclaration() && !(_scope.stc & STC.static_))
             {
                 StorageClass stc = _scope.stc | fd.storage_class2;
                 // Propagate parent storage class, https://issues.dlang.org/show_bug.cgi?id=5504
@@ -2732,14 +2731,27 @@ void functionResolve(ref MatchAccumulator m, Dsymbol dstart, Loc loc, Scope* sc,
         if (mfa == MATCH.nomatch)
             return 0;
 
-        if (mfa > m.last) goto LfIsBetter;
-        if (mfa < m.last) goto LlastIsBetter;
+        int firstIsBetter()
+        {
+            td_best = null;
+            ti_best = null;
+            ta_last = MATCH.exact;
+            m.last = mfa;
+            m.lastf = fd;
+            tthis_best = tthis_fd;
+            ov_index = 0;
+            m.count = 1;
+            return 0;
+        }
+
+        if (mfa > m.last) return firstIsBetter();
+        if (mfa < m.last) return 0;
 
         /* See if one of the matches overrides the other.
          */
         assert(m.lastf);
-        if (m.lastf.overrides(fd)) goto LlastIsBetter;
-        if (fd.overrides(m.lastf)) goto LfIsBetter;
+        if (m.lastf.overrides(fd)) return 0;
+        if (fd.overrides(m.lastf)) return firstIsBetter();
 
         /* Try to disambiguate using template-style partial ordering rules.
          * In essence, if f() and g() are ambiguous, if f() can call g(),
@@ -2750,8 +2762,8 @@ void functionResolve(ref MatchAccumulator m, Dsymbol dstart, Loc loc, Scope* sc,
             MATCH c1 = fd.leastAsSpecialized(m.lastf);
             MATCH c2 = m.lastf.leastAsSpecialized(fd);
             //printf("c1 = %d, c2 = %d\n", c1, c2);
-            if (c1 > c2) goto LfIsBetter;
-            if (c1 < c2) goto LlastIsBetter;
+            if (c1 > c2) return firstIsBetter();
+            if (c1 < c2) return 0;
         }
 
         /* The 'overrides' check above does covariant checking only
@@ -2772,12 +2784,12 @@ void functionResolve(ref MatchAccumulator m, Dsymbol dstart, Loc loc, Scope* sc,
             {
                 if (firstCovariant != Covariant.yes && firstCovariant != Covariant.no)
                 {
-                    goto LlastIsBetter;
+                    return 0;
                 }
             }
             else if (firstCovariant == Covariant.yes || firstCovariant == Covariant.no)
             {
-                goto LfIsBetter;
+                return firstIsBetter();
             }
         }
 
@@ -2796,37 +2808,22 @@ void functionResolve(ref MatchAccumulator m, Dsymbol dstart, Loc loc, Scope* sc,
             fd._linkage == m.lastf._linkage)
         {
             if (fd.fbody && !m.lastf.fbody)
-                goto LfIsBetter;
+                return firstIsBetter();
             if (!fd.fbody)
-                goto LlastIsBetter;
+                return 0;
         }
 
         // https://issues.dlang.org/show_bug.cgi?id=14450
         // Prefer exact qualified constructor for the creating object type
         if (isCtorCall && tf.mod != m.lastf.type.mod)
         {
-            if (tthis.mod == tf.mod) goto LfIsBetter;
-            if (tthis.mod == m.lastf.type.mod) goto LlastIsBetter;
+            if (tthis.mod == tf.mod) return firstIsBetter();
+            if (tthis.mod == m.lastf.type.mod) return 0;
         }
 
         m.nextf = fd;
         m.count++;
         return 0;
-
-    LlastIsBetter:
-        return 0;
-
-    LfIsBetter:
-        td_best = null;
-        ti_best = null;
-        ta_last = MATCH.exact;
-        m.last = mfa;
-        m.lastf = fd;
-        tthis_best = tthis_fd;
-        ov_index = 0;
-        m.count = 1;
-        return 0;
-
     }
 
     int applyTemplate(TemplateDeclaration td)
@@ -3860,10 +3857,20 @@ MATCH deduceType(RootObject o, Scope* sc, Type tparam, TemplateParameters* param
                         tp = (*parameters)[i];
                     else
                     {
+                        Loc loc;
+                        // The "type" (it hasn't been resolved yet) of the function parameter
+                        // does not have a location but the parameter it is related to does,
+                        // so we use that for the resolution (better error message).
+                        if (inferStart < parameters.dim)
+                        {
+                            TemplateParameter loctp = (*parameters)[inferStart];
+                            loc = loctp.loc;
+                        }
+
                         Expression e;
                         Type tx;
                         Dsymbol s;
-                        taa.index.resolve(Loc.initial, sc, e, tx, s);
+                        taa.index.resolve(loc, sc, e, tx, s);
                         edim = s ? getValue(s) : getValue(e);
                     }
                 }
@@ -6585,10 +6592,12 @@ version (IN_LLVM)
      *      tiargs  array of template arguments
      *      flags   1: replace const variables with their initializers
      *              2: don't devolve Parameter to Type
+     *      atd     tuple being optimized. If found, it's not expanded here
+     *              but in AliasAssign semantic.
      * Returns:
      *      false if one or more arguments have errors.
      */
-    extern (D) static bool semanticTiargs(const ref Loc loc, Scope* sc, Objects* tiargs, int flags)
+    extern (D) static bool semanticTiargs(const ref Loc loc, Scope* sc, Objects* tiargs, int flags, TupleDeclaration atd = null)
     {
         // Run semantic on each argument, place results in tiargs[]
         //printf("+TemplateInstance.semanticTiargs()\n");
@@ -6788,6 +6797,11 @@ version (IN_LLVM)
                 TupleDeclaration d = sa.toAlias().isTupleDeclaration();
                 if (d)
                 {
+                    if (d is atd)
+                    {
+                        (*tiargs)[j] = d;
+                        continue;
+                    }
                     // Expand tuple
                     tiargs.remove(j);
                     tiargs.insert(j, d.objects);
@@ -7344,7 +7358,7 @@ version (IN_LLVM)
                         errors = true;
                     }
                 L1:
-                    //printf("\tnested inside %s\n", enclosing.toChars());
+                    //printf("\tnested inside %s as it references %s\n", enclosing.toChars(), sa.toChars());
                     nested |= 1;
                 }
             }

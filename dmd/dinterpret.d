@@ -1521,11 +1521,6 @@ public:
         result = e;
     }
 
-    static bool isAnErrorException(ClassDeclaration cd)
-    {
-        return cd == ClassDeclaration.errorException || ClassDeclaration.errorException.isBaseOf(cd, null);
-    }
-
     static ThrownExceptionExp chainExceptions(ThrownExceptionExp oldest, ThrownExceptionExp newest)
     {
         debug (LOG)
@@ -1537,7 +1532,7 @@ public:
         const next = 4;                         // index of Throwable.next
         assert((*boss.value.elements)[next].type.ty == Tclass); // Throwable.next
         ClassReferenceExp collateral = newest.thrown;
-        if (isAnErrorException(collateral.originalClass()) && !isAnErrorException(boss.originalClass()))
+        if (collateral.originalClass().isErrorException() && !boss.originalClass().isErrorException())
         {
             /* Find the index of the Error.bypassException field
              */
@@ -1647,8 +1642,15 @@ public:
         if (exceptionOrCant(e))
             return;
 
-        assert(e.op == EXP.classReference);
-        result = ctfeEmplaceExp!ThrownExceptionExp(loc, e.isClassReferenceExp());
+        if (e.op == EXP.classReference)
+        {
+            result = ctfeEmplaceExp!ThrownExceptionExp(loc, e.isClassReferenceExp());
+        }
+        else
+        {
+            exp.error("to be thrown `%s` must be non-null", exp.toChars());
+            result = ErrorExp.get();
+        }
     }
 
     override void visit(ScopeGuardStatement s)
@@ -2352,6 +2354,7 @@ public:
                 if (ExpInitializer ie = v._init.isExpInitializer())
                 {
                     result = interpretRegion(ie.exp, istate, goal);
+                    return;
                 }
                 else if (v._init.isVoidInitializer())
                 {
@@ -2359,12 +2362,16 @@ public:
                     // There is no AssignExp for void initializers,
                     // so set it here.
                     setValue(v, result);
+                    return;
                 }
-                else
+                else if (v._init.isArrayInitializer())
                 {
-                    e.error("declaration `%s` is not yet implemented in CTFE", e.toChars());
-                    result = CTFEExp.cantexp;
+                    result = v._init.initializerToExpression(v.type);
+                    if (result !is null)
+                        return;
                 }
+                e.error("declaration `%s` is not yet implemented in CTFE", e.toChars());
+                result = CTFEExp.cantexp;
             }
             else if (v.type.size() == 0)
             {
@@ -2825,7 +2832,7 @@ public:
                         (*exps)[i] = ex;
                     }
                 }
-                sd.fill(e.loc, exps, false);
+                sd.fill(e.loc, *exps, false);
 
                 auto se = ctfeEmplaceExp!StructLiteralExp(e.loc, sd, exps, e.newtype);
                 se.origin = se;
@@ -2866,6 +2873,12 @@ public:
                             m = voidInitLiteral(v.type, v).copy();
                         else
                             m = v.getConstInitializer(true);
+                    }
+                    else if (v.type.isTypeNoreturn())
+                    {
+                        // Noreturn field with default initializer
+                        (*elems)[fieldsSoFar + i] = null;
+                        continue;
                     }
                     else
                         m = v.type.defaultInitLiteral(e.loc);
@@ -4826,27 +4839,36 @@ public:
                 result = interpretRegion(ae, istate);
                 return;
             }
-            else if (fd.ident == Id._d_arrayctor || fd.ident == Id._d_arraysetctor)
+            else if (isArrayConstructionOrAssign(fd.ident))
             {
-                // In expressionsem.d `T[x] ea = eb;` was lowered to `_d_array{,set}ctor(ea[], eb[]);`.
-                // The following code will rewrite it back to `ea = eb` and then interpret that expression.
-                if (fd.ident == Id._d_arraysetctor)
-                    assert(e.arguments.dim == 2);
-                else
+                // In expressionsem.d, the following lowerings were performed:
+                // * `T[x] ea = eb;` to `_d_array{,set}ctor(ea[], eb[]);`.
+                // * `ea = eb` to `_d_array{,setassign,assign_l,assign_r}(ea[], eb)`.
+                // The following code will rewrite them back to `ea = eb` and
+                // then interpret that expression.
+
+                if (fd.ident == Id._d_arrayctor)
                     assert(e.arguments.dim == 3);
+                else
+                    assert(e.arguments.dim == 2);
 
                 Expression ea = (*e.arguments)[0];
                 if (ea.isCastExp)
                     ea = ea.isCastExp.e1;
 
                 Expression eb = (*e.arguments)[1];
-                if (eb.isCastExp && fd.ident == Id._d_arrayctor)
+                if (eb.isCastExp() && fd.ident != Id._d_arraysetctor)
                     eb = eb.isCastExp.e1;
 
-                ConstructExp ce = new ConstructExp(e.loc, ea, eb);
-                ce.type = ea.type;
+                Expression rewrittenExp;
+                if (fd.ident == Id._d_arrayctor || fd.ident == Id._d_arraysetctor)
+                    rewrittenExp = new ConstructExp(e.loc, ea, eb);
+                else
+                    rewrittenExp = new AssignExp(e.loc, ea, eb);
 
-                result = interpret(ce, istate);
+                rewrittenExp.type = ea.type;
+                result = interpret(rewrittenExp, istate);
+
                 return;
             }
             else if (fd.ident == Id._d_arrayappendT || fd.ident == Id._d_arrayappendTTrace)

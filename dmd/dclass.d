@@ -994,6 +994,11 @@ version (IN_LLVM) {} else
         return vtblsym;
     }
 
+    extern (D) final bool isErrorException()
+    {
+        return errorException && (this == errorException || errorException.isBaseOf(this, null));
+    }
+
     override final inout(ClassDeclaration) isClassDeclaration() inout @nogc nothrow pure @safe
     {
         return this;

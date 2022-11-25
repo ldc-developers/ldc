@@ -1,5 +1,11 @@
 // REQUIRED_ARGS:
-
+/*
+TEST_OUTPUT:
+---
+runnable/lexer.d(81): Deprecation: `version( <integer> )` is deprecated, use version identifiers instead
+runnable/lexer.d(82): Deprecation: `debug( <integer> )` is deprecated, use debug identifiers instead
+---
+*/
 
 /*********************************************************/
 
@@ -78,6 +84,10 @@ debug(9223372036854775807){}
 /*********************************************************/
 
 enum e13102=184467440737095516153.6L;
+
+/*********************************************************/
+
+static assert("\&acE;" == "\U0000223E\U00000333"); // ="\xe2\x88\xbe\xcc\xb3"
 
 /*********************************************************/
 

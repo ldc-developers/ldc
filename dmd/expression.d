@@ -5173,7 +5173,7 @@ extern (C++) final class CallExp : UnaExp
                 /* Type needs destruction, so declare a tmp
                  * which the back end will recognize and call dtor on
                  */
-                auto tmp = copyToTemp(0, "__tmpfordtor", this);
+                auto tmp = copyToTemp(0, Id.__tmpfordtor.toString(), this);
                 auto de = new DeclarationExp(loc, tmp);
                 auto ve = new VarExp(loc, tmp);
                 Expression e = new CommaExp(loc, de, ve);
@@ -7215,6 +7215,26 @@ extern(D) Modifiable checkModifiable(Expression exp, Scope* sc, ModifyFlags flag
         default:
             return exp.type ? Modifiable.yes : Modifiable.no; // default modifiable
     }
+}
+
+/**
+ * Verify if the given identifier is any of
+ * _d_array{ctor,setctor,setassign,assign_l, assign_r}.
+ *
+ * Params:
+ *  id = the identifier to verify
+ *
+ * Returns:
+ *  `true` if the identifier corresponds to a construction of assignement
+ *  runtime hook, `false` otherwise.
+ */
+bool isArrayConstructionOrAssign(const Identifier id)
+{
+    import dmd.id : Id;
+
+    return id == Id._d_arrayctor || id == Id._d_arraysetctor ||
+        id == Id._d_arrayassign_l || id == Id._d_arrayassign_r ||
+        id == Id._d_arraysetassign;
 }
 
 /******************************
