@@ -185,7 +185,7 @@ script:
   - installed/bin/reggae --version -b ninja
   # Pack installation dir
   - |
-    if [[ "$TRAVIS_TAG" != "" ]]; then
+    if [[ "${TRAVIS_TAG:-}" == v* ]]; then
       artifactID=${TRAVIS_TAG:1}
     else
       artifactID=${TRAVIS_COMMIT:0:8}
@@ -198,9 +198,9 @@ script:
   # Upload to GitHub release (only for commits on the master branch and tags)
   - |
     if [[ "$TRAVIS_TEST_RESULT" == "0" ]]; then
-      if [[ "$TRAVIS_TAG" != "" ]]; then
+      if [[ "${TRAVIS_TAG:-}" == v* ]]; then
         tools/upload-to-github.sh $TRAVIS_TAG ldc2-*.tar.xz || travis_terminate 1
-      elif [[ "$TRAVIS_PULL_REQUEST" = "false" && "$TRAVIS_BRANCH" = "master" ]]; then
+      elif [[ "${TRAVIS_TAG:-}" = "" && "$TRAVIS_PULL_REQUEST" = "false" && "$TRAVIS_BRANCH" = "master" ]]; then
         tools/upload-to-github.sh CI ldc2-*.tar.xz || travis_terminate 1
       fi
     fi

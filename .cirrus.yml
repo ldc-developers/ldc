@@ -290,7 +290,7 @@ task:
   pack_artifact_script: |
     cd $CIRRUS_WORKING_DIR/..
     mkdir artifacts
-    if [ -n "$CIRRUS_TAG" ]; then
+    if [[ "${CIRRUS_TAG:-}" == v* ]]; then
       artifactID=${CIRRUS_TAG:1}
     else
       artifactID=${CIRRUS_CHANGE_IN_REPO:0:8}
@@ -302,8 +302,8 @@ task:
   # Upload to GitHub release (only for commits on the master branch and tags)
   upload_to_github_script: |
     cd $CIRRUS_WORKING_DIR
-    if [ -n "$CIRRUS_TAG" ]; then
+    if [[ "${CIRRUS_TAG:-}" == v* ]]; then
       tools/upload-to-github.sh $CIRRUS_TAG ../artifacts/ldc2-*.tar.xz
-    elif [[ "$CIRRUS_PR" = "" && "$CIRRUS_BRANCH" = "master" ]]; then
+    elif [[ "${CIRRUS_TAG:-}" = "" && "$CIRRUS_PR" = "" && "$CIRRUS_BRANCH" = "master" ]]; then
       tools/upload-to-github.sh CI ../artifacts/ldc2-*.tar.xz
     fi
