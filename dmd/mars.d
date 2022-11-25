@@ -2986,6 +2986,8 @@ private void reconcileLinkRunLib(ref Param params, size_t numSrcFiles, const cha
     if (!params.obj || driverParams.lib || (IN_LLVM && params.output_o == OUTPUTFLAGno))
         driverParams.link = false;
 
+version (IN_LLVM) {} else
+{
     if (target.os == Target.OS.Windows)
     {
         if (!driverParams.mscrtlib)
@@ -3003,6 +3005,7 @@ private void reconcileLinkRunLib(ref Param params, size_t numSrcFiles, const cha
             }
         }
     }
+}
 
     if (driverParams.link)
     {

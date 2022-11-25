@@ -205,7 +205,7 @@ extern (C++) struct CTFloat
   {
     // implemented in gen/ctfloat.cpp
     @system
-    static real_t parse(const(char)* literal, bool* isOutOfRange = null);
+    static real_t parse(const(char)* literal, out bool isOutOfRange);
     @system
     static int sprint(char* str, char fmt, real_t x);
   }
@@ -342,7 +342,8 @@ version (IN_LLVM)
 
             this(string x, string g, string a, string A)
             {
-                this.x = CTFloat.parse(x.ptr);
+                bool isOutOfRange;
+                this.x = CTFloat.parse(x.ptr, isOutOfRange);
                 expected_g = g;
                 expected_a = a;
                 expected_A = A;
