@@ -971,6 +971,10 @@ void registerPredefinedVersions() {
     VersionCondition::addPredefinedGlobalIdent("D_ProfileGC");
   }
 
+  if (isOptimizationEnabled()) {
+    VersionCondition::addPredefinedGlobalIdent("D_Optimized");
+  }
+
   registerPredefinedTargetVersions();
 
   // `D_ObjectiveC` is added by the dmd.objc.Supported ctor
