@@ -2,6 +2,12 @@
 // REQUIRED_ARGS: -lowmem
 module object;
 
+version (LDC) // more thorough checks
+{
+    class Object {}
+    class TypeInfo_Class;
+}
+
 alias string  = immutable(char)[];
 class Throwable { }
 class Exception : Throwable
