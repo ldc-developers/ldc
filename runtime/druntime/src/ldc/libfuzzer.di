@@ -8,8 +8,6 @@
 
 module ldc.libfuzzer;
 
-import std.typecons : Flag, Yes;
-
 /**
  * Defines the necessary code to initialize the D runtime and calls the
  * FuzzTarget function.
@@ -31,7 +29,7 @@ import std.typecons : Flag, Yes;
  * ---
  */
 
-mixin template DefineTestOneInput(alias FuzzTarget, Flag!"initializeDRuntime" initializeDRuntime = Yes.initializeDRuntime)
+mixin template DefineTestOneInput(alias FuzzTarget, bool initializeDRuntime = true)
     if (is(typeof(&FuzzTarget) == int function(in ubyte[])))
 {
     static if (initializeDRuntime)
