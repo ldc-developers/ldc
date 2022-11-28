@@ -385,22 +385,13 @@ LLConstant *DtoGEP(LLType *pointeeTy, LLConstant *ptr, unsigned i0,
                                               /* InBounds = */ true);
 }
 
-LLValue *DtoGEP1i64(LLType *pointeeTy, LLValue *ptr, uint64_t i0, const char *name,
+LLValue *DtoGEP1i64(LLType *pointeeTy, LLValue *ptr, int64_t i0, const char *name,
                     llvm::BasicBlock *bb) {
+  // Use a 32-bit offset if i0 can fit, otherwise use a 64-bit offset.
+  if (i0 <= INT32_MAX && i0 >= INT32_MIN) {
+    return DtoGEP(pointeeTy, ptr, DtoConstUint(i0), name, bb);
+  }
   return DtoGEP(pointeeTy, ptr, DtoConstSize_t(i0), name, bb);
-}
-
-LLValue *DtoGEPi64(LLType *pointeeTy, LLValue *ptr, uint64_t i0, uint64_t i1,
-                   const char *name, llvm::BasicBlock *bb) {
-  LLValue *indices[] = {DtoConstSize_t(i0), DtoConstSize_t(i1)};
-  return DtoGEP(pointeeTy, ptr, indices, name, bb);
-}
-
-LLConstant *DtoGEPi64(LLType *pointeeTy, LLConstant *ptr, uint64_t i0,
-                      uint64_t i1) {
-  LLValue *indices[] = {DtoConstSize_t(i0), DtoConstSize_t(i1)};
-  return llvm::ConstantExpr::getGetElementPtr(pointeeTy, ptr, indices,
-                                              /* InBounds = */ true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
