@@ -847,7 +847,7 @@ public:
         uint64_t elemSize = gDataLayout->getTypeAllocSize(elemType);
         if (e->offset % elemSize == 0) {
           // We can turn this into a "nice" GEP.
-          offsetValue = DtoGEP1(DtoType(base->type), baseValue, e->offset / elemSize);
+          offsetValue = DtoGEP1u64(DtoType(base->type), baseValue, e->offset / elemSize);
         }
       }
 
@@ -855,7 +855,7 @@ public:
         // Offset isn't a multiple of base type size, just cast to i8* and
         // apply the byte offset.
         offsetValue =
-            DtoGEP1(LLType::getInt8Ty(gIR->context()),
+            DtoGEP1u64(LLType::getInt8Ty(gIR->context()),
                     DtoBitCast(baseValue, getVoidPtrType()), e->offset);
       }
     }
