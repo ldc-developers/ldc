@@ -385,7 +385,7 @@ LLConstant *DtoGEP(LLType *pointeeTy, LLConstant *ptr, unsigned i0,
                                               /* InBounds = */ true);
 }
 
-LLValue *DtoGEP1i64(LLType *pointeeTy, LLValue *ptr, int64_t i0, const char *name,
+LLValue *DtoGEP1i64(LLType *pointeeTy, LLValue *ptr, uint64_t i0, const char *name,
                     llvm::BasicBlock *bb) {
   return DtoGEP(pointeeTy, ptr, DtoConstUlong(i0), name, bb);
 }

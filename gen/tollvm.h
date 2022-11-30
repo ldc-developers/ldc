@@ -95,7 +95,7 @@ LLValue *DtoGEP(LLType *pointeeTy, LLValue *ptr, unsigned i0, unsigned i1,
 LLConstant *DtoGEP(LLType *pointeeTy, LLConstant *ptr, unsigned i0,
                    unsigned i1);
 
-LLValue *DtoGEP1i64(LLType *pointeeTy, LLValue *ptr, int64_t i0,
+LLValue *DtoGEP1i64(LLType *pointeeTy, LLValue *ptr, uint64_t i0,
                     const char *name = "", llvm::BasicBlock *bb = nullptr);
 
 // to constant helpers
