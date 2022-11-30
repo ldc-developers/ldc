@@ -100,6 +100,8 @@ LLValue *DtoGEP1i64(LLType *pointeeTy, LLValue *ptr, int64_t i0,
 
 // to constant helpers
 LLConstantInt *DtoConstSize_t(uint64_t);
+LLConstantInt *DtoConstUlong(uint64_t i);
+LLConstantInt *DtoConstLong(int64_t i);
 LLConstantInt *DtoConstUint(unsigned i);
 LLConstantInt *DtoConstInt(int i);
 LLConstantInt *DtoConstUbyte(unsigned char i);

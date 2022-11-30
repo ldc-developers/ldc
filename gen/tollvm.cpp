@@ -387,11 +387,7 @@ LLConstant *DtoGEP(LLType *pointeeTy, LLConstant *ptr, unsigned i0,
 
 LLValue *DtoGEP1i64(LLType *pointeeTy, LLValue *ptr, int64_t i0, const char *name,
                     llvm::BasicBlock *bb) {
-  // Use a 32-bit offset if i0 can fit, otherwise use a 64-bit offset.
-  if (i0 <= INT32_MAX && i0 >= INT32_MIN) {
-    return DtoGEP(pointeeTy, ptr, DtoConstUint(i0), name, bb);
-  }
-  return DtoGEP(pointeeTy, ptr, DtoConstSize_t(i0), name, bb);
+  return DtoGEP(pointeeTy, ptr, DtoConstUlong(i0), name, bb);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -458,6 +454,12 @@ LLValue *DtoMemCmp(LLValue *lhs, LLValue *rhs, LLValue *nbytes) {
 
 llvm::ConstantInt *DtoConstSize_t(uint64_t i) {
   return LLConstantInt::get(DtoSize_t(), i, false);
+}
+llvm::ConstantInt *DtoConstUlong(uint64_t i) {
+  return LLConstantInt::get(LLType::getInt64Ty(gIR->context()), i, false);
+}
+llvm::ConstantInt *DtoConstLong(int64_t i) {
+  return LLConstantInt::get(LLType::getInt64Ty(gIR->context()), i, true);
 }
 llvm::ConstantInt *DtoConstUint(unsigned i) {
   return LLConstantInt::get(LLType::getInt32Ty(gIR->context()), i, false);
