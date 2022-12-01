@@ -848,7 +848,8 @@ public:
         if (e->offset % elemSize == 0) {
           // We can turn this into a "nice" GEP.
           if (elemType->isStructTy()) {
-            // LLVM requires that struct offsets are 32-bit.
+            // LLVM getelementptr requires that offsets are 32-bit constants
+            // when the base type is a struct.
             offsetValue = DtoGEP1(DtoType(base->type), baseValue, e->offset / elemSize);
           } else {
             offsetValue = DtoGEP1i64(DtoType(base->type), baseValue, e->offset / elemSize);
