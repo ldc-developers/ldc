@@ -63,6 +63,7 @@ static void checkForImplicitGCCall(const Loc &loc, const char *name) {
         "_aaDelX",
         "_aaGetY",
         "_aaKeys",
+        "_aaNew",
         "_aaRehash",
         "_aaValues",
         "_d_allocmemory",
@@ -755,6 +756,9 @@ static void buildRuntimeModule() {
   //                           void[] keys, void[] values)
   createFwdDecl(LINK::c, aaTy, {"_d_assocarrayliteralTX"},
                 {aaTypeInfoTy, voidArrayTy, voidArrayTy}, {STCconst, 0, 0});
+
+  // AA _aaNew(const TypeInfo_AssociativeArray ti)
+  createFwdDecl(LINK::c, aaTy, {"_aaNew"}, {aaTypeInfoTy}, {STCconst});
 
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////

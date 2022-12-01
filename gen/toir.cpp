@@ -1565,6 +1565,15 @@ public:
 
       result = new DImValue(e->type, mem);
     }
+    // new AA
+    else if (auto taa = ntype->isTypeAArray()) {
+      LLFunction *func = getRuntimeFunction(e->loc, gIR->module, "_aaNew");
+      LLValue *aaTypeInfo =
+          DtoBitCast(DtoTypeInfoOf(e->loc, stripModifiers(taa), /*base=*/false),
+                     DtoType(getAssociativeArrayTypeInfoType()));
+      LLValue *aa = gIR->CreateCallOrInvoke(func, aaTypeInfo, "aa");
+      result = new DImValue(e->type, aa);
+    }
     // new basic type
     else {
       IF_LOG Logger::println("basic type on heap: %s\n", e->newtype->toChars());
