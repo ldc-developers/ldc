@@ -2,6 +2,7 @@
 
 #### Big news
 - Bit fields support. (#4015)
+- macOS on Apple M1: linking with `-g` is working again without unaligned pointer warnings/errors. This fixes file:line debug information in exception backtraces (requiring `atos`, a macOS development tool installed with Xcode), without the need to set MACOSX_DEPLOYMENT_TARGET=11 and using a modified LLVM. (#4291)
 
 #### Platform support
 - Initial ABI support for 64-bit RISC-V. (#4007)
