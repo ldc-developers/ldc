@@ -368,7 +368,7 @@ version (Darwin)
             Location parsed_loc = parseAtosLine(read_buffer.ptr);
             if (parsed_loc.line != -1)
             {
-                loc.procedure = parsed_loc.procedure;
+                // Only update the file:line info, keep the procedure name as found before (preserving the standard truncation).
                 loc.file = parsed_loc.file;
                 loc.line = parsed_loc.line;
             }
