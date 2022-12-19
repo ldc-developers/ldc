@@ -57,7 +57,7 @@ $(ROOT)/long_backtrace_trunc.done: $(ROOT)/long_backtrace_trunc
 	@echo Testing long_backtrace_trunc
 	$(QUIET)$(TIMELIMIT)$(ROOT)/long_backtrace_trunc $(RUN_ARGS) > $(ROOT)/long_backtrace_trunc.output
 	# Use sed to canonicalize long_backtrace_trunc.output and compare against expected output in long_backtrace_trunc.exp
-	$(QUIET)$(SED) "s|^.*/src/|src/|g; s/\[0x[0-9a-f]*\]/\[ADDR\]/g; s/scope //g; s/Nl//g; s|.F||g; s|.G||g" $(ROOT)/long_backtrace_trunc.output | $(DIFF) long_backtrace_trunc.exp -
+	$(QUIET)$(SED) "s|^.*/src/|src/|g; s/\[0x[0-9a-f]*\]/\[ADDR\]/g; s/scope //g; s/Nl//g; s|.F.*F.|.|g; s|.G.*G.|.|g" $(ROOT)/long_backtrace_trunc.output | $(DIFF) long_backtrace_trunc.exp -
 	@rm -f $(ROOT)/long_backtrace_trunc.output
 	@touch $@
 
