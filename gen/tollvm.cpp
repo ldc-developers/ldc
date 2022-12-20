@@ -385,6 +385,11 @@ LLConstant *DtoGEP(LLType *pointeeTy, LLConstant *ptr, unsigned i0,
                                               /* InBounds = */ true);
 }
 
+LLValue *DtoGEP1i64(LLType *pointeeTy, LLValue *ptr, uint64_t i0, const char *name,
+                    llvm::BasicBlock *bb) {
+  return DtoGEP(pointeeTy, ptr, DtoConstUlong(i0), name, bb);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 void DtoMemSet(LLValue *dst, LLValue *val, LLValue *nbytes, unsigned align) {
@@ -449,6 +454,12 @@ LLValue *DtoMemCmp(LLValue *lhs, LLValue *rhs, LLValue *nbytes) {
 
 llvm::ConstantInt *DtoConstSize_t(uint64_t i) {
   return LLConstantInt::get(DtoSize_t(), i, false);
+}
+llvm::ConstantInt *DtoConstUlong(uint64_t i) {
+  return LLConstantInt::get(LLType::getInt64Ty(gIR->context()), i, false);
+}
+llvm::ConstantInt *DtoConstLong(int64_t i) {
+  return LLConstantInt::get(LLType::getInt64Ty(gIR->context()), i, true);
 }
 llvm::ConstantInt *DtoConstUint(unsigned i) {
   return LLConstantInt::get(LLType::getInt32Ty(gIR->context()), i, false);
