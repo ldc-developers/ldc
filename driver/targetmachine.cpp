@@ -46,14 +46,15 @@
 // LDC-LLVM >= 6.0.1:
 // On Mac, emit __debug_line section in __DWARF segment as regular (non-debug)
 // section, like DMD, to enable file/line infos in backtraces. See
-// https://github.com/dlang/dmd/commit/2bf7d0db29416eacbb01a91e6502140e354ee0ef.
+// https://github.com/dlang/dmd/commit/2bf7d0db29416eacbb01a91e6502140e354ee0ef
+// https://github.com/ldc-developers/llvm-project/commit/110deda1bc1cf195983fea8c1107886057987955
 static llvm::cl::opt<bool, true> preserveDwarfLineSection(
     "preserve-dwarf-line-section",
     llvm::cl::desc("Mac: preserve DWARF line section during linking for "
                    "file/line infos in backtraces. Defaults to true."),
     llvm::cl::Hidden, llvm::cl::ZeroOrMore,
     llvm::cl::location(ldc::emitMachODwarfLineAsRegularSection),
-    llvm::cl::init(true));
+    llvm::cl::init(false));
 #endif
 
 static const char *getABI(const llvm::Triple &triple) {
