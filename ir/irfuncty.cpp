@@ -17,20 +17,21 @@
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 
-IrFuncTyArg::IrFuncTyArg(Type *t, bool bref)
+IrFuncTyArg::IrFuncTyArg(Type *t, bool bref, bool isArrayLength)
     : type(t),
       ltype(t != Type::tvoid && bref ? DtoType(t->pointerTo()) : DtoType(t)),
 #if LDC_LLVM_VER >= 1400
       attrs(getGlobalContext()),
 #endif
-      byref(bref) {
+      byref(bref),
+      isArrayLength(isArrayLength) {
   mem.addRange(&type, sizeof(type));
 }
 
-IrFuncTyArg::IrFuncTyArg(Type *t, bool bref, llvm::AttrBuilder a)
+IrFuncTyArg::IrFuncTyArg(Type *t, bool bref,  bool isArrayLength, llvm::AttrBuilder a)
     : type(t),
       ltype(t != Type::tvoid && bref ? DtoType(t->pointerTo()) : DtoType(t)),
-      attrs(std::move(a)), byref(bref) {
+      attrs(std::move(a)), byref(bref), isArrayLength(isArrayLength) {
 
   mem.addRange(&type, sizeof(type));
 }

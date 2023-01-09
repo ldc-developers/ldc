@@ -117,14 +117,14 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
       sretAttrs.addAttribute(LLAttribute::NoAlias);
       if (unsigned alignment = DtoAlignment(rt))
         sretAttrs.addAlignmentAttr(alignment);
-      newIrFty.arg_sret = new IrFuncTyArg(rt, true, std::move(sretAttrs));
+      newIrFty.arg_sret = new IrFuncTyArg(rt, true, false, std::move(sretAttrs));
       rt = Type::tvoid;
       ++nextLLArgIdx;
     } else {
       // sext/zext return
       DtoAddExtendAttr(byref ? rt->pointerTo() : rt, attrs);
     }
-    newIrFty.ret = new IrFuncTyArg(rt, byref, std::move(attrs));
+    newIrFty.ret = new IrFuncTyArg(rt, byref, false, std::move(attrs));
   }
   ++nextLLArgIdx;
 
@@ -140,7 +140,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
       attrs.addAttribute(LLAttribute::Returned);
     }
     newIrFty.arg_this = new IrFuncTyArg(
-        thistype, thistype->toBasetype()->ty == TY::Tstruct, std::move(attrs));
+        thistype, thistype->toBasetype()->ty == TY::Tstruct, false, std::move(attrs));
     ++nextLLArgIdx;
   } else if (nesttype) {
     // Add the context pointer for nested functions
@@ -150,7 +150,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     llvm::AttrBuilder attrs;
 #endif
     attrs.addAttribute(LLAttribute::NonNull);
-    newIrFty.arg_nest = new IrFuncTyArg(nesttype, false, std::move(attrs));
+    newIrFty.arg_nest = new IrFuncTyArg(nesttype, false, false, std::move(attrs));
     ++nextLLArgIdx;
   }
 
@@ -237,9 +237,22 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
       }
     }
 
-    newIrFty.args.push_back(new IrFuncTyArg(loweredDType, passPointer, std::move(attrs)));
-    newIrFty.args.back()->parametersIdx = i;
-    ++nextLLArgIdx;
+    if (loweredDType->isTypeDArray() && !passPointer && hasRestrict(arg->userAttribDecl)) {
+#if LDC_LLVM_VER >= 1400
+        llvm::AttrBuilder length_attrs(getGlobalContext());
+#else
+        llvm::AttrBuilder length_attrs;
+#endif
+        newIrFty.args.push_back(new IrFuncTyArg(Type::tsize_t, false, true, std::move(length_attrs)));
+        newIrFty.args.back()->parametersIdx = -1;
+        newIrFty.args.push_back(new IrFuncTyArg(loweredDType->nextOf()->pointerTo(), false, false, std::move(attrs)));
+        newIrFty.args.back()->parametersIdx = i;
+        nextLLArgIdx += 2;
+    } else {
+      newIrFty.args.push_back(new IrFuncTyArg(loweredDType, passPointer, false, std::move(attrs)));
+      newIrFty.args.back()->parametersIdx = i;
+      ++nextLLArgIdx;
+    }
   }
 
   // let the ABI rewrite the types as necessary
@@ -800,6 +813,19 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   for (; iarg != func->arg_end(); ++iarg) {
     IrFuncTyArg *arg = irFty.args[k++];
 
+    if (arg->isArrayLength) {
+      size_t idx = irFty.args[k]->parametersIdx;
+      auto *const vd = (*fdecl->parameters)[idx];
+      iarg->setName(vd->ident->toChars() + llvm::Twine("_arg_len"));
+      IrParameter *irParam = getIrParameter(vd, true);
+      irParam->arg = arg;
+      irParam->value = &(*iarg);
+      ++iarg;
+      iarg->setName(vd->ident->toChars() + llvm::Twine("_arg_ptr"));
+      irParam->arg2 = irFty.args[k++];;
+      irParam->value2 = &(*iarg);
+      continue;
+    }
     if (!fdecl->parameters || arg->parametersIdx >= fdecl->parameters->length) {
       iarg->setName("unnamed");
       continue;

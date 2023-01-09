@@ -61,6 +61,8 @@ struct IrLocal : IrVar {
 struct IrParameter : IrLocal {
   explicit IrParameter(VarDeclaration *v) : IrLocal(v) {}
   IrFuncTyArg *arg = nullptr;
+  IrFuncTyArg *arg2 = nullptr; // companion pointer to an array length
+  llvm::Value *value2;
   bool isVthis = false; // true, if it is the 'this' parameter
 };
 

@@ -114,7 +114,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
       DtoAddExtendAttr(argType, initialAttrs);
     }
 
-    optionalIrArgs.push_back(new IrFuncTyArg(argType, passByVal, std::move(initialAttrs)));
+    optionalIrArgs.push_back(new IrFuncTyArg(argType, passByVal, false, std::move(initialAttrs)));
     optionalIrArgs.back()->parametersIdx = i;
   }
 
@@ -188,7 +188,11 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
         Logger::cout() << "expects: " << *paramType << '\n';
       }
       if (isaStruct(llVal)) {
-        llVal = DtoSlicePaint(llVal, paramType);
+        args[llArgIdx] = DtoExtractValue(llVal, 0);
+        attrs.addToParam(llArgIdx + 1, irArg->attrs);
+        args[llArgIdx + 1] = DtoExtractValue(llVal, 1);
+        ++i;
+        continue;
       } else {
         llVal = DtoBitCast(llVal, paramType);
       }
