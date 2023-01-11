@@ -135,7 +135,8 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
 #else
     llvm::AttrBuilder attrs;
 #endif
-    attrs.addAttribute(LLAttribute::NonNull);
+    if (!opts::fNullPointerIsValid)
+      attrs.addAttribute(LLAttribute::NonNull);
     if (fd && fd->isCtorDeclaration()) {
       attrs.addAttribute(LLAttribute::Returned);
     }
@@ -149,7 +150,8 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
 #else
     llvm::AttrBuilder attrs;
 #endif
-    attrs.addAttribute(LLAttribute::NonNull);
+    if (!opts::fNullPointerIsValid)
+      attrs.addAttribute(LLAttribute::NonNull);
     newIrFty.arg_nest = new IrFuncTyArg(nesttype, false, std::move(attrs));
     ++nextLLArgIdx;
   }
@@ -211,7 +213,8 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
       auto ts = loweredDType->toBasetype()->isTypeStruct();
       if (ts && !ts->sym->members) {
         // opaque struct
-        attrs.addAttribute(LLAttribute::NonNull);
+        if (!opts::fNullPointerIsValid)
+          attrs.addAttribute(LLAttribute::NonNull);
 #if LDC_LLVM_VER >= 1100
         attrs.addAttribute(LLAttribute::NoUndef);
 #endif
@@ -1240,6 +1243,13 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     }
   }
   applyXRayAttributes(*fd, *func);
+  if (opts::fNullPointerIsValid) {
+#if LDC_LLVM_VER >= 1100
+    func->addFnAttr(LLAttribute::NullPointerIsValid);
+#else
+    func->addFnAttr("null-pointer-is-valid", "true");
+#endif
+  }
 
   llvm::BasicBlock *beginbb =
       llvm::BasicBlock::Create(gIR->context(), "", func);
