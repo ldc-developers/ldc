@@ -98,6 +98,7 @@ extern llvm::FastMathFlags defaultFMF;
 void setDefaultMathOptions(llvm::TargetOptions &targetOptions);
 
 extern cl::opt<bool> fNoDiscardValueNames;
+extern cl::opt<bool> fNullPointerIsValid;
 
 // Arguments to -d-debug
 extern std::vector<std::string> debugArgs;
