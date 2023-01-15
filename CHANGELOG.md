@@ -1,6 +1,7 @@
 # LDC master
 
 #### Big news
+- Frontend, druntime and Phobos are at version [2.101.2](https://dlang.org/changelog/2.101.0.html). (#4279)
 - Bit fields support. (#4015)
 - macOS on Apple M1: linking with `-g` is working again without unaligned pointer warnings/errors. This fixes file:line debug information in exception backtraces (requiring `atos`, a macOS development tool installed with Xcode), without the need to set MACOSX_DEPLOYMENT_TARGET=11 and using a modified LLVM. (#4291)
 - New commandline option `-fno-delete-null-pointer-checks`, mimicking the same commandline option of GCC and Clang. (#4297)
