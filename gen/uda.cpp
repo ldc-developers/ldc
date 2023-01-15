@@ -414,14 +414,18 @@ bool parseCallingConvention(llvm::StringRef name,
           .Case("preserve_most", llvm::CallingConv::PreserveMost)
           .Case("preserve_all", llvm::CallingConv::PreserveAll)
           .Case("swiftcall", llvm::CallingConv::Swift)
+#if LDC_LLVM_VER >= 1300
           .Case("swiftasynccall", llvm::CallingConv::SwiftTail)
+#endif
 
           // Names recognized in LLVM IR (see LLVM's
           // LLParser::parseOptionalCallingConv):
           .Case("ccc", llvm::CallingConv::C)
           .Case("fastcc", llvm::CallingConv::Fast)
           .Case("coldcc", llvm::CallingConv::Cold)
+#if LDC_LLVM_VER >= 900
           .Case("cfguard_checkcc", llvm::CallingConv::CFGuard_Check)
+#endif
           .Case("x86_stdcallcc", llvm::CallingConv::X86_StdCall)
           .Case("x86_fastcallcc", llvm::CallingConv::X86_FastCall)
           .Case("x86_regcallcc", llvm::CallingConv::X86_RegCall)
@@ -431,8 +435,10 @@ bool parseCallingConvention(llvm::StringRef name,
           .Case("arm_aapcscc", llvm::CallingConv::ARM_AAPCS)
           .Case("arm_aapcs_vfpcc", llvm::CallingConv::ARM_AAPCS_VFP)
           .Case("aarch64_vector_pcs", llvm::CallingConv::AArch64_VectorCall)
+#if LDC_LLVM_VER >= 900
           .Case("aarch64_sve_vector_pcs",
                 llvm::CallingConv::AArch64_SVE_VectorCall)
+#endif
           .Case("msp430_intrcc", llvm::CallingConv::MSP430_INTR)
           .Case("avr_intrcc", llvm::CallingConv::AVR_INTR)
           .Case("avr_signalcc", llvm::CallingConv::AVR_SIGNAL)
@@ -449,13 +455,17 @@ bool parseCallingConvention(llvm::StringRef name,
           .Case("preserve_allcc", llvm::CallingConv::PreserveAll)
           .Case("ghccc", llvm::CallingConv::GHC)
           .Case("swiftcc", llvm::CallingConv::Swift)
+#if LDC_LLVM_VER >= 1300
           .Case("swifttailcc", llvm::CallingConv::SwiftTail)
+#endif
           .Case("x86_intrcc", llvm::CallingConv::X86_INTR)
           .Case("hhvmcc", llvm::CallingConv::HHVM)
           .Case("hhvm_ccc", llvm::CallingConv::HHVM_C)
           .Case("cxx_fast_tlscc", llvm::CallingConv::CXX_FAST_TLS)
           .Case("amdgpu_vs", llvm::CallingConv::AMDGPU_VS)
+#if LDC_LLVM_VER >= 1100
           .Case("amdgpu_gfx", llvm::CallingConv::AMDGPU_Gfx)
+#endif
           .Case("amdgpu_ls", llvm::CallingConv::AMDGPU_LS)
           .Case("amdgpu_hs", llvm::CallingConv::AMDGPU_HS)
           .Case("amdgpu_es", llvm::CallingConv::AMDGPU_ES)
