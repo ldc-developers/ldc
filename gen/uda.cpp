@@ -473,7 +473,9 @@ bool parseCallingConvention(llvm::StringRef name,
           .Case("amdgpu_ps", llvm::CallingConv::AMDGPU_PS)
           .Case("amdgpu_cs", llvm::CallingConv::AMDGPU_CS)
           .Case("amdgpu_kernel", llvm::CallingConv::AMDGPU_KERNEL)
+#if LDC_LLVM_VER >= 1000
           .Case("tailcc", llvm::CallingConv::Tail)
+#endif
 
           .Case("default", llvm::CallingConv::MaxID - 1)
           .Default(llvm::CallingConv::MaxID);
