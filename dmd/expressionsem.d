@@ -3623,21 +3623,25 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                 {
                     if (!cdthis)
                     {
-                        if (!sc.hasThis)
+                        void noReferenceToOuterClass()
                         {
-                            string msg = "cannot construct " ~
-                            (cd.isAnonymous ? "anonymous nested class" : "nested class `%s`") ~
-                            " because no implicit `this` reference to outer class" ~
-                            (cdn.isAnonymous ? "" : " `%s`") ~ " is available\0";
-
-                            exp.error(msg.ptr, cd.toChars, cdn.toChars);
+                            if (cd.isAnonymous)
+                                exp.error("cannot construct anonymous nested class because no implicit `this` reference to outer class is available");
+                            else
+                                exp.error("cannot construct nested class `%s` because no implicit `this` reference to outer class `%s` is available",
+                                    cd.toChars(), cdn.toChars());
                             return setError();
                         }
+
+                        if (!sc.hasThis)
+                            return noReferenceToOuterClass();
 
                         // Supply an implicit 'this' and try again
                         exp.thisexp = new ThisExp(exp.loc);
                         for (Dsymbol sp = sc.parent; 1; sp = sp.toParentLocal())
                         {
+                            if (!sp)
+                                return noReferenceToOuterClass();
                             ClassDeclaration cdp = sp.isClassDeclaration();
                             if (!cdp)
                                 continue;
@@ -8069,22 +8073,12 @@ version (IN_LLVM)
                 Expression el = new ArrayLengthExp(exp.loc, exp.e1);
                 el = el.expressionSemantic(sc);
                 el = el.optimize(WANTvalue);
-                if (el.op == EXP.int64 && t1b.ty == Tsarray)
+                if (el.op == EXP.int64)
                 {
                     // Array length is known at compile-time. Upper is in bounds if it fits length.
                     dinteger_t length = el.toInteger();
                     auto bounds = IntRange(SignExtendedNumber(0), SignExtendedNumber(length));
                     exp.upperIsInBounds = bounds.contains(uprRange);
-                    if (exp.lwr.op == EXP.int64 && exp.upr.op == EXP.int64 && exp.lwr.toInteger() > exp.upr.toInteger())
-                    {
-                        exp.error("in slice `%s[%llu .. %llu]`, lower bound is greater than upper bound", exp.e1.toChars, exp.lwr.toInteger(), exp.upr.toInteger());
-                        return setError();
-                    }
-                    if (exp.upr.op == EXP.int64 && exp.upr.toInteger() > length)
-                    {
-                        exp.error("in slice `%s[%llu .. %llu]`, upper bound is greater than array length `%llu`", exp.e1.toChars, exp.lwr.toInteger(), exp.upr.toInteger(), length);
-                        return setError();
-                    }
                 }
                 else if (exp.upr.op == EXP.int64 && exp.upr.toInteger() == 0)
                 {
@@ -12232,10 +12226,12 @@ version (IN_LLVM)
         if (t1.ty == Tnoreturn)
         {
             exp.type = t2;
+            exp.e1 = specialNoreturnCast(exp.e1, exp.type);
         }
         else if (t2.ty == Tnoreturn)
         {
             exp.type = t1;
+            exp.e2 = specialNoreturnCast(exp.e2, exp.type);
         }
         // If either operand is void the result is void, we have to cast both
         // the expression to void so that we explicitly discard the expression
@@ -13157,6 +13153,7 @@ Lerr:
 bool checkSharedAccess(Expression e, Scope* sc, bool returnRef = false)
 {
     if (global.params.noSharedAccess != FeatureState.enabled ||
+        !sc ||
         sc.intypeof ||
         sc.flags & SCOPE.ctfe)
     {

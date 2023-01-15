@@ -1625,6 +1625,7 @@ version (IN_LLVM)
                 if (pd.ident == Id.printf || pd.ident == Id.scanf)
                 {
                     s.setPragmaPrintf(pd.ident == Id.printf);
+                    s.dsymbolSemantic(sc2);
                     continue;
                 }
 
@@ -2525,8 +2526,11 @@ else // !IN_LLVM
             e = e.ctfeInterpret();
             if (e.toInteger())
             {
+                auto mt = em.ed.memtype;
+                if (!mt)
+                    mt = eprev.type;
                 em.error("initialization with `%s.%s+1` causes overflow for type `%s`",
-                    emprev.ed.toChars(), emprev.toChars(), em.ed.memtype.toChars());
+                    emprev.ed.toChars(), emprev.toChars(), mt.toChars());
                 return errorReturn();
             }
 
@@ -5233,6 +5237,7 @@ version (IN_LLVM)
                 }
 
                 // Copy vtbl[] from base class
+                assert(cldec.vtbl.dim == 0);
                 cldec.vtbl.setDim(cldec.baseClass.vtbl.dim);
                 memcpy(cldec.vtbl.tdata(), cldec.baseClass.vtbl.tdata(), (void*).sizeof * cldec.vtbl.dim);
 
@@ -5273,7 +5278,6 @@ version (IN_LLVM)
                             cldec.baseClass.toChars(),
                             cldec.baseClass.toParentLocal().toChars());
                     }
-                    cldec.enclosing = null;
                 }
                 if (cldec.vthis2)
                 {
