@@ -85,6 +85,7 @@ struct Id
     static Identifier *udaOptStrategy;
     static Identifier *udaTarget;
     static Identifier *udaAssumeUsed;
+    static Identifier *udaCallingConvention;
     static Identifier *udaWeak;
     static Identifier *udaAllocSize;
     static Identifier *udaLLVMAttr;

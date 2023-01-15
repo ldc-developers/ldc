@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include "llvm/IR/CallingConv.h"
+
 class Dsymbol;
 class FuncDeclaration;
 class VarDeclaration;
@@ -25,6 +27,7 @@ class GlobalVariable;
 void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc);
 void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar);
 
+bool hasCallingConventionUDA(FuncDeclaration *fd, llvm::CallingConv::ID *callconv);
 bool hasWeakUDA(Dsymbol *sym);
 bool hasKernelAttr(Dsymbol *sym);
 /// Must match ldc.dcompute.Compilefor + 1 == DComputeCompileFor

@@ -566,6 +566,7 @@ immutable Msgtable[] msgtable =
     { "udaSection", "section" },
     { "udaTarget", "target" },
     { "udaAssumeUsed", "_assumeUsed" },
+    { "udaCallingConvention", "callingConvention" },
     { "udaWeak", "_weak" },
     { "udaCompute", "compute" },
     { "udaKernel", "_kernel" },

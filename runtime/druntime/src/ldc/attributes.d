@@ -76,6 +76,35 @@ private struct _assumeUsed
 }
 
 /++
+ + Meant for expert use. Overrides the default calling convention. The supported
+ + names for calling conventions depends on the target.
+ + If specified multiple times, the last applied UDA is used.
+ + The calling convention is not part of the type of the function, which means that
+ + this attribute cannot be used in combination with function pointers (the function
+ + referenced by a function pointer will be called using the default calling convention).
+ + Semantic analysis does NOT (yet?) check for correctness. For example when
+ + this is applied to a class function, it is up to the user to ensure that the base
+ + function and all overrides (in child classes) have the same calling convention
+ + applied.
+ +
+ + Example (for X86):
+ + ---
+ + import ldc.attributes;
+ +
+ + @callingConvention("vectorcall"): // all functions in scope get this UDA
+ +
+ + int vector_call_convention() { return 42; }
+ +
+ + @callingConvention("default") // overrides the first UDA
+ + int func_with_default_calling_convention() { return 1; }
+ + ---
+ +/
+struct callingConvention
+{
+    string convention;
+}
+
+/++
  + When applied to a function, marks this function for dynamic compilation.
  + Calls to the function will be to the dynamically compiled function,
  + instead of to the statically compiled function (the statically compiled

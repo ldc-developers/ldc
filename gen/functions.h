@@ -13,6 +13,8 @@
 
 #pragma once
 
+#include "llvm/IR/CallingConv.h"
+
 class DValue;
 class Expression;
 class FuncDeclaration;
@@ -43,3 +45,5 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, const Loc &loc,
                           FuncDeclaration *fdecl);
 
 DValue *DtoArgument(Parameter *fnarg, Expression *argexp);
+
+llvm::CallingConv::ID getCallingConvention(FuncDeclaration *fdecl);

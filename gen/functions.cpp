@@ -684,7 +684,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   }
 
   func->setCallingConv(forceC ? gABI->callingConv(LINK::c)
-                              : gABI->callingConv(fdecl));
+                              : getCallingConvention(fdecl));
 
   IF_LOG Logger::cout() << "func = " << *func << std::endl;
 
@@ -1440,4 +1440,22 @@ DValue *DtoArgument(Parameter *fnarg, Expression *argexp) {
   }
 
   return arg;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+/* Gives precedence to user-specified calling convention using ldc.attributes.callingConvention,
+ * before querying the ABI.
+ */
+llvm::CallingConv::ID getCallingConvention(FuncDeclaration *fdecl)
+{
+  llvm::CallingConv::ID retval;
+
+  // First check if there is an override by a UDA
+  // If callconv is MaxID-1, then the "default" calling convention is specified. Behave as if no UDA was specified at all.
+  bool userOverride = hasCallingConventionUDA(fdecl, &retval);
+  if (userOverride && (retval != llvm::CallingConv::MaxID - 1))
+    return retval;
+
+  return gABI->callingConv(fdecl);
 }
