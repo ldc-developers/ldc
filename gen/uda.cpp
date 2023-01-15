@@ -423,7 +423,7 @@ bool parseCallingConvention(llvm::StringRef name,
           .Case("ccc", llvm::CallingConv::C)
           .Case("fastcc", llvm::CallingConv::Fast)
           .Case("coldcc", llvm::CallingConv::Cold)
-#if LDC_LLVM_VER >= 900
+#if LDC_LLVM_VER >= 1000
           .Case("cfguard_checkcc", llvm::CallingConv::CFGuard_Check)
 #endif
           .Case("x86_stdcallcc", llvm::CallingConv::X86_StdCall)
@@ -435,7 +435,7 @@ bool parseCallingConvention(llvm::StringRef name,
           .Case("arm_aapcscc", llvm::CallingConv::ARM_AAPCS)
           .Case("arm_aapcs_vfpcc", llvm::CallingConv::ARM_AAPCS_VFP)
           .Case("aarch64_vector_pcs", llvm::CallingConv::AArch64_VectorCall)
-#if LDC_LLVM_VER >= 900
+#if LDC_LLVM_VER >= 1000
           .Case("aarch64_sve_vector_pcs",
                 llvm::CallingConv::AArch64_SVE_VectorCall)
 #endif
@@ -463,7 +463,7 @@ bool parseCallingConvention(llvm::StringRef name,
           .Case("hhvm_ccc", llvm::CallingConv::HHVM_C)
           .Case("cxx_fast_tlscc", llvm::CallingConv::CXX_FAST_TLS)
           .Case("amdgpu_vs", llvm::CallingConv::AMDGPU_VS)
-#if LDC_LLVM_VER >= 1100
+#if LDC_LLVM_VER >= 1200
           .Case("amdgpu_gfx", llvm::CallingConv::AMDGPU_Gfx)
 #endif
           .Case("amdgpu_ls", llvm::CallingConv::AMDGPU_LS)
