@@ -847,7 +847,13 @@ public:
         uint64_t elemSize = gDataLayout->getTypeAllocSize(elemType);
         if (e->offset % elemSize == 0) {
           // We can turn this into a "nice" GEP.
-          offsetValue = DtoGEP1(DtoType(base->type), baseValue, e->offset / elemSize);
+          if (elemType->isStructTy()) {
+            // LLVM getelementptr requires that offsets are 32-bit constants
+            // when the base type is a struct.
+            offsetValue = DtoGEP1(DtoType(base->type), baseValue, e->offset / elemSize);
+          } else {
+            offsetValue = DtoGEP1i64(DtoType(base->type), baseValue, e->offset / elemSize);
+          }
         }
       }
 
@@ -855,7 +861,7 @@ public:
         // Offset isn't a multiple of base type size, just cast to i8* and
         // apply the byte offset.
         offsetValue =
-            DtoGEP1(LLType::getInt8Ty(gIR->context()),
+            DtoGEP1i64(LLType::getInt8Ty(gIR->context()),
                     DtoBitCast(baseValue, getVoidPtrType()), e->offset);
       }
     }
