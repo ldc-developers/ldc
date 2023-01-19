@@ -1050,7 +1050,7 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
           llvm::Intrinsic::getAttributes(gIR->context(), cf->getIntrinsicID());
     }
   } else if (dfnval) {
-    call->setCallingConv(gABI->callingConv(dfnval->func));
+    call->setCallingConv(getCallingConvention(dfnval->func));
   } else {
     call->setCallingConv(gABI->callingConv(tf, iab.hasContext));
   }

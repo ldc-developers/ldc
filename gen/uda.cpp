@@ -110,6 +110,27 @@ StructLiteralExp *getMagicAttribute(Dsymbol *sym, const Identifier *id,
   return nullptr;
 }
 
+/// Returns the _last_ StructLiteralExp magic attribute with identifier `id`
+/// from the ldc magic module with identifier `from` (attributes or dcompute) if
+/// it is applied to `sym`, otherwise returns nullptr.
+StructLiteralExp *getLastMagicAttribute(Dsymbol *sym, const Identifier *id,
+                                        const Identifier *from) {
+  if (!sym->userAttribDecl)
+    return nullptr;
+
+  // Loop over all UDAs and find the last match
+  StructLiteralExp *lastMatch = nullptr;
+  Expressions *attrs = sym->userAttribDecl->getAttributes();
+  expandTuples(attrs);
+  for (auto attr : *attrs) {
+    if (auto sle = attr->isStructLiteralExp())
+      if (isFromMagicModule(sle, from) && id == sle->sd->ident)
+        lastMatch = sle;
+  }
+
+  return lastMatch;
+}
+
 /// Calls `action` for each magic attribute with identifier `id` from
 /// the ldc magic module with identifier `from` (attributes or dcompute)
 /// applied to `sym`.
@@ -366,6 +387,105 @@ void applyAttrAssumeUsed(IRState &irs, StructLiteralExp *sle,
   irs.usedArray.push_back(symbol);
 }
 
+/// Tries to recognize the calling convention,
+/// TODO: Add support "cc <n>"
+/// Returns true if succesful, with the calling convention in 'callconv'.
+/// Returns false if unsuccesful.
+bool parseCallingConvention(llvm::StringRef name,
+                            llvm::CallingConv::ID *callconv) {
+
+  llvm::CallingConv::ID conv_id =
+      llvm::StringSwitch<llvm::CallingConv::ID>(name)
+          // Names recognized by Clang (see Clang's
+          // CodeGenTypes::ClangCallConvToLLVMCallConv):
+          .Case("stdcall", llvm::CallingConv::X86_StdCall)
+          .Case("fastcall", llvm::CallingConv::X86_FastCall)
+          .Case("regcall", llvm::CallingConv::X86_RegCall)
+          .Case("thiscall", llvm::CallingConv::X86_ThisCall)
+          .Case("ms_abi", llvm::CallingConv::Win64)
+          .Case("sysv_abi", llvm::CallingConv::X86_64_SysV)
+          .Case("pcs(\"aapcs\")", llvm::CallingConv::ARM_AAPCS)
+          .Case("pcs(\"aapcs-vfp\")", llvm::CallingConv::ARM_AAPCS_VFP)
+          .Case("intel_ocl_bicc", llvm::CallingConv::Intel_OCL_BI)
+          .Case("pascal",
+                llvm::CallingConv::C) // Check Clang, this may change in future
+          .Case("vectorcall", llvm::CallingConv::X86_VectorCall)
+          .Case("aarch64_vector_pcs", llvm::CallingConv::AArch64_VectorCall)
+          .Case("preserve_most", llvm::CallingConv::PreserveMost)
+          .Case("preserve_all", llvm::CallingConv::PreserveAll)
+          .Case("swiftcall", llvm::CallingConv::Swift)
+#if LDC_LLVM_VER >= 1300
+          .Case("swiftasynccall", llvm::CallingConv::SwiftTail)
+#endif
+
+          // Names recognized in LLVM IR (see LLVM's
+          // LLParser::parseOptionalCallingConv):
+          .Case("ccc", llvm::CallingConv::C)
+          .Case("fastcc", llvm::CallingConv::Fast)
+          .Case("coldcc", llvm::CallingConv::Cold)
+#if LDC_LLVM_VER >= 1000
+          .Case("cfguard_checkcc", llvm::CallingConv::CFGuard_Check)
+#endif
+          .Case("x86_stdcallcc", llvm::CallingConv::X86_StdCall)
+          .Case("x86_fastcallcc", llvm::CallingConv::X86_FastCall)
+          .Case("x86_regcallcc", llvm::CallingConv::X86_RegCall)
+          .Case("x86_thiscallcc", llvm::CallingConv::X86_ThisCall)
+          .Case("x86_vectorcallcc", llvm::CallingConv::X86_VectorCall)
+          .Case("arm_apcscc", llvm::CallingConv::ARM_APCS)
+          .Case("arm_aapcscc", llvm::CallingConv::ARM_AAPCS)
+          .Case("arm_aapcs_vfpcc", llvm::CallingConv::ARM_AAPCS_VFP)
+          .Case("aarch64_vector_pcs", llvm::CallingConv::AArch64_VectorCall)
+#if LDC_LLVM_VER >= 1000
+          .Case("aarch64_sve_vector_pcs",
+                llvm::CallingConv::AArch64_SVE_VectorCall)
+#endif
+          .Case("msp430_intrcc", llvm::CallingConv::MSP430_INTR)
+          .Case("avr_intrcc", llvm::CallingConv::AVR_INTR)
+          .Case("avr_signalcc", llvm::CallingConv::AVR_SIGNAL)
+          .Case("ptx_kernel", llvm::CallingConv::PTX_Kernel)
+          .Case("ptx_device", llvm::CallingConv::PTX_Device)
+          .Case("spir_kernel", llvm::CallingConv::SPIR_KERNEL)
+          .Case("spir_func", llvm::CallingConv::SPIR_FUNC)
+          .Case("intel_ocl_bicc", llvm::CallingConv::Intel_OCL_BI)
+          .Case("x86_64_sysvcc", llvm::CallingConv::X86_64_SysV)
+          .Case("win64cc", llvm::CallingConv::Win64)
+          .Case("webkit_jscc", llvm::CallingConv::WebKit_JS)
+          .Case("anyregcc", llvm::CallingConv::AnyReg)
+          .Case("preserve_mostcc", llvm::CallingConv::PreserveMost)
+          .Case("preserve_allcc", llvm::CallingConv::PreserveAll)
+          .Case("ghccc", llvm::CallingConv::GHC)
+          .Case("swiftcc", llvm::CallingConv::Swift)
+#if LDC_LLVM_VER >= 1300
+          .Case("swifttailcc", llvm::CallingConv::SwiftTail)
+#endif
+          .Case("x86_intrcc", llvm::CallingConv::X86_INTR)
+          .Case("hhvmcc", llvm::CallingConv::HHVM)
+          .Case("hhvm_ccc", llvm::CallingConv::HHVM_C)
+          .Case("cxx_fast_tlscc", llvm::CallingConv::CXX_FAST_TLS)
+          .Case("amdgpu_vs", llvm::CallingConv::AMDGPU_VS)
+#if LDC_LLVM_VER >= 1200
+          .Case("amdgpu_gfx", llvm::CallingConv::AMDGPU_Gfx)
+#endif
+          .Case("amdgpu_ls", llvm::CallingConv::AMDGPU_LS)
+          .Case("amdgpu_hs", llvm::CallingConv::AMDGPU_HS)
+          .Case("amdgpu_es", llvm::CallingConv::AMDGPU_ES)
+          .Case("amdgpu_gs", llvm::CallingConv::AMDGPU_GS)
+          .Case("amdgpu_ps", llvm::CallingConv::AMDGPU_PS)
+          .Case("amdgpu_cs", llvm::CallingConv::AMDGPU_CS)
+          .Case("amdgpu_kernel", llvm::CallingConv::AMDGPU_KERNEL)
+#if LDC_LLVM_VER >= 1000
+          .Case("tailcc", llvm::CallingConv::Tail)
+#endif
+
+          .Case("default", llvm::CallingConv::MaxID - 1)
+          .Default(llvm::CallingConv::MaxID);
+
+  bool success = (conv_id != llvm::CallingConv::MaxID);
+  if (success && callconv)
+    *callconv = conv_id;
+  return success;
+}
+
 } // anonymous namespace
 
 void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
@@ -394,7 +514,8 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
     } else if (ident == Id::udaWeak) {
       // @weak is applied elsewhere
     } else if (ident == Id::udaDynamicCompile ||
-               ident == Id::udaDynamicCompileEmit) {
+               ident == Id::udaDynamicCompileEmit ||
+               ident == Id::udaCallingConvention) {
       sle->error(
           "Special attribute `ldc.attributes.%s` is only valid for functions",
           ident->toChars());
@@ -450,7 +571,7 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       } else if (ident == Id::udaAssumeUsed) {
         applyAttrAssumeUsed(*gIR, sle, func);
       } else if (ident == Id::udaWeak || ident == Id::udaKernel ||
-                 ident == Id::udaNoSanitize) {
+                 ident == Id::udaNoSanitize || ident==Id::udaCallingConvention) {
         // These UDAs are applied elsewhere, thus should silently be ignored here.
       } else if (ident == Id::udaDynamicCompile) {
         irFunc->dynamicCompile = true;
@@ -496,6 +617,25 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       }
     }
   }
+}
+
+/// Checks whether 'fd' has the @ldc.attributes.callingConvention("...") UDA applied.
+/// If so, it returns the calling convention in 'callconv'.
+bool hasCallingConventionUDA(FuncDeclaration *fd,
+                             llvm::CallingConv::ID *callconv) {
+  auto sle =
+      getLastMagicAttribute(fd, Id::udaCallingConvention, Id::attributes);
+  if (!sle)
+    return false;
+
+  checkStructElems(sle, {Type::tstring});
+  auto name = getFirstElemString(sle);
+  bool success = parseCallingConvention(name, callconv);
+  if (!success)
+    sle->warning("Ignoring unrecognized calling convention name '%s' for "
+                 "`@ldc.attributes.callingConvention`",
+                 name.str().c_str());
+  return success;
 }
 
 /// Checks whether 'sym' has the @ldc.attributes._weak() UDA applied.
