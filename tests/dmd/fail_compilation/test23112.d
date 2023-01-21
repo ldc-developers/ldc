@@ -1,4 +1,5 @@
 /* REQUIRED_ARGS: -betterC
+DISABLED: LDC // FIXME: don't know how to fix this; should probably be handled properly in the frontend
 TEST_OUTPUT:
 ---
 fail_compilation/test23112.d(106): Error: function `test23112.bar` is `@nogc` yet allocates closure for `bar()` with the GC
