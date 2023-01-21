@@ -160,28 +160,27 @@ task:
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
   << : *COMMON_STEPS_TEMPLATE
 
-# FIXME: Cirrus doesn't support native x64 for macOS anymore
-#task:
-#  name: macOS 11 $TASK_NAME_SUFFIX
-#  osx_instance:
-#    image: big-sur-xcode
-#  timeout_in: 60m
-#  environment:
-#    CI_OS: osx
-#    LLVM_VERSION: 14.0.3
-#    # OS is preset to `darwin`
-#    OS: osx
-#    PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
-#    PARALLELISM: 12
-#    matrix:
-#      - TASK_NAME_SUFFIX: x64
-#        EXTRA_CMAKE_FLAGS: "-DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON"
-#      - TASK_NAME_SUFFIX: x64 shared-libs-only
-#        EXTRA_CMAKE_FLAGS: "-DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON"
-#  brew_cache:
-#    folder: "$HOME/Library/Caches/Homebrew"
-#  << : *INSTALL_MACOS_PREREQUISITES_TEMPLATE
-#  << : *COMMON_STEPS_TEMPLATE
+task:
+  name: macOS 12 $TASK_NAME_SUFFIX
+  macos_instance:
+    image: ghcr.io/cirruslabs/macos-monterey-xcode:latest
+  timeout_in: 60m
+  environment:
+    CI_OS: osx
+    LLVM_VERSION: 14.0.3
+    # OS is preset to `darwin`
+    OS: osx
+    PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
+    PARALLELISM: 4
+    matrix:
+      - TASK_NAME_SUFFIX: x64 (M1)
+        EXTRA_CMAKE_FLAGS: "-DCMAKE_OSX_ARCHITECTURES=x86_64 -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON"
+      - TASK_NAME_SUFFIX: x64 (M1) shared-libs-only
+        EXTRA_CMAKE_FLAGS: "-DCMAKE_OSX_ARCHITECTURES=x86_64 -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON"
+  brew_cache:
+    folder: "$HOME/Library/Caches/Homebrew"
+  << : *INSTALL_MACOS_PREREQUISITES_TEMPLATE
+  << : *COMMON_STEPS_TEMPLATE
 
 task:
   name: FreeBSD 12.2 x64
