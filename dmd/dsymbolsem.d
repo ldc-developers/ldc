@@ -1062,17 +1062,17 @@ private extern(C++) final class DsymbolSemanticVisitor : Visitor
                                 dsym.onstack = true;
 version (IN_LLVM)
 {
-                                bool hasDtor = false;
-                                auto cd = (cast(TypeClass) ne.newtype).sym;
-                                for (; cd; cd = cd.baseClass)
+                                auto tcStatic = dsym.type.toBasetype().isTypeClass();
+                                auto tcDynamic = ne.newtype.toBasetype().isTypeClass();
+                                if (!tcDynamic)
                                 {
-                                    if (cd.dtor)
-                                    {
-                                        hasDtor = true;
-                                        break;
-                                    }
+                                    //printf(".: resolving %s\n", ne.newtype.toPrettyChars());
+                                    ne.newtype = ne.newtype.typeSemantic(dsym.loc, sc);
+                                    tcDynamic = ne.newtype.toBasetype().isTypeClass();
+                                    assert(tcDynamic);
                                 }
-                                dsym.onstackWithDtor = hasDtor;
+
+                                dsym.onstackWithMatchingDynType = tcStatic.sym is tcDynamic.sym;
 }
                             }
                         }

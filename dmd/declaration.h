@@ -267,8 +267,8 @@ public:
     bool onstack() const; // it is a class that was allocated on the stack
     bool onstack(bool v);
 #if IN_LLVM
-    bool onstackWithDtor() const; // it is a class that was allocated on the stack and needs destruction
-    bool onstackWithDtor(bool v);
+    bool onstackWithMatchingDynType() const; // and dynamic type is equivalent to static type
+    bool onstackWithMatchingDynType(bool v);
 #endif
     bool overlapped() const; // if it is a field and has overlapping
     bool overlapped(bool v);

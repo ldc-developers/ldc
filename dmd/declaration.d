@@ -1143,7 +1143,7 @@ extern (C++) class VarDeclaration : Declaration
         bool onstack;
 version (IN_LLVM)
 {
-        bool onstackWithDtor;   /// it is a class that was allocated on the stack and needs destruction
+        bool onstackWithMatchingDynType; /// and dynamic type is equivalent to static type
 }
 
         bool overlapped;        /// if it is a field and has overlapping

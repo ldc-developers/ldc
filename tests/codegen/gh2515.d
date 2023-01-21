@@ -17,12 +17,6 @@ class WithDtor : Base
     ~this() {}
 }
 
-class WithImplicitDtor : Base
-{
-    static struct S { int val; ~this() {} }
-    S s;
-}
-
 // CHECK: define{{.*}} void @{{.*}}_D6gh251516noDtor_noMonitorFZv
 void noDtor_noMonitor()
 {
@@ -46,7 +40,18 @@ void noDtor_withMonitor()
 // CHECK: define{{.*}} void @{{.*}}_D6gh25158withDtorFZv
 void withDtor()
 {
-    scope Base b = new WithDtor();
+    scope b = new WithDtor();
+    b.foo();
+    printf("%d\n", b.val);
+    // CHECK: _d_callfinalizer
+    // CHECK: ret void
+}
+
+// CHECK: define{{.*}} void @{{.*}}_D6gh251517withInheritedDtorFZv
+void withInheritedDtor()
+{
+    static class WithInheritedDtor : WithDtor {}
+    scope b = new WithInheritedDtor();
     b.foo();
     printf("%d\n", b.val);
     // CHECK: _d_callfinalizer
@@ -56,10 +61,40 @@ void withDtor()
 // CHECK: define{{.*}} void @{{.*}}_D6gh251516withImplicitDtorFZv
 void withImplicitDtor()
 {
-    scope Base b = new WithImplicitDtor();
+    static class WithImplicitDtor : Base
+    {
+        static struct S { int val; ~this() {} }
+        S s;
+    }
+
+    scope b = new WithImplicitDtor();
     b.foo();
     printf("%d\n", b.val);
     // CHECK: _d_callfinalizer
+    // CHECK: ret void
+}
+
+
+/* Test static vs. dynamic type mismatches. */
+
+// CHECK: define{{.*}} void @{{.*}}_D6gh251529staticAndDynamicTypesMismatchFZv
+void staticAndDynamicTypesMismatch() // not optimized
+{
+    static class NoDtor : Base {}
+
+    scope Base b = new NoDtor();
+    b.foo();
+    printf("%d\n", b.val);
+    // CHECK: _d_callfinalizer
+    // CHECK: ret void
+}
+
+// CHECK: define{{.*}} void @{{.*}}_D6gh251526typesMatchModuloQualifiersFZv
+void typesMatchModuloQualifiers() // different qualifiers don't prevent optimization
+{
+    scope shared Base b = new Base();
+    printf("%d\n", b.val);
+    // CHECK-NOT: _d_callfinalizer
     // CHECK: ret void
 }
 
