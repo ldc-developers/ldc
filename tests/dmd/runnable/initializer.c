@@ -1,3 +1,5 @@
+// DISABLED: LDC // FIXME: needs preprocessor for __LINE__
+
 /* Test initializers */
 
 int printf(const char *s, ...);
