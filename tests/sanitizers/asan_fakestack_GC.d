@@ -14,7 +14,7 @@
 // RUN: %ldc %s -of=%t1%exe && %t1%exe -O
 // RUN: %ldc -g -fsanitize=address %s -of=%t_asan%exe -O
 // RUN: %t_asan%exe
-// RUN: env %env_asan_opts=detect_stack_use_after_return=true %t_asan%exe 2>&1 | FileCheck %s
+// RUN: %env_asan_opts=detect_stack_use_after_return=true %t_asan%exe 2>&1 | FileCheck %s
 
 import core.memory;
 import core.thread;

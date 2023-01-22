@@ -11,10 +11,10 @@
 // object files from the previous compilation).
 
 // RUN: %ldc -g -fsanitize=address %s -of=%t1%exe  &&  not %t1%exe  2>&1 | FileCheck %s
-// RUN: env %env_asan_opts=detect_stack_use_after_return=true not %t1%exe  2>&1 | FileCheck %s --check-prefix=FAKESTACK
+// RUN: %env_asan_opts=detect_stack_use_after_return=true not %t1%exe  2>&1 | FileCheck %s --check-prefix=FAKESTACK
 
 // RUN: %ldc -g -fsanitize=address %s -of=%t22%exe -d-version=BAD_AFTER_YIELD  &&  not %t22%exe 2>&1 | FileCheck %s
-// RUN: env %env_asan_opts=detect_stack_use_after_return=true not %t22%exe 2>&1 | FileCheck %s --check-prefix=FAKESTACK
+// RUN: %env_asan_opts=detect_stack_use_after_return=true not %t22%exe 2>&1 | FileCheck %s --check-prefix=FAKESTACK
 
 import core.thread;
 
