@@ -24,6 +24,12 @@ addons:
 install:
   - nproc
   - free
+  # Download & extract newer CMake version (required by mimalloc)
+  - curl -fL --retry 3 --max-time 300 -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.25.2/cmake-3.25.2-linux-aarch64.tar.gz
+  - mkdir cmake_bin
+  - tar -xf cmake.tar.gz --strip 1 -C cmake_bin
+  - rm cmake.tar.gz
+  - export PATH="$PWD/cmake_bin/bin:$PATH"
   # Install lit
   - python3 -m pip install --user setuptools wheel
   - python3 -m pip install --user lit
