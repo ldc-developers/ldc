@@ -33,6 +33,7 @@
 #else
 #include "llvm/IR/RemarkStreamer.h"
 #endif
+#include "llvm/Demangle/Demangle.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/ToolOutputFile.h"
@@ -166,19 +167,68 @@ void inlineAsmDiagnosticHandler(const llvm::SMDiagnostic &d, void *context,
   inlineAsmDiagnostic(static_cast<IRState *>(context), d, locCookie);
 }
 #else
-struct InlineAsmDiagnosticHandler : public llvm::DiagnosticHandler {
+struct LDCDiagnosticHandler : public llvm::DiagnosticHandler {
   IRState *irs;
-  InlineAsmDiagnosticHandler(IRState *irs) : irs(irs) {}
+  LDCDiagnosticHandler(IRState *irs) : irs(irs) {}
 
     // return false to defer to LLVMContext::diagnose()
   bool handleDiagnostics(const llvm::DiagnosticInfo &DI) override {
-    if (DI.getKind() != llvm::DK_SrcMgr)
-        return false;
+    switch (DI.getKind())
+    {
+      case llvm::DK_SrcMgr:
+      {
+        const auto &DISM = llvm::cast<llvm::DiagnosticInfoSrcMgr>(DI);
+        switch (DISM.getSeverity())
+        {
+          case llvm::DS_Error:
+            ++global.errors;
+            break;
+          case llvm::DS_Warning:
+            ++global.warnings;
+            break;
+          case llvm::DS_Remark:
+          case llvm::DS_Note:
+            return false;
+        }
 
-    const auto &DISM = llvm::cast<llvm::DiagnosticInfoSrcMgr>(DI);
-    if (DISM.getKind() == llvm::SourceMgr::DK_Error)
-      ++global.errors;
-    return inlineAsmDiagnostic(irs, DISM.getSMDiag(), DISM.getLocCookie());
+        inlineAsmDiagnostic(irs, DISM.getSMDiag(), DISM.getLocCookie());
+        return true;
+      }
+      case llvm::DK_StackSize:
+      {
+        const auto &DISS = llvm::cast<llvm::DiagnosticInfoStackSize>(DI);
+#if LDC_LLVM_VER >= 1500
+        llvm::StringRef fname;
+        unsigned line, column;
+        DISS.getLocation(fname, line, column);
+        const auto loc = Loc(fname.str().c_str(), line, column);
+#else
+        const auto loc = Loc(nullptr, 0, 0);
+#endif
+        switch (DISS.getSeverity())
+        {
+          case llvm::DS_Error:
+            error(loc, "stack frame size (%ld) exceeds limit (%ld) in '%s'",
+              DISS.getStackSize(),
+              DISS.getStackLimit(),
+              llvm::demangle(DISS.getFunction().getName().str()).c_str()
+            );
+            return true;
+          case llvm::DS_Warning:
+            warning(loc, "stack frame size (%ld) exceeds limit (%ld) in '%s'",
+              DISS.getStackSize(),
+              DISS.getStackLimit(),
+              llvm::demangle(DISS.getFunction().getName().str()).c_str()
+            );
+            return true;
+          case llvm::DS_Remark:
+          case llvm::DS_Note:
+            return false;
+        }
+        return false;
+      }
+    }
+    return false;
   }
 };
 #endif
@@ -280,7 +330,7 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   context_.setInlineAsmDiagnosticHandler(inlineAsmDiagnosticHandler, ir_);
 #else
   context_.setDiagnosticHandler(
-          std::make_unique<InlineAsmDiagnosticHandler>(ir_));
+          std::make_unique<LDCDiagnosticHandler>(ir_));
 #endif
 
   std::unique_ptr<llvm::ToolOutputFile> diagnosticsOutputFile =
