@@ -1551,8 +1551,7 @@ public:
         }
         if (!(global.params.useInline || fd.hasAlwaysInlines))
             return;
-        if (fd.isUnitTestDeclaration() && !global.params.useUnitTests ||
-            fd.flags & FUNCFLAG.inlineScanned)
+        if (fd.isUnitTestDeclaration() && !global.params.useUnitTests || fd.inlineScanned)
             return;
         if (fd.fbody && !fd.isNaked())
         {
@@ -1563,7 +1562,7 @@ public:
             {
                 again = false;
                 fd.inlineNest++;
-                fd.flags |= FUNCFLAG.inlineScanned;
+                fd.inlineScanned = true;
                 inlineScan(fd.fbody);
                 fd.inlineNest--;
             }

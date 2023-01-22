@@ -109,8 +109,8 @@ real_t CTFloat::fromAPFloat(const APFloat &src_) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-real_t CTFloat::parse(const char *literal, bool *isOutOfRange) {
-  const APFloat ap = parseLiteral(*apSemantics, literal, isOutOfRange);
+real_t CTFloat::parse(const char *literal, bool &isOutOfRange) {
+  const APFloat ap = parseLiteral(*apSemantics, literal, &isOutOfRange);
   return fromAPFloat(ap);
 }
 

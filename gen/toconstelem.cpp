@@ -714,6 +714,12 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
+  void visit(AssocArrayLiteralExp *e) override {
+    e->error("static initializations of associative arrays is not allowed.");
+    errorSupplemental(e->loc, "associative arrays must be initialized at runtime: https://dlang.org/spec/hash-map.html#runtime_initialization");
+    fatalError();
+  }
+
   void visit(Expression *e) override {
     e->error("expression `%s` is not a constant", e->toChars());
     fatalError();

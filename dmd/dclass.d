@@ -471,7 +471,7 @@ version (IN_LLVM) {} else
     {
         //printf("%s.ClassDeclaration.search('%s', flags=x%x)\n", toChars(), ident.toChars(), flags);
         //if (_scope) printf("%s baseok = %d\n", toChars(), baseok);
-        if (_scope && baseok < Baseok.done)
+        if (_scope && baseok < Baseok.semanticdone)
         {
             if (!inuse)
             {
@@ -992,6 +992,11 @@ version (IN_LLVM) {} else
             vtblsym = var;
         }
         return vtblsym;
+    }
+
+    extern (D) final bool isErrorException()
+    {
+        return errorException && (this == errorException || errorException.isBaseOf(this, null));
     }
 
     override final inout(ClassDeclaration) isClassDeclaration() inout @nogc nothrow pure @safe

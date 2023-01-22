@@ -111,8 +111,8 @@ bool checkNonAssignmentArrayOp(Expression e, bool suggestion = false)
  * evaluation order as the actual array operations have no
  * side-effect.
  * References:
- * https://github.com/dlang/druntime/blob/master/src/object.d#L3944
- * https://github.com/dlang/druntime/blob/master/src/core/internal/array/operations.d
+ * https://github.com/dlang/dmd/blob/cdfadf8a18f474e6a1b8352af2541efe3e3467cc/druntime/src/object.d#L4694
+ * https://github.com/dlang/dmd/blob/master/druntime/src/core/internal/array/operations.d
  */
 Expression arrayOp(BinExp e, Scope* sc)
 {
@@ -129,8 +129,7 @@ Expression arrayOp(BinExp e, Scope* sc)
         return arrayOpInvalidError(e);
 
     auto tiargs = new Objects();
-    auto args = new Expressions();
-    buildArrayOp(sc, e, tiargs, args);
+    auto args = buildArrayOp(sc, e, tiargs);
 
     import dmd.dtemplate : TemplateDeclaration;
     __gshared TemplateDeclaration arrayOp;
@@ -184,7 +183,7 @@ Expression arrayOp(BinAssignExp e, Scope* sc)
  * using reverse polish notation (RPN) to encode order of operations.
  * Encode operations as string arguments, using a "u" prefix for unary operations.
  */
-private void buildArrayOp(Scope* sc, Expression e, Objects* tiargs, Expressions* args)
+private Expressions* buildArrayOp(Scope* sc, Expression e, Objects* tiargs)
 {
     extern (C++) final class BuildArrayOpVisitor : Visitor
     {
@@ -194,11 +193,11 @@ private void buildArrayOp(Scope* sc, Expression e, Objects* tiargs, Expressions*
         Expressions* args;
 
     public:
-        extern (D) this(Scope* sc, Objects* tiargs, Expressions* args)
+        extern (D) this(Scope* sc, Objects* tiargs)
         {
             this.sc = sc;
             this.tiargs = tiargs;
-            this.args = args;
+            this.args = new Expressions();
         }
 
         override void visit(Expression e)
@@ -252,8 +251,9 @@ private void buildArrayOp(Scope* sc, Expression e, Objects* tiargs, Expressions*
         }
     }
 
-    scope v = new BuildArrayOpVisitor(sc, tiargs, args);
+    scope v = new BuildArrayOpVisitor(sc, tiargs);
     e.accept(v);
+    return v.args;
 }
 
 /***********************************************

@@ -545,7 +545,6 @@ version (IN_LLVM) {} else
     }
     //if (global.errors)
     //    fatal();
-    Module.dprogress = 1;
     Module.runDeferredSemantic();
     if (Module.deferred.dim)
     {
@@ -1393,6 +1392,9 @@ void addDefaultVersionIdentifiers(const ref Param params, const ref Target tgt)
 
     if (params.tracegc)
         VersionCondition.addPredefinedGlobalIdent("D_ProfileGC");
+
+    if (driverParams.optimize)
+        VersionCondition.addPredefinedGlobalIdent("D_Optimized");
 }
 
 /**
@@ -2028,7 +2030,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             params.mixinOut.name = mem.xstrdup(tmp).toDString;
         }
         else if (arg == "-g") // https://dlang.org/dmd.html#switch-g
-            driverParams.symdebug = 1;
+            driverParams.symdebug = true;
         else if (startsWith(p + 1, "gdwarf")) // https://dlang.org/dmd.html#switch-gdwarf
         {
             if (driverParams.dwarf)
@@ -2036,7 +2038,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                 error("`-gdwarf=<version>` can only be provided once");
                 break;
             }
-            driverParams.symdebug = 1;
+            driverParams.symdebug = true;
 
             enum len = "-gdwarf=".length;
             // Parse:
@@ -2049,8 +2051,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
         }
         else if (arg == "-gf")
         {
-            if (!driverParams.symdebug)
-                driverParams.symdebug = 1;
+            driverParams.symdebug = true;
             driverParams.symdebugref = true;
         }
         else if (arg == "-gs")  // https://dlang.org/dmd.html#switch-gs
@@ -2383,14 +2384,13 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             params.warnings = DiagnosticReporting.inform;
         else if (arg == "-O")   // https://dlang.org/dmd.html#switch-O
             driverParams.optimize = true;
+        else if (arg == "-o-")  // https://dlang.org/dmd.html#switch-o-
+            params.obj = false;
         else if (p[1] == 'o')
         {
             const(char)* path;
             switch (p[2])
             {
-            case '-':                       // https://dlang.org/dmd.html#switch-o-
-                params.obj = false;
-                break;
             case 'd':                       // https://dlang.org/dmd.html#switch-od
                 if (!p[3])
                     goto Lnoarg;
@@ -2655,6 +2655,10 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                 {
                     if (!params.debuglevel.parseDigits(p.toDString()[7 .. $]))
                         goto Lerror;
+
+                    // @@@DEPRECATED_2.111@@@
+                    // Deprecated in 2.101, remove in 2.111
+                    deprecation(Loc.initial, "`-debug=number` is deprecated, use debug identifiers instead");
                 }
                 else if (Identifier.isValidIdentifier(p + 7))
                 {
@@ -2681,9 +2685,14 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                 {
                     if (!params.versionlevel.parseDigits(p.toDString()[9 .. $]))
                         goto Lerror;
+
+                    // @@@DEPRECATED_2.111@@@
+                    // Deprecated in 2.101, remove in 2.111
+                    deprecation(Loc.initial, "`-version=number` is deprecated, use version identifiers instead");
                 }
                 else if (Identifier.isValidIdentifier(p + 9))
                 {
+
                     if (!params.versionids)
                         params.versionids = new Array!(const(char)*);
                     params.versionids.push(p + 9);
@@ -2889,18 +2898,6 @@ else
                 break;
             }
         }
-
-        if (!driverParams.mscrtlib)
-        {
-            version (Windows)
-            {
-                VSOptions vsopt;
-                vsopt.initialize();
-                driverParams.mscrtlib = vsopt.defaultRuntimeLibrary(target.is64bit).toDString;
-            }
-            else
-                error(Loc.initial, "must supply `-mscrtlib` manually when cross compiling to windows");
-        }
     }
     else
     {
@@ -2988,6 +2985,28 @@ private void reconcileLinkRunLib(ref Param params, size_t numSrcFiles, const cha
 {
     if (!params.obj || driverParams.lib || (IN_LLVM && params.output_o == OUTPUTFLAGno))
         driverParams.link = false;
+
+version (IN_LLVM) {} else
+{
+    if (target.os == Target.OS.Windows)
+    {
+        if (!driverParams.mscrtlib)
+        {
+            version (Windows)
+            {
+                VSOptions vsopt;
+                vsopt.initialize();
+                driverParams.mscrtlib = vsopt.defaultRuntimeLibrary(target.is64bit).toDString;
+            }
+            else
+            {
+                if (driverParams.link)
+                    error(Loc.initial, "must supply `-mscrtlib` manually when cross compiling to windows");
+            }
+        }
+    }
+}
+
     if (driverParams.link)
     {
         params.exefile = params.objname;

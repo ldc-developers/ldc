@@ -19,6 +19,7 @@
 #include "dmd/mtype.h"
 #include "dmd/root/port.h"
 #include "dmd/root/rmem.h"
+#include "dmd/target.h"
 #include "dmd/template.h"
 #include "gen/aa.h"
 #include "gen/abi/abi.h"
@@ -844,15 +845,17 @@ public:
     } else {
       LLType *elemType = DtoType(base->type);
       if (elemType->isSized()) {
-        uint64_t elemSize = gDataLayout->getTypeAllocSize(elemType);
+        const uint64_t elemSize = gDataLayout->getTypeAllocSize(elemType);
         if (e->offset % elemSize == 0) {
           // We can turn this into a "nice" GEP.
-          if (elemType->isStructTy()) {
-            // LLVM getelementptr requires that offsets are 32-bit constants
-            // when the base type is a struct.
-            offsetValue = DtoGEP1(DtoType(base->type), baseValue, e->offset / elemSize);
+          const uint64_t i = e->offset / elemSize;
+          // LLVM getelementptr requires that offsets are 32-bit constants
+          // when the base type is a struct.
+          if (target.ptrsize == 8 && !elemType->isStructTy()) {
+            offsetValue = DtoGEP1i64(elemType, baseValue, i);
           } else {
-            offsetValue = DtoGEP1i64(DtoType(base->type), baseValue, e->offset / elemSize);
+            offsetValue =
+                DtoGEP1(elemType, baseValue, static_cast<unsigned>(i));
           }
         }
       }
@@ -860,9 +863,13 @@ public:
       if (!offsetValue) {
         // Offset isn't a multiple of base type size, just cast to i8* and
         // apply the byte offset.
-        offsetValue =
-            DtoGEP1i64(LLType::getInt8Ty(gIR->context()),
-                    DtoBitCast(baseValue, getVoidPtrType()), e->offset);
+        auto castBase = DtoBitCast(baseValue, getVoidPtrType());
+        if (target.ptrsize == 8) {
+          offsetValue = DtoGEP1i64(getI8Type(), castBase, e->offset);
+        } else {
+          offsetValue =
+              DtoGEP1(getI8Type(), castBase, static_cast<unsigned>(e->offset));
+        }
       }
     }
 
@@ -1571,6 +1578,15 @@ public:
 
       result = new DImValue(e->type, mem);
     }
+    // new AA
+    else if (auto taa = ntype->isTypeAArray()) {
+      LLFunction *func = getRuntimeFunction(e->loc, gIR->module, "_aaNew");
+      LLValue *aaTypeInfo =
+          DtoBitCast(DtoTypeInfoOf(e->loc, stripModifiers(taa), /*base=*/false),
+                     DtoType(getAssociativeArrayTypeInfoType()));
+      LLValue *aa = gIR->CreateCallOrInvoke(func, aaTypeInfo, "aa");
+      result = new DImValue(e->type, aa);
+    }
     // new basic type
     else {
       IF_LOG Logger::println("basic type on heap: %s\n", e->newtype->toChars());
@@ -1635,7 +1651,8 @@ public:
       } else if (auto ve = e->e1->isVarExp()) {
         if (auto vd = ve->var->isVarDeclaration()) {
           if (vd->onstack()) {
-            DtoFinalizeScopeClass(e->loc, dval, vd->onstackWithDtor());
+            DtoFinalizeScopeClass(e->loc, dval,
+                                  vd->onstackWithMatchingDynType());
             onstack = true;
           }
         }

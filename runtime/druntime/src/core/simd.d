@@ -742,7 +742,7 @@ version (D_SIMD) // LDC
                 // store `v` to location pointed to by `d`
                 storeUnaligned(cast(T*)d, v);
 
-                // check that the the data was stored correctly
+                // check that the data was stored correctly
                 foreach (j; 0..T.sizeof)
                 {
                     assert(ptrToV[j] == d[j]);

@@ -26,6 +26,16 @@
  */
 #define __signed__ signed
 #define __asm__ asm
+#define __asm asm
+#define __inline__ inline
+#define __inline inline
+
+/********************
+ * Clang nullability extension used by macOS headers.
+ */
+#define _Nonnull
+#define _Nullable
+#define _Null_unspecified
 
 /********************
  * This is a Microsoft C function calling convention not supported by ImportC,
@@ -48,7 +58,6 @@
 #define __far
 #define __near
 #define __handle
-#define __inline        /* ImportC does its own notion of inlining */
 #define __pascal
 
 /****************************

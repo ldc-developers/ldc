@@ -1580,6 +1580,12 @@ public:
 
                         if (flags & IgnoreAmbiguous) // if return NULL on ambiguity
                             return null;
+
+                        /* If two imports from C import files, pick first one, as C has global name space
+                         */
+                        if (s.isCsymbol() && s2.isCsymbol())
+                            continue;
+
                         if (!(flags & IgnoreErrors))
                             ScopeDsymbol.multiplyDefined(loc, s, s2);
                         break;
@@ -2477,6 +2483,15 @@ Dsymbol handleTagSymbols(ref Scope sc, Dsymbol s, Dsymbol s2, ScopeDsymbol sds)
     auto sd = s.isScopeDsymbol(); // new declaration
     auto sd2 = s2.isScopeDsymbol(); // existing declaration
 
+    static if (log) void print(EnumDeclaration sd)
+    {
+        printf("members: %p\n", sd.members);
+        printf("symtab: %p\n", sd.symtab);
+        printf("endlinnum: %d\n", sd.endlinnum);
+        printf("type: %s\n", sd.type.toChars());
+        printf("memtype: %s\n", sd.memtype.toChars());
+    }
+
     if (!sd2)
     {
         /* Look in tag table
@@ -2509,6 +2524,23 @@ Dsymbol handleTagSymbols(ref Scope sc, Dsymbol s, Dsymbol s2, ScopeDsymbol sds)
         {
             sd2.members = sd.members; // transfer definition to sd2
             sd.members = null;
+            if (auto ed2 = sd2.isEnumDeclaration())
+            {
+                auto ed = sd.isEnumDeclaration();
+                if (ed.memtype != ed2.memtype)
+                    return null;        // conflict
+
+                // transfer ed's members to sd2
+                ed2.members.foreachDsymbol( (s)
+                {
+                    if (auto em = s.isEnumMember())
+                        em.ed = ed2;
+                });
+
+                ed2.type = ed.type;
+                ed2.memtype = ed.memtype;
+                ed2.added = false;
+            }
             return sd2;
         }
         else

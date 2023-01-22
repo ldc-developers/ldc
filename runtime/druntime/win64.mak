@@ -21,7 +21,7 @@ DOCDIR=doc
 IMPDIR=import
 
 # Make program to use. Designed to be run with make.exe which can be obtained from
-# http://downloads.dlang.org/other/dm857c.zip
+# https://downloads.dlang.org/other/dm857c.zip
 MAKE=make
 
 HOST_DMD=dmd
@@ -65,7 +65,7 @@ copy:
 # environment variable needs to be set with the path to the VC system include files.
 
 errno_c_$(MODEL).obj: src\core\stdc\errno.c
-	$(DMD) -c -of=$@ $(DFLAGS) -v -P=-I. src\core\stdc\errno.c
+	$(DMD) -c -of=$@ $(DFLAGS) -P=-I. src\core\stdc\errno.c
 
 ################### Library generation #########################
 
