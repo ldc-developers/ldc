@@ -6,8 +6,8 @@ LDC – the LLVM-based D Compiler
 [![Build status](https://img.shields.io/bitrise/1b36e52cf09e5308/master?label=Bitrise&logo=Bitrise&token=CSkvmRcSUiweaURFUJDMYw)][2]
 [![Build status](https://img.shields.io/circleci/project/github/ldc-developers/ldc/master?logo=CircleCI&label=CircleCI)][3]
 [![Build status](https://img.shields.io/cirrus/github/ldc-developers/ldc/master?label=Cirrus%20CI&logo=Cirrus%20CI)][4]
-[![Build status](https://img.shields.io/github/workflow/status/ldc-developers/ldc/Main/master?label=GitHub%20Actions%20%28main%29&logo=github)][7]
-[![Build status](https://img.shields.io/github/workflow/status/ldc-developers/ldc/Vanilla%20LLVM/master?label=GitHub%20Actions%20%28LLVM%29&logo=github)][7]
+[![Build status](https://img.shields.io/github/actions/workflow/status/ldc-developers/ldc/main.yml?branch=master&label=GitHub%20Actions%20%28main%29&logo=github)][7]
+[![Build status](https://img.shields.io/github/actions/workflow/status/ldc-developers/ldc/supported_llvm_versions.yml?branch=master&label=GitHub%20Actions%20%28LLVM%29&logo=github)][7]
 [![Build status](https://img.shields.io/travis/com/ldc-developers/ldc/master?label=Travis%20CI&logo=Travis)][5]
 [![Bountysource](https://www.bountysource.com/badge/tracker?tracker_id=283332)][6]
 
