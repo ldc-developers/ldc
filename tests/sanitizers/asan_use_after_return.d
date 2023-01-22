@@ -7,7 +7,7 @@
 // object files from the previous compilation).
 
 // RUN: %ldc -g -fsanitize=address %s -of=%t%exe
-// RUN: not env %env_asan_opts=detect_stack_use_after_return=true %t%exe 2>&1 | FileCheck %s
+// RUN: not %env_asan_opts=detect_stack_use_after_return=true %t%exe 2>&1 | FileCheck %s
 
 import core.memory;
 import std.stdio;
