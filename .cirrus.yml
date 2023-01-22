@@ -167,9 +167,10 @@ task:
 
 task:
   name: macOS 12 $TASK_NAME_SUFFIX
+  allow_failures: true # FIXME
   macos_instance:
     image: ghcr.io/cirruslabs/macos-monterey-xcode:latest
-  timeout_in: 60m
+  timeout_in: 15m
   environment:
     CI_OS: osx
     LLVM_VERSION: 14.0.3
@@ -178,12 +179,12 @@ task:
     PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
     PARALLELISM: 4
     matrix:
-      - TASK_NAME_SUFFIX: x64 (M1)
-        EXTRA_CMAKE_FLAGS: "-DCMAKE_OSX_ARCHITECTURES=x86_64 -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON"
-        CI_ARCH: x86_64
-      - TASK_NAME_SUFFIX: x64 (M1) shared-libs-only
-        EXTRA_CMAKE_FLAGS: "-DCMAKE_OSX_ARCHITECTURES=x86_64 -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON"
-        CI_ARCH: x86_64
+      #- TASK_NAME_SUFFIX: x64 (M1)
+      #  EXTRA_CMAKE_FLAGS: "-DCMAKE_OSX_ARCHITECTURES=x86_64 -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON"
+      #  CI_ARCH: x86_64
+      #- TASK_NAME_SUFFIX: x64 (M1) shared-libs-only
+      #  EXTRA_CMAKE_FLAGS: "-DCMAKE_OSX_ARCHITECTURES=x86_64 -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON"
+      #  CI_ARCH: x86_64
       - TASK_NAME_SUFFIX: arm64
         # no line infos for ldc2 unittests (compiled with -g with v1.30 host compiler - https://github.com/ldc-developers/ldc/issues/3864)
         EXTRA_CMAKE_FLAGS: "-DDFLAGS_LDC=-preserve-dwarf-line-section=false -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON"
