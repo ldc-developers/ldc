@@ -172,7 +172,7 @@ LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl,
       priority = 65535;
     }
     char buf[8];
-    sprintf(buf, "%llu", static_cast<unsigned long long>(priority));
+    snprintf(buf, 8, "%llu", static_cast<unsigned long long>(priority));
     arg1str = strdup(buf);
     return ident == Id::LDC_global_crt_ctor || ident == Id::crt_constructor
                ? LLVMglobal_crt_ctor

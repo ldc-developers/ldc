@@ -128,19 +128,32 @@ bool CTFloat::isFloat64LiteralOutOfRange(const char *literal) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// TODO: remove this function when no longer used, it's there because frontend D
+// code still uses it. It simply forwards to snprintf with a very large assumed
+// buffer length = no memory safety checking.
 int CTFloat::sprint(char *str, char fmt, real_t x) {
+  return CTFloat::snprint(str, 1000, fmt, x);
+}
+
+int CTFloat::snprint(char *str, size_t str_buf_length, char fmt, real_t x) {
   assert(fmt == 'g' || fmt == 'a' || fmt == 'A');
   const bool uppercase = fmt == 'A';
 
   // We try to keep close to C printf and handle a few divergences of the LLVM
   // to-string utility functions.
 
+  // For simplicity later on, do not accept values of str_buf_length below 5.
+  if (str_buf_length < 5)
+    return 0;
+
   if (isNaN(x)) {
-    int length = 0;
+    size_t length = 0;
     if (copysign(one, x) != one) {
       str[0] = '-';
       ++length;
     }
+    if (length > str_buf_length-4)
+      length = str_buf_length-4;
     memcpy(str + length, uppercase ? "NAN" : "nan", 3);
     length += 3;
     str[length] = 0;
@@ -148,11 +161,13 @@ int CTFloat::sprint(char *str, char fmt, real_t x) {
   }
 
   if (isInfinity(x)) { // incl. -inf
-    int length = 0;
+    size_t length = 0;
     if (x < 0) {
       str[0] = '-';
       ++length;
     }
+    if (length > str_buf_length-4)
+      length = str_buf_length-4;
     memcpy(str + length, uppercase ? "INF" : "inf", 3);
     length += 3;
     str[length] = 0;
@@ -164,8 +179,11 @@ int CTFloat::sprint(char *str, char fmt, real_t x) {
     APFloat ap(0.0);
     toAPFloat(x, ap);
 
-    int length =
+    size_t length =
         ap.convertToHexString(str, 0, uppercase, APFloat::rmNearestTiesToEven);
+
+    if (length > str_buf_length-1)
+      length = str_buf_length-1;
 
     // insert a '+' prefix for non-negative exponents (incl. 0) as visual aid
     const char p = uppercase ? 'P' : 'p';
@@ -193,20 +211,20 @@ int CTFloat::sprint(char *str, char fmt, real_t x) {
   // * powl(2.5L, 2.5L) = 9.882117688... => `9.88211` (not 9.88212)
   // * 1e-300L => `9.99999e-301`
 #ifdef _MSC_VER
-  int length = sprintf(str, "%g", static_cast<double>(x));
+  size_t length = snprintf(str, str_buf_length-1, "%g", static_cast<double>(x));
 #else
-  int length = sprintf(str, "%Lg", x);
+  size_t length = snprintf(str, str_buf_length-1, "%Lg", x);
 #endif
 
   // 1 => 1.0 to distinguish from integers
   bool needsFPSuffix = true;
-  for (int i = 0; i < length; ++i) {
+  for (size_t i = 0; i < length; ++i) {
     if (str[i] != '-' && !isdigit(str[i])) {
       needsFPSuffix = false;
       break;
     }
   }
-  if (needsFPSuffix) {
+  if (needsFPSuffix && (length < str_buf_length-3)) {
     memcpy(str + length, ".0", 2);
     length += 2;
   }

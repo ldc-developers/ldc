@@ -434,7 +434,7 @@ static void remap_args(std::string &insnt, size_t nargs, size_t idx,
     needle = prefix + digits[i] + suffix;
     size_t pos = insnt.find(needle);
     if (std::string::npos != pos) {
-      sprintf(buf, "%llu", static_cast<unsigned long long>(idx++));
+      snprintf(buf, 10, "%llu", static_cast<unsigned long long>(idx++));
     }
     while (std::string::npos != (pos = insnt.find(needle))) {
       insnt.replace(pos, needle.size(), buf);
