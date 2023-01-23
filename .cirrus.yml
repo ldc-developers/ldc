@@ -121,7 +121,7 @@ task:
     image: ubuntu:18.04
     cpu: 8
     memory: 16G
-  timeout_in: 60m
+  timeout_in: 20m
   environment:
     CI_OS: linux
     EXTRA_APT_PACKAGES: "llvm-9-dev libclang-common-9-dev"
@@ -138,10 +138,10 @@ task:
     image: ubuntu:rolling
     cpu: 8
     memory: 16G
-  timeout_in: 60m
+  timeout_in: 15m
   environment:
     CI_OS: linux
-    EXTRA_APT_PACKAGES: "gdmd llvm-dev libclang-common-12-dev"
+    EXTRA_APT_PACKAGES: "gdmd llvm-dev libclang-common-15-dev"
     EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
     PARALLELISM: 8
     # for gdmd:
@@ -155,7 +155,7 @@ task:
     image: ubuntu:18.04
     cpu: 8
     memory: 16G
-  timeout_in: 60m
+  timeout_in: 15m
   environment:
     CI_OS: linux
     HOST_LDC_VERSION: 1.9.0
