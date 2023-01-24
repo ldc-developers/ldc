@@ -208,6 +208,8 @@ extern (C++) struct CTFloat
     static real_t parse(const(char)* literal, out bool isOutOfRange);
     @system
     static int sprint(char* str, char fmt, real_t x);
+    @system
+    static int snprint(char* str, size_t str_buf_length, char fmt, real_t x);
   }
   else
   {

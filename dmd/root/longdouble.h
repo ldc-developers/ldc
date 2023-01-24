@@ -26,6 +26,7 @@ typedef volatile long double volatile_longdouble;
 #define sprintf __mingw_sprintf
 #endif
 
+#if !IN_LLVM // warning: 'sprintf' is deprecated: This function is provided for compatibility reasons only.  Due to security concerns inherent in the design of sprintf(3), it is highly recommended that you use snprintf(3) instead.
 inline size_t ld_sprint(char* str, int fmt, longdouble x)
 {
     if (((longdouble)(unsigned long long)x) == x)
@@ -43,6 +44,7 @@ inline size_t ld_sprint(char* str, int fmt, longdouble x)
         return sprintf(str, sfmt, x);
     }
 }
+#endif
 
 #if __MINGW32__
 #undef sprintf

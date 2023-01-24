@@ -448,9 +448,9 @@ llvm::GlobalVariable *IrClass::getInterfaceVtblSymbol(BaseClass *b,
 
     // Thunk prefix
     char thunkPrefix[16];
-    int thunkLen = sprintf(thunkPrefix, "Thn%d_", b->offset);
+    int thunkLen = snprintf(thunkPrefix, 16, "Thn%d_", b->offset);
     char thunkPrefixLen[16];
-    sprintf(thunkPrefixLen, "%d", thunkLen);
+    snprintf(thunkPrefixLen, 16, "%d", thunkLen);
 
     OutBuffer mangledName;
     mangledName.writestring("_D");
@@ -499,7 +499,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
   constants.reserve(vtbl_array.length);
 
   char thunkPrefix[16];
-  sprintf(thunkPrefix, "Thn%d_", b->offset);
+  snprintf(thunkPrefix, 16, "Thn%d_", b->offset);
 
   const auto voidPtrTy = getVoidPtrType();
 

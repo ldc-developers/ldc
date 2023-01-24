@@ -70,6 +70,9 @@ struct CTFloat
 
     static real_t parse(const char *literal, bool& isOutOfRange);
     static int sprint(char *str, char fmt, real_t x);
+#if IN_LLVM
+    static int snprint(char *str, size_t str_buf_length, char fmt, real_t x);
+#endif
 
     static size_t hash(real_t a);
 
