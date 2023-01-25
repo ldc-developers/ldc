@@ -143,4 +143,8 @@ extern cl::opt<bool> dynamicCompileTlsWorkaround;
 #else
 constexpr bool enableDynamicCompile = false;
 #endif
+
+#if LDC_LLVM_VER >= 1400
+extern bool enableOpaqueIRPointers;
+#endif
 }

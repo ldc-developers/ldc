@@ -560,6 +560,13 @@ void parseCommandLine(Strings &sourceFiles) {
     error(Loc(), "LLVM version 15 or above only supports --passmanager=new");
   }
 #endif
+
+#if LDC_LLVM_VER >= 1500
+  getGlobalContext().setOpaquePointers(opts::enableOpaqueIRPointers);
+#elif LDC_LLVM_VER >= 1400
+  if (opts::enableOpaqueIRPointers)
+    getGlobalContext().enableOpaquePointers();
+#endif
 }
 
 void initializePasses() {
