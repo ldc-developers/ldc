@@ -16,11 +16,14 @@ MSVC toolchain detection and setup is skipped if LDC is run inside a
 'VS Native/Cross Tools Command Prompt' (more precisely, if the VSINSTALLDIR
 environment variable is set).
 
-If you don't have a Visual C++ installation, LDC falls back to LLD (the LLVM
-linker) and the bundled WinSDK & Visual C++ runtime (import) libraries based on
-MinGW-w64. In that case, the generated executables and DLLs depend on an
-installed (redistributable) Visual C++ 2015+ runtime (vcruntime140.dll,
-ucrtbase.dll etc.).
+If you don't have a Visual C++ installation, LDC falls back to the integrated
+LLD (the LLVM linker) and the bundled WinSDK & Visual C++ runtime (import)
+libraries based on MinGW-w64. In that case, the generated executables depend on
+an installed (redistributable) Visual C++ 2015+ runtime (vcruntime140.dll,
+ucrtbase.dll etc.). Linking the Visual C++ runtime statically requires the
+static libraries from a Visual C++ toolchain, which cannot be bundled with
+3rd-party compilers such as LDC due to their restrictive license; see
+https://github.com/ldc-developers/mingw-w64-libs for details.
 
 For further information, including on how to report bugs, please refer to the
 LDC wiki: http://wiki.dlang.org/LDC.
