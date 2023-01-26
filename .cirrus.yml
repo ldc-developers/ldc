@@ -77,7 +77,7 @@ install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
     rm ldc2.tar.xz
 
 # Installs macOS prerequisites.
-# Requires env variables HOST_LDC_VERSION and LLVM_VERSION.
+# Requires env variables CI_ARCH, HOST_LDC_VERSION and LLVM_VERSION.
 install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
   install_prerequisites_script: |
     cd $CIRRUS_WORKING_DIR/..
@@ -92,13 +92,18 @@ install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
     mkdir ninja
     tar -xf ninja-mac.zip -C ninja
     rm ninja-mac.zip
-    # Download & extract LDC-flavoured LLVM with enabled assertions
-    curl -fL --retry 3 --max-time 300 -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-osx-x86_64-withAsserts.tar.xz
+    # Download & extract LDC-flavoured LLVM (no withAsserts package available for arm64 yet)
+    assertsSuffix=""
+    if [[ "$CI_ARCH" == "x86_64" ]]; then
+      echo 'Using LLVM with enabled assertions'
+      assertsSuffix="-withAsserts"
+    fi
+    curl -fL --retry 3 --max-time 300 -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-osx-${CI_ARCH}${assertsSuffix}.tar.xz
     mkdir llvm
     tar -xf llvm.tar.xz --strip 1 -C llvm
     rm llvm.tar.xz
     # Download & extract host LDC
-    curl -fL --retry 3 --max-time 300 -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-osx-x86_64.tar.xz
+    curl -fL --retry 3 --max-time 300 -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-osx-$CI_ARCH.tar.xz
     mkdir host-ldc
     tar -xf ldc2.tar.xz --strip 1 -C host-ldc
     rm ldc2.tar.xz
@@ -116,7 +121,7 @@ task:
     image: ubuntu:18.04
     cpu: 8
     memory: 16G
-  timeout_in: 60m
+  timeout_in: 20m
   environment:
     CI_OS: linux
     EXTRA_APT_PACKAGES: "llvm-9-dev libclang-common-9-dev"
@@ -133,10 +138,10 @@ task:
     image: ubuntu:rolling
     cpu: 8
     memory: 16G
-  timeout_in: 60m
+  timeout_in: 15m
   environment:
     CI_OS: linux
-    EXTRA_APT_PACKAGES: "gdmd llvm-dev libclang-common-12-dev"
+    EXTRA_APT_PACKAGES: "gdmd llvm-dev libclang-common-15-dev"
     EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
     PARALLELISM: 8
     # for gdmd:
@@ -150,7 +155,7 @@ task:
     image: ubuntu:18.04
     cpu: 8
     memory: 16G
-  timeout_in: 60m
+  timeout_in: 15m
   environment:
     CI_OS: linux
     HOST_LDC_VERSION: 1.9.0
@@ -160,28 +165,39 @@ task:
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
   << : *COMMON_STEPS_TEMPLATE
 
-# FIXME: Cirrus doesn't support native x64 for macOS anymore
-#task:
-#  name: macOS 11 $TASK_NAME_SUFFIX
-#  osx_instance:
-#    image: big-sur-xcode
-#  timeout_in: 60m
-#  environment:
-#    CI_OS: osx
-#    LLVM_VERSION: 14.0.3
-#    # OS is preset to `darwin`
-#    OS: osx
-#    PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
-#    PARALLELISM: 12
-#    matrix:
-#      - TASK_NAME_SUFFIX: x64
-#        EXTRA_CMAKE_FLAGS: "-DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON"
-#      - TASK_NAME_SUFFIX: x64 shared-libs-only
-#        EXTRA_CMAKE_FLAGS: "-DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON"
-#  brew_cache:
-#    folder: "$HOME/Library/Caches/Homebrew"
-#  << : *INSTALL_MACOS_PREREQUISITES_TEMPLATE
-#  << : *COMMON_STEPS_TEMPLATE
+task:
+  name: macOS 12 $TASK_NAME_SUFFIX
+  allow_failures: true # FIXME
+  macos_instance:
+    image: ghcr.io/cirruslabs/macos-monterey-xcode:latest
+  timeout_in: 15m
+  environment:
+    CI_OS: osx
+    LLVM_VERSION: 14.0.3
+    # OS is preset to `darwin`
+    OS: osx
+    PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
+    PARALLELISM: 4
+    matrix:
+      #- TASK_NAME_SUFFIX: x64 (M1)
+      #  EXTRA_CMAKE_FLAGS: "-DCMAKE_OSX_ARCHITECTURES=x86_64 -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON"
+      #  CI_ARCH: x86_64
+      #- TASK_NAME_SUFFIX: x64 (M1) shared-libs-only
+      #  EXTRA_CMAKE_FLAGS: "-DCMAKE_OSX_ARCHITECTURES=x86_64 -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON"
+      #  CI_ARCH: x86_64
+      - TASK_NAME_SUFFIX: arm64
+        # no line infos for ldc2 unittests (compiled with -g with v1.30 host compiler - https://github.com/ldc-developers/ldc/issues/3864)
+        EXTRA_CMAKE_FLAGS: "-DDFLAGS_LDC=-preserve-dwarf-line-section=false -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON"
+        CI_ARCH: arm64
+        HOST_LDC_VERSION: 1.30.0
+      - TASK_NAME_SUFFIX: arm64 shared-libs-only
+        EXTRA_CMAKE_FLAGS: "-DDFLAGS_LDC=-preserve-dwarf-line-section=false -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON"
+        CI_ARCH: arm64
+        HOST_LDC_VERSION: 1.30.0
+  brew_cache:
+    folder: "$HOME/Library/Caches/Homebrew"
+  << : *INSTALL_MACOS_PREREQUISITES_TEMPLATE
+  << : *COMMON_STEPS_TEMPLATE
 
 task:
   name: FreeBSD 12.2 x64
