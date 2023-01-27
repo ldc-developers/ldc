@@ -691,6 +691,10 @@ cl::opt<bool> dynamicCompileTlsWorkaround(
     cl::Hidden);
 #endif
 
+#if LDC_LLVM_VER >= 1400
+bool enableOpaqueIRPointers = false;
+#endif
+
 static cl::extrahelp
     footer("\n"
            "-d-debug can also be specified without options, in which case it "
@@ -714,9 +718,11 @@ void createClashingOptions() {
     if (i != map.end()) {
       cl::Option *opt = i->getValue();
       map.erase(i);
-      opt->setArgStr(to);
-      opt->setHiddenFlag(cl::Hidden);
-      map[to] = opt;
+      if (to) {
+        opt->setArgStr(to);
+        opt->setHiddenFlag(cl::Hidden);
+        map[to] = opt;
+      }
     }
   };
 
@@ -746,6 +752,13 @@ void createClashingOptions() {
               "Soft-float ABI, but hardware floating-point instructions"),
           clEnumValN(FloatABI::Hard, "hard",
                      "Hardware floating-point ABI and instructions")));
+
+#if LDC_LLVM_VER >= 1400
+  renameAndHide("opaque-pointers", nullptr); // remove
+  new cl::opt<bool, true>(
+      "opaque-pointers", cl::ZeroOrMore, cl::location(enableOpaqueIRPointers),
+      cl::desc("Use opaque IR pointers (experimental!)"), cl::Hidden);
+#endif
 }
 
 /// Hides command line options exposed from within LLVM that are unlikely

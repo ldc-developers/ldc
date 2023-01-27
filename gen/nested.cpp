@@ -228,11 +228,7 @@ void DtoResolveNestedContext(const Loc &loc, AggregateDeclaration *decl,
     unsigned idx = getVthisIdx(decl);
     llvm::StructType *st = getIrAggr(decl, true)->getLLStructType();
     LLValue *gep = DtoGEP(st, value, 0, idx, ".vthis");
-#if LDC_LLVM_VER >= 1500
-    DtoStore(nest, gep);
-#else
-    DtoStore(DtoBitCast(nest, gep->getType()->getContainedType(0)), gep);
-#endif
+    DtoStore(DtoBitCast(nest, st->getElementType(idx)), gep);
   }
 }
 
