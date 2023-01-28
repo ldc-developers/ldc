@@ -1465,7 +1465,7 @@ public:
       assert(e->e2->op == EXP::int64);
       LLConstant *offset =
           e->op == EXP::plusPlus ? DtoConstUint(1) : DtoConstInt(-1);
-      post = DtoGEP1(DtoType(dv->type->nextOf()), val, offset, "", p->scopebb());
+      post = DtoGEP1(DtoMemType(dv->type->nextOf()), val, offset, "", p->scopebb());
     } else if (e1type->iscomplex()) {
       assert(e2type->iscomplex());
       LLValue *one = LLConstantFP::get(DtoComplexBaseType(e1type), 1.0);
