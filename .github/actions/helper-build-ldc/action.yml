@@ -13,6 +13,21 @@ inputs:
   cmake_flags:
     required: false
     default: ''
+  extra_d_flags: # applying to the D executables, not the runtime
+    required: false
+    default: ''
+  extra_cxx_flags: # for the ldc2 executable
+    required: false
+    default: ''
+  with_mimalloc:
+    required: false
+    default: false
+  lto_mode: # full | thin | none
+    required: false
+    default: none
+  with_pgo:
+    required: false
+    default: false
   build_targets:
     required: false
     default: '' # all
@@ -21,6 +36,39 @@ inputs:
 runs:
   using: composite
   steps:
+
+    - name: Compute advanced CMake flags
+      id: compute_advanced_cmake_flags
+      shell: bash
+      run: |
+        set -eux
+        lto_mode='${{ inputs.lto_mode }}'
+        with_pgo='${{ inputs.with_pgo }}'
+        flags=''
+
+        if [[ '${{ inputs.with_mimalloc }}' == true ]]; then
+          flags+="-DALTERNATIVE_MALLOC_O=../build-mimalloc/CMakeFiles/mimalloc-obj.dir/src/static.c.o "
+        fi
+
+        d_flags=(${{ inputs.extra_d_flags }})
+        cxx_flags=(${{ inputs.extra_cxx_flags }})
+        if [[ "$lto_mode" != none ]]; then
+          d_flags+=(-O -flto="$lto_mode" -defaultlib=phobos2-ldc-lto,druntime-ldc-lto)
+          cxx_flags+=(-flto="$lto_mode")
+        fi
+        if [[ "$with_pgo" == true ]]; then
+          flags+="-DEXTRA_DFLAGS_LDC=-fprofile-use=../pgo-ldc/merged.profdata "
+          cxx_flags+=(-fprofile-use=../pgo-ldc/merged.profdata)
+        fi
+
+        if [[ "${#d_flags[@]}" -gt 0 ]]; then
+          flags+="\"-DD_COMPILER_FLAGS=${d_flags[*]}\" "
+        fi
+        if [[ "${#cxx_flags[@]}" -gt 0 ]]; then
+          flags+="\"-DEXTRA_CXXFLAGS=${cxx_flags[*]}\" "
+        fi
+
+        echo "::set-output name=CMAKE_FLAGS::$flags"
 
     - if: runner.os != 'Windows'
       shell: bash
@@ -37,7 +85,8 @@ runs:
           -DLDC_LINK_MANUALLY=OFF \
           ${{ inputs.specify_install_dir == 'true' && '-DCMAKE_INSTALL_PREFIX="$installDir"' || '' }} \
           ${{ inputs.specify_install_dir == 'true' && '-DINCLUDE_INSTALL_DIR="$installDir/import"' || '' }} \
-          ${{ inputs.cmake_flags }}
+          ${{ inputs.cmake_flags }} \
+          ${{ steps.compute_advanced_cmake_flags.outputs.CMAKE_FLAGS }}
 
         ninja ${{ inputs.build_targets }}
 
@@ -55,11 +104,10 @@ runs:
           -DCMAKE_BUILD_TYPE=Release ^
           "-DLLVM_ROOT_DIR=%CD%\..\${{ inputs.llvm_dir }}" ^
           "-DD_COMPILER=${{ inputs.host_dc }}" ^
-          -DCMAKE_C_COMPILER=clang-cl ^
-          -DCMAKE_CXX_COMPILER=clang-cl ^
           ${{ inputs.specify_install_dir == 'true' && '"-DCMAKE_INSTALL_PREFIX=%installDir%"' || '' }} ^
           ${{ inputs.specify_install_dir == 'true' && '"-DINCLUDE_INSTALL_DIR=%installDir%\import"' || '' }} ^
-          ${{ inputs.cmake_flags }}
+          ${{ inputs.cmake_flags }} ^
+          ${{ steps.compute_advanced_cmake_flags.outputs.CMAKE_FLAGS }}
         if %errorlevel% neq 0 exit /b %errorlevel%
 
         ninja ${{ inputs.build_targets }} || exit /b
