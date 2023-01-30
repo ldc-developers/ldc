@@ -331,7 +331,7 @@ task:
       -DEXTRA_CXXFLAGS=-flto=full
       -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++
       -DJITRT_EXTRA_LDFLAGS=-static-libstdc++
-      -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64
+      -DLDC_INSTALL_LLVM_RUNTIME_LIBS_OS=aarch64-unknown-linux-gnu
       -DLLVM_ROOT_DIR=$CIRRUS_WORKING_DIR/../llvm
       -DD_COMPILER=$CIRRUS_WORKING_DIR/../bootstrap-ldc/bin/ldmd2
     PARALLELISM: 4
