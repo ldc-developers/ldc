@@ -39,6 +39,7 @@
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "ir/irtypeaggr.h"
+#include "ir/irtypeclass.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
@@ -1895,16 +1896,12 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
       // Cast the pointer we got to the canonical struct type the indices are
       // based on.
       LLType *st = nullptr;
-      LLType *pst = nullptr;
-      if (ad->isClassDeclaration()) {
-        st = getIrAggr(ad)->getLLStructType();
-        pst = DtoType(ad->type);
+      if (auto irtc = irTypeAggr->isClass()) {
+        st = irtc->getMemoryLLType();
+      } else {
+        st = irTypeAggr->getLLType();
       }
-      else {
-        st = DtoType(ad->type);
-        pst = getPtrToType(st);
-      }
-      ptr = DtoBitCast(ptr, pst);
+      ptr = DtoBitCast(ptr, st->getPointerTo());
       ptr = DtoGEP(st, ptr, 0, off);
       ty = isaStruct(st)->getElementType(off);
     }
