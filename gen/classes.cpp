@@ -75,19 +75,20 @@ void DtoResolveClass(ClassDeclaration *cd) {
 DValue *DtoNewClass(const Loc &loc, TypeClass *tc, NewExp *newexp) {
   // resolve type
   DtoResolveClass(tc->sym);
+  const auto irClass = getIrAggr(tc->sym);
 
   // allocate
   LLValue *mem;
   bool doInit = true;
   if (newexp->onstack) {
-    mem = DtoRawAlloca(getIrAggr(tc->sym)->getLLStructType(), tc->sym->alignsize,
+    mem = DtoRawAlloca(irClass->getLLStructType(), tc->sym->alignsize,
                        ".newclass_alloca");
   } else {
     const bool useEHAlloc = global.params.ehnogc && newexp->thrownew;
     llvm::Function *fn = getRuntimeFunction(
         loc, gIR->module, useEHAlloc ? "_d_newThrowable" : "_d_allocclass");
-    LLConstant *ci = DtoBitCast(getIrAggr(tc->sym)->getClassInfoSymbol(),
-                                DtoType(getClassInfoType()));
+    LLConstant *ci =
+        DtoBitCast(irClass->getClassInfoSymbol(), DtoType(getClassInfoType()));
     mem = gIR->CreateCallOrInvoke(
         fn, ci, useEHAlloc ? ".newthrowable_alloc" : ".newclass_gc_alloc");
     mem = DtoBitCast(mem, DtoType(tc),
@@ -105,7 +106,7 @@ DValue *DtoNewClass(const Loc &loc, TypeClass *tc, NewExp *newexp) {
     LOG_SCOPE;
     unsigned idx = getFieldGEPIndex(tc->sym, tc->sym->vthis);
     LLValue *src = DtoRVal(newexp->thisexp);
-    LLValue *dst = DtoGEP(getIrAggr(tc->sym)->getLLStructType(), mem, 0, idx);
+    LLValue *dst = DtoGEP(irClass->getLLStructType(), mem, 0, idx);
     IF_LOG Logger::cout() << "dst: " << *dst << "\nsrc: " << *src << '\n';
     DtoStore(src, DtoBitCast(dst, getPtrToType(src->getType())));
   }
@@ -152,7 +153,7 @@ void DtoInitClass(TypeClass *tc, LLValue *dst) {
   const bool isCPPclass = tc->sym->isCPPclass() ? true : false;
   if (!isCPPclass) {
     tmp = DtoGEP(st, dst, 0, 1, "monitor");
-    val = LLConstant::getNullValue(getVoidPtrType());
+    val = LLConstant::getNullValue(st->getElementType(1));
     DtoStore(val, tmp);
   }
 
@@ -197,9 +198,9 @@ void DtoFinalizeScopeClass(const Loc &loc, DValue *dval,
   }
 
   bool hasDtor = false;
-  auto cd = dval->type->toBasetype()->isTypeClass()->sym;
-  for (; cd; cd = cd->baseClass) {
-    if (cd->dtor) {
+  const auto cd = dval->type->toBasetype()->isTypeClass()->sym;
+  for (auto cd2 = cd; cd2; cd2 = cd2->baseClass) {
+    if (cd2->dtor) {
       hasDtor = true;
       break;
     }
@@ -216,7 +217,7 @@ void DtoFinalizeScopeClass(const Loc &loc, DValue *dval,
   llvm::BasicBlock *endbb = gIR->insertBBAfter(ifbb, "endif");
 
   llvm::StructType *st =
-      getIrAggr(static_cast<TypeClass *>(dval->type)->sym)->getLLStructType();
+      isaStruct(getIrType(cd->type, true)->isClass()->getMemoryLLType());
   const auto monitor =
       DtoLoad(st->getElementType(1), DtoGEP(st, inst, 0, 1), ".monitor");
   const auto hasMonitor =
@@ -425,7 +426,7 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl) {
   // sanity checks
   assert(fdecl->isVirtual());
   assert(!fdecl->isFinalFunc());
-  TypeClass * tc = inst->type->toBasetype()->isTypeClass();
+  TypeClass *tc = inst->type->toBasetype()->isTypeClass();
   assert(tc);
   // slot 0 is always ClassInfo/Interface* unless it is a CPP class
   assert(fdecl->vtblIndex > 0 ||
@@ -436,20 +437,20 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl) {
   LLValue *vthis = DtoRVal(inst);
   IF_LOG Logger::cout() << "vthis: " << *vthis << '\n';
 
-  IrClass * irc = getIrAggr(tc->sym, true);
+  const auto irtc = getIrType(tc->sym->type, true)->isClass();
+  const auto vtblType = irtc->getVtblType();
+
   LLValue *funcval = vthis;
   // get the vtbl for objects
-  llvm::GlobalVariable* vtblsym = irc->getVtblSymbol();
-  funcval = DtoGEP(irc->getLLStructType(), funcval, 0u, 0);
+  funcval = DtoGEP(irtc->getMemoryLLType(), funcval, 0u, 0);
   // load vtbl ptr
-  funcval = DtoLoad(vtblsym->getType(), funcval);
+  funcval = DtoLoad(vtblType->getPointerTo(), funcval);
   // index vtbl
   const std::string name = fdecl->toChars();
   const auto vtblname = name + "@vtbl";
-  funcval = DtoGEP(vtblsym->getValueType(),
-                   funcval, 0, fdecl->vtblIndex, vtblname.c_str());
+  funcval = DtoGEP(vtblType, funcval, 0, fdecl->vtblIndex, vtblname.c_str());
   // load opaque pointer
-  funcval = DtoAlignedLoad(getVoidPtrType(), funcval);
+  funcval = DtoAlignedLoad(vtblType->getElementType(), funcval);
 
   IF_LOG Logger::cout() << "funcval: " << *funcval << '\n';
 

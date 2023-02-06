@@ -2757,22 +2757,22 @@ public:
       return;
     }
     if (Expression *ex = isExpression(e->obj)) {
-      Type *t = ex->type->toBasetype();
-      assert(t->ty == TY::Tclass);
+      const auto tc = ex->type->toBasetype()->isTypeClass();
+      assert(tc);
 
-      ClassDeclaration *sym = static_cast<TypeClass *>(t)->sym;
-      IrClass *irc = getIrAggr(sym, true);
+      const auto irtc = getIrType(tc->sym->type, true)->isClass();
+      const auto vtblType = irtc->getVtblType();
       LLValue *val = DtoRVal(ex);
 
       // Get and load vtbl pointer.
-      llvm::GlobalVariable* vtblsym = irc->getVtblSymbol();
-      llvm::Value *vtbl = DtoLoad(vtblsym->getType(), DtoGEP(irc->getLLStructType(), val, 0u, 0));
+      llvm::Value *vtbl = DtoLoad(vtblType->getPointerTo(),
+                                  DtoGEP(irtc->getMemoryLLType(), val, 0u, 0));
 
       // TypeInfo ptr is first vtbl entry.
-      llvm::Value *typinf = DtoGEP(vtblsym->getValueType(), vtbl, 0u, 0);
+      llvm::Value *typinf = DtoGEP(vtblType, vtbl, 0u, 0);
 
       Type *resultType;
-      if (sym->isInterfaceDeclaration()) {
+      if (tc->sym->isInterfaceDeclaration()) {
         // For interfaces, the first entry in the vtbl is actually a pointer
         // to an Interface instance, which has the type info as its first
         // member, so we have to add an extra layer of indirection.
