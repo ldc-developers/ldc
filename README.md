@@ -8,7 +8,6 @@ LDC – the LLVM-based D Compiler
 [![Build status](https://img.shields.io/cirrus/github/ldc-developers/ldc/master?label=Cirrus%20CI&logo=Cirrus%20CI)][4]
 [![Build status](https://img.shields.io/github/actions/workflow/status/ldc-developers/ldc/main.yml?branch=master&label=GitHub%20Actions%20%28main%29&logo=github)][7]
 [![Build status](https://img.shields.io/github/actions/workflow/status/ldc-developers/ldc/supported_llvm_versions.yml?branch=master&label=GitHub%20Actions%20%28LLVM%29&logo=github)][7]
-[![Build status](https://img.shields.io/travis/com/ldc-developers/ldc/master?label=Travis%20CI&logo=Travis)][5]
 [![Bountysource](https://www.bountysource.com/badge/tracker?tracker_id=283332)][6]
 
 The LDC project provides a portable D programming language compiler
@@ -118,7 +117,6 @@ Feedback of any kind is very much appreciated!
 [2]: https://app.bitrise.io/app/1b36e52cf09e5308
 [3]: https://circleci.com/gh/ldc-developers/ldc/tree/master
 [4]: https://cirrus-ci.com/github/ldc-developers/ldc/master
-[5]: https://travis-ci.com/github/ldc-developers/ldc/branches
 [6]: https://www.bountysource.com/teams/ldc-developers/issues
 [7]: https://github.com/ldc-developers/ldc/actions?query=branch%3Amaster
 [8]: https://github.com/ldc-developers/ldc/releases
