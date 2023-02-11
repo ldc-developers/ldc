@@ -150,7 +150,12 @@ void IrGlobal::define() {
   // If this global is used from a naked function, we need to create an
   // artificial "use" for it, or it could be removed by the optimizer if
   // the only reference to it is in inline asm.
-  if (nakedUse) {
+  // Also prevent linker-level dead-symbol-elimination from stripping
+  // special `rt_*` druntime symbol overrides (e.g., from executables linked
+  // against *shared* druntime; required at least for Apple's ld64 linker).
+  const auto name = gvar->getName();
+  if (nakedUse || name == "rt_options" || name == "rt_envvars_enabled" ||
+      name == "rt_cmdline_enabled") {
     gIR->usedArray.push_back(gvar);
   }
 
