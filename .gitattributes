@@ -2,5 +2,4 @@
 *.sh  eol=lf
 
 .gitattributes export-ignore
-.travis.yml export-ignore
 CHANGELOG.md text merge=union

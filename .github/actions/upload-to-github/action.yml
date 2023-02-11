@@ -46,7 +46,7 @@ runs:
         ls -lh
 
         # Extend by existing release artifacts *missing* from GitHub workflow,
-        # e.g., artifacts published by Travis/Cirrus CI etc.
+        # e.g., artifacts published by Cirrus CI etc.
         # (They will be re-uploaded in the next step.)
         if [[ -d ../existing-artifacts ]]; then
           mv -n ../existing-artifacts/*.* ./
