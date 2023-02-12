@@ -19,6 +19,7 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Target/TargetMachine.h"
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -120,13 +121,31 @@ void appendTargetArgsForGcc(std::vector<std::string> &args) {
     }
     return;
 
-  case Triple::riscv64:
-    if (triple.isArch64Bit()) {
-      args.push_back("-march=rv64gc");
-      args.push_back("-mabi=lp64d");
+  case Triple::riscv64:;
+    {
+      extern llvm::TargetMachine* gTargetMachine;
+      auto features = gTargetMachine->getTargetFeatureString();
+      std::string mabi = getABI(triple);
+      args.push_back("-mabi=" + mabi);
+
+      std::string march;
+      if (triple.isArch64Bit())
+        march = "rv64";
+      else
+        march = "rv32";
+      if (features.find("+m") != std::string::npos)
+        march += "m";
+      if (features.find("+a") != std::string::npos)
+        march += "a";
+      if (features.find("+f") != std::string::npos)
+        march += "f";
+      if (features.find("+d") != std::string::npos)
+        march += "d";
+      if (features.find("+c") != std::string::npos)
+        march += "c";
+      args.push_back("-march=" + march);
     }
     return;
-
   default:
     break;
   }
