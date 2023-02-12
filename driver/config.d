@@ -99,7 +99,7 @@ class GroupSetting : Setting
 
 Setting[] parseConfigFile(const(char)* filename)
 {
-    import dmd.globals : Loc;
+    import dmd.location : Loc;
     import dmd.root.string : toDString;
     import dmd.utils;
 
