@@ -133,16 +133,30 @@ void appendTargetArgsForGcc(std::vector<std::string> &args) {
         march = "rv64";
       else
         march = "rv32";
-      if (features.find("+m") != std::string::npos)
-        march += "m";
-      if (features.find("+a") != std::string::npos)
-        march += "a";
-      if (features.find("+f") != std::string::npos)
-        march += "f";
-      if (features.find("+d") != std::string::npos)
-        march += "d";
-      if (features.find("+c") != std::string::npos)
+      bool m = features.find("+m") != std::string::npos;
+      bool a = features.find("+a") != std::string::npos;
+      bool f = features.find("+f") != std::string::npos;
+      bool d = features.find("+d") != std::string::npos;
+      bool c = features.find("+c") != std::string::npos;
+      bool g = false;
+
+      if (m && a && f && d) {
+        march += "g";
+        g = true;
+      } else {
+        if (m)
+          march += "m";
+        if (a)
+          march += "a";
+        if (f)
+          march += "f";
+        if (d)
+          march += "d";
+      }
+      if (c)
         march += "c";
+      if (!g)
+        march += "_zicsr_zifencei";
       args.push_back("-march=" + march);
     }
     return;
