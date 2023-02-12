@@ -5,7 +5,7 @@
  * However, this file will be used to generate the
  * $(LINK2 https://dlang.org/dmd-linux.html, online documentation) and MAN pages.
  *
- * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2023 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/cli.d, _cli.d)
@@ -892,6 +892,8 @@ dmd -cov -unittest myprog.d
             "allow use of => for methods and top-level functions in addition to lambdas", false, false),
         Feature("fixImmutableConv", "fixImmutableConv",
             "disallow unsound immutable conversions that were formerly incorrectly permitted"),
+        Feature("systemVariables", "systemVariables",
+            "disable access to variables marked '@system' from @safe code"),
     ];
 }
 

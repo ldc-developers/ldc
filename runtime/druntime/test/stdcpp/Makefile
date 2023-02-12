@@ -61,10 +61,9 @@ ifneq (yes,$(HASCPP17))
 TESTS17:=
 endif
 
-# LDC: libdl required by ldc.sanitizers_optionally_linked with version=SupportSanitizers
-EXTRA_LDC_LIBS:=$(LDL)
+# LDC: libexecinfo required on FreeBSD (not required with lld 9+ (`pragma(lib)` in druntime))
+EXTRA_LDC_LIBS:=
 ifneq (,$(findstring freebsd,$(OS)))
-	# not required with lld 9+ (pragma(lib) in druntime)
 	EXTRA_LDC_LIBS+=-lexecinfo
 endif
 
@@ -97,22 +96,22 @@ $(ROOT)/%_old.done : $(ROOT)/%_old
 $(ROOT)/%: $(SRC)/%.cpp $(SRC)/%_test.d
 	mkdir -p $(dir $@)
 	$(QUIET)$(DMD) $(DFLAGS) -extern-std=c++98 -main -unittest -version=CoreUnittest -c -of=$(ROOT)/$*_d.o $(SRC)/$*_test.d
-	$(QUIET)$(CXX) $(CXXFLAGS_BASE) -std=c++98 -o $@ $< $(ROOT)/$*_d.o $(DRUNTIME) $(EXTRA_LDC_LIBS) -lpthread
+	$(QUIET)$(CXX) $(CXXFLAGS_BASE) -std=c++98 -o $@ $< $(ROOT)/$*_d.o $(DRUNTIME) $(EXTRA_LDC_LIBS) -lpthread $(LDL)
 # build C++11 tests
 $(ROOT)/%_11: $(SRC)/%.cpp $(SRC)/%_test.d
 	mkdir -p $(dir $@)
 	$(QUIET)$(DMD) $(DFLAGS) -extern-std=c++11 -main -unittest -version=CoreUnittest -c -of=$(ROOT)/$*_11_d.o $(SRC)/$*_test.d
-	$(QUIET)$(CXX) $(CXXFLAGS_BASE) -std=c++11 -o $@ $< $(ROOT)/$*_11_d.o $(DRUNTIME) $(EXTRA_LDC_LIBS) -lpthread
+	$(QUIET)$(CXX) $(CXXFLAGS_BASE) -std=c++11 -o $@ $< $(ROOT)/$*_11_d.o $(DRUNTIME) $(EXTRA_LDC_LIBS) -lpthread $(LDL)
 # build C++17 tests
 $(ROOT)/%_17: $(SRC)/%.cpp $(SRC)/%_test.d
 	mkdir -p $(dir $@)
 	$(QUIET)$(DMD) $(DFLAGS) -extern-std=c++17 -main -unittest -version=CoreUnittest -c -of=$(ROOT)/$*_17_d.o $(SRC)/$*_test.d
-	$(QUIET)$(CXX) $(CXXFLAGS_BASE) -std=c++17 -o $@ $< $(ROOT)/$*_17_d.o $(DRUNTIME) $(EXTRA_LDC_LIBS) -lpthread
+	$(QUIET)$(CXX) $(CXXFLAGS_BASE) -std=c++17 -o $@ $< $(ROOT)/$*_17_d.o $(DRUNTIME) $(EXTRA_LDC_LIBS) -lpthread $(LDL)
 # build libstdc++ _GLIBCXX_USE_CXX11_ABI=0 tests
 $(ROOT)/%_old: $(SRC)/%.cpp $(SRC)/%_test.d
 	mkdir -p $(dir $@)
 	$(QUIET)$(DMD) $(DFLAGS) -version=_GLIBCXX_USE_CXX98_ABI -main -unittest -version=CoreUnittest -c -of=$(ROOT)/$*_old_d.o $(SRC)/$*_test.d
-	$(QUIET)$(CXX) $(CXXFLAGS_BASE) -D_GLIBCXX_USE_CXX11_ABI=0 -o $@ $< $(ROOT)/$*_old_d.o $(DRUNTIME) $(EXTRA_LDC_LIBS) -lpthread
+	$(QUIET)$(CXX) $(CXXFLAGS_BASE) -D_GLIBCXX_USE_CXX11_ABI=0 -o $@ $< $(ROOT)/$*_old_d.o $(DRUNTIME) $(EXTRA_LDC_LIBS) -lpthread $(LDL)
 
 clean:
 	rm -rf $(GENERATED)

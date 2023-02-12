@@ -1,7 +1,7 @@
 /**
  * Performs the semantic3 stage, which deals with function bodies.
  *
- * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2023 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/semantic3.d, _semantic3.d)
@@ -47,6 +47,7 @@ import dmd.identifier;
 import dmd.init;
 import dmd.initsem;
 import dmd.hdrgen;
+import dmd.location;
 import dmd.mtype;
 import dmd.nogc;
 import dmd.nspace;
@@ -137,7 +138,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
         if (needGagging)
             oldGaggedErrors = global.startGagging();
 
-        for (size_t i = 0; i < tempinst.members.dim; i++)
+        for (size_t i = 0; i < tempinst.members.length; i++)
         {
             Dsymbol s = (*tempinst.members)[i];
             s.semantic3(sc);
@@ -180,7 +181,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
 
         uint olderrors = global.errors;
 
-        for (size_t i = 0; i < tmix.members.dim; i++)
+        for (size_t i = 0; i < tmix.members.length; i++)
         {
             Dsymbol s = (*tmix.members)[i];
             s.semantic3(sc);
@@ -207,7 +208,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
         if (mod.members)
         {
             // Pass 3 semantic routines: do initializers and function bodies
-            for (size_t i = 0; i < mod.members.dim; i++)
+            for (size_t i = 0; i < mod.members.length; i++)
             {
                 Dsymbol s = (*mod.members)[i];
                 //printf("Module %s: %s.semantic3()\n", toChars(), s.toChars());
@@ -596,7 +597,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
                  */
                 if (ad2 && funcdecl.isCtorDeclaration())
                 {
-                    sc2.ctorflow.allocFieldinit(ad2.fields.dim);
+                    sc2.ctorflow.allocFieldinit(ad2.fields.length);
                     foreach (v; ad2.fields)
                     {
                         v.ctorinit = 0;
@@ -634,7 +635,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
 
                 if (funcdecl.returns && !funcdecl.fbody.isErrorStatement())
                 {
-                    for (size_t i = 0; i < funcdecl.returns.dim;)
+                    for (size_t i = 0; i < funcdecl.returns.length;)
                     {
                         Expression exp = (*funcdecl.returns)[i].exp;
                         if (exp.op == EXP.variable && (cast(VarExp)exp).var == funcdecl.vresult)
@@ -671,7 +672,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
                      * ctor consts were initialized.
                      */
                     ScopeDsymbol pd = funcdecl.toParent().isScopeDsymbol();
-                    for (size_t i = 0; i < pd.members.dim; i++)
+                    for (size_t i = 0; i < pd.members.length; i++)
                     {
                         Dsymbol s = (*pd.members)[i];
                         s.checkCtorConstInit();
@@ -839,7 +840,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
                     /* Cannot move this loop into NrvoWalker, because
                      * returns[i] may be in the nested delegate for foreach-body.
                      */
-                    for (size_t i = 0; i < funcdecl.returns.dim; i++)
+                    for (size_t i = 0; i < funcdecl.returns.length; i++)
                     {
                         ReturnStatement rs = (*funcdecl.returns)[i];
                         Expression exp = rs.exp;
@@ -1078,7 +1079,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
                 // Merge in initialization of 'out' parameters
                 if (funcdecl.parameters)
                 {
-                    for (size_t i = 0; i < funcdecl.parameters.dim; i++)
+                    for (size_t i = 0; i < funcdecl.parameters.length; i++)
                     {
                         VarDeclaration v = (*funcdecl.parameters)[i];
                         if (v.storage_class & STC.out_)
@@ -1285,7 +1286,7 @@ else
             // Fix up forward-referenced gotos
             if (funcdecl.gotos && !funcdecl.isCsymbol())
             {
-                for (size_t i = 0; i < funcdecl.gotos.dim; ++i)
+                for (size_t i = 0; i < funcdecl.gotos.length; ++i)
                 {
                     (*funcdecl.gotos)[i].checkLabel();
                 }
@@ -1558,7 +1559,7 @@ else
             return;
 
         Scope* sc2 = ad.newScope(sc);
-        for (size_t i = 0; i < d.dim; i++)
+        for (size_t i = 0; i < d.length; i++)
         {
             Dsymbol s = (*d)[i];
             s.semantic3(sc2);
@@ -1583,7 +1584,7 @@ else
 
         auto sc2 = ad.newScope(sc);
 
-        for (size_t i = 0; i < ad.members.dim; i++)
+        for (size_t i = 0; i < ad.members.length; i++)
         {
             Dsymbol s = (*ad.members)[i];
             s.semantic3(sc2);
@@ -1644,7 +1645,7 @@ private struct FuncDeclSem3
     {
         if (funcdecl.frequires)
         {
-            for (size_t i = 0; i < funcdecl.foverrides.dim; i++)
+            for (size_t i = 0; i < funcdecl.foverrides.length; i++)
             {
                 FuncDeclaration fdv = funcdecl.foverrides[i];
                 if (fdv.fbody && !fdv.frequires)

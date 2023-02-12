@@ -74,6 +74,11 @@ endif
 ifeq (solaris,$(OS))
 	CFLAGS+=-D_REENTRANT  # for thread-safe errno
 endif
+ifeq (osx,$(OS))
+	ifeq (64,$(MODEL))
+		CFLAGS+=--target=x86_64-darwin-apple  # ARM cpu is not supported by dmd
+	endif
+endif
 
 # Set DFLAGS
 UDFLAGS:=-conf= -Isrc -Iimport -w -de -preview=dip1000 -preview=fieldwise $(MODEL_FLAG) $(PIC) $(OPTIONAL_COVERAGE) -preview=dtorfields
@@ -575,22 +580,6 @@ publictests: $(addsuffix .publictests, $(basename $(SRCS)))
 	@$(DMD) -main $(UDFLAGS) -unittest -defaultlib= -debuglib= -od$(PUBLICTESTS_DIR) $(DRUNTIME) -run $(PUBLICTESTS_DIR)/$(subst /,_,$<)
 
 ################################################################################
-
-.PHONY : auto-tester-build
-ifneq (,$(findstring Darwin_64_32, $(PWD)))
-auto-tester-build:
-	echo "Darwin_64_32_disabled"
-else
-auto-tester-build: target checkwhitespace
-endif
-
-.PHONY : auto-tester-test
-ifneq (,$(findstring Darwin_64_32, $(PWD)))
-auto-tester-test:
-	echo "Darwin_64_32_disabled"
-else
-auto-tester-test: unittest benchmark-compile-only
-endif
 
 .PHONY : buildkite-test
 buildkite-test: unittest benchmark-compile-only

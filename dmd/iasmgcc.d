@@ -1,7 +1,7 @@
 /**
  * Inline assembler for the GCC D compiler.
  *
- *              Copyright (C) 2018-2022 by The D Language Foundation, All Rights Reserved
+ *              Copyright (C) 2018-2023 by The D Language Foundation, All Rights Reserved
  * Authors:     Iain Buclaw
  * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/iasmgcc.d, _iasmgcc.d)
@@ -21,6 +21,7 @@ import dmd.expression;
 import dmd.expressionsem;
 import dmd.identifier;
 import dmd.globals;
+import dmd.location;
 import dmd.parse;
 import dmd.tokens;
 import dmd.statement;
@@ -332,7 +333,7 @@ extern (C++) public Statement gccAsmSemantic(GccAsmStatement s, Scope *sc)
     // Analyse all input and output operands.
     if (s.args)
     {
-        foreach (i; 0 .. s.args.dim)
+        foreach (i; 0 .. s.args.length)
         {
             Expression e = (*s.args)[i];
             e = e.expressionSemantic(sc);
@@ -353,7 +354,7 @@ extern (C++) public Statement gccAsmSemantic(GccAsmStatement s, Scope *sc)
     // Analyse all clobbers.
     if (s.clobbers)
     {
-        foreach (i; 0 .. s.clobbers.dim)
+        foreach (i; 0 .. s.clobbers.length)
         {
             Expression e = (*s.clobbers)[i];
             e = e.expressionSemantic(sc);
@@ -365,7 +366,7 @@ extern (C++) public Statement gccAsmSemantic(GccAsmStatement s, Scope *sc)
     // Analyse all goto labels.
     if (s.labels)
     {
-        foreach (i; 0 .. s.labels.dim)
+        foreach (i; 0 .. s.labels.length)
         {
             Identifier ident = (*s.labels)[i];
             GotoStatement gs = new GotoStatement(s.loc, ident);

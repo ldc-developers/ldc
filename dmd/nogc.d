@@ -3,7 +3,7 @@
  *
  * Specification: $(LINK2 https://dlang.org/spec/function.html#nogc-functions, No-GC Functions)
  *
- * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2023 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/nogc.d, _nogc.d)
@@ -99,7 +99,7 @@ public:
 
     override void visit(ArrayLiteralExp e)
     {
-        if (e.type.ty != Tarray || !e.elements || !e.elements.dim)
+        if (e.type.ty != Tarray || !e.elements || !e.elements.length || e.onstack)
             return;
         if (f.setGC())
         {
@@ -113,7 +113,7 @@ public:
 
     override void visit(AssocArrayLiteralExp e)
     {
-        if (!e.keys.dim)
+        if (!e.keys.length)
             return;
         if (f.setGC())
         {
@@ -162,16 +162,16 @@ public:
     override void visit(IndexExp e)
     {
         Type t1b = e.e1.type.toBasetype();
-        if (t1b.ty == Taarray)
+        if (e.modifiable && t1b.ty == Taarray)
         {
             if (f.setGC())
             {
-                e.error("indexing an associative array in `@nogc` %s `%s` may cause a GC allocation",
+                e.error("assigning an associative array element in `@nogc` %s `%s` may cause a GC allocation",
                     f.kind(), f.toPrettyChars());
                 err = true;
                 return;
             }
-            f.printGCUsage(e.loc, "indexing an associative array may cause a GC allocation");
+            f.printGCUsage(e.loc, "assigning an associative array element may cause a GC allocation");
         }
     }
 

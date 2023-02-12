@@ -6,7 +6,7 @@
  * utilities needed for arguments parsing, path manipulation, etc...
  * This file is not shared with other compilers which use the DMD front-end.
  *
- * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2023 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/mars.d, _mars.d)
@@ -47,6 +47,7 @@ import dmd.hdrgen;
 import dmd.id;
 import dmd.identifier;
 import dmd.inline;
+import dmd.location;
 import dmd.json;
 version (IN_LLVM) {} else
 version (NoMain) {} else
@@ -295,12 +296,13 @@ version (IN_LLVM) {} else
 {
     target.setCPU();
 }
+    Loc.set(params.showColumns, params.messageStyle);
 
     if (global.errors)
     {
         fatal();
     }
-    if (files.dim == 0)
+    if (files.length == 0)
     {
         if (params.jsonFieldFlags)
         {
@@ -345,7 +347,7 @@ else
     Expression._init();
     Objc._init();
 
-    reconcileLinkRunLib(params, files.dim, target.obj_ext);
+    reconcileLinkRunLib(params, files.length, target.obj_ext);
     version(CRuntime_Microsoft)
     {
         import dmd.root.longdouble;
@@ -372,7 +374,7 @@ else
         stdout.printGlobalConfigs();
 }
     }
-    //printf("%d source files\n", cast(int) files.dim);
+    //printf("%d source files\n", cast(int) files.length);
 
     // Build import search path
 
@@ -414,7 +416,7 @@ else
 
     // Parse files
     bool anydocfiles = false;
-    size_t filecount = modules.dim;
+    size_t filecount = modules.length;
     for (size_t filei = 0, modi = 0; filei < filecount; filei++, modi++)
     {
         Module m = modules[modi];
@@ -494,7 +496,7 @@ version (IN_LLVM)
         }
     }
 
-    if (anydocfiles && modules.dim && (driverParams.oneobj || params.objname))
+    if (anydocfiles && modules.length && (driverParams.oneobj || params.objname))
     {
         error(Loc.initial, "conflicting Ddoc and obj generation options");
         fatal();
@@ -546,9 +548,9 @@ version (IN_LLVM) {} else
     //if (global.errors)
     //    fatal();
     Module.runDeferredSemantic();
-    if (Module.deferred.dim)
+    if (Module.deferred.length)
     {
-        for (size_t i = 0; i < Module.deferred.dim; i++)
+        for (size_t i = 0; i < Module.deferred.length; i++)
         {
             Dsymbol sd = Module.deferred[i];
             sd.error("unable to resolve forward reference in definition");
@@ -576,9 +578,9 @@ version (IN_LLVM) {} else
     }
     if (includeImports)
     {
-        // Note: DO NOT USE foreach here because Module.amodules.dim can
+        // Note: DO NOT USE foreach here because Module.amodules.length can
         //       change on each iteration of the loop
-        for (size_t i = 0; i < compiledImports.dim; i++)
+        for (size_t i = 0; i < compiledImports.length; i++)
         {
             auto m = compiledImports[i];
             assert(m.isRoot);
@@ -621,7 +623,7 @@ else
     // So deps file generation should be moved after the inlining stage.
     if (OutBuffer* ob = params.moduleDeps.buffer)
     {
-        foreach (i; 1 .. modules[0].aimports.dim)
+        foreach (i; 1 .. modules[0].aimports.length)
             semantic3OnDependencies(modules[0].aimports[i]);
         Module.runDeferredSemantic3();
 
@@ -826,8 +828,8 @@ bool parseCommandlineAndConfig(size_t argc, const(char)** argv, ref Param params
     }
     if (const(char)* missingFile = responseExpand(arguments)) // expand response files
         error(Loc.initial, "cannot open response file '%s'", missingFile);
-    //for (size_t i = 0; i < arguments.dim; ++i) printf("arguments[%d] = '%s'\n", i, arguments[i]);
-    files.reserve(arguments.dim - 1);
+    //for (size_t i = 0; i < arguments.length; ++i) printf("arguments[%d] = '%s'\n", i, arguments[i]);
+    files.reserve(arguments.length - 1);
     // Set default values
     params.argv0 = arguments[0].toDString;
 
@@ -1824,12 +1826,12 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
 
     version (none)
     {
-        for (size_t i = 0; i < arguments.dim; i++)
+        for (size_t i = 0; i < arguments.length; i++)
         {
             printf("arguments[%d] = '%s'\n", i, arguments[i]);
         }
     }
-    for (size_t i = 1; i < arguments.dim; i++)
+    for (size_t i = 1; i < arguments.length; i++)
     {
         const(char)* p = arguments[i];
         const(char)[] arg = p.toDString();
@@ -3219,7 +3221,7 @@ private
 Modules createModules(ref Strings files, ref Strings libmodules, const ref Target target)
 {
     Modules modules;
-    modules.reserve(files.dim);
+    modules.reserve(files.length);
 version (IN_LLVM)
 {
     size_t firstModuleObjectFileIndex = size_t.max;

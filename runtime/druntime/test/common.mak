@@ -20,10 +20,15 @@ ifneq (default,$(MODEL))
 	MODEL_FLAG:=-m$(MODEL)
 endif
 CFLAGS_BASE:= $(MODEL_FLAG) $(PIC) -Wall
+#ifeq (osx,$(OS))
+#	ifeq (64,$(MODEL))
+#		CFLAGS_BASE+=--target=x86_64-darwin-apple  # ARM cpu is not supported by dmd
+#	endif
+#endif
 # LDC: use -defaultlib=druntime-ldc instead of `-defaultlib= -L$(DRUNTIME[SO])`
 DFLAGS:=$(MODEL_FLAG) $(PIC) -w -I../../src -I../../import -I$(SRC) -defaultlib=druntime-ldc -preview=dip1000
 ifeq (,$(findstring win,$(OS)))
-	DFLAGS += -L-lpthread -L-lm
+	DFLAGS += -L-lpthread -L-lm $(LINKDL)
 endif
 # LINK_SHARED may be set by importing makefile
 # LDC: -link-defaultlib-shared takes care of rpath, linking ldc_rt.dso.o etc.

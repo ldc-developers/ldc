@@ -1,7 +1,7 @@
 /**
  * Perform constant folding.
  *
- * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2023 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/optimize.d, _optimize.d)
@@ -25,6 +25,7 @@ import dmd.expression;
 import dmd.expressionsem;
 import dmd.globals;
 import dmd.init;
+import dmd.location;
 import dmd.mtype;
 import dmd.printast;
 import dmd.root.ctfloat;
@@ -225,7 +226,7 @@ package void setLengthVarIfKnown(VarDeclaration lengthVar, Expression arr)
     if (auto se = arr.isStringExp())
         len = se.len;
     else if (auto ale = arr.isArrayLiteralExp())
-        len = ale.elements.dim;
+        len = ale.elements.length;
     else
     {
         auto tsa = arr.type.toBasetype().isTypeSArray();
@@ -358,7 +359,7 @@ Expression Expression_optimize(Expression e, int result, bool keepLvalue)
 
     void visitAssocArrayLiteral(AssocArrayLiteralExp e)
     {
-        assert(e.keys.dim == e.values.dim);
+        assert(e.keys.length == e.values.length);
         foreach (i, ref ekey; (*e.keys)[])
         {
             expOptimize(ekey, result & WANTexpand);

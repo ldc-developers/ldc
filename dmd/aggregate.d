@@ -4,7 +4,7 @@
  * Specification: $(LINK2 https://dlang.org/spec/struct.html, Structs, Unions),
  *                $(LINK2 https://dlang.org/spec/class.html, Class).
  *
- * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2023 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/aggregate.d, _aggregate.d)
@@ -34,6 +34,7 @@ import dmd.func;
 import dmd.globals;
 import dmd.id;
 import dmd.identifier;
+import dmd.location;
 import dmd.mtype;
 import dmd.tokens;
 import dmd.typesem : defaultInit;
@@ -193,7 +194,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
      */
     final size_t nonHiddenFields()
     {
-        return fields.dim - isNested() - (vthis2 !is null);
+        return fields.length - isNested() - (vthis2 !is null);
     }
 
     /***************************************
@@ -206,7 +207,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
         //printf("AggregateDeclaration::determineSize() %s, sizeok = %d\n", toChars(), sizeok);
 
         // The previous instance size finalizing had:
-        if (type.ty == Terror)
+        if (type.ty == Terror || errors)
             return false;   // failed already
         if (sizeok == Sizeok.done)
             return true;    // succeeded
@@ -274,7 +275,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
     {
         //printf("AggregateDeclaration::checkOverlappedFields() %s\n", toChars());
         assert(sizeok == Sizeok.done);
-        size_t nfields = fields.dim;
+        size_t nfields = fields.length;
         if (isNested())
         {
             auto cd = isClassDeclaration();
@@ -362,7 +363,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
         const nfields = nonHiddenFields();
         bool errors = false;
 
-        size_t dim = elements.dim;
+        size_t dim = elements.length;
         elements.setDim(nfields);
         foreach (size_t i; dim .. nfields)
             elements[i] = null;
@@ -774,7 +775,7 @@ extern (C++) abstract class AggregateDeclaration : ScopeDsymbol
                 }
             }
 
-            for (size_t i = 0; i < members.dim; i++)
+            for (size_t i = 0; i < members.length; i++)
             {
                 auto sm = (*members)[i];
                 sm.apply(&SearchCtor.fp, null);
