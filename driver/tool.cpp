@@ -144,6 +144,7 @@ void appendTargetArgsForGcc(std::vector<std::string> &args) {
         march += "g";
         g = true;
       } else {
+        march += "i";
         if (m)
           march += "m";
         if (a)
