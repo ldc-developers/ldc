@@ -646,9 +646,9 @@ version (IN_LLVM)
     override inout(CompoundAsmStatement) endsWithAsm() inout pure nothrow @nogc
     {
         // make the last inner statement decide
-        if (statements && statements.dim)
+        if (statements && statements.length)
         {
-            size_t last = statements.dim - 1;
+            size_t last = statements.length - 1;
             if (auto s = (*statements)[last])
                 return s.endsWithAsm();
         }

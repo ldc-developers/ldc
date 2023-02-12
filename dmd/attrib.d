@@ -900,7 +900,7 @@ extern (C++) final class PragmaDeclaration : AttribDeclaration
             import gen.dpragma : DtoCheckProfileInstrPragma;
 
             bool emitInstr = true;
-            if (!args || args.dim != 1 || !DtoCheckProfileInstrPragma((*args)[0], emitInstr))
+            if (!args || args.length != 1 || !DtoCheckProfileInstrPragma((*args)[0], emitInstr))
             {
                 error("pragma(LDC_profile_instr, true or false) expected");
                 (*args)[0] = ErrorExp.get();

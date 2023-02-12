@@ -517,7 +517,7 @@ private Type getTypeOfOverloadedIntrinsic(FuncDeclaration fd)
     if (tinst)
     {
         // See DtoOverloadedIntrinsicName
-        assert(tinst.tdtypes.dim == 1);
+        assert(tinst.tdtypes.length == 1);
         return cast(Type) tinst.tdtypes[0];
     }
     else

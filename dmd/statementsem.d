@@ -1691,7 +1691,7 @@ version (IN_LLVM)
                 // always 0 on a big endian architecture. This fixes
                 // issue #326.
                 Initializer ie;
-                if (fs.parameters.dim == 2 && i == 0 && enforceSizeTIndex)
+                if (fs.parameters.length == 2 && i == 0 && enforceSizeTIndex)
                 {
                     para_type = Type.tsize_t;
                     ie = new ExpInitializer(fs.loc,
@@ -2095,7 +2095,7 @@ else
             import gen.dpragma : DtoCheckProfileInstrPragma;
 
             bool emitInstr = true;
-            if (!ps.args || ps.args.dim != 1 || !DtoCheckProfileInstrPragma((*ps.args)[0], emitInstr))
+            if (!ps.args || ps.args.length != 1 || !DtoCheckProfileInstrPragma((*ps.args)[0], emitInstr))
             {
                 ps.error("pragma(LDC_profile_instr, true or false) expected");
                 return setError();

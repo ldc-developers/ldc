@@ -446,7 +446,7 @@ version (IN_LLVM)
         }
 
         // Set object filename in params.objfiles.
-        for (size_t j = 0; j < params.objfiles.dim; j++)
+        for (size_t j = 0; j < params.objfiles.length; j++)
         {
             if (params.objfiles[j] == cast(const(char)*)m)
             {
@@ -743,9 +743,9 @@ version (IN_LLVM)
 
         if (status == EXIT_SUCCESS && params.cleanupObjectFiles)
         {
-            for (size_t i = 0; i < modules.dim; i++)
+            foreach (m; modules)
             {
-                modules[i].deleteObjFile();
+                m.deleteObjFile();
                 if (driverParams.oneobj)
                     break;
             }
@@ -3244,7 +3244,7 @@ version (IN_LLVM)
         {
             global.params.objfiles.push(cast(const(char)*)m); // defer to a later stage after parsing
             if (firstModuleObjectFileIndex == size_t.max)
-                firstModuleObjectFileIndex = global.params.objfiles.dim - 1;
+                firstModuleObjectFileIndex = global.params.objfiles.length - 1;
         }
 }
 else
