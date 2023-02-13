@@ -123,21 +123,34 @@ void appendTargetArgsForGcc(std::vector<std::string> &args) {
 
   case Triple::riscv64:;
     {
-      extern llvm::TargetMachine* gTargetMachine;
-      auto features = gTargetMachine->getTargetFeatureString();
       std::string mabi = getABI(triple);
       args.push_back("-mabi=" + mabi);
+
+      extern llvm::TargetMachine* gTargetMachine;
+      auto featuresStr = gTargetMachine->getTargetFeatureString();
+      llvm::SmallVector<llvm::StringRef, 8> features;
+      featuresStr.split(features, ",", -1, false);
+
+      auto hasFeature = [&features](llvm::StringRef feature) {
+        bool has = false;
+        for (auto f : features) {
+          if (f.substr(1) == feature) {
+            has = f[0] == '+';
+          }
+        }
+        return has;
+      };
 
       std::string march;
       if (triple.isArch64Bit())
         march = "rv64";
       else
         march = "rv32";
-      bool m = features.find("+m") != std::string::npos;
-      bool a = features.find("+a") != std::string::npos;
-      bool f = features.find("+f") != std::string::npos;
-      bool d = features.find("+d") != std::string::npos;
-      bool c = features.find("+c") != std::string::npos;
+      bool m = hasFeature("m");
+      bool a = hasFeature("a");
+      bool f = hasFeature("f");
+      bool d = hasFeature("d");
+      bool c = hasFeature("c");
       bool g = false;
 
       if (m && a && f && d) {
