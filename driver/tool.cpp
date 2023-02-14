@@ -131,14 +131,17 @@ void appendTargetArgsForGcc(std::vector<std::string> &args) {
       llvm::SmallVector<llvm::StringRef, 8> features;
       featuresStr.split(features, ",", -1, false);
 
+      // Returns true if 'feature' is enabled and false otherwise. Handles the
+      // case where the feature is specified multiple times ('+m,-m'), and
+      // takes the last occurrence.
       auto hasFeature = [&features](llvm::StringRef feature) {
-        bool has = false;
-        for (auto f : features) {
+        for (int i = features.size() - 1; i >= 0; i--) {
+          auto f = features[i];
           if (f.substr(1) == feature) {
-            has = f[0] == '+';
+            return f[0] == '+';
           }
         }
-        return has;
+        return false;
       };
 
       std::string march;
