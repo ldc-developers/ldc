@@ -121,7 +121,7 @@ void appendTargetArgsForGcc(std::vector<std::string> &args) {
     }
     return;
 
-  case Triple::riscv64:;
+  case Triple::riscv64:
     {
       std::string mabi = getABI(triple);
       args.push_back("-mabi=" + mabi);
