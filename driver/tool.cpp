@@ -19,6 +19,7 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Target/TargetMachine.h"
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -121,12 +122,61 @@ void appendTargetArgsForGcc(std::vector<std::string> &args) {
     return;
 
   case Triple::riscv64:
-    if (triple.isArch64Bit()) {
-      args.push_back("-march=rv64gc");
-      args.push_back("-mabi=lp64d");
+    {
+      std::string mabi = getABI(triple);
+      args.push_back("-mabi=" + mabi);
+
+      extern llvm::TargetMachine* gTargetMachine;
+      auto featuresStr = gTargetMachine->getTargetFeatureString();
+      llvm::SmallVector<llvm::StringRef, 8> features;
+      featuresStr.split(features, ",", -1, false);
+
+      // Returns true if 'feature' is enabled and false otherwise. Handles the
+      // case where the feature is specified multiple times ('+m,-m'), and
+      // takes the last occurrence.
+      auto hasFeature = [&features](llvm::StringRef feature) {
+        for (int i = features.size() - 1; i >= 0; i--) {
+          auto f = features[i];
+          if (f.substr(1) == feature) {
+            return f[0] == '+';
+          }
+        }
+        return false;
+      };
+
+      std::string march;
+      if (triple.isArch64Bit())
+        march = "rv64";
+      else
+        march = "rv32";
+      bool m = hasFeature("m");
+      bool a = hasFeature("a");
+      bool f = hasFeature("f");
+      bool d = hasFeature("d");
+      bool c = hasFeature("c");
+      bool g = false;
+
+      if (m && a && f && d) {
+        march += "g";
+        g = true;
+      } else {
+        march += "i";
+        if (m)
+          march += "m";
+        if (a)
+          march += "a";
+        if (f)
+          march += "f";
+        if (d)
+          march += "d";
+      }
+      if (c)
+        march += "c";
+      if (!g)
+        march += "_zicsr_zifencei";
+      args.push_back("-march=" + march);
     }
     return;
-
   default:
     break;
   }

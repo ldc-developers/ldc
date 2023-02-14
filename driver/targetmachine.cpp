@@ -57,7 +57,7 @@ static llvm::cl::opt<bool, true> preserveDwarfLineSection(
     llvm::cl::init(false));
 #endif
 
-static const char *getABI(const llvm::Triple &triple) {
+const char *getABI(const llvm::Triple &triple) {
   llvm::StringRef ABIName(opts::mABI);
   if (ABIName != "") {
     switch (triple.getArch()) {
@@ -88,6 +88,22 @@ static const char *getABI(const llvm::Triple &triple) {
       if (ABIName.startswith("elfv2"))
         return "elfv2";
       break;
+    case llvm::Triple::riscv64:
+      if (ABIName.startswith("lp64f"))
+        return "lp64f";
+      if (ABIName.startswith("lp64d"))
+        return "lp64d";
+      if (ABIName.startswith("lp64"))
+        return "lp64";
+      break;
+    case llvm::Triple::riscv32:
+      if (ABIName.startswith("ilp32f"))
+        return "ilp32f";
+      if (ABIName.startswith("ilp32d"))
+        return "ilp32d";
+      if (ABIName.startswith("ilp32"))
+        return "ilp32";
+      break;
     default:
       break;
     }
@@ -104,7 +120,9 @@ static const char *getABI(const llvm::Triple &triple) {
   case llvm::Triple::ppc64le:
     return "elfv2";
   case llvm::Triple::riscv64:
-    return "lp64d";
+    return "lp64";
+  case llvm::Triple::riscv32:
+    return "ilp32";
   default:
     return "";
   }
@@ -419,11 +437,6 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
   // if the user did not make an explicit choice.
   if (cpu == "x86-64" && !hasFeature("cx16")) {
     features.push_back("+cx16");
-  }
-
-  if (triple.getArch() == llvm::Triple::riscv64 && !hasFeature("d")) {
-    // Support Double-Precision Floating-Point by default.
-    features.push_back("+d");
   }
 
   // Handle cases where LLVM picks wrong default relocModel
