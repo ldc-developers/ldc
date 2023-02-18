@@ -634,24 +634,19 @@ else
 } // !IN_LLVM
             break;
 
-version (IN_LLVM)
-{
-        case EXP.lessThan, EXP.greaterThan, EXP.lessOrEqual, EXP.greaterOrEqual:
-            supported = false;
-            break;
-        case EXP.equal, EXP.notEqual, EXP.identity, EXP.notIdentity:
-            supported = true;
-            break;
-}
-else
-{
         case EXP.identity, EXP.notIdentity:
-            supported = false;
+            supported = IN_LLVM;
             break;
 
         case EXP.lessThan, EXP.greaterThan, EXP.lessOrEqual, EXP.greaterOrEqual:
         case EXP.equal:
         case EXP.notEqual:
+version (IN_LLVM)
+{
+            supported = tvec.isscalar();
+}
+else
+{
             if (vecsize == 16)
             {
                 // float[4] comparison needs SSE support (CMP{EQ,NEQ,LT,LE}PS)
@@ -685,8 +680,8 @@ else
                 else if (tvec.isintegral() && cpu >= CPU.avx2)
                     supported = true;
             }
-            break;
 } // !IN_LLVM
+            break;
 
         case EXP.leftShift, EXP.leftShiftAssign, EXP.rightShift, EXP.rightShiftAssign, EXP.unsignedRightShift, EXP.unsignedRightShiftAssign:
             supported = IN_LLVM && tvec.isintegral();

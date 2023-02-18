@@ -2,12 +2,24 @@
 
 void test(int length)()
 {
-    __vector(byte[length]) a = 123, b = a;
-    assert(a == b && !(a != b));
+    alias V = __vector(byte[length]);
+
+    V a = 123, b = a;
+
+    V eqMask = -1;
+    V neqMask = 0;
+
     assert(a is b && !(a !is b));
+    assert((a == b) is eqMask);
+    assert((a != b) is neqMask);
+
     b[0] = 0;
-    assert(a != b && !(a == b));
+    eqMask[0] = 0;
+    neqMask[0] = -1;
+
     assert(a !is b && !(a is b));
+    assert((a == b) is eqMask);
+    assert((a != b) is neqMask);
 }
 
 void main()

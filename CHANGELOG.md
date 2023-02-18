@@ -1,6 +1,8 @@
 # LDC master
 
 #### Big news
+- Frontend, druntime and Phobos are at version [2.102.1](https://dlang.org/changelog/2.102.0.html). (#4323)
+- Vector comparisons (==, !=, <, <=, >, >=) now yield a vector mask. Identity comparisons (`is`, `!is`) still yield a scalar `bool`. (#4323)
 
 #### Platform support
 
