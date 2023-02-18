@@ -12057,6 +12057,15 @@ version (IN_LLVM)
             __equals = new DotIdExp(exp.loc, __equals, Id.object);
             __equals = new DotIdExp(exp.loc, __equals, id);
 
+            /* https://issues.dlang.org/show_bug.cgi?id=23674
+             *
+             * Optimize before creating the call expression to the
+             * druntime hook as the optimizer may output errors
+             * that will get swallowed otherwise.
+             */
+            exp.e1 = exp.e1.optimize(WANTvalue);
+            exp.e2 = exp.e2.optimize(WANTvalue);
+
             auto arguments = new Expressions(2);
             (*arguments)[0] = exp.e1;
             (*arguments)[1] = exp.e2;

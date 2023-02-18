@@ -1826,6 +1826,8 @@ final class CParser(AST) : Parser!AST
                 {
                     if (tt.id || tt.tok == TOK.enum_)
                     {
+                        if (!tt.id && id)
+                            tt.id = id;
                         /* `struct tag;` and `struct tag { ... };`
                          * always result in a declaration in the current scope
                          */
@@ -2994,11 +2996,11 @@ final class CParser(AST) : Parser!AST
             auto param = new AST.Parameter(specifiersToSTC(LVL.parameter, specifier),
                                            t, id, null, null);
             parameters.push(param);
-            if (token.value == TOK.rightParenthesis)
+            if (token.value == TOK.rightParenthesis || token.value == TOK.endOfFile)
                 break;
             check(TOK.comma);
         }
-        nextToken();
+        check(TOK.rightParenthesis);
         return finish();
     }
 
