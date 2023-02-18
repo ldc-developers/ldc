@@ -368,15 +368,23 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
   case LLVMglobal_crt_ctor:
   case LLVMglobal_crt_dtor: {
     const int count = applyFunctionPragma(s, [=](FuncDeclaration *fd) {
-      assert(fd->type->ty == TY::Tfunction);
-      TypeFunction *type = static_cast<TypeFunction *>(fd->type);
-      Type *retType = type->next;
-      if (retType->ty != TY::Tvoid || type->parameterList.length() > 0 ||
-          (fd->isMember() && !fd->isStatic())) {
-        error(s->loc,
-              "the `%s` pragma is only allowed on `void` functions which take "
-              "no arguments",
-              ident->toChars());
+      auto tf = fd->type->isTypeFunction();
+      assert(tf);
+
+      bool isValid = false;
+      if (tf->next->ty != TY::Tvoid) {
+        fd->error("must return `void` for `pragma(%s)`", ident->toChars());
+      } else if (tf->parameterList.length() > 0) {
+        fd->error("must not take any parameters for `pragma(%s)`",
+                  ident->toChars());
+      } else if (fd->isThis()) {
+        fd->error("cannot be a non-static member function for `pragma(%s)`",
+                  ident->toChars());
+      } else {
+        isValid = true;
+      }
+
+      if (!isValid) {
         if (llvm_internal == LLVMglobal_crt_ctor) {
           fd->isCrtCtor(false);
         } else {
