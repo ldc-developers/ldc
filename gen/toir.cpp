@@ -2292,34 +2292,47 @@ public:
       // dmd seems to just make them null...
       result = new DSliceValue(e->type, DtoConstSize_t(0),
                                getNullPtr(getPtrToType(llElemType)));
-    } else if (dyn) {
-      if (arrayType->isImmutable() && isConstLiteral(e, true)) {
-        llvm::Constant *init = arrayLiteralToConst(p, e);
-        auto global = new llvm::GlobalVariable(
-            gIR->module, init->getType(), true,
-            llvm::GlobalValue::InternalLinkage, init, ".immutablearray");
-        result = new DSliceValue(arrayType, DtoConstSize_t(len),
-                                 DtoBitCast(global, getPtrToType(llElemType)));
-      } else {
-        DSliceValue *dynSlice = DtoNewDynArray(
-            e->loc, arrayType,
-            new DConstValue(Type::tsize_t, DtoConstSize_t(len)), false);
-        initializeArrayLiteral(
-            p, e, DtoBitCast(dynSlice->getPtr(), getPtrToType(llStoType)), llStoType);
-        result = dynSlice;
-      }
-    } else {
+      return;
+    }
+
+    // allocated on the stack?
+    if (!dyn || e->onstack) {
       llvm::Value *storage =
-          DtoRawAlloca(llStoType, DtoAlignment(e->type), "arrayliteral");
+          DtoRawAlloca(llStoType, DtoAlignment(elemType), "arrayliteral");
       initializeArrayLiteral(p, e, storage, llStoType);
+
       if (arrayType->ty == TY::Tsarray) {
         result = new DLValue(e->type, storage);
+        return;
+      }
+
+      storage = DtoBitCast(storage, llElemType->getPointerTo());
+      if (arrayType->ty == TY::Tarray) {
+        result = new DSliceValue(e->type, DtoConstSize_t(len), storage);
       } else if (arrayType->ty == TY::Tpointer) {
-        storage = DtoBitCast(storage, llElemType->getPointerTo());
         result = new DImValue(e->type, storage);
       } else {
         llvm_unreachable("Unexpected array literal type");
       }
+      return;
+    }
+
+    // we're dealing with a non-stack dynamic array literal now
+    if (arrayType->isImmutable() && isConstLiteral(e, true)) {
+      llvm::Constant *init = arrayLiteralToConst(p, e);
+      auto global = new llvm::GlobalVariable(gIR->module, init->getType(), true,
+                                             llvm::GlobalValue::InternalLinkage,
+                                             init, ".immutablearray");
+      result = new DSliceValue(arrayType, DtoConstSize_t(len),
+                               DtoBitCast(global, getPtrToType(llElemType)));
+    } else {
+      DSliceValue *dynSlice = DtoNewDynArray(
+          e->loc, arrayType,
+          new DConstValue(Type::tsize_t, DtoConstSize_t(len)), false);
+      initializeArrayLiteral(
+          p, e, DtoBitCast(dynSlice->getPtr(), getPtrToType(llStoType)),
+          llStoType);
+      result = dynSlice;
     }
   }
 
