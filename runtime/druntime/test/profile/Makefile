@@ -10,7 +10,8 @@ GREP:=grep
 .PHONY: all clean
 all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS)))
 
-$(ROOT)/profile.done: DFLAGS+=-profile
+# LDC: enable assertions for BUILD=RELEASE (=> `-O -release`)
+$(ROOT)/profile.done: DFLAGS+=-profile -check=assert=on
 $(ROOT)/profile.done: $(ROOT)/%.done: $(ROOT)/%
 	@echo Testing $*
 	@rm -f $(ROOT)/mytrace.log $(ROOT)/mytrace.def

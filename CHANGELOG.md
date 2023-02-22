@@ -1,6 +1,7 @@
 # LDC master
 
 #### Big news
+- Linker-level dead code elimination is enabled by default for Apple, wasm and *all* ELF targets too now. (#4320)
 
 #### Platform support
 

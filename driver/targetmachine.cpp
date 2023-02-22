@@ -505,14 +505,14 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
     break;
   }
 
-  // Right now, we only support linker-level dead code elimination on Linux
-  // and FreeBSD using GNU or LLD linkers (based on the --gc-sections flag).
-  // The Apple ld on OS X supports a similar flag (-dead_strip) that doesn't
-  // require emitting the symbols into different sections. The MinGW ld doesn't
-  // seem to support --gc-sections at all.
-  if (!noLinkerStripDead && (triple.getOS() == llvm::Triple::Linux ||
-                             triple.getOS() == llvm::Triple::FreeBSD ||
-                             triple.getOS() == llvm::Triple::Win32)) {
+  // Linker-level dead code elimination for ELF/wasm binaries using GNU or LLD
+  // linkers (based on the --gc-sections flag) requires a separate section per
+  // symbol.
+  // The Apple ld64 on macOS supports a similar flag (-dead_strip) that doesn't
+  // require emitting the symbols into different sections.
+  // On Windows, the MSVC link.exe / lld-link.exe has `/REF`; LLD enforces
+  // separate sections with LTO, so do the same here.
+  if (!noLinkerStripDead && !triple.isOSBinFormatMachO()) {
     targetOptions.FunctionSections = true;
     targetOptions.DataSections = true;
   }

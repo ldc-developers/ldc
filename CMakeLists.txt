@@ -635,33 +635,6 @@ if(LDC_WITH_LLD)
     endif()
 endif()
 
-# Plugin support
-if(UNIX)
-    set(LDC_ENABLE_PLUGINS_DEFAULT ON)
-else()
-    set(LDC_ENABLE_PLUGINS_DEFAULT OFF)
-endif()
-set(LDC_ENABLE_PLUGINS ${LDC_ENABLE_PLUGINS_DEFAULT} CACHE BOOL "Build LDC with plugin support (increases binary size)")
-if(LDC_ENABLE_PLUGINS)
-    add_definitions(-DLDC_ENABLE_PLUGINS)
-
-    if(APPLE)
-        # No extra link flags needed.
-    elseif(UNIX)
-        # For plugin support, we need to link with --export-dynamic on Unix.
-        # Make sure the linker supports --export-dynamic (on Solaris it is not supported and also not needed).
-        set(CMAKE_REQUIRED_QUIET_BAK ${CMAKE_REQUIRED_QUIET})
-        set(CMAKE_REQUIRED_QUIET ON) # suppress status messages
-        CHECK_LINK_FLAG("--export-dynamic" LINKER_ACCEPTS_EXPORT_DYNAMIC_FLAG)
-        set(CMAKE_REQUIRED_QUIET ${CMAKE_REQUIRED_QUIET_BAK})
-
-        if(LINKER_ACCEPTS_EXPORT_DYNAMIC_FLAG)
-            set(LDC_LINKERFLAG_LIST "${LDC_LINKERFLAG_LIST};-Wl,--export-dynamic")
-        endif()
-    endif()
-endif()
-message(STATUS "-- Building LDC with plugin support (LDC_ENABLE_PLUGINS): ${LDC_ENABLE_PLUGINS}")
-
 if(NOT DEFINED LDC_LINK_MANUALLY)
     if(MSVC)
         # Use the D host compiler for linking D executables.
@@ -677,6 +650,42 @@ if(LDC_LINK_MANUALLY AND NOT DEFINED D_LINKER_ARGS)
     message(STATUS "Host D compiler linker program: ${D_LINKER_COMMAND}")
     message(STATUS "Host D compiler linker flags: ${D_LINKER_ARGS}")
 endif()
+
+# Plugin support
+if(UNIX)
+    set(LDC_ENABLE_PLUGINS_DEFAULT ON)
+else()
+    set(LDC_ENABLE_PLUGINS_DEFAULT OFF)
+endif()
+set(LDC_ENABLE_PLUGINS ${LDC_ENABLE_PLUGINS_DEFAULT} CACHE BOOL "Build LDC with plugin support (increases binary size)")
+if(LDC_ENABLE_PLUGINS)
+    add_definitions(-DLDC_ENABLE_PLUGINS)
+
+    if(APPLE)
+        # Need to disable dead_strip with LDC host compilers.
+        if("${D_COMPILER_ID}" STREQUAL "LDMD")
+            if(LDC_LINK_MANUALLY)
+                # suboptimal - applies to all D executables (incl. ldmd2, ldc-build-runtime, ldc-prune-cache)
+                list(REMOVE_ITEM D_LINKER_ARGS "-Wl,-dead_strip")
+            else()
+                # just for ldc2 (and ldc2-unittest)
+                append("-disable-linker-strip-dead" DFLAGS_LDC)
+            endif()
+        endif()
+    elseif(UNIX)
+        # For plugin support, we need to link with --export-dynamic on Unix.
+        # Make sure the linker supports --export-dynamic (on Solaris it is not supported and also not needed).
+        set(CMAKE_REQUIRED_QUIET_BAK ${CMAKE_REQUIRED_QUIET})
+        set(CMAKE_REQUIRED_QUIET ON) # suppress status messages
+        CHECK_LINK_FLAG("--export-dynamic" LINKER_ACCEPTS_EXPORT_DYNAMIC_FLAG)
+        set(CMAKE_REQUIRED_QUIET ${CMAKE_REQUIRED_QUIET_BAK})
+
+        if(LINKER_ACCEPTS_EXPORT_DYNAMIC_FLAG)
+            set(LDC_LINKERFLAG_LIST "${LDC_LINKERFLAG_LIST};-Wl,--export-dynamic")
+        endif()
+    endif()
+endif()
+message(STATUS "-- Building LDC with plugin support (LDC_ENABLE_PLUGINS): ${LDC_ENABLE_PLUGINS}")
 
 build_d_executable(
     "${LDC_EXE}"
