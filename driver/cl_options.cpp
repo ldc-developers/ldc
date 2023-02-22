@@ -419,7 +419,7 @@ cl::opt<std::string> mTargetTriple("mtriple", cl::ZeroOrMore,
                                    cl::desc("Override target triple"));
 
 cl::opt<std::string>
-    mABI("mabi", cl::ZeroOrMore, cl::Hidden, cl::init(""),
+    mABI("mabi", cl::ZeroOrMore, cl::init(""),
          cl::desc("The name of the ABI to be targeted from the backend"));
 
 static Strings *pModFileAliasStrings = &global.params.modFileAliasStrings;

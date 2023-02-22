@@ -72,3 +72,5 @@ MipsABI::Type getMipsABI();
 // Looks up a target based on an arch name and a target triple.
 const llvm::Target *lookupTarget(const std::string &arch, llvm::Triple &triple,
                                  std::string &errorMsg);
+
+const char *getABI(const llvm::Triple &triple);

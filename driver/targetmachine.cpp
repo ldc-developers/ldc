@@ -57,7 +57,7 @@ static llvm::cl::opt<bool, true> preserveDwarfLineSection(
     llvm::cl::init(false));
 #endif
 
-static const char *getABI(const llvm::Triple &triple) {
+const char *getABI(const llvm::Triple &triple) {
   llvm::StringRef ABIName(opts::mABI);
   if (ABIName != "") {
     switch (triple.getArch()) {
@@ -88,6 +88,22 @@ static const char *getABI(const llvm::Triple &triple) {
       if (ABIName.startswith("elfv2"))
         return "elfv2";
       break;
+    case llvm::Triple::riscv64:
+      if (ABIName.startswith("lp64f"))
+        return "lp64f";
+      if (ABIName.startswith("lp64d"))
+        return "lp64d";
+      if (ABIName.startswith("lp64"))
+        return "lp64";
+      break;
+    case llvm::Triple::riscv32:
+      if (ABIName.startswith("ilp32f"))
+        return "ilp32f";
+      if (ABIName.startswith("ilp32d"))
+        return "ilp32d";
+      if (ABIName.startswith("ilp32"))
+        return "ilp32";
+      break;
     default:
       break;
     }
@@ -104,7 +120,9 @@ static const char *getABI(const llvm::Triple &triple) {
   case llvm::Triple::ppc64le:
     return "elfv2";
   case llvm::Triple::riscv64:
-    return "lp64d";
+    return "lp64";
+  case llvm::Triple::riscv32:
+    return "ilp32";
   default:
     return "";
   }
@@ -421,11 +439,6 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
     features.push_back("+cx16");
   }
 
-  if (triple.getArch() == llvm::Triple::riscv64 && !hasFeature("d")) {
-    // Support Double-Precision Floating-Point by default.
-    features.push_back("+d");
-  }
-
   // Handle cases where LLVM picks wrong default relocModel
 #if LDC_LLVM_VER >= 1600
   if (relocModel.has_value()) {}
@@ -492,14 +505,14 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
     break;
   }
 
-  // Right now, we only support linker-level dead code elimination on Linux
-  // and FreeBSD using GNU or LLD linkers (based on the --gc-sections flag).
-  // The Apple ld on OS X supports a similar flag (-dead_strip) that doesn't
-  // require emitting the symbols into different sections. The MinGW ld doesn't
-  // seem to support --gc-sections at all.
-  if (!noLinkerStripDead && (triple.getOS() == llvm::Triple::Linux ||
-                             triple.getOS() == llvm::Triple::FreeBSD ||
-                             triple.getOS() == llvm::Triple::Win32)) {
+  // Linker-level dead code elimination for ELF/wasm binaries using GNU or LLD
+  // linkers (based on the --gc-sections flag) requires a separate section per
+  // symbol.
+  // The Apple ld64 on macOS supports a similar flag (-dead_strip) that doesn't
+  // require emitting the symbols into different sections.
+  // On Windows, the MSVC link.exe / lld-link.exe has `/REF`; LLD enforces
+  // separate sections with LTO, so do the same here.
+  if (!noLinkerStripDead && !triple.isOSBinFormatMachO()) {
     targetOptions.FunctionSections = true;
     targetOptions.DataSections = true;
   }
