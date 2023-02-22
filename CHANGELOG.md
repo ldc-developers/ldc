@@ -8,6 +8,7 @@
 #### Platform support
 
 #### Bug fixes
+- GC closures including variables with alignment > 16 bytes are now properly aligned. (#4323)
 
 # LDC 1.31.0 (2022-02-11)
 
