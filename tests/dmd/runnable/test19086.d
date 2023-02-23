@@ -1,9 +1,9 @@
 // REQUIRED_ARGS: -g
 // REQUIRED_ARGS(linux freebsd dragonflybsd): -L-export-dynamic
+// LDC (FreeBSD's libexecinfo apparently doesn't like elided frame pointers): REQUIRED_ARGS(freebsd): -link-defaultlib-debug -frame-pointer=all
+// DISABLED: LDC_win32 // no file/line info for the `run19086` frame (and only that frame), even without -O
 // PERMUTE_ARGS:
 // DISABLED: osx
-
-version (LDC) version (Win32) version = LDC_Win32;
 
 void run19086()
 {
@@ -26,14 +26,7 @@ void test19086()
 	catch(Exception e)
 	{
 		int line = findLineStackTrace(e.toString(), "run19086");
-version (LDC_Win32)
-{
-		// FIXME: no file/line infos
-}
-else
-{
 		assert(line >= 20 && line <= 21);
-}
 	}
 }
 
