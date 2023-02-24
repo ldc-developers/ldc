@@ -54,7 +54,8 @@ workflows:
                   -DBUILD_SHARED_LIBS=OFF \
                   -DCMAKE_BUILD_TYPE=Release \
                   -DLLVM_ROOT_DIR="$LLVM_ROOT_DIR" \
-                  -DLDC_LINK_MANUALLY=OFF
+                  -DLDC_LINK_MANUALLY=OFF \
+                  -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++
                 ninja -j2
                 envman add --key LDC_BINARY --value "$(pwd)/bin/ldc2"
 
