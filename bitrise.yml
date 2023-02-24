@@ -56,7 +56,7 @@ workflows:
                   -DLLVM_ROOT_DIR="$LLVM_ROOT_DIR" \
                   -DLDC_LINK_MANUALLY=OFF \
                   -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++
-                ninja -j2
+                ninja -j4
                 envman add --key LDC_BINARY --value "$(pwd)/bin/ldc2"
 
       - script@1.1.6:
@@ -81,7 +81,7 @@ workflows:
                   BUILD_SHARED_LIBS=OFF
 
                 cd ldc-build-runtime.tmp
-                ninja -j2 druntime-test-runner-debug phobos2-test-runner-debug
+                ninja -j4 druntime-test-runner-debug phobos2-test-runner-debug
 
       - xcode-build-for-test@0.4.0:
           title: Build Xcode Project
