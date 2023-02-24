@@ -69,7 +69,7 @@ ref Tarr _d_arrayappendT(Tarr : T[], T)(return ref scope Tarr x, scope Tarr y) @
 {
     pragma(inline, false);
 
-    import core.stdc.string : memcpy;
+    import ldc.intrinsics: llvm_memcpy;
     import core.internal.traits : hasElaborateCopyConstructor, Unqual;
     import core.lifetime : copyEmplace;
 
@@ -92,8 +92,7 @@ ref Tarr _d_arrayappendT(Tarr : T[], T)(return ref scope Tarr x, scope Tarr y) @
             auto xptr = cast(Unqual!T *)&x[length];
             immutable size = T.sizeof;
 
-            memcpy(xptr, cast(Unqual!T *)&y[0], y.length * size);
-
+            llvm_memcpy!size_t(xptr, cast(Unqual!T *)&y[0], y.length * size, 0);
             // call postblits if they exist
             static if (hasPostblit)
             {
