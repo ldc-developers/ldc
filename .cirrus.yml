@@ -359,8 +359,6 @@ task:
     mkdir -p llvm
     tar -xf llvm.tar.xz --strip 1 -C llvm
     rm llvm.tar.xz
-    # Make lld the default linker (possibly with enabled assertions unfortunately)
-    ln -sf "$PWD/llvm/bin/ld.lld" /usr/bin/ld
   # Download & extract clang
   download_prebuilt_clang_script: |
     cd $CIRRUS_WORKING_DIR/..
@@ -368,6 +366,9 @@ task:
     mkdir clang
     tar -xf clang.tar.xz --strip 1 -C clang
     rm clang.tar.xz
+    # Make lld the default linker
+    ln -sf "$PWD/clang/bin/ld.lld" /usr/bin/ld
+    ld --version
   clone_submodules_early_script: |
     cd $CIRRUS_WORKING_DIR
     git submodule update --init --depth $CIRRUS_CLONE_DEPTH
