@@ -7,7 +7,7 @@ app:
     - BITRISE_PROJECT_PATH: ldc-build-runtime.tmp/TestRunner/TestRunner.xcodeproj
     - BITRISE_SCHEME: TestRunner
     - BITRISE_EXPORT_METHOD: development
-    - LLVM_VERSION: 14.0.3
+    - LLVM_VERSION: 15.0.7
     - HOST_LDC_VERSION: 1.24.0
     - IOS_VERSION: 12.0
 
@@ -54,32 +54,10 @@ workflows:
                   -DBUILD_SHARED_LIBS=OFF \
                   -DCMAKE_BUILD_TYPE=Release \
                   -DLLVM_ROOT_DIR="$LLVM_ROOT_DIR" \
-                  -DLDC_LINK_MANUALLY=OFF
-                ninja -j2
+                  -DLDC_LINK_MANUALLY=OFF \
+                  -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++
+                ninja -j4
                 envman add --key LDC_BINARY --value "$(pwd)/bin/ldc2"
-
-      - script@1.1.6:
-          title: Cross-compile (iOS/x86_64) druntime & Phobos
-          deps:
-            brew:
-              - name: cmake
-              - name: ninja
-          inputs:
-            - content: |-
-                #!/bin/bash
-                set -ex
-                build/bin/ldc-build-runtime \
-                  --buildDir="ldc-build-runtime.x86_64" \
-                  --cFlags="-target;x86_64-apple-ios${IOS_VERSION}" \
-                  --dFlags="-mtriple=x86_64-apple-ios${IOS_VERSION};-fvisibility=hidden" \
-                  --ldcSrcDir=. \
-                  --ninja \
-                  -j 2 \
-                  CMAKE_SYSTEM_NAME=iOS \
-                  CMAKE_OSX_SYSROOT=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk \
-                  CMAKE_OSX_ARCHITECTURES=x86_64 \
-                  CMAKE_OSX_DEPLOYMENT_TARGET="${IOS_VERSION}" \
-                  BUILD_SHARED_LIBS=OFF
 
       - script@1.1.6:
           title: Cross-compile (iOS/arm64) druntime & Phobos, incl. debug unittest runners
@@ -103,7 +81,7 @@ workflows:
                   BUILD_SHARED_LIBS=OFF
 
                 cd ldc-build-runtime.tmp
-                ninja -j2 druntime-test-runner-debug phobos2-test-runner-debug
+                ninja -j4 druntime-test-runner-debug phobos2-test-runner-debug
 
       - xcode-build-for-test@0.4.0:
           title: Build Xcode Project
