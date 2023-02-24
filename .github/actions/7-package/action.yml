@@ -116,7 +116,7 @@ runs:
           chmod -R go=rX $artifactName
           if [[ '${{ runner.os }}' == macOS ]]; then
             sudo chown -R root:wheel $artifactName
-            tar -cJf artifacts/$artifactName.tar.xz --options='compression-level=9' $artifactName
+            tar -cf - $artifactName | 7za a artifacts/$artifactName.tar.xz -si -txz -mx9
           else
             tar -cf - --owner=0 --group=0 $artifactName | 7za a artifacts/$artifactName.tar.xz -si -txz -mx9
           fi
