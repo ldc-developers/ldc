@@ -2,8 +2,10 @@
 
 #### Big news
 - Linker-level dead code elimination is enabled by default for Apple, wasm and *all* ELF targets too now. (#4320)
+- LLVM for prebuilt packages bumped to v15.0.7. (#4311)
 
 #### Platform support
+- Supports LLVM 9.0 - 15.0.
 
 #### Bug fixes
 

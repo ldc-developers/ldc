@@ -207,13 +207,12 @@ install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
     mkdir ninja
     tar -xf ninja-mac.zip -C ninja
     rm ninja-mac.zip
-    # Download & extract LDC-flavoured LLVM (no withAsserts package available for arm64 yet)
-    assertsSuffix=""
-    if [[ "$CI_ARCH" == "x86_64" ]]; then
-      echo 'Using LLVM with enabled assertions'
-      assertsSuffix="-withAsserts"
-    fi
-    curl -fL --retry 3 --max-time 300 -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$LLVM_VERSION/llvm-$LLVM_VERSION-osx-${CI_ARCH}${assertsSuffix}.tar.xz
+    # Download & extract LDC-flavoured LLVM
+    echo 'Using LLVM with enabled assertions'
+    assertsSuffix="-withAsserts"
+    llvm_tag="CI"
+    if [[ "$LLVM_VERSION" == *.* ]]; then llvm_tag="ldc-v$LLVM_VERSION"; fi
+    curl -fL --retry 3 --max-time 300 -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/$llvm_tag/llvm-$LLVM_VERSION-osx-${CI_ARCH}${assertsSuffix}.tar.xz
     mkdir llvm
     tar -xf llvm.tar.xz --strip 1 -C llvm
     rm llvm.tar.xz
@@ -228,7 +227,8 @@ install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
 
 environment:
   CIRRUS_CLONE_DEPTH: 50
-  HOST_LDC_VERSION: 1.24.0
+  HOST_LDC_VERSION: 1.31.0
+  LLVM_VERSION: 15.0.7
   GITHUB_TOKEN: ENCRYPTED[0955bd48c8d4e5391446fc0149d0719ad0b63df27ec9e6c180a5730a5b10dc7f28f09d1383423db158d21380ee2b022a]
 
 task:
@@ -289,30 +289,26 @@ task:
   allow_failures: true # FIXME
   macos_instance:
     image: ghcr.io/cirruslabs/macos-monterey-xcode:latest
-  timeout_in: 15m
+  timeout_in: 25m
   environment:
     CI_OS: osx
-    LLVM_VERSION: 14.0.3
     # OS is preset to `darwin`
     OS: osx
     PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
     PARALLELISM: 4
     matrix:
       #- TASK_NAME_SUFFIX: x64 (M1)
-      #  EXTRA_CMAKE_FLAGS: "-DCMAKE_OSX_ARCHITECTURES=x86_64 -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON"
+      #  EXTRA_CMAKE_FLAGS: -DCMAKE_OSX_ARCHITECTURES=x86_64 -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON
       #  CI_ARCH: x86_64
       #- TASK_NAME_SUFFIX: x64 (M1) shared-libs-only
-      #  EXTRA_CMAKE_FLAGS: "-DCMAKE_OSX_ARCHITECTURES=x86_64 -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON"
+      #  EXTRA_CMAKE_FLAGS: -DCMAKE_OSX_ARCHITECTURES=x86_64 -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON
       #  CI_ARCH: x86_64
       - TASK_NAME_SUFFIX: arm64
-        # no line infos for ldc2 unittests (compiled with -g with v1.30 host compiler - https://github.com/ldc-developers/ldc/issues/3864)
-        EXTRA_CMAKE_FLAGS: "-DDFLAGS_LDC=-preserve-dwarf-line-section=false -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON"
+        EXTRA_CMAKE_FLAGS: -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON
         CI_ARCH: arm64
-        HOST_LDC_VERSION: 1.30.0
       - TASK_NAME_SUFFIX: arm64 shared-libs-only
-        EXTRA_CMAKE_FLAGS: "-DDFLAGS_LDC=-preserve-dwarf-line-section=false -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON"
+        EXTRA_CMAKE_FLAGS: -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON
         CI_ARCH: arm64
-        HOST_LDC_VERSION: 1.30.0
   brew_cache:
     folder: "$HOME/Library/Caches/Homebrew"
   << : *INSTALL_MACOS_PREREQUISITES_TEMPLATE
@@ -335,12 +331,11 @@ task:
       -DEXTRA_CXXFLAGS=-flto=full
       -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++
       -DJITRT_EXTRA_LDFLAGS=-static-libstdc++
-      -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64
+      -DLDC_INSTALL_LLVM_RUNTIME_LIBS_OS=aarch64-unknown-linux-gnu
       -DLLVM_ROOT_DIR=$CIRRUS_WORKING_DIR/../llvm
       -DD_COMPILER=$CIRRUS_WORKING_DIR/../bootstrap-ldc/bin/ldmd2
     PARALLELISM: 4
-    LLVM_VERSION: 14.0.3
-    CLANG_VERSION: 14.0.0
+    CLANG_VERSION: '14.0.6' # 15.0.6 requires libtinfo.so.6 (but Ubuntu 18 has v5 only)
     CC: $CIRRUS_WORKING_DIR/../clang/bin/clang
     CXX: $CIRRUS_WORKING_DIR/../clang/bin/clang++
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
@@ -359,6 +354,9 @@ task:
     mkdir -p llvm
     tar -xf llvm.tar.xz --strip 1 -C llvm
     rm llvm.tar.xz
+    # Make lld the default linker (likely with enabled assertions unfortunately)
+    ln -sf "$PWD/llvm/bin/ld.lld" /usr/bin/ld
+    ld --version
   # Download & extract clang
   download_prebuilt_clang_script: |
     cd $CIRRUS_WORKING_DIR/..
@@ -366,9 +364,6 @@ task:
     mkdir clang
     tar -xf clang.tar.xz --strip 1 -C clang
     rm clang.tar.xz
-    # Make lld the default linker
-    ln -sf "$PWD/clang/bin/ld.lld" /usr/bin/ld
-    ld --version
   clone_submodules_early_script: |
     cd $CIRRUS_WORKING_DIR
     git submodule update --init --depth $CIRRUS_CLONE_DEPTH
