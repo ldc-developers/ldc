@@ -4,7 +4,7 @@
 
 // See https://github.com/ldc-developers/ldc/issues/2222 for %disable_fp_elim
 // RUN: %ldc -g -fsanitize=address,fuzzer %disable_fp_elim %s -of=%t%exe
-// RUN: not %t%exe 2>&1 | FileCheck %s
+// RUN: not %t%exe -seed=4253128408 2>&1 | FileCheck %s
 
 bool FuzzMe(ubyte* data, size_t dataSize)
 {
