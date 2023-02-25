@@ -12,7 +12,7 @@ bool FuzzMe(ubyte* data, size_t dataSize)
            data[0] == 'F' &&
            data[1] == 'U' &&
            data[2] == 'Z' &&
-    // CHECK: ERROR: AddressSanitizer: {{stack-buffer-overflow|stack-use-after-return}}
+    // CHECK: ERROR: AddressSanitizer: stack-buffer-overflow
     // CHECK-NEXT: READ of size 1
     // CHECK-NEXT: #0 {{.*}} in {{.*fuzz_asan6FuzzMe.*}} {{.*}}fuzz_asan.d:
     // FIXME, debug line info is wrong (Github issue #2090). Once fixed, add [[@LINE+1]]
