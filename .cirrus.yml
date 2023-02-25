@@ -41,6 +41,9 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
         rm $CIRRUS_WORKING_DIR/tests/sanitizers/fuzz_basic.d
         # the following 2 have regressed with LLVM 13
         rm $CIRRUS_WORKING_DIR/tests/sanitizers/msan_{noerror,uninitialized}.d
+      elif [[ "$CI_OS-$CI_ARCH" == "osx-arm64" ]]; then
+        # FIXME: LeakSanitizer: CHECK failed: sanitizer_allocator_secondary.h:177 "((IsAligned(reinterpret_cast<uptr>(p), page_size_))) != (0)"
+        rm $CIRRUS_WORKING_DIR/tests/sanitizers/lsan_memleak.d
       fi
       python3 runlit.py -v -j $PARALLELISM .
     run_dmd_testsuite_script: |
