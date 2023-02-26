@@ -11,6 +11,7 @@
 
 #### Bug fixes
 - GC closures including variables with alignment > 16 bytes are now properly aligned. (#4323)
+- Fix regression with LLVM 13+: some errors in inline assembly don't stop compilation. (#4293, #4331)
 
 # LDC 1.31.0 (2022-02-11)
 
