@@ -1,4 +1,4 @@
-/*
+/* DISABLED: LDC_not_x86 // because of -m32
 REQUIRED_ARGS: -m32
 TEST_OUTPUT:
 ---

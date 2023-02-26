@@ -5,6 +5,9 @@
 // provided.  extern_weak not really needed on OS X though.
 // REQUIRED_ARGS(osx): -L-undefined -Ldynamic_lookup
 
+// the linker on macOS-arm64 emits a warning
+// TRANSFORM_OUTPUT(osx): remove_lines("warning: -undefined dynamic_lookup may not work with chained fixups")
+
 extern __gshared pragma(LDC_extern_weak) int nonExistent;
 
 bool doesNonExistentExist() {
