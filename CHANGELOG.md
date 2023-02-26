@@ -2,15 +2,16 @@
 
 #### Big news
 - Frontend, druntime and Phobos are at version [2.102.1](https://dlang.org/changelog/2.102.0.html). (#4323)
-- Vector comparisons (==, !=, <, <=, >, >=) now yield a vector mask. Identity comparisons (`is`, `!is`) still yield a scalar `bool`. (#4323)
-- Linker-level dead code elimination is enabled by default for Apple, wasm and *all* ELF targets too now. (#4320)
 - LLVM for prebuilt packages bumped to v15.0.7. (#4311)
+- Linker-level dead code elimination is enabled by default for Apple, wasm and *all* ELF targets too now. (#4320)
+- Vector comparisons (==, !=, <, <=, >, >=) now yield a vector mask. Identity comparisons (`is`, `!is`) still yield a scalar `bool`. (3a59ee81)
 
 #### Platform support
 - Supports LLVM 9.0 - 15.0.
+- Now supports `-mabi` for RISC-V targets. (#4322)
 
 #### Bug fixes
-- GC closures including variables with alignment > 16 bytes are now properly aligned. (#4323)
+- GC closures including variables with alignment > 16 bytes are now properly aligned. (ef8ba481)
 - Fix regression with LLVM 13+: some errors in inline assembly don't stop compilation. (#4293, #4331)
 
 # LDC 1.31.0 (2022-02-11)
