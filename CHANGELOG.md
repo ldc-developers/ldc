@@ -8,6 +8,7 @@
 - Supports LLVM 9.0 - 15.0.
 
 #### Bug fixes
+- Fix regression with LLVM 13+: some errors in inline assembly don't stop compilation. (#4293, #4331)
 
 # LDC 1.31.0 (2022-02-11)
 
