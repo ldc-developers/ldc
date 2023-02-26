@@ -29,7 +29,7 @@ extern(C++) bool traitsTargetHasFeature(Dstring feature);
 
 Expression semanticTraitsLDC(TraitsExp e, Scope* sc)
 {
-    size_t arg_count = e.args ? e.args.dim : 0;
+    size_t arg_count = e.args ? e.args.length : 0;
 
     if (e.ident == Id.targetCPU)
     {

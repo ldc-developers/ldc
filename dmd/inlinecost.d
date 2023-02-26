@@ -1,7 +1,7 @@
 /**
  * Compute the cost of inlining a function call by counting expressions.
  *
- * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2023 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:    $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/inlinecost.d, _inlinecost.d)
@@ -106,7 +106,7 @@ AggregateDeclaration isInlinableNestedAggregate(DeclarationExp e)
     if (e.declaration.isAnonymous() && e.declaration.isAttribDeclaration)
     {
         AttribDeclaration ad = e.declaration.isAttribDeclaration;
-        if (ad.decl.dim == 1)
+        if (ad.decl.length == 1)
         {
             if ((result = (*ad.decl)[0].isAggregateDeclaration) !is null)
             {
@@ -193,7 +193,7 @@ public:
     override void visit(CompoundStatement s)
     {
         scope InlineCostVisitor icv = new InlineCostVisitor(this);
-        foreach (i; 0 .. s.statements.dim)
+        foreach (i; 0 .. s.statements.length)
         {
             if (Statement s2 = (*s.statements)[i])
             {
@@ -208,7 +208,7 @@ public:
                     ifs.ifbody &&
                     ifs.ifbody.endsWithReturnStatement() &&
                     !ifs.elsebody &&
-                    i + 1 < s.statements.dim &&
+                    i + 1 < s.statements.length &&
                     (s3 = (*s.statements)[i + 1]) !is null &&
                     s3.endsWithReturnStatement()
                    )

@@ -3,7 +3,7 @@
  *
  * Currently includes functions from `std.math`, `core.math` and `core.bitop`.
  *
- * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2023 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/builtin.d, _builtin.d)
@@ -23,6 +23,7 @@ import dmd.errors;
 import dmd.expression;
 import dmd.func;
 import dmd.globals;
+import dmd.location;
 import dmd.mtype;
 import dmd.root.ctfloat;
 import dmd.root.stringtable;
@@ -516,7 +517,7 @@ private Type getTypeOfOverloadedIntrinsic(FuncDeclaration fd)
     if (tinst)
     {
         // See DtoOverloadedIntrinsicName
-        assert(tinst.tdtypes.dim == 1);
+        assert(tinst.tdtypes.length == 1);
         return cast(Type) tinst.tdtypes[0];
     }
     else

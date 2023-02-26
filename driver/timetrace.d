@@ -18,6 +18,7 @@ module driver.timetrace;
 
 import dmd.errors;
 import dmd.globals;
+import dmd.location;
 import dmd.root.array;
 import dmd.root.file;
 import dmd.common.outbuffer;

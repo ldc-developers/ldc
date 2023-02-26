@@ -275,7 +275,7 @@ class Object
      * }
      * ---
      */
-    static Object factory(string classname)
+    deprecated static Object factory(string classname)
     {
         auto ci = TypeInfo_Class.find(classname);
         if (ci)
@@ -285,7 +285,7 @@ class Object
         return null;
     }
 
-    @system unittest
+    deprecated @system unittest
     {
         Object valid_obj = Object.factory("object.Object");
         Object invalid_obj = Object.factory("object.__this_class_doesnt_exist__");
@@ -2529,6 +2529,8 @@ class Throwable : Object
         string toString() const;
     }
 
+    alias TraceDeallocator = void function(TraceInfo) nothrow;
+
     string      msg;    /// A message describing the error.
 
     /**
@@ -2548,6 +2550,12 @@ class Throwable : Object
      * foreach) to extract the items in the stack trace (as strings).
      */
     TraceInfo   info;
+
+    /**
+     * If set, this is used to deallocate the TraceInfo on destruction.
+     */
+    TraceDeallocator infoDeallocator;
+
 
     /**
      * A reference to the _next error in the list. This is used when a new
@@ -2662,6 +2670,13 @@ class Throwable : Object
     {
         if (nextInChain && nextInChain._refcount)
             _d_delThrowable(nextInChain);
+        // handle owned traceinfo
+        if (infoDeallocator !is null)
+        {
+            infoDeallocator(info);
+            info = null; // avoid any kind of dangling pointers if we can help
+                         // it.
+        }
     }
 
     /**
@@ -4666,7 +4681,8 @@ they are only intended to be instantiated by the compiler, not the user.
 public import core.internal.entrypoint : _d_cmain;
 
 public import core.internal.array.appending : _d_arrayappendT;
-public import core.internal.array.appending : _d_arrayappendTTrace;
+version (D_ProfileGC)
+    public import core.internal.array.appending : _d_arrayappendTTrace;
 public import core.internal.array.appending : _d_arrayappendcTXImpl;
 public import core.internal.array.comparison : __cmp;
 public import core.internal.array.equality : __equals;

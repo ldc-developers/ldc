@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 1999-2023 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * https://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -316,6 +316,7 @@ public:
     virtual int hasWild() const;
     virtual bool hasPointers();
     virtual bool hasVoidInitPointers();
+    virtual bool hasSystemFields();
     virtual bool hasInvariant();
     virtual Type *nextOf();
     Type *baseElemOf();
@@ -463,6 +464,8 @@ public:
     MATCH implicitConvTo(Type *to) override;
     Expression *defaultInitLiteral(const Loc &loc) override;
     bool hasPointers() override;
+    bool hasSystemFields() override;
+    bool hasVoidInitPointers() override;
     bool hasInvariant() override;
     bool needsDestruction() override;
     bool needsCopyOrPostblit() override;
@@ -799,6 +802,7 @@ public:
     bool needsNested() override;
     bool hasPointers() override;
     bool hasVoidInitPointers() override;
+    bool hasSystemFields() override;
     bool hasInvariant() override;
     MATCH implicitConvTo(Type *to) override;
     MATCH constConv(Type *to) override;
@@ -837,6 +841,7 @@ public:
     bool isZeroInit(const Loc &loc) override;
     bool hasPointers() override;
     bool hasVoidInitPointers() override;
+    bool hasSystemFields() override;
     bool hasInvariant() override;
     Type *nextOf() override;
 

@@ -373,9 +373,6 @@ LLValue *DtoBinFloatsEquals(const Loc &loc, DValue *lhs, DValue *rhs, EXP op) {
     LLValue *r = DtoRVal(rhs);
     res = (op == EXP::equal ? gIR->ir->CreateFCmpOEQ(l, r)
                             : gIR->ir->CreateFCmpUNE(l, r));
-    if (lhs->type->toBasetype()->ty == TY::Tvector) {
-      res = mergeVectorEquals(res, op);
-    }
   } else {
     const auto cmpop =
         op == EXP::identity ? llvm::ICmpInst::ICMP_EQ : llvm::ICmpInst::ICMP_NE;

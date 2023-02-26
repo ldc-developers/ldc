@@ -2072,12 +2072,17 @@ extern (C) void thread_suspendAll() nothrow
         Thread.criticalRegionLock.lock_nothrow();
         scope (exit) Thread.criticalRegionLock.unlock_nothrow();
         size_t cnt;
+        bool suspendedSelf;
         Thread t = ThreadBase.sm_tbeg.toThread;
         while (t)
         {
             auto tn = t.next.toThread;
             if (suspend(t))
+            {
+                if (t is ThreadBase.getThis())
+                    suspendedSelf = true;
                 ++cnt;
+            }
             t = tn;
         }
 
@@ -2085,9 +2090,12 @@ extern (C) void thread_suspendAll() nothrow
         {}
         else version (Posix)
         {
-            // subtract own thread
+            // Subtract own thread if we called suspend() on ourselves.
+            // For example, suspendedSelf would be false if the current
+            // thread ran thread_detachThis().
             assert(cnt >= 1);
-            --cnt;
+            if (suspendedSelf)
+                --cnt;
             // wait for semaphore notifications
             for (; cnt; --cnt)
             {

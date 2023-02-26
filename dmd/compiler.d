@@ -1,7 +1,7 @@
 /**
  * Describes a back-end compiler and implements compiler-specific actions.
  *
- * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2023 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/compiler.d, _compiler.d)
@@ -213,7 +213,7 @@ do
 {
     createMatchNodes();
     size_t nodeIndex = 0;
-    while (nodeIndex < matchNodes.dim)
+    while (nodeIndex < matchNodes.length)
     {
         //printf("matcher ");printMatcher(nodeIndex);printf("\n");
         auto info = matchNodes[nodeIndex++];
@@ -236,7 +236,7 @@ do
         }
         nodeIndex += info.depth;
     }
-    assert(nodeIndex == matchNodes.dim, "code bug");
+    assert(nodeIndex == matchNodes.length, "code bug");
     return includeByDefault;
 }
 
@@ -291,7 +291,7 @@ private void createMatchNodes()
     static size_t findSortedIndexToAddForDepth(size_t depth)
     {
         size_t index = 0;
-        while (index < matchNodes.dim)
+        while (index < matchNodes.length)
         {
             auto info = matchNodes[index];
             if (depth > info.depth)
@@ -301,7 +301,7 @@ private void createMatchNodes()
         return index;
     }
 
-    if (matchNodes.dim == 0)
+    if (matchNodes.length == 0)
     {
         foreach (modulePattern; includeModulePatterns)
         {

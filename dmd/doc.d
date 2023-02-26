@@ -3,7 +3,7 @@
  *
  * Specification: $(LINK2 https://dlang.org/spec/ddoc.html, Documentation Generator)
  *
- * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2023 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/doc.d, _doc.d)
@@ -41,6 +41,7 @@ import dmd.hdrgen;
 import dmd.id;
 import dmd.identifier;
 import dmd.lexer;
+import dmd.location;
 import dmd.mtype;
 import dmd.root.array;
 import dmd.root.file;
@@ -106,7 +107,7 @@ private class Section
 
     void write(Loc loc, DocComment* dc, Scope* sc, Dsymbols* a, OutBuffer* buf)
     {
-        assert(a.dim);
+        assert(a.length);
         if (name.length)
         {
             static immutable table =
@@ -161,7 +162,7 @@ private final class ParamSection : Section
 {
     override void write(Loc loc, DocComment* dc, Scope* sc, Dsymbols* a, OutBuffer* buf)
     {
-        assert(a.dim);
+        assert(a.length);
         Dsymbol s = (*a)[0]; // test
         const(char)* p = body_.ptr;
         size_t len = body_.length;
@@ -295,10 +296,10 @@ private final class ParamSection : Section
             goto L1;
         // write out last one
         buf.writestring(")");
-        TypeFunction tf = a.dim == 1 ? isTypeFunction(s) : null;
+        TypeFunction tf = a.length == 1 ? isTypeFunction(s) : null;
         if (tf)
         {
-            size_t pcount = (tf.parameterList.parameters ? tf.parameterList.parameters.dim : 0) +
+            size_t pcount = (tf.parameterList.parameters ? tf.parameterList.parameters.length : 0) +
                             cast(int)(tf.parameterList.varargs == VarArg.variadic);
             if (pcount != paramcount)
             {
@@ -390,7 +391,7 @@ version (IN_LLVM)
         if (p)
             global.params.ddoc.files.shift(p);
         // Override with the ddoc macro files from the command line
-        for (size_t i = 0; i < global.params.ddoc.files.dim; i++)
+        for (size_t i = 0; i < global.params.ddoc.files.length; i++)
         {
             auto buffer = readFile(m.loc, global.params.ddoc.files[i]);
             // BUG: convert file contents to UTF-8 before use
@@ -761,9 +762,9 @@ private void emitAnchor(ref OutBuffer buf, Dsymbol s, Scope* sc, bool forHeader 
     if (auto imp = s.isImport())
     {
         // For example: `public import core.stdc.string : memcpy, memcmp;`
-        if (imp.aliases.dim > 0)
+        if (imp.aliases.length > 0)
         {
-            for(int i = 0; i < imp.aliases.dim; i++)
+            for(int i = 0; i < imp.aliases.length; i++)
             {
                 // Need to distinguish between
                 // `public import core.stdc.string : memcpy, memcmp;` and
@@ -870,7 +871,7 @@ private void expandTemplateMixinComments(TemplateMixin tm, ref OutBuffer buf, Sc
     TemplateDeclaration td = (tm && tm.tempdecl) ? tm.tempdecl.isTemplateDeclaration() : null;
     if (td && td.members)
     {
-        for (size_t i = 0; i < td.members.dim; i++)
+        for (size_t i = 0; i < td.members.length; i++)
         {
             Dsymbol sm = (*td.members)[i];
             TemplateMixin tmc = sm.isTemplateMixin();
@@ -902,7 +903,7 @@ private void emitMemberComments(ScopeDsymbol sds, ref OutBuffer buf, Scope* sc)
     buf.writestring(m);
     size_t offset2 = buf.length; // to see if we write anything
     sc = sc.push(sds);
-    for (size_t i = 0; i < sds.members.dim; i++)
+    for (size_t i = 0; i < sds.members.length; i++)
     {
         Dsymbol s = (*sds.members)[i];
         //printf("\ts = '%s'\n", s.toChars());
@@ -1002,7 +1003,7 @@ private void emitComment(Dsymbol s, ref OutBuffer buf, Scope* sc)
             // Put previous doc comment if exists
             if (DocComment* dc = sc.lastdc)
             {
-                assert(dc.a.dim > 0, "Expects at least one declaration for a" ~
+                assert(dc.a.length > 0, "Expects at least one declaration for a" ~
                     "documentation comment");
 
                 auto symbol = dc.a[0];
@@ -1014,7 +1015,7 @@ private void emitComment(Dsymbol s, ref OutBuffer buf, Scope* sc)
 
                 // Put the declaration signatures as the document 'title'
                 buf.writestring(ddoc_decl_s);
-                for (size_t i = 0; i < dc.a.dim; i++)
+                for (size_t i = 0; i < dc.a.length; i++)
                 {
                     Dsymbol sx = dc.a[i];
                     // the added linebreaks in here make looking at multiple
@@ -1142,7 +1143,7 @@ private void emitComment(Dsymbol s, ref OutBuffer buf, Scope* sc)
                 return;
             if (ed.isAnonymous() && ed.members)
             {
-                for (size_t i = 0; i < ed.members.dim; i++)
+                for (size_t i = 0; i < ed.members.length; i++)
                 {
                     Dsymbol s = (*ed.members)[i];
                     emitComment(s, *buf, sc);
@@ -1180,7 +1181,7 @@ private void emitComment(Dsymbol s, ref OutBuffer buf, Scope* sc)
             Dsymbols* d = ad.include(null);
             if (d)
             {
-                for (size_t i = 0; i < d.dim; i++)
+                for (size_t i = 0; i < d.length; i++)
                 {
                     Dsymbol s = (*d)[i];
                     //printf("AttribDeclaration::emitComment %s\n", s.toChars());
@@ -1214,7 +1215,7 @@ private void emitComment(Dsymbol s, ref OutBuffer buf, Scope* sc)
              * a template, then include(null) will fail.
              */
             Dsymbols* d = cd.decl ? cd.decl : cd.elsedecl;
-            for (size_t i = 0; i < d.dim; i++)
+            for (size_t i = 0; i < d.length; i++)
             {
                 Dsymbol s = (*d)[i];
                 emitComment(s, *buf, sc);
@@ -1328,9 +1329,9 @@ private void toDocBuffer(Dsymbol s, ref OutBuffer buf, Scope* sc)
             if (d.isVarDeclaration() && td)
             {
                 buf.writeByte('(');
-                if (td.origParameters && td.origParameters.dim)
+                if (td.origParameters && td.origParameters.length)
                 {
-                    for (size_t i = 0; i < td.origParameters.dim; i++)
+                    for (size_t i = 0; i < td.origParameters.length; i++)
                     {
                         if (i)
                             buf.writestring(", ");
@@ -1488,7 +1489,7 @@ private void toDocBuffer(Dsymbol s, ref OutBuffer buf, Scope* sc)
                 buf.printf("%s %s", cd.kind(), cd.toChars());
             }
             int any = 0;
-            for (size_t i = 0; i < cd.baseclasses.dim; i++)
+            for (size_t i = 0; i < cd.baseclasses.length; i++)
             {
                 BaseClass* bc = (*cd.baseclasses)[i];
                 if (bc.sym && bc.sym.ident == Id.Object)
@@ -1561,7 +1562,7 @@ struct DocComment
         if (!comment)
             return dc;
         dc.parseSections(comment);
-        for (size_t i = 0; i < dc.sections.dim; i++)
+        for (size_t i = 0; i < dc.sections.length; i++)
         {
             Section sec = dc.sections[i];
             if (iequals("copyright", sec.name))
@@ -1877,7 +1878,7 @@ struct DocComment
 
     void writeSections(Scope* sc, Dsymbols* a, OutBuffer* buf)
     {
-        assert(a.dim);
+        assert(a.length);
         //printf("DocComment::writeSections()\n");
         Loc loc = (*a)[0].loc;
         if (Module m = (*a)[0].isModule())
@@ -1888,7 +1889,7 @@ struct DocComment
         size_t offset1 = buf.length;
         buf.writestring("$(DDOC_SECTIONS ");
         size_t offset2 = buf.length;
-        for (size_t i = 0; i < sections.dim; i++)
+        for (size_t i = 0; i < sections.length; i++)
         {
             Section sec = sections[i];
             if (sec.nooutput)
@@ -1906,7 +1907,7 @@ struct DocComment
             else
                 sec.write(loc, &this, sc, a, buf);
         }
-        for (size_t i = 0; i < a.dim; i++)
+        for (size_t i = 0; i < a.length; i++)
         {
             Dsymbol s = (*a)[i];
             if (Dsymbol td = getEponymousParent(s))
@@ -2723,7 +2724,7 @@ private Parameter isEponymousFunctionParameter(Dsymbols *a, const(char)[] p) @sa
  */
 private TemplateParameter isTemplateParameter(Dsymbols* a, const(char)* p, size_t len)
 {
-    for (size_t i = 0; i < a.dim; i++)
+    for (size_t i = 0; i < a.length; i++)
     {
         TemplateDeclaration td = (*a)[i].isTemplateDeclaration();
         // Check for the parent, if the current symbol is not a template declaration.
@@ -5008,10 +5009,10 @@ private void highlightText(Scope* sc, Dsymbols* a, Loc loc, ref OutBuffer buf, s
 private void highlightCode(Scope* sc, Dsymbol s, ref OutBuffer buf, size_t offset)
 {
     auto imp = s.isImport();
-    if (imp && imp.aliases.dim > 0)
+    if (imp && imp.aliases.length > 0)
     {
         // For example: `public import core.stdc.string : memcpy, memcmp;`
-        for(int i = 0; i < imp.aliases.dim; i++)
+        for(int i = 0; i < imp.aliases.length; i++)
         {
             // Need to distinguish between
             // `public import core.stdc.string : memcpy, memcmp;` and
@@ -5093,7 +5094,7 @@ private void highlightCode(Scope* sc, Dsymbols* a, ref OutBuffer buf, size_t off
             size_t previ = i;
 
             // hunt for template declarations:
-            foreach (symi; 0 .. a.dim)
+            foreach (symi; 0 .. a.length)
             {
                 FuncDeclaration fd = (*a)[symi].isFuncDeclaration();
 
@@ -5106,14 +5107,14 @@ private void highlightCode(Scope* sc, Dsymbols* a, ref OutBuffer buf, size_t off
 
                 // build the template parameters
                 Array!(size_t) paramLens;
-                paramLens.reserve(td.parameters.dim);
+                paramLens.reserve(td.parameters.length);
 
                 OutBuffer parametersBuf;
                 HdrGenState hgs;
 
                 parametersBuf.writeByte('(');
 
-                foreach (parami; 0 .. td.parameters.dim)
+                foreach (parami; 0 .. td.parameters.length)
                 {
                     TemplateParameter tp = (*td.parameters)[parami];
 
@@ -5185,7 +5186,8 @@ private void highlightCode2(Scope* sc, Dsymbols* a, ref OutBuffer buf, size_t of
 {
     uint errorsave = global.startGagging();
 
-    scope Lexer lex = new Lexer(null, cast(char*)buf[].ptr, 0, buf.length - 1, 0, 1);
+    scope Lexer lex = new Lexer(null, cast(char*)buf[].ptr, 0, buf.length - 1, 0, 1,
+        global.vendor, global.versionNumber());
     OutBuffer res;
     const(char)* lastp = cast(char*)buf[].ptr;
     //printf("highlightCode2('%.*s')\n", cast(int)(buf.length - 1), buf[].ptr);

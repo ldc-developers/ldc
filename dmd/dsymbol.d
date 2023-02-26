@@ -1,7 +1,7 @@
 /**
  * The base class for a D symbol, which can be a module, variable, function, enum, etc.
  *
- * Copyright:   Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2023 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/dsymbol.d, _dsymbol.d)
@@ -42,6 +42,7 @@ import dmd.id;
 import dmd.identifier;
 import dmd.init;
 import dmd.lexer;
+import dmd.location;
 import dmd.mtype;
 import dmd.nspace;
 import dmd.opover;
@@ -80,7 +81,7 @@ int foreachDsymbol(Dsymbols* symbols, scope int delegate(Dsymbol) dg)
     {
         /* Do not use foreach, as the size of the array may expand during iteration
          */
-        for (size_t i = 0; i < symbols.dim; ++i)
+        for (size_t i = 0; i < symbols.length; ++i)
         {
             Dsymbol s = (*symbols)[i];
             const result = dg(s);
@@ -106,7 +107,7 @@ void foreachDsymbol(Dsymbols* symbols, scope void delegate(Dsymbol) dg)
     {
         /* Do not use foreach, as the size of the array may expand during iteration
          */
-        for (size_t i = 0; i < symbols.dim; ++i)
+        for (size_t i = 0; i < symbols.length; ++i)
         {
             Dsymbol s = (*symbols)[i];
             dg(s);
@@ -243,14 +244,24 @@ struct FieldState
     bool inFlight;      /// bit field is in flight
 }
 
+// 99.9% of Dsymbols don't have attributes (at least in druntime and Phobos),
+// so save memory by grouping them into a separate struct
+private struct DsymbolAttributes
+{
+    /// C++ namespace this symbol belongs to
+    CPPNamespaceDeclaration cppnamespace;
+    /// customized deprecation message
+    DeprecatedDeclaration depdecl_;
+    /// user defined attributes
+    UserAttributeDeclaration userAttribDecl;
+}
+
 /***********************************************************
  */
 extern (C++) class Dsymbol : ASTNode
 {
     Identifier ident;
     Dsymbol parent;
-    /// C++ namespace this symbol belongs to
-    CPPNamespaceDeclaration cppnamespace;
 version (IN_LLVM)
 {
     void* ir; // IrDsymbol*
@@ -263,12 +274,10 @@ else
     const Loc loc;          // where defined
     Scope* _scope;          // !=null means context to use for semantic()
     const(char)* prettystring;  // cached value of toPrettyChars()
+    private DsymbolAttributes* atts; /// attached attribute declarations
     bool errors;            // this symbol failed to pass semantic()
     PASS semanticRun = PASS.initial;
     ushort localNum;        /// perturb mangled name to avoid collisions with those in FuncDeclaration.localsymtab
-
-    DeprecatedDeclaration depdecl;           // customized deprecation message
-    UserAttributeDeclaration userAttribDecl;    // user defined attributes
 
     final extern (D) this() nothrow
     {
@@ -319,6 +328,42 @@ version (IN_LLVM)
     override const(char)* toChars() const
     {
         return ident ? ident.toChars() : "__anonymous";
+    }
+
+    // Getters / setters for fields stored in `DsymbolAttributes`
+    final nothrow pure @safe
+    {
+        private ref DsymbolAttributes getAtts()
+        {
+            if (!atts)
+                atts = new DsymbolAttributes();
+            return *atts;
+        }
+
+        inout(DeprecatedDeclaration) depdecl() inout { return atts ? atts.depdecl_ : null; }
+        inout(CPPNamespaceDeclaration) cppnamespace() inout { return atts ? atts.cppnamespace : null; }
+        inout(UserAttributeDeclaration) userAttribDecl() inout { return atts ? atts.userAttribDecl : null; }
+
+        DeprecatedDeclaration depdecl(DeprecatedDeclaration dd)
+        {
+            if (!dd && !atts)
+                return null;
+            return getAtts().depdecl_ = dd;
+        }
+
+        CPPNamespaceDeclaration cppnamespace(CPPNamespaceDeclaration ns)
+        {
+            if (!ns && !atts)
+                return null;
+            return getAtts().cppnamespace = ns;
+        }
+
+        UserAttributeDeclaration userAttribDecl(UserAttributeDeclaration uad)
+        {
+            if (!uad && !atts)
+                return null;
+            return getAtts().userAttribDecl = uad;
+        }
     }
 
     // helper to print fully qualified (template) arguments
@@ -731,7 +776,7 @@ version (IN_LLVM)
         if (a)
         {
             b = a.copy();
-            for (size_t i = 0; i < b.dim; i++)
+            for (size_t i = 0; i < b.length; i++)
             {
                 (*b)[i] = (*b)[i].syntaxCopy(null);
             }
@@ -990,10 +1035,7 @@ version (IN_LLVM)
                 sm = sm.toAlias();
                 TemplateDeclaration td = sm.isTemplateDeclaration();
                 if (!td)
-                {
-                    .error(loc, "`%s.%s` is not a template, it is a %s", s.toPrettyChars(), ti.name.toChars(), sm.kind());
-                    return null;
-                }
+                    return null; // error but handled later
                 ti.tempdecl = td;
                 if (!ti.semanticRun)
                     ti.dsymbolSemantic(sc);
@@ -1156,7 +1198,7 @@ version (IN_LLVM)
      */
     extern (D) static bool oneMembers(Dsymbols* members, Dsymbol* ps, Identifier ident)
     {
-        //printf("Dsymbol::oneMembers() %d\n", members ? members.dim : 0);
+        //printf("Dsymbol::oneMembers() %d\n", members ? members.length : 0);
         Dsymbol s = null;
         if (!members)
         {
@@ -1164,7 +1206,7 @@ version (IN_LLVM)
             return true;
         }
 
-        for (size_t i = 0; i < members.dim; i++)
+        for (size_t i = 0; i < members.length; i++)
         {
             Dsymbol sx = (*members)[i];
             bool x = sx.oneMember(ps, ident);
@@ -1481,7 +1523,7 @@ public:
         Dsymbol s = null;
         OverloadSet a = null;
         // Look in imported modules
-        for (size_t i = 0; i < importedScopes.dim; i++)
+        for (size_t i = 0; i < importedScopes.length; i++)
         {
             // If private import, don't search it
             if ((flags & IgnorePrivateImports) && visibilities[i] == Visibility.Kind.private_)
@@ -1620,14 +1662,14 @@ public:
         if (OverloadSet os2 = s.isOverloadSet())
         {
             // Merge the cross-module overload set 'os2' into 'os'
-            if (os.a.dim == 0)
+            if (os.a.length == 0)
             {
-                os.a.setDim(os2.a.dim);
-                memcpy(os.a.tdata(), os2.a.tdata(), (os.a[0]).sizeof * os2.a.dim);
+                os.a.setDim(os2.a.length);
+                memcpy(os.a.tdata(), os2.a.tdata(), (os.a[0]).sizeof * os2.a.length);
             }
             else
             {
-                for (size_t i = 0; i < os2.a.dim; i++)
+                for (size_t i = 0; i < os2.a.length; i++)
                 {
                     os = mergeOverloadSet(ident, os, os2.a[i]);
                 }
@@ -1638,7 +1680,7 @@ public:
             assert(s.isOverloadable());
             /* Don't add to os[] if s is alias of previous sym
              */
-            for (size_t j = 0; j < os.a.dim; j++)
+            for (size_t j = 0; j < os.a.length; j++)
             {
                 Dsymbol s2 = os.a[j];
                 if (s.toAlias() == s2.toAlias())
@@ -1666,7 +1708,7 @@ public:
                 importedScopes = new Dsymbols();
             else
             {
-                for (size_t i = 0; i < importedScopes.dim; i++)
+                for (size_t i = 0; i < importedScopes.length; i++)
                 {
                     Dsymbol ss = (*importedScopes)[i];
                     if (ss == s) // if already imported
@@ -1678,8 +1720,8 @@ public:
                 }
             }
             importedScopes.push(s);
-            visibilities = cast(Visibility.Kind*)mem.xrealloc(visibilities, importedScopes.dim * (visibilities[0]).sizeof);
-            visibilities[importedScopes.dim - 1] = visibility.kind;
+            visibilities = cast(Visibility.Kind*)mem.xrealloc(visibilities, importedScopes.length * (visibilities[0]).sizeof);
+            visibilities[importedScopes.length - 1] = visibility.kind;
         }
     }
 
@@ -1706,7 +1748,7 @@ public:
         if (!importedScopes)
             return null;
 
-        return (() @trusted => visibilities[0 .. importedScopes.dim])();
+        return (() @trusted => visibilities[0 .. importedScopes.length])();
     }
 
     extern (D) final void addAccessiblePackage(Package p, Visibility visibility) nothrow
@@ -1747,9 +1789,9 @@ public:
         }
         if (loc.isValid())
         {
-            .error(loc, "%s `%s` at %s conflicts with %s `%s` at %s",
-                s1.kind(), s1.toPrettyChars(), s1.locToChars(),
-                s2.kind(), s2.toPrettyChars(), s2.locToChars());
+            .error(loc, "`%s` matches conflicting symbols:", s1.ident.toChars());
+            errorSupplemental(s1.loc, "%s `%s`", s1.kind(), s1.toPrettyChars());
+            errorSupplemental(s2.loc, "%s `%s`", s2.kind(), s2.toPrettyChars());
 
             static if (0)
             {
@@ -1846,7 +1888,7 @@ public:
     {
         if (members)
         {
-            for (size_t i = 0; i < members.dim; i++)
+            for (size_t i = 0; i < members.length; i++)
             {
                 Dsymbol member = (*members)[i];
                 if (member.hasStaticCtorOrDtor())
@@ -1875,7 +1917,7 @@ public:
             return 0;
         size_t n = pn ? *pn : 0; // take over index
         int result = 0;
-        foreach (size_t i; 0 .. members.dim)
+        foreach (size_t i; 0 .. members.length)
         {
             Dsymbol s = (*members)[i];
             if (AttribDeclaration a = s.isAttribDeclaration())
@@ -2012,7 +2054,7 @@ extern (C++) final class ArrayScopeSymbol : ScopeDsymbol
             /* $ gives the number of type entries in the type tuple
              */
             auto v = new VarDeclaration(loc, Type.tsize_t, Id.dollar, null);
-            Expression e = new IntegerExp(Loc.initial, tt.arguments.dim, Type.tsize_t);
+            Expression e = new IntegerExp(Loc.initial, tt.arguments.length, Type.tsize_t);
             v._init = new ExpInitializer(Loc.initial, e);
             v.storage_class |= STC.temp | STC.static_ | STC.const_;
             v.dsymbolSemantic(sc);
@@ -2027,7 +2069,7 @@ extern (C++) final class ArrayScopeSymbol : ScopeDsymbol
             /* $ gives the number of elements in the tuple
              */
             auto v = new VarDeclaration(loc, Type.tsize_t, Id.dollar, null);
-            Expression e = new IntegerExp(Loc.initial, td.objects.dim, Type.tsize_t);
+            Expression e = new IntegerExp(Loc.initial, td.objects.length, Type.tsize_t);
             v._init = new ExpInitializer(Loc.initial, e);
             v.storage_class |= STC.temp | STC.static_ | STC.const_;
             v.dsymbolSemantic(sc);
@@ -2090,7 +2132,7 @@ extern (C++) final class ArrayScopeSymbol : ScopeDsymbol
                 /* It is for an expression tuple, so the
                  * length will be a const.
                  */
-                Expression e = new IntegerExp(Loc.initial, tupexp.exps.dim, Type.tsize_t);
+                Expression e = new IntegerExp(Loc.initial, tupexp.exps.length, Type.tsize_t);
                 v = new VarDeclaration(loc, Type.tsize_t, Id.dollar, new ExpInitializer(Loc.initial, e));
                 v.storage_class |= STC.temp | STC.static_ | STC.const_;
             }
@@ -2134,7 +2176,7 @@ extern (C++) final class ArrayScopeSymbol : ScopeDsymbol
                      * Note that it's impossible to have both template & function opDollar,
                      * because both take no arguments.
                      */
-                    if (exp.op == EXP.array && (cast(ArrayExp)exp).arguments.dim != 1)
+                    if (exp.op == EXP.array && (cast(ArrayExp)exp).arguments.length != 1)
                     {
                         exp.error("`%s` only defines opDollar for one dimension", ad.toChars());
                         return null;

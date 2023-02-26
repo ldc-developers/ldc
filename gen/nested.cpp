@@ -17,6 +17,7 @@
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/runtime.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
 #include "ir/irtypeaggr.h"
@@ -488,17 +489,33 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
     auto &irFunc = funcGen.irFunc;
     unsigned depth = irFunc.depth;
     LLStructType *frameType = irFunc.frameType;
+    const unsigned frameAlignment =
+        std::max(getABITypeAlign(frameType), irFunc.frameTypeAlignment);
+
     // Create frame for current function and append to frames list
     LLValue *frame = nullptr;
     bool needsClosure = fd->needsClosure();
     IF_LOG Logger::println("Needs closure (GC) flag: %d", (int)needsClosure);
     if (needsClosure) {
-      // FIXME: alignment ?
-      frame = DtoGcMalloc(fd->loc, frameType, ".frame");
+      LLFunction *fn =
+          getRuntimeFunction(fd->loc, gIR->module, "_d_allocmemory");
+      auto size = getTypeAllocSize(frameType);
+      if (frameAlignment > 16) // GC guarantees an alignment of 16
+        size += frameAlignment - 16;
+      LLValue *mem =
+          gIR->CreateCallOrInvoke(fn, DtoConstSize_t(size), ".gc_frame");
+      if (frameAlignment <= 16) {
+        frame = DtoBitCast(mem, frameType->getPointerTo(), ".frame");
+      } else {
+        const uint64_t mask = frameAlignment - 1;
+        mem = gIR->ir->CreatePtrToInt(mem, DtoSize_t());
+        mem = gIR->ir->CreateAdd(mem, DtoConstSize_t(mask));
+        mem = gIR->ir->CreateAnd(mem, DtoConstSize_t(~mask));
+        frame =
+            gIR->ir->CreateIntToPtr(mem, frameType->getPointerTo(), ".frame");
+      }
     } else {
-      unsigned alignment =
-          std::max(getABITypeAlign(frameType), irFunc.frameTypeAlignment);
-      frame = DtoRawAlloca(frameType, alignment, ".frame");
+      frame = DtoRawAlloca(frameType, frameAlignment, ".frame");
     }
 
     // copy parent frames into beginning

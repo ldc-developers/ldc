@@ -1,7 +1,7 @@
 /**
  * Encapsulate path and file names.
  *
- * Copyright: Copyright (C) 1999-2022 by The D Language Foundation, All Rights Reserved
+ * Copyright: Copyright (C) 1999-2023 by The D Language Foundation, All Rights Reserved
  * Authors:   Walter Bright, https://www.digitalmars.com
  * License:   $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Source:    $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/root/filename.d, root/_filename.d)
@@ -62,7 +62,7 @@ alias Strings = Array!(const(char)*);
 
 
 // Check whether character is a directory separator
-private bool isDirSeparator(char c) pure nothrow @nogc @safe
+bool isDirSeparator(char c) pure nothrow @nogc @safe
 {
     version (Windows)
     {

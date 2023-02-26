@@ -156,12 +156,12 @@ static cl::opt<MessageStyle, true> verrorStyle(
     cl::desc(
         "Set the style for file/line number annotations on compiler messages"),
     cl::values(
-        clEnumValN(MESSAGESTYLEdigitalmars, "digitalmars",
+        clEnumValN(MessageStyle::digitalmars, "digitalmars",
                    "'file(line[,column]): message' (default)"),
-        clEnumValN(MESSAGESTYLEgnu, "gnu",
+        clEnumValN(MessageStyle::gnu, "gnu",
                    "'file:line[:column]: message', conforming to the GNU "
                    "standard used by gcc and clang")),
-    cl::init(MESSAGESTYLEdigitalmars));
+    cl::init(MessageStyle::digitalmars));
 
 static cl::opt<Diagnostic, true> warnings(
     cl::desc("Warnings:"), cl::ZeroOrMore, cl::location(global.params.warnings),

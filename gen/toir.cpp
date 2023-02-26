@@ -219,12 +219,19 @@ void pushVarDtorCleanup(IRState *p, VarDeclaration *vd) {
   p->funcGen().scopes.pushCleanup(beginBB, p->scopebb());
 }
 
-DImValue *zextInteger(LLValue *val, Type *to) {
-  assert(val->getType()->isIntegerTy(1));
+// Zero-extends a scalar i1 to an integer type, or creates a vector mask from an
+// i1 vector.
+DImValue *zextBool(LLValue *val, Type *to) {
+  assert(val->getType()->isIntOrIntVectorTy(1));
   LLType *llTy = DtoType(to);
   if (val->getType() != llTy) {
-    assert(llTy->isIntegerTy());
-    val = gIR->ir->CreateZExt(val, llTy);
+    if (llTy->isVectorTy()) {
+      assert(val->getType()->isVectorTy());
+      val = gIR->ir->CreateSExt(val, llTy);
+    } else {
+      assert(llTy->isIntegerTy());
+      val = gIR->ir->CreateZExt(val, llTy);
+    }
   }
   return new DImValue(to, val);
 }
@@ -1360,7 +1367,7 @@ public:
       llvm_unreachable("Unsupported CmpExp type");
     }
 
-    result = zextInteger(eval, e->type);
+    result = zextBool(eval, e->type);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1406,11 +1413,7 @@ public:
         Logger::cout() << "rv: " << *rv << '\n';
       }
       eval = p->ir->CreateICmp(cmpop, lv, rv);
-      if (t->ty == TY::Tvector) {
-        eval = mergeVectorEquals(eval, e->op);
-      }
-    } else if (t->isfloating()) // includes iscomplex
-    {
+    } else if (t->isfloating()) { // includes iscomplex
       eval = DtoBinNumericEquals(e->loc, l, r, e->op);
     } else if (t->ty == TY::Tsarray || t->ty == TY::Tarray) {
       Logger::println("static or dynamic array");
@@ -1429,7 +1432,7 @@ public:
       llvm_unreachable("Unsupported EqualExp type.");
     }
 
-    result = zextInteger(eval, e->type);
+    result = zextBool(eval, e->type);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1814,7 +1817,7 @@ public:
     LLConstant *zero = DtoConstBool(false);
     b = p->ir->CreateICmpEQ(b, zero);
 
-    result = zextInteger(b, e->type);
+    result = zextBool(b, e->type);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1890,7 +1893,7 @@ public:
       resval = phi;
     }
 
-    result = zextInteger(resval, e->type);
+    result = zextBool(resval, e->type);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1990,12 +1993,12 @@ public:
 
     // handle dynarray specially
     if (t1->ty == TY::Tarray) {
-      result = zextInteger(DtoDynArrayIs(e->op, l, r), e->type);
+      result = zextBool(DtoDynArrayIs(e->op, l, r), e->type);
       return;
     }
     // also structs
     if (t1->ty == TY::Tstruct) {
-      result = zextInteger(DtoStructEquals(e->op, l, r), e->type);
+      result = zextBool(DtoStructEquals(e->op, l, r), e->type);
       return;
     }
 
@@ -2010,8 +2013,7 @@ public:
         assert(lv->getType() == rv->getType());
       }
       eval = DtoDelegateEquals(e->op, lv, rv);
-    } else if (t1->isfloating()) // includes iscomplex
-    {
+    } else if (t1->isfloating()) { // includes iscomplex
       eval = DtoBinNumericEquals(e->loc, l, r, e->op);
     } else if (t1->ty == TY::Tpointer || t1->ty == TY::Tclass) {
       LLValue *lv = DtoRVal(l);
@@ -2042,7 +2044,7 @@ public:
                                                               : EXP::notEqual);
       }
     }
-    result = zextInteger(eval, e->type);
+    result = zextBool(eval, e->type);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2290,34 +2292,47 @@ public:
       // dmd seems to just make them null...
       result = new DSliceValue(e->type, DtoConstSize_t(0),
                                getNullPtr(getPtrToType(llElemType)));
-    } else if (dyn) {
-      if (arrayType->isImmutable() && isConstLiteral(e, true)) {
-        llvm::Constant *init = arrayLiteralToConst(p, e);
-        auto global = new llvm::GlobalVariable(
-            gIR->module, init->getType(), true,
-            llvm::GlobalValue::InternalLinkage, init, ".immutablearray");
-        result = new DSliceValue(arrayType, DtoConstSize_t(len),
-                                 DtoBitCast(global, getPtrToType(llElemType)));
-      } else {
-        DSliceValue *dynSlice = DtoNewDynArray(
-            e->loc, arrayType,
-            new DConstValue(Type::tsize_t, DtoConstSize_t(len)), false);
-        initializeArrayLiteral(
-            p, e, DtoBitCast(dynSlice->getPtr(), getPtrToType(llStoType)), llStoType);
-        result = dynSlice;
-      }
-    } else {
+      return;
+    }
+
+    // allocated on the stack?
+    if (!dyn || e->onstack) {
       llvm::Value *storage =
-          DtoRawAlloca(llStoType, DtoAlignment(e->type), "arrayliteral");
+          DtoRawAlloca(llStoType, DtoAlignment(elemType), "arrayliteral");
       initializeArrayLiteral(p, e, storage, llStoType);
+
       if (arrayType->ty == TY::Tsarray) {
         result = new DLValue(e->type, storage);
+        return;
+      }
+
+      storage = DtoBitCast(storage, llElemType->getPointerTo());
+      if (arrayType->ty == TY::Tarray) {
+        result = new DSliceValue(e->type, DtoConstSize_t(len), storage);
       } else if (arrayType->ty == TY::Tpointer) {
-        storage = DtoBitCast(storage, llElemType->getPointerTo());
         result = new DImValue(e->type, storage);
       } else {
         llvm_unreachable("Unexpected array literal type");
       }
+      return;
+    }
+
+    // we're dealing with a non-stack dynamic array literal now
+    if (arrayType->isImmutable() && isConstLiteral(e, true)) {
+      llvm::Constant *init = arrayLiteralToConst(p, e);
+      auto global = new llvm::GlobalVariable(gIR->module, init->getType(), true,
+                                             llvm::GlobalValue::InternalLinkage,
+                                             init, ".immutablearray");
+      result = new DSliceValue(arrayType, DtoConstSize_t(len),
+                               DtoBitCast(global, getPtrToType(llElemType)));
+    } else {
+      DSliceValue *dynSlice = DtoNewDynArray(
+          e->loc, arrayType,
+          new DConstValue(Type::tsize_t, DtoConstSize_t(len)), false);
+      initializeArrayLiteral(
+          p, e, DtoBitCast(dynSlice->getPtr(), getPtrToType(llStoType)),
+          llStoType);
+      result = dynSlice;
     }
   }
 

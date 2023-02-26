@@ -214,12 +214,9 @@ endif()
 
 if(PHOBOS2_DIR)
     # Phobos D parts
-    file(GLOB_RECURSE PHOBOS2_D ${PHOBOS2_DIR}/*.d)
-    # remove top-level modules index.d and unittest.d
-    list(REMOVE_ITEM PHOBOS2_D ${PHOBOS2_DIR}/index.d ${PHOBOS2_DIR}/unittest.d)
-    # remove D files in test/
-    file(GLOB_RECURSE PHOBOS2_D_TEST ${PHOBOS2_DIR}/test/*.d)
-    list(REMOVE_ITEM PHOBOS2_D ${PHOBOS2_D_TEST})
+    file(GLOB_RECURSE PHOBOS2_D_ETC ${PHOBOS2_DIR}/etc/*.d)
+    file(GLOB_RECURSE PHOBOS2_D_STD ${PHOBOS2_DIR}/std/*.d)
+    set(PHOBOS2_D ${PHOBOS2_D_ETC} ${PHOBOS2_D_STD})
     # only include std/windows/ modules on Windows
     if(NOT "${TARGET_SYSTEM}" MATCHES "Windows")
         file(GLOB_RECURSE PHOBOS2_D_WINDOWS ${PHOBOS2_DIR}/std/windows/*.d)
@@ -227,7 +224,7 @@ if(PHOBOS2_DIR)
     endif()
 
     # Phobos C parts
-    file(GLOB_RECURSE PHOBOS2_C ${PHOBOS2_DIR}/*.c)
+    file(GLOB_RECURSE PHOBOS2_C ${PHOBOS2_DIR}/etc/*.c)
     # remove zlib test modules
     list(REMOVE_ITEM PHOBOS2_C
         ${PHOBOS2_DIR}/etc/c/zlib/test/example.c

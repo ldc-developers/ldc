@@ -47,7 +47,6 @@ llvm::AllocaInst *DtoArrayAlloca(Type *type, unsigned arraysize,
                                  const char *name = "");
 llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
                                const char *name = "");
-LLValue *DtoGcMalloc(const Loc &loc, LLType *lltype, const char *name = "");
 
 LLValue *DtoAllocaDump(DValue *val, const char *name = "");
 LLValue *DtoAllocaDump(DValue *val, int alignment, const char *name = "");

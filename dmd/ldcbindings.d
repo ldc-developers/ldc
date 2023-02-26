@@ -13,6 +13,7 @@ import dmd.arraytypes;
 import dmd.dsymbol;
 import dmd.expression;
 import dmd.globals;
+import dmd.location;
 import dmd.common.outbuffer;
 import dmd.statement;
 import dmd.tokens;
