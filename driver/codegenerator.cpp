@@ -161,8 +161,13 @@ bool inlineAsmDiagnostic(IRState *irs, const llvm::SMDiagnostic &d,
 #if LDC_LLVM_VER < 1300
 void inlineAsmDiagnosticHandler(const llvm::SMDiagnostic &d, void *context,
                                 unsigned locCookie) {
-  if (d.getKind() == llvm::SourceMgr::DK_Error)
+  if (d.getKind() == llvm::SourceMgr::DK_Error) {
     ++global.errors;
+  } else if (global.params.warnings == DIAGNOSTICerror &&
+             d.getKind() == llvm::SourceMgr::DK_Warning) {
+    ++global.warnings;
+  }
+
   inlineAsmDiagnostic(static_cast<IRState *>(context), d, locCookie);
 }
 #else
@@ -176,8 +181,15 @@ struct InlineAsmDiagnosticHandler : public llvm::DiagnosticHandler {
         return false;
 
     const auto &DISM = llvm::cast<llvm::DiagnosticInfoSrcMgr>(DI);
-    if (DISM.getKind() == llvm::SourceMgr::DK_Error)
+    if (DISM.getKind() == llvm::SourceMgr::DK_Error ||
+        DISM.getSeverity() == llvm::DS_Error) {
       ++global.errors;
+    } else if (global.params.warnings == DIAGNOSTICerror &&
+               (DISM.getKind() == llvm::SourceMgr::DK_Warning ||
+                DISM.getSeverity() == llvm::DS_Warning)) {
+      ++global.warnings;
+    }
+
     return inlineAsmDiagnostic(irs, DISM.getSMDiag(), DISM.getLocCookie());
   }
 };
