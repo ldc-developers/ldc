@@ -25,6 +25,16 @@
 #include "llvm/Support/VirtualFileSystem.h"
 #endif
 
+#if LDC_LLVM_VER >= 1400
+#include "llvm/Transforms/Instrumentation/AddressSanitizerOptions.h"
+#else
+namespace llvm {
+// Declaring this simplifies code later, but the option is never used with LLVM
+// <= 13.
+enum class AsanDetectStackUseAfterReturnMode { Never, Runtime, Always };
+}
+#endif
+
 namespace {
 
 using namespace opts;
@@ -120,6 +130,25 @@ void parseFSanitizeCoverageCmdlineParameter(llvm::SanitizerCoverageOptions &opts
 } // anonymous namespace
 
 namespace opts {
+
+cl::opt<llvm::AsanDetectStackUseAfterReturnMode> fSanitizeAddressUseAfterReturn(
+    "fsanitize-address-use-after-return", cl::ZeroOrMore,
+    cl::desc("Select the mode of detecting stack use-after-return (UAR) in "
+             "AddressSanitizer: never | runtime (default) | always"),
+    cl::init(llvm::AsanDetectStackUseAfterReturnMode::Runtime),
+    cl::values(
+        clEnumValN(
+            llvm::AsanDetectStackUseAfterReturnMode::Never, "never",
+            "Completely disables detection of UAR errors (reduces code size)."),
+        clEnumValN(llvm::AsanDetectStackUseAfterReturnMode::Runtime, "runtime",
+                   "Adds the code for detection, but it can be disabled via the "
+                   "runtime environment "
+                   "(ASAN_OPTIONS=detect_stack_use_after_return=0). Requires "
+                   "druntime support."),
+        clEnumValN(
+            llvm::AsanDetectStackUseAfterReturnMode::Always, "always",
+            "Enables detection of UAR errors in all cases. (reduces code size, "
+            "but not as much as never). Requires druntime support.")));
 
 SanitizerBits enabledSanitizers = 0;
 
