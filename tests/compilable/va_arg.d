@@ -1,7 +1,5 @@
-// REQUIRES: host_X86
-
 // RUN: %ldc -mtriple=aarch64-none-elf -c %s
-// RUN: %ldc -mtriple=riscv64-none-elf -c %s
+// RUN: %ldc -mtriple=riscv64-unknown-elf -c %s
 
 alias va_list = void*;
 
