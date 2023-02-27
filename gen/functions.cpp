@@ -1046,6 +1046,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   if (fd->ir->isDefined()) {
+    if (fd->llvmInternal == LLVMva_arg)
+      return;
     llvm::Function *func = getIrFunc(fd)->getLLVMFunc();
     assert(func);
     if (!linkageAvailableExternally &&
