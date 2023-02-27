@@ -454,7 +454,7 @@ static void addAddressSanitizerPasses(ModulePassManager &mpm,
   aso.CompileKernel = false;
   aso.Recover = false;
   aso.UseAfterScope = true;
-  aso.UseAfterReturn = AsanDetectStackUseAfterReturnMode::Runtime;
+  aso.UseAfterReturn = opts::fSanitizeAddressUseAfterReturn;
 
 #if LDC_LLVM_VER >= 1600
   mpm.addPass(AddressSanitizerPass(aso));

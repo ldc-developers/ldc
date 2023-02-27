@@ -20,6 +20,7 @@ class FuncDeclaration;
 namespace llvm {
 class raw_ostream;
 class StringRef;
+enum class AsanDetectStackUseAfterReturnMode;
 }
 
 namespace opts {
@@ -36,6 +37,8 @@ enum SanitizerCheck : SanitizerBits {
   LeakSanitizer = 1 << 5,
 };
 extern SanitizerBits enabledSanitizers;
+
+extern cl::opt<llvm::AsanDetectStackUseAfterReturnMode> fSanitizeAddressUseAfterReturn;
 
 inline bool isAnySanitizerEnabled() { return enabledSanitizers; }
 inline bool isSanitizerEnabled(SanitizerBits san) {
