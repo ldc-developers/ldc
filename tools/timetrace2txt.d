@@ -149,9 +149,11 @@ void readMetaData()
     multiSort!(q{a["ts"].get!ulong < b["ts"].get!ulong}, q{a["dur"].get!ulong > b["dur"].get!ulong})(processes);
 }
 
+// Build tree (to get nicer looking structure lines)
 void constructTree()
 {
-    // Build tree (to get nicer looking structure lines)
+    Node.root = Node(new JSONValue("Tree root"), ulong.max);
+    Node.count++;
     Node*[] parent_stack = [&Node.root]; // each stack item represents the first uncompleted note of that level in the tree
 
     foreach (ref process; processes)
@@ -210,9 +212,9 @@ struct Node
     string location;
     string detail;
 
-    static Node root = Node(new JSONValue("Tree root"), ulong.max);
+    static Node root;
     static Node*[] all;
-    static size_t count = 1;
+    static size_t count = 0;
 
     this(JSONValue* json, ulong last_ts)
     {
