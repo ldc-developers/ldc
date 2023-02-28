@@ -84,7 +84,7 @@ int main(string[] args)
 
     auto input_json = read(config.input_filename).to!string;
     sourceFile = parseJSON(input_json);
-    readMetaData();
+    processInputJSON();
     constructTree();
     constructList();
 
@@ -121,9 +121,9 @@ int main(string[] args)
     return 0;
 }
 
-void readMetaData()
+void processInputJSON()
 {
-    auto beginningOfTime = sourceFile["beginningOfTime"].get!ulong;
+    auto beginningOfTime = sourceFile["beginningOfTime"].get!long;
     auto traceEvents = sourceFile["traceEvents"].get!(JSONValue[]);
 
     // Read meta data
@@ -146,19 +146,19 @@ void readMetaData()
 
     // process node = {"ph":"X","name": "Sema1: Module object","ts":26825,"dur":1477,"loc":"<no file>","args":{"detail": "","loc":"<no file>"},"pid":101,"tid":101},
     // Sort time processes
-    multiSort!(q{a["ts"].get!ulong < b["ts"].get!ulong}, q{a["dur"].get!ulong > b["dur"].get!ulong})(processes);
+    multiSort!(q{a["ts"].get!long < b["ts"].get!long}, q{a["dur"].get!long > b["dur"].get!long})(processes);
 }
 
 // Build tree (to get nicer looking structure lines)
 void constructTree()
 {
-    Node.root = Node(new JSONValue("Tree root"), ulong.max);
+    Node.root = Node(new JSONValue("Tree root"), long.max);
     Node.count++;
     Node*[] parent_stack = [&Node.root]; // each stack item represents the first uncompleted note of that level in the tree
 
     foreach (ref process; processes)
     {
-        auto last_ts = process["ts"].get!ulong + process["dur"].get!ulong;
+        auto last_ts = process["ts"].get!long + process["dur"].get!long;
         size_t parent_idx = 0; // index in parent_stack to which this item should be added.
 
         foreach (i; 0 .. parent_stack.length)
@@ -204,11 +204,11 @@ struct Node
 {
     Node[] children;
     JSONValue* json;
-    ulong last_ts; // represents the last timestamp of this node (i.e. ts + dur)
+    long last_ts; // represents the last timestamp of this node (i.e. ts + dur)
     ulong lineNumber;
 
     string name;
-    ulong duration; // microseconds
+    long duration; // microseconds
     string location;
     string detail;
 
@@ -216,14 +216,14 @@ struct Node
     static Node*[] all;
     static size_t count = 0;
 
-    this(JSONValue* json, ulong last_ts)
+    this(JSONValue* json, long last_ts)
     {
         this.json = json;
         this.last_ts = last_ts;
 
         if ((*json).type == JSONType.object && "dur" in (*json))
         {
-            this.duration = (*json)["dur"].get!ulong;
+            this.duration = (*json)["dur"].get!long;
             this.name = (*json)["name"].get!string;
             this.location = (*json)["args"]["loc"].get!string;
             this.detail = (*json)["args"]["detail"].get!string;
