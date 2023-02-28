@@ -123,13 +123,13 @@ int main(string[] args)
 
 void processInputJSON()
 {
-    auto beginningOfTime = sourceFile["beginningOfTime"].get!long;
-    auto traceEvents = sourceFile["traceEvents"].get!(JSONValue[]);
+    auto beginningOfTime = sourceFile["beginningOfTime"].integer;
+    auto traceEvents = sourceFile["traceEvents"].array;
 
     // Read meta data
     foreach (value; traceEvents)
     {
-        switch (value["ph"].get!string)
+        switch (value["ph"].str)
         {
         case "M":
             metadata ~= value;
@@ -146,19 +146,19 @@ void processInputJSON()
 
     // process node = {"ph":"X","name": "Sema1: Module object","ts":26825,"dur":1477,"loc":"<no file>","args":{"detail": "","loc":"<no file>"},"pid":101,"tid":101},
     // Sort time processes
-    multiSort!(q{a["ts"].get!long < b["ts"].get!long}, q{a["dur"].get!long > b["dur"].get!long})(processes);
+    multiSort!(q{a["ts"].integer < b["ts"].integer}, q{a["dur"].integer > b["dur"].integer})(processes);
 }
 
 // Build tree (to get nicer looking structure lines)
 void constructTree()
 {
-    Node.root = Node(new JSONValue("Tree root"), long.max);
+    Node.root = Node(new JSONValue("Tree root"), long.max, true);
     Node.count++;
     Node*[] parent_stack = [&Node.root]; // each stack item represents the first uncompleted note of that level in the tree
 
     foreach (ref process; processes)
     {
-        auto last_ts = process["ts"].get!long + process["dur"].get!long;
+        auto last_ts = process["ts"].integer + process["dur"].integer;
         size_t parent_idx = 0; // index in parent_stack to which this item should be added.
 
         foreach (i; 0 .. parent_stack.length)
@@ -216,17 +216,17 @@ struct Node
     static Node*[] all;
     static size_t count = 0;
 
-    this(JSONValue* json, long last_ts)
+    this(JSONValue* json, long last_ts, bool root = false)
     {
         this.json = json;
         this.last_ts = last_ts;
 
-        if ((*json).type == JSONType.object && "dur" in (*json))
+        if (!root)
         {
-            this.duration = (*json)["dur"].get!long;
-            this.name = (*json)["name"].get!string;
-            this.location = (*json)["args"]["loc"].get!string;
-            this.detail = (*json)["args"]["detail"].get!string;
+            this.duration = (*json)["dur"].integer;
+            this.name = (*json)["name"].str;
+            this.location = (*json)["args"]["loc"].str;
+            this.detail = (*json)["args"]["detail"].str;
         }
     }
 
