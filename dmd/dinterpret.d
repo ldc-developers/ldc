@@ -63,6 +63,12 @@ import dmd.visitor;
  */
 public Expression ctfeInterpret(Expression e)
 {
+    version(LDC)
+    {
+        import driver.timetrace, std.format, std.conv;
+        auto timeScope = TimeTraceScope(text("CTFE start: ", e.toChars()), e.toChars().to!string, e.loc);
+    }
+
     switch (e.op)
     {
         case EXP.int64:
@@ -4775,6 +4781,12 @@ public:
 
     override void visit(CallExp e)
     {
+        version(LDC)
+        {
+            import driver.timetrace, std.format, std.conv;
+            auto timeScope = TimeTraceScope(text("CTFE call: ", e.toChars()), e.toChars().to!string, e.loc);
+        }
+
         debug (LOG)
         {
             printf("%s CallExp::interpret() %s\n", e.loc.toChars(), e.toChars());
