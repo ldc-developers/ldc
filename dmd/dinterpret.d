@@ -63,12 +63,6 @@ import dmd.visitor;
  */
 public Expression ctfeInterpret(Expression e)
 {
-    version(LDC)
-    {
-        import driver.timetrace, std.format, std.conv;
-        auto timeScope = TimeTraceScope(text("CTFE start: ", e.toChars()), e.toChars().to!string, e.loc);
-    }
-
     switch (e.op)
     {
         case EXP.int64:
@@ -103,6 +97,12 @@ public Expression ctfeInterpret(Expression e)
         return ErrorExp.get();
 
     auto rgnpos = ctfeGlobals.region.savePos();
+
+    version (LDC)
+    {
+        import driver.timetrace, std.format, std.conv;
+        auto timeScope = TimeTraceScope(text("CTFE start: ", e.toChars()), e.toChars().to!string, e.loc);
+    }
 
     Expression result = interpret(e, null);
 
@@ -435,6 +435,31 @@ private Expression interpretFunction(UnionExp* pue, FuncDeclaration fd, InterSta
     {
         printf("\n********\n%s FuncDeclaration::interpret(istate = %p) %s\n", fd.loc.toChars(), istate, fd.toChars());
     }
+
+    version (LDC)
+    {
+        import driver.timetrace, std.format, std.conv;
+        scope dlg = () {
+                            import dmd.common.outbuffer;
+                            auto strbuf = OutBuffer(20);
+                            strbuf.writestring(fd.toPrettyChars());
+                            strbuf.write("(");
+                            if (arguments)
+                            {
+                                foreach (i, arg; *arguments)
+                                {
+                                    if (i > 0)
+                                        strbuf.write(", ");
+                                    strbuf.writestring(arg.toChars());
+                                }
+                            }
+                            strbuf.write(")");
+                            return strbuf.extractSlice();
+                        };
+        auto timeScope = TimeTraceScopeDelayedDetail(text("CTFE func: ", fd.toChars()), dlg, fd.loc);
+    }
+
+
     assert(pue);
     if (fd.semanticRun == PASS.semantic3)
     {
@@ -4781,12 +4806,6 @@ public:
 
     override void visit(CallExp e)
     {
-        version(LDC)
-        {
-            import driver.timetrace, std.format, std.conv;
-            auto timeScope = TimeTraceScope(text("CTFE call: ", e.toChars()), e.toChars().to!string, e.loc);
-        }
-
         debug (LOG)
         {
             printf("%s CallExp::interpret() %s\n", e.loc.toChars(), e.toChars());
