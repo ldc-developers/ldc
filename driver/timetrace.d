@@ -441,7 +441,7 @@ struct TimeTraceScopeDelayedDetail
 
     /// Takes ownership of string returned by `detail`.
     /// `detail` is stored in the struct, but does not escape the lifetime of the struct object.
-    this(lazy string name, scope const(char)[] delegate() detail, Loc loc = Loc()) @system
+    this(lazy string name, scope const(char)[] delegate() detail, Loc loc = Loc()) scope @system
     {
         if (timeTraceProfilerEnabled())
         {
