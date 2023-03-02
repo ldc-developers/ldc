@@ -1,11 +1,11 @@
 // Test --ftime-trace functionality: CTFE
 
-// RUN: %ldc -c --ftime-trace --ftime-trace-file=%t.1 %s && FileCheck %s < %t.1
+// RUN: %ldc -c --ftime-trace --ftime-trace-granularity=100 --ftime-trace-file=%t.1 %s && FileCheck %s < %t.1
 
 // CHECK: traceEvents
 
-// CHECK-DAG: CTFE start: Thing
 // CHECK-DAG: CTFE func: mulmul
+// CHECK-DAG: CTFE start: Thing
 // CHECK-DAG: CTFE func: muloddmul
 // CHECK-DAG: ExecuteCompiler
 
