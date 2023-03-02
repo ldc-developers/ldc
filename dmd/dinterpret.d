@@ -98,7 +98,7 @@ public Expression ctfeInterpret(Expression e)
 
     auto rgnpos = ctfeGlobals.region.savePos();
 
-    version (LDC)
+    version (IN_LLVM)
     {
         import driver.timetrace, std.format, std.conv;
         auto timeScope = TimeTraceScope(text("CTFE start: ", e.toChars()), e.toChars().to!string, e.loc);
@@ -436,7 +436,7 @@ private Expression interpretFunction(UnionExp* pue, FuncDeclaration fd, InterSta
         printf("\n********\n%s FuncDeclaration::interpret(istate = %p) %s\n", fd.loc.toChars(), istate, fd.toChars());
     }
 
-    version (LDC)
+    version (IN_LLVM)
     {
         import driver.timetrace, std.format, std.conv;
         scope dlg = () {
