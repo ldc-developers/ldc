@@ -6,6 +6,7 @@
 - Linker-level dead code elimination is enabled by default for Apple, wasm and *all* ELF targets too now. (#4320)
 - Vector comparisons (==, !=, <, <=, >, >=) now yield a vector mask. Identity comparisons (`is`, `!is`) still yield a scalar `bool`. (3a59ee81)
 - New `timetrace2txt` tool for easier inspection of `--ftime-trace` output. (#4335)
+- `--ftime-trace` now also traces CTFE execution: the start expression of CTFE and function calls during CTFE. (#4339)
 
 #### Platform support
 - Supports LLVM 9.0 - 15.0.
