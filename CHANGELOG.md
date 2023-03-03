@@ -1,7 +1,7 @@
 # LDC master
 
 #### Big news
-- Frontend, druntime and Phobos are at version [2.102.1](https://dlang.org/changelog/2.102.0.html). (#4323)
+- Frontend, druntime and Phobos are at version [2.102.2](https://dlang.org/changelog/2.102.0.html). (#4323, #4341)
 - LLVM for prebuilt packages bumped to v15.0.7. (#4311)
 - Linker-level dead code elimination is enabled by default for Apple, wasm and *all* ELF targets too now. (#4320)
 - Vector comparisons (==, !=, <, <=, >, >=) now yield a vector mask. Identity comparisons (`is`, `!is`) still yield a scalar `bool`. (3a59ee81)
