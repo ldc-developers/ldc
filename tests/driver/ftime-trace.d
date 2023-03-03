@@ -1,6 +1,6 @@
 // Test --ftime-trace functionality
 
-// RUN: %ldc --ftime-trace --ftime-trace-file=%t.1 --ftime-trace-granularity=1 %s && FileCheck --check-prefix=ALL --check-prefix=FINE %s < %t.1
+// RUN: %ldc --ftime-trace --ftime-trace-file=%t.1 --ftime-trace-granularity=10 %s && FileCheck --check-prefix=ALL --check-prefix=FINE %s < %t.1
 // RUN: %ldc --ftime-trace --ftime-trace-file=%t.2 --ftime-trace-granularity=20000 %s && FileCheck --check-prefix=ALL --check-prefix=COARSE %s < %t.2
 
 // RUN: %ldc --ftime-trace --ftime-trace-file=- --ftime-trace-granularity=20000 %s | FileCheck --check-prefix=ALL --check-prefix=COARSE %s

@@ -209,6 +209,24 @@ struct TimeTraceProfiler
         }
     }
 
+    /// Takes ownership of the string returned by `details`.
+    void endScopeUpdateDetails(scope const(char)[] delegate() details)
+    {
+        TimeTicks timeEnd = getTimeTicks();
+
+        DurationEvent event = durationStack.pop();
+        event.timeDuration = timeEnd - event.timeBegin;
+        if (event.timeDuration >= timeGranularity)
+        {
+            // Event passes the logging threshold
+            event.details = details();
+            event.timeBegin -= beginningOfTime;
+            durationEvents.push(event);
+            counterEvents.push(generateCounterEvent(timeEnd-beginningOfTime));
+        }
+    }
+
+
     CounterEvent generateCounterEvent(TimeTicks timepoint)
     {
         static import dmd.root.rmem;
@@ -388,14 +406,61 @@ struct TimeTraceScope
             timeTraceProfiler.beginScope(name.dup, detail.dup, loc);
         }
     }
+    /// Takes ownership of string returned by `detail`.
+    this(lazy string name, scope const(char)[] delegate() detail, Loc loc = Loc())
+    {
+        if (timeTraceProfilerEnabled())
+        {
+            assert(timeTraceProfiler);
+            // `loc` contains a pointer to a string, so we need to duplicate that too.
+            import core.stdc.string : strdup;
+            if (loc.filename)
+                loc.filename = strdup(loc.filename);
+            timeTraceProfiler.beginScope(name.dup, detail(), loc);
+        }
+    }
 
     ~this()
     {
         if (timeTraceProfilerEnabled())
-            timeTraceProfilerEnd();
+            timeTraceProfiler.endScope();
     }
 }
 
+/// RAII helper class to call the begin and end functions of the time trace
+/// profiler.  When the object is constructed, it begins the section; and when
+/// it is destroyed, it stops it.
+/// Delays string evaluation (via delegate) until the object is destroyed and the delegate
+/// is only called when the event passes the granularity threshold.
+struct TimeTraceScopeDelayedDetail
+{
+    @disable this();
+    @disable this(this);
+
+    const(char)[] delegate() details_dlg;
+
+    /// Takes ownership of string returned by `detail`.
+    /// `detail` is stored in the struct, but does not escape the lifetime of the struct object.
+    this(lazy string name, scope const(char)[] delegate() detail, Loc loc = Loc()) scope @system
+    {
+        if (timeTraceProfilerEnabled())
+        {
+            assert(timeTraceProfiler);
+            // `loc` contains a pointer to a string, so we need to duplicate that too.
+            import core.stdc.string : strdup;
+            if (loc.filename)
+                loc.filename = strdup(loc.filename);
+            details_dlg = detail;
+            timeTraceProfiler.beginScope(name.dup, "", loc);
+        }
+    }
+
+    ~this()
+    {
+        if (timeTraceProfilerEnabled())
+            timeTraceProfiler.endScopeUpdateDetails(details_dlg);
+    }
+}
 
 private void writeEscapeJSONString(OutBuffer* buf, const(char[]) str)
 {
