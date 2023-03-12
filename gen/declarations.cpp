@@ -250,8 +250,8 @@ public:
     decl->ir->setDefined();
 
     // just forward aliases
-    if (decl->aliassym) {
-      Logger::println("alias sym");
+    if (decl->aliasTuple) {
+      Logger::println("aliasTuple");
       decl->toAlias()->accept(this);
       return;
     }
