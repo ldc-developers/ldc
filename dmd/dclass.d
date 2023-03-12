@@ -966,12 +966,6 @@ version (IN_LLVM) {} else
 
     /****************************************
      */
-    override final void addLocalClass(ClassDeclarations* aclasses)
-    {
-        if (classKind != ClassKind.objc)
-            aclasses.push(this);
-    }
-
     override final void addObjcSymbols(ClassDeclarations* classes, ClassDeclarations* categories)
     {
         .objc.addSymbols(this, classes, categories);

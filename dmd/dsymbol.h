@@ -72,6 +72,7 @@ class ExpressionDsymbol;
 class AliasAssign;
 class OverloadSet;
 class StaticAssert;
+class StaticIfDeclaration;
 struct AA;
 #ifdef IN_GCC
 typedef union tree_node Symbol;
@@ -264,7 +265,6 @@ public:
     virtual void setFieldOffset(AggregateDeclaration *ad, FieldState& fieldState, bool isunion);
     virtual bool hasPointers();
     virtual bool hasStaticCtorOrDtor();
-    virtual void addLocalClass(ClassDeclarations *) { }
     virtual void addObjcSymbols(ClassDeclarations *, ClassDeclarations *) { }
     virtual void checkCtorConstInit() { }
 
@@ -330,6 +330,7 @@ public:
     virtual OverloadSet *isOverloadSet() { return NULL; }
     virtual CompileDeclaration *isCompileDeclaration() { return NULL; }
     virtual StaticAssert *isStaticAssert() { return NULL; }
+    virtual StaticIfDeclaration *isStaticIfDeclaration() { return NULL; }
     void accept(Visitor *v) override { v->visit(this); }
 };
 

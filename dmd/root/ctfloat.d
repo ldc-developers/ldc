@@ -207,9 +207,7 @@ extern (C++) struct CTFloat
     @system
     static real_t parse(const(char)* literal, out bool isOutOfRange);
     @system
-    static int sprint(char* str, char fmt, real_t x);
-    @system
-    static int snprint(char* str, size_t str_buf_length, char fmt, real_t x);
+    static int sprint(char* str, size_t size, char fmt, real_t x);
   }
   else
   {
@@ -234,17 +232,17 @@ extern (C++) struct CTFloat
     }
 
     @system
-    static int sprint(char* str, char fmt, real_t x)
+    static int sprint(char* str, size_t size, char fmt, real_t x)
     {
         version(CRuntime_Microsoft)
         {
-            auto len = cast(int) ld_sprint(str, fmt, longdouble_soft(x));
+            auto len = cast(int) ld_sprint(str, size, fmt, longdouble_soft(x));
         }
         else
         {
             char[4] sfmt = "%Lg\0";
             sfmt[2] = fmt;
-            auto len = sprintf(str, sfmt.ptr, x);
+            auto len = snprintf(str, size, sfmt.ptr, x);
         }
 
         if (fmt != 'a' && fmt != 'A')

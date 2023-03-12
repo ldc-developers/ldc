@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "dcompat.h"
 #include "longdouble.h"
 
 // Type used by the front-end for compile-time reals
@@ -69,10 +70,7 @@ struct CTFloat
     static bool isInfinity(real_t r);
 
     static real_t parse(const char *literal, bool& isOutOfRange);
-    static int sprint(char *str, char fmt, real_t x);
-#if IN_LLVM
-    static int snprint(char *str, size_t str_buf_length, char fmt, real_t x);
-#endif
+    static int sprint(char *str, d_size_t size, char fmt, real_t x);
 
     static size_t hash(real_t a);
 

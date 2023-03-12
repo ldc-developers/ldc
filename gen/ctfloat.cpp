@@ -128,14 +128,7 @@ bool CTFloat::isFloat64LiteralOutOfRange(const char *literal) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// TODO: remove this function when no longer used, it's there because frontend D
-// code still uses it. It simply forwards to snprintf with a very large assumed
-// buffer length = no memory safety checking.
-int CTFloat::sprint(char *str, char fmt, real_t x) {
-  return CTFloat::snprint(str, 1000, fmt, x);
-}
-
-int CTFloat::snprint(char *str, size_t str_buf_length, char fmt, real_t x) {
+int CTFloat::sprint(char *str, size_t str_buf_length, char fmt, real_t x) {
   assert(fmt == 'g' || fmt == 'a' || fmt == 'A');
   const bool uppercase = fmt == 'A';
 

@@ -310,7 +310,6 @@ public:
     virtual int vtblOffset() const;
     const char *kind() const override;
 
-    void addLocalClass(ClassDeclarations *) override final;
     void addObjcSymbols(ClassDeclarations *classes, ClassDeclarations *categories) override final;
 
     // Back end

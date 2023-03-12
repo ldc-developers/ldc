@@ -398,6 +398,7 @@ public:
     IfStatement *syntaxCopy() override;
 
     void accept(Visitor *v) override { v->visit(this); }
+    bool isIfCtfeBlock();
 };
 
 class ConditionalStatement final : public Statement
@@ -710,7 +711,7 @@ public:
     TryFinallyStatement *tf;
     ScopeGuardStatement *os;
     VarDeclaration *lastVar;
-
+    bool inCtfeBlock;
     GotoStatement *syntaxCopy() override;
 
     void accept(Visitor *v) override { v->visit(this); }
@@ -728,7 +729,7 @@ public:
     Statement *gotoTarget;      // interpret
     void* extra;                // used by Statement_toIR()
     bool breaks;                // someone did a 'break ident'
-
+    bool inCtfeBlock;
     LabelStatement *syntaxCopy() override;
 
     void accept(Visitor *v) override { v->visit(this); }
