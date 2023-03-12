@@ -1,6 +1,14 @@
 # LDC master
 
 #### Big news
+
+#### Platform support
+
+#### Bug fixes
+
+# LDC 1.32.0 (2023-03-12)
+
+#### Big news
 - Frontend, druntime and Phobos are at version [2.102.2](https://dlang.org/changelog/2.102.0.html). (#4323, #4341)
 - LLVM for prebuilt packages bumped to v15.0.7. (#4311)
 - Linker-level dead code elimination is enabled by default for Apple, wasm and *all* ELF targets too now. (#4320)
