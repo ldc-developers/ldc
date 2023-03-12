@@ -95,6 +95,14 @@ void parseFSanitizeCoverageParameter(llvm::StringRef name,
   else if (name == "trace-gep") {
     opts.TraceGep = true;
   }
+#if LDC_LLVM_VER >= 1400
+  else if (name == "trace-loads") {
+    opts.TraceLoads = true;
+  }
+  else if (name == "trace-stores") {
+    opts.TraceStores = true;
+  }
+#endif
   else if (name == "8bit-counters") {
     opts.Use8bitCounters = true;
   }
