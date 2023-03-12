@@ -162,9 +162,7 @@ llvm::Constant *buildLocalClasses(Module *m, size_t &count) {
   const auto classinfoTy = DtoType(getClassInfoType());
 
   ClassDeclarations aclasses;
-  for (auto s : *m->members) {
-    s->addLocalClass(&aclasses);
-  }
+  getLocalClasses(m, aclasses);
 
   std::vector<LLConstant *> classInfoRefs;
   for (auto cd : aclasses) {
