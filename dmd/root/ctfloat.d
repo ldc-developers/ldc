@@ -318,7 +318,7 @@ version (IN_LLVM)
         static void printAndCheck(char format, real_t x, string expected) nothrow
         {
             char[32] buffer = void;
-            const length = CTFloat.sprint(buffer.ptr, format, x);
+            const length = CTFloat.sprint(buffer.ptr, buffer.length, format, x);
             assert(length < buffer.length);
             printf("'%s', expected '%.*s'\n", buffer.ptr, cast(int) expected.length, expected.ptr);
             assert(buffer[0 .. length] == expected);
