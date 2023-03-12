@@ -386,6 +386,8 @@ version (IN_LLVM) {} else
     /// Cache files read from disk
     FileManager fileManager;
 
+    ErrorSink errorSink;       /// where the error messages go
+
 version (IN_LLVM)
 {
     const(char)[] ldc_version;
@@ -399,8 +401,6 @@ else
 {
     enum recursionLimit = 500; /// number of recursive template expansions before abort
 }
-
-    ErrorSink errorSink;       /// where the error messages go
 
     extern (C++) FileName function(FileName, ref const Loc, out bool, OutBuffer*) preprocess;
 
