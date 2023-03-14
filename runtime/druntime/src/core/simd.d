@@ -39,6 +39,14 @@ template Vector(T)
 
 /* Handy aliases
  */
+version (LDC)
+{
+static if (is(Vector!(void[4])))    alias Vector!(void[4])    void4;        ///
+static if (is(Vector!(byte[4])))    alias Vector!(byte[4])    byte4;        ///
+static if (is(Vector!(ubyte[4])))   alias Vector!(ubyte[4])   ubyte4;       ///
+static if (is(Vector!(short[2])))   alias Vector!(short[2])   short2;       ///
+static if (is(Vector!(ushort[2])))  alias Vector!(ushort[2])  ushort2;      ///
+}
 static if (is(Vector!(void[8])))    alias Vector!(void[8])    void8;        ///
 static if (is(Vector!(double[1])))  alias Vector!(double[1])  double1;      ///
 static if (is(Vector!(float[2])))   alias Vector!(float[2])   float2;       ///
