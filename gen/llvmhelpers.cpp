@@ -313,7 +313,8 @@ void DtoCAssert(Module *M, const Loc &loc, LLValue *msg) {
     args.push_back(file);
     args.push_back(line);
     args.push_back(DtoConstCString(funcName));
-  } else if (triple.getEnvironment() == llvm::Triple::Android) {
+  } else if (triple.getEnvironment() == llvm::Triple::Android ||
+             global.params.isNewlibEnvironment) {
     args.push_back(file);
     args.push_back(line);
     args.push_back(msg);
