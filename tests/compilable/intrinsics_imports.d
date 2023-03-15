@@ -25,10 +25,11 @@ void main()
 
     short2 mips = ldc.gccbuiltins_mips.__builtin_mips_addq_s_ph(s2, s2);
 
-    long nvvm = ldc.gccbuiltins_nvvm.__nvvm_mbarrier_arrive(ptr);
+    double nvvm = ldc.gccbuiltins_nvvm.__nvvm_fma_rz_d(1.0, 2.0, 3.0);
 
     short8 ppc8 = ldc.gccbuiltins_ppc.__builtin_altivec_crypto_vpmsumh(s8, s8);
 
     ldc.gccbuiltins_x86.__builtin_ia32_lfence();
+    ldc.gccbuiltins_x86.__builtin_ia32_umonitor(ptr);
     double2 x86 = ldc.gccbuiltins_x86.__builtin_ia32_maxpd(d2, d2);
 }
