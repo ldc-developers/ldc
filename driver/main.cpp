@@ -826,8 +826,6 @@ void registerPredefinedTargetVersions() {
       VersionCondition::addPredefinedGlobalIdent("DRuntime_Use_Libunwind");
     } else if (global.params.isUClibcEnvironment) {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_UClibc");
-    } else if (global.params.isNewlibEnvironment) {
-      VersionCondition::addPredefinedGlobalIdent("CRuntime_Newlib");
     } else {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Glibc");
       VersionCondition::addPredefinedGlobalIdent("CppRuntime_Gcc");
