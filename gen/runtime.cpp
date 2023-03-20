@@ -357,7 +357,6 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
 // OSX:     void __assert_rtn(const char *func, const char *file, unsigned line,
 //                            const char *msg)
 // Android: void __assert(const char *file, int line, const char *msg)
-// newlib:  void __assert(const char *file, int line, const char *failedexpr)
 // MSVC:    void  _assert(const char *msg, const char *file, unsigned line)
 // Solaris: void __assert_c99(const char *assertion, const char *filename, int line_num,
 //                            const char *funcname);
@@ -365,6 +364,8 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
 //                             const char *funcname);
 // uClibc:  void __assert(const char *assertion, const char *filename, int linenumber,
 //                        const char *function);
+// newlib:  void __assert_func(const char *file, int line, const char *func,
+//                             const char *failedexpr)
 // else:    void __assert(const char *msg, const char *file, unsigned line)
 
 static const char *getCAssertFunctionName() {
@@ -377,6 +378,8 @@ static const char *getCAssertFunctionName() {
     return "__assert_c99";
   } else if (triple.isMusl()) {
     return "__assert_fail";
+  } else if (global.params.isNewlibEnvironment) {
+    return "__assert_func";
   }
   return "__assert";
 }
@@ -390,9 +393,11 @@ static std::vector<PotentiallyLazyType> getCAssertFunctionParamTypes() {
       global.params.isUClibcEnvironment) {
     return {voidPtr, voidPtr, uint, voidPtr};
   }
-  if (triple.getEnvironment() == llvm::Triple::Android ||
-      global.params.isNewlibEnvironment) {
+  if (triple.getEnvironment() == llvm::Triple::Android) {
     return {voidPtr, uint, voidPtr};
+  }
+  if (global.params.isNewlibEnvironment) {
+    return {voidPtr, uint, voidPtr, voidPtr};
   }
   return {voidPtr, voidPtr, uint};
 }

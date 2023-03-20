@@ -313,10 +313,17 @@ void DtoCAssert(Module *M, const Loc &loc, LLValue *msg) {
     args.push_back(file);
     args.push_back(line);
     args.push_back(DtoConstCString(funcName));
-  } else if (triple.getEnvironment() == llvm::Triple::Android ||
-             global.params.isNewlibEnvironment) {
+  } else if (triple.getEnvironment() == llvm::Triple::Android) {
     args.push_back(file);
     args.push_back(line);
+    args.push_back(msg);
+  } else if (global.params.isNewlibEnvironment) {
+    const auto irFunc = gIR->func();
+    const auto funcName =
+        irFunc && irFunc->decl ? irFunc->decl->toPrettyChars() : "";
+    args.push_back(file);
+    args.push_back(line);
+    args.push_back(DtoConstCString(funcName));
     args.push_back(msg);
   } else {
     args.push_back(msg);
