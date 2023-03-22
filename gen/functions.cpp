@@ -554,8 +554,7 @@ void onlyOneMainCheck(FuncDeclaration *fd) {
   // Unfortunately, a D main implies a C main, so only check C mains with
   // -betterC.
   const bool isOSWindows = global.params.targetTriple->isOSWindows();
-  if (fd->isMain() || (global.params.betterC && fd->isCMain()) ||
-      (isOSWindows && (fd->isWinMain() || fd->isDllMain()))) {
+  if (fd->isMain() || (isOSWindows && (fd->isWinMain() || fd->isDllMain()))) {
     // global - across all modules compiled in this compiler invocation
     static Loc mainLoc;
     if (!mainLoc.filename) {
