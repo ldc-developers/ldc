@@ -1754,7 +1754,8 @@ public:
        */
       DValue *msg = e->msg ? toElemDtor(e->msg) : nullptr;
       Module *module = p->func()->decl->getModule();
-      if (global.params.checkAction == CHECKACTION_C) {
+      if (global.params.checkAction == CHECKACTION_C ||
+          module->filetype == FileType::c) {
         LLValue *cMsg =
             msg ? DtoArrayPtr(
                       msg) // assuming `msg` is null-terminated, like DMD
