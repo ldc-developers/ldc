@@ -29,6 +29,12 @@
 using namespace std;
 using namespace llvm;
 
+#if LDC_LLVM_VER >= 1500
+#define BUILTIN_NAME_STRING "ClangBuiltinName"
+#else
+#define BUILTIN_NAME_STRING "GCCBuiltinName"
+#endif
+
 string dtype(Record* rec, bool readOnlyMem)
 {
     Init* typeInit = rec->getValueInit("VT");
@@ -85,10 +91,10 @@ StringRef attributes(ListInit* propertyList)
 
 void processRecord(raw_ostream& os, Record& rec, string arch)
 {
-    if(!rec.getValue("GCCBuiltinName"))
+    if(!rec.getValue(BUILTIN_NAME_STRING))
         return;
 
-    const StringRef builtinName = rec.getValueAsString("GCCBuiltinName");
+    const StringRef builtinName = rec.getValueAsString(BUILTIN_NAME_STRING);
     string name = rec.getName().str();
 
     if(name.substr(0, 4) != "int_" || name.find(arch) == string::npos)
