@@ -8,7 +8,7 @@
 export void exportedFunction() {}
 export void importedFunction();
 export immutable int exportedVariable = 1;
-export immutable int importedVariable;
+export extern immutable int importedVariable;
 
 void foo () {
     immutable auto exportedFuncs = [ &exportedFunction, &exportedFunction ];
