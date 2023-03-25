@@ -1,3 +1,4 @@
+// DISABLED: LDC // FIXME: needs preprocessor
 // https://issues.dlang.org/show_bug.cgi?id=23616
 
 #if __has_extension(gnu_asm)

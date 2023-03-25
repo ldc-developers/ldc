@@ -1,4 +1,4 @@
-
+// DISABLED: LDC // FIXME: needs preprocessor
 // https://issues.dlang.org/show_bug.cgi?id=23580
 // https://issues.dlang.org/show_bug.cgi?id=23581
 // https://issues.dlang.org/show_bug.cgi?id=23582
