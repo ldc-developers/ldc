@@ -1248,7 +1248,7 @@ else // !IN_LLVM
      * Returns:
      *  alignment of the stack
      */
-    extern (C++) uint stackAlign()
+    extern (D) uint stackAlign()
     {
         return isXmmSupported() ? 16 : (is64bit ? 8 : 4);
     }

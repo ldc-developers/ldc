@@ -1155,6 +1155,69 @@ L1:
     return e1;
 }
 
+/*
+ * Check whether `outerFunc` and `calledFunc` have the same `this`.
+ * If `calledFunc` is the member of a base class of the class that contains
+ * `outerFunc` we consider that they have the same this.
+ *
+ * This function is used to test whether `this` needs to be prepended to
+ * a function call or function symbol. For example:
+ *
+ * struct X
+ * {
+ *    void gun() {}
+ * }
+ * struct A
+ * {
+ *      void fun() {}
+ *      void sun()
+ *      {
+ *          fun();
+ *          X.gun();  // error
+ *      }
+ * }
+ *
+ * When `fun` is called, `outerfunc` = `sun` and `calledFunc = `fun`.
+ * `sun` is a member of `A` and `fun` is also a member of `A`, therefore
+ * `this` can be prepended to `fun`. When `gun` is called (it will result
+ * in an error, but that is not relevant here), which is a member of `X`,
+ * no `this` is needed because the outer function does not have the same
+ * `this` as `gun`.
+ *
+ * Returns:
+ *  `true` if outerFunc and calledFunc may use the same `this` pointer.
+ * `false` otherwise.
+ */
+private bool haveSameThis(FuncDeclaration outerFunc, FuncDeclaration calledFunc)
+{
+    auto thisAd = outerFunc.isMemberLocal();
+    if (!thisAd)
+        return false;
+
+    auto requiredAd = calledFunc.isMemberLocal();
+    if (!requiredAd)
+        return false;
+
+    if (thisAd == requiredAd)
+        return true;
+
+    // outerfunc is the member of a base class that contains calledFunc,
+    // then we consider that they have the same this.
+    auto cd = requiredAd.isClassDeclaration();
+    if (!cd)
+        return false;
+
+    if (cd.isBaseOf2(thisAd.isClassDeclaration()))
+        return true;
+
+    // if outerfunc is the member of a nested aggregate, then let
+    // getRightThis take care of this.
+    if (thisAd.isNested())
+        return true;
+
+    return false;
+}
+
 /***************************************
  * Pull out any properties.
  */
@@ -5214,7 +5277,8 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                 if (exp.f.checkNestedReference(sc, exp.loc))
                     return setError();
 
-                if (hasThis(sc))
+                auto memberFunc = hasThis(sc);
+                if (memberFunc && haveSameThis(memberFunc, exp.f))
                 {
                     // Supply an implicit 'this', as in
                     //    this.ident
@@ -6897,8 +6961,6 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
         AggregateDeclaration ad = f.isMemberLocal();
         if (f.needThis())
             e.e1 = getRightThis(e.loc, sc, ad, e.e1, f);
-        if (e.e1.op == EXP.error)
-            return setError();
 
         if (f.type.ty == Tfunction)
         {
@@ -7222,7 +7284,8 @@ version (IN_LLVM)
                 }
                 if (f.needThis())
                 {
-                    if (hasThis(sc))
+                    auto memberFunc = hasThis(sc);
+                    if (memberFunc && haveSameThis(memberFunc, f))
                     {
                         /* Should probably supply 'this' after overload resolution,
                          * not before.
@@ -12110,6 +12173,9 @@ version (IN_LLVM)
 
         if (!needsArrayLowering)
         {
+            // https://issues.dlang.org/show_bug.cgi?id=23783
+            if (exp.e1.checkSharedAccess(sc) || exp.e2.checkSharedAccess(sc))
+                return setError();
             if (auto e = typeCombine(exp, sc))
             {
                 result = e;
@@ -12334,6 +12400,29 @@ version (IN_LLVM)
 
         Type t1 = exp.e1.type;
         Type t2 = exp.e2.type;
+
+        // https://issues.dlang.org/show_bug.cgi?id=23767
+        // `cast(void*) 0` should be treated as `null` so the ternary expression
+        // gets the pointer type of the other branch
+        if (sc.flags & SCOPE.Cfile)
+        {
+            static void rewriteCNull(ref Expression e, ref Type t)
+            {
+                if (!t.isTypePointer())
+                    return;
+                if (auto ie = e.optimize(WANTvalue).isIntegerExp())
+                {
+                    if (ie.getInteger() == 0)
+                    {
+                        e = new NullExp(e.loc, Type.tnull);
+                        t = Type.tnull;
+                    }
+                }
+            }
+            rewriteCNull(exp.e1, t1);
+            rewriteCNull(exp.e2, t2);
+        }
+
         if (t1.ty == Tnoreturn)
         {
             exp.type = t2;
@@ -13301,6 +13390,12 @@ bool checkSharedAccess(Expression e, Scope* sc, bool returnRef = false)
 
         bool visitVar(VarExp e)
         {
+            // https://issues.dlang.org/show_bug.cgi?id=20908
+            // direct access to init symbols is ok as they
+            // cannot be modified.
+            if (e.var.isSymbolDeclaration())
+                return false;
+
             // https://issues.dlang.org/show_bug.cgi?id=22626
             // Synchronized functions don't need to use core.atomic
             // when accessing `this`.
@@ -13338,9 +13433,16 @@ bool checkSharedAccess(Expression e, Scope* sc, bool returnRef = false)
             //printf("dotvarexp = %s\n", e.toChars());
             if (e.type.isShared())
             {
-                // / https://issues.dlang.org/show_bug.cgi?id=22626
-                if (e.e1.isThisExp() && sc.func && sc.func.isSynchronized())
-                    return false;
+                if (e.e1.isThisExp())
+                {
+                    // https://issues.dlang.org/show_bug.cgi?id=22626
+                    if (sc.func && sc.func.isSynchronized())
+                        return false;
+
+                    // https://issues.dlang.org/show_bug.cgi?id=23790
+                    if (e.e1.type.isTypeStruct())
+                        return false;
+                }
 
                 auto fd = e.var.isFuncDeclaration();
                 const sharedFunc = fd && fd.type.isShared;
