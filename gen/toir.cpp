@@ -2805,6 +2805,13 @@ public:
     llvm_unreachable("Unknown TypeidExp argument kind");
   }
 
+  void visit(ObjcClassReferenceExp *e) override {
+    IF_LOG Logger::print("ObjcClassReferenceExp::toElem() %s\n", e->toChars());
+    LOG_SCOPE;
+
+    
+  }
+
   ////////////////////////////////////////////////////////////////////////////////
 
 #define STUB(x)                                                                \
