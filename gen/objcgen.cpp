@@ -80,7 +80,7 @@ ObjCState::ObjCState(llvm::Module &module) : module(module)
 
   _objc_protocol_list = llvm::StructType::Create(
     llvm::Type::getInt64Ty(c),
-    llvm::ArrayType::get(0, _protocol_t)
+    llvm::ArrayType::get(0, llvm::PointerType::get(_protocol_t))
   );
 
   _protocol_t = llvm::StructType::Create(
