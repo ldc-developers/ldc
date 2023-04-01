@@ -16,6 +16,7 @@
 #include <vector>
 #include "llvm/ADT/StringMap.h"
 #include "llvm/IR/Type.h"
+#include "llvm/IR/DerivedTypes.h"
 
 struct ObjcSelector;
 namespace llvm {
@@ -38,17 +39,17 @@ public:
 private:
   llvm::Module &module;
 
-  llvm::Type* _class_t;
-  llvm::Type* _objc_cache;
-  llvm::Type* _class_ro_t;
-  llvm::Type* __method_list_t;
-  llvm::Type* _objc_method;
-  llvm::Type* _objc_protocol_list;
-  llvm::Type* _protocol_t;
-  llvm::Type* _ivar_list_t;
-  llvm::Type* _ivar_t;
-  llvm::Type* _prop_list_t;
-  llvm::Type* _prop_t;
+  llvm::StructType* _class_t;
+  llvm::StructType* _objc_cache;
+  llvm::StructType* _class_ro_t;
+  llvm::StructType* __method_list_t;
+  llvm::StructType* _objc_method;
+  llvm::StructType* _objc_protocol_list;
+  llvm::StructType* _protocol_t;
+  llvm::StructType* _ivar_list_t;
+  llvm::StructType* _ivar_t;
+  llvm::StructType* _prop_list_t;
+  llvm::StructType* _prop_t;
 
   // symbols that shouldn't be optimized away
   std::vector<llvm::Constant *> retainedSymbols;

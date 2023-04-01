@@ -42,88 +42,105 @@ bool objc_isSupported(const llvm::Triple &triple) {
 
 ObjCState::ObjCState(llvm::Module &module) : module(module)
 {
-  LLVMContext& c = module->getContext();
-  _class_t = llvm::StructType::Create(
-    llvm::PointerType::get(_class_t),
-    llvm::PointerType::get(_class_t),
-    llvm::PointerType::get(_objc_cache),
-    llvm::PointerType::get(_class_t),
+  llvm::LLVMContext& c = module.getContext();
+  _class_t = llvm::StructType::create(c, "_class_t");
+  _objc_cache = llvm::StructType::create(c, "_objc_cache");
+  _class_ro_t = llvm::StructType::create(c, "_class_ro_t");
+  __method_list_t = llvm::StructType::create(c, "__method_list_t");
+  _objc_method = llvm::StructType::create(c, "_objc_method");
+  _objc_protocol_list = llvm::StructType::create(c, "_objc_protocol_list");
+  _protocol_t = llvm::StructType::create(c, "_protocol_t");
+  _ivar_t = llvm::StructType::create(c, "_ivar_t");
+  _ivar_list_t = llvm::StructType::create(c, "_ivar_list_t");
+  _prop_t = llvm::StructType::create(c, "_prop_t");
+
+
+
+  _class_t->setBody({
+    _class_t->getPointerTo(),
+    _class_t->getPointerTo(),
+    _objc_cache->getPointerTo(),
+    _class_t->getPointerTo(),
     ///i8* (i8*, i8*)**
-    llvm::PointerType::get(_class_ro_t)
-  );
-
-  _objc_cache = llvm::StructType::Create(c);
-  _class_ro_t = llvm::StructType::Create(
-    llvm::Type::getInt32Ty(c),
-    llvm::Type::getInt32Ty(c),
-    llvm::Type::getInt32Ty(c),
-    llvm::Type::getInt8PtrTy(c),
-    llvm::Type::getInt8PtrTy(c),
-    llvm::PointerType::get(__method_list_t),
-    llvm::PointerType::get(_objc_protocol_list),
-    llvm::PointerType::get(_ivar_list_t),
-    llvm::Type::getInt8PtrTy(c),
-    llvm::PointerType::get(_prop_list_t)
-  );
-
-  __method_list_t = llvm::StructType::Create({
-    llvm::Type::getInt32Ty(c),
-    llvm::Type::getInt32Ty(c),
-    llvm::ArrayType::get(0, _objc_method)
+    llvm::FunctionType::get(
+      llvm::Type::getInt8PtrTy(c), 
+      {llvm::Type::getInt8PtrTy(c), llvm::Type::getInt8PtrTy(c)},
+      false
+    )->getPointerTo()->getPointerTo(),
+    _class_ro_t->getPointerTo()
   });
 
-  _objc_method = llvm::StructType::Create(
+  _class_ro_t->setBody({
+    llvm::Type::getInt32Ty(c),
+    llvm::Type::getInt32Ty(c),
+    llvm::Type::getInt32Ty(c),
+    llvm::Type::getInt8PtrTy(c),
+    llvm::Type::getInt8PtrTy(c),
+    __method_list_t->getPointerTo(),
+    _objc_protocol_list->getPointerTo(),
+    _ivar_list_t->getPointerTo(),
+    llvm::Type::getInt8PtrTy(c),
+    _prop_list_t->getPointerTo()
+  });
+
+  __method_list_t->setBody({
+    llvm::Type::getInt32Ty(c),
+    llvm::Type::getInt32Ty(c),
+    llvm::ArrayType::get(_objc_method, 0)
+  });
+
+  _objc_method->setBody({
     llvm::Type::getInt8PtrTy(c), 
     llvm::Type::getInt8PtrTy(c), 
     llvm::Type::getInt8PtrTy(c)
-  );
+  });
 
-  _objc_protocol_list = llvm::StructType::Create(
+  _objc_protocol_list->setBody({
     llvm::Type::getInt64Ty(c),
-    llvm::ArrayType::get(0, llvm::PointerType::get(_protocol_t))
-  );
+    llvm::ArrayType::get(_protocol_t->getPointerTo(), 0)
+  });
 
-  _protocol_t = llvm::StructType::Create(
+  _protocol_t->setBody({
     llvm::Type::getInt8PtrTy(c),
     llvm::Type::getInt8PtrTy(c),
-    llvm::PointerType::get(_objc_protocol_list),
-    llvm::PointerType::get(__method_list_t),
-    llvm::PointerType::get(__method_list_t),
-    llvm::PointerType::get(__method_list_t),
-    llvm::PointerType::get(__method_list_t),
-    llvm::PointerType::get(_prop_list_t),
+    _objc_protocol_list->getPointerTo(),
+    __method_list_t->getPointerTo(),
+    __method_list_t->getPointerTo(),
+    __method_list_t->getPointerTo(),
+    __method_list_t->getPointerTo(),
+    _prop_list_t->getPointerTo(),
     llvm::Type::getInt32Ty(c),
     llvm::Type::getInt32Ty(c),
-    llvm::PointerType::get(llvm::Type::getInt8PtrTy(c)),
+    llvm::Type::getInt8PtrTy(c)->getPointerTo(),
     llvm::Type::getInt8PtrTy(c),
-    llvm::PointerType::get(_prop_list_t),
-  );
+    _prop_list_t->getPointerTo(),
+  });
 
-  _ivar_list_t = llvm::StructType::Create(
+  _ivar_list_t->setBody({
     llvm::Type::getInt32Ty(c),
     llvm::Type::getInt32Ty(c),
-    llvm::ArrayType::get(0, _ivar_t)
-  );
+    llvm::ArrayType::get(_ivar_t, 0)
+  });
 
-  _ivar_t = llvm::StrucType::Create(
+  _ivar_t->setBody({
     llvm::Type::getInt64PtrTy(c),
     llvm::Type::getInt8PtrTy(c),
     llvm::Type::getInt8PtrTy(c),
     llvm::Type::getInt32Ty(c),
     llvm::Type::getInt32Ty(c)
-  );
+  });
 
 
-  _prop_list_t = llvm::StructType::Create(
+  _prop_list_t->setBody({
     llvm::Type::getInt32Ty(c), 
     llvm::Type::getInt32Ty(c),
-    llvm::ArrayType::get(0, _prop_t)
-  );
+    llvm::ArrayType::get(_prop_t, 0)
+  });
 
-  _prop_t = llvm::StructType::Create(
+  _prop_t->setBody({
     llvm::Type::getInt8PtrTy(c), 
-    llvm::type::getInt8PtrTy(c)
-  );
+    llvm::Type::getInt8PtrTy(c)
+  });
 }
 
 
