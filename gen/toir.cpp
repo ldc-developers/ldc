@@ -2809,7 +2809,9 @@ public:
     IF_LOG Logger::print("ObjcClassReferenceExp::toElem() %s\n", e->toChars());
     LOG_SCOPE;
 
-    
+    auto name = e->classDeclaration->objc.identifier->toChars();
+    result = DtoLoad(llvm::StructType::get(gIR->context(), "_class_t")->getPointerTo(), name);
+
   }
 
   ////////////////////////////////////////////////////////////////////////////////
