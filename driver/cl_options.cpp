@@ -338,7 +338,7 @@ static cl::opt<bool, true> unittest("unittest", cl::ZeroOrMore,
 cl::opt<std::string>
     cacheDir("cache",
              cl::desc("Enable compilation cache, using <cache dir> to "
-                      "store cache files (experimental)"),
+                      "store cache files"),
              cl::value_desc("cache dir"), cl::ZeroOrMore);
 
 static StringsAdapter strImpPathStore("J", global.params.fileImppath);
