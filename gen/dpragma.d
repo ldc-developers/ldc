@@ -44,7 +44,8 @@ extern (C++) enum LDCPragma : int {
   LLVMbitop_bts,
   LLVMbitop_vld,
   LLVMbitop_vst,
-  LLVMextern_weak
+  LLVMextern_weak,
+  LLVMmusttail,
 };
 
 extern (C++) LDCPragma DtoGetPragma(Scope* sc, PragmaDeclaration decl, ref const(char)* arg1str);

@@ -48,7 +48,8 @@ enum LDCPragma {
   LLVMbitop_vld,
   LLVMbitop_vst,
   LLVMextern_weak,
-  LLVMprofile_instr
+  LLVMprofile_instr,
+  LLVMmusttail,
 };
 
 LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, const char *&arg1str);
