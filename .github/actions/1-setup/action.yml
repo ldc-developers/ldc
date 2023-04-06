@@ -18,11 +18,11 @@ runs:
         export DEBIAN_FRONTEND=noninteractive
         sudo dpkg --add-architecture i386
         sudo apt-get -q update
-        # Don't use latest gdb v10 from Ubuntu toolchain PPA with regressions, use official v8
+        # Don't use latest gdb v10+ from Ubuntu toolchain PPA with regressions, use official v9
         sudo apt-get -yq install \
           git-core cmake g++-multilib \
           libcurl4 libcurl4:i386 \
-          curl gdb=8.1.1-0ubuntu1 p7zip-full tzdata unzip zip python3-pip
+          curl gdb=9.1-0ubuntu1 p7zip-full tzdata unzip zip python3-pip
 
     - name: 'Linux: Download & extract clang' # into ../clang
       if: runner.os == 'Linux'

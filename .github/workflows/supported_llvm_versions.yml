@@ -15,28 +15,28 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - job_name: Ubuntu 18.04, LLVM 15, latest LDC beta
-            os: ubuntu-18.04
+          - job_name: Ubuntu 20.04, LLVM 15, latest LDC beta
+            os: ubuntu-20.04
             host_dc: ldc-beta
             llvm_version: 15.0.6
-          - job_name: Ubuntu 18.04, LLVM 14, latest LDC beta
-            os: ubuntu-18.04
+          - job_name: Ubuntu 20.04, LLVM 14, latest LDC beta
+            os: ubuntu-20.04
             host_dc: ldc-beta
             llvm_version: 14.0.0
             # the compiler-rt libs installation is somehow non-standard
             cmake_flags: -DLDC_INSTALL_LLVM_RUNTIME_LIBS_OS=x86_64-unknown-linux-gnu -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=""
-          - job_name: Ubuntu 18.04, LLVM 12, latest LDC beta
-            os: ubuntu-18.04
+          - job_name: Ubuntu 20.04, LLVM 12, latest LDC beta
+            os: ubuntu-20.04
             host_dc: ldc-beta
             llvm_version: 12.0.1
             cmake_flags: -DLIB_SUFFIX=64
-          - job_name: Ubuntu 18.04, LLVM 11, latest LDC beta
-            os: ubuntu-18.04
+          - job_name: Ubuntu 20.04, LLVM 11, latest LDC beta
+            os: ubuntu-20.04
             host_dc: ldc-beta
             llvm_version: 11.1.0
             cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON
-          - job_name: Ubuntu 18.04, LLVM 9, latest DMD beta
-            os: ubuntu-18.04
+          - job_name: Ubuntu 20.04, LLVM 9, latest DMD beta
+            os: ubuntu-20.04
             host_dc: dmd-beta
             llvm_version: 9.0.1
             cmake_flags: -DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON
@@ -71,13 +71,13 @@ jobs:
           python3 -m pip install --user setuptools wheel
           python3 -m pip install --user lit
           python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
-      - name: 'Linux: Install gdb'
+      - name: 'Linux: Install gdb and llvm-symbolizer'
         if: runner.os == 'Linux'
         run: |
           set -eux
           sudo apt-get update
-          # Don't use latest gdb v10 from Ubuntu toolchain PPA with regressions, use official v8
-          sudo apt-get install gdb=8.1.1-0ubuntu1
+          # Don't use latest gdb v10+ from Ubuntu toolchain PPA with regressions, use official v9
+          sudo apt-get install gdb=9.1-0ubuntu1 llvm
 
       - name: Try to restore cached LLVM
         uses: actions/cache@v2
@@ -140,7 +140,14 @@ jobs:
           if [[ '${{ matrix.llvm_version }}' = 9.* ]]; then
             echo "config.available_features.remove('Fuzzer')" >> tests/sanitizers/lit.local.cfg
           fi
+          # LLVM 14+ on Linux: don't use vanilla llvm-symbolizer (no support for zlib-compressed debug sections => failing ASan tests)
+          if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.llvm_version }}' =~ ^1[4-9]\. ]]; then
+            mv llvm/bin/llvm-symbolizer llvm/bin/llvm-symbolizer.bak
+          fi
           ctest -V -R "lit-tests"
+          if [[ -f llvm/bin/llvm-symbolizer.bak ]]; then
+            mv llvm/bin/llvm-symbolizer.bak llvm/bin/llvm-symbolizer
+          fi
       - name: Run DMD testsuite
         if: success() || failure()
         run: ctest -V -R "dmd-testsuite"
