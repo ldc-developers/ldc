@@ -112,7 +112,7 @@ extern(C) void fatalerror(in char* format, ...)
     abort();
 }
 
-extern(C) Throwable.TraceInfo _d_traceContext(void* ptr = null);
+extern(C) void _d_createTrace(Throwable t, void* context);
 
 extern(C) void _d_throw_exception(Throwable throwable)
 {
@@ -138,8 +138,7 @@ extern(C) void _d_throw_exception(Throwable throwable)
 
     exceptionStack.push(throwable);
 
-    if (throwable.info is null && cast(byte*)throwable !is ti.initializer.ptr)
-        throwable.info = _d_traceContext();
+    _d_createTrace(throwable, null);
 
     CxxExceptionInfo info;
     info.Magic = EH_MAGIC_NUMBER1;
