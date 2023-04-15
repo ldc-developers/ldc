@@ -387,9 +387,9 @@ task:
   << : *PACKAGING_STEPS_TEMPLATE
 
 task:
-  name: FreeBSD 12.2 x64
+  name: FreeBSD 12.4 x64
   freebsd_instance:
-    image_family: freebsd-12-2
+    image_family: freebsd-12-4
     cpu: 4
     memory: 8G
   timeout_in: 60m
@@ -402,11 +402,11 @@ task:
       -DEXTRA_CXXFLAGS=-flto=full
     PARALLELISM: 4
     # use clang from the `llvm` ports package to be installed, incl. lld support for .deplibs (`pragma(lib, "execinfo")`)
-    CC: clang90
+    CC: clang-15
   install_prerequisites_script: |
     cd $CIRRUS_WORKING_DIR/..
     sysctl -n hw.ncpu
-    pkg install -y git cmake ninja gmake llvm bash gtar 7-zip
+    pkg install -y git cmake ninja gmake llvm llvm90 bash gtar 7-zip
     python3 --version
     python3 -m ensurepip
     # Download & extract host LDC
