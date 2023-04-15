@@ -1,6 +1,7 @@
 # LDC master
 
 #### Big news
+- The prebuilt Linux packages are now generated on a Ubuntu 20.04 box, so the min required `glibc` version has been raised from 2.26 to 2.31. (#4367)
 
 #### Platform support
 

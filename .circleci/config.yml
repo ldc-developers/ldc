@@ -100,14 +100,14 @@ commonSteps: &commonSteps
 
 version: 2
 jobs:
-  Ubuntu-18.04-multilib-rtSanitizers:
+  Ubuntu-20.04-multilib-rtSanitizers:
     <<: *commonSteps
     docker:
-      - image: ubuntu:18.04
+      - image: ubuntu:20.04
     environment:
       - PARALLELISM: 2
       - CI_OS: linux
-      - EXTRA_APT_PACKAGES: llvm-9-dev libclang-common-9-dev
+      - EXTRA_APT_PACKAGES: llvm-dev libclang-common-10-dev
       - HOST_LDC_VERSION: 1.24.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON"
   Ubuntu-20.04-sharedLibsOnly-gdmd:
@@ -147,7 +147,7 @@ workflows:
   version: 2
   build:
     jobs:
-      - Ubuntu-18.04-multilib-rtSanitizers
+      - Ubuntu-20.04-multilib-rtSanitizers
       - Ubuntu-20.04-sharedLibsOnly-gdmd
       - macOS-x64
       - macOS-x64-sharedLibsOnly
