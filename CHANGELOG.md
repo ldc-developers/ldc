@@ -7,6 +7,7 @@
 
 #### Platform support
 - Supports LLVM 11.0 - 16.0.
+- When nothing else specified now defaults to `-mattr=+m,+a,+f,+d,+c` when targeting hosted 64-bit RISC-V. (#4390)
 
 #### Bug fixes
 - Fix function pointers/delegates on Harvard architectures (e.g., AVR). (#4432, #4465)

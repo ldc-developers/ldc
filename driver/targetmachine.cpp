@@ -57,7 +57,7 @@ static llvm::cl::opt<bool, true> preserveDwarfLineSection(
     llvm::cl::init(false));
 #endif
 
-const char *getABI(const llvm::Triple &triple) {
+const char *getABI(const llvm::Triple &triple, const llvm::SmallVector<llvm::StringRef, 8> &features) {
   llvm::StringRef ABIName(opts::mABI);
   if (ABIName != "") {
     switch (triple.getArch()) {
@@ -111,6 +111,17 @@ const char *getABI(const llvm::Triple &triple) {
             ABIName.str().c_str());
   }
 
+  // checks if the features include ±<feature>
+  auto hasFeature = [&features](llvm::StringRef feature) {
+    for (int i = features.size() - 1; i >= 0; i--) {
+      auto f = features[i];
+      if (f.substr(1) == feature) {
+	return f[0] == '+';
+      }
+    }
+    return false;
+  };
+
   switch (triple.getArch()) {
   case llvm::Triple::mips64:
   case llvm::Triple::mips64el:
@@ -120,6 +131,10 @@ const char *getABI(const llvm::Triple &triple) {
   case llvm::Triple::ppc64le:
     return "elfv2";
   case llvm::Triple::riscv64:
+    if (hasFeature("d"))
+      return "lp64d";
+    if (hasFeature("f"))
+      return "lp64f";
     return "lp64";
   case llvm::Triple::riscv32:
     return "ilp32";
@@ -430,15 +445,31 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
 
   // checks if the features include ±<feature>
   auto hasFeature = [&features](llvm::StringRef feature) {
-    return std::any_of(
-        features.begin(), features.end(),
-        [feature](llvm::StringRef f) { return f.substr(1) == feature; });
+    for (int i = features.size() - 1; i >= 0; i--) {
+      auto f = features[i];
+      if (f.substr(1) == feature) {
+	return f[0] == '+';
+      }
+    }
+    return false;
   };
 
   // cmpxchg16b is not available on old 64bit CPUs. Enable code generation
   // if the user did not make an explicit choice.
   if (cpu == "x86-64" && !hasFeature("cx16")) {
     features.push_back("+cx16");
+  }
+
+  // For a hosted RISC-V 64-bit target default to rv64gc if nothing has
+  // been selected
+  if (triple.getArch() == llvm::Triple::riscv64 &&
+      triple.getOS() != llvm::Triple::UnknownOS &&
+      features.empty()) {
+    features.push_back("+m");
+    features.push_back("+a");
+    features.push_back("+f");
+    features.push_back("+d");
+    features.push_back("+c");
   }
 
   // Handle cases where LLVM picks wrong default relocModel
@@ -478,7 +509,7 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
       opts::InitTargetOptionsFromCodeGenFlags(triple);
 
   if (targetOptions.MCOptions.ABIName.empty())
-    targetOptions.MCOptions.ABIName = getABI(triple);
+    targetOptions.MCOptions.ABIName = getABI(triple, features);
 
   if (floatABI == FloatABI::Default) {
     switch (triple.getArch()) {

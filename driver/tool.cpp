@@ -123,13 +123,13 @@ void appendTargetArgsForGcc(std::vector<std::string> &args) {
 
   case Triple::riscv64:
     {
-      std::string mabi = getABI(triple);
-      args.push_back("-mabi=" + mabi);
-
       extern llvm::TargetMachine* gTargetMachine;
       auto featuresStr = gTargetMachine->getTargetFeatureString();
       llvm::SmallVector<llvm::StringRef, 8> features;
       featuresStr.split(features, ",", -1, false);
+
+      std::string mabi = getABI(triple, features);
+      args.push_back("-mabi=" + mabi);
 
       // Returns true if 'feature' is enabled and false otherwise. Handles the
       // case where the feature is specified multiple times ('+m,-m'), and

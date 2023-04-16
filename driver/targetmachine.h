@@ -15,6 +15,8 @@
 #pragma once
 
 #include "llvm/ADT/Optional.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CodeGen.h"
 #include <string>
 #include <vector>
@@ -73,4 +75,5 @@ MipsABI::Type getMipsABI();
 const llvm::Target *lookupTarget(const std::string &arch, llvm::Triple &triple,
                                  std::string &errorMsg);
 
-const char *getABI(const llvm::Triple &triple);
+const char *getABI(const llvm::Triple &triple,
+		   const llvm::SmallVector<llvm::StringRef, 8> &features);
