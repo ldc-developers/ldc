@@ -6,7 +6,10 @@
 #### Platform support
 
 #### Bug fixes
+- Fix empty `ldc.gccbuiltins_*` modules with LLVM 15+. (#4347, #4350)
 - Fix v1.31 regression wrt. potentially wrong constant pointer offsets. (#4362, #4365)
+- Windows: Fix v1.32 regression wrt. leaking `Throwable.info` backtraces. (#4369)
+- Fix C assert calls for newlib targets. (#4351)
 
 # LDC 1.32.0 (2023-03-12)
 
