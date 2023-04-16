@@ -21,17 +21,6 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-dinteger_t undoStrideMul(const Loc &loc, Type *t, dinteger_t offset) {
-  assert(t->ty == TY::Tpointer);
-  const auto elemSize = t->nextOf()->size(loc);
-  assert((offset % elemSize) == 0 &&
-         "Expected offset by an integer amount of elements");
-
-  return offset / elemSize;
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
 namespace {
 struct RVals {
   DRValue *lhs, *rhs;
@@ -89,30 +78,37 @@ DValue *emitPointerOffset(Loc loc, DValue *base, Expression *offset,
   // pointer elements. We try to undo this before resorting to
   // temporarily bitcasting the pointer to i8.
 
-  LLType * llBaseTy = nullptr;
+  Type *const pointeeType = base->type->nextOf();
+
+  LLType * llBaseTy = DtoMemType(pointeeType);
   LLValue *llBase = nullptr;
   LLValue *llOffset = nullptr;
   LLValue *llResult = nullptr;
 
   if (offset->isConst()) {
     llBase = DtoRVal(base);
-    llBaseTy = DtoMemType(base->type->nextOf());
-    dinteger_t byteOffset = offset->toInteger();
+    const dinteger_t byteOffset = offset->toInteger();
     if (byteOffset == 0) {
       llResult = llBase;
     } else {
-      llOffset = DtoConstSize_t(undoStrideMul(loc, base->type, byteOffset));
+      const auto pointeeSize = pointeeType->size(loc);
+      if (pointeeSize && byteOffset % pointeeSize == 0) { // can do a nice GEP
+        llOffset = DtoConstSize_t(byteOffset / pointeeSize);
+      } else { // need to cast base to i8*
+        llBaseTy = getI8Type();
+        llBase = DtoBitCast(llBase, getVoidPtrType());
+        llOffset = DtoConstSize_t(byteOffset);
+      }
     }
   } else {
-    Expression *noStrideInc = extractNoStrideInc(
-        offset, base->type->nextOf()->size(loc), negateOffset);
+    Expression *noStrideInc =
+        extractNoStrideInc(offset, pointeeType->size(loc), negateOffset);
     auto rvals =
         evalSides(base, noStrideInc ? noStrideInc : offset, loadLhsAfterRhs);
     llBase = DtoRVal(rvals.lhs);
-    llBaseTy = DtoMemType(rvals.lhs->type->nextOf());
     llOffset = DtoRVal(rvals.rhs);
     if (!noStrideInc) { // byte offset => cast base to i8*
-      llBaseTy = LLType::getInt8Ty(gIR->context());
+      llBaseTy = getI8Type();
       llBase = DtoBitCast(llBase, getVoidPtrType());
     }
   }
