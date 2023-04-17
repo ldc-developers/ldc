@@ -1,9 +1,15 @@
 # LDC master
 
 #### Big news
-- The prebuilt Linux packages are now generated on a Ubuntu 20.04 box, so the min required `glibc` version has been raised from 2.26 to 2.31. (#4367)
 
 #### Platform support
+
+#### Bug fixes
+
+# LDC 1.32.1 (2023-04-17)
+
+#### Big news
+- The prebuilt Linux packages are now generated on a Ubuntu 20.04 box, so the min required `glibc` version has been raised from 2.26 to 2.31. (#4367)
 
 #### Bug fixes
 - Fix empty `ldc.gccbuiltins_*` modules with LLVM 15+. (#4347, #4350)
