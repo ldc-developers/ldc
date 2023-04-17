@@ -562,6 +562,10 @@ cl::opt<bool> fNullPointerIsValid(
         "assuming that any dereferenced pointer must not have been null and "
         "optimize away the branches accordingly."));
 
+cl::opt<bool>
+    fSplitStack("fsplit-stack", cl::ZeroOrMore,
+                cl::desc("Use segmented stack (see Clang documentation)"));
+
 cl::opt<bool, true>
     allinst("allinst", cl::ZeroOrMore, cl::location(global.params.allInst),
             cl::desc("Generate code for all template instantiations"));

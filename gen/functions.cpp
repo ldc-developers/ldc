@@ -1250,6 +1250,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     func->addFnAttr("null-pointer-is-valid", "true");
 #endif
   }
+  if (opts::fSplitStack) {
+    func->addFnAttr("split-stack");
+  }
 
   llvm::BasicBlock *beginbb =
       llvm::BasicBlock::Create(gIR->context(), "", func);
