@@ -132,6 +132,11 @@ inline bool isUsingLTO() { return ltoMode != LTO_None; }
 inline bool isUsingThinLTO() { return ltoMode == LTO_Thin; }
 
 extern cl::opt<std::string> saveOptimizationRecord;
+
+#if LDC_LLVM_VER >= 1300
+extern cl::opt<unsigned> fWarnStackSize;
+#endif
+
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
 extern cl::list<std::string> dcomputeTargets;
 extern cl::opt<std::string> dcomputeFilePrefix;

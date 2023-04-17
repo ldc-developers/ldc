@@ -48,6 +48,7 @@
 #include "gen/runtime.h"
 #include "gen/scope_exit.h"
 #include "gen/tollvm.h"
+#include "gen/to_string.h"
 #include "gen/uda.h"
 #include "ir/irdsymbol.h"
 #include "ir/irfunction.h"
@@ -702,6 +703,15 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   if (f->next->toBasetype()->ty == TY::Tnoreturn) {
     func->addFnAttr(LLAttribute::NoReturn);
   }
+#if LDC_LLVM_VER >= 1300
+  if (opts::fWarnStackSize.getNumOccurrences() > 0 &&
+      opts::fWarnStackSize < UINT_MAX) {
+    // Cache the int->string conversion result.
+    static std::string thresholdString = ldc::to_string(opts::fWarnStackSize);
+
+    func->addFnAttr("warn-stack-size", thresholdString);
+  }
+#endif
 
   applyFuncDeclUDAs(fdecl, irFunc);
 
