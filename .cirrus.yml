@@ -406,7 +406,7 @@ task:
   install_prerequisites_script: |
     cd $CIRRUS_WORKING_DIR/..
     sysctl -n hw.ncpu
-    pkg install -y git cmake ninja gmake llvm llvm90 bash gtar 7-zip
+    pkg install -y git cmake ninja gmake llvm bash gtar 7-zip
     python3 --version
     python3 -m ensurepip
     # Download & extract host LDC
