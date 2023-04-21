@@ -344,7 +344,7 @@ static cl::opt<bool, true> unittest("unittest", cl::ZeroOrMore,
 cl::opt<std::string>
     cacheDir("cache",
              cl::desc("Enable compilation cache, using <cache dir> to "
-                      "store cache files (experimental)"),
+                      "store cache files"),
              cl::value_desc("cache dir"), cl::ZeroOrMore);
 
 static StringsAdapter strImpPathStore("J", global.params.fileImppath);
@@ -568,6 +568,10 @@ cl::opt<bool> fNullPointerIsValid(
         "assuming that any dereferenced pointer must not have been null and "
         "optimize away the branches accordingly."));
 
+cl::opt<bool>
+    fSplitStack("fsplit-stack", cl::ZeroOrMore,
+                cl::desc("Use segmented stack (see Clang documentation)"));
+
 cl::opt<bool, true>
     allinst("allinst", cl::ZeroOrMore, cl::location(global.params.allInst),
             cl::desc("Generate code for all template instantiations"));
@@ -669,6 +673,15 @@ cl::opt<std::string>
                            cl::desc("Generate a YAML optimization record file "
                                     "of optimizations performed by LLVM"),
                            cl::ValueOptional);
+
+#if LDC_LLVM_VER >= 1300
+// LLVM < 13 has "--warn-stack-size", but let's not do the effort of forwarding
+// the string to that option, and instead let the user do it himself.
+cl::opt<unsigned>
+    fWarnStackSize("fwarn-stack-size", cl::ZeroOrMore, cl::init(UINT_MAX),
+                   cl::desc("Warn for stack size bigger than the given number"),
+                   cl::value_desc("threshold"));
+#endif
 
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
 cl::list<std::string>

@@ -60,5 +60,3 @@ llvm::Value *DtoBinNumericEquals(const Loc &loc, DValue *lhs, DValue *rhs,
 llvm::Value *DtoBinFloatsEquals(const Loc &loc, DValue *lhs, DValue *rhs,
                                 EXP op);
 llvm::Value *mergeVectorEquals(llvm::Value *resultsVector, EXP op);
-
-dinteger_t undoStrideMul(const Loc &loc, Type *t, dinteger_t offset);

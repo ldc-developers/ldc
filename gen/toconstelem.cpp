@@ -187,18 +187,45 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
+  // very similar to emitPointerOffset() in binops.cpp
+  LLConstant *tryEmitPointerOffset(BinExp *e, bool negateOffset) {
+    Type *t1b = e->e1->type->toBasetype();
+    if (t1b->ty != TY::Tpointer || !e->e2->type->isintegral())
+      return nullptr;
+
+    Type *const pointeeType = t1b->nextOf();
+
+    LLConstant *llBase = toConstElem(e->e1, p);
+    const dinteger_t byteOffset = e->e2->toInteger();
+
+    LLConstant *llResult = nullptr;
+    const auto pointeeSize = pointeeType->size(e->loc);
+    if (pointeeSize && byteOffset % pointeeSize == 0) { // can do a nice GEP
+      LLConstant *llOffset = DtoConstSize_t(byteOffset / pointeeSize);
+      if (negateOffset)
+        llOffset = llvm::ConstantExpr::getNeg(llOffset);
+      llResult = llvm::ConstantExpr::getGetElementPtr(DtoMemType(pointeeType),
+                                                      llBase, llOffset);
+    } else { // need to cast base to i8*
+      llBase = DtoBitCast(llBase, getVoidPtrType());
+      LLConstant *llOffset = DtoConstSize_t(byteOffset);
+      if (negateOffset)
+        llOffset = llvm::ConstantExpr::getNeg(llOffset);
+      llResult =
+          llvm::ConstantExpr::getGetElementPtr(getI8Type(), llBase, llOffset);
+    }
+
+    return DtoBitCast(llResult, DtoType(e->type));
+  }
+
   void visit(AddExp *e) override {
     IF_LOG Logger::print("AddExp::toConstElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
 
     // add to pointer
-    Type *t1b = e->e1->type->toBasetype();
-    if (t1b->ty == TY::Tpointer && e->e2->type->isintegral()) {
-      llvm::Constant *ptr = toConstElem(e->e1, p);
-      dinteger_t idx = undoStrideMul(e->loc, t1b, e->e2->toInteger());
-      result = llvm::ConstantExpr::getGetElementPtr(DtoType(e->e1->type), ptr,
-                                                    DtoConstSize_t(idx));
+    if (auto r = tryEmitPointerOffset(e, false)) {
+      result = r;
       return;
     }
 
@@ -210,14 +237,9 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    Type *t1b = e->e1->type->toBasetype();
-    if (t1b->ty == TY::Tpointer && e->e2->type->isintegral()) {
-      llvm::Constant *ptr = toConstElem(e->e1, p);
-      dinteger_t idx = undoStrideMul(e->loc, t1b, e->e2->toInteger());
-
-      llvm::Constant *negIdx = llvm::ConstantExpr::getNeg(DtoConstSize_t(idx));
-      result = llvm::ConstantExpr::getGetElementPtr(DtoType(e->e1->type), ptr,
-                                                    negIdx);
+    // subtract from pointer
+    if (auto r = tryEmitPointerOffset(e, true)) {
+      result = r;
       return;
     }
 

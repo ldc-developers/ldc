@@ -167,7 +167,7 @@ packaging_steps_template: &PACKAGING_STEPS_TEMPLATE
       tools/upload-to-github.sh CI ../artifacts/ldc2-*.tar.xz
     fi
 
-# Installs Ubuntu 18.04+ prerequisites.
+# Installs Ubuntu 20.04+ prerequisites.
 # Requires env variables CI_ARCH, HOST_LDC_VERSION, EXTRA_APT_PACKAGES and EXTRA_CMAKE_FLAGS.
 install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
   install_prerequisites_script: |
@@ -235,16 +235,16 @@ environment:
   GITHUB_TOKEN: ENCRYPTED[0955bd48c8d4e5391446fc0149d0719ad0b63df27ec9e6c180a5730a5b10dc7f28f09d1383423db158d21380ee2b022a]
 
 task:
-  name: Ubuntu 18.04 x64 multilib rtSanitizers
+  name: Ubuntu 20.04 x64 multilib rtSanitizers
   container:
-    image: ubuntu:18.04
+    image: ubuntu:20.04
     cpu: 8
     memory: 16G
   timeout_in: 20m
   environment:
     CI_ARCH: x86_64
     CI_OS: linux
-    EXTRA_APT_PACKAGES: "llvm-9-dev libclang-common-9-dev"
+    EXTRA_APT_PACKAGES: "llvm-dev libclang-common-10-dev"
     EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON"
     PARALLELISM: 8
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
@@ -271,9 +271,9 @@ task:
   << : *COMMON_STEPS_TEMPLATE
 
 task:
-  name: Ubuntu 18.04 x64 bootstrap
+  name: Ubuntu 20.04 x64 bootstrap
   container:
-    image: ubuntu:18.04
+    image: ubuntu:20.04
     cpu: 8
     memory: 16G
   timeout_in: 15m
@@ -281,7 +281,7 @@ task:
     CI_ARCH: x86_64
     CI_OS: linux
     HOST_LDC_VERSION: 1.9.0
-    EXTRA_APT_PACKAGES: "llvm-9-dev libclang-common-9-dev"
+    EXTRA_APT_PACKAGES: "llvm-dev libclang-common-10-dev"
     EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
     PARALLELISM: 8
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
@@ -318,9 +318,9 @@ task:
   << : *COMMON_STEPS_TEMPLATE
 
 task:
-  name: Ubuntu 18.04 aarch64
+  name: Ubuntu 20.04 aarch64
   arm_container:
-    image: ubuntu:18.04
+    image: ubuntu:20.04
     cpu: 4
     memory: 8G
   timeout_in: 60m
@@ -338,7 +338,7 @@ task:
       -DLLVM_ROOT_DIR=$CIRRUS_WORKING_DIR/../llvm
       -DD_COMPILER=$CIRRUS_WORKING_DIR/../bootstrap-ldc/bin/ldmd2
     PARALLELISM: 4
-    CLANG_VERSION: '14.0.6' # 15.0.6 requires libtinfo.so.6 (but Ubuntu 18 has v5 only)
+    CLANG_VERSION: '15.0.3' # 15.0.6 requires a more recent libstdc++.so.6 than shipped with Ubuntu 20
     CC: $CIRRUS_WORKING_DIR/../clang/bin/clang
     CXX: $CIRRUS_WORKING_DIR/../clang/bin/clang++
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE

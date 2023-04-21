@@ -364,6 +364,8 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
 //                             const char *funcname);
 // uClibc:  void __assert(const char *assertion, const char *filename, int linenumber,
 //                        const char *function);
+// newlib:  void __assert_func(const char *file, int line, const char *func,
+//                             const char *failedexpr)
 // else:    void __assert(const char *msg, const char *file, unsigned line)
 
 static const char *getCAssertFunctionName() {
@@ -376,6 +378,8 @@ static const char *getCAssertFunctionName() {
     return "__assert_c99";
   } else if (triple.isMusl()) {
     return "__assert_fail";
+  } else if (global.params.isNewlibEnvironment) {
+    return "__assert_func";
   }
   return "__assert";
 }
@@ -391,6 +395,9 @@ static std::vector<PotentiallyLazyType> getCAssertFunctionParamTypes() {
   }
   if (triple.getEnvironment() == llvm::Triple::Android) {
     return {voidPtr, uint, voidPtr};
+  }
+  if (global.params.isNewlibEnvironment) {
+    return {voidPtr, uint, voidPtr, voidPtr};
   }
   return {voidPtr, voidPtr, uint};
 }
