@@ -1,7 +1,7 @@
 // Example user-implemented --fsplit-stack __morestack handling that detects stack overflow.
 // Also serves as an example for users when they want to use this in their project.
 
-// REQUIRES: Linux
+// REQUIRES: Linux || FreeBSD || Windows
 // REQUIRES: host_X86
 
 // RUN: %ldc -g --fsplit-stack %s -of=%t%exe
@@ -17,9 +17,18 @@ void foo() {
 
 @noSplitStack
 void set_stacksize_in_TCB_relative_to_rsp(size_t stack_size) {
+    // fs:0x70 is what split-stack uses as minimum stack address on Linux,
+    // this can be checked by looking at the split-stack codegen assembly (rsp is compared with it).
+    version (linux)
+        enum stack_limit_str = "%%fs:0x70";
+    else version (FreeBSD)
+        enum stack_limit_str = "%%fs:0x18";
+    else version (Windows)
+        enum stack_limit_str = "%%gs:0x28";
+
     asm { "mov %%rsp, %%r11;
            sub %0, %%r11;
-           mov %%r11, %%fs:0x70;" // fs:0x70 is what split-stack uses as minimum stack address
+           mov %%r11, " ~ stack_limit_str ~ ";"
           : //output operands
           : "r" (stack_size) //input operands
           : "r11", "memory"; // clobbers
