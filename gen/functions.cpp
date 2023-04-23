@@ -1260,7 +1260,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     func->addFnAttr("null-pointer-is-valid", "true");
 #endif
   }
-  if (opts::fSplitStack) {
+  if (opts::fSplitStack && !hasNoSplitStackUDA(fd)) {
     func->addFnAttr("split-stack");
   }
 

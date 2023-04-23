@@ -97,6 +97,7 @@ struct Id
     static Identifier *udaDynamicCompileEmit;
     static Identifier *udaHidden;
     static Identifier *udaNoSanitize;
+    static Identifier *udaNoSplitStack;
     static Identifier *io;
 #endif
 };
