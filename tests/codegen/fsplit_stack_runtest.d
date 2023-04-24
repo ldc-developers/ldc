@@ -10,7 +10,7 @@
 import ldc.attributes;
 
 // CHECK: Local variables would grow the stack beyond limit!
-// CHECK: fsplit-stack-runtest.d:[[@LINE+1]]
+// CHECK: fsplit_stack_runtest.d:[[@LINE+1]]
 void foo() {
     byte[2_000] a;
 }
@@ -37,6 +37,9 @@ void set_stacksize_in_TCB_relative_to_rsp(size_t stack_size) {
 
 // Override C runtime __morestack and abort (which lets druntime print a stack trace)
 @noSplitStack
+@naked // @naked is needed to make the backtrace work correctly, but I don't fully understand why.
+       // Perhaps it's needed because __morestack is called from foo _before_ the stack frame of
+       // foo is setup correctly (e.g before push rbp). Without @naked, backtrace code crashes.
 extern(C) void __morestack()
 {
     throw new Error("Local variables would grow the stack beyond limit!");
