@@ -7,18 +7,21 @@
 // RUN: %ldc -g --fsplit-stack %s -of=%t%exe
 // RUN: not %t%exe 2>&1 | FileCheck %s
 
-import ldc.attributes;
-
 // CHECK: Stack overflow!
 // CHECK: foo argument bytes:
 // CHECK: foo local variables bytes: {{2...}}
-printf("Stack overflow!\n");
-printf("foo argument bytes: %d\n", foo_parameters);
-printf("foo local variables bytes: %d\n", local_variables_bytes);
-
 void foo() {
     byte[2_000] a;
 }
+
+void main() {
+    set_stacksize_in_TCB_relative(1_000);
+
+    foo();
+}
+
+
+import ldc.attributes;
 
 @noSplitStack
 void set_stacksize_in_TCB_relative_to_rsp(size_t stack_size) {
@@ -68,10 +71,4 @@ extern(C) void __morestack()
     // Abort execution without stack unwinding.
     import core.stdc.stdlib;
     _Exit(1);
-}
-
-void main() {
-    set_stacksize_in_TCB_relative(1_000);
-
-    foo();
 }
