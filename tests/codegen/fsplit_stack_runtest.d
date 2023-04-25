@@ -9,8 +9,13 @@
 
 import ldc.attributes;
 
-// CHECK: Local variables would grow the stack beyond limit!
-// CHECK: fsplit_stack_runtest.d:[[@LINE+1]]
+// CHECK: Stack overflow!
+// CHECK: foo argument bytes:
+// CHECK: foo local variables bytes: {{2...}}
+printf("Stack overflow!\n");
+printf("foo argument bytes: %d\n", foo_parameters);
+printf("foo local variables bytes: %d\n", local_variables_bytes);
+
 void foo() {
     byte[2_000] a;
 }
@@ -36,22 +41,37 @@ void set_stacksize_in_TCB_relative_to_rsp(size_t stack_size) {
 }
 
 // Override C runtime __morestack and abort (which lets druntime print a stack trace)
+// With this implementation, standard backtracing will not work correctly because `__morestack`
+// is called from `foo` _before_ the stack frame of `foo` is setup correctly (e.g before `push rbp`).
+// See the implementation of libgcc's `__morestack` for the CFI trickery that is needed for unwinding.
 @noSplitStack
-@naked // @naked is needed to make the backtrace work correctly, but I don't fully understand why.
-       // Perhaps it's needed because __morestack is called from foo _before_ the stack frame of
-       // foo is setup correctly (e.g before push rbp). Without @naked, backtrace code crashes.
 extern(C) void __morestack()
 {
-    throw new Error("Local variables would grow the stack beyond limit!");
-    import ldc.intrinsics;
-    llvm_trap(); // just in case
+    uint local_variables_bytes;
+    uint foo_parameters;
+    // r10d contains local variable size in bytes
+    // r11d contains parameters on stack in bytes
+    asm { "mov %%r10d, %0;
+           mov %%r11d, %1;"
+          : "=m" (local_variables_bytes), //output operands
+            "=m" (foo_parameters)
+          : // no input operands
+          : ; // no clobbers
+    }
+
+    import core.stdc.stdio;
+    printf("Stack overflow!\n");
+    printf("foo argument bytes: %d\n", foo_parameters);
+    printf("foo local variables bytes: %d\n", local_variables_bytes);
+    fflush(stdout);
+
+    // Abort execution without stack unwinding.
+    import core.stdc.stdlib;
+    _Exit(1);
 }
 
 void main() {
-    // GC must be initialized before calling __morestack, perhaps because of funny stack setup when __morestack is called?
-    int[] a = new int[1];
-
-    set_stacksize_in_TCB_relative_to_rsp(1_000);
+    set_stacksize_in_TCB_relative(1_000);
 
     foo();
 }
