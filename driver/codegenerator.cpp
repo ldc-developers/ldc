@@ -177,18 +177,19 @@ struct InlineAsmDiagnosticHandler : public llvm::DiagnosticHandler {
 
     // return false to defer to LLVMContext::diagnose()
   bool handleDiagnostics(const llvm::DiagnosticInfo &DI) override {
+    if (DI.getKind() == llvm::SourceMgr::DK_Error ||
+        DI.getSeverity() == llvm::DS_Error) {
+      ++global.errors;
+    } else if (global.params.warnings == DIAGNOSTICerror &&
+               (DI.getKind() == llvm::SourceMgr::DK_Warning ||
+                DI.getSeverity() == llvm::DS_Warning)) {
+      ++global.warnings;
+    }
+
     if (DI.getKind() != llvm::DK_SrcMgr)
         return false;
 
     const auto &DISM = llvm::cast<llvm::DiagnosticInfoSrcMgr>(DI);
-    if (DISM.getKind() == llvm::SourceMgr::DK_Error ||
-        DISM.getSeverity() == llvm::DS_Error) {
-      ++global.errors;
-    } else if (global.params.warnings == DIAGNOSTICerror &&
-               (DISM.getKind() == llvm::SourceMgr::DK_Warning ||
-                DISM.getSeverity() == llvm::DS_Warning)) {
-      ++global.warnings;
-    }
 
     return inlineAsmDiagnostic(irs, DISM.getSMDiag(), DISM.getLocCookie());
   }

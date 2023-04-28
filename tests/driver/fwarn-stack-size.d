@@ -5,8 +5,7 @@
 // RUN:     %ldc -c --fwarn-stack-size=2000 %s
 // RUN:     %ldc -c --fwarn-stack-size=200  %s 2>&1 | FileCheck %s
 
-// TODO: LLVM warnings do not count to overal warning count, thus -w does not work correctly:
-// R UN: not %ldc -w -c --fwarn-stack-size=200  %s 2>&1 | FileCheck %s
+// RUN: not %ldc -w -c --fwarn-stack-size=200  %s 2>&1 | FileCheck %s
 
 module fwarnstacksize;
 
