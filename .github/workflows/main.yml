@@ -106,8 +106,6 @@ jobs:
       - name: Run LDC D unittests
         if: success() || failure()
         uses: ./.github/actions/4a-test-ldc2
-      - name: Setup upterm session
-        uses: lhotari/action-upterm@v1
       - name: Run LIT testsuite
         if: success() || failure()
         uses: ./.github/actions/4b-test-lit
