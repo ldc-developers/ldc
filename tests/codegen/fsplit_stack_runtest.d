@@ -3,9 +3,10 @@
 
 // REQUIRES: Linux || FreeBSD || Windows
 // REQUIRES: host_X86
+// REQUIRES: atleast_llvm1300
 
 // RUN: %ldc -g --fsplit-stack %s -of=%t%exe
-// RUN: not %t%exe 2>&1 | FileCheck %s
+// RUN: not %t%exe | FileCheck %s
 
 // CHECK: Stack overflow!
 // CHECK: foo argument bytes:
