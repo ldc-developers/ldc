@@ -44,7 +44,7 @@ void set_stacksize_in_TCB_relative_to_rsp(size_t stack_size) {
     }
 }
 
-// Override C runtime __morestack and abort (which lets druntime print a stack trace)
+// Override C runtime __morestack and abort.
 // With this implementation, standard backtracing will not work correctly because `__morestack`
 // is called from `foo` _before_ the stack frame of `foo` is setup correctly (e.g before `push rbp`).
 // See the implementation of libgcc's `__morestack` for the CFI trickery that is needed for unwinding.
