@@ -5,7 +5,7 @@
 // REQUIRES: host_X86
 // REQUIRES: atleast_llvm1300
 
-// RUN: %ldc -c %S/inputs/fsplit_stack_main.d -of=%t.main%obj
+// RUN: %ldc -c -I%S %S/inputs/fsplit_stack_main.d -of=%t.main%obj
 // RUN: %ldc -g %s --fsplit-stack %t.main%obj -of=%t%exe
 // RUN: not %t%exe | FileCheck %s
 
