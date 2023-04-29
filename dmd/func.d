@@ -105,33 +105,7 @@ enum BUILTIN : ubyte
     yl2xp1,
     toPrecFloat,
     toPrecDouble,
-    toPrecReal,
-
-    // IN_LLVM:
-    llvm_sin,
-    llvm_cos,
-    llvm_sqrt,
-    llvm_exp,
-    llvm_exp2,
-    llvm_log,
-    llvm_log2,
-    llvm_log10,
-    llvm_fabs,
-    llvm_minnum,
-    llvm_maxnum,
-    llvm_floor,
-    llvm_ceil,
-    llvm_trunc,
-    llvm_rint,
-    llvm_nearbyint,
-    llvm_round,
-    llvm_fma,
-    llvm_copysign,
-    llvm_bswap,
-    llvm_cttz,
-    llvm_ctlz,
-    llvm_ctpop,
-    llvm_expect,
+    toPrecReal
 }
 
 /* Tweak all return statements and dtor call for nrvo_var, for correct NRVO.
