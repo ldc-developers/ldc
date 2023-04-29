@@ -1,7 +1,7 @@
 // Example user-implemented --fsplit-stack __morestack handling that detects stack overflow.
 // Also serves as an example for users when they want to use this in their project.
 
-// REQUIRES: Linux || FreeBSD || Windows
+// REQUIRES: Linux || FreeBSD || Windows_x64
 // REQUIRES: host_X86
 // REQUIRES: atleast_llvm1300
 
@@ -21,6 +21,8 @@ version (FOO)
 
 version(MAIN)
 {
+    void foo();
+
     @noSplitStack
     void main() {
         set_stacksize_in_TCB_relative_to_rsp(1_000);
