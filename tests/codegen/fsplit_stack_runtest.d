@@ -5,81 +5,66 @@
 // REQUIRES: host_X86
 // REQUIRES: atleast_llvm1300
 
-// RUN: %ldc -g %s -d-version=MAIN -of=%t.main.o
-// RUN: %ldc -g %s -d-version=FOO --fsplit-stack %t.main.o -of=%t%exe
+// RUN: %ldc -c %S/inputs/fsplit_stack_main.d -of=%t.main%obj
+// RUN: %ldc -g %s --fsplit-stack %t.main%obj -of=%t%exe
 // RUN: not %t%exe | FileCheck %s
 
-version (FOO)
-{
-    // CHECK: Stack overflow!
-    // CHECK: foo argument bytes:
-    // CHECK: foo local variables bytes: {{2...}}
-    void foo() {
-        byte[2_000] a;
+// CHECK: Stack overflow!
+// CHECK: foo argument bytes:
+// CHECK: foo local variables bytes: {{2...}}
+void foo() {
+    byte[2_000] a;
+}
+
+
+import ldc.attributes;
+
+@noSplitStack
+void set_stacksize_in_TCB_relative_to_rsp(size_t stack_size) {
+    // fs:0x70 is what split-stack uses as minimum stack address on Linux,
+    // this can be checked by looking at the split-stack codegen assembly (rsp is compared with it).
+    version (linux)
+        enum stack_limit_str = "%%fs:0x70";
+    else version (FreeBSD)
+        enum stack_limit_str = "%%fs:0x18";
+    else version (Windows)
+        enum stack_limit_str = "%%gs:0x28";
+
+    asm { "mov %%rsp, %%r11;
+           sub %0, %%r11;
+           mov %%r11, " ~ stack_limit_str ~ ";"
+          : //output operands
+          : "r" (stack_size) //input operands
+          : "r11", "memory"; // clobbers
     }
 }
 
-version(MAIN)
+// Override C runtime __morestack and abort.
+// With this implementation, standard backtracing will not work correctly because `__morestack`
+// is called from `foo` _before_ the stack frame of `foo` is setup correctly (e.g before `push rbp`).
+// See the implementation of libgcc's `__morestack` for the CFI trickery that is needed for unwinding.
+@noSplitStack
+extern(C) void __morestack()
 {
-    void foo();
-
-    @noSplitStack
-    void main() {
-        set_stacksize_in_TCB_relative_to_rsp(1_000);
-
-        foo();
+    uint local_variables_bytes;
+    uint foo_parameters;
+    // r10d contains local variable size in bytes
+    // r11d contains parameters on stack in bytes
+    asm { "mov %%r10d, %0;
+           mov %%r11d, %1;"
+          : "=m" (local_variables_bytes), //output operands
+            "=m" (foo_parameters)
+          : // no input operands
+          : ; // no clobbers
     }
 
+    import core.stdc.stdio;
+    printf("Stack overflow!\n");
+    printf("foo argument bytes: %d\n", foo_parameters);
+    printf("foo local variables bytes: %d\n", local_variables_bytes);
+    fflush(stdout);
 
-    import ldc.attributes;
-
-    @noSplitStack
-    void set_stacksize_in_TCB_relative_to_rsp(size_t stack_size) {
-        // fs:0x70 is what split-stack uses as minimum stack address on Linux,
-        // this can be checked by looking at the split-stack codegen assembly (rsp is compared with it).
-        version (linux)
-            enum stack_limit_str = "%%fs:0x70";
-        else version (FreeBSD)
-            enum stack_limit_str = "%%fs:0x18";
-        else version (Windows)
-            enum stack_limit_str = "%%gs:0x28";
-
-        asm { "mov %%rsp, %%r11;
-               sub %0, %%r11;
-               mov %%r11, " ~ stack_limit_str ~ ";"
-              : //output operands
-              : "r" (stack_size) //input operands
-              : "r11", "memory"; // clobbers
-        }
-    }
-
-    // Override C runtime __morestack and abort.
-    // With this implementation, standard backtracing will not work correctly because `__morestack`
-    // is called from `foo` _before_ the stack frame of `foo` is setup correctly (e.g before `push rbp`).
-    // See the implementation of libgcc's `__morestack` for the CFI trickery that is needed for unwinding.
-    @noSplitStack
-    extern(C) void __morestack()
-    {
-        uint local_variables_bytes;
-        uint foo_parameters;
-        // r10d contains local variable size in bytes
-        // r11d contains parameters on stack in bytes
-        asm { "mov %%r10d, %0;
-               mov %%r11d, %1;"
-              : "=m" (local_variables_bytes), //output operands
-                "=m" (foo_parameters)
-              : // no input operands
-              : ; // no clobbers
-        }
-
-        import core.stdc.stdio;
-        printf("Stack overflow!\n");
-        printf("foo argument bytes: %d\n", foo_parameters);
-        printf("foo local variables bytes: %d\n", local_variables_bytes);
-        fflush(stdout);
-
-        // Abort execution without stack unwinding.
-        import core.stdc.stdlib;
-        _Exit(1);
-    }
+    // Abort execution without stack unwinding.
+    import core.stdc.stdlib;
+    _Exit(1);
 }
