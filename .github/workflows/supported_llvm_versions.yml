@@ -129,9 +129,6 @@ jobs:
           ninja all ldc2-unittest all-test-runners
           bin/ldc2 --version
 
-      - name: Setup upterm session
-        uses: lhotari/action-upterm@v1
-
       - name: Run LDC D unittests
         if: success() || failure()
         run: ctest --output-on-failure -R "ldc2-unittest"
