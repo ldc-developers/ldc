@@ -1,5 +1,9 @@
 
 // REQUIRES: gdb
+
+// This test fails due to newer version of GDB, see https://github.com/ldc-developers/ldc/issues/4389
+// XFAIL: FreeBSD
+
 // RUN: %ldc %_gdb_dflags -g -of=%t %s
 // RUN: sed -e "/^\\/\\/ GDB:/!d" -e "s,// GDB:,," %s >%t.gdb
 // RUN: gdb %t --batch -x %t.gdb >%t.out 2>&1
