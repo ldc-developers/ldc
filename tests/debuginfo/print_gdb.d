@@ -15,21 +15,18 @@ __gshared int globVal = 987;
 
 enum eA { ABC = 2, ZYX }
 
-struct sA
-{
+struct sA {
     static int someVal = 246;
 }
 
-struct sB
-{
+struct sB {
     uint k = 9;
     uint memberFunc(uint a) { return k*k+a; }
 
     static staticFunc(uint b) { return b * 2; }
 }
 
-class cC
-{
+class cC {
     char c = '0';
     char classMemberFunc(byte a) { return cast(char)(cast(byte)c+a); }
 
@@ -38,8 +35,7 @@ class cC
     mixin mix;
 }
 
-struct templatedStruct(T)
-{
+struct templatedStruct(T) {
     T z;
     T pal(T m) { return z * m; }
 }
