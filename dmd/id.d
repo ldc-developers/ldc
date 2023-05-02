@@ -580,6 +580,7 @@ immutable Msgtable[] msgtable =
     { "udaDynamicCompileEmit", "_dynamicCompileEmit" },
     { "udaHidden", "_hidden" },
     { "udaNoSanitize", "noSanitize" },
+    { "udaNoSplitStack", "_noSplitStack" },
 
     // IN_LLVM: DCompute specific types and functionss
     { "dcompute" },

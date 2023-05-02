@@ -292,6 +292,22 @@ struct noSanitize {
     string sanitizerName;
 }
 
+/++
+ + Disables split-stack instrumentation for this function, overriding the
+ + `-fsplit-stack` commandline function.
+ +
+ + Examples:
+ + ---
+ + import ldc.attributes;
+ +
+ + @noSplitStack int user_function() { return 1; }
+ + ---
+ +/
+immutable noSplitStack = _noSplitStack();
+private struct _noSplitStack
+{
+}
+
 /**
  * Sets the optimization strategy for a function.
  * Valid strategies are "none", "optsize", "minsize". The strategies are mutually exclusive.
