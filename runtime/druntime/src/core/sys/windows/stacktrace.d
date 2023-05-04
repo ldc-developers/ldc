@@ -241,6 +241,8 @@ private:
             if (frameNum >= skip)
             {
                 buffer[nframes++] = stackframe.AddrPC.Offset;
+                if (nframes >= buffer.length)
+                    break;
             }
             frameNum++;
         }
