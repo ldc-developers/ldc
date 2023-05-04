@@ -1,4 +1,8 @@
 // REQUIRES: atleast_gdb80
+
+// This test fails due to newer version of GDB, see https://github.com/ldc-developers/ldc/issues/4389
+// XFAIL: FreeBSD
+
 // RUN: %ldc %_gdb_dflags -I%S -g -of=%t %s %S/inputs/import_a.d %S/inputs/import_b.d
 // RUN: sed -e "/^\\/\\/ GDB:/!d" -e "s,// GDB:,," %s >%t.gdb
 // RUN: env LANG=C gdb %t --batch -x %t.gdb >%t.out 2>&1
@@ -11,21 +15,18 @@ __gshared int globVal = 987;
 
 enum eA { ABC = 2, ZYX }
 
-struct sA
-{
+struct sA {
     static int someVal = 246;
 }
 
-struct sB
-{
+struct sB {
     uint k = 9;
     uint memberFunc(uint a) { return k*k+a; }
 
     static staticFunc(uint b) { return b * 2; }
 }
 
-class cC
-{
+class cC {
     char c = '0';
     char classMemberFunc(byte a) { return cast(char)(cast(byte)c+a); }
 
@@ -34,8 +35,7 @@ class cC
     mixin mix;
 }
 
-struct templatedStruct(T)
-{
+struct templatedStruct(T) {
     T z;
     T pal(T m) { return z * m; }
 }

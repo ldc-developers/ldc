@@ -571,7 +571,9 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
       } else if (ident == Id::udaAssumeUsed) {
         applyAttrAssumeUsed(*gIR, sle, func);
       } else if (ident == Id::udaWeak || ident == Id::udaKernel ||
-                 ident == Id::udaNoSanitize || ident==Id::udaCallingConvention) {
+                 ident == Id::udaNoSanitize ||
+                 ident == Id::udaCallingConvention ||
+                 ident == Id::udaNoSplitStack) {
         // These UDAs are applied elsewhere, thus should silently be ignored here.
       } else if (ident == Id::udaDynamicCompile) {
         irFunc->dynamicCompile = true;
@@ -680,6 +682,12 @@ bool hasKernelAttr(Dsymbol *sym) {
   }
 
   return true;
+}
+
+/// Check whether `fd` has the `@ldc.attributes.noSplitStack` UDA applied.
+bool hasNoSplitStackUDA(FuncDeclaration *fd) {
+  auto sle = getMagicAttribute(fd, Id::udaNoSplitStack, Id::attributes);
+  return sle != nullptr;
 }
 
 /// Creates a mask (for &) of @ldc.attributes.noSanitize UDA applied to the

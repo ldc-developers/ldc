@@ -102,7 +102,7 @@ packaging_steps_template: &PACKAGING_STEPS_TEMPLATE
   run_dynamic_compile_integration_test_script: |
     cd $CIRRUS_WORKING_DIR/..
     # FIXME: disabled since LLVM 12, needs https://github.com/ldc-developers/ldc/pull/3184
-    if [[ "$CI_OS" == "freebsd" ]]; then
+    if false; then
       installed/bin/ldc2 -enable-dynamic-compile -run $CIRRUS_WORKING_DIR/tests/dynamiccompile/array.d
     fi
   # Run ImportC integration test
@@ -387,9 +387,9 @@ task:
   << : *PACKAGING_STEPS_TEMPLATE
 
 task:
-  name: FreeBSD 12.2 x64
+  name: FreeBSD 12.4 x64
   freebsd_instance:
-    image_family: freebsd-12-2
+    image_family: freebsd-12-4
     cpu: 4
     memory: 8G
   timeout_in: 60m
@@ -401,18 +401,13 @@ task:
       -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
       -DEXTRA_CXXFLAGS=-flto=full
     PARALLELISM: 4
-    # use clang from the `llvm` ports package to be installed, incl. lld support for .deplibs (`pragma(lib, "execinfo")`)
-    CC: clang90
+    CC: clang
   install_prerequisites_script: |
     cd $CIRRUS_WORKING_DIR/..
     sysctl -n hw.ncpu
-    pkg install -y git cmake ninja gmake llvm bash gtar 7-zip
+    pkg install -y git cmake ninja gmake llvm bash gtar 7-zip ldc
     python3 --version
     python3 -m ensurepip
-    # Download & extract host LDC
-    curl -fL --retry 3 --max-time 300 -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-freebsd-$CI_ARCH.tar.xz
-    mkdir pre-ldc
-    gtar -xf ldc2.tar.xz --strip 1 -C pre-ldc
   clone_submodules_early_script: |
     cd $CIRRUS_WORKING_DIR
     git submodule update --init --depth $CIRRUS_CLONE_DEPTH
@@ -423,7 +418,7 @@ task:
     cd host-ldc
     cmake -G Ninja $CIRRUS_WORKING_DIR \
       -DCMAKE_BUILD_TYPE=Release \
-      -DD_COMPILER=$PWD/../pre-ldc/bin/ldmd2 \
+      -DD_COMPILER=ldmd2 \
       -DBUILD_SHARED_LIBS=OFF \
       -DBUILD_LTO_LIBS=ON
     ninja -j$PARALLELISM

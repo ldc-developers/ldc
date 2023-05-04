@@ -1,18 +1,19 @@
 
 // REQUIRES: gdb
+// This test fails due to newer version of GDB, see https://github.com/ldc-developers/ldc/issues/4389
+// XFAIL: FreeBSD
+
 // RUN: %ldc %_gdb_dflags -g -of=%t %s
 // RUN: sed -e "/^\\/\\/ GDB:/!d" -e "s,// GDB:,," %s >%t.gdb
 // RUN: gdb %t --batch -x %t.gdb >%t.out 2>&1
 // RUN: FileCheck %s -check-prefix=CHECK < %t.out
 module classtypes_gdb;
 
-class uv
-{
+class uv {
     uint i;
 }
 
-class xyz : uv
-{
+class xyz : uv {
     float f;
     double d;
 
@@ -23,8 +24,7 @@ class xyz : uv
 __gshared uv gvar;
 static this() { gvar = new xyz(12, 34.56); }
 
-int main()
-{
+int main() {
     xyz[4] sarr;
     xyz* ptr;
     xyz lvar;
