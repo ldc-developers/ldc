@@ -3865,7 +3865,8 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                 result = id.expressionSemantic(sc);
                 return;
             }
-            else if (!exp.onstack && !exp.type.isscope())
+            // LDC: not using the `_d_newclassT` lowering yet
+            else if (!IN_LLVM && !exp.onstack && !exp.type.isscope())
             {
                 auto hook = global.params.tracegc ? Id._d_newclassTTrace : Id._d_newclassT;
                 if (!verifyHookExist(exp.loc, *sc, hook, "new class"))
