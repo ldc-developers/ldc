@@ -231,8 +231,14 @@ struct Node
         {
             this.duration = (*json)["dur"].integer;
             this.name = (*json)["name"].str;
-            this.location = (*json)["args"]["loc"].str;
-            this.detail = (*json)["args"]["detail"].str;
+            if (auto args = "args" in *json) {
+                if (auto value = "loc" in *args) {
+                    this.location = value.str;
+                }
+                if (auto value = "detail" in *args) {
+                    this.detail = value.str;
+                }
+            }
         }
     }
 
