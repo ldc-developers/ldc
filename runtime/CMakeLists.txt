@@ -452,6 +452,15 @@ macro(dc src_files src_basedir d_flags output_basedir emit_bc all_at_once single
             list(APPEND dc_flags -of=${new_o})
         endif()
 
+        # Use a response file on Windows, in order not to exceed the max command-line length.
+        if(WIN32)
+            set(first_obj "")
+            list(GET new_o 0 first_obj)
+            string(REPLACE ";" " " relative_src_files "${relative_src_files}")
+            file(WRITE ${first_obj}.rsp ${relative_src_files})
+            set(relative_src_files "@${first_obj}.rsp")
+        endif()
+
         add_custom_command(
             OUTPUT  ${new_o} ${new_bc}
             COMMAND ${LDC_EXE_FULL} ${dc_flags} ${relative_src_files}
