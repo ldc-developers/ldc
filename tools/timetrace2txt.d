@@ -24,6 +24,7 @@ struct Config {
     string input_filename;
     string output_filename = "timetrace.txt";
     string output_TSV_filename;
+    bool indented = false;
 }
 Config config;
 
@@ -44,7 +45,8 @@ void parseCommandLine(string[] args) {
         arraySep = ";";
         auto helpInformation = getopt(
             args,
-            "o",   "Output filename (default: '" ~ config.output_filename.init ~ "'). Specify '-' to redirect output to stdout.", &config.output_filename,
+            "indent", "Output items as simply indented list instead of the fancy tree. This should go well with code-folding editors.", &config.indented,
+            "o",   "Output filename (default: '" ~ config.output_filename ~ "'). Specify '-' to redirect output to stdout.", &config.output_filename,
             "tsv", "Also output to this file in duration-sorted Tab-Separated Values (TSV) format", &config.output_TSV_filename,
         );
 
@@ -107,8 +109,12 @@ int main(string[] args)
     }
 
     wchar[] indentstring;
-    foreach (i, ref child; Node.root.children)
-        child.print(indentstring, false);
+    foreach (i, ref child; Node.root.children) {
+        if (config.indented)
+            child.printIndented(indentstring);
+        else
+            child.printTree(indentstring);
+    }
 
     if (config.output_TSV_filename.length != 0) {
         File outputTSVFile = (config.output_TSV_filename == "-") ? stdout : File(config.output_TSV_filename, "w");
@@ -225,12 +231,18 @@ struct Node
         {
             this.duration = (*json)["dur"].integer;
             this.name = (*json)["name"].str;
-            this.location = (*json)["args"]["loc"].str;
-            this.detail = (*json)["args"]["detail"].str;
+            if (auto args = "args" in *json) {
+                if (auto value = "loc" in *args) {
+                    this.location = value.str;
+                }
+                if (auto value = "detail" in *args) {
+                    this.detail = value.str;
+                }
+            }
         }
     }
 
-    void print(wchar[] indentstring, bool last_child) {
+    void printTree(wchar[] indentstring, bool last_child = false) {
         this.lineNumber = lineNumberCounter;
             lineNumberCounter++;
 
@@ -248,7 +260,25 @@ struct Node
 
         wchar[] child_indentstring = indentstring ~ " |";
         foreach (i, ref child; this.children) {
-            child.print(child_indentstring, i == this.children.length-1);
+            child.printTree(child_indentstring, i == this.children.length-1);
+        }
+    }
+
+    void printIndented(wchar[] indentstring) {
+        this.lineNumber = lineNumberCounter;
+            lineNumberCounter++;
+
+        // Output in milliseconds.
+        outputTextFile.write(indentstring);
+        outputTextFile.write("- ");
+        outputTextFile.writef(duration_format_string, cast(double)(this.duration) / 1000);
+        outputTextFile.write("- ", this.name);
+        outputTextFile.write(", ", this.detail);
+        outputTextFile.writeln(", ", this.location);
+
+        wchar[] child_indentstring = indentstring ~ "  ";
+        foreach (i, ref child; this.children) {
+            child.printIndented(child_indentstring);
         }
     }
 }
