@@ -294,7 +294,6 @@ void appendEnvVar(const char *envVarName, std::vector<char *> &args) {
 
   char *env = strdup(envVar.c_str()); // create forever-living copy
 
-  size_t j = 1; // leave argv[0] alone
   while (1) {
     switch (*env) {
     case ' ':
@@ -307,7 +306,6 @@ void appendEnvVar(const char *envVarName, std::vector<char *> &args) {
 
     default:
       args.push_back(env); // append
-      j++;
       char *p = env;
       int slash = 0;
       int instring = 0;
