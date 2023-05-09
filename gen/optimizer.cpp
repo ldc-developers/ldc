@@ -163,7 +163,7 @@ llvm::CodeGenOpt::Level codeGenOptLevel() {
   return llvm::CodeGenOpt::Default;
 }
 
-static std::unique_ptr<TargetLibraryInfoImpl> createTLII(llvm::Module &M) {
+std::unique_ptr<TargetLibraryInfoImpl> createTLII(llvm::Module &M) {
   auto tlii = new TargetLibraryInfoImpl(Triple(M.getTargetTriple()));
   // The -disable-simplify-libcalls flag actually disables all builtin optzns.
   if (disableSimplifyLibCalls)
@@ -408,10 +408,6 @@ bool legacy_ldc_optimize_module(llvm::Module *M) {
 
   legacyAddOptimizationPasses(mpm, fpm, optLevel(), sizeLevel());
 
-  if (global.params.dllimport != DLLImport::none) {
-    mpm.add(createDLLImportRelocationPass());
-  }
-
   // Run per-function passes.
   fpm.doInitialization();
   for (auto &F : *M) {
@@ -620,8 +616,6 @@ static PipelineTuningOptions getPipelineTuningOptions(unsigned optLevelVal, unsi
  */
 //Run optimization passes using the new pass manager
 void runOptimizationPasses(llvm::Module *M) {
-  TimeTraceScope timeScope("Optimization passes");
-
   // Create a ModulePassManager to hold and optimize the collection of
   // per-module passes we are about to build.
 
@@ -670,6 +664,8 @@ void runOptimizationPasses(llvm::Module *M) {
       mpm.addPass(VerifierPass());
     });
   }
+
+  // TODO: port over strip-debuginfos pass for -strip-debug
 
   pb.registerPipelineStartEPCallback([&](ModulePassManager &mpm,
                                         OptimizationLevel level) {
@@ -757,38 +753,6 @@ void runOptimizationPasses(llvm::Module *M) {
 
   mpm.run(*M,mam);
 }
-//Run codgen passes using the legacy pass manager
-void runCodegenPasses(llvm::Module* M) {
-  TimeTraceScope timeScope("Codegen passes");
-
-  legacy::PassManager mpm;
-
-  // The DataLayout is already set at the module (in module.cpp,
-  // method Module::genLLVMModule())
-  // FIXME: Introduce new command line switch default-data-layout to
-  // override the module data layout
-
-  // Add internal analysis passes from the target machine.
-  mpm.add(createTargetTransformInfoWrapperPass(
-      gTargetMachine->getTargetIRAnalysis()));
-
-  // Add an appropriate TargetLibraryInfo pass for the module's triple.
-  auto tlii = createTLII(*M);
-  mpm.add(new TargetLibraryInfoWrapperPass(*tlii));
-
-  // If the -strip-debug command line option was specified, add it before
-  // anything else.
-  if (stripDebug) {
-    mpm.add(createStripSymbolsPass(true));
-  }
-
-  if (global.params.dllimport != DLLImport::none) {
-    mpm.add(createDLLImportRelocationPass());
-  }
-
-  // Run per-module passes.
-  mpm.run(*M);
-}
 ////////////////////////////////////////////////////////////////////////////////
 // This function runs optimization passes based on command line arguments.
 // Returns true if any optimization passes were invoked.
@@ -804,7 +768,7 @@ bool new_ldc_optimize_module(llvm::Module *M) {
     return false;
 
   runOptimizationPasses(M);
-  runCodegenPasses(M);
+
   // Verify the resulting module.
   if (!noVerify) {
     verifyModule(M);

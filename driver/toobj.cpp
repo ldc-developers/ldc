@@ -18,6 +18,7 @@
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
+#include "gen/passes/Passes.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Analysis/ModuleSummaryAnalysis.h"
@@ -30,6 +31,7 @@
 #include "llvm/Support/Program.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -100,6 +102,14 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
   // Add internal analysis passes from the target machine.
   Passes.add(
       createTargetTransformInfoWrapperPass(Target.getTargetIRAnalysis()));
+
+  // Add an appropriate TargetLibraryInfo pass for the module's triple.
+  auto tlii = createTLII(m);
+  Passes.add(new llvm::TargetLibraryInfoWrapperPass(*tlii));
+
+  if (global.params.dllimport != DLLImport::none) {
+    Passes.add(createDLLImportRelocationPass());
+  }
 
   if (Target.addPassesToEmitFile(
           Passes,
@@ -322,7 +332,7 @@ void writeModule(llvm::Module *m, const char *filename) {
     }
   }
 
-  // run LLVM passes (optimizer + codegen)
+  // run LLVM optimization passes
   {
     ::TimeTraceScope timeScope("Optimize", filename);
     ldc_optimize_module(m);
