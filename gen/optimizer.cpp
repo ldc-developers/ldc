@@ -184,7 +184,7 @@ static void legacyAddStripExternalsPass(const PassManagerBuilder &builder,
                                   PassManagerBase &pm) {
   if (builder.OptLevel >= 1) {
     legacyAddPass(pm, createStripExternalsPass());
-    legacyAddPass(pm, createGlobalDCEPass());
+    pm.add(createGlobalDCEPass());
   }
 }
 
@@ -459,9 +459,6 @@ static void addAddressSanitizerPasses(ModulePassManager &mpm,
 #else
   mpm.addPass(ModuleAddressSanitizerPass(aso));
 #endif
-  if (verifyEach) {
-    mpm.addPass(VerifierPass());
-  }
 }
 
 static void addMemorySanitizerPass(ModulePassManager &mpm,
@@ -536,33 +533,26 @@ static void addStripExternalsPass(ModulePassManager &mpm,
       mpm.addPass(VerifierPass());
     }
     mpm.addPass(GlobalDCEPass());
-    if (verifyEach) {
-      mpm.addPass(VerifierPass());
-    }
   }
 }
 
 static void addSimplifyDRuntimeCallsPass(ModulePassManager &mpm,
                                       OptimizationLevel level ) {
   if (level == OptimizationLevel::O2  || level == OptimizationLevel::O3) {
-    FunctionPassManager fpm;
-    fpm.addPass(SimplifyDRuntimeCallsPass());
+    mpm.addPass(createModuleToFunctionPassAdaptor(SimplifyDRuntimeCallsPass()));
     if (verifyEach) {
-      fpm.addPass(VerifierPass());
+      mpm.addPass(VerifierPass());
     }
-    mpm.addPass(createModuleToFunctionPassAdaptor(std::move(fpm)));
   }
 }
 
 static void addGarbageCollect2StackPass(ModulePassManager &mpm,
                                          OptimizationLevel level ) {
   if (level == OptimizationLevel::O2  || level == OptimizationLevel::O3) {
-    FunctionPassManager fpm;
-    fpm.addPass(GarbageCollect2StackPass());
+    mpm.addPass(createModuleToFunctionPassAdaptor(GarbageCollect2StackPass()));
     if (verifyEach) {
-      fpm.addPass(VerifierPass());
+      mpm.addPass(VerifierPass());
     }
-    mpm.addPass(createModuleToFunctionPassAdaptor(std::move(fpm)));
   }
 }
 
@@ -645,7 +635,7 @@ void runOptimizationPasses(llvm::Module *M) {
   bool debugLogging = false;
   ppo.Indent = false;
   ppo.SkipAnalyses = false;
-  StandardInstrumentations si(debugLogging, verifyEach, ppo);
+  StandardInstrumentations si(debugLogging, /*VerifyEach=*/false, ppo);
 
   si.registerCallbacks(pic, &fam);
 
