@@ -163,6 +163,14 @@ llvm::CodeGenOpt::Level codeGenOptLevel() {
   return llvm::CodeGenOpt::Default;
 }
 
+static std::unique_ptr<TargetLibraryInfoImpl> createTLII(llvm::Module &M) {
+  auto tlii = new TargetLibraryInfoImpl(Triple(M.getTargetTriple()));
+  // The -disable-simplify-libcalls flag actually disables all builtin optzns.
+  if (disableSimplifyLibCalls)
+    tlii->disableAllFunctions();
+  return std::unique_ptr<TargetLibraryInfoImpl>(tlii);
+}
+
 #if LDC_LLVM_VER < 1500
 static inline void legacyAddPass(PassManagerBase &pm, Pass *pass) {
   pm.add(pass);
@@ -373,13 +381,7 @@ bool legacy_ldc_optimize_module(llvm::Module *M) {
     return false;
 
   // Add an appropriate TargetLibraryInfo pass for the module's triple.
-  TargetLibraryInfoImpl *tlii =
-      new TargetLibraryInfoImpl(Triple(M->getTargetTriple()));
-
-  // The -disable-simplify-libcalls flag actually disables all builtin optzns.
-  if (disableSimplifyLibCalls)
-    tlii->disableAllFunctions();
-
+  auto tlii = createTLII(*M);
   mpm.add(new TargetLibraryInfoWrapperPass(*tlii));
 
   // The DataLayout is already set at the module (in module.cpp,
@@ -656,6 +658,9 @@ void runOptimizationPasses(llvm::Module *M) {
   PassBuilder pb(gTargetMachine, getPipelineTuningOptions(optLevelVal, sizeLevelVal),
                  getPGOOptions(), &pic);
 
+  // register the target library analysis directly because clang does :)
+  auto tlii = createTLII(*M);
+  fam.registerPass([&] { return TargetLibraryAnalysis(*tlii); });
 
   ModulePassManager mpm;
 
@@ -758,16 +763,6 @@ void runCodegenPasses(llvm::Module* M) {
 
   legacy::PassManager mpm;
 
-  // Add an appropriate TargetLibraryInfo pass for the module's triple.
-  TargetLibraryInfoImpl *tlii =
-      new TargetLibraryInfoImpl(Triple(M->getTargetTriple()));
-
-  // The -disable-simplify-libcalls flag actually disables all builtin optzns.
-  if (disableSimplifyLibCalls)
-    tlii->disableAllFunctions();
-
-  mpm.add(new TargetLibraryInfoWrapperPass(*tlii));
-
   // The DataLayout is already set at the module (in module.cpp,
   // method Module::genLLVMModule())
   // FIXME: Introduce new command line switch default-data-layout to
@@ -777,12 +772,9 @@ void runCodegenPasses(llvm::Module* M) {
   mpm.add(createTargetTransformInfoWrapperPass(
       gTargetMachine->getTargetIRAnalysis()));
 
-  // Also set up a manager for the per-function passes.
-  legacy::FunctionPassManager fpm(M);
-
-  // Add internal analysis passes from the target machine.
-  fpm.add(createTargetTransformInfoWrapperPass(
-      gTargetMachine->getTargetIRAnalysis()));
+  // Add an appropriate TargetLibraryInfo pass for the module's triple.
+  auto tlii = createTLII(*M);
+  mpm.add(new TargetLibraryInfoWrapperPass(*tlii));
 
   // If the -strip-debug command line option was specified, add it before
   // anything else.
@@ -794,16 +786,8 @@ void runCodegenPasses(llvm::Module* M) {
     mpm.add(createDLLImportRelocationPass());
   }
 
-  // Run per-function passes.
-  fpm.doInitialization();
-  for (auto &F : *M) {
-    fpm.run(F);
-  }
-  fpm.doFinalization();
-
   // Run per-module passes.
   mpm.run(*M);
-
 }
 ////////////////////////////////////////////////////////////////////////////////
 // This function runs optimization passes based on command line arguments.
