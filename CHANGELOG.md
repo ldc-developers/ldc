@@ -5,6 +5,7 @@
 #### Platform support
 
 #### Bug fixes
+- Fix potentially huge compile slowdowns with `-g` and LLVM 15+. (#4354, #4393)
 
 # LDC 1.32.1 (2023-04-17)
 
