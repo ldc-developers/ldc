@@ -618,6 +618,8 @@ static PipelineTuningOptions getPipelineTuningOptions(unsigned optLevelVal, unsi
  */
 //Run optimization passes using the new pass manager
 void runOptimizationPasses(llvm::Module *M) {
+  TimeTraceScope timeScope("Optimization passes");
+
   // Create a ModulePassManager to hold and optimize the collection of
   // per-module passes we are about to build.
 
@@ -660,7 +662,7 @@ void runOptimizationPasses(llvm::Module *M) {
   if (!noVerify) {
     pb.registerPipelineStartEPCallback([&](ModulePassManager &mpm,
                                           OptimizationLevel level) {
-      mpm.addPass(createModuleToFunctionPassAdaptor(VerifierPass()));
+      mpm.addPass(VerifierPass());
     });
   }
 
@@ -752,6 +754,8 @@ void runOptimizationPasses(llvm::Module *M) {
 }
 //Run codgen passes using the legacy pass manager
 void runCodegenPasses(llvm::Module* M) {
+  TimeTraceScope timeScope("Codegen passes");
+
   legacy::PassManager mpm;
 
   // Add an appropriate TargetLibraryInfo pass for the module's triple.

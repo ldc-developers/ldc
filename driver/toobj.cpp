@@ -322,7 +322,7 @@ void writeModule(llvm::Module *m, const char *filename) {
     }
   }
 
-  // run optimizer
+  // run LLVM passes (optimizer + codegen)
   {
     ::TimeTraceScope timeScope("Optimize", filename);
     ldc_optimize_module(m);
