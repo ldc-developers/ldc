@@ -203,8 +203,10 @@ static void legacyAddGarbageCollect2StackPass(const PassManagerBuilder &builder,
 }
 
 static void legacyAddAddressSanitizerPasses(const PassManagerBuilder &Builder,
-                                      PassManagerBase &PM) {
-  PM.add(createAddressSanitizerFunctionPass());
+                                            PassManagerBase &PM) {
+  PM.add(createAddressSanitizerFunctionPass(/*CompileKernel = */ false,
+                                            /*Recover = */ false,
+                                            /*UseAfterScope = */ true));
   PM.add(createModuleAddressSanitizerLegacyPassPass());
 }
 

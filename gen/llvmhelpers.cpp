@@ -919,19 +919,29 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     Type *type = isSpecialRefVar(vd) ? vd->type->pointerTo() : vd->type;
 
     llvm::Value *allocainst;
+    bool isRealAlloca = false;
     LLType *lltype = DtoType(type); // void for noreturn
     if (lltype->isVoidTy() || gDataLayout->getTypeSizeInBits(lltype) == 0) {
       allocainst = llvm::ConstantPointerNull::get(getPtrToType(lltype));
     } else if (type != vd->type) {
       allocainst = DtoAlloca(type, vd->toChars());
+      isRealAlloca = true;
     } else {
       allocainst = DtoAlloca(vd, vd->toChars());
+      isRealAlloca = true;
     }
 
     irLocal->value = allocainst;
 
     if (!lltype->isVoidTy())
       gIR->DBuilder.EmitLocalVariable(allocainst, vd);
+
+    // Lifetime annotation is only valid on alloca.
+    if (isRealAlloca) {
+      // The lifetime of a stack variable starts from the point it is declared
+      gIR->funcGen().localVariableLifetimeAnnotator.addLocalVariable(
+          allocainst, DtoConstUlong(type->size()));
+    }
   }
 
   IF_LOG Logger::cout() << "llvm value for decl: " << *getIrLocal(vd)->value

@@ -294,3 +294,6 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd,
 bool toInPlaceConstruction(DLValue *lhs, Expression *rhs);
 
 std::string llvmTypeToString(LLType *type);
+
+void emitLifetimeStart(llvm::Value *size, llvm::Value *addr);
+void emitLifetimeEnd(llvm::Value *size, llvm::Value *addr);
