@@ -657,67 +657,46 @@ void runOptimizationPasses(llvm::Module *M) {
 
   // TODO: port over strip-debuginfos pass for -strip-debug
 
-  pb.registerPipelineStartEPCallback([&](ModulePassManager &mpm,
-                                        OptimizationLevel level) {
-    addPGOPasses(mpm, level);
-  });
+  pb.registerPipelineStartEPCallback(addPGOPasses);
 
   if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
-    pb.registerOptimizerLastEPCallback([&](ModulePassManager &mpm,
-                                        OptimizationLevel level) {
-      addAddressSanitizerPasses(mpm,level);
-    });
+    pb.registerOptimizerLastEPCallback(addAddressSanitizerPasses);
   }
 
   if (opts::isSanitizerEnabled(opts::MemorySanitizer)) {
-    pb.registerOptimizerLastEPCallback([&](ModulePassManager &mpm,
-                                        OptimizationLevel level) {
-      FunctionPassManager fpm;
-      addMemorySanitizerPass(mpm, fpm,level);
-      mpm.addPass(createModuleToFunctionPassAdaptor(std::move(fpm)));
-    });
+    pb.registerOptimizerLastEPCallback(
+        [&](ModulePassManager &mpm, OptimizationLevel level) {
+          FunctionPassManager fpm;
+          addMemorySanitizerPass(mpm, fpm, level);
+          mpm.addPass(createModuleToFunctionPassAdaptor(std::move(fpm)));
+        });
   }
 
   if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {
-    pb.registerOptimizerLastEPCallback([&](ModulePassManager &mpm,
-                                        OptimizationLevel level) {
-      addThreadSanitizerPass(mpm, level);
-    });
+    pb.registerOptimizerLastEPCallback(addThreadSanitizerPass);
   }
 
   if (opts::isSanitizerEnabled(opts::CoverageSanitizer)) {
-    pb.registerOptimizerLastEPCallback([&](ModulePassManager &mpm,
-                                        OptimizationLevel level) {
-      addSanitizerCoveragePass(mpm,level);
-    });
+    pb.registerOptimizerLastEPCallback(addSanitizerCoveragePass);
   }
 
   if (!disableLangSpecificPasses) {
     if (!disableSimplifyDruntimeCalls) {
-//FIX ME: Is this registerOptimizerLastEPCallback correct here
-//(had registerLoopOptimizerEndEPCallback) but that seems wrong
-      pb.registerOptimizerLastEPCallback([&](ModulePassManager &mpm,
-                                          OptimizationLevel level) {
-        addSimplifyDRuntimeCallsPass(mpm,level);
-      });
+      // FIXME: Is this registerOptimizerLastEPCallback correct here
+      //(had registerLoopOptimizerEndEPCallback) but that seems wrong
+      pb.registerOptimizerLastEPCallback(addSimplifyDRuntimeCallsPass);
     }
     if (!disableGCToStack) {
-//FIX ME: This should be checked
+      // FIXME: This should be checked
       fam.registerPass([&] { return DominatorTreeAnalysis(); });
-      mam.registerPass([&] { return  CallGraphAnalysis(); });
-//FIX ME: Is this registerOptimizerLastEPCallback correct here
-//(had registerLoopOptimizerEndEPCallback) but that seems wrong
-      pb.registerOptimizerLastEPCallback([&](ModulePassManager &mpm,
-                                          OptimizationLevel level) {
-        addGarbageCollect2StackPass(mpm,level);
-      });
+      mam.registerPass([&] { return CallGraphAnalysis(); });
+      // FIXME: Is this registerOptimizerLastEPCallback correct here
+      //(had registerLoopOptimizerEndEPCallback) but that seems wrong
+      pb.registerOptimizerLastEPCallback(addGarbageCollect2StackPass);
     }
   }
 
-  pb.registerOptimizerLastEPCallback([&](ModulePassManager &mpm,
-                                      OptimizationLevel level) {
-    addStripExternalsPass(mpm, level);
-  });
+  pb.registerOptimizerLastEPCallback(addStripExternalsPass);
 
   registerAllPluginsWithPassBuilder(pb);
 
