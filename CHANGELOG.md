@@ -1,12 +1,18 @@
 # LDC master
 
 #### Big news
+
+#### Platform support
+
+#### Bug fixes
+
+# LDC 1.32.2 (2023-05-12)
+
+#### Big news
 - New command-line option `--fwarn-stack-size=<threshold>` with LLVM 13+. (#4378)
 - New command-line option `--fsplit-stack` for incremental stack allocations, see https://llvm.org/docs/SegmentedStacks.html. (#4379)
   - New UDA `ldc.attributes.noSplitStack` disables it on a per-function basis. (#4382)
 - New command-line option `--indent` for the `timetrace2txt` tool. (#4391)
-
-#### Platform support
 
 #### Bug fixes
 - Fix potentially huge compile slowdowns with `-g` and LLVM 15+. (#4354, #4393)
