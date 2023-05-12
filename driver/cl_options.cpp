@@ -163,6 +163,12 @@ static cl::opt<MessageStyle, true> verrorStyle(
                    "standard used by gcc and clang")),
     cl::init(MessageStyle::digitalmars));
 
+static cl::opt<unsigned, true>
+    verrorSupplements("verror-supplements", cl::ZeroOrMore,
+                      cl::location(global.params.errorSupplementLimit),
+                      cl::desc("Limit the number of supplemental messages for "
+                               "each error (0 means unlimited)"));
+
 static cl::opt<Diagnostic, true> warnings(
     cl::desc("Warnings:"), cl::ZeroOrMore, cl::location(global.params.warnings),
     cl::values(

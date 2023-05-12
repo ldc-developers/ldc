@@ -1243,6 +1243,15 @@ else // !IN_LLVM
     {
         return (os & Target.OS.Posix) != 0;
     }
+
+    /*********************
+     * Returns:
+     *  alignment of the stack
+     */
+    extern (D) uint stackAlign()
+    {
+        return isXmmSupported() ? 16 : (is64bit ? 8 : 4);
+    }
 } // !IN_LLVM
 }
 

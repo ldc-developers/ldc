@@ -56,7 +56,7 @@ Expression *expressionSemantic(Expression *e, Scope *sc);
 Expression *defaultInit(Type *mt, const Loc &loc, const bool isCfile = false);
 #endif
 
-void expandTuples(Expressions *exps);
+void expandTuples(Expressions *exps, Identifiers *names = nullptr);
 bool isTrivialExp(Expression *e);
 bool hasSideEffect(Expression *e, bool assumeImpureCalls = false);
 
@@ -97,7 +97,7 @@ class Expression : public ASTNode
 public:
     EXP op;                     // to minimize use of dynamic_cast
     unsigned char size;         // # of bytes in Expression so we can copy() it
-    unsigned char parens;       // if this is a parenthesized expression
+    bool parens;                // if this is a parenthesized expression
     Type *type;                 // !=NULL means that semantic() has been run
     Loc loc;                    // file location
 
@@ -139,6 +139,7 @@ public:
     // A compile-time result is required. Give an error if not possible
     Expression *ctfeInterpret();
     int isConst();
+    virtual bool isIdentical(const Expression *e) const;
     virtual Optional<bool> toBool();
     virtual bool hasCode()
     {
@@ -297,6 +298,7 @@ public:
     static RealExp *create(const Loc &loc, real_t value, Type *type);
     static void emplace(UnionExp *pue, const Loc &loc, real_t value, Type *type);
     bool equals(const RootObject * const o) const override;
+    bool isIdentical(const Expression *e) const override;
     dinteger_t toInteger() override;
     uinteger_t toUInteger() override;
     real_t toReal() override;
@@ -314,6 +316,7 @@ public:
     static ComplexExp *create(const Loc &loc, complex_t value, Type *type);
     static void emplace(UnionExp *pue, const Loc &loc, complex_t value, Type *type);
     bool equals(const RootObject * const o) const override;
+    bool isIdentical(const Expression *e) const override;
     dinteger_t toInteger() override;
     uinteger_t toUInteger() override;
     real_t toReal() override;
@@ -565,12 +568,15 @@ public:
     Expression *thisexp;        // if !NULL, 'this' for class being allocated
     Type *newtype;
     Expressions *arguments;     // Array of Expression's
+    Identifiers *names;         // Array of names corresponding to expressions
 
     Expression *argprefix;      // expression to be evaluated just before arguments[]
 
     CtorDeclaration *member;    // constructor function
     bool onstack;               // allocate on stack
     bool thrownew;              // this NewExp is the expression of a ThrowStatement
+
+    Expression *lowering;       // lowered druntime hook: `_d_newclass`
 
     static NewExp *create(const Loc &loc, Expression *thisexp, Type *newtype, Expressions *arguments);
     NewExp *syntaxCopy() override;
@@ -859,6 +865,7 @@ class CallExp final : public UnaExp
 {
 public:
     Expressions *arguments;     // function arguments
+    Identifiers *names;
     FuncDeclaration *f;         // symbol to call
     bool directcall;            // true if a virtual call is devirtualized
     bool inDebugStatement;      // true if this was in a debug statement

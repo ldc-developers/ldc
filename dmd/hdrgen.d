@@ -65,6 +65,7 @@ struct HdrGenState
     int autoMember;
     int forStmtInit;
     int insideFuncBody;
+    int insideAggregate;
 
     bool declstring; // set while declaring alias for string,wstring or dstring
     EnumDeclaration inEnumDecl;
@@ -149,7 +150,7 @@ public:
     OutBuffer* buf;
     HdrGenState* hgs;
 
-    extern (D) this(OutBuffer* buf, HdrGenState* hgs)
+    extern (D) this(OutBuffer* buf, HdrGenState* hgs) scope
     {
         this.buf = buf;
         this.hgs = hgs;
@@ -810,7 +811,7 @@ public:
     OutBuffer* buf;
     HdrGenState* hgs;
 
-    extern (D) this(OutBuffer* buf, HdrGenState* hgs)
+    extern (D) this(OutBuffer* buf, HdrGenState* hgs) scope
     {
         this.buf = buf;
         this.hgs = hgs;
@@ -1411,8 +1412,10 @@ public:
         buf.writeByte('{');
         buf.writenl();
         buf.level++;
+        hgs.insideAggregate++;
         foreach (s; *d.members)
             s.accept(this);
+        hgs.insideAggregate--;
         buf.level--;
         buf.writeByte('}');
         buf.writenl();
@@ -1433,8 +1436,10 @@ public:
             buf.writeByte('{');
             buf.writenl();
             buf.level++;
+            hgs.insideAggregate++;
             foreach (s; *d.members)
                 s.accept(this);
+            hgs.insideAggregate--;
             buf.level--;
             buf.writeByte('}');
         }
@@ -1526,6 +1531,21 @@ public:
 
     void visitVarDecl(VarDeclaration v, bool anywritten)
     {
+        const bool isextern = hgs.hdrgen &&
+            !hgs.insideFuncBody &&
+            !hgs.tpltMember &&
+            !hgs.insideAggregate &&
+            !(v.storage_class & STC.manifest);
+
+        void vinit(VarDeclaration v)
+        {
+            auto ie = v._init.isExpInitializer();
+            if (ie && (ie.exp.op == EXP.construct || ie.exp.op == EXP.blit))
+                (cast(AssignExp)ie.exp).e2.expressionToBuffer(buf, hgs);
+            else
+                v._init.initializerToBuffer(buf, hgs);
+        }
+
         if (anywritten)
         {
             buf.writestring(", ");
@@ -1533,21 +1553,30 @@ public:
         }
         else
         {
-            if (stcToBuffer(buf, v.storage_class))
+            const bool useTypeof = isextern && v._init && !v.type;
+            auto stc = v.storage_class;
+            if (isextern)
+                stc |= STC.extern_;
+            if (useTypeof)
+                stc &= ~STC.auto_;
+            if (stcToBuffer(buf, stc))
                 buf.writeByte(' ');
             if (v.type)
                 typeToBuffer(v.type, v.ident, buf, hgs);
+            else if (useTypeof)
+            {
+                buf.writestring("typeof(");
+                vinit(v);
+                buf.writestring(") ");
+                buf.writestring(v.ident.toString());
+            }
             else
                 buf.writestring(v.ident.toString());
         }
-        if (v._init)
+        if (v._init && !isextern)
         {
             buf.writestring(" = ");
-            auto ie = v._init.isExpInitializer();
-            if (ie && (ie.exp.op == EXP.construct || ie.exp.op == EXP.blit))
-                (cast(AssignExp)ie.exp).e2.expressionToBuffer(buf, hgs);
-            else
-                v._init.initializerToBuffer(buf, hgs);
+            vinit(v);
         }
     }
 
@@ -1562,7 +1591,10 @@ public:
         if (hgs.hdrgen)
         {
             // if the return type is missing (e.g. ref functions or auto)
-            if (!tf.next || f.storage_class & STC.auto_)
+            // https://issues.dlang.org/show_bug.cgi?id=20090
+            // constructors are an exception: they don't have an explicit return
+            // type but we still don't output the body.
+            if ((!f.isCtorDeclaration() && !tf.next) || f.storage_class & STC.auto_)
             {
                 hgs.autoMember++;
                 bodyToBuffer(f);
@@ -2141,7 +2173,7 @@ private void expressionPrettyPrint(Expression e, OutBuffer* buf, HdrGenState* hg
         if (e.arguments && e.arguments.length)
         {
             buf.writeByte('(');
-            argsToBuffer(e.arguments, buf, hgs);
+            argsToBuffer(e.arguments, buf, hgs, null, e.names);
             buf.writeByte(')');
         }
     }
@@ -2445,7 +2477,7 @@ private void expressionPrettyPrint(Expression e, OutBuffer* buf, HdrGenState* hg
         else
             expToBuffer(e.e1, precedence[e.op], buf, hgs);
         buf.writeByte('(');
-        argsToBuffer(e.arguments, buf, hgs);
+        argsToBuffer(e.arguments, buf, hgs, null, e.names);
         buf.writeByte(')');
     }
 
@@ -2688,7 +2720,7 @@ void floatToBuffer(Type type, const real_t value, OutBuffer* buf, const bool all
         Plus one for rounding. */
     const(size_t) BUFFER_LEN = value.sizeof * 3 + 8 + 1 + 1;
     char[BUFFER_LEN] buffer = void;
-    CTFloat.sprint(buffer.ptr, 'g', value);
+    CTFloat.sprint(buffer.ptr, BUFFER_LEN, 'g', value);
     assert(strlen(buffer.ptr) < BUFFER_LEN);
     if (allowHex)
     {
@@ -2696,7 +2728,7 @@ void floatToBuffer(Type type, const real_t value, OutBuffer* buf, const bool all
         real_t r = CTFloat.parse(buffer.ptr, isOutOfRange);
         //assert(!isOutOfRange); // test/compilable/test22725.c asserts here
         if (r != value) // if exact duplication
-            CTFloat.sprint(buffer.ptr, 'a', value);
+            CTFloat.sprint(buffer.ptr, BUFFER_LEN, 'a', value);
     }
     buf.writestring(buffer.ptr);
     if (buffer.ptr[strlen(buffer.ptr) - 1] == '.')
@@ -2738,7 +2770,7 @@ public:
     OutBuffer* buf;
     HdrGenState* hgs;
 
-    extern (D) this(OutBuffer* buf, HdrGenState* hgs)
+    extern (D) this(OutBuffer* buf, HdrGenState* hgs) scope
     {
         this.buf = buf;
         this.hgs = hgs;
@@ -2819,7 +2851,7 @@ public:
     OutBuffer* buf;
     HdrGenState* hgs;
 
-    extern (D) this(OutBuffer* buf, HdrGenState* hgs)
+    extern (D) this(OutBuffer* buf, HdrGenState* hgs) scope
     {
         this.buf = buf;
         this.hgs = hgs;
@@ -3286,8 +3318,14 @@ private void parameterToBuffer(Parameter p, OutBuffer* buf, HdrGenState* hgs)
 
 /**************************************************
  * Write out argument list to buf.
+ * Params:
+ *     expressions = argument list
+ *     buf = buffer to write to
+ *     hgs = context
+ *     basis = replace `null`s in argument list with this expression (for sparse array literals)
+ *     names = if non-null, use these as the names for the arguments
  */
-private void argsToBuffer(Expressions* expressions, OutBuffer* buf, HdrGenState* hgs, Expression basis = null)
+private void argsToBuffer(Expressions* expressions, OutBuffer* buf, HdrGenState* hgs, Expression basis = null, Identifiers* names = null)
 {
     if (!expressions || !expressions.length)
         return;
@@ -3297,6 +3335,12 @@ private void argsToBuffer(Expressions* expressions, OutBuffer* buf, HdrGenState*
         {
             if (i)
                 buf.writestring(", ");
+
+            if (names && i < names.length && (*names)[i])
+            {
+                buf.writestring((*names)[i].toString());
+                buf.writestring(": ");
+            }
             if (!el)
                 el = basis;
             if (el)

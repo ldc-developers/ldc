@@ -30,6 +30,7 @@ enum OUTPUTFLAG
 // Can't include arraytypes.h here, need to declare these directly.
 template <typename TYPE> struct Array;
 
+class ErrorSink;
 class FileManager;
 struct Loc;
 
@@ -206,6 +207,7 @@ struct Param
     CHECKACTION checkAction;       // action to take when bounds, asserts or switch defaults are violated
 
     unsigned errorLimit;
+    unsigned errorSupplementLimit; // Limit the number of supplemental messages for each error (0 means unlimited)
 
     DString  argv0;    // program name
     Array<const char *> modFileAliasStrings; // array of char*'s of -I module filename alias strings
@@ -355,6 +357,7 @@ struct Global
     unsigned varSequenceNumber;
 
     FileManager* fileManager;
+    ErrorSink* errorSink;       // where the error messages go
 
 #if IN_LLVM
     DString ldc_version;

@@ -18,12 +18,27 @@ alias I = long;
 alias U = ulong;
 enum Ubits = uint(U.sizeof * 8);
 
-version (LDC) version (X86) version = LDC_X86;
+version (DigitalMars)
+{
+    /* The alignment should follow target.stackAlign(),
+     * which is `isXmmSupported() ? 16 : (is64bit ? 8 : 4)
+     */
+    version (D_SIMD)
+        private enum Cent_alignment = 16;
+    else version (X86_64)
+        private enum Cent_alignment = 8;
+    else
+        private enum Cent_alignment = 4;
+}
+else
+{
+    version (LDC) version (X86) version = LDC_X86;
 
-version (X86_64) private enum Cent_alignment = 16;
-// 32-bit x86: need default alignment due to https://github.com/ldc-developers/ldc/issues/1356
-else version (LDC_X86) private enum Cent_alignment = U.alignof;
-else             private enum Cent_alignment = (size_t.sizeof * 2);
+    version (X86_64) private enum Cent_alignment = 16;
+    // 32-bit x86: need default alignment due to https://github.com/ldc-developers/ldc/issues/1356
+    else version (LDC_X86) private enum Cent_alignment = U.alignof;
+    else             private enum Cent_alignment = (size_t.sizeof * 2);
+}
 
 align(Cent_alignment) struct Cent
 {

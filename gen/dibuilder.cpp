@@ -515,19 +515,17 @@ void DIBuilder::AddStaticMembers(AggregateDeclaration *ad, DIFile file,
         visitMembers(tmixin->members);
       } else if (auto vd = s->isVarDeclaration()) {
         if (vd->isDataseg()) {
-          if (vd->aliassym) { // ugly kludge for tuples
-            if (auto td = vd->aliassym->isTupleDeclaration()) {
-              if (td->isexp && td->objects) {
-                Dsymbols tupleVars;
-                for (auto o : *td->objects) {
-                  if (auto e = isExpression(o))
-                    if (auto ve = e->isVarExp())
-                      if (auto vd2 = ve->var->isVarDeclaration())
-                        if (vd2->isDataseg())
-                          tupleVars.push(vd2);
-                }
-                visitMembers(&tupleVars);
+          if (auto td = vd->aliasTuple) { // ugly kludge for tuples
+            if (td->isexp && td->objects) {
+              Dsymbols tupleVars;
+              for (auto o : *td->objects) {
+                if (auto e = isExpression(o))
+                  if (auto ve = e->isVarExp())
+                    if (auto vd2 = ve->var->isVarDeclaration())
+                      if (vd2->isDataseg())
+                        tupleVars.push(vd2);
               }
+              visitMembers(&tupleVars);
             }
           } else if (!vd->type->toBasetype()->isTypeNoreturn()) {
             llvm::MDNode *elem =

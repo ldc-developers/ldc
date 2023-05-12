@@ -886,7 +886,7 @@ bool parseCommandlineAndConfig(size_t argc, const(char)** argv, ref Param params
 
     // read from DFLAGS in [Environment{arch}] section
     char[80] envsection = void;
-    sprintf(envsection.ptr, "Environment%.*s", cast(int) arch.length, arch.ptr);
+    snprintf(envsection.ptr, envsection.length, "Environment%.*s", cast(int) arch.length, arch.ptr);
     sections.push(envsection.ptr);
     parseConfFile(environment, global.inifilename, inifilepath, inifileBuffer, &sections);
     getenv_setargv(readFromEnv(environment, "DFLAGS"), &arguments);
@@ -2161,6 +2161,14 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                 return true;
             }
         }
+        else if (startsWith(p + 1, "verror-supplements"))
+        {
+            if (!params.errorSupplementLimit.parseDigits(p.toDString()[20 .. $]))
+            {
+                errorInvalidSwitch(p, "Only a number is allowed for `-verror-supplements`");
+                return true;
+            }
+        }
         else if (startsWith(p + 1, "verror-style="))
         {
             const(char)[] style = arg["verror-style=".length + 1 .. $];
@@ -2570,7 +2578,11 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             }
         }
         else if (arg == "-dip25")       // https://dlang.org/dmd.html#switch-dip25
+        {
+            // @@@ DEPRECATION 2.112 @@@
+            deprecation(Loc.initial, "`-dip25` no longer has any effect");
             params.useDIP25 =  FeatureState.enabled;
+        }
         else if (arg == "-dip1000")
         {
             params.useDIP25 = FeatureState.enabled;

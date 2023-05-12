@@ -1,6 +1,7 @@
 # LDC master
 
 #### Big news
+- Frontend, druntime and Phobos are at version [2.103.1](https://dlang.org/changelog/2.103.0.html), incl. new command-line option `-verror-supplements`. (#4345)
 
 #### Platform support
 

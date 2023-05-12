@@ -1120,7 +1120,7 @@ extern (C++) class VarDeclaration : Declaration
 {
     Initializer _init;
     FuncDeclarations nestedrefs;    // referenced by these lexically nested functions
-    Dsymbol aliassym;               // if redone as alias to another symbol
+    TupleDeclaration aliasTuple;    // when `this` is really a tuple of declarations
     VarDeclaration lastVar;         // Linked list of variables for goto-skips-init detection
     Expression edtor;               // if !=null, does the destruction of the variable
     IntRange* range;                // if !=null, the variable is known to be within the range
@@ -1161,6 +1161,12 @@ version (IN_LLVM)
         bool doNotInferReturn;  /// do not infer 'return' for this variable
 
         bool isArgDtorVar;      /// temporary created to handle scope destruction of a function argument
+        bool isCmacro;          /// it is a C macro turned into a C declaration
+        version (MARS)
+        {
+            bool inClosure;         /// is inserted into a GC allocated closure
+            bool inAlignSection;    /// is inserted into an aligned section on stack
+        }
     }
 
     import dmd.common.bitfields : generateBitFields;
@@ -1212,12 +1218,10 @@ version (IN_LLVM)
     {
         //printf("VarDeclaration::setFieldOffset(ad = %s) %s\n", ad.toChars(), toChars());
 
-        if (aliassym)
+        if (aliasTuple)
         {
             // If this variable was really a tuple, set the offsets for the tuple fields
-            TupleDeclaration v2 = aliassym.isTupleDeclaration();
-            assert(v2);
-            v2.foreachVar((s) { s.setFieldOffset(ad, fieldState, isunion); });
+            aliasTuple.foreachVar((s) { s.setFieldOffset(ad, fieldState, isunion); });
             return;
         }
 
@@ -1328,9 +1332,17 @@ version (IN_LLVM)
 
     override final bool isImportedSymbol() const
     {
-        if (visibility.kind == Visibility.Kind.export_ && !_init && (storage_class & STC.static_ || parent.isModule()))
-            return true;
-        return false;
+        /* If global variable has `export` and `extern` then it is imported
+         *   export int sym1;            // definition:  exported
+         *   export extern int sym2;     // declaration: imported
+         *   export extern int sym3 = 0; // error, extern cannot have initializer
+         */
+        bool result =
+            visibility.kind == Visibility.Kind.export_ &&
+            storage_class & STC.extern_ &&
+            (storage_class & STC.static_ || parent.isModule());
+        //printf("isImportedSymbol() %s %d\n", toChars(), result);
+        return result;
     }
 
     final bool isCtorinit() const pure nothrow @nogc @safe
@@ -1672,8 +1684,7 @@ version (IN_LLVM)
         // Add this VarDeclaration to fdv.closureVars[] if not already there
         if (!sc.intypeof && !(sc.flags & SCOPE.compile) &&
             // https://issues.dlang.org/show_bug.cgi?id=17605
-            (fdv.isCompileTimeOnly || !fdthis.isCompileTimeOnly)
-           )
+            (fdv.skipCodegen || !fdthis.skipCodegen))
         {
             if (!fdv.closureVars.contains(this))
                 fdv.closureVars.push(this);
@@ -1710,8 +1721,8 @@ version (IN_LLVM)
         if ((!type || !type.deco) && _scope)
             dsymbolSemantic(this, _scope);
 
-        assert(this != aliassym);
-        Dsymbol s = aliassym ? aliassym.toAlias() : this;
+        assert(this != aliasTuple);
+        Dsymbol s = aliasTuple ? aliasTuple.toAlias() : this;
         return s;
     }
 

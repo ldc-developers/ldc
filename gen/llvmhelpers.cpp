@@ -844,9 +844,9 @@ void DtoResolveVariable(VarDeclaration *vd) {
   // just forward aliases
   // TODO: Is this required here or is the check in VarDeclaration::codegen
   // sufficient?
-  if (vd->aliassym) {
-    Logger::println("alias sym");
-    DtoResolveDsymbol(vd->aliassym);
+  if (vd->aliasTuple) {
+    Logger::println("aliasTuple");
+    DtoResolveDsymbol(vd->aliasTuple);
     return;
   }
 
@@ -880,7 +880,7 @@ void DtoResolveVariable(VarDeclaration *vd) {
 void DtoVarDeclaration(VarDeclaration *vd) {
   assert(!vd->isDataseg() &&
          "Statics/globals are handled in DtoDeclarationExp.");
-  assert(!vd->aliassym && "Aliases are handled in DtoDeclarationExp.");
+  assert(!vd->aliasTuple && "Aliases are handled in DtoDeclarationExp.");
 
   IF_LOG Logger::println("DtoVarDeclaration(vdtype = %s)", vd->type->toChars());
   LOG_SCOPE
@@ -953,11 +953,11 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
   if (VarDeclaration *vd = declaration->isVarDeclaration()) {
     Logger::println("VarDeclaration");
 
-    // if aliassym is set, this VarDecl is redone as an alias to another symbol
+    // if aliasTuple is set, this VarDecl is redone as an alias to another symbol
     // this seems to be done to rewrite Tuple!(...) v;
     // as a TupleDecl that contains a bunch of individual VarDecls
-    if (vd->aliassym) {
-      return DtoDeclarationExp(vd->aliassym);
+    if (vd->aliasTuple) {
+      return DtoDeclarationExp(vd->aliasTuple);
     }
 
     if (vd->storage_class & STCmanifest) {
@@ -1021,7 +1021,7 @@ LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr) {
   assert(!var->isDataseg());
 
   // we don't handle aliases either
-  assert(!var->aliassym);
+  assert(!var->aliasTuple);
 
   IrLocal *irLocal = isIrLocalCreated(var) ? getIrLocal(var) : nullptr;
 

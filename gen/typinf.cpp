@@ -58,14 +58,15 @@
 #include <cstdio>
 
 // in dmd/typinf.d:
-void genTypeInfo(Expression *e, const Loc &loc, Type *torig, Scope *sc);
+void genTypeInfo(Expression *e, const Loc &loc, Type *torig, Scope *sc, bool genObjCode = true);
 
 TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(const Loc &loc, Type *forType) {
   IF_LOG Logger::println("getOrCreateTypeInfoDeclaration(): %s",
                          forType->toChars());
   LOG_SCOPE
 
-  genTypeInfo(nullptr, loc, forType, nullptr);
+  // the `genObjCode` parameter is unused by LDC
+  genTypeInfo(nullptr, loc, forType, nullptr, false);
 
   return forType->vtinfo;
 }
