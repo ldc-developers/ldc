@@ -43,18 +43,68 @@ Source: $(DRUNTIMESRC rt/_config.d)
 
 module rt.config;
 
-// put each variable in its own COMDAT by making them template instances
-template rt_envvars_enabled()
+version (LDC) // use @weak
 {
-    extern(C) pragma(mangle, "rt_envvars_enabled") __gshared bool rt_envvars_enabled = false;
+    import core.attribute : weak;
+
+    extern(C) __gshared @weak
+    {
+        pragma(mangle, "rt_envvars_enabled") bool _rt_envvars_enabled = false;
+        pragma(mangle, "rt_cmdline_enabled") bool _rt_cmdline_enabled = true;
+        pragma(mangle, "rt_options") string[] _rt_options = [];
+    }
+
+    version (Shared)
+    {
+        ref typeof(Sym) tryLoadFromExecutable(alias Sym)()
+        {
+            void* p;
+            version (Posix)
+            {
+                import core.sys.posix.dlfcn : dlsym, dlopen;
+                p = dlsym(dlopen(null, 0), Sym.mangleof);
+            }
+            else version (Windows)
+            {
+                import core.sys.windows.windows : GetModuleHandleA, GetProcAddress;
+                p = GetProcAddress(GetModuleHandleA(null), Sym.mangleof);
+            }
+            else
+                static assert(0, "Unsupported platform");
+
+            // fall back to the default definition in druntime .dll/dylib/so
+            if (!p)
+                p = &Sym;
+
+            return *cast(typeof(Sym)*) p;
+        }
+
+        alias rt_envvars_enabled() = tryLoadFromExecutable!_rt_envvars_enabled;
+        alias rt_cmdline_enabled() = tryLoadFromExecutable!_rt_cmdline_enabled;
+        alias rt_options() = tryLoadFromExecutable!_rt_options;
+    }
+    else
+    {
+        alias rt_envvars_enabled() = _rt_envvars_enabled;
+        alias rt_cmdline_enabled() = _rt_cmdline_enabled;
+        alias rt_options() = _rt_options;
+    }
 }
-template rt_cmdline_enabled()
+else
 {
-    extern(C) pragma(mangle, "rt_cmdline_enabled") __gshared bool rt_cmdline_enabled = true;
-}
-template rt_options()
-{
-    extern(C) pragma(mangle, "rt_options") __gshared string[] rt_options = [];
+    // put each variable in its own COMDAT by making them template instances
+    template rt_envvars_enabled()
+    {
+        extern(C) pragma(mangle, "rt_envvars_enabled") __gshared bool rt_envvars_enabled = false;
+    }
+    template rt_cmdline_enabled()
+    {
+        extern(C) pragma(mangle, "rt_cmdline_enabled") __gshared bool rt_cmdline_enabled = true;
+    }
+    template rt_options()
+    {
+        extern(C) pragma(mangle, "rt_options") __gshared string[] rt_options = [];
+    }
 }
 
 import core.stdc.ctype : toupper;
