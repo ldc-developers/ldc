@@ -289,7 +289,6 @@ task:
 
 task:
   name: macOS 12 $TASK_NAME_SUFFIX
-  allow_failures: true # FIXME
   macos_instance:
     image: ghcr.io/cirruslabs/macos-monterey-xcode:latest
   timeout_in: 25m
