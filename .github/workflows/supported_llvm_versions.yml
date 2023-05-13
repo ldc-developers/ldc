@@ -106,16 +106,12 @@ jobs:
           tar -xf llvm.tar.xz --strip 1 -C llvm
           rm llvm.tar.xz
 
-      - name: 'Linux: Make ld.gold or lld the default linker'
+      - name: 'Linux: Make lld the default linker'
         if: runner.os == 'Linux'
         run: |
           set -eux
-          if [[ '${{ matrix.llvm_version }}' =~ ^1[3-9]\. ]]; then
-            echo "Using lld for LLVM 13+ to work around sporadic failures"
-            sudo ln -sf "$PWD/llvm/bin/ld.lld" /usr/bin/ld
-          else
-            sudo ln -sf /usr/bin/ld.gold /usr/bin/ld
-          fi
+          echo "Using lld to work around sporadic failures"
+          sudo ln -sf "$PWD/llvm/bin/ld.lld" /usr/bin/ld
           ld --version
 
       - name: Build LDC & LDC D unittests & defaultlib unittest runners with extra '${{ matrix.cmake_flags }}'
