@@ -590,7 +590,12 @@ LLType *stripAddrSpaces(LLType *t)
     int indirections = 0;
     while (t->isPointerTy()) {
       indirections++;
+// Disable [[deprecated]] warning on getPointerElementType. We solved the
+// deprecation for versions >= LLVM 16 above (8 lines up).
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
       t = t->getPointerElementType();
+#pragma GCC diagnostic pop
     }
     while (indirections-- != 0)
       t = t->getPointerTo(0);
