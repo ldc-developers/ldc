@@ -40,8 +40,7 @@ bool isRunArg(const char *arg);
 // Executes a command line and returns its exit code.
 // Optionally uses a response file to overcome cmdline length limitations.
 int executeAndWait(std::vector<const char *> fullArgs,
-                   llvm::Optional<llvm::sys::WindowsEncodingMethod>
-                       responseFileEncoding = {llvm::None},
+                   llvm::sys::WindowsEncodingMethod responseFileEncoding,
                    std::string *errorMsg = nullptr);
 } // namespace args
 
