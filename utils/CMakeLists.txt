@@ -67,3 +67,24 @@ set_target_properties(
 )
 target_link_libraries(not  ${LLVM_LIBRARIES} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
 endif()
+
+if ((TARGET split-file) OR (EXISTS ${LLVM_ROOT_DIR}/bin/split-filea))
+  # already provided by LLVM
+  message(STATUS "Skip building split-file, it is already provided by LLVM")
+else()
+# Build split-file for testing
+set(SPLITFILE_SRC split-file.cpp)
+if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${SPLITFILE_SRC})
+    add_executable(split-file ${SPLITFILE_SRC})
+    set_target_properties(
+        split-file PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
+        COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
+        LINK_FLAGS "${SANITIZE_LDFLAGS}"
+    )
+    target_link_libraries(split-file ${LLVM_LIBRARIES} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
+    message(STATUS "Building split-file from LDC source tree")
+else()
+    message(STATUS "Skip building split-file (source not found), assuming it can be found in LLVM bin directory")
+endif()
+endif()
