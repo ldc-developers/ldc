@@ -15,8 +15,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - job_name: Ubuntu 20.04, LLVM 16, latest LDC beta
-            os: ubuntu-20.04
+          - job_name: Ubuntu 22.04, LLVM 16, latest LDC beta
+            os: ubuntu-22.04
             host_dc: ldc-beta
             llvm_version: 16.0.3
           - job_name: Ubuntu 20.04, LLVM 15, latest LDC beta
@@ -81,7 +81,12 @@ jobs:
           set -eux
           sudo apt-get update
           # Don't use latest gdb v10+ from Ubuntu toolchain PPA with regressions, use official v9
-          sudo apt-get install gdb=9.1-0ubuntu1 llvm
+          version='${{ matrix.llvm_version }}'
+          if [[ "$version" =~ ^1[6-9]\. ]]; then # LLVM 16.0.3+
+            sudo apt-get install gdb llvm
+          else
+            sudo apt-get install gdb=9.1-0ubuntu1 llvm
+          fi
 
       - name: Try to restore cached LLVM
         uses: actions/cache@v2
