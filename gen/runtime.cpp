@@ -33,7 +33,7 @@
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/Attributes.h"
 #if LDC_LLVM_VER >= 1600
-#include "llvm/IR/ModRef.h"
+#include "llvm/Support/ModRef.h"
 #endif
 #include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
