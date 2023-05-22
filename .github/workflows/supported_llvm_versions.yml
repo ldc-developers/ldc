@@ -15,6 +15,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - job_name: Ubuntu 20.04, LLVM 16, latest LDC beta
+            os: ubuntu-20.04
+            host_dc: ldc-beta
+            llvm_version: 16.0.3
           - job_name: Ubuntu 20.04, LLVM 15, latest LDC beta
             os: ubuntu-20.04
             host_dc: ldc-beta
