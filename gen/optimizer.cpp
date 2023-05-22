@@ -637,7 +637,11 @@ void runOptimizationPasses(llvm::Module *M) {
   bool debugLogging = false;
   ppo.Indent = false;
   ppo.SkipAnalyses = false;
+  #if LDC_LLVM_VER < 1600
   StandardInstrumentations si(debugLogging, /*VerifyEach=*/false, ppo);
+  #else
+  StandardInstrumentations si(M->getContext(), debugLogging, /*VerifyEach=*/false, ppo);
+  #endif
 
   si.registerCallbacks(pic, &fam);
 
