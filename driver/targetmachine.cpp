@@ -203,9 +203,11 @@ static std::string getARMTargetCPU(const llvm::Triple &triple) {
 }
 
 static std::string getAArch64TargetCPU(const llvm::Triple &triple) {
+#if LDC_LLVM_VER < 1600
   auto defaultCPU = llvm::AArch64::getDefaultCPU(triple.getArchName());
   if (!defaultCPU.empty())
     return std::string(defaultCPU);
+#endif
 
   return "generic";
 }
