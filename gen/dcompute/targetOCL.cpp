@@ -174,7 +174,7 @@ public:
   void decodeTypes(std::array<llvm::SmallVector<llvm::Metadata *, 8>,count_KernArgMD>& attrs,
                    VarDeclaration *v)
   {
-    llvm::Optional<DcomputePointer> ptr;
+    std::optional<DcomputePointer> ptr;
     std::string typeQuals;
     std::string baseTyName;
     std::string tyName;

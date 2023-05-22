@@ -63,8 +63,8 @@ std::unique_ptr<llvm::TargetMachine> createTargetMachine() {
   assert(target != nullptr);
   std::unique_ptr<llvm::TargetMachine> ret(target->createTargetMachine(
       triple, llvm::sys::getHostCPUName(), llvm::join(getHostAttrs(), ","), {},
-      llvm::Optional<llvm::Reloc::Model>{},
-      llvm::Optional<llvm::CodeModel::Model>{}, llvm::CodeGenOpt::Default,
+      std::optional<llvm::Reloc::Model>{},
+      std::optional<llvm::CodeModel::Model>{}, llvm::CodeGenOpt::Default,
       /*jit*/ true));
   assert(ret != nullptr);
   return ret;

@@ -39,7 +39,7 @@ struct NVPTXTargetABI : TargetABI {
   }
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     Type *ty = arg.type->toBasetype();
-    llvm::Optional<DcomputePointer> ptr;
+    std::optional<DcomputePointer> ptr;
     if (ty->ty == TY::Tstruct &&
         (ptr = toDcomputePointer(static_cast<TypeStruct *>(ty)->sym))) {
       pointerRewite.applyTo(arg);

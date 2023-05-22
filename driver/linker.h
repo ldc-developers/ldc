@@ -42,7 +42,7 @@ bool linkAgainstSharedDefaultLibs();
 /**
  * Returns the -platformlib library names, if specified.
  */
-llvm::Optional<std::vector<std::string>> getExplicitPlatformLibs();
+std::optional<std::vector<std::string>> getExplicitPlatformLibs();
 
 /**
  * Returns the value of -mscrtlib.

@@ -372,7 +372,7 @@ DIType DIBuilder::CreateEnumType(TypeEnum *type) {
 DIType DIBuilder::CreatePointerType(TypePointer *type) {
   // TODO: The addressspace is important for dcompute targets. See e.g.
   // https://www.mail-archive.com/dwarf-discuss@lists.dwarfstd.org/msg00326.html
-  const llvm::Optional<unsigned> DWARFAddressSpace = llvm::None;
+  const std::optional<unsigned> DWARFAddressSpace = std::nullopt;
 
   const auto name = processDIName(type->toPrettyChars(true));
 
@@ -730,7 +730,7 @@ DISubroutineType DIBuilder::CreateFunctionType(Type *type) {
 }
 
 DISubroutineType DIBuilder::CreateEmptyFunctionType() {
-  auto paramsArray = DBuilder.getOrCreateTypeArray(llvm::None);
+  auto paramsArray = DBuilder.getOrCreateTypeArray(std::nullopt);
   return DBuilder.createSubroutineType(paramsArray);
 }
 
@@ -776,7 +776,7 @@ DIType DIBuilder::CreateTypeDescription(Type *t, bool voidToUbyte) {
     // display null as void*
     return DBuilder.createPointerType(
         CreateTypeDescription(Type::tvoid), target.ptrsize * 8, 0,
-        /* DWARFAddressSpace */ llvm::None, "typeof(null)");
+        /* DWARFAddressSpace */ std::nullopt, "typeof(null)");
   }
   if (auto te = t->isTypeEnum())
     return CreateEnumType(te);
@@ -799,7 +799,7 @@ DIType DIBuilder::CreateTypeDescription(Type *t, bool voidToUbyte) {
     const auto name =
         (tc->sym->toPrettyChars(true) + llvm::StringRef("*")).str();
     return DBuilder.createPointerType(aggregateDIType, target.ptrsize * 8, 0,
-                                      llvm::None, processDIName(name));
+                                      std::nullopt, processDIName(name));
   }
   if (auto tf = t->isTypeFunction())
     return CreateFunctionType(tf);

@@ -22,12 +22,12 @@ class Triple;
 namespace opts {
 
 std::string getArchStr();
-llvm::Optional<llvm::Reloc::Model> getRelocModel();
-llvm::Optional<llvm::CodeModel::Model> getCodeModel();
+std::optional<llvm::Reloc::Model> getRelocModel();
+std::optional<llvm::CodeModel::Model> getCodeModel();
 #if LDC_LLVM_VER >= 1300
-llvm::Optional<llvm::FramePointerKind> framePointerUsage();
+std::optional<llvm::FramePointerKind> framePointerUsage();
 #else
-llvm::Optional<llvm::FramePointer::FP> framePointerUsage();
+std::optional<llvm::FramePointer::FP> framePointerUsage();
 #endif
 
 bool disableRedZone();

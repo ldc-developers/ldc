@@ -55,8 +55,8 @@ llvm::TargetMachine *
 createTargetMachine(std::string targetTriple, std::string arch, std::string cpu,
                     std::string featuresString, ExplicitBitness::Type bitness,
                     FloatABI::Type &floatABI,
-                    llvm::Optional<llvm::Reloc::Model> relocModel,
-                    llvm::Optional<llvm::CodeModel::Model> codeModel,
+                    std::optional<llvm::Reloc::Model> relocModel,
+                    std::optional<llvm::CodeModel::Model> codeModel,
                     llvm::CodeGenOpt::Level codeGenOptLevel,
                     bool noLinkerStripDead);
 

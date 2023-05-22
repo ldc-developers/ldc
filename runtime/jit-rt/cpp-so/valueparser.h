@@ -24,7 +24,7 @@ class Type;
 class DataLayout;
 }
 
-using ParseInitializerOverride = llvm::Optional<
+using ParseInitializerOverride = std::optional<
     llvm::function_ref<llvm::Constant *(llvm::Type &, const void *, size_t)>>;
 
 llvm::Constant *parseInitializer(

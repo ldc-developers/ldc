@@ -43,7 +43,7 @@ int main(int argc, const char **argv) {
   Argv.reserve(argc);
   for (int i = 0; i < argc; ++i)
     Argv.push_back(argv[i]);
-  auto Env = llvm::None;
+  auto Env = std::nullopt;
 
   std::string ErrMsg;
   int Result = sys::ExecuteAndWait(*Program, Argv, Env, {}, 0, 0, &ErrMsg);

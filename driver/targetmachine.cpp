@@ -364,8 +364,8 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
                     std::string cpu, const std::string featuresString,
                     const ExplicitBitness::Type bitness,
                     FloatABI::Type &floatABI,
-                    llvm::Optional<llvm::Reloc::Model> relocModel,
-                    llvm::Optional<llvm::CodeModel::Model> codeModel,
+                    std::optional<llvm::Reloc::Model> relocModel,
+                    std::optional<llvm::CodeModel::Model> codeModel,
                     const llvm::CodeGenOpt::Level codeGenOptLevel,
                     const bool noLinkerStripDead) {
   // Determine target triple. If the user didn't explicitly specify one, use

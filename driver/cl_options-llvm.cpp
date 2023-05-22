@@ -68,7 +68,7 @@ using FPK = llvm::FramePointerKind;
 using FPK = llvm::FramePointer::FP;
 #endif
 
-llvm::Optional<FPK> framePointerUsage() {
+std::optional<FPK> framePointerUsage() {
 #if LDC_LLVM_VER >= 1100
   // Defaults to `FP::None`; no way to check if set explicitly by user except
   // indirectly via setFunctionAttributes()...
@@ -78,7 +78,7 @@ llvm::Optional<FPK> framePointerUsage() {
     return ::FramePointerUsage.getValue();
   if (disableFPElim.getNumOccurrences() > 0)
     return disableFPElim ? llvm::FramePointer::All : llvm::FramePointer::None;
-  return llvm::None;
+  return std::nullopt;
 #endif
 }
 

@@ -37,4 +37,4 @@ struct DcomputePointer {
     return llType->getPointerTo(as);
   }
 };
-llvm::Optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd);
+std::optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd);
