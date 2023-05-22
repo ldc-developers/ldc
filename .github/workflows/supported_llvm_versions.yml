@@ -15,6 +15,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - job_name: Ubuntu 20.04, LLVM 16, latest LDC beta
+            os: ubuntu-20.04
+            host_dc: ldc-beta
+            llvm_version: 16.0.3
           - job_name: Ubuntu 20.04, LLVM 15, latest LDC beta
             os: ubuntu-20.04
             host_dc: ldc-beta
@@ -95,6 +99,8 @@ jobs:
           version='${{ matrix.llvm_version }}'
           if [[ '${{ runner.os }}' == macOS ]]; then
             suffix='x86_64-apple-darwin'
+          elif [[ "$version" =~ ^1[6-9]\. ]]; then # LLVM 16.0.3+
+            suffix='x86_64-linux-gnu-ubuntu-22.04' # LLVM 13.0.1+
           elif [[ "$version" =~ ^1[3-9]\. ]]; then
             suffix='x86_64-linux-gnu-ubuntu-18.04' # LLVM 13.0.1+
           else
