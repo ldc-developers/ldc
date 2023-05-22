@@ -574,8 +574,13 @@ static llvm::Optional<PGOOptions> getPGOOptions() {
                      PGOOptions::CSPGOAction::NoCSAction,
                      debugInfoForProfiling, pseudoProbeForProfiling);
   }
+#if LDC_LLVM_VER < 1600
   return None;
+#else
+  return std::nullopt;
+#endif
 }
+
 static PipelineTuningOptions getPipelineTuningOptions(unsigned optLevelVal, unsigned sizeLevelVal) {
   PipelineTuningOptions pto;
 

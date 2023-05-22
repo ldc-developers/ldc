@@ -43,7 +43,11 @@ int main(int argc, const char **argv) {
   Argv.reserve(argc);
   for (int i = 0; i < argc; ++i)
     Argv.push_back(argv[i]);
+#if LDC_LLVM_VER < 1600
   auto Env = llvm::None;
+#else
+  auto Env = std::nullopt;
+#endif
 
   std::string ErrMsg;
   int Result = sys::ExecuteAndWait(*Program, Argv, Env, {}, 0, 0, &ErrMsg);

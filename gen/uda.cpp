@@ -219,7 +219,11 @@ void applyAttrAllocSize(StructLiteralExp *sle, IrFunction *irFunc) {
   if (numArgIdx >= 0) {
     builder.addAllocSizeAttr(llvmSizeIdx, llvmNumIdx);
   } else {
+#if LDC_LLVM_VER < 1600
     builder.addAllocSizeAttr(llvmSizeIdx, llvm::Optional<unsigned>());
+#else
+    builder.addAllocSizeAttr(llvmSizeIdx, std::optional<unsigned>());
+#endif
   }
 
   llvm::Function *func = irFunc->getLLVMFunc();

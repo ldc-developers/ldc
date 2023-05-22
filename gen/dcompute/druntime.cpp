@@ -42,8 +42,13 @@ bool isFromLDC_OpenCL(Dsymbol *sym) {
 }
 
 llvm::Optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd) {
-  if (sd->ident != Id::dcPointer || !isFromLDC_DCompute(sd))
+  if (sd->ident != Id::dcPointer || !isFromLDC_DCompute(sd)) {
+#if LDC_LLVM_VER < 1600
     return llvm::Optional<DcomputePointer>(llvm::None);
+#else
+    return std::optional<DcomputePointer>(std::nullopt);
+#endif
+  }
 
   TemplateInstance *ti = sd->isInstantiated();
   int addrspace = isExpression((*ti->tiargs)[0])->toInteger();

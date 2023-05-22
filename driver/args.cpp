@@ -175,7 +175,11 @@ int executeAndWait(std::vector<const char *> fullArgs,
   }
 
   const std::vector<llvm::StringRef> argv = toRefsVector(fullArgs);
+#if LDC_LLVM_VER < 1600
   auto envVars = llvm::None;
+#else
+  auto envVars = std::nullopt;
+#endif
 
   return llvm::sys::ExecuteAndWait(argv[0], argv, envVars, {}, 0, 0, errorMsg);
 }
