@@ -2,6 +2,7 @@
 
 #### Big news
 - Frontend, druntime and Phobos are at version [2.103.1](https://dlang.org/changelog/2.103.0.html), incl. new command-line option `-verror-supplements`. (#4345)
+- New commandline option `-femit-local-var-lifetime` that enables variable lifetime (scope) annotation to LLVM IR codegen. Lifetime annotation enables stack memory reuse for local variables with non-overlapping scope. (#4395)
 
 #### Platform support
 
