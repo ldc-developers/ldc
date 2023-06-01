@@ -17,6 +17,7 @@
 #include "gen/irstate.h"
 #include "gen/pgo_ASTbased.h"
 #include "gen/trycatchfinally.h"
+#include "gen/variable_lifetime.h"
 #include "llvm/ADT/DenseMap.h"
 #include <vector>
 
@@ -175,6 +176,8 @@ public:
   IrFunction &irFunc;
 
   TryCatchFinallyScopes scopes;
+
+  LocalVariableLifetimeAnnotator localVariableLifetimeAnnotator;
 
   JumpTargets jumpTargets;
 

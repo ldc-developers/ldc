@@ -100,8 +100,8 @@ llvm::BasicBlock *SwitchCaseTargets::getOrCreate(Statement *stmt,
 }
 
 FuncGenState::FuncGenState(IrFunction &irFunc, IRState &irs)
-    : irFunc(irFunc), scopes(irs), jumpTargets(scopes), switchTargets(),
-      irs(irs) {}
+    : irFunc(irFunc), scopes(irs), localVariableLifetimeAnnotator(irs),
+      jumpTargets(scopes), switchTargets(), irs(irs) {}
 
 LLCallBasePtr FuncGenState::callOrInvoke(llvm::Value *callee,
                                          llvm::FunctionType *calleeType,

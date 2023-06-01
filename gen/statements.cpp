@@ -397,6 +397,9 @@ public:
     // start a dwarf lexical block
     irs->DBuilder.EmitBlockStart(stmt->loc);
     emitCoverageLinecountInc(stmt->loc);
+    // Open a new scope for the optional condition variable (`if (auto i = ...)`)
+    irs->funcGen().localVariableLifetimeAnnotator.pushScope();
+
 
     // This is a (dirty) hack to get codegen time conditional
     // compilation, on account of the fact that we are trying
@@ -482,6 +485,9 @@ public:
 
     // rewrite the scope
     irs->ir->SetInsertPoint(endbb);
+    // Close the scope for the optional condition variable. This is suboptimal,
+    // because the condition variable is not in scope in the else block.
+    irs->funcGen().localVariableLifetimeAnnotator.popScope();
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -494,9 +500,11 @@ public:
     PGO.setCurrentStmt(stmt);
 
     if (stmt->statement) {
+      irs->funcGen().localVariableLifetimeAnnotator.pushScope();
       irs->DBuilder.EmitBlockStart(stmt->statement->loc);
       stmt->statement->accept(this);
       irs->DBuilder.EmitBlockEnd();
+      irs->funcGen().localVariableLifetimeAnnotator.popScope();
     }
   }
 
@@ -636,6 +644,7 @@ public:
 
     // start new dwarf lexical block
     irs->DBuilder.EmitBlockStart(stmt->loc);
+    irs->funcGen().localVariableLifetimeAnnotator.pushScope();
 
     // create for blocks
     llvm::BasicBlock *forbb = irs->insertBB("forcond");
@@ -717,6 +726,7 @@ public:
     irs->ir->SetInsertPoint(endbb);
 
     // end the dwarf lexical block
+    irs->funcGen().localVariableLifetimeAnnotator.popScope();
     irs->DBuilder.EmitBlockEnd();
   }
 
