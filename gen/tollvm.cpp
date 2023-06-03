@@ -232,9 +232,13 @@ LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
   if (hasWeakUDA(sym)) {
     linkage = LLGlobalValue::WeakAnyLinkage;
   } else {
-    // Function (incl. delegate) literals are emitted into each referencing
-    // compilation unit, so use linkonce_odr for all lambdas and all global
-    // variables they define.
+    /* Function (incl. delegate) literals are emitted into each referencing
+     * compilation unit, so use internal linkage for all lambdas and all global
+     * variables they define.
+     * This makes sure these symbols don't accidentally collide when linking
+     * object files compiled by different compiler invocations (lambda mangles
+     * aren't stable - see https://issues.dlang.org/show_bug.cgi?id=23722).
+     */
     auto potentialLambda = sym;
     if (auto vd = sym->isVarDeclaration()) {
       if (vd->isDataseg())
@@ -242,7 +246,7 @@ LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
     }
 
     if (potentialLambda->isFuncLiteralDeclaration()) {
-      linkage = LLGlobalValue::LinkOnceODRLinkage;
+      linkage = LLGlobalValue::InternalLinkage;
     } else if (sym->isInstantiated()) {
       linkage = templateLinkage;
     }
@@ -309,8 +313,9 @@ void setVisibility(Dsymbol *sym, llvm::GlobalObject *obj) {
   } else {
     if (sym->isExport()) {
       obj->setVisibility(LLGlobalValue::DefaultVisibility); // overrides @hidden
-    } else if (!hasHiddenUDA) {
+    } else if (!obj->hasLocalLinkage() && !hasHiddenUDA) {
       // Hide with -fvisibility=hidden, or linkonce_odr etc.
+      // Note that symbols with local linkage cannot be hidden (LLVM assertion).
       // The Apple linker warns about hidden linkonce_odr symbols from object
       // files compiled with -linkonce-templates being folded with *public*
       // weak_odr symbols from non-linkonce-templates code (e.g., Phobos), so

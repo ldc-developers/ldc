@@ -7,6 +7,7 @@
 #### Platform support
 
 #### Bug fixes
+- Handle potential lambda mangle collisions across separately compiled object files (and the linker then silently picking an arbitrary implementation). Lambdas (and their nested global variables) are now internal to each referencing object file (`static` linkage in C). (#4415)
 
 # LDC 1.32.2 (2023-05-12)
 
