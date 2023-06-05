@@ -3,6 +3,7 @@
 #include "dmd/errors.h"
 #include "driver/cl_options.h"
 #include "driver/tool.h"
+#include "llvm/Support/Program.h"
 
 namespace {
 const char *getPathToImportc_h(const Loc &loc) {
@@ -14,6 +15,29 @@ const char *getPathToImportc_h(const Loc &loc) {
       error(loc, "cannot find \"importc.h\" along import path");
       fatal();
     }
+  }
+  return cached;
+}
+
+const std::string &getCC(bool isMSVC) {
+  static std::string cached;
+  if (cached.empty()) {
+    std::string fallback = "cc";
+    if (isMSVC) {
+#ifdef _WIN32
+      // by default, prefer clang-cl.exe (if in PATH) over cl.exe
+      // (e.g., no echoing of source filename being preprocessed to stderr)
+      auto found = llvm::sys::findProgramByName("clang-cl.exe");
+      if (found) {
+        fallback = found.get();
+      } else {
+        fallback = "cl.exe";
+      }
+#else
+      fallback = "clang-cl";
+#endif
+    }
+    cached = getGcc(fallback.c_str());
   }
   return cached;
 }
@@ -34,7 +58,7 @@ FileName runCPreprocessor(FileName csrcfile, const Loc &loc, bool &ifile,
     msvcEnv.setup();
 #endif
 
-  const std::string cc = getGcc(isMSVC ? "cl.exe" : "cc");
+  const std::string &cc = getCC(isMSVC);
   std::vector<std::string> args;
 
   if (!isMSVC)
@@ -51,10 +75,29 @@ FileName runCPreprocessor(FileName csrcfile, const Loc &loc, bool &ifile,
   }
 
   if (isMSVC) {
-    args.push_back("/P");               // run preprocessor
-    args.push_back("/Zc:preprocessor"); // use the new conforming preprocessor
-    args.push_back("/PD"); // undocumented: print all macro definitions
     args.push_back("/nologo");
+    args.push_back("/P"); // preprocess only
+
+    const bool isClangCl = llvm::StringRef(cc)
+#if LDC_LLVM_VER >= 1300
+                               .contains_insensitive("clang-cl");
+#else
+                               .contains_lower("clang-cl");
+#endif
+
+    if (!isClangCl) {
+      args.push_back("/PD");              // print all macro definitions
+      args.push_back("/Zc:preprocessor"); // use the new conforming preprocessor
+    } else {
+      // print macro definitions (clang-cl doesn't support /PD - use clang's
+      // -dD)
+      args.push_back("-Xclang");
+      args.push_back("-dD");
+
+      // need to redefine some macros in importc.h
+      args.push_back("-Wno-builtin-macro-redefined");
+    }
+
     args.push_back(csrcfile.toChars());
     args.push_back((llvm::Twine("/FI") + importc_h).str());
     // preprocessed output file
