@@ -75,6 +75,7 @@ extern cl::opt<std::string> makeDeps;
 extern cl::opt<std::string> cacheDir;
 extern cl::list<std::string> linkerSwitches;
 extern cl::list<std::string> ccSwitches;
+extern cl::list<std::string> cppSwitches;
 extern cl::list<std::string> includeModulePatterns;
 
 extern cl::opt<bool> m32bits;

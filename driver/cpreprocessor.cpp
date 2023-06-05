@@ -46,7 +46,9 @@ FileName runCPreprocessor(FileName csrcfile, const Loc &loc, bool &ifile,
   for (const auto &ccSwitch : opts::ccSwitches) {
     args.push_back(ccSwitch);
   }
-  // TODO: -Xcpp switches?
+  for (const auto &cppSwitch : opts::cppSwitches) {
+    args.push_back(cppSwitch);
+  }
 
   if (isMSVC) {
     args.push_back("/P");               // run preprocessor

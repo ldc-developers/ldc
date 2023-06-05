@@ -234,7 +234,9 @@ Where:\n\
 #if 0
 "  -os=<os>          sets target operating system to <os>\n"
 #endif
-"  -preview=<name>   enable an upcoming language change identified by 'name'\n\
+"  -P=<preprocessorflag>\n\
+                    pass preprocessorflag to C preprocessor\n\
+  -preview=<name>   enable an upcoming language change identified by 'name'\n\
   -preview=[h|help|?]\n\
                     list all upcoming language changes\n\
   -profile          profile runtime performance of generated code\n"
@@ -707,7 +709,11 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         exit(EXIT_SUCCESS);
       }
       /* -L
-       * -defaultlib
+       */
+      else if (p[1] == 'P') {
+        ldcArgs.push_back(concat("-Xcpp=", p + 2 + (p[2] == '=' ? 1 : 0)));
+      }
+      /* -defaultlib
        * -debuglib
        * -deps
        * -main
