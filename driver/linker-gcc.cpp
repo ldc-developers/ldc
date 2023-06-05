@@ -858,5 +858,6 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
   logstr << "\n"; // FIXME where's flush ?
 
   // try to call linker
-  return executeToolAndWait(tool, argsBuilder->args, global.params.verbose);
+  return executeToolAndWait(Loc(), tool, argsBuilder->args,
+                            global.params.verbose);
 }

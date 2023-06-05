@@ -378,6 +378,7 @@ set(DRV_SRC
     driver/cl_options-llvm.cpp
     driver/codegenerator.cpp
     driver/configfile.cpp
+    driver/cpreprocessor.cpp
     driver/dcomputecodegenerator.cpp
     driver/exe_path.cpp
     driver/targetmachine.cpp

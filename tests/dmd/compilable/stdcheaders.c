@@ -1,6 +1,5 @@
 /* Do a smoke test of the C Standard headers.
  * Many platforms do not support all the C Standard headers.
- * DISABLED: LDC // FIXME: needs preprocessor
  */
 
 #include <assert.h>
