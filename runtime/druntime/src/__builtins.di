@@ -21,12 +21,6 @@ module __builtins;
 
 alias va_list = imported!"core.stdc.stdarg".va_list;
 
-version (Posix)
-{
-    version (X86_64)
-        alias __va_list_tag = imported!"core.stdc.stdarg".__va_list_tag;
-}
-
 version (LDC)
 {
     // For some targets, __builtin_va_list resolves to __va_list.
@@ -35,13 +29,13 @@ version (LDC)
     version (ARM)     version = ARM_Any;
     version (AArch64) version = ARM_Any;
 
-    // Define a __va_list alias if the platform uses an elaborate type, as it
+    // Define a __va_list[_tag] alias if the platform uses an elaborate type, as it
     // is referenced from implicitly generated code for D-style variadics, etc.
     // LDC does not require people to manually import core.vararg like DMD does.
     version (X86_64)
     {
         version (Win64) {} else
-        public import core.internal.vararg.sysv_x64 : __va_list;
+        alias __va_list_tag = imported!"core.internal.vararg.sysv_x64".__va_list_tag;
     }
     else version (ARM_Any)
     {
@@ -57,6 +51,11 @@ version (LDC)
         else version (AArch64)
             public import core.internal.vararg.aarch64 : __va_list;
     }
+}
+else version (Posix)
+{
+    version (X86_64)
+        alias __va_list_tag = imported!"core.stdc.stdarg".__va_list_tag;
 }
 
 alias __builtin_va_start = imported!"core.stdc.stdarg".va_start;

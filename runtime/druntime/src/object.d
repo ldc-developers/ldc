@@ -81,13 +81,13 @@ version (LDC) // note: there's a copy for importC in __builtins.di
     version (ARM)     version = ARM_Any;
     version (AArch64) version = ARM_Any;
 
-    // Define a __va_list alias if the platform uses an elaborate type, as it
+    // Define a __va_list[_tag] alias if the platform uses an elaborate type, as it
     // is referenced from implicitly generated code for D-style variadics, etc.
     // LDC does not require people to manually import core.vararg like DMD does.
     version (X86_64)
     {
         version (Win64) {} else
-        public import core.internal.vararg.sysv_x64 : __va_list;
+        alias __va_list_tag = imported!"core.internal.vararg.sysv_x64".__va_list_tag;
     }
     else version (ARM_Any)
     {
