@@ -65,6 +65,9 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
         excludes+='|^std.math.exponential(-shared)?$'
         # FIXME: failure
         excludes+='|^druntime-test-exceptions-debug$'
+      elif [[ "$CI_OS-$CI_ARCH" == "osx-arm64" ]]; then
+        # FIXME: sporadic segfaults/bus errors with enabled optimizations
+        excludes+='|^core.thread.fiber-shared$'
       fi
       ctest -j$PARALLELISM --output-on-failure -E "$excludes"
 
