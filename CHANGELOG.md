@@ -3,6 +3,8 @@
 #### Big news
 - Frontend, druntime and Phobos are at version [2.103.1](https://dlang.org/changelog/2.103.0.html), incl. new command-line option `-verror-supplements`. (#4345)
 - New commandline option `-femit-local-var-lifetime` that enables variable lifetime (scope) annotation to LLVM IR codegen. Lifetime annotation enables stack memory reuse for local variables with non-overlapping scope. (#4395)
+- C files are now automatically preprocessed using the external C compiler (configurable via `-gcc` or the `CC` environment variable, and `-Xcc` for extra flags). Extra preprocessor flags (e.g., include dirs and manual defines) can be added via new command-line option `-Xcpp`. (#4417)
+  - Windows: Requires an MSVC environment set up for the target (`cl.exe` on `PATH`, `INCLUDE` environment variable). If `clang-cl.exe` is on `PATH`, it is preferred over Microsoft's `cl.exe` by default (e.g., to avoid printing the C source file path to stderr during preprocessing).
 
 #### Platform support
 
