@@ -3,6 +3,8 @@
 #include "dmd/errors.h"
 #include "driver/cl_options.h"
 #include "driver/tool.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
 
 namespace {
@@ -41,12 +43,32 @@ const std::string &getCC(bool isMSVC) {
   }
   return cached;
 }
+
+FileName getOutputPath(const Loc &loc, const char *csrcfile) {
+  llvm::SmallString<64> buffer;
+
+  // 1) create a new temporary directory (e.g., `/tmp/itmp-ldc-10ecec`)
+  auto ec = llvm::sys::fs::createUniqueDirectory("itmp-ldc", buffer);
+  if (ec) {
+    error(loc,
+          "failed to create temporary directory for preprocessed .i file: %s\n%s",
+          buffer.c_str(), ec.message().c_str());
+    fatal();
+  }
+
+  // 2) append the .c file name, replacing the extension with .i
+  llvm::sys::path::append(buffer, FileName::name(csrcfile));
+  llvm::sys::path::replace_extension(buffer, i_ext.ptr);
+
+  // the directory is removed (after the file) in Module.read()
+
+  return FileName::create(buffer.c_str()); // allocates a copy
+}
 } // anonymous namespace
 
 FileName runCPreprocessor(FileName csrcfile, const Loc &loc, bool &ifile,
                           OutBuffer &defines) {
   const char *importc_h = getPathToImportc_h(loc);
-  const char *ifilename = FileName::forceExt(csrcfile.toChars(), i_ext.ptr);
 
   const auto &triple = *global.params.targetTriple;
   const bool isMSVC = triple.isWindowsMSVCEnvironment();
@@ -57,6 +79,8 @@ FileName runCPreprocessor(FileName csrcfile, const Loc &loc, bool &ifile,
   if (isMSVC)
     msvcEnv.setup();
 #endif
+
+  FileName ipath = getOutputPath(loc, csrcfile.toChars());
 
   const std::string &cc = getCC(isMSVC);
   std::vector<std::string> args;
@@ -101,7 +125,7 @@ FileName runCPreprocessor(FileName csrcfile, const Loc &loc, bool &ifile,
     args.push_back(csrcfile.toChars());
     args.push_back((llvm::Twine("/FI") + importc_h).str());
     // preprocessed output file
-    args.push_back((llvm::Twine("/Fi") + ifilename).str());
+    args.push_back((llvm::Twine("/Fi") + ipath.toChars()).str());
   } else { // Posix
     // merge #define's with output:
     // https://gcc.gnu.org/onlinedocs/cpp/Invocation.html#index-dD
@@ -115,7 +139,7 @@ FileName runCPreprocessor(FileName csrcfile, const Loc &loc, bool &ifile,
     args.push_back(importc_h);
     args.push_back(csrcfile.toChars());
     args.push_back("-o");
-    args.push_back(ifilename);
+    args.push_back(ipath.toChars());
   }
 
   const int status = executeToolAndWait(loc, cc, args, global.params.verbose);
@@ -125,5 +149,5 @@ FileName runCPreprocessor(FileName csrcfile, const Loc &loc, bool &ifile,
   }
 
   ifile = true;
-  return FileName::create(ifilename);
+  return ipath;
 }
