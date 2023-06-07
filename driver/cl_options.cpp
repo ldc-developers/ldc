@@ -404,7 +404,7 @@ cl::list<std::string> ccSwitches(
     "Xcc", cl::value_desc("ccflag"), cl::cat(linkingCategory),
     cl::desc("Pass <ccflag> to GCC/Clang for linking/preprocessing"));
 
-cl::list<std::string> cppSwitches("Xcpp", cl::value_desc("cppflag"),
+cl::list<std::string> cppSwitches("P", cl::value_desc("cppflag"), cl::Prefix,
                                   cl::desc("Pass <cppflag> to C preprocessor"));
 
 cl::opt<std::string> moduleDeps(

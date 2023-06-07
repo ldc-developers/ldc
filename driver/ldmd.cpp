@@ -709,11 +709,8 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         exit(EXIT_SUCCESS);
       }
       /* -L
-       */
-      else if (p[1] == 'P') {
-        ldcArgs.push_back(concat("-Xcpp=", p + 2 + (p[2] == '=' ? 1 : 0)));
-      }
-      /* -defaultlib
+       * -P
+       * -defaultlib
        * -debuglib
        * -deps
        * -main
