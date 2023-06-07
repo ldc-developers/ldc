@@ -486,6 +486,21 @@ public:
         return FileName.exists(proposed) ? proposed : null;
     }
 
+version (IN_LLVM)
+{
+    const(char)* getVCIncludeDir() const
+    {
+        const(char)* proposed;
+
+        if (VCToolsInstallDir !is null)
+            proposed = FileName.combine(VCToolsInstallDir, "include");
+        else if (VCInstallDir !is null)
+            proposed = FileName.combine(VCInstallDir, "include");
+
+        return FileName.exists(proposed) ? proposed : null;
+    }
+}
+
     /**
      * get the path to the universal CRT libraries
      * Params:
@@ -545,6 +560,33 @@ version (IN_LLVM) {} else
 
         return null;
     }
+
+version (IN_LLVM)
+{
+    const(char)* getSDKIncludePath() const
+    {
+        if (WindowsSdkDir)
+        {
+            alias umExists = returnDirIfContainsFile!"um"; // subdir in this case
+
+            const sdk = FileName.combine(WindowsSdkDir.toDString, "include");
+            if (WindowsSdkVersion)
+            {
+                if (auto p = umExists(sdk, WindowsSdkVersion.toDString)) // SDK 10.0
+                    return p;
+            }
+            // purely speculative
+            if (auto p = umExists(sdk, "win8")) // SDK 8.0
+                return p;
+            if (auto p = umExists(sdk, "winv6.3")) // SDK 8.1
+                return p;
+            if (auto p = umExists(sdk)) // SDK 7.1 or earlier
+                return p;
+        }
+
+        return null;
+    }
+}
 
 private:
 extern(D):
