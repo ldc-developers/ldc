@@ -29,6 +29,7 @@
 #include "driver/cl_options_sanitizers.h"
 #include "driver/codegenerator.h"
 #include "driver/configfile.h"
+#include "driver/cpreprocessor.h"
 #include "driver/dcomputecodegenerator.h"
 #include "driver/exe_path.h"
 #include "driver/ldc-version.h"
@@ -1182,6 +1183,8 @@ int cppmain() {
     global.params.dllexport = false;
     global.params.dllimport = DLLImport::none;
   }
+
+  global.preprocess = &runCPreprocessor;
 
   // allocate the target abi
   gABI = TargetABI::getTarget();

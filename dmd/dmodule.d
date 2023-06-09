@@ -744,7 +744,14 @@ else
         scope (exit)
         {
             if (ifile)
+            {
                 File.remove(filename.toChars());        // remove generated file
+version (IN_LLVM)
+{
+                // and the parent directory for LDC (each .i gets its own temp dir)
+                File.removeDirectory(FileName.path(filename.toChars()));
+}
+            }
         }
 
         if (global.preprocess &&

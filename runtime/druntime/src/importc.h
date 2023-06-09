@@ -123,8 +123,10 @@
 // Ubuntu's assert.h uses this
 #define __PRETTY_FUNCTION__ __func__
 
+#ifndef __aarch64__
 #define _Float128 long double
 #define __float128 long double
+#endif
 #endif
 
 #if __APPLE__

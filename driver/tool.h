@@ -19,11 +19,13 @@
 
 #include "llvm/Support/CommandLine.h"
 
+struct Loc;
+
 namespace opts {
 extern llvm::cl::opt<std::string> linker;
 }
 
-std::string getGcc();
+std::string getGcc(const char *fallback = "cc");
 void appendTargetArgsForGcc(std::vector<std::string> &args);
 
 std::string getProgram(const char *fallbackName,
@@ -37,7 +39,7 @@ std::vector<const char *> getFullArgs(const char *tool,
                                       const std::vector<std::string> &args,
                                       bool printVerbose);
 
-int executeToolAndWait(const std::string &tool,
+int executeToolAndWait(const Loc &loc, const std::string &tool,
                        const std::vector<std::string> &args,
                        bool verbose = false);
 

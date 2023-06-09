@@ -352,7 +352,7 @@ int createStaticLibrary() {
   }
 
   // invoke external archiver
-  return executeToolAndWait(tool, args, global.params.verbose);
+  return executeToolAndWait(Loc(), tool, args, global.params.verbose);
 }
 
 const char *getPathToProducedStaticLibrary() {

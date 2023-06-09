@@ -322,7 +322,7 @@ void X86_64TargetABI::rewriteVarargs(IrFuncTy &fty,
 /**
  * The System V AMD64 ABI uses a special native va_list type - a 24-bytes struct
  * passed by reference.
- * In druntime, the struct is aliased as object.__va_list; the actually used
+ * In druntime, the struct is aliased as object.__va_list_tag; the actually used
  * core.stdc.stdarg.va_list type is a __va_list_tag* pointer though to achieve
  * byref semantics.
  * This requires a little bit of compiler magic in the following
@@ -375,7 +375,7 @@ Type *X86_64TargetABI::vaListType() {
   // using TypeIdentifier here is a bit wonky but works, as long as the name
   // is actually available in the scope (this is what DMD does, so if a better
   // solution is found there, this should be adapted).
-  return TypeIdentifier::create(Loc(), Identifier::idPool("__va_list"))
+  return TypeIdentifier::create(Loc(), Identifier::idPool("__va_list_tag"))
       ->pointerTo();
 }
 

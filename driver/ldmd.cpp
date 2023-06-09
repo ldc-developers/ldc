@@ -234,7 +234,9 @@ Where:\n\
 #if 0
 "  -os=<os>          sets target operating system to <os>\n"
 #endif
-"  -preview=<name>   enable an upcoming language change identified by 'name'\n\
+"  -P=<preprocessorflag>\n\
+                    pass preprocessorflag to C preprocessor\n\
+  -preview=<name>   enable an upcoming language change identified by 'name'\n\
   -preview=[h|help|?]\n\
                     list all upcoming language changes\n\
   -profile          profile runtime performance of generated code\n"
@@ -707,6 +709,7 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         exit(EXIT_SUCCESS);
       }
       /* -L
+       * -P
        * -defaultlib
        * -debuglib
        * -deps

@@ -76,7 +76,7 @@ std::string getProgram(const char *fallbackName,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-std::string getGcc() { return getProgram("cc", &gcc, "CC"); }
+std::string getGcc(const char *fallback) { return getProgram(fallback, &gcc, "CC"); }
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -223,11 +223,11 @@ std::vector<const char *> getFullArgs(const char *tool,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-int executeToolAndWait(const std::string &tool_,
+int executeToolAndWait(const Loc &loc, const std::string &tool_,
                        const std::vector<std::string> &args, bool verbose) {
   const auto tool = findProgramByName(tool_);
   if (tool.empty()) {
-    error(Loc(), "cannot find program `%s`", tool_.c_str());
+    error(loc, "cannot find program `%s`", tool_.c_str());
     return -1;
   }
 
@@ -249,9 +249,9 @@ int executeToolAndWait(const std::string &tool_,
       args::executeAndWait(std::move(fullArgs), rspEncoding, &errorMsg);
 
   if (status) {
-    error(Loc(), "%s failed with status: %d", tool.c_str(), status);
+    error(loc, "%s failed with status: %d", tool.c_str(), status);
     if (!errorMsg.empty()) {
-      errorSupplemental(Loc(), "message: %s", errorMsg.c_str());
+      errorSupplemental(loc, "message: %s", errorMsg.c_str());
     }
   }
 

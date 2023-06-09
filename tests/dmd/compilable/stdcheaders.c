@@ -1,6 +1,5 @@
 /* Do a smoke test of the C Standard headers.
  * Many platforms do not support all the C Standard headers.
- * DISABLED: LDC // FIXME: needs preprocessor
  */
 
 #include <assert.h>
@@ -73,7 +72,9 @@
 #ifndef _MSC_VER // C:\Program Files (x86)\Windows Kits\10\include\10.0.22621.0\ucrt\tgmath.h(33): Error: no type for declarator before `)`
 #ifndef __APPLE__ // /Applications/Xcode-14.2.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/tgmath.h(39): Error: named parameter required before `...`
 #ifndef __FreeBSD__  // #includes complex.h
+#if !(defined(__linux__) && defined(__aarch64__)) // /tmp/clang/lib/clang/15.0.3/include/tgmath.h(34): Error: named parameter required before `...`
 #include <tgmath.h>
+#endif
 #endif
 #endif
 #endif

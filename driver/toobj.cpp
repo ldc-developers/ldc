@@ -145,7 +145,7 @@ static void assemble(const std::string &asmpath, const std::string &objpath) {
   appendTargetArgsForGcc(args);
 
   // Run the compiler to assembly the program.
-  int R = executeToolAndWait(getGcc(), args, global.params.verbose);
+  int R = executeToolAndWait(Loc(), getGcc(), args, global.params.verbose);
   if (R) {
     error(Loc(), "Error while invoking external assembler.");
     fatal();
