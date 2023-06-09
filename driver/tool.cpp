@@ -265,8 +265,6 @@ int executeToolAndWait(const Loc &loc, const std::string &tool_,
 namespace windows {
 
 namespace {
-VSOptions vsOptions; // cache, as this can be expensive
-
 bool setupMsvcEnvironmentImpl(
     bool forPreprocessingOnly,
     std::vector<std::pair<std::wstring, wchar_t *>> *rollback) {
@@ -283,26 +281,31 @@ bool setupMsvcEnvironmentImpl(
 
   const auto begin = std::chrono::steady_clock::now();
 
+  static VSOptions vsOptions; // cache, as this can be expensive
   if (!vsOptions.VSInstallDir) {
     vsOptions.initialize();
     if (!vsOptions.VSInstallDir)
       return false;
   }
 
-  // PATH
-  llvm::SmallVector<const char *, 2> binPaths;
-  const char *secondaryBindir = nullptr;
-  if (auto bindir = vsOptions.getVCBinDir(x64, secondaryBindir)) {
-    binPaths.push_back(bindir);
-    if (secondaryBindir)
-      binPaths.push_back(secondaryBindir);
-  }
-  if (binPaths.empty())
-    return false;
+  // cache the environment variable prefixes too
+  static llvm::SmallVector<const char *, 2> binPaths;
+  static llvm::SmallVector<const char *, 6> includePaths;
+  static llvm::SmallVector<const char *, 3> libPaths;
 
-  llvm::SmallVector<const char *, 3> includePaths;
-  llvm::SmallVector<const char *, 3> libPaths;
-  if (forPreprocessingOnly) {
+  if (binPaths.empty()) {
+    // PATH
+    const char *secondaryBindir = nullptr;
+    if (auto bindir = vsOptions.getVCBinDir(x64, secondaryBindir)) {
+      binPaths.push_back(bindir);
+      if (secondaryBindir)
+        binPaths.push_back(secondaryBindir);
+    } else {
+      return false;
+    }
+  }
+
+  if (forPreprocessingOnly && includePaths.empty()) {
     // INCLUDE
     if (auto vcincludedir = vsOptions.getVCIncludeDir()) {
       includePaths.push_back(vcincludedir);
@@ -316,9 +319,12 @@ bool setupMsvcEnvironmentImpl(
       includePaths.push_back(FileName::combine(sdkincludedir, "winrt"));
       includePaths.push_back(FileName::combine(sdkincludedir, "cppwinrt"));
     } else {
+      includePaths.clear();
       return false;
     }
-  } else {
+  }
+
+  if (!forPreprocessingOnly && libPaths.empty()) {
     // LIB
     if (auto vclibdir = vsOptions.getVCLibDir(x64))
       libPaths.push_back(vclibdir);
@@ -327,8 +333,10 @@ bool setupMsvcEnvironmentImpl(
     if (auto sdklibdir = vsOptions.getSDKLibPath(x64))
       libPaths.push_back(sdklibdir);
 
-    if (libPaths.size() != 3)
+    if (libPaths.size() != 3) {
+      libPaths.clear();
       return false;
+    }
   }
 
   if (!rollback) // check for availability only
