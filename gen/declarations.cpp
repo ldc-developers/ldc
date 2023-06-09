@@ -284,7 +284,9 @@ public:
 
   void visit(FuncDeclaration *decl) override {
     // don't touch function aliases, they don't contribute any new symbols
-    if (!decl->skipCodegen() && !decl->isFuncAliasDeclaration()) {
+    if (!decl->skipCodegen() && !decl->isFuncAliasDeclaration() &&
+        // skip fwd declarations (IR-declared lazily)
+        decl->fbody) {
       DtoDefineFunction(decl);
     }
   }
