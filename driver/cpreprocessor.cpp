@@ -2,6 +2,7 @@
 
 #include "dmd/errors.h"
 #include "driver/cl_options.h"
+#include "driver/timetrace.h"
 #include "driver/tool.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -68,6 +69,8 @@ FileName getOutputPath(const Loc &loc, const char *csrcfile) {
 
 FileName runCPreprocessor(FileName csrcfile, const Loc &loc, bool &ifile,
                           OutBuffer &defines) {
+  TimeTraceScope timeScope("Preprocess C file", csrcfile.toChars());
+
   const char *importc_h = getPathToImportc_h(loc);
 
   const auto &triple = *global.params.targetTriple;
