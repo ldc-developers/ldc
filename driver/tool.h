@@ -53,7 +53,7 @@ struct MsvcEnvironmentScope {
   // Tries to set up the MSVC environment variables for the current process and
   // returns true if successful. The original environment is restored on
   // destruction.
-  bool setup();
+  bool setup(bool forPreprocessingOnly = false);
 
   ~MsvcEnvironmentScope();
 

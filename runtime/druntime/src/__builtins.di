@@ -135,8 +135,6 @@ version (DigitalMars)
 }
 else version (LDC)
 {
-    import ldc.intrinsics;
-
     double __builtin_inf()()  { return double.infinity; }
     float  __builtin_inff()() { return float.infinity; }
     real   __builtin_infl()() { return real.infinity; }
@@ -145,19 +143,18 @@ else version (LDC)
     alias __builtin_huge_valf = __builtin_inff;
     alias __builtin_huge_vall = __builtin_infl;
 
-    alias __builtin_fabs  = llvm_fabs!double;
-    alias __builtin_fabsf = llvm_fabs!float;
-    alias __builtin_fabsl = llvm_fabs!real;
+    alias __builtin_fabs  = imported!"ldc.intrinsics".llvm_fabs!double;
+    alias __builtin_fabsf = imported!"ldc.intrinsics".llvm_fabs!float;
+    alias __builtin_fabsl = imported!"ldc.intrinsics".llvm_fabs!real;
 
-    alias __builtin_bswap16 = llvm_bswap!ushort;
-    alias __builtin_bswap32 = llvm_bswap!uint;
-    alias __builtin_bswap64 = llvm_bswap!ulong;
+    alias __builtin_bswap16 = imported!"ldc.intrinsics".llvm_bswap!ushort;
+    alias __builtin_bswap32 = imported!"ldc.intrinsics".llvm_bswap!uint;
+    alias __builtin_bswap64 = imported!"ldc.intrinsics".llvm_bswap!ulong;
 
     int   __builtin_constant_p(T)(T exp) { return 0; }
-    alias __builtin_expect = llvm_expect!long;
+    alias __builtin_expect = imported!"ldc.intrinsics".llvm_expect!long;
     void* __builtin_assume_aligned()(const void* p, size_t align_, ...) { return cast(void*)p; }
     void __builtin_assume(T)(lazy T arg) { }
 
-    import core.int128 : Cent;
-    alias __uint128_t = Cent;
+    alias __uint128_t = imported!"core.int128".Cent;
 }
