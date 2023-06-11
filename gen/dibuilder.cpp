@@ -44,6 +44,13 @@
 namespace cl = llvm::cl;
 using LLMetadata = llvm::Metadata;
 
+#if LDC_LLVM_VER >= 1600
+namespace llvm {
+  template <typename T> using Optional = std::optional<T>;
+  inline constexpr std::nullopt_t None = std::nullopt;
+}
+#endif
+
 static cl::opt<cl::boolOrDefault> emitColumnInfo(
     "gcolumn-info", cl::ZeroOrMore, cl::Hidden,
     cl::desc("Include column numbers in line debug infos. Defaults to "
@@ -372,11 +379,7 @@ DIType DIBuilder::CreateEnumType(TypeEnum *type) {
 DIType DIBuilder::CreatePointerType(TypePointer *type) {
   // TODO: The addressspace is important for dcompute targets. See e.g.
   // https://www.mail-archive.com/dwarf-discuss@lists.dwarfstd.org/msg00326.html
-#if LDC_LLVM_VER < 1600
   const llvm::Optional<unsigned> DWARFAddressSpace = llvm::None;
-#else
-  const std::optional<unsigned> DWARFAddressSpace = std::nullopt;
-#endif
 
   const auto name = processDIName(type->toPrettyChars(true));
 
@@ -734,11 +737,7 @@ DISubroutineType DIBuilder::CreateFunctionType(Type *type) {
 }
 
 DISubroutineType DIBuilder::CreateEmptyFunctionType() {
-#if LDC_LLVM_VER < 1600
   auto paramsArray = DBuilder.getOrCreateTypeArray(llvm::None);
-#else
-  auto paramsArray = DBuilder.getOrCreateTypeArray(std::nullopt);
-#endif
   return DBuilder.createSubroutineType(paramsArray);
 }
 
@@ -782,16 +781,9 @@ DIType DIBuilder::CreateTypeDescription(Type *t, bool voidToUbyte) {
     return nullptr;
   if (t->ty == TY::Tnull) {
     // display null as void*
-#if LDC_LLVM_VER < 1600
     return DBuilder.createPointerType(
         CreateTypeDescription(Type::tvoid), target.ptrsize * 8, 0,
         /* DWARFAddressSpace */ llvm::None, "typeof(null)");
-#else
-    return DBuilder.createPointerType(
-        CreateTypeDescription(Type::tvoid), target.ptrsize * 8, 0,
-        /* DWARFAddressSpace */ std::nullopt, "typeof(null)");
-#endif
-
   }
   if (auto te = t->isTypeEnum())
     return CreateEnumType(te);
@@ -813,14 +805,8 @@ DIType DIBuilder::CreateTypeDescription(Type *t, bool voidToUbyte) {
     const auto aggregateDIType = CreateCompositeType(t);
     const auto name =
         (tc->sym->toPrettyChars(true) + llvm::StringRef("*")).str();
-#if LDC_LLVM_VER < 1600
     return DBuilder.createPointerType(aggregateDIType, target.ptrsize * 8, 0,
                                       llvm::None, processDIName(name));
-#else
-    return DBuilder.createPointerType(aggregateDIType, target.ptrsize * 8, 0,
-                                      std::nullopt, processDIName(name));
-#endif
-
   }
   if (auto tf = t->isTypeFunction())
     return CreateFunctionType(tf);
