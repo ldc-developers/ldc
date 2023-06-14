@@ -191,10 +191,7 @@ struct InlineAsmDiagnosticHandler : public llvm::DiagnosticHandler {
 
     const auto &DISM = llvm::cast<llvm::DiagnosticInfoSrcMgr>(DI);
 
-    auto retval =
-        inlineAsmDiagnostic(irs, DISM.getSMDiag(), DISM.getLocCookie());
-
-    return retval;
+    return inlineAsmDiagnostic(irs, DISM.getSMDiag(), DISM.getLocCookie());
   }
 };
 #endif
