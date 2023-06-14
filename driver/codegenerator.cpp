@@ -191,7 +191,10 @@ struct InlineAsmDiagnosticHandler : public llvm::DiagnosticHandler {
 
     const auto &DISM = llvm::cast<llvm::DiagnosticInfoSrcMgr>(DI);
 
-    return inlineAsmDiagnostic(irs, DISM.getSMDiag(), DISM.getLocCookie());
+    auto retval =
+        inlineAsmDiagnostic(irs, DISM.getSMDiag(), DISM.getLocCookie());
+
+    return retval;
   }
 };
 #endif
@@ -377,15 +380,24 @@ void CodeGenerator::writeMLIRModule(mlir::OwningModuleRef *module,
     const auto llpath = replaceExtensionWith(mlir_ext, filename);
     Logger::println("Writting MLIR to %s\n", llpath.c_str());
     std::error_code errinfo;
-    llvm::raw_fd_ostream aos(llpath, errinfo, llvm::sys::fs::OF_None);
+    llvm::ToolOutputFile aos(llpath, errinfo, llvm::sys::fs::OF_None);
 
-    if (aos.has_error()) {
+    if (aos.os().has_error()) {
       error(Loc(), "Cannot write MLIR file '%s': %s", llpath.c_str(),
             errinfo.message().c_str());
       fatal();
     }
 
     // module->print(aos);
+
+    // Terminate upon errors during the LLVM passes.
+    if (global.errors || global.warnings) {
+      Logger::println(
+          "Aborting because of errors/warnings during bitcode LLVM passes");
+      fatal();
+    }
+
+    aos.keep();
   }
 }
 
