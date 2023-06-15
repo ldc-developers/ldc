@@ -7,6 +7,12 @@
 
 // RUN: not %ldc -w -c --fwarn-stack-size=200  %s 2>&1 | FileCheck %s
 
+// Test that IR caching does not hide the warning-error in a second compilation run
+// RUN: not %ldc -cache=%t-dir -w -c --fwarn-stack-size=200 %s 2>&1 | FileCheck %s
+// RUN: not %ldc -cache=%t-dir -w -c --fwarn-stack-size=200 %s 2>&1 | FileCheck %s
+// Test that indeed the IR cache does not exist
+// RUN: not %prunecache -f %t-dir --max-bytes=1
+
 module fwarnstacksize;
 
 void small_stack()
