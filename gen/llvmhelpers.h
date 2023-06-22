@@ -116,6 +116,7 @@ void DtoResolveVariable(VarDeclaration *var);
 void DtoVarDeclaration(VarDeclaration *var);
 DValue *DtoDeclarationExp(Dsymbol *declaration);
 LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr = nullptr);
+void pushVarDtorCleanup(IRState *p, VarDeclaration *vd);
 
 // initializer helpers
 LLConstant *DtoConstInitializer(const Loc &loc, Type *type,

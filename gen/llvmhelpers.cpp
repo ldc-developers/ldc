@@ -876,6 +876,15 @@ void DtoResolveVariable(VarDeclaration *vd) {
  * DECLARATION EXP HELPER
  ******************************************************************************/
 
+void pushVarDtorCleanup(IRState *p, VarDeclaration *vd) {
+  llvm::BasicBlock *beginBB = p->insertBB(llvm::Twine("dtor.") + vd->toChars());
+
+  const auto savedInsertPoint = p->saveInsertPoint();
+  p->ir->SetInsertPoint(beginBB);
+  toElemDtor(vd->edtor);
+  p->funcGen().scopes.pushCleanup(beginBB, p->scopebb());
+}
+
 // TODO: Merge with DtoRawVarDeclaration!
 void DtoVarDeclaration(VarDeclaration *vd) {
   assert(!vd->isDataseg() &&
@@ -953,6 +962,11 @@ void DtoVarDeclaration(VarDeclaration *vd) {
       Logger::println("expression initializer");
       toElem(ex->exp);
     }
+  }
+
+  if (!vd->isDataseg() && vd->needsScopeDtor()) {
+    Logger::println("Variable needsScopeDtor");
+    pushVarDtorCleanup(gIR, vd);
   }
 }
 

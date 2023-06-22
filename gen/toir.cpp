@@ -210,15 +210,6 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
 }
 
 namespace {
-void pushVarDtorCleanup(IRState *p, VarDeclaration *vd) {
-  llvm::BasicBlock *beginBB = p->insertBB(llvm::Twine("dtor.") + vd->toChars());
-
-  const auto savedInsertPoint = p->saveInsertPoint();
-  p->ir->SetInsertPoint(beginBB);
-  toElemDtor(vd->edtor);
-  p->funcGen().scopes.pushCleanup(beginBB, p->scopebb());
-}
-
 // Zero-extends a scalar i1 to an integer type, or creates a vector mask from an
 // i1 vector.
 DImValue *zextBool(LLValue *val, Type *to) {
@@ -318,12 +309,6 @@ public:
     PGO.setCurrentStmt(e);
 
     result = DtoDeclarationExp(e->declaration);
-
-    if (auto vd = e->declaration->isVarDeclaration()) {
-      if (!vd->isDataseg() && vd->needsScopeDtor()) {
-        pushVarDtorCleanup(p, vd);
-      }
-    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
