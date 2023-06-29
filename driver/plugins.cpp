@@ -9,6 +9,9 @@
 //
 // Implements functionality related to plugins (`-plugin=...`).
 //
+// Note: plugins can be LLVM-plugins (to be registered with the pass manager),
+// or dlang-plugins for semantic analysis.
+//
 //===----------------------------------------------------------------------===//
 
 #include "driver/plugins.h"
@@ -38,32 +41,6 @@ cl::list<std::string> pluginFiles("plugin", cl::CommaSeparated,
 
 } // anonymous namespace
 
-#if LDC_LLVM_VER >= 1400
-
-namespace {
-llvm::SmallVector<llvm::PassPlugin, 1> plugins;
-}
-/// Loads all plugins for the new pass manager. These plugins will need to be
-/// added When building the optimization pipeline.
-void loadAllPluginsNewPM() {
-  for (auto &filename : pluginFiles) {
-    auto plugin = llvm::PassPlugin::Load(filename);
-    if (!plugin) {
-      error(Loc(), "Error loading plugin '%s': %s", filename.c_str(),
-            llvm::toString(plugin.takeError()).c_str());
-      continue;
-    }
-    plugins.emplace_back(plugin.get());
-  }
-}
-void registerAllPluginsWithPassBuilder(llvm::PassBuilder &PB) {
-  for (auto &plugin : plugins) {
-    plugin.registerPassBuilderCallbacks(PB);
-  }
-}
-
-#endif // LDC_LLVM_VER >= 1400
-
 /// Loads all plugins for the legacy pass manaager. The static constructor of
 /// each plugin should take care of the plugins registering themself with the
 /// rest of LDC/LLVM.
@@ -79,16 +56,42 @@ void loadAllPluginsLegacyPM() {
 }
 
 #if LDC_LLVM_VER >= 1400
+
+namespace {
+llvm::SmallVector<llvm::PassPlugin, 1> llvm_plugins;
+}
+/// Loads all plugins for the new pass manager. These plugins will need to be
+/// added When building the optimization pipeline.
+void loadAllPluginsNewPM() {
+  for (auto &filename : pluginFiles) {
+    auto plugin = llvm::PassPlugin::Load(filename);
+    if (!plugin) {
+      error(Loc(), "Error loading plugin '%s': %s", filename.c_str(),
+            llvm::toString(plugin.takeError()).c_str());
+      continue;
+    }
+    llvm_plugins.emplace_back(plugin.get());
+  }
+}
+void registerAllPluginsWithPassBuilder(llvm::PassBuilder &PB) {
+  for (auto &plugin : llvm_plugins) {
+    plugin.registerPassBuilderCallbacks(PB);
+  }
+}
+
 void loadAllPlugins() {
   if (opts::isUsingLegacyPassManager())
     loadAllPluginsLegacyPM();
   else
     loadAllPluginsNewPM();
 }
-#else
+
+#else // LDC_LLVM_VER >= 1400
+
 void loadAllPlugins() { loadAllPluginsLegacyPM(); }
 void registerAllPluginsWithPassBuilder(llvm::PassBuilder &) {}
-#endif
+
+#endif // LDC_LLVM_VER >= 1400
 
 #else // #if LDC_ENABLE_PLUGINS
 
