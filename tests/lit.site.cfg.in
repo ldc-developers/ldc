@@ -162,8 +162,6 @@ config.substitutions.append( ('%llvm-spirv', os.path.join(config.llvm_tools_dir,
 config.substitutions.append( ('%llc', os.path.join(config.llvm_tools_dir, 'llc')) )
 config.substitutions.append( ('%runtimedir', config.ldc2_runtime_dir ) )
 
-print(platform.system())
-
 # Add platform-dependent file extension substitutions
 if (platform.system() == 'Windows'):
     # add LDC lib dir to the path so app will be able to find jit.dll

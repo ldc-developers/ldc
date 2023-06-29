@@ -9,7 +9,7 @@
 //
 // Implements functionality related to plugins (`-plugin=...`).
 //
-// Note: plugins can be LLVM-plugins (to be registered with the pass manager),
+// Note: plugins can be LLVM-plugins (to be registered with the pass manager)
 // or dlang-plugins for semantic analysis.
 //
 //===----------------------------------------------------------------------===//
@@ -44,8 +44,9 @@ struct SemaPlugin {
   llvm::sys::DynamicLibrary library;
   void (*runSemanticAnalysis)(Module *);
 
-  SemaPlugin(const llvm::sys::DynamicLibrary &library)
-      : library(library), runSemanticAnalysis(nullptr) {}
+  SemaPlugin(const llvm::sys::DynamicLibrary &library,
+             void (*runSemanticAnalysis)(Module *))
+      : library(library), runSemanticAnalysis(runSemanticAnalysis) {}
 };
 
 llvm::SmallVector<SemaPlugin, 1> sema_plugins;
@@ -64,8 +65,6 @@ bool loadSemanticAnalysisPlugin(const std::string &filename) {
     return true; // No success, but no need to try loading again as LLVM plugin.
   }
 
-  SemaPlugin plugin{library};
-
   // SemanticAnalysis plugins need to export the `runSemanticAnalysis` function.
   void *runSemanticAnalysisFnPtr =
       library.getAddressOfSymbol("runSemanticAnalysis");
@@ -74,10 +73,8 @@ bool loadSemanticAnalysisPlugin(const std::string &filename) {
   if (!runSemanticAnalysisFnPtr)
     return false;
 
-  plugin.runSemanticAnalysis =
-      reinterpret_cast<void (*)(Module *)>(runSemanticAnalysisFnPtr);
-
-  sema_plugins.push_back(std::move(plugin));
+  sema_plugins.emplace_back(
+      library, reinterpret_cast<void (*)(Module *)>(runSemanticAnalysisFnPtr));
   return true;
 }
 
