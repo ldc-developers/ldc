@@ -21,6 +21,7 @@ config.timetrace2txt_bin   = "@TIMETRACE2TXT_BIN@"
 config.ldc2_bin_dir        = "@LDC2_BIN_DIR@"
 config.ldc2_lib_dir        = "@LDC2_LIB_DIR@"
 config.ldc2_runtime_dir    = "@RUNTIME_DIR@"
+config.ldc2_source_dir     = "@PROJECT_SOURCE_DIR@"
 config.test_source_root    = "@TESTS_IR_DIR@"
 config.llvm_tools_dir      = "@LLVM_TOOLS_DIR@"
 config.llvm_version        = @LDC_LLVM_VER@
@@ -160,6 +161,8 @@ config.substitutions.append( ('%timetrace2txt', config.timetrace2txt_bin) )
 config.substitutions.append( ('%llvm-spirv', os.path.join(config.llvm_tools_dir, 'llvm-spirv')) )
 config.substitutions.append( ('%llc', os.path.join(config.llvm_tools_dir, 'llc')) )
 config.substitutions.append( ('%runtimedir', config.ldc2_runtime_dir ) )
+
+print(platform.system())
 
 # Add platform-dependent file extension substitutions
 if (platform.system() == 'Windows'):

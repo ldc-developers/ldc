@@ -20,6 +20,7 @@
 
 #include "dmd/errors.h"
 #include "dmd/globals.h"
+#include "dmd/module.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/DynamicLibrary.h"
@@ -39,19 +40,56 @@ cl::list<std::string> pluginFiles("plugin", cl::CommaSeparated,
                                   cl::desc("Pass plugins to load."),
                                   cl::value_desc("dynamic_library.so,lib2.so"));
 
+struct SemaPlugin {
+  llvm::sys::DynamicLibrary library;
+  void (*runSemanticAnalysis)(Module *);
+
+  SemaPlugin(const llvm::sys::DynamicLibrary &library)
+      : library(library), runSemanticAnalysis(nullptr) {}
+};
+
+llvm::SmallVector<SemaPlugin, 1> sema_plugins;
+
 } // anonymous namespace
 
-/// Loads all plugins for the legacy pass manaager. The static constructor of
-/// each plugin should take care of the plugins registering themself with the
+// Tries to load plugin as SemanticAnalysis. Returns true on 'success', i.e. no
+// further attempts needed.
+bool loadSemanticAnalysisPlugin(const std::string &filename) {
+  std::string errorString;
+  auto library = llvm::sys::DynamicLibrary::getPermanentLibrary(
+      filename.c_str(), &errorString);
+  if (!library.isValid()) {
+    error(Loc(), "Error loading plugin '%s': %s", filename.c_str(),
+          errorString.c_str());
+    return true; // No success, but no need to try loading again as LLVM plugin.
+  }
+
+  SemaPlugin plugin{library};
+
+  // SemanticAnalysis plugins need to export the `runSemanticAnalysis` function.
+  void *runSemanticAnalysisFnPtr =
+      library.getAddressOfSymbol("runSemanticAnalysis");
+
+  // If the symbol isn't found, this is probably an LLVM plugin.
+  if (!runSemanticAnalysisFnPtr)
+    return false;
+
+  plugin.runSemanticAnalysis =
+      reinterpret_cast<void (*)(Module *)>(runSemanticAnalysisFnPtr);
+
+  sema_plugins.push_back(std::move(plugin));
+  return true;
+}
+
+/// Loads plugin for the legacy pass manager. The static constructor of
+/// the plugin should take care of the plugins registering themself with the
 /// rest of LDC/LLVM.
-void loadAllPluginsLegacyPM() {
-  for (auto &filename : pluginFiles) {
-    std::string errorString;
-    if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(filename.c_str(),
-                                                          &errorString)) {
-      error(Loc(), "Error loading plugin '%s': %s", filename.c_str(),
-            errorString.c_str());
-    }
+void loadLLVMPluginLegacyPM(const std::string &filename) {
+  std::string errorString;
+  if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(filename.c_str(),
+                                                        &errorString)) {
+    error(Loc(), "Error loading plugin '%s': %s", filename.c_str(),
+          errorString.c_str());
   }
 }
 
@@ -59,43 +97,64 @@ void loadAllPluginsLegacyPM() {
 
 namespace {
 llvm::SmallVector<llvm::PassPlugin, 1> llvm_plugins;
-}
-/// Loads all plugins for the new pass manager. These plugins will need to be
-/// added When building the optimization pipeline.
-void loadAllPluginsNewPM() {
-  for (auto &filename : pluginFiles) {
-    auto plugin = llvm::PassPlugin::Load(filename);
-    if (!plugin) {
-      error(Loc(), "Error loading plugin '%s': %s", filename.c_str(),
-            llvm::toString(plugin.takeError()).c_str());
-      continue;
-    }
-    llvm_plugins.emplace_back(plugin.get());
+
+/// Loads plugin for the new pass manager. The plugin will need to be
+/// added explicitly when building the optimization pipeline.
+void loadLLVMPluginNewPM(const std::string &filename) {
+
+  auto plugin = llvm::PassPlugin::Load(filename);
+  if (!plugin) {
+    error(Loc(), "Error loading plugin '%s': %s", filename.c_str(),
+          llvm::toString(plugin.takeError()).c_str());
+    return;
   }
+  llvm_plugins.emplace_back(plugin.get());
 }
-void registerAllPluginsWithPassBuilder(llvm::PassBuilder &PB) {
-  for (auto &plugin : llvm_plugins) {
-    plugin.registerPassBuilderCallbacks(PB);
-  }
+
+} // anonymous namespace
+
+#endif // LDC_LLVM_VER >= 1400
+
+void loadLLVMPlugin(const std::string &filename) {
+#if LDC_LLVM_VER >= 1400
+  if (opts::isUsingLegacyPassManager())
+    loadLLVMPluginLegacyPM(filename);
+  else
+    loadLLVMPluginNewPM(filename);
+#else
+  loadLLVMPluginLegacyPM(filename);
+#endif
 }
 
 void loadAllPlugins() {
-  if (opts::isUsingLegacyPassManager())
-    loadAllPluginsLegacyPM();
-  else
-    loadAllPluginsNewPM();
+  for (auto &filename : pluginFiles) {
+    // First attempt to load plugin as SemanticAnalysis plugin. If unsuccesfull,
+    // load as LLVM plugin.
+    auto success = loadSemanticAnalysisPlugin(filename);
+    if (!success)
+      loadLLVMPlugin(filename);
+  }
 }
 
-#else // LDC_LLVM_VER >= 1400
+void registerAllPluginsWithPassBuilder(llvm::PassBuilder &PB) {
+#if LDC_LLVM_VER >= 1400
+  for (auto &plugin : llvm_plugins) {
+    plugin.registerPassBuilderCallbacks(PB);
+  }
+#endif
+}
 
-void loadAllPlugins() { loadAllPluginsLegacyPM(); }
-void registerAllPluginsWithPassBuilder(llvm::PassBuilder &) {}
-
-#endif // LDC_LLVM_VER >= 1400
+void runAllSemanticAnalysisPlugins(Module *m) {
+  for (auto &plugin : sema_plugins) {
+    assert(plugin.runSemanticAnalysis);
+    plugin.runSemanticAnalysis(m);
+  }
+}
 
 #else // #if LDC_ENABLE_PLUGINS
 
 void loadAllPlugins() {}
 void registerAllPluginsWithPassBuilder(llvm::PassBuilder &) {}
+void runAllSemanticAnalysisPlugins(Module *m) {}
 
 #endif // LDC_ENABLE_PLUGINS
