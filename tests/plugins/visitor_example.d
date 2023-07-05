@@ -1,4 +1,5 @@
 // REQUIRES: Plugins
+// REQUIRES: ABI_compatible_with_host_D
 
 // RUN: split-file %s %t --leading-lines
 // RUN: %ldc -g %t/plugin.d %plugin_compile_flags -of=%t/plugin%so
@@ -16,8 +17,14 @@ extern(C++) class MyVisitor : SemanticTimeTransitiveVisitor {
     alias visit = SemanticTimeTransitiveVisitor.visit;
 
     override void visit(VarDeclaration vd) {
-        if (vd.aliasTuple)
-            warning(vd.loc, "It works!");
+        if (vd.aliasTuple) {
+            vd.aliasTuple.foreachVar((s) {
+                auto vardecl = s.isVarDeclaration();
+                if (vardecl && vardecl.type.needsDestruction()) {
+                    warning(vardecl.loc, "It works!");
+                }
+            });
+        }
     }
 }
 
