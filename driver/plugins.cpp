@@ -150,6 +150,8 @@ void runAllSemanticAnalysisPlugins(Module *m) {
 
 #else // #if LDC_ENABLE_PLUGINS
 
+class Module;
+
 void loadAllPlugins() {}
 void registerAllPluginsWithPassBuilder(llvm::PassBuilder &) {}
 void runAllSemanticAnalysisPlugins(Module *m) {}
