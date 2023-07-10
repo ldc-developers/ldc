@@ -581,9 +581,7 @@ LLType *stripAddrSpaces(LLType *t)
   if (!pt)
     return t;
 
-#if LDC_LLVM_VER >= 1600
-  return getVoidPtrType();
-#elif LDC_LLVM_VER >= 1400
+#if LDC_LLVM_VER >= 1400
   if (pt->isOpaque())
     return getVoidPtrType();
   else {
