@@ -395,14 +395,20 @@ void registerModuleInfo(Module *m) {
 }
 
 void addModuleFlags(llvm::Module &m) {
+#if LDC_LLVM_VER >= 1500
+  const auto ModuleMinFlag = llvm::Module::Min;
+#else
+  const auto ModuleMinFlag = llvm::Module::Warning; // Fallback value
+#endif
+
   if (opts::fCFProtection == opts::CFProtectionType::Return ||
       opts::fCFProtection == opts::CFProtectionType::Full) {
-    m.addModuleFlag(llvm::Module::Min, "cf-protection-return", 1);
+    m.addModuleFlag(ModuleMinFlag, "cf-protection-return", 1);
   }
 
   if (opts::fCFProtection == opts::CFProtectionType::Branch ||
       opts::fCFProtection == opts::CFProtectionType::Full) {
-    m.addModuleFlag(llvm::Module::Min, "cf-protection-branch", 1);
+    m.addModuleFlag(ModuleMinFlag, "cf-protection-branch", 1);
   }
 }
 
