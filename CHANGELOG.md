@@ -6,6 +6,7 @@
 - C files are now automatically preprocessed using the external C compiler (configurable via `-gcc` or the `CC` environment variable, and `-Xcc` for extra flags). Extra preprocessor flags (e.g., include dirs and manual defines) can be added via new command-line option `-P`. (#4417)
   - Windows: If `clang-cl.exe` is on `PATH`, it is preferred over Microsoft's `cl.exe` by default (e.g., to avoid printing the C source file name to stderr during preprocessing).
 - Less pedantic checks for conflicting C(++) function declarations when compiling multiple modules to a single object file ('Error: Function type does not match previously declared function with the same mangled name'). The error now only appears if an object file actually references multiple conflicting functions. (#4420)
+- New command-line option `--fcf-protection`. (#4437)
 
 #### Platform support
 
