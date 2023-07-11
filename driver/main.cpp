@@ -1003,6 +1003,20 @@ void registerPredefinedVersions() {
     VersionCondition::addPredefinedGlobalIdent("LDC_ThreadSanitizer");
   }
 
+  switch (opts::fCFProtection) {
+  case opts::CFProtectionType::Branch:
+    VersionCondition::addPredefinedGlobalIdent("__CET_1__");
+    break;
+  case opts::CFProtectionType::Return:
+    VersionCondition::addPredefinedGlobalIdent("__CET_2__");
+    break;
+  case opts::CFProtectionType::Full:
+    VersionCondition::addPredefinedGlobalIdent("__CET_3__");
+    break;
+  case opts::CFProtectionType::None:
+    break;
+  }
+
 #if LDC_LLVM_VER >= 1400
   // A version identifier for whether opaque pointers are enabled or not. (needed e.g. for intrinsic mangling)
   if (!getGlobalContext().supportsTypedPointers()) {
