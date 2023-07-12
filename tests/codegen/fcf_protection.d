@@ -2,7 +2,7 @@
 
 // REQUIRES: target_X86
 
-// RUN: %ldc -mtriple=x86_64-linux-gnu -output-ll -of=%t.ll        %s                         && FileCheck %s --check-prefix=NOTHING < %t.ll
+// RUN: %ldc -mtriple=x86_64-linux-gnu -output-ll -of=%t.ll        %s                        -d-version=NOTHING && FileCheck %s --check-prefix=NOTHING < %t.ll
 
 // RUN: %ldc -mtriple=x86_64-linux-gnu -output-ll -of=%t_branch.ll %s --fcf-protection=branch -d-version=BRANCH && FileCheck %s --check-prefix=BRANCH < %t_branch.ll
 // RUN: %ldc -mtriple=x86_64-linux-gnu -output-ll -of=%t_return.ll %s --fcf-protection=return -d-version=RETURN && FileCheck %s --check-prefix=RETURN < %t_return.ll
@@ -17,12 +17,15 @@
 
 void foo() {}
 
+version(NOTHING) {
+    static assert(__traits(getTargetInfo, "CET") == 0);
+}
 version(BRANCH) {
-    version(__CET_1__) {} else { static assert(false); };
+    static assert(__traits(getTargetInfo, "CET") == 1);
 }
 version(RETURN) {
-    version(__CET_2__) {} else { static assert(false); };
+    static assert(__traits(getTargetInfo, "CET") == 2);
 }
 version(FULL) {
-    version(__CET_3__) {} else { static assert(false); };
+    static assert(__traits(getTargetInfo, "CET") == 3);
 }
