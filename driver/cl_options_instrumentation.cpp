@@ -123,6 +123,11 @@ void initializeInstrumentationOptionsFromCmdline(const llvm::Triple &triple) {
 
   if (dmdFunctionTrace)
     global.params.trace = true;
+
+  if (fCFProtection != CFProtectionType::None && !triple.isX86()) {
+    error(Loc(), "option '--fcf-protection' cannot be specified on this target "
+                 "architecture");
+  }
 }
 
 } // namespace opts
