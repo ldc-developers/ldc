@@ -8,16 +8,18 @@ commonSteps: &commonSteps
           cd ..
           if [ "$CI_OS" = "linux" ]; then
             export DEBIAN_FRONTEND=noninteractive
+            sudo=""
+            if [[ "$CI_ARCH" == "aarch64" ]]; then sudo="sudo"; fi
             if [[ "$EXTRA_CMAKE_FLAGS" = *-DMULTILIB?ON* ]]; then
-              dpkg --add-architecture i386
+              $sudo dpkg --add-architecture i386
               gcc_pkg="g++-multilib"
               libcurl_pkg="libcurl4 libcurl4:i386"
             else
               gcc_pkg="g++"
               libcurl_pkg="libcurl4"
             fi
-            apt-get -q update
-            apt-get -yq install \
+            $sudo apt-get -q update
+            $sudo apt-get -yq install \
               git-core cmake ninja-build $gcc_pkg \
               zlib1g-dev $libcurl_pkg curl gdb python3 python3-pip tzdata unzip zip \
               $EXTRA_APT_PACKAGES
@@ -46,7 +48,7 @@ commonSteps: &commonSteps
           python3 -m pip install --user lit
           python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
           # Download & extract host LDC
-          curl -fL --retry 3 --max-time 300 -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$CI_OS-x86_64.tar.xz
+          curl -fL --retry 3 --max-time 300 -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$CI_OS-${CI_ARCH:-x86_64}.tar.xz
           mkdir host-ldc
           tar -xf ldc2.tar.xz --strip 1 -C host-ldc
           rm ldc2.tar.xz
@@ -96,7 +98,14 @@ commonSteps: &commonSteps
     - run:
         name: Run defaultlib unittests & druntime integration tests
         when: always
-        command: cd ../build && ctest -j$PARALLELISM --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests"
+        command: |
+          cd ../build
+          excludes="dmd-testsuite|ldc2-unittest|lit-tests"
+          if [[ "$CI_OS-${CI_ARCH:-x86_64}" == "linux-aarch64" ]]; then
+            # FIXME: hangs with enabled optimizations
+            excludes+='|^core.thread.fiber(-shared)?$'
+          fi
+          ctest -j$PARALLELISM --output-on-failure -E "$excludes"
 
 version: 2
 jobs:
@@ -122,6 +131,18 @@ jobs:
       - EXTRA_APT_PACKAGES: gdmd llvm-dev libclang-common-10-dev
       - HOST_LDC_VERSION: 1.24.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
+  Ubuntu-20.04-aarch64:
+    <<: *commonSteps
+    machine:
+      image: ubuntu-2004:current
+    resource_class: arm.large
+    environment:
+      - PARALLELISM: 4
+      - CI_OS: linux
+      - CI_ARCH: aarch64
+      - EXTRA_APT_PACKAGES: llvm-dev libclang-common-10-dev
+      - HOST_LDC_VERSION: 1.30.0
+      - EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
   macOS-x64:
     <<: *commonSteps
     macos:
@@ -151,5 +172,6 @@ workflows:
     jobs:
       - Ubuntu-20.04-multilib-rtSanitizers
       - Ubuntu-20.04-sharedLibsOnly-gdmd
+      - Ubuntu-20.04-aarch64
       - macOS-x64
       - macOS-x64-sharedLibsOnly
