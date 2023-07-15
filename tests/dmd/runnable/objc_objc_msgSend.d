@@ -4,7 +4,7 @@
 
 import core.attribute : selector;
 
-extern (C) Class objc_lookUpClass(in char* name);
+extern (C) Class objc_lookUpClass(scope const char* name);
 
 struct Struct
 {

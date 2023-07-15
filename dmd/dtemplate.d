@@ -757,9 +757,6 @@ else
 
     const(char)* toCharsMaybeConstraints(bool includeConstraints) const
     {
-        if (literal)
-            return Dsymbol.toChars();
-
         OutBuffer buf;
         HdrGenState hgs;
 
@@ -1874,19 +1871,16 @@ else
                         Type taai;
                         if (argtype.ty == Tarray && (prmtype.ty == Tsarray || prmtype.ty == Taarray && (taai = (cast(TypeAArray)prmtype).index).ty == Tident && (cast(TypeIdentifier)taai).idents.length == 0))
                         {
-                            if (farg.op == EXP.string_)
+                            if (StringExp se = farg.isStringExp())
                             {
-                                StringExp se = cast(StringExp)farg;
                                 argtype = se.type.nextOf().sarrayOf(se.len);
                             }
-                            else if (farg.op == EXP.arrayLiteral)
+                            else if (ArrayLiteralExp ae = farg.isArrayLiteralExp())
                             {
-                                ArrayLiteralExp ae = cast(ArrayLiteralExp)farg;
                                 argtype = ae.type.nextOf().sarrayOf(ae.elements.length);
                             }
-                            else if (farg.op == EXP.slice)
+                            else if (SliceExp se = farg.isSliceExp())
                             {
-                                SliceExp se = cast(SliceExp)farg;
                                 if (Type tsa = toStaticArrayType(se))
                                     argtype = tsa;
                             }
@@ -2299,18 +2293,23 @@ else
         Declaration d;
         VarDeclaration v = null;
 
-        if (ea && ea.op == EXP.type)
-            ta = ea.type;
-        else if (ea && ea.op == EXP.scope_)
-            sa = (cast(ScopeExp)ea).sds;
-        else if (ea && (ea.op == EXP.this_ || ea.op == EXP.super_))
-            sa = (cast(ThisExp)ea).var;
-        else if (ea && ea.op == EXP.function_)
+        if (ea)
         {
-            if ((cast(FuncExp)ea).td)
-                sa = (cast(FuncExp)ea).td;
-            else
-                sa = (cast(FuncExp)ea).fd;
+            if (ea.op == EXP.type)
+                ta = ea.type;
+            else if (auto se = ea.isScopeExp())
+                sa = se.sds;
+            else if (auto te = ea.isThisExp())
+                sa = te.var;
+            else if (auto se = ea.isSuperExp())
+                sa = se.var;
+            else if (auto fe = ea.isFuncExp())
+            {
+                if (fe.td)
+                    sa = fe.td;
+                else
+                    sa = fe.fd;
+            }
         }
 
         if (ta)
@@ -3872,9 +3871,9 @@ MATCH deduceType(RootObject o, Scope* sc, Type tparam, TemplateParameters* param
                 if (tparam.ty == Tsarray)
                 {
                     TypeSArray tsa = cast(TypeSArray)tparam;
-                    if (tsa.dim.op == EXP.variable && (cast(VarExp)tsa.dim).var.storage_class & STC.templateparameter)
+                    if (tsa.dim.isVarExp() && tsa.dim.isVarExp().var.storage_class & STC.templateparameter)
                     {
-                        Identifier id = (cast(VarExp)tsa.dim).var.ident;
+                        Identifier id = tsa.dim.isVarExp().var.ident;
                         i = templateIdentifierLookup(id, parameters);
                         assert(i != IDX_NOTFOUND);
                         tp = (*parameters)[i];
@@ -4266,12 +4265,12 @@ MATCH deduceType(RootObject o, Scope* sc, Type tparam, TemplateParameters* param
                         /* If it is one of the template parameters for this template,
                          * we should not attempt to interpret it. It already has a value.
                          */
-                        if (e2.op == EXP.variable && ((cast(VarExp)e2).var.storage_class & STC.templateparameter))
+                        if (e2.op == EXP.variable && (e2.isVarExp().var.storage_class & STC.templateparameter))
                         {
                             /*
                              * (T:Number!(e2), int e2)
                              */
-                            j = templateIdentifierLookup((cast(VarExp)e2).var.ident, parameters);
+                            j = templateIdentifierLookup(e2.isVarExp().var.ident, parameters);
                             if (j != IDX_NOTFOUND)
                                 goto L1;
                             // The template parameter was not from this template
@@ -5252,7 +5251,7 @@ private bool reliesOnTemplateParameters(Expression e, TemplateParameter[] tparam
         override void visit(DotTemplateInstanceExp e)
         {
             //printf("DotTemplateInstanceExp.reliesOnTemplateParameters('%s')\n", e.toChars());
-            visit(cast(UnaExp)e);
+            visit(e.isUnaExp());
             if (!result && e.ti.tiargs)
             {
                 foreach (oa; *e.ti.tiargs)
@@ -5270,7 +5269,7 @@ private bool reliesOnTemplateParameters(Expression e, TemplateParameter[] tparam
         override void visit(CallExp e)
         {
             //printf("CallExp.reliesOnTemplateParameters('%s')\n", e.toChars());
-            visit(cast(UnaExp)e);
+            visit(e.isUnaExp());
             if (!result && e.arguments)
             {
                 foreach (ea; *e.arguments)
@@ -5285,7 +5284,7 @@ private bool reliesOnTemplateParameters(Expression e, TemplateParameter[] tparam
         override void visit(CastExp e)
         {
             //printf("CallExp.reliesOnTemplateParameters('%s')\n", e.toChars());
-            visit(cast(UnaExp)e);
+            visit(e.isUnaExp());
             // e.to can be null for cast() with no type
             if (!result && e.to)
                 result = e.to.reliesOnTemplateParameters(tparams);
@@ -5294,7 +5293,7 @@ private bool reliesOnTemplateParameters(Expression e, TemplateParameter[] tparam
         override void visit(SliceExp e)
         {
             //printf("SliceExp.reliesOnTemplateParameters('%s')\n", e.toChars());
-            visit(cast(UnaExp)e);
+            visit(e.isUnaExp());
             if (!result && e.lwr)
                 e.lwr.accept(this);
             if (!result && e.upr)
@@ -5312,7 +5311,7 @@ private bool reliesOnTemplateParameters(Expression e, TemplateParameter[] tparam
         override void visit(ArrayExp e)
         {
             //printf("ArrayExp.reliesOnTemplateParameters('%s')\n", e.toChars());
-            visit(cast(UnaExp)e);
+            visit(e.isUnaExp());
             if (!result && e.arguments)
             {
                 foreach (ea; *e.arguments)
@@ -5333,7 +5332,7 @@ private bool reliesOnTemplateParameters(Expression e, TemplateParameter[] tparam
             //printf("BinExp.reliesOnTemplateParameters('%s')\n", e.toChars());
             e.econd.accept(this);
             if (!result)
-                visit(cast(BinExp)e);
+                visit(e.isBinExp());
         }
     }
 
@@ -6748,7 +6747,7 @@ version (IN_LLVM)
                     ea = ea.expressionSemantic(sc);
 
                     // must not interpret the args, excepting template parameters
-                    if (ea.op != EXP.variable || ((cast(VarExp)ea).var.storage_class & STC.templateparameter))
+                    if (!ea.isVarExp() || (ea.isVarExp().var.storage_class & STC.templateparameter))
                     {
                         ea = ea.optimize(WANTvalue);
                     }
@@ -6759,13 +6758,13 @@ version (IN_LLVM)
                     ea = ea.expressionSemantic(sc);
                     sc = sc.endCTFE();
 
-                    if (ea.op == EXP.variable)
+                    if (auto varExp = ea.isVarExp())
                     {
                         /* If the parameter is a function that is not called
                          * explicitly, i.e. `foo!func` as opposed to `foo!func()`,
                          * then it is a dsymbol, not the return value of `func()`
                          */
-                        Declaration vd = (cast(VarExp)ea).var;
+                        Declaration vd = varExp.var;
                         if (auto fd = vd.isFuncDeclaration())
                         {
                             sa = fd;
@@ -6788,10 +6787,9 @@ version (IN_LLVM)
                     }
                 }
                 //printf("-[%d] ea = %s %s\n", j, EXPtoString(ea.op).ptr, ea.toChars());
-                if (ea.op == EXP.tuple)
+                if (TupleExp te = ea.isTupleExp())
                 {
                     // Expand tuple
-                    TupleExp te = cast(TupleExp)ea;
                     size_t dim = te.exps.length;
                     tiargs.remove(j);
                     if (dim)
@@ -6817,12 +6815,11 @@ version (IN_LLVM)
                 }
                 if (ea.op == EXP.scope_)
                 {
-                    sa = (cast(ScopeExp)ea).sds;
+                    sa = ea.isScopeExp().sds;
                     goto Ldsym;
                 }
-                if (ea.op == EXP.function_)
+                if (FuncExp fe = ea.isFuncExp())
                 {
-                    FuncExp fe = cast(FuncExp)ea;
                     /* A function literal, that is passed to template and
                      * already semanticed as function pointer, never requires
                      * outer frame. So convert it to global function is valid.
@@ -6844,23 +6841,23 @@ version (IN_LLVM)
                 if (ea.op == EXP.dotVariable && !(flags & 1))
                 {
                     // translate expression to dsymbol.
-                    sa = (cast(DotVarExp)ea).var;
+                    sa = ea.isDotVarExp().var;
                     goto Ldsym;
                 }
-                if (ea.op == EXP.template_)
+                if (auto te = ea.isTemplateExp())
                 {
-                    sa = (cast(TemplateExp)ea).td;
+                    sa = te.td;
                     goto Ldsym;
                 }
                 if (ea.op == EXP.dotTemplateDeclaration && !(flags & 1))
                 {
                     // translate expression to dsymbol.
-                    sa = (cast(DotTemplateExp)ea).td;
+                    sa = ea.isDotTemplateExp().td;
                     goto Ldsym;
                 }
-                if (ea.op == EXP.dot)
+                if (auto de = ea.isDotExp())
                 {
-                    if (auto se = (cast(DotExp)ea).e2.isScopeExp())
+                    if (auto se = de.e2.isScopeExp())
                     {
                         sa = se.sds;
                         goto Ldsym;
@@ -7361,22 +7358,22 @@ version (IN_LLVM)
             Tuple va = isTuple(o);
             if (ea)
             {
-                if (ea.op == EXP.variable)
+                if (auto ve = ea.isVarExp())
                 {
-                    sa = (cast(VarExp)ea).var;
+                    sa = ve.var;
                     goto Lsa;
                 }
-                if (ea.op == EXP.this_)
+                if (auto te = ea.isThisExp())
                 {
-                    sa = (cast(ThisExp)ea).var;
+                    sa = te.var;
                     goto Lsa;
                 }
-                if (ea.op == EXP.function_)
+                if (auto fe = ea.isFuncExp())
                 {
-                    if ((cast(FuncExp)ea).td)
-                        sa = (cast(FuncExp)ea).td;
+                    if (fe.td)
+                        sa = fe.td;
                     else
-                        sa = (cast(FuncExp)ea).fd;
+                        sa = fe.fd;
                     goto Lsa;
                 }
                 // Emulate Expression.toMangleBuffer call that had exist in TemplateInstance.genIdent.
@@ -7767,13 +7764,13 @@ bool definitelyValueParameter(Expression e)
      */
 
     // x.y.f cannot be a value
-    FuncDeclaration f = (cast(DotVarExp)e).var.isFuncDeclaration();
+    FuncDeclaration f = e.isDotVarExp().var.isFuncDeclaration();
     if (f)
         return false;
 
     while (e.op == EXP.dotVariable)
     {
-        e = (cast(DotVarExp)e).e1;
+        e = e.isDotVarExp().e1;
     }
     // this.x.y and super.x.y couldn't possibly be valid values.
     if (e.op == EXP.this_ || e.op == EXP.super_)
@@ -7787,7 +7784,7 @@ bool definitelyValueParameter(Expression e)
     if (e.op != EXP.variable)
         return true;
 
-    VarDeclaration v = (cast(VarExp)e).var.isVarDeclaration();
+    VarDeclaration v = e.isVarExp().var.isVarDeclaration();
     // func.x.y is not an alias
     if (!v)
         return true;
@@ -8282,10 +8279,15 @@ MATCH matchArg(TemplateParameter tp, Scope* sc, RootObject oarg, size_t i, Templ
         Type ta = isType(oarg);
         RootObject sa = ta && !ta.deco ? null : getDsymbol(oarg);
         Expression ea = isExpression(oarg);
-        if (ea && (ea.op == EXP.this_ || ea.op == EXP.super_))
-            sa = (cast(ThisExp)ea).var;
-        else if (ea && ea.op == EXP.scope_)
-            sa = (cast(ScopeExp)ea).sds;
+        if (ea)
+        {
+            if (auto te = ea.isThisExp())
+                sa = te.var;
+            else if (auto se = ea.isSuperExp())
+                sa = se.var;
+            else if (auto se = ea.isScopeExp())
+                sa = se.sds;
+        }
         if (sa)
         {
             if ((cast(Dsymbol)sa).isAggregateDeclaration())

@@ -174,7 +174,7 @@ struct FieldState
     unsigned fieldAlign;
     unsigned bitOffset;
 
-    bool inFlight;
+    d_bool inFlight;
 };
 
 struct DsymbolAttributes;
@@ -196,7 +196,7 @@ public:
 private:
     DsymbolAttributes* atts;
 public:
-    bool errors;                // this symbol failed to pass semantic()
+    d_bool errors;                // this symbol failed to pass semantic()
     PASS semanticRun;
     unsigned short localNum;        // perturb mangled name to avoid collisions with those in FuncDeclaration.localsymtab
     static Dsymbol *create(Identifier *);
@@ -328,7 +328,7 @@ public:
     virtual CPPNamespaceDeclaration *isCPPNamespaceDeclaration() { return NULL; }
     virtual VisibilityDeclaration *isVisibilityDeclaration() { return NULL; }
     virtual OverloadSet *isOverloadSet() { return NULL; }
-    virtual CompileDeclaration *isCompileDeclaration() { return NULL; }
+    virtual MixinDeclaration *isMixinDeclaration() { return NULL; }
     virtual StaticAssert *isStaticAssert() { return NULL; }
     virtual StaticIfDeclaration *isStaticIfDeclaration() { return NULL; }
     void accept(Visitor *v) override { v->visit(this); }

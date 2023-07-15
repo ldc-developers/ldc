@@ -10,7 +10,7 @@ import ldc.attributes;
 void main(string[] args)
 {
     // https://issues.dlang.org/show_bug.cgi?id=4014
-    // -gf should drag in full definitions of Object, TickDuration and ClockType
+    // -gf should drag in full definitions of Object, Duration and ClockType
   version (LDC)
   {
     // `Object` has no explicit fields; DMD emits debuginfos about methods which LDC doesn't.
@@ -21,7 +21,7 @@ void main(string[] args)
   {
     Object o = new Object;
   }
-    TickDuration duration; // struct
+    Duration duration; // struct
     ClockType ct; // enumerator
 
     version (CRuntime_Microsoft)
@@ -50,8 +50,8 @@ void main(string[] args)
         objsym.Release();
       }
 
-        IDiaSymbol ticksym = searchSymbol(globals, "core.time.TickDuration");
-        testSymbolHasChildren(ticksym, "core.time.TickDuration");
+        IDiaSymbol ticksym = searchSymbol(globals, "core.time.Duration");
+        testSymbolHasChildren(ticksym, "core.time.Duration");
         ticksym.Release();
 
         IDiaSymbol ctsym = searchSymbol(globals, "core.time.ClockType");
