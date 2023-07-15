@@ -1196,8 +1196,8 @@ public:
       p->arrays.pop_back();
 
       const bool hasLength = etype->ty != TY::Tpointer;
-      const bool needCheckUpper = hasLength && !e->upperIsInBounds;
-      const bool needCheckLower = !e->lowerIsLessThanUpper;
+      const bool needCheckUpper = hasLength && !e->upperIsInBounds();
+      const bool needCheckLower = !e->lowerIsLessThanUpper();
       if (p->emitArrayBoundsChecks() && (needCheckUpper || needCheckLower)) {
         llvm::BasicBlock *okbb = p->insertBB("bounds.ok");
         llvm::BasicBlock *failbb = p->insertBBAfter(okbb, "bounds.fail");

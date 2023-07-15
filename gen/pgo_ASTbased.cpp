@@ -190,7 +190,7 @@ struct MapRegionCounters : public StoppableVisitor {
   void visit(ScopeStatement *) override {}
   void visit(ReturnStatement *) override {}
   void visit(StaticAssertStatement *) override {}
-  void visit(CompileStatement *) override {}
+  void visit(MixinStatement *) override {}
   void visit(ScopeGuardStatement *) override {}
   void visit(ConditionalStatement *) override {}
   void visit(StaticForeachStatement *) override {}

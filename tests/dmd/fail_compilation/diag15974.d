@@ -22,7 +22,7 @@ void test15974()
 
     struct S
     {
-        // CompileDeclaration
+        // MixinDeclaration
         mixin(format("%s", f));
     }
 }

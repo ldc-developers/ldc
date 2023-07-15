@@ -80,6 +80,6 @@ Expression createExpressionForIntOp(const ref Loc loc, TOK op, Expression e1, Ex
     }
 }
 
-Expression createExpression(const ref Loc loc, EXP op) { return new Expression(loc, op, __traits(classInstanceSize, Expression)); }
+Expression createExpression(const ref Loc loc, EXP op) { return new Expression(loc, op); }
 DsymbolExp createDsymbolExp(const ref Loc loc, Dsymbol s) { return new DsymbolExp(loc, s, /*hasOverloads=*/false); }
 AddrExp createAddrExp(const ref Loc loc, Expression e) { return new AddrExp(loc, e); }

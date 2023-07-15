@@ -91,6 +91,9 @@ ubyte defaultTargetOSMajor()
         return 0;
 }
 
+version (IN_LLVM) {} else
+{
+
 /**
  * Add default `version` identifier for dmd, and set the
  * target platform in `params`.
@@ -274,6 +277,8 @@ void addCppRuntimePredefinedGlobalIdent(const ref TargetCPP cpp)
     case Sun:         return predef("CppRuntime_Sun");
     }
 }
+
+} // !IN_LLVM
 
 ////////////////////////////////////////////////////////////////////////////////
 /**
