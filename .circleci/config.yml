@@ -104,8 +104,9 @@ jobs:
     <<: *commonSteps
     docker:
       - image: ubuntu:20.04
+    resource_class: large
     environment:
-      - PARALLELISM: 2
+      - PARALLELISM: 4
       - CI_OS: linux
       - EXTRA_APT_PACKAGES: llvm-dev libclang-common-10-dev
       - HOST_LDC_VERSION: 1.24.0
@@ -114,8 +115,9 @@ jobs:
     <<: *commonSteps
     docker:
       - image: ubuntu:20.04
+    resource_class: large
     environment:
-      - PARALLELISM: 2
+      - PARALLELISM: 4
       - CI_OS: linux
       - EXTRA_APT_PACKAGES: gdmd llvm-dev libclang-common-10-dev
       - HOST_LDC_VERSION: 1.24.0
