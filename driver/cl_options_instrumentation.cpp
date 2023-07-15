@@ -124,7 +124,10 @@ void initializeInstrumentationOptionsFromCmdline(const llvm::Triple &triple) {
   if (dmdFunctionTrace)
     global.params.trace = true;
 
-  if (fCFProtection != CFProtectionType::None && !triple.isX86()) {
+  // fcf-protection is only valid for X86
+  if (fCFProtection != CFProtectionType::None &&
+      !(triple.getArch() == llvm::Triple::x86 ||
+        triple.getArch() == llvm::Triple::x86_64)) {
     error(Loc(), "option '--fcf-protection' cannot be specified on this target "
                  "architecture");
   }
