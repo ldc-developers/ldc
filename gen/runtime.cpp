@@ -73,8 +73,6 @@ static void checkForImplicitGCCall(const Loc &loc, const char *name) {
         "_d_arrayappendcTX",
         "_d_arrayappendcd",
         "_d_arrayappendwd",
-        "_d_arraycatT",
-        "_d_arraycatnTX",
         "_d_arraysetlengthT",
         "_d_arraysetlengthiT",
         "_d_assocarrayliteralTX",
@@ -610,14 +608,6 @@ static void buildRuntimeModule() {
   // void[] _d_arrayappendwd(ref byte[] x, dchar c)
   createFwdDecl(LINK::c, voidArrayTy, {"_d_arrayappendcd", "_d_arrayappendwd"},
                 {voidArrayTy, dcharTy}, {STCref, 0});
-
-  // byte[] _d_arraycatT(const TypeInfo ti, byte[] x, byte[] y)
-  createFwdDecl(LINK::c, voidArrayTy, {"_d_arraycatT"},
-                {typeInfoTy, voidArrayTy, voidArrayTy}, {STCconst, 0, 0});
-
-  // void[] _d_arraycatnTX(const TypeInfo ti, byte[][] arrs)
-  createFwdDecl(LINK::c, voidArrayTy, {"_d_arraycatnTX"},
-                {typeInfoTy, voidArrayTy->arrayOf()}, {STCconst, 0});
 
   // Object _d_newclass(const ClassInfo ci)
   // Object _d_allocclass(const ClassInfo ci)

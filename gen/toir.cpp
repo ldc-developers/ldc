@@ -2158,6 +2158,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    // TODO: still required?
     if (global.params.betterC) {
       error(
           e->loc,
@@ -2169,7 +2170,12 @@ public:
       return;
     }
 
-    result = DtoCatArrays(e->loc, e->type, e->e1, e->e2);
+    if (e->lowering) {
+      result = toElem(e->lowering);
+      return;
+    }
+
+    llvm_unreachable("CatExp should have been lowered");
   }
 
   //////////////////////////////////////////////////////////////////////////////
