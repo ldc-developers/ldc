@@ -1,5 +1,6 @@
 /*
 REQUIRED_ARGS: -profile=gc
+DISABLED: LDC // -profile=gc not supported
 RUN_OUTPUT:
 ---
 bytes allocated, allocations, type, function, file:line
