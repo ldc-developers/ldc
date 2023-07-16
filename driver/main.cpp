@@ -1112,6 +1112,10 @@ int cppmain() {
     fatal();
   }
 
+  global.compileEnv.previewIn = global.params.previewIn;
+  global.compileEnv.ddocOutput = global.params.ddoc.doOutput;
+  global.compileEnv.shortenedMethods = global.params.shortenedMethods;
+
   if (opts::fTimeTrace) {
     initializeTimeTrace(opts::fTimeTraceGranularity, 0, opts::allArguments[0]);
   }
