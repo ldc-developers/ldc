@@ -12,7 +12,9 @@
 #include <errno.h>
 
 #ifndef _MSC_VER // C:\Program Files (x86)\Windows Kits\10\include\10.0.22621.0\ucrt\fenv.h(68): Error: variable `stdcheaders._Fenv1` extern symbols cannot have initializers
+#ifndef __FreeBSD__ // /usr/include/fenv.h(341): Error: use `.` for member lookup, not `->`
 #include <fenv.h>
+#endif
 #endif
 
 #include <float.h>
@@ -66,7 +68,9 @@
 #ifndef _MSC_VER // C:\Program Files (x86)\Windows Kits\10\include\10.0.22621.0\ucrt\tgmath.h(33): Error: no type for declarator before `)`
 #ifndef __APPLE__ // /Applications/Xcode-14.2.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/tgmath.h(39): Error: named parameter required before `...`
 #if !(defined(__linux__) && defined(__aarch64__)) // /tmp/clang/lib/clang/15.0.3/include/tgmath.h(34): Error: named parameter required before `...`
+#ifndef __FreeBSD__ // /usr/local/llvm15/lib/clang/15.0.7/include/tgmath.h(34): Error: named parameter required before `...`
 #include <tgmath.h>
+#endif
 #endif
 #endif
 #endif
