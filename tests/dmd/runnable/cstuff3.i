@@ -1,3 +1,5 @@
+// REQUIRED_ARGS: -defaultlib=
+
 # 1 "runnable/extra-files/cstuff3.c"
 # 1 "<built-in>"
 # 1 "<command-line>"

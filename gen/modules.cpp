@@ -433,9 +433,11 @@ void codegenModule(IRState *irs, Module *m) {
 
   // Skip emission of all the additional module metadata if:
   // a) the -betterC switch is on,
-  // b) requested explicitly by the user via pragma(LDC_no_moduleinfo), or if
-  // c) there's no ModuleInfo declaration.
-  if (global.params.useModuleInfo && !m->noModuleInfo && Module::moduleinfo) {
+  // b) requested explicitly by the user via pragma(LDC_no_moduleinfo),
+  // c) there's no ModuleInfo declaration, or if
+  // d) the module is a C file.
+  if (global.params.useModuleInfo && !m->noModuleInfo && Module::moduleinfo &&
+      m->filetype != FileType::c) {
     // generate ModuleInfo
     registerModuleInfo(m);
   }
