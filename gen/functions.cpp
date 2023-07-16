@@ -173,7 +173,8 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
 
   // Non-typesafe variadics (both C and D styles) are also variadics on the LLVM
   // level.
-  const bool isLLVMVariadic = (f->parameterList.varargs == VARARGvariadic);
+  const bool isLLVMVariadic = (f->parameterList.varargs == VARARGvariadic ||
+                               f->parameterList.varargs == VARARGKRvariadic);
   if (isLLVMVariadic && f->linkage == LINK::d) {
     // Add extra `_arguments` parameter for D-style variadic functions.
     newIrFty.arg_arguments =
