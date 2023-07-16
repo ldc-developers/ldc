@@ -456,23 +456,20 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
+  void visit(LoweredAssignExp *e) override {
+    IF_LOG Logger::print("LoweredAssignExp::toElem: %s @ %s\n", e->toChars(),
+                         e->type->toChars());
+    LOG_SCOPE;
+
+    result = toElem(e->lowering);
+  }
+
   void visit(AssignExp *e) override {
     IF_LOG Logger::print("AssignExp::toElem: %s | (%s)(%s = %s)\n",
                          e->toChars(), e->type->toChars(),
                          e->e1->type->toChars(),
                          e->e2->type ? e->e2->type->toChars() : nullptr);
     LOG_SCOPE;
-
-    if (auto ale = e->e1->isArrayLengthExp()) {
-      Logger::println("performing array.length assignment");
-      DLValue arrval(ale->e1->type, DtoLVal(ale->e1));
-      DValue *newlen = toElem(e->e2);
-      DSliceValue *slice =
-          DtoResizeDynArray(e->loc, arrval.type, &arrval, DtoRVal(newlen));
-      DtoStore(DtoRVal(slice), DtoLVal(&arrval));
-      result = newlen;
-      return;
-    }
 
     // Initialization of ref variable?
     // Can't just override ConstructExp::toElem because not all EXP::construct

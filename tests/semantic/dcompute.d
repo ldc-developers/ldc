@@ -29,7 +29,7 @@ void func()
     //CHECK: dcompute.d([[@LINE+1]]): Error: {{.*}} interfaces and classes not allowed in `@compute` code
     C cc;
     int[] quux;
-    //CHECK: dcompute.d([[@LINE+1]]): Error: can only call functions from other `@compute` modules in `@compute` code
+    //CHECK: dcompute.d([[@LINE+1]]): Error: setting `length` in `@compute` code not allowed
     quux.length = 1;
     //CHECK: dcompute.d([[@LINE+1]]): Error: can only call functions from other `@compute` modules in `@compute` code
     quux ~= 42;

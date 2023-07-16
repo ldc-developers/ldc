@@ -606,12 +606,6 @@ static void buildRuntimeModule() {
   createFwdDecl(LINK::c, voidArrayTy, {"_d_newarraymTX", "_d_newarraymiTX"},
                 {typeInfoTy, sizeTy->arrayOf()}, {STCconst, 0});
 
-  // void[] _d_arraysetlengthT (const TypeInfo ti, size_t newlength, void[]* p)
-  // void[] _d_arraysetlengthiT(const TypeInfo ti, size_t newlength, void[]* p)
-  createFwdDecl(LINK::c, voidArrayTy,
-                {"_d_arraysetlengthT", "_d_arraysetlengthiT"},
-                {typeInfoTy, sizeTy, voidArrayPtrTy}, {STCconst, 0, 0});
-
   // void[] _d_arrayappendcd(ref byte[] x, dchar c)
   // void[] _d_arrayappendwd(ref byte[] x, dchar c)
   createFwdDecl(LINK::c, voidArrayTy, {"_d_arrayappendcd", "_d_arrayappendwd"},

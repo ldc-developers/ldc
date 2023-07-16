@@ -749,34 +749,6 @@ DSliceValue *DtoNewMulDimDynArray(const Loc &loc, Type *arrayType,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-DSliceValue *DtoResizeDynArray(const Loc &loc, Type *arrayType, DValue *array,
-                               LLValue *newdim) {
-  IF_LOG Logger::println("DtoResizeDynArray : %s", arrayType->toChars());
-  LOG_SCOPE;
-
-  assert(array);
-  assert(newdim);
-  assert(arrayType);
-  assert(arrayType->toBasetype()->ty == TY::Tarray);
-
-  // decide on what runtime function to call based on whether the type is zero
-  // initialized
-  bool zeroInit = arrayType->toBasetype()->nextOf()->isZeroInit();
-
-  // call runtime
-  LLFunction *fn =
-      getRuntimeFunction(loc, gIR->module, zeroInit ? "_d_arraysetlengthT"
-                                                    : "_d_arraysetlengthiT");
-
-  LLValue *newArray = gIR->CreateCallOrInvoke(
-      fn, DtoTypeInfoOf(loc, arrayType), newdim,
-      DtoBitCast(DtoLVal(array), fn->getFunctionType()->getParamType(2)),
-      ".gc_mem");
-
-  return getSlice(arrayType, newArray);
-}
-
-////////////////////////////////////////////////////////////////////////////////
 
 static LLValue *DtoSlicePtr(DValue *dval) {
   Loc loc;
