@@ -16,6 +16,8 @@
  */
 module ldc.profile;
 
+pragma(LDC_no_moduleinfo); // this module is not standard linked with druntime, don't burden the user with requiring linking.
+
 version = HASHED_FUNC_NAMES;
 
 import ldc.intrinsics : LLVM_version;
