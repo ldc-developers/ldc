@@ -151,9 +151,10 @@ std::string arch;
 
 bool emit(raw_ostream& os, RecordKeeper& records)
 {
-    os << "module ldc.gccbuiltins_";
-    os << arch;
-    os << "; \n\nimport core.simd;\n\nnothrow @nogc:\n\n";
+    os << "module ldc.gccbuiltins_" << arch
+       << ";\n"
+          "pragma(LDC_no_moduleinfo);\n\n"
+          "import core.simd;\n\nnothrow @nogc:\n\n";
 
     const auto &defs = records.getDefs();
 
