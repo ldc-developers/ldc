@@ -1,5 +1,7 @@
 module ldc.llvmasm;
 
+pragma(LDC_no_moduleinfo);
+
 struct __asmtuple_t(T...)
 {
     T v;
