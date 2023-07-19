@@ -1188,7 +1188,7 @@ LLConstant *DtoConstExpInit(const Loc &loc, Type *targetType, Expression *exp) {
       val = llvm::ConstantArray::get(at, elements);
     }
 
-    (void)numTotalVals;
+    (void)numTotalVals; (void) product; // Silence unused variable warning when assert is disabled.
     assert(product == numTotalVals);
     return val;
   }
