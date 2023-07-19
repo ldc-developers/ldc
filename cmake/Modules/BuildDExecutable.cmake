@@ -106,7 +106,7 @@ function(build_d_executable target_name output_exe d_src_files compiler_args lin
 
         add_custom_command(
             OUTPUT ${output_exe}
-            COMMAND ${D_COMPILER} ${dflags} -of${output_exe} ${objects_args} ${dep_libs} ${translated_linker_args} -fvisibility=public
+            COMMAND ${D_COMPILER} ${dflags} -of${output_exe} ${objects_args} ${dep_libs} ${translated_linker_args}
             WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
             DEPENDS ${target_name}_d_objects ${object_files} ${link_deps}
         )
