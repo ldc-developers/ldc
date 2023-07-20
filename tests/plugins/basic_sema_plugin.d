@@ -1,5 +1,8 @@
 // REQUIRES: Plugins
 
+// For some reason this test fails with missing symbol linking issues (or crash) with macOS on Intel x86 (but not for all CI testers...)
+// UNSUPPORTED: Darwin && host_X86
+
 // RUN: split-file %s %t --leading-lines
 // RUN: %ldc %t/plugin.d %plugin_compile_flags -of=%t/plugin%so
 // RUN: %ldc -wi -c -o- --plugin=%t/plugin%so %t/testcase.d 2>&1 | FileCheck %t/testcase.d
