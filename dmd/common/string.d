@@ -122,8 +122,16 @@ but is guaranteed to follow it.
 version(Windows) wchar[] toWStringz(const(char)[] narrow, ref SmallBuffer!wchar buffer) nothrow
 {
     import core.sys.windows.winnls : CP_ACP, MultiByteToWideChar;
+
+version (IN_LLVM)
+{
+    import dmd.root.filename : CodePage;
+}
+else
+{
     // assume filenames encoded in system default Windows ANSI code page
     enum CodePage = CP_ACP;
+}
 
     if (narrow is null)
         return null;
