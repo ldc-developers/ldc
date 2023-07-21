@@ -5,7 +5,7 @@
 // UNSUPPORTED: Darwin && host_X86
 
 // RUN: split-file %s %t --leading-lines
-// RUN: %ldc -g %t/plugin.d %plugin_compile_flags -of=%t/plugin%so
+// RUN: %buildplugin %t/plugin.d -of=%t/plugin%so
 // RUN: %ldc -wi -c -o- --plugin=%t/plugin%so %t/testcase.d 2>&1 | FileCheck %t/testcase.d
 
 //--- plugin.d

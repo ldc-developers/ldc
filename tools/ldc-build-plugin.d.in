@@ -1,0 +1,239 @@
+module ldcBuildRuntime;
+
+import core.stdc.stdlib : exit;
+import std.algorithm;
+import std.array;
+import std.file;
+import std.path;
+import std.stdio;
+
+version (OSX)
+    version = Darwin;
+else version (iOS)
+    version = Darwin;
+else version (TVOS)
+    version = Darwin;
+else version (WatchOS)
+    version = Darwin;
+
+struct Config {
+    string ldcExecutable;
+    string buildDir;
+    string ldcSourceDir;
+    string[] dFlags;
+    string[] linkerFlags;
+    bool verbose;
+    string[] ldcArgs;
+    string userWorkDir;
+}
+
+version (Windows) enum exeSuffix = ".exe";
+else              enum exeSuffix = "";
+
+string defaultLdcExecutable;
+Config config;
+
+int main(string[] args) {
+    enum exeName = "ldc2" ~ exeSuffix;
+    defaultLdcExecutable = buildPath(thisExePath.dirName, exeName);
+    config.userWorkDir = getcwd();
+
+    parseCommandLine(args);
+
+    findLdcExecutable();
+
+    prepareBuildDir();
+
+    prepareLdcSource();
+
+    build();
+
+    if (config.verbose)
+        writefln(".: Plugin library built successfully.");
+    return 0;
+}
+
+void findLdcExecutable() {
+    if (config.ldcExecutable !is null) {
+        if (!config.ldcExecutable.exists) {
+            writefln(".: Error: LDC executable not found: %s", config.ldcExecutable);
+            exit(1);
+        }
+        config.ldcExecutable = config.ldcExecutable.absolutePath;
+        return;
+    }
+
+    if (defaultLdcExecutable.exists) {
+        config.ldcExecutable = defaultLdcExecutable;
+        return;
+    }
+
+    writefln(".: Please specify LDC executable via '--ldc=<path/to/ldc2%s>'. Aborting.", exeSuffix);
+    exit(1);
+}
+
+void prepareBuildDir() {
+    if (config.buildDir is null)
+        config.buildDir = "ldc-build-plugin.tmp";
+
+    if (!config.buildDir.exists) {
+        if (config.verbose)
+            writefln(".: Creating build directory: %s", config.buildDir);
+        mkdirRecurse(config.buildDir);
+    }
+
+    config.buildDir = config.buildDir.absolutePath;
+}
+
+void prepareLdcSource() {
+    if (config.ldcSourceDir !is null) {
+        if (!config.ldcSourceDir.exists) {
+            writefln(".: Error: LDC source directory not found: %s", config.ldcSourceDir);
+            exit(1);
+        }
+        config.ldcSourceDir = config.ldcSourceDir.absolutePath;
+        return;
+    }
+
+    const ldcSrc = "ldc-src";
+    config.ldcSourceDir = buildPath(config.buildDir, ldcSrc);
+    if (buildPath(config.ldcSourceDir, "dmd").exists)
+        return;
+
+    // Download & extract LDC source archive if <buildDir>/ldc-src/dmd doesn't exist yet.
+
+    const wd = WorkingDirScope(config.buildDir);
+
+    auto ldcVersion = "@LDC_VERSION@";
+    void removeVersionSuffix(string beginning) {
+        const suffixIndex = ldcVersion.countUntil(beginning);
+        if (suffixIndex > 0)
+            ldcVersion = ldcVersion[0 .. suffixIndex];
+    }
+    removeVersionSuffix("git-");
+    removeVersionSuffix("-dirty");
+
+    import std.format : format;
+    const localArchiveFile = "ldc-src.zip";
+    if (!localArchiveFile.exists) {
+        const url = "https://github.com/ldc-developers/ldc/releases/download/v%1$s/ldc-%1$s-src.zip".format(ldcVersion);
+        writefln(".: Downloading LDC source archive: %s", url);
+        import std.net.curl : download;
+        download(url, localArchiveFile);
+        if (getSize(localArchiveFile) < 1_048_576) {
+            writefln(".: Error: downloaded file is corrupt; has LDC v%s been released?", ldcVersion);
+            writefln("   You can work around this by manually downloading a src package and moving it to: %s",
+                     buildPath(config.buildDir, localArchiveFile));
+            localArchiveFile.remove;
+            exit(1);
+        }
+    }
+
+    extractZipArchive(localArchiveFile, ".");
+    rename("ldc-%1$s-src".format(ldcVersion), ldcSrc);
+}
+
+void build() {
+    string[] args = [
+        config.ldcExecutable,
+        "-I" ~ config.ldcSourceDir,
+        "--d-version=IN_LLVM",
+        "-J" ~ buildPath(config.ldcSourceDir, "dmd", "res"),
+        "--shared",
+        "--defaultlib=",
+        "--od=" ~ config.buildDir
+    ];
+
+    version (Darwin) {
+        args ~= "-L-Wl,-undefined,dynamic_lookup";
+    }
+
+    args ~= config.ldcArgs;
+
+    exec(args);
+}
+
+/*** helpers ***/
+
+struct WorkingDirScope {
+    string originalPath;
+    this(string path) { originalPath = getcwd(); chdir(path); }
+    ~this() { chdir(originalPath); }
+}
+
+void exec(string[] command) {
+    import std.process;
+
+    static string quoteIfNeeded(string arg) {
+        const r = arg.findAmong(" ;");
+        return !r.length ? arg : "'" ~ arg ~ "'";
+    }
+    string flattened = command.map!quoteIfNeeded.join(" ");
+    if (config.verbose) {
+        writefln(".: Invoking: %s", flattened);
+        stdout.flush();
+    }
+
+    auto pid = spawnProcess(command, null, std.process.Config.none, config.userWorkDir);
+    const exitStatus = wait(pid);
+
+    if (exitStatus != 0) {
+        if (config.verbose)
+            writeln(".: Error: command failed with status ", exitStatus);
+        exit(1);
+    }
+}
+
+void extractZipArchive(string archivePath, string destination) {
+    import std.zip;
+
+    auto archive = new ZipArchive(std.file.read(archivePath));
+    foreach (name, am; archive.directory) {
+        const destPath = buildNormalizedPath(destination, name);
+
+        const isDir = name.endsWith("/");
+        const destDir = isDir ? destPath : destPath.dirName;
+        mkdirRecurse(destDir);
+
+        if (!isDir)
+            std.file.write(destPath, archive.expand(am));
+    }
+}
+
+void parseCommandLine(string[] args) {
+    import std.getopt;
+
+    try {
+        arraySep = ";";
+        auto helpInformation = getopt(
+            args,
+            std.getopt.config.passThrough,
+            "ldc",         "Path to LDC executable (default: '" ~ defaultLdcExecutable ~ "')", &config.ldcExecutable,
+            "buildDir",    "Path to build directory (default: './ldc-build-plugin.tmp')", &config.buildDir,
+            "ldcSrcDir",   "Path to LDC source directory (if not specified: downloads & extracts source archive into '<buildDir>/ldc-src')", &config.ldcSourceDir,
+            "dFlags",      "Extra LDC flags for the D module (separated by ';')", &config.dFlags,
+            "verbose|v",   "Verbose output (e.g. showing the compile commandline)", &config.verbose,
+            "linkerFlags", "Extra C linker flags for shared libraries and testrunner executables (separated by ';')", &config.linkerFlags
+        );
+
+        // getopt() has removed all consumed args from `args`
+        // Remaining arguments are interpreted as LDC arguments (e.g. plugin source files and -of=<output file>).
+        config.ldcArgs = args[1 .. $];
+
+        if (helpInformation.helpWanted) {
+            defaultGetoptPrinter(
+                "OVERVIEW: Builds a Semantic Analysis plugin for LDC.\n\n" ~
+                "USAGE: ldc-build-plugin [options] sourcefiles... -of=<output file>\n\n" ~
+                "OPTIONS:\n" ~
+                "  Unrecognized options are passed through to LDC.",
+                helpInformation.options
+            );
+            exit(1);
+        }
+    }
+    catch (Exception e) {
+        writefln("Error processing command line arguments: %s", e.msg);
+        writeln("Use '--help' for help.");
+        exit(1);
+    }
+}
