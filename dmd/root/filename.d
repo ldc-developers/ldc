@@ -44,7 +44,7 @@ version (Windows)
 
 version (IN_LLVM)
 {
-    private enum CodePage = CP_UTF8;
+    enum CodePage = CP_UTF8;
 }
 else
 {
