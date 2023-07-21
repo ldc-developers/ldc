@@ -84,6 +84,19 @@ llvm::StringRef getXRayInstructionThresholdString() {
   return thresholdString;
 }
 
+cl::opt<CFProtectionType> fCFProtection(
+    "fcf-protection",
+    cl::desc("Instrument control-flow architecture protection"), cl::ZeroOrMore,
+    cl::ValueOptional,
+    cl::values(clEnumValN(CFProtectionType::None, "none", ""),
+               clEnumValN(CFProtectionType::Branch, "branch", ""),
+               clEnumValN(CFProtectionType::Return, "return", ""),
+               clEnumValN(CFProtectionType::Full, "full", ""),
+               clEnumValN(CFProtectionType::Full, "",
+                          "") // default to "full" if no argument specified
+               ),
+    cl::init(CFProtectionType::None));
+
 void initializeInstrumentationOptionsFromCmdline(const llvm::Triple &triple) {
   if (ASTPGOInstrGenFile.getNumOccurrences() > 0) {
     pgoMode = PGO_ASTBasedInstr;
@@ -110,6 +123,14 @@ void initializeInstrumentationOptionsFromCmdline(const llvm::Triple &triple) {
 
   if (dmdFunctionTrace)
     global.params.trace = true;
+
+  // fcf-protection is only valid for X86
+  if (fCFProtection != CFProtectionType::None &&
+      !(triple.getArch() == llvm::Triple::x86 ||
+        triple.getArch() == llvm::Triple::x86_64)) {
+    error(Loc(), "option '--fcf-protection' cannot be specified on this target "
+                 "architecture");
+  }
 }
 
 } // namespace opts

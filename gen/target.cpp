@@ -15,6 +15,7 @@
 #include "dmd/mtype.h"
 #include "dmd/target.h"
 #include "driver/cl_options.h"
+#include "driver/cl_options_instrumentation.h"
 #include "driver/linker.h"
 #include "gen/abi/abi.h"
 #include "gen/irstate.h"
@@ -307,6 +308,11 @@ Expression *Target::getTargetInfo(const char *name_, const Loc &loc) {
   if (name == "cppStd") {
     return IntegerExp::create(
         Loc(), static_cast<unsigned>(global.params.cplusplus), Type::tint32);
+  }
+
+  if (name == "CET") {
+    auto cet = opts::fCFProtection.getValue();
+    return IntegerExp::create(loc, static_cast<unsigned>(cet), Type::tint32);
   }
 
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
