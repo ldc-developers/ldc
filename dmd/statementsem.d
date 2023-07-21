@@ -2149,6 +2149,13 @@ else
                 return setError();
             }
         }
+        else if (ps.ident == Id.musttail)
+        {
+            version (IN_LLVM)
+            {
+                pragmaMustTailSemantic(ps);
+            }
+        }
         else if (!global.params.ignoreUnsupportedPragmas)
         {
             ps.error("unrecognized `pragma(%s)`", ps.ident.toChars());
@@ -2165,6 +2172,38 @@ else
             ps._body = ps._body.statementSemantic(sc);
         }
         result = ps._body;
+    }
+
+    version (IN_LLVM)
+    private void pragmaMustTailSemantic(PragmaStatement ps)
+    {
+        if (!ps._body)
+        {
+            ps.error("`pragma(musttail)` must be attached to a return statement");
+            return setError();
+        }
+
+        auto rs = ps._body.isReturnStatement();
+        if (!rs)
+        {
+            ps.error("`pragma(musttail)` must be attached to a return statement");
+            return setError();
+        }
+
+        if (!rs.exp)
+        {
+            ps.error("`pragma(musttail)` must be attached to a return statement returning result of a function call");
+            return setError();
+        }
+
+        auto ce = rs.exp.isCallExp();
+        if (!ce)
+        {
+            ps.error("`pragma(musttail)` must be attached to a return statement returning result of a function call");
+            return setError();
+        }
+
+        ce.isMustTail = true;
     }
 
     override void visit(StaticAssertStatement s)

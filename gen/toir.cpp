@@ -777,7 +777,7 @@ public:
     }
 
     DValue *result =
-        DtoCallFunction(e->loc, e->type, fnval, e->arguments, sretPointer);
+        DtoCallFunction(e->loc, e->type, fnval, e->arguments, sretPointer, e->isMustTail);
 
     if (delayedDtorVar) {
       delayedDtorVar->edtor = delayedDtorExp;

@@ -558,6 +558,7 @@ immutable Msgtable[] msgtable =
     { "LDC_global_crt_dtor" },
     { "LDC_extern_weak" },
     { "LDC_profile_instr" },
+    { "musttail" },
 
     // IN_LLVM: LDC-specific traits
     { "targetCPU" },

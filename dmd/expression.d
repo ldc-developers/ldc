@@ -5181,6 +5181,10 @@ extern (C++) final class CallExp : UnaExp
     bool directcall;        // true if a virtual call is devirtualized
     bool inDebugStatement;  /// true if this was in a debug statement
     bool ignoreAttributes;  /// don't enforce attributes (e.g. call @gc function in @nogc code)
+version (IN_LLVM)
+{
+    bool isMustTail;        // If marked with pragma(musttail)
+}
     VarDeclaration vthis2;  // container for multi-context
 
     /// Puts the `arguments` and `names` into an `ArgumentList` for easily passing them around.
