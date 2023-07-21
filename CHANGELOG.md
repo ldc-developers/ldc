@@ -3,6 +3,7 @@
 #### Big news
 - Frontend, druntime and Phobos are at version [2.103.1](https://dlang.org/changelog/2.103.0.html), incl. new command-line option `-verror-supplements`. (#4345)
 - The `--plugin` commandline option now also accepts semantic analysis plugins. Semantic analysis plugins are recognized by exporting the symbol: `extern(C) void runSemanticAnalysis(Module m)`. The plugin's `runSemanticAnalysis` function is called for each module, after all other semantic analysis steps (also after DCompute SemA), just before object codegen. (#4430)
+- New tool `ldc-build-plugin` that helps compiling user plugins. It downloads the correct LDC source version (if its not already available), and calls LDC with the correct commandline flags to build a plugin. (#4430)
 - New commandline option `-femit-local-var-lifetime` that enables variable lifetime (scope) annotation to LLVM IR codegen. Lifetime annotation enables stack memory reuse for local variables with non-overlapping scope. (#4395)
 - C files are now automatically preprocessed using the external C compiler (configurable via `-gcc` or the `CC` environment variable, and `-Xcc` for extra flags). Extra preprocessor flags (e.g., include dirs and manual defines) can be added via new command-line option `-P`. (#4417)
   - Windows: If `clang-cl.exe` is on `PATH`, it is preferred over Microsoft's `cl.exe` by default (e.g., to avoid printing the C source file name to stderr during preprocessing).
