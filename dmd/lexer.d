@@ -2601,8 +2601,11 @@ class Lexer
             goto case 'L';
         case 'L':
             ++p;
+version (IN_LLVM) { /* *always* map C `long double` literals to D `real` ones */ } else
+{
             if (Ccompile && long_doublesize == 8)
                 goto default;
+}
             result = TOK.float80Literal;
             break;
         }
