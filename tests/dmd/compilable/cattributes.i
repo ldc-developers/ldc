@@ -8,7 +8,8 @@ __declspec(dllexport) int ghi() { return 3; }
 
 __declspec(dllexport) int jkl;
 
-__declspec(naked) __declspec(dllexport)
+/* LDC FIXME: __declspec(naked) restricts bodies to DMD-style inline asm
+__declspec(naked)*/ __declspec(dllexport)
 int test(int a, int b, int c, int d, int e, int f)
 {
     return a + b + c + d + e + f + abc + def() + ghi() + jkl;
@@ -24,7 +25,8 @@ __attribute__((dllexport)) int ghix() { return 3; }
 
 __attribute__((dllexport)) int jklx;
 
-__attribute__((naked)) __attribute__((dllexport))
+/* LDC FIXME: ditto for __attribute__((naked))
+__attribute__((naked))*/ __attribute__((dllexport))
 int testx(int a, int b, int c, int d, int e, int f)
 {
     return a + b + c + d + e + f + abcx + defx() + ghix() + jklx;
