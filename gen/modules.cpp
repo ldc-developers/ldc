@@ -393,7 +393,26 @@ void registerModuleInfo(Module *m) {
     emitModuleRefToSection(mangle, moduleInfoSym);
   }
 }
+
+void addModuleFlags(llvm::Module &m) {
+#if LDC_LLVM_VER >= 1500
+  const auto ModuleMinFlag = llvm::Module::Min;
+#else
+  const auto ModuleMinFlag = llvm::Module::Warning; // Fallback value
+#endif
+
+  if (opts::fCFProtection == opts::CFProtectionType::Return ||
+      opts::fCFProtection == opts::CFProtectionType::Full) {
+    m.addModuleFlag(ModuleMinFlag, "cf-protection-return", 1);
+  }
+
+  if (opts::fCFProtection == opts::CFProtectionType::Branch ||
+      opts::fCFProtection == opts::CFProtectionType::Full) {
+    m.addModuleFlag(ModuleMinFlag, "cf-protection-branch", 1);
+  }
 }
+
+} // anonymous namespace
 
 void codegenModule(IRState *irs, Module *m) {
   TimeTraceScope timeScope("Generate IR", m->toChars(), m->loc);
@@ -445,6 +464,8 @@ void codegenModule(IRState *irs, Module *m) {
   if (m->d_cover_valid) {
     addCoverageAnalysisInitializer(m);
   }
+
+  addModuleFlags(irs->module);
 
   gIR = nullptr;
   irs->dmodule = nullptr;

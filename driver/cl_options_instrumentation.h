@@ -29,6 +29,9 @@ extern cl::opt<bool> instrumentFunctions;
 extern cl::opt<bool> fXRayInstrument;
 llvm::StringRef getXRayInstructionThresholdString();
 
+enum class CFProtectionType { None = 0, Branch = 1, Return = 2, Full = 3 };
+extern cl::opt<CFProtectionType> fCFProtection;
+
 /// This initializes the instrumentation options, and checks the validity of the
 /// commandline flags. targetTriple should be initialized before calling this.
 /// It should be called only once.
