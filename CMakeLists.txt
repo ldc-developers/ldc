@@ -686,7 +686,7 @@ if(NOT WIN32 AND NOT CYGWIN)
     # different translation units being compiled with different visibility settings."
     # See LLVM's cmake/modules/HandleLLVMOptions.cmake.
     check_cxx_compiler_flag("-fvisibility-inlines-hidden" SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG)
-    if (UNIX AND LDC_ENABLE_PLUGINS)
+    if (LDC_ENABLE_PLUGINS AND NOT APPLE)
         # For plugins, we shouldn't apply this flag because it hides the inline methods of e.g. Visitor. On macOS it's OK to add.
     elseif (${SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG})
         append("-fvisibility-inlines-hidden" LDC_CXXFLAGS)
