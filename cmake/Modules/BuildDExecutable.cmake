@@ -25,6 +25,7 @@ endmacro()
 # - DFLAGS_BASE
 # - LDC_LINK_MANUALLY
 # - D_LINKER_ARGS
+# - LDC_ENABLE_PLUGINS
 function(build_d_executable target_name output_exe d_src_files compiler_args linker_args extra_compile_deps link_deps compile_separately)
     set(dflags "${D_COMPILER_FLAGS} ${DFLAGS_BASE} ${compiler_args}")
     if(UNIX)
@@ -40,7 +41,9 @@ function(build_d_executable target_name output_exe d_src_files compiler_args lin
         # Compile all D modules to a single object.
         set(object_file ${PROJECT_BINARY_DIR}/obj/${target_name}${CMAKE_CXX_OUTPUT_EXTENSION})
         # Default to -linkonce-templates with LDMD host compiler, to speed-up optimization.
-        if("${D_COMPILER_ID}" STREQUAL "LDMD")
+        if("${target_name}" STREQUAL "ldc2" AND LDC_ENABLE_PLUGINS)
+            # For plugin support we need ldc2's symbols to be global, don't use -linkonce-templates.
+        elseif("${D_COMPILER_ID}" STREQUAL "LDMD")
             set(dflags -linkonce-templates ${dflags})
         endif()
         add_custom_command(

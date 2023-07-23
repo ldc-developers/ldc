@@ -249,17 +249,6 @@ if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang"))
     endif()
 endif()
 
-if(NOT WIN32 AND NOT CYGWIN)
-    # Unify symbol visibility with LLVM to silence linker warning "direct access in function X to global
-    # weak symbol Y means the weak symbol cannot be overridden at runtime. This was likely caused by
-    # different translation units being compiled with different visibility settings."
-    # See LLVM's cmake/modules/HandleLLVMOptions.cmake.
-    check_cxx_compiler_flag("-fvisibility-inlines-hidden" SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG)
-    if (${SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG})
-        append("-fvisibility-inlines-hidden" LDC_CXXFLAGS)
-    endif()
-endif()
-
 if(MSVC)
     # Remove flags here, for exceptions and RTTI.
     # CL.EXE complains to override flags like "/GR /GR-".
@@ -683,10 +672,26 @@ if(LDC_ENABLE_PLUGINS)
 
         if(LINKER_ACCEPTS_EXPORT_DYNAMIC_FLAG)
             set(LDC_LINKERFLAG_LIST "${LDC_LINKERFLAG_LIST};-Wl,--export-dynamic")
+        else()
+            message(WARNING "Linker does not accept --export-dynamic, user plugins may give missing symbol errors upon load")
         endif()
     endif()
 endif()
 message(STATUS "-- Building LDC with plugin support (LDC_ENABLE_PLUGINS): ${LDC_ENABLE_PLUGINS}")
+message(STATUS "-- Linking LDC with flags: ${ALTERNATIVE_MALLOC_O};${LDC_LINKERFLAG_LIST}")
+
+if(NOT WIN32 AND NOT CYGWIN)
+    # Unify symbol visibility with LLVM to silence linker warning "direct access in function X to global
+    # weak symbol Y means the weak symbol cannot be overridden at runtime. This was likely caused by
+    # different translation units being compiled with different visibility settings."
+    # See LLVM's cmake/modules/HandleLLVMOptions.cmake.
+    check_cxx_compiler_flag("-fvisibility-inlines-hidden" SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG)
+    if (LDC_ENABLE_PLUGINS AND NOT APPLE)
+        # For plugins, we shouldn't apply this flag because it hides the inline methods of e.g. Visitor. On macOS it's OK to add.
+    elseif (${SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG})
+        append("-fvisibility-inlines-hidden" LDC_CXXFLAGS)
+    endif()
+endif()
 
 build_d_executable(
     "${LDC_EXE}"
