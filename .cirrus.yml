@@ -321,6 +321,7 @@ task:
 
 task:
   name: Ubuntu 20.04 aarch64
+  stateful: true
   arm_container:
     image: ubuntu:20.04
     cpu: 4
