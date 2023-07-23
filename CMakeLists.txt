@@ -685,9 +685,10 @@ if(NOT WIN32 AND NOT CYGWIN)
     # weak symbol Y means the weak symbol cannot be overridden at runtime. This was likely caused by
     # different translation units being compiled with different visibility settings."
     # See LLVM's cmake/modules/HandleLLVMOptions.cmake.
-    # For plugins, we shouldn't apply this flag because it hides the inline methods of e.g. Visitor.
     check_cxx_compiler_flag("-fvisibility-inlines-hidden" SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG)
-    if (${SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG} AND NOT LDC_ENABLE_PLUGINS)
+    if (UNIX AND LDC_ENABLE_PLUGINS)
+        # For plugins, we shouldn't apply this flag because it hides the inline methods of e.g. Visitor. On macOS it's OK to add.
+    elseif (${SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG})
         append("-fvisibility-inlines-hidden" LDC_CXXFLAGS)
     endif()
 endif()
