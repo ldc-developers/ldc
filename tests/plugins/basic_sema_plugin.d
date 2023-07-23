@@ -3,10 +3,8 @@
 // For some reason this test fails with missing symbol linking issues (or crash) with macOS on Intel x86 (but not for all CI testers...)
 // UNSUPPORTED: Darwin && host_X86
 
-// ALLOW_RETRIES: 3
-
 // RUN: split-file %s %t --leading-lines
-// RUN: %buildplugin %t/plugin.d -of=%t/plugin%so
+// RUN: %buildplugin %t/plugin.d -of=%t/plugin%so --buildDir=%t/build
 // RUN: %ldc -wi -c -o- --plugin=%t/plugin%so %t/testcase.d 2>&1 | FileCheck %t/testcase.d
 
 //--- plugin.d
