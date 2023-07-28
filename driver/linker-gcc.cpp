@@ -831,10 +831,10 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
   std::unique_ptr<ArgsBuilder> argsBuilder;
   if (global.params.targetTriple->isOSBinFormatWasm()) {
     tool = getProgram("wasm-ld", &opts::linker);
-    argsBuilder = llvm::make_unique<LdArgsBuilder>();
+    argsBuilder = std::make_unique<LdArgsBuilder>();
   } else {
     tool = getGcc();
-    argsBuilder = llvm::make_unique<ArgsBuilder>();
+    argsBuilder = std::make_unique<ArgsBuilder>();
   }
 
   // build arguments

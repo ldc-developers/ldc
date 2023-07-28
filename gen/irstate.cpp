@@ -48,14 +48,14 @@ llvm::Function *IRState::topfunc() { return func()->getLLVMFunc(); }
 llvm::Instruction *IRState::topallocapoint() { return funcGen().allocapoint; }
 
 std::unique_ptr<IRBuilderScope> IRState::setInsertPoint(llvm::BasicBlock *bb) {
-  auto savedScope = llvm::make_unique<IRBuilderScope>(builder);
+  auto savedScope = std::make_unique<IRBuilderScope>(builder);
   builder.SetInsertPoint(bb);
   return savedScope;
 }
 
 std::unique_ptr<llvm::IRBuilderBase::InsertPointGuard>
 IRState::saveInsertPoint() {
-  return llvm::make_unique<llvm::IRBuilderBase::InsertPointGuard>(builder);
+  return std::make_unique<llvm::IRBuilderBase::InsertPointGuard>(builder);
 }
 
 bool IRState::scopereturned() {

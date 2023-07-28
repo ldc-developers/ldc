@@ -31,13 +31,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/DebugInfo.h"
 
-// LLVM >= 10 requires C++14 and no longer has llvm::make_unique. Add it back
-// and point to std::make_unique.
-#include <memory>
-namespace llvm {
-using std::make_unique;
-}
-
 using llvm::APFloat;
 using llvm::APInt;
 using llvm::IRBuilder;

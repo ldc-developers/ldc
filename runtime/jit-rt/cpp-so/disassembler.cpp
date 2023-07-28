@@ -35,10 +35,6 @@
 #endif
 #include "llvm/Target/TargetMachine.h"
 
-namespace llvm {
-using std::make_unique;
-}
-
 namespace {
 template <typename T> std::unique_ptr<T> unique(T *ptr) {
   return std::unique_ptr<T>(ptr);
@@ -263,8 +259,8 @@ void disassemble(const llvm::TargetMachine &tm,
   }
 
   SymTable symTable(ctx);
-  disasm->setSymbolizer(llvm::make_unique<Symbolizer>(
-      ctx, llvm::make_unique<llvm::MCRelocationInfo>(ctx), symTable));
+  disasm->setSymbolizer(std::make_unique<Symbolizer>(
+      ctx, std::make_unique<llvm::MCRelocationInfo>(ctx), symTable));
 
   auto mcia = unique(target.createMCInstrAnalysis(mii));
   if (nullptr == mcia) {
@@ -285,7 +281,7 @@ void disassemble(const llvm::TargetMachine &tm,
 
   // Streamer takes ownership of mip mab
   auto asmStreamer = unique(target.createAsmStreamer(
-      ctx, llvm::make_unique<llvm::formatted_raw_ostream>(os), true, true,
+      ctx, std::make_unique<llvm::formatted_raw_ostream>(os), true, true,
       mip.release(), nullptr, std::move(mab), false));
   if (nullptr == asmStreamer) {
     return;
