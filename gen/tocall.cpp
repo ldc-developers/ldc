@@ -415,7 +415,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     llvm::StoreInst *ret = p->ir->CreateStore(val, ptr);
     ret->setAtomic(llvm::AtomicOrdering(atomicOrdering));
     if (auto alignment = getTypeAllocSize(val->getType())) {
-      ret->setAlignment(LLAlign(alignment));
+      ret->setAlignment(llvm::Align(alignment));
     }
     return true;
   }
@@ -449,7 +449,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
     llvm::LoadInst *load = p->ir->CreateLoad(loadedType, ptr);
     if (auto alignment = getTypeAllocSize(loadedType)) {
-      load->setAlignment(LLAlign(alignment));
+      load->setAlignment(llvm::Align(alignment));
     }
     load->setAtomic(llvm::AtomicOrdering(atomicOrdering));
     llvm::Value *val = load;

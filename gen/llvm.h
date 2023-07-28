@@ -35,9 +35,6 @@ using llvm::APFloat;
 using llvm::APInt;
 using llvm::IRBuilder;
 
-#define LLAlign llvm::Align
-#define LLMaybeAlign llvm::MaybeAlign
-
 #define GET_INTRINSIC_DECL(_X)                                                 \
   (llvm::Intrinsic::getDeclaration(&gIR->module, llvm::Intrinsic::_X))
 

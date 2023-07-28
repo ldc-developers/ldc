@@ -402,7 +402,8 @@ void DtoMemSet(LLValue *dst, LLValue *val, LLValue *nbytes, unsigned align) {
 
   dst = DtoBitCast(dst, VoidPtrTy);
 
-  gIR->ir->CreateMemSet(dst, val, nbytes, LLMaybeAlign(align), false /*isVolatile*/);
+  gIR->ir->CreateMemSet(dst, val, nbytes, llvm::MaybeAlign(align),
+                        false /*isVolatile*/);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -424,7 +425,7 @@ void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes, unsigned align) {
   dst = DtoBitCast(dst, VoidPtrTy);
   src = DtoBitCast(src, VoidPtrTy);
 
-  auto A = LLMaybeAlign(align);
+  auto A = llvm::MaybeAlign(align);
   gIR->ir->CreateMemCpy(dst, A, src, A, nbytes, false /*isVolatile*/);
 }
 
@@ -532,7 +533,7 @@ LLValue *DtoLoad(DLValue *src, const char *name) {
 LLValue *DtoAlignedLoad(LLType *type, LLValue *src, const char *name) {
   llvm::LoadInst *ld = DtoLoadImpl(type, src, name);
   if (auto alignment = getABITypeAlign(ld->getType())) {
-    ld->setAlignment(LLAlign(alignment));
+    ld->setAlignment(llvm::Align(alignment));
   }
   return ld;
 }
@@ -570,7 +571,7 @@ void DtoAlignedStore(LLValue *src, LLValue *dst) {
          "Should store bools as i8 instead of i1.");
   llvm::StoreInst *st = gIR->ir->CreateStore(src, dst);
   if (auto alignment = getABITypeAlign(src->getType())) {
-    st->setAlignment(LLAlign(alignment));
+    st->setAlignment(llvm::Align(alignment));
   }
 }
 

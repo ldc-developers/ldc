@@ -147,7 +147,7 @@ IRState::setGlobalVarInitializer(LLGlobalVariable *&globalVar,
       module, initializer->getType(), globalVar->isConstant(),
       globalVar->getLinkage(), nullptr, "", nullptr,
       globalVar->getThreadLocalMode());
-  globalHelperVar->setAlignment(LLMaybeAlign(globalVar->getAlignment()));
+  globalHelperVar->setAlignment(llvm::MaybeAlign(globalVar->getAlignment()));
   globalHelperVar->setComdat(globalVar->getComdat());
   globalHelperVar->setDLLStorageClass(globalVar->getDLLStorageClass());
   globalHelperVar->setSection(globalVar->getSection());

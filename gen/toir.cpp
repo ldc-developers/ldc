@@ -164,7 +164,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
 
       IF_LOG Logger::cout() << "merged IR value: " << *val << '\n';
       gIR->ir->CreateAlignedStore(val, DtoBitCast(ptr, getPtrToType(intType)),
-                                  LLMaybeAlign(1));
+                                  llvm::MaybeAlign(1));
       offset += group.sizeInBytes;
 
       i += group.bitFields.size() - 1; // skip the other bit fields of the group

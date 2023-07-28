@@ -60,7 +60,7 @@ Value *LibCallOptimization::CastToCStr(Value *V, IRBuilder<> &B) {
 /// expects that the size has type 'intptr_t' and Dst/Src are pointers.
 Value *LibCallOptimization::EmitMemCpy(Value *Dst, Value *Src, Value *Len,
                                        unsigned Align, IRBuilder<> &B) {
-  auto A = LLMaybeAlign(Align);
+  auto A = llvm::MaybeAlign(Align);
   return B.CreateMemCpy(CastToCStr(Dst, B), A, CastToCStr(Src, B), A, Len,
                         false);
 }

@@ -18,9 +18,6 @@
 
 #include "valueparser.h"
 
-#define LLAlign llvm::Align
-#define LLMaybeAlign llvm::MaybeAlign
-
 namespace {
 enum { SmallParamsCount = 5 };
 
@@ -75,7 +72,7 @@ allocParam(llvm::IRBuilder<> &builder, llvm::Type &srcType,
     auto elemType = srcType.getPointerElementType();
     auto stackArg = builder.CreateAlloca(elemType);
     if (auto alignment = layout.getABITypeAlignment(elemType))
-      stackArg->setAlignment(LLAlign(alignment));
+      stackArg->setAlignment(llvm::Align(alignment));
     auto init =
         parseInitializer(layout, *elemType, param.data, errHandler, override);
     builder.CreateStore(init, stackArg);
@@ -83,7 +80,7 @@ allocParam(llvm::IRBuilder<> &builder, llvm::Type &srcType,
   }
   auto stackArg = builder.CreateAlloca(&srcType);
   if (auto alignment = layout.getABITypeAlignment(&srcType))
-    stackArg->setAlignment(LLAlign(alignment));
+    stackArg->setAlignment(llvm::Align(alignment));
   auto init =
       parseInitializer(layout, srcType, param.data, errHandler, override);
   builder.CreateStore(init, stackArg);

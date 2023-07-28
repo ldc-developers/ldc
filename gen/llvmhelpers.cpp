@@ -191,7 +191,7 @@ llvm::AllocaInst *DtoArrayAlloca(Type *type, unsigned arraysize,
       lltype, gIR->module.getDataLayout().getAllocaAddrSpace(),
       DtoConstUint(arraysize), name, gIR->topallocapoint());
   if (auto alignment = DtoAlignment(type)) {
-    ai->setAlignment(LLAlign(alignment));
+    ai->setAlignment(llvm::Align(alignment));
   }
   return ai;
 }
@@ -202,7 +202,7 @@ llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
       lltype, gIR->module.getDataLayout().getAllocaAddrSpace(), name,
       gIR->topallocapoint());
   if (alignment) {
-    ai->setAlignment(LLAlign(alignment));
+    ai->setAlignment(llvm::Align(alignment));
   }
   return ai;
 }
