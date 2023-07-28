@@ -19,12 +19,6 @@ jobs:
             os: ubuntu-20.04
             host_dc: ldc-beta
             llvm_version: 15.0.6
-          - job_name: Ubuntu 20.04, LLVM 14, latest LDC beta
-            os: ubuntu-20.04
-            host_dc: ldc-beta
-            llvm_version: 14.0.0
-            # the compiler-rt libs installation is somehow non-standard
-            cmake_flags: -DLDC_INSTALL_LLVM_RUNTIME_LIBS_OS=x86_64-unknown-linux-gnu -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=""
           - job_name: Ubuntu 20.04, LLVM 12, latest LDC beta
             os: ubuntu-20.04
             host_dc: ldc-beta
@@ -35,18 +29,20 @@ jobs:
             host_dc: dmd-beta
             llvm_version: 11.1.0
             cmake_flags: -DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON
-          #- job_name: macOS 11, LLVM 10, latest DMD beta
-          #  os: macos-11
-          #  host_dc: dmd-beta
-          #  llvm_version: 10.0.1
-          #  cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON -DCMAKE_CXX_COMPILER=/usr/bin/c++ -DCMAKE_C_COMPILER=/usr/bin/cc -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
-          - job_name: macOS 11, LLVM 13, latest LDC beta
+          - job_name: macOS 11, LLVM 13, latest DMD beta
+            os: macos-11
+            host_dc: dmd-beta
+            llvm_version: 13.0.1
+            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON -DCMAKE_CXX_COMPILER=/usr/bin/c++ -DCMAKE_C_COMPILER=/usr/bin/cc
+          - job_name: macOS 11, LLVM 14, latest LDC beta
             os: macos-11
             host_dc: ldc-beta
-            llvm_version: 13.0.1
-            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+            llvm_version: 14.0.6
+            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: 11.6 # silence `ld: warning: object file (…) was built for newer macOS version (…) than being linked (…)`
     steps:
       - uses: actions/checkout@v3
         with:
