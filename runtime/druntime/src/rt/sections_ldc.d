@@ -100,7 +100,7 @@ private
          * Scan segments in Linux dl_phdr_info struct and store
          * the TLS and writeable data segments in *pdso.
          */
-        void scanSegments(in ref dl_phdr_info info, DSO* pdso) nothrow @nogc
+        void scanSegments(const scope ref dl_phdr_info info, DSO* pdso) nothrow @nogc
         {
             foreach (ref phdr; info.dlpi_phdr[0 .. info.dlpi_phnum])
             {
@@ -153,7 +153,7 @@ private
             return dl_iterate_phdr(&callback, &dg) != 0;
         }
 
-        bool findSegmentForAddr(in ref dl_phdr_info info, in void* addr, ElfW!"Phdr"* result=null) nothrow @nogc
+        bool findSegmentForAddr(const scope ref dl_phdr_info info, in void* addr, ElfW!"Phdr"* result=null) nothrow @nogc
         {
             if (addr < cast(void*)info.dlpi_addr) // quick reject
                 return false;

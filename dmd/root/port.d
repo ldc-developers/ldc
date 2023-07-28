@@ -70,7 +70,21 @@ extern (C++) struct Port
 
         return t;
     }
+    private extern (D) static bool resultOutOfRange(FloatingType)(const FloatingType x, const int errnoValue)
+    {
+        import core.stdc.math : HUGE_VAL, HUGE_VALF;
+        static if (is(FloatingType == double))
+            const FloatingType hugeVal = HUGE_VAL;
+        else static if (is(FloatingType == float))
+            const FloatingType hugeVal = HUGE_VALF;
+        else static assert(0, "This function does not support " ~ FloatingType);
 
+        if (errnoValue == ERANGE)
+        {
+            return x == hugeVal || x == 0.0f;
+        }
+        return false;
+    }
     static bool isFloat32LiteralOutOfRange(scope const(char)* s)
     {
       version (IN_LLVM)
@@ -85,6 +99,8 @@ extern (C++) struct Port
         {
             auto save = __locale_decpoint;
             __locale_decpoint = ".";
+            scope(exit)
+                __locale_decpoint = save;
         }
         version (CRuntime_Microsoft)
         {
@@ -92,13 +108,13 @@ extern (C++) struct Port
             int res = _atoflt(&r, s);
             if (res == _UNDERFLOW || res == _OVERFLOW)
                 errno = ERANGE;
+            return errno == ERANGE;
         }
         else
         {
-            strtof(s, null);
+            const result = strtof(s, null);
+            return resultOutOfRange(result, errno);
         }
-        version (CRuntime_DigitalMars) __locale_decpoint = save;
-        return errno == ERANGE;
       }
     }
 
@@ -116,6 +132,8 @@ extern (C++) struct Port
         {
             auto save = __locale_decpoint;
             __locale_decpoint = ".";
+            scope(exit)
+                __locale_decpoint = save;
         }
         version (CRuntime_Microsoft)
         {
@@ -123,13 +141,13 @@ extern (C++) struct Port
             int res = _atodbl(&r, s);
             if (res == _UNDERFLOW || res == _OVERFLOW)
                 errno = ERANGE;
+            return errno == ERANGE;
         }
         else
         {
-            strtod(s, null);
+            const result = strtod(s, null);
+            return resultOutOfRange(result, errno);
         }
-        version (CRuntime_DigitalMars) __locale_decpoint = save;
-        return errno == ERANGE;
       }
     }
 

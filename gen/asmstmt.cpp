@@ -501,9 +501,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
 
   {
     FuncDeclaration *fd = gIR->func()->decl;
-    OutBuffer mangleBuf;
-    mangleToBuffer(fd, &mangleBuf);
-    const char *fdmangle = mangleBuf.peekChars();
+    const char *fdmangle = mangleExact(fd);
 
     // we use a simple static counter to make sure the new end labels are
     // unique

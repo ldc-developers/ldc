@@ -93,22 +93,7 @@ bool checkMutableArguments(Scope* sc, FuncDeclaration fd, TypeFunction tf,
         bool isMutable;         // true if reference to mutable
     }
 
-    /* Store escapeBy as static data escapeByStorage so we can keep reusing the same
-     * arrays rather than reallocating them.
-     */
-    __gshared EscapeBy[] escapeByStorage;
-    auto escapeBy = escapeByStorage;
-    if (escapeBy.length < len)
-    {
-        auto newPtr = cast(EscapeBy*)mem.xrealloc(escapeBy.ptr, len * EscapeBy.sizeof);
-        // Clear the new section
-        memset(newPtr + escapeBy.length, 0, (len - escapeBy.length) * EscapeBy.sizeof);
-        escapeBy = newPtr[0 .. len];
-        escapeByStorage = escapeBy;
-    }
-    else
-        escapeBy = escapeBy[0 .. len];
-
+    auto escapeBy = new EscapeBy[len];
     const paramLength = tf.parameterList.length;
 
     // Fill in escapeBy[] with arguments[], ethis, and outerVars[]
@@ -181,7 +166,7 @@ bool checkMutableArguments(Scope* sc, FuncDeclaration fd, TypeFunction tf,
         if (!(eb.isMutable || eb2.isMutable))
             return;
 
-        if (!tf.islive && !(global.params.useDIP1000 == FeatureState.enabled && sc.func.setUnsafe()))
+        if (!tf.islive && !(global.params.useDIP1000 == FeatureState.enabled && sc.func && sc.func.setUnsafe()))
             return;
 
         if (!gag)
@@ -226,13 +211,6 @@ bool checkMutableArguments(Scope* sc, FuncDeclaration fd, TypeFunction tf,
     {
         escape(i, eb, true);
         escape(i, eb, false);
-    }
-
-    /* Reset the arrays in escapeBy[] so we can reuse them next time through
-     */
-    foreach (ref eb; escapeBy)
-    {
-        eb.er.reset();
     }
 
     return errors;
@@ -503,7 +481,7 @@ bool checkParamArgumentReturn(Scope* sc, Expression firstArg, Expression arg, Pa
     const byRef = param.isReference() && !(param.storageClass & STC.scope_)
         && !(param.storageClass & STC.returnScope); // fixme: it's possible to infer returnScope without scope with vaIsFirstRef
 
-    scope e = new AssignExp(arg.loc, firstArg, arg);
+    auto e = new AssignExp(arg.loc, firstArg, arg);
     return checkAssignEscape(sc, e, gag, byRef);
 }
 
@@ -2377,7 +2355,7 @@ void finishScopeParamInference(FuncDeclaration funcdecl, ref TypeFunction f)
         foreach (u, p; f.parameterList)
         {
             auto v = (*funcdecl.parameters)[u];
-            if (!v.isScope() && inferScope(v))
+            if (!v.isScope() && v.type.hasPointers() && inferScope(v))
             {
                 //printf("Inferring scope for %s\n", v.toChars());
                 p.storageClass |= STC.scope_ | STC.scopeinferred;
@@ -2496,6 +2474,9 @@ bool isReferenceToMutable(Type t)
                     return true;
             }
             break;
+
+        case Tnull:
+            return false;
 
         default:
             assert(0);

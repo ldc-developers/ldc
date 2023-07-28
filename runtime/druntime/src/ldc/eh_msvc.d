@@ -99,7 +99,7 @@ struct CxxExceptionInfo
 extern(C) int _d_isbaseof(ClassInfo oc, ClassInfo c);
 
 // error and exit
-extern(C) void fatalerror(in char* format, ...)
+extern(C) void fatalerror(const(char)* format, ...)
 {
     import core.stdc.stdarg;
     import core.stdc.stdio;

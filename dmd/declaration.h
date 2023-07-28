@@ -169,8 +169,8 @@ class TupleDeclaration final : public Declaration
 public:
     Objects *objects;
     TypeTuple *tupletype;       // !=NULL if this is a type tuple
-    bool isexp;                 // true: expression tuple
-    bool building;              // it's growing in AliasAssign semantic
+    d_bool isexp;                 // true: expression tuple
+    d_bool building;              // it's growing in AliasAssign semantic
 
     TupleDeclaration *syntaxCopy(Dsymbol *) override;
     const char *kind() const override;
@@ -637,7 +637,7 @@ public:
 
     // set if someone took the address of this function
     int tookAddressOf;
-    bool requiresClosure;               // this function needs a closure
+    d_bool requiresClosure;               // this function needs a closure
 
     // local variables in this function which are referenced by nested functions
     VarDeclarations closureVars;
@@ -653,6 +653,9 @@ public:
     FuncDeclarations *inlinedNestedCallees;
 
     AttributeViolation* safetyViolation;
+    AttributeViolation* nogcViolation;
+    AttributeViolation* pureViolation;
+    AttributeViolation* nothrowViolation;
 
     // Formerly FUNCFLAGS
     uint32_t flags;
@@ -702,6 +705,10 @@ public:
     bool isCrtCtor(bool v);
     bool isCrtDtor() const;
     bool isCrtDtor(bool v);
+    bool dllImport() const;
+    bool dllImport(bool v);
+    bool dllExport() const;
+    bool dllExport(bool v);
 
     // Data for a function declaration that is needed for the Objective-C
     // integration.
@@ -772,7 +779,7 @@ class FuncAliasDeclaration final : public FuncDeclaration
 {
 public:
     FuncDeclaration *funcalias;
-    bool hasOverloads;
+    d_bool hasOverloads;
 
     FuncAliasDeclaration *isFuncAliasDeclaration() override { return this; }
     const char *kind() const override;
@@ -788,7 +795,7 @@ public:
     Type *treq;                         // target of return type inference
 
     // backend
-    bool deferToObj;
+    d_bool deferToObj;
 
     FuncLiteralDeclaration *syntaxCopy(Dsymbol *) override;
     bool isNested() const override;
@@ -808,7 +815,7 @@ public:
 class CtorDeclaration final : public FuncDeclaration
 {
 public:
-    bool isCpCtor;
+    d_bool isCpCtor;
     CtorDeclaration *syntaxCopy(Dsymbol *) override;
     const char *kind() const override;
     const char *toChars() const override;
