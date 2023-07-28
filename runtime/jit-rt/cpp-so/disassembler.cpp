@@ -35,11 +35,9 @@
 #endif
 #include "llvm/Target/TargetMachine.h"
 
-#if LDC_LLVM_VER >= 1000
 namespace llvm {
 using std::make_unique;
 }
-#endif
 
 namespace {
 template <typename T> std::unique_ptr<T> unique(T *ptr) {
@@ -132,28 +130,15 @@ void printFunction(const llvm::MCDisassembler &disasm,
       std::string comment;
       llvm::raw_string_ostream commentStream(comment);
       auto status = disasm.getInstruction(inst, size, data.slice(pos), pos,
-#if LDC_LLVM_VER < 1000
-                                          llvm::nulls(),
-#endif
                                           commentStream);
 
       switch (status) {
       case llvm::MCDisassembler::Fail:
-#if LDC_LLVM_VER >= 1100
-        streamer.emitRawText(
-#else
-        streamer.EmitRawText(
-#endif
-            "failed to disassemble");
+        streamer.emitRawText("failed to disassemble");
         return;
 
       case llvm::MCDisassembler::SoftFail:
-#if LDC_LLVM_VER >= 1100
-        streamer.emitRawText(
-#else
-        streamer.EmitRawText(
-#endif
-            "potentially undefined instruction encoding:");
+        streamer.emitRawText("potentially undefined instruction encoding:");
         LLVM_FALLTHROUGH;
 
       case llvm::MCDisassembler::Success:
@@ -166,22 +151,14 @@ void printFunction(const llvm::MCDisassembler &disasm,
           }
         } else if (Stage::Emit == stage) {
           if (auto label = symTable.getTargetLabel(pos)) {
-#if LDC_LLVM_VER >= 1100
             streamer.emitLabel(label);
-#else
-            streamer.EmitLabel(label);
-#endif
           }
           commentStream.flush();
           if (!comment.empty()) {
             streamer.AddComment(comment);
             comment.clear();
           }
-#if LDC_LLVM_VER >= 1100
           streamer.emitInstruction(inst, sti);
-#else
-          streamer.EmitInstruction(inst, sti);
-#endif
         }
         break;
       }
@@ -320,11 +297,7 @@ void disassemble(const llvm::TargetMachine &tm,
   for (const auto &symbol : object.symbols()) {
     const auto secIt = llvm::cantFail(symbol.getSection());
     if (object.section_end() != secIt) {
-#if LDC_LLVM_VER >= 1100
       auto offset = llvm::cantFail(symbol.getValue());
-#else
-      auto offset = symbol.getValue();
-#endif
       sectionsToProcess[secIt->getIndex()].push_back(offset);
     }
   }
@@ -346,21 +319,13 @@ void disassemble(const llvm::TargetMachine &tm,
           llvm::cantFail(symbol.getType())) {
         symTable.reset();
         symTable.addLabel(0, 0, name); // Function start
-#if LDC_LLVM_VER >= 1100
         auto offset = llvm::cantFail(symbol.getValue());
-#else
-        auto offset = symbol.getValue();
-#endif
         processRelocations(symTable, offset, object, sec);
 
         // TODO: something more optimal
         for (const auto &globalSec : object.sections()) {
-#if LDC_LLVM_VER >= 1000
           auto rs = globalSec.getRelocatedSection();
           if (rs && *rs == secIt) {
-#else
-          if (globalSec.getRelocatedSection() == secIt) {
-#endif
             processRelocations(symTable, offset, object, globalSec);
           }
         }
@@ -377,11 +342,7 @@ void disassemble(const llvm::TargetMachine &tm,
             reinterpret_cast<const uint8_t *>(data.data() + offset), size);
 
         printFunction(*disasm, *mcia, buff, symTable, *sti, *asmStreamer);
-#if LDC_LLVM_VER >= 1100
         asmStreamer->emitRawText("");
-#else
-        asmStreamer->EmitRawText("");
-#endif
       }
     }
   }

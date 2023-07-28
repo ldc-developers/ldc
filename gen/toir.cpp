@@ -2723,10 +2723,8 @@ public:
       if (auto llConstant = isaConstant(llElement)) {
 #if LDC_LLVM_VER >= 1200
         const auto elementCount = llvm::ElementCount::getFixed(N);
-#elif LDC_LLVM_VER >= 1100
-        const auto elementCount = llvm::ElementCount(N, false);
 #else
-        const auto elementCount = N;
+        const auto elementCount = llvm::ElementCount(N, false);
 #endif
         auto vectorConstant =
             llvm::ConstantVector::getSplat(elementCount, llConstant);

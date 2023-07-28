@@ -217,12 +217,8 @@ if (platform.system() != 'Windows') and lit.util.which('gdb', config.environment
     config.substitutions.append( ('%_gdb_dflags', gdb_dflags) )
 
 # Add substitutions for functionality across different LLVM versions
-if config.llvm_version >= 800:
-    config.substitutions.append( ('%disable_fp_elim', '-frame-pointer=all') )
-    config.substitutions.append( ('%enable_fp_elim', '-frame-pointer=none') )
-else:
-    config.substitutions.append( ('%disable_fp_elim', '-disable-fp-elim') )
-    config.substitutions.append( ('%enable_fp_elim', '-disable-fp-elim=false') )
+config.substitutions.append( ('%disable_fp_elim', '-frame-pointer=all') )
+config.substitutions.append( ('%enable_fp_elim', '-frame-pointer=none') )
 
 if 'LD_LIBRARY_PATH' in os.environ:
     libs = []

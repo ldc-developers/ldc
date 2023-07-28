@@ -37,8 +37,6 @@ set(llvm_config_names llvm-config-15.0 llvm-config150 llvm-config-15
                       llvm-config-13.0 llvm-config130 llvm-config-13
                       llvm-config-12.0 llvm-config120 llvm-config-12
                       llvm-config-11.0 llvm-config110 llvm-config-11
-                      llvm-config-10.0 llvm-config100 llvm-config-10
-                      llvm-config-9.0 llvm-config90 llvm-config-9
                       llvm-config)
 find_program(LLVM_CONFIG
     NAMES ${llvm_config_names}
@@ -51,11 +49,11 @@ if(APPLE)
         NAMES ${llvm_config_names}
         PATHS /opt/local/libexec/llvm-15/bin
               /opt/local/libexec/llvm-14/bin  /opt/local/libexec/llvm-13/bin  /opt/local/libexec/llvm-12/bin
-              /opt/local/libexec/llvm-11/bin  /opt/local/libexec/llvm-10/bin  /opt/local/libexec/llvm-9.0/bin
+              /opt/local/libexec/llvm-11/bin
               /opt/local/libexec/llvm/bin
               /usr/local/opt/llvm@15/bin
               /usr/local/opt/llvm@14/bin /usr/local/opt/llvm@13/bin /usr/local/opt/llvm@12/bin
-              /usr/local/opt/llvm@11/bin /usr/local/opt/llvm@10/bin /usr/local/opt/llvm@9/bin
+              /usr/local/opt/llvm@11/bin
               /usr/local/opt/llvm/bin
         NO_DEFAULT_PATH)
 endif()

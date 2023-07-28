@@ -28,7 +28,7 @@ endfunction()
 # Locate LLVM.
 #
 
-find_package(LLVM 9.0 REQUIRED
+find_package(LLVM 11.0 REQUIRED
     all-targets analysis asmparser asmprinter bitreader bitwriter codegen core
     debuginfodwarf debuginfomsf debuginfopdb demangle
     instcombine ipo instrumentation irreader libdriver linker lto mc
@@ -46,9 +46,9 @@ foreach(LLVM_SUPPORTED_TARGET ${LLVM_TARGETS_TO_BUILD})
     add_definitions("-DLDC_LLVM_SUPPORTED_TARGET_${LLVM_SUPPORTED_TARGET}=1")
 endforeach()
 
-# Set MLIR support variables if it is found. Only try for LLVM >= 10.0.
+# Set MLIR support variables if it is found.
 # FIXME: LLVM 14+ (`mlir::OwningModuleRef` replacement)
-if(NOT (LDC_LLVM_VER LESS 1000) AND NOT LDC_WITH_MLIR STREQUAL "OFF" AND LDC_LLVM_VER LESS 1400)
+if(NOT LDC_WITH_MLIR STREQUAL "OFF" AND LDC_LLVM_VER LESS 1400)
     include(FindMLIR)
     if(MLIR_FOUND)
         message(STATUS "-- Building LDC with MLIR support (${MLIR_ROOT_DIR})")
@@ -593,12 +593,10 @@ if(MSVC)
     endif()
 endif()
 if(LDC_WITH_LLD)
-    if(NOT (LDC_LLVM_VER LESS 1000))
-        if(MSVC)
-            list(APPEND LDC_LINKERFLAG_LIST LLVMSymbolize.lib)
-        else()
-            set(LDC_LINKERFLAG_LIST -lLLVMSymbolize ${LDC_LINKERFLAG_LIST})
-        endif()
+    if(MSVC)
+        list(APPEND LDC_LINKERFLAG_LIST LLVMSymbolize.lib)
+    else()
+        set(LDC_LINKERFLAG_LIST -lLLVMSymbolize ${LDC_LINKERFLAG_LIST})
     endif()
     if (LDC_LLVM_VER LESS 1200 OR NOT LDC_LLVM_VER LESS 1400)
         set(LLD_MACHO lldMachO)

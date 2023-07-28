@@ -4,6 +4,7 @@
 - Frontend, druntime and Phobos are at version [2.104.2](https://dlang.org/changelog/2.104.0.html). (#4440)
 
 #### Platform support
+- Supports LLVM 11.0 - 15.0.
 
 #### Bug fixes
 

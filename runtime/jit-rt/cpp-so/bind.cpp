@@ -18,17 +18,8 @@
 
 #include "valueparser.h"
 
-#if LDC_LLVM_VER >= 1000
-#if LDC_LLVM_VER >= 1100
 #define LLAlign llvm::Align
-#else
-#define LLAlign llvm::MaybeAlign
-#endif
 #define LLMaybeAlign llvm::MaybeAlign
-#else
-#define LLAlign
-#define LLMaybeAlign
-#endif
 
 namespace {
 enum { SmallParamsCount = 5 };

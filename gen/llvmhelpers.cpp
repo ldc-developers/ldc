@@ -1202,10 +1202,8 @@ LLConstant *DtoConstExpInit(const Loc &loc, Type *targetType, Expression *exp) {
         static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();
 #if LDC_LLVM_VER >= 1200
     const auto elementCount = llvm::ElementCount::getFixed(elemCount);
-#elif LDC_LLVM_VER >= 1100
-    const auto elementCount = llvm::ElementCount(elemCount, false);
 #else
-    const auto elementCount = elemCount;
+    const auto elementCount = llvm::ElementCount(elemCount, false);
 #endif
     return llvm::ConstantVector::getSplat(elementCount, val);
   }
@@ -1281,11 +1279,7 @@ static char *DtoOverloadedIntrinsicName(TemplateInstance *ti,
   if (dtype->isPPC_FP128Ty()) { // special case
     replacement = "ppcf128";
   } else if (dtype->isVectorTy()) {
-#if LDC_LLVM_VER >= 1100
     auto vectorType = llvm::cast<llvm::FixedVectorType>(dtype);
-#else
-    auto vectorType = llvm::cast<llvm::VectorType>(dtype);
-#endif
     llvm::raw_string_ostream stream(replacement);
     stream << 'v' << vectorType->getNumElements() << prefix
            << gDataLayout->getTypeSizeInBits(vectorType->getElementType());

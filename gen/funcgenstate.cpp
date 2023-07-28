@@ -124,11 +124,7 @@ LLCallBasePtr FuncGenState::callOrInvoke(llvm::Value *callee,
   // calls inside a funclet must be annotated with its value
   llvm::SmallVector<llvm::OperandBundleDef, 2> BundleList;
 
-#if LDC_LLVM_VER >= 1100
   llvm::FunctionCallee calleeArg(calleeType, callee);
-#else
-  auto calleeArg = callee;
-#endif
 
   if (doesNotThrow || scopes.empty()) {
     auto call = irs.ir->CreateCall(calleeArg, args, BundleList, name);

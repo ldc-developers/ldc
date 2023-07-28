@@ -371,11 +371,8 @@ llvm::BasicBlock *CleanupScope::run(IRState &irs, llvm::BasicBlock *sourceBlock,
     // And convert the BranchInst to the existing branch target to a
     // SelectInst so we can append the other cases to it.
     endBlock()->getTerminator()->eraseFromParent();
-    llvm::Value *sel = new llvm::LoadInst(
-#if LDC_LLVM_VER >= 1100
-        branchSelectorType,
-#endif
-        branchSelector, "", endBlock());
+    llvm::Value *sel =
+        new llvm::LoadInst(branchSelectorType, branchSelector, "", endBlock());
     llvm::SwitchInst::Create(
         sel, exitTargets[0].branchTarget,
         1, // Expected number of branches, only for pre-allocating.

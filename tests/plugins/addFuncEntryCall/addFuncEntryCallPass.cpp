@@ -37,11 +37,7 @@ bool FuncEntryCallPass::doInitialization(Module &M) {
   // Add fwd declaration of the `void __test_funcentrycall(void)` function.
   auto functionType = FunctionType::get(Type::getVoidTy(M.getContext()), false);
   funcToCallUponEntry =
-      M.getOrInsertFunction("__test_funcentrycall", functionType)
-#if LLVM_VERSION >= 900
-          .getCallee()
-#endif
-      ;
+      M.getOrInsertFunction("__test_funcentrycall", functionType).getCallee();
   return true;
 }
 
@@ -50,11 +46,7 @@ bool FuncEntryCallPass::runOnFunction(Function &F) {
   // (this includes e.g. `ldc.register_dso`!)
   llvm::BasicBlock &block = F.getEntryBlock();
   IRBuilder<> builder(&block, block.begin());
-#if LLVM_VERSION >= 1100
   builder.CreateCall(FunctionCallee(cast<Function>(funcToCallUponEntry)));
-#else
-  builder.CreateCall(funcToCallUponEntry);
-#endif
   return true;
 }
 

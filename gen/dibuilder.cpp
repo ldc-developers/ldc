@@ -385,12 +385,8 @@ DIType DIBuilder::CreateVectorType(TypeVector *type) {
   LLType *T = DtoType(type);
 
   const auto dim = type->basetype->isTypeSArray()->dim->toInteger();
-#if LDC_LLVM_VER >= 1100
   const auto Dim = llvm::ConstantAsMetadata::get(DtoConstSize_t(dim));
   auto subscript = DBuilder.getOrCreateSubrange(Dim, nullptr, nullptr, nullptr);
-#else
-  auto subscript = DBuilder.getOrCreateSubrange(0, dim);
-#endif
 
   return DBuilder.createVectorType(
       getTypeAllocSize(T) * 8, // size (bits)
@@ -669,13 +665,9 @@ DIType DIBuilder::CreateSArrayType(TypeSArray *type) {
   for (; te->ty == TY::Tsarray; te = te->nextOf()) {
     TypeSArray *tsa = static_cast<TypeSArray *>(te);
     const auto count = tsa->dim->toInteger();
-#if LDC_LLVM_VER >= 1100
     const auto Count = llvm::ConstantAsMetadata::get(DtoConstSize_t(count));
     const auto subscript =
         DBuilder.getOrCreateSubrange(Count, nullptr, nullptr, nullptr);
-#else
-    const auto subscript = DBuilder.getOrCreateSubrange(0, count);
-#endif
     subscripts.push_back(subscript);
   }
 
@@ -1292,9 +1284,7 @@ void DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
       vd->loc.linnum,                        // line num
       CreateTypeDescription(vd->type),       // type
       vd->visibility.kind == Visibility::private_, // is local to unit
-#if LDC_LLVM_VER >= 1000
       !(vd->storage_class & STCextern),      // bool isDefined
-#endif
       nullptr,                               // DIExpression *Expr
       Decl                                   // declaration
   );

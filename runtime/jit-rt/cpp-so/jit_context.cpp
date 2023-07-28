@@ -185,12 +185,8 @@ std::shared_ptr<llvm::orc::SymbolResolver>
 DynamicCompilerContext::createResolver() {
   return llvm::orc::createLegacyLookupResolver(
       execSession,
-#if LDC_LLVM_VER >= 1100
       [this](llvm::StringRef name_) -> llvm::JITSymbol {
         const std::string name = name_.str();
-#else
-      [this](const std::string &name) -> llvm::JITSymbol {
-#endif
         if (auto Sym = compileLayer.findSymbol(name, false)) {
           return Sym;
         } else if (auto Err = Sym.takeError()) {

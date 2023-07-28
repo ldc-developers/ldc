@@ -73,20 +73,12 @@ static std::error_code createSymLink(const char *to, const char *from) {
 #include <windows.h>
 namespace llvm {
 namespace sys {
-#if LDC_LLVM_VER >= 1100
 namespace windows {
 // Fwd declaration to an internal LLVM function.
 std::error_code widenPath(const llvm::Twine &Path8,
                           llvm::SmallVectorImpl<wchar_t> &Path16,
                           size_t MaxPathLen = MAX_PATH);
 }
-#else
-namespace path {
-// Fwd declaration to an internal LLVM function.
-std::error_code widenPath(const llvm::Twine &Path8,
-                          llvm::SmallVectorImpl<wchar_t> &Path16);
-}
-#endif // LDC_LLVM_VER < 1100
 } // namespace sys
 } // namespace llvm
 
@@ -100,11 +92,7 @@ std::error_code createLink(FType f, const char *to, const char *from) {
   //
   //===----------------------------------------------------------------------===//
 
-#if LDC_LLVM_VER >= 1100
   using llvm::sys::windows::widenPath;
-#else
-  using llvm::sys::path::widenPath;
-#endif
 
   llvm::SmallVector<wchar_t, 128> wide_from;
   llvm::SmallVector<wchar_t, 128> wide_to;

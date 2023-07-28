@@ -708,10 +708,8 @@ public:
       //        constructed.
 #if LDC_LLVM_VER >= 1200
       const auto elementCount = llvm::ElementCount::getFixed(elemCount);
-#elif LDC_LLVM_VER >= 1100
-      const auto elementCount = llvm::ElementCount(elemCount, false);
 #else
-      const auto elementCount = elemCount;
+      const auto elementCount = llvm::ElementCount(elemCount, false);
 #endif
       result = llvm::ConstantVector::getSplat(
           elementCount, toConstElem(e->e1->optimize(WANTvalue), p));

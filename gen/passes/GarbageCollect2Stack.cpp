@@ -71,11 +71,7 @@ void EmitMemSet(IRBuilder<> &B, Value *Dst, Value *Val, Value *Len,
                 const G2StackAnalysis &A) {
   Dst = B.CreateBitCast(Dst, PointerType::getUnqual(B.getInt8Ty()));
 
-#if LDC_LLVM_VER >= 1000
   MaybeAlign Align(1);
-#else
-  unsigned Align = 1;
-#endif
 
   auto CS = B.CreateMemSet(Dst, Val, Len, Align, false /*isVolatile*/);
   if (A.CGNode) {

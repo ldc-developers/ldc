@@ -35,10 +35,6 @@ bool willInline();
 
 bool willCrossModuleInline();
 
-#if LDC_LLVM_VER < 1000
-llvm::FramePointer::FP whichFramePointersToEmit();
-#endif
-
 unsigned optLevel();
 
 bool isOptimizationEnabled();
