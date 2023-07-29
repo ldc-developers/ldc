@@ -65,6 +65,9 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
         excludes+='|^std.math.exponential(-shared)?$'
         # FIXME: failure
         excludes+='|^druntime-test-exceptions-debug$'
+        # std.path unittests apparently need HOME, which happens not to be set
+        export HOME=~
+        echo "Setting HOME to '$HOME'"
       elif [[ "$CI_OS-$CI_ARCH" == "osx-arm64" ]]; then
         # FIXME: sporadic segfaults/bus errors with enabled optimizations
         excludes+='|^core.thread.fiber(-shared)?$'
@@ -321,10 +324,14 @@ task:
 
 task:
   name: Ubuntu 20.04 aarch64
-  arm_container:
-    image: ubuntu:20.04
+  compute_engine_instance:
+    image_project: ubuntu-os-cloud
+    image: family/ubuntu-2004-lts-arm64
+    platform: linux
+    architecture: arm64
     cpu: 4
     memory: 8G
+    disk: 20
   timeout_in: 60m
   environment:
     CI_ARCH: aarch64
