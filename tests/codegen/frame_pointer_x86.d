@@ -4,9 +4,9 @@
 // RUN: FileCheck %s --check-prefixes=COMMON,FP < %t.s
 // RUN: %ldc -c -mtriple=x86_64 -output-s -of=%t.s %s -O2
 // RUN: FileCheck %s --check-prefixes=COMMON,NO_FP < %t.s
-// RUN: %ldc -c -mtriple=x86_64 -output-s -of=%t.s %s -O2 %disable_fp_elim
+// RUN: %ldc -c -mtriple=x86_64 -output-s -of=%t.s %s -O2 -frame-pointer=all
 // RUN: FileCheck %s --check-prefixes=COMMON,FP < %t.s
-// RUN: %ldc -c -mtriple=x86_64 -output-s -of=%t.s %s %enable_fp_elim
+// RUN: %ldc -c -mtriple=x86_64 -output-s -of=%t.s %s -frame-pointer=none
 // RUN: FileCheck %s --check-prefixes=COMMON,NO_FP < %t.s
 
 // COMMON-LABEL: _D17frame_pointer_x8613inlineAsmLeafFZv:

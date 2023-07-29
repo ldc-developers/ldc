@@ -7,9 +7,9 @@
 // RUN: %ldc -d-version=ProfData -fprofile-instr-generate=%t.profraw -run %s  \
 // RUN:   &&  %profdata merge %t.profraw -o %t.profdata \
 // RUN:   &&  %ldc -d-version=ProfData -c -output-ll -of=%t2.ll -fprofile-instr-use=%t.profdata %s \
-// RUN:   &&  FileCheck %allow-deprecated-dag-overlap %s -check-prefix=PROFDATA < %t2.ll \
+// RUN:   &&  FileCheck -allow-deprecated-dag-overlap %s -check-prefix=PROFDATA < %t2.ll \
 // RUN:   &&  %ldc -wi -c -output-ll -of=%t3.ll -fprofile-instr-use=%t.profdata %s \
-// RUN:   &&  FileCheck %allow-deprecated-dag-overlap %s -check-prefix=NODATA < %t3.ll
+// RUN:   &&  FileCheck -allow-deprecated-dag-overlap %s -check-prefix=NODATA < %t3.ll
 
 extern(C):
 

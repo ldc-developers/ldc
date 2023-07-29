@@ -216,10 +216,6 @@ if (platform.system() != 'Windows') and lit.util.which('gdb', config.environment
 
     config.substitutions.append( ('%_gdb_dflags', gdb_dflags) )
 
-# Add substitutions for functionality across different LLVM versions
-config.substitutions.append( ('%disable_fp_elim', '-frame-pointer=all') )
-config.substitutions.append( ('%enable_fp_elim', '-frame-pointer=none') )
-
 if 'LD_LIBRARY_PATH' in os.environ:
     libs = []
     for lib_path in [s for s in os.environ['LD_LIBRARY_PATH'].split(':') if s]:

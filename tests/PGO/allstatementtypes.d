@@ -6,14 +6,14 @@
 // See boundscheck.d for boundschecking instrumenation tests.
 
 // RUN: %ldc -boundscheck=off -c -output-ll -fprofile-instr-generate="hoihoihoi" -of=%t.ll %s  \
-// RUN:   &&  FileCheck %allow-deprecated-dag-overlap %s --check-prefix=PROFGEN < %t.ll
+// RUN:   &&  FileCheck -allow-deprecated-dag-overlap %s --check-prefix=PROFGEN < %t.ll
 
 // PROFGEN-DAG: @[[FILENAME:.+]] ={{.*}} constant{{.*}} c"hoihoihoi\00"
 
 // RUN: %ldc -boundscheck=off -fprofile-instr-generate=%t.profraw -run %s  \
 // RUN:   &&  %profdata merge %t.profraw -o %t.profdata \
 // RUN:   &&  %ldc -boundscheck=off -c -output-ll -of=%t2.ll -fprofile-instr-use=%t.profdata %s \
-// RUN:   &&  FileCheck %allow-deprecated-dag-overlap %s -check-prefix=PROFUSE < %t2.ll
+// RUN:   &&  FileCheck -allow-deprecated-dag-overlap %s -check-prefix=PROFUSE < %t2.ll
 
 extern(C):  // simplify name mangling for simpler string matching
 

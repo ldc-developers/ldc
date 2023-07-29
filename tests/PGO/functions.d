@@ -6,12 +6,12 @@
 // REQUIRES: PGO_RT
 
 // RUN: %ldc -c -output-ll -fprofile-instr-generate -of=%t.ll %s  \
-// RUN:   &&  FileCheck %allow-deprecated-dag-overlap %s --check-prefix=PROFGEN < %t.ll
+// RUN:   &&  FileCheck -allow-deprecated-dag-overlap %s --check-prefix=PROFGEN < %t.ll
 
 // RUN: %ldc -fprofile-instr-generate=%t.profraw -run %s  \
 // RUN:   &&  %profdata merge %t.profraw -o %t.profdata \
 // RUN:   &&  %ldc -c -output-ll -of=%t2.ll -fprofile-instr-use=%t.profdata %s \
-// RUN:   &&  FileCheck %allow-deprecated-dag-overlap %s -check-prefix=PROFUSE < %t2.ll
+// RUN:   &&  FileCheck -allow-deprecated-dag-overlap %s -check-prefix=PROFUSE < %t2.ll
 
 // PROFGEN-DAG: @[[SMPL:__(llvm_profile_counters|profc).*simplefunction[A-Za-z0-9]*]] ={{.*}} [2 x i64] zeroinitializer
 // PROFGEN-DAG: @[[TMPL:__(llvm_profile_counters|profc).*templatefunc[A-Za-z0-9]*]] ={{.*}} [2 x i64] zeroinitializer
