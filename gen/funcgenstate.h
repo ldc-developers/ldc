@@ -202,10 +202,10 @@ public:
 
   /// Emits a call or invoke to the given callee, depending on whether there
   /// are catches/cleanups active or not.
-  LLCallBasePtr callOrInvoke(llvm::Value *callee,
-                             llvm::FunctionType *calleeType,
-                             llvm::ArrayRef<llvm::Value *> args,
-                             const char *name = "", bool isNothrow = false);
+  llvm::CallBase *callOrInvoke(llvm::Value *callee,
+                               llvm::FunctionType *calleeType,
+                               llvm::ArrayRef<llvm::Value *> args,
+                               const char *name = "", bool isNothrow = false);
 
 private:
   IRState &irs;

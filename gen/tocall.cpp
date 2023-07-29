@@ -916,8 +916,8 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   // call the function
-  LLCallBasePtr call = gIR->funcGen().callOrInvoke(callable, callableTy, args,
-                                                   "", tf->isnothrow());
+  llvm::CallBase *call = gIR->funcGen().callOrInvoke(callable, callableTy, args,
+                                                     "", tf->isnothrow());
 
   // PGO: Insert instrumentation or attach profile metadata at indirect call
   // sites.

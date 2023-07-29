@@ -60,5 +60,3 @@ using llvm::IRBuilder;
 #define LLConstantFP llvm::ConstantFP
 
 #define LLSmallVector llvm::SmallVector
-
-using LLCallBasePtr = llvm::CallBase *;

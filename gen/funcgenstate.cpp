@@ -103,10 +103,10 @@ FuncGenState::FuncGenState(IrFunction &irFunc, IRState &irs)
     : irFunc(irFunc), scopes(irs), localVariableLifetimeAnnotator(irs),
       jumpTargets(scopes), switchTargets(), irs(irs) {}
 
-LLCallBasePtr FuncGenState::callOrInvoke(llvm::Value *callee,
-                                         llvm::FunctionType *calleeType,
-                                         llvm::ArrayRef<llvm::Value *> args,
-                                         const char *name, bool isNothrow) {
+llvm::CallBase *FuncGenState::callOrInvoke(llvm::Value *callee,
+                                           llvm::FunctionType *calleeType,
+                                           llvm::ArrayRef<llvm::Value *> args,
+                                           const char *name, bool isNothrow) {
   // If this is a direct call, we might be able to use the callee attributes
   // to our advantage.
   llvm::Function *calleeFn = llvm::dyn_cast<llvm::Function>(callee);
