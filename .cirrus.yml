@@ -27,7 +27,7 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
       -DINCLUDE_INSTALL_DIR=$installDir/import \
       -DLDC_LINK_MANUALLY=OFF \
       "${extraFlags[@]}"
-    ninja -j$PARALLELISM all ldc2-unittest all-test-runners
+    ninja -j$PARALLELISM obj/ldc2.o all ldc2-unittest all-test-runners
     bin/ldc2 -version
   always:
     run_compiler_unittests_script: |
@@ -194,6 +194,13 @@ install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
       zlib1g-dev $libcurl_pkg curl gdb python3 python3-pip tzdata unzip zip \
       $EXTRA_APT_PACKAGES
     python3 --version
+    # Download & extract custom Ninja on x86_64
+    if [[ "$CI_ARCH" == "x86_64" ]]; then
+      curl -fL --retry 3 --max-time 60 -O https://github.com/symmetryinvestments/ninja/releases/download/v1.11.1-sym1/ninja-linux.zip
+      mkdir ninja
+      unzip ninja-linux.zip -d ninja
+      rm ninja-linux.zip
+    fi
     # Download & extract host LDC
     curl -fL --retry 3 --max-time 300 -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-$CI_ARCH.tar.xz
     mkdir host-ldc
@@ -212,7 +219,7 @@ install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
     tar -xf cmake.tar.gz --strip 3 -C cmake
     rm cmake.tar.gz
     # Download & extract Ninja
-    curl -fL --retry 3 --max-time 60 -O https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-mac.zip
+    curl -fL --retry 3 --max-time 60 -O https://github.com/symmetryinvestments/ninja/releases/download/v1.11.1-sym1/ninja-mac.zip
     mkdir ninja
     tar -xf ninja-mac.zip -C ninja
     rm ninja-mac.zip
@@ -253,6 +260,7 @@ task:
     EXTRA_APT_PACKAGES: "llvm-dev libclang-common-10-dev"
     EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON"
     PARALLELISM: 8
+    PATH: ${CIRRUS_WORKING_DIR}/../ninja:${PATH}
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
   << : *COMMON_STEPS_TEMPLATE
 
@@ -271,6 +279,7 @@ task:
     EXTRA_APT_PACKAGES: "gdmd llvm-dev libclang-common-15-dev"
     EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
     PARALLELISM: 8
+    PATH: ${CIRRUS_WORKING_DIR}/../ninja:${PATH}
     # for gdmd:
     LANG: C.UTF-8
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
@@ -290,6 +299,7 @@ task:
     EXTRA_APT_PACKAGES: "llvm-dev libclang-common-10-dev"
     EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
     PARALLELISM: 8
+    PATH: ${CIRRUS_WORKING_DIR}/../ninja:${PATH}
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
   << : *COMMON_STEPS_TEMPLATE
 
@@ -390,7 +400,7 @@ task:
       -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
       -DBUILD_SHARED_LIBS=OFF \
       -DBUILD_LTO_LIBS=ON
-    ninja -j$PARALLELISM
+    ninja -j$PARALLELISM obj/ldc2.o all
     bin/ldc2 -version
   << : *COMMON_STEPS_TEMPLATE
   << : *PACKAGING_STEPS_TEMPLATE
