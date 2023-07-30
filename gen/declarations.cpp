@@ -420,7 +420,7 @@ public:
         gIR->addLinkerOption(llvm::StringRef(arg));
       } else {
         if (name.endswith(".a")) {
-          global.params.linkswitches.push(arg);
+          global.params.linkswitches.push(name);
         } else {
           size_t const n = name.size() + 3;
           char *arg = static_cast<char *>(mem.xmalloc(n));
