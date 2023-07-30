@@ -102,33 +102,8 @@ runs:
         sudo ln -sf "$(dirname "$PWD")/clang/bin/ld.lld" /usr/bin/ld
         ld --version
 
-    - name: Install ninja # into ../ninja
-      shell: bash
-      run: |
-        set -eux
-        cd ..
-
-        os=linux
-        if [[ '${{ runner.os }}' == Windows ]]; then
-          os=win
-        elif [[ '${{ runner.os }}' == macOS ]]; then
-          os=mac
-        fi
-
-        curl -fL --retry 3 --max-time 60 -O https://github.com/symmetryinvestments/ninja/releases/download/v1.11.1-sym1/ninja-$os.zip
-        mkdir ninja
-        unzip ninja-$os.zip -d ninja
-        rm ninja-$os.zip
-
-        ninja/ninja --version
-
-        if [[ '${{ runner.os }}' == Windows ]]; then
-          # HACK: copy to directory in PATH and hope it's early enough
-          cp ninja/ninja.exe /c/vcpkg
-          ninja --version
-        else
-          echo "PATH=$PWD/ninja:$PATH" >> $GITHUB_ENV
-        fi
+    - name: Install ninja
+      uses: symmetryinvestments/gha-setup-ninja@v1
 
     - name: Install D host compiler
       uses: dlang-community/setup-dlang@v1
