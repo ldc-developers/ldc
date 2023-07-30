@@ -121,6 +121,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DLLVM_ROOT_DIR="$PWD/llvm" \
             -DLDC_LINK_MANUALLY=OFF \
+            -DCMAKE_ADD_CUSTOM_COMMAND_DEPENDS_EXPLICIT_ONLY=ON \
             ${{ matrix.cmake_flags }}
           ninja obj/ldc2.o all ldc2-unittest all-test-runners
           bin/ldc2 --version
