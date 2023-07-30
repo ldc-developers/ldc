@@ -434,7 +434,7 @@ public:
         } else {
           arg = static_cast<char *>((mem.xmalloc(nameLen + 1)));
           memcpy(arg, name.data(), nameLen);
-          arg[nameLen - 1] = 0;
+          arg[nameLen] = 0;
         }
 
         global.params.linkswitches.push(arg);
