@@ -26,7 +26,6 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
       -DCMAKE_INSTALL_PREFIX=$installDir \
       -DINCLUDE_INSTALL_DIR=$installDir/import \
       -DLDC_LINK_MANUALLY=OFF \
-      -DCMAKE_ADD_CUSTOM_COMMAND_DEPENDS_EXPLICIT_ONLY=ON \
       "${extraFlags[@]}"
     ninja -j$PARALLELISM obj/ldc2.o all ldc2-unittest all-test-runners
     bin/ldc2 -version
@@ -406,8 +405,7 @@ task:
       -DLLVM_ROOT_DIR=$PWD/../llvm \
       -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
       -DBUILD_SHARED_LIBS=OFF \
-      -DBUILD_LTO_LIBS=ON \
-      -DCMAKE_ADD_CUSTOM_COMMAND_DEPENDS_EXPLICIT_ONLY=ON
+      -DBUILD_LTO_LIBS=ON
     ninja -j$PARALLELISM obj/ldc2.o all
     bin/ldc2 -version
   << : *COMMON_STEPS_TEMPLATE
