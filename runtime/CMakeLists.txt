@@ -335,6 +335,7 @@ if(TARGET gen_gccbuiltins)
     add_custom_command(
         OUTPUT ${module}
         COMMAND gen_gccbuiltins ${module} "${name}"
+        DEPENDS gen_gccbuiltins
     )
   endfunction()
 

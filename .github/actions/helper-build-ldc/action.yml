@@ -15,7 +15,7 @@ inputs:
     default: ''
   build_targets:
     required: false
-    default: '' # all
+    default: 'all'
   arch:
     required: false # Windows only
 runs:
@@ -39,7 +39,7 @@ runs:
           ${{ inputs.specify_install_dir == 'true' && '-DINCLUDE_INSTALL_DIR="$installDir/import"' || '' }} \
           ${{ inputs.cmake_flags }}
 
-        ninja ${{ inputs.build_targets }}
+        ninja obj/ldc2.o ${{ inputs.build_targets }}
 
     # Windows: invoke CMake & ninja in MSVC env
     - if: runner.os == 'Windows'
@@ -62,4 +62,4 @@ runs:
           ${{ inputs.cmake_flags }}
         if %errorlevel% neq 0 exit /b %errorlevel%
 
-        ninja ${{ inputs.build_targets }} || exit /b
+        ninja obj/ldc2.obj ${{ inputs.build_targets }} || exit /b
