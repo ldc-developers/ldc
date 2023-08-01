@@ -164,7 +164,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
 
       IF_LOG Logger::cout() << "merged IR value: " << *val << '\n';
       gIR->ir->CreateAlignedStore(val, DtoBitCast(ptr, getPtrToType(intType)),
-                                  LLMaybeAlign(1));
+                                  llvm::MaybeAlign(1));
       offset += group.sizeInBytes;
 
       i += group.bitFields.size() - 1; // skip the other bit fields of the group
@@ -2723,10 +2723,8 @@ public:
       if (auto llConstant = isaConstant(llElement)) {
 #if LDC_LLVM_VER >= 1200
         const auto elementCount = llvm::ElementCount::getFixed(N);
-#elif LDC_LLVM_VER >= 1100
-        const auto elementCount = llvm::ElementCount(N, false);
 #else
-        const auto elementCount = N;
+        const auto elementCount = llvm::ElementCount(N, false);
 #endif
         auto vectorConstant =
             llvm::ConstantVector::getSplat(elementCount, llConstant);

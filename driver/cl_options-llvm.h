@@ -38,8 +38,6 @@ InitTargetOptionsFromCodeGenFlags(const llvm::Triple &triple);
 
 std::string getCPUStr();
 std::string getFeaturesStr();
-#if LDC_LLVM_VER >= 1000
 void setFunctionAttributes(llvm::StringRef cpu, llvm::StringRef features,
                            llvm::Function &function);
-#endif
 }

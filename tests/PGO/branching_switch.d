@@ -3,12 +3,12 @@
 // REQUIRES: PGO_RT
 
 // RUN: %ldc -c -output-ll -fprofile-instr-generate -of=%t.ll %s  \
-// RUN:   &&  FileCheck %allow-deprecated-dag-overlap %s --check-prefix=PROFGEN < %t.ll
+// RUN:   &&  FileCheck -allow-deprecated-dag-overlap %s --check-prefix=PROFGEN < %t.ll
 
 // RUN: %ldc -fprofile-instr-generate=%t.profraw -run %s  \
 // RUN:   &&  %profdata merge %t.profraw -o %t.profdata \
 // RUN:   &&  %ldc -boundscheck=off -c -output-ll -of=%t2.ll -fprofile-instr-use=%t.profdata %s \
-// RUN:   &&  FileCheck %allow-deprecated-dag-overlap %s -check-prefix=PROFUSE < %t2.ll
+// RUN:   &&  FileCheck -allow-deprecated-dag-overlap %s -check-prefix=PROFUSE < %t2.ll
 
 extern(C):  // simplify name mangling for simpler string matching
 

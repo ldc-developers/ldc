@@ -180,7 +180,7 @@ DBitFieldLValue::DBitFieldLValue(Type *t, LLValue *ptr, BitFieldDeclaration *bf)
 DRValue *DBitFieldLValue::getRVal() {
   const auto sizeInBits = intType->getBitWidth();
   const auto ptr = DtoBitCast(val, getPtrToType(intType));
-  LLValue *v = gIR->ir->CreateAlignedLoad(intType, ptr, LLMaybeAlign(1));
+  LLValue *v = gIR->ir->CreateAlignedLoad(intType, ptr, llvm::MaybeAlign(1));
 
   if (bf->type->isunsigned()) {
     if (auto n = bf->bitOffset)
@@ -208,7 +208,8 @@ void DBitFieldLValue::store(LLValue *value) {
 
   const auto mask =
       llvm::APInt::getLowBitsSet(intType->getBitWidth(), bf->fieldWidth);
-  const auto oldVal = gIR->ir->CreateAlignedLoad(intType, ptr, LLMaybeAlign(1));
+  const auto oldVal =
+      gIR->ir->CreateAlignedLoad(intType, ptr, llvm::MaybeAlign(1));
   const auto maskedOldVal =
       gIR->ir->CreateAnd(oldVal, ~(mask << bf->bitOffset));
 
@@ -218,7 +219,7 @@ void DBitFieldLValue::store(LLValue *value) {
     bfVal = gIR->ir->CreateShl(bfVal, n);
 
   const auto newVal = gIR->ir->CreateOr(maskedOldVal, bfVal);
-  gIR->ir->CreateAlignedStore(newVal, ptr, LLMaybeAlign(1));
+  gIR->ir->CreateAlignedStore(newVal, ptr, llvm::MaybeAlign(1));
 }
 
 DDcomputeLValue::DDcomputeLValue(Type *t, llvm::Type * llt, LLValue *v) : DLValue(t, v) {

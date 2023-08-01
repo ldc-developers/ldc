@@ -266,7 +266,7 @@ struct X86TargetABI : TargetABI {
 #else
           // Keep alignment for LLVM 13+, to prevent invalid `movaps` etc.,
           // but limit to 4 (required according to runnable/ldc_cabi1.d).
-          auto align4 = LLAlign(4);
+          auto align4 = llvm::Align(4);
           if (arg->attrs.getAlignment().
 #if LDC_LLVM_VER >= 1500
               value_or

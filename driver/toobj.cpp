@@ -45,13 +45,7 @@
 #include <cstddef>
 #include <fstream>
 
-#if LDC_LLVM_VER < 1000
-using CodeGenFileType = llvm::TargetMachine::CodeGenFileType;
-constexpr CodeGenFileType CGFT_AssemblyFile = llvm::TargetMachine::CGFT_AssemblyFile;
-constexpr CodeGenFileType CGFT_ObjectFile = llvm::TargetMachine::CGFT_ObjectFile;
-#else
 using CodeGenFileType = llvm::CodeGenFileType;
-#endif
 
 static llvm::cl::opt<bool>
     NoIntegratedAssembler("no-integrated-as", llvm::cl::ZeroOrMore,

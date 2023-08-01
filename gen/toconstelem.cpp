@@ -443,7 +443,7 @@ public:
       auto globalVar = new llvm::GlobalVariable(
           p->module, DtoType(se->type), false,
           llvm::GlobalValue::InternalLinkage, nullptr, ".structliteral");
-      globalVar->setAlignment(LLMaybeAlign(DtoAlignment(se->type)));
+      globalVar->setAlignment(llvm::MaybeAlign(DtoAlignment(se->type)));
 
       p->setStructLiteralConstant(se, globalVar);
       llvm::Constant *constValue = toConstElem(se, p);
@@ -708,10 +708,8 @@ public:
       //        constructed.
 #if LDC_LLVM_VER >= 1200
       const auto elementCount = llvm::ElementCount::getFixed(elemCount);
-#elif LDC_LLVM_VER >= 1100
-      const auto elementCount = llvm::ElementCount(elemCount, false);
 #else
-      const auto elementCount = elemCount;
+      const auto elementCount = llvm::ElementCount(elemCount, false);
 #endif
       result = llvm::ConstantVector::getSplat(
           elementCount, toConstElem(e->e1->optimize(WANTvalue), p));

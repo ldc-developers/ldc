@@ -28,11 +28,7 @@
 #if LDC_LLVM_VER >= 1400
 #include "llvm/IR/DiagnosticInfo.h"
 #endif
-#if LDC_LLVM_VER >= 1100
 #include "llvm/IR/LLVMRemarkStreamer.h"
-#else
-#include "llvm/IR/RemarkStreamer.h"
-#endif
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/ToolOutputFile.h"
@@ -66,13 +62,8 @@ createAndSetDiagnosticsOutputFile(IRState &irs, llvm::LLVMContext &ctx,
     // If there is instrumentation data available, also output function hotness
     const bool withHotness = opts::isUsingPGOProfile();
 
-    auto remarksFileOrError =
-#if LDC_LLVM_VER >= 1100
-        llvm::setupLLVMOptimizationRemarks(
-#else
-        llvm::setupOptimizationRemarks(
-#endif
-            ctx, diagnosticsFilename, "", "", withHotness);
+    auto remarksFileOrError = llvm::setupLLVMOptimizationRemarks(
+        ctx, diagnosticsFilename, "", "", withHotness);
     if (llvm::Error e = remarksFileOrError.takeError()) {
       irs.dmodule->error("Could not create file %s: %s",
                          diagnosticsFilename.c_str(),

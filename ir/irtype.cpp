@@ -199,12 +199,8 @@ IrTypeVector *IrTypeVector::get(Type *dt) {
   // Could have already built the type as part of a struct forward reference,
   // just as for pointers and arrays.
   if (!ctype) {
-    LLType *lt = llvm::VectorType::get(elemType, tsa->dim->toUInteger()
-#if LDC_LLVM_VER >= 1100
-                                                     ,
-                                       /*Scalable=*/false
-#endif
-    );
+    LLType *lt = llvm::VectorType::get(elemType, tsa->dim->toUInteger(),
+                                       /*Scalable=*/false);
     ctype = new IrTypeVector(dt, lt);
   }
 

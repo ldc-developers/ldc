@@ -115,7 +115,7 @@ jobs:
     environment:
       - PARALLELISM: 4
       - CI_OS: linux
-      - EXTRA_APT_PACKAGES: llvm-dev libclang-common-10-dev
+      - EXTRA_APT_PACKAGES: llvm-11-dev libclang-common-11-dev
       - HOST_LDC_VERSION: 1.24.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON"
   Ubuntu-20.04-sharedLibsOnly-gdmd:
@@ -126,7 +126,7 @@ jobs:
     environment:
       - PARALLELISM: 4
       - CI_OS: linux
-      - EXTRA_APT_PACKAGES: gdmd llvm-dev libclang-common-10-dev
+      - EXTRA_APT_PACKAGES: gdmd llvm-11-dev libclang-common-11-dev
       - HOST_LDC_VERSION: 1.24.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
   macOS-x64:

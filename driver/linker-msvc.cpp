@@ -276,10 +276,8 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
                                          ,
                                          canExitEarly
 #endif
-#if LDC_LLVM_VER >= 1000
                                          ,
                                          llvm::outs(), llvm::errs()
-#endif
 #if LDC_LLVM_VER >= 1400
                                                            ,
                                          canExitEarly, false

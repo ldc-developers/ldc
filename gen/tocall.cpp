@@ -415,7 +415,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     llvm::StoreInst *ret = p->ir->CreateStore(val, ptr);
     ret->setAtomic(llvm::AtomicOrdering(atomicOrdering));
     if (auto alignment = getTypeAllocSize(val->getType())) {
-      ret->setAlignment(LLAlign(alignment));
+      ret->setAlignment(llvm::Align(alignment));
     }
     return true;
   }
@@ -449,7 +449,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
     llvm::LoadInst *load = p->ir->CreateLoad(loadedType, ptr);
     if (auto alignment = getTypeAllocSize(loadedType)) {
-      load->setAlignment(LLAlign(alignment));
+      load->setAlignment(llvm::Align(alignment));
     }
     load->setAtomic(llvm::AtomicOrdering(atomicOrdering));
     llvm::Value *val = load;
@@ -916,8 +916,8 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   // call the function
-  LLCallBasePtr call = gIR->funcGen().callOrInvoke(callable, callableTy, args,
-                                                   "", tf->isnothrow());
+  llvm::CallBase *call = gIR->funcGen().callOrInvoke(callable, callableTy, args,
+                                                     "", tf->isnothrow());
 
   // PGO: Insert instrumentation or attach profile metadata at indirect call
   // sites.

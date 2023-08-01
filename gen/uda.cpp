@@ -17,15 +17,6 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 
-#if LDC_LLVM_VER < 1100
-namespace llvm {
-// Auto-generate:
-// Attribute::AttrKind getAttrKindFromName(StringRef AttrName) { ... }
-#define GET_ATTR_KIND_FROM_NAME
-#include "llvm/IR/Attributes.inc"
-}
-#endif
-
 namespace {
 
 /// Checks whether `moduleDecl` is in the ldc package and it's identifier is
@@ -238,11 +229,7 @@ void applyAttrLLVMAttr(StructLiteralExp *sle, llvm::AttrBuilder &attrs) {
   llvm::StringRef key = getStringElem(sle, 0);
   llvm::StringRef value = getStringElem(sle, 1);
   if (value.empty()) {
-#if LDC_LLVM_VER >= 1100
     const auto kind = llvm::Attribute::getAttrKindFromName(key);
-#else
-    const auto kind = llvm::getAttrKindFromName(key);
-#endif
     if (kind != llvm::Attribute::None) {
       attrs.addAttribute(kind);
     } else {
@@ -423,9 +410,7 @@ bool parseCallingConvention(llvm::StringRef name,
           .Case("ccc", llvm::CallingConv::C)
           .Case("fastcc", llvm::CallingConv::Fast)
           .Case("coldcc", llvm::CallingConv::Cold)
-#if LDC_LLVM_VER >= 1000
           .Case("cfguard_checkcc", llvm::CallingConv::CFGuard_Check)
-#endif
           .Case("x86_stdcallcc", llvm::CallingConv::X86_StdCall)
           .Case("x86_fastcallcc", llvm::CallingConv::X86_FastCall)
           .Case("x86_regcallcc", llvm::CallingConv::X86_RegCall)
@@ -435,10 +420,8 @@ bool parseCallingConvention(llvm::StringRef name,
           .Case("arm_aapcscc", llvm::CallingConv::ARM_AAPCS)
           .Case("arm_aapcs_vfpcc", llvm::CallingConv::ARM_AAPCS_VFP)
           .Case("aarch64_vector_pcs", llvm::CallingConv::AArch64_VectorCall)
-#if LDC_LLVM_VER >= 1000
           .Case("aarch64_sve_vector_pcs",
                 llvm::CallingConv::AArch64_SVE_VectorCall)
-#endif
           .Case("msp430_intrcc", llvm::CallingConv::MSP430_INTR)
           .Case("avr_intrcc", llvm::CallingConv::AVR_INTR)
           .Case("avr_signalcc", llvm::CallingConv::AVR_SIGNAL)
@@ -473,9 +456,7 @@ bool parseCallingConvention(llvm::StringRef name,
           .Case("amdgpu_ps", llvm::CallingConv::AMDGPU_PS)
           .Case("amdgpu_cs", llvm::CallingConv::AMDGPU_CS)
           .Case("amdgpu_kernel", llvm::CallingConv::AMDGPU_KERNEL)
-#if LDC_LLVM_VER >= 1000
           .Case("tailcc", llvm::CallingConv::Tail)
-#endif
 
           .Case("default", llvm::CallingConv::MaxID - 1)
           .Default(llvm::CallingConv::MaxID);
