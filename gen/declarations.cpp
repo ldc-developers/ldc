@@ -419,12 +419,24 @@ public:
         std::string arg = ("/DEFAULTLIB:\"" + name + "\"").str();
         gIR->addLinkerOption(llvm::StringRef(arg));
       } else {
-        size_t const n = name.size() + 3;
-        char *arg = static_cast<char *>(mem.xmalloc(n));
-        arg[0] = '-';
-        arg[1] = 'l';
-        memcpy(arg + 2, name.data(), name.size());
-        arg[n - 1] = 0;
+        bool isStaticLib = name.endswith(".a");
+
+        size_t const nameLen = name.size();
+        size_t const n = nameLen + 3;
+        char *arg = nullptr;
+
+        if (isStaticLib == false) {
+          arg = static_cast<char *>(mem.xmalloc(n));
+          arg[0] = '-';
+          arg[1] = 'l';
+          memcpy(arg + 2, name.data(), name.size());
+          arg[n - 1] = 0;
+        } else {
+          arg = static_cast<char *>((mem.xmalloc(nameLen + 1)));
+          memcpy(arg, name.data(), nameLen);
+          arg[nameLen] = 0;
+        }
+
         global.params.linkswitches.push(arg);
 
         if (triple.isOSBinFormatMachO()) {
