@@ -666,6 +666,8 @@ if(LDC_ENABLE_PLUGINS)
                 append("-disable-linker-strip-dead" DFLAGS_LDC)
             endif()
         endif()
+        message(STATUS "-- Disabling linker warnings (many warnings emitted for symbols that cannot be exported for plugin support)")
+        set(LDC_LINKERFLAG_LIST "${LDC_LINKERFLAG_LIST};-Wl,-exported_symbol;-Wl,'__*';-Wl,-w")
     elseif(UNIX)
         # For plugin support, we need to link with --export-dynamic on Unix.
         # Make sure the linker supports --export-dynamic (on Solaris it is not supported and also not needed).
