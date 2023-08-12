@@ -10,8 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CLANG_VERSION: 16.0.0
-  LLVM_VERSION: c12d3509
+  CLANG_VERSION: 15.0.6
+  LLVM_VERSION: 16.0.6
 
 jobs:
   build-native:
