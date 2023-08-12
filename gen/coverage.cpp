@@ -44,16 +44,17 @@ void emitCoverageLinecountInc(const Loc &loc) {
     // Do an atomic increment, so this works when multiple threads are executed.
     gIR->ir->CreateAtomicRMW(llvm::AtomicRMWInst::Add, ptr, DtoConstUint(1),
 #if LDC_LLVM_VER >= 1300
-                             LLAlign(4),
+                             llvm::Align(4),
 #endif
                              llvm::AtomicOrdering::Monotonic);
     break;
   case opts::CoverageIncrement::nonatomic: {
     // Do a non-atomic increment, user is responsible for correct results with
     // multithreaded execution
-    llvm::LoadInst *load = gIR->ir->CreateAlignedLoad(i32Type, ptr, LLAlign(4));
+    llvm::LoadInst *load =
+        gIR->ir->CreateAlignedLoad(i32Type, ptr, llvm::Align(4));
     llvm::StoreInst *store = gIR->ir->CreateAlignedStore(
-        gIR->ir->CreateAdd(load, DtoConstUint(1)), ptr, LLAlign(4));
+        gIR->ir->CreateAdd(load, DtoConstUint(1)), ptr, llvm::Align(4));
     // add !nontemporal attribute, to inform the optimizer that caching is not
     // needed
     llvm::MDNode *node = llvm::MDNode::get(
@@ -66,7 +67,7 @@ void emitCoverageLinecountInc(const Loc &loc) {
     // Do a boolean set, avoiding a memory read (blocking) and threading issues
     // at the cost of not "counting"
     llvm::StoreInst *store =
-        gIR->ir->CreateAlignedStore(DtoConstUint(1), ptr, LLAlign(4));
+        gIR->ir->CreateAlignedStore(DtoConstUint(1), ptr, llvm::Align(4));
     // add !nontemporal attribute, to inform the optimizer that caching is not
     // needed
     llvm::MDNode *node = llvm::MDNode::get(

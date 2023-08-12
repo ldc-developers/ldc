@@ -81,13 +81,13 @@ version (LDC) // note: there's a copy for importC in __builtins.di
     version (ARM)     version = ARM_Any;
     version (AArch64) version = ARM_Any;
 
-    // Define a __va_list alias if the platform uses an elaborate type, as it
+    // Define a __va_list[_tag] alias if the platform uses an elaborate type, as it
     // is referenced from implicitly generated code for D-style variadics, etc.
     // LDC does not require people to manually import core.vararg like DMD does.
     version (X86_64)
     {
         version (Win64) {} else
-        public import core.internal.vararg.sysv_x64 : __va_list;
+        alias __va_list_tag = imported!"core.internal.vararg.sysv_x64".__va_list_tag;
     }
     else version (ARM_Any)
     {
@@ -4588,12 +4588,15 @@ public import core.internal.entrypoint : _d_cmain;
 
 public import core.internal.array.appending : _d_arrayappendT;
 version (D_ProfileGC)
+{
     public import core.internal.array.appending : _d_arrayappendTTrace;
+    public import core.internal.array.concatenation : _d_arraycatnTXTrace;
+}
 public import core.internal.array.appending : _d_arrayappendcTXImpl;
 public import core.internal.array.comparison : __cmp;
 public import core.internal.array.equality : __equals;
 public import core.internal.array.casting: __ArrayCast;
-public import core.internal.array.concatenation : _d_arraycatnTXImpl;
+public import core.internal.array.concatenation : _d_arraycatnTX;
 public import core.internal.array.construction : _d_arrayctor;
 public import core.internal.array.construction : _d_arraysetctor;
 public import core.internal.array.arrayassign : _d_arrayassign_l;

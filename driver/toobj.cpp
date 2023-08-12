@@ -30,6 +30,7 @@
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -44,13 +45,7 @@
 #include <cstddef>
 #include <fstream>
 
-#if LDC_LLVM_VER < 1000
-using CodeGenFileType = llvm::TargetMachine::CodeGenFileType;
-constexpr CodeGenFileType CGFT_AssemblyFile = llvm::TargetMachine::CGFT_AssemblyFile;
-constexpr CodeGenFileType CGFT_ObjectFile = llvm::TargetMachine::CGFT_ObjectFile;
-#else
 using CodeGenFileType = llvm::CodeGenFileType;
-#endif
 
 static llvm::cl::opt<bool>
     NoIntegratedAssembler("no-integrated-as", llvm::cl::ZeroOrMore,
@@ -93,7 +88,7 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
   }
 
   std::error_code errinfo;
-  llvm::raw_fd_ostream out(filename, errinfo, llvm::sys::fs::OF_None);
+  llvm::ToolOutputFile out(filename, errinfo, llvm::sys::fs::OF_None);
   if (errinfo) {
     error(Loc(), "cannot write file '%s': %s", filename,
           errinfo.message().c_str());
@@ -119,8 +114,8 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 
   if (Target.addPassesToEmitFile(
           Passes,
-          out,     // Output file
-          nullptr, // DWO output file
+          out.os(), // Output file
+          nullptr,  // DWO output file
           // Always generate assembly for ptx as it is an assembly format
           // The PTX backend fails if we pass anything else.
           (cb == ComputeBackend::NVPTX) ? CGFT_AssemblyFile : fileType,
@@ -129,6 +124,14 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
   }
 
   Passes.run(m);
+
+  // Terminate upon errors during the LLVM passes.
+  if (global.errors || global.warnings) {
+    Logger::println("Aborting because of errors/warnings during LLVM passes");
+    fatal();
+  }
+
+  out.keep();
 }
 
 }
@@ -145,7 +148,7 @@ static void assemble(const std::string &asmpath, const std::string &objpath) {
   appendTargetArgsForGcc(args);
 
   // Run the compiler to assembly the program.
-  int R = executeToolAndWait(getGcc(), args, global.params.verbose);
+  int R = executeToolAndWait(Loc(), getGcc(), args, global.params.verbose);
   if (R) {
     error(Loc(), "Error while invoking external assembler.");
     fatal();
@@ -349,6 +352,15 @@ void writeModule(llvm::Module *m, const char *filename) {
     runDLLImportRelocationPass(*gTargetMachine, *m);
   }
 
+  // Check if there are any errors before writing files.
+  // Note: LLVM passes can add new warnings/errors (warnings become errors with
+  // `-w`) such that we reach here with errors that did not trigger earlier
+  // termination of the compiler.
+  if (global.errors) {
+    Logger::println("Aborting because of errors");
+    fatal();
+  }
+
   // Everything beyond this point is writing file(s) to disk.
   ::TimeTraceScope timeScope("Write file(s)", filename);
 
@@ -371,8 +383,8 @@ void writeModule(llvm::Module *m, const char *filename) {
                              : replaceExtensionWith(bc_ext, filename);
     Logger::println("Writing LLVM bitcode to: %s\n", bcpath.c_str());
     std::error_code errinfo;
-    llvm::raw_fd_ostream bos(bcpath.c_str(), errinfo, llvm::sys::fs::OF_None);
-    if (bos.has_error()) {
+    llvm::ToolOutputFile bos(bcpath.c_str(), errinfo, llvm::sys::fs::OF_None);
+    if (bos.os().has_error()) {
       error(Loc(), "cannot write LLVM bitcode file '%s': %s", bcpath.c_str(),
             errinfo.message().c_str());
       fatal();
@@ -390,11 +402,20 @@ void writeModule(llvm::Module *m, const char *filename) {
       auto moduleSummaryIndex = buildModuleSummaryIndex(
           *m, /* function freq callback */ nullptr, &PSI);
 
-      llvm::WriteBitcodeToFile(M, bos, true, &moduleSummaryIndex,
+      llvm::WriteBitcodeToFile(M, bos.os(), true, &moduleSummaryIndex,
                                /* generate ThinLTO hash */ true);
     } else {
-      llvm::WriteBitcodeToFile(M, bos);
+      llvm::WriteBitcodeToFile(M, bos.os());
     }
+
+    // Terminate upon errors during the LLVM passes.
+    if (global.errors || global.warnings) {
+      Logger::println(
+          "Aborting because of errors/warnings during bitcode LLVM passes");
+      fatal();
+    }
+
+    bos.keep();
   }
 
   // write LLVM IR
@@ -402,14 +423,22 @@ void writeModule(llvm::Module *m, const char *filename) {
     const auto llpath = replaceExtensionWith(ll_ext, filename);
     Logger::println("Writing LLVM IR to: %s\n", llpath.c_str());
     std::error_code errinfo;
-    llvm::raw_fd_ostream aos(llpath.c_str(), errinfo, llvm::sys::fs::OF_None);
-    if (aos.has_error()) {
+    llvm::ToolOutputFile aos(llpath.c_str(), errinfo, llvm::sys::fs::OF_None);
+    if (aos.os().has_error()) {
       error(Loc(), "cannot write LLVM IR file '%s': %s", llpath.c_str(),
             errinfo.message().c_str());
       fatal();
     }
     AssemblyAnnotator annotator(m->getDataLayout());
-    m->print(aos, &annotator);
+    m->print(aos.os(), &annotator);
+
+    // Terminate upon errors during the LLVM passes.
+    if (global.errors || global.warnings) {
+      Logger::println("Aborting because of errors/warnings during LLVM passes");
+      fatal();
+    }
+
+    aos.keep();
   }
 
   const bool writeObj = outputObj && !emitBitcodeAsObjectFile;

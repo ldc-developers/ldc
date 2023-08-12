@@ -36,12 +36,8 @@ struct LLTypeMemoryLayout {
       const size_t sizeInBits = getTypeBitSize(type);
       assert(sizeInBits % 8 == 0);
       return llvm::VectorType::get(LLIntegerType::get(gIR->context(), 8),
-                                   sizeInBits / 8
-#if LDC_LLVM_VER >= 1100
-                                   ,
-                                   /*Scalable=*/false
-#endif
-      );
+                                   sizeInBits / 8,
+                                   /*Scalable=*/false);
     }
 
     if (LLStructType *structType = isaStruct(type)) {

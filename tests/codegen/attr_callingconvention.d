@@ -59,15 +59,15 @@ void fooinvokesexternCfoofoofoo()
 //////////////////////////////////////////////////////////
 /// Forward-declared function calls and invokes:
 
-// CHECK-LABEL: declare x86_vectorcallcc void @{{.*}}forward_declared_function
-@callingConvention("vectorcall") void forward_declared_function();
-
 // CHECK-LABEL: define{{.*}} @{{.*}}attr_callingconvention34foocalls_forward_declared_function
 void foocalls_forward_declared_function()
 {
   // CHECK: call x86_vectorcallcc void @{{.*}}attr_callingconvention25forward_declared_function
   forward_declared_function();
 }
+
+// CHECK-LABEL: declare x86_vectorcallcc void @{{.*}}forward_declared_function
+@callingConvention("vectorcall") void forward_declared_function();
 
 // CHECK-LABEL: define{{.*}} @{{.*}}attr_callingconvention36fooinvokes_forward_declared_function
 void fooinvokes_forward_declared_function()

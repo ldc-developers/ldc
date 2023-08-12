@@ -234,7 +234,9 @@ Where:\n\
 #if 0
 "  -os=<os>          sets target operating system to <os>\n"
 #endif
-"  -preview=<name>   enable an upcoming language change identified by 'name'\n\
+"  -P=<preprocessorflag>\n\
+                    pass preprocessorflag to C preprocessor\n\
+  -preview=<name>   enable an upcoming language change identified by 'name'\n\
   -preview=[h|help|?]\n\
                     list all upcoming language changes\n\
   -profile          profile runtime performance of generated code\n"
@@ -510,11 +512,7 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
       } else if (strcmp(p + 1, "gf") == 0) {
         ldcArgs.push_back("-g");
       } else if (strcmp(p + 1, "gs") == 0) {
-#if LDC_LLVM_VER >= 1100
         ldcArgs.push_back("-frame-pointer=all");
-#else
-        ldcArgs.push_back("-disable-fp-elim");
-#endif
       } else if (strcmp(p + 1, "gx") == 0) {
         goto Lnot_in_ldc;
       } else if (strcmp(p + 1, "gt") == 0) {
@@ -707,6 +705,7 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         exit(EXIT_SUCCESS);
       }
       /* -L
+       * -P
        * -defaultlib
        * -debuglib
        * -deps

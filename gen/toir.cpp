@@ -164,7 +164,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
 
       IF_LOG Logger::cout() << "merged IR value: " << *val << '\n';
       gIR->ir->CreateAlignedStore(val, DtoBitCast(ptr, getPtrToType(intType)),
-                                  LLMaybeAlign(1));
+                                  llvm::MaybeAlign(1));
       offset += group.sizeInBytes;
 
       i += group.bitFields.size() - 1; // skip the other bit fields of the group
@@ -456,23 +456,20 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
+  void visit(LoweredAssignExp *e) override {
+    IF_LOG Logger::print("LoweredAssignExp::toElem: %s @ %s\n", e->toChars(),
+                         e->type->toChars());
+    LOG_SCOPE;
+
+    result = toElem(e->lowering);
+  }
+
   void visit(AssignExp *e) override {
     IF_LOG Logger::print("AssignExp::toElem: %s | (%s)(%s = %s)\n",
                          e->toChars(), e->type->toChars(),
                          e->e1->type->toChars(),
                          e->e2->type ? e->e2->type->toChars() : nullptr);
     LOG_SCOPE;
-
-    if (auto ale = e->e1->isArrayLengthExp()) {
-      Logger::println("performing array.length assignment");
-      DLValue arrval(ale->e1->type, DtoLVal(ale->e1));
-      DValue *newlen = toElem(e->e2);
-      DSliceValue *slice =
-          DtoResizeDynArray(e->loc, arrval.type, &arrval, DtoRVal(newlen));
-      DtoStore(DtoRVal(slice), DtoLVal(&arrval));
-      result = newlen;
-      return;
-    }
 
     // Initialization of ref variable?
     // Can't just override ConstructExp::toElem because not all EXP::construct
@@ -1196,8 +1193,8 @@ public:
       p->arrays.pop_back();
 
       const bool hasLength = etype->ty != TY::Tpointer;
-      const bool needCheckUpper = hasLength && !e->upperIsInBounds;
-      const bool needCheckLower = !e->lowerIsLessThanUpper;
+      const bool needCheckUpper = hasLength && !e->upperIsInBounds();
+      const bool needCheckLower = !e->lowerIsLessThanUpper();
       if (p->emitArrayBoundsChecks() && (needCheckUpper || needCheckLower)) {
         llvm::BasicBlock *okbb = p->insertBB("bounds.ok");
         llvm::BasicBlock *failbb = p->insertBBAfter(okbb, "bounds.fail");
@@ -2161,6 +2158,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    // TODO: still required?
     if (global.params.betterC) {
       error(
           e->loc,
@@ -2172,7 +2170,12 @@ public:
       return;
     }
 
-    result = DtoCatArrays(e->loc, e->type, e->e1, e->e2);
+    if (e->lowering) {
+      result = toElem(e->lowering);
+      return;
+    }
+
+    llvm_unreachable("CatExp should have been lowered");
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2720,10 +2723,8 @@ public:
       if (auto llConstant = isaConstant(llElement)) {
 #if LDC_LLVM_VER >= 1200
         const auto elementCount = llvm::ElementCount::getFixed(N);
-#elif LDC_LLVM_VER >= 1100
-        const auto elementCount = llvm::ElementCount(N, false);
 #else
-        const auto elementCount = N;
+        const auto elementCount = llvm::ElementCount(N, false);
 #endif
         auto vectorConstant =
             llvm::ConstantVector::getSplat(elementCount, llConstant);

@@ -73,8 +73,6 @@ static void checkForImplicitGCCall(const Loc &loc, const char *name) {
         "_d_arrayappendcTX",
         "_d_arrayappendcd",
         "_d_arrayappendwd",
-        "_d_arraycatT",
-        "_d_arraycatnTX",
         "_d_arraysetlengthT",
         "_d_arraysetlengthiT",
         "_d_assocarrayliteralTX",
@@ -606,24 +604,10 @@ static void buildRuntimeModule() {
   createFwdDecl(LINK::c, voidArrayTy, {"_d_newarraymTX", "_d_newarraymiTX"},
                 {typeInfoTy, sizeTy->arrayOf()}, {STCconst, 0});
 
-  // void[] _d_arraysetlengthT (const TypeInfo ti, size_t newlength, void[]* p)
-  // void[] _d_arraysetlengthiT(const TypeInfo ti, size_t newlength, void[]* p)
-  createFwdDecl(LINK::c, voidArrayTy,
-                {"_d_arraysetlengthT", "_d_arraysetlengthiT"},
-                {typeInfoTy, sizeTy, voidArrayPtrTy}, {STCconst, 0, 0});
-
   // void[] _d_arrayappendcd(ref byte[] x, dchar c)
   // void[] _d_arrayappendwd(ref byte[] x, dchar c)
   createFwdDecl(LINK::c, voidArrayTy, {"_d_arrayappendcd", "_d_arrayappendwd"},
                 {voidArrayTy, dcharTy}, {STCref, 0});
-
-  // byte[] _d_arraycatT(const TypeInfo ti, byte[] x, byte[] y)
-  createFwdDecl(LINK::c, voidArrayTy, {"_d_arraycatT"},
-                {typeInfoTy, voidArrayTy, voidArrayTy}, {STCconst, 0, 0});
-
-  // void[] _d_arraycatnTX(const TypeInfo ti, byte[][] arrs)
-  createFwdDecl(LINK::c, voidArrayTy, {"_d_arraycatnTX"},
-                {typeInfoTy, voidArrayTy->arrayOf()}, {STCconst, 0});
 
   // Object _d_newclass(const ClassInfo ci)
   // Object _d_allocclass(const ClassInfo ci)

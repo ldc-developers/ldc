@@ -145,4 +145,4 @@ runs:
           ${{ inputs.cmake_flags }}
           ${{ inputs.with_pgo == 'true' && '-DDFLAGS_LDC=-fprofile-use=../pgo-ldc/merged.profdata' || '' }}
           ${{ env.CROSS_CMAKE_FLAGS }}
-        build_targets: ldc2 ldmd2 ldc-build-runtime ldc-profdata ldc-prune-cache timetrace2txt
+        build_targets: ldc2 ldmd2 ldc-build-runtime ldc-build-plugin ldc-profdata ldc-prune-cache timetrace2txt

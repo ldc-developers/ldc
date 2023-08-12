@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.4.3)
 if(POLICY CMP0025)
-  cmake_policy(SET CMP0025 NEW)
+    cmake_policy(SET CMP0025 NEW)
+endif()
+if(${CMAKE_VERSION} VERSION_GREATER "3.26.9")
+    # Prevent implicit dependencies for custom commands, e.g.,
+    # `obj/ldc2.o` depending on `lib/libldc.a` with LDC_LINK_MANUALLY=ON.
+    # Only supported since CMake v3.27 unfortunately.
+    set(CMAKE_ADD_CUSTOM_COMMAND_DEPENDS_EXPLICIT_ONLY ON)
 endif()
 
 project(ldc)
@@ -28,7 +34,7 @@ endfunction()
 # Locate LLVM.
 #
 
-find_package(LLVM 9.0 REQUIRED
+find_package(LLVM 11.0 REQUIRED
     all-targets analysis asmparser asmprinter bitreader bitwriter codegen core
     debuginfodwarf debuginfomsf debuginfopdb demangle
     instcombine ipo instrumentation irreader libdriver linker lto mc
@@ -46,9 +52,9 @@ foreach(LLVM_SUPPORTED_TARGET ${LLVM_TARGETS_TO_BUILD})
     add_definitions("-DLDC_LLVM_SUPPORTED_TARGET_${LLVM_SUPPORTED_TARGET}=1")
 endforeach()
 
-# Set MLIR support variables if it is found. Only try for LLVM >= 10.0.
+# Set MLIR support variables if it is found.
 # FIXME: LLVM 14+ (`mlir::OwningModuleRef` replacement)
-if(NOT (LDC_LLVM_VER LESS 1000) AND NOT LDC_WITH_MLIR STREQUAL "OFF" AND LDC_LLVM_VER LESS 1400)
+if(NOT LDC_WITH_MLIR STREQUAL "OFF" AND LDC_LLVM_VER LESS 1400)
     include(FindMLIR)
     if(MLIR_FOUND)
         message(STATUS "-- Building LDC with MLIR support (${MLIR_ROOT_DIR})")
@@ -111,10 +117,10 @@ include(GetLinuxDistribution)
 #
 
 # Version information
-set(LDC_VERSION "1.33.0") # May be overridden by git hash tag
+set(LDC_VERSION "1.34.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
-set(DMDFE_MINOR_VERSION   103)
-set(DMDFE_PATCH_VERSION   1)
+set(DMDFE_MINOR_VERSION   104)
+set(DMDFE_PATCH_VERSION   2)
 
 set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERSION})
 
@@ -249,17 +255,6 @@ if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang"))
     endif()
 endif()
 
-if(NOT WIN32 AND NOT CYGWIN)
-    # Unify symbol visibility with LLVM to silence linker warning "direct access in function X to global
-    # weak symbol Y means the weak symbol cannot be overridden at runtime. This was likely caused by
-    # different translation units being compiled with different visibility settings."
-    # See LLVM's cmake/modules/HandleLLVMOptions.cmake.
-    check_cxx_compiler_flag("-fvisibility-inlines-hidden" SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG)
-    if (${SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG})
-        append("-fvisibility-inlines-hidden" LDC_CXXFLAGS)
-    endif()
-endif()
-
 if(MSVC)
     # Remove flags here, for exceptions and RTTI.
     # CL.EXE complains to override flags like "/GR /GR-".
@@ -378,6 +373,7 @@ set(DRV_SRC
     driver/cl_options-llvm.cpp
     driver/codegenerator.cpp
     driver/configfile.cpp
+    driver/cpreprocessor.cpp
     driver/dcomputecodegenerator.cpp
     driver/exe_path.cpp
     driver/targetmachine.cpp
@@ -603,12 +599,10 @@ if(MSVC)
     endif()
 endif()
 if(LDC_WITH_LLD)
-    if(NOT (LDC_LLVM_VER LESS 1000))
-        if(MSVC)
-            list(APPEND LDC_LINKERFLAG_LIST LLVMSymbolize.lib)
-        else()
-            set(LDC_LINKERFLAG_LIST -lLLVMSymbolize ${LDC_LINKERFLAG_LIST})
-        endif()
+    if(MSVC)
+        list(APPEND LDC_LINKERFLAG_LIST LLVMSymbolize.lib)
+    else()
+        set(LDC_LINKERFLAG_LIST -lLLVMSymbolize ${LDC_LINKERFLAG_LIST})
     endif()
     if (LDC_LLVM_VER LESS 1200 OR NOT LDC_LLVM_VER LESS 1400)
         set(LLD_MACHO lldMachO)
@@ -682,10 +676,26 @@ if(LDC_ENABLE_PLUGINS)
 
         if(LINKER_ACCEPTS_EXPORT_DYNAMIC_FLAG)
             set(LDC_LINKERFLAG_LIST "${LDC_LINKERFLAG_LIST};-Wl,--export-dynamic")
+        else()
+            message(WARNING "Linker does not accept --export-dynamic, user plugins may give missing symbol errors upon load")
         endif()
     endif()
 endif()
 message(STATUS "-- Building LDC with plugin support (LDC_ENABLE_PLUGINS): ${LDC_ENABLE_PLUGINS}")
+message(STATUS "-- Linking LDC with flags: ${ALTERNATIVE_MALLOC_O};${LDC_LINKERFLAG_LIST}")
+
+if(NOT WIN32 AND NOT CYGWIN)
+    # Unify symbol visibility with LLVM to silence linker warning "direct access in function X to global
+    # weak symbol Y means the weak symbol cannot be overridden at runtime. This was likely caused by
+    # different translation units being compiled with different visibility settings."
+    # See LLVM's cmake/modules/HandleLLVMOptions.cmake.
+    check_cxx_compiler_flag("-fvisibility-inlines-hidden" SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG)
+    if (LDC_ENABLE_PLUGINS AND NOT APPLE)
+        # For plugins, we shouldn't apply this flag because it hides the inline methods of e.g. Visitor. On macOS it's OK to add.
+    elseif (${SUPPORTS_FVISIBILITY_INLINES_HIDDEN_FLAG})
+        append("-fvisibility-inlines-hidden" LDC_CXXFLAGS)
+    endif()
+endif()
 
 build_d_executable(
     "${LDC_EXE}"

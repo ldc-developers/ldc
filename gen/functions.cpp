@@ -173,7 +173,8 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
 
   // Non-typesafe variadics (both C and D styles) are also variadics on the LLVM
   // level.
-  const bool isLLVMVariadic = (f->parameterList.varargs == VARARGvariadic);
+  const bool isLLVMVariadic = (f->parameterList.varargs == VARARGvariadic ||
+                               f->parameterList.varargs == VARARGKRvariadic);
   if (isLLVMVariadic && f->linkage == LINK::d) {
     // Add extra `_arguments` parameter for D-style variadic functions.
     newIrFty.arg_arguments =
@@ -216,9 +217,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
         // opaque struct
         if (!opts::fNullPointerIsValid)
           attrs.addAttribute(LLAttribute::NonNull);
-#if LDC_LLVM_VER >= 1100
         attrs.addAttribute(LLAttribute::NoUndef);
-#endif
       } else {
         attrs.addDereferenceableAttr(loweredDType->size());
       }
@@ -497,42 +496,11 @@ void applyTargetMachineAttributes(llvm::Function &func,
   const auto cpu = dcompute ? "" : target.getTargetCPU();
   const auto features = dcompute ? "" : target.getTargetFeatureString();
 
-#if LDC_LLVM_VER >= 1000
   opts::setFunctionAttributes(cpu, features, func);
   if (opts::fFastMath) // -ffast-math[=true] overrides -enable-unsafe-fp-math
     func.addFnAttr("unsafe-fp-math", "true");
   if (!func.hasFnAttribute("frame-pointer")) // not explicitly set by user
     func.addFnAttr("frame-pointer", isOptimizationEnabled() ? "none" : "all");
-#else
-  if (!cpu.empty())
-    func.addFnAttr("target-cpu", cpu);
-  if (!features.empty())
-    func.addFnAttr("target-features", features);
-
-  // Floating point settings
-  const auto &TO = target.Options;
-  func.addFnAttr("unsafe-fp-math", TO.UnsafeFPMath ? "true" : "false");
-  // This option was removed from llvm::TargetOptions in LLVM 5.0.
-  // Clang sets this to true when `-cl-mad-enable` is passed (OpenCL only).
-  // TODO: implement interface for this option.
-  const bool lessPreciseFPMADOption = false;
-  func.addFnAttr("less-precise-fpmad",
-                 lessPreciseFPMADOption ? "true" : "false");
-  func.addFnAttr("no-infs-fp-math", TO.NoInfsFPMath ? "true" : "false");
-  func.addFnAttr("no-nans-fp-math", TO.NoNaNsFPMath ? "true" : "false");
-
-  switch (whichFramePointersToEmit()) {
-    case llvm::FramePointer::None:
-      func.addFnAttr("frame-pointer", "none");
-      break;
-    case llvm::FramePointer::NonLeaf:
-      func.addFnAttr("frame-pointer", "non-leaf");
-      break;
-    case llvm::FramePointer::All:
-      func.addFnAttr("frame-pointer", "all");
-      break;
-  }
-#endif // LDC_LLVM_VER < 1000
 }
 
 void applyXRayAttributes(FuncDeclaration &fdecl, llvm::Function &func) {
@@ -1254,11 +1222,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
   applyXRayAttributes(*fd, *func);
   if (opts::fNullPointerIsValid) {
-#if LDC_LLVM_VER >= 1100
     func->addFnAttr(LLAttribute::NullPointerIsValid);
-#else
-    func->addFnAttr("null-pointer-is-valid", "true");
-#endif
   }
   if (opts::fSplitStack && !hasNoSplitStackUDA(fd)) {
     func->addFnAttr("split-stack");

@@ -49,9 +49,7 @@
 #include "llvm/Transforms/Scalar/LICM.h"
 #include "llvm/Transforms/Scalar/Reassociate.h"
 #endif
-#if LDC_LLVM_VER >= 1000
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
-#endif
 
 extern llvm::TargetMachine *gTargetMachine;
 using namespace llvm;
@@ -141,15 +139,6 @@ bool willCrossModuleInline() {
   return enableCrossModuleInlining == llvm::cl::BOU_TRUE && willInline();
 }
 
-#if LDC_LLVM_VER < 1000
-llvm::FramePointer::FP whichFramePointersToEmit() {
-  if (auto option = opts::framePointerUsage())
-    return *option;
-  return isOptimizationEnabled() ? llvm::FramePointer::None
-                                 : llvm::FramePointer::All;
-}
-#endif
-
 bool isOptimizationEnabled() { return optimizeLevel != 0; }
 
 llvm::CodeGenOpt::Level codeGenOptLevel() {
@@ -238,13 +227,8 @@ static void legacyAddThreadSanitizerPass(const PassManagerBuilder &Builder,
 
 static void legacyAddSanitizerCoveragePass(const PassManagerBuilder &Builder,
                                      legacy::PassManagerBase &PM) {
-#if LDC_LLVM_VER >= 1000
   PM.add(createModuleSanitizerCoverageLegacyPassPass(
       opts::getSanitizerCoverageOptions()));
-#else
-  PM.add(
-      createSanitizerCoverageModulePass(opts::getSanitizerCoverageOptions()));
-#endif
 }
 
 // Adds PGO instrumentation generation and use passes.

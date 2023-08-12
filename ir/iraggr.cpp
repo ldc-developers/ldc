@@ -87,7 +87,7 @@ LLConstant *IrAggr::getInitSymbol(bool define) {
                                  irMangle, isConstant, false, useDLLImport());
     }
 
-    initGlobal->setAlignment(LLMaybeAlign(DtoAlignment(type)));
+    initGlobal->setAlignment(llvm::MaybeAlign(DtoAlignment(type)));
 
     init = initGlobal;
 

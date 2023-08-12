@@ -114,7 +114,7 @@ void IrGlobal::declare() {
   // Set the alignment (it is important not to use type->alignsize because
   // VarDeclarations can have an align() attribute independent of the type
   // as well).
-  gvar->setAlignment(LLMaybeAlign(DtoAlignment(V)));
+  gvar->setAlignment(llvm::MaybeAlign(DtoAlignment(V)));
 
   applyVarDeclUDAs(V, gvar);
 

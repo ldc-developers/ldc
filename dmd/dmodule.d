@@ -744,7 +744,14 @@ else
         scope (exit)
         {
             if (ifile)
+            {
                 File.remove(filename.toChars());        // remove generated file
+version (IN_LLVM)
+{
+                // and the parent directory for LDC (each .i gets its own temp dir)
+                File.removeDirectory(FileName.path(filename.toChars()));
+}
+            }
         }
 
         if (global.preprocess &&
@@ -828,7 +835,7 @@ else
         {
             filetype = FileType.c;
 
-            scope p = new CParser!AST(this, buf, cast(bool) docfile, global.errorSink, target.c, &defines);
+            scope p = new CParser!AST(this, buf, cast(bool) docfile, global.errorSink, target.c, &defines, &global.compileEnv);
             p.nextToken();
             checkCompiledImport();
             members = p.parseModule();
@@ -837,7 +844,9 @@ else
         }
         else
         {
-            scope p = new Parser!AST(this, buf, cast(bool) docfile, global.errorSink);
+            const bool doUnittests = global.params.useUnitTests || global.params.ddoc.doOutput || global.params.dihdr.doOutput;
+            scope p = new Parser!AST(this, buf, cast(bool) docfile, global.errorSink, &global.compileEnv, doUnittests);
+            p.transitionIn = global.params.vin;
             p.nextToken();
             p.parseModuleDeclaration();
             md = p.md;
@@ -1290,8 +1299,7 @@ else
         return this.importedFrom == this;
     }
 
-    // true if the module source file is directly
-    // listed in command line.
+    /// Returns: Whether this module is in the `core` package and has name `ident`
     bool isCoreModule(Identifier ident) nothrow
     {
         return this.ident == ident && parent && parent.ident == Id.core && !parent.parent;
@@ -1372,6 +1380,20 @@ else
     }
 
     /****************************
+     * A Singleton that loads core.stdc.config
+     * Returns:
+     *  Module of core.stdc.config, null if couldn't find it
+     */
+    extern (D) static Module loadCoreStdcConfig()
+    {
+        __gshared Module core_stdc_config;
+        auto pkgids = new Identifier[2];
+        pkgids[0] = Id.core;
+        pkgids[1] = Id.stdc;
+        return loadModuleFromLibrary(core_stdc_config, pkgids, Id.config);
+    }
+
+    /****************************
      * A Singleton that loads core.atomic
      * Returns:
      *  Module of core.atomic, null if couldn't find it
@@ -1379,7 +1401,9 @@ else
     extern (D) static Module loadCoreAtomic()
     {
         __gshared Module core_atomic;
-        return loadModuleFromLibrary(core_atomic, Id.core, Id.atomic);
+        auto pkgids = new Identifier[1];
+        pkgids[0] = Id.core;
+        return loadModuleFromLibrary(core_atomic, pkgids, Id.atomic);
     }
 
     /****************************
@@ -1390,26 +1414,26 @@ else
     extern (D) static Module loadStdMath()
     {
         __gshared Module std_math;
-        return loadModuleFromLibrary(std_math, Id.std, Id.math);
+        auto pkgids = new Identifier[1];
+        pkgids[0] = Id.std;
+        return loadModuleFromLibrary(std_math, pkgids, Id.math);
     }
 
     /**********************************
      * Load a Module from the library.
      * Params:
      *  mod = cached return value of this call
-     *  pkgid = package id
+     *  pkgids = package identifiers
      *  modid = module id
      * Returns:
      *  Module loaded, null if cannot load it
      */
-    private static Module loadModuleFromLibrary(ref Module mod, Identifier pkgid, Identifier modid)
+    extern (D) private static Module loadModuleFromLibrary(ref Module mod, Identifier[] pkgids, Identifier modid)
     {
         if (mod)
             return mod;
 
-        auto ids = new Identifier[1];
-        ids[0] = pkgid;
-        auto imp = new Import(Loc.initial, ids[], modid, null, true);
+        auto imp = new Import(Loc.initial, pkgids[], modid, null, true);
         // Module.load will call fatal() if there's no module available.
         // Gag the error here, pushing the error handling to the caller.
         const errors = global.startGagging();

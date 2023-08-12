@@ -393,7 +393,26 @@ void registerModuleInfo(Module *m) {
     emitModuleRefToSection(mangle, moduleInfoSym);
   }
 }
+
+void addModuleFlags(llvm::Module &m) {
+#if LDC_LLVM_VER >= 1500
+  const auto ModuleMinFlag = llvm::Module::Min;
+#else
+  const auto ModuleMinFlag = llvm::Module::Warning; // Fallback value
+#endif
+
+  if (opts::fCFProtection == opts::CFProtectionType::Return ||
+      opts::fCFProtection == opts::CFProtectionType::Full) {
+    m.addModuleFlag(ModuleMinFlag, "cf-protection-return", 1);
+  }
+
+  if (opts::fCFProtection == opts::CFProtectionType::Branch ||
+      opts::fCFProtection == opts::CFProtectionType::Full) {
+    m.addModuleFlag(ModuleMinFlag, "cf-protection-branch", 1);
+  }
 }
+
+} // anonymous namespace
 
 void codegenModule(IRState *irs, Module *m) {
   TimeTraceScope timeScope("Generate IR", m->toChars(), m->loc);
@@ -433,9 +452,11 @@ void codegenModule(IRState *irs, Module *m) {
 
   // Skip emission of all the additional module metadata if:
   // a) the -betterC switch is on,
-  // b) requested explicitly by the user via pragma(LDC_no_moduleinfo), or if
-  // c) there's no ModuleInfo declaration.
-  if (global.params.useModuleInfo && !m->noModuleInfo && Module::moduleinfo) {
+  // b) requested explicitly by the user via pragma(LDC_no_moduleinfo),
+  // c) there's no ModuleInfo declaration, or if
+  // d) the module is a C file.
+  if (global.params.useModuleInfo && !m->noModuleInfo && Module::moduleinfo &&
+      m->filetype != FileType::c) {
     // generate ModuleInfo
     registerModuleInfo(m);
   }
@@ -443,6 +464,8 @@ void codegenModule(IRState *irs, Module *m) {
   if (m->d_cover_valid) {
     addCoverageAnalysisInitializer(m);
   }
+
+  addModuleFlags(irs->module);
 
   gIR = nullptr;
   irs->dmodule = nullptr;

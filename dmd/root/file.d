@@ -201,6 +201,25 @@ nothrow:
         }
     }
 
+version (IN_LLVM)
+{
+    extern (C++) static void removeDirectory(const(char)* name)
+    {
+        version (Posix)
+        {
+            .remove(name);
+        }
+        else version (Windows)
+        {
+            name.toDString.extendedPathThen!(p => RemoveDirectoryW(p.ptr));
+        }
+        else
+        {
+            static assert(0);
+        }
+    }
+}
+
     /***************************************************
      * Update file
      *

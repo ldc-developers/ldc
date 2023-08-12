@@ -1,4 +1,4 @@
-// DISABLED: LDC // FIXME: needs preprocessor for __LINE__
+// DISABLED: LDC // FIXME: needs support for importC special cases
 
 /* Test initializers */
 

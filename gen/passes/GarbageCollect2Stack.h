@@ -27,11 +27,11 @@ public:
 
   // Analyze the current call, filling in some fields. Returns true if
   // this is an allocation we can stack-allocate.
-  virtual bool analyze(LLCallBasePtr CB, const G2StackAnalysis &A) = 0;
+  virtual bool analyze(llvm::CallBase *CB, const G2StackAnalysis &A) = 0;
 
   // Returns the alloca to replace this call.
   // It will always be inserted before the call.
-  virtual llvm::Value *promote(LLCallBasePtr CB, IRBuilder<> &B, const G2StackAnalysis &A);
+  virtual llvm::Value *promote(llvm::CallBase *CB, IRBuilder<> &B, const G2StackAnalysis &A);
 
   explicit FunctionInfo(ReturnType::Type returnType) : ReturnType(returnType) {}
   virtual ~FunctionInfo() = default;
@@ -43,7 +43,7 @@ public:
   TypeInfoFI(ReturnType::Type returnType, unsigned tiArgNr)
       : FunctionInfo(returnType), TypeInfoArgNr(tiArgNr) {}
 
-  bool analyze(LLCallBasePtr CB, const G2StackAnalysis &A) override;
+  bool analyze(llvm::CallBase *CB, const G2StackAnalysis &A) override;
 };
 class ArrayFI : public TypeInfoFI {
   int ArrSizeArgNr;
@@ -56,15 +56,15 @@ public:
       : TypeInfoFI(returnType, tiArgNr), ArrSizeArgNr(arrSizeArgNr),
         Initialized(initialized) {}
 
-  bool analyze(LLCallBasePtr CB, const G2StackAnalysis &A) override;
+  bool analyze(llvm::CallBase *CB, const G2StackAnalysis &A) override;
 
-  llvm::Value *promote(LLCallBasePtr CB, IRBuilder<> &B, const G2StackAnalysis &A) override;
+  llvm::Value *promote(llvm::CallBase *CB, IRBuilder<> &B, const G2StackAnalysis &A) override;
 
 };
 // FunctionInfo for _d_allocclass
 class AllocClassFI : public FunctionInfo {
 public:
-  bool analyze(LLCallBasePtr CB, const G2StackAnalysis &A) override;
+  bool analyze(llvm::CallBase *CB, const G2StackAnalysis &A) override;
 
   // The default promote() should be fine.
 
@@ -77,9 +77,9 @@ class UntypedMemoryFI : public FunctionInfo {
   llvm::Value *SizeArg;
 
 public:
-  bool analyze(LLCallBasePtr CB, const G2StackAnalysis &A) override;
+  bool analyze(llvm::CallBase *CB, const G2StackAnalysis &A) override;
 
-  llvm::Value *promote(LLCallBasePtr CB, IRBuilder<> &B, const G2StackAnalysis &A) override;
+  llvm::Value *promote(llvm::CallBase *CB, IRBuilder<> &B, const G2StackAnalysis &A) override;
 
   explicit UntypedMemoryFI(unsigned sizeArgNr)
       : FunctionInfo(ReturnType::Pointer), SizeArgNr(sizeArgNr) {}

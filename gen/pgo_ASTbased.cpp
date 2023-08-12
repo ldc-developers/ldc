@@ -190,7 +190,7 @@ struct MapRegionCounters : public StoppableVisitor {
   void visit(ScopeStatement *) override {}
   void visit(ReturnStatement *) override {}
   void visit(StaticAssertStatement *) override {}
-  void visit(CompileStatement *) override {}
+  void visit(MixinStatement *) override {}
   void visit(ScopeGuardStatement *) override {}
   void visit(ConditionalStatement *) override {}
   void visit(StaticForeachStatement *) override {}
@@ -955,7 +955,7 @@ void CodeGenPGO::loadRegionCounts(llvm::IndexedInstrProfReader *PGOReader,
   }
 
   ProfRecord =
-      llvm::make_unique<llvm::InstrProfRecord>(std::move(RecordExpected.get()));
+      std::make_unique<llvm::InstrProfRecord>(std::move(RecordExpected.get()));
   RegionCounts = ProfRecord->Counts;
 
   IF_LOG Logger::println("Loaded profile data for function: %s",

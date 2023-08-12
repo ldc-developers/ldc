@@ -17,10 +17,12 @@ OFF = False
 config.ldc2_bin            = "@LDC2_BIN@"
 config.ldcprofdata_bin     = "@LDCPROFDATA_BIN@"
 config.ldcprunecache_bin   = "@LDCPRUNECACHE_BIN@"
+config.ldcbuildplugin_bin  = "@LDCBUILDPLUGIN_BIN@"
 config.timetrace2txt_bin   = "@TIMETRACE2TXT_BIN@"
 config.ldc2_bin_dir        = "@LDC2_BIN_DIR@"
 config.ldc2_lib_dir        = "@LDC2_LIB_DIR@"
 config.ldc2_runtime_dir    = "@RUNTIME_DIR@"
+config.ldc2_source_dir     = "@PROJECT_SOURCE_DIR@"
 config.test_source_root    = "@TESTS_IR_DIR@"
 config.llvm_tools_dir      = "@LLVM_TOOLS_DIR@"
 config.llvm_version        = @LDC_LLVM_VER@
@@ -156,6 +158,7 @@ config.substitutions.append( ('%ldc', config.ldc2_bin) )
 config.substitutions.append( ('%gnu_make', config.gnu_make_bin) )
 config.substitutions.append( ('%profdata', config.ldcprofdata_bin) )
 config.substitutions.append( ('%prunecache', config.ldcprunecache_bin) )
+config.substitutions.append( ('%buildplugin', config.ldcbuildplugin_bin + " --ldcSrcDir=" + config.ldc2_source_dir ) )
 config.substitutions.append( ('%timetrace2txt', config.timetrace2txt_bin) )
 config.substitutions.append( ('%llvm-spirv', os.path.join(config.llvm_tools_dir, 'llvm-spirv')) )
 config.substitutions.append( ('%llc', os.path.join(config.llvm_tools_dir, 'llc')) )
@@ -212,14 +215,6 @@ if (platform.system() != 'Windows') and lit.util.which('gdb', config.environment
             config.available_features.add('atleast_gdb80')
 
     config.substitutions.append( ('%_gdb_dflags', gdb_dflags) )
-
-# Add substitutions for functionality across different LLVM versions
-if config.llvm_version >= 800:
-    config.substitutions.append( ('%disable_fp_elim', '-frame-pointer=all') )
-    config.substitutions.append( ('%enable_fp_elim', '-frame-pointer=none') )
-else:
-    config.substitutions.append( ('%disable_fp_elim', '-disable-fp-elim') )
-    config.substitutions.append( ('%enable_fp_elim', '-disable-fp-elim=false') )
 
 if 'LD_LIBRARY_PATH' in os.environ:
     libs = []

@@ -19,9 +19,7 @@ else
     static assert(false, "This module is only valid for LDC");
 }
 
-     version (LDC_LLVM_900)  enum LLVM_version =  900;
-else version (LDC_LLVM_1000) enum LLVM_version = 1000;
-else version (LDC_LLVM_1100) enum LLVM_version = 1100;
+     version (LDC_LLVM_1100) enum LLVM_version = 1100;
 else version (LDC_LLVM_1101) enum LLVM_version = 1101;
 else version (LDC_LLVM_1200) enum LLVM_version = 1200;
 else version (LDC_LLVM_1300) enum LLVM_version = 1300;
@@ -56,9 +54,7 @@ pragma(LDC_intrinsic, "llvm.returnaddress")
 
 /// The 'llvm.frameaddress' intrinsic attempts to return the target-specific
 /// frame pointer value for the specified stack frame.
-pragma(LDC_intrinsic,
-      LLVM_version >= 1000 ? "llvm.frameaddress."~p0i8 :
-                             "llvm.frameaddress")
+pragma(LDC_intrinsic, "llvm.frameaddress."~p0i8)
     void* llvm_frameaddress(uint level);
 
 /// The 'llvm.stacksave' intrinsic is used to remember the current state of the
@@ -85,9 +81,7 @@ pragma(LDC_intrinsic, "llvm.stackrestore")
 /// keep in cache. The cache type specifies whether the prefetch is performed on
 /// the data (1) or instruction (0) cache. The rw, locality and cache type
 /// arguments must be constant integers.
-pragma(LDC_intrinsic,
-    LLVM_version >= 1000 ? "llvm.prefetch."~p0i8 :
-                           "llvm.prefetch")
+pragma(LDC_intrinsic, "llvm.prefetch."~p0i8)
     void llvm_prefetch(const(void)* ptr, uint rw, uint locality, uint cachetype) pure @safe;
 
 /// The 'llvm.pcmarker' intrinsic is a method to export a Program Counter (PC)

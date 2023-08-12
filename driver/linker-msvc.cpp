@@ -88,11 +88,6 @@ void addSanitizerLibs(std::vector<std::string> &args) {
 
 int linkObjToBinaryMSVC(llvm::StringRef outputPath,
                         const std::vector<std::string> &defaultLibNames) {
-  if (!opts::ccSwitches.empty()) {
-    error(Loc(), "-Xcc is not supported for MSVC");
-    fatal();
-  }
-
 #ifdef _WIN32
   windows::MsvcEnvironmentScope msvcEnv;
 
@@ -281,10 +276,8 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
                                          ,
                                          canExitEarly
 #endif
-#if LDC_LLVM_VER >= 1000
                                          ,
                                          llvm::outs(), llvm::errs()
-#endif
 #if LDC_LLVM_VER >= 1400
                                                            ,
                                          canExitEarly, false
@@ -309,5 +302,5 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
 #endif
   }
 
-  return executeToolAndWait(linker, args, global.params.verbose);
+  return executeToolAndWait(Loc(), linker, args, global.params.verbose);
 }

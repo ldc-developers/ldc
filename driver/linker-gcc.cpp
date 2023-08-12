@@ -759,10 +759,8 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
                                ,
                                CanExitEarly
 #endif
-#if LDC_LLVM_VER >= 1000
                                ,
                                llvm::outs(), llvm::errs()
-#endif
 #if LDC_LLVM_VER >= 1400
                                                  ,
                                CanExitEarly, false
@@ -778,10 +776,8 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
                                  ,
                                  CanExitEarly
 #endif
-#if LDC_LLVM_VER >= 1000
                                  ,
                                  llvm::outs(), llvm::errs()
-#endif
 #if LDC_LLVM_VER >= 1400
                                                    ,
                                  CanExitEarly, false
@@ -789,14 +785,12 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
       );
     } else if (global.params.targetTriple->isOSBinFormatCOFF()) {
       success = lld::mingw::link(fullArgs
-#if LDC_LLVM_VER >= 1000 && LDC_LLVM_VER < 1400
+#if LDC_LLVM_VER < 1400
                                  ,
                                  CanExitEarly
 #endif
-#if LDC_LLVM_VER >= 1000
                                  ,
                                  llvm::outs(), llvm::errs()
-#endif
 #if LDC_LLVM_VER >= 1400
                                                    ,
                                  CanExitEarly, false
@@ -813,10 +807,8 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
                                 ,
                                 CanExitEarly
 #endif
-#if LDC_LLVM_VER >= 1000
                                 ,
                                 llvm::outs(), llvm::errs()
-#endif
 #if LDC_LLVM_VER >= 1400
                                                   ,
                                 CanExitEarly, false
@@ -839,10 +831,10 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
   std::unique_ptr<ArgsBuilder> argsBuilder;
   if (global.params.targetTriple->isOSBinFormatWasm()) {
     tool = getProgram("wasm-ld", &opts::linker);
-    argsBuilder = llvm::make_unique<LdArgsBuilder>();
+    argsBuilder = std::make_unique<LdArgsBuilder>();
   } else {
     tool = getGcc();
-    argsBuilder = llvm::make_unique<ArgsBuilder>();
+    argsBuilder = std::make_unique<ArgsBuilder>();
   }
 
   // build arguments
@@ -858,5 +850,6 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
   logstr << "\n"; // FIXME where's flush ?
 
   // try to call linker
-  return executeToolAndWait(tool, argsBuilder->args, global.params.verbose);
+  return executeToolAndWait(Loc(), tool, argsBuilder->args,
+                            global.params.verbose);
 }

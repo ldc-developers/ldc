@@ -23,46 +23,37 @@ jobs:
             os: ubuntu-20.04
             host_dc: ldc-beta
             llvm_version: 15.0.6
-          - job_name: Ubuntu 20.04, LLVM 14, latest LDC beta
-            os: ubuntu-20.04
-            host_dc: ldc-beta
-            llvm_version: 14.0.0
-            # the compiler-rt libs installation is somehow non-standard
-            cmake_flags: -DLDC_INSTALL_LLVM_RUNTIME_LIBS_OS=x86_64-unknown-linux-gnu -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=""
           - job_name: Ubuntu 20.04, LLVM 12, latest LDC beta
             os: ubuntu-20.04
             host_dc: ldc-beta
             llvm_version: 12.0.1
-            cmake_flags: -DLIB_SUFFIX=64
-          - job_name: Ubuntu 20.04, LLVM 11, latest LDC beta
+            cmake_flags: -DBUILD_SHARED_LIBS=ON -DLIB_SUFFIX=64
+          - job_name: Ubuntu 20.04, LLVM 11, latest DMD beta
             os: ubuntu-20.04
-            host_dc: ldc-beta
+            host_dc: dmd-beta
             llvm_version: 11.1.0
-            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON
-          - job_name: Ubuntu 20.04, LLVM 9, latest DMD beta
-            os: ubuntu-20.04
-            host_dc: dmd-beta
-            llvm_version: 9.0.1
             cmake_flags: -DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON
-          - job_name: macOS 11, LLVM 10, latest DMD beta
+          - job_name: macOS 11, LLVM 13, latest DMD beta
             os: macos-11
             host_dc: dmd-beta
-            llvm_version: 10.0.1
-            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON -DCMAKE_CXX_COMPILER=/usr/bin/c++ -DCMAKE_C_COMPILER=/usr/bin/cc -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
-          - job_name: macOS 11, LLVM 13, latest LDC beta
+            llvm_version: 13.0.1
+            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON -DCMAKE_CXX_COMPILER=/usr/bin/c++ -DCMAKE_C_COMPILER=/usr/bin/cc
+          - job_name: macOS 11, LLVM 14, latest LDC beta
             os: macos-11
             host_dc: ldc-beta
-            llvm_version: 13.0.1
-            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+            llvm_version: 14.0.6
+            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: 11.6 # silence `ld: warning: object file (…) was built for newer macOS version (…) than being linked (…)`
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: true
           fetch-depth: 50
       - name: Install ninja
-        uses: seanmiddleditch/gha-setup-ninja@v3
+        uses: symmetryinvestments/gha-setup-ninja@v1
       - name: Install D host compiler
         uses: dlang-community/setup-dlang@v1
         with:
@@ -126,7 +117,7 @@ jobs:
             -DLLVM_ROOT_DIR="$PWD/llvm" \
             -DLDC_LINK_MANUALLY=OFF \
             ${{ matrix.cmake_flags }}
-          ninja all ldc2-unittest all-test-runners
+          ninja obj/ldc2.o all ldc2-unittest all-test-runners
           bin/ldc2 --version
 
       - name: Run LDC D unittests
@@ -136,10 +127,6 @@ jobs:
         if: success() || failure()
         run: |
           set -eux
-          # LLVM 9: libclang_rt.fuzzer-x86_64.a not compiled with -fPIC
-          if [[ '${{ matrix.llvm_version }}' = 9.* ]]; then
-            echo "config.available_features.remove('Fuzzer')" >> tests/sanitizers/lit.local.cfg
-          fi
           # LLVM 14+ on Linux: don't use vanilla llvm-symbolizer (no support for zlib-compressed debug sections => failing ASan tests)
           if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.llvm_version }}' =~ ^1[4-9]\. ]]; then
             mv llvm/bin/llvm-symbolizer llvm/bin/llvm-symbolizer.bak

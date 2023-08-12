@@ -103,7 +103,7 @@ runs:
         ld --version
 
     - name: Install ninja
-      uses: seanmiddleditch/gha-setup-ninja@v3
+      uses: symmetryinvestments/gha-setup-ninja@v1
 
     - name: Install D host compiler
       uses: dlang-community/setup-dlang@v1

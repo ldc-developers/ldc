@@ -27,7 +27,7 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
       -DINCLUDE_INSTALL_DIR=$installDir/import \
       -DLDC_LINK_MANUALLY=OFF \
       "${extraFlags[@]}"
-    ninja -j$PARALLELISM all ldc2-unittest all-test-runners
+    ninja -j$PARALLELISM obj/ldc2.o all ldc2-unittest all-test-runners
     bin/ldc2 -version
   always:
     run_compiler_unittests_script: |
@@ -65,6 +65,12 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
         excludes+='|^std.math.exponential(-shared)?$'
         # FIXME: failure
         excludes+='|^druntime-test-exceptions-debug$'
+        # std.path unittests apparently need HOME, which happens not to be set
+        export HOME=~
+        echo "Setting HOME to '$HOME'"
+      elif [[ "$CI_OS-$CI_ARCH" == "osx-arm64" ]]; then
+        # FIXME: sporadic segfaults/bus errors with enabled optimizations
+        excludes+='|^core.thread.fiber(-shared)?$'
       fi
       ctest -j$PARALLELISM --output-on-failure -E "$excludes"
 
@@ -184,10 +190,22 @@ install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
     fi
     apt-get -q update
     apt-get -yq install \
-      git-core cmake ninja-build $gcc_pkg \
+      git-core ninja-build $gcc_pkg \
       zlib1g-dev $libcurl_pkg curl gdb python3 python3-pip tzdata unzip zip \
       $EXTRA_APT_PACKAGES
     python3 --version
+    # Download & extract CMake
+    curl -fL --retry 3 --max-time 300 -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.27.1/cmake-3.27.1-linux-$CI_ARCH.tar.gz
+    mkdir cmake
+    tar -xf cmake.tar.gz --strip 1 -C cmake
+    rm cmake.tar.gz
+    # Download & extract custom Ninja on x86_64
+    if [[ "$CI_ARCH" == "x86_64" ]]; then
+      curl -fL --retry 3 --max-time 60 -O https://github.com/symmetryinvestments/ninja/releases/download/v1.11.1-sym1/ninja-linux.zip
+      mkdir ninja
+      unzip ninja-linux.zip -d ninja
+      rm ninja-linux.zip
+    fi
     # Download & extract host LDC
     curl -fL --retry 3 --max-time 300 -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-$CI_ARCH.tar.xz
     mkdir host-ldc
@@ -201,12 +219,12 @@ install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
     cd $CIRRUS_WORKING_DIR/..
     sysctl -n hw.logicalcpu
     # Download & extract CMake
-    curl -fL --retry 3 --max-time 300 -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.20.3/cmake-3.20.3-macos-universal.tar.gz
+    curl -fL --retry 3 --max-time 300 -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.27.1/cmake-3.27.1-macos-universal.tar.gz
     mkdir cmake
     tar -xf cmake.tar.gz --strip 3 -C cmake
     rm cmake.tar.gz
     # Download & extract Ninja
-    curl -fL --retry 3 --max-time 60 -O https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-mac.zip
+    curl -fL --retry 3 --max-time 60 -O https://github.com/symmetryinvestments/ninja/releases/download/v1.11.1-sym1/ninja-mac.zip
     mkdir ninja
     tar -xf ninja-mac.zip -C ninja
     rm ninja-mac.zip
@@ -244,9 +262,10 @@ task:
   environment:
     CI_ARCH: x86_64
     CI_OS: linux
-    EXTRA_APT_PACKAGES: "llvm-dev libclang-common-10-dev"
+    EXTRA_APT_PACKAGES: "llvm-11-dev libclang-common-11-dev"
     EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON"
     PARALLELISM: 8
+    PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${PATH}
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
   << : *COMMON_STEPS_TEMPLATE
 
@@ -265,6 +284,7 @@ task:
     EXTRA_APT_PACKAGES: "gdmd llvm-dev libclang-common-15-dev"
     EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
     PARALLELISM: 8
+    PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${PATH}
     # for gdmd:
     LANG: C.UTF-8
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
@@ -281,9 +301,10 @@ task:
     CI_ARCH: x86_64
     CI_OS: linux
     HOST_LDC_VERSION: 1.9.0
-    EXTRA_APT_PACKAGES: "llvm-dev libclang-common-10-dev"
+    EXTRA_APT_PACKAGES: "llvm-11-dev libclang-common-11-dev"
     EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
     PARALLELISM: 8
+    PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${PATH}
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
   << : *COMMON_STEPS_TEMPLATE
 
@@ -318,10 +339,14 @@ task:
 
 task:
   name: Ubuntu 20.04 aarch64
-  arm_container:
-    image: ubuntu:20.04
+  compute_engine_instance:
+    image_project: ubuntu-os-cloud
+    image: family/ubuntu-2004-lts-arm64
+    platform: linux
+    architecture: arm64
     cpu: 4
     memory: 8G
+    disk: 20
   timeout_in: 60m
   environment:
     CI_ARCH: aarch64
@@ -337,6 +362,7 @@ task:
       -DLLVM_ROOT_DIR=$CIRRUS_WORKING_DIR/../llvm
       -DD_COMPILER=$CIRRUS_WORKING_DIR/../bootstrap-ldc/bin/ldmd2
     PARALLELISM: 4
+    PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${PATH}
     CLANG_VERSION: '15.0.3' # 15.0.6 requires a more recent libstdc++.so.6 than shipped with Ubuntu 20
     CC: $CIRRUS_WORKING_DIR/../clang/bin/clang
     CXX: $CIRRUS_WORKING_DIR/../clang/bin/clang++
@@ -380,7 +406,7 @@ task:
       -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
       -DBUILD_SHARED_LIBS=OFF \
       -DBUILD_LTO_LIBS=ON
-    ninja -j$PARALLELISM
+    ninja -j$PARALLELISM obj/ldc2.o all
     bin/ldc2 -version
   << : *COMMON_STEPS_TEMPLATE
   << : *PACKAGING_STEPS_TEMPLATE

@@ -400,16 +400,18 @@ cl::list<std::string>
                    cl::value_desc("linkerflag"), cl::cat(linkingCategory),
                    cl::Prefix);
 
-cl::list<std::string>
-    ccSwitches("Xcc", cl::desc("Pass <ccflag> to GCC/Clang for linking"),
-               cl::value_desc("ccflag"), cl::cat(linkingCategory));
+cl::list<std::string> ccSwitches(
+    "Xcc", cl::value_desc("ccflag"), cl::cat(linkingCategory),
+    cl::desc("Pass <ccflag> to GCC/Clang for linking/preprocessing"));
 
-cl::opt<std::string>
-    moduleDeps("deps", cl::ValueOptional, cl::ZeroOrMore,
-               cl::value_desc("filename"),
-               cl::desc("Write module dependencies to <filename> (only imports). "
-                        "'-deps' alone prints module dependencies "
-                        "(imports/file/version/debug/lib)"));
+cl::list<std::string> cppSwitches("P", cl::value_desc("cppflag"), cl::Prefix,
+                                  cl::desc("Pass <cppflag> to C preprocessor"));
+
+cl::opt<std::string> moduleDeps(
+    "deps", cl::ValueOptional, cl::ZeroOrMore, cl::value_desc("filename"),
+    cl::desc("Write module dependencies to <filename> (only imports). "
+             "'-deps' alone prints module dependencies "
+             "(imports/file/version/debug/lib)"));
 
 cl::opt<std::string>
     makeDeps("makedeps", cl::ValueOptional, cl::ZeroOrMore,

@@ -1,21 +1,18 @@
 /* Do a smoke test of the C Standard headers.
  * Many platforms do not support all the C Standard headers.
- * DISABLED: LDC // FIXME: needs preprocessor
  */
 
 #include <assert.h>
 
 #ifndef __DMC__ // D:\a\1\s\tools\dm\include\complex.h(105): Deprecation: use of complex type `cdouble` is deprecated, use `std.complex.Complex!(double)` instead
-#ifndef __FreeBSD__ // defines _COMPLEX_I with use of `i` postfix
 #include <complex.h>
-#endif
 #endif
 
 #include <ctype.h>
 #include <errno.h>
 
 #ifndef _MSC_VER // C:\Program Files (x86)\Windows Kits\10\include\10.0.22621.0\ucrt\fenv.h(68): Error: variable `stdcheaders._Fenv1` extern symbols cannot have initializers
-#ifndef __FreeBSD__ // cannot turn off __GNUCLIKE_ASM in machine/ieeefp.h
+#ifndef __FreeBSD__ // /usr/include/fenv.h(341): Error: use `.` for member lookup, not `->`
 #include <fenv.h>
 #endif
 #endif
@@ -46,9 +43,7 @@
 #ifndef __linux__
 #ifndef _MSC_VER
 #ifndef __APPLE__ // /Applications/Xcode-14.2.0.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/14.0.0/include/stdatomic.h(80): Error: type-specifier is missing
-#ifndef __FreeBSD__ // /stdatomic.h(162): Error: found `volatile` when expecting `{`
 #include <stdatomic.h>
-#endif
 #endif
 #endif
 #endif
@@ -72,8 +67,10 @@
 #ifndef __DMC__ // no tgmath.h
 #ifndef _MSC_VER // C:\Program Files (x86)\Windows Kits\10\include\10.0.22621.0\ucrt\tgmath.h(33): Error: no type for declarator before `)`
 #ifndef __APPLE__ // /Applications/Xcode-14.2.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/tgmath.h(39): Error: named parameter required before `...`
-#ifndef __FreeBSD__  // #includes complex.h
+#if !(defined(__linux__) && defined(__aarch64__)) // /tmp/clang/lib/clang/15.0.3/include/tgmath.h(34): Error: named parameter required before `...`
+#ifndef __FreeBSD__ // /usr/local/llvm15/lib/clang/15.0.7/include/tgmath.h(34): Error: named parameter required before `...`
 #include <tgmath.h>
+#endif
 #endif
 #endif
 #endif
