@@ -114,11 +114,11 @@ void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
       if (!newInst)
         newInst = Inst->clone();
 
-      #if LDC_LLVM_VER < 1600
+#if LDC_LLVM_VER < 1600
       nbb->getInstList().push_back(newInst);
-      #else
+#else
       newInst->insertInto(nbb, nbb->end());
-      #endif
+#endif
 
       VMap[Inst] = newInst; // Add instruction map to value.
       if (unwindTo)
