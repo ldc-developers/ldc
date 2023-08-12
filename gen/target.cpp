@@ -102,7 +102,7 @@ void Target::_init(const Param &params) {
   realType = getRealType(triple);
   realsize = gDataLayout->getTypeAllocSize(realType);
   realpad = realsize - gDataLayout->getTypeStoreSize(realType);
-  realalignsize = gDataLayout->getABITypeAlignment(realType);
+  realalignsize = gDataLayout->getABITypeAlign(realType).value();
   classinfosize = 0; // unused
   maxStaticDataSize = std::numeric_limits<unsigned long long>::max();
 
@@ -211,7 +211,7 @@ unsigned Target::alignsize(Type *type) {
   if (type->ty == TY::Tvoid) {
     return 1;
   }
-  return gDataLayout->getABITypeAlignment(DtoType(type));
+  return gDataLayout->getABITypeAlign(DtoType(type)).value();
 }
 
 /******************************

@@ -117,7 +117,7 @@ public:
     if (Count && Count % NumTypesPerWord == 0) {
       using namespace llvm::support;
       uint64_t Swapped = endian::byte_swap<uint64_t, little>(Working);
-      MD5.update(llvm::makeArrayRef((uint8_t *)&Swapped, sizeof(Swapped)));
+      MD5.update(llvm::ArrayRef<uint8_t>((uint8_t *)&Swapped, sizeof(Swapped)));
       Working = 0;
     }
 
@@ -138,7 +138,7 @@ public:
     if (Working) {
       using namespace llvm::support;
       uint64_t Swapped = endian::byte_swap<uint64_t, little>(Working);
-      MD5.update(llvm::makeArrayRef((uint8_t *)&Swapped, sizeof(Swapped)));
+      MD5.update(llvm::ArrayRef<uint8_t>((uint8_t *)&Swapped, sizeof(Swapped)));
     }
 
     // Finalize the MD5 and return the hash.
