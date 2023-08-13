@@ -251,6 +251,12 @@ elseif(${BUILD_SHARED_LIBS} STREQUAL "OFF")
     set(ADDITIONAL_DEFAULT_LDC_SWITCHES "${ADDITIONAL_DEFAULT_LDC_SWITCHES}\n        \"-link-defaultlib-shared=false\",")
 endif()
 
+# LLVM 16: Disable function specializations by default.
+# They cause miscompiles of e.g. the frontend for some targets (macOS x86_64 and Windows x64).
+if(LDC_LLVM_VER GREATER 1599 AND LDC_LLVM_VER LESS 1700)
+    set(ADDITIONAL_DEFAULT_LDC_SWITCHES "${ADDITIONAL_DEFAULT_LDC_SWITCHES}\n        \"-func-specialization-size-threshold=1000000000\",")
+endif()
+
 # Default wasm stack is only 64kb, this is rather small, let's bump it to 1mb
 set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"-L-z\", \"-Lstack-size=1048576\",")
 # Protect from stack overflow overwriting global memory
