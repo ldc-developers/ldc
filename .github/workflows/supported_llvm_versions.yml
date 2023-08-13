@@ -18,7 +18,7 @@ jobs:
           - job_name: Ubuntu 20.04, LLVM 16, latest LDC beta
             os: ubuntu-20.04
             host_dc: ldc-beta
-            llvm_version: 16.0.0
+            llvm_version: 16.0.6 # LDC-LLVM
           - job_name: Ubuntu 20.04, LLVM 15, latest LDC beta
             os: ubuntu-20.04
             host_dc: ldc-beta
@@ -95,8 +95,12 @@ jobs:
           else
             suffix='x86_64-linux-gnu-ubuntu-16.04'
           fi
-          curl -fL --retry 3 --max-time 300 -o llvm.tar.xz \
-            https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-$suffix.tar.xz
+          url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-$suffix.tar.xz"
+          # FIXME: weird crashes with official v16.0.0 archive; use LDC-LLVM instead
+          if [[ "$version" =~ ^16\. ]]; then
+            url="https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$version/llvm-$version-linux-x86_64.tar.xz"
+          fi
+          curl -fL --retry 3 --max-time 300 -o llvm.tar.xz "$url"
           mkdir llvm
           tar -xf llvm.tar.xz --strip 1 -C llvm
           rm llvm.tar.xz
