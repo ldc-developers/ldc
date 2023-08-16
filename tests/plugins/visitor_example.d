@@ -1,9 +1,6 @@
 // REQUIRES: Plugins
 // REQUIRES: ABI_compatible_with_host_D
 
-// For some reason this test fails with missing symbol linking issues (or crash) with macOS on Intel x86.
-// UNSUPPORTED: Darwin && host_X86
-
 // RUN: split-file %s %t --leading-lines
 // RUN: %buildplugin %t/plugin.d -of=%t/plugin%so --buildDir=%t/build
 // RUN: %ldc -wi -c -o- --plugin=%t/plugin%so %t/testcase.d 2>&1 | FileCheck %t/testcase.d
