@@ -9,6 +9,7 @@
 - Supports LLVM 11.0 - 16.0.
 
 #### Bug fixes
+- Fix function pointers/delegates on Harvard architectures (e.g., AVR). (#4432, #4465)
 
 # LDC 1.33.0 (2023-07-23)
 

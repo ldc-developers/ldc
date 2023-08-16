@@ -118,10 +118,14 @@ IrTypePointer *IrTypePointer::get(Type *dt) {
   assert(!ctype);
 
   LLType *elemType;
+  unsigned addressSpace = 0;
   if (dt->ty == TY::Tnull) {
     elemType = llvm::Type::getInt8Ty(getGlobalContext());
   } else {
     elemType = DtoMemType(dt->nextOf());
+    if (dt->nextOf()->ty == TY::Tfunction) {
+      addressSpace = gDataLayout->getProgramAddressSpace();
+    }
 
     // DtoType could have already created the same type, e.g. for
     // dt == Node* in struct Node { Node* n; }.
@@ -130,7 +134,8 @@ IrTypePointer *IrTypePointer::get(Type *dt) {
     }
   }
 
-  auto t = new IrTypePointer(dt, llvm::PointerType::get(elemType, 0));
+  auto t =
+      new IrTypePointer(dt, llvm::PointerType::get(elemType, addressSpace));
   ctype = t;
   return t;
 }

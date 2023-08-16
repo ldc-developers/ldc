@@ -819,7 +819,7 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static LLValue *DtoCallableValue(llvm::FunctionType * ft,DValue *fn) {
+static LLValue *DtoCallableValue(DValue *fn) {
   Type *type = fn->type->toBasetype();
   if (type->ty == TY::Tfunction) {
     return DtoRVal(fn);
@@ -829,7 +829,7 @@ static LLValue *DtoCallableValue(llvm::FunctionType * ft,DValue *fn) {
       LLValue *dg = DtoLVal(fn);
       llvm::StructType *st = isaStruct(DtoType(fn->type));
       LLValue *funcptr = DtoGEP(st, dg, 0, 1);
-      return DtoLoad(ft->getPointerTo(), funcptr, ".funcptr");
+      return DtoLoad(st->getElementType(1), funcptr, ".funcptr");
     }
     LLValue *dg = DtoRVal(fn);
     assert(isaStruct(dg));
@@ -862,7 +862,7 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   // get callee llvm value
-  LLValue *callable = DtoCallableValue(irFty.funcType, fnval);
+  LLValue *callable = DtoCallableValue(fnval);
   LLFunctionType *callableTy = irFty.funcType;
   if (dfnval && dfnval->func->isCsymbol()) {
     // See note in DtoDeclareFunction about K&R foward declared (void) functions
