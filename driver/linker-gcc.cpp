@@ -149,6 +149,11 @@ void ArgsBuilder::addLTOGoldPluginFlags(bool requirePlugin) {
     addLdFlag("-plugin-opt=-function-sections");
   if (TO.DataSections)
     addLdFlag("-plugin-opt=-data-sections");
+
+#if LDC_LLVM_VER >= 1600 && LDC_LLVM_VER < 1700
+  // LLVM 16: disable function specializations by default
+  addLdFlag("-plugin-opt=-func-specialization-size-threshold=1000000000");
+#endif
 }
 
 // Returns an empty string when libLTO.dylib was not specified nor found.
@@ -179,6 +184,11 @@ void ArgsBuilder::addDarwinLTOFlags() {
   std::string dylibPath = getLTOdylibPath();
   if (!dylibPath.empty()) {
     addLdFlag("-lto_library", dylibPath);
+
+#if LDC_LLVM_VER >= 1600 && LDC_LLVM_VER < 1700
+    // LLVM 16: disable function specializations by default
+    addLdFlag("-mllvm", "-func-specialization-size-threshold=1000000000");
+#endif
   }
 }
 

@@ -71,16 +71,14 @@ allocParam(llvm::IRBuilder<> &builder, llvm::Type &srcType,
   if (param.type == ParamType::Aggregate && srcType.isPointerTy()) {
     auto elemType = srcType.getPointerElementType();
     auto stackArg = builder.CreateAlloca(elemType);
-    if (auto alignment = layout.getABITypeAlignment(elemType))
-      stackArg->setAlignment(llvm::Align(alignment));
+    stackArg->setAlignment(layout.getABITypeAlign(elemType));
     auto init =
         parseInitializer(layout, *elemType, param.data, errHandler, override);
     builder.CreateStore(init, stackArg);
     return stackArg;
   }
   auto stackArg = builder.CreateAlloca(&srcType);
-  if (auto alignment = layout.getABITypeAlignment(&srcType))
-    stackArg->setAlignment(llvm::Align(alignment));
+  stackArg->setAlignment(layout.getABITypeAlign(&srcType));
   auto init =
       parseInitializer(layout, srcType, param.data, errHandler, override);
   builder.CreateStore(init, stackArg);

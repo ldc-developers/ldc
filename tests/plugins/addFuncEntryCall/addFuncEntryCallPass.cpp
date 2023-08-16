@@ -50,6 +50,9 @@ bool FuncEntryCallPass::runOnFunction(Function &F) {
   return true;
 }
 
+
+#if LLVM_VERSION < 1500 // legacy pass manager
+
 static void addFuncEntryCallPass(const PassManagerBuilder &,
                                  legacy::PassManagerBase &PM) {
   PM.add(new FuncEntryCallPass());
@@ -59,10 +62,10 @@ static RegisterStandardPasses
     RegisterFuncEntryCallPass0(PassManagerBuilder::EP_EnabledOnOptLevel0,
                                addFuncEntryCallPass);
 
+#endif
 
 
-#if LLVM_VERSION >= 1400
-// Implementation of plugin for the new passmanager
+#if LLVM_VERSION >= 1400 // new pass manager
 
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -106,5 +109,4 @@ llvmGetPassPluginInfo() {
   };
 }
 
-#endif
-
+#endif // LLVM 14+

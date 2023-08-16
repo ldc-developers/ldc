@@ -44,6 +44,13 @@
 namespace cl = llvm::cl;
 using LLMetadata = llvm::Metadata;
 
+#if LDC_LLVM_VER >= 1600
+namespace llvm {
+  template <typename T> using Optional = std::optional<T>;
+  inline constexpr std::nullopt_t None = std::nullopt;
+}
+#endif
+
 static cl::opt<cl::boolOrDefault> emitColumnInfo(
     "gcolumn-info", cl::ZeroOrMore, cl::Hidden,
     cl::desc("Include column numbers in line debug infos. Defaults to "

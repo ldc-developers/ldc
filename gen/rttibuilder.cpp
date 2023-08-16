@@ -46,7 +46,7 @@ void RTTIBuilder::push(llvm::Constant *C) {
   // We need to explicitly zero any padding bytes as per TDPL §7.1.1 (and
   // also match the struct type lowering code here).
   const uint64_t fieldStart = llvm::alignTo(
-      prevFieldEnd, gDataLayout->getABITypeAlignment(C->getType()));
+      prevFieldEnd, gDataLayout->getABITypeAlign(C->getType()).value());
 
   const uint64_t paddingBytes = fieldStart - prevFieldEnd;
   if (paddingBytes) {

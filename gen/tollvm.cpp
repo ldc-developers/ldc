@@ -532,9 +532,7 @@ LLValue *DtoLoad(DLValue *src, const char *name) {
 // the type.
 LLValue *DtoAlignedLoad(LLType *type, LLValue *src, const char *name) {
   llvm::LoadInst *ld = DtoLoadImpl(type, src, name);
-  if (auto alignment = getABITypeAlign(ld->getType())) {
-    ld->setAlignment(llvm::Align(alignment));
-  }
+  ld->setAlignment(gDataLayout->getABITypeAlign(ld->getType()));
   return ld;
 }
 
@@ -570,9 +568,7 @@ void DtoAlignedStore(LLValue *src, LLValue *dst) {
   assert(!src->getType()->isIntegerTy(1) &&
          "Should store bools as i8 instead of i1.");
   llvm::StoreInst *st = gIR->ir->CreateStore(src, dst);
-  if (auto alignment = getABITypeAlign(src->getType())) {
-    st->setAlignment(llvm::Align(alignment));
-  }
+  st->setAlignment(gDataLayout->getABITypeAlign(src->getType()));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -587,9 +583,7 @@ LLType *stripAddrSpaces(LLType *t)
   if (!pt)
     return t;
 
-#if LDC_LLVM_VER >= 1600
-  return getVoidPtrType();
-#elif LDC_LLVM_VER >= 1400
+#if LDC_LLVM_VER >= 1400
   if (pt->isOpaque())
     return getVoidPtrType();
   else {
@@ -749,7 +743,7 @@ size_t getTypeStoreSize(LLType *t) { return gDataLayout->getTypeStoreSize(t); }
 size_t getTypeAllocSize(LLType *t) { return gDataLayout->getTypeAllocSize(t); }
 
 unsigned int getABITypeAlign(LLType *t) {
-  return gDataLayout->getABITypeAlignment(t);
+  return gDataLayout->getABITypeAlign(t).value();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

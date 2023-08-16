@@ -20,7 +20,7 @@ void small_stack()
     byte[100] a;
 }
 
-// CHECK: warning: stack frame size {{.*}} exceeds limit (200) in function {{.*}}14fwarnstacksize9big_stack
+// CHECK: warning: {{(<unknown>:0:0: )?}}stack frame size {{.*}} exceeds limit (200) in function {{.*}}14fwarnstacksize9big_stack
 void big_stack()
 {
     byte[1000] b;

@@ -77,9 +77,8 @@ libraries is available on the project wiki for
 [Windows](http://wiki.dlang.org/Building_and_hacking_LDC_on_Windows_using_MSVC).
 
 If you have a working C++/D build environment, CMake, and a recent LLVM
-version (≥ 6.0) available, there should be no big surprises. Do not
-forget to make sure all the submodules (druntime, phobos, dmd-testsuite)
-are up to date:
+version (≥ 11) available, there should be no big surprises. Do not
+forget to make sure the Phobos submodule is up to date:
 
     $ cd ldc
     $ git submodule update --init

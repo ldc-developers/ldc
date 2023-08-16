@@ -624,11 +624,10 @@ void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale,
 ////////////////////////////////////////////////////////////////////////////////
 LLConstant *DtoConstSlice(LLConstant *dim, LLConstant *ptr, Type *type) {
   LLConstant *values[2] = {dim, ptr};
-  llvm::ArrayRef<LLConstant *> valuesRef = llvm::makeArrayRef(values, 2);
   LLStructType *lltype =
       type ? isaStruct(DtoType(type))
-           : LLConstantStruct::getTypeForElements(gIR->context(), valuesRef);
-  return LLConstantStruct::get(lltype, valuesRef);
+           : LLConstantStruct::getTypeForElements(gIR->context(), values);
+  return LLConstantStruct::get(lltype, values);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
