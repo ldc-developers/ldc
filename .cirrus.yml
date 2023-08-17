@@ -274,24 +274,6 @@ task:
   << : *COMMON_STEPS_TEMPLATE
 
 task:
-  name: Ubuntu 20.04 x64 bootstrap
-  container:
-    image: ubuntu:20.04
-    cpu: 8
-    memory: 16G
-  timeout_in: 15m
-  environment:
-    CI_ARCH: x86_64
-    CI_OS: linux
-    HOST_LDC_VERSION: 1.9.0
-    EXTRA_APT_PACKAGES: "llvm-11-dev libclang-common-11-dev"
-    EXTRA_CMAKE_FLAGS: "-DBUILD_LTO_LIBS=ON"
-    PARALLELISM: 8
-    PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${PATH}
-  << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
-  << : *COMMON_STEPS_TEMPLATE
-
-task:
   name: macOS 12 $TASK_NAME_SUFFIX
   macos_instance:
     image: ghcr.io/cirruslabs/macos-monterey-xcode:latest
