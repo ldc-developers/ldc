@@ -23,9 +23,9 @@ jobs:
             os: ubuntu-20.04
             host_dc: ldc-beta
             llvm_version: 15.0.6
-          - job_name: Ubuntu 20.04, LLVM 12, latest LDC beta
+          - job_name: Ubuntu 20.04, LLVM 12, bootstrap LDC
             os: ubuntu-20.04
-            host_dc: ldc-beta
+            host_dc: ldc-1.9.0
             llvm_version: 12.0.1
             cmake_flags: -DBUILD_SHARED_LIBS=ON -DLIB_SUFFIX=64
           - job_name: Ubuntu 20.04, LLVM 11, latest DMD beta
@@ -106,7 +106,7 @@ jobs:
           rm llvm.tar.xz
 
       - name: 'Linux: Make lld the default linker'
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.host_dc != 'ldc-1.9.0'
         run: |
           set -eux
           echo "Using lld to work around sporadic failures"
