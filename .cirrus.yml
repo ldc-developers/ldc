@@ -253,23 +253,6 @@ environment:
   GITHUB_TOKEN: ENCRYPTED[0955bd48c8d4e5391446fc0149d0719ad0b63df27ec9e6c180a5730a5b10dc7f28f09d1383423db158d21380ee2b022a]
 
 task:
-  name: Ubuntu 20.04 x64 multilib rtSanitizers
-  container:
-    image: ubuntu:20.04
-    cpu: 8
-    memory: 16G
-  timeout_in: 20m
-  environment:
-    CI_ARCH: x86_64
-    CI_OS: linux
-    EXTRA_APT_PACKAGES: "llvm-11-dev libclang-common-11-dev"
-    EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON"
-    PARALLELISM: 8
-    PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${PATH}
-  << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
-  << : *COMMON_STEPS_TEMPLATE
-
-task:
   name: Ubuntu rolling x64 shared-libs-only gdmd
   # allow failures - gdb v10 came with regressions
   allow_failures: true
