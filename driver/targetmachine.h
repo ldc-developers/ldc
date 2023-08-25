@@ -76,4 +76,7 @@ const llvm::Target *lookupTarget(const std::string &arch, llvm::Triple &triple,
                                  std::string &errorMsg);
 
 const char *getABI(const llvm::Triple &triple,
-		   const llvm::SmallVector<llvm::StringRef, 8> &features);
+                   const llvm::SmallVectorImpl<llvm::StringRef> &features);
+
+bool isFeatureEnabled(const llvm::SmallVectorImpl<llvm::StringRef> &features,
+                      llvm::StringRef feature);
