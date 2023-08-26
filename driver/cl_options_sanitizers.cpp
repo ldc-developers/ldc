@@ -233,7 +233,7 @@ bool functionIsInSanitizerBlacklist(FuncDeclaration *funcDecl) {
     return false;
 
   auto funcName = mangleExact(funcDecl);
-  auto fileName = funcDecl->loc.filename;
+  auto fileName = funcDecl->loc.filename();
 
   // TODO: LLVM supports sections (e.g. "[address]") in the blacklist file to
   // only blacklist a function for a particular sanitizer. We could make use of

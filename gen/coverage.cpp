@@ -20,8 +20,8 @@ void emitCoverageLinecountInc(const Loc &loc) {
   // Only emit coverage increment for locations in the source of the current
   // module
   // (for example, 'inlined' methods from other source files should be skipped).
-  if (!global.params.cov || !loc.linnum() || !loc.filename || !m->d_cover_data ||
-      strcmp(m->srcfile.toChars(), loc.filename) != 0) {
+  if (!global.params.cov || !loc.linnum() || !loc.filename() ||
+      !m->d_cover_data || strcmp(m->srcfile.toChars(), loc.filename()) != 0) {
     return;
   }
 

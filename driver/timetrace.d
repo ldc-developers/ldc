@@ -118,10 +118,6 @@ void timeTraceProfilerBegin(const(char)* name_ptr, const(char)* detail_ptr, Loc 
 
     assert(timeTraceProfiler);
 
-    // `loc` contains a pointer to a string, so we need to duplicate that string too.
-    if (loc.filename)
-        loc.filename = strdup(loc.filename);
-
     timeTraceProfiler.beginScope(xarraydup(name_ptr.toDString()),
                                  xarraydup(detail_ptr.toDString()), loc);
 }
@@ -333,9 +329,9 @@ struct TimeTraceProfiler
 
         void writeLocation(Loc loc)
         {
-            if (loc.filename)
+            if (loc.filename())
             {
-                writeEscapeJSONString(buf, loc.filename.toDString());
+                writeEscapeJSONString(buf, loc.filename().toDString());
                 if (loc.linnum())
                 {
                     buf.writeByte(':');
@@ -387,10 +383,6 @@ struct TimeTraceScope
         if (timeTraceProfilerEnabled())
         {
             assert(timeTraceProfiler);
-            // `loc` contains a pointer to a string, so we need to duplicate that too.
-            import core.stdc.string : strdup;
-            if (loc.filename)
-                loc.filename = strdup(loc.filename);
             timeTraceProfiler.beginScope(name.dup, "", loc);
         }
     }
@@ -399,10 +391,6 @@ struct TimeTraceScope
         if (timeTraceProfilerEnabled())
         {
             assert(timeTraceProfiler);
-            // `loc` contains a pointer to a string, so we need to duplicate that too.
-            import core.stdc.string : strdup;
-            if (loc.filename)
-                loc.filename = strdup(loc.filename);
             timeTraceProfiler.beginScope(name.dup, detail.dup, loc);
         }
     }
@@ -412,10 +400,6 @@ struct TimeTraceScope
         if (timeTraceProfilerEnabled())
         {
             assert(timeTraceProfiler);
-            // `loc` contains a pointer to a string, so we need to duplicate that too.
-            import core.stdc.string : strdup;
-            if (loc.filename)
-                loc.filename = strdup(loc.filename);
             timeTraceProfiler.beginScope(name.dup, detail(), loc);
         }
     }
@@ -446,10 +430,6 @@ struct TimeTraceScopeDelayedDetail
         if (timeTraceProfilerEnabled())
         {
             assert(timeTraceProfiler);
-            // `loc` contains a pointer to a string, so we need to duplicate that too.
-            import core.stdc.string : strdup;
-            if (loc.filename)
-                loc.filename = strdup(loc.filename);
             details_dlg = detail;
             timeTraceProfiler.beginScope(name.dup, "", loc);
         }

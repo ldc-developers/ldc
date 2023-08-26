@@ -291,7 +291,7 @@ void DtoAssert(Module *M, const Loc &loc, DValue *msg) {
 void DtoCAssert(Module *M, const Loc &loc, LLValue *msg) {
   const auto &triple = *global.params.targetTriple;
   const auto file =
-      DtoConstCString(loc.filename ? loc.filename : M->srcfile.toChars());
+      DtoConstCString(loc.filename() ? loc.filename() : M->srcfile.toChars());
   const auto line = DtoConstUint(loc.linnum());
   const auto fn = getCAssertFunction(loc, gIR->module);
 
@@ -356,7 +356,7 @@ void DtoThrow(const Loc &loc, DValue *e) {
  ******************************************************************************/
 
 LLConstant *DtoModuleFileName(Module *M, const Loc &loc) {
-  return DtoConstString(loc.filename ? loc.filename : M->srcfile.toChars());
+  return DtoConstString(loc.filename() ? loc.filename() : M->srcfile.toChars());
 }
 
 /******************************************************************************

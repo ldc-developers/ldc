@@ -240,13 +240,13 @@ DIFile DIBuilder::CreateFile(const char *filename) {
 }
 
 DIFile DIBuilder::CreateFile(const Loc &loc) {
-  return CreateFile(loc.filename);
+  return CreateFile(loc.filename());
 }
 
 DIFile DIBuilder::CreateFile(Dsymbol *decl) {
   const char *filename = nullptr;
   for (Dsymbol *sym = decl; sym && !filename; sym = sym->parent)
-    filename = sym->loc.filename;
+    filename = sym->loc.filename();
   return CreateFile(filename);
 }
 
