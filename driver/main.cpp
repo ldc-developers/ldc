@@ -444,6 +444,11 @@ void parseCommandLine(Strings &sourceFiles) {
     deprecation(Loc(), "`-dip25` no longer has any effect");
   }
 
+  // -betterC implies -allinst (since D v2.105)
+  if (global.params.betterC) {
+    global.params.allInst = true;
+  }
+
   // -wo implies at least -wi (print the warnings)
   if (global.params.obsolete && global.params.warnings == DIAGNOSTICoff) {
     global.params.warnings = DIAGNOSTICinform;
