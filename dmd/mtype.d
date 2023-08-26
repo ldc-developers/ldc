@@ -2058,7 +2058,7 @@ version (IN_LLVM)
                 return Type.terror;
 
             auto t = fd.type.nextOf();
-            if (!t) // issue 14185
+            if (!t) // https://issues.dlang.org/show_bug.cgi?id=14185
                 return Type.terror;
             t = t.substWildTo(mod == 0 ? MODFlags.mutable : mod);
             return t;
@@ -2472,7 +2472,7 @@ version (IN_LLVM)
 
         }
 
-        auto id = Identifier.idPool(name, length);
+        auto id = Identifier.idPool(name[0 .. length]);
 
         if (name != namebuf.ptr)
             free(name);
@@ -4621,10 +4621,9 @@ extern (C++) final class TypeFunction : TypeNext
         // show qualification when toChars() is the same but types are different
         // https://issues.dlang.org/show_bug.cgi?id=19948
         // when comparing the type with strcmp, we need to drop the qualifier
-        auto at = arg.type.mutableOf().toChars();
-        bool qual = !arg.type.equals(par.type) && strcmp(at, par.type.mutableOf().toChars()) == 0;
-        if (qual)
-            at = arg.type.toPrettyChars(true);
+        bool qual = !arg.type.mutableOf().equals(par.type.mutableOf()) &&
+            strcmp(arg.type.mutableOf().toChars(), par.type.mutableOf().toChars()) == 0;
+        auto at = qual ? arg.type.toPrettyChars(true) : arg.type.toChars();
         OutBuffer buf;
         // only mention rvalue if it's relevant
         const rv = !arg.isLvalue() && par.isReference();
@@ -4964,7 +4963,7 @@ extern (C++) final class TypeFunction : TypeNext
         }
         if (tb.ty == Ttuple)
         {
-            error(loc, "functions cannot return a tuple");
+            error(loc, "functions cannot return a sequence (use `std.typecons.Tuple`)");
             next = Type.terror;
         }
         if (!isref && (tb.ty == Tstruct || tb.ty == Tsarray))
@@ -5129,7 +5128,7 @@ extern (C++) final class TypeDelegate : TypeNext
  * This is a shell containing a TraitsExp that can be
  * either resolved to a type or to a symbol.
  *
- * The point is to allow AliasDeclarationY to use `__traits()`, see issue 7804.
+ * The point is to allow AliasDeclarationY to use `__traits()`, see https://issues.dlang.org/show_bug.cgi?id=7804.
  */
 extern (C++) final class TypeTraits : Type
 {
@@ -6242,7 +6241,7 @@ extern (C++) final class TypeTuple : Type
             {
                 Expression e = (*exps)[i];
                 if (e.type.ty == Ttuple)
-                    e.error("cannot form tuple of tuples");
+                    e.error("cannot form sequence of sequences");
                 auto arg = new Parameter(STC.undefined_, e.type, null, null, null);
                 (*arguments)[i] = arg;
             }
@@ -6297,7 +6296,7 @@ extern (C++) final class TypeTuple : Type
 
     override const(char)* kind() const
     {
-        return "tuple";
+        return "sequence";
     }
 
     override TypeTuple syntaxCopy()
@@ -7143,9 +7142,9 @@ bool isCopyable(Type t)
             assert(ctor);
             scope el = new IdentifierExp(Loc.initial, Id.p); // dummy lvalue
             el.type = cast() ts;
-            Expressions args;
+            Expressions* args = new Expressions();
             args.push(el);
-            FuncDeclaration f = resolveFuncCall(Loc.initial, null, ctor, null, cast()ts, ArgumentList(&args), FuncResolveFlag.quiet);
+            FuncDeclaration f = resolveFuncCall(Loc.initial, null, ctor, null, cast()ts, ArgumentList(args), FuncResolveFlag.quiet);
             if (!f || f.storage_class & STC.disable)
                 return false;
         }
@@ -7295,7 +7294,7 @@ private extern(D) bool isCopyConstructorCallable (StructDeclaration argStruct,
             {
                 /* Although a copy constructor may exist, no suitable match was found.
                  * i.e: `inout` constructor creates `const` object, not mutable.
-                 * Fallback to using the original generic error before bugzilla 22202.
+                 * Fallback to using the original generic error before https://issues.dlang.org/show_bug.cgi?id=22202.
                  */
                 goto Lnocpctor;
             }
