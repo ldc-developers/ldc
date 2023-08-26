@@ -334,7 +334,7 @@ version (LDC)
         real ldexp(real n, int exp)
         {
             real r = void;
-            asm @safe pure nothrow @nogc
+            asm @trusted pure nothrow @nogc
             {
                 `fildl  %1       # push exp
                  fxch   %%st(1)  # swap ST(0) and ST(1)
@@ -448,7 +448,7 @@ version (LDC)
         real yl2x(real x, real y)
         {
             real r = void;
-            asm @safe pure nothrow @nogc { "fyl2x" : "=st" (r) : "st(1)" (y), "st" (x) : "st(1)", "flags"; }
+            asm @trusted pure nothrow @nogc { "fyl2x" : "=st" (r) : "st(1)" (y), "st" (x) : "st(1)", "flags"; }
             return r;
         }
 
@@ -456,7 +456,7 @@ version (LDC)
         real yl2xp1(real x, real y)
         {
             real r = void;
-            asm @safe pure nothrow @nogc { "fyl2xp1" : "=st" (r) : "st(1)" (y), "st" (x) : "st(1)", "flags"; }
+            asm @trusted pure nothrow @nogc { "fyl2xp1" : "=st" (r) : "st(1)" (y), "st" (x) : "st(1)", "flags"; }
             return r;
         }
     }
