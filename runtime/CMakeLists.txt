@@ -205,6 +205,10 @@ endif()
 # druntime C parts
 file(GLOB_RECURSE DRUNTIME_C ${RUNTIME_DIR}/src/*.c)
 list(REMOVE_ITEM DRUNTIME_C ${RUNTIME_DIR}/src/rt/dylib_fixes.c)
+# remove unsupported valgrind.c on Windows
+if("${TARGET_SYSTEM}" MATCHES "Windows")
+    list(REMOVE_ITEM DRUNTIME_C ${RUNTIME_DIR}/src/etc/valgrind/valgrind.c)
+endif()
 
 # druntime ASM parts
 set(DRUNTIME_ASM)
