@@ -156,4 +156,6 @@ else version (LDC)
     void __builtin_assume(T)(lazy T arg) { }
 
     alias __uint128_t = imported!"core.int128".Cent;
+
+    alias __builtin_alloca = imported!"core.stdc.stdlib".alloca;
 }
