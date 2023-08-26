@@ -1549,8 +1549,9 @@ public:
 
       TypeStruct *ts = static_cast<TypeStruct *>(ntype);
 
-      // allocate
-      LLValue *mem = DtoNewStruct(e->loc, ts);
+      // allocate (via _d_newitemT template lowering)
+      assert(e->lowering);
+      LLValue *mem = DtoRVal(e->lowering);
 
       if (!e->member && e->arguments) {
         IF_LOG Logger::println("Constructing using literal");

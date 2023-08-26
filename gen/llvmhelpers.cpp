@@ -91,15 +91,6 @@ LLValue *DtoNew(const Loc &loc, Type *newtype) {
   return DtoBitCast(mem, DtoPtrToType(newtype), ".gc_mem");
 }
 
-LLValue *DtoNewStruct(const Loc &loc, TypeStruct *newtype) {
-  llvm::Function *fn = getRuntimeFunction(
-      loc, gIR->module,
-      newtype->isZeroInit(newtype->sym->loc) ? "_d_newitemT" : "_d_newitemiT");
-  LLConstant *ti = DtoTypeInfoOf(loc, newtype);
-  LLValue *mem = gIR->CreateCallOrInvoke(fn, ti, ".gc_struct");
-  return DtoBitCast(mem, DtoPtrToType(newtype), ".gc_struct");
-}
-
 void DtoDeleteMemory(const Loc &loc, DValue *ptr) {
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delmemory");
   LLValue *lval = (ptr->isLVal() ? DtoLVal(ptr) : makeLValue(loc, ptr));

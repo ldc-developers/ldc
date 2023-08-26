@@ -30,7 +30,6 @@ llvm::LLVMContext& getGlobalContext();
 
 // dynamic memory helpers
 LLValue *DtoNew(const Loc &loc, Type *newtype);
-LLValue *DtoNewStruct(const Loc &loc, TypeStruct *newtype);
 void DtoDeleteMemory(const Loc &loc, DValue *ptr);
 void DtoDeleteStruct(const Loc &loc, DValue *ptr);
 void DtoDeleteClass(const Loc &loc, DValue *inst);
