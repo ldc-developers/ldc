@@ -309,7 +309,7 @@ public:
         // Hack: the frontend generates 'return 0;' as last statement of
         // 'void main()'. But the debug location is missing. Use the end
         // of function as debug location.
-        if (isAnyMainFunction(fd) && !stmt->loc.linnum) {
+        if (isAnyMainFunction(fd) && !stmt->loc.linnum()) {
           irs->DBuilder.EmitStopPoint(fd->endloc);
         }
 

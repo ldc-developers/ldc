@@ -336,10 +336,10 @@ struct TimeTraceProfiler
             if (loc.filename)
             {
                 writeEscapeJSONString(buf, loc.filename.toDString());
-                if (loc.linnum)
+                if (loc.linnum())
                 {
                     buf.writeByte(':');
-                    buf.print(loc.linnum);
+                    buf.print(loc.linnum());
                 }
             }
             else

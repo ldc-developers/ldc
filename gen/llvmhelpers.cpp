@@ -279,7 +279,7 @@ void DtoAssert(Module *M, const Loc &loc, DValue *msg) {
   args.push_back(DtoModuleFileName(M, loc));
 
   // line param
-  args.push_back(DtoConstUint(loc.linnum));
+  args.push_back(DtoConstUint(loc.linnum()));
 
   // call
   gIR->CreateCallOrInvoke(fn, args);
@@ -292,7 +292,7 @@ void DtoCAssert(Module *M, const Loc &loc, LLValue *msg) {
   const auto &triple = *global.params.targetTriple;
   const auto file =
       DtoConstCString(loc.filename ? loc.filename : M->srcfile.toChars());
-  const auto line = DtoConstUint(loc.linnum);
+  const auto line = DtoConstUint(loc.linnum());
   const auto fn = getCAssertFunction(loc, gIR->module);
 
   llvm::SmallVector<LLValue *, 4> args;

@@ -1194,7 +1194,7 @@ static void emitRangeErrorImpl(IRState *irs, const Loc &loc,
     LLSmallVector<LLValue *, 5> args;
     args.reserve(2 + extraArgs.size());
     args.push_back(DtoModuleFileName(module, loc));
-    args.push_back(DtoConstUint(loc.linnum));
+    args.push_back(DtoConstUint(loc.linnum()));
     args.insert(args.end(), extraArgs.begin(), extraArgs.end());
     irs->CreateCallOrInvoke(fn, args);
     irs->ir->CreateUnreachable();
