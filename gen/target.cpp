@@ -128,7 +128,6 @@ void Target::_init(const Param &params) {
   const llvm::StringRef archName = triple.getArchName();
   architectureName = {archName.size(), archName.data()};
 
-  is64bit = triple.isArch64Bit();
   isLP64 = gDataLayout->getPointerSizeInBits() == 64;
   run_noext = !triple.isOSWindows();
   omfobj = false;
