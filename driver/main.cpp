@@ -444,6 +444,11 @@ void parseCommandLine(Strings &sourceFiles) {
     deprecation(Loc(), "`-dip25` no longer has any effect");
   }
 
+  // -wo implies at least -wi (print the warnings)
+  if (global.params.obsolete && global.params.warnings == DIAGNOSTICoff) {
+    global.params.warnings = DIAGNOSTICinform;
+  }
+
   global.params.output_o =
       (opts::output_o == cl::BOU_UNSET &&
        !(opts::output_bc || opts::output_ll || opts::output_s ||
@@ -1117,6 +1122,7 @@ int cppmain() {
   global.compileEnv.previewIn = global.params.previewIn;
   global.compileEnv.ddocOutput = global.params.ddoc.doOutput;
   global.compileEnv.shortenedMethods = global.params.shortenedMethods;
+  global.compileEnv.obsolete = global.params.obsolete;
 
   if (opts::fTimeTrace) {
     initializeTimeTrace(opts::fTimeTraceGranularity, 0, opts::allArguments[0]);
