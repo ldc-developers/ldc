@@ -121,62 +121,45 @@ void appendTargetArgsForGcc(std::vector<std::string> &args) {
     }
     return;
 
-  case Triple::riscv64:
-    {
-      std::string mabi = getABI(triple);
-      args.push_back("-mabi=" + mabi);
+  case Triple::riscv64: {
+    extern llvm::TargetMachine* gTargetMachine;
+    const auto featuresStr = gTargetMachine->getTargetFeatureString();
+    llvm::SmallVector<llvm::StringRef, 8> features;
+    featuresStr.split(features, ",", -1, false);
 
-      extern llvm::TargetMachine* gTargetMachine;
-      auto featuresStr = gTargetMachine->getTargetFeatureString();
-      llvm::SmallVector<llvm::StringRef, 8> features;
-      featuresStr.split(features, ",", -1, false);
+    const std::string mabi = getABI(triple, features);
+    args.push_back("-mabi=" + mabi);
 
-      // Returns true if 'feature' is enabled and false otherwise. Handles the
-      // case where the feature is specified multiple times ('+m,-m'), and
-      // takes the last occurrence.
-      auto hasFeature = [&features](llvm::StringRef feature) {
-        for (int i = features.size() - 1; i >= 0; i--) {
-          auto f = features[i];
-          if (f.substr(1) == feature) {
-            return f[0] == '+';
-          }
-        }
-        return false;
-      };
+    std::string march = triple.isArch64Bit() ? "rv64" : "rv32";
+    const bool m = isFeatureEnabled(features, "m");
+    const bool a = isFeatureEnabled(features, "a");
+    const bool f = isFeatureEnabled(features, "f");
+    const bool d = isFeatureEnabled(features, "d");
+    const bool c = isFeatureEnabled(features, "c");
+    bool g = false;
 
-      std::string march;
-      if (triple.isArch64Bit())
-        march = "rv64";
-      else
-        march = "rv32";
-      bool m = hasFeature("m");
-      bool a = hasFeature("a");
-      bool f = hasFeature("f");
-      bool d = hasFeature("d");
-      bool c = hasFeature("c");
-      bool g = false;
-
-      if (m && a && f && d) {
-        march += "g";
-        g = true;
-      } else {
-        march += "i";
-        if (m)
-          march += "m";
-        if (a)
-          march += "a";
-        if (f)
-          march += "f";
-        if (d)
-          march += "d";
-      }
-      if (c)
-        march += "c";
-      if (!g)
-        march += "_zicsr_zifencei";
-      args.push_back("-march=" + march);
+    if (m && a && f && d) {
+      march += "g";
+      g = true;
+    } else {
+      march += "i";
+      if (m)
+        march += "m";
+      if (a)
+        march += "a";
+      if (f)
+        march += "f";
+      if (d)
+        march += "d";
     }
+    if (c)
+      march += "c";
+    if (!g)
+      march += "_zicsr_zifencei";
+    args.push_back("-march=" + march);
     return;
+  }
+
   default:
     break;
   }

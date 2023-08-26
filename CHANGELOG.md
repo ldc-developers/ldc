@@ -7,6 +7,7 @@
 
 #### Platform support
 - Supports LLVM 11.0 - 16.0.
+- 64-bit RISC-V: Now defaults to `-mattr=+m,+a,+f,+d,+c` ('rv64gc' ABI) for non-bare-metal targets, i.e., if the target triple includes a valid operating system. (#4390)
 
 #### Bug fixes
 - Fix function pointers/delegates on Harvard architectures (e.g., AVR). (#4432, #4465)

@@ -57,7 +57,20 @@ static llvm::cl::opt<bool, true> preserveDwarfLineSection(
     llvm::cl::init(false));
 #endif
 
-const char *getABI(const llvm::Triple &triple) {
+// Returns true if 'feature' is enabled and false otherwise. Handles the
+// case where the feature is specified multiple times ('+m,-m'), and
+// takes the last occurrence.
+bool isFeatureEnabled(const llvm::SmallVectorImpl<llvm::StringRef> &features,
+                      llvm::StringRef feature) {
+  for (auto it = features.rbegin(), end = features.rend(); it != end; ++it) {
+    if (it->substr(1) == feature) {
+      return (*it)[0] == '+';
+    }
+  }
+  return false;
+};
+
+const char *getABI(const llvm::Triple &triple, const llvm::SmallVectorImpl<llvm::StringRef> &features) {
   llvm::StringRef ABIName(opts::mABI);
   if (ABIName != "") {
     switch (triple.getArch()) {
@@ -120,6 +133,10 @@ const char *getABI(const llvm::Triple &triple) {
   case llvm::Triple::ppc64le:
     return "elfv2";
   case llvm::Triple::riscv64:
+    if (isFeatureEnabled(features, "d"))
+      return "lp64d";
+    if (isFeatureEnabled(features, "f"))
+      return "lp64f";
     return "lp64";
   case llvm::Triple::riscv32:
     return "ilp32";
@@ -441,6 +458,16 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
     features.push_back("+cx16");
   }
 
+  // For a hosted RISC-V 64-bit target default to rv64gc if nothing has
+  // been selected
+  if (triple.getArch() == llvm::Triple::riscv64 && features.empty()) {
+    const llvm::StringRef os = triple.getOSName();
+    const bool isFreeStanding = os.empty() || os == "unknown" || os == "none";
+    if (!isFreeStanding) {
+      features = {"+m", "+a", "+f", "+d", "+c"};
+    }
+  }
+
   // Handle cases where LLVM picks wrong default relocModel
 #if LDC_LLVM_VER >= 1600
   if (relocModel.has_value()) {}
@@ -478,7 +505,7 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
       opts::InitTargetOptionsFromCodeGenFlags(triple);
 
   if (targetOptions.MCOptions.ABIName.empty())
-    targetOptions.MCOptions.ABIName = getABI(triple);
+    targetOptions.MCOptions.ABIName = getABI(triple, features);
 
   if (floatABI == FloatABI::Default) {
     switch (triple.getArch()) {
