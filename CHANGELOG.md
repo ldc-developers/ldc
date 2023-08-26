@@ -1,12 +1,20 @@
 # LDC master
 
 #### Big news
+
+#### Platform support
+
+#### Bug fixes
+
+# LDC 1.34.0 (2023-08-26)
+
+#### Big news
 - Frontend, druntime and Phobos are at version [2.104.2](https://dlang.org/changelog/2.104.0.html). (#4440)
 - Support for [LLVM 16](https://releases.llvm.org/16.0.0/docs/ReleaseNotes.html). The prebuilt packages use v16.0.6. (#4411, #4423)
   - We have come across miscompiles with LLVM 16's newly-enabled-by-default function specializations (on Win64 and macOS). To be on the safe side, LDC disables them by default for all targets via `-func-specialization-size-threshold=1000000000` in `etc/ldc2.conf` (and separately for LTO on Posix platforms). To enable the function specializations, explicitly override it with e.g. `-func-specialization-size-threshold=100` (the LLVM 16 default) and, for LTO on Posix, a similar LTO plugin option in the linker cmdline (see linker cmdline with `-v`).
 
 #### Platform support
-- Supports LLVM 11.0 - 16.0.
+- Supports LLVM 11.0 - 16.0. Support for LLVM 9 and 10 was dropped.
 - 64-bit RISC-V: Now defaults to `-mattr=+m,+a,+f,+d,+c` ('rv64gc' ABI) for non-bare-metal targets, i.e., if the target triple includes a valid operating system. (#4390)
 
 #### Bug fixes
