@@ -359,8 +359,11 @@ version (IN_LLVM)
 
     /// Architecture name
     const(char)[] architectureName;
+version (IN_LLVM) {} else
+{
     CPU cpu = CPU.baseline; // CPU instruction set to target
     bool isX86_64 = (size_t.sizeof == 8);  // generate 64 bit code for x86_64; true by default for 64 bit dmd
+}
     bool isLP64;            // pointers are 64 bits
 
     // Environmental
@@ -368,7 +371,10 @@ version (IN_LLVM)
     const(char)[] lib_ext;    /// extension for static library files
     const(char)[] dll_ext;    /// extension for dynamic library files
     bool run_noext;           /// allow -run sources without extensions
+version (IN_LLVM) {} else
+{
     bool omfobj = false;      // for Win32: write OMF object files instead of MsCoff
+}
     /**
      * Values representing all properties for floating point types
      */

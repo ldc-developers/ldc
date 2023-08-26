@@ -130,7 +130,6 @@ void Target::_init(const Param &params) {
 
   isLP64 = gDataLayout->getPointerSizeInBits() == 64;
   run_noext = !triple.isOSWindows();
-  omfobj = false;
 
   if (isMSVC) {
     obj_ext = {3, "obj"};
