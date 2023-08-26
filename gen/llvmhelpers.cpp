@@ -1609,14 +1609,6 @@ DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl) {
 }
 
 llvm::Constant *DtoConstSymbolAddress(const Loc &loc, Declaration *decl) {
-  // Make sure 'this' isn't needed.
-  // TODO: This check really does not belong here, should be moved to
-  // semantic analysis in the frontend.
-  if (decl->needThis()) {
-    error(loc, "need `this` to access `%s`", decl->toChars());
-    fatal();
-  }
-
   // global variable
   if (VarDeclaration *vd = decl->isVarDeclaration()) {
     if (!vd->isDataseg()) {
