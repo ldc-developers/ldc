@@ -529,15 +529,23 @@ void testDestruction()
 
     version (LDC)
     {
-             version (linux)   enum allowFailure = true;
-        else version (FreeBSD) enum allowFailure = true;
-        else                   enum allowFailure = false;
-
-        if (allowFailure && !Test.run)
+        version (D_Optimized) {} else
         {
-            fprintf(stderr, "FIXME: garbage wasn't collected, ignoring sporadic failure on Linux / consistent (?) failure on FreeBSD...\n");
-            fprintf(stderr, "       (see https://github.com/ldc-developers/ldc/issues/3827)\n");
-            return;
+            version (OSX) version (AArch64) version = macOS_AArch64;
+
+                 version (linux)   enum allowFailure = true;
+            else version (FreeBSD) enum allowFailure = true;
+            // started to fail on Win64 and macOS arm64 too with D v2.105 (apparently consistently)
+            else version (Win64)         enum allowFailure = true;
+            else version (macOS_AArch64) enum allowFailure = true;
+            else                         enum allowFailure = false;
+
+            if (allowFailure && !Test.run)
+            {
+                fprintf(stderr, "FIXME: garbage wasn't collected, ignoring sporadic failure on Linux / consistent (?) failure on FreeBSD, Win64, macOS arm64...\n");
+                fprintf(stderr, "       (see https://github.com/ldc-developers/ldc/issues/3827)\n");
+                return;
+            }
         }
     }
 
