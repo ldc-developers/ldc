@@ -17,13 +17,8 @@ extern(C++) class MyVisitor : SemanticTimeTransitiveVisitor {
     alias visit = SemanticTimeTransitiveVisitor.visit;
 
     override void visit(VarDeclaration vd) {
-        if (vd.aliasTuple) {
-            vd.aliasTuple.foreachVar((s) {
-                auto vardecl = s.isVarDeclaration();
-                if (vardecl && vardecl.type.needsDestruction()) {
-                    warning(vardecl.loc, "It works!");
-                }
-            });
+        if (vd.type.needsDestruction()) {
+            warning(vd.loc, "It works!");
         }
     }
 }
