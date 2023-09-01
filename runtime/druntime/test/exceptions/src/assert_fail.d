@@ -502,6 +502,8 @@ void testOverlappingFields()
     test(a, b, "S3(<overlapped field>, <overlapped field>, 8) != S3(<overlapped field>, <overlapped field>, 8)");
 }
 
+version (LDC) version (OSX) version (AArch64) version = LDC_macOS_AArch64;
+
 void testDestruction()
 {
     static class Test
@@ -531,14 +533,12 @@ void testDestruction()
     {
         version (D_Optimized) {} else
         {
-            version (OSX) version (AArch64) version = macOS_AArch64;
-
                  version (linux)   enum allowFailure = true;
             else version (FreeBSD) enum allowFailure = true;
             // started to fail on Win64 and macOS arm64 too with D v2.105 (apparently consistently)
-            else version (Win64)         enum allowFailure = true;
-            else version (macOS_AArch64) enum allowFailure = true;
-            else                         enum allowFailure = false;
+            else version (Win64)             enum allowFailure = true;
+            else version (LDC_macOS_AArch64) enum allowFailure = true;
+            else                             enum allowFailure = false;
 
             if (allowFailure && !Test.run)
             {
