@@ -158,4 +158,23 @@ else version (LDC)
     alias __uint128_t = imported!"core.int128".Cent;
 
     alias __builtin_alloca = imported!"core.stdc.stdlib".alloca;
+
+    // gcc builtins:
+
+    version (ARM)     public import ldc.gccbuiltins_arm;
+    version (AArch64) public import ldc.gccbuiltins_aarch64;
+
+    version (MIPS32) public import ldc.gccbuiltins_mips;
+    version (MIPS64) public import ldc.gccbuiltins_mips;
+
+    version (PPC)   public import ldc.gccbuiltins_ppc;
+    version (PPC64) public import ldc.gccbuiltins_ppc;
+
+    version (RISCV32) public import ldc.gccbuiltins_riscv;
+    version (RISCV64) public import ldc.gccbuiltins_riscv;
+
+    version (SystemZ) public import ldc.gccbuiltins_s390;
+
+    version (X86)    public import ldc.gccbuiltins_x86;
+    version (X86_64) public import ldc.gccbuiltins_x86;
 }
