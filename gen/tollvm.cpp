@@ -227,32 +227,39 @@ LLValue *DtoDelegateEquals(EXP op, LLValue *lhs, LLValue *rhs) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+namespace {
+LLGlobalValue::LinkageTypes DtoLinkageOnly(Dsymbol *sym) {
+  if (hasWeakUDA(sym))
+    return LLGlobalValue::WeakAnyLinkage;
+
+  // static in ImportC translates to internal linkage
+  if (auto decl = sym->isDeclaration())
+    if ((decl->storage_class & STCstatic) && decl->isCsymbol())
+      return LLGlobalValue::InternalLinkage;
+
+  /* Function (incl. delegate) literals are emitted into each referencing
+   * compilation unit, so use internal linkage for all lambdas and all global
+   * variables they define.
+   * This makes sure these symbols don't accidentally collide when linking
+   * object files compiled by different compiler invocations (lambda mangles
+   * aren't stable - see https://issues.dlang.org/show_bug.cgi?id=23722).
+   */
+  auto potentialLambda = sym;
+  if (auto vd = sym->isVarDeclaration())
+    if (vd->isDataseg())
+      potentialLambda = vd->toParent2();
+  if (potentialLambda->isFuncLiteralDeclaration())
+    return LLGlobalValue::InternalLinkage;
+
+  if (sym->isInstantiated())
+    return templateLinkage;
+
+  return LLGlobalValue::ExternalLinkage;
+}
+}
+
 LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
-  LLGlobalValue::LinkageTypes linkage = LLGlobalValue::ExternalLinkage;
-  if (hasWeakUDA(sym)) {
-    linkage = LLGlobalValue::WeakAnyLinkage;
-  } else {
-    /* Function (incl. delegate) literals are emitted into each referencing
-     * compilation unit, so use internal linkage for all lambdas and all global
-     * variables they define.
-     * This makes sure these symbols don't accidentally collide when linking
-     * object files compiled by different compiler invocations (lambda mangles
-     * aren't stable - see https://issues.dlang.org/show_bug.cgi?id=23722).
-     */
-    auto potentialLambda = sym;
-    if (auto vd = sym->isVarDeclaration()) {
-      if (vd->isDataseg())
-        potentialLambda = vd->toParent2();
-    }
-
-    if (potentialLambda->isFuncLiteralDeclaration()) {
-      linkage = LLGlobalValue::InternalLinkage;
-    } else if (sym->isInstantiated()) {
-      linkage = templateLinkage;
-    }
-  }
-
-  return {linkage, needsCOMDAT()};
+  return {DtoLinkageOnly(sym), needsCOMDAT()};
 }
 
 bool needsCOMDAT() {
