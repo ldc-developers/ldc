@@ -957,6 +957,9 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
     // static
     if (vd->isDataseg()) {
       Declaration_codegen(vd);
+      if (vd->storage_class & STCextern) {
+        DtoResolveVariable(vd); // make sure there's an IR declaration
+      }
     } else {
       DtoVarDeclaration(vd);
     }

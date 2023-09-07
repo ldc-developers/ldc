@@ -11,3 +11,5 @@ version (D_SoftFloat) {} else static assert(0);
 int definedGlobal = 123;
 // CHECK: @_D3avr14declaredGlobali = external global i32
 extern int declaredGlobal;
+
+int dummyRef() { return declaredGlobal; } // make sure `declaredGlobal` is IR-declared
