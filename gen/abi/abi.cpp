@@ -89,7 +89,7 @@ TypeTuple *TargetABI::getArgTypes(Type *t) {
 LLType *TargetABI::getRewrittenArgType(Type *t, TypeTuple *argTypes) {
   if (!argTypes || argTypes->arguments->empty() ||
       (argTypes->arguments->length == 1 &&
-       argTypes->arguments->front()->type == t)) {
+       argTypes->arguments->front()->type->equivalent(t))) {
     return nullptr; // don't rewrite
   }
 
