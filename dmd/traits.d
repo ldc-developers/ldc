@@ -1224,7 +1224,7 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
             {
                 if (fd.overnext)
                 {
-                    deprecation(e.loc, "`__traits(getAttributes)` may only be used for individual functions, not overload sets such as: `%s`", fd.toChars());
+                    deprecation(e.loc, "`__traits(getAttributes)` may only be used for individual functions, not the overload set `%s`", fd.toChars());
                     deprecationSupplemental(e.loc, "the result of `__traits(getOverloads)` may be used to select the desired function to extract attributes from");
                 }
             }
@@ -1234,7 +1234,7 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
             {
                 if (td.overnext || td.overroot)
                 {
-                    deprecation(e.loc, "`__traits(getAttributes)` may only be used for individual functions, not overload sets such as: `%s`", td.ident.toChars());
+                    deprecation(e.loc, "`__traits(getAttributes)` may only be used for individual functions, not the overload set `%s`", td.ident.toChars());
                     deprecationSupplemental(e.loc, "the result of `__traits(getOverloads)` may be used to select the desired function to extract attributes from");
                 }
             }
@@ -1565,7 +1565,9 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
         if (auto imp = s.isImport())
         {
             // https://issues.dlang.org/show_bug.cgi?id=9692
-            s = imp.mod;
+            // https://issues.dlang.org/show_bug.cgi?id=20008
+            if (imp.pkg)
+                s = imp.pkg;
         }
 
         // https://issues.dlang.org/show_bug.cgi?id=16044
@@ -1926,7 +1928,7 @@ version (IN_LLVM)
         StringExp se = ex ? ex.ctfeInterpret().toStringExp() : null;
         if (!ex || !se || se.len == 0)
         {
-            e.error("string expected as argument of __traits `%s` instead of `%s`", e.ident.toChars(), ex.toChars());
+            e.error("string expected as argument of __traits `%s` instead of `%s`", e.ident.toChars(), (*e.args)[0].toChars());
             return ErrorExp.get();
         }
         se = se.toUTF8(sc);
@@ -2133,7 +2135,7 @@ private bool isSame(RootObject o1, RootObject o2, Scope* sc)
             return true;
     }
 
-    // issue 12001, allow isSame, <BasicType>, <BasicType>
+    // https://issues.dlang.org/show_bug.cgi?id=12001, allow isSame, <BasicType>, <BasicType>
     Type t1 = isType(o1);
     Type t2 = isType(o2);
     if (t1 && t2 && t1.equals(t2))

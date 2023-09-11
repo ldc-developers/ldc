@@ -527,9 +527,9 @@ void onlyOneMainCheck(FuncDeclaration *fd) {
       (isOSWindows && (fd->isWinMain() || fd->isDllMain()))) {
     // global - across all modules compiled in this compiler invocation
     static Loc mainLoc;
-    if (!mainLoc.filename) {
+    if (!mainLoc.filename()) {
       mainLoc = fd->loc;
-      assert(mainLoc.filename);
+      assert(mainLoc.filename());
     } else {
       const char *otherMainNames =
           isOSWindows ? ", `WinMain`, or `DllMain`" : "";

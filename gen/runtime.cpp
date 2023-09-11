@@ -89,8 +89,7 @@ static void checkForImplicitGCCall(const Loc &loc, const char *name) {
         "_d_newarrayU",
         "_d_newclass",
         "_d_allocclass",
-        "_d_newitemT",
-        "_d_newitemiT",
+        // TODO: _d_newitemT instantiations
     };
 
     if (binary_search(&GCNAMES[0],
@@ -617,11 +616,6 @@ static void buildRuntimeModule() {
   // Throwable _d_newThrowable(const ClassInfo ci)
   createFwdDecl(LINK::c, throwableTy, {"_d_newThrowable"}, {classInfoTy},
                 {STCconst});
-
-  // void* _d_newitemT (TypeInfo ti)
-  // void* _d_newitemiT(TypeInfo ti)
-  createFwdDecl(LINK::c, voidPtrTy, {"_d_newitemT", "_d_newitemiT"},
-                {typeInfoTy}, {0});
 
   // void _d_delarray_t(void[]* p, const TypeInfo_Struct ti)
   createFwdDecl(LINK::c, voidTy, {"_d_delarray_t"},

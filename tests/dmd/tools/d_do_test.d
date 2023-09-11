@@ -636,7 +636,11 @@ string getDisabledReason(string[] disabledPlatforms, const ref EnvData envData)
         // additionally support `DISABLED: LDC_<OS>[<model>]`
         const j = disabledPlatforms.countUntil!(p => p.startsWith("LDC_") && target.canFind(p[4 .. $]));
         if (j != -1)
-            return "on " ~ disabledPlatforms[j];
+            return "for LDC on " ~ disabledPlatforms[j];
+
+        // we don't use the 32mscoff model, but 32 instead
+        if (target == "win32" && disabledPlatforms.canFind("win32mscoff"))
+            return "on win32mscoff";
     }
 
     return null;

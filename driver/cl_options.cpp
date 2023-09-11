@@ -178,6 +178,10 @@ static cl::opt<Diagnostic, true> warnings(
                    "Enable warnings as messages (compilation will continue)")),
     cl::init(DIAGNOSTICoff));
 
+static cl::opt<bool, true> warningsObsolete(
+    "wo", cl::ZeroOrMore, cl::location(global.params.obsolete),
+    cl::desc("Enable warnings about use of obsolete features"));
+
 static cl::opt<bool, true> ignoreUnsupportedPragmas(
     "ignore", cl::desc("Ignore unsupported pragmas"), cl::ZeroOrMore,
     cl::location(global.params.ignoreUnsupportedPragmas));

@@ -116,7 +116,7 @@ DIBuilder::DIBuilder(IRState *const IR)
       emitColumnInfo(opts::getFlagOrDefault(::emitColumnInfo, !emitCodeView)) {}
 
 unsigned DIBuilder::getColumn(const Loc &loc) const {
-  return (loc.linnum && emitColumnInfo) ? loc.charnum : 0;
+  return (loc.linnum() && emitColumnInfo) ? loc.charnum() : 0;
 }
 
 // Returns the DI scope of a symbol.
@@ -202,7 +202,7 @@ llvm::StringRef DIBuilder::GetNameAndScope(Dsymbol *sym, DIScope &scope) {
 // Sets the memory address for a debuginfo variable.
 void DIBuilder::Declare(const Loc &loc, llvm::Value *storage,
                         DILocalVariable divar, DIExpression diexpr) {
-  auto debugLoc = llvm::DILocation::get(IR->context(), loc.linnum,
+  auto debugLoc = llvm::DILocation::get(IR->context(), loc.linnum(),
                                         getColumn(loc), GetCurrentScope());
   DBuilder.insertDeclare(storage, divar, diexpr, debugLoc, IR->scopebb());
 }
@@ -210,7 +210,7 @@ void DIBuilder::Declare(const Loc &loc, llvm::Value *storage,
 // Sets the (current) value for a debuginfo variable.
 void DIBuilder::SetValue(const Loc &loc, llvm::Value *value,
                          DILocalVariable divar, DIExpression diexpr) {
-  auto debugLoc = llvm::DILocation::get(IR->context(), loc.linnum,
+  auto debugLoc = llvm::DILocation::get(IR->context(), loc.linnum(),
                                         getColumn(loc), GetCurrentScope());
   DBuilder.insertDbgValueIntrinsic(value, divar, diexpr, debugLoc,
                                    IR->scopebb());
@@ -240,13 +240,13 @@ DIFile DIBuilder::CreateFile(const char *filename) {
 }
 
 DIFile DIBuilder::CreateFile(const Loc &loc) {
-  return CreateFile(loc.filename);
+  return CreateFile(loc.filename());
 }
 
 DIFile DIBuilder::CreateFile(Dsymbol *decl) {
   const char *filename = nullptr;
   for (Dsymbol *sym = decl; sym && !filename; sym = sym->parent)
-    filename = sym->loc.filename;
+    filename = sym->loc.filename();
   return CreateFile(filename);
 }
 
@@ -346,7 +346,7 @@ DIType DIBuilder::CreateEnumType(TypeEnum *type) {
 
   DIScope scope = nullptr;
   const auto name = GetNameAndScope(ed, scope);
-  const auto lineNumber = ed->loc.linnum;
+  const auto lineNumber = ed->loc.linnum();
   const auto file = CreateFile(ed);
 
   // just emit a typedef for non-integral base types
@@ -490,7 +490,7 @@ void DIBuilder::AddFields(AggregateDeclaration *ad, DIFile file,
     if (vd->type->toBasetype()->isTypeNoreturn())
       continue;
 
-    elems.push_back(CreateMemberType(vd->loc.linnum, vd->type, file,
+    elems.push_back(CreateMemberType(vd->loc.linnum(), vd->type, file,
                                      vd->toChars(), vd->offset,
                                      vd->visibility.kind));
   }
@@ -532,8 +532,8 @@ void DIBuilder::AddStaticMembers(AggregateDeclaration *ad, DIFile file,
             }
           } else if (!vd->type->toBasetype()->isTypeNoreturn()) {
             llvm::MDNode *elem =
-                CreateMemberType(vd->loc.linnum, vd->type, file, vd->toChars(),
-                                 0, vd->visibility.kind,
+                CreateMemberType(vd->loc.linnum(), vd->type, file,
+                                 vd->toChars(), 0, vd->visibility.kind,
                                  /*isStatic = */ true, scope);
             elems.push_back(elem);
             StaticDataMemberCache[vd].reset(elem);
@@ -586,7 +586,7 @@ DIType DIBuilder::CreateCompositeType(Type *t) {
 
   // defaults
   const auto file = CreateFile(ad);
-  const auto lineNum = ad->loc.linnum;
+  const auto lineNum = ad->loc.linnum();
   const auto sizeInBits = T->isSized() ? getTypeAllocSize(T) * 8 : 0;
   const auto alignmentInBits = T->isSized() ? getABITypeAlign(T) * 8 : 0;
   const auto classOffsetInBits = 0;
@@ -908,9 +908,9 @@ void DIBuilder::EmitImport(Import *im) {
   auto diModule = EmitModule(im->mod);
 
   DBuilder.createImportedModule(GetCurrentScope(),
-                                diModule,       // imported module
-                                CreateFile(im), // file
-                                im->loc.linnum  // line num
+                                diModule,        // imported module
+                                CreateFile(im),  // file
+                                im->loc.linnum() // line num
   );
 }
 
@@ -945,7 +945,7 @@ DISubprogram DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
 
   const auto linkageName = irFunc->getLLVMFuncName();
   const auto file = CreateFile(fd);
-  const auto lineNo = fd->loc.linnum;
+  const auto lineNo = fd->loc.linnum();
   const auto isLocalToUnit = fd->visibility.kind == Visibility::private_;
   const auto isDefinition = true;
   const auto scopeLine = lineNo; // FIXME
@@ -1011,7 +1011,7 @@ DISubprogram DIBuilder::EmitThunk(llvm::Function *Thunk, FuncDeclaration *fd) {
   const auto name = (llvm::Twine(fd->toChars()) + ".__thunk").str();
   const auto linkageName = Thunk->getName();
   const auto file = CreateFile(fd);
-  const auto lineNo = fd->loc.linnum;
+  const auto lineNo = fd->loc.linnum();
   const bool isLocalToUnit = fd->visibility.kind == Visibility::private_;
   const bool isDefinition = true;
   const bool isOptimized = isOptimizationEnabled();
@@ -1080,7 +1080,7 @@ void DIBuilder::EmitBlockStart(const Loc &loc) {
   LOG_SCOPE;
 
   DILexicalBlock block = DBuilder.createLexicalBlock(
-      GetCurrentScope(), CreateFile(loc), loc.linnum, getColumn(loc));
+      GetCurrentScope(), CreateFile(loc), loc.linnum(), getColumn(loc));
   IR->func()->diLexicalBlocks.push(block);
   EmitStopPoint(loc);
 }
@@ -1104,14 +1104,14 @@ void DIBuilder::EmitStopPoint(const Loc &loc) {
   // If we already have a location set and the current loc is invalid
   // (line 0), then we can just ignore it (see GitHub issue #998 for why we
   // cannot do this in all cases).
-  if (!loc.linnum && IR->ir->getCurrentDebugLocation())
+  if (!loc.linnum() && IR->ir->getCurrentDebugLocation())
     return;
 
-  unsigned linnum = loc.linnum;
+  unsigned linnum = loc.linnum();
   // without proper loc use the line of the enclosing symbol that has line
   // number debug info
   for (Dsymbol *sym = IR->func()->decl; sym && !linnum; sym = sym->parent)
-    linnum = sym->loc.linnum;
+    linnum = sym->loc.linnum();
   if (!linnum)
     linnum = 1;
 
@@ -1216,7 +1216,7 @@ void DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
   const auto scope = GetCurrentScope();
   const auto name = vd->toChars();
   const auto file = CreateFile(vd);
-  const auto lineNum = vd->loc.linnum;
+  const auto lineNum = vd->loc.linnum();
   const auto preserve = true;
   auto flags = !isThisPtr
                    ? DIFlags::FlagZero
@@ -1288,7 +1288,7 @@ void DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
       vd->toChars(),                         // name
       mangleBuf.peekChars(),                 // linkage name
       CreateFile(vd),                        // file
-      vd->loc.linnum,                        // line num
+      vd->loc.linnum(),                        // line num
       CreateTypeDescription(vd->type),       // type
       vd->visibility.kind == Visibility::private_, // is local to unit
       !(vd->storage_class & STCextern),      // bool isDefined

@@ -166,8 +166,10 @@ struct Target
     TargetObjC objc;
 
     DString architectureName;    // name of the platform architecture (e.g. X86_64)
+#if !IN_LLVM
     CPU cpu;                // CPU instruction set to target
-    d_bool is64bit;           // generate 64 bit code for x86_64; true by default for 64 bit dmd
+    d_bool isX86_64;          // generate 64 bit code for x86_64; true by default for 64 bit dmd
+#endif
     d_bool isLP64;            // pointers are 64 bits
 
     // Environmental
@@ -175,7 +177,9 @@ struct Target
     DString lib_ext;    /// extension for static library files
     DString dll_ext;    /// extension for dynamic library files
     d_bool run_noext;     /// allow -run sources without extensions
+#if !IN_LLVM
     d_bool omfobj;        /// for Win32: write OMF object files instead of COFF
+#endif
 
     template <typename T>
     struct FPTypeProperties

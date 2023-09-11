@@ -70,7 +70,7 @@ std::string hashSymbolName(llvm::StringRef name, Dsymbol *symb) {
   }
 
   // source line number
-  auto lineNo = ldc::to_string(symb->loc.linnum);
+  auto lineNo = ldc::to_string(symb->loc.linnum());
   ret += ldc::to_string(lineNo.size()+1);
   ret += 'L';
   ret += lineNo;

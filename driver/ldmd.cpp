@@ -275,6 +275,7 @@ Where:\n\
   -vtls             list all variables going into thread local storage\n\
   -w                warnings as errors (compilation will halt)\n\
   -wi               warnings as messages (compilation will continue)\n\
+  -wo               warnings about use of obsolete features (compilation will continue)\n\
   -X                generate JSON file\n\
   -Xf=<filename>    write JSON file to filename\n\
   -Xcc=<driverflag> pass driverflag to linker driver (cc)\n",
@@ -593,7 +594,12 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
        * -revert
        * -w
        * -wi
-       * -O
+       */
+      else if (strcmp(p + 1, "wo") == 0) {
+        ldcArgs.push_back("-wo");
+        ldcArgs.push_back("-wi"); // DMD overrides a previous `-w` to `-wi`; LDC doesn't
+      }
+      /* -O
        * -o-
        * -od
        * -of

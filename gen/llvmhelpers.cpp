@@ -91,15 +91,6 @@ LLValue *DtoNew(const Loc &loc, Type *newtype) {
   return DtoBitCast(mem, DtoPtrToType(newtype), ".gc_mem");
 }
 
-LLValue *DtoNewStruct(const Loc &loc, TypeStruct *newtype) {
-  llvm::Function *fn = getRuntimeFunction(
-      loc, gIR->module,
-      newtype->isZeroInit(newtype->sym->loc) ? "_d_newitemT" : "_d_newitemiT");
-  LLConstant *ti = DtoTypeInfoOf(loc, newtype);
-  LLValue *mem = gIR->CreateCallOrInvoke(fn, ti, ".gc_struct");
-  return DtoBitCast(mem, DtoPtrToType(newtype), ".gc_struct");
-}
-
 void DtoDeleteMemory(const Loc &loc, DValue *ptr) {
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delmemory");
   LLValue *lval = (ptr->isLVal() ? DtoLVal(ptr) : makeLValue(loc, ptr));
@@ -279,7 +270,7 @@ void DtoAssert(Module *M, const Loc &loc, DValue *msg) {
   args.push_back(DtoModuleFileName(M, loc));
 
   // line param
-  args.push_back(DtoConstUint(loc.linnum));
+  args.push_back(DtoConstUint(loc.linnum()));
 
   // call
   gIR->CreateCallOrInvoke(fn, args);
@@ -291,8 +282,8 @@ void DtoAssert(Module *M, const Loc &loc, DValue *msg) {
 void DtoCAssert(Module *M, const Loc &loc, LLValue *msg) {
   const auto &triple = *global.params.targetTriple;
   const auto file =
-      DtoConstCString(loc.filename ? loc.filename : M->srcfile.toChars());
-  const auto line = DtoConstUint(loc.linnum);
+      DtoConstCString(loc.filename() ? loc.filename() : M->srcfile.toChars());
+  const auto line = DtoConstUint(loc.linnum());
   const auto fn = getCAssertFunction(loc, gIR->module);
 
   llvm::SmallVector<LLValue *, 4> args;
@@ -356,7 +347,7 @@ void DtoThrow(const Loc &loc, DValue *e) {
  ******************************************************************************/
 
 LLConstant *DtoModuleFileName(Module *M, const Loc &loc) {
-  return DtoConstString(loc.filename ? loc.filename : M->srcfile.toChars());
+  return DtoConstString(loc.filename() ? loc.filename() : M->srcfile.toChars());
 }
 
 /******************************************************************************
@@ -1618,14 +1609,6 @@ DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl) {
 }
 
 llvm::Constant *DtoConstSymbolAddress(const Loc &loc, Declaration *decl) {
-  // Make sure 'this' isn't needed.
-  // TODO: This check really does not belong here, should be moved to
-  // semantic analysis in the frontend.
-  if (decl->needThis()) {
-    error(loc, "need `this` to access `%s`", decl->toChars());
-    fatal();
-  }
-
   // global variable
   if (VarDeclaration *vd = decl->isVarDeclaration()) {
     if (!vd->isDataseg()) {
