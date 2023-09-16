@@ -16,7 +16,7 @@ AppVerName=LDC {#LDCVersion}
 ArchitecturesAllowed=x64
 ; Enable /CURRENTUSER cmdline option to install for current user only, requiring no admin privileges.
 ; This affects the default install dir (override with /DIR="x:\dirname") and the registry root key (HKCU, not HKLM).
-PrivilegesRequiredOverridesAllowed=commandline
+PrivilegesRequiredOverridesAllowed=dialog
 WizardStyle=modern
 DisableProgramGroupPage=yes
 DisableReadyPage=yes
@@ -40,7 +40,8 @@ Name: lib32; Description: "x86 libraries"; Types: full
 
 [Run]
 ; note: not added to PATH for silent installs with /SILENT or /VERYSILENT
-Filename: "{cmd}"; Parameters: "/c echo hello"; Check: not IsInEnvPath; BeforeInstall: AddToEnvPath; Description: "Add to PATH environment variable for current user"; Flags: postinstall skipifsilent runhidden nowait
+Filename: "{cmd}"; Parameters: "/c echo hello"; Check: not IsInUserEnvPath; BeforeInstall: AddToUserEnvPath; Description: "Add to PATH environment variable for current user"; Flags: postinstall skipifsilent runhidden nowait
+Filename: "{cmd}"; Parameters: "/c echo hello"; Check: IsAdminInstallMode and not IsInSystemEnvPath; BeforeInstall: AddToSystemEnvPath; Description: "Add to system PATH environment variable"; Flags: postinstall skipifsilent runhidden nowait unchecked
 Filename: "{app}\README.txt"; Description: "View the README file"; Flags: postinstall shellexec skipifdoesntexist skipifsilent unchecked
 
 [Registry]
@@ -67,13 +68,16 @@ begin
     SendBroadcastNotifyMessage(WM_SETTINGCHANGE, 0, CastStringToInteger(Dummy));
 end;
 
-{ add the target bin dir to user PATH if not already present }
-procedure AddToEnvPath();
+
+{ add the target bin dir to PATH if not already present }
+function AddToEnvPath(const RootKey: Integer; const SubKeyName: string): Boolean;
 var
     Path: string;
     Dir: string;
 begin
-    if not RegQueryStringValue(HKCU, 'Environment', 'Path', Path) then Path := '';
+    result := False;
+
+    if not RegQueryStringValue(RootKey, SubKeyName, 'Path', Path) then Path := '';
 
     Dir := GetTargetBinDir();
 
@@ -83,21 +87,40 @@ begin
     { prepend `<Dir>;` }
     Path := Dir + ';' + Path;
 
-    if RegWriteStringValue(HKCU, 'Environment', 'Path', Path) then
+    result := RegWriteStringValue(RootKey, SubKeyName, 'Path', Path);
+end;
+
+{ add the target bin dir to user PATH if not already present }
+procedure AddToUserEnvPath();
+begin
+    if AddToEnvPath(HKCU, 'Environment') then
     begin
-        Log(Format('Added to PATH: %s', [Path]));
+        Log(Format('Added to user PATH: %s', [GetTargetBinDir()]));
         RefreshEnvironment();
     end;
 end;
 
-{ remove the target bin dir from user PATH if present }
-procedure RemoveFromEnvPath();
+{ add the target bin dir to system PATH if not already present }
+procedure AddToSystemEnvPath();
+begin
+    if AddToEnvPath(HKLM, 'System\CurrentControlSet\Control\Session Manager\Environment') then
+    begin
+        Log(Format('Added to system PATH: %s', [GetTargetBinDir()]));
+        RefreshEnvironment();
+    end;
+end;
+
+
+{ remove the target bin dir from PATH if present }
+function RemoveFromEnvPath(const RootKey: Integer; const SubKeyName: string): Boolean;
 var
     Path: string;
     Dir: string;
     P: Integer;
 begin
-    if not RegQueryStringValue(HKCU, 'Environment', 'Path', Path) then exit;
+    result := False;
+
+    if not RegQueryStringValue(RootKey, SubKeyName, 'Path', Path) then exit;
 
     Dir := GetTargetBinDir();
 
@@ -107,22 +130,52 @@ begin
     { remove `<Dir>;` from Path }
     Delete(Path, P, Length(Dir) + 1);
 
-    if RegWriteStringValue(HKCU, 'Environment', 'Path', Path) then
+    result := RegWriteStringValue(RootKey, SubKeyName, 'Path', Path);
+end;
+
+{ remove the target bin dir from user PATH if present }
+procedure RemoveFromUserEnvPath();
+begin
+    if RemoveFromEnvPath(HKCU, 'Environment') then
     begin
-        Log(Format('Removed from PATH: %s', [Path]));
+        Log(Format('Removed from user PATH: %s', [GetTargetBinDir()]));
         RefreshEnvironment();
     end;
 end;
 
-{ check if the target bin dir is already in user PATH }
-function IsInEnvPath(): Boolean;
+{ remove the target bin dir from system PATH if present }
+procedure RemoveFromSystemEnvPath();
+begin
+    if RemoveFromEnvPath(HKLM, 'System\CurrentControlSet\Control\Session Manager\Environment') then
+    begin
+        Log(Format('Removed from system PATH: %s', [GetTargetBinDir()]));
+        RefreshEnvironment();
+    end;
+end;
+
+
+{ check if the target bin dir is already in PATH }
+function IsInEnvPath(const RootKey: Integer; const SubKeyName: string): Boolean;
 var
     Path: string;
 begin
     result := False;
-    if RegQueryStringValue(HKCU, 'Environment', 'Path', Path) then
+    if RegQueryStringValue(RootKey, SubKeyName, 'Path', Path) then
         result := Pos(';' + Uppercase(GetTargetBinDir()) + ';', ';' + Uppercase(Path) + ';') > 0;
 end;
+
+{ check if the target bin dir is already in user PATH }
+function IsInUserEnvPath(): Boolean;
+begin
+    result := IsInEnvPath(HKCU, 'Environment');
+end;
+
+{ check if the target bin dir is already in system PATH }
+function IsInSystemEnvPath(): Boolean;
+begin
+    result := IsInEnvPath(HKLM, 'System\CurrentControlSet\Control\Session Manager\Environment');
+end;
+
 
 { adapt 'Next' button label because of hidden ready page }
 procedure CurPageChanged(CurPageID: Integer);
@@ -131,9 +184,13 @@ begin
         WizardForm.NextButton.Caption := SetupMessage(msgButtonInstall);
 end;
 
-{ remove bin dir from user PATH at post-uninstall }
+{ remove bin dir from user/system PATH at post-uninstall }
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
     if (CurUninstallStep = usPostUninstall) then
-        RemoveFromEnvPath();
+    begin
+        RemoveFromUserEnvPath();
+        if IsAdminInstallMode then
+            RemoveFromSystemEnvPath();
+    end;
 end;
