@@ -96,6 +96,11 @@ void appendTargetArgsForGcc(std::vector<std::string> &args) {
     args.push_back(triple.isArch64Bit() ? "-m64" : "-m32");
     return;
 
+  // LoongArch does not use -m32/-m64 and uses -mabi=.
+  case Triple::loongarch64:
+    args.emplace_back(triple.isArch64Bit() ? "-mabi=lp64d" : "-mabi=ilp32d");
+    return;
+
   // MIPS does not have -m32/-m64 but requires -mabi=.
   case Triple::mips64:
   case Triple::mips64el:

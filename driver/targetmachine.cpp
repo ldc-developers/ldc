@@ -117,6 +117,14 @@ const char *getABI(const llvm::Triple &triple, const llvm::SmallVectorImpl<llvm:
       if (ABIName.startswith("ilp32"))
         return "ilp32";
       break;
+    case llvm::Triple::loongarch64:
+      if (ABIName.startswith("lp64f"))
+        return "lp64f";
+      if (ABIName.startswith("lp64d"))
+        return "lp64d";
+      if (ABIName.startswith("lp64s"))
+        return "lp64s";
+      break;
     default:
       break;
     }
@@ -140,6 +148,12 @@ const char *getABI(const llvm::Triple &triple, const llvm::SmallVectorImpl<llvm:
     return "lp64";
   case llvm::Triple::riscv32:
     return "ilp32";
+  case llvm::Triple::loongarch64:
+    if (isFeatureEnabled(features, "d"))
+      return "lp64d";
+    if (isFeatureEnabled(features, "f"))
+      return "lp64f";
+    return "lp64d";
   default:
     return "";
   }
@@ -237,6 +251,10 @@ static std::string getRiscv64TargetCPU(const llvm::Triple &triple) {
   return "generic-rv64";
 }
 
+static std::string getLoongArch64TargetCPU(const llvm::Triple &triple) {
+  return "generic-la64";
+}
+
 /// Returns the LLVM name of the default CPU for the provided target triple.
 static std::string getTargetCPU(const llvm::Triple &triple) {
   switch (triple.getArch()) {
@@ -258,6 +276,8 @@ static std::string getTargetCPU(const llvm::Triple &triple) {
     return getRiscv32TargetCPU(triple);
   case llvm::Triple::riscv64:
     return getRiscv64TargetCPU(triple);
+  case llvm::Triple::loongarch64:
+    return getLoongArch64TargetCPU(triple);
   }
 }
 
@@ -466,6 +486,12 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
     if (!isFreeStanding) {
       features = {"+m", "+a", "+f", "+d", "+c"};
     }
+  }
+
+  // For LoongArch 64-bit target default to la64 if nothing has been selected
+  // All current LoongArch targets have 64-bit floating point registers.
+  if (triple.getArch() == llvm::Triple::loongarch64 && features.empty()) {
+    features = {"+d"};
   }
 
   // Handle cases where LLVM picks wrong default relocModel
