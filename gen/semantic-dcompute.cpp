@@ -81,6 +81,10 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
   }
 
   void visit(VarDeclaration *decl) override {
+    if (!decl->canTakeAddressOf()) {
+      stop = true;
+      return;
+    }
     // Don't print multiple errors for 'synchronized'. see visit(CallExp*)
     if (decl->isDataseg()) {
       if (strncmp(decl->toChars(), "__critsec", 9) &&
