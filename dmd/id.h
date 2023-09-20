@@ -56,6 +56,7 @@ struct Id
     static Identifier *ctfe;
     static Identifier *_arguments;
     static Identifier *_argptr;
+    static Identifier *_d_assert_fail;
     static Identifier *LDC_intrinsic;
     static Identifier *LDC_global_crt_ctor;
     static Identifier *LDC_global_crt_dtor;
