@@ -440,8 +440,8 @@ struct Loc
 {
 private:
     unsigned _linnum;
-    unsigned short _charnum;
-    unsigned short fileIndex;
+    unsigned _charnum;
+    unsigned fileIndex;
 public:
     static void set(bool showColumns, MessageStyle messageStyle);
 
