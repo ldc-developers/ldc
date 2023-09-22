@@ -1,11 +1,16 @@
 # LDC master
 
 #### Big news
-- Frontend, druntime and Phobos are at version [2.105.1+](https://dlang.org/changelog/2.105.0.html). (#4476)
+- Frontend, druntime and Phobos are at version [2.105.2](https://dlang.org/changelog/2.105.0.html). (#4476, #4498)
+- The Windows installer now supports non-admin installs *without* an explicit `/CURRENTUSER` switch. (#4495)
 
 #### Platform support
 
 #### Bug fixes
+- ImportC:
+  - Fix `static` linkage. (#4484, 4487)
+  - Make gcc builtins available. (#4483)
+  - Apple: Support weird `asm("_" "<name>")` mangling stuff. (#4485, #4486)
 
 # LDC 1.34.0 (2023-08-26)
 
