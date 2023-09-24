@@ -48,7 +48,7 @@ jobs:
     env:
       MACOSX_DEPLOYMENT_TARGET: 11.6 # silence `ld: warning: object file (…) was built for newer macOS version (…) than being linked (…)`
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
           fetch-depth: 50
@@ -75,7 +75,7 @@ jobs:
           sudo apt-get install gdb=9.1-0ubuntu1 llvm
 
       - name: Try to restore cached LLVM
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: llvm
           key: llvm-${{ matrix.llvm_version }}-${{ runner.os }}
