@@ -59,6 +59,7 @@ llvm::Type *getRealType(const llvm::Triple &triple) {
 
   case Triple::riscv32:
   case Triple::riscv64:
+  case Triple::loongarch32:
   case Triple::loongarch64:
     return LLType::getFP128Ty(ctx);
 

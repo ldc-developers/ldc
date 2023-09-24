@@ -117,6 +117,14 @@ const char *getABI(const llvm::Triple &triple, const llvm::SmallVectorImpl<llvm:
       if (ABIName.startswith("ilp32"))
         return "ilp32";
       break;
+    case llvm::Triple::loongarch32:
+      if (ABIName.startswith("ilp32s"))
+        return "ilp32s";
+      if (ABIName.startswith("ilp32f"))
+        return "ilp32f";
+      if (ABIName.startswith("ilp32d"))
+        return "ilp32d";
+      break;
     case llvm::Triple::loongarch64:
       if (ABIName.startswith("lp64f"))
         return "lp64f";
@@ -148,6 +156,12 @@ const char *getABI(const llvm::Triple &triple, const llvm::SmallVectorImpl<llvm:
     return "lp64";
   case llvm::Triple::riscv32:
     return "ilp32";
+  case llvm::Triple::loongarch32:
+    if (isFeatureEnabled(features, "d"))
+      return "ilp32d";
+    if (isFeatureEnabled(features, "f"))
+      return "ilp32f";
+    return "ilp32s";
   case llvm::Triple::loongarch64:
     if (isFeatureEnabled(features, "d"))
       return "lp64d";
@@ -251,6 +265,10 @@ static std::string getRiscv64TargetCPU(const llvm::Triple &triple) {
   return "generic-rv64";
 }
 
+static std::string getLoongArch32TargetCPU(const llvm::Triple &triple) {
+  return "generic-la32";
+}
+
 static std::string getLoongArch64TargetCPU(const llvm::Triple &triple) {
   return "generic-la64";
 }
@@ -276,6 +294,8 @@ static std::string getTargetCPU(const llvm::Triple &triple) {
     return getRiscv32TargetCPU(triple);
   case llvm::Triple::riscv64:
     return getRiscv64TargetCPU(triple);
+  case llvm::Triple::loongarch32:
+    return getLoongArch32TargetCPU(triple);
   case llvm::Triple::loongarch64:
     return getLoongArch64TargetCPU(triple);
   }
