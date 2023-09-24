@@ -765,6 +765,7 @@ void registerPredefinedTargetVersions() {
   case llvm::Triple::wasm64:
     VersionCondition::addPredefinedGlobalIdent("WebAssembly");
     break;
+#if LDC_LLVM_VER >= 1600
   case llvm::Triple::loongarch32:
     VersionCondition::addPredefinedGlobalIdent("LoongArch32");
     registerPredefinedFloatABI("LoongArch_SoftFloat", "LoongArch_HardFloat");
@@ -773,6 +774,7 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("LoongArch64");
     registerPredefinedFloatABI("LoongArch_SoftFloat", "LoongArch_HardFloat");
     break;
+#endif // LDC_LLVM_VER >= 1600
   default:
     warning(Loc(), "unknown target CPU architecture: %s",
             triple.getArchName().str().c_str());
