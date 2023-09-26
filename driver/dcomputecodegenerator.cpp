@@ -86,6 +86,7 @@ DComputeCodeGenManager::DComputeCodeGenManager(llvm::LLVMContext &c) : ctx(c) {
 
 void DComputeCodeGenManager::emit(Module *m) {
   for (auto &target : targets) {
+    m->noModuleInfo = true;
     target->emit(m);
     IrDsymbol::resetAll();
   }
