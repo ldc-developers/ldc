@@ -13,3 +13,8 @@ struct A
 {
     int foo()() { return 0; }
 }
+
+struct B()
+{
+    int foo() { return 0; }
+}
