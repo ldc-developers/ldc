@@ -2,7 +2,7 @@
 // REQUIRES: target_NVPTX
 @compute(CompileFor.deviceOnly) module tests.semaintic.dcompute_template;
 import ldc.dcompute;
-import inputs.notatcompute : identity;
+import inputs.notatcompute : identity, A;
 
 @kernel void test()()
 {
@@ -13,4 +13,10 @@ alias realtest = test!();
 @kernel void test2()
 {
     auto x = identity(42);
+}
+
+@kernel void test3()
+{
+    A a;
+    a.foo();
 }
