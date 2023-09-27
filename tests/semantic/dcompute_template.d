@@ -9,3 +9,8 @@ import inputs.notatcompute : identity;
     auto x = identity(42);
 }
 alias realtest = test!();
+
+@kernel void test2()
+{
+    auto x = identity(42);
+}
