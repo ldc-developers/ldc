@@ -38,7 +38,7 @@ public:
   }
 
   auto passByVal(TypeFunction *, Type *t) -> bool override {
-    if (!t->size()) {
+    if (!isPOD(t)) {
       return false;
     }
     return t->size() > 16;
