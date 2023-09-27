@@ -11,6 +11,7 @@
 #include "driver/cl_options.h"
 #include "driver/cl_helpers.h"
 #include "dmd/errors.h"
+#include "dmd/module.h"
 #include "ir/irdsymbol.h"
 #include "llvm/Support/CommandLine.h"
 #include <array>
