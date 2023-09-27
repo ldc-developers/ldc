@@ -1,5 +1,5 @@
 // RUN: %ldc -o- -mdcompute-targets=cuda-430 %s
-
+// REQUIRES: target_NVPTX
 @compute(CompileFor.deviceOnly) module dcompute_enum;
 pragma(LDC_no_moduleinfo);
 import ldc.dcompute;
