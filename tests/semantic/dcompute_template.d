@@ -1,6 +1,6 @@
 // RUN: %ldc -o- -mdcompute-targets=cuda-350 %s -I%S
 // REQUIRES: target_NVPTX
-@compute(CompileFor.deviceOnly) module tests.semaintic.dcompute_template;
+@compute(CompileFor.deviceOnly) module tests.semantic.dcompute_template;
 import ldc.dcompute;
 import inputs.notatcompute : identity, A, B;
 
