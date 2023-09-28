@@ -1,6 +1,6 @@
 // RUN: not %ldc -o- -mdcompute-targets=cuda-350 -I%S %s 2>&1 | FileCheck %s
 // REQUIRES: target_NVPTX
-@compute(CompileFor.deviceOnly) module tests.semaintic.dcompute_template_fail;
+@compute(CompileFor.deviceOnly) module tests.semantic.dcompute_template_fail;
 import ldc.dcompute;
 import inputs.notatcompute : callsSomeFunc;
 
