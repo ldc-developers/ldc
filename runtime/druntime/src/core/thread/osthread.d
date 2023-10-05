@@ -1595,6 +1595,27 @@ in (fn)
             }}
             asm pure nothrow @nogc { (store ~ " sp, %0") : "=m" (sp); }
         }
+        else version (LoongArch64)
+        {
+            // Callee-save registers, according to LoongArch Calling Convention
+            // https://loongson.github.io/LoongArch-Documentation/LoongArch-ELF-ABI-EN.html
+            size_t[18] regs = void;
+            static foreach (i; 0 .. 8)
+            {{
+                enum int j = i;
+                // save $fs0 - $fs7
+                asm pure nothrow @nogc { ( "fst.d $fs"~j.stringof~", %0") : "=m" (regs[i]); }
+            }}
+            static foreach (i; 0 .. 9)
+            {{
+                enum int j = i;
+                // save $s0 - $s8
+                asm pure nothrow @nogc { ( "st.d $s"~j.stringof~", %0") : "=m" (regs[i + 8]); }
+            }}
+            // save $fp (or $s9) and $sp
+            asm pure nothrow @nogc { ( "st.d $fp, %0") : "=m" (regs[17]); }
+            asm pure nothrow @nogc { ( "st.d $sp, %0") : "=m" (sp); }
+        }
         else
         {
             static assert(false, "Architecture not supported.");

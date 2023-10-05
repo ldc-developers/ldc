@@ -59,6 +59,10 @@ llvm::Type *getRealType(const llvm::Triple &triple) {
 
   case Triple::riscv32:
   case Triple::riscv64:
+#if LDC_LLVM_VER >= 1600
+  case Triple::loongarch32:
+  case Triple::loongarch64:
+#endif // LDC_LLVM_VER >= 1600
     return LLType::getFP128Ty(ctx);
 
   default:
