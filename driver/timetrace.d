@@ -289,12 +289,12 @@ struct TimeTraceProfiler
         // {"ph":"M","ts":0,"args":{"name":"bin/ldc2"},"name":"thread_name","pid":0,"tid":0},
 
         buf.write(`{"ph":"M","ts":0,"args":{"name":"`);
-        buf.write(processName);
+        buf.writeEscapeJSONString(processName);
         buf.write(`"},"name":"process_name",`);
         buf.write(pidtid_string);
         buf.write("},\n");
         buf.write(`{"ph":"M","ts":0,"args":{"name":"`);
-        buf.write(processName);
+        buf.writeEscapeJSONString(processName);
         buf.write(`"},"cat":"","name":"thread_name",`);
         buf.write(pidtid_string);
         buf.write("},\n");
