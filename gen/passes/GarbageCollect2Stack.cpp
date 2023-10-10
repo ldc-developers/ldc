@@ -161,16 +161,17 @@ bool ArrayFI::analyze(CallBase *CB, const G2StackAnalysis &A) {
 }
 
 Value* ArrayFI::promote(CallBase *CB, IRBuilder<> &B, const G2StackAnalysis &A) {
+  IRBuilder<> Builder(B.GetInsertBlock(), B.GetInsertPoint());
+
   // If the allocation is of constant size it's best to put it in the
   // entry block, so do so if we're not already there.
   // For dynamically-sized allocations it's best to avoid the overhead
   // of allocating them if possible, so leave those where they are.
   // While we're at it, update statistics too.
-  const IRBuilderBase::InsertPointGuard savedInsertPoint(B);
   if (isa<Constant>(arrSize)) {
     BasicBlock &Entry = CB->getCaller()->getEntryBlock();
-    if (B.GetInsertBlock() != &Entry) {
-      B.SetInsertPoint(&Entry, Entry.begin());
+    if (Builder.GetInsertBlock() != &Entry) {
+      Builder.SetInsertPoint(&Entry, Entry.begin());
     }
     NumGcToStack++;
   } else {
@@ -178,9 +179,9 @@ Value* ArrayFI::promote(CallBase *CB, IRBuilder<> &B, const G2StackAnalysis &A) 
   }
 
   // Convert array size to 32 bits if necessary
-  Value *count = B.CreateIntCast(arrSize, B.getInt32Ty(), false);
+  Value *count = Builder.CreateIntCast(arrSize, Builder.getInt32Ty(), false);
   AllocaInst *alloca =
-      B.CreateAlloca(Ty, count, ".nongc_mem"); // FIXME: align?
+      Builder.CreateAlloca(Ty, count, ".nongc_mem"); // FIXME: align?
 
   if (Initialized) {
     // For now, only zero-init is supported.
@@ -194,10 +195,10 @@ Value* ArrayFI::promote(CallBase *CB, IRBuilder<> &B, const G2StackAnalysis &A) 
 
   if (ReturnType == ReturnType::Array) {
     Value *arrStruct = llvm::UndefValue::get(CB->getType());
-    arrStruct = B.CreateInsertValue(arrStruct, arrSize, 0);
+    arrStruct = Builder.CreateInsertValue(arrStruct, arrSize, 0);
     Value *memPtr =
-        B.CreateBitCast(alloca, PointerType::getUnqual(B.getInt8Ty()));
-    arrStruct = B.CreateInsertValue(arrStruct, memPtr, 1);
+        Builder.CreateBitCast(alloca, PointerType::getUnqual(B.getInt8Ty()));
+    arrStruct = Builder.CreateInsertValue(arrStruct, memPtr, 1);
     return arrStruct;
   }
 
@@ -261,16 +262,17 @@ bool UntypedMemoryFI::analyze(CallBase *CB, const G2StackAnalysis &A) {
   return true;
 }
 Value* UntypedMemoryFI::promote(CallBase *CB, IRBuilder<> &B, const G2StackAnalysis &A) {
+  IRBuilder<> Builder(B.GetInsertBlock(), B.GetInsertPoint());
+
   // If the allocation is of constant size it's best to put it in the
   // entry block, so do so if we're not already there.
   // For dynamically-sized allocations it's best to avoid the overhead
   // of allocating them if possible, so leave those where they are.
   // While we're at it, update statistics too.
-  const IRBuilderBase::InsertPointGuard savedInsertPoint(B);
   if (isa<Constant>(SizeArg)) {
     BasicBlock &Entry = CB->getCaller()->getEntryBlock();
-    if (B.GetInsertBlock() != &Entry) {
-      B.SetInsertPoint(&Entry, Entry.begin());
+    if (Builder.GetInsertBlock() != &Entry) {
+      Builder.SetInsertPoint(&Entry, Entry.begin());
     }
     NumGcToStack++;
   } else {
@@ -278,11 +280,11 @@ Value* UntypedMemoryFI::promote(CallBase *CB, IRBuilder<> &B, const G2StackAnaly
   }
 
   // Convert array size to 32 bits if necessary
-  Value *count = B.CreateIntCast(SizeArg, B.getInt32Ty(), false);
+  Value *count = Builder.CreateIntCast(SizeArg, Builder.getInt32Ty(), false);
   AllocaInst *alloca =
-      B.CreateAlloca(Ty, count, ".nongc_mem"); // FIXME: align?
+      Builder.CreateAlloca(Ty, count, ".nongc_mem"); // FIXME: align?
 
-  return B.CreateBitCast(alloca, CB->getType());
+  return Builder.CreateBitCast(alloca, CB->getType());
 }
 //}
 
@@ -406,7 +408,7 @@ bool GarbageCollect2Stack::run(Function &F, std::function<DominatorTree& ()> get
      .Case("_d_allocclass",   &AllocClass)
      .Case("_d_allocmemory",  &AllocMemory)
      .Default(nullptr);
-      
+
       // Ignore unknown calls.
       if (!info) {
         continue;
