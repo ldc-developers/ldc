@@ -1160,16 +1160,19 @@ private:
     //
     Callable            m_call;
     bool                m_isRunning;
+    version (LDC)
+    {
+        // Unconditionally add this field, that is only used with version(CheckFiberMigration),
+        // such that version(SupportSanitizers) does not change the ABI.
+        // (what is needed is version(SupportSanitizers_ABI || CheckFiberMigration))
+        // The field is positioned after another bool, using up alignment padding space.
+        bool m_allowMigration;
+    }
     Throwable           m_unhandled;
     State               m_state;
 
     // Set first time switchIn called to indicate this Fiber's Thread
     Thread              m_curThread;
-
-    version (CheckFiberMigration)
-    {
-        bool m_allowMigration;
-    }
 
     version (SjLj_Exceptions)
     {
