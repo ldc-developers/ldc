@@ -188,7 +188,8 @@ Value* ArrayFI::promote(CallBase *CB, IRBuilder<> &B, const G2StackAnalysis &A) 
     uint64_t size = A.DL.getTypeStoreSize(Ty);
     Value *TypeSize = ConstantInt::get(arrSize->getType(), size);
     // The initialization must be put at the original source variable
-    // definition location.
+    // definition location, because it could be in a loop and because
+    // of lifetime start-end annotation.
     Value *Size = B.CreateMul(TypeSize, arrSize);
     EmitMemZero(B, alloca, Size, A);
   }
