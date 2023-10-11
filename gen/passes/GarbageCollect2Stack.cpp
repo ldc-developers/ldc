@@ -161,16 +161,17 @@ bool ArrayFI::analyze(CallBase *CB, const G2StackAnalysis &A) {
 }
 
 Value* ArrayFI::promote(CallBase *CB, IRBuilder<> &B, const G2StackAnalysis &A) {
+  IRBuilder<> Builder(B.GetInsertBlock(), B.GetInsertPoint());
+
   // If the allocation is of constant size it's best to put it in the
   // entry block, so do so if we're not already there.
   // For dynamically-sized allocations it's best to avoid the overhead
   // of allocating them if possible, so leave those where they are.
   // While we're at it, update statistics too.
-  const IRBuilderBase::InsertPointGuard savedInsertPoint(B);
   if (isa<Constant>(arrSize)) {
     BasicBlock &Entry = CB->getCaller()->getEntryBlock();
-    if (B.GetInsertBlock() != &Entry) {
-      B.SetInsertPoint(&Entry, Entry.begin());
+    if (Builder.GetInsertBlock() != &Entry) {
+      Builder.SetInsertPoint(&Entry, Entry.begin());
     }
     NumGcToStack++;
   } else {
@@ -178,26 +179,27 @@ Value* ArrayFI::promote(CallBase *CB, IRBuilder<> &B, const G2StackAnalysis &A) 
   }
 
   // Convert array size to 32 bits if necessary
-  Value *count = B.CreateIntCast(arrSize, B.getInt32Ty(), false);
+  Value *count = Builder.CreateIntCast(arrSize, Builder.getInt32Ty(), false);
   AllocaInst *alloca =
-      B.CreateAlloca(Ty, count, ".nongc_mem"); // FIXME: align?
+      Builder.CreateAlloca(Ty, count, ".nongc_mem"); // FIXME: align?
 
   if (Initialized) {
     // For now, only zero-init is supported.
     uint64_t size = A.DL.getTypeStoreSize(Ty);
     Value *TypeSize = ConstantInt::get(arrSize->getType(), size);
-    // Use the original B to put initialization at the
-    // allocation site.
+    // The initialization must be put at the original source variable
+    // definition location, because it could be in a loop and because
+    // of lifetime start-end annotation.
     Value *Size = B.CreateMul(TypeSize, arrSize);
     EmitMemZero(B, alloca, Size, A);
   }
 
   if (ReturnType == ReturnType::Array) {
     Value *arrStruct = llvm::UndefValue::get(CB->getType());
-    arrStruct = B.CreateInsertValue(arrStruct, arrSize, 0);
+    arrStruct = Builder.CreateInsertValue(arrStruct, arrSize, 0);
     Value *memPtr =
-        B.CreateBitCast(alloca, PointerType::getUnqual(B.getInt8Ty()));
-    arrStruct = B.CreateInsertValue(arrStruct, memPtr, 1);
+        Builder.CreateBitCast(alloca, PointerType::getUnqual(B.getInt8Ty()));
+    arrStruct = Builder.CreateInsertValue(arrStruct, memPtr, 1);
     return arrStruct;
   }
 
@@ -406,7 +408,7 @@ bool GarbageCollect2Stack::run(Function &F, std::function<DominatorTree& ()> get
      .Case("_d_allocclass",   &AllocClass)
      .Case("_d_allocmemory",  &AllocMemory)
      .Default(nullptr);
-      
+
       // Ignore unknown calls.
       if (!info) {
         continue;
