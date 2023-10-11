@@ -187,8 +187,8 @@ Value* ArrayFI::promote(CallBase *CB, IRBuilder<> &B, const G2StackAnalysis &A) 
     // For now, only zero-init is supported.
     uint64_t size = A.DL.getTypeStoreSize(Ty);
     Value *TypeSize = ConstantInt::get(arrSize->getType(), size);
-    // Use the original B to put initialization at the
-    // allocation site.
+    // The initialization must be put at the original source variable
+    // definition location.
     Value *Size = B.CreateMul(TypeSize, arrSize);
     EmitMemZero(B, alloca, Size, A);
   }
@@ -262,17 +262,16 @@ bool UntypedMemoryFI::analyze(CallBase *CB, const G2StackAnalysis &A) {
   return true;
 }
 Value* UntypedMemoryFI::promote(CallBase *CB, IRBuilder<> &B, const G2StackAnalysis &A) {
-  IRBuilder<> Builder(B.GetInsertBlock(), B.GetInsertPoint());
-
   // If the allocation is of constant size it's best to put it in the
   // entry block, so do so if we're not already there.
   // For dynamically-sized allocations it's best to avoid the overhead
   // of allocating them if possible, so leave those where they are.
   // While we're at it, update statistics too.
+  const IRBuilderBase::InsertPointGuard savedInsertPoint(B);
   if (isa<Constant>(SizeArg)) {
     BasicBlock &Entry = CB->getCaller()->getEntryBlock();
-    if (Builder.GetInsertBlock() != &Entry) {
-      Builder.SetInsertPoint(&Entry, Entry.begin());
+    if (B.GetInsertBlock() != &Entry) {
+      B.SetInsertPoint(&Entry, Entry.begin());
     }
     NumGcToStack++;
   } else {
@@ -280,11 +279,11 @@ Value* UntypedMemoryFI::promote(CallBase *CB, IRBuilder<> &B, const G2StackAnaly
   }
 
   // Convert array size to 32 bits if necessary
-  Value *count = Builder.CreateIntCast(SizeArg, Builder.getInt32Ty(), false);
+  Value *count = B.CreateIntCast(SizeArg, B.getInt32Ty(), false);
   AllocaInst *alloca =
-      Builder.CreateAlloca(Ty, count, ".nongc_mem"); // FIXME: align?
+      B.CreateAlloca(Ty, count, ".nongc_mem"); // FIXME: align?
 
-  return Builder.CreateBitCast(alloca, CB->getType());
+  return B.CreateBitCast(alloca, CB->getType());
 }
 //}
 
