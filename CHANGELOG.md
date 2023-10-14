@@ -11,6 +11,7 @@
   - Fix `static` linkage. (#4484, 4487)
   - Make gcc builtins available. (#4483)
   - Apple: Support weird `asm("_" "<name>")` mangling stuff. (#4485, #4486)
+- AArch64: Fix an ABI-related ICE. (#4489, #4490)
 
 # LDC 1.34.0 (2023-08-26)
 
