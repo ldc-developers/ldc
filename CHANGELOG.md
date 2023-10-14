@@ -1,7 +1,7 @@
 # LDC master
 
 #### Big news
-- Frontend, druntime and Phobos are at version [2.105.2](https://dlang.org/changelog/2.105.0.html). (#4476, #4498)
+- Frontend, druntime and Phobos are at version [2.105.2+](https://dlang.org/changelog/2.105.0.html). (#4476, #4498, #4513)
 - The Windows installer now supports non-admin installs *without* an explicit `/CURRENTUSER` switch. (#4495)
 
 #### Platform support
