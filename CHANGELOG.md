@@ -1,17 +1,29 @@
 # LDC master
 
 #### Big news
-- Frontend, druntime and Phobos are at version [2.105.2+](https://dlang.org/changelog/2.105.0.html). (#4476, #4498, #4513)
-- The Windows installer now supports non-admin installs *without* an explicit `/CURRENTUSER` switch. (#4495)
 
 #### Platform support
 
 #### Bug fixes
+
+# LDC 1.35.0 (2023-10-15)
+
+#### Big news
+- Frontend, druntime and Phobos are at version [2.105.2+](https://dlang.org/changelog/2.105.0.html). (#4476, #4498, #4513)
+- The Windows installer now supports non-admin installs *without* an explicit `/CURRENTUSER` switch. (#4495)
+
+#### Platform support
+- Initial compiler support for LoongArch64. druntime support is pending. (#4500)
+
+#### Bug fixes
 - ImportC:
-  - Fix `static` linkage. (#4484, 4487)
+  - Fix `static` linkage. (#4484, #4487)
   - Make gcc builtins available. (#4483)
   - Apple: Support weird `asm("_" "<name>")` mangling stuff. (#4485, #4486)
 - AArch64: Fix an ABI-related ICE. (#4489, #4490)
+- Fix GC2Stack optimization regression introduced in v1.24. (#4510, #4511)
+- Fix druntime ABI divergence when compiling with sanitizers support. (#4508, #4509)
+- Windows: Fix an instance of missed backslash-escaping in `-ftime-trace` JSON. (#4506, #4507)
 
 # LDC 1.34.0 (2023-08-26)
 
