@@ -25,6 +25,7 @@ class GlobalVariable;
 class Module;
 class Triple;
 }
+class ObjcClassReferenceExp;
 
 bool objc_isSupported(const llvm::Triple &triple);
 
@@ -61,6 +62,7 @@ private:
                                       const llvm::StringRef &str,
                                       const char *section);
   llvm::GlobalVariable *getMethVarName(const llvm::StringRef &name);
+  llvm::GlobalVariable *classVarRef(const ObjcClassReferenceExp& cre);
   void retain(llvm::Constant *sym);
 
   void genImageInfo();
