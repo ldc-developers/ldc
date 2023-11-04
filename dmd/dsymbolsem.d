@@ -1416,7 +1416,11 @@ version (IN_LLVM)
             // if parser errors occur when loading a module
             // we should just stop compilation
             if (imp.load(sc))
+            {
+                for (size_t i = 0; i < imp.aliasdecls.length; i++)
+                    imp.aliasdecls[i].type = Type.terror;
                 return;
+            }
 
             if (imp.mod)
             {
