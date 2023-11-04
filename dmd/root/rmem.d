@@ -113,7 +113,7 @@ extern (C++) struct Mem
      * Returns:
      *  p if not null
      */
-    static void* check(void* p) pure nothrow @nogc
+    static void* check(void* p) pure nothrow @nogc @safe
     {
         return p ? p : error();
     }

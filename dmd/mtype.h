@@ -41,8 +41,6 @@ using type = class IrType;
 typedef struct TYPE type;
 #endif
 
-void semanticTypeInfo(Scope *sc, Type *t);
-
 Type *typeSemantic(Type *t, const Loc &loc, Scope *sc);
 Type *merge(Type *type);
 
@@ -242,7 +240,7 @@ public:
     virtual unsigned alignsize();
     Type *trySemantic(const Loc &loc, Scope *sc);
     Type *merge2();
-    void modToBuffer(OutBuffer *buf) const;
+    void modToBuffer(OutBuffer& buf) const;
     char *modToChars() const;
 
     virtual bool isintegral();
@@ -277,9 +275,6 @@ public:
     Type *wildConstOf();
     Type *sharedWildOf();
     Type *sharedWildConstOf();
-    void fixTo(Type *t);
-    void check();
-    Type *addSTC(StorageClass stc);
     Type *castMod(MOD mod);
     Type *addMod(MOD mod);
     virtual Type *addStorageClass(StorageClass stc);
@@ -321,7 +316,6 @@ public:
     virtual bool hasInvariant();
     virtual Type *nextOf();
     Type *baseElemOf();
-    uinteger_t sizemask();
     virtual bool needsDestruction();
     virtual bool needsCopyOrPostblit();
     virtual bool needsNested();
@@ -568,13 +562,14 @@ enum class PURE : unsigned char
 class Parameter final : public ASTNode
 {
 public:
+    Loc loc;
     StorageClass storageClass;
     Type *type;
     Identifier *ident;
     Expression *defaultArg;
     UserAttributeDeclaration *userAttribDecl;   // user defined attributes
 
-    static Parameter *create(StorageClass storageClass, Type *type, Identifier *ident,
+    static Parameter *create(const Loc &loc, StorageClass storageClass, Type *type, Identifier *ident,
                              Expression *defaultArg, UserAttributeDeclaration *userAttribDecl);
     Parameter *syntaxCopy();
     Type *isLazyArray();
@@ -620,7 +615,7 @@ public:
     void purityLevel();
     bool hasLazyParameters();
     bool isDstyleVariadic() const;
-    StorageClass parameterStorageClass(Parameter *p);
+    StorageClass parameterStorageClass(Type* tthis, Parameter *p, VarDeclarations* outerVars = nullptr, bool indirect = false);
     Type *addStorageClass(StorageClass stc) override;
 
     Type *substWildTo(unsigned mod) override;
@@ -711,10 +706,6 @@ public:
     // representing ident.ident!tiargs.ident. ... etc.
     Objects idents;
 
-    void syntaxCopyHelper(TypeQualified *t);
-    void addIdent(Identifier *ident);
-    void addInst(TemplateInstance *inst);
-    void addIndex(RootObject *expr);
     uinteger_t size(const Loc &loc) override;
 
     void accept(Visitor *v) override { v->visit(this); }
@@ -940,8 +931,6 @@ public:
 };
 
 /**************************************************************/
-
-bool arrayTypeCompatibleWithoutCasting(Type *t1, Type *t2);
 
 // If the type is a class or struct, returns the symbol for it, else null.
 AggregateDeclaration *isAggregate(Type *t);

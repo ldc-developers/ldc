@@ -273,8 +273,7 @@ int processCallstack(Location[] locations, const(ubyte)[] debugLineSectionData,
     return 0;
 }
 
-version (Darwin)
-{
+version (Darwin) {
     /**
      * Resolve the addresses of `locations` using `atos` (executable that ships with XCode)
      *
@@ -286,7 +285,7 @@ version (Darwin)
      * The lifetime of the `Location` data surpases function return (strndup is used).
      *
      * Params:
-     *   locations = The locations to resolve
+     * locations = The locations to resolve
      */
     private void resolveAddressesWithAtos(Location[] locations) @nogc nothrow
     {
@@ -294,7 +293,6 @@ version (Darwin)
         import core.stdc.stdlib : exit;
         import core.sys.posix.stdio : fdopen;
         import core.sys.posix.unistd : close, dup2, execlp, fork, getpid, pipe;
-
         // Create in/out pipes to communicate with the forked exec
         int[2] dummy_pipes; // these dummy pipes are there to prevent funny issues when stdin/stdout is closed and pipe returns id 0 or 1
         int[2] pipes_to_atos;
@@ -309,9 +307,7 @@ version (Darwin)
         auto read_from_atos = pipes_from_atos[0];
         auto atos_stdin = pipes_to_atos[0];
         auto atos_stdout = pipes_from_atos[1];
-
         auto self_pid = cast(int) getpid();
-
         // Spawn a child process that calls atos, reads/writes from the pipes, and then exits.
         auto child_id = fork();
         if (child_id == -1)
@@ -322,40 +318,32 @@ version (Darwin)
         else if (child_id == 0)
         {
             // We are in the child process, spawn atos and link pipes
-
             // Close unused read/write ends of pipes
             close(write_to_atos);
             close(read_from_atos);
-
             // Link pipes to stdin/stdout
-            dup2(atos_stdin,  0);
+            dup2(atos_stdin, 0);
             close(atos_stdin);
             dup2(atos_stdout, 1);
             close(atos_stdout);
-
             char[10] pid_str;
             snprintf(pid_str.ptr, pid_str.sizeof, "%d", cast(int) self_pid);
             const(char)* atos_executable = "atos";
             const(char)* atos_p_arg = "-p";
             const(char)* atos_fullpath_arg = "-fullPath";
             execlp(atos_executable, atos_executable, atos_fullpath_arg, atos_p_arg, pid_str.ptr, null);
-
             // If exec returns, an error occurred, need to exit the forked process here.
             printf("some exec error!\n");
             exit(0);
         }
         // Parent process just continues from here.
-
         // Close unused pipes
         close(atos_stdin);
         close(atos_stdout);
-
         auto to_atos = fdopen(write_to_atos, "w");
         auto from_atos = fdopen(read_from_atos, "r");
-
         // buffer for atos reading. Note that symbol names can be super large...
         static char[16 * 1024] read_buffer = void;
-
         char* status_ptr = null;
         foreach (ref loc; locations)
         {
@@ -373,45 +361,37 @@ version (Darwin)
                 loc.line = parsed_loc.line;
             }
         }
-
         if (!status_ptr)
             printf("\nDid not succeed in using 'atos' for extra debug information.\n");
-
         fclose(to_atos);
         fclose(from_atos);
         close(write_to_atos);
         close(read_from_atos);
     }
-
     private Location parseAtosLine(char* buffer) @nogc nothrow
     {
         // The line from `atos` is in one of these formats:
-        //   myfunction (in library.dylib) (sourcefile.c:17)
-        //   myfunction (in library.dylib) + 0x1fe
-        //   myfunction (in library.dylib) + 15
-        //   0xdeadbeef (in library.dylib) + 0x1fe
-        //   0xdeadbeef (in library.dylib) + 15
-        //   0xdeadbeef (in library.dylib)
-        //   0xdeadbeef
-
+        // myfunction (in library.dylib) (sourcefile.c:17)
+        // myfunction (in library.dylib) + 0x1fe
+        // myfunction (in library.dylib) + 15
+        // 0xdeadbeef (in library.dylib) + 0x1fe
+        // 0xdeadbeef (in library.dylib) + 15
+        // 0xdeadbeef (in library.dylib)
+        // 0xdeadbeef
         import core.stdc.stdlib : atoi;
         import core.stdc.string : strchr, strstr;
         import core.sys.posix.string : strndup;
-
         Location loc;
-
         if (!buffer)
             return loc;
         if (buffer[0] == '0' && buffer[1] == 'x')
             // no named symbol found
             return loc;
-
         const symbolname_end = strstr(buffer, " (in ");
         if (!symbolname_end)
             return loc;
         const symbolname_size = symbolname_end - buffer;
         loc.procedure = strndup(buffer, symbolname_size)[0..symbolname_size];
-
         const filename_start = strstr(symbolname_end, ") (") + 3;
         if (cast(size_t)filename_start < 4)
             return loc;
@@ -420,12 +400,10 @@ version (Darwin)
             return loc;
         const filename_size = colon_location - filename_start;
         loc.file = strndup(filename_start, filename_size)[0..filename_size];
-
         const final_paren = strchr(colon_location+1, ')');
         if (!final_paren)
             return loc;
         loc.line = atoi(colon_location+1);
-
         return loc;
     }
 }
