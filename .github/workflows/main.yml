@@ -85,7 +85,7 @@ jobs:
       - name: Install prerequisites
         uses: ./.github/actions/1-setup
         with:
-          clang_version: ${{ env.CLANG_VERSION }}
+          clang_version: ${{ runner.os == 'Windows' && '16.0.6' || env.CLANG_VERSION }}
           llvm_version: ${{ env.LLVM_VERSION }}
           arch: ${{ matrix.arch }}
       - name: Build bootstrap LDC
