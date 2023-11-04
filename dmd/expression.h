@@ -364,8 +364,8 @@ public:
 
     ThisExp *syntaxCopy() override;
     Optional<bool> toBool() override;
-    bool isLvalue() override;
-    Expression *toLvalue(Scope *sc, Expression *e) override;
+    bool isLvalue() override final;
+    Expression *toLvalue(Scope *sc, Expression *e) override final;
 
     void accept(Visitor *v) override { v->visit(this); }
 };
@@ -373,8 +373,6 @@ public:
 class SuperExp final : public ThisExp
 {
 public:
-    bool isLvalue() override;
-    Expression* toLvalue(Scope* sc, Expression* e) final override;
     void accept(Visitor *v) override { v->visit(this); }
 };
 
