@@ -29,16 +29,16 @@ import dmd.common.outbuffer;
 import dmd.compiler;
 import dmd.cond;
 import dmd.console;
-import dmd.cpreprocess;
-import dmd.dinifile;
+// IN_LLVM import dmd.cpreprocess;
+// IN_LLVM import dmd.dinifile;
 import dmd.dinterpret;
-import dmd.dmdparams;
+// IN_LLVM import dmd.dmdparams;
 import dmd.dsymbolsem;
 import dmd.dtemplate;
 import dmd.dtoh;
-import dmd.glue : generateCodeAndWrite;
+// IN_LLVM import dmd.glue : generateCodeAndWrite;
 import dmd.dmodule;
-import dmd.dmsc : backend_init, backend_term;
+// IN_LLVM import dmd.dmsc : backend_init, backend_term;
 import dmd.doc;
 import dmd.dsymbol;
 import dmd.errors;
@@ -50,7 +50,7 @@ import dmd.hdrgen;
 import dmd.id;
 import dmd.identifier;
 import dmd.inline;
-import dmd.link;
+// IN_LLVM import dmd.link;
 import dmd.location;
 import dmd.mars;
 import dmd.mtype;
@@ -58,7 +58,7 @@ import dmd.objc;
 import dmd.root.file;
 import dmd.root.filename;
 import dmd.root.man;
-import dmd.root.response;
+// IN_LLVM import dmd.root.response;
 import dmd.root.rmem;
 import dmd.root.string;
 import dmd.root.stringtable;
@@ -67,6 +67,24 @@ import dmd.semantic3;
 import dmd.target;
 import dmd.utils;
 import dmd.vsoptions;
+
+version (IN_LLVM)
+{
+    import gen.semantic : extraLDCSpecificSemanticAnalysis;
+    extern (C++):
+
+    // in driver/main.cpp
+    void registerPredefinedVersions();
+    void codegenModules(ref Modules modules);
+    // in driver/archiver.cpp
+    int createStaticLibrary();
+    const(char)* getPathToProducedStaticLibrary();
+    // in driver/linker.cpp
+    int linkObjToBinary();
+    const(char)* getPathToProducedBinary();
+    void deleteExeFile();
+    int runProgram();
+}
 
 version (IN_LLVM) {} else {
 
@@ -720,7 +738,7 @@ version (IN_LLVM)
 
     static if (__traits(compiles, GC.stats))
     {
-        if (global.params.verbose)
+        if (params.v.verbose)
         {
             static int toMB(ulong size) { return cast(int) (size / 1048576.0 + 0.5); }
 

@@ -1806,7 +1806,7 @@ Statement statementSemanticVisit(Statement s, Scope* sc)
             bool emitInstr = true;
             if (!ps.args || ps.args.length != 1 || !DtoCheckProfileInstrPragma((*ps.args)[0], emitInstr))
             {
-                ps.error("pragma(LDC_profile_instr, true or false) expected");
+                error(ps.loc, "pragma(LDC_profile_instr, true or false) expected");
                 return setError();
             }
             else
@@ -1814,7 +1814,7 @@ Statement statementSemanticVisit(Statement s, Scope* sc)
                 FuncDeclaration fd = sc.func;
                 if (fd is null)
                 {
-                    ps.error("pragma(LDC_profile_instr, ...) is not inside a function");
+                    error(ps.loc, "pragma(LDC_profile_instr, ...) is not inside a function");
                     return setError();
                 }
                 fd.emitInstrumentation = emitInstr;

@@ -1333,7 +1333,7 @@ version (IN_LLVM)
             // We don't statically know anything about the address of a weak symbol
             // if there is no offset. With an offset, we can at least say that it is
             // non-zero.
-            SymOffExp soe = cast(SymOffExp) e;
+            SymOffExp soe = cast(SymOffExp) this;
             if (soe.var.llvmInternal == LDCPragma.LLVMextern_weak && !soe.offset)
             {
                 return 0;

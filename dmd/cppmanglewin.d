@@ -46,7 +46,7 @@ const(char)* toCppMangleMSVC(Dsymbol s)
     return v.mangleOf(s);
 }
 
-const(char)* cppTypeInfoMangleMSVC(Dsymbol s) @safe
+const(char)* cppTypeInfoMangleMSVC(Dsymbol s) // IN_LLVM: not @safe
 {
     //printf("cppTypeInfoMangle(%s)\n", s.toChars());
 version (IN_LLVM)

@@ -910,7 +910,7 @@ extern (C++) final class PragmaDeclaration : AttribDeclaration
             bool emitInstr = true;
             if (!args || args.length != 1 || !DtoCheckProfileInstrPragma((*args)[0], emitInstr))
             {
-                error("pragma(LDC_profile_instr, true or false) expected");
+                error(loc, "pragma(LDC_profile_instr, true or false) expected");
                 (*args)[0] = ErrorExp.get();
             }
             else

@@ -7950,7 +7950,7 @@ version (IN_LLVM)
                 import gen.dpragma : DtoIsIntrinsic;
                 if (DtoIsIntrinsic(f.toAliasFunc()))
                 {
-                    exp.error("cannot take the address of intrinsic function `%s`", f.toAliasFunc().toChars());
+                    error(exp.loc, "cannot take the address of intrinsic function `%s`", f.toAliasFunc().toChars());
                     result = ErrorExp.get();
                     return;
                 }

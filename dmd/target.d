@@ -371,10 +371,7 @@ version (IN_LLVM) {} else
     const(char)[] lib_ext;    /// extension for static library files
     const(char)[] dll_ext;    /// extension for dynamic library files
     bool run_noext;           /// allow -run sources without extensions
-version (IN_LLVM) {} else
-{
     bool omfobj = false;      // for Win32: write OMF object files instead of MsCoff
-}
     /**
      * Values representing all properties for floating point types
      */

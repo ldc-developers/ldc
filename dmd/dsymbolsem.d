@@ -1820,7 +1820,7 @@ version (IN_LLVM)
 version (IN_LLVM) // not restricted to a single string arg
 {
                 if (!pd.args || pd.args.length == 0)
-                    pd.error("one or more string arguments expected for pragma(linkerDirective)");
+                    error(pd.loc, "one or more string arguments expected for pragma(linkerDirective)");
                 else
                 {
                     for (size_t i = 0; i < pd.args.length; ++i)
@@ -1829,7 +1829,7 @@ version (IN_LLVM) // not restricted to a single string arg
                         if (!se)
                             break;
                         (*pd.args)[i] = se;
-                        if (global.params.verbose)
+                        if (global.params.v.verbose)
                             message("linkopt   %.*s", cast(int)se.len, se.peekString().ptr);
                     }
                 }

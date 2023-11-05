@@ -479,7 +479,7 @@ else
             compileEnv.vendor = "LDC";
 
             import dmd.console : detectTerminal;
-            params.color = detectTerminal();
+            params.v.color = detectTerminal();
         }
 
 version (IN_LLVM)
@@ -576,7 +576,7 @@ else
     /**
     Returns: compiler version string.
     */
-    extern(D) string versionString() @safe
+    extern(D) string versionString() // IN_LLVM: not @safe
     {
 version (IN_LLVM)
 {

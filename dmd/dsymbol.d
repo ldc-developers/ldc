@@ -61,7 +61,7 @@ import dmd.common.outbuffer;
 version (IN_LLVM)
 {
     // Functions to construct/destruct Dsymbol.ir
-    extern (C++) void* newIrDsymbol() nothrow;
+    extern (C++) void* newIrDsymbol() nothrow @safe;
     extern (C++) void deleteIrDsymbol(void*) nothrow;
 }
 

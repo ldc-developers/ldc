@@ -61,24 +61,9 @@ import dmd.utils;
 
 version (IN_LLVM)
 {
-    import gen.semantic : extraLDCSpecificSemanticAnalysis;
-    extern (C++):
-
-    // in driver/main.cpp
-    void registerPredefinedVersions();
-    void codegenModules(ref Modules modules);
-    // in driver/archiver.cpp
-    int createStaticLibrary();
-    const(char)* getPathToProducedStaticLibrary();
-    // in driver/linker.cpp
-    int linkObjToBinary();
-    const(char)* getPathToProducedBinary();
-    void deleteExeFile();
-    int runProgram();
-
     // DMD defines a `driverParams` global (of type DMDParams);
     // LDC uses `global.params` with 5 extra fields.
-    private ref driverParams() { return global.params; }
+    ref driverParams() { return global.params; }
 }
 else
 {
@@ -513,7 +498,7 @@ version (IN_LLVM)
             case "?":
             case "h":
             case "help":
-                mixin(`params.`~groupName~`Usage = true;`);
+                mixin(`params.help.`~groupName~` = true;`);
                 return true;
             default:
                 break;
@@ -532,22 +517,21 @@ version (IN_LLVM)
         switch (dname)
         {
             case "3449":
-                params.vfield = true;
+                params.v.field = true;
                 break;
             case "14246":
             case "dtorfields":
                 params.dtorFields = FeatureState.enabled;
                 break;
             case "14488":
-                params.vcomplex = true;
                 break;
             case "16997":
             case "intpromote":
                 deprecation(Loc.initial, "`-transition=%s` is now the default behavior", name);
                 break;
             default:
-                error(Loc.initial, "Transition `%s` is invalid", name);
-                params.transitionUsage = true;
+                error(Loc.initial, "transition `%s` is invalid", name);
+                params.help.transition = true;
                 break;
         }
     }
@@ -557,7 +541,7 @@ version (IN_LLVM)
         if (!parseCLIOption!("preview", Usage.previews)(params, name))
         {
             error(Loc.initial, "Preview `%s` is invalid", name);
-            params.previewUsage = true;
+            params.help.preview = true;
         }
     }
 
@@ -566,7 +550,7 @@ version (IN_LLVM)
         if (!parseCLIOption!("revert", Usage.reverts)(params, name))
         {
             error(Loc.initial, "Revert `%s` is invalid", name);
-            params.revertUsage = true;
+            params.help.revert = true;
         }
     }
 }

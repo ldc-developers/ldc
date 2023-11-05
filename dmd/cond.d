@@ -733,10 +733,6 @@ extern (C++) final class VersionCondition : DVCondition
             case "SPARC_HardFloat":
             case "SPARC_SoftFloat":
             case "SPARC_V8Plus":
-            case "LoongArch32":
-            case "LoongArch64":
-            case "LoongArch_HardFloat":
-            case "LoongArch_SoftFloat":
             case "SystemZ":
             case "SysV3":
             case "SysV4":
