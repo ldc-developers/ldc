@@ -15,6 +15,7 @@
 #include "dmd/id.h"
 #include "dmd/identifier.h"
 #include "dmd/init.h"
+#include "dmd/ldcbindings.h"
 #include "dmd/module.h"
 #include "dmd/mtype.h"
 #include "dmd/root/port.h"
@@ -638,8 +639,8 @@ public:
     if (auto ce = e->isCommaExp()) {
       Expression *newCommaRhs = getLValExp(ce->e2);
       if (newCommaRhs != ce->e2) {
-        CommaExp *newComma = static_cast<CommaExp *>(ce->copy());
-        newComma->e2 = newCommaRhs;
+        CommaExp *newComma =
+            createCommaExp(ce->loc, ce->e1, newCommaRhs, ce->isGenerated);
         newComma->type = newCommaRhs->type;
         e = newComma;
       }
