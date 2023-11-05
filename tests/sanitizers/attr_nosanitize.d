@@ -35,7 +35,7 @@ else version (NOSANITIZE)
 }
 else version (WARNING)
 {
-    // WARNING: attr_nosanitize.d([[@LINE+1]]){{.*}} Unrecognized sanitizer name 'invalid_name'
+    // WARNING: attr_nosanitize.d([[@LINE+1]]){{.*}} unrecognized sanitizer name 'invalid_name'
     @noSanitize("invalid_name")
     void foo_error()
     {

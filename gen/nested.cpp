@@ -550,7 +550,8 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
       if (needsClosure && vd->needsScopeDtor()) {
         // This should really be a front-end, not a glue layer error,
         // but we need to fix this in DMD too.
-        vd->error("has scoped destruction, cannot build closure");
+        error(vd->loc, "%s `%s` has scoped destruction, cannot build closure",
+              vd->kind(), vd->toPrettyChars());
       }
 
       IrLocal *irLocal = getIrLocal(vd);

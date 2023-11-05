@@ -99,8 +99,9 @@ public:
   }
 
   void visit(ScopeGuardStatement *stmt) override {
-    stmt->error("Internal Compiler Error: ScopeGuardStatement should have been "
-                "lowered by frontend.");
+    error(stmt->loc,
+          "Internal Compiler Error: ScopeGuardStatement should have been "
+          "lowered by frontend.");
     fatal();
   }
 

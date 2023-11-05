@@ -1256,8 +1256,8 @@ static char *DtoOverloadedIntrinsicName(TemplateInstance *ti,
   } else if (T->isintegral()) {
     prefix = 'i';
   } else {
-    ti->error("has invalid template parameter for intrinsic: `%s`",
-              T->toChars());
+    error(ti->loc, "%s `%s` has invalid template parameter for intrinsic: `%s`",
+          ti->kind(), ti->toPrettyChars(), T->toChars());
     fatal(); // or LLVM asserts
   }
 
@@ -1286,13 +1286,15 @@ static char *DtoOverloadedIntrinsicName(TemplateInstance *ti,
     } else {
       if (pos && (name[pos - 1] == 'i' || name[pos - 1] == 'f')) {
         // Wrong type character.
-        ti->error("has invalid parameter type for intrinsic `%s`: `%s` is not "
-                  "a%s type",
-                  name.c_str(), T->toChars(),
-                  (name[pos - 1] == 'i' ? "n integral" : " floating-point"));
+        error(ti->loc,
+              "%s `%s` has invalid parameter type for intrinsic `%s`: `%s` is "
+              "not a%s type",
+              ti->kind(), ti->toPrettyChars(), name.c_str(), T->toChars(),
+              (name[pos - 1] == 'i' ? "n integral" : " floating-point"));
       } else {
         // Just plain wrong. (Error in declaration, not instantiation)
-        td->error("has an invalid intrinsic name: `%s`", name.c_str());
+        error(td->loc, "%s `%s` has an invalid intrinsic name: `%s`",
+              td->kind(), td->toPrettyChars(), name.c_str());
       }
       fatal(); // or LLVM asserts
     }
@@ -1356,8 +1358,9 @@ void callPostblit(const Loc &loc, Expression *exp, LLValue *val) {
     if (sd->postblit) {
       FuncDeclaration *fd = sd->postblit;
       if (fd->storage_class & STCdisable) {
-        fd->toParent()->error(
-            loc, "is not copyable because it is annotated with `@disable`");
+        error(loc,
+              "%s `%s` is not copyable because it is annotated with `@disable`",
+              sd->kind(), sd->toPrettyChars());
       }
       Expressions args;
       DFuncValue dfn(fd, DtoCallee(fd), val);

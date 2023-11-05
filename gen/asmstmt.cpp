@@ -121,7 +121,7 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
   llvm::Triple const &t = *global.params.targetTriple;
   if (!(t.getArch() == llvm::Triple::x86 ||
         t.getArch() == llvm::Triple::x86_64)) {
-    s->error(
+    error(s->loc,
         "DMD-style `asm { op; }` statements are not supported for the \"%s\" "
         "architecture.",
         t.getArchName().str().c_str());
@@ -130,7 +130,7 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
     err = true;
   }
   if (!global.params.useInlineAsm) {
-    s->error(
+    error(s->loc,
         "the `asm` statement is not allowed when the -noasm switch is used");
     err = true;
   }
@@ -245,7 +245,7 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
     //              arg_val = irs->integerConstant(var_frame_offset);
                     cns = i_cns;
                 } else {
-                    this->error("%s", "argument not frame relative");
+                    error(stmt->loc, "argument not frame relative");
                     return;
                 }
                 if (arg->mode != Mode_Input)
@@ -455,8 +455,9 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
       if (auto gas = s->isGccAsmStatement()) {
         Statement_toIR(gas, p);
       } else {
-        s->error("DMD-style assembly statement unsupported within GCC-style "
-                 "`asm` block");
+        error(s->loc,
+              "DMD-style assembly statement unsupported within GCC-style "
+              "`asm` block");
         fatal();
       }
     }
@@ -479,8 +480,9 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   for (Statement *s : *stmt->statements) {
     if (s) {
       if (s->isGccAsmStatement()) {
-        s->error("GCC-style assembly statement unsupported within DMD-style "
-                 "`asm` block");
+        error(s->loc,
+              "GCC-style assembly statement unsupported within DMD-style "
+              "`asm` block");
         fatal();
       }
       Statement_toIR(s, p);

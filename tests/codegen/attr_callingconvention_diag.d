@@ -4,7 +4,7 @@
 
 import ldc.attributes;
 
-// CHECK: attr_callingconvention_diag.d([[@LINE+1]]): Warning: Ignoring unrecognized calling convention name 'bogus calling convention' for `@ldc.attributes.callingConvention`
+// CHECK: attr_callingconvention_diag.d([[@LINE+1]]): Warning: ignoring unrecognized calling convention name 'bogus calling convention' for `@ldc.attributes.callingConvention`
 @callingConvention("bogus calling convention")
 void foofoofoo()
 {

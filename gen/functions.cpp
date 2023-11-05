@@ -162,7 +162,8 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     if (fd->objc.selector) {
       hasObjCSelector = true;
     } else if (fd->parent->isClassDeclaration()) {
-      fd->error("Objective-C `@selector` is missing");
+      error(fd->loc, "%s `%s` is missing Objective-C `@selector`", fd->kind(),
+            fd->toPrettyChars());
     }
   }
   if (hasObjCSelector) {
@@ -342,7 +343,10 @@ llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl) {
     } else {
       IF_LOG Logger::println("chars: %s type: %s kind: %s", fdecl->toChars(),
                              fdecl->type->toChars(), fdecl->kind());
-      fdecl->error("requires a dual-context, which is not yet supported by LDC");
+      error(fdecl->loc,
+            "%s `%s` requires a dual-context, which is deprecated and not "
+            "supported by LDC",
+            fdecl->kind(), fdecl->toPrettyChars());
       if (!global.gag)
         fatal();
       return LLFunctionType::get(LLType::getVoidTy(gIR->context()),
@@ -425,8 +429,9 @@ void DtoResolveFunction(FuncDeclaration *fdecl, const bool willDeclare) {
           TypeFunction *tf = static_cast<TypeFunction *>(fdecl->type);
           if (tf->parameterList.varargs != VARARGvariadic ||
               (fdecl->parameters && fdecl->parameters->length != 0)) {
-            tempdecl->error("invalid `__asm` declaration, must be a D style "
-                            "variadic with no explicit parameters");
+            error(tempdecl->loc,
+                  "invalid `__asm` declaration, must be a D style "
+                  "variadic with no explicit parameters");
             fatal();
           }
           fdecl->llvmInternal = LLVMinline_asm;
@@ -832,13 +837,14 @@ void verifyScopedDestructionInClosure(FuncDeclaration *fd) {
     bool isScopeDtorParam = v->edtor && (v->storage_class & STCparameter);
     if (v->needsScopeDtor() || isScopeDtorParam) {
       // Because the value needs to survive the end of the scope!
-      v->error("has scoped destruction, cannot build closure");
+      error(v->loc, "%s `%s` has scoped destruction, cannot build closure",
+            v->kind(), v->toPrettyChars());
     }
     if (v->isargptr()) {
       // See https://issues.dlang.org/show_bug.cgi?id=2479
       // This is actually a bug, but better to produce a nice
       // message at compile time rather than memory corruption at runtime
-      v->error("cannot reference variadic arguments from closure");
+      error(v->loc, "cannot reference variadic arguments from closure");
     }
   }
 }

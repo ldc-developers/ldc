@@ -89,7 +89,8 @@ public:
     }
 
     if (decl->type->ty == TY::Terror) {
-      decl->error("had semantic errors when compiling");
+      error(decl->loc, "%s `%s` had semantic errors when compiling",
+            decl->kind(), decl->toPrettyChars());
       decl->ir->setDefined();
       return;
     }
@@ -125,7 +126,8 @@ public:
     }
 
     if (decl->type->ty == TY::Terror) {
-      decl->error("had semantic errors when compiling");
+      error(decl->loc, "%s `%s` had semantic errors when compiling",
+            decl->kind(), decl->toPrettyChars());
       decl->ir->setDefined();
       return;
     }
@@ -184,7 +186,8 @@ public:
     }
 
     if (decl->type->ty == TY::Terror) {
-      decl->error("had semantic errors when compiling");
+      error(decl->loc, "%s `%s` had semantic errors when compiling",
+            decl->kind(), decl->toPrettyChars());
       decl->ir->setDefined();
       return;
     }
@@ -241,7 +244,8 @@ public:
     }
 
     if (decl->type->ty == TY::Terror) {
-      decl->error("had semantic errors when compiling");
+      error(decl->loc, "%s `%s` had semantic errors when compiling",
+            decl->kind(), decl->toPrettyChars());
       decl->ir->setDefined();
       return;
     }
@@ -275,7 +279,8 @@ public:
                            decl->toPrettyChars());
 
     if (decl->type->ty == TY::Terror) {
-      decl->error("had semantic errors when compiling");
+      error(decl->loc, "%s `%s` had semantic errors when compiling",
+            decl->kind(), decl->toPrettyChars());
       return;
     }
   }

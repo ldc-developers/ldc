@@ -65,9 +65,8 @@ createAndSetDiagnosticsOutputFile(IRState &irs, llvm::LLVMContext &ctx,
     auto remarksFileOrError = llvm::setupLLVMOptimizationRemarks(
         ctx, diagnosticsFilename, "", "", withHotness);
     if (llvm::Error e = remarksFileOrError.takeError()) {
-      irs.dmodule->error("Could not create file %s: %s",
-                         diagnosticsFilename.c_str(),
-                         llvm::toString(std::move(e)).c_str());
+      error(irs.dmodule->loc, "Could not create file %s: %s",
+            diagnosticsFilename.c_str(), llvm::toString(std::move(e)).c_str());
       fatal();
     }
     diagnosticsOutputFile = std::move(*remarksFileOrError);

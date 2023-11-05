@@ -357,9 +357,8 @@ void loadInstrProfileData(IRState *irs) {
         llvm::IndexedInstrProfReader::create(global.params.datafileInstrProf);
     if (auto E = readerOrErr.takeError()) {
       handleAllErrors(std::move(E), [&](const llvm::ErrorInfoBase &EI) {
-        irs->dmodule->error("Could not read profile file '%s': %s",
-                            global.params.datafileInstrProf,
-                            EI.message().c_str());
+        error(irs->dmodule->loc, "Could not read profile file '%s': %s",
+              global.params.datafileInstrProf, EI.message().c_str());
       });
       fatal();
     }
