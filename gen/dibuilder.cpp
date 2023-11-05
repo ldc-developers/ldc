@@ -1281,7 +1281,7 @@ void DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *llVar,
   }
 
   OutBuffer mangleBuf;
-  mangleToBuffer(vd, &mangleBuf);
+  mangleToBuffer(vd, mangleBuf);
 
   auto DIVar = DBuilder.createGlobalVariableExpression(
       scope,                                 // context

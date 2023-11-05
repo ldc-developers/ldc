@@ -101,7 +101,7 @@ namespace {
 std::string getMangledName(Module *m, const char *suffix) {
   OutBuffer buf;
   buf.writestring("_D");
-  mangleToBuffer(m, &buf);
+  mangleToBuffer(m, buf);
   if (suffix)
     buf.writestring(suffix);
   return buf.peekChars();

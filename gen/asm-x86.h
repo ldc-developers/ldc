@@ -2375,7 +2375,7 @@ struct AsmProcessor {
               insnTemplate << "_";
             }
             OutBuffer buf;
-            mangleToBuffer(vd, &buf);
+            mangleToBuffer(vd, buf);
             insnTemplate << buf.peekChars();
             getIrGlobal(vd, true)->nakedUse = true;
             break;
@@ -3047,7 +3047,7 @@ struct AsmProcessor {
                 insnTemplate << "_";
               }
               OutBuffer buf;
-              mangleToBuffer(decl, &buf);
+              mangleToBuffer(decl, buf);
               insnTemplate << buf.peekChars();
               //              addOperand2("${", ":c}", Arg_Pointer, e,
               //              asmcode);

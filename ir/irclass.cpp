@@ -457,9 +457,9 @@ llvm::GlobalVariable *IrClass::getInterfaceVtblSymbol(BaseClass *b,
 
     OutBuffer mangledName;
     mangledName.writestring("_D");
-    mangleToBuffer(aggrdecl, &mangledName);
+    mangleToBuffer(aggrdecl, mangledName);
     mangledName.writestring("11__interface");
-    mangleToBuffer(b->sym, &mangledName);
+    mangleToBuffer(b->sym, mangledName);
     mangledName.writestring(thunkPrefixLen);
     mangledName.writestring(thunkPrefix);
     mangledName.writestring("6__vtblZ");

@@ -279,7 +279,7 @@ void addCoverageAnalysis(Module *m) {
 
   OutBuffer mangleBuf;
   mangleBuf.writestring("_D");
-  mangleToBuffer(m, &mangleBuf);
+  mangleToBuffer(m, mangleBuf);
   mangleBuf.writestring("12_coverageanalysisCtor1FZv");
   const char *ctorname = mangleBuf.peekChars();
 
@@ -382,7 +382,7 @@ void registerModuleInfo(Module *m) {
   const auto style = getModuleRegistryStyle();
 
   OutBuffer mangleBuf;
-  mangleToBuffer(m, &mangleBuf);
+  mangleToBuffer(m, mangleBuf);
   const char *mangle = mangleBuf.peekChars();
 
   if (style == RegistryStyle::legacyLinkedList) {

@@ -421,7 +421,7 @@ void buildTypeInfo(TypeInfoDeclaration *decl) {
   Type *forType = decl->tinfo;
 
   OutBuffer mangleBuf;
-  mangleToBuffer(decl, &mangleBuf);
+  mangleToBuffer(decl, mangleBuf);
   const char *mangled = mangleBuf.peekChars();
 
   IF_LOG {

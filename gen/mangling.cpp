@@ -118,7 +118,7 @@ std::string getIRMangledName(FuncDeclaration *fdecl, LINK link) {
 
 std::string getIRMangledName(VarDeclaration *vd) {
   OutBuffer mangleBuf;
-  mangleToBuffer(vd, &mangleBuf);
+  mangleToBuffer(vd, mangleBuf);
 
   // TODO: is hashing of variable names necessary?
 
@@ -144,7 +144,7 @@ std::string getIRMangledAggregateName(AggregateDeclaration *ad,
   std::string ret = "_D";
 
   OutBuffer mangleBuf;
-  mangleToBuffer(ad, &mangleBuf);
+  mangleToBuffer(ad, mangleBuf);
   llvm::StringRef mangledAggrName = mangleBuf.peekChars();
 
   if (shouldHashAggrName(mangledAggrName)) {
@@ -176,7 +176,7 @@ std::string getIRMangledClassInfoSymbolName(AggregateDeclaration *aggrdecl) {
 std::string getIRMangledInterfaceInfosSymbolName(ClassDeclaration *cd) {
   OutBuffer mangledName;
   mangledName.writestring("_D");
-  mangleToBuffer(cd, &mangledName);
+  mangleToBuffer(cd, mangledName);
   mangledName.writestring("16__interfaceInfosZ");
   return getIRMangledVarName(mangledName.peekChars(), LINK::d);
 }
@@ -184,7 +184,7 @@ std::string getIRMangledInterfaceInfosSymbolName(ClassDeclaration *cd) {
 std::string getIRMangledModuleInfoSymbolName(Module *module) {
   OutBuffer mangledName;
   mangledName.writestring("_D");
-  mangleToBuffer(module, &mangledName);
+  mangleToBuffer(module, mangledName);
   mangledName.writestring("12__ModuleInfoZ");
   return getIRMangledVarName(mangledName.peekChars(), LINK::d);
 }
