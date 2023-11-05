@@ -105,8 +105,6 @@ inline void enable() { _Logger_enabled = true; }
 inline void disable() { _Logger_enabled = false; }
 inline bool enabled() { return _Logger_enabled; }
 
-void attention(Loc loc, const char *fmt, ...) IS_PRINTF(2);
-
 struct LoggerScope {
   LoggerScope() { Logger::indent(); }
   ~LoggerScope() { Logger::undent(); }

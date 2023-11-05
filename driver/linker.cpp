@@ -326,8 +326,8 @@ int runProgram() {
   assert(!gExePath.empty());
 
   // Run executable
-  int status =
-      executeToolAndWait(Loc(), gExePath, opts::runargs, global.params.verbose);
+  int status = executeToolAndWait(Loc(), gExePath, opts::runargs,
+                                  global.params.v.verbose);
   if (status < 0) {
 #if defined(_MSC_VER) || defined(__MINGW32__)
     error(Loc(), "program received signal %d", -status);

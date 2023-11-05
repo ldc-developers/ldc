@@ -756,7 +756,7 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
     argsBuilder.build(outputPath, defaultLibNames);
 
     const auto fullArgs =
-        getFullArgs("lld", argsBuilder.args, global.params.verbose);
+        getFullArgs("lld", argsBuilder.args, global.params.v.verbose);
 
     // CanExitEarly == true means that LLD can and will call `exit()` when
     // errors occur.
@@ -861,5 +861,5 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
 
   // try to call linker
   return executeToolAndWait(Loc(), tool, argsBuilder->args,
-                            global.params.verbose);
+                            global.params.v.verbose);
 }

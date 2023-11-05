@@ -330,7 +330,7 @@ bool setupMsvcEnvironmentImpl(
   if (!rollback) // check for availability only
     return true;
 
-  if (global.params.verbose)
+  if (global.params.v.verbose)
     message("Prepending to environment variables:");
 
   const auto prependToEnvVar =
@@ -348,7 +348,7 @@ bool setupMsvcEnvironmentImpl(
           head += entry;
         }
 
-        if (global.params.verbose)
+        if (global.params.v.verbose)
           message("  %s += %.*s", key, (int)head.size(), head.data());
 
         llvm::SmallVector<wchar_t, 1024> wvalue;
@@ -372,7 +372,7 @@ bool setupMsvcEnvironmentImpl(
   prependToEnvVar("LIB", L"LIB", libPaths);
   prependToEnvVar("PATH", L"PATH", binPaths);
 
-  if (global.params.verbose) {
+  if (global.params.v.verbose) {
     const auto end = std::chrono::steady_clock::now();
     message("MSVC setup took %lld microseconds",
             std::chrono::duration_cast<std::chrono::microseconds>(end - begin)

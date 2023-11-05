@@ -250,7 +250,7 @@ struct LazyFunctionDeclarer {
         StorageClass stc = paramsSTC.empty() ? 0 : paramsSTC[i];
         Type *paramTy = paramTypes[i].get(loc);
         params->push(
-            Parameter::create(stc, paramTy, nullptr, nullptr, nullptr));
+            Parameter::create(Loc(), stc, paramTy, nullptr, nullptr, nullptr));
       }
     }
     Type *returnTy = returnType.get(loc);
@@ -454,7 +454,8 @@ static Type *rt_dg1() {
     return dg_t;
 
   auto params = createParameters();
-  params->push(Parameter::create(0, Type::tvoidptr, nullptr, nullptr, nullptr));
+  params->push(
+      Parameter::create(Loc(), 0, Type::tvoidptr, nullptr, nullptr, nullptr));
   auto fty = TypeFunction::create(params, Type::tint32, VARARGnone, LINK::d);
   dg_t = TypeDelegate::create(fty);
   return dg_t;
@@ -467,8 +468,10 @@ static Type *rt_dg2() {
     return dg2_t;
 
   auto params = createParameters();
-  params->push(Parameter::create(0, Type::tvoidptr, nullptr, nullptr, nullptr));
-  params->push(Parameter::create(0, Type::tvoidptr, nullptr, nullptr, nullptr));
+  params->push(
+      Parameter::create(Loc(), 0, Type::tvoidptr, nullptr, nullptr, nullptr));
+  params->push(
+      Parameter::create(Loc(), 0, Type::tvoidptr, nullptr, nullptr, nullptr));
   auto fty = TypeFunction::create(params, Type::tint32, VARARGnone, LINK::d);
   dg2_t = TypeDelegate::create(fty);
   return dg2_t;

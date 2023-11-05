@@ -594,12 +594,7 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
        * -revert
        * -w
        * -wi
-       */
-      else if (strcmp(p + 1, "wo") == 0) {
-        ldcArgs.push_back("-wo");
-        ldcArgs.push_back("-wi"); // DMD overrides a previous `-w` to `-wi`; LDC doesn't
-      }
-      /* -O
+       * -O
        * -o-
        * -od
        * -of

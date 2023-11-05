@@ -144,7 +144,7 @@ FileName runCPreprocessor(FileName csrcfile, const Loc &loc, bool &ifile,
     args.push_back(ipath.toChars());
   }
 
-  const int status = executeToolAndWait(loc, cc, args, global.params.verbose);
+  const int status = executeToolAndWait(loc, cc, args, global.params.v.verbose);
   if (status) {
     errorSupplemental(loc, "C preprocessor failed for file '%s'", csrcfile.toChars());
     fatal();

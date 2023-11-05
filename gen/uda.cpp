@@ -48,7 +48,7 @@ StructLiteralExp *getLdcAttributesStruct(Expression *attr) {
   // attributes are struct literals that may be constructed using a CTFE
   // function.
   unsigned prevErrors = global.startGagging();
-  auto e = attr->ctfeInterpret();
+  auto e = ctfeInterpret(attr);
   if (global.endGagging(prevErrors)) {
     return nullptr;
   }

@@ -3234,7 +3234,7 @@ struct AsmProcessor {
     if (isIntExp(e1) && (!e2 || isIntExp(e2))) {
       Expression *e = createExpressionForIntOp(stmt->loc, op, e1, e2);
       e = expressionSemantic(e, sc);
-      return e->ctfeInterpret();
+      return ctfeInterpret(e);
     }
 
     stmt->error("expected integer operand(s) for `%s`", Token::toChars(op));
@@ -3793,7 +3793,7 @@ struct AsmProcessor {
 
     // parse primary: DMD allows 'MyAlign' (const int) but not '2+2'
     // GAS is padding with NOPs last time I checked.
-    Expression *e = parseAsmExp()->ctfeInterpret();
+    Expression *e = ctfeInterpret(parseAsmExp());
     uinteger_t align = e->toUInteger();
 
     if ((align & (align - 1)) == 0) {

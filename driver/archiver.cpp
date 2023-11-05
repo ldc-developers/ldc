@@ -339,7 +339,7 @@ int createStaticLibrary() {
 
   if (useInternalArchiver) {
     const auto fullArgs =
-        getFullArgs(tool.c_str(), args, global.params.verbose);
+        getFullArgs(tool.c_str(), args, global.params.v.verbose);
 
     const int exitCode =
         isTargetMSVC ? internalLib(fullArgs) : internalAr(fullArgs);
@@ -350,7 +350,7 @@ int createStaticLibrary() {
   }
 
   // invoke external archiver
-  return executeToolAndWait(Loc(), tool, args, global.params.verbose);
+  return executeToolAndWait(Loc(), tool, args, global.params.v.verbose);
 }
 
 const char *getPathToProducedStaticLibrary() {
