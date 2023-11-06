@@ -1,4 +1,5 @@
 // REQUIRED_ARGS: -fIBT
+// DISABLED: LDC_not_x86
 
 // Test for Intel CET IBT (branch) protection
 

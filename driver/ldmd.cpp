@@ -176,7 +176,8 @@ Where:\n\
 "  -extern-std=[h|help|?]\n\
                     list all supported standards\n"
 #endif
-"  -fPIC             generate position independent code\n"
+"  -fIBT             generate Indirect Branch Tracking code\n\
+  -fPIC             generate position independent code\n"
 #if 0
 "  -fPIE             generate position independent executables\n"
 #endif
@@ -491,6 +492,8 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
        */
       else if (strcmp(p + 1, "dylib") == 0) {
         ldcArgs.push_back("-shared");
+      } else if (strcmp(p + 1, "fIBT") == 0) {
+        ldcArgs.push_back("-fcf-protection=branch");
       } else if (strcmp(p + 1, "fPIC") == 0) {
         if (!pic) {
           ldcArgs.push_back("-relocation-model=pic");
