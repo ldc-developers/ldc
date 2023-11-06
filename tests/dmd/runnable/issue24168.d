@@ -1,5 +1,5 @@
 /*
-REQUIRED_ARGS: -fPIE
+LDC: removed unsupported -fPIE
 DISABLED: win32 win64
 */
 
