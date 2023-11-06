@@ -484,6 +484,15 @@ public:
       fd->vthis = nullptr;
     }
 
+    // Only if the function doesn't access any parent context, we can emit a
+    // constant delegate with context pointer being null.
+    if (fd->tok != TOK::function_ && fd->outerVars.length) {
+      error(e->loc, "non-constant nested delegate literal expression `%s`",
+            e->toChars());
+      fatalError();
+      return;
+    }
+
     // We need to actually codegen the function here, as literals are not
     // added to the module member list.
     Declaration_codegen(fd, p);
