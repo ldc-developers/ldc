@@ -227,6 +227,7 @@ Where:\n\
   -mv=<package.module>=<filespec>\n\
                     use <filespec> as source file for <package.module>\n\
   -noboundscheck    no array bounds checking (deprecated, use -boundscheck=off)\n\
+  -nothrow          assume no Exceptions will be thrown\n\
   -O                optimize\n\
   -o-               do not write object file\n\
   -od=<directory>   write object & library files to directory\n\
@@ -649,7 +650,11 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         ldcArgs.push_back("-boundscheck=off");
       }
       /* -boundscheck
-       * -unittest
+       */
+      else if (strcmp(p + 1, "nothrow") == 0) {
+        ldcArgs.push_back("-fno-exceptions");
+      }
+      /* -unittest
        * -I
        * -J
        */

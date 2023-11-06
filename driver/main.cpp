@@ -336,6 +336,7 @@ void parseCommandLine(Strings &sourceFiles) {
   global.params.link = !compileOnly;
   global.params.obj = !dontWriteObj;
   global.params.useInlineAsm = !noAsm;
+  global.params.useExceptions = !fNoExceptions;
 
   // String options
   global.params.objname = opts::fromPathString(objectFile);
@@ -982,9 +983,12 @@ void registerPredefinedVersions() {
   if (global.params.betterC) {
     VersionCondition::addPredefinedGlobalIdent("D_BetterC");
   } else {
-    VersionCondition::addPredefinedGlobalIdent("D_ModuleInfo");
-    VersionCondition::addPredefinedGlobalIdent("D_Exceptions");
-    VersionCondition::addPredefinedGlobalIdent("D_TypeInfo");
+    if (global.params.useModuleInfo)
+      VersionCondition::addPredefinedGlobalIdent("D_ModuleInfo");
+    if (global.params.useExceptions)
+      VersionCondition::addPredefinedGlobalIdent("D_Exceptions");
+    if (global.params.useTypeInfo)
+      VersionCondition::addPredefinedGlobalIdent("D_TypeInfo");
   }
 
   if (global.params.tracegc) {

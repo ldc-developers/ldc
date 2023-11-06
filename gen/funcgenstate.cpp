@@ -118,7 +118,7 @@ llvm::CallBase *FuncGenState::callOrInvoke(llvm::Value *callee,
 
   // Intrinsics don't support invoking and 'nounwind' functions don't need it.
   const bool doesNotThrow =
-      isNothrow || global.params.betterC ||
+      isNothrow || !global.params.useExceptions ||
       (calleeFn && (calleeFn->isIntrinsic() || calleeFn->doesNotThrow()));
 
   // calls inside a funclet must be annotated with its value

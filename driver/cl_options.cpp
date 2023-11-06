@@ -571,6 +571,11 @@ cl::opt<bool> fNullPointerIsValid(
         "optimize away the branches accordingly."));
 
 cl::opt<bool>
+    fNoExceptions("fno-exceptions", cl::ZeroOrMore,
+                  cl::desc("Disable generation of exception stack unwinding "
+                           "code, assuming no Exceptions will be thrown"));
+
+cl::opt<bool>
     fSplitStack("fsplit-stack", cl::ZeroOrMore,
                 cl::desc("Use segmented stack (see Clang documentation)"));
 

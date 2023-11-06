@@ -100,6 +100,7 @@ void setDefaultMathOptions(llvm::TargetOptions &targetOptions);
 
 extern cl::opt<bool> fNoDiscardValueNames;
 extern cl::opt<bool> fNullPointerIsValid;
+extern cl::opt<bool> fNoExceptions;
 extern cl::opt<bool> fSplitStack;
 
 // Arguments to -d-debug
