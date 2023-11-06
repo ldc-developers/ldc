@@ -531,18 +531,18 @@ void onlyOneMainCheck(FuncDeclaration *fd) {
   if (fd->isMain() || (global.params.betterC && fd->isCMain()) ||
       (isOSWindows && (fd->isWinMain() || fd->isDllMain()))) {
     // global - across all modules compiled in this compiler invocation
-    static Loc mainLoc;
-    if (!mainLoc.filename()) {
-      mainLoc = fd->loc;
-      assert(mainLoc.filename());
+    static FuncDeclaration *lastMain = nullptr;
+    if (!lastMain) {
+      lastMain = fd;
     } else {
-      const char *otherMainNames =
-          isOSWindows ? ", `WinMain`, or `DllMain`" : "";
+      const char *otherEntryPoints =
+          isOSWindows ? ", `WinMain` or `DllMain`" : "";
       const char *mainSwitch =
-          global.params.addMain ? ", -main switch added another `main()`" : "";
-      error(fd->loc,
-            "only one `main`%s allowed%s. Previously found `main` at %s",
-            otherMainNames, mainSwitch, mainLoc.toChars());
+          global.params.addMain ? ", -main switch added another `main`" : "";
+      error(fd->loc, "only one entry point `main`%s is allowed%s",
+            otherEntryPoints, mainSwitch);
+      errorSupplemental(lastMain->loc, "previously found `%s` here",
+                        lastMain->toFullSignature());
     }
   }
 }
