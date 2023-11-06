@@ -2162,7 +2162,7 @@ public:
     LOG_SCOPE;
 
     // TODO: still required?
-    if (global.params.betterC) {
+    if (!global.params.useGC) {
       error(
           e->loc,
           "array concatenation of expression `%s` requires the GC which is not "

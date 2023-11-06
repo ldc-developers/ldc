@@ -337,6 +337,8 @@ void parseCommandLine(Strings &sourceFiles) {
   global.params.obj = !dontWriteObj;
   global.params.useInlineAsm = !noAsm;
   global.params.useExceptions = !fNoExceptions;
+  global.params.useModuleInfo = !fNoModuleInfo;
+  global.params.useTypeInfo = !fNoRTTI;
 
   // String options
   global.params.objname = opts::fromPathString(objectFile);

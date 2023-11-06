@@ -575,6 +575,12 @@ cl::opt<bool>
                   cl::desc("Disable generation of exception stack unwinding "
                            "code, assuming no Exceptions will be thrown"));
 
+cl::opt<bool> fNoModuleInfo("fno-moduleinfo", cl::ZeroOrMore,
+                            cl::desc("Disable generation of ModuleInfos"));
+
+cl::opt<bool> fNoRTTI("fno-rtti", cl::ZeroOrMore,
+                      cl::desc("Disable generation of TypeInfos"));
+
 cl::opt<bool>
     fSplitStack("fsplit-stack", cl::ZeroOrMore,
                 cl::desc("Use segmented stack (see Clang documentation)"));

@@ -449,8 +449,8 @@ void codegenModule(IRState *irs, Module *m) {
     fatal();
   }
 
-  // Skip emission of all the additional module metadata if:
-  // a) the -betterC switch is on,
+  // Skip emission of the ModuleInfo if:
+  // a) the -betterC or -fno-moduleinfo switch is on,
   // b) requested explicitly by the user via pragma(LDC_no_moduleinfo),
   // c) there's no ModuleInfo declaration, or if
   // d) the module is a C file.
