@@ -139,8 +139,9 @@ void printVersion(llvm::raw_ostream &OS) {
 }
 
 // Helper function to handle -d-debug=* and -d-version=*
-void processVersions(std::vector<std::string> &list, const char *type,
-                     unsigned &globalLevel, Strings *&globalIDs) {
+template <typename Condition>
+void processVersions(const std::vector<std::string> &list, const char *type,
+                     unsigned &globalLevel) {
   for (const auto &i : list) {
     const char *value = i.c_str();
     if (isdigit(value[0])) {
@@ -155,12 +156,9 @@ void processVersions(std::vector<std::string> &list, const char *type,
     } else {
       char *cstr = mem.xstrdup(value);
       if (Identifier::isValidIdentifier(cstr)) {
-        if (!globalIDs)
-          globalIDs = createStrings();
-        globalIDs->push(cstr);
-        continue;
+        Condition::addGlobalIdent(cstr);
       } else {
-        error(Loc(), "Invalid %s identifier or level: '%s'", type, i.c_str());
+        error(Loc(), "Invalid %s identifier or level: '%s'", type, cstr);
       }
     }
   }
@@ -324,7 +322,7 @@ void parseCommandLine(Strings &sourceFiles) {
   // - path to compiler binary
   // - version number
   // - used config file
-  if (global.params.verbose) {
+  if (global.params.v.verbose) {
     message("binary    %s", exe_path::getExePath().c_str());
     message("version   %s (DMD %s, LLVM %s)", ldc::ldc_version,
             ldc::dmd_version, ldc::llvm_version);
@@ -338,6 +336,9 @@ void parseCommandLine(Strings &sourceFiles) {
   global.params.link = !compileOnly;
   global.params.obj = !dontWriteObj;
   global.params.useInlineAsm = !noAsm;
+  global.params.useExceptions = !fNoExceptions;
+  global.params.useModuleInfo = !fNoModuleInfo;
+  global.params.useTypeInfo = !fNoRTTI;
 
   // String options
   global.params.objname = opts::fromPathString(objectFile);
@@ -416,10 +417,9 @@ void parseCommandLine(Strings &sourceFiles) {
 
   opts::initializeSanitizerOptionsFromCmdline();
 
-  processVersions(debugArgs, "debug", global.params.debuglevel,
-                  global.params.debugids);
-  processVersions(versions, "version", global.params.versionlevel,
-                  global.params.versionids);
+  processVersions<DebugCondition>(debugArgs, "debug", global.params.debuglevel);
+  processVersions<VersionCondition>(versions, "version",
+                                    global.params.versionlevel);
 
   for (const auto &id : transitions)
     parseTransitionOption(global.params, id.c_str());
@@ -447,11 +447,6 @@ void parseCommandLine(Strings &sourceFiles) {
   // -betterC implies -allinst (since D v2.105)
   if (global.params.betterC) {
     global.params.allInst = true;
-  }
-
-  // -wo implies at least -wi (print the warnings)
-  if (global.params.obsolete && global.params.warnings == DIAGNOSTICoff) {
-    global.params.warnings = DIAGNOSTICinform;
   }
 
   global.params.output_o =
@@ -990,9 +985,12 @@ void registerPredefinedVersions() {
   if (global.params.betterC) {
     VersionCondition::addPredefinedGlobalIdent("D_BetterC");
   } else {
-    VersionCondition::addPredefinedGlobalIdent("D_ModuleInfo");
-    VersionCondition::addPredefinedGlobalIdent("D_Exceptions");
-    VersionCondition::addPredefinedGlobalIdent("D_TypeInfo");
+    if (global.params.useModuleInfo)
+      VersionCondition::addPredefinedGlobalIdent("D_ModuleInfo");
+    if (global.params.useExceptions)
+      VersionCondition::addPredefinedGlobalIdent("D_Exceptions");
+    if (global.params.useTypeInfo)
+      VersionCondition::addPredefinedGlobalIdent("D_TypeInfo");
   }
 
   if (global.params.tracegc) {
@@ -1136,8 +1134,6 @@ int cppmain() {
 
   global.compileEnv.previewIn = global.params.previewIn;
   global.compileEnv.ddocOutput = global.params.ddoc.doOutput;
-  global.compileEnv.shortenedMethods = global.params.shortenedMethods;
-  global.compileEnv.obsolete = global.params.obsolete;
 
   if (opts::fTimeTrace) {
     initializeTimeTrace(opts::fTimeTraceGranularity, 0, opts::allArguments[0]);
@@ -1268,7 +1264,7 @@ void codegenModules(Modules &modules) {
       if (m->filetype == FileType::dhdr)
         continue;
 
-      if (global.params.verbose)
+      if (global.params.v.verbose)
         message("code      %s", m->toChars());
 
       const auto atCompute = hasComputeAttr(m);

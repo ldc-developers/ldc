@@ -10,6 +10,7 @@
 module gen.ldctraits;
 
 import dmd.arraytypes;
+import dmd.dinterpret;
 import dmd.dscope;
 import dmd.dtemplate;
 import dmd.expression;
@@ -35,7 +36,7 @@ Expression semanticTraitsLDC(TraitsExp e, Scope* sc)
     {
         if (arg_count != 0)
         {
-            e.warning("ignoring arguments for __traits %s", e.ident.toChars());
+            warning(e.loc, "ignoring arguments for __traits %s", e.ident.toChars());
         }
 
         auto cpu = traitsGetTargetCPU();
@@ -46,14 +47,14 @@ Expression semanticTraitsLDC(TraitsExp e, Scope* sc)
     {
         if (arg_count != 1)
         {
-            e.error("__traits %s expects one argument, not %u", e.ident.toChars(), cast(uint)arg_count);
+            error(e.loc, "__traits %s expects one argument, not %u", e.ident.toChars(), cast(uint)arg_count);
             return ErrorExp.get();
         }
 
         auto ex = isExpression((*e.args)[0]);
         if (!ex)
         {
-            e.error("expression expected as argument of __traits %s", e.ident.toChars());
+            error(e.loc, "expression expected as argument of __traits %s", e.ident.toChars());
             return ErrorExp.get();
         }
         ex = ex.ctfeInterpret();
@@ -61,7 +62,7 @@ Expression semanticTraitsLDC(TraitsExp e, Scope* sc)
         StringExp se = ex.toStringExp();
         if (!se || se.len == 0)
         {
-            e.error("string expected as argument of __traits %s instead of %s", e.ident.toChars(), ex.toChars());
+            error(e.loc, "string expected as argument of __traits %s instead of %s", e.ident.toChars(), ex.toChars());
             return ErrorExp.get();
         }
 

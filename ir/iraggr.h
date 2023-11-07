@@ -64,9 +64,9 @@ public:
   /// Return the LLVM type of this Aggregate (w/o the reference for classes)
   llvm::StructType *getLLStructType();
 
-
   /// Whether to suppress the TypeInfo definition for the aggregate via
-  /// `-betterC`, no `object.TypeInfo`, or `pragma(LDC_no_typeinfo)`.
+  /// `-betterC` / `-fno-rtti`, no `object.TypeInfo`, or
+  /// `pragma(LDC_no_typeinfo)`.
   bool suppressTypeInfo() const;
 
   //////////////////////////////////////////////////////////////////////////

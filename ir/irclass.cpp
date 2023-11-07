@@ -224,7 +224,9 @@ LLConstant *IrClass::getVtblInit() {
             constants.push_back(getNullValue(voidPtrType));
             continue;
           }
-          fd->error("failed to infer return type for vtbl initializer");
+          error(fd->loc,
+                "failed to infer return type of `%s` for vtbl initializer",
+                fd->toPrettyChars());
           fatal();
         }
       }
@@ -249,14 +251,16 @@ LLConstant *IrClass::getVtblInit() {
               fd2->leastAsSpecialized(fd, nullptr) != MATCH::nomatch) {
             TypeFunction *tf = static_cast<TypeFunction *>(fd->type);
             if (tf->ty == TY::Tfunction) {
-              cd->error("use of `%s%s` is hidden by `%s`; use `alias %s = "
-                        "%s.%s;` to introduce base class overload set",
-                        fd->toPrettyChars(),
-                        parametersTypeToChars(tf->parameterList), cd->toChars(),
-                        fd->toChars(), fd->parent->toChars(), fd->toChars());
+              error(cd->loc,
+                    "%s `%s` use of `%s%s` is hidden by `%s`; use `alias %s = "
+                    "%s.%s;` to introduce base class overload set",
+                    cd->kind(), cd->toPrettyChars(), fd->toPrettyChars(),
+                    parametersTypeToChars(tf->parameterList), cd->toChars(),
+                    fd->toChars(), fd->parent->toChars(), fd->toChars());
             } else {
-              cd->error("use of `%s` is hidden by `%s`", fd->toPrettyChars(),
-                        cd->toChars());
+              error(cd->loc, "%s `%s` use of `%s` is hidden by `%s`",
+                    cd->kind(), cd->toPrettyChars(), fd->toPrettyChars(),
+                    cd->toChars());
             }
             fatal();
             break;
@@ -453,9 +457,9 @@ llvm::GlobalVariable *IrClass::getInterfaceVtblSymbol(BaseClass *b,
 
     OutBuffer mangledName;
     mangledName.writestring("_D");
-    mangleToBuffer(aggrdecl, &mangledName);
+    mangleToBuffer(aggrdecl, mangledName);
     mangledName.writestring("11__interface");
-    mangleToBuffer(b->sym, &mangledName);
+    mangleToBuffer(b->sym, mangledName);
     mangledName.writestring(thunkPrefixLen);
     mangledName.writestring(thunkPrefix);
     mangledName.writestring("6__vtblZ");

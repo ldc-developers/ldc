@@ -71,6 +71,7 @@ private:
         buckets = allocBuckets(sz);
         firstUsed = cast(uint) buckets.length;
         valoff = cast(uint) talign(keysz, ti.value.talign);
+        hashFn = &ti.key.getHash;
 
         import rt.lifetime : hasPostblit, unqualify;
 
@@ -91,6 +92,10 @@ private:
     immutable uint valsz;
     immutable uint valoff;
     Flags flags;
+
+    // function that calculates hash of a key. Set on creation
+    // the parameter is a pointer to the key.
+    size_t delegate(scope const void*) nothrow hashFn;
 
     enum Flags : ubyte
     {
@@ -471,9 +476,9 @@ private size_t mix(size_t h) @safe pure nothrow @nogc
     return h;
 }
 
-private size_t calcHash(scope const void* pkey, scope const TypeInfo keyti) nothrow
+private size_t calcHash(scope const void *pkey, scope const Impl* impl) nothrow
 {
-    immutable hash = keyti.getHash(pkey);
+    immutable hash = impl.hashFn(pkey);
     // highest bit is set to distinguish empty/deleted from filled buckets
     return mix(hash) | HASH_FILLED_MARK;
 }
@@ -564,7 +569,7 @@ extern (C) void* _aaGetX(scope AA* paa, const TypeInfo_AssociativeArray ti,
     }
 
     // get hash and bucket for key
-    immutable hash = calcHash(pkey, ti.key);
+    immutable hash = calcHash(pkey, aa);
 
     // found a value => return it
     if (auto p = aa.findSlotLookup(hash, pkey, ti.key))
@@ -631,7 +636,7 @@ extern (C) inout(void)* _aaInX(inout AA aa, scope const TypeInfo keyti, scope co
     if (aa.empty)
         return null;
 
-    immutable hash = calcHash(pkey, keyti);
+    immutable hash = calcHash(pkey, aa);
     if (auto p = aa.findSlotLookup(hash, pkey, keyti))
         return p.entry + aa.valoff;
     return null;
@@ -643,7 +648,7 @@ extern (C) bool _aaDelX(AA aa, scope const TypeInfo keyti, scope const void* pke
     if (aa.empty)
         return false;
 
-    immutable hash = calcHash(pkey, keyti);
+    immutable hash = calcHash(pkey, aa);
     if (auto p = aa.findSlotLookup(hash, pkey, keyti))
     {
         // clear entry
@@ -792,7 +797,7 @@ extern (C) Impl* _d_assocarrayliteralTX(const TypeInfo_AssociativeArray ti, void
     uint actualLength = 0;
     foreach (_; 0 .. length)
     {
-        immutable hash = calcHash(pkey, ti.key);
+        immutable hash = calcHash(pkey, aa);
 
         auto p = aa.findSlotLookup(hash, pkey, ti.key);
         if (p is null)
@@ -992,4 +997,23 @@ unittest
     aa3 = null;
     GC.runFinalizers((cast(char*)(&entryDtor))[0 .. 1]);
     assert(T.dtor == 6 && T.postblit == 2);
+}
+
+// Ensure the newaa struct layout (used for static initialization) is in sync
+unittest
+{
+    import newaa = core.internal.newaa;
+    static assert(newaa.Impl.sizeof == Impl.sizeof);
+    // ensure compatible types and offsets
+    static foreach (i; 0 .. Impl.tupleof.length)
+    {
+        // for bucket array and Flags, we "compatible" types, not exactly the same types.
+        static if (__traits(identifier, Impl.tupleof[i]) == "buckets"
+            || __traits(identifier, Impl.tupleof[i]) == "flags")
+            static assert(Impl.tupleof[i].sizeof == newaa.Impl.tupleof[i].sizeof);
+        else
+            static assert(is(typeof(Impl.tupleof[i]) == typeof(newaa.Impl.tupleof[i])));
+
+        static assert(Impl.tupleof[i].offsetof == newaa.Impl.tupleof[i].offsetof);
+    }
 }

@@ -176,7 +176,8 @@ Where:\n\
 "  -extern-std=[h|help|?]\n\
                     list all supported standards\n"
 #endif
-"  -fPIC             generate position independent code\n"
+"  -fIBT             generate Indirect Branch Tracking code\n\
+  -fPIC             generate position independent code\n"
 #if 0
 "  -fPIE             generate position independent executables\n"
 #endif
@@ -226,6 +227,7 @@ Where:\n\
   -mv=<package.module>=<filespec>\n\
                     use <filespec> as source file for <package.module>\n\
   -noboundscheck    no array bounds checking (deprecated, use -boundscheck=off)\n\
+  -nothrow          assume no Exceptions will be thrown\n\
   -O                optimize\n\
   -o-               do not write object file\n\
   -od=<directory>   write object & library files to directory\n\
@@ -491,6 +493,8 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
        */
       else if (strcmp(p + 1, "dylib") == 0) {
         ldcArgs.push_back("-shared");
+      } else if (strcmp(p + 1, "fIBT") == 0) {
+        ldcArgs.push_back("-fcf-protection=branch");
       } else if (strcmp(p + 1, "fPIC") == 0) {
         if (!pic) {
           ldcArgs.push_back("-relocation-model=pic");
@@ -594,12 +598,7 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
        * -revert
        * -w
        * -wi
-       */
-      else if (strcmp(p + 1, "wo") == 0) {
-        ldcArgs.push_back("-wo");
-        ldcArgs.push_back("-wi"); // DMD overrides a previous `-w` to `-wi`; LDC doesn't
-      }
-      /* -O
+       * -O
        * -o-
        * -od
        * -of
@@ -651,7 +650,11 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         ldcArgs.push_back("-boundscheck=off");
       }
       /* -boundscheck
-       * -unittest
+       */
+      else if (strcmp(p + 1, "nothrow") == 0) {
+        ldcArgs.push_back("-fno-exceptions");
+      }
+      /* -unittest
        * -I
        * -J
        */

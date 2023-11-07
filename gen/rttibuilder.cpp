@@ -78,7 +78,7 @@ void RTTIBuilder::push_void_array(uint64_t dim, llvm::Constant *ptr) {
 void RTTIBuilder::push_void_array(llvm::Constant *CI, Type *valtype,
                                   Dsymbol *mangle_sym) {
   OutBuffer initname;
-  mangleToBuffer(mangle_sym, &initname);
+  mangleToBuffer(mangle_sym, initname);
   initname.writestring(".rtti.voidarr.data");
 
   const LinkageWithCOMDAT lwc(TYPEINFO_LINKAGE_TYPE, needsCOMDAT());
@@ -100,7 +100,7 @@ void RTTIBuilder::push_array(llvm::Constant *CI, uint64_t dim, Type *valtype,
 
   OutBuffer initname;
   if (mangle_sym)
-    mangleToBuffer(mangle_sym, &initname);
+    mangleToBuffer(mangle_sym, initname);
   else
     initname.writestring(".ldc");
   initname.writestring(".rtti.");

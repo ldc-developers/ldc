@@ -179,15 +179,16 @@ void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs) {
   LOG_SCOPE;
 
   if (stmt->labels) {
-    stmt->error(
-        "goto labels for GCC-style asm statements are not supported yet");
+    error(stmt->loc,
+          "goto labels for GCC-style asm statements are not supported yet");
     fatal();
   }
   if (stmt->names) {
     for (Identifier *name : *stmt->names) {
       if (name) {
-        stmt->error("symbolic names for operands in GCC-style assembly are not "
-                    "supported yet");
+        error(stmt->loc,
+              "symbolic names for operands in GCC-style assembly are not "
+              "supported yet");
         fatal();
       }
     }

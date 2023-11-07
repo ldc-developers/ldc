@@ -2113,7 +2113,7 @@ struct AsmProcessor {
 
   void expectEnd() {
     if (token->value != TOK::endOfFile) {
-      stmt->error("expected end of statement"); // %% extra at end...
+      error(stmt->loc, "expected end of statement"); // %% extra at end...
     }
   }
 
@@ -2167,7 +2167,7 @@ struct AsmProcessor {
       // search for mnemonic below
       break;
     default:
-      stmt->error("expected opcode");
+      error(stmt->loc, "expected opcode");
       return Op_Invalid;
     }
 
@@ -2191,7 +2191,7 @@ struct AsmProcessor {
       }
     } while (i != j);
 
-    stmt->error("unknown opcode `%s`", opcode);
+    error(stmt->loc, "unknown opcode `%s`", opcode);
 
     return Op_Invalid;
   }
@@ -2243,20 +2243,20 @@ struct AsmProcessor {
         parseOperand();
         operand_i++;
       } else {
-        stmt->error("too many operands for instruction");
+        error(stmt->loc, "too many operands for instruction");
         break;
       }
 
       if (token->value == TOK::comma) {
         nextToken();
       } else if (token->value != TOK::endOfFile) {
-        stmt->error("end of instruction expected, not `%s`", token->toChars());
+        error(stmt->loc, "end of instruction expected, not `%s`", token->toChars());
         return;
       }
     }
     /*
     if (operand_i < opInfo->minOperands) {
-      stmt->error("too few operands for instruction");
+      error(stmt->loc, "too few operands for instruction");
     }
     */
 
@@ -2319,9 +2319,9 @@ struct AsmProcessor {
       }
     }
     if (wrong_number) {
-      stmt->error("wrong number of operands");
+      error(stmt->loc, "wrong number of operands");
     } else {
-      stmt->error("wrong operand types");
+      error(stmt->loc, "wrong operand types");
     }
     return false;
   }
@@ -2352,7 +2352,7 @@ struct AsmProcessor {
         break;
 
       case Arg_Pointer:
-        stmt->error("unsupported pointer reference to `%s` in naked asm",
+        error(stmt->loc, "unsupported pointer reference to `%s` in naked asm",
                     e->toChars());
         break;
 
@@ -2365,7 +2365,7 @@ struct AsmProcessor {
         if (auto v = e->isVarExp()) {
           if (VarDeclaration *vd = v->var->isVarDeclaration()) {
             if (!vd->isDataseg()) {
-              stmt->error("only global variables can be referenced by "
+              error(stmt->loc, "only global variables can be referenced by "
                           "identifier in naked asm");
               break;
             }
@@ -2375,13 +2375,13 @@ struct AsmProcessor {
               insnTemplate << "_";
             }
             OutBuffer buf;
-            mangleToBuffer(vd, &buf);
+            mangleToBuffer(vd, buf);
             insnTemplate << buf.peekChars();
             getIrGlobal(vd, true)->nakedUse = true;
             break;
           }
         }
-        stmt->error("unsupported memory reference to `%s` in naked asm",
+        error(stmt->loc, "unsupported memory reference to `%s` in naked asm",
                     e->toChars());
         break;
 
@@ -2400,7 +2400,7 @@ struct AsmProcessor {
                    AsmArgMode mode = Mode_Input) {
     if (sc->func->isNaked()) {
       // taken from above
-      stmt->error("only global variables can be referenced by identifier in "
+      error(stmt->loc, "only global variables can be referenced by identifier in "
                   "naked asm");
       return;
     }
@@ -2493,7 +2493,7 @@ struct AsmProcessor {
     }
 
     // probably a bug,?
-    stmt->error("invalid operand");
+    error(stmt->loc, "invalid operand");
     return Opr_Invalid;
   }
 
@@ -2599,7 +2599,7 @@ struct AsmProcessor {
       if (operands[1].cls == Opr_Reg && operands[1].reg == Reg_ST) {
         nOperands = 1;
       } else {
-        stmt->error("instruction allows only `ST` as second argument");
+        error(stmt->loc, "instruction allows only `ST` as second argument");
       }
     }
 
@@ -2684,7 +2684,7 @@ struct AsmProcessor {
       }
 
       if (!type_ok) {
-        stmt->error("invalid operand size");
+        error(stmt->loc, "invalid operand size");
         return false;
       }
     } else if (op == Op_Branch) {
@@ -2742,7 +2742,7 @@ struct AsmProcessor {
         tc_1 = 'w';
         break;
       default:
-        stmt->error("invalid operand size/type");
+        error(stmt->loc, "invalid operand size/type");
         return false;
       }
       assert(!type_suffix.empty());
@@ -2873,7 +2873,7 @@ struct AsmProcessor {
         */
         if (opTakesLabel()) {
           // "relative addressing not allowed in branch instructions" ..
-          stmt->error("integer constant not allowed in branch instructions");
+          error(stmt->loc, "integer constant not allowed in branch instructions");
           return false;
         }
 
@@ -2950,7 +2950,7 @@ struct AsmProcessor {
             writeReg(operand->segmentPrefix);
             insnTemplate << ':';
           } else {
-            stmt->error("Cannot generate a segment prefix for a "
+            error(stmt->loc, "Cannot generate a segment prefix for a "
                         "branching instruction");
           }
         }
@@ -3031,7 +3031,7 @@ struct AsmProcessor {
                the %an format must be used with the "p" constraint.
             */
             if (isDollar(e)) {
-              stmt->error("dollar labels are not supported");
+              error(stmt->loc, "dollar labels are not supported");
               asmcode->dollarLabel = 1;
             } else if (auto dse = e->isDsymbolExp()) {
               LabelDsymbol *lbl = dse->s->isLabel();
@@ -3047,7 +3047,7 @@ struct AsmProcessor {
                 insnTemplate << "_";
               }
               OutBuffer buf;
-              mangleToBuffer(decl, &buf);
+              mangleToBuffer(decl, buf);
               insnTemplate << buf.peekChars();
               //              addOperand2("${", ":c}", Arg_Pointer, e,
               //              asmcode);
@@ -3169,7 +3169,7 @@ struct AsmProcessor {
         if (operand->reg == Reg_Invalid) {
           operand->reg = static_cast<Reg>(exp->toInteger());
         } else {
-          stmt->error("too many registers in operand (use brackets)");
+          error(stmt->loc, "too many registers in operand (use brackets)");
         }
       } else {
         if (operand->baseReg == Reg_Invalid) {
@@ -3178,7 +3178,7 @@ struct AsmProcessor {
           operand->indexReg = static_cast<Reg>(exp->toInteger());
           operand->scale = 1;
         } else {
-          stmt->error("too many registers memory operand");
+          error(stmt->loc, "too many registers memory operand");
         }
       }
     } else if (auto ve = exp->isVarExp()) {
@@ -3207,7 +3207,7 @@ struct AsmProcessor {
           }
           operand->symbolDisplacement.push(exp);
         } else {
-          stmt->error("too many symbols in operand");
+          error(stmt->loc, "too many symbols in operand");
         }
       }
     } else if (exp->op == EXP::identifier || exp->op == EXP::dSymbol) {
@@ -3216,28 +3216,28 @@ struct AsmProcessor {
       if (!operand->symbolDisplacement.length) {
         operand->symbolDisplacement.push(exp);
       } else {
-        stmt->error("too many symbols in operand");
+        error(stmt->loc, "too many symbols in operand");
       }
     } else if (exp == Handled) {
       // nothing
     } else {
-      stmt->error("invalid operand");
+      error(stmt->loc, "invalid operand");
     }
   }
 
   void invalidExpression() {
     // %% report operand number
-    stmt->error("invalid expression");
+    error(stmt->loc, "invalid expression");
   }
 
   Expression *intOp(TOK op, Expression *e1, Expression *e2) {
     if (isIntExp(e1) && (!e2 || isIntExp(e2))) {
       Expression *e = createExpressionForIntOp(stmt->loc, op, e1, e2);
       e = expressionSemantic(e, sc);
-      return e->ctfeInterpret();
+      return ctfeInterpret(e);
     }
 
-    stmt->error("expected integer operand(s) for `%s`", Token::toChars(op));
+    error(stmt->loc, "expected integer operand(s) for `%s`", Token::toChars(op));
     return newIntExp(0);
   }
 
@@ -3274,7 +3274,7 @@ struct AsmProcessor {
       if (isIntExp(exp) && isIntExp(exp2)) {
         exp = intOp(TOK::andAnd, exp, exp2);
       } else {
-        stmt->error("bad integral operand");
+        error(stmt->loc, "bad integral operand");
       }
     }
     return exp;
@@ -3288,7 +3288,7 @@ struct AsmProcessor {
       if (isIntExp(exp) && isIntExp(exp2)) {
         exp = intOp(TOK::orOr, exp, exp2);
       } else {
-        stmt->error("bad integral operand");
+        error(stmt->loc, "bad integral operand");
       }
     }
     return exp;
@@ -3302,7 +3302,7 @@ struct AsmProcessor {
       if (isIntExp(exp) && isIntExp(exp2)) {
         exp = intOp(TOK::or_, exp, exp2);
       } else {
-        stmt->error("bad integral operand");
+        error(stmt->loc, "bad integral operand");
       }
     }
     return exp;
@@ -3316,7 +3316,7 @@ struct AsmProcessor {
       if (isIntExp(exp) && isIntExp(exp2)) {
         exp = intOp(TOK::xor_, exp, exp2);
       } else {
-        stmt->error("bad integral operand");
+        error(stmt->loc, "bad integral operand");
       }
     }
     return exp;
@@ -3330,7 +3330,7 @@ struct AsmProcessor {
       if (isIntExp(exp) && isIntExp(exp2)) {
         exp = intOp(TOK::and_, exp, exp2);
       } else {
-        stmt->error("bad integral operand");
+        error(stmt->loc, "bad integral operand");
       }
     }
     return exp;
@@ -3349,7 +3349,7 @@ struct AsmProcessor {
       return intOp(tok, exp, exp2);
     }
 
-    stmt->error("bad integral operand");
+    error(stmt->loc, "bad integral operand");
     // TODO: Return ErrorExp?
     return exp;
   }
@@ -3368,7 +3368,7 @@ struct AsmProcessor {
       return intOp(tok, exp, exp2);
     }
 
-    stmt->error("bad integral operand");
+    error(stmt->loc, "bad integral operand");
     // TODO: Return ErrorExp?
     return exp;
   }
@@ -3462,7 +3462,7 @@ struct AsmProcessor {
         // ok; do nothing
         break;
       default:
-        stmt->error("invalid index register scale '%d'", operand->scale);
+        error(stmt->loc, "invalid index register scale '%d'", operand->scale);
         return true;
       }
 
@@ -3528,7 +3528,7 @@ struct AsmProcessor {
       if (token->value == TOK::rightBracket) {
         nextToken();
       } else {
-        stmt->error("missing `]`");
+        error(stmt->loc, "missing `]`");
       }
     }
 
@@ -3584,10 +3584,10 @@ struct AsmProcessor {
         if (operand->dataSize == Default_Ptr) {
           operand->dataSize = ptr_type;
         } else {
-          stmt->error("multiple specifications of operand size");
+          error(stmt->loc, "multiple specifications of operand size");
         }
       } else {
-        stmt->error("unknown operand size `%s`", token->toChars());
+        error(stmt->loc, "unknown operand size `%s`", token->toChars());
       }
       nextToken();
       nextToken();
@@ -3599,12 +3599,12 @@ struct AsmProcessor {
     case TOK::identifier:
       if (token->ident == ident_seg) {
         nextToken();
-        stmt->error("`seg` not supported");
+        error(stmt->loc, "`seg` not supported");
         e = parseAsmExp();
       } else if (token->ident == Id::offset || token->ident == Id::offsetof) {
         if (token->ident == Id::offset &&
             global.params.useDeprecated == DIAGNOSTICerror) {
-          stmt->error("offset deprecated, use `offsetof`");
+          error(stmt->loc, "offset deprecated, use `offsetof`");
         }
         nextToken();
         e = parseAsmExp();
@@ -3687,7 +3687,7 @@ struct AsmProcessor {
           e = DotIdExp::create(stmt->loc, e, token->ident);
           nextToken();
         } else {
-          stmt->error("expected identifier");
+          error(stmt->loc, "expected identifier");
           return Handled;
         }
       }
@@ -3707,14 +3707,14 @@ struct AsmProcessor {
                 if (token->unsvalue < 8) {
                   e = newRegExp(static_cast<Reg>(Reg_ST + token->unsvalue));
                 } else {
-                  stmt->error("invalid floating point register index");
+                  error(stmt->loc, "invalid floating point register index");
                   e = Handled;
                 }
                 nextToken();
                 if (token->value == TOK::rightParenthesis) {
                   nextToken();
                 } else {
-                  stmt->error("expected `)`");
+                  error(stmt->loc, "expected `)`");
                 }
                 return e;
               default:
@@ -3726,11 +3726,11 @@ struct AsmProcessor {
             if (token->value == TOK::colon) {
               nextToken();
               if (operand->segmentPrefix != Reg_Invalid) {
-                stmt->error("too many segment prefixes");
+                error(stmt->loc, "too many segment prefixes");
               } else if (i >= Reg_CS && i <= Reg_GS) {
                 operand->segmentPrefix = static_cast<Reg>(i);
               } else {
-                stmt->error("`%s` is not a segment register", ident->toChars());
+                error(stmt->loc, "`%s` is not a segment register", ident->toChars());
               }
               return parseAsmExp();
             }
@@ -3793,7 +3793,7 @@ struct AsmProcessor {
 
     // parse primary: DMD allows 'MyAlign' (const int) but not '2+2'
     // GAS is padding with NOPs last time I checked.
-    Expression *e = parseAsmExp()->ctfeInterpret();
+    Expression *e = ctfeInterpret(parseAsmExp());
     uinteger_t align = e->toUInteger();
 
     if ((align & (align - 1)) == 0) {
@@ -3806,7 +3806,7 @@ struct AsmProcessor {
       insnTemplate << ".align\t" << align;
 #endif
     } else {
-      stmt->error("alignment must be a power of 2, not %u",
+      error(stmt->loc, "alignment must be a power of 2, not %u",
                   static_cast<unsigned>(align));
     }
 
@@ -3855,7 +3855,7 @@ struct AsmProcessor {
             insnTemplate << token->unsvalue;
           }
         } else {
-          stmt->error("expected integer constant");
+          error(stmt->loc, "expected integer constant");
         }
         break;
       case Op_df:
@@ -3898,17 +3898,17 @@ struct AsmProcessor {
               insnTemplate << "\n\t.short "
                            << *reinterpret_cast<const uint16_t *>(ptr + 1);
             } else {
-              stmt->error("unsupported target `real` size");
+              error(stmt->loc, "unsupported target `real` size");
             }
           } else {
             llvm_unreachable("unexpected op");
           }
         } else {
-          stmt->error("expected float constant");
+          error(stmt->loc, "expected float constant");
         }
         break;
       default:
-        stmt->error("Unsupported data definition directive inside inline asm.");
+        error(stmt->loc, "Unsupported data definition directive inside inline asm.");
         break;
       }
 
@@ -3923,7 +3923,7 @@ struct AsmProcessor {
       } else if (token->value == TOK::endOfFile) {
         break;
       } else {
-        stmt->error("expected comma");
+        error(stmt->loc, "expected comma");
       }
     } while (1);
 

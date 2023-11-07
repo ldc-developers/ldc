@@ -71,12 +71,12 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
   using StoppableVisitor::visit;
 
   void visit(InterfaceDeclaration *decl) override {
-    decl->error("interfaces and classes not allowed in `@compute` code");
+    error(decl->loc, "interfaces and classes not allowed in `@compute` code");
     stop = true;
   }
 
   void visit(ClassDeclaration *decl) override {
-    decl->error("interfaces and classes not allowed in `@compute` code");
+    error(decl->loc, "interfaces and classes not allowed in `@compute` code");
     stop = true;
   }
 
@@ -85,7 +85,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     if (decl->isDataseg()) {
       if (strncmp(decl->toChars(), "__critsec", 9) &&
         strncmp(decl->toChars(), "typeid", 6)) {
-        decl->error("global variables not allowed in `@compute` code");
+        error(decl->loc, "global variables not allowed in `@compute` code");
       }
       // Ignore typeid: it is ignored by codegen.
       stop = true;
@@ -93,18 +93,18 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     }
 
     if (decl->type->ty == TY::Taarray) {
-      decl->error("associative arrays not allowed in `@compute` code");
+      error(decl->loc, "associative arrays not allowed in `@compute` code");
       stop = true;
     }
     // includes interfaces
     else if (decl->type->ty == TY::Tclass) {
-      decl->error("interfaces and classes not allowed in `@compute` code");
+      error(decl->loc, "interfaces and classes not allowed in `@compute` code");
     }
   }
   void visit(PragmaDeclaration *decl) override {
     if (decl->ident == Id::lib) {
-      decl->error(
-          "linking additional libraries not supported in `@compute` code");
+      error(decl->loc,
+            "linking additional libraries not supported in `@compute` code");
       stop = true;
     }
   }
@@ -114,67 +114,67 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
   void visit(ArrayLiteralExp *e) override {
     if (e->type->ty != TY::Tarray || !e->elements || !e->elements->length)
       return;
-    e->error("array literal in `@compute` code not allowed");
+    error(e->loc, "array literal in `@compute` code not allowed");
     stop = true;
   }
   void visit(NewExp *e) override {
-    e->error("cannot use `new` in `@compute` code");
+    error(e->loc, "cannot use `new` in `@compute` code");
     stop = true;
   }
 
   void visit(DeleteExp *e) override {
-    e->error("cannot use `delete` in `@compute` code");
+    error(e->loc, "cannot use `delete` in `@compute` code");
     stop = true;
   }
   // No need to check IndexExp because AA's are banned anyway
   void visit(AssignExp *e) override {
     if (e->e1->op == EXP::arrayLength) {
-      e->error("setting `length` in `@compute` code not allowed");
+      error(e->loc, "setting `length` in `@compute` code not allowed");
       stop = true;
     }
   }
 
   void visit(CatAssignExp *e) override {
-    e->error("cannot use operator `~=` in `@compute` code");
+    error(e->loc, "cannot use operator `~=` in `@compute` code");
     stop = true;
   }
   void visit(CatExp *e) override {
-    e->error("cannot use operator `~` in `@compute` code");
+    error(e->loc, "cannot use operator `~` in `@compute` code");
     stop = true;
   }
   // Ban typeid(T)
   void visit(TypeidExp *e) override {
-    e->error("typeinfo not available in `@compute` code");
+    error(e->loc, "typeinfo not available in `@compute` code");
     stop = true;
   }
 
   void visit(StringExp *e) override {
-    e->error("string literals not allowed in `@compute` code");
+    error(e->loc, "string literals not allowed in `@compute` code");
     stop = true;
   }
   void visit(CompoundAsmStatement *e) override {
-    e->error("asm not allowed in `@compute` code");
+    error(e->loc, "asm not allowed in `@compute` code");
     stop = true;
   }
   void visit(AsmStatement *e) override {
-    e->error("asm not allowed in `@compute` code");
+    error(e->loc, "asm not allowed in `@compute` code");
     stop = true;
   }
 
   // Enforce nothrow. Disallow 'catch' as it is dead code.
   // try...finally is allowed to facilitate scope(exit)
   void visit(TryCatchStatement *e) override {
-    e->error("no exceptions in `@compute` code");
+    error(e->loc, "no exceptions in `@compute` code");
     stop = true;
   }
   void visit(ThrowStatement *e) override {
-    e->error("no exceptions in `@compute` code");
+    error(e->loc, "no exceptions in `@compute` code");
     stop = true;
   }
   void visit(SwitchStatement *e) override {
     if (auto ce = e->condition->isCallExp()) {
       if (ce->f->ident == Id::__switch) {
-        e->error("cannot `switch` on strings in `@compute` code");
+        error(e->loc, "cannot `switch` on strings in `@compute` code");
         stop = true;
       }
     }
@@ -217,7 +217,7 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     // So we intercept it with the CallExp ----
 
     if (e->f->ident == Id::criticalenter) {
-      e->error("cannot use `synchronized` in `@compute` code");
+      error(e->loc, "cannot use `synchronized` in `@compute` code");
       stop = true;
       return;
     }
@@ -230,15 +230,15 @@ struct DComputeSemanticAnalyser : public StoppableVisitor {
     Module *m = e->f->getModule();
     if ((m == nullptr || (hasComputeAttr(m) == DComputeCompileFor::hostOnly)) &&
         !isNonComputeCallExpVaild(e)) {
-      e->error("can only call functions from other `@compute` modules in "
-               "`@compute` code");
+      error(e->loc, "can only call functions from other `@compute` modules in "
+                    "`@compute` code");
       stop = true;
     }
   }
 
   void visit(FuncDeclaration *fd) override {
     if (hasKernelAttr(fd) && fd->vthis) {
-      fd->error("`@kernel` functions must not require `this`");
+      error(fd->loc, "`@kernel` functions must not require `this`");
       stop = true;
       return;
     }

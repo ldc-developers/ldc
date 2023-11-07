@@ -27,6 +27,22 @@ import dmd.common.string;
 
 nothrow:
 
+version (Windows)
+{
+version (IN_LLVM)
+{
+    import core.sys.windows.winnls : CP_UTF8;
+    enum CodePage = CP_UTF8;
+}
+else
+{
+    import core.sys.windows.winnls : CP_ACP;
+
+    // assume filenames encoded in system default Windows ANSI code page
+    enum CodePage = CP_ACP;
+} // !IN_LLVM
+}
+
 /**
 Encapsulated management of a memory-mapped file.
 

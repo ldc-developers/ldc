@@ -1,6 +1,8 @@
 # LDC master
 
 #### Big news
+- Frontend, druntime and Phobos are at version [2.106.0](https://dlang.org/changelog/2.106.0.html). (#4522)
+- New command-line options `-fno-{exceptions,moduleinfo,rtti}` to selectively enable some `-betterC` effects. (#4522)
 
 #### Platform support
 

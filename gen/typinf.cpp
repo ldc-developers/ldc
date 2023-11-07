@@ -36,6 +36,7 @@
 #include "dmd/mtype.h"
 #include "dmd/scope.h"
 #include "dmd/template.h"
+#include "dmd/typinf.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/irstate.h"
@@ -57,16 +58,12 @@
 #include <cassert>
 #include <cstdio>
 
-// in dmd/typinf.d:
-void genTypeInfo(Expression *e, const Loc &loc, Type *torig, Scope *sc, bool genObjCode = true);
-
 TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(const Loc &loc, Type *forType) {
   IF_LOG Logger::println("getOrCreateTypeInfoDeclaration(): %s",
                          forType->toChars());
   LOG_SCOPE
 
-  // the `genObjCode` parameter is unused by LDC
-  genTypeInfo(nullptr, loc, forType, nullptr, false);
+  genTypeInfo(nullptr, loc, forType, nullptr);
 
   return forType->vtinfo;
 }
@@ -424,7 +421,7 @@ void buildTypeInfo(TypeInfoDeclaration *decl) {
   Type *forType = decl->tinfo;
 
   OutBuffer mangleBuf;
-  mangleToBuffer(decl, &mangleBuf);
+  mangleToBuffer(decl, mangleBuf);
   const char *mangled = mangleBuf.peekChars();
 
   IF_LOG {

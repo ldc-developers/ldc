@@ -4,7 +4,7 @@ DISABLED: LDC // -profile=gc not supported
 RUN_OUTPUT:
 ---
 bytes allocated, allocations, type, function, file:line
-             96	              1	ubyte[] D main runnable/profilegc_stdout.d:17
+             96	              1	ubyte D main runnable/profilegc_stdout.d:17
 ---
 */
 

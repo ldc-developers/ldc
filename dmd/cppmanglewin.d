@@ -11,7 +11,6 @@
 
 module dmd.cppmanglewin;
 
-import core.stdc.string;
 import core.stdc.stdio;
 
 import dmd.arraytypes;
@@ -32,7 +31,7 @@ import dmd.identifier;
 import dmd.location;
 import dmd.mtype;
 import dmd.common.outbuffer;
-import dmd.root.rootobject;
+import dmd.rootobject;
 import dmd.target;
 import dmd.tokens;
 import dmd.typesem;
@@ -47,7 +46,7 @@ const(char)* toCppMangleMSVC(Dsymbol s)
     return v.mangleOf(s);
 }
 
-const(char)* cppTypeInfoMangleMSVC(Dsymbol s)
+const(char)* cppTypeInfoMangleMSVC(Dsymbol s) // IN_LLVM: not @safe
 {
     //printf("cppTypeInfoMangle(%s)\n", s.toChars());
 version (IN_LLVM)
@@ -72,7 +71,7 @@ const(char)* toCppMangleDMC(Dsymbol s)
     return v.mangleOf(s);
 }
 
-const(char)* cppTypeInfoMangleDMC(Dsymbol s)
+const(char)* cppTypeInfoMangleDMC(Dsymbol s) @safe
 {
     //printf("cppTypeInfoMangle(%s)\n", s.toChars());
     assert(0);
@@ -118,7 +117,7 @@ private final class VisualCPPMangler : Visitor
 
     OutBuffer buf;
 
-    extern (D) this(VisualCPPMangler rvl) scope
+    extern (D) this(VisualCPPMangler rvl) scope @safe
     {
         saved_idents[] = rvl.saved_idents[];
         saved_types[]  = rvl.saved_types[];
@@ -127,7 +126,7 @@ private final class VisualCPPMangler : Visitor
     }
 
 public:
-    extern (D) this(bool isDmc, Loc loc) scope
+    extern (D) this(bool isDmc, Loc loc) scope @safe
     {
         saved_idents[] = null;
         saved_types[] = null;
@@ -579,7 +578,7 @@ extern(D):
         // fake mangling for fields to fix https://issues.dlang.org/show_bug.cgi?id=16525
         if (!(d.storage_class & (STC.extern_ | STC.field | STC.gshared)))
         {
-            d.error("internal compiler error: C++ static non-__gshared non-extern variables not supported");
+            .error(d.loc, "%s `%s` internal compiler error: C++ static non-__gshared non-extern variables not supported", d.kind, d.toPrettyChars);
             fatal();
         }
         buf.writeByte('?');
@@ -626,7 +625,7 @@ extern(D):
     {
         if (!tv.valType.isintegral())
         {
-            sym.error("internal compiler error: C++ %s template value parameter is not supported", tv.valType.toChars());
+            .error(sym.loc, "%s `%s` internal compiler error: C++ %s template value parameter is not supported", sym.kind, sym.toPrettyChars, tv.valType.toChars());
             fatal();
             return;
         }
@@ -705,7 +704,8 @@ extern(D):
                 }
                 else
                 {
-                    sym.error("internal compiler error: C++ templates support only integral value, type parameters, alias templates and alias function parameters");
+                    .error(sym.loc, "%s `%s` internal compiler error: C++ templates support only integral value, type parameters, alias templates and alias function parameters",
+                        sym.kind, sym.toPrettyChars);
                     fatal();
                 }
             }
@@ -713,7 +713,7 @@ extern(D):
         }
         else
         {
-            sym.error("internal compiler error: `%s` is unsupported parameter for C++ template", o.toChars());
+            .error(sym.loc, "%s `%s` internal compiler error: `%s` is unsupported parameter for C++ template", sym.kind, sym.toPrettyChars, o.toChars());
             fatal();
         }
     }
@@ -857,7 +857,8 @@ extern(D):
                 Type t = isType(o);
                 if (t is null)
                 {
-                    actualti.error("internal compiler error: C++ `%s` template value parameter is not supported", o.toChars());
+                    .error(actualti.loc, "%s `%s` internal compiler error: C++ `%s` template value parameter is not supported",
+                        actualti.kind, actualti.toPrettyChars, o.toChars());
                     fatal();
                 }
                 tmp.mangleTemplateType(o);
@@ -868,7 +869,8 @@ extern(D):
             }
             else
             {
-                sym.error("internal compiler error: C++ templates support only integral value, type parameters, alias templates and alias function parameters");
+                .error(sym.loc, "%s `%s` internal compiler error: C++ templates support only integral value, type parameters, alias templates and alias function parameters",
+                    sym.kind, sym.toPrettyChars);
                 fatal();
             }
         }
@@ -882,7 +884,7 @@ extern(D):
     }
 
     // returns true if name already saved
-    bool checkAndSaveIdent(Identifier name)
+    bool checkAndSaveIdent(Identifier name) @safe
     {
         foreach (i, ref id; saved_idents)
         {
@@ -900,7 +902,7 @@ extern(D):
         return false;
     }
 
-    void saveIdent(Identifier name)
+    void saveIdent(Identifier name) @safe
     {
         foreach (ref id; saved_idents)
         {
@@ -1305,7 +1307,7 @@ void mangleNumber(ref OutBuffer buf, dinteger_t num)
 
 /*************************************
  */
-void mangleVisibility(ref OutBuffer buf, Declaration d, string privProtDef)
+void mangleVisibility(ref OutBuffer buf, Declaration d, string privProtDef)@safe
 {
     switch (d.visibility.kind)
     {

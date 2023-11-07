@@ -83,7 +83,7 @@ public:
     VarDeclaration *vd = e->var->isVarDeclaration();
     if (vd && vd->isConst() && vd->_init) {
       if (vd->inuse) {
-        e->error("recursive reference `%s`", e->toChars());
+        error(e->loc, "recursive reference `%s`", e->toChars());
         result = nullptr;
       } else {
         vd->inuse++;
@@ -95,7 +95,7 @@ public:
     }
     // fail
     else {
-      e->error("non-constant expression `%s`", e->toChars());
+      error(e->loc, "non-constant expression `%s`", e->toChars());
       result = nullptr;
     }
   }
@@ -293,7 +293,10 @@ public:
             }
             size_t arrlen = datalen / eltype->size();
 #endif
-      e->error("ct cast of `string` to dynamic array not fully implemented");
+      error(
+          e->loc,
+          "ct cast of `string` to dynamic array not fully implemented for `%s`",
+          e->toChars());
       result = nullptr;
     }
     // pointer to pointer
@@ -342,8 +345,8 @@ public:
     return;
 
   Lerr:
-    e->error("cannot cast `%s` to `%s` at compile time", e->e1->type->toChars(),
-             e->type->toChars());
+    error(e->loc, "cannot cast `%s` to `%s` at compile time",
+          e->e1->type->toChars(), e->type->toChars());
     fatalError();
   }
 
@@ -481,19 +484,13 @@ public:
       fd->vthis = nullptr;
     }
 
-    if (fd->tok != TOK::function_) {
-      assert(fd->tok == TOK::delegate_ || fd->tok == TOK::reserved);
-
-      // Only if the function doesn't access its nested context, we can emit a
-      // constant delegate with context pointer being null.
-      // FIXME: Find a proper way to check whether the context is used.
-      //        For now, just enable it for literals declared at module scope.
-      if (!fd->toParent2()->isModule()) {
-        e->error("non-constant nested delegate literal expression `%s`",
-                 e->toChars());
-        fatalError();
-        return;
-      }
+    // Only if the function doesn't access any parent context, we can emit a
+    // constant delegate with context pointer being null.
+    if (fd->tok != TOK::function_ && fd->outerVars.length) {
+      error(e->loc, "non-constant nested delegate literal expression `%s`",
+            e->toChars());
+      fatalError();
+      return;
     }
 
     // We need to actually codegen the function here, as literals are not
@@ -735,13 +732,20 @@ public:
   //////////////////////////////////////////////////////////////////////////////
 
   void visit(AssocArrayLiteralExp *e) override {
-    e->error("static initializations of associative arrays is not allowed.");
-    errorSupplemental(e->loc, "associative arrays must be initialized at runtime: https://dlang.org/spec/hash-map.html#runtime_initialization");
+    if (e->lowering) {
+      result = toConstElem(e->lowering, p);
+      return;
+    }
+
+    error(e->loc, "ICE: static initialization of associative array should have "
+                  "been lowered!");
+    // FIXME: use `fatal()` directly, but currently makes std.conv unittests
+    //        fail to compile (somehow only for the *shared* test runners)
     fatalError();
   }
 
   void visit(Expression *e) override {
-    e->error("expression `%s` is not a constant", e->toChars());
+    error(e->loc, "expression `%s` is not a constant", e->toChars());
     fatalError();
   }
 };

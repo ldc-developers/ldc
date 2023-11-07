@@ -268,7 +268,8 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
 #if LDC_WITH_LLD
   if (useInternalLLDForLinking() ||
       (useInternalToolchain && opts::linker.empty())) {
-    const auto fullArgs = getFullArgs("lld-link", args, global.params.verbose);
+    const auto fullArgs =
+        getFullArgs("lld-link", args, global.params.v.verbose);
 
     const bool canExitEarly = false;
     const bool success = lld::coff::link(fullArgs
@@ -302,5 +303,5 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
 #endif
   }
 
-  return executeToolAndWait(Loc(), linker, args, global.params.verbose);
+  return executeToolAndWait(Loc(), linker, args, global.params.v.verbose);
 }

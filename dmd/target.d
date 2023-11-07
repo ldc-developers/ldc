@@ -52,7 +52,7 @@ enum CPU : ubyte
     native              // the machine the compiler is being run on
 }
 
-Target.OS defaultTargetOS()
+Target.OS defaultTargetOS() @safe
 {
     version (Windows)
         return Target.OS.Windows;
@@ -72,7 +72,7 @@ Target.OS defaultTargetOS()
         static assert(0, "unknown TARGET");
 }
 
-ubyte defaultTargetOSMajor()
+ubyte defaultTargetOSMajor() @safe
 {
     version (FreeBSD)
     {
@@ -371,10 +371,7 @@ version (IN_LLVM) {} else
     const(char)[] lib_ext;    /// extension for static library files
     const(char)[] dll_ext;    /// extension for dynamic library files
     bool run_noext;           /// allow -run sources without extensions
-version (IN_LLVM) {} else
-{
     bool omfobj = false;      // for Win32: write OMF object files instead of MsCoff
-}
     /**
      * Values representing all properties for floating point types
      */
@@ -541,7 +538,7 @@ else // !IN_LLVM
     /**
      Determine the object format to be used
      */
-    extern(D) Target.ObjectFormat objectFormat()
+    extern(D) Target.ObjectFormat objectFormat() @safe
     {
         if (os == Target.OS.OSX)
             return Target.ObjectFormat.macho;
@@ -556,7 +553,7 @@ else // !IN_LLVM
     /**
      * Determine the instruction set to be used
      */
-    void setCPU()
+    void setCPU() @safe
     {
         if(!isXmmSupported())
         {
@@ -588,7 +585,7 @@ else // !IN_LLVM
      * This can be used to restore the state set by `_init` to its original
      * state.
      */
-    void deinitialize()
+    void deinitialize() @safe
     {
         this = this.init;
     }
@@ -696,7 +693,7 @@ else // !IN_LLVM
      *      2   vector element type is not supported
      *      3   vector size is not supported
      */
-    extern (C++) int isVectorTypeSupported(int sz, Type type)
+    extern (C++) int isVectorTypeSupported(int sz, Type type) @safe
     {
         // LDC_FIXME: Is it possible to query the LLVM target about supported vectors?
 static if (!IN_LLVM)
@@ -1035,7 +1032,7 @@ else
      * Returns:
      *      `LINK` to use for `extern(System)`
      */
-    extern (C++) LINK systemLinkage()
+    extern (C++) LINK systemLinkage() @safe
     {
         return os == Target.OS.Windows ? LINK.windows : LINK.c;
     }
@@ -1324,6 +1321,7 @@ else // !IN_LLVM
         cppStd,
         floatAbi,
         objectFormat,
+        CET
     }
 
     /**
@@ -1366,6 +1364,8 @@ else // !IN_LLVM
                 return stringExp("");
             case cppStd.stringof:
                 return new IntegerExp(params.cplusplus);
+            case CET.stringof:
+                return new IntegerExp(driverParams.ibt);
 
             default:
                 return null;
@@ -1377,7 +1377,7 @@ else // !IN_LLVM
      *  tf = type of function being called
      * Returns: `true` if the callee invokes destructors for arguments.
      */
-    extern (C++) bool isCalleeDestroyingArgs(TypeFunction tf)
+    extern (C++) bool isCalleeDestroyingArgs(TypeFunction tf) @safe
     {
         // On windows, the callee destroys arguments always regardless of function linkage,
         // and regardless of whether the caller or callee cleans the stack.
@@ -1412,7 +1412,7 @@ else // !IN_LLVM
      * Returns:
      *      `false` if the target does not support `pragma(linkerDirective)`.
      */
-    extern (C++) bool supportsLinkerDirective() const
+    extern (C++) bool supportsLinkerDirective() const @safe
     {
         return os == Target.OS.Windows && !omfobj;
     }
@@ -1426,7 +1426,7 @@ else // !IN_LLVM
      * Returns:
      *  true if xmm usage is supported
      */
-    extern (D) bool isXmmSupported()
+    extern (D) bool isXmmSupported() @safe
     {
         return isX86_64 || os == Target.OS.OSX;
     }
@@ -1435,7 +1435,7 @@ else // !IN_LLVM
      * Returns:
      *  true if generating code for POSIX
      */
-    extern (D) @property bool isPOSIX() scope const nothrow @nogc
+    extern (D) @property bool isPOSIX() scope const nothrow @nogc @safe
     out(result) { assert(result || os == Target.OS.Windows); }
     do
     {
@@ -1446,7 +1446,7 @@ else // !IN_LLVM
      * Returns:
      *  alignment of the stack
      */
-    extern (D) uint stackAlign()
+    extern (D) uint stackAlign() @safe
     {
         return isXmmSupported() ? 16 : (isX86_64 ? 8 : 4);
     }
@@ -1496,7 +1496,7 @@ version (IN_LLVM) {} else
     BitFieldStyle bitFieldStyle; /// different C compilers do it differently
 
     version (IN_LLVM) { /* initialized in Target::_init() */ } else
-    extern (D) void initialize(ref const Param params, ref const Target target)
+    extern (D) void initialize(ref const Param params, ref const Target target) @safe
     {
         const os = target.os;
         boolsize = 1;
@@ -1587,7 +1587,7 @@ version (IN_LLVM) {} else
 }
 
     version (IN_LLVM) { /* initialized in Target::_init() */ } else
-    extern (D) void initialize(ref const Param params, ref const Target target)
+    extern (D) void initialize(ref const Param params, ref const Target target) @safe
     {
         const os = target.os;
         if (os & (Target.OS.linux | Target.OS.FreeBSD | Target.OS.OpenBSD | Target.OS.DragonFlyBSD | Target.OS.Solaris))
@@ -1774,7 +1774,7 @@ struct TargetObjC
     bool supported;     /// set if compiler can interface with Objective-C
 
     version (IN_LLVM) { /* initialized in Target::_init() */ } else
-    extern (D) void initialize(ref const Param params, ref const Target target)
+    extern (D) void initialize(ref const Param params, ref const Target target) @safe
     {
         if (target.os == Target.OS.OSX && target.isX86_64)
             supported = true;

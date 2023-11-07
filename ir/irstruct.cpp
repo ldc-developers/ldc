@@ -40,7 +40,7 @@ LLGlobalVariable* IrStruct::getTypeInfoSymbol(bool define) {
   if (!typeInfo) {
     OutBuffer mangledName;
     mangledName.writestring("TypeInfo_S");
-    mangleToBuffer(aggrdecl, &mangledName);
+    mangleToBuffer(aggrdecl, mangledName);
     const auto length = mangledName.length();
     mangledName.prependstring(("_D" + std::to_string(length)).c_str());
     mangledName.writestring("6__initZ");

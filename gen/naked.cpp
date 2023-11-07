@@ -409,7 +409,7 @@ DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
   IF_LOG Logger::println("code exp: %s", e->toChars());
   StringExp *se = static_cast<StringExp *>(e);
   if (e->op != EXP::string_ || se->sz != 1) {
-    e->error("`__asm` code argument is not a `char[]` string literal");
+    error(e->loc, "`__asm` code argument is not a `char[]` string literal");
     fatal();
   }
   const DString codeStr = se->peekString();
@@ -420,7 +420,8 @@ DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
   IF_LOG Logger::println("constraint exp: %s", e->toChars());
   se = static_cast<StringExp *>(e);
   if (e->op != EXP::string_ || se->sz != 1) {
-    e->error("`__asm` constraints argument is not a `char[]` string literal");
+    error(e->loc,
+          "`__asm` constraints argument is not a `char[]` string literal");
     fatal();
   }
   const DString constraintsStr = se->peekString();
@@ -438,11 +439,12 @@ DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
   const size_t cisize = constraintInfo.size();
   const size_t minRequired = n + (returnType->ty == TY::Tvoid ? 0 : 1);
   if (cisize < minRequired) {
-      se->error("insufficient number of constraints (%d) for number of additional arguments %s(%d)",
-                cisize,
-                returnType->ty == TY::Tvoid ? "" : "and return type ",
-                minRequired);
-      fatal();
+    error(se->loc,
+          "insufficient number of constraints (%d) for number of additional "
+          "arguments %s(%d)",
+          cisize, returnType->ty == TY::Tvoid ? "" : "and return type ",
+          minRequired);
+    fatal();
   }
 
   size_t i = 0;

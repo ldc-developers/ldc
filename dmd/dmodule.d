@@ -45,7 +45,7 @@ import dmd.root.filename;
 import dmd.common.outbuffer;
 import dmd.root.port;
 import dmd.root.rmem;
-import dmd.root.rootobject;
+import dmd.rootobject;
 import dmd.root.string;
 import dmd.semantic2;
 import dmd.semantic3;
@@ -475,7 +475,8 @@ extern (C++) final class Module : Package
                  !FileName.equalsExt(srcfilename, dd_ext))
         {
 
-            error("source file name '%.*s' must have .%.*s extension",
+            error(loc, "%s `%s` source file name '%.*s' must have .%.*s extension",
+                  kind, toPrettyChars,
                   cast(int)srcfilename.length, srcfilename.ptr,
                   cast(int)mars_ext.length, mars_ext.ptr);
             fatal();
@@ -555,7 +556,7 @@ else
 
         if (!m.read(loc))
             return null;
-        if (global.params.verbose)
+        if (global.params.v.verbose)
         {
             OutBuffer buf;
             foreach (pid; packages)
@@ -645,7 +646,8 @@ version (IN_LLVM)
         }
         if (FileName.equals(docfilename, srcfile.toString()))
         {
-            error("source file and output file have same name '%s'", srcfile.toChars());
+            error(loc, "%s `%s` source file and output file have same name '%s'",
+                kind, toPrettyChars, srcfile.toChars());
             fatal();
         }
         return FileName(docfilename);
@@ -839,7 +841,9 @@ version (IN_LLVM)
         {
             filetype = FileType.c;
 
+            global.compileEnv.masm = target.os == Target.OS.Windows && !target.omfobj; // Microsoft inline assembler format
             scope p = new CParser!AST(this, buf, cast(bool) docfile, global.errorSink, target.c, &defines, &global.compileEnv);
+            global.compileEnv.masm = false;
             p.nextToken();
             checkCompiledImport();
             members = p.parseModule();
@@ -850,7 +854,7 @@ version (IN_LLVM)
         {
             const bool doUnittests = global.params.useUnitTests || global.params.ddoc.doOutput || global.params.dihdr.doOutput;
             scope p = new Parser!AST(this, buf, cast(bool) docfile, global.errorSink, &global.compileEnv, doUnittests);
-            p.transitionIn = global.params.vin;
+            p.transitionIn = global.params.v.vin;
             p.nextToken();
             p.parseModuleDeclaration();
             md = p.md;
@@ -909,7 +913,7 @@ version (IN_LLVM)
             /* Check to see if module name is a valid identifier
              */
             if (!Identifier.isValidIdentifier(this.ident.toChars()))
-                error("has non-identifier characters in filename, use module declaration instead");
+                error(loc, "%s `%s` has non-identifier characters in filename, use module declaration instead", kind, toPrettyChars);
         }
         // Insert module into the symbol table
         Dsymbol s = this;
@@ -962,11 +966,11 @@ version (IN_LLVM)
             if (Module mprev = prev.isModule())
             {
                 if (!FileName.equals(srcname, mprev.srcfile.toChars()))
-                    error(loc, "from file %s conflicts with another module %s from file %s", srcname, mprev.toChars(), mprev.srcfile.toChars());
+                    error(loc, "%s `%s` from file %s conflicts with another module %s from file %s", kind, toPrettyChars, srcname, mprev.toChars(), mprev.srcfile.toChars());
                 else if (isRoot() && mprev.isRoot())
-                    error(loc, "from file %s is specified twice on the command line", srcname);
+                    error(loc, "%s `%s` from file %s is specified twice on the command line", kind, toPrettyChars, srcname);
                 else
-                    error(loc, "from file %s must be imported with 'import %s;'", srcname, toPrettyChars());
+                    error(loc, "%s `%s` from file %s must be imported with 'import %s;'", kind, toPrettyChars, srcname, toPrettyChars());
                 // https://issues.dlang.org/show_bug.cgi?id=14446
                 // Return previously parsed module to avoid AST duplication ICE.
                 return mprev;
@@ -977,7 +981,7 @@ version (IN_LLVM)
                 if (isPackageFile)
                     amodules.push(this); // Add to global array of all modules
                 else
-                    error(md ? md.loc : loc, "from file %s conflicts with package name %s", srcname, pkg.toChars());
+                    error(md ? md.loc : loc, "%s `%s` from file %s conflicts with package name %s", kind, toPrettyChars, srcname, pkg.toChars());
             }
             else
                 assert(global.errors);
@@ -998,7 +1002,7 @@ version (IN_LLVM)
             return; // already done
         if (filetype == FileType.ddoc)
         {
-            error("is a Ddoc file, cannot import it");
+            error(loc, "%s `%s` is a Ddoc file, cannot import it", kind, toPrettyChars);
             return;
         }
 
@@ -1007,7 +1011,7 @@ version (IN_LLVM)
          * gets imported, it is unaffected by context.
          * Ignore prevsc.
          */
-        Scope* sc = Scope.createGlobal(this); // create root scope
+        Scope* sc = Scope.createGlobal(this, global.errorSink); // create root scope
 
         if (md && md.msg)
             md.msg = semanticString(sc, md.msg, "deprecation message");
@@ -1083,11 +1087,11 @@ version (IN_LLVM)
                 const slice = se.peekString();
                 if (slice.length)
                 {
-                    deprecation(loc, "is deprecated - %.*s", cast(int)slice.length, slice.ptr);
+                    deprecation(loc, "%s `%s` is deprecated - %.*s", kind, toPrettyChars, cast(int)slice.length, slice.ptr);
                     return;
                 }
             }
-            deprecation(loc, "is deprecated");
+            deprecation(loc, "%s `%s` is deprecated", kind, toPrettyChars);
         }
     }
 
@@ -1150,7 +1154,7 @@ version (IN_LLVM)
         return Package.symtabInsert(s);
     }
 
-    void deleteObjFile()
+    extern (D) void deleteObjFile()
     {
         if (global.params.obj)
             File.remove(objfile.toChars());
@@ -1335,7 +1339,7 @@ else
 {
     int doppelganger; // sub-module
     Symbol* cov; // private uint[] __coverage;
-    uint* covb; // bit array of valid code line numbers
+    uint[] covb; // bit array of valid code line numbers
     Symbol* sictor; // module order independent constructor
     Symbol* sctor; // module constructor
     Symbol* sdtor; // module destructor
@@ -1463,7 +1467,7 @@ extern (C++) struct ModuleDeclaration
     bool isdeprecated;      // if it is a deprecated module
     Expression msg;
 
-    extern (D) this(const ref Loc loc, Identifier[] packages, Identifier id, Expression msg, bool isdeprecated)
+    extern (D) this(const ref Loc loc, Identifier[] packages, Identifier id, Expression msg, bool isdeprecated) @safe
     {
         this.loc = loc;
         this.packages = packages;
@@ -1472,7 +1476,7 @@ extern (C++) struct ModuleDeclaration
         this.isdeprecated = isdeprecated;
     }
 
-    extern (C++) const(char)* toChars() const
+    extern (C++) const(char)* toChars() const @safe
     {
         OutBuffer buf;
         foreach (pid; packages)
@@ -1560,7 +1564,8 @@ private const(char)[] processSource (const(ubyte)[] src, Module mod)
 
         if (buf.length & 3)
         {
-            mod.error("odd length of UTF-32 char source %llu", cast(ulong) buf.length);
+            .error(mod.loc, "%s `%s` odd length of UTF-32 char source %llu",
+                mod.kind, mod.toPrettyChars, cast(ulong) buf.length);
             return null;
         }
 
@@ -1576,7 +1581,7 @@ private const(char)[] processSource (const(ubyte)[] src, Module mod)
             {
                 if (u > 0x10FFFF)
                 {
-                    mod.error("UTF-32 value %08x greater than 0x10FFFF", u);
+                    .error(mod.loc, "%s `%s` UTF-32 value %08x greater than 0x10FFFF", mod.kind, mod.toPrettyChars, u);
                     return null;
                 }
                 dbuf.writeUTF8(u);
@@ -1606,7 +1611,7 @@ private const(char)[] processSource (const(ubyte)[] src, Module mod)
 
         if (buf.length & 1)
         {
-            mod.error("odd length of UTF-16 char source %llu", cast(ulong) buf.length);
+            .error(mod.loc, "%s `%s` odd length of UTF-16 char source %llu", mod.kind, mod.toPrettyChars, cast(ulong) buf.length);
             return null;
         }
 
@@ -1626,13 +1631,13 @@ private const(char)[] processSource (const(ubyte)[] src, Module mod)
                     i++;
                     if (i >= eBuf.length)
                     {
-                        mod.error("surrogate UTF-16 high value %04x at end of file", u);
+                        .error(mod.loc, "%s `%s` surrogate UTF-16 high value %04x at end of file", mod.kind, mod.toPrettyChars, u);
                         return null;
                     }
                     const u2 = readNext(&eBuf[i]);
                     if (u2 < 0xDC00 || 0xE000 <= u2)
                     {
-                        mod.error("surrogate UTF-16 low value %04x out of range", u2);
+                        .error(mod.loc, "%s `%s` surrogate UTF-16 low value %04x out of range", mod.kind, mod.toPrettyChars, u2);
                         return null;
                     }
                     u = (u - 0xD7C0) << 10;
@@ -1640,12 +1645,12 @@ private const(char)[] processSource (const(ubyte)[] src, Module mod)
                 }
                 else if (u >= 0xDC00 && u <= 0xDFFF)
                 {
-                    mod.error("unpaired surrogate UTF-16 value %04x", u);
+                    .error(mod.loc, "%s `%s` unpaired surrogate UTF-16 value %04x", mod.kind, mod.toPrettyChars, u);
                     return null;
                 }
                 else if (u == 0xFFFE || u == 0xFFFF)
                 {
-                    mod.error("illegal UTF-16 value %04x", u);
+                    .error(mod.loc, "%s `%s` illegal UTF-16 value %04x", mod.kind, mod.toPrettyChars, u);
                     return null;
                 }
                 dbuf.writeUTF8(u);
@@ -1704,7 +1709,8 @@ private const(char)[] processSource (const(ubyte)[] src, Module mod)
     // It's UTF-8
     if (buf[0] >= 0x80)
     {
-        mod.error("source file must start with BOM or ASCII character, not \\x%02X", buf[0]);
+        auto loc = mod.getLoc();
+        .error(loc, "%s `%s` source file must start with BOM or ASCII character, not \\x%02X", mod.kind, mod.toPrettyChars, buf[0]);
         return null;
     }
 

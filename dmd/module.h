@@ -135,7 +135,6 @@ public:
     Dsymbol *search(const Loc &loc, Identifier *ident, int flags = SearchLocalsOnly) override;
     bool isPackageAccessible(Package *p, Visibility visibility, int flags = 0) override;
     Dsymbol *symtabInsert(Dsymbol *s) override;
-    void deleteObjFile();
     static void runDeferredSemantic();
     static void runDeferredSemantic2();
     static void runDeferredSemantic3();
@@ -165,7 +164,7 @@ public:
 #else
     int doppelganger;           // sub-module
     Symbol *cov;                // private uint[] __coverage;
-    unsigned *covb;             // bit array of valid code line numbers
+    DArray<unsigned> covb;      // bit array of valid code line numbers
 
     Symbol *sictor;             // module order independent constructor
     Symbol *sctor;              // module constructor

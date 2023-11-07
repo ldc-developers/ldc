@@ -101,7 +101,7 @@ namespace {
 std::string getMangledName(Module *m, const char *suffix) {
   OutBuffer buf;
   buf.writestring("_D");
-  mangleToBuffer(m, &buf);
+  mangleToBuffer(m, buf);
   if (suffix)
     buf.writestring(suffix);
   return buf.peekChars();
@@ -205,8 +205,8 @@ llvm::GlobalVariable *genModuleInfo(Module *m) {
   // should consist only of the _flags/_index fields (the latter of which is
   // unused).
   if (moduleInfoDecl->structsize != 4 + 4) {
-    m->error("Unexpected size of struct `object.ModuleInfo`; "
-             "druntime version does not match compiler (see -v)");
+    error(m->loc, "Unexpected size of struct `object.ModuleInfo`; "
+                  "druntime version does not match compiler (see -v)");
     fatal();
   }
 

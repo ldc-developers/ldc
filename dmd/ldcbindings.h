@@ -13,6 +13,7 @@
 #include "tokens.h"
 
 class AddrExp;
+class CommaExp;
 class Dsymbol;
 class DsymbolExp;
 class Expression;
@@ -36,3 +37,6 @@ Expression *createExpressionForIntOp(const Loc &loc, TOK op, Expression *e1, Exp
 Expression *createExpression(const Loc &loc, EXP op);
 DsymbolExp *createDsymbolExp(const Loc &loc, Dsymbol *s);
 AddrExp *createAddrExp(const Loc &loc, Expression *e);
+
+// for gen/toir.cpp only:
+CommaExp *createCommaExp(const Loc &loc, Expression *e1, Expression *e2, bool generated = true);

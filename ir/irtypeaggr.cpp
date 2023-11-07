@@ -188,8 +188,10 @@ void AggrTypeBuilder::addAggregate(
     const auto llType = af.llType;
 
     if (vd->offset < m_offset) {
-      vd->error(
-          "overlaps previous field. This is an ICE, please file an LDC issue.");
+      error(vd->loc,
+            "%s `%s` overlaps previous field. This is an ICE, please file an "
+            "LDC issue.",
+            vd->kind(), vd->toPrettyChars());
       fatal();
     }
 

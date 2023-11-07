@@ -85,16 +85,16 @@ cl::opt<DLLImport, true> dllimport(
                    "-fvisibility=public)")));
 
 static cl::opt<bool, true> verbose("v", cl::desc("Verbose"), cl::ZeroOrMore,
-                                   cl::location(global.params.verbose));
+                                   cl::location(global.params.v.verbose));
 
 static cl::opt<bool, true>
     vcolumns("vcolumns",
              cl::desc("Print character (column) numbers in diagnostics"),
-             cl::ZeroOrMore, cl::location(global.params.showColumns));
+             cl::ZeroOrMore, cl::location(global.params.v.showColumns));
 
 static cl::opt<bool, true>
     vgc("vgc", cl::desc("List all gc allocations including hidden ones"),
-        cl::ZeroOrMore, cl::location(global.params.vgc));
+        cl::ZeroOrMore, cl::location(global.params.v.gc));
 
 // Dummy data type for custom parsers where the help output shouldn't display
 // any value.
@@ -106,14 +106,14 @@ struct VTemplatesParser : public cl::parser<DummyDataType> {
 
   bool parse(cl::Option &O, llvm::StringRef /*ArgName*/, llvm::StringRef Arg,
              DummyDataType & /*Val*/) {
-    global.params.vtemplates = true;
+    global.params.v.templates = true;
 
     if (Arg.empty()) {
       return false;
     }
 
     if (Arg == "list-instances") {
-      global.params.vtemplatesListInstances = true;
+      global.params.v.templatesListInstances = true;
       return false;
     }
 
@@ -136,23 +136,23 @@ static cl::opt<bool, true> verbose_cg_ast("vcg-ast", cl::ZeroOrMore, cl::Hidden,
                                           cl::location(global.params.vcg_ast));
 
 static cl::opt<unsigned, true> errorLimit(
-    "verrors", cl::ZeroOrMore, cl::location(global.params.errorLimit),
+    "verrors", cl::ZeroOrMore, cl::location(global.params.v.errorLimit),
     cl::desc("Limit the number of error messages (0 means unlimited)"));
 
 static cl::opt<bool, true>
     showGaggedErrors("verrors-spec", cl::ZeroOrMore,
-                     cl::location(global.params.showGaggedErrors),
+                     cl::location(global.params.v.showGaggedErrors),
                      cl::desc("Show errors from speculative compiles such as "
                               "__traits(compiles,...)"));
 
 static cl::opt<bool, true> printErrorContext(
     "verrors-context", cl::ZeroOrMore,
-    cl::location(global.params.printErrorContext),
+    cl::location(global.params.v.printErrorContext),
     cl::desc(
         "Show error messages with the context of the erroring source line"));
 
 static cl::opt<MessageStyle, true> verrorStyle(
-    "verror-style", cl::ZeroOrMore, cl::location(global.params.messageStyle),
+    "verror-style", cl::ZeroOrMore, cl::location(global.params.v.messageStyle),
     cl::desc(
         "Set the style for file/line number annotations on compiler messages"),
     cl::values(
@@ -165,7 +165,7 @@ static cl::opt<MessageStyle, true> verrorStyle(
 
 static cl::opt<unsigned, true>
     verrorSupplements("verror-supplements", cl::ZeroOrMore,
-                      cl::location(global.params.errorSupplementLimit),
+                      cl::location(global.params.v.errorSupplementLimit),
                       cl::desc("Limit the number of supplemental messages for "
                                "each error (0 means unlimited)"));
 
@@ -177,10 +177,6 @@ static cl::opt<Diagnostic, true> warnings(
         clEnumValN(DIAGNOSTICinform, "wi",
                    "Enable warnings as messages (compilation will continue)")),
     cl::init(DIAGNOSTICoff));
-
-static cl::opt<bool, true> warningsObsolete(
-    "wo", cl::ZeroOrMore, cl::location(global.params.obsolete),
-    cl::desc("Enable warnings about use of obsolete features"));
 
 static cl::opt<bool, true> ignoreUnsupportedPragmas(
     "ignore", cl::desc("Ignore unsupported pragmas"), cl::ZeroOrMore,
@@ -575,6 +571,17 @@ cl::opt<bool> fNullPointerIsValid(
         "optimize away the branches accordingly."));
 
 cl::opt<bool>
+    fNoExceptions("fno-exceptions", cl::ZeroOrMore,
+                  cl::desc("Disable generation of exception stack unwinding "
+                           "code, assuming no Exceptions will be thrown"));
+
+cl::opt<bool> fNoModuleInfo("fno-moduleinfo", cl::ZeroOrMore,
+                            cl::desc("Disable generation of ModuleInfos"));
+
+cl::opt<bool> fNoRTTI("fno-rtti", cl::ZeroOrMore,
+                      cl::desc("Disable generation of TypeInfos"));
+
+cl::opt<bool>
     fSplitStack("fsplit-stack", cl::ZeroOrMore,
                 cl::desc("Use segmented stack (see Clang documentation)"));
 
@@ -760,7 +767,7 @@ void createClashingOptions() {
 
   // Step 2. Add the LDC options.
   new cl::opt<bool, true, FlagParser<bool>>(
-      "color", cl::ZeroOrMore, cl::location(global.params.color),
+      "color", cl::ZeroOrMore, cl::location(global.params.v.color),
       cl::desc("(*) Force colored console output"));
   new cl::opt<bool, true>("ffast-math", cl::ZeroOrMore, cl::location(fFastMath),
                           cl::desc("Set @fastmath for all functions."));

@@ -103,13 +103,14 @@ Setting[] parseConfigFile(const(char)* filename)
     import dmd.root.string : toDString;
     import dmd.utils;
 
-    auto content = readFile(Loc.initial, filename).extractSlice();
+    const dFilename = filename.toDString;
+    auto content = readFile(Loc.initial, dFilename).extractSlice();
 
     // skip UTF-8 BOM
     if (content.length >= 3 && content[0 .. 3] == "\xEF\xBB\xBF")
         content = content[3 .. $];
 
-    auto parser = Parser(cast(string) content, cast(string) filename.toDString);
+    auto parser = Parser(cast(string) content, cast(string) dFilename);
     return parser.parseConfig();
 }
 
