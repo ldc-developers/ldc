@@ -1233,6 +1233,9 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   if (opts::fSplitStack && !hasNoSplitStackUDA(fd)) {
     func->addFnAttr("split-stack");
   }
+  if (opts::isUsingSampleBasedPGOProfile()) {
+    func->addFnAttr("use-sample-profile");
+  }
 
   llvm::BasicBlock *beginbb =
       llvm::BasicBlock::Create(gIR->context(), "", func);

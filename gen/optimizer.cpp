@@ -557,6 +557,11 @@ static llvm::Optional<PGOOptions> getPGOOptions() {
                      PGOOptions::PGOAction::IRUse,
                      PGOOptions::CSPGOAction::NoCSAction,
                      debugInfoForProfiling, pseudoProbeForProfiling);
+  } else if (opts::isUsingSampleBasedPGOProfile()) {
+    return PGOOptions(global.params.datafileInstrProf, "", "",
+                     PGOOptions::PGOAction::SampleUse,
+                     PGOOptions::CSPGOAction::NoCSAction,
+                     debugInfoForProfiling, pseudoProbeForProfiling);
   }
 #if LDC_LLVM_VER < 1600
   return None;

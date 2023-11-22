@@ -43,6 +43,7 @@ enum PGOKind {
   PGO_ASTBasedUse,
   PGO_IRBasedInstr,
   PGO_IRBasedUse,
+  PGO_SampleBasedUse,
 };
 extern PGOKind pgoMode;
 inline bool isInstrumentingForPGO() {
@@ -59,5 +60,8 @@ inline bool isInstrumentingForIRBasedPGO() {
   return pgoMode == PGO_IRBasedInstr;
 }
 inline bool isUsingIRBasedPGOProfile() { return pgoMode == PGO_IRBasedUse; }
+inline bool isUsingSampleBasedPGOProfile() {
+  return pgoMode == PGO_SampleBasedUse;
+}
 
 } // namespace opts
