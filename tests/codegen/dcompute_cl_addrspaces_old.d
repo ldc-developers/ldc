@@ -1,6 +1,6 @@
 // See GH issue #2709
 
-// REQUIRES: target_SPIRV && llvm_atmost1500
+// REQUIRES: target_SPIRV && atmost_llvm1509
 // RUN: %ldc -c -mdcompute-targets=ocl-220 -m64 -mdcompute-file-prefix=addrspace_old -output-ll -output-o %s && FileCheck %s --check-prefix=LL < addrspace_ocl220_64.ll \
 // RUN: && %llvm-spirv -to-text addrspace_old_ocl220_64.spv && FileCheck %s --check-prefix=SPT < addrspace_ocl220_64.spt
 @compute(CompileFor.deviceOnly) module dcompute_cl_addrspaces_old;
