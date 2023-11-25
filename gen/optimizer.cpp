@@ -550,34 +550,34 @@ static void addGarbageCollect2StackPass(ModulePassManager &mpm,
 
 
 static llvm::Optional<PGOOptions> getPGOOptions() {
- //FIXME: Do we have these anywhere?
- bool debugInfoForProfiling=false;
- bool pseudoProbeForProfiling=false;
- if (opts::isInstrumentingForIRBasedPGO()) {
-    return PGOOptions(global.params.datafileInstrProf, "", "",
+  // FIXME: Do we have these anywhere?
+  bool debugInfoForProfiling = false;
+  bool pseudoProbeForProfiling = false;
+  if (opts::isInstrumentingForIRBasedPGO()) {
+    return PGOOptions(
+        global.params.datafileInstrProf, "", "",
 #if LDC_LLVM_VER >= 1700
-                      "" /*MemoryProfileUsePath*/, nullptr /*vfs::FileSystem*/,
+        "" /*MemoryProfileUsePath*/, llvm::vfs::getRealFileSystem(),
 #endif
-                      PGOOptions::PGOAction::IRInstr,
-                      PGOOptions::CSPGOAction::NoCSAction,
-                      debugInfoForProfiling, pseudoProbeForProfiling);
- } else if (opts::isUsingIRBasedPGOProfile()) {
-    return PGOOptions(global.params.datafileInstrProf, "", "",
+        PGOOptions::PGOAction::IRInstr, PGOOptions::CSPGOAction::NoCSAction,
+        debugInfoForProfiling, pseudoProbeForProfiling);
+  } else if (opts::isUsingIRBasedPGOProfile()) {
+    return PGOOptions(
+        global.params.datafileInstrProf, "", "",
 #if LDC_LLVM_VER >= 1700
-                      "" /*MemoryProfileUsePath*/, nullptr /*vfs::FileSystem*/,
+        "" /*MemoryProfileUsePath*/, llvm::vfs::getRealFileSystem(),
 #endif
-                      PGOOptions::PGOAction::IRUse,
-                      PGOOptions::CSPGOAction::NoCSAction,
-                      debugInfoForProfiling, pseudoProbeForProfiling);
- } else if (opts::isUsingSampleBasedPGOProfile()) {
-    return PGOOptions(global.params.datafileInstrProf, "", "",
+        PGOOptions::PGOAction::IRUse, PGOOptions::CSPGOAction::NoCSAction,
+        debugInfoForProfiling, pseudoProbeForProfiling);
+  } else if (opts::isUsingSampleBasedPGOProfile()) {
+    return PGOOptions(
+        global.params.datafileInstrProf, "", "",
 #if LDC_LLVM_VER >= 1700
-                      "" /*MemoryProfileUsePath*/, nullptr /*vfs::FileSystem*/,
+        "" /*MemoryProfileUsePath*/, llvm::vfs::getRealFileSystem(),
 #endif
-                      PGOOptions::PGOAction::SampleUse,
-                      PGOOptions::CSPGOAction::NoCSAction,
-                      debugInfoForProfiling, pseudoProbeForProfiling);
- }
+        PGOOptions::PGOAction::SampleUse, PGOOptions::CSPGOAction::NoCSAction,
+        debugInfoForProfiling, pseudoProbeForProfiling);
+  }
 #if LDC_LLVM_VER < 1600
   return None;
 #else
