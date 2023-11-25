@@ -75,9 +75,14 @@ jobs:
         run: |
           set -eux
           sudo apt-get update
-          # Don't use latest gdb v10+ from Ubuntu toolchain PPA with regressions, use official v9
-          sudo apt-get install gdb=9.1-0ubuntu1 llvm
-
+          sudo apt-get install llvm
+          version='${{ matrix.llvm_version }}'
+          if [[ "$version" =~ ^1[7-9]\. ]]; then  # LLVM 17+, Ubuntu 22.04
+            sudo apt-get install gdb
+          else
+            # Don't use latest gdb v10+ from Ubuntu toolchain PPA with regressions, use official v9
+            sudo apt-get install gdb=9.1-0ubuntu1
+          fi
       - name: Try to restore cached LLVM
         uses: actions/cache@v3
         with:
