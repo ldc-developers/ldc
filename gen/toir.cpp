@@ -965,11 +965,13 @@ public:
     result = new DLValue(e->type, DtoBitCast(V, DtoPtrToType(e->type)));
   }
 
-  static llvm::PointerType * getWithSamePointeeType(llvm::PointerType *p, unsigned as) {
-#if LDC_LLVM_VER >= 1300
-    return llvm::PointerType::getWithSamePointeeType(p, as);
+  static llvm::PointerType * getWithSamePointeeType(llvm::PointerType *p, unsigned addressSpace) {
+#if LDC_LLVM_VER >= 1700
+    return llvm::PointerType::get(p->getContext(), addressSpace);
+#elif LDC_LLVM_VER >= 1300
+    return llvm::PointerType::getWithSamePointeeType(p, addressSpace);
 #else
-    return p->getPointerElementType()->getPointerTo(as);
+    return p->getPointerElementType()->getPointerTo(addressSpace);
 #endif
   }
 
