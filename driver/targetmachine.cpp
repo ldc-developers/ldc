@@ -443,10 +443,16 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
     if (triple.getOS() == llvm::Triple::Darwin) {
       llvm::SmallString<16> osname;
       // We only support OSX, so darwin should really be macosx.
+      // We have to specify OS version in the triple, to avoid linker warnings, see https://github.com/ldc-developers/ldc/issues/4501
       osname = "macosx";
+#if LDC_LLVM_VER >= 1400
       llvm::VersionTuple OSVersion;
       triple.getMacOSXVersion(OSVersion);
       osname += OSVersion.getAsString();
+#else
+      // Hardcode this version, because `getMacOSXVersion` is not available.
+      osname += "10.4"
+#endif
       triple.setOSName(osname);
     }
 
