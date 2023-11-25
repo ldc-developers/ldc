@@ -440,8 +440,8 @@ DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
   const size_t minRequired = n + (returnType->ty == TY::Tvoid ? 0 : 1);
   if (cisize < minRequired) {
     error(se->loc,
-          "insufficient number of constraints (%d) for number of additional "
-          "arguments %s(%d)",
+          "insufficient number of constraints (%zu) for number of additional "
+          "arguments %s(%zu)",
           cisize, returnType->ty == TY::Tvoid ? "" : "and return type ",
           minRequired);
     fatal();
