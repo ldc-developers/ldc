@@ -440,14 +440,13 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
     triple = llvm::Triple(
         llvm::Triple::normalize(llvm::sys::getDefaultTargetTriple()));
 
-    // We only support OSX, so darwin should really be macosx.
     if (triple.getOS() == llvm::Triple::Darwin) {
       llvm::SmallString<16> osname;
+      // We only support OSX, so darwin should really be macosx.
       osname = "macosx";
-      if (triple.isAArch64())
-        osname += "11.0.0"; // Update this if MACOSX_VERSION_MIN changes
-      else
-        osname += "10.14.0";
+      llvm::VersionTuple OSVersion;
+      triple.getMacOSXVersion(OSVersion);
+      osname += OSVersion.getAsString();
       triple.setOSName(osname);
     }
 
