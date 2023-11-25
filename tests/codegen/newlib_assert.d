@@ -5,4 +5,4 @@ extern (C) void main()
     assert(false);
 }
 
-// CHECK: declare void @__assert_func(i8*, i32, i8*, i8*)
+// CHECK: declare void @__assert_func({{i8\*|ptr}}, i32, {{i8\*|ptr}}, {{i8\*|ptr}})
