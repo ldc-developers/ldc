@@ -17,7 +17,11 @@
 #include "compiler.h"
 
 #if IN_LLVM
+#if LDC_LLVM_VER < 1700
 #include "llvm/ADT/Triple.h"
+#else
+#include "llvm/TargetParser/Triple.h"
+#endif
 
 enum OUTPUTFLAG
 {

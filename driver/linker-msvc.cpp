@@ -22,6 +22,9 @@
 
 #if LDC_WITH_LLD
 #include "lld/Common/Driver.h"
+#if LDC_LLVM_VER >= 1700
+LLD_HAS_DRIVER(coff)
+#endif
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
@@ -36,7 +39,10 @@ void addMscrtLibs(bool useInternalToolchain, std::vector<std::string> &args) {
   // We need the vcruntime lib for druntime's exception handling (ldc.eh_msvc).
   // Pick one of the 4 variants matching the selected main UCRT lib.
 
-#if LDC_LLVM_VER >= 1300
+#if LDC_LLVM_VER >= 1700
+#define contains_lower contains_insensitive
+#define endswith_lower ends_with_insensitive
+#elif LDC_LLVM_VER >= 1300
 #define contains_lower contains_insensitive
 #define endswith_lower endswith_insensitive
 #endif

@@ -15,7 +15,14 @@
 
 #pragma once
 
+#if LDC_LLVM_VER < 1700
 #include "llvm/ADT/Optional.h"
+#else
+#include <optional>
+namespace llvm {
+template <typename T> using Optional = std::optional<T>;
+}
+#endif
 #include "llvm/ADT/STLExtras.h"
 
 namespace llvm {

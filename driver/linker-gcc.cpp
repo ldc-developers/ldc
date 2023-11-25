@@ -27,6 +27,13 @@
 
 #if LDC_WITH_LLD
 #include "lld/Common/Driver.h"
+#if LDC_LLVM_VER >= 1700
+LLD_HAS_DRIVER(coff)
+LLD_HAS_DRIVER(elf)
+LLD_HAS_DRIVER(mingw)
+LLD_HAS_DRIVER(macho)
+LLD_HAS_DRIVER(wasm)
+#endif
 #endif
 
 //////////////////////////////////////////////////////////////////////////////

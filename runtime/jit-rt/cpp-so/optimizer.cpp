@@ -19,7 +19,11 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 
+#if LDC_LLVM_VER < 1700
 #include "llvm/ADT/Triple.h"
+#else
+#include "llvm/TargetParser/Triple.h"
+#endif
 
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
