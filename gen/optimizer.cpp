@@ -652,7 +652,7 @@ void runOptimizationPasses(llvm::Module *M) {
   StandardInstrumentations si(M->getContext(), debugLogging, /*VerifyEach=*/false, ppo);
 #endif
 
-#if LDC_LLVM_VER < 1600
+#if LDC_LLVM_VER < 1700
   si.registerCallbacks(pic, &fam);
 #else
   si.registerCallbacks(pic, &mam);
