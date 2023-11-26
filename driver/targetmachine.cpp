@@ -16,6 +16,7 @@
 #include "driver/targetmachine.h"
 
 #include "dmd/errors.h"
+#include "driver/args.h"
 #include "driver/cl_options.h"
 #include "gen/logger.h"
 #include "llvm/ADT/StringExtras.h"
@@ -441,18 +442,28 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
         llvm::Triple::normalize(llvm::sys::getDefaultTargetTriple()));
 
     if (triple.getOS() == llvm::Triple::Darwin) {
-      llvm::SmallString<16> osname;
       // We only support OSX, so darwin should really be macosx.
-      // We have to specify OS version in the triple, to avoid linker warnings, see https://github.com/ldc-developers/ldc/issues/4501
-      osname = "macosx";
+      llvm::SmallString<16> osname;
+      osname += "macosx";
+      // We have to specify OS version in the triple to avoid linker warnings,
+      // see https://github.com/ldc-developers/ldc/issues/4501.
+      // If environment variable MACOSX_DEPLOYMENT_TARGET is not set, then use
+      // host OS version.
+      // https://developer.apple.com/library/archive/documentation/DeveloperTools/Conceptual/cross_development/Configuring/configuring.html
+      std::string envVersion = env::get("MACOSX_DEPLOYMENT_TARGET");
+      if (!envVersion.empty()) {
+        osname += envVersion;
+      } else {
 #if LDC_LLVM_VER >= 1400
-      llvm::VersionTuple OSVersion;
-      triple.getMacOSXVersion(OSVersion);
-      osname += OSVersion.getAsString();
+        llvm::VersionTuple OSVersion;
+        triple.getMacOSXVersion(OSVersion);
+        osname += OSVersion.getAsString();
 #else
-      // Hardcode this version, because `getMacOSXVersion` is not available.
-      osname += "10.4";
+        // Hardcode the version, because `getMacOSXVersion` is not available.
+        osname += "10.4";
 #endif
+      }
+
       triple.setOSName(osname);
     }
 
