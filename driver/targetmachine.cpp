@@ -451,7 +451,7 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
       osname += OSVersion.getAsString();
 #else
       // Hardcode this version, because `getMacOSXVersion` is not available.
-      osname += "10.4"
+      osname += "10.4";
 #endif
       triple.setOSName(osname);
     }
