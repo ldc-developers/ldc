@@ -4,7 +4,7 @@
 - Frontend, druntime and Phobos are at version [2.106.0](https://dlang.org/changelog/2.106.0.html). (#4522)
 - New command-line options `-fno-{exceptions,moduleinfo,rtti}` to selectively enable some `-betterC` effects. (#4522)
 - New command-line option `-fprofile-sample-use` for using sample-based profile data for optimization. Functionality and usage is identical to Clang's option with same name. (#4531)
-- New `ldc-profgen` tool for sample-based PGO, a copy of LLVM's [llvm-profgen](https://llvm.org/docs/CommandGuide/llvm-profgen.html). (#xxxx)
+- New `ldc-profgen` tool for sample-based PGO, a copy of LLVM's [llvm-profgen](https://llvm.org/docs/CommandGuide/llvm-profgen.html). (#4536)
 
 #### Platform support
 
