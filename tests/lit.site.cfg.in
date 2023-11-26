@@ -16,6 +16,7 @@ OFF = False
 ## Auto-initialized variables by cmake:
 config.ldc2_bin            = "@LDC2_BIN@"
 config.ldcprofdata_bin     = "@LDCPROFDATA_BIN@"
+config.ldcprofgen_bin      = "@LDCPROFGEN_BIN@"
 config.ldcprunecache_bin   = "@LDCPRUNECACHE_BIN@"
 config.ldcbuildplugin_bin  = "@LDCBUILDPLUGIN_BIN@"
 config.timetrace2txt_bin   = "@TIMETRACE2TXT_BIN@"
@@ -156,6 +157,7 @@ config.environment['PATH'] = path
 config.substitutions.append( ('%ldc', config.ldc2_bin) )
 config.substitutions.append( ('%gnu_make', config.gnu_make_bin) )
 config.substitutions.append( ('%profdata', config.ldcprofdata_bin) )
+config.substitutions.append( ('%profgen', config.ldcprofgen_bin) )
 config.substitutions.append( ('%prunecache', config.ldcprunecache_bin) )
 config.substitutions.append( ('%buildplugin', config.ldcbuildplugin_bin + " --ldcSrcDir=" + config.ldc2_source_dir ) )
 config.substitutions.append( ('%timetrace2txt', config.timetrace2txt_bin) )
