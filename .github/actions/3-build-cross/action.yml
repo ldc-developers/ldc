@@ -33,8 +33,16 @@ runs:
         else
           tag=CI
         fi
+
+        # use assertions for untagged builds. Must be the same as for the host LLVM package, because
+        # llvm-config of host package will be used for the cross build configuration.
+        assertsSuffix="-withAsserts"
+        if [[ '${{ github.ref }}' = refs/tags/* ]]; then
+          assertsSuffix=""
+        fi
+
         curl -fL --retry 3 --max-time 300 -o llvm-cross.tar.xz \
-          https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-${{ inputs.os }}-${{ inputs.arch }}.tar.xz
+          https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-${{ inputs.os }}-${{ inputs.arch }}$assertsSuffix.tar.xz
         mkdir llvm-cross
         tar -xf llvm-cross.tar.xz --strip 1 -C llvm-cross
         rm llvm-cross.tar.xz
