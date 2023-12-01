@@ -15,11 +15,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - job_name: Ubuntu 22.04, LLVM 17, latest LDC beta
-            os: ubuntu-22.04
+          - job_name: Ubuntu 20.04, LDC-LLVM 17, latest LDC beta
+            os: ubuntu-20.04
             host_dc: ldc-beta
-            llvm_version: 17.0.5
-          - job_name: Ubuntu 20.04, LLVM 16, latest LDC beta
+            llvm_version: 17.0.6
+          - job_name: Ubuntu 20.04, LDC-LLVM 16, latest LDC beta
             os: ubuntu-20.04
             host_dc: ldc-beta
             llvm_version: 16.0.6 # LDC-LLVM
@@ -107,10 +107,17 @@ jobs:
             suffix='x86_64-linux-gnu-ubuntu-16.04'
           fi
           url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-$suffix.tar.xz"
+
           # FIXME: weird crashes with official v16.0.0 archive; use LDC-LLVM instead
           if [[ "$version" =~ ^16\. ]]; then
             url="https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$version/llvm-$version-linux-x86_64.tar.xz"
           fi
+          # FIXME: Use LDC-LLVM v17.0.6 RC package because it still works on Ubuntu 20 (official release doesn't), so
+          # we can still use older gdb and postpone fxixing issues with newer gdb
+          if [[ "$version" =~ ^17\. ]]; then
+            url="https://github.com/ldc-developers/llvm-project/releases/download/CI/llvm-be7fee94-linux-x86_64.tar.xz"
+          fi
+
           curl -fL --retry 3 --max-time 300 -o llvm.tar.xz "$url"
           mkdir llvm
           tar -xf llvm.tar.xz --strip 1 -C llvm
