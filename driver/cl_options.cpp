@@ -723,7 +723,7 @@ cl::opt<bool> dynamicCompileTlsWorkaround(
     cl::Hidden);
 #endif
 
-#if LDC_LLVM_VER >= 1600
+#if LDC_LLVM_VER >= 1700
 bool enableOpaqueIRPointers = true; // typed pointers are no longer supported from LLVM 17
 #elif LDC_LLVM_VER >= 1400
 bool enableOpaqueIRPointers = false;
