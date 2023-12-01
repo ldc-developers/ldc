@@ -8,12 +8,9 @@
 import ldc.dcompute;
 import ldc.opencl;
 
-// CHECK-DAG: %opencl.image1d_ro_t = type opaque
-// CHECK-DAG: %opencl.image1d_wo_t = type opaque
-// CHECK-DAG: %"ldc.dcompute.Pointer!(AddrSpace.Global, image1d_ro_t).Pointer" = type { %opencl.image1d_ro_t addrspace(1)* }
-// CHECK-DAG: %"ldc.dcompute.Pointer!(AddrSpace.Global, image1d_wo_t).Pointer" = type { %opencl.image1d_wo_t addrspace(1)* }
-// CHECK-DAG: %"ldc.dcompute.Pointer!(AddrSpace.Shared, sampler_t).Pointer" = type { %opencl.sampler_t addrspace(2)* }
-// CHECK-DAG: %opencl.sampler_t = type opaque
+// CHECK-DAG: %"ldc.dcompute.Pointer!(AddrSpace.Global, image1d_ro_t).Pointer" = type { {{%opencl.image1d_ro_t addrspace\(1\)\*|ptr addrspace\(1\)}} }
+// CHECK-DAG: %"ldc.dcompute.Pointer!(AddrSpace.Global, image1d_wo_t).Pointer" = type { {{%opencl.image1d_wo_t addrspace\(1\)\*|ptr addrspace\(1\)}} }
+// CHECK-DAG: %"ldc.dcompute.Pointer!(AddrSpace.Shared, sampler_t).Pointer" = type { {{%opencl.sampler_t addrspace\(2\)\*|ptr addrspace\(2\)}} }
 
 pragma(mangle,"__translate_sampler_initializer")
     Sampler makeSampler(int);
@@ -26,16 +23,16 @@ pragma(mangle,"_Z12write_imagef11ocl_image1d_woiDv4_f")
 
 @kernel void img(GlobalPointer!image1d_ro_t src, GlobalPointer!image1d_wo_t dst)
 {
-// CHECK: %{{[0-9+]}} = call spir_func %opencl.sampler_t addrspace(2)* @__translate_sampler_initializer(i32 0) {{.*}}
-// CHECK: %{{[0-9+]}} = call spir_func <4 x float> @_Z11read_imagef11ocl_image1d_ro11ocl_sampleri(%opencl.image1d_ro_t addrspace(1)* %.DComputePointerRewrite_arg, %opencl.sampler_t addrspace(2)* %.DComputePointerRewrite_arg1, i32 0) {{.*}}
+// CHECK: %{{[0-9+]}} = call spir_func {{%opencl.sampler_t addrspace\(2\)\*|ptr addrspace\(2\)}} @__translate_sampler_initializer(i32 0) {{.*}}
+// CHECK: %{{[0-9+]}} = call spir_func <4 x float> @_Z11read_imagef11ocl_image1d_ro11ocl_sampleri({{%opencl.image1d_ro_t addrspace\(1\)\*|ptr addrspace\(1\)}} %.DComputePointerRewrite_arg, {{%opencl.sampler_t addrspace\(2\)\*|ptr addrspace\(2\)}} %.DComputePointerRewrite_arg1, i32 0) {{.*}}
     auto x = src.read(makeSampler(0), 0);
-// CHECK: call spir_func void @_Z12write_imagef11ocl_image1d_woiDv4_f(%opencl.image1d_wo_t addrspace(1)* %.DComputePointerRewrite_arg2, i32 0, <4 x float> %{{[0-9+]}})
+// CHECK: call spir_func void @_Z12write_imagef11ocl_image1d_woiDv4_f({{%opencl.image1d_wo_t addrspace\(1\)\*|ptr addrspace\(1\)}} %.DComputePointerRewrite_arg2, i32 0, <4 x float> %{{[0-9+]}})
     dst.write(0,x);
 }
 
 @kernel void img2(GlobalPointer!image1d_ro_t src, Sampler samp)
 {
-// CHECK: %{{[0-9+]}} = call spir_func <4 x float> @_Z11read_imagef11ocl_image1d_ro11ocl_sampleri(%opencl.image1d_ro_t addrspace(1)* %.DComputePointerRewrite_arg, %opencl.sampler_t addrspace(2)* %.DComputePointerRewrite_arg1, i32 0) {{.*}}
+// CHECK: %{{[0-9+]}} = call spir_func <4 x float> @_Z11read_imagef11ocl_image1d_ro11ocl_sampleri({{%opencl.image1d_ro_t addrspace\(1\)\*|ptr addrspace\(1\)}} %.DComputePointerRewrite_arg, {{%opencl.sampler_t addrspace\(2\)\*|ptr addrspace\(2\)}} %.DComputePointerRewrite_arg1, i32 0) {{.*}}
     auto x = src.read(samp, 0);
 }
 
