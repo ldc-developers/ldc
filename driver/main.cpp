@@ -1033,11 +1033,11 @@ void registerPredefinedVersions() {
     VersionCondition::addPredefinedGlobalIdent("LDC_ThreadSanitizer");
   }
 
+  // Set a version identifier for whether opaque pointers are enabled or not. (needed e.g. for intrinsic mangling)
 #if LDC_LLVM_VER >= 1700
-  // Since LLVM 17, IR pointers are always opaque. (needed e.g. for intrinsic mangling)
+  // Since LLVM 17, IR pointers are always opaque.
   VersionCondition::addPredefinedGlobalIdent("LDC_LLVM_OpaquePointers");
 #elif LDC_LLVM_VER >= 1400
-  // A version identifier for whether opaque pointers are enabled or not. (needed e.g. for intrinsic mangling)
   if (!getGlobalContext().supportsTypedPointers()) {
     VersionCondition::addPredefinedGlobalIdent("LDC_LLVM_OpaquePointers");
   }
