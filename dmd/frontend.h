@@ -6539,6 +6539,7 @@ struct Scope final
     void* anchorCounts;
     Identifier* prevAnchor;
     AliasDeclaration* aliasAsg;
+    Dsymbol* search(const Loc& loc, Identifier* ident, Dsymbol** pscopesym, int32_t flags = 0);
     Scope() :
         enclosing(),
         _module(),
@@ -7830,6 +7831,7 @@ public:
 class CatAssignExp : public BinAssignExp
 {
 public:
+    Expression* lowering;
     void accept(Visitor* v) override;
 };
 
@@ -8713,7 +8715,6 @@ struct Id final
     static Identifier* _d_arraysetlengthTTrace;
     static Identifier* _d_arrayappendT;
     static Identifier* _d_arrayappendTTrace;
-    static Identifier* _d_arrayappendcTXImpl;
     static Identifier* _d_arrayappendcTX;
     static Identifier* _d_arrayappendcTXTrace;
     static Identifier* _d_arraycatnTX;
