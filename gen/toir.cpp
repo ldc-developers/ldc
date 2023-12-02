@@ -2188,6 +2188,12 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    if (e->lowering) {
+      assert(e->op != EXP::concatenateDcharAssign);
+      result = toElem(e->lowering);
+      return;
+    }
+
     result = toElem(e->e1);
 
     Type *e1type = e->e1->type->toBasetype();
@@ -2197,6 +2203,7 @@ public:
 
     if (e1type->ty == TY::Tarray && e2type->ty == TY::Tdchar &&
         (elemtype->ty == TY::Tchar || elemtype->ty == TY::Twchar)) {
+      assert(e->op == EXP::concatenateDcharAssign);
       if (elemtype->ty == TY::Tchar) {
         // append dchar to char[]
         DtoAppendDCharToString(e->loc, result, e->e2);
