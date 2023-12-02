@@ -40,7 +40,7 @@ find_package(LLVM 11.0 REQUIRED
     instcombine ipo instrumentation irreader libdriver linker lto mc
     mcdisassembler mcparser objcarcopts object option profiledata scalaropts
     selectiondag support tablegen target transformutils vectorize
-    windowsdriver windowsmanifest ${EXTRA_LLVM_MODULES})
+    windowsdriver windowsmanifest symbolize ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 message(STATUS "Using LLVM Version ${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}")
 # Remove LLVMTableGen library from list of libraries

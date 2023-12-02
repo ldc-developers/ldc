@@ -41,6 +41,32 @@ else()
 endif()
 
 #############################################################################
+# Build ldc-profgen utility that generates a profile data file from given perf script
+# data files for sample-based profile guided optimization (-fprofile-sample-use).
+# https://llvm.org/docs/CommandGuide/llvm-profgen.html
+# The source in ldc-profgen/ldc-profgen-xx.x is an unmodified copy of llvm's llvm-profgen source dir.
+if(LDC_LLVM_VER GREATER_EQUAL 1400)
+    macro(add_llvm_tool llvm_name)
+        string(REPLACE "llvm-" "ldc-" ldc_name ${llvm_name})
+        message(STATUS "Configuring ${ldc_name} build target")
+        add_executable(${ldc_name} ${ARGN})
+        set_target_properties(
+            ${ldc_name} PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
+            COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
+            LINK_FLAGS "${SANITIZE_LDFLAGS}"
+        )
+        target_link_libraries(${ldc_name} ${LLVM_LIBRARIES} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
+        install(TARGETS ${ldc_name} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+    endmacro()
+    if (IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/ldc-profgen/ldc-profgen-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR})
+        add_subdirectory(ldc-profgen/ldc-profgen-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR})
+    else()
+        message(WARNING "ldc-profgen source not found (${CMAKE_CURRENT_SOURCE_DIR}/ldc-profgen/ldc-profgen-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR})")
+    endif()
+endif()
+
+#############################################################################
 # Build timetrace2txt
 set(TIMETRACE2TXT_EXE timetrace2txt)
 set(TIMETRACE2TXT_EXE ${TIMETRACE2TXT_EXE} PARENT_SCOPE) # needed for correctly populating lit.site.cfg.in

@@ -21,7 +21,7 @@ runs:
           cd ..
         else
           mkdir -p install/bin
-          cp build-cross/bin/{ldc2,ldmd2,ldc-build-runtime,ldc-profdata,ldc-prune-cache,timetrace2txt} install/bin/
+          cp build-cross/bin/{ldc2,ldmd2,ldc-build-runtime,ldc-profdata,ldc-profgen,ldc-prune-cache,timetrace2txt} install/bin/
           cp build-cross/bin/ldc-build-plugin install/bin/ || true
           cp -R build-cross-libs/lib install/
           cp build-cross/lib/{libldc_rt.*,libLTO-ldc.dylib,LLVMgold-ldc.so} install/lib/ || true

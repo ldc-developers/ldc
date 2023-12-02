@@ -33,8 +33,20 @@ runs:
         else
           tag=CI
         fi
+
+        if [[ '${{ inputs.os }}' == android ]]; then
+          assertsSuffix=""
+        else
+          # Use assertions for untagged builds. Must be the same as for the host LLVM package, because
+          # llvm-config of host package will be used for the cross build configuration.
+          assertsSuffix="-withAsserts"
+          if [[ '${{ github.ref }}' = refs/tags/* ]]; then
+            assertsSuffix=""
+          fi
+        fi
+
         curl -fL --retry 3 --max-time 300 -o llvm-cross.tar.xz \
-          https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-${{ inputs.os }}-${{ inputs.arch }}.tar.xz
+          https://github.com/ldc-developers/llvm-project/releases/download/$tag/llvm-$version-${{ inputs.os }}-${{ inputs.arch }}$assertsSuffix.tar.xz
         mkdir llvm-cross
         tar -xf llvm-cross.tar.xz --strip 1 -C llvm-cross
         rm llvm-cross.tar.xz
@@ -145,4 +157,4 @@ runs:
           ${{ inputs.cmake_flags }}
           ${{ inputs.with_pgo == 'true' && '-DDFLAGS_LDC=-fprofile-use=../pgo-ldc/merged.profdata' || '' }}
           ${{ env.CROSS_CMAKE_FLAGS }}
-        build_targets: ldc2 ldmd2 ldc-build-runtime ldc-build-plugin ldc-profdata ldc-prune-cache timetrace2txt
+        build_targets: ldc2 ldmd2 ldc-build-runtime ldc-build-plugin ldc-profdata ldc-profgen ldc-prune-cache timetrace2txt
