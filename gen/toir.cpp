@@ -2161,7 +2161,6 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    // TODO: still required?
     if (!global.params.useGC) {
       error(
           e->loc,
@@ -2187,6 +2186,16 @@ public:
     IF_LOG Logger::print("CatAssignExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
+
+    if (!global.params.useGC) {
+      error(e->loc,
+            "appending to array in `%s` requires the GC which is not available "
+            "with -betterC",
+            e->toChars());
+      result =
+          new DSliceValue(e->type, llvm::UndefValue::get(DtoType(e->type)));
+      return;
+    }
 
     if (e->lowering) {
       assert(e->op != EXP::concatenateDcharAssign);
