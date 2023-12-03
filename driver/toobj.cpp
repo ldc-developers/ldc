@@ -47,10 +47,19 @@
 
 using CodeGenFileType = llvm::CodeGenFileType;
 
+#if LDC_LLVM_VER < 1700
 static llvm::cl::opt<bool>
     NoIntegratedAssembler("no-integrated-as", llvm::cl::ZeroOrMore,
                           llvm::cl::Hidden,
                           llvm::cl::desc("Disable integrated assembler"));
+#else
+namespace llvm {
+namespace codegen {
+bool getDisableIntegratedAS();
+}
+}
+#define NoIntegratedAssembler llvm::codegen::getDisableIntegratedAS()
+#endif
 
 namespace {
 

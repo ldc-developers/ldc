@@ -17,8 +17,15 @@
 #include "param_slice.h"
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
+#if LDC_LLVM_VER < 1700
+#include "llvm/ADT/Optional.h"
+#else
+#include <optional>
+namespace llvm {
+template <typename T> using Optional = std::optional<T>;
+}
+#endif
 
 namespace llvm {
 class Constant;

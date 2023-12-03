@@ -12,7 +12,11 @@
 #include <algorithm>
 #include <unordered_map>
 
+#if LDC_LLVM_VER < 1700
 #include "llvm/ADT/Triple.h"
+#else
+#include "llvm/TargetParser/Triple.h"
+#endif
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCCodeEmitter.h"

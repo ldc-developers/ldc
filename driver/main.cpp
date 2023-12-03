@@ -57,7 +57,11 @@
 #include "llvm/LinkAllIR.h"
 #include "llvm/LinkAllPasses.h"
 #include "llvm/Support/FileSystem.h"
+#if LDC_LLVM_VER >= 1700
+#include "llvm/TargetParser/Host.h"
+#else
 #include "llvm/Support/Host.h"
+#endif
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/StringSaver.h"
@@ -565,7 +569,11 @@ void parseCommandLine(Strings &sourceFiles) {
   }
 #endif
 
-#if LDC_LLVM_VER >= 1500
+#if LDC_LLVM_VER >= 1700
+  if (!opts::enableOpaqueIRPointers)
+    error(Loc(),
+          "LLVM version 17 or above only supports --opaque-pointers=true");
+#elif LDC_LLVM_VER >= 1500
   getGlobalContext().setOpaquePointers(opts::enableOpaqueIRPointers);
 #elif LDC_LLVM_VER >= 1400
   if (opts::enableOpaqueIRPointers)
@@ -597,9 +605,11 @@ void initializePasses() {
   initializeGlobalISel(Registry);
   initializeTarget(Registry);
 
+#if LDC_LLVM_VER < 1700
 // Initialize passes not included above
   initializeRewriteSymbolsLegacyPassPass(Registry);
   initializeSjLjEHPreparePass(Registry);
+#endif
 }
 
 /// Register the MIPS ABI.
@@ -1023,8 +1033,11 @@ void registerPredefinedVersions() {
     VersionCondition::addPredefinedGlobalIdent("LDC_ThreadSanitizer");
   }
 
-#if LDC_LLVM_VER >= 1400
-  // A version identifier for whether opaque pointers are enabled or not. (needed e.g. for intrinsic mangling)
+  // Set a version identifier for whether opaque pointers are enabled or not. (needed e.g. for intrinsic mangling)
+#if LDC_LLVM_VER >= 1700
+  // Since LLVM 17, IR pointers are always opaque.
+  VersionCondition::addPredefinedGlobalIdent("LDC_LLVM_OpaquePointers");
+#elif LDC_LLVM_VER >= 1400
   if (!getGlobalContext().supportsTypedPointers()) {
     VersionCondition::addPredefinedGlobalIdent("LDC_LLVM_OpaquePointers");
   }

@@ -449,8 +449,13 @@ bool parseCallingConvention(llvm::StringRef name,
           .Case("swifttailcc", llvm::CallingConv::SwiftTail)
 #endif
           .Case("x86_intrcc", llvm::CallingConv::X86_INTR)
+#if LDC_LLVM_VER >= 1700
+          .Case("hhvmcc", llvm::CallingConv::DUMMY_HHVM)
+          .Case("hhvm_ccc", llvm::CallingConv::DUMMY_HHVM_C)
+#else
           .Case("hhvmcc", llvm::CallingConv::HHVM)
           .Case("hhvm_ccc", llvm::CallingConv::HHVM_C)
+#endif
           .Case("cxx_fast_tlscc", llvm::CallingConv::CXX_FAST_TLS)
           .Case("amdgpu_vs", llvm::CallingConv::AMDGPU_VS)
 #if LDC_LLVM_VER >= 1200

@@ -276,7 +276,11 @@ bool DLLImportRelocation::run(Module &m) {
   Impl impl(m);
   bool hasChanged = false;
 
+#if LDC_LLVM_VER >= 1700
+  for (GlobalVariable &global : m.globals()) {
+#else
   for (GlobalVariable &global : m.getGlobalList()) {
+#endif
     // TODO: thread-local globals would need to be initialized in a separate TLS
     // ctor
     if (!global.hasInitializer() || global.isThreadLocal())

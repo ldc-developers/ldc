@@ -21,13 +21,26 @@
 #include "gen/logger.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
+#if LDC_LLVM_VER < 1700
 #include "llvm/ADT/Triple.h"
-#include "llvm/IR/Module.h"
-#include "llvm/MC/MCObjectFileInfo.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/Host.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/TargetParser.h"
+#if LDC_LLVM_VER >= 1400
+#include "llvm/Support/AArch64TargetParser.h"
+#include "llvm/Support/ARMTargetParser.h"
+#endif
+#else
+#include "llvm/TargetParser/AArch64TargetParser.h"
+#include "llvm/TargetParser/ARMTargetParser.h"
+#include "llvm/TargetParser/Host.h"
+#include "llvm/TargetParser/SubtargetFeature.h"
+#include "llvm/TargetParser/TargetParser.h"
+#include "llvm/TargetParser/Triple.h"
+#endif
+#include "llvm/IR/Module.h"
+#include "llvm/MC/MCObjectFileInfo.h"
+#include "llvm/Support/CommandLine.h"
 #if LDC_LLVM_VER >= 1400
 #include "llvm/MC/TargetRegistry.h"
 #else
@@ -36,10 +49,6 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
-#if LDC_LLVM_VER >= 1400
-#include "llvm/Support/AArch64TargetParser.h"
-#include "llvm/Support/ARMTargetParser.h"
-#endif
 
 #include "gen/optimizer.h"
 
@@ -630,7 +639,10 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
   // LLVM fork. LLVM 7+ enables regular emutls by default; prevent that.
   if (triple.getEnvironment() == llvm::Triple::Android) {
     targetOptions.EmulatedTLS = false;
+#if LDC_LLVM_VER < 1700
+    // Removed in this commit: https://github.com/llvm/llvm-project/commit/0d333bf0e3aa37e2e6ae211e3aa80631c3e01b85
     targetOptions.ExplicitEmulatedTLS = true;
+#endif
   }
 
   const std::string finalFeaturesString =

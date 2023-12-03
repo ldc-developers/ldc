@@ -10,7 +10,11 @@
 #include "driver/cl_options-llvm.h"
 
 #if LDC_WITH_LLD
+#if LDC_LLVM_VER < 1700
 #include "llvm/ADT/Triple.h"
+#else
+#include "llvm/TargetParser/Triple.h"
+#endif
 #endif
 
 // Pull in command-line options and helper functions from special LLVM header

@@ -20,7 +20,11 @@
 #include "driver/cl_options_sanitizers.h"
 #include "driver/plugins.h"
 #include "driver/targetmachine.h"
+#if LDC_LLVM_VER < 1700
 #include "llvm/ADT/Triple.h"
+#else
+#include "llvm/TargetParser/Triple.h"
+#endif
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -34,7 +38,9 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/IPO.h"
+#if LDC_LLVM_VER < 1700
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#endif
 #include "llvm/Transforms/Instrumentation/MemorySanitizer.h"
 #include "llvm/Transforms/Instrumentation/ThreadSanitizer.h"
 #include "llvm/Transforms/Instrumentation/AddressSanitizer.h"
@@ -544,24 +550,33 @@ static void addGarbageCollect2StackPass(ModulePassManager &mpm,
 
 
 static llvm::Optional<PGOOptions> getPGOOptions() {
- //FIXME: Do we have these anywhere?
- bool debugInfoForProfiling=false;
- bool pseudoProbeForProfiling=false;
- if (opts::isInstrumentingForIRBasedPGO()) {
-    return PGOOptions(global.params.datafileInstrProf, "", "",
-                     PGOOptions::PGOAction::IRInstr,
-                     PGOOptions::CSPGOAction::NoCSAction,
-                     debugInfoForProfiling, pseudoProbeForProfiling);
+  // FIXME: Do we have these anywhere?
+  bool debugInfoForProfiling = false;
+  bool pseudoProbeForProfiling = false;
+  if (opts::isInstrumentingForIRBasedPGO()) {
+    return PGOOptions(
+        global.params.datafileInstrProf, "", "",
+#if LDC_LLVM_VER >= 1700
+        "" /*MemoryProfileUsePath*/, llvm::vfs::getRealFileSystem(),
+#endif
+        PGOOptions::PGOAction::IRInstr, PGOOptions::CSPGOAction::NoCSAction,
+        debugInfoForProfiling, pseudoProbeForProfiling);
   } else if (opts::isUsingIRBasedPGOProfile()) {
-    return PGOOptions(global.params.datafileInstrProf, "", "",
-                     PGOOptions::PGOAction::IRUse,
-                     PGOOptions::CSPGOAction::NoCSAction,
-                     debugInfoForProfiling, pseudoProbeForProfiling);
+    return PGOOptions(
+        global.params.datafileInstrProf, "", "",
+#if LDC_LLVM_VER >= 1700
+        "" /*MemoryProfileUsePath*/, llvm::vfs::getRealFileSystem(),
+#endif
+        PGOOptions::PGOAction::IRUse, PGOOptions::CSPGOAction::NoCSAction,
+        debugInfoForProfiling, pseudoProbeForProfiling);
   } else if (opts::isUsingSampleBasedPGOProfile()) {
-    return PGOOptions(global.params.datafileInstrProf, "", "",
-                     PGOOptions::PGOAction::SampleUse,
-                     PGOOptions::CSPGOAction::NoCSAction,
-                     debugInfoForProfiling, pseudoProbeForProfiling);
+    return PGOOptions(
+        global.params.datafileInstrProf, "", "",
+#if LDC_LLVM_VER >= 1700
+        "" /*MemoryProfileUsePath*/, llvm::vfs::getRealFileSystem(),
+#endif
+        PGOOptions::PGOAction::SampleUse, PGOOptions::CSPGOAction::NoCSAction,
+        debugInfoForProfiling, pseudoProbeForProfiling);
   }
 #if LDC_LLVM_VER < 1600
   return None;
@@ -637,7 +652,11 @@ void runOptimizationPasses(llvm::Module *M) {
   StandardInstrumentations si(M->getContext(), debugLogging, /*VerifyEach=*/false, ppo);
 #endif
 
+#if LDC_LLVM_VER < 1700
   si.registerCallbacks(pic, &fam);
+#else
+  si.registerCallbacks(pic, &mam);
+#endif
 
   PassBuilder pb(gTargetMachine, getPipelineTuningOptions(optLevelVal, sizeLevelVal),
                  getPGOOptions(), &pic);

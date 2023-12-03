@@ -18,7 +18,11 @@
 #include "dmd/errors.h"
 #include "dmd/globals.h"
 #include "gen/to_string.h"
+#if LDC_LLVM_VER < 1700
 #include "llvm/ADT/Triple.h"
+#else
+#include "llvm/TargetParser/Triple.h"
+#endif
 
 namespace {
 namespace cl = llvm::cl;
