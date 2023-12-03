@@ -776,6 +776,21 @@ version (IN_LLVM) {} else
             result = ce;
         }
 
+        override void visit(CatAssignExp e)
+        {
+            auto cae = cast(CatAssignExp) e.copy();
+
+            if (auto lowering = cae.lowering)
+                cae.lowering = doInlineAs!Expression(cae.lowering, ids);
+            else
+            {
+                cae.e1 = doInlineAs!Expression(e.e1, ids);
+                cae.e2 = doInlineAs!Expression(e.e2, ids);
+            }
+
+            result = cae;
+        }
+
         override void visit(BinExp e)
         {
             auto be = cast(BinExp)e.copy();
@@ -1286,6 +1301,14 @@ public:
 
         inlineScan(e.e1);
         inlineScan(e.e2);
+    }
+
+    override void visit(CatAssignExp e)
+    {
+        if (auto lowering = e.lowering)
+            inlineScan(lowering);
+        else
+            visit(cast(BinExp) e);
     }
 
     override void visit(BinExp e)

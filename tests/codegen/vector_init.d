@@ -40,7 +40,7 @@ void foo()
 
 // https://github.com/ldc-developers/ldc/issues/3418
 // CHECK: define {{.*}}_D11vector_init3bar
-void bar(const ref float[4] floats, const(int)[] ints)
+void bar(const ref float[4] floats, const ref int[4] ints)
 {
     alias float4 = __vector(float[4]);
     alias int4 = __vector(int[4]);

@@ -2161,7 +2161,6 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    // TODO: still required?
     if (!global.params.useGC) {
       error(
           e->loc,
@@ -2188,6 +2187,22 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    if (!global.params.useGC) {
+      error(e->loc,
+            "appending to array in `%s` requires the GC which is not available "
+            "with -betterC",
+            e->toChars());
+      result =
+          new DSliceValue(e->type, llvm::UndefValue::get(DtoType(e->type)));
+      return;
+    }
+
+    if (e->lowering) {
+      assert(e->op != EXP::concatenateDcharAssign);
+      result = toElem(e->lowering);
+      return;
+    }
+
     result = toElem(e->e1);
 
     Type *e1type = e->e1->type->toBasetype();
@@ -2197,6 +2212,7 @@ public:
 
     if (e1type->ty == TY::Tarray && e2type->ty == TY::Tdchar &&
         (elemtype->ty == TY::Tchar || elemtype->ty == TY::Twchar)) {
+      assert(e->op == EXP::concatenateDcharAssign);
       if (elemtype->ty == TY::Tchar) {
         // append dchar to char[]
         DtoAppendDCharToString(e->loc, result, e->e2);

@@ -7549,7 +7549,12 @@ version (IN_LLVM)
         }
         //printf("\t-. mi = %s\n", mi.toPrettyChars());
 
-        assert(!memberOf || (!memberOf.isRoot() && mi.isRoot()), "can only re-append from non-root to root module");
+        if (memberOf) // already appended to some module
+        {
+            assert(mi.isRoot(), "can only re-append to a root module");
+            if (memberOf.isRoot())
+                return null; // no need to move to another root module
+        }
 
         Dsymbols* a = mi.members;
         a.push(this);
