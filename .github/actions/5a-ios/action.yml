@@ -41,7 +41,6 @@ runs:
         {
             switches = [
                 \"-defaultlib=phobos2-ldc,druntime-ldc\",
-                \"-func-specialization-size-threshold=1000000000\",
                 \"-Xcc=-target\",
                 \"-Xcc=$triple\",
                 \"-Xcc=-miphoneos-version-min=$deployment_target\",
