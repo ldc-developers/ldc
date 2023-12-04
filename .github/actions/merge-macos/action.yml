@@ -48,7 +48,6 @@ runs:
             // default switches injected before all explicit command-line switches
             switches = [
                 \"-defaultlib=phobos2-ldc,druntime-ldc\",
-                \"-func-specialization-size-threshold=1000000000\",
             ];
             // default switches appended after all explicit command-line switches
             post-switches = [
@@ -64,7 +63,6 @@ runs:
         {
             switches = [
                 \"-defaultlib=phobos2-ldc,druntime-ldc\",
-                \"-func-specialization-size-threshold=1000000000\",
                 \"-Xcc=-target\",
                 \"-Xcc=x86_64-apple-macos\",
             ];
@@ -78,7 +76,6 @@ runs:
         {
             switches = [
                 \"-defaultlib=phobos2-ldc,druntime-ldc\",
-                \"-func-specialization-size-threshold=1000000000\",
                 \"-Xcc=-target\",
                 \"-Xcc=arm64-apple-macos\",
             ];
@@ -92,7 +89,6 @@ runs:
         {
             switches = [
                 \"-defaultlib=phobos2-ldc,druntime-ldc\",
-                \"-func-specialization-size-threshold=1000000000\",
                 \"-Xcc=-target\",
                 \"-Xcc=arm64-apple-ios$ios_version\",
                 \"-Xcc=-miphoneos-version-min=$ios_version\",

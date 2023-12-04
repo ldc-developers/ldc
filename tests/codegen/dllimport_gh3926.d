@@ -28,4 +28,4 @@ void foo()
 
 // should set m_init.ptr:
 // CHECK:      if1:
-// CHECK-NEXT: store {{i8\*|ptr}} getelementptr inbounds ({{.*}} @_D3std7variant__T8VariantN{{.*}}6__initZ, i32 0, i32 0, i32 0),
+// CHECK-NEXT: store {{i8\*|ptr}} {{.*}}@_D3std7variant__T8VariantN{{.*}}6__initZ, {{.*}}TypeInfo_S3std7variant__T8VariantN{{.*}}6__initZ

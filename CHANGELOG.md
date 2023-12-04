@@ -2,6 +2,7 @@
 
 #### Big news
 - Frontend, druntime and Phobos are at version [2.106.0](https://dlang.org/changelog/2.106.0.html). (#4522, #4539)
+- Support for [LLVM 17](https://releases.llvm.org/17.0.1/docs/ReleaseNotes.html). The prebuilt packages use v17.0.6. (#4533, #4540)
 - New command-line options `-fno-{exceptions,moduleinfo,rtti}` to selectively enable some `-betterC` effects. (#4522)
 - New command-line option `-fprofile-sample-use` for using sample-based profile data for optimization. Functionality and usage is identical to Clang's option with same name. (#4531)
 - New `ldc-profgen` tool for sample-based PGO, a copy of LLVM's [llvm-profgen](https://llvm.org/docs/CommandGuide/llvm-profgen.html). (#4536)
