@@ -78,13 +78,13 @@ void structs()
 
     // make sure the variables are in-place constructed via sret
     // CHECK: call {{.*}}_D18in_place_construct13returnLiteralFZSQBm1S
-    // CHECK-SAME: %in_place_construct.S{{.*}} %a
+    // CHECK-SAME: {{(%in_place_construct\.S\*|ptr).*}} %a
     const a = returnLiteral();
     // CHECK: call {{.*}}_D18in_place_construct12returnRValueFZSQBl1S
-    // CHECK-SAME: %in_place_construct.S{{.*}} %b
+    // CHECK-SAME: {{(%in_place_construct\.S\*|ptr).*}} %b
     const b = returnRValue();
     // CHECK: call {{.*}}_D18in_place_construct10returnNRVOFZSQBj1S
-    // CHECK-SAME: %in_place_construct.S{{.*}} %c
+    // CHECK-SAME: {{(%in_place_construct\.S\*|ptr).*}} %c
     const c = returnNRVO();
 
     withOutContract();
