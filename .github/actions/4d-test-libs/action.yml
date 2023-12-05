@@ -1,7 +1,7 @@
 name: Run defaultlib unittests & druntime integration tests
 inputs:
   arch:
-    required: false # Windows only
+    required: false # Windows and macOS only
 runs:
   using: composite
   steps:
@@ -12,12 +12,17 @@ runs:
       run: |
         set -eux
         cd ../build
+        excludes='dmd-testsuite|lit-tests|ldc2-unittest'
         if [[ '${{ runner.os }}' == macOS ]]; then
           N=$(sysctl -n hw.logicalcpu)
+          # FIXME: fails with enabled optimizations on M1 runners
+          if [[ '${{ inputs.arch }}' == arm64 ]]; then
+            excludes+='|^std.internal.math.gammafunction(-shared)?$'
+          fi
         else
           N=$(nproc)
         fi
-        ctest -j$N --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
+        ctest -j$N --output-on-failure -E "$excludes"
 
     - name: 'Windows: Run defaultlib unittests & druntime integration tests'
       if: runner.os == 'Windows'

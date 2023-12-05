@@ -51,6 +51,18 @@ jobs:
               -DEXTRA_CXXFLAGS=-flto=full
             with_pgo: true
 
+          - job_name: macOS arm64
+            os: macos-14
+            arch: arm64
+            bootstrap_cmake_flags: >-
+              -DBUILD_LTO_LIBS=ON
+              -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++
+            extra_cmake_flags: >-
+              -DBUILD_LTO_LIBS=ON
+              -DD_COMPILER_FLAGS="-gcc=/usr/bin/c++ -O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto -L-exported_symbol '-L__*' -L-w"
+              -DEXTRA_CXXFLAGS=-flto=full
+            with_pgo: true
+
           - job_name: Windows x64
             os: windows-2022
             arch: x64
@@ -76,7 +88,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 150
     env:
-      MACOSX_DEPLOYMENT_TARGET: 10.12
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.arch == 'arm64' && '11.0' || '10.12' }}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -160,18 +172,6 @@ jobs:
       matrix:
         include:
 
-          - job_name: macOS arm64
-            host_os: macos-11
-            os: osx
-            arch: arm64
-            bootstrap_cmake_flags: -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++
-            # see native macOS job comment for extra flags (https://github.com/ldc-developers/ldc/issues/4462)
-            extra_cmake_flags: >-
-              -DBUILD_LTO_LIBS=ON
-              -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto -L-exported_symbol '-L__*' -L-w"
-              -DEXTRA_CXXFLAGS=-flto=full
-            with_pgo: true
-
           - job_name: Android armv7a
             host_os: ubuntu-20.04
             os: android
@@ -190,8 +190,6 @@ jobs:
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.host_os }}
     timeout-minutes: 60
-    env:
-      MACOSX_DEPLOYMENT_TARGET: 11.0
     steps:
       - uses: actions/checkout@v4
         with:
@@ -225,11 +223,6 @@ jobs:
         uses: ./.github/actions/5-install
         with:
           cross_compiling: true
-      - name: 'macOS: Cross-compile iOS libraries, copy to install dir & extend ldc2.conf'
-        if: matrix.os == 'osx'
-        uses: ./.github/actions/5a-ios
-        with:
-          arch: ${{ matrix.arch }}
       - name: 'Android: Cross-compile ${{ matrix.android_x86_arch }} libraries & copy to install dir'
         if: matrix.os == 'android'
         uses: ./.github/actions/5a-android-x86
@@ -248,9 +241,7 @@ jobs:
     name: macOS universal
     runs-on: macos-latest
     timeout-minutes: 30
-    needs:
-      - build-native
-      - build-cross
+    needs: build-native
     steps:
       - uses: actions/checkout@v4
       - name: Merge x86_64 & arm64 packages to universal one
