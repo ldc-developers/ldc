@@ -65,13 +65,63 @@ list(GET linker_line 0 D_LINKER_COMMAND)
 list(REMOVE_AT linker_line 0)
 
 if("${D_COMPILER_ID}" STREQUAL "GDMD")
-    # Filter linker arguments for those we know can be safely reused
+    # Filter linker arguments for those we know can be safely reused.
+    # Prepend arguments starting with "-B" in D_LINKER_ARGS with "-Wl," when
+    # using GDMD. The latter is needed because the arguments reported by GDMD
+    # are what is passed to COLLECT2 while D_LINKER_ARGS are later passed to
+    # CXX. The problem with that is that without "-Wl," prefix the -Bstatic
+    # and -Bdynamic arguments before and after -lgphobos and -lgdruntime are
+    # dropped. And that is a problem because without these the produced LDC is
+    # linked dynamically to libgphobos and libgdruntime so these have to be
+    # available whereever LDC is used.
+
+    # Once libgphobos and libgdruntime are linked statically symbol conflicts
+    # for _d_allocmemory, _d_newclass, _d_newitemiT and _d_newitemT symbols
+    # were revealed which are fixed by checking if these symbols are marked as
+    # weak in libgdruntime.a and if not "-Wl,-allow-multiple-definition" link
+    # option is added to avoid link failure.
     set(D_LINKER_ARGS)
+    set(BSTATIC OFF)
+    set(STATIC_GPHOBOS OFF)
     foreach(arg ${linker_line})
-        if("${arg}" MATCHES ^-L.*|^-l.*|^-B.*)
+        if("${arg}" MATCHES ^-L.*|^-l.*)
             list(APPEND D_LINKER_ARGS "${arg}")
+            if(BSTATIC)
+                if("${arg}" STREQUAL -lgphobos)
+                    set(STATIC_GPHOBOS ON)
+                endif()
+            endif()
+        elseif("${arg}" MATCHES ^-B.*)
+            list(APPEND D_LINKER_ARGS "-Wl,${arg}")
+            if("${arg}" STREQUAL -Bstatic)
+                set(BSTATIC ON)
+            elseif("${arg}" STREQUAL -Bdynamic)
+                set(BSTATIC OFF)
+            endif()
         endif()
     endforeach()
+    if(STATIC_GPHOBOS)
+        execute_process(
+            COMMAND "${D_COMPILER}" -q,-print-file-name=libgdruntime.a
+            COMMAND "head" -n1
+            COMMAND "xargs" nm -gC
+            COMMAND "grep"
+                -e \\<_d_allocmemory\\>
+                -e \\<_d_newclass\\>
+                -e \\<_d_newitemiT\\>
+                -e \\<_d_newitemT\\>
+            COMMAND "cut" -d " " -f 2
+            COMMAND "sort"
+            COMMAND "uniq"
+            OUTPUT_VARIABLE LIB_GDRUNTIME_LIFETIME_SYMBOL_TYPES
+            ERROR_QUIET)
+        string(STRIP
+            ${LIB_GDRUNTIME_LIFETIME_SYMBOL_TYPES}
+            LIB_GDRUNTIME_LIFETIME_SYMBOL_TYPES)
+        if(NOT LIB_GDRUNTIME_LIFETIME_SYMBOL_TYPES STREQUAL W)
+            list(APPEND D_LINKER_ARGS "-Wl,--allow-multiple-definition")
+        endif()
+    endif()
 else()
     set(D_LINKER_ARGS ${linker_line})
 endif()
