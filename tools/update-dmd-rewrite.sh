@@ -34,7 +34,7 @@ fi
 
 # extract a subset of the dmd monorepo (druntime source + tests + Makefiles, dmd source + tests + osmodel.mak)
 git filter-repo --force \
-  --path druntime/src --path druntime/test --path-glob 'druntime/*.mak' \
+  --path druntime/src --path druntime/test --path druntime/Makefile --path-glob 'druntime/*.mak' \
   --path compiler/src/dmd --path compiler/test --path compiler/src/osmodel.mak \
   --path src --path test # required to keep git history before upstream druntime-merge (and associated directory movals)
 # remove unused files
