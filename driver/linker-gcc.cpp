@@ -172,8 +172,8 @@ std::string getLTOdylibPath() {
     error(Loc(), "-flto-binary: '%s' not found", ltoLibrary.c_str());
     fatal();
   } else {
-    // The plugin packaged with LDC has a "-ldc" suffix.
-    std::string searchPath = exe_path::prependLibDir("libLTO-ldc.dylib");
+    // Give priority to the plugin packaged with LDC.
+    std::string searchPath = exe_path::prependLibDir("libLTO.dylib");
     if (llvm::sys::fs::exists(searchPath))
       return searchPath;
 
