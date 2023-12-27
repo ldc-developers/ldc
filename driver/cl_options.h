@@ -135,6 +135,7 @@ enum LTOKind {
 extern cl::opt<LTOKind> ltoMode;
 inline bool isUsingLTO() { return ltoMode != LTO_None; }
 inline bool isUsingThinLTO() { return ltoMode == LTO_Thin; }
+extern cl::opt<bool> ltoFatObjects;
 
 extern cl::opt<std::string> saveOptimizationRecord;
 

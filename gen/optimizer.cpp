@@ -729,7 +729,17 @@ void runOptimizationPasses(llvm::Module *M) {
   OptimizationLevel level = getOptimizationLevel();
 
   if (optLevelVal == 0) {
-    mpm = pb.buildO0DefaultPipeline(level, opts::isUsingLTO() || opts::isUsingThinLTO());
+    mpm = pb.buildO0DefaultPipeline(level, opts::isUsingLTO());
+#if LDC_LLVM_VER >= 1700
+  } else if (opts::ltoFatObjects && opts::isUsingLTO()) {
+    mpm = pb.buildFatLTODefaultPipeline(level
+#if LDC_LLVM_VER < 1800
+                                        ,
+                                        opts::isUsingThinLTO(),
+                                        opts::isUsingThinLTO()
+#endif
+    );
+#endif
   } else if (opts::isUsingThinLTO()) {
     mpm = pb.buildThinLTOPreLinkDefaultPipeline(level);
   } else if (opts::isUsingLTO()) {

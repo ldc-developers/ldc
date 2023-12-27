@@ -201,6 +201,8 @@ void ArgsBuilder::addDarwinLTOFlags() {
 
 /// Adds the required linker flags for LTO builds to args.
 void ArgsBuilder::addLTOLinkFlags() {
+  bool isLld = opts::linker == "lld" || useInternalLLDForLinking() ||
+               (opts::linker.empty() && isLldDefaultLinker());
   if (global.params.targetTriple->isOSLinux() ||
       global.params.targetTriple->isOSFreeBSD() ||
       global.params.targetTriple->isOSNetBSD() ||
@@ -208,11 +210,16 @@ void ArgsBuilder::addLTOLinkFlags() {
       global.params.targetTriple->isOSDragonFly()) {
     // LLD supports LLVM LTO natively, do not add the plugin itself.
     // Otherwise, assume that ld.gold or ld.bfd is used with plugin support.
-    bool isLld = opts::linker == "lld" || useInternalLLDForLinking() ||
-                 (opts::linker.empty() && isLldDefaultLinker());
     addLTOGoldPluginFlags(!isLld);
   } else if (global.params.targetTriple->isOSDarwin()) {
     addDarwinLTOFlags();
+  }
+
+  // Pass LTO options to LLD
+  if (isLld) {
+    addLdFlag(opts::isUsingThinLTO() ? "--lto=thin" : "--lto=full");
+    if (opts::ltoFatObjects)
+      addLdFlag("--fat-lto-objects");
   }
 }
 
