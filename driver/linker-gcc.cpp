@@ -215,10 +215,8 @@ void ArgsBuilder::addLTOLinkFlags() {
     addDarwinLTOFlags();
   }
 
-  // Pass LTO options to LLD
-  if (isLld) {
-    addLdFlag(opts::isUsingThinLTO() ? "--lto=thin" : "--lto=full");
-    if (opts::ltoFatObjects)
+  // Pass Fat LTO option to LLD
+  if (isLld && opts::ltoFatObjects)
       addLdFlag("--fat-lto-objects");
   }
 }
