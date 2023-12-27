@@ -216,7 +216,7 @@ void ArgsBuilder::addLTOLinkFlags() {
   }
 
   // Pass Fat LTO option to LLD
-  if (isLld && opts::ltoFatObjects)
+  if (isLld && opts::ltoFatObjects) {
       addLdFlag("--fat-lto-objects");
   }
 }
