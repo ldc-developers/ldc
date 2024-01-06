@@ -1,6 +1,14 @@
 # LDC master
 
 #### Big news
+
+#### Platform support
+
+#### Bug fixes
+
+# LDC 1.36.0 (2024-01-06)
+
+#### Big news
 - Frontend, druntime and Phobos are at version [2.106.1](https://dlang.org/changelog/2.106.0.html). (#4522, #4539, #4551)
 - Support for [LLVM 17](https://releases.llvm.org/17.0.1/docs/ReleaseNotes.html). The prebuilt packages use v17.0.6. (#4533, #4540)
 - New command-line options `-fno-{exceptions,moduleinfo,rtti}` to selectively enable some `-betterC` effects. (#4522)
@@ -8,8 +16,7 @@
 - New `ldc-profgen` tool for sample-based PGO, a copy of LLVM's [llvm-profgen](https://llvm.org/docs/CommandGuide/llvm-profgen.html). (#4536)
 
 #### Platform support
-
-#### Bug fixes
+- Supports LLVM 11.0 - 17.0.
 
 # LDC 1.35.0 (2023-10-15)
 
