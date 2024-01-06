@@ -248,6 +248,8 @@ jobs:
     name: macOS universal
     runs-on: macos-latest
     timeout-minutes: 30
+    env:
+      MACOSX_DEPLOYMENT_TARGET: 11.0
     needs:
       - build-native
       - build-cross

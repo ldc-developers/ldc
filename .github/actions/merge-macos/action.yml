@@ -64,7 +64,7 @@ runs:
             switches = [
                 \"-defaultlib=phobos2-ldc,druntime-ldc\",
                 \"-Xcc=-target\",
-                \"-Xcc=x86_64-apple-macos\",
+                \"-Xcc=x86_64-apple-macos$MACOSX_DEPLOYMENT_TARGET\",
             ];
             lib-dirs = [
                 \"%%ldcbinarypath%%/../lib-x86_64\",
@@ -77,7 +77,7 @@ runs:
             switches = [
                 \"-defaultlib=phobos2-ldc,druntime-ldc\",
                 \"-Xcc=-target\",
-                \"-Xcc=arm64-apple-macos\",
+                \"-Xcc=arm64-apple-macos$MACOSX_DEPLOYMENT_TARGET\",
             ];
             lib-dirs = [
                 \"%%ldcbinarypath%%/../lib-arm64\",
@@ -109,7 +109,7 @@ runs:
       run: |
         set -eux
         echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > hello.d
-        for os in macos ios; do
+        for os in macos$MACOSX_DEPLOYMENT_TARGET ios12.0; do
           for arch in x86_64 arm64; do
             triple="$arch-apple-$os"
             ldc2-universal/bin/ldc2 -mtriple="$triple" hello.d

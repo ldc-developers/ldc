@@ -79,7 +79,7 @@ runs:
         set -eux
         cd ..
         arch='${{ inputs.arch }}'
-        triple="$arch-apple-macos"
+        triple="$arch-apple-macos$MACOSX_DEPLOYMENT_TARGET"
         echo "DFLAGS=-mtriple=$triple -L-L$PWD/build-cross-libs/lib -Xcc=-target -Xcc=$triple -Xcc=-isysroot -Xcc=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk" >> $GITHUB_ENV
         echo "CROSS_TRIPLE=$triple" >> $GITHUB_ENV
         echo "CROSS_CMAKE_FLAGS=-DCMAKE_OSX_ARCHITECTURES=$arch" >> $GITHUB_ENV
