@@ -4,9 +4,10 @@ runs:
   steps:
 
     - name: Download all artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         path: artifacts/
+        merge-multiple: true # place all files into artifacts/ directly
 
     - name: Set GITHUB_RELEASE_TAG & ARTIFACT_ID
       shell: bash
@@ -35,15 +36,12 @@ runs:
         file: ^ldc2-${{ env.ARTIFACT_ID }}-
         target: existing-artifacts/
 
-    - name: Move artifact files out of their subdirs & compute hashes
+    - name: Merge existing artifacts & compute hashes
       shell: bash
       run: |
         set -eux
 
         cd artifacts
-        mv */*.* ./
-        find . -type d -empty -delete
-        ls -lh
 
         # Extend by existing release artifacts *missing* from GitHub workflow,
         # e.g., artifacts published by Cirrus CI etc.
@@ -52,6 +50,7 @@ runs:
           mv -n ../existing-artifacts/*.* ./
         fi
 
+        ls -lh
         sha256sum * > "ldc2-$ARTIFACT_ID.sha256sums.txt"
 
     - name: Upload to GitHub release

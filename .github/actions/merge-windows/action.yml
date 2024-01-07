@@ -3,16 +3,12 @@ runs:
   using: composite
   steps:
 
-    - name: Download x64 artifact
-      uses: actions/download-artifact@v3
+    - name: Download x64 and x86 artifacts
+      uses: actions/download-artifact@v4
       with:
-        name: windows-x64
+        pattern: windows-*
         path: artifacts/
-    - name: Download x86 artifact
-      uses: actions/download-artifact@v3
-      with:
-        name: windows-x86
-        path: artifacts/
+        merge-multiple: true # place all files into artifacts/ directly
 
     - name: Extract & merge artifacts
       shell: bash
@@ -100,7 +96,8 @@ runs:
           packaging\windows_installer.iss
 
     - name: Upload multilib package & installer
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: windows-multilib
         path: newArtifacts/
+        compression-level: 0

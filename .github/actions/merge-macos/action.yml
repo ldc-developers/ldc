@@ -3,16 +3,12 @@ runs:
   using: composite
   steps:
 
-    - name: Download x86_64 artifact
-      uses: actions/download-artifact@v3
+    - name: Download x86_64 and arm64 artifacts
+      uses: actions/download-artifact@v4
       with:
-        name: osx-x86_64
+        pattern: osx-*
         path: artifacts/
-    - name: Download arm64 artifact
-      uses: actions/download-artifact@v3
-      with:
-        name: osx-arm64
-        path: artifacts/
+        merge-multiple: true # place all files into artifacts/ directly
 
     - name: Extract & merge artifacts
       shell: bash
@@ -138,7 +134,8 @@ runs:
         tar -cf - $artifactName | 7za a newArtifacts/$artifactName.tar.xz -si -txz -mx9
 
     - name: Upload universal package
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: osx-universal
         path: newArtifacts/
+        compression-level: 0
