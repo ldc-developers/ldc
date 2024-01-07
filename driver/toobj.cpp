@@ -378,7 +378,7 @@ void writeModule(llvm::Module *m, const char *filename) {
   if (!directory.empty()) {
     if (auto ec = llvm::sys::fs::create_directories(directory)) {
       error(Loc(), "failed to create output directory: %s\n%s",
-            directory.data(), ec.message().c_str());
+            directory.str().c_str(), ec.message().c_str());
       fatal();
     }
   }
