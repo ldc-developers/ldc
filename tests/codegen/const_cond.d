@@ -8,6 +8,8 @@
 
 extern(C):  //to avoid name mangling.
 
+void g();
+
 // CHECK-LABEL: @foo
 void foo()
 {
@@ -64,6 +66,29 @@ void only_ret2()
     else if(0)
     {
         int b = 2;
+    }
+}
+
+// CHECK-LABEL: @only_ret3
+void only_ret3()
+{
+    // CHECK-NEXT: ret void
+    // CHECK-NEXT: }
+    if (!cast(void*)&only_ret2)
+    {
+        int a = 1;
+    }
+}
+
+// CHECK-LABEL: @gh4556
+void gh4556()
+{
+    // unnamed_addr constants ptr check is not constfolded by LLVM (they could be equal, i.e. merged),
+    // thus the if-statement is not elided in our codegen.
+    // CHECK-NEXT: br
+    if ("a" is "b")
+    {
+        g();
     }
 }
 
