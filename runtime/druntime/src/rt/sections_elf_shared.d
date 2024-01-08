@@ -1044,7 +1044,27 @@ else
     }
     else static if (SharedDarwin) void scanSegments(mach_header* info, DSO* pdso)
     {
-        immutable slide = _dyld_get_image_slide(info);
+        intptr_t slide = 0;
+        auto command = cast(const(load_command)*)(cast(ubyte*)info + mach_header_64.sizeof);
+
+        foreach(_; 0 .. info.ncmds) {
+
+            // Scan 64 bit segment
+            // See: getSlide() in https://opensource.apple.com/source/dyld/dyld-851.27/dyld3/MachOLoaded.cpp.auto.html
+            if (command.cmd == LC_SEGMENT_64) 
+            {
+                auto segment = cast(const(segment_command_64)*) command;
+                
+                if (segment.filesize != 0) 
+                {
+                    slide = cast(uintptr_t)info - segment.vmaddr;
+                    break;
+                }
+            }
+
+            command = cast(const(load_command)*)(cast(ubyte*)command + command.cmdsize);
+        }
+
         foreachDataSection(info, slide, (sectionData) { pdso._gcRanges.insertBack(sectionData); });
 
         version (Shared)
