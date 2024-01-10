@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (C) 1999-2023 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 1999-2024 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * https://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -41,6 +41,7 @@ using type = class IrType;
 typedef struct TYPE type;
 #endif
 
+extern const char* toChars(const Type* const t);
 Type *typeSemantic(Type *t, const Loc &loc, Scope *sc);
 Type *merge(Type *type);
 
@@ -230,7 +231,6 @@ public:
     // kludge for template.isType()
     DYNCAST dyncast() const override final { return DYNCAST_TYPE; }
     size_t getUniqueID() const;
-    Covariant covariant(Type *, StorageClass * = NULL, bool = false);
     const char *toChars() const override;
     char *toPrettyChars(bool QualifyTypes = false);
     static void _init();
@@ -254,7 +254,6 @@ public:
     virtual bool isString();
     virtual bool isAssignable();
     virtual bool isBoolean();
-    virtual void checkDeprecated(const Loc &loc, Scope *sc);
     bool isConst() const       { return (mod & MODconst) != 0; }
     bool isImmutable() const   { return (mod & MODimmutable) != 0; }
     bool isMutable() const     { return (mod & (MODconst | MODimmutable | MODwild)) == 0; }
@@ -369,7 +368,6 @@ class TypeNext : public Type
 public:
     Type *next;
 
-    void checkDeprecated(const Loc &loc, Scope *sc) override final;
     int hasWild() const override final;
     Type *nextOf() override final;
     Type *makeConst() override final;
@@ -934,3 +932,4 @@ public:
 
 // If the type is a class or struct, returns the symbol for it, else null.
 AggregateDeclaration *isAggregate(Type *t);
+Covariant covariant(Type *, Type *, StorageClass * = NULL, bool = false);

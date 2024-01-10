@@ -1,8 +1,64 @@
+# LDC: druntime DLL supported on Windows
 LINK_SHARED:=1
 
-include ../common.mak
+include ../common.mak # affected by LINK_SHARED!
 
-TESTS:=link load linkD linkDR loadDR dynamiccast
+.PHONY: all clean
+
+ifeq (windows,$(OS))
+
+# LDC: required for executables to implicitly dllimport DLL data symbols
+DFLAGS+=-dllimport=all
+
+TESTS:=loadlibwin dllrefcount dllgc dynamiccast
+ifeq ($(SHARED),1)
+DFLAGS+=-version=SharedRuntime
+endif
+
+$(ROOT)/%.done: $(ROOT)/%$(DOTEXE)
+	@echo Testing $*
+	$(QUIET)$(TIMELIMIT)$< $(RUN_ARGS)
+	@touch $@
+
+$(ROOT)/dynamiccast.done: $(ROOT)/%.done: $(ROOT)/%$(DOTEXE)
+	@echo Testing $*
+	$(QUIET)rm -f $(ROOT)/dynamiccast_end{bar,main}
+	$(QUIET)$(TIMELIMIT)$< $(RUN_ARGS)
+	$(QUIET)test -f $(ROOT)/dynamiccast_endbar
+	$(QUIET)test -f $(ROOT)/dynamiccast_endmain
+	@touch $@
+
+$(ROOT)/dllrefcount$(DOTEXE): $(SRC)/dllrefcount.d
+	$(QUIET)$(DMD) $(DFLAGS) -of$@ $<
+
+$(ROOT)/loadlibwin$(DOTEXE): $(SRC)/loadlibwin.d
+	$(QUIET)$(DMD) $(DFLAGS) -of$@ $<
+
+# LDC: this test is designed for .exe & .dll with separate druntimes
+$(ROOT)/dllgc$(DOTEXE): DFLAGS+=-link-defaultlib-shared=false -dllimport=none
+
+$(ROOT)/dllgc$(DOTEXE): $(SRC)/dllgc.d
+	$(QUIET)$(DMD) $(DFLAGS) -version=DLL -shared -of$(ROOT)/dllgc$(DOTDLL) $<
+	$(QUIET)$(DMD) $(DFLAGS) -of$@ $<
+
+$(ROOT)/dynamiccast$(DOTEXE): $(SRC)/dynamiccast.d
+	$(QUIET)$(DMD) $(DFLAGS) -version=DLL -shared -of$(ROOT)/dynamiccast$(DOTDLL) $<
+	$(QUIET)$(DMD) $(DFLAGS) -of$@ $<
+
+# LDC addition: test teardown with separate druntimes, with the DLL using the .exe GC
+dll_gc_proxy_teardown: DFLAGS+=-link-defaultlib-shared=false -dllimport=none
+dll_gc_proxy_teardown: $(SRC)/dll_gc_proxy_teardown.d
+	$(QUIET)$(DMD) $(DFLAGS) -shared -L/EXPORT:gc_setProxy -L/EXPORT:gc_clrProxy -version=DLL -of$(ROOT)/dll_gc_proxy_teardown$(DOTDLL) $<
+	$(QUIET)$(DMD) $(DFLAGS) -shared -L/EXPORT:gc_setProxy -L/EXPORT:gc_clrProxy -version=DLL -version=NoUnload -of$(ROOT)/dll_gc_proxy_teardown_nounload$(DOTDLL) $<
+	$(QUIET)$(DMD) $(DFLAGS) -of$(ROOT)/load_dll_gc_proxy_teardown$(DOTEXE) $<
+	$(QUIET)$(DMD) $(DFLAGS) -version=NoUnload -of$(ROOT)/load_dll_gc_proxy_teardown_nounload$(DOTEXE) $<
+	$(QUIET)$(ROOT)/load_dll_gc_proxy_teardown$(DOTEXE)
+	$(QUIET)$(ROOT)/load_dll_gc_proxy_teardown_nounload$(DOTEXE)
+
+# LDC: include Posix tests too
+endif # Windows
+
+TESTS+=link load linkD linkDR loadDR dynamiccast
 TESTS+=link_linkdep link_loaddep load_loaddep load_13414
 # LDC: disable 3 tests on Mac, 1 on Windows
 ifneq ($(OS),osx)
@@ -23,133 +79,65 @@ endif
 EXPORT_DYNAMIC=$(if $(findstring $(OS),linux freebsd dragonflybsd),-L--export-dynamic,)
 NO_AS_NEEDED=$(if $(findstring $(OS),linux freebsd dragonflybsd),-L--no-as-needed,)
 
-.PHONY: all clean
-
-# LDC: add Windows tests
-ifeq (,$(findstring win,$(OS)))
-
-all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS)))
-LIB_EXT:=so
-DLL_EXT:=so
+all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS))) $(if $(findstring $(OS),windows),dll_gc_proxy_teardown,)
 
 $(ROOT)/loadDR.done $(ROOT)/host.done: RUN_ARGS:=$(DRUNTIMESO)
 
-else
-# Windows
+$(ROOT)/dynamiccast.done: CLEANUP:=rm $(ROOT)/dynamiccast_endmain$(DOTEXE) $(ROOT)/dynamiccast_endbar$(DOTEXE)
 
-# required for executables to implicitly dllimport DLL data symbols
-DFLAGS+=-dllimport=all
-
-all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS))) loadlibwin dllrefcount dllgc dll_gc_proxy_teardown
-LIB_EXT:=lib
-DLL_EXT:=dll
-CC:=cl.exe
-
-$(ROOT)/loadDR.done $(ROOT)/host.done: RUN_ARGS:=$(subst .lib,.dll,$(DRUNTIMESO))
-
-dllrefcount:
-	$(DMD) $(DFLAGS) src/dllrefcount.d -of$(ROOT)/dllrefcount.exe
-	$(ROOT)/dllrefcount.exe
-
-loadlibwin:
-	$(DMD) $(DFLAGS) src/loadlibwin.d -of$(ROOT)/loadlibwin.exe
-	$(ROOT)/loadlibwin.exe
-
-dllgc:
-	$(DMD) $(DFLAGS) -version=DLL -shared -of$(ROOT)/dllgc.dll src/dllgc.d
-	$(DMD) $(DFLAGS) -of$(ROOT)/loaddllgc.exe src/dllgc.d
-	$(ROOT)/loaddllgc.exe
-
-# LDC: this test is designed for .exe & .dll with separate druntimes
-dllgc: DFLAGS+=-link-defaultlib-shared=false -dllimport=none
-
-# LDC addition: test teardown with separate druntimes, with the DLL using the .exe GC
-dll_gc_proxy_teardown: DFLAGS+=-link-defaultlib-shared=false -dllimport=none
-dll_gc_proxy_teardown:
-	$(DMD) $(DFLAGS) -shared -L/EXPORT:gc_setProxy -L/EXPORT:gc_clrProxy -version=DLL -of$(ROOT)/dll_gc_proxy_teardown.dll src/dll_gc_proxy_teardown.d
-	$(DMD) $(DFLAGS) -shared -L/EXPORT:gc_setProxy -L/EXPORT:gc_clrProxy -version=DLL -version=NoUnload -of$(ROOT)/dll_gc_proxy_teardown_nounload.dll src/dll_gc_proxy_teardown.d
-	$(DMD) $(DFLAGS) -of$(ROOT)/load_dll_gc_proxy_teardown.exe src/dll_gc_proxy_teardown.d
-	$(DMD) $(DFLAGS) -version=NoUnload -of$(ROOT)/load_dll_gc_proxy_teardown_nounload.exe src/dll_gc_proxy_teardown.d
-	$(ROOT)/load_dll_gc_proxy_teardown.exe
-	$(ROOT)/load_dll_gc_proxy_teardown_nounload.exe
-
-# end Windows
-endif
-
-$(ROOT)/dynamiccast.done: CLEANUP:=rm $(ROOT)/dynamiccast_endmain $(ROOT)/dynamiccast_endbar
-
-$(ROOT)/%.done: $(ROOT)/%
+$(ROOT)/%.done: $(ROOT)/%$(DOTEXE)
 	@echo Testing $*
 	$(QUIET)$(TIMELIMIT)$< $(RUN_ARGS)
 	$(CLEANUP)
 	@touch $@
 
-$(ROOT)/link: $(SRC)/link.d $(ROOT)/lib.$(DLL_EXT) $(DRUNTIMESO)
-	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< -L$(ROOT)/lib.$(LIB_EXT)
+$(ROOT)/link$(DOTEXE): $(SRC)/link.d $(ROOT)/lib$(DOTDLL) $(DRUNTIMESO)
+	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< -L$(ROOT)/lib$(DOTDLL)
 
-$(ROOT)/link_linkdep: $(SRC)/link_linkdep.d $(ROOT)/lib.$(DLL_EXT) $(ROOT)/liblinkdep.$(DLL_EXT) $(DRUNTIMESO)
-	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKFLAGS) -L$(ROOT)/liblinkdep.$(LIB_EXT) -L$(ROOT)/lib.$(LIB_EXT)
+$(ROOT)/link_linkdep$(DOTEXE): $(SRC)/link_linkdep.d $(ROOT)/lib$(DOTDLL) $(ROOT)/liblinkdep$(DOTDLL) $(DRUNTIMESO)
+	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKFLAGS) -L$(ROOT)/liblinkdep$(DOTDLL) -L$(ROOT)/lib$(DOTDLL)
 
-$(ROOT)/load_linkdep: $(SRC)/load_linkdep.d $(ROOT)/lib.$(DLL_EXT) $(ROOT)/liblinkdep.$(DLL_EXT) $(DRUNTIMESO)
+$(ROOT)/load_linkdep$(DOTEXE): $(SRC)/load_linkdep.d $(ROOT)/lib$(DOTDLL) $(ROOT)/liblinkdep$(DOTDLL) $(DRUNTIMESO)
 	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKFLAGS) $(LINKDL)
 
-$(ROOT)/link_loaddep: $(SRC)/link_loaddep.d $(ROOT)/lib.$(DLL_EXT) $(ROOT)/libloaddep.$(DLL_EXT) $(DRUNTIMESO)
-	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKFLAGS) -L$(ROOT)/libloaddep.$(LIB_EXT)
+$(ROOT)/link_loaddep$(DOTEXE): $(SRC)/link_loaddep.d $(ROOT)/lib$(DOTDLL) $(ROOT)/libloaddep$(DOTDLL) $(DRUNTIMESO)
+	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKFLAGS) -L$(ROOT)/libloaddep$(DOTDLL)
 
-$(ROOT)/load_loaddep: $(SRC)/load_loaddep.d $(ROOT)/lib.$(DLL_EXT) $(ROOT)/libloaddep.$(DLL_EXT) $(DRUNTIMESO)
+$(ROOT)/load_loaddep$(DOTEXE): $(SRC)/load_loaddep.d $(ROOT)/lib$(DOTDLL) $(ROOT)/libloaddep$(DOTDLL) $(DRUNTIMESO)
 	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKFLAGS) $(LINKDL)
 
-$(ROOT)/load $(ROOT)/finalize: $(ROOT)/%: $(SRC)/%.d $(ROOT)/lib.$(DLL_EXT) $(DRUNTIMESO)
+$(ROOT)/load$(DOTEXE) $(ROOT)/finalize$(DOTEXE): $(ROOT)/%$(DOTEXE): $(SRC)/%.d $(ROOT)/lib$(DOTDLL) $(DRUNTIMESO)
 	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKDL)
 
-$(ROOT)/load_13414: $(ROOT)/%: $(SRC)/%.d $(ROOT)/lib_13414.$(DLL_EXT) $(DRUNTIMESO)
+$(ROOT)/load_13414$(DOTEXE): $(ROOT)/%$(DOTEXE): $(SRC)/%.d $(ROOT)/lib_13414$(DOTDLL) $(DRUNTIMESO)
 	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKDL)
 
-$(ROOT)/dynamiccast: $(SRC)/dynamiccast.d $(ROOT)/dynamiccast.$(DLL_EXT) $(DRUNTIMESO)
+$(ROOT)/dynamiccast$(DOTEXE): $(SRC)/dynamiccast.d $(ROOT)/dynamiccast$(DOTDLL) $(DRUNTIMESO)
 	$(QUIET)$(DMD) $(DFLAGS) -of$@ $(SRC)/dynamiccast.d $(LINKDL)
 
-$(ROOT)/dynamiccast.$(DLL_EXT): $(SRC)/dynamiccast.d $(DRUNTIMESO)
+$(ROOT)/dynamiccast$(DOTDLL): $(SRC)/dynamiccast.d $(DRUNTIMESO)
 	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< -version=DLL -fPIC -shared $(LINKDL)
 
-ifeq (,$(findstring win,$(OS)))
+# TODO: cl.exe flags
+$(ROOT)/linkD$(DOTEXE): $(SRC)/linkD.c $(ROOT)/lib$(DOTDLL) $(DRUNTIMESO)
+	$(QUIET)$(CC) $(CFLAGS) -o $@ $< $(ROOT)/lib$(DOTDLL) $(LDL) -pthread
 
-$(ROOT)/linkD: $(SRC)/linkD.c $(ROOT)/lib.$(DLL_EXT) $(DRUNTIMESO)
-	$(QUIET)$(CC) $(CFLAGS) -o $@ $< $(ROOT)/lib.$(DLL_EXT) $(LDL) -pthread
-
-$(ROOT)/linkDR: $(SRC)/linkDR.c $(ROOT)/lib.$(DLL_EXT) $(DRUNTIMESO)
+$(ROOT)/linkDR$(DOTEXE): $(SRC)/linkDR.c $(ROOT)/lib$(DOTDLL) $(DRUNTIMESO)
 	$(QUIET)$(CC) $(CFLAGS) -o $@ $< $(DRUNTIMESO) $(LDL) -pthread
 
-$(ROOT)/loadDR: $(SRC)/loadDR.c $(ROOT)/lib.$(DLL_EXT) $(DRUNTIMESO)
+$(ROOT)/loadDR$(DOTEXE): $(SRC)/loadDR.c $(ROOT)/lib$(DOTDLL) $(DRUNTIMESO)
 	$(QUIET)$(CC) $(CFLAGS) -o $@ $< $(LDL) -pthread
 
-$(ROOT)/host: $(SRC)/host.c $(ROOT)/plugin1.$(DLL_EXT) $(ROOT)/plugin2.$(DLL_EXT)
+$(ROOT)/host$(DOTEXE): $(SRC)/host.c $(ROOT)/plugin1$(DOTDLL) $(ROOT)/plugin2$(DOTDLL)
 	$(QUIET)$(CC) $(CFLAGS) -o $@ $< $(LDL) -pthread
 
-else
-# Windows
+$(ROOT)/liblinkdep$(DOTDLL): $(ROOT)/lib$(DOTDLL)
+$(ROOT)/liblinkdep$(DOTDLL): DFLAGS+=-L$(ROOT)/lib$(DOTDLL)
 
-$(ROOT)/linkD: $(SRC)/linkD.c $(ROOT)/lib.$(DLL_EXT) $(DRUNTIMESO)
-	$(QUIET)$(CC) $(CFLAGS) /Fo$@.obj /Fe$@.exe $< $(ROOT)/lib.$(LIB_EXT)
-
-$(ROOT)/linkDR: $(SRC)/linkDR.c $(ROOT)/lib.$(DLL_EXT) $(DRUNTIMESO)
-	$(QUIET)$(CC) $(CFLAGS) /Fo$@.obj /Fe$@.exe $< $(DRUNTIMESO)
-
-$(ROOT)/loadDR: $(SRC)/loadDR.c $(ROOT)/lib.$(DLL_EXT) $(DRUNTIMESO)
-	$(QUIET)$(CC) $(CFLAGS) /Fo$@.obj /Fe$@.exe $<
-
-$(ROOT)/host: $(SRC)/host.c $(ROOT)/plugin1.$(DLL_EXT) $(ROOT)/plugin2.$(DLL_EXT)
-	$(QUIET)$(CC) $(CFLAGS) /Fo$@.obj /Fe$@.exe $<
-
-# end Windows
-endif
-
-$(ROOT)/liblinkdep.$(DLL_EXT): $(ROOT)/lib.$(DLL_EXT)
-$(ROOT)/liblinkdep.$(DLL_EXT): DFLAGS+=-L$(ROOT)/lib.$(LIB_EXT)
-
-$(ROOT)/plugin1.$(DLL_EXT) $(ROOT)/plugin2.$(DLL_EXT): $(SRC)/plugin.d $(DRUNTIMESO)
+$(ROOT)/plugin1$(DOTDLL) $(ROOT)/plugin2$(DOTDLL): $(SRC)/plugin.d $(DRUNTIMESO)
 	$(QUIET)$(DMD) -fPIC -shared $(DFLAGS) -of$@ $<
 
-$(ROOT)/%.$(DLL_EXT): $(SRC)/%.d $(DRUNTIMESO)
+$(ROOT)/%$(DOTDLL): $(SRC)/%.d $(DRUNTIMESO)
 	$(QUIET)$(DMD) -fPIC -shared $(DFLAGS) -of$@ $< $(LINKDL)
 
 clean:
