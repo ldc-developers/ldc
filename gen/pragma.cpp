@@ -24,7 +24,7 @@
 
 namespace {
 bool parseStringExp(Expression *e, const char *&res) {
-  e = e->optimize(WANTvalue);
+  e = optimize(e, WANTvalue);
   if (e->op != EXP::string_) {
     return false;
   }
@@ -37,7 +37,7 @@ bool parseStringExp(Expression *e, const char *&res) {
 }
 
 bool parseIntExp(Expression *e, dinteger_t &res) {
-  e = e->optimize(WANTvalue);
+  e = optimize(e, WANTvalue);
   if (auto i = e->isIntegerExp()) {
     res = i->getInteger();
     return true;
@@ -46,7 +46,7 @@ bool parseIntExp(Expression *e, dinteger_t &res) {
 }
 
 bool parseBoolExp(Expression *e, bool &res) {
-  e = e->optimize(WANTvalue);
+  e = optimize(e, WANTvalue);
   if (auto i = e->isIntegerExp()) {
     if (e->type->equals(Type::tbool)) {
       res = (i->toInteger() != 0);

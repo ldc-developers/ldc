@@ -149,7 +149,7 @@ enum
 
 /* Flags for symbol search
  */
-typedef uint SearchOptFlags;
+typedef unsigned SearchOptFlags;
 enum class SearchOpt : SearchOptFlags
 {
     all                    = 0x00, // default
