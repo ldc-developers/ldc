@@ -5,8 +5,12 @@
 // Also, verify it _does_ generate correct code when it is not constant.
 
 // RUN: %ldc -O0 -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
+// RUN: %ldc -O0 -run %s
+// RUN: %ldc -O3 -run %s
 
 extern(C):  //to avoid name mangling.
+
+void g();
 
 // CHECK-LABEL: @foo
 void foo()
@@ -67,6 +71,17 @@ void only_ret2()
     }
 }
 
+// CHECK-LABEL: @only_ret3
+void only_ret3()
+{
+    // CHECK-NEXT: ret void
+    // CHECK-NEXT: }
+    if (!cast(void*)&only_ret2)
+    {
+        int a = 1;
+    }
+}
+
 // CHECK-LABEL: @gen_br
 void gen_br(immutable int a)
 {
@@ -75,4 +90,26 @@ void gen_br(immutable int a)
     {
         int b = 1;
     }
+}
+
+// CHECK-LABEL: @gh4556
+void gh4556()
+{
+    if ("a" is "b")
+    {
+        assert(false);
+    }
+
+    if ("a" !is "b")
+    {
+        return;
+    }
+    else
+    {
+        assert(false);
+    }
+}
+
+void main() {
+    gh4556();
 }
