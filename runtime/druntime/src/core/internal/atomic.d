@@ -18,6 +18,8 @@ version (LDC)
 
     pragma(inline, true):
 
+    enum IsAtomicLockFree(T) = T.sizeof <= 8 || (T.sizeof <= 16 && has128BitCAS);
+
     inout(T) atomicLoad(MemoryOrder order = MemoryOrder.seq, T)(inout(T)* src) pure nothrow @nogc @trusted
     {
         alias A = _AtomicType!T;
@@ -86,6 +88,11 @@ version (LDC)
     void atomicFence(MemoryOrder order = MemoryOrder.seq)() pure nothrow @nogc @trusted
     {
         llvm_memory_fence(_ordering!(order));
+    }
+
+    void atomicSignalFence(MemoryOrder order = MemoryOrder.seq)() pure nothrow @nogc @trusted
+    {
+        llvm_memory_fence(_ordering!(order), SynchronizationScope.SingleThread);
     }
 
     void pause() pure nothrow @nogc @trusted
