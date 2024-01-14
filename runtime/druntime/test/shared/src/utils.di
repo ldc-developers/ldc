@@ -2,6 +2,8 @@ module utils;
 
 version (Windows)
     enum dllExt = "dll";
+else version (darwin)
+    enum dllExt = "dylib";
 else
     enum dllExt = "so";
 

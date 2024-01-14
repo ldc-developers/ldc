@@ -71,10 +71,10 @@ foreach(name ${testnames})
             COMMAND ${CMAKE_COMMAND} -E remove_directory ${outdir}
         )
         add_test(NAME ${fullname}
-            COMMAND ${GNU_MAKE_BIN} -C ${PROJECT_SOURCE_DIR}/druntime/test/${name} all
+            COMMAND ${GNU_MAKE_BIN} -C ${PROJECT_SOURCE_DIR}/druntime/test/${name}
                 ROOT=${outdir} DMD=${LDMD_EXE_FULL} BUILD=${build}
                 DRUNTIME=${druntime_path_build} DRUNTIMESO=${shared_druntime_path_build}
-                ${cflags_base} ${linkdl}
+                SHARED=1 ${cflags_base} ${linkdl}
         )
         set_tests_properties(${fullname} PROPERTIES DEPENDS clean-${fullname})
     endforeach()

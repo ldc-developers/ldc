@@ -5,6 +5,8 @@
 
 #ifdef _WIN32
 #define PLUGIN_SO1 "plugin1.dll"
+#elif __APPLE__
+#define PLUGIN_SO1 "plugin1.dylib"
 #else
 #define PLUGIN_SO1 "plugin1.so"
 #endif
