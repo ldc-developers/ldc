@@ -1,5 +1,5 @@
 # LDC: druntime DLL supported on Windows
-LINK_SHARED:=1
+LINK_SHARED:=$(if $(findstring ldmd2,$(DMD)),1,$(if $(findstring $(OS),windows),$(SHARED),1))
 
 include ../common.mak # affected by LINK_SHARED!
 
@@ -7,8 +7,10 @@ include ../common.mak # affected by LINK_SHARED!
 
 ifeq (windows,$(OS))
 
-# LDC: required for executables to implicitly dllimport DLL data symbols
-DFLAGS+=-dllimport=all
+ifneq (,$(findstring ldmd2,$(DMD)))
+    # LDC: required for executables to implicitly dllimport DLL data symbols
+    DFLAGS+=-dllimport=all
+endif
 
 TESTS:=loadlibwin dllrefcount dllgc dynamiccast
 ifeq ($(SHARED),1)
@@ -35,7 +37,9 @@ $(ROOT)/loadlibwin$(DOTEXE): $(SRC)/loadlibwin.d
 	$(QUIET)$(DMD) $(DFLAGS) -of$@ $<
 
 # LDC: this test is designed for .exe & .dll with separate druntimes
+ifneq (,$(findstring ldmd2,$(DMD)))
 $(ROOT)/dllgc$(DOTEXE): DFLAGS+=-link-defaultlib-shared=false -dllimport=none
+endif
 
 $(ROOT)/dllgc$(DOTEXE): $(SRC)/dllgc.d
 	$(QUIET)$(DMD) $(DFLAGS) -version=DLL -shared -of$(ROOT)/dllgc$(DOTDLL) $<
@@ -46,6 +50,7 @@ $(ROOT)/dynamiccast$(DOTEXE): $(SRC)/dynamiccast.d
 	$(QUIET)$(DMD) $(DFLAGS) -of$@ $<
 
 # LDC addition: test teardown with separate druntimes, with the DLL using the .exe GC
+ifneq (,$(findstring ldmd2,$(DMD)))
 dll_gc_proxy_teardown: DFLAGS+=-link-defaultlib-shared=false -dllimport=none
 dll_gc_proxy_teardown: $(SRC)/dll_gc_proxy_teardown.d
 	$(QUIET)$(DMD) $(DFLAGS) -shared -L/EXPORT:gc_setProxy -L/EXPORT:gc_clrProxy -version=DLL -of$(ROOT)/dll_gc_proxy_teardown$(DOTDLL) $<
@@ -54,32 +59,38 @@ dll_gc_proxy_teardown: $(SRC)/dll_gc_proxy_teardown.d
 	$(QUIET)$(DMD) $(DFLAGS) -version=NoUnload -of$(ROOT)/load_dll_gc_proxy_teardown_nounload$(DOTEXE) $<
 	$(QUIET)$(ROOT)/load_dll_gc_proxy_teardown$(DOTEXE)
 	$(QUIET)$(ROOT)/load_dll_gc_proxy_teardown_nounload$(DOTEXE)
+endif
 
 # LDC: include Posix tests too
 endif # Windows
 
-TESTS+=link load linkD linkDR loadDR dynamiccast
-TESTS+=link_linkdep link_loaddep load_loaddep load_13414
 # LDC: disable 3 tests on Mac, 1 on Windows
-ifneq ($(OS),osx)
-	# * `host` loads two modules with the same name, which is currently disallowed
-	#   by the (potentially overly eager) module collision detection on OS X.
-	# * `finalize` fails starting with macOS 10.13, as .dylibs with TLS can't be
-	#   unloaded anymore (https://github.com/ldc-developers/ldc/issues/3002).
-	# * FIXME: `load_linkdep`
-	#   it might fail because of unimplemented `getDependencies()` in rt.sections_elf_shared
-	ifneq (,$(findstring win,$(OS)))
-		# LDC FIXME: disable `load_linkdep` on Windows - needs `getDependencies()`
-		TESTS+=host finalize
-	else
-		TESTS+=host finalize load_linkdep
-	endif
+ifeq (,$(findstring ldmd2,$(DMD)))
+    TESTS:=link load linkD linkDR loadDR host finalize dynamiccast
+    TESTS+=link_linkdep load_linkdep link_loaddep load_loaddep load_13414
+else
+    TESTS+=link load linkD linkDR loadDR dynamiccast
+    TESTS+=link_linkdep link_loaddep load_loaddep load_13414
+    ifneq ($(OS),osx)
+        # * `host` loads two modules with the same name, which is currently disallowed
+        #   by the (potentially overly eager) module collision detection on OS X.
+        # * `finalize` fails starting with macOS 10.13, as .dylibs with TLS can't be
+        #   unloaded anymore (https://github.com/ldc-developers/ldc/issues/3002).
+        # * FIXME: `load_linkdep`
+        #   it might fail because of unimplemented `getDependencies()` in rt.sections_elf_shared
+        ifneq (,$(findstring win,$(OS)))
+            # LDC FIXME: disable `load_linkdep` on Windows - needs `getDependencies()`
+            TESTS+=host finalize
+        else
+            TESTS+=host finalize load_linkdep
+        endif
+    endif
 endif
 
 EXPORT_DYNAMIC=$(if $(findstring $(OS),linux freebsd dragonflybsd),-L--export-dynamic,)
 NO_AS_NEEDED=$(if $(findstring $(OS),linux freebsd dragonflybsd),-L--no-as-needed,)
 
-all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS))) $(if $(findstring $(OS),windows),dll_gc_proxy_teardown,)
+all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS))) $(if $(findstring ldmd2,$(DMD)),$(if $(findstring $(OS),windows),dll_gc_proxy_teardown,),)
 
 $(ROOT)/loadDR.done $(ROOT)/host.done: RUN_ARGS:=$(DRUNTIMESO)
 

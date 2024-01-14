@@ -1,8 +1,7 @@
 include ../common.mak
 
 # LDC doesn't support -profile=gc yet
-#TESTS:=profile profilegc both
-TESTS:=profile
+TESTS:=profile $(if $(findstring ldmd2,$(DMD)),,profilegc both)
 
 DIFF:=diff --strip-trailing-cr
 GREP:=grep
@@ -24,7 +23,7 @@ endif
 all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS)))
 
 # LDC: enable assertions for BUILD=RELEASE (=> `-O -release`)
-$(ROOT)/profile.done: DFLAGS+=-profile -check=assert=on
+$(ROOT)/profile.done: DFLAGS+=-profile $(if $(findstring ldmd2,$(DMD)),-check=assert=on,)
 $(ROOT)/profile.done: $(ROOT)/%.done: $(ROOT)/%$(DOTEXE)
 	@echo Testing $*
 	@rm -f $(ROOT)/mytrace.log $(ROOT)/mytrace.def
