@@ -1533,13 +1533,9 @@ public:
         // allocate & init
         result = DtoNewDynArray(e->loc, e->newtype, sz, true);
       } else {
-        size_t ndims = e->arguments->length;
-        std::vector<DValue *> dims;
-        dims.reserve(ndims);
-        for (auto arg : *e->arguments) {
-          dims.push_back(toElem(arg));
-        }
-        result = DtoNewMulDimDynArray(e->loc, e->newtype, &dims[0], ndims);
+        assert(e->lowering);
+        LLValue *pair = DtoRVal(e->lowering);
+        result = new DSliceValue(e->type, pair);
       }
     }
     // new static array

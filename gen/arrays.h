@@ -62,8 +62,6 @@ void DtoSetArrayToNull(DValue *v);
 
 DSliceValue *DtoNewDynArray(const Loc &loc, Type *arrayType, DValue *dim,
                             bool defaultInit = true);
-DSliceValue *DtoNewMulDimDynArray(const Loc &loc, Type *arrayType,
-                                  DValue **dims, size_t ndims);
 
 DSliceValue *DtoCatArrays(const Loc &loc, Type *type, Expression *e1,
                           Expression *e2);
