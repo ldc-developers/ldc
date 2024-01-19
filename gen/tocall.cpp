@@ -382,7 +382,12 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     if (e->arguments->length == 2) {
       scope = static_cast<llvm::SyncScope::ID>((*e->arguments)[1]->toInteger());
     }
-    p->ir->CreateFence(atomicOrdering, scope);
+    // orderings below acquire are invalid; like clang, don't emit any
+    // instruction in those cases
+    if (static_cast<int>(atomicOrdering) >
+        static_cast<int>(llvm::AtomicOrdering::Monotonic)) {
+      p->ir->CreateFence(atomicOrdering, scope);
+    }
     return true;
   }
 
