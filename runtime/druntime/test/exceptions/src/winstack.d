@@ -21,6 +21,7 @@ void main()
         assert(checkStack(ex), "Bad stack");
     }
 
+    version(LDC) { /* access violations not wrapped as D errors */ } else
     version(Win32)
     {
         // Cannot catch exceptions on Win64 because
