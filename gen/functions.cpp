@@ -1133,20 +1133,23 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     // ignore unparsed unittests from non-root modules
     if (fd->fbody)
       getIrModule(gIR->dmodule)->unitTests.push_back(fd);
-  } else if (fd->isSharedStaticCtorDeclaration()) {
-    getIrModule(gIR->dmodule)->sharedCtors.push_back(fd);
-  } else if (StaticDtorDeclaration *dtorDecl =
-                 fd->isSharedStaticDtorDeclaration()) {
+  } else if (auto sctor = fd->isSharedStaticCtorDeclaration()) {
+    if (sctor->standalone) {
+      getIrModule(gIR->dmodule)->standaloneSharedCtors.push_back(fd);
+    } else {
+      getIrModule(gIR->dmodule)->sharedCtors.push_back(fd);
+    }
+  } else if (auto sdtor = fd->isSharedStaticDtorDeclaration()) {
     getIrModule(gIR->dmodule)->sharedDtors.push_front(fd);
-    if (dtorDecl->vgate) {
-      getIrModule(gIR->dmodule)->sharedGates.push_front(dtorDecl->vgate);
+    if (sdtor->vgate) {
+      getIrModule(gIR->dmodule)->sharedGates.push_front(sdtor->vgate);
     }
   } else if (fd->isStaticCtorDeclaration()) {
     getIrModule(gIR->dmodule)->ctors.push_back(fd);
-  } else if (StaticDtorDeclaration *dtorDecl = fd->isStaticDtorDeclaration()) {
+  } else if (auto dtor = fd->isStaticDtorDeclaration()) {
     getIrModule(gIR->dmodule)->dtors.push_front(fd);
-    if (dtorDecl->vgate) {
-      getIrModule(gIR->dmodule)->gates.push_front(dtorDecl->vgate);
+    if (dtor->vgate) {
+      getIrModule(gIR->dmodule)->gates.push_front(dtor->vgate);
     }
   }
 

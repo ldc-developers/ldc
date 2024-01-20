@@ -38,6 +38,7 @@ struct IrModule {
   FuncDeclList ctors;
   FuncDeclList dtors;
   FuncDeclList sharedCtors;
+  FuncDeclList standaloneSharedCtors;
   FuncDeclList sharedDtors;
   GatesList gates;
   GatesList sharedGates;
