@@ -450,10 +450,10 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
     triple = llvm::Triple(
         llvm::Triple::normalize(llvm::sys::getDefaultTargetTriple()));
 
+    // Apple: translate darwin to macos, apparently like clang
     if (triple.getOS() == llvm::Triple::Darwin) {
-      // We only support OSX, so darwin should really be macosx.
       llvm::SmallString<16> osname;
-      osname += "macosx";
+      osname += "macos";
       // We have to specify OS version in the triple to avoid linker warnings,
       // see https://github.com/ldc-developers/ldc/issues/4501.
       // If environment variable MACOSX_DEPLOYMENT_TARGET is not set, then use
