@@ -67,6 +67,10 @@ runs:
         archFlag=''
         if [[ '${{ inputs.cross_target_triple }}' != '' ]]; then
           archFlag='--arch=${{ inputs.cross_target_triple }}'
+
+          # run the preGenerateCommand manually; it must be a native build
+          sed -i${{ runner.os == 'macOS' && ' ""' || '' }} 's|^    "preGenerateCommands": \["rdmd \$PACKAGE_DIR/list_payload.d \$PACKAGE_DIR"\],$||' dub.json
+          "$(dirname "$DMD")/ldc2" -run list_payload.d .
         fi
 
         # use host compiler's dub, which is guaranteed to be native

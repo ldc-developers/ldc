@@ -143,7 +143,8 @@ packaging_steps_template: &PACKAGING_STEPS_TEMPLATE
     git clone --recursive https://github.com/atilaneves/reggae.git
     cd reggae
     git checkout "$(cat $CIRRUS_WORKING_DIR/packaging/reggae_version)"
-    DFLAGS="-O -linkonce-templates" ../dub/bin/dub build -v --combined --compiler="$PWD/../installed/bin/ldc2"
+    # needs rdmd in PATH
+    PATH="$PWD/../installed/bin:$PATH" DFLAGS="-O -linkonce-templates" ../dub/bin/dub build -v --build-mode=allAtOnce --combined --compiler="$PWD/../installed/bin/ldc2"
     cp bin/reggae ../installed/bin
     ../installed/bin/reggae --version -b ninja
   # Pack artifact
