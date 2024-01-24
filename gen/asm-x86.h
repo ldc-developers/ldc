@@ -3866,10 +3866,14 @@ struct AsmProcessor {
             token->value == TOK::float80Literal) {
           if (op == Op_df) {
             const float value = static_cast<float>(token->floatvalue);
-            insnTemplate << reinterpret_cast<const uint32_t &>(value);
+            uint32_t reinterpreted; // explicitly use memcpy because of strict-aliasing
+            std::memcpy(&reinterpreted, &value, sizeof value);
+            insnTemplate << reinterpreted;
           } else if (op == Op_dd) {
             const double value = static_cast<double>(token->floatvalue);
-            insnTemplate << reinterpret_cast<const uint64_t &>(value);
+            uint64_t reinterpreted; // explicitly use memcpy because of strict-aliasing
+            std::memcpy(&reinterpreted, &value, sizeof value);
+            insnTemplate << reinterpreted;
           } else if (op == Op_de) {
             llvm::APFloat value(0.0);
             CTFloat::toAPFloat(token->floatvalue, value);
