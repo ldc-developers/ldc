@@ -187,8 +187,14 @@ private:
     return rt->toBasetype()->ty == TY::Tcomplex80;
   }
 
-  RegCount &getRegCount(IrFuncTy &fty) {
-    return reinterpret_cast<RegCount &>(fty.tag);
+  RegCount getRegCount(IrFuncTy &fty) {
+    RegCount regCount;
+    std::memcpy(&regCount, &fty.tag, sizeof regCount);
+    return regCount;
+  }
+
+  void setRegCount(IrFuncTy &fty, RegCount regCount) {
+    std::memcpy(&fty.tag, &regCount, sizeof regCount);
   }
 };
 
@@ -259,8 +265,7 @@ void X86_64TargetABI::rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg,
 }
 
 void X86_64TargetABI::rewriteFunctionType(IrFuncTy &fty) {
-  RegCount &regCount = getRegCount(fty);
-  regCount = RegCount(); // initialize
+  RegCount regCount;
 
   // RETURN VALUE
   if (!skipReturnValueRewrite(fty)) {
@@ -302,8 +307,10 @@ void X86_64TargetABI::rewriteFunctionType(IrFuncTy &fty) {
     }
   }
 
-  // regCount (fty.tag) is now in the state after all implicit & formal args,
-  // ready to serve as initial state for each vararg call site, see below
+  // regCount is now in the state after all implicit & formal args,
+  // ready to serve as initial state for each vararg call site, see below.
+  // Save it in fty.tag.
+  setRegCount(fty, regCount);
 }
 
 void X86_64TargetABI::rewriteVarargs(IrFuncTy &fty,
