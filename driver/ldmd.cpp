@@ -272,6 +272,8 @@ Where:\n\
   -version=<level>  compile in version code >= level\n\
   -version=<ident>  compile in version code identified by ident\n\
   -vgc              list all gc allocations including hidden ones\n\
+  -visibility=[default|hidden|public]\n\
+                    default visibility of symbols\n\
   -vtemplates=[list-instances]\n\
                     list statistics on template instantiations\n\
   -vtls             list all variables going into thread local storage\n\
@@ -698,6 +700,14 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
           } else {
             ldcArgs.push_back(concat("-d-version=", p + 9));
           }
+        } else {
+          goto Lerror;
+        }
+      } else if (startsWith(p + 1, "visibility")) {
+        // Parse:
+        //      -visibility=default|hidden|public
+        if (p[11] == '=') {
+            ldcArgs.push_back(concat("--fvisibility=", p + 10));
         } else {
           goto Lerror;
         }
