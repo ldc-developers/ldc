@@ -18,10 +18,13 @@ version (LDC)
 
     pragma(inline, true):
 
-    enum IsAtomicLockFree(T) = T.sizeof <= 8 || (T.sizeof <= 16 && has128BitCAS);
+    enum IsAtomicLockFree(T) = is(_AtomicType!T);
 
     inout(T) atomicLoad(MemoryOrder order = MemoryOrder.seq, T)(inout(T)* src) pure nothrow @nogc @trusted
     {
+        static assert(order != MemoryOrder.rel && order != MemoryOrder.acq_rel,
+                      "invalid MemoryOrder for atomicLoad()");
+
         alias A = _AtomicType!T;
         A result = llvm_atomic_load!A(cast(shared A*) src, _ordering!(order));
         return *cast(inout(T)*) &result;
@@ -29,17 +32,22 @@ version (LDC)
 
     void atomicStore(MemoryOrder order = MemoryOrder.seq, T)(T* dest, T value) pure nothrow @nogc @trusted
     {
+        static assert(order != MemoryOrder.acq && order != MemoryOrder.acq_rel,
+                      "Invalid MemoryOrder for atomicStore()");
+
         alias A = _AtomicType!T;
         llvm_atomic_store!A(*cast(A*) &value, cast(shared A*) dest, _ordering!(order));
     }
 
     T atomicFetchAdd(MemoryOrder order = MemoryOrder.seq, T)(T* dest, T value) pure nothrow @nogc @trusted
+        if (is(T : ulong))
     {
         alias A = _AtomicType!T;
         return llvm_atomic_rmw_add!A(cast(shared A*) dest, value, _ordering!(order));
     }
 
     T atomicFetchSub(MemoryOrder order = MemoryOrder.seq, T)(T* dest, T value) pure nothrow @nogc @trusted
+        if (is(T : ulong))
     {
         alias A = _AtomicType!T;
         return llvm_atomic_rmw_sub!A(cast(shared A*) dest, value, _ordering!(order));
@@ -47,6 +55,8 @@ version (LDC)
 
     T atomicExchange(MemoryOrder order = MemoryOrder.seq, bool result = true, T)(T* dest, T value) pure nothrow @nogc @trusted
     {
+        static assert(order != MemoryOrder.acq, "Invalid MemoryOrder for atomicExchange()");
+
         alias A = _AtomicType!T;
         A result = llvm_atomic_rmw_xchg!A(cast(shared A*) dest, *cast(A*) &value, _ordering!(order));
         return *cast(T*) &result;
@@ -54,6 +64,10 @@ version (LDC)
 
     bool atomicCompareExchange(bool weak = false, MemoryOrder succ = MemoryOrder.seq, MemoryOrder fail = MemoryOrder.seq, T)(T* dest, T* compare, T value) pure nothrow @nogc @trusted
     {
+        static assert(fail != MemoryOrder.rel && fail != MemoryOrder.acq_rel,
+                      "Invalid fail MemoryOrder for atomicCompareExchange()");
+        static assert (succ >= fail, "The first MemoryOrder argument for atomicCompareExchange() cannot be weaker than the second argument");
+
         alias A = _AtomicType!T;
         auto result = llvm_atomic_cmp_xchg!A(cast(shared A*) dest, *cast(A*) compare, *cast(A*) &value,
             _ordering!(succ), _ordering!(fail), weak);
@@ -71,6 +85,10 @@ version (LDC)
 
     bool atomicCompareExchangeNoResult(bool weak = false, MemoryOrder succ = MemoryOrder.seq, MemoryOrder fail = MemoryOrder.seq, T)(T* dest, const T compare, T value) pure nothrow @nogc @trusted
     {
+        static assert(fail != MemoryOrder.rel && fail != MemoryOrder.acq_rel,
+                      "Invalid fail MemoryOrder for atomicCompareExchange()");
+        static assert (succ >= fail, "The first MemoryOrder argument for atomicCompareExchange() cannot be weaker than the second argument");
+
         alias A = _AtomicType!T;
         auto result = llvm_atomic_cmp_xchg!A(cast(shared A*) dest, *cast(A*) &compare, *cast(A*) &value,
             _ordering!(succ), _ordering!(fail), weak);
@@ -165,18 +183,9 @@ version (LDC)
         else static if (T.sizeof == ulong.sizeof)
             alias _AtomicType = ulong;
         else static if (T.sizeof == 2*ulong.sizeof && has128BitCAS)
-        {
-            struct UCent
-            {
-                ulong value1;
-                ulong value2;
-            }
-
-            alias _AtomicType = UCent;
-        }
+            alias _AtomicType = imported!"core.int128".Cent;
         else
-            static assert(is(_AtomicType!T),
-                "Cannot atomically load/store type of size " ~ T.sizeof.stringof);
+            static assert(false, "Cannot atomically load/store type of size " ~ T.sizeof.stringof);
     }
 }
 else: // !LDC
