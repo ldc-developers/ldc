@@ -1,5 +1,5 @@
-// RUN: not %ldc -mtriple=x86_64-linux-gnu -o- %s
-// RUN: %ldc -mtriple=x86_64-linux-gnu -ignore -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
+// RUN: not %ldc -ignore=false -mtriple=x86_64-linux-gnu -o- %s
+// RUN: %ldc -mtriple=x86_64-linux-gnu -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 
 // REQUIRES: target_X86
 

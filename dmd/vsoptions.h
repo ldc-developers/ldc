@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (C) 2009-2023 by The D Language Foundation, All Rights Reserved
+ * Copyright (C) 2009-2024 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
  * https://www.digitalmars.com
  * Distributed under the Boost Software License, Version 1.0.
@@ -25,14 +25,10 @@ struct VSOptions
     void initialize();
     const char *getVCBinDir(bool x64, const char *&addpath) const;
     const char *getVCLibDir(bool x64) const;
-#if IN_LLVM
     const char *getVCIncludeDir() const;
-#endif
     const char *getUCRTLibPath(bool x64) const;
     const char *getSDKLibPath(bool x64) const;
-#if IN_LLVM
     const char *getSDKIncludePath() const;
-#endif
 };
 
 #endif // _WIN32

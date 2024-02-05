@@ -230,6 +230,8 @@ else // !LDC
     }
 } // !LDC
 
+// MSVCRT.lib only provides _strdup
+mixin declareAlternateName!("strdup", "_strdup");
 
 /**
  * 32-bit x86 MS VC runtimes lack most single-precision math functions.

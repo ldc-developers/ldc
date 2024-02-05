@@ -34,9 +34,7 @@ else()
     endif()
 endif()
 
-if("${TARGET_SYSTEM}" MATCHES "MSVC")
-    set(cflags_base "CFLAGS_BASE=")
-else()
+if(NOT "${TARGET_SYSTEM}" MATCHES "MSVC")
     set(cflags_base "CFLAGS_BASE=-Wall -Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
 endif()
 
@@ -52,9 +50,10 @@ elseif(${BUILD_SHARED_LIBS} STREQUAL "ON")
     # gc: replaces druntime modules at link-time and so requires a static druntime
     list(REMOVE_ITEM testnames cycles gc)
 endif()
-list(REMOVE_ITEM testnames uuid) # MSVC only, custom Makefile (win64.mak)
 if("${TARGET_SYSTEM}" MATCHES "Windows")
     list(REMOVE_ITEM testnames valgrind)
+else()
+    list(REMOVE_ITEM testnames uuid)
 endif()
 
 foreach(name ${testnames})
@@ -73,9 +72,9 @@ foreach(name ${testnames})
         )
         add_test(NAME ${fullname}
             COMMAND ${GNU_MAKE_BIN} -C ${PROJECT_SOURCE_DIR}/druntime/test/${name}
-                ROOT=${outdir} DMD=${LDMD_EXE_FULL} MODEL=default BUILD=${build}
+                ROOT=${outdir} DMD=${LDMD_EXE_FULL} BUILD=${build}
                 DRUNTIME=${druntime_path_build} DRUNTIMESO=${shared_druntime_path_build}
-                ${cflags_base} ${linkdl}
+                SHARED=1 ${cflags_base} ${linkdl}
         )
         set_tests_properties(${fullname} PROPERTIES DEPENDS clean-${fullname})
     endforeach()

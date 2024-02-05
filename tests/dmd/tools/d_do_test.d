@@ -140,7 +140,6 @@ struct EnvData
     bool coverage_build;         /// `COVERAGE`: coverage build, skip linking & executing to save time
     bool autoUpdate;             /// `AUTO_UPDATE`: update `(TEST|RUN)_OUTPUT` on missmatch
     bool printRuntime;           /// `PRINT_RUNTIME`: Print time spent on a single test
-    bool usingMicrosoftCompiler; /// Using Visual Studio toolchain
     bool tryDisabled;            /// `TRY_DISABLED`:Silently try disabled tests (ignore failure and report success)
     version (LDC) bool noArchVariant;
 }
@@ -175,6 +174,15 @@ immutable(EnvData) processEnvironment()
     envData.compiler       = "dmd"; //should be replaced for other compilers
     envData.ccompiler      = environment.get("CC");
     envData.model          = envGetRequired("MODEL");
+    if (envData.os == "windows" && envData.model == "32")
+    {
+        // FIXME: we need to translate the default 32-bit model (COFF) on Windows to legacy `32mscoff`.
+        // Reason: OMF-specific tests are currently specified like this:
+        //   DISABLED: win32mscoff win64 …
+        // and `DISABLED: win32` would disable it for `win32omf` too.
+        // So we'd need something like an `ENABLED: win32omf` parameter to restrict tests to specific platforms.
+        envData.model = "32mscoff";
+    }
     envData.required_args  = environment.get("REQUIRED_ARGS");
     envData.dobjc          = environment.get("D_OBJC") == "1";
     envData.coverage_build = environment.get("DMD_TEST_COVERAGE") == "1";
@@ -190,20 +198,18 @@ immutable(EnvData) processEnvironment()
     {
         if (envData.os != "windows")
             envData.ccompiler = "c++";
-        else version (LDC_MSVC)
-            envData.ccompiler = "cl.exe";
         else if (envData.model == "32omf")
             envData.ccompiler = "dmc";
         else if (envData.model == "64")
-            envData.ccompiler = `C:\"Program Files (x86)"\"Microsoft Visual Studio 10.0"\VC\bin\amd64\cl.exe`;
+            envData.ccompiler = "cl";
+        else if (envData.model == "32mscoff")
+            envData.ccompiler = "cl";
         else
         {
             writeln("Unknown $OS$MODEL combination: ", envData.os, envData.model);
             throw new SilentQuit();
         }
     }
-
-    envData.usingMicrosoftCompiler = envData.ccompiler.toLower.endsWith("cl.exe");
 
     version (Windows) {} else
     {
@@ -525,8 +531,8 @@ private bool consumeNextToken(ref string file, const string token, ref const Env
                 file = file.stripLeft!(ch => ch == ' '); // Don't read line breaks
 
                 // Check if the current environment matches an entry in oss, which can either
-                // be an OS (e.g. "linux") or a combination of OS + MODEL (e.g. "windows32").
-                // The latter is important on windows because m32 might require other
+                // be an OS (e.g. "linux") or a combination of OS + MODEL (e.g. "windows32omf").
+                // The latter is important on windows because m32omf might require other
                 // parameters than m32mscoff/m64.
                 if (!oss.canFind!(o => o.skipOver(envData.os) && (o.empty || o == envData.model)))
                     continue; // Parameter was skipped
@@ -637,10 +643,6 @@ string getDisabledReason(string[] disabledPlatforms, const ref EnvData envData)
         const j = disabledPlatforms.countUntil!(p => p.startsWith("LDC_") && target.canFind(p[4 .. $]));
         if (j != -1)
             return "for LDC on " ~ disabledPlatforms[j];
-
-        // we don't use the 32mscoff model, but 32 instead
-        if (target == "win32" && disabledPlatforms.canFind("win32mscoff"))
-            return "on win32mscoff";
     }
 
     return null;
@@ -648,9 +650,9 @@ string getDisabledReason(string[] disabledPlatforms, const ref EnvData envData)
 
 unittest
 {
-    immutable EnvData win32         = { os: "windows",  model: "32", };
-    immutable EnvData win32mscoff   = { os: "windows",  model: "32mscoff", };
-    immutable EnvData win64         = { os: "windows",  model: "64", };
+    immutable EnvData win32omf      = { os: "windows",  model: "32omf" };
+    immutable EnvData win32mscoff   = { os: "windows",  model: "32mscoff" };
+    immutable EnvData win64         = { os: "windows",  model: "64" };
 
     assert(getDisabledReason(null, win64) is null);
 
@@ -661,10 +663,10 @@ unittest
     assert(getDisabledReason([ "linux", "win32" ], win64) is null);
 
     assert(getDisabledReason([ "win32mscoff" ], win32mscoff) == "on win32mscoff");
-    assert(getDisabledReason([ "win32mscoff" ], win32) is null);
+    assert(getDisabledReason([ "win32mscoff" ], win32omf) is null);
 
     assert(getDisabledReason([ "win32" ], win32mscoff) == "on win32");
-    assert(getDisabledReason([ "win32" ], win32) == "on win32");
+    assert(getDisabledReason([ "win32" ], win32omf) == "on win32");
 }
 /**
  * Reads the test configuration from the source code (using `findTestParameter` and
@@ -1155,17 +1157,17 @@ bool collectExtraSources (in string input_dir, in string output_dir, in string[]
         auto curSrc = input_dir ~ envData.sep ~"extra-files" ~ envData.sep ~ cur;
         auto curObj = output_dir ~ envData.sep ~ cur ~ envData.obj;
         string command = quoteSpaces(compiler);
-        if (envData.usingMicrosoftCompiler)
-        {
-            command ~= ` /c /nologo `~curSrc~` /Fo`~curObj;
-        }
-        else if (/*LDC*/ envData.noArchVariant || (envData.compiler == "dmd" && envData.os == "windows" && envData.model == "32omf"))
+        if (envData.model == "32omf") // dmc.exe
         {
             command ~= " -c "~curSrc~" -o"~curObj;
         }
+        else if (envData.os == "windows") // cl.exe
+        {
+            command ~= ` /c /nologo `~curSrc~` /Fo`~curObj;
+        }
         else
         {
-            command ~= " -m"~envData.model~" -c "~curSrc~" -o "~curObj;
+            command ~= (/*LDC*/ envData.noArchVariant ? null : " -m"~envData.model) ~ " -c "~curSrc~" -o "~curObj;
         }
         if (cxxflags)
             command ~= " " ~ cxxflags;
@@ -1501,7 +1503,10 @@ unittest
     assert(!compareOutput(`Bob took 12 berries`, `Bob took $n$ apples`, ed));
 
     assert( compareOutput(`HINT: ` ~ __FILE_FULL_PATH__ ~ ` is important`, `HINT: $p:d_do_test.d$ is important`, ed));
-    assert( compareOutput(`HINT: ` ~ __FILE_FULL_PATH__ ~ ` is important`, `HINT: $p:test/tools/d_do_test.d$ is important`, ed));
+    version (LDC)
+        assert( compareOutput(`HINT: ` ~ __FILE_FULL_PATH__ ~ ` is important`, `HINT: $p:tools/d_do_test.d$ is important`, ed));
+    else
+        assert( compareOutput(`HINT: ` ~ __FILE_FULL_PATH__ ~ ` is important`, `HINT: $p:test/tools/d_do_test.d$ is important`, ed));
 
     ed.sep = "/";
     assert(!compareOutput(`See /path/to/druntime/import/object.d`, `See $p:druntime/import/object.d$`, ed));
@@ -1928,7 +1933,7 @@ int tryMain(string[] args)
             {
                 toCleanup ~= test_app_dmd;
                 version(Windows)
-                    if (envData.usingMicrosoftCompiler)
+                    if (envData.model != "32omf")
                     {
                         toCleanup ~= test_app_dmd_base ~ to!string(permuteIndex) ~ ".ilk";
                         toCleanup ~= test_app_dmd_base ~ to!string(permuteIndex) ~ ".pdb";

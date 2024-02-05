@@ -179,7 +179,7 @@ static cl::opt<Diagnostic, true> warnings(
     cl::init(DIAGNOSTICoff));
 
 static cl::opt<bool, true> ignoreUnsupportedPragmas(
-    "ignore", cl::desc("Ignore unsupported pragmas"), cl::ZeroOrMore,
+    "ignore", cl::desc("Ignore unsupported pragmas (default)"), cl::ZeroOrMore,
     cl::location(global.params.ignoreUnsupportedPragmas));
 
 static cl::opt<CppStdRevision, true> cplusplus(
