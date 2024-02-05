@@ -505,13 +505,13 @@ message(STATUS "-- Building LDC with integrated LLD linker (LDC_WITH_LLD): ${LDC
 
 message(STATUS "-- Building LDC with enabled assertions (LDC_ENABLE_ASSERTIONS): ${LDC_ENABLE_ASSERTIONS}")
 if(LDC_ENABLE_ASSERTIONS)
-    append("-UNDEBUG" EXTRA_CXXFLAGS)
+    append("-UNDEBUG" LDC_CXXFLAGS)
     # avoid MSVC warning D9025 about "-DNDEBUG ... -UNDEBUG"
     string(REGEX REPLACE "(^| )[/-]D *NDEBUG( |$)" "\\1-UNDEBUG\\2" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
     string(REGEX REPLACE "(^| )[/-]D *NDEBUG( |$)" "\\1-UNDEBUG\\2" CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL}")
     string(REGEX REPLACE "(^| )[/-]D *NDEBUG( |$)" "\\1-UNDEBUG\\2" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
 else()
-    append("-DNDEBUG" EXTRA_CXXFLAGS)
+    append("-DNDEBUG" LDC_CXXFLAGS)
 endif()
 
 #
