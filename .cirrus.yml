@@ -41,9 +41,6 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
         rm $CIRRUS_WORKING_DIR/tests/sanitizers/fuzz_basic.d
         # the following 2 have regressed with LLVM 13
         rm $CIRRUS_WORKING_DIR/tests/sanitizers/msan_{noerror,uninitialized}.d
-      elif [[ "$CI_OS-$CI_ARCH" == "osx-arm64" ]]; then
-        # FIXME: LeakSanitizer: CHECK failed: sanitizer_allocator_secondary.h:177 "((IsAligned(reinterpret_cast<uptr>(p), page_size_))) != (0)"
-        rm $CIRRUS_WORKING_DIR/tests/sanitizers/lsan_memleak.d
       fi
       python3 runlit.py -v -j $PARALLELISM .
     run_dmd_testsuite_script: |
@@ -68,9 +65,6 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
         # std.path unittests apparently need HOME, which happens not to be set
         export HOME=~
         echo "Setting HOME to '$HOME'"
-      elif [[ "$CI_OS-$CI_ARCH" == "osx-arm64" ]]; then
-        # FIXME: sporadic segfaults/bus errors with enabled optimizations
-        excludes+='|^core.thread.fiber(-shared)?$'
       fi
       ctest -j$PARALLELISM --output-on-failure -E "$excludes"
 
@@ -213,40 +207,6 @@ install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
     tar -xf ldc2.tar.xz --strip 1 -C host-ldc
     rm ldc2.tar.xz
 
-# Installs macOS prerequisites.
-# Requires env variables CI_ARCH, HOST_LDC_VERSION and LLVM_VERSION.
-install_macos_prerequisites_template: &INSTALL_MACOS_PREREQUISITES_TEMPLATE
-  install_prerequisites_script: |
-    cd $CIRRUS_WORKING_DIR/..
-    sysctl -n hw.logicalcpu
-    # Download & extract CMake
-    curl -fL --retry 3 --max-time 300 -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.27.1/cmake-3.27.1-macos-universal.tar.gz
-    mkdir cmake
-    tar -xf cmake.tar.gz --strip 3 -C cmake
-    rm cmake.tar.gz
-    # Download & extract Ninja
-    curl -fL --retry 3 --max-time 60 -O https://github.com/symmetryinvestments/ninja/releases/download/v1.11.1-sym1/ninja-mac.zip
-    mkdir ninja
-    tar -xf ninja-mac.zip -C ninja
-    rm ninja-mac.zip
-    # Download & extract LDC-flavoured LLVM
-    echo 'Using LLVM with enabled assertions'
-    assertsSuffix="-withAsserts"
-    llvm_tag="CI"
-    if [[ "$LLVM_VERSION" == *.* ]]; then llvm_tag="ldc-v$LLVM_VERSION"; fi
-    curl -fL --retry 3 --max-time 300 -o llvm.tar.xz https://github.com/ldc-developers/llvm-project/releases/download/$llvm_tag/llvm-$LLVM_VERSION-osx-${CI_ARCH}${assertsSuffix}.tar.xz
-    mkdir llvm
-    tar -xf llvm.tar.xz --strip 1 -C llvm
-    rm llvm.tar.xz
-    # Download & extract host LDC
-    curl -fL --retry 3 --max-time 300 -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-osx-$CI_ARCH.tar.xz
-    mkdir host-ldc
-    tar -xf ldc2.tar.xz --strip 1 -C host-ldc
-    rm ldc2.tar.xz
-    # Install Python3
-    brew install python
-    python3 --version
-
 environment:
   CIRRUS_CLONE_DEPTH: 50
   HOST_LDC_VERSION: 1.31.0
@@ -272,35 +232,6 @@ task:
     # for gdmd:
     LANG: C.UTF-8
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
-  << : *COMMON_STEPS_TEMPLATE
-
-task:
-  name: macOS 12 $TASK_NAME_SUFFIX
-  macos_instance:
-    image: ghcr.io/cirruslabs/macos-monterey-xcode:latest
-  timeout_in: 25m
-  environment:
-    CI_OS: osx
-    # OS is preset to `darwin`
-    OS: osx
-    PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${CIRRUS_WORKING_DIR}/../llvm/bin:${PATH}
-    PARALLELISM: 4
-    matrix:
-      #- TASK_NAME_SUFFIX: x64 (M1)
-      #  EXTRA_CMAKE_FLAGS: -DCMAKE_OSX_ARCHITECTURES=x86_64 -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON
-      #  CI_ARCH: x86_64
-      #- TASK_NAME_SUFFIX: x64 (M1) shared-libs-only
-      #  EXTRA_CMAKE_FLAGS: -DCMAKE_OSX_ARCHITECTURES=x86_64 -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON
-      #  CI_ARCH: x86_64
-      - TASK_NAME_SUFFIX: arm64
-        EXTRA_CMAKE_FLAGS: -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON
-        CI_ARCH: arm64
-      - TASK_NAME_SUFFIX: arm64 shared-libs-only
-        EXTRA_CMAKE_FLAGS: -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DBUILD_LTO_LIBS=ON -DBUILD_SHARED_LIBS=ON
-        CI_ARCH: arm64
-  brew_cache:
-    folder: "$HOME/Library/Caches/Homebrew"
-  << : *INSTALL_MACOS_PREREQUISITES_TEMPLATE
   << : *COMMON_STEPS_TEMPLATE
 
 task:
