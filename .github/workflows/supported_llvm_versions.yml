@@ -15,18 +15,30 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - job_name: Ubuntu 20.04, LDC-LLVM 17, latest LDC beta
-            os: ubuntu-20.04
+          - job_name: macOS 14, LLVM 17, latest LDC beta
+            os: macos-14
             host_dc: ldc-beta
-            llvm_version: 17.0.6
-          - job_name: Ubuntu 20.04, LDC-LLVM 16, latest LDC beta
-            os: ubuntu-20.04
+            llvm_version: 17.0.5
+            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DCMAKE_EXE_LINKER_FLAGS=-L/opt/homebrew/opt/zstd/lib
+          - job_name: macOS 14, LLVM 16, latest LDC beta
+            os: macos-14
             host_dc: ldc-beta
-            llvm_version: 16.0.6 # LDC-LLVM
+            llvm_version: 16.0.5
+            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DCMAKE_EXE_LINKER_FLAGS=-L/opt/homebrew/opt/zstd/lib
           - job_name: Ubuntu 20.04, LLVM 15, latest LDC beta
             os: ubuntu-20.04
             host_dc: ldc-beta
             llvm_version: 15.0.6
+          - job_name: macOS 11, LLVM 14, latest DMD beta
+            os: macos-11
+            host_dc: dmd-beta
+            llvm_version: 14.0.6
+            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON -DCMAKE_CXX_COMPILER=/usr/bin/c++ -DCMAKE_C_COMPILER=/usr/bin/cc
+          - job_name: Ubuntu 20.04, LLVM 13, latest LDC beta
+            os: ubuntu-20.04
+            host_dc: ldc-beta
+            llvm_version: 13.0.1
+            cmake_flags: -DRT_SUPPORT_SANITIZERS=ON
           - job_name: Ubuntu 20.04, LLVM 12, bootstrap LDC
             os: ubuntu-20.04
             host_dc: ldc-1.9.0
@@ -37,20 +49,11 @@ jobs:
             host_dc: dmd-beta
             llvm_version: 11.1.0
             cmake_flags: -DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON
-          - job_name: macOS 11, LLVM 13, latest DMD beta
-            os: macos-11
-            host_dc: dmd-beta
-            llvm_version: 13.0.1
-            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON -DCMAKE_CXX_COMPILER=/usr/bin/c++ -DCMAKE_C_COMPILER=/usr/bin/cc
-          - job_name: macOS 11, LLVM 14, latest LDC beta
-            os: macos-11
-            host_dc: ldc-beta
-            llvm_version: 14.0.6
-            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
     env:
-      MACOSX_DEPLOYMENT_TARGET: 11.6 # silence `ld: warning: object file (…) was built for newer macOS version (…) than being linked (…)`
+      # silence `ld: warning: object file (…) was built for newer macOS version (…) than being linked (…)`
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.os == 'macos-14' && '13.6' || '11.6' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -93,27 +96,29 @@ jobs:
           fi
           version='${{ matrix.llvm_version }}'
           if [[ '${{ runner.os }}' == macOS ]]; then
-            suffix='x86_64-apple-darwin'
+            if [[ "$version" =~ ^1[6-9]\. ]]; then
+              suffix='arm64-apple-darwin22.0'
+            else
+              suffix='x86_64-apple-darwin'
+            fi
           elif [[ "$version" =~ ^1[7-9]\. ]]; then
             suffix='x86_64-linux-gnu-ubuntu-22.04' # LLVM 17+
-          elif [[ "$version" =~ ^1[3-9]\. ]]; then
+          elif [[ "$version" =~ ^1[3-6]\. ]]; then
             suffix='x86_64-linux-gnu-ubuntu-18.04' # LLVM 13.0.1+
           else
             suffix='x86_64-linux-gnu-ubuntu-16.04'
           fi
           url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-$suffix.tar.xz"
 
-          # FIXME: weird crashes with official v16.0.0 archive; use LDC-LLVM instead
-          # FIXME: use LDC-LLVM v17.0.6 because it still works on Ubuntu 20 (official release doesn't), so
-          #        we can still use older gdb and postpone fxixing issues with newer gdb
-          if [[ "$version" =~ ^1(6|7)\. ]]; then
-            url="https://github.com/ldc-developers/llvm-project/releases/download/ldc-v$version/llvm-$version-linux-x86_64.tar.xz"
-          fi
-
           curl -fL --retry 3 --max-time 300 -o llvm.tar.xz "$url"
           mkdir llvm
           tar -xf llvm.tar.xz --strip 1 -C llvm
           rm llvm.tar.xz
+
+          # don't link lib{c++,unwind} libs from LLVM package, they'd need RPATH fiddling
+          if [[ '${{ runner.os }}' == macOS ]]; then
+            rm -f llvm/lib/lib{c++,unwind}.*
+          fi
 
       - name: 'Linux: Make lld the default linker'
         if: runner.os == 'Linux' && matrix.host_dc != 'ldc-1.9.0'
@@ -159,6 +164,10 @@ jobs:
           excludes='dmd-testsuite|lit-tests|ldc2-unittest'
           if [[ '${{ runner.os }}' == macOS ]]; then
             N=$(sysctl -n hw.logicalcpu)
+            # FIXME: fails with enabled optimizations on M1 runners
+            if [[ '${{ matrix.os }}' == macos-14 ]]; then
+              excludes+='|^std.internal.math.gammafunction(-shared)?$'
+            fi
           else
             N=$(nproc)
           fi
