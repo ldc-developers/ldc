@@ -670,8 +670,8 @@ void ArgsBuilder::addDefaultPlatformLibs() {
 
   switch (triple.getOS()) {
   case llvm::Triple::Linux:
-    addSoname = true;
     if (triple.getEnvironment() == llvm::Triple::Android) {
+      addSoname = true;
       args.push_back("-ldl");
       args.push_back("-lm");
       break;
@@ -682,15 +682,16 @@ void ArgsBuilder::addDefaultPlatformLibs() {
     args.push_back("-lrt");
     args.push_back("-ldl");
   // fallthrough
-  case llvm::Triple::Darwin:
-  case llvm::Triple::MacOSX:
   case llvm::Triple::FreeBSD:
   case llvm::Triple::NetBSD:
   case llvm::Triple::OpenBSD:
   case llvm::Triple::DragonFly:
-    addSoname = true;
     args.push_back("-lpthread");
     args.push_back("-lm");
+  // fallthrough
+  case llvm::Triple::Darwin:
+  case llvm::Triple::MacOSX:
+    addSoname = true;
     break;
 
   case llvm::Triple::Solaris:
