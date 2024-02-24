@@ -147,6 +147,9 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 
 static void assemble(const std::string &asmpath, const std::string &objpath) {
   std::vector<std::string> args;
+  std::string gcc;
+  gcc = getGcc(args);
+
   args.push_back("-O3");
   args.push_back("-c");
   args.push_back("-xassembler");
@@ -157,7 +160,7 @@ static void assemble(const std::string &asmpath, const std::string &objpath) {
   appendTargetArgsForGcc(args);
 
   // Run the compiler to assembly the program.
-  int R = executeToolAndWait(Loc(), getGcc(), args, global.params.v.verbose);
+  int R = executeToolAndWait(Loc(), gcc, args, global.params.v.verbose);
   if (R) {
     error(Loc(), "Error while invoking external assembler.");
     fatal();

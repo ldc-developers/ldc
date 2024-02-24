@@ -22,9 +22,11 @@ const char *getPathToImportc_h(const Loc &loc) {
   return cached;
 }
 
-const std::string &getCC(bool isMSVC) {
-  static std::string cached;
-  if (cached.empty()) {
+const std::string &getCC(bool isMSVC,
+                         std::vector<std::string> &additional_args) {
+  static std::string cached_cc;
+  static std::vector<std::string> cached_args;
+  if (cached_cc.empty()) {
     std::string fallback = "cc";
     if (isMSVC) {
 #ifdef _WIN32
@@ -40,9 +42,11 @@ const std::string &getCC(bool isMSVC) {
       fallback = "clang-cl";
 #endif
     }
-    cached = getGcc(fallback.c_str());
+    cached_cc = getGcc(cached_args, fallback.c_str());
   }
-  return cached;
+
+  additional_args.insert(additional_args.end(), cached_args.cbegin(), cached_args.cend());
+  return cached_cc;
 }
 
 FileName getOutputPath(const Loc &loc, const char *csrcfile) {
@@ -84,8 +88,8 @@ FileName runCPreprocessor(FileName csrcfile, const Loc &loc, bool &ifile,
 
   FileName ipath = getOutputPath(loc, csrcfile.toChars());
 
-  const std::string &cc = getCC(isMSVC);
   std::vector<std::string> args;
+  const std::string &cc = getCC(isMSVC, args);
 
   if (!isMSVC)
     appendTargetArgsForGcc(args);

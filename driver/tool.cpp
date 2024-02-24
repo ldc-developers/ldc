@@ -76,7 +76,27 @@ std::string getProgram(const char *fallbackName,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-std::string getGcc(const char *fallback) { return getProgram(fallback, &gcc, "CC"); }
+std::string getGcc(std::vector<std::string> &additional_args,
+                   const char *fallback) {
+	// In case $CC contains spaces split it into a command and arguments
+	std::string cc = env::get("CC");
+	if (cc.empty())
+		return getProgram(fallback, &gcc);
+
+	// $CC is set so fallback doesn't matter anymore.
+	if (cc.find(' ') == cc.npos)
+		return getProgram(cc.c_str(), &gcc);
+
+	llvm::StringRef sr(cc);
+	llvm::SmallVector<llvm::StringRef, 8> args;
+	sr.split(args, ' ', /*MaxSplit=*/-1, /*keepEmpty=*/false);
+
+	// args[0] == CC command, args[1..] = CLI options
+	additional_args.reserve(additional_args.size() + args.size() - 1);
+	for (size_t i = 1; i < args.size(); i ++)
+		additional_args.emplace_back(args[i].str());
+	return getProgram(args[0].str().c_str(), &gcc);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
