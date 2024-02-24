@@ -24,6 +24,11 @@ runs:
           del tests\debuginfo\strings_cdb.d || exit /b
           del tests\debuginfo\msvc_dwarf.d || exit /b
         )
+        :: FIXME: all ASan tests on Win64 regressed with the VS 2022 v17.9 image (worked fine until v17.8)
+        ::        (probably https://github.com/llvm/llvm-project/issues/82450)
+        if "${{ inputs.arch }}" == "x64" (
+          del tests\sanitizers\*asan* || exit /b
+        )
         call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=${{ inputs.arch }} || exit /b
         echo on
         cd ..\build || exit /b
