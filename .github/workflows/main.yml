@@ -142,7 +142,7 @@ jobs:
         run: |
           set -eux
           cd ..
-          triple='${{ matrix.arch }}-apple-ios'
+          triple='${{ matrix.arch }}-apple-ios12.0${{ matrix.arch == 'x86_64' && '-simulator' || '' }}'
           installed/bin/ldc2 -mtriple="$triple" hello.d -of=hello_ios
           installed/bin/ldc2 -mtriple="$triple" hello.d -of=hello_ios_shared -link-defaultlib-shared
 

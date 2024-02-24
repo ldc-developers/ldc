@@ -15,7 +15,7 @@ runs:
 
         arch='${{ inputs.arch }}'
         deployment_target='${{ inputs.ios_deployment_target }}'
-        triple="$arch-apple-ios$deployment_target"
+        triple="$arch-apple-ios$deployment_target${{ inputs.arch == 'x86_64' && '-simulator' || '' }}"
         if [[ "$arch" == arm64 ]]; then
             sysroot='/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk'
         else
