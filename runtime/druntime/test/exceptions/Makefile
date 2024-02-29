@@ -20,9 +20,7 @@ ifeq ($(OS)-$(BUILD),dragonflybsd-debug)
     LINE_TRACE_DFLAGS:=-L--export-dynamic
 endif
 ifeq ($(OS)-$(BUILD),osx-debug)
-    # LDC: exclude long_backtrace_trunc, as resolving file:line infos via external `atos` tool
-    #      yields absolute paths of varying lengths
-    TESTS+=line_trace line_trace_21656 $(if $(findstring ldmd2,$(DMD)),,long_backtrace_trunc) cpp_demangle
+    TESTS+=line_trace line_trace_21656 cpp_demangle
     LINE_TRACE_DFLAGS:=
 endif
 ifeq ($(OS)-$(BUILD),windows-debug)
@@ -37,13 +35,6 @@ DIFF:=diff
 SED:=sed
 GDB:=gdb
 
-ifneq (,$(findstring ldmd2,$(DMD)))
-    ifeq ($(OS),osx)
-        # convert absolute paths from `atos` tool to expected relative ones
-        OSX_SED_MAKE_RELATIVE:=s|^.*/src/|src/|g;
-    endif
-endif
-
 .PHONY: all clean
 all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS)))
 
@@ -51,7 +42,7 @@ $(ROOT)/line_trace.done: $(ROOT)/line_trace$(DOTEXE)
 	@echo Testing line_trace
 	$(QUIET)$(TIMELIMIT)$(ROOT)/line_trace $(RUN_ARGS) > $(ROOT)/line_trace.output
 	# Use sed to canonicalize line_trace.output and compare against expected output in line_trace.exp
-	$(QUIET)$(SED) "$(OSX_SED_MAKE_RELATIVE)s/\[0x[0-9a-f]*\]/\[ADDR\]/g; s/scope //g; s/Nl//g" $(ROOT)/line_trace.output | $(DIFF) line_trace.exp -
+	$(QUIET)$(SED) "s|^.*/src/|src/|g; s/\[0x[0-9a-f]*\]/\[ADDR\]/g; s/scope //g; s/Nl//g" $(ROOT)/line_trace.output | $(DIFF) line_trace.exp -
 	@rm -f $(ROOT)/line_trace.output
 	@touch $@
 
@@ -61,7 +52,7 @@ $(ROOT)/line_trace_21656.done: $(ROOT)/line_trace$(DOTEXE)
 	@mkdir -p $(ROOT)/line_trace_21656
 	@touch $(ROOT)/line_trace_21656/line_trace
 	$(QUIET)cd $(ROOT)/line_trace_21656 && PATH="..:$$PATH" $(TIMELIMIT)line_trace $(RUN_ARGS) > line_trace.output
-	$(QUIET)$(SED) "$(OSX_SED_MAKE_RELATIVE)s/\[0x[0-9a-f]*\]/\[ADDR\]/g; s/scope //g; s/Nl//g" $(ROOT)/line_trace_21656/line_trace.output | $(DIFF) line_trace.exp -
+	$(QUIET)$(SED) "s|^.*/src/|src/|g; s/\[0x[0-9a-f]*\]/\[ADDR\]/g; s/scope //g; s/Nl//g" $(ROOT)/line_trace_21656/line_trace.output | $(DIFF) line_trace.exp -
 	@rm -rf $(ROOT)/line_trace_21656
 	@touch $@
 
@@ -69,7 +60,7 @@ $(ROOT)/long_backtrace_trunc.done: $(ROOT)/long_backtrace_trunc$(DOTEXE)
 	@echo Testing long_backtrace_trunc
 	$(QUIET)$(TIMELIMIT)$(ROOT)/long_backtrace_trunc $(RUN_ARGS) > $(ROOT)/long_backtrace_trunc.output
 	# Use sed to canonicalize long_backtrace_trunc.output and compare against expected output in long_backtrace_trunc.exp
-	$(QUIET)$(SED) "$(OSX_SED_MAKE_RELATIVE)s/\[0x[0-9a-f]*\]/\[ADDR\]/g; s/scope //g; s/Nl//g" $(ROOT)/long_backtrace_trunc.output | $(DIFF) long_backtrace_trunc.exp -
+	$(QUIET)$(SED) "s|^.*/src/|src/|g; s/\[0x[0-9a-f]*\]/\[ADDR\]/g; s/scope //g; s/Nl//g" $(ROOT)/long_backtrace_trunc.output | $(DIFF) long_backtrace_trunc.exp -
 	@rm -f $(ROOT)/long_backtrace_trunc.output
 	@touch $@
 
