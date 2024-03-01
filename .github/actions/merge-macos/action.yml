@@ -33,9 +33,6 @@ runs:
           lipo -create -output $exe ../ldc2-x86_64/$exe ../ldc2-arm64/$exe
         done
 
-        ios_triple_suffix=$(grep -o -E '\-apple-ios[0-9\.]+' etc/ldc2.conf | head -n1)
-        ios_version=${ios_triple_suffix:10}
-
         # ldc2.conf: replace the default section and add extra sections
         # note: x86_64-apple-ios section already exists
         sections="
@@ -57,11 +54,6 @@ runs:
 
         \"x86_64-apple-\":
         {
-            switches = [
-                \"-defaultlib=phobos2-ldc,druntime-ldc\",
-                \"-Xcc=-arch\",
-                \"-Xcc=x86_64\",
-            ];
             lib-dirs = [
                 \"%%ldcbinarypath%%/../lib-x86_64\",
             ];
@@ -70,11 +62,6 @@ runs:
 
         \"arm64-apple-\":
         {
-            switches = [
-                \"-defaultlib=phobos2-ldc,druntime-ldc\",
-                \"-Xcc=-arch\",
-                \"-Xcc=arm64\",
-            ];
             lib-dirs = [
                 \"%%ldcbinarypath%%/../lib-arm64\",
             ];
@@ -85,9 +72,6 @@ runs:
         {
             switches = [
                 \"-defaultlib=phobos2-ldc,druntime-ldc\",
-                \"-Xcc=-target\",
-                \"-Xcc=arm64-apple-ios$ios_version\",
-                \"-Xcc=-miphoneos-version-min=$ios_version\",
                 \"-Xcc=-isysroot\",
                 \"-Xcc=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk\",
             ];
