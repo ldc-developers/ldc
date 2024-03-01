@@ -679,6 +679,10 @@ cl::opt<LTOKind> ltoMode(
         clEnumValN(LTO_Full, "full", "Merges all input into a single module"),
         clEnumValN(LTO_Thin, "thin",
                    "Parallel importing and codegen (faster than 'full')")));
+cl::opt<bool> ltoFatObjects(
+    "ffat-lto-objects", cl::ZeroOrMore,
+    cl::desc("Include both IR and object code in object file output; only "
+             "effective when compiling with -flto."));
 
 cl::opt<std::string>
     saveOptimizationRecord("fsave-optimization-record",
