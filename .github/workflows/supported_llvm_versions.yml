@@ -136,7 +136,7 @@ jobs:
             -DLLVM_ROOT_DIR="$PWD/llvm" \
             -DLDC_LINK_MANUALLY=OFF \
             ${{ matrix.cmake_flags }}
-          ninja obj/ldc2.o all ldc2-unittest all-test-runners -v -j1
+          ninja obj/ldc2.o all ldc2-unittest all-test-runners
           bin/ldc2 --version
 
       - name: Run LDC D unittests
