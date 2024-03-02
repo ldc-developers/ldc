@@ -1,7 +1,7 @@
 # LDC master
 
 #### Big news
-- Frontend, druntime and Phobos are at version [2.107.0+](https://dlang.org/changelog/2.107.0.html). (#4563, #4577)
+- Frontend, druntime and Phobos are at version [2.107.1](https://dlang.org/changelog/2.107.0.html). (#4563, #4577, #4587)
 
 #### Platform support
 
