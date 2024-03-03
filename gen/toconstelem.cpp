@@ -25,6 +25,8 @@
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
 
+using namespace dmd;
+
 /// Emits an LLVM constant corresponding to the expression (or an error if
 /// impossible).
 class ToConstElemVisitor : public Visitor {
@@ -253,7 +255,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    if (e->type->equivalent(e->e1->type)) {
+    if (equivalent(e->type, e->e1->type)) {
       if (!e->lwr && !e->upr) {
         result = toConstElem(e->e1, p);
         return;
@@ -425,7 +427,7 @@ public:
       // gep
       LLConstant *idxs[2] = {DtoConstSize_t(0), index};
       LLConstant *val = isaConstant(getIrGlobal(vd)->value);
-      val = DtoBitCast(val, DtoType(vd->type->pointerTo()));
+      val = DtoBitCast(val, DtoType(pointerTo(vd->type)));
       LLConstant *gep = llvm::ConstantExpr::getGetElementPtr(
           DtoType(vd->type), val, idxs, true);
 

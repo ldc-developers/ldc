@@ -32,6 +32,8 @@
 #include "ir/irtype.h"
 #include "llvm/IR/LLVMContext.h"
 
+using namespace dmd;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 IrFuncTy &DtoIrTypeFunction(DValue *fnval) {
@@ -963,7 +965,7 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
     switch (rbase->ty) {
     case TY::Tarray:
       if (tf->isref()) {
-        retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
+        retllval = DtoBitCast(retllval, DtoType(pointerTo(rbase)));
       } else {
         retllval = DtoSlicePaint(retllval, DtoType(rbase));
       }
@@ -972,7 +974,7 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
     case TY::Tsarray:
       if (nextbase->ty == TY::Tvector && !tf->isref()) {
         if (retValIsLVal) {
-          retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
+          retllval = DtoBitCast(retllval, DtoType(pointerTo(rbase)));
         } else {
           // static arrays need to be dumped to memory; use vector alignment
           retllval =
@@ -988,7 +990,7 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
     case TY::Taarray:
     case TY::Tpointer:
       if (tf->isref()) {
-        retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
+        retllval = DtoBitCast(retllval, DtoType(pointerTo(rbase)));
       } else {
         retllval = DtoBitCast(retllval, DtoType(rbase));
       }

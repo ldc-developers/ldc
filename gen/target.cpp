@@ -22,6 +22,7 @@
 #include "gen/llvmhelpers.h"
 #include <assert.h>
 
+using namespace dmd;
 using llvm::APFloat;
 
 // in dmd/argtypes_x86.d:

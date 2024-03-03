@@ -23,6 +23,8 @@
 #include "gen/recursivevisitor.h"
 #include "gen/uda.h"
 
+using namespace dmd;
+
 namespace {
 
 /// An ASTVisitor that checks whether the number of statements is larger than a
@@ -166,7 +168,7 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
     global.gaggedForInlining = true;
 
     bool semantic_error = false;
-    if (fdecl.functionSemantic3()) {
+    if (functionSemantic3(&fdecl)) {
       Module::runDeferredSemantic3();
     } else {
       IF_LOG Logger::println("Failed functionSemantic3.");

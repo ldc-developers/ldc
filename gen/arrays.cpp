@@ -28,6 +28,8 @@
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 
+using namespace dmd;
+
 static void DtoSetArray(DValue *array, DValue *rhs);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -805,7 +807,7 @@ bool validCompareWithMemcmp(DValue *l, DValue *r) {
 
   // Only memcmp equivalent element types (memcmp should be used for
   // `const int[3] == int[]`, but not for `int[3] == short[3]`).
-  if (!lElemType->equivalent(rElemType))
+  if (!equivalent(lElemType, rElemType))
     return false;
 
   return validCompareWithMemcmpType(lElemType);

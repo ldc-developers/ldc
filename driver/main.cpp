@@ -91,6 +91,7 @@ void gendocfile(Module *m);
 // In dmd/mars.d
 void generateJson(Modules *modules);
 
+using namespace dmd;
 using namespace opts;
 
 static StringsAdapter impPathsStore("I", global.params.imppath);

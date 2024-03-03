@@ -23,6 +23,8 @@
 #include "ir/irtypeaggr.h"
 #include "llvm/Analysis/ValueTracking.h"
 
+using namespace dmd;
+
 namespace {
 unsigned getVthisIdx(AggregateDeclaration *ad) {
   return getFieldGEPIndex(ad, ad->vthis);
@@ -437,7 +439,7 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
     LLType *t = nullptr;
     unsigned alignment = 0;
     if (captureByRef(vd)) {
-      t = DtoType(vd->type->pointerTo());
+      t = DtoType(pointerTo(vd->type));
       alignment = target.ptrsize;
     } else if (isParam && (vd->storage_class & STClazy)) {
       // the type is a delegate (LL struct)

@@ -60,6 +60,8 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include <iostream>
 
+using namespace dmd;
+
 bool isAnyMainFunction(FuncDeclaration *fd) {
   return fd->isMain() || fd->isCMain();
 }
@@ -123,7 +125,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
       ++nextLLArgIdx;
     } else {
       // sext/zext return
-      DtoAddExtendAttr(byref ? rt->pointerTo() : rt, attrs);
+      DtoAddExtendAttr(byref ? pointerTo(rt) : rt, attrs);
     }
     newIrFty.ret = new IrFuncTyArg(rt, byref, std::move(attrs));
   }
@@ -299,13 +301,13 @@ static llvm::FunctionType *DtoVaFunctionType(FuncDeclaration *fdecl) {
 
   irFty.ret = new IrFuncTyArg(Type::tvoid, false);
 
-  irFty.args.push_back(new IrFuncTyArg(Type::tvoid->pointerTo(), false));
+  irFty.args.push_back(new IrFuncTyArg(pointerTo(Type::tvoid), false));
 
   if (fdecl->llvmInternal == LLVMva_start) {
     irFty.funcType = GET_INTRINSIC_DECL(vastart)->getFunctionType();
   } else if (fdecl->llvmInternal == LLVMva_copy) {
     irFty.funcType = GET_INTRINSIC_DECL(vacopy)->getFunctionType();
-    irFty.args.push_back(new IrFuncTyArg(Type::tvoid->pointerTo(), false));
+    irFty.args.push_back(new IrFuncTyArg(pointerTo(Type::tvoid), false));
   } else if (fdecl->llvmInternal == LLVMva_end) {
     irFty.funcType = GET_INTRINSIC_DECL(vaend)->getFunctionType();
   }
@@ -330,7 +332,7 @@ llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl) {
     AggregateDeclaration *ad = p->isMember2();
     (void)ad;
     assert(ad);
-    dnest = Type::tvoid->pointerTo();
+    dnest = pointerTo(Type::tvoid);
   } else if (fdecl->needThis()) {
     if (AggregateDeclaration *ad = fdecl->isMember2()) {
       IF_LOG Logger::println("isMember = this is: %s", ad->type->toChars());
@@ -353,7 +355,7 @@ llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl) {
                                  /*isVarArg=*/false);
     }
   } else if (fdecl->isNested()) {
-    dnest = Type::tvoid->pointerTo();
+    dnest = pointerTo(Type::tvoid);
   }
 
   LLFunctionType *functype = DtoFunctionType(
@@ -588,7 +590,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
                     "defined after declaration.");
     if (fdecl->semanticRun < PASS::semantic3done) {
       Logger::println("Function hasn't had sema3 run yet, running it now.");
-      const bool semaSuccess = fdecl->functionSemantic3();
+      const bool semaSuccess = functionSemantic3(fdecl);
       (void)semaSuccess;
       assert(semaSuccess);
       Module::runDeferredSemantic3();

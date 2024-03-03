@@ -34,6 +34,8 @@
 #include "ir/irvar.h"
 #include "llvm/ADT/SmallString.h"
 
+using namespace dmd;
+
 //////////////////////////////////////////////////////////////////////////////
 
 class CodegenVisitor : public Visitor {

@@ -22,8 +22,7 @@
 #include "ir/iraggr.h"
 #include "ir/irfunction.h"
 
-// in dmd/opover.d:
-AggregateDeclaration *isAggregate(Type *t);
+using namespace dmd;
 
 RTTIBuilder::RTTIBuilder(Type *baseType) {
   const auto ad = isAggregate(baseType);
@@ -114,7 +113,7 @@ void RTTIBuilder::push_array(llvm::Constant *CI, uint64_t dim, Type *valtype,
   setLinkage(lwc, G);
   G->setAlignment(llvm::MaybeAlign(DtoAlignment(valtype)));
 
-  push_array(dim, DtoBitCast(G, DtoType(valtype->pointerTo())));
+  push_array(dim, DtoBitCast(G, DtoType(pointerTo(valtype))));
 }
 
 void RTTIBuilder::push_array(uint64_t dim, llvm::Constant *ptr) {

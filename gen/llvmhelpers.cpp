@@ -47,6 +47,8 @@
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <stack>
 
+using namespace dmd;
+
 llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel(
     "fthread-model", llvm::cl::ZeroOrMore, llvm::cl::desc("Thread model"),
     llvm::cl::init(llvm::GlobalVariable::GeneralDynamicTLSModel),
@@ -907,7 +909,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     // already been done
     IrLocal *irLocal = getIrLocal(vd, true);
 
-    Type *type = isSpecialRefVar(vd) ? vd->type->pointerTo() : vd->type;
+    Type *type = isSpecialRefVar(vd) ? pointerTo(vd->type) : vd->type;
 
     llvm::Value *allocainst;
     bool isRealAlloca = false;
@@ -1326,9 +1328,9 @@ Type *stripModifiers(Type *type, bool transitive) {
   }
 
   if (transitive) {
-    return type->unqualify(MODimmutable | MODconst | MODwild);
+    return unqualify(type, MODimmutable | MODconst | MODwild);
   }
-  return type->castMod(0);
+  return castMod(type, 0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

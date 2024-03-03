@@ -22,6 +22,8 @@
 #include "gen/llvmhelpers.h"
 #include "llvm/Support/CommandLine.h"
 
+using namespace dmd;
+
 namespace {
 bool parseStringExp(Expression *e, const char *&res) {
   e = optimize(e, WANTvalue);

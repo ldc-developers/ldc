@@ -19,6 +19,8 @@
 #include "gen/llvmhelpers.h"
 #include "gen/tollvm.h"
 
+using namespace dmd;
+
 namespace {
 struct Integer2Rewrite : BaseBitcastABIRewrite {
   LLType *type(Type *t) override {
@@ -57,15 +59,15 @@ FlattenedFields visitStructFields(Type *ty, unsigned baseOffset) {
   }
   switch (ty->toBasetype()->ty) {
   case TY::Tcomplex32: // treat it as {float32, float32}
-    result.fields[0].ty = Type::tfloat32->pointerTo();
-    result.fields[1].ty = Type::tfloat32->pointerTo();
+    result.fields[0].ty = pointerTo(Type::tfloat32);
+    result.fields[1].ty = pointerTo(Type::tfloat32);
     result.fields[0].offset = baseOffset;
     result.fields[1].offset = baseOffset + 4;
     result.length = 2;
     break;
   case TY::Tcomplex64: // treat it as {float64, float64}
-    result.fields[0].ty = Type::tfloat64->pointerTo();
-    result.fields[1].ty = Type::tfloat64->pointerTo();
+    result.fields[0].ty = pointerTo(Type::tfloat64);
+    result.fields[1].ty = pointerTo(Type::tfloat64);
     result.fields[0].offset = baseOffset;
     result.fields[1].offset = baseOffset + 8;
     result.length = 2;
@@ -160,7 +162,7 @@ private:
 public:
   Type *vaListType() override {
     // va_list is void*
-    return Type::tvoid->pointerTo();
+    return pointerTo(Type::tvoid);
   }
   bool returnInArg(TypeFunction *tf, bool) override {
     if (tf->isref()) {

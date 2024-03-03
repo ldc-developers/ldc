@@ -40,6 +40,8 @@
 #include "llvm/Support/raw_ostream.h"
 #endif
 
+using namespace dmd;
+
 //////////////////////////////////////////////////////////////////////////////
 
 IrClass::IrClass(ClassDeclaration *cd) : IrAggr(cd) {
@@ -217,7 +219,7 @@ LLConstant *IrClass::getVtblInit() {
       // it is probably a bug that it still occurs that late.
       if (fd->inferRetType() && !fd->type->nextOf()) {
         Logger::println("Running late functionSemantic to infer return type.");
-        if (!fd->functionSemantic()) {
+        if (!functionSemantic(fd)) {
           if (fd->hasSemantic3Errors()) {
             Logger::println(
                 "functionSemantic failed; using null for vtbl entry.");
@@ -247,8 +249,8 @@ LLConstant *IrClass::getVtblInit() {
           if (fd2->isFuture()) {
             continue;
           }
-          if (fd->leastAsSpecialized(fd2, nullptr) != MATCH::nomatch ||
-              fd2->leastAsSpecialized(fd, nullptr) != MATCH::nomatch) {
+          if (FuncDeclaration::leastAsSpecialized(fd, fd2, nullptr) != MATCH::nomatch ||
+              FuncDeclaration::leastAsSpecialized(fd2, fd, nullptr) != MATCH::nomatch) {
             TypeFunction *tf = static_cast<TypeFunction *>(fd->type);
             if (tf->ty == TY::Tfunction) {
               error(cd->loc,
@@ -705,7 +707,7 @@ LLConstant *IrClass::getClassInfoInterfaces() {
   constants.reserve(cd->vtblInterfaces->length);
 
   LLType *classinfo_type = DtoType(getClassInfoType());
-  LLType *voidptrptr_type = DtoType(Type::tvoid->pointerTo()->pointerTo());
+  LLType *voidptrptr_type = DtoType(pointerTo(pointerTo(Type::tvoid)));
   LLStructType *interface_type =
       isaStruct(DtoType(interfacesArrayType->nextOf()));
   assert(interface_type);
