@@ -9,6 +9,7 @@
 
 #include "gen/abi/abi.h"
 
+#include "dmd/argtypes.h"
 #include "dmd/expression.h"
 #include "dmd/id.h"
 #include "dmd/identifier.h"
@@ -26,9 +27,6 @@
 #include <algorithm>
 
 using namespace dmd;
-
-// in dmd/argtypes_aarch64.d:
-bool isHFVA(Type *t, int maxNumElements, Type **rewriteType);
 
 //////////////////////////////////////////////////////////////////////////////
 

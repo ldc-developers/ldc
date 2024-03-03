@@ -9,6 +9,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "dmd/argtypes.h"
 #include "dmd/errors.h"
 #include "dmd/expression.h"
 #include "dmd/ldcbindings.h"
@@ -24,13 +25,6 @@
 
 using namespace dmd;
 using llvm::APFloat;
-
-// in dmd/argtypes_x86.d:
-TypeTuple *toArgTypes_x86(Type *t);
-// in dmd/argtypes_sysv_x64.d:
-TypeTuple *toArgTypes_sysv_x64(Type *t);
-// in dmd/argtypes_aarch64.d:
-TypeTuple *toArgTypes_aarch64(Type *t);
 
 namespace {
 // Returns the LL type to be used for D `real` (C `long double`).
