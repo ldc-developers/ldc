@@ -104,6 +104,7 @@ LLConstantInt *DtoConstUlong(uint64_t i);
 LLConstantInt *DtoConstLong(int64_t i);
 LLConstantInt *DtoConstUint(unsigned i);
 LLConstantInt *DtoConstInt(int i);
+LLConstantInt *DtoConstUshort(uint16_t i);
 LLConstantInt *DtoConstUbyte(unsigned char i);
 LLConstant *DtoConstFP(Type *t, real_t value);
 

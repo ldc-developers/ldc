@@ -330,6 +330,8 @@ unsigned buildClassinfoFlags(ClassDeclaration *cd) {
   }
   flags |= ClassFlags::noPointers;
 
+  // TODO: ClassFlags::hasNameSig
+
   return flags;
 }
 }
@@ -346,7 +348,7 @@ LLConstant *IrClass::getClassInfoInit() {
   Type *const cinfoType = getClassInfoType(); // check declaration in object.d
   ClassDeclaration *const cinfo = Type::typeinfoclass;
 
-  if (cinfo->fields.length != 12) {
+  if (cinfo->fields.length != 14) {
     error(Loc(), "Unexpected number of fields in `object.ClassInfo`; "
                  "druntime version does not match compiler (see -v)");
     fatal();
@@ -403,17 +405,25 @@ LLConstant *IrClass::getClassInfoInit() {
 
   // ClassFlags m_flags
   const auto flags = buildClassinfoFlags(cd);
-  b.push_uint(flags);
+  b.push(DtoConstUshort(flags));
+
+  // ushort depth
+  {
+    uint16_t depth = 0;
+    for (auto pc = cd; pc; pc = pc->baseClass)
+      ++depth; // distance to Object
+    b.push(DtoConstUshort(depth));
+  }
 
   // void* deallocator
   b.push_null_vp();
 
   // OffsetTypeInfo[] m_offTi
-  VarDeclaration *offTiVar = cinfo->fields[9];
+  VarDeclaration *offTiVar = cinfo->fields[10];
   b.push_null(offTiVar->type);
 
   // void function(Object) defaultConstructor
-  VarDeclaration *defConstructorVar = cinfo->fields[10];
+  VarDeclaration *defConstructorVar = cinfo->fields[11];
   CtorDeclaration *defConstructor = cd->defaultCtor;
   if (defConstructor && (defConstructor->storage_class & STCdisable)) {
     defConstructor = nullptr;
@@ -428,6 +438,13 @@ LLConstant *IrClass::getClassInfoInit() {
     b.push_size_as_vp(0); // no pointers
   } else {
     b.push_size_as_vp(1); // has pointers
+  }
+
+  // uint[4] nameSig
+  {
+    auto t = llvm::ArrayType::get(LLType::getInt32Ty(gIR->context()), 4);
+    // TODO
+    b.push(LLConstant::getNullValue(t));
   }
 
   // build the initializer

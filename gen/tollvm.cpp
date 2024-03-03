@@ -482,6 +482,9 @@ llvm::ConstantInt *DtoConstUint(unsigned i) {
 llvm::ConstantInt *DtoConstInt(int i) {
   return LLConstantInt::get(LLType::getInt32Ty(gIR->context()), i, true);
 }
+llvm::ConstantInt *DtoConstUshort(uint16_t i) {
+  return LLConstantInt::get(LLType::getInt16Ty(gIR->context()), i, false);
+}
 LLConstant *DtoConstBool(bool b) {
   return LLConstantInt::get(LLType::getInt1Ty(gIR->context()), b, false);
 }
