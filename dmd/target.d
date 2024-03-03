@@ -301,6 +301,7 @@ extern (C++) struct Target
     import dmd.location;
     import dmd.astenums : LINK, TY;
     import dmd.mtype : Type, TypeFunction, TypeTuple;
+    import dmd.typesem : pointerTo;
     import dmd.root.ctfloat : real_t;
     import dmd.statement : Statement;
     import dmd.tokens : EXP;
@@ -333,8 +334,8 @@ extern (C++) struct Target
         omf
     }
 
-    OS os = defaultTargetOS();
-    ubyte osMajor = defaultTargetOSMajor();
+    OS os;
+    ubyte osMajor;
 
     // D ABI
     ubyte ptrsize;            /// size of a pointer in bytes
@@ -361,8 +362,8 @@ version (IN_LLVM)
     const(char)[] architectureName;
 version (IN_LLVM) {} else
 {
-    CPU cpu = CPU.baseline; // CPU instruction set to target
-    bool isX86_64 = (size_t.sizeof == 8);  // generate 64 bit code for x86_64; true by default for 64 bit dmd
+    CPU cpu;                // CPU instruction set to target
+    bool isX86_64;          // generate 64 bit code for x86_64; true by default for 64 bit dmd
 }
     bool isLP64;            // pointers are 64 bits
 
@@ -371,7 +372,7 @@ version (IN_LLVM) {} else
     const(char)[] lib_ext;    /// extension for static library files
     const(char)[] dll_ext;    /// extension for dynamic library files
     bool run_noext;           /// allow -run sources without extensions
-    bool omfobj = false;      // for Win32: write OMF object files instead of MsCoff
+    bool omfobj;              // for Win32: write OMF object files instead of MsCoff
     /**
      * Values representing all properties for floating point types
      */
@@ -453,7 +454,7 @@ else // !IN_LLVM
         // These have default values for 32 bit code, they get
         // adjusted for 64 bit code.
         ptrsize = 4;
-        classinfosize = 0x4C; // 76
+        classinfosize = 0x4C+16; // 92
 
         /* gcc uses int.max for 32 bit compilations, and long.max for 64 bit ones.
          * Set to int.max for both, because the rest of the compiler cannot handle
@@ -466,7 +467,7 @@ else // !IN_LLVM
         if (isLP64)
         {
             ptrsize = 8;
-            classinfosize = 0x98; // 152
+            classinfosize = 0x98+16; // 168
         }
         if (os & (Target.OS.linux | Target.OS.FreeBSD | Target.OS.OpenBSD | Target.OS.DragonFlyBSD | Target.OS.Solaris))
         {
@@ -1085,6 +1086,7 @@ else // !IN_LLVM
     {
         import dmd.id : Id;
         import dmd.argtypes_sysv_x64 : toArgTypes_sysv_x64;
+        import dmd.typesem : castMod;
 
         if (tf.isref)
         {
@@ -1379,6 +1381,11 @@ else // !IN_LLVM
      */
     extern (C++) bool isCalleeDestroyingArgs(TypeFunction tf) @safe
     {
+        /* BUG preventing this from working: https://github.com/dlang/dmd/pull/16145
+        if (tf.linkage == LINK.d)
+            return false;
+        */
+
         // On windows, the callee destroys arguments always regardless of function linkage,
         // and regardless of whether the caller or callee cleans the stack.
         return os == Target.OS.Windows ||

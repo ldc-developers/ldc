@@ -492,9 +492,7 @@ class Thread : ThreadBase
         slock.lock_nothrow();
         scope(exit) slock.unlock_nothrow();
         {
-            ++nAboutToStart;
-            pAboutToStart = cast(ThreadBase*)realloc(pAboutToStart, Thread.sizeof * nAboutToStart);
-            pAboutToStart[nAboutToStart - 1] = this;
+            incrementAboutToStart(this);
 
             version (Posix)
             {
@@ -1690,7 +1688,7 @@ version (LDC)
          * If it isn't, the function is still naked, so the caller's stack pointer
          * is used nevertheless.
          */
-        package extern(D) void* getStackTop() nothrow @nogc @naked
+        private extern(D) void* getStackTop() nothrow @nogc @naked
         {
             version (X86)
                 return __asm!(void*)("movl %esp, $0", "=r");
@@ -1713,7 +1711,7 @@ version (LDC)
          * the slightly different meaning the function must neither be inlined
          * nor naked.
          */
-        package extern(D) void* getStackTop() nothrow @nogc
+        private extern(D) void* getStackTop() nothrow @nogc
         {
             import ldc.intrinsics;
             pragma(LDC_never_inline);
@@ -1722,7 +1720,7 @@ version (LDC)
     }
 }
 else
-package extern(D) void* getStackTop() nothrow @nogc
+private extern(D) void* getStackTop() nothrow @nogc
 {
     version (D_InlineAsm_X86)
         asm pure nothrow @nogc { naked; mov EAX, ESP; ret; }
@@ -1737,7 +1735,7 @@ package extern(D) void* getStackTop() nothrow @nogc
 
 version (LDC_Windows)
 {
-    package extern(D) void* getStackBottom() nothrow @nogc @naked
+    private extern(D) void* getStackBottom() nothrow @nogc @naked
     {
         version (X86)
             return __asm!(void*)("mov %fs:(4), $0", "=r");
@@ -1748,7 +1746,7 @@ version (LDC_Windows)
     }
 }
 else
-package extern(D) void* getStackBottom() nothrow @nogc
+private extern(D) void* getStackBottom() nothrow @nogc
 {
     version (Windows)
     {
@@ -2200,6 +2198,8 @@ private extern (D) void resume(ThreadBase _t) nothrow @nogc
             t.m_curr.tstack = t.m_curr.bstack;
         }
     }
+    else
+        static assert(false, "Platform not supported.");
 }
 
 

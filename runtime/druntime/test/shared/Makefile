@@ -7,7 +7,9 @@ ifneq (,$(LINK_SHARED))
     # LDC: disable 3 tests on Mac, 1 on Windows
     ifeq (,$(findstring ldmd2,$(DMD)))
         # TODO: enable tests on Windows
-        ifneq (windows,$(OS))
+        ifeq (windows,$(OS))
+            TESTS:=link linkD linkDR loadDR
+        else
             TESTS:=link load linkD linkDR loadDR host finalize dynamiccast \
                    link_linkdep load_linkdep link_loaddep load_loaddep load_13414
         endif
@@ -45,11 +47,15 @@ ifeq (windows,$(OS)) # extra tests on Windows
 ifneq (,$(findstring ldmd2,$(DMD)))
     # LDC: required for executables to implicitly dllimport DLL data symbols
     DFLAGS+=-dllimport=all
-else
-    ifeq ($(SHARED),1)
-        DFLAGS+=-version=SharedRuntime
-    endif
+else # DMD
+ifeq ($(SHARED),1)
+# dmd -shared does not (yet) imply -visibility=public
+$(ROOT)/%$(DOTDLL): DFLAGS += -visibility=public
+
+DFLAGS+=-version=SharedRuntime
+PATH:=$(dir $(DRUNTIMESO));$(PATH)
 endif
+endif # end DMD
 
 $(ROOT)/dllrefcount$(DOTEXE): $(SRC)/dllrefcount.d
 	$(QUIET)$(DMD) $(DFLAGS) -of$@ $<
@@ -136,7 +142,7 @@ $(ROOT)/linkD$(DOTEXE): $(SRC)/linkD.c $(ROOT)/lib$(DOTDLL) $(DRUNTIMESO)
 	$(QUIET)$(CC) $(CFLAGS) $(CC_OUTFLAG)$@ $(if $(findstring $(OS),windows),/Fo$@.obj,) $< $(ROOT)/lib$(DOTIMPLIB) $(CC_EXTRAS)
 
 $(ROOT)/linkDR$(DOTEXE): $(SRC)/linkDR.c $(ROOT)/lib$(DOTDLL) $(DRUNTIMESO)
-	$(QUIET)$(CC) $(CFLAGS) $(CC_OUTFLAG)$@ $(if $(findstring $(OS),windows),/Fo$@.obj,) $< $(DRUNTIMESO) $(CC_EXTRAS)
+	$(QUIET)$(CC) $(CFLAGS) $(CC_OUTFLAG)$@ $(if $(findstring $(OS),windows),/Fo$@.obj,) $< $(DRUNTIME_IMPLIB) $(CC_EXTRAS)
 
 $(ROOT)/loadDR$(DOTEXE): $(SRC)/loadDR.c $(ROOT)/lib$(DOTDLL) $(DRUNTIMESO)
 	$(QUIET)$(CC) $(CFLAGS) $(CC_OUTFLAG)$@ $(if $(findstring $(OS),windows),/Fo$@.obj,) $< $(CC_EXTRAS)

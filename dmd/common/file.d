@@ -16,32 +16,49 @@ module dmd.common.file;
 
 import core.stdc.errno : errno;
 import core.stdc.stdio : fprintf, remove, rename, stderr;
-import core.stdc.stdlib : exit;
-import core.stdc.string : strerror, strlen;
-import core.sys.windows.winbase;
-import core.sys.windows.winnt;
-import core.sys.posix.fcntl;
-import core.sys.posix.unistd;
+import core.stdc.stdlib;
+import core.stdc.string : strerror, strlen, memcpy;
 
 import dmd.common.smallbuffer;
 
-nothrow:
-
 version (Windows)
 {
+    import core.sys.windows.winbase;
+
 version (IN_LLVM)
 {
     import core.sys.windows.winnls : CP_UTF8;
+    import core.sys.windows.winnt;
+
     enum CodePage = CP_UTF8;
 }
 else
 {
     import core.sys.windows.winnls : CP_ACP;
+    import core.sys.windows.winnt;
 
-    // assume filenames encoded in system default Windows ANSI code page
-    enum CodePage = CP_ACP;
-} // !IN_LLVM
+    enum CodePage = CP_ACP; // assume filenames encoded in system default Windows ANSI code page
 }
+
+    enum invalidHandle = INVALID_HANDLE_VALUE;
+}
+else version (Posix)
+{
+    import core.sys.posix.fcntl;
+    import core.sys.posix.sys.mman;
+    import core.sys.posix.sys.stat;
+    import core.sys.posix.unistd;
+    import core.sys.posix.utime;
+
+    enum invalidHandle = -1;
+}
+else
+    static assert(0);
+
+
+
+
+nothrow:
 
 /**
 Encapsulated management of a memory-mapped file.
@@ -55,9 +72,6 @@ struct FileMapping(Datum)
 {
     static assert(__traits(isPOD, Datum) && Datum.sizeof == 1,
         "Not tested with other data types yet. Add new types with care.");
-
-    version(Posix) enum invalidHandle = -1;
-    else version(Windows) enum invalidHandle = INVALID_HANDLE_VALUE;
 
     // state {
     /// Handle of underlying file
@@ -90,9 +104,6 @@ struct FileMapping(Datum)
     {
         version (Posix)
         {
-            import core.sys.posix.sys.mman;
-            import core.sys.posix.fcntl : open, O_CREAT, O_RDONLY, O_RDWR, S_IRGRP, S_IROTH, S_IRUSR, S_IWUSR;
-
             handle = open(filename, is(Datum == const) ? O_RDONLY : (O_CREAT | O_RDWR),
                 S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 
@@ -158,9 +169,6 @@ struct FileMapping(Datum)
         // Save the name for later. Technically there's no need: on Linux one can use readlink on /proc/self/fd/NNN.
         // On BSD and OSX one can use fcntl with F_GETPATH. On Windows one can use GetFileInformationByHandleEx.
         // But just saving the name is simplest, fastest, and most portable...
-        import core.stdc.string : strlen;
-        import core.stdc.stdlib : malloc;
-        import core.stdc.string : memcpy;
         const totalNameLength = filename.strlen() + 1;
         auto namex = cast(char*) malloc(totalNameLength);
         if (!namex)
@@ -232,9 +240,6 @@ struct FileMapping(Datum)
         fakePure({
             version (Posix)
             {
-                import core.sys.posix.sys.mman : munmap;
-                import core.sys.posix.unistd : close;
-
                 // Cannot call fprintf from inside a destructor, so exiting silently.
 
                 if (data.ptr && munmap(cast(void*) data.ptr, data.length) != 0)
@@ -242,7 +247,7 @@ struct FileMapping(Datum)
                     exit(1);
                 }
                 data = null;
-                if (handle != invalidHandle && close(handle) != 0)
+                if (handle != invalidHandle && .close(handle) != 0)
                 {
                     exit(1);
                 }
@@ -311,7 +316,6 @@ struct FileMapping(Datum)
         // In-memory resource freed, now get rid of the underlying temp file.
         version(Posix)
         {
-            import core.sys.posix.unistd : unlink;
             if (unlink(deleteme) != 0)
             {
                 fprintf(stderr, "unlink(\"%s\") failed: %s\n", filename, strerror(errno));
@@ -320,7 +324,6 @@ struct FileMapping(Datum)
         }
         else version(Windows)
         {
-            import core.sys.windows.winbase;
             if (deleteme[0 .. strlen(deleteme)].extendedPathThen!(p => DeleteFileW(p.ptr)) == 0)
             {
                 fprintf(stderr, "DeleteFileW error %d\n", GetLastError());
@@ -369,9 +372,6 @@ struct FileMapping(Datum)
         fakePure({
             version(Posix)
             {
-                import core.sys.posix.unistd : ftruncate;
-                import core.sys.posix.sys.mman;
-
                 if (data.length)
                 {
                     assert(data.ptr, "Corrupt memory mapping");
@@ -439,7 +439,6 @@ struct FileMapping(Datum)
 
         // Fetch the name and then set it to `null` so it doesn't get deallocated
         auto oldname = name;
-        import core.stdc.stdlib;
         scope(exit) free(cast(void*) oldname);
         name = null;
         close();
@@ -455,7 +454,6 @@ struct FileMapping(Datum)
         }
         else version(Windows)
         {
-            import core.sys.windows.winbase;
             auto r = oldname[0 .. strlen(oldname)].extendedPathThen!(
                 p1 => filename[0 .. strlen(filename)].extendedPathThen!(p2 => MoveFileExW(p1.ptr, p2.ptr, MOVEFILE_REPLACE_EXISTING))
             );
@@ -535,8 +533,6 @@ bool touchFile(const char* namez)
         GetSystemTime(&st);
         SystemTimeToFileTime(&st, &ft);
 
-        import core.stdc.string : strlen;
-
         // get handle to file
         HANDLE h = namez[0 .. namez.strlen()].extendedPathThen!(p => CreateFile(p.ptr,
             FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -554,7 +550,6 @@ bool touchFile(const char* namez)
     }
     else version (Posix)
     {
-        import core.sys.posix.utime;
         return utime(namez, null) == 0;
     }
     else
@@ -568,24 +563,28 @@ Params: fd = file handle
 Returns: file size in bytes, or `ulong.max` on any error.
 */
 version (Posix)
-private ulong fileSize(int fd)
 {
-    import core.sys.posix.sys.stat;
-    stat_t buf;
-    if (fstat(fd, &buf) == 0)
-        return buf.st_size;
-    return ulong.max;
+    private ulong fileSize(int fd)
+    {
+        stat_t buf;
+        if (fstat(fd, &buf) == 0)
+            return buf.st_size;
+        return ulong.max;
+    }
 }
-
-/// Ditto
-version (Windows)
-private ulong fileSize(HANDLE fd)
+else version (Windows)
 {
-    ulong result;
-    if (GetFileSizeEx(fd, cast(LARGE_INTEGER*) &result) == 0)
-        return result;
-    return ulong.max;
+    /// Ditto
+    private ulong fileSize(HANDLE fd)
+    {
+        ulong result;
+        if (GetFileSizeEx(fd, cast(LARGE_INTEGER*) &result) == 0)
+            return result;
+        return ulong.max;
+    }
 }
+else
+    static assert(0);
 
 /**
 Runs a non-pure function or delegate as pure code. Use with caution.

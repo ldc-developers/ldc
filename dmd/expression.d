@@ -48,6 +48,7 @@ import dmd.root.string;
 import dmd.root.utf;
 import dmd.target;
 import dmd.tokens;
+import dmd.typesem;
 import dmd.visitor;
 
 enum LOGSEMANTIC = false;
@@ -107,7 +108,7 @@ inout(Expression) lastComma(inout Expression e)
  *     exps  = array of Expressions
  *     names = optional array of names corresponding to Expressions
  */
-extern (C++) void expandTuples(Expressions* exps, Identifiers* names = null)
+void expandTuples(Expressions* exps, Identifiers* names = null)
 {
     //printf("expandTuples()\n");
     if (exps is null)
@@ -186,39 +187,6 @@ extern (C++) void expandTuples(Expressions* exps, Identifiers* names = null)
             (*exps)[i] = Expression.combine(te.e0, (*exps)[i]);
             arg = (*exps)[i];
         }
-    }
-}
-
-/****************************************
- * Expand alias this tuples.
- */
-TupleDeclaration isAliasThisTuple(Expression e)
-{
-    if (!e.type)
-        return null;
-
-    Type t = e.type.toBasetype();
-    while (true)
-    {
-        if (Dsymbol s = t.toDsymbol(null))
-        {
-            if (auto ad = s.isAggregateDeclaration())
-            {
-                s = ad.aliasthis ? ad.aliasthis.sym : null;
-                if (s && s.isVarDeclaration())
-                {
-                    TupleDeclaration td = s.isVarDeclaration().toAlias().isTupleDeclaration();
-                    if (td && td.isexp)
-                        return td;
-                }
-                if (Type att = t.aliasthisOf())
-                {
-                    t = att;
-                    continue;
-                }
-            }
-        }
-        return null;
     }
 }
 
@@ -769,6 +737,7 @@ version (IN_LLVM)
         inout(SuperExp)     isSuperExp() { return op == EXP.super_ ? cast(typeof(return))this : null; }
         inout(NullExp)      isNullExp() { return op == EXP.null_ ? cast(typeof(return))this : null; }
         inout(StringExp)    isStringExp() { return op == EXP.string_ ? cast(typeof(return))this : null; }
+        inout(InterpExp)    isInterpExp() { return op == EXP.interpolated ? cast(typeof(return))this : null; }
         inout(TupleExp)     isTupleExp() { return op == EXP.tuple ? cast(typeof(return))this : null; }
         inout(ArrayLiteralExp) isArrayLiteralExp() { return op == EXP.arrayLiteral ? cast(typeof(return))this : null; }
         inout(AssocArrayLiteralExp) isAssocArrayLiteralExp() { return op == EXP.assocArrayLiteral ? cast(typeof(return))this : null; }
@@ -1546,6 +1515,7 @@ extern (C++) final class StringExp : Expression
         char* string;   // if sz == 1
         wchar* wstring; // if sz == 2
         dchar* dstring; // if sz == 4
+        ulong* lstring; // if sz == 8
     }                   // (const if ownedByCtfe == OwnedBy.code)
     size_t len;         // number of code units
     ubyte sz = 1;       // 1: char, 2: wchar, 4: dchar
@@ -1709,6 +1679,13 @@ extern (C++) final class StringExp : Expression
      */
     dchar getCodeUnit(size_t i) const pure
     {
+        assert(this.sz <= dchar.sizeof);
+        return cast(dchar) getIndex(i);
+    }
+
+    /// Returns: integer at index `i`
+    dinteger_t getIndex(size_t i) const pure
+    {
         assert(i < len);
         final switch (sz)
         {
@@ -1718,6 +1695,8 @@ extern (C++) final class StringExp : Expression
             return wstring[i];
         case 4:
             return dstring[i];
+        case 8:
+            return lstring[i];
         }
     }
 
@@ -1729,6 +1708,11 @@ extern (C++) final class StringExp : Expression
      */
     extern (D) void setCodeUnit(size_t i, dchar c)
     {
+        return setIndex(i, c);
+    }
+
+    extern (D) void setIndex(size_t i, long c)
+    {
         assert(i < len);
         final switch (sz)
         {
@@ -1739,7 +1723,10 @@ extern (C++) final class StringExp : Expression
             wstring[i] = cast(wchar)c;
             break;
         case 4:
-            dstring[i] = c;
+            dstring[i] = cast(dchar) c;
+            break;
+        case 8:
+            lstring[i] = c;
             break;
         }
     }
@@ -1893,6 +1880,28 @@ extern (C++) final class StringExp : Expression
         v.visit(this);
     }
 }
+
+extern (C++) final class InterpExp : Expression
+{
+    char postfix = NoPostfix;   // 'c', 'w', 'd'
+    OwnedBy ownedByCtfe = OwnedBy.code;
+    InterpolatedSet* interpolatedSet;
+
+    enum char NoPostfix = 0;
+
+    extern (D) this(const ref Loc loc, InterpolatedSet* set, char postfix = NoPostfix) scope
+    {
+        super(loc, EXP.interpolated);
+        this.interpolatedSet = set;
+        this.postfix = postfix;
+    }
+
+    override void accept(Visitor v)
+    {
+        v.visit(this);
+    }
+}
+
 
 /***********************************************************
  * A sequence of expressions
@@ -3874,7 +3883,7 @@ extern (C++) final class CastExp : UnaExp
         if (!e1.isLvalue())
             return false;
         return (to.ty == Tsarray && (e1.type.ty == Tvector || e1.type.ty == Tsarray)) ||
-            e1.type.mutableOf().unSharedOf().equals(to.mutableOf().unSharedOf());
+            e1.type.mutableOf.unSharedOf().equals(to.mutableOf().unSharedOf());
     }
 
     override void accept(Visitor v)
@@ -5558,6 +5567,7 @@ private immutable ubyte[EXP.max+1] expSize = [
     EXP.preMinusMinus: __traits(classInstanceSize, PreExp),
     EXP.identifier: __traits(classInstanceSize, IdentifierExp),
     EXP.string_: __traits(classInstanceSize, StringExp),
+    EXP.interpolated: __traits(classInstanceSize, InterpExp),
     EXP.this_: __traits(classInstanceSize, ThisExp),
     EXP.super_: __traits(classInstanceSize, SuperExp),
     EXP.halt: __traits(classInstanceSize, HaltExp),
