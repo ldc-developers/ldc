@@ -2222,6 +2222,8 @@ unittest
 // https://github.com/ldc-developers/ldc/issues/666
 unittest
 {
+    import core.thread.osthread : Thread;
+
     static int tls;
 
     static yield_noinline()
