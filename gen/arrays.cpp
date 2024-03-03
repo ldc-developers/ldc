@@ -727,7 +727,7 @@ LLValue *DtoArrayEqCmp_impl(const Loc &loc, const char *func, DValue *l,
   assert(fn);
 
   // find common dynamic array type
-  Type *commonType = l->type->toBasetype()->nextOf()->arrayOf();
+  Type *commonType = arrayOf(l->type->toBasetype()->nextOf());
 
   // cast static arrays to dynamic ones, this turns them into DSliceValues
   Logger::println("casting to dynamic arrays");

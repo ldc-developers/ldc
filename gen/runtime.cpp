@@ -492,11 +492,11 @@ static void buildRuntimeModule() {
   Type *dcharTy = Type::tdchar;
 
   Type *voidPtrTy = Type::tvoidptr;
-  Type *voidArrayTy = Type::tvoid->arrayOf();
+  Type *voidArrayTy = arrayOf(Type::tvoid);
   Type *voidArrayPtrTy = pointerTo(voidArrayTy);
-  Type *stringTy = Type::tchar->arrayOf();
-  Type *wstringTy = Type::twchar->arrayOf();
-  Type *dstringTy = Type::tdchar->arrayOf();
+  Type *stringTy = arrayOf(Type::tchar);
+  Type *wstringTy = arrayOf(Type::twchar);
+  Type *dstringTy = arrayOf(Type::tdchar);
 
   // LDC's AA type is rt.aaA.Impl*; use void* for the prototypes
   Type *aaTy = voidPtrTy;
@@ -823,7 +823,7 @@ static void buildRuntimeModule() {
   //                                    uint[] data, ubyte minPercent)
   if (global.params.cov) {
     createFwdDecl(LINK::c, voidTy, {"_d_cover_register2"},
-                  {stringTy, sizeTy->arrayOf(), uintTy->arrayOf(), ubyteTy});
+                  {stringTy, arrayOf(sizeTy), arrayOf(uintTy), ubyteTy});
   }
 
   if (target.objc.supported) {

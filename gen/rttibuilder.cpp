@@ -66,7 +66,7 @@ void RTTIBuilder::push_typeinfo(Type *t) { push(DtoTypeInfoOf(Loc(), t)); }
 void RTTIBuilder::push_string(const char *str) { push(DtoConstString(str)); }
 
 void RTTIBuilder::push_null_void_array() {
-  LLType *T = DtoType(Type::tvoid->arrayOf());
+  LLType *T = DtoType(arrayOf(Type::tvoid));
   push(getNullValue(T));
 }
 
@@ -92,7 +92,7 @@ void RTTIBuilder::push_void_array(llvm::Constant *CI, Type *valtype,
 
 void RTTIBuilder::push_array(llvm::Constant *CI, uint64_t dim, Type *valtype,
                              Dsymbol *mangle_sym) {
-  std::string tmpStr(valtype->arrayOf()->toChars());
+  std::string tmpStr(arrayOf(valtype)->toChars());
   tmpStr.erase(remove(tmpStr.begin(), tmpStr.end(), '['), tmpStr.end());
   tmpStr.erase(remove(tmpStr.begin(), tmpStr.end(), ']'), tmpStr.end());
   tmpStr.append("arr");

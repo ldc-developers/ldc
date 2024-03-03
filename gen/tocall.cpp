@@ -247,7 +247,7 @@ static LLValue *getTypeinfoArrayArgumentForDVarArg(Expressions *argexps,
   LLConstant *pinits[] = {
       DtoConstSize_t(numVariadicArgs),
       llvm::ConstantExpr::getBitCast(typeinfomem, getPtrToType(typeinfotype))};
-  LLType *tiarrty = DtoType(getTypeInfoType()->arrayOf());
+  LLType *tiarrty = DtoType(arrayOf(getTypeInfoType()));
   tiinits = LLConstantStruct::get(isaStruct(tiarrty),
                                   llvm::ArrayRef<LLConstant *>(pinits));
   LLValue *typeinfoarrayparam = new llvm::GlobalVariable(

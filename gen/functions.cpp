@@ -181,7 +181,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   if (isLLVMVariadic && f->linkage == LINK::d) {
     // Add extra `_arguments` parameter for D-style variadic functions.
     newIrFty.arg_arguments =
-        new IrFuncTyArg(getTypeInfoType()->arrayOf(), false);
+        new IrFuncTyArg(arrayOf(getTypeInfoType()), false);
     ++nextLLArgIdx;
   }
 
@@ -189,7 +189,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
 
   // if this _Dmain() doesn't have an argument, we force it to have one
   if (isMain && f->linkage != LINK::c && numExplicitDArgs == 0) {
-    Type *mainargs = Type::tchar->arrayOf()->arrayOf();
+    Type *mainargs = arrayOf(arrayOf(Type::tchar));
     newIrFty.args.push_back(new IrFuncTyArg(mainargs, false));
     ++nextLLArgIdx;
   }
