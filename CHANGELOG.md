@@ -1,11 +1,18 @@
 # LDC master
 
 #### Big news
-- Frontend, druntime and Phobos are at version [2.107.1](https://dlang.org/changelog/2.107.0.html). (#4563, #4577, #4587)
 
 #### Platform support
 
 #### Bug fixes
+
+# LDC 1.37.0 (2024-03-03)
+
+#### Big news
+- Frontend, druntime and Phobos are at version [2.107.1](https://dlang.org/changelog/2.107.0.html). (#4563, #4577, #4587)
+
+#### Bug fixes
+- Fix if-statement elision on constant true/false condition. (#4556, #4559)
 
 # LDC 1.36.0 (2024-01-06)
 
