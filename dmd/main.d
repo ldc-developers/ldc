@@ -55,7 +55,7 @@ import dmd.location;
 import dmd.mars;
 import dmd.mtype;
 import dmd.objc;
-import dmd.root.env;
+// IN_LLVM import dmd.root.env;
 import dmd.root.file;
 import dmd.root.filename;
 import dmd.root.man;
@@ -794,17 +794,18 @@ else // !IN_LLVM
         {
             if (!status)
             {
-                restoreEnvVars();
-                status = runProgram(global.params.exefile, global.params.runargs[], global.params.v.verbose, global.errorSink);
-                /* Delete .obj files and .exe file
-                 */
 version (IN_LLVM)
 {
+                status = runProgram();
                 // object files already deleted above
                 deleteExeFile();
 }
 else
 {
+                restoreEnvVars();
+                status = runProgram(global.params.exefile, global.params.runargs[], global.params.v.verbose, global.errorSink);
+                /* Delete .obj files and .exe file
+                 */
                 foreach (m; modules)
                 {
                     m.deleteObjFile();

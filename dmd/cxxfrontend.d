@@ -290,6 +290,8 @@ const(char)* parametersTypeToChars(ParameterList pl)
     return dmd.hdrgen.parametersTypeToChars(pl);
 }
 
+version (IN_LLVM) {} else
+{
 /***********************************************************
  * iasm.d
  */
@@ -304,6 +306,7 @@ void asmSemantic(CAsmDeclaration d, Scope *sc)
     import dmd.iasm;
     return dmd.iasm.asmSemantic(d, sc);
 }
+} // !IN_LLVM
 
 /***********************************************************
  * iasmgcc.d
@@ -610,6 +613,7 @@ bool genTypeInfo(Expression e, const ref Loc loc, Type torig, Scope* sc)
     return dmd.typinf.genTypeInfo(e, loc, torig, sc);
 }
 
+version (IN_LLVM) {} else
 bool isSpeculativeType(Type t)
 {
     import dmd.typinf;

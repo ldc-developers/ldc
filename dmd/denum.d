@@ -62,7 +62,10 @@ extern (C++) final class EnumDeclaration : ScopeDsymbol
     import dmd.common.bitfields : generateBitFields;
     mixin(generateBitFields!(BitFields, ubyte));
 
+version (IN_LLVM) {} else
+{
     Symbol* sinit;
+}
 
     extern (D) this(const ref Loc loc, Identifier ident, Type memtype)
     {

@@ -42,7 +42,7 @@ import dmd.func;
 import dmd.funcsem;
 import dmd.globals;
 import dmd.hdrgen;
-import dmd.iasm;
+// IN_LLVM import dmd.iasm;
 import dmd.id;
 import dmd.identifier;
 import dmd.importc;
@@ -3583,6 +3583,8 @@ version (IN_LLVM)
     {
         /* https://dlang.org/spec/statement.html#asm
          */
+
+        version (IN_LLVM) import dmd.gluelayer : asmSemantic;
 
         //printf("AsmStatement()::semantic()\n");
         result = asmSemantic(s, sc);

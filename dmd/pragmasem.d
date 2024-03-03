@@ -471,7 +471,7 @@ bool pragmaStmtSemantic(PragmaStatement ps, Scope* sc)
         }
         else
         {
-            FuncDeclaration fd = sc.func;
+            auto fd = sc.func;
             if (fd is null)
             {
                 error(ps.loc, "pragma(LDC_profile_instr, ...) is not inside a function");

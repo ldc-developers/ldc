@@ -1468,8 +1468,16 @@ version (IN_LLVM)
     {
         if (dsym.semanticRun >= PASS.semanticdone)
             return;
+version (IN_LLVM)
+{
+        import dmd.iasmgcc : gccAsmSemantic;
+        gccAsmSemantic(dsym, sc);
+}
+else
+{
         import dmd.iasm : asmSemantic;
         asmSemantic(dsym, sc);
+}
         dsym.semanticRun = PASS.semanticdone;
     }
 
