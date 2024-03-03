@@ -153,7 +153,7 @@ public:
     }
     // otherwise emit a void[] with the default initializer
     else {
-      Expression *defaultval = sd->getDefaultValue(decl->loc);
+      Expression *defaultval = getDefaultValue(sd, decl->loc);
       LLConstant *c = toConstElem(defaultval, gIR);
       b.push_void_array(c, sd->memtype, sd);
     }

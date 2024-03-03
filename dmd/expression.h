@@ -40,6 +40,7 @@ class OverloadSet;
 class StringExp;
 class InterpExp;
 class LoweredAssignExp;
+class EnumDeclaration;
 #ifdef IN_GCC
 typedef union tree_node Symbol;
 #elif IN_LLVM
@@ -54,6 +55,8 @@ namespace dmd
     Expression *expressionSemantic(Expression *e, Scope *sc);
     // in typesem.d
     Expression *defaultInit(Type *mt, const Loc &loc, const bool isCfile = false);
+    // in enumsem.d
+    Expression *getDefaultValue(EnumDeclaration *ed, const Loc &loc);
 
     // Entry point for CTFE.
     // A compile-time result is required. Give an error if not possible
