@@ -386,10 +386,8 @@ void parseCommandLine(Strings &sourceFiles) {
   }
 
 #if _WIN32
-  const auto toWinPaths = [](Strings *paths) {
-    if (!paths)
-      return;
-    for (auto &path : *paths)
+  const auto toWinPaths = [](Strings &paths) {
+    for (auto &path : paths)
       path = opts::dupPathString(path).ptr;
   };
   toWinPaths(global.params.imppath);

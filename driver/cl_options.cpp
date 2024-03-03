@@ -430,9 +430,8 @@ cl::opt<std::string>
     mABI("mabi", cl::ZeroOrMore, cl::init(""),
          cl::desc("The name of the ABI to be targeted from the backend"));
 
-static Strings *pModFileAliasStrings = &global.params.modFileAliasStrings;
 static StringsAdapter
-    modFileAliasStringsStore("mv", pModFileAliasStrings);
+    modFileAliasStringsStore("mv", global.params.modFileAliasStrings);
 static cl::list<std::string, StringsAdapter> modFileAliasStrings(
     "mv", cl::desc("Use <filespec> as source file for <package.module>"),
     cl::value_desc("<package.module>=<filespec>"),

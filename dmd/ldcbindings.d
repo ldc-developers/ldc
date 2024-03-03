@@ -20,7 +20,6 @@ import dmd.tokens;
 
 extern (C++):
 
-Strings* createStrings() { return new Strings(); }
 Parameters* createParameters() { return new Parameters(); }
 Expressions* createExpressions() { return new Expressions(); }
 

@@ -64,10 +64,7 @@ void StringsAdapter::push_back(const char *cstr) {
     error(Loc(), "Expected argument to '-%s'", name);
   }
 
-  if (!*arrp) {
-    *arrp = createStrings();
-  }
-  (*arrp)->push(mem.xstrdup(cstr));
+  arrp->push(mem.xstrdup(cstr));
 }
 
 } // namespace opts
