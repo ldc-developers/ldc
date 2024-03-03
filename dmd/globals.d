@@ -412,7 +412,14 @@ else
     ErrorSink errorSink;       /// where the error messages go
     ErrorSink errorSinkNull;   /// where the error messages are ignored
 
+version (IN_LLVM)
+{
+    extern (C++) FileName function(FileName, ref const Loc, ref OutBuffer) preprocess;
+}
+else
+{
     extern (C++) DArray!ubyte function(FileName, ref const Loc, ref OutBuffer) preprocess;
+}
 
   nothrow:
 

@@ -400,7 +400,12 @@ struct Global
     ErrorSink* errorSink;       // where the error messages go
     ErrorSink* errorSinkNull;   // where the error messages disappear
 
+#if IN_LLVM
+    FileName (*preprocess)(FileName, const Loc&, OutBuffer&);
+#else
     DArray<unsigned char> (*preprocess)(FileName, const Loc&, OutBuffer&);
+#endif
+
 
     /* Start gagging. Return the current number of gagged errors
      */

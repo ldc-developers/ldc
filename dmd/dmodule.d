@@ -746,7 +746,19 @@ version (IN_LLVM)
             /* Apply C preprocessor to the .c file, returning the contents
              * after preprocessing
              */
+version (IN_LLVM)
+{
+            const ipath = global.preprocess(srcfile, loc, defines);
+            srctext = global.fileManager.getFileContents(ipath);
+
+            // remove temp file and parent directory
+            File.remove(ipath.toChars());
+            File.removeDirectory(FileName.path(ipath.toChars()));
+}
+else
+{
             srctext = global.preprocess(srcfile, loc, defines).data;
+}
         }
         else
             srctext = global.fileManager.getFileContents(filename);
