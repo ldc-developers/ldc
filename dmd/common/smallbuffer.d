@@ -122,7 +122,15 @@ version(Windows) wchar[] toWStringz(scope const(char)[] narrow, ref SmallBuffer!
     {
         // https://learn.microsoft.com/en-us/windows/win32/api/stringapiset/nf-stringapiset-multibytetowidechar
         import core.sys.windows.winnls : MultiByteToWideChar, CP_ACP;
+version (IN_LLVM)
+{
+        import dmd.common.file : CodePage;
+        return MultiByteToWideChar(CodePage, 0, narrow.ptr, cast(int) narrow.length, buffer.ptr, cast(int) buffer.length);
+}
+else
+{
         return MultiByteToWideChar(CP_ACP, 0, narrow.ptr, cast(int) narrow.length, buffer.ptr, cast(int) buffer.length);
+}
     }
 
     size_t length = charsToWchars(narrow, buffer[]);
