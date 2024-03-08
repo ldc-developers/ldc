@@ -1646,7 +1646,7 @@ llvm::Constant *DtoConstSymbolAddress(const Loc &loc, Declaration *decl) {
 
 llvm::Constant *buildStringLiteralConstant(StringExp *se,
                                            uint64_t bufferLength) {
-  const auto stringLength = se->numberOfCodeUnits();
+  const auto stringLength = se->len;
   assert(bufferLength >= stringLength);
 
   if (se->sz == 1 && bufferLength <= stringLength + 1) {
@@ -1664,7 +1664,7 @@ llvm::Constant *buildStringLiteralConstant(StringExp *se,
   std::vector<LLConstant *> vals;
   vals.reserve(bufferLength);
   for (uint64_t i = 0; i < stringLength; ++i) {
-    vals.push_back(LLConstantInt::get(ct, se->getCodeUnit(i), false));
+    vals.push_back(LLConstantInt::get(ct, se->getIndex(i), false));
   }
   const auto nullChar = LLConstantInt::get(ct, 0, false);
   for (uint64_t i = stringLength; i < bufferLength; ++i) {

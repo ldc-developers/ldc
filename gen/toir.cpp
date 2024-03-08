@@ -426,7 +426,7 @@ public:
     LOG_SCOPE;
 
     Type *dtype = e->type->toBasetype();
-    const auto stringLength = e->numberOfCodeUnits();
+    const auto stringLength = e->len;
 
     if (auto tsa = dtype->isTypeSArray()) {
       const auto arrayLength = tsa->dim->toInteger();

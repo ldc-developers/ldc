@@ -215,6 +215,17 @@ getCachedStringLiteralImpl(llvm::Module &module,
 }
 
 LLGlobalVariable *IRState::getCachedStringLiteral(StringExp *se) {
+  // special case for ulong[]-typed hex strings: not cached, and not
+  // null-terminated either
+  if (se->sz == 8) {
+    auto constant = buildStringLiteralConstant(se, se->len);
+    auto gvar =
+        new LLGlobalVariable(module, constant->getType(), true,
+                             LLGlobalValue::PrivateLinkage, constant, ".lstr");
+    gvar->setUnnamedAddr(LLGlobalValue::UnnamedAddr::Global);
+    return gvar;
+  }
+
   llvm::StringMap<LLGlobalVariable *> *cache;
   switch (se->sz) {
   default:
@@ -236,7 +247,7 @@ LLGlobalVariable *IRState::getCachedStringLiteral(StringExp *se) {
 
   return getCachedStringLiteralImpl(module, *cache, key, [se]() {
     // null-terminate
-    return buildStringLiteralConstant(se, se->numberOfCodeUnits() + 1);
+    return buildStringLiteralConstant(se, se->len + 1);
   });
 }
 

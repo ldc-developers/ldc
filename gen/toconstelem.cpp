@@ -168,7 +168,7 @@ public:
 
     if (auto ts = t->isTypeSArray()) {
       const auto arrayLength = ts->dim->toInteger();
-      assert(arrayLength >= e->numberOfCodeUnits());
+      assert(arrayLength >= e->len);
       result = buildStringLiteralConstant(e, arrayLength);
       return;
     }
@@ -179,8 +179,7 @@ public:
     if (t->ty == TY::Tpointer) {
       result = DtoBitCast(arrptr, DtoType(t));
     } else if (t->ty == TY::Tarray) {
-      LLConstant *clen =
-          LLConstantInt::get(DtoSize_t(), e->numberOfCodeUnits(), false);
+      LLConstant *clen = LLConstantInt::get(DtoSize_t(), e->len, false);
       result = DtoConstSlice(clen, arrptr, e->type);
     } else {
       llvm_unreachable("Unknown type for StringExp.");
