@@ -15,6 +15,8 @@
 
 module rt.tracegc;
 
+version (LDC) { /* -profile=gc not supported yet */ } else:
+
 // version = tracegc;
 
 extern (C) void _d_callfinalizer(void* p);
