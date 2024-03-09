@@ -11,7 +11,6 @@ TEST_OUTPUT:
 ----
 $r:.+_D7imports9pkgmod3133mod3barFZv.*$
 Error: $r:.+$ failed with status: $n$
-$r:.+$
 ----
 */
 import imports.pkgmod313.mod;
