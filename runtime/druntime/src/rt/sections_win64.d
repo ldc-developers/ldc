@@ -509,6 +509,7 @@ version (Shared) package void* handleForAddr(void* addr) nothrow @nogc
     return hModule;
 }
 
+version (LDC) { /* not needed */ } else
 // DLL entry point for druntime_shared.dll
 version (Shared)
 {
