@@ -35,6 +35,8 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/Support/Endian.h"
+#include "llvm/Support/MD5.h"
 
 #ifndef NDEBUG
 #include "llvm/Support/raw_ostream.h"
@@ -291,7 +293,8 @@ LLConstant *IrClass::getVtblInit() {
 
 namespace {
 unsigned buildClassinfoFlags(ClassDeclaration *cd) {
-  auto flags = ClassFlags::hasOffTi | ClassFlags::hasTypeInfo;
+  auto flags =
+      ClassFlags::hasOffTi | ClassFlags::hasTypeInfo | ClassFlags::hasNameSig;
   if (cd->isInterfaceDeclaration()) {
     if (cd->isCOMinterface()) {
       flags |= ClassFlags::isCOMclass;
@@ -329,8 +332,6 @@ unsigned buildClassinfoFlags(ClassDeclaration *cd) {
     }
   }
   flags |= ClassFlags::noPointers;
-
-  // TODO: ClassFlags::hasNameSig
 
   return flags;
 }
@@ -442,9 +443,19 @@ LLConstant *IrClass::getClassInfoInit() {
 
   // uint[4] nameSig
   {
-    auto t = llvm::ArrayType::get(LLType::getInt32Ty(gIR->context()), 4);
-    // TODO
-    b.push(LLConstant::getNullValue(t));
+    llvm::MD5 hasher;
+    hasher.update(name);
+    llvm::MD5::MD5Result result;
+    hasher.final(result);
+
+    LLConstant *dwords[4];
+    for (int i = 0; i < 4; ++i) {
+      // make sure the 4 dwords don't depend on the endianness of the *host*
+      dwords[i] = DtoConstUint(llvm::support::endian::read32le(&result[4 * i]));
+    }
+
+    auto t = llvm::ArrayType::get(dwords[0]->getType(), 4);
+    b.push(LLConstantArray::get(t, dwords));
   }
 
   // build the initializer
