@@ -25,7 +25,8 @@ static assert(false, "LDC_DynamicCompilation is not defined");
 
 @dynamicCompile void baz()
 {
-  writeln("baz");
+  // has regressed with Phobos v2.108, dragging in unsupported inline asm
+  //writeln("baz");
 }
 
 @dynamicCompile int bzz(int a, int b)
