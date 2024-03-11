@@ -473,6 +473,17 @@ public:
   void visit(TypeInfoDeclaration *decl) override {
     llvm_unreachable("Should be emitted from codegen layer only");
   }
+
+  //////////////////////////////////////////////////////////////////////////
+
+  void visit(CAsmDeclaration *ad) override {
+    auto se = ad->code->isStringExp();
+    assert(se);
+
+    DString str = se->peekString();
+    if (str.length)
+      irs->module.appendModuleInlineAsm({str.ptr, str.length});
+  }
 };
 
 //////////////////////////////////////////////////////////////////////////////

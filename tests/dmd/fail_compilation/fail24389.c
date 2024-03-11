@@ -1,4 +1,5 @@
 /*
+DISABLED: LDC // CAsmDeclarations supported by LDC; verified by tests/codegen/casm.c
 TEST_OUTPUT:
 ---
 fail_compilation/fail24389.c(10): Error: Gnu Asm not supported - compile this file with gcc or clang
