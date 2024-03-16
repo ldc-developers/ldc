@@ -56,4 +56,4 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *sym, LDCPragma llvm_intern
                     const char * const arg1str);
 bool DtoCheckProfileInstrPragma(Expression *arg, bool &value);
 bool DtoIsIntrinsic(FuncDeclaration *fd);
-bool DtoIsVaIntrinsic(FuncDeclaration *fd);
+bool DtoIsMagicIntrinsic(FuncDeclaration *fd);

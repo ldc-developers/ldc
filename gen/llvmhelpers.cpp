@@ -1576,9 +1576,8 @@ DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl) {
       fatal();
     }
     DtoResolveFunction(fdecl);
-    const auto llValue =
-        fdecl->llvmInternal != LLVMva_arg ? DtoCallee(fdecl) : nullptr;
-    return new DFuncValue(fdecl, llValue);
+    assert(!DtoIsMagicIntrinsic(fdecl));
+    return new DFuncValue(fdecl, DtoCallee(fdecl));
   }
 
   if (SymbolDeclaration *sdecl = decl->isSymbolDeclaration()) {

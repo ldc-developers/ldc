@@ -710,7 +710,7 @@ public:
     auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
-    // handle magic inline asm
+    // handle magic intrinsics and inline asm/IR
     if (auto ve = e->e1->isVarExp()) {
       if (auto fd = ve->var->isFuncDeclaration()) {
         if (fd->llvmInternal == LLVMinline_asm) {
@@ -719,6 +719,10 @@ public:
         if (fd->llvmInternal == LLVMinline_ir) {
           return DtoInlineIRExpr(e->loc, fd, e->arguments, sretPointer);
         }
+
+        DValue *result = nullptr;
+        if (DtoLowerMagicIntrinsic(p, fd, e, result))
+          return result;
       }
     }
 
@@ -767,13 +771,8 @@ public:
 
     // get func value if any
     DFuncValue *dfnval = fnval->isFunc();
-
-    // handle magic intrinsics (mapping to instructions)
     if (dfnval && dfnval->func) {
-      FuncDeclaration *fndecl = dfnval->func;
-      DValue *result = nullptr;
-      if (DtoLowerMagicIntrinsic(p, fndecl, e, result))
-        return result;
+      assert(!DtoIsMagicIntrinsic(dfnval->func));
     }
 
     DValue *result =
