@@ -778,6 +778,29 @@ public:
     DValue *result =
         DtoCallFunction(e->loc, e->type, fnval, e->arguments, sretPointer);
 
+    // If this is a virtual function call, the object is passed by reference
+    // through the `this` parameter, and therefore the optimizer has to assume
+    // that the vtable field might be overwritten. This prevents optimization of
+    // subsequent virtual calls on the same object. We help the optimizer by
+    // allowing it to assume that the vtable field contents is the same after
+    // the call. Equivalent D code:
+    // ```
+    //  auto saved_vtable = a.__vptr;     // emitted as part of `a.foo()`
+    //  a.foo();
+    //  assume(a.__vptr == saved_vtable); // <-- added assumption
+    // ```
+    // Only emit this extra code from -O2.
+    if (!e->directcall && dfnval && dfnval->vtable && (optLevel() >= 2)) {
+      // Reload vtable ptr. It's the first element so instead of GEP+load we can
+      // do a void* load+bitcast (at this point in the code we don't have easy
+      // access to the type of the class to do a GEP).
+      auto vtable =
+          DtoLoad(dfnval->vtable->getType(),
+                  DtoBitCast(dfnval->vthis, dfnval->vtable->getType()->getPointerTo()));
+      auto cmp = p->ir->CreateICmpEQ(vtable, dfnval->vtable);
+      p->ir->CreateCall(GET_INTRINSIC_DECL(assume), {cmp});
+    }
+
     if (delayedDtorVar) {
       delayedDtorVar->edtor = delayedDtorExp;
       pushVarDtorCleanup(p, delayedDtorVar);
@@ -1044,16 +1067,17 @@ public:
 
       // Get the actual function value to call.
       LLValue *funcval = nullptr;
+      LLValue *vtable = nullptr;
       if (nonFinal) {
         DtoResolveFunction(fdecl);
-        funcval = DtoVirtualFunctionPointer(l, fdecl);
+        std::tie(funcval, vtable) = DtoVirtualFunctionPointer(l, fdecl);
       } else {
         funcval = DtoCallee(fdecl);
       }
       assert(funcval);
 
       LLValue *vthis = (DtoIsInMemoryOnly(l->type) ? DtoLVal(l) : DtoRVal(l));
-      result = new DFuncValue(fdecl, funcval, vthis);
+      result = new DFuncValue(fdecl, funcval, vthis, vtable);
     } else {
       llvm_unreachable("Unknown target for VarDeclaration.");
     }
@@ -1950,7 +1974,7 @@ public:
 
     if (e->e1->op != EXP::super_ && e->e1->op != EXP::dotType &&
         e->func->isVirtual() && !e->func->isFinalFunc()) {
-      castfptr = DtoVirtualFunctionPointer(u, e->func);
+      castfptr = DtoVirtualFunctionPointer(u, e->func).first;
     } else if (e->func->isAbstract()) {
       llvm_unreachable("Delegate to abstract method not implemented.");
     } else if (e->func->toParent()->isInterfaceDeclaration()) {
