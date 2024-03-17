@@ -2,14 +2,12 @@
 
 // RUN: %ldc -output-ll -of=%t.ll %s -O3 && FileCheck %s < %t.ll
 
-
 class A {
     void foo();
-    void oof();
+    final void oof();
 }
 class B : A {
     override void foo();
-    override void oof();
 }
 
 // CHECK-LABEL: define{{.*}}ggg
@@ -26,12 +24,21 @@ void ggg()
 void hhh()
 {
     A a = new A();
-    // CHECK: call {{.*}}_D29devirtualization_assumevtable1A3foo
-    a.foo();
     // CHECK: call {{.*}}_D29devirtualization_assumevtable1A3oof
     a.oof();
+    // CHECK: call {{.*}}_D29devirtualization_assumevtable1A3foo
+    a.foo();
 }
 
+// CHECK-LABEL: define{{.*}}directcall
+void directcall()
+{
+    A a = new A();
+    // CHECK: call {{.*}}_D29devirtualization_assumevtable1A3foo
+    a.A.foo();
+    // CHECK: call {{.*}}_D29devirtualization_assumevtable1A3foo
+    a.foo();
+}
 // CHECK-LABEL: define{{.*}}exacttypeunknown
 void exacttypeunknown(A a, A b)
 {
@@ -45,6 +52,19 @@ void exacttypeunknown(A a, A b)
     // CHECK: %[[FOO2:[0-9a-z]+]] = load {{.*}}"foo@vtbl
     // CHECK: call{{.*}} void %[[FOO2]](
     a.foo();
+}
+
+// No vtable loading and assume calls for struct method calls.
+struct S {
+    void foo();
+}
+// CHECK-LABEL: define{{.*}}structS
+void structS(S s)
+{
+    // CHECK-NOT: llvm.assume
+    // CHECK-NOT: load
+    s.foo();
+    // CHECK: ret void
 }
 
 // The devirtualization is not valid for C++ methods.
