@@ -166,14 +166,13 @@ public:
 /// (Errors on empty strings)
 class StringsAdapter {
   const char *name;
-  Strings **arrp;
+  Strings *arrp;
 
 public:
-  StringsAdapter(const char *name_, Strings *&arr) {
+  StringsAdapter(const char *name_, Strings &arr) {
     name = name_;
     arrp = &arr;
     assert(name);
-    assert(arrp);
   }
 
   void push_back(const char *cstr);

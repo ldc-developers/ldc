@@ -16,10 +16,19 @@ version (CRuntime_Microsoft):
 
 // debug = PRINTF;
 debug(PRINTF) import core.stdc.stdio;
-import core.stdc.stdlib : malloc, free;
-import core.sys.windows.winbase : FreeLibrary, GetProcAddress, LoadLibraryA, LoadLibraryW;
-import core.sys.windows.winnt : WCHAR;
+import core.memory;
+import core.stdc.stdlib : calloc, malloc, free;
+import core.sys.windows.winbase : FreeLibrary, GetCurrentThreadId, GetModuleHandleExW,
+    GetProcAddress, LoadLibraryA, LoadLibraryW,
+    GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT;
+import core.sys.windows.winnt : WCHAR, IMAGE_DOS_HEADER, IMAGE_DOS_SIGNATURE, IMAGE_FILE_HEADER,
+    IMAGE_NT_HEADERS, IMAGE_SECTION_HEADER, IMAGE_TLS_DIRECTORY, IMAGE_DIRECTORY_ENTRY_TLS;
+import core.sys.windows.threadaux;
+import core.thread;
 import rt.deh, rt.minfo;
+import core.internal.container.array;
+
+version (DigitalMars) version (Win64) version = hasEHTables;
 
 version (LDC) { /* implemented in rt.sections_elf_shared, we just need some helpers */ } else
 {
@@ -28,12 +37,22 @@ struct SectionGroup
 {
     static int opApply(scope int delegate(ref SectionGroup) dg)
     {
-        return dg(_sections);
+        foreach (sec; _sections)
+        {
+            if (auto res = dg(*sec))
+                return res;
+        }
+        return 0;
     }
 
     static int opApplyReverse(scope int delegate(ref SectionGroup) dg)
     {
-        return dg(_sections);
+        foreach_reverse (sec; _sections)
+        {
+            if (auto res = dg(*sec))
+                return res;
+        }
+        return 0;
     }
 
     @property immutable(ModuleInfo*)[] modules() const nothrow @nogc
@@ -46,13 +65,10 @@ struct SectionGroup
         return _moduleGroup;
     }
 
-    version (DigitalMars)
-    version (Win64)
+    version (hasEHTables)
     @property immutable(FuncTable)[] ehTables() const nothrow @nogc
     {
-        auto pbeg = cast(immutable(FuncTable)*)&_deh_beg;
-        auto pend = cast(immutable(FuncTable)*)&_deh_end;
-        return pbeg[0 .. pend - pbeg];
+        return _ehTables[];
     }
 
     @property inout(void[])[] gcRanges() inout nothrow @nogc
@@ -63,6 +79,9 @@ struct SectionGroup
 private:
     ModuleGroup _moduleGroup;
     void[][] _gcRanges;
+    void* _handle;
+    void[] _tpSection; // range with offsets of pointers in TLS
+    version (hasEHTables) immutable(FuncTable)[] _ehTables;
 }
 
 shared(bool) conservative;
@@ -72,41 +91,57 @@ shared(bool) conservative;
  */
 void initSections() nothrow @nogc
 {
-    auto doshdr = cast(IMAGE_DOS_HEADER*) &__ImageBase;
+    initSections(&__ImageBase);
+}
 
-    _sections._moduleGroup = ModuleGroup(getModuleInfos(doshdr));
+void initSections(void* handle) nothrow @nogc
+{
+    auto sectionGroup = cast(SectionGroup*)calloc(1, SectionGroup.sizeof);
+    sectionGroup._moduleGroup = ModuleGroup(getModuleInfos(handle));
+    sectionGroup._handle = handle;
+    version (hasEHTables)
+    {
+        auto ehsec = findImageSection(handle, "._deh");
+        if (ehsec.length)
+        {
+            // skip empty brace data, the first entry starts with a non-zero function pointer
+            size_t pos = 0;
+            while (pos + FuncTable.sizeof <= ehsec.length)
+            {
+                if ((*cast(FuncTable*)(ehsec.ptr + pos)).fptr)
+                    break;
+                pos += (void*).sizeof;
+            }
+            size_t cnt = (ehsec.length - pos) / FuncTable.sizeof;
+            sectionGroup._ehTables = (cast(immutable(FuncTable*))(ehsec.ptr + pos))[0 .. cnt];
+        }
+    }
 
     // the ".data" image section includes both object file sections ".data" and ".bss"
-    void[] dataSection = findImageSection(doshdr, ".data");
+    void[] dataSection = findImageSection(handle, ".data");
     debug(PRINTF) printf("found .data section: [%p,+%llx]\n", dataSection.ptr,
                          cast(ulong)dataSection.length);
 
     import rt.sections;
     conservative = !scanDataSegPrecisely();
 
-    version (LDC)
+    if (conservative)
     {
-        /* FIXME: Precise DATA/TLS GC scanning requires compiler support
-         * (emitting mutable pointers into special sections bracketed
-         * by _{D,T}P_{beg,end} symbols).
-         */
-        _sections._gcRanges = (cast(void[]*) malloc((void[]).sizeof))[0..1];
-        _sections._gcRanges[0] = dataSection;
-    }
-    else if (conservative)
-    {
-        _sections._gcRanges = (cast(void[]*) malloc((void[]).sizeof))[0..1];
-        _sections._gcRanges[0] = dataSection;
+        sectionGroup._gcRanges = (cast(void[]*) malloc((void[]).sizeof))[0..1];
+        sectionGroup._gcRanges[0] = dataSection;
     }
     else
     {
-        size_t count = &_DP_end - &_DP_beg;
-        auto ranges = cast(void[]*) malloc(count * (void[]).sizeof);
+        // consolidate GC ranges for pointers in the .data segment
+        void[] dpSection = findImageSection(handle, ".dp");
+        debug(PRINTF) printf("found .dp section: [%p,+%llx]\n", dpSection.ptr,
+                             cast(ulong)dpSsection.length);
+        auto dp = cast(uint[]) dpSection;
+        auto ranges = cast(void[]*) malloc(dp.length * (void[]).sizeof);
         size_t r = 0;
         void* prev = null;
-        for (size_t i = 0; i < count; i++)
+        foreach (off; dp)
         {
-            auto off = (&_DP_beg)[i];
             if (off == 0) // skip zero entries added by incremental linking
                 continue; // assumes there is no D-pointer at the very beginning of .data
             void* addr = dataSection.ptr + off;
@@ -118,8 +153,10 @@ void initSections() nothrow @nogc
                 ranges[r++] = (cast(void**)addr)[0..1];
             prev = addr;
         }
-        _sections._gcRanges = ranges[0..r];
+        sectionGroup._gcRanges = ranges[0..r];
+        sectionGroup._tpSection = findImageSection(handle, ".tp");
     }
+    _sections.insertBack(sectionGroup);
 }
 
 /***
@@ -127,10 +164,69 @@ void initSections() nothrow @nogc
  */
 void finiSections() nothrow @nogc
 {
-    .free(cast(void*)_sections.modules.ptr);
-    .free(_sections._gcRanges.ptr);
+    foreach_reverse (ref sec; _sections)
+        finiSections(sec);
+    _sections.reset();
 }
 
+void finiSections(SectionGroup* sec) nothrow @nogc
+{
+    .free(cast(void*)sec.modules.ptr);
+    .free(sec._gcRanges.ptr);
+    .free(sec);
+}
+
+private void scanTLSPrecise(const(uint)* tp_beg, const(uint)* tp_end, void* base,
+                            scope void delegate(void* pbeg, void* pend) nothrow dg) nothrow
+{
+    for (auto p = tp_beg; p < tp_end; )
+    {
+        uint beg = *p++;
+        uint end = beg + cast(uint)((void*).sizeof);
+        while (p < tp_end && *p == end)
+        {
+            end += (void*).sizeof;
+            p++;
+        }
+        dg(base + beg, base + end);
+    }
+}
+
+version (Shared)
+{
+    void** initTLSRanges() nothrow @nogc
+    {
+        return getTEB();
+    }
+    void finiTLSRanges(void** teb) nothrow @nogc
+    {
+    }
+    void scanTLSRanges(void** teb, scope void delegate(void* pbeg, void* pend) nothrow dg) nothrow
+    {
+        foreach (ref sec; _sections)
+        {
+            auto doshdr = cast(IMAGE_DOS_HEADER*)sec._handle;
+            auto nthdr = cast(IMAGE_NT_HEADERS*)(sec._handle + doshdr.e_lfanew);
+            auto dir = &(nthdr.OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_TLS]);
+            if (dir.Size >= IMAGE_TLS_DIRECTORY.sizeof)
+            {
+                auto tlsdir = cast(IMAGE_TLS_DIRECTORY*)(sec._handle + dir.VirtualAddress);
+                auto tls_index = (cast(uint*)tlsdir.AddressOfIndex)[0];
+                void** tlsarray = cast(void**)teb[11];
+
+                void* beg = tlsarray[tls_index];
+                auto size = tlsdir.EndAddressOfRawData - tlsdir.StartAddressOfRawData + tlsdir.SizeOfZeroFill;
+
+                if (conservative)
+                    dg( beg, beg + size);
+                else
+                    scanTLSPrecise(cast(uint*)&sec._tpSection[0], cast(uint*)&sec._tpSection[$], beg, dg);
+            }
+        }
+    }
+}
+else // !Shared
+{
 /***
  * Called once per thread; returns array of thread local storage ranges
  */
@@ -183,29 +279,53 @@ void finiTLSRanges(void[] rng) nothrow @nogc
 
 void scanTLSRanges(void[] rng, scope void delegate(void* pbeg, void* pend) nothrow dg) nothrow
 {
-    version (LDC)
-    {
-        // FIXME
+    if (conservative)
         dg(rng.ptr, rng.ptr + rng.length);
-    }
-    else if (conservative)
-    {
-        dg(rng.ptr, rng.ptr + rng.length);
-    }
     else
+        scanTLSPrecise(&_TP_beg, &_TP_end, rng.ptr, dg);
+}
+} // !Shared
+
+extern(C) bool rt_initSharedModule(void* handle)
+{
+    initSections(handle);
+    auto sectionGroup = _sections.back();
+
+    foreach (rng; sectionGroup._gcRanges)
+        GC.addRange(rng.ptr, rng.length);
+
+    sectionGroup.moduleGroup.sortCtors();
+    sectionGroup.moduleGroup.runCtors();
+
+    foreach (t; Thread)
     {
-        for (auto p = &_TP_beg; p < &_TP_end; )
-        {
-            uint beg = *p++;
-            uint end = beg + cast(uint)((void*).sizeof);
-            while (p < &_TP_end && *p == end)
-            {
-                end += (void*).sizeof;
-                p++;
-            }
-            dg(rng.ptr + beg, rng.ptr + end);
-        }
+        impersonate_thread(t.id, () => sectionGroup.moduleGroup.runTlsCtors());
     }
+    return true;
+}
+
+extern(C) bool rt_termSharedModule(void* handle)
+{
+    size_t i;
+    for(i = 0; i < _sections.length; i++)
+        if (_sections[i]._handle == handle)
+            break;
+    if (i >= _sections.length)
+        return false;
+    auto sectionGroup = _sections[i];
+
+    foreach (t; Thread)
+    {
+        impersonate_thread(t.id, () => sectionGroup.moduleGroup.runTlsDtors());
+    }
+    sectionGroup.moduleGroup.runDtors();
+    foreach (rng; sectionGroup._gcRanges)
+        GC.removeRange(rng.ptr);
+
+    finiSections(sectionGroup);
+    _sections.remove(i);
+
+    return true;
 }
 
 } // !LDC
@@ -218,7 +338,7 @@ private:
 
 version (LDC) {} else
 {
-    __gshared SectionGroup _sections;
+    __gshared Array!(SectionGroup*) _sections;
 
     extern(C)
     {
@@ -227,7 +347,7 @@ version (LDC) {} else
     }
 }
 
-package immutable(ModuleInfo*)[] getModuleInfos(IMAGE_DOS_HEADER* doshdr) nothrow @nogc
+package immutable(ModuleInfo*)[] getModuleInfos(void* handle) nothrow @nogc
 out (result)
 {
     foreach (m; result)
@@ -235,17 +355,9 @@ out (result)
 }
 do
 {
-    version (LDC)
-    {
-        // the ".minfo" section consists of pointers to all ModuleInfos defined in object files linked into the image
-        void[] minfoSection = findImageSection(doshdr, ".minfo");
-        auto m = (cast(immutable(ModuleInfo*)*)minfoSection.ptr)[0 .. minfoSection.length / size_t.sizeof];
-    }
-    else
-    {
-        auto m = (cast(immutable(ModuleInfo*)*)&_minfo_beg)[1 .. &_minfo_end - &_minfo_beg];
-    }
-
+    // the ".minfo" section consists of pointers to all ModuleInfos defined in object files linked into the image
+    void[] minfoSection = findImageSection(handle, ".minfo");
+    auto m = (cast(immutable(ModuleInfo*)*)minfoSection.ptr)[0 .. minfoSection.length / size_t.sizeof];
     /* Because of alignment inserted by the linker, various null pointers
      * are there. We need to filter them out.
      */
@@ -364,50 +476,6 @@ extern (C) int rt_unloadLibrary(void* ptr)
 // PE/COFF program header iteration
 ///////////////////////////////////////////////////////////////////////////////
 
-enum IMAGE_DOS_SIGNATURE = 0x5A4D;      // MZ
-
-package struct IMAGE_DOS_HEADER // DOS .EXE header
-{
-    ushort   e_magic;    // Magic number
-    ushort[29] e_res2;   // Reserved ushorts
-    int      e_lfanew;   // File address of new exe header
-}
-
-struct IMAGE_FILE_HEADER
-{
-    ushort Machine;
-    ushort NumberOfSections;
-    uint   TimeDateStamp;
-    uint   PointerToSymbolTable;
-    uint   NumberOfSymbols;
-    ushort SizeOfOptionalHeader;
-    ushort Characteristics;
-}
-
-struct IMAGE_NT_HEADERS
-{
-    uint Signature;
-    IMAGE_FILE_HEADER FileHeader;
-    // optional header follows
-}
-
-struct IMAGE_SECTION_HEADER
-{
-    char[8] Name = 0;
-    union {
-        uint   PhysicalAddress;
-        uint   VirtualSize;
-    }
-    uint   VirtualAddress;
-    uint   SizeOfRawData;
-    uint   PointerToRawData;
-    uint   PointerToRelocations;
-    uint   PointerToLinenumbers;
-    ushort NumberOfRelocations;
-    ushort NumberOfLinenumbers;
-    uint   Characteristics;
-}
-
 bool compareSectionName(ref IMAGE_SECTION_HEADER section, string name) nothrow @nogc
 {
     if (name[] != section.Name[0 .. name.length])
@@ -415,18 +483,36 @@ bool compareSectionName(ref IMAGE_SECTION_HEADER section, string name) nothrow @
     return name.length == 8 || section.Name[name.length] == 0;
 }
 
-package void[] findImageSection(IMAGE_DOS_HEADER* doshdr, string name) nothrow @nogc
+package void[] findImageSection(void* handle, string name) nothrow @nogc
 {
     if (name.length > 8) // section name from string table not supported
         return null;
+    IMAGE_DOS_HEADER* doshdr = cast(IMAGE_DOS_HEADER*)handle;
     if (doshdr.e_magic != IMAGE_DOS_SIGNATURE)
         return null;
 
-    auto nthdr = cast(IMAGE_NT_HEADERS*) (cast(void*)doshdr + doshdr.e_lfanew);
-    auto sections = cast(IMAGE_SECTION_HEADER*) (cast(void*)nthdr + IMAGE_NT_HEADERS.sizeof + nthdr.FileHeader.SizeOfOptionalHeader);
+    auto nthdr = cast(IMAGE_NT_HEADERS*)(handle + doshdr.e_lfanew);
+    auto sections = cast(IMAGE_SECTION_HEADER*)(cast(void*)nthdr + IMAGE_NT_HEADERS.OptionalHeader.offsetof + nthdr.FileHeader.SizeOfOptionalHeader);
     for (ushort i = 0; i < nthdr.FileHeader.NumberOfSections; i++)
         if (compareSectionName(sections[i], name))
-            return (cast(void*)doshdr + sections[i].VirtualAddress)[0 .. sections[i].VirtualSize];
+            return (handle + sections[i].VirtualAddress)[0 .. sections[i].Misc.VirtualSize];
 
     return null;
+}
+
+version (Shared) package void* handleForAddr(void* addr) nothrow @nogc
+{
+    void* hModule;
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                            cast(const(wchar)*) addr, &hModule))
+        return null;
+    return hModule;
+}
+
+version (LDC) { /* not needed */ } else
+// DLL entry point for druntime_shared.dll
+version (Shared)
+{
+    import core.sys.windows.dll;
+    mixin SimpleDllMain;
 }

@@ -91,6 +91,7 @@ void gendocfile(Module *m);
 // In dmd/mars.d
 void generateJson(Modules *modules);
 
+using namespace dmd;
 using namespace opts;
 
 static StringsAdapter impPathsStore("I", global.params.imppath);
@@ -385,10 +386,8 @@ void parseCommandLine(Strings &sourceFiles) {
   }
 
 #if _WIN32
-  const auto toWinPaths = [](Strings *paths) {
-    if (!paths)
-      return;
-    for (auto &path : *paths)
+  const auto toWinPaths = [](Strings &paths) {
+    for (auto &path : paths)
       path = opts::dupPathString(path).ptr;
   };
   toWinPaths(global.params.imppath);

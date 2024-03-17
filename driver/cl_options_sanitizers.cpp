@@ -35,6 +35,8 @@ enum class AsanDetectStackUseAfterReturnMode { Never, Runtime, Always };
 }
 #endif
 
+using namespace dmd;
+
 namespace {
 
 using namespace opts;

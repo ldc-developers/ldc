@@ -12,6 +12,7 @@
 
 #include "arraytypes.h"
 #include "dsymbol.h"
+#include "expression.h"
 
 class Identifier;
 class TemplateInstance;
@@ -36,7 +37,7 @@ public:
     // kludge for template.isType()
     DYNCAST dyncast() const override { return DYNCAST_TUPLE; }
 
-    const char *toChars() const override { return objects.toChars(); }
+    const char *toChars() const override;
 };
 
 struct TemplatePrevious
@@ -46,20 +47,6 @@ struct TemplatePrevious
     Objects *dedargs;
 };
 
-struct ArgumentList final
-{
-    Expressions* arguments;
-    Identifiers* names;
-    ArgumentList() :
-        arguments(),
-        names()
-    {
-    }
-    ArgumentList(Expressions* arguments, Identifiers* names = nullptr) :
-        arguments(arguments),
-        names(names)
-        {}
-};
 
 class TemplateDeclaration final : public ScopeDsymbol
 {
@@ -275,6 +262,7 @@ public:
     ScopeDsymbol *argsym;               // argument symbol table
     hash_t hash;                        // cached result of toHash()
     Expressions *fargs;                 // for function template, these are the function arguments
+    Identifiers *fnames;                // for function template, argument names
 
     TemplateInstances* deferred;
 
@@ -321,11 +309,17 @@ public:
     void accept(Visitor *v) override { v->visit(this); }
 };
 
-Expression *isExpression(RootObject *o);
-Dsymbol *isDsymbol(RootObject *o);
-Type *isType(RootObject *o);
-Tuple *isTuple(RootObject *o);
-Parameter *isParameter(RootObject *o);
-TemplateParameter *isTemplateParameter(RootObject *o);
-bool isError(const RootObject *const o);
-void printTemplateStats();
+namespace dmd
+{
+    // in templateparamsem.d
+    bool tpsemantic(TemplateParameter *tp, Scope *sc, TemplateParameters *parameters);
+
+    Expression *isExpression(RootObject *o);
+    Dsymbol *isDsymbol(RootObject *o);
+    Type *isType(RootObject *o);
+    Tuple *isTuple(RootObject *o);
+    Parameter *isParameter(RootObject *o);
+    TemplateParameter *isTemplateParameter(RootObject *o);
+    bool isError(const RootObject *const o);
+    void printTemplateStats(bool listInstances, ErrorSink* eSink);
+}

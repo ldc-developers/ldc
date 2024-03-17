@@ -17,6 +17,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/SourceMgr.h"
 
+using namespace dmd;
+
 namespace {
 
 /// Sets LLVMContext::setDiscardValueNames(false) upon construction and restores

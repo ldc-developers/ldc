@@ -51,4 +51,3 @@ extern (C++) LDCPragma DtoGetPragma(Scope* sc, PragmaDeclaration decl, ref const
 extern (C++) void DtoCheckPragma(PragmaDeclaration decl, Dsymbol sym, LDCPragma llvm_internal, const char* arg1str);
 extern (C++) bool DtoCheckProfileInstrPragma(Expression arg, ref bool value);
 extern (C++) bool DtoIsIntrinsic(FuncDeclaration fd);
-extern (C++) bool DtoIsVaIntrinsic(FuncDeclaration fd);

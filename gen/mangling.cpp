@@ -23,6 +23,8 @@
 #include "gen/to_string.h"
 #include "llvm/Support/MD5.h"
 
+using namespace dmd;
+
 namespace {
 
 // TODO: Disable hashing of symbols that are defined in libdruntime and

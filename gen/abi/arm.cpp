@@ -111,6 +111,9 @@ struct ArmTargetABI : TargetABI {
   }
 
   Type *vaListType() override {
+    if (global.params.targetTriple->isOSDarwin())
+      return TargetABI::vaListType(); // char*
+
     // We need to pass the actual va_list type for correct mangling. Simply
     // using TypeIdentifier here is a bit wonky but works, as long as the name
     // is actually available in the scope (this is what DMD does, so if a better

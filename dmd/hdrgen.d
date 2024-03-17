@@ -50,6 +50,7 @@ import dmd.root.string;
 import dmd.statement;
 import dmd.staticassert;
 import dmd.tokens;
+import dmd.typesem;
 import dmd.visitor;
 
 struct HdrGenState
@@ -60,6 +61,7 @@ struct HdrGenState
     bool importcHdr;    /// true if generating a .di file from an ImportC file
     bool doFuncBodies;  /// include function bodies in output
     bool vcg_ast;       /// write out codegen-ast
+    bool skipConstraints;  // skip constraints when doing templates
 
     bool fullQual;      /// fully qualify types when printing
     int tpltMember;
@@ -81,7 +83,7 @@ enum TEST_EMIT_ALL = 0;
  *      doFuncBodies = generate function definitions rather than just declarations
  *      buf = buffer to write the data to
  */
-extern (C++) void genhdrfile(Module m, bool doFuncBodies, ref OutBuffer buf)
+void genhdrfile(Module m, bool doFuncBodies, ref OutBuffer buf)
 {
 version (IN_LLVM)
 {
@@ -107,7 +109,7 @@ version (IN_LLVM)
  * Returns:
  *      0-terminated string
  */
-public extern (C++) const(char)* toChars(const Statement s)
+public const(char)* toChars(const Statement s)
 {
     HdrGenState hgs;
     OutBuffer buf;
@@ -116,7 +118,7 @@ public extern (C++) const(char)* toChars(const Statement s)
     return buf.extractSlice().ptr;
 }
 
-public extern (C++) const(char)* toChars(const Expression e)
+public const(char)* toChars(const Expression e)
 {
     HdrGenState hgs;
     OutBuffer buf;
@@ -124,7 +126,7 @@ public extern (C++) const(char)* toChars(const Expression e)
     return buf.extractChars();
 }
 
-public extern (C++) const(char)* toChars(const Initializer i)
+public const(char)* toChars(const Initializer i)
 {
     OutBuffer buf;
     HdrGenState hgs;
@@ -132,7 +134,7 @@ public extern (C++) const(char)* toChars(const Initializer i)
     return buf.extractChars();
 }
 
-public extern (C++) const(char)* toChars(const Type t)
+public const(char)* toChars(const Type t)
 {
     OutBuffer buf;
     buf.reserve(16);
@@ -158,7 +160,7 @@ public const(char)[] toString(const Initializer i)
  *   vcg_ast = write out codegen ast
  *   m = module to visit all members of.
  */
-extern (C++) void moduleToBuffer(ref OutBuffer buf, bool vcg_ast, Module m)
+void moduleToBuffer(ref OutBuffer buf, bool vcg_ast, Module m)
 {
     HdrGenState hgs;
     hgs.fullDump = true;
@@ -1963,6 +1965,47 @@ void toCBuffer(Dsymbol s, ref OutBuffer buf, ref HdrGenState hgs)
     s.accept(v);
 }
 
+// Note: this function is not actually `const`, because iterating the
+// function parameter list may run dsymbolsemantic on enum types
+public
+void toCharsMaybeConstraints(const TemplateDeclaration td, ref OutBuffer buf, ref HdrGenState hgs)
+{
+    buf.writestring(td.ident == Id.ctor ? "this" : td.ident.toString());
+    buf.writeByte('(');
+    foreach (i, const tp; *td.parameters)
+    {
+        if (i)
+            buf.writestring(", ");
+        toCBuffer(tp, buf, hgs);
+    }
+    buf.writeByte(')');
+
+    if (td.onemember)
+    {
+        if (const fd = td.onemember.isFuncDeclaration())
+        {
+            if (TypeFunction tf = cast(TypeFunction)fd.type.isTypeFunction())
+            {
+                // !! Casted away const
+                buf.writestring(parametersTypeToChars(tf.parameterList));
+                if (tf.mod)
+                {
+                    buf.writeByte(' ');
+                    buf.MODtoBuffer(tf.mod);
+                }
+            }
+        }
+    }
+
+    if (!hgs.skipConstraints &&
+        td.constraint)
+    {
+        buf.writestring(" if (");
+        toCBuffer(td.constraint, buf, hgs);
+        buf.writeByte(')');
+    }
+}
+
 
 /*****************************************
  * Pretty-print a template parameter list to a buffer.
@@ -2240,6 +2283,17 @@ private void expressionPrettyPrint(Expression e, ref OutBuffer buf, ref HdrGenSt
 
     void visitString(StringExp e)
     {
+        if (e.hexString || e.sz == 8)
+        {
+            buf.writeByte('x');
+            buf.writeByte('"');
+            foreach (i; 0 .. e.len)
+                buf.printf("%0*llX", e.sz, e.getIndex(i));
+            buf.writeByte('"');
+            if (e.postfix)
+                buf.writeByte(e.postfix);
+            return;
+        }
         buf.writeByte('"');
         const o = buf.length;
         foreach (i; 0 .. e.len)
@@ -2251,6 +2305,37 @@ private void expressionPrettyPrint(Expression e, ref OutBuffer buf, ref HdrGenSt
         buf.writeByte('"');
         if (e.postfix)
             buf.writeByte(e.postfix);
+    }
+
+    void visitInterpolation(InterpExp e)
+    {
+        buf.writeByte('i');
+        buf.writeByte('"');
+        const o = buf.length;
+
+        foreach (idx, str; e.interpolatedSet.parts)
+        {
+            if (idx % 2 == 0)
+            {
+                foreach(ch; str)
+                    writeCharLiteral(buf, ch);
+            }
+            else
+            {
+                buf.writeByte('$');
+                buf.writeByte('(');
+                foreach(ch; str)
+                    buf.writeByte(ch);
+                buf.writeByte(')');
+            }
+        }
+
+        if (hgs.ddoc)
+            escapeDdocString(buf, o);
+        buf.writeByte('"');
+        if (e.postfix)
+            buf.writeByte(e.postfix);
+
     }
 
     void visitArrayLiteral(ArrayLiteralExp e)
@@ -2833,6 +2918,7 @@ private void expressionPrettyPrint(Expression e, ref OutBuffer buf, ref HdrGenSt
         case EXP.super_:        return visitSuper(e.isSuperExp());
         case EXP.null_:         return visitNull(e.isNullExp());
         case EXP.string_:       return visitString(e.isStringExp());
+        case EXP.interpolated:  return visitInterpolation(e.isInterpExp());
         case EXP.arrayLiteral:  return visitArrayLiteral(e.isArrayLiteralExp());
         case EXP.assocArrayLiteral:     return visitAssocArrayLiteral(e.isAssocArrayLiteralExp());
         case EXP.structLiteral: return visitStructLiteral(e.isStructLiteralExp());
@@ -3339,7 +3425,7 @@ void arrayObjectsToBuffer(ref OutBuffer buf, Objects* objects)
  *  pl = parameter list to print
  * Returns: Null-terminated string representing parameters.
  */
-extern (C++) const(char)* parametersTypeToChars(ParameterList pl)
+const(char)* parametersTypeToChars(ParameterList pl)
 {
     OutBuffer buf;
     HdrGenState hgs;

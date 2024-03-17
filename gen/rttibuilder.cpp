@@ -22,8 +22,7 @@
 #include "ir/iraggr.h"
 #include "ir/irfunction.h"
 
-// in dmd/opover.d:
-AggregateDeclaration *isAggregate(Type *t);
+using namespace dmd;
 
 RTTIBuilder::RTTIBuilder(Type *baseType) {
   const auto ad = isAggregate(baseType);
@@ -67,7 +66,7 @@ void RTTIBuilder::push_typeinfo(Type *t) { push(DtoTypeInfoOf(Loc(), t)); }
 void RTTIBuilder::push_string(const char *str) { push(DtoConstString(str)); }
 
 void RTTIBuilder::push_null_void_array() {
-  LLType *T = DtoType(Type::tvoid->arrayOf());
+  LLType *T = DtoType(arrayOf(Type::tvoid));
   push(getNullValue(T));
 }
 
@@ -93,7 +92,7 @@ void RTTIBuilder::push_void_array(llvm::Constant *CI, Type *valtype,
 
 void RTTIBuilder::push_array(llvm::Constant *CI, uint64_t dim, Type *valtype,
                              Dsymbol *mangle_sym) {
-  std::string tmpStr(valtype->arrayOf()->toChars());
+  std::string tmpStr(arrayOf(valtype)->toChars());
   tmpStr.erase(remove(tmpStr.begin(), tmpStr.end(), '['), tmpStr.end());
   tmpStr.erase(remove(tmpStr.begin(), tmpStr.end(), ']'), tmpStr.end());
   tmpStr.append("arr");
@@ -114,7 +113,7 @@ void RTTIBuilder::push_array(llvm::Constant *CI, uint64_t dim, Type *valtype,
   setLinkage(lwc, G);
   G->setAlignment(llvm::MaybeAlign(DtoAlignment(valtype)));
 
-  push_array(dim, DtoBitCast(G, DtoType(valtype->pointerTo())));
+  push_array(dim, DtoBitCast(G, DtoType(pointerTo(valtype))));
 }
 
 void RTTIBuilder::push_array(uint64_t dim, llvm::Constant *ptr) {

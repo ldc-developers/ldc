@@ -45,19 +45,9 @@ else version (NoBackend)
     struct TYPE;
     alias type = TYPE;
 
-    extern (C++)
+    extern(C++) abstract class ObjcGlue
     {
-        // iasm
-        Statement asmSemantic(AsmStatement s, Scope* sc)
-        {
-            sc.func.hasReturnExp = 8;
-            return null;
-        }
-
-        extern(C++) abstract class ObjcGlue
-        {
-            static void initialize() {}
-        }
+        static void initialize() {}
     }
 }
 else version (IN_GCC)
@@ -67,11 +57,6 @@ else version (IN_GCC)
     alias Symbol = tree_node;
     alias code = tree_node;
     alias type = tree_node;
-
-    extern (C++)
-    {
-        Statement asmSemantic(AsmStatement s, Scope* sc);
-    }
 
     // stubs
     extern(C++) abstract class ObjcGlue
@@ -85,6 +70,5 @@ else
     public import dmd.backend.type : type;
     public import dmd.backend.el : elem;
     public import dmd.backend.code_x86 : code;
-    public import dmd.iasm : asmSemantic;
     public import dmd.objc_glue : ObjcGlue;
 }

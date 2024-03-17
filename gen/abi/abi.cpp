@@ -9,6 +9,7 @@
 
 #include "gen/abi/abi.h"
 
+#include "dmd/argtypes.h"
 #include "dmd/expression.h"
 #include "dmd/id.h"
 #include "dmd/identifier.h"
@@ -25,8 +26,7 @@
 #include "ir/irfuncty.h"
 #include <algorithm>
 
-// in dmd/argtypes_aarch64.d:
-bool isHFVA(Type *t, int maxNumElements, Type **rewriteType);
+using namespace dmd;
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -89,7 +89,7 @@ TypeTuple *TargetABI::getArgTypes(Type *t) {
 LLType *TargetABI::getRewrittenArgType(Type *t, TypeTuple *argTypes) {
   if (!argTypes || argTypes->arguments->empty() ||
       (argTypes->arguments->length == 1 &&
-       argTypes->arguments->front()->type->equivalent(t))) {
+       equivalent(argTypes->arguments->front()->type, t))) {
     return nullptr; // don't rewrite
   }
 
@@ -217,7 +217,7 @@ LLValue *TargetABI::prepareVaArg(DLValue *ap) {
 
 Type *TargetABI::vaListType() {
   // char* is used by default in druntime.
-  return Type::tchar->pointerTo();
+  return pointerTo(Type::tchar);
 }
 
 //////////////////////////////////////////////////////////////////////////////

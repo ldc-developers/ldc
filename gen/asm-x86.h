@@ -2337,6 +2337,8 @@ struct AsmProcessor {
 
   void addOperand(const char *fmt, AsmArgType type, Expression *e,
                   AsmCode *asmcode, AsmArgMode mode = Mode_Input) {
+    using namespace dmd;
+
     if (sc->func->isNaked()) {
       switch (type) {
       case Arg_Integer:
@@ -2579,6 +2581,8 @@ struct AsmProcessor {
 
   // also set impl clobbers
   bool formatInstruction(int nOperands, AsmCode *asmcode) {
+    using namespace dmd;
+
     const char *fmt;
     const char *mnemonic;
     std::string type_suffix;
@@ -3004,7 +3008,7 @@ struct AsmProcessor {
             {
 
               e = createAddrExp(Loc(), e);
-              e->type = decl->type->pointerTo();
+              e->type = pointerTo(decl->type);
 
               operand->constDisplacement = 0;
               operand->baseReg = Reg_Invalid;
@@ -3059,7 +3063,7 @@ struct AsmProcessor {
 
               if (!sc->func->isNaked()) // no addrexp in naked asm please :)
               {
-                Type *tt = e->type->pointerTo();
+                Type *tt = pointerTo(e->type);
                 e = createAddrExp(Loc(), e);
                 e->type = tt;
               }
@@ -3231,6 +3235,8 @@ struct AsmProcessor {
   }
 
   Expression *intOp(TOK op, Expression *e1, Expression *e2) {
+    using namespace dmd;
+
     if (isIntExp(e1) && (!e2 || isIntExp(e2))) {
       Expression *e = createExpressionForIntOp(stmt->loc, op, e1, e2);
       e = expressionSemantic(e, sc);
@@ -3629,6 +3635,8 @@ struct AsmProcessor {
   }
 
   Expression *parsePrimaryExp() {
+    using namespace dmd;
+
     Expression *e;
     Identifier *ident = nullptr;
 
@@ -3789,6 +3797,8 @@ struct AsmProcessor {
   }
 
   void doAlign() {
+    using namespace dmd;
+
     // .align bits vs. bytes...
     // apparently a.out platforms use bits instead of bytes...
 

@@ -56,6 +56,8 @@
 #include <stack>
 #include <stdio.h>
 
+using namespace dmd;
+
 llvm::cl::opt<bool> checkPrintf(
     "check-printf-calls", llvm::cl::ZeroOrMore, llvm::cl::ReallyHidden,
     llvm::cl::desc("Validate printf call format strings against arguments"));
@@ -424,7 +426,7 @@ public:
     LOG_SCOPE;
 
     Type *dtype = e->type->toBasetype();
-    const auto stringLength = e->numberOfCodeUnits();
+    const auto stringLength = e->len;
 
     if (auto tsa = dtype->isTypeSArray()) {
       const auto arrayLength = tsa->dim->toInteger();
@@ -708,7 +710,7 @@ public:
     auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
-    // handle magic inline asm
+    // handle magic intrinsics and inline asm/IR
     if (auto ve = e->e1->isVarExp()) {
       if (auto fd = ve->var->isFuncDeclaration()) {
         if (fd->llvmInternal == LLVMinline_asm) {
@@ -717,6 +719,10 @@ public:
         if (fd->llvmInternal == LLVMinline_ir) {
           return DtoInlineIRExpr(e->loc, fd, e->arguments, sretPointer);
         }
+
+        DValue *result = nullptr;
+        if (DtoLowerMagicIntrinsic(p, fd, e, result))
+          return result;
       }
     }
 
@@ -765,13 +771,8 @@ public:
 
     // get func value if any
     DFuncValue *dfnval = fnval->isFunc();
-
-    // handle magic intrinsics (mapping to instructions)
     if (dfnval && dfnval->func) {
-      FuncDeclaration *fndecl = dfnval->func;
-      DValue *result = nullptr;
-      if (DtoLowerMagicIntrinsic(p, fndecl, e, result))
-        return result;
+      assert(!DtoIsMagicIntrinsic(dfnval->func));
     }
 
     DValue *result =
@@ -1249,7 +1250,7 @@ public:
 
         // in this case, we also need to make sure the pointer is cast to the
         // innermost element type
-        eptr = DtoBitCast(eptr, DtoType(tsa->nextOf()->pointerTo()));
+        eptr = DtoBitCast(eptr, DtoType(pointerTo(tsa->nextOf())));
       }
     }
 
@@ -2074,7 +2075,7 @@ public:
     LLValue *retPtr = nullptr;
     if (!(dtype->ty == TY::Tvoid || dtype->ty == TY::Tnoreturn)) {
       // allocate a temporary for pointer to the final result.
-      retPtr = DtoAlloca(dtype->pointerTo(), "condtmp");
+      retPtr = DtoAlloca(pointerTo(dtype), "condtmp");
     }
 
     llvm::BasicBlock *condtrue = p->insertBB("condtrue");
@@ -2376,7 +2377,7 @@ public:
         DtoMemSetZero(DtoType(e->type), dstMem);
       } else {
         LLValue *initsym = getIrAggr(sd)->getInitSymbol();
-        initsym = DtoBitCast(initsym, DtoType(e->type->pointerTo()));
+        initsym = DtoBitCast(initsym, DtoType(pointerTo(e->type)));
         assert(dstMem->getType() == initsym->getType());
         DtoMemCpy(DtoType(e->type), dstMem, initsym);
       }
@@ -2811,11 +2812,11 @@ public:
         // to an Interface instance, which has the type info as its first
         // member, so we have to add an extra layer of indirection.
         resultType = getInterfaceTypeInfoType();
-        LLType *pres = DtoType(resultType->pointerTo());
+        LLType *pres = DtoType(pointerTo(resultType));
         typinf = DtoLoad(pres, DtoBitCast(typinf, pres->getPointerTo()));
       } else {
         resultType = getClassInfoType();
-        typinf = DtoBitCast(typinf, DtoType(resultType->pointerTo()));
+        typinf = DtoBitCast(typinf, DtoType(pointerTo(resultType)));
       }
 
       result = new DLValue(resultType, typinf);

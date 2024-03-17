@@ -22,6 +22,8 @@
 #include "gen/llvmhelpers.h"
 #include "llvm/Support/CommandLine.h"
 
+using namespace dmd;
+
 namespace {
 bool parseStringExp(Expression *e, const char *&res) {
   e = optimize(e, WANTvalue);
@@ -450,6 +452,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         fatal();
       }
       td->llvmInternal = llvm_internal;
+      td->onemember->llvmInternal = llvm_internal;
     });
     if (count != 1) {
       error(s->loc,
@@ -500,6 +503,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         fatal();
       }
       td->llvmInternal = llvm_internal;
+      td->onemember->llvmInternal = llvm_internal;
     });
     if (count != 1) {
       error(s->loc,
@@ -513,7 +517,13 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
   case LLVMinline_ir: {
     DtoCheckInlineIRPragma(ident, s);
     const int count = applyTemplatePragma(s, [=](TemplateDeclaration *td) {
+      if (!td->onemember) {
+        error(s->loc, "the `%s` pragma template must have exactly one member",
+              ident->toChars());
+        fatal();
+      }
       td->llvmInternal = llvm_internal;
+      td->onemember->llvmInternal = llvm_internal;
     });
     if (count != 1) {
       error(s->loc,
@@ -568,8 +578,16 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
 }
 
 bool DtoIsIntrinsic(FuncDeclaration *fd) {
+  return fd->llvmInternal == LLVMintrinsic || DtoIsMagicIntrinsic(fd);
+}
+
+bool DtoIsMagicIntrinsic(FuncDeclaration *fd) {
+  // note: keep in sync with DtoLowerMagicIntrinsic()
   switch (fd->llvmInternal) {
-  case LLVMintrinsic:
+  case LLVMva_start: // doesn't map to an instruction, but handled as magic intrinsic by LDC
+  case LLVMva_copy: // ditto
+  case LLVMva_arg:
+  case LLVMva_end: // ditto
   case LLVMalloca:
   case LLVMfence:
   case LLVMatomic_store:
@@ -585,13 +603,8 @@ bool DtoIsIntrinsic(FuncDeclaration *fd) {
     return true;
 
   default:
-    return DtoIsVaIntrinsic(fd);
+    return false;
   }
-}
-
-bool DtoIsVaIntrinsic(FuncDeclaration *fd) {
-  return (fd->llvmInternal == LLVMva_start || fd->llvmInternal == LLVMva_copy ||
-          fd->llvmInternal == LLVMva_end);
 }
 
 // pragma(LDC_profile_instr, [true | false])

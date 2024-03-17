@@ -145,6 +145,8 @@ extern(C++) final class SemanticTimeTraceVisitor(SemaVisitor) : Visitor
 
     override void visit(AliasAssign aa) { semavisitor.visit(aa); }
 
+    override void visit(CAsmDeclaration cad) { semavisitor.visit(cad); }
+
     override void visit(Package pkg) { semavisitor.visit(pkg); }
 
     override void visit(Module m) {

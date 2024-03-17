@@ -39,6 +39,8 @@
 #include "llvm/Support/Path.h"
 #include <functional>
 
+using namespace dmd;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 namespace cl = llvm::cl;
@@ -648,7 +650,7 @@ DIType DIBuilder::CreateArrayType(TypeArray *type) {
 
   LLMetadata *elems[] = {CreateMemberType(0, Type::tsize_t, file, "length", 0,
                                           Visibility::public_),
-                         CreateMemberType(0, type->nextOf()->pointerTo(), file,
+                         CreateMemberType(0, pointerTo(type->nextOf()), file,
                                           "ptr", target.ptrsize,
                                           Visibility::public_)};
 
@@ -743,7 +745,7 @@ DIType DIBuilder::CreateDelegateType(TypeDelegate *type) {
   LLMetadata *elems[] = {
       CreateMemberType(0, Type::tvoidptr, file, "ptr", 0,
                        Visibility::public_),
-      CreateMemberType(0, type->next->pointerTo(), file, "funcptr",
+      CreateMemberType(0, pointerTo(type->next), file, "funcptr",
                        target.ptrsize, Visibility::public_)};
 
   return DBuilder.createStructType(scope, name, file,

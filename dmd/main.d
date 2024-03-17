@@ -55,6 +55,7 @@ import dmd.location;
 import dmd.mars;
 import dmd.mtype;
 import dmd.objc;
+// IN_LLVM import dmd.root.env;
 import dmd.root.file;
 import dmd.root.filename;
 import dmd.root.man;
@@ -178,6 +179,7 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
     Strings files;
     Strings libmodules;
     global._init();
+    target.setTargetBuildDefaults();
 
     if (parseCommandlineAndConfig(argc, argv, params, files))
         return EXIT_FAILURE;
@@ -376,23 +378,16 @@ else
 
     // Build import search path
 
-    static Strings* buildPath(Strings* imppath)
+    static void buildPath(ref Strings imppath, ref Strings result)
     {
-        Strings* result = null;
-        if (imppath)
+        foreach (const path; imppath)
         {
-            foreach (const path; *imppath)
+            Strings* a = FileName.splitPath(path);
+            if (a)
             {
-                Strings* a = FileName.splitPath(path);
-                if (a)
-                {
-                    if (!result)
-                        result = new Strings();
-                    result.append(a);
-                }
+                result.append(a);
             }
         }
-        return result;
     }
 
     if (params.mixinOut.doOutput)
@@ -401,8 +396,8 @@ else
         atexit(&flushMixins); // see comment for flushMixins
     }
     scope(exit) flushMixins();
-    global.path = buildPath(params.imppath);
-    global.filePath = buildPath(params.fileImppath);
+    buildPath(params.imppath, global.path);
+    buildPath(params.fileImppath, global.filePath);
 
     // Create Modules
     Modules modules = createModules(files, libmodules, target);
@@ -674,7 +669,7 @@ version (IN_LLVM)
     }
 
     printCtfePerformanceStats();
-    printTemplateStats();
+    printTemplateStats(global.params.v.templatesListInstances, global.errorSink);
 
     // Generate output files
     if (params.json.doOutput)
@@ -793,22 +788,24 @@ version (IN_LLVM)
 else // !IN_LLVM
 {
         if (driverParams.link)
-            status = runLINK();
+            status = runLINK(global.params.v.verbose, global.errorSink);
 }
         if (params.run)
         {
             if (!status)
             {
-                status = runProgram();
-                /* Delete .obj files and .exe file
-                 */
 version (IN_LLVM)
 {
+                status = runProgram();
                 // object files already deleted above
                 deleteExeFile();
 }
 else
 {
+                restoreEnvVars();
+                status = runProgram(global.params.exefile, global.params.runargs[], global.params.v.verbose, global.errorSink);
+                /* Delete .obj files and .exe file
+                 */
                 foreach (m; modules)
                 {
                     m.deleteObjFile();

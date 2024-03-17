@@ -2497,6 +2497,19 @@ void test21835()
 }
 
 ////////////////////////////////////////////////////////////////////////
+// https://github.com/dlang/dmd/pull/16187#issuecomment-1946534649
+
+void testDoWhileContinue()
+{
+    int i = 10;
+    do
+    {
+        continue;
+    }
+    while(--i > 0);
+}
+
+////////////////////////////////////////////////////////////////////////
 
 int main()
 {
@@ -2596,6 +2609,7 @@ int main()
     test21256();
     test21816();
     test21835();
+    testDoWhileContinue();
 
     printf("Success\n");
     return 0;

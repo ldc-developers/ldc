@@ -47,6 +47,8 @@
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <stack>
 
+using namespace dmd;
+
 llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel(
     "fthread-model", llvm::cl::ZeroOrMore, llvm::cl::desc("Thread model"),
     llvm::cl::init(llvm::GlobalVariable::GeneralDynamicTLSModel),
@@ -907,7 +909,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     // already been done
     IrLocal *irLocal = getIrLocal(vd, true);
 
-    Type *type = isSpecialRefVar(vd) ? vd->type->pointerTo() : vd->type;
+    Type *type = isSpecialRefVar(vd) ? pointerTo(vd->type) : vd->type;
 
     llvm::Value *allocainst;
     bool isRealAlloca = false;
@@ -1326,9 +1328,9 @@ Type *stripModifiers(Type *type, bool transitive) {
   }
 
   if (transitive) {
-    return type->unqualify(MODimmutable | MODconst | MODwild);
+    return unqualify(type, MODimmutable | MODconst | MODwild);
   }
-  return type->castMod(0);
+  return castMod(type, 0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1574,9 +1576,8 @@ DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl) {
       fatal();
     }
     DtoResolveFunction(fdecl);
-    const auto llValue =
-        fdecl->llvmInternal != LLVMva_arg ? DtoCallee(fdecl) : nullptr;
-    return new DFuncValue(fdecl, llValue);
+    assert(!DtoIsMagicIntrinsic(fdecl));
+    return new DFuncValue(fdecl, DtoCallee(fdecl));
   }
 
   if (SymbolDeclaration *sdecl = decl->isSymbolDeclaration()) {
@@ -1644,7 +1645,7 @@ llvm::Constant *DtoConstSymbolAddress(const Loc &loc, Declaration *decl) {
 
 llvm::Constant *buildStringLiteralConstant(StringExp *se,
                                            uint64_t bufferLength) {
-  const auto stringLength = se->numberOfCodeUnits();
+  const auto stringLength = se->len;
   assert(bufferLength >= stringLength);
 
   if (se->sz == 1 && bufferLength <= stringLength + 1) {
@@ -1662,7 +1663,7 @@ llvm::Constant *buildStringLiteralConstant(StringExp *se,
   std::vector<LLConstant *> vals;
   vals.reserve(bufferLength);
   for (uint64_t i = 0; i < stringLength; ++i) {
-    vals.push_back(LLConstantInt::get(ct, se->getCodeUnit(i), false));
+    vals.push_back(LLConstantInt::get(ct, se->getIndex(i), false));
   }
   const auto nullChar = LLConstantInt::get(ct, 0, false);
   for (uint64_t i = stringLength; i < bufferLength; ++i) {

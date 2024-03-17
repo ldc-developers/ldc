@@ -17,6 +17,8 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 
+using namespace dmd;
+
 namespace {
 
 /// Checks whether `moduleDecl` is in the ldc package and it's identifier is

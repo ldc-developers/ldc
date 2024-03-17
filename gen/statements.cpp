@@ -41,6 +41,8 @@
 #include <math.h>
 #include <stdio.h>
 
+using namespace dmd;
+
 //////////////////////////////////////////////////////////////////////////////
 // FIXME: Integrate these functions
 void GccAsmStatement_toIR(GccAsmStatement *stmt, IRState *irs);

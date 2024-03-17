@@ -1,4 +1,5 @@
 // PERMUTE_ARGS:
+// UNICODE_NAMES:
 
 // LDC: MS linker apparently doesn't (properly?) support Unicode in
 //      `/INCLUDE:symbol` linker directives embedded in object files
@@ -17,6 +18,7 @@
 
 module run.unicode_06_哪里;
 
+//UTF-8 chars
 int 哪里(int ö){
         return ö+2;
 }

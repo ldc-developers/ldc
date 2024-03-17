@@ -25,7 +25,7 @@ int main(int argc, char* argv[])
 #endif
 
     const size_t pathlen = strrchr(argv[0], '/') - argv[0] + 1;
-    const fullpathsize = pathlen + sizeof(PLUGIN_SO1);
+    const size_t fullpathsize = pathlen + sizeof(PLUGIN_SO1);
     char *name1 = malloc(fullpathsize);
     memcpy(name1, argv[0], pathlen);
     memcpy(name1+pathlen, PLUGIN_SO1, sizeof(PLUGIN_SO1));

@@ -247,6 +247,7 @@ public:
   // Constructs a global variable for a StringExp.
   // Caches the result based on StringExp::peekData() such that any subsequent
   // calls with a StringExp with matching data will return the same variable.
+  // Exception: ulong[]-typed hex strings (not null-terminated either).
   llvm::GlobalVariable *getCachedStringLiteral(StringExp *se);
   llvm::GlobalVariable *getCachedStringLiteral(llvm::StringRef s);
 

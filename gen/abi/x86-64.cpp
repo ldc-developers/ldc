@@ -46,6 +46,8 @@
 #include <string>
 #include <utility>
 
+using namespace dmd;
+
 namespace {
 struct RegCount {
   char int_regs, sse_regs;
@@ -382,8 +384,8 @@ Type *X86_64TargetABI::vaListType() {
   // using TypeIdentifier here is a bit wonky but works, as long as the name
   // is actually available in the scope (this is what DMD does, so if a better
   // solution is found there, this should be adapted).
-  return TypeIdentifier::create(Loc(), Identifier::idPool("__va_list_tag"))
-      ->pointerTo();
+  return pointerTo(
+      TypeIdentifier::create(Loc(), Identifier::idPool("__va_list_tag")));
 }
 
 const char *X86_64TargetABI::objcMsgSendFunc(Type *ret,

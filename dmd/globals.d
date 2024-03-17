@@ -15,7 +15,9 @@ import core.stdc.stdio;
 import core.stdc.stdint;
 import core.stdc.string;
 
+import dmd.astenums;
 import dmd.root.array;
+import dmd.root.file;
 import dmd.root.filename;
 import dmd.common.outbuffer;
 import dmd.errorsink;
@@ -251,8 +253,8 @@ extern (C++) struct Param
 
     const(char)[] argv0;                // program name
     Array!(const(char)*) modFileAliasStrings; // array of char*'s of -I module filename alias strings
-    Array!(const(char)*)* imppath;      // array of char*'s of where to look for import modules
-    Array!(const(char)*)* fileImppath;  // array of char*'s of where to look for file import modules
+    Array!(const(char)*) imppath;       // array of char*'s of where to look for import modules
+    Array!(const(char)*) fileImppath;   // array of char*'s of where to look for file import modules
     const(char)[] objdir;                // .obj/.lib file output directory
     const(char)[] objname;               // .obj file output name
     const(char)[] libname;               // .lib file output name
@@ -369,8 +371,8 @@ extern (C++) struct Global
     string copyright = "Copyright (C) 1999-2024 by The D Language Foundation, All Rights Reserved";
     string written = "written by Walter Bright";
 
-    Array!(const(char)*)* path;         /// Array of char*'s which form the import lookup path
-    Array!(const(char)*)* filePath;     /// Array of char*'s which form the file import lookup path
+    Array!(const(char)*) path;         /// Array of char*'s which form the import lookup path
+    Array!(const(char)*) filePath;     /// Array of char*'s which form the file import lookup path
 
     char[26] datetime;      /// string returned by ctime()
     CompileEnv compileEnv;
@@ -384,17 +386,14 @@ extern (C++) struct Global
 
     void* console;         /// opaque pointer to console for controlling text attributes
 
-    Array!Identifier* versionids; /// command line versions and predefined versions
-    Array!Identifier* debugids;   /// command line debug versions and predefined versions
+    Array!Identifier versionids; /// command line versions and predefined versions
+    Array!Identifier debugids;   /// command line debug versions and predefined versions
 
     bool hasMainFunction; /// Whether a main function has already been compiled in (for -main switch)
     uint varSequenceNumber = 1; /// Relative lifetime of `VarDeclaration` within a function, used for `scope` checks
 
     /// Cache files read from disk
     FileManager fileManager;
-
-    ErrorSink errorSink;       /// where the error messages go
-    ErrorSink errorSinkNull;   /// where the error messages are ignored
 
 version (IN_LLVM)
 {
@@ -410,7 +409,17 @@ else
     enum recursionLimit = 500; /// number of recursive template expansions before abort
 }
 
-    extern (C++) FileName function(FileName, ref const Loc, out bool, OutBuffer*) preprocess;
+    ErrorSink errorSink;       /// where the error messages go
+    ErrorSink errorSinkNull;   /// where the error messages are ignored
+
+version (IN_LLVM)
+{
+    extern (C++) FileName function(FileName, ref const Loc, ref OutBuffer) preprocess;
+}
+else
+{
+    extern (C++) DArray!ubyte function(FileName, ref const Loc, ref OutBuffer) preprocess;
+}
 
   nothrow:
 

@@ -75,6 +75,8 @@ AsmParserCommon *asmparser = nullptr;
 #include "asm-x86.h" // x86_64 assembly parser
 #undef ASM_X86_64
 
+using namespace dmd;
+
 /**
  * Replaces <<func>> with the name of the currently codegen'd function.
  *
@@ -94,8 +96,6 @@ static void replace_func_name(IRState *p, std::string &insnt) {
     insnt.replace(pos, needle.size(), mangle);
   }
 }
-
-Statement *gccAsmSemantic(GccAsmStatement *s, Scope *sc);
 
 Statement *asmSemantic(AsmStatement *s, Scope *sc) {
   if (!s->tokens) {

@@ -18,6 +18,8 @@
 #include "dmd/module.h"
 #include "dmd/template.h"
 
+using namespace dmd;
+
 bool isFromLDC_Mod(Dsymbol *sym, Identifier* id) {
   auto mod = sym->getModule();
   if (!mod)

@@ -28,6 +28,8 @@
 #include "ir/irtypestruct.h"
 #include <algorithm>
 
+using namespace dmd;
+
 //////////////////////////////////////////////////////////////////////////////
 
 llvm::StructType *IrAggr::getLLStructType() {

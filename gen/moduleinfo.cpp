@@ -37,6 +37,8 @@
 #define MIlocalClasses 0x800
 #define MInew 0x80000000 // it's the "new" layout
 
+using namespace dmd;
+
 namespace {
 /// Creates a function in the current llvm::Module that dispatches to the given
 /// functions one after each other and then increments the gate variables, if

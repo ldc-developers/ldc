@@ -22,7 +22,6 @@ class InlineAsmStatement;
 struct OutBuffer;
 class Parameter;
 
-Array<const char *> *createStrings();
 Array<Parameter *> *createParameters();
 Array<Expression *> *createExpressions();
 

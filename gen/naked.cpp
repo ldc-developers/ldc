@@ -25,6 +25,8 @@
 #include "llvm/IR/InlineAsm.h"
 #include <cassert>
 
+using namespace dmd;
+
 ////////////////////////////////////////////////////////////////////////////////
 // FIXME: Integrate these functions
 void AsmStatement_toNakedIR(InlineAsmStatement *stmt, IRState *irs);

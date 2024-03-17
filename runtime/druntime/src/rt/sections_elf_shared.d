@@ -88,7 +88,8 @@ else version (Windows)
 {
     import core.sys.windows.winbase;
     import core.sys.windows.windef;
-    import rt.sections_win64 : IMAGE_DOS_HEADER, findImageSection, getModuleInfos;
+    import core.sys.windows.winnt : IMAGE_DOS_HEADER;
+    import rt.sections_win64 : findImageSection, getModuleInfos;
 }
 else
 {

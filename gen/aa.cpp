@@ -24,6 +24,8 @@
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 
+using namespace dmd;
+
 // returns the keytype typeinfo
 static LLConstant *to_keyti(const Loc &loc, DValue *aa, LLType *targetType) {
   // keyti param
@@ -60,8 +62,8 @@ DLValue *DtoAAIndex(const Loc &loc, Type *type, DValue *aa, DValue *key,
   // call runtime
   LLValue *ret;
   if (lvalue) {
-    LLValue *rawAATI =
-        DtoTypeInfoOf(loc, aa->type->unSharedOf()->mutableOf(), /*base=*/false);
+    auto t = mutableOf(unSharedOf(aa->type));
+    LLValue *rawAATI = DtoTypeInfoOf(loc, t, /*base=*/false);
     LLValue *castedAATI = DtoBitCast(rawAATI, funcTy->getParamType(1));
     LLValue *valsize = DtoConstSize_t(getTypeAllocSize(DtoType(type)));
     ret = gIR->CreateCallOrInvoke(func, aaval, castedAATI, valsize, pkey,

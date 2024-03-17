@@ -398,16 +398,13 @@ void setDefaultLibrary(ref Param params, const ref Target target)
 
 void printPredefinedVersions(FILE* stream)
 {
-    if (global.versionids)
+    OutBuffer buf;
+    foreach (const str; global.versionids)
     {
-        OutBuffer buf;
-        foreach (const str; *global.versionids)
-        {
-            buf.writeByte(' ');
-            buf.writestring(str.toChars());
-        }
-        stream.fprintf("predefs  %s\n", buf.peekChars());
+        buf.writeByte(' ');
+        buf.writestring(str.toChars());
     }
+    stream.fprintf("predefs  %s\n", buf.peekChars());
 }
 
 version (IN_LLVM) {} else
@@ -1582,8 +1579,6 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             params.useUnitTests = true;
         else if (p[1] == 'I')              // https://dlang.org/dmd.html#switch-I
         {
-            if (!params.imppath)
-                params.imppath = new Strings();
             params.imppath.push(p + 2 + (p[2] == '='));
         }
         else if (p[1] == 'm' && p[2] == 'v' && p[3] == '=') // https://dlang.org/dmd.html#switch-mv
@@ -1597,8 +1592,6 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
         }
         else if (p[1] == 'J')             // https://dlang.org/dmd.html#switch-J
         {
-            if (!params.fileImppath)
-                params.fileImppath = new Strings();
             params.fileImppath.push(p + 2 + (p[2] == '='));
         }
         else if (startsWith(p + 1, "debug") && p[6] != 'l') // https://dlang.org/dmd.html#switch-debug

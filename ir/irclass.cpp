@@ -35,10 +35,14 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/Support/Endian.h"
+#include "llvm/Support/MD5.h"
 
 #ifndef NDEBUG
 #include "llvm/Support/raw_ostream.h"
 #endif
+
+using namespace dmd;
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -217,7 +221,7 @@ LLConstant *IrClass::getVtblInit() {
       // it is probably a bug that it still occurs that late.
       if (fd->inferRetType() && !fd->type->nextOf()) {
         Logger::println("Running late functionSemantic to infer return type.");
-        if (!fd->functionSemantic()) {
+        if (!functionSemantic(fd)) {
           if (fd->hasSemantic3Errors()) {
             Logger::println(
                 "functionSemantic failed; using null for vtbl entry.");
@@ -247,8 +251,8 @@ LLConstant *IrClass::getVtblInit() {
           if (fd2->isFuture()) {
             continue;
           }
-          if (fd->leastAsSpecialized(fd2, nullptr) != MATCH::nomatch ||
-              fd2->leastAsSpecialized(fd, nullptr) != MATCH::nomatch) {
+          if (FuncDeclaration::leastAsSpecialized(fd, fd2, nullptr) != MATCH::nomatch ||
+              FuncDeclaration::leastAsSpecialized(fd2, fd, nullptr) != MATCH::nomatch) {
             TypeFunction *tf = static_cast<TypeFunction *>(fd->type);
             if (tf->ty == TY::Tfunction) {
               error(cd->loc,
@@ -289,7 +293,8 @@ LLConstant *IrClass::getVtblInit() {
 
 namespace {
 unsigned buildClassinfoFlags(ClassDeclaration *cd) {
-  auto flags = ClassFlags::hasOffTi | ClassFlags::hasTypeInfo;
+  auto flags =
+      ClassFlags::hasOffTi | ClassFlags::hasTypeInfo | ClassFlags::hasNameSig;
   if (cd->isInterfaceDeclaration()) {
     if (cd->isCOMinterface()) {
       flags |= ClassFlags::isCOMclass;
@@ -344,7 +349,7 @@ LLConstant *IrClass::getClassInfoInit() {
   Type *const cinfoType = getClassInfoType(); // check declaration in object.d
   ClassDeclaration *const cinfo = Type::typeinfoclass;
 
-  if (cinfo->fields.length != 12) {
+  if (cinfo->fields.length != 14) {
     error(Loc(), "Unexpected number of fields in `object.ClassInfo`; "
                  "druntime version does not match compiler (see -v)");
     fatal();
@@ -401,17 +406,25 @@ LLConstant *IrClass::getClassInfoInit() {
 
   // ClassFlags m_flags
   const auto flags = buildClassinfoFlags(cd);
-  b.push_uint(flags);
+  b.push(DtoConstUshort(flags));
+
+  // ushort depth
+  {
+    uint16_t depth = 0;
+    for (auto pc = cd; pc; pc = pc->baseClass)
+      ++depth; // distance to Object
+    b.push(DtoConstUshort(depth));
+  }
 
   // void* deallocator
   b.push_null_vp();
 
   // OffsetTypeInfo[] m_offTi
-  VarDeclaration *offTiVar = cinfo->fields[9];
+  VarDeclaration *offTiVar = cinfo->fields[10];
   b.push_null(offTiVar->type);
 
   // void function(Object) defaultConstructor
-  VarDeclaration *defConstructorVar = cinfo->fields[10];
+  VarDeclaration *defConstructorVar = cinfo->fields[11];
   CtorDeclaration *defConstructor = cd->defaultCtor;
   if (defConstructor && (defConstructor->storage_class & STCdisable)) {
     defConstructor = nullptr;
@@ -426,6 +439,23 @@ LLConstant *IrClass::getClassInfoInit() {
     b.push_size_as_vp(0); // no pointers
   } else {
     b.push_size_as_vp(1); // has pointers
+  }
+
+  // uint[4] nameSig
+  {
+    llvm::MD5 hasher;
+    hasher.update(name);
+    llvm::MD5::MD5Result result;
+    hasher.final(result);
+
+    LLConstant *dwords[4];
+    for (int i = 0; i < 4; ++i) {
+      // make sure the 4 dwords don't depend on the endianness of the *host*
+      dwords[i] = DtoConstUint(llvm::support::endian::read32le(&result[4 * i]));
+    }
+
+    auto t = llvm::ArrayType::get(dwords[0]->getType(), 4);
+    b.push(LLConstantArray::get(t, dwords));
   }
 
   // build the initializer
@@ -705,7 +735,7 @@ LLConstant *IrClass::getClassInfoInterfaces() {
   constants.reserve(cd->vtblInterfaces->length);
 
   LLType *classinfo_type = DtoType(getClassInfoType());
-  LLType *voidptrptr_type = DtoType(Type::tvoid->pointerTo()->pointerTo());
+  LLType *voidptrptr_type = DtoType(pointerTo(pointerTo(Type::tvoid)));
   LLStructType *interface_type =
       isaStruct(DtoType(interfacesArrayType->nextOf()));
   assert(interface_type);

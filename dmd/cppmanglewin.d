@@ -23,8 +23,10 @@ import dmd.dstruct;
 import dmd.dsymbol;
 import dmd.dtemplate;
 import dmd.errors;
+import dmd.errorsink;
 import dmd.expression;
 import dmd.func;
+import dmd.funcsem;
 import dmd.globals;
 import dmd.id;
 import dmd.identifier;
@@ -37,13 +39,13 @@ import dmd.tokens;
 import dmd.typesem;
 import dmd.visitor;
 
-extern (C++):
-
-
 const(char)* toCppMangleMSVC(Dsymbol s)
 {
-    scope VisualCPPMangler v = new VisualCPPMangler(false, s.loc);
-    return v.mangleOf(s);
+    scope VisualCPPMangler v = new VisualCPPMangler(false, s.loc, global.errorSink);
+    auto p = v.mangleOf(s);
+    if (v.errors)
+        fatal();  // because this error should be handled in frontend
+    return p;
 }
 
 const(char)* cppTypeInfoMangleMSVC(Dsymbol s) // IN_LLVM: not @safe
@@ -53,7 +55,7 @@ version (IN_LLVM)
 {
     // Return the mangled name of the RTTI Type Descriptor.
     // Reverse-engineered using a few C++ exception classes.
-    scope VisualCPPMangler v = new VisualCPPMangler(false, s.loc);
+    scope VisualCPPMangler v = new VisualCPPMangler(false, s.loc, global.errorSink);
     v.buf.writestring("\1??_R0?AV");
     v.mangleIdent(s);
     v.buf.writestring("@8");
@@ -67,8 +69,11 @@ else
 
 const(char)* toCppMangleDMC(Dsymbol s)
 {
-    scope VisualCPPMangler v = new VisualCPPMangler(true, s.loc);
-    return v.mangleOf(s);
+    scope VisualCPPMangler v = new VisualCPPMangler(true, s.loc, global.errorSink);
+    auto p = v.mangleOf(s);
+    if (v.errors)
+        fatal();  // because this error should be handled in frontend
+    return p;
 }
 
 const(char)* cppTypeInfoMangleDMC(Dsymbol s) @safe
@@ -77,33 +82,13 @@ const(char)* cppTypeInfoMangleDMC(Dsymbol s) @safe
     assert(0);
 }
 
-/**
- * Issues an ICE and returns true if `type` is shared or immutable
- *
- * Params:
- *      type = type to check
- *
- * Returns:
- *      true if type is shared or immutable
- *      false otherwise
- */
-private extern (D) bool checkImmutableShared(Type type, Loc loc)
-{
-    if (type.isImmutable() || type.isShared())
-    {
-        error(loc, "internal compiler error: `shared` or `immutable` types cannot be mapped to C++ (%s)", type.toChars());
-        fatal();
-        return true;
-    }
-    return false;
-}
-
-private final class VisualCPPMangler : Visitor
+private extern (C++) final class VisualCPPMangler : Visitor
 {
     alias visit = Visitor.visit;
     Identifier[10] saved_idents;
     Type[10] saved_types;
     Loc loc;               /// location for use in error messages
+    ErrorSink eSink;
 
     bool isNotTopType;     /** When mangling one argument, we can call visit several times (for base types of arg type)
                             * but must save only arg type:
@@ -114,6 +99,7 @@ private final class VisualCPPMangler : Visitor
     bool escape;           /// toplevel const non-pointer types need a '$$C' escape in addition to a cv qualifier.
     bool mangleReturnType; /// return type shouldn't be saved and substituted in arguments
     bool isDmc;            /// Digital Mars C++ name mangling
+    bool errors;           /// errors occurred
 
     OutBuffer buf;
 
@@ -126,12 +112,13 @@ private final class VisualCPPMangler : Visitor
     }
 
 public:
-    extern (D) this(bool isDmc, Loc loc) scope @safe
+    extern (D) this(bool isDmc, Loc loc, ErrorSink eSink) scope @safe
     {
         saved_idents[] = null;
         saved_types[] = null;
         this.isDmc = isDmc;
         this.loc = loc;
+        this.eSink = eSink;
     }
 
     override void visit(Type type)
@@ -139,8 +126,8 @@ public:
         if (checkImmutableShared(type, loc))
             return;
 
-        error(loc, "internal compiler error: type `%s` cannot be mapped to C++\n", type.toChars());
-        fatal(); //Fatal, because this error should be handled in frontend
+        eSink.error(loc, "internal compiler error: type `%s` cannot be mapped to C++\n", type.toChars());
+        errors = true;
     }
 
     override void visit(TypeNull type)
@@ -538,7 +525,7 @@ extern(D):
             // Pivate methods always non-virtual in D and it should be mangled as non-virtual in C++
             //printf("%s: isVirtualMethod = %d, isVirtual = %d, vtblIndex = %d, interfaceVirtual = %p\n",
                 //d.toChars(), d.isVirtualMethod(), d.isVirtual(), cast(int)d.vtblIndex, d.interfaceVirtual);
-            if ((d.isVirtual() && (d.vtblIndex != -1 || d.interfaceVirtual || d.overrideInterface())) || (d.isDtorDeclaration() && d.parent.isClassDeclaration() && !d.isFinal()))
+            if ((d.isVirtual() && (d.vtblIndex != -1 || d.interfaceVirtual || overrideInterface(d))) || (d.isDtorDeclaration() && d.parent.isClassDeclaration() && !d.isFinal()))
             {
                 mangleVisibility(buf, d, "EMU");
             }
@@ -578,8 +565,9 @@ extern(D):
         // fake mangling for fields to fix https://issues.dlang.org/show_bug.cgi?id=16525
         if (!(d.storage_class & (STC.extern_ | STC.field | STC.gshared)))
         {
-            .error(d.loc, "%s `%s` internal compiler error: C++ static non-__gshared non-extern variables not supported", d.kind, d.toPrettyChars);
-            fatal();
+            eSink.error(d.loc, "%s `%s` internal compiler error: C++ static non-__gshared non-extern variables not supported", d.kind, d.toPrettyChars);
+            errors = true;
+            return;
         }
         buf.writeByte('?');
         mangleIdent(d);
@@ -625,8 +613,8 @@ extern(D):
     {
         if (!tv.valType.isintegral())
         {
-            .error(sym.loc, "%s `%s` internal compiler error: C++ %s template value parameter is not supported", sym.kind, sym.toPrettyChars, tv.valType.toChars());
-            fatal();
+            eSink.error(sym.loc, "%s `%s` internal compiler error: C++ %s template value parameter is not supported", sym.kind, sym.toPrettyChars, tv.valType.toChars());
+            errors = true;
             return;
         }
         buf.writeByte('$');
@@ -704,17 +692,18 @@ extern(D):
                 }
                 else
                 {
-                    .error(sym.loc, "%s `%s` internal compiler error: C++ templates support only integral value, type parameters, alias templates and alias function parameters",
+                    eSink.error(sym.loc, "%s `%s` internal compiler error: C++ templates support only integral value, type parameters, alias templates and alias function parameters",
                         sym.kind, sym.toPrettyChars);
-                    fatal();
+                    errors = true;
+                    return;
                 }
             }
             mangleIdent(d);
         }
         else
         {
-            .error(sym.loc, "%s `%s` internal compiler error: `%s` is unsupported parameter for C++ template", sym.kind, sym.toPrettyChars, o.toChars());
-            fatal();
+            eSink.error(sym.loc, "%s `%s` internal compiler error: `%s` is unsupported parameter for C++ template", sym.kind, sym.toPrettyChars, o.toChars());
+            errors = true;
         }
     }
 
@@ -816,7 +805,7 @@ extern(D):
             }
         }
 
-        scope VisualCPPMangler tmp = new VisualCPPMangler(isDmc ? true : false, loc);
+        scope VisualCPPMangler tmp = new VisualCPPMangler(isDmc ? true : false, loc, eSink);
         tmp.buf.writeByte('?');
         tmp.buf.writeByte('$');
         tmp.buf.writestring(symName);
@@ -857,9 +846,10 @@ extern(D):
                 Type t = isType(o);
                 if (t is null)
                 {
-                    .error(actualti.loc, "%s `%s` internal compiler error: C++ `%s` template value parameter is not supported",
+                    eSink.error(actualti.loc, "%s `%s` internal compiler error: C++ `%s` template value parameter is not supported",
                         actualti.kind, actualti.toPrettyChars, o.toChars());
-                    fatal();
+                    errors = true;
+                    return;
                 }
                 tmp.mangleTemplateType(o);
             }
@@ -869,9 +859,10 @@ extern(D):
             }
             else
             {
-                .error(sym.loc, "%s `%s` internal compiler error: C++ templates support only integral value, type parameters, alias templates and alias function parameters",
+                eSink.error(sym.loc, "%s `%s` internal compiler error: C++ templates support only integral value, type parameters, alias templates and alias function parameters",
                     sym.kind, sym.toPrettyChars);
-                fatal();
+                errors = true;
+                return;
             }
         }
 
@@ -901,6 +892,26 @@ extern(D):
         }
         return false;
     }
+
+    /**
+     * Issues error and returns true if `type` is shared or immutable
+     * Params:
+     *      type = type to check
+     * Returns:
+     *      true if type is shared or immutable
+     *      false otherwise
+     */
+    bool checkImmutableShared(Type type, Loc loc)
+    {
+        if (type.isImmutable() || type.isShared())
+        {
+            eSink.error(loc, "internal compiler error: `shared` or `immutable` types cannot be mapped to C++ (%s)", type.toChars());
+            errors = true;
+            return true;
+        }
+        return false;
+    }
+
 
     void saveIdent(Identifier name) @safe
     {
@@ -1112,9 +1123,10 @@ extern(D):
                     t = cpptype;
                 if (t.ty == Tsarray)
                 {
-                    error(loc, "internal compiler error: unable to pass static array to `extern(C++)` function.");
-                    errorSupplemental(loc, "Use pointer instead.");
-                    assert(0);
+                    eSink.error(loc, "internal compiler error: unable to pass static array to `extern(C++)` function.");
+                    eSink.errorSupplemental(loc, "Use pointer instead.");
+                    errors = true;
+                    break;
                 }
                 tmp.isNotTopType = false;
                 ignoreConst = false;

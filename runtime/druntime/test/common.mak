@@ -15,6 +15,7 @@ LINKDL:=
 QUIET:=
 TIMELIMIT:=
 PIC:=
+SHARED:=
 
 ifeq (,$(findstring ldmd2,$(DMD)))
     # Windows: set up bash shell
@@ -40,7 +41,7 @@ endif
 DFLAGS:=$(MODEL_FLAG) $(PIC) -w -I../../src -I../../import -I$(SRC) -defaultlib=$(if $(findstring ldmd2,$(DMD)),druntime-ldc,) -preview=dip1000 $(if $(findstring $(OS),windows),,-L-lpthread -L-lm $(LINKDL))
 # LINK_SHARED may be set by importing makefile
 ifeq (,$(findstring ldmd2,$(DMD)))
-    DFLAGS+=$(if $(LINK_SHARED),-L$(DRUNTIME_IMPLIB) $(if $(findstring $(OS),windows),-dllimport=defaultLibsOnly),-L$(DRUNTIME))
+    DFLAGS+=$(if $(LINK_SHARED),-L$(DRUNTIME_IMPLIB) $(if $(findstring $(OS),windows),-dllimport=all),-L$(DRUNTIME))
 else
     # LDC: -link-defaultlib-shared takes care of rpath, linking ldc_rt.dso.o etc.
     DFLAGS+=$(if $(LINK_SHARED),-link-defaultlib-shared,)

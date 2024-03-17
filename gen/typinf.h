@@ -18,8 +18,6 @@ struct Loc;
 class Type;
 class TypeInfoDeclaration;
 
-bool builtinTypeInfo(Type *t); // in dmd/typinf.d
-
 namespace llvm {
 class GlobalVariable;
 }

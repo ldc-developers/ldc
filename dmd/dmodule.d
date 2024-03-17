@@ -16,12 +16,14 @@ module dmd.dmodule;
 import core.stdc.stdio;
 import core.stdc.stdlib;
 import core.stdc.string;
+
 import dmd.aggregate;
 import dmd.arraytypes;
 import dmd.astcodegen;
 import dmd.astenums;
+import dmd.common.outbuffer;
 import dmd.compiler;
-import dmd.gluelayer;
+import dmd.cparse;
 import dmd.dimport;
 import dmd.dmacro;
 import dmd.doc;
@@ -35,24 +37,36 @@ import dmd.expressionsem;
 import dmd.file_manager;
 import dmd.func;
 import dmd.globals;
+import dmd.gluelayer;
 import dmd.id;
 import dmd.identifier;
 import dmd.location;
 import dmd.parse;
-import dmd.cparse;
 import dmd.root.array;
 import dmd.root.file;
 import dmd.root.filename;
-import dmd.common.outbuffer;
 import dmd.root.port;
 import dmd.root.rmem;
-import dmd.rootobject;
 import dmd.root.string;
+import dmd.rootobject;
 import dmd.semantic2;
 import dmd.semantic3;
 import dmd.target;
 import dmd.utils;
 import dmd.visitor;
+
+version (Windows)
+{
+    import core.sys.windows.winbase : getpid = GetCurrentProcessId;
+    enum PathSeparator = '\\';
+}
+else version (Posix)
+{
+    import core.sys.posix.unistd : getpid;
+    enum PathSeparator = '/';
+}
+else
+    static assert(0);
 
 version (IN_LLVM)
 {
@@ -147,11 +161,7 @@ private const(char)[] getFilename(Identifier[] packages, Identifier ident) nothr
         buf.writestring(p);
         if (modAliases.length)
             checkModFileAlias(p);
-        version (Windows)
-            enum FileSeparator = '\\';
-        else
-            enum FileSeparator = '/';
-        buf.writeByte(FileSeparator);
+        buf.writeByte(PathSeparator);
     }
     buf.writestring(filename);
     if (modAliases.length)
@@ -517,7 +527,7 @@ else
 
     extern (D) static const(char)[] find(const(char)[] filename)
     {
-        return global.fileManager.lookForSourceFile(filename, global.path ? (*global.path)[] : null);
+        return global.fileManager.lookForSourceFile(filename, global.path[]);
     }
 
     extern (C++) static Module load(const ref Loc loc, Identifiers* packages, Identifier ident)
@@ -585,10 +595,6 @@ else
             OutBuffer buf;
             if (arg == "__stdin.d")
             {
-                version (Posix)
-                    import core.sys.posix.unistd : getpid;
-                else version (Windows)
-                    import core.sys.windows.winbase : getpid = GetCurrentProcessId;
                 buf.printf("__stdin_%d.d", getpid());
                 arg = buf[];
             }
@@ -696,9 +702,9 @@ version (IN_LLVM)
         {
             /* Print path
              */
-            if (global.path)
+            if (global.path.length)
             {
-                foreach (i, p; *global.path)
+                foreach (i, p; global.path[])
                     fprintf(stderr, "import path[%llu] = %s\n", cast(ulong)i, p);
             }
             else
@@ -731,30 +737,35 @@ version (IN_LLVM)
         /* Preprocess the file if it's a .c file
          */
         FileName filename = srcfile;
-        bool ifile = false;             // did we generate a .i file
-        scope (exit)
-        {
-            if (ifile)
-            {
-                File.remove(filename.toChars());        // remove generated file
-version (IN_LLVM)
-{
-                // and the parent directory for LDC (each .i gets its own temp dir)
-                File.removeDirectory(FileName.path(filename.toChars()));
-}
-            }
-        }
 
+        const(ubyte)[] srctext;
         if (global.preprocess &&
             FileName.equalsExt(srcfile.toString(), c_ext) &&
             FileName.exists(srcfile.toString()))
         {
-            filename = global.preprocess(srcfile, loc, ifile, &defines);  // run C preprocessor
-        }
+            /* Apply C preprocessor to the .c file, returning the contents
+             * after preprocessing
+             */
+version (IN_LLVM)
+{
+            const ipath = global.preprocess(srcfile, loc, defines);
+            srctext = global.fileManager.getFileContents(ipath);
 
-        if (auto result = global.fileManager.lookup(filename))
+            // remove temp file and parent directory
+            File.remove(ipath.toChars());
+            File.removeDirectory(FileName.path(ipath.toChars()));
+}
+else
+{
+            srctext = global.preprocess(srcfile, loc, defines).data;
+}
+        }
+        else
+            srctext = global.fileManager.getFileContents(filename);
+        this.src = srctext;
+
+        if (srctext)
         {
-            this.src = result;
             if (global.params.makeDeps.doOutput)
                 global.params.makeDeps.files.push(srcfile.toChars());
             return true;
@@ -1383,7 +1394,7 @@ extern (C++) struct ModuleDeclaration
  *      aclasses = array to fill in
  * Returns: array of local classes
  */
-extern (C++) void getLocalClasses(Module mod, ref ClassDeclarations aclasses)
+void getLocalClasses(Module mod, ref ClassDeclarations aclasses)
 {
     //printf("members.length = %d\n", mod.members.length);
     int pushAddClassDg(size_t n, Dsymbol sm)
@@ -1648,7 +1659,7 @@ private const(char)[] processSource (const(ubyte)[] src, Module mod)
  *      const(MemberInfo)[] getMembers(string);
  * Returns NULL if not found
  */
-extern(C++) FuncDeclaration findGetMembers(ScopeDsymbol dsym)
+FuncDeclaration findGetMembers(ScopeDsymbol dsym)
 {
     import dmd.opover : search_function;
     Dsymbol s = search_function(dsym, Id.getmembers);

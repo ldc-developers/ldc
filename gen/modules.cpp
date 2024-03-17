@@ -58,6 +58,8 @@
 #include <alloca.h>
 #endif
 
+using namespace dmd;
+
 static llvm::cl::opt<bool, true>
     preservePaths("op", llvm::cl::ZeroOrMore,
                   llvm::cl::desc("Preserve source path for output files"),

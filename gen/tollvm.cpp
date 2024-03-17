@@ -39,6 +39,8 @@
 #include "ir/irtypefunction.h"
 #include "ir/irtypestruct.h"
 
+using namespace dmd;
+
 bool DtoIsInMemoryOnly(Type *type) {
   Type *typ = type->toBasetype();
   TY t = typ->ty;
@@ -480,6 +482,9 @@ llvm::ConstantInt *DtoConstUint(unsigned i) {
 llvm::ConstantInt *DtoConstInt(int i) {
   return LLConstantInt::get(LLType::getInt32Ty(gIR->context()), i, true);
 }
+llvm::ConstantInt *DtoConstUshort(uint16_t i) {
+  return LLConstantInt::get(LLType::getInt16Ty(gIR->context()), i, false);
+}
 LLConstant *DtoConstBool(bool b) {
   return LLConstantInt::get(LLType::getInt1Ty(gIR->context()), b, false);
 }
@@ -516,7 +521,7 @@ LLConstant *DtoConstCString(const char *str) {
 LLConstant *DtoConstString(const char *str) {
   LLConstant *cString = DtoConstCString(str);
   LLConstant *length = DtoConstSize_t(str ? strlen(str) : 0);
-  return DtoConstSlice(length, cString, Type::tchar->arrayOf());
+  return DtoConstSlice(length, cString, arrayOf(Type::tchar));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

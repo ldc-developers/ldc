@@ -58,6 +58,8 @@
 #include <cassert>
 #include <cstdio>
 
+using namespace dmd;
+
 TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(const Loc &loc, Type *forType) {
   IF_LOG Logger::println("getOrCreateTypeInfoDeclaration(): %s",
                          forType->toChars());
@@ -151,7 +153,7 @@ public:
     }
     // otherwise emit a void[] with the default initializer
     else {
-      Expression *defaultval = sd->getDefaultValue(decl->loc);
+      Expression *defaultval = getDefaultValue(sd, decl->loc);
       LLConstant *c = toConstElem(defaultval, gIR);
       b.push_void_array(c, sd->memtype, sd);
     }
@@ -343,7 +345,7 @@ public:
 
     RTTIBuilder b(getConstTypeInfoType());
     // TypeInfo base
-    b.push_typeinfo(merge(decl->tinfo->mutableOf()));
+    b.push_typeinfo(merge(mutableOf(decl->tinfo)));
     // finish
     b.finalize(gvar);
   }
@@ -357,7 +359,7 @@ public:
 
     RTTIBuilder b(getInvariantTypeInfoType());
     // TypeInfo base
-    b.push_typeinfo(merge(decl->tinfo->mutableOf()));
+    b.push_typeinfo(merge(mutableOf(decl->tinfo)));
     // finish
     b.finalize(gvar);
   }
@@ -371,7 +373,7 @@ public:
 
     RTTIBuilder b(getSharedTypeInfoType());
     // TypeInfo base
-    b.push_typeinfo(merge(decl->tinfo->unSharedOf()));
+    b.push_typeinfo(merge(unSharedOf(decl->tinfo)));
     // finish
     b.finalize(gvar);
   }
@@ -385,7 +387,7 @@ public:
 
     RTTIBuilder b(getInoutTypeInfoType());
     // TypeInfo base
-    b.push_typeinfo(merge(decl->tinfo->mutableOf()));
+    b.push_typeinfo(merge(mutableOf(decl->tinfo)));
     // finish
     b.finalize(gvar);
   }

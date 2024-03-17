@@ -9,7 +9,6 @@
 #pragma once
 
 #include "dsystem.h"
-#include "object.h"
 #include "rmem.h"
 
 #if IN_LLVM
@@ -51,7 +50,7 @@ struct Array
         d_size_t len = 2;
         for (d_size_t u = 0; u < length; u++)
         {
-            buf[u] = ((RootObject *)data.ptr[u])->toChars();
+            buf[u] = ((TYPE)data.ptr[u])->toChars();
             len += strlen(buf[u]) + 1;
         }
         char *str = (char *)mem.xmalloc(len);

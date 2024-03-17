@@ -28,6 +28,8 @@
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 
+using namespace dmd;
+
 static void DtoSetArray(DValue *array, DValue *rhs);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -725,7 +727,7 @@ LLValue *DtoArrayEqCmp_impl(const Loc &loc, const char *func, DValue *l,
   assert(fn);
 
   // find common dynamic array type
-  Type *commonType = l->type->toBasetype()->nextOf()->arrayOf();
+  Type *commonType = arrayOf(l->type->toBasetype()->nextOf());
 
   // cast static arrays to dynamic ones, this turns them into DSliceValues
   Logger::println("casting to dynamic arrays");
@@ -805,7 +807,7 @@ bool validCompareWithMemcmp(DValue *l, DValue *r) {
 
   // Only memcmp equivalent element types (memcmp should be used for
   // `const int[3] == int[]`, but not for `int[3] == short[3]`).
-  if (!lElemType->equivalent(rElemType))
+  if (!equivalent(lElemType, rElemType))
     return false;
 
   return validCompareWithMemcmpType(lElemType);
