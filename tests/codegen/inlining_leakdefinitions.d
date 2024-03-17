@@ -23,6 +23,8 @@ int call_class_function(A a)
     // There should be only one call to "virtual_func".
     // OPT3: call
     // OPT3-NOT: call
+    // OPT3: call{{.*}}assume
+    // OPT3-NOT: call
     return a.final_func();
     // There should be a return from an LLVM variable (not a direct value)
     // OPT0: ret i32 %
