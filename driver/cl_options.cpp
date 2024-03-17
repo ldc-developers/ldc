@@ -319,7 +319,7 @@ struct HCParser : public cl::parser<DummyDataType> {
 
 static cl::opt<DummyDataType, false, HCParser>
     doCxxHdrGen("HC", cl::ZeroOrMore, cl::ValueOptional,
-                cl::desc("Generate C++ header file\n"
+                cl::desc("Write C++ 'header' equivalent to stdout\n"
                          "Use -HC=verbose to add comments for ignored "
                          "declarations (e.g. extern(D))"));
 
@@ -330,7 +330,7 @@ cl::opt<std::string>
 
 cl::opt<std::string>
     cxxHdrFile("HCf", cl::ZeroOrMore, cl::Prefix,
-               cl::desc("Write C++ 'header' file to <filename>"),
+               cl::desc("Write C++ 'header' file to <filename> instead of stdout"),
                cl::value_desc("filename"));
 
 cl::opt<std::string> mixinFile("mixin", cl::ZeroOrMore,

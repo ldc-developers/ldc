@@ -197,12 +197,12 @@ Where:\n\
   -Hd=<directory>   write 'header' file to directory\n\
   -Hf=<filename>    write 'header' file to filename\n\
   -HC[=[silent|verbose]]\n\
-                    generate C++ 'header' file\n"
+                    write C++ 'header' equivalent to stdout\n"
 #if 0
 "  -HC=[?|h|help]    list available modes for C++ 'header' file generation\n"
 #endif
 "  -HCd=<directory>  write C++ 'header' file to directory\n\
-  -HCf=<filename>   write C++ 'header' file to filename\n\
+  -HCf=<filename>   write C++ 'header' file to filename instead of stdout\n\
   --help            print help and exit\n\
   -I=<directory>    look for imports also in directory\n\
   -i[=<pattern>]    include imported modules in the compilation\n\
