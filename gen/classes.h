@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include "gen/structs.h"
 
 class ClassDeclaration;
@@ -37,4 +39,6 @@ DValue *DtoDynamicCastObject(const Loc &loc, DValue *val, Type *to);
 
 DValue *DtoDynamicCastInterface(const Loc &loc, DValue *val, Type *to);
 
-llvm::Value *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl);
+/// Returns pair of function pointer and vtable pointer.
+std::pair<llvm::Value *, llvm::Value *>
+DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl);

@@ -137,15 +137,18 @@ public:
   llvm::Value *getPtr();
 };
 
-/// Represents a D function value with optional this/context pointer.
+/// Represents a D function value with optional this/context pointer, and
+/// optional vtable pointer.
 class DFuncValue : public DRValue {
 public:
   FuncDeclaration *func;
   llvm::Value *vthis;
+  llvm::Value *vtable;
 
   DFuncValue(Type *t, FuncDeclaration *fd, llvm::Value *v,
-             llvm::Value *vt = nullptr);
-  DFuncValue(FuncDeclaration *fd, llvm::Value *v, llvm::Value *vt = nullptr);
+             llvm::Value *vt = nullptr, llvm::Value *vtable = nullptr);
+  DFuncValue(FuncDeclaration *fd, llvm::Value *v, llvm::Value *vt = nullptr,
+             llvm::Value *vtable = nullptr);
 
   bool definedInFuncEntryBB() override;
 

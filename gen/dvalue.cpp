@@ -105,11 +105,13 @@ LLValue *DSliceValue::getPtr() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DFuncValue::DFuncValue(Type *t, FuncDeclaration *fd, LLValue *v, LLValue *vt)
-    : DRValue(t, v), func(fd), vthis(vt) {}
+DFuncValue::DFuncValue(Type *t, FuncDeclaration *fd, LLValue *v, LLValue *vt,
+                       LLValue *vtable)
+    : DRValue(t, v), func(fd), vthis(vt), vtable(vtable) {}
 
-DFuncValue::DFuncValue(FuncDeclaration *fd, LLValue *v, LLValue *vt)
-    : DFuncValue(fd->type, fd, v, vt) {}
+DFuncValue::DFuncValue(FuncDeclaration *fd, LLValue *v, LLValue *vt,
+                       LLValue *vtable)
+    : DFuncValue(fd->type, fd, v, vt, vtable) {}
 
 bool DFuncValue::definedInFuncEntryBB() {
   return isDefinedInFuncEntryBB(val) &&
@@ -235,7 +237,7 @@ DRValue *DDcomputeLValue::getRVal() {
     llvm_unreachable("getRVal() for memory-only type");
     return nullptr;
   }
-  
+
   LLValue *rval = DtoLoad(lltype, val);
   
   const auto ty = type->toBasetype()->ty;
