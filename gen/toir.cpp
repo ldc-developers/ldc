@@ -773,6 +773,14 @@ public:
     DFuncValue *dfnval = fnval->isFunc();
     if (dfnval && dfnval->func) {
       assert(!DtoIsMagicIntrinsic(dfnval->func));
+
+      // If loading the vtable was not needed for function call, we have to load
+      // it here to do the "assume" optimization below.
+      if (!dfnval->vtable && dfnval->vthis && dfnval->func->isVirtual() &&
+          dfnval->func->_linkage == LINK::d && (optLevel() >= 0)) {
+        dfnval->vtable =
+            DtoLoad(dfnval->vthis->getType(), dfnval->vthis, "saved_vtable");
+      }
     }
 
     DValue *result =
@@ -785,13 +793,15 @@ public:
     // allowing it to assume that the vtable field contents is the same after
     // the call. Equivalent D code:
     // ```
-    //  auto saved_vtable = a.__vptr;     // emitted as part of `a.foo()`
+    //  auto saved_vtable = a.__vptr;     // emitted as part of `a.foo()`,
+    //                                    // except when e->directcall==true for
+    //                                    // final method calls.
     //  a.foo();
     //  assume(a.__vptr == saved_vtable); // <-- added assumption
     // ```
     // Only emit this extra code from -O2.
     // This optimization is only valid for D class method calls (not C++).
-    if (!e->directcall && dfnval && dfnval->vtable && (optLevel() >= 2) &&
+    if (dfnval && dfnval->vtable && (optLevel() >= 0) &&
         dfnval->func->_linkage == LINK::d) {
       // Reload vtable ptr. It's the first element so instead of GEP+load we can
       // do a void* load+bitcast (at this point in the code we don't have easy
