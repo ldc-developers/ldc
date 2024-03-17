@@ -351,15 +351,13 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
 
   switch (llvm_internal) {
   case LLVMintrinsic: {
-    const char *mangle = strdup(arg1str);
     int count = applyFunctionPragma(s, [=](FuncDeclaration *fd) {
       fd->llvmInternal = llvm_internal;
-      fd->intrinsicName = mangle;
-      fd->mangleOverride = {strlen(mangle), mangle};
+      fd->mangleOverride = {strlen(arg1str), arg1str};
     });
     count += applyTemplatePragma(s, [=](TemplateDeclaration *td) {
       td->llvmInternal = llvm_internal;
-      td->intrinsicName = mangle;
+      td->intrinsicName = arg1str;
     });
     if (count != 1) {
       error(s->loc,
@@ -419,7 +417,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
   case LLVMatomic_rmw: {
     const int count = applyTemplatePragma(s, [=](TemplateDeclaration *td) {
       td->llvmInternal = llvm_internal;
-      td->intrinsicName = strdup(arg1str);
+      td->intrinsicName = arg1str;
     });
     if (count != 1) {
       error(s->loc,
@@ -452,7 +450,6 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         fatal();
       }
       td->llvmInternal = llvm_internal;
-      td->onemember->llvmInternal = llvm_internal;
     });
     if (count != 1) {
       error(s->loc,
@@ -503,7 +500,6 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         fatal();
       }
       td->llvmInternal = llvm_internal;
-      td->onemember->llvmInternal = llvm_internal;
     });
     if (count != 1) {
       error(s->loc,
@@ -523,7 +519,6 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         fatal();
       }
       td->llvmInternal = llvm_internal;
-      td->onemember->llvmInternal = llvm_internal;
     });
     if (count != 1) {
       error(s->loc,

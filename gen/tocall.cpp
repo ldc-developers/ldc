@@ -14,6 +14,7 @@
 #include "dmd/id.h"
 #include "dmd/mtype.h"
 #include "dmd/target.h"
+#include "dmd/template.h"
 #include "gen/abi/abi.h"
 #include "gen/classes.h"
 #include "gen/dvalue.h"
@@ -544,18 +545,21 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       fatal();
     }
 
-    assert(fndecl->intrinsicName);
+    TemplateInstance *ti = fndecl->parent->isTemplateInstance();
+    assert(ti);
+    const char *opString = ti->tempdecl->isTemplateDeclaration()->intrinsicName;
+    assert(opString);
+
     static const char *ops[] = {"xchg", "add", "sub", "and",  "nand", "or",
                                 "xor",  "max", "min", "umax", "umin", nullptr};
 
     int op = 0;
     for (;; ++op) {
       if (ops[op] == nullptr) {
-        error(e->loc, "unknown `atomicrmw` operation `%s`",
-              fndecl->intrinsicName);
+        error(e->loc, "unknown `atomicrmw` operation `%s`", opString);
         fatal();
       }
-      if (strcmp(fndecl->intrinsicName, ops[op]) == 0) {
+      if (strcmp(opString, ops[op]) == 0) {
         break;
       }
     }

@@ -91,7 +91,7 @@ version (IN_LLVM)
 
     if (func.llvmInternal == LDCPragma.LLVMintrinsic)
     {
-        const(char)[] name = func.intrinsicName.toDString;
+        const(char)[] name = func.mangleOverride;
         if (name.length < 7 || name[0..5] != "llvm.")
             return BUILTIN.unimp;
 

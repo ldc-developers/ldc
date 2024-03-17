@@ -690,7 +690,7 @@ version (IN_LLVM)
         auto td = new TemplateDeclaration(loc, ident, p,
                                           constraint ? constraint.syntaxCopy() : null,
                                           Dsymbol.arraySyntaxCopy(members), ismixin, literal);
-        td.intrinsicName = intrinsicName ? strdup(intrinsicName) : null;
+        td.intrinsicName = intrinsicName;
         return td;
 }
 else

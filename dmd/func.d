@@ -234,7 +234,6 @@ extern (C++) class FuncDeclaration : Declaration
 
 version (IN_LLVM)
 {
-    const(char)* intrinsicName;
     uint priority;
 
     // true if overridden with the pragma(LDC_allow_inline); statement
@@ -425,7 +424,7 @@ version (IN_LLVM) {} else
         f.fbody = fbody ? fbody.syntaxCopy() : null;
 version (IN_LLVM)
 {
-        f.intrinsicName = intrinsicName ? strdup(intrinsicName) : null;
+        f.mangleOverride = mangleOverride;
 }
         return f;
     }

@@ -1242,6 +1242,8 @@ static char *DtoOverloadedIntrinsicName(TemplateInstance *ti,
   IF_LOG Logger::println("DtoOverloadedIntrinsicName");
   LOG_SCOPE;
 
+  assert(td->intrinsicName);
+
   IF_LOG {
     Logger::println("template instance: %s", ti->toChars());
     Logger::println("template declaration: %s", td->toChars());
@@ -1304,7 +1306,7 @@ static char *DtoOverloadedIntrinsicName(TemplateInstance *ti,
 
   IF_LOG Logger::println("final intrinsic name: %s", name.c_str());
 
-  return strdup(name.c_str());
+  return mem.xstrdup(name.c_str());
 }
 
 /// For D frontend
@@ -1312,11 +1314,9 @@ static char *DtoOverloadedIntrinsicName(TemplateInstance *ti,
 void DtoSetFuncDeclIntrinsicName(TemplateInstance *ti, TemplateDeclaration *td,
                                  FuncDeclaration *fd) {
   if (fd->llvmInternal == LLVMintrinsic) {
-    fd->intrinsicName = DtoOverloadedIntrinsicName(ti, td);
-    const auto cstr = fd->intrinsicName;
-    fd->mangleOverride = {cstr ? strlen(cstr) : 0, cstr};
-  } else {
-    fd->intrinsicName = td->intrinsicName ? strdup(td->intrinsicName) : nullptr;
+    const auto cstr = DtoOverloadedIntrinsicName(ti, td);
+    assert(cstr);
+    fd->mangleOverride = {strlen(cstr), cstr};
   }
 }
 
