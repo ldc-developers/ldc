@@ -16,9 +16,9 @@ class B : A {
 void ggg()
 {
     A a = new A();
-    // CHECK: call void @_D29devirtualization_assumevtable1A3foo
+    // CHECK: call {{.*}}_D29devirtualization_assumevtable1A3foo
     a.foo();
-    // CHECK: call void @_D29devirtualization_assumevtable1A3foo
+    // CHECK: call {{.*}}_D29devirtualization_assumevtable1A3foo
     a.foo();
 }
 
@@ -26,9 +26,9 @@ void ggg()
 void hhh()
 {
     A a = new A();
-    // CHECK: call void @_D29devirtualization_assumevtable1A3foo
+    // CHECK: call {{.*}}_D29devirtualization_assumevtable1A3foo
     a.foo();
-    // CHECK: call void @_D29devirtualization_assumevtable1A3oof
+    // CHECK: call {{.*}}_D29devirtualization_assumevtable1A3oof
     a.oof();
 }
 
@@ -36,13 +36,31 @@ void hhh()
 void exacttypeunknown(A a, A b)
 {
     // CHECK: %[[FOO:[0-9a-z]+]] = load {{.*}}"foo@vtbl
-    // CHECK: call void %[[FOO]](
+    // CHECK: call{{.*}} void %[[FOO]](
     a.foo();
-    // CHECK: call void %[[FOO]](
+    // CHECK: call{{.*}} void %[[FOO]](
     a.foo();
 
     a = b;
     // CHECK: %[[FOO2:[0-9a-z]+]] = load {{.*}}"foo@vtbl
-    // CHECK: call void %[[FOO2]](
+    // CHECK: call{{.*}} void %[[FOO2]](
+    a.foo();
+}
+
+// The devirtualization is not valid for C++ methods.
+extern(C++)
+class CPPClass {
+    void foo();
+    void oof();
+}
+
+// CHECK-LABEL: define{{.*}}exactCPPtypeunknown
+void exactCPPtypeunknown(CPPClass a)
+{
+    // CHECK: %[[FOO:[0-9a-z]+]] = load {{.*}}!invariant
+    // CHECK: call{{.*}} void %[[FOO]](
+    a.foo();
+    // CHECK: %[[FOO2:[0-9a-z]+]] = load {{.*}}!invariant
+    // CHECK: call{{.*}} void %[[FOO2]](
     a.foo();
 }

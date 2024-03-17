@@ -790,13 +790,15 @@ public:
     //  assume(a.__vptr == saved_vtable); // <-- added assumption
     // ```
     // Only emit this extra code from -O2.
-    if (!e->directcall && dfnval && dfnval->vtable && (optLevel() >= 2)) {
+    // This optimization is only valid for D class method calls (not C++).
+    if (!e->directcall && dfnval && dfnval->vtable && (optLevel() >= 2) &&
+        dfnval->func->_linkage == LINK::d) {
       // Reload vtable ptr. It's the first element so instead of GEP+load we can
       // do a void* load+bitcast (at this point in the code we don't have easy
       // access to the type of the class to do a GEP).
-      auto vtable =
-          DtoLoad(dfnval->vtable->getType(),
-                  DtoBitCast(dfnval->vthis, dfnval->vtable->getType()->getPointerTo()));
+      auto vtable = DtoLoad(
+          dfnval->vtable->getType(),
+          DtoBitCast(dfnval->vthis, dfnval->vtable->getType()->getPointerTo()));
       auto cmp = p->ir->CreateICmpEQ(vtable, dfnval->vtable);
       p->ir->CreateCall(GET_INTRINSIC_DECL(assume), {cmp});
     }
