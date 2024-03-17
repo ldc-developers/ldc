@@ -35,12 +35,14 @@ void hhh()
 // CHECK-LABEL: define{{.*}}exacttypeunknown
 void exacttypeunknown(A a, A b)
 {
-    // CHECK: call void %[[FOO:[0-9]+]](%devirtualization_assumevtable.A*
+    // CHECK: %[[FOO:[0-9a-z]+]] = load {{.*}}"foo@vtbl
+    // CHECK: call void %[[FOO]](
     a.foo();
-    // CHECK: call void %[[FOO]](%devirtualization_assumevtable.A*
+    // CHECK: call void %[[FOO]](
     a.foo();
 
     a = b;
-    // CHECK-NOT: call void %[[FOO]](%devirtualization_assumevtable.A*
+    // CHECK: %[[FOO2:[0-9a-z]+]] = load {{.*}}"foo@vtbl
+    // CHECK: call void %[[FOO2]](
     a.foo();
 }
