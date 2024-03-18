@@ -42,14 +42,14 @@ void directcall()
 // CHECK-LABEL: define{{.*}}exacttypeunknown
 void exacttypeunknown(A a, A b)
 {
-    // CHECK: %[[FOO:[0-9a-z]+]] = load {{.*}}"foo@vtbl
+    // CHECK: %[[FOO:[0-9a-z]+]] = load {{.*}}!invariant
     // CHECK: call{{.*}} void %[[FOO]](
     a.foo();
     // CHECK: call{{.*}} void %[[FOO]](
     a.foo();
 
     a = b;
-    // CHECK: %[[FOO2:[0-9a-z]+]] = load {{.*}}"foo@vtbl
+    // CHECK: %[[FOO2:[0-9a-z]+]] = load {{.*}}!invariant
     // CHECK: call{{.*}} void %[[FOO2]](
     a.foo();
 }

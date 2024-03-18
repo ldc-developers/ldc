@@ -779,7 +779,9 @@ public:
       if (!dfnval->vtable && dfnval->vthis && dfnval->func->isVirtual() &&
           dfnval->func->_linkage == LINK::d && (optLevel() >= 2)) {
         dfnval->vtable =
-            DtoLoad(dfnval->vthis->getType(), dfnval->vthis, "saved_vtable");
+            DtoLoad(getVoidPtrType(),
+                    DtoBitCast(dfnval->vthis, getVoidPtrType()->getPointerTo()),
+                    "saved_vtable");
       }
     }
 
