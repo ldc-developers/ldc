@@ -777,7 +777,7 @@ public:
       // If loading the vtable was not needed for function call, we have to load
       // it here to do the "assume" optimization below.
       if (!dfnval->vtable && dfnval->vthis && dfnval->func->isVirtual() &&
-          dfnval->func->_linkage == LINK::d && (optLevel() >= 0)) {
+          dfnval->func->_linkage == LINK::d && (optLevel() >= 2)) {
         dfnval->vtable =
             DtoLoad(dfnval->vthis->getType(), dfnval->vthis, "saved_vtable");
       }
@@ -801,7 +801,7 @@ public:
     // ```
     // Only emit this extra code from -O2.
     // This optimization is only valid for D class method calls (not C++).
-    if (dfnval && dfnval->vtable && (optLevel() >= 0) &&
+    if (dfnval && dfnval->vtable && (optLevel() >= 2) &&
         dfnval->func->_linkage == LINK::d) {
       // Reload vtable ptr. It's the first element so instead of GEP+load we can
       // do a void* load+bitcast (at this point in the code we don't have easy
