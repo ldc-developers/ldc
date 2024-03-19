@@ -619,6 +619,7 @@ pragma(LDC_intrinsic, "llvm.debugtrap")
 
 /// Provides information about the expected (that is, most probable) runtime
 /// value of an integer expression to the optimizer.
+/// The intrinsic returns `val`.
 ///
 /// Params:
 ///     val = The runtime value, of integer type.
@@ -626,6 +627,13 @@ pragma(LDC_intrinsic, "llvm.debugtrap")
 pragma(LDC_intrinsic, "llvm.expect.i#")
     T llvm_expect(T)(T val, T expectedVal)
         if (__traits(isIntegral, T));
+
+/// The intrinsic allows the optimizer to assume that the provided `condition` is
+/// always true whenever the control flow reaches the intrinsic call. If the condition
+/// is violated during execution, the behavior is undefined.
+/// No machine code is generated for this intrinsic.
+pragma(LDC_intrinsic, "llvm.assume")
+    void llvm_assume(bool condition);
 
 /// LLVM optimizer treats this intrinsic as having side effect, so it can be
 /// inserted into a loop to indicate that the loop shouldn't be assumed to
