@@ -563,7 +563,6 @@ public:
     const char *mangleString;           // mangled symbol created from mangleExact()
 
 #if IN_LLVM
-    const char *intrinsicName;
     uint32_t priority;
 
     // true if overridden with the pragma(LDC_allow_inline); statement
