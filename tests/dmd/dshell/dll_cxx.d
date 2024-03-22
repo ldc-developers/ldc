@@ -45,7 +45,7 @@ int main()
     }
     else
     {
-        dllCmd ~= [ `-m` ~ Vars.MODEL, `-shared`, `-fPIC`, `-o`, Vars.DLL ];
+        dllCmd ~= [ `-shared`, `-fPIC`, `-o`, Vars.DLL ];
         mainExtra = `-fPIC -L-L$OUTPUT_BASE -L$DLL -L-lstdc++ -L--no-demangle`;
         if (environment.get("NO_ARCH_VARIANT", "") != "1")
             dllCmd ~= `-m` ~ Vars.MODEL;
