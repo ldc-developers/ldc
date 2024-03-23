@@ -218,3 +218,11 @@ void DtoMemCpy(LLType *type, LLValue *dst, LLValue *src, bool withPadding = fals
  * Generates a call to C memcmp.
  */
 LLValue *DtoMemCmp(LLValue *lhs, LLValue *rhs, LLValue *nbytes);
+
+inline auto *LDC_getInt8PtrTy(llvm::LLVMContext &C) {
+#if LDC_LLVM_VER < 1800
+    return llvm::Type::getInt8PtrTy(C);
+#else
+    return llvm::PointerType::getUnqual(C);
+#endif
+}

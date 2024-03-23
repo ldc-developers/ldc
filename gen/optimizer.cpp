@@ -147,15 +147,15 @@ bool willCrossModuleInline() {
 
 bool isOptimizationEnabled() { return optimizeLevel != 0; }
 
-llvm::CodeGenOpt::Level codeGenOptLevel() {
+llvm::CodeGenOptLevel codeGenOptLevel() {
   // Use same appoach as clang (see lib/CodeGen/BackendUtil.cpp)
   if (optLevel() == 0) {
-    return llvm::CodeGenOpt::None;
+    return llvm::CodeGenOptLevel::None;
   }
   if (optLevel() >= 3) {
-    return llvm::CodeGenOpt::Aggressive;
+    return llvm::CodeGenOptLevel::Aggressive;
   }
-  return llvm::CodeGenOpt::Default;
+  return llvm::CodeGenOptLevel::Default;
 }
 
 std::unique_ptr<TargetLibraryInfoImpl> createTLII(llvm::Module &M) {
@@ -505,7 +505,13 @@ static void addPGOPasses(ModulePassManager &mpm,
     options.NoRedZone = global.params.disableRedZone;
     if (global.params.datafileInstrProf)
       options.InstrProfileOutput = global.params.datafileInstrProf;
-    mpm.addPass(InstrProfiling(options));
+    mpm.addPass(
+#if LDC_LLVM_VER < 1800
+      InstrProfiling(options)
+#else
+      InstrProfilingLoweringPass(options)
+#endif // LDC_LLVM_VER < 1800
+    );
   } else if (opts::isUsingASTBasedPGOProfile()) {
     // We are generating code with PGO profile information available.
     // Do indirect call promotion from -O1
@@ -732,12 +738,9 @@ void runOptimizationPasses(llvm::Module *M) {
     mpm = pb.buildO0DefaultPipeline(level, opts::isUsingLTO());
 #if LDC_LLVM_VER >= 1700
   } else if (opts::ltoFatObjects && opts::isUsingLTO()) {
-    mpm = pb.buildFatLTODefaultPipeline(level
-#if LDC_LLVM_VER < 1800
-                                        ,
+    mpm = pb.buildFatLTODefaultPipeline(level,
                                         opts::isUsingThinLTO(),
                                         opts::isUsingThinLTO()
-#endif
     );
 #endif
   } else if (opts::isUsingThinLTO()) {

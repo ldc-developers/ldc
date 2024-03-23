@@ -32,6 +32,7 @@
 #include "ir/irfunction.h"
 #include "ir/irtype.h"
 #include "llvm/IR/LLVMContext.h"
+#include <llvm/IR/DerivedTypes.h>
 
 using namespace dmd;
 
@@ -267,7 +268,11 @@ static LLType *getPtrToAtomicType(LLType *type) {
   case 32:
   case 64:
   case 128:
+#if LDC_LLVM_VER < 1800
     return LLType::getIntNPtrTy(gIR->context(), static_cast<unsigned>(N));
+#else
+    return llvm::PointerType::get(gIR->context(), static_cast<unsigned>(N));
+#endif
   default:
     return nullptr;
   }

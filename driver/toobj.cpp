@@ -47,6 +47,12 @@
 
 using CodeGenFileType = llvm::CodeGenFileType;
 
+#if LDC_LLVM_VER >= 1800
+#define CGFT_AssemblyFile CodeGenFileType::AssemblyFile
+#define CGFT_ObjectFile CodeGenFileType::ObjectFile
+#define CGFT_Null CodeGenFileType::Null
+#endif
+
 #if LDC_LLVM_VER < 1700
 static llvm::cl::opt<bool>
     NoIntegratedAssembler("no-integrated-as", llvm::cl::ZeroOrMore,
@@ -127,8 +133,11 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
           nullptr,  // DWO output file
           // Always generate assembly for ptx as it is an assembly format
           // The PTX backend fails if we pass anything else.
-          (cb == ComputeBackend::NVPTX) ? CGFT_AssemblyFile : fileType,
-          codeGenOptLevel())) {
+          (cb == ComputeBackend::NVPTX) ? CGFT_AssemblyFile : fileType
+#if LDC_LLVM_VER < 1700
+          , codeGenOptLevel()
+#endif
+      )) {
     llvm_unreachable("no support for asm output");
   }
 

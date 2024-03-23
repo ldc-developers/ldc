@@ -45,7 +45,11 @@ namespace llvm_ar {
 StringRef ArchiveName;
 std::vector<const char *> Members;
 
+#if LDC_LLVM_VER < 1800
 bool Symtab = true;
+#else
+llvm::SymtabWritingMode Symtab = llvm::SymtabWritingMode::NormalSymtab;
+#endif
 bool Deterministic = true;
 bool Thin = false;
 

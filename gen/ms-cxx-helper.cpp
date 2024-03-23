@@ -187,7 +187,7 @@ llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd) {
   llvm::Constant *Fields[] = {
       classInfoPtr, // VFPtr
       llvm::ConstantPointerNull::get(
-          LLType::getInt8PtrTy(gIR->context())), // Runtime data
+          LDC_getInt8PtrTy(gIR->context())), // Runtime data
       llvm::ConstantDataArray::getString(gIR->context(), TypeNameString)};
   llvm::StructType *TypeDescriptorType =
       getTypeDescriptorType(irs, classInfoPtr, TypeNameString);

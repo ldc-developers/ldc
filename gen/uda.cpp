@@ -441,7 +441,11 @@ bool parseCallingConvention(llvm::StringRef name,
           .Case("intel_ocl_bicc", llvm::CallingConv::Intel_OCL_BI)
           .Case("x86_64_sysvcc", llvm::CallingConv::X86_64_SysV)
           .Case("win64cc", llvm::CallingConv::Win64)
+#if LDC_LLVM_VER >= 1800
+          .Case("webkit_jscc", llvm::CallingConv::WASM_EmscriptenInvoke)
+#else
           .Case("webkit_jscc", llvm::CallingConv::WebKit_JS)
+#endif
           .Case("anyregcc", llvm::CallingConv::AnyReg)
           .Case("preserve_mostcc", llvm::CallingConv::PreserveMost)
           .Case("preserve_allcc", llvm::CallingConv::PreserveAll)
