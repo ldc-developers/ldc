@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  test-macos:
     strategy:
       fail-fast: false
       matrix:
@@ -25,30 +25,12 @@ jobs:
             host_dc: ldc-beta
             llvm_version: 16.0.5
             cmake_flags: -DBUILD_SHARED_LIBS=OFF -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DCMAKE_EXE_LINKER_FLAGS=-L/opt/homebrew/opt/zstd/lib
-          - job_name: Ubuntu 20.04, LLVM 15, latest LDC beta
-            os: ubuntu-20.04
-            host_dc: ldc-beta
-            llvm_version: 15.0.6
           - job_name: macOS 11, LLVM 14, latest DMD beta
             os: macos-11
             host_dc: dmd-beta
             llvm_version: 14.0.6
             cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON -DCMAKE_CXX_COMPILER=/usr/bin/c++ -DCMAKE_C_COMPILER=/usr/bin/cc
-          - job_name: Ubuntu 20.04, LLVM 13, latest LDC beta
-            os: ubuntu-20.04
-            host_dc: ldc-beta
-            llvm_version: 13.0.1
-            cmake_flags: -DRT_SUPPORT_SANITIZERS=ON
-          - job_name: Ubuntu 20.04, LLVM 12, bootstrap LDC
-            os: ubuntu-20.04
-            host_dc: ldc-1.19.0
-            llvm_version: 12.0.1
-            cmake_flags: -DBUILD_SHARED_LIBS=ON -DLIB_SUFFIX=64
-          - job_name: Ubuntu 20.04, LLVM 11, latest DMD beta
-            os: ubuntu-20.04
-            host_dc: dmd-beta
-            llvm_version: 11.1.0
-            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON
+
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
     env:
@@ -73,13 +55,6 @@ jobs:
           python3 -m pip install --user setuptools wheel
           python3 -m pip install --user lit
           python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
-      - name: 'Linux: Install gdb and llvm-symbolizer'
-        if: runner.os == 'Linux'
-        run: |
-          set -eux
-          sudo apt-get update
-          # Don't use latest gdb v10+ from Ubuntu toolchain PPA with regressions, use official v9
-          sudo apt-get install gdb=9.1-0ubuntu1 llvm
 
       - name: Try to restore cached LLVM
         uses: actions/cache@v3
@@ -95,19 +70,12 @@ jobs:
             exit 0
           fi
           version='${{ matrix.llvm_version }}'
-          if [[ '${{ runner.os }}' == macOS ]]; then
-            if [[ "$version" =~ ^1[6-9]\. ]]; then
-              suffix='arm64-apple-darwin22.0'
-            else
-              suffix='x86_64-apple-darwin'
-            fi
-          elif [[ "$version" =~ ^1[7-9]\. ]]; then
-            suffix='x86_64-linux-gnu-ubuntu-22.04' # LLVM 17+
-          elif [[ "$version" =~ ^1[3-6]\. ]]; then
-            suffix='x86_64-linux-gnu-ubuntu-18.04' # LLVM 13.0.1+
+          if [[ "$version" =~ ^1[6-9]\. ]]; then
+            suffix='arm64-apple-darwin22.0'
           else
-            suffix='x86_64-linux-gnu-ubuntu-16.04'
+            suffix='x86_64-apple-darwin'
           fi
+
           url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-$suffix.tar.xz"
 
           curl -fL --retry 3 --max-time 300 -o llvm.tar.xz "$url"
@@ -119,14 +87,6 @@ jobs:
           if [[ '${{ runner.os }}' == macOS ]]; then
             rm -f llvm/lib/lib{c++,unwind}.*
           fi
-
-      - name: 'Linux: Make lld the default linker'
-        if: runner.os == 'Linux' && matrix.host_dc != 'ldc-1.9.0'
-        run: |
-          set -eux
-          echo "Using lld to work around sporadic failures"
-          sudo ln -sf "$PWD/llvm/bin/ld.lld" /usr/bin/ld
-          ld --version
 
       - name: Build LDC & LDC D unittests & defaultlib unittest runners with extra '${{ matrix.cmake_flags }}'
         run: |
@@ -144,16 +104,7 @@ jobs:
         run: ctest --output-on-failure -R "ldc2-unittest"
       - name: Run LIT testsuite
         if: success() || failure()
-        run: |
-          set -eux
-          # LLVM 14+ on Linux: don't use vanilla llvm-symbolizer (no support for zlib-compressed debug sections => failing ASan tests)
-          if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.llvm_version }}' =~ ^1[4-9]\. ]]; then
-            mv llvm/bin/llvm-symbolizer llvm/bin/llvm-symbolizer.bak
-          fi
-          ctest -V -R "lit-tests"
-          if [[ -f llvm/bin/llvm-symbolizer.bak ]]; then
-            mv llvm/bin/llvm-symbolizer.bak llvm/bin/llvm-symbolizer
-          fi
+        run: ctest -V -R "lit-tests"
       - name: Run DMD testsuite
         if: success() || failure()
         run: ctest -V -R "dmd-testsuite"
@@ -172,3 +123,115 @@ jobs:
             N=$(nproc)
           fi
           ctest -j$N --output-on-failure -E "$excludes"
+  test-linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - job_name: Ubuntu 20.04, LLVM 15, latest LDC beta
+            os: 'ubuntu:20.04'
+            host_dc: ldc-beta
+            llvm_version: 15
+          - job_name: Ubuntu 20.04, LLVM 13, latest LDC beta
+            os: 'ubuntu:20.04'
+            host_dc: ldc-beta
+            llvm_version: 13
+            cmake_flags: -DRT_SUPPORT_SANITIZERS=ON
+          - job_name: Ubuntu 20.04, LLVM 12, bootstrap LDC
+            os: 'ubuntu:20.04'
+            host_dc: ldc-1.19.0
+            llvm_version: 12
+            cmake_flags: -DBUILD_SHARED_LIBS=ON -DLIB_SUFFIX=64
+          - job_name: Ubuntu 20.04, LLVM 11, latest DMD beta
+            os: 'ubuntu:20.04'
+            host_dc: dmd-beta
+            llvm_version: 11
+            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON
+    name: ${{ matrix.job_name }}
+    runs-on: ubuntu-22.04
+    container: ${{ matrix.os }}
+    steps:
+      - name: 'Install base dependencies'
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -eux
+          apt-get update
+          apt-get install -y wget git bash xz-utils build-essential python3-pip pkg-config
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 50
+      - name: Install D host compiler
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ${{ matrix.host_dc }}
+      - name: Clear LD_LIBRARY_PATH to prevent loading host compiler libs
+        run: echo "LD_LIBRARY_PATH=" >> $GITHUB_ENV
+      - name: Install lit
+        shell: bash
+        run: |
+          set -euxo pipefail
+          pip3 install -U setuptools wheel lit
+          python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
+      - name: 'Linux: Install gdb and prebuilt vanilla LLVM ${{ matrix.llvm_version }}'
+        shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -eux
+          source /etc/lsb-release
+          DIST_SUITE="llvm-toolchain-$DISTRIB_CODENAME-${{ matrix.llvm_version }}"
+          if [[ "$DISTRIB_CODENAME" == "focal" ]]; then
+            wget https://apt.llvm.org/llvm-snapshot.gpg.key -qO /etc/apt/trusted.gpg.d/llvm.asc
+            echo "deb https://apt.llvm.org/$DISTRIB_CODENAME/ ${DIST_SUITE} main" > /etc/apt/sources.list.d/llvm.list
+          else
+            sed -e "s|@DISTRO_SERIES@|${DISTRIB_CODENAME}|g" \
+                -e "s|@DISTRO_SERIES_LLVM_VERSION@|${DIST_SUITE}|g" \
+              "$PWD"/.github/workflows/apt-llvm-org.sources.in > /etc/apt/sources.list.d/apt-llvm-org.sources
+          fi
+          apt-get update
+          apt-get install -y gdb "clang-${{ matrix.llvm_version }}" "lld-${{ matrix.llvm_version }}" cmake ninja-build
+          if [[ "${{ matrix.llvm_version }}" -ge 13 ]]; then
+            apt-get install -y "libmlir-${{ matrix.llvm_version }}-dev"
+          fi
+
+      - name: 'Linux: Make lld the default linker'
+        if: matrix.host_dc != 'ldc-1.9.0'
+        shell: bash
+        run: |
+          set -eux
+          echo "Using lld to work around sporadic failures"
+          ln -sf "ld.lld-${{ matrix.llvm_version }}" /usr/bin/ld
+          ld --version
+
+      - name: Build LDC & LDC D unittests & defaultlib unittest runners with extra '${{ matrix.cmake_flags }}'
+        shell: bash
+        env:
+          CC: clang-${{ matrix.llvm_version }}
+          CXX: clang++-${{ matrix.llvm_version }}
+        run: |
+          set -eux
+          cmake -G Ninja . \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLVM_ROOT_DIR="/usr/lib/llvm-${{ matrix.llvm_version }}" \
+            -DLDC_LINK_MANUALLY=OFF \
+            ${{ matrix.cmake_flags }}
+          ninja obj/ldc2.o all ldc2-unittest all-test-runners
+          bin/ldc2 --version
+
+      - name: Run LDC D unittests
+        if: success() || failure()
+        run: ctest --output-on-failure -R "ldc2-unittest"
+      - name: Run LIT testsuite
+        if: success() || failure()
+        run: ctest -V -R "lit-tests"
+      - name: Run DMD testsuite
+        if: success() || failure()
+        run: ctest -V -R "dmd-testsuite"
+      - name: Run defaultlib unittests & druntime integration tests
+        if: success() || failure()
+        run: |
+          set -eux
+          excludes='dmd-testsuite|lit-tests|ldc2-unittest'
+          ctest -j$(nproc) --output-on-failure -E "$excludes"
