@@ -112,6 +112,13 @@ void appendTargetArgsForGcc(std::vector<std::string> &args) {
   const auto &triple = *global.params.targetTriple;
   const auto arch64 = triple.get64BitArchVariant().getArch();
 
+  // specify a -target triple for Apple targets (and Apple clang as C compiler)
+  if (triple.isOSDarwin()) {
+    args.push_back("-target");
+    args.push_back(triple.getTriple());
+    return;
+  }
+
   switch (arch64) {
   // Specify -m32/-m64 for architectures where gcc supports those flags.
   case Triple::x86_64:
