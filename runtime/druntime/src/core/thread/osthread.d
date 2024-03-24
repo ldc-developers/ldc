@@ -1553,6 +1553,19 @@ in (fn)
                 "mov %0, sp"       : "=r" (sp);
             }
         }
+        else version (MIPS_N64)
+        {
+            size_t[10] regs = void;
+            static foreach (i; 0 .. 8)
+            {{
+                asm pure nothrow @nogc { ("sd $s"~i.stringof~", %0") : "=m" (regs[i]); }
+            }}
+            asm pure nothrow @nogc {
+                ("sd $gp, %0") : "=m" (regs[8]);
+                ("sd $fp, %0") : "=m" (regs[9]); 
+                ("sd $ra, %0") : "=m" (sp);
+            }
+        }
         else version (MIPS_Any)
         {
             version (MIPS32)      enum store = "sw";
