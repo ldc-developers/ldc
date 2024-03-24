@@ -66,8 +66,8 @@ list(REMOVE_AT linker_line 0)
 
 # Fixup known flags with spaces, such as "-target triple" argument, which would be turned
 # into "-target;triple" by `separate_arguments`. Repair by merging into one list item.
-string(REGEX REPLACE ";-target;([A-Za-z0-9_-]+);" ";-target \\1;" linker_line "${linker_line}")
-string(REGEX REPLACE ";-arch;([A-Za-z0-9_-]+);" ";-arch \\1;" linker_line "${linker_line}")
+string(REGEX REPLACE ";-target;([A-Za-z0-9_-]+)(;?)" ";-target \\1\\2" linker_line "${linker_line}")
+string(REGEX REPLACE ";-arch;([A-Za-z0-9_-]+)(;?)" ";-arch \\1\\2" linker_line "${linker_line}")
 
 if("${D_COMPILER_ID}" STREQUAL "GDMD")
     # Filter linker arguments for those we know can be safely reused
