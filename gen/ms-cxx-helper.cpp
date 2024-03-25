@@ -97,8 +97,7 @@ void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
     for (auto &II : *bb) {
       llvm::Instruction *Inst = &II;
       llvm::Instruction *newInst = nullptr;
-      if (funclet &&
-          !llvm::isa<llvm::DbgInfoIntrinsic>(Inst)) { // IntrinsicInst?
+      if (funclet && !llvm::isa<llvm::IntrinsicInst>(Inst)) {
         if (auto IInst = llvm::dyn_cast<llvm::InvokeInst>(Inst)) {
           auto invoke = llvm::InvokeInst::Create(
               IInst, llvm::OperandBundleDef("funclet", funclet));

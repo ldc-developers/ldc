@@ -422,7 +422,8 @@ DValue *DtoDynamicCastInterface(const Loc &loc, DValue *val, Type *_to) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl) {
+std::pair<llvm::Value *, llvm::Value *>
+DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl) {
   // sanity checks
   assert(fdecl->isVirtual());
   assert(!fdecl->isFinalFunc());
@@ -440,17 +441,22 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl) {
   const auto irtc = getIrType(tc->sym->type, true)->isClass();
   const auto vtblType = irtc->getVtblType();
 
-  LLValue *funcval = vthis;
+  LLValue *vtable = vthis;
   // get the vtbl for objects
-  funcval = DtoGEP(irtc->getMemoryLLType(), funcval, 0u, 0);
+  vtable = DtoGEP(irtc->getMemoryLLType(), vthis, 0u, 0);
   // load vtbl ptr
-  funcval = DtoLoad(vtblType->getPointerTo(), funcval);
+  vtable = DtoLoad(vtblType->getPointerTo(), vtable);
   // index vtbl
   const std::string name = fdecl->toChars();
   const auto vtblname = name + "@vtbl";
-  funcval = DtoGEP(vtblType, funcval, 0, fdecl->vtblIndex, vtblname.c_str());
-  // load opaque pointer
+  LLValue *funcval =
+      DtoGEP(vtblType, vtable, 0, fdecl->vtblIndex, vtblname.c_str());
+  // load opaque pointer.
   funcval = DtoAlignedLoad(vtblType->getElementType(), funcval);
+  // Because vtables are immutable, LLVM's !invariant.load
+  // can be applied (helps with devirtualization).
+  llvm::cast<llvm::LoadInst>(funcval)->setMetadata(
+      "invariant.load", llvm::MDNode::get(gIR->context(), {}));
 
   IF_LOG Logger::cout() << "funcval: " << *funcval << '\n';
 
@@ -462,5 +468,5 @@ LLValue *DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl) {
 
   IF_LOG Logger::cout() << "funcval casted: " << *funcval << '\n';
 
-  return funcval;
+  return std::make_pair(funcval, vtable);
 }
