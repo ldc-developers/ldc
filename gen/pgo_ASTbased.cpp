@@ -910,7 +910,7 @@ void CodeGenPGO::emitCounterIncrement(const RootObject *S) const {
   assert(counter_it != (*RegionCounterMap).end() &&
          "Statement not found in PGO counter map!");
   unsigned counter = counter_it->second;
-  auto *I8PtrTy = LDC_getInt8PtrTy(gIR->context());
+  auto *I8PtrTy = getVoidPtrType();
   gIR->ir->CreateCall(GET_INTRINSIC_DECL(instrprof_increment),
                       {llvm::ConstantExpr::getBitCast(FuncNameVar, I8PtrTy),
                        gIR->ir->getInt64(FunctionHash),
@@ -1118,7 +1118,7 @@ void CodeGenPGO::valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
     if (ptrCastNeeded)
       value = gIR->ir->CreatePtrToInt(value, gIR->ir->getInt64Ty());
 
-    auto *i8PtrTy = LDC_getInt8PtrTy(gIR->context());
+    auto *i8PtrTy = getVoidPtrType();
     llvm::Value *Args[5] = {
         llvm::ConstantExpr::getBitCast(FuncNameVar, i8PtrTy),
         gIR->ir->getInt64(FunctionHash), value, gIR->ir->getInt32(valueKind),

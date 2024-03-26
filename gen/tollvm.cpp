@@ -738,7 +738,11 @@ LLPointerType *getPtrToType(LLType *t) {
 }
 
 LLPointerType *getVoidPtrType() {
-  return LLType::getInt8Ty(gIR->context())->getPointerTo();
+  return getVoidPtrType(gIR->context());
+}
+
+LLPointerType *getVoidPtrType(llvm::LLVMContext &C) {
+  return LLType::getInt8Ty(C)->getPointerTo();
 }
 
 llvm::ConstantPointerNull *getNullPtr(LLType *t) {

@@ -115,7 +115,7 @@ void emitLLVMUsedArray(IRState &irs) {
     return;
   }
 
-  auto *i8PtrType = LDC_getInt8PtrTy(irs.context());
+  auto *i8PtrType = getVoidPtrType(irs.context());
 
   // Convert all elements to i8* (the expected type for llvm.used)
   for (auto &elem : irs.usedArray) {

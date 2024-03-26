@@ -48,9 +48,9 @@
 using CodeGenFileType = llvm::CodeGenFileType;
 
 #if LDC_LLVM_VER >= 1800
-#define CGFT_AssemblyFile CodeGenFileType::AssemblyFile
-#define CGFT_ObjectFile CodeGenFileType::ObjectFile
-#define CGFT_Null CodeGenFileType::Null
+constexpr llvm::CodeGenFileType CGFT_AssemblyFile = CodeGenFileType::AssemblyFile;
+constexpr llvm::CodeGenFileType CGFT_ObjectFile = CodeGenFileType::ObjectFile;
+constexpr llvm::CodeGenFileType CGFT_Null = CodeGenFileType::Null;
 #endif
 
 #if LDC_LLVM_VER < 1700
