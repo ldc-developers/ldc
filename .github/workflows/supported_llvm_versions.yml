@@ -15,10 +15,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - job_name: Ubuntu 20.04, LDC-LLVM 18, latest LDC beta
+          - job_name: Ubuntu 20.04, LLVM 18, latest LDC beta
             os: ubuntu-20.04
             host_dc: ldc-beta
-            llvm_version: bfcdb95c # FIXME: no usable official package available yet
+            llvm_version: 18
+            container: liushuyu/ldc-build-environments:20.04-18
           - job_name: macOS 14, LLVM 17, latest LDC beta
             os: macos-14
             host_dc: ldc-beta
@@ -30,31 +31,36 @@ jobs:
             llvm_version: 16.0.5
             cmake_flags: -DBUILD_SHARED_LIBS=OFF -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DCMAKE_EXE_LINKER_FLAGS=-L/opt/homebrew/opt/zstd/lib
           - job_name: Ubuntu 20.04, LLVM 15, latest LDC beta
-            os: ubuntu-20.04
+            os: ubuntu-latest
             host_dc: ldc-beta
-            llvm_version: 15.0.6
+            llvm_version: 15
+            container: ldc-developers/build-environments:20.04-15
           - job_name: macOS 11, LLVM 14, latest DMD beta
             os: macos-11
             host_dc: dmd-beta
             llvm_version: 14.0.6
             cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON -DCMAKE_CXX_COMPILER=/usr/bin/c++ -DCMAKE_C_COMPILER=/usr/bin/cc
           - job_name: Ubuntu 20.04, LLVM 13, latest LDC beta
-            os: ubuntu-20.04
+            os: ubuntu-latest
             host_dc: ldc-beta
-            llvm_version: 13.0.1
+            llvm_version: 13
+            container: ldc-developers/build-environments:20.04-13
             cmake_flags: -DRT_SUPPORT_SANITIZERS=ON
           - job_name: Ubuntu 20.04, LLVM 12, bootstrap LDC
-            os: ubuntu-20.04
+            os: ubuntu-latest
             host_dc: ldc-1.19.0
-            llvm_version: 12.0.1
+            llvm_version: 12
+            container: ldc-developers/build-environments:20.04-12
             cmake_flags: -DBUILD_SHARED_LIBS=ON -DLIB_SUFFIX=64
           - job_name: Ubuntu 20.04, LLVM 11, latest DMD beta
-            os: ubuntu-20.04
+            os: ubuntu-latest
             host_dc: dmd-beta
-            llvm_version: 11.1.0
+            llvm_version: 11
+            container: ldc-developers/build-environments:20.04-11
             cmake_flags: -DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
     env:
       # silence `ld: warning: object file (…) was built for newer macOS version (…) than being linked (…)`
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.os == 'macos-14' && '13.6' || '11.6' }}
@@ -64,6 +70,7 @@ jobs:
           submodules: true
           fetch-depth: 50
       - name: Install ninja
+        if: runner.os != 'Linux'
         uses: symmetryinvestments/gha-setup-ninja@v1
       - name: Install D host compiler
         uses: dlang-community/setup-dlang@v1
@@ -72,6 +79,7 @@ jobs:
       - name: Clear LD_LIBRARY_PATH to prevent loading host compiler libs
         run: echo "LD_LIBRARY_PATH=" >> $GITHUB_ENV
       - name: Install lit
+        if: runner.os != 'Linux'
         run: |
           set -euxo pipefail
           if [[ '${{ matrix.os }}' == 'macos-14' ]]; then
@@ -81,21 +89,15 @@ jobs:
             python3 -m pip install --user lit
           fi
           python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
-      - name: 'Linux: Install gdb and llvm-symbolizer'
-        if: runner.os == 'Linux'
-        run: |
-          set -eux
-          sudo apt-get update
-          # Don't use latest gdb v10+ from Ubuntu toolchain PPA with regressions, use official v9
-          sudo apt-get install gdb=9.1-0ubuntu1 llvm
-
       - name: Try to restore cached LLVM
+        if: runner.os != 'Linux'
         uses: actions/cache@v3
         with:
           path: llvm
           key: llvm-${{ matrix.llvm_version }}-${{ runner.os }}
 
       - name: Download & extract prebuilt vanilla LLVM ${{ matrix.llvm_version }}
+        if: runner.os != 'Linux'
         run: |
           set -eux
           if [[ -d llvm ]]; then
@@ -137,20 +139,16 @@ jobs:
             rm -f llvm/lib/lib{c++,unwind}.*
           fi
 
-      - name: 'Linux: Make lld the default linker'
-        if: runner.os == 'Linux' && matrix.host_dc != 'ldc-1.9.0'
-        run: |
-          set -eux
-          echo "Using lld to work around sporadic failures"
-          sudo ln -sf "$PWD/llvm/bin/ld.lld" /usr/bin/ld
-          ld --version
-
       - name: Build LDC & LDC D unittests & defaultlib unittest runners with extra '${{ matrix.cmake_flags }}'
         run: |
-          set -eux
+          set -ex
+          if [ -z "${LLVM_ROOT_DIR}" ]; then
+            LLVM_ROOT_DIR="$PWD/llvm"
+          fi
+          set -u
           cmake -G Ninja . \
             -DCMAKE_BUILD_TYPE=Release \
-            -DLLVM_ROOT_DIR="$PWD/llvm" \
+            -DLLVM_ROOT_DIR="${LLVM_ROOT_DIR}" \
             -DLDC_LINK_MANUALLY=OFF \
             ${{ matrix.cmake_flags }}
           ninja obj/ldc2.o all ldc2-unittest all-test-runners
@@ -161,16 +159,7 @@ jobs:
         run: ctest --output-on-failure -R "ldc2-unittest"
       - name: Run LIT testsuite
         if: success() || failure()
-        run: |
-          set -eux
-          # LLVM 14+ on Linux: don't use vanilla llvm-symbolizer (no support for zlib-compressed debug sections => failing ASan tests)
-          if [[ '${{ runner.os }}' == 'Linux' && ! '${{ matrix.llvm_version }}' =~ ^1[1-3]\. ]]; then
-            mv llvm/bin/llvm-symbolizer llvm/bin/llvm-symbolizer.bak
-          fi
-          ctest -V -R "lit-tests"
-          if [[ -f llvm/bin/llvm-symbolizer.bak ]]; then
-            mv llvm/bin/llvm-symbolizer.bak llvm/bin/llvm-symbolizer
-          fi
+        run: ctest -V -R "lit-tests"
       - name: Run DMD testsuite
         if: success() || failure()
         run: ctest -V -R "dmd-testsuite"
