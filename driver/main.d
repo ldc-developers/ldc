@@ -59,18 +59,3 @@ version (Windows)
         SetConsoleOutputCP(originalOutputCP);
     }
 }
-
-// TLS bracketing symbols required for our custom TLS emulation on Android
-// as we don't have a D main() function for LDC and LDMD.
-version (Android)
-{
-    import ldc.attributes;
-
-    extern(C) __gshared
-    {
-        @section(".tdata")
-        int _tlsstart = 0;
-        @section(".tcommon")
-        int _tlsend = 0;
-    }
-}
