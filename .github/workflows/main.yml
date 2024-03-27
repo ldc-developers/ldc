@@ -11,7 +11,7 @@ concurrency:
 
 env:
   CLANG_VERSION: 15.0.6
-  LLVM_VERSION: 17.0.6
+  LLVM_VERSION: bfcdb95c
 
 jobs:
   build-native:
@@ -37,7 +37,7 @@ jobs:
             with_pgo: true
 
           - job_name: macOS x86_64
-            os: macos-11
+            os: macos-12
             arch: x86_64
             bootstrap_cmake_flags: >-
               -DBUILD_LTO_LIBS=ON
@@ -85,7 +85,7 @@ jobs:
       - name: Install prerequisites
         uses: ./.github/actions/1-setup
         with:
-          clang_version: ${{ runner.os == 'Windows' && '16.0.6' || env.CLANG_VERSION }}
+          clang_version: ${{ runner.os == 'Windows' && '18.1.1' || env.CLANG_VERSION }}
           llvm_version: ${{ env.LLVM_VERSION }}
           arch: ${{ matrix.arch }}
       - name: Build bootstrap LDC
@@ -161,7 +161,7 @@ jobs:
         include:
 
           - job_name: macOS arm64
-            host_os: macos-11
+            host_os: macos-12
             os: osx
             arch: arm64
             bootstrap_cmake_flags: -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++
