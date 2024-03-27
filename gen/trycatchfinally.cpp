@@ -663,7 +663,7 @@ TryCatchFinallyScopes::getLandingPadRef(CleanupCursor scope) {
 
 namespace {
   llvm::LandingPadInst *createLandingPadInst(IRState &irs) {
-    LLType *retType = LLStructType::get(LLType::getInt8PtrTy(irs.context()),
+    LLType *retType = LLStructType::get(getVoidPtrType(irs.context()),
                                         LLType::getInt32Ty(irs.context()));
     if (!irs.func()->hasLLVMPersonalityFn()) {
       irs.func()->setLLVMPersonalityFn(

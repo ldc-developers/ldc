@@ -20,6 +20,12 @@
 #include "llvm/Support/CommandLine.h"
 
 namespace llvm {
+#if LDC_LLVM_VER < 1800
+using CodeGenOptLevel = llvm::CodeGenOpt::Level;
+#endif
+}
+
+namespace llvm {
 class raw_ostream;
 }
 
@@ -39,7 +45,7 @@ unsigned optLevel();
 
 bool isOptimizationEnabled();
 
-llvm::CodeGenOpt::Level codeGenOptLevel();
+llvm::CodeGenOptLevel codeGenOptLevel();
 
 void verifyModule(llvm::Module *m);
 

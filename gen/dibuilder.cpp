@@ -622,13 +622,16 @@ DIType DIBuilder::CreateCompositeType(Type *t) {
   const auto elemsArray = DBuilder.getOrCreateArray(elems);
 
   DIType ret;
+  const auto runtimeLang = 0;
   if (t->ty == TY::Tclass) {
     ret = DBuilder.createClassType(
         scope, name, file, lineNum, sizeInBits, alignmentInBits,
         classOffsetInBits, DIFlags::FlagZero, derivedFrom, elemsArray,
+#if LDC_LLVM_VER >= 1800
+        runtimeLang,
+#endif
         vtableHolder, templateParams, uniqueIdentifier);
   } else {
-    const auto runtimeLang = 0;
     ret = DBuilder.createStructType(scope, name, file, lineNum, sizeInBits,
                                     alignmentInBits, DIFlags::FlagZero,
                                     derivedFrom, elemsArray, runtimeLang,

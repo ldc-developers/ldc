@@ -441,7 +441,7 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
                     FloatABI::Type &floatABI,
                     llvm::Optional<llvm::Reloc::Model> relocModel,
                     llvm::Optional<llvm::CodeModel::Model> codeModel,
-                    const llvm::CodeGenOpt::Level codeGenOptLevel,
+                    const llvm::CodeGenOptLevel codeGenOptLevel,
                     const bool noLinkerStripDead) {
   // Determine target triple. If the user didn't explicitly specify one, use
   // the one set at LLVM configure time.
@@ -656,7 +656,7 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
 
   return target->createTargetMachine(triple.str(), cpu, finalFeaturesString,
                                      targetOptions, relocModel, codeModel,
-                                     codeGenOptLevel);
+                                     static_cast<llvm::CodeGenOptLevel>(codeGenOptLevel));
 }
 
 ComputeBackend::Type getComputeTargetType(llvm::Module* m) {

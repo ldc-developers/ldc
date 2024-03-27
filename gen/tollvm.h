@@ -152,6 +152,7 @@ LLGlobalVariable *isaGlobalVar(LLValue *v);
 LLType *getI8Type();
 LLPointerType *getPtrToType(LLType *t);
 LLPointerType *getVoidPtrType();
+LLPointerType *getVoidPtrType(llvm::LLVMContext &C);
 llvm::ConstantPointerNull *getNullPtr(LLType *t);
 LLConstant *getNullValue(LLType *t);
 

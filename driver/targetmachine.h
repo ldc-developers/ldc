@@ -27,6 +27,11 @@ template <typename T> using Optional = std::optional<T>;
 #include "llvm/Support/CodeGen.h"
 #include <string>
 #include <vector>
+namespace llvm {
+#if LDC_LLVM_VER < 1800
+using CodeGenOptLevel = llvm::CodeGenOpt::Level;
+#endif
+}
 
 namespace ExplicitBitness {
 enum Type { None, M32, M64 };
@@ -66,7 +71,7 @@ createTargetMachine(std::string targetTriple, std::string arch, std::string cpu,
                     FloatABI::Type &floatABI,
                     llvm::Optional<llvm::Reloc::Model> relocModel,
                     llvm::Optional<llvm::CodeModel::Model> codeModel,
-                    llvm::CodeGenOpt::Level codeGenOptLevel,
+                    llvm::CodeGenOptLevel codeGenOptLevel,
                     bool noLinkerStripDead);
 
 /**

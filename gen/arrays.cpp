@@ -27,6 +27,8 @@
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
+#include <llvm/Analysis/ConstantFolding.h>
+#include <llvm/IR/Constant.h>
 
 using namespace dmd;
 
@@ -556,8 +558,14 @@ llvm::Constant *arrayLiteralToConst(IRState *p, ArrayLiteralExp *ale) {
   for (unsigned i = 0; i < ale->elements->length; ++i) {
     llvm::Constant *val = toConstElem(indexArrayLiteral(ale, i), p);
     // extend i1 to i8
-    if (val->getType()->isIntegerTy(1))
-      val = llvm::ConstantExpr::getZExt(val, LLType::getInt8Ty(p->context()));
+    if (val->getType()->isIntegerTy(1)) {
+      LLType *I8PtrTy = LLType::getInt8Ty(p->context());
+#if LDC_LLVM_VER < 1800
+      val = llvm::ConstantExpr::getZExt(val, I8PtrTy);
+#else
+      val = llvm::ConstantFoldCastOperand(llvm::Instruction::ZExt, val, I8PtrTy, *gDataLayout);
+#endif
+    }
     if (!elementType) {
       elementType = val->getType();
     } else {

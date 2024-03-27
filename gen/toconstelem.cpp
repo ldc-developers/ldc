@@ -24,6 +24,8 @@
 #include "ir/irfunction.h"
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
+#include <llvm/Analysis/ConstantFolding.h>
+#include <llvm/IR/Constant.h>
 
 using namespace dmd;
 
@@ -576,8 +578,12 @@ public:
             LLConstant *c = toConstElem(elem, p);
             // extend i1 to i8
             if (c->getType()->isIntegerTy(1)) {
-              c = llvm::ConstantExpr::getZExt(c,
-                                              LLType::getInt8Ty(p->context()));
+              LLType *I8PtrTy = LLType::getInt8Ty(p->context());
+#if LDC_LLVM_VER < 1800
+              c = llvm::ConstantExpr::getZExt(c, I8PtrTy);
+#else
+              c = llvm::ConstantFoldCastOperand(llvm::Instruction::ZExt, c, I8PtrTy, *gDataLayout);
+#endif
             }
             varInits[e->sd->fields[i]] = c;
           }
