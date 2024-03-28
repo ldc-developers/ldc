@@ -901,6 +901,10 @@ bool eraseDummyAfterReturnBB(llvm::BasicBlock *bb) {
  * to be found.
  */
 void emulateWeakAnyLinkageForMSVC(IrFunction *irFunc, LINK linkage) {
+#if LDC_LLVM_VER >= 1800
+  #define startswith starts_with
+#endif
+
   LLFunction *func = irFunc->getLLVMFunc();
 
   const bool isWin32 = global.params.targetTriple->isArch32Bit();
@@ -952,6 +956,10 @@ void emulateWeakAnyLinkageForMSVC(IrFunction *irFunc, LINK linkage) {
   // declaration
   irFunc->setLLVMFunc(newFunc);
   func->replaceNonMetadataUsesWith(newFunc);
+
+#if LDC_LLVM_VER >= 1800
+  #undef startswith
+#endif
 }
 
 } // anonymous namespace

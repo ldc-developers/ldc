@@ -61,6 +61,10 @@ bool IrAggr::useDLLImport() const {
 //////////////////////////////////////////////////////////////////////////////
 
 LLConstant *IrAggr::getInitSymbol(bool define) {
+#if LDC_LLVM_VER >= 1800
+  #define startswith starts_with
+#endif
+
   if (!init) {
     const auto irMangle = getIRMangledInitSymbolName(aggrdecl);
 
@@ -107,6 +111,10 @@ LLConstant *IrAggr::getInitSymbol(bool define) {
   }
 
   return init;
+
+#if LDC_LLVM_VER >= 1800
+  #undef startswith
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////

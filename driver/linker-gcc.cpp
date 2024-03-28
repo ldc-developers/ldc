@@ -636,6 +636,10 @@ void ArgsBuilder::addLinker() {
 //////////////////////////////////////////////////////////////////////////////
 
 void ArgsBuilder::addUserSwitches() {
+#if LDC_LLVM_VER >= 1800
+  #define startswith starts_with
+#endif
+
   // additional linker and cc switches (preserve order across both lists)
   for (unsigned ilink = 0, icc = 0;;) {
     unsigned linkpos = ilink < opts::linkerSwitches.size()
@@ -664,6 +668,10 @@ void ArgsBuilder::addUserSwitches() {
       break;
     }
   }
+
+#if LDC_LLVM_VER >= 1800
+  #undef startswith
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////
