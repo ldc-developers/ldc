@@ -60,6 +60,10 @@ class ConstraintsBuilder {
   // Appends a constraint string expression with an optional prefix.
   // Returns true if the string describes an indirect operand.
   bool append(Expression *e, char prefix = 0) {
+#if LDC_LLVM_VER >= 1800
+    #define startswith starts_with
+#endif
+
     auto se = e->isStringExp();
     assert(se);
     llvm::StringRef code = peekString(se);
@@ -90,6 +94,10 @@ class ConstraintsBuilder {
     str << ',';
 
     return isIndirect;
+
+#if LDC_LLVM_VER >= 1800
+    #undef startswith
+#endif
   }
 
   // Might set `isIndirect` to true (but never resets to false).

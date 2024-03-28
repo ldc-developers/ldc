@@ -200,7 +200,7 @@ private:
         t = st->getElementType(i);
       else if (ArrayType *at = dyn_cast<ArrayType>(t))
         t = at->getElementType();
-      else if (PointerType *pt = dyn_cast<PointerType>(t))
+      else if (dyn_cast<PointerType>(t))
         llvm_unreachable("Shouldn't be trying to GEP a pointer in initializer");
     }
 

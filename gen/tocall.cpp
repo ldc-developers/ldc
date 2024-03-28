@@ -271,7 +271,8 @@ static LLType *getPtrToAtomicType(LLType *type) {
 #if LDC_LLVM_VER < 1800
     return LLType::getIntNPtrTy(gIR->context(), static_cast<unsigned>(N));
 #else
-    return LLPointerType::getIntNPtrTy(gIR->context(), static_cast<unsigned>(N));
+    return LLType::getIntNTy(gIR->context(), static_cast<unsigned>(N))
+        ->getPointerTo();
 #endif
   default:
     return nullptr;

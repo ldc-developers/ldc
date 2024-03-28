@@ -315,6 +315,10 @@ void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func,
   // The current implementation here does not do any checking of the specified
   // string and simply passes all to llvm.
 
+#if LDC_LLVM_VER >= 1800
+  #define startswith starts_with
+#endif
+
   checkStructElems(sle, {Type::tstring});
   llvm::StringRef targetspec = getFirstElemString(sle);
 
@@ -375,6 +379,10 @@ void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func,
                     llvm::join(features.begin(), features.end(), ","));
     irFunc->targetFeaturesOverridden = true;
   }
+
+#if LDC_LLVM_VER >= 1800
+  #undef startswith
+#endif
 }
 
 void applyAttrAssumeUsed(IRState &irs, StructLiteralExp *sle,

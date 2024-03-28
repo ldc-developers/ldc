@@ -16,9 +16,10 @@ bool FuzzMe(const ubyte* data, size_t dataSize)
 }
 
 // CHECK-LABEL: define{{.*}} @{{.*}}allocInt
-void allocInt() {
+void allocInt(size_t i) {
     // wASAN: call {{.*}}_asan_stack_malloc
     int[10] a;
+    a[i] = 1;
 }
 
 // CHECK-LABEL: define{{.*}} @{{.*}}foo

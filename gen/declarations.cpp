@@ -393,6 +393,11 @@ public:
   void visit(PragmaDeclaration *decl) override {
     const auto &triple = *global.params.targetTriple;
 
+#if LDC_LLVM_VER >= 1800
+    #define endswith ends_with
+    #define startswith starts_with
+#endif
+
     if (decl->ident == Id::lib) {
       assert(!irs->dcomputetarget);
       llvm::StringRef name = getPragmaStringArg(decl);
@@ -466,6 +471,11 @@ public:
       }
     }
     visit(static_cast<AttribDeclaration *>(decl));
+
+#if LDC_LLVM_VER >= 1800
+    #undef endswith
+    #undef startswith
+#endif
   }
 
   //////////////////////////////////////////////////////////////////////////

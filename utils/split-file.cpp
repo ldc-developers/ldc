@@ -104,6 +104,10 @@ inline bool isSpace_ldc(char C) {
 } // namespace
 
 static int handle(MemoryBuffer &inputBuf, StringRef input) {
+#if LDC_LLVM_VER >= 1800
+  #define startswith starts_with
+#endif
+
   DenseMap<StringRef, Part> partToBegin;
   StringRef lastPart, separator;
   StringRef EOL = detectEOL(inputBuf.getBuffer());
@@ -174,6 +178,10 @@ static int handle(MemoryBuffer &inputBuf, StringRef input) {
   for (std::unique_ptr<ToolOutputFile> &outputFile : outputFiles)
     outputFile->keep();
   return 0;
+
+#if LDC_LLVM_VER >= 1800
+  #undef startswith
+#endif
 }
 
 int main(int argc, const char **argv) {

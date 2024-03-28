@@ -4,12 +4,12 @@
 // RUN: %ldc -c -output-ll -g -fsanitize=address,thread -of=%t.tsan.ll %s && FileCheck %s --check-prefix=wTSAN < %t.tsan.ll
 // RUN: %ldc -c -output-ll -g -fsanitize=address -fsanitize=thread -of=%t.tsan.ll %s && FileCheck %s --check-prefix=wTSAN < %t.tsan.ll
 
-void foo() {
+void foo(size_t a) {
     // wTSAN: call {{.*}}_tsan_func_entry
     // CHECK: call {{.*}}_asan_stack_malloc
     // wTSAN: {{(call|invoke)}} {{.*}}_asan_stack_malloc
     int[10] i;
     // CHECK: call {{.*}}_asan_report_store
     // wTSAN: {{(call|invoke)}} {{.*}}_asan_report_store
-    i[0] = 1;
+    i[a] = 1;
 }

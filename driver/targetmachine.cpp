@@ -52,6 +52,10 @@
 
 #include "gen/optimizer.h"
 
+#if LDC_LLVM_VER >= 1800
+#define startswith starts_with
+#endif
+
 #ifdef LDC_LLVM_SUPPORTS_MACHO_DWARF_LINE_AS_REGULAR_SECTION
 // LDC-LLVM >= 6.0.1:
 // On Mac, emit __debug_line section in __DWARF segment as regular (non-debug)
