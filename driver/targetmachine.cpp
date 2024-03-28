@@ -639,12 +639,14 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
     targetOptions.DataSections = true;
   }
 
-  // On Android, we depend on a custom TLS emulation scheme implemented in our
-  // LLVM fork. LLVM 7+ enables regular emutls by default; prevent that.
+  // On Android, enforce native ELF TLS (supported since API level 29 = Android
+  // v10), as required by druntime. (Some older LLVM versions might default to
+  // EmuTLS).
   if (triple.getEnvironment() == llvm::Triple::Android) {
     targetOptions.EmulatedTLS = false;
 #if LDC_LLVM_VER < 1700
-    // Removed in this commit: https://github.com/llvm/llvm-project/commit/0d333bf0e3aa37e2e6ae211e3aa80631c3e01b85
+    // Removed in this commit:
+    // https://github.com/llvm/llvm-project/commit/0d333bf0e3aa37e2e6ae211e3aa80631c3e01b85
     targetOptions.ExplicitEmulatedTLS = true;
 #endif
   }
