@@ -43,7 +43,6 @@ llvm::cl::opt<bool, false, opts::FlagParser<bool>> enablePGOIndirectCalls(
 #if LDC_LLVM_VER >= 1800
 namespace llvm::support {
   const auto little = llvm::endianness::little;
-  const auto big = llvm::endianness::big;
 }
 #endif
 
