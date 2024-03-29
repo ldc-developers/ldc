@@ -70,8 +70,12 @@ jobs:
       - name: Install lit
         run: |
           set -euxo pipefail
-          python3 -m pip install --user setuptools wheel
-          python3 -m pip install --user lit
+          if [[ '${{ matrix.os }}' == 'macos-14' ]]; then
+            brew install lit python-setuptools
+          else
+            python3 -m pip install --user setuptools wheel
+            python3 -m pip install --user lit
+          fi
           python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
       - name: 'Linux: Install gdb and llvm-symbolizer'
         if: runner.os == 'Linux'
