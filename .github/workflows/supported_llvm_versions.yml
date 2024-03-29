@@ -15,6 +15,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - job_name: Ubuntu 20.04, LDC-LLVM 18, latest LDC beta
+            os: ubuntu-20.04
+            host_dc: ldc-beta
+            llvm_version: bfcdb95c # FIXME: no usable official package available yet
           - job_name: macOS 14, LLVM 17, latest LDC beta
             os: macos-14
             host_dc: ldc-beta
@@ -112,7 +116,16 @@ jobs:
           else
             suffix='x86_64-linux-gnu-ubuntu-16.04'
           fi
-          url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-$suffix.tar.xz"
+          if [[ "$version" = *.* ]]; then
+            url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-$suffix.tar.xz"
+          else # short commit SHA of ldc-developers fork
+            if [[ '${{ runner.os }}' == Linux ]]; then
+              suffix='linux-x86_64'
+            elif [[ '${{ runner.os }}' == macOS ]]; then
+              suffix='osx-arm64'
+            fi
+            url="https://github.com/ldc-developers/llvm-project/releases/download/CI/llvm-$version-$suffix.tar.xz"
+          fi
 
           curl -fL --retry 3 --max-time 300 -o llvm.tar.xz "$url"
           mkdir llvm
@@ -151,7 +164,7 @@ jobs:
         run: |
           set -eux
           # LLVM 14+ on Linux: don't use vanilla llvm-symbolizer (no support for zlib-compressed debug sections => failing ASan tests)
-          if [[ '${{ runner.os }}' == 'Linux' && '${{ matrix.llvm_version }}' =~ ^1[4-9]\. ]]; then
+          if [[ '${{ runner.os }}' == 'Linux' && ! '${{ matrix.llvm_version }}' =~ ^1[1-3]\. ]]; then
             mv llvm/bin/llvm-symbolizer llvm/bin/llvm-symbolizer.bak
           fi
           ctest -V -R "lit-tests"
