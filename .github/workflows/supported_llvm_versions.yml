@@ -34,7 +34,7 @@ jobs:
             os: ubuntu-latest
             host_dc: ldc-beta
             llvm_version: 15
-            container: ldc-developers/build-environments:20.04-15
+            container: liushuyu/ldc-build-environments:20.04-15
           - job_name: macOS 11, LLVM 14, latest DMD beta
             os: macos-11
             host_dc: dmd-beta
@@ -44,19 +44,19 @@ jobs:
             os: ubuntu-latest
             host_dc: ldc-beta
             llvm_version: 13
-            container: ldc-developers/build-environments:20.04-13
+            container: liushuyu/ldc-build-environments:20.04-13
             cmake_flags: -DRT_SUPPORT_SANITIZERS=ON
           - job_name: Ubuntu 20.04, LLVM 12, bootstrap LDC
             os: ubuntu-latest
             host_dc: ldc-1.19.0
             llvm_version: 12
-            container: ldc-developers/build-environments:20.04-12
+            container: liushuyu/ldc-build-environments:20.04-12
             cmake_flags: -DBUILD_SHARED_LIBS=ON -DLIB_SUFFIX=64
           - job_name: Ubuntu 20.04, LLVM 11, latest DMD beta
             os: ubuntu-latest
             host_dc: dmd-beta
             llvm_version: 11
-            container: ldc-developers/build-environments:20.04-11
+            container: liushuyu/ldc-build-environments:20.04-11
             cmake_flags: -DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
