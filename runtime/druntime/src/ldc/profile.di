@@ -49,10 +49,14 @@ extern(C++) struct ProfileData {
     {
         ulong* Counters;
     }
+    static if (LLVM_version >= 1800)
+        void* BitmapPtr;
     void* FunctionPointer;
     void* Values;
     uint NumCounters;
     ushort NumValueSites;
+    static if (LLVM_version >= 1800)
+        uint NumBitmapBytes;
 }
 
 // Symbols provided by profile-rt lib
