@@ -771,22 +771,6 @@ public:
 
     // get func value if any
     DFuncValue *dfnval = fnval->isFunc();
-    if (dfnval && dfnval->func) {
-      assert(!DtoIsMagicIntrinsic(dfnval->func));
-
-      // If loading the vtable was not needed for function call, we have to load
-      // it here to do the "assume" optimization below.
-      if (!dfnval->vtable && dfnval->vthis && dfnval->func->isVirtual() &&
-          dfnval->func->_linkage == LINK::d && (optLevel() >= 2)) {
-        dfnval->vtable =
-            DtoLoad(getVoidPtrType(),
-                    DtoBitCast(dfnval->vthis, getVoidPtrType()->getPointerTo()),
-                    "saved_vtable");
-      }
-    }
-
-    DValue *result =
-        DtoCallFunction(e->loc, e->type, fnval, e->arguments, sretPointer);
 
     // If this is a virtual function call, the object is passed by reference
     // through the `this` parameter, and therefore the optimizer has to assume
@@ -803,8 +787,28 @@ public:
     // ```
     // Only emit this extra code from -O2.
     // This optimization is only valid for D class method calls (not C++).
-    if (dfnval && dfnval->vtable && (optLevel() >= 2) &&
-        dfnval->func->_linkage == LINK::d) {
+    bool canEmitVTableUnchangedAssumption =
+        dfnval && dfnval->func && (dfnval->func->_linkage == LINK::d) &&
+        (optLevel() >= 2);
+
+    if (dfnval && dfnval->func) {
+      assert(!DtoIsMagicIntrinsic(dfnval->func));
+
+      // If loading the vtable was not needed for function call, we have to load
+      // it here to do the "assume" optimization below.
+      if (canEmitVTableUnchangedAssumption && !dfnval->vtable &&
+          dfnval->vthis && dfnval->func->isVirtual()) {
+        dfnval->vtable =
+            DtoLoad(getVoidPtrType(),
+                    DtoBitCast(dfnval->vthis, getVoidPtrType()->getPointerTo()),
+                    "saved_vtable");
+      }
+    }
+
+    DValue *result =
+        DtoCallFunction(e->loc, e->type, fnval, e->arguments, sretPointer);
+
+    if (canEmitVTableUnchangedAssumption && dfnval->vtable) {
       // Reload vtable ptr. It's the first element so instead of GEP+load we can
       // do a void* load+bitcast (at this point in the code we don't have easy
       // access to the type of the class to do a GEP).
