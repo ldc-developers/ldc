@@ -1,5 +1,7 @@
 // See GH issue 3375
 
+// REQUIRES: PGO_RT
+
 // Test instrumentation for final switches without default case.
 // The frontend creates hidden default case to catch runtime errors. We disable
 // that using `-release`.
