@@ -2,7 +2,7 @@
 
 #### Big news
 - Frontend, druntime and Phobos are at version [2.108.0](https://dlang.org/changelog/2.108.0.html). (#4591, #4615)
-- Preliminary support for LLVM 18. (#4599, #4605, #4607)
+- Support for [LLVM 18](https://releases.llvm.org/18.1.0/docs/ReleaseNotes.html). The prebuilt packages use v18.1.3 (except for Android and macOS arm64). (#4599, #4605, #4607, #4604)
 
 #### Platform support
 - Supports LLVM 11 - 18.

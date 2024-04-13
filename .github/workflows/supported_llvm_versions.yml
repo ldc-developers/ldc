@@ -18,7 +18,8 @@ jobs:
           - job_name: Ubuntu 20.04, LDC-LLVM 18, latest LDC beta
             os: ubuntu-20.04
             host_dc: ldc-beta
-            llvm_version: bfcdb95c # FIXME: no usable official package available yet
+            # FIXME: no usable official package available yet
+            llvm_version: https://github.com/ldc-developers/llvm-project/releases/download/ldc-v18.1.3/llvm-18.1.3-linux-x86_64.tar.xz
           - job_name: macOS 14, LLVM 17, latest LDC beta
             os: macos-14
             host_dc: ldc-beta
@@ -81,13 +82,13 @@ jobs:
             python3 -m pip install --user lit
           fi
           python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
-      - name: 'Linux: Install gdb and llvm-symbolizer'
+      - name: 'Linux: Install gdb, llvm-symbolizer and libzstd'
         if: runner.os == 'Linux'
         run: |
           set -eux
           sudo apt-get update
           # Don't use latest gdb v10+ from Ubuntu toolchain PPA with regressions, use official v9
-          sudo apt-get install gdb=9.1-0ubuntu1 llvm
+          sudo apt-get install gdb=9.1-0ubuntu1 llvm libzstd-dev
 
       - name: Try to restore cached LLVM
         uses: actions/cache@v3
@@ -102,29 +103,26 @@ jobs:
             echo "Already cached"
             exit 0
           fi
+
           version='${{ matrix.llvm_version }}'
-          if [[ '${{ runner.os }}' == macOS ]]; then
-            if [[ "$version" =~ ^1[6-9]\. ]]; then
-              suffix='arm64-apple-darwin22.0'
-            else
-              suffix='x86_64-apple-darwin'
-            fi
-          elif [[ "$version" =~ ^1[7-9]\. ]]; then
-            suffix='x86_64-linux-gnu-ubuntu-22.04' # LLVM 17+
-          elif [[ "$version" =~ ^1[3-6]\. ]]; then
-            suffix='x86_64-linux-gnu-ubuntu-18.04' # LLVM 13.0.1+
+          if [[ "$version" =~ ^https:// ]]; then
+            url="$version"
           else
-            suffix='x86_64-linux-gnu-ubuntu-16.04'
-          fi
-          if [[ "$version" = *.* ]]; then
-            url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-$suffix.tar.xz"
-          else # short commit SHA of ldc-developers fork
-            if [[ '${{ runner.os }}' == Linux ]]; then
-              suffix='linux-x86_64'
-            elif [[ '${{ runner.os }}' == macOS ]]; then
-              suffix='osx-arm64'
+            if [[ '${{ runner.os }}' == macOS ]]; then
+              if [[ "$version" =~ ^1[6-9]\. ]]; then
+                suffix='arm64-apple-darwin22.0'
+              else
+                suffix='x86_64-apple-darwin'
+              fi
+            elif [[ "$version" =~ ^1[7-9]\. ]]; then
+              suffix='x86_64-linux-gnu-ubuntu-22.04' # LLVM 17+
+            elif [[ "$version" =~ ^1[3-6]\. ]]; then
+              suffix='x86_64-linux-gnu-ubuntu-18.04' # LLVM 13.0.1+
+            else
+              suffix='x86_64-linux-gnu-ubuntu-16.04'
             fi
-            url="https://github.com/ldc-developers/llvm-project/releases/download/CI/llvm-$version-$suffix.tar.xz"
+
+            url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-$suffix.tar.xz"
           fi
 
           curl -fL --retry 3 --max-time 300 -o llvm.tar.xz "$url"
