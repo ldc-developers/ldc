@@ -76,9 +76,15 @@ version (LDC)
     // The MinGW-w64 libs don't provide _(_)chkstk; fall back to the
     // implementation in LLVM's builtins compiler-rt lib.
     version (X86_64)
+    {
         mixin declareAlternateName!("__chkstk", "___chkstk_ms");
+    }
     else
-        mixin declareAlternateName!("_chkstk", "__chkstk"); // `__chkstk_ms` isn't the MS-compatible one!
+    {
+        // `_chkstk` and `_alloca` are the same function (and `__chkstk_ms`
+        // isn't the MS-compatible one!); LLVM 18 dropped the `__chkstk` alias
+        mixin declareAlternateName!("_chkstk", "_alloca");
+    }
 }
 else // !LDC
 {

@@ -3,6 +3,9 @@
 // FIXME: hits an assertion with SPIRV-LLVM-Translator for LLVM 15, see https://github.com/ldc-developers/ldc/pull/4010#issuecomment-1191820165
 // XFAIL: atleast_llvm1500 && atmost_llvm1509
 
+// FIXME: another assertion for LLVM 18: https://github.com/llvm/llvm-project/issues/87315
+// UNSUPPORTED: atleast_llvm1800 && atmost_llvm1809
+
 // RUN: %ldc -c -mdcompute-targets=ocl-220 -m64 -I%S/inputs -mdcompute-file-prefix=%t -output-ll -output-o %s && FileCheck %s < %t_ocl220_64.ll
 @compute(CompileFor.deviceOnly) module dcompute_cl_images;
 import ldc.dcompute;
