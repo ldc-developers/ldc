@@ -115,7 +115,7 @@ runs:
         cmakeFlags+=" -DANDROID_USE_LEGACY_TOOLCHAIN_FILE=OFF"
         cmakeFlags+=" -DLDC_LINK_MANUALLY=ON -DD_LINKER_ARGS='-L$PWD/build-cross-libs/lib;-lphobos2-ldc;-ldruntime-ldc'"
 
-        echo "DFLAGS=-mtriple=$triple -fvisibility=hidden -L-L$PWD/build-cross-libs/lib -gcc=$PWD/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/$triple-clang" >> $GITHUB_ENV
+        echo "DFLAGS=-mtriple=$triple -L-L$PWD/build-cross-libs/lib -gcc=$PWD/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/$triple-clang" >> $GITHUB_ENV
         echo "CROSS_TRIPLE=$triple" >> $GITHUB_ENV
         echo "CROSS_CMAKE_FLAGS=$cmakeFlags" >> $GITHUB_ENV
 

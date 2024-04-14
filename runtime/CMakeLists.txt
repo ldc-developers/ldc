@@ -89,8 +89,7 @@ else()
 endif()
 
 set(SHARED_LIBS_SUPPORTED OFF)
-if("${TARGET_SYSTEM}" MATCHES "Windows|Linux|FreeBSD|DragonFly|APPLE"
-   AND (NOT "${TARGET_SYSTEM}" MATCHES "Android"))
+if("${TARGET_SYSTEM}" MATCHES "Windows|Linux|FreeBSD|DragonFly|APPLE")
     set(SHARED_LIBS_SUPPORTED ON)
 endif()
 
