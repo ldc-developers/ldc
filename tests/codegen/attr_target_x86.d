@@ -25,18 +25,21 @@ void foo_sse(float *A, float* B, float K) {
 // ASM: addps
 }
 
-// Make sure that no-sse overrides sse (attribute sorting). Also tests multiple @target attribs.
-// LLVM-LABEL: define{{.*}} void @{{.*}}foo_nosse
-// LLVM-SAME: #[[NOSSE:[0-9]+]]
-// ASM-LABEL: _D15attr_target_x869foo_nosseFPfQcfZv:
+// `sse` should take precedence over `no-sse` since it appears later.
+// LLVM-LABEL: define{{.*}} void @{{.*}}bar_sse
+// LLVM-SAME: #[[SSE2:[0-9]+]]
+// ASM-LABEL: _D15attr_target_x867bar_sseFPfQcfZv:
 @(target("no-sse\n  , \tsse  "))
-void foo_nosse(float *A, float* B, float K) {
+void bar_sse(float *A, float* B, float K) {
     for (int i = 0; i < 128; ++i)
         A[i] *= B[i] + K;
-// ASM-NOT: addps
+// ASM: addps
 }
+
+
+// Same reason as above, except the other way around
 // LLVM-LABEL: define{{.*}} void @{{.*}}bar_nosse
-// LLVM-SAME: #[[NOSSE]]
+// LLVM-SAME: #[[NOSSE:[0-9]+]]
 // ASM-LABEL: _D15attr_target_x869bar_nosseFPfQcfZv:
 @(target("sse"))
 @(target("  no-sse"))
@@ -58,5 +61,6 @@ void haswell(float *A, float* B, float K) {
 
 
 // LLVM-DAG: attributes #[[SSE]] = {{.*}} "target-features"="+sse"
+// LLVM-DAG: attributes #[[SSE2]] = {{.*}} "target-features"="-sse,+sse"
 // LLVM-DAG: attributes #[[NOSSE]] = {{.*}} "target-features"="+sse,-sse"
 // LLVM-DAG: attributes #[[HSW]] = {{.*}} "target-cpu"="haswell"

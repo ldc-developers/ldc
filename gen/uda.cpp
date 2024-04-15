@@ -328,6 +328,9 @@ void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func,
   llvm::StringRef CPU;
   std::vector<std::string> features;
 
+  // Preserve the order of the features as they appear in the source
+  // code. `hasFnAttribute` returns all the features accumulated
+  // so far and they should remain at the beginning of the result.
   if (func->hasFnAttribute("target-features")) {
     auto attr = func->getFnAttribute("target-features");
     features.push_back(std::string(attr.getValueAsString()));
@@ -371,10 +374,6 @@ void applyAttrTarget(StructLiteralExp *sle, llvm::Function *func,
   }
 
   if (!features.empty()) {
-    // Sorting the features puts negative features ("-") after positive features
-    // ("+"). This provides the desired behavior of negative features overriding
-    // positive features regardless of their order in the source code.
-    sort(features.begin(), features.end());
     func->addFnAttr("target-features",
                     llvm::join(features.begin(), features.end(), ","));
     irFunc->targetFeaturesOverridden = true;
