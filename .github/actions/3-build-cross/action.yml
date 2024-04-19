@@ -14,10 +14,10 @@ inputs:
     default: false
   android_ndk_version:
     required: false
-    default: r21e
+    default: r26d
   android_api_level:
     required: false
-    default: 21
+    default: 29
 runs:
   using: composite
   steps:
@@ -92,15 +92,10 @@ runs:
         cd ..
         version='${{ inputs.android_ndk_version }}'
         curl -fL --retry 3 --max-time 300 -o android-ndk.zip \
-          https://dl.google.com/android/repository/android-ndk-$version-linux-x86_64.zip
+          https://dl.google.com/android/repository/android-ndk-$version-linux.zip
         unzip android-ndk.zip >/dev/null
         mv "android-ndk-$version" android-ndk
         rm android-ndk.zip
-
-        # The NDK toolchain file enforces `-g` as base C[XX] flag - remove it to
-        # *significantly* reduce executable sizes
-        toolchainFile="$PWD/android-ndk/build/cmake/android.toolchain.cmake"
-        sed -i 's|^  -g$||' "$toolchainFile"
 
         arch='${{ inputs.arch }}'
         apiLevel='${{ inputs.android_api_level }}'
@@ -109,15 +104,18 @@ runs:
           triple="$arch-linux-androideabi$apiLevel"
           cmakeFlags+=' -DANDROID_ABI=armeabi-v7a'
         elif [[ "$arch" == aarch64 ]]; then
+          # FIXME: as of NDK rc26d, libc.a has __tls_get_addr, but libc.so only since API level 30 (Android v11)
+          apiLevel=30
           triple="$arch-linux-android$apiLevel"
           cmakeFlags+=' -DANDROID_ABI=arm64-v8a'
         fi
         cmakeFlags+=" -DANDROID_NATIVE_API_LEVEL=$apiLevel"
         cmakeFlags+=" -DANDROID_STL=c++_static"
-        cmakeFlags+=" -DCMAKE_TOOLCHAIN_FILE=$toolchainFile"
-        cmakeFlags+=" -DLDC_LINK_MANUALLY=ON -DD_LINKER_ARGS='-fuse-ld=bfd;-L$PWD/build-cross-libs/lib;-lphobos2-ldc;-ldruntime-ldc'"
+        cmakeFlags+=" -DCMAKE_TOOLCHAIN_FILE=$PWD/android-ndk/build/cmake/android.toolchain.cmake"
+        cmakeFlags+=" -DANDROID_USE_LEGACY_TOOLCHAIN_FILE=OFF"
+        cmakeFlags+=" -DLDC_LINK_MANUALLY=ON -DD_LINKER_ARGS='-L$PWD/build-cross-libs/lib;-lphobos2-ldc;-ldruntime-ldc'"
 
-        echo "DFLAGS=-mtriple=$triple -fvisibility=hidden -L-L$PWD/build-cross-libs/lib -gcc=$PWD/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/$triple-clang" >> $GITHUB_ENV
+        echo "DFLAGS=-mtriple=$triple -L-L$PWD/build-cross-libs/lib -gcc=$PWD/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/$triple-clang" >> $GITHUB_ENV
         echo "CROSS_TRIPLE=$triple" >> $GITHUB_ENV
         echo "CROSS_CMAKE_FLAGS=$cmakeFlags" >> $GITHUB_ENV
 

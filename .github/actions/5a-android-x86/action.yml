@@ -23,10 +23,10 @@ runs:
         # use bootstrap-ldc, which is guaranteed to be native
         bootstrap-ldc/bin/ldc-build-runtime --ninja \
           --buildDir="build-libs-$arch" \
-          --dFlags="-mtriple=$triple;-fvisibility=hidden" \
+          --dFlags="-mtriple=$triple" \
           --ldcSrcDir="$PWD/ldc" \
           "${flags[@]}" \
           ANDROID_ABI="$abi" # override the one in CROSS_CMAKE_FLAGS
 
         mkdir "installed/lib-$arch"
-        cp "build-libs-$arch"/lib/*.a "installed/lib-$arch/"
+        cp "build-libs-$arch"/lib/* "installed/lib-$arch/"

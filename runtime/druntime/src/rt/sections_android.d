@@ -10,6 +10,8 @@
 
 module rt.sections_android;
 
+version (LDC) { /* implemented in rt.sections_elf_shared */ } else:
+
 version (CRuntime_Bionic):
 
 // debug = PRINTF;
