@@ -4,9 +4,12 @@
 #include "driver/cl_options.h"
 #include "driver/timetrace.h"
 #include "driver/tool.h"
+#include "gen/irstate.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
+#include "llvm/MC/MCSubtargetInfo.h"
+#include "llvm/Target/TargetMachine.h"
 
 namespace {
 const char *getPathToImportc_h(const Loc &loc) {
@@ -119,6 +122,27 @@ FileName runCPreprocessor(FileName csrcfile, const Loc &loc,
       args.push_back("/PD");              // print all macro definitions
       args.push_back("/Zc:preprocessor"); // use the new conforming preprocessor
     } else {
+      // propagate the target to the preprocessor
+      args.push_back("-target");
+      args.push_back(triple.getTriple());
+
+#if LDC_LLVM_VER >= 1800 // getAllProcessorFeatures was introduced in this version
+      // propagate all enabled/disabled features to the preprocessor
+      const auto &subTarget = gTargetMachine->getMCSubtargetInfo();
+      const auto &featureBits = subTarget->getFeatureBits();
+      llvm::SmallString<64> featureString;
+      for (const auto &feature : subTarget->getAllProcessorFeatures()) {
+        args.push_back("-Xclang");
+        args.push_back("-target-feature");
+        args.push_back("-Xclang");
+
+        featureString += featureBits.test(feature.Value) ? '+' : '-';
+        featureString += feature.Key;
+        args.push_back(featureString.str().str());
+        featureString.clear();
+      }
+#endif
+
       // print macro definitions (clang-cl doesn't support /PD - use clang's
       // -dD)
       args.push_back("-Xclang");
