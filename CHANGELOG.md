@@ -2,7 +2,7 @@
 
 #### Big news
 - Frontend, druntime and Phobos are at version [2.108.0+](https://dlang.org/changelog/2.108.0.html). (#4591, #4615, #4619, #4622, #4623)
-- Support for [LLVM 18](https://releases.llvm.org/18.1.0/docs/ReleaseNotes.html). The prebuilt packages use v18.1.3 (except for macOS arm64). (#4599, #4605, #4607, #4604)
+- Support for [LLVM 18](https://releases.llvm.org/18.1.0/docs/ReleaseNotes.html). The prebuilt packages use v18.1.4 (except for macOS arm64). (#4599, #4605, #4607, #4604, #4628)
 - Android: Switch to native ELF TLS, supported since API level 29 (Android v10), dropping our former custom TLS emulation (requiring a modified LLVM and a legacy ld.bfd linker). The prebuilt packages themselves require Android v10+ (armv7a) / v11+ (aarch64) too, and are built with NDK r26d. Shared druntime and Phobos libraries are now available (`-link-defaultlib-shared`), as on regular Linux. (#4618)
 
 #### Platform support

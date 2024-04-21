@@ -19,7 +19,7 @@ jobs:
             os: ubuntu-20.04
             host_dc: ldc-beta
             # FIXME: no usable official package available yet
-            llvm_version: https://github.com/ldc-developers/llvm-project/releases/download/ldc-v18.1.3/llvm-18.1.3-linux-x86_64.tar.xz
+            llvm_version: https://github.com/ldc-developers/llvm-project/releases/download/ldc-v18.1.4/llvm-18.1.4-linux-x86_64.tar.xz
           - job_name: macOS 14, LLVM 17, latest LDC beta
             os: macos-14
             host_dc: ldc-beta
