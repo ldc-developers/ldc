@@ -289,17 +289,33 @@ namespace {
 bool setupMsvcEnvironmentImpl(
     bool forPreprocessingOnly,
     std::vector<std::pair<std::wstring, wchar_t *>> *rollback) {
-  const bool x64 = global.params.targetTriple->isArch64Bit();
+  const auto &triple = *global.params.targetTriple;
 
   if (env::has(L"VSINSTALLDIR") && !env::has(L"LDC_VSDIR_FORCE")) {
-    // Assume a fully set up environment (e.g., VS native tools command prompt).
-    // Skip the MSVC setup unless the environment is set up for a different
-    // target architecture.
-    const auto tgtArch = env::get("VSCMD_ARG_TGT_ARCH"); // VS 2017+
-    if (tgtArch.empty() || tgtArch == (x64 ? "x64" : "x86"))
-      return true;
+    const auto tripleArch = triple.getArch();
+    const char *expectedArch = nullptr;
+
+    if (tripleArch == llvm::Triple::ArchType::x86_64)
+      expectedArch = "x64";
+    else if (tripleArch == llvm::Triple::ArchType::x86)
+      expectedArch = "x86";
+    else if (tripleArch == llvm::Triple::ArchType::aarch64)
+      expectedArch = "arm64";
+    else if (tripleArch == llvm::Triple::ArchType::arm ||
+             tripleArch == llvm::Triple::ArchType::thumb)
+      expectedArch = "arm";
+
+    if (expectedArch) {
+      // Assume a fully set up environment (e.g., VS native tools command prompt).
+      // Skip the MSVC setup unless the environment is set up for a different
+      // target architecture.
+      const auto tgtArch = env::get("VSCMD_ARG_TGT_ARCH"); // VS 2017+
+      if (tgtArch.empty() || tgtArch == expectedArch)
+        return true;
+    }
   }
 
+  const bool x64 = triple.isArch64Bit();
   const auto begin = std::chrono::steady_clock::now();
 
   static VSOptions vsOptions; // cache, as this can be expensive
