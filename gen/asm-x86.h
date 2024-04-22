@@ -2861,6 +2861,9 @@ struct AsmProcessor {
       }
       operand = &operands[i];
 
+      // This is used only in the case of `operand->cls` being `Opr_Mem`.
+      bool hasConstDisplacement = false;
+
       switch (operand->cls) {
       case Opr_Immediate:
         // for implementing offset:
@@ -2958,9 +2961,13 @@ struct AsmProcessor {
                         "branching instruction");
           }
         }
-        if ((operand->segmentPrefix != Reg_Invalid &&
-             operand->symbolDisplacement.length == 0) ||
-            operand->constDisplacement) {
+
+        // We make note of this for later on, as if a const-displacement is in play we
+        // may need to change the asm template to avoid it expanding to an invalid syntax.
+        hasConstDisplacement = (operand->segmentPrefix != Reg_Invalid &&
+                               operand->symbolDisplacement.length == 0) ||
+                               operand->constDisplacement;
+        if (hasConstDisplacement) {
           insnTemplate << operand->constDisplacement;
           if (operand->symbolDisplacement.length) {
             insnTemplate << '+';
@@ -3056,6 +3063,29 @@ struct AsmProcessor {
               //              addOperand2("${", ":c}", Arg_Pointer, e,
               //              asmcode);
             } else {
+              // We don't know ahead of time what kind of memory operand will be generated for
+              // our template: it could be a symbolic reference, or a Scale-Index-Base with or without
+              // an offset. So, if we have a const-displacement of 4, it could look like one of:
+              // `4+someGlobalVariable`, or `4+8(%ebp)`, or `4+(%ebp)`.
+              // Notice how that last possibility is an invalid syntax, it should be `4(%ebp)`.
+              // But, if we removed the `+`, then the other possibilities would become invalid or wrong.
+              // We don't know which form will be generated, but we can force the third possibility to
+              // be like the second possibility.
+              //
+              // For x86 assembly templates, memory operands can be marked with the `H` modifier, which
+              // unconditionally adds an offset of 8 to the memory operand.
+              // If we subtract 8 from our const-displacement, then we can use the `H` modifier to ensure
+              // that we always end up with a valid syntax for a memory operand with an offset.
+              // So, we do just that when we have const-displacement in play.
+              // (Only for non-naked asm, as this isn't an issue for naked asm.)
+              //
+              // See also: https://lists.llvm.org/pipermail/llvm-dev/2017-August/116244.html
+              const auto forceLeadingDisplacement = hasConstDisplacement && !sc->func->isNaked();
+              if (forceLeadingDisplacement) {
+                // Subtract 8 from our const-displacement, and prepare to add the 8 from the `H` modifier.
+                insnTemplate << "-8+";
+              }
+
               if (use_star) {
                 insnTemplate << '*';
                 use_star = false;
@@ -3068,7 +3098,14 @@ struct AsmProcessor {
                 e->type = tt;
               }
 
-              addOperand(fmt, Arg_Memory, e, asmcode, mode);
+              if (forceLeadingDisplacement) {
+                // We have a const-displacement in play, so we add the `H` modifier, as described earlier.
+                insnTemplate << "${" << "<<" << (mode == Mode_Input ? "in" : "out")
+                             << asmcode->args.size() << ">>" << ":H}";
+                asmcode->args.push_back(AsmArg(Arg_Memory, e, mode));
+              } else {
+                addOperand(fmt, Arg_Memory, e, asmcode, mode);
+              }
             }
           }
         }
