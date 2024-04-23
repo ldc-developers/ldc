@@ -25,6 +25,7 @@
 #include "dmd/mangle.h"
 #include "gen/llvmhelpers.h" // printLabelName
 #include <cctype>
+#include "llvm/ADT/StringRef.h"
 
 #ifndef ASM_X86_64
 namespace AsmParserx8632 {
@@ -3703,7 +3704,15 @@ struct AsmProcessor {
       // check for reg first then dotexp is an error?
       if (e->op == EXP::identifier) {
         for (int i = 0; i < N_Regs; i++) {
-          if (ident == regInfo[i].ident) {
+          const auto reg = regInfo[i].ident;
+          const auto matchesRegister = stmt->caseSensitive ?
+            ident == reg :
+#if LDC_LLVM_VER >= 1300
+            reg && llvm::StringRef(ident->toChars()).equals_insensitive(reg->toChars());
+#else
+            reg && llvm::StringRef(ident->toChars()).equals_lower(reg->toChars());
+#endif
+          if (matchesRegister) {
             if (static_cast<Reg>(i) == Reg_ST &&
                 token->value == TOK::leftParenthesis) {
               nextToken();
