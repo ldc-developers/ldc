@@ -654,7 +654,22 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
     irFunc->setNeverInline();
   } else {
     if (fdecl->inlining == PINLINE::always) {
-      irFunc->setAlwaysInline();
+      // If the function contains DMD-style inline assembly.
+      if (fdecl->hasReturnExp & 32) {
+        // The presence of DMD-style inline assembly in a function causes that
+        // function to become never-inline. So, if this function contains DMD-style
+        // inline assembly we'll emit an error as it can't be made always-inline.
+        // However, we'll make an exception for C functions, as the C standard doesn't
+        // actually require that `inline` functions be inlined. So, for C functions we just
+        // ignore the attempt to make it always-inline.
+        if (!fdecl->isCsymbol()) {
+          error(fdecl->loc,
+                "`%s` cannot be `pragma(inline, true)` as it contains DMD-style inline assembly",
+                fdecl->toPrettyChars());
+        }
+      } else {
+        irFunc->setAlwaysInline();
+      }
     } else if (fdecl->inlining == PINLINE::never) {
       irFunc->setNeverInline();
     }
