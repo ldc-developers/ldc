@@ -526,6 +526,11 @@ static cl::opt<LinkonceTemplates, true> linkonceTemplates(
                    "linkonce-templates-aggressive",
                    "Experimental, more aggressive variant")));
 
+static cl::opt<uint32_t, true>
+    templateCodegenDepth("template-codegen-depth",
+             cl::desc("Don't codegen templates beyond this instantiation depth (0 = off)."),
+             cl::location(global.params.templateCodegenDepth), cl::init(0));
+
 cl::opt<bool> disableLinkerStripDead(
     "disable-linker-strip-dead", cl::ZeroOrMore,
     cl::desc("Do not try to remove unused symbols during linking"),
