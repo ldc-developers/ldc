@@ -51,7 +51,7 @@ private alias requiredEnvVars = AliasSeq!(
     "BUILD_SHARED_LIBS" // LDC - passed through from CMake
 );
 private alias optionalEnvVars = AliasSeq!(
-    "CC", "PIC_FLAG"
+    "CC", "CXX", "PIC_FLAG"
 );
 private alias allVars = AliasSeq!(
     requiredEnvVars,
