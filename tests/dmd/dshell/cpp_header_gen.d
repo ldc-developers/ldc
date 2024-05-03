@@ -4,16 +4,16 @@ import dshell;
 
 int main()
 {
-    if (!CC.length)
+    if (!CXX.length)
     {
-        writeln("CPP header generation test was skipped because $CC is empty!");
+        writeln("CPP header generation test was skipped because $CXX is empty!");
         return DISABLED;
     }
     // DMC cannot compile the generated headers ...
     version (Windows)
     {
         import std.algorithm : canFind;
-        if (CC.canFind("dmc"))
+        if (CXX.canFind("dmc"))
         {
             writeln("CPP header generation test was skipped because DMC is not supported!");
             return DISABLED;
@@ -46,11 +46,11 @@ int main()
     else                  enum X86_Any = false;
 
     version (Windows)
-        run([CC, "/c", "/Fo" ~ Vars.CPP_OBJ, "/I" ~ OUTPUT_BASE, "/I" ~ EXTRA_FILES ~"/../../../../../dmd/root", Vars.SOURCE_DIR ~ "/app.cpp"]);
+        run([CXX, "/c", "/Fo" ~ Vars.CPP_OBJ, "/I" ~ OUTPUT_BASE, "/I" ~ EXTRA_FILES ~"/../../../../../dmd/root", Vars.SOURCE_DIR ~ "/app.cpp"]);
     else static if (X86_Any)
-        run("$CC -std=c++11 -m$MODEL -c -o $CPP_OBJ -I$OUTPUT_BASE -I$EXTRA_FILES/../../../../../dmd/root $SOURCE_DIR/app.cpp");
+        run("$CXX -std=c++11 -m$MODEL -c -o $CPP_OBJ -I$OUTPUT_BASE -I$EXTRA_FILES/../../../../../dmd/root $SOURCE_DIR/app.cpp");
     else
-        run("$CC -std=c++11 -c -o $CPP_OBJ -I$OUTPUT_BASE -I$EXTRA_FILES/../../../../../dmd/root $SOURCE_DIR/app.cpp");
+        run("$CXX -std=c++11 -c -o $CPP_OBJ -I$OUTPUT_BASE -I$EXTRA_FILES/../../../../../dmd/root $SOURCE_DIR/app.cpp");
     run("$DMD -m$MODEL -of=$HEADER_EXE $LIB $CPP_OBJ");
     run("$HEADER_EXE");
 

@@ -62,7 +62,8 @@ void usage()
           ~ "      ARGS:          set to execute all combinations of\n"
           ~ "      REQUIRED_ARGS: arguments always passed to the compiler\n"
           ~ "      DMD:           compiler to use, ex: ../src/dmd (required)\n"
-          ~ "      CC:            C++ compiler to use, ex: dmc, g++\n"
+          ~ "      CC:            C compiler to use, ex: dmc, cc\n"
+          ~ "      CXX:           C++ compiler to use, ex: dmc, g++\n"
           ~ "      OS:            windows, linux, freebsd, osx, netbsd, dragonflybsd\n"
           ~ "      RESULTS_DIR:   base directory for test results\n"
           ~ "      MODEL:         32 or 64 (required)\n"
@@ -95,7 +96,7 @@ struct TestArgs
     bool     link;                  /// `LINK`: force linking for `fail_compilation` & `compilable` tests
     bool     clearDflags;           /// `DFLAGS`: whether DFLAGS should be cleared before invoking dmd
     string   executeArgs;           /// `EXECUTE_ARGS`: arguments passed to the compiled executable (for `runnable[_cxx]`)
-    string   cxxflags;              /// `CXXFLAGS`: arguments passed to $CC when compiling `EXTRA_CPP_SOURCES`
+    string   cxxflags;              /// `CXXFLAGS`: arguments passed to $CXX when compiling `EXTRA_CPP_SOURCES`
     string[] sources;               /// `EXTRA_SOURCES`: additional D sources (+ main source file)
     string[] compiledImports;       /// `COMPILED_IMPORTS`: files compiled alongside the main source
     string[] cppSources;            /// `EXTRA_CPP_SOURCES`: additional C++ sources
@@ -132,7 +133,8 @@ struct EnvData
     string exe;                  /// `EXE`: executable file extension (none or `.exe`)
     string os;                   /// `OS`: host operating system (`linux`, `windows`, ...)
     string compiler;             /// `HOST_DMD`: host D compiler
-    string ccompiler;            /// `CC`: host C++ compiler
+    string ccompiler;            /// `CC`: host C compiler
+    string cxxcompiler;          /// `CXX`: host C++ compiler
     string model;                /// `MODEL`: target model (`32` or `64`)
     string required_args;        /// `REQUIRED_ARGS`: flags added to the tests `REQUIRED_ARGS` parameter
     string cxxCompatFlags;       /// Additional flags passed to $(compiler) when `EXTRA_CPP_SOURCES` is present
@@ -174,6 +176,7 @@ immutable(EnvData) processEnvironment()
     envData.dmd            = replace(envGetRequired("DMD"), "/", envData.sep);
     envData.compiler       = "dmd"; //should be replaced for other compilers
     envData.ccompiler      = environment.get("CC");
+    envData.cxxcompiler    = environment.get("CXX");
     envData.model          = envGetRequired("MODEL");
     if (envData.os == "windows" && envData.model == "32")
     {
@@ -198,7 +201,7 @@ immutable(EnvData) processEnvironment()
     if (envData.ccompiler.empty)
     {
         if (envData.os != "windows")
-            envData.ccompiler = "c++";
+            envData.ccompiler = "cc";
         else if (envData.model == "32omf")
             envData.ccompiler = "dmc";
         else if (envData.model == "64")
@@ -207,7 +210,23 @@ immutable(EnvData) processEnvironment()
             envData.ccompiler = "cl";
         else
         {
-            writeln("Unknown $OS$MODEL combination: ", envData.os, envData.model);
+            writeln("Can't determine C compiler (CC). Unknown $OS$MODEL combination: ", envData.os, envData.model);
+            throw new SilentQuit();
+        }
+    }
+    if (envData.cxxcompiler.empty)
+    {
+        if (envData.os != "windows")
+            envData.cxxcompiler = "c++";
+        else if (envData.model == "32omf")
+            envData.cxxcompiler = "dmc";
+        else if (envData.model == "64")
+            envData.cxxcompiler = "cl";
+        else if (envData.model == "32mscoff")
+            envData.cxxcompiler = "cl";
+        else
+        {
+            writeln("Can't determine C++ compiler (CXX). Unknown $OS$MODEL combination: ", envData.os, envData.model);
             throw new SilentQuit();
         }
     }
@@ -1160,14 +1179,15 @@ unittest
  * Returns: false if a compilation error occurred
  */
 bool collectExtraSources (in string input_dir, in string output_dir, in string[] extraSources,
-                          ref string[] sources, in EnvData envData, in string compiler,
-                          const(char)[] cxxflags, ref File logfile, /*LDC*/ in bool objC = false)
+                          ref string[] sources, in EnvData envData, in string ccompiler,
+                          in string cxxcompiler, const(char)[] cxxflags, ref File logfile, /*LDC*/ in bool objC = false)
 {
     foreach (cur; extraSources)
     {
         auto curSrc = input_dir ~ envData.sep ~"extra-files" ~ envData.sep ~ cur;
         auto curObj = output_dir ~ envData.sep ~ cur ~ envData.obj;
-        string command = quoteSpaces(compiler);
+        bool is_cpp_file = cur.extension() == ".cpp";
+        string command = quoteSpaces(is_cpp_file ? cxxcompiler : ccompiler);
         if (envData.model == "32omf") // dmc.exe
         {
             command ~= " -c "~curSrc~" -o"~curObj;
@@ -1779,10 +1799,10 @@ int tryMain(string[] args)
 
     if (
         //prepare cpp extra sources
-        !collectExtraSources(input_dir, output_dir, testArgs.cppSources, testArgs.sources, envData, envData.ccompiler, testArgs.cxxflags, f) ||
+        !collectExtraSources(input_dir, output_dir, testArgs.cppSources, testArgs.sources, envData, envData.ccompiler, envData.cxxcompiler, testArgs.cxxflags, f) ||
 
         //prepare objc extra sources
-        !collectExtraSources(input_dir, output_dir, testArgs.objcSources, testArgs.sources, envData, "clang", null, f, /*LDC, objC=*/true)
+        !collectExtraSources(input_dir, output_dir, testArgs.objcSources, testArgs.sources, envData, "clang", "clang++", null, f, /*LDC, objC=*/true)
     )
     {
         writeln();
@@ -2245,9 +2265,9 @@ static this()
         const runTest = [testScriptExe];
         outfile.writeln("\n[RUN_TEST] ", escapeShellCommand(runTest));
         outfile.flush();
-        // LDC: propagate C(++) compiler from envData as CC env var (required by cpp_header_gen test)
+        // LDC: propagate C(++) compiler from envData as CC/CXX env var (required by cpp_header_gen test)
         version (LDC)
-            const string[string] runEnv = ["CC": envData.ccompiler];
+            const string[string] runEnv = ["CC": envData.ccompiler, "CXX": envData.cxxcompiler];
         else
             const string[string] runEnv = null;
         auto runTestProc = std.process.spawnProcess(runTest, stdin, outfile, outfile, runEnv, keepFilesOpen);
