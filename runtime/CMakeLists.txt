@@ -520,7 +520,7 @@ macro(compile_druntime d_flags lib_suffix path_suffix emit_bc all_at_once single
     endif()
     dc("${DRUNTIME_D}"
        "${RUNTIME_DIR}/src"
-       "-conf=;${d_flags};${DRUNTIME_EXTRA_FLAGS};-I${RUNTIME_DIR}/src"
+       "-conf=;${d_flags};${DRUNTIME_EXTRA_FLAGS};-I${RUNTIME_DIR}/src;-I${LDC_BUILD_IMPORT_DIR}"
        "${PROJECT_BINARY_DIR}/objects${target_suffix}"
        "${emit_bc}"
        "${all_at_once}"
