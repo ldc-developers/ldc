@@ -856,6 +856,8 @@ void registerPredefinedTargetVersions() {
     } else if (triple.isMusl()) {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Musl");
       VersionCondition::addPredefinedGlobalIdent("CppRuntime_Gcc");
+      // use libunwind for backtraces
+      VersionCondition::addPredefinedGlobalIdent("DRuntime_Use_Libunwind");
     } else if (global.params.isUClibcEnvironment) {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_UClibc");
     } else {
