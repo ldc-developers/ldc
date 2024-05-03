@@ -49,6 +49,8 @@
 
 module core.internal.backtrace.dwarf;
 
+version (Posix):
+
 import core.internal.string;
 
 version (OSX)

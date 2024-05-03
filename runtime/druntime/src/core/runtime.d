@@ -826,7 +826,7 @@ version (DRuntime_Use_Libunwind)
     alias DefaultTraceInfo = LibunwindHandler;
 }
 /// Default implementation for most POSIX systems
-else private class DefaultTraceInfo : Throwable.TraceInfo
+else version (Posix) private class DefaultTraceInfo : Throwable.TraceInfo
 {
     import core.demangle;
     import core.stdc.stdlib : free;
