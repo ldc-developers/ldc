@@ -78,7 +78,7 @@ jobs:
     env:
       MACOSX_DEPLOYMENT_TARGET: 10.12
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
           fetch-depth: 50
@@ -281,6 +281,6 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Upload all artifacts to GitHub release
         uses: ./.github/actions/upload-to-github
