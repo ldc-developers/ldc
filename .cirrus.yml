@@ -39,8 +39,6 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
         # FIXME: the following tests fail
         rm $CIRRUS_WORKING_DIR/tests/debuginfo/nested_gdb.d
         rm $CIRRUS_WORKING_DIR/tests/sanitizers/fuzz_basic.d
-        # the following 2 have regressed with LLVM 13
-        rm $CIRRUS_WORKING_DIR/tests/sanitizers/msan_{noerror,uninitialized}.d
       fi
       python3 runlit.py -v -j $PARALLELISM .
     run_dmd_testsuite_script: |
@@ -50,17 +48,14 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
       # Run defaultlib unittests & druntime integration tests
       cd $CIRRUS_WORKING_DIR/../build
       excludes="dmd-testsuite|ldc2-unittest|lit-tests"
-      if [[ "$CI_OS" == "freebsd" ]]; then
-        # FIXME: unittest failure for unclear reason
-        excludes+='|^std.experimental.allocator-shared$'
-      elif [[ "$CI_OS-$CI_ARCH" == "linux-aarch64" ]]; then
+      if [[ "$CI_OS-$CI_ARCH" == "linux-aarch64" ]]; then
         # FIXME: segfaults with enabled optimizations
         excludes+='|^core.thread.fiber(-shared)?$'
         # FIXME: failing unittest(s)
         excludes+='|^std.internal.math.gammafunction'
         # FIXME: failing unittest(s) with enabled optimizations
         excludes+='|^std.math.exponential(-shared)?$'
-        # FIXME: failure
+        # FIXME: subtest rt_trap_exceptions fails
         excludes+='|^druntime-test-exceptions-debug$'
         # std.path unittests apparently need HOME, which happens not to be set
         export HOME=~
