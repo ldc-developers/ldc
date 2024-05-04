@@ -5,6 +5,7 @@ cmake_minimum_required(VERSION 3.4.3)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
 
 include(CheckIncludeFile)
+include(CheckMusl)
 
 # Verify required variables if this CMake project is NOT embedded in the LDC CMake project.
 if(NOT LDC_EXE)
@@ -73,6 +74,8 @@ if("${TARGET_SYSTEM}" STREQUAL "AUTO")
     endif()
     if(UNIX)
         list(APPEND TARGET_SYSTEM "UNIX")
+        # Check if musl libc is used.
+        CHECK_MUSL(MUSL_LIBC)
     endif()
 endif()
 
@@ -122,6 +125,9 @@ if("${C_SYSTEM_LIBS}" STREQUAL "AUTO")
             set(C_SYSTEM_LIBS m c)
         elseif("${TARGET_SYSTEM}" MATCHES "Linux")
             set(C_SYSTEM_LIBS m pthread rt dl)
+            if(MUSL_LIBC)
+                list(APPEND C_SYSTEM_LIBS "unwind")
+            endif()
         elseif("${TARGET_SYSTEM}" MATCHES "FreeBSD")
             set(C_SYSTEM_LIBS m pthread execinfo z)
         else()
