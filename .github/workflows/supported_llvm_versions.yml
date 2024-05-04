@@ -65,7 +65,7 @@ jobs:
           submodules: true
           fetch-depth: 50
       - name: Install ninja
-        uses: symmetryinvestments/gha-setup-ninja@v1
+        uses: symmetryinvestments/gha-setup-ninja@v2
       - name: Install D host compiler
         uses: dlang-community/setup-dlang@v1
         with:
@@ -91,7 +91,7 @@ jobs:
           sudo apt-get install gdb=9.1-0ubuntu1 llvm libzstd-dev
 
       - name: Try to restore cached LLVM
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: llvm
           key: llvm-${{ matrix.llvm_version }}-${{ runner.os }}
