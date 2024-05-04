@@ -179,9 +179,11 @@ jobs:
           excludes='dmd-testsuite|lit-tests|ldc2-unittest'
           if [[ '${{ runner.os }}' == macOS ]]; then
             N=$(sysctl -n hw.logicalcpu)
-            # FIXME: fails with enabled optimizations on M1 runners
             if [[ '${{ matrix.os }}' == macos-14 ]]; then
+              # FIXME: crashes frequently with enabled optimizations on M1 runners
               excludes+='|^std.internal.math.gammafunction(-shared)?$'
+              # FIXME: sporadically segfaults with enabled optimizations
+              excludes+='|^core.thread.fiber(-shared)?$'
             fi
           else
             N=$(nproc)
