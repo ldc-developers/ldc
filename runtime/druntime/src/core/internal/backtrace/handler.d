@@ -25,17 +25,6 @@ version (DRuntime_Use_Libunwind):
 
 import core.internal.backtrace.dwarf;
 import core.internal.backtrace.libunwind;
-/+
-import core.internal.backtrace.libunwind_importc;
-
-// Declare these functions again, to make them @nogc nothrow.
-extern(C) @nogc nothrow {
-    int unw_getcontext(unw_context_t*);
-    int unw_init_local(unw_cursor_t*, unw_context_t*);
-    int unw_step(unw_cursor_t*);
-    int unw_get_reg(unw_cursor_t *cp, unw_regnum_t reg, unw_word_t *valp);
-}
-+/
 
 /// Ditto
 class LibunwindHandler : Throwable.TraceInfo

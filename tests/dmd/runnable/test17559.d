@@ -1,7 +1,7 @@
 // REQUIRED_ARGS: -g
 // REQUIRED_ARGS(linux freebsd dragonflybsd): -L-export-dynamic
 // LDC (required for Win32 and -O): REQUIRED_ARGS(windows32mscoff): -link-defaultlib-debug
-// LDC (Alpine Linux and FreeBSD's libexecinfo apparently doesn't like elided frame pointers): REQUIRED_ARGS(freebsd linux): -link-defaultlib-debug -frame-pointer=all
+// LDC (FreeBSD's libexecinfo apparently doesn't like elided frame pointers): REQUIRED_ARGS(freebsd): -link-defaultlib-debug -frame-pointer=all
 // PERMUTE_ARGS:
 // DISABLED: osx
 
