@@ -17,17 +17,10 @@ runs:
       shell: cmd
       run: |
         echo on
-        :: * strings_cdb has regressed for 32-bit starting with the VS 2019 v16.6.0 Azure Image (worked fine until v16.5.4)
-        ::   it also works fine on my box with the same v16.7.2...
-        :: * msvc_dwarf spuriously hits LLD assertions with v13.* and v14.0.0
+        :: FIXME: strings_cdb has regressed for 32-bit starting with the VS 2019 v16.6.0 Azure Image (worked fine until v16.5.4)
+        ::        it also works fine on my box with the same v16.7.2...
         if "${{ inputs.arch }}" == "x86" (
           del tests\debuginfo\strings_cdb.d || exit /b
-          del tests\debuginfo\msvc_dwarf.d || exit /b
-        )
-        :: FIXME: all ASan tests on Win64 regressed with the VS 2022 v17.9 image (worked fine until v17.8)
-        ::        (probably https://github.com/llvm/llvm-project/issues/82450)
-        if "${{ inputs.arch }}" == "x64" (
-          del tests\sanitizers\*asan* || exit /b
         )
         call "%LDC_VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=${{ inputs.arch }} || exit /b
         echo on

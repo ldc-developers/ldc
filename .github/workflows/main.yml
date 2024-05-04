@@ -67,7 +67,7 @@ jobs:
             bootstrap_cmake_flags: -DBUILD_LTO_LIBS=ON
             extra_cmake_flags: >-
               -DBUILD_LTO_LIBS=ON
-            # Undefined symbol errors with FullLTO; ThinLTO used to work, but apparently miscompiles a lexer.d:130 assertion since v1.33.
+            # Undefined symbol errors with FullLTO; ThinLTO used to work, but apparently miscompiles a lexer.d:138 assertion since v1.33.
             #  "-DD_COMPILER_FLAGS=-O -flto=thin -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
             #  -DEXTRA_CXXFLAGS=-flto=thin
             with_pgo: true
