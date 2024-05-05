@@ -370,7 +370,7 @@ public:
       result = base;
     } else {
       const unsigned elemSize =
-          gDataLayout->getTypeStoreSize(DtoType(e->var->type));
+          gDataLayout->getTypeAllocSize(DtoType(e->var->type));
 
       IF_LOG Logger::println("adding offset: %llu (elem size: %u)",
                              static_cast<unsigned long long>(e->offset),

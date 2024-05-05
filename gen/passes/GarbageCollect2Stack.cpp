@@ -185,7 +185,7 @@ Value* ArrayFI::promote(CallBase *CB, IRBuilder<> &B, const G2StackAnalysis &A) 
 
   if (Initialized) {
     // For now, only zero-init is supported.
-    uint64_t size = A.DL.getTypeStoreSize(Ty);
+    uint64_t size = A.DL.getTypeAllocSize(Ty);
     Value *TypeSize = ConstantInt::get(arrSize->getType(), size);
     // The initialization must be put at the original source variable
     // definition location, because it could be in a loop and because
