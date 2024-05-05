@@ -972,7 +972,6 @@ else version (Posix) private class DefaultTraceInfo : Throwable.TraceInfo
                 bool throw_call_found = false;
                 for (size_t i = 0; i < numframes; ++i)
                 {
-                    char[4096] fixbuf = void;
                     auto buf = getFrameName(callstack[i]);
 
                     // NOTE: The first few frames with the current implementation are
