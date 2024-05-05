@@ -43,7 +43,7 @@ if("${TARGET_SYSTEM}" MATCHES "Linux")
     set(linkdl "LINKDL=-L-ldl")
 endif()
 set(linkunwind "")
-if(MUSL_LIBC)
+if("${TARGET_SYSTEM}" MATCHES "musl")
     set(linkunwind "LINKUNWIND=-L-lunwind")
 endif()
 

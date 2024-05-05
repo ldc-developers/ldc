@@ -5,7 +5,6 @@ cmake_minimum_required(VERSION 3.4.3)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
 
 include(CheckIncludeFile)
-include(CheckMusl)
 
 # Verify required variables if this CMake project is NOT embedded in the LDC CMake project.
 if(NOT LDC_EXE)
@@ -45,7 +44,7 @@ set(RT_ARCHIVE_WITH_LDC   ON                                  CACHE STRING "Whet
 set(RT_CFLAGS             ""                                  CACHE STRING "Runtime extra C compiler flags, separated by ' '")
 set(LD_FLAGS              ""                                  CACHE STRING "Runtime extra C linker flags, separated by ' '")
 set(C_SYSTEM_LIBS         AUTO                                CACHE STRING "C system libraries for linking shared libraries and test runners, separated by ';'")
-set(TARGET_SYSTEM         AUTO                                CACHE STRING "Target OS/toolchain for cross-compilation (e.g., 'Linux;UNIX', 'Darwin;APPLE;UNIX', 'Windows;MSVC')")
+set(TARGET_SYSTEM         AUTO                                CACHE STRING "Target OS/toolchain for cross-compilation (e.g., 'Linux;UNIX', 'Linux;UNIX;musl', 'Darwin;APPLE;UNIX', 'Windows;MSVC')")
 set(RT_SUPPORT_SANITIZERS OFF                                 CACHE BOOL   "Build runtime libraries with sanitizer support (e.g. for AddressSanitizer)")
 
 set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
@@ -74,8 +73,17 @@ if("${TARGET_SYSTEM}" STREQUAL "AUTO")
     endif()
     if(UNIX)
         list(APPEND TARGET_SYSTEM "UNIX")
-        # Check if musl libc is used.
-        CHECK_MUSL(MUSL_LIBC)
+
+        # Determines if host system uses musl libc
+        execute_process(COMMAND ldd /bin/ls  OUTPUT_VARIABLE OUTPUT  ERROR_VARIABLE OUTPUT  RESULT_VARIABLE RETVAL)
+        if(NOT ${RETVAL})
+            if("${OUTPUT}" MATCHES "-musl-" )
+                if(NOT CMAKE_REQUIRED_QUIET)
+                  message(STATUS "Detected musl libc")
+                endif()
+                list(APPEND TARGET_SYSTEM "musl")
+            endif()
+        endif()
     endif()
 endif()
 
@@ -125,7 +133,7 @@ if("${C_SYSTEM_LIBS}" STREQUAL "AUTO")
             set(C_SYSTEM_LIBS m c)
         elseif("${TARGET_SYSTEM}" MATCHES "Linux")
             set(C_SYSTEM_LIBS m pthread rt dl)
-            if(MUSL_LIBC)
+            if("${TARGET_SYSTEM}" MATCHES "musl")
                 list(APPEND C_SYSTEM_LIBS "unwind")
             endif()
         elseif("${TARGET_SYSTEM}" MATCHES "FreeBSD")
@@ -143,6 +151,7 @@ message(STATUS "-- LDC runtime configuration:")
 message(STATUS "--  - Building 32/64-bit libraries (MULTILIB): ${MULTILIB}")
 message(STATUS "--  - Building shared libraries (BUILD_SHARED_LIBS): ${BUILD_SHARED_LIBS}")
 message(STATUS "--  - Building LTO libraries (BUILD_LTO_LIBS): ${BUILD_LTO_LIBS}")
+message(STATUS "--  - Linking test runners with (C_SYSTEM_LIBS): ${C_SYSTEM_LIBS}")
 
 get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
 set(RUNTIME_DIR ${PROJECT_SOURCE_DIR}/druntime CACHE PATH "druntime root directory")
