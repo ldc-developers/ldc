@@ -70,21 +70,29 @@ class LibunwindHandler : Throwable.TraceInfo
 
             unw_word_t offset;
             char* buffer = cast(char*)malloc(MAXPROCNAMELENGTH);
-            switch (unw_get_proc_name(&cursor, buffer, MAXPROCNAMELENGTH, &offset))
+            if (buffer)
             {
-                case UNW_ESUCCESS:
-                    namestack[idx] = buffer;
-                    break;
-                case UNW_ENOMEM:
-                    // Name is longer than MAXPROCNAMELENGTH, truncated name was put in buffer.
-                    // TODO: realloc larger buffer and try again.
-                    namestack[idx] = buffer;
-                    break;
-                default:
-                    immutable error_string = "<ERROR: Unable to retrieve function name>";
-                    memcpy(buffer, error_string.ptr, error_string.length+1); // include 0-terminator
-                    namestack[idx] = buffer;
-                    break;
+                switch (unw_get_proc_name(&cursor, buffer, MAXPROCNAMELENGTH, &offset))
+                {
+                    case UNW_ESUCCESS:
+                        namestack[idx] = buffer;
+                        break;
+                    case UNW_ENOMEM:
+                        // Name is longer than MAXPROCNAMELENGTH, truncated name was put in buffer.
+                        // TODO: realloc larger buffer and try again.
+                        namestack[idx] = buffer;
+                        break;
+                    default:
+                        immutable error_string = "<ERROR: Unable to retrieve function name>";
+                        memcpy(buffer, error_string.ptr, error_string.length+1); // include 0-terminator
+                        namestack[idx] = buffer;
+                        break;
+                }
+            }
+            else
+            {
+                // Out of memory
+                namestack[idx] = null;
             }
 
             this.numframes++;
@@ -99,7 +107,9 @@ class LibunwindHandler : Throwable.TraceInfo
         // Need to deallocate the procedure name strings allocated in constructor.
         foreach (ref ptr; this.namestack[0..numframes])
         {
-            free(ptr);
+            if (ptr)
+                free(ptr);
+            ptr = null;
         }
     }
 
@@ -116,7 +126,7 @@ class LibunwindHandler : Throwable.TraceInfo
 
         return traceHandlerOpApplyImpl(numframes,
             i => callstack[i].address,
-            i => namestack[i][0..strlen(namestack[i])],
+            i => namestack[i] ? namestack[i][0..strlen(namestack[i])] : "<no memory to lookup name>",
             dg);
     }
 
