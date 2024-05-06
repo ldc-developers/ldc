@@ -1,0 +1,81 @@
+name: Alpine Linux (musl libc)
+on:
+  - pull_request
+  - push
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Alpine Linux (musl libc)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 50
+
+      - name: Setup latest Alpine Linux
+        uses: jirutka/setup-alpine@v1
+        with:
+          branch: v3.20
+          packages: ldc git g++ cmake ninja llvm-dev llvm-static libunwind-static libxml2-static zstd-static zlib-static bash grep diffutils make
+
+      - name: Build LDC bootstrap
+        shell: alpine.sh {0}
+        run: |
+          ninja --version
+          set -eux
+          mkdir bootstrap
+          cd bootstrap
+          cmake -G Ninja .. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="/opt/ldc2" \
+            -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ \
+            -DD_COMPILER_FLAGS=-link-defaultlib-shared=false \
+            -DBUILD_SHARED_LIBS=OFF
+          ninja obj/ldc2.o all
+          bin/ldc2 --version
+          cd ..
+
+      # TODO: Add '-DLLVM_IS_SHARED=OFF' when static linking is fully supported
+      - name: Build LDC & LDC D unittests & defaultlib unittest runners
+        shell: alpine.sh {0}
+        run: |
+          set -eux
+          cmake -G Ninja . \
+            -DD_COMPILER=./bootstrap/bin/ldmd2 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="/opt/ldc2" \
+            -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ \
+            -DD_COMPILER_FLAGS=-link-defaultlib-shared=false \
+            -DBUILD_SHARED_LIBS=OFF
+          ninja obj/ldc2.o all ldc2-unittest all-test-runners
+          bin/ldc2 --version
+          ldd bin/ldc2
+
+      - name: Run LDC D unittests
+        if: success() || failure()
+        shell: alpine.sh {0}
+        run: ctest --output-on-failure -R "ldc2-unittest"
+
+      - name: Run LIT testsuite
+        if: success() || failure()
+        shell: alpine.sh {0}
+        run: |
+          set -eux
+          ctest -V -R "lit-tests"
+
+      - name: Run DMD testsuite
+        if: success() || failure()
+        shell: alpine.sh {0}
+        run: ctest -V -R "dmd-testsuite"
+
+      - name: Run defaultlib unittests & druntime integration tests
+        if: success() || failure()
+        shell: alpine.sh {0}
+        run: |
+          set -eux
+          ctest -j$(nproc) --output-on-failure -E "dmd-testsuite|lit-tests|ldc2-unittest"
