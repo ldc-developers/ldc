@@ -96,6 +96,21 @@ enum
     UNW_REG_SP = -2, // stack pointer
 }
 
+enum
+{
+    UNW_ESUCCESS      = 0,     /* no error */
+    UNW_EUNSPEC       = -6540, /* unspecified (general) error */
+    UNW_ENOMEM        = -6541, /* out of memory */
+    UNW_EBADREG       = -6542, /* bad register number */
+    UNW_EREADONLYREG  = -6543, /* attempt to write read-only register */
+    UNW_ESTOPUNWIND   = -6544, /* stop unwinding */
+    UNW_EINVALIDIP    = -6545, /* invalid IP */
+    UNW_EBADFRAME     = -6546, /* bad frame */
+    UNW_EINVAL        = -6547, /* unsupported operation or bad value */
+    UNW_EBADVERSION   = -6548, /* unwind info has unsupported version */
+    UNW_ENOINFO       = -6549  /* no unwind info found */
+}
+
 private:
 
 // The API between libunwind and llvm-libunwind is almost the same,

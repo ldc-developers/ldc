@@ -38,6 +38,9 @@ class LibunwindHandler : Throwable.TraceInfo
     enum MAXFRAMES = 128;
     FrameInfo[MAXFRAMES] callstack = void;
 
+    enum MAXPROCNAMELENGTH = 500;
+    char*[MAXFRAMES] namestack = void; // will be allocated using malloc, must be freed in destructor
+
     /**
      * Create a new instance of this trace handler saving the current context
      *
@@ -48,7 +51,8 @@ class LibunwindHandler : Throwable.TraceInfo
      */
     public this (size_t frames_to_skip = 1) nothrow @nogc
     {
-        import core.stdc.string : strlen;
+        import core.stdc.stdlib : malloc;
+        import core.stdc.string : memcpy;
 
         unw_context_t context;
         unw_cursor_t cursor;
@@ -64,9 +68,38 @@ class LibunwindHandler : Throwable.TraceInfo
             if (unw_get_reg(&cursor, UNW_REG_IP, &ip) == 0)
                 frame.address = cast(void*) ip;
 
+            unw_word_t offset;
+            char* buffer = cast(char*)malloc(MAXPROCNAMELENGTH);
+            switch (unw_get_proc_name(&cursor, buffer, MAXPROCNAMELENGTH, &offset))
+            {
+                case UNW_ESUCCESS:
+                    namestack[idx] = buffer;
+                    break;
+                case UNW_ENOMEM:
+                    // Name is longer than MAXPROCNAMELENGTH, truncated name was put in buffer.
+                    // TODO: realloc larger buffer and try again.
+                    namestack[idx] = buffer;
+                    break;
+                default:
+                    immutable error_string = "<ERROR: Unable to retrieve function name>";
+                    memcpy(buffer, error_string.ptr, error_string.length+1); // include 0-terminator
+                    namestack[idx] = buffer;
+                    break;
+            }
+
             this.numframes++;
             if (unw_step(&cursor) <= 0)
                 break;
+        }
+    }
+
+    ~this()
+    {
+        import core.stdc.stdlib : free;
+        // Need to deallocate the procedure name strings allocated in constructor.
+        foreach (ref ptr; this.namestack[0..numframes])
+        {
+            free(ptr);
         }
     }
 
@@ -79,37 +112,11 @@ class LibunwindHandler : Throwable.TraceInfo
     ///
     override int opApply (scope int delegate(ref size_t, ref const(char[])) dg) const
     {
-        // https://code.woboq.org/userspace/glibc/debug/backtracesyms.c.html
-        // The logic that glibc's backtrace use is to check for for `dli_fname`,
-        // the file name, and error if not present, then check for `dli_sname`.
-        // In case `dli_fname` is present but not `dli_sname`, the address is
-        // printed related to the file. We just print the file.
-        static const(char)[] getFrameName (const(void)* ptr)
-        {
-            import core.sys.posix.dlfcn;
-            import core.stdc.string;
-
-            Dl_info info = void;
-            // Note: See the module documentation about `-L--export-dynamic`
-            // TODO: Rewrite using libunwind's unw_get_proc_name
-            if (dladdr(ptr, &info))
-            {
-                // Return symbol name if possible
-                if (info.dli_sname !is null && info.dli_sname[0] != '\0')
-                    return info.dli_sname[0 .. strlen(info.dli_sname)];
-
-                // Fall back to file name
-                if (info.dli_fname !is null && info.dli_fname[0] != '\0')
-                    return info.dli_fname[0 .. strlen(info.dli_fname)];
-            }
-
-            // `dladdr` failed
-            return "<ERROR: Unable to retrieve function name>";
-        }
+        import core.stdc.string : strlen;
 
         return traceHandlerOpApplyImpl(numframes,
             i => callstack[i].address,
-            i => getFrameName(callstack[i].address),
+            i => namestack[i][0..strlen(namestack[i])],
             dg);
     }
 
