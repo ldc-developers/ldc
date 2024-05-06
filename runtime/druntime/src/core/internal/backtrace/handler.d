@@ -62,11 +62,17 @@ class LibunwindHandler : Throwable.TraceInfo
         while (frames_to_skip > 0 && unw_step(&cursor) > 0)
             --frames_to_skip;
 
+        // it may not be 1 but it is good enough to get
+        // in CALL instruction address range for backtrace
+        enum CALL_INSTRUCTION_SIZE = 1;
+
         unw_word_t ip;
         foreach (idx, ref frame; this.callstack)
         {
             if (unw_get_reg(&cursor, UNW_REG_IP, &ip) == 0)
-                frame.address = cast(void*) ip;
+                // IP is pointing to the instruction _after_ the call instruction,
+                // adjust the frame address to point to the caller.
+                frame.address = cast(void*) ip - CALL_INSTRUCTION_SIZE;
 
             unw_word_t offset;
             char* buffer = cast(char*)malloc(MAXPROCNAMELENGTH);
