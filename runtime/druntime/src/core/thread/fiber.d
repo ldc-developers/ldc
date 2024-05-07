@@ -1134,6 +1134,7 @@ class Fiber
      */
     static Fiber getThis() @safe nothrow @nogc
     {
+        version (LDC) pragma(inline, false);
         return sm_this;
     }
 
@@ -2305,13 +2306,6 @@ unittest
 // Multiple threads running shared fibers
 unittest
 {
-    version (AArch64)
-    {
-        import core.stdc.stdio : puts;
-        puts("FIXME: this test fails for AArch64");
-        return;
-    }
-
     shared bool[10] locks;
     TestFiber[10] fibs;
 
@@ -2329,7 +2323,7 @@ unittest
                         fibs[idx].call();
                         cont |= fibs[idx].state != Fiber.State.TERM;
                     }
-                    locks[idx] = false;
+                    locks[idx].atomicStore(false);
                 }
                 else
                 {
