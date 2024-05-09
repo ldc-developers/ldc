@@ -229,6 +229,8 @@ private
       extern (C) void fiber_switchContext( void** oldp, void* newp ) nothrow @nogc;
       version (AArch64)
           extern (C) void fiber_trampoline() nothrow;
+      version (LoongArch64)
+          extern (C) void fiber_trampoline() nothrow;
   }
   else version (LDC_Windows)
   {
@@ -1847,7 +1849,7 @@ private:
             // Only need to set return address ($r1).  Everything else is fine
             // zero initialized.
             pstack -= size_t.sizeof * 10;    // skip past space reserved for $r22-$r31
-            push (cast(size_t) &fiber_entryPoint);
+            push(cast(size_t) &fiber_trampoline); // see threadasm.S for docs
             pstack += size_t.sizeof;         // adjust sp (newp) above lr
         }
         else version (AsmAArch64_Posix)
