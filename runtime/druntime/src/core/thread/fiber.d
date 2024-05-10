@@ -1134,6 +1134,15 @@ class Fiber
      */
     static Fiber getThis() @safe nothrow @nogc
     {
+        // LDC NOTE:
+        // Currently, it is not safe to migrate fibers across threads when they
+        // use TLS at all, as LLVM might cache the TLS address lookup across a
+        // context switch (see https://github.com/ldc-developers/ldc/issues/666).
+        // Preventing inlining of this function, as well as switch{In,Out}
+        // below, enables users to do this at least as long as they are very
+        // careful about accessing TLS data themselves (such as in the shared
+        // fiber unittest below, which tends to sporadically crash with enabled
+        // optimizations if this prevent-inlining workaround is removed).
         version (LDC) pragma(inline, false);
         return sm_this;
     }
@@ -1954,6 +1963,7 @@ private:
     //
     final void switchIn() nothrow @nogc
     {
+        // see note in getThis()
         version (LDC) pragma(inline, false);
 
         ThreadBase  tobj = ThreadBase.getThis();
@@ -2047,6 +2057,7 @@ private:
     //
     final void switchOut() nothrow @nogc
     {
+        // see note in getThis()
         version (LDC) pragma(inline, false);
 
         ThreadBase  tobj = m_curThread;
