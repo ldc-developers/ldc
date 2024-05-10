@@ -1949,7 +1949,7 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
       pointeeType = pointeeType->getPointerElementType();
     // Make sure that the type sizes fit - '==' instead of '<=' should probably
     // work as well.
-    assert(getTypeStoreSize(DtoType(type)) <= getTypeStoreSize(pointeeType) &&
+    assert(getTypeAllocSize(DtoType(type)) <= getTypeAllocSize(pointeeType) &&
            "LValue type mismatch, encountered type too small.");
 #endif
     val = DtoBitCast(val, expectedType);

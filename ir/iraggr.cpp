@@ -176,7 +176,7 @@ static llvm::Constant *FillSArrayDims(Type *arrTypeD, llvm::Constant *init) {
   // the size without doing an expensive recursive D <-> LLVM type comparison.
   // The better way to solve this would be to just fix the initializer
   // codegen in any place where a scalar initializer might still be generated.
-  if (gDataLayout->getTypeStoreSize(init->getType()) >= arrTypeD->size()) {
+  if (gDataLayout->getTypeAllocSize(init->getType()) >= arrTypeD->size()) {
     return init;
   }
 
