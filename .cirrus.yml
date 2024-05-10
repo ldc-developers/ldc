@@ -49,8 +49,6 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
       cd $CIRRUS_WORKING_DIR/../build
       excludes="dmd-testsuite|ldc2-unittest|lit-tests"
       if [[ "$CI_OS-$CI_ARCH" == "linux-aarch64" ]]; then
-        # FIXME: segfaults with enabled optimizations
-        excludes+='|^core.thread.fiber(-shared)?$'
         # FIXME: failing unittest(s)
         excludes+='|^std.internal.math.gammafunction'
         # FIXME: failing unittest(s) with enabled optimizations
