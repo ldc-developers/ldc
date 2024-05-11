@@ -1,9 +1,18 @@
 # LDC master
 
 #### Big news
+
+#### Platform support
+
+#### Bug fixes
+
+# LDC 1.38.0 (2024-05-11)
+
+#### Big news
 - Frontend, druntime and Phobos are at version [2.108.1](https://dlang.org/changelog/2.108.0.html). (#4591, #4615, #4619, #4622, #4623, #4640)
 - Support for [LLVM 18](https://releases.llvm.org/18.1.0/docs/ReleaseNotes.html). The prebuilt packages use v18.1.5 (except for macOS arm64). (#4599, #4605, #4607, #4604, #4628, #4642)
 - Android: Switch to native ELF TLS, supported since API level 29 (Android v10), dropping our former custom TLS emulation (requiring a modified LLVM and a legacy ld.bfd linker). The prebuilt packages themselves require Android v10+ (armv7a) / v11+ (aarch64) too, and are built with NDK r26d. Shared druntime and Phobos libraries are now available (`-link-defaultlib-shared`), as on regular Linux. (#4618)
+  - Please don't use the official macOS arm64 package (incl. the universal package on arm64) to cross-compile to Android. That package still uses our previous LLVM v17.0.6, which still includes the custom TLS emulation, but druntime expects native TLS now on Android. Resort to the x86_64 package in that case.
 
 #### Platform support
 - Supports LLVM 11 - 18.
