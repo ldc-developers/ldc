@@ -20,7 +20,13 @@ commonSteps: &commonSteps
             apt-get -yq install \
               git-core $gcc_pkg \
               zlib1g-dev $libcurl_pkg curl gdb python3 python3-pip tzdata unzip zip \
+              software-properties-common gnupg \
               $EXTRA_APT_PACKAGES
+            # set up apt.llvm.org repo for being able to install more recent LLVM versions than provided by the distro
+            curl -fsS https://apt.llvm.org/llvm-snapshot.gpg.key | tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+            add-apt-repository -y "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-$LLVM_MAJOR main"
+            apt-get -q update
+            apt-get -yq install llvm-$LLVM_MAJOR-dev libclang-common-$LLVM_MAJOR-dev
             # Download & extract CMake
             curl -fL --retry 3 --max-time 300 -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.27.1/cmake-3.27.1-linux-x86_64.tar.gz
             mkdir cmake
@@ -97,7 +103,7 @@ jobs:
     environment:
       - PARALLELISM: 4
       - CI_OS: linux
-      - EXTRA_APT_PACKAGES: llvm-11-dev libclang-common-11-dev
+      - LLVM_MAJOR: 14
       - HOST_LDC_VERSION: 1.24.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON"
   Ubuntu-20.04-sharedLibsOnly-gdmd:
@@ -108,7 +114,8 @@ jobs:
     environment:
       - PARALLELISM: 4
       - CI_OS: linux
-      - EXTRA_APT_PACKAGES: gdmd llvm-11-dev libclang-common-11-dev
+      - LLVM_MAJOR: 14
+      - EXTRA_APT_PACKAGES: gdmd
       - HOST_LDC_VERSION: 1.24.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
 
