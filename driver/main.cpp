@@ -558,14 +558,6 @@ void parseCommandLine(Strings &sourceFiles) {
   global.params.dihdr.fullOutput = opts::hdrKeepAllBodies;
   global.params.disableRedZone = opts::disableRedZone();
 
-  // Passmanager selection options depend on LLVM version
-#if LDC_LLVM_VER >= 1500
-  // LLVM >= 15 only supports the new passmanager
-  if (opts::isUsingLegacyPassManager()) {
-    error(Loc(), "LLVM version 15 or above only supports --passmanager=new");
-  }
-#endif
-
 #if LDC_LLVM_VER >= 1700
   if (!opts::enableOpaqueIRPointers)
     error(Loc(),

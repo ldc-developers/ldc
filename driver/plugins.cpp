@@ -75,18 +75,6 @@ bool loadSemanticAnalysisPlugin(const std::string &filename) {
   return true;
 }
 
-/// Loads plugin for the legacy pass manager. The static constructor of
-/// the plugin should take care of the plugins registering themself with the
-/// rest of LDC/LLVM.
-void loadLLVMPluginLegacyPM(const std::string &filename) {
-  std::string errorString;
-  if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(filename.c_str(),
-                                                        &errorString)) {
-    error(Loc(), "Error loading plugin '%s': %s", filename.c_str(),
-          errorString.c_str());
-  }
-}
-
 namespace {
 llvm::SmallVector<llvm::PassPlugin, 1> llvm_plugins;
 
@@ -106,10 +94,7 @@ void loadLLVMPluginNewPM(const std::string &filename) {
 } // anonymous namespace
 
 void loadLLVMPlugin(const std::string &filename) {
-  if (opts::isUsingLegacyPassManager())
-    loadLLVMPluginLegacyPM(filename);
-  else
-    loadLLVMPluginNewPM(filename);
+  loadLLVMPluginNewPM(filename);
 }
 
 void loadAllPlugins() {

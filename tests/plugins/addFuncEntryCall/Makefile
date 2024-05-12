@@ -7,7 +7,6 @@ LLVM_CONFIG ?= llvm-config
 
 CXXFLAGS ?= -O3
 CXXFLAGS += $(shell $(LLVM_CONFIG) --cxxflags) -fno-rtti -fpic
-CXXFLAGS += -DLLVM_VERSION=$(LLVM_VERSION)
 # Remove all warning flags (they may or may not be supported by the compiler)
 CXXFLAGS := $(filter-out -W%,$(CXXFLAGS))
 CXXFLAGS := $(filter-out -fcolor-diagnostics,$(CXXFLAGS))

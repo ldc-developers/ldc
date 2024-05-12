@@ -11,11 +11,9 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
-
-#if LLVM_VERSION < 1500 // legacy pass manager
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#endif
+#include "llvm/IR/PassManager.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Passes/PassPlugin.h"
 
 using namespace llvm;
 
@@ -53,24 +51,6 @@ bool FuncEntryCallPass::runOnFunction(Function &F) {
   return true;
 }
 
-
-#if LLVM_VERSION < 1500 // legacy pass manager
-
-static void addFuncEntryCallPass(const PassManagerBuilder &,
-                                 legacy::PassManagerBase &PM) {
-  PM.add(new FuncEntryCallPass());
-}
-// Registration of the plugin's pass is done by the plugin's static constructor.
-static RegisterStandardPasses
-    RegisterFuncEntryCallPass0(PassManagerBuilder::EP_EnabledOnOptLevel0,
-                               addFuncEntryCallPass);
-
-#endif
-
-
-#include "llvm/IR/PassManager.h"
-#include "llvm/Passes/PassBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
 
 namespace {
 
