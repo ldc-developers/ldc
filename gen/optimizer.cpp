@@ -44,7 +44,6 @@
 #include "llvm/Transforms/Instrumentation/MemorySanitizer.h"
 #include "llvm/Transforms/Instrumentation/ThreadSanitizer.h"
 #include "llvm/Transforms/Instrumentation/AddressSanitizer.h"
-#if LDC_LLVM_VER >= 1400
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/StandardInstrumentations.h"
 #include "llvm/Transforms/Instrumentation/AddressSanitizerOptions.h"
@@ -54,7 +53,6 @@
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
 #include "llvm/Transforms/Scalar/LICM.h"
 #include "llvm/Transforms/Scalar/Reassociate.h"
-#endif
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 
 extern llvm::TargetMachine *gTargetMachine;
@@ -420,8 +418,6 @@ bool legacy_ldc_optimize_module(llvm::Module *M) {
 }
 #endif
 
-#if LDC_LLVM_VER >= 1400
-
 static OptimizationLevel getOptimizationLevel(){
   switch(optimizeLevel) {
     case 0: return OptimizationLevel::O0;
@@ -779,16 +775,13 @@ bool new_ldc_optimize_module(llvm::Module *M) {
   return true;
 }
 
-#endif
 ////////////////////////////////////////////////////////////////////////////////
 // This function calls the fuction which runs optimization passes based on command
 // line arguments.  Calls either legacy version using legacy pass manager
 // or new version using the new pass managr
 // Returns true if any optimization passes were invoked.
 bool ldc_optimize_module(llvm::Module *M) {
-#if LDC_LLVM_VER < 1400
-  return legacy_ldc_optimize_module(M);
-#elif LDC_LLVM_VER < 1500
+#if LDC_LLVM_VER < 1500
   return opts::isUsingLegacyPassManager() ? legacy_ldc_optimize_module(M)
                                           : new_ldc_optimize_module(M);
 #else

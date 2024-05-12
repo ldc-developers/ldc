@@ -139,9 +139,7 @@ extern cl::opt<bool> ltoFatObjects;
 
 extern cl::opt<std::string> saveOptimizationRecord;
 
-#if LDC_LLVM_VER >= 1300
 extern cl::opt<unsigned> fWarnStackSize;
-#endif
 
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
 extern cl::list<std::string> dcomputeTargets;
@@ -155,7 +153,5 @@ extern cl::opt<bool> dynamicCompileTlsWorkaround;
 constexpr bool enableDynamicCompile = false;
 #endif
 
-#if LDC_LLVM_VER >= 1400
 extern bool enableOpaqueIRPointers;
-#endif
 }

@@ -1198,11 +1198,7 @@ LLConstant *DtoConstExpInit(const Loc &loc, Type *targetType, Expression *exp) {
     assert(tv->basetype->ty == TY::Tsarray);
     dinteger_t elemCount =
         static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();
-#if LDC_LLVM_VER >= 1200
     const auto elementCount = llvm::ElementCount::getFixed(elemCount);
-#else
-    const auto elementCount = llvm::ElementCount(elemCount, false);
-#endif
     return llvm::ConstantVector::getSplat(elementCount, val);
   }
 

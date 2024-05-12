@@ -597,7 +597,7 @@ LLType *stripAddrSpaces(LLType *t)
 
 #if LDC_LLVM_VER >= 1700
   return getVoidPtrType();
-#elif LDC_LLVM_VER >= 1400
+#else
   if (pt->isOpaque())
     return getVoidPtrType();
   else {
@@ -614,16 +614,6 @@ LLType *stripAddrSpaces(LLType *t)
     while (indirections-- != 0)
       t = t->getPointerTo(0);
   }
-  return t;
-#else
-  int indirections = 0;
-  while (t->isPointerTy()) {
-    indirections++;
-    t = t->getPointerElementType();
-  }
-  while (indirections-- != 0)
-    t = t->getPointerTo(0);
-
   return t;
 #endif
 }

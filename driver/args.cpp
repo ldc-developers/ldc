@@ -116,17 +116,12 @@ struct ResponseFile {
       return true; // nothing to do
 
 #if defined(_WIN32)
-#if LDC_LLVM_VER >= 1200
     const llvm::ErrorOr<std::wstring> wcontent =
         llvm::sys::flattenWindowsCommandLine(toRefsVector(args));
 
     std::string content;
     if (!wcontent || !llvm::convertWideToUTF8(*wcontent, content))
       return false;
-#else
-    const std::string content =
-        llvm::sys::flattenWindowsCommandLine(toRefsVector(args));
-#endif
 #else
     std::string content;
     content.reserve(65536);

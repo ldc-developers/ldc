@@ -101,17 +101,9 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
     Type *argType = argexps[i]->type;
     bool passByVal = gABI->passByVal(irFty.type, argType);
 
-#if LDC_LLVM_VER >= 1400
     llvm::AttrBuilder initialAttrs(getGlobalContext());
-#else
-    llvm::AttrBuilder initialAttrs;
-#endif
     if (passByVal) {
-#if LDC_LLVM_VER >= 1200
       initialAttrs.addByValAttr(DtoType(argType));
-#else
-      initialAttrs.addAttribute(LLAttribute::ByVal);
-#endif
       if (auto alignment = DtoAlignment(argType))
         initialAttrs.addAlignmentAttr(alignment);
     } else {
@@ -524,11 +516,9 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     }
 
     auto ret =
-      p->ir->CreateAtomicCmpXchg(ptr, cmp, val,
-#if LDC_LLVM_VER >= 1300
-                                 llvm::MaybeAlign(), // default alignment
-#endif
-                                 successOrdering, failureOrdering);
+        p->ir->CreateAtomicCmpXchg(ptr, cmp, val,
+                                   llvm::MaybeAlign(), // default alignment
+                                   successOrdering, failureOrdering);
     ret->setWeak(isWeak);
 
     // we return a struct; allocate on stack and store to both fields manually
@@ -577,9 +567,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     LLValue *val = DtoRVal(exp2);
     LLValue *ret =
         p->ir->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp(op), ptr, val,
-#if LDC_LLVM_VER >= 1300
                                llvm::MaybeAlign(), // default alignment
-#endif
                                llvm::AtomicOrdering(atomicOrdering));
     result = new DImValue(exp2->type, ret);
     return true;
@@ -1076,15 +1064,9 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
     call->setCallingConv(gABI->callingConv(tf, iab.hasContext));
   }
   // merge in function attributes set in callOrInvoke
-#if LDC_LLVM_VER >= 1400
   auto attrbuildattribs = call->getAttributes().getFnAttrs();
   attrlist = attrlist.addFnAttributes(
       gIR->context(), llvm::AttrBuilder(gIR->context(), attrbuildattribs));
-#else
-  attrlist = attrlist.addAttributes(
-      gIR->context(), LLAttributeList::FunctionIndex,
-      llvm::AttrBuilder(call->getAttributes(), LLAttributeList::FunctionIndex));
-#endif
   call->setAttributes(attrlist);
 
   // Special case for struct constructor calls: For temporaries, using the

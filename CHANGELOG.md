@@ -3,6 +3,7 @@
 #### Big news
 
 #### Platform support
+- Supports LLVM 14 - 18. Support for LLVM 11, 12 and 13 was dropped.
 
 #### Bug fixes
 

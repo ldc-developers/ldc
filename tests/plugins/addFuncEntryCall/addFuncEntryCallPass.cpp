@@ -68,8 +68,6 @@ static RegisterStandardPasses
 #endif
 
 
-#if LLVM_VERSION >= 1400 // new pass manager
-
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
@@ -111,5 +109,3 @@ llvmGetPassPluginInfo() {
     }
   };
 }
-
-#endif // LLVM 14+

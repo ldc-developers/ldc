@@ -710,11 +710,7 @@ public:
       // cast.
       // FIXME: Check DMD source to understand why two different ASTs are
       //        constructed.
-#if LDC_LLVM_VER >= 1200
       const auto elementCount = llvm::ElementCount::getFixed(elemCount);
-#else
-      const auto elementCount = llvm::ElementCount(elemCount, false);
-#endif
       result = llvm::ConstantVector::getSplat(
           elementCount, toConstElem(optimize(e->e1, WANTvalue), p));
     }

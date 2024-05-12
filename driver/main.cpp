@@ -65,11 +65,7 @@
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/StringSaver.h"
-#if LDC_LLVM_VER >= 1400
 #include "llvm/MC/TargetRegistry.h"
-#else
-#include "llvm/Support/TargetRegistry.h"
-#endif
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 #if LDC_MLIR_ENABLED
@@ -563,12 +559,6 @@ void parseCommandLine(Strings &sourceFiles) {
   global.params.disableRedZone = opts::disableRedZone();
 
   // Passmanager selection options depend on LLVM version
-#if LDC_LLVM_VER < 1400
-  // LLVM < 14 only supports the legacy passmanager
-  if (!opts::isUsingLegacyPassManager()) {
-    error(Loc(), "LLVM version 13 or below only supports --passmanager=legacy");
-  }
-#endif
 #if LDC_LLVM_VER >= 1500
   // LLVM >= 15 only supports the new passmanager
   if (opts::isUsingLegacyPassManager()) {
@@ -582,7 +572,7 @@ void parseCommandLine(Strings &sourceFiles) {
           "LLVM version 17 or above only supports --opaque-pointers=true");
 #elif LDC_LLVM_VER >= 1500
   getGlobalContext().setOpaquePointers(opts::enableOpaqueIRPointers);
-#elif LDC_LLVM_VER >= 1400
+#else
   if (opts::enableOpaqueIRPointers)
     getGlobalContext().enableOpaquePointers();
 #endif
@@ -1045,7 +1035,7 @@ void registerPredefinedVersions() {
 #if LDC_LLVM_VER >= 1700
   // Since LLVM 17, IR pointers are always opaque.
   VersionCondition::addPredefinedGlobalIdent("LDC_LLVM_OpaquePointers");
-#elif LDC_LLVM_VER >= 1400
+#else
   if (!getGlobalContext().supportsTypedPointers()) {
     VersionCondition::addPredefinedGlobalIdent("LDC_LLVM_OpaquePointers");
   }

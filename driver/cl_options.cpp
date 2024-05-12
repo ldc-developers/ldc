@@ -690,14 +690,10 @@ cl::opt<std::string>
                                     "of optimizations performed by LLVM"),
                            cl::ValueOptional);
 
-#if LDC_LLVM_VER >= 1300
-// LLVM < 13 has "--warn-stack-size", but let's not do the effort of forwarding
-// the string to that option, and instead let the user do it himself.
 cl::opt<unsigned>
     fWarnStackSize("fwarn-stack-size", cl::ZeroOrMore, cl::init(UINT_MAX),
                    cl::desc("Warn for stack size bigger than the given number"),
                    cl::value_desc("threshold"));
-#endif
 
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
 cl::list<std::string>
@@ -728,7 +724,7 @@ cl::opt<bool> dynamicCompileTlsWorkaround(
 
 #if LDC_LLVM_VER >= 1700
 bool enableOpaqueIRPointers = true; // typed pointers are no longer supported from LLVM 17
-#elif LDC_LLVM_VER >= 1400
+#else
 bool enableOpaqueIRPointers = false;
 #endif
 
@@ -790,12 +786,10 @@ void createClashingOptions() {
           clEnumValN(FloatABI::Hard, "hard",
                      "Hardware floating-point ABI and instructions")));
 
-#if LDC_LLVM_VER >= 1400
   renameAndHide("opaque-pointers", nullptr); // remove
   new cl::opt<bool, true>(
       "opaque-pointers", cl::ZeroOrMore, cl::location(enableOpaqueIRPointers),
       cl::desc("Use opaque IR pointers (experimental!)"), cl::Hidden);
-#endif
 }
 
 /// Hides command line options exposed from within LLVM that are unlikely

@@ -11,33 +11,18 @@
 #include "gen/irstate.h"
 
 AttrSet::AttrSet(const AttrSet &base, unsigned index, LLAttribute attribute)
-#if LDC_LLVM_VER >= 1400
     : set(base.set.addAttributeAtIndex(gIR->context(), index, attribute)) {}
-#else
-    : set(base.set.addAttribute(gIR->context(), index, attribute)) {}
-#endif
 
 AttrSet
 AttrSet::extractFunctionAndReturnAttributes(const llvm::Function *function) {
   auto old = function->getAttributes();
-  return {LLAttributeList::get(gIR->context(),
-#if LDC_LLVM_VER >= 1400
-                               old.getFnAttrs(),
-                               old.getRetAttrs(),
-#else
-                               old.getFnAttributes(),
-                               old.getRetAttributes(),
-#endif
-                               {})};
+  return {LLAttributeList::get(gIR->context(), old.getFnAttrs(),
+                               old.getRetAttrs(), {})};
 }
 
 AttrSet &AttrSet::add(unsigned index, const llvm::AttrBuilder &builder) {
   if (builder.hasAttributes()) {
-#if LDC_LLVM_VER >= 1400
     set = set.addAttributesAtIndex(gIR->context(), index, builder);
-#else
-    set = set.addAttributes(gIR->context(), index, builder);
-#endif
   }
   return *this;
 }

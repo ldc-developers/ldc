@@ -3,7 +3,7 @@
 // REQUIRES: PGO_RT
 
 // FIXME: fails with LLVM 13+ for Windows, call remains indirect
-// XFAIL: Windows && atleast_llvm1300
+// XFAIL: Windows
 
 // RUN: %ldc -O3 -fprofile-generate=%t.profraw -run %s  \
 // RUN:   &&  %profdata merge %t.profraw -o %t.profdata \

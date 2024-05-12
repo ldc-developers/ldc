@@ -261,9 +261,6 @@ struct X86TargetABI : TargetABI {
     if (isMSVC) {
       for (auto arg : args) {
         if (arg->isByVal()) {
-#if LDC_LLVM_VER < 1300
-          arg->attrs.removeAttribute(LLAttribute::Alignment);
-#else
           // Keep alignment for LLVM 13+, to prevent invalid `movaps` etc.,
           // but limit to 4 (required according to runnable/ldc_cabi1.d).
           auto align4 = llvm::Align(4);
@@ -275,7 +272,6 @@ struct X86TargetABI : TargetABI {
 #endif
               (align4) > align4)
             arg->attrs.addAlignmentAttr(align4);
-#endif
         }
       }
     }

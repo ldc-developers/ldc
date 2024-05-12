@@ -1010,10 +1010,8 @@ public:
   static llvm::PointerType * getWithSamePointeeType(llvm::PointerType *p, unsigned addressSpace) {
 #if LDC_LLVM_VER >= 1700
     return llvm::PointerType::get(p->getContext(), addressSpace);
-#elif LDC_LLVM_VER >= 1300
-    return llvm::PointerType::getWithSamePointeeType(p, addressSpace);
 #else
-    return p->getPointerElementType()->getPointerTo(addressSpace);
+    return llvm::PointerType::getWithSamePointeeType(p, addressSpace);
 #endif
   }
 
@@ -2781,11 +2779,7 @@ public:
       DValue *val = toElem(e->e1);
       LLValue *llElement = getCastElement(val);
       if (auto llConstant = isaConstant(llElement)) {
-#if LDC_LLVM_VER >= 1200
         const auto elementCount = llvm::ElementCount::getFixed(N);
-#else
-        const auto elementCount = llvm::ElementCount(N, false);
-#endif
         auto vectorConstant =
             llvm::ConstantVector::getSplat(elementCount, llConstant);
         DtoStore(vectorConstant, dstMem);

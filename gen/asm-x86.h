@@ -3742,13 +3742,11 @@ struct AsmProcessor {
       if (e->op == EXP::identifier) {
         for (int i = 0; i < N_Regs; i++) {
           const auto reg = regInfo[i].ident;
-          const auto matchesRegister = stmt->caseSensitive ?
-            ident == reg :
-#if LDC_LLVM_VER >= 1300
-            reg && llvm::StringRef(ident->toChars()).equals_insensitive(reg->toChars());
-#else
-            reg && llvm::StringRef(ident->toChars()).equals_lower(reg->toChars());
-#endif
+          const auto matchesRegister =
+              stmt->caseSensitive
+                  ? ident == reg
+                  : reg && llvm::StringRef(ident->toChars())
+                               .equals_insensitive(reg->toChars());
           if (matchesRegister) {
             if (static_cast<Reg>(i) == Reg_ST &&
                 token->value == TOK::leftParenthesis) {

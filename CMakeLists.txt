@@ -34,7 +34,7 @@ endfunction()
 # Locate LLVM.
 #
 
-find_package(LLVM 11.0 REQUIRED
+find_package(LLVM 14.0 REQUIRED
     all-targets analysis asmparser asmprinter bitreader bitwriter codegen core
     debuginfodwarf debuginfomsf debuginfopdb demangle
     instcombine ipo instrumentation irreader libdriver linker lto mc
@@ -604,28 +604,15 @@ if(LDC_WITH_LLD)
     else()
         set(LDC_LINKERFLAG_LIST -lLLVMSymbolize ${LDC_LINKERFLAG_LIST})
     endif()
-    if (LDC_LLVM_VER LESS 1200 OR NOT LDC_LLVM_VER LESS 1400)
-        set(LLD_MACHO lldMachO)
-    else()
-        set(LLD_MACHO lldMachO2)
-    endif()
+    set(LLD_MACHO lldMachO)
     if(MSVC)
-        if(NOT (LDC_LLVM_VER LESS 1400))
-            list(APPEND LDC_LINKERFLAG_LIST lldMinGW.lib lldCOFF.lib lldELF.lib ${LLD_MACHO}.lib lldWasm.lib lldCommon.lib)
-        else()
-            list(APPEND LDC_LINKERFLAG_LIST lldDriver.lib lldMinGW.lib lldCOFF.lib lldELF.lib ${LLD_MACHO}.lib lldWasm.lib lldYAML.lib lldReaderWriter.lib lldCommon.lib lldCore.lib)
-        endif()
+        list(APPEND LDC_LINKERFLAG_LIST lldMinGW.lib lldCOFF.lib lldELF.lib ${LLD_MACHO}.lib lldWasm.lib lldCommon.lib)
     else()
-        if(NOT (LDC_LLVM_VER LESS 1400))
-            set(LDC_LINKERFLAG_LIST -llldMinGW -llldCOFF -llldELF -l${LLD_MACHO} -llldWasm -llldCommon ${LDC_LINKERFLAG_LIST})
-        else()
-            set(LDC_LINKERFLAG_LIST -llldDriver -llldMinGW -llldCOFF -llldELF -l${LLD_MACHO} -llldWasm -llldYAML -llldReaderWriter -llldCommon -llldCore ${LDC_LINKERFLAG_LIST})
-        endif()
+        set(LDC_LINKERFLAG_LIST -llldMinGW -llldCOFF -llldELF -l${LLD_MACHO} -llldWasm -llldCommon ${LDC_LINKERFLAG_LIST})
     endif()
     if(APPLE)
-        if(NOT (LDC_LLVM_VER LESS 1300)) # LLD 13.0.0 on Mac needs libxar
-            list(APPEND LDC_LINKERFLAG_LIST -lxar)
-        endif()
+        # LLD 13.0.0 on Mac needs libxar
+        list(APPEND LDC_LINKERFLAG_LIST -lxar)
     endif()
 endif()
 
