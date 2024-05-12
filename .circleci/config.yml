@@ -4,11 +4,11 @@ commonSteps: &commonSteps
     - run:
         name: Install prerequisites
         command: |
-          set -x
+          set -ux
           cd ..
           if [ "$CI_OS" = "linux" ]; then
             export DEBIAN_FRONTEND=noninteractive
-            if [[ "$EXTRA_CMAKE_FLAGS" = *-DMULTILIB?ON* ]]; then
+            if [[ "${EXTRA_CMAKE_FLAGS:-}" = *-DMULTILIB?ON* ]]; then
               dpkg --add-architecture i386
               gcc_pkg="g++-multilib"
               libcurl_pkg="libcurl4 libcurl4:i386"
@@ -21,7 +21,7 @@ commonSteps: &commonSteps
               git-core $gcc_pkg \
               zlib1g-dev $libcurl_pkg curl gdb python3 python3-pip tzdata unzip zip \
               software-properties-common gnupg \
-              $EXTRA_APT_PACKAGES
+              ${EXTRA_APT_PACKAGES:-}
             # set up apt.llvm.org repo for being able to install more recent LLVM versions than provided by the distro
             curl -fsS https://apt.llvm.org/llvm-snapshot.gpg.key | tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
             add-apt-repository -y "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-$LLVM_MAJOR main"
@@ -45,11 +45,13 @@ commonSteps: &commonSteps
           python3 -m pip install --user setuptools wheel
           python3 -m pip install --user lit
           python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
-          # Download & extract host LDC
-          curl -fL --retry 3 --max-time 300 -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$CI_OS-x86_64.tar.xz
-          mkdir host-ldc
-          tar -xf ldc2.tar.xz --strip 1 -C host-ldc
-          rm ldc2.tar.xz
+          # Download & extract host LDC if HOST_LDC_VERSION is set
+          if [[ -v HOST_LDC_VERSION ]]; then
+            curl -fL --retry 3 --max-time 300 -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-$CI_OS-x86_64.tar.xz
+            mkdir host-ldc
+            tar -xf ldc2.tar.xz --strip 1 -C host-ldc
+            rm ldc2.tar.xz
+          fi
     - checkout
     - run:
         name: Checkout git submodules
@@ -57,7 +59,7 @@ commonSteps: &commonSteps
     - run:
         name: Build LDC & LDC D unittests & defaultlib unittest runners
         command: |
-          set -x
+          set -ux
           cd ..
           cmake --version
           ninja --version
@@ -65,9 +67,9 @@ commonSteps: &commonSteps
           cd build
           cmake -G Ninja $CIRCLE_WORKING_DIRECTORY \
             -DCMAKE_BUILD_TYPE=Release \
-            -DD_COMPILER=$PWD/../host-ldc/bin/ldmd2 \
+            ${HOST_LDC_VERSION:+-DD_COMPILER=$PWD/../host-ldc/bin/ldmd2} \
             -DLDC_LINK_MANUALLY=OFF \
-            $EXTRA_CMAKE_FLAGS
+            ${EXTRA_CMAKE_FLAGS:-}
           ninja -j$PARALLELISM obj/ldc2.o all ldc2-unittest all-test-runners
           bin/ldc2 -version
     - run:
@@ -116,7 +118,6 @@ jobs:
       - CI_OS: linux
       - LLVM_MAJOR: 14
       - EXTRA_APT_PACKAGES: gdmd
-      - HOST_LDC_VERSION: 1.24.0
       - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
 
 workflows:
