@@ -36,11 +36,6 @@ enum LLVM_atleast(int major) = (LLVM_version >= major * 100);
 nothrow:
 @nogc:
 
-version(LDC_LLVM_OpaquePointers)
-    private enum p0i8 = "p0";
-else
-    private enum p0i8 = "p0i8";
-
 //
 // CODE GENERATOR INTRINSICS
 //
@@ -53,7 +48,7 @@ pragma(LDC_intrinsic, "llvm.returnaddress")
 
 /// The 'llvm.frameaddress' intrinsic attempts to return the target-specific
 /// frame pointer value for the specified stack frame.
-pragma(LDC_intrinsic, "llvm.frameaddress."~p0i8)
+pragma(LDC_intrinsic, "llvm.frameaddress.p0")
     void* llvm_frameaddress(uint level);
 
 /// The 'llvm.stacksave' intrinsic is used to remember the current state of the
@@ -80,7 +75,7 @@ pragma(LDC_intrinsic, "llvm.stackrestore")
 /// keep in cache. The cache type specifies whether the prefetch is performed on
 /// the data (1) or instruction (0) cache. The rw, locality and cache type
 /// arguments must be constant integers.
-pragma(LDC_intrinsic, "llvm.prefetch."~p0i8)
+pragma(LDC_intrinsic, "llvm.prefetch.p0")
     void llvm_prefetch(const(void)* ptr, uint rw, uint locality, uint cachetype) pure @safe;
 
 /// The 'llvm.pcmarker' intrinsic is a method to export a Program Counter (PC)
@@ -144,7 +139,7 @@ pure:
 /// location to the destination location.
 /// Note that, unlike the standard libc function, the llvm.memcpy.* intrinsics do
 /// not return a value.
-pragma(LDC_intrinsic, "llvm.memcpy."~p0i8~"."~p0i8~".i#")
+pragma(LDC_intrinsic, "llvm.memcpy.p0.p0.i#")
     void llvm_memcpy(T)(void* dst, const(void)* src, T len, bool volatile_ = false)
         if (__traits(isIntegral, T));
 
@@ -154,7 +149,7 @@ pragma(LDC_intrinsic, "llvm.memcpy."~p0i8~"."~p0i8~".i#")
 /// intrinsic but allows the two memory locations to overlap.
 /// Note that, unlike the standard libc function, the llvm.memmove.* intrinsics
 /// do not return a value.
-pragma(LDC_intrinsic, "llvm.memmove."~p0i8~"."~p0i8~".i#")
+pragma(LDC_intrinsic, "llvm.memmove.p0.p0.i#")
     void llvm_memmove(T)(void* dst, const(void)* src, T len, bool volatile_ = false)
         if (__traits(isIntegral, T));
 
@@ -162,7 +157,7 @@ pragma(LDC_intrinsic, "llvm.memmove."~p0i8~"."~p0i8~".i#")
 /// value.
 /// Note that, unlike the standard libc function, the llvm.memset intrinsic does
 /// not return a value.
-pragma(LDC_intrinsic, "llvm.memset."~p0i8~".i#")
+pragma(LDC_intrinsic, "llvm.memset.p0.i#")
     void llvm_memset(T)(void* dst, ubyte val, T len, bool volatile_ = false)
         if (__traits(isIntegral, T));
 

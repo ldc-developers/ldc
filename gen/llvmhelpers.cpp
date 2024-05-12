@@ -1927,31 +1927,9 @@ DValue *makeVarDValue(Type *type, VarDeclaration *vd, llvm::Value *storage) {
     val = getIrValue(vd);
   }
 
-  // We might need to cast.
-  llvm::Type *expectedType = DtoPtrToType(type);
-  const bool isSpecialRef = isSpecialRefVar(vd);
-  if (isSpecialRef)
-    expectedType = expectedType->getPointerTo();
+  assert(val->getType()->isPointerTy());
 
-  if (val->getType() != expectedType) {
-#if LDC_LLVM_VER < 1500
-    // The type of globals is determined by their initializer, and the front-end
-    // may inject implicit casts for class references and static arrays.
-    assert(vd->isDataseg() || (vd->storage_class & STCextern) ||
-           type->toBasetype()->ty == TY::Tclass ||
-           type->toBasetype()->ty == TY::Tsarray);
-    llvm::Type *pointeeType = val->getType()->getPointerElementType();
-    if (isSpecialRef)
-      pointeeType = pointeeType->getPointerElementType();
-    // Make sure that the type sizes fit - '==' instead of '<=' should probably
-    // work as well.
-    assert(getTypeAllocSize(DtoType(type)) <= getTypeAllocSize(pointeeType) &&
-           "LValue type mismatch, encountered type too small.");
-#endif
-    val = DtoBitCast(val, expectedType);
-  }
-
-  if (isSpecialRef)
+  if (isSpecialRefVar(vd))
     return new DSpecialRefValue(type, val);
 
   return new DLValue(type, val);

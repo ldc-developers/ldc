@@ -710,12 +710,6 @@ cl::opt<bool> dynamicCompileTlsWorkaround(
     cl::Hidden);
 #endif
 
-#if LDC_LLVM_VER >= 1700
-bool enableOpaqueIRPointers = true; // typed pointers are no longer supported from LLVM 17
-#else
-bool enableOpaqueIRPointers = false;
-#endif
-
 static cl::extrahelp
     footer("\n"
            "-d-debug can also be specified without options, in which case it "
@@ -775,9 +769,6 @@ void createClashingOptions() {
                      "Hardware floating-point ABI and instructions")));
 
   renameAndHide("opaque-pointers", nullptr); // remove
-  new cl::opt<bool, true>(
-      "opaque-pointers", cl::ZeroOrMore, cl::location(enableOpaqueIRPointers),
-      cl::desc("Use opaque IR pointers (experimental!)"), cl::Hidden);
 }
 
 /// Hides command line options exposed from within LLVM that are unlikely
@@ -865,7 +856,7 @@ void hideLLVMOptions() {
       "no-discriminators", "no-integrated-as", "no-type-check", "no-xray-index",
       "nozero-initialized-in-bss", "nvptx-sched4reg",
       "objc-arc-annotation-target-identifier",
-      "object-size-offset-visitor-max-visit-instructions", "opaque-pointers",
+      "object-size-offset-visitor-max-visit-instructions",
       "pgo-block-coverage", "pgo-temporal-instrumentation",
       "pgo-view-block-coverage-graph",
       "pie-copy-relocations", "poison-checking-function-local",

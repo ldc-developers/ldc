@@ -808,12 +808,7 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
       if (irparam->arg->byref) {
         // The argument is an appropriate lvalue passed by reference.
         // Use the passed pointer as parameter storage.
-#if LDC_LLVM_VER >= 1700 // LLVM >= 17 uses opaque pointers, type check boils
-                         // down to pointer check only.
         assert(irparam->value->getType()->isPointerTy());
-#else
-        assert(irparam->value->getType() == DtoPtrToType(paramType));
-#endif
       } else {
         // Let the ABI transform the parameter back to an lvalue.
         irparam->value =

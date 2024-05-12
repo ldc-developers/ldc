@@ -558,15 +558,13 @@ void parseCommandLine(Strings &sourceFiles) {
   global.params.dihdr.fullOutput = opts::hdrKeepAllBodies;
   global.params.disableRedZone = opts::disableRedZone();
 
+  // enforce opaque IR pointers
 #if LDC_LLVM_VER >= 1700
-  if (!opts::enableOpaqueIRPointers)
-    error(Loc(),
-          "LLVM version 17 or above only supports --opaque-pointers=true");
+  // supports opaque IR pointers only
 #elif LDC_LLVM_VER >= 1500
-  getGlobalContext().setOpaquePointers(opts::enableOpaqueIRPointers);
-#else
-  if (opts::enableOpaqueIRPointers)
-    getGlobalContext().enableOpaquePointers();
+  getGlobalContext().setOpaquePointers(true);
+#else // LLVM 14
+  getGlobalContext().enableOpaquePointers();
 #endif
 }
 
@@ -1022,16 +1020,6 @@ void registerPredefinedVersions() {
   if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {
     VersionCondition::addPredefinedGlobalIdent("LDC_ThreadSanitizer");
   }
-
-  // Set a version identifier for whether opaque pointers are enabled or not. (needed e.g. for intrinsic mangling)
-#if LDC_LLVM_VER >= 1700
-  // Since LLVM 17, IR pointers are always opaque.
-  VersionCondition::addPredefinedGlobalIdent("LDC_LLVM_OpaquePointers");
-#else
-  if (!getGlobalContext().supportsTypedPointers()) {
-    VersionCondition::addPredefinedGlobalIdent("LDC_LLVM_OpaquePointers");
-  }
-#endif
 
 // Expose LLVM version to runtime
 #define STR(x) #x

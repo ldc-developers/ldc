@@ -150,6 +150,4 @@ extern cl::opt<bool> dynamicCompileTlsWorkaround;
 #else
 constexpr bool enableDynamicCompile = false;
 #endif
-
-extern bool enableOpaqueIRPointers;
 }

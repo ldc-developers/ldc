@@ -159,12 +159,7 @@ DRValue *DLValue::getRVal() {
 ////////////////////////////////////////////////////////////////////////////////
 
 DSpecialRefValue::DSpecialRefValue(Type *t, LLValue *v) : DLValue(v, t) {
-#if LDC_LLVM_VER >= 1700 // LLVM >= 17 uses opaque pointers, type check boils
-                         // down to pointer check only.
   assert(v->getType()->isPointerTy());
-#else
-  assert(v->getType() == DtoPtrToType(t)->getPointerTo());
-#endif
 }
 
 DRValue *DSpecialRefValue::getRVal() {
