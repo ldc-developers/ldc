@@ -9,7 +9,7 @@
 //===----------------------------------------------------------------------===//
 //
 // ABI spec:
-// https://loongson.github.io/LoongArch-Documentation/LoongArch-ELF-ABI-EN.html
+// https://github.com/loongson/la-abi-specs/blob/release/lapcs.adoc
 //
 //===----------------------------------------------------------------------===//
 
