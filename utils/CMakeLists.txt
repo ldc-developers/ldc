@@ -68,7 +68,7 @@ set_target_properties(
 target_link_libraries(not  ${LLVM_LIBRARIES} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
 endif()
 
-if ((TARGET split-file) OR (EXISTS ${LLVM_ROOT_DIR}/bin/split-filea))
+if ((TARGET split-file) OR (EXISTS ${LLVM_ROOT_DIR}/bin/split-file))
   # already provided by LLVM
   message(STATUS "Skip building split-file, it is already provided by LLVM")
 else()
