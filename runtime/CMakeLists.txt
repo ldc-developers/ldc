@@ -151,7 +151,7 @@ message(STATUS "-- LDC runtime configuration:")
 message(STATUS "--  - Building 32/64-bit libraries (MULTILIB): ${MULTILIB}")
 message(STATUS "--  - Building shared libraries (BUILD_SHARED_LIBS): ${BUILD_SHARED_LIBS}")
 message(STATUS "--  - Building LTO libraries (BUILD_LTO_LIBS): ${BUILD_LTO_LIBS}")
-message(STATUS "--  - Linking test runners with (C_SYSTEM_LIBS): ${C_SYSTEM_LIBS}")
+message(STATUS "--  - Linking shared libraries (and test runners) with (C_SYSTEM_LIBS): ${C_SYSTEM_LIBS}")
 
 get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
 set(RUNTIME_DIR ${PROJECT_SOURCE_DIR}/druntime CACHE PATH "druntime root directory")
