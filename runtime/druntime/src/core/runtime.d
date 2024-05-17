@@ -967,12 +967,13 @@ else version (Posix) private class DefaultTraceInfo : Throwable.TraceInfo
             else
             {
                 // Poor man solution. Does not show line numbers, but does (potentially) show a backtrace of function names.
-
-                int ret = 0;
-                bool throw_call_found = false;
-                for (size_t i = 0; i < numframes; ++i)
+                import core.internal.container.array;
+                Array!(const(char)[]) frameNames;
+                frameNames.length = numframes;
+                size_t startIdx;
+                foreach (idx; 0 .. numframes)
                 {
-                    auto buf = getFrameName(callstack[i]);
+                    frameNames[idx] = getFrameName(callstack[idx]);
 
                     // NOTE: The first few frames with the current implementation are
                     //       inside core.runtime and the object code, so eliminate
@@ -981,13 +982,14 @@ else version (Posix) private class DefaultTraceInfo : Throwable.TraceInfo
                     // using a fixed number of frames otherwise brittle.
                     version (LDC) enum BaseExceptionFunctionName = "_d_throw_exception";
                     else          enum BaseExceptionFunctionName = "_d_throwdwarf";
-                    if (!throw_call_found)
-                    {
-                        throw_call_found = buf == BaseExceptionFunctionName;
-                        continue;
-                    }
+                    if (!startIdx && frameNames[idx] == BaseExceptionFunctionName)
+                        startIdx = idx + 1;
+                }
 
-                    ret = dg( i, buf );
+                int ret = 0;
+                foreach (idx; startIdx .. numframes)
+                {
+                    ret = dg( idx, frameNames[idx] );
                     if ( ret )
                         break;
                 }
