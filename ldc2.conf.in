@@ -28,7 +28,7 @@ default:
     ];
     // default directories to be searched for libraries when linking
     lib-dirs = [
-        "@CMAKE_BINARY_DIR@/lib@LIB_SUFFIX@",
+        "@CMAKE_BINARY_DIR@/lib@LIB_SUFFIX@",@OPTIONAL_COMPILER_RT_DIR@
     ];
     // default rpath when linking against the shared default libs
     rpath = "@SHARED_LIBS_RPATH@";
