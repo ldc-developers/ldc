@@ -11,6 +11,13 @@ if(WIN32)
     set(PYTHON_EXE python)
 endif()
 
+set(TEST_COMPILER_RT_LIBRARIES "all" CACHE STRING "List of compiler-rt libraries to test, separated by ';'. Can be set to 'all' and 'none'")
+if(TEST_COMPILER_RT_LIBRARIES STREQUAL "all")
+    set(TEST_COMPILER_RT_LIBRARIES "profile;xray;lsan;tsan;asan;msan;fuzzer")
+elseif(TEST_COMPILER_RT_LIBRARIES STREQUAL "none")
+    set(TEST_COMPILER_RT_LIBRARIES "")
+endif()
+
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     set( DEFAULT_TARGET_BITS 64 )
 else()
