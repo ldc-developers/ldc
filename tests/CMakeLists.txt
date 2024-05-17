@@ -1,6 +1,4 @@
 set( LDC2_BIN          ${PROJECT_BINARY_DIR}/bin/${LDC_EXE} )
-set( LDCPROFDATA_BIN   ${PROJECT_BINARY_DIR}/bin/ldc-profdata )
-set( LDCPROFGEN_BIN    ${PROJECT_BINARY_DIR}/bin/ldc-profgen )
 set( LDCPRUNECACHE_BIN ${PROJECT_BINARY_DIR}/bin/${LDCPRUNECACHE_EXE} )
 set( LDCBUILDPLUGIN_BIN ${PROJECT_BINARY_DIR}/bin/${LDC_BUILD_PLUGIN_EXE} )
 set( TIMETRACE2TXT_BIN ${PROJECT_BINARY_DIR}/bin/${TIMETRACE2TXT_EXE} )
@@ -25,4 +23,3 @@ configure_file(runlit.py       runlit.py    COPYONLY)
 add_test(NAME lit-tests
     COMMAND ${PYTHON_EXE} runlit.py -v .
 )
-
