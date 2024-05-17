@@ -98,22 +98,22 @@ $(ROOT)/%_old.done: $(ROOT)/%_old$(DOTEXE)
 $(ROOT)/%$(DOTEXE): $(SRC)/%.cpp $(SRC)/%_test.d
 	@mkdir -p $(dir $@)
 	$(QUIET)$(DMD) $(DFLAGS) -extern-std=c++98 -main -unittest -version=CoreUnittest -c -of=$(ROOT)/$*_d$(DOTOBJ) $(SRC)/$*_test.d
-	$(QUIET)$(CXX) $(CXXFLAGS_BASE) -std=c++98 -o $@ $< $(ROOT)/$*_d$(DOTOBJ) $(DRUNTIME) -lpthread $(LDL)
+	$(QUIET)$(CXX) $(CXXFLAGS_BASE) -std=c++98 -o $@ $< $(ROOT)/$*_d$(DOTOBJ) $(DRUNTIME) -lpthread $(LDL) $(LUNWIND)
 # build C++11 tests
 $(ROOT)/%_11$(DOTEXE): $(SRC)/%.cpp $(SRC)/%_test.d
 	@mkdir -p $(dir $@)
 	$(QUIET)$(DMD) $(DFLAGS) -extern-std=c++11 -main -unittest -version=CoreUnittest -c -of=$(ROOT)/$*_11_d$(DOTOBJ) $(SRC)/$*_test.d
-	$(QUIET)$(CXX) $(CXXFLAGS_BASE) -std=c++11 -o $@ $< $(ROOT)/$*_11_d$(DOTOBJ) $(DRUNTIME) -lpthread $(LDL)
+	$(QUIET)$(CXX) $(CXXFLAGS_BASE) -std=c++11 -o $@ $< $(ROOT)/$*_11_d$(DOTOBJ) $(DRUNTIME) -lpthread $(LDL) $(LUNWIND)
 # build C++17 tests
 $(ROOT)/%_17$(DOTEXE): $(SRC)/%.cpp $(SRC)/%_test.d
 	@mkdir -p $(dir $@)
 	$(QUIET)$(DMD) $(DFLAGS) -extern-std=c++17 -main -unittest -version=CoreUnittest -c -of=$(ROOT)/$*_17_d$(DOTOBJ) $(SRC)/$*_test.d
-	$(QUIET)$(CXX) $(CXXFLAGS_BASE) -std=c++17 -o $@ $< $(ROOT)/$*_17_d$(DOTOBJ) $(DRUNTIME) -lpthread $(LDL)
+	$(QUIET)$(CXX) $(CXXFLAGS_BASE) -std=c++17 -o $@ $< $(ROOT)/$*_17_d$(DOTOBJ) $(DRUNTIME) -lpthread $(LDL) $(LUNWIND)
 # build libstdc++ _GLIBCXX_USE_CXX11_ABI=0 tests
 $(ROOT)/%_old$(DOTEXE): $(SRC)/%.cpp $(SRC)/%_test.d
 	@mkdir -p $(dir $@)
 	$(QUIET)$(DMD) $(DFLAGS) -version=_GLIBCXX_USE_CXX98_ABI -main -unittest -version=CoreUnittest -c -of=$(ROOT)/$*_old_d$(DOTOBJ) $(SRC)/$*_test.d
-	$(QUIET)$(CXX) $(CXXFLAGS_BASE) -D_GLIBCXX_USE_CXX11_ABI=0 -o $@ $< $(ROOT)/$*_old_d$(DOTOBJ) $(DRUNTIME) -lpthread $(LDL)
+	$(QUIET)$(CXX) $(CXXFLAGS_BASE) -D_GLIBCXX_USE_CXX11_ABI=0 -o $@ $< $(ROOT)/$*_old_d$(DOTOBJ) $(DRUNTIME) -lpthread $(LDL) $(LUNWIND)
 
 endif # end Posix
 
