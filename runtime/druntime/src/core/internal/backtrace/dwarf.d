@@ -49,15 +49,9 @@
 
 module core.internal.backtrace.dwarf;
 
-import core.internal.execinfo;
+version (Posix):
+
 import core.internal.string;
-
-version (DRuntime_Use_Libunwind)
-    private enum hasLibunwind = true;
-else
-    private enum hasLibunwind = false;
-
-static if (hasExecinfo || hasLibunwind):
 
 version (OSX)
     version = Darwin;
