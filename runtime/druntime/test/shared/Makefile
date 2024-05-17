@@ -108,25 +108,25 @@ $(ROOT)/link_linkdep$(DOTEXE): $(SRC)/link_linkdep.d $(ROOT)/lib$(DOTDLL) $(ROOT
 	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKFLAGS) -L$(ROOT)/liblinkdep$(DOTIMPLIB) -L$(ROOT)/lib$(DOTIMPLIB)
 
 $(ROOT)/load_linkdep$(DOTEXE): $(SRC)/load_linkdep.d $(ROOT)/lib$(DOTDLL) $(ROOT)/liblinkdep$(DOTDLL) $(DRUNTIMESO)
-	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKFLAGS) $(LINKDL) $(LINKUNWIND)
+	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKFLAGS) $(LINKDL)
 
 $(ROOT)/link_loaddep$(DOTEXE): $(SRC)/link_loaddep.d $(ROOT)/lib$(DOTDLL) $(ROOT)/libloaddep$(DOTDLL) $(DRUNTIMESO)
 	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKFLAGS) -L$(ROOT)/libloaddep$(DOTIMPLIB)
 
 $(ROOT)/load_loaddep$(DOTEXE): $(SRC)/load_loaddep.d $(ROOT)/lib$(DOTDLL) $(ROOT)/libloaddep$(DOTDLL) $(DRUNTIMESO)
-	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKFLAGS) $(LINKDL) $(LINKUNWIND)
+	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKFLAGS) $(LINKDL)
 
 $(ROOT)/load$(DOTEXE) $(ROOT)/finalize$(DOTEXE): $(ROOT)/%$(DOTEXE): $(SRC)/%.d $(ROOT)/lib$(DOTDLL) $(DRUNTIMESO)
-	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKDL) $(LINKUNWIND)
+	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKDL)
 
 $(ROOT)/load_13414$(DOTEXE): $(ROOT)/%$(DOTEXE): $(SRC)/%.d $(ROOT)/lib_13414$(DOTDLL) $(DRUNTIMESO)
-	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKDL) $(LINKUNWIND)
+	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< $(LINKDL)
 
 $(ROOT)/dynamiccast$(DOTEXE): $(SRC)/dynamiccast.d $(ROOT)/dynamiccast$(DOTDLL) $(if $(LINK_SHARED),$(DRUNTIMESO),$(DRUNTIME))
-	$(QUIET)$(DMD) $(DFLAGS) -of$@ $(SRC)/dynamiccast.d $(LINKDL) $(LINKUNWIND)
+	$(QUIET)$(DMD) $(DFLAGS) -of$@ $(SRC)/dynamiccast.d $(LINKDL)
 
 $(ROOT)/dynamiccast$(DOTDLL): $(SRC)/dynamiccast.d  $(if $(LINK_SHARED),$(DRUNTIMESO),$(DRUNTIME))
-	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< -version=DLL -shared $(LINKDL) $(LINKUNWIND)
+	$(QUIET)$(DMD) $(DFLAGS) -of$@ $< -version=DLL -shared $(LINKDL)
 
 ifeq (windows,$(OS))
     CC:=cl
@@ -157,7 +157,7 @@ $(ROOT)/plugin1$(DOTDLL) $(ROOT)/plugin2$(DOTDLL): $(SRC)/plugin.d $(DRUNTIMESO)
 	$(QUIET)$(DMD) -shared $(DFLAGS) -of$@ $<
 
 $(ROOT)/%$(DOTDLL): $(SRC)/%.d $(DRUNTIMESO)
-	$(QUIET)$(DMD) -shared $(DFLAGS) -of$@ $< $(LINKDL) $(LINKUNWIND)
+	$(QUIET)$(DMD) -shared $(DFLAGS) -of$@ $< $(LINKDL)
 
 clean:
 	rm -rf $(GENERATED)
