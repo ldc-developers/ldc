@@ -489,7 +489,7 @@ version (IN_LLVM)
      *
      * See also `parent`, `toParent` and `toParent2`.
      */
-    final inout(Dsymbol) pastMixin() inout
+    final inout(Dsymbol) pastMixin() inout @safe
     {
         //printf("Dsymbol::pastMixin() %s\n", toChars());
         if (!isTemplateMixin() && !isForwardingAttribDeclaration() && !isForwardingScopeDsymbol())
@@ -539,13 +539,13 @@ version (IN_LLVM)
      *  // s.toParentLocal() == FuncDeclaration('mod.test')
      * ---
      */
-    final inout(Dsymbol) toParent() inout
+    final inout(Dsymbol) toParent() inout @safe
     {
         return parent ? parent.pastMixin() : null;
     }
 
     /// ditto
-    final inout(Dsymbol) toParent2() inout
+    final inout(Dsymbol) toParent2() inout @safe
     {
         if (!parent || !parent.isTemplateInstance && !parent.isForwardingAttribDeclaration() && !parent.isForwardingScopeDsymbol())
             return parent;

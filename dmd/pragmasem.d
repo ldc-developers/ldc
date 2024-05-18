@@ -75,6 +75,8 @@ version (IN_LLVM)
         }
         version (all)
         {
+            import dmd.common.charactertables;
+
             /* Note: D language specification should not have any assumption about backend
              * implementation. Ideally pragma(mangle) can accept a string of any content.
              *
@@ -103,7 +105,7 @@ version (IN_LLVM)
                     .error(pd.loc, "%s `%s` %.*s", pd.kind, pd.toPrettyChars, cast(int)msg.length, msg.ptr);
                     break;
                 }
-                if (!isUniAlpha(c))
+                if (!isAnyIdentifierCharacter(c))
                 {
                     .error(pd.loc, "%s `%s` char `0x%04x` not allowed in mangled name", pd.kind, pd.toPrettyChars, c);
                     break;

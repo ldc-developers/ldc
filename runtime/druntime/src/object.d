@@ -3673,7 +3673,7 @@ if (is(typeof(create()) : V) && (is(typeof(update(aa[K.init])) : V) || is(typeof
     @safe const:
         // stubs
         bool opEquals(S rhs) { assert(0); }
-        size_t toHash() { assert(0); }
+        size_t toHash() const { assert(0); }
     }
 
     int[string] aai;
