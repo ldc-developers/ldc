@@ -92,7 +92,7 @@ StructLiteralExp *getMagicAttribute(Dsymbol *sym, const Identifier *id,
     return nullptr;
 
   // Loop over all UDAs and early return the expression if a match was found.
-  Expressions *attrs = sym->userAttribDecl()->getAttributes();
+  Expressions *attrs = getAttributes(sym->userAttribDecl());
   expandTuples(attrs);
   for (auto attr : *attrs) {
     if (auto sle = attr->isStructLiteralExp())
@@ -113,7 +113,7 @@ StructLiteralExp *getLastMagicAttribute(Dsymbol *sym, const Identifier *id,
 
   // Loop over all UDAs and find the last match
   StructLiteralExp *lastMatch = nullptr;
-  Expressions *attrs = sym->userAttribDecl()->getAttributes();
+  Expressions *attrs = getAttributes(sym->userAttribDecl());
   expandTuples(attrs);
   for (auto attr : *attrs) {
     if (auto sle = attr->isStructLiteralExp())
@@ -134,7 +134,7 @@ void callForEachMagicAttribute(Dsymbol &sym, const Identifier *id,
     return;
 
   // Loop over all UDAs and call `action` if a match was found.
-  Expressions *attrs = sym.userAttribDecl()->getAttributes();
+  Expressions *attrs = getAttributes(sym.userAttribDecl());
   expandTuples(attrs);
   for (auto attr : *attrs) {
     if (auto sle = attr->isStructLiteralExp())
@@ -498,7 +498,7 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
   if (!decl->userAttribDecl())
     return;
 
-  Expressions *attrs = decl->userAttribDecl()->getAttributes();
+  Expressions *attrs = getAttributes(decl->userAttribDecl());
   expandTuples(attrs);
   for (auto &attr : *attrs) {
     auto sle = getLdcAttributesStruct(attr);
@@ -541,7 +541,7 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
     llvm::Function *func = irFunc->getLLVMFunc();
     assert(func);
 
-    Expressions *attrs = decl->userAttribDecl()->getAttributes();
+    Expressions *attrs = getAttributes(decl->userAttribDecl());
     expandTuples(attrs);
     for (auto &attr : *attrs) {
       auto sle = getLdcAttributesStruct(attr);
@@ -609,7 +609,7 @@ void applyFuncDeclUDAs(FuncDeclaration *decl, IrFunction *irFunc) {
     if (!param->userAttribDecl)
       continue;
 
-    Expressions *attrs = param->userAttribDecl->getAttributes();
+    Expressions *attrs = getAttributes(param->userAttribDecl);
     expandTuples(attrs);
     for (auto &attr : *attrs) {
       auto sle = getLdcAttributesStruct(attr);
