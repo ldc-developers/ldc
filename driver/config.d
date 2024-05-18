@@ -99,12 +99,21 @@ class GroupSetting : Setting
 
 Setting[] parseConfigFile(const(char)* filename)
 {
+    import dmd.common.outbuffer : OutBuffer;
+    import dmd.errors : fatal;
     import dmd.location : Loc;
     import dmd.root.string : toDString;
     import dmd.utils;
 
+    OutBuffer buf;
     const dFilename = filename.toDString;
-    auto content = readFile(Loc.initial, dFilename).extractSlice();
+    if (readFile(Loc.initial, dFilename, buf))
+    {
+        fatal();
+        return null;
+    }
+
+    auto content = buf.extractSlice();
 
     // skip UTF-8 BOM
     if (content.length >= 3 && content[0 .. 3] == "\xEF\xBB\xBF")
