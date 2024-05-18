@@ -206,6 +206,10 @@ Where:\n\
   --help            print help and exit\n\
   -I=<directory>    look for imports also in directory\n\
   -i[=<pattern>]    include imported modules in the compilation\n\
+  -identifiers=<table>\n\
+                    specify the non-ASCII tables for D identifiers\n\
+  -identifiers-importc=<table>\n\
+                    specify the non-ASCII tables for ImportC identifiers\n\
   -ignore           deprecated flag, unsupported pragmas are always ignored now\n\
   -inline           do function inlining\n\
   -J=<directory>    look for string imports also in directory\n\
@@ -636,7 +640,9 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         ldcArgs.push_back("-enable-inlining");
         ldcArgs.push_back("-Hkeep-all-bodies");
       }
-      /* -dip25
+      /* -identifiers-importc
+       * -identifiers
+       * -dip25
        * -dip1000
        * -dip1008
        */

@@ -603,9 +603,30 @@ static cl::opt<bool, true>
                cl::desc("Implement DIP1008 (@nogc Throwable)"),
                cl::ReallyHidden);
 
-cl::opt<bool, true> betterC(
+static cl::opt<bool, true> betterC(
     "betterC", cl::ZeroOrMore, cl::location(global.params.betterC),
     cl::desc("Omit generating some runtime information and helper functions"));
+
+static cl::opt<CLIIdentifierTable, true> identifiers(
+    "identifiers", cl::ZeroOrMore, cl::location(global.params.dIdentifierTable),
+    cl::desc("Specify the non-ASCII tables for D identifiers"),
+    cl::values(clEnumValN(CLIIdentifierTable::C99, "c99", "C99"),
+               clEnumValN(CLIIdentifierTable::C11, "c11", "C11"),
+               clEnumValN(CLIIdentifierTable::UAX31, "UAX31", "UAX31"),
+               clEnumValN(CLIIdentifierTable::All, "all",
+                          "All, the least restrictive set, which comes all "
+                          "others (default)")));
+
+static cl::opt<CLIIdentifierTable, true> identifiersImportc(
+    "identifiers-importc", cl::ZeroOrMore,
+    cl::location(global.params.cIdentifierTable),
+    cl::desc("Specify the non-ASCII tables for ImportC identifiers"),
+    cl::values(clEnumValN(CLIIdentifierTable::C99, "c99", "C99"),
+               clEnumValN(CLIIdentifierTable::C11, "c11", "C11 (default)"),
+               clEnumValN(CLIIdentifierTable::UAX31, "UAX31", "UAX31"),
+               clEnumValN(CLIIdentifierTable::All, "all",
+                          "All, the least restrictive set, which comes all "
+                          "others")));
 
 // `-cov[=<n>|ctfe]` parser.
 struct CoverageParser : public cl::parser<DummyDataType> {
