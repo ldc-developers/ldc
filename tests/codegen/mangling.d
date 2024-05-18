@@ -61,8 +61,8 @@ version(AsmX86)
     extern(C++, decl_cpp_naked_funcs) pragma(mangle, nakedCppFuncMangle)
     int decl_naked_cppFunc(double a);
 
-    pragma(mangle, "_D11definitions11naked_dFuncFdZi")
-    int decl_naked_dFunc(double a);
+    pragma(mangle, "_D11definitions11naked_dFuncFiZi")
+    int decl_naked_dFunc(int a);
 }
 
 // Interfacing with C via pragma(mangle, …), without having to take care
@@ -84,7 +84,7 @@ void main()
     {
         decl_naked_cFunc(1.0);
         decl_naked_cppFunc(2.0);
-        decl_naked_dFunc(3.0);
+        decl_naked_dFunc(3);
     }
 
     assert(decl_cos(0.0) == 1.0);
