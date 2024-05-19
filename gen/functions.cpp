@@ -1221,11 +1221,8 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     if (!irFty.arg_this->byref) {
       if (fd->interfaceVirtual) {
         // Adjust the 'this' pointer instead of using a thunk
-        LLType *targetThisType = thismem->getType();
-        thismem = DtoBitCast(thismem, getVoidPtrType());
         auto off = DtoConstInt(-fd->interfaceVirtual->offset);
-        thismem = DtoGEP1(llvm::Type::getInt8Ty(gIR->context()), thismem, off);
-        thismem = DtoBitCast(thismem, targetThisType);
+        thismem = DtoGEP1(getI8Type(), thismem, off);
       }
       thismem = DtoAllocaDump(thismem, 0, "this");
       irFunc->thisArg = thismem;

@@ -151,13 +151,12 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
   // make sure _Dmodule_ref is declared
   const auto mrefIRMangle = getIRMangledVarName("_Dmodule_ref", LINK::c);
   LLConstant *mref = gIR->module.getNamedGlobal(mrefIRMangle);
-  LLType *modulerefPtrTy = getPtrToType(modulerefTy);
+  LLType *modulerefPtrTy = getVoidPtrType();
   if (!mref) {
     mref =
         declareGlobal(Loc(), gIR->module, modulerefPtrTy, mrefIRMangle, false,
                       false, global.params.dllimport != DLLImport::none);
   }
-  mref = DtoBitCast(mref, getPtrToType(modulerefPtrTy));
 
   // make the function insert this moduleinfo as the beginning of the
   // _Dmodule_ref linked list
@@ -199,9 +198,9 @@ void emitModuleRefToSection(std::string moduleMangle,
 
   const auto thismrefIRMangle =
       getIRMangledModuleRefSymbolName(moduleMangle.c_str());
-  auto thismref = defineGlobal(Loc(), gIR->module, thismrefIRMangle,
-                               DtoBitCast(thisModuleInfo, moduleInfoPtrTy),
-                               LLGlobalValue::LinkOnceODRLinkage, false, false);
+  auto thismref =
+      defineGlobal(Loc(), gIR->module, thismrefIRMangle, thisModuleInfo,
+                   LLGlobalValue::LinkOnceODRLinkage, false, false);
   thismref->setVisibility(LLGlobalValue::HiddenVisibility);
   thismref->setSection(sectionName);
   gIR->usedArray.push_back(thismref);

@@ -80,7 +80,6 @@ public:
 
     if (TypeInfoDeclaration *ti = e->var->isTypeInfoDeclaration()) {
       result = DtoTypeInfoOf(e->loc, ti->tinfo, /*base=*/false);
-      result = DtoBitCast(result, DtoType(e->type));
       return;
     }
 
@@ -179,7 +178,7 @@ public:
     LLConstant *arrptr = DtoGEP(gvar->getValueType(), gvar, 0u, 0u);
 
     if (t->ty == TY::Tpointer) {
-      result = DtoBitCast(arrptr, DtoType(t));
+      result = arrptr;
     } else if (t->ty == TY::Tarray) {
       LLConstant *clen = LLConstantInt::get(DtoSize_t(), e->len, false);
       result = DtoConstSlice(clen, arrptr, e->type);
@@ -210,7 +209,6 @@ public:
       llResult = llvm::ConstantExpr::getGetElementPtr(DtoMemType(pointeeType),
                                                       llBase, llOffset);
     } else { // need to cast base to i8*
-      llBase = DtoBitCast(llBase, getVoidPtrType());
       LLConstant *llOffset = DtoConstSize_t(byteOffset);
       if (negateOffset)
         llOffset = llvm::ConstantExpr::getNeg(llOffset);
@@ -218,7 +216,7 @@ public:
           llvm::ConstantExpr::getGetElementPtr(getI8Type(), llBase, llOffset);
     }
 
-    return DtoBitCast(llResult, DtoType(e->type));
+    return llResult;
   }
 
   void visit(AddExp *e) override {
@@ -323,7 +321,7 @@ public:
       if (type->ty == TY::Tarray || type->ty == TY::Tdelegate) {
         value = DtoGEP(irg->getType(), value, 0u, 1u);
       }
-      result = DtoBitCast(value, DtoType(tb));
+      result = value;
     } else if (tb->ty == TY::Tclass && e->e1->type->ty == TY::Tclass &&
                e->e1->op == EXP::classReference) {
       auto cd = static_cast<ClassReferenceExp *>(e->e1)->originalClass();
@@ -341,7 +339,7 @@ public:
         // offset pointer
         instance = DtoGEP(DtoType(e->e1->type), instance, 0, i_index);
       }
-      result = DtoBitCast(instance, DtoType(tb));
+      result = instance;
     } else {
       goto Lerr;
     }
@@ -384,14 +382,10 @@ public:
       } else {
         // Offset isn't a multiple of base type size, just cast to i8* and
         // apply the byte offset.
-        auto i8 = LLType::getInt8Ty(gIR->context());
         result = llvm::ConstantExpr::getGetElementPtr(
-            i8, DtoBitCast(base, i8->getPointerTo()),
-            DtoConstSize_t(e->offset));
+            getI8Type(), base, DtoConstSize_t(e->offset));
       }
     }
-
-    result = DtoBitCast(result, DtoType(e->type));
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -405,8 +399,7 @@ public:
 
     // address of global variable
     if (auto vexp = e->e1->isVarExp()) {
-      LLConstant *c = DtoConstSymbolAddress(e->loc, vexp->var);
-      result = c ? DtoBitCast(c, DtoType(e->type)) : nullptr;
+      result = DtoConstSymbolAddress(e->loc, vexp->var);
       return;
     }
 
@@ -428,13 +421,11 @@ public:
       // gep
       LLConstant *idxs[2] = {DtoConstSize_t(0), index};
       LLConstant *val = isaConstant(getIrGlobal(vd)->value);
-      val = DtoBitCast(val, DtoType(pointerTo(vd->type)));
       LLConstant *gep = llvm::ConstantExpr::getGetElementPtr(
           DtoType(vd->type), val, idxs, true);
 
-      // bitcast to requested type
       assert(e->type->toBasetype()->ty == TY::Tpointer);
-      result = DtoBitCast(gep, DtoType(e->type));
+      result = gep;
       return;
     }
 
@@ -541,18 +532,16 @@ public:
         llvm::GlobalValue::InternalLinkage, initval, ".dynarrayStorage");
     gvar->setUnnamedAddr(canBeConst ? llvm::GlobalValue::UnnamedAddr::Global
                                     : llvm::GlobalValue::UnnamedAddr::None);
-    llvm::Constant *store = DtoBitCast(gvar, getPtrToType(arrtype));
 
     if (bt->ty == TY::Tpointer) {
       // we need to return pointer to the static array.
-      result = store;
+      result = gvar;
       return;
     }
 
     // build a constant dynamic array reference with the .ptr field pointing
     // into store
-    LLConstant *globalstorePtr = DtoGEP(arrtype, store, 0u, 0u);
-    result = DtoConstSlice(DtoConstSize_t(e->elements->length), globalstorePtr);
+    result = DtoConstSlice(DtoConstSize_t(e->elements->length), gvar);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -673,7 +662,6 @@ public:
     }
 
     assert(e->type->ty == TY::Tclass || e->type->ty == TY::Tenum);
-    result = DtoBitCast(result, DtoType(e->type));
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -729,7 +717,6 @@ public:
     }
 
     result = DtoTypeInfoOf(e->loc, t, /*base=*/false);
-    result = DtoBitCast(result, DtoType(e->type));
   }
 
   //////////////////////////////////////////////////////////////////////////////

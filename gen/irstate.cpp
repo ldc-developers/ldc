@@ -155,17 +155,16 @@ IRState::setGlobalVarInitializer(LLGlobalVariable *&globalVar,
 
   defineGlobal(globalHelperVar, initializer, symbolForLinkageAndVisibility);
 
-  // Replace all existing uses of globalVar by the bitcast pointer.
-  auto castHelperVar = DtoBitCast(globalHelperVar, globalVar->getType());
-  globalVar->replaceAllUsesWith(castHelperVar);
+  // Replace all existing uses of globalVar by the helper variable.
+  globalVar->replaceAllUsesWith(globalHelperVar);
 
   // Register replacement for later occurrences of the original globalVar.
-  globalsToReplace.emplace_back(globalVar, castHelperVar);
+  globalsToReplace.emplace_back(globalVar, globalHelperVar);
 
   // Reset globalVar to the helper variable.
   globalVar = globalHelperVar;
 
-  return castHelperVar;
+  return globalHelperVar;
 }
 
 void IRState::replaceGlobals() {

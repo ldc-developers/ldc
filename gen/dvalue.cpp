@@ -181,7 +181,7 @@ DBitFieldLValue::DBitFieldLValue(Type *t, LLValue *ptr, BitFieldDeclaration *bf)
 
 DRValue *DBitFieldLValue::getRVal() {
   const auto sizeInBits = intType->getBitWidth();
-  const auto ptr = DtoBitCast(val, getPtrToType(intType));
+  const auto ptr = val;
   LLValue *v = gIR->ir->CreateAlignedLoad(intType, ptr, llvm::MaybeAlign(1));
 
   if (bf->type->isunsigned()) {
@@ -206,7 +206,7 @@ DRValue *DBitFieldLValue::getRVal() {
 void DBitFieldLValue::store(LLValue *value) {
   assert(value->getType()->isIntegerTy());
 
-  const auto ptr = DtoBitCast(val, getPtrToType(intType));
+  const auto ptr = val;
 
   const auto mask =
       llvm::APInt::getLowBitsSet(intType->getBitWidth(), bf->fieldWidth);

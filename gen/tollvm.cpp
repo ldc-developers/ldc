@@ -407,10 +407,6 @@ LLValue *DtoGEP1i64(LLType *pointeeTy, LLValue *ptr, uint64_t i0, const char *na
 ////////////////////////////////////////////////////////////////////////////////
 
 void DtoMemSet(LLValue *dst, LLValue *val, LLValue *nbytes, unsigned align) {
-  LLType *VoidPtrTy = getVoidPtrType();
-
-  dst = DtoBitCast(dst, VoidPtrTy);
-
   gIR->ir->CreateMemSet(dst, val, nbytes, llvm::MaybeAlign(align),
                         false /*isVolatile*/);
 }
@@ -429,11 +425,6 @@ void DtoMemSetZero(LLType *type, LLValue *dst, unsigned align) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes, unsigned align) {
-  LLType *VoidPtrTy = getVoidPtrType();
-
-  dst = DtoBitCast(dst, VoidPtrTy);
-  src = DtoBitCast(src, VoidPtrTy);
-
   auto A = llvm::MaybeAlign(align);
   gIR->ir->CreateMemCpy(dst, A, src, A, nbytes, false /*isVolatile*/);
 }
@@ -458,9 +449,6 @@ LLValue *DtoMemCmp(LLValue *lhs, LLValue *rhs, LLValue *nbytes) {
     fn = LLFunction::Create(fty, LLGlobalValue::ExternalLinkage, "memcmp",
                             &gIR->module);
   }
-
-  lhs = DtoBitCast(lhs, VoidPtrTy);
-  rhs = DtoBitCast(rhs, VoidPtrTy);
 
   return gIR->ir->CreateCall(fn, {lhs, rhs, nbytes});
 }

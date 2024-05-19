@@ -71,7 +71,7 @@ void RTTIBuilder::push_null_void_array() {
 }
 
 void RTTIBuilder::push_void_array(uint64_t dim, llvm::Constant *ptr) {
-  push(DtoConstSlice(DtoConstSize_t(dim), DtoBitCast(ptr, getVoidPtrType())));
+  push(DtoConstSlice(DtoConstSize_t(dim), ptr));
 }
 
 void RTTIBuilder::push_void_array(llvm::Constant *CI, Type *valtype,
@@ -113,7 +113,7 @@ void RTTIBuilder::push_array(llvm::Constant *CI, uint64_t dim, Type *valtype,
   setLinkage(lwc, G);
   G->setAlignment(llvm::MaybeAlign(DtoAlignment(valtype)));
 
-  push_array(dim, DtoBitCast(G, DtoType(pointerTo(valtype))));
+  push_array(dim, G);
 }
 
 void RTTIBuilder::push_array(uint64_t dim, llvm::Constant *ptr) {
@@ -128,15 +128,10 @@ void RTTIBuilder::push_size_as_vp(uint64_t s) {
   push(llvm::ConstantExpr::getIntToPtr(DtoConstSize_t(s), getVoidPtrType()));
 }
 
-void RTTIBuilder::push_funcptr(FuncDeclaration *fd, Type *castto) {
+void RTTIBuilder::push_funcptr(FuncDeclaration *fd) {
   if (fd) {
     LLConstant *F = DtoCallee(fd);
-    if (castto) {
-      F = DtoBitCast(F, DtoType(castto));
-    }
     push(F);
-  } else if (castto) {
-    push_null(castto);
   } else {
     push_null_vp();
   }

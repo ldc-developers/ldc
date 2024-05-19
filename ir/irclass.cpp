@@ -196,7 +196,6 @@ LLConstant *IrClass::getVtblInit() {
   if (!cd->isCPPclass()) {
     if (!suppressTypeInfo()) {
       c = getClassInfoSymbol();
-      c = DtoBitCast(c, voidPtrType);
     } else {
       // use null if there are no TypeInfos
       c = llvm::Constant::getNullValue(voidPtrType);
@@ -235,7 +234,7 @@ LLConstant *IrClass::getVtblInit() {
         }
       }
 
-      c = DtoBitCast(DtoCallee(fd), voidPtrType);
+      c = DtoCallee(fd);
 
       if (cd->isFuncHidden(fd) && !fd->isFuture()) {
         // fd is hidden from the view of this class. If fd overlaps with any
@@ -381,7 +380,7 @@ LLConstant *IrClass::getClassInfoInit() {
   if (isInterface) {
     b.push_array(0, getNullValue(voidPtrPtr));
   } else {
-    b.push_array(cd->vtbl.length, DtoBitCast(getVtblSymbol(), voidPtrPtr));
+    b.push_array(cd->vtbl.length, getVtblSymbol());
   }
 
   // Interface[] interfaces
@@ -397,12 +396,12 @@ LLConstant *IrClass::getClassInfoInit() {
 
   // void* destructor
   assert(!isInterface || !cd->tidtor);
-  b.push_funcptr(cd->tidtor, Type::tvoidptr);
+  b.push_funcptr(cd->tidtor);
 
   // void function(Object) classInvariant
   assert(!isInterface || !cd->inv);
   VarDeclaration *invVar = cinfo->fields[6];
-  b.push_funcptr(cd->inv, invVar->type);
+  b.push_funcptr(cd->inv);
 
   // ClassFlags m_flags
   const auto flags = buildClassinfoFlags(cd);
@@ -430,7 +429,7 @@ LLConstant *IrClass::getClassInfoInit() {
     defConstructor = nullptr;
   }
   assert(!isInterface || !defConstructor);
-  b.push_funcptr(defConstructor, defConstructorVar->type);
+  b.push_funcptr(defConstructor);
 
   // immutable(void)* m_RTInfo
   if (cd->getRTInfo) {
@@ -546,7 +545,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
       llvm::Constant *c = llvm::ConstantExpr::getGetElementPtr(
             interfaceInfosZ->getValueType(), interfaceInfosZ, idxs, true);
 
-      constants.push_back(DtoBitCast(c, voidPtrTy));
+      constants.push_back(c);
     } else {
       // use null if there are no TypeInfos
       constants.push_back(llvm::Constant::getNullValue(voidPtrTy));
@@ -579,7 +578,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
     if (fd->interfaceVirtual)
       thunkOffset -= fd->interfaceVirtual->offset;
     if (thunkOffset == 0) {
-      constants.push_back(DtoBitCast(irFunc->getLLVMCallee(), voidPtrTy));
+      constants.push_back(irFunc->getLLVMCallee());
       continue;
     }
 
@@ -656,10 +655,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
               ? 0
               : 1;
       LLValue *&thisArg = args[thisArgIndex];
-      LLType *targetThisType = thisArg->getType();
-      thisArg = DtoBitCast(thisArg, getVoidPtrType());
-      thisArg = DtoGEP1(LLType::getInt8Ty(gIR->context()), thisArg, DtoConstInt(-thunkOffset));
-      thisArg = DtoBitCast(thisArg, targetThisType);
+      thisArg = DtoGEP1(getI8Type(), thisArg, DtoConstInt(-thunkOffset));
 
       // all calls that might be subject to inlining into a caller with debug
       // info should have debug info, too
@@ -682,7 +678,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
       gIR->funcGenStates.pop_back();
     }
 
-    constants.push_back(DtoBitCast(thunk, voidPtrTy));
+    constants.push_back(thunk);
   }
 
   // build the vtbl constant
@@ -734,8 +730,6 @@ LLConstant *IrClass::getClassInfoInterfaces() {
   LLSmallVector<LLConstant *, 6> constants;
   constants.reserve(cd->vtblInterfaces->length);
 
-  LLType *classinfo_type = DtoType(getClassInfoType());
-  LLType *voidptrptr_type = DtoType(pointerTo(pointerTo(Type::tvoid)));
   LLStructType *interface_type =
       isaStruct(DtoType(interfacesArrayType->nextOf()));
   assert(interface_type);
@@ -752,16 +746,14 @@ LLConstant *IrClass::getClassInfoInterfaces() {
 
     // classinfo
     LLConstant *ci = irinter->getClassInfoSymbol();
-    ci = DtoBitCast(ci, classinfo_type);
 
     // vtbl
     LLConstant *vtb;
     // interface get a null
     if (cd->isInterfaceDeclaration()) {
-      vtb = DtoConstSlice(DtoConstSize_t(0), getNullValue(voidptrptr_type));
+      vtb = DtoConstSlice(DtoConstSize_t(0), getNullValue(getVoidPtrType()));
     } else {
       vtb = getInterfaceVtblSymbol(it, i);
-      vtb = DtoBitCast(vtb, voidptrptr_type);
       auto vtblSize = itc->getVtblType()->getNumContainedTypes();
       vtb = DtoConstSlice(DtoConstSize_t(vtblSize), vtb);
     }
