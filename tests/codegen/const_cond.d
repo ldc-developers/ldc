@@ -18,8 +18,8 @@ void foo()
     // CHECK-NOT: %a = alloca
     // CHECK: %b = alloca
     // CHECK-NOT: br
-    // CHECK-NOT: store i32 1, {{i32\*|ptr}} %a
-    // CHECK: store i32 2, {{i32\*|ptr}} %b
+    // CHECK-NOT: store i32 1, ptr %a
+    // CHECK: store i32 2, ptr %b
     if (0)
     {
         int a = 1;
@@ -34,7 +34,7 @@ void foo()
 void bar()
 {
     // CHECK-NOT: %a = alloca
-    // CHECK: store i32 2, {{i32\*|ptr}} %b
+    // CHECK: store i32 2, ptr %b
     if (0)
     {
         int a = 1;

@@ -83,7 +83,7 @@ void tupleassignByVal()
     // CHECK: alloca %assign_struct_init_without_stack.OpAssignStruct
     // CHECK: call void @llvm.memcpy
     // CHECK-NOT: memcpy
-    // CHECK: call{{.*}} {{%assign_struct_init_without_stack\.OpAssignStruct\*|ptr}} @{{.*}}_D32assign_struct_init_without_stack14OpAssignStruct__T8opAssignTSQCmQBhZQsMFNaNbNcNiNjNfQyZQBb
+    // CHECK: call{{.*}} ptr @{{.*}}_D32assign_struct_init_without_stack14OpAssignStruct__T8opAssignTSQCmQBhZQsMFNaNbNcNiNjNfQyZQBb
     // CHECK-NEXT: ret void
 }
 
@@ -93,7 +93,7 @@ void tupleassignByRef()
     globalOpAssignStruct = globalOpAssignStruct2;
     // There should not be a memcpy.
     // CHECK-NOT: memcpy
-    // CHECK: call{{.*}} {{%assign_struct_init_without_stack\.OpAssignStruct\*|ptr}} @{{.*}}_D32assign_struct_init_without_stack14OpAssignStruct__T8opAssignTSQCmQBhZQsMFNaNbNcNiNjNfKQzZQBc
+    // CHECK: call{{.*}} ptr @{{.*}}_D32assign_struct_init_without_stack14OpAssignStruct__T8opAssignTSQCmQBhZQsMFNaNbNcNiNjNfKQzZQBc
     // CHECK-NEXT: ret void
 }
 

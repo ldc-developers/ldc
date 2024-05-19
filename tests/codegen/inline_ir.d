@@ -8,7 +8,7 @@ alias __irEx!("!0 = !{i32 1}", "%i = load i32, ptr %0, !nontemporal !0\nret i32 
 
 int foo(const int* src)
 {
-  // CHECK: %{{.*}} = load i32, {{i32\*|ptr}} {{.*}} !nontemporal ![[METADATA:[0-9]+]]
+  // CHECK: %{{.*}} = load i32, ptr {{.*}} !nontemporal ![[METADATA:[0-9]+]]
   return nontemporalLoad(src);
 }
 

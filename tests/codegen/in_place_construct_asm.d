@@ -9,7 +9,7 @@ import ldc.llvmasm;
 // CHECK-LABEL: define{{.*}} @{{.*}}_D22in_place_construct_asm14inlineAssemblyFkkZv
 void inlineAssembly(uint eax, uint ecx)
 {
-    // CHECK: store %"ldc.llvmasm.__asmtuple_t!(uint, uint, uint, uint).__asmtuple_t" %3, {{%"ldc.llvmasm.__asmtuple_t!\(uint, uint, uint, uint\).__asmtuple_t"\*|ptr}} %r
+    // CHECK: store %"ldc.llvmasm.__asmtuple_t!(uint, uint, uint, uint).__asmtuple_t" %3, ptr %r
     auto r = __asmtuple!(uint, uint, uint, uint) ("cpuid",
         "={eax},={ebx},={ecx},={edx},{eax},{ecx}", eax, ecx);
 }

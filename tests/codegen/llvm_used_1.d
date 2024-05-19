@@ -10,7 +10,7 @@
 // There was a bug where llvm.used was emitted more than once, whose symptom was that suffixed versions would appear: e.g. `@llvm.used.3`.
 // Expect 2 llvm.used entries, for both ModuleInfo refs.
 // LLVM-NOT: @llvm.used.
-// LLVM: @llvm.used = appending global [2 x {{i8\*|ptr}}]
+// LLVM: @llvm.used = appending global [2 x ptr]
 // LLVM-NOT: @llvm.used.
 
 // EXECUTE: ctor
