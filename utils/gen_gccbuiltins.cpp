@@ -29,11 +29,7 @@
 using namespace std;
 using namespace llvm;
 
-#if LDC_LLVM_VER >= 1500
 #define BUILTIN_NAME_STRING "ClangBuiltinName"
-#else
-#define BUILTIN_NAME_STRING "GCCBuiltinName"
-#endif
 
 string dtype(Record* rec, bool readOnlyMem)
 {

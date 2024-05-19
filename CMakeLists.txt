@@ -34,7 +34,7 @@ endfunction()
 # Locate LLVM.
 #
 
-find_package(LLVM 14.0 REQUIRED
+find_package(LLVM 15.0 REQUIRED
     all-targets analysis asmparser asmprinter bitreader bitwriter codegen core
     debuginfodwarf debuginfomsf debuginfopdb demangle
     instcombine ipo instrumentation irreader libdriver linker lto mc
@@ -823,13 +823,8 @@ if (LDC_INSTALL_LLVM_RUNTIME_LIBS)
         copy_compilerrt_lib("darwin/libclang_rt.xray-fdr_osx.a"        "libldc_rt.xray-fdr.a"       FALSE)
         copy_compilerrt_lib("darwin/libclang_rt.xray-profiling_osx.a"  "libldc_rt.xray-profiling.a" FALSE)
     elseif(UNIX)
-        if(LDC_LLVM_VER LESS 1500)
-            set(LDC_INSTALL_LLVM_RUNTIME_LIBS_OS_DEFAULT "linux")
-            set(LDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH_DEFAULT "x86_64")
-        else()
-            set(LDC_INSTALL_LLVM_RUNTIME_LIBS_OS_DEFAULT "x86_64-unknown-linux-gnu")
-            set(LDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH_DEFAULT "")
-        endif()
+        set(LDC_INSTALL_LLVM_RUNTIME_LIBS_OS_DEFAULT "x86_64-unknown-linux-gnu")
+        set(LDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH_DEFAULT "")
         set(LDC_INSTALL_LLVM_RUNTIME_LIBS_OS   "${LDC_INSTALL_LLVM_RUNTIME_LIBS_OS_DEFAULT}"   CACHE STRING "Non-Mac Posix: OS used as directory name for the compiler-rt source libraries, e.g., 'freebsd'.")
         set(LDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH "${LDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH_DEFAULT}" CACHE STRING "Non-Mac Posix: architecture used as libname suffix for the compiler-rt source libraries, e.g., 'aarch64'.")
         if(LDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH STREQUAL "")

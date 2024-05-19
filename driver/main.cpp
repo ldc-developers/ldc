@@ -561,10 +561,8 @@ void parseCommandLine(Strings &sourceFiles) {
   // enforce opaque IR pointers
 #if LDC_LLVM_VER >= 1700
   // supports opaque IR pointers only
-#elif LDC_LLVM_VER >= 1500
+#else
   getGlobalContext().setOpaquePointers(true);
-#else // LLVM 14
-  getGlobalContext().enableOpaquePointers();
 #endif
 }
 

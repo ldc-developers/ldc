@@ -36,11 +36,6 @@ jobs:
             host_dc: dmd-beta
             llvm_version: 15.0.6
             cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLIB_SUFFIX=64 -DLDC_LINK_MANUALLY=ON
-          - job_name: macOS 11, LLVM 14, latest DMD beta
-            os: macos-11
-            host_dc: dmd-beta
-            llvm_version: 14.0.6
-            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON -DCMAKE_CXX_COMPILER=/usr/bin/c++ -DCMAKE_C_COMPILER=/usr/bin/cc
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
     env:

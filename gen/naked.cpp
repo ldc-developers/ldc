@@ -507,20 +507,11 @@ llvm::CallInst *DtoInlineAsmExpr(const Loc &loc, llvm::StringRef code,
   llvm::FunctionType *FT =
       llvm::FunctionType::get(returnType, operandTypes, false);
 
-#if LDC_LLVM_VER < 1500
-  // make sure the constraints are valid
-  if (!llvm::InlineAsm::Verify(FT, constraints)) {
-      error(loc, "inline asm constraints are invalid");
-      fatal();
-  }
-#else
   if (auto err = llvm::InlineAsm::verify(FT, constraints)) {
     error(loc, "inline asm constraints are invalid");
     llvm::errs() << err;
     fatal();
   }
-#endif
-
 
   // build asm call
   bool sideeffect = true;

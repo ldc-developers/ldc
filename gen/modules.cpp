@@ -299,11 +299,7 @@ void addCoverageAnalysis(Module *m) {
     ctor->setCallingConv(gABI->callingConv(LINK::d));
     // Set function attributes. See functions.cpp:DtoDefineFunction()
     if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
-#if LDC_LLVM_VER >= 1500
       ctor->setUWTableKind(llvm::UWTableKind::Default);
-#else
-      ctor->addFnAttr(LLAttribute::UWTable);
-#endif
     }
 
     llvm::BasicBlock *bb = llvm::BasicBlock::Create(gIR->context(), "", ctor);
@@ -404,11 +400,7 @@ void registerModuleInfo(Module *m) {
 }
 
 void addModuleFlags(llvm::Module &m) {
-#if LDC_LLVM_VER >= 1500
   const auto ModuleMinFlag = llvm::Module::Min;
-#else
-  const auto ModuleMinFlag = llvm::Module::Warning; // Fallback value
-#endif
 
   if (opts::fCFProtection == opts::CFProtectionType::Return ||
       opts::fCFProtection == opts::CFProtectionType::Full) {

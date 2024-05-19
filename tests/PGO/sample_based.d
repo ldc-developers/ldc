@@ -1,7 +1,5 @@
 // Test basic use of sample-based PGO profile
 
-// REQUIRES: atleast_llvm1500
-
 // RUN: split-file %s %t
 // RUN: %ldc -O2 -c -gline-tables-only -output-ll -of=%t.ll -fprofile-sample-use=%t/pgo-sample.prof %t/testcase.d && FileCheck %s < %t.ll
 
