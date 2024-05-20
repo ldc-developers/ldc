@@ -59,7 +59,7 @@ runs:
         if [[ '${{ inputs.os }}' == android ]]; then
           # Android: use a bash script template
           version="$(llvm/bin/llvm-config --version)" # from native LLVM
-          sed ldc/.github/actions/3-build-cross/android-llvm-config.in \
+          sed ldc/.github/actions/android-llvm-config.in \
             -e "s|@LLVM_VERSION@|$version|g" \
             -e "s|@LLVM_INSTALL_DIR@|$PWD/llvm-cross|g" \
             -e "s|@LLVM_DEFAULT_TARGET_TRIPLE@|irrelevant-android-triple|g" \
@@ -121,7 +121,7 @@ runs:
 
     - name: 'macOS: Build mimalloc'
       if: inputs.os == 'osx'
-      uses: ./.github/actions/helper-mimalloc
+      uses: ./.github/actions/helper-mimalloc.yml
       with:
         cmake_flags: ${{ env.CROSS_CMAKE_FLAGS }}
 
@@ -143,7 +143,7 @@ runs:
           "${flags[@]}"
 
     - name: Cross-compile LDC executables
-      uses: ./.github/actions/helper-build-ldc
+      uses: ./.github/actions/helper-build-ldc.yml
       with:
         build_dir: build-cross
         host_dc: ../bootstrap-ldc/bin/ldmd2

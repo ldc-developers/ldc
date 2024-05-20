@@ -17,7 +17,7 @@ runs:
         ninja --version
 
     - name: Build bootstrap LDC
-      uses: ./.github/actions/helper-build-ldc
+      uses: ./.github/actions/helper-build-ldc.yml
       with:
         build_dir: bootstrap-ldc
         host_dc: ldmd2

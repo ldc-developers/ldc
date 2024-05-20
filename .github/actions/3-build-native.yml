@@ -14,10 +14,10 @@ runs:
 
     - name: 'Posix: Build mimalloc'
       if: runner.os != 'Windows'
-      uses: ./.github/actions/helper-mimalloc
+      uses: ./.github/actions/helper-mimalloc.yml
 
     - name: Build LDC & LDC D unittests & defaultlib unittest runners
-      uses: ./.github/actions/helper-build-ldc
+      uses: ./.github/actions/helper-build-ldc.yml
       with:
         build_dir: build
         host_dc: ../bootstrap-ldc/bin/ldmd2

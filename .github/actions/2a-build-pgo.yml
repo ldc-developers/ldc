@@ -10,7 +10,7 @@ runs:
   steps:
 
     - name: Build LDC with PGO instrumentation & gather profiles from compiling default libs
-      uses: ./.github/actions/helper-build-ldc
+      uses: ./.github/actions/helper-build-ldc.yml
       with:
         build_dir: pgo-ldc
         host_dc: ../bootstrap-ldc/bin/ldmd2
