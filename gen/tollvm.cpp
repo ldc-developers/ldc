@@ -503,7 +503,7 @@ LLConstant *DtoConstFP(Type *t, const real_t value) {
 LLConstant *DtoConstCString(const char *str) {
   llvm::StringRef s(str ? str : "");
   LLGlobalVariable *gvar = gIR->getCachedStringLiteral(s);
-  return DtoGEP(gvar->getValueType(), gvar, 0u, 0u);
+  return gvar;
 }
 
 LLConstant *DtoConstString(const char *str) {

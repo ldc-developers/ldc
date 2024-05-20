@@ -439,16 +439,15 @@ public:
     }
 
     llvm::GlobalVariable *gvar = p->getCachedStringLiteral(e);
-    LLConstant *arrptr = DtoGEP(gvar->getValueType(), gvar, 0u, 0u);
 
     if (dtype->ty == TY::Tarray) {
       result = new DSliceValue(
-          e->type, DtoConstSlice(DtoConstSize_t(stringLength), arrptr));
+          e->type, DtoConstSlice(DtoConstSize_t(stringLength), gvar));
     } else if (dtype->ty == TY::Tsarray) {
       // array length matches string length with or without null terminator
       result = new DLValue(e->type, gvar);
     } else if (dtype->ty == TY::Tpointer) {
-      result = new DImValue(e->type, arrptr);
+      result = new DImValue(e->type, gvar);
     } else {
       llvm_unreachable("Unknown type for StringExp.");
     }
@@ -2529,17 +2528,13 @@ public:
       LLConstant *globalstore = new LLGlobalVariable(
           gIR->module, initval->getType(), false,
           LLGlobalValue::InternalLinkage, initval, ".aaKeysStorage");
-      LLConstant *slice = DtoGEP(initval->getType(), globalstore, 0u, 0u);
-      slice = DtoConstSlice(DtoConstSize_t(e->keys->length), slice);
-      LLValue *keysArray = DtoSlicePaint(slice, funcTy->getParamType(1));
+      LLValue *keysArray = DtoConstSlice(DtoConstSize_t(e->keys->length), globalstore);
 
       initval = arrayConst(valuesInits, vtype);
       globalstore = new LLGlobalVariable(gIR->module, initval->getType(), false,
                                          LLGlobalValue::InternalLinkage,
                                          initval, ".aaValuesStorage");
-      slice = DtoGEP(initval->getType(), globalstore, 0u, 0u);
-      slice = DtoConstSlice(DtoConstSize_t(e->keys->length), slice);
-      LLValue *valuesArray = DtoSlicePaint(slice, funcTy->getParamType(2));
+      LLValue *valuesArray = DtoConstSlice(DtoConstSize_t(e->keys->length), globalstore);
 
       LLValue *aa = gIR->CreateCallOrInvoke(func, aaTypeInfo, keysArray,
                                             valuesArray, "aa");

@@ -175,12 +175,11 @@ public:
     }
 
     llvm::GlobalVariable *gvar = p->getCachedStringLiteral(e);
-    LLConstant *arrptr = DtoGEP(gvar->getValueType(), gvar, 0u, 0u);
 
     if (t->ty == TY::Tpointer) {
-      result = arrptr;
+      result = gvar;
     } else if (t->ty == TY::Tarray) {
-      result = DtoConstSlice(DtoConstSize_t(e->len), arrptr);
+      result = DtoConstSlice(DtoConstSize_t(e->len), gvar);
     } else {
       llvm_unreachable("Unknown type for StringExp.");
     }
