@@ -28,34 +28,34 @@ void foo(GlobalPointer!float x_in) {
 	PrivatePointer!float private_x;
 	ConstantPointer!float const_x;
 
-    // LL: [[s_load_reg:%[0-9]*]] = load {{float\*|ptr}}, {{float\*\*|ptr}} {{%[0-9]*}}
-    // LL: [[s_addr_reg:%[0-9]*]] = load {{float\*|ptr}}, {{float\*\*|ptr}} {{%[0-9]*}}
-    // LL: [[s_store_reg:%[0-9]*]] = load float, {{float\*|ptr}} [[s_addr_reg]]
-    // LL: store float [[s_store_reg]], {{float\*|ptr}} [[s_load_reg]]
+    // LL: [[s_load_reg:%[0-9]*]] = load ptr, ptr {{%[0-9]*}}
+    // LL: [[s_addr_reg:%[0-9]*]] = load ptr, ptr {{%[0-9]*}}
+    // LL: [[s_store_reg:%[0-9]*]] = load float, ptr [[s_addr_reg]]
+    // LL: store float [[s_store_reg]], ptr [[s_load_reg]]
 	*shared_x = *x_in;
   
-    // LL: [[p_load_reg:%[0-9]*]] = load {{float\*|ptr}}, {{float\*\*|ptr}} {{%[0-9]*}}
-    // LL: [[p_addr_reg:%[0-9]*]] = load {{float\*|ptr}}, {{float\*\*|ptr}} {{%[0-9]*}}
-    // LL: [[p_store_reg:%[0-9]*]] = load float, {{float\*|ptr}} [[p_addr_reg]]
-    // LL: store float [[p_store_reg]], {{float\*|ptr}} [[p_load_reg]]
+    // LL: [[p_load_reg:%[0-9]*]] = load ptr, ptr {{%[0-9]*}}
+    // LL: [[p_addr_reg:%[0-9]*]] = load ptr, ptr {{%[0-9]*}}
+    // LL: [[p_store_reg:%[0-9]*]] = load float, ptr [[p_addr_reg]]
+    // LL: store float [[p_store_reg]], ptr [[p_load_reg]]
 	*private_x = *x_in;
   
-    // LL: [[c_load_reg:%[0-9]*]] = load {{float\*|ptr}}, {{float\*\*|ptr}} {{%[0-9]*}}
-    // LL: [[c_addr_reg:%[0-9]*]] = load {{float\*|ptr}}, {{float\*\*|ptr}} {{%[0-9]*}}
-    // LL: [[c_store_reg:%[0-9]*]] = load float, {{float\*|ptr}} [[c_addr_reg]]
-    // LL: store float [[c_store_reg]], {{float\*|ptr}} [[c_load_reg]]
+    // LL: [[c_load_reg:%[0-9]*]] = load ptr, ptr {{%[0-9]*}}
+    // LL: [[c_addr_reg:%[0-9]*]] = load ptr, ptr {{%[0-9]*}}
+    // LL: [[c_store_reg:%[0-9]*]] = load float, ptr [[c_addr_reg]]
+    // LL: store float [[c_store_reg]], ptr [[c_load_reg]]
 	*x_in = *const_x;
 
-    // LL: [[g1_load_reg:%[0-9]*]] = load {{float\*|ptr}}, {{float\*\*|ptr}} {{%[0-9]*}}
-    // LL: [[g1_addr_reg:%[0-9]*]] = load {{float\*|ptr}}, {{float\*\*|ptr}} {{%[0-9]*}}
-    // LL: [[g1_store_reg:%[0-9]*]] = load float, {{float\*|ptr}} [[g1_addr_reg]]
-    // LL: store float [[g1_store_reg]], {{float\*|ptr}} [[g1_load_reg]]
+    // LL: [[g1_load_reg:%[0-9]*]] = load ptr, ptr {{%[0-9]*}}
+    // LL: [[g1_addr_reg:%[0-9]*]] = load ptr, ptr {{%[0-9]*}}
+    // LL: [[g1_store_reg:%[0-9]*]] = load float, ptr [[g1_addr_reg]]
+    // LL: store float [[g1_store_reg]], ptr [[g1_load_reg]]
     *x_in = *shared_x;
 
-    // LL: [[g2_load_reg:%[0-9]*]] = load {{float\*|ptr}}, {{float\*\*|ptr}} {{%[0-9]*}}
-    // LL: [[g2_addr_reg:%[0-9]*]] = load {{float\*|ptr}}, {{float\*\*|ptr}} {{%[0-9]*}}
-    // LL: [[g2_store_reg:%[0-9]*]] = load float, {{float\*|ptr}} [[g2_addr_reg]]
-    // LL: store float [[g2_store_reg]], {{float\*|ptr}} [[g2_load_reg]]
+    // LL: [[g2_load_reg:%[0-9]*]] = load ptr, ptr {{%[0-9]*}}
+    // LL: [[g2_addr_reg:%[0-9]*]] = load ptr, ptr {{%[0-9]*}}
+    // LL: [[g2_store_reg:%[0-9]*]] = load float, ptr [[g2_addr_reg]]
+    // LL: store float [[g2_store_reg]], ptr [[g2_load_reg]]
 	*x_in = *private_x;
 }
 

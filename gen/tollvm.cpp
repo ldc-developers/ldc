@@ -595,37 +595,7 @@ LLType *stripAddrSpaces(LLType *t)
   if (!pt)
     return t;
 
-#if LDC_LLVM_VER >= 1700
   return getVoidPtrType();
-#elif LDC_LLVM_VER >= 1400
-  if (pt->isOpaque())
-    return getVoidPtrType();
-  else {
-    int indirections = 0;
-    while (t->isPointerTy()) {
-      indirections++;
-// Disable [[deprecated]] warning on getPointerElementType. We solved the
-// deprecation for versions >= LLVM 16 above (8 lines up).
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-      t = t->getPointerElementType();
-#pragma GCC diagnostic pop
-    }
-    while (indirections-- != 0)
-      t = t->getPointerTo(0);
-  }
-  return t;
-#else
-  int indirections = 0;
-  while (t->isPointerTy()) {
-    indirections++;
-    t = t->getPointerElementType();
-  }
-  while (indirections-- != 0)
-    t = t->getPointerTo(0);
-
-  return t;
-#endif
 }
 
 LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name) {

@@ -8,7 +8,7 @@ void cpuid()
 {
     uint max_extended_cpuid;
     // CHECK:      %1 = call i32 asm sideeffect "cpuid", "={eax},{eax},~{ebx},~{ecx},~{edx}"(i32 -2147483648), !srcloc
-    // CHECK-NEXT: store i32 %1, {{i32\*|ptr}} %max_extended_cpuid
+    // CHECK-NEXT: store i32 %1, ptr %max_extended_cpuid
     asm { "cpuid" : "=eax" (max_extended_cpuid) : "eax" (0x8000_0000) : "ebx", "ecx", "edx"; }
 }
 
@@ -23,13 +23,13 @@ void multipleOutput()
     // CHECK-NEXT: %4 = getelementptr {{.*}} %r, i32 0, i64 3
     // CHECK-NEXT: %5 = call { i32, i32, i32, i32 } asm sideeffect "cpuid", "={eax},={ebx},={ecx},={edx},{eax}"(i32 2), !srcloc
     // CHECK-NEXT: %6 = extractvalue { i32, i32, i32, i32 } %5, 0
-    // CHECK-NEXT: store i32 %6, {{i32\*|ptr}} %1
+    // CHECK-NEXT: store i32 %6, ptr %1
     // CHECK-NEXT: %7 = extractvalue { i32, i32, i32, i32 } %5, 1
-    // CHECK-NEXT: store i32 %7, {{i32\*|ptr}} %2
+    // CHECK-NEXT: store i32 %7, ptr %2
     // CHECK-NEXT: %8 = extractvalue { i32, i32, i32, i32 } %5, 2
-    // CHECK-NEXT: store i32 %8, {{i32\*|ptr}} %3
+    // CHECK-NEXT: store i32 %8, ptr %3
     // CHECK-NEXT: %9 = extractvalue { i32, i32, i32, i32 } %5, 3
-    // CHECK-NEXT: store i32 %9, {{i32\*|ptr}} %4
+    // CHECK-NEXT: store i32 %9, ptr %4
     asm { "cpuid" : "=eax" (r[0]), "=ebx" (r[1]), "=ecx" (r[2]), "=edx" (r[3]) : "eax" (2); }
 }
 
@@ -38,11 +38,11 @@ void indirectOutput(uint eax)
 {
     // CHECK-NEXT: %eax = alloca i32
     // CHECK-NEXT: %r = alloca [4 x i32]
-    // CHECK-NEXT: store i32 %eax_arg, {{i32\*|ptr}} %eax
+    // CHECK-NEXT: store i32 %eax_arg, ptr %eax
     uint[4] r = void;
-    // CHECK-NEXT: %1 = load i32, {{i32\*|ptr}} %eax
+    // CHECK-NEXT: %1 = load i32, ptr %eax
     // CHECK-NEXT: call void asm sideeffect "cpuid
-    // CHECK-SAME: "=*m,{eax},~{eax},~{ebx},~{ecx},~{edx}"({{\[4 x i32\]\*|ptr}} {{(elementtype\(\[4 x i32\]\) )?}}%r, i32 %1), !srcloc
+    // CHECK-SAME: "=*m,{eax},~{eax},~{ebx},~{ecx},~{edx}"(ptr elementtype([4 x i32]) %r, i32 %1), !srcloc
     asm
     {
         `cpuid
@@ -60,8 +60,8 @@ void indirectOutput(uint eax)
 void indirectInput(uint eax)
 {
     // CHECK-NEXT: %eax = alloca i32
-    // CHECK-NEXT: store i32 %eax_arg, {{i32\*|ptr}} %eax
-    // CHECK-NEXT: call void asm sideeffect "movl %eax, $0", "*m,~{eax}"({{i32\*|ptr}} {{(elementtype\(i32\) )?}}%eax), !srcloc
+    // CHECK-NEXT: store i32 %eax_arg, ptr %eax
+    // CHECK-NEXT: call void asm sideeffect "movl %eax, $0", "*m,~{eax}"(ptr elementtype(i32) %eax), !srcloc
     asm { "movl %%eax, %0" : : "m" (eax) : "eax"; }
 }
 

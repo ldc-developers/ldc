@@ -21,19 +21,8 @@
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/SpecialCaseList.h"
-#if LDC_LLVM_VER >= 1300
 #include "llvm/Support/VirtualFileSystem.h"
-#endif
-
-#if LDC_LLVM_VER >= 1400
 #include "llvm/Transforms/Instrumentation/AddressSanitizerOptions.h"
-#else
-namespace llvm {
-// Declaring this simplifies code later, but the option is never used with LLVM
-// <= 13.
-enum class AsanDetectStackUseAfterReturnMode { Never, Runtime, Always };
-}
-#endif
 
 using namespace dmd;
 
@@ -97,14 +86,12 @@ void parseFSanitizeCoverageParameter(llvm::StringRef name,
   else if (name == "trace-gep") {
     opts.TraceGep = true;
   }
-#if LDC_LLVM_VER >= 1400
   else if (name == "trace-loads") {
     opts.TraceLoads = true;
   }
   else if (name == "trace-stores") {
     opts.TraceStores = true;
   }
-#endif
   else if (name == "8bit-counters") {
     opts.Use8bitCounters = true;
   }

@@ -26,10 +26,8 @@
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/TargetParser.h"
-#if LDC_LLVM_VER >= 1400
 #include "llvm/Support/AArch64TargetParser.h"
 #include "llvm/Support/ARMTargetParser.h"
-#endif
 #else
 #include "llvm/TargetParser/AArch64TargetParser.h"
 #include "llvm/TargetParser/ARMTargetParser.h"
@@ -41,11 +39,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/MC/MCObjectFileInfo.h"
 #include "llvm/Support/CommandLine.h"
-#if LDC_LLVM_VER >= 1400
 #include "llvm/MC/TargetRegistry.h"
-#else
-#include "llvm/Support/TargetRegistry.h"
-#endif
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
@@ -467,14 +461,9 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
       if (!envVersion.empty()) {
         osname += envVersion;
       } else {
-#if LDC_LLVM_VER >= 1400
         llvm::VersionTuple OSVersion;
         triple.getMacOSXVersion(OSVersion);
         osname += OSVersion.getAsString();
-#else
-        // Hardcode the version, because `getMacOSXVersion` is not available.
-        osname += "10.7";
-#endif
       }
 
       triple.setOSName(osname);

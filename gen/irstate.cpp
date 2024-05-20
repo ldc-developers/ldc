@@ -281,12 +281,11 @@ IRState::createInlineAsmCall(const Loc &loc, llvm::InlineAsm *ia,
   llvm::CallInst *call = ir->CreateCall(ia, args);
   addInlineAsmSrcLoc(loc, call);
 
-#if LDC_LLVM_VER >= 1400
   // a non-indirect output constraint (=> return value of call) shifts the
   // constraint/argument index mapping
   ptrdiff_t i = call->getType()->isVoidTy() ? 0 : -1;
   size_t indirectIdx = 0;
-    
+
   for (const auto &constraintInfo : ia->ParseConstraints()) {
     if (constraintInfo.isIndirect) {
       call->addParamAttr(i, llvm::Attribute::get(
@@ -297,7 +296,6 @@ IRState::createInlineAsmCall(const Loc &loc, llvm::InlineAsm *ia,
     }
     ++i;
   }
-#endif
 
   return call;
 }

@@ -19,10 +19,10 @@ void testNested() {
 // CHECK: @.immutablearray{{.*}} = internal constant [4 x i32]
 // CHECK: @.immutablearray{{.*}} = internal constant [2 x float]
 // CHECK: @.immutablearray{{.*}} = internal constant [2 x double]
-// CHECK: @.immutablearray{{.*}} = internal constant [2 x { i{{32|64}}, {{i8\*|ptr}} }]
+// CHECK: @.immutablearray{{.*}} = internal constant [2 x { i{{32|64}}, ptr }]
 // CHECK: @.immutablearray{{.*}} = internal constant [1 x %const_struct.S2]
-// CHECK: @.immutablearray{{.*}} = internal constant [2 x {{i32\*|ptr}}] {{.*}}globVar
-// CHECK: @.immutablearray{{.*}} = internal constant [2 x {{void \(\)\*|ptr}}] {{.*}}Dmain
+// CHECK: @.immutablearray{{.*}} = internal constant [2 x ptr] {{.*}}globVar
+// CHECK: @.immutablearray{{.*}} = internal constant [2 x ptr] {{.*}}Dmain
 
 void main () {
     // Simple types
@@ -34,7 +34,7 @@ void main () {
     // Complex type
     immutable S2[] aE = [ { [ { { 42 } }, { { 43 } }, { { 44 } } ] } ];
     // Complex type with non-constant initializer
-    // CHECK: %.gc_mem = call { i{{32|64}}, {{i8\*|ptr}} } @_d_newarrayU
+    // CHECK: %.gc_mem = call { i{{32|64}}, ptr } @_d_newarrayU
     // CHECK-SAME: @{{.*}}_D29TypeInfo_yAS12const_struct2C06__initZ
     immutable C0[] aF = [ { new int(42) }, { new int(24) } ];
 
@@ -45,7 +45,7 @@ void main () {
     // Pointer arrays with non-const initializer
     immutable int localVar;
     immutable auto locA = [ &localVar, &localVar ];
-    // CHECK: %.gc_mem{{.*}} = call { i{{32|64}}, {{i8\*|ptr}} } @_d_newarrayU
+    // CHECK: %.gc_mem{{.*}} = call { i{{32|64}}, ptr } @_d_newarrayU
     // CHECK-SAME: @{{.*}}_D13TypeInfo_yAPi6__initZ
 
     testNested();

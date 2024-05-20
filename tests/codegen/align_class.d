@@ -4,14 +4,14 @@
 struct S16 { align(16) short a; }
 
 class D     { align(32) short d = 0xDD; }
-// CHECK: %align_class.D = type <{ {{\[5 x i8\*\]\*, i8\*|ptr, ptr}}, [{{(16|24)}} x i8], i16 }>
+// CHECK: %align_class.D = type <{ ptr, ptr, [{{(16|24)}} x i8], i16 }>
 class E : D { S16 s16 = S16(0xEE); }
-// CHECK: %align_class.E = type { {{\[5 x i8\*\]\*, i8\*|ptr, ptr}}, [{{(16|24)}} x i8], i16, [14 x i8], %align_class.S16 }
+// CHECK: %align_class.E = type { ptr, ptr, [{{(16|24)}} x i8], i16, [14 x i8], %align_class.S16 }
 class F : D { align(64) short f = 0xFF; }
-// CHECK: %align_class.F = type <{ {{\[5 x i8\*\]\*, i8\*|ptr, ptr}}, [{{(16|24)}} x i8], i16, [30 x i8], i16 }>
+// CHECK: %align_class.F = type <{ ptr, ptr, [{{(16|24)}} x i8], i16, [30 x i8], i16 }>
 
 extern(C++) class CppClass { align(32) short a = 0xAA; }
-// CHECK: %align_class.CppClass = type <{ {{\[0 x i8\*\]\*|ptr}}, [{{(24|28)}} x i8], i16 }>
+// CHECK: %align_class.CppClass = type <{ ptr, [{{(24|28)}} x i8], i16 }>
 
 void main()
 {

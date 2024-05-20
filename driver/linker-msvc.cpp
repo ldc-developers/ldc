@@ -42,7 +42,7 @@ void addMscrtLibs(bool useInternalToolchain, std::vector<std::string> &args) {
 #if LDC_LLVM_VER >= 1700
 #define contains_lower contains_insensitive
 #define endswith_lower ends_with_insensitive
-#elif LDC_LLVM_VER >= 1300
+#else
 #define contains_lower contains_insensitive
 #define endswith_lower endswith_insensitive
 #endif
@@ -278,18 +278,8 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
         getFullArgs("lld-link", args, global.params.v.verbose);
 
     const bool canExitEarly = false;
-    const bool success = lld::coff::link(fullArgs
-#if LDC_LLVM_VER < 1400
-                                         ,
-                                         canExitEarly
-#endif
-                                         ,
-                                         llvm::outs(), llvm::errs()
-#if LDC_LLVM_VER >= 1400
-                                                           ,
-                                         canExitEarly, false
-#endif
-    );
+    const bool success = lld::coff::link(fullArgs, llvm::outs(), llvm::errs(),
+                                         canExitEarly, false);
 
     if (!success)
       error(Loc(), "linking with LLD failed");

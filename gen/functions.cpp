@@ -99,24 +99,12 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   } else {
     Type *rt = f->next;
     const bool byref = f->isref() && rt->toBasetype()->ty != TY::Tvoid;
-#if LDC_LLVM_VER >= 1400
-      llvm::AttrBuilder attrs(getGlobalContext());
-#else
-    llvm::AttrBuilder attrs;
-#endif
+    llvm::AttrBuilder attrs(getGlobalContext());
 
     if (abi->returnInArg(f, fd && fd->needThis())) {
       // sret return
-#if LDC_LLVM_VER >= 1400
       llvm::AttrBuilder sretAttrs(getGlobalContext());
-#else
-      llvm::AttrBuilder sretAttrs;
-#endif
-#if LDC_LLVM_VER >= 1200
       sretAttrs.addStructRetAttr(DtoType(rt));
-#else
-      sretAttrs.addAttribute(LLAttribute::StructRet);
-#endif
       sretAttrs.addAttribute(LLAttribute::NoAlias);
       if (unsigned alignment = DtoAlignment(rt))
         sretAttrs.addAlignmentAttr(alignment);
@@ -133,11 +121,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
 
   if (thistype) {
     // Add the this pointer for member functions
-#if LDC_LLVM_VER >= 1400
     llvm::AttrBuilder attrs(getGlobalContext());
-#else
-    llvm::AttrBuilder attrs;
-#endif
     if (!opts::fNullPointerIsValid)
       attrs.addAttribute(LLAttribute::NonNull);
     if (fd && fd->isCtorDeclaration()) {
@@ -148,11 +132,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     ++nextLLArgIdx;
   } else if (nesttype) {
     // Add the context pointer for nested functions
-#if LDC_LLVM_VER >= 1400
     llvm::AttrBuilder attrs(getGlobalContext());
-#else
-    llvm::AttrBuilder attrs;
-#endif
     if (!opts::fNullPointerIsValid)
       attrs.addAttribute(LLAttribute::NonNull);
     newIrFty.arg_nest = new IrFuncTyArg(nesttype, false, std::move(attrs));
@@ -202,11 +182,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     bool passPointer = arg->storageClass & (STCref | STCout);
 
     Type *loweredDType = arg->type;
-#if LDC_LLVM_VER >= 1400
     llvm::AttrBuilder attrs(getGlobalContext());
-#else
-    llvm::AttrBuilder attrs;
-#endif
     if (arg->storageClass & STClazy) {
       // Lazy arguments are lowered to delegates.
       Logger::println("lazy param");
@@ -229,11 +205,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
         // LLVM ByVal parameters are pointers to a copy in the function
         // parameters stack. The caller needs to provide a pointer to the
         // original argument.
-#if LDC_LLVM_VER >= 1200
         attrs.addByValAttr(DtoType(loweredDType));
-#else
-        attrs.addAttribute(LLAttribute::ByVal);
-#endif
         if (auto alignment = DtoAlignment(loweredDType))
           attrs.addAlignmentAttr(alignment);
         passPointer = true;
@@ -617,7 +589,6 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   if (f->next->toBasetype()->ty == TY::Tnoreturn) {
     func->addFnAttr(LLAttribute::NoReturn);
   }
-#if LDC_LLVM_VER >= 1300
   if (opts::fWarnStackSize.getNumOccurrences() > 0 &&
       opts::fWarnStackSize < UINT_MAX) {
     // Cache the int->string conversion result.
@@ -625,7 +596,6 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
 
     func->addFnAttr("warn-stack-size", thresholdString);
   }
-#endif
 
   applyFuncDeclUDAs(fdecl, irFunc);
 
@@ -838,12 +808,7 @@ void defineParameters(IrFuncTy &irFty, VarDeclarations &parameters) {
       if (irparam->arg->byref) {
         // The argument is an appropriate lvalue passed by reference.
         // Use the passed pointer as parameter storage.
-#if LDC_LLVM_VER >= 1700 // LLVM >= 17 uses opaque pointers, type check boils
-                         // down to pointer check only.
         assert(irparam->value->getType()->isPointerTy());
-#else
-        assert(irparam->value->getType() == DtoPtrToType(paramType));
-#endif
       } else {
         // Let the ABI transform the parameter back to an lvalue.
         irparam->value =
@@ -1174,11 +1139,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   // function attributes
   if (gABI->needsUnwindTables()) {
-#if LDC_LLVM_VER >= 1500
     func->setUWTableKind(llvm::UWTableKind::Default);
-#else
-    func->addFnAttr(LLAttribute::UWTable);
-#endif
   }
   if (opts::isAnySanitizerEnabled() &&
       !opts::functionIsInSanitizerBlacklist(fd)) {

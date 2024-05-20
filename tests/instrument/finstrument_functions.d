@@ -2,9 +2,9 @@
 
 void fun0 () {
   // CHECK-LABEL: define{{.*}} @{{.*}}4fun0FZv
-  // CHECK: [[RET1:%[0-9]]] = call {{i8\*|ptr}} @llvm.returnaddress(i32 0)
+  // CHECK: [[RET1:%[0-9]]] = call ptr @llvm.returnaddress(i32 0)
   // CHECK: call void @__cyg_profile_func_enter{{.*}}4fun0FZv{{.*}}[[RET1]]
-  // CHECK: [[RET2:%[0-9]]] = call {{i8\*|ptr}} @llvm.returnaddress(i32 0)
+  // CHECK: [[RET2:%[0-9]]] = call ptr @llvm.returnaddress(i32 0)
   // CHECK: call void @__cyg_profile_func_exit{{.*}}4fun0FZv{{.*}}[[RET2]]
   // CHECK-NEXT: ret
   return;

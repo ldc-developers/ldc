@@ -111,12 +111,7 @@ FileName runCPreprocessor(FileName csrcfile, const Loc &loc,
     args.push_back("/nologo");
     args.push_back("/P"); // preprocess only
 
-    const bool isClangCl = llvm::StringRef(cc)
-#if LDC_LLVM_VER >= 1300
-                               .contains_insensitive("clang-cl");
-#else
-                               .contains_lower("clang-cl");
-#endif
+    const bool isClangCl = llvm::StringRef(cc).contains_insensitive("clang-cl");
 
     if (!isClangCl) {
       args.push_back("/PD");              // print all macro definitions

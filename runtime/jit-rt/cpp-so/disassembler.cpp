@@ -32,11 +32,7 @@
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/Error.h"
-#if LDC_LLVM_VER >= 1400
 #include "llvm/MC/TargetRegistry.h"
-#else
-#include "llvm/Support/TargetRegistry.h"
-#endif
 #include "llvm/Target/TargetMachine.h"
 
 namespace {

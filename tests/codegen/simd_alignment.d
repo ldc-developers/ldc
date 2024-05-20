@@ -20,7 +20,7 @@ S17237 globalStruct;
 // CHECK-LABEL: define <8 x i32> @foo(
 extern(C) int8 foo(S17237* s)
 {
-    // CHECK: %[[GEP:[0-9]]] = getelementptr {{.*}}S17237{{\*|, ptr}} %s_arg
-    // CHECK: = load <8 x i32>, {{<8 x i32>\*|ptr}} %[[GEP]], align 32
+    // CHECK: %[[GEP:[0-9]]] = getelementptr {{.*}}S17237, ptr %s_arg
+    // CHECK: = load <8 x i32>, ptr %[[GEP]], align 32
     return s.c;
 }

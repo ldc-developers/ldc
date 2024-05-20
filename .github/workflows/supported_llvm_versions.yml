@@ -15,11 +15,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - job_name: Ubuntu 20.04, LDC-LLVM 18, latest LDC beta
+          - job_name: Ubuntu 20.04, LDC-LLVM 18, bootstrap LDC
             os: ubuntu-20.04
-            host_dc: ldc-beta
+            host_dc: ldc-1.19.0
             # FIXME: no usable official package available yet
             llvm_version: https://github.com/ldc-developers/llvm-project/releases/download/ldc-v18.1.5/llvm-18.1.5-linux-x86_64.tar.xz
+            cmake_flags: -DRT_SUPPORT_SANITIZERS=ON
           - job_name: macOS 14, LLVM 17, latest LDC beta
             os: macos-14
             host_dc: ldc-beta
@@ -30,30 +31,11 @@ jobs:
             host_dc: ldc-beta
             llvm_version: 16.0.5
             cmake_flags: -DBUILD_SHARED_LIBS=OFF -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DCMAKE_EXE_LINKER_FLAGS=-L/opt/homebrew/opt/zstd/lib
-          - job_name: Ubuntu 20.04, LLVM 15, latest LDC beta
+          - job_name: Ubuntu 20.04, LLVM 15, latest DMD beta
             os: ubuntu-20.04
-            host_dc: ldc-beta
+            host_dc: dmd-beta
             llvm_version: 15.0.6
-          - job_name: macOS 11, LLVM 14, latest DMD beta
-            os: macos-11
-            host_dc: dmd-beta
-            llvm_version: 14.0.6
-            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON -DCMAKE_CXX_COMPILER=/usr/bin/c++ -DCMAKE_C_COMPILER=/usr/bin/cc
-          - job_name: Ubuntu 20.04, LLVM 13, latest LDC beta
-            os: ubuntu-20.04
-            host_dc: ldc-beta
-            llvm_version: 13.0.1
-            cmake_flags: -DRT_SUPPORT_SANITIZERS=ON
-          - job_name: Ubuntu 20.04, LLVM 12, bootstrap LDC
-            os: ubuntu-20.04
-            host_dc: ldc-1.19.0
-            llvm_version: 12.0.1
-            cmake_flags: -DBUILD_SHARED_LIBS=ON -DLIB_SUFFIX=64
-          - job_name: Ubuntu 20.04, LLVM 11, latest DMD beta
-            os: ubuntu-20.04
-            host_dc: dmd-beta
-            llvm_version: 11.1.0
-            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DRT_SUPPORT_SANITIZERS=ON -DLDC_LINK_MANUALLY=ON
+            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLIB_SUFFIX=64 -DLDC_LINK_MANUALLY=ON
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
     env:
@@ -116,10 +98,8 @@ jobs:
               fi
             elif [[ "$version" =~ ^1[7-9]\. ]]; then
               suffix='x86_64-linux-gnu-ubuntu-22.04' # LLVM 17+
-            elif [[ "$version" =~ ^1[3-6]\. ]]; then
-              suffix='x86_64-linux-gnu-ubuntu-18.04' # LLVM 13.0.1+
             else
-              suffix='x86_64-linux-gnu-ubuntu-16.04'
+              suffix='x86_64-linux-gnu-ubuntu-18.04' # LLVM 14+
             fi
 
             url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-$suffix.tar.xz"
@@ -136,7 +116,7 @@ jobs:
           fi
 
       - name: 'Linux: Make lld the default linker'
-        if: runner.os == 'Linux' && matrix.host_dc != 'ldc-1.9.0'
+        if: runner.os == 'Linux'
         run: |
           set -eux
           echo "Using lld to work around sporadic failures"
@@ -161,8 +141,8 @@ jobs:
         if: success() || failure()
         run: |
           set -eux
-          # LLVM 14+ on Linux: don't use vanilla llvm-symbolizer (no support for zlib-compressed debug sections => failing ASan tests)
-          if [[ '${{ runner.os }}' == 'Linux' && ! '${{ matrix.llvm_version }}' =~ ^1[1-3]\. ]]; then
+          # Linux: don't use vanilla llvm-symbolizer (no support for zlib-compressed debug sections => failing ASan tests)
+          if [[ '${{ runner.os }}' == 'Linux' ]]; then
             mv llvm/bin/llvm-symbolizer llvm/bin/llvm-symbolizer.bak
           fi
           ctest -V -R "lit-tests"

@@ -45,7 +45,7 @@ void bar(int a, int b)
         case 10:
             while (b) {
             L2:
-                // CHECK: store i32 10, {{i32\*|ptr}} %c
+                // CHECK: store i32 10, ptr %c
                 c = 10;
             }
         default: assert(0);
@@ -67,7 +67,7 @@ void without_goto(int a, int b)
         case 10:
             while (b) {
             L2:
-                // CHECK: store i32 10, {{i32\*|ptr}} %c
+                // CHECK: store i32 10, ptr %c
                 c = 10;
             }
         default: assert(0);
@@ -96,7 +96,7 @@ void fourth(int a, int b, int c)
             L3:
             foreach (i; 0..b)
             {
-                // CHECK: store i32 10, {{i32\*|ptr}} %d
+                // CHECK: store i32 10, ptr %d
                 d = 10;
             }
         }
@@ -112,11 +112,11 @@ void fourth(int a, int b, int c)
 void case_as_label(int a, int b)
 {
     // Note the `CHECK-NOT` trickery.
-    // CHECK-NOT: store i32 2, {{i32\*|ptr}} %c
-    // CHECK: store i32 3, {{i32\*|ptr}} %c
-    // CHECK-NOT: store i32 2, {{i32\*|ptr}} %c
-    // CHECK: store i32 4, {{i32\*|ptr}} %c
-    // CHECK-NOT: store i32 2, {{i32\*|ptr}} %c
+    // CHECK-NOT: store i32 2, ptr %c
+    // CHECK: store i32 3, ptr %c
+    // CHECK-NOT: store i32 2, ptr %c
+    // CHECK: store i32 4, ptr %c
+    // CHECK-NOT: store i32 2, ptr %c
     int c;
     switch (a) {
     case 1:
@@ -145,8 +145,8 @@ void case_as_label(int a, int b)
 // CHECK-LABEL: @case_as_label2
 void case_as_label2(int a, int b)
 {
-    // CHECK: store i32 2, {{i32\*|ptr}} %c
-    // CHECK: store i32 3, {{i32\*|ptr}} %c
+    // CHECK: store i32 2, ptr %c
+    // CHECK: store i32 3, ptr %c
     int c;
     final switch (a) {
         // Can't elide

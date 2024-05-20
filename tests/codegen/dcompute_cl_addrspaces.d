@@ -4,9 +4,9 @@
 // UNSUPPORTED: atleast_llvm1800 && atmost_llvm1809
 
 // REQUIRES: target_SPIRV && atleast_llvm1600
-// RUN: %ldc -c -opaque-pointers -mdcompute-targets=ocl-220 -m64 -mdcompute-file-prefix=addrspace_new -output-ll -output-o %s && FileCheck %s --check-prefix=LL < addrspace_new_ocl220_64.ll \
+// RUN: %ldc -c -mdcompute-targets=ocl-220 -m64 -mdcompute-file-prefix=addrspace_new -output-ll -output-o %s && FileCheck %s --check-prefix=LL < addrspace_new_ocl220_64.ll \
 // RUN: && %llc addrspace_new_ocl220_64.ll -mtriple=spirv64-unknown-unknown -O0 -o - | FileCheck %s --check-prefix=SPT
-@compute(CompileFor.deviceOnly) module dcompute_cl_addrspaces_new;
+@compute(CompileFor.deviceOnly) module dcompute_cl_addrspaces;
 import ldc.dcompute;
 
 // LL: %"ldc.dcompute.Pointer!(AddrSpace.Private, float).Pointer" = type { ptr }

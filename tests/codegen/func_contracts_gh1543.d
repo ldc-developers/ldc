@@ -27,19 +27,19 @@ class Bar
 // Bar.failMe codegen order = function, in-contract __require function, out-contract __ensure function
 
 // CHECK-LABEL: define {{.*}} @{{.*}}Bar6failMe
-// CHECK-SAME: {{i32\*|ptr}} dereferenceable(4) %some
-// CHECK: store i32 0, {{i32\*|ptr}} %some
+// CHECK-SAME: ptr dereferenceable(4) %some
+// CHECK: store i32 0, ptr %some
 // CHECK: call {{.*}} @{{.*}}Bar6failMeMFJiZ9__require
 // CHECK: call {{.*}} @{{.*}}Bar6failMeMFJiZ8__ensure
 // CHECK: }
 
 // CHECK-LABEL: define {{.*}} @{{.*}}Bar6failMeMFJiZ9__require
-// CHECK-SAME: {{i32\*|ptr}} dereferenceable(4) %some
+// CHECK-SAME: ptr dereferenceable(4) %some
 // CHECK-NOT: store {{.*}} %some
 // CHECK: }
 
 // CHECK-LABEL: define {{.*}} @{{.*}}Bar6failMeMFJiZ8__ensure
-// CHECK-SAME: {{i32\*|ptr}} dereferenceable(4) %some
+// CHECK-SAME: ptr dereferenceable(4) %some
 // CHECK-NOT: store {{.*}} %some
 // CHECK: }
 

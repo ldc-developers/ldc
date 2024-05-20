@@ -43,11 +43,7 @@ Optional<CodeModel::Model> getCodeModel() {
   return codegen::getExplicitCodeModel();
 }
 
-#if LDC_LLVM_VER >= 1300
 using FPK = llvm::FramePointerKind;
-#else
-using FPK = llvm::FramePointer::FP;
-#endif
 
 llvm::Optional<FPK> framePointerUsage() {
   // Defaults to `FP::None`; no way to check if set explicitly by user except
@@ -67,11 +63,7 @@ bool printTargetFeaturesHelp() {
 }
 
 TargetOptions InitTargetOptionsFromCodeGenFlags(const llvm::Triple &triple) {
-#if LDC_LLVM_VER >= 1200
   return codegen::InitTargetOptionsFromCodeGenFlags(triple);
-#else
-  return codegen::InitTargetOptionsFromCodeGenFlags();
-#endif
 }
 
 std::string getCPUStr() {

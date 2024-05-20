@@ -7,7 +7,7 @@ void foo()
 {
     // M64: %1 = getelementptr inbounds i8,{{.*}}_D6gh28653fooFZv{{.*}}, i64 -10
     // M32: %1 = getelementptr inbounds i8,{{.*}}_D6gh28653fooFZv{{.*}}, i32 -10
-    // M64-NEXT: %2 = ptrtoint {{i8\*|ptr}} %1 to i64
-    // M32-NEXT: %2 = ptrtoint {{i8\*|ptr}} %1 to i32
+    // M64-NEXT: %2 = ptrtoint ptr %1 to i64
+    // M32-NEXT: %2 = ptrtoint ptr %1 to i32
     auto addr = (cast(size_t) &foo) - 10;
 }

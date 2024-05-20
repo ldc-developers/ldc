@@ -2,19 +2,13 @@
 
 import ldc.llvmasm;
 import ldc.intrinsics;
-version (LDC_LLVM_OpaquePointers)
-{
-  alias __irEx!("", "store i32 %1, ptr %0, !nontemporal !0", "!0 = !{i32 1}", void, int*, int) nontemporalStore;
-  alias __irEx!("!0 = !{i32 1}", "%i = load i32, ptr %0, !nontemporal !0\nret i32 %i", "", int, const int*) nontemporalLoad;
-}
-else
-{
-  alias __irEx!("", "store i32 %1, i32* %0, !nontemporal !0", "!0 = !{i32 1}", void, int*, int) nontemporalStore;
-  alias __irEx!("!0 = !{i32 1}", "%i = load i32, i32* %0, !nontemporal !0\nret i32 %i", "", int, const int*) nontemporalLoad;
-}
+
+alias __irEx!("", "store i32 %1, ptr %0, !nontemporal !0", "!0 = !{i32 1}", void, int*, int) nontemporalStore;
+alias __irEx!("!0 = !{i32 1}", "%i = load i32, ptr %0, !nontemporal !0\nret i32 %i", "", int, const int*) nontemporalLoad;
+
 int foo(const int* src)
 {
-  // CHECK: %{{.*}} = load i32, {{i32\*|ptr}} {{.*}} !nontemporal ![[METADATA:[0-9]+]]
+  // CHECK: %{{.*}} = load i32, ptr {{.*}} !nontemporal ![[METADATA:[0-9]+]]
   return nontemporalLoad(src);
 }
 
