@@ -31,7 +31,7 @@ static LLConstant *to_keyti(const Loc &loc, DValue *aa) {
   // keyti param
   assert(aa->type->toBasetype()->ty == TY::Taarray);
   TypeAArray *aatype = static_cast<TypeAArray *>(aa->type->toBasetype());
-  return DtoTypeInfoOf(loc, aatype->index, /*base=*/false);
+  return DtoTypeInfoOf(loc, aatype->index);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -61,7 +61,7 @@ DLValue *DtoAAIndex(const Loc &loc, Type *type, DValue *aa, DValue *key,
   LLValue *ret;
   if (lvalue) {
     auto t = mutableOf(unSharedOf(aa->type));
-    LLValue *aati = DtoTypeInfoOf(loc, t, /*base=*/false);
+    LLValue *aati = DtoTypeInfoOf(loc, t);
     LLValue *valsize = DtoConstSize_t(getTypeAllocSize(DtoType(type)));
     ret = gIR->CreateCallOrInvoke(func, aaval, aati, valsize, pkey,
                                   "aa.index");

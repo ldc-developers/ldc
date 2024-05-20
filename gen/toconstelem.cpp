@@ -79,7 +79,7 @@ public:
     }
 
     if (TypeInfoDeclaration *ti = e->var->isTypeInfoDeclaration()) {
-      result = DtoTypeInfoOf(e->loc, ti->tinfo, /*base=*/false);
+      result = DtoTypeInfoOf(e->loc, ti->tinfo);
       return;
     }
 
@@ -715,7 +715,7 @@ public:
       return;
     }
 
-    result = DtoTypeInfoOf(e->loc, t, /*base=*/false);
+    result = DtoTypeInfoOf(e->loc, t);
   }
 
   //////////////////////////////////////////////////////////////////////////////

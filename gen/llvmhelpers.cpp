@@ -1209,16 +1209,12 @@ LLConstant *DtoConstExpInit(const Loc &loc, Type *targetType, Expression *exp) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLConstant *DtoTypeInfoOf(const Loc &loc, Type *type, bool base) {
-  IF_LOG Logger::println("DtoTypeInfoOf(type = '%s', base='%d')",
-                         type->toChars(), base);
+LLConstant *DtoTypeInfoOf(const Loc &loc, Type *type) {
+  IF_LOG Logger::println("DtoTypeInfoOf(type = '%s')", type->toChars());
   LOG_SCOPE
 
   auto tidecl = getOrCreateTypeInfoDeclaration(loc, type);
   auto tiglobal = DtoResolveTypeInfo(tidecl);
-  if (base) {
-    return llvm::ConstantExpr::getBitCast(tiglobal, DtoType(getTypeInfoType()));
-  }
   return tiglobal;
 }
 

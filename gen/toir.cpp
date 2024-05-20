@@ -1607,8 +1607,7 @@ public:
     // new AA
     else if (auto taa = ntype->isTypeAArray()) {
       LLFunction *func = getRuntimeFunction(e->loc, gIR->module, "_aaNew");
-      LLValue *aaTypeInfo =
-          DtoTypeInfoOf(e->loc, stripModifiers(taa), /*base=*/false);
+      LLValue *aaTypeInfo = DtoTypeInfoOf(e->loc, stripModifiers(taa));
       LLValue *aa = gIR->CreateCallOrInvoke(func, aaTypeInfo, "aa");
       result = new DImValue(e->type, aa);
     }
@@ -2524,8 +2523,7 @@ public:
       llvm::Function *func =
           getRuntimeFunction(e->loc, gIR->module, "_d_assocarrayliteralTX");
       LLFunctionType *funcTy = func->getFunctionType();
-      LLValue *aaTypeInfo =
-          DtoTypeInfoOf(e->loc, stripModifiers(aatype), /*base=*/false);
+      LLValue *aaTypeInfo = DtoTypeInfoOf(e->loc, stripModifiers(aatype));
 
       LLConstant *initval = arrayConst(keysInits, indexType);
       LLConstant *globalstore = new LLGlobalVariable(
