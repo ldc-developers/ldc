@@ -25,8 +25,6 @@ version (DRuntime_Use_Libunwind):
 
 import core.internal.backtrace.dwarf;
 import core.internal.backtrace.libunwind;
-import core.stdc.string;
-import core.sys.posix.dlfcn;
 
 /// Ditto
 class LibunwindHandler : Throwable.TraceInfo
@@ -50,11 +48,6 @@ class LibunwindHandler : Throwable.TraceInfo
      */
     public this (size_t frames_to_skip = 1) nothrow @nogc
     {
-        import core.stdc.string : strlen;
-
-        static assert(typeof(FrameInfo.address).sizeof == unw_word_t.sizeof,
-                      "Mismatch in type size for call to unw_get_proc_name");
-
         unw_context_t context;
         unw_cursor_t cursor;
         unw_getcontext(&context);
@@ -63,11 +56,17 @@ class LibunwindHandler : Throwable.TraceInfo
         while (frames_to_skip > 0 && unw_step(&cursor) > 0)
             --frames_to_skip;
 
-        unw_proc_info_t pip = void;
+        // it may not be 1 but it is good enough to get
+        // in CALL instruction address range for backtrace
+        enum CALL_INSTRUCTION_SIZE = 1;
+
+        unw_word_t ip;
         foreach (idx, ref frame; this.callstack)
         {
-            if (unw_get_proc_info(&cursor, &pip) == 0)
-                frame.address += pip.start_ip;
+            if (unw_get_reg(&cursor, UNW_REG_IP, &ip) == 0)
+                // IP is pointing to the instruction _after_ the call instruction,
+                // adjust the frame address to point to the caller.
+                frame.address = cast(void*) ip - CALL_INSTRUCTION_SIZE;
 
             this.numframes++;
             if (unw_step(&cursor) <= 0)
@@ -91,8 +90,12 @@ class LibunwindHandler : Throwable.TraceInfo
         // printed related to the file. We just print the file.
         static const(char)[] getFrameName (const(void)* ptr)
         {
+            import core.sys.posix.dlfcn;
+            import core.stdc.string;
+
             Dl_info info = void;
             // Note: See the module documentation about `-L--export-dynamic`
+            // TODO: Rewrite using libunwind's unw_get_proc_name
             if (dladdr(ptr, &info))
             {
                 // Return symbol name if possible
