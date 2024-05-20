@@ -186,8 +186,6 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
 // .minfo (COFF & MachO) / __minfo section.
 void emitModuleRefToSection(std::string moduleMangle,
                             llvm::Constant *thisModuleInfo) {
-  const auto moduleInfoPtrTy = DtoPtrToType(getModuleInfoType());
-
   const auto &triple = *global.params.targetTriple;
   const auto sectionName =
       triple.isOSBinFormatCOFF()

@@ -400,7 +400,6 @@ LLConstant *IrClass::getClassInfoInit() {
 
   // void function(Object) classInvariant
   assert(!isInterface || !cd->inv);
-  VarDeclaration *invVar = cinfo->fields[6];
   b.push_funcptr(cd->inv);
 
   // ClassFlags m_flags
@@ -423,7 +422,6 @@ LLConstant *IrClass::getClassInfoInit() {
   b.push_null(offTiVar->type);
 
   // void function(Object) defaultConstructor
-  VarDeclaration *defConstructorVar = cinfo->fields[11];
   CtorDeclaration *defConstructor = cd->defaultCtor;
   if (defConstructor && (defConstructor->storage_class & STCdisable)) {
     defConstructor = nullptr;

@@ -507,11 +507,6 @@ public:
 
     // extract D types
     Type *bt = e->type->toBasetype();
-    Type *elemt = bt->nextOf();
-
-    // build llvm array type
-    LLArrayType *arrtype =
-        LLArrayType::get(DtoMemType(elemt), e->elements->length);
 
     // dynamic arrays can occur here as well ...
     bool dyn = (bt->ty != TY::Tsarray);

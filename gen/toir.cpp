@@ -1947,7 +1947,6 @@ public:
     }
 
     assert(e->type->toBasetype()->ty == TY::Tdelegate);
-    LLType *dgty = DtoType(e->type);
 
     DValue *u = toElem(e->e1);
     LLValue *contextptr;
@@ -2521,7 +2520,6 @@ public:
 
       llvm::Function *func =
           getRuntimeFunction(e->loc, gIR->module, "_d_assocarrayliteralTX");
-      LLFunctionType *funcTy = func->getFunctionType();
       LLValue *aaTypeInfo = DtoTypeInfoOf(e->loc, stripModifiers(aatype));
 
       LLConstant *initval = arrayConst(keysInits, indexType);

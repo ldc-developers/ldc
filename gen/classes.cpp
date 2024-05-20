@@ -375,7 +375,6 @@ DValue *DtoDynamicCastInterface(const Loc &loc, DValue *val, Type *_to) {
 
   llvm::Function *func =
       getRuntimeFunction(loc, gIR->module, "_d_interface_cast");
-  LLFunctionType *funcTy = func->getFunctionType();
 
   resolveObjectAndClassInfoClasses();
 

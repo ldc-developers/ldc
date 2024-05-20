@@ -243,24 +243,6 @@ static LLValue *getTypeinfoArrayArgumentForDVarArg(Expressions *argexps,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static LLType *getPtrToAtomicType(LLType *type) {
-  switch (const size_t N = getTypeBitSize(type)) {
-  case 8:
-  case 16:
-  case 32:
-  case 64:
-  case 128:
-#if LDC_LLVM_VER < 1800
-    return LLType::getIntNPtrTy(gIR->context(), static_cast<unsigned>(N));
-#else
-    return LLType::getIntNTy(gIR->context(), static_cast<unsigned>(N))
-        ->getPointerTo();
-#endif
-  default:
-    return nullptr;
-  }
-}
-
 static LLType *getAtomicType(LLType *type) {
   switch (const size_t N = getTypeBitSize(type)) {
   case 8:
@@ -399,8 +381,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     LLValue *val = nullptr;
     if (pointeeType->isIntegerTy()) {
       val = DtoRVal(dval);
-    } else if (auto intPtrType = getPtrToAtomicType(pointeeType)) {
-      LLType *atype = getAtomicType(pointeeType);
+    } else if (auto atype = getAtomicType(pointeeType)) {
       auto lval = makeLValue(exp1->loc, dval);
       val = DtoLoad(atype, lval);
     } else {
@@ -434,8 +415,8 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     Type *retType = exp->type->nextOf();
 
     if (!pointeeType->isIntegerTy()) {
-      if (auto intPtrType = getPtrToAtomicType(pointeeType)) {
-        loadedType = getAtomicType(pointeeType);
+      if (auto atype = getAtomicType(pointeeType)) {
+        loadedType = atype;
       } else {
         error(e->loc,
               "atomic load only supports types of size 1/2/4/8/16 bytes, "
@@ -489,8 +470,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     if (pointeeType->isIntegerTy()) {
       cmp = DtoRVal(dcmp);
       val = DtoRVal(dval);
-    } else if (auto intPtrType = getPtrToAtomicType(pointeeType)) {
-      LLType *atype = getAtomicType(pointeeType);
+    } else if (auto atype = getAtomicType(pointeeType)) {
       auto cmpLVal = makeLValue(exp2->loc, dcmp);
       cmp = DtoLoad(atype, cmpLVal);
       auto lval = makeLValue(exp3->loc, dval);
@@ -731,7 +711,6 @@ private:
       return;
 
     size_t index = args.size();
-    LLType *llArgType = *(llArgTypesBegin + index);
 
     if (dfnval && (dfnval->func->ident == Id::ensure ||
                    dfnval->func->ident == Id::require)) {

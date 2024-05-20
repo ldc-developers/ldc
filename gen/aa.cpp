@@ -48,7 +48,6 @@ DLValue *DtoAAIndex(const Loc &loc, Type *type, DValue *aa, DValue *key,
   // first get the runtime function
   llvm::Function *func =
       getRuntimeFunction(loc, gIR->module, lvalue ? "_aaGetY" : "_aaInX");
-  LLFunctionType *funcTy = func->getFunctionType();
 
   // aa param
   LLValue *aaval = lvalue ? DtoLVal(aa) : DtoRVal(aa);
@@ -105,7 +104,6 @@ DValue *DtoAAIn(const Loc &loc, Type *type, DValue *aa, DValue *key) {
 
   // first get the runtime function
   llvm::Function *func = getRuntimeFunction(loc, gIR->module, "_aaInX");
-  LLFunctionType *funcTy = func->getFunctionType();
 
   IF_LOG Logger::cout() << "_aaIn = " << *func << '\n';
 
@@ -141,7 +139,6 @@ DValue *DtoAARemove(const Loc &loc, DValue *aa, DValue *key) {
 
   // first get the runtime function
   llvm::Function *func = getRuntimeFunction(loc, gIR->module, "_aaDelX");
-  LLFunctionType *funcTy = func->getFunctionType();
 
   IF_LOG Logger::cout() << "_aaDel = " << *func << '\n';
 
@@ -171,7 +168,6 @@ LLValue *DtoAAEquals(const Loc &loc, EXP op, DValue *l, DValue *r) {
   assert(t == r->type->toBasetype() &&
          "aa equality is only defined for aas of same type");
   llvm::Function *func = getRuntimeFunction(loc, gIR->module, "_aaEqual");
-  LLFunctionType *funcTy = func->getFunctionType();
 
   LLValue *aaval = DtoRVal(l);
   assert(aaval->getType()->isPointerTy());
