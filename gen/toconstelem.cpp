@@ -180,8 +180,7 @@ public:
     if (t->ty == TY::Tpointer) {
       result = arrptr;
     } else if (t->ty == TY::Tarray) {
-      LLConstant *clen = LLConstantInt::get(DtoSize_t(), e->len, false);
-      result = DtoConstSlice(clen, arrptr, e->type);
+      result = DtoConstSlice(DtoConstSize_t(e->len), arrptr);
     } else {
       llvm_unreachable("Unknown type for StringExp.");
     }

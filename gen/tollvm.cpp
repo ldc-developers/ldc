@@ -509,7 +509,7 @@ LLConstant *DtoConstCString(const char *str) {
 LLConstant *DtoConstString(const char *str) {
   LLConstant *cString = DtoConstCString(str);
   LLConstant *length = DtoConstSize_t(str ? strlen(str) : 0);
-  return DtoConstSlice(length, cString, arrayOf(Type::tchar));
+  return DtoConstSlice(length, cString);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

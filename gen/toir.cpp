@@ -442,8 +442,8 @@ public:
     LLConstant *arrptr = DtoGEP(gvar->getValueType(), gvar, 0u, 0u);
 
     if (dtype->ty == TY::Tarray) {
-      LLConstant *clen = LLConstantInt::get(DtoSize_t(), stringLength, false);
-      result = new DSliceValue(e->type, DtoConstSlice(clen, arrptr, dtype));
+      result = new DSliceValue(
+          e->type, DtoConstSlice(DtoConstSize_t(stringLength), arrptr));
     } else if (dtype->ty == TY::Tsarray) {
       // array length matches string length with or without null terminator
       result = new DLValue(e->type, gvar);

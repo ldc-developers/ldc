@@ -35,8 +35,7 @@ llvm::ArrayType *DtoStaticArrayType(Type *sarrayTy);
 LLConstant *DtoConstArrayInitializer(ArrayInitializer *si, Type *targetType,
                                      const bool isCfile);
 
-LLConstant *DtoConstSlice(LLConstant *dim, LLConstant *ptr,
-                          Type *type = nullptr);
+LLConstant *DtoConstSlice(LLConstant *dim, LLConstant *ptr);
 
 /// Returns the element at position idx of the literal (assumed to be in range).
 Expression *indexArrayLiteral(ArrayLiteralExp *ale, unsigned idx);

@@ -453,7 +453,7 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
     return gvar;
   }
 
-  return DtoConstSlice(DtoConstSize_t(arrlen), gvar, arrty);
+  return DtoConstSlice(DtoConstSize_t(arrlen), gvar);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -618,11 +618,10 @@ void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-LLConstant *DtoConstSlice(LLConstant *dim, LLConstant *ptr, Type *type) {
+LLConstant *DtoConstSlice(LLConstant *dim, LLConstant *ptr) {
   LLConstant *values[2] = {dim, ptr};
   LLStructType *lltype =
-      type ? isaStruct(DtoType(type))
-           : LLConstantStruct::getTypeForElements(gIR->context(), values);
+      LLConstantStruct::getTypeForElements(gIR->context(), values);
   return LLConstantStruct::get(lltype, values);
 }
 

@@ -234,11 +234,8 @@ void addCoverageAnalysis(Module *m) {
     m->d_cover_valid = new llvm::GlobalVariable(
         gIR->module, type, /*isConstant=*/true, LLGlobalValue::InternalLinkage,
         zeroinitializer, "_d_cover_valid");
-    LLConstant *idxs[] = {DtoConstUint(0), DtoConstUint(0)};
-    d_cover_valid_slice =
-        DtoConstSlice(DtoConstSize_t(type->getArrayNumElements()),
-                      llvm::ConstantExpr::getGetElementPtr(
-                          type, m->d_cover_valid, idxs, true));
+    d_cover_valid_slice = DtoConstSlice(
+        DtoConstSize_t(type->getArrayNumElements()), m->d_cover_valid);
 
     // Assert that initializer array elements have enough bits
     assert(sizeof(m->d_cover_valid_init[0]) * 8 >=
@@ -269,9 +266,8 @@ void addCoverageAnalysis(Module *m) {
                                                LLGlobalValue::InternalLinkage,
                                                init, "_d_cover_data");
 
-    d_cover_data_slice = DtoConstSlice(DtoConstSize_t(m->numlines),
-                                       DtoGEP(m->d_cover_data->getValueType(),
-                                              m->d_cover_data, 0, 0));
+    d_cover_data_slice =
+        DtoConstSlice(DtoConstSize_t(m->numlines), m->d_cover_data);
   }
 
   // Create "static constructor" that calls _d_cover_register2(string filename,

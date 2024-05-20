@@ -16,6 +16,7 @@
 #include "dmd/target.h"
 #include "dmd/template.h"
 #include "gen/abi/abi.h"
+#include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/dvalue.h"
 #include "gen/funcgenstate.h"
@@ -237,18 +238,7 @@ static LLValue *getTypeinfoArrayArgumentForDVarArg(Expressions *argexps,
   LLConstant *tiinits = LLConstantArray::get(typeinfoarraytype, vtypeinfos);
   typeinfomem->setInitializer(tiinits);
 
-  // put data in d-array
-  LLConstant *pinits[] = {
-      DtoConstSize_t(numVariadicArgs),
-      llvm::ConstantExpr::getBitCast(typeinfomem, getPtrToType(typeinfotype))};
-  LLType *tiarrty = DtoType(arrayOf(getTypeInfoType()));
-  tiinits = LLConstantStruct::get(isaStruct(tiarrty),
-                                  llvm::ArrayRef<LLConstant *>(pinits));
-  LLValue *typeinfoarrayparam = new llvm::GlobalVariable(
-      gIR->module, tiarrty, true, llvm::GlobalValue::InternalLinkage, tiinits,
-      "._arguments.array");
-
-  return DtoLoad(tiarrty, typeinfoarrayparam);
+  return DtoConstSlice(DtoConstSize_t(numVariadicArgs), typeinfomem);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
