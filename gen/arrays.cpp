@@ -453,10 +453,7 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
     return gvar;
   }
 
-  LLConstant *gep = DtoGEP(gvar->getValueType(), gvar, 0u, 0u);
-  gep = llvm::ConstantExpr::getBitCast(gvar, getPtrToType(llelemty));
-
-  return DtoConstSlice(DtoConstSize_t(arrlen), gep, arrty);
+  return DtoConstSlice(DtoConstSize_t(arrlen), gvar, arrty);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

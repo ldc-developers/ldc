@@ -136,10 +136,8 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
 
   // provide the default initializer
   LLStructType *modulerefTy = DtoModuleReferenceType();
-  LLConstant *mrefvalues[] = {
-      LLConstant::getNullValue(modulerefTy->getContainedType(0)),
-      llvm::ConstantExpr::getBitCast(moduleinfo,
-                                     modulerefTy->getContainedType(1))};
+  LLConstant *mrefvalues[] = {LLConstant::getNullValue(getVoidPtrType()),
+                              moduleinfo};
   LLConstant *thismrefinit = LLConstantStruct::get(
       modulerefTy, llvm::ArrayRef<LLConstant *>(mrefvalues));
 

@@ -1490,11 +1490,7 @@ DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl) {
     // typeinfo
     if (TypeInfoDeclaration *tid = vd->isTypeInfoDeclaration()) {
       Logger::println("TypeInfoDeclaration");
-      LLType *vartype = DtoType(type);
       LLValue *m = DtoResolveTypeInfo(tid);
-      if (m->getType() != getPtrToType(vartype)) {
-        m = gIR->ir->CreateBitCast(m, vartype);
-      }
       return new DImValue(type, m);
     }
     // special vtbl symbol, used by LDC as alias to the actual vtbl (with
