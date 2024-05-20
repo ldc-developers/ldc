@@ -428,7 +428,7 @@ public:
     }
 
     if (auto se = e->e1->isStructLiteralExp()) {
-      result = p->getStructLiteralConstant(se);
+      result = p->getStructLiteralGlobal(se);
       if (result) {
         IF_LOG Logger::cout()
             << "Returning existing global: " << *result << '\n';
@@ -440,12 +440,12 @@ public:
           llvm::GlobalValue::InternalLinkage, nullptr, ".structliteral");
       globalVar->setAlignment(llvm::MaybeAlign(DtoAlignment(se->type)));
 
-      p->setStructLiteralConstant(se, globalVar);
+      p->setStructLiteralGlobal(se, globalVar);
       llvm::Constant *constValue = toConstElem(se, p);
-      constValue = p->setGlobalVarInitializer(globalVar, constValue, nullptr);
-      p->setStructLiteralConstant(se, constValue);
+      globalVar = p->setGlobalVarInitializer(globalVar, constValue, nullptr);
+      p->setStructLiteralGlobal(se, globalVar);
 
-      result = constValue;
+      result = globalVar;
       return;
     }
 
@@ -587,14 +587,14 @@ public:
     DtoResolveClass(origClass);
     StructLiteralExp *value = e->value;
 
-    result = p->getStructLiteralConstant(value);
+    result = p->getStructLiteralGlobal(value);
     if (result) {
       IF_LOG Logger::cout() << "Using existing global: " << *result << '\n';
     } else {
       auto globalVar = new llvm::GlobalVariable(
           p->module, getIrType(origClass->type)->isClass()->getMemoryLLType(),
           false, llvm::GlobalValue::InternalLinkage, nullptr, ".classref");
-      p->setStructLiteralConstant(value, globalVar);
+      p->setStructLiteralGlobal(value, globalVar);
 
       std::map<VarDeclaration *, llvm::Constant *> varInits;
 
@@ -633,10 +633,10 @@ public:
 
       llvm::Constant *constValue =
           getIrAggr(origClass)->createInitializerConstant(varInits);
-      constValue = p->setGlobalVarInitializer(globalVar, constValue, nullptr);
-      p->setStructLiteralConstant(value, constValue);
+      globalVar = p->setGlobalVarInitializer(globalVar, constValue, nullptr);
+      p->setStructLiteralGlobal(value, globalVar);
 
-      result = constValue;
+      result = globalVar;
     }
 
     if (e->type->ty == TY::Tclass) {

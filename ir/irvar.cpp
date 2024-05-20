@@ -139,7 +139,8 @@ void IrGlobal::define() {
   // Set the initializer, swapping out the variable if the types do not
   // match.
   auto gvar = llvm::cast<LLGlobalVariable>(value);
-  value = gIR->setGlobalVarInitializer(gvar, initVal, V);
+  gvar = gIR->setGlobalVarInitializer(gvar, initVal, V);
+  value = gvar;
 
   // dllexport isn't supported for thread-local globals (MSVC++ neither);
   // don't let LLVM create a useless /EXPORT directive (yields the same linker

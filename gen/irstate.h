@@ -117,12 +117,12 @@ private:
       globalsToReplace;
   Array<Loc> inlineAsmLocs; // tracked by GC
 
-  // Cache of (possibly bitcast) global variables for taking the address of
-  // struct literal constants. (Also) used to resolve self-references. Must be
-  // cached per IR module: https://github.com/ldc-developers/ldc/issues/2990
+  // Cache of global variables for taking the address of struct literal
+  // constants. (Also) used to resolve self-references. Must be cached per IR
+  // module: https://github.com/ldc-developers/ldc/issues/2990
   // [The real key type is `StructLiteralExp *`; a fwd class declaration isn't
   // enough to use it directly.]
-  llvm::DenseMap<void *, llvm::Constant *> structLiteralConstants;
+  llvm::DenseMap<void *, llvm::GlobalVariable *> structLiteralGlobals;
 
   // Global variables bound to string literals. Once created such a variable
   // is reused whenever an equivalent string literal is referenced in the
@@ -226,12 +226,11 @@ public:
   // Sets the initializer for a global LL variable.
   // If the types don't match, this entails creating a new helper global
   // matching the initializer type and replacing all existing uses of globalVar
-  // by a bitcast pointer to the helper global's payload.
-  // Returns either the specified globalVar if the types match, or the bitcast
-  // pointer replacing globalVar (and resets globalVar to the new helper
-  // global).
-  llvm::Constant *
-  setGlobalVarInitializer(llvm::GlobalVariable *&globalVar,
+  // by the new helper global.
+  // Returns either the specified globalVar if the types match, or the new
+  // helper global replacing globalVar.
+  llvm::GlobalVariable *
+  setGlobalVarInitializer(llvm::GlobalVariable *globalVar,
                           llvm::Constant *initializer,
                           Dsymbol *symbolForLinkageAndVisibility);
 
@@ -240,9 +239,9 @@ public:
   // setGlobalVarInitializer().
   void replaceGlobals();
 
-  llvm::Constant *getStructLiteralConstant(StructLiteralExp *sle) const;
-  void setStructLiteralConstant(StructLiteralExp *sle,
-                                llvm::Constant *constant);
+  llvm::GlobalVariable *getStructLiteralGlobal(StructLiteralExp *sle) const;
+  void setStructLiteralGlobal(StructLiteralExp *sle,
+                              llvm::GlobalVariable *global);
 
   // Constructs a global variable for a StringExp.
   // Caches the result based on StringExp::peekData() such that any subsequent

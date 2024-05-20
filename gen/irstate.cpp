@@ -132,8 +132,8 @@ bool IRState::emitArrayBoundsChecks() {
   return t->ty == TY::Tfunction && ((TypeFunction *)t)->trust == TRUST::safe;
 }
 
-LLConstant *
-IRState::setGlobalVarInitializer(LLGlobalVariable *&globalVar,
+LLGlobalVariable *
+IRState::setGlobalVarInitializer(LLGlobalVariable *globalVar,
                                  LLConstant *initializer,
                                  Dsymbol *symbolForLinkageAndVisibility) {
   if (initializer->getType() == globalVar->getValueType()) {
@@ -161,9 +161,6 @@ IRState::setGlobalVarInitializer(LLGlobalVariable *&globalVar,
   // Register replacement for later occurrences of the original globalVar.
   globalsToReplace.emplace_back(globalVar, globalHelperVar);
 
-  // Reset globalVar to the helper variable.
-  globalVar = globalHelperVar;
-
   return globalHelperVar;
 }
 
@@ -178,13 +175,13 @@ void IRState::replaceGlobals() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLConstant *IRState::getStructLiteralConstant(StructLiteralExp *sle) const {
-  return static_cast<LLConstant *>(structLiteralConstants.lookup(sle->origin));
+LLGlobalVariable *IRState::getStructLiteralGlobal(StructLiteralExp *sle) const {
+  return structLiteralGlobals.lookup(sle->origin);
 }
 
-void IRState::setStructLiteralConstant(StructLiteralExp *sle,
-                                       LLConstant *constant) {
-  structLiteralConstants[sle->origin] = constant;
+void IRState::setStructLiteralGlobal(StructLiteralExp *sle,
+                                     LLGlobalVariable *global) {
+  structLiteralGlobals[sle->origin] = global;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
