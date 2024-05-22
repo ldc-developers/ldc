@@ -369,7 +369,8 @@ static const char *getCAssertFunctionName() {
     return "_assert";
   } else if (triple.isOSSolaris()) {
     return "__assert_c99";
-  } else if (triple.isMusl()) {
+    /* https://github.com/llvm/llvm-project/blob/main/llvm/include/llvm/TargetParser/Triple.h */
+  } else if (triple.isMusl() || (triple.isOSGlibc() && triple.isGNUEnvironment())) {
     return "__assert_fail";
   } else if (global.params.isNewlibEnvironment) {
     return "__assert_func";
@@ -383,7 +384,7 @@ static std::vector<PotentiallyLazyType> getCAssertFunctionParamTypes() {
   const auto uint = Type::tuns32;
 
   if (triple.isOSDarwin() || triple.isOSSolaris() || triple.isMusl() ||
-      global.params.isUClibcEnvironment) {
+      global.params.isUClibcEnvironment || (triple.isOSGlibc() && triple.isGNUEnvironment())) {
     return {voidPtr, voidPtr, uint, voidPtr};
   }
   if (triple.getEnvironment() == llvm::Triple::Android) {
