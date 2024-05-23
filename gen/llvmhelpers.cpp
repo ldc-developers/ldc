@@ -301,7 +301,7 @@ void DtoCAssert(Module *M, const Loc &loc, LLValue *msg) {
     args.push_back(msg);
   } else if (triple.isOSSolaris() || triple.isMusl() ||
              global.params.isUClibcEnvironment ||
-             (triple.isOSGlibc() && triple.isGNUEnvironment())) {
+             triple.isGNUEnvironment()) {
     const auto irFunc = gIR->func();
     const auto funcName =
         (irFunc && irFunc->decl) ? irFunc->decl->toPrettyChars() : "";

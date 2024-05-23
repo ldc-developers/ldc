@@ -355,6 +355,8 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
 //                            const char *funcname);
 // Musl:    void __assert_fail(const char *assertion, const char *filename, int line_num,
 //                             const char *funcname);
+// Glibc:   void __assert_fail(const char *assertion, const char *filename, int line_num,
+//                             const char *funcname);
 // uClibc:  void __assert(const char *assertion, const char *filename, int linenumber,
 //                        const char *function);
 // newlib:  void __assert_func(const char *file, int line, const char *func,
@@ -369,8 +371,7 @@ static const char *getCAssertFunctionName() {
     return "_assert";
   } else if (triple.isOSSolaris()) {
     return "__assert_c99";
-    /* https://github.com/llvm/llvm-project/blob/main/llvm/include/llvm/TargetParser/Triple.h */
-  } else if (triple.isMusl() || (triple.isOSGlibc() && triple.isGNUEnvironment())) {
+  } else if (triple.isMusl() || triple.isGNUEnvironment()) {
     return "__assert_fail";
   } else if (global.params.isNewlibEnvironment) {
     return "__assert_func";
