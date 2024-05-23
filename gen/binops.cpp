@@ -96,7 +96,6 @@ DValue *emitPointerOffset(Loc loc, DValue *base, Expression *offset,
         llOffset = DtoConstSize_t(byteOffset / pointeeSize);
       } else { // need to cast base to i8*
         llBaseTy = getI8Type();
-        llBase = DtoBitCast(llBase, getVoidPtrType());
         llOffset = DtoConstSize_t(byteOffset);
       }
     }
@@ -109,7 +108,6 @@ DValue *emitPointerOffset(Loc loc, DValue *base, Expression *offset,
     llOffset = DtoRVal(rvals.rhs);
     if (!noStrideInc) { // byte offset => cast base to i8*
       llBaseTy = getI8Type();
-      llBase = DtoBitCast(llBase, getVoidPtrType());
     }
   }
 
@@ -119,7 +117,7 @@ DValue *emitPointerOffset(Loc loc, DValue *base, Expression *offset,
     llResult = DtoGEP1(llBaseTy, llBase, llOffset);
   }
 
-  return new DImValue(resultType, DtoBitCast(llResult, DtoType(resultType)));
+  return new DImValue(resultType, llResult);
 }
 
 // LDC issue #2537 / DMD issue #18317: associative arrays can be

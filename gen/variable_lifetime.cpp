@@ -51,7 +51,6 @@ void LocalVariableLifetimeAnnotator::addLocalVariable(llvm::Value *address,
   scopes.back().variables.emplace_back(size, address);
 
   // Emit lifetime start
-  address = irs.ir->CreateBitCast(address, allocaType);
   irs.CreateCallOrInvoke(getLLVMLifetimeStartFn(), {size, address}, "",
                          true /*nothrow*/);
 }
@@ -65,7 +64,6 @@ void LocalVariableLifetimeAnnotator::popScope() {
     auto size = var.first;
     auto address = var.second;
 
-    address = irs.ir->CreateBitCast(address, allocaType);
     assert(address);
 
     irs.CreateCallOrInvoke(getLLVMLifetimeEndFn(), {size, address}, "",

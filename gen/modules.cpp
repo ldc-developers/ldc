@@ -136,10 +136,8 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
 
   // provide the default initializer
   LLStructType *modulerefTy = DtoModuleReferenceType();
-  LLConstant *mrefvalues[] = {
-      LLConstant::getNullValue(modulerefTy->getContainedType(0)),
-      llvm::ConstantExpr::getBitCast(moduleinfo,
-                                     modulerefTy->getContainedType(1))};
+  LLConstant *mrefvalues[] = {LLConstant::getNullValue(getVoidPtrType()),
+                              moduleinfo};
   LLConstant *thismrefinit = LLConstantStruct::get(
       modulerefTy, llvm::ArrayRef<LLConstant *>(mrefvalues));
 
@@ -151,13 +149,12 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
   // make sure _Dmodule_ref is declared
   const auto mrefIRMangle = getIRMangledVarName("_Dmodule_ref", LINK::c);
   LLConstant *mref = gIR->module.getNamedGlobal(mrefIRMangle);
-  LLType *modulerefPtrTy = getPtrToType(modulerefTy);
+  LLType *modulerefPtrTy = getVoidPtrType();
   if (!mref) {
     mref =
         declareGlobal(Loc(), gIR->module, modulerefPtrTy, mrefIRMangle, false,
                       false, global.params.dllimport != DLLImport::none);
   }
-  mref = DtoBitCast(mref, getPtrToType(modulerefPtrTy));
 
   // make the function insert this moduleinfo as the beginning of the
   // _Dmodule_ref linked list
@@ -189,8 +186,6 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
 // .minfo (COFF & MachO) / __minfo section.
 void emitModuleRefToSection(std::string moduleMangle,
                             llvm::Constant *thisModuleInfo) {
-  const auto moduleInfoPtrTy = DtoPtrToType(getModuleInfoType());
-
   const auto &triple = *global.params.targetTriple;
   const auto sectionName =
       triple.isOSBinFormatCOFF()
@@ -199,9 +194,9 @@ void emitModuleRefToSection(std::string moduleMangle,
 
   const auto thismrefIRMangle =
       getIRMangledModuleRefSymbolName(moduleMangle.c_str());
-  auto thismref = defineGlobal(Loc(), gIR->module, thismrefIRMangle,
-                               DtoBitCast(thisModuleInfo, moduleInfoPtrTy),
-                               LLGlobalValue::LinkOnceODRLinkage, false, false);
+  auto thismref =
+      defineGlobal(Loc(), gIR->module, thismrefIRMangle, thisModuleInfo,
+                   LLGlobalValue::LinkOnceODRLinkage, false, false);
   thismref->setVisibility(LLGlobalValue::HiddenVisibility);
   thismref->setSection(sectionName);
   gIR->usedArray.push_back(thismref);
@@ -237,11 +232,8 @@ void addCoverageAnalysis(Module *m) {
     m->d_cover_valid = new llvm::GlobalVariable(
         gIR->module, type, /*isConstant=*/true, LLGlobalValue::InternalLinkage,
         zeroinitializer, "_d_cover_valid");
-    LLConstant *idxs[] = {DtoConstUint(0), DtoConstUint(0)};
-    d_cover_valid_slice =
-        DtoConstSlice(DtoConstSize_t(type->getArrayNumElements()),
-                      llvm::ConstantExpr::getGetElementPtr(
-                          type, m->d_cover_valid, idxs, true));
+    d_cover_valid_slice = DtoConstSlice(
+        DtoConstSize_t(type->getArrayNumElements()), m->d_cover_valid);
 
     // Assert that initializer array elements have enough bits
     assert(sizeof(m->d_cover_valid_init[0]) * 8 >=
@@ -272,9 +264,8 @@ void addCoverageAnalysis(Module *m) {
                                                LLGlobalValue::InternalLinkage,
                                                init, "_d_cover_data");
 
-    d_cover_data_slice = DtoConstSlice(DtoConstSize_t(m->numlines),
-                                       DtoGEP(m->d_cover_data->getValueType(),
-                                              m->d_cover_data, 0, 0));
+    d_cover_data_slice =
+        DtoConstSlice(DtoConstSize_t(m->numlines), m->d_cover_data);
   }
 
   // Create "static constructor" that calls _d_cover_register2(string filename,

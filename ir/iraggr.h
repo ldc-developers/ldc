@@ -58,7 +58,7 @@ public:
   virtual ~IrAggr() = default;
 
   /// Creates the __initZ symbol lazily.
-  llvm::Constant *getInitSymbol(bool define = false);
+  llvm::GlobalVariable *getInitSymbol(bool define = false);
   /// Builds the __initZ initializer constant lazily.
   llvm::Constant *getDefaultInit();
   /// Return the LLVM type of this Aggregate (w/o the reference for classes)
@@ -84,7 +84,7 @@ public:
 
 protected:
   /// Static default initializer global.
-  llvm::Constant *init = nullptr;
+  llvm::GlobalVariable *init = nullptr;
   /// Static default initializer constant.
   llvm::Constant *constInit = nullptr;
 

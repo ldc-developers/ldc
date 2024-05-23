@@ -92,7 +92,7 @@ LLGlobalVariable *ObjCState::getMethVarRef(const ObjcSelector &sel) {
 }
 
 void ObjCState::retain(LLConstant *sym) {
-  retainedSymbols.push_back(DtoBitCast(sym, getVoidPtrType()));
+  retainedSymbols.push_back(sym);
 }
 
 void ObjCState::finalize() {

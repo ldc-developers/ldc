@@ -138,9 +138,8 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
   // Extract variable from nested context
 
   assert(irfunc->frameType);
-  const auto pframeType = LLPointerType::getUnqual(irfunc->frameType);
   IF_LOG { Logger::cout() << "casting to: " << *irfunc->frameType << '\n'; }
-  LLValue *val = DtoBitCast(ctx, pframeType);
+  LLValue *val = ctx;
   llvm::StructType *currFrame = irfunc->frameType;
   // Make the DWARF variable address relative to the context pointer (ctx);
   // register all ops (offsetting, dereferencing) required to get there in the
@@ -228,7 +227,7 @@ void DtoResolveNestedContext(const Loc &loc, AggregateDeclaration *decl,
     unsigned idx = getVthisIdx(decl);
     llvm::StructType *st = getIrAggr(decl)->getLLStructType();
     LLValue *gep = DtoGEP(st, value, 0, idx, ".vthis");
-    DtoStore(DtoBitCast(nest, st->getElementType(idx)), gep);
+    DtoStore(nest, gep);
   }
 }
 
@@ -343,7 +342,6 @@ LLValue *DtoNestedContext(const Loc &loc, Dsymbol *sym) {
           "Calling sibling function or directly nested function");
     } else {
       llvm::StructType *type = getIrFunc(ctxfd)->frameType;
-      val = DtoBitCast(val, LLPointerType::getUnqual(type));
       val = DtoGEP(type, val, 0, neededDepth);
       val = DtoAlignedLoad(type->getElementType(neededDepth),
           val, (std::string(".frame.") + frameToPass->toChars()).c_str());
@@ -503,7 +501,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
       LLValue *mem =
           gIR->CreateCallOrInvoke(fn, DtoConstSize_t(size), ".gc_frame");
       if (frameAlignment <= 16) {
-        frame = DtoBitCast(mem, frameType->getPointerTo(), ".frame");
+        frame = mem;
       } else {
         const uint64_t mask = frameAlignment - 1;
         mem = gIR->ir->CreatePtrToInt(mem, DtoSize_t());
@@ -529,14 +527,11 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
         src = indexVThis(ad, thisptr);
       }
       if (depth > 1) {
-        src = DtoBitCast(src, getVoidPtrType());
-        LLValue *dst = DtoBitCast(frame, getVoidPtrType());
-        DtoMemCpy(dst, src, DtoConstSize_t((depth - 1) * target.ptrsize),
+        DtoMemCpy(frame, src, DtoConstSize_t((depth - 1) * target.ptrsize),
                   getABITypeAlign(getVoidPtrType()));
       }
       // Copy nestArg into framelist; the outer frame is not in the list of
       // pointers
-      src = DtoBitCast(src, frameType->getContainedType(depth - 1));
       LLValue *gep = DtoGEP(frameType, frame, 0, depth - 1);
       DtoAlignedStore(src, gep);
     }

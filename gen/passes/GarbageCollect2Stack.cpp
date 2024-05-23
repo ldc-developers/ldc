@@ -69,8 +69,6 @@ struct G2StackAnalysis {
 
 void EmitMemSet(IRBuilder<> &B, Value *Dst, Value *Val, Value *Len,
                 const G2StackAnalysis &A) {
-  Dst = B.CreateBitCast(Dst, PointerType::getUnqual(B.getInt8Ty()));
-
   MaybeAlign Align(1);
 
   auto CS = B.CreateMemSet(Dst, Val, Len, Align, false /*isVolatile*/);
@@ -197,9 +195,7 @@ Value* ArrayFI::promote(CallBase *CB, IRBuilder<> &B, const G2StackAnalysis &A) 
   if (ReturnType == ReturnType::Array) {
     Value *arrStruct = llvm::UndefValue::get(CB->getType());
     arrStruct = Builder.CreateInsertValue(arrStruct, arrSize, 0);
-    Value *memPtr =
-        Builder.CreateBitCast(alloca, PointerType::getUnqual(B.getInt8Ty()));
-    arrStruct = Builder.CreateInsertValue(arrStruct, memPtr, 1);
+    arrStruct = Builder.CreateInsertValue(arrStruct, alloca, 1);
     return arrStruct;
   }
 
@@ -284,7 +280,7 @@ Value* UntypedMemoryFI::promote(CallBase *CB, IRBuilder<> &B, const G2StackAnaly
   AllocaInst *alloca =
       B.CreateAlloca(Ty, count, ".nongc_mem"); // FIXME: align?
 
-  return B.CreateBitCast(alloca, CB->getType());
+  return alloca;
 }
 //}
 
@@ -454,9 +450,7 @@ bool GarbageCollect2Stack::run(Function &F, std::function<DominatorTree& ()> get
 
       // Make sure the type is the same as it was before, and replace all
       // uses of the runtime call with the alloca.
-      if (newVal->getType() != CB->getType()) {
-        newVal = Builder.CreateBitCast(newVal, CB->getType());
-      }
+      assert(newVal->getType() == CB->getType());
       static_cast<Instruction *>(CB)->replaceAllUsesWith(newVal);
 
       RemoveCall(CB, A);

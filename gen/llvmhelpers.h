@@ -121,8 +121,8 @@ LLConstant *DtoConstInitializer(const Loc &loc, Type *type,
                                 Initializer *init, bool isCfile);
 LLConstant *DtoConstExpInit(const Loc &loc, Type *targetType, Expression *exp);
 
-// getting typeinfo of type, base=true casts to object.TypeInfo
-LLConstant *DtoTypeInfoOf(const Loc &loc, Type *type, bool base = true);
+// getting typeinfo of type
+LLConstant *DtoTypeInfoOf(const Loc &loc, Type *type);
 
 // target stuff
 void findDefaultTarget();

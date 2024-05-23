@@ -886,7 +886,7 @@ static void emitInstrumentationFn(const char *name) {
   // Grab the address of the calling function
   auto *caller =
       gIR->ir->CreateCall(GET_INTRINSIC_DECL(returnaddress), DtoConstInt(0));
-  auto callee = DtoBitCast(gIR->topfunc(), getVoidPtrType());
+  auto callee = gIR->topfunc();
 
   gIR->ir->CreateCall(fn, {callee, caller});
 }

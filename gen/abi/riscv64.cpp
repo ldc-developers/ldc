@@ -110,8 +110,7 @@ struct HardfloatRewrite : ABIRewrite {
         DtoRawAlloca(asType, alignment, ".HardfloatRewrite_arg_storage");
     for (unsigned i = 0; i < (unsigned)flat.length; ++i) {
       DtoMemCpy(DtoGEP(asType, buffer, 0, i),
-                DtoGEP1(getI8Type(), DtoBitCast(address, getVoidPtrType()),
-                        flat.fields[i].offset),
+                DtoGEP1(getI8Type(), address, flat.fields[i].offset),
                 DtoConstSize_t(flat.fields[i].ty->size()));
     }
     return DtoLoad(asType, buffer, ".HardfloatRewrite_arg");
@@ -126,8 +125,7 @@ struct HardfloatRewrite : ABIRewrite {
     LLValue *ret = DtoRawAlloca(DtoType(dty), alignment,
                                 ".HardfloatRewrite_param_storage");
     for (unsigned i = 0; i < (unsigned)flat.length; ++i) {
-      DtoMemCpy(DtoGEP1(getI8Type(), DtoBitCast(ret, getVoidPtrType()),
-                        flat.fields[i].offset),
+      DtoMemCpy(DtoGEP1(getI8Type(), ret, flat.fields[i].offset),
                 DtoGEP(asType, buffer, 0, i),
                 DtoConstSize_t(flat.fields[i].ty->size()));
     }
