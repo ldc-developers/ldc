@@ -177,11 +177,17 @@ private:
  * Returns:
  *   Application return code
  */
-version (IN_LLVM) {} else
-private int tryMain(size_t argc, const(char)** argv, ref Param params)
+// LDC: changed from `private int tryMain(size_t argc, const(char)** argv, ref Param params)`
+extern (C++) int mars_tryMain(ref Param params, ref Strings files)
 {
     import dmd.common.charactertables;
 
+version (IN_LLVM)
+{
+    Strings libmodules;
+}
+else
+{
     Strings files;
     Strings libmodules;
     global._init();
@@ -189,6 +195,7 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
 
     if (parseCommandlineAndConfig(argc, argv, params, files))
         return EXIT_FAILURE;
+}
 
     global.compileEnv.previewIn        = global.params.previewIn;
     global.compileEnv.ddocOutput       = global.params.ddoc.doOutput;
@@ -239,6 +246,8 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
             break;
     }
 
+version (IN_LLVM) {} else
+{
     if (params.help.usage)
     {
         usage();
@@ -250,12 +259,8 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
         logo();
         return EXIT_SUCCESS;
     }
-
-    return mars_mainBody(params, files, libmodules);
 }
 
-extern (C++) int mars_mainBody(ref Param params, ref Strings files, ref Strings libmodules)
-{
     /*
     Prints a supplied usage text to the console and
     returns the exit code for the help usage page.
