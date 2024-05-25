@@ -29,7 +29,7 @@ runs:
           cp build-cross/bin/ldc2_install.conf install/etc/ldc2.conf
           cp -R ldc/packaging/bash_completion.d install/etc/
           mkdir install/import
-          cp -R ldc/runtime/druntime/src/{core,etc,ldc,object.d,__builtins.di,importc.h} install/import/
+          cp -R ldc/runtime/druntime/src/{core,etc,ldc,object.d,__importc_builtins.di,importc.h} install/import/
           cp bootstrap-ldc/runtime/import/ldc/gccbuiltins_*.di install/import/ldc/
           cp -R ldc/runtime/phobos/etc/c install/import/etc/
           rm -rf install/import/etc/c/zlib

@@ -85,7 +85,7 @@ typedef unsigned long long __uint64_t;
 
 #define __builtin_isnan(x) isnan(x)
 #define __builtin_isfinite(x) finite(x)
-// IN_LLVM: replaced by symbol in __builtins.di
+// IN_LLVM: replaced by symbol in __importc_builtins.di
 //#define __builtin_alloca(x) alloca(x)
 
 /********************************
