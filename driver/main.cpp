@@ -909,7 +909,7 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("CRuntime_WASI");
     break;
   case llvm::Triple::Emscripten:
-     VersionCondition::addPredefinedGlobalIdent("Emscripten");
+    VersionCondition::addPredefinedGlobalIdent("Emscripten");
     break;
   default:
     if (triple.getEnvironment() == llvm::Triple::Android) {
