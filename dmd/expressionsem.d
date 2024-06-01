@@ -15302,6 +15302,9 @@ Expression resolveLoc(Expression exp, const ref Loc loc, Scope* sc)
 
     Expression visitStructLiteral(StructLiteralExp exp)
     {
+        if (!exp.elements)
+            return exp;
+
         foreach (ref element; *exp.elements)
         {
             if (element)
@@ -15320,6 +15323,9 @@ Expression resolveLoc(Expression exp, const ref Loc loc, Scope* sc)
         if (exp.lowering)
             exp.lowering = exp.lowering.resolveLoc(loc, sc);
 
+        if (!exp.arguments)
+            return exp;
+
         foreach (ref element; *exp.arguments)
         {
             if (element)
@@ -15331,6 +15337,9 @@ Expression resolveLoc(Expression exp, const ref Loc loc, Scope* sc)
 
     Expression visitCall(CallExp exp)
     {
+        if (!exp.arguments)
+            return exp;
+
         foreach (ref element; *exp.arguments)
         {
             if (element)
@@ -15343,6 +15352,9 @@ Expression resolveLoc(Expression exp, const ref Loc loc, Scope* sc)
     Expression visitArray(ArrayExp exp)
     {
         exp.e1 = exp.e1.resolveLoc(loc, sc);
+
+        if (!exp.arguments)
+            return exp;
 
         foreach (ref element; *exp.arguments)
         {
@@ -15376,6 +15388,9 @@ Expression resolveLoc(Expression exp, const ref Loc loc, Scope* sc)
     {
         if (exp.basis)
             exp.basis = exp.basis.resolveLoc(loc, sc);
+
+        if (!exp.elements)
+            return exp;
 
         foreach (ref element; *exp.elements)
         {

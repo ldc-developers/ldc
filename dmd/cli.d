@@ -479,7 +479,7 @@ dmd -cov -unittest myprog.d
                     $(LI $(I UAX31): UAX31)
                     $(LI $(I c99): C99)
                     $(LI $(I c11): C11)
-                    $(LI $(I all): All, the least restrictive set, which comes all others (default))
+                    $(LI $(I all): All, the least restrictive set, which comes with all others (default))
                 )`
         ),
         Option("identifiers-importc=<table>",
@@ -489,7 +489,7 @@ dmd -cov -unittest myprog.d
                     $(LI $(I UAX31): UAX31)
                     $(LI $(I c99): C99)
                     $(LI $(I c11): C11 (default))
-                    $(LI $(I all): All, the least restrictive set, which comes all others)
+                    $(LI $(I all): All, the least restrictive set, which comes with all others)
                 )`
         ),
         Option("ignore",
