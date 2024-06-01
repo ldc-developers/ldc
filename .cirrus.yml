@@ -304,9 +304,9 @@ task:
   << : *PACKAGING_STEPS_TEMPLATE
 
 task:
-  name: FreeBSD 13.2 x64
+  name: FreeBSD 13.3 x64
   freebsd_instance:
-    image_family: freebsd-13-2
+    image_family: freebsd-13-3
     cpu: 4
     memory: 8G
   timeout_in: 60m
