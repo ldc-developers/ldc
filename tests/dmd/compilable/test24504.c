@@ -1,4 +1,5 @@
-// REQUIRED_ARGS: -os=windows -g
+// (disabled for LDC, would require full triple:) rEQUIRED_ARGS: -os=windows
+// REQUIRED_ARGS: -g
 // DISABLED: osx
 // This is disabled on macOS because ld complains about _main being undefined
 // when clang attempts to preprocess the C file.
