@@ -1,6 +1,7 @@
 # LDC master
 
 #### Big news
+- LLVM for prebuilt packages bumped to v18.1.6 (except for macOS arm64). (#4678)
 
 #### Platform support
 - Supports LLVM 15 - 18. Support for LLVM 11 - 14 was dropped. The CLI options `-passmanager` and `-opaque-pointers` were removed.
