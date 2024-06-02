@@ -29,9 +29,9 @@ void foo()
     // CHECK-NEXT: %v16 = alloca <16 x i8>
     // CHECK-NEXT: %s8 = alloca <8 x i16>
     // CHECK-NEXT: %d2 = alloca <2 x double>
-    // CHECK-NEXT: store <16 x i8> zeroinitializer, {{<16 x i8>\*|ptr}} %v16
-    // CHECK-NEXT: store <8 x i16> <i16 1, i16 2, i16 3, i16 4, i16 5, i16 6, i16 7, i16 8>, {{<8 x i16>\*|ptr}} %s8
-    // CHECK-NEXT: store <2 x double> <double 1.500000e+00, double 1.500000e+00>, {{<2 x double>\*|ptr}} %d2
+    // CHECK-NEXT: store <16 x i8> zeroinitializer, ptr %v16
+    // CHECK-NEXT: store <8 x i16> <i16 1, i16 2, i16 3, i16 4, i16 5, i16 6, i16 7, i16 8>, ptr %s8
+    // CHECK-NEXT: store <2 x double> <double 1.500000e+00, double 1.500000e+00>, ptr %d2
     // CHECK-NEXT: ret void
     void16 v16;
     short8 s8 = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -45,10 +45,10 @@ void bar(const ref float[4] floats, const ref int[4] ints)
     alias float4 = __vector(float[4]);
     alias int4 = __vector(int[4]);
 
-    // CHECK: call void @llvm.memcpy{{.*}}({{i8\*|ptr}}{{[^,]*}} %{{.*}}
+    // CHECK: call void @llvm.memcpy{{.*}}(ptr{{[^,]*}} %{{.*}}
     auto f = cast(float4) floats;
 
-    // CHECK: call void @llvm.memcpy{{.*}}({{i8\*|ptr}}{{[^,]*}} %{{.*}}
+    // CHECK: call void @llvm.memcpy{{.*}}(ptr{{[^,]*}} %{{.*}}
     auto i = cast(int4) ints;
 
     // CHECK: fptosi

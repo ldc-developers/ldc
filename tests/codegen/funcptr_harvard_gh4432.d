@@ -8,9 +8,9 @@
 alias FP = void function();
 alias DG = void delegate();
 
-// CHECK: @_D22funcptr_harvard_gh44328globalFPPFZv = global {{void \(\) addrspace\(1\)\*|ptr addrspace\(1\)}} @_D22funcptr_harvard_gh44323barFZv, align 2
+// CHECK: @_D22funcptr_harvard_gh44328globalFPPFZv = global ptr addrspace(1) @_D22funcptr_harvard_gh44323barFZv, align 2
 __gshared FP globalFP = &bar;
-// CHECK: @_D22funcptr_harvard_gh443217globalDataPointerPPFZv = global {{void \(\) addrspace\(1\)\*\*|ptr}} @_D22funcptr_harvard_gh44328globalFPPFZv, align 2
+// CHECK: @_D22funcptr_harvard_gh443217globalDataPointerPPFZv = global ptr @_D22funcptr_harvard_gh44328globalFPPFZv, align 2
 __gshared FP* globalDataPointer = &globalFP;
 
 // CHECK: define void @_D22funcptr_harvard_gh44323fooFPFZvDQeZv({{.*}} addrspace(1){{\*?}} %fp_arg, { {{.*}} addrspace(1){{\*?}} } %dg_arg) addrspace(1)

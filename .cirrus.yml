@@ -248,7 +248,7 @@ task:
       -DEXTRA_CXXFLAGS=-flto=full
       -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++
       -DJITRT_EXTRA_LDFLAGS=-static-libstdc++
-      -DLDC_INSTALL_LLVM_RUNTIME_LIBS_OS=aarch64-unknown-linux-gnu
+      -DCOMPILER_RT_LIBDIR_OS=aarch64-unknown-linux-gnu
       -DLLVM_ROOT_DIR=$CIRRUS_WORKING_DIR/../llvm
       -DD_COMPILER=$CIRRUS_WORKING_DIR/../bootstrap-ldc/bin/ldmd2
     PARALLELISM: 4
@@ -304,9 +304,9 @@ task:
   << : *PACKAGING_STEPS_TEMPLATE
 
 task:
-  name: FreeBSD 13.2 x64
+  name: FreeBSD 13.3 x64
   freebsd_instance:
-    image_family: freebsd-13-2
+    image_family: freebsd-13-3
     cpu: 4
     memory: 8G
   timeout_in: 60m

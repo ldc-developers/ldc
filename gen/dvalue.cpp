@@ -159,12 +159,7 @@ DRValue *DLValue::getRVal() {
 ////////////////////////////////////////////////////////////////////////////////
 
 DSpecialRefValue::DSpecialRefValue(Type *t, LLValue *v) : DLValue(v, t) {
-#if LDC_LLVM_VER >= 1700 // LLVM >= 17 uses opaque pointers, type check boils
-                         // down to pointer check only.
   assert(v->getType()->isPointerTy());
-#else
-  assert(v->getType() == DtoPtrToType(t)->getPointerTo());
-#endif
 }
 
 DRValue *DSpecialRefValue::getRVal() {
@@ -186,7 +181,7 @@ DBitFieldLValue::DBitFieldLValue(Type *t, LLValue *ptr, BitFieldDeclaration *bf)
 
 DRValue *DBitFieldLValue::getRVal() {
   const auto sizeInBits = intType->getBitWidth();
-  const auto ptr = DtoBitCast(val, getPtrToType(intType));
+  const auto ptr = val;
   LLValue *v = gIR->ir->CreateAlignedLoad(intType, ptr, llvm::MaybeAlign(1));
 
   if (bf->type->isunsigned()) {
@@ -211,7 +206,7 @@ DRValue *DBitFieldLValue::getRVal() {
 void DBitFieldLValue::store(LLValue *value) {
   assert(value->getType()->isIntegerTy());
 
-  const auto ptr = DtoBitCast(val, getPtrToType(intType));
+  const auto ptr = val;
 
   const auto mask =
       llvm::APInt::getLowBitsSet(intType->getBitWidth(), bf->fieldWidth);

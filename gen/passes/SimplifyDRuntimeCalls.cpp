@@ -51,18 +51,12 @@ Value *LibCallOptimization::OptimizeCall(CallInst *CI, bool &Changed, const Data
   return CallOptimizer(CI->getCalledFunction(), CI, B);
 }
 
-/// CastToCStr - Return V if it is an i8*, otherwise cast it to i8*.
-Value *LibCallOptimization::CastToCStr(Value *V, IRBuilder<> &B) {
-  return B.CreateBitCast(V, PointerType::getUnqual(B.getInt8Ty()), "cstr");
-}
-
 /// EmitMemCpy - Emit a call to the memcpy function to the builder.  This always
 /// expects that the size has type 'intptr_t' and Dst/Src are pointers.
 Value *LibCallOptimization::EmitMemCpy(Value *Dst, Value *Src, Value *Len,
                                        unsigned Align, IRBuilder<> &B) {
   auto A = llvm::MaybeAlign(Align);
-  return B.CreateMemCpy(CastToCStr(Dst, B), A, CastToCStr(Src, B), A, Len,
-                        false);
+  return B.CreateMemCpy(Dst, A, Src, A, Len, false);
 }
 
 //===----------------------------------------------------------------------===//

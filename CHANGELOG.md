@@ -3,6 +3,7 @@
 #### Big news
 
 #### Platform support
+- Supports LLVM 15 - 18. Support for LLVM 11 - 14 was dropped. The CLI options `-passmanager` and `-opaque-pointers` were removed.
 
 #### Bug fixes
 

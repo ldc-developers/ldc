@@ -18,9 +18,6 @@ protected:
   llvm::AliasAnalysis *AA;
   llvm::LLVMContext *Context;
 
-  /// CastToCStr - Return V if it is an i8*, otherwise cast it to i8*.
-  llvm::Value *CastToCStr(llvm::Value *V, llvm::IRBuilder<> &B);
-
   /// EmitMemCpy - Emit a call to the memcpy function to the builder.  This
   /// always expects that the size has type 'intptr_t' and Dst/Src are pointers.
   llvm::Value *EmitMemCpy(llvm::Value *Dst, llvm::Value *Src, llvm::Value *Len, unsigned Align,

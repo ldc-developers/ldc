@@ -7,7 +7,7 @@
  * LLVM 12: .section __minfo,"aw",@progbits
  * LLVM 13: .section __minfo,"awR",@progbits,unique,1
  */
-// UNSUPPORTED: Linux && atleast_llvm1300
+// UNSUPPORTED: Linux
 
 module noIntegratedAs;
 

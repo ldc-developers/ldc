@@ -148,7 +148,6 @@ struct BaseBitcastABIRewrite : ABIRewrite {
       return DtoLoad(asType, paddedDump, name);
     }
 
-    address = DtoBitCast(address, getPtrToType(asType));
     return DtoLoad(asType, address, name);
   }
 
@@ -248,7 +247,7 @@ struct IndirectByvalRewrite : ABIRewrite {
   }
 
   LLValue *getLVal(Type *dty, LLValue *v) override {
-    return DtoBitCast(v, DtoPtrToType(dty));
+    return v;
   }
 
   LLType *type(Type *t) override { return DtoPtrToType(t); }

@@ -27,12 +27,11 @@
 using namespace dmd;
 
 // returns the keytype typeinfo
-static LLConstant *to_keyti(const Loc &loc, DValue *aa, LLType *targetType) {
+static LLConstant *to_keyti(const Loc &loc, DValue *aa) {
   // keyti param
   assert(aa->type->toBasetype()->ty == TY::Taarray);
   TypeAArray *aatype = static_cast<TypeAArray *>(aa->type->toBasetype());
-  LLConstant *ti = DtoTypeInfoOf(loc, aatype->index, /*base=*/false);
-  return DtoBitCast(ti, targetType);
+  return DtoTypeInfoOf(loc, aatype->index);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -49,35 +48,28 @@ DLValue *DtoAAIndex(const Loc &loc, Type *type, DValue *aa, DValue *key,
   // first get the runtime function
   llvm::Function *func =
       getRuntimeFunction(loc, gIR->module, lvalue ? "_aaGetY" : "_aaInX");
-  LLFunctionType *funcTy = func->getFunctionType();
 
   // aa param
   LLValue *aaval = lvalue ? DtoLVal(aa) : DtoRVal(aa);
-  aaval = DtoBitCast(aaval, funcTy->getParamType(0));
+  assert(aaval->getType()->isPointerTy());
 
   // pkey param
   LLValue *pkey = makeLValue(loc, key);
-  pkey = DtoBitCast(pkey, funcTy->getParamType(lvalue ? 3 : 2));
 
   // call runtime
   LLValue *ret;
   if (lvalue) {
     auto t = mutableOf(unSharedOf(aa->type));
-    LLValue *rawAATI = DtoTypeInfoOf(loc, t, /*base=*/false);
-    LLValue *castedAATI = DtoBitCast(rawAATI, funcTy->getParamType(1));
+    LLValue *aati = DtoTypeInfoOf(loc, t);
     LLValue *valsize = DtoConstSize_t(getTypeAllocSize(DtoType(type)));
-    ret = gIR->CreateCallOrInvoke(func, aaval, castedAATI, valsize, pkey,
+    ret = gIR->CreateCallOrInvoke(func, aaval, aati, valsize, pkey,
                                   "aa.index");
   } else {
-    LLValue *keyti = to_keyti(loc, aa, funcTy->getParamType(1));
+    LLValue *keyti = to_keyti(loc, aa);
     ret = gIR->CreateCallOrInvoke(func, aaval, keyti, pkey, "aa.index");
   }
 
-  // cast return value
-  LLType *targettype = DtoPtrToType(type);
-  if (ret->getType() != targettype) {
-    ret = DtoBitCast(ret, targettype);
-  }
+  assert(ret->getType()->isPointerTy());
 
   // Only check bounds for rvalues ('aa[key]').
   // Lvalue use ('aa[key] = value') auto-adds an element.
@@ -112,33 +104,24 @@ DValue *DtoAAIn(const Loc &loc, Type *type, DValue *aa, DValue *key) {
 
   // first get the runtime function
   llvm::Function *func = getRuntimeFunction(loc, gIR->module, "_aaInX");
-  LLFunctionType *funcTy = func->getFunctionType();
 
   IF_LOG Logger::cout() << "_aaIn = " << *func << '\n';
 
   // aa param
   LLValue *aaval = DtoRVal(aa);
+  assert(aaval->getType()->isPointerTy());
   IF_LOG {
     Logger::cout() << "aaval: " << *aaval << '\n';
-    Logger::cout() << "totype: " << *funcTy->getParamType(0) << '\n';
   }
-  aaval = DtoBitCast(aaval, funcTy->getParamType(0));
 
   // keyti param
-  LLValue *keyti = to_keyti(loc, aa, funcTy->getParamType(1));
+  LLValue *keyti = to_keyti(loc, aa);
 
   // pkey param
   LLValue *pkey = makeLValue(loc, key);
-  pkey = DtoBitCast(pkey, getVoidPtrType());
 
   // call runtime
   LLValue *ret = gIR->CreateCallOrInvoke(func, aaval, keyti, pkey, "aa.in");
-
-  // cast return value
-  LLType *targettype = DtoType(type);
-  if (ret->getType() != targettype) {
-    ret = DtoBitCast(ret, targettype);
-  }
 
   return new DImValue(type, ret);
 }
@@ -156,24 +139,21 @@ DValue *DtoAARemove(const Loc &loc, DValue *aa, DValue *key) {
 
   // first get the runtime function
   llvm::Function *func = getRuntimeFunction(loc, gIR->module, "_aaDelX");
-  LLFunctionType *funcTy = func->getFunctionType();
 
   IF_LOG Logger::cout() << "_aaDel = " << *func << '\n';
 
   // aa param
   LLValue *aaval = DtoRVal(aa);
+  assert(aaval->getType()->isPointerTy());
   IF_LOG {
     Logger::cout() << "aaval: " << *aaval << '\n';
-    Logger::cout() << "totype: " << *funcTy->getParamType(0) << '\n';
   }
-  aaval = DtoBitCast(aaval, funcTy->getParamType(0));
 
   // keyti param
-  LLValue *keyti = to_keyti(loc, aa, funcTy->getParamType(1));
+  LLValue *keyti = to_keyti(loc, aa);
 
   // pkey param
   LLValue *pkey = makeLValue(loc, key);
-  pkey = DtoBitCast(pkey, funcTy->getParamType(2));
 
   // call runtime
   LLValue *res = gIR->CreateCallOrInvoke(func, aaval, keyti, pkey);
@@ -188,10 +168,11 @@ LLValue *DtoAAEquals(const Loc &loc, EXP op, DValue *l, DValue *r) {
   assert(t == r->type->toBasetype() &&
          "aa equality is only defined for aas of same type");
   llvm::Function *func = getRuntimeFunction(loc, gIR->module, "_aaEqual");
-  LLFunctionType *funcTy = func->getFunctionType();
 
-  LLValue *aaval = DtoBitCast(DtoRVal(l), funcTy->getParamType(1));
-  LLValue *abval = DtoBitCast(DtoRVal(r), funcTy->getParamType(2));
+  LLValue *aaval = DtoRVal(l);
+  assert(aaval->getType()->isPointerTy());
+  LLValue *abval = DtoRVal(r);
+  assert(abval->getType()->isPointerTy());
   LLValue *aaTypeInfo = DtoTypeInfoOf(loc, t);
   LLValue *res =
       gIR->CreateCallOrInvoke(func, aaTypeInfo, aaval, abval, "aaEqRes");

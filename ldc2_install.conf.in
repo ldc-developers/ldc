@@ -26,7 +26,7 @@ default:
     ];
     // default directories to be searched for libraries when linking
     lib-dirs = [
-        "@CMAKE_INSTALL_LIBDIR@",
+        "@CMAKE_INSTALL_LIBDIR@",@OPTIONAL_COMPILER_RT_DIR@
     ];
     // default rpath when linking against the shared default libs
     rpath = "@SHARED_LIBS_INSTALL_RPATH@";

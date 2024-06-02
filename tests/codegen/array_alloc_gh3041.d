@@ -5,7 +5,7 @@ void[] foo()
 {
     // CHECK-NEXT: %.gc_mem = call {{.*}} @_d_newarrayT
     // CHECK-NEXT: %.ptr = extractvalue {{.*}} %.gc_mem, 1
-    // CHECK-NEXT: %1 = insertvalue {{.*}} { i{{32|64}} 3, {{i8\*|ptr}} undef }, {{i8\*|ptr}} %.ptr, 1
+    // CHECK-NEXT: %1 = insertvalue {{.*}} { i{{32|64}} 3, ptr undef }, ptr %.ptr, 1
     // CHECK-NEXT: ret {{.*}} %1
     return new void[3];
 }

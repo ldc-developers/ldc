@@ -1,7 +1,5 @@
 // Test --fwarn-stack-trace functionality
 
-// REQUIRES: atleast_llvm1300
-
 // RUN:     %ldc -c --fwarn-stack-size=2000 %s
 // RUN:     %ldc -c --fwarn-stack-size=200  %s 2>&1 | FileCheck %s
 

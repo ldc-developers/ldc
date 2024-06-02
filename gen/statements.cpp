@@ -262,14 +262,6 @@ public:
           Logger::println("Loading value for return");
           returnValue = DtoLoad(funcType->getReturnType(), returnValue);
         }
-
-        // can happen for classes
-        if (returnValue->getType() != funcType->getReturnType()) {
-          returnValue =
-              irs->ir->CreateBitCast(returnValue, funcType->getReturnType());
-          IF_LOG Logger::cout()
-              << "return value after cast: " << *returnValue << '\n';
-        }
       }
     } else {
       // no return value expression means it's a void function.

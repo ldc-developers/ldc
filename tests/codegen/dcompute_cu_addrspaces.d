@@ -3,34 +3,34 @@
 @compute(CompileFor.deviceOnly) module dcompute_cu_addrspaces;
 import ldc.dcompute;
 
-// LL: %"ldc.dcompute.Pointer!(AddrSpace.Private, float).Pointer" = type { {{float addrspace\(5\)\*|ptr addrspace\(5\)}} }
-// LL: %"ldc.dcompute.Pointer!(AddrSpace.Global, float).Pointer" = type { {{float addrspace\(1\)\*|ptr addrspace\(1\)}} }
-// LL: %"ldc.dcompute.Pointer!(AddrSpace.Shared, float).Pointer" = type { {{float addrspace\(3\)\*|ptr addrspace\(3\)}} }
-// LL: %"ldc.dcompute.Pointer!(AddrSpace.Constant, immutable(float)).Pointer" = type { {{float addrspace\(4\)\*|ptr addrspace\(4\)}} }
-// LL: %"ldc.dcompute.Pointer!(AddrSpace.Generic, float).Pointer" = type { {{float\*|ptr}} }
+// LL: %"ldc.dcompute.Pointer!(AddrSpace.Private, float).Pointer" = type { ptr addrspace(5) }
+// LL: %"ldc.dcompute.Pointer!(AddrSpace.Global, float).Pointer" = type { ptr addrspace(1) }
+// LL: %"ldc.dcompute.Pointer!(AddrSpace.Shared, float).Pointer" = type { ptr addrspace(3) }
+// LL: %"ldc.dcompute.Pointer!(AddrSpace.Constant, immutable(float)).Pointer" = type { ptr addrspace(4) }
+// LL: %"ldc.dcompute.Pointer!(AddrSpace.Generic, float).Pointer" = type { ptr }
 
 void foo(PrivatePointer!float f) {
-    // LL: load float, {{float addrspace\(5\)\*|ptr addrspace\(5\)}}
+    // LL: load float, ptr addrspace(5)
     // PTX: ld.local.f32
     float g = *f;
 }
 void foo(GlobalPointer!float f) {
-    // LL: load float, {{float addrspace\(1\)\*|ptr addrspace\(1\)}}
+    // LL: load float, ptr addrspace(1)
     // PTX: ld.global.f32
     float g = *f;
 }
 void foo(SharedPointer!float f) {
-    // LL: load float, {{float addrspace\(3\)\*|ptr addrspace\(3\)}}
+    // LL: load float, ptr addrspace(3)
     // PTX: ld.shared.f32
     float g = *f;
 }
 void foo(ConstantPointer!float f) {
-    // LL: load float, {{float addrspace\(4\)\*|ptr addrspace\(4\)}}
+    // LL: load float, ptr addrspace(4)
     // PTX: ld.const.f32
     float g = *f;
 }
 void foo(GenericPointer!float f) {
-    // LL: load float, {{float\*|ptr}}
+    // LL: load float, ptr
     // PTX: ld.f32
     float g = *f;
 }

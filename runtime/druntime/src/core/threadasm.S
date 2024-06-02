@@ -616,9 +616,10 @@ fiber_switchContext:
  */
  .text
 .globl fiber_switchContext
+.type  fiber_switchContext, %function
 fiber_switchContext:
     .cfi_startproc
-    .cfi_undefined $ra
+    .cfi_undefined 1
     # reserve space on stack
     addi.d  $sp, $sp, -19 * 8
 
@@ -682,6 +683,28 @@ fiber_switchContext:
 
     jr $ra
     .cfi_endproc
+
+/**
+ * When generating any kind of backtrace (gdb, exception handling) for
+ * a function called in a Fiber, we need to tell the unwinder to stop
+ * at our Fiber main entry point, i.e. we need to mark the bottom of
+ * the call stack. This can be done by clearing the return address register $ra
+ * prior to calling fiber_entryPoint (i.e. in fiber_switchContext) or
+ * using a .cfi_undefined directive for the return address register in the
+ * Fiber entry point. cfi_undefined seems to yield better results in gdb.
+ * Unfortunately we can't place it into fiber_entryPoint using inline
+ * asm, so we use this trampoline instead.
+ */
+        .text
+        .global CSYM(fiber_trampoline)
+        .p2align  2
+        .type   fiber_trampoline, %function
+CSYM(fiber_trampoline):
+        .cfi_startproc
+        .cfi_undefined 1
+        // fiber_entryPoint never returns
+        bl CSYM(fiber_entryPoint)
+        .cfi_endproc
 #elif defined(__arm__) && (defined(__ARM_EABI__) || defined(__APPLE__))
 /************************************************************************************
  * ARM ASM BITS

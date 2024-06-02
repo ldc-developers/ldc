@@ -30,24 +30,17 @@ nothrow:
 extern(C++) struct ProfileData {
     ulong NameRef;
     ulong FuncHash;
-    static if (LLVM_version >= 1400)
+    private void* RelativeCounters;
+    inout(ulong)* Counters()() inout @property @trusted pure @nogc nothrow
     {
-        private void* RelativeCounters;
-        inout(ulong)* Counters()() inout @property @trusted pure @nogc nothrow
+        version (Win64)
         {
-            version (Win64)
-            {
-                // RelativeCounters apparenly needs to be treated as signed 32-bit offset?!
-                assert((cast(size_t) RelativeCounters) >> 32 == 0);
-                return cast(inout(ulong)*) ((cast(size_t) &this) + cast(int) RelativeCounters);
-            }
-            else
-                return cast(inout(ulong)*) ((cast(size_t) &this) + cast(size_t) RelativeCounters);
+            // RelativeCounters apparenly needs to be treated as signed 32-bit offset?!
+            assert((cast(size_t) RelativeCounters) >> 32 == 0);
+            return cast(inout(ulong)*) ((cast(size_t) &this) + cast(int) RelativeCounters);
         }
-    }
-    else
-    {
-        ulong* Counters;
+        else
+            return cast(inout(ulong)*) ((cast(size_t) &this) + cast(size_t) RelativeCounters);
     }
     static if (LLVM_version >= 1800)
         void* BitmapPtr;

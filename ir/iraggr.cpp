@@ -60,7 +60,7 @@ bool IrAggr::useDLLImport() const {
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLConstant *IrAggr::getInitSymbol(bool define) {
+LLGlobalVariable *IrAggr::getInitSymbol(bool define) {
 #if LDC_LLVM_VER >= 1800
   #define startswith starts_with
 #endif
@@ -77,25 +77,22 @@ LLConstant *IrAggr::getInitSymbol(bool define) {
     // Only declare the symbol if it isn't yet, otherwise the init symbol of
     // built-in TypeInfos may clash with an existing base-typed forward
     // declaration when compiling the rt.util.typeinfo unittests.
-    auto initGlobal = gIR->module.getGlobalVariable(irMangle);
-    if (initGlobal) {
-      assert(!initGlobal->hasInitializer() &&
+    init = gIR->module.getGlobalVariable(irMangle);
+    if (init) {
+      assert(!init->hasInitializer() &&
              "existing init symbol not expected to be defined");
-      assert((isBuiltinTypeInfo ||
-              initGlobal->getValueType() == getLLStructType()) &&
+      assert((isBuiltinTypeInfo || init->getValueType() == getLLStructType()) &&
              "type of existing init symbol declaration doesn't match");
     } else {
       // Init symbols of built-in TypeInfos need to be kept mutable as the type
       // is not declared as immutable on the D side, and e.g. synchronized() can
       // be used on the implicit monitor.
       const bool isConstant = !isBuiltinTypeInfo;
-      initGlobal = declareGlobal(aggrdecl->loc, gIR->module, getLLStructType(),
-                                 irMangle, isConstant, false, useDLLImport());
+      init = declareGlobal(aggrdecl->loc, gIR->module, getLLStructType(),
+                           irMangle, isConstant, false, useDLLImport());
     }
 
-    initGlobal->setAlignment(llvm::MaybeAlign(DtoAlignment(type)));
-
-    init = initGlobal;
+    init->setAlignment(llvm::MaybeAlign(DtoAlignment(type)));
 
     if (!define)
       define = defineOnDeclare(aggrdecl, /*isFunction=*/false);
@@ -103,10 +100,8 @@ LLConstant *IrAggr::getInitSymbol(bool define) {
 
   if (define) {
     auto initConstant = getDefaultInit();
-    auto initGlobal = llvm::dyn_cast<LLGlobalVariable>(init);
-    if (initGlobal // NOT a bitcast pointer to helper global
-        && !initGlobal->hasInitializer()) {
-      init = gIR->setGlobalVarInitializer(initGlobal, initConstant, aggrdecl);
+    if (!init->hasInitializer()) {
+      init = gIR->setGlobalVarInitializer(init, initConstant, aggrdecl);
     }
   }
 

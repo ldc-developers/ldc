@@ -3,7 +3,7 @@
 // REQUIRES: PGO_RT
 
 // FIXME: fails with LLVM 13+, call remains indirect
-// XFAIL: atleast_llvm1300
+// XFAIL: *
 
 // RUN: %ldc -c -output-ll -fprofile-instr-generate -of=%t.ll %s && FileCheck %s --check-prefix=PROFGEN < %t.ll
 

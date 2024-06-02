@@ -46,6 +46,8 @@ version(AsmX86)
     else
         static assert(naked_cppFunc.mangleof == "_ZN15cpp_naked_funcs13naked_cppFuncEd");
 
-    int naked_dFunc(double a) { asm { naked; ret; } }
-    static assert(naked_dFunc.mangleof == "_D11definitions11naked_dFuncFdZi");
+    // Pass an int instead of a double due to x86 calling convetion
+    // See: https://github.com/ldc-developers/ldc/pull/4661
+    int naked_dFunc(int a) { asm { naked; ret; } }
+    static assert(naked_dFunc.mangleof == "_D11definitions11naked_dFuncFiZi");
 }

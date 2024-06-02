@@ -273,11 +273,7 @@ struct LazyFunctionDeclarer {
       // FIXME: Move to better place (abi-x86-64.cpp?)
       // NOTE: There are several occurances if this line.
       if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
-#if LDC_LLVM_VER >= 1500
         fn->setUWTableKind(llvm::UWTableKind::Default);
-#else
-        fn->addFnAttr(LLAttribute::UWTable);
-#endif
       }
 
       fn->setCallingConv(gABI->callingConv(dty, false));
@@ -359,6 +355,8 @@ llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
 //                            const char *funcname);
 // Musl:    void __assert_fail(const char *assertion, const char *filename, int line_num,
 //                             const char *funcname);
+// Glibc:   void __assert_fail(const char *assertion, const char *filename, int line_num,
+//                             const char *funcname);
 // uClibc:  void __assert(const char *assertion, const char *filename, int linenumber,
 //                        const char *function);
 // newlib:  void __assert_func(const char *file, int line, const char *func,
@@ -373,7 +371,7 @@ static const char *getCAssertFunctionName() {
     return "_assert";
   } else if (triple.isOSSolaris()) {
     return "__assert_c99";
-  } else if (triple.isMusl()) {
+  } else if (triple.isMusl() || triple.isGNUEnvironment()) {
     return "__assert_fail";
   } else if (global.params.isNewlibEnvironment) {
     return "__assert_func";
@@ -387,7 +385,7 @@ static std::vector<PotentiallyLazyType> getCAssertFunctionParamTypes() {
   const auto uint = Type::tuns32;
 
   if (triple.isOSDarwin() || triple.isOSSolaris() || triple.isMusl() ||
-      global.params.isUClibcEnvironment) {
+      global.params.isUClibcEnvironment || (triple.isOSGlibc() && triple.isGNUEnvironment())) {
     return {voidPtr, voidPtr, uint, voidPtr};
   }
   if (triple.getEnvironment() == llvm::Triple::Android) {
@@ -890,7 +888,7 @@ static void emitInstrumentationFn(const char *name) {
   // Grab the address of the calling function
   auto *caller =
       gIR->ir->CreateCall(GET_INTRINSIC_DECL(returnaddress), DtoConstInt(0));
-  auto callee = DtoBitCast(gIR->topfunc(), getVoidPtrType());
+  auto callee = gIR->topfunc();
 
   gIR->ir->CreateCall(fn, {callee, caller});
 }

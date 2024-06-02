@@ -407,10 +407,6 @@ LLValue *DtoGEP1i64(LLType *pointeeTy, LLValue *ptr, uint64_t i0, const char *na
 ////////////////////////////////////////////////////////////////////////////////
 
 void DtoMemSet(LLValue *dst, LLValue *val, LLValue *nbytes, unsigned align) {
-  LLType *VoidPtrTy = getVoidPtrType();
-
-  dst = DtoBitCast(dst, VoidPtrTy);
-
   gIR->ir->CreateMemSet(dst, val, nbytes, llvm::MaybeAlign(align),
                         false /*isVolatile*/);
 }
@@ -429,11 +425,6 @@ void DtoMemSetZero(LLType *type, LLValue *dst, unsigned align) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes, unsigned align) {
-  LLType *VoidPtrTy = getVoidPtrType();
-
-  dst = DtoBitCast(dst, VoidPtrTy);
-  src = DtoBitCast(src, VoidPtrTy);
-
   auto A = llvm::MaybeAlign(align);
   gIR->ir->CreateMemCpy(dst, A, src, A, nbytes, false /*isVolatile*/);
 }
@@ -458,9 +449,6 @@ LLValue *DtoMemCmp(LLValue *lhs, LLValue *rhs, LLValue *nbytes) {
     fn = LLFunction::Create(fty, LLGlobalValue::ExternalLinkage, "memcmp",
                             &gIR->module);
   }
-
-  lhs = DtoBitCast(lhs, VoidPtrTy);
-  rhs = DtoBitCast(rhs, VoidPtrTy);
 
   return gIR->ir->CreateCall(fn, {lhs, rhs, nbytes});
 }
@@ -515,13 +503,13 @@ LLConstant *DtoConstFP(Type *t, const real_t value) {
 LLConstant *DtoConstCString(const char *str) {
   llvm::StringRef s(str ? str : "");
   LLGlobalVariable *gvar = gIR->getCachedStringLiteral(s);
-  return DtoGEP(gvar->getValueType(), gvar, 0u, 0u);
+  return gvar;
 }
 
 LLConstant *DtoConstString(const char *str) {
   LLConstant *cString = DtoConstCString(str);
   LLConstant *length = DtoConstSize_t(str ? strlen(str) : 0);
-  return DtoConstSlice(length, cString, arrayOf(Type::tchar));
+  return DtoConstSlice(length, cString);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -595,37 +583,7 @@ LLType *stripAddrSpaces(LLType *t)
   if (!pt)
     return t;
 
-#if LDC_LLVM_VER >= 1700
   return getVoidPtrType();
-#elif LDC_LLVM_VER >= 1400
-  if (pt->isOpaque())
-    return getVoidPtrType();
-  else {
-    int indirections = 0;
-    while (t->isPointerTy()) {
-      indirections++;
-// Disable [[deprecated]] warning on getPointerElementType. We solved the
-// deprecation for versions >= LLVM 16 above (8 lines up).
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-      t = t->getPointerElementType();
-#pragma GCC diagnostic pop
-    }
-    while (indirections-- != 0)
-      t = t->getPointerTo(0);
-  }
-  return t;
-#else
-  int indirections = 0;
-  while (t->isPointerTy()) {
-    indirections++;
-    t = t->getPointerElementType();
-  }
-  while (indirections-- != 0)
-    t = t->getPointerTo(0);
-
-  return t;
-#endif
 }
 
 LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name) {

@@ -22,10 +22,7 @@ using namespace dmd;
 IrFuncTyArg::IrFuncTyArg(Type *t, bool bref)
     : type(t),
       ltype(t != Type::tvoid && bref ? DtoType(pointerTo(t)) : DtoType(t)),
-#if LDC_LLVM_VER >= 1400
-      attrs(getGlobalContext()),
-#endif
-      byref(bref) {
+      attrs(getGlobalContext()), byref(bref) {
   mem.addRange(&type, sizeof(type));
 }
 

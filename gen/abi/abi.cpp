@@ -32,7 +32,7 @@ using namespace dmd;
 
 llvm::Value *ABIRewrite::getRVal(Type *dty, LLValue *v) {
   llvm::Type *t = DtoType(dty);
-  return DtoLoad(t, DtoBitCast(getLVal(dty, v), t->getPointerTo()));
+  return DtoLoad(t, getLVal(dty, v));
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -191,8 +191,8 @@ void TargetABI::rewriteVarargs(IrFuncTy &fty,
 //////////////////////////////////////////////////////////////////////////////
 
 LLValue *TargetABI::prepareVaStart(DLValue *ap) {
-  // pass a i8* pointer to ap to LLVM's va_start intrinsic
-  return DtoBitCast(DtoLVal(ap), getVoidPtrType());
+  // pass an opaque pointer to ap to LLVM's va_start intrinsic
+  return DtoLVal(ap);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -209,8 +209,8 @@ void TargetABI::vaCopy(DLValue *dest, DValue *src) {
 //////////////////////////////////////////////////////////////////////////////
 
 LLValue *TargetABI::prepareVaArg(DLValue *ap) {
-  // pass a i8* pointer to ap to LLVM's va_arg intrinsic
-  return DtoBitCast(DtoLVal(ap), getVoidPtrType());
+  // pass an opaque pointer to ap to LLVM's va_arg intrinsic
+  return DtoLVal(ap);
 }
 
 //////////////////////////////////////////////////////////////////////////////

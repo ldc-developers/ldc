@@ -48,7 +48,7 @@ public:
   void push_typeinfo(Type *t);
 
   /// pushes the function pointer or a null void* if it cannot.
-  void push_funcptr(FuncDeclaration *fd, Type *castto = nullptr);
+  void push_funcptr(FuncDeclaration *fd);
 
   /// pushes the array slice given.
   void push_array(uint64_t dim, llvm::Constant *ptr);

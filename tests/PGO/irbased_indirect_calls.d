@@ -3,7 +3,7 @@
 // REQUIRES: PGO_RT
 
 // FIXME: fails with LLVM 13+ for Windows, call remains indirect
-// XFAIL: Windows && atleast_llvm1300
+// XFAIL: Windows
 
 // RUN: %ldc -O3 -fprofile-generate=%t.profraw -run %s  \
 // RUN:   &&  %profdata merge %t.profraw -o %t.profdata \
@@ -50,8 +50,8 @@ int main()
     {
         select_func(i);
 
-        // PROFUSE:  [[REG1:%[0-9]+]] = load {{void \(\)\*, void \(\)\*\*|ptr, ptr}} @foo
-        // PROFUSE:  [[REG2:%[0-9]+]] = icmp eq {{void \(\)\*|ptr}} [[REG1]], @hot
+        // PROFUSE:  [[REG1:%[0-9]+]] = load ptr, ptr @foo
+        // PROFUSE:  [[REG2:%[0-9]+]] = icmp eq ptr [[REG1]], @hot
         // PROFUSE:  call void @hot()
         // PROFUSE:  call void [[REG1]]()
 

@@ -24,14 +24,11 @@
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/DynamicLibrary.h"
-
-#if LDC_LLVM_VER >= 1400
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/Support/Error.h"
 
 #include "driver/cl_options.h"
-#endif
 
 namespace {
 namespace cl = llvm::cl;
@@ -78,20 +75,6 @@ bool loadSemanticAnalysisPlugin(const std::string &filename) {
   return true;
 }
 
-/// Loads plugin for the legacy pass manager. The static constructor of
-/// the plugin should take care of the plugins registering themself with the
-/// rest of LDC/LLVM.
-void loadLLVMPluginLegacyPM(const std::string &filename) {
-  std::string errorString;
-  if (llvm::sys::DynamicLibrary::LoadLibraryPermanently(filename.c_str(),
-                                                        &errorString)) {
-    error(Loc(), "Error loading plugin '%s': %s", filename.c_str(),
-          errorString.c_str());
-  }
-}
-
-#if LDC_LLVM_VER >= 1400
-
 namespace {
 llvm::SmallVector<llvm::PassPlugin, 1> llvm_plugins;
 
@@ -110,17 +93,8 @@ void loadLLVMPluginNewPM(const std::string &filename) {
 
 } // anonymous namespace
 
-#endif // LDC_LLVM_VER >= 1400
-
 void loadLLVMPlugin(const std::string &filename) {
-#if LDC_LLVM_VER >= 1400
-  if (opts::isUsingLegacyPassManager())
-    loadLLVMPluginLegacyPM(filename);
-  else
-    loadLLVMPluginNewPM(filename);
-#else
-  loadLLVMPluginLegacyPM(filename);
-#endif
+  loadLLVMPluginNewPM(filename);
 }
 
 void loadAllPlugins() {
@@ -134,11 +108,9 @@ void loadAllPlugins() {
 }
 
 void registerAllPluginsWithPassBuilder(llvm::PassBuilder &PB) {
-#if LDC_LLVM_VER >= 1400
   for (auto &plugin : llvm_plugins) {
     plugin.registerPassBuilderCallbacks(PB);
   }
-#endif
 }
 
 void runAllSemanticAnalysisPlugins(Module *m) {

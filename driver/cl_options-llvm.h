@@ -31,11 +31,7 @@ namespace opts {
 std::string getArchStr();
 llvm::Optional<llvm::Reloc::Model> getRelocModel();
 llvm::Optional<llvm::CodeModel::Model> getCodeModel();
-#if LDC_LLVM_VER >= 1300
 llvm::Optional<llvm::FramePointerKind> framePointerUsage();
-#else
-llvm::Optional<llvm::FramePointer::FP> framePointerUsage();
-#endif
 
 bool disableRedZone();
 bool printTargetFeaturesHelp();

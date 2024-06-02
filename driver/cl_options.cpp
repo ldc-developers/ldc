@@ -536,18 +536,6 @@ cl::opt<bool> noPLT(
     "fno-plt", cl::ZeroOrMore,
     cl::desc("Do not use the PLT to make function calls"));
 
-static cl::opt<signed char> passmanager("passmanager",
-    cl::desc("Setting the passmanager (new,legacy):"), cl::ZeroOrMore,
-    #if LDC_LLVM_VER < 1500
-      cl::init(0),
-    #else
-      cl::init(1),
-    #endif
-    cl::values(
-        clEnumValN(0, "legacy", "Use the legacy passmanager (available for LLVM14 and below) "),
-        clEnumValN(1, "new", "Use the new passmanager (available for LLVM14 and above)")));
-bool isUsingLegacyPassManager() { return passmanager == 0; }
-
 // Math options
 bool fFastMath; // Storage for the dynamically created ffast-math option.
 llvm::FastMathFlags defaultFMF;
@@ -714,14 +702,10 @@ cl::opt<std::string>
                                     "of optimizations performed by LLVM"),
                            cl::ValueOptional);
 
-#if LDC_LLVM_VER >= 1300
-// LLVM < 13 has "--warn-stack-size", but let's not do the effort of forwarding
-// the string to that option, and instead let the user do it himself.
 cl::opt<unsigned>
     fWarnStackSize("fwarn-stack-size", cl::ZeroOrMore, cl::init(UINT_MAX),
                    cl::desc("Warn for stack size bigger than the given number"),
                    cl::value_desc("threshold"));
-#endif
 
 #if LDC_LLVM_SUPPORTED_TARGET_SPIRV || LDC_LLVM_SUPPORTED_TARGET_NVPTX
 cl::list<std::string>
@@ -748,12 +732,6 @@ cl::opt<bool> dynamicCompileTlsWorkaround(
     cl::desc("Enable dynamic compilation TLS workaround"),
     cl::init(true),
     cl::Hidden);
-#endif
-
-#if LDC_LLVM_VER >= 1700
-bool enableOpaqueIRPointers = true; // typed pointers are no longer supported from LLVM 17
-#elif LDC_LLVM_VER >= 1400
-bool enableOpaqueIRPointers = false;
 #endif
 
 static cl::extrahelp
@@ -814,12 +792,7 @@ void createClashingOptions() {
           clEnumValN(FloatABI::Hard, "hard",
                      "Hardware floating-point ABI and instructions")));
 
-#if LDC_LLVM_VER >= 1400
   renameAndHide("opaque-pointers", nullptr); // remove
-  new cl::opt<bool, true>(
-      "opaque-pointers", cl::ZeroOrMore, cl::location(enableOpaqueIRPointers),
-      cl::desc("Use opaque IR pointers (experimental!)"), cl::Hidden);
-#endif
 }
 
 /// Hides command line options exposed from within LLVM that are unlikely
@@ -907,7 +880,7 @@ void hideLLVMOptions() {
       "no-discriminators", "no-integrated-as", "no-type-check", "no-xray-index",
       "nozero-initialized-in-bss", "nvptx-sched4reg",
       "objc-arc-annotation-target-identifier",
-      "object-size-offset-visitor-max-visit-instructions", "opaque-pointers",
+      "object-size-offset-visitor-max-visit-instructions",
       "pgo-block-coverage", "pgo-temporal-instrumentation",
       "pgo-view-block-coverage-graph",
       "pie-copy-relocations", "poison-checking-function-local",

@@ -237,6 +237,8 @@ private
       extern (C) void fiber_switchContext( void** oldp, void* newp ) nothrow @nogc;
       version (AArch64)
           extern (C) void fiber_trampoline() nothrow;
+      version (LoongArch64)
+          extern (C) void fiber_trampoline() nothrow;
   }
   else version (LDC_Windows)
   {
@@ -1877,7 +1879,6 @@ private:
             // Like others, FP registers and return address ($r1) are kept
             // below the saved stack top (tstack) to hide from GC scanning.
             // fiber_switchContext expects newp sp to look like this:
-            //   10: $r21 (reserved)
             //    9: $r22 (frame pointer)
             //    8: $r23
             //   ...
@@ -1893,8 +1894,8 @@ private:
 
             // Only need to set return address ($r1).  Everything else is fine
             // zero initialized.
-            pstack -= size_t.sizeof * 11;    // skip past space reserved for $r21-$r31
-            push (cast(size_t) &fiber_entryPoint);
+            pstack -= size_t.sizeof * 10;    // skip past space reserved for $r22-$r31
+            push(cast(size_t) &fiber_trampoline); // see threadasm.S for docs
             pstack += size_t.sizeof;         // adjust sp (newp) above lr
         }
         else version (AsmAArch64_Posix)

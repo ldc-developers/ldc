@@ -44,9 +44,7 @@ if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${FILECHECK_SRC})
         COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
         LINK_FLAGS "${SANITIZE_LDFLAGS}"
     )
-    if(NOT (LDC_LLVM_VER LESS 1200))
-        target_link_libraries(FileCheck LLVMFileCheck)
-    endif()
+    target_link_libraries(FileCheck LLVMFileCheck)
     target_link_libraries(FileCheck ${LLVM_LIBRARIES} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
     message(STATUS "Building FileCheck from LDC source tree")
 else()
@@ -68,7 +66,7 @@ set_target_properties(
 target_link_libraries(not  ${LLVM_LIBRARIES} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
 endif()
 
-if ((TARGET split-file) OR (EXISTS ${LLVM_ROOT_DIR}/bin/split-filea))
+if ((TARGET split-file) OR (EXISTS ${LLVM_ROOT_DIR}/bin/split-file))
   # already provided by LLVM
   message(STATUS "Skip building split-file, it is already provided by LLVM")
 else()
