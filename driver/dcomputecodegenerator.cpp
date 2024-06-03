@@ -59,7 +59,7 @@ DComputeCodeGenManager::createComputeTarget(const std::string &s) {
 #endif
   }
 
-#define STR(x...) #x
+#define STR(...) #__VA_ARGS__
 #define XSTR(x) STR(x)
 
   error(Loc(),
