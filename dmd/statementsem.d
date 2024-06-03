@@ -990,7 +990,18 @@ Statement statementSemanticVisit(Statement s, Scope* sc)
                          (tn.ty != tv.ty && tn.ty.isSomeChar && tv.ty.isSomeChar)) &&
                         !Type.tsize_t.implicitConvTo(tindex))
                     {
-                        deprecation(fs.loc, "foreach: loop index implicitly converted from `size_t` to `%s`",
+                        bool err = true;
+                        if (tab.isTypeDArray())
+                        {
+                            // check if overflow is possible
+                            const maxLen = IntRange.fromType(tindex).imax.value + 1;
+                            if (auto ale = fs.aggr.isArrayLiteralExp())
+                                err = ale.elements.length > maxLen;
+                            else if (auto se = fs.aggr.isSliceExp())
+                                err = !(se.upr && se.upr.isConst() && se.upr.toInteger() <= maxLen);
+                        }
+                        if (err)
+                            deprecation(fs.loc, "foreach: loop index implicitly converted from `size_t` to `%s`",
                                        tindex.toChars());
                     }
                 }
@@ -1399,7 +1410,7 @@ Statement statementSemanticVisit(Statement s, Scope* sc)
             }
         case Tdelegate:
             if (fs.op == TOK.foreach_reverse_)
-                deprecation(fs.loc, "cannot use `foreach_reverse` with a delegate");
+                error(fs.loc, "cannot use `foreach_reverse` with a delegate");
             return retStmt(apply());
         case Terror:
             return retError();
@@ -2680,11 +2691,11 @@ version (IN_LLVM)
                      */
                     Scope* sc2 = sc.push();
                     sc2.eSink = global.errorSinkNull;
-                    bool err = checkReturnEscapeRef(sc2, rs.exp, true);
+                    bool err = checkReturnEscapeRef(*sc2, rs.exp, true);
                     sc2.pop();
 
                     if (err)
-                        turnOffRef(() { checkReturnEscapeRef(sc, rs.exp, false); });
+                        turnOffRef(() { checkReturnEscapeRef(*sc, rs.exp, false); });
                     else if (!rs.exp.type.constConv(tf.next))
                         turnOffRef(
                             () => rs.loc.errorSupplemental("cannot implicitly convert `%s` of type `%s` to `%s`",
@@ -3054,8 +3065,8 @@ version (IN_LLVM)
                  */
                 if (!ClassDeclaration.object)
                 {
-                    error(ss.loc, "missing or corrupt object.d");
-                    fatal();
+                    ObjectNotFound(ss.loc, Id.Object);
+                    return setError();
                 }
 
                 Type t = ClassDeclaration.object.type;
@@ -3728,7 +3739,7 @@ public bool throwSemantic(const ref Loc loc, ref Expression exp, Scope* sc)
         exp.loc.deprecation("cannot throw object of qualified type `%s`", exp.type.toChars());
         //return false;
     }
-    checkThrowEscape(sc, exp, false);
+    checkThrowEscape(*sc, exp, false);
 
     ClassDeclaration cd = exp.type.toBasetype().isClassHandle();
     if (!cd || ((cd != ClassDeclaration.throwable) && !ClassDeclaration.throwable.isBaseOf(cd, null)))

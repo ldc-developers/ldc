@@ -1,11 +1,4 @@
-// (disabled for LDC, would require full triple:) rEQUIRED_ARGS: -os=windows
 // EXTRA_SOURCES: imports/test24511_c.c
-// DISABLED: osx
-// This is disabled on macOS because ld complains about _main being undefined
-// when clang attempts to preprocess the C file.
-
-// LDC: don't bother cross-compiling (incl. -preprocessing), only run on Windows
-// DISABLED: linux freebsd dragonflybsd netbsd openbsd
 
 import test24511_c;
 

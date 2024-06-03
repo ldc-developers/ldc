@@ -70,12 +70,18 @@ typedef unsigned long long __uint64_t;
  * Obsolete detritus
  */
 #define __cdecl
+#define __pascal
+
+/*********************
+ * DMC-specific extensions, https://digitalmars.com/ctg/pointers16.html
+ */
+#ifdef __DMC__
 #define __ss
 #define __cs
 #define __far
 #define __near
 #define __handle
-#define __pascal
+#endif
 
 /****************************
  * __extension__ is a GNU C extension. It suppresses warnings
@@ -85,7 +91,7 @@ typedef unsigned long long __uint64_t;
 
 #define __builtin_isnan(x) isnan(x)
 #define __builtin_isfinite(x) finite(x)
-// IN_LLVM: replaced by symbol in __builtins.di
+// IN_LLVM: replaced by symbol in __importc_builtins.di
 //#define __builtin_alloca(x) alloca(x)
 
 /********************************

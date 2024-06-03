@@ -1124,9 +1124,6 @@ int cppmain() {
     fatal();
   }
 
-  global.compileEnv.previewIn = global.params.previewIn;
-  global.compileEnv.ddocOutput = global.params.ddoc.doOutput;
-
   if (opts::fTimeTrace) {
     initializeTimeTrace(opts::fTimeTraceGranularity, 0, opts::allArguments[0]);
   }
@@ -1211,8 +1208,7 @@ int cppmain() {
   int status;
   {
     TimeTraceScope timeScope("ExecuteCompiler");
-    Strings libmodules;
-    status = mars_mainBody(global.params, files, libmodules);
+    status = mars_tryMain(global.params, files);
   }
 
   // try to remove the temp objects dir if created for -cleanup-obj

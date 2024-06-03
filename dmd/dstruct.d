@@ -28,6 +28,7 @@ import dmd.dtemplate;
 import dmd.errors;
 import dmd.expression;
 import dmd.func;
+import dmd.funcsem;
 import dmd.globals;
 import dmd.id;
 import dmd.identifier;
@@ -228,7 +229,7 @@ extern (C++) class StructDeclaration : AggregateDeclaration
         bool hasCopyCtor;           // copy constructor
         bool hasPointerField;       // members with indirections
         bool hasVoidInitPointers;   // void-initialized unsafe fields
-        bool hasSystemFields;      // @system members
+        bool hasUnsafeBitpatterns;  // @system members, pointers, bool
         bool hasFieldWithInvariant; // invariants
         bool computedTypeProperties;// the above 3 fields are computed
 version (IN_LLVM) {} else
@@ -404,13 +405,16 @@ version (IN_LLVM) {} else
         foreach (vd; fields)
         {
             if (vd.storage_class & STC.ref_ || vd.hasPointers())
+            {
                 hasPointerField = true;
+                hasUnsafeBitpatterns = true;
+            }
 
             if (vd._init && vd._init.isVoidInitializer() && vd.type.hasPointers())
                 hasVoidInitPointers = true;
 
-            if (vd.storage_class & STC.system || vd.type.hasSystemFields())
-                hasSystemFields = true;
+            if (vd.storage_class & STC.system || vd.type.hasUnsafeBitpatterns())
+                hasUnsafeBitpatterns = true;
 
             if (!vd._init && vd.type.hasVoidInitPointers())
                 hasVoidInitPointers = true;

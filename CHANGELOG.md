@@ -1,6 +1,7 @@
 # LDC master
 
 #### Big news
+- Frontend, druntime and Phobos are at version [2.109.0](https://dlang.org/changelog/2.109.0.html). (#4660)
 - LLVM for prebuilt packages bumped to v18.1.6 (except for macOS arm64). (#4678)
 
 #### Platform support

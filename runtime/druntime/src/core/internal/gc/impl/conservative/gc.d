@@ -1253,12 +1253,6 @@ class ConservativeGC : GC
     }
 
 
-    void collectNoStack() nothrow
-    {
-        fullCollectNoStack();
-    }
-
-
     /**
      * Begins a full collection, scanning all stack segments for roots.
      *
@@ -1288,21 +1282,6 @@ class ConservativeGC : GC
 
         gcx.leakDetector.log_collect();
         return result;
-    }
-
-
-    /**
-     * Begins a full collection while ignoring all stack segments for roots.
-     */
-    void fullCollectNoStack() nothrow
-    {
-        // Since a finalizer could launch a new thread, we always need to lock
-        // when collecting.
-        static size_t go(Gcx* gcx) nothrow
-        {
-            return gcx.fullcollect(true, true, true); // standard stop the world
-        }
-        runLocked!go(gcx);
     }
 
 
@@ -2560,14 +2539,11 @@ struct Gcx
     }
 
     // collection step 2: mark roots and heap
-    void markAll(alias markFn)(bool nostack) nothrow
+    void markAll(alias markFn)() nothrow
     {
-        if (!nostack)
-        {
-            debug(COLLECT_PRINTF) printf("\tscan stacks.\n");
-            // Scan stacks and registers for each paused thread
-            thread_scanAll(&markFn);
-        }
+        debug(COLLECT_PRINTF) printf("\tscan stacks.\n");
+        // Scan stacks registers, and TLS for each paused thread
+        thread_scanAll(&markFn);
 
         // Scan roots[]
         debug(COLLECT_PRINTF) printf("\tscan roots[]\n");
@@ -2588,14 +2564,11 @@ struct Gcx
     }
 
     version (COLLECT_PARALLEL)
-    void collectAllRoots(bool nostack) nothrow
+    void collectAllRoots() nothrow
     {
-        if (!nostack)
-        {
-            debug(COLLECT_PRINTF) printf("\tcollect stacks.\n");
-            // Scan stacks and registers for each paused thread
-            thread_scanAll(&collectRoots);
-        }
+        debug(COLLECT_PRINTF) printf("\tcollect stacks.\n");
+        // Scan stacks registers and TLS for each paused thread
+        thread_scanAll(&collectRoots);
 
         // Scan roots[]
         debug(COLLECT_PRINTF) printf("\tcollect roots[]\n");
@@ -2924,7 +2897,7 @@ struct Gcx
     }
 
     version (COLLECT_FORK)
-    ChildStatus markFork(bool nostack, bool block, bool doParallel) nothrow
+    ChildStatus markFork(bool block, bool doParallel) nothrow
     {
         // Forking is enabled, so we fork() and start a new concurrent mark phase
         // in the child. If the collection should not block, the parent process
@@ -2940,11 +2913,11 @@ struct Gcx
         int child_mark() scope
         {
             if (doParallel)
-                markParallel(nostack);
+                markParallel();
             else if (ConservativeGC.isPrecise)
-                markAll!(markPrecise!true)(nostack);
+                markAll!(markPrecise!true)();
             else
-                markAll!(markConservative!true)(nostack);
+                markAll!(markConservative!true)();
             return 0;
         }
 
@@ -3003,11 +2976,11 @@ struct Gcx
                     // do the marking in this thread
                     disableFork();
                     if (doParallel)
-                        markParallel(nostack);
+                        markParallel();
                     else if (ConservativeGC.isPrecise)
-                        markAll!(markPrecise!false)(nostack);
+                        markAll!(markPrecise!false)();
                     else
-                        markAll!(markConservative!false)(nostack);
+                        markAll!(markConservative!false)();
                 } else {
                     assert(r == ChildStatus.done);
                     assert(r != ChildStatus.running);
@@ -3020,7 +2993,7 @@ struct Gcx
      * Return number of full pages free'd.
      * The collection is done concurrently only if block and isFinal are false.
      */
-    size_t fullcollect(bool nostack = false, bool block = false, bool isFinal = false) nothrow
+    size_t fullcollect(bool block = false, bool isFinal = false) nothrow
     {
         // It is possible that `fullcollect` will be called from a thread which
         // is not yet registered in runtime (because allocating `new Thread` is
@@ -3102,7 +3075,7 @@ Lmark:
             {
                 version (COLLECT_FORK)
                 {
-                    auto forkResult = markFork(nostack, block, doParallel);
+                    auto forkResult = markFork(block, doParallel);
                     final switch (forkResult)
                     {
                         case ChildStatus.error:
@@ -3129,14 +3102,14 @@ Lmark:
             else if (doParallel)
             {
                 version (COLLECT_PARALLEL)
-                    markParallel(nostack);
+                    markParallel();
             }
             else
             {
                 if (ConservativeGC.isPrecise)
-                    markAll!(markPrecise!false)(nostack);
+                    markAll!(markPrecise!false)();
                 else
-                    markAll!(markConservative!false)(nostack);
+                    markAll!(markConservative!false)();
             }
 
             thread_processGCMarks(&isMarked);
@@ -3188,7 +3161,7 @@ Lmark:
 
         updateCollectThresholds();
         if (doFork && isFinal)
-            return fullcollect(true, true, false);
+            return fullcollect(true, false);
         return freedPages;
     }
 
@@ -3304,10 +3277,10 @@ Lmark:
     shared uint stoppedThreads;
     bool stopGC;
 
-    void markParallel(bool nostack) nothrow
+    void markParallel() nothrow
     {
         toscanRoots.clear();
-        collectAllRoots(nostack);
+        collectAllRoots();
         if (toscanRoots.empty)
             return;
 
