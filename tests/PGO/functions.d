@@ -209,7 +209,7 @@ void main() {
     call_templatefunc(i);
     outerfunc(i);
     testanonymous(i);
-    auto k = new Klass(i);
+    scope k = new Klass(i); // `scope` for deterministic finalization
     k.stdmethod();
     Klass.staticmethod(i);
     auto s = Strukt(i);
