@@ -58,9 +58,9 @@ jobs:
         run: |
           set -euxo pipefail
           if [[ '${{ matrix.os }}' == 'macos-14' ]]; then
-            brew install lit
+            brew install lit python-psutil
           else
-            python3 -m pip install --user lit
+            python3 -m pip install --user lit psutil
           fi
           python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
       - name: 'Linux: Install gdb, llvm-symbolizer and libzstd'
