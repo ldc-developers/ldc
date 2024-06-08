@@ -116,27 +116,12 @@ bool TargetABI::isAggregate(Type *t) {
          /*ty == TY::Tarray ||*/ ty == TY::Tdelegate || t->iscomplex();
 }
 
-namespace {
-bool hasCtor(StructDeclaration *s) {
-  if (s->ctor)
-    return true;
-  for (VarDeclaration *field : s->fields) {
-    Type *tf = field->type->baseElemOf();
-    if (auto tstruct = tf->isTypeStruct()) {
-      if (hasCtor(tstruct->sym))
-        return true;
-    }
-  }
-  return false;
-}
-}
-
 bool TargetABI::isPOD(Type *t, bool excludeStructsWithCtor) {
   t = t->baseElemOf();
   if (t->ty != TY::Tstruct)
     return true;
   StructDeclaration *sd = static_cast<TypeStruct *>(t)->sym;
-  return sd->isPOD() && !(excludeStructsWithCtor && hasCtor(sd));
+  return sd->isPOD() && !(excludeStructsWithCtor && sd->ctor);
 }
 
 bool TargetABI::canRewriteAsInt(Type *t, bool include64bit) {
