@@ -1,5 +1,5 @@
 // REQUIRES: gdb
-// RUN: %ldc %_gdb_dflags -g -of=%t %s
+// RUN: %ldc -g -of=%t %s
 // RUN: sed -e "/^\\/\\/ GDB:/!d" -e "s,// GDB:,," %s >%t.gdb
 // RUN: gdb %t --batch -x %t.gdb >%t.out 2>&1
 // RUN: FileCheck %s -check-prefix=CHECK < %t.out
