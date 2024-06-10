@@ -17,6 +17,7 @@ Foo(POD);
 struct CtorOnly
 {
     int a;
+    CtorOnly() : a(0) {}
     CtorOnly(int a) : a(a) {}
 };
 Foo(CtorOnly);
@@ -64,3 +65,10 @@ struct MoveOnly
     MoveOnly(MoveOnly &&) = default;
 };
 Foo(MoveOnly);
+
+struct MemberWithCtor
+{
+    int a;
+    CtorOnly m;
+};
+Foo(MemberWithCtor);

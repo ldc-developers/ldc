@@ -31,14 +31,10 @@ void test(T)()
 
     static if (__traits(hasMember, T, "numDtor"))
     {
-        // TODO: fix for Posix targets (issue #2702)
-        version (CRuntime_Microsoft)
-        {
-            // fooCpp param + fooD param + result => 3 T instances.
-            // There may be an additional destruction of the moved-from T literal
-            // in fooCpp, depending on in-place construction vs. move.
-            assert(T.numDtor == 3 || T.numDtor == 4);
-        }
+        // fooCpp param + fooD param + result => 3 T instances.
+        // There may be an additional destruction of the moved-from T literal
+        // in fooCpp, depending on in-place construction vs. move.
+        assert(T.numDtor == 3 || T.numDtor == 4);
     }
 }
 
@@ -102,6 +98,13 @@ struct MoveOnly
 }
 mixin Foo!MoveOnly;
 
+struct MemberWithCtor
+{
+    int a;
+    CtorOnly m;
+}
+mixin Foo!MemberWithCtor;
+
 void main()
 {
     test!POD();
@@ -111,4 +114,5 @@ void main()
     test!Copy();
     test!CopyAndMove();
     test!MoveOnly();
+    test!MemberWithCtor();
 }
