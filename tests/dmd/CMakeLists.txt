@@ -4,7 +4,6 @@ else()
     set(host_model 64)
 endif()
 
-set(gdb_dflags "")
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     set(gdb_result_code)
     execute_process(COMMAND gdb --version
@@ -18,14 +17,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     else()
         string(REGEX REPLACE "[^0-9]*([0-9]+[0-9.]*).*" "\\1" GDB_VERSION "${GDB_VERSION}")
         message(STATUS "GDB ${GDB_VERSION} detected")
-        if(GDB_VERSION VERSION_LESS "7.6.1")
-            set(gdb_flags "NOTLS")
-        else()
-            set(gdb_flags "ON")
-        endif()
-        if(GDB_VERSION VERSION_LESS "7.8")
-            set(gdb_dflags "-dwarf-version=2")
-        endif()
+        set(gdb_flags "ON")
     endif()
 else()
     set(gdb_flags "OFF")
@@ -53,7 +45,7 @@ function(add_testsuite config_suffix required_flags gdbflags model make_rule)
     add_test(NAME clean-${name}
         COMMAND ${CMAKE_COMMAND} -E remove_directory ${outdir})
 
-    set(dflags "-conf=${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf ${gdb_dflags}")
+    set(dflags "-conf=${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf")
     add_test(NAME ${name}
         COMMAND ${RUN_DMD_TESTSUITE_EXE_FULL} RESULTS_DIR=${resultsdir}
                      REQUIRED_ARGS=${required_flags} DFLAGS=${dflags}
