@@ -7,7 +7,6 @@ import string
 import re
 import subprocess
 import glob
-from distutils.version import LooseVersion
 
 # Cmake Boolean options
 ON = True
@@ -203,20 +202,6 @@ if (platform.system() == 'Windows') and os.path.isfile( cdb ):
 # Check whether GDB is present
 if (platform.system() != 'Windows') and lit.util.which('gdb', config.environment['PATH']):
     config.available_features.add('gdb')
-    gdb_dflags = ''
-    command = ['gdb', '--version']
-    p = subprocess.Popen(command, stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE, universal_newlines=True)
-    text = p.stdout.readline()
-    m = re.compile('[^0-9]*([0-9]+[0-9.]*).*').match(text)
-    if m is not None:
-        gdb_version = m.group(1)
-        if LooseVersion(gdb_version) < LooseVersion('7.8'):
-            gdb_dflags = '-dwarf-version=2'
-        elif LooseVersion(gdb_version) >= LooseVersion('8.0'):
-            config.available_features.add('atleast_gdb80')
-
-    config.substitutions.append( ('%_gdb_dflags', gdb_dflags) )
 
 if 'LD_LIBRARY_PATH' in os.environ:
     libs = []

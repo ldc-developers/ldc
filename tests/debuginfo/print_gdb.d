@@ -1,9 +1,8 @@
-// REQUIRES: atleast_gdb80
-
+// REQUIRES: gdb
 // This test fails due to newer version of GDB, see https://github.com/ldc-developers/ldc/issues/4389
 // XFAIL: FreeBSD
 
-// RUN: %ldc %_gdb_dflags -I%S -g -of=%t %s %S/inputs/import_a.d %S/inputs/import_b.d
+// RUN: %ldc -I%S -g -of=%t %s %S/inputs/import_a.d %S/inputs/import_b.d
 // RUN: sed -e "/^\\/\\/ GDB:/!d" -e "s,// GDB:,," %s >%t.gdb
 // RUN: env LANG=C gdb %t --batch -x %t.gdb >%t.out 2>&1
 // RUN: FileCheck %s -check-prefix=CHECK < %t.out
