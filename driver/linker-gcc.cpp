@@ -235,45 +235,54 @@ bool ArgsBuilder::isLldDefaultLinker() {
 
 //////////////////////////////////////////////////////////////////////////////
 
-// Returns the arch name as used in the compiler_rt libs.
-// FIXME: implement correctly for non-x86 platforms (e.g. ARM)
-// See clang/lib/Driver/Toolchain.cpp.
-llvm::StringRef getCompilerRTArchName(const llvm::Triple &triple) {
-  return triple.getArchName();
+// Keep as much as possible in sync with
+// clang/lib/Driver/Toolchain.cpp : getArchNameForCompilerRTLib.
+std::string getCompilerRTArchName(const llvm::Triple &triple) {
+  auto result = [&]() -> std::string {
+    bool IsWindows = triple.isOSWindows();
+    auto floatABI = gTargetMachine->Options.FloatABIType;
+
+    if (triple.getArch() == llvm::Triple::arm
+	|| triple.getArch() == llvm::Triple::armeb)
+      return (floatABI == llvm::FloatABI::Hard && !IsWindows)
+	? "armhf"
+	: "arm";
+
+    // For historic reasons, Android library is using i686 instead of i386.
+    if (triple.getArch() == llvm::Triple::x86 && triple.isAndroid())
+      return "i686";
+
+    if (triple.getArch() == llvm::Triple::x86_64 && triple.isX32())
+      return "x32";
+
+    return llvm::Triple::getArchTypeName(triple.getArch()).str();
+  }();
+  if (triple.isAndroid())
+    result += "-android";
+
+  return result;
 }
 
 // Appends arch suffix and extension.
 // E.g., for name="libclang_rt.fuzzer" and sharedLibrary=false, returns
-// "libclang_rt.fuzzer_osx.a" on Darwin.
+// "libclang_rt.fuzzer_osx.a" on Darwin. Without appendArch the result
+// would be "libclang_rt.fuzzer.a"
 std::string getCompilerRTLibFilename(const llvm::Twine &name,
-                                     const llvm::Triple &triple,
-                                     bool sharedLibrary) {
-  return (triple.isOSDarwin()
-              ? name + (sharedLibrary ? "_osx_dynamic.dylib" : "_osx.a")
-              : name + "-" + getCompilerRTArchName(triple) +
-                    (sharedLibrary ? ".so" : ".a"))
-      .str();
-}
+				     const llvm::Triple &triple,
+				     bool sharedLibrary,
+				     bool appendArch) {
+  std::string result = name.str();
+  if (triple.isOSDarwin()) {
+    if (appendArch)
+      result += "_osx";
+    result += sharedLibrary ? "_dynamic.dylib" : ".a";
+  } else {
+    if (appendArch)
+      result += "-" + getCompilerRTArchName(triple);
+    result += sharedLibrary ? ".so" : ".a";
+  }
 
-// Clang's RT libs are in a subdir of the lib dir.
-// E.g., for name="libclang_rt.asan" and sharedLibrary=true, returns
-// "clang/6.0.0/lib/darwin/libclang_rt.asan_osx_dynamic.dylib" on
-// Darwin.
-// This function is "best effort", the path may not be what Clang does...
-// See clang/lib/Driver/Toolchain.cpp.
-std::string getRelativeClangCompilerRTLibPath(const llvm::Twine &name,
-                                              const llvm::Triple &triple,
-                                              bool sharedLibrary) {
-  llvm::StringRef OSName =
-      triple.isOSDarwin()
-          ? "darwin"
-          : triple.isOSFreeBSD() ? "freebsd" : triple.getOSName();
-
-  std::string relPath = (llvm::Twine("clang/") + ldc::llvm_version_base +
-                         "/lib/" + OSName + "/" + name)
-                            .str();
-
-  return getCompilerRTLibFilename(relPath, triple, sharedLibrary);
+  return result;
 }
 
 void appendFullLibPathCandidates(std::vector<std::string> &paths,
@@ -287,19 +296,14 @@ void appendFullLibPathCandidates(std::vector<std::string> &paths,
 
   // for backwards compatibility
   paths.push_back(exe_path::prependLibDir(filename));
-
-#ifdef LDC_LLVM_LIBDIR
-  candidate = LDC_LLVM_LIBDIR;
-  llvm::sys::path::append(candidate, filename);
-  paths.emplace_back(candidate.data(), candidate.size());
-#endif
 }
 
 // Returns candidates of full paths to a compiler-rt lib.
 // E.g., for baseName="asan" and sharedLibrary=false, returns something like
 // [ "<libDir>/libldc_rt.asan.a",
 //   "<libDir>/libclang_rt.asan_osx.a",
-//   "<libDir>/clang/6.0.0/lib/darwin/libclang_rt.asan_osx.a" ].
+//   "<libDir>/libclang_rt.asan.a",
+// ]
 std::vector<std::string>
 getFullCompilerRTLibPathCandidates(llvm::StringRef baseName,
                                    const llvm::Triple &triple,
@@ -310,12 +314,12 @@ getFullCompilerRTLibPathCandidates(llvm::StringRef baseName,
        (!sharedLibrary ? ".a" : triple.isOSDarwin() ? ".dylib" : ".so"))
           .str();
   appendFullLibPathCandidates(r, ldcRT);
-  const auto clangRT = getCompilerRTLibFilename("libclang_rt." + baseName,
-                                                triple, sharedLibrary);
-  appendFullLibPathCandidates(r, clangRT);
-  const auto fullClangRT = getRelativeClangCompilerRTLibPath(
-      "libclang_rt." + baseName, triple, sharedLibrary);
-  appendFullLibPathCandidates(r, fullClangRT);
+  const auto clangRTWithArch = getCompilerRTLibFilename("libclang_rt." + baseName,
+							triple, sharedLibrary, true);
+  appendFullLibPathCandidates(r, clangRTWithArch);
+  const auto clangRTWithoutArch = getCompilerRTLibFilename("libclang_rt." + baseName,
+							   triple, sharedLibrary, false);
+  appendFullLibPathCandidates(r, clangRTWithoutArch);
   return r;
 }
 
