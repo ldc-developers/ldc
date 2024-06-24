@@ -99,6 +99,11 @@ else version (LoongArch64)
     enum eh_exception_regno = 4;
     enum eh_selector_regno = 5;
 }
+else version (SystemZ)
+{
+    enum eh_exception_regno = 6;
+    enum eh_selector_regno = 7;
+}
 else
 {
     static assert(0, "Unknown EH register numbers for this architecture");
