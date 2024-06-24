@@ -7,14 +7,16 @@ endif()
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     set(gdb_result_code)
     execute_process(COMMAND gdb --version
-                    COMMAND head -n 1
-                    RESULT_VARIABLE gdb_result_code
-                    OUTPUT_VARIABLE GDB_VERSION
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+                    RESULT_VARIABLE gdb_result_code)
     if(gdb_result_code)
         message(STATUS "GDB not detected, will exclude GDB tests from test suite")
         set(gdb_flags "OFF")
     else()
+        execute_process(COMMAND gdb --version
+                        COMMAND head -n 1
+                        RESULT_VARIABLE gdb_result_code
+                        OUTPUT_VARIABLE GDB_VERSION
+                        OUTPUT_STRIP_TRAILING_WHITESPACE)
         string(REGEX REPLACE "[^0-9]*([0-9]+[0-9.]*).*" "\\1" GDB_VERSION "${GDB_VERSION}")
         message(STATUS "GDB ${GDB_VERSION} detected")
         set(gdb_flags "ON")
