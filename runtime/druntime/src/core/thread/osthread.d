@@ -1633,6 +1633,25 @@ in (fn)
             asm pure nothrow @nogc { ( "st.d $fp, %0") : "=m" (regs[17]); }
             asm pure nothrow @nogc { ( "st.d $sp, %0") : "=m" (sp); }
         }
+        else version (SystemZ)
+        {
+            size_t[19] regs = void;
+            asm pure nothrow @nogc {
+                // save argument/return register
+                "stg   %%r2, %0" : "=m" (regs[0]);
+                // save callee-saved GPRs (%r6 - %r14)
+                "stmg  %%r6, %%r14, %0" : "=m" (regs[1]);
+                // save floating point control register
+                "stfpc %0" : "=m" (regs[10]);
+            }
+            static foreach (i; 8 .. 16)
+            {{
+                enum int j = i;
+                // save %f8 - %f15
+                asm pure nothrow @nogc { ( "std %%f"~j.stringof~", %0") : "=m" (regs[i + 3]); }
+            }}
+            asm pure nothrow @nogc { ( "stg %%r15, %0") : "=m" (sp); }
+        }
         else
         {
             static assert(false, "Architecture not supported.");

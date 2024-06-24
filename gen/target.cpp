@@ -54,6 +54,7 @@ llvm::Type *getRealType(const llvm::Triple &triple) {
 
   case Triple::riscv32:
   case Triple::riscv64:
+  case Triple::systemz:
 #if LDC_LLVM_VER >= 1600
   case Triple::loongarch32:
   case Triple::loongarch64:
@@ -66,7 +67,7 @@ llvm::Type *getRealType(const llvm::Triple &triple) {
 
   default:
     // 64-bit double precision for all other targets
-    // FIXME: PowerPC, SystemZ, ...
+    // FIXME: PowerPC ...
     return LLType::getDoubleTy(ctx);
   }
 }
@@ -237,10 +238,13 @@ Type *Target::va_listType(const Loc &loc, Scope *sc) {
 const char *TargetCPP::typeMangle(Type *t) {
   if (t->ty == TY::Tfloat80) {
     const auto &triple = *global.params.targetTriple;
-    // `long double` on Android/x64 is __float128 and mangled as `g`
-    bool isAndroidX64 = triple.getEnvironment() == llvm::Triple::Android &&
-                        triple.getArch() == llvm::Triple::x86_64;
-    return isAndroidX64 ? "g" : "e";
+    // `long double` on Android/x64 and IBM SystemZ is __float128 and mangled as
+    // `g` instead of `e`.
+    const auto targetArch = triple.getArch();
+    const bool isAndroidX64 =
+        triple.getEnvironment() == llvm::Triple::Android &&
+        targetArch == llvm::Triple::x86_64;
+    return (isAndroidX64 || targetArch == llvm::Triple::systemz) ? "g" : "e";
   }
   return nullptr;
 }
