@@ -257,23 +257,33 @@ std::string getCompilerRTLibFilename(const llvm::Twine &name,
 
 // Clang's RT libs are in a subdir of the lib dir.
 // E.g., for name="libclang_rt.asan" and sharedLibrary=true, returns
-// "clang/6.0.0/lib/darwin/libclang_rt.asan_osx_dynamic.dylib" on
+// "clang/6.0.0/lib/darwin/libclang_rt.asan_osx_dynamic.dylib" and
+// "clang/6/lib/darwin/libclang_rt.asan_osx_dynamic.dylib" on
 // Darwin.
 // This function is "best effort", the path may not be what Clang does...
 // See clang/lib/Driver/Toolchain.cpp.
-std::string getRelativeClangCompilerRTLibPath(const llvm::Twine &name,
-                                              const llvm::Triple &triple,
-                                              bool sharedLibrary) {
-  llvm::StringRef OSName =
-      triple.isOSDarwin()
-          ? "darwin"
-          : triple.isOSFreeBSD() ? "freebsd" : triple.getOSName();
+std::vector<std::string> getRelativeClangCompilerRTLibPath(
+    const llvm::Twine &name, const llvm::Triple &triple, bool sharedLibrary) {
+  llvm::StringRef OSName = triple.isOSDarwin()    ? "darwin"
+                           : triple.isOSFreeBSD() ? "freebsd"
+                                                  : triple.getOSName();
+
+  auto llvm_major_version =
+      llvm::StringRef(ldc::llvm_version_base).take_until([](char c) {
+        return c == '.';
+      });
 
   std::string relPath = (llvm::Twine("clang/") + ldc::llvm_version_base +
                          "/lib/" + OSName + "/" + name)
                             .str();
+  std::string relPath_llvm_major_version =
+      (llvm::Twine("clang/") + llvm_major_version + "/lib/" + OSName + "/" +
+       name)
+          .str();
 
-  return getCompilerRTLibFilename(relPath, triple, sharedLibrary);
+  return {getCompilerRTLibFilename(relPath, triple, sharedLibrary),
+          getCompilerRTLibFilename(relPath_llvm_major_version, triple,
+                                   sharedLibrary)};
 }
 
 void appendFullLibPathCandidates(std::vector<std::string> &paths,
@@ -299,7 +309,8 @@ void appendFullLibPathCandidates(std::vector<std::string> &paths,
 // E.g., for baseName="asan" and sharedLibrary=false, returns something like
 // [ "<libDir>/libldc_rt.asan.a",
 //   "<libDir>/libclang_rt.asan_osx.a",
-//   "<libDir>/clang/6.0.0/lib/darwin/libclang_rt.asan_osx.a" ].
+//   "<libDir>/clang/6.0.0/lib/darwin/libclang_rt.asan_osx.a",
+//   "<libDir>/clang/6/lib/darwin/libclang_rt.asan_osx.a" ].
 std::vector<std::string>
 getFullCompilerRTLibPathCandidates(llvm::StringRef baseName,
                                    const llvm::Triple &triple,
@@ -315,7 +326,9 @@ getFullCompilerRTLibPathCandidates(llvm::StringRef baseName,
   appendFullLibPathCandidates(r, clangRT);
   const auto fullClangRT = getRelativeClangCompilerRTLibPath(
       "libclang_rt." + baseName, triple, sharedLibrary);
-  appendFullLibPathCandidates(r, fullClangRT);
+  for (const auto &path : fullClangRT) {
+    appendFullLibPathCandidates(r, path);
+  }
   return r;
 }
 
