@@ -705,6 +705,113 @@ CSYM(fiber_trampoline):
         // fiber_entryPoint never returns
         bl CSYM(fiber_entryPoint)
         .cfi_endproc
+
+#elif defined(__s390x__) || defined(__zarch__) || defined(__SYSC_ZARCH__)
+/************************************************************************************
+ * SystemZ (S390X) ASM BITS
+ ************************************************************************************/
+
+// Note: Does not support S390 systems, only S390X (IBM Z) systems are covered.
+/**
+ * Performs a context switch.
+ *
+ * Parameters:
+ * r2 - void** - ptr to old stack pointer
+ * r3 - void*  - new stack pointer
+ *
+ */
+
+.text
+.globl fiber_switchContext
+.type  fiber_switchContext, %function
+fiber_switchContext:
+    .cfi_startproc
+    .machine "z10"
+
+    /**
+     * Save the call-saved general purpose registers onto
+     * the caller register save-area (below the %sp per s390x ABI)
+     * (This includes return address %r4 and stack pointer %r15) */
+    stmg    %r6, %r15, 48(%r15)
+    .cfi_offset 6, -112
+    .cfi_offset 7, -104
+    .cfi_offset 8, -96
+    .cfi_offset 9, -88
+    .cfi_offset 10, -80
+    .cfi_offset 11, -72
+    .cfi_offset 12, -64
+    .cfi_offset 13, -56
+    .cfi_offset 14, -48
+    .cfi_offset 15, -40
+    lgr     %r1, %r15
+    aghi    %r15, -64
+    /* we need to tell the debugger that the current stack offset is:
+       64 (frame size) + 160 (parameter area size) */
+    .cfi_def_cfa_offset 224
+    /* store the (optional) backchain data */
+    stg     %r1, 0(%r15)
+    /* Save callee-saved floating point registers
+       s390x ABI has a very unique way for storing fp registers:
+       even-pairs first and odd-pairs last */
+    std     %f8,  0(%r15)
+    .cfi_offset 24, -224
+    std     %f10, 8(%r15)
+    .cfi_offset 25, -216
+    std     %f12, 16(%r15)
+    .cfi_offset 26, -208
+    std     %f14, 24(%r15)
+    .cfi_offset 27, -200
+    std     %f9,  32(%r15)
+    .cfi_offset 28, -192
+    std     %f11, 40(%r15)
+    .cfi_offset 29, -184
+    std     %f13, 48(%r15)
+    .cfi_offset 30, -176
+    std     %f15, 56(%r15)
+    .cfi_offset 31, -168
+
+    /* Save stack pointer, the stack pointer is adjusted so that
+       GC won't see the float point registers */
+    stg     %r15, 0(%r2)
+
+    /* Load the new context pointer as stack pointer.  */
+    lgr     %r15, %r3
+    .cfi_def_cfa_offset 224
+
+    /* Restore call-saved floating point registers.  */
+    ld      %f8,  0(%r15)
+    .cfi_offset 24, -224
+    ld      %f10, 8(%r15)
+    .cfi_offset 25, -216
+    ld      %f12, 16(%r15)
+    .cfi_offset 26, -208
+    ld      %f14, 24(%r15)
+    .cfi_offset 27, -200
+    ld      %f9,  32(%r15)
+    .cfi_offset 28, -192
+    ld      %f11, 40(%r15)
+    .cfi_offset 29, -184
+    ld      %f13, 48(%r15)
+    .cfi_offset 30, -176
+    ld      %f15, 56(%r15)
+    .cfi_offset 31, -168
+    lmg     %r6, %r14, 112(%r15)
+    .cfi_offset 6, -112
+    .cfi_offset 7, -104
+    .cfi_offset 8, -96
+    .cfi_offset 9, -88
+    .cfi_offset 10, -80
+    .cfi_offset 11, -72
+    .cfi_offset 12, -64
+    .cfi_offset 13, -56
+    .cfi_offset 14, -48
+    aghi    %r15, 64
+    .cfi_def_cfa_offset 160
+
+    .cfi_return_column 14
+    br      %r14
+    .cfi_endproc
+
 #elif defined(__arm__) && (defined(__ARM_EABI__) || defined(__APPLE__))
 /************************************************************************************
  * ARM ASM BITS

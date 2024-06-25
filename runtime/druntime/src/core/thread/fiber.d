@@ -173,6 +173,14 @@ private
             version = AlignFiberStackTo16Byte;
         }
     }
+    else version (SystemZ)
+    {
+        version (Posix)
+        {
+            version = AsmSystemZ_Posix;
+            version = AsmExternal;
+        }
+    }
 
     version (Posix)
     {
@@ -574,6 +582,8 @@ version (LDC)
     version (AArch64) version = CheckFiberMigration;
 
     version (PPC64)   version = CheckFiberMigration;
+
+    version (SystemZ) version = CheckFiberMigration;
 
     // Fiber migration across threads is (probably) not possible with ASan fakestack enabled (different parts of the stack
     // will contain fakestack pointers that were created on different threads...)
@@ -1902,6 +1912,34 @@ private:
             pstack -= size_t.sizeof * 10;    // skip past space reserved for $r22-$r31
             push(cast(size_t) &fiber_trampoline); // see threadasm.S for docs
             pstack += size_t.sizeof;         // adjust sp (newp) above lr
+        }
+        else version (AsmSystemZ_Posix) {
+            // Unlike a lot of architectures, s390x has a very special way
+            // to do function calls: by saving registers onto 
+            // "register save area" (which is below the stack frame).
+            // However, we put fp registers on top of the "register save area"
+            // because saved fp registers are not part of this area.
+            // fiber_switchContext expects newp sp to look like this:
+            //    0: %f15 <-- newp tstack
+            //   -1: %f13
+            //   -2: %f11
+            //   ...
+            //   -8: %f6 (not saved) <-- top of register save area
+            //   ...
+            //  -13: %r14 [&fiber_entryPoint]
+            //   ...
+            //  -25: %r2 (not saved) <-- bottom of the register save area
+            //  -26: reserved
+            //  -27: %r0 <-- backchain slot
+
+            version (StackGrowsDown) {}
+            else
+                static assert(false, "Only full descending stacks supported on SystemZ");
+            
+            push(cast(size_t) 0x0);    // sp
+            push(cast(size_t) &fiber_entryPoint); // r14 (return address)
+            pstack -= size_t.sizeof * 22;    // skip past space reserved for a lot of stuff
+
         }
         else version (AsmAArch64_Posix)
         {
