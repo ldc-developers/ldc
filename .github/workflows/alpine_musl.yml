@@ -32,15 +32,12 @@ jobs:
           cd bootstrap
           cmake -G Ninja .. \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX="/opt/ldc2" \
-            -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ \
             -DD_COMPILER_FLAGS=-link-defaultlib-shared=false \
             -DBUILD_SHARED_LIBS=OFF
           ninja obj/ldc2.o all
           bin/ldc2 --version
           cd ..
 
-      # TODO: Add '-DLLVM_IS_SHARED=OFF' when static linking is fully supported
       # TSan and XRay do not work.
       - name: Build LDC & LDC D unittests & defaultlib unittest runners
         shell: alpine.sh {0}
@@ -50,7 +47,9 @@ jobs:
             -DD_COMPILER=./bootstrap/bin/ldmd2 \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="/opt/ldc2" \
-            -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++ \
+            -DINCLUDE_INSTALL_DIR="/opt/ldc2/import" \
+            -DLLVM_IS_SHARED=OFF \
+            -DCMAKE_EXE_LINKER_FLAGS=-static \
             -DD_COMPILER_FLAGS=-link-defaultlib-shared=false \
             -DBUILD_SHARED_LIBS=OFF \
             -DTEST_COMPILER_RT_LIBRARIES="profile;lsan;asan;msan;fuzzer"
