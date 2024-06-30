@@ -21,7 +21,7 @@ jobs:
         uses: jirutka/setup-alpine@v1
         with:
           branch: v3.20
-          packages: ldc git g++ cmake ninja llvm-dev llvm-static compiler-rt libunwind-static libxml2-static zstd-static zlib-static bash grep diffutils make
+          packages: ldc git g++ cmake ninja llvm-dev llvm-static compiler-rt libxml2-static zstd-static zlib-static bash grep diffutils make
 
       - name: Build LDC bootstrap
         shell: alpine.sh {0}
