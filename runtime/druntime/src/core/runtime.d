@@ -19,9 +19,17 @@ else version (TVOS)
 else version (WatchOS)
     version = Darwin;
 
+version(LDC) version (Darwin)
+{
+    // Use our own backtrace() based on _Unwind_Backtrace(), as the former (from
+    // execinfo) doesn't seem to handle missing frame pointers too well.
+    version = DefineBacktrace_using_UnwindBacktrace;
+}
+
 version (DRuntime_Use_Libunwind)
 {
-    import core.internal.backtrace.libunwind;
+    version = DefineBacktrace_using_UnwindBacktrace;
+
     // This shouldn't be necessary but ensure that code doesn't get mixed
     // It does however prevent the unittest SEGV handler to be installed,
     // which is desireable as it uses backtrace directly.
@@ -670,24 +678,11 @@ extern (C) UnitTestResult runModuleUnitTests()
     return results;
 }
 
-version (LDC) version (Darwin)
+version (DefineBacktrace_using_UnwindBacktrace)
 {
-    nothrow:
+    import core.internal.backtrace.unwind;
 
-    extern (C)
-    {
-        enum _URC_NO_REASON = 0;
-        enum _URC_END_OF_STACK = 5;
-
-        alias _Unwind_Context_Ptr = void*;
-        alias _Unwind_Trace_Fn = int function(_Unwind_Context_Ptr, void*);
-        int _Unwind_Backtrace(_Unwind_Trace_Fn, void*);
-        ptrdiff_t _Unwind_GetIP(_Unwind_Context_Ptr context);
-    }
-
-    // Use our own backtrce() based on _Unwind_Backtrace(), as the former (from
-    // execinfo) doesn't seem to handle missing frame pointers too well.
-    private int backtrace(void** buffer, int maxSize)
+    private int backtrace(void** buffer, int maxSize) nothrow
     {
         if (maxSize < 0) return 0;
 
@@ -698,7 +693,7 @@ version (LDC) version (Darwin)
             int entriesWritten = 0;
         }
 
-        static extern(C) int handler(_Unwind_Context_Ptr context, void* statePtr)
+        static extern(C) int handler(_Unwind_Context* context, void* statePtr)
         {
             auto state = cast(State*)statePtr;
             if (state.entriesWritten >= state.maxSize) return _URC_END_OF_STACK;
@@ -819,14 +814,8 @@ void defaultTraceDeallocator(Throwable.TraceInfo info) nothrow
     free(cast(void *)obj);
 }
 
-version (DRuntime_Use_Libunwind)
-{
-    import core.internal.backtrace.handler;
-
-    alias DefaultTraceInfo = LibunwindHandler;
-}
 /// Default implementation for most POSIX systems
-else version (Posix) private class DefaultTraceInfo : Throwable.TraceInfo
+version (Posix) private class DefaultTraceInfo : Throwable.TraceInfo
 {
     import core.demangle;
     import core.stdc.stdlib : free;

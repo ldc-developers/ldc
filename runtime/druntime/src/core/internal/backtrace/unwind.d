@@ -150,7 +150,7 @@ version (LDC) // simplify runtime function forward declaration
 else
     void _Unwind_Resume(_Unwind_Exception* exception_object);
 _Unwind_Reason_Code _Unwind_Resume_or_Rethrow(_Unwind_Exception* exception_object);
-_Unwind_Reason_Code _Unwind_Backtrace(_Unwind_Trace_Fn, void*);
+_Unwind_Reason_Code _Unwind_Backtrace(_Unwind_Trace_Fn, void*) nothrow;
 
 version (ARM_EABI_UNWINDER)
 {
@@ -160,46 +160,37 @@ version (ARM_EABI_UNWINDER)
     // On ARM, these are macros resp. not visible (static inline). To avoid
     // an unmaintainable amount of dependencies on implementation details,
     // just use a C shim (in ldc/arm_unwind.c).
-    _Unwind_Word _d_eh_GetGR(_Unwind_Context* context, int index);
+    _Unwind_Word _d_eh_GetGR(_Unwind_Context* context, int index) nothrow;
     alias _Unwind_GetGR = _d_eh_GetGR;
 
-    void _d_eh_SetGR(_Unwind_Context* context, int index, _Unwind_Word new_value);
+    void _d_eh_SetGR(_Unwind_Context* context, int index, _Unwind_Word new_value) nothrow;
     alias _Unwind_SetGR = _d_eh_SetGR;
 
-    _Unwind_Ptr _d_eh_GetIP(_Unwind_Context* context);
+    _Unwind_Ptr _d_eh_GetIP(_Unwind_Context* context) nothrow;
     alias _Unwind_GetIP = _d_eh_GetIP;
 
-    _Unwind_Ptr _d_eh_GetIPInfo(_Unwind_Context* context, int*);
+    _Unwind_Ptr _d_eh_GetIPInfo(_Unwind_Context* context, int*) nothrow;
     alias _Unwind_GetIPInfo = _d_eh_GetIPInfo;
 
-    void _d_eh_SetIP(_Unwind_Context* context, _Unwind_Ptr new_value);
+    void _d_eh_SetIP(_Unwind_Context* context, _Unwind_Ptr new_value) nothrow;
     alias _Unwind_SetIP = _d_eh_SetIP;
 }
 else
 {
-    _Unwind_Word _Unwind_GetGR(_Unwind_Context* context, int index);
-    void _Unwind_SetGR(_Unwind_Context* context, int index, _Unwind_Word new_value);
-    _Unwind_Ptr _Unwind_GetIP(_Unwind_Context* context);
-    _Unwind_Ptr _Unwind_GetIPInfo(_Unwind_Context* context, int*);
-    void _Unwind_SetIP(_Unwind_Context* context, _Unwind_Ptr new_value);
+    _Unwind_Word _Unwind_GetGR(_Unwind_Context* context, int index) nothrow;
+    void _Unwind_SetGR(_Unwind_Context* context, int index, _Unwind_Word new_value) nothrow;
+    _Unwind_Ptr _Unwind_GetIP(_Unwind_Context* context) nothrow;
+    _Unwind_Ptr _Unwind_GetIPInfo(_Unwind_Context* context, int*) nothrow;
+    void _Unwind_SetIP(_Unwind_Context* context, _Unwind_Ptr new_value) nothrow;
 }
-_Unwind_Word _Unwind_GetCFA(_Unwind_Context*);
-_Unwind_Word _Unwind_GetBSP(_Unwind_Context*);
-void* _Unwind_GetLanguageSpecificData(_Unwind_Context*);
-_Unwind_Ptr _Unwind_GetRegionStart(_Unwind_Context* context);
-void* _Unwind_FindEnclosingFunction(void* pc);
+_Unwind_Word _Unwind_GetCFA(_Unwind_Context*) nothrow;
+_Unwind_Word _Unwind_GetBSP(_Unwind_Context*) nothrow;
+void* _Unwind_GetLanguageSpecificData(_Unwind_Context*) nothrow;
+_Unwind_Ptr _Unwind_GetRegionStart(_Unwind_Context* context) nothrow;
+void* _Unwind_FindEnclosingFunction(void* pc) nothrow;
 
-version (X68_64)
+version (X86_64)
 {
-    _Unwind_Ptr _Unwind_GetDataRelBase(_Unwind_Context* context)
-    {
-        return _Unwind_GetGR(context, 1);
-    }
-
-    _Unwind_Ptr _Unwind_GetTextRelBase(_Unwind_Context* context)
-    {
-        assert(0);
-    }
 }
 else
 {

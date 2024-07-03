@@ -12,7 +12,6 @@ DMD:=
 DRUNTIME:=
 DRUNTIMESO:=
 LINKDL:=
-LINKUNWIND:=
 QUIET:=
 TIMELIMIT:=
 PIC:=
@@ -26,7 +25,6 @@ ifeq (,$(findstring ldmd2,$(DMD)))
 endif
 
 LDL:=$(subst -L,,$(LINKDL)) # -ldl
-LUNWIND:=$(subst -L,,$(LINKUNWIND)) # -lunwind
 SRC:=src
 GENERATED:=./generated
 ROOT:=$(GENERATED)/$(OS)/$(BUILD)/$(MODEL)

@@ -21,7 +21,7 @@ jobs:
         uses: jirutka/setup-alpine@v1
         with:
           branch: v3.20
-          packages: ldc git g++ cmake ninja llvm-dev llvm-static compiler-rt libunwind-static libxml2-static zstd-static zlib-static bash grep diffutils make
+          packages: ldc git g++ cmake ninja llvm-dev llvm-static compiler-rt libxml2-static zstd-static zlib-static bash grep diffutils make
 
       - name: Build LDC bootstrap
         shell: alpine.sh {0}
@@ -73,7 +73,16 @@ jobs:
       - name: Run DMD testsuite
         if: success() || failure()
         shell: alpine.sh {0}
-        run: ctest -V -R "dmd-testsuite"
+        run: |
+          # These two tests require extra flags "-link-defaultlib-debug -frame-pointer=all", https://github.com/ldc-developers/ldc/issues/4694.
+          # Run them separately with these flags, and then remove them before running the full testsuite.
+          bin/ldc2    -g -L-export-dynamic -link-defaultlib-debug -frame-pointer=all -run tests/dmd/runnable/test17559.d
+          bin/ldc2 -O -g -L-export-dynamic -link-defaultlib-debug -frame-pointer=all -run tests/dmd/runnable/test17559.d
+          bin/ldc2    -g -L-export-dynamic -link-defaultlib-debug -frame-pointer=all -run tests/dmd/runnable/test19086.d
+          bin/ldc2 -O -g -L-export-dynamic -link-defaultlib-debug -frame-pointer=all -run tests/dmd/runnable/test19086.d
+          rm tests/dmd/runnable/test17559.d
+          rm tests/dmd/runnable/test19086.d
+          ctest -V -R "dmd-testsuite"
 
       - name: Run defaultlib unittests & druntime integration tests
         if: success() || failure()

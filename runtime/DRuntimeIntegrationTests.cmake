@@ -42,10 +42,6 @@ set(linkdl "")
 if("${TARGET_SYSTEM}" MATCHES "Linux")
     set(linkdl "LINKDL=-L-ldl")
 endif()
-set(linkunwind "")
-if("${TARGET_SYSTEM}" MATCHES "musl")
-    set(linkunwind "LINKUNWIND=-L-lunwind")
-endif()
 
 get_subdirs(testnames ${PROJECT_SOURCE_DIR}/druntime/test)
 if(${BUILD_SHARED_LIBS} STREQUAL "OFF")
@@ -78,7 +74,7 @@ foreach(name ${testnames})
             COMMAND ${GNU_MAKE_BIN} -C ${PROJECT_SOURCE_DIR}/druntime/test/${name}
                 ROOT=${outdir} DMD=${LDMD_EXE_FULL} BUILD=${build}
                 DRUNTIME=${druntime_path_build} DRUNTIMESO=${shared_druntime_path_build}
-                SHARED=1 ${cflags_base} ${linkdl} ${linkunwind}
+                SHARED=1 ${cflags_base} ${linkdl}
         )
         set_tests_properties(${fullname} PROPERTIES DEPENDS clean-${fullname})
     endforeach()
