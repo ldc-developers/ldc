@@ -1,13 +1,20 @@
 # LDC master
 
 #### Big news
-- Frontend, druntime and Phobos are at version [2.109.0](https://dlang.org/changelog/2.109.0.html). (#4660)
+
+#### Platform support
+
+#### Bug fixes
+
+# LDC 1.39.0 (2024-07-04)
+
+#### Big news
+- Frontend, druntime and Phobos are at version [2.109.1](https://dlang.org/changelog/2.109.0.html). (#4660, #4692)
 - LLVM for prebuilt packages bumped to v18.1.6 (except for macOS arm64). (#4678)
+- Added CI testing of Alpine Linux with musl libc (including some bug fixes). Removed the libunwind dependency when linking with musl libc. (#4650, #4691)
 
 #### Platform support
 - Supports LLVM 15 - 18. Support for LLVM 11 - 14 was dropped. The CLI options `-passmanager` and `-opaque-pointers` were removed.
-
-#### Bug fixes
 
 # LDC 1.38.0 (2024-05-11)
 
