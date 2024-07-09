@@ -42,7 +42,7 @@ commonSteps: &commonSteps
           fi
           # Install lit
           python3 --version
-          python3 -m pip install --user lit
+          python3 -m pip install --user lit psutil
           python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
           # Download & extract host LDC if HOST_LDC_VERSION is set
           if [[ -v HOST_LDC_VERSION ]]; then
@@ -78,7 +78,7 @@ commonSteps: &commonSteps
     - run:
         name: Run LIT testsuite
         when: always
-        command: cd ../build/tests && python3 runlit.py -v -j $PARALLELISM .
+        command: cd ../build/tests && python3 runlit.py -v -j $PARALLELISM . --timeout 60
     - run:
         name: Run DMD testsuite
         when: always
