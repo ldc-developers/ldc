@@ -1,4 +1,4 @@
-name: Alpine Linux (musl libc)
+name: Alpine Linux, musl libc, vanilla LLVM
 on:
   - pull_request
   - push
