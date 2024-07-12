@@ -18,12 +18,15 @@ inputs:
     default: 'all'
   arch:
     required: false # Windows only
+  shell:
+    required: false
+    default: bash
 runs:
   using: composite
   steps:
 
     - if: runner.os != 'Windows'
-      shell: bash
+      shell: ${{ inputs.shell }}
       run: |
         set -eux
         cd ..

@@ -2,13 +2,16 @@ name: Run DMD testsuite
 inputs:
   arch:
     required: false # Windows only
+  shell:
+    required: false
+    default: bash
 runs:
   using: composite
   steps:
 
     - name: 'Posix: Run DMD testsuite'
       if: runner.os != 'Windows'
-      shell: bash
+      shell: ${{ inputs.shell }}
       run: cd ../build && ctest -V -R "dmd-testsuite"
 
     - name: 'Windows: Run DMD testsuite'

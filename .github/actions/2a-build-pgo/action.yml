@@ -5,6 +5,9 @@ inputs:
     default: ''
   arch:
     required: false # Windows only
+  shell:
+    required: false
+    default: bash
 runs:
   using: composite
   steps:
@@ -20,11 +23,12 @@ runs:
           "-DDFLAGS_LDC=-fprofile-generate -vp-counters-per-site=1.5"
           ${{ inputs.cmake_flags }}
         arch: ${{ inputs.arch }}
+        shell: ${{ inputs.shell }}
       env:
         LLVM_PROFILE_FILE: ${{ github.workspace }}/../pgo-ldc/%p.profraw
 
     - name: Merge PGO profiles # to ../pgo-ldc/merged.profdata
-      shell: bash
+      shell: ${{ inputs.shell }}
       run: |
         set -eux
         cd ../pgo-ldc

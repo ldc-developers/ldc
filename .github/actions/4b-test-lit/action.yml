@@ -2,13 +2,16 @@ name: Run LIT testsuite
 inputs:
   arch:
     required: false # Windows only
+  shell:
+    required: false
+    default: bash
 runs:
   using: composite
   steps:
 
     - name: 'Posix: Run LIT testsuite'
       if: runner.os != 'Windows'
-      shell: bash
+      shell: ${{ inputs.shell }}
       # temporarily add LLVM bin dir to PATH, so that e.g. wasm-ld is found
       run: cd ../build && PATH="$PWD/../llvm/bin:$PATH" ctest -V -R "lit-tests"
 

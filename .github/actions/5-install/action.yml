@@ -5,12 +5,15 @@ inputs:
   cross_compiling:
     required: false
     default: false
+  shell:
+    required: false
+    default: bash
 runs:
   using: composite
   steps:
 
     - name: Install LDC
-      shell: bash
+      shell: ${{ inputs.shell }}
       run: |
         set -eux
         cd ..
@@ -44,7 +47,7 @@ runs:
         fi
 
     - name: Make portable
-      shell: bash
+      shell: ${{ inputs.shell }}
       run: |
         set -eux
         cd ..
@@ -57,12 +60,12 @@ runs:
         cat install/etc/ldc2.conf
 
     - name: Rename the installation dir to test portability
-      shell: bash
+      shell: ${{ inputs.shell }}
       run: mv ../install ../installed
 
     - name: 'Windows: Copy curl & MinGW-w64-based libs'
       if: runner.os == 'Windows'
-      shell: bash
+      shell: ${{ inputs.shell }}
       run: |
         set -eux
         cd ..

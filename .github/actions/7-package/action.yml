@@ -8,12 +8,15 @@ inputs:
   cross_target_triple:
     required: false
     default: ''
+  shell:
+    required: false
+    default: bash
 runs:
   using: composite
   steps:
 
     - name: Set DMD environment variable
-      shell: bash
+      shell: ${{ inputs.shell }}
       run: |
         set -eux
         cd ..
@@ -25,7 +28,7 @@ runs:
         echo "DMD=$DMD" >> $GITHUB_ENV
 
     - name: Build & copy dub
-      shell: bash
+      shell: ${{ inputs.shell }}
       run: |
         set -eux
         cd ..
@@ -41,7 +44,7 @@ runs:
         fi
 
     - name: Build & copy dlang tools
-      shell: bash
+      shell: ${{ inputs.shell }}
       run: |
         set -eux
         cd ..
@@ -56,7 +59,7 @@ runs:
         cp bin/{rdmd,ddemangle,dustmite} ../installed/bin/
 
     - name: Build & copy reggae
-      shell: bash
+      shell: ${{ inputs.shell }}
       run: |
         set -eux
         cd ..
@@ -84,7 +87,7 @@ runs:
         fi
 
     - name: Pack installation dir
-      shell: bash
+      shell: ${{ inputs.shell }}
       run: |
         set -euxo pipefail
         cd ..
@@ -132,7 +135,7 @@ runs:
 
     - name: 'Linux: Pack source dir'
       if: runner.os == 'Linux' && inputs.os == ''
-      shell: bash
+      shell: ${{ inputs.shell }}
       run: |
         set -eux
         git clean -dffx
@@ -146,7 +149,7 @@ runs:
         zip -r -9 artifacts/$artifactName.zip $artifactName >/dev/null
 
     - name: 'Move artifacts dir for uploading'
-      shell: bash
+      shell: ${{ inputs.shell }}
       run: mv ../artifacts ./
 
     - name: Upload artifact(s)

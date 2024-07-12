@@ -1,6 +1,10 @@
 name: Run LDC D unittests
+inputs:
+  shell:
+    required: false
+    default: bash
 runs:
   using: composite
   steps:
     - run: cd ../build && ctest --output-on-failure -R "ldc2-unittest"
-      shell: bash
+      shell: ${{ inputs.shell }}

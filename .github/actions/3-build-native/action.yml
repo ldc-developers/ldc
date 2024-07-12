@@ -8,6 +8,9 @@ inputs:
   with_pgo:
     required: false
     default: false
+  shell:
+    required: false
+    default: bash
 runs:
   using: composite
   steps:
@@ -15,6 +18,8 @@ runs:
     - name: 'Posix: Build mimalloc'
       if: runner.os != 'Windows'
       uses: ./.github/actions/helper-mimalloc
+      with:
+        shell: ${{ inputs.shell }}
 
     - name: Build LDC & LDC D unittests & defaultlib unittest runners
       uses: ./.github/actions/helper-build-ldc
@@ -28,6 +33,7 @@ runs:
           ${{ inputs.with_pgo == 'true' && '-DDFLAGS_LDC=-fprofile-use=../pgo-ldc/merged.profdata' || '' }}
         build_targets: all ldc2-unittest all-test-runners
         arch: ${{ inputs.arch }}
+        shell: ${{ inputs.shell }}
 
     - run: ../build/bin/ldc2 --version
-      shell: bash
+      shell: ${{ inputs.shell }}
