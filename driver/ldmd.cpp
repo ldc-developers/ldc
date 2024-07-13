@@ -504,7 +504,7 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
       else if (startsWith(p + 1, "visibility=")) {
         ldcArgs.push_back(concat("-fvisibility=", p + 12));
       }
-      else if (startsWith(p + 1, "static")) {
+      else if (strcmp(p + 1, "static") == 0) {
         ldcArgs.push_back("-static");
       }
       /* -dllimport
