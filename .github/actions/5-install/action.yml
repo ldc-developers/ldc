@@ -10,7 +10,6 @@ runs:
   steps:
 
     - name: Install LDC
-      shell: bash
       run: |
         set -eux
         cd ..
@@ -44,7 +43,6 @@ runs:
         fi
 
     - name: Make portable
-      shell: bash
       run: |
         set -eux
         cd ..
@@ -57,12 +55,10 @@ runs:
         cat install/etc/ldc2.conf
 
     - name: Rename the installation dir to test portability
-      shell: bash
       run: mv ../install ../installed
 
     - name: 'Windows: Copy curl & MinGW-w64-based libs'
       if: runner.os == 'Windows'
-      shell: bash
       run: |
         set -eux
         cd ..

@@ -8,7 +8,6 @@ runs:
 
     - name: 'Posix: Run defaultlib unittests & druntime integration tests'
       if: runner.os != 'Windows'
-      shell: bash
       run: |
         set -eux
         cd ../build

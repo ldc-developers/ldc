@@ -24,7 +24,6 @@ runs:
         LLVM_PROFILE_FILE: ${{ github.workspace }}/../pgo-ldc/%p.profraw
 
     - name: Merge PGO profiles # to ../pgo-ldc/merged.profdata
-      shell: bash
       run: |
         set -eux
         cd ../pgo-ldc

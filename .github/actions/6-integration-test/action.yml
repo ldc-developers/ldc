@@ -4,11 +4,9 @@ runs:
   steps:
 
     - name: Generate hello.d
-      shell: bash
       run: echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > ../hello.d
 
     - name: Run hello-world integration test with shared libs
-      shell: bash
       run: |
         set -eux
         cd ..
@@ -24,7 +22,6 @@ runs:
         fi
 
     - name: Run hello-world integration test with LTO
-      shell: bash
       run: |
         set -eux
         cd ..
@@ -40,7 +37,6 @@ runs:
     - name: Run dynamic-compile integration test
       # disabled since LLVM 12, needs https://github.com/ldc-developers/ldc/pull/3184
       if: '!always()'
-      shell: bash
       run: |
         set -eux
         cd ..
@@ -51,7 +47,6 @@ runs:
         installed/bin/ldc2 -enable-dynamic-compile -run ldc/tests/dynamiccompile/array.d
 
     - name: Run ImportC integration test
-      shell: bash
       run: |
         set -eux
         cd ..

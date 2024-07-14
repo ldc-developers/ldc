@@ -23,7 +23,6 @@ runs:
   steps:
 
     - if: runner.os != 'Windows'
-      shell: bash
       run: |
         set -eux
         cd ..

@@ -11,7 +11,6 @@ runs:
         merge-multiple: true # place all files into artifacts/ directly
 
     - name: Extract & merge artifacts
-      shell: bash
       run: |
         set -euxo pipefail
 
@@ -85,7 +84,6 @@ runs:
         cat etc/ldc2.conf
 
     - name: Run x86_64/arm64 macOS/iOS cross-compilation smoke tests
-      shell: bash
       run: |
         set -eux
         echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > hello.d
@@ -95,7 +93,6 @@ runs:
         done
 
     - name: Pack universal package
-      shell: bash
       run: |
         set -eux
         mkdir newArtifacts

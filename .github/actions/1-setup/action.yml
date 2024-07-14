@@ -12,7 +12,6 @@ runs:
 
     - name: 'Linux: Install required apt packages'
       if: runner.os == 'Linux'
-      shell: bash
       run: |
         set -eux
         export DEBIAN_FRONTEND=noninteractive
@@ -28,7 +27,6 @@ runs:
 
     - name: 'Linux: Download & extract clang' # into ../clang
       if: runner.os == 'Linux'
-      shell: bash
       run: |
         set -eux
         cd ..
@@ -40,7 +38,6 @@ runs:
         clang/bin/clang --version
     - name: 'Windows: Install clang'
       if: runner.os == 'Windows'
-      shell: bash
       run: |
         set -eux
         cd ..
@@ -52,7 +49,6 @@ runs:
         clang-cl --version
 
     - name: Download & extract LDC-flavoured LLVM # into ../llvm
-      shell: bash
       run: |
         set -eux
         cd ..
@@ -98,7 +94,6 @@ runs:
 
     - name: 'Linux: Make lld the default linker'
       if: runner.os == 'Linux'
-      shell: bash
       run: |
         set -eux
         sudo ln -sf "$(dirname "$PWD")/llvm/bin/ld.lld" /usr/bin/ld
@@ -113,11 +108,9 @@ runs:
         compiler: ldc-latest
     - name: 'Posix: Clear LD_LIBRARY_PATH env variable' # don't use host druntime/Phobos .so/.dylib etc.
       if: runner.os != 'Windows'
-      shell: bash
       run: echo "LD_LIBRARY_PATH=" >> $GITHUB_ENV
 
     - name: Install lit
-      shell: bash
       run: |
         set -euxo pipefail
         python3 --version
@@ -136,7 +129,6 @@ runs:
 
     - name: 'Windows: Download & extract libcurl' # into ../libcurl/ldc2
       if: runner.os == 'Windows'
-      shell: bash
       run: |
         set -eux
         cd ..
@@ -158,12 +150,10 @@ runs:
 
     - name: 'Windows: Set LDC_VSDIR env variable' # to somewhat speed-up MSVC auto-detection
       if: runner.os == 'Windows'
-      shell: bash
       run: echo "LDC_VSDIR=$(vswhere -latest -property installationPath)" >> $GITHUB_ENV
 
     - name: 'Windows x86: Make CMake configure 64-bit clang-cl for 32-bit code emission'
       if: runner.os == 'Windows' && inputs.arch == 'x86'
-      shell: bash
       run: |
         set -eux
         echo "CFLAGS=-m32" >> $GITHUB_ENV

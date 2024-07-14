@@ -23,7 +23,6 @@ runs:
   steps:
 
     - name: Download & extract LDC-flavoured LLVM for ${{ inputs.os }}-${{ inputs.arch }} target # into ../llvm-cross
-      shell: bash
       run: |
         set -eux
         cd ..
@@ -52,7 +51,6 @@ runs:
         rm llvm-cross.tar.xz
 
     - name: Make non-native llvm-config runnable on host
-      shell: bash
       run: |
         set -eux
         cd ..
@@ -74,7 +72,6 @@ runs:
     # set up DFLAGS to make bootstrap ldmd2 cross-compile/link
     - name: 'macOS: Set DFLAGS, CROSS_TRIPLE & CROSS_CMAKE_FLAGS'
       if: inputs.os == 'osx'
-      shell: bash
       run: |
         set -eux
         cd ..
@@ -86,7 +83,6 @@ runs:
 
     - name: 'Android: Download & extract NDK, then set DFLAGS, CROSS_TRIPLE & CROSS_CMAKE_FLAGS'
       if: inputs.os == 'android'
-      shell: bash
       run: |
         set -eux
         cd ..
@@ -126,7 +122,6 @@ runs:
         cmake_flags: ${{ env.CROSS_CMAKE_FLAGS }}
 
     - name: Cross-compile default libraries
-      shell: bash
       run: |
         set -euxo pipefail
         cd ..

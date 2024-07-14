@@ -10,7 +10,6 @@ runs:
         merge-multiple: true # place all files into artifacts/ directly
 
     - name: Set GITHUB_RELEASE_TAG & ARTIFACT_ID
-      shell: bash
       run: |
         set -eux
         if [[ '${{ github.ref }}' = refs/tags/v* ]]; then
@@ -40,7 +39,6 @@ runs:
         target: existing-artifacts/
 
     - name: Merge existing artifacts & compute hashes
-      shell: bash
       run: |
         set -eux
 

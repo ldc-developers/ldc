@@ -30,4 +30,3 @@ runs:
         arch: ${{ inputs.arch }}
 
     - run: ../build/bin/ldc2 --version
-      shell: bash

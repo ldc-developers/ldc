@@ -5,8 +5,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - shell: bash
-      run: |
+    - run: |
         set -eux
         cd ..
 

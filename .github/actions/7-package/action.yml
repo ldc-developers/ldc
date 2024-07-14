@@ -13,7 +13,6 @@ runs:
   steps:
 
     - name: Set DMD environment variable
-      shell: bash
       run: |
         set -eux
         cd ..
@@ -25,7 +24,6 @@ runs:
         echo "DMD=$DMD" >> $GITHUB_ENV
 
     - name: Build & copy dub
-      shell: bash
       run: |
         set -eux
         cd ..
@@ -41,7 +39,6 @@ runs:
         fi
 
     - name: Build & copy dlang tools
-      shell: bash
       run: |
         set -eux
         cd ..
@@ -56,7 +53,6 @@ runs:
         cp bin/{rdmd,ddemangle,dustmite} ../installed/bin/
 
     - name: Build & copy reggae
-      shell: bash
       run: |
         set -eux
         cd ..
@@ -84,7 +80,6 @@ runs:
         fi
 
     - name: Pack installation dir
-      shell: bash
       run: |
         set -euxo pipefail
         cd ..
@@ -132,7 +127,6 @@ runs:
 
     - name: 'Linux: Pack source dir'
       if: runner.os == 'Linux' && inputs.os == ''
-      shell: bash
       run: |
         set -eux
         git clean -dffx
@@ -146,7 +140,6 @@ runs:
         zip -r -9 artifacts/$artifactName.zip $artifactName >/dev/null
 
     - name: 'Move artifacts dir for uploading'
-      shell: bash
       run: mv ../artifacts ./
 
     - name: Upload artifact(s)

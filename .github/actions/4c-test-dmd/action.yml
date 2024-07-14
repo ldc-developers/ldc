@@ -8,7 +8,6 @@ runs:
 
     - name: 'Posix: Run DMD testsuite'
       if: runner.os != 'Windows'
-      shell: bash
       run: cd ../build && ctest -V -R "dmd-testsuite"
 
     - name: 'Windows: Run DMD testsuite'
