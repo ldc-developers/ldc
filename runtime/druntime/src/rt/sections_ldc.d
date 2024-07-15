@@ -34,7 +34,6 @@ else version (OpenBSD) {}
 else version (Windows) {}
 else version (LDC):
 
-import core.stdc.stdlib : alloca;
 import rt.minfo;
 debug(PRINTF) import core.stdc.stdio : printf;
 
