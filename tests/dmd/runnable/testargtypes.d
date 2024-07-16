@@ -1,5 +1,5 @@
 /*
-DISABLED: win32 win64 osx32 linux32 freebsd32
+DISABLED: win32 win64 osx32 linux32 freebsd32 openbsd32
 */
 
 version (X86_64) {} else version = not_X86_64;

@@ -7097,17 +7097,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             // Handle this in the glue layer
             e = new TypeidExp(exp.loc, ta);
 
-            bool genObjCode = true;
-
-            // https://issues.dlang.org/show_bug.cgi?id=23650
-            // We generate object code for typeinfo, required
-            // by typeid, only if in non-speculative context
-            if (sc.flags & SCOPE.compile)
-            {
-                genObjCode = false;
-            }
-
-            e.type = getTypeInfoType(exp.loc, ta, sc, genObjCode);
+            e.type = getTypeInfoType(exp.loc, ta, sc);
             semanticTypeInfo(sc, ta);
 
             if (ea)
@@ -7758,6 +7748,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             if (auto fmResult = global.fileManager.getFileContents(fileName))
             {
                 se = new StringExp(e.loc, fmResult);
+                se.hexString = true;
             }
             else
             {
@@ -9267,12 +9258,26 @@ version (IN_LLVM)
         }
 
         // Check for unsafe casts
-        if (!isSafeCast(ex, t1b, tob))
+        string msg;
+        if (!isSafeCast(ex, t1b, tob, msg))
         {
-            if (sc.setUnsafe(false, exp.loc, "cast from `%s` to `%s` not allowed in safe code", exp.e1.type, exp.to))
+            if (sc.setUnsafe(false, exp.loc,
+                "cast from `%s` to `%s` not allowed in safe code", exp.e1.type, exp.to))
             {
+                if (msg.length)
+                    errorSupplemental(exp.loc, "%s", (msg ~ '\0').ptr);
                 return setError();
             }
+        }
+        else if (msg.length) // deprecated unsafe
+        {
+            const err = sc.setUnsafePreview(FeatureState.default_, false, exp.loc,
+                "cast from `%s` to `%s` not allowed in safe code", exp.e1.type, exp.to);
+            // if message was printed
+            if (sc.func && sc.func.isSafeBypassingInference() && !sc.isDeprecated())
+                deprecationSupplemental(exp.loc, "%s", (msg ~ '\0').ptr);
+            if (err)
+                return setError();
         }
 
         // `object.__ArrayCast` is a rewrite of an old runtime hook `_d_arraycast`. `_d_arraycast` was not built
@@ -11429,11 +11434,6 @@ version (IN_LLVM)
                 else
                     e2x = e2x.implicitCastTo(sc, exp.e1.type);
             }
-            if (t1n.toBasetype.ty == Tvoid && t2n.toBasetype.ty == Tvoid)
-            {
-                if (sc.setUnsafe(false, exp.loc, "cannot copy `void[]` to `void[]` in `@safe` code"))
-                    return setError();
-            }
         }
         else
         {
@@ -11463,6 +11463,33 @@ version (IN_LLVM)
                                           "`opAssign` methods are not used for initialization, but for subsequent assignments");
                     }
                 }
+            }
+        }
+
+        if (exp.e1.op == EXP.slice &&
+            (t1.ty == Tarray || t1.ty == Tsarray) &&
+            t1.nextOf().toBasetype().ty == Tvoid)
+        {
+            if (t2.nextOf().implicitConvTo(t1.nextOf()))
+            {
+                if (sc.setUnsafe(false, exp.loc, "cannot copy `%s` to `%s` in `@safe` code", t2, t1))
+                    return setError();
+            }
+            else
+            {
+                // copying from non-void to void was overlooked, deprecate
+                if (sc.setUnsafePreview(FeatureState.default_, false, exp.loc,
+                    "cannot copy `%s` to `%s` in `@safe` code", t2, t1))
+                    return setError();
+            }
+            if (global.params.fixImmutableConv && !t2.implicitConvTo(t1))
+            {
+                error(exp.loc, "cannot copy `%s` to `%s`",
+                    t2.toChars(), t1.toChars());
+                errorSupplemental(exp.loc,
+                    "Source data has incompatible type qualifier(s)");
+                errorSupplemental(exp.loc, "Use `cast(%s)` to force copy", t1.toChars());
+                return setError();
             }
         }
         if (e2x.op == EXP.error)
@@ -11853,6 +11880,8 @@ version (IN_LLVM)
             (tb2.ty == Tarray || tb2.ty == Tsarray) &&
             (exp.e2.implicitConvTo(exp.e1.type) ||
              (tb2.nextOf().implicitConvTo(tb1next) &&
+             // Do not strip const(void)[]
+             (!global.params.fixImmutableConv || tb1next.ty != Tvoid) &&
               (tb2.nextOf().size(Loc.initial) == tb1next.size(Loc.initial)))))
         {
             // EXP.concatenateAssign
@@ -12602,7 +12631,9 @@ version (IN_LLVM)
             exp.type = tb.nextOf().arrayOf();
         if (exp.type.ty == Tarray && tb1next && tb2next && tb1next.mod != tb2next.mod)
         {
-            exp.type = exp.type.nextOf().toHeadMutable().arrayOf();
+            // Do not strip const(void)[]
+            if (!global.params.fixImmutableConv || tb.nextOf().ty != Tvoid)
+                exp.type = exp.type.nextOf().toHeadMutable().arrayOf();
         }
         if (Type tbn = tb.nextOf())
         {

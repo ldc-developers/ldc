@@ -160,4 +160,4 @@ $(ROOT)/%$(DOTDLL): $(SRC)/%.d $(DRUNTIMESO)
 	$(QUIET)$(DMD) -shared $(DFLAGS) -of$@ $< $(LINKDL)
 
 clean:
-	rm -rf $(GENERATED)
+	rm -rf $(ROOT)
