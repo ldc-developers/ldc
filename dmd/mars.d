@@ -475,6 +475,7 @@ extern(C) void flushMixins()
 version (IN_LLVM)
 {
     import dmd.cli : Usage;
+    import dmd.errors : deprecation, error;
 
     private bool parseCLIOption(string groupName, Usage.Feature[] features)(ref Param params, const(char)* name)
     {
@@ -1918,7 +1919,7 @@ version (IN_LLVM) {} else
     if (IN_LLVM && FileName.equals(ext, bc_ext))
     {
         global.params.bitcodeFiles.push(file);
-        return null;
+        return false;
     }
     if (FileName.equals(ext, target.lib_ext))
     {
