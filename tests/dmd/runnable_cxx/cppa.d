@@ -949,7 +949,7 @@ version (LDC)
 {
     version (CRuntime_Microsoft)
         version = LDC_CppEH;
-    else version (CppRuntime_Gcc)
+    else version (CppRuntime_GNU)
         version = LDC_CppEH;
     // FIXME: support libc++ too
 }
