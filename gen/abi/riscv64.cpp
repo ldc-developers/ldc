@@ -73,7 +73,7 @@ FlattenedFields visitStructFields(Type *ty, unsigned baseOffset) {
     result.length = 2;
     break;
   default:
-    if (ty->toBasetype()->size() > 8) {
+    if (size(ty->toBasetype()) > 8) {
       // field larger than XLEN and FLEN
       result.length = -1;
       break;
@@ -111,7 +111,7 @@ struct HardfloatRewrite : ABIRewrite {
     for (unsigned i = 0; i < (unsigned)flat.length; ++i) {
       DtoMemCpy(DtoGEP(asType, buffer, 0, i),
                 DtoGEP1(getI8Type(), address, flat.fields[i].offset),
-                DtoConstSize_t(flat.fields[i].ty->size()));
+                DtoConstSize_t(size(flat.fields[i].ty)));
     }
     return DtoLoad(asType, buffer, ".HardfloatRewrite_arg");
   }
@@ -127,7 +127,7 @@ struct HardfloatRewrite : ABIRewrite {
     for (unsigned i = 0; i < (unsigned)flat.length; ++i) {
       DtoMemCpy(DtoGEP1(getI8Type(), ret, flat.fields[i].offset),
                 DtoGEP(asType, buffer, 0, i),
-                DtoConstSize_t(flat.fields[i].ty->size()));
+                DtoConstSize_t(size(flat.fields[i].ty)));
     }
     return ret;
   }
@@ -142,7 +142,7 @@ struct HardfloatRewrite : ABIRewrite {
       t[i] = flat.fields[i].ty->isfloating()
                  ? DtoType(flat.fields[i].ty)
                  : LLIntegerType::get(gIR->context(),
-                                      flat.fields[i].ty->size() * 8);
+                                      size(flat.fields[i].ty) * 8);
     }
     return LLStructType::get(gIR->context(), {t[0], t[1]}, false);
   }
@@ -167,20 +167,20 @@ public:
       return false;
     }
     Type *rt = tf->next->toBasetype();
-    if (!rt->size())
+    if (!size(rt))
       return false;
     if (!isPOD(rt))
       return true;
-    return rt->size() > 16;
+    return size(rt) > 16;
   }
   bool passByVal(TypeFunction *, Type *t) override {
-    if (!t->size())
+    if (!size(t))
       return false;
     if (t->toBasetype()->ty == TY::Tcomplex80) {
       // rewrite it later to bypass the RVal problem
       return false;
     }
-    return t->size() > 16;
+    return size(t) > 16;
   }
   void rewriteFunctionType(IrFuncTy &fty) override {
     if (!fty.ret->byref) {
@@ -224,8 +224,8 @@ public:
       return;
     }
 
-    if (isAggregate(ty) && ty->size() && ty->size() <= 16) {
-      if (ty->size() > 8 && DtoAlignment(ty) < 16) {
+    if (isAggregate(ty) && size(ty) && size(ty) <= 16) {
+      if (size(ty) > 8 && DtoAlignment(ty) < 16) {
         // pass the aggregate as {int64, int64} to avoid wrong alignment
         integer2Rewrite.applyToIfNotObsolete(arg);
       } else {

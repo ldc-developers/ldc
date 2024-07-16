@@ -26,6 +26,8 @@
 #include "gen/llvmhelpers.h"
 #include "gen/tollvm.h"
 
+using namespace dmd;
+
 struct PPCTargetABI : TargetABI {
   CompositeToArray32 compositeToArray32;
   CompositeToArray64 compositeToArray64;
@@ -54,7 +56,7 @@ struct PPCTargetABI : TargetABI {
     // used byval for type > 64 bytes.
     t = t->toBasetype();
     return (t->ty == TY::Tsarray || t->ty == TY::Tstruct) &&
-           (!Is64Bit || t->size() > 64);
+           (!Is64Bit || size(t) > 64);
   }
 
   void rewriteFunctionType(IrFuncTy &fty) override {

@@ -199,7 +199,7 @@ public:
     const dinteger_t byteOffset = e->e2->toInteger();
 
     LLConstant *llResult = nullptr;
-    const auto pointeeSize = pointeeType->size(e->loc);
+    const auto pointeeSize = size(pointeeType, e->loc);
     if (pointeeSize && byteOffset % pointeeSize == 0) { // can do a nice GEP
       LLConstant *llOffset = DtoConstSize_t(byteOffset / pointeeSize);
       if (negateOffset)
@@ -286,11 +286,11 @@ public:
             StringExp *strexp = static_cast<StringExp*>(e1);
             size_t datalen = strexp->sz * strexp->len;
             Type* eltype = tb->nextOf()->toBasetype();
-            if (datalen % eltype->size() != 0) {
+            if (datalen % size(eltype) != 0) {
                 error("the sizes don't line up");
                 return e1->toConstElem(p);
             }
-            size_t arrlen = datalen / eltype->size();
+            size_t arrlen = datalen / size(eltype);
 #endif
       error(
           e->loc,

@@ -17,6 +17,8 @@
 #include "gen/llvmhelpers.h"
 #include "llvm/IR/DerivedTypes.h"
 
+using namespace dmd;
+
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
@@ -97,7 +99,7 @@ void AggrTypeBuilder::addAggregate(
 
       bool haveExplicitInit =
           explicitInits && explicitInits->find(field) != explicitInits->end();
-      uint64_t fieldSize = field->type->size();
+      uint64_t fieldSize = size(field->type);
 
       const bool isBitField = field->isBitFieldDeclaration() != nullptr;
       if (isBitField) {

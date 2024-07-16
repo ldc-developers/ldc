@@ -216,7 +216,7 @@ bool X86_64TargetABI::returnInArg(TypeFunction *tf, bool) {
 // Prefer a ref if the POD cannot be passed in registers, i.e., if the LLVM
 // ByVal attribute would be applied, *and* the size is > 16.
 bool X86_64TargetABI::preferPassByRef(Type *t) {
-  return t->size() > 16 && passInMemory(t->toBasetype());
+  return size(t) > 16 && passInMemory(t->toBasetype());
 }
 
 bool X86_64TargetABI::passByVal(TypeFunction *tf, Type *t) {

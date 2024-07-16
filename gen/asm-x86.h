@@ -3240,7 +3240,7 @@ struct AsmProcessor {
               (ty == TY::Tfloat80 || ty == TY::Timaginary80) &&
                       !global.params.targetTriple->isWindowsMSVCEnvironment()
                   ? Extended_Ptr
-                  : static_cast<PtrType>(v->type->size(Loc()));
+                  : static_cast<PtrType>(dmd::size(v->type));
         }
 
         if (!operand->symbolDisplacement.length) {

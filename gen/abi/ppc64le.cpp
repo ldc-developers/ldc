@@ -20,6 +20,8 @@
 #include "gen/llvmhelpers.h"
 #include "gen/tollvm.h"
 
+using namespace dmd;
+
 struct PPC64LETargetABI : TargetABI {
   HFVAToArray hfvaToArray;
   CompositeToArray64 compositeToArray64;
@@ -42,7 +44,7 @@ struct PPC64LETargetABI : TargetABI {
 
   bool passByVal(TypeFunction *, Type *t) override {
     t = t->toBasetype();
-    return t->ty == TY::Tsarray || (t->ty == TY::Tstruct && t->size() > 16 &&
+    return t->ty == TY::Tsarray || (t->ty == TY::Tstruct && size(t) > 16 &&
                                     !isHFVA(t, hfvaToArray.maxElements));
   }
 

@@ -198,7 +198,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
           attrs.addAttribute(LLAttribute::NonNull);
         attrs.addAttribute(LLAttribute::NoUndef);
       } else {
-        attrs.addDereferenceableAttr(loweredDType->size());
+        attrs.addDereferenceableAttr(size(loweredDType));
       }
     } else {
       if (abi->passByVal(f, loweredDType)) {

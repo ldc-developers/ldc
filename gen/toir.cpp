@@ -97,7 +97,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
 
     // Skip zero-sized fields such as zero-length static arrays: `ubyte[0]
     // data`.
-    if (field->type->size() == 0)
+    if (size(field->type) == 0)
       continue;
 
     // the initializer expression may be null for overridden overlapping fields
