@@ -139,7 +139,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       // get a pointer to this group's IR field
       const auto ptr = DtoLVal(DtoIndexAggregate(mem, sd, vd));
 
-      // merge all initializers to a single value
+      // merge all initializers to a single integer value
       const auto intType =
           LLIntegerType::get(gIR->context(), group.sizeInBytes * 8);
       LLValue *val = LLConstant::getNullValue(intType);
@@ -165,6 +165,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       }
 
       IF_LOG Logger::cout() << "merged IR value: " << *val << '\n';
+      // TODO: byte-swap val for big-endian targets?
       gIR->ir->CreateAlignedStore(val, ptr, llvm::MaybeAlign(1));
       offset += group.sizeInBytes;
 

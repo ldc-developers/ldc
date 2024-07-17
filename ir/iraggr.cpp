@@ -27,6 +27,7 @@
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
 #include <algorithm>
+#include <unordered_map>
 
 using namespace dmd;
 
@@ -257,6 +258,8 @@ void IrAggr::addFieldInitializers(
     const VarInitMap &explicitInitializers, AggregateDeclaration *decl,
     unsigned &offset, unsigned &interfaceVtblIndex, bool &isPacked) {
 
+  using llvm::APInt;
+
   if (ClassDeclaration *cd = decl->isClassDeclaration()) {
     if (cd->baseClass) {
       addFieldInitializers(constants, explicitInitializers, cd->baseClass,
@@ -302,6 +305,9 @@ void IrAggr::addFieldInitializers(
                : getDefaultInitializer(field);
   };
 
+  // IR field index => APInt for bitfield group
+  std::unordered_map<unsigned, APInt> bitFieldGroupConstants;
+
   const auto addToBitFieldGroup = [&](BitFieldDeclaration *bf,
                                       unsigned fieldIndex, unsigned bitOffset) {
     LLConstant *init = getFieldInit(bf);
@@ -310,20 +316,24 @@ void IrAggr::addFieldInitializers(
       return;
     }
 
-    LLConstant *&constant = constants[baseLLFieldIndex + fieldIndex];
+    if (bitFieldGroupConstants.find(fieldIndex) ==
+        bitFieldGroupConstants.end()) {
+      const auto fieldType =
+          llvm::cast<LLArrayType>(b.defaultTypes()[fieldIndex]); // an i8 array
+      const auto bitFieldSize = fieldType->getNumElements();
+      bitFieldGroupConstants.emplace(fieldIndex, APInt(bitFieldSize * 8, 0));
+    }
 
-    using llvm::APInt;
-    const auto fieldType = b.defaultTypes()[fieldIndex];
-    const auto intSizeInBits = fieldType->getIntegerBitWidth();
-    const APInt oldVal =
-        constant ? constant->getUniqueInteger() : APInt(intSizeInBits, 0);
+    APInt &constant = bitFieldGroupConstants[fieldIndex];
+    const auto intSizeInBits = constant.getBitWidth();
+
+    const APInt oldVal = constant;
     const APInt bfVal = init->getUniqueInteger().zextOrTrunc(intSizeInBits);
     const APInt mask = APInt::getLowBitsSet(intSizeInBits, bf->fieldWidth)
                        << bitOffset;
     assert(!oldVal.intersects(mask) && "has masked bits set already");
-    const APInt newVal = oldVal | ((bfVal << bitOffset) & mask);
 
-    constant = LLConstant::getIntegerValue(fieldType, newVal);
+    constant = oldVal | ((bfVal << bitOffset) & mask);
   };
 
   // add explicit and non-overlapping implicit initializers
@@ -333,7 +343,7 @@ void IrAggr::addFieldInitializers(
     const auto fieldIndex = pair.second;
 
     if (auto bf = field->isBitFieldDeclaration()) {
-      // multiple bit fields can map to a single IR field (of integer type)
+      // multiple bit fields can map to a single IR field for the whole group
       addToBitFieldGroup(bf, fieldIndex, bf->bitOffset);
     } else {
       LLConstant *&constant = constants[baseLLFieldIndex + fieldIndex];
@@ -354,6 +364,25 @@ void IrAggr::addFieldInitializers(
     assert(bf->offset > primary->offset);
     addToBitFieldGroup(bf, fieldIndexIt->second,
                        (bf->offset - primary->offset) * 8 + bf->bitOffset);
+  }
+
+  for (const auto &pair : bitFieldGroupConstants) {
+    const unsigned fieldIndex = pair.first;
+    const APInt intValue = pair.second;
+
+    LLConstant *&constant = constants[baseLLFieldIndex + fieldIndex];
+    assert(!constant && "already have a constant for a bitfield group?");
+
+    // convert APInt to i8 array
+    const auto i8Type = getI8Type();
+    const auto numBytes = intValue.getBitWidth() / 8;
+    llvm::SmallVector<LLConstant *, 8> bytes;
+    for (unsigned i = 0; i < numBytes; ++i) {
+      APInt byteVal = intValue.extractBits(8, i * 8);
+      bytes.push_back(LLConstant::getIntegerValue(i8Type, byteVal));
+    }
+
+    constant = llvm::ConstantArray::get(LLArrayType::get(i8Type, numBytes), bytes);
   }
 
   // TODO: sanity check that all explicit initializers have been dealt with?

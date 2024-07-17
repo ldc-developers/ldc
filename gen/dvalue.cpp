@@ -183,6 +183,7 @@ DRValue *DBitFieldLValue::getRVal() {
   const auto sizeInBits = intType->getBitWidth();
   const auto ptr = val;
   LLValue *v = gIR->ir->CreateAlignedLoad(intType, ptr, llvm::MaybeAlign(1));
+  // TODO: byte-swap v for big-endian targets?
 
   if (bf->type->isunsigned()) {
     if (auto n = bf->bitOffset)
@@ -212,6 +213,7 @@ void DBitFieldLValue::store(LLValue *value) {
       llvm::APInt::getLowBitsSet(intType->getBitWidth(), bf->fieldWidth);
   const auto oldVal =
       gIR->ir->CreateAlignedLoad(intType, ptr, llvm::MaybeAlign(1));
+  // TODO: byte-swap oldVal for big-endian targets?
   const auto maskedOldVal =
       gIR->ir->CreateAnd(oldVal, ~(mask << bf->bitOffset));
 
@@ -221,6 +223,7 @@ void DBitFieldLValue::store(LLValue *value) {
     bfVal = gIR->ir->CreateShl(bfVal, n);
 
   const auto newVal = gIR->ir->CreateOr(maskedOldVal, bfVal);
+  // TODO: byte-swap newVal for big-endian targets?
   gIR->ir->CreateAlignedStore(newVal, ptr, llvm::MaybeAlign(1));
 }
 
