@@ -358,9 +358,6 @@ LLConstant *IrClass::getClassInfoInit() {
 
   RTTIBuilder b(cinfoType);
 
-  LLType *voidPtr = getVoidPtrType();
-  LLType *voidPtrPtr = getPtrToType(voidPtr);
-
   // adapted from original dmd code
   // byte[] m_init
   if (isInterface) {
@@ -378,7 +375,7 @@ LLConstant *IrClass::getClassInfoInit() {
 
   // void*[] vtbl
   if (isInterface) {
-    b.push_array(0, getNullValue(voidPtrPtr));
+    b.push_array(0, getNullPtr());
   } else {
     b.push_array(cd->vtbl.length, getVtblSymbol());
   }

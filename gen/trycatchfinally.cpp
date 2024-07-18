@@ -832,7 +832,7 @@ TryCatchFinallyScopes::runCleanupPad(CleanupCursor scope,
 
   // preparation to allocate some space on the stack where _d_enter_cleanup
   //  can place an exception frame (but not done here)
-  auto frame = getNullPtr(getVoidPtrType());
+  auto frame = getNullPtr();
 
   const auto savedInsertPoint = irs.saveInsertPoint();
 

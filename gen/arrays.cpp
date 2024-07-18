@@ -936,7 +936,7 @@ LLValue *DtoArrayPtr(DValue *v) {
 
   if (t->ty == TY::Tarray) {
     if (v->isNull()) {
-      ptr = getNullPtr(wantedLLPtrType);
+      ptr = getNullPtr();
     } else if (v->isLVal()) {
       ptr = DtoLoad(wantedLLPtrType, DtoGEP(DtoType(v->type), DtoLVal(v), 0, 1), ".ptr");
     } else {
@@ -1035,7 +1035,7 @@ DValue *DtoCastArray(const Loc &loc, DValue *u, Type *to) {
   if (totype->ty == TY::Tbool) {
     // return (arr.ptr !is null)
     LLValue *ptr = DtoArrayPtr(u);
-    LLConstant *nul = getNullPtr(ptr->getType());
+    LLConstant *nul = getNullPtr();
     return new DImValue(to, gIR->ir->CreateICmpNE(ptr, nul));
   }
 

@@ -707,9 +707,8 @@ LLPointerType *getVoidPtrType(llvm::LLVMContext &C) {
   return LLType::getInt8Ty(C)->getPointerTo();
 }
 
-llvm::ConstantPointerNull *getNullPtr(LLType *t) {
-  LLPointerType *pt = llvm::cast<LLPointerType>(t);
-  return llvm::ConstantPointerNull::get(pt);
+llvm::ConstantPointerNull *getNullPtr() {
+  return llvm::ConstantPointerNull::get(getOpaquePtrType());
 }
 
 LLConstant *getNullValue(LLType *t) { return LLConstant::getNullValue(t); }

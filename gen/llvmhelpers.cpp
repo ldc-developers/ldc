@@ -119,13 +119,12 @@ void DtoDeleteInterface(const Loc &loc, DValue *inst) {
 
 void DtoDeleteArray(const Loc &loc, DValue *arr) {
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delarray_t");
-  llvm::FunctionType *fty = fn->getFunctionType();
 
   // the TypeInfo argument must be null if the type has no dtor
   Type *elementType = arr->type->nextOf();
   bool hasDtor = (elementType->toBasetype()->ty == TY::Tstruct &&
                   elementType->needsDestruction());
-  LLValue *typeInfo = !hasDtor ? getNullPtr(fty->getParamType(1))
+  LLValue *typeInfo = !hasDtor ? getNullPtr()
                                : DtoTypeInfoOf(loc, elementType);
 
   LLValue *lval = (arr->isLVal() ? DtoLVal(arr) : makeLValue(loc, arr));
@@ -478,7 +477,7 @@ DValue *DtoNullValue(Type *type, Loc loc) {
   // dynamic array
   if (basety == TY::Tarray) {
     LLValue *len = DtoConstSize_t(0);
-    LLValue *ptr = getNullPtr(DtoPtrToType(basetype->nextOf()));
+    LLValue *ptr = getNullPtr();
     return new DSliceValue(type, len, ptr);
   }
   error(loc, "`null` not known for type `%s`", type->toChars());

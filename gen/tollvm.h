@@ -154,7 +154,7 @@ LLPointerType *getOpaquePtrType(unsigned addressSpace = 0);
 LLPointerType *getPtrToType(LLType *t);
 LLPointerType *getVoidPtrType();
 LLPointerType *getVoidPtrType(llvm::LLVMContext &C);
-llvm::ConstantPointerNull *getNullPtr(LLType *t);
+llvm::ConstantPointerNull *getNullPtr();
 LLConstant *getNullValue(LLType *t);
 
 // type sizes
