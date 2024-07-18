@@ -795,7 +795,7 @@ public:
       if (canEmitVTableUnchangedAssumption && !dfnval->vtable &&
           dfnval->vthis && dfnval->func->isVirtual()) {
         dfnval->vtable =
-            DtoLoad(getVoidPtrType(), dfnval->vthis, "saved_vtable");
+            DtoLoad(getOpaquePtrType(), dfnval->vthis, "saved_vtable");
       }
     }
 

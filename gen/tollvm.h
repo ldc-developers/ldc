@@ -149,8 +149,6 @@ LLGlobalVariable *isaGlobalVar(LLValue *v);
 // llvm::T::get(...) wrappers
 LLType *getI8Type();
 LLPointerType *getOpaquePtrType(unsigned addressSpace = 0);
-LLPointerType *getVoidPtrType();
-LLPointerType *getVoidPtrType(llvm::LLVMContext &C);
 llvm::ConstantPointerNull *getNullPtr();
 LLConstant *getNullValue(LLType *t);
 

@@ -163,7 +163,7 @@ llvm::StructType *getTypeDescriptorType(IRState &irs,
 llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd) {
   if (cd->isCPPclass()) {
     const char *name = target.cpp.typeInfoMangle(cd);
-    return declareGlobal(cd->loc, irs.module, getVoidPtrType(), name,
+    return declareGlobal(cd->loc, irs.module, getOpaquePtrType(), name,
                          /*isConstant*/ true, false,
                          /*useDLLImport*/ cd->isExport());
   }
@@ -185,7 +185,7 @@ llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd) {
   // Declare and initialize the TypeDescriptor.
   llvm::Constant *Fields[] = {
       classInfoPtr,                                     // VFPtr
-      llvm::ConstantPointerNull::get(getVoidPtrType()), // Runtime data
+      getNullPtr(),                                     // Runtime data
       llvm::ConstantDataArray::getString(gIR->context(), TypeNameString)};
   llvm::StructType *TypeDescriptorType =
       getTypeDescriptorType(irs, TypeNameString);

@@ -189,8 +189,6 @@ LLConstant *IrClass::getVtblInit() {
   std::vector<llvm::Constant *> constants;
   constants.reserve(cd->vtbl.length);
 
-  const auto voidPtrType = getVoidPtrType();
-
   // start with the classinfo
   llvm::Constant *c;
   if (!cd->isCPPclass()) {
@@ -198,7 +196,7 @@ LLConstant *IrClass::getVtblInit() {
       c = getClassInfoSymbol();
     } else {
       // use null if there are no TypeInfos
-      c = llvm::Constant::getNullValue(voidPtrType);
+      c = getNullPtr();
     }
     constants.push_back(c);
   }
@@ -213,7 +211,7 @@ LLConstant *IrClass::getVtblInit() {
     assert(fd && "vtbl entry not a function");
 
     if (cd->isAbstract() || (fd->isAbstract() && !fd->fbody)) {
-      c = getNullValue(voidPtrType);
+      c = getNullPtr();
     } else {
       // If inferring return type and semantic3 has not been run, do it now.
       // This pops up in some other places in the frontend as well, however
@@ -224,7 +222,7 @@ LLConstant *IrClass::getVtblInit() {
           if (fd->hasSemantic3Errors()) {
             Logger::println(
                 "functionSemantic failed; using null for vtbl entry.");
-            constants.push_back(getNullValue(voidPtrType));
+            constants.push_back(getNullPtr());
             continue;
           }
           error(fd->loc,
@@ -276,7 +274,7 @@ LLConstant *IrClass::getVtblInit() {
   }
 
   // build the constant array
-  LLArrayType *vtblTy = LLArrayType::get(voidPtrType, constants.size());
+  LLArrayType *vtblTy = LLArrayType::get(getOpaquePtrType(), constants.size());
   constVtbl = LLConstantArray::get(vtblTy, constants);
 
   return constVtbl;
@@ -471,7 +469,7 @@ llvm::GlobalVariable *IrClass::getInterfaceVtblSymbol(BaseClass *b,
     gvar = it->second;
   } else {
     llvm::Type *vtblType =
-        LLArrayType::get(getVoidPtrType(), b->sym->vtbl.length);
+        LLArrayType::get(getOpaquePtrType(), b->sym->vtbl.length);
 
     // Thunk prefix
     char thunkPrefix[16];
@@ -528,8 +526,6 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
   char thunkPrefix[16];
   snprintf(thunkPrefix, 16, "Thn%d_", b->offset);
 
-  const auto voidPtrTy = getVoidPtrType();
-
   if (!b->sym->isCPPinterface()) { // skip interface info for CPP interfaces
     if (!suppressTypeInfo()) {
       // index into the interfaces array
@@ -543,7 +539,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
       constants.push_back(c);
     } else {
       // use null if there are no TypeInfos
-      constants.push_back(llvm::Constant::getNullValue(voidPtrTy));
+      constants.push_back(getNullPtr());
     }
   }
 
@@ -555,7 +551,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
       // FIXME
       // why is this null?
       // happens for mini/s.d
-      constants.push_back(getNullValue(voidPtrTy));
+      constants.push_back(getNullPtr());
       continue;
     }
 
@@ -678,7 +674,7 @@ LLConstant *IrClass::getInterfaceVtblInit(BaseClass *b,
 
   // build the vtbl constant
   llvm::Constant *vtbl_constant = LLConstantArray::get(
-      LLArrayType::get(voidPtrTy, constants.size()), constants);
+      LLArrayType::get(getOpaquePtrType(), constants.size()), constants);
 
   return vtbl_constant;
 }
@@ -746,7 +742,7 @@ LLConstant *IrClass::getClassInfoInterfaces() {
     LLConstant *vtb;
     // interface get a null
     if (cd->isInterfaceDeclaration()) {
-      vtb = DtoConstSlice(DtoConstSize_t(0), getNullValue(getVoidPtrType()));
+      vtb = DtoConstSlice(DtoConstSize_t(0), getNullPtr());
     } else {
       vtb = getInterfaceVtblSymbol(it, i);
       auto vtblSize = itc->getVtblType()->getNumContainedTypes();

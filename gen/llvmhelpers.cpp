@@ -1570,9 +1570,9 @@ DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl) {
     if (tb->ty != TY::Tstruct) {
       assert(tb->ty == TY::Tarray && tb->nextOf()->ty == TY::Tvoid);
       const auto size = DtoConstSize_t(ad->structsize);
-      llvm::Constant *ptr = sd && sd->zeroInit()
-                                ? getNullValue(getVoidPtrType())
-                                : getIrAggr(ad)->getInitSymbol();
+      LLConstant *ptr = sd && sd->zeroInit()
+                            ? static_cast<LLConstant *>(getNullPtr())
+                            : getIrAggr(ad)->getInitSymbol();
       return new DSliceValue(type, size, ptr);
     }
 

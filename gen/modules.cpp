@@ -136,8 +136,7 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
 
   // provide the default initializer
   LLStructType *modulerefTy = DtoModuleReferenceType();
-  LLConstant *mrefvalues[] = {LLConstant::getNullValue(getVoidPtrType()),
-                              moduleinfo};
+  LLConstant *mrefvalues[] = {getNullPtr(), moduleinfo};
   LLConstant *thismrefinit = LLConstantStruct::get(
       modulerefTy, llvm::ArrayRef<LLConstant *>(mrefvalues));
 
@@ -149,10 +148,10 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
   // make sure _Dmodule_ref is declared
   const auto mrefIRMangle = getIRMangledVarName("_Dmodule_ref", LINK::c);
   LLConstant *mref = gIR->module.getNamedGlobal(mrefIRMangle);
-  LLType *modulerefPtrTy = getVoidPtrType();
+  LLType *ptrTy = getOpaquePtrType();
   if (!mref) {
     mref =
-        declareGlobal(Loc(), gIR->module, modulerefPtrTy, mrefIRMangle, false,
+        declareGlobal(Loc(), gIR->module, ptrTy, mrefIRMangle, false,
                       false, global.params.dllimport != DLLImport::none);
   }
 
@@ -166,7 +165,7 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
   gIR->DBuilder.EmitModuleCTor(ctor, fname.c_str());
 
   // get current beginning
-  LLValue *curbeg = builder.CreateLoad(modulerefPtrTy, mref, "current");
+  LLValue *curbeg = builder.CreateLoad(ptrTy, mref, "current");
 
   // put current beginning as the next of this one
   LLValue *gep = builder.CreateStructGEP(

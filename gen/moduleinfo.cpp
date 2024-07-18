@@ -173,7 +173,8 @@ llvm::Constant *buildImportedModules(Module *m, size_t &count) {
   if (importInits.empty())
     return nullptr;
 
-  const auto type = llvm::ArrayType::get(getVoidPtrType(), importInits.size());
+  const auto type =
+      llvm::ArrayType::get(getOpaquePtrType(), importInits.size());
   return LLConstantArray::get(type, importInits);
 }
 
@@ -207,7 +208,8 @@ llvm::Constant *buildLocalClasses(Module *m, size_t &count) {
   if (classInfoRefs.empty())
     return nullptr;
 
-  const auto type = llvm::ArrayType::get(getVoidPtrType(), classInfoRefs.size());
+  const auto type =
+      llvm::ArrayType::get(getOpaquePtrType(), classInfoRefs.size());
   return LLConstantArray::get(type, classInfoRefs);
 }
 }

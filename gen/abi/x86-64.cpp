@@ -336,13 +336,13 @@ void X86_64TargetABI::rewriteVarargs(IrFuncTy &fty,
 
 LLType *X86_64TargetABI::getValistType() {
   LLType *uintType = LLType::getInt32Ty(gIR->context());
-  LLType *voidPointerType = getVoidPtrType();
+  LLType *pointerType = getOpaquePtrType();
 
-  std::vector<LLType *> parts;      // struct __va_list_tag {
-  parts.push_back(uintType);        //   uint gp_offset;
-  parts.push_back(uintType);        //   uint fp_offset;
-  parts.push_back(voidPointerType); //   void* overflow_arg_area;
-  parts.push_back(voidPointerType); //   void* reg_save_area; }
+  std::vector<LLType *> parts;  // struct __va_list_tag {
+  parts.push_back(uintType);    //   uint gp_offset;
+  parts.push_back(uintType);    //   uint fp_offset;
+  parts.push_back(pointerType); //   void* overflow_arg_area;
+  parts.push_back(pointerType); //   void* reg_save_area; }
 
   return LLStructType::get(gIR->context(), parts);
 }

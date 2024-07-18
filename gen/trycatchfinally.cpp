@@ -83,7 +83,7 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
     const auto enterCatchFn = getRuntimeFunction(
         c->loc, irs.module,
         isCPPclass ? "__cxa_begin_catch" : "_d_eh_enter_catch");
-    const auto ptr = DtoLoad(getVoidPtrType(), ehPtrSlot);
+    const auto ptr = DtoLoad(getOpaquePtrType(), ehPtrSlot);
     const auto throwableObj = irs.ir->CreateCall(enterCatchFn, ptr);
 
     // For catches that use the Throwable object, create storage for it.
@@ -171,7 +171,7 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
       if (!ci) {
         const char *name = target.cpp.typeInfoMangle(p.cd);
         auto cpp_ti = declareGlobal(
-            p.cd->loc, irs.module, getVoidPtrType(), name,
+            p.cd->loc, irs.module, getOpaquePtrType(), name,
             /*isConstant*/ true, false, /*useDLLImport*/ p.cd->isExport());
 
         const auto cppTypeInfoPtrType = getCppTypeInfoPtrType();
@@ -230,7 +230,7 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
     exnObj = DtoAlloca(ctch->type, "exnObj");
   } else {
     // catch all
-    exnObj = LLConstant::getNullValue(getVoidPtrType());
+    exnObj = getNullPtr();
   }
 
   bool isCPPclass = false;
@@ -242,8 +242,8 @@ void emitBeginCatchMSVC(IRState &irs, Catch *ctch,
       clssInfo = getIrAggr(cd)->getClassInfoSymbol();
   } else {
     // catch all
-    typeDesc = LLConstant::getNullValue(getVoidPtrType());
-    clssInfo = LLConstant::getNullValue(DtoType(getClassInfoType()));
+    typeDesc = getNullPtr();
+    clssInfo = getNullPtr();
   }
 
   // "catchpad within %switch [TypeDescriptor, 0, &caughtObject]" must be
@@ -662,7 +662,7 @@ TryCatchFinallyScopes::getLandingPadRef(CleanupCursor scope) {
 
 namespace {
   llvm::LandingPadInst *createLandingPadInst(IRState &irs) {
-    LLType *retType = LLStructType::get(getVoidPtrType(irs.context()),
+    LLType *retType = LLStructType::get(getOpaquePtrType(),
                                         LLType::getInt32Ty(irs.context()));
     if (!irs.func()->hasLLVMPersonalityFn()) {
       irs.func()->setLLVMPersonalityFn(
@@ -761,7 +761,7 @@ llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
 
 llvm::AllocaInst *TryCatchFinallyScopes::getOrCreateEhPtrSlot() {
   if (!ehPtrSlot)
-    ehPtrSlot = DtoRawAlloca(getVoidPtrType(), 0, "eh.ptr");
+    ehPtrSlot = DtoRawAlloca(getOpaquePtrType(), 0, "eh.ptr");
   return ehPtrSlot;
 }
 
@@ -773,7 +773,7 @@ llvm::BasicBlock *TryCatchFinallyScopes::getOrCreateResumeUnwindBlock() {
     irs.ir->SetInsertPoint(resumeUnwindBlock);
 
     llvm::Function *resumeFn = getUnwindResumeFunction(Loc(), irs.module);
-    irs.ir->CreateCall(resumeFn, DtoLoad(getVoidPtrType(), getOrCreateEhPtrSlot()));
+    irs.ir->CreateCall(resumeFn, DtoLoad(getOpaquePtrType(), getOrCreateEhPtrSlot()));
     irs.ir->CreateUnreachable();
 
     irs.ir->SetInsertPoint(oldBB);

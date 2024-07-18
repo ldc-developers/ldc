@@ -251,7 +251,7 @@ LLValue *DtoNestedContext(const Loc &loc, Dsymbol *sym) {
     if (depth == -1 || (depth == 0 && !symfd->closureVars.empty())) {
       Logger::println("function does not have context or creates its own "
                       "from scratch, returning null");
-      return llvm::ConstantPointerNull::get(getVoidPtrType());
+      return getNullPtr();
     }
   }
 
@@ -293,7 +293,7 @@ LLValue *DtoNestedContext(const Loc &loc, Dsymbol *sym) {
           sym->toPrettyChars(), irFunc.decl->toPrettyChars());
       fatal();
     }
-    return llvm::ConstantPointerNull::get(getVoidPtrType());
+    return getNullPtr();
   }
 
   // The symbol may need a parent context of the current function.
@@ -525,7 +525,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
       }
       if (depth > 1) {
         DtoMemCpy(frame, src, DtoConstSize_t((depth - 1) * target.ptrsize),
-                  getABITypeAlign(getVoidPtrType()));
+                  getABITypeAlign(getOpaquePtrType()));
       }
       // Copy nestArg into framelist; the outer frame is not in the list of
       // pointers
