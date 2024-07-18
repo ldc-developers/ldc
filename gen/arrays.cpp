@@ -913,16 +913,13 @@ LLValue *DtoArrayPtr(DValue *v) {
   LOG_SCOPE;
 
   Type *t = v->type->toBasetype();
-  // v's LL array element type may not be the real one
-  // due to implicit casts (e.g., to base class)
-  LLType *wantedLLPtrType = DtoPtrToType(t->nextOf());
   LLValue *ptr = nullptr;
 
   if (t->ty == TY::Tarray) {
     if (v->isNull()) {
       ptr = getNullPtr();
     } else if (v->isLVal()) {
-      ptr = DtoLoad(wantedLLPtrType, DtoGEP(DtoType(v->type), DtoLVal(v), 0, 1), ".ptr");
+      ptr = DtoLoad(getOpaquePtrType(), DtoGEP(DtoType(v->type), DtoLVal(v), 0, 1), ".ptr");
     } else {
       auto slice = v->isSlice();
       assert(slice);

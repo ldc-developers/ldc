@@ -82,7 +82,7 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
   if (!fd) {
     error(loc, "function `%s` cannot access frame of function `%s`",
           irfunc->decl->toPrettyChars(), vdparent->toPrettyChars());
-    return new DLValue(astype, llvm::UndefValue::get(DtoPtrToType(astype)));
+    return new DLValue(astype, llvm::UndefValue::get(getOpaquePtrType()));
   }
 
   // is the nested variable in this scope?
@@ -128,10 +128,7 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
   if (irLocal->nestedIndex == -1) {
     Logger::println(
         "WARNING: isn't actually nested, using invalid null storage");
-    auto llType = DtoPtrToType(astype);
-    if (isSpecialRefVar(vd))
-      llType = llType->getPointerTo();
-    return makeVarDValue(astype, vd, llvm::ConstantPointerNull::get(llType));
+    return makeVarDValue(astype, vd, getNullPtr());
   }
 
   ////////////////////////////////////

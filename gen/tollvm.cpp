@@ -200,8 +200,6 @@ LLType *DtoType(Type *t) {
 
 LLType *DtoMemType(Type *t) { return i1ToI8(voidToI8(DtoType(t))); }
 
-LLPointerType *DtoPtrToType(Type *t) { return DtoMemType(t)->getPointerTo(); }
-
 LLType *voidToI8(LLType *t) {
   return t->isVoidTy() ? LLType::getInt8Ty(t->getContext()) : t;
 }
@@ -726,16 +724,10 @@ LLStructType *DtoModuleReferenceType() {
     return gIR->moduleRefType;
   }
 
-  // this is a recursive type so start out with a struct without body
-  LLStructType *st = LLStructType::create(gIR->context(), "ModuleReference");
+  auto ptrType = getOpaquePtrType();
+  LLType *elems[] = {ptrType, ptrType};
+  auto st = LLStructType::get(gIR->context(), elems, "ModuleReference");
 
-  // add members
-  LLType *types[] = {getPtrToType(st), DtoPtrToType(getModuleInfoType())};
-
-  // resolve type
-  st->setBody(types);
-
-  // done
   gIR->moduleRefType = st;
   return st;
 }

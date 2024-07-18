@@ -130,7 +130,7 @@ struct ImplicitByvalRewrite : ABIRewrite {
 
   LLValue *getLVal(Type *dty, LLValue *v) override { return v; }
 
-  LLType *type(Type *t) override { return DtoPtrToType(t); }
+  LLType *type(Type *t) override { return getOpaquePtrType(); }
 
   void applyTo(IrFuncTyArg &arg, LLType *finalLType = nullptr) override {
     ABIRewrite::applyTo(arg, finalLType);
