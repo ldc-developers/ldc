@@ -646,7 +646,7 @@ DValue *DtoCastVector(const Loc &loc, DValue *val, Type *to) {
       LLValue *vector = DtoLVal(val);
       IF_LOG Logger::cout() << "src: " << *vector << " to type: " << *tolltype
                             << " (casting address)\n";
-      return new DLValue(to, DtoBitCast(vector, getPtrToType(tolltype)));
+      return new DLValue(to, vector);
     }
 
     LLValue *vector = DtoRVal(val);
@@ -899,7 +899,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     bool isRealAlloca = false;
     LLType *lltype = DtoType(type); // void for noreturn
     if (lltype->isVoidTy() || gDataLayout->getTypeSizeInBits(lltype) == 0) {
-      allocainst = llvm::ConstantPointerNull::get(getPtrToType(lltype));
+      allocainst = getNullPtr();
     } else if (type != vd->type) {
       allocainst = DtoAlloca(type, vd->toChars());
       isRealAlloca = true;

@@ -282,7 +282,7 @@ llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl) {
       LLType *thisty = DtoType(dthis);
       // Logger::cout() << "this llvm type: " << *thisty << '\n';
       if (ad->isStructDeclaration()) {
-        thisty = getPtrToType(thisty);
+        thisty = getOpaquePtrType();
       }
     } else {
       IF_LOG Logger::println("chars: %s type: %s kind: %s", fdecl->toChars(),

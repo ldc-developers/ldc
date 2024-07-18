@@ -693,12 +693,6 @@ LLPointerType *getOpaquePtrType(unsigned addressSpace) {
   return LLPointerType::get(gIR->context(), addressSpace);
 }
 
-LLPointerType *getPtrToType(LLType *t) {
-  if (t == LLType::getVoidTy(gIR->context()))
-    t = LLType::getInt8Ty(gIR->context());
-  return t->getPointerTo();
-}
-
 LLPointerType *getVoidPtrType() {
   return getVoidPtrType(gIR->context());
 }

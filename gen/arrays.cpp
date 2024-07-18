@@ -36,19 +36,6 @@ static void DtoSetArray(DValue *array, DValue *rhs);
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLStructType *DtoArrayType(Type *arrayTy) {
-  assert(arrayTy->nextOf());
-  llvm::Type *elems[] = {DtoSize_t(), DtoPtrToType(arrayTy->nextOf())};
-  return llvm::StructType::get(gIR->context(), elems, false);
-}
-
-LLStructType *DtoArrayType(LLType *t) {
-  llvm::Type *elems[] = {DtoSize_t(), getPtrToType(t)};
-  return llvm::StructType::get(gIR->context(), elems, false);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 LLArrayType *DtoStaticArrayType(Type *t) {
   t = t->toBasetype();
   assert(t->ty == TY::Tsarray);
@@ -714,11 +701,8 @@ LLValue *DtoArrayEqCmp_impl(const Loc &loc, const char *func, DValue *l,
 
   LLSmallVector<LLValue *, 3> args;
 
-  // get values, reinterpret cast to void[]
-  args.push_back(DtoSlicePaint(DtoRVal(l),
-                              DtoArrayType(LLType::getInt8Ty(gIR->context()))));
-  args.push_back(DtoSlicePaint(DtoRVal(r),
-                              DtoArrayType(LLType::getInt8Ty(gIR->context()))));
+  args.push_back(DtoRVal(l));
+  args.push_back(DtoRVal(r));
 
   // pass array typeinfo ?
   if (useti) {
