@@ -279,11 +279,6 @@ llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl) {
     if (AggregateDeclaration *ad = fdecl->isMember2()) {
       IF_LOG Logger::println("isMember = this is: %s", ad->type->toChars());
       dthis = ad->type;
-      LLType *thisty = DtoType(dthis);
-      // Logger::cout() << "this llvm type: " << *thisty << '\n';
-      if (ad->isStructDeclaration()) {
-        thisty = getOpaquePtrType();
-      }
     } else {
       IF_LOG Logger::println("chars: %s type: %s kind: %s", fdecl->toChars(),
                              fdecl->type->toChars(), fdecl->kind());
