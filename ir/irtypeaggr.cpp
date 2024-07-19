@@ -148,8 +148,9 @@ void AggrTypeBuilder::addAggregate(
       const uint64_t f_begin = field->offset;
       const uint64_t f_end = f_begin + fieldSize;
 
+      // use an i8 array for bit field groups
       const auto llType =
-          isBitField ? LLIntegerType::get(gIR->context(), fieldSize * 8)
+          isBitField ? llvm::ArrayType::get(getI8Type(), fieldSize)
                      : DtoMemType(field->type);
 
       // check for overlap with existing fields (on a byte level, not bits)
@@ -214,12 +215,8 @@ void AggrTypeBuilder::addAggregate(
       fieldSize = af.size;
     } else {
       fieldAlignment = getABITypeAlign(llType);
-      if (vd->isBitFieldDeclaration()) {
-        fieldSize = af.size; // an IR integer of possibly non-power-of-2 size
-      } else {
-        fieldSize = getTypeAllocSize(llType);
-        assert(fieldSize <= af.size);
-      }
+      fieldSize = getTypeAllocSize(llType);
+      assert(fieldSize <= af.size);
     }
 
     // advance offset to right past this field
