@@ -1,6 +1,7 @@
 # LDC master
 
 #### Big news
+- Android: NDK for prebuilt package bumped from r26d to r27. (#4711)
 
 #### Platform support
 
