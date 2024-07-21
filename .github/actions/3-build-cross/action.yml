@@ -14,7 +14,7 @@ inputs:
     default: false
   android_ndk_version:
     required: false
-    default: r26d
+    default: r27
   android_api_level:
     required: false
     default: 29
@@ -104,7 +104,7 @@ runs:
           triple="$arch-linux-androideabi$apiLevel"
           cmakeFlags+=' -DANDROID_ABI=armeabi-v7a'
         elif [[ "$arch" == aarch64 ]]; then
-          # FIXME: as of NDK rc26d, libc.a has __tls_get_addr, but libc.so only since API level 30 (Android v11)
+          # FIXME: as of NDK r27, libc.a has __tls_get_addr, but libc.so only since API level 30 (Android v11)
           apiLevel=30
           triple="$arch-linux-android$apiLevel"
           cmakeFlags+=' -DANDROID_ABI=arm64-v8a'
