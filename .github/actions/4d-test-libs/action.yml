@@ -2,13 +2,16 @@ name: Run defaultlib unittests & druntime integration tests
 inputs:
   arch:
     required: false # Windows only
+  shell:
+    required: false
+    default: bash
 runs:
   using: composite
   steps:
 
     - name: 'Posix: Run defaultlib unittests & druntime integration tests'
       if: runner.os != 'Windows'
-      shell: bash
+      shell: ${{ inputs.shell }}
       run: |
         set -eux
         cd ../build

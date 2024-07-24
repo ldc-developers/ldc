@@ -5,12 +5,15 @@ inputs:
     default: ''
   arch:
     required: false # Windows only
+  shell:
+    required: false
+    default: bash
 runs:
   using: composite
   steps:
 
     - name: Check CMake and ninja versions
-      shell: bash
+      shell: ${{ inputs.shell }}
       run: |
         set -eux
         cmake --version
@@ -25,6 +28,7 @@ runs:
           -DBUILD_SHARED_LIBS=OFF
           ${{ inputs.cmake_flags }}
         arch: ${{ inputs.arch }}
+        shell: ${{ inputs.shell }}
 
     - run: ../bootstrap-ldc/bin/ldc2 --version
-      shell: bash
+      shell: ${{ inputs.shell }}
