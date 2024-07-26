@@ -738,7 +738,9 @@ private:
       // ... or a delegate context arg
       LLValue *ctxarg;
       if (fnval->isLVal()) {
-        ctxarg = DtoLoad(getVoidPtrType(), DtoGEP(DtoType(fnval->type), DtoLVal(fnval), 0u, 0), ".ptr");
+        ctxarg = DtoLoad(getOpaquePtrType(),
+                         DtoGEP(DtoType(fnval->type), DtoLVal(fnval), 0u, 0),
+                         ".ptr");
       } else {
         ctxarg = gIR->ir->CreateExtractValue(DtoRVal(fnval), 0, ".ptr");
       }
@@ -749,7 +751,7 @@ private:
         LLValue *contextptr = DtoNestedContext(loc, dfnval->func);
         args.push_back(contextptr);
       } else {
-        args.push_back(llvm::UndefValue::get(getVoidPtrType()));
+        args.push_back(llvm::UndefValue::get(getOpaquePtrType()));
       }
     } else {
       error(loc, "Context argument required but none given");

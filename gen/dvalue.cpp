@@ -121,10 +121,7 @@ bool DFuncValue::definedInFuncEntryBB() {
 ////////////////////////////////////////////////////////////////////////////////
 
 DLValue::DLValue(Type *t, LLValue *v) : DValue(t, v) {
-  // v may be an addrspace qualified pointer so strip it before doing a pointer
-  // equality check.
-  assert(t->toBasetype()->ty == TY::Ttuple ||
-         stripAddrSpaces(v->getType()) == DtoPtrToType(t));
+  assert(t->toBasetype()->ty == TY::Ttuple || v->getType()->isPointerTy());
 }
 
 DRValue *DLValue::getRVal() {
@@ -163,11 +160,11 @@ DSpecialRefValue::DSpecialRefValue(Type *t, LLValue *v) : DLValue(v, t) {
 }
 
 DRValue *DSpecialRefValue::getRVal() {
-  return DLValue(type, DtoLoad(DtoPtrToType(type), val)).getRVal();
+  return DLValue(type, DtoLoad(getOpaquePtrType(), val)).getRVal();
 }
 
 DLValue *DSpecialRefValue::getLVal() {
-  return new DLValue(type, DtoLoad(DtoPtrToType(type), val));
+  return new DLValue(type, DtoLoad(getOpaquePtrType(), val));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

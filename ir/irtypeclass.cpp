@@ -24,7 +24,7 @@
 
 IrTypeClass::IrTypeClass(ClassDeclaration *cd)
     : IrTypeAggr(cd), cd(cd), tc(static_cast<TypeClass *>(cd->type)) {
-  vtbl_type = LLArrayType::get(getVoidPtrType(), cd->vtbl.length);
+  vtbl_type = LLArrayType::get(getOpaquePtrType(), cd->vtbl.length);
 }
 
 void IrTypeClass::addClassData(AggrTypeBuilder &builder,
@@ -48,7 +48,7 @@ void IrTypeClass::addClassData(AggrTypeBuilder &builder,
 
       // add to the interface map
       addInterfaceToMap(b->sym, builder.currentFieldIndex());
-      auto vtblTy = LLArrayType::get(getVoidPtrType(), b->sym->vtbl.length);
+      auto vtblTy = LLArrayType::get(getOpaquePtrType(), b->sym->vtbl.length);
       builder.addType(llvm::PointerType::get(vtblTy, 0), target.ptrsize);
 
       ++num_interface_vtbls;
@@ -83,7 +83,7 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
     // classes have monitor and fields
     if (!cd->isCPPclass() && !cd->isCPPinterface()) {
       // add monitor
-      builder.addType(getVoidPtrType(), target.ptrsize);
+      builder.addType(getOpaquePtrType(), target.ptrsize);
     }
 
     // add data members recursively

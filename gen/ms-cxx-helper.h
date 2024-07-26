@@ -12,7 +12,6 @@
 #include "gen/irstate.h"
 
 llvm::StructType *getTypeDescriptorType(IRState &irs,
-                                        llvm::Constant *classInfoPtr,
                                         llvm::StringRef TypeInfoString);
 llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd);
 

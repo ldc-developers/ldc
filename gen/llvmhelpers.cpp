@@ -119,13 +119,12 @@ void DtoDeleteInterface(const Loc &loc, DValue *inst) {
 
 void DtoDeleteArray(const Loc &loc, DValue *arr) {
   llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delarray_t");
-  llvm::FunctionType *fty = fn->getFunctionType();
 
   // the TypeInfo argument must be null if the type has no dtor
   Type *elementType = arr->type->nextOf();
   bool hasDtor = (elementType->toBasetype()->ty == TY::Tstruct &&
                   elementType->needsDestruction());
-  LLValue *typeInfo = !hasDtor ? getNullPtr(fty->getParamType(1))
+  LLValue *typeInfo = !hasDtor ? getNullPtr()
                                : DtoTypeInfoOf(loc, elementType);
 
   LLValue *lval = (arr->isLVal() ? DtoLVal(arr) : makeLValue(loc, arr));
@@ -478,7 +477,7 @@ DValue *DtoNullValue(Type *type, Loc loc) {
   // dynamic array
   if (basety == TY::Tarray) {
     LLValue *len = DtoConstSize_t(0);
-    LLValue *ptr = getNullPtr(DtoPtrToType(basetype->nextOf()));
+    LLValue *ptr = getNullPtr();
     return new DSliceValue(type, len, ptr);
   }
   error(loc, "`null` not known for type `%s`", type->toChars());
@@ -647,7 +646,7 @@ DValue *DtoCastVector(const Loc &loc, DValue *val, Type *to) {
       LLValue *vector = DtoLVal(val);
       IF_LOG Logger::cout() << "src: " << *vector << " to type: " << *tolltype
                             << " (casting address)\n";
-      return new DLValue(to, DtoBitCast(vector, getPtrToType(tolltype)));
+      return new DLValue(to, vector);
     }
 
     LLValue *vector = DtoRVal(val);
@@ -900,7 +899,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     bool isRealAlloca = false;
     LLType *lltype = DtoType(type); // void for noreturn
     if (lltype->isVoidTy() || gDataLayout->getTypeSizeInBits(lltype) == 0) {
-      allocainst = llvm::ConstantPointerNull::get(getPtrToType(lltype));
+      allocainst = getNullPtr();
     } else if (type != vd->type) {
       allocainst = DtoAlloca(type, vd->toChars());
       isRealAlloca = true;
@@ -1571,9 +1570,9 @@ DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl) {
     if (tb->ty != TY::Tstruct) {
       assert(tb->ty == TY::Tarray && tb->nextOf()->ty == TY::Tvoid);
       const auto size = DtoConstSize_t(ad->structsize);
-      llvm::Constant *ptr = sd && sd->zeroInit()
-                                ? getNullValue(getVoidPtrType())
-                                : getIrAggr(ad)->getInitSymbol();
+      LLConstant *ptr = sd && sd->zeroInit()
+                            ? static_cast<LLConstant *>(getNullPtr())
+                            : getIrAggr(ad)->getInitSymbol();
       return new DSliceValue(type, size, ptr);
     }
 

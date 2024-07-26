@@ -59,7 +59,7 @@ void RTTIBuilder::push(llvm::Constant *C) {
 
 void RTTIBuilder::push_null(Type *T) { push(getNullValue(DtoType(T))); }
 
-void RTTIBuilder::push_null_vp() { push(getNullValue(getVoidPtrType())); }
+void RTTIBuilder::push_null_vp() { push(getNullPtr()); }
 
 void RTTIBuilder::push_typeinfo(Type *t) { push(DtoTypeInfoOf(Loc(), t)); }
 
@@ -125,7 +125,7 @@ void RTTIBuilder::push_uint(unsigned u) { push(DtoConstUint(u)); }
 void RTTIBuilder::push_size(uint64_t s) { push(DtoConstSize_t(s)); }
 
 void RTTIBuilder::push_size_as_vp(uint64_t s) {
-  push(llvm::ConstantExpr::getIntToPtr(DtoConstSize_t(s), getVoidPtrType()));
+  push(llvm::ConstantExpr::getIntToPtr(DtoConstSize_t(s), getOpaquePtrType()));
 }
 
 void RTTIBuilder::push_funcptr(FuncDeclaration *fd) {
