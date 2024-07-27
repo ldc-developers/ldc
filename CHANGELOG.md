@@ -1,6 +1,7 @@
 # LDC master
 
 #### Big news
+- LLVM for prebuilt packages bumped to v18.1.8 (incl. macOS arm64). (#4712)
 - Android: NDK for prebuilt package bumped from r26d to r27. (#4711)
 
 #### Platform support
