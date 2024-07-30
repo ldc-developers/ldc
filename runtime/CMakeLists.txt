@@ -1,4 +1,4 @@
-project(runtime C)
+project(runtime C ASM)
 
 cmake_minimum_required(VERSION 3.4.3)
 
