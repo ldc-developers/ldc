@@ -448,6 +448,7 @@ include(HandleLTOPGOBuildOptions)
 #
 set(LDC_DYNAMIC_COMPILE "AUTO" CACHE STRING "Support dynamic compilation (ON|OFF). Enabled by default; not supported for LLVM >= 12.")
 option(LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES "Use custom LDC passes in jit" ON)
+option(LDC_PHOBOS_USE_SYSTEM_ZLIB "Use system zlib instead of bundled zlib in libphobos" OFF)
 if(LDC_DYNAMIC_COMPILE STREQUAL "AUTO")
     if(LDC_LLVM_VER LESS 1200)
         set(LDC_DYNAMIC_COMPILE ON)
@@ -460,6 +461,10 @@ message(STATUS "-- Building LDC with dynamic compilation support (LDC_DYNAMIC_CO
 if(LDC_DYNAMIC_COMPILE)
     add_definitions(-DLDC_DYNAMIC_COMPILE)
     add_definitions(-DLDC_DYNAMIC_COMPILE_API_VERSION=3)
+endif()
+if(LDC_PHOBOS_USE_SYSTEM_ZLIB)
+    find_package(ZLIB 1.3 REQUIRED)
+    message(STATUS "Building LDC with system zlib version ${ZLIB_VERSION}")
 endif()
 
 #
