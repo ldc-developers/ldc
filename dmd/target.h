@@ -16,6 +16,7 @@
 #include "globals.h"
 #include "tokens.h"
 
+class BitFieldDeclaration;
 class ClassDeclaration;
 class Dsymbol;
 class Expression;
@@ -83,6 +84,8 @@ struct TargetC
     Runtime runtime;
 #endif
     BitFieldStyle bitFieldStyle; // different C compilers do it differently
+
+    bool contributesToAggregateAlignment(BitFieldDeclaration *bfd);
 };
 
 struct TargetCPP
