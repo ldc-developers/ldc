@@ -1572,6 +1572,13 @@ version (IN_LLVM) {} else
         }
     }
 
+version (IN_LLVM)
+{
+    // implemented in gen/target.cpp
+    extern (C++) bool contributesToAggregateAlignment(BitFieldDeclaration bfd);
+}
+else
+{
     /**
      * Indicates whether the specified bit-field contributes to the alignment
      * of the containing aggregate.
@@ -1589,6 +1596,7 @@ version (IN_LLVM) {} else
         }
         assert(0);
     }
+}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
