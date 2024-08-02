@@ -135,7 +135,7 @@ LLConstant *IrStruct::getTypeInfoInit() {
   } else {
     llvm::Constant *initPtr;
     if (ts->isZeroInit(Loc())) {
-      initPtr = getNullValue(getVoidPtrType());
+      initPtr = getNullPtr();
     } else {
       initPtr = getInitSymbol();
     }

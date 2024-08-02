@@ -2,6 +2,7 @@
 
 #### Big news
 - Frontend, druntime and Phobos are at version [2.110.0](https://dlang.org/changelog/2.110.0.html). (#4707)
+- Android: NDK for prebuilt package bumped from r26d to r27. (#4711)
 
 #### Platform support
 

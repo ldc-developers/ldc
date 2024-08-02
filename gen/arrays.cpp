@@ -36,19 +36,6 @@ static void DtoSetArray(DValue *array, DValue *rhs);
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLStructType *DtoArrayType(Type *arrayTy) {
-  assert(arrayTy->nextOf());
-  llvm::Type *elems[] = {DtoSize_t(), DtoPtrToType(arrayTy->nextOf())};
-  return llvm::StructType::get(gIR->context(), elems, false);
-}
-
-LLStructType *DtoArrayType(LLType *t) {
-  llvm::Type *elems[] = {DtoSize_t(), getPtrToType(t)};
-  return llvm::StructType::get(gIR->context(), elems, false);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 LLArrayType *DtoStaticArrayType(Type *t) {
   t = t->toBasetype();
   assert(t->ty == TY::Tsarray);
@@ -714,11 +701,8 @@ LLValue *DtoArrayEqCmp_impl(const Loc &loc, const char *func, DValue *l,
 
   LLSmallVector<LLValue *, 3> args;
 
-  // get values, reinterpret cast to void[]
-  args.push_back(DtoSlicePaint(DtoRVal(l),
-                              DtoArrayType(LLType::getInt8Ty(gIR->context()))));
-  args.push_back(DtoSlicePaint(DtoRVal(r),
-                              DtoArrayType(LLType::getInt8Ty(gIR->context()))));
+  args.push_back(DtoRVal(l));
+  args.push_back(DtoRVal(r));
 
   // pass array typeinfo ?
   if (useti) {
@@ -929,16 +913,13 @@ LLValue *DtoArrayPtr(DValue *v) {
   LOG_SCOPE;
 
   Type *t = v->type->toBasetype();
-  // v's LL array element type may not be the real one
-  // due to implicit casts (e.g., to base class)
-  LLType *wantedLLPtrType = DtoPtrToType(t->nextOf());
   LLValue *ptr = nullptr;
 
   if (t->ty == TY::Tarray) {
     if (v->isNull()) {
-      ptr = getNullPtr(wantedLLPtrType);
+      ptr = getNullPtr();
     } else if (v->isLVal()) {
-      ptr = DtoLoad(wantedLLPtrType, DtoGEP(DtoType(v->type), DtoLVal(v), 0, 1), ".ptr");
+      ptr = DtoLoad(getOpaquePtrType(), DtoGEP(DtoType(v->type), DtoLVal(v), 0, 1), ".ptr");
     } else {
       auto slice = v->isSlice();
       assert(slice);
@@ -1035,7 +1016,7 @@ DValue *DtoCastArray(const Loc &loc, DValue *u, Type *to) {
   if (totype->ty == TY::Tbool) {
     // return (arr.ptr !is null)
     LLValue *ptr = DtoArrayPtr(u);
-    LLConstant *nul = getNullPtr(ptr->getType());
+    LLConstant *nul = getNullPtr();
     return new DImValue(to, gIR->ir->CreateICmpNE(ptr, nul));
   }
 

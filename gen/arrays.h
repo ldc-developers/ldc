@@ -25,8 +25,6 @@ struct IRState;
 struct Loc;
 class Type;
 
-llvm::StructType *DtoArrayType(Type *arrayTy);
-llvm::StructType *DtoArrayType(LLType *elemTy);
 llvm::ArrayType *DtoStaticArrayType(Type *sarrayTy);
 
 /// Creates a (global) constant with the element data for the given arary

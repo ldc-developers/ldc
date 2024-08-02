@@ -187,7 +187,7 @@ LLType *DtoType(Type *t) {
 
   // associative arrays
   case TY::Taarray:
-    return getVoidPtrType();
+    return getOpaquePtrType();
 
   case TY::Tvector:
     return IrTypeVector::get(t)->getLLType();
@@ -199,8 +199,6 @@ LLType *DtoType(Type *t) {
 }
 
 LLType *DtoMemType(Type *t) { return i1ToI8(voidToI8(DtoType(t))); }
-
-LLPointerType *DtoPtrToType(Type *t) { return DtoMemType(t)->getPointerTo(); }
 
 LLType *voidToI8(LLType *t) {
   return t->isVoidTy() ? LLType::getInt8Ty(t->getContext()) : t;
@@ -440,10 +438,10 @@ void DtoMemCpy(LLType *type, LLValue *dst, LLValue *src, bool withPadding, unsig
 LLValue *DtoMemCmp(LLValue *lhs, LLValue *rhs, LLValue *nbytes) {
   // int memcmp ( const void * ptr1, const void * ptr2, size_t num );
 
-  LLType *VoidPtrTy = getVoidPtrType();
   LLFunction *fn = gIR->module.getFunction("memcmp");
   if (!fn) {
-    LLType *Tys[] = {VoidPtrTy, VoidPtrTy, DtoSize_t()};
+    LLType *ptrTy = getOpaquePtrType();
+    LLType *Tys[] = {ptrTy, ptrTy, DtoSize_t()};
     LLFunctionType *fty =
         LLFunctionType::get(LLType::getInt32Ty(gIR->context()), Tys, false);
     fn = LLFunction::Create(fty, LLGlobalValue::ExternalLinkage, "memcmp",
@@ -583,7 +581,7 @@ LLType *stripAddrSpaces(LLType *t)
   if (!pt)
     return t;
 
-  return getVoidPtrType();
+  return getOpaquePtrType();
 }
 
 LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name) {
@@ -689,23 +687,12 @@ llvm::GlobalVariable *isaGlobalVar(LLValue *v) {
 
 LLType *getI8Type() { return LLType::getInt8Ty(gIR->context()); }
 
-LLPointerType *getPtrToType(LLType *t) {
-  if (t == LLType::getVoidTy(gIR->context()))
-    t = LLType::getInt8Ty(gIR->context());
-  return t->getPointerTo();
+LLPointerType *getOpaquePtrType(unsigned addressSpace) {
+  return LLPointerType::get(gIR->context(), addressSpace);
 }
 
-LLPointerType *getVoidPtrType() {
-  return getVoidPtrType(gIR->context());
-}
-
-LLPointerType *getVoidPtrType(llvm::LLVMContext &C) {
-  return LLType::getInt8Ty(C)->getPointerTo();
-}
-
-llvm::ConstantPointerNull *getNullPtr(LLType *t) {
-  LLPointerType *pt = llvm::cast<LLPointerType>(t);
-  return llvm::ConstantPointerNull::get(pt);
+llvm::ConstantPointerNull *getNullPtr() {
+  return llvm::ConstantPointerNull::get(getOpaquePtrType());
 }
 
 LLConstant *getNullValue(LLType *t) { return LLConstant::getNullValue(t); }
@@ -729,16 +716,10 @@ LLStructType *DtoModuleReferenceType() {
     return gIR->moduleRefType;
   }
 
-  // this is a recursive type so start out with a struct without body
-  LLStructType *st = LLStructType::create(gIR->context(), "ModuleReference");
+  auto ptrType = getOpaquePtrType();
+  LLType *elems[] = {ptrType, ptrType};
+  auto st = LLStructType::get(gIR->context(), elems, "ModuleReference");
 
-  // add members
-  LLType *types[] = {getPtrToType(st), DtoPtrToType(getModuleInfoType())};
-
-  // resolve type
-  st->setBody(types);
-
-  // done
   gIR->moduleRefType = st;
   return st;
 }

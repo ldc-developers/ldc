@@ -109,14 +109,14 @@ void emitLLVMUsedArray(IRState &irs) {
     return;
   }
 
-  auto *i8PtrType = getVoidPtrType(irs.context());
+  auto ptrType = LLPointerType::get(irs.context(), 0);
 
   // Convert all elements to i8* (the expected type for llvm.used)
   for (auto &elem : irs.usedArray) {
-    elem = llvm::ConstantExpr::getBitCast(elem, i8PtrType);
+    elem = llvm::ConstantExpr::getBitCast(elem, ptrType);
   }
 
-  auto *arrayType = llvm::ArrayType::get(i8PtrType, irs.usedArray.size());
+  auto *arrayType = llvm::ArrayType::get(ptrType, irs.usedArray.size());
   auto *llvmUsed = new llvm::GlobalVariable(
       irs.module, arrayType, false, llvm::GlobalValue::AppendingLinkage,
       llvm::ConstantArray::get(arrayType, irs.usedArray), "llvm.used");

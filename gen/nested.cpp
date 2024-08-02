@@ -82,7 +82,7 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
   if (!fd) {
     error(loc, "function `%s` cannot access frame of function `%s`",
           irfunc->decl->toPrettyChars(), vdparent->toPrettyChars());
-    return new DLValue(astype, llvm::UndefValue::get(DtoPtrToType(astype)));
+    return new DLValue(astype, llvm::UndefValue::get(getOpaquePtrType()));
   }
 
   // is the nested variable in this scope?
@@ -128,10 +128,7 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
   if (irLocal->nestedIndex == -1) {
     Logger::println(
         "WARNING: isn't actually nested, using invalid null storage");
-    auto llType = DtoPtrToType(astype);
-    if (isSpecialRefVar(vd))
-      llType = llType->getPointerTo();
-    return makeVarDValue(astype, vd, llvm::ConstantPointerNull::get(llType));
+    return makeVarDValue(astype, vd, getNullPtr());
   }
 
   ////////////////////////////////////
@@ -254,7 +251,7 @@ LLValue *DtoNestedContext(const Loc &loc, Dsymbol *sym) {
     if (depth == -1 || (depth == 0 && !symfd->closureVars.empty())) {
       Logger::println("function does not have context or creates its own "
                       "from scratch, returning null");
-      return llvm::ConstantPointerNull::get(getVoidPtrType());
+      return getNullPtr();
     }
   }
 
@@ -296,7 +293,7 @@ LLValue *DtoNestedContext(const Loc &loc, Dsymbol *sym) {
           sym->toPrettyChars(), irFunc.decl->toPrettyChars());
       fatal();
     }
-    return llvm::ConstantPointerNull::get(getVoidPtrType());
+    return getNullPtr();
   }
 
   // The symbol may need a parent context of the current function.
@@ -528,7 +525,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
       }
       if (depth > 1) {
         DtoMemCpy(frame, src, DtoConstSize_t((depth - 1) * target.ptrsize),
-                  getABITypeAlign(getVoidPtrType()));
+                  getABITypeAlign(getOpaquePtrType()));
       }
       // Copy nestArg into framelist; the outer frame is not in the list of
       // pointers

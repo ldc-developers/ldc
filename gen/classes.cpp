@@ -303,19 +303,17 @@ DValue *DtoCastClass(const Loc &loc, DValue *val, Type *_to) {
     // it's just a GEP and (maybe) a pointer-to-pointer BitCast, so it
     // should be pretty cheap and perfectly safe even if the original was
     // null.
-    LLValue *isNull = gIR->ir->CreateICmpEQ(
-        orig, LLConstant::getNullValue(orig->getType()), ".nullcheck");
-    v = gIR->ir->CreateSelect(
-        isNull, LLConstant::getNullValue(getVoidPtrType()), v, ".interface");
+    const auto nullPtr = getNullPtr();
+    LLValue *isNull = gIR->ir->CreateICmpEQ(orig, nullPtr, ".nullcheck");
+    v = gIR->ir->CreateSelect(isNull, nullPtr, v, ".interface");
     // return r-value
     return new DImValue(_to, v);
   }
 
   if (fc->sym->classKind == ClassKind::cpp) {
     Logger::println("C++ class/interface cast");
-    LLValue *v = tc->sym->classKind == ClassKind::cpp
-                     ? DtoRVal(val)
-                     : LLConstant::getNullValue(getVoidPtrType());
+    LLValue *v =
+        tc->sym->classKind == ClassKind::cpp ? DtoRVal(val) : getNullPtr();
     return new DImValue(_to, v);
   }
 

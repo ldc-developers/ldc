@@ -796,7 +796,7 @@ public:
       if (canEmitVTableUnchangedAssumption && !dfnval->vtable &&
           dfnval->vthis && dfnval->func->isVirtual()) {
         dfnval->vtable =
-            DtoLoad(getVoidPtrType(), dfnval->vthis, "saved_vtable");
+            DtoLoad(getOpaquePtrType(), dfnval->vthis, "saved_vtable");
       }
     }
 
@@ -2320,8 +2320,7 @@ public:
     // don't allocate storage for zero length dynamic array literals
     if (dyn && len == 0) {
       // dmd seems to just make them null...
-      result = new DSliceValue(e->type, DtoConstSize_t(0),
-                               getNullPtr(getPtrToType(llElemType)));
+      result = new DSliceValue(e->type, DtoConstSize_t(0), getNullPtr());
       return;
     }
 

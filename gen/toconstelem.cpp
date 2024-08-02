@@ -493,7 +493,7 @@ public:
     assert(result);
 
     if (fd->tok != TOK::function_) {
-      auto contextPtr = getNullPtr(getVoidPtrType());
+      auto contextPtr = getNullPtr();
       result = LLConstantStruct::getAnon(gIR->context(), {contextPtr, result});
     }
   }

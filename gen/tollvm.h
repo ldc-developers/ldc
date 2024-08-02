@@ -34,8 +34,6 @@
 LLType *DtoType(Type *t);
 // Uses DtoType(), but promotes i1 and void to i8.
 LLType *DtoMemType(Type *t);
-// Returns a pointer to the type returned by DtoMemType(t).
-LLPointerType *DtoPtrToType(Type *t);
 
 LLType *voidToI8(LLType *t);
 LLType *i1ToI8(LLType *t);
@@ -150,10 +148,8 @@ LLGlobalVariable *isaGlobalVar(LLValue *v);
 
 // llvm::T::get(...) wrappers
 LLType *getI8Type();
-LLPointerType *getPtrToType(LLType *t);
-LLPointerType *getVoidPtrType();
-LLPointerType *getVoidPtrType(llvm::LLVMContext &C);
-llvm::ConstantPointerNull *getNullPtr(LLType *t);
+LLPointerType *getOpaquePtrType(unsigned addressSpace = 0);
+llvm::ConstantPointerNull *getNullPtr();
 LLConstant *getNullValue(LLType *t);
 
 // type sizes
