@@ -58,6 +58,10 @@ struct MsvcEnvironmentScope {
 
   ~MsvcEnvironmentScope();
 
+  // Tries to return the absolute path to a VC tool, falling back to the file
+  // name.
+  std::string tryResolveToolPath(const char *fileName) const;
+
 private:
   // for each changed env var: name & original value
   std::vector<std::pair<std::wstring, wchar_t *>> rollback;
