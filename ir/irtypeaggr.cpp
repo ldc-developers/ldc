@@ -272,6 +272,41 @@ IrTypeAggr::IrTypeAggr(AggregateDeclaration *ad)
              LLStructType::create(gIR->context(), ad->toPrettyChars())),
       aggr(ad) {}
 
+bool IrTypeAggr::isPacked(AggregateDeclaration *ad) {
+  // If the aggregate's size is unknown, any field with type alignment > 1 will
+  // make it packed.
+  unsigned aggregateSize = ~0u;
+  unsigned aggregateAlignment = 1;
+  if (ad->sizeok == Sizeok::done) {
+    aggregateSize = ad->structsize;
+    aggregateAlignment = ad->alignsize;
+
+    if (auto sd = ad->isStructDeclaration()) {
+      if (!sd->alignment.isDefault() && !sd->alignment.isPack())
+        aggregateAlignment = sd->alignment.get();
+    }
+  }
+
+  // Classes apparently aren't padded; their size may not match the alignment.
+  assert((ad->isClassDeclaration() ||
+          (aggregateSize & (aggregateAlignment - 1)) == 0) &&
+         "Size not a multiple of alignment?");
+
+  // For unions, only a subset of the fields are actually used for the IR type -
+  // don't care (about a few potentially needlessly packed IR structs).
+  for (const auto field : ad->fields) {
+    // The aggregate size, aggregate alignment and the field offset need to be
+    // multiples of the field type's alignment, otherwise the aggregate type is
+    // unnaturally aligned, and LLVM would insert padding.
+    const unsigned fieldTypeAlignment = DtoAlignment(field->type);
+    const auto mask = fieldTypeAlignment - 1;
+    if ((aggregateSize | aggregateAlignment | field->offset) & mask)
+      return true;
+  }
+
+  return false;
+}
+
 unsigned IrTypeAggr::getMemberLocation(VarDeclaration *var, bool& isFieldIdx) const {
   // Note: The interface is a bit more general than what we actually return.
   // Specifically, the frontend offset information we use for overlapping

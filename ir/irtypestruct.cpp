@@ -89,7 +89,8 @@ IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
     AggrTypeBuilder builder;
     builder.addAggregate(sd);
     builder.addTailPadding(sd->structsize);
-    isaStruct(t->type)->setBody(builder.defaultTypes(), builder.isPacked());
+    bool packed = builder.isPacked() || IrTypeAggr::isPacked(sd);
+    isaStruct(t->type)->setBody(builder.defaultTypes(), packed);
     t->varGEPIndices = builder.varGEPIndices();
   }
 

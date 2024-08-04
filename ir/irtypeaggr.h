@@ -78,6 +78,10 @@ protected:
   ///
   explicit IrTypeAggr(AggregateDeclaration *ad);
 
+  /// Returns true, if the LLVM struct type for the aggregate must be declared
+  /// as packed.
+  static bool isPacked(AggregateDeclaration *ad);
+
   /// AggregateDeclaration this type represents.
   AggregateDeclaration *aggr = nullptr;
 
