@@ -40,7 +40,11 @@ AggrTypeBuilder::AggrTypeBuilder(unsigned offset) : m_offset(offset) {
 void AggrTypeBuilder::addType(llvm::Type *type, unsigned size) {
   const unsigned fieldAlignment = getABITypeAlign(type);
   assert(fieldAlignment);
-  assert((m_offset & (fieldAlignment - 1)) == 0 && "Field is misaligned");
+  // If the field offset does not have natural alignment, mark the aggregate as
+  // packed for IR.
+  if ((m_offset & (fieldAlignment - 1)) != 0) {
+    m_packed = true;
+  }
   m_defaultTypes.push_back(type);
   m_offset += size;
   m_fieldIndex++;
