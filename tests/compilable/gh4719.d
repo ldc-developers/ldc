@@ -1,5 +1,5 @@
-// RUN: %ldc -c -of=%t.o %s
-// RUN: %ldc -c -of=%t.o %s -O
+// RUN: %ldc -c %s
+// RUN: %ldc -c %s -O
 
 struct TraceBuf {
     align(1) uint args;
