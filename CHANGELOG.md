@@ -2,6 +2,7 @@
 
 #### Big news
 - Android: NDK for prebuilt package bumped from r26d to r27. (#4711)
+- ldc2.conf: %%ldcconfigpath%% placeholder added - specifies the directory where current configuration file is located. (#4717)
 
 #### Platform support
 
