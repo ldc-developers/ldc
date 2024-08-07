@@ -18,7 +18,7 @@ import core.stdc.stdio;
 import core.stdc.string;
 
 
-string prepareBinDir(const(char)* binDir)
+string normalizeSlashes(const(char)* binDir)
 {
     immutable len = strlen(binDir);
     auto res = binDir[0 .. len].dup;
@@ -96,6 +96,26 @@ unittest
     assert(replace(test4, pattern, "word") == "a word, yet other words");
 }
 
+struct CfgPaths
+{
+    string cfgBaseDir; /// ldc2.conf directory
+    string ldcBinaryDir; /// ldc2.exe binary dir
+
+    this(const(char)* cfPath, const(char)* binDir)
+    {
+        import dmd.root.filename: FileName;
+
+        cfgBaseDir = normalizeSlashes(FileName.path(cfPath));
+        ldcBinaryDir = normalizeSlashes(binDir);
+    }
+}
+
+string replacePlaceholders(string str, CfgPaths cfgPaths)
+{
+    return str
+        .replace("%%ldcbinarypath%%", cfgPaths.ldcBinaryDir)
+        .replace("%%ldcconfigpath%%", cfgPaths.cfgBaseDir);
+}
 
 extern(C++) struct ConfigFile
 {
@@ -117,8 +137,7 @@ private:
     {
         switches.setDim(0);
         postSwitches.setDim(0);
-
-        immutable dBinDir = prepareBinDir(binDir);
+        const cfgPaths = CfgPaths(cfPath, binDir);
 
         try
         {
@@ -156,7 +175,7 @@ private:
                 output.reserve(input.vals.length);
                 foreach (sw; input.vals)
                 {
-                    const finalSwitch = sw.replace("%%ldcbinarypath%%", dBinDir) ~ '\0';
+                    const finalSwitch = sw.replacePlaceholders(cfgPaths) ~ '\0';
                     output.push(finalSwitch.ptr);
                 }
             }
@@ -168,7 +187,7 @@ private:
             applyArray(_libDirs, libDirs);
 
             if (auto rpath = findScalarSetting(sections, "rpath"))
-                this.rpathcstr = (rpath.val.replace("%%ldcbinarypath%%", dBinDir) ~ '\0').ptr;
+                this.rpathcstr = (rpath.val.replacePlaceholders(cfgPaths) ~ '\0').ptr;
 
             return true;
         }
