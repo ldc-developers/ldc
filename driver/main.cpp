@@ -764,6 +764,9 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("LoongArch64");
     registerPredefinedFloatABI("LoongArch_SoftFloat", "LoongArch_HardFloat");
     break;
+  case llvm::Triple::xtensa:
+    VersionCondition::addPredefinedGlobalIdent("Xtensa");
+    break;
 #endif // LDC_LLVM_VER >= 1600
   default:
     warning(Loc(), "unknown target CPU architecture: %s",
