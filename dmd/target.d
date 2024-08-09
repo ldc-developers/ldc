@@ -25,6 +25,8 @@
 
 module dmd.target;
 
+import core.stdc.stdio;
+
 import dmd.astenums : CHECKENABLE;
 import dmd.globals : Param;
 
@@ -257,7 +259,6 @@ void addCRuntimePredefinedGlobalIdent(const ref TargetC c)
     default:
     case Unspecified: return;
     case Bionic:      return predef("CRuntime_Bionic");
-    case DigitalMars: return predef("CRuntime_DigitalMars");
     case Glibc:       return predef("CRuntime_Glibc");
     case Microsoft:   return predef("CRuntime_Microsoft");
     case Musl:        return predef("CRuntime_Musl");
@@ -276,12 +277,22 @@ void addCppRuntimePredefinedGlobalIdent(const ref TargetCPP cpp)
     with (TargetCPP.Runtime) switch (cpp.runtime)
     {
     default:
-    case Unspecified: return;
-    case Clang:       return predef("CppRuntime_Clang");
-    case DigitalMars: return predef("CppRuntime_DigitalMars");
-    case Gcc:         return predef("CppRuntime_Gcc");
-    case Microsoft:   return predef("CppRuntime_Microsoft");
-    case Sun:         return predef("CppRuntime_Sun");
+    case Unspecified:
+        return;
+    case LLVM:
+        predef("CppRuntime_LLVM");
+        predef("CppRuntime_Clang"); // legacy
+        return;
+    case GNU:
+        predef("CppRuntime_GNU");
+        predef("CppRuntime_Gcc"); // legacy
+        return;
+    case Microsoft:
+        predef("CppRuntime_Microsoft");
+        return;
+    case Sun:
+        predef("CppRuntime_Sun");
+        return;
     }
 }
 
@@ -305,7 +316,7 @@ extern (C++) struct Target
     import dmd.location;
     import dmd.astenums : LINK, TY;
     import dmd.mtype : Type, TypeFunction, TypeTuple;
-    import dmd.typesem : pointerTo;
+    import dmd.typesem : pointerTo, size;
     import dmd.root.ctfloat : real_t;
     import dmd.statement : Statement;
     import dmd.tokens : EXP;
@@ -335,7 +346,6 @@ extern (C++) struct Target
         elf,
         macho,
         coff,
-        omf
     }
 
     OS os;
@@ -368,6 +378,7 @@ version (IN_LLVM) {} else
 {
     CPU cpu;                // CPU instruction set to target
     bool isX86_64;          // generate 64 bit code for x86_64; true by default for 64 bit dmd
+    bool isX86;             // generate 32 bit Intel x86 code
 }
     bool isLP64;            // pointers are 64 bits
 
@@ -376,7 +387,6 @@ version (IN_LLVM) {} else
     const(char)[] lib_ext;    /// extension for static library files
     const(char)[] dll_ext;    /// extension for dynamic library files
     bool run_noext;           /// allow -run sources without extensions
-    bool omfobj;              // for Win32: write OMF object files instead of MsCoff
     /**
      * Values representing all properties for floating point types
      */
@@ -445,7 +455,8 @@ else // !IN_LLVM
      */
     extern (C++) void _init(ref const Param params)
     {
-        // isX86_64, omfobj and cpu are initialized in parseCommandLine
+        // isX86_64 and cpu are initialized in parseCommandLine
+        isX86 = !isX86_64;
 
         this.params = &params;
 
@@ -490,13 +501,6 @@ else // !IN_LLVM
             realsize = 10;
             realpad = 0;
             realalignsize = 2;
-            if (omfobj)
-            {
-                /* Optlink cannot deal with individual data chunks
-                 * larger than 16Mb
-                 */
-                maxStaticDataSize = 0x100_0000;  // 16Mb
-            }
         }
         else
             assert(0);
@@ -543,14 +547,14 @@ else // !IN_LLVM
     /**
      Determine the object format to be used
      */
-    extern(D) Target.ObjectFormat objectFormat() @safe
+    extern(D) Target.ObjectFormat objectFormat() const @safe
     {
         if (os == Target.OS.OSX)
             return Target.ObjectFormat.macho;
         else if (os & Target.OS.Posix)
             return Target.ObjectFormat.elf;
         else if (os == Target.OS.Windows)
-            return omfobj ? Target.ObjectFormat.omf : Target.ObjectFormat.coff;
+            return Target.ObjectFormat.coff;
         else
             assert(0, "unkown object format");
     }
@@ -621,7 +625,7 @@ else // !IN_LLVM
         case TY.Timaginary64:
         case TY.Tcomplex64:
             if (os & Target.OS.Posix)
-                return isX86_64 ? 8 : 4;
+                return isX86 ? 4 : 8;
             break;
         default:
             break;
@@ -1131,6 +1135,8 @@ else // !IN_LLVM
                 auto sd = ts.sym;
                 if (tf.linkage == LINK.cpp && needsThis)
                     return true;
+                if (tf.linkage == LINK.cpp && sd.ctor)
+                    return true;
                 if (!sd.isPOD() || sz > 8)
                     return true;
                 if (sd.fields.length == 0)
@@ -1165,7 +1171,7 @@ else // !IN_LLVM
             if (tns.ty != TY.Tstruct)
             {
     L2:
-                if (os == Target.OS.linux && tf.linkage != LINK.d && !isX86_64)
+                if (os == Target.OS.linux && tf.linkage != LINK.d && isX86)
                 {
                                                     // 32 bit C/C++ structs always on stack
                 }
@@ -1192,12 +1198,12 @@ else // !IN_LLVM
         if (auto ts = tns.isTypeStruct())
         {
             auto sd = ts.sym;
-            if (os == Target.OS.linux && tf.linkage != LINK.d && !isX86_64)
+            if (os == Target.OS.linux && tf.linkage != LINK.d && isX86)
             {
                 //printf("  2 true\n");
                 return true;            // 32 bit C/C++ structs always on stack
             }
-            if (os == Target.OS.Windows && tf.linkage == LINK.cpp && !isX86_64 &&
+            if (os == Target.OS.Windows && tf.linkage == LINK.cpp && isX86 &&
                      sd.isPOD() && sd.ctor)
             {
                 // win32 returns otherwise POD structs with ctors via memory
@@ -1245,7 +1251,7 @@ else // !IN_LLVM
                 return true;
         }
         else if (os == Target.OS.Windows &&
-                 !isX86_64 &&
+                 isX86 &&
                  tf.linkage == LINK.cpp &&
                  tf.isfloating())
         {
@@ -1353,7 +1359,7 @@ else // !IN_LLVM
         {
             case objectFormat.stringof:
                 if (os == Target.OS.Windows)
-                    return stringExp(omfobj ? "omf" : "coff" );
+                    return stringExp("coff");
                 else if (os == Target.OS.OSX)
                     return stringExp("macho");
                 else
@@ -1362,11 +1368,7 @@ else // !IN_LLVM
                 return stringExp("hard");
             case cppRuntimeLibrary.stringof:
                 if (os == Target.OS.Windows)
-                {
-                    if (omfobj)
-                        return stringExp("snn");
                     return stringExp(driverParams.mscrtlib);
-                }
                 return stringExp("");
             case cppStd.stringof:
                 return new IntegerExp(params.cplusplus);
@@ -1408,7 +1410,7 @@ else // !IN_LLVM
      */
     extern (C++) bool libraryObjectMonitors(FuncDeclaration fd, Statement fbody)
     {
-        if (!isX86_64 && os == Target.OS.Windows && !fd.isStatic() && !fbody.usesEH() && !params.trace)
+        if (isX86 && os == Target.OS.Windows && !fd.isStatic() && !fbody.usesEH() && !params.trace)
         {
             /* The back end uses the "jmonitor" hack for syncing;
              * no need to do the sync in the library.
@@ -1425,7 +1427,7 @@ else // !IN_LLVM
      */
     extern (C++) bool supportsLinkerDirective() const @safe
     {
-        return os == Target.OS.Windows && !omfobj;
+        return os == Target.OS.Windows;
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -1439,7 +1441,7 @@ else // !IN_LLVM
      */
     extern (D) bool isXmmSupported() @safe
     {
-        return isX86_64 || os == Target.OS.OSX;
+        return isX86_64 || (isX86 && os == Target.OS.OSX);
     }
 
     /**
@@ -1459,7 +1461,11 @@ else // !IN_LLVM
      */
     extern (D) uint stackAlign() @safe
     {
-        return isXmmSupported() ? 16 : (isX86_64 ? 8 : 4);
+        uint sz = isXmmSupported() ? 16 :
+                  isX86_64         ?  8 :
+                  isX86            ?  4 : 0;
+        assert(sz);
+        return sz;
     }
 } // !IN_LLVM
 }
@@ -1470,11 +1476,12 @@ else // !IN_LLVM
  */
 struct TargetC
 {
+    import dmd.declaration : BitFieldDeclaration;
+
     enum Runtime : ubyte
     {
         Unspecified,
         Bionic,
-        DigitalMars,
         Glibc,
         Microsoft,
         Musl,
@@ -1486,7 +1493,6 @@ struct TargetC
     enum BitFieldStyle : ubyte
     {
         Unspecified,
-        DM,                   /// Digital Mars 32 bit C compiler
         MS,                   /// Microsoft 32 and 64 bit C compilers
                               /// https://docs.microsoft.com/en-us/cpp/c-language/c-bit-fields?view=msvc-160
                               /// https://docs.microsoft.com/en-us/cpp/cpp/cpp-bit-fields?view=msvc-160
@@ -1539,7 +1545,7 @@ version (IN_LLVM) {} else
             wchar_tsize = 4;
 
         if (os == Target.OS.Windows)
-            runtime = target.omfobj ? Runtime.DigitalMars : Runtime.Microsoft;
+            runtime = Runtime.Microsoft;
         else if (os == Target.OS.linux)
         {
             // Note: This is overridden later by `-target=<triple>` if supplied.
@@ -1551,7 +1557,7 @@ version (IN_LLVM) {} else
         }
 
         if (os == Target.OS.Windows)
-            bitFieldStyle = target.omfobj ? BitFieldStyle.DM : BitFieldStyle.MS;
+            bitFieldStyle = BitFieldStyle.MS;
         else if (os & (Target.OS.linux | Target.OS.FreeBSD | Target.OS.OSX |
                        Target.OS.OpenBSD | Target.OS.DragonFlyBSD | Target.OS.Solaris))
             bitFieldStyle = BitFieldStyle.Gcc_Clang;
@@ -1565,6 +1571,32 @@ version (IN_LLVM) {} else
             crtDestructorsSupported = false;
         }
     }
+
+version (IN_LLVM)
+{
+    // implemented in gen/target.cpp
+    extern (C++) bool contributesToAggregateAlignment(BitFieldDeclaration bfd);
+}
+else
+{
+    /**
+     * Indicates whether the specified bit-field contributes to the alignment
+     * of the containing aggregate.
+     * E.g., (not all) ARM ABIs do NOT ignore anonymous (incl. 0-length)
+     * bit-fields.
+     */
+    extern (C++) bool contributesToAggregateAlignment(BitFieldDeclaration bfd)
+    {
+        if (bitFieldStyle == BitFieldStyle.MS)
+            return true;
+        if (bitFieldStyle == BitFieldStyle.Gcc_Clang)
+        {
+            // sufficient for DMD's currently supported architectures
+            return !bfd.isAnonymous();
+        }
+        assert(0);
+    }
+}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1581,9 +1613,8 @@ struct TargetCPP
     enum Runtime : ubyte
     {
         Unspecified,
-        Clang,
-        DigitalMars,
-        Gcc,
+        LLVM,
+        GNU,
         Microsoft,
         Sun
     }
@@ -1608,23 +1639,23 @@ version (IN_LLVM) {} else
         else if (os == Target.OS.Windows)
         {
             reverseOverloads = true;
-            splitVBasetable = !target.omfobj;
+            splitVBasetable = true;
         }
         else
             assert(0);
         exceptions = (os & Target.OS.Posix) != 0;
         if (os == Target.OS.Windows)
-            runtime = target.omfobj ? Runtime.DigitalMars : Runtime.Microsoft;
+            runtime = Runtime.Microsoft;
         else if (os & (Target.OS.linux | Target.OS.DragonFlyBSD))
-            runtime = Runtime.Gcc;
+            runtime = Runtime.GNU;
         else if (os & (Target.OS.OSX | Target.OS.FreeBSD | Target.OS.OpenBSD))
-            runtime = Runtime.Clang;
+            runtime = Runtime.LLVM;
         else if (os == Target.OS.Solaris)
-            runtime = Runtime.Gcc;
+            runtime = Runtime.GNU;
         else
             assert(0);
         // C++ and D ABI incompatible on all (?) x86 32-bit platforms
-        wrapDtorInExternD = !target.isX86_64;
+        wrapDtorInExternD = target.isX86;
     }
 
     /**
@@ -1637,7 +1668,7 @@ version (IN_LLVM) {} else
     extern (C++) const(char)* toMangle(Dsymbol s)
     {
         import dmd.cppmangle : toCppMangleItanium;
-        import dmd.cppmanglewin : toCppMangleDMC, toCppMangleMSVC;
+        import dmd.cppmanglewin : toCppMangleMSVC;
 
 version (IN_LLVM)
 {
@@ -1651,12 +1682,7 @@ else
         if (target.os & (Target.OS.linux | Target.OS.OSX | Target.OS.FreeBSD | Target.OS.OpenBSD | Target.OS.Solaris | Target.OS.DragonFlyBSD))
             return toCppMangleItanium(s);
         if (target.os == Target.OS.Windows)
-        {
-            if (target.omfobj)
-                return toCppMangleDMC(s);
-            else
-                return toCppMangleMSVC(s);
-        }
+            return toCppMangleMSVC(s);
         else
             assert(0, "fix this");
 }
@@ -1672,7 +1698,7 @@ else
     extern (C++) const(char)* typeInfoMangle(ClassDeclaration cd)
     {
         import dmd.cppmangle : cppTypeInfoMangleItanium;
-        import dmd.cppmanglewin : cppTypeInfoMangleDMC, cppTypeInfoMangleMSVC;
+        import dmd.cppmanglewin : cppTypeInfoMangleMSVC;
 
 version (IN_LLVM)
 {
@@ -1686,12 +1712,7 @@ else
         if (target.os & (Target.OS.linux | Target.OS.OSX | Target.OS.FreeBSD | Target.OS.OpenBSD | Target.OS.Solaris | Target.OS.DragonFlyBSD))
             return cppTypeInfoMangleItanium(cd);
         if (target.os == Target.OS.Windows)
-        {
-            if (target.omfobj)
-                return cppTypeInfoMangleDMC(cd);
-            else
-                return cppTypeInfoMangleMSVC(cd);
-        }
+            return cppTypeInfoMangleMSVC(cd);
         else
             assert(0, "fix this");
 }

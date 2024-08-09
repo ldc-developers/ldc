@@ -218,7 +218,7 @@ struct IntegerRewrite : BaseBitcastABIRewrite {
     return LLIntegerType::get(gIR->context(), size * 8);
   }
 
-  LLType *type(Type *t) override { return getIntegerType(t->size()); }
+  LLType *type(Type *t) override { return getIntegerType(dmd::size(t)); }
 };
 
 //////////////////////////////////////////////////////////////////////////////
@@ -292,7 +292,7 @@ struct HFVAToArray : BaseBitcastABIRewrite {
  */
 template <int elementSize> struct CompositeToArray : BaseBitcastABIRewrite {
   LLType *type(Type *t) override {
-    size_t length = (t->size() + elementSize - 1) / elementSize;
+    size_t length = (dmd::size(t) + elementSize - 1) / elementSize;
     return LLArrayType::get(LLIntegerType::get(gIR->context(), elementSize * 8),
                             length);
   }

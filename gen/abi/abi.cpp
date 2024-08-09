@@ -125,8 +125,8 @@ bool TargetABI::isPOD(Type *t, bool excludeStructsWithCtor) {
 }
 
 bool TargetABI::canRewriteAsInt(Type *t, bool include64bit) {
-  auto size = t->toBasetype()->size();
-  return size == 1 || size == 2 || size == 4 || (include64bit && size == 8);
+  auto sz = size(t->toBasetype());
+  return sz == 1 || sz == 2 || sz == 4 || (include64bit && sz == 8);
 }
 
 bool TargetABI::isExternD(TypeFunction *tf) {
@@ -159,7 +159,7 @@ llvm::CallingConv::ID TargetABI::callingConv(FuncDeclaration *fdecl) {
 
 bool TargetABI::preferPassByRef(Type *t) {
   // simple base heuristic: use a ref for all types > 2 machine words
-  return t->size() > 2 * target.ptrsize;
+  return size(t) > 2 * target.ptrsize;
 }
 
 //////////////////////////////////////////////////////////////////////////////

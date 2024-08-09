@@ -248,8 +248,8 @@ LLConstant *IrClass::getVtblInit() {
           if (fd2->isFuture()) {
             continue;
           }
-          if (FuncDeclaration::leastAsSpecialized(fd, fd2, nullptr) != MATCH::nomatch ||
-              FuncDeclaration::leastAsSpecialized(fd2, fd, nullptr) != MATCH::nomatch) {
+          if (leastAsSpecialized(fd, fd2, nullptr) != MATCH::nomatch ||
+              leastAsSpecialized(fd2, fd, nullptr) != MATCH::nomatch) {
             TypeFunction *tf = static_cast<TypeFunction *>(fd->type);
             if (tf->ty == TY::Tfunction) {
               error(cd->loc,

@@ -20,6 +20,8 @@
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 
+using namespace dmd;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 llvm::StructType *DtoComplexType(Type *type) {
@@ -435,7 +437,7 @@ DValue *DtoCastComplex(const Loc &loc, DValue *val, Type *_to) {
   Type *to = _to->toBasetype();
   Type *vty = val->type->toBasetype();
   if (to->iscomplex()) {
-    if (vty->size() == to->size()) {
+    if (size(vty) == size(to)) {
       return val;
     }
 
@@ -443,7 +445,7 @@ DValue *DtoCastComplex(const Loc &loc, DValue *val, Type *_to) {
     DtoGetComplexParts(loc, val->type, val, re, im);
     LLType *toty = DtoComplexBaseType(to);
 
-    if (to->size() < vty->size()) {
+    if (size(to) < size(vty)) {
       re = gIR->ir->CreateFPTrunc(re, toty);
       im = gIR->ir->CreateFPTrunc(im, toty);
     } else {

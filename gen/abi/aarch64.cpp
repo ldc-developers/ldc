@@ -17,6 +17,8 @@
 #include "gen/abi/abi.h"
 #include "gen/abi/generic.h"
 
+using namespace dmd;
+
 /**
  * AAPCS64 uses a special native va_list type, a struct aliased as
  * object.__va_list in druntime. Apple diverges and uses a simple char*
@@ -100,7 +102,7 @@ public:
       if (!arg->byref) {
         auto tb = arg->type->toBasetype();
 
-        if (tb->size() == 0) {
+        if (size(tb) == 0) {
           fty.args.erase(fty.args.begin() + i);
           continue;
         }

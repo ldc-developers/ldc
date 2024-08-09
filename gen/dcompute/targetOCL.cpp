@@ -39,6 +39,8 @@
   "-v128:128:128-v192:256:256-v256:256:256"                                    \
   "-v512:512:512-v1024:1024:1024"
 
+using namespace dmd;
+
 namespace {
 class TargetOCL : public DComputeTarget {
   bool usedImage;
@@ -157,7 +159,6 @@ public:
       ss << "uchar";
     else if (ty == TY::Tvector) {
       TypeVector *vec = static_cast<TypeVector *>(t);
-      auto size = vec->size(Loc());
       auto basety = vec->basetype->ty;
       if (basety == TY::Tint8)
         ss << "char";
@@ -165,7 +166,7 @@ public:
         ss << "uchar";
       else
         ss << vec->basetype->toChars();
-      ss << (int)size;
+      ss << (int)size(vec);
     } else
       ss << t->toChars();
     return ss.str();

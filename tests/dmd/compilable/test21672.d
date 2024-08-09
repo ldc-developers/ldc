@@ -1,6 +1,6 @@
 // LDC: removed required arg `-mcpu=avx2`
 // REQUIRED_ARGS: -O
-// DISABLED: win32 linux32 freebsd32
+// DISABLED: win32 linux32 freebsd32 openbsd32
 
 // https://issues.dlang.org/show_bug.cgi?id=21672
 

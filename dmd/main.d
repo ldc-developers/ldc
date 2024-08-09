@@ -383,7 +383,8 @@ version (IN_LLVM) {} else
         if (params.jsonFieldFlags)
         {
             Modules modules;            // empty
-            generateJson(modules);
+            if (generateJson(modules, global.errorSink))
+                fatal();
             return EXIT_SUCCESS;
         }
 version (IN_LLVM)
@@ -405,7 +406,7 @@ version (IN_LLVM)
 }
 else
 {
-    setDefaultLibrary(params, target);
+    setDefaultLibraries(target, driverParams.defaultlibname, driverParams.debuglibname);
 }
 
     // Initialization
@@ -467,7 +468,11 @@ else
     buildPath(params.fileImppath, global.filePath);
 
     // Create Modules
-    Modules modules = createModules(files, libmodules, target);
+    Modules modules;
+    modules.reserve(files.length);
+    if (createModules(files, libmodules, target, global.errorSink, modules))
+        fatal();
+
     // Read files
     foreach (m; modules)
     {
@@ -627,7 +632,7 @@ version (IN_LLVM)
 
 version (IN_LLVM) {} else
 {
-    backend_init();
+    backend_init(params, driverParams, target);
 }
 
     // Do semantic analysis
@@ -743,7 +748,8 @@ version (IN_LLVM)
     // Generate output files
     if (params.json.doOutput)
     {
-        generateJson(modules);
+        if (generateJson(modules, global.errorSink))
+            fatal();
     }
     if (!global.errors && params.ddoc.doOutput)
     {
@@ -987,7 +993,6 @@ bool parseCommandlineAndConfig(size_t argc, const(char)** argv, ref Param params
     bool isX86_64 = arch[0] == '6';
 
     version(Windows) // delete LIB entry in [Environment] (necessary for optlink) to allow inheriting environment for MS-COFF
-    if (arch != "32omf")
         environment.update("LIB", 3).value = null;
 
     // read from DFLAGS in [Environment{arch}] section
@@ -1000,7 +1005,7 @@ bool parseCommandlineAndConfig(size_t argc, const(char)** argv, ref Param params
     updateRealEnvironment(environment);
     environment.reset(1); // don't need environment cache any more
 
-    if (parseCommandLine(arguments, argc, params, files, target))
+    if (parseCommandLine(arguments, argc, params, files, target, driverParams, global.errorSink))
     {
         Loc loc;
         errorSupplemental(loc, "run `dmd` to print the compiler manual");
@@ -1163,8 +1168,6 @@ else
     }
     else
     {
-        if (target.omfobj)
-            error(Loc.initial, "`-m32omf` can only be used when targetting windows");
         if (driverParams.mscrtlib)
             error(Loc.initial, "`-mscrtlib` can only be used when targetting windows");
     }

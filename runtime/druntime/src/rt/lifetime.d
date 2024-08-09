@@ -148,7 +148,7 @@ private extern (D) Object _d_newclass(bool initialize)(const ClassInfo ci)
   static if (initialize) // LDC
   {
     // initialize it
-    p[0 .. init.length] = init[];
+    p[0 .. init.length] = cast(void[]) init[];
   }
 
     debug(PRINTF) printf("initialization done\n");
@@ -1334,7 +1334,7 @@ extern (C) void rt_finalize2(void* p, bool det = true, bool resetMemory = true) 
         if (resetMemory)
         {
             auto w = (*pc).initializer;
-            p[0 .. w.length] = w[];
+            p[0 .. w.length] = cast(void[]) w[];
         }
     }
     catch (Exception e)

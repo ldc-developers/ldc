@@ -272,7 +272,7 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, const Loc &loc,
   if (triple.getArch() == llvm::Triple::x86) {
     if (rt->isintegral() || rt->ty == TY::Tpointer || rt->ty == TY::Tclass ||
         rt->ty == TY::Taarray) {
-      if (rt->size() == 8) {
+      if (size(rt) == 8) {
         as->out.c = "=A,";
       } else {
         as->out.c = "={ax},";

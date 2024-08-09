@@ -233,8 +233,8 @@ unittest
     {
         bool overflow;
         immutable uint r = addu (uint.max - i, uint.max - i, overflow);
-        assert (r == 2 * (uint.max - i));
-        assert (overflow);
+        assert(r == 2 * (uint.max - i));
+        assert(overflow);
     }
 
     bool overflow;

@@ -58,7 +58,7 @@ bool DtoIsReturnInArg(CallExp *ce) {
 
 void DtoAddExtendAttr(Type *type, llvm::AttrBuilder &attrs) {
   type = type->toBasetype();
-  if (type->isintegral() && type->ty != TY::Tvector && type->size() <= 2) {
+  if (type->isintegral() && type->ty != TY::Tvector && size(type) <= 2) {
     attrs.addAttribute(type->isunsigned() ? LLAttribute::ZExt
                                           : LLAttribute::SExt);
   }

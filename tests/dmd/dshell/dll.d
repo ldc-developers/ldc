@@ -7,8 +7,6 @@ int main()
         if (Vars.BUILD_SHARED_LIBS == "OFF")
             return DISABLED;
     }
-    else version (Windows) if (Vars.MODEL == "32omf") // Avoid optlink
-        return DISABLED;
 
     version (DigitalMars)
     {
