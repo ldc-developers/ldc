@@ -19,7 +19,7 @@ jobs:
             os: ubuntu-20.04
             host_dc: ldc-1.19.0
             # FIXME: no usable official package available yet
-            llvm_version: https://github.com/ldc-developers/llvm-project/releases/download/ldc-v18.1.6/llvm-18.1.6-linux-x86_64.tar.xz
+            llvm_version: https://github.com/ldc-developers/llvm-project/releases/download/ldc-v18.1.8/llvm-18.1.8-linux-x86_64.tar.xz
             cmake_flags: -DRT_SUPPORT_SANITIZERS=ON
           - job_name: macOS 14, LLVM 17, latest LDC beta
             os: macos-14
