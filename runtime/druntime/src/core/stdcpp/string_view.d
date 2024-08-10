@@ -12,24 +12,13 @@
 module core.stdcpp.string_view;
 
 // LDC: empty module for unsupported C++ runtimes
-version (CppRuntime_Microsoft)  version = Supported;
-else version (CppRuntime_Gcc)   version = Supported;
-else version (CppRuntime_Clang) version = Supported;
+version (CppRuntime_Microsoft) version = Supported;
+else version (CppRuntime_GNU)  version = Supported;
+else version (CppRuntime_LLVM) version = Supported;
 version (Supported):
 
 import core.stdc.stddef : wchar_t;
 import core.stdcpp.xutility : StdNamespace;
-
-// hacks to support DMD on Win32
-version (CppRuntime_Microsoft)
-{
-    version = CppRuntime_Windows; // use the MS runtime ABI for win32
-}
-else version (CppRuntime_DigitalMars)
-{
-    version = CppRuntime_Windows; // use the MS runtime ABI for win32
-    pragma(msg, "std::basic_string_view not supported by DMC");
-}
 
 extern(C++, (StdNamespace)):
 @nogc:
@@ -108,7 +97,7 @@ pure nothrow @nogc:
 
 private:
     // use the proper field names from C++ so debugging doesn't get weird
-    version (CppRuntime_Windows)
+    version (CppRuntime_Microsoft)
     {
         const_pointer _Mydata;
         size_type _Mysize;
@@ -116,7 +105,7 @@ private:
         alias __data = _Mydata;
         alias __size = _Mysize;
     }
-    else version (CppRuntime_Gcc)
+    else version (CppRuntime_GNU)
     {
         size_t _M_len;
         const(T)* _M_str;
@@ -124,7 +113,7 @@ private:
         alias __data = _M_str;
         alias __size = _M_len;
     }
-    else version (CppRuntime_Clang)
+    else version (CppRuntime_LLVM)
     {
         const value_type* __data;
         size_type __size;

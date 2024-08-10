@@ -13,17 +13,17 @@
 module core.stdcpp.exception;
 
 // LDC: empty module for unsupported C++ runtimes
-version (CppRuntime_Microsoft)  version = Supported;
-else version (CppRuntime_Gcc)   version = Supported;
-else version (CppRuntime_Clang) version = Supported;
+version (CppRuntime_Microsoft) version = Supported;
+else version (CppRuntime_GNU)  version = Supported;
+else version (CppRuntime_LLVM) version = Supported;
 version (Supported):
 
 import core.stdcpp.xutility : __cplusplus, CppStdRevision;
 import core.attribute : weak;
 
-version (CppRuntime_Gcc)
+version (CppRuntime_GNU)
     version = GenericBaseException;
-version (CppRuntime_Clang)
+version (CppRuntime_LLVM)
     version = GenericBaseException;
 version (CppRuntime_Sun)
     version = GenericBaseException;
@@ -84,24 +84,6 @@ version (GenericBaseException)
 
     protected:
         extern(D) this(const(char)*, int = 1) nothrow { this(); } // compat with MS derived classes
-    }
-}
-else version (CppRuntime_DigitalMars)
-{
-    ///
-    class exception
-    {
-    @nogc:
-        ///
-        extern(D) this() nothrow {}
-        //virtual ~this();
-        void dtor() { }     // reserve slot in vtbl[]
-
-        ///
-        const(char)* what() const nothrow;
-
-    protected:
-        this(const(char)*, int = 1) nothrow { this(); } // compat with MS derived classes
     }
 }
 else version (CppRuntime_Microsoft)

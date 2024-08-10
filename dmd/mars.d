@@ -34,7 +34,7 @@ import dmd.dsymbol;
 import dmd.dsymbolsem;
 import dmd.dtemplate;
 import dmd.dtoh;
-import dmd.errors;
+import dmd.errorsink;
 import dmd.expression;
 import dmd.globals;
 import dmd.hdrgen;
@@ -128,7 +128,15 @@ Where:
 
 } // !IN_LLVM
 
-extern (C++) void generateJson(ref Modules modules)
+/*******************************************
+ * Generate JSON file.
+ * Params:
+ *      modules = Modules
+ *      eSink = error message sink
+ * Returns:
+ *      true on error
+ */
+extern (C++) bool generateJson(ref Modules modules, ErrorSink eSink)
 {
     OutBuffer buf;
     json_generate(modules, buf);
@@ -154,8 +162,8 @@ extern (C++) void generateJson(ref Modules modules)
         {
             if (global.params.objfiles.length == 0)
             {
-                error(Loc.initial, "cannot determine JSON filename, use `-Xf=<file>` or provide a source file");
-                fatal();
+                eSink.error(Loc.initial, "cannot determine JSON filename, use `-Xf=<file>` or provide a source file");
+                return true;
             }
             // Generate json file name from first obj name
             const(char)[] n = global.params.objfiles[0].toDString;
@@ -165,8 +173,9 @@ extern (C++) void generateJson(ref Modules modules)
             jsonfilename = FileName.forceExt(n, json_ext);
         }
         if (!writeFile(Loc.initial, jsonfilename, buf[]))
-            fatal();
+            return true;
     }
+    return false;
 }
 
 
@@ -358,40 +367,40 @@ const(char)[] parse_conf_arg(Strings* args)
  * override any value.
  * Note that if `-defaultlib=` or `-debuglib=` was used,
  * we don't override that either.
+ * Params:
+ *      target = parameters set by user
+ *      defaultlibname = set based on `target`
+ *      debuglibname = set based on `target`
  */
-void setDefaultLibrary(ref Param params, const ref Target target)
+pure @safe
+void setDefaultLibraries(const ref Target target, ref const(char)[] defaultlibname, ref const(char)[] debuglibname)
 {
-    if (driverParams.defaultlibname is null)
+    if (defaultlibname is null)
     {
         if (target.os == Target.OS.Windows)
         {
-            if (target.isX86_64)
-                driverParams.defaultlibname = "phobos64";
-            else if (!target.omfobj)
-                driverParams.defaultlibname = "phobos32mscoff";
-            else
-                driverParams.defaultlibname = "phobos";
+            defaultlibname = target.isX86_64 ? "phobos64" : "phobos32mscoff";
         }
         else if (target.os & (Target.OS.linux | Target.OS.FreeBSD | Target.OS.OpenBSD | Target.OS.Solaris | Target.OS.DragonFlyBSD))
         {
-            driverParams.defaultlibname = "libphobos2.a";
+            defaultlibname = "libphobos2.a";
         }
         else if (target.os == Target.OS.OSX)
         {
-            driverParams.defaultlibname = "phobos2";
+            defaultlibname = "phobos2";
         }
         else
         {
             assert(0, "fix this");
         }
     }
-    else if (!driverParams.defaultlibname.length)  // if `-defaultlib=` (i.e. an empty defaultlib)
-        driverParams.defaultlibname = null;
+    else if (!defaultlibname.length)  // if `-defaultlib=` (i.e. an empty defaultlib)
+        defaultlibname = null;
 
-    if (driverParams.debuglibname is null)
-        driverParams.debuglibname = driverParams.defaultlibname;
-    else if (!driverParams.debuglibname.length)  // if `-debuglib=` (i.e. an empty debuglib)
-        driverParams.debuglibname = null;
+    if (debuglibname is null)
+        debuglibname = defaultlibname;
+    else if (!debuglibname.length)  // if `-debuglib=` (i.e. an empty debuglib)
+        debuglibname = null;
 }
 
 } // !IN_LLVM
@@ -466,6 +475,7 @@ extern(C) void flushMixins()
 version (IN_LLVM)
 {
     import dmd.cli : Usage;
+    import dmd.errors : deprecation, error;
 
     private bool parseCLIOption(string groupName, Usage.Feature[] features)(ref Param params, const(char)* name)
     {
@@ -567,17 +577,20 @@ else // !IN_LLVM
  *      params = set to result of parsing `arguments`
  *      files = set to files pulled from `arguments`
  *      target = more things set to result of parsing `arguments`
+ *      driverParams = even more things to set
+ *      eSink = error sink
  * Returns:
  *      true if errors in command line
  */
 
-bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param params, ref Strings files, ref Target target)
+bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param params, ref Strings files,
+                      ref Target target, ref DMDparams driverParams, ErrorSink eSink)
 {
     bool errors;
 
     void error(Args ...)(const(char)* format, Args args)
     {
-        dmd.errors.error(Loc.initial, format, args);
+        eSink.error(Loc.initial, format, args);
         errors = true;
     }
 
@@ -594,7 +607,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
     {
         error("switch `%s` is invalid", p);
         if (availableOptions !is null)
-            errorSupplemental(Loc.initial, "%.*s", cast(int)availableOptions.length, availableOptions.ptr);
+            eSink.errorSupplemental(Loc.initial, "%.*s", cast(int)availableOptions.length, availableOptions.ptr);
     }
 
     enum CheckOptions { success, error, help }
@@ -618,7 +631,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
         // Checks whether a flag has no options (e.g. -foo or -foo=)
         if (p.length == 0 || p == "=")
         {
-            .error(Loc.initial, "%.*s", cast(int)missingMsg.length, missingMsg.ptr);
+            eSink.error(Loc.initial, "%.*s", cast(int)missingMsg.length, missingMsg.ptr);
             errors = true;
             usageFlag = true;
             return CheckOptions.help;
@@ -679,7 +692,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                 {
                     buf ~= `case "`~t.name~`":`;
                     if (t.deprecated_)
-                        buf ~= "deprecation(Loc.initial, \"`-"~name~"="~t.name~"` no longer has any effect.\"); ";
+                        buf ~= "eSink.deprecation(Loc.initial, \"`-"~name~"="~t.name~"` no longer has any effect.\"); ";
                     buf ~= `setFlagFor(name, params.`~t.paramName~`); return true;`;
                 }
                 return buf;
@@ -999,18 +1012,18 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
         }
         else if (arg == "-m32") // https://dlang.org/dmd.html#switch-m32
         {
+            target.isX86    = true;
             target.isX86_64 = false;
-            target.omfobj = false;
         }
         else if (arg == "-m64") // https://dlang.org/dmd.html#switch-m64
         {
+            target.isX86    = false;
             target.isX86_64 = true;
-            target.omfobj = false;
         }
         else if (arg == "-m32mscoff") // https://dlang.org/dmd.html#switch-m32mscoff
         {
+            target.isX86    = true;
             target.isX86_64 = false;
-            target.omfobj = false;
         }
         else if (startsWith(p + 1, "mscrtlib="))
         {
@@ -1244,7 +1257,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                         case 14_488:
                             break;
                         case 16_997:
-                            deprecation(Loc.initial, "`-transition=16997` is now the default behavior");
+                            eSink.deprecation(Loc.initial, "`-transition=16997` is now the default behavior");
                             break;
                         default:
                             error("transition `%s` is invalid", p);
@@ -1261,7 +1274,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                             params.dtorFields = FeatureState.enabled;
                             break;
                         case "intpromote":
-                            deprecation(Loc.initial, "`-transition=intpromote` is now the default behavior");
+                            eSink.deprecation(Loc.initial, "`-transition=intpromote` is now the default behavior");
                             break;
                         default:
                             error("transition `%s` is invalid", p);
@@ -1563,7 +1576,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
         else if (arg == "-dip25")       // https://dlang.org/dmd.html#switch-dip25
         {
             // @@@ DEPRECATION 2.112 @@@
-            deprecation(Loc.initial, "`-dip25` no longer has any effect");
+            eSink.deprecation(Loc.initial, "`-dip25` no longer has any effect");
             params.useDIP25 =  FeatureState.enabled;
         }
         else if (arg == "-dip1000")
@@ -1658,7 +1671,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
 
                     // @@@DEPRECATED_2.111@@@
                     // Deprecated in 2.101, remove in 2.111
-                    deprecation(Loc.initial, "`-debug=number` is deprecated, use debug identifiers instead");
+                    eSink.deprecation(Loc.initial, "`-debug=number` is deprecated, use debug identifiers instead");
                 }
                 else if (Identifier.isValidIdentifier(p + 7))
                 {
@@ -1686,7 +1699,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
 
                     // @@@DEPRECATED_2.111@@@
                     // Deprecated in 2.101, remove in 2.111
-                    deprecation(Loc.initial, "`-version=number` is deprecated, use version identifiers instead");
+                    eSink.deprecation(Loc.initial, "`-version=number` is deprecated, use version identifiers instead");
                 }
                 else if (Identifier.isValidIdentifier(p + 9))
                 {
@@ -1866,12 +1879,12 @@ Params:
   libmodules = Array to which binaries (shared/static libs and object files)
                will be appended
   target = target system
-
+  m = created Module
 Returns:
-  A D module
+  true on error
 */
 private
-Module createModule(const(char)* file, ref Strings libmodules, const ref Target target)
+bool createModule(const(char)* file, ref Strings libmodules, const ref Target target, ErrorSink eSink, out Module m)
 {
 version (IN_LLVM) {} else
 {
@@ -1886,11 +1899,12 @@ version (IN_LLVM) {} else
     {
         if (!p.length)
         {
-            error(Loc.initial, "invalid file name '%s'", file);
-            fatal();
+            eSink.error(Loc.initial, "invalid file name '%s'", file);
+            return true;
         }
         auto id = Identifier.idPool(p);
-        return new Module(file.toDString, id, global.params.ddoc.doOutput, global.params.dihdr.doOutput);
+        m = new Module(file.toDString, id, global.params.ddoc.doOutput, global.params.dihdr.doOutput);
+        return false;
     }
 
     /* Deduce what to do with a file based on its extension
@@ -1899,19 +1913,19 @@ version (IN_LLVM) {} else
     {
         global.params.objfiles.push(file);
         libmodules.push(file);
-        return null;
+        return false;
     }
     // Detect LLVM bitcode files on commandline
     if (IN_LLVM && FileName.equals(ext, bc_ext))
     {
         global.params.bitcodeFiles.push(file);
-        return null;
+        return false;
     }
     if (FileName.equals(ext, target.lib_ext))
     {
         global.params.libfiles.push(file);
         libmodules.push(file);
-        return null;
+        return false;
     }
     // IN_LLVM replaced: if (target.os & (Target.OS.linux | Target.OS.OSX| Target.OS.FreeBSD | Target.OS.OpenBSD | Target.OS.Solaris | Target.OS.DragonFlyBSD))
     if (target.os != Target.OS.Windows)
@@ -1920,36 +1934,36 @@ version (IN_LLVM) {} else
         {
             global.params.dllfiles.push(file);
             libmodules.push(file);
-            return null;
+            return false;
         }
     }
     if (FileName.equals(ext, ddoc_ext))
     {
         global.params.ddoc.files.push(file);
-        return null;
+        return false;
     }
     if (FileName.equals(ext, json_ext))
     {
         global.params.json.doOutput = true;
         global.params.json.name = file.toDString;
-        return null;
+        return false;
     }
     if (FileName.equals(ext, map_ext))
     {
         global.params.mapfile = file.toDString;
-        return null;
+        return false;
     }
     if (target.os == Target.OS.Windows)
     {
         if (FileName.equals(ext, "res"))
         {
             global.params.resfile = file.toDString;
-            return null;
+            return false;
         }
         if (FileName.equals(ext, "def"))
         {
             global.params.deffile = file.toDString;
-            return null;
+            return false;
         }
         if (FileName.equals(ext, "exe"))
         {
@@ -1969,19 +1983,19 @@ version (IN_LLVM) {} else
         const(char)[] name = p[0 .. p.length - ext.length - 1]; // -1 for the .
         if (!name.length || name == ".." || name == ".")
         {
-            error(Loc.initial, "invalid file name '%s'", file);
-            fatal();
+            eSink.error(Loc.initial, "invalid file name '%s'", file);
+            return true;
         }
         /* name is the D source file name stripped of
          * its path and extension.
          */
         auto id = Identifier.idPool(name);
 
-        return new Module(file.toDString, id, global.params.ddoc.doOutput, global.params.dihdr.doOutput);
+        m = new Module(file.toDString, id, global.params.ddoc.doOutput, global.params.dihdr.doOutput);
+        return false;
     }
-    error(Loc.initial, "unrecognized file extension %.*s", cast(int)ext.length, ext.ptr);
-    fatal();
-    assert(0);
+    eSink.error(Loc.initial, "unrecognized file extension %.*s", cast(int)ext.length, ext.ptr);
+    return true;
 }
 
 /**
@@ -1997,14 +2011,14 @@ Params:
   libmodules = Array to which binaries (shared/static libs and object files)
                will be appended
   target = target system
+  eSink = error message sink
+  modules = empty array of modules to be filled in
 
 Returns:
-  An array of path to D modules
+  true on error
 */
-Modules createModules(ref Strings files, ref Strings libmodules, const ref Target target)
+bool createModules(ref Strings files, ref Strings libmodules, const ref Target target, ErrorSink eSink, ref Modules modules)
 {
-    Modules modules;
-    modules.reserve(files.length);
 version (IN_LLVM)
 {
     size_t firstModuleObjectFileIndex = size_t.max;
@@ -2015,7 +2029,9 @@ else
 }
     foreach(file; files)
     {
-        auto m = createModule(file, libmodules, target);
+        Module m;
+        if (createModule(file, libmodules, target, eSink, m))
+            return true;
 
         if (m is null)
             continue;
@@ -2050,7 +2066,7 @@ version (IN_LLVM)
         global.params.objfiles.insert(0, fn);
     }
 }
-    return modules;
+    return false;
 }
 
 /// Returns: a compiled module (semantic3) containing an empty main() function, for the -main flag

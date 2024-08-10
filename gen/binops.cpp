@@ -19,6 +19,8 @@
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 
+using namespace dmd;
+
 //////////////////////////////////////////////////////////////////////////////
 
 namespace {
@@ -91,7 +93,7 @@ DValue *emitPointerOffset(Loc loc, DValue *base, Expression *offset,
     if (byteOffset == 0) {
       llResult = llBase;
     } else {
-      const auto pointeeSize = pointeeType->size(loc);
+      const auto pointeeSize = size(pointeeType, loc);
       if (pointeeSize && byteOffset % pointeeSize == 0) { // can do a nice GEP
         llOffset = DtoConstSize_t(byteOffset / pointeeSize);
       } else { // need to cast base to i8*
@@ -101,7 +103,7 @@ DValue *emitPointerOffset(Loc loc, DValue *base, Expression *offset,
     }
   } else {
     Expression *noStrideInc =
-        extractNoStrideInc(offset, pointeeType->size(loc), negateOffset);
+        extractNoStrideInc(offset, size(pointeeType, loc), negateOffset);
     auto rvals =
         evalSides(base, noStrideInc ? noStrideInc : offset, loadLhsAfterRhs);
     llBase = DtoRVal(rvals.lhs);

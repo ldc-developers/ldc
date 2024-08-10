@@ -324,7 +324,7 @@ private extern(C++) final class Semantic3Visitor : Visitor
         fds.checkInContractOverrides();
 
         // Remember whether we need to generate an 'out' contract.
-        immutable bool needEnsure = FuncDeclaration.needsFensure(funcdecl);
+        immutable bool needEnsure = funcdecl.needsFensure();
 
         if (funcdecl.fbody || funcdecl.frequires || needEnsure)
         {

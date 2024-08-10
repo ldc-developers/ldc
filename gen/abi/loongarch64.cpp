@@ -64,7 +64,7 @@ FlattenedFields visitStructFields(Type *ty, unsigned baseOffset) {
     result.length = 2;
     break;
   default:
-    if (ty->size() > 8) {
+    if (size(ty) > 8) {
       // field larger than GRLEN and FRLEN
       result.length = -1;
       break;
@@ -88,7 +88,7 @@ struct HardfloatRewrite : BaseBitcastABIRewrite {
       t[i] =
           flat.fields[i]->isfloating()
               ? DtoType(flat.fields[i])
-              : LLIntegerType::get(gIR->context(), flat.fields[i]->size() * 8);
+              : LLIntegerType::get(gIR->context(), size(flat.fields[i]) * 8);
     }
     return LLStructType::get(gIR->context(), {t[0], t[1]}, false);
   }
@@ -126,14 +126,14 @@ public:
       return true;
     }
     // pass by reference when > 2*GRLEN
-    return rt->size() > 16;
+    return size(rt) > 16;
   }
 
   auto passByVal(TypeFunction *, Type *t) -> bool override {
     if (!isPOD(t)) {
       return false;
     }
-    return t->size() > 16;
+    return size(t) > 16;
   }
 
   void rewriteFunctionType(IrFuncTy &fty) override {
@@ -174,8 +174,8 @@ public:
       // return values should have the `signext` attribute.
       // C example: https://godbolt.org/z/vcjErxj76
       arg.attrs.addAttribute(LLAttribute::SExt);
-    } else if (isAggregate(ty) && ty->size() && ty->size() <= 16) {
-      if (ty->size() > 8 && DtoAlignment(ty) < 16) {
+    } else if (isAggregate(ty) && size(ty) && size(ty) <= 16) {
+      if (size(ty) > 8 && DtoAlignment(ty) < 16) {
         // pass the aggregate as {int64, int64} to avoid wrong alignment
         integer2Rewrite.applyToIfNotObsolete(arg);
       } else {

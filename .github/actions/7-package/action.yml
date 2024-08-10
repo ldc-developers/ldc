@@ -60,7 +60,7 @@ runs:
       run: |
         set -eux
         cd ..
-        git clone --recursive https://github.com/atilaneves/reggae.git
+        git clone --recursive https://github.com/kinke/reggae.git
         cd reggae
         git checkout "$(cat ../ldc/packaging/reggae_version)"
 

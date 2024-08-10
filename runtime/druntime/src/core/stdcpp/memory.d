@@ -12,9 +12,9 @@
 module core.stdcpp.memory;
 
 // LDC: empty module for unsupported C++ runtimes
-version (CppRuntime_Microsoft)  version = Supported;
-else version (CppRuntime_Gcc)   version = Supported;
-else version (CppRuntime_Clang) version = Supported;
+version (CppRuntime_Microsoft) version = Supported;
+else version (CppRuntime_GNU)  version = Supported;
+else version (CppRuntime_LLVM) version = Supported;
 version (Supported):
 
 public import core.stdcpp.allocator;
@@ -129,7 +129,7 @@ nothrow pure @safe @nogc:
 
         _Compressed_pair!(Deleter, pointer) _Mypair;
     }
-    else version (CppRuntime_Gcc)
+    else version (CppRuntime_GNU)
     {
         ///
         ref inout(deleter_type) get_deleter() inout nothrow { return _M_t.get!1; }
@@ -142,7 +142,7 @@ nothrow pure @safe @nogc:
 
         tuple!(pointer, Deleter) _M_t;
     }
-    else version (CppRuntime_Clang)
+    else version (CppRuntime_LLVM)
     {
         ///
         ref inout(deleter_type) get_deleter() inout nothrow { return __ptr_.second; }

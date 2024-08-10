@@ -20,6 +20,8 @@
 #include "ir/irfunction.h"
 #include "ir/irfuncty.h"
 
+using namespace dmd;
+
 struct X86TargetABI : TargetABI {
   const bool isDarwin;
   const bool isMSVC;
@@ -208,7 +210,7 @@ struct X86TargetABI : TargetABI {
           first.attrs.addAttribute(LLAttribute::InReg);
         } else {
           Type *firstTy = first.type->toBasetype();
-          auto sz = firstTy->size();
+          auto sz = size(firstTy);
           if (!firstTy->isfloating() && (sz == 1 || sz == 2 || sz == 4)) {
             // rewrite aggregates as integers to make inreg work
             if (firstTy->ty == TY::Tstruct || firstTy->ty == TY::Tsarray) {

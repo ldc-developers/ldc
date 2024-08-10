@@ -620,7 +620,7 @@ DSliceValue *DtoNewDynArray(const Loc &loc, Type *arrayType, DValue *dim,
 
   Type *eltType = arrayType->toBasetype()->nextOf();
 
-  if (eltType->size() == 0)
+  if (size(eltType) == 0)
     return DtoNullValue(arrayType, loc)->isSlice();
 
   // get runtime function
@@ -970,8 +970,8 @@ DValue *DtoCastArray(const Loc &loc, DValue *u, Type *to) {
       ptr = DtoArrayPtr(u);
     }
 
-    const auto fsize = fromtype->nextOf()->size();
-    const auto tsize = totype->nextOf()->size();
+    const auto fsize = size(fromtype->nextOf());
+    const auto tsize = size(totype->nextOf());
     if (fsize != tsize) {
       if (auto constLength = isaConstantInt(length)) {
         // compute new constant length: (constLength * fsize) / tsize
@@ -1004,7 +1004,7 @@ DValue *DtoCastArray(const Loc &loc, DValue *u, Type *to) {
     } else {
       size_t tosize = static_cast<TypeSArray *>(totype)->dim->toInteger();
       size_t i =
-          (tosize * totype->nextOf()->size() - 1) / fromtype->nextOf()->size();
+          (tosize * size(totype->nextOf()) - 1) / size(fromtype->nextOf());
       DConstValue index(Type::tsize_t, DtoConstSize_t(i));
       DtoIndexBoundsCheck(loc, u, &index);
       ptr = DtoArrayPtr(u);

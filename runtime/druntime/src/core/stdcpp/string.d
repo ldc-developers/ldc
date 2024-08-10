@@ -13,9 +13,9 @@
 module core.stdcpp.string;
 
 // LDC: empty module for unsupported C++ runtimes
-version (CppRuntime_Microsoft)  version = Supported;
-else version (CppRuntime_Gcc)   version = Supported;
-else version (CppRuntime_Clang) version = Supported;
+version (CppRuntime_Microsoft) version = Supported;
+else version (CppRuntime_GNU)  version = Supported;
+else version (CppRuntime_LLVM) version = Supported;
 version (Supported):
 
 import core.stdcpp.allocator;
@@ -37,7 +37,7 @@ version (Darwin)
     version = _LIBCPP_ABI_ALTERNATE_STRING_LAYOUT;
 }
 
-version (CppRuntime_Gcc)
+version (CppRuntime_GNU)
 {
     version (_GLIBCXX_USE_CXX98_ABI)
     {
@@ -900,7 +900,7 @@ extern(D):
 
         _String_alloc!(_String_base_types!(T, Alloc)) _Base;
     }
-    else version (CppRuntime_Gcc)
+    else version (CppRuntime_GNU)
     {
         version (_GLIBCXX_USE_CXX98_ABI)
         {
@@ -1879,10 +1879,10 @@ extern(D):
             __d[0 .. __n] = __s[0 .. __n];
         }
     }
-    else version (CppRuntime_Clang)
+    else version (CppRuntime_LLVM)
     {
         //----------------------------------------------------------------------------------
-        // Clang/libc++ implementation
+        // libc++ implementation
         //----------------------------------------------------------------------------------
 
         ///

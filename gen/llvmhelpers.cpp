@@ -500,8 +500,8 @@ DValue *DtoCastInt(const Loc &loc, DValue *val, Type *_to) {
     return new DImValue(_to, rval);
   }
 
-  size_t fromsz = from->size();
-  size_t tosz = to->size();
+  size_t fromsz = size(from);
+  size_t tosz = size(to);
 
   if (to->ty == TY::Tbool) {
     LLValue *zero = LLConstantInt::get(rval->getType(), 0, false);
@@ -583,8 +583,8 @@ DValue *DtoCastFloat(const Loc &loc, DValue *val, Type *to) {
   Type *fromtype = val->type->toBasetype();
   assert(fromtype->isfloating());
 
-  size_t fromsz = fromtype->size();
-  size_t tosz = totype->size();
+  size_t fromsz = size(fromtype);
+  size_t tosz = size(totype);
 
   LLValue *rval;
 
@@ -655,7 +655,7 @@ DValue *DtoCastVector(const Loc &loc, DValue *val, Type *to) {
     LLValue *array = DtoAllocaDump(vector, tolltype, DtoAlignment(val->type));
     return new DLValue(to, array);
   }
-  if (totype->ty == TY::Tvector && to->size() == val->type->size()) {
+  if (totype->ty == TY::Tvector && size(to) == size(val->type)) {
     return new DImValue(to, DtoBitCast(DtoRVal(val), tolltype));
   }
   error(loc, "invalid cast from `%s` to `%s`", val->type->toChars(),
@@ -917,7 +917,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     if (isRealAlloca) {
       // The lifetime of a stack variable starts from the point it is declared
       gIR->funcGen().localVariableLifetimeAnnotator.addLocalVariable(
-          allocainst, DtoConstUlong(type->size()));
+          allocainst, DtoConstUlong(size(type)));
     }
   }
 
@@ -1145,9 +1145,9 @@ LLConstant *DtoConstExpInit(const Loc &loc, Type *targetType, Expression *exp) {
   if (baseTargetType->ty == TY::Tsarray) {
     Logger::println("Building constant array initializer from scalar.");
 
-    assert(baseValType->size() > 0);
-    const auto numTotalVals = baseTargetType->size() / baseValType->size();
-    assert(baseTargetType->size() % baseValType->size() == 0);
+    assert(size(baseValType) > 0);
+    const auto numTotalVals = size(baseTargetType) / size(baseValType);
+    assert(size(baseTargetType) % size(baseValType) == 0);
 
     // may be a multi-dimensional array init, e.g., `char[2][3] x = 0xff`
     baseValType = stripModifiers(baseValType);
