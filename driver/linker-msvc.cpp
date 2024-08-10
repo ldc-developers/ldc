@@ -292,8 +292,11 @@ int linkObjToBinaryMSVC(llvm::StringRef outputPath,
   std::string linker = opts::linker;
   if (linker.empty()) {
 #ifdef _WIN32
-    // default to lld-link.exe for LTO
-    linker = opts::isUsingLTO() ? "lld-link.exe" : "link.exe";
+    // Default to lld-link.exe for LTO, otherwise Microsoft's link.exe.
+    // Try not to accidentally use a GNU link.exe (if in PATH before the MSVC
+    // bin dir).
+    linker = opts::isUsingLTO() ? "lld-link.exe"
+                                : msvcEnv.tryResolveToolPath("link.exe");
 #else
     linker = "lld-link";
 #endif

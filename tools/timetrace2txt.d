@@ -249,16 +249,21 @@ struct Node
         // Output in milliseconds.
         outputTextFile.writef(duration_format_string, cast(double)(this.duration) / 1000);
 
-        if (last_child)
-            indentstring[$-1] = '└';
-        outputTextFile.write(indentstring);
-        outputTextFile.write("- ", this.name);
+        if (indentstring.length > 0) {
+            outputTextFile.write(indentstring[0..$-1]);
+            if (last_child)
+                outputTextFile.write("╰");
+            else
+                outputTextFile.write("├");
+        }
+
+        outputTextFile.write("╼ ", this.name);
         outputTextFile.write(", ", this.detail);
         outputTextFile.writeln(", ", this.location);
         if (last_child)
             indentstring[$-1] = ' ';
 
-        wchar[] child_indentstring = indentstring ~ " |";
+        wchar[] child_indentstring = indentstring ~ "  │";
         foreach (i, ref child; this.children) {
             child.printTree(child_indentstring, i == this.children.length-1);
         }

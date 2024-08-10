@@ -6,7 +6,7 @@
 // REQUIRED_ARGS(osx): -L-undefined -Ldynamic_lookup
 
 // the linker on macOS-arm64 emits a warning
-// TRANSFORM_OUTPUT(osx): remove_lines("warning: -undefined dynamic_lookup may not work with chained fixups")
+// TRANSFORM_OUTPUT(osx): remove_lines("warning:.* -undefined dynamic_lookup")
 
 extern __gshared pragma(LDC_extern_weak) int nonExistent;
 

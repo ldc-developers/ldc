@@ -286,6 +286,15 @@ int executeToolAndWait(const Loc &loc, const std::string &tool_,
 namespace windows {
 
 namespace {
+
+// cached 'singleton', lazily initialized (as that can be very expensive)
+const VSOptions &getVSOptions() {
+  static VSOptions vsOptions;
+  if (!vsOptions.VSInstallDir)
+    vsOptions.initialize();
+  return vsOptions;
+}
+
 bool setupMsvcEnvironmentImpl(
     bool forPreprocessingOnly,
     std::vector<std::pair<std::wstring, wchar_t *>> *rollback) {
@@ -318,12 +327,9 @@ bool setupMsvcEnvironmentImpl(
   const bool x64 = triple.isArch64Bit();
   const auto begin = std::chrono::steady_clock::now();
 
-  static VSOptions vsOptions; // cache, as this can be expensive
-  if (!vsOptions.VSInstallDir) {
-    vsOptions.initialize();
-    if (!vsOptions.VSInstallDir)
-      return false;
-  }
+  auto &vsOptions = getVSOptions();
+  if (!vsOptions.VSInstallDir)
+    return false;
 
   // cache the environment variable prefixes too
   static llvm::SmallVector<const char *, 2> binPaths;
@@ -444,6 +450,15 @@ MsvcEnvironmentScope::~MsvcEnvironmentScope() {
     SetEnvironmentVariableW(pair.first.c_str(), pair.second);
     free(pair.second);
   }
+}
+
+std::string
+MsvcEnvironmentScope::tryResolveToolPath(const char *fileName) const {
+  const bool x64 = global.params.targetTriple->isArch64Bit();
+  const char *secondaryBindir = nullptr;
+  if (auto bindir = getVSOptions().getVCBinDir(x64, secondaryBindir))
+    return (llvm::Twine(bindir) + "\\" + fileName).str();
+  return fileName;
 }
 
 } // namespace windows
