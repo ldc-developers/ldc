@@ -11,6 +11,7 @@
 
 #include "dmd/aggregate.h"
 #include "dmd/declaration.h"
+#include "dmd/errors.h"
 #include "dmd/expression.h"
 #include "dmd/identifier.h"
 #include "dmd/init.h"
@@ -217,8 +218,12 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers) {
 
   // tail padding?
   const size_t structsize = aggrdecl->size(Loc());
-  if (offset < structsize)
+  if (offset < structsize) {
     add_zeros(constants, offset, structsize);
+  } else if (offset > structsize) {
+    error(Loc(), "ICE: IR aggregate constant size exceeds the frontend size");
+    fatal();
+  }
 
   // get LL field types
   llvm::SmallVector<llvm::Type *, 16> types;

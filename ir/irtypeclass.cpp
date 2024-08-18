@@ -12,6 +12,7 @@
 #include "dmd/aggregate.h"
 #include "dmd/declaration.h"
 #include "dmd/dsymbol.h"
+#include "dmd/errors.h"
 #include "dmd/mtype.h"
 #include "dmd/target.h"
 #include "dmd/template.h"
@@ -97,6 +98,12 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
   // set struct body and copy GEP indices
   isaStruct(t->type)->setBody(builder.defaultTypes(), builder.isPacked());
   t->varGEPIndices = builder.varGEPIndices();
+
+  if (!cd->isInterfaceDeclaration() && instanceSize &&
+      getTypeAllocSize(t->type) != instanceSize) {
+    error(cd->loc, "ICE: class IR size does not match the frontend size");
+    fatal();
+  }
 
   IF_LOG Logger::cout() << "class type: " << *t->type << std::endl;
 
