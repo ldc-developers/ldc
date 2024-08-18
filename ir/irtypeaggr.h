@@ -72,7 +72,7 @@ public:
   /// Returns the index of the field in the LLVM struct type that corresponds
   /// to the given member variable, plus the offset to the actual field start
   /// due to overlapping (union) fields, if any.
-  unsigned getMemberLocation(VarDeclaration *var, bool& isFieldIdx) const;
+  unsigned getMemberLocation(VarDeclaration *var, bool& isFieldIdx);
 
 protected:
   ///
@@ -90,6 +90,8 @@ protected:
   /// the field index of a variable in the frontend, it only stores the byte
   /// offset.
   VarGEPIndices varGEPIndices;
+
+  virtual const VarGEPIndices &getVarGEPIndices() { return varGEPIndices; }
 };
 
 // A helper for aggregating consecutive bit fields to a group.

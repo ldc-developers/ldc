@@ -279,10 +279,11 @@ IrTypeAggr::IrTypeAggr(AggregateDeclaration *ad)
              LLStructType::create(gIR->context(), ad->toPrettyChars())),
       aggr(ad) {}
 
-unsigned IrTypeAggr::getMemberLocation(VarDeclaration *var, bool& isFieldIdx) const {
+unsigned IrTypeAggr::getMemberLocation(VarDeclaration *var, bool& isFieldIdx) {
   // Note: The interface is a bit more general than what we actually return.
   // Specifically, the frontend offset information we use for overlapping
   // fields is always based at the object start.
+  const auto &varGEPIndices = getVarGEPIndices();
   auto it = varGEPIndices.find(var);
   if (it != varGEPIndices.end()) {
     isFieldIdx = true;
