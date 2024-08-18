@@ -212,16 +212,17 @@ void AggrTypeBuilder::addAggregate(
     // add default type
     m_defaultTypes.push_back(llType);
 
-    unsigned fieldAlignment, fieldSize;
     if (!llType->isSized()) {
-      // forward reference in a cycle or similar, we need to trust the D type
-      fieldAlignment = DtoAlignment(vd->type);
-      fieldSize = af.size;
-    } else {
-      fieldAlignment = getABITypeAlign(llType);
-      fieldSize = getTypeAllocSize(llType);
-      assert(fieldSize <= af.size);
+      error(vd->loc,
+            "unexpected IR type forward declaration for aggregate member of "
+            "type `%s`. This is an ICE, please file an LDC issue.",
+            vd->type->toPrettyChars());
+      fatal();
     }
+
+    const unsigned fieldAlignment = getABITypeAlign(llType);
+    const unsigned fieldSize = getTypeAllocSize(llType);
+    assert(fieldSize <= af.size);
 
     // advance offset to right past this field
     if (!m_packed) {

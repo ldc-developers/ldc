@@ -10,6 +10,7 @@
 
 #### Bug fixes
 - Fix potentially corrupt IR layouts for bit fields. (#4646, #4708)
+- Fix potentially corrupt IR layouts for explicitly under-aligned aggregates, a regression introduced in LDC v1.31. (#4734, #4736)
 
 # LDC 1.39.0 (2024-07-04)
 
