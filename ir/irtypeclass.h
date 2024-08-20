@@ -47,7 +47,7 @@ public:
 
   /// Returns the number of interface implementations (vtables) in this
   /// class.
-  unsigned getNumInterfaceVtbls() { return num_interface_vtbls; }
+  unsigned getNumInterfaceVtbls();
 
 protected:
   ///
@@ -72,6 +72,8 @@ protected:
   ClassIndexMap interfaceMap;
 
   //////////////////////////////////////////////////////////////////////////
+
+  const VarGEPIndices &getVarGEPIndices() override;
 
   /// Adds the data members for the given class to the type builder, including
   /// those inherited from base classes/interfaces.

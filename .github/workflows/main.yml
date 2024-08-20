@@ -94,9 +94,9 @@ jobs:
         with:
           submodules: true
           fetch-depth: 50
-      - name: 'macOS 14: Switch to Xcode 16 Beta 4'
+      - name: 'macOS 14: Switch to Xcode 16 Beta 5'
         if: matrix.os == 'macos-14'
-        run: sudo xcode-select -switch /Applications/Xcode_16_beta_4.app
+        run: sudo xcode-select -switch /Applications/Xcode_16_beta_5.app
       - name: Install prerequisites
         uses: ./.github/actions/1-setup
         with:
