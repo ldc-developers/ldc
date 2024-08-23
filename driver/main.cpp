@@ -754,6 +754,10 @@ void registerPredefinedTargetVersions() {
   case llvm::Triple::wasm32:
   case llvm::Triple::wasm64:
     VersionCondition::addPredefinedGlobalIdent("WebAssembly");
+    if (triple.getOS() == llvm::Triple::Emscripten) {
+      // Emscripten reimplements Posix APIs
+      VersionCondition::addPredefinedGlobalIdent("Posix");
+    }
     break;
 #if LDC_LLVM_VER >= 1600
   case llvm::Triple::loongarch32:
