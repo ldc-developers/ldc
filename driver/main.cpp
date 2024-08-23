@@ -752,11 +752,25 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
     break;
   case llvm::Triple::wasm32:
+    VersionCondition::addPredefinedGlobalIdent("WebAssembly");
+    if (triple.getOS() == llvm::Triple::Emscripten) {
+      // Emscripten reimplements Posix APIs
+      VersionCondition::addPredefinedGlobalIdent("linux");
+      VersionCondition::addPredefinedGlobalIdent("Posix");
+      VersionCondition::addPredefinedGlobalIdent("CRuntime_Musl");
+      VersionCondition::addPredefinedGlobalIdent("X86_Any");
+      VersionCondition::addPredefinedGlobalIdent("X86");
+    }
+    break;
   case llvm::Triple::wasm64:
     VersionCondition::addPredefinedGlobalIdent("WebAssembly");
     if (triple.getOS() == llvm::Triple::Emscripten) {
       // Emscripten reimplements Posix APIs
+      VersionCondition::addPredefinedGlobalIdent("linux");
       VersionCondition::addPredefinedGlobalIdent("Posix");
+      VersionCondition::addPredefinedGlobalIdent("CRuntime_Musl");
+      VersionCondition::addPredefinedGlobalIdent("X86_Any");
+      VersionCondition::addPredefinedGlobalIdent("X86_64");
     }
     break;
 #if LDC_LLVM_VER >= 1600
