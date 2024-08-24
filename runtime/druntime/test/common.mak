@@ -50,7 +50,7 @@ ifeq ($(BUILD),debug)
     DFLAGS+=-g -debug $(if $(findstring ldmd2,$(DMD)),-link-defaultlib-debug,)
     CFLAGS:=$(CFLAGS_BASE) $(if $(findstring $(OS),windows),/Zi,-g)
 else
-    DFLAGS+=-O -release
+    DFLAGS+=-O -ludicrous
     CFLAGS:=$(CFLAGS_BASE) $(if $(findstring $(OS),windows),/O2,-O3)
 endif
 CXXFLAGS_BASE:=$(CFLAGS_BASE)

@@ -22,7 +22,7 @@ endif
 .PHONY: all clean
 all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS)))
 
-# LDC: enable assertions for BUILD=RELEASE (=> `-O -release`)
+# LDC: enable assertions for BUILD=RELEASE (=> `-O -ludicrous`)
 $(ROOT)/profile.done: DFLAGS+=-profile $(if $(findstring ldmd2,$(DMD)),-check=assert=on,)
 $(ROOT)/profile.done: $(ROOT)/%.done: $(ROOT)/%$(DOTEXE)
 	@echo Testing $*
