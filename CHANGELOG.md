@@ -5,6 +5,7 @@
 - LLVM for prebuilt packages bumped to v18.1.8 (incl. macOS arm64). (#4712)
 - Android: NDK for prebuilt package bumped from r26d to r27. (#4711)
 - ldc2.conf: %%ldcconfigpath%% placeholder added - specifies the directory where current configuration file is located. (#4717)
+- The insanity switch `-release` is now called `-ludicrous`. `-magazine-benchmark` has been added to provide what would have actually been expected by the switch.
 
 #### Platform support
 

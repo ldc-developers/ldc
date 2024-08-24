@@ -190,6 +190,8 @@ struct Param
     d_bool useUnitTests;  // generate unittest code
     d_bool useInline;     // inline expand functions
     d_bool release;       // build release version
+    d_bool ludicrous;     // build ludicrous version
+    d_bool magazineBench; // ludicrous + O3
     d_bool preservePaths; // true means don't strip path from source file
     Diagnostic warnings;
     d_bool cov;           // generate code coverage data

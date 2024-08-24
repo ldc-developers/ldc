@@ -503,9 +503,21 @@ static cl::opt<CHECKACTION, true> checkAction(
 
 static cl::opt<bool, true>
     release("release", cl::ZeroOrMore, cl::location(global.params.release),
-            cl::desc("Compile release version, defaulting to disabled "
-                     "asserts/contracts/invariants, and bounds checks in @safe "
-                     "functions only"),
+            cl::desc("Deprecated alias of `-ludicrous`."),
+            cl::ValueDisallowed);
+
+static cl::opt<bool, true>
+    ludicrous("ludicrous", cl::ZeroOrMore, cl::location(global.params.ludicrous),
+            cl::desc("Compile for ludicrous runtime performance, disabling "
+                     "asserts/contracts/invariants, and performing bounds checks "
+                     "in @safe functions only. This switch should be used with "
+                     "bug-free code only."),
+            cl::ValueDisallowed);
+
+static cl::opt<bool, true>
+    magazineBench("magazine-benchmark", cl::ZeroOrMore, cl::location(global.params.magazineBench),
+            cl::desc("Special release mode, enables various optimizations for "
+                     "ludicrous speed."),
             cl::ValueDisallowed);
 
 cl::opt<bool, true>

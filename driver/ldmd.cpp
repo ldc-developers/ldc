@@ -659,9 +659,10 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         goto Lnot_in_ldc;
       } else if (strcmp(p + 1, "quiet") == 0) {
         // ignore
+      } else if (strcmp(p + 1, "release") == 0) {
+        ldcArgs.push_back("-ludicrous");
       }
-      /* -release
-       * -betterC
+      /* -betterC
        */
       else if (strcmp(p + 1, "noboundscheck") == 0) {
         ldcArgs.push_back("-boundscheck=off");

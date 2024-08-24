@@ -127,6 +127,10 @@ static cl::opt<int> fSanitizeMemoryTrackOrigins(
         "Enable origins tracking in MemorySanitizer (0=disabled, default)"));
 
 unsigned optLevel() {
+  if (global.params.magazineBench) {
+    return 3;
+  }
+
   // Use -O2 as a base for the size-optimization levels.
   return optimizeLevel >= 0 ? optimizeLevel : 2;
 }
@@ -146,6 +150,10 @@ bool willCrossModuleInline() {
 bool isOptimizationEnabled() { return optimizeLevel != 0; }
 
 llvm::CodeGenOptLevel codeGenOptLevel() {
+  if (global.params.magazineBench) {
+    return llvm::CodeGenOptLevel::Aggressive;
+  }
+
   // Use same appoach as clang (see lib/CodeGen/BackendUtil.cpp)
   if (optLevel() == 0) {
     return llvm::CodeGenOptLevel::None;
@@ -165,6 +173,14 @@ std::unique_ptr<TargetLibraryInfoImpl> createTLII(llvm::Module &M) {
 }
 
 static OptimizationLevel getOptimizationLevel(){
+  if (global.params.magazineBench) {
+    switch(optimizeLevel) {
+      case -1: return OptimizationLevel::Os;
+      case -2: return OptimizationLevel::Oz;
+    }
+    return OptimizationLevel::O3;
+  }
+
   switch(optimizeLevel) {
     case 0: return OptimizationLevel::O0;
     case 1: return OptimizationLevel::O1;

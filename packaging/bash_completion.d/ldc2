@@ -35,24 +35,24 @@
             -enable-unsafe-fp-math          -fatal-assembler-warnings       -fdata-sections                     -ffunction-sections             \
             -float-abi                      -help                           -ignore                             -internalize-public-api-file    \
             -internalize-public-api-list    -jit-emit-debug                 -jit-enable-eh                      -join-liveintervals             \
-            -lib                            -limit-float-precision          -linkonce-templates                 -m32                            \
-            -m64                            -march                          -mattr                              -mc-x86-disable-arith-relaxation\
-            -mcpu                           -mtriple                        -nested-ctx                         -noasm                          \
-            -nodefaultlib                   -noruntime                      -noverify                           -nozero-initialized-in-bss      \
-            -O                              -O0                             -O1                                 -O2                             \
-            -O3                             -O4                             -O5                                 -o-                             \
-            -od                             -of                             -op                                 -oq                             \
-            -output-bc                      -output-ll                      -output-o                           -output-s                       \
-            -pre-RA-sched                   -print-after-all                -print-before-all                   -print-machineinstrs            \
-            -profile-estimator-loop-weight  -profile-info-file              -profile-verifier-noassert          -realign-stack                  \
-            -regalloc                       -release                        -relocation-model                   -rewriter                       \
-            -run                            -schedule-spills                -segmented-stacks                   -shared                         \
-            -shrink-wrap                    -singleobj                      -soft-float                         -spiller                        \
-            -stack-alignment                -stack-protector-buffer-size    -stats                              -tailcallopt                    \
-            -time-passes                    -unittest                       -v                                  -v-cg                           \
-            -verify-dom-info                -verify-loop-info               -verify-regalloc                    -verify-region-info             \
-            -version                        -vv                             -w                                  -x86-asm-syntax                 \
-            -x86-use-vzeroupper
+            -lib                            -limit-float-precision          -linkonce-templates                 -ludicrous                      \
+            -m32                            -m64                            -magazine-benchmark                 -march                          \
+            -mattr                          -mc-x86-disable-arith-relaxation -mcpu                              -mtriple                        \
+            -nested-ctx                     -noasm                          -nodefaultlib                       -noruntime                      \
+            -noverify                       -nozero-initialized-in-bss      -O                                  -O0                             \
+            -O1                             -O2                             -O3                                 -O4                             \
+            -O5                             -o-                             -od                                 -of                             \
+            -op                             -oq                             -output-bc                          -output-ll                      \
+            -output-o                       -output-s                       -pre-RA-sched                       -print-after-all                \
+            -print-before-all               -print-machineinstrs            -profile-estimator-loop-weight      -profile-info-file              \
+            -profile-verifier-noassert      -realign-stack                  -regalloc                           -relocation-model               \
+            -rewriter                       -run                            -schedule-spills                    -segmented-stacks               \
+            -shared                         -shrink-wrap                    -singleobj                          -soft-float                     \
+            -spiller                        -stack-alignment                -stack-protector-buffer-size        -stats                          \
+            -tailcallopt                    -time-passes                    -unittest                           -v                              \
+            -v-cg                           -verify-dom-info                -verify-loop-info                   -verify-regalloc                \
+            -verify-region-info             -version                        -vv                                 -w                              \
+            -x86-asm-syntax                 -x86-use-vzeroupper
         "
         opts_with_equal=(-Df  Hd  -Hf  -I  -J  -Xf  -code-model  -d-version  -debuglib  -defaultlib  -deps           \
                          -internalize-public-api-file  -float-abi  -limit-float-precision  -march  -mtriple  -mattr  \

@@ -1185,7 +1185,22 @@ else
             params.useAssert = CHECKENABLE.on;
     }
 
+    if (params.magazineBench)
+    {
+        params.ludicrous = true;
+        //driverParams.optimize = true;
+    }
+
     if (params.release)
+    {
+        deprecation(
+            Loc.initial,
+            "Switch `-release` is deprecated; use `-ludicrous` or `-magazine-benchmark` instead."
+        );
+        params.ludicrous = true;
+    }
+
+    if (params.release || params.ludicrous)
     {
         if (params.useInvariants == CHECKENABLE._default)
             params.useInvariants = CHECKENABLE.off;
