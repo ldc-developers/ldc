@@ -583,6 +583,10 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   for (const auto &name : defaultLibNames) {
     args.push_back("-l" + name);
   }
+#ifdef PHOBOS_SYSTEM_ZLIB
+  if (!defaultLibNames.empty() && !linkAgainstSharedDefaultLibs())
+      args.push_back("-lz");
+#endif
 
   // libs added via pragma(lib, libname)
   for (auto ls : global.params.linkswitches) {
