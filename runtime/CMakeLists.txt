@@ -906,6 +906,7 @@ install(FILES ${GCCBUILTINS} DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
 #
 # Test targets.
 #
+enable_testing()
 
 # Build the "test runner" executables containing the druntime and Phobos unit
 # tests. They are invoked with the modules to test later.
