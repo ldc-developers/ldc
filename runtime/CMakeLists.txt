@@ -337,7 +337,7 @@ if(LDC_EXE)
                     "$<$<BOOL:${SHARED_LIBS_SUPPORTED}>:${MULTILIB_DIR}>"
                     ${conf_path}.in
                     ${conf_path}
-            DEPENDS ${LDC_EXE} ${LDC_EXE_FULL}
+            DEPENDS ${LDC_EXE_FULL}
         )
         add_custom_command(OUTPUT ${install_conf_path} VERBATIM
             COMMAND ${PROJECT_PARENT_DIR}/tools/add-multilib-section.sh
@@ -347,7 +347,7 @@ if(LDC_EXE)
                     "$<$<BOOL:${SHARED_LIBS_SUPPORTED}>:${MULTILIB_INSTALL_DIR}>"
                     ${install_conf_path}.in
                     ${install_conf_path}
-            DEPENDS ${LDC_EXE} ${LDC_EXE_FULL}
+            DEPENDS ${LDC_EXE_FULL}
         )
         add_custom_target(add-multilib-section ALL
             DEPENDS ${conf_path} ${install_conf_path}
@@ -437,7 +437,9 @@ macro(dc src_files src_basedir d_flags output_basedir emit_bc all_at_once single
         list(APPEND dc_flags -flto=thin --output-bc)
     endif()
 
-    set(dc_deps ${LDC_EXE} ${LDC_EXE_FULL} ${GCCBUILTINS})
+    # dc_deps can only contain paths, otherwise cmake will ignore the dependency.
+    # See: https://github.com/ldc-developers/ldc/pull/4743#issuecomment-2323156173
+    set(dc_deps ${LDC_EXE_FULL} ${GCCBUILTINS})
     if(TARGET add-multilib-section)
         # Make sure the config files are available before invoking LDC.
         set(dc_deps ${dc_deps} add-multilib-section)
