@@ -56,6 +56,8 @@ else()
     list(REMOVE_ITEM testnames uuid)
 endif()
 
+string(REPLACE ";" " " LDMD_CMD "${LDMD_EXE_FULL} ${D_EXTRA_FLAGS}")
+
 foreach(name ${testnames})
     foreach(build debug release)
         set(druntime_path_build ${druntime_path})
@@ -72,7 +74,7 @@ foreach(name ${testnames})
         )
         add_test(NAME ${fullname}
             COMMAND ${GNU_MAKE_BIN} -C ${PROJECT_SOURCE_DIR}/druntime/test/${name}
-                ROOT=${outdir} DMD=${LDMD_EXE_FULL} BUILD=${build}
+                ROOT=${outdir} DMD=${LDMD_CMD} BUILD=${build}
                 DRUNTIME=${druntime_path_build} DRUNTIMESO=${shared_druntime_path_build}
                 SHARED=1 ${cflags_base} ${linkdl}
         )
