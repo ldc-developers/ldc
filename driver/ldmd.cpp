@@ -590,8 +590,7 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         const char *c = p + 6;
         if (strcmp(c, "?") == 0 || strcmp(c, "h") == 0 ||
             strcmp(c, "help") == 0) {
-          execute({ldcPath.c_str(), "-mcpu=help"});
-          exit(EXIT_SUCCESS);
+          ldcArgs.push_back("-mcpu=help");
         } else if (strcmp(c, "baseline") == 0) {
           // ignore
         } else if (strcmp(c, "avx") == 0) {
