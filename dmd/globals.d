@@ -190,6 +190,8 @@ extern (C++) struct Param
     bool useUnitTests;          // generate unittest code
     bool useInline = false;     // inline expand functions
     bool release;           // build release version
+    bool ludicrous;         // build ludicrous version
+    bool magazineBench;     // ludicrous + O3
     bool preservePaths;     // true means don't strip path from source file
     DiagnosticReporting warnings = DiagnosticReporting.off;  // how compiler warnings are handled
     bool cov;               // generate code coverage data

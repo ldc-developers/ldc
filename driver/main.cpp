@@ -943,6 +943,7 @@ void registerPredefinedTargetVersions() {
 
   //Issue deprecations for deprecated arguments
   // N.B `-nodefaultlib` is checked in `getDefaultLibNames`
+  // N.B `-release` is checked in `reconcileCommands`
   if (checkPrintf)
     deprecation(Loc(), "'-check-printf-calls' is deprecated, use `pragma(printf)` instead.");
 }
