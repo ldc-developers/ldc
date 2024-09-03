@@ -20,7 +20,7 @@ jobs:
             host_dc: ldc-1.19.0
             # FIXME: no usable official package available yet
             llvm_version: https://github.com/ldc-developers/llvm-project/releases/download/ldc-v18.1.8/llvm-18.1.8-linux-x86_64.tar.xz
-            cmake_flags: -DRT_SUPPORT_SANITIZERS=ON
+            cmake_flags: -DRT_SUPPORT_SANITIZERS=ON -DPHOBOS_SYSTEM_ZLIB=ON
           - job_name: macOS 14, LLVM 17, latest LDC beta
             os: macos-14
             host_dc: ldc-beta
@@ -63,13 +63,13 @@ jobs:
             python3 -m pip install --user lit
           fi
           python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
-      - name: 'Linux: Install gdb, llvm-symbolizer and libzstd'
+      - name: 'Linux: Install gdb, llvm-symbolizer, libzstd, zlib1g-dev'
         if: runner.os == 'Linux'
         run: |
           set -eux
           sudo apt-get update
           # Don't use latest gdb v10+ from Ubuntu toolchain PPA with regressions, use official v9
-          sudo apt-get install gdb=9.1-0ubuntu1 llvm libzstd-dev
+          sudo apt-get install gdb=9.1-0ubuntu1 llvm libzstd-dev zlib1g-dev
 
       - name: Try to restore cached LLVM
         uses: actions/cache@v4
