@@ -20,6 +20,7 @@ struct Config {
     string[] cFlags;
     string[] linkerFlags;
     uint numBuildJobs;
+    bool systemZlib;
     string[string] cmakeVars;
 }
 
@@ -160,6 +161,7 @@ void runCMake() {
     if (config.dFlags.length)       args ~= "-DD_EXTRA_FLAGS=" ~ config.dFlags.join(";");
     if (config.cFlags.length)       args ~= "-DRT_CFLAGS=" ~ config.cFlags.join(" ");
     if (config.linkerFlags.length)  args ~= "-DLD_FLAGS=" ~ config.linkerFlags.join(" ");
+    if (config.systemZlib)          args ~= "-DPHOBOS_SYSTEM_ZLIB=ON";
 
     foreach (pair; config.cmakeVars.byPair)
         args ~= "-D" ~ pair[0] ~ '=' ~ pair[1];
@@ -324,7 +326,8 @@ void parseCommandLine(string[] args) {
             "dFlags",      "Extra LDC flags for the D modules (separated by ';')", &config.dFlags,
             "cFlags",      "Extra C/ASM compiler flags for the handful of C/ASM files (separated by ';')", &config.cFlags,
             "linkerFlags", "Extra C linker flags for shared libraries and testrunner executables (separated by ';')", &config.linkerFlags,
-            "j",           "Number of parallel build jobs", &config.numBuildJobs
+            "j",           "Number of parallel build jobs", &config.numBuildJobs,
+            "systemZlib",  "Use system zlib instead of Phobos' vendored version", &config.systemZlib,
         );
 
         // getopt() has removed all consumed args from `args`
