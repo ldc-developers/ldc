@@ -149,6 +149,9 @@ set(LDC_ENABLE_ASSERTIONS "${LLVM_ENABLE_ASSERTIONS}" CACHE BOOL "Enable LDC ass
 # Allow user to specify mimalloc.o location, to be linked with `ldc2` only
 set(ALTERNATIVE_MALLOC_O   ""     CACHE STRING "If specified, adds ALTERNATIVE_MALLOC_O object file to LDC link, to override the CRT malloc.")
 
+# Most linux distributions have a policy of not bundling dependencies like zlib
+set(PHOBOS_SYSTEM_ZLIB OFF CACHE BOOL "Use system zlib instead of Phobos' vendored version")
+
 if(D_VERSION EQUAL 1)
     message(FATAL_ERROR "D version 1 is no longer supported.
 Please consider using D version 2 or checkout the 'd1' git branch for the last version supporting D version 1.")
@@ -290,6 +293,9 @@ if(SANITIZE)
     endif()
 endif()
 append("${SANITIZE_CXXFLAGS}" LDC_CXXFLAGS)
+if(PHOBOS_SYSTEM_ZLIB)
+    append("-DPHOBOS_SYSTEM_ZLIB" LDC_CXXFLAGS)
+endif()
 # LLVM_CXXFLAGS may contain -Werror which causes compile errors with dmd source
 string(REPLACE "-Werror " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
 if (UNIX AND NOT "${LLVM_LDFLAGS}" STREQUAL "")

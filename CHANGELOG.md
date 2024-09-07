@@ -5,6 +5,7 @@
 - LLVM for prebuilt packages bumped to v18.1.8 (incl. macOS arm64). (#4712)
 - Android: NDK for prebuilt package bumped from r26d to r27. (#4711)
 - ldc2.conf: %%ldcconfigpath%% placeholder added - specifies the directory where current configuration file is located. (#4717)
+- Add support for building against a system copy of zlib through `-DPHOBOS_SYSTEM_ZLIB=ON`. (#4742)
 
 #### Platform support
 
@@ -923,7 +924,7 @@
 - Misc. debuginfo issues, incl. adaptations to internal LLVM 5.0 changes: (#2315)
   - `ref` parameters and closure parameters declared with wrong address and hence potentially showing garbage.
   - Win64: parameters > 64 bit passed by value showing garbage.
-  - Win64: debuginfos for closure and nested variables now finally available starting with LLVM 5.0. 
+  - Win64: debuginfos for closure and nested variables now finally available starting with LLVM 5.0.
 - LLVM error `Global variable initializer type does not match global variable type!` for `T.init` with explicit initializers for dominated members in nested unions. (#2108)
 - Inconsistent handling of lvalue slicees wrt. visible side-effects of slice lower/upper bound expressions. (#1433)
 - Misc. dcompute issues. (#2195, #2215)
