@@ -68,6 +68,7 @@ typedef std::pair<llvm::GlobalValue::LinkageTypes, bool> LinkageWithCOMDAT;
 LinkageWithCOMDAT DtoLinkage(Dsymbol *sym);
 
 bool needsCOMDAT();
+bool supportsCOMDAT();
 void setLinkage(LinkageWithCOMDAT lwc, llvm::GlobalObject *obj);
 // Sets linkage and visibility of the specified IR symbol based on the specified
 // D symbol.

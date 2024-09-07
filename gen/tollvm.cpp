@@ -259,7 +259,15 @@ LLGlobalValue::LinkageTypes DtoLinkageOnly(Dsymbol *sym) {
 }
 
 LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
-  return {DtoLinkageOnly(sym), needsCOMDAT()};
+  bool hasCOMDAT = needsCOMDAT();
+  auto appliedLinkage = DtoLinkageOnly(sym);
+
+  // generate COMDAT for templates to enable linking data culling
+  // See https://github.com/ldc-developers/ldc/issues/3589 .
+  if (sym->isInstantiated())
+    hasCOMDAT |= appliedLinkage != LLGlobalValue::InternalLinkage;
+
+  return {appliedLinkage, hasCOMDAT && supportsCOMDAT()};
 }
 
 bool needsCOMDAT() {
@@ -272,6 +280,18 @@ bool needsCOMDAT() {
    * https://docs.microsoft.com/en-us/cpp/build/reference/opt-optimizations?view=vs-2019
    */
   return global.params.targetTriple->isOSBinFormatCOFF();
+}
+
+bool supportsCOMDAT() {
+  const auto &triple = *global.params.targetTriple;
+  return !(triple.isOSBinFormatMachO() ||
+#if LDC_LLVM_VER >= 500
+           triple.isOSBinFormatWasm()
+#else
+           triple.getArch() == llvm::Triple::wasm32 ||
+           triple.getArch() == llvm::Triple::wasm64
+#endif
+  );
 }
 
 void setLinkage(LinkageWithCOMDAT lwc, llvm::GlobalObject *obj) {
