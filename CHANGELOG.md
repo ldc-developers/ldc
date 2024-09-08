@@ -6,6 +6,7 @@
 - Android: NDK for prebuilt package bumped from r26d to r27. (#4711)
 - ldc2.conf: %%ldcconfigpath%% placeholder added - specifies the directory where current configuration file is located. (#4717)
 - Add support for building against a system copy of zlib through `-DPHOBOS_SYSTEM_ZLIB=ON`. (#4742)
+- Emscripten: The compiler now mimicks a musl Linux platform wrt. extra predefined versions (`linux`, `Posix`, `CRuntime_Musl`, `CppRuntime_LLVM`). (#4750)
 
 #### Platform support
 
