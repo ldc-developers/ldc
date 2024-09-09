@@ -259,7 +259,13 @@ LLGlobalValue::LinkageTypes DtoLinkageOnly(Dsymbol *sym) {
 }
 
 LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
-  return {DtoLinkageOnly(sym), needsCOMDAT()};
+  const auto linkage = DtoLinkageOnly(sym);
+  const bool inCOMDAT = needsCOMDAT() ||
+                        // ELF needs some help for ODR linkages:
+                        // https://github.com/ldc-developers/ldc/issues/3589
+                        (linkage == templateLinkage &&
+                         global.params.targetTriple->isOSBinFormatELF());
+  return {linkage, inCOMDAT};
 }
 
 bool needsCOMDAT() {
