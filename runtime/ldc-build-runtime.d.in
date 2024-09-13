@@ -150,9 +150,12 @@ void prepareLdcSource() {
 void runCMake() {
     const wd = WorkingDirScope(config.buildDir);
 
+    const ldmdExecutable = buildPath(config.ldcExecutable.dirName, "ldmd2" ~ exeSuffix);
+
     string[] args = [
         "cmake",
         "-DLDC_EXE_FULL=" ~ config.ldcExecutable,
+        "-DLDMD_EXE_FULL=" ~ ldmdExecutable,
         "-DDMDFE_MINOR_VERSION=@DMDFE_MINOR_VERSION@",
         "-DDMDFE_PATCH_VERSION=@DMDFE_PATCH_VERSION@",
     ];
