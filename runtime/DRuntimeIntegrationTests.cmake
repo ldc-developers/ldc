@@ -78,6 +78,7 @@ foreach(name ${testnames})
         add_test(NAME ${fullname}
             COMMAND ${GNU_MAKE_BIN} -C ${PROJECT_SOURCE_DIR}/druntime/test/${name}
                 ROOT=${outdir} DMD=${LDMD_EXE_FULL} BUILD=${build} SHARED=1
+                CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER}
                 DRUNTIME=${druntime_path_build} DRUNTIMESO=${shared_druntime_path_build}
                 CFLAGS_BASE=${cflags_base} DFLAGS_BASE=${dflags_base} ${linkdl}
         )

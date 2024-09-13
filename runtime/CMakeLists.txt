@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.4.3)
-project(runtime C ASM)
+project(runtime C ASM CXX) # CXX for integration tests only
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
 
