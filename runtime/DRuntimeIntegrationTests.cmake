@@ -1,3 +1,5 @@
+enable_language(CXX) # for CMAKE_CXX_COMPILER
+
 # Try to find GNU make, use specific version first (BSD) and fall back to default 'make' (Linux)
 find_program(GNU_MAKE_BIN NAMES gmake gnumake make)
 if(NOT GNU_MAKE_BIN)
