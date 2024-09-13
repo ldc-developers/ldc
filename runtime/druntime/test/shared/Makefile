@@ -131,24 +131,24 @@ $(ROOT)/dynamiccast$(DOTDLL): $(SRC)/dynamiccast.d  $(if $(LINK_SHARED),$(DRUNTI
 ifeq (windows,$(OS))
     CC:=cl
     CC_OUTFLAG:=/Fe
-    # we additionally specify the .obj output path (/Fo) to prevent collisions
-    CC_EXTRAS:=
+    # additionally specify the .obj output directory to prevent collisions
+    CC_EXTRAS:=/Fo$(ROOT)/
 else
     CC_OUTFLAG:=-o
     CC_EXTRAS:=$(LDL) -pthread
 endif
 
 $(ROOT)/linkD$(DOTEXE): $(SRC)/linkD.c $(ROOT)/lib$(DOTDLL) $(DRUNTIMESO)
-	$(QUIET)$(CC) $(CFLAGS) $(CC_OUTFLAG)$@ $(if $(findstring $(OS),windows),/Fo$@.obj,) $< $(ROOT)/lib$(DOTIMPLIB) $(CC_EXTRAS)
+	$(QUIET)$(CC) $(CFLAGS) $(CC_OUTFLAG)$@ $< $(ROOT)/lib$(DOTIMPLIB) $(CC_EXTRAS)
 
 $(ROOT)/linkDR$(DOTEXE): $(SRC)/linkDR.c $(ROOT)/lib$(DOTDLL) $(DRUNTIMESO)
-	$(QUIET)$(CC) $(CFLAGS) $(CC_OUTFLAG)$@ $(if $(findstring $(OS),windows),/Fo$@.obj,) $< $(DRUNTIME_IMPLIB) $(CC_EXTRAS)
+	$(QUIET)$(CC) $(CFLAGS) $(CC_OUTFLAG)$@ $< $(DRUNTIME_IMPLIB) $(CC_EXTRAS)
 
 $(ROOT)/loadDR$(DOTEXE): $(SRC)/loadDR.c $(ROOT)/lib$(DOTDLL) $(DRUNTIMESO)
-	$(QUIET)$(CC) $(CFLAGS) $(CC_OUTFLAG)$@ $(if $(findstring $(OS),windows),/Fo$@.obj,) $< $(CC_EXTRAS)
+	$(QUIET)$(CC) $(CFLAGS) $(CC_OUTFLAG)$@ $< $(CC_EXTRAS)
 
 $(ROOT)/host$(DOTEXE): $(SRC)/host.c $(ROOT)/plugin1$(DOTDLL) $(ROOT)/plugin2$(DOTDLL)
-	$(QUIET)$(CC) $(CFLAGS) $(CC_OUTFLAG)$@ $(if $(findstring $(OS),windows),/Fo$@.obj,) $< $(CC_EXTRAS)
+	$(QUIET)$(CC) $(CFLAGS) $(CC_OUTFLAG)$@ $< $(CC_EXTRAS)
 
 $(ROOT)/liblinkdep$(DOTDLL): $(ROOT)/lib$(DOTDLL)
 $(ROOT)/liblinkdep$(DOTDLL): DFLAGS+=-L$(ROOT)/lib$(DOTIMPLIB)
