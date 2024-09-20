@@ -30,11 +30,14 @@ runs:
         installDir="$PWD/install"
         mkdir '${{ inputs.build_dir }}'
         cd '${{ inputs.build_dir }}'
+        # wrt. CMAKE_C[XX]_COMPILER for Apple: https://github.com/ldc-developers/ldc/issues/3901
         cmake -G Ninja ../ldc \
           -DCMAKE_BUILD_TYPE=Release \
           -DLLVM_ROOT_DIR="$PWD/../${{ inputs.llvm_dir }}" \
           -DD_COMPILER='${{ inputs.host_dc }}' \
           -DLDC_LINK_MANUALLY=OFF \
+          ${{ runner.os == 'macOS' && '-DCMAKE_C_COMPILER=/usr/bin/cc' || '' }} \
+          ${{ runner.os == 'macOS' && '-DCMAKE_CXX_COMPILER=/usr/bin/c++' || '' }} \
           ${{ inputs.specify_install_dir == 'true' && '-DCMAKE_INSTALL_PREFIX="$installDir"' || '' }} \
           ${{ inputs.specify_install_dir == 'true' && '-DINCLUDE_INSTALL_DIR="$installDir/import"' || '' }} \
           ${{ inputs.cmake_flags }}
