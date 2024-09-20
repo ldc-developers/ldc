@@ -98,16 +98,9 @@ else
 
 version (LDC)
 {
-    private extern(C)
-    {
-        long llroundf(float x);
-        long llround(double x);
-        long llroundl(real x);
-    }
-
-    alias rndtol = llroundf;
-    alias rndtol = llround;
-    alias rndtol = llroundl;
+    alias rndtol = llvm_llround!float;
+    alias rndtol = llvm_llround!double;
+    alias rndtol = llvm_llround!real;
 }
 else
 {

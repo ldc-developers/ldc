@@ -300,6 +300,35 @@ pragma(LDC_intrinsic, "llvm.round.f#")
     T llvm_round(T)(T val)
         if (__traits(isFloating, T));
 
+/// The 'llvm.roundeven.*' intrinsics returns the operand rounded to the nearest
+/// integer in floating-point format rounding halfway cases to even (that is, to
+/// the nearest value that is an even integer).
+pragma(LDC_intrinsic, "llvm.roundeven.f#")
+    T llvm_roundeven(T)(T val)
+        if (__traits(isFloating, T));
+
+/// The 'llvm.lround.*' intrinsics return the operand rounded to the nearest
+/// integer with ties away from zero.
+pragma(LDC_intrinsic, "llvm.lround.i32.f#")
+    int llvm_lround(T)(T val)
+        if (__traits(isFloating, T));
+
+/// The 'llvm.llround.*' intrinsics return the operand rounded to the nearest
+/// integer with ties away from zero.
+pragma(LDC_intrinsic, "llvm.llround.i64.f#")
+    long llvm_llround(T)(T val)
+        if (__traits(isFloating, T));
+
+/// The 'llvm.lrint.*' intrinsics return the operand rounded to the nearest integer.
+pragma(LDC_intrinsic, "llvm.lrint.i32.f#")
+    int llvm_lrint(T)(T val)
+        if (__traits(isFloating, T));
+
+/// The 'llvm.llrint.*' intrinsics return the operand rounded to the nearest integer.
+pragma(LDC_intrinsic, "llvm.llrint.i64.f#")
+    long llvm_llrint(T)(T val)
+        if (__traits(isFloating, T));
+
 /// The 'llvm.fmuladd.*' intrinsic functions represent multiply-add expressions
 /// that can be fused if the code generator determines that the fused expression
 ///  would be legal and efficient.
