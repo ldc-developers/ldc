@@ -37,8 +37,10 @@ ifeq (,$(findstring ldmd2,$(DMD)))
         CFLAGS_BASE+=--target=x86_64-darwin-apple  # ARM cpu is not supported by dmd
     endif
 endif
-# LDC: use `-defaultlib=druntime-ldc [-link-defaultlib-shared]` instead of `-defaultlib= -L$(DRUNTIME[_IMPLIB])`
-DFLAGS:=$(MODEL_FLAG) $(PIC) -w -I../../src -I../../import -I$(SRC) -defaultlib=$(if $(findstring ldmd2,$(DMD)),druntime-ldc,) -preview=dip1000 $(if $(findstring $(OS),windows),,-L-lpthread -L-lm $(LINKDL))
+# LDC:
+# * include optional DFLAGS_BASE
+# * use `-defaultlib=druntime-ldc [-link-defaultlib-shared]` instead of `-defaultlib= -L$(DRUNTIME[_IMPLIB])`
+DFLAGS:=$(MODEL_FLAG) $(PIC) $(if $(findstring ldmd2,$(DMD)),$(DFLAGS_BASE),) -w -I../../src -I../../import -I$(SRC) -defaultlib=$(if $(findstring ldmd2,$(DMD)),druntime-ldc,) -preview=dip1000 $(if $(findstring $(OS),windows),,-L-lpthread -L-lm $(LINKDL))
 # LINK_SHARED may be set by importing makefile
 ifeq (,$(findstring ldmd2,$(DMD)))
     DFLAGS+=$(if $(LINK_SHARED),-L$(DRUNTIME_IMPLIB) $(if $(findstring $(OS),windows),-dllimport=all),-L$(DRUNTIME))

@@ -41,13 +41,12 @@ jobs:
             arch: x86_64
             bootstrap_cmake_flags: >-
               -DBUILD_LTO_LIBS=ON
-              -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++
             # https://github.com/ldc-developers/ldc/issues/4462:
             # When using LTO, we need to explicitly export ~all symbols for plugin support via `ld64 -exported_symbol '__*'`.
             # Additionally `-w` to suppress resulting linker warnings.
             extra_cmake_flags: >-
               -DBUILD_LTO_LIBS=ON
-              -DD_COMPILER_FLAGS="-gcc=/usr/bin/c++ -O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto -L-exported_symbol '-L__*' -L-w"
+              -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto -L-exported_symbol '-L__*' -L-w"
               -DEXTRA_CXXFLAGS=-flto=full
             with_pgo: true
 
@@ -56,10 +55,9 @@ jobs:
             arch: arm64
             bootstrap_cmake_flags: >-
               -DBUILD_LTO_LIBS=ON
-              -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++
             extra_cmake_flags: >-
               -DBUILD_LTO_LIBS=ON
-              -DD_COMPILER_FLAGS="-gcc=/usr/bin/c++ -O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto -L-exported_symbol '-L__*' -L-w"
+              -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto -L-exported_symbol '-L__*' -L-w"
               -DEXTRA_CXXFLAGS=-flto=full
             with_pgo: true
 
@@ -77,8 +75,10 @@ jobs:
             os: windows-2022
             arch: x86
             bootstrap_cmake_flags: -DBUILD_LTO_LIBS=ON
+            # `RT_CFLAGS=-m32` needed to make 64-bit clang-cl output 32-bit code for druntime integration tests
             extra_cmake_flags: >-
               -DBUILD_LTO_LIBS=ON
+              -DRT_CFLAGS=-m32
             # Undefined symbol errors with FullLTO; ThinLTO used to work, but apparently miscompiles a lexer.d:138 assertion since v1.33.
             #  "-DD_COMPILER_FLAGS=-O -flto=thin -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
             #  -DEXTRA_CXXFLAGS=-flto=thin
@@ -94,9 +94,9 @@ jobs:
         with:
           submodules: true
           fetch-depth: 50
-      - name: 'macOS 14: Switch to Xcode 16 Beta 6'
+      - name: 'macOS 14: Switch to Xcode 16'
         if: matrix.os == 'macos-14'
-        run: sudo xcode-select -switch /Applications/Xcode_16_beta_6.app
+        run: sudo xcode-select -switch /Applications/Xcode_16.app
       - name: Install prerequisites
         uses: ./.github/actions/1-setup
         with:

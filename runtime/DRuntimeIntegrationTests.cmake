@@ -1,3 +1,5 @@
+enable_language(CXX) # for CMAKE_CXX_COMPILER
+
 # Try to find GNU make, use specific version first (BSD) and fall back to default 'make' (Linux)
 find_program(GNU_MAKE_BIN NAMES gmake gnumake make)
 if(NOT GNU_MAKE_BIN)
@@ -34,8 +36,13 @@ else()
     endif()
 endif()
 
-if(NOT "${TARGET_SYSTEM}" MATCHES "MSVC")
-    set(cflags_base "CFLAGS_BASE=-Wall -Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
+string(REPLACE ";" " " dflags_base "${D_EXTRA_FLAGS}")
+
+string(REPLACE ";" " " cflags_base "${RT_CFLAGS}")
+if("${TARGET_SYSTEM}" MATCHES "MSVC")
+    set(cflags_base "${cflags_base} /Wall")
+else()
+    set(cflags_base "${cflags_base} -Wall -Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
 endif()
 
 set(linkdl "")
@@ -72,9 +79,10 @@ foreach(name ${testnames})
         )
         add_test(NAME ${fullname}
             COMMAND ${GNU_MAKE_BIN} -C ${PROJECT_SOURCE_DIR}/druntime/test/${name}
-                ROOT=${outdir} DMD=${LDMD_EXE_FULL} BUILD=${build}
+                ROOT=${outdir} DMD=${LDMD_EXE_FULL} BUILD=${build} SHARED=1
+                CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER}
                 DRUNTIME=${druntime_path_build} DRUNTIMESO=${shared_druntime_path_build}
-                SHARED=1 ${cflags_base} ${linkdl}
+                CFLAGS_BASE=${cflags_base} DFLAGS_BASE=${dflags_base} ${linkdl}
         )
         set_tests_properties(${fullname} PROPERTIES DEPENDS clean-${fullname})
     endforeach()

@@ -25,12 +25,12 @@ jobs:
             os: macos-14
             host_dc: ldc-beta
             llvm_version: 17.0.5
-            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DCMAKE_EXE_LINKER_FLAGS=-L/opt/homebrew/opt/zstd/lib
+            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DCMAKE_EXE_LINKER_FLAGS=-L/opt/homebrew/opt/zstd/lib -DCMAKE_C_COMPILER=/usr/bin/cc -DCMAKE_CXX_COMPILER=/usr/bin/c++
           - job_name: macOS 14, LLVM 16, latest LDC beta
             os: macos-14
             host_dc: ldc-beta
             llvm_version: 16.0.5
-            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DD_COMPILER_FLAGS=-gcc=/usr/bin/c++ -DCMAKE_EXE_LINKER_FLAGS=-L/opt/homebrew/opt/zstd/lib
+            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DCMAKE_EXE_LINKER_FLAGS=-L/opt/homebrew/opt/zstd/lib -DCMAKE_C_COMPILER=/usr/bin/cc -DCMAKE_CXX_COMPILER=/usr/bin/c++
           - job_name: Ubuntu 20.04, LLVM 15, latest DMD beta
             os: ubuntu-20.04
             host_dc: dmd-beta
