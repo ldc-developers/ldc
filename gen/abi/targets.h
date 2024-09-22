@@ -38,3 +38,5 @@ TargetABI *getX86_64TargetABI();
 TargetABI *getX86TargetABI();
 
 TargetABI *getLoongArch64TargetABI();
+
+TargetABI *getWasmTargetABI();
