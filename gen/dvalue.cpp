@@ -105,13 +105,14 @@ LLValue *DSliceValue::getPtr() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DFuncValue::DFuncValue(Type *t, FuncDeclaration *fd, LLValue *v, LLValue *vt,
-                       LLValue *vtable)
-    : DRValue(t, v), func(fd), vthis(vt), vtable(vtable) {}
+DFuncValue::DFuncValue(Type *t, FuncDeclaration *fd, LLValue *funcPtr,
+                       LLValue *vt, LLValue *vtable)
+    : DRValue(t, funcPtr), func(fd), funcPtr(funcPtr), vthis(vt),
+      vtable(vtable) {}
 
-DFuncValue::DFuncValue(FuncDeclaration *fd, LLValue *v, LLValue *vt,
+DFuncValue::DFuncValue(FuncDeclaration *fd, LLValue *funcPtr, LLValue *vt,
                        LLValue *vtable)
-    : DFuncValue(fd->type, fd, v, vt, vtable) {}
+    : DFuncValue(fd->type, fd, funcPtr, vt, vtable) {}
 
 bool DFuncValue::definedInFuncEntryBB() {
   return isDefinedInFuncEntryBB(val) &&

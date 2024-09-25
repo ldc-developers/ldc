@@ -767,7 +767,7 @@ DValue *DtoPaintType(const Loc &loc, DValue *val, Type *to) {
     }
   } else if (auto func = val->isFunc()) {
     if (tb->ty == TY::Tdelegate) {
-      return new DFuncValue(to, func->func, DtoRVal(func), func->vthis);
+      return new DFuncValue(to, func->func, func->funcPtr, func->vthis);
     }
   } else { // generic rvalue
     LLValue *rval = DtoRVal(val);

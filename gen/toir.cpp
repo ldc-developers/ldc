@@ -984,11 +984,10 @@ public:
     // function pointers are special
     if (e->type->toBasetype()->ty == TY::Tfunction) {
       DValue *dv = toElem(e->e1);
-      LLValue *llVal = DtoRVal(dv);
       if (DFuncValue *dfv = dv->isFunc()) {
-        result = new DFuncValue(e->type, dfv->func, llVal);
+        result = new DFuncValue(e->type, dfv->func, dfv->funcPtr);
       } else {
-        result = new DImValue(e->type, llVal);
+        result = new DImValue(e->type, DtoRVal(dv));
       }
       return;
     }
@@ -1072,18 +1071,18 @@ public:
                             fdecl->visibility.kind != Visibility::package_;
 
       // Get the actual function value to call.
-      LLValue *funcval = nullptr;
+      LLValue *funcPtr = nullptr;
       LLValue *vtable = nullptr;
       if (nonFinal) {
         DtoResolveFunction(fdecl);
-        std::tie(funcval, vtable) = DtoVirtualFunctionPointer(l, fdecl);
+        std::tie(funcPtr, vtable) = DtoVirtualFunctionPointer(l, fdecl);
       } else {
-        funcval = DtoCallee(fdecl);
+        funcPtr = DtoCallee(fdecl);
       }
-      assert(funcval);
+      assert(funcPtr);
 
       LLValue *vthis = (DtoIsInMemoryOnly(l->type) ? DtoLVal(l) : DtoRVal(l));
-      result = new DFuncValue(fdecl, funcval, vthis, vtable);
+      result = new DFuncValue(fdecl, funcPtr, vthis, vtable);
     } else {
       llvm_unreachable("Unknown target for VarDeclaration.");
     }
