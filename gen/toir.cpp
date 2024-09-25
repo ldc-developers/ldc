@@ -947,7 +947,8 @@ public:
       // Logger::println("FuncDeclaration");
       FuncDeclaration *fd = fv->func;
       assert(fd);
-      result = new DFuncValue(fd, DtoCallee(fd));
+      result =
+          fv->type == e->type ? fv : new DFuncValue(e->type, fd, fv->funcPtr);
       return;
     }
     if (v->isIm()) {
@@ -985,8 +986,11 @@ public:
     if (e->type->toBasetype()->ty == TY::Tfunction) {
       DValue *dv = toElem(e->e1);
       if (DFuncValue *dfv = dv->isFunc()) {
-        result = new DFuncValue(e->type, dfv->func, dfv->funcPtr);
+        result = dfv->type == e->type
+                     ? dfv
+                     : new DFuncValue(e->type, dfv->func, dfv->funcPtr);
       } else {
+        // FIXME: should not reach this
         result = new DImValue(e->type, DtoRVal(dv));
       }
       return;
@@ -1952,6 +1956,7 @@ public:
     LLValue *contextptr;
     if (DFuncValue *f = u->isFunc()) {
       assert(f->func);
+      // FIXME: use f->vthis
       contextptr = DtoNestedContext(e->loc, f->func);
     } else {
       contextptr = (DtoIsInMemoryOnly(u->type) ? DtoLVal(u) : DtoRVal(u));
@@ -1988,6 +1993,7 @@ public:
       fptr = DtoCallee(e->func);
     }
 
+    // FIXME: use DFuncValue
     result = new DImValue(
         e->type, DtoAggrPair(DtoType(e->type), contextptr, fptr, ".dg"));
   }
@@ -2280,8 +2286,9 @@ public:
     genFuncLiteral(fd, e);
     LLFunction *callee = DtoCallee(fd, false);
 
-    if (fd->isNested()) {
+    if (fd->isNested()) { // FIXME: if e->type->toBasetype() is a Tdelegate?
       LLValue *cval = DtoNestedContext(e->loc, fd);
+      // FIXME: use DFuncValue
       result = new DImValue(e->type, DtoAggrPair(cval, callee, ".func"));
     } else {
       result = new DFuncValue(e->type, fd, callee);
