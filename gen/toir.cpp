@@ -1086,7 +1086,7 @@ public:
       assert(funcPtr);
 
       LLValue *vthis = (DtoIsInMemoryOnly(l->type) ? DtoLVal(l) : DtoRVal(l));
-      result = new DFuncValue(fdecl, funcPtr, vthis, vtable);
+      result = new DFuncValue(e->type, fdecl, funcPtr, vthis, vtable);
     } else {
       llvm_unreachable("Unknown target for VarDeclaration.");
     }

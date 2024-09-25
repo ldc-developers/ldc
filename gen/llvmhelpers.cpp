@@ -1538,7 +1538,7 @@ DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl) {
     // to the module member list.
     DtoDefineFunction(flitdecl);
 
-    return new DFuncValue(flitdecl, DtoCallee(flitdecl, false));
+    return new DFuncValue(type, flitdecl, DtoCallee(flitdecl, false));
   }
 
   if (FuncDeclaration *fdecl = decl->isFuncDeclaration()) {
@@ -1555,7 +1555,7 @@ DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl) {
     }
     DtoResolveFunction(fdecl);
     assert(!DtoIsMagicIntrinsic(fdecl));
-    return new DFuncValue(fdecl, DtoCallee(fdecl));
+    return new DFuncValue(type, fdecl, DtoCallee(fdecl));
   }
 
   if (SymbolDeclaration *sdecl = decl->isSymbolDeclaration()) {

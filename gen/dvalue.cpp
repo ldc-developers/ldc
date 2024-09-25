@@ -108,7 +108,12 @@ LLValue *DSliceValue::getPtr() {
 DFuncValue::DFuncValue(Type *t, FuncDeclaration *fd, LLValue *funcPtr,
                        LLValue *vt, LLValue *vtable)
     : DRValue(t, funcPtr), func(fd), funcPtr(funcPtr), vthis(vt),
-      vtable(vtable) {}
+      vtable(vtable) {
+  const auto tb = t->toBasetype();
+  assert(tb->ty == TY::Tfunction || tb->ty == TY::Tdelegate ||
+         (tb->ty == TY::Tpointer &&
+          tb->nextOf()->toBasetype()->ty == TY::Tfunction));
+}
 
 DFuncValue::DFuncValue(FuncDeclaration *fd, LLValue *funcPtr, LLValue *vt,
                        LLValue *vtable)
