@@ -105,11 +105,23 @@ LLValue *DSliceValue::getPtr() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+namespace {
+LLValue *createFuncRValue(Type *t, LLValue *funcPtr, LLValue *vthis) {
+  if (t->toBasetype()->ty == TY::Tdelegate) {
+    assert(vthis);
+    return DtoAggrPair(vthis, funcPtr);
+  }
+  return funcPtr;
+}
+}
+
 DFuncValue::DFuncValue(Type *t, FuncDeclaration *fd, LLValue *funcPtr,
                        LLValue *vt, LLValue *vtable)
-    : DRValue(t, funcPtr), func(fd), funcPtr(funcPtr), vthis(vt),
-      vtable(vtable) {
+    : DRValue(t, createFuncRValue(t, funcPtr, vt)), func(fd), funcPtr(funcPtr),
+      vthis(vt), vtable(vtable) {
+#ifndef NDEBUG
   const auto tb = t->toBasetype();
+#endif
   assert(tb->ty == TY::Tfunction || tb->ty == TY::Tdelegate ||
          (tb->ty == TY::Tpointer &&
           tb->nextOf()->toBasetype()->ty == TY::Tfunction));
