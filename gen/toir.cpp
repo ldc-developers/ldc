@@ -880,8 +880,20 @@ public:
 
     llvm::Value *offsetValue = nullptr;
 
+    const auto tb = e->type->toBasetype();
+    assert(tb->ty != TY::Tdelegate);
+    assert(tb->ty != TY::Tfunction);
+
     if (e->offset == 0) {
       offsetValue = baseValue;
+
+      if (tb->isPtrToFunction())
+        if (auto dfn = base->isFunc()) {
+          result = e->type == dfn->type
+                       ? dfn
+                       : new DFuncValue(e->type, dfn->func, dfn->funcPtr);
+          return;
+        }
     } else {
       LLType *elemType = DtoType(base->type);
       if (elemType->isSized()) {
@@ -912,9 +924,14 @@ public:
       }
     }
 
+    if (tb->isPtrToFunction()) {
+      result = new DFuncValue(e->type, nullptr, offsetValue);
+      return;
+    }
+
     // Casts are also "optimized into" SymOffExp by the frontend.
-    LLValue *llVal = (e->type->toBasetype()->isintegral()
-                          ? p->ir->CreatePtrToInt(offsetValue, DtoType(e->type))
+    LLValue *llVal =
+        (tb->isintegral() ? p->ir->CreatePtrToInt(offsetValue, DtoType(e->type))
                           : DtoBitCast(offsetValue, DtoType(e->type)));
     result = new DImValue(e->type, llVal);
   }
@@ -993,7 +1010,7 @@ public:
                 : new DFuncValue(e->type, dfv->func, dfv->funcPtr, dfv->vthis);
       } else {
         // FIXME: should not reach this
-        result = new DImValue(e->type, DtoRVal(dv));
+        result = new DFuncValue(e->type, nullptr, DtoRVal(dv));
       }
       return;
     }
@@ -2928,8 +2945,8 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
         Logger::println("is a constructor call, checking lhs of DotVarExp");
         if (toInPlaceConstruction(lhs, dve->e1)) {
           Logger::println("success, calling ctor on in-place constructed lhs");
-          auto fnval = new DFuncValue(fd, DtoCallee(fd), DtoLVal(lhs));
-          DtoCallFunction(ce->loc, ce->type, fnval, ce->arguments);
+          auto fnval = DFuncValue(fd, DtoCallee(fd), DtoLVal(lhs));
+          DtoCallFunction(ce->loc, ce->type, &fnval, ce->arguments);
           return true;
         }
       }

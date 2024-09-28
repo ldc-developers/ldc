@@ -527,6 +527,10 @@ DValue *DtoCastInt(const Loc &loc, DValue *val, Type *_to) {
     } else {
       rval = new llvm::SIToFPInst(rval, tolltype, "", gIR->scopebb());
     }
+  } else if (to->isPtrToFunction()) {
+    IF_LOG Logger::cout() << "cast function pointer: " << *tolltype << '\n';
+    rval = gIR->ir->CreateIntToPtr(rval, tolltype);
+    return new DFuncValue(_to, nullptr, rval);
   } else if (to->ty == TY::Tpointer) {
     IF_LOG Logger::cout() << "cast pointer: " << *tolltype << '\n';
     rval = gIR->ir->CreateIntToPtr(rval, tolltype);
@@ -569,7 +573,9 @@ DValue *DtoCastPtr(const Loc &loc, DValue *val, Type *to) {
     fatal();
   }
 
-  return new DImValue(to, rval);
+  return totype->isPtrToFunction()
+             ? static_cast<DValue *>(new DFuncValue(to, nullptr, rval))
+             : static_cast<DValue *>(new DImValue(to, rval));
 }
 
 DValue *DtoCastFloat(const Loc &loc, DValue *val, Type *to) {
@@ -766,9 +772,8 @@ DValue *DtoPaintType(const Loc &loc, DValue *val, Type *to) {
       return new DSliceValue(to, slice->getLength(), slice->getPtr());
     }
   } else if (auto func = val->isFunc()) {
-    if (tb->ty == TY::Tdelegate) {
-      return new DFuncValue(to, func->func, func->funcPtr, func->vthis);
-    }
+    return new DFuncValue(to, func->func, func->funcPtr,
+                          tb->ty == TY::Tdelegate ? func->vthis : nullptr);
   } else { // generic rvalue
     LLValue *rval = DtoRVal(val);
     LLType *tll = DtoType(tb);

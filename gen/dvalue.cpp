@@ -64,13 +64,16 @@ DRValue::DRValue(Type *t, LLValue *v) : DValue(t, v) {
 ////////////////////////////////////////////////////////////////////////////////
 
 DImValue::DImValue(Type *t, llvm::Value *v) : DRValue(t, v) {
-  // TODO: get rid of Tfunction exception
+#ifndef NDEBUG
+  const auto tb = t->toBasetype();
+#endif
+  assert(tb->ty != TY::Tarray && "use DSliceValue for dynamic arrays");
+  assert(!tb->isFunction_Delegate_PtrToFunction() &&
+         "use DFuncValue for function pointers and delegates");
+
   // v may be an addrspace qualified pointer so strip it before doing a pointer
   // equality check.
-  assert(t->toBasetype()->ty == TY::Tfunction ||
-         stripAddrSpaces(v->getType()) == DtoType(t));
-  assert(t->toBasetype()->ty != TY::Tarray &&
-         "use DSliceValue for dynamic arrays");
+  assert(stripAddrSpaces(v->getType()) == DtoType(t));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -119,12 +122,7 @@ DFuncValue::DFuncValue(Type *t, FuncDeclaration *fd, LLValue *funcPtr,
                        LLValue *vt, LLValue *vtable)
     : DRValue(t, createFuncRValue(t, funcPtr, vt)), func(fd), funcPtr(funcPtr),
       vthis(vt), vtable(vtable) {
-#ifndef NDEBUG
-  const auto tb = t->toBasetype();
-#endif
-  assert(tb->ty == TY::Tfunction || tb->ty == TY::Tdelegate ||
-         (tb->ty == TY::Tpointer &&
-          tb->nextOf()->toBasetype()->ty == TY::Tfunction));
+  assert(t->toBasetype()->isFunction_Delegate_PtrToFunction());
 }
 
 DFuncValue::DFuncValue(FuncDeclaration *fd, LLValue *funcPtr, LLValue *vt,
@@ -150,8 +148,8 @@ DRValue *DLValue::getRVal() {
 
   LLValue *rval = DtoLoad(DtoMemType(type), val);
 
-  const auto ty = type->toBasetype()->ty;
-  if (ty == TY::Tbool) {
+  const auto tb = type->toBasetype();
+  if (tb->ty == TY::Tbool) {
     assert(rval->getType() == llvm::Type::getInt8Ty(gIR->context()));
 
     if (isOptimizationEnabled()) {
@@ -164,8 +162,14 @@ DRValue *DLValue::getRVal() {
 
     // truncate to i1
     rval = gIR->ir->CreateTrunc(rval, llvm::Type::getInt1Ty(gIR->context()));
-  } else if (ty == TY::Tarray) {
+  } else if (tb->ty == TY::Tarray) {
     return new DSliceValue(type, rval);
+  } else if (tb->isPtrToFunction()) {
+    return new DFuncValue(type, nullptr, rval);
+  } else if (tb->ty == TY::Tdelegate) {
+    const auto contextPtr = DtoExtractValue(rval, 0, ".ptr");
+    const auto funcPtr = DtoExtractValue(rval, 1, ".funcptr");
+    return new DFuncValue(type, nullptr, funcPtr, contextPtr);
   }
 
   return new DImValue(type, rval);
