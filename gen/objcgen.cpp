@@ -10,7 +10,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/objcgen.h"
-
+#include "dmd/expression.h"
+#include "dmd/identifier.h"
 #include "dmd/mtype.h"
 #include "dmd/objc.h"
 #include "gen/irstate.h"
@@ -38,6 +39,78 @@ bool objc_isSupported(const llvm::Triple &triple) {
     }
   }
   return false;
+}
+
+ObjCState::ObjCState(llvm::Module &module) : module(module) {
+  llvm::LLVMContext &c = module.getContext();
+  _class_t = llvm::StructType::create(c, "_class_t");
+  _objc_cache = llvm::StructType::create(c, "_objc_cache");
+  _class_ro_t = llvm::StructType::create(c, "_class_ro_t");
+  __method_list_t = llvm::StructType::create(c, "__method_list_t");
+  _objc_method = llvm::StructType::create(c, "_objc_method");
+  _objc_protocol_list = llvm::StructType::create(c, "_objc_protocol_list");
+  _protocol_t = llvm::StructType::create(c, "_protocol_t");
+  _ivar_t = llvm::StructType::create(c, "_ivar_t");
+  _ivar_list_t = llvm::StructType::create(c, "_ivar_list_t");
+  _prop_t = llvm::StructType::create(c, "_prop_t");
+
+  _class_t->setBody(
+      {_class_t->getPointerTo(), _class_t->getPointerTo(),
+       _objc_cache->getPointerTo(), _class_t->getPointerTo(),
+       /// i8* (i8*, i8*)**
+       llvm::FunctionType::get(
+           llvm::Type::getInt8PtrTy(c),
+           {llvm::Type::getInt8PtrTy(c), llvm::Type::getInt8PtrTy(c)}, false)
+           ->getPointerTo()
+           ->getPointerTo(),
+       _class_ro_t->getPointerTo()});
+
+  _class_ro_t->setBody(
+      {llvm::Type::getInt32Ty(c), llvm::Type::getInt32Ty(c),
+       llvm::Type::getInt32Ty(c), llvm::Type::getInt8PtrTy(c),
+       llvm::Type::getInt8PtrTy(c), __method_list_t->getPointerTo(),
+       _objc_protocol_list->getPointerTo(), _ivar_list_t->getPointerTo(),
+       llvm::Type::getInt8PtrTy(c), _prop_list_t->getPointerTo()});
+
+  __method_list_t->setBody({llvm::Type::getInt32Ty(c),
+                            llvm::Type::getInt32Ty(c),
+                            llvm::ArrayType::get(_objc_method, 0)});
+
+  _objc_method->setBody({llvm::Type::getInt8PtrTy(c),
+                         llvm::Type::getInt8PtrTy(c),
+                         llvm::Type::getInt8PtrTy(c)});
+
+  _objc_protocol_list->setBody(
+      {llvm::Type::getInt64Ty(c),
+       llvm::ArrayType::get(_protocol_t->getPointerTo(), 0)});
+
+  _protocol_t->setBody({
+      llvm::Type::getInt8PtrTy(c),
+      llvm::Type::getInt8PtrTy(c),
+      _objc_protocol_list->getPointerTo(),
+      __method_list_t->getPointerTo(),
+      __method_list_t->getPointerTo(),
+      __method_list_t->getPointerTo(),
+      __method_list_t->getPointerTo(),
+      _prop_list_t->getPointerTo(),
+      llvm::Type::getInt32Ty(c),
+      llvm::Type::getInt32Ty(c),
+      llvm::Type::getInt8PtrTy(c)->getPointerTo(),
+      llvm::Type::getInt8PtrTy(c),
+      _prop_list_t->getPointerTo(),
+  });
+
+  _ivar_list_t->setBody({llvm::Type::getInt32Ty(c), llvm::Type::getInt32Ty(c),
+                         llvm::ArrayType::get(_ivar_t, 0)});
+
+  _ivar_t->setBody({llvm::Type::getInt64PtrTy(c), llvm::Type::getInt8PtrTy(c),
+                    llvm::Type::getInt8PtrTy(c), llvm::Type::getInt32Ty(c),
+                    llvm::Type::getInt32Ty(c)});
+
+  _prop_list_t->setBody({llvm::Type::getInt32Ty(c), llvm::Type::getInt32Ty(c),
+                         llvm::ArrayType::get(_prop_t, 0)});
+
+  _prop_t->setBody({llvm::Type::getInt8PtrTy(c), llvm::Type::getInt8PtrTy(c)});
 }
 
 LLGlobalVariable *ObjCState::getCStringVar(const char *symbol,
@@ -85,6 +158,22 @@ LLGlobalVariable *ObjCState::getMethVarRef(const ObjcSelector &sel) {
           : "__OBJC,__message_refs,literal_pointers,no_dead_strip");
 
   // Save for later lookup and prevent optimizer elimination
+  methVarRefMap[s] = selref;
+  retain(selref);
+
+  return selref;
+}
+
+LLGlobalVariable *ObjCState::classVarRef(const ObjcClassReferenceExp &cre) {
+  llvm::StringRef s(std::string("OBJC_CLASS_$_")
+                    + cre.classDeclaration->objc.identifier->toChars());
+
+  auto it = methVarRefMap.find(s);
+  if (it != methVarRefMap.end()) {
+    return it->second;
+  }
+  auto selref = new LLGlobalVariable(module, _class_t, false, LLGlobalValue::ExternalLinkage, llvm::ConstantPointerNull::get(_class_t->getPointerTo()), s);
+  selref->setSection("__DATA,__objc_classrefs");
   methVarRefMap[s] = selref;
   retain(selref);
 
