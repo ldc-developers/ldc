@@ -786,7 +786,8 @@ version (IN_LLVM)
     if (global.errors)
         fatal();
 
-    if (!IN_LLVM && driverParams.lib && params.objfiles.length == 0)
+    // IN_LLVM: with -lib, accept no object files if there are library files
+    if (driverParams.lib && params.objfiles.length == 0 && (!IN_LLVM || params.libfiles.length == 0))
     {
         error(Loc.initial, "no input files");
         return EXIT_FAILURE;
@@ -834,12 +835,11 @@ else
     if (global.errors)
         fatal();
     int status = EXIT_SUCCESS;
-    if (!params.objfiles.length)
+    // IN_LLVM: with -lib, accept no object files if there are library files (verified earlier)
+    if (!params.objfiles.length && (!IN_LLVM || !driverParams.lib))
     {
         if (driverParams.link)
             error(Loc.initial, "no object files to link");
-        if (IN_LLVM && !driverParams.link && driverParams.lib)
-            error(Loc.initial, "no object files");
     }
     else
     {
