@@ -10,6 +10,11 @@ set -euxo pipefail
 #
 # Afterwards, merging a new frontend+druntime is a matter of merging branch
 # `dmd-rewrite-stable` or some tag (`dmd-rewrite-v2.101.0`).
+#
+# NOTE: As it turns out, the rewrite unfortunately isn't stable across git versions.
+#       This process was started on Ubuntu 22, using git v2.34 and git-filter-repo v2.34 (22826b5a68b6).
+#       On Ubuntu 24 (git v2.43), this fails (to fast-forward push) with both default git-filter-repo v2.38 (ed61b4050b71) and v2.34.
+#       So you might need to use a Ubuntu 22 container for now to run this script successfully.
 
 initialize="${INITIALIZE:-0}" # set INITIALIZE=1 for the very first rewrite
 refs_prefix="dmd-rewrite-"
@@ -50,6 +55,7 @@ git filter-repo --invert-paths \
   --path-regex '(compiler/)?src/dmd/frontend\.d' \
   --path-regex '(compiler/)?src/dmd/scan(elf|mach|mscoff|omf)\.d' \
   --path-regex '(compiler/)?src/dmd/lib(|elf|mach|mscoff|omf)\.d' \
+  --path 'compiler/src/dmd/lib/' \
   --path-regex '(compiler/)?src/dmd/link\.d' \
   --path-regex '(compiler/)?src/dmd/(e|s)2ir\.d' \
   --path-regex '(compiler/)?src/dmd/to(csym|ctype|cvdebug|dt|ir|obj)\.d' \
