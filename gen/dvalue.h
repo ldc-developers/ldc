@@ -154,6 +154,8 @@ public:
   bool definedInFuncEntryBB() override;
 
   DFuncValue *isFunc() override { return this; }
+
+  DFuncValue *paintAs(Type *t);
 };
 
 /// Represents a D value in memory via a low-level lvalue (pointer).

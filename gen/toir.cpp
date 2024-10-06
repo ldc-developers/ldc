@@ -889,9 +889,7 @@ public:
 
       if (tb->isPtrToFunction())
         if (auto dfn = base->isFunc()) {
-          result = e->type == dfn->type
-                       ? dfn
-                       : new DFuncValue(e->type, dfn->func, dfn->funcPtr);
+          result = dfn->paintAs(e->type);
           return;
         }
     } else {
@@ -962,11 +960,8 @@ public:
     if (DFuncValue *fv = v->isFunc()) {
       Logger::println("is func");
       // Logger::println("FuncDeclaration");
-      FuncDeclaration *fd = fv->func;
-      assert(fd);
-      result = fv->type == e->type
-                   ? fv
-                   : new DFuncValue(e->type, fd, fv->funcPtr, fv->vthis);
+      assert(fv->func);
+      result = fv->paintAs(e->type);
       return;
     }
     if (v->isIm()) {
@@ -1004,12 +999,8 @@ public:
     if (e->type->toBasetype()->ty == TY::Tfunction) {
       DValue *dv = toElem(e->e1);
       if (DFuncValue *dfv = dv->isFunc()) {
-        result =
-            dfv->type == e->type
-                ? dfv
-                : new DFuncValue(e->type, dfv->func, dfv->funcPtr, dfv->vthis);
+        result = dfv->paintAs(e->type);
       } else {
-        // FIXME: should not reach this
         result = new DFuncValue(e->type, nullptr, DtoRVal(dv));
       }
       return;
@@ -2305,13 +2296,14 @@ public:
     genFuncLiteral(fd, e);
     LLFunction *callee = DtoCallee(fd, false);
 
+    LLValue *contextPointer = nullptr;
     if (e->type->toBasetype()->ty == TY::Tdelegate) {
-      LLValue *cval = DtoNestedContext(e->loc, fd);
-      result = new DFuncValue(e->type, fd, callee, cval);
+      contextPointer = DtoNestedContext(e->loc, fd);
     } else {
       assert(!fd->isNested());
-      result = new DFuncValue(e->type, fd, callee);
     }
+
+    result = new DFuncValue(e->type, fd, callee, contextPointer);
   }
 
   //////////////////////////////////////////////////////////////////////////////

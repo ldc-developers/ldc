@@ -134,6 +134,15 @@ bool DFuncValue::definedInFuncEntryBB() {
          (!vthis || isDefinedInFuncEntryBB(vthis));
 }
 
+DFuncValue *DFuncValue::paintAs(Type *t) {
+  if (t == type)
+    return this;
+
+  return new DFuncValue(
+      t, func, funcPtr,
+      vthis && t->toBasetype()->ty == TY::Tdelegate ? vthis : nullptr, vtable);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 DLValue::DLValue(Type *t, LLValue *v) : DValue(t, v) {

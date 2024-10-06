@@ -772,8 +772,7 @@ DValue *DtoPaintType(const Loc &loc, DValue *val, Type *to) {
       return new DSliceValue(to, slice->getLength(), slice->getPtr());
     }
   } else if (auto func = val->isFunc()) {
-    return new DFuncValue(to, func->func, func->funcPtr,
-                          tb->ty == TY::Tdelegate ? func->vthis : nullptr);
+    return func->paintAs(to);
   } else { // generic rvalue
     LLValue *rval = DtoRVal(val);
     LLType *tll = DtoType(tb);
