@@ -13,6 +13,7 @@ module dmd.root.ctfloat;
 
 static import core.math, core.stdc.math;
 import core.stdc.errno;
+import core.stdc.stdint;
 import core.stdc.stdio;
 import core.stdc.stdlib;
 import core.stdc.string;
@@ -136,11 +137,15 @@ extern (C++) struct CTFloat
     {
         static real_t rint(real_t x) { return real_t(cast(double)std.math.rint(cast(double)x)); }
         static real_t nearbyint(real_t x) { return real_t(cast(double)std.math.nearbyint(cast(double)x)); }
+        static int64_t llround(real_t x) { return core.math.rndtol(cast(double)x); }
+        static int64_t llrint(real_t x) { return core.stdc.math.llrint(cast(double)x); }
     }
     else
     {
         static real_t rint(real_t x) { return std.math.rint(x); }
         static real_t nearbyint(real_t x) { return std.math.nearbyint(x); }
+        static int64_t llround(real_t x) { return core.math.rndtol(x); }
+        static int64_t llrint(real_t x) { return core.stdc.math.llrintl(x); }
     }
 
     static bool isFloat32LiteralOutOfRange(const(char)* literal) @nogc;

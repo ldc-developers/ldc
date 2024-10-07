@@ -706,6 +706,24 @@ Expression eval_llvmround(Loc loc, FuncDeclaration fd, Expression[] arguments)
     return new RealExp(loc, CTFloat.round(arg0.toReal()), type);
 }
 
+alias eval_llvmlrint = eval_llvmllrint; // difference: int return type, not long
+Expression eval_llvmllrint(Loc loc, FuncDeclaration fd, Expression[] arguments)
+{
+    Type type = fd.type.isTypeFunction().next; // int or long
+    Expression arg0 = arguments[0];
+    assert(arg0.op == EXP.float64);
+    return new IntegerExp(loc, CTFloat.llrint(arg0.toReal()), type);
+}
+
+alias eval_llvmlround = eval_llvmllround; // difference: int return type, not long
+Expression eval_llvmllround(Loc loc, FuncDeclaration fd, Expression[] arguments)
+{
+    Type type = fd.type.isTypeFunction().next; // int or long
+    Expression arg0 = arguments[0];
+    assert(arg0.op == EXP.float64);
+    return new IntegerExp(loc, CTFloat.llround(arg0.toReal()), type);
+}
+
 Expression eval_llvmfma(Loc loc, FuncDeclaration fd, Expression[] arguments)
 {
     Type type = getTypeOfOverloadedIntrinsic(fd);
