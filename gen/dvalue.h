@@ -141,18 +141,21 @@ public:
 /// optional vtable pointer.
 class DFuncValue : public DRValue {
 public:
-  FuncDeclaration *func;
-  llvm::Value *vthis;
+  FuncDeclaration *const func;
+  llvm::Value *const funcPtr;
+  llvm::Value *const vthis;
   llvm::Value *vtable;
 
-  DFuncValue(Type *t, FuncDeclaration *fd, llvm::Value *v,
+  DFuncValue(Type *t, FuncDeclaration *fd, llvm::Value *funcPtr,
              llvm::Value *vt = nullptr, llvm::Value *vtable = nullptr);
-  DFuncValue(FuncDeclaration *fd, llvm::Value *v, llvm::Value *vt = nullptr,
-             llvm::Value *vtable = nullptr);
+  DFuncValue(FuncDeclaration *fd, llvm::Value *funcPtr,
+             llvm::Value *vt = nullptr, llvm::Value *vtable = nullptr);
 
   bool definedInFuncEntryBB() override;
 
   DFuncValue *isFunc() override { return this; }
+
+  DFuncValue *paintAs(Type *t);
 };
 
 /// Represents a D value in memory via a low-level lvalue (pointer).

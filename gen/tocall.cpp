@@ -712,8 +712,9 @@ private:
 
     size_t index = args.size();
 
-    if (dfnval && (dfnval->func->ident == Id::ensure ||
-                   dfnval->func->ident == Id::require)) {
+    if (dfnval && dfnval->func &&
+        (dfnval->func->ident == Id::ensure ||
+         dfnval->func->ident == Id::require)) {
       // can be the this "context" argument for a contract invocation
       // (pass a pointer to the aggregate `this` pointer, which can naturally be
       // used as the contract's parent context in case the contract features
@@ -747,7 +748,7 @@ private:
       args.push_back(ctxarg);
     } else if (nestedcall) {
       // ... or a nested function context arg
-      if (dfnval) {
+      if (dfnval && dfnval->func) {
         LLValue *contextptr = DtoNestedContext(loc, dfnval->func);
         args.push_back(contextptr);
       } else {
@@ -767,6 +768,7 @@ private:
 
     if (irFty.arg_objcSelector) {
       assert(dfnval);
+      assert(dfnval->func);
       const auto selector = dfnval->func->objc.selector;
       assert(selector);
       LLGlobalVariable *selptr = gIR->objc.getMethVarRef(*selector);
@@ -836,7 +838,7 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
   // get callee llvm value
   LLValue *callable = DtoCallableValue(fnval);
   LLFunctionType *callableTy = irFty.funcType;
-  if (dfnval && dfnval->func->isCsymbol()) {
+  if (dfnval && dfnval->func && dfnval->func->isCsymbol()) {
     // See note in DtoDeclareFunction about K&R foward declared (void) functions
     // later defined as (...) functions. We want to use the non-variadic one.
     if (irFty.funcType->getNumParams() == 0 && irFty.funcType->isVarArg())
@@ -1017,7 +1019,7 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
       attrlist =
           llvm::Intrinsic::getAttributes(gIR->context(), cf->getIntrinsicID());
     }
-  } else if (dfnval) {
+  } else if (dfnval && dfnval->func) {
     call->setCallingConv(getCallingConvention(dfnval->func));
   } else {
     call->setCallingConv(gABI->callingConv(tf, iab.hasContext));
@@ -1044,6 +1046,12 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
 
   if (rbase->ty == TY::Tarray) {
     return new DSliceValue(resulttype, retllval);
+  } else if (rbase->isPtrToFunction()) {
+    return new DFuncValue(resulttype, nullptr, retllval);
+  } else if (rbase->ty == TY::Tdelegate) {
+    const auto contextPtr = DtoExtractValue(retllval, 0, ".ptr");
+    const auto funcPtr = DtoExtractValue(retllval, 1, ".funcptr");
+    return new DFuncValue(resulttype, nullptr, funcPtr, contextPtr);
   }
 
   return new DImValue(resulttype, retllval);
