@@ -11,7 +11,7 @@ concurrency:
 
 env:
   CLANG_VERSION: 15.0.6
-  LLVM_VERSION: 18.1.8
+  LLVM_VERSION: a97cd9fa
 
 jobs:
   build-native:
