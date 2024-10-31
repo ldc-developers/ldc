@@ -32,7 +32,8 @@
 # We also want an user-specified LLVM_ROOT_DIR to take precedence over the
 # system default locations such as /usr/local/bin. Executing find_program()
 # multiples times is the approach recommended in the docs.
-set(llvm_config_names llvm-config-18.1 llvm-config181 llvm-config-18
+set(llvm_config_names llvm-config-19.1 llvm-config191 llvm-config-19
+                      llvm-config-18.1 llvm-config181 llvm-config-18
                       llvm-config-17.0 llvm-config170 llvm-config-17
                       llvm-config-16.0 llvm-config160 llvm-config-16
                       llvm-config-15.0 llvm-config150 llvm-config-15
@@ -46,9 +47,11 @@ if(APPLE)
     # extra fallbacks for MacPorts & Homebrew
     find_program(LLVM_CONFIG
         NAMES ${llvm_config_names}
-        PATHS /opt/local/libexec/llvm-18/bin /opt/local/libexec/llvm-17/bin
+        PATHS /opt/local/libexec/llvm-19/bin
+              /opt/local/libexec/llvm-18/bin /opt/local/libexec/llvm-17/bin
               /opt/local/libexec/llvm-16/bin /opt/local/libexec/llvm-15/bin
               /opt/local/libexec/llvm/bin
+              /usr/local/opt/llvm@19/bin
               /usr/local/opt/llvm@18/bin /usr/local/opt/llvm@17/bin
               /usr/local/opt/llvm@16/bin /usr/local/opt/llvm@15/bin
               /usr/local/opt/llvm/bin
@@ -136,11 +139,6 @@ else()
     string(REPLACE "\n" " " LLVM_LDFLAGS "${LLVM_LDFLAGS} ${LLVM_SYSTEM_LIBS}")
     if(APPLE) # unclear why/how this happens
         string(REPLACE "-llibxml2.tbd" "-lxml2" LLVM_LDFLAGS ${LLVM_LDFLAGS})
-    endif()
-
-    if(${LLVM_VERSION_MAJOR} LESS "15")
-        # Versions below 15.0 do not support component windowsdriver
-        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "windowsdriver")
     endif()
 
     llvm_set(LIBRARY_DIRS libdir true)
