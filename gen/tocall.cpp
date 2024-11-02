@@ -273,7 +273,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       gABI->vaCopy(ap, &argptr);
     } else {
       LLValue *llAp = gABI->prepareVaStart(ap);
-      p->ir->CreateCall(GET_INTRINSIC_DECL(vastart), llAp, "");
+      p->ir->CreateCall(GET_INTRINSIC_DECL(vastart, llAp->getType()), llAp, "");
     }
     result = nullptr;
     return true;
@@ -321,7 +321,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     DLValue *ap = toElem((*e->arguments)[0])->isLVal(); // va_list
     assert(ap);
     LLValue *llAp = gABI->prepareVaArg(ap);
-    p->ir->CreateCall(GET_INTRINSIC_DECL(vaend), llAp);
+    p->ir->CreateCall(GET_INTRINSIC_DECL(vaend, llAp->getType()), llAp);
     result = nullptr;
     return true;
   }

@@ -1071,7 +1071,7 @@ static void emitRangeErrorImpl(IRState *irs, const Loc &loc,
     DtoCAssert(module, loc, DtoConstCString(cAssertMsg));
     break;
   case CHECKACTION_halt:
-    irs->ir->CreateCall(GET_INTRINSIC_DECL(trap), {});
+    irs->ir->CreateCall(GET_INTRINSIC_DECL(trap, {}), {});
     irs->ir->CreateUnreachable();
     break;
   case CHECKACTION_context:
