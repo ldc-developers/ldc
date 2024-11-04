@@ -11,239 +11,378 @@
 
 #include "optimizer.h"
 
-#include "llvm/Target/TargetMachine.h"
+#include "valueparser.h"
+#include "utils.h"
 
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Verifier.h"
+//===-- optimizer.cpp -----------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
 
+#include "gen/optimizer.h"
+
+#include "gen/passes/GarbageCollect2Stack.h"
+#include "gen/passes/StripExternals.h"
+#include "gen/passes/SimplifyDRuntimeCalls.h"
+#include "gen/passes/Passes.h"
 #if LDC_LLVM_VER < 1700
 #include "llvm/ADT/Triple.h"
 #else
 #include "llvm/TargetParser/Triple.h"
 #endif
-
+#include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/LegacyPassNameParser.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Verifier.h"
+#include "llvm/LinkAllPasses.h"
 #include "llvm/Support/CommandLine.h"
-
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/IPO/AlwaysInliner.h"
-#include "llvm/Transforms/IPO/Inliner.h"
+#if LDC_LLVM_VER < 1700
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-
-#include "context.h"
-#include "utils.h"
-#include "valueparser.h"
-
-#ifdef LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES
-#include "Passes.h"
 #endif
+#include "llvm/Transforms/Instrumentation/MemorySanitizer.h"
+#include "llvm/Transforms/Instrumentation/ThreadSanitizer.h"
+#include "llvm/Transforms/Instrumentation/AddressSanitizer.h"
+#include "llvm/Passes/PassBuilder.h"
+#include "llvm/Passes/StandardInstrumentations.h"
+#include "llvm/Transforms/Instrumentation/AddressSanitizerOptions.h"
+#include "llvm/Transforms/Instrumentation/InstrProfiling.h"
+#include "llvm/Transforms/Instrumentation/PGOInstrumentation.h"
+#include "llvm/Transforms/IPO/GlobalDCE.h"
+#include "llvm/Transforms/Scalar/EarlyCSE.h"
+#include "llvm/Transforms/Scalar/LICM.h"
+#include "llvm/Transforms/Scalar/Reassociate.h"
+#include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 
-namespace {
-namespace cl = llvm::cl;
-cl::opt<bool>
+using namespace llvm;
+
+static cl::opt<signed char> optimizeLevel(
+    cl::desc("Setting the optimization level:"), cl::ZeroOrMore,
+    cl::values(
+        clEnumValN(3, "O", "Equivalent to -O3"),
+        clEnumValN(0, "O0", "No optimizations (default)"),
+        clEnumValN(1, "O1", "Simple optimizations"),
+        clEnumValN(2, "O2", "Good optimizations"),
+        clEnumValN(3, "O3", "Aggressive optimizations"),
+        clEnumValN(4, "O4", "Equivalent to -O3"), // Not implemented yet.
+        clEnumValN(5, "O5", "Equivalent to -O3"), // Not implemented yet.
+        clEnumValN(-1, "Os", "Like -O2 with extra optimizations for size"),
+        clEnumValN(-2, "Oz", "Like -Os but reduces code size further")),
+    cl::init(0));
+
+static cl::opt<bool> noVerify("disable-verify", cl::ZeroOrMore, cl::Hidden,
+                              cl::desc("Do not verify result module"));
+
+static cl::opt<bool>
     verifyEach("verify-each", cl::ZeroOrMore, cl::Hidden,
                cl::desc("Run verifier after D-specific and explicitly "
                         "specified optimization passes"));
 
-/// LDC LICENSE START
-#ifdef LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES
-cl::opt<bool>
+static cl::opt<bool>
     disableLangSpecificPasses("disable-d-passes", cl::ZeroOrMore,
                               cl::desc("Disable all D-specific passes"));
 
-cl::opt<bool> disableSimplifyDruntimeCalls(
+static cl::opt<bool> disableSimplifyDruntimeCalls(
     "disable-simplify-drtcalls", cl::ZeroOrMore,
     cl::desc("Disable simplification of druntime calls"));
 
-cl::opt<bool> disableSimplifyLibCalls(
+static cl::opt<bool> disableSimplifyLibCalls(
     "disable-simplify-libcalls", cl::ZeroOrMore,
     cl::desc("Disable simplification of well-known C runtime calls"));
 
-cl::opt<bool> disableGCToStack(
+static cl::opt<bool> disableGCToStack(
     "disable-gc2stack", cl::ZeroOrMore,
     cl::desc("Disable promotion of GC allocations to stack memory"));
-#endif
-/// LDC LICENSE END
 
-cl::opt<bool> stripDebug(
+static cl::opt<bool> stripDebug(
     "strip-debug", cl::ZeroOrMore,
     cl::desc("Strip symbolic debug information before optimization"));
 
-cl::opt<bool> disableLoopUnrolling(
+static cl::opt<bool> disableLoopUnrolling(
     "disable-loop-unrolling", cl::ZeroOrMore,
     cl::desc("Disable loop unrolling in all relevant passes"));
-cl::opt<bool>
+static cl::opt<bool>
     disableLoopVectorization("disable-loop-vectorization", cl::ZeroOrMore,
                              cl::desc("Disable the loop vectorization pass"));
 
-cl::opt<bool>
+static cl::opt<bool>
     disableSLPVectorization("disable-slp-vectorization", cl::ZeroOrMore,
                             cl::desc("Disable the slp vectorization pass"));
 
-/// LDC LICENSE START
-#ifdef LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES
-void addPass(llvm::PassManagerBase &pm, llvm::Pass *pass) {
-  pm.add(pass);
+static cl::opt<int> fSanitizeMemoryTrackOrigins(
+    "fsanitize-memory-track-origins", cl::ZeroOrMore, cl::init(0),
+    cl::desc(
+        "Enable origins tracking in MemorySanitizer (0=disabled, default)"));
 
-  if (verifyEach) {
-    pm.add(llvm::createVerifierPass());
+unsigned optLevel() {
+  // Use -O2 as a base for the size-optimization levels.
+  return optimizeLevel >= 0 ? optimizeLevel : 2;
+}
+
+static unsigned sizeLevel() { return optimizeLevel < 0 ? -optimizeLevel : 0; }
+
+// Determines whether or not to run the normal, full inlining pass.
+bool willInline() {
+  return false;
+}
+
+bool willCrossModuleInline() {
+  return false;
+}
+
+bool isOptimizationEnabled() { return optimizeLevel != 0; }
+
+llvm::CodeGenOptLevel codeGenOptLevel() {
+  // Use same appoach as clang (see lib/CodeGen/BackendUtil.cpp)
+  if (optLevel() == 0) {
+    return llvm::CodeGenOptLevel::None;
+  }
+  if (optLevel() >= 3) {
+    return llvm::CodeGenOptLevel::Aggressive;
+  }
+  return llvm::CodeGenOptLevel::Default;
+}
+
+std::unique_ptr<TargetLibraryInfoImpl> createTLII(llvm::Module &M) {
+  auto tlii = new TargetLibraryInfoImpl(Triple(M.getTargetTriple()));
+  // The -disable-simplify-libcalls flag actually disables all builtin optzns.
+  if (disableSimplifyLibCalls)
+    tlii->disableAllFunctions();
+  return std::unique_ptr<TargetLibraryInfoImpl>(tlii);
+}
+
+static OptimizationLevel getOptimizationLevel(){
+  switch(optimizeLevel) {
+    case 0: return OptimizationLevel::O0;
+    case 1: return OptimizationLevel::O1;
+    case 2: return OptimizationLevel::O2;
+    case 3:
+    case 4:
+    case 5: return OptimizationLevel::O3;
+    case -1: return OptimizationLevel::Os;
+    case -2: return OptimizationLevel::Oz;
+  }
+  //This should never be reached
+  llvm_unreachable("Unexpected optimizeLevel.");
+  return OptimizationLevel::O0;
+}
+
+static void addStripExternalsPass(ModulePassManager &mpm,
+                                      OptimizationLevel level ) {
+
+  if (level == OptimizationLevel::O1 || level == OptimizationLevel::O2 ||
+      level == OptimizationLevel::O3) {
+    mpm.addPass(StripExternalsPass());
+    if (verifyEach) {
+      mpm.addPass(VerifierPass());
+    }
+    mpm.addPass(GlobalDCEPass());
   }
 }
 
-void addStripExternalsPass(const llvm::PassManagerBuilder &builder,
-                           llvm::PassManagerBase &pm) {
-  if (builder.OptLevel >= 1) {
-    addPass(pm, createStripExternalsPass());
-    addPass(pm, llvm::createGlobalDCEPass());
+static void addSimplifyDRuntimeCallsPass(ModulePassManager &mpm,
+                                      OptimizationLevel level ) {
+  if (level == OptimizationLevel::O2  || level == OptimizationLevel::O3) {
+    mpm.addPass(createModuleToFunctionPassAdaptor(SimplifyDRuntimeCallsPass()));
+    if (verifyEach) {
+      mpm.addPass(VerifierPass());
+    }
   }
 }
 
-void addSimplifyDRuntimeCallsPass(const llvm::PassManagerBuilder &builder,
-                                  llvm::PassManagerBase &pm) {
-  if (builder.OptLevel >= 2 && builder.SizeLevel == 0) {
-    addPass(pm, createSimplifyDRuntimeCalls());
+static void addGarbageCollect2StackPass(ModulePassManager &mpm,
+                                         OptimizationLevel level ) {
+  if (level == OptimizationLevel::O2  || level == OptimizationLevel::O3) {
+    mpm.addPass(createModuleToFunctionPassAdaptor(GarbageCollect2StackPass()));
+    if (verifyEach) {
+      mpm.addPass(VerifierPass());
+    }
   }
 }
 
-void addGarbageCollect2StackPass(const llvm::PassManagerBuilder &builder,
-                                 llvm::PassManagerBase &pm) {
-  if (builder.OptLevel >= 2 && builder.SizeLevel == 0) {
-    addPass(pm, createGarbageCollect2Stack());
-  }
-}
-#endif
-/// LDC LICENSE END
+static PipelineTuningOptions getPipelineTuningOptions(unsigned optLevelVal, unsigned sizeLevelVal) {
+  PipelineTuningOptions pto;
 
-// TODO: share this function with compiler
-void addOptimizationPasses(llvm::legacy::PassManagerBase &mpm,
-                           llvm::legacy::FunctionPassManager &fpm,
-                           unsigned optLevel, unsigned sizeLevel) {
-  llvm::PassManagerBuilder builder;
-  builder.OptLevel = optLevel;
-  builder.SizeLevel = sizeLevel;
+  pto.LoopUnrolling = optLevelVal > 0;
 
-  // TODO: expose this option from jit
-  if (/*willInline()*/ true) {
-    auto params = llvm::getInlineParams(optLevel, sizeLevel);
-    builder.Inliner = llvm::createFunctionInliningPass(params);
-  } else {
-    builder.Inliner = llvm::createAlwaysInlinerLegacyPass();
-  }
-
-  builder.DisableUnrollLoops = (disableLoopUnrolling.getNumOccurrences() > 0)
+  pto.LoopUnrolling = !((disableLoopUnrolling.getNumOccurrences() > 0)
                                    ? disableLoopUnrolling
-                                   : optLevel == 0;
+                                   : optLevelVal == 0);
 
+  // This is final, unless there is a #pragma vectorize enable
   if (disableLoopVectorization) {
-    builder.LoopVectorize = false;
+    pto.LoopVectorization = false;
     // If option wasn't forced via cmd line (-vectorize-loops, -loop-vectorize)
-  } else if (!builder.LoopVectorize) {
-    builder.LoopVectorize = optLevel > 1 && sizeLevel < 2;
+  } else if (!pto.LoopVectorization) {
+    pto.LoopVectorization = optLevelVal > 1 && sizeLevelVal < 2;
   }
 
-  builder.SLPVectorize =
-      disableSLPVectorization ? false : optLevel > 1 && sizeLevel < 2;
+  // When #pragma vectorize is on for SLP, do the same as above
+  pto.SLPVectorization =
+      disableSLPVectorization ? false : optLevelVal > 1 && sizeLevelVal < 2;
 
-  // TODO: sanitizers support in jit?
-  // TODO: PGO support in jit?
+  return pto;
+}
+/**
+ * Adds a set of optimization passes to the given module/function pass
+ * managers based on the given optimization and size reduction levels.
+ *
+ * The selection mirrors Clang behavior and is based on LLVM's
+ * PassManagerBuilder.
+ */
+//Run optimization passes using the new pass manager
+void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
+  // Create a ModulePassManager to hold and optimize the collection of
+  // per-module passes we are about to build.
 
-  /// LDC LICENSE START
-#ifdef LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES
+  unsigned optLevelVal = optLevel();
+  unsigned sizeLevelVal = sizeLevel();
+
+//  builder.OptLevel = optLevel;
+//  builder.SizeLevel = sizeLevel;
+//  builder.PrepareForLTO = opts::isUsingLTO();
+//  builder.PrepareForThinLTO = opts::isUsingThinLTO();
+//
+//  if (willInline()) {
+//    auto params = llvm::getInlineParams(optLevel, sizeLevel);
+//    builder.Inliner = createFunctionInliningPass(params);
+//  } else {
+//    builder.Inliner = createAlwaysInlinerLegacyPass();
+//  }
+  LoopAnalysisManager lam;
+  FunctionAnalysisManager fam;
+  CGSCCAnalysisManager cgam;
+  ModuleAnalysisManager mam;
+
+
+  PassInstrumentationCallbacks pic;
+  PrintPassOptions ppo;
+  //FIXME: Where should these come from
+  bool debugLogging = false;
+  ppo.Indent = false;
+  ppo.SkipAnalyses = false;
+#if LDC_LLVM_VER < 1600
+  StandardInstrumentations si(debugLogging, /*VerifyEach=*/false, ppo);
+#else
+  StandardInstrumentations si(M->getContext(), debugLogging, /*VerifyEach=*/false, ppo);
+#endif
+
+#if LDC_LLVM_VER < 1700
+  si.registerCallbacks(pic, &fam);
+#else
+  si.registerCallbacks(pic, &mam);
+#endif
+
+  PassBuilder pb(TM, getPipelineTuningOptions(optLevelVal, sizeLevelVal),
+                 {}, &pic);
+
+  // register the target library analysis directly because clang does :)
+  auto tlii = createTLII(*M);
+  fam.registerPass([&] { return TargetLibraryAnalysis(*tlii); });
+
+  ModulePassManager mpm;
+
+  if (!noVerify) {
+    pb.registerPipelineStartEPCallback([&](ModulePassManager &mpm,
+                                          OptimizationLevel level) {
+      mpm.addPass(VerifierPass());
+    });
+  }
+
+  // TODO: port over strip-debuginfos pass for -strip-debug
   if (!disableLangSpecificPasses) {
     if (!disableSimplifyDruntimeCalls) {
-      builder.addExtension(llvm::PassManagerBuilder::EP_LoopOptimizerEnd,
-                           addSimplifyDRuntimeCallsPass);
+      // FIXME: Is this registerOptimizerLastEPCallback correct here
+      //(had registerLoopOptimizerEndEPCallback) but that seems wrong
+      pb.registerOptimizerLastEPCallback(addSimplifyDRuntimeCallsPass);
     }
-
     if (!disableGCToStack) {
-      builder.addExtension(llvm::PassManagerBuilder::EP_LoopOptimizerEnd,
-                           addGarbageCollect2StackPass);
+      // FIXME: This should be checked
+      fam.registerPass([&] { return DominatorTreeAnalysis(); });
+      mam.registerPass([&] { return CallGraphAnalysis(); });
+      // FIXME: Is this registerOptimizerLastEPCallback correct here
+      //(had registerLoopOptimizerEndEPCallback) but that seems wrong
+      pb.registerOptimizerLastEPCallback(addGarbageCollect2StackPass);
     }
   }
 
-  // EP_OptimizerLast does not exist in LLVM 3.0, add it manually below.
-  builder.addExtension(llvm::PassManagerBuilder::EP_OptimizerLast,
-                       addStripExternalsPass);
-#endif
-  /// LDC LICENSE END
+  pb.registerOptimizerLastEPCallback(addStripExternalsPass);
 
-  builder.populateFunctionPassManager(fpm);
-  builder.populateModulePassManager(mpm);
+  pb.registerModuleAnalyses(mam);
+  pb.registerCGSCCAnalyses(cgam);
+  pb.registerFunctionAnalyses(fam);
+  pb.registerLoopAnalyses(lam);
+  pb.crossRegisterProxies(lam, fam, cgam, mam);
+
+
+  OptimizationLevel level = getOptimizationLevel();
+
+  if (optLevelVal == 0) {
+    mpm = pb.buildO0DefaultPipeline(level, false);
+  } else {
+    mpm = pb.buildPerModuleDefaultPipeline(level);
+  }
+
+
+  mpm.run(*M,mam);
+}
+////////////////////////////////////////////////////////////////////////////////
+// This function runs optimization passes based on command line arguments.
+// Returns true if any optimization passes were invoked.
+void optimizeModule(const OptimizerSettings &settings, llvm::Module *M,
+                    llvm::TargetMachine *TM) {
+  if (settings.sizeLevel > 0) {
+    optimizeLevel = -settings.sizeLevel;
+  } else {
+    optimizeLevel = settings.optLevel;
+  }
+  runOptimizationPasses(M, TM);
+
+  // Verify the resulting module.
+  if (!noVerify) {
+    verifyModule(M);
+  }
 }
 
-void setupPasses(llvm::TargetMachine &targetMachine,
-                 const OptimizerSettings &settings,
-                 llvm::legacy::PassManager &mpm,
-                 llvm::legacy::FunctionPassManager &fpm) {
-  mpm.add(
-      new llvm::TargetLibraryInfoWrapperPass(targetMachine.getTargetTriple()));
-  mpm.add(llvm::createTargetTransformInfoWrapperPass(
-      targetMachine.getTargetIRAnalysis()));
-  fpm.add(llvm::createTargetTransformInfoWrapperPass(
-      targetMachine.getTargetIRAnalysis()));
 
-  if (stripDebug) {
-    mpm.add(llvm::createStripSymbolsPass(true));
+// Verifies the module.
+void verifyModule(llvm::Module *m) {
+  // Logger::println("Verifying module...");
+  // LOG_SCOPE;
+  std::string ErrorStr;
+  raw_string_ostream OS(ErrorStr);
+  if (llvm::verifyModule(*m, &OS)) {
+    // error(Loc(), "%s", ErrorStr.c_str());
+    // fatal();
+    assert(false && "Verification failed!");
   }
-  mpm.add(llvm::createStripDeadPrototypesPass());
-  mpm.add(llvm::createStripDeadDebugInfoPass());
-
-  addOptimizationPasses(mpm, fpm, settings.optLevel, settings.sizeLevel);
+  // Logger::println("Verification passed!");
 }
 
-struct FuncFinalizer final {
-  llvm::legacy::FunctionPassManager &fpm;
-  explicit FuncFinalizer(llvm::legacy::FunctionPassManager &_fpm) : fpm(_fpm) {
-    fpm.doInitialization();
-  }
-  ~FuncFinalizer() { fpm.doFinalization(); }
-};
-
-void stripComdat(llvm::Module &module) {
-  for (auto &&func : module.functions()) {
-    func.setComdat(nullptr);
-  }
-  for (auto &&var : module.globals()) {
-    var.setComdat(nullptr);
-  }
-  module.getComdatSymbolTable().clear();
-}
-
-} // anon namespace
-
-void optimizeModule(const Context &context, llvm::TargetMachine &targetMachine,
-                    const OptimizerSettings &settings, llvm::Module &module) {
-  // There is llvm bug related tp comdat and IR based pgo
-  // and anyway comdat is useless at this stage
-  stripComdat(module);
-  llvm::legacy::PassManager mpm;
-  llvm::legacy::FunctionPassManager fpm(&module);
-  const auto name = module.getName();
-  interruptPoint(context, "Setup passes for module", name.data());
-  setupPasses(targetMachine, settings, mpm, fpm);
-
-  // Run per-function passes.
-  {
-    FuncFinalizer finalizer(fpm);
-    for (auto &fun : module) {
-      if (fun.isDeclaration()) {
-        interruptPoint(context, "Func decl", fun.getName().data());
-      } else {
-        interruptPoint(context, "Run passes for function",
-                       fun.getName().data());
-      }
-      fpm.run(fun);
-    }
-  }
-
-  // Run per-module passes.
-  interruptPoint(context, "Run passes for module", name.data());
-  mpm.run(module);
+// Output to `hash_os` all optimization settings that influence object code
+// output and that are not observable in the IR. This is used to calculate the
+// hash use for caching that uniquely identifies the object file output.
+void outputOptimizationSettings(llvm::raw_ostream &hash_os) {
+  hash_os << optimizeLevel;
+  hash_os << willInline();
+  hash_os << disableLangSpecificPasses;
+  hash_os << disableSimplifyDruntimeCalls;
+  hash_os << disableSimplifyLibCalls;
+  hash_os << disableGCToStack;
+  hash_os << stripDebug;
+  hash_os << disableLoopUnrolling;
+  hash_os << disableLoopVectorization;
+  hash_os << disableSLPVectorization;
 }
 
 void setRtCompileVar(const Context &context, llvm::Module &module,

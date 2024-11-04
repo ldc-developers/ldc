@@ -64,12 +64,12 @@ llvm::Function *createBindFunc(llvm::Module &module, llvm::Function &srcFunc,
 }
 
 llvm::Value *
-allocParam(llvm::IRBuilder<> &builder, llvm::Type &srcType,
+allocParam(llvm::IRBuilder<> &builder, llvm::Type &srcType, llvm::Type *byvalType,
            const llvm::DataLayout &layout, const ParamSlice &param,
            llvm::function_ref<void(const std::string &)> errHandler,
            const BindOverride &override) {
-  if (param.type == ParamType::Aggregate && srcType.isPointerTy()) {
-    auto elemType = srcType.getPointerElementType();
+  if (byvalType) {
+    auto elemType = byvalType;
     auto stackArg = builder.CreateAlloca(elemType);
     stackArg->setAlignment(layout.getABITypeAlign(elemType));
     auto init =
@@ -82,7 +82,7 @@ allocParam(llvm::IRBuilder<> &builder, llvm::Type &srcType,
   auto init =
       parseInitializer(layout, srcType, param.data, errHandler, override);
   builder.CreateStore(init, stackArg);
-  return builder.CreateLoad(stackArg);
+  return builder.CreateLoad(&srcType, stackArg);
 }
 
 void doBind(llvm::Module &module, llvm::Function &dstFunc,
@@ -106,7 +106,8 @@ void doBind(llvm::Module &module, llvm::Function &dstFunc,
       ++currentArg;
     } else {
       auto type = funcType->getParamType(static_cast<unsigned>(i));
-      arg = allocParam(builder, *type, layout, param, errHandler, override);
+      auto byvalType = srcFunc.getParamByValType(i);
+      arg = allocParam(builder, *type, byvalType, layout, param, errHandler, override);
     }
     assert(arg != nullptr);
     args.push_back(arg);
@@ -115,8 +116,7 @@ void doBind(llvm::Module &module, llvm::Function &dstFunc,
 
   auto ret = builder.CreateCall(&srcFunc, args);
   if (!srcFunc.isDeclaration()) {
-    ret->addAttribute(llvm::AttributeList::FunctionIndex,
-                      llvm::Attribute::AlwaysInline);
+    ret->addRetAttr(llvm::Attribute::AlwaysInline);
   }
   ret->setCallingConv(srcFunc.getCallingConv());
   ret->setAttributes(srcFunc.getAttributes());
