@@ -52,17 +52,17 @@ LIBFILE="${prefix}/lib/libLLVM-$version.so"
 
 components="aarch64 aarch64asmparser aarch64codegen aarch64desc aarch64disassembler aarch64info aarch64utils \
 aggressiveinstcombine all all-targets analysis arm armasmparser armcodegen armdesc armdisassembler arminfo armutils \
-asmparser asmprinter binaryformat bitreader bitstreamreader bitwriter cfguard codegen codegentypes core coroutines coverage \
+asmparser asmprinter binaryformat bitreader bitstreamreader bitwriter cfguard codegen codegendata codegentypes core coroutines coverage \
 debuginfobtf debuginfocodeview debuginfodwarf debuginfogsym debuginfologicalview debuginfomsf debuginfopdb demangle dlltooldriver dwarflinker dwarflinkerclassic dwarflinkerparallel dwp \
 engine executionengine extensions filecheck frontenddriver frontendhlsl frontendoffloading frontendopenacc frontendopenmp fuzzercli fuzzmutate globalisel hipstdpar instcombine \
 instrumentation interfacestub interpreter ipo irprinter irreader jitlink libdriver lineeditor linker lto mc mca mcdisassembler \
 mcjit mcparser mirparser native nativecodegen objcarcopts objcopy object objectyaml option orcdebugging orcjit orcshared orctargetprocess \
-passes profiledata remarks runtimedyld scalaropts selectiondag spirv spirvcodegen spirvdesc spirvinfo support symbolize tablegen target targetparser textapi \
+passes profiledata remarks runtimedyld sandboxir scalaropts selectiondag spirv spirvanalysis spirvcodegen spirvdesc spirvinfo support symbolize tablegen target targetparser textapi \
 textapibinaryreader transformutils vectorize webassembly webassemblyasmparser webassemblycodegen webassemblydesc webassemblydisassembler \
 webassemblyinfo webassemblyutils windowsdriver windowsmanifest x86 x86asmparser x86codegen x86desc x86disassembler x86info \
 x86targetmca xray"
 static_libs="-lLLVMWindowsManifest -lLLVMXRay -lLLVMLibDriver -lLLVMDlltoolDriver -lLLVMTextAPIBinaryReader -lLLVMCoverage -lLLVMLineEditor \
--lLLVMSPIRVCodeGen -lLLVMSPIRVDesc -lLLVMSPIRVInfo \
+-lLLVMSandboxIR -lLLVMSPIRVCodeGen -lLLVMSPIRVDesc -lLLVMSPIRVInfo -lLLVMSPIRVAnalysis \
 -lLLVMX86TargetMCA -lLLVMX86Disassembler -lLLVMX86AsmParser -lLLVMX86CodeGen -lLLVMX86Desc -lLLVMX86Info -lLLVMWebAssemblyDisassembler \
 -lLLVMWebAssemblyAsmParser -lLLVMWebAssemblyCodeGen -lLLVMWebAssemblyUtils -lLLVMWebAssemblyDesc -lLLVMWebAssemblyInfo -lLLVMARMDisassembler \
 -lLLVMARMAsmParser -lLLVMARMCodeGen -lLLVMARMDesc -lLLVMARMUtils -lLLVMARMInfo -lLLVMAArch64Disassembler \
@@ -71,7 +71,7 @@ static_libs="-lLLVMWindowsManifest -lLLVMXRay -lLLVMLibDriver -lLLVMDlltoolDrive
 -lLLVMDWP -lLLVMDebugInfoLogicalView -lLLVMDebugInfoGSYM -lLLVMOption -lLLVMObjectYAML -lLLVMObjCopy -lLLVMMCA \
 -lLLVMMCDisassembler -lLLVMLTO -lLLVMPasses -lLLVMHipStdPar -lLLVMCFGuard -lLLVMCoroutines -lLLVMipo \
 -lLLVMVectorize -lLLVMLinker -lLLVMInstrumentation -lLLVMFrontendOpenMP -lLLVMFrontendOffloading -lLLVMFrontendOpenACC -lLLVMFrontendHLSL -lLLVMFrontendDriver -lLLVMExtensions \
--lLLVMDWARFLinkerParallel -lLLVMDWARFLinkerClassic -lLLVMDWARFLinker -lLLVMGlobalISel -lLLVMMIRParser -lLLVMAsmPrinter -lLLVMSelectionDAG \
+-lLLVMDWARFLinkerParallel -lLLVMDWARFLinkerClassic -lLLVMDWARFLinker -lLLVMCodeGenData -lLLVMGlobalISel -lLLVMMIRParser -lLLVMAsmPrinter -lLLVMSelectionDAG \
 -lLLVMCodeGen -lLLVMTarget -lLLVMObjCARCOpts -lLLVMCodeGenTypes -lLLVMIRPrinter -lLLVMInterfaceStub -lLLVMFileCheck -lLLVMFuzzMutate \
 -lLLVMScalarOpts -lLLVMInstCombine -lLLVMAggressiveInstCombine -lLLVMTransformUtils -lLLVMBitWriter -lLLVMAnalysis \
 -lLLVMProfileData -lLLVMSymbolize -lLLVMDebugInfoBTF -lLLVMDebugInfoPDB -lLLVMDebugInfoMSF -lLLVMDebugInfoDWARF -lLLVMObject -lLLVMTextAPI -lLLVMMCParser -lLLVMIRReader -lLLVMAsmParser -lLLVMMC -lLLVMDebugInfoCodeView \
