@@ -24,6 +24,7 @@
 #include <string>
 
 // from SPIRVInternal.h
+#if LDC_LLVM_VER < 1900
 #define SPIR_TARGETTRIPLE32 "spir-unknown-unknown"
 #define SPIR_TARGETTRIPLE64 "spir64-unknown-unknown"
 #define SPIR_DATALAYOUT32                                                      \
@@ -38,6 +39,16 @@
   "-v32:32:32-v48:64:64-v64:64:64-v96:128:128"                                 \
   "-v128:128:128-v192:256:256-v256:256:256"                                    \
   "-v512:512:512-v1024:1024:1024"
+#else
+#define SPIR_TARGETTRIPLE32 "spirv-unknown-unknown"
+#define SPIR_TARGETTRIPLE64 "spirv64-unknown-unknown"
+#define SPIR_DATALAYOUT32                                                      \
+  "e-p:32:32-i64:64-v16:16-v24:32-v32:32-v48:64"                               \
+  "-v96:128-v192:256-v256:256-v512:512-v1024:1024-G1"
+#define SPIR_DATALAYOUT64                                                      \
+  "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128"                               \
+  "-v192:256-v256:256-v512:512-v1024:1024-G1"
+#endif
 
 using namespace dmd;
 
