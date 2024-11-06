@@ -37,7 +37,7 @@ jobs:
             with_pgo: true
 
           - job_name: macOS x86_64
-            os: macos-12
+            os: macos-13
             arch: x86_64
             bootstrap_cmake_flags: >-
               -DBUILD_LTO_LIBS=ON
