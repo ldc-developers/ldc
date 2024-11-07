@@ -308,7 +308,7 @@ static llvm::Optional<PGOOptions> getPGOOptions() {
         "" /*MemoryProfileUsePath*/, llvm::vfs::getRealFileSystem(),
 #endif
         PGOOptions::PGOAction::IRInstr, PGOOptions::CSPGOAction::NoCSAction,
-#if LDC_LLVM_VER >= 1901
+#if LDC_LLVM_VER >= 1900
         PGOOptions::ColdFuncOpt::Default,
 #endif
         debugInfoForProfiling, pseudoProbeForProfiling);
@@ -319,7 +319,7 @@ static llvm::Optional<PGOOptions> getPGOOptions() {
         "" /*MemoryProfileUsePath*/, llvm::vfs::getRealFileSystem(),
 #endif
         PGOOptions::PGOAction::IRUse, PGOOptions::CSPGOAction::NoCSAction,
-#if LDC_LLVM_VER >= 1901
+#if LDC_LLVM_VER >= 1900
         PGOOptions::ColdFuncOpt::Default,
 #endif
         debugInfoForProfiling, pseudoProbeForProfiling);
@@ -330,7 +330,7 @@ static llvm::Optional<PGOOptions> getPGOOptions() {
         "" /*MemoryProfileUsePath*/, llvm::vfs::getRealFileSystem(),
 #endif
         PGOOptions::PGOAction::SampleUse, PGOOptions::CSPGOAction::NoCSAction,
-#if LDC_LLVM_VER >= 1901
+#if LDC_LLVM_VER >= 1900
         PGOOptions::ColdFuncOpt::Default,
 #endif
         debugInfoForProfiling, pseudoProbeForProfiling);
