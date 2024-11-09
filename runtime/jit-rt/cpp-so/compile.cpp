@@ -205,8 +205,10 @@ void generateBind(const Context &context, DynamicCompilerContext &jitContext,
                      : nullptr;
         };
 
-        llvm::Function *maybeFunction = getIrFunc(
-            *reinterpret_cast<void *const *>(data), moduleInfo, module);
+        auto *maybeFunctionPtr = *reinterpret_cast<void *const *>(data);
+        llvm::Function *maybeFunction =
+            maybeFunctionPtr ? getIrFunc(maybeFunctionPtr, moduleInfo, module)
+                             : nullptr;
         if (size == sizeof(void *) && maybeFunction) {
           return llvm::ConstantExpr::getBitCast(maybeFunction, &type);
         }
