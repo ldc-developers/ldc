@@ -26,10 +26,14 @@ llvm::FunctionType *getDstFuncType(llvm::FunctionType &srcType,
   assert(!srcType.isVarArg());
   llvm::SmallVector<llvm::Type *, SmallParamsCount> newParams;
   const auto srcParamsCount = srcType.params().size();
-  assert(params.size() == srcParamsCount);
-  for (size_t i = 0; i < srcParamsCount; ++i) {
+  assert(params.size() <= srcParamsCount);
+  size_t sRetCount = srcParamsCount - params.size();
+  for (size_t i = 0; i < sRetCount; ++i) {
+    newParams.push_back(srcType.getParamType(static_cast<unsigned>(i)));
+  }
+  for (size_t i = 0; i < params.size(); ++i) {
     if (params[i].data == nullptr) {
-      newParams.push_back(srcType.getParamType(static_cast<unsigned>(i)));
+      newParams.push_back(srcType.getParamType(static_cast<unsigned>(i + sRetCount)));
     }
   }
   auto retType = srcType.getReturnType();
@@ -98,6 +102,19 @@ void doBind(llvm::Module &module, llvm::Function &dstFunc,
   auto currentArg = dstFunc.arg_begin();
   auto funcType = srcFunc.getFunctionType();
   auto &layout = module.getDataLayout();
+  size_t returnArgs = 0;
+  llvm::Type *sRetTy = nullptr;
+  // handle stack returns
+  for (size_t i = 0; i < funcType->getNumParams(); ++i) {
+    sRetTy = srcFunc.getParamStructRetType(i);
+    if (!sRetTy) {
+      break;
+    }
+    ++returnArgs;
+    args.push_back(currentArg);
+    ++currentArg;
+  }
+
   for (size_t i = 0; i < params.size(); ++i) {
     llvm::Value *arg = nullptr;
     const auto &param = params[i];
@@ -105,8 +122,9 @@ void doBind(llvm::Module &module, llvm::Function &dstFunc,
       arg = currentArg;
       ++currentArg;
     } else {
-      auto type = funcType->getParamType(static_cast<unsigned>(i));
-      auto byvalType = srcFunc.getParamByValType(i);
+      size_t currentOffset = i + returnArgs;
+      auto type = funcType->getParamType(static_cast<unsigned>(currentOffset));
+      auto byvalType = srcFunc.getParamByValType(currentOffset);
       arg = allocParam(builder, *type, byvalType, layout, param, errHandler, override);
     }
     assert(arg != nullptr);
