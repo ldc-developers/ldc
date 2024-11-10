@@ -58,7 +58,8 @@ EXTERNAL void JIT_API_ENTRYPOINT(const void *modlist_head,
 
 EXTERNAL void JIT_REG_BIND_PAYLOAD(DynamicCompilerContext *context,
                                    void *handle, void *originalFunc,
-                                   const ParamSlice *desc, size_t descSize);
+                                   void *exampleFunc, const ParamSlice *desc,
+                                   size_t descSize);
 
 EXTERNAL void JIT_UNREG_BIND_PAYLOAD(DynamicCompilerContext *context,
                                      void *handle);
@@ -76,9 +77,10 @@ void rtCompileProcessImpl(const Context *context, std::size_t contextSize) {
 }
 
 void registerBindPayload(DynamicCompilerContext *context, void *handle,
-                         void *originalFunc, const ParamSlice *desc,
-                         size_t descSize) {
-  JIT_REG_BIND_PAYLOAD(context, handle, originalFunc, desc, descSize);
+                         void *originalFunc, void *exampleFunc,
+                         const ParamSlice *desc, size_t descSize) {
+  JIT_REG_BIND_PAYLOAD(context, handle, originalFunc, exampleFunc, desc,
+                       descSize);
 }
 
 void unregisterBindPayload(DynamicCompilerContext *context, void *handle) {
