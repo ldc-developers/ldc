@@ -39,8 +39,6 @@
 
 namespace {
 
-#pragma pack(push, 1)
-
 struct RtCompileFuncList {
   const char *name;
   void **func;
@@ -69,8 +67,6 @@ struct RtCompileModuleList {
   const RtCompileVarList *varList;
   int32_t varListSize;
 };
-
-#pragma pack(pop)
 
 template <typename T>
 auto toArray(T *ptr,

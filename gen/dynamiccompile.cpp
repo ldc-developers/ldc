@@ -447,7 +447,7 @@ llvm::Constant *createStringInitializer(llvm::Module &mod,
 // struct RtCompileVarList
 // {
 //   i8* name;
-//   i8* ptr;
+//   i8* init;
 // }
 
 llvm::StructType *getVarListElemType(llvm::LLVMContext &context) {
@@ -455,8 +455,7 @@ llvm::StructType *getVarListElemType(llvm::LLVMContext &context) {
       getI8PtrType(context),
       getI8PtrType(context),
   };
-  return llvm::StructType::create(context, elements, /*"RtCompileVarList"*/ "",
-                                  true);
+  return llvm::StructType::create(context, elements, /*"RtCompileVarList"*/ "");
 }
 
 // struct RtCompileSymList
@@ -470,8 +469,7 @@ llvm::StructType *getSymListElemType(llvm::LLVMContext &context) {
       getI8PtrType(context),
       getI8PtrType(context),
   };
-  return llvm::StructType::create(context, elements, /*"RtCompileSymList"*/ "",
-                                  true);
+  return llvm::StructType::create(context, elements, /*"RtCompileSymList"*/ "");
 }
 
 // struct RtCompileFuncList
@@ -487,8 +485,7 @@ llvm::StructType *getFuncListElemType(llvm::LLVMContext &context) {
       getI8PtrType(context),
       getI8PtrType(context),
   };
-  return llvm::StructType::create(context, elements, /*"RtCompileFuncList"*/ "",
-                                  true);
+  return llvm::StructType::create(context, elements, /*"RtCompileFuncList"*/ "");
 }
 
 // struct RtCompileModuleList
@@ -501,6 +498,8 @@ llvm::StructType *getFuncListElemType(llvm::LLVMContext &context) {
 //   i32 funcListSize;
 //   RtCompileSymList* symList;
 //   i32 symListSize;
+//   RtCompileVarList* varList;
+//   i32 varListSize;
 // };
 
 llvm::StructType *getModuleListElemType(llvm::LLVMContext &context,
@@ -524,7 +523,7 @@ llvm::StructType *getModuleListElemType(llvm::LLVMContext &context,
       llvm::PointerType::getUnqual(varListElemType),
       llvm::IntegerType::get(context, 32),
   };
-  ret->setBody(elements, true);
+  ret->setBody(elements);
   return ret;
 }
 
