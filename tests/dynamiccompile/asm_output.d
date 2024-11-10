@@ -47,6 +47,14 @@ void main(string[] args)
   assert(1 == count(dump.data, bar.mangleof));
   assert(1 == count(dump.data, baz.mangleof));
   assert(count(dump.data, value.mangleof) > 0);
-  assert(1 == count(dump.data, "7"));
-  assert(1 == count(dump.data, "8"));
+
+  version (ARM)     enum literalPrefix = "#";
+  version (AArch64) enum literalPrefix = "#";
+  version (X86)     enum literalPrefix = "$";
+  version (X86_64)  enum literalPrefix = "$";
+  static if (is(typeof(literalPrefix)))
+  {
+    assert(1 == count(dump.data, literalPrefix ~ "7"));
+    assert(1 == count(dump.data, literalPrefix ~ "8"));
+  }
 }
