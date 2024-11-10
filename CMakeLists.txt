@@ -464,7 +464,7 @@ endif()
 message(STATUS "-- Building LDC with dynamic compilation support (LDC_DYNAMIC_COMPILE): ${LDC_DYNAMIC_COMPILE}")
 if(LDC_DYNAMIC_COMPILE)
     add_definitions(-DLDC_DYNAMIC_COMPILE)
-    add_definitions(-DLDC_DYNAMIC_COMPILE_API_VERSION=3)
+    add_definitions(-DLDC_DYNAMIC_COMPILE_API_VERSION=4)
 endif()
 
 #
