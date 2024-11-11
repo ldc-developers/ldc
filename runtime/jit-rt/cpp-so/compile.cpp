@@ -193,7 +193,13 @@ void generateBind(const Context &context, DynamicCompilerContext &jitContext,
     auto errhandler = [&](const std::string &str) { fatal(context, str); };
     auto overrideHandler = [&](llvm::Type &type, const void *data,
                                size_t size) -> llvm::Constant * {
-      if (type.isPointerTy()) {
+      // due to ABI rewrites, function pointers can be an integer literal on
+      // aarch64 we will do a quick probe here to check if it's a function
+      // pointer
+      auto *TM = jitContext.getTargetMachine();
+      bool maybeIntPtr =
+          TM->getTargetTriple().isAArch64() && type.isIntegerTy(64);
+      if (type.isPointerTy() || maybeIntPtr) {
         auto getBindFunc = [&]() {
           auto handle = *static_cast<void *const *>(data);
           return handle != nullptr && jitContext.hasBindFunction(handle)
@@ -206,17 +212,25 @@ void generateBind(const Context &context, DynamicCompilerContext &jitContext,
             maybeFunctionPtr ? getIrFunc(maybeFunctionPtr, moduleInfo, module)
                              : nullptr;
         if (size == sizeof(void *) && maybeFunction) {
-          return llvm::ConstantExpr::getBitCast(maybeFunction, &type);
+          return maybeIntPtr
+                     ? llvm::ConstantExpr::getPtrToInt(maybeFunction, &type)
+                     : llvm::ConstantExpr::getBitCast(maybeFunction, &type);
         }
         if (auto handle = getBindFunc()) {
           auto it = bindFuncs.find(handle);
+          if (bindFuncs.end() == it && maybeIntPtr) {
+            // maybe it's really not a pointer
+            return nullptr;
+          }
           assert(bindFuncs.end() != it);
           auto bindIrFunc = it->second;
           auto funcPtrType = bindIrFunc->getType();
           auto globalVar1 = new llvm::GlobalVariable(
               module, funcPtrType, true, llvm::GlobalValue::PrivateLinkage,
               bindIrFunc, ".jit_bind_handle");
-          return llvm::ConstantExpr::getBitCast(globalVar1, &type);
+          return maybeIntPtr
+                     ? llvm::ConstantExpr::getPtrToInt(globalVar1, &type)
+                     : llvm::ConstantExpr::getBitCast(globalVar1, &type);
         }
       }
       return nullptr;
