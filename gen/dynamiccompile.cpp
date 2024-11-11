@@ -97,7 +97,7 @@ void getPredefinedSymbols(IRState *irs, GlobalValsMap &symList) {
     // Actual signatures doesn't matter here, we only want it to show in
     // symbols list
     symList.insert(std::make_pair(
-      getPredefinedSymbol(irs->module, "__chkstk",
+      getPredefinedSymbol(irs->module, "\1__chkstk",
                           llvm::Type::getInt32Ty(irs->context())),
       GlobalValVisibility::Declaration));
     if (!opts::dynamicCompileTlsWorkaround) {
