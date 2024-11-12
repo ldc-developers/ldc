@@ -114,9 +114,13 @@ DynamicCompilerContext::DynamicCompilerContext(bool isMainContext)
       dataLayout(cantFail(jtmb.getDefaultDataLayoutForTarget())),
       execSession(std::make_unique<llvm::orc::ExecutionSession>(
           cantFail(llvm::orc::SelfExecutorProcessControl::Create()))),
-      objectLayer(
-          *execSession,
-          []() { return std::make_unique<llvm::SectionMemoryManager>(); }),
+      objectLayer(*execSession,
+#ifdef LDC_JITRT_USE_JITLINK
+                  cantFail(llvm::jitlink::InProcessMemoryManager::Create())
+#else
+          []() { return std::make_unique<llvm::SectionMemoryManager>(); }
+#endif
+                      ),
       listener_stream(nullptr),
       listenerlayer(*execSession, objectLayer,
                     [&](std::unique_ptr<llvm::MemoryBuffer> object)
@@ -134,6 +138,11 @@ DynamicCompilerContext::DynamicCompilerContext(bool isMainContext)
       context(std::make_unique<llvm::LLVMContext>()),
       moduleHandle(execSession->createBareJITDylib("ldc_jit_module")),
       mainContext(isMainContext) {
+#ifdef LDC_JITRT_USE_JITLINK
+  objectLayer.addPlugin(std::make_unique<llvm::orc::EHFrameRegistrationPlugin>(
+      *execSession,
+      std::make_unique<llvm::jitlink::InProcessEHFrameRegistrar>()));
+#endif
   moduleHandle.addGenerator(
       std::make_unique<LDCSymbolDefinitionGenerator>(this));
   moduleHandle.addGenerator(

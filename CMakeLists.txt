@@ -454,6 +454,7 @@ include(HandleLTOPGOBuildOptions)
 #
 set(LDC_DYNAMIC_COMPILE "AUTO" CACHE STRING "Support dynamic compilation (ON|OFF). Enabled by default; not supported for LLVM < 18.")
 option(LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES "Use custom LDC passes in jit" ON)
+option(LDC_DYNAMIC_COMPILE_USE_LLVM_JITLINK "Use the experimental but faster LLVM JITLink dynamic code linker" OFF)
 if(LDC_DYNAMIC_COMPILE STREQUAL "AUTO")
     if((LDC_LLVM_VER LESS 2000) AND (LDC_LLVM_VER GREATER 1800))
         set(LDC_DYNAMIC_COMPILE ON)
@@ -465,6 +466,9 @@ message(STATUS "-- Building LDC with dynamic compilation support (LDC_DYNAMIC_CO
 if(LDC_DYNAMIC_COMPILE)
     add_definitions(-DLDC_DYNAMIC_COMPILE)
     add_definitions(-DLDC_DYNAMIC_COMPILE_API_VERSION=4)
+endif()
+if (LDC_DYNAMIC_COMPILE_USE_LLVM_JITLINK)
+    add_compile_definitions(-DLDC_JITRT_USE_JITLINK)
 endif()
 
 #
