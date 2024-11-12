@@ -488,6 +488,26 @@ DValue *DtoNullValue(Type *type, Loc loc) {
  * CASTING HELPERS
  ******************************************************************************/
 
+// Cast a primitive integer type to another primitive integer type
+static inline llvm::Value *DtoCastSimpleInt(llvm::Type *tolltype, Type *dfrom,
+                                            size_t tosz, llvm::Value *rval) {
+  size_t fromsz = size(dfrom);
+  if (fromsz < tosz || dfrom->ty == TY::Tbool) {
+    IF_LOG Logger::cout() << "cast to: " << *tolltype << '\n';
+    if (isLLVMUnsigned(dfrom) || dfrom->ty == TY::Tbool) {
+      rval = new llvm::ZExtInst(rval, tolltype, "", gIR->scopebb());
+    } else {
+      rval = new llvm::SExtInst(rval, tolltype, "", gIR->scopebb());
+    }
+  } else if (fromsz > tosz) {
+    rval = new llvm::TruncInst(rval, tolltype, "", gIR->scopebb());
+  } else {
+    rval = DtoBitCast(rval, tolltype);
+  }
+
+  return rval;
+}
+
 DValue *DtoCastInt(const Loc &loc, DValue *val, Type *_to) {
   LLType *tolltype = DtoType(_to);
 
@@ -500,25 +520,25 @@ DValue *DtoCastInt(const Loc &loc, DValue *val, Type *_to) {
     return new DImValue(_to, rval);
   }
 
-  size_t fromsz = size(from);
-  size_t tosz = size(to);
-
   if (to->ty == TY::Tbool) {
     LLValue *zero = LLConstantInt::get(rval->getType(), 0, false);
     rval = gIR->ir->CreateICmpNE(rval, zero);
-  } else if (to->isintegral()) {
-    if (fromsz < tosz || from->ty == TY::Tbool) {
-      IF_LOG Logger::cout() << "cast to: " << *tolltype << '\n';
-      if (isLLVMUnsigned(from) || from->ty == TY::Tbool) {
-        rval = new llvm::ZExtInst(rval, tolltype, "", gIR->scopebb());
-      } else {
-        rval = new llvm::SExtInst(rval, tolltype, "", gIR->scopebb());
-      }
-    } else if (fromsz > tosz) {
-      rval = new llvm::TruncInst(rval, tolltype, "", gIR->scopebb());
-    } else {
-      rval = DtoBitCast(rval, tolltype);
+  } else if (to->ty == TY::Tvector) {
+    auto *tmpVectorTy = llvm::dyn_cast<llvm::VectorType>(tolltype);
+    if (!tmpVectorTy) {
+      error(loc, "Internal Compiler Error: "
+                 "cannot cast the D vector type to a SIMD vector type");
+      fatal();
     }
+    IF_LOG Logger::cout() << "cast vector: " << *tolltype << '\n';
+    LLType *elemType = tolltype->getArrayElementType();
+    LLValue *elemValue = DtoCastSimpleInt(
+        elemType, from, elemType->getScalarSizeInBits() / 8, rval);
+    // create a new vector with the splat value set to the original value
+    rval =
+        gIR->ir->CreateVectorSplat(tmpVectorTy->getElementCount(), elemValue);
+  } else if (to->isintegral()) {
+    rval = DtoCastSimpleInt(tolltype, from, size(to), rval);
   } else if (to->iscomplex()) {
     return DtoComplex(loc, to, val);
   } else if (to->isfloating()) {
