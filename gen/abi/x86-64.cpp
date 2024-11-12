@@ -382,21 +382,15 @@ Type *X86_64TargetABI::vaListType() {
       TypeIdentifier::create(Loc(), Identifier::idPool("__va_list_tag")));
 }
 
-const char *X86_64TargetABI::objcMsgSendFunc(Type *ret,
-                                             IrFuncTy &fty) {
+const char *X86_64TargetABI::objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool superCall) {
   // see objc/message.h for objc_msgSend selection rules
+  assert(isDarwin);
   if (fty.arg_sret) {
-    return "objc_msgSend_stret";
+    return superCall ? "objc_msgSendSuper_stret" : "objc_msgSend_stret";
   }
-  if (ret) {
-    // complex long double return
-    if (ret->ty == TY::Tcomplex80) {
-      return "objc_msgSend_fp2ret";
-    }
-    // long double return
-    if (ret->ty == TY::Tfloat80 || ret->ty == TY::Timaginary80) {
-      return "objc_msgSend_fpret";
-    }
+  // float, double, long double return
+  if (ret && ret->isfloating() && !ret->iscomplex()) {
+    return "objc_msgSend_fpret";
   }
-  return "objc_msgSend";
+  return superCall ? "objc_msgSendSuper" : "objc_msgSend";
 }

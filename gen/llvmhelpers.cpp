@@ -1841,6 +1841,18 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   // ourselves, DtoType below would be enough.
   DtoResolveDsymbol(ad);
 
+  if (ad->classKind == ClassKind::objc) {
+    auto tHandle = LLType::getInt64Ty(gIR->context());
+    auto tOffset = DtoLoad(tHandle, gIR->objc.getIVarOffset(*ad->isClassDeclaration(), *vd, flase));
+
+    // Offset is now stored in tOffset.
+    LLValue *ptr = src;
+    ptr = DtoBitCast(ptr, getVoidPtrType());
+    ptr = DtoGEP1(llvm::Type::getInt8Ty(gIR->context()), ptr, tOffset);
+
+    return new DLValue(vd->type, ptr);
+  }
+
   // Look up field to index or offset to apply.
   auto irTypeAggr = getIrType(ad->type)->isAggr();
   assert(irTypeAggr);

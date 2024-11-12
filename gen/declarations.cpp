@@ -109,6 +109,10 @@ public:
       m->accept(this);
     }
 
+    // Objective-C protocols don't have TypeInfo.
+    if(decl->classKind == ClassKind::objc)
+      return;
+
     // Emit TypeInfo.
     IrClass *ir = getIrAggr(decl);
     if (!ir->suppressTypeInfo()) {
@@ -204,6 +208,10 @@ public:
     for (auto m : *decl->members) {
       m->accept(this);
     }
+
+    // TODO: Support creating objective-c exposed classes?
+    if (decl->classKind == ClassKind::objc)
+      return;
 
     IrClass *ir = getIrAggr(decl);
 

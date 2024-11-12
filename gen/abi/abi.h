@@ -171,7 +171,7 @@ struct TargetABI {
   virtual Type *vaListType();
 
   /// Returns Objective-C message send function
-  virtual const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty);
+  virtual const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool superCall);
 
   /***** Static Helpers *****/
 
