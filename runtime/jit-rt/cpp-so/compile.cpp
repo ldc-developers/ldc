@@ -323,6 +323,32 @@ struct JitFinaliser final {
   void finalze() { finalized = true; }
 };
 
+#ifndef LDC_JITRT_USE_JITLINK
+static void insertABIHacks(const Context &context,
+                           DynamicCompilerContext &jitContext,
+                           llvm::Module &module) {
+  auto *TM = jitContext.getTargetMachine();
+  bool isAArch64 = TM->getTargetTriple().isAArch64();
+  if (isAArch64) {
+    // insert DW.ref._d_eh_personality stub
+    auto targetSymbol = module.getFunction("_d_eh_personality");
+    if (!targetSymbol) {
+      return;
+    }
+    constexpr const char *thunkName = "_d_eh_personality__thunk";
+    auto *pointerType = llvm::PointerType::getUnqual(module.getContext());
+    auto *thunkVariable = new llvm::GlobalVariable(
+        pointerType, true, llvm::GlobalValue::ExternalLinkage,
+        llvm::ConstantExpr::getBitCast(targetSymbol, pointerType), thunkName);
+    module.insertGlobalVariable(thunkVariable);
+    auto targetSymbolAddr = jitContext.lookup(thunkName);
+    assert(targetSymbolAddr);
+    jitContext.addSymbol("DW.ref._d_eh_personality",
+                         targetSymbolAddr->getAddress().toPtr<void *>());
+  }
+}
+#endif
+
 void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
                                     const Context &context) {
   if (nullptr == modlist_head) {
@@ -389,6 +415,9 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   finalModule.withModuleDo([&](llvm::Module &M) {
     interruptPoint(context, "Generate bind functions");
     generateBind(context, myJit, moduleInfo, M);
+#ifndef LDC_JITRT_USE_JITLINK
+    insertABIHacks(context, myJit, M);
+#endif
     dumpModule(context, M, DumpStage::MergedModule);
     interruptPoint(context, "Optimize final module");
     optimizeModule(settings, &M, TM);
