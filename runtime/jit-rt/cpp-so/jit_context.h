@@ -32,6 +32,12 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/ManagedStatic.h"
 
+#ifdef LDC_JITRT_USE_JITLINK
+#include "llvm/ExecutionEngine/JITLink/JITLink.h"
+#include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
+#include "llvm/ExecutionEngine/JITLink/JITLinkMemoryManager.h"
+#include "llvm/ExecutionEngine/JITLink/EHFrameSupport.h"
+#endif
 
 #if LDC_LLVM_VER < 1700
 #include "llvm/ADT/Optional.h"
@@ -55,15 +61,18 @@ class LDCSymbolDefinitionGenerator;
 
 class DynamicCompilerContext final {
   friend class LDCSymbolDefinitionGenerator;
+
 private:
   llvm::orc::JITTargetMachineBuilder jtmb;
   std::unique_ptr<llvm::TargetMachine> targetmachine;
   const llvm::DataLayout dataLayout;
+#ifdef LDC_JITRT_USE_JITLINK
+  using ObjectLayerT = llvm::orc::ObjectLinkingLayer;
+#else
   using ObjectLayerT = llvm::orc::RTDyldObjectLinkingLayer;
-  using ListenerLayerT =
-      llvm::orc::ObjectTransformLayer;
-  using CompileLayerT =
-      llvm::orc::IRCompileLayer;
+#endif
+  using ListenerLayerT = llvm::orc::ObjectTransformLayer;
+  using CompileLayerT = llvm::orc::IRCompileLayer;
   using ModuleHandleT = llvm::orc::JITDylib;
   std::unique_ptr<llvm::orc::ExecutionSession> execSession;
   ObjectLayerT objectLayer;
@@ -72,7 +81,7 @@ private:
   CompileLayerT compileLayer;
   llvm::orc::ThreadSafeContext context;
   bool compiled = false;
-  ModuleHandleT& moduleHandle;
+  ModuleHandleT &moduleHandle;
   SymMap symMap;
 
   struct BindDesc final {
@@ -84,7 +93,9 @@ private:
   llvm::MapVector<void *, BindDesc> bindInstances;
   const bool mainContext = false;
 
-  llvm::Optional<llvm::orc::ExecutorSymbolDef> findSymbol(const std::string &name);
+  llvm::Optional<llvm::orc::ExecutorSymbolDef>
+  findSymbol(const std::string &name);
+
 public:
   struct ListenerCleaner final {
     DynamicCompilerContext &owner;
@@ -124,7 +135,8 @@ public:
 
   bool isMainContext() const;
 
-  std::unique_ptr<ListenerCleaner> addScopedListener(llvm::raw_ostream *stream) {
+  std::unique_ptr<ListenerCleaner>
+  addScopedListener(llvm::raw_ostream *stream) {
     return std::make_unique<ListenerCleaner>(*this, stream);
   }
 
