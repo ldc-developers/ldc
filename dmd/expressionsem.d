@@ -13016,80 +13016,60 @@ version (IN_LLVM)
         return;
     }
 
+    private void visitShift(BinExp exp)
+    {
+        if (exp.type)
+        {
+            result = exp;
+            return;
+        }
+
+        if (Expression ex = binSemanticProp(exp, sc))
+        {
+            result = ex;
+            return;
+        }
+        Expression e = exp.op_overload(sc);
+        if (e)
+        {
+            result = e;
+            return;
+        }
+
+        if (exp.checkIntegralBin() || exp.checkSharedAccessBin(sc))
+            return setError();
+
+        if (!target.isVectorOpSupported(exp.e1.type.toBasetype(), exp.op, exp.e2.type.toBasetype()))
+        {
+            result = exp.incompatibleTypes();
+            return;
+        }
+
+        exp.e1 = integralPromotions(exp.e1, sc);
+        if (exp.e2.type.toBasetype().ty != Tvector)
+        {
+            Type tb1 = exp.e1.type.toBasetype();
+            exp.e2 = exp.e2.castTo(sc, tb1.ty == Tvector ? tb1 : Type.tshiftcnt);
+        }
+
+        exp.type = exp.e1.type;
+        result = exp;
+    }
+
     override void visit(ShlExp exp)
     {
-        //printf("ShlExp::semantic(), type = %p\n", type);
-        if (exp.type)
-        {
-            result = exp;
-            return;
-        }
-
-        if (Expression ex = binSemanticProp(exp, sc))
-        {
-            result = ex;
-            return;
-        }
-        Expression e = exp.op_overload(sc);
-        if (e)
-        {
-            result = e;
-            return;
-        }
-
-        if (exp.checkIntegralBin() || exp.checkSharedAccessBin(sc))
-            return setError();
-
-        if (!target.isVectorOpSupported(exp.e1.type.toBasetype(), exp.op, exp.e2.type.toBasetype()))
-        {
-            result = exp.incompatibleTypes();
-            return;
-        }
-        exp.e1 = integralPromotions(exp.e1, sc);
-        if (exp.e2.type.toBasetype().ty != Tvector)
-            exp.e2 = exp.e2.castTo(sc, Type.tshiftcnt);
-
-        exp.type = exp.e1.type;
-        result = exp;
+        visitShift(exp);
     }
-
     override void visit(ShrExp exp)
     {
-        if (exp.type)
-        {
-            result = exp;
-            return;
-        }
-
-        if (Expression ex = binSemanticProp(exp, sc))
-        {
-            result = ex;
-            return;
-        }
-        Expression e = exp.op_overload(sc);
-        if (e)
-        {
-            result = e;
-            return;
-        }
-
-        if (exp.checkIntegralBin() || exp.checkSharedAccessBin(sc))
-            return setError();
-
-        if (!target.isVectorOpSupported(exp.e1.type.toBasetype(), exp.op, exp.e2.type.toBasetype()))
-        {
-            result = exp.incompatibleTypes();
-            return;
-        }
-        exp.e1 = integralPromotions(exp.e1, sc);
-        if (exp.e2.type.toBasetype().ty != Tvector)
-            exp.e2 = exp.e2.castTo(sc, Type.tshiftcnt);
-
-        exp.type = exp.e1.type;
-        result = exp;
+        visitShift(exp);
+    }
+    override void visit(UshrExp exp)
+    {
+        visitShift(exp);
     }
 
-    override void visit(UshrExp exp)
+    private void visitBinaryBitOp(BinExp exp)
     {
         if (exp.type)
         {
@@ -13109,185 +13089,52 @@ version (IN_LLVM)
             return;
         }
 
-        if (exp.checkIntegralBin() || exp.checkSharedAccessBin(sc))
-            return setError();
+        if (exp.e1.type.toBasetype().ty == Tbool && exp.e2.type.toBasetype().ty == Tbool)
+        {
+            exp.type = exp.e1.type;
+            result = exp;
+            return;
+        }
 
-        if (!target.isVectorOpSupported(exp.e1.type.toBasetype(), exp.op, exp.e2.type.toBasetype()))
+        if (Expression ex = typeCombine(exp, sc))
+        {
+            result = ex;
+            return;
+        }
+
+        Type tb = exp.type.toBasetype();
+        if (tb.ty == Tarray || tb.ty == Tsarray)
+        {
+            if (!isArrayOpValid(exp))
+            {
+                result = arrayOpInvalidError(exp);
+                return;
+            }
+            result = exp;
+            return;
+        }
+        if (!target.isVectorOpSupported(tb, exp.op, exp.e2.type.toBasetype()))
         {
             result = exp.incompatibleTypes();
             return;
         }
-        exp.e1 = integralPromotions(exp.e1, sc);
-        if (exp.e2.type.toBasetype().ty != Tvector)
-            exp.e2 = exp.e2.castTo(sc, Type.tshiftcnt);
+        if (exp.checkIntegralBin() || exp.checkSharedAccessBin(sc))
+            return setError();
 
-        exp.type = exp.e1.type;
         result = exp;
     }
 
     override void visit(AndExp exp)
     {
-        if (exp.type)
-        {
-            result = exp;
-            return;
-        }
-
-        if (Expression ex = binSemanticProp(exp, sc))
-        {
-            result = ex;
-            return;
-        }
-        Expression e = exp.op_overload(sc);
-        if (e)
-        {
-            result = e;
-            return;
-        }
-
-        if (exp.e1.type.toBasetype().ty == Tbool && exp.e2.type.toBasetype().ty == Tbool)
-        {
-            exp.type = exp.e1.type;
-            result = exp;
-            return;
-        }
-
-        if (Expression ex = typeCombine(exp, sc))
-        {
-            result = ex;
-            return;
-        }
-
-        Type tb = exp.type.toBasetype();
-        if (tb.ty == Tarray || tb.ty == Tsarray)
-        {
-            if (!isArrayOpValid(exp))
-            {
-                result = arrayOpInvalidError(exp);
-                return;
-            }
-            result = exp;
-            return;
-        }
-        if (!target.isVectorOpSupported(tb, exp.op, exp.e2.type.toBasetype()))
-        {
-            result = exp.incompatibleTypes();
-            return;
-        }
-        if (exp.checkIntegralBin() || exp.checkSharedAccessBin(sc))
-            return setError();
-
-        result = exp;
+        visitBinaryBitOp(exp);
     }
-
     override void visit(OrExp exp)
     {
-        if (exp.type)
-        {
-            result = exp;
-            return;
-        }
-
-        if (Expression ex = binSemanticProp(exp, sc))
-        {
-            result = ex;
-            return;
-        }
-        Expression e = exp.op_overload(sc);
-        if (e)
-        {
-            result = e;
-            return;
-        }
-
-        if (exp.e1.type.toBasetype().ty == Tbool && exp.e2.type.toBasetype().ty == Tbool)
-        {
-            exp.type = exp.e1.type;
-            result = exp;
-            return;
-        }
-
-        if (Expression ex = typeCombine(exp, sc))
-        {
-            result = ex;
-            return;
-        }
-
-        Type tb = exp.type.toBasetype();
-        if (tb.ty == Tarray || tb.ty == Tsarray)
-        {
-            if (!isArrayOpValid(exp))
-            {
-                result = arrayOpInvalidError(exp);
-                return;
-            }
-            result = exp;
-            return;
-        }
-        if (!target.isVectorOpSupported(tb, exp.op, exp.e2.type.toBasetype()))
-        {
-            result = exp.incompatibleTypes();
-            return;
-        }
-        if (exp.checkIntegralBin() || exp.checkSharedAccessBin(sc))
-            return setError();
-
-        result = exp;
+        visitBinaryBitOp(exp);
     }
-
     override void visit(XorExp exp)
     {
-        if (exp.type)
-        {
-            result = exp;
-            return;
-        }
-
-        if (Expression ex = binSemanticProp(exp, sc))
-        {
-            result = ex;
-            return;
-        }
-        Expression e = exp.op_overload(sc);
-        if (e)
-        {
-            result = e;
-            return;
-        }
-
-        if (exp.e1.type.toBasetype().ty == Tbool && exp.e2.type.toBasetype().ty == Tbool)
-        {
-            exp.type = exp.e1.type;
-            result = exp;
-            return;
-        }
-
-        if (Expression ex = typeCombine(exp, sc))
-        {
-            result = ex;
-            return;
-        }
-
-        Type tb = exp.type.toBasetype();
-        if (tb.ty == Tarray || tb.ty == Tsarray)
-        {
-            if (!isArrayOpValid(exp))
-            {
-                result = arrayOpInvalidError(exp);
-                return;
-            }
-            result = exp;
-            return;
-        }
-        if (!target.isVectorOpSupported(tb, exp.op, exp.e2.type.toBasetype()))
-        {
-            result = exp.incompatibleTypes();
-            return;
-        }
-        if (exp.checkIntegralBin() || exp.checkSharedAccessBin(sc))
-            return setError();
-
-        result = exp;
+        visitBinaryBitOp(exp);
     }
 
     override void visit(LogicalExp exp)

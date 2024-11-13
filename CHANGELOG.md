@@ -14,6 +14,7 @@
 - Fix potentially corrupt IR layouts for bit fields. (#4646, #4708)
 - Fix potentially corrupt IR layouts for explicitly under-aligned aggregates, a regression introduced in LDC v1.31. (#4734, #4736)
 - ELF: Emit (most) instantiated symbols in COMDATs for proper link-time culling. (#3589, #4748)
+- Support scalar right-hand-sides when bit-shifting vectors. (#3606, #4781)
 
 # LDC 1.39.0 (2024-07-04)
 

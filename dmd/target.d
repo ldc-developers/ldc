@@ -794,11 +794,6 @@ static if (!IN_LLVM)
         if (!IN_LLVM && vecsize != 16 && vecsize != 32)
             return false;
 
-        // LDC_FIXME:
-        // Most of the binops only work with `t2` being the same IR type as `tvec`
-        // (LLVM restriction). We'd need to be more strict here and/or convert
-        // the rhs to a matching type during codegen (e.g., promote scalars to
-        // vectors).
         bool supported = false;
         switch (op)
         {
