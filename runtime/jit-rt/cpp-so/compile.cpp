@@ -254,7 +254,7 @@ void applyBind(const Context &context, DynamicCompilerContext &jitContext,
   auto &layout = jitContext.getDataLayout();
   for (auto &elem : moduleInfo.getBindHandles()) {
     auto decorated = decorate(elem.name, layout);
-    auto symbol = jitContext.lookup(decorated);
+    auto symbol = jitContext.lookup(elem.name);
     auto addr = resolveSymbol(symbol);
     if (nullptr == addr) {
       std::string desc = std::string("Symbol not found in jitted code: \"") +
@@ -449,7 +449,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
         continue;
       }
       auto decorated = decorate(fun.name, layout);
-      auto symbol = myJit.lookup(decorated);
+      auto symbol = myJit.lookup(fun.name.data());
       auto addr = resolveSymbol(symbol);
       if (nullptr == addr) {
         std::string desc = std::string("Symbol not found in jitted code: \"") +

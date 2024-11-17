@@ -75,6 +75,7 @@ private:
   using CompileLayerT = llvm::orc::IRCompileLayer;
   using ModuleHandleT = llvm::orc::JITDylib;
   std::unique_ptr<llvm::orc::ExecutionSession> execSession;
+  llvm::orc::MangleAndInterner mangler;
   ObjectLayerT objectLayer;
   llvm::raw_ostream *listener_stream;
   ListenerLayerT listenerlayer;
@@ -111,6 +112,9 @@ public:
   llvm::Error addModule(llvm::orc::ThreadSafeModule module);
 
   llvm::Expected<llvm::orc::ExecutorSymbolDef> lookup(const std::string &name);
+
+  llvm::Expected<llvm::orc::SymbolMap>
+  lookupMany(const std::vector<std::string> &names);
 
   llvm::LLVMContext *getContext() { return context.getContext(); }
 

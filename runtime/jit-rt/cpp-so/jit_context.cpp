@@ -114,6 +114,7 @@ DynamicCompilerContext::DynamicCompilerContext(bool isMainContext)
       dataLayout(cantFail(jtmb.getDefaultDataLayoutForTarget())),
       execSession(std::make_unique<llvm::orc::ExecutionSession>(
           cantFail(llvm::orc::SelfExecutorProcessControl::Create()))),
+      mangler(*execSession, dataLayout),
       objectLayer(*execSession,
 #ifdef LDC_JITRT_USE_JITLINK
                   cantFail(llvm::jitlink::InProcessMemoryManager::Create())
@@ -184,13 +185,26 @@ DynamicCompilerContext::findSymbol(const std::string &name) {
 
 llvm::Expected<llvm::orc::ExecutorSymbolDef>
 DynamicCompilerContext::lookup(const std::string &name) {
-  return execSession->lookup({&moduleHandle}, name);
+  auto mangled = mangler(name);
+  return execSession->lookup({&moduleHandle}, mangled);
+}
+
+llvm::Expected<llvm::orc::SymbolMap>
+DynamicCompilerContext::lookupMany(const std::vector<std::string> &names) {
+  llvm::orc::SymbolLookupSet requests{};
+  for (auto &name : names) {
+    requests.add(mangler(name));
+  }
+  return execSession->lookup(
+      {{&moduleHandle,
+        llvm::orc::JITDylibLookupFlags::MatchExportedSymbolsOnly}},
+      requests, llvm::orc::LookupKind::DLSym);
 }
 
 void DynamicCompilerContext::clearSymMap() { symMap.clear(); }
 
 void DynamicCompilerContext::addSymbol(std::string &&name, void *value) {
-  symMap.emplace(std::make_pair(std::move(name), value));
+  symMap.emplace(std::make_pair(*mangler(name), value));
 }
 
 void DynamicCompilerContext::reset() {
