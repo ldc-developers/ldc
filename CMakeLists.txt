@@ -467,6 +467,10 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|x64|amd64|aarch64|arm64|riscv64|loonga
 else()
     set(_LDC_DYNAMIC_COMPILE_USE_LLVM_JITLINK_DEFAULT OFF)
 endif()
+# Disable LLVM JITLink on Windows for now, currently does not work very well on Windows
+if(WIN32)
+    set(_LDC_DYNAMIC_COMPILE_USE_LLVM_JITLINK_DEFAULT OFF)
+endif()
 option(LDC_DYNAMIC_COMPILE_USE_LLVM_JITLINK "Use the experimental but faster LLVM JITLink dynamic code linker" "${_LDC_DYNAMIC_COMPILE_USE_LLVM_JITLINK_DEFAULT}")
 message(STATUS "-- Building LDC with dynamic compilation support (LDC_DYNAMIC_COMPILE): ${LDC_DYNAMIC_COMPILE}")
 if(LDC_DYNAMIC_COMPILE)
