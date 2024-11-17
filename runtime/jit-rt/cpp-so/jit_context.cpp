@@ -186,9 +186,11 @@ DynamicCompilerContext::findSymbol(const std::string &name) {
 llvm::Expected<llvm::orc::ExecutorSymbolDef>
 DynamicCompilerContext::lookup(const std::string &name) {
   auto mangled = mangler(name);
-  auto symbol = findSymbol((*mangled).str());
-  if (symbol) {
-    return *symbol;
+  if (!targetmachine->getTargetTriple().isOSDarwin()) {
+    auto symbol = findSymbol((*mangled).str());
+    if (symbol) {
+      return *symbol;
+    }
   }
   return execSession->lookup({&moduleHandle}, mangled);
 }
