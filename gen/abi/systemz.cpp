@@ -14,6 +14,8 @@
 // https://github.com/IBM/s390x-abi
 //===----------------------------------------------------------------------===//
 
+#include "dmd/identifier.h"
+#include "dmd/nspace.h"
 #include "gen/abi/abi.h"
 #include "gen/abi/generic.h"
 #include "gen/dvalue.h"
@@ -25,6 +27,20 @@ struct SystemZTargetABI : TargetABI {
   IndirectByvalRewrite indirectByvalRewrite{};
 
   explicit SystemZTargetABI() {}
+
+  bool isSystemZVaList(Type *t) {
+    // look for a __va_list struct in a `std` C++ namespace
+    if (auto ts = t->isTypeStruct()) {
+      auto sd = ts->sym;
+      if (strcmp(sd->ident->toChars(), "__va_list") == 0) {
+        if (auto ns = sd->parent->isNspace()) {
+          return strcmp(ns->toChars(), "std") == 0;
+        }
+      }
+    }
+
+    return false;
+  }
 
   bool returnInArg(TypeFunction *tf, bool) override {
     if (tf->isref()) {
@@ -57,11 +73,74 @@ struct SystemZTargetABI : TargetABI {
       return;
     }
     Type *ty = arg.type->toBasetype();
+    // compiler magic: pass va_list args implicitly by reference
+    if (isSystemZVaList(ty)) {
+      arg.byref = true;
+      arg.ltype = arg.ltype->getPointerTo();
+      return;
+    }
     // integer types less than 64-bits should be extended to 64 bits
     if (ty->isintegral()) {
       arg.attrs.addAttribute(ty->isunsigned() ? LLAttribute::ZExt
                                               : LLAttribute::SExt);
     }
+  }
+
+  Type *vaListType() override {
+    // We need to pass the actual va_list type for correct mangling. Simply
+    // using TypeIdentifier here is a bit wonky but works, as long as the name
+    // is actually available in the scope (this is what DMD does, so if a
+    // better solution is found there, this should be adapted).
+    return dmd::pointerTo(
+        TypeIdentifier::create(Loc(), Identifier::idPool("__va_list_tag")));
+  }
+
+  /**
+   * The SystemZ ABI (like AMD64) uses a special native va_list type -
+   * a 32-bytes struct passed by reference.
+   * In druntime, the struct is aliased as object.__va_list_tag; the actually
+   * used core.stdc.stdarg.va_list type is a __va_list_tag* pointer though to
+   * achieve byref semantics. This requires a little bit of compiler magic in
+   * the following implementations.
+   */
+
+  LLType *getValistType() {
+    LLType *longType = LLType::getInt64Ty(gIR->context());
+    LLType *pointerType = getOpaquePtrType();
+
+    std::vector<LLType *> parts;  // struct __va_list_tag {
+    parts.push_back(longType);    //   long __gpr;
+    parts.push_back(longType);    //   long __fpr;
+    parts.push_back(pointerType); //   void *__overflow_arg_area;
+    parts.push_back(pointerType); //   void *__reg_save_area; }
+
+    return LLStructType::get(gIR->context(), parts);
+  }
+
+  LLValue *prepareVaStart(DLValue *ap) override {
+    // Since the user only created a __va_list_tag* pointer (ap) on the stack
+    // before invoking va_start, we first need to allocate the actual
+    // __va_list_tag struct and set `ap` to its address.
+    LLValue *valistmem = DtoRawAlloca(getValistType(), 0, "__va_list_mem");
+    DtoStore(valistmem, DtoLVal(ap));
+    // Pass an opaque pointer to the actual struct to LLVM's va_start intrinsic.
+    return valistmem;
+  }
+
+  void vaCopy(DLValue *dest, DValue *src) override {
+    // Analog to va_start, we first need to allocate a new __va_list_tag struct
+    // on the stack and set `dest` to its address.
+    LLValue *valistmem = DtoRawAlloca(getValistType(), 0, "__va_list_mem");
+    DtoStore(valistmem, DtoLVal(dest));
+    // Then fill the new struct with a bitcopy of the source struct.
+    // `src` is a __va_list_tag* pointer to the source struct.
+    DtoMemCpy(getValistType(), valistmem, DtoRVal(src));
+  }
+
+  LLValue *prepareVaArg(DLValue *ap) override {
+    // Pass an opaque pointer to the actual __va_list_tag struct to LLVM's
+    // va_arg intrinsic.
+    return DtoRVal(ap);
   }
 };
 
