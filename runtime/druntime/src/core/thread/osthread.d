@@ -44,6 +44,9 @@ version (LDC)
     {
         import ldc.sanitizers_optionally_linked;
     }
+
+    pragma(LDC_intrinsic, "llvm.eh.unwind.init")
+    void llvm_unwind_init();
 }
 
 
@@ -1654,7 +1657,8 @@ in (fn)
         }
         else
         {
-            static assert(false, "Architecture not supported.");
+            llvm_unwind_init();
+            sp = &sp;
         }
     }
     else
