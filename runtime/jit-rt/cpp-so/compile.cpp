@@ -252,15 +252,6 @@ void generateBind(const Context &context, DynamicCompilerContext &jitContext,
 void applyBind(const Context &context, DynamicCompilerContext &jitContext,
                const JitModuleInfo &moduleInfo) {
   auto &layout = jitContext.getDataLayout();
-  std::vector<std::string> names{};
-  for (auto &elem : moduleInfo.getBindHandles()) {
-    names.emplace_back(elem.name);
-  }
-  auto results = cantFail(jitContext.lookupMany(names));
-  for (auto &symbol : results) {
-    jitContext.addSymbol((*symbol.first).str(),
-                         symbol.second.getAddress().toPtr<void *>());
-  }
   for (auto &elem : moduleInfo.getBindHandles()) {
     auto decorated = decorate(elem.name, layout);
     auto symbol = jitContext.lookup(elem.name);
@@ -453,12 +444,24 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   JitFinaliser jitFinalizer(myJit);
   /*if (myJit.isMainContext())*/ {
     interruptPoint(context, "Resolve functions");
+    std::vector<std::string> names{};
+    for (auto &elem : moduleInfo.functions()) {
+      names.emplace_back(elem.name);
+    }
+    for (auto &elem : moduleInfo.getBindHandles()) {
+      names.emplace_back(elem.name);
+    }
+    auto results = cantFail(myJit.lookupMany(names));
+    for (auto &symbol : results) {
+      myJit.addSymbol((*symbol.first).str(),
+                      symbol.second.getAddress().toPtr<void *>());
+    }
     for (auto &&fun : moduleInfo.functions()) {
       if (fun.thunkVar == nullptr) {
         continue;
       }
       auto decorated = decorate(fun.name, layout);
-      auto symbol = myJit.lookup(fun.name.data());
+      auto symbol = myJit.lookup(fun.name.str());
       auto addr = resolveSymbol(symbol);
       if (nullptr == addr) {
         std::string desc = std::string("Symbol not found in jitted code: \"") +
