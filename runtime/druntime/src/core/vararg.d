@@ -118,6 +118,11 @@ void va_arg()(ref va_list ap, TypeInfo ti, void* parmn)
         ap += tsize.alignUp;
         parmn[0..tsize] = p[0..tsize];
     }
+    else version (SystemZ)
+    {
+        static import core.internal.vararg.s390x;
+        core.internal.vararg.s390x.va_arg(ap, ti, parmn);
+    }
     else version (PPC_Any)
     {
         if (ti.talign >= 8)

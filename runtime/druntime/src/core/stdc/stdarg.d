@@ -72,6 +72,10 @@ else version (ARM_Any)
         static import core.internal.vararg.aarch64;
     }
 }
+else version (SystemZ)
+{
+    static import core.internal.vararg.s390x;
+}
 
 
 T alignUp(size_t alignment = size_t.sizeof, T)(T base) pure
@@ -136,6 +140,11 @@ else version (RISCV_Any)
     // The va_list type is void*, according to RISCV Calling Convention
     // https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-cc.adoc
     alias va_list = void*;
+}
+else version (SystemZ)
+{
+    alias va_list = core.internal.vararg.s390x.va_list;
+    public import core.internal.vararg.s390x : __va_list, __va_list_tag;
 }
 else
 {
@@ -284,6 +293,10 @@ T va_arg(T)(ref va_list ap)
         }
         ap += T.sizeof.alignUp;
         return *p;
+    }
+    else version (SystemZ)
+    {
+        return core.internal.vararg.s390x.va_arg!T(ap);
     }
     else
         static assert(0, "Unsupported platform");

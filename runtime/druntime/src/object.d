@@ -103,6 +103,10 @@ version (LDC) // note: there's a copy for importC in __importc_builtins.di
         else version (AArch64)
             public import core.internal.vararg.aarch64 : __va_list;
     }
+    else version (SystemZ)
+    {
+        public import core.internal.vararg.s390x : __va_list;
+    }
 }
 
 version (D_ObjectiveC)
@@ -131,6 +135,10 @@ else version (AArch64)
     else version (TVOS) {}
     else version (WatchOS) {}
     else version = WithArgTypes;
+}
+else version (SystemZ)
+{
+    version = WithArgTypes;
 }
 
 /**
