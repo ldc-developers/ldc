@@ -252,6 +252,15 @@ void generateBind(const Context &context, DynamicCompilerContext &jitContext,
 void applyBind(const Context &context, DynamicCompilerContext &jitContext,
                const JitModuleInfo &moduleInfo) {
   auto &layout = jitContext.getDataLayout();
+  std::vector<std::string> names{};
+  for (auto &elem : moduleInfo.getBindHandles()) {
+    names.emplace_back(elem.name);
+  }
+  auto results = cantFail(jitContext.lookupMany(names));
+  for (auto &symbol : results) {
+    jitContext.addSymbol((*symbol.first).str(),
+                         symbol.second.getAddress().toPtr<void *>());
+  }
   for (auto &elem : moduleInfo.getBindHandles()) {
     auto decorated = decorate(elem.name, layout);
     auto symbol = jitContext.lookup(elem.name);
@@ -405,7 +414,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
 
       for (auto &&sym : toArray(current.symList, static_cast<std::size_t>(
                                                      current.symListSize))) {
-        myJit.addSymbol(decorate(sym.name, layout), sym.sym);
+        myJit.addSymbol(sym.name, sym.sym);
       }
     }
   });
