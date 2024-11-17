@@ -46,6 +46,7 @@ llvm::Function *createBindFunc(llvm::Module &module, llvm::Function &srcFunc,
                                const llvm::ArrayRef<ParamSlice> &params) {
   auto newFunc = llvm::Function::Create(
       &funcType, llvm::GlobalValue::ExternalLinkage, "\1.jit_bind", &module);
+  newFunc->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
 
   newFunc->setCallingConv(srcFunc.getCallingConv());
   //  auto srcAttributes = srcFunc.getAttributes();
