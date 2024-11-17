@@ -444,17 +444,20 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   JitFinaliser jitFinalizer(myJit);
   /*if (myJit.isMainContext())*/ {
     interruptPoint(context, "Resolve functions");
-    std::vector<std::string> names{};
-    for (auto &elem : moduleInfo.functions()) {
-      names.emplace_back(elem.name);
-    }
-    for (auto &elem : moduleInfo.getBindHandles()) {
-      names.emplace_back(elem.name);
-    }
-    auto results = cantFail(myJit.lookupMany(names));
-    for (auto &symbol : results) {
-      myJit.addSymbol((*symbol.first).str(),
-                      symbol.second.getAddress().toPtr<void *>());
+    // macOS may require pointer signing, so caching symbols might not work.
+    if (!myJit.getTargetMachine()->getTargetTriple().isOSDarwin()) {
+      std::vector<std::string> names{};
+      for (auto &elem : moduleInfo.functions()) {
+        names.emplace_back(elem.name);
+      }
+      for (auto &elem : moduleInfo.getBindHandles()) {
+        names.emplace_back(elem.name);
+      }
+      auto results = cantFail(myJit.lookupMany(names));
+      for (auto &symbol : results) {
+        myJit.addSymbol((*symbol.first).str(),
+                        symbol.second.getAddress().toPtr<void *>());
+      }
     }
     for (auto &&fun : moduleInfo.functions()) {
       if (fun.thunkVar == nullptr) {
