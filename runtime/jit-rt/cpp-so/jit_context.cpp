@@ -186,6 +186,10 @@ DynamicCompilerContext::findSymbol(const std::string &name) {
 llvm::Expected<llvm::orc::ExecutorSymbolDef>
 DynamicCompilerContext::lookup(const std::string &name) {
   auto mangled = mangler(name);
+  auto symbol = findSymbol((*mangled).str());
+  if (symbol) {
+    return *symbol;
+  }
   return execSession->lookup({&moduleHandle}, mangled);
 }
 
@@ -204,7 +208,7 @@ DynamicCompilerContext::lookupMany(const std::vector<std::string> &names) {
 void DynamicCompilerContext::clearSymMap() { symMap.clear(); }
 
 void DynamicCompilerContext::addSymbol(std::string &&name, void *value) {
-  symMap.emplace(std::make_pair(*mangler(name), value));
+  symMap[(*mangler(name)).str()] = value;
 }
 
 void DynamicCompilerContext::reset() {
