@@ -13,10 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 #include <cassert>
-#include <map>
 #include <memory>
 #include <sstream>
-#include <stdexcept>
 #include <type_traits>
 #include <unordered_map>
 
@@ -34,6 +32,7 @@
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/Linker/Linker.h"
+#include "llvm/Support/Error.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
@@ -86,14 +85,6 @@ void enumModules(const RtCompileModuleList *modlist_head,
     fun(*current);
     current = current->next;
   }
-}
-
-std::string decorate(llvm::StringRef name, const llvm::DataLayout &datalayout) {
-  assert(!name.empty());
-  llvm::SmallVector<char, 64> ret;
-  llvm::Mangler::getNameWithPrefix(ret, name, datalayout);
-  assert(!ret.empty());
-  return std::string(ret.data(), ret.size());
 }
 
 struct JitModuleInfo final {
@@ -156,13 +147,12 @@ public:
   }
 };
 
-void *resolveSymbol(llvm::Expected<llvm::orc::ExecutorSymbolDef> &symbol) {
+void *resolveSymbol(llvm::Expected<llvm::orc::ExecutorAddr> &symbol) {
   if (!symbol) {
     consumeError(symbol.takeError());
     return nullptr;
-  } else {
-    return symbol->getAddress().toPtr<void *>();
   }
+  return symbol->toPtr<void *>();
 }
 
 static inline llvm::Function *
@@ -196,9 +186,8 @@ void generateBind(const Context &context, DynamicCompilerContext &jitContext,
       // due to ABI rewrites, function pointers can be an integer literal on
       // aarch64 we will do a quick probe here to check if it's a function
       // pointer
-      auto *TM = jitContext.getTargetMachine();
       bool maybeIntPtr =
-          TM->getTargetTriple().isAArch64() && type.isIntegerTy(64);
+          jitContext.getTargetTriple().isAArch64() && type.isIntegerTy(64);
       if (type.isPointerTy() || maybeIntPtr) {
         auto getBindFunc = [&]() {
           auto handle = *static_cast<void *const *>(data);
@@ -251,14 +240,13 @@ void generateBind(const Context &context, DynamicCompilerContext &jitContext,
 
 void applyBind(const Context &context, DynamicCompilerContext &jitContext,
                const JitModuleInfo &moduleInfo) {
-  auto &layout = jitContext.getDataLayout();
   for (auto &elem : moduleInfo.getBindHandles()) {
-    auto decorated = decorate(elem.name, layout);
-    auto symbol = jitContext.lookup(decorated);
+    auto symbol = jitContext.lookup(elem.name);
     auto addr = resolveSymbol(symbol);
     if (nullptr == addr) {
       std::string desc = std::string("Symbol not found in jitted code: \"") +
-                         elem.name + "\" (\"" + decorated + "\")";
+                         elem.name + "\" (\"" + jitContext.mangle(elem.name) +
+                         "\")";
       fatal(context, desc);
     } else {
       auto handle = static_cast<void **>(elem.handle);
@@ -271,8 +259,9 @@ DynamicCompilerContext &getJit(DynamicCompilerContext *context) {
   if (context != nullptr) {
     return *context;
   }
-  static DynamicCompilerContext jit(/*mainContext*/ true);
-  return jit;
+  static std::unique_ptr<DynamicCompilerContext> jit =
+      DynamicCompilerContext::Create(/*mainContext*/ true);
+  return *jit;
 }
 
 void setRtCompileVars(const Context &context, llvm::Module &module,
@@ -327,8 +316,7 @@ struct JitFinaliser final {
 static void insertABIHacks(const Context &context,
                            DynamicCompilerContext &jitContext,
                            llvm::Module &module) {
-  auto *TM = jitContext.getTargetMachine();
-  bool isAArch64 = TM->getTargetTriple().isAArch64();
+  bool isAArch64 = jitContext.getTargetTriple().isAArch64();
   if (isAArch64) {
     // insert DW.ref._d_eh_personality stub
     auto targetSymbol = module.getFunction("_d_eh_personality");
@@ -344,7 +332,7 @@ static void insertABIHacks(const Context &context,
     auto targetSymbolAddr = jitContext.lookup(thunkName);
     assert(targetSymbolAddr);
     jitContext.addSymbol("DW.ref._d_eh_personality",
-                         targetSymbolAddr->getAddress().toPtr<void *>());
+                         targetSymbolAddr->toPtr<void *>());
   }
 }
 #endif
@@ -361,7 +349,6 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   JitModuleInfo moduleInfo(context, modlist_head);
   llvm::orc::ThreadSafeModule finalModule;
   myJit.clearSymMap();
-  auto &layout = myJit.getDataLayout();
   OptimizerSettings settings;
   settings.optLevel = context.optLevel;
   settings.sizeLevel = context.sizeLevel;
@@ -385,7 +372,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
       dumpModule(context, module, DumpStage::OriginalModule);
       setFunctionsTarget(module, TM);
 
-      module.setDataLayout(TM->createDataLayout());
+      module.setDataLayout(myJit.getDataLayout());
 
       interruptPoint(context, "setRtCompileVars", name.data());
       setRtCompileVars(context, module,
@@ -403,10 +390,15 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
         });
       }
 
-      for (auto &&sym : toArray(current.symList, static_cast<std::size_t>(
-                                                     current.symListSize))) {
-        myJit.addSymbol(decorate(sym.name, layout), sym.sym);
+      llvm::orc::SymbolMap symMap{
+          static_cast<unsigned int>(current.symListSize)};
+      for (int i = 0; i < current.symListSize; ++i) {
+        const auto &sym = current.symList[i];
+        symMap[myJit.mangleAndIntern(sym.name)] = {
+            llvm::orc::ExecutorAddr::fromPtr(sym.sym),
+            llvm::JITSymbolFlags::Exported};
       }
+      myJit.addSymbols(symMap);
     }
   });
 
@@ -448,12 +440,12 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
       if (fun.thunkVar == nullptr) {
         continue;
       }
-      auto decorated = decorate(fun.name, layout);
-      auto symbol = myJit.lookup(decorated);
+      auto symbol = myJit.lookup(fun.name);
       auto addr = resolveSymbol(symbol);
       if (nullptr == addr) {
         std::string desc = std::string("Symbol not found in jitted code: \"") +
-                           fun.name.data() + "\" (\"" + decorated + "\")";
+                           fun.name.data() + "\" (\"" + myJit.mangle(fun.name) +
+                           "\")";
         fatal(context, desc);
       } else {
         *fun.thunkVar = addr;
@@ -503,7 +495,7 @@ EXTERNAL void JIT_UNREG_BIND_PAYLOAD(class DynamicCompilerContext *context,
 }
 
 EXTERNAL DynamicCompilerContext *JIT_CREATE_COMPILER_CONTEXT() {
-  return new DynamicCompilerContext(false);
+  return DynamicCompilerContext::Create(/*mainContext*/ false).release();
 }
 
 EXTERNAL void JIT_DESTROY_COMPILER_CONTEXT(DynamicCompilerContext *context) {

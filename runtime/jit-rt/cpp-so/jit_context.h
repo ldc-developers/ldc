@@ -17,26 +17,19 @@
 #include <llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h>
 #include <map>
 #include <memory>
-#include <utility>
 
 #include "llvm/ADT/MapVector.h"
-#include "llvm/ExecutionEngine/JITSymbol.h"
 #include "llvm/ExecutionEngine/Orc/CompileUtils.h"
 #include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
-#include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
-#include "llvm/ExecutionEngine/JITSymbol.h"
 #include "llvm/ExecutionEngine/Orc/ThreadSafeModule.h"
+#include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include "llvm/ExecutionEngine/Orc/Core.h"
-#include "llvm/ExecutionEngine/Orc/ObjectTransformLayer.h"
-#include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/Support/ManagedStatic.h"
 
 #ifdef LDC_JITRT_USE_JITLINK
-#include "llvm/ExecutionEngine/JITLink/JITLink.h"
 #include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
-#include "llvm/ExecutionEngine/JITLink/JITLinkMemoryManager.h"
-#include "llvm/ExecutionEngine/JITLink/EHFrameSupport.h"
+#else
+#include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
 #endif
 
 #if LDC_LLVM_VER < 1700
@@ -59,31 +52,17 @@ class TargetMachine;
 using SymMap = std::map<std::string, void *>;
 class LDCSymbolDefinitionGenerator;
 
-class DynamicCompilerContext final {
-  friend class LDCSymbolDefinitionGenerator;
-
+class DynamicCompilerContext final : public llvm::orc::LLJIT {
 private:
-  llvm::orc::JITTargetMachineBuilder jtmb;
-  std::unique_ptr<llvm::TargetMachine> targetmachine;
-  const llvm::DataLayout dataLayout;
 #ifdef LDC_JITRT_USE_JITLINK
   using ObjectLayerT = llvm::orc::ObjectLinkingLayer;
 #else
   using ObjectLayerT = llvm::orc::RTDyldObjectLinkingLayer;
 #endif
-  using ListenerLayerT = llvm::orc::ObjectTransformLayer;
   using CompileLayerT = llvm::orc::IRCompileLayer;
-  using ModuleHandleT = llvm::orc::JITDylib;
-  std::unique_ptr<llvm::orc::ExecutionSession> execSession;
-  ObjectLayerT objectLayer;
-  llvm::raw_ostream *listener_stream;
-  ListenerLayerT listenerlayer;
-  CompileLayerT compileLayer;
   llvm::orc::ThreadSafeContext context;
-  bool compiled = false;
-  ModuleHandleT &moduleHandle;
-  SymMap symMap;
-
+  std::unique_ptr<llvm::TargetMachine> targetmachine;
+  llvm::raw_ostream *listenerstream;
   struct BindDesc final {
     void *originalFunc;
     void *exampleFunc;
@@ -91,37 +70,29 @@ private:
     ParamsVec params;
   };
   llvm::MapVector<void *, BindDesc> bindInstances;
-  const bool mainContext = false;
+  bool compiled;
+  bool mainContext;
 
-  llvm::Optional<llvm::orc::ExecutorSymbolDef>
-  findSymbol(const std::string &name);
+  // internal constructor
+  DynamicCompilerContext(llvm::orc::LLJITBuilderState S, llvm::Error Err,
+                         std::unique_ptr<llvm::TargetMachine> TM,
+                         bool isMainContext);
 
 public:
   struct ListenerCleaner final {
     DynamicCompilerContext &owner;
-    ListenerCleaner(DynamicCompilerContext &o, llvm::raw_ostream *stream);
-    ~ListenerCleaner();
+    ListenerCleaner(DynamicCompilerContext &o, llvm::raw_ostream *stream)
+        : owner(o) {
+      owner.listenerstream = stream;
+    }
+    ~ListenerCleaner() { owner.listenerstream = nullptr; }
   };
-  explicit DynamicCompilerContext(bool isMainContext);
+  static std::unique_ptr<DynamicCompilerContext> Create(bool isMainContext);
   ~DynamicCompilerContext();
-
-  llvm::TargetMachine *getTargetMachine() { return targetmachine.get(); }
-  const llvm::DataLayout &getDataLayout() const { return dataLayout; }
-
+  llvm::TargetMachine *getTargetMachine() const { return targetmachine.get(); }
+  const llvm::DataLayout &getDataLayout() const { return DL; }
   llvm::Error addModule(llvm::orc::ThreadSafeModule module);
-
-  llvm::Expected<llvm::orc::ExecutorSymbolDef> lookup(const std::string &name);
-
-  llvm::LLVMContext *getContext() { return context.getContext(); }
-
-  llvm::orc::ThreadSafeContext getThreadSafeContext() const { return context; }
-
-  void clearSymMap();
-
-  void addSymbol(std::string &&name, void *value);
-
   void reset();
-
   void registerBind(void *handle, void *originalFunc, void *exampleFunc,
                     const llvm::ArrayRef<ParamSlice> &params);
 
@@ -133,15 +104,16 @@ public:
     return bindInstances;
   }
 
-  bool isMainContext() const;
+  void addSymbol(std::string &&name, void *value);
+  void addSymbols(llvm::orc::SymbolMap &symbols);
+  void clearSymMap() { cantFail(ProcessSymbols->clear()); }
+  llvm::orc::ThreadSafeContext getThreadSafeContext() const { return context; }
+  llvm::LLVMContext *getContext() { return context.getContext(); }
+
+  bool isMainContext() const { return mainContext; }
 
   std::unique_ptr<ListenerCleaner>
   addScopedListener(llvm::raw_ostream *stream) {
     return std::make_unique<ListenerCleaner>(*this, stream);
   }
-
-private:
-  void removeModule(ModuleHandleT &handle);
-
-  std::shared_ptr<llvm::JITSymbolResolver> createResolver();
 };

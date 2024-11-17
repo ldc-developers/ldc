@@ -15,13 +15,12 @@
 #include "jit_context.h"
 
 #include <cassert>
-#include <llvm/ExecutionEngine/Orc/Core.h>
-#include <llvm/IR/LLVMContext.h>
 
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/ExecutionEngine/RuntimeDyld.h"
-#include "llvm/ExecutionEngine/SectionMemoryManager.h"
-#include "llvm/ExecutionEngine/Orc/ExecutionUtils.h"
+#include "llvm/ExecutionEngine/JITLink/EHFrameSupport.h"
+#include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
+#include "llvm/ExecutionEngine/Orc/ObjectTransformLayer.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/TargetParser/Host.h"
@@ -31,10 +30,15 @@
 
 namespace {
 
-llvm::SmallVector<std::string, 4> getHostAttrs() {
+static llvm::SmallVector<std::string, 4> getHostAttrs() {
   llvm::SmallVector<std::string, 4> features;
   llvm::StringMap<bool> hostFeatures;
-  if (llvm::sys::getHostCPUFeatures(hostFeatures)) {
+#if LDC_LLVM_VER >= 1901
+  hostFeatures = llvm::sys::getHostCPUFeatures();
+#else
+  if (llvm::sys::getHostCPUFeatures(hostFeatures))
+#endif
+  {
     for (auto &&f : hostFeatures) {
       features.push_back(((f.second ? "+" : "-") + f.first()).str());
     }
@@ -58,7 +62,7 @@ StaticInitHelper &staticInit() {
   return obj;
 }
 
-llvm::orc::JITTargetMachineBuilder createTargetMachine() {
+static llvm::orc::JITTargetMachineBuilder createTargetMachine() {
   staticInit();
 
   auto autoJTMB = llvm::orc::JITTargetMachineBuilder::detectHost();
@@ -73,88 +77,66 @@ llvm::orc::JITTargetMachineBuilder createTargetMachine() {
 
 } // anon namespace
 
-DynamicCompilerContext::ListenerCleaner::ListenerCleaner(
-    DynamicCompilerContext &o, llvm::raw_ostream *stream)
-    : owner(o) {
-  owner.listener_stream = stream;
-}
-
-DynamicCompilerContext::ListenerCleaner::~ListenerCleaner() {
-  owner.listener_stream = nullptr;
-}
-
-class LDCSymbolDefinitionGenerator : public llvm::orc::DefinitionGenerator {
-private:
-  DynamicCompilerContext *owner;
-
-public:
-  explicit LDCSymbolDefinitionGenerator(DynamicCompilerContext *o) : owner(o) {}
-
-  llvm::Error
-  tryToGenerate(llvm::orc::LookupState &LS, llvm::orc::LookupKind K,
-                llvm::orc::JITDylib &JD,
-                llvm::orc::JITDylibLookupFlags JDLookupFlags,
-                const llvm::orc::SymbolLookupSet &Symbols) override {
-    llvm::orc::SymbolMap NewSymbols{};
-    for (auto &symbol : Symbols) {
-      auto name = symbol.first;
-      auto result = owner->findSymbol((*name).str());
-      if (!result) {
-        continue;
-      }
-      NewSymbols[symbol.first] = *result;
-    }
-
-    return JD.define(llvm::orc::absoluteSymbols(NewSymbols));
-  }
-};
-
-DynamicCompilerContext::DynamicCompilerContext(bool isMainContext)
-    : jtmb(createTargetMachine()),
-      targetmachine(cantFail(jtmb.createTargetMachine())),
-      dataLayout(cantFail(jtmb.getDefaultDataLayoutForTarget())),
-      execSession(std::make_unique<llvm::orc::ExecutionSession>(
-          cantFail(llvm::orc::SelfExecutorProcessControl::Create()))),
-      objectLayer(*execSession,
-#ifdef LDC_JITRT_USE_JITLINK
-                  cantFail(llvm::jitlink::InProcessMemoryManager::Create())
-#else
-          []() { return std::make_unique<llvm::SectionMemoryManager>(); }
-#endif
-                      ),
-      listener_stream(nullptr),
-      listenerlayer(*execSession, objectLayer,
-                    [&](std::unique_ptr<llvm::MemoryBuffer> object)
-                        -> llvm::Expected<std::unique_ptr<llvm::MemoryBuffer>> {
-                      if (nullptr != listener_stream) {
-                        auto objFile = llvm::cantFail(
-                            llvm::object::ObjectFile::createObjectFile(
-                                object->getMemBufferRef()));
-                        disassemble(*targetmachine, *objFile, *listener_stream);
-                      }
-                      return object;
-                    }),
-      compileLayer(*execSession, listenerlayer,
-                   std::make_unique<llvm::orc::ConcurrentIRCompiler>(jtmb)),
+DynamicCompilerContext::DynamicCompilerContext(
+    llvm::orc::LLJITBuilderState state, llvm::Error error,
+    std::unique_ptr<llvm::TargetMachine> targetmachine, bool isMainContext)
+    : llvm::orc::LLJIT(state, error),
       context(std::make_unique<llvm::LLVMContext>()),
-      moduleHandle(execSession->createBareJITDylib("ldc_jit_module")),
-      mainContext(isMainContext) {
-#ifdef LDC_JITRT_USE_JITLINK
-  objectLayer.addPlugin(std::make_unique<llvm::orc::EHFrameRegistrationPlugin>(
-      *execSession,
-      std::make_unique<llvm::jitlink::InProcessEHFrameRegistrar>()));
-#endif
-  moduleHandle.addGenerator(
-      std::make_unique<LDCSymbolDefinitionGenerator>(this));
-  moduleHandle.addGenerator(
-      cantFail(llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
-          dataLayout.getGlobalPrefix())));
+      // we need this targetmachine here because LLJIT ctor will free the
+      // targetmachine field in LLJITBuilderState before we can even use it
+      targetmachine(std::move(targetmachine)), listenerstream(nullptr),
+      compiled(false), mainContext(isMainContext) {
+  assert(!error);
+  // setup the assembly code listener
+  // we assume LLJIT's own ObjTransformLayer is empty (at least this is the case
+  // for LLVM 12~20)
+  this->ObjTransformLayer->setTransform(
+      [&](std::unique_ptr<llvm::MemoryBuffer> object)
+          -> llvm::Expected<std::unique_ptr<llvm::MemoryBuffer>> {
+        if (nullptr != listenerstream) {
+          auto objFile =
+              llvm::cantFail(llvm::object::ObjectFile::createObjectFile(
+                  object->getMemBufferRef()));
+          disassemble(*this->targetmachine, *objFile, *listenerstream);
+        }
+        return object;
+      });
 }
 
-DynamicCompilerContext::~DynamicCompilerContext() {
-  reset();
-  removeModule(moduleHandle);
-  cantFail(execSession->endSession());
+static llvm::orc::LLJITBuilder buildLLJITforLDC() {
+  llvm::orc::LLJITBuilder builder{};
+  builder.setJITTargetMachineBuilder(createTargetMachine())
+      .setLinkProcessSymbolsByDefault(true)
+  // we override the object linking layer if we are using LLVM JITLink.
+  // For RuntimeDyld, we use LLJIT's default setup process
+  // (which includes a lot of platform-related workarounds we need)
+#ifdef LDC_JITRT_USE_JITLINK
+      .setObjectLinkingLayerCreator([&](llvm::orc::ExecutionSession &ES,
+                                        const llvm::Triple &TT) {
+        auto linker = std::make_unique<llvm::orc::ObjectLinkingLayer>(
+            ES, cantFail(llvm::jitlink::InProcessMemoryManager::Create()));
+        // explicitly register EH frame support (for exception handling)
+        linker->addPlugin(
+            std::make_unique<llvm::orc::EHFrameRegistrationPlugin>(
+                ES,
+                std::make_unique<llvm::jitlink::InProcessEHFrameRegistrar>()));
+        return linker;
+      })
+#endif
+      ;
+  cantFail(builder.prepareForConstruction());
+  return builder;
+}
+
+std::unique_ptr<DynamicCompilerContext>
+DynamicCompilerContext::Create(bool isMainContext) {
+  auto builder = buildLLJITforLDC();
+  auto TM = cantFail(builder.JTMB->createTargetMachine());
+  // std::make_unique is unusable here because it does not work when the
+  // target class constructor is private
+  return std::unique_ptr<DynamicCompilerContext>{
+      new DynamicCompilerContext(std::move(builder), llvm::Error::success(),
+                                 std::move(TM), isMainContext)};
 }
 
 llvm::Error
@@ -162,43 +144,38 @@ DynamicCompilerContext::addModule(llvm::orc::ThreadSafeModule module) {
   assert(!!module);
   reset();
 
-  // Add the set to the JIT with the resolver we created above
-  auto result = compileLayer.add(moduleHandle, std::move(module));
-  if (result) {
-    cantFail(execSession->removeJITDylib(moduleHandle));
-    return result;
+  auto error = this->addIRModule(*this->Main, std::move(module));
+  if (error) {
+    return error;
   }
   compiled = true;
   return llvm::Error::success();
 }
 
-llvm::Optional<llvm::orc::ExecutorSymbolDef>
-DynamicCompilerContext::findSymbol(const std::string &name) {
-  auto it = symMap.find(name);
-  if (symMap.end() != it) {
-    return llvm::orc::ExecutorSymbolDef{
-        llvm::orc::ExecutorAddr::fromPtr(it->second),
-        llvm::JITSymbolFlags::Exported};
-  }
-  return {};
-}
-
-llvm::Expected<llvm::orc::ExecutorSymbolDef>
-DynamicCompilerContext::lookup(const std::string &name) {
-  return execSession->lookup({&moduleHandle}, name);
-}
-
-void DynamicCompilerContext::clearSymMap() { symMap.clear(); }
-
-void DynamicCompilerContext::addSymbol(std::string &&name, void *value) {
-  symMap.emplace(std::make_pair(std::move(name), value));
-}
-
 void DynamicCompilerContext::reset() {
   if (compiled) {
-    cantFail(moduleHandle.clear());
+    // note that we don't remove the JD because that will destroy the lookup
+    // order and link order we have setup
+    cantFail(this->Main->clear());
     compiled = false;
   }
+}
+
+DynamicCompilerContext::~DynamicCompilerContext() { reset(); }
+
+
+void DynamicCompilerContext::addSymbols(llvm::orc::SymbolMap &symbols) {
+  // we define the static symbol in the process symbols JD to avoid symbol
+  // conflicts in the Main JD (pre-fabricated LLJIT instance will still check
+  // ProcessSymbols if the symbol it needs does not exist in the Main JD)
+  cantFail(ProcessSymbols->define(llvm::orc::absoluteSymbols(symbols)));
+}
+
+void DynamicCompilerContext::addSymbol(std::string &&name, void *value) {
+  llvm::orc::SymbolMap symbols{1};
+  symbols[mangleAndIntern(name)] = {llvm::orc::ExecutorAddr::fromPtr(value),
+                                    llvm::JITSymbolFlags::Exported};
+  cantFail(ProcessSymbols->define(llvm::orc::absoluteSymbols(symbols)));
 }
 
 void DynamicCompilerContext::registerBind(
@@ -218,10 +195,4 @@ bool DynamicCompilerContext::hasBindFunction(const void *handle) const {
   assert(handle != nullptr);
   auto it = bindInstances.find(const_cast<void *>(handle));
   return it != bindInstances.end();
-}
-
-bool DynamicCompilerContext::isMainContext() const { return mainContext; }
-
-void DynamicCompilerContext::removeModule(ModuleHandleT &handle) {
-  cantFail(execSession->removeJITDylib(handle));
 }
