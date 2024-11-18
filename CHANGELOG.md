@@ -1,7 +1,7 @@
 # LDC master
 
 #### Big news
-- Frontend, druntime and Phobos are at version [2.110.0](https://dlang.org/changelog/2.110.0.html). (#4707, #4737, #4749, #4768)
+- Frontend, druntime and Phobos are at version [2.110.0](https://dlang.org/changelog/2.110.0.html). (#4707, #4737, #4749, #4768, #4784)
 - LLVM for prebuilt packages bumped to v18.1.8 (incl. macOS arm64). (#4712)
 - Android: NDK for prebuilt package bumped from r26d to r27. (#4711)
 - ldc2.conf: %%ldcconfigpath%% placeholder added - specifies the directory where current configuration file is located. (#4717)
@@ -14,6 +14,7 @@
 - Fix potentially corrupt IR layouts for bit fields. (#4646, #4708)
 - Fix potentially corrupt IR layouts for explicitly under-aligned aggregates, a regression introduced in LDC v1.31. (#4734, #4736)
 - ELF: Emit (most) instantiated symbols in COMDATs for proper link-time culling. (#3589, #4748)
+- Support scalar right-hand-sides when bit-shifting vectors. (#3606, #4781)
 
 # LDC 1.39.0 (2024-07-04)
 

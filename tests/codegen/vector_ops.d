@@ -44,6 +44,11 @@ void main()
 
     const int4 i = [ 1, 2, 3, 4 ];
     assert(i << i is [ 2, 8, 24, 64 ]);
+    assert(i << 2 is [ 4, 8, 12, 16 ]);
+    assert(i >> int4(1) is [ 0, 1, 1, 2 ]);
+    assert(i >> 1 is [ 0, 1, 1, 2 ]);
+    assert(i >>> int4(1) is [ 0, 1, 1, 2 ]);
+    assert(i >>> 1 is [ 0, 1, 1, 2 ]);
 
     const int4 a = [ 0b1, 0b10, 0b101, 0b100011 ];
     const int4 b = 0b110;
