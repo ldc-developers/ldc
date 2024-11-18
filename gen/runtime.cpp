@@ -849,6 +849,26 @@ static void buildRuntimeModule() {
                   {objectPtrTy, selectorPtrTy}, {},
                   AttrSet(NoAttrs, ~0U, llvm::Attribute::NonLazyBind));
 
+    // Class object_getClass(id obj)
+    createFwdDecl(LINK::c, objectPtrTy, {"object_getClass"},
+                  {objectPtrTy}, {},
+                  AttrSet(NoAttrs, ~0U, llvm::Attribute::NonLazyBind));
+
+    // Needed for safe casting
+
+    // bool objc_opt_isKindOfClass(id obj, Class otherClass)
+    // This features a fast path over using the msgSend version.
+    // https://github.com/apple-oss-distributions/objc4/blob/main/runtime/NSObject.mm#L2123
+    createFwdDecl(LINK::c, boolTy, {"objc_opt_isKindOfClass"},
+                  {objectPtrTy, objectPtrTy}, {},
+                  AttrSet(NoAttrs, ~0U, llvm::Attribute::NonLazyBind));
+
+    // class_conformsToProtocol(Class cls, Protocol *protocol)
+    createFwdDecl(LINK::c, boolTy, {"class_conformsToProtocol"},
+                  {objectPtrTy, objectPtrTy}, {},
+                  AttrSet(NoAttrs, ~0U, llvm::Attribute::NonLazyBind));
+
+
     switch (global.params.targetTriple->getArch()) {
     case llvm::Triple::x86_64:
       // creal objc_msgSend_fp2ret(id self, SEL op, ...)

@@ -327,6 +327,14 @@ DValue *DtoCastClass(const Loc &loc, DValue *val, Type *_to) {
   return DtoDynamicCastObject(loc, val, _to);
 }
 
+bool DtoIsObjcLinkage(Type *_to) {
+  TypeClass *to = static_cast<TypeClass *>(_to->toBasetype());
+  auto sym = to->sym;
+
+  DtoResolveClass(sym);
+  return sym->classKind == ClassKind::objc;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 static void resolveObjectAndClassInfoClasses() {
@@ -339,14 +347,32 @@ static void resolveObjectAndClassInfoClasses() {
 }
 
 DValue *DtoDynamicCastObject(const Loc &loc, DValue *val, Type *_to) {
+
+  resolveObjectAndClassInfoClasses();
+
+  // Dynamic casting in Objective-C works differently from D.
+  // We call objc_opt_isKindOfClass to get a bool defining
+  // whether the cast is valid, if it is then we go ahead.
+  if (DtoIsObjcLinkage(_to)) {
+    llvm::Function *kindOfClassFunc =
+      getRuntimeFunction(loc, gIR->module, "objc_opt_isKindOfClass");
+
+    // Get the object.
+    LLValue *obj = DtoRVal(val);
+
+    // objc_opt_isKindOfClass will check if id is null
+    // by itself, so we don't need to add an extra check.
+    // objc_opt_isKindOfClass(id) ? id : null
+    LLValue *objCastable = gIR->CreateCallOrInvoke(kindOfClassFunc, obj);
+    LLValue *ret = gIR->ir->CreateSelect(objCastable, obj, getNullPtr());
+    return new DImValue(_to, ret);
+  }
+
   // call:
   // Object _d_dynamic_cast(Object o, ClassInfo c)
-
   llvm::Function *func =
       getRuntimeFunction(loc, gIR->module, "_d_dynamic_cast");
   LLFunctionType *funcTy = func->getFunctionType();
-
-  resolveObjectAndClassInfoClasses();
 
   // Object o
   LLValue *obj = DtoRVal(val);
@@ -368,13 +394,43 @@ DValue *DtoDynamicCastObject(const Loc &loc, DValue *val, Type *_to) {
 ////////////////////////////////////////////////////////////////////////////////
 
 DValue *DtoDynamicCastInterface(const Loc &loc, DValue *val, Type *_to) {
-  // call:
-  // Object _d_interface_cast(void* p, ClassInfo c)
-
-  llvm::Function *func =
-      getRuntimeFunction(loc, gIR->module, "_d_interface_cast");
 
   resolveObjectAndClassInfoClasses();
+
+  // Dynamic casting in Objective-C works differently from D.
+  // In this case we want to call the Objective-C runtime to first
+  // get a Class object from the `id`.
+  // Then check if class_conformsToProtocol returns true,
+  // if it does, then we can cast and return the casted value, 
+  // otherwise return null.
+  if (DtoIsObjcLinkage(_to)) {
+    llvm::Function *getClassFunc =
+      getRuntimeFunction(loc, gIR->module, "object_getClass");
+
+    llvm::Function *kindOfProtocolFunc =
+      getRuntimeFunction(loc, gIR->module, "class_conformsToProtocol");
+
+    // id -> Class 
+    LLValue *obj = DtoRVal(val);
+    LLValue *objClass = gIR->CreateCallOrInvoke(getClassFunc, obj);
+
+    // Class && kindOfProtocolFunc(Class) ? id : null
+    LLValue *ret = gIR->ir->CreateSelect(
+      gIR->ir->CreateIsNotNull(objClass),
+      gIR->ir->CreateSelect(
+        gIR->CreateCallOrInvoke(kindOfProtocolFunc, objClass),
+        obj, 
+        getNullPtr()
+      ), 
+      getNullPtr()
+    );
+    return new DImValue(_to, ret);
+  }
+
+  // call:
+  // Object _d_interface_cast(void* p, ClassInfo c)
+  llvm::Function *func =
+      getRuntimeFunction(loc, gIR->module, "_d_interface_cast");
 
   // void* p
   LLValue *ptr = DtoRVal(val);
