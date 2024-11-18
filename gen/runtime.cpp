@@ -854,6 +854,12 @@ static void buildRuntimeModule() {
                   {objectPtrTy}, {},
                   AttrSet(NoAttrs, ~0U, llvm::Attribute::NonLazyBind));
 
+    // Class objc_loadClassRef(Class function(Class* stub))
+    // SEE: https://github.com/swiftlang/swift/blob/main/docs/ObjCInterop.md
+    createFwdDecl(LINK::c, objectPtrTy, {"objc_loadClassRef"},
+                  {objectPtrTy}, {},
+                  AttrSet(NoAttrs, ~0U, llvm::Attribute::NonLazyBind));
+
     // Needed for safe casting
 
     // bool objc_opt_isKindOfClass(id obj, Class otherClass)

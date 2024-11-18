@@ -317,3 +317,11 @@ enum mustuse;
  * This is only allowed on `shared` static constructors, not thread-local module constructors.
  */
 enum standalone;
+
+/**
+ * Use this attribute to indicate that a Objective-C class is a Swift stub class.
+ * 
+ * This is only allowed on classes, and classes marked as swift Objective-C classes
+ * cannot be subclassed.
+ */
+enum swift;

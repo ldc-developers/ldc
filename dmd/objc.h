@@ -37,6 +37,7 @@ struct ObjcClassDeclaration
 {
     d_bool isMeta;
     d_bool isExtern;
+    d_bool isSwiftStub;
 
     Identifier* identifier;
     ClassDeclaration* classDeclaration;
@@ -67,6 +68,7 @@ public:
     virtual void checkLinkage(FuncDeclaration* fd) = 0;
     virtual bool isVirtual(const FuncDeclaration*) const = 0;
     virtual void setAsOptional(FuncDeclaration *fd, Scope *sc) const = 0;
+    virtual void setAsSwiftStub(FuncDeclaration *fd, Scope *sc) const = 0;
     virtual void validateOptional(FuncDeclaration *fd) const = 0;
     virtual ClassDeclaration* getParent(FuncDeclaration*, ClassDeclaration*) const = 0;
     virtual void addToClassMethodList(FuncDeclaration*, ClassDeclaration*) const = 0;
