@@ -824,6 +824,10 @@ static void buildRuntimeModule() {
                   {stringTy, arrayOf(sizeTy), arrayOf(uintTy), ubyteTy});
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
+
   if (target.objc.supported) {
     assert(global.params.targetTriple->isOSDarwin());
 
@@ -836,6 +840,12 @@ static void buildRuntimeModule() {
     // id objc_msgSend(id self, SEL op, ...)
     // Function called early and/or often, so lazy binding isn't worthwhile.
     createFwdDecl(LINK::c, objectPtrTy, {"objc_msgSend"},
+                  {objectPtrTy, selectorPtrTy}, {},
+                  AttrSet(NoAttrs, ~0U, llvm::Attribute::NonLazyBind));
+
+    // id objc_msgSendSuper(obj_super_t *super, SEL op, ...)
+    // NOTE: obj_super_t is defined as struct { id, Class }
+    createFwdDecl(LINK::c, objectPtrTy, {"objc_msgSendSuper"},
                   {objectPtrTy, selectorPtrTy}, {},
                   AttrSet(NoAttrs, ~0U, llvm::Attribute::NonLazyBind));
 
@@ -856,7 +866,12 @@ static void buildRuntimeModule() {
       // used when return value is aggregate via a hidden sret arg
       // void objc_msgSend_stret(T *sret_arg, id self, SEL op, ...)
       createFwdDecl(LINK::c, voidTy, {"objc_msgSend_stret"},
-                    {objectPtrTy, selectorPtrTy});
+                    {objectPtrTy, objectPtrTy, selectorPtrTy});
+
+      // See: https://github.com/apple-oss-distributions/objc4/blob/main/runtime/Messengers.subproj/objc-msg-x86_64.s#L1059
+      // void objc_msgSend_stret(T *sret_arg, objc_super_t *super, SEL op, ...)
+      createFwdDecl(LINK::c, voidTy, {"objc_msgSendSuper_stret"},
+                    {objectPtrTy, objectPtrTy, selectorPtrTy});
       break;
     default:
       break;

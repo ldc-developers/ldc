@@ -15,6 +15,7 @@
 
 #include <vector>
 #include "llvm/ADT/StringMap.h"
+#include "ir/irfunction.h"
 
 struct ObjcSelector;
 namespace llvm {
@@ -40,6 +41,8 @@ public:
   ObjCState(llvm::Module &module) : module(module) {}
 
   // Classes
+  llvm::GlobalVariable *getClassSymbol(const ClassDeclaration& cd, bool meta);
+  llvm::GlobalVariable *getClassRoSymbol(const ClassDeclaration& cd, bool meta);
   llvm::GlobalVariable *getClassReference(const ClassDeclaration& cd);
 
   // Interface variables
@@ -53,6 +56,7 @@ public:
 
   // Protocols
   llvm::GlobalVariable *getProtocolSymbol(const InterfaceDeclaration& id);
+  llvm::GlobalVariable *getProtocolReference(const InterfaceDeclaration& id);
 
   void finalize();
 
@@ -62,9 +66,18 @@ private:
   // Symbols that shouldn't be optimized away
   std::vector<llvm::Constant *> retainedSymbols;
 
+  // Store the classes and protocols.
+  std::vector<ClassDeclaration *> classes;
+  std::vector<InterfaceDeclaration *> protocols;
+
   /// Cache for `__OBJC_METACLASS_$_`/`__OBJC_CLASS_$_` symbols.
   SymbolCache classNameTable;
   SymbolCache classNameRoTable;
+
+  /// Cache for `_OBJC_CLASS_$_` symbols stored in `__objc_stubs`.
+  /// NOTE: Stub classes have a different layout from normal classes
+  /// And need to be instantiated with a call to the objective-c runtime.
+  SymbolCache stubClassNameTable;
 
   /// Cache for `L_OBJC_CLASSLIST_REFERENCES_$_` symbols.
   SymbolCache classReferenceTable;
@@ -80,10 +93,20 @@ private:
   // Cache for instance variables.
   SymbolCache ivarOffsetTable;
 
+  // Gets Objective-C type tag
+  const char *getObjcType(Type *t);
+
+  llvm::Constant *constU32(uint32_t value);
+  llvm::Constant *constU64(uint64_t value);
+  llvm::Constant *constSizeT(size_t value);
+
+  llvm::GlobalVariable *getProtocoList(const InterfaceDeclaration& iface);
+  llvm::GlobalVariable *getProtocoList(const ClassDeclaration& cd);
+  llvm::GlobalVariable *getMethodListFor(const ClassDeclaration& cd, bool meta);
+
   llvm::GlobalVariable *getCStringVar(const char *symbol,
                                       const llvm::StringRef &str,
                                       const char *section);
-  llvm::GlobalVariable *getClassName(const ClassDeclaration& cd, bool isMeta);
 
   void retain(llvm::Constant *sym);
 

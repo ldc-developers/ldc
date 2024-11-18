@@ -149,7 +149,9 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     }
   }
   if (hasObjCSelector) {
-    // TODO: make arg_objcselector to match dmd type
+
+    // SEL is in libobjc an opaque pointer.
+    // As such a void* is fine.
     newIrFty.arg_objcSelector = new IrFuncTyArg(Type::tvoidptr, false);
     ++nextLLArgIdx;
   }

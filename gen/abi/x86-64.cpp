@@ -165,7 +165,7 @@ struct X86_64TargetABI : TargetABI {
 
   Type *vaListType() override;
 
-  const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override;
+  const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool superCall) override;
 
 private:
   LLType *getValistType();

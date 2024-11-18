@@ -646,13 +646,13 @@ public:
         tf(DtoTypeFunction(fnval)),
         llArgTypesBegin(llCalleeType->param_begin()) {}
 
-  void addImplicitArgs() {
+  void addImplicitArgs(bool directcall) {
     if (gABI->passThisBeforeSret(tf)) {
-      addContext();
+      addContext(directcall);
       addSret();
     } else {
       addSret();
-      addContext();
+      addContext(directcall);
     }
 
     addArguments();
@@ -702,11 +702,12 @@ private:
   }
 
   // Adds an optional context/this pointer argument and sets hasContext.
-  void addContext() {
+  void addContext(bool directcall) {
     const bool thiscall = irFty.arg_this;
     const bool nestedcall = irFty.arg_nest;
+    const bool objccall = irFty.type->linkage == LINK::objc;
 
-    hasContext = thiscall || nestedcall || isDelegateCall;
+    hasContext = thiscall || nestedcall || isDelegateCall || objccall;
     if (!hasContext)
       return;
 
@@ -732,8 +733,32 @@ private:
       }
       args.push_back(thisptrLval);
     } else if (thiscall && dfnval && dfnval->vthis) {
-      // ... or a normal 'this' argument
-      args.push_back(dfnval->vthis);
+      
+      if (objccall && directcall) {
+
+        // ... or a Objective-c super call argument
+        if (auto parentfd = dfnval->func->parent->isFuncDeclaration()) {
+          if (auto cls = parentfd->parent->isClassDeclaration()) {
+
+            // Create obj_super struct with (this, <class ref>)
+            auto obj_super = DtoAggrPair(
+              dfnval->vthis,
+              DtoLoad(getOpaquePtrType(), gIR->objc.getClassReference(*cls)),
+              "super"
+            );
+
+            // Allocate and store obj_super struct into a new variable.
+            auto clsaddr = DtoRawAlloca(obj_super->getType(), 16, "super");
+            DtoStore(obj_super, clsaddr);
+
+            args.push_back(clsaddr);
+          }
+        }
+      } else {
+
+        // ... or a normal 'this' argument
+        args.push_back(dfnval->vthis);
+      }
     } else if (isDelegateCall) {
       // ... or a delegate context arg
       LLValue *ctxarg;
@@ -767,9 +792,10 @@ private:
 
     if (irFty.arg_objcSelector) {
       assert(dfnval);
+
       const auto selector = dfnval->func->objc.selector;
       assert(selector);
-      LLGlobalVariable *selptr = gIR->objc.getMethVarRef(*selector);
+      LLGlobalVariable *selptr = gIR->objc.getMethodVarRef(*selector);
       args.push_back(DtoLoad(selptr->getValueType(), selptr));
     }
   }
@@ -813,7 +839,7 @@ static LLValue *DtoCallableValue(DValue *fn) {
 
 // FIXME: this function is a mess !
 DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
-                        Expressions *arguments, LLValue *sretPointer) {
+                        Expressions *arguments, LLValue *sretPointer, bool directcall) {
   IF_LOG Logger::println("DtoCallFunction()");
   LOG_SCOPE
 
@@ -858,7 +884,7 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
   // handle implicit arguments (sret, context/this, _arguments)
   ImplicitArgumentsBuilder iab(args, attrs, loc, fnval, callableTy, arguments,
                                resulttype, sretPointer);
-  iab.addImplicitArgs();
+  iab.addImplicitArgs(directcall);
 
   // handle explicit arguments
 
