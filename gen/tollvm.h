@@ -158,7 +158,7 @@ size_t getTypeBitSize(LLType *t);
 size_t getTypeStoreSize(LLType *t);
 size_t getTypeAllocSize(LLType *t);
 size_t getPointerSize();
-unsigned int getPointerSizeInBits();
+size_t getPointerSizeInBits();
 
 // type alignments
 unsigned int getABITypeAlign(LLType *t);

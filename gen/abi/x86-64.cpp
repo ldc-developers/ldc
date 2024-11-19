@@ -196,9 +196,6 @@ private:
   }
 };
 
-// The public getter for abi.cpp
-TargetABI *getX86_64TargetABI() { return new X86_64TargetABI; }
-
 bool X86_64TargetABI::returnInArg(TypeFunction *tf, bool) {
   if (tf->isref()) {
     return false;
@@ -383,8 +380,9 @@ Type *X86_64TargetABI::vaListType() {
 }
 
 const char *X86_64TargetABI::objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool superCall) {
+  assert(isDarwin());
+    
   // see objc/message.h for objc_msgSend selection rules
-  assert(isDarwin);
   if (fty.arg_sret) {
     return superCall ? "objc_msgSendSuper_stret" : "objc_msgSend_stret";
   }
@@ -394,3 +392,6 @@ const char *X86_64TargetABI::objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool supe
   }
   return superCall ? "objc_msgSendSuper" : "objc_msgSend";
 }
+
+// The public getter for abi.cpp
+TargetABI *getX86_64TargetABI() { return new X86_64TargetABI; }

@@ -795,7 +795,7 @@ private:
 
       const auto selector = dfnval->func->objc.selector;
       assert(selector);
-      LLGlobalVariable *selptr = gIR->objc.getMethodVarRef(*selector);
+      LLGlobalVariable *selptr = gIR->objc.getSelector(*selector);
       args.push_back(DtoLoad(selptr->getValueType(), selptr));
     }
   }

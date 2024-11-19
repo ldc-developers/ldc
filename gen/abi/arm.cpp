@@ -124,6 +124,8 @@ struct ArmTargetABI : TargetABI {
   }
 
   const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool superCall) override {
+    assert(isDarwin());
+    
     // see objc/message.h for objc_msgSend selection rules
     if (fty.arg_sret) {
       return "objc_msgSend_stret";

@@ -10,14 +10,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/objcgen.h"
-
-#include "dmd/mtype.h"
 #include "dmd/objc.h"
 #include "dmd/expression.h"
 #include "dmd/declaration.h"
 #include "dmd/identifier.h"
 #include "gen/irstate.h"
-#include "gen/tollvm.h"
 #include "ir/irfunction.h"
 
 bool objc_isSupported(const llvm::Triple &triple) {
@@ -40,7 +37,7 @@ bool objc_isSupported(const llvm::Triple &triple) {
   return false;
 }
 
-llvm::GlobalVariable *ObjCState::getGlobal(llvm::Module& module, llvm::StringRef name, llvm::Type* type = nullptr) {
+llvm::GlobalVariable *ObjCState::getGlobal(llvm::Module& module, llvm::StringRef name, llvm::Type* type) {
   if (type == nullptr)
     type = getOpaquePtrType();
 
@@ -86,9 +83,17 @@ LLGlobalVariable *ObjCState::getCStringVar(const char *symbol,
                                            const llvm::StringRef &str,
                                            const char *section) {
   auto init = llvm::ConstantDataArray::getString(module.getContext(), str);
-  auto var = new LLGlobalVariable(module, init->getType(), false,
-                                  LLGlobalValue::PrivateLinkage, init, symbol);
-  var->setSection(section);
+  auto var = new LLGlobalVariable(
+    module, 
+    init->getType(), 
+    false,
+    LLGlobalValue::PrivateLinkage, 
+    init, 
+    symbol
+  );
+
+  if (section)
+    var->setSection(section);
   return var;
 }
 
@@ -96,7 +101,16 @@ std::string ObjCState::getObjcTypeEncoding(Type *t) {
   std::string tmp;
 
   switch (t->ty) {
-    case TY::Tpointer:
+    case TY::Tfunction: {
+      tmp = getObjcTypeEncoding(t->nextOf());
+
+      if (auto func = t->isTypeFunction()) {
+        for (size_t i = 0; i < func->parameterList.length(); i++)
+          tmp.append(getObjcTypeEncoding(func->parameterList[i]->type));
+      }
+      return tmp;
+    }
+    case TY::Tpointer: {
 
       // C string (char*)
       if (t->nextOf()->ty == TY::Tchar)
@@ -105,7 +119,8 @@ std::string ObjCState::getObjcTypeEncoding(Type *t) {
       tmp.append("^");
       tmp.append(getObjcTypeEncoding(t->nextOf()));
       return tmp;
-    case TY::Tsarray:
+    }
+    case TY::Tsarray: {
 
       // Static arrays are encoded in the form of:
       // [<element count><element type>]
@@ -116,7 +131,8 @@ std::string ObjCState::getObjcTypeEncoding(Type *t) {
       tmp.append(getObjcTypeEncoding(typ->next));
       tmp.append("]");
       return tmp;
-    case TY::Tstruct:
+    }
+    case TY::Tstruct: {
 
       // Structs are encoded in the form of:
       //   {<name>=<element types>}
@@ -135,6 +151,7 @@ std::string ObjCState::getObjcTypeEncoding(Type *t) {
 
       tmp.append(isUnion ? ")" : "}");
       return tmp;
+    }
     case TY::Tvoid: return "v";
     case TY::Tbool: return "B";
     case TY::Tint8: return "c";
@@ -154,11 +171,12 @@ std::string ObjCState::getObjcTypeEncoding(Type *t) {
     case TY::Tcomplex64: return "jd";
     case TY::Tfloat80: return "D";
     case TY::Tcomplex80: return "jD";
-    case TY::Tclass:
+    case TY::Tclass: {
       if (auto klass = t->isTypeClass()) {
         return klass->sym->classKind == ClassKind::objc ? "@" : "?";
       }
       return "?";
+    }
     default: return "?"; // unknown
   }
 }
@@ -186,7 +204,12 @@ std::string ObjCState::getObjcProtoSymbol(const InterfaceDeclaration& iface) {
 }
 
 std::string ObjCState::getObjcIvarSymbol(const ClassDeclaration& cd, const VarDeclaration& var) {
-  return std::string("OBJC_IVAR_$_", cd.objc.identifier->toChars(), ".", var.iden->toChars());
+  std::string tmp;
+  tmp.append("OBJC_IVAR_$_");
+  tmp.append(cd.objc.identifier->toChars());
+  tmp.append(".");
+  tmp.append(var.ident->toChars());
+  return tmp;
 }
 
 std::string ObjCState::getObjcSymbolName(const char *dsymPrefix, const char *dsymName) {
@@ -197,15 +220,8 @@ std::string ObjCState::getObjcSymbolName(const char *dsymPrefix, const char *dsy
 //      UTILITIES
 //
 
-LLGlobalVariable *ObjCState::getTypeEncoding(const Declaration& decl) {
-  std::string out_ = getObjcTypeEncoding(decl.type->nextOf());
-
-  if (decl.parameters) {
-    for (size_t i = 0; i < decl.parameters->length; i++)
-      out_.append(getObjcTypeEncoding(decl.parameters[i]->type));
-  }
-
-  return getMethodVarType(out_);
+LLGlobalVariable *ObjCState::getTypeEncoding(Type *t) {
+  return getMethodVarTypeName(getObjcTypeEncoding(t));
 }
 
 llvm::GlobalVariable* ObjCState::getEmptyCache() {
@@ -215,7 +231,7 @@ llvm::GlobalVariable* ObjCState::getEmptyCache() {
 	return g;
 }
 
-llvm::Value *ObjCState::unmaskPointer(llvm::Value *value) {
+LLValue *ObjCState::unmaskPointer(LLValue *value) {
   return gIR->ir->CreateAnd(value, OBJC_PTRMASK);
 }
 
@@ -376,7 +392,7 @@ LLGlobalVariable *ObjCState::getClassReference(const ClassDeclaration& cd) {
     return it->second;
   }
 
-  auto gvar = getClassSymbol(cd);
+  auto gvar = getClassSymbol(cd, false);
   auto classref = new LLGlobalVariable(
       module, gvar->getType(),
       false,
@@ -403,14 +419,14 @@ LLGlobalVariable *ObjCState::getClassReference(const ClassDeclaration& cd) {
 //      PROTOCOLS
 //
 
-LLGlobalVariable *ObjCState::getMethodName(const llvm::StringRef &name) {
-  auto it = methodNameTable.find(name);
-  if (it != methodNameTable.end()) {
+LLGlobalVariable *ObjCState::getProtocolName(const llvm::StringRef &name) {
+  auto it = protocolNameTable.find(name);
+  if (it != protocolNameTable.end()) {
     return it->second;
   }
 
-  auto var = getCStringVar("OBJC_METH_VAR_NAME_", name, methodNameSection);
-  methodNameTable[name] = var;
+  auto var = getCStringVar("", name);
+  classRoNameTable[name] = var;
   retain(var);
   return var;
 }
@@ -428,9 +444,9 @@ LLGlobalVariable *ObjCState::getProtocolListFor(const ClassDeclaration& cd) {
   //   protocol_ref_t list[0]; // variable-size
   // }
   std::vector<llvm::Constant*> members;
-  members.push_back(constU64(cd.interfaces.length));
-  for(size_t i; i < cd.interfaces.length; i++) {
-    auto iface = cd.interfaces[i]->sym->isInterfaceDeclaration();
+  members.push_back(DtoConstUlong(cd.interfaces.length));
+  for(size_t i = 0; i < cd.interfaces.length; i++) {
+    auto iface = cd.interfaces.ptr[i]->sym->isInterfaceDeclaration();
     members.push_back(getProtocolReference(*iface));
   }
 
@@ -464,12 +480,10 @@ LLGlobalVariable *ObjCState::getProtocolSymbol(const InterfaceDeclaration& iface
   //   uint32_t flags;
   // }
   std::vector<llvm::Constant*> members;
-
   size_t protocolTSize = (getPointerSize()*8)+8;
 
-  auto nameConst = llvm::ConstantDataArray::getString(module.getContext(), name);
   members.push_back(getNullPtr());              // unused?
-  members.push_back(nameConst);                 // mangledName
+  members.push_back(getProtocolName(name));                 // mangledName
   members.push_back(getProtocolListFor(iface)); // protocols
   members.push_back(getMethodListFor(iface, false)); // instanceMethods
   members.push_back(getMethodListFor(iface, true));  // classMethods
@@ -482,6 +496,7 @@ LLGlobalVariable *ObjCState::getProtocolSymbol(const InterfaceDeclaration& iface
   auto var = getGlobalWithBytes(module, name, members);
   protocolTable[name] = var;
   retain(var);
+  return var;
 }
 
 LLGlobalVariable *ObjCState::getProtocolReference(const InterfaceDeclaration& iface) {
@@ -511,32 +526,30 @@ LLGlobalVariable *ObjCState::getProtocolReference(const InterfaceDeclaration& if
 //
 //      INSTANCE VARIABLES
 //
-LLGlobalVariable *ObjCState::getIVarListFor(const ClassDeclaration& cd) {
+LLConstant *ObjCState::getIVarListFor(const ClassDeclaration& cd) {
+
+  // If there's no fields, just return null.
+  if (cd.fields.length > 0) {
+    return getNullPtr();
+  }
+
   auto name = getObjcSymbolName("OBJC_$_INSTANCE_VARIABLES_", cd.objc.identifier->toChars());
   auto it = ivarListTable.find(name);
   if (it != ivarListTable.end()) {
     return it->second;
   }
 
-  // If there's no fields, just return a null constant.
-  if (cd.fields.length > 0) {
-
-    auto var = getNullPtr();
-    ivarListTable[name] = var;
-    return var;
-  }
-
   ConstantList members;
   members.push_back(DtoConstUint(OBJC_IVAR_ENTSIZE));
   members.push_back(DtoConstUint(cd.fields.length));
 
-  for(size_t i; i < cd.fields.length; i++) {
-    if (auto vd = cd.fields[i]->isVarDeclaration()) (
+  for(size_t i = 0; i < cd.fields.length; i++) {
+    if (auto vd = cd.fields[i]->isVarDeclaration()) {
       members.push_back(getIVarSymbol(cd, *vd));
-    )
+    }
   }
 
-  auto var = getGlobalWithBytes(module, globalName, members);
+  auto var = getGlobalWithBytes(module, name, members);
   var->setSection(constSection);
   ivarListTable[name] = var;
   retain(var);
@@ -561,40 +574,39 @@ LLGlobalVariable *ObjCState::getIVarSymbol(const ClassDeclaration& cd, const Var
   ConstantList members;
   members.push_back(getIVarOffset(cd, var, false));
   members.push_back(getMethodVarName(var.ident->toChars()));
-  members.push_back(getTypeEncoding(var.type));
+  members.push_back(getMethodVarTypeName(getObjcTypeEncoding(var.type)));
   members.push_back(DtoConstUint(var.alignment.isDefault() ? -1 : var.alignment.get()));
-  members.push_back(DtoConstUint(var.size(var.loc)));
+  members.push_back(DtoConstUint(const_cast<VarDeclaration&>(var).size(var.loc)));
   
-  auto var = getGlobalWithBytes(module, name, members);
-  ivarTable[name] = var;
-  retain(var);
-  return var;
+  auto retval = getGlobalWithBytes(module, name, members);
+  ivarTable[name] = retval;
+  retain(retval);
+  return retval;
 }
 
 llvm::GlobalVariable *ObjCState::getIVarOffset(const ClassDeclaration& cd, const VarDeclaration& var, bool outputSymbol) {
-  auto nameBuf = std::string("OBJC_IVAR_$_", cd.objc.identifier->toChars(), ".", var.iden->toChars());
-  auto name = llvm::StringRef(nameBuf);
+  auto name = getObjcIvarSymbol(cd, var);
   auto it = ivarOffsetTable.find(name);
   if (it != ivarOffsetTable.end()) {
     return it->second;
   }
   
-  LLGlobalVariable *var;
+  LLGlobalVariable *retval;
   if (cd.objc.isMeta) {
 
-    var = getGlobal(module, name);
-    ivarOffsetTable[name] = var;
-    retain(var);
-    return var;
+    retval = getGlobal(module, name);
+    ivarOffsetTable[name] = retval;
+    retain(retval);
+    return retval;
   }
 
   ConstantList members;
   members.push_back(DtoConstUlong(var.offset));
 
-  var = getGlobalWithBytes(module, name, members);
-  ivarOffsetTable[name] = var;
-  retain(var);
-  return var;
+  retval = getGlobalWithBytes(module, name, members);
+  ivarOffsetTable[name] = retval;
+  retain(retval);
+  return retval;
 }
 
 //
@@ -613,7 +625,7 @@ LLGlobalVariable *ObjCState::getMethodVarName(const llvm::StringRef &name) {
   return var;
 }
 
-LLGlobalVariable *ObjCState::getMethodListFor(const ClassDeclaration& cd, bool meta, bool optional=false) {
+LLGlobalVariable *ObjCState::getMethodListFor(const ClassDeclaration& cd, bool meta, bool optional) {
   llvm::StringRef name(cd.objc.identifier->toChars());
   auto it = methodListTable.find(name);
   if (it != methodListTable.end()) {
@@ -623,9 +635,9 @@ LLGlobalVariable *ObjCState::getMethodListFor(const ClassDeclaration& cd, bool m
   auto methods = meta ? cd.objc.metaclass->objc.methodList : cd.objc.methodList;
 
   // Count the amount of methods with a body.
-  size_t methodCount;
-  for(size_t i; i < methods.length; i++) {
-    if (methods[i]->fbody) methodCount++;
+  size_t methodCount = 0;
+  for(size_t i = 0; i < methods.length; i++) {
+    if (methods.ptr[i]->fbody) methodCount++;
   }
 
   // Empty classes don't need a method list generated.
@@ -637,15 +649,15 @@ LLGlobalVariable *ObjCState::getMethodListFor(const ClassDeclaration& cd, bool m
   // See: https://github.com/opensource-apple/objc4/blob/master/runtime/objc-runtime-new.h#L93
   members.push_back(DtoConstUint(OBJC_METHOD_SIZEOF));
   members.push_back(DtoConstUint(methodCount));
-  for(size_t i; i < methods.length; i++) {
-    if (methods[i]->fbody) {
-      auto selector = methods[i]->objc.selector;
+  for(size_t i = 0; i < methods.length; i++) {
+    if (methods.ptr[i]->fbody) {
+      auto selector = methods.ptr[i]->objc.selector;
 
       // See: https://github.com/opensource-apple/objc4/blob/master/runtime/objc-runtime-new.h#L207
       llvm::StringRef name(selector->stringvalue, selector->stringlen);
-      members.push_back(getMethodSymbol(name));
-      members.push_back(getMethodType(name));
-      members.push_back(DtoCallee(method));
+      members.push_back(getMethodVarName(name));
+      members.push_back(getMethodVarTypeName(name));
+      members.push_back(DtoCallee(methods.ptr[i]));
     }
   }
 
@@ -655,13 +667,18 @@ LLGlobalVariable *ObjCState::getMethodListFor(const ClassDeclaration& cd, bool m
   return var;
 }
 
-LLGlobalVariable *ObjCState::getMethodVarType(const llvm::StringRef& name) {
+LLGlobalVariable *ObjCState::getMethodVarType(const FuncDeclaration& fd) {
+  return getTypeEncoding(fd.type);
+}
+
+
+LLGlobalVariable *ObjCState::getMethodVarTypeName(const llvm::StringRef& name) {
   auto it = methodTypeTable.find(name);
   if (it != methodTypeTable.end()) {
     return it->second;
   }
 
-  auto var = getCStringVar("OBJC_METH_VAR_TYPE_", encoding, methodTypeSection);
+  auto var = getCStringVar("OBJC_METH_VAR_TYPE_", name, methodTypeSection);
   methodTypeTable[name] = var;
   retain(var);
   return var;
@@ -674,7 +691,7 @@ LLGlobalVariable *ObjCState::getSelector(const ObjcSelector &sel) {
       return it->second;
   }
 
-  auto gvar = getMethodName(name);
+  auto gvar = getMethodVarName(name);
   auto selref = new LLGlobalVariable(
       module, gvar->getType(),
       false, // prevent const elimination optimization
@@ -707,7 +724,7 @@ llvm::Constant *ObjCState::finalizeClasses() {
   for(auto classRef = classes.begin(); classRef != classes.end(); ++classRef) {
     auto klass = *classRef;
     if (!klass->objc.isExtern && !klass->objc.isMeta) {
-      members.push_back(getClassSymbol(*klass));
+      members.push_back(getClassSymbol(*klass, false));
     }
   }
 
@@ -752,7 +769,7 @@ void ObjCState::genImageInfo() {
   module.addModuleFlag(llvm::Module::Error, "Objective-C Image Info Version",
                       0u); // version
   module.addModuleFlag(llvm::Module::Error, "Objective-C Image Info Section",
-                      llvm::MDString::get(module.getContext(), imageInfoSectionName));
+                      llvm::MDString::get(module.getContext(), imageInfoSection));
   module.addModuleFlag(llvm::Module::Override, "Objective-C Garbage Collection",
                       0u); // flags
 }

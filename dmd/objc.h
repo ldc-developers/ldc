@@ -68,12 +68,13 @@ public:
     virtual void checkLinkage(FuncDeclaration* fd) = 0;
     virtual bool isVirtual(const FuncDeclaration*) const = 0;
     virtual void setAsOptional(FuncDeclaration *fd, Scope *sc) const = 0;
-    virtual void setAsSwiftStub(FuncDeclaration *fd, Scope *sc) const = 0;
     virtual void validateOptional(FuncDeclaration *fd) const = 0;
     virtual ClassDeclaration* getParent(FuncDeclaration*, ClassDeclaration*) const = 0;
     virtual void addToClassMethodList(FuncDeclaration*, ClassDeclaration*) const = 0;
     virtual AggregateDeclaration* isThis(FuncDeclaration* fd) = 0;
     virtual VarDeclaration* createSelectorParameter(FuncDeclaration*, Scope*) const = 0;
+
+    virtual void setAsSwiftStub(ClassDeclaration* cd, Scope *sc) const = 0;
 
     virtual void setMetaclass(InterfaceDeclaration* id, Scope*) const = 0;
     virtual void setMetaclass(ClassDeclaration* id, Scope*) const = 0;

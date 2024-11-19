@@ -15,6 +15,8 @@
 
 #include <vector>
 #include "llvm/ADT/StringMap.h"
+#include "gen/tollvm.h"
+#include "dmd/mtype.h"
 
 struct ObjcSelector;
 namespace llvm {
@@ -25,11 +27,13 @@ class Triple;
 }
 
 // Forward decl.
+class Declaration;
 class ClassDeclaration;
 class FuncDeclaration;
 class InterfaceDeclaration;
 class VarDeclaration;
 class Identifier;
+class Type;
 
 typedef llvm::StringMap<llvm::GlobalVariable *> SymbolCache;
 typedef std::vector<llvm::Constant *> ConstantList;
@@ -57,33 +61,33 @@ public:
   ObjCState(llvm::Module &module) : module(module) { }
 
   // General
-  llvm::GlobalVariable *getTypeEncoding(const Declaration& ty);
+  LLGlobalVariable *getTypeEncoding(Type *t);
 
   // Classes
-  llvm::GlobalVariable *getClassSymbol(const ClassDeclaration& cd, bool meta);
-  llvm::GlobalVariable *getClassRoSymbol(const ClassDeclaration& cd, bool meta);
-  llvm::GlobalVariable *getClassReference(const ClassDeclaration& cd);
+  LLGlobalVariable *getClassSymbol(const ClassDeclaration& cd, bool meta);
+  LLGlobalVariable *getClassRoSymbol(const ClassDeclaration& cd, bool meta);
+  LLGlobalVariable *getClassReference(const ClassDeclaration& cd);
 
   // Categories
 
   // Interface variables
-  llvm::GlobalVariable *getIVarListFor(const ClassDeclaration& cd);
-  llvm::GlobalVariable *getIVarSymbol(const ClassDeclaration& cd, const VarDeclaration& var);
-  llvm::GlobalVariable *getIVarOffset(const ClassDeclaration& cd, const VarDeclaration& var, bool outputSymbol);
+  LLConstant *getIVarListFor(const ClassDeclaration& cd);
+  LLGlobalVariable *getIVarSymbol(const ClassDeclaration& cd, const VarDeclaration& var);
+  LLGlobalVariable *getIVarOffset(const ClassDeclaration& cd, const VarDeclaration& var, bool outputSymbol);
 
   // Methods
-  llvm::GlobalVariable *getMethodVarType(const llvm::StringRef& ty);
+  LLGlobalVariable *getMethodVarType(const FuncDeclaration& fd);
 
   // Selector
-  llvm::GlobalVariable *getSelector(const ObjcSelector &sel);
+  LLGlobalVariable *getSelector(const ObjcSelector &sel);
 
   // Protocols
-  llvm::GlobalVariable *getProtocolListFor(const ClassDeclaration& cd);
-  llvm::GlobalVariable *getProtocolSymbol(const InterfaceDeclaration& id);
-  llvm::GlobalVariable *getProtocolReference(const InterfaceDeclaration& id);
+  LLGlobalVariable *getProtocolListFor(const ClassDeclaration& cd);
+  LLGlobalVariable *getProtocolSymbol(const InterfaceDeclaration& id);
+  LLGlobalVariable *getProtocolReference(const InterfaceDeclaration& id);
 
   // Unmasks pointer to make sure it's not a tagged pointer.
-  llvm::Value *unmaskPointer(llvm::Value *value);
+  LLValue *unmaskPointer(LLValue *value);
 
   void finalize();
 
@@ -137,6 +141,7 @@ private:
 
   /// Cache for `__OBJC_PROTOCOL_$_` symbols.
   SymbolCache protocolTable;
+  SymbolCache protocolNameTable;
   SymbolCache protocolListTable;
 
   // Cache for methods.
@@ -163,13 +168,9 @@ private:
 
   // Generate name globals
   llvm::GlobalVariable *getClassRoName(const ClassDeclaration& cd);
-  llvm::GlobalVariable *getProtocolName(const InterfaceDeclaration& cd);
+  llvm::GlobalVariable *getProtocolName(const llvm::StringRef& name);
   llvm::GlobalVariable *getMethodVarName(const llvm::StringRef& name);
-
-  // Constant helpers
-  llvm::Constant *constU32(uint32_t value);
-  llvm::Constant *constU64(uint64_t value);
-  llvm::Constant *constSizeT(size_t value);
+  llvm::GlobalVariable *getMethodVarTypeName(const llvm::StringRef& name);
 
   llvm::GlobalVariable *getEmptyCache();
 
@@ -177,7 +178,7 @@ private:
 
   llvm::GlobalVariable *getGlobal(llvm::Module& module, llvm::StringRef name, llvm::Type* type = nullptr);
   llvm::GlobalVariable *getGlobalWithBytes(llvm::Module& module, llvm::StringRef name, ConstantList packedContents);
-  llvm::GlobalVariable *getCStringVar(const char *symbol, const llvm::StringRef &str, const char *section);
+  llvm::GlobalVariable *getCStringVar(const char *symbol, const llvm::StringRef &str, const char *section = nullptr);
 
   void retain(llvm::Constant *sym);
 

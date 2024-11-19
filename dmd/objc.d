@@ -268,18 +268,13 @@ extern(C++) abstract class Objc
     abstract void setAsOptional(FuncDeclaration functionDeclaration, Scope* sc) const;
 
     /**
-     * Marks the given function declaration as a Swift stub class.
-     *
-     * A function declaration is considered optional if it's annotated with the
-     * UDA: `@(core.attribute.optional)`. Only function declarations inside
-     * interface declarations and with Objective-C linkage can be declared as
-     * optional.
+     * Marks the given class as a Swift stub class.
      *
      * Params:
-     *  functionDeclaration = the function declaration to be set as optional
+     *  cd = the class declaration to set as a swift stub
      *  sc = the scope from the semantic phase
      */
-    abstract void setAsSwiftStub(FuncDeclaration functionDeclaration, Scope* sc) const;
+    abstract void setAsSwiftStub(ClassDeclaration cd, Scope* sc) const;
 
     /**
      * Validates function declarations declared optional.
@@ -469,7 +464,7 @@ static if (!IN_LLVM)
         // noop
     }
 
-    override void setAsSwiftStub(FuncDeclaration, Scope*) const
+    override void setAsSwiftStub(ClassDeclaration, Scope*) const
     {
         // noop
     }
@@ -630,40 +625,6 @@ version (IN_LLVM) {} else
         //   methods of the metaclass.
         with (fd.visibility)
             return !(kind == Visibility.Kind.private_ || kind == Visibility.Kind.package_);
-    }
-
-    override void setAsSwiftStub(ClassDeclaration cd, Scope* sc) const
-    {
-        const count = declaredAsSwiftStubCount(cd, sc);
-        cd.objc.isSwiftStub = count > 0;
-
-        if (count > 1)
-            .error(cd.loc, "%s `%s` can only declare a class as a swift stub once", cd.kind, cd.toPrettyChars);
-    }
-
-    /// Returns: the number of times `cd` has been declared as optional.
-    private int declaredAsSwiftStubCount(ClassDeclaration cd , Scope* sc) const
-    {
-        int count;
-
-        foreachUda(cd, sc, (e) {
-            if (!e.isTypeExp())
-                return 0;
-
-            auto typeExp = e.isTypeExp();
-
-            if (typeExp.type.ty != Tenum)
-                return 0;
-
-            auto typeEnum = cast(TypeEnum) typeExp.type;
-
-            if (isCoreUda(typeEnum.sym, Id.udaSwiftStub))
-                count++;
-
-            return 0;
-        });
-
-        return count;
     }
 
     override void setAsOptional(FuncDeclaration fd, Scope* sc) const
@@ -882,6 +843,40 @@ version (IN_LLVM) {} else
         error(expression.loc, "no property `tupleof` for type `%s`", type.toChars());
         errorSupplemental(expression.loc, "`tupleof` is not available for members " ~
             "of Objective-C classes. Please use the Objective-C runtime instead");
+    }
+
+    override void setAsSwiftStub(ClassDeclaration cd, Scope* sc) const
+    {
+        const count = declaredAsSwiftStubCount(cd, sc);
+        cd.objc.isSwiftStub = count > 0;
+
+        if (count > 1)
+            .error(cd.loc, "%s `%s` can only declare a class as a swift stub once", cd.kind, cd.toPrettyChars);
+    }
+
+    /// Returns: the number of times `cd` has been declared as optional.
+    private int declaredAsSwiftStubCount(ClassDeclaration cd, Scope* sc) const
+    {
+        int count;
+
+        foreachUda(cd, sc, (e) {
+            if (!e.isTypeExp())
+                return 0;
+
+            auto typeExp = e.isTypeExp();
+
+            if (typeExp.type.ty != Tenum)
+                return 0;
+
+            auto typeEnum = cast(TypeEnum) typeExp.type;
+
+            if (isCoreUda(typeEnum.sym, Id.udaSwiftStub))
+                count++;
+
+            return 0;
+        });
+
+        return count;
     }
 }
 
