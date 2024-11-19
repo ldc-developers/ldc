@@ -703,6 +703,8 @@ llvm::ConstantPointerNull *getNullPtr() {
 
 LLConstant *getNullValue(LLType *t) { return LLConstant::getNullValue(t); }
 
+LLConstant *wrapNull(LLConstant *v) { return v ? v : getNullPtr(); }
+
 ////////////////////////////////////////////////////////////////////////////////
 
 size_t getTypeBitSize(LLType *t) { return gDataLayout->getTypeSizeInBits(t); }
@@ -710,6 +712,10 @@ size_t getTypeBitSize(LLType *t) { return gDataLayout->getTypeSizeInBits(t); }
 size_t getTypeStoreSize(LLType *t) { return gDataLayout->getTypeStoreSize(t); }
 
 size_t getTypeAllocSize(LLType *t) { return gDataLayout->getTypeAllocSize(t); }
+
+size_t getPointerSize() { return gDataLayout->getPointerSize(0); }
+
+size_t getPointerSizeInBits() { return gDataLayout->getPointerSizeInBits(0); }
 
 unsigned int getABITypeAlign(LLType *t) {
   return gDataLayout->getABITypeAlign(t).value();

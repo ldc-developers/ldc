@@ -416,7 +416,9 @@ DValue *DtoDynamicCastInterface(const Loc &loc, DValue *val, Type *_to) {
 
     // Class && kindOfProtocolFunc(Class) ? id : null
     LLValue *ret = gIR->ir->CreateSelect(
-      gIR->ir->CreateIsNotNull(objClass),
+      gIR->ir->CreateIsNotNull(
+        gIR->objc.unmaskPointer(objClass) // Classes may have metadata in their pointer, so remove it.
+      ),
       gIR->ir->CreateSelect(
         gIR->CreateCallOrInvoke(kindOfProtocolFunc, objClass),
         obj, 

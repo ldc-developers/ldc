@@ -907,7 +907,7 @@ DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
 
   if (irFty.arg_objcSelector) {
     // Use runtime msgSend function bitcasted as original call
-    const char *msgSend = gABI->objcMsgSendFunc(resulttype, irFty);
+    const char *msgSend = gABI->objcMsgSendFunc(resulttype, irFty, directcall);
     callable = getRuntimeFunction(loc, gIR->module, msgSend);
   }
 

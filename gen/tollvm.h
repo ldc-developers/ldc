@@ -151,11 +151,14 @@ LLType *getI8Type();
 LLPointerType *getOpaquePtrType(unsigned addressSpace = 0);
 llvm::ConstantPointerNull *getNullPtr();
 LLConstant *getNullValue(LLType *t);
+LLConstant *wrapNull(LLConstant *v);
 
 // type sizes
 size_t getTypeBitSize(LLType *t);
 size_t getTypeStoreSize(LLType *t);
 size_t getTypeAllocSize(LLType *t);
+size_t getPointerSize();
+unsigned int getPointerSizeInBits();
 
 // type alignments
 unsigned int getABITypeAlign(LLType *t);
