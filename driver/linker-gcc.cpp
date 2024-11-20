@@ -715,6 +715,7 @@ void ArgsBuilder::addDefaultPlatformLibs() {
   // fallthrough
   case llvm::Triple::Darwin:
   case llvm::Triple::MacOSX:
+    this->addObjcStdlibLinkFlags(triple);
   case llvm::Triple::FreeBSD:
   case llvm::Triple::NetBSD:
   case llvm::Triple::OpenBSD:
@@ -722,7 +723,6 @@ void ArgsBuilder::addDefaultPlatformLibs() {
     addSoname = true;
     args.push_back("-lpthread");
     args.push_back("-lm");
-    this->addObjcStdlibLinkFlags(triple);
     break;
 
   case llvm::Triple::Solaris:

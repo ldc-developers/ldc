@@ -196,25 +196,25 @@ std::string ObjCState::getObjcTypeEncoding(Type *t) {
 //
 
 std::string ObjCState::getObjcClassRoSymbol(const ClassDeclaration& cd, bool meta) {
-  return getObjcSymbolName(meta ? "OBJC_METACLASS_RO_$_" : "OBJC_CLASS_RO_$_", cd.toChars());
+  return getObjcSymbolName(meta ? "OBJC_METACLASS_RO_$_" : "OBJC_CLASS_RO_$_", cd.ident->toChars());
 }
 
 std::string ObjCState::getObjcClassSymbol(const ClassDeclaration& cd, bool meta) {
-  return getObjcSymbolName(meta ? "OBJC_METACLASS_$_" : "OBJC_CLASS_$_", cd.toChars());
+  return getObjcSymbolName(meta ? "OBJC_METACLASS_$_" : "OBJC_CLASS_$_", cd.ident->toChars());
 }
 
 std::string ObjCState::getObjcMethodListSymbol(const ClassDeclaration& cd, bool meta) {
   return getObjcSymbolName(meta ? "OBJC_$_CLASS_METHODS_" : "OBJC_$_INSTANCE_METHODS_", cd.objc.identifier->toChars());
 }
 
-std::string ObjCState::getObjcProtoSymbol(const InterfaceDeclaration& iface) {
-  return getObjcSymbolName("OBJC_PROTOCOL_$_", iface.toChars());
+std::string ObjCState::getObjcProtoSymbol(const InterfaceDeclaration& id) {
+  return getObjcSymbolName("OBJC_PROTOCOL_$_", id.ident->toChars());
 }
 
 std::string ObjCState::getObjcIvarSymbol(const ClassDeclaration& cd, const VarDeclaration& var) {
   std::string tmp;
   tmp.append("OBJC_IVAR_$_");
-  tmp.append(cd.objc.identifier->toChars());
+  tmp.append(cd.ident->toChars());
   tmp.append(".");
   tmp.append(var.ident->toChars());
   return tmp;
@@ -329,7 +329,7 @@ LLGlobalVariable *ObjCState::getClassSymbol(const ClassDeclaration& cd, bool met
 }
 
 LLGlobalVariable *ObjCState::getClassRoName(const ClassDeclaration& cd) {
-  llvm::StringRef name(cd.toChars());
+  llvm::StringRef name(cd.ident->toChars());
   auto it = classRoNameTable.find(name);
   if (it != classRoNameTable.end()) {
     return it->second;
@@ -339,6 +339,33 @@ LLGlobalVariable *ObjCState::getClassRoName(const ClassDeclaration& cd) {
   classRoNameTable[name] = var;
   retain(var);
   return var;
+}
+
+ptrdiff_t getInstanceStart(ClassDeclaration& cd, bool meta) {
+  if (meta)
+    return getPointerSizeInBits() == 64 ? 
+      OBJC_METACLASS_INSTANCESTART_64 : OBJC_METACLASS_INSTANCESTART_32;
+
+  ptrdiff_t start = cd.size(cd.loc);
+  if (!cd.members || cd.members->length == 0)
+    return start;
+
+  for(d_size_t idx = 0; idx < cd.members->length; idx++)
+  {
+    auto var = ((*cd.members)[idx])->isVarDeclaration();
+
+    if (var && var->isField())
+      return var->offset;
+  }
+  return start;
+}
+
+size_t getInstanceSize(ClassDeclaration& cd, bool meta) {
+  if (meta)
+    return getPointerSizeInBits() == 64 ? 
+      OBJC_METACLASS_INSTANCESTART_64 : OBJC_METACLASS_INSTANCESTART_32;
+  
+  return cd.size(cd.loc);
 }
 
 LLGlobalVariable *ObjCState::getClassRoSymbol(const ClassDeclaration& cd, bool meta) {
@@ -364,8 +391,8 @@ LLGlobalVariable *ObjCState::getClassRoSymbol(const ClassDeclaration& cd, bool m
   // };
   std::vector<llvm::Constant*> members;
   members.push_back(DtoConstUint(getClassFlags(cd))); // flags
-  members.push_back(DtoConstUint(0)); // instanceStart
-  members.push_back(DtoConstUint(0)); // instanceSize
+  members.push_back(DtoConstUint(getInstanceStart(const_cast<ClassDeclaration&>(cd), meta))); // instanceStart
+  members.push_back(DtoConstUint(getInstanceSize(const_cast<ClassDeclaration&>(cd), meta))); // instanceSize
   if (getPointerSizeInBits() == 64)
     members.push_back(DtoConstUint(0)); // reserved
   members.push_back(getNullPtr()); // ivarLayout
@@ -497,7 +524,7 @@ LLGlobalVariable *ObjCState::getProtocolSymbol(const InterfaceDeclaration& iface
   //   uint32_t flags;
   // }
   std::vector<llvm::Constant*> members;
-  size_t protocolTSize = (getPointerSize()*8)+8;
+  size_t protocolTSize = (getPointerSize()*9)+8;
 
   members.push_back(getNullPtr());              // unused?
   members.push_back(getProtocolName(name));                 // mangledName
@@ -546,7 +573,7 @@ LLGlobalVariable *ObjCState::getProtocolReference(const InterfaceDeclaration& if
 LLConstant *ObjCState::getIVarListFor(const ClassDeclaration& cd) {
 
   // If there's no fields, just return null.
-  if (cd.fields.length > 0) {
+  if (cd.fields.empty()) {
     return getNullPtr();
   }
 
@@ -688,14 +715,13 @@ LLGlobalVariable *ObjCState::getMethodVarType(const FuncDeclaration& fd) {
   return getTypeEncoding(fd.type);
 }
 
-
 LLGlobalVariable *ObjCState::getMethodVarTypeName(const llvm::StringRef& name) {
   auto it = methodTypeTable.find(name);
   if (it != methodTypeTable.end()) {
     return it->second;
   }
 
-  auto var = getCStringVar("OBJC_METH_VAR_TYPE_", name, methodTypeSection);
+  auto var = getCStringVar("OBJC_METH_VAR_TYPE", name, methodTypeSection);
   methodTypeTable[name] = var;
   retain(var);
   return var;
@@ -745,7 +771,7 @@ llvm::Constant *ObjCState::finalizeClasses() {
     }
   }
 
-	auto var = getGlobalWithBytes(module, "OBJC_CLASS_$_", members);
+	auto var = getGlobalWithBytes(module, "L_OBJC_LABEL_CLASS_$", members);
 	var->setSection(classListSection);
   return var;
 }
@@ -762,7 +788,7 @@ llvm::Constant *ObjCState::finalizeProtocols() {
     }
   }
 
-	auto var = getGlobalWithBytes(module, "OBJC_PROTOCOL_$_", members);
+	auto var = getGlobalWithBytes(module, "L_OBJC_LABEL_PROTOCOL_$", members);
 	var->setSection(protoListSection);
   return var;
 }
@@ -783,12 +809,10 @@ void ObjCState::finalize() {
 void ObjCState::genImageInfo() {
   // Use LLVM to generate image info
   module.addModuleFlag(llvm::Module::Error, "Objective-C Version", 2); // Only support ABI 2. (Non-fragile)
-  module.addModuleFlag(llvm::Module::Error, "Objective-C Image Info Version",
-                      0u); // version
+  module.addModuleFlag(llvm::Module::Error, "Objective-C Image Info Version", 0u); // version
   module.addModuleFlag(llvm::Module::Error, "Objective-C Image Info Section",
                       llvm::MDString::get(module.getContext(), imageInfoSection));
-  module.addModuleFlag(llvm::Module::Override, "Objective-C Garbage Collection",
-                      0u); // flags
+  module.addModuleFlag(llvm::Module::Override, "Objective-C Garbage Collection", 0u); // flags
 }
 
 void ObjCState::retainSymbols() {
