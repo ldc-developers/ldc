@@ -329,6 +329,25 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
+  void visit(ObjcClassReferenceExp *e) override {
+    IF_LOG Logger::print("ObjcClassReferenceExp::toElem: %s @ %s\n", e->toChars(),
+                         e->type->toChars());
+    LOG_SCOPE;
+
+    LLGlobalVariable *decl; 
+    if (auto iface = e->classDeclaration->isInterfaceDeclaration()) {
+
+      auto loaded = DtoLoad(DtoType(e->type), gIR->objc.getProtocolReference(*iface));
+      result = new DImValue(e->type, loaded);
+      return;
+    }
+
+    auto loaded = DtoLoad(DtoType(e->type), gIR->objc.getClassReference(*e->classDeclaration));
+    result = new DImValue(e->type, loaded);
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   void visit(VarExp *e) override {
     IF_LOG Logger::print("VarExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
@@ -1017,10 +1036,9 @@ public:
     auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
-    DValue *l = toElem(e->e1);
-
     Type *e1type = e->e1->type->toBasetype();
 
+    DValue *l = toElem(e->e1);
     if (VarDeclaration *vd = e->var->isVarDeclaration()) {
       AggregateDeclaration *ad;
       LLValue *aggrPtr;

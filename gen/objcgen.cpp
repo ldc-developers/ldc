@@ -56,10 +56,17 @@ llvm::GlobalVariable *ObjCState::getGlobal(llvm::Module& module, llvm::StringRef
   return var;
 }
 
-llvm::GlobalVariable *ObjCState::getGlobalWithBytes(llvm::Module& module, llvm::StringRef name, ConstantList packedContents) {
-  auto init = llvm::ConstantStruct::getAnon(
-    packedContents,
-    true
+LLGlobalVariable *ObjCState::getGlobalWithBytes(llvm::Module& module, llvm::StringRef name, ConstantList packedContents) {
+  if (packedContents.empty()) {
+    auto null_ = llvm::ConstantPointerNull::get(
+      LLPointerType::get(module.getContext(), 0)
+    );
+    packedContents.push_back(null_);
+  }
+  
+  auto init = LLConstantStruct::getAnon(
+      packedContents,
+      true
   );
 
   auto var = new LLGlobalVariable(
@@ -213,7 +220,7 @@ std::string ObjCState::getObjcIvarSymbol(const ClassDeclaration& cd, const VarDe
 }
 
 std::string ObjCState::getObjcSymbolName(const char *dsymPrefix, const char *dsymName) {
-  return std::string(dsymPrefix, dsymName);
+  return (std::string(dsymPrefix) + std::string(dsymName));
 }
 
 //
@@ -251,7 +258,9 @@ unsigned int getClassFlags(const ClassDeclaration& cd) {
 }
 
 LLGlobalVariable *ObjCState::getClassSymbol(const ClassDeclaration& cd, bool meta) {
-  llvm::StringRef name(cd.toChars());
+  
+  auto csym = getObjcClassSymbol(cd, meta);
+  llvm::StringRef name(csym);
   auto it = classSymbolTable.find(name);
   if (it != classSymbolTable.end()) {
     return it->second;

@@ -92,25 +92,25 @@ public:
   void finalize();
 
   // Section Names
-  const char *imageInfoSection      = "__DATA,__objc_imageinfo, regular, no_dead_strip";
+  const char *imageInfoSection      = "__DATA,__objc_imageinfo, regular";
 
   // Lists
-  const char *classListSection      = "__DATA,__objc_classlist, regular, no_dead_strip";
-  const char *protoListSection      = "__DATA,__objc_protolist, regular, no_dead_strip";
-  const char *catListSection        = "__DATA,__objc_catlist, regular, no_dead_strip";
+  const char *classListSection      = "__DATA,__objc_classlist, regular";
+  const char *protoListSection      = "__DATA,__objc_protolist, regular";
+  const char *catListSection        = "__DATA,__objc_catlist, regular";
 
-  const char *classNameSection      = "__TEXT,__objc_classname, cstring_literals, regular, no_dead_strip";
-  const char *classStubsSection     = "__DATA,__objc_stubs, regular, no_dead_strip";
+  const char *classNameSection      = "__TEXT,__objc_classname, cstring_literals";
+  const char *classStubsSection     = "__DATA,__objc_stubs, regular";
 
-  const char *constSection          = "__DATA,__objc_const, regular, no_dead_strip";
-  const char *dataSection           = "__DATA,__objc_data, regular, no_dead_strip";
+  const char *constSection          = "__DATA,__objc_const, regular";
+  const char *dataSection           = "__DATA,__objc_data, regular";
 
-  const char *methodNameSection     = "__TEXT,__objc_methname, cstring_literals, regular, no_dead_strip";
-  const char *methodTypeSection     = "__TEXT,__objc_methtype, regular, no_dead_strip";
+  const char *methodNameSection     = "__TEXT,__objc_methname, cstring_literals";
+  const char *methodTypeSection     = "__TEXT,__objc_methtype, regular";
 
-  const char *classRefsSection      = "__DATA,__objc_classrefs, regular, no_dead_strip";
-  const char *protoRefsSection      = "__DATA,__objc_protorefs, regular, no_dead_strip";
-  const char *selectorRefsSection   = "__DATA,__objc_selrefs, regular, no_dead_strip";
+  const char *classRefsSection      = "__DATA,__objc_classrefs, regular";
+  const char *protoRefsSection      = "__DATA,__objc_protorefs, regular";
+  const char *selectorRefsSection   = "__DATA,__objc_selrefs, regular";
 
 private:
   llvm::Module &module;
