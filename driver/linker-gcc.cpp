@@ -715,7 +715,6 @@ void ArgsBuilder::addDefaultPlatformLibs() {
   // fallthrough
   case llvm::Triple::Darwin:
   case llvm::Triple::MacOSX:
-    this->addObjcStdlibLinkFlags(triple);
   case llvm::Triple::FreeBSD:
   case llvm::Triple::NetBSD:
   case llvm::Triple::OpenBSD:
@@ -736,6 +735,13 @@ void ArgsBuilder::addDefaultPlatformLibs() {
     // OS not yet handled, will probably lead to linker errors.
     // FIXME: Win32.
     break;
+  }
+
+  if (triple.isOSDarwin()) {
+    
+    // libobjc is more or less required, so we link against it here.
+    // This could be prettier, though.
+    this->addObjcStdlibLinkFlags(triple);
   }
 
   if (triple.isWindowsGNUEnvironment()) {
