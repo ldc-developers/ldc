@@ -257,6 +257,14 @@ llvm::StringRef getMscrtLibName(const bool *useInternalToolchain) {
 
 //////////////////////////////////////////////////////////////////////////////
 
+llvm::StringRef getObjcLibName() {
+  // TODO: Support scanning for and loading alternate
+  // objective-c runtimes like the GNUStep runtime?
+  return "objc";
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 /// Insert an LLVM bitcode file into the module
 static void insertBitcodeIntoModule(const char *bcFile, llvm::Module &M,
                                     llvm::LLVMContext &Context) {

@@ -48,6 +48,10 @@ static llvm::cl::opt<bool> linkNoCpp(
     "link-no-cpp", llvm::cl::ZeroOrMore, llvm::cl::Hidden,
     llvm::cl::desc("Disable automatic linking with the C++ standard library."));
 
+static llvm::cl::opt<bool> linkNoObjc(
+    "link-no-objc", llvm::cl::ZeroOrMore, llvm::cl::Hidden,
+    llvm::cl::desc("Disable automatic linking with the Objective-C runtime library."));
+
 //////////////////////////////////////////////////////////////////////////////
 
 namespace {
@@ -72,6 +76,7 @@ private:
   virtual void addXRayLinkFlags(const llvm::Triple &triple);
   virtual bool addCompilerRTArchiveLinkFlags(llvm::StringRef baseName,
                                              const llvm::Triple &triple);
+  virtual void addObjcStdlibLinkFlags(const llvm::Triple &triple);
 
   virtual void addLinker();
   virtual void addUserSwitches();
@@ -467,6 +472,13 @@ void ArgsBuilder::addCppStdlibLinkFlags(const llvm::Triple &triple) {
   }
 }
 
+void ArgsBuilder::addObjcStdlibLinkFlags(const llvm::Triple &triple) {
+  if (linkNoObjc)
+    return;
+    
+  args.push_back(("-l"+getObjcLibName()).str());
+}
+
 // Adds all required link flags for PGO.
 void ArgsBuilder::addProfileRuntimeLinkFlags(const llvm::Triple &triple) {
   const auto searchPaths =
@@ -710,6 +722,7 @@ void ArgsBuilder::addDefaultPlatformLibs() {
     addSoname = true;
     args.push_back("-lpthread");
     args.push_back("-lm");
+    this->addObjcStdlibLinkFlags(triple);
     break;
 
   case llvm::Triple::Solaris:

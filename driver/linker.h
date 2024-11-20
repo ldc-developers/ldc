@@ -59,6 +59,11 @@ llvm::StringRef getExplicitMscrtLibName();
 llvm::StringRef getMscrtLibName(const bool *useInternalToolchain = nullptr);
 
 /**
+ * Returns the name of the Objective-C runtime library to link with.
+ */
+llvm::StringRef getObjcLibName();
+
+/**
  * Inserts bitcode files passed on the commandline into a module.
  */
 void insertBitcodeFiles(llvm::Module &M, llvm::LLVMContext &Ctx,
