@@ -334,11 +334,17 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    LLGlobalVariable *decl; 
+    // Protocols
     if (auto iface = e->classDeclaration->isInterfaceDeclaration()) {
 
       auto loaded = DtoLoad(DtoType(e->type), gIR->objc.getProtocolReference(*iface));
       result = new DImValue(e->type, loaded);
+      return;
+    }
+
+    // Swift stub classes
+    if (e->classDeclaration->objc.isSwiftStub) {
+      result = new DImValue(e->type, gIR->objc.getSwiftStubClassReference(*e->classDeclaration));
       return;
     }
 

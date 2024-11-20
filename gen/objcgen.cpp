@@ -15,6 +15,7 @@
 #include "dmd/declaration.h"
 #include "dmd/identifier.h"
 #include "gen/irstate.h"
+#include "gen/runtime.h"
 #include "ir/irfunction.h"
 
 bool objc_isSupported(const llvm::Triple &triple) {
@@ -394,7 +395,14 @@ LLGlobalVariable *ObjCState::getClassRoSymbol(const ClassDeclaration& cd, bool m
   return var;
 }
 
-LLGlobalVariable *ObjCState::getClassReference(const ClassDeclaration& cd) {
+LLValue *ObjCState::getSwiftStubClassReference(const ClassDeclaration& cd) {
+  auto classref = getClassReference(cd);
+  auto toClassRefFunc = getRuntimeFunction(cd.loc, module, "objc_loadClassRef");
+  auto retv = gIR->CreateCallOrInvoke(toClassRefFunc, classref, "");
+  return retv;
+}
+
+LLConstant *ObjCState::getClassReference(const ClassDeclaration& cd) {
   llvm::StringRef name(cd.objc.identifier->toChars());
   auto it = classReferenceTable.find(name);
   if (it != classReferenceTable.end()) {

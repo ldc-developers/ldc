@@ -66,7 +66,8 @@ public:
   // Classes
   LLGlobalVariable *getClassSymbol(const ClassDeclaration& cd, bool meta);
   LLGlobalVariable *getClassRoSymbol(const ClassDeclaration& cd, bool meta);
-  LLGlobalVariable *getClassReference(const ClassDeclaration& cd);
+  LLConstant *getClassReference(const ClassDeclaration& cd);
+  LLValue *getSwiftStubClassReference(const ClassDeclaration& cd);
 
   // Categories
 
