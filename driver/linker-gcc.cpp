@@ -741,7 +741,7 @@ void ArgsBuilder::addDefaultPlatformLibs() {
     
     // libobjc is more or less required, so we link against it here.
     // This could be prettier, though.
-    this->addObjcStdlibLinkFlags(triple);
+    addObjcStdlibLinkFlags(triple);
   }
 
   if (triple.isWindowsGNUEnvironment()) {

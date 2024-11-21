@@ -357,13 +357,17 @@ DValue *DtoDynamicCastObject(const Loc &loc, DValue *val, Type *_to) {
     llvm::Function *kindOfClassFunc =
       getRuntimeFunction(loc, gIR->module, "objc_opt_isKindOfClass");
 
+    llvm::Function *getClassFunc =
+      getRuntimeFunction(loc, gIR->module, "object_getClass");
+
     // Get the object.
     LLValue *obj = DtoRVal(val);
+    LLValue *objTy = gIR->CreateCallOrInvoke(getClassFunc, obj);
 
     // objc_opt_isKindOfClass will check if id is null
     // by itself, so we don't need to add an extra check.
     // objc_opt_isKindOfClass(id) ? id : null
-    LLValue *objCastable = gIR->CreateCallOrInvoke(kindOfClassFunc, obj);
+    LLValue *objCastable = gIR->CreateCallOrInvoke(kindOfClassFunc, obj, objTy);
     LLValue *ret = gIR->ir->CreateSelect(objCastable, obj, getNullPtr());
     return new DImValue(_to, ret);
   }
@@ -417,7 +421,7 @@ DValue *DtoDynamicCastInterface(const Loc &loc, DValue *val, Type *_to) {
     // Class && kindOfProtocolFunc(Class) ? id : null
     LLValue *ret = gIR->ir->CreateSelect(
       gIR->ir->CreateIsNotNull(
-        gIR->objc.unmaskPointer(objClass) // Classes may have metadata in their pointer, so remove it.
+        objClass
       ),
       gIR->ir->CreateSelect(
         gIR->CreateCallOrInvoke(kindOfProtocolFunc, objClass),

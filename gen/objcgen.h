@@ -17,6 +17,7 @@
 #include "llvm/ADT/StringMap.h"
 #include "gen/tollvm.h"
 #include "dmd/mtype.h"
+#include "dmd/errors.h"
 
 struct ObjcSelector;
 namespace llvm {
@@ -35,158 +36,464 @@ class VarDeclaration;
 class Identifier;
 class Type;
 
-typedef llvm::StringMap<llvm::GlobalVariable *> SymbolCache;
-typedef std::vector<llvm::Constant *> ConstantList;
-
-bool objc_isSupported(const llvm::Triple &triple);
-
-// A mask needed to extract pointers from tagged Objective-C pointers.
-// Only lower 35-bits in tagged pointers are used.
-#define OBJC_PTRMASK 0x7ffffffff
-
-// TODO: maybe make this slightly less cursed by actually
-// poking the Objective-C library?
-#define OBJC_METHOD_SIZEOF 24
-#define OBJC_IVAR_ENTSIZE 32
-#define OBJC_METACLASS_INSTANCESTART_32 40
-#define OBJC_METACLASS_INSTANCESTART_64 76
-
 // class is a metaclass
 #define RO_META               (1<<0)
 
 // class is a root class
 #define RO_ROOT               (1<<1)
 
+// Section Names
+#define OBJC_SECNAME_CLASSNAME             "__TEXT,__objc_classname, cstring_literals"
+#define OBJC_SECNAME_METHNAME              "__TEXT,__objc_methname, cstring_literals"
+#define OBJC_SECNAME_METHTYPE              "__TEXT,__objc_methtype, cstring_literals"
+#define OBJC_SECNAME_SELREFS               "__DATA,__objc_selrefs, literal_pointers, no_dead_strip"
+#define OBJC_SECNAME_IMAGEINFO             "__DATA,__objc_imageinfo, regular, no_dead_strip"
+#define OBJC_SECNAME_CLASSREFS             "__DATA,__objc_classrefs, regular, no_dead_strip"
+#define OBJC_SECNAME_CLASSLIST             "__DATA,__objc_classlist, regular, no_dead_strip"
+#define OBJC_SECNAME_STUBS                 "__DATA,__objc_stubs, regular, no_dead_strip"
+#define OBJC_SECNAME_CATLIST               "__DATA,__objc_catlist, regular, no_dead_strip"
+#define OBJC_SECNAME_PROTOLIST             "__DATA,__objc_protolist, regular, no_dead_strip"
+#define OBJC_SECNAME_PROTOREFS             "__DATA,__objc_protorefs, regular, no_dead_strip"
+#define OBJC_SECNAME_CONST                 "__DATA,__objc_const"
+#define OBJC_SECNAME_DATA                  "__DATA,__objc_data"
+#define OBJC_SECNAME_IVAR                  "__DATA,__objc_ivar"
+
+// Names of Objective-C runtime structs
+#define OBJC_STRUCTNAME_CLASSRO   "class_ro_t"
+#define OBJC_STRUCTNAME_CLASS     "class_t"
+#define OBJC_STRUCTNAME_STUBCLASS "stub_class_t"
+#define OBJC_STRUCTNAME_PROTO     "protocol_t"
+#define OBJC_STRUCTNAME_METHOD    "objc_method"
+
+// Gets the Objective-C type encoding for D type t 
+std::string getTypeEncoding(Type *t);
+
+// Gets whether Objective-C is supported.
+bool objc_isSupported(const llvm::Triple &triple);
+
+// Generate name strings
+std::string getObjcClassRoSymbol(const char *name, bool meta);
+std::string getObjcClassSymbol(const char *name, bool meta);
+std::string getObjcClassMethodListSymbol(const char *className, bool meta);
+std::string getObjcIvarListSymbol(const char *className);
+std::string getObjcIvarSymbol(const char *className, const char *varName);
+std::string getObjcProtoMethodListSymbol(const char *className, bool meta);
+std::string getObjcProtoSymbol(const char *name);
+std::string getObjcSymbolName(const char *dsymPrefix, const char *dsymName);
+
+template<typename T>
+using ObjcList = std::vector<T>;
+
+// Base class for Objective-C definitions in a
+// LLVM module.
+class ObjcObject {
+public:
+  ObjcObject(llvm::Module &module) : module(module) { }
+
+  // Whether the object is used.
+  bool isUsed;
+
+  // Gets a reference to the object in the module.
+  virtual LLConstant *get() { return nullptr; }
+
+  // Gets the name of the object.
+  virtual const char *getName() { return nullptr; }
+
+protected:
+
+  // Gets a global variable or creates it.
+  LLGlobalVariable *getOrCreate(LLStringRef name, LLType* type, LLStringRef section) {
+    auto global = module.getGlobalVariable(name, true);
+    if (global)
+      return global;
+
+    return makeGlobal(name, type, section, true, false);
+  }
+
+  // The module the object resides in.
+  llvm::Module &module;
+
+  // Called to emit the data for the type.
+  virtual LLConstant *emit() { return nullptr; }
+};
+
+// objc_method
+class ObjcMethod : public ObjcObject {
+public:
+  FuncDeclaration *decl;
+
+  ObjcMethod(llvm::Module &module, FuncDeclaration *decl) : ObjcObject(module), decl(decl) { }
+
+  // Gets the main reference to the object.
+  LLConstant *get() override;
+
+  // Gets the type of an Objective-C class_t struct
+  static LLStructType *getObjcMethodType(const llvm::Module& module) {
+    auto methodType = LLStructType::getTypeByName(module.getContext(), OBJC_STRUCTNAME_METHOD);
+    if (methodType)
+      return methodType;
+
+    methodType = LLStructType::create(
+      module.getContext(),
+      {
+        getOpaquePtrType(), // SEL name
+        getOpaquePtrType(), // const char *types
+        getOpaquePtrType(), // IMP imp
+      },
+      OBJC_STRUCTNAME_METHOD
+    );
+    return methodType;
+  }
+
+  // Emits the constant struct containing the method
+  // information.
+  LLConstant *info();
+
+  // Gets the selector for the function
+  LLStringRef getSelector() {
+    auto selector = decl->objc.selector;
+    return LLStringRef(selector->stringvalue, selector->stringlen);
+  }
+
+protected:
+
+  // Called to emit the object.
+  LLConstant *emit() override;
+
+private:
+  LLGlobalVariable *selref;
+  LLGlobalVariable *name;
+  LLGlobalVariable *type;
+};
+
+// ivar_t
+class ObjcIvar : public ObjcObject {
+public:
+  VarDeclaration *decl;
+
+  ObjcIvar(llvm::Module &module, VarDeclaration *decl) :ObjcObject(module), decl(decl) { }
+
+  // Gets the type for an Objective-C ivar_t struct. 
+  static LLStructType *getObjcIvarType(const llvm::Module& module) {
+    auto ivarType = LLStructType::getTypeByName(module.getContext(), OBJC_STRUCTNAME_STUBCLASS);
+    if (ivarType)
+      return ivarType;
+
+    ivarType = LLStructType::create(
+      module.getContext(),
+      {
+        getOpaquePtrType(), // int32_t *offset
+        getOpaquePtrType(), // const char *name
+        getOpaquePtrType(), // const char *type
+        getI32Type(),       // uint32_t alignment_raw
+        getI32Type(),       // uint32_t size
+      },
+      OBJC_STRUCTNAME_STUBCLASS
+    );
+    return ivarType;
+  }
+
+  LLConstant *getOffset() {
+    isUsed = true;
+    if (!name)
+      emit();
+    
+    return offset;
+  }
+
+  // Gets the main reference to the object.
+  LLConstant *get() override {
+    isUsed = true;
+    if (!name)
+      emit();
+    
+    return name;
+  }
+
+  // Emits the constant struct containing the method
+  // information.
+  LLConstant *info();
+
+protected:
+
+  // Called to emit the object.
+  LLConstant *emit() override;
+
+private:
+  LLGlobalVariable *offset;
+  LLGlobalVariable *name;
+  LLGlobalVariable *type;
+};
+
+// Base type for class-like objective-c types.
+class ObjcClasslike : public ObjcObject {
+public:
+  ClassDeclaration *decl;
+
+  ObjcClasslike(llvm::Module &module, ClassDeclaration *decl) : ObjcObject(module), decl(decl) { }
+  
+  const char *getName() override;
+
+  virtual ObjcMethod *getMethod(FuncDeclaration *fd) {
+    for(auto it = instanceMethods.begin(); it != instanceMethods.end(); ++it) {
+      if (auto method = *it) {
+        if (method->decl == fd) {
+          return method;
+        }
+      }
+    }
+
+    for(auto it = classMethods.begin(); it != classMethods.end(); ++it) {
+      if (auto method = *it) {
+        if (method->decl == fd) {
+          return method;
+        }
+      }
+    }
+
+    return nullptr;
+  }
+
+  // Scans the class-like object and fills out internal information
+  // about functions, ivars, etc.
+  void scan() {
+    if (!hasScanned) {
+      onScan(true);
+      onScan(false);
+    }
+    
+    hasScanned = true;
+  }
+
+protected:
+  LLGlobalVariable *emitName();
+  
+  // Implement this to modify scanning behaviour.
+  virtual void onScan(bool meta);
+
+  // Emits a method list as a constant.
+  LLConstant *emitMethodList(std::vector<ObjcMethod *> &methods);
+
+  ObjcList<ObjcMethod *> instanceMethods;
+  ObjcList<ObjcMethod *> classMethods;
+private:
+
+  LLGlobalVariable *className;
+  bool hasScanned;
+};
+
+// objc_protocol_t
+class ObjcProtocol : public ObjcClasslike {
+public:
+  ObjcProtocol(llvm::Module &module, ClassDeclaration *decl) : ObjcClasslike(module, decl) { }
+
+  // Gets the type of an Objective-C class_t struct
+  static LLStructType *getObjcProtocolType(const llvm::Module& module) {
+    auto protoType = LLStructType::getTypeByName(module.getContext(), OBJC_STRUCTNAME_PROTO);
+    if (protoType)
+      return protoType;
+
+    protoType = LLStructType::create(
+      module.getContext(),
+      {
+        getOpaquePtrType(), // objc_object* isa
+        getOpaquePtrType(), // const char *mangledName
+        getOpaquePtrType(), // method_list_t* instanceMethods
+        getOpaquePtrType(), // method_list_t* classMethods
+        getOpaquePtrType(), // method_list_t* optionalInstanceMethods
+        getOpaquePtrType(), // method_list_t* optionalClassMethods
+        getOpaquePtrType(), // property_list_t* instanceProperties
+        getI32Type(),       // uint32_t size
+        getI32Type(),       // uint32_t flags
+
+        // Further fields follow but are optional and are fixed up at
+        // runtime.
+      },
+      OBJC_STRUCTNAME_PROTO
+    );
+    return protoType;
+  }
+  
+  // Gets a protocol by its name
+  static LLGlobalVariable *get(const llvm::Module& module, LLStringRef name, bool meta = false) {
+    return module.getGlobalVariable(getObjcProtoSymbol(name.data()), true);
+  }
+
+  // Gets the main reference to the object.
+  LLConstant *get() override {
+    isUsed = true;
+    if (!protocolTable)
+      emit();
+    
+    return protocolTable;
+  }
+
+protected:
+
+  // Called to emit the object.
+  LLConstant *emit() override;
+
+private:
+  LLGlobalVariable *protoref;
+  LLGlobalVariable *protocolTable;
+};
+
+// class_t, class_ro_t, stub_class_t
+class ObjcClass : public ObjcClasslike {
+public:
+  ObjcClass(llvm::Module &module, ClassDeclaration *decl) : ObjcClasslike(module, decl) { }
+
+  // Gets objective-c the flags for the class declaration
+  static size_t getClassFlags(const ClassDeclaration& decl);
+
+  // Gets the type of an Objective-C class_t struct
+  static LLStructType *getObjcClassType(const llvm::Module& module) {
+    auto classType = LLStructType::getTypeByName(module.getContext(), OBJC_STRUCTNAME_CLASS);
+    if (classType)
+      return classType;
+
+    classType = LLStructType::create(
+      module.getContext(),
+      {
+        getOpaquePtrType(), // objc_object* isa
+        getOpaquePtrType(), // objc_object* superclass
+        getOpaquePtrType(), // cache_t* cache
+        getOpaquePtrType(), // void* vtbl; (unused, set to null)
+        getOpaquePtrType(), // class_ro_t* ro
+      },
+      OBJC_STRUCTNAME_CLASS
+    );
+    return classType;
+  }
+
+  // Gets the type of an Objective-C class_ro_t struct.
+  static LLStructType *getObjcClassRoType(const llvm::Module& module) {
+    auto classRoType = LLStructType::getTypeByName(module.getContext(), OBJC_STRUCTNAME_CLASSRO);
+    if (classRoType)
+      return classRoType;
+
+    classRoType = LLStructType::create(
+      module.getContext(),
+      {
+          getI32Type(), // uint32_t flags
+          getI32Type(), // uint32_t instanceStart
+          getI32Type(), // uint32_t instanceSize
+          getOpaquePtrType(), // void* layoutOrNonMetaClass
+          getOpaquePtrType(), // const char* name
+          getOpaquePtrType(), // method_list_t* baseMethods
+          getOpaquePtrType(), // protocol_list_t* baseProtocols
+          getOpaquePtrType(), // ivar_list_t* ivars
+          getOpaquePtrType(), // const uint8_t* weakIvarLayout
+          getOpaquePtrType(), // property_list_t* baseProperties
+      },
+      OBJC_STRUCTNAME_CLASSRO
+    );
+    return classRoType;
+  }
+
+  // Gets the type for an Swift stub class
+  static LLStructType *getObjcStubClassType(const llvm::Module& module) {
+    auto stubClassType = LLStructType::getTypeByName(module.getContext(), OBJC_STRUCTNAME_STUBCLASS);
+    if (stubClassType)
+      return stubClassType;
+
+    stubClassType = LLStructType::create(
+      module.getContext(),
+      {
+        getOpaquePtrType(), // objc_object* isa
+        getOpaquePtrType(), // function pointer.
+      },
+      OBJC_STRUCTNAME_STUBCLASS
+    );
+    return stubClassType;
+  }
+
+  // Gets a class by its name
+  static LLGlobalVariable *get(const llvm::Module& module, LLStringRef name, bool meta = false) {
+    return module.getGlobalVariable(getObjcClassSymbol(name.data(), meta), true);
+  }
+
+  ObjcIvar *get(VarDeclaration *vd) {
+    for(size_t i = 0; i < ivars.size(); i++) {
+      if (ivars[i]->decl == vd) {
+        return ivars[i];
+      }
+    }
+
+    return nullptr;
+  }
+
+  // Gets the main reference to the object.
+  LLConstant *get() override;
+
+  // Gets the superclass of this class.
+  LLConstant *getSuper(bool meta);
+
+  // Gets the root metaclass of this class.
+  LLConstant *getRootMetaClass();
+
+  // Gets the class reference for the specified id.
+  LLValue *getRefFor(LLValue *id);
+
+protected:
+
+  // Called to emit the object.
+  LLConstant *emit() override;
+
+  void onScan(bool meta) override;
+
+private:
+  ObjcList<ObjcIvar *> ivars;
+
+  // Core data
+  ptrdiff_t getInstanceStart(bool meta);
+  size_t getInstanceSize(bool meta);
+
+  void emitTable(LLGlobalVariable *table, LLConstant *super, LLConstant *meta, LLConstant *roTable);
+  void emitRoTable(LLGlobalVariable *table, bool meta);
+
+  // instance variables
+  LLConstant *emitIvarList();
+  LLConstant *emitProtocoList();
+
+  // Gets the empty cache variable, and creates a reference to it
+  // if needed.
+  LLGlobalVariable *getEmptyCache() {
+    static LLGlobalVariable *objcCache;
+    if(!objcCache)
+      objcCache = makeGlobal("_objc_empty_cache", nullptr, "", true, false);
+    return objcCache;
+  }
+  
+  LLGlobalVariable *classTable;
+  LLGlobalVariable *classRoTable;
+  LLGlobalVariable *metaClassTable;
+  LLGlobalVariable *metaClassRoTable;
+};
+
 // Objective-C state tied to an LLVM module (object file).
 class ObjCState {
 public:
   ObjCState(llvm::Module &module) : module(module) { }
 
-  // General
-  LLGlobalVariable *getTypeEncoding(Type *t);
-
-  // Classes
-  LLGlobalVariable *getClassSymbol(const ClassDeclaration& cd, bool meta);
-  LLGlobalVariable *getClassRoSymbol(const ClassDeclaration& cd, bool meta);
-  LLConstant *getClassReference(const ClassDeclaration& cd);
-  LLValue *getSwiftStubClassReference(const ClassDeclaration& cd);
-
-  // Categories
-
-  // Interface variables
-  LLConstant *getIVarListFor(const ClassDeclaration& cd);
-  LLGlobalVariable *getIVarSymbol(const ClassDeclaration& cd, const VarDeclaration& var);
-  LLGlobalVariable *getIVarOffset(const ClassDeclaration& cd, const VarDeclaration& var, bool outputSymbol);
-
-  // Methods
-  LLGlobalVariable *getMethodVarType(const FuncDeclaration& fd);
-  LLGlobalVariable *getMethodListFor(const ClassDeclaration& cd, bool meta, bool optional=false);
-
-  // Selector
-  LLGlobalVariable *getSelector(const ObjcSelector &sel);
-
-  // Protocols
-  LLGlobalVariable *getProtocolListFor(const ClassDeclaration& cd);
-  LLGlobalVariable *getProtocolSymbol(const InterfaceDeclaration& id);
-  LLGlobalVariable *getProtocolReference(const InterfaceDeclaration& id);
-
-  // Unmasks pointer to make sure it's not a tagged pointer.
-  LLValue *unmaskPointer(LLValue *value);
+  ObjcClass         *getClassRef(ClassDeclaration *cd);
+  ObjcProtocol      *getProtocolRef(InterfaceDeclaration *id);
+  ObjcMethod        *getMethodRef(ClassDeclaration *cd, FuncDeclaration *fd);
+  ObjcMethod        *getMethodRef(InterfaceDeclaration *id, FuncDeclaration *fd);
+  ObjcMethod        *getMethodRef(FuncDeclaration *fd);
+  ObjcIvar          *getIVarRef(ClassDeclaration *cd, VarDeclaration *vd);
 
   void finalize();
-
-  // Section Names
-  const char *imageInfoSection      = "__DATA,__objc_imageinfo,regular,no_dead_strip";
-
-  // Lists
-  const char *classListSection      = "__DATA,__objc_classlist,regular,no_dead_strip";
-  const char *protoListSection      = "__DATA,__objc_protolist,regular,no_dead_strip";
-  const char *catListSection        = "__DATA,__objc_catlist,regular,no_dead_strip";
-
-  const char *classNameSection      = "__TEXT,__objc_classname,cstring_literals,no_dead_strip";
-  const char *classStubsSection     = "__DATA,__objc_stubs,regular,no_dead_strip";
-
-  const char *constSection          = "__DATA,__objc_const,regular,no_dead_strip";
-  const char *dataSection           = "__DATA,__objc_data,regular,no_dead_strip";
-
-  const char *methodNameSection     = "__TEXT,__objc_methname,cstring_literals,no_dead_strip";
-  const char *methodTypeSection     = "__TEXT,__objc_methtype,regular,no_dead_strip";
-
-  const char *classRefsSection      = "__DATA,__objc_classrefs,literal_pointers,no_dead_strip";
-  const char *protoRefsSection      = "__DATA,__objc_protorefs,literal_pointers,no_dead_strip";
-  const char *selectorRefsSection   = "__DATA,__objc_selrefs,literal_pointers,no_dead_strip";
 
 private:
   llvm::Module &module;
 
-  // Symbols that shouldn't be optimized away
-  std::vector<llvm::Constant *> retainedSymbols;
+  ObjcList<ObjcProtocol *> protocols;
+  ObjcList<ObjcClass *> classes;
 
-  // Store the classes, protocols and new selectors.
-  std::vector<ClassDeclaration *> classes;
-  std::vector<InterfaceDeclaration *> protocols;
-  std::vector<Identifier *> selectors;
-
-  /// Cache for `__OBJC_METACLASS_$_`/`__OBJC_CLASS_$_` symbols.
-  SymbolCache classSymbolTable;
-  SymbolCache classRoSymbolTable;
-  SymbolCache classRoNameTable;
-
-  /// Cache for `_OBJC_CLASS_$_` symbols stored in `__objc_stubs`.
-  /// NOTE: Stub classes have a different layout from normal classes
-  /// And need to be instantiated with a call to the objective-c runtime.
-  SymbolCache stubClassSymbolTable;
-
-  /// Cache for `OBJC_CLASSLIST_REFERENCES_$_` symbols.
-  SymbolCache classReferenceTable;
-
-  /// Cache for `OBJC_PROTOLIST_REFERENCES_$_` symbols.
-  SymbolCache protocolReferenceTable;
-
-  /// Cache for `__OBJC_PROTOCOL_$_` symbols.
-  SymbolCache protocolTable;
-  SymbolCache protocolNameTable;
-  SymbolCache protocolListTable;
-
-  // Cache for methods.
-  SymbolCache methodListTable;
-  SymbolCache methodNameTable;
-  SymbolCache methodTypeTable;
-
-  // Cache for selectors.
-  SymbolCache selectorTable;
-
-  // Cache for instance variables.
-  SymbolCache ivarTable;
-  SymbolCache ivarListTable;
-  SymbolCache ivarOffsetTable;
-
-  // Generate name strings
-  std::string getObjcTypeEncoding(Type *t);
-  std::string getObjcClassRoSymbol(const ClassDeclaration& cd, bool meta);
-  std::string getObjcClassSymbol(const ClassDeclaration& cd, bool meta);
-  std::string getObjcMethodListSymbol(const ClassDeclaration& cd, bool meta);
-  std::string getObjcProtoSymbol(const InterfaceDeclaration& iface);
-  std::string getObjcIvarSymbol(const ClassDeclaration& cd, const VarDeclaration& var);
-  std::string getObjcSymbolName(const char *dsymPrefix, const char *dsymName);
-
-  // Generate name globals
-  llvm::GlobalVariable *getClassRoName(const ClassDeclaration& cd);
-  llvm::GlobalVariable *getProtocolName(const llvm::StringRef& name);
-  llvm::GlobalVariable *getMethodVarName(const llvm::StringRef& name);
-  llvm::GlobalVariable *getMethodVarTypeName(const llvm::StringRef& name);
-
-  llvm::GlobalVariable *getEmptyCache();
-
-  llvm::GlobalVariable *getGlobal(llvm::Module& module, llvm::StringRef name, llvm::Type* type = nullptr);
-  llvm::GlobalVariable *getGlobalWithBytes(llvm::Module& module, llvm::StringRef name, ConstantList packedContents);
-  llvm::GlobalVariable *getCStringVar(const char *symbol, const llvm::StringRef &str, const char *section = nullptr);
-
+  std::vector<LLConstant *> retainedSymbols;
   void retain(llvm::Constant *sym);
-
-  void genImageInfo();
   void retainSymbols();
 
-  llvm::Constant *finalizeClasses();
-  llvm::Constant *finalizeProtocols();
+  void genImageInfo();
 };

@@ -743,7 +743,7 @@ private:
             // Create obj_super struct with (this, <class ref>)
             auto obj_super = DtoAggrPair(
               dfnval->vthis,
-              DtoLoad(getOpaquePtrType(), gIR->objc.getClassReference(*cls)),
+              DtoLoad(getOpaquePtrType(), gIR->objc.getClassRef(cls)->getRefFor(dfnval->vthis)),
               "super"
             );
 
@@ -792,11 +792,9 @@ private:
 
     if (irFty.arg_objcSelector) {
       assert(dfnval);
-
-      const auto selector = dfnval->func->objc.selector;
-      assert(selector);
-      LLGlobalVariable *selptr = gIR->objc.getSelector(*selector);
-      args.push_back(DtoLoad(selptr->getValueType(), selptr));
+      
+      auto selptr = gIR->objc.getMethodRef(dfnval->func)->get();
+      args.push_back(DtoLoad(selptr->getType(), selptr));
     }
   }
 

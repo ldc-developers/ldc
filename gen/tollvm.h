@@ -146,8 +146,19 @@ LLConstantInt *isaConstantInt(LLValue *v);
 llvm::Argument *isaArgument(LLValue *v);
 LLGlobalVariable *isaGlobalVar(LLValue *v);
 
+// llvm::GlobalVariable wrappers for quickly making
+// new global variables and references to them.
+LLGlobalVariable *makeGlobal(LLStringRef name, LLType* type = nullptr, LLStringRef section = "", bool extern_ = false, bool externInit = false);
+LLGlobalVariable *makeGlobalWithBytes(LLStringRef name, LLConstantList packedContents, LLStructType* type = nullptr, bool extern_ = false, bool externInit = false);
+LLGlobalVariable *makeGlobalRef(LLGlobalVariable *to, LLStringRef name = "", LLStringRef section = "", bool extern_ = false, bool externInit = false);
+LLGlobalVariable *makeGlobalStr(LLStringRef text, LLStringRef name = "", LLStringRef section = "", bool extern_ = false, bool externInit = false);
+
 // llvm::T::get(...) wrappers
 LLType *getI8Type();
+LLType *getI16Type();
+LLType *getI32Type();
+LLType *getI64Type();
+LLType *getSizeTType();
 LLPointerType *getOpaquePtrType(unsigned addressSpace = 0);
 llvm::ConstantPointerNull *getNullPtr();
 LLConstant *getNullValue(LLType *t);

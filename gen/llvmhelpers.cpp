@@ -1843,7 +1843,7 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
 
   if (ad->classKind == ClassKind::objc) {
     auto tHandle = LLType::getInt64Ty(gIR->context());
-    auto tOffset = DtoLoad(tHandle, gIR->objc.getIVarOffset(*ad->isClassDeclaration(), *vd, false));
+    auto tOffset = DtoLoad(tHandle, gIR->objc.getIVarRef(ad->isClassDeclaration(), vd)->getOffset());
 
     // Offset is now stored in tOffset.
     LLValue *ptr = src;

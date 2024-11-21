@@ -691,7 +691,102 @@ llvm::GlobalVariable *isaGlobalVar(LLValue *v) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+LLGlobalVariable *makeGlobal(LLStringRef name, LLType* type, LLStringRef section, bool extern_, bool externInit) {
+  if (!type)
+    type = getOpaquePtrType();
+
+  auto var = new LLGlobalVariable(
+    gIR->module,
+    type,
+    false,
+    extern_ ? LLGlobalValue::ExternalLinkage : LLGlobalValue::PrivateLinkage,
+    nullptr,
+    name,
+    nullptr,
+    LLGlobalValue::NotThreadLocal,
+    std::nullopt,
+    externInit
+  );
+
+  if (!section.empty())
+    var->setSection(section);
+    
+  return var;
+}
+
+LLGlobalVariable *makeGlobalWithBytes(LLStringRef name, LLConstantList packedContents, LLStructType* type, bool extern_, bool externInit) {
+  if (packedContents.empty()) {
+    packedContents.push_back(getNullPtr());
+  }
+
+  // Handle initializer.
+  LLConstant *init;
+  if (type) {
+    init = LLConstantStruct::get(
+      type,
+      packedContents
+    );
+  } else {
+    init = LLConstantStruct::getAnon(
+      packedContents,
+      true
+    );
+    type = reinterpret_cast<LLStructType *>(init->getType());
+  }
+
+  auto var = new LLGlobalVariable(
+    gIR->module,
+    type,
+    false,
+    extern_ ? LLGlobalValue::ExternalLinkage : LLGlobalValue::PrivateLinkage,
+    init,
+    name,
+    nullptr,
+    LLGlobalValue::NotThreadLocal,
+    std::nullopt,
+    externInit
+  );
+  
+  return var;
+}
+
+LLGlobalVariable *makeGlobalRef(LLGlobalVariable *to, LLStringRef name, LLStringRef section, bool extern_, bool externInit) {
+  auto var = makeGlobal(name, to->getType(), section, extern_, externInit);
+  var->setInitializer(to);
+  return var;
+}
+
+LLGlobalVariable *makeGlobalStr(LLStringRef text, LLStringRef name, LLStringRef section, bool extern_, bool externInit) {
+  auto init = llvm::ConstantDataArray::getString(gIR->context(), text);
+  auto var = new LLGlobalVariable(
+    gIR->module,
+    init->getType(),
+    false,
+    extern_ ? LLGlobalValue::ExternalLinkage : LLGlobalValue::PrivateLinkage,
+    init,
+    name,
+    nullptr,
+    LLGlobalValue::NotThreadLocal,
+    std::nullopt,
+    externInit
+  );
+
+  if (!section.empty())
+    var->setSection(section);
+  return var;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 LLType *getI8Type() { return LLType::getInt8Ty(gIR->context()); }
+
+LLType *getI16Type() { return LLType::getInt16Ty(gIR->context()); }
+
+LLType *getI32Type() { return LLType::getInt32Ty(gIR->context()); }
+
+LLType *getI64Type() { return LLType::getInt64Ty(gIR->context()); }
+
+LLType *getSizeTType() { return LLType::getIntNTy(gIR->context(), getPointerSizeInBits()); }
 
 LLPointerType *getOpaquePtrType(unsigned addressSpace) {
   return LLPointerType::get(gIR->context(), addressSpace);

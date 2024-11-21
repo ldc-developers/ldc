@@ -337,18 +337,12 @@ public:
     // Protocols
     if (auto iface = e->classDeclaration->isInterfaceDeclaration()) {
 
-      auto loaded = DtoLoad(DtoType(e->type), gIR->objc.getProtocolReference(*iface));
+      auto loaded = gIR->objc.getProtocolRef(iface)->get();
       result = new DImValue(e->type, loaded);
       return;
     }
 
-    // Swift stub classes
-    if (e->classDeclaration->objc.isSwiftStub) {
-      result = new DImValue(e->type, gIR->objc.getSwiftStubClassReference(*e->classDeclaration));
-      return;
-    }
-
-    auto loaded = DtoLoad(DtoType(e->type), gIR->objc.getClassReference(*e->classDeclaration));
+    auto loaded = gIR->objc.getClassRef(e->classDeclaration)->get();
     result = new DImValue(e->type, loaded);
   }
 
