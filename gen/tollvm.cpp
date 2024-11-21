@@ -704,7 +704,7 @@ LLGlobalVariable *makeGlobal(LLStringRef name, LLType* type, LLStringRef section
     name,
     nullptr,
     LLGlobalValue::NotThreadLocal,
-    std::nullopt,
+    0u,
     externInit
   );
 
@@ -743,7 +743,7 @@ LLGlobalVariable *makeGlobalWithBytes(LLStringRef name, LLConstantList packedCon
     name,
     nullptr,
     LLGlobalValue::NotThreadLocal,
-    std::nullopt,
+    0u,
     externInit
   );
   
@@ -767,7 +767,7 @@ LLGlobalVariable *makeGlobalStr(LLStringRef text, LLStringRef name, LLStringRef 
     name,
     nullptr,
     LLGlobalValue::NotThreadLocal,
-    std::nullopt,
+    0u,
     externInit
   );
 
