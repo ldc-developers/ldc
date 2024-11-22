@@ -278,16 +278,18 @@ void ObjcClasslike::onScan(bool meta) {
     auto method = methods.ptr[i];
 
     // Static functions are class methods.
-    if (method->isStatic()) {
-      auto mth = new ObjcMethod(module, method);
-      mth->get();
-      classMethods.push_back(mth);
+    if (meta && method->isStatic()) {
+      classMethods.push_back(
+        new ObjcMethod(module, method)
+      );
       continue;
     }
 
-    auto mth = new ObjcMethod(module, method);
-    mth->get();
-    instanceMethods.push_back(mth);
+    if (!meta && !method->isStatic()) {
+      instanceMethods.push_back(
+        new ObjcMethod(module, method)
+      );
+    }
   }
 }
 
@@ -678,28 +680,30 @@ LLConstant *ObjcProtocol::emit() {
 //
 //    STATE
 //
-
-
 ObjcClass *ObjCState::getClassRef(ClassDeclaration *cd) {
-  for(auto it = classes.begin(); it != classes.end(); ++it) {
-    if (auto klass = *it) {
-      if (klass->decl == cd) {
-        return klass;
+  auto classList = this->classes;
+
+  if (!classList.empty()) {
+    for(auto it : classList) {
+      if (it->decl == cd) {
+        return it;
       }
     }
   }
 
   auto klass = new ObjcClass(module, cd);
-  klass->get();
   classes.push_back(klass);
+  klass->get();
   return klass;
 }
 
 ObjcProtocol *ObjCState::getProtocolRef(InterfaceDeclaration *id) {
-  for(auto it = protocols.begin(); it != protocols.end(); ++it) {  
-    if (auto proto = *it) {
-      if (proto->decl == id) {
-        return proto;
+  auto protoList = this->protocols;
+
+  if (!protoList.empty()) {
+    for(auto it : protoList) {
+      if (it->decl == id) {
+        return it;
       }
     }
   }
@@ -729,17 +733,11 @@ ObjcMethod *ObjCState::getMethodRef(InterfaceDeclaration *id, FuncDeclaration *f
 }
 
 ObjcMethod *ObjCState::getMethodRef(FuncDeclaration *fd) {
-  if (auto cd = fd->parent->isClassDeclaration()) {
-    if (auto func = getMethodRef(cd, fd)) {
-      return func;
-    }
-  }
+  if (auto cd = fd->parent->isClassDeclaration())
+    return getMethodRef(cd, fd);
 
-  if (auto id = fd->parent->isInterfaceDeclaration()) {
-    if (auto func = getMethodRef(id, fd)) {
-      return func;
-    }
-  }
+  if (auto id = fd->parent->isInterfaceDeclaration())
+    return getMethodRef(id, fd);
 
   return nullptr;
 }

@@ -337,13 +337,20 @@ public:
     // Protocols
     if (auto iface = e->classDeclaration->isInterfaceDeclaration()) {
 
-      auto loaded = gIR->objc.getProtocolRef(iface)->get();
+      auto proto = gIR->objc.getProtocolRef(iface);
+      auto loaded = proto->get();
       result = new DImValue(e->type, loaded);
       return;
     }
 
-    auto loaded = gIR->objc.getClassRef(e->classDeclaration)->ref();
-    result = new DImValue(e->type, loaded);
+    // Classes
+    if (auto klass = gIR->objc.getClassRef(e->classDeclaration)) {
+      auto loaded = klass->ref();
+      result = new DImValue(e->type, loaded);
+      return;
+    }
+
+    llvm_unreachable("Unknown type for ObjcClassReferenceExp.");
   }
 
   //////////////////////////////////////////////////////////////////////////////

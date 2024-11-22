@@ -65,6 +65,8 @@ class Type;
 #define OBJC_STRUCTNAME_PROTO     "protocol_t"
 #define OBJC_STRUCTNAME_METHOD    "objc_method"
 
+#define ObjcList std::vector
+
 // Gets the Objective-C type encoding for D type t 
 std::string getTypeEncoding(Type *t);
 
@@ -81,9 +83,6 @@ std::string getObjcProtoMethodListSymbol(const char *className, bool meta);
 std::string getObjcProtoSymbol(const char *name);
 std::string getObjcProtoListSymbol(const char *name);
 std::string getObjcSymbolName(const char *dsymPrefix, const char *dsymName);
-
-template<typename T>
-using ObjcList = std::vector<T>;
 
 // Base class for Objective-C definitions in a
 // LLVM module.
@@ -247,19 +246,15 @@ public:
   const char *getName() override;
 
   virtual ObjcMethod *getMethod(FuncDeclaration *fd) {
-    for(auto it = instanceMethods.begin(); it != instanceMethods.end(); ++it) {
-      if (auto method = *it) {
-        if (method->decl == fd) {
-          return method;
-        }
+    for(auto it : instanceMethods) {
+      if (it->decl == fd) {
+        return it;
       }
     }
-
-    for(auto it = classMethods.begin(); it != classMethods.end(); ++it) {
-      if (auto method = *it) {
-        if (method->decl == fd) {
-          return method;
-        }
+    
+    for(auto it : classMethods) {
+      if (it->decl == fd) {
+        return it;
       }
     }
 
@@ -498,7 +493,7 @@ private:
 class ObjCState {
 public:
   ObjCState(llvm::Module &module) : module(module) { }
-
+  
   ObjcClass         *getClassRef(ClassDeclaration *cd);
   ObjcProtocol      *getProtocolRef(InterfaceDeclaration *id);
   ObjcMethod        *getMethodRef(ClassDeclaration *cd, FuncDeclaration *fd);
@@ -511,8 +506,8 @@ public:
 private:
   llvm::Module &module;
 
-  ObjcList<ObjcProtocol *> protocols;
-  ObjcList<ObjcClass *> classes;
+  std::vector<ObjcProtocol *> protocols;
+  std::vector<ObjcClass *> classes;
 
   void genImageInfo();
 };
