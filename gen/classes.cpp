@@ -328,11 +328,12 @@ DValue *DtoCastClass(const Loc &loc, DValue *val, Type *_to) {
 }
 
 bool DtoIsObjcLinkage(Type *_to) {
-  TypeClass *to = static_cast<TypeClass *>(_to->toBasetype());
-  auto sym = to->sym;
-
-  DtoResolveClass(sym);
-  return sym->classKind == ClassKind::objc;
+  if (auto to = _to->isTypeClass()) {
+    DtoResolveClass(to->sym);
+    return to->sym->classKind == ClassKind::objc;
+  }
+  
+  return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -357,12 +358,14 @@ DValue *DtoDynamicCastObject(const Loc &loc, DValue *val, Type *_to) {
     llvm::Function *kindOfClassFunc =
       getRuntimeFunction(loc, gIR->module, "objc_opt_isKindOfClass");
 
-    llvm::Function *getClassFunc =
-      getRuntimeFunction(loc, gIR->module, "object_getClass");
-
     // Get the object.
     LLValue *obj = DtoRVal(val);
-    LLValue *objTy = gIR->CreateCallOrInvoke(getClassFunc, obj);
+
+    // Get class_t handle
+    LLValue *objTy = getNullPtr();
+    if (auto chndl = _to->isClassHandle()) {
+      objTy = gIR->objc.getClassRef(chndl)->ref();
+    }
 
     // objc_opt_isKindOfClass will check if id is null
     // by itself, so we don't need to add an extra check.
@@ -417,6 +420,12 @@ DValue *DtoDynamicCastInterface(const Loc &loc, DValue *val, Type *_to) {
     // id -> Class 
     LLValue *obj = DtoRVal(val);
     LLValue *objClass = gIR->CreateCallOrInvoke(getClassFunc, obj);
+    
+    // Get prototype_t handle
+    LLValue *protoTy = getNullPtr();
+    if (auto ifhndl = _to->isClassHandle()->isInterfaceDeclaration()) {
+      protoTy = gIR->objc.getProtocolRef(ifhndl)->get();
+    }
 
     // Class && kindOfProtocolFunc(Class) ? id : null
     LLValue *ret = gIR->ir->CreateSelect(
@@ -424,7 +433,7 @@ DValue *DtoDynamicCastInterface(const Loc &loc, DValue *val, Type *_to) {
         objClass
       ),
       gIR->ir->CreateSelect(
-        gIR->CreateCallOrInvoke(kindOfProtocolFunc, objClass),
+        gIR->CreateCallOrInvoke(kindOfProtocolFunc, objClass, protoTy),
         obj, 
         getNullPtr()
       ), 
