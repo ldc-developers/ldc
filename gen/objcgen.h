@@ -251,7 +251,7 @@ public:
         return it;
       }
     }
-    
+
     for(auto it : classMethods) {
       if (it->decl == fd) {
         return it;
@@ -506,8 +506,8 @@ public:
 private:
   llvm::Module &module;
 
-  std::vector<ObjcProtocol *> protocols;
-  std::vector<ObjcClass *> classes;
+  ObjcList<ObjcProtocol *> protocols;
+  ObjcList<ObjcClass *> classes;
 
   void genImageInfo();
 };
