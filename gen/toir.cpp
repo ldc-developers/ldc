@@ -342,7 +342,7 @@ public:
       return;
     }
 
-    auto loaded = gIR->objc.getClassRef(e->classDeclaration)->get();
+    auto loaded = gIR->objc.getClassRef(e->classDeclaration)->ref();
     result = new DImValue(e->type, loaded);
   }
 

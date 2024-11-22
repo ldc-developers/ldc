@@ -79,6 +79,7 @@ std::string getObjcIvarListSymbol(const char *className);
 std::string getObjcIvarSymbol(const char *className, const char *varName);
 std::string getObjcProtoMethodListSymbol(const char *className, bool meta);
 std::string getObjcProtoSymbol(const char *name);
+std::string getObjcProtoListSymbol(const char *name);
 std::string getObjcSymbolName(const char *dsymPrefix, const char *dsymName);
 
 template<typename T>
@@ -99,6 +100,9 @@ public:
   // Gets the name of the object.
   virtual const char *getName() { return nullptr; }
 
+  // Emits a new list for the specified objects as a constant.
+  static LLConstant *emitList(llvm::Module &module, LLType *elemType, LLConstantList objects, bool isCountPtrSized = false);
+
 protected:
 
   // Gets a global variable or creates it.
@@ -115,6 +119,14 @@ protected:
 
   // Called to emit the data for the type.
   virtual LLConstant *emit() { return nullptr; }
+
+  // Retains a symbol.
+  void retain(LLConstant *toRetain) {
+    retained.push_back(toRetain);
+  }
+
+private:
+  ObjcList<LLConstant *> retained;
 };
 
 // objc_method
@@ -274,6 +286,9 @@ protected:
   // Emits a method list as a constant.
   LLConstant *emitMethodList(std::vector<ObjcMethod *> &methods);
 
+  // Emits a method list as a constant.
+  LLConstant *emitProtocolList();
+
   ObjcList<ObjcMethod *> instanceMethods;
   ObjcList<ObjcMethod *> classMethods;
 private:
@@ -297,6 +312,7 @@ public:
       module.getContext(),
       {
         getOpaquePtrType(), // objc_object* isa
+        getOpaquePtrType(), // protocol_list_t* protocols
         getOpaquePtrType(), // const char *mangledName
         getOpaquePtrType(), // method_list_t* instanceMethods
         getOpaquePtrType(), // method_list_t* classMethods
@@ -332,6 +348,9 @@ protected:
 
   // Called to emit the object.
   LLConstant *emit() override;
+
+  // Emits the protocol table.
+  void emitTable(LLGlobalVariable *table);
 
 private:
   LLGlobalVariable *protoref;
@@ -423,6 +442,9 @@ public:
     return nullptr;
   }
 
+  // Gets a reference to the class.
+  LLValue *ref();
+
   // Gets the main reference to the object.
   LLConstant *get() override;
 
@@ -454,7 +476,8 @@ private:
 
   // instance variables
   LLConstant *emitIvarList();
-  LLConstant *emitProtocoList();
+
+  LLValue *deref(LLValue *classptr);
 
   // Gets the empty cache variable, and creates a reference to it
   // if needed.
@@ -490,10 +513,6 @@ private:
 
   ObjcList<ObjcProtocol *> protocols;
   ObjcList<ObjcClass *> classes;
-
-  std::vector<LLConstant *> retainedSymbols;
-  void retain(llvm::Constant *sym);
-  void retainSymbols();
 
   void genImageInfo();
 };

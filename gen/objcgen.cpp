@@ -148,7 +148,11 @@ std::string getObjcIvarListSymbol(const char *className) {
 }
 
 std::string getObjcProtoSymbol(const char *name) {
-  return getObjcSymbolName("OBJC_PROTOCOL_$_", name);
+  return getObjcSymbolName("_OBJC_PROTOCOL_$_", name);
+}
+
+std::string getObjcProtoListSymbol(const char *name, bool isProtocol) {
+  return getObjcSymbolName(isProtocol ? "_OBJC_PROTOCOL_PROTOCOLS_$_" : "_OBJC_CLASS_PROTOCOLS_$_", name);
 }
 
 std::string getObjcIvarSymbol(const char *className, const char *varName) {
@@ -199,6 +203,35 @@ LLConstant *ObjcMethod::get() {
     emit();
   
   return selref;
+}
+
+LLConstant *ObjcObject::emitList(llvm::Module &module, LLType *elemType, LLConstantList objects, bool isCountPtrSized) {
+  LLConstantList members;
+  
+  // Size of stored struct.
+  size_t allocSize = getTypeAllocSize(elemType);
+  members.push_back(
+    isCountPtrSized ?
+    DtoConstSize_t(allocSize) :
+    DtoConstUint(allocSize)
+  );
+
+  // Method count
+  members.push_back(DtoConstUint(
+    objects.size()
+  ));
+
+  // Insert all the objects in the constant list.
+  members.insert(
+    members.end(), 
+    objects.begin(), 
+    objects.end()
+  );
+
+  return LLConstantStruct::getAnon(
+    members,
+    true
+  );
 }
 
 //
@@ -258,36 +291,57 @@ void ObjcClasslike::onScan(bool meta) {
   }
 }
 
-LLConstant *ObjcClasslike::emitMethodList(std::vector<ObjcMethod *> &methods) {
-  LLConstantList members;
+bool ifaceListHas(ObjcList<InterfaceDeclaration *> &list, InterfaceDeclaration *curr) {
+  for(auto it = list.begin(); it != list.end(); ++it) {
+    if (*it == curr)
+      return true;
+  }
+  return false;
+}
+
+LLConstant *ObjcClasslike::emitProtocolList() {
+  LLConstantList list;
+
+  auto ifaces = decl->interfaces;
+  for(size_t i = 0; i < ifaces.length; i++) {
+    if (auto iface = ifaces.ptr[i]) {
+
+      // Only add interfaces which have objective-c linkage
+      // TODO: throw an error if you try to include a non-objective-c interface?
+      if (auto ifacesym = (InterfaceDeclaration *)iface->sym) {
+        if (ifacesym->classKind == ClassKind::objc) {
+          auto proto = getOrCreate(
+            getObjcProtoSymbol(ifacesym->ident->toChars()), 
+            ObjcProtocol::getObjcProtocolType(module), ""
+          );
+
+          list.push_back(proto);
+        }
+      }
+    }
+  }
+
+  return ObjcObject::emitList(
+    module, 
+    getOpaquePtrType(), 
+    list
+  );
+}
+
+LLConstant *ObjcClasslike::emitMethodList(ObjcList<ObjcMethod *> &methods) {
+  LLConstantList toAdd;
   
   // Find out how many functions have actual bodies.
   size_t count = 0;
   for(size_t i = 0; i < methods.size(); i++) {
     if (methods[i]->decl->fbody)
-      count++;
+      toAdd.push_back(methods[i]->info());
   }
 
-  // Size of objc_method
-  members.push_back(DtoConstUint(
-    getTypeAllocSize(
-      ObjcMethod::getObjcMethodType(module))
-  ));
-
-  // Method count
-  members.push_back(DtoConstUint(
-    count
-  ));
-
-  // Push on all the methods.
-  for(size_t i = 0; i < methods.size(); i++) {
-    if (methods[i]->decl->fbody)
-      members.push_back(methods[i]->info());
-  }
-
-  return LLConstantStruct::getAnon(
-    members,
-    true
+  return ObjcObject::emitList(
+    module, 
+    ObjcMethod::getObjcMethodType(module), 
+    toAdd
   );
 }
 
@@ -354,30 +408,6 @@ LLConstant *ObjcClass::emitIvarList() {
   );
 }
 
-LLConstant *ObjcClass::emitProtocoList() {
-  LLConstantList members;
-  
-  // Size of ivar_t
-  members.push_back(DtoConstUint(
-    getTypeAllocSize(ObjcProtocol::getObjcProtocolType(module))
-  ));
-
-  // Ivar count
-  members.push_back(DtoConstUint(
-    ivars.size()
-  ));
-
-  // Push on all the ivars.
-  for(size_t i = 0; i < ivars.size(); i++) {
-    members.push_back(ivars[i]->info());
-  }
-
-  return LLConstantStruct::getAnon(
-    members,
-    true
-  );
-}
-
 ptrdiff_t ObjcClass::getInstanceStart(bool meta) {
   ptrdiff_t start = meta ? 
     getTypeAllocSize(ObjcClass::getObjcClassType(module)) :
@@ -406,24 +436,6 @@ size_t ObjcClass::getInstanceSize(bool meta) {
     return start;
   
   return start+decl->size(decl->loc);
-}
-
-LLValue *ObjcClass::getRefFor(LLValue *id) {
-  if (decl->objc.isExtern) {
-    if (decl->objc.isSwiftStub) {
-      auto loadClassFunc = getRuntimeFunction(decl->loc, module, "objc_loadClassRef");
-      return gIR->CreateCallOrInvoke(loadClassFunc, id, "");
-    }
-
-    // We can't be sure that the isa "pointer" is actually a pointer to a class
-    // In extern scenarios, therefore we call object_getClass.
-    auto getClassFunc = getRuntimeFunction(decl->loc, module, "object_getClass");
-    return gIR->CreateCallOrInvoke(getClassFunc, id, "");
-  }
-
-  // If we defined the type we can be 100% sure of the layout.
-  // so this is a fast path.
-  return classTable;
 }
 
 LLConstant *ObjcClass::getRootMetaClass() {
@@ -483,6 +495,9 @@ void ObjcClass::emitRoTable(LLGlobalVariable *table, bool meta) {
 
   if (!meta) {
     // Base Protocols
+    auto baseProtocols = emitProtocolList();
+    protocolList = getOrCreate(getObjcProtoListSymbol(getName(), true), baseProtocols->getType(), OBJC_SECNAME_CONST);
+    protocolList->setInitializer(baseProtocols);
 
     // Instance variables
     auto baseIvars = emitIvarList();
@@ -553,6 +568,34 @@ LLConstant *ObjcClass::emit() {
   return classTable;
 }
 
+LLValue *ObjcClass::deref(LLValue *classptr) {
+  if (decl->objc.isExtern && decl->objc.isSwiftStub) {
+    auto loadClassFunc = getRuntimeFunction(decl->loc, module, "objc_loadClassRef");
+    return gIR->CreateCallOrInvoke(loadClassFunc, classptr, "");
+  }
+
+  return classptr;
+}
+
+LLValue *ObjcClass::ref() {
+  return deref(classTable);
+}
+
+LLValue *ObjcClass::getRefFor(LLValue *id) {
+  if (decl->objc.isExtern) {
+
+    // We can't be sure that the isa "pointer" is actually a pointer to a class
+    // In extern scenarios, therefore we call object_getClass.
+    auto getClassFunc = getRuntimeFunction(decl->loc, module, "object_getClass");
+    auto classref = gIR->CreateCallOrInvoke(getClassFunc, id, "");
+    return deref(classref);
+  }
+
+  // If we defined the type we can be 100% sure of the layout.
+  // so this is a fast path.
+  return deref(classTable);
+}
+
 LLConstant *ObjcClass::get() {
   isUsed = true;
 
@@ -566,6 +609,42 @@ LLConstant *ObjcClass::get() {
 //    PROTOCOLS
 //
 
+void ObjcProtocol::emitTable(LLGlobalVariable *table) {
+  size_t allocSize = getTypeAllocSize(getObjcProtocolType(module));
+  LLConstantList members;
+
+  // Base Protocols
+  auto baseProtocols = this->emitProtocolList();
+  auto protocolList = getOrCreate(getObjcProtoListSymbol(getName(), false), baseProtocols->getType(), OBJC_SECNAME_CONST);
+  protocolList->setInitializer(baseProtocols);
+
+  // Class methods
+  auto classMethodConsts = this->emitMethodList(classMethods);
+  auto classMethodList = getOrCreate(getObjcProtoMethodListSymbol(getName(), true), classMethodConsts->getType(), OBJC_SECNAME_CONST);
+  classMethodList->setInitializer(classMethodConsts);
+
+  // Instance methods
+  auto instanceMethodConsts = this->emitMethodList(instanceMethods);
+  auto instanceMethodList = getOrCreate(getObjcProtoMethodListSymbol(getName(), false), instanceMethodConsts->getType(), OBJC_SECNAME_CONST);
+  instanceMethodList->setInitializer(instanceMethodConsts);
+
+  members.push_back(getNullPtr());              // isa
+  members.push_back(emitName());                // mangledName
+  members.push_back(protocolList);              // protocol_list
+  members.push_back(instanceMethodList);        // instanceMethods
+  members.push_back(classMethodList);           // classMethods
+  members.push_back(getNullPtr());              // optionalInstanceMethods (TODO)
+  members.push_back(getNullPtr());              // optionalClassMethods (TODO)
+  members.push_back(getNullPtr());              // instanceProperties (TODO)
+  members.push_back(DtoConstUint(allocSize));   // size
+  members.push_back(DtoConstUint(0));           // flags
+
+  table->setInitializer(LLConstantStruct::get(
+    getObjcProtocolType(module),
+    members
+  ));
+}
+
 LLConstant *ObjcProtocol::emit() {
 
   // Protocol already exists, just return that.
@@ -578,20 +657,21 @@ LLConstant *ObjcProtocol::emit() {
   // Extern classes only need non-ro refs.
   if (decl->objc.isExtern) {
     this->scan();
-    protocolTable = makeGlobal(protoName, nullptr, OBJC_SECNAME_DATA);
-    protoref = makeGlobalRef(protocolTable, "objc_protoref", OBJC_SECNAME_PROTOREFS);
+    protocolTable = makeGlobal(protoName, nullptr, "", true, false);
+    protoref = makeGlobalRef(protocolTable, "objc_protoref", OBJC_SECNAME_PROTOREFS, true, false);
     return protoref;
   }
 
 
   // If we were weakly declared before, go grab our declarations.
   // Otherwise, create all the base tables for the type.
-  protocolTable = getOrCreate(protoName, ObjcProtocol::getObjcProtocolType(module), OBJC_SECNAME_DATA);
+  protocolTable = getOrCreate(protoName, ObjcProtocol::getObjcProtocolType(module), "");
   protoref = makeGlobalRef(protocolTable, "objc_protoref", OBJC_SECNAME_PROTOREFS);
 
   // Emit their structure.
   this->scan();
   this->emitName();
+  this->emitTable(protocolTable);
   return protoref;
 }
 
@@ -677,17 +757,10 @@ ObjcIvar *ObjCState::getIVarRef(ClassDeclaration *cd, VarDeclaration *vd) {
 //    FINALIZATION
 //
 
-void ObjCState::retain(LLConstant *sym) {
-  retainedSymbols.push_back(sym);
-}
-
 void ObjCState::finalize() {
-  genImageInfo();
-
-  if (!retainedSymbols.empty()) {
-
-    // add in references so optimizer won't remove symbols.
-    retainSymbols();
+  size_t totalObjects = classes.size()+protocols.size();
+  if (totalObjects > 0) {
+    genImageInfo();
   }
 }
 
@@ -696,17 +769,4 @@ void ObjCState::genImageInfo() {
   module.addModuleFlag(llvm::Module::Error, "Objective-C Image Info Version", 0u); // version
   module.addModuleFlag(llvm::Module::Error, "Objective-C Image Info Section", llvm::MDString::get(module.getContext(), OBJC_SECNAME_IMAGEINFO));
   module.addModuleFlag(llvm::Module::Override, "Objective-C Garbage Collection", 0u); // flags
-}
-
-void ObjCState::retainSymbols() {
-
-  // // put all objc symbols in the llvm.compiler.used array so optimizer won't
-  // // remove.
-  // auto arrayType = LLArrayType::get(retainedSymbols.front()->getType(),
-  //                                 retainedSymbols.size());
-  // auto usedArray = LLConstantArray::get(arrayType, retainedSymbols);
-  // auto var = new LLGlobalVariable(module, arrayType, false,
-  //                                 LLGlobalValue::AppendingLinkage, usedArray,
-  //                                 "llvm.compiler.used");
-  // var->setSection("llvm.metadata");
 }
