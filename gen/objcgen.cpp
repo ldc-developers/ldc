@@ -332,7 +332,6 @@ LLConstant *ObjcClasslike::emitMethodList(ObjcList<ObjcMethod *> &methods) {
   LLConstantList toAdd;
   
   // Find out how many functions have actual bodies.
-  size_t count = 0;
   for(size_t i = 0; i < methods.size(); i++) {
     if (methods[i]->decl->fbody)
       toAdd.push_back(methods[i]->info());
