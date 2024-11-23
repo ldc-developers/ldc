@@ -737,7 +737,7 @@ private:
       if (objccall && directcall) {
 
         // ... or a Objective-c super call argument
-        if (auto parentfd = dfnval->func->parent->isFuncDeclaration()) {
+        if (auto parentfd = dfnval->func->isFuncDeclaration()) {
           if (auto cls = parentfd->parent->isClassDeclaration()) {
 
             // Create obj_super struct with (this, <class ref>)
