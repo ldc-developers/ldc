@@ -175,11 +175,11 @@ public:
     return TypeIdentifier::create(Loc(), Identifier::idPool("__va_list"));
   }
 
-  const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool superCall) override {
+  const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool directcall) override {
     assert(isDarwin());
     
     // see objc/message.h for objc_msgSend selection rules
-    return superCall ? "objc_msgSendSuper" : "objc_msgSend";
+    return directcall ? "objc_msgSendSuper" : "objc_msgSend";
   }
 };
 

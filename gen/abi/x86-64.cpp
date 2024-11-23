@@ -165,7 +165,7 @@ struct X86_64TargetABI : TargetABI {
 
   Type *vaListType() override;
 
-  const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool superCall) override;
+  const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool directcall) override;
 
 private:
   LLType *getValistType();
@@ -379,18 +379,18 @@ Type *X86_64TargetABI::vaListType() {
       TypeIdentifier::create(Loc(), Identifier::idPool("__va_list_tag")));
 }
 
-const char *X86_64TargetABI::objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool superCall) {
+const char *X86_64TargetABI::objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool directcall) {
   assert(isDarwin());
     
   // see objc/message.h for objc_msgSend selection rules
   if (fty.arg_sret) {
-    return superCall ? "objc_msgSendSuper_stret" : "objc_msgSend_stret";
+    return directcall ? "objc_msgSendSuper_stret" : "objc_msgSend_stret";
   }
   // float, double, long double return
   if (ret && ret->isfloating() && !ret->iscomplex()) {
     return "objc_msgSend_fpret";
   }
-  return superCall ? "objc_msgSendSuper" : "objc_msgSend";
+  return directcall ? "objc_msgSendSuper" : "objc_msgSend";
 }
 
 // The public getter for abi.cpp

@@ -474,9 +474,6 @@ public:
   // Gets the root metaclass of this class.
   LLConstant *getRootMetaClass();
 
-  // Gets the class reference for the specified id.
-  LLValue *getRefFor(LLValue *id);
-
 protected:
 
   // Called to emit the object.

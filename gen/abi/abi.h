@@ -177,7 +177,7 @@ public:
   virtual Type *vaListType();
 
   /// Returns Objective-C message send function
-  virtual const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool superCall);
+  virtual const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool directcall);
 
   /***** Static Helpers *****/
 

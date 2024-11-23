@@ -271,18 +271,18 @@ struct X86TargetABI : TargetABI {
     }
   }
 
-  const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool superCall) override {
+  const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool directcall) override {
     assert(isDarwin());
     
     // see objc/message.h for objc_msgSend selection rules
     if (fty.arg_sret) {
-      return superCall ? "objc_msgSendSuper_stret" : "objc_msgSend_stret";
+      return directcall ? "objc_msgSendSuper_stret" : "objc_msgSend_stret";
     }
     // float, double, long double return
     if (ret && ret->isfloating() && !ret->iscomplex()) {
       return "objc_msgSend_fpret";
     }
-    return superCall ? "objc_msgSendSuper" : "objc_msgSend";
+    return directcall ? "objc_msgSendSuper" : "objc_msgSend";
   }
 };
 

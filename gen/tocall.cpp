@@ -736,14 +736,14 @@ private:
       
       if (objccall && directcall) {
 
-        // ... or a Objective-c super call argument
+        // ... or a Objective-c direct call argument
         if (auto parentfd = dfnval->func->isFuncDeclaration()) {
           if (auto cls = parentfd->parent->isClassDeclaration()) {
 
             // Create obj_super struct with (this, <class ref>)
             auto obj_super = DtoAggrPair(
               dfnval->vthis,
-              DtoLoad(getOpaquePtrType(), gIR->objc.getClassRef(cls)->getRefFor(dfnval->vthis)),
+              gIR->objc.getClassRef(cls)->ref(),
               "super"
             );
 

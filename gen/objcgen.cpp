@@ -645,21 +645,6 @@ LLValue *ObjcClass::ref() {
   return deref(classTable);
 }
 
-LLValue *ObjcClass::getRefFor(LLValue *id) {
-  if (decl->objc.isExtern) {
-
-    // We can't be sure that the isa "pointer" is actually a pointer to a class
-    // In extern scenarios, therefore we call object_getClass.
-    auto getClassFunc = getRuntimeFunction(decl->loc, module, "object_getClass");
-    auto classref = gIR->CreateCallOrInvoke(getClassFunc, id, "");
-    return deref(classref);
-  }
-
-  // If we defined the type we can be 100% sure of the layout.
-  // so this is a fast path.
-  return deref(classTable);
-}
-
 LLConstant *ObjcClass::get() {
   isUsed = true;
 
