@@ -118,6 +118,18 @@ protected:
     return makeGlobal(name, type, section, true, extInitializer);
   }
 
+  // Gets a global variable or creates it.
+  LLGlobalVariable *getOrCreateWeak(LLStringRef name, LLType* type, LLStringRef section, bool extInitializer=false) {
+    auto global = module.getGlobalVariable(name, true);
+    if (global)
+      return global;
+
+    global = makeGlobal(name, type, section, false, extInitializer);
+    global->setLinkage(llvm::GlobalValue::LinkageTypes::WeakAnyLinkage);
+    global->setVisibility(llvm::GlobalValue::VisibilityTypes::HiddenVisibility);
+    return global;
+  }
+
   // The module the object resides in.
   llvm::Module &module;
 

@@ -679,17 +679,17 @@ void ObjcProtocol::emitTable(LLGlobalVariable *table) {
 
   // Base Protocols
   auto baseProtocols = this->emitProtocolList();
-  auto protocolList = getOrCreate(getObjcProtoListSymbol(getName(), true), baseProtocols->getType(), OBJC_SECNAME_CONST);
+  auto protocolList = getOrCreateWeak(getObjcProtoListSymbol(getName(), true), baseProtocols->getType(), OBJC_SECNAME_CONST);
   protocolList->setInitializer(baseProtocols);
 
   // Class methods
   auto classMethodConsts = this->emitMethodList(classMethods);
-  auto classMethodList = getOrCreate(getObjcProtoMethodListSymbol(getName(), true), classMethodConsts->getType(), OBJC_SECNAME_CONST);
+  auto classMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), true), classMethodConsts->getType(), OBJC_SECNAME_CONST);
   classMethodList->setInitializer(classMethodConsts);
 
   // Instance methods
   auto instanceMethodConsts = this->emitMethodList(instanceMethods);
-  auto instanceMethodList = getOrCreate(getObjcProtoMethodListSymbol(getName(), false), instanceMethodConsts->getType(), OBJC_SECNAME_CONST);
+  auto instanceMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), false), instanceMethodConsts->getType(), OBJC_SECNAME_CONST);
   instanceMethodList->setInitializer(instanceMethodConsts);
 
   members.push_back(getNullPtr());              // isa
@@ -710,19 +710,19 @@ void ObjcProtocol::emitTable(LLGlobalVariable *table) {
 }
 
 LLConstant *ObjcProtocol::emit() {
-
-  // Protocol already exists, just return that.
-  if (protoref)
-    return protoref;
+  if (protocolTable)
+    return protocolTable;
 
   auto name = getName();
   auto protoName = getObjcProtoSymbol(name);
   auto protoLabel = getObjcProtoLabelSymbol(name);
 
-  // If we were weakly declared before, go grab our declarations.
-  // Otherwise, create all the base tables for the type.
-  protocolTable = getOrCreate(protoName, ObjcProtocol::getObjcProtocolType(module), OBJC_SECNAME_DATA);
-  protoref = makeGlobalRef(protocolTable, protoLabel, OBJC_SECNAME_PROTOREFS);
+  // We want it to be locally hidden and weak since the protocols
+  // may be declared in multiple object files.
+  protocolTable = getOrCreateWeak(protoName, ObjcProtocol::getObjcProtocolType(module), OBJC_SECNAME_DATA);
+  protoref = getOrCreateWeak(protoLabel, getOpaquePtrType(), OBJC_SECNAME_PROTOREFS);
+  protoref->setInitializer(protocolTable);
+
 
   // Emit their structure.
   this->scan();
@@ -731,7 +731,6 @@ LLConstant *ObjcProtocol::emit() {
 
   this->retain(protocolTable);
   this->retain(protoref);
-
   return protocolTable;
 }
 
