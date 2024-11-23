@@ -869,7 +869,7 @@ static void buildRuntimeModule() {
                   {objectPtrTy, objectPtrTy}, {},
                   AttrSet(NoAttrs, ~0U, llvm::Attribute::NonLazyBind));
 
-    // class_conformsToProtocol(Class cls, Protocol *protocol)
+    // bool class_conformsToProtocol(Class cls, Protocol *protocol)
     createFwdDecl(LINK::c, boolTy, {"class_conformsToProtocol"},
                   {objectPtrTy, objectPtrTy}, {},
                   AttrSet(NoAttrs, ~0U, llvm::Attribute::NonLazyBind));

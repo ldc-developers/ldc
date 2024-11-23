@@ -55,7 +55,7 @@ class ObjCState;
 #define OBJC_SECNAME_CLASSLIST             "__DATA,__objc_classlist, regular, no_dead_strip"
 #define OBJC_SECNAME_STUBS                 "__DATA,__objc_stubs, regular, no_dead_strip"
 #define OBJC_SECNAME_CATLIST               "__DATA,__objc_catlist, regular, no_dead_strip"
-#define OBJC_SECNAME_PROTOLIST             "__DATA,__objc_protolist, regular, no_dead_strip"
+#define OBJC_SECNAME_PROTOLIST             "__DATA,__objc_protolist, coalesced, no_dead_strip"
 #define OBJC_SECNAME_PROTOREFS             "__DATA,__objc_protorefs, regular"
 #define OBJC_SECNAME_CONST                 "__DATA,__objc_const"
 #define OBJC_SECNAME_DATA                  "__DATA,__objc_data"
@@ -345,6 +345,9 @@ public:
     
     return protocolTable;
   }
+
+  // Gets the protocol ref.
+  LLConstant *ref() { return protoref; }
 
 protected:
 

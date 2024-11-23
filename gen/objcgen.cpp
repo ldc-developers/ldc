@@ -155,12 +155,24 @@ std::string getObjcProtoListSymbol(const char *name, bool isProtocol) {
   return getObjcSymbolName(isProtocol ? "_OBJC_PROTOCOL_PROTOCOLS_$_" : "_OBJC_CLASS_PROTOCOLS_$_", name);
 }
 
+std::string getObjcProtoLabelSymbol(const char *name) {
+  return getObjcSymbolName("_OBJC_LABEL_PROTOCOL_$_", name);
+}
+
 std::string getObjcIvarSymbol(const char *className, const char *varName) {
   return ("OBJC_IVAR_$_" + std::string(className) + "." + std::string(varName));
 }
 
 std::string getObjcSymbolName(const char *dsymPrefix, const char *dsymName) {
   return (std::string(dsymPrefix) + std::string(dsymName));
+}
+
+const char *getResolvedName(ClassDeclaration *decl) {
+  if (auto mo = decl->pMangleOverride) {
+    return mo->id->toChars();
+  }
+
+  return decl->objc.identifier->toChars();
 }
 
 //
@@ -333,8 +345,12 @@ bool ifaceListHas(ObjcList<InterfaceDeclaration *> &list, InterfaceDeclaration *
 
 LLConstant *ObjcClasslike::emitProtocolList() {
   LLConstantList list;
-
   auto ifaces = decl->interfaces;
+
+  // Length
+  list.push_back(DtoConstUlong(ifaces.length));
+
+  // Protocols
   for(size_t i = 0; i < ifaces.length; i++) {
     if (auto iface = ifaces.ptr[i]) {
 
@@ -342,12 +358,9 @@ LLConstant *ObjcClasslike::emitProtocolList() {
       // TODO: throw an error if you try to include a non-objective-c interface?
       if (auto ifacesym = (InterfaceDeclaration *)iface->sym) {
         if (ifacesym->classKind == ClassKind::objc) {
-          auto proto = getOrCreate(
-            getObjcProtoSymbol(ifacesym->ident->toChars()), 
-            ObjcProtocol::getObjcProtocolType(module), ""
-          );
-
-          list.push_back(proto);
+          if (auto proto = this->objc.getProtocolRef(ifacesym)) {
+            list.push_back(proto->get());
+          }
         }
       }
     }
@@ -380,12 +393,12 @@ LLGlobalVariable *ObjcClasslike::emitName() {
   if (className)
     return className;
   
-  className = makeGlobalStr(decl->objc.identifier->toChars(), "OBJC_CLASS_NAME_", OBJC_SECNAME_CLASSNAME);
+  className = makeGlobalStr(getName(), "OBJC_CLASS_NAME_", OBJC_SECNAME_CLASSNAME);
   return className;
 }
 
 const char *ObjcClasslike::getName() {
-  return decl->objc.identifier->toChars();
+  return getResolvedName(decl);
 }
 
 //
@@ -538,7 +551,7 @@ void ObjcClass::emitRoTable(LLGlobalVariable *table, bool meta) {
   if (!meta) {
     // Base Protocols
     auto baseProtocols = emitProtocolList();
-    protocolList = getOrCreate(getObjcProtoListSymbol(getName(), true), baseProtocols->getType(), OBJC_SECNAME_CONST);
+    protocolList = getOrCreate(getObjcProtoListSymbol(getName(), false), baseProtocols->getType(), OBJC_SECNAME_CONST);
     protocolList->setInitializer(baseProtocols);
 
     // Instance variables
@@ -578,7 +591,7 @@ LLConstant *ObjcClass::emit() {
   if (classTable)
     return classTable;
 
-  auto name = decl->objc.identifier->toChars();
+  auto name = getName();
   auto className = getObjcClassSymbol(name, false);
   auto metaName = getObjcClassSymbol(name, true);
 
@@ -666,7 +679,7 @@ void ObjcProtocol::emitTable(LLGlobalVariable *table) {
 
   // Base Protocols
   auto baseProtocols = this->emitProtocolList();
-  auto protocolList = getOrCreate(getObjcProtoListSymbol(getName(), false), baseProtocols->getType(), OBJC_SECNAME_CONST);
+  auto protocolList = getOrCreate(getObjcProtoListSymbol(getName(), true), baseProtocols->getType(), OBJC_SECNAME_CONST);
   protocolList->setInitializer(baseProtocols);
 
   // Class methods
@@ -702,24 +715,14 @@ LLConstant *ObjcProtocol::emit() {
   if (protoref)
     return protoref;
 
-  auto name = decl->objc.identifier->toChars();
+  auto name = getName();
   auto protoName = getObjcProtoSymbol(name);
-
-  // Extern classes only need non-ro refs.
-  if (decl->objc.isExtern) {
-    this->scan();
-
-    protocolTable = makeGlobal(protoName, nullptr, OBJC_SECNAME_DATA, true, false);
-    protoref = makeGlobalRef(protocolTable, "objc_protoref", OBJC_SECNAME_PROTOREFS, true, false);
-    return protoref;
-  }
-
+  auto protoLabel = getObjcProtoLabelSymbol(name);
 
   // If we were weakly declared before, go grab our declarations.
   // Otherwise, create all the base tables for the type.
   protocolTable = getOrCreate(protoName, ObjcProtocol::getObjcProtocolType(module), OBJC_SECNAME_DATA);
-  protoref = makeGlobalRef(protocolTable, "objc_protoref", OBJC_SECNAME_PROTOREFS);
-
+  protoref = makeGlobalRef(protocolTable, protoLabel, OBJC_SECNAME_PROTOREFS);
 
   // Emit their structure.
   this->scan();
@@ -728,7 +731,8 @@ LLConstant *ObjcProtocol::emit() {
 
   this->retain(protocolTable);
   this->retain(protoref);
-  return protoref;
+
+  return protocolTable;
 }
 
 
@@ -829,16 +833,17 @@ LLGlobalVariable *ObjCState::getIVarOffset(ClassDeclaration *cd, VarDeclaration 
 }
 
 void ObjCState::emit(ClassDeclaration *cd) {
+
+  // Protocols should more or less always be emitted.
+  if (auto id = cd->isInterfaceDeclaration()) {
+    getProtocolRef(id);
+    return;
+  }
   
   // Meta-classes are emitted automatically with the class,
   // as such we only need to emit a classref for the base class.
   if (!cd || cd->objc.isMeta)
     return;
-
-  if (auto id = cd->isInterfaceDeclaration()) {
-    getProtocolRef(id);
-    return;
-  }
 
   getClassRef(cd);
 }
