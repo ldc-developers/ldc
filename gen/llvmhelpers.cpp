@@ -1842,13 +1842,13 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   DtoResolveDsymbol(ad);
 
   if (ad->classKind == ClassKind::objc) {
-    auto tHandle = LLType::getInt64Ty(gIR->context());
-    auto tOffset = DtoLoad(tHandle, gIR->objc.getIVarRef(ad->isClassDeclaration(), vd)->getOffset());
+    auto tHandle = getI32Type();
+    auto tOffset = DtoLoad(tHandle, gIR->objc.getIVarOffset(ad->isClassDeclaration(), vd));
 
     // Offset is now stored in tOffset.
     LLValue *ptr = src;
     ptr = DtoBitCast(ptr, getOpaquePtrType());
-    ptr = DtoGEP1(llvm::Type::getInt8Ty(gIR->context()), ptr, tOffset);
+    ptr = DtoGEP1(getI8Type(), ptr, tOffset);
 
     return new DLValue(vd->type, ptr);
   }

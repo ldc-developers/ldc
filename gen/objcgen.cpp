@@ -164,6 +164,19 @@ std::string getObjcSymbolName(const char *dsymPrefix, const char *dsymName) {
 }
 
 //
+//      ObjcObject
+//
+void ObjcObject::retain(LLGlobalVariable *toRetain) {
+  for(auto elem : objc.retained) {
+    if (elem == toRetain)
+      return;
+  }
+
+  objc.retained.push_back(toRetain);
+}
+
+
+//
 //      METHODS
 //
 
@@ -239,21 +252,36 @@ LLConstant *ObjcObject::emitList(llvm::Module &module, LLType *elemType, LLConst
 //
 
 LLConstant *ObjcIvar::emit() {
-  name = makeGlobalStr(decl->ident->toChars(), OBJC_SECNAME_METHNAME, "OBJC_METH_VAR_NAME_");
-  type = makeGlobalStr(getTypeEncoding(decl->type), OBJC_SECNAME_METHTYPE, "OBJC_METH_VAR_TYPE_");
-  offset = makeGlobal(getObjcIvarSymbol(decl->parent->ident->toChars(), decl->ident->toChars()), nullptr, OBJC_SECNAME_IVAR);
-  offset->setInitializer(DtoConstUint(decl->offset));
+  auto ivarsym = getObjcIvarSymbol(decl->parent->ident->toChars(), decl->ident->toChars());
+
+  // Extern, emit data.
+  if (auto klass = decl->parent->isClassDeclaration()) {
+    if (klass->objc.isExtern) {
+      name = makeGlobal(ivarsym, nullptr, "OBJC_METH_VAR_NAME_", true, true);
+      type = makeGlobal(ivarsym, nullptr, "OBJC_METH_VAR_TYPE_", true, true);
+      offset = getOrCreate(ivarsym, getI32Type(), OBJC_SECNAME_IVAR);
+      return nullptr;
+    }
+
+    // Non-extern, emit data.
+    name = makeGlobalStr(decl->ident->toChars(), "OBJC_METH_VAR_NAME_", OBJC_SECNAME_METHNAME);
+    type = makeGlobalStr(getTypeEncoding(decl->type), "OBJC_METH_VAR_TYPE_", OBJC_SECNAME_METHTYPE);
+
+    offset = getOrCreate(ivarsym, getI32Type(), OBJC_SECNAME_IVAR);
+    offset->setInitializer(DtoConstUint(decl->offset));
+  }
   return nullptr;
 }
 
 // Implements the objc_method structure
 LLConstant *ObjcIvar::info() {
   LLConstantList members;
+  this->get();
 
   members.push_back(offset);
-  members.push_back(DtoConstCString(decl->ident->toChars()));
-  members.push_back(DtoConstCString(getTypeEncoding(decl->type).c_str()));
-  members.push_back(DtoConstUint(decl->alignment.value));
+  members.push_back(name);
+  members.push_back(type);
+  members.push_back(DtoConstUint(decl->alignment.isDefault() ? -1 : decl->alignment.get()));
   members.push_back(DtoConstUint(decl->size(decl->loc)));
 
   return LLConstantStruct::get(
@@ -261,8 +289,6 @@ LLConstant *ObjcIvar::info() {
     members
   );
 }
-
-
 
 //
 //      CLASS-LIKES
@@ -280,14 +306,14 @@ void ObjcClasslike::onScan(bool meta) {
     // Static functions are class methods.
     if (meta && method->isStatic()) {
       classMethods.push_back(
-        new ObjcMethod(module, method)
+        new ObjcMethod(module, objc, method)
       );
       continue;
     }
 
     if (!meta && !method->isStatic()) {
       instanceMethods.push_back(
-        new ObjcMethod(module, method)
+        new ObjcMethod(module, objc, method)
       );
     }
   }
@@ -362,6 +388,15 @@ const char *ObjcClasslike::getName() {
 //      CLASSES
 //
 
+LLGlobalVariable *ObjcClass::getIVarOffset(VarDeclaration *vd) {
+  auto ivarsym = getObjcIvarSymbol(decl->ident->toChars(), vd->ident->toChars());
+  auto ivoffset = getOrCreate(ivarsym, getI32Type(), OBJC_SECNAME_IVAR);
+  ivoffset->setInitializer(DtoConstUint(vd->offset));
+  this->retain(ivoffset);
+  
+  return ivoffset;
+}
+
 size_t ObjcClass::getClassFlags(const ClassDeclaration& decl) {
   size_t flags = 0;
   if (!decl.baseClass)
@@ -377,10 +412,12 @@ void ObjcClass::onScan(bool meta) {
   ObjcClasslike::onScan(meta);
 
   if (!meta) {
-    
+
     // Push on all the ivars.
     for(size_t i = 0; i < decl->fields.size(); i++) {
-      ivars.push_back(new ObjcIvar(module, decl->fields[i]));
+      auto ivar = new ObjcIvar(module, objc, decl->fields[i]);
+      ivars.push_back(ivar);
+      ivar->get();
     }
   }
 }
@@ -531,6 +568,8 @@ LLConstant *ObjcClass::emit() {
     fatal();
   }
 
+  assert(decl && !decl->isInterfaceDeclaration());
+
   // Class already exists, just return that.
   if (classTable)
     return classTable;
@@ -545,6 +584,13 @@ LLConstant *ObjcClass::emit() {
 
     classTable = makeGlobal(className, ObjcClass::getObjcClassType(module), "", true, false);
     metaClassTable = makeGlobal(metaName, ObjcClass::getObjcClassType(module), "", true, false);
+    
+    // Still emit ivars.
+    auto baseIvars = emitIvarList();
+    auto ivarList = getOrCreate(getObjcIvarListSymbol(getName()), baseIvars->getType(), OBJC_SECNAME_CONST);
+    ivarList->setInitializer(baseIvars);
+    this->retain(ivarList);
+
     return classTable;
   }
 
@@ -658,7 +704,8 @@ LLConstant *ObjcProtocol::emit() {
   // Extern classes only need non-ro refs.
   if (decl->objc.isExtern) {
     this->scan();
-    protocolTable = makeGlobal(protoName, nullptr, "", true, false);
+
+    protocolTable = makeGlobal(protoName, nullptr, OBJC_SECNAME_DATA, true, false);
     protoref = makeGlobalRef(protocolTable, "objc_protoref", OBJC_SECNAME_PROTOREFS, true, false);
     return protoref;
   }
@@ -666,13 +713,17 @@ LLConstant *ObjcProtocol::emit() {
 
   // If we were weakly declared before, go grab our declarations.
   // Otherwise, create all the base tables for the type.
-  protocolTable = getOrCreate(protoName, ObjcProtocol::getObjcProtocolType(module), "");
+  protocolTable = getOrCreate(protoName, ObjcProtocol::getObjcProtocolType(module), OBJC_SECNAME_DATA);
   protoref = makeGlobalRef(protocolTable, "objc_protoref", OBJC_SECNAME_PROTOREFS);
+
 
   // Emit their structure.
   this->scan();
   this->emitName();
   this->emitTable(protocolTable);
+
+  this->retain(protocolTable);
+  this->retain(protoref);
   return protoref;
 }
 
@@ -681,8 +732,10 @@ LLConstant *ObjcProtocol::emit() {
 //    STATE
 //
 ObjcClass *ObjCState::getClassRef(ClassDeclaration *cd) {
-  auto classList = this->classes;
+  if (auto id = cd->isInterfaceDeclaration())
+    return nullptr;
 
+  auto classList = this->classes;
   if (!classList.empty()) {
     for(auto it : classList) {
       if (it->decl == cd) {
@@ -691,15 +744,15 @@ ObjcClass *ObjCState::getClassRef(ClassDeclaration *cd) {
     }
   }
 
-  auto klass = new ObjcClass(module, cd);
+  auto klass = new ObjcClass(module, *this, cd);
   classes.push_back(klass);
   klass->get();
   return klass;
 }
 
 ObjcProtocol *ObjCState::getProtocolRef(InterfaceDeclaration *id) {
-  auto protoList = this->protocols;
 
+  auto protoList = this->protocols;
   if (!protoList.empty()) {
     for(auto it : protoList) {
       if (it->decl == id) {
@@ -708,25 +761,38 @@ ObjcProtocol *ObjCState::getProtocolRef(InterfaceDeclaration *id) {
     }
   }
 
-  auto proto = new ObjcProtocol(module, id);
-  proto->get();
+  auto proto = new ObjcProtocol(module, *this, id);
   protocols.push_back(proto);
+  proto->get();
   return proto;
 }
 
 ObjcMethod *ObjCState::getMethodRef(ClassDeclaration *cd, FuncDeclaration *fd) {
-  if (auto klass = getClassRef(cd)) {
-    klass->scan();
-    return klass->getMethod(fd);
+  if (auto id = cd->isInterfaceDeclaration()) {
+    if (auto proto = getProtocolRef(id)) {
+      proto->scan();
+
+      // Attempt to get the method, if not found
+      // try the parent.
+      auto method = proto->getMethod(fd);
+      if (!method && id->baseClass) {
+        method = getMethodRef(id->baseClass, fd);
+      }
+      return proto->getMethod(fd);
+    }
   }
 
-  return nullptr;
-}
+  if (auto klass = getClassRef(cd)) {
+    klass->scan();
 
-ObjcMethod *ObjCState::getMethodRef(InterfaceDeclaration *id, FuncDeclaration *fd) {
-  if (auto proto = getProtocolRef(id)) {
-    proto->scan();
-    return proto->getMethod(fd);
+    // Attempt to get the method, if not found
+    // try the parent.
+    auto method = klass->getMethod(fd);
+    if (!method && cd->baseClass) {
+      method = getMethodRef(cd->baseClass, fd);
+    }
+
+    return method;
   }
 
   return nullptr;
@@ -750,14 +816,39 @@ ObjcIvar *ObjCState::getIVarRef(ClassDeclaration *cd, VarDeclaration *vd) {
   return nullptr;
 }
 
+LLGlobalVariable *ObjCState::getIVarOffset(ClassDeclaration *cd, VarDeclaration *vd) {
+  if (auto klass = getClassRef(cd)) {
+    return klass->getIVarOffset(vd);
+  }
+
+  return nullptr;
+}
+
+void ObjCState::emit(ClassDeclaration *cd) {
+  
+  // Meta-classes are emitted automatically with the class,
+  // as such we only need to emit a classref for the base class.
+  if (!cd || cd->objc.isMeta)
+    return;
+
+  if (auto id = cd->isInterfaceDeclaration()) {
+    getProtocolRef(id);
+    return;
+  }
+
+  getClassRef(cd);
+}
+
 //
 //    FINALIZATION
 //
 
 void ObjCState::finalize() {
-  size_t totalObjects = classes.size()+protocols.size();
+  size_t totalObjects = classes.size()+protocols.size()+retained.size();
   if (totalObjects > 0) {
+
     genImageInfo();
+    retainSymbols();
   }
 }
 
@@ -766,4 +857,18 @@ void ObjCState::genImageInfo() {
   module.addModuleFlag(llvm::Module::Error, "Objective-C Image Info Version", 0u); // version
   module.addModuleFlag(llvm::Module::Error, "Objective-C Image Info Section", llvm::MDString::get(module.getContext(), OBJC_SECNAME_IMAGEINFO));
   module.addModuleFlag(llvm::Module::Override, "Objective-C Garbage Collection", 0u); // flags
+}
+
+void ObjCState::retainSymbols() {
+  auto retainedSymbols = this->retained;
+
+  if (!retainedSymbols.empty()) {
+    auto arrayType = LLArrayType::get(retainedSymbols.front()->getType(),
+                                      retainedSymbols.size());
+    auto usedArray = LLConstantArray::get(arrayType, retainedSymbols);
+    auto var = new LLGlobalVariable(module, arrayType, false,
+                                    LLGlobalValue::AppendingLinkage, usedArray,
+                                    "llvm.compiler.used");
+    var->setSection("llvm.metadata");
+  }
 }

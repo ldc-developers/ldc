@@ -36,6 +36,9 @@ class VarDeclaration;
 class Identifier;
 class Type;
 
+// Fwd declaration.
+class ObjCState;
+
 // class is a metaclass
 #define RO_META               (1<<0)
 
@@ -53,7 +56,7 @@ class Type;
 #define OBJC_SECNAME_STUBS                 "__DATA,__objc_stubs, regular, no_dead_strip"
 #define OBJC_SECNAME_CATLIST               "__DATA,__objc_catlist, regular, no_dead_strip"
 #define OBJC_SECNAME_PROTOLIST             "__DATA,__objc_protolist, regular, no_dead_strip"
-#define OBJC_SECNAME_PROTOREFS             "__DATA,__objc_protorefs, regular, no_dead_strip"
+#define OBJC_SECNAME_PROTOREFS             "__DATA,__objc_protorefs, regular"
 #define OBJC_SECNAME_CONST                 "__DATA,__objc_const"
 #define OBJC_SECNAME_DATA                  "__DATA,__objc_data"
 #define OBJC_SECNAME_IVAR                  "__DATA,__objc_ivar"
@@ -63,6 +66,7 @@ class Type;
 #define OBJC_STRUCTNAME_CLASS     "class_t"
 #define OBJC_STRUCTNAME_STUBCLASS "stub_class_t"
 #define OBJC_STRUCTNAME_PROTO     "protocol_t"
+#define OBJC_STRUCTNAME_IVAR      "ivar_t"
 #define OBJC_STRUCTNAME_METHOD    "objc_method"
 
 #define ObjcList std::vector
@@ -84,11 +88,12 @@ std::string getObjcProtoSymbol(const char *name);
 std::string getObjcProtoListSymbol(const char *name);
 std::string getObjcSymbolName(const char *dsymPrefix, const char *dsymName);
 
+
 // Base class for Objective-C definitions in a
 // LLVM module.
 class ObjcObject {
 public:
-  ObjcObject(llvm::Module &module) : module(module) { }
+  ObjcObject(llvm::Module &module, ObjCState &objc) : module(module), objc(objc) { }
 
   // Whether the object is used.
   bool isUsed;
@@ -105,27 +110,25 @@ public:
 protected:
 
   // Gets a global variable or creates it.
-  LLGlobalVariable *getOrCreate(LLStringRef name, LLType* type, LLStringRef section) {
+  LLGlobalVariable *getOrCreate(LLStringRef name, LLType* type, LLStringRef section, bool extInitializer=false) {
     auto global = module.getGlobalVariable(name, true);
     if (global)
       return global;
 
-    return makeGlobal(name, type, section, true, false);
+    return makeGlobal(name, type, section, true, extInitializer);
   }
 
   // The module the object resides in.
   llvm::Module &module;
 
+  // The irstate.
+  ObjCState &objc;
+
   // Called to emit the data for the type.
   virtual LLConstant *emit() { return nullptr; }
 
   // Retains a symbol.
-  void retain(LLConstant *toRetain) {
-    retained.push_back(toRetain);
-  }
-
-private:
-  ObjcList<LLConstant *> retained;
+  void retain(LLGlobalVariable *toRetain);
 };
 
 // objc_method
@@ -133,7 +136,8 @@ class ObjcMethod : public ObjcObject {
 public:
   FuncDeclaration *decl;
 
-  ObjcMethod(llvm::Module &module, FuncDeclaration *decl) : ObjcObject(module), decl(decl) { }
+  ObjcMethod(llvm::Module &module, ObjCState &objc, FuncDeclaration *decl) : 
+    ObjcObject(module, objc), decl(decl) { }
 
   // Gets the main reference to the object.
   LLConstant *get() override;
@@ -182,11 +186,12 @@ class ObjcIvar : public ObjcObject {
 public:
   VarDeclaration *decl;
 
-  ObjcIvar(llvm::Module &module, VarDeclaration *decl) :ObjcObject(module), decl(decl) { }
+  ObjcIvar(llvm::Module &module, ObjCState &objc, VarDeclaration *decl) : 
+    ObjcObject(module, objc), decl(decl) { }
 
   // Gets the type for an Objective-C ivar_t struct. 
   static LLStructType *getObjcIvarType(const llvm::Module& module) {
-    auto ivarType = LLStructType::getTypeByName(module.getContext(), OBJC_STRUCTNAME_STUBCLASS);
+    auto ivarType = LLStructType::getTypeByName(module.getContext(), OBJC_STRUCTNAME_IVAR);
     if (ivarType)
       return ivarType;
 
@@ -199,7 +204,7 @@ public:
         getI32Type(),       // uint32_t alignment_raw
         getI32Type(),       // uint32_t size
       },
-      OBJC_STRUCTNAME_STUBCLASS
+      OBJC_STRUCTNAME_IVAR
     );
     return ivarType;
   }
@@ -241,7 +246,8 @@ class ObjcClasslike : public ObjcObject {
 public:
   ClassDeclaration *decl;
 
-  ObjcClasslike(llvm::Module &module, ClassDeclaration *decl) : ObjcObject(module), decl(decl) { }
+  ObjcClasslike(llvm::Module &module, ObjCState &objc, ClassDeclaration *decl) : 
+    ObjcObject(module, objc), decl(decl) { }
   
   const char *getName() override;
 
@@ -295,7 +301,8 @@ private:
 // objc_protocol_t
 class ObjcProtocol : public ObjcClasslike {
 public:
-  ObjcProtocol(llvm::Module &module, ClassDeclaration *decl) : ObjcClasslike(module, decl) { }
+  ObjcProtocol(llvm::Module &module, ObjCState &objc, ClassDeclaration *decl) : 
+    ObjcClasslike(module, objc, decl) { }
 
   // Gets the type of an Objective-C class_t struct
   static LLStructType *getObjcProtocolType(const llvm::Module& module) {
@@ -355,7 +362,8 @@ private:
 // class_t, class_ro_t, stub_class_t
 class ObjcClass : public ObjcClasslike {
 public:
-  ObjcClass(llvm::Module &module, ClassDeclaration *decl) : ObjcClasslike(module, decl) { }
+  ObjcClass(llvm::Module &module, ObjCState &objc, ClassDeclaration *decl) : 
+    ObjcClasslike(module, objc, decl) { }
 
   // Gets objective-c the flags for the class declaration
   static size_t getClassFlags(const ClassDeclaration& decl);
@@ -437,6 +445,8 @@ public:
     return nullptr;
   }
 
+  LLGlobalVariable *getIVarOffset(VarDeclaration *vd);
+
   // Gets a reference to the class.
   LLValue *ref();
 
@@ -491,23 +501,28 @@ private:
 
 // Objective-C state tied to an LLVM module (object file).
 class ObjCState {
+friend ObjcObject;
 public:
+
   ObjCState(llvm::Module &module) : module(module) { }
   
+  void               emit(ClassDeclaration *cd);
   ObjcClass         *getClassRef(ClassDeclaration *cd);
   ObjcProtocol      *getProtocolRef(InterfaceDeclaration *id);
   ObjcMethod        *getMethodRef(ClassDeclaration *cd, FuncDeclaration *fd);
-  ObjcMethod        *getMethodRef(InterfaceDeclaration *id, FuncDeclaration *fd);
   ObjcMethod        *getMethodRef(FuncDeclaration *fd);
   ObjcIvar          *getIVarRef(ClassDeclaration *cd, VarDeclaration *vd);
+  LLGlobalVariable  *getIVarOffset(ClassDeclaration *cd, VarDeclaration *vd);
 
   void finalize();
 
 private:
   llvm::Module &module;
+  ObjcList<LLConstant *> retained;
 
   ObjcList<ObjcProtocol *> protocols;
   ObjcList<ObjcClass *> classes;
 
   void genImageInfo();
+  void retainSymbols();
 };

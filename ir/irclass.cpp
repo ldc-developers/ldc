@@ -55,6 +55,11 @@ IrClass::IrClass(ClassDeclaration *cd) : IrAggr(cd) {
 }
 
 void IrClass::addInterfaceVtbls(ClassDeclaration *cd) {
+
+  // No interface vtables in Objective-C
+  if (cd->classKind == ClassKind::objc)
+    return;
+
   if (cd->baseClass && !cd->isInterfaceDeclaration()) {
     addInterfaceVtbls(cd->baseClass);
   }

@@ -110,8 +110,10 @@ public:
     }
 
     // Objective-C protocols don't have TypeInfo.
-    if(decl->classKind == ClassKind::objc)
+    if (decl->classKind == ClassKind::objc) {
+      gIR->objc.emit(decl);
       return;
+    }
 
     // Emit TypeInfo.
     IrClass *ir = getIrAggr(decl);
@@ -209,9 +211,11 @@ public:
       m->accept(this);
     }
 
-    // TODO: Support creating objective-c exposed classes?
-    if (decl->classKind == ClassKind::objc)
+    // Objective-C class structure is initialized by calling getClassRef.
+    if (decl->classKind == ClassKind::objc) {
+      gIR->objc.emit(decl);
       return;
+    }
 
     IrClass *ir = getIrAggr(decl);
 

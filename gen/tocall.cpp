@@ -792,9 +792,12 @@ private:
 
     if (irFty.arg_objcSelector) {
       assert(dfnval);
+
+      auto method = gIR->objc.getMethodRef(dfnval->func);
+      assert(method);
       
-      auto selptr = gIR->objc.getMethodRef(dfnval->func)->get();
-      args.push_back(DtoLoad(selptr->getType(), selptr));
+      auto methodptr = method->get();
+      args.push_back(DtoLoad(methodptr->getType(), methodptr));
     }
   }
 

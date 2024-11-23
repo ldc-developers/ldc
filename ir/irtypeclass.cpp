@@ -83,6 +83,14 @@ llvm::Type *IrTypeClass::getMemoryLLType() {
 
   AggrTypeBuilder builder;
 
+  // Objective-C just has an ISA pointer, so just
+  // throw that in there.
+  if (cd->classKind == ClassKind::objc) {
+    builder.addType(getOpaquePtrType(), target.ptrsize);
+    isaStruct(type)->setBody(builder.defaultTypes(), builder.isPacked());
+    return type;
+  }
+
   // add vtbl
   builder.addType(llvm::PointerType::get(vtbl_type, 0), target.ptrsize);
 
