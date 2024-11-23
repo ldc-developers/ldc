@@ -175,6 +175,10 @@ void ObjcObject::retain(LLGlobalVariable *toRetain) {
   objc.retained.push_back(toRetain);
 }
 
+LLConstant *offsetIvar(size_t ivaroffset) {
+  return DtoConstUint(getPointerSize()+ivaroffset);
+}
+
 
 //
 //      METHODS
@@ -268,7 +272,7 @@ LLConstant *ObjcIvar::emit() {
     type = makeGlobalStr(getTypeEncoding(decl->type), "OBJC_METH_VAR_TYPE_", OBJC_SECNAME_METHTYPE);
 
     offset = getOrCreate(ivarsym, getI32Type(), OBJC_SECNAME_IVAR);
-    offset->setInitializer(DtoConstUint(decl->offset));
+    offset->setInitializer(offsetIvar(decl->offset));
   }
   return nullptr;
 }
@@ -391,7 +395,7 @@ const char *ObjcClasslike::getName() {
 LLGlobalVariable *ObjcClass::getIVarOffset(VarDeclaration *vd) {
   auto ivarsym = getObjcIvarSymbol(decl->ident->toChars(), vd->ident->toChars());
   auto ivoffset = getOrCreate(ivarsym, getI32Type(), OBJC_SECNAME_IVAR);
-  ivoffset->setInitializer(DtoConstUint(vd->offset));
+  ivoffset->setInitializer(offsetIvar(vd->offset));
   this->retain(ivoffset);
   
   return ivoffset;
