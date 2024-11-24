@@ -197,15 +197,6 @@ LLConstant *offsetIvar(size_t ivaroffset) {
 //
 
 LLConstant *ObjcMethod::emit() {
-
-  // Extern declarations don't need to define
-  // a var type.
-  if (!decl->fbody) {
-    name = makeGlobalStr(getSelector(), "OBJC_METH_VAR_NAME_", OBJC_SECNAME_METHNAME);
-    selref = makeGlobalRef(name, "OBJC_SELECTOR_REFERENCES_", OBJC_SECNAME_SELREFS, true, true);
-    return selref;
-  }
-
   name = makeGlobalStr(getSelector(), "OBJC_METH_VAR_NAME_", OBJC_SECNAME_METHNAME);
   type = makeGlobalStr(getTypeEncoding(decl->type), "OBJC_METH_VAR_TYPE_", OBJC_SECNAME_METHTYPE);
   selref = makeGlobalRef(name, "OBJC_SELECTOR_REFERENCES_", OBJC_SECNAME_SELREFS, true, true);
