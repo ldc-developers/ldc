@@ -620,6 +620,11 @@ LLConstant *ObjcClass::emit() {
   this->emitTable(metaClassTable, getRootMetaClass(), getSuper(true), metaClassRoTable);
   this->emitRoTable(classRoTable, false);
   this->emitRoTable(metaClassRoTable, true);
+
+  this->retain(classTable);
+  this->retain(metaClassTable);
+  this->retain(classRoTable);
+  this->retain(metaClassRoTable);
   return classTable;
 }
 
@@ -828,7 +833,7 @@ void ObjCState::emit(ClassDeclaration *cd) {
 //
 
 void ObjCState::finalize() {
-  size_t totalObjects = classes.size()+protocols.size()+retained.size();
+  size_t totalObjects = retained.size();
   if (totalObjects > 0) {
 
     genImageInfo();

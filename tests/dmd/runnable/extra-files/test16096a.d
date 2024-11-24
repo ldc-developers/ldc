@@ -3,22 +3,19 @@ module test16096a;
 import core.attribute : selector;
 
 extern (Objective-C)
-interface Class
-{
+interface Class {
     NSObject alloc() @selector("alloc");
 }
 
 extern (Objective-C)
-interface NSObject
-{
-    NSObject initWithUTF8String(in char* str) @selector("initWithUTF8String:");
+interface NSObject {
+    NSObject initWithUTF8String(const(char)* str) @selector("initWithUTF8String:");
     void release() @selector("release");
 }
 
-extern (C) Class objc_lookUpClass(in char* name);
+extern (C) Class objc_lookUpClass(const(char)* name);
 
-void test()
-{
+void test() {
     auto c = objc_lookUpClass("NSString");
     auto o = c.alloc().initWithUTF8String("hello");
     o.release();
