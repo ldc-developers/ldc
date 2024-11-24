@@ -199,7 +199,11 @@ LLConstant *offsetIvar(size_t ivaroffset) {
 LLConstant *ObjcMethod::emit() {
   name = makeGlobalStr(getSelector(), "OBJC_METH_VAR_NAME_", OBJC_SECNAME_METHNAME);
   type = makeGlobalStr(getTypeEncoding(decl->type), "OBJC_METH_VAR_TYPE_", OBJC_SECNAME_METHTYPE);
-  selref = makeGlobalRef(name, "OBJC_SELECTOR_REFERENCES_", OBJC_SECNAME_SELREFS, true, true);
+  selref = makeGlobalRef(name, "OBJC_SELECTOR_REFERENCES_", OBJC_SECNAME_SELREFS, false, true);
+
+  this->retain(name);
+  this->retain(type);
+  this->retain(selref);
   return selref;
 }
 
@@ -264,9 +268,12 @@ LLConstant *ObjcIvar::emit() {
   // Extern, emit data.
   if (auto klass = decl->parent->isClassDeclaration()) {
     if (klass->objc.isExtern) {
-      name = makeGlobal(ivarsym, nullptr, "OBJC_METH_VAR_NAME_", true, true);
-      type = makeGlobal(ivarsym, nullptr, "OBJC_METH_VAR_TYPE_", true, true);
+      name = makeGlobal("OBJC_METH_VAR_NAME_", nullptr, OBJC_SECNAME_METHNAME, true, true);
+      type = makeGlobal("OBJC_METH_VAR_TYPE_", nullptr, OBJC_SECNAME_METHTYPE, true, true);
       offset = getOrCreate(ivarsym, getI32Type(), OBJC_SECNAME_IVAR);
+
+      // It will be filled out by the runtime, but make sure it's there nontheless.
+      offset->setInitializer(offsetIvar(0));
       return nullptr;
     }
 
