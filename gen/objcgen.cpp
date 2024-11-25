@@ -336,14 +336,6 @@ void ObjcClasslike::onScan(bool meta) {
   }
 }
 
-bool ifaceListHas(ObjcList<InterfaceDeclaration *> &list, InterfaceDeclaration *curr) {
-  for(auto it = list.begin(); it != list.end(); ++it) {
-    if (*it == curr)
-      return true;
-  }
-  return false;
-}
-
 LLConstant *ObjcClasslike::emitProtocolList() {
   LLConstantList list;
   auto ifaces = decl->interfaces;
@@ -672,7 +664,7 @@ LLConstant *ObjcClass::get() {
 //    PROTOCOLS
 //
 
-void ObjcProtocol::emitTable(LLGlobalVariable *table) {
+LLConstant *ObjcProtocol::emitTable() {
   LLConstantList members;
   LLGlobalVariable *protocolList = nullptr;
   LLGlobalVariable *classMethodList = nullptr;
@@ -680,37 +672,52 @@ void ObjcProtocol::emitTable(LLGlobalVariable *table) {
   LLGlobalVariable *optClassMethodList = nullptr;
   LLGlobalVariable *optInstanceMethodList = nullptr;
 
+  this->scan();
+
   // Base Protocols
   if (auto baseProtocols = this->emitProtocolList()) {
-    protocolList = getOrCreateWeak(getObjcProtoListSymbol(getName(), true), baseProtocols->getType(), OBJC_SECNAME_CONST);
+    auto sym = getObjcProtoListSymbol(getName(), true);
+    protocolList = getOrCreateWeak(sym, baseProtocols->getType(), OBJC_SECNAME_CONST);
     protocolList->setInitializer(baseProtocols);
   }
 
   // Class methods
   if (auto classMethodConsts = this->emitMethodList(classMethods)) {
-    classMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), true, false), classMethodConsts->getType(), OBJC_SECNAME_CONST);
+    auto sym = getObjcProtoMethodListSymbol(getName(), true, false);
+    classMethodList = makeGlobal(sym, classMethodConsts->getType(), OBJC_SECNAME_CONST);
     classMethodList->setInitializer(classMethodConsts);
+    classMethodList->setLinkage(llvm::GlobalValue::LinkageTypes::WeakAnyLinkage);
+    classMethodList->setVisibility(llvm::GlobalValue::VisibilityTypes::HiddenVisibility);
   }
 
   // Optional class methods
   if (auto optClassMethodConsts = this->emitMethodList(classMethods, true)) {
-    optClassMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), true, true), optClassMethodConsts->getType(), OBJC_SECNAME_CONST);
+    auto sym = getObjcProtoMethodListSymbol(getName(), true, true);
+    optClassMethodList = makeGlobal(sym, optClassMethodConsts->getType(), OBJC_SECNAME_CONST);
     optClassMethodList->setInitializer(optClassMethodConsts);
+    optClassMethodList->setLinkage(llvm::GlobalValue::LinkageTypes::WeakAnyLinkage);
+    optClassMethodList->setVisibility(llvm::GlobalValue::VisibilityTypes::HiddenVisibility);
   }
 
   // Instance methods
   if (auto instanceMethodConsts = this->emitMethodList(instanceMethods)) {
-    instanceMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), false, false), instanceMethodConsts->getType(), OBJC_SECNAME_CONST);
+    auto sym = getObjcProtoMethodListSymbol(getName(), false, false);
+    instanceMethodList = makeGlobal(sym, instanceMethodConsts->getType(), OBJC_SECNAME_CONST);
     instanceMethodList->setInitializer(instanceMethodConsts);
+    instanceMethodList->setLinkage(llvm::GlobalValue::LinkageTypes::WeakAnyLinkage);
+    instanceMethodList->setVisibility(llvm::GlobalValue::VisibilityTypes::HiddenVisibility);
   }
 
   // Optional instance methods
   if (auto optInstanceMethodConsts = this->emitMethodList(instanceMethods, true)) {
-    optInstanceMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), false, true), optInstanceMethodConsts->getType(), OBJC_SECNAME_CONST);
+    auto sym = getObjcProtoMethodListSymbol(getName(), false, true);
+    optInstanceMethodList = makeGlobal(sym, optInstanceMethodConsts->getType(), OBJC_SECNAME_CONST);
     optInstanceMethodList->setInitializer(optInstanceMethodConsts);
+    optInstanceMethodList->setLinkage(llvm::GlobalValue::LinkageTypes::WeakAnyLinkage);
+    optInstanceMethodList->setVisibility(llvm::GlobalValue::VisibilityTypes::HiddenVisibility);
   }
   
-  auto protoType = ObjcProtocol::getObjcProtocolType(module);
+  auto protoType = getObjcProtocolType(module);
   auto allocSize = getTypeAllocSize(protoType);
   members.push_back(getNullPtr());                    // isa
   members.push_back(wrapNull(protocolList));          // protocols
@@ -722,11 +729,11 @@ void ObjcProtocol::emitTable(LLGlobalVariable *table) {
   members.push_back(getNullPtr());                    // instanceProperties (TODO)
   members.push_back(DtoConstUint(allocSize));         // size
   members.push_back(DtoConstUint(0));                 // flags
-
-  table->setInitializer(LLConstantStruct::get(
+  
+  return LLConstantStruct::get(
     protoType,
     members
-  ));
+  );
 }
 
 LLConstant *ObjcProtocol::emit() {
@@ -736,17 +743,17 @@ LLConstant *ObjcProtocol::emit() {
   auto name = getName();
   auto protoName = getObjcProtoSymbol(name);
   auto protoLabel = getObjcProtoLabelSymbol(name);
-  auto protoType = ObjcProtocol::getObjcProtocolType(module);
+
+  // Emit their structure.
+  auto protoTableConst = this->emitTable();
 
   // We want it to be locally hidden and weak since the protocols
   // may be declared in multiple object files.
-  protocolTable = getOrCreateWeak(protoName, protoType, OBJC_SECNAME_DATA);
+  protocolTable = getOrCreateWeak(protoName, protoTableConst->getType(), OBJC_SECNAME_DATA);
+  protocolTable->setInitializer(protoTableConst);
+
   protoref = getOrCreateWeak(protoLabel, getOpaquePtrType(), OBJC_SECNAME_PROTOREFS);
   protoref->setInitializer(protocolTable);
-
-  // Emit their structure.
-  this->scan();
-  this->emitTable(protocolTable);
 
   this->retain(protocolTable);
   this->retain(protoref);
@@ -777,7 +784,7 @@ ObjcClass *ObjCState::getClassRef(ClassDeclaration *cd) {
 }
 
 ObjcProtocol *ObjCState::getProtocolRef(InterfaceDeclaration *id) {
-
+  
   auto protoList = this->protocols;
   if (!protoList.empty()) {
     for(auto it : protoList) {

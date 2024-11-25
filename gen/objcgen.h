@@ -371,7 +371,7 @@ protected:
   LLConstant *emit() override;
 
   // Emits the protocol table.
-  void emitTable(LLGlobalVariable *table);
+  LLConstant *emitTable();
 
 private:
   LLGlobalVariable *protoref;
