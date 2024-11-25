@@ -390,6 +390,10 @@ LLConstant *ObjcClasslike::emitMethodList(ObjcList<ObjcMethod *> &methods, bool 
     }
   }
 
+  // List is empty too, but due to optionals not matching.
+  if (toAdd.empty())
+    return nullptr;
+
   return ObjcObject::emitList(
     module, 
     toAdd
@@ -447,29 +451,19 @@ void ObjcClass::onScan(bool meta) {
 }
 
 LLConstant *ObjcClass::emitIvarList() {
-  LLConstantList members;
-  
-  // Size of ivar_t
-  members.push_back(DtoConstUint(
-    getTypeAllocSize(ObjcIvar::getObjcIvarType(module))
-  ));
-
-  // Ivar count
-  members.push_back(DtoConstUint(
-    ivars.size()
-  ));
+  LLConstantList ivarList;
 
   // Push on all the ivars.
   for(size_t i = 0; i < ivars.size(); i++) {
     auto ivarInfo = ivars[i]->info();
 
     if (ivarInfo)
-      members.push_back(ivarInfo);
+      ivarList.push_back(ivarInfo);
   }
 
-  return LLConstantStruct::getAnon(
-    members,
-    true
+  return this->emitList(
+    module,
+    ivarList
   );
 }
 
@@ -562,14 +556,16 @@ void ObjcClass::emitRoTable(LLGlobalVariable *table, bool meta) {
 
   if (!meta) {
     // Base Protocols
-    auto baseProtocols = emitProtocolList();
-    protocolList = getOrCreate(getObjcProtoListSymbol(getName(), false), baseProtocols->getType(), OBJC_SECNAME_CONST);
-    protocolList->setInitializer(baseProtocols);
+    if (auto baseProtocols = emitProtocolList()) {
+      protocolList = getOrCreate(getObjcProtoListSymbol(getName(), false), baseProtocols->getType(), OBJC_SECNAME_CONST);
+      protocolList->setInitializer(baseProtocols);
+    }
 
     // Instance variables
-    auto baseIvars = emitIvarList();
-    ivarList = getOrCreate(getObjcIvarListSymbol(getName()), baseIvars->getType(), OBJC_SECNAME_CONST);
-    ivarList->setInitializer(baseIvars);
+    if (auto baseIvars = emitIvarList()) {
+      ivarList = getOrCreate(getObjcIvarListSymbol(getName()), baseIvars->getType(), OBJC_SECNAME_CONST);
+      ivarList->setInitializer(baseIvars);
+    }
   }
 
 
@@ -578,7 +574,7 @@ void ObjcClass::emitRoTable(LLGlobalVariable *table, bool meta) {
   members.push_back(DtoConstUint(getInstanceStart(meta)));
   members.push_back(DtoConstUint(getInstanceSize(meta)));
   members.push_back(getNullPtr());
-  members.push_back(emitName());
+  members.push_back(this->emitName());
   members.push_back(wrapNull(methodList));
   members.push_back(wrapNull(protocolList));
   members.push_back(wrapNull(ivarList));
@@ -615,10 +611,11 @@ LLConstant *ObjcClass::emit() {
     metaClassTable = makeGlobal(metaName, ObjcClass::getObjcClassType(module), "", true, false);
     
     // Still emit ivars.
-    auto baseIvars = emitIvarList();
-    auto ivarList = getOrCreate(getObjcIvarListSymbol(getName()), baseIvars->getType(), OBJC_SECNAME_CONST);
-    ivarList->setInitializer(baseIvars);
-    this->retain(ivarList);
+    if (auto baseIvars = emitIvarList()) {
+      auto ivarList = getOrCreate(getObjcIvarListSymbol(getName()), baseIvars->getType(), OBJC_SECNAME_CONST);
+      ivarList->setInitializer(baseIvars);
+      this->retain(ivarList);
+    }
 
     return classTable;
   }
@@ -746,7 +743,6 @@ LLConstant *ObjcProtocol::emit() {
   protocolTable = getOrCreateWeak(protoName, protoType, OBJC_SECNAME_DATA);
   protoref = getOrCreateWeak(protoLabel, getOpaquePtrType(), OBJC_SECNAME_PROTOREFS);
   protoref->setInitializer(protocolTable);
-
 
   // Emit their structure.
   this->scan();
