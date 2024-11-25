@@ -25,14 +25,10 @@ bool objc_isSupported(const llvm::Triple &triple) {
     // Additionally only Objective-C 2 is supported.
     switch (triple.getArch()) {
     case llvm::Triple::aarch64: // arm64 iOS, tvOS, macOS, watchOS, visionOS
-    case llvm::Triple::arm:     // armv6 iOS
-    case llvm::Triple::thumb:   // thumbv7 iOS, watchOS
     case llvm::Triple::x86_64:  // OSX, iOS, tvOS sim
       return true;
-    case llvm::Triple::x86: // OSX, iOS, watchOS sim
-      return false;
     default:
-      break;
+      return false;
     }
   }
   return false;

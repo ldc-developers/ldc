@@ -476,7 +476,7 @@ void ArgsBuilder::addObjcStdlibLinkFlags(const llvm::Triple &triple) {
   if (linkNoObjc)
     return;
     
-  args.push_back(("-l"+getObjcLibName()).str());
+  args.push_back("-lobjc");
 }
 
 // Adds all required link flags for PGO.

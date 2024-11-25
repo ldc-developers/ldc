@@ -387,8 +387,8 @@ const char *X86_64TargetABI::objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool dire
     return directcall ? "objc_msgSendSuper_stret" : "objc_msgSend_stret";
   }
   // float, double, long double return
-  if (ret && ret->isfloating() && !ret->iscomplex()) {
-    return "objc_msgSend_fpret";
+  if (ret && ret->isfloating()) {
+    return ret->ty == TY::Tcomplex80 ? "objc_msgSend_fp2ret" : "objc_msgSend_fpret";
   }
   return directcall ? "objc_msgSendSuper" : "objc_msgSend";
 }

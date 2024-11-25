@@ -122,16 +122,6 @@ struct ArmTargetABI : TargetABI {
     // solution is found there, this should be adapted).
     return TypeIdentifier::create(Loc(), Identifier::idPool("__va_list"));
   }
-
-  const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool directcall) override {
-    assert(isDarwin());
-    
-    // see objc/message.h for objc_msgSend selection rules
-    if (fty.arg_sret) {
-      return directcall ? "objc_msgSendSuper_stret" : "objc_msgSend_stret";
-    }
-    return directcall ? "objc_msgSendSuper" : "objc_msgSend";
-  }
 };
 
 TargetABI *getArmTargetABI() { return new ArmTargetABI; }

@@ -880,15 +880,12 @@ static void buildRuntimeModule() {
       // creal objc_msgSend_fp2ret(id self, SEL op, ...)
       createFwdDecl(LINK::c, Type::tcomplex80, {"objc_msgSend_fp2ret"},
                     {objectPtrTy, selectorPtrTy});
-    // fall-thru
-    case llvm::Triple::x86:
+
       // x86_64 real return only,  x86 float, double, real return
       // real objc_msgSend_fpret(id self, SEL op, ...)
       createFwdDecl(LINK::c, realTy, {"objc_msgSend_fpret"},
                     {objectPtrTy, selectorPtrTy});
-    // fall-thru
-    case llvm::Triple::arm:
-    case llvm::Triple::thumb:
+
       // used when return value is aggregate via a hidden sret arg
       // void objc_msgSend_stret(T *sret_arg, id self, SEL op, ...)
       createFwdDecl(LINK::c, voidTy, {"objc_msgSend_stret"},
