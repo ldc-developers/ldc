@@ -211,8 +211,7 @@ LLConstant *ObjcMethod::info() {
   if (!decl->fbody)
     return nullptr;
 
-  return LLConstantStruct::get(
-    getObjcMethodType(module),
+  return LLConstantStruct::getAnon(
     { name, type, DtoCallee(decl) }
   );
 }
