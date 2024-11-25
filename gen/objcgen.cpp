@@ -372,8 +372,10 @@ LLConstant *ObjcClasslike::emitMethodList(ObjcList<ObjcMethod *> &methods) {
   
   // Find out how many functions have actual bodies.
   for(size_t i = 0; i < methods.size(); i++) {
-    if (methods[i]->decl->fbody)
-      toAdd.push_back(methods[i]->info());
+    auto methodInfo = methods[i]->info();
+
+    if (methodInfo)
+      toAdd.push_back(methodInfo);
   }
 
   return ObjcObject::emitList(
@@ -448,7 +450,10 @@ LLConstant *ObjcClass::emitIvarList() {
 
   // Push on all the ivars.
   for(size_t i = 0; i < ivars.size(); i++) {
-    members.push_back(ivars[i]->info());
+    auto ivarInfo = ivars[i]->info();
+
+    if (ivarInfo)
+      members.push_back(ivarInfo);
   }
 
   return LLConstantStruct::getAnon(
@@ -565,7 +570,7 @@ void ObjcClass::emitRoTable(LLGlobalVariable *table, bool meta) {
   members.push_back(wrapNull(protocolList));
   members.push_back(wrapNull(ivarList));
   members.push_back(getNullPtr());
-  members.push_back(getNullPtr()); //TODO: Add properties?
+  members.push_back(getNullPtr());
 
   table->setInitializer(LLConstantStruct::get(
     getObjcClassRoType(module),
