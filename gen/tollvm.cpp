@@ -786,7 +786,7 @@ LLType *getI32Type() { return LLType::getInt32Ty(gIR->context()); }
 
 LLType *getI64Type() { return LLType::getInt64Ty(gIR->context()); }
 
-LLType *getSizeTType() { return LLType::getIntNTy(gIR->context(), getPointerSizeInBits()); }
+LLType *getSizeTType() { return DtoSize_t(); }
 
 LLPointerType *getOpaquePtrType(unsigned addressSpace) {
   return LLPointerType::get(gIR->context(), addressSpace);

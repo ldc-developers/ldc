@@ -348,9 +348,6 @@ LLConstant *ObjcClasslike::emitProtocolList() {
   LLConstantList list;
   auto ifaces = decl->interfaces;
 
-  // Length
-  list.push_back(DtoConstUlong(ifaces.length));
-
   // Protocols
   for(size_t i = 0; i < ifaces.length; i++) {
     if (auto iface = ifaces.ptr[i]) {
@@ -369,7 +366,8 @@ LLConstant *ObjcClasslike::emitProtocolList() {
 
   return ObjcObject::emitList(
     module,
-    list
+    list,
+    true
   );
 }
 
@@ -678,7 +676,6 @@ LLConstant *ObjcClass::get() {
 //
 
 void ObjcProtocol::emitTable(LLGlobalVariable *table) {
-  size_t allocSize = getTypeAllocSize(getObjcProtocolType(module));
   LLConstantList members;
   LLGlobalVariable *protocolList = nullptr;
   LLGlobalVariable *classMethodList = nullptr;
@@ -715,10 +712,12 @@ void ObjcProtocol::emitTable(LLGlobalVariable *table) {
     optInstanceMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), false, true), optInstanceMethodConsts->getType(), OBJC_SECNAME_CONST);
     optInstanceMethodList->setInitializer(optInstanceMethodConsts);
   }
-
+  
+  auto protoType = ObjcProtocol::getObjcProtocolType(module);
+  auto allocSize = getTypeAllocSize(protoType);
   members.push_back(getNullPtr());                    // isa
   members.push_back(wrapNull(protocolList));          // protocols
-  members.push_back(emitName());                      // mangledName
+  members.push_back(this->emitName());                // mangledName
   members.push_back(wrapNull(instanceMethodList));    // instanceMethods
   members.push_back(wrapNull(classMethodList));       // classMethods
   members.push_back(wrapNull(optInstanceMethodList)); // optionalInstanceMethods
@@ -728,7 +727,7 @@ void ObjcProtocol::emitTable(LLGlobalVariable *table) {
   members.push_back(DtoConstUint(0));                 // flags
 
   table->setInitializer(LLConstantStruct::get(
-    getObjcProtocolType(module),
+    protoType,
     members
   ));
 }
@@ -740,17 +739,17 @@ LLConstant *ObjcProtocol::emit() {
   auto name = getName();
   auto protoName = getObjcProtoSymbol(name);
   auto protoLabel = getObjcProtoLabelSymbol(name);
+  auto protoType = ObjcProtocol::getObjcProtocolType(module);
 
   // We want it to be locally hidden and weak since the protocols
   // may be declared in multiple object files.
-  protocolTable = getOrCreateWeak(protoName, ObjcProtocol::getObjcProtocolType(module), OBJC_SECNAME_DATA);
+  protocolTable = getOrCreateWeak(protoName, protoType, OBJC_SECNAME_DATA);
   protoref = getOrCreateWeak(protoLabel, getOpaquePtrType(), OBJC_SECNAME_PROTOREFS);
   protoref->setInitializer(protocolTable);
 
 
   // Emit their structure.
   this->scan();
-  this->emitName();
   this->emitTable(protocolTable);
 
   this->retain(protocolTable);
