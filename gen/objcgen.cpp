@@ -211,8 +211,11 @@ LLConstant *ObjcMethod::info() {
   if (!decl->fbody)
     return nullptr;
 
-  return LLConstantStruct::getAnon(
-    { name, type, DtoCallee(decl) }
+  auto func = DtoCallee(decl);
+
+  return LLConstantStruct::get(
+    ObjcMethod::getObjcMethodType(module, func),
+    { name, type, func }
   );
 }
 
@@ -224,11 +227,14 @@ LLConstant *ObjcMethod::get() {
   return selref;
 }
 
-LLConstant *ObjcObject::emitList(llvm::Module &module, LLType *elemType, LLConstantList objects, bool isCountPtrSized) {
+LLConstant *ObjcObject::emitList(llvm::Module &module, LLConstantList objects, size_t allocSize, bool isCountPtrSized) {
   LLConstantList members;
   
+  // Emit nullptr for empty lists.
+  if (objects.empty())
+    return nullptr;
+
   // Size of stored struct.
-  size_t allocSize = getTypeAllocSize(elemType);
   members.push_back(
     isCountPtrSized ?
     DtoConstSize_t(allocSize) :
@@ -360,27 +366,35 @@ LLConstant *ObjcClasslike::emitProtocolList() {
   }
 
   return ObjcObject::emitList(
-    module, 
-    getOpaquePtrType(), 
-    list
+    module,
+    list,
+    getPointerSize()
   );
 }
 
-LLConstant *ObjcClasslike::emitMethodList(ObjcList<ObjcMethod *> &methods) {
+LLConstant *ObjcClasslike::emitMethodList(ObjcList<ObjcMethod *> &methods, bool optionalMethods) {
   LLConstantList toAdd;
-  
+
+  // Emit nullptr for empty lists.
+  if (methods.empty())
+    return nullptr;
+
   // Find out how many functions have actual bodies.
   for(size_t i = 0; i < methods.size(); i++) {
-    auto methodInfo = methods[i]->info();
+    auto method = methods[i];
 
-    if (methodInfo)
-      toAdd.push_back(methodInfo);
+    if (method->isOptional() == optionalMethods) {
+      auto methodInfo = method->info();
+
+      if (methodInfo)
+        toAdd.push_back(methodInfo);
+    }
   }
 
   return ObjcObject::emitList(
     module, 
-    ObjcMethod::getObjcMethodType(module), 
-    toAdd
+    toAdd,
+    ObjcMethod::getObjcMethodTypeSize()
   );
 }
 
@@ -543,8 +557,10 @@ void ObjcClass::emitRoTable(LLGlobalVariable *table, bool meta) {
     this->emitMethodList(classMethods) : 
     this->emitMethodList(instanceMethods);
 
-  methodList = getOrCreate(getObjcClassMethodListSymbol(getName(), meta), baseMethods->getType(), OBJC_SECNAME_CONST);
-  methodList->setInitializer(baseMethods);
+  if (baseMethods) {
+    methodList = getOrCreate(getObjcClassMethodListSymbol(getName(), meta), baseMethods->getType(), OBJC_SECNAME_CONST);
+    methodList->setInitializer(baseMethods);
+  }
 
   if (!meta) {
     // Base Protocols
@@ -664,32 +680,52 @@ LLConstant *ObjcClass::get() {
 void ObjcProtocol::emitTable(LLGlobalVariable *table) {
   size_t allocSize = getTypeAllocSize(getObjcProtocolType(module));
   LLConstantList members;
+  LLGlobalVariable *protocolList = nullptr;
+  LLGlobalVariable *classMethodList = nullptr;
+  LLGlobalVariable *instanceMethodList = nullptr;
+  LLGlobalVariable *optClassMethodList = nullptr;
+  LLGlobalVariable *optInstanceMethodList = nullptr;
 
   // Base Protocols
-  auto baseProtocols = this->emitProtocolList();
-  auto protocolList = getOrCreateWeak(getObjcProtoListSymbol(getName(), true), baseProtocols->getType(), OBJC_SECNAME_CONST);
-  protocolList->setInitializer(baseProtocols);
+  if (auto baseProtocols = this->emitProtocolList()) {
+    protocolList = getOrCreateWeak(getObjcProtoListSymbol(getName(), true), baseProtocols->getType(), OBJC_SECNAME_CONST);
+    protocolList->setInitializer(baseProtocols);
+  }
 
   // Class methods
-  auto classMethodConsts = this->emitMethodList(classMethods);
-  auto classMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), true), classMethodConsts->getType(), OBJC_SECNAME_CONST);
-  classMethodList->setInitializer(classMethodConsts);
+  if (auto classMethodConsts = this->emitMethodList(classMethods)) {
+    classMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), true), classMethodConsts->getType(), OBJC_SECNAME_CONST);
+    classMethodList->setInitializer(classMethodConsts);
+  }
+
+  // Optional class methods
+  if (auto optClassMethodConsts = this->emitMethodList(classMethods, true)) {
+    optClassMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), true), optClassMethodConsts->getType(), OBJC_SECNAME_CONST);
+    optClassMethodList->setInitializer(optClassMethodConsts);
+  }
 
   // Instance methods
-  auto instanceMethodConsts = this->emitMethodList(instanceMethods);
-  auto instanceMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), false), instanceMethodConsts->getType(), OBJC_SECNAME_CONST);
-  instanceMethodList->setInitializer(instanceMethodConsts);
+  if (auto instanceMethodConsts = this->emitMethodList(instanceMethods)) {
+    instanceMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), false), instanceMethodConsts->getType(), OBJC_SECNAME_CONST);
+    instanceMethodList->setInitializer(instanceMethodConsts);
+  }
 
-  members.push_back(getNullPtr());              // isa
-  members.push_back(emitName());                // mangledName
-  members.push_back(protocolList);              // protocol_list
-  members.push_back(instanceMethodList);        // instanceMethods
-  members.push_back(classMethodList);           // classMethods
-  members.push_back(getNullPtr());              // optionalInstanceMethods (TODO)
-  members.push_back(getNullPtr());              // optionalClassMethods (TODO)
-  members.push_back(getNullPtr());              // instanceProperties (TODO)
-  members.push_back(DtoConstUint(allocSize));   // size
-  members.push_back(DtoConstUint(0));           // flags
+  // Optional instance methods
+  if (auto optInstanceMethodConsts = this->emitMethodList(instanceMethods, true)) {
+    optInstanceMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), false), optInstanceMethodConsts->getType(), OBJC_SECNAME_CONST);
+    optInstanceMethodList->setInitializer(optInstanceMethodConsts);
+  }
+
+  members.push_back(getNullPtr());                    // isa
+  members.push_back(emitName());                      // mangledName
+  members.push_back(wrapNull(protocolList));          // protocol_list
+  members.push_back(wrapNull(instanceMethodList));    // instanceMethods
+  members.push_back(wrapNull(classMethodList));       // classMethods
+  members.push_back(wrapNull(optInstanceMethodList)); // optionalInstanceMethods (TODO)
+  members.push_back(wrapNull(optClassMethodList));    // optionalClassMethods (TODO)
+  members.push_back(getNullPtr());                    // instanceProperties (TODO)
+  members.push_back(DtoConstUint(allocSize));         // size
+  members.push_back(DtoConstUint(0));                 // flags
 
   table->setInitializer(LLConstantStruct::get(
     getObjcProtocolType(module),

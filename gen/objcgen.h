@@ -105,7 +105,7 @@ public:
   virtual const char *getName() { return nullptr; }
 
   // Emits a new list for the specified objects as a constant.
-  static LLConstant *emitList(llvm::Module &module, LLType *elemType, LLConstantList objects, bool isCountPtrSized = false);
+  static LLConstant *emitList(llvm::Module &module, LLConstantList objects, size_t allocSize, bool isCountPtrSized = false);
 
 protected:
 
@@ -154,22 +154,26 @@ public:
   // Gets the main reference to the object.
   LLConstant *get() override;
 
-  // Gets the type of an Objective-C class_t struct
-  static LLStructType *getObjcMethodType(const llvm::Module& module) {
-    auto methodType = LLStructType::getTypeByName(module.getContext(), OBJC_STRUCTNAME_METHOD);
-    if (methodType)
-      return methodType;
+  // Since each objcMethodType differs due to llvm::Function apparently
+  // not being compatible with opaque pointers, we emit a type size here.
+  //
+  // This should be updated if apple changes the Objective-C ABI
+  // again.
+  static size_t getObjcMethodTypeSize() {
+    return getPointerSize()*3;
+  }
 
-    methodType = LLStructType::create(
+  // Gets the type of an Objective-C objc_method struct
+  static LLStructType *getObjcMethodType(const llvm::Module& module, LLFunction* func) {
+    return LLStructType::create(
       module.getContext(),
       {
         getOpaquePtrType(), // SEL name
         getOpaquePtrType(), // const char *types
-        getOpaquePtrType(), // IMP imp
+        func->getType(), // IMP imp
       },
       OBJC_STRUCTNAME_METHOD
     );
-    return methodType;
   }
 
   // Emits the constant struct containing the method
@@ -180,6 +184,11 @@ public:
   LLStringRef getSelector() {
     auto selector = decl->objc.selector;
     return LLStringRef(selector->stringvalue, selector->stringlen);
+  }
+
+  // Gets whether the function is optional.
+  bool isOptional() {
+    return decl->objc.isOptional;
   }
 
 protected:
@@ -297,7 +306,7 @@ protected:
   virtual void onScan(bool meta);
 
   // Emits a method list as a constant.
-  LLConstant *emitMethodList(std::vector<ObjcMethod *> &methods);
+  LLConstant *emitMethodList(std::vector<ObjcMethod *> &methods, bool optionalMethods=false);
 
   // Emits a method list as a constant.
   LLConstant *emitProtocolList();
