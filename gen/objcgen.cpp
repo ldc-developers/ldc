@@ -247,9 +247,8 @@ LLConstant *ObjcMethod::info() {
     return nullptr;
 
   auto func = DtoCallee(decl);
-
   return LLConstantStruct::get(
-    ObjcMethod::getObjcMethodType(module, func),
+    ObjcMethod::getObjcMethodType(module),
     { name, type, DtoBitCast(func, getOpaquePtrType()) }
   );
 }

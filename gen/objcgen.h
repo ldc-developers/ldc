@@ -155,7 +155,11 @@ public:
   LLConstant *get() override;
 
   // Gets the type of an Objective-C objc_method struct
-  static LLStructType *getObjcMethodType(const llvm::Module& module, LLFunction* func) {
+  static LLStructType *getObjcMethodType(const llvm::Module& module) {
+    auto methType = LLStructType::getTypeByName(module.getContext(), OBJC_STRUCTNAME_METHOD);
+    if (methType)
+      return methType;
+
     return LLStructType::create(
       module.getContext(),
       {
