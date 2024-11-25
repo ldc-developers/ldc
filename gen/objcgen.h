@@ -83,7 +83,7 @@ std::string getObjcClassSymbol(const char *name, bool meta);
 std::string getObjcClassMethodListSymbol(const char *className, bool meta);
 std::string getObjcIvarListSymbol(const char *className);
 std::string getObjcIvarSymbol(const char *className, const char *varName);
-std::string getObjcProtoMethodListSymbol(const char *className, bool meta);
+std::string getObjcProtoMethodListSymbol(const char *className, bool meta, bool optional);
 std::string getObjcProtoSymbol(const char *name);
 std::string getObjcProtoListSymbol(const char *name);
 std::string getObjcSymbolName(const char *dsymPrefix, const char *dsymName);
@@ -105,7 +105,7 @@ public:
   virtual const char *getName() { return nullptr; }
 
   // Emits a new list for the specified objects as a constant.
-  static LLConstant *emitList(llvm::Module &module, LLConstantList objects, size_t allocSize, bool isCountPtrSized = false);
+  static LLConstant *emitList(llvm::Module &module, LLConstantList objects, bool isCountPtrSized = false);
 
 protected:
 
@@ -154,15 +154,6 @@ public:
   // Gets the main reference to the object.
   LLConstant *get() override;
 
-  // Since each objcMethodType differs due to llvm::Function apparently
-  // not being compatible with opaque pointers, we emit a type size here.
-  //
-  // This should be updated if apple changes the Objective-C ABI
-  // again.
-  static size_t getObjcMethodTypeSize() {
-    return getPointerSize()*3;
-  }
-
   // Gets the type of an Objective-C objc_method struct
   static LLStructType *getObjcMethodType(const llvm::Module& module, LLFunction* func) {
     return LLStructType::create(
@@ -170,7 +161,7 @@ public:
       {
         getOpaquePtrType(), // SEL name
         getOpaquePtrType(), // const char *types
-        func->getType(), // IMP imp
+        getOpaquePtrType(), // IMP imp
       },
       OBJC_STRUCTNAME_METHOD
     );

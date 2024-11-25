@@ -135,8 +135,10 @@ std::string getObjcClassMethodListSymbol(const char *className, bool meta) {
   return getObjcSymbolName(meta ? "_OBJC_$_CLASS_METHODS_" : "_OBJC_$_INSTANCE_METHODS_", className);
 }
 
-std::string getObjcProtoMethodListSymbol(const char *className, bool meta) {
-  return getObjcSymbolName(meta ? "_OBJC_$_PROTOCOL_CLASS_METHODS_" : "_OBJC_$_PROTOCOL_INSTANCE_METHODS_", className);
+std::string getObjcProtoMethodListSymbol(const char *className, bool meta, bool optional) {  
+  return optional ?
+    getObjcSymbolName(meta ? "_OBJC_$_PROTOCOL_OPTIONAL_CLASS_METHODS_" : "_OBJC_$_PROTOCOL_OPTIONAL_INSTANCE_METHODS_", className) :
+    getObjcSymbolName(meta ? "_OBJC_$_PROTOCOL_CLASS_METHODS_" : "_OBJC_$_PROTOCOL_INSTANCE_METHODS_", className);
 }
 
 std::string getObjcIvarListSymbol(const char *className) {
@@ -187,6 +189,39 @@ LLConstant *offsetIvar(size_t ivaroffset) {
   return DtoConstUint(getPointerSize()+ivaroffset);
 }
 
+LLConstant *ObjcObject::emitList(llvm::Module &module, LLConstantList objects, bool isCountPtrSized) {
+  LLConstantList members;
+  
+  // Emit nullptr for empty lists.
+  if (objects.empty())
+    return nullptr;
+
+  // Size of stored struct.
+  size_t allocSize = getTypeAllocSize(objects.front()->getType());
+  members.push_back(
+    isCountPtrSized ?
+    DtoConstSize_t(allocSize) :
+    DtoConstUint(allocSize)
+  );
+
+  // Method count
+  members.push_back(DtoConstUint(
+    objects.size()
+  ));
+
+  // Insert all the objects in the constant list.
+  members.insert(
+    members.end(), 
+    objects.begin(), 
+    objects.end()
+  );
+
+  return LLConstantStruct::getAnon(
+    members,
+    true
+  );
+}
+
 
 //
 //      METHODS
@@ -215,7 +250,7 @@ LLConstant *ObjcMethod::info() {
 
   return LLConstantStruct::get(
     ObjcMethod::getObjcMethodType(module, func),
-    { name, type, func }
+    { name, type, DtoBitCast(func, getOpaquePtrType()) }
   );
 }
 
@@ -225,38 +260,6 @@ LLConstant *ObjcMethod::get() {
     emit();
   
   return selref;
-}
-
-LLConstant *ObjcObject::emitList(llvm::Module &module, LLConstantList objects, size_t allocSize, bool isCountPtrSized) {
-  LLConstantList members;
-  
-  // Emit nullptr for empty lists.
-  if (objects.empty())
-    return nullptr;
-
-  // Size of stored struct.
-  members.push_back(
-    isCountPtrSized ?
-    DtoConstSize_t(allocSize) :
-    DtoConstUint(allocSize)
-  );
-
-  // Method count
-  members.push_back(DtoConstUint(
-    objects.size()
-  ));
-
-  // Insert all the objects in the constant list.
-  members.insert(
-    members.end(), 
-    objects.begin(), 
-    objects.end()
-  );
-
-  return LLConstantStruct::getAnon(
-    members,
-    true
-  );
 }
 
 //
@@ -271,9 +274,9 @@ LLConstant *ObjcIvar::emit() {
     if (klass->objc.isExtern) {
       name = makeGlobal("OBJC_METH_VAR_NAME_", nullptr, OBJC_SECNAME_METHNAME, true, true);
       type = makeGlobal("OBJC_METH_VAR_TYPE_", nullptr, OBJC_SECNAME_METHTYPE, true, true);
-      offset = getOrCreate(ivarsym, getI32Type(), OBJC_SECNAME_IVAR);
 
       // It will be filled out by the runtime, but make sure it's there nontheless.
+      offset = getOrCreate(ivarsym, getI32Type(), OBJC_SECNAME_IVAR);
       offset->setInitializer(offsetIvar(0));
       return nullptr;
     }
@@ -367,8 +370,7 @@ LLConstant *ObjcClasslike::emitProtocolList() {
 
   return ObjcObject::emitList(
     module,
-    list,
-    getPointerSize()
+    list
   );
 }
 
@@ -393,8 +395,7 @@ LLConstant *ObjcClasslike::emitMethodList(ObjcList<ObjcMethod *> &methods, bool 
 
   return ObjcObject::emitList(
     module, 
-    toAdd,
-    ObjcMethod::getObjcMethodTypeSize()
+    toAdd
   );
 }
 
@@ -694,35 +695,35 @@ void ObjcProtocol::emitTable(LLGlobalVariable *table) {
 
   // Class methods
   if (auto classMethodConsts = this->emitMethodList(classMethods)) {
-    classMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), true), classMethodConsts->getType(), OBJC_SECNAME_CONST);
+    classMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), true, false), classMethodConsts->getType(), OBJC_SECNAME_CONST);
     classMethodList->setInitializer(classMethodConsts);
   }
 
   // Optional class methods
   if (auto optClassMethodConsts = this->emitMethodList(classMethods, true)) {
-    optClassMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), true), optClassMethodConsts->getType(), OBJC_SECNAME_CONST);
+    optClassMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), true, true), optClassMethodConsts->getType(), OBJC_SECNAME_CONST);
     optClassMethodList->setInitializer(optClassMethodConsts);
   }
 
   // Instance methods
   if (auto instanceMethodConsts = this->emitMethodList(instanceMethods)) {
-    instanceMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), false), instanceMethodConsts->getType(), OBJC_SECNAME_CONST);
+    instanceMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), false, false), instanceMethodConsts->getType(), OBJC_SECNAME_CONST);
     instanceMethodList->setInitializer(instanceMethodConsts);
   }
 
   // Optional instance methods
   if (auto optInstanceMethodConsts = this->emitMethodList(instanceMethods, true)) {
-    optInstanceMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), false), optInstanceMethodConsts->getType(), OBJC_SECNAME_CONST);
+    optInstanceMethodList = getOrCreateWeak(getObjcProtoMethodListSymbol(getName(), false, true), optInstanceMethodConsts->getType(), OBJC_SECNAME_CONST);
     optInstanceMethodList->setInitializer(optInstanceMethodConsts);
   }
 
   members.push_back(getNullPtr());                    // isa
+  members.push_back(wrapNull(protocolList));          // protocols
   members.push_back(emitName());                      // mangledName
-  members.push_back(wrapNull(protocolList));          // protocol_list
   members.push_back(wrapNull(instanceMethodList));    // instanceMethods
   members.push_back(wrapNull(classMethodList));       // classMethods
-  members.push_back(wrapNull(optInstanceMethodList)); // optionalInstanceMethods (TODO)
-  members.push_back(wrapNull(optClassMethodList));    // optionalClassMethods (TODO)
+  members.push_back(wrapNull(optInstanceMethodList)); // optionalInstanceMethods
+  members.push_back(wrapNull(optClassMethodList));    // optionalClassMethods
   members.push_back(getNullPtr());                    // instanceProperties (TODO)
   members.push_back(DtoConstUint(allocSize));         // size
   members.push_back(DtoConstUint(0));                 // flags
