@@ -9,15 +9,15 @@ commonSteps: &commonSteps
           if [ "$CI_OS" = "linux" ]; then
             export DEBIAN_FRONTEND=noninteractive
             if [[ "${EXTRA_CMAKE_FLAGS:-}" = *-DMULTILIB?ON* ]]; then
-              dpkg --add-architecture i386
+              sudo dpkg --add-architecture i386
               gcc_pkg="g++-multilib"
               libcurl_pkg="libcurl4t64 libcurl4t64:i386"
             else
               gcc_pkg="g++"
               libcurl_pkg="libcurl4t64"
             fi
-            apt-get -q update
-            apt-get -yq install \
+            sudo apt-get -q update
+            sudo apt-get -yq install \
               git-core $gcc_pkg cmake \
               llvm-$LLVM_MAJOR-dev libclang-common-$LLVM_MAJOR-dev zlib1g-dev \
               $libcurl_pkg curl gdb python3 python3-pip tzdata unzip zip \
@@ -28,11 +28,11 @@ commonSteps: &commonSteps
             unzip ninja-linux.zip -d ninja
             rm ninja-linux.zip
             # Add Ninja to PATH for future steps
-            echo "export PATH=$PWD/ninja:$PATH" >> $BASH_ENV
+            echo "export PATH=$PWD/ninja:\$PATH" >> $BASH_ENV
           fi
           # Install lit
           python3 --version
-          python3 -m pip install --break-system-packages lit
+          python3 -m pip install --user lit
           python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
           # Download & extract host LDC if HOST_LDC_VERSION is set
           if [[ -v HOST_LDC_VERSION ]]; then
@@ -79,13 +79,7 @@ commonSteps: &commonSteps
     - run:
         name: Run DMD testsuite
         when: always
-        command: |
-          cd ../build
-          if [ "$CI_OS" = "linux" ]; then
-            # Circle's RAM disk FS apparently doesn't allow long paths.
-            rm ../project/tests/dmd/compilable/issue17167.sh
-          fi
-          DMD_TESTSUITE_MAKE_ARGS=-j$PARALLELISM ctest -V -R dmd-testsuite
+        command: cd ../build && DMD_TESTSUITE_MAKE_ARGS=-j$PARALLELISM ctest -V -R dmd-testsuite
     - run:
         name: Run defaultlib unittests & druntime integration tests
         when: always
@@ -95,8 +89,8 @@ version: 2
 jobs:
   Ubuntu-24.04-multilib-rtSanitizers:
     <<: *commonSteps
-    docker:
-      - image: ubuntu:24.04
+    machine:
+      image: ubuntu-2404:current
     resource_class: large
     environment:
       - PARALLELISM: 4
@@ -106,8 +100,8 @@ jobs:
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON"
   Ubuntu-24.04-sharedLibsOnly-gdmd:
     <<: *commonSteps
-    docker:
-      - image: ubuntu:24.04
+    machine:
+      image: ubuntu-2404:current
     resource_class: large
     environment:
       - PARALLELISM: 4
