@@ -141,7 +141,7 @@ std::string getObjcClassMethodListSymbol(const char *className, bool meta) {
 
 std::string getObjcProtoMethodListSymbol(const char *className, bool meta, bool optional) {  
   return optional ?
-    getObjcSymbolName(meta ? "_OBJC_$_PROTOCOL_OPTIONAL_CLASS_METHODS_" : "_OBJC_$_PROTOCOL_OPTIONAL_INSTANCE_METHODS_", className) :
+    getObjcSymbolName(meta ? "_OBJC_$_PROTOCOL_CLASS_METHODS_OPT_" : "_OBJC_$_PROTOCOL_INSTANCE_METHODS_OPT_", className) :
     getObjcSymbolName(meta ? "_OBJC_$_PROTOCOL_CLASS_METHODS_" : "_OBJC_$_PROTOCOL_INSTANCE_METHODS_", className);
 }
 
@@ -154,7 +154,7 @@ std::string getObjcProtoSymbol(const char *name) {
 }
 
 std::string getObjcProtoListSymbol(const char *name, bool isProtocol) {
-  return getObjcSymbolName(isProtocol ? "_OBJC_PROTOCOL_PROTOCOLS_$_" : "_OBJC_CLASS_PROTOCOLS_$_", name);
+  return getObjcSymbolName(isProtocol ? "_OBJC_$_PROTOCOL_REFS_" : "_OBJC_CLASS_PROTOCOLS_$_", name);
 }
 
 std::string getObjcProtoLabelSymbol(const char *name) {
@@ -228,10 +228,6 @@ LLConstant *ObjcObject::emitList(llvm::Module &module, LLConstantList objects, b
 
 LLConstant *ObjcObject::emitCountList(llvm::Module &module, LLConstantList objects, bool alignSizeT) {
   LLConstantList members;
-  
-  // Emit nullptr for empty lists.
-  if (objects.empty())
-    return nullptr;
 
   // Method count
   members.push_back(
@@ -241,12 +237,16 @@ LLConstant *ObjcObject::emitCountList(llvm::Module &module, LLConstantList objec
   );
 
   // Insert all the objects in the constant list.
-  members.insert(
-    members.end(), 
-    objects.begin(), 
-    objects.end()
-  );
+  if (!objects.empty()) {
+    members.insert(
+      members.end(), 
+      objects.begin(), 
+      objects.end()
+    );
+  }
 
+  // These lists need to be null terminated.
+  members.push_back(getNullPtr());
   return LLConstantStruct::getAnon(
     members,
     true
@@ -270,17 +270,23 @@ LLConstant *ObjcMethod::emit() {
 }
 
 // Implements the objc_method structure
-LLConstant *ObjcMethod::info() {
+LLConstant *ObjcMethod::info(bool emitExtern) {
   if (!name)
     emit();
 
-  if (!decl->fbody)
+  if (!emitExtern && !decl->fbody)
     return nullptr;
 
   auto func = DtoCallee(decl);
   return LLConstantStruct::get(
     ObjcMethod::getObjcMethodType(module),
-    { name, type, DtoBitCast(func, getOpaquePtrType()) }
+    { 
+      name, 
+      type, 
+      decl->fbody ?
+        DtoBitCast(func, getOpaquePtrType()) :
+        getNullPtr()
+    }
   );
 }
 
@@ -342,27 +348,61 @@ LLConstant *ObjcIvar::info() {
 //      CLASS-LIKES
 //
 
-void ObjcClasslike::onScan(bool meta) {
-  auto methods =
-    (meta && decl->objc.metaclass ) ? 
-    decl->objc.metaclass->objc.methodList : 
-    decl->objc.methodList;
-  
-  for(size_t i = 0; i < methods.length; i++) {
-    auto method = methods.ptr[i];
+void ObjcClasslike::onScan() {
+  if (auto proto = decl->isInterfaceDeclaration()) {
 
-    // Static functions are class methods.
-    if (meta && method->isStatic()) {
-      classMethods.push_back(
-        new ObjcMethod(module, objc, method)
-      );
-      continue;
+    // Interface vtable.
+    for(auto vtblentry : proto->vtbl) {
+      if (auto method = vtblentry->isFuncDeclaration()) {
+
+        // Static functions are class methods.
+        if (method->isStatic()) {
+          classMethods.push_back(
+            new ObjcMethod(module, objc, method)
+          );
+        } else {
+          instanceMethods.push_back(
+            new ObjcMethod(module, objc, method)
+          );
+        }
+      }
+    }
+  } else {
+
+    // Class funcs
+    if (auto metaclass = decl->objc.metaclass) {
+      auto metamethods = metaclass->objc.methodList;
+
+      for(size_t i = 0; i < metamethods.length; i++) {
+        auto method = metamethods.ptr[i];
+
+        // Static functions are class methods.
+        if (method->isStatic()) {
+          classMethods.push_back(
+            new ObjcMethod(module, objc, method)
+          );
+        } else {
+          instanceMethods.push_back(
+            new ObjcMethod(module, objc, method)
+          );
+        }
+      }
     }
 
-    if (!meta && !method->isStatic()) {
-      instanceMethods.push_back(
-        new ObjcMethod(module, objc, method)
-      );
+    auto methods = decl->objc.methodList;
+    for(size_t i = 0; i < methods.length; i++) {
+      auto method = methods.ptr[i];
+
+      // Static functions are class methods.
+      if (method->isStatic()) {
+        classMethods.push_back(
+          new ObjcMethod(module, objc, method)
+        );
+      } else {
+        instanceMethods.push_back(
+          new ObjcMethod(module, objc, method)
+        );
+      }
     }
   }
 }
@@ -380,7 +420,7 @@ LLConstant *ObjcClasslike::emitProtocolList() {
       if (auto ifacesym = (InterfaceDeclaration *)iface->sym) {
         if (ifacesym->classKind == ClassKind::objc) {
           if (auto proto = this->objc.getProtocolRef(ifacesym)) {
-            list.push_back(proto->ref());
+            list.push_back(proto->get());
           }
         }
       }
@@ -401,12 +441,14 @@ LLConstant *ObjcClasslike::emitMethodList(ObjcList<ObjcMethod *> &methods, bool 
   if (methods.empty())
     return nullptr;
 
+  bool isProtocol = decl->isInterfaceDeclaration();
+
   // Find out how many functions have actual bodies.
   for(size_t i = 0; i < methods.size(); i++) {
     auto method = methods[i];
 
     if (method->isOptional() == optionalMethods) {
-      auto methodInfo = method->info();
+      auto methodInfo = method->info(isProtocol);
 
       if (methodInfo)
         toAdd.push_back(methodInfo);
@@ -459,17 +501,14 @@ size_t ObjcClass::getClassFlags(const ClassDeclaration& decl) {
   return flags;
 }
 
-void ObjcClass::onScan(bool meta) {
-  ObjcClasslike::onScan(meta);
+void ObjcClass::onScan() {
+  ObjcClasslike::onScan();
 
-  if (!meta) {
-
-    // Push on all the ivars.
-    for(size_t i = 0; i < decl->fields.size(); i++) {
-      auto ivar = new ObjcIvar(module, objc, decl->fields[i]);
-      ivars.push_back(ivar);
-      ivar->get();
-    }
+  // Push on all the ivars.
+  for(size_t i = 0; i < decl->fields.size(); i++) {
+    auto ivar = new ObjcIvar(module, objc, decl->fields[i]);
+    ivars.push_back(ivar);
+    ivar->get();
   }
 }
 
@@ -577,12 +616,13 @@ void ObjcClass::emitRoTable(LLGlobalVariable *table, bool meta) {
     methodList->setInitializer(baseMethods);
   }
 
+  // Base Protocols
+  if (auto baseProtocols = emitProtocolList()) {
+    protocolList = getOrCreate(getObjcProtoListSymbol(getName(), false), baseProtocols->getType(), OBJC_SECNAME_CONST);
+    protocolList->setInitializer(baseProtocols);
+  }
+
   if (!meta) {
-    // Base Protocols
-    if (auto baseProtocols = emitProtocolList()) {
-      protocolList = getOrCreate(getObjcProtoListSymbol(getName(), false), baseProtocols->getType(), OBJC_SECNAME_CONST);
-      protocolList->setInitializer(baseProtocols);
-    }
 
     // Instance variables
     if (auto baseIvars = emitIvarList()) {
@@ -664,7 +704,7 @@ LLConstant *ObjcClass::emit() {
 
   // Emit their structure.
   this->emitName();
-  this->emitTable(classTable, metaClassTable, getSuper(classTable), classRoTable);
+  this->emitTable(classTable, metaClassTable, getSuper(false), classRoTable);
   this->emitTable(metaClassTable, getRootMetaClass(), getSuper(true), metaClassRoTable);
   this->emitRoTable(classRoTable, false);
   this->emitRoTable(metaClassRoTable, true);
@@ -763,8 +803,8 @@ LLConstant *ObjcProtocol::emitTable() {
   auto allocSize = getTypeAllocSize(protoType);
 
   members.push_back(getNullPtr());                    // isa
-  members.push_back(wrapNull(protocolList));          // protocols
   members.push_back(this->emitName());                // mangledName
+  members.push_back(wrapNull(protocolList));          // protocols
   members.push_back(wrapNull(instanceMethodList));    // instanceMethods
   members.push_back(wrapNull(classMethodList));       // classMethods
   members.push_back(wrapNull(optInstanceMethodList)); // optionalInstanceMethods
@@ -795,7 +835,7 @@ LLConstant *ObjcProtocol::emit() {
   protocolTable = getOrCreateWeak(protoName, protoTableConst->getType(), OBJC_SECNAME_DATA);
   protocolTable->setInitializer(protoTableConst);
 
-  protoref = getOrCreateWeak(protoLabel, getOpaquePtrType(), OBJC_SECNAME_PROTOREFS);
+  protoref = getOrCreateWeak(protoLabel, getOpaquePtrType(), OBJC_SECNAME_PROTOLIST);
   protoref->setInitializer(protocolTable);
 
   this->retain(protocolTable);

@@ -178,7 +178,7 @@ public:
 
   // Emits the constant struct containing the method
   // information.
-  LLConstant *info();
+  LLConstant *info(bool emitExtern=false);
 
   // Gets the selector for the function
   LLStringRef getSelector() {
@@ -291,10 +291,8 @@ public:
   // Scans the class-like object and fills out internal information
   // about functions, ivars, etc.
   void scan() {
-    if (!hasScanned) {
-      onScan(true);
-      onScan(false);
-    }
+    if (!hasScanned)
+      onScan();
     
     hasScanned = true;
   }
@@ -303,7 +301,7 @@ protected:
   LLGlobalVariable *emitName();
   
   // Implement this to modify scanning behaviour.
-  virtual void onScan(bool meta);
+  virtual void onScan();
 
   // Emits a method list as a constant.
   LLConstant *emitMethodList(std::vector<ObjcMethod *> &methods, bool optionalMethods=false);
@@ -494,7 +492,7 @@ protected:
   // Called to emit the object.
   LLConstant *emit() override;
 
-  void onScan(bool meta) override;
+  void onScan() override;
 
 private:
   ObjcList<ObjcIvar *> ivars;
