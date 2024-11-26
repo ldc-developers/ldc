@@ -23,7 +23,10 @@ temp_dir="$(mktemp -d)"
 cd "$temp_dir"
 
 # generate message-filters.txt file for replacing GitHub refs in commit messages
-echo 'regex:(^|\s|\()#(\d{2,})==>\1dlang/dmd!\2' > message-filters.txt
+cat > message-filters.txt <<'EOF'
+regex:(^|\s|\()#(\d{2,})==>\1dlang/dmd!\2
+(cherry picked from commit 88d1e8fc37428b873f59d87f8dff1f40fbd3e7a3)==>(cherry picked from commit 8b9b481a322bdcbfdad38ba4ad74182742aef118)
+EOF
 
 # clone DMD monorepo
 git clone git@github.com:dlang/dmd.git dmd.tmp
@@ -104,7 +107,7 @@ if [[ "$initialize" != 1 ]]; then
 fi
 
 # push prefixed master/stable branches and tags
-git push --tags ldc "${refs_prefix}master" "${refs_prefix}stable"
+git push --tags --atomic ldc "${refs_prefix}master" "${refs_prefix}stable"
 
 cd ../..
 rm -rf "$temp_dir"
