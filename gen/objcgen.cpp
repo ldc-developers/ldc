@@ -719,6 +719,7 @@ LLConstant *ObjcProtocol::emitTable() {
   
   auto protoType = getObjcProtocolType(module);
   auto allocSize = getTypeAllocSize(protoType);
+
   members.push_back(getNullPtr());                    // isa
   members.push_back(wrapNull(protocolList));          // protocols
   members.push_back(this->emitName());                // mangledName
@@ -730,9 +731,9 @@ LLConstant *ObjcProtocol::emitTable() {
   members.push_back(DtoConstUint(allocSize));         // size
   members.push_back(DtoConstUint(0));                 // flags
   
-  return LLConstantStruct::get(
-    protoType,
-    members
+  return LLConstantStruct::getAnon(
+    members,
+    true
   );
 }
 
