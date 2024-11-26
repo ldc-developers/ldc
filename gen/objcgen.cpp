@@ -280,9 +280,9 @@ LLConstant *ObjcMethod::info(bool emitExtern) {
   if (!emitExtern && !decl->fbody)
     return nullptr;
 
-  return LLConstantStruct::get(
-    ObjcMethod::getObjcMethodType(module),
-    { name, type, llfunc }
+  return LLConstantStruct::getAnon(
+    { name, type, llfunc },
+    true
   );
 }
 
