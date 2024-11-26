@@ -94,10 +94,9 @@ std::string getObjcSymbolName(const char *dsymPrefix, const char *dsymName);
 // LLVM module.
 class ObjcObject {
 public:
-  ObjcObject(llvm::Module &module, ObjCState &objc) : module(module), objc(objc) { }
-
-  // Whether the object is used.
-  bool isUsed;
+  ObjcObject(llvm::Module &module, ObjCState &objc) : module(module), objc(objc) {
+    this->emit();
+  }
 
   // Gets a reference to the object in the module.
   virtual LLConstant *get() { return nullptr; }
@@ -154,7 +153,7 @@ public:
   FuncDeclaration *decl;
 
   ObjcMethod(llvm::Module &module, ObjCState &objc, FuncDeclaration *decl) : 
-    ObjcObject(module, objc), decl(decl) { }
+    ObjcObject(module, objc), decl(decl) { this->emit(); }
 
   // Gets the main reference to the object.
   LLConstant *get() override;
@@ -209,7 +208,7 @@ public:
   VarDeclaration *decl;
 
   ObjcIvar(llvm::Module &module, ObjCState &objc, VarDeclaration *decl) : 
-    ObjcObject(module, objc), decl(decl) { }
+    ObjcObject(module, objc), decl(decl) { this->emit(); }
 
   // Gets the type for an Objective-C ivar_t struct. 
   static LLStructType *getObjcIvarType(const llvm::Module& module) {
@@ -232,19 +231,11 @@ public:
   }
 
   LLConstant *getOffset() {
-    isUsed = true;
-    if (!name)
-      emit();
-    
     return offset;
   }
 
   // Gets the main reference to the object.
   LLConstant *get() override {
-    isUsed = true;
-    if (!name)
-      emit();
-    
     return name;
   }
 
@@ -269,7 +260,7 @@ public:
   ClassDeclaration *decl;
 
   ObjcClasslike(llvm::Module &module, ObjCState &objc, ClassDeclaration *decl) : 
-    ObjcObject(module, objc), decl(decl) { }
+    ObjcObject(module, objc), decl(decl) { this->emit(); }
   
   const char *getName() override;
 
@@ -322,7 +313,7 @@ private:
 class ObjcProtocol : public ObjcClasslike {
 public:
   ObjcProtocol(llvm::Module &module, ObjCState &objc, ClassDeclaration *decl) : 
-    ObjcClasslike(module, objc, decl) { }
+    ObjcClasslike(module, objc, decl) { this->emit(); }
 
   // Gets the type of an Objective-C class_t struct
   static LLStructType *getObjcProtocolType(const llvm::Module& module) {
@@ -359,10 +350,6 @@ public:
 
   // Gets the main reference to the object.
   LLConstant *get() override {
-    isUsed = true;
-    if (!protocolTable)
-      emit();
-    
     return protocolTable;
   }
 
@@ -389,7 +376,7 @@ private:
 class ObjcClass : public ObjcClasslike {
 public:
   ObjcClass(llvm::Module &module, ObjCState &objc, ClassDeclaration *decl) : 
-    ObjcClasslike(module, objc, decl) { }
+    ObjcClasslike(module, objc, decl) { this->emit(); }
 
   // Gets objective-c the flags for the class declaration
   static size_t getClassFlags(const ClassDeclaration& decl);

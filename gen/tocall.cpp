@@ -758,7 +758,7 @@ private:
       } else {
 
         // ... or a normal 'this' argument
-        args.push_back(dfnval->vthis);
+        args.push_back(DtoBitCast(dfnval->vthis, argtype));
       }
     } else if (isDelegateCall) {
       // ... or a delegate context arg
@@ -795,8 +795,6 @@ private:
       assert(dfnval);
 
       auto method = gIR->objc.getMethodRef(dfnval->func);
-      assert(method);
-      
       auto methodptr = method->get();
       args.push_back(DtoLoad(methodptr->getType(), methodptr));
     }

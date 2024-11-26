@@ -274,9 +274,6 @@ LLConstant *ObjcMethod::emit() {
 
 // Implements the objc_method structure
 LLConstant *ObjcMethod::info(bool emitExtern) {
-  if (!name)
-    emit();
-
   if (!emitExtern && !decl->fbody)
     return nullptr;
 
@@ -287,10 +284,6 @@ LLConstant *ObjcMethod::info(bool emitExtern) {
 }
 
 LLConstant *ObjcMethod::get() {
-  isUsed = true;
-  if (!name)
-    emit();
-  
   return selref;
 }
 
@@ -326,7 +319,6 @@ LLConstant *ObjcIvar::emit() {
 // Implements the objc_method structure
 LLConstant *ObjcIvar::info() {
   LLConstantList members;
-  this->get();
 
   members.push_back(offset);
   members.push_back(name);
@@ -710,11 +702,6 @@ LLConstant *ObjcClass::ref() {
 }
 
 LLConstant *ObjcClass::get() {
-  isUsed = true;
-
-  if (!classTable)
-    return emit();
-
   return classTable;
 }
 
