@@ -862,7 +862,7 @@ ObjcMethod *ObjCState::getMethodRef(ClassDeclaration *cd, FuncDeclaration *fd) {
       if (!method && id->baseClass) {
         method = getMethodRef(id->baseClass, fd);
       }
-      return proto->getMethod(fd);
+      return method;
     }
   }
 
@@ -883,11 +883,10 @@ ObjcMethod *ObjCState::getMethodRef(ClassDeclaration *cd, FuncDeclaration *fd) {
 }
 
 ObjcMethod *ObjCState::getMethodRef(FuncDeclaration *fd) {
-  if (auto cd = fd->parent->isClassDeclaration())
-    return getMethodRef(cd, fd);
-
-  if (auto id = fd->parent->isInterfaceDeclaration())
-    return getMethodRef(id, fd);
+  if (auto cd = fd->parent->isClassDeclaration()) {
+    if (auto retval = getMethodRef(cd, fd))
+      return retval;
+  }
 
   return nullptr;
 }
