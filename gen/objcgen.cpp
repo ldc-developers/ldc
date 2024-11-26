@@ -277,14 +277,13 @@ LLConstant *ObjcMethod::info(bool emitExtern) {
   if (!emitExtern && !decl->fbody)
     return nullptr;
 
-  auto func = DtoCallee(decl);
   return LLConstantStruct::get(
     ObjcMethod::getObjcMethodType(module),
     { 
       name, 
       type, 
       decl->fbody ?
-        DtoBitCast(func, getOpaquePtrType()) :
+        DtoBitCast(DtoCallee(decl), getOpaquePtrType()) :
         getNullPtr()
     }
   );
