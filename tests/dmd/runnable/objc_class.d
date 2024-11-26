@@ -1,5 +1,5 @@
 // EXTRA_OBJC_SOURCES: objc_class.m
-// REQUIRED_ARGS: -L-framework -LFoundation
+// REQUIRED_ARGS: -L-framework -LFoundation -L-w
 
 import core.attribute : selector;
 

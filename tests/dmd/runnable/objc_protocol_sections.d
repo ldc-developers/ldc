@@ -1,5 +1,5 @@
 // EXTRA_OBJC_SOURCES:
-// REQUIRED_ARGS: -L-lobjc
+// REQUIRED_ARGS: -L-lobjc -L-w
 
 // This file verifies that Objective-C protocols are put in the correct segments
 // and sections in the binary. If not, functions from the Objective-C runtime
