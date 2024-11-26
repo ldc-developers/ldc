@@ -313,7 +313,10 @@ private:
 class ObjcProtocol : public ObjcClasslike {
 public:
   ObjcProtocol(llvm::Module &module, ObjCState &objc, ClassDeclaration *decl) : 
-    ObjcClasslike(module, objc, decl) { this->emit(); }
+    ObjcClasslike(module, objc, decl) { 
+      this->emit();
+      this->scan();
+    }
 
   // Gets the type of an Objective-C class_t struct
   static LLStructType *getObjcProtocolType(const llvm::Module& module) {
@@ -376,7 +379,10 @@ private:
 class ObjcClass : public ObjcClasslike {
 public:
   ObjcClass(llvm::Module &module, ObjCState &objc, ClassDeclaration *decl) : 
-    ObjcClasslike(module, objc, decl) { this->emit(); }
+    ObjcClasslike(module, objc, decl) { 
+      this->emit();
+      this->scan();
+    }
 
   // Gets objective-c the flags for the class declaration
   static size_t getClassFlags(const ClassDeclaration& decl);

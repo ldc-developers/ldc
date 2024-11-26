@@ -132,7 +132,7 @@ std::string getObjcClassSymbol(const char *name, bool meta) {
 }
 
 std::string getObjcClassLabelSymbol(const char *name) {
-  return getObjcSymbolName("_OBJC_LABEL_CLASS_$_", name);
+  return getObjcSymbolName("OBJC_LABEL_CLASS_$_", name);
 }
 
 std::string getObjcClassMethodListSymbol(const char *className, bool meta) {
@@ -636,7 +636,6 @@ LLConstant *ObjcClass::emit() {
 
   // Extern classes only need non-ro refs.
   if (decl->objc.isExtern) {
-    this->scan();
 
     classTable = makeGlobal(className, ObjcClass::getObjcClassType(module), "", true, false);
     metaClassTable = makeGlobal(metaName, ObjcClass::getObjcClassType(module), "", true, false);
@@ -649,8 +648,10 @@ LLConstant *ObjcClass::emit() {
     }
 
     // Still emit classref
-    classref = getOrCreateWeak(getObjcClassLabelSymbol(name), getOpaquePtrType(), OBJC_SECNAME_CLASSREFS);
-    classref->setInitializer(classTable);
+    classref = makeGlobalRef(classTable, "OBJC_CLASSLIST_REFERENCES_$_", OBJC_SECNAME_CLASSREFS, false, true);
+    this->retain(classref);
+    this->retain(metaClassTable);
+    this->retain(classTable);
     return classTable;
   }
 
@@ -664,10 +665,7 @@ LLConstant *ObjcClass::emit() {
   classRoTable = getOrCreate(classNameRo, ObjcClass::getObjcClassRoType(module), OBJC_SECNAME_CONST);
   metaClassRoTable = getOrCreate(metaNameRo, ObjcClass::getObjcClassRoType(module), OBJC_SECNAME_CONST);
 
-
-  classref = getOrCreateWeak(getObjcClassLabelSymbol(name), getOpaquePtrType(), OBJC_SECNAME_CLASSREFS);
-  classref->setInitializer(classTable);
-
+  classref = makeGlobalRef(classTable, "OBJC_CLASSLIST_REFERENCES_$_", OBJC_SECNAME_CLASSREFS, false, true);
   this->scan();
 
   // Emit their structure.
@@ -862,7 +860,6 @@ ObjcProtocol *ObjCState::getProtocolRef(InterfaceDeclaration *id) {
 ObjcMethod *ObjCState::getMethodRef(ClassDeclaration *cd, FuncDeclaration *fd) {
   if (auto id = cd->isInterfaceDeclaration()) {
     if (auto proto = getProtocolRef(id)) {
-      proto->scan();
 
       // Attempt to get the method, if not found
       // try the parent.
@@ -878,7 +875,6 @@ ObjcMethod *ObjCState::getMethodRef(ClassDeclaration *cd, FuncDeclaration *fd) {
       return method;
     }
   } else if (auto klass = getClassRef(cd)) {
-    klass->scan();
 
     // Attempt to get the method, if not found
     // try the parent.
