@@ -712,6 +712,7 @@ private:
       return;
 
     size_t index = args.size();
+    auto argtype = *(llArgTypesBegin + index);
 
     if (dfnval && (dfnval->func->ident == Id::ensure ||
                    dfnval->func->ident == Id::require)) {
@@ -740,10 +741,12 @@ private:
         if (auto parentfd = dfnval->func->isFuncDeclaration()) {
           if (auto cls = parentfd->parent->isClassDeclaration()) {
 
+            // Cast the "this" pointer to the arg type.
+
             // Create obj_super struct with (this, <class ref>)
             auto obj_super = DtoAggrPair(
-              dfnval->vthis,
-              gIR->objc.getClassRef(cls)->ref(),
+              DtoBitCast(dfnval->vthis, argtype),
+              DtoLoad(getOpaquePtrType(), gIR->objc.getClassRef(cls)->ref()),
               "super"
             );
 
