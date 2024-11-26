@@ -334,20 +334,22 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    // Protocols
+    auto loadtype = DtoType(e->type);
+
     if (auto iface = e->classDeclaration->isInterfaceDeclaration()) {
 
-      auto proto = gIR->objc.getProtocolRef(iface);
-      auto loaded = proto->get();
-      result = new DImValue(e->type, loaded);
-      return;
-    }
+      // Protocols
+      if (auto proto = gIR->objc.getProtocolRef(iface)) {
+        result = new DImValue(e->type, proto->ref(loadtype));
+        return;
+      }
+    } else {
 
-    // Classes
-    if (auto klass = gIR->objc.getClassRef(e->classDeclaration)) {
-      auto loaded = klass->ref();
-      result = new DImValue(e->type, loaded);
-      return;
+      // Classes
+      if (auto klass = gIR->objc.getClassRef(e->classDeclaration)) {
+        result = new DImValue(e->type, klass->ref(loadtype));
+        return;
+      }
     }
 
     llvm_unreachable("Unknown type for ObjcClassReferenceExp.");

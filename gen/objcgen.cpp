@@ -131,6 +131,10 @@ std::string getObjcClassSymbol(const char *name, bool meta) {
   return getObjcSymbolName(meta ? "OBJC_METACLASS_$_" : "OBJC_CLASS_$_", name);
 }
 
+std::string getObjcClassLabelSymbol(const char *name) {
+  return getObjcSymbolName("_OBJC_LABEL_CLASS_$_", name);
+}
+
 std::string getObjcClassMethodListSymbol(const char *className, bool meta) {
   return getObjcSymbolName(meta ? "_OBJC_$_CLASS_METHODS_" : "_OBJC_$_INSTANCE_METHODS_", className);
 }
@@ -636,6 +640,9 @@ LLConstant *ObjcClass::emit() {
       this->retain(ivarList);
     }
 
+    // Still emit classref
+    classref = getOrCreateWeak(getObjcClassLabelSymbol(name), getOpaquePtrType(), OBJC_SECNAME_CLASSREFS);
+    classref->setInitializer(classTable);
     return classTable;
   }
 
@@ -648,6 +655,10 @@ LLConstant *ObjcClass::emit() {
   metaClassTable = getOrCreate(metaName, ObjcClass::getObjcClassType(module), OBJC_SECNAME_DATA);
   classRoTable = getOrCreate(classNameRo, ObjcClass::getObjcClassRoType(module), OBJC_SECNAME_CONST);
   metaClassRoTable = getOrCreate(metaNameRo, ObjcClass::getObjcClassRoType(module), OBJC_SECNAME_CONST);
+
+
+  classref = getOrCreateWeak(getObjcClassLabelSymbol(name), getOpaquePtrType(), OBJC_SECNAME_CLASSREFS);
+  classref->setInitializer(classTable);
 
   this->scan();
 
@@ -662,20 +673,24 @@ LLConstant *ObjcClass::emit() {
   this->retain(metaClassTable);
   this->retain(classRoTable);
   this->retain(metaClassRoTable);
+  this->retain(classref);
   return classTable;
 }
 
-LLValue *ObjcClass::deref(LLValue *classptr) {
+LLValue *ObjcClass::deref(LLValue *classptr, LLType *as) {
   if (decl->objc.isExtern && decl->objc.isSwiftStub) {
     auto loadClassFunc = getRuntimeFunction(decl->loc, module, "objc_loadClassRef");
-    return gIR->CreateCallOrInvoke(loadClassFunc, classptr, "");
+    return DtoBitCast(
+      gIR->CreateCallOrInvoke(loadClassFunc, classptr, ""),
+      as
+    );
   }
 
-  return classptr;
+  return DtoLoad(as, classptr);
 }
 
-LLValue *ObjcClass::ref() {
-  return deref(classTable);
+LLValue *ObjcClass::ref(LLType *as) {
+  return deref(classref, as);
 }
 
 LLConstant *ObjcClass::get() {
@@ -788,6 +803,9 @@ LLConstant *ObjcProtocol::emit() {
   return protocolTable;
 }
 
+LLValue *ObjcProtocol::ref(LLType *as) { 
+  return DtoLoad(as, protoref);
+}
 
 //
 //    STATE

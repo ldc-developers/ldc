@@ -365,9 +365,9 @@ DValue *DtoDynamicCastObject(const Loc &loc, DValue *val, Type *_to) {
     LLValue *objTy = getNullPtr();
     if (auto chndl = _to->isClassHandle()) {
       if (auto ihndl = chndl->isInterfaceDeclaration())
-        objTy = gIR->objc.getProtocolRef(ihndl)->ref();
+        objTy = gIR->objc.getProtocolRef(ihndl)->ref(getOpaquePtrType());
       else
-        objTy = gIR->objc.getClassRef(chndl)->ref();
+        objTy = gIR->objc.getClassRef(chndl)->ref(getOpaquePtrType());
     }
 
     // objc_opt_isKindOfClass will check if id is null
@@ -427,7 +427,7 @@ DValue *DtoDynamicCastInterface(const Loc &loc, DValue *val, Type *_to) {
     // Get prototype_t handle
     LLValue *protoTy = getNullPtr();
     if (auto ifhndl = _to->isClassHandle()->isInterfaceDeclaration()) {
-      protoTy = gIR->objc.getProtocolRef(ifhndl)->ref();
+      protoTy = gIR->objc.getProtocolRef(ifhndl)->ref(getOpaquePtrType());
     }
 
     // Class && kindOfProtocolFunc(Class) ? id : null

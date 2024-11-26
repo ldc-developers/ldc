@@ -80,6 +80,7 @@ bool objc_isSupported(const llvm::Triple &triple);
 // Generate name strings
 std::string getObjcClassRoSymbol(const char *name, bool meta);
 std::string getObjcClassSymbol(const char *name, bool meta);
+std::string getObjcClassLabelSymbol(const char *name);
 std::string getObjcClassMethodListSymbol(const char *className, bool meta);
 std::string getObjcIvarListSymbol(const char *className);
 std::string getObjcIvarSymbol(const char *className, const char *varName);
@@ -367,7 +368,7 @@ public:
   }
 
   // Gets the protocol ref.
-  LLConstant *ref() { return protoref; }
+  LLValue *ref(LLType *as);
 
 protected:
 
@@ -471,7 +472,7 @@ public:
   LLGlobalVariable *getIVarOffset(VarDeclaration *vd);
 
   // Gets a reference to the class.
-  LLValue *ref();
+  LLValue *ref(LLType *as);
 
   // Gets the main reference to the object.
   LLConstant *get() override;
@@ -502,7 +503,7 @@ private:
   // instance variables
   LLConstant *emitIvarList();
 
-  LLValue *deref(LLValue *classptr);
+  LLValue *deref(LLValue *classptr, LLType *as);
 
   // Gets the empty cache variable, and creates a reference to it
   // if needed.
@@ -513,6 +514,7 @@ private:
     return objcCache;
   }
   
+  LLGlobalVariable *classref;
   LLGlobalVariable *classTable;
   LLGlobalVariable *classRoTable;
   LLGlobalVariable *metaClassTable;
