@@ -741,8 +741,6 @@ private:
         if (auto parentfd = dfnval->func->isFuncDeclaration()) {
           if (auto cls = parentfd->parent->isClassDeclaration()) {
 
-            // Cast the "this" pointer to the arg type.
-
             // Create obj_super struct with (this, <class ref>)
             auto obj_super = DtoAggrPair(
               DtoBitCast(dfnval->vthis, argtype),

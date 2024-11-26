@@ -859,21 +859,29 @@ ObjcMethod *ObjCState::getMethodRef(ClassDeclaration *cd, FuncDeclaration *fd) {
       // Attempt to get the method, if not found
       // try the parent.
       auto method = proto->getMethod(fd);
-      if (!method && id->baseClass) {
-        method = getMethodRef(id->baseClass, fd);
+      if (!method) {
+        for (auto baseclass : *id->baseclasses) {
+          method = getMethodRef(baseclass->sym, fd);
+
+          if (method)
+            break;
+        }
       }
       return method;
     }
-  }
-
-  if (auto klass = getClassRef(cd)) {
+  } else if (auto klass = getClassRef(cd)) {
     klass->scan();
 
     // Attempt to get the method, if not found
     // try the parent.
     auto method = klass->getMethod(fd);
-    if (!method && cd->baseClass) {
-      method = getMethodRef(cd->baseClass, fd);
+    if (!method) {
+      for (auto baseclass : *id->baseclasses) {
+        method = getMethodRef(baseclass->sym, fd);
+
+        if (method)
+          break;
+      }
     }
 
     return method;
