@@ -9,36 +9,26 @@ commonSteps: &commonSteps
           if [ "$CI_OS" = "linux" ]; then
             export DEBIAN_FRONTEND=noninteractive
             if [[ "${EXTRA_CMAKE_FLAGS:-}" = *-DMULTILIB?ON* ]]; then
-              dpkg --add-architecture i386
+              sudo dpkg --add-architecture i386
               gcc_pkg="g++-multilib"
-              libcurl_pkg="libcurl4 libcurl4:i386"
+              libcurl_pkg="libcurl4t64 libcurl4t64:i386"
             else
               gcc_pkg="g++"
-              libcurl_pkg="libcurl4"
+              libcurl_pkg="libcurl4t64"
             fi
-            apt-get -q update
-            apt-get -yq install \
-              git-core $gcc_pkg \
-              zlib1g-dev $libcurl_pkg curl gdb python3 python3-pip tzdata unzip zip \
-              software-properties-common gnupg \
+            sudo apt-get -q update
+            sudo apt-get -yq install \
+              git-core $gcc_pkg cmake \
+              llvm-$LLVM_MAJOR-dev libclang-common-$LLVM_MAJOR-dev zlib1g-dev \
+              $libcurl_pkg curl gdb python3 python3-pip tzdata unzip zip \
               ${EXTRA_APT_PACKAGES:-}
-            # set up apt.llvm.org repo for being able to install more recent LLVM versions than provided by the distro
-            curl -fsS https://apt.llvm.org/llvm-snapshot.gpg.key | tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
-            add-apt-repository -y "deb http://apt.llvm.org/focal/ llvm-toolchain-focal-$LLVM_MAJOR main"
-            apt-get -q update
-            apt-get -yq install llvm-$LLVM_MAJOR-dev libclang-common-$LLVM_MAJOR-dev
-            # Download & extract CMake
-            curl -fL --retry 3 --max-time 300 -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.27.1/cmake-3.27.1-linux-x86_64.tar.gz
-            mkdir cmake
-            tar -xf cmake.tar.gz --strip 1 -C cmake
-            rm cmake.tar.gz
             # Download & extract Ninja
             curl -fL --retry 3 --max-time 60 -O https://github.com/symmetryinvestments/ninja/releases/download/v1.11.1-sym1/ninja-linux.zip
             mkdir ninja
             unzip ninja-linux.zip -d ninja
             rm ninja-linux.zip
-            # Add CMake and Ninja to PATH for future steps
-            echo "export PATH=$PWD/cmake/bin:$PWD/ninja:$PATH" >> $BASH_ENV
+            # Add Ninja to PATH for future steps
+            echo "export PATH=$PWD/ninja:\$PATH" >> $BASH_ENV
           fi
           # Install lit
           python3 --version
@@ -78,17 +68,18 @@ commonSteps: &commonSteps
     - run:
         name: Run LIT testsuite
         when: always
-        command: cd ../build/tests && python3 runlit.py -v -j $PARALLELISM .
+        command: |
+          set -ux
+          if [ "$CI_OS" = "linux" ]; then
+            # FIXME: lsan_interceptors.cpp:82 "((!lsan_init_is_running)) != (0)"
+            rm tests/sanitizers/lsan_memleak.d
+          fi
+          cd ../build/tests
+          python3 runlit.py -v -j $PARALLELISM .
     - run:
         name: Run DMD testsuite
         when: always
-        command: |
-          cd ../build
-          if [ "$CI_OS" = "linux" ]; then
-            # Circle's RAM disk FS apparently doesn't allow long paths.
-            rm ../project/tests/dmd/compilable/issue17167.sh
-          fi
-          DMD_TESTSUITE_MAKE_ARGS=-j$PARALLELISM ctest -V -R dmd-testsuite
+        command: cd ../build && DMD_TESTSUITE_MAKE_ARGS=-j$PARALLELISM ctest -V -R dmd-testsuite
     - run:
         name: Run defaultlib unittests & druntime integration tests
         when: always
@@ -96,26 +87,26 @@ commonSteps: &commonSteps
 
 version: 2
 jobs:
-  Ubuntu-20.04-multilib-rtSanitizers:
+  Ubuntu-24.04-multilib-rtSanitizers:
     <<: *commonSteps
-    docker:
-      - image: ubuntu:20.04
+    machine:
+      image: ubuntu-2404:current
     resource_class: large
     environment:
       - PARALLELISM: 4
       - CI_OS: linux
-      - LLVM_MAJOR: 15
-      - HOST_LDC_VERSION: 1.24.0
+      - LLVM_MAJOR: 18
+      - HOST_LDC_VERSION: 1.39.0
       - EXTRA_CMAKE_FLAGS: "-DMULTILIB=ON -DRT_SUPPORT_SANITIZERS=ON -DBUILD_LTO_LIBS=ON"
-  Ubuntu-20.04-sharedLibsOnly-gdmd:
+  Ubuntu-24.04-sharedLibsOnly-gdmd:
     <<: *commonSteps
-    docker:
-      - image: ubuntu:20.04
+    machine:
+      image: ubuntu-2404:current
     resource_class: large
     environment:
       - PARALLELISM: 4
       - CI_OS: linux
-      - LLVM_MAJOR: 15
+      - LLVM_MAJOR: 18
       - EXTRA_APT_PACKAGES: gdmd
       - EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
 
@@ -123,5 +114,5 @@ workflows:
   version: 2
   build:
     jobs:
-      - Ubuntu-20.04-multilib-rtSanitizers
-      - Ubuntu-20.04-sharedLibsOnly-gdmd
+      - Ubuntu-24.04-multilib-rtSanitizers
+      - Ubuntu-24.04-sharedLibsOnly-gdmd

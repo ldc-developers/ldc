@@ -97,7 +97,8 @@ void main()
 // CHECK: type = print_gdb.eA
 // GDB: whatis print_gdb.eA
 // CHECK: type = print_gdb.eA
-// GDB: p b_Glob
+// note: `b_Glob` worked with gdb v9; gdb v15 requires a fully qualified name
+// GDB: p inputs.import_b.b_Glob
 // CHECK: = 99.8
 
     cC clsC = new cC;
@@ -106,7 +107,7 @@ void main()
     clsC.mixedVal++;
 
         // BP
-// GDB: b print_gdb.d:109
+// GDB: b print_gdb.d:110
 // GDB: c
 // GDB: p *clsC
 // GDB: p clsC.classMemberFunc(6)
@@ -123,7 +124,7 @@ void main()
     templatedStruct!float tsF;
 
     // BP
-// GDB: b print_gdb.d:126
+// GDB: b print_gdb.d:127
 // GDB: c
 // GDB: whatis tsF
 // CHECK: type = print_gdb.templatedStruct
