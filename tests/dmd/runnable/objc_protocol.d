@@ -1,4 +1,3 @@
-// DISABLED: LDC
 // EXTRA_OBJC_SOURCES: objc_protocol.m
 // REQUIRED_ARGS: -L-lobjc
 
