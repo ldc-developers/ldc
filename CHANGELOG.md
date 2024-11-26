@@ -2,19 +2,21 @@
 
 #### Big news
 - Frontend, druntime and Phobos are at version [2.110.0](https://dlang.org/changelog/2.110.0.html). (#4707, #4737, #4749, #4768, #4784)
-- LLVM for prebuilt packages bumped to v18.1.8 (incl. macOS arm64). (#4712)
-- Android: NDK for prebuilt package bumped from r26d to r27. (#4711)
+- Support for [LLVM 19](https://releases.llvm.org/19.1.0/docs/ReleaseNotes.html); LLVM for prebuilt packages bumped to v19.1.3 (incl. macOS arm64). (#4712, #4735, #4763, #4772)
+- Android: NDK for prebuilt package bumped from r26d to r27c. (#4711, #4772)
 - ldc2.conf: %%ldcconfigpath%% placeholder added - specifies the directory where current configuration file is located. (#4717)
 - Add support for building against a system copy of zlib through `-DPHOBOS_SYSTEM_ZLIB=ON`. (#4742)
 - Emscripten: The compiler now mimicks a musl Linux platform wrt. extra predefined versions (`linux`, `Posix`, `CRuntime_Musl`, `CppRuntime_LLVM`). (#4750)
 
 #### Platform support
+- Supports LLVM 15 - 19.
 
 #### Bug fixes
 - Fix potentially corrupt IR layouts for bit fields. (#4646, #4708)
 - Fix potentially corrupt IR layouts for explicitly under-aligned aggregates, a regression introduced in LDC v1.31. (#4734, #4736)
 - ELF: Emit (most) instantiated symbols in COMDATs for proper link-time culling. (#3589, #4748)
 - Support scalar right-hand-sides when bit-shifting vectors. (#3606, #4781)
+- Fix LLVM data layout for the SPIR-V target used in D-Compute on LLVM 19+. (#4772)
 
 # LDC 1.39.0 (2024-07-04)
 
