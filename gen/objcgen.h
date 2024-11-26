@@ -368,7 +368,10 @@ public:
   }
 
   // Gets the protocol ref.
-  LLValue *ref(LLType *as);
+  LLConstant *ref();
+
+  // Gets the protocol ref.
+  LLValue *deref(LLType *as);
 
 protected:
 
@@ -471,8 +474,11 @@ public:
 
   LLGlobalVariable *getIVarOffset(VarDeclaration *vd);
 
-  // Gets a reference to the class.
-  LLValue *ref(LLType *as);
+  // Gets the class ref.
+  LLConstant *ref();
+
+  // Dereferences the class.
+  LLValue *deref(LLType *as);
 
   // Gets the main reference to the object.
   LLConstant *get() override;
@@ -502,8 +508,6 @@ private:
 
   // instance variables
   LLConstant *emitIvarList();
-
-  LLValue *deref(LLValue *classptr, LLType *as);
 
   // Gets the empty cache variable, and creates a reference to it
   // if needed.

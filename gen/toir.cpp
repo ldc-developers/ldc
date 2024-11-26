@@ -340,14 +340,14 @@ public:
 
       // Protocols
       if (auto proto = gIR->objc.getProtocolRef(iface)) {
-        result = new DImValue(e->type, proto->ref(loadtype));
+        result = new DImValue(e->type, proto->deref(loadtype));
         return;
       }
     } else {
 
       // Classes
       if (auto klass = gIR->objc.getClassRef(e->classDeclaration)) {
-        result = new DImValue(e->type, klass->ref(loadtype));
+        result = new DImValue(e->type, klass->deref(loadtype));
         return;
       }
     }

@@ -380,7 +380,7 @@ LLConstant *ObjcClasslike::emitProtocolList() {
       if (auto ifacesym = (InterfaceDeclaration *)iface->sym) {
         if (ifacesym->classKind == ClassKind::objc) {
           if (auto proto = this->objc.getProtocolRef(ifacesym)) {
-            list.push_back(proto->get());
+            list.push_back(proto->ref());
           }
         }
       }
@@ -677,20 +677,20 @@ LLConstant *ObjcClass::emit() {
   return classTable;
 }
 
-LLValue *ObjcClass::deref(LLValue *classptr, LLType *as) {
+LLValue *ObjcClass::deref(LLType *as) {
   if (decl->objc.isExtern && decl->objc.isSwiftStub) {
     auto loadClassFunc = getRuntimeFunction(decl->loc, module, "objc_loadClassRef");
     return DtoBitCast(
-      gIR->CreateCallOrInvoke(loadClassFunc, classptr, ""),
+      gIR->CreateCallOrInvoke(loadClassFunc, classref, ""),
       as
     );
   }
 
-  return DtoLoad(as, classptr);
+  return DtoLoad(as, classref);
 }
 
-LLValue *ObjcClass::ref(LLType *as) {
-  return deref(classref, as);
+LLConstant *ObjcClass::ref() { 
+  return classref;
 }
 
 LLConstant *ObjcClass::get() {
@@ -803,8 +803,13 @@ LLConstant *ObjcProtocol::emit() {
   return protocolTable;
 }
 
-LLValue *ObjcProtocol::ref(LLType *as) { 
+LLValue *ObjcProtocol::deref(LLType *as) { 
   return DtoLoad(as, protoref);
+}
+
+
+LLConstant *ObjcProtocol::ref() { 
+  return protoref;
 }
 
 //

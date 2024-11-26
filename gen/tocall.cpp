@@ -746,7 +746,7 @@ private:
             // Create obj_super struct with (this, <class ref>)
             auto obj_super = DtoAggrPair(
               DtoBitCast(dfnval->vthis, argtype),
-              gIR->objc.getClassRef(cls)->ref(getOpaquePtrType()),
+              gIR->objc.getClassRef(cls)->deref(getOpaquePtrType()),
               "super"
             );
 
