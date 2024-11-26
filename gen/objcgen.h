@@ -104,9 +104,6 @@ public:
   // Gets the name of the object.
   virtual const char *getName() { return nullptr; }
 
-  // Emits a new list for the specified objects as a constant.
-  static LLConstant *emitList(llvm::Module &module, LLConstantList objects, bool isCountPtrSized = false);
-
 protected:
 
   // Gets a global variable or creates it.
@@ -138,6 +135,13 @@ protected:
 
   // Called to emit the data for the type.
   virtual LLConstant *emit() { return nullptr; }
+
+  // Emits a new list for the specified objects as a constant.
+  static LLConstant *emitList(llvm::Module &module, LLConstantList objects, bool alignSizeT = false);
+
+  // Emits a new list for the specified objects as a constant.
+  // This list only features count and not struct size.
+  static LLConstant *emitCountList(llvm::Module &module, LLConstantList objects, bool alignSizeT = false);
 
   // Retains a symbol.
   void retain(LLGlobalVariable *toRetain);

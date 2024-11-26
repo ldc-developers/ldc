@@ -189,7 +189,7 @@ LLConstant *offsetIvar(size_t ivaroffset) {
   return DtoConstUint(getPointerSize()+ivaroffset);
 }
 
-LLConstant *ObjcObject::emitList(llvm::Module &module, LLConstantList objects, bool isCountPtrSized) {
+LLConstant *ObjcObject::emitList(llvm::Module &module, LLConstantList objects, bool alignSizeT) {
   LLConstantList members;
   
   // Emit nullptr for empty lists.
@@ -199,7 +199,7 @@ LLConstant *ObjcObject::emitList(llvm::Module &module, LLConstantList objects, b
   // Size of stored struct.
   size_t allocSize = getTypeAllocSize(objects.front()->getType());
   members.push_back(
-    isCountPtrSized ?
+    alignSizeT ?
     DtoConstSize_t(allocSize) :
     DtoConstUint(allocSize)
   );
@@ -208,6 +208,33 @@ LLConstant *ObjcObject::emitList(llvm::Module &module, LLConstantList objects, b
   members.push_back(DtoConstUint(
     objects.size()
   ));
+
+  // Insert all the objects in the constant list.
+  members.insert(
+    members.end(), 
+    objects.begin(), 
+    objects.end()
+  );
+
+  return LLConstantStruct::getAnon(
+    members,
+    true
+  );
+}
+
+LLConstant *ObjcObject::emitCountList(llvm::Module &module, LLConstantList objects, bool alignSizeT) {
+  LLConstantList members;
+  
+  // Emit nullptr for empty lists.
+  if (objects.empty())
+    return nullptr;
+
+  // Method count
+  members.push_back(
+    alignSizeT ?
+    DtoConstSize_t(objects.size()) :
+    DtoConstUint(objects.size())
+  );
 
   // Insert all the objects in the constant list.
   members.insert(
@@ -356,7 +383,7 @@ LLConstant *ObjcClasslike::emitProtocolList() {
     }
   }
 
-  return ObjcObject::emitList(
+  return ObjcObject::emitCountList(
     module,
     list,
     true
