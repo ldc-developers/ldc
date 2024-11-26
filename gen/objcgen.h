@@ -200,6 +200,7 @@ private:
   LLGlobalVariable *selref;
   LLGlobalVariable *name;
   LLGlobalVariable *type;
+  LLConstant *llfunc;
 };
 
 // ivar_t

@@ -262,6 +262,9 @@ LLConstant *ObjcMethod::emit() {
   name = makeGlobalStr(getSelector(), "OBJC_METH_VAR_NAME_", OBJC_SECNAME_METHNAME);
   type = makeGlobalStr(getTypeEncoding(decl->type), "OBJC_METH_VAR_TYPE_", OBJC_SECNAME_METHTYPE);
   selref = makeGlobalRef(name, "OBJC_SELECTOR_REFERENCES_", OBJC_SECNAME_SELREFS, false, true);
+  llfunc = decl->fbody ? 
+    DtoBitCast(DtoCallee(decl), getOpaquePtrType()) :
+    getNullPtr();
 
   this->retain(name);
   this->retain(type);
@@ -279,13 +282,7 @@ LLConstant *ObjcMethod::info(bool emitExtern) {
 
   return LLConstantStruct::get(
     ObjcMethod::getObjcMethodType(module),
-    { 
-      name, 
-      type, 
-      decl->fbody ?
-        DtoBitCast(DtoCallee(decl), getOpaquePtrType()) :
-        getNullPtr()
-    }
+    { name, type, llfunc }
   );
 }
 
@@ -348,49 +345,13 @@ LLConstant *ObjcIvar::info() {
 //
 
 void ObjcClasslike::onScan() {
-  if (auto proto = decl->isInterfaceDeclaration()) {
 
-    // Interface vtable.
-    for(auto vtblentry : proto->vtbl) {
-      if (auto method = vtblentry->isFuncDeclaration()) {
+  // Class funcs
+  if (auto metaclass = decl->objc.metaclass) {
+    auto metamethods = metaclass->objc.methodList;
 
-        // Static functions are class methods.
-        if (method->isStatic()) {
-          classMethods.push_back(
-            new ObjcMethod(module, objc, method)
-          );
-        } else {
-          instanceMethods.push_back(
-            new ObjcMethod(module, objc, method)
-          );
-        }
-      }
-    }
-  } else {
-
-    // Class funcs
-    if (auto metaclass = decl->objc.metaclass) {
-      auto metamethods = metaclass->objc.methodList;
-
-      for(size_t i = 0; i < metamethods.length; i++) {
-        auto method = metamethods.ptr[i];
-
-        // Static functions are class methods.
-        if (method->isStatic()) {
-          classMethods.push_back(
-            new ObjcMethod(module, objc, method)
-          );
-        } else {
-          instanceMethods.push_back(
-            new ObjcMethod(module, objc, method)
-          );
-        }
-      }
-    }
-
-    auto methods = decl->objc.methodList;
-    for(size_t i = 0; i < methods.length; i++) {
-      auto method = methods.ptr[i];
+    for(size_t i = 0; i < metamethods.length; i++) {
+      auto method = metamethods.ptr[i];
 
       // Static functions are class methods.
       if (method->isStatic()) {
@@ -402,6 +363,22 @@ void ObjcClasslike::onScan() {
           new ObjcMethod(module, objc, method)
         );
       }
+    }
+  }
+
+  auto methods = decl->objc.methodList;
+  for(size_t i = 0; i < methods.length; i++) {
+    auto method = methods.ptr[i];
+
+    // Static functions are class methods.
+    if (method->isStatic()) {
+      classMethods.push_back(
+        new ObjcMethod(module, objc, method)
+      );
+    } else {
+      instanceMethods.push_back(
+        new ObjcMethod(module, objc, method)
+      );
     }
   }
 }
@@ -758,6 +735,7 @@ LLConstant *ObjcProtocol::emitTable() {
   // Base Protocols
   if (auto baseProtocols = this->emitProtocolList()) {
     auto sym = getObjcProtoListSymbol(getName(), true);
+
     protocolList = getOrCreateWeak(sym, baseProtocols->getType(), OBJC_SECNAME_CONST);
     protocolList->setInitializer(baseProtocols);
   }
@@ -767,17 +745,9 @@ LLConstant *ObjcProtocol::emitTable() {
     auto sym = getObjcProtoMethodListSymbol(getName(), true, false);
     classMethodList = makeGlobal(sym, classMethodConsts->getType(), OBJC_SECNAME_CONST);
     classMethodList->setInitializer(classMethodConsts);
+
     classMethodList->setLinkage(llvm::GlobalValue::LinkageTypes::WeakAnyLinkage);
     classMethodList->setVisibility(llvm::GlobalValue::VisibilityTypes::HiddenVisibility);
-  }
-
-  // Optional class methods
-  if (auto optClassMethodConsts = this->emitMethodList(classMethods, true)) {
-    auto sym = getObjcProtoMethodListSymbol(getName(), true, true);
-    optClassMethodList = makeGlobal(sym, optClassMethodConsts->getType(), OBJC_SECNAME_CONST);
-    optClassMethodList->setInitializer(optClassMethodConsts);
-    optClassMethodList->setLinkage(llvm::GlobalValue::LinkageTypes::WeakAnyLinkage);
-    optClassMethodList->setVisibility(llvm::GlobalValue::VisibilityTypes::HiddenVisibility);
   }
 
   // Instance methods
@@ -785,8 +755,19 @@ LLConstant *ObjcProtocol::emitTable() {
     auto sym = getObjcProtoMethodListSymbol(getName(), false, false);
     instanceMethodList = makeGlobal(sym, instanceMethodConsts->getType(), OBJC_SECNAME_CONST);
     instanceMethodList->setInitializer(instanceMethodConsts);
+
     instanceMethodList->setLinkage(llvm::GlobalValue::LinkageTypes::WeakAnyLinkage);
     instanceMethodList->setVisibility(llvm::GlobalValue::VisibilityTypes::HiddenVisibility);
+  }
+
+  // Optional class methods
+  if (auto optClassMethodConsts = this->emitMethodList(classMethods, true)) {
+    auto sym = getObjcProtoMethodListSymbol(getName(), true, true);
+    optClassMethodList = makeGlobal(sym, optClassMethodConsts->getType(), OBJC_SECNAME_CONST);
+    optClassMethodList->setInitializer(optClassMethodConsts);
+
+    optClassMethodList->setLinkage(llvm::GlobalValue::LinkageTypes::WeakAnyLinkage);
+    optClassMethodList->setVisibility(llvm::GlobalValue::VisibilityTypes::HiddenVisibility);
   }
 
   // Optional instance methods
@@ -794,6 +775,7 @@ LLConstant *ObjcProtocol::emitTable() {
     auto sym = getObjcProtoMethodListSymbol(getName(), false, true);
     optInstanceMethodList = makeGlobal(sym, optInstanceMethodConsts->getType(), OBJC_SECNAME_CONST);
     optInstanceMethodList->setInitializer(optInstanceMethodConsts);
+
     optInstanceMethodList->setLinkage(llvm::GlobalValue::LinkageTypes::WeakAnyLinkage);
     optInstanceMethodList->setVisibility(llvm::GlobalValue::VisibilityTypes::HiddenVisibility);
   }
