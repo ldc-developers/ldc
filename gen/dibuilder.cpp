@@ -1137,10 +1137,13 @@ void DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
   if (!mustEmitFullDebugInfo() || !debugVariable)
     return;
 
-  llvm::Instruction *instr = DBuilder.insertDbgValueIntrinsic(
+  auto instr = DBuilder.insertDbgValueIntrinsic(
       val, debugVariable, DBuilder.createExpression(),
       IR->ir->getCurrentDebugLocation(), IR->scopebb());
-  instr->setDebugLoc(IR->ir->getCurrentDebugLocation());
+#if LDC_LLVM_VER >= 1900
+  llvm::cast<llvm::DbgRecord *>
+#endif
+  (instr)->setDebugLoc(IR->ir->getCurrentDebugLocation());
 }
 
 void DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,

@@ -909,7 +909,7 @@ void CodeGenPGO::emitCounterIncrement(const RootObject *S) const {
   assert(counter_it != (*RegionCounterMap).end() &&
          "Statement not found in PGO counter map!");
   unsigned counter = counter_it->second;
-  gIR->ir->CreateCall(GET_INTRINSIC_DECL(instrprof_increment),
+  gIR->ir->CreateCall(GET_INTRINSIC_DECL(instrprof_increment, {}),
                       {FuncNameVar, gIR->ir->getInt64(FunctionHash),
                        gIR->ir->getInt32(NumRegionCounters),
                        gIR->ir->getInt32(counter)});
@@ -1118,7 +1118,7 @@ void CodeGenPGO::valueProfile(uint32_t valueKind, llvm::Instruction *valueSite,
     llvm::Value *Args[5] = {FuncNameVar, gIR->ir->getInt64(FunctionHash), value,
                             gIR->ir->getInt32(valueKind),
                             gIR->ir->getInt32(NumValueSites[valueKind])};
-    gIR->ir->CreateCall(GET_INTRINSIC_DECL(instrprof_value_profile), Args);
+    gIR->ir->CreateCall(GET_INTRINSIC_DECL(instrprof_value_profile, {}), Args);
 
     gIR->ir->restoreIP(savedInsertPoint);
 

@@ -12,7 +12,7 @@ module mod;
 // OPT3-LABEL: define {{.*}} @{{.*}}void_three_return_paths
 void void_three_return_paths(int a, ...)
 {
-    // OPT3: call void @llvm.va_start({{.*}} %[[VA:[_0-9a-zA-Z]+]])
+    // OPT3: call void @llvm.va_start{{(\.p0)?}}({{.*}} %[[VA:[_0-9a-zA-Z]+]])
     // OPT3-NOT: return_two
     return_two();
 
@@ -24,8 +24,8 @@ void void_three_return_paths(int a, ...)
 
     // There are two control paths (normal return, exception resume) that
     // should call va_end.
-    // OPT3: call void @llvm.va_end({{.*}} %[[VA]])
-    // OPT3: call void @llvm.va_end({{.*}} %[[VA]])
+    // OPT3: call void @llvm.va_end{{(\.p0)?}}({{.*}} %[[VA]])
+    // OPT3: call void @llvm.va_end{{(\.p0)?}}({{.*}} %[[VA]])
 }
 
 // OPT3-LABEL: define {{.*}} @{{.*}}return_two

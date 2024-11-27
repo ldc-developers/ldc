@@ -809,7 +809,7 @@ public:
       // access to the type of the class to do a GEP).
       auto vtable = DtoLoad(dfnval->vtable->getType(), dfnval->vthis);
       auto cmp = p->ir->CreateICmpEQ(vtable, dfnval->vtable);
-      p->ir->CreateCall(GET_INTRINSIC_DECL(assume), {cmp});
+      p->ir->CreateCall(GET_INTRINSIC_DECL(assume, {}), {cmp});
     }
 
     if (delayedDtorVar) {
@@ -1766,7 +1766,7 @@ public:
     p->ir->SetInsertPoint(failedbb);
 
     if (global.params.checkAction == CHECKACTION_halt) {
-      p->ir->CreateCall(GET_INTRINSIC_DECL(trap), {});
+      p->ir->CreateCall(GET_INTRINSIC_DECL(trap, {}), {});
       p->ir->CreateUnreachable();
     } else {
       /* DMD Bugzilla 8360: If the condition is evaluated to true,
@@ -1923,7 +1923,7 @@ public:
     IF_LOG Logger::print("HaltExp::toElem: %s\n", e->toChars());
     LOG_SCOPE;
 
-    p->ir->CreateCall(GET_INTRINSIC_DECL(trap), {});
+    p->ir->CreateCall(GET_INTRINSIC_DECL(trap, {}), {});
     p->ir->CreateUnreachable();
 
     // this terminated the basicblock, start a new one

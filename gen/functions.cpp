@@ -1254,7 +1254,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     // initialize _argptr with a call to the va_start intrinsic
     DLValue argptrVal(tvalist, argptrMem);
     LLValue *llAp = gABI->prepareVaStart(&argptrVal);
-    llvm::CallInst::Create(GET_INTRINSIC_DECL(vastart), llAp, "",
+    llvm::CallInst::Create(GET_INTRINSIC_DECL(vastart, llAp->getType()), llAp, "",
                            gIR->scopebb());
 
     // copy _arguments to a memory location
@@ -1265,7 +1265,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
       auto *vaendBB = llvm::BasicBlock::Create(gIR->context(), "vaend", func);
       const auto savedInsertPoint = gIR->saveInsertPoint();
       gIR->ir->SetInsertPoint(vaendBB);
-      gIR->ir->CreateCall(GET_INTRINSIC_DECL(vaend), llAp);
+      gIR->ir->CreateCall(GET_INTRINSIC_DECL(vaend, llAp->getType()), llAp);
       funcGen.scopes.pushCleanup(vaendBB, gIR->scopebb());
     }
   }

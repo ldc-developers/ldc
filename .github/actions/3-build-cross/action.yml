@@ -14,7 +14,7 @@ inputs:
     default: false
   android_ndk_version:
     required: false
-    default: r27
+    default: r27c
   android_api_level:
     required: false
     default: 29
