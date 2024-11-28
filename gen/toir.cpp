@@ -2815,6 +2815,17 @@ public:
     llvm_unreachable("Unknown TypeidExp argument kind");
   }
 
+  void visit(ObjcClassReferenceExp *e) override {
+    IF_LOG Logger::print("ObjcClassReferenceExp::toElem() %s\n", e->toChars());
+    LOG_SCOPE;
+
+    auto name = std::string("OBJC_CLASS_$_") + e->classDeclaration->objc.identifier->toChars();
+
+    IF_LOG Logger::print("%s\n", name.data());
+    // result = DtoLoad(llvm::StructType::get(gIR->context(), "_class_t")->getPointerTo(), name);
+
+  }
+
   ////////////////////////////////////////////////////////////////////////////////
 
 #define STUB(x)                                                                \
