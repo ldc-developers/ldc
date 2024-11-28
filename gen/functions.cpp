@@ -140,8 +140,9 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   }
 
   bool hasObjCSelector = false;
-  auto ftype = (TypeFunction*)fd->type;
   if (fd && fd->_linkage == LINK::objc) {
+    auto ftype = (TypeFunction*)fd->type;
+
     if (fd->objc.selector) {
       hasObjCSelector = true;
     } else if (fd->parent->isClassDeclaration()) {
