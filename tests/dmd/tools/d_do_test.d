@@ -820,8 +820,9 @@ bool gatherTestParameters(ref TestArgs testArgs, string input_dir, string input_
     // which are irrelevant to the parts of Objective-C ABI which D implements.
     // As such we supress linker warnings for Objective-C tests to avoid
     // linker errors when linking against Objective-C compiler output.
-    if (objc && testArgs.objcSources.length > 0)
-        testArgs.requiredArgs ~= " -L-w";
+    version(LDC)
+        if (objc)
+            testArgs.requiredArgs ~= " -L-w";
 
     // swap / with $SEP
     if (envData.sep && envData.sep != "/")
