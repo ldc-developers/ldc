@@ -14,6 +14,7 @@
 #pragma once
 
 #include <vector>
+#include <unordered_map>
 #include "llvm/ADT/StringMap.h"
 #include "gen/tollvm.h"
 #include "dmd/mtype.h"
