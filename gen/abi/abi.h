@@ -119,7 +119,7 @@ public:
   }
 
   /// Returns true if the target is darwin-based.
-  virtual bool isDarwin() {
+  bool isDarwin() {
     return global.params.targetTriple->isOSDarwin();
   }
 

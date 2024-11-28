@@ -7454,7 +7454,6 @@ public:
     virtual void checkLinkage(FuncDeclaration* fd) = 0;
     virtual bool isVirtual(const FuncDeclaration* const fd) const = 0;
     virtual void setAsOptional(FuncDeclaration* functionDeclaration, Scope* sc) const = 0;
-    virtual void setAsSwiftStub(FuncDeclaration* functionDeclaration, Scope* sc) const = 0;
     virtual void validateOptional(FuncDeclaration* functionDeclaration) const = 0;
     virtual ClassDeclaration* getParent(FuncDeclaration* fd, ClassDeclaration* cd) const = 0;
     virtual void addToClassMethodList(FuncDeclaration* fd, ClassDeclaration* cd) const = 0;
@@ -8739,7 +8738,6 @@ struct Id final
     static Identifier* udaGNUAbiTag;
     static Identifier* udaSelector;
     static Identifier* udaOptional;
-    static Identifier* udaSwiftStub;
     static Identifier* udaMustUse;
     static Identifier* udaStandalone;
     static Identifier* TRUE;

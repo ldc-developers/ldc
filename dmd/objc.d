@@ -274,6 +274,7 @@ extern(C++) abstract class Objc
      *  cd = the class declaration to set as a swift stub
      *  sc = the scope from the semantic phase
      */
+    version(IN_LLVM)
     abstract void setAsSwiftStub(ClassDeclaration cd, Scope* sc) const;
 
     /**
@@ -464,6 +465,7 @@ static if (!IN_LLVM)
         // noop
     }
 
+    version(IN_LLVM)
     override void setAsSwiftStub(ClassDeclaration, Scope*) const
     {
         // noop
@@ -845,38 +847,40 @@ version (IN_LLVM) {} else
             "of Objective-C classes. Please use the Objective-C runtime instead");
     }
 
-    override void setAsSwiftStub(ClassDeclaration cd, Scope* sc) const
-    {
-        const count = declaredAsSwiftStubCount(cd, sc);
-        cd.objc.isSwiftStub = count > 0;
+    version(IN_LLVM) {
+        override void setAsSwiftStub(ClassDeclaration cd, Scope* sc) const
+        {
+            const count = declaredAsSwiftStubCount(cd, sc);
+            cd.objc.isSwiftStub = count > 0;
 
-        if (count > 1)
-            .error(cd.loc, "%s `%s` can only declare a class as a swift stub once", cd.kind, cd.toPrettyChars);
-    }
+            if (count > 1)
+                .error(cd.loc, "%s `%s` can only declare a class as a swift stub once", cd.kind, cd.toPrettyChars);
+        }
 
-    /// Returns: the number of times `cd` has been declared as optional.
-    private int declaredAsSwiftStubCount(ClassDeclaration cd, Scope* sc) const
-    {
-        int count;
+        /// Returns: the number of times `cd` has been declared as optional.
+        private int declaredAsSwiftStubCount(ClassDeclaration cd, Scope* sc) const
+        {
+            int count;
 
-        foreachUda(cd, sc, (e) {
-            if (!e.isTypeExp())
+            foreachUda(cd, sc, (e) {
+                if (!e.isTypeExp())
+                    return 0;
+
+                auto typeExp = e.isTypeExp();
+
+                if (typeExp.type.ty != Tenum)
+                    return 0;
+
+                auto typeEnum = cast(TypeEnum) typeExp.type;
+
+                if (isCoreUda(typeEnum.sym, Id.udaSwiftStub))
+                    count++;
+
                 return 0;
+            });
 
-            auto typeExp = e.isTypeExp();
-
-            if (typeExp.type.ty != Tenum)
-                return 0;
-
-            auto typeEnum = cast(TypeEnum) typeExp.type;
-
-            if (isCoreUda(typeEnum.sym, Id.udaSwiftStub))
-                count++;
-
-            return 0;
-        });
-
-        return count;
+            return count;
+        }
     }
 }
 
