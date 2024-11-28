@@ -457,7 +457,7 @@ LLConstant *ObjCState::getClassRoTable(ClassDeclaration *decl) {
   LLGlobalVariable *protocolList = nullptr;
   LLGlobalVariable *methodList = nullptr;
 
-  if (auto baseMethods = createMethodList(decl, false)) {
+  if (auto baseMethods = createMethodList(decl)) {
     methodList = getOrCreate(objcGetClassMethodListSymbol(name, meta), baseMethods->getType(), OBJC_SECNAME_CONST);
     methodList->setInitializer(baseMethods);
   }
@@ -569,7 +569,7 @@ LLConstant *ObjCState::getClassRef(ClassDeclaration *decl) {
     return it->second;
   }
 
-  auto retval = getOrCreate("OBJC_CLASSLIST_REFERENCES_$_", getOpaquePtrType(), OBJC_SECNAME_CLASSREFS);
+  auto retval = makeGlobal("OBJC_CLASSLIST_REFERENCES_$_", getOpaquePtrType(), OBJC_SECNAME_CLASSREFS);
   classRefs[className] = retval;
   this->retain(retval);
   return retval;

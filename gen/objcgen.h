@@ -177,7 +177,7 @@ private:
   // used in method lists.
   ObjcMap<FuncDeclaration *, ObjcMethodInfo> methods;
   LLConstant *createMethodInfo(FuncDeclaration *decl);
-  LLConstant *createMethodList(ClassDeclaration *decl, bool optional);
+  LLConstant *createMethodList(ClassDeclaration *decl, bool optional = false);
 
   // class_t and class_ro_t generation.
   ObjcMap<ClassDeclaration *, ObjcClassInfo> classes;
@@ -200,7 +200,7 @@ private:
   LLConstant *createProtocolList(ClassDeclaration *decl);
 
   // Private helpers
-  ObjcList<FuncDeclaration *> getMethodsForType(ClassDeclaration *decl, bool optional);
+  ObjcList<FuncDeclaration *> getMethodsForType(ClassDeclaration *decl, bool optional = false);
 
   ObjcList<LLConstant *> retainedSymbols;
   void retain(LLConstant *symbol);

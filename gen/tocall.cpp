@@ -738,15 +738,16 @@ private:
       if (objccall && directcall) {
 
         // ... or a Objective-c direct call argument
-        if (auto parentfd = dfnval->func->isFuncDeclaration()) {
-          if (auto cls = parentfd->parent->isClassDeclaration()) {
+        if (auto func = dfnval->func->isFuncDeclaration()) {
+          if (auto klass = func->isThis()->isClassDeclaration()) {
 
             // Create obj_super struct with (this, <class ref>)
             auto obj_super = DtoAggrPair(
               DtoBitCast(dfnval->vthis, argtype),
-              gIR->objc.deref(cls, getOpaquePtrType()),
+              gIR->objc.deref(klass, getOpaquePtrType()),
               "super"
             );
+
 
             // Allocate and store obj_super struct into a new variable.
             auto clsaddr = DtoRawAlloca(obj_super->getType(), 16, "super");
