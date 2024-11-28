@@ -121,8 +121,7 @@ struct ObjcClassInfo {
   LLGlobalVariable *ref;
 
   LLGlobalVariable *name;
-  LLGlobalVariable *classTable;
-  LLGlobalVariable *metaclassTable;
+  LLGlobalVariable *table;
 };
 
 struct ObjcProtocolInfo {
@@ -130,7 +129,7 @@ struct ObjcProtocolInfo {
   LLGlobalVariable *ref;
 
   LLGlobalVariable *name;
-  LLGlobalVariable *protoTable;
+  LLGlobalVariable *table;
 };
 
 struct ObjcMethodInfo {
@@ -178,7 +177,7 @@ private:
   // used in method lists.
   ObjcMap<FuncDeclaration *, ObjcMethodInfo> methods;
   LLConstant *createMethodInfo(FuncDeclaration *decl);
-  LLConstant *createMethodList(ClassDeclaration *decl, bool meta, bool optional);
+  LLConstant *createMethodList(ClassDeclaration *decl, bool optional);
 
   // class_t and class_ro_t generation.
   ObjcMap<ClassDeclaration *, ObjcClassInfo> classes;
@@ -186,6 +185,14 @@ private:
   ObjcMap<ClassDeclaration *, LLGlobalVariable *> classRoTables;
   LLConstant *getClassRoTable(ClassDeclaration *decl);
   LLConstant *getClassTable(ClassDeclaration *decl);
+
+  // Class names and refs need to be replicated
+  // for RO structs, as such we store
+  // then seperately.
+  llvm::StringMap<LLGlobalVariable *> classNames;
+  llvm::StringMap<LLGlobalVariable *> classRefs;
+  LLConstant *getClassName(ClassDeclaration *decl);
+  LLConstant *getClassRef(ClassDeclaration *decl);
 
   // protocol_t generation.
   ObjcMap<InterfaceDeclaration *, ObjcProtocolInfo> protocols;
