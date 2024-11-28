@@ -776,6 +776,25 @@ LLGlobalVariable *makeGlobalStr(LLStringRef text, LLStringRef name, LLStringRef 
   return var;
 }
 
+LLGlobalVariable *getOrCreate(LLStringRef name, LLType* type, LLStringRef section, bool extInitializer) {
+  auto global = gIR->module.getGlobalVariable(name, true);
+  if (global)
+    return global;
+
+  return makeGlobal(name, type, section, true, extInitializer);
+}
+
+LLGlobalVariable *getOrCreateWeak(LLStringRef name, LLType* type, LLStringRef section, bool extInitializer) {
+  auto global = gIR->module.getGlobalVariable(name, true);
+  if (global)
+    return global;
+
+  global = makeGlobal(name, type, section, false, extInitializer);
+  global->setLinkage(llvm::GlobalValue::LinkageTypes::WeakAnyLinkage);
+  global->setVisibility(llvm::GlobalValue::VisibilityTypes::HiddenVisibility);
+  return global;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 LLType *getI8Type() { return LLType::getInt8Ty(gIR->context()); }

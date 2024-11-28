@@ -152,6 +152,8 @@ LLGlobalVariable *makeGlobal(LLStringRef name, LLType* type = nullptr, LLStringR
 LLGlobalVariable *makeGlobalWithBytes(LLStringRef name, LLConstantList packedContents, LLStructType* type = nullptr, bool extern_ = false, bool externInit = false);
 LLGlobalVariable *makeGlobalRef(LLGlobalVariable *to, LLStringRef name = "", LLStringRef section = "", bool extern_ = false, bool externInit = false);
 LLGlobalVariable *makeGlobalStr(LLStringRef text, LLStringRef name = "", LLStringRef section = "", bool extern_ = false, bool externInit = false);
+LLGlobalVariable *getOrCreate(LLStringRef name, LLType* type, LLStringRef section, bool extInitializer=false);
+LLGlobalVariable *getOrCreateWeak(LLStringRef name, LLType* type, LLStringRef section, bool extInitializer=false);
 
 // llvm::T::get(...) wrappers
 LLType *getI8Type();

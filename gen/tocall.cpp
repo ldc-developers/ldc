@@ -744,7 +744,7 @@ private:
             // Create obj_super struct with (this, <class ref>)
             auto obj_super = DtoAggrPair(
               DtoBitCast(dfnval->vthis, argtype),
-              gIR->objc.getClassRef(cls)->deref(getOpaquePtrType()),
+              gIR->objc.deref(cls, getOpaquePtrType()),
               "super"
             );
 
@@ -794,8 +794,7 @@ private:
     if (irFty.arg_objcSelector) {
       assert(dfnval);
 
-      auto method = gIR->objc.getMethodRef(dfnval->func);
-      auto methodptr = method->get();
+      auto methodptr = gIR->objc.getMethod(dfnval->func)->selector;
       args.push_back(DtoLoad(methodptr->getType(), methodptr));
     }
   }

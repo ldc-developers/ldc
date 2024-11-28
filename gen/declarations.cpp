@@ -111,7 +111,7 @@ public:
 
     // Objective-C protocols don't have TypeInfo.
     if (decl->classKind == ClassKind::objc) {
-      gIR->objc.emit(decl);
+      gIR->objc.getProtocol(decl);
       return;
     }
 
@@ -213,7 +213,7 @@ public:
 
     // Objective-C class structure is initialized by calling getClassRef.
     if (decl->classKind == ClassKind::objc) {
-      gIR->objc.emit(decl);
+      gIR->objc.getClass(decl);
       return;
     }
 
