@@ -364,26 +364,31 @@ LLConstant *objcOffsetIvar(size_t ivaroffset) {
   return DtoConstUint(getPointerSize()+ivaroffset);
 }
 
-size_t objcGetClassFlags(const ClassDeclaration& decl) {
+size_t objcGetClassFlags(ClassDeclaration *decl) {
   size_t flags = 0;
-  if (!decl.baseClass)
+  if (!decl->baseClass)
     flags |= RO_ROOT;
   
-  if (decl.objc.isMeta)
+  if (decl->objc.isMeta)
     flags |= RO_META;
 
   return flags;
 }
 
-ClassDeclaration *objcGetRootMetaClass(ClassDeclaration *decl) {
-  auto curr = decl;
-  while (curr->baseClass)
-    curr = curr->baseClass;
+ClassDeclaration *objcGetMetaClass(ClassDeclaration *decl) {
+  if (decl->objc.isMeta) {
+    auto curr = decl;
+    while (curr->baseClass)
+      curr = curr->baseClass;
 
-  return curr;
+    return curr;
+  }
+
+  // Meta class for normal class.
+  return decl->objc.metaclass;
 }
 
-ClassDeclaration *objcGetSuper(ClassDeclaration *decl, bool meta) {
+ClassDeclaration *objcGetSuper(ClassDeclaration *decl) {
   return (decl->objc.isRootClass() || !decl->baseClass) ?
     decl : 
     decl->baseClass;
@@ -432,10 +437,13 @@ LLGlobalVariable *getEmptyCache() {
   return objcCache;
 }
 
-LLGlobalVariable *ObjCState::getClassRoTable(ClassDeclaration *decl) {
-  if (classRoTables.find(decl) != classRoTables.end()) {
-    return classRoTables[decl];
+LLConstant *ObjCState::getClassRoTable(ClassDeclaration *decl) {
+  if (auto it = classRoTables.find(decl); it != classRoTables.end()) {
+    return it->second;
   }
+  
+  if (!decl)
+    return getNullPtr();
   
   // No need to generate RO tables for externs.
   if (decl->objc.isExtern)
@@ -474,7 +482,7 @@ LLGlobalVariable *ObjCState::getClassRoTable(ClassDeclaration *decl) {
   }
 
   // Build struct.
-  members.push_back(DtoConstUint(objcGetClassFlags(meta ? *decl->objc.metaclass : *decl)));
+  members.push_back(DtoConstUint(objcGetClassFlags(decl)));
   members.push_back(DtoConstUint(objcGetInstanceStart(module, decl, meta)));
   members.push_back(DtoConstUint(objcGetInstanceSize(module, decl, meta)));
   members.push_back(getNullPtr());
@@ -487,48 +495,49 @@ LLGlobalVariable *ObjCState::getClassRoTable(ClassDeclaration *decl) {
 
   auto table = makeGlobalWithBytes(sym, members, objcGetClassRoType(module));
   table->setSection(OBJC_SECNAME_DATA);
+  this->retain(table);
 
   classRoTables[decl] = table;
-  this->retain(table);
   return table;
 }
 
-LLGlobalVariable *ObjCState::getClassTable(ClassDeclaration *decl) {
-  if (classTables.find(decl) != classTables.end()) {
-    return classTables[decl];
+LLConstant *ObjCState::getClassTable(ClassDeclaration *decl) {
+  if (auto it = classTables.find(decl); it != classTables.end()) {
+    return it->second;
   }
+  
+  if (!decl)
+    return getNullPtr();
 
-  auto meta = decl->objc.isMeta;
+  auto isExtern = decl->objc.isExtern;
+  auto isMeta = decl->objc.isMeta;
   auto name = objcResolveName(decl);
-  auto sym = objcGetClassSymbol(name, meta);
+  auto sym = objcGetClassSymbol(name, isMeta);
+
+  auto table = getOrCreate(sym, objcGetClassType(module), OBJC_SECNAME_DATA, isExtern);
+  this->retain(table);
+  classTables[decl] = table;
   
   // Extern tables don't need a body.
-  if (decl->objc.isExtern) {
-    auto table = getOrCreateWeak(sym, objcGetClassType(module), "", true);
-
-    classTables[decl] = table;
-    this->retain(table);
+  if (decl->objc.isExtern)
     return table;
-  }
 
   LLConstantList members;
-  members.push_back(getClassTable(meta ? decl : decl->objc.metaclass));   // isa
-  members.push_back(getClassTable(objcGetSuper(decl, meta)));             // super
-  members.push_back(getEmptyCache());                                     // cache
-  members.push_back(getNullPtr());                                        // vtbl
-  members.push_back(getClassRoTable(decl));                               // ro
-
-  auto table = makeGlobalWithBytes(sym, members, objcGetClassType(module));
-  table->setSection(OBJC_SECNAME_DATA);
-
-  classTables[decl] = table;
-  this->retain(table);
+  members.push_back(getClassTable(objcGetMetaClass(decl)));   // isa
+  members.push_back(getClassTable(objcGetSuper(decl)));       // super
+  members.push_back(getEmptyCache());                         // cache
+  members.push_back(getNullPtr());                            // vtbl
+  members.push_back(getClassRoTable(decl));                   // ro
+  table->setInitializer(LLConstantStruct::get(
+    objcGetClassType(module),
+    members
+  ));
   return table;
 }
 
 ObjcClassInfo *ObjCState::getClass(ClassDeclaration *decl) {
   assert(!decl->isInterfaceDeclaration() && "Attempted to pass protocol into getClass!");
-  if (classes.find(decl) != classes.end()) {
+  if (auto it = classes.find(decl); it != classes.end()) {
     return &classes[decl];
   }
 
@@ -540,34 +549,29 @@ ObjcClassInfo *ObjCState::getClass(ClassDeclaration *decl) {
     .decl = decl,
     .name = makeGlobalStr(name, "OBJC_CLASS_NAME_", OBJC_SECNAME_CLASSNAME)
   };
-  auto& classInfo = classes[decl];
-  
+  auto classInfo = &classes[decl];
 
-  auto className = objcGetClassSymbol(name, false);
-  auto metaName = objcGetClassSymbol(name, true);
   if (decl->objc.isExtern) {
 
-    classInfo.classTable = makeGlobal(className, objcGetClassType(module), "", true, false);
-    classInfo.metaclassTable = makeGlobal(metaName, objcGetClassType(module), "", true, false);
-    classInfo.ref = makeGlobalRef(classInfo.classTable, "OBJC_CLASSLIST_REFERENCES_$_", OBJC_SECNAME_CLASSREFS);
+    auto className = objcGetClassSymbol(name, false);
+    auto metaName = objcGetClassSymbol(name, true);
+    classInfo->classTable = makeGlobal(className, objcGetClassType(module), "", true, false);
+    classInfo->metaclassTable = makeGlobal(metaName, objcGetClassType(module), "", true, false);
+    classInfo->ref = makeGlobalRef(classInfo->classTable, "OBJC_CLASSLIST_REFERENCES_$_", OBJC_SECNAME_CLASSREFS);
 
-    this->retain(classInfo.ref);
-    this->retain(classInfo.metaclassTable);
-    this->retain(classInfo.classTable);
-    this->retain(classInfo.name);
+    this->retain(classInfo->ref);
+    this->retain(classInfo->name);
     return &classes[decl];
   }
 
   // If we were weakly declared before, go grab our declarations.
   // Otherwise, create all the base tables for the type.
-  classInfo.classTable = getClassTable(decl);
-  classInfo.metaclassTable = getClassTable(decl->objc.metaclass);
-  classInfo.ref = makeGlobalRef(classInfo.classTable, "OBJC_CLASSLIST_REFERENCES_$_", OBJC_SECNAME_CLASSREFS);
+  classInfo->classTable = (LLGlobalVariable *)getClassTable(decl);
+  classInfo->metaclassTable = (LLGlobalVariable *)getClassTable(decl->objc.metaclass);
+  classInfo->ref = makeGlobalRef(classInfo->classTable, "OBJC_CLASSLIST_REFERENCES_$_", OBJC_SECNAME_CLASSREFS);
 
-  this->retain(classInfo.ref);
-  this->retain(classInfo.metaclassTable);
-  this->retain(classInfo.classTable);
-  this->retain(classInfo.name);
+  this->retain(classInfo->ref);
+  this->retain(classInfo->name);
   return &classes[decl];
 }
 
@@ -583,7 +587,7 @@ LLConstant *ObjCState::createProtocolTable(InterfaceDeclaration *decl) {
   LLGlobalVariable *optClassMethodList = nullptr;
   LLGlobalVariable *optInstanceMethodList = nullptr;
 
-  auto& protoInfo = protocols[decl];
+  auto protoInfo = &protocols[decl];
   auto name = objcResolveName(decl);
 
   // Base Protocols
@@ -638,7 +642,7 @@ LLConstant *ObjCState::createProtocolTable(InterfaceDeclaration *decl) {
   auto allocSize = getTypeAllocSize(protoType);
 
   members.push_back(getNullPtr());                    // isa
-  members.push_back(protoInfo.name);                  // mangledName
+  members.push_back(protoInfo->name);                  // mangledName
   members.push_back(wrapNull(protocolList));          // protocols
   members.push_back(wrapNull(instanceMethodList));    // instanceMethods
   members.push_back(wrapNull(classMethodList));       // classMethods
@@ -656,29 +660,29 @@ LLConstant *ObjCState::createProtocolTable(InterfaceDeclaration *decl) {
 
 ObjcProtocolInfo *ObjCState::getProtocol(InterfaceDeclaration *decl) {
   assert(decl->isInterfaceDeclaration() && "Attempted to pass class into getProtocol!");
-  if (protocols.find(decl) != protocols.end()) {
+  if (auto it = protocols.find(decl); it != protocols.end()) {
     return &protocols[decl];
   }
   protocols[decl] = { .decl = decl };
-  auto& protoInfo = protocols[decl];
+  auto protoInfo = &protocols[decl];
 
   auto name = objcResolveName(decl);
   auto protoName = objcGetProtoSymbol(name);
   auto protoLabel = objcGetProtoLabelSymbol(name);
 
-  protoInfo.name = makeGlobalStr(name, "OBJC_CLASS_NAME_", OBJC_SECNAME_CLASSNAME);
+  protoInfo->name = makeGlobalStr(name, "OBJC_CLASS_NAME_", OBJC_SECNAME_CLASSNAME);
 
   // We want it to be locally hidden and weak since the protocols
   // may be declared in multiple object files.
   auto protoTableConst = createProtocolTable(decl);
-  protoInfo.protoTable = getOrCreateWeak(protoName, protoTableConst->getType(), OBJC_SECNAME_DATA);
-  protoInfo.protoTable->setInitializer(protoTableConst);
+  protoInfo->protoTable = getOrCreateWeak(protoName, protoTableConst->getType(), OBJC_SECNAME_DATA);
+  protoInfo->protoTable->setInitializer(protoTableConst);
 
-  protoInfo.ref = getOrCreateWeak(protoLabel, getOpaquePtrType(), OBJC_SECNAME_PROTOLIST);
-  protoInfo.ref->setInitializer(protoInfo.protoTable);
+  protoInfo->ref = getOrCreateWeak(protoLabel, getOpaquePtrType(), OBJC_SECNAME_PROTOLIST);
+  protoInfo->ref->setInitializer(protoInfo->protoTable);
 
-  this->retain(protoInfo.protoTable);
-  this->retain(protoInfo.ref);
+  this->retain(protoInfo->protoTable);
+  this->retain(protoInfo->ref);
   return &protocols[decl];
 }
 
@@ -710,7 +714,7 @@ LLConstant *ObjCState::createProtocolList(ClassDeclaration *decl) {
 //
 
 ObjcMethodInfo *ObjCState::getMethod(FuncDeclaration *decl) {
-  if (methods.find(decl) != methods.end()) {
+  if (auto it = methods.find(decl); it != methods.end()) {
     return &methods[decl];
   }
 
@@ -719,20 +723,20 @@ ObjcMethodInfo *ObjCState::getMethod(FuncDeclaration *decl) {
     return nullptr;
 
   methods[decl] = { .decl = decl };
-  auto& methodInfo = methods[decl];
+  auto methodInfo = &methods[decl];
 
   auto name = objcResolveName(decl);
-  methodInfo.name = makeGlobalStr(name, "OBJC_METH_VAR_NAME_", OBJC_SECNAME_METHNAME);
-  methodInfo.type = makeGlobalStr(objcGetTypeEncoding(decl->type), "OBJC_METH_VAR_TYPE_", OBJC_SECNAME_METHTYPE);
-  methodInfo.selector = makeGlobalRef(methodInfo.name, "OBJC_SELECTOR_REFERENCES_", OBJC_SECNAME_SELREFS, false, true);
+  methodInfo->name = makeGlobalStr(name, "OBJC_METH_VAR_NAME_", OBJC_SECNAME_METHNAME);
+  methodInfo->type = makeGlobalStr(objcGetTypeEncoding(decl->type), "OBJC_METH_VAR_TYPE_", OBJC_SECNAME_METHTYPE);
+  methodInfo->selector = makeGlobalRef(methodInfo->name, "OBJC_SELECTOR_REFERENCES_", OBJC_SECNAME_SELREFS, false, true);
 
-  methodInfo.llfunction = decl->fbody ?
+  methodInfo->llfunction = decl->fbody ?
     DtoBitCast(DtoCallee(decl), getOpaquePtrType()) :
     getNullPtr();
   
-  this->retain(methodInfo.name);
-  this->retain(methodInfo.type);
-  this->retain(methodInfo.selector);
+  this->retain(methodInfo->name);
+  this->retain(methodInfo->type);
+  this->retain(methodInfo->selector);
   return &methods[decl];
 }
 
@@ -759,43 +763,43 @@ LLConstant *ObjCState::createMethodList(ClassDeclaration *decl, bool meta, bool 
 //    INSTANCE VARIABLES
 //
 
-ObjcIvarInfo *ObjCState::getIvar(VarDeclaration *decl) {
-  if (ivars.find(decl) != ivars.end()) {
+ObjcIvarInfo* ObjCState::getIvar(VarDeclaration *decl) {
+  if (auto it = ivars.find(decl); it != ivars.end()) {
     return &ivars[decl];
   }
 
   if (auto klass = decl->parent->isClassDeclaration()) {
     auto ivarsym = objcGetIvarSymbol(objcResolveName(decl->parent), objcResolveName(decl));
     ivars[decl] = { .decl = decl };
-    auto& ivarInfo = ivars[decl];
+    auto ivarInfo = &ivars[decl];
 
     // Extern classes should generate globals
     // which can be filled out by the Objective-C runtime.
     if (klass->objc.isExtern) {
-      ivarInfo.name = makeGlobal("OBJC_METH_VAR_NAME_", nullptr, OBJC_SECNAME_METHNAME, true, true);
-      ivarInfo.type = makeGlobal("OBJC_METH_VAR_TYPE_", nullptr, OBJC_SECNAME_METHTYPE, true, true);
+      ivarInfo->name = makeGlobal("OBJC_METH_VAR_NAME_", nullptr, OBJC_SECNAME_METHNAME, true, true);
+      ivarInfo->type = makeGlobal("OBJC_METH_VAR_TYPE_", nullptr, OBJC_SECNAME_METHTYPE, true, true);
 
       // It will be filled out by the runtime, but make sure it's there nontheless.
-      ivarInfo.offset = getOrCreate(ivarsym, getI32Type(), OBJC_SECNAME_IVAR);
-      ivarInfo.offset->setInitializer(objcOffsetIvar(0));
+      ivarInfo->offset = getOrCreate(ivarsym, getI32Type(), OBJC_SECNAME_IVAR);
+      ivarInfo->offset->setInitializer(objcOffsetIvar(0));
 
-      this->retain(ivarInfo.name);
-      this->retain(ivarInfo.type);
-      this->retain(ivarInfo.offset);
+      this->retain(ivarInfo->name);
+      this->retain(ivarInfo->type);
+      this->retain(ivarInfo->offset);
       return &ivars[decl];
     }
 
     // Non-extern ivars should emit all the data so that the
     // objective-c runtime has a starting point.
     // the offset *WILL* change during runtime!
-    ivarInfo.name = makeGlobalStr(decl->ident->toChars(), "OBJC_METH_VAR_NAME_", OBJC_SECNAME_METHNAME);
-    ivarInfo.type = makeGlobalStr(objcGetTypeEncoding(decl->type), "OBJC_METH_VAR_TYPE_", OBJC_SECNAME_METHTYPE);
-    ivarInfo.offset = getOrCreate(ivarsym, getI32Type(), OBJC_SECNAME_IVAR);
-    ivarInfo.offset->setInitializer(objcOffsetIvar(decl->offset));
+    ivarInfo->name = makeGlobalStr(decl->ident->toChars(), "OBJC_METH_VAR_NAME_", OBJC_SECNAME_METHNAME);
+    ivarInfo->type = makeGlobalStr(objcGetTypeEncoding(decl->type), "OBJC_METH_VAR_TYPE_", OBJC_SECNAME_METHTYPE);
+    ivarInfo->offset = getOrCreate(ivarsym, getI32Type(), OBJC_SECNAME_IVAR);
+    ivarInfo->offset->setInitializer(objcOffsetIvar(decl->offset));
 
-    this->retain(ivarInfo.name);
-    this->retain(ivarInfo.type);
-    this->retain(ivarInfo.offset);
+    this->retain(ivarInfo->name);
+    this->retain(ivarInfo->type);
+    this->retain(ivarInfo->offset);
     return &ivars[decl];
   }
 

@@ -161,8 +161,6 @@ public:
   ObjcIvarInfo *getIvar(VarDeclaration *decl);
 
   LLValue *deref(ClassDeclaration *decl, LLType *as);
-  LLGlobalVariable *getClassRoTable(ClassDeclaration *decl);
-  LLGlobalVariable *getClassTable(ClassDeclaration *decl);
 
   void finalize();
 
@@ -185,6 +183,8 @@ private:
   ObjcMap<ClassDeclaration *, ObjcClassInfo> classes;
   ObjcMap<ClassDeclaration *, LLGlobalVariable *> classTables;
   ObjcMap<ClassDeclaration *, LLGlobalVariable *> classRoTables;
+  LLConstant *getClassRoTable(ClassDeclaration *decl);
+  LLConstant *getClassTable(ClassDeclaration *decl);
 
   // protocol_t generation.
   ObjcMap<InterfaceDeclaration *, ObjcProtocolInfo> protocols;
