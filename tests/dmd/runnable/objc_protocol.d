@@ -1,5 +1,5 @@
 // EXTRA_OBJC_SOURCES: objc_protocol.m
-// REQUIRED_ARGS: -L-lobjc -L-w
+// REQUIRED_ARGS: -L-lobjc
 
 import core.attribute : selector;
 

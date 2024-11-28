@@ -37,7 +37,9 @@ struct ObjcClassDeclaration
 {
     d_bool isMeta;
     d_bool isExtern;
+#if IN_LLVM
     d_bool isSwiftStub;
+#endif
 
     Identifier* identifier;
     ClassDeclaration* classDeclaration;

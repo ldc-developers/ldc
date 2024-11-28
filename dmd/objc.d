@@ -157,7 +157,7 @@ extern (C++) struct ObjcClassDeclaration
     bool isExtern = false;
 
     /// `true` if this class is a Swift stub
-    bool isSwiftStub = false;
+    version(IN_LLVM) bool isSwiftStub = false;
 
     /// Name of this class.
     Identifier identifier;
