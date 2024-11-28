@@ -140,12 +140,24 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   }
 
   bool hasObjCSelector = false;
+  auto ftype = (TypeFunction*)fd->type;
   if (fd && fd->_linkage == LINK::objc) {
     if (fd->objc.selector) {
       hasObjCSelector = true;
     } else if (fd->parent->isClassDeclaration()) {
-      error(fd->loc, "%s `%s` is missing Objective-C `@selector`", fd->kind(),
-            fd->toPrettyChars());
+      if(fd->isFinal() || ftype->isproperty()) {
+
+        // HACK: Ugly hack, but final functions for some reason don't actually declare a selector.
+        // However, this does make it more flexible.
+        // Also this will automatically generate selectors for @property declared
+        // functions, which the DIP specifies.
+        // Final function selector gen should be fixed, however.
+        fd->objc.selector = ObjcSelector::create(fd);
+        hasObjCSelector = true;
+      } else {
+        error(fd->loc, "%s `%s` is missing Objective-C `@selector`", fd->kind(),
+              fd->toPrettyChars());
+      }
     }
   }
   if (hasObjCSelector) {
