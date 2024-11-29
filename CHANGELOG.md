@@ -7,6 +7,7 @@
 - ldc2.conf: %%ldcconfigpath%% placeholder added - specifies the directory where current configuration file is located. (#4717)
 - Add support for building against a system copy of zlib through `-DPHOBOS_SYSTEM_ZLIB=ON`. (#4742)
 - Emscripten: The compiler now mimicks a musl Linux platform wrt. extra predefined versions (`linux`, `Posix`, `CRuntime_Musl`, `CppRuntime_LLVM`). (#4750)
+- Objective-C: The compiler now properly supports Objective-C classes and protocols, as well as swift stub classes (via the `@swift` UDA). (#4777)
 
 #### Platform support
 
