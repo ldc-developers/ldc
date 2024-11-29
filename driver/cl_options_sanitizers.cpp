@@ -50,6 +50,12 @@ cl::list<std::string> fSanitizeCoverage(
 
 llvm::SanitizerCoverageOptions sanitizerCoverageOptions;
 
+cl::list<std::string>
+    fSanitizeRecover("fsanitize-recover", cl::CommaSeparated,
+                     cl::desc("Enable recovery for specified sanitizers ('all' "
+                              "= enable for all supported sanitizers)."),
+                     cl::value_desc("name"));
+
 SanitizerBits parseFSanitizeCmdlineParameter() {
   SanitizerBits retval = 0;
   for (const auto &name : fSanitize) {
@@ -57,6 +63,24 @@ SanitizerBits parseFSanitizeCmdlineParameter() {
       error(Loc(), "Unrecognized -fsanitize value '%s'.", name.c_str());
     });
     retval |= SanitizerBits(check);
+  }
+  return retval;
+}
+
+SanitizerBits parseFSanitizeRecoverCmdlineParameter() {
+  SanitizerBits retval = 0;
+  for (const auto &name : fSanitizeRecover) {
+    if (name == "all") {
+      retval |= ~SanitizerBits(0);
+      continue;
+    }
+    SanitizerCheck check = parseSanitizerName(name, [&name] {
+      error(Loc(), "fsanitize-recover: Unrecognized sanitizer name '%s'.", name.c_str());
+    });
+    if (check & supportedSanitizerRecoveries)
+      retval |= SanitizerBits(check);
+    else
+      error(Loc(), "fsanitize-recover: Recovery not supported for '%s'.", name.c_str());
   }
   return retval;
 }
@@ -148,6 +172,8 @@ cl::opt<llvm::AsanDetectStackUseAfterReturnMode> fSanitizeAddressUseAfterReturn(
             "but not as much as never). Requires druntime support.")));
 
 SanitizerBits enabledSanitizers = 0;
+SanitizerBits enabledSanitizerRecoveries = 0;
+const SanitizerBits supportedSanitizerRecoveries = AddressSanitizer | MemorySanitizer;
 
 // Parse sanitizer name passed on commandline and return the corresponding
 // sanitizer bits.
@@ -171,6 +197,7 @@ SanitizerCheck parseSanitizerName(llvm::StringRef name,
 void initializeSanitizerOptionsFromCmdline()
 {
   enabledSanitizers |= parseFSanitizeCmdlineParameter();
+  enabledSanitizerRecoveries |= parseFSanitizeRecoverCmdlineParameter();
 
   auto &sancovOpts = sanitizerCoverageOptions;
 

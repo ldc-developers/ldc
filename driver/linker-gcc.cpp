@@ -508,6 +508,13 @@ void ArgsBuilder::addSanitizers(const llvm::Triple &triple) {
   if (opts::isSanitizerEnabled(opts::ThreadSanitizer)) {
     addSanitizerLinkFlags(triple, "tsan", "-fsanitize=thread");
   }
+
+  if (opts::isSanitizerRecoveryEnabled(opts::AddressSanitizer)) {
+      args.push_back("-fsanitize-recover=address");
+  }
+  if (opts::isSanitizerRecoveryEnabled(opts::MemorySanitizer)) {
+      args.push_back("-fsanitize-recover=memory");
+  }
 }
 
 //////////////////////////////////////////////////////////////////////////////

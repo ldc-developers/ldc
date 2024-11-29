@@ -184,7 +184,7 @@ static void addAddressSanitizerPasses(ModulePassManager &mpm,
                                       OptimizationLevel level ) {
   AddressSanitizerOptions aso;
   aso.CompileKernel = false;
-  aso.Recover = false;
+  aso.Recover = opts::isSanitizerRecoveryEnabled(opts::AddressSanitizer);
   aso.UseAfterScope = true;
   aso.UseAfterReturn = opts::fSanitizeAddressUseAfterReturn;
 
@@ -199,7 +199,7 @@ static void addMemorySanitizerPass(ModulePassManager &mpm,
                                    FunctionPassManager &fpm,
                                    OptimizationLevel level ) {
   int trackOrigins = fSanitizeMemoryTrackOrigins;
-  bool recover = false;
+  bool recover = opts::isSanitizerRecoveryEnabled(opts::MemorySanitizer);
   bool kernel = false;
 #if LDC_LLVM_VER >= 1600
   mpm.addPass(MemorySanitizerPass(

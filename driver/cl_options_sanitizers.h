@@ -37,12 +37,18 @@ enum SanitizerCheck : SanitizerBits {
   LeakSanitizer = 1 << 5,
 };
 extern SanitizerBits enabledSanitizers;
+extern SanitizerBits enabledSanitizerRecoveries;
+extern const SanitizerBits supportedSanitizerRecoveries;
 
 extern cl::opt<llvm::AsanDetectStackUseAfterReturnMode> fSanitizeAddressUseAfterReturn;
 
 inline bool isAnySanitizerEnabled() { return enabledSanitizers; }
 inline bool isSanitizerEnabled(SanitizerBits san) {
   return enabledSanitizers & san;
+}
+
+inline bool isSanitizerRecoveryEnabled(SanitizerBits san) {
+  return enabledSanitizerRecoveries & san;
 }
 
 SanitizerCheck parseSanitizerName(llvm::StringRef name,
