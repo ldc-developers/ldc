@@ -880,8 +880,18 @@ public:
 
     llvm::Value *offsetValue = nullptr;
 
+    const auto tb = e->type->toBasetype();
+    assert(tb->ty != TY::Tdelegate);
+    assert(tb->ty != TY::Tfunction);
+
     if (e->offset == 0) {
       offsetValue = baseValue;
+
+      if (tb->isPtrToFunction())
+        if (auto dfn = base->isFunc()) {
+          result = dfn->paintAs(e->type);
+          return;
+        }
     } else {
       LLType *elemType = DtoType(base->type);
       if (elemType->isSized()) {
@@ -912,9 +922,14 @@ public:
       }
     }
 
+    if (tb->isPtrToFunction()) {
+      result = new DFuncValue(e->type, nullptr, offsetValue);
+      return;
+    }
+
     // Casts are also "optimized into" SymOffExp by the frontend.
-    LLValue *llVal = (e->type->toBasetype()->isintegral()
-                          ? p->ir->CreatePtrToInt(offsetValue, DtoType(e->type))
+    LLValue *llVal =
+        (tb->isintegral() ? p->ir->CreatePtrToInt(offsetValue, DtoType(e->type))
                           : DtoBitCast(offsetValue, DtoType(e->type)));
     result = new DImValue(e->type, llVal);
   }
@@ -945,9 +960,8 @@ public:
     if (DFuncValue *fv = v->isFunc()) {
       Logger::println("is func");
       // Logger::println("FuncDeclaration");
-      FuncDeclaration *fd = fv->func;
-      assert(fd);
-      result = new DFuncValue(fd, DtoCallee(fd));
+      assert(fv->func);
+      result = fv->paintAs(e->type);
       return;
     }
     if (v->isIm()) {
@@ -984,11 +998,10 @@ public:
     // function pointers are special
     if (e->type->toBasetype()->ty == TY::Tfunction) {
       DValue *dv = toElem(e->e1);
-      LLValue *llVal = DtoRVal(dv);
       if (DFuncValue *dfv = dv->isFunc()) {
-        result = new DFuncValue(e->type, dfv->func, llVal);
+        result = dfv->paintAs(e->type);
       } else {
-        result = new DImValue(e->type, llVal);
+        result = new DFuncValue(e->type, nullptr, DtoRVal(dv));
       }
       return;
     }
@@ -1072,18 +1085,18 @@ public:
                             fdecl->visibility.kind != Visibility::package_;
 
       // Get the actual function value to call.
-      LLValue *funcval = nullptr;
+      LLValue *funcPtr = nullptr;
       LLValue *vtable = nullptr;
       if (nonFinal) {
         DtoResolveFunction(fdecl);
-        std::tie(funcval, vtable) = DtoVirtualFunctionPointer(l, fdecl);
+        std::tie(funcPtr, vtable) = DtoVirtualFunctionPointer(l, fdecl);
       } else {
-        funcval = DtoCallee(fdecl);
+        funcPtr = DtoCallee(fdecl);
       }
-      assert(funcval);
+      assert(funcPtr);
 
       LLValue *vthis = (DtoIsInMemoryOnly(l->type) ? DtoLVal(l) : DtoRVal(l));
-      result = new DFuncValue(fdecl, funcval, vthis, vtable);
+      result = new DFuncValue(e->type, fdecl, funcPtr, vthis, vtable);
     } else {
       llvm_unreachable("Unknown target for VarDeclaration.");
     }
@@ -1952,8 +1965,11 @@ public:
     DValue *u = toElem(e->e1);
     LLValue *contextptr;
     if (DFuncValue *f = u->isFunc()) {
-      assert(f->func);
-      contextptr = DtoNestedContext(e->loc, f->func);
+      contextptr = f->vthis;
+      if (!contextptr) {
+        assert(f->func);
+        contextptr = DtoNestedContext(e->loc, f->func);
+      }
     } else {
       contextptr = (DtoIsInMemoryOnly(u->type) ? DtoLVal(u) : DtoRVal(u));
     }
@@ -1989,8 +2005,7 @@ public:
       fptr = DtoCallee(e->func);
     }
 
-    result = new DImValue(
-        e->type, DtoAggrPair(DtoType(e->type), contextptr, fptr, ".dg"));
+    result = new DFuncValue(e->type, e->func, fptr, contextptr);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2281,12 +2296,14 @@ public:
     genFuncLiteral(fd, e);
     LLFunction *callee = DtoCallee(fd, false);
 
-    if (fd->isNested()) {
-      LLValue *cval = DtoNestedContext(e->loc, fd);
-      result = new DImValue(e->type, DtoAggrPair(cval, callee, ".func"));
+    LLValue *contextPointer = nullptr;
+    if (e->type->toBasetype()->ty == TY::Tdelegate) {
+      contextPointer = DtoNestedContext(e->loc, fd);
     } else {
-      result = new DFuncValue(e->type, fd, callee);
+      assert(!fd->isNested());
     }
+
+    result = new DFuncValue(e->type, fd, callee, contextPointer);
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -2920,8 +2937,8 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
         Logger::println("is a constructor call, checking lhs of DotVarExp");
         if (toInPlaceConstruction(lhs, dve->e1)) {
           Logger::println("success, calling ctor on in-place constructed lhs");
-          auto fnval = new DFuncValue(fd, DtoCallee(fd), DtoLVal(lhs));
-          DtoCallFunction(ce->loc, ce->type, fnval, ce->arguments);
+          auto fnval = DFuncValue(fd, DtoCallee(fd), DtoLVal(lhs));
+          DtoCallFunction(ce->loc, ce->type, &fnval, ce->arguments);
           return true;
         }
       }

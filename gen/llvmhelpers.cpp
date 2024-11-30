@@ -527,6 +527,10 @@ DValue *DtoCastInt(const Loc &loc, DValue *val, Type *_to) {
     } else {
       rval = new llvm::SIToFPInst(rval, tolltype, "", gIR->scopebb());
     }
+  } else if (to->isPtrToFunction()) {
+    IF_LOG Logger::cout() << "cast function pointer: " << *tolltype << '\n';
+    rval = gIR->ir->CreateIntToPtr(rval, tolltype);
+    return new DFuncValue(_to, nullptr, rval);
   } else if (to->ty == TY::Tpointer) {
     IF_LOG Logger::cout() << "cast pointer: " << *tolltype << '\n';
     rval = gIR->ir->CreateIntToPtr(rval, tolltype);
@@ -569,7 +573,9 @@ DValue *DtoCastPtr(const Loc &loc, DValue *val, Type *to) {
     fatal();
   }
 
-  return new DImValue(to, rval);
+  return totype->isPtrToFunction()
+             ? static_cast<DValue *>(new DFuncValue(to, nullptr, rval))
+             : static_cast<DValue *>(new DImValue(to, rval));
 }
 
 DValue *DtoCastFloat(const Loc &loc, DValue *val, Type *to) {
@@ -766,9 +772,7 @@ DValue *DtoPaintType(const Loc &loc, DValue *val, Type *to) {
       return new DSliceValue(to, slice->getLength(), slice->getPtr());
     }
   } else if (auto func = val->isFunc()) {
-    if (tb->ty == TY::Tdelegate) {
-      return new DFuncValue(to, func->func, DtoRVal(func), func->vthis);
-    }
+    return func->paintAs(to);
   } else { // generic rvalue
     LLValue *rval = DtoRVal(val);
     LLType *tll = DtoType(tb);
@@ -1538,7 +1542,7 @@ DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl) {
     // to the module member list.
     DtoDefineFunction(flitdecl);
 
-    return new DFuncValue(flitdecl, DtoCallee(flitdecl, false));
+    return new DFuncValue(type, flitdecl, DtoCallee(flitdecl, false));
   }
 
   if (FuncDeclaration *fdecl = decl->isFuncDeclaration()) {
@@ -1555,7 +1559,7 @@ DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl) {
     }
     DtoResolveFunction(fdecl);
     assert(!DtoIsMagicIntrinsic(fdecl));
-    return new DFuncValue(fdecl, DtoCallee(fdecl));
+    return new DFuncValue(type, fdecl, DtoCallee(fdecl));
   }
 
   if (SymbolDeclaration *sdecl = decl->isSymbolDeclaration()) {
