@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h>
 #include <map>
 #include <memory>
 #include <utility>
@@ -22,12 +23,30 @@
 #include "llvm/ExecutionEngine/JITSymbol.h"
 #include "llvm/ExecutionEngine/Orc/CompileUtils.h"
 #include "llvm/ExecutionEngine/Orc/IRCompileLayer.h"
-#include "llvm/ExecutionEngine/Orc/LambdaResolver.h"
-#include "llvm/ExecutionEngine/Orc/Legacy.h"
+#include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
+#include "llvm/ExecutionEngine/JITSymbol.h"
+#include "llvm/ExecutionEngine/Orc/ThreadSafeModule.h"
+#include "llvm/ExecutionEngine/Orc/Core.h"
 #include "llvm/ExecutionEngine/Orc/ObjectTransformLayer.h"
 #include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/ManagedStatic.h"
+
+#ifdef LDC_JITRT_USE_JITLINK
+#include "llvm/ExecutionEngine/JITLink/JITLink.h"
+#include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
+#include "llvm/ExecutionEngine/JITLink/JITLinkMemoryManager.h"
+#include "llvm/ExecutionEngine/JITLink/EHFrameSupport.h"
+#endif
+
+#if LDC_LLVM_VER < 1700
+#include "llvm/ADT/Optional.h"
+#else
+#include <optional>
+namespace llvm {
+template <typename T> using Optional = std::optional<T>;
+}
+#endif
 
 #include "context.h"
 #include "disassembler.h"
@@ -38,43 +57,32 @@ class TargetMachine;
 } // namespace llvm
 
 using SymMap = std::map<std::string, void *>;
+class LDCSymbolDefinitionGenerator;
 
 class DynamicCompilerContext final {
+  friend class LDCSymbolDefinitionGenerator;
+
 private:
-  struct ModuleListener {
-    llvm::TargetMachine &targetmachine;
-    llvm::raw_ostream *stream = nullptr;
-
-    ModuleListener(llvm::TargetMachine &tm) : targetmachine(tm) {}
-
-    template <typename T> auto operator()(T &&object) -> T {
-      if (nullptr != stream) {
-        auto objFile =
-            llvm::cantFail(llvm::object::ObjectFile::createObjectFile(
-                object->getMemBufferRef()));
-        disassemble(targetmachine, *objFile, *stream);
-      }
-      return std::move(object);
-    }
-  };
+  llvm::orc::JITTargetMachineBuilder jtmb;
   std::unique_ptr<llvm::TargetMachine> targetmachine;
   const llvm::DataLayout dataLayout;
-  using ObjectLayerT = llvm::orc::LegacyRTDyldObjectLinkingLayer;
-  using ListenerLayerT =
-      llvm::orc::LegacyObjectTransformLayer<ObjectLayerT, ModuleListener>;
-  using CompileLayerT =
-      llvm::orc::LegacyIRCompileLayer<ListenerLayerT,
-                                      llvm::orc::SimpleCompiler>;
-  using ModuleHandleT = llvm::orc::VModuleKey;
-  std::shared_ptr<llvm::orc::SymbolStringPool> stringPool;
-  llvm::orc::ExecutionSession execSession;
-  std::shared_ptr<llvm::orc::SymbolResolver> resolver;
+#ifdef LDC_JITRT_USE_JITLINK
+  using ObjectLayerT = llvm::orc::ObjectLinkingLayer;
+#else
+  using ObjectLayerT = llvm::orc::RTDyldObjectLinkingLayer;
+#endif
+  using ListenerLayerT = llvm::orc::ObjectTransformLayer;
+  using CompileLayerT = llvm::orc::IRCompileLayer;
+  using ModuleHandleT = llvm::orc::JITDylib;
+  std::unique_ptr<llvm::orc::ExecutionSession> execSession;
+  llvm::orc::MangleAndInterner mangler;
   ObjectLayerT objectLayer;
+  llvm::raw_ostream *listener_stream;
   ListenerLayerT listenerlayer;
   CompileLayerT compileLayer;
-  llvm::LLVMContext context;
+  llvm::orc::ThreadSafeContext context;
   bool compiled = false;
-  ModuleHandleT moduleHandle;
+  ModuleHandleT &moduleHandle;
   SymMap symMap;
 
   struct BindDesc final {
@@ -86,25 +94,31 @@ private:
   llvm::MapVector<void *, BindDesc> bindInstances;
   const bool mainContext = false;
 
+  llvm::Optional<llvm::orc::ExecutorSymbolDef>
+  findSymbol(const std::string &name);
+
+public:
   struct ListenerCleaner final {
     DynamicCompilerContext &owner;
     ListenerCleaner(DynamicCompilerContext &o, llvm::raw_ostream *stream);
     ~ListenerCleaner();
   };
-
-public:
-  DynamicCompilerContext(bool isMainContext);
+  explicit DynamicCompilerContext(bool isMainContext);
   ~DynamicCompilerContext();
 
-  llvm::TargetMachine &getTargetMachine() { return *targetmachine; }
+  llvm::TargetMachine *getTargetMachine() { return targetmachine.get(); }
   const llvm::DataLayout &getDataLayout() const { return dataLayout; }
 
-  llvm::Error addModule(std::unique_ptr<llvm::Module> module,
-                        llvm::raw_ostream *asmListener);
+  llvm::Error addModule(llvm::orc::ThreadSafeModule module);
 
-  llvm::JITSymbol findSymbol(const std::string &name);
+  llvm::Expected<llvm::orc::ExecutorSymbolDef> lookup(const std::string &name);
 
-  llvm::LLVMContext &getContext() { return context; }
+  llvm::Expected<llvm::orc::SymbolMap>
+  lookupMany(const std::vector<std::string> &names);
+
+  llvm::LLVMContext *getContext() { return context.getContext(); }
+
+  llvm::orc::ThreadSafeContext getThreadSafeContext() const { return context; }
 
   void clearSymMap();
 
@@ -125,8 +139,13 @@ public:
 
   bool isMainContext() const;
 
-private:
-  void removeModule(const ModuleHandleT &handle);
+  std::unique_ptr<ListenerCleaner>
+  addScopedListener(llvm::raw_ostream *stream) {
+    return std::make_unique<ListenerCleaner>(*this, stream);
+  }
 
-  std::shared_ptr<llvm::orc::SymbolResolver> createResolver();
+private:
+  void removeModule(ModuleHandleT &handle);
+
+  std::shared_ptr<llvm::JITSymbolResolver> createResolver();
 };

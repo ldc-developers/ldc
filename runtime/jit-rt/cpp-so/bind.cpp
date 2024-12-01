@@ -26,10 +26,14 @@ llvm::FunctionType *getDstFuncType(llvm::FunctionType &srcType,
   assert(!srcType.isVarArg());
   llvm::SmallVector<llvm::Type *, SmallParamsCount> newParams;
   const auto srcParamsCount = srcType.params().size();
-  assert(params.size() == srcParamsCount);
-  for (size_t i = 0; i < srcParamsCount; ++i) {
+  assert(params.size() <= srcParamsCount);
+  size_t sRetCount = srcParamsCount - params.size();
+  for (size_t i = 0; i < sRetCount; ++i) {
+    newParams.push_back(srcType.getParamType(static_cast<unsigned>(i)));
+  }
+  for (size_t i = 0; i < params.size(); ++i) {
     if (params[i].data == nullptr) {
-      newParams.push_back(srcType.getParamType(static_cast<unsigned>(i)));
+      newParams.push_back(srcType.getParamType(static_cast<unsigned>(i + sRetCount)));
     }
   }
   auto retType = srcType.getReturnType();
@@ -42,6 +46,7 @@ llvm::Function *createBindFunc(llvm::Module &module, llvm::Function &srcFunc,
                                const llvm::ArrayRef<ParamSlice> &params) {
   auto newFunc = llvm::Function::Create(
       &funcType, llvm::GlobalValue::ExternalLinkage, "\1.jit_bind", &module);
+  newFunc->setDLLStorageClass(llvm::GlobalValue::DLLExportStorageClass);
 
   newFunc->setCallingConv(srcFunc.getCallingConv());
   //  auto srcAttributes = srcFunc.getAttributes();
@@ -64,12 +69,12 @@ llvm::Function *createBindFunc(llvm::Module &module, llvm::Function &srcFunc,
 }
 
 llvm::Value *
-allocParam(llvm::IRBuilder<> &builder, llvm::Type &srcType,
+allocParam(llvm::IRBuilder<> &builder, llvm::Type &srcType, llvm::Type *byvalType,
            const llvm::DataLayout &layout, const ParamSlice &param,
            llvm::function_ref<void(const std::string &)> errHandler,
            const BindOverride &override) {
-  if (param.type == ParamType::Aggregate && srcType.isPointerTy()) {
-    auto elemType = srcType.getPointerElementType();
+  if (byvalType) {
+    auto elemType = byvalType;
     auto stackArg = builder.CreateAlloca(elemType);
     stackArg->setAlignment(layout.getABITypeAlign(elemType));
     auto init =
@@ -82,7 +87,7 @@ allocParam(llvm::IRBuilder<> &builder, llvm::Type &srcType,
   auto init =
       parseInitializer(layout, srcType, param.data, errHandler, override);
   builder.CreateStore(init, stackArg);
-  return builder.CreateLoad(stackArg);
+  return builder.CreateLoad(&srcType, stackArg);
 }
 
 void doBind(llvm::Module &module, llvm::Function &dstFunc,
@@ -98,6 +103,19 @@ void doBind(llvm::Module &module, llvm::Function &dstFunc,
   auto currentArg = dstFunc.arg_begin();
   auto funcType = srcFunc.getFunctionType();
   auto &layout = module.getDataLayout();
+  size_t returnArgs = 0;
+  llvm::Type *sRetTy = nullptr;
+  // handle stack returns
+  for (size_t i = 0; i < funcType->getNumParams(); ++i) {
+    sRetTy = srcFunc.getParamStructRetType(i);
+    if (!sRetTy) {
+      break;
+    }
+    ++returnArgs;
+    args.push_back(currentArg);
+    ++currentArg;
+  }
+
   for (size_t i = 0; i < params.size(); ++i) {
     llvm::Value *arg = nullptr;
     const auto &param = params[i];
@@ -105,8 +123,10 @@ void doBind(llvm::Module &module, llvm::Function &dstFunc,
       arg = currentArg;
       ++currentArg;
     } else {
-      auto type = funcType->getParamType(static_cast<unsigned>(i));
-      arg = allocParam(builder, *type, layout, param, errHandler, override);
+      size_t currentOffset = i + returnArgs;
+      auto type = funcType->getParamType(static_cast<unsigned>(currentOffset));
+      auto byvalType = srcFunc.getParamByValType(currentOffset);
+      arg = allocParam(builder, *type, byvalType, layout, param, errHandler, override);
     }
     assert(arg != nullptr);
     args.push_back(arg);
@@ -115,8 +135,7 @@ void doBind(llvm::Module &module, llvm::Function &dstFunc,
 
   auto ret = builder.CreateCall(&srcFunc, args);
   if (!srcFunc.isDeclaration()) {
-    ret->addAttribute(llvm::AttributeList::FunctionIndex,
-                      llvm::Attribute::AlwaysInline);
+    ret->addRetAttr(llvm::Attribute::AlwaysInline);
   }
   ret->setCallingConv(srcFunc.getCallingConv());
   ret->setAttributes(srcFunc.getAttributes());
