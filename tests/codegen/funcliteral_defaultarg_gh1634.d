@@ -14,17 +14,17 @@ int foo(int function() d = () { return 123; })
 // CHECK-LABEL: define{{.*}} @{{.*}}D3mod8call_fooFZi
 int call_foo()
 {
-    // CHECK: call {{.*}}D3mod3fooFPFZiZi{{.*}}D3mod9__lambda5FNaNbNiNfZi
+    // CHECK: call {{.*}}D3mod3fooFPFZiZi{{.*}}D3mod15__lambda_L9_C28FNaNbNiNfZi
     return foo();
 }
 
 // The lambda is defined by the first call to foo with default arguments.
-// CHECK-LABEL: define{{.*}} @{{.*}}D3mod9__lambda5FNaNbNiNfZi
+// CHECK-LABEL: define{{.*}} @{{.*}}D3mod15__lambda_L9_C28FNaNbNiNfZi
 // CHECK: ret i32 123
 
 // CHECK-LABEL: define{{.*}} @{{.*}}Dmain
 void main()
 {
-    // CHECK: call {{.*}}D3mod3fooFPFZiZi{{.*}}D3mod9__lambda5FNaNbNiNfZi
+    // CHECK: call {{.*}}D3mod3fooFPFZiZi{{.*}}D3mod15__lambda_L9_C28FNaNbNiNfZi
     assert(foo() == 123);
 }

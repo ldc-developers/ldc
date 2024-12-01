@@ -5554,7 +5554,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
     {
         if (exp.fd.ident == Id.empty)
         {
-            const(char)[] s;
+            string s;
             if (exp.fd.fes)
                 s = "__foreachbody";
             else if (exp.fd.tok == TOK.reserved)
@@ -5588,7 +5588,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                 symtab = sds.symtab;
             }
             assert(symtab);
-            Identifier id = Identifier.generateId(s, symtab.length() + 1);
+            Identifier id = Identifier.generateIdWithLoc(s, exp.loc);
             exp.fd.ident = id;
             if (exp.td)
                 exp.td.ident = id;
