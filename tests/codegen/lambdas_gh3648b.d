@@ -11,16 +11,16 @@ void foo()
 }
 
 // the global variables should be defined as internal:
-// CHECK: _D14lambdas_gh36489__lambda5FZ10global_bari{{.*}} = internal thread_local global
-// CHECK: _D14lambdas_gh36489__lambda6FZ18global_bar_inlinedOi{{.*}} = internal global
+// CHECK: _D14lambdas_gh364815__lambda_L5_C12FZ10global_bari{{.*}} = internal thread_local global
+// CHECK: _D14lambdas_gh364816__lambda_L10_C20FZ18global_bar_inlinedOi{{.*}} = internal global
 
 // foo() should only call one lambda:
 // CHECK: define {{.*}}_D15lambdas_gh3648b3fooFZv
-// CHECK-NEXT: call {{.*}}__lambda5
+// CHECK-NEXT: call {{.*}}__lambda_L5_C12
 // CHECK-NEXT: ret void
 
 // bar() should be defined as internal:
-// CHECK: define internal {{.*}}__lambda5
+// CHECK: define internal {{.*}}__lambda_L5_C12
 
 // bar_inlined() should NOT have made it to the .ll:
-// CHECK-NOT: define {{.*}}__lambda6
+// CHECK-NOT: define {{.*}}__lambda_L10_C20
