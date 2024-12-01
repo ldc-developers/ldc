@@ -207,8 +207,6 @@ environment:
 
 task:
   name: Ubuntu rolling x64 shared-libs-only gdmd
-  # allow failures - gdb v10 came with regressions
-  allow_failures: true
   container:
     image: ubuntu:rolling
     cpu: 8
@@ -217,13 +215,23 @@ task:
   environment:
     CI_ARCH: x86_64
     CI_OS: linux
-    EXTRA_APT_PACKAGES: "gdmd llvm-dev libclang-common-15-dev"
+    EXTRA_APT_PACKAGES: "gdmd llvm-dev libclang-common-19-dev lld"
     EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
     PARALLELISM: 8
     PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${PATH}
     # for gdmd:
     LANG: C.UTF-8
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
+  # to get the LTO lit-tests working:
+  make_lld_the_default_linker_script: |
+    ln -sf ld.lld /usr/bin/ld
+    ld --version
+  disable_tests_script: |
+    cd $CIRRUS_WORKING_DIR
+    # FIXME: lsan_interceptors.cpp:82 "((!lsan_init_is_running)) != (0)"
+    rm tests/sanitizers/lsan_memleak.d
+    # apparently just fails due to extra linker error output
+    rm tests/dmd/fail_compilation/needspkgmod.d
   << : *COMMON_STEPS_TEMPLATE
 
 task:
