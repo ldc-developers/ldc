@@ -207,7 +207,7 @@ Type *TargetABI::vaListType() {
 
 //////////////////////////////////////////////////////////////////////////////
 
-const char *TargetABI::objcMsgSendFunc(Type *ret, IrFuncTy &fty) {
+const char *TargetABI::objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool directcall) {
   llvm_unreachable("Unknown Objective-C ABI");
 }
 

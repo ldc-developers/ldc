@@ -23,15 +23,13 @@
 using namespace dmd;
 
 struct X86TargetABI : TargetABI {
-  const bool isDarwin;
   const bool isMSVC;
   bool returnStructsInRegs;
   IntegerRewrite integerRewrite;
   IndirectByvalRewrite indirectByvalRewrite;
 
   X86TargetABI()
-      : isDarwin(global.params.targetTriple->isOSDarwin()),
-        isMSVC(global.params.targetTriple->isWindowsMSVCEnvironment()) {
+      : isMSVC(global.params.targetTriple->isWindowsMSVCEnvironment()) {
     using llvm::Triple;
     auto os = global.params.targetTriple->getOS();
     returnStructsInRegs =
@@ -230,7 +228,7 @@ struct X86TargetABI : TargetABI {
     // Clang does not pass empty structs, while it seems that GCC does,
     // at least on Linux x86. We don't know whether the C compiler will
     // be Clang or GCC, so just assume Clang on Darwin and G++ on Linux.
-    if (externD || !isDarwin)
+    if (externD || !isDarwin())
       return;
 
     size_t i = 0;
@@ -271,19 +269,6 @@ struct X86TargetABI : TargetABI {
         }
       }
     }
-  }
-
-  const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override {
-    // see objc/message.h for objc_msgSend selection rules
-    assert(isDarwin);
-    if (fty.arg_sret) {
-      return "objc_msgSend_stret";
-    }
-    // float, double, long double return
-    if (ret && ret->isfloating() && !ret->iscomplex()) {
-      return "objc_msgSend_fpret";
-    }
-    return "objc_msgSend";
   }
 };
 

@@ -65,3 +65,6 @@ using llvm::IRBuilder;
 #define LLConstantFP llvm::ConstantFP
 
 #define LLSmallVector llvm::SmallVector
+
+#define LLConstantList std::vector<LLConstant *>
+#define LLStringRef llvm::StringRef

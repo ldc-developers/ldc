@@ -329,6 +329,30 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////
 
+  void visit(ObjcClassReferenceExp *e) override {
+    IF_LOG Logger::print("ObjcClassReferenceExp::toElem: %s @ %s\n", e->toChars(),
+                         e->type->toChars());
+    LOG_SCOPE;
+
+    auto lType = DtoType(e->type);
+
+    if (auto iface = e->classDeclaration->isInterfaceDeclaration()) {
+
+      // Protocols
+      result = new DImValue(e->type, gIR->objc.deref(iface, lType));
+      return;
+    } else {
+
+      // Classes
+      result = new DImValue(e->type, gIR->objc.deref(e->classDeclaration, lType));
+      return;
+    }
+
+    llvm_unreachable("Unknown type for ObjcClassReferenceExp.");
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
   void visit(VarExp *e) override {
     IF_LOG Logger::print("VarExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
@@ -801,7 +825,7 @@ public:
     }
 
     DValue *result =
-        DtoCallFunction(e->loc, e->type, fnval, e->arguments, sretPointer);
+        DtoCallFunction(e->loc, e->type, fnval, e->arguments, sretPointer, e->directcall);
 
     if (canEmitVTableUnchangedAssumption && dfnval->vtable) {
       // Reload vtable ptr. It's the first element so instead of GEP+load we can
@@ -1017,10 +1041,9 @@ public:
     auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
-    DValue *l = toElem(e->e1);
-
     Type *e1type = e->e1->type->toBasetype();
 
+    DValue *l = toElem(e->e1);
     if (VarDeclaration *vd = e->var->isVarDeclaration()) {
       AggregateDeclaration *ad;
       LLValue *aggrPtr;

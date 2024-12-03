@@ -40,6 +40,7 @@ version (D_ObjectiveC)
 {
     version = UdaOptional;
     version = UdaSelector;
+    version = UdaSwift;
 }
 
 version (Posix)
@@ -50,6 +51,7 @@ version (CoreDdoc)
     version = UdaGNUAbiTag;
     version = UdaOptional;
     version = UdaSelector;
+    version = UdaSwift;
 }
 
 /**
@@ -182,6 +184,16 @@ version (UdaSelector) struct selector
  */
 version (UdaOptional)
     enum optional;
+
+
+/**
+ * Use this attribute to indicate that a Objective-C class is a Swift stub class.
+ * 
+ * This is only allowed on classes, and classes marked as swift Objective-C classes
+ * cannot be subclassed.
+ */
+version (UdaSwift)
+    enum swift;
 
 /**
  * Use this attribute to declare an ABI tag on a C++ symbol.

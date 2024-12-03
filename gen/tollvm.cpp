@@ -691,7 +691,121 @@ llvm::GlobalVariable *isaGlobalVar(LLValue *v) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+LLGlobalVariable *makeGlobal(LLStringRef name, LLType* type, LLStringRef section, bool extern_, bool externInit) {
+  if (!type)
+    type = getOpaquePtrType();
+
+  auto var = new LLGlobalVariable(
+    gIR->module,
+    type,
+    false,
+    extern_ ? LLGlobalValue::ExternalLinkage : LLGlobalValue::PrivateLinkage,
+    nullptr,
+    name,
+    nullptr,
+    LLGlobalValue::NotThreadLocal,
+    0u,
+    externInit
+  );
+
+  if (!section.empty())
+    var->setSection(section);
+    
+  return var;
+}
+
+LLGlobalVariable *makeGlobalWithBytes(LLStringRef name, LLConstantList packedContents, LLStructType* type, bool extern_, bool externInit) {
+  if (packedContents.empty()) {
+    packedContents.push_back(getNullPtr());
+  }
+
+  // Handle initializer.
+  LLConstant *init;
+  if (type) {
+    init = LLConstantStruct::get(
+      type,
+      packedContents
+    );
+  } else {
+    init = LLConstantStruct::getAnon(
+      packedContents,
+      true
+    );
+    type = reinterpret_cast<LLStructType *>(init->getType());
+  }
+
+  auto var = new LLGlobalVariable(
+    gIR->module,
+    type,
+    false,
+    extern_ ? LLGlobalValue::ExternalLinkage : LLGlobalValue::PrivateLinkage,
+    init,
+    name,
+    nullptr,
+    LLGlobalValue::NotThreadLocal,
+    0u,
+    externInit
+  );
+  
+  return var;
+}
+
+LLGlobalVariable *makeGlobalRef(LLGlobalVariable *to, LLStringRef name, LLStringRef section, bool extern_, bool externInit) {
+  auto var = makeGlobal(name, to->getType(), section, extern_, externInit);
+  var->setInitializer(to);
+  return var;
+}
+
+LLGlobalVariable *makeGlobalStr(LLStringRef text, LLStringRef name, LLStringRef section, bool extern_, bool externInit) {
+  auto init = llvm::ConstantDataArray::getString(gIR->context(), text);
+  auto var = new LLGlobalVariable(
+    gIR->module,
+    init->getType(),
+    false,
+    extern_ ? LLGlobalValue::ExternalLinkage : LLGlobalValue::PrivateLinkage,
+    init,
+    name,
+    nullptr,
+    LLGlobalValue::NotThreadLocal,
+    0u,
+    externInit
+  );
+
+  if (!section.empty())
+    var->setSection(section);
+  return var;
+}
+
+LLGlobalVariable *getOrCreate(LLStringRef name, LLType* type, LLStringRef section, bool extInitializer) {
+  auto global = gIR->module.getGlobalVariable(name, true);
+  if (global)
+    return global;
+
+  return makeGlobal(name, type, section, true, extInitializer);
+}
+
+LLGlobalVariable *getOrCreateWeak(LLStringRef name, LLType* type, LLStringRef section, bool extInitializer) {
+  auto global = gIR->module.getGlobalVariable(name, true);
+  if (global)
+    return global;
+
+  global = makeGlobal(name, type, section, false, extInitializer);
+  global->setLinkage(llvm::GlobalValue::LinkageTypes::WeakAnyLinkage);
+  global->setVisibility(llvm::GlobalValue::VisibilityTypes::HiddenVisibility);
+  return global;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 LLType *getI8Type() { return LLType::getInt8Ty(gIR->context()); }
+
+LLType *getI16Type() { return LLType::getInt16Ty(gIR->context()); }
+
+LLType *getI32Type() { return LLType::getInt32Ty(gIR->context()); }
+
+LLType *getI64Type() { return LLType::getInt64Ty(gIR->context()); }
+
+LLType *getSizeTType() { return DtoSize_t(); }
 
 LLPointerType *getOpaquePtrType(unsigned addressSpace) {
   return LLPointerType::get(gIR->context(), addressSpace);
@@ -703,6 +817,8 @@ llvm::ConstantPointerNull *getNullPtr() {
 
 LLConstant *getNullValue(LLType *t) { return LLConstant::getNullValue(t); }
 
+LLConstant *wrapNull(LLConstant *v) { return v ? v : getNullPtr(); }
+
 ////////////////////////////////////////////////////////////////////////////////
 
 size_t getTypeBitSize(LLType *t) { return gDataLayout->getTypeSizeInBits(t); }
@@ -710,6 +826,10 @@ size_t getTypeBitSize(LLType *t) { return gDataLayout->getTypeSizeInBits(t); }
 size_t getTypeStoreSize(LLType *t) { return gDataLayout->getTypeStoreSize(t); }
 
 size_t getTypeAllocSize(LLType *t) { return gDataLayout->getTypeAllocSize(t); }
+
+size_t getPointerSize() { return gDataLayout->getPointerSize(0); }
+
+size_t getPointerSizeInBits() { return gDataLayout->getPointerSizeInBits(0); }
 
 unsigned int getABITypeAlign(LLType *t) {
   return gDataLayout->getABITypeAlign(t).value();

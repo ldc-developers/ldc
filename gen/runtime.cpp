@@ -824,6 +824,10 @@ static void buildRuntimeModule() {
                   {stringTy, arrayOf(sizeTy), arrayOf(uintTy), ubyteTy});
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////
+
   if (target.objc.supported) {
     assert(global.params.targetTriple->isOSDarwin());
 
@@ -839,24 +843,58 @@ static void buildRuntimeModule() {
                   {objectPtrTy, selectorPtrTy}, {},
                   AttrSet(NoAttrs, ~0U, llvm::Attribute::NonLazyBind));
 
+    // id objc_msgSendSuper(obj_super_t *super, SEL op, ...)
+    // NOTE: obj_super_t is defined as struct { id, Class }
+    createFwdDecl(LINK::c, objectPtrTy, {"objc_msgSendSuper"},
+                  {objectPtrTy, selectorPtrTy}, {},
+                  AttrSet(NoAttrs, ~0U, llvm::Attribute::NonLazyBind));
+
+    // Class object_getClass(id obj)
+    createFwdDecl(LINK::c, objectPtrTy, {"object_getClass"},
+                  {objectPtrTy}, {},
+                  AttrSet(NoAttrs, ~0U, llvm::Attribute::NonLazyBind));
+
+    // Class objc_loadClassRef(Class function(Class* stub))
+    // SEE: https://github.com/swiftlang/swift/blob/main/docs/ObjCInterop.md
+    createFwdDecl(LINK::c, objectPtrTy, {"objc_loadClassRef"},
+                  {objectPtrTy}, {},
+                  AttrSet(NoAttrs, ~0U, llvm::Attribute::NonLazyBind));
+
+    // Needed for safe casting
+
+    // bool objc_opt_isKindOfClass(id obj, Class otherClass)
+    // This features a fast path over using the msgSend version.
+    // https://github.com/apple-oss-distributions/objc4/blob/main/runtime/NSObject.mm#L2123
+    createFwdDecl(LINK::c, boolTy, {"objc_opt_isKindOfClass"},
+                  {objectPtrTy, objectPtrTy}, {},
+                  AttrSet(NoAttrs, ~0U, llvm::Attribute::NonLazyBind));
+
+    // bool class_conformsToProtocol(Class cls, Protocol *protocol)
+    createFwdDecl(LINK::c, boolTy, {"class_conformsToProtocol"},
+                  {objectPtrTy, objectPtrTy}, {},
+                  AttrSet(NoAttrs, ~0U, llvm::Attribute::NonLazyBind));
+
+
     switch (global.params.targetTriple->getArch()) {
     case llvm::Triple::x86_64:
       // creal objc_msgSend_fp2ret(id self, SEL op, ...)
       createFwdDecl(LINK::c, Type::tcomplex80, {"objc_msgSend_fp2ret"},
                     {objectPtrTy, selectorPtrTy});
-    // fall-thru
-    case llvm::Triple::x86:
+
       // x86_64 real return only,  x86 float, double, real return
       // real objc_msgSend_fpret(id self, SEL op, ...)
       createFwdDecl(LINK::c, realTy, {"objc_msgSend_fpret"},
                     {objectPtrTy, selectorPtrTy});
-    // fall-thru
-    case llvm::Triple::arm:
-    case llvm::Triple::thumb:
+
       // used when return value is aggregate via a hidden sret arg
       // void objc_msgSend_stret(T *sret_arg, id self, SEL op, ...)
       createFwdDecl(LINK::c, voidTy, {"objc_msgSend_stret"},
-                    {objectPtrTy, selectorPtrTy});
+                    {objectPtrTy, objectPtrTy, selectorPtrTy});
+
+      // See: https://github.com/apple-oss-distributions/objc4/blob/main/runtime/Messengers.subproj/objc-msg-x86_64.s#L1059
+      // void objc_msgSend_stret(T *sret_arg, objc_super_t *super, SEL op, ...)
+      createFwdDecl(LINK::c, voidTy, {"objc_msgSendSuper_stret"},
+                    {objectPtrTy, objectPtrTy, selectorPtrTy});
       break;
     default:
       break;

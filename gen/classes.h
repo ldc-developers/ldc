@@ -39,6 +39,8 @@ DValue *DtoDynamicCastObject(const Loc &loc, DValue *val, Type *to);
 
 DValue *DtoDynamicCastInterface(const Loc &loc, DValue *val, Type *to);
 
+bool DtoIsObjcLinkage(Type *to);
+
 /// Returns pair of function pointer and vtable pointer.
 std::pair<llvm::Value *, llvm::Value *>
 DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl);

@@ -146,16 +146,32 @@ LLConstantInt *isaConstantInt(LLValue *v);
 llvm::Argument *isaArgument(LLValue *v);
 LLGlobalVariable *isaGlobalVar(LLValue *v);
 
+// llvm::GlobalVariable wrappers for quickly making
+// new global variables and references to them.
+LLGlobalVariable *makeGlobal(LLStringRef name, LLType* type = nullptr, LLStringRef section = "", bool extern_ = false, bool externInit = false);
+LLGlobalVariable *makeGlobalWithBytes(LLStringRef name, LLConstantList packedContents, LLStructType* type = nullptr, bool extern_ = false, bool externInit = false);
+LLGlobalVariable *makeGlobalRef(LLGlobalVariable *to, LLStringRef name = "", LLStringRef section = "", bool extern_ = false, bool externInit = false);
+LLGlobalVariable *makeGlobalStr(LLStringRef text, LLStringRef name = "", LLStringRef section = "", bool extern_ = false, bool externInit = false);
+LLGlobalVariable *getOrCreate(LLStringRef name, LLType* type, LLStringRef section, bool extInitializer=false);
+LLGlobalVariable *getOrCreateWeak(LLStringRef name, LLType* type, LLStringRef section, bool extInitializer=false);
+
 // llvm::T::get(...) wrappers
 LLType *getI8Type();
+LLType *getI16Type();
+LLType *getI32Type();
+LLType *getI64Type();
+LLType *getSizeTType();
 LLPointerType *getOpaquePtrType(unsigned addressSpace = 0);
 llvm::ConstantPointerNull *getNullPtr();
 LLConstant *getNullValue(LLType *t);
+LLConstant *wrapNull(LLConstant *v);
 
 // type sizes
 size_t getTypeBitSize(LLType *t);
 size_t getTypeStoreSize(LLType *t);
 size_t getTypeAllocSize(LLType *t);
+size_t getPointerSize();
+size_t getPointerSizeInBits();
 
 // type alignments
 unsigned int getABITypeAlign(LLType *t);

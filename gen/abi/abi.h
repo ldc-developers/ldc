@@ -70,6 +70,7 @@ protected:
 
 // interface called by codegen
 struct TargetABI {
+public:
   virtual ~TargetABI() = default;
 
   /// Returns the ABI for the target we're compiling for
@@ -115,6 +116,11 @@ struct TargetABI {
     // `clang::ToolChain::IsUnwindTablesDefault()` based on early Clang 5.0.
     return global.params.targetTriple->getArch() == llvm::Triple::x86_64 ||
            global.params.targetTriple->getOS() == llvm::Triple::NetBSD;
+  }
+
+  /// Returns true if the target is darwin-based.
+  bool isDarwin() {
+    return global.params.targetTriple->isOSDarwin();
   }
 
   /// Returns true if the D function uses sret (struct return).
@@ -171,7 +177,7 @@ struct TargetABI {
   virtual Type *vaListType();
 
   /// Returns Objective-C message send function
-  virtual const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty);
+  virtual const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool directcall);
 
   /***** Static Helpers *****/
 

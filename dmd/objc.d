@@ -156,6 +156,9 @@ extern (C++) struct ObjcClassDeclaration
     /// `true` if this class is externally defined.
     bool isExtern = false;
 
+    /// `true` if this class is a Swift stub
+    version(IN_LLVM) bool isSwiftStub = false;
+
     /// Name of this class.
     Identifier identifier;
 
@@ -263,6 +266,16 @@ extern(C++) abstract class Objc
      *  sc = the scope from the semantic phase
      */
     abstract void setAsOptional(FuncDeclaration functionDeclaration, Scope* sc) const;
+
+    /**
+     * Marks the given class as a Swift stub class.
+     *
+     * Params:
+     *  cd = the class declaration to set as a swift stub
+     *  sc = the scope from the semantic phase
+     */
+    version(IN_LLVM)
+    abstract void setAsSwiftStub(ClassDeclaration cd, Scope* sc) const;
 
     /**
      * Validates function declarations declared optional.
@@ -452,6 +465,12 @@ static if (!IN_LLVM)
         // noop
     }
 
+    version(IN_LLVM)
+    override void setAsSwiftStub(ClassDeclaration, Scope*) const
+    {
+        // noop
+    }
+
     override void validateOptional(FuncDeclaration) const
     {
         // noop
@@ -532,6 +551,7 @@ version (IN_LLVM) {} else
     {
         cd.classKind = ClassKind.objc;
         cd.objc.isExtern = (cd.storage_class & STC.extern_) > 0;
+        this.setAsSwiftStub(cd, cd._scope);
     }
 
     override void setObjc(InterfaceDeclaration id)
@@ -825,6 +845,42 @@ version (IN_LLVM) {} else
         error(expression.loc, "no property `tupleof` for type `%s`", type.toChars());
         errorSupplemental(expression.loc, "`tupleof` is not available for members " ~
             "of Objective-C classes. Please use the Objective-C runtime instead");
+    }
+
+    version(IN_LLVM) {
+        override void setAsSwiftStub(ClassDeclaration cd, Scope* sc) const
+        {
+            const count = declaredAsSwiftStubCount(cd, sc);
+            cd.objc.isSwiftStub = count > 0;
+
+            if (count > 1)
+                .error(cd.loc, "%s `%s` can only declare a class as a swift stub once", cd.kind, cd.toPrettyChars);
+        }
+
+        /// Returns: the number of times `cd` has been declared as optional.
+        private int declaredAsSwiftStubCount(ClassDeclaration cd, Scope* sc) const
+        {
+            int count;
+
+            foreachUda(cd, sc, (e) {
+                if (!e.isTypeExp())
+                    return 0;
+
+                auto typeExp = e.isTypeExp();
+
+                if (typeExp.type.ty != Tenum)
+                    return 0;
+
+                auto typeEnum = cast(TypeEnum) typeExp.type;
+
+                if (isCoreUda(typeEnum.sym, Id.udaSwiftStub))
+                    count++;
+
+                return 0;
+            });
+
+            return count;
+        }
     }
 }
 

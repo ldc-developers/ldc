@@ -1,4 +1,3 @@
-// DISABLED: LDC
 // EXTRA_OBJC_SOURCES:
 // REQUIRED_ARGS: -L-lobjc
 
@@ -8,7 +7,7 @@
 
 import core.attribute : selector, optional;
 
-extern (Objective-C):
+extern(C):
 
 struct Protocol;
 struct objc_selector;
@@ -37,6 +36,8 @@ Protocol* objc_getProtocol(scope const char* name);
 objc_method_description protocol_getMethodDescription(
     Protocol* proto, SEL aSel, bool isRequiredMethod, bool isInstanceMethod
 );
+
+extern (Objective-C):
 
 interface Foo
 {

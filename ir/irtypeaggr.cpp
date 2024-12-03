@@ -64,6 +64,15 @@ void AggrTypeBuilder::addAggregate(
   if (n == 0)
     return;
 
+  // Objective-C instance variables are laid out at runtime.
+  // as such, we should not generate the aggregate body.
+  if (auto klass = ad->isClassDeclaration()) {
+    if (klass->classKind == ClassKind::objc) {
+      this->addType(getOpaquePtrType(), getPointerSize());
+      return;
+    }
+  }
+
   // Unions may lead to overlapping fields, and we need to flatten them for LLVM
   // IR. We usually take the first field (in declaration order) of an
   // overlapping set, but a literal with an explicit initializer for a dominated
@@ -196,9 +205,9 @@ void AggrTypeBuilder::addAggregate(
 
     if (vd->offset < m_offset) {
       error(vd->loc,
-            "%s `%s` overlaps previous field. This is an ICE, please file an "
+            "%s `%s` @ %u overlaps previous field @ %u. This is an ICE, please file an "
             "LDC issue.",
-            vd->kind(), vd->toPrettyChars());
+            vd->kind(), vd->toPrettyChars(), vd->offset, m_offset);
       fatal();
     }
 

@@ -165,7 +165,7 @@ struct X86_64TargetABI : TargetABI {
 
   Type *vaListType() override;
 
-  const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty) override;
+  const char *objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool directcall) override;
 
 private:
   LLType *getValistType();
@@ -195,9 +195,6 @@ private:
     std::memcpy(&fty.tag, &regCount, sizeof regCount);
   }
 };
-
-// The public getter for abi.cpp
-TargetABI *getX86_64TargetABI() { return new X86_64TargetABI; }
 
 bool X86_64TargetABI::returnInArg(TypeFunction *tf, bool) {
   if (tf->isref()) {
@@ -382,21 +379,19 @@ Type *X86_64TargetABI::vaListType() {
       TypeIdentifier::create(Loc(), Identifier::idPool("__va_list_tag")));
 }
 
-const char *X86_64TargetABI::objcMsgSendFunc(Type *ret,
-                                             IrFuncTy &fty) {
+const char *X86_64TargetABI::objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool directcall) {
+  assert(isDarwin());
+    
   // see objc/message.h for objc_msgSend selection rules
   if (fty.arg_sret) {
-    return "objc_msgSend_stret";
+    return directcall ? "objc_msgSendSuper_stret" : "objc_msgSend_stret";
   }
-  if (ret) {
-    // complex long double return
-    if (ret->ty == TY::Tcomplex80) {
-      return "objc_msgSend_fp2ret";
-    }
-    // long double return
-    if (ret->ty == TY::Tfloat80 || ret->ty == TY::Timaginary80) {
-      return "objc_msgSend_fpret";
-    }
+  // float, double, long double return
+  if (ret && ret->isfloating()) {
+    return ret->ty == TY::Tcomplex80 ? "objc_msgSend_fp2ret" : "objc_msgSend_fpret";
   }
-  return "objc_msgSend";
+  return directcall ? "objc_msgSendSuper" : "objc_msgSend";
 }
+
+// The public getter for abi.cpp
+TargetABI *getX86_64TargetABI() { return new X86_64TargetABI; }
