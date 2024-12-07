@@ -15,11 +15,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - job_name: Ubuntu 20.04, LDC-LLVM 18, bootstrap LDC
-            os: ubuntu-20.04
+          - job_name: Ubuntu 24.04, LLVM 18, bootstrap LDC
+            os: ubuntu-24.04
             host_dc: ldc-1.19.0
-            # FIXME: no usable official package available yet
-            llvm_version: https://github.com/ldc-developers/llvm-project/releases/download/ldc-v18.1.8/llvm-18.1.8-linux-x86_64.tar.xz
+            llvm_version: 18
             cmake_flags: -DRT_SUPPORT_SANITIZERS=ON -DPHOBOS_SYSTEM_ZLIB=ON
           - job_name: macOS 14, LLVM 17, latest LDC beta
             os: macos-14
@@ -31,10 +30,10 @@ jobs:
             host_dc: ldc-beta
             llvm_version: 16.0.5
             cmake_flags: -DBUILD_SHARED_LIBS=OFF -DCMAKE_EXE_LINKER_FLAGS=-L/opt/homebrew/opt/zstd/lib -DCMAKE_C_COMPILER=/usr/bin/cc -DCMAKE_CXX_COMPILER=/usr/bin/c++
-          - job_name: Ubuntu 20.04, LLVM 15, latest DMD beta
-            os: ubuntu-20.04
+          - job_name: Ubuntu 24.04, LLVM 15, latest DMD beta
+            os: ubuntu-24.04
             host_dc: dmd-beta
-            llvm_version: 15.0.6
+            llvm_version: 15
             cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLIB_SUFFIX=64 -DLDC_LINK_MANUALLY=ON
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
@@ -63,21 +62,22 @@ jobs:
             python3 -m pip install --user lit
           fi
           python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
-      - name: 'Linux: Install gdb, llvm-symbolizer, libzstd, zlib1g-dev'
+      - name: 'Linux: Install gdb, lld, llvm-dev and libclang-common-dev'
         if: runner.os == 'Linux'
         run: |
           set -eux
           sudo apt-get update
-          # Don't use latest gdb v10+ from Ubuntu toolchain PPA with regressions, use official v9
-          sudo apt-get install gdb=9.1-0ubuntu1 llvm libzstd-dev zlib1g-dev
+          sudo apt-get install gdb lld-${{ matrix.llvm_version }} llvm-${{ matrix.llvm_version }}-dev libclang-common-${{ matrix.llvm_version }}-dev
 
-      - name: Try to restore cached LLVM
+      - name: 'macOS: Try to restore cached LLVM'
+        if: runner.os == 'macOS'
         uses: actions/cache@v4
         with:
           path: llvm
           key: llvm-${{ matrix.llvm_version }}-${{ runner.os }}
 
-      - name: Download & extract prebuilt vanilla LLVM ${{ matrix.llvm_version }}
+      - name: 'macOS: Download & extract prebuilt vanilla LLVM ${{ matrix.llvm_version }}'
+        if: runner.os == 'macOS'
         run: |
           set -eux
           if [[ -d llvm ]]; then
@@ -89,19 +89,7 @@ jobs:
           if [[ "$version" =~ ^https:// ]]; then
             url="$version"
           else
-            if [[ '${{ runner.os }}' == macOS ]]; then
-              if [[ "$version" =~ ^1[6-9]\. ]]; then
-                suffix='arm64-apple-darwin22.0'
-              else
-                suffix='x86_64-apple-darwin'
-              fi
-            elif [[ "$version" =~ ^1[7-9]\. ]]; then
-              suffix='x86_64-linux-gnu-ubuntu-22.04' # LLVM 17+
-            else
-              suffix='x86_64-linux-gnu-ubuntu-18.04' # LLVM 14+
-            fi
-
-            url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-$suffix.tar.xz"
+            url="https://github.com/llvm/llvm-project/releases/download/llvmorg-$version/clang+llvm-$version-arm64-apple-darwin22.0.tar.xz"
           fi
 
           curl -fL --retry 3 --max-time 300 -o llvm.tar.xz "$url"
@@ -110,16 +98,14 @@ jobs:
           rm llvm.tar.xz
 
           # don't link lib{c++,unwind} libs from LLVM package, they'd need RPATH fiddling
-          if [[ '${{ runner.os }}' == macOS ]]; then
-            rm -f llvm/lib/lib{c++,unwind}.*
-          fi
+          rm -f llvm/lib/lib{c++,unwind}.*
 
       - name: 'Linux: Make lld the default linker'
         if: runner.os == 'Linux'
         run: |
           set -eux
           echo "Using lld to work around sporadic failures"
-          sudo ln -sf "$PWD/llvm/bin/ld.lld" /usr/bin/ld
+          sudo ln -sf ld.lld-${{ matrix.llvm_version }} /usr/bin/ld
           ld --version
 
       - name: Build LDC & LDC D unittests & defaultlib unittest runners with extra '${{ matrix.cmake_flags }}'
@@ -127,7 +113,7 @@ jobs:
           set -eux
           cmake -G Ninja . \
             -DCMAKE_BUILD_TYPE=Release \
-            -DLLVM_ROOT_DIR="$PWD/llvm" \
+            -DLLVM_ROOT_DIR=${{ runner.os == 'Linux' && format('/usr/lib/llvm-{0}', matrix.llvm_version) || '"$PWD/llvm"' }} \
             -DLDC_LINK_MANUALLY=OFF \
             ${{ matrix.cmake_flags }}
           ninja obj/ldc2.o all ldc2-unittest all-test-runners
@@ -140,14 +126,11 @@ jobs:
         if: success() || failure()
         run: |
           set -eux
-          # Linux: don't use vanilla llvm-symbolizer (no support for zlib-compressed debug sections => failing ASan tests)
           if [[ '${{ runner.os }}' == 'Linux' ]]; then
-            mv llvm/bin/llvm-symbolizer llvm/bin/llvm-symbolizer.bak
+            # FIXME: lsan_interceptors.cpp:82 "((!lsan_init_is_running)) != (0)"
+            rm tests/sanitizers/lsan_memleak.d
           fi
           ctest -V -R "lit-tests"
-          if [[ -f llvm/bin/llvm-symbolizer.bak ]]; then
-            mv llvm/bin/llvm-symbolizer.bak llvm/bin/llvm-symbolizer
-          fi
       - name: Run DMD testsuite
         if: success() || failure()
         run: ctest -V -R "dmd-testsuite"
