@@ -17,6 +17,7 @@
 #include "dmd/target.h"
 #include "gen/abi/abi.h"
 #include "gen/arrays.h"
+#include "gen/classes.h"
 #include "gen/funcgenstate.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
@@ -389,7 +390,8 @@ LLConstant *IrClass::getClassInfoInit() {
   // TypeInfo_Class base
   assert(!isInterface || !cd->baseClass);
   if (cd->baseClass) {
-    b.push_typeinfo(cd->baseClass->type);
+    DtoResolveClass(cd->baseClass);
+    b.push(getIrAggr(cd->baseClass)->getClassInfoSymbol());
   } else {
     b.push_null(cinfoType);
   }
