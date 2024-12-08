@@ -48,20 +48,6 @@ struct PPC64LETargetABI : TargetABI {
                                     !isHFVA(t, hfvaToArray.maxElements));
   }
 
-  void rewriteFunctionType(IrFuncTy &fty) override {
-    // return value
-    if (!fty.ret->byref) {
-      rewriteArgument(fty, *fty.ret);
-    }
-
-    // explicit parameters
-    for (auto arg : fty.args) {
-      if (!arg->byref) {
-        rewriteArgument(fty, *arg);
-      }
-    }
-  }
-
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     Type *ty = arg.type->toBasetype();
     if (ty->ty == TY::Tstruct || ty->ty == TY::Tsarray) {

@@ -164,6 +164,16 @@ bool TargetABI::preferPassByRef(Type *t) {
 
 //////////////////////////////////////////////////////////////////////////////
 
+void TargetABI::rewriteFunctionType(IrFuncTy &fty) {
+  if (!skipReturnValueRewrite(fty))
+    rewriteArgument(fty, *fty.ret);
+
+  for (auto arg : fty.args) {
+    if (!arg->byref)
+      rewriteArgument(fty, *arg);
+  }
+}
+
 void TargetABI::rewriteVarargs(IrFuncTy &fty,
                                std::vector<IrFuncTyArg *> &args) {
   for (auto arg : args) {
@@ -230,10 +240,6 @@ struct UnknownTargetABI : TargetABI {
 
   bool passByVal(TypeFunction *, Type *t) override {
     return DtoIsInMemoryOnly(t);
-  }
-
-  void rewriteFunctionType(IrFuncTy &) override {
-    // why?
   }
 };
 
@@ -303,32 +309,6 @@ struct IntrinsicABI : TargetABI {
 
     if (abiTy && abiTy != arg.ltype) {
       remove_padding.applyTo(arg, abiTy);
-    }
-  }
-
-  void rewriteFunctionType(IrFuncTy &fty) override {
-    if (!fty.arg_sret) {
-      Type *rt = fty.ret->type->toBasetype();
-      if (rt->ty == TY::Tstruct) {
-        Logger::println("Intrinsic ABI: Transforming return type");
-        rewriteArgument(fty, *fty.ret);
-      }
-    }
-
-    Logger::println("Intrinsic ABI: Transforming arguments");
-    LOG_SCOPE;
-
-    for (auto arg : fty.args) {
-      IF_LOG Logger::cout() << "Arg: " << arg->type->toChars() << '\n';
-
-      // Arguments that are in memory are of no interest to us.
-      if (arg->byref) {
-        continue;
-      }
-
-      rewriteArgument(fty, *arg);
-
-      IF_LOG Logger::cout() << "New arg type: " << *arg->ltype << '\n';
     }
   }
 };
