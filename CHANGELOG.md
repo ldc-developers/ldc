@@ -1,13 +1,13 @@
 # LDC master
 
 #### Big news
-- Frontend, druntime and Phobos are at version [2.110.0](https://dlang.org/changelog/2.110.0.html). (#4707, #4737, #4749, #4768, #4784, #4792)
-- Support for [LLVM 19](https://releases.llvm.org/19.1.0/docs/ReleaseNotes.html); LLVM for prebuilt packages bumped to v19.1.3 (incl. macOS arm64). (#4712, #4735, #4763, #4772)
+- Frontend, druntime and Phobos are at version [2.110.0](https://dlang.org/changelog/2.110.0.html). (#4707, #4737, #4749, #4768, #4784, #4792, #4798)
+- Support for [LLVM 19](https://releases.llvm.org/19.1.0/docs/ReleaseNotes.html). The prebuilt packages use v19.1.3 (incl. macOS arm64). (#4712, #4735, #4763, #4772)
+- Objective-C: The compiler now properly supports Objective-C classes and protocols, as well as swift stub classes (via the `@swift` UDA). (#4777)
 - Android: NDK for prebuilt package bumped from r26d to r27c. (#4711, #4772)
-- ldc2.conf: %%ldcconfigpath%% placeholder added - specifies the directory where current configuration file is located. (#4717)
+- ldc2.conf: `%%ldcconfigpath%%` placeholder added - specifies the directory where current configuration file is located. (#4717)
 - Add support for building against a system copy of zlib through `-DPHOBOS_SYSTEM_ZLIB=ON`. (#4742)
 - Emscripten: The compiler now mimicks a musl Linux platform wrt. extra predefined versions (`linux`, `Posix`, `CRuntime_Musl`, `CppRuntime_LLVM`). (#4750)
-- Objective-C: The compiler now properly supports Objective-C classes and protocols, as well as swift stub classes (via the `@swift` UDA). (#4777)
 
 #### Platform support
 - Supports LLVM 15 - 19.
