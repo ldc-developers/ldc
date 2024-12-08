@@ -182,32 +182,22 @@ public:
     }
     return size(t) > 16;
   }
-  void rewriteFunctionType(IrFuncTy &fty) override {
-    if (!fty.ret->byref) {
-      if (!skipReturnValueRewrite(fty)) {
-        if (!fty.ret->byref && isPOD(fty.ret->type) &&
-            requireHardfloatRewrite(fty.ret->type)) {
-          // rewrite here because we should not apply this to variadic arguments
-          hardfloatRewrite.applyTo(*fty.ret);
-        } else {
-          rewriteArgument(fty, *fty.ret);
-        }
-      }
-    }
 
-    for (auto arg : fty.args) {
-      if (!arg->byref && isPOD(arg->type) &&
-          requireHardfloatRewrite(arg->type)) {
-        // rewrite here because we should not apply this to variadic arguments
-        hardfloatRewrite.applyTo(*arg);
-      } else {
-        rewriteArgument(fty, *arg);
-      }
+  void rewriteVarargs(IrFuncTy &fty,
+                      std::vector<IrFuncTyArg *> &args) override {
+    for (auto arg : args) {
+      if (!arg->byref)
+        rewriteArgument(fty, *arg, /*isVararg=*/true);
     }
   }
 
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
-    if (arg.byref) {
+    rewriteArgument(fty, arg, /*isVararg=*/false);
+  }
+
+  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg, bool isVararg) {
+    if (!isVararg && isPOD(arg.type) && requireHardfloatRewrite(arg.type)) {
+      hardfloatRewrite.applyTo(arg);
       return;
     }
 

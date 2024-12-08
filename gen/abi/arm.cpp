@@ -69,24 +69,6 @@ struct ArmTargetABI : TargetABI {
     // problem is better understood.
   }
 
-  void rewriteFunctionType(IrFuncTy &fty) override {
-    Type *retTy = fty.ret->type->toBasetype();
-    if (!fty.ret->byref && retTy->ty == TY::Tstruct) {
-      // Rewrite HFAs only because union HFAs are turned into IR types that are
-      // non-HFA and messes up register selection
-      if (isHFVA(retTy, hfvaToArray.maxElements, &fty.ret->ltype)) {
-        hfvaToArray.applyTo(*fty.ret, fty.ret->ltype);
-      } else {
-        integerRewrite.applyTo(*fty.ret);
-      }
-    }
-
-    for (auto arg : fty.args) {
-      if (!arg->byref)
-        rewriteArgument(fty, *arg);
-    }
-  }
-
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     // structs and arrays need rewrite as i32 arrays.  This keeps data layout
     // unchanged when passed in registers r0-r3 and is necessary to match C ABI
@@ -94,6 +76,8 @@ struct ArmTargetABI : TargetABI {
     // element is passed in own register.  For example: char[4] now all fits in
     // r0, where before it consumed r0-r3.
     Type *ty = arg.type->toBasetype();
+
+    const bool isReturnValue = &arg == fty.ret;
 
     // TODO: want to also rewrite Tsarray as i32 arrays, but sometimes
     // llvm selects an aligned ldrd instruction even though the ptr is
@@ -104,6 +88,8 @@ struct ArmTargetABI : TargetABI {
       // non-HFA and messes up register selection
       if (isHFVA(ty, hfvaToArray.maxElements, &arg.ltype)) {
         hfvaToArray.applyTo(arg, arg.ltype);
+      } else if (isReturnValue) {
+        integerRewrite.applyTo(arg);
       } else if (DtoAlignment(ty) <= 4) {
         compositeToArray32.applyTo(arg);
       } else {

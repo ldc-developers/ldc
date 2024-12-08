@@ -69,8 +69,6 @@ struct WasmTargetABI : TargetABI {
   bool passByVal(TypeFunction *, Type *t) override {
     return DtoIsInMemoryOnly(t) && !isDirectlyPassedAggregate(t);
   }
-
-  void rewriteFunctionType(IrFuncTy &) override {}
 };
 
 // The public getter for abi.cpp.
