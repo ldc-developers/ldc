@@ -59,7 +59,7 @@ jobs:
           if [[ '${{ matrix.os }}' == 'macos-14' ]]; then
             brew install lit
           else
-            python3 -m pip install --user lit
+            python3 -m pip install --user lit psutil
           fi
           python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
       - name: 'Linux: Install gdb, lld, llvm-dev and libclang-common-dev'

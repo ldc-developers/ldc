@@ -125,7 +125,7 @@ runs:
         if [[ '${{ runner.os }}-${{ inputs.arch }}' == 'macOS-arm64' ]]; then
           brew install lit
         else
-          python3 -m pip install --user lit
+          python3 -m pip install --user lit psutil
         fi
         python3 -c "import lit.main; lit.main.main();" --version . | head -n 1
 
