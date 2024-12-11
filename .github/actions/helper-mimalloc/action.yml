@@ -3,10 +3,13 @@ inputs:
   cmake_flags:
     required: false
     default: ''
+  shell:
+    required: false
+    default: bash
 runs:
   using: composite
   steps:
-    - shell: bash
+    - shell: ${{ inputs.shell }}
       run: |
         set -eux
         cd ..
