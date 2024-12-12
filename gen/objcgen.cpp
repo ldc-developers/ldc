@@ -538,7 +538,7 @@ ObjcClassInfo *ObjCState::getClass(ClassDeclaration *decl) {
 
   // Since we may end up referring to this very quickly
   // the name should be assigned ASAP.
-  classes[decl] = { .decl = decl };
+  classes[decl] = { /*.decl =*/ decl };
   auto classInfo = &classes[decl];
 
   classInfo->table = (LLGlobalVariable *)getClassTable(decl);
@@ -665,7 +665,7 @@ ObjcProtocolInfo *ObjCState::getProtocol(InterfaceDeclaration *decl) {
     return &protocols[decl];
   }
 
-  protocols[decl] = { .decl = decl };
+  protocols[decl] = { /*.decl =*/ decl };
   auto protoInfo = &protocols[decl];
 
   auto name = objcResolveName(decl);
@@ -723,7 +723,7 @@ ObjcMethodInfo *ObjCState::getMethod(FuncDeclaration *decl) {
   if (decl->_linkage != LINK::objc)
     return nullptr;
 
-  methods[decl] = { .decl = decl };
+  methods[decl] = { /*.decl =*/ decl };
   auto methodInfo = &methods[decl];
 
   auto name = objcResolveName(decl);
@@ -775,7 +775,7 @@ ObjcIvarInfo* ObjCState::getIvar(VarDeclaration *decl) {
 
   if (auto klass = decl->parent->isClassDeclaration()) {
     auto ivarsym = objcGetIvarSymbol(objcResolveName(decl->parent), objcResolveName(decl));
-    ivars[decl] = { .decl = decl };
+    ivars[decl] = { /*.decl =*/ decl };
     auto ivarInfo = &ivars[decl];
 
     // Extern classes should generate globals
