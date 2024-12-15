@@ -50,11 +50,9 @@ enum { ApiVersion = LDC_DYNAMIC_COMPILE_API_VERSION };
   MAKE_JIT_API_CALL(destroyDynamicCompilerContextSo)
 #define JIT_SET_OPTS MAKE_JIT_API_CALL(setDynamicCompilerOptsImpl)
 
-typedef void (*InterruptPointHandlerT)(void *, const char *action,
-                                       const char *object);
-typedef void (*FatalHandlerT)(void *, const char *reason);
-typedef void (*DumpHandlerT)(void *, DumpStage stage, const char *str,
-                             std::size_t len);
+using InterruptPointHandlerT = void (*)(void *, const char *, const char *);
+using FatalHandlerT = void (*)(void *, const char *);
+using DumpHandlerT = void (*)(void *, DumpStage, const char *, std::size_t);
 
 class DynamicCompilerContext;
 

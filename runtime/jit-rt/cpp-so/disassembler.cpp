@@ -29,6 +29,7 @@
 #include "llvm/MC/MCObjectFileInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCStreamer.h"
+#include "llvm/MC/MCSymbol.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/Error.h"
@@ -183,11 +184,10 @@ public:
              SymTable &symtable)
       : MCSymbolizer(Ctx, std::move(RelInfo)), symTable(symtable) {}
 
-  virtual bool tryAddingSymbolicOperand(llvm::MCInst &Inst,
-                                        llvm::raw_ostream & /*cStream*/,
+  bool tryAddingSymbolicOperand(llvm::MCInst &Inst, llvm::raw_ostream &cStream,
                                         int64_t Value, uint64_t Address,
                                         bool IsBranch, uint64_t Offset,
-                                        uint64_t /*InstSize*/) override {
+                                        uint64_t OpSize, uint64_t InstSize) override {
     if (Stage::Emit == symTable.getStage()) {
       if (IsBranch) {
         if (auto label = symTable.getPosLabel(Address)) {
@@ -249,9 +249,9 @@ void disassemble(const llvm::TargetMachine &tm,
   }
 
   llvm::MCObjectFileInfo mofi;
-  llvm::MCContext ctx(mai, mri, &mofi);
-  mofi.InitMCObjectFileInfo(tm.getTargetTriple(), tm.isPositionIndependent(),
-                            ctx, tm.getCodeModel() == llvm::CodeModel::Large);
+  llvm::MCContext ctx(tm.getTargetTriple(), mai, mri, sti);
+  mofi.initMCObjectFileInfo(ctx, tm.isPositionIndependent(),
+                            tm.getCodeModel() == llvm::CodeModel::Large);
 
   auto disasm = unique(target.createMCDisassembler(*sti, ctx));
   if (nullptr == disasm) {
@@ -287,7 +287,7 @@ void disassemble(const llvm::TargetMachine &tm,
     return;
   }
 
-  asmStreamer->InitSections(false);
+  asmStreamer->switchSection(mofi.getTextSection());
 
   std::unordered_map<uint64_t, std::vector<uint64_t>> sectionsToProcess;
   for (const auto &symbol : object.symbols()) {

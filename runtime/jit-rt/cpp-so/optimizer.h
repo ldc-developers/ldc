@@ -31,8 +31,8 @@ struct OptimizerSettings final {
   unsigned sizeLevel = 0;
 };
 
-void optimizeModule(const Context &context, llvm::TargetMachine &targetMachine,
-                    const OptimizerSettings &settings, llvm::Module &module);
+void optimizeModule(const OptimizerSettings &settings, llvm::Module *M,
+                    llvm::TargetMachine *TM);
 
 void setRtCompileVar(const Context &context, llvm::Module &module,
                      const char *name, const void *init);

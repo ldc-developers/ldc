@@ -42,7 +42,7 @@ void main(string[] args)
   settings.optLevel = 3;
   settings.dumpHandler = (DumpStage stage, in char[] str)
   {
-    if (DumpStage.FinalAsm == stage)
+    if (DumpStage.FinalAsm == stage || DumpStage.OptimizedModule == stage)
     {
       write(str);
       dump.put(str);
