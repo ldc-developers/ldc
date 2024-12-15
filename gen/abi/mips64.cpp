@@ -46,18 +46,6 @@ struct MIPS64TargetABI : TargetABI {
     return ty == TY::Tstruct || ty == TY::Tsarray;
   }
 
-  void rewriteFunctionType(IrFuncTy &fty) override {
-    if (!fty.ret->byref) {
-      rewriteArgument(fty, *fty.ret);
-    }
-
-    for (auto arg : fty.args) {
-      if (!arg->byref) {
-        rewriteArgument(fty, *arg);
-      }
-    }
-  }
-
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     // FIXME
   }

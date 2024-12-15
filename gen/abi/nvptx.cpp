@@ -30,12 +30,6 @@ struct NVPTXTargetABI : TargetABI {
     t = t->toBasetype();
     return ((t->ty == TY::Tsarray || t->ty == TY::Tstruct) && size(t) > 64);
   }
-  void rewriteFunctionType(IrFuncTy &fty) override {
-    for (auto arg : fty.args) {
-      if (!arg->byref)
-        rewriteArgument(fty, *arg);
-    }
-  }
   bool returnInArg(TypeFunction *tf, bool) override {
     return !tf->isref() && DtoIsInMemoryOnly(tf->next);
   }

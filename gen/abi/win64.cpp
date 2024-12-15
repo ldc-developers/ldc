@@ -155,20 +155,6 @@ public:
     return tf->linkage == LINK::cpp;
   }
 
-  void rewriteFunctionType(IrFuncTy &fty) override {
-    // return value
-    if (!skipReturnValueRewrite(fty)) {
-      rewrite(fty, *fty.ret, /*isReturnValue=*/true);
-    }
-
-    // explicit parameters
-    for (auto arg : fty.args) {
-      if (!arg->byref) {
-        rewriteArgument(fty, *arg);
-      }
-    }
-  }
-
   void rewriteVarargs(IrFuncTy &fty,
                       std::vector<IrFuncTyArg *> &args) override {
     for (auto arg : args) {
@@ -183,12 +169,9 @@ public:
   }
 
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
-    rewrite(fty, arg, /*isReturnValue=*/false);
-  }
-
-  void rewrite(IrFuncTy &fty, IrFuncTyArg &arg, bool isReturnValue) {
     Type *t = arg.type->toBasetype();
     LLType *originalLType = arg.ltype;
+    const bool isReturnValue = &arg == fty.ret;
 
     if (passPointerToHiddenCopy(t, isReturnValue, fty.type)) {
       // the caller allocates a hidden copy and passes a pointer to that copy
