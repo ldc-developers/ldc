@@ -1,6 +1,14 @@
 # LDC master
 
 #### Big news
+
+#### Platform support
+
+#### Bug fixes
+
+# LDC 1.40.0 (2024-12-15)
+
+#### Big news
 - Frontend, druntime and Phobos are at version [2.110.0](https://dlang.org/changelog/2.110.0.html). (#4707, #4737, #4749, #4768, #4784, #4792, #4798)
 - Support for [LLVM 19](https://releases.llvm.org/19.1.0/docs/ReleaseNotes.html). The prebuilt packages use v19.1.3 (incl. macOS arm64). (#4712, #4735, #4763, #4772)
 - Objective-C: The compiler now properly supports Objective-C classes and protocols, as well as swift stub classes (via the `@swift` UDA). (#4777)
