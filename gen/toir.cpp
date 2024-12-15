@@ -1328,8 +1328,8 @@ public:
     auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
-    DValue *l = toElem(e->e1);
-    DValue *r = toElem(e->e2);
+    LLValue *l = DtoRVal(e->e1);
+    LLValue *r = DtoRVal(e->e2);
 
     Type *t = e->e1->type->toBasetype();
 
@@ -1340,16 +1340,14 @@ public:
       tokToICmpPred(e->op, isLLVMUnsigned(t), &icmpPred, &eval);
 
       if (!eval) {
-        LLValue *a = DtoRVal(l);
-        LLValue *b = DtoRVal(r);
         IF_LOG {
-          Logger::cout() << "type 1: " << *a << '\n';
-          Logger::cout() << "type 2: " << *b << '\n';
+          Logger::cout() << "type 1: " << *l << '\n';
+          Logger::cout() << "type 2: " << *r << '\n';
         }
-        if (a->getType() != b->getType()) {
-          b = DtoBitCast(b, a->getType());
+        if (l->getType() != r->getType()) {
+          r = DtoBitCast(r, l->getType());
         }
-        eval = p->ir->CreateICmp(icmpPred, a, b);
+        eval = p->ir->CreateICmp(icmpPred, l, r);
       }
     } else if (t->isfloating()) {
       llvm::FCmpInst::Predicate cmpop;
@@ -1370,7 +1368,7 @@ public:
       default:
         llvm_unreachable("Unsupported floating point comparison operator.");
       }
-      eval = p->ir->CreateFCmp(cmpop, DtoRVal(l), DtoRVal(r));
+      eval = p->ir->CreateFCmp(cmpop, l, r);
     } else if (t->ty == TY::Taarray) {
       eval = LLConstantInt::getFalse(gIR->context());
     } else if (t->ty == TY::Tdelegate) {
@@ -1380,23 +1378,21 @@ public:
       if (!eval) {
         // First compare the function pointers, then the context ones. This is
         // what DMD does.
-        llvm::Value *lhs = DtoRVal(l);
-        llvm::Value *rhs = DtoRVal(r);
 
         llvm::BasicBlock *fptreq = p->insertBB("fptreq");
         llvm::BasicBlock *fptrneq = p->insertBBAfter(fptreq, "fptrneq");
         llvm::BasicBlock *dgcmpend = p->insertBBAfter(fptrneq, "dgcmpend");
 
-        llvm::Value *lfptr = p->ir->CreateExtractValue(lhs, 1, ".lfptr");
-        llvm::Value *rfptr = p->ir->CreateExtractValue(rhs, 1, ".rfptr");
+        llvm::Value *lfptr = p->ir->CreateExtractValue(l, 1, ".lfptr");
+        llvm::Value *rfptr = p->ir->CreateExtractValue(r, 1, ".rfptr");
 
         llvm::Value *fptreqcmp = p->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,
                                                    lfptr, rfptr, ".fptreqcmp");
         llvm::BranchInst::Create(fptreq, fptrneq, fptreqcmp, p->scopebb());
 
         p->ir->SetInsertPoint(fptreq);
-        llvm::Value *lctx = p->ir->CreateExtractValue(lhs, 0, ".lctx");
-        llvm::Value *rctx = p->ir->CreateExtractValue(rhs, 0, ".rctx");
+        llvm::Value *lctx = p->ir->CreateExtractValue(l, 0, ".lctx");
+        llvm::Value *rctx = p->ir->CreateExtractValue(r, 0, ".rctx");
         llvm::Value *ctxcmp =
             p->ir->CreateICmp(icmpPred, lctx, rctx, ".ctxcmp");
         llvm::BranchInst::Create(dgcmpend, p->scopebb());
@@ -1429,10 +1425,10 @@ public:
     auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
-    DValue *l = toElem(e->e1);
-    DValue *r = toElem(e->e2);
+    Expression *l = e->e1;
+    Expression *r = e->e2;
 
-    Type *t = e->e1->type->toBasetype();
+    Type *t = l->type->toBasetype();
 
     LLValue *eval = nullptr;
 
@@ -1463,20 +1459,22 @@ public:
       }
       eval = p->ir->CreateICmp(cmpop, lv, rv);
     } else if (t->isfloating()) { // includes iscomplex
-      eval = DtoBinNumericEquals(e->loc, l, r, e->op);
+      eval = DtoBinNumericEquals(e->loc, toElem(l)->getRVal(),
+                                 toElem(r)->getRVal(), e->op);
     } else if (t->ty == TY::Tsarray || t->ty == TY::Tarray) {
       Logger::println("static or dynamic array");
-      eval = DtoArrayEquals(e->loc, e->op, l, r);
+      eval = DtoArrayEquals(e->loc, e->op, toElem(l), toElem(r));
     } else if (t->ty == TY::Taarray) {
       Logger::println("associative array");
-      eval = DtoAAEquals(e->loc, e->op, l, r);
+      eval = DtoAAEquals(e->loc, e->op, toElem(l)->getRVal(),
+                         toElem(r)->getRVal());
     } else if (t->ty == TY::Tdelegate) {
       Logger::println("delegate");
       eval = DtoDelegateEquals(e->op, DtoRVal(l), DtoRVal(r));
     } else if (t->ty == TY::Tstruct) {
       Logger::println("struct");
       // when this is reached it means there is no opEquals overload.
-      eval = DtoStructEquals(e->op, l, r);
+      eval = DtoStructEquals(e->op, toElem(l), toElem(r));
     } else {
       llvm_unreachable("Unsupported EqualExp type.");
     }
@@ -2023,45 +2021,35 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    DValue *l = toElem(e->e1);
-    DValue *r = toElem(e->e2);
+    Expression *l = e->e1;
+    Expression *r = e->e2;
 
-    Type *t1 = e->e1->type->toBasetype();
+    Type *t1 = l->type->toBasetype();
 
-    // handle dynarray specially
-    if (t1->ty == TY::Tarray) {
-      result = zextBool(DtoDynArrayIs(e->op, l, r), e->type);
-      return;
-    }
-    // also structs
-    if (t1->ty == TY::Tstruct) {
-      result = zextBool(DtoStructEquals(e->op, l, r), e->type);
-      return;
-    }
-
-    // FIXME this stuff isn't pretty
     LLValue *eval = nullptr;
 
-    if (t1->ty == TY::Tdelegate) {
+    if (t1->ty == TY::Tarray) {
+      eval = DtoDynArrayIs(e->op, toElem(l), toElem(r));
+    } else if (t1->ty == TY::Tstruct) {
+      eval = DtoStructEquals(e->op, toElem(l), toElem(r));
+    } else if (t1->ty == TY::Tdelegate) {
       LLValue *lv = DtoRVal(l);
+      DValue *rhs = toElem(r);
+
       LLValue *rv = nullptr;
-      if (!r->isNull()) {
-        rv = DtoRVal(r);
+      if (!rhs->isNull()) {
+        rv = DtoRVal(rhs);
         assert(lv->getType() == rv->getType());
       }
+
       eval = DtoDelegateEquals(e->op, lv, rv);
     } else if (t1->isfloating()) { // includes iscomplex
-      eval = DtoBinNumericEquals(e->loc, l, r, e->op);
+      eval = DtoBinNumericEquals(e->loc, toElem(l)->getRVal(),
+                                 toElem(r)->getRVal(), e->op);
     } else if (t1->ty == TY::Tpointer || t1->ty == TY::Tclass) {
       LLValue *lv = DtoRVal(l);
       LLValue *rv = DtoRVal(r);
-      if (lv->getType() != rv->getType()) {
-        if (r->isNull()) {
-          rv = llvm::ConstantPointerNull::get(isaPointer(lv));
-        } else {
-          rv = DtoBitCast(rv, lv->getType());
-        }
-      }
+      rv = DtoBitCast(rv, lv->getType());
       eval = (e->op == EXP::identity) ? p->ir->CreateICmpEQ(lv, rv)
                                       : p->ir->CreateICmpNE(lv, rv);
     } else if (t1->ty == TY::Tsarray) {
@@ -2081,6 +2069,7 @@ public:
                                                               : EXP::notEqual);
       }
     }
+
     result = zextBool(eval, e->type);
   }
 
