@@ -15,8 +15,6 @@ version (CRuntime_WASI) {} else static assert(0);
 
 // CHECK: @_D4wasi13definedGlobali = global i32 123
 int definedGlobal = 123;
-// CHECK: @_D4wasi14declaredGlobali = external global i32
-extern int declaredGlobal;
 
 
 // make sure the ModuleInfo ref is emitted into the __minfo section:
