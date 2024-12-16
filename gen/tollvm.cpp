@@ -47,15 +47,6 @@ bool DtoIsInMemoryOnly(Type *type) {
   return (t == TY::Tstruct || t == TY::Tsarray);
 }
 
-bool DtoIsReturnInArg(CallExp *ce) {
-  Type *t = ce->e1->type->toBasetype();
-  if (t->ty == TY::Tfunction && (!ce->f || !DtoIsIntrinsic(ce->f))) {
-    return gABI->returnInArg(static_cast<TypeFunction *>(t),
-                             ce->f && ce->f->needThis());
-  }
-  return false;
-}
-
 void DtoAddExtendAttr(Type *type, llvm::AttrBuilder &attrs) {
   type = type->toBasetype();
   if (type->isintegral() && type->ty != TY::Tvector && size(type) <= 2) {

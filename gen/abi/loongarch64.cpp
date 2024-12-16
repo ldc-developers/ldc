@@ -101,7 +101,6 @@ struct HardfloatRewrite : BaseBitcastABIRewrite {
 struct LoongArch64TargetABI : TargetABI {
 private:
   HardfloatRewrite hardfloatRewrite;
-  IndirectByvalRewrite indirectByvalRewrite{};
   Integer2Rewrite integer2Rewrite;
   IntegerRewrite integerRewrite;
 
@@ -117,23 +116,8 @@ private:
   }
 
 public:
-  auto returnInArg(TypeFunction *tf, bool) -> bool override {
-    if (tf->isref()) {
-      return false;
-    }
-    Type *rt = tf->next->toBasetype();
-    if (!isPOD(rt)) {
-      return true;
-    }
-    // pass by reference when > 2*GRLEN
-    return size(rt) > 16;
-  }
-
-  auto passByVal(TypeFunction *, Type *t) -> bool override {
-    if (!isPOD(t)) {
-      return false;
-    }
-    return size(t) > 16;
+  bool passByVal(TypeFunction *, Type *t) override {
+    return isPOD(t) && size(t) > 16;
   }
 
   void rewriteVarargs(IrFuncTy &fty,
@@ -149,11 +133,9 @@ public:
   }
 
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg, bool isVararg) {
-    if (!isPOD(arg.type)) {
-      // non-PODs should be passed in memory
-      indirectByvalRewrite.applyTo(arg);
+    TargetABI::rewriteArgument(fty, arg);
+    if (arg.rewrite)
       return;
-    }
 
     if (!isVararg && requireHardfloatRewrite(arg.type)) {
       hardfloatRewrite.applyTo(arg);

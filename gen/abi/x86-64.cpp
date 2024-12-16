@@ -197,10 +197,6 @@ private:
 };
 
 bool X86_64TargetABI::returnInArg(TypeFunction *tf, bool) {
-  if (tf->isref()) {
-    return false;
-  }
-
   Type *rt = tf->next->toBasetype();
 
   // x87 creal is returned on the x87 stack

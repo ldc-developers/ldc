@@ -29,26 +29,18 @@ struct PPC64LETargetABI : TargetABI {
 
   explicit PPC64LETargetABI() : hfvaToArray(8) {}
 
-  bool returnInArg(TypeFunction *tf, bool) override {
-    if (tf->isref()) {
-      return false;
-    }
-
-    Type *rt = tf->next->toBasetype();
-
-    if (!isPOD(rt))
-      return true;
-
-    return passByVal(tf, rt);
-  }
-
   bool passByVal(TypeFunction *, Type *t) override {
     t = t->toBasetype();
-    return t->ty == TY::Tsarray || (t->ty == TY::Tstruct && size(t) > 16 &&
-                                    !isHFVA(t, hfvaToArray.maxElements));
+    return isPOD(t) &&
+           (t->ty == TY::Tsarray || (t->ty == TY::Tstruct && size(t) > 16 &&
+                                     !isHFVA(t, hfvaToArray.maxElements)));
   }
 
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
+    TargetABI::rewriteArgument(fty, arg);
+    if (arg.rewrite)
+      return;
+
     Type *ty = arg.type->toBasetype();
     if (ty->ty == TY::Tstruct || ty->ty == TY::Tsarray) {
       if (ty->ty == TY::Tstruct &&

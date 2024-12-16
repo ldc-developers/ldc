@@ -47,11 +47,6 @@ LLType *stripAddrSpaces(LLType *v);
 // memory, referencing all values via LL pointers (structs and static arrays).
 bool DtoIsInMemoryOnly(Type *type);
 
-// Returns true if the callee uses sret (struct return).
-// In that case, the caller needs to allocate the return value and pass its
-// address as additional parameter to the callee, which will set it up.
-bool DtoIsReturnInArg(CallExp *ce);
-
 // Adds an appropriate attribute if the type should be zero or sign extended.
 void DtoAddExtendAttr(Type *type, llvm::AttrBuilder &attrs);
 
