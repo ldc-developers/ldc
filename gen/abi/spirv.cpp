@@ -27,8 +27,7 @@ struct SPIRVTargetABI : TargetABI {
                                 : llvm::CallingConv::SPIR_FUNC;
   }
   bool passByVal(TypeFunction *, Type *t) override {
-    t = t->toBasetype();
-    return ((t->ty == TY::Tsarray || t->ty == TY::Tstruct) && size(t) > 64);
+    return DtoIsInMemoryOnly(t) && isPOD(t) && size(t) > 64;
   }
   bool returnInArg(TypeFunction *tf, bool) override {
     if (tf->isref())
@@ -42,6 +41,10 @@ struct SPIRVTargetABI : TargetABI {
       return false;
   }
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
+    TargetABI::rewriteArgument(fty, arg);
+    if (arg.rewrite)
+      return;
+
     Type *ty = arg.type->toBasetype();
     llvm::Optional<DcomputePointer> ptr;
     if (ty->ty == TY::Tstruct &&

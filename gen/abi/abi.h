@@ -132,7 +132,7 @@ public:
   /// caller.
   /// The address is passed as additional function parameter using the StructRet
   /// attribute.
-  virtual bool returnInArg(TypeFunction *tf, bool needsThis) = 0;
+  virtual bool returnInArg(TypeFunction *tf, bool needsThis);
 
   /// Returns true if the specified parameter type (a POD) should be passed by
   /// ref for `in` params with -preview=in.
@@ -147,7 +147,7 @@ public:
   /// parameter.
   /// The LL caller needs to pass a pointer to the original argument (the memcpy
   /// source).
-  virtual bool passByVal(TypeFunction *tf, Type *t) = 0;
+  virtual bool passByVal(TypeFunction *tf, Type *t);
 
   /// Returns true if the 'this' argument is to be passed before the 'sret'
   /// argument.
@@ -156,7 +156,7 @@ public:
   /// Called to give ABI the chance to rewrite the types
   virtual void rewriteFunctionType(IrFuncTy &fty);
   virtual void rewriteVarargs(IrFuncTy &fty, std::vector<IrFuncTyArg *> &args);
-  virtual void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) {}
+  virtual void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg);
 
   /// Prepares a va_start intrinsic call by transforming the D argument (of type
   /// va_list) to a low-level value (of type i8*) to be passed to LLVM's

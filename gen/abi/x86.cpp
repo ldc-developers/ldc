@@ -255,6 +255,10 @@ struct X86TargetABI : TargetABI {
     workaroundIssue1356(args);
   }
 
+  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
+    // all handled in rewriteFunctionType()
+  }
+
   // FIXME: LDC issue #1356
   // MSVC targets don't support alignment attributes for LL byval args
   void workaroundIssue1356(std::vector<IrFuncTyArg *> &args) const {
