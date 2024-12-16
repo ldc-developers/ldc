@@ -158,9 +158,6 @@ llvm::CallingConv::ID TargetABI::callingConv(FuncDeclaration *fdecl) {
 //////////////////////////////////////////////////////////////////////////////
 
 bool TargetABI::returnInArg(TypeFunction *tf, bool needsThis) {
-  if (tf->isref())
-    return false;
-
   // default: use sret for non-PODs or if a same-typed argument would be passed
   // byval
   Type *rt = tf->next->toBasetype();

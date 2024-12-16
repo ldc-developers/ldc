@@ -30,7 +30,7 @@ struct NVPTXTargetABI : TargetABI {
     return DtoIsInMemoryOnly(t) && isPOD(t) && size(t) > 64;
   }
   bool returnInArg(TypeFunction *tf, bool) override {
-    return !tf->isref() && DtoIsInMemoryOnly(tf->next);
+    return DtoIsInMemoryOnly(tf->next);
   }
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     TargetABI::rewriteArgument(fty, arg);

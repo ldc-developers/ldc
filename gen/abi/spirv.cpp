@@ -30,8 +30,6 @@ struct SPIRVTargetABI : TargetABI {
     return DtoIsInMemoryOnly(t) && isPOD(t) && size(t) > 64;
   }
   bool returnInArg(TypeFunction *tf, bool) override {
-    if (tf->isref())
-      return false;
     Type *retty = tf->next->toBasetype();
     if (retty->ty == TY::Tsarray)
       return true;

@@ -37,10 +37,6 @@ struct PPCTargetABI : TargetABI {
   explicit PPCTargetABI(const bool Is64Bit) : Is64Bit(Is64Bit) {}
 
   bool returnInArg(TypeFunction *tf, bool) override {
-    if (tf->isref()) {
-      return false;
-    }
-
     Type *rt = tf->next->toBasetype();
 
     // The ABI specifies that aggregates of size 8 bytes or less are

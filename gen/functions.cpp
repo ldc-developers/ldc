@@ -101,7 +101,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     const bool byref = f->isref() && rt->toBasetype()->ty != TY::Tvoid;
     llvm::AttrBuilder attrs(getGlobalContext());
 
-    if (abi->returnInArg(f, fd && fd->needThis())) {
+    if (!byref && abi->returnInArg(f, fd && fd->needThis())) {
       // sret return
       llvm::AttrBuilder sretAttrs(getGlobalContext());
       sretAttrs.addStructRetAttr(DtoType(rt));

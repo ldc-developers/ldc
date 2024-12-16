@@ -163,9 +163,6 @@ public:
     return pointerTo(Type::tvoid);
   }
   bool returnInArg(TypeFunction *tf, bool) override {
-    if (tf->isref())
-      return false;
-
     Type *rt = tf->next->toBasetype();
     return !isPOD(rt) || size(rt) > 16;
   }

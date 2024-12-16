@@ -101,9 +101,6 @@ struct X86TargetABI : TargetABI {
   }
 
   bool returnInArg(TypeFunction *tf, bool needsThis) override {
-    if (tf->isref())
-      return false;
-
     Type *rt = getExtraLoweredReturnType(tf);
     const bool externD = isExternD(tf);
 
