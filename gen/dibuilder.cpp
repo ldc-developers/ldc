@@ -25,10 +25,12 @@
 #include "driver/cl_options.h"
 #include "driver/ldc-version.h"
 #include "gen/functions.h"
+#include "gen/abi/abi.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
+#include "gen/pragma.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
 #include "ir/irfuncty.h"
@@ -720,16 +722,60 @@ DIType DIBuilder::CreateAArrayType(TypeAArray *type) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DISubroutineType DIBuilder::CreateFunctionType(Type *type) {
+DISubroutineType DIBuilder::CreateFunctionType(Type *type, FuncDeclaration* fd) {
   TypeFunction *t = type->isTypeFunction();
   assert(t);
 
   Type *retType = t->next;
+  llvm::SmallVector<LLMetadata *, 8> params;
 
-  // Create "dummy" subroutine type for the return type
-  LLMetadata *params = {CreateTypeDescription(retType)};
+  auto irFunc = fd ? getIrFunc(fd, false) : nullptr;
+  if (irFunc) {
+    auto push_arg = [&](IrFuncTyArg *arg) {
+      if (!arg)
+        return;
+      auto ditype = CreateTypeDescription(arg->type);
+      if (arg->byref) {
+        ditype = DBuilder.createPointerType(ditype, target.ptrsize * 8, 0, llvm::None,
+            processDIName((type->toPrettyChars(true) + llvm::StringRef("*")).str()));
+      }
+      params.push_back(ditype);
+    };
+    // mimmicking what happens in DtoFunctionType
+    IrFuncTy &irFty = irFunc->irFty;
+    push_arg(irFty.ret);
+    push_arg(irFty.arg_sret);
+    push_arg(irFty.arg_this);
+    push_arg(irFty.arg_nest);
+    push_arg(irFty.arg_objcSelector);
+    push_arg(irFty.arg_arguments);
+
+    TargetABI *abi = DtoIsIntrinsic(fd) ? TargetABI::getIntrinsic() : gABI;
+    if (irFty.arg_sret && irFty.arg_this && abi->passThisBeforeSret(t)) {
+      std::swap(params[0], params[1]);
+    }
+
+    const size_t numExplicitLLArgs = irFty.args.size();
+    for (size_t i = 0; i < numExplicitLLArgs; i++) {
+      push_arg(irFty.args[i]);
+    }
+  } else {
+    // incomplete information without actual code gen
+    params.emplace_back(CreateTypeDescription(t->next)); // return type
+    auto len = t->parameterList.length();
+    for (size_t i = 0; i < len; i++) {
+      auto ptype = t->parameterList[i]->type;
+      auto ditype = CreateTypeDescription(ptype);
+      if (t->parameterList[i]->isReference()) {
+        auto name = processDIName(
+            (ptype->toPrettyChars(true) + llvm::StringRef("*")).str());
+        ditype = DBuilder.createPointerType(
+            ditype, target.ptrsize * 8, 0, llvm::None, name);
+      }
+      params.emplace_back(ditype);
+    }
+  }
   auto paramsArray = DBuilder.getOrCreateTypeArray(params);
-
   return DBuilder.createSubroutineType(paramsArray, DIFlags::FlagZero, 0);
 }
 
@@ -806,7 +852,7 @@ DIType DIBuilder::CreateTypeDescription(Type *t, bool voidToUbyte) {
                                       llvm::None, processDIName(name));
   }
   if (auto tf = t->isTypeFunction())
-    return CreateFunctionType(tf);
+    return CreateFunctionType(tf, nullptr);
   if (auto td = t->isTypeDelegate())
     return CreateDelegateType(td);
 
@@ -971,7 +1017,7 @@ DISubprogram DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
         flags, dispFlags);
 
     // Now create subroutine type.
-    diFnType = CreateFunctionType(fd->type);
+    diFnType = CreateFunctionType(fd->type, fd);
   }
 
   // FIXME: duplicates?
@@ -1010,7 +1056,7 @@ DISubprogram DIBuilder::EmitThunk(llvm::Function *Thunk, FuncDeclaration *fd) {
          "Compilation unit missing or corrupted in DIBuilder::EmitThunk");
 
   // Create subroutine type (thunk has same type as wrapped function)
-  DISubroutineType DIFnType = CreateFunctionType(fd->type);
+  DISubroutineType DIFnType = CreateFunctionType(fd->type, fd);
 
   const auto scope = GetSymbolScope(fd);
   const auto name = (llvm::Twine(fd->toChars()) + ".__thunk").str();
