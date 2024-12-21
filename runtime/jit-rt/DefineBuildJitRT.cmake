@@ -47,7 +47,7 @@ if(LDC_DYNAMIC_COMPILE)
     endmacro()
 
     function(build_jit_runtime d_flags c_flags ld_flags path_suffix outlist_targets)
-        set(jitrt_components core support irreader executionengine passes nativecodegen orcjit target ${LLVM_NATIVE_ARCH}disassembler asmprinter)
+        set(jitrt_components core support irreader executionengine passes nativecodegen orcjit target ${LLVM_NATIVE_ARCH}disassembler asmprinter ${LLVM_NATIVE_ARCH}asmparser)
         llvm_set_libs(JITRT_LIBS libs "${jitrt_components}")
 
         get_target_suffix("" "${path_suffix}" target_suffix)

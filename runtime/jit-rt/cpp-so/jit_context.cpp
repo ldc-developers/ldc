@@ -46,6 +46,7 @@ struct StaticInitHelper {
   StaticInitHelper() {
     llvm::InitializeNativeTarget();
     llvm::InitializeNativeTargetDisassembler();
+    llvm::InitializeNativeTargetAsmParser();
     llvm::InitializeNativeTargetAsmPrinter();
   }
 };
