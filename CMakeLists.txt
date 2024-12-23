@@ -558,7 +558,7 @@ else()
         # Define a 'HOST_D' CMake linker language for the static LDCShared
         # library, using the host ldmd2 compiler ≥ v1.5 as archiver, which
         # supports LTO objects and cross-archiving.
-        set(CMAKE_HOST_D_CREATE_STATIC_LIBRARY "${D_COMPILER} -lib ${D_COMPILER_FLAGS} ${DFLAGS_BASE} -of=<TARGET> <OBJECTS>")
+        set(CMAKE_HOST_D_CREATE_STATIC_LIBRARY "\"${D_COMPILER}\" -lib ${D_COMPILER_FLAGS} ${DFLAGS_BASE} -of=<TARGET> <OBJECTS>")
         set(LDC_LIB_LANGUAGE HOST_D)
     endif()
 endif()
