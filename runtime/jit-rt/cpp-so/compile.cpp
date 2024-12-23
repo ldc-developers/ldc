@@ -187,7 +187,8 @@ void generateBind(const Context &context, DynamicCompilerContext &jitContext,
       // aarch64 we will do a quick probe here to check if it's a function
       // pointer
       bool maybeIntPtr =
-          jitContext.getTargetTriple().isAArch64() && type.isIntegerTy(64);
+          (jitContext.getTargetTriple().isAArch64() && type.isIntegerTy(64)) ||
+          (jitContext.getTargetTriple().isOSWindows() && type.isIntegerTy(32));
       if (type.isPointerTy() || maybeIntPtr) {
         auto getBindFunc = [&]() {
           auto handle = *static_cast<void *const *>(data);

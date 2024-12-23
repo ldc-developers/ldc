@@ -10,7 +10,9 @@
 #include "bind.h"
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
@@ -69,10 +71,22 @@ llvm::Function *createBindFunc(llvm::Module &module, llvm::Function &srcFunc,
 }
 
 llvm::Value *
-allocParam(llvm::IRBuilder<> &builder, llvm::Type &srcType, llvm::Type *byvalType,
-           const llvm::DataLayout &layout, const ParamSlice &param,
+allocParam(llvm::IRBuilder<> &builder, llvm::Type &srcType,
+           llvm::Type *byvalType, const llvm::DataLayout &layout,
+           const ParamSlice &param,
            llvm::function_ref<void(const std::string &)> errHandler,
            const BindOverride &override) {
+#if _WIN32 || _WIN64
+  if (srcType.isPointerTy() &&
+      (layout.getPointerSizeInBits() / 8 != param.size)) {
+    // special situation on Windows platforms: fake byval
+    // we construct a phony array type to store the init data
+    // TODO: there is currently no way for us to detect fake byval init values
+    // that are exactly one pointer-size wide
+    byvalType = llvm::ArrayType::get(
+        llvm::Type::getInt8Ty(builder.getContext()), param.size);
+  }
+#endif
   if (byvalType) {
     auto elemType = byvalType;
     auto stackArg = builder.CreateAlloca(elemType);
@@ -106,8 +120,15 @@ void doBind(llvm::Module &module, llvm::Function &dstFunc,
   size_t returnArgs = 0;
   llvm::Type *sRetTy = nullptr;
   // handle stack returns
+  auto funcAttrs = srcFunc.getAttributes();
   for (size_t i = 0; i < funcType->getNumParams(); ++i) {
-    sRetTy = srcFunc.getParamStructRetType(i);
+    auto paramAttrs = funcAttrs.getParamAttrs(i);
+    if (paramAttrs.hasAttribute(llvm::Attribute::InReg) &&
+        params.size() != srcFunc.arg_size()) {
+      sRetTy = funcType->getParamType(i);
+    } else {
+      sRetTy = srcFunc.getParamStructRetType(i);
+    }
     if (!sRetTy) {
       break;
     }
