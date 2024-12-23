@@ -3,8 +3,8 @@
 // win64 issue https://bugs.llvm.org//show_bug.cgi?id=24233
 // XFAIL: Windows
 //
-// Also, some issue on Arm: "Symbols not found: [ DW.ref._d_eh_personality ]"
-// XFAIL: host_AArch64
+// Also, some issue on macOS Arm64
+// XFAIL: host_Darwin_AArch64
 // RUN: %ldc -enable-dynamic-compile -run %s
 
 import std.exception;
