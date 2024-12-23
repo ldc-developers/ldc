@@ -367,19 +367,7 @@ llvm::Constant *getArrayPtr(llvm::Type *type, llvm::Constant *array) {
 }
 
 static llvm::PointerType *getI8PtrType(llvm::LLVMContext &C) {
-  return llvm::PointerType::get(llvm::IntegerType::get(C, 8), 0);
-}
-
-llvm::Constant *getI8Ptr(llvm::GlobalVariable *val) {
-  assert(nullptr != val);
-  return llvm::ConstantExpr::getBitCast(
-      val, getI8PtrType(val->getContext()));
-}
-
-llvm::Constant *getI8Ptr(llvm::GlobalValue *val) {
-  assert(nullptr != val);
-  return llvm::ConstantExpr::getBitCast(
-      val, getI8PtrType(val->getContext()));
+  return LLPointerType::getUnqual(LLType::getInt8Ty(C));
 }
 
 std::pair<llvm::Constant *, llvm::Constant *>
@@ -557,8 +545,8 @@ generateFuncList(IRState *irs, const Types &types,
     auto name = it.first->getName();
     llvm::Constant *fields[] = {
         createStringInitializer(irs->module, name),
-        getI8Ptr(it.second.thunkVar),
-        getI8Ptr(it.second.thunkFunc),
+        it.second.thunkVar,
+        it.second.thunkFunc,
     };
     elements.push_back(
         llvm::ConstantStruct::get(types.funcListElemType, fields));
@@ -574,7 +562,7 @@ generateFuncList(IRState *irs, const Types &types,
       llvm::Constant *fields[] = {
           createStringInitializer(irs->module, name),
           nullp,
-          getI8Ptr(func),
+          func,
       };
       elements.push_back(
           llvm::ConstantStruct::get(types.funcListElemType, fields));
@@ -589,7 +577,7 @@ llvm::Constant *generateSymListElem(llvm::Module &module, const Types &types,
 
   llvm::Constant *fields[] = {
       createStringInitializer(module, name),
-      getI8Ptr(&val),
+      &val,
   };
   return llvm::ConstantStruct::get(types.symListElemType, fields);
 }
@@ -629,7 +617,7 @@ generateVarList(IRState *irs, const Types &types) {
     auto name = gvar->getName();
     llvm::Constant *fields[] = {
         createStringInitializer(irs->module, name),
-        getI8Ptr(gvar),
+        gvar,
     };
     elements.push_back(
         llvm::ConstantStruct::get(types.varListElemType, fields));
