@@ -30,8 +30,6 @@ struct ArmTargetABI : TargetABI {
     // AAPCS 5.4 wants composites > 4-bytes returned by arg except for
     // Homogeneous Aggregates of up-to 4 float types (6.1.2.1) - an HFA.
     // TODO: see if Tsarray should be candidate for HFA.
-    if (tf->isref())
-      return false;
     Type *rt = tf->next->toBasetype();
 
     if (!isPOD(rt))
@@ -48,8 +46,7 @@ struct ArmTargetABI : TargetABI {
     // clang uses byval for types > 64-bytes, then llvm backend
     // converts back to non-byval.  Without this special handling the
     // optimzer generates bad code (e.g. std.random unittest crash).
-    t = t->toBasetype();
-    return ((t->ty == TY::Tsarray || t->ty == TY::Tstruct) && size(t) > 64);
+    return DtoIsInMemoryOnly(t) && isPOD(t) && size(t) > 64;
 
     // Note: byval can have a codegen problem with -O1 and higher.
     // What happens is that load instructions are being incorrectly
@@ -70,6 +67,10 @@ struct ArmTargetABI : TargetABI {
   }
 
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
+    TargetABI::rewriteArgument(fty, arg);
+    if (arg.rewrite)
+      return;
+
     // structs and arrays need rewrite as i32 arrays.  This keeps data layout
     // unchanged when passed in registers r0-r3 and is necessary to match C ABI
     // for struct passing.  Without out this rewrite, each field or array

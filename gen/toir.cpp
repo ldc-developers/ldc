@@ -2930,10 +2930,14 @@ bool toInPlaceConstruction(DLValue *lhs, Expression *rhs) {
     // E.g., `T v = foo();` if the callee `T foo()` uses sret.
     // In this case, pass `&v` as hidden sret argument, i.e., let `foo()`
     // construct the return value directly into the lhs lvalue.
-    if (DtoIsReturnInArg(ce)) {
-      Logger::println("success, in-place-constructing sret return value");
-      ToElemVisitor::call(gIR, ce, DtoLVal(lhs));
-      return true;
+    if (!ce->f || !DtoIsIntrinsic(ce->f)) { // intrinsics don't use sret
+      if (auto tf = ce->e1->type->toBasetype()->isTypeFunction()) {
+        if (target.isReturnOnStack(tf, ce->f && ce->f->needThis())) {
+          Logger::println("success, in-place-constructing sret return value");
+          ToElemVisitor::call(gIR, ce, DtoLVal(lhs));
+          return true;
+        }
+      }
     }
 
     // detect <structliteral | temporary>.ctor(args)

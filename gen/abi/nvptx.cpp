@@ -27,13 +27,16 @@ struct NVPTXTargetABI : TargetABI {
                                 : llvm::CallingConv::PTX_Device;
   }
   bool passByVal(TypeFunction *, Type *t) override {
-    t = t->toBasetype();
-    return ((t->ty == TY::Tsarray || t->ty == TY::Tstruct) && size(t) > 64);
+    return DtoIsInMemoryOnly(t) && isPOD(t) && size(t) > 64;
   }
   bool returnInArg(TypeFunction *tf, bool) override {
-    return !tf->isref() && DtoIsInMemoryOnly(tf->next);
+    return DtoIsInMemoryOnly(tf->next);
   }
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
+    TargetABI::rewriteArgument(fty, arg);
+    if (arg.rewrite)
+      return;
+
     Type *ty = arg.type->toBasetype();
     llvm::Optional<DcomputePointer> ptr;
     if (ty->ty == TY::Tstruct &&

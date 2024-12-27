@@ -157,9 +157,21 @@ llvm::CallingConv::ID TargetABI::callingConv(FuncDeclaration *fdecl) {
 
 //////////////////////////////////////////////////////////////////////////////
 
+bool TargetABI::returnInArg(TypeFunction *tf, bool needsThis) {
+  // default: use sret for non-PODs or if a same-typed argument would be passed
+  // byval
+  Type *rt = tf->next->toBasetype();
+  return !isPOD(rt) || passByVal(tf, rt);
+}
+
 bool TargetABI::preferPassByRef(Type *t) {
   // simple base heuristic: use a ref for all types > 2 machine words
   return size(t) > 2 * target.ptrsize;
+}
+
+bool TargetABI::passByVal(TypeFunction *tf, Type *t) {
+  // default: all POD structs and static arrays
+  return DtoIsInMemoryOnly(t) && isPOD(t);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -180,6 +192,15 @@ void TargetABI::rewriteVarargs(IrFuncTy &fty,
     if (!arg->byref) { // don't rewrite ByVal arguments
       rewriteArgument(fty, *arg);
     }
+  }
+}
+
+void TargetABI::rewriteArgument(IrFuncTy &fty,
+                               IrFuncTyArg &arg) {
+  // default: pass non-PODs indirectly by-value
+  if (!isPOD(arg.type)) {
+    static IndirectByvalRewrite indirectByvalRewrite;
+    indirectByvalRewrite.applyTo(arg);
   }
 }
 
@@ -223,28 +244,6 @@ const char *TargetABI::objcMsgSendFunc(Type *ret, IrFuncTy &fty, bool directcall
 
 //////////////////////////////////////////////////////////////////////////////
 
-// Some reasonable defaults for when we don't know what ABI to use.
-struct UnknownTargetABI : TargetABI {
-  bool returnInArg(TypeFunction *tf, bool) override {
-    if (tf->isref()) {
-      return false;
-    }
-
-    // Return structs and static arrays on the stack. The latter is needed
-    // because otherwise LLVM tries to actually return the array in a number
-    // of physical registers, which leads, depending on the target, to
-    // either horrendous codegen or backend crashes.
-    Type *rt = tf->next->toBasetype();
-    return passByVal(tf, rt);
-  }
-
-  bool passByVal(TypeFunction *, Type *t) override {
-    return DtoIsInMemoryOnly(t);
-  }
-};
-
-//////////////////////////////////////////////////////////////////////////////
-
 TargetABI *TargetABI::getTarget() {
   switch (global.params.targetTriple->getArch()) {
   case llvm::Triple::x86:
@@ -283,8 +282,10 @@ TargetABI *TargetABI::getTarget() {
   case llvm::Triple::wasm64:
     return getWasmTargetABI();
   default:
-    Logger::cout() << "WARNING: Unknown ABI, guessing...\n";
-    return new UnknownTargetABI;
+    warning(Loc(),
+            "unknown target ABI, falling back to generic implementation. C/C++ "
+            "interop will almost certainly NOT work.");
+    return new TargetABI;
   }
 }
 
@@ -303,6 +304,7 @@ struct IntrinsicABI : TargetABI {
     if (ty->ty != TY::Tstruct) {
       return;
     }
+    assert(isPOD(arg.type));
     // TODO: Check that no unions are passed in or returned.
 
     LLType *abiTy = DtoUnpaddedStructType(arg.type);

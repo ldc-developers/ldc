@@ -24,29 +24,11 @@ struct MIPS64TargetABI : TargetABI {
 
   explicit MIPS64TargetABI(const bool Is64Bit) : Is64Bit(Is64Bit) {}
 
-  bool returnInArg(TypeFunction *tf, bool) override {
-    if (tf->isref()) {
-      return false;
-    }
-
-    Type *rt = tf->next->toBasetype();
-
-    if (!isPOD(rt))
-      return true;
-
-    // Return structs and static arrays on the stack. The latter is needed
-    // because otherwise LLVM tries to actually return the array in a number
-    // of physical registers, which leads, depending on the target, to
-    // either horrendous codegen or backend crashes.
-    return (rt->ty == TY::Tstruct || rt->ty == TY::Tsarray);
-  }
-
-  bool passByVal(TypeFunction *, Type *t) override {
-    TY ty = t->toBasetype()->ty;
-    return ty == TY::Tstruct || ty == TY::Tsarray;
-  }
-
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
+    TargetABI::rewriteArgument(fty, arg);
+    if (arg.rewrite)
+      return;
+
     // FIXME
   }
 };

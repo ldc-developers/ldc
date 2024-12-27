@@ -117,9 +117,6 @@ public:
   }
 
   bool returnInArg(TypeFunction *tf, bool needsThis) override {
-    if (tf->isref())
-      return false;
-
     Type *rt = tf->next->toBasetype();
 
     // for non-static member functions, MSVC++ enforces sret for all structs

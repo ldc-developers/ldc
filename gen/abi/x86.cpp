@@ -101,9 +101,6 @@ struct X86TargetABI : TargetABI {
   }
 
   bool returnInArg(TypeFunction *tf, bool needsThis) override {
-    if (tf->isref())
-      return false;
-
     Type *rt = getExtraLoweredReturnType(tf);
     const bool externD = isExternD(tf);
 
@@ -253,6 +250,10 @@ struct X86TargetABI : TargetABI {
                       std::vector<IrFuncTyArg *> &args) override {
     TargetABI::rewriteVarargs(fty, args);
     workaroundIssue1356(args);
+  }
+
+  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
+    // all handled in rewriteFunctionType()
   }
 
   // FIXME: LDC issue #1356

@@ -53,10 +53,6 @@ public:
   AArch64TargetABI() {}
 
   bool returnInArg(TypeFunction *tf, bool) override {
-    if (tf->isref()) {
-      return false;
-    }
-
     Type *rt = tf->next->toBasetype();
     if (rt->ty == TY::Tstruct || rt->ty == TY::Tsarray) {
       auto argTypes = getArgTypes(rt);
