@@ -46,7 +46,7 @@ version (LDC)
     }
 
     pragma(LDC_intrinsic, "llvm.eh.unwind.init")
-    void llvm_unwind_init();
+    void llvm_unwind_init() nothrow @nogc;
 }
 
 
@@ -1571,8 +1571,8 @@ in (fn)
             }}
             asm pure nothrow @nogc {
                 ("sd $gp, %0") : "=m" (regs[8]);
-                ("sd $fp, %0") : "=m" (regs[9]); 
-                ("sd $ra, %0") : "=m" (sp);
+                ("sd $fp, %0") : "=m" (regs[9]);
+                ("sd $sp, %0") : "=m" (sp);
             }
         }
         else version (MIPS_Any)
@@ -1638,22 +1638,14 @@ in (fn)
         }
         else version (SystemZ)
         {
-            size_t[19] regs = void;
+            // Callee-save registers, according to SystemZ Calling Convention
+            // https://github.com/IBM/s390x-abi/blob/main/lzsabi.tex
+            size_t[10] regs = void;
             asm pure nothrow @nogc {
-                // save argument/return register
-                "stg   %%r2, %0" : "=m" (regs[0]);
-                // save callee-saved GPRs (%r6 - %r14)
-                "stmg  %%r6, %%r14, %0" : "=m" (regs[1]);
-                // save floating point control register
-                "stfpc %0" : "=m" (regs[10]);
+                // save callee-saved GPRs (%r6 - %r15)
+                "stmg  %%r6, %%r15, %0" : "=m" (regs[0]);
             }
-            static foreach (i; 8 .. 16)
-            {{
-                enum int j = i;
-                // save %f8 - %f15
-                asm pure nothrow @nogc { ( "std %%f"~j.stringof~", %0") : "=m" (regs[i + 3]); }
-            }}
-            asm pure nothrow @nogc { ( "stg %%r15, %0") : "=m" (sp); }
+            sp = cast(void*)regs[9];
         }
         else
         {
@@ -1723,6 +1715,7 @@ version (LDC)
     version (ARM_Any)  version = LDC_stackTopAsm;
     version (PPC_Any)  version = LDC_stackTopAsm;
     version (MIPS_Any) version = LDC_stackTopAsm;
+    version (SystemZ)  version = LDC_stackTopAsm;
 
     version (LDC_stackTopAsm)
     {
@@ -1742,6 +1735,8 @@ version (LDC)
                 return __asm!(void*)("mr $0, 1", "=r");
             else version (MIPS_Any)
                 return __asm!(void*)("move $0, $$sp", "=r");
+            else version (SystemZ)
+                return __asm!(void*)("lgr  $0, %r15", "=r");
             else
                 static assert(0);
         }
