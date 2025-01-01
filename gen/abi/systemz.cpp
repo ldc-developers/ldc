@@ -23,8 +23,30 @@
 #include "gen/llvmhelpers.h"
 #include "gen/tollvm.h"
 
+using namespace dmd;
+
+struct StructSimpleFlattenRewrite : BaseBitcastABIRewrite {
+  LLType *type(Type *ty) override {
+    const size_t type_size = size(ty);
+    // "A struct or a union of 1, 2, 4, or 8 bytes"
+    switch (type_size) {
+    case 1:
+      return LLType::getInt8Ty(gIR->context());
+    case 2:
+      return LLType::getInt16Ty(gIR->context());
+    case 4:
+      return LLType::getInt32Ty(gIR->context());
+    case 8:
+      return LLType::getInt64Ty(gIR->context());
+    default:
+      return DtoType(ty);
+    }
+  }
+};
+
 struct SystemZTargetABI : TargetABI {
   IndirectByvalRewrite indirectByvalRewrite{};
+  StructSimpleFlattenRewrite structSimpleFlattenRewrite{};
 
   explicit SystemZTargetABI() {}
 
@@ -32,7 +54,7 @@ struct SystemZTargetABI : TargetABI {
     // look for a __va_list struct in a `std` C++ namespace
     if (auto ts = t->isTypeStruct()) {
       auto sd = ts->sym;
-      if (strcmp(sd->ident->toChars(), "__va_list") == 0) {
+      if (strcmp(sd->ident->toChars(), "__va_list_tag") == 0) {
         if (auto ns = sd->parent->isNspace()) {
           return strcmp(ns->toChars(), "std") == 0;
         }
@@ -47,10 +69,33 @@ struct SystemZTargetABI : TargetABI {
       return false;
     }
     Type *rt = tf->next->toBasetype();
-    return DtoIsInMemoryOnly(rt);
+    if (rt->ty == TY::Tstruct) {
+      return true;
+    }
+    if (rt->isTypeVector() && size(rt) > 16) {
+      return true;
+    }
+    return shouldPassByVal(tf->next);
   }
 
   bool passByVal(TypeFunction *, Type *t) override {
+    // LLVM's byval attribute is not compatible with the SystemZ ABI
+    // due to how SystemZ's stack is setup
+    return false;
+  }
+
+  bool shouldPassByVal(Type *t) {
+    if (t->ty == TY::Tstruct && size(t) <= 8) {
+      return false;
+    }
+    // "A struct or union of any other size, a complex type, an __int128, a long
+    // double, a _Decimal128, or a vector whose size exceeds 16 bytes"
+    if (size(t) > 16 || t->iscomplex() || t->isimaginary()) {
+      return true;
+    }
+    if (t->ty == TY::Tint128 || t->ty == TY::Tcomplex80) {
+      return true;
+    }
     return DtoIsInMemoryOnly(t);
   }
 
@@ -67,7 +112,7 @@ struct SystemZTargetABI : TargetABI {
   }
 
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
-    if (!isPOD(arg.type)) {
+    if (!isPOD(arg.type) || shouldPassByVal(arg.type)) {
       // non-PODs should be passed in memory
       indirectByvalRewrite.applyTo(arg);
       return;
@@ -80,9 +125,15 @@ struct SystemZTargetABI : TargetABI {
       return;
     }
     // integer types less than 64-bits should be extended to 64 bits
-    if (ty->isintegral()) {
+    if (ty->isintegral() &&
+        !(ty->ty == TY::Tstruct || ty->ty == TY::Tsarray ||
+          ty->ty == TY::Tvector) &&
+        size(ty) < 8) {
       arg.attrs.addAttribute(ty->isunsigned() ? LLAttribute::ZExt
                                               : LLAttribute::SExt);
+    }
+    if (ty->isTypeStruct() && size(ty) <= 8) {
+      structSimpleFlattenRewrite.applyToIfNotObsolete(arg);
     }
   }
 
