@@ -110,11 +110,18 @@ struct CfgPaths
     }
 }
 
+extern(C++, "ldc")
+{
+    extern __gshared const(const(char) *) ldc_version;
+}
+
 string replacePlaceholders(string str, CfgPaths cfgPaths)
 {
+    const dVersion = ldc_version[0..strlen(ldc_version)];
     return str
         .replace("%%ldcbinarypath%%", cfgPaths.ldcBinaryDir)
-        .replace("%%ldcconfigpath%%", cfgPaths.cfgBaseDir);
+        .replace("%%ldcconfigpath%%", cfgPaths.cfgBaseDir)
+        .replace("%%ldcversion%%", cast(string) dVersion);
 }
 
 extern(C++) struct ConfigFile
