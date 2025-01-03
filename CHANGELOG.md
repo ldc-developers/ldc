@@ -1,6 +1,7 @@
 # LDC master
 
 #### Big news
+- ldc2.conf: `%%ldcversion%%` placeholder added, allowing to refer to version-specific directories.
 
 #### Platform support
 
