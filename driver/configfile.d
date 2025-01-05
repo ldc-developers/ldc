@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 module driver.configfile;
 
+import dmd.globals;
 import dmd.root.array;
 import driver.config;
 import core.stdc.stdio;
@@ -110,18 +111,12 @@ struct CfgPaths
     }
 }
 
-extern(C++, "ldc")
-{
-    extern __gshared const(const(char) *) ldc_version;
-}
-
 string replacePlaceholders(string str, CfgPaths cfgPaths)
 {
-    const dVersion = ldc_version[0..strlen(ldc_version)];
     return str
         .replace("%%ldcbinarypath%%", cfgPaths.ldcBinaryDir)
         .replace("%%ldcconfigpath%%", cfgPaths.cfgBaseDir)
-        .replace("%%ldcversion%%", cast(string) dVersion);
+        .replace("%%ldcversion%%", cast(string) global.ldc_version);
 }
 
 extern(C++) struct ConfigFile
