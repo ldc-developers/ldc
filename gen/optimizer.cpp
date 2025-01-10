@@ -5,21 +5,37 @@
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
 //
+// This module is compiled into both the compiler and the JIT runtime library
+// (with predefined IN_JITRT).
+//
 //===----------------------------------------------------------------------===//
+
+#ifdef IN_JITRT
+#include "runtime/jit-rt/cpp-so/optimizer.h"
+#include "runtime/jit-rt/cpp-so/valueparser.h"
+#include "runtime/jit-rt/cpp-so/utils.h"
+#endif
 
 #include "gen/optimizer.h"
 
+#ifndef IN_JITRT
 #include "dmd/errors.h"
 #include "gen/logger.h"
+#endif
+
 #include "gen/passes/GarbageCollect2Stack.h"
 #include "gen/passes/StripExternals.h"
 #include "gen/passes/SimplifyDRuntimeCalls.h"
 #include "gen/passes/Passes.h"
+
+#ifndef IN_JITRT
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
 #include "driver/plugins.h"
 #include "driver/targetmachine.h"
+#endif
+
 #if LDC_LLVM_VER < 1700
 #include "llvm/ADT/Triple.h"
 #else
@@ -55,7 +71,6 @@
 #include "llvm/Transforms/Scalar/Reassociate.h"
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
 
-extern llvm::TargetMachine *gTargetMachine;
 using namespace llvm;
 
 static cl::opt<signed char> optimizeLevel(
@@ -96,6 +111,7 @@ static cl::opt<bool> disableGCToStack(
     "disable-gc2stack", cl::ZeroOrMore,
     cl::desc("Disable promotion of GC allocations to stack memory"));
 
+#ifndef IN_JITRT
 static cl::opt<cl::boolOrDefault, false, opts::FlagParser<cl::boolOrDefault>>
     enableInlining(
         "inlining", cl::ZeroOrMore,
@@ -105,6 +121,7 @@ static cl::opt<cl::boolOrDefault, false, opts::FlagParser<cl::boolOrDefault>>
     enableCrossModuleInlining(
         "cross-module-inlining", cl::ZeroOrMore, cl::Hidden,
         cl::desc("(*) Enable cross-module function inlining (default disabled)"));
+#endif
 
 static cl::opt<bool> stripDebug(
     "strip-debug", cl::ZeroOrMore,
@@ -135,12 +152,20 @@ static unsigned sizeLevel() { return optimizeLevel < 0 ? -optimizeLevel : 0; }
 
 // Determines whether or not to run the normal, full inlining pass.
 bool willInline() {
+#ifdef IN_JITRT
+  return false;
+#else
   return enableInlining == cl::BOU_TRUE ||
          (enableInlining == cl::BOU_UNSET && optLevel() > 1);
+#endif
 }
 
 bool willCrossModuleInline() {
+#ifdef IN_JITRT
+  return false;
+#else
   return enableCrossModuleInlining == llvm::cl::BOU_TRUE && willInline();
+#endif
 }
 
 bool isOptimizationEnabled() { return optimizeLevel != 0; }
@@ -180,6 +205,7 @@ static OptimizationLevel getOptimizationLevel(){
   return OptimizationLevel::O0;
 }
 
+#ifndef IN_JITRT
 static void addAddressSanitizerPasses(ModulePassManager &mpm,
                                       OptimizationLevel level ) {
   AddressSanitizerOptions aso;
@@ -262,6 +288,7 @@ static void addPGOPasses(ModulePassManager &mpm,
     }
   }
 }
+#endif // !IN_JITRT
 
 static void addStripExternalsPass(ModulePassManager &mpm,
                                       OptimizationLevel level ) {
@@ -296,7 +323,7 @@ static void addGarbageCollect2StackPass(ModulePassManager &mpm,
   }
 }
 
-
+#ifndef IN_JITRT
 static llvm::Optional<PGOOptions> getPGOOptions() {
   // FIXME: Do we have these anywhere?
   bool debugInfoForProfiling = false;
@@ -341,6 +368,7 @@ static llvm::Optional<PGOOptions> getPGOOptions() {
   return std::nullopt;
 #endif
 }
+#endif // !IN_JITRT
 
 static PipelineTuningOptions getPipelineTuningOptions(unsigned optLevelVal, unsigned sizeLevelVal) {
   PipelineTuningOptions pto;
@@ -373,7 +401,7 @@ static PipelineTuningOptions getPipelineTuningOptions(unsigned optLevelVal, unsi
  * PassManagerBuilder.
  */
 //Run optimization passes using the new pass manager
-void runOptimizationPasses(llvm::Module *M) {
+void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
   // Create a ModulePassManager to hold and optimize the collection of
   // per-module passes we are about to build.
 
@@ -415,8 +443,12 @@ void runOptimizationPasses(llvm::Module *M) {
   si.registerCallbacks(pic, &mam);
 #endif
 
-  PassBuilder pb(gTargetMachine, getPipelineTuningOptions(optLevelVal, sizeLevelVal),
+  PassBuilder pb(TM, getPipelineTuningOptions(optLevelVal, sizeLevelVal),
+#ifdef IN_JITRT
+                 {}, &pic);
+#else
                  getPGOOptions(), &pic);
+#endif
 
   // register the target library analysis directly because clang does :)
   auto tlii = createTLII(*M);
@@ -433,6 +465,7 @@ void runOptimizationPasses(llvm::Module *M) {
 
   // TODO: port over strip-debuginfos pass for -strip-debug
 
+#ifndef IN_JITRT
   pb.registerPipelineStartEPCallback(addPGOPasses);
 
   if (opts::isSanitizerEnabled(opts::AddressSanitizer)) {
@@ -455,6 +488,7 @@ void runOptimizationPasses(llvm::Module *M) {
   if (opts::isSanitizerEnabled(opts::CoverageSanitizer)) {
     pb.registerOptimizerLastEPCallback(addSanitizerCoveragePass);
   }
+#endif // !IN_JITRT
 
   if (!disableLangSpecificPasses) {
     if (!disableSimplifyDruntimeCalls) {
@@ -474,7 +508,9 @@ void runOptimizationPasses(llvm::Module *M) {
 
   pb.registerOptimizerLastEPCallback(addStripExternalsPass);
 
+#ifndef IN_JITRT
   registerAllPluginsWithPassBuilder(pb);
+#endif
 
   pb.registerModuleAnalyses(mam);
   pb.registerCGSCCAnalyses(cgam);
@@ -486,6 +522,9 @@ void runOptimizationPasses(llvm::Module *M) {
   OptimizationLevel level = getOptimizationLevel();
 
   if (optLevelVal == 0) {
+#ifdef IN_JITRT
+    mpm = pb.buildO0DefaultPipeline(level, false);
+#else
     mpm = pb.buildO0DefaultPipeline(level, opts::isUsingLTO());
 #if LDC_LLVM_VER >= 1700
   } else if (opts::ltoFatObjects && opts::isUsingLTO()) {
@@ -498,6 +537,7 @@ void runOptimizationPasses(llvm::Module *M) {
     mpm = pb.buildThinLTOPreLinkDefaultPipeline(level);
   } else if (opts::isUsingLTO()) {
     mpm = pb.buildLTOPreLinkDefaultPipeline(level);
+#endif // !IN_JITRT
   } else {
     mpm = pb.buildPerModuleDefaultPipeline(level);
   }
@@ -508,7 +548,8 @@ void runOptimizationPasses(llvm::Module *M) {
 ////////////////////////////////////////////////////////////////////////////////
 // This function runs optimization passes based on command line arguments.
 // Returns true if any optimization passes were invoked.
-bool ldc_optimize_module(llvm::Module *M) {
+bool ldc_optimize_module(llvm::Module *M, llvm::TargetMachine *TM) {
+#ifndef IN_JITRT
   // Dont optimise spirv modules because turning GEPs into extracts triggers
   // asserts in the IR -> SPIR-V translation pass. SPIRV doesn't have a target
   // machine, so any optimisation passes that rely on it to provide analysis,
@@ -518,8 +559,9 @@ bool ldc_optimize_module(llvm::Module *M) {
   // TODO: run rudimentary optimisations to improve IR debuggability.
   if (getComputeTargetType(M) == ComputeBackend::SPIRV)
     return false;
+#endif
 
-  runOptimizationPasses(M);
+  runOptimizationPasses(M, TM);
 
   // Verify the resulting module.
   if (!noVerify) {
@@ -530,18 +572,38 @@ bool ldc_optimize_module(llvm::Module *M) {
   return true;
 }
 
+#ifdef IN_JITRT
+void optimizeModule(const OptimizerSettings &settings, llvm::Module *M,
+                    llvm::TargetMachine *TM) {
+  if (settings.sizeLevel > 0) {
+    optimizeLevel = -settings.sizeLevel;
+  } else {
+    optimizeLevel = settings.optLevel;
+  }
+
+  ldc_optimize_module(M, TM);
+}
+#endif // IN_JITRT
 
 // Verifies the module.
 void verifyModule(llvm::Module *m) {
+#ifndef IN_JITRT
   Logger::println("Verifying module...");
   LOG_SCOPE;
+#endif
   std::string ErrorStr;
   raw_string_ostream OS(ErrorStr);
   if (llvm::verifyModule(*m, &OS)) {
+#ifndef IN_JITRT
     error(Loc(), "%s", ErrorStr.c_str());
     fatal();
+#else
+    assert(false && "Verification failed!");
+#endif
   }
+#ifndef IN_JITRT
   Logger::println("Verification passed!");
+#endif
 }
 
 // Output to `hash_os` all optimization settings that influence object code
@@ -559,3 +621,21 @@ void outputOptimizationSettings(llvm::raw_ostream &hash_os) {
   hash_os << disableLoopVectorization;
   hash_os << disableSLPVectorization;
 }
+
+#ifdef IN_JITRT
+void setRtCompileVar(const Context &context, llvm::Module &module,
+                     const char *name, const void *init) {
+  assert(nullptr != name);
+  assert(nullptr != init);
+  auto var = module.getGlobalVariable(name);
+  if (nullptr != var) {
+    auto type = var->getValueType();
+    auto initializer =
+        parseInitializer(module.getDataLayout(), *type, init,
+                         [&](const std::string &str) { fatal(context, str); });
+    var->setConstant(true);
+    var->setInitializer(initializer);
+    var->setLinkage(llvm::GlobalValue::PrivateLinkage);
+  }
+}
+#endif // IN_JITRT

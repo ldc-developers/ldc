@@ -364,7 +364,7 @@ void writeModule(llvm::Module *m, const char *filename) {
   // run LLVM optimization passes
   {
     ::TimeTraceScope timeScope("Optimize", filename);
-    ldc_optimize_module(m);
+    ldc_optimize_module(m, gTargetMachine);
   }
 
   if (global.params.dllimport != DLLImport::none) {
