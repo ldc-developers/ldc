@@ -1,6 +1,7 @@
 # LDC master
 
 #### Big news
+- Revived dynamic-compile (JIT) functionality (formerly unsupported since LLVM 12), supporting LLVM 18+ now. (#4774)
 - ldc2.conf: `%%ldcversion%%` placeholder added, allowing to refer to version-specific directories.
 
 #### Platform support
