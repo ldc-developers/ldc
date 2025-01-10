@@ -12,14 +12,11 @@ import core.simd;
 ubyte[32] hex_encode_16b(ubyte[16] binary)
 {
     const ubyte ascii_a = 'a' - 9 - 1;
-    ubyte16 all_four;
-    all_four[] = 4;
     ubyte16 invec = loadUnaligned!ubyte16(binary.ptr);
     ubyte[32] hex;
 
     ubyte16 masked1 = invec & 0xF;
-    // TODO: (invec >> 4) will cause an LDC internal error
-    ubyte16 masked2 = (invec >> all_four) & 0xF;
+    ubyte16 masked2 = (invec >> 4) & 0xF;
 
     ubyte16 cmpmask1 = masked1 > 9;
     ubyte16 cmpmask2 = masked2 > 9;
