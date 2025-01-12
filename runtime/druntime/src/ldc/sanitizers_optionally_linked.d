@@ -26,6 +26,7 @@ version (SupportSanitizers)
     }
 
     // Forward declarations of sanitizer functions (only ELF supports optional static linking).
+    // See compiler-rt/include/sanitizer/common_interface_defs.h for documentation of these functions.
     extern(C) @system @nogc nothrow
     {
         version (ELF)
