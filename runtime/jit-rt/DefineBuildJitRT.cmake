@@ -1,10 +1,9 @@
 if(LDC_DYNAMIC_COMPILE)
     file(GLOB LDC_JITRT_D ${JITRT_DIR}/d/ldc/*.d)
 
-    # Choose the correct subfolder depending on the LLVM version
     file(GLOB LDC_JITRT_CXX ${JITRT_DIR}/cpp/*.cpp)
     file(GLOB LDC_JITRT_H ${JITRT_DIR}/cpp/*.h)
-    file(GLOB LDC_JITRT_SO_CXX ${JITRT_DIR}/cpp-so/*.cpp)
+    file(GLOB LDC_JITRT_SO_CXX ${JITRT_DIR}/cpp-so/*.cpp ${CMAKE_SOURCE_DIR}/gen/optimizer.cpp)
     file(GLOB LDC_JITRT_SO_H ${JITRT_DIR}/cpp-so/*.h)
     message(STATUS "Use custom passes in jit: ${LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES}")
     if(LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES)
@@ -47,7 +46,7 @@ if(LDC_DYNAMIC_COMPILE)
     endmacro()
 
     function(build_jit_runtime d_flags c_flags ld_flags path_suffix outlist_targets)
-        set(jitrt_components core support irreader executionengine passes nativecodegen orcjit target ${LLVM_NATIVE_ARCH}disassembler asmprinter)
+        set(jitrt_components core support irreader executionengine passes nativecodegen orcjit target ${LLVM_NATIVE_ARCH}disassembler asmprinter ${LLVM_NATIVE_ARCH}asmparser)
         llvm_set_libs(JITRT_LIBS libs "${jitrt_components}")
 
         get_target_suffix("" "${path_suffix}" target_suffix)
@@ -62,6 +61,7 @@ if(LDC_DYNAMIC_COMPILE)
         )
         set_target_properties(ldc-jit-rt-so${target_suffix} PROPERTIES LINKER_LANGUAGE CXX)
 
+        target_compile_definitions(ldc-jit-rt-so${target_suffix} PRIVATE IN_JITRT)
         if(LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES)
             target_compile_definitions(ldc-jit-rt-so${target_suffix} PRIVATE LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES)
         endif()

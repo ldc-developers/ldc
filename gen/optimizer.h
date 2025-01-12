@@ -32,9 +32,10 @@ class raw_ostream;
 namespace llvm {
 class Module;
 class TargetLibraryInfoImpl;
+class TargetMachine;
 }
 
-bool ldc_optimize_module(llvm::Module *m);
+bool ldc_optimize_module(llvm::Module *m, llvm::TargetMachine *tm);
 
 // Returns whether the normal, full inlining pass will be run.
 bool willInline();

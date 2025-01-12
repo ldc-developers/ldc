@@ -3,8 +3,8 @@
 // win64 issue https://bugs.llvm.org//show_bug.cgi?id=24233
 // XFAIL: Windows
 //
-// Also, some issue on Arm
-// XFAIL: host_ARM
+// Also, some issue on macOS Arm64
+// XFAIL: host_Darwin_AArch64
 // RUN: %ldc -enable-dynamic-compile -run %s
 
 import std.exception;

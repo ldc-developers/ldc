@@ -452,20 +452,33 @@ include(HandleLTOPGOBuildOptions)
 #
 # Enable Dynamic compilation if supported for this platform and LLVM version.
 #
-set(LDC_DYNAMIC_COMPILE "AUTO" CACHE STRING "Support dynamic compilation (ON|OFF). Enabled by default; not supported for LLVM >= 12.")
+set(LDC_DYNAMIC_COMPILE "AUTO" CACHE STRING "Support dynamic compilation (ON|OFF). Enabled by default; not supported for LLVM < 18.")
 option(LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES "Use custom LDC passes in jit" ON)
 if(LDC_DYNAMIC_COMPILE STREQUAL "AUTO")
-    if(LDC_LLVM_VER LESS 1200)
-        set(LDC_DYNAMIC_COMPILE ON)
-    else()
-        # TODO: port from ORCv1 API (dropped with LLVM 12) to ORCv2 (added with LLVM 7)
+    if(LDC_LLVM_VER LESS 1800)
         set(LDC_DYNAMIC_COMPILE OFF)
+    else()
+        set(LDC_DYNAMIC_COMPILE ON)
     endif()
 endif()
+# https://llvm.org/docs/JITLink.html for the list of supported platforms
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|x64|amd64|aarch64|arm64|riscv64|loongarch64")
+    set(_LDC_DYNAMIC_COMPILE_USE_LLVM_JITLINK_DEFAULT ON)
+else()
+    set(_LDC_DYNAMIC_COMPILE_USE_LLVM_JITLINK_DEFAULT OFF)
+endif()
+# Disable LLVM JITLink on Windows for now, currently does not work very well on Windows
+if(WIN32)
+    set(_LDC_DYNAMIC_COMPILE_USE_LLVM_JITLINK_DEFAULT OFF)
+endif()
+option(LDC_DYNAMIC_COMPILE_USE_LLVM_JITLINK "Use the experimental but faster LLVM JITLink dynamic code linker" "${_LDC_DYNAMIC_COMPILE_USE_LLVM_JITLINK_DEFAULT}")
 message(STATUS "-- Building LDC with dynamic compilation support (LDC_DYNAMIC_COMPILE): ${LDC_DYNAMIC_COMPILE}")
 if(LDC_DYNAMIC_COMPILE)
     add_definitions(-DLDC_DYNAMIC_COMPILE)
-    add_definitions(-DLDC_DYNAMIC_COMPILE_API_VERSION=3)
+    add_definitions(-DLDC_DYNAMIC_COMPILE_API_VERSION=4)
+endif()
+if (LDC_DYNAMIC_COMPILE_USE_LLVM_JITLINK)
+    add_compile_definitions(-DLDC_JITRT_USE_JITLINK)
 endif()
 
 #
@@ -545,7 +558,7 @@ else()
         # Define a 'HOST_D' CMake linker language for the static LDCShared
         # library, using the host ldmd2 compiler ≥ v1.5 as archiver, which
         # supports LTO objects and cross-archiving.
-        set(CMAKE_HOST_D_CREATE_STATIC_LIBRARY "${D_COMPILER} -lib ${D_COMPILER_FLAGS} ${DFLAGS_BASE} -of=<TARGET> <OBJECTS>")
+        set(CMAKE_HOST_D_CREATE_STATIC_LIBRARY "\"${D_COMPILER}\" -lib ${D_COMPILER_FLAGS} ${DFLAGS_BASE} -of=<TARGET> <OBJECTS>")
         set(LDC_LIB_LANGUAGE HOST_D)
     endif()
 endif()

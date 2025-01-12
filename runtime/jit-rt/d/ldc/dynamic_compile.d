@@ -523,8 +523,8 @@ struct BindPayload(OF, F, int[] Index, Args...)
   static assert(Index.length == ParametersCount, "Invalid index size");
   extern(C) private pure nothrow @nogc static
   {
-      pragma(mangle, "gc_addRange") void pureGcAddRange( in void* p, size_t sz, const TypeInfo ti = null );
-      pragma(mangle, "gc_removeRange") void pureGcRemoveRange( in void* p );
+      pragma(mangle, "gc_addRange") void pureGcAddRange(const void* p, size_t sz, const TypeInfo ti = null);
+      pragma(mangle, "gc_removeRange") void pureGcRemoveRange(const void* p);
   }
 
   Base base;

@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/dynamiccompile.h"
+#include <llvm/IR/DerivedTypes.h>
 
 #if defined(LDC_DYNAMIC_COMPILE)
 
@@ -91,14 +92,15 @@ using GlobalValsMap =
 void getPredefinedSymbols(IRState *irs, GlobalValsMap &symList) {
   assert(nullptr != irs);
   const llvm::Triple *triple = global.params.targetTriple;
-  if (triple->isWindowsMSVCEnvironment() ||
-      triple->isWindowsGNUEnvironment()) {
-    // Actual signatures doesn't matter here, we only want it to show in
+  if (triple->isWindowsMSVCEnvironment() || triple->isWindowsGNUEnvironment()) {
+    // Actual signatures doesn't matter here, we only want them to show in
     // symbols list
-    symList.insert(std::make_pair(
-      getPredefinedSymbol(irs->module, "__chkstk",
-                          llvm::Type::getInt32Ty(irs->context())),
-      GlobalValVisibility::Declaration));
+    for (auto &syms : {"\1__chkstk", "memset", "memcpy"}) {
+      symList.insert(std::make_pair(
+          getPredefinedSymbol(irs->module, syms,
+                              llvm::Type::getInt32Ty(irs->context())),
+          GlobalValVisibility::Declaration));
+    }
     if (!opts::dynamicCompileTlsWorkaround) {
       symList.insert(std::make_pair(
           getPredefinedSymbol(irs->module, "_tls_index",
@@ -364,10 +366,8 @@ llvm::Constant *getArrayPtr(llvm::Type *type, llvm::Constant *array) {
                                               idxs, true);
 }
 
-llvm::Constant *getI8Ptr(llvm::GlobalValue *val) {
-  assert(nullptr != val);
-  return llvm::ConstantExpr::getBitCast(
-      val, llvm::IntegerType::getInt8PtrTy(val->getContext()));
+static llvm::PointerType *getI8PtrType(llvm::LLVMContext &C) {
+  return LLPointerType::getUnqual(LLType::getInt8Ty(C));
 }
 
 std::pair<llvm::Constant *, llvm::Constant *>
@@ -410,7 +410,7 @@ llvm::Constant *createStringInitializer(llvm::Module &mod,
       true, llvm::GlobalValue::PrivateLinkage,
       llvm::ConstantDataArray::getString(mod.getContext(), str, true), ".str");
   return llvm::ConstantExpr::getBitCast(
-      nameVar, llvm::Type::getInt8PtrTy(mod.getContext()));
+      nameVar, getI8PtrType(mod.getContext()));
 }
 
 // void createStaticString(llvm::Module& mod,
@@ -436,16 +436,15 @@ llvm::Constant *createStringInitializer(llvm::Module &mod,
 // struct RtCompileVarList
 // {
 //   i8* name;
-//   i8* ptr;
+//   i8* init;
 // }
 
 llvm::StructType *getVarListElemType(llvm::LLVMContext &context) {
   llvm::Type *elements[] = {
-      llvm::IntegerType::getInt8PtrTy(context),
-      llvm::IntegerType::getInt8PtrTy(context),
+      getI8PtrType(context),
+      getI8PtrType(context),
   };
-  return llvm::StructType::create(context, elements, /*"RtCompileVarList"*/ "",
-                                  true);
+  return llvm::StructType::create(context, elements, /*"RtCompileVarList"*/ "");
 }
 
 // struct RtCompileSymList
@@ -456,11 +455,10 @@ llvm::StructType *getVarListElemType(llvm::LLVMContext &context) {
 
 llvm::StructType *getSymListElemType(llvm::LLVMContext &context) {
   llvm::Type *elements[] = {
-      llvm::IntegerType::getInt8PtrTy(context),
-      llvm::IntegerType::getInt8PtrTy(context),
+      getI8PtrType(context),
+      getI8PtrType(context),
   };
-  return llvm::StructType::create(context, elements, /*"RtCompileSymList"*/ "",
-                                  true);
+  return llvm::StructType::create(context, elements, /*"RtCompileSymList"*/ "");
 }
 
 // struct RtCompileFuncList
@@ -472,12 +470,11 @@ llvm::StructType *getSymListElemType(llvm::LLVMContext &context) {
 
 llvm::StructType *getFuncListElemType(llvm::LLVMContext &context) {
   llvm::Type *elements[] = {
-      llvm::IntegerType::getInt8PtrTy(context),
-      llvm::IntegerType::getInt8PtrTy(context),
-      llvm::IntegerType::getInt8PtrTy(context),
+      getI8PtrType(context),
+      getI8PtrType(context),
+      getI8PtrType(context),
   };
-  return llvm::StructType::create(context, elements, /*"RtCompileFuncList"*/ "",
-                                  true);
+  return llvm::StructType::create(context, elements, /*"RtCompileFuncList"*/ "");
 }
 
 // struct RtCompileModuleList
@@ -490,6 +487,8 @@ llvm::StructType *getFuncListElemType(llvm::LLVMContext &context) {
 //   i32 funcListSize;
 //   RtCompileSymList* symList;
 //   i32 symListSize;
+//   RtCompileVarList* varList;
+//   i32 varListSize;
 // };
 
 llvm::StructType *getModuleListElemType(llvm::LLVMContext &context,
@@ -504,7 +503,7 @@ llvm::StructType *getModuleListElemType(llvm::LLVMContext &context,
   llvm::Type *elements[] = {
       llvm::IntegerType::get(context, 32),
       llvm::PointerType::getUnqual(ret),
-      llvm::IntegerType::getInt8PtrTy(context),
+      getI8PtrType(context),
       llvm::IntegerType::get(context, 32),
       llvm::PointerType::getUnqual(funcListElemType),
       llvm::IntegerType::get(context, 32),
@@ -513,7 +512,7 @@ llvm::StructType *getModuleListElemType(llvm::LLVMContext &context,
       llvm::PointerType::getUnqual(varListElemType),
       llvm::IntegerType::get(context, 32),
   };
-  ret->setBody(elements, true);
+  ret->setBody(elements);
   return ret;
 }
 
@@ -546,8 +545,8 @@ generateFuncList(IRState *irs, const Types &types,
     auto name = it.first->getName();
     llvm::Constant *fields[] = {
         createStringInitializer(irs->module, name),
-        getI8Ptr(it.second.thunkVar),
-        getI8Ptr(it.second.thunkFunc),
+        it.second.thunkVar,
+        it.second.thunkFunc,
     };
     elements.push_back(
         llvm::ConstantStruct::get(types.funcListElemType, fields));
@@ -563,7 +562,7 @@ generateFuncList(IRState *irs, const Types &types,
       llvm::Constant *fields[] = {
           createStringInitializer(irs->module, name),
           nullp,
-          getI8Ptr(func),
+          func,
       };
       elements.push_back(
           llvm::ConstantStruct::get(types.funcListElemType, fields));
@@ -578,7 +577,7 @@ llvm::Constant *generateSymListElem(llvm::Module &module, const Types &types,
 
   llvm::Constant *fields[] = {
       createStringInitializer(module, name),
-      getI8Ptr(&val),
+      &val,
   };
   return llvm::ConstantStruct::get(types.symListElemType, fields);
 }
@@ -618,7 +617,7 @@ generateVarList(IRState *irs, const Types &types) {
     auto name = gvar->getName();
     llvm::Constant *fields[] = {
         createStringInitializer(irs->module, name),
-        getI8Ptr(gvar),
+        gvar,
     };
     elements.push_back(
         llvm::ConstantStruct::get(types.varListElemType, fields));
@@ -650,16 +649,18 @@ llvm::GlobalVariable *generateModuleListElem(IRState *irs, const Types &types,
   };
 
   auto init = llvm::ConstantStruct::get(elem_type, fields);
+  auto *modListElem = new llvm::GlobalVariable(
+      irs->module, elem_type, false, llvm::GlobalValue::PrivateLinkage, init,
+      ".rtcompile_modlist_elem");
+  modListElem->setAlignment(irs->module.getDataLayout().getABITypeAlign(elem_type->getPointerTo()));
 
-  return new llvm::GlobalVariable(irs->module, elem_type, false,
-                                  llvm::GlobalValue::PrivateLinkage, init,
-                                  ".rtcompile_modlist_elem");
+  return modListElem;
 }
 
 llvm::PointerType *getModListHeadType(llvm::LLVMContext &context,
                                       const Types &types) {
   (void)types;
-  return llvm::IntegerType::getInt8PtrTy(context);
+  return getI8PtrType(context);
 }
 
 llvm::GlobalVariable *declareModListHead(llvm::Module &module,
@@ -685,11 +686,10 @@ void generateCtorBody(IRState *irs, const Types &types, llvm::Function *func,
   auto elemIndex = llvm::ConstantInt::get(irs->context(), APInt(32, 1));
   auto modListHeadPtr = declareModListHead(irs->module, types);
   llvm::Value *gepVals[] = {zero64, elemIndex};
-  auto elemNextPtr = builder.CreateGEP(modListElem, gepVals);
-  auto prevHeadVal = builder.CreateLoad(builder.CreateBitOrPointerCast(
-      modListHeadPtr, types.modListElemType->getPointerTo()->getPointerTo()));
+  auto elemNextPtr = builder.CreateGEP(types.modListElemType, modListElem, gepVals);
+  auto prevHeadVal = builder.CreateLoad(types.modListElemType->getPointerTo()->getPointerTo(), modListHeadPtr);
   auto voidPtr = builder.CreateBitOrPointerCast(
-      modListElem, llvm::IntegerType::getInt8PtrTy(irs->context()));
+      modListElem, getI8PtrType(irs->context()));
   builder.CreateStore(voidPtr, modListHeadPtr);
   builder.CreateStore(prevHeadVal, elemNextPtr);
 
@@ -721,7 +721,7 @@ void setupModuleBitcodeData(const llvm::Module &srcModule, IRState *irs,
   llvm::WriteBitcodeToFile(srcModule, os);
 
   auto runtimeCompiledIr = new llvm::GlobalVariable(
-      irs->module, llvm::Type::getInt8PtrTy(irs->context()), true,
+      irs->module, getI8PtrType(irs->context()), true,
       llvm::GlobalValue::PrivateLinkage, nullptr, ".rtcompile_ir");
 
   auto runtimeCompiledIrSize = new llvm::GlobalVariable(
@@ -761,7 +761,7 @@ void createThunkFunc(llvm::Module &module, const llvm::Function *src,
   auto bb = llvm::BasicBlock::Create(module.getContext(), "", dst);
   llvm::IRBuilder<> builder(module.getContext());
   builder.SetInsertPoint(bb);
-  auto thunkPtr = builder.CreateLoad(thunkVar);
+  auto thunkPtr = builder.CreateLoad(llvm::PointerType::getUnqual(module.getContext()), thunkVar);
   llvm::SmallVector<llvm::Value *, 6> args;
   for (auto &arg : dst->args()) {
     args.push_back(&arg);

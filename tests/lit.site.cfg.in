@@ -48,6 +48,16 @@ config.test_format = lit.formats.ShTest(execute_external=False)
 # by individual lit.local.cfg files in the test subdirectories.
 config.suffixes = ['.d', '.i', '.c']
 
+# Set individual test timeout to 60
+supported, errormsg = lit_config.maxIndividualTestTimeIsSupported
+if supported:
+    lit_config.maxIndividualTestTime = 60
+else:
+    lit_config.warning(
+        "Setting a timeout per test not supported: "
+        + errormsg
+    )
+
 # excludes: A list of directories to exclude from the testsuite. The 'inputs'
 # subdirectories contain auxiliary inputs for various tests in their parent
 # directories.
@@ -115,6 +125,7 @@ if (platform.system() == 'Windows') and (config.default_target_bits == 64):
 # Examples: 'host_X86', 'host_ARM', 'host_PowerPC', 'host_AArch64'
 if (config.ldc_host_arch != ''):
     config.available_features.add('host_' + config.ldc_host_arch)
+    config.available_features.add('host_' + platform.system() + '_' + config.ldc_host_arch)
 
 # Add "LTO" feature if linker support and LTO plugin are available
 if (platform.system() == 'Windows'):

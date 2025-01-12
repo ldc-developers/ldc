@@ -13,10 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 #include <cassert>
-#include <map>
 #include <memory>
 #include <sstream>
-#include <stdexcept>
 #include <type_traits>
 #include <unordered_map>
 
@@ -34,12 +32,11 @@
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/Linker/Linker.h"
+#include "llvm/Support/Error.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 namespace {
-
-#pragma pack(push, 1)
 
 struct RtCompileFuncList {
   const char *name;
@@ -70,11 +67,9 @@ struct RtCompileModuleList {
   int32_t varListSize;
 };
 
-#pragma pack(pop)
-
 template <typename T>
-auto toArray(T *ptr, size_t size)
-    -> llvm::ArrayRef<typename std::remove_cv<T>::type> {
+auto toArray(T *ptr,
+             size_t size) -> llvm::ArrayRef<typename std::remove_cv<T>::type> {
   return llvm::ArrayRef<typename std::remove_cv<T>::type>(ptr, size);
 }
 
@@ -90,14 +85,6 @@ void enumModules(const RtCompileModuleList *modlist_head,
     fun(*current);
     current = current->next;
   }
-}
-
-std::string decorate(llvm::StringRef name, const llvm::DataLayout &datalayout) {
-  assert(!name.empty());
-  llvm::SmallVector<char, 64> ret;
-  llvm::Mangler::getNameWithPrefix(ret, name, datalayout);
-  assert(!ret.empty());
-  return std::string(ret.data(), ret.size());
 }
 
 struct JitModuleInfo final {
@@ -160,27 +147,26 @@ public:
   }
 };
 
-void *resolveSymbol(llvm::JITSymbol &symbol) {
-  auto addr = symbol.getAddress();
-  if (!addr) {
-    consumeError(addr.takeError());
+void *resolveSymbol(llvm::Expected<llvm::orc::ExecutorAddr> &symbol) {
+  if (!symbol) {
+    consumeError(symbol.takeError());
     return nullptr;
-  } else {
-    return reinterpret_cast<void *>(addr.get());
   }
+  return symbol->toPtr<void *>();
+}
+
+static inline llvm::Function *
+getIrFunc(const void *ptr, JitModuleInfo &moduleInfo, llvm::Module &module) {
+  assert(ptr != nullptr);
+  auto funcDesc = moduleInfo.getFunc(ptr);
+  if (funcDesc == nullptr) {
+    return nullptr;
+  }
+  return module.getFunction(funcDesc->name);
 }
 
 void generateBind(const Context &context, DynamicCompilerContext &jitContext,
                   JitModuleInfo &moduleInfo, llvm::Module &module) {
-  auto getIrFunc = [&](const void *ptr) -> llvm::Function * {
-    assert(ptr != nullptr);
-    auto funcDesc = moduleInfo.getFunc(ptr);
-    if (funcDesc == nullptr) {
-      return nullptr;
-    }
-    return module.getFunction(funcDesc->name);
-  };
-
   std::unordered_map<const void *, llvm::Function *> bindFuncs;
   bindFuncs.reserve(jitContext.getBindInstances().size() * 2);
 
@@ -188,16 +174,22 @@ void generateBind(const Context &context, DynamicCompilerContext &jitContext,
                      const llvm::ArrayRef<ParamSlice> &params) {
     assert(bindPtr != nullptr);
     assert(bindFuncs.end() == bindFuncs.find(bindPtr));
-    auto funcToInline = getIrFunc(originalFunc);
+    auto funcToInline = getIrFunc(originalFunc, moduleInfo, module);
     if (funcToInline == nullptr) {
-        fatal(context, "Bind: function body not available");
+      fatal(context, "Bind: function body not available");
     }
-    auto exampleIrFunc = getIrFunc(exampleFunc);
+    auto exampleIrFunc = getIrFunc(exampleFunc, moduleInfo, module);
     assert(exampleIrFunc != nullptr);
     auto errhandler = [&](const std::string &str) { fatal(context, str); };
     auto overrideHandler = [&](llvm::Type &type, const void *data,
                                size_t size) -> llvm::Constant * {
-      if (type.isPointerTy()) {
+      // due to ABI rewrites, function pointers can be an integer literal on
+      // aarch64 we will do a quick probe here to check if it's a function
+      // pointer
+      bool maybeIntPtr =
+          (jitContext.getTargetTriple().isAArch64() && type.isIntegerTy(64)) ||
+          (jitContext.getTargetTriple().isOSWindows() && type.isIntegerTy(32));
+      if (type.isPointerTy() || maybeIntPtr) {
         auto getBindFunc = [&]() {
           auto handle = *static_cast<void *const *>(data);
           return handle != nullptr && jitContext.hasBindFunction(handle)
@@ -205,34 +197,36 @@ void generateBind(const Context &context, DynamicCompilerContext &jitContext,
                      : nullptr;
         };
 
-        auto elemType = type.getPointerElementType();
-        if (elemType->isFunctionTy()) {
-          (void)size;
-          assert(size == sizeof(void *));
-          auto val = *reinterpret_cast<void *const *>(data);
-          if (val != nullptr) {
-            auto ret = getIrFunc(val);
-            if (ret != nullptr && ret->getType() != &type) {
-              return llvm::ConstantExpr::getBitCast(ret, &type);
-            }
-            return ret;
-          }
-        } else if (auto handle = getBindFunc()) {
+        auto *maybeFunctionPtr = *reinterpret_cast<void *const *>(data);
+        llvm::Function *maybeFunction =
+            maybeFunctionPtr ? getIrFunc(maybeFunctionPtr, moduleInfo, module)
+                             : nullptr;
+        if (size == sizeof(void *) && maybeFunction) {
+          return maybeIntPtr
+                     ? llvm::ConstantExpr::getPtrToInt(maybeFunction, &type)
+                     : llvm::ConstantExpr::getBitCast(maybeFunction, &type);
+        }
+        if (auto handle = getBindFunc()) {
           auto it = bindFuncs.find(handle);
+          if (bindFuncs.end() == it && maybeIntPtr) {
+            // maybe it's really not a pointer
+            return nullptr;
+          }
           assert(bindFuncs.end() != it);
           auto bindIrFunc = it->second;
           auto funcPtrType = bindIrFunc->getType();
           auto globalVar1 = new llvm::GlobalVariable(
               module, funcPtrType, true, llvm::GlobalValue::PrivateLinkage,
               bindIrFunc, ".jit_bind_handle");
-          return llvm::ConstantExpr::getBitCast(globalVar1, &type);
+          return maybeIntPtr
+                     ? llvm::ConstantExpr::getPtrToInt(globalVar1, &type)
+                     : llvm::ConstantExpr::getBitCast(globalVar1, &type);
         }
       }
       return nullptr;
     };
-    auto func =
-        bindParamsToFunc(module, *funcToInline, *exampleIrFunc, params,
-                         errhandler, BindOverride(overrideHandler));
+    auto func = bindParamsToFunc(module, *funcToInline, *exampleIrFunc, params,
+                                 errhandler, BindOverride(overrideHandler));
     moduleInfo.addBindHandle(func->getName(), bindPtr);
     bindFuncs.insert({bindPtr, func});
   };
@@ -247,14 +241,13 @@ void generateBind(const Context &context, DynamicCompilerContext &jitContext,
 
 void applyBind(const Context &context, DynamicCompilerContext &jitContext,
                const JitModuleInfo &moduleInfo) {
-  auto &layout = jitContext.getDataLayout();
   for (auto &elem : moduleInfo.getBindHandles()) {
-    auto decorated = decorate(elem.name, layout);
-    auto symbol = jitContext.findSymbol(decorated);
+    auto symbol = jitContext.lookup(elem.name);
     auto addr = resolveSymbol(symbol);
     if (nullptr == addr) {
       std::string desc = std::string("Symbol not found in jitted code: \"") +
-                         elem.name + "\" (\"" + decorated + "\")";
+                         elem.name + "\" (\"" + jitContext.mangle(elem.name) +
+                         "\")";
       fatal(context, desc);
     } else {
       auto handle = static_cast<void **>(elem.handle);
@@ -267,8 +260,9 @@ DynamicCompilerContext &getJit(DynamicCompilerContext *context) {
   if (context != nullptr) {
     return *context;
   }
-  static DynamicCompilerContext jit(/*mainContext*/ true);
-  return jit;
+  static std::unique_ptr<DynamicCompilerContext> jit =
+      DynamicCompilerContext::Create(/*mainContext*/ true);
+  return *jit;
 }
 
 void setRtCompileVars(const Context &context, llvm::Module &module,
@@ -290,15 +284,15 @@ void dumpModule(const Context &context, const llvm::Module &module,
   }
 }
 
-void setFunctionsTarget(llvm::Module &module, const llvm::TargetMachine &TM) {
+void setFunctionsTarget(llvm::Module &module, const llvm::TargetMachine *TM) {
   // Set function target cpu to host if it wasn't set explicitly
   for (auto &&func : module.functions()) {
     if (!func.hasFnAttribute("target-cpu")) {
-      func.addFnAttr("target-cpu", TM.getTargetCPU());
+      func.addFnAttr("target-cpu", TM->getTargetCPU());
     }
 
     if (!func.hasFnAttribute("target-features")) {
-      auto featStr = TM.getTargetFeatureString();
+      auto featStr = TM->getTargetFeatureString();
       if (!featStr.empty()) {
         func.addFnAttr("target-features", featStr);
       }
@@ -319,6 +313,31 @@ struct JitFinaliser final {
   void finalze() { finalized = true; }
 };
 
+#ifndef LDC_JITRT_USE_JITLINK
+static void insertABIHacks(const Context &context,
+                           DynamicCompilerContext &jitContext,
+                           llvm::Module &module) {
+  bool isAArch64 = jitContext.getTargetTriple().isAArch64();
+  if (isAArch64) {
+    // insert DW.ref._d_eh_personality stub
+    auto targetSymbol = module.getFunction("_d_eh_personality");
+    if (!targetSymbol) {
+      return;
+    }
+    constexpr const char *thunkName = "_d_eh_personality__thunk";
+    auto *pointerType = llvm::PointerType::getUnqual(module.getContext());
+    auto *thunkVariable = new llvm::GlobalVariable(
+        pointerType, true, llvm::GlobalValue::ExternalLinkage,
+        llvm::ConstantExpr::getBitCast(targetSymbol, pointerType), thunkName);
+    module.insertGlobalVariable(thunkVariable);
+    auto targetSymbolAddr = jitContext.lookup(thunkName);
+    assert(targetSymbolAddr);
+    jitContext.addSymbol("DW.ref._d_eh_personality",
+                         targetSymbolAddr->toPtr<void *>());
+  }
+}
+#endif
+
 void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
                                     const Context &context) {
   if (nullptr == modlist_head) {
@@ -329,12 +348,12 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
   DynamicCompilerContext &myJit = getJit(context.compilerContext);
 
   JitModuleInfo moduleInfo(context, modlist_head);
-  std::unique_ptr<llvm::Module> finalModule;
+  llvm::orc::ThreadSafeModule finalModule;
   myJit.clearSymMap();
-  auto &layout = myJit.getDataLayout();
   OptimizerSettings settings;
   settings.optLevel = context.optLevel;
   settings.sizeLevel = context.sizeLevel;
+  auto TM = myJit.getTargetMachine();
   enumModules(modlist_head, context, [&](const RtCompileModuleList &current) {
     interruptPoint(context, "load IR");
     auto buff = llvm::MemoryBuffer::getMemBuffer(
@@ -342,7 +361,7 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
                         static_cast<std::size_t>(current.irDataSize)),
         "", false);
     interruptPoint(context, "parse IR");
-    auto mod = llvm::parseBitcodeFile(*buff, myJit.getContext());
+    auto mod = llvm::parseBitcodeFile(*buff, *myJit.getContext());
     if (!mod) {
       fatal(context, "Unable to parse IR: " + llvm::toString(mod.takeError()));
     } else {
@@ -352,73 +371,82 @@ void rtCompileProcessImplSoInternal(const RtCompileModuleList *modlist_head,
       verifyModule(context, module);
 
       dumpModule(context, module, DumpStage::OriginalModule);
-      setFunctionsTarget(module, myJit.getTargetMachine());
+      setFunctionsTarget(module, TM);
 
-      module.setDataLayout(myJit.getTargetMachine().createDataLayout());
+      module.setDataLayout(myJit.getDataLayout());
 
       interruptPoint(context, "setRtCompileVars", name.data());
       setRtCompileVars(context, module,
                        toArray(current.varList,
                                static_cast<std::size_t>(current.varListSize)));
 
-      if (nullptr == finalModule) {
-        finalModule = std::move(*mod);
+      if (!finalModule) {
+        finalModule = llvm::orc::ThreadSafeModule(std::move(*mod),
+                                                  myJit.getThreadSafeContext());
       } else {
-        if (llvm::Linker::linkModules(*finalModule, std::move(*mod))) {
-          fatal(context, "Can't merge module");
-        }
+        finalModule.withModuleDo([&](llvm::Module &M) {
+          if (llvm::Linker::linkModules(M, std::move(*mod))) {
+            fatal(context, "Can't merge module");
+          }
+        });
       }
 
-      for (auto &&sym : toArray(current.symList, static_cast<std::size_t>(
-                                                     current.symListSize))) {
-        myJit.addSymbol(decorate(sym.name, layout), sym.sym);
+      llvm::orc::SymbolMap symMap{
+          static_cast<unsigned int>(current.symListSize)};
+      for (int i = 0; i < current.symListSize; ++i) {
+        const auto &sym = current.symList[i];
+        symMap[myJit.mangleAndIntern(sym.name)] = {
+            llvm::orc::ExecutorAddr::fromPtr(sym.sym),
+            llvm::JITSymbolFlags::Exported};
       }
+      myJit.addSymbols(symMap);
     }
   });
 
-  assert(nullptr != finalModule);
+  assert(!!finalModule);
 
-  interruptPoint(context, "Generate bind functions");
-  generateBind(context, myJit, moduleInfo, *finalModule);
-  dumpModule(context, *finalModule, DumpStage::MergedModule);
-  interruptPoint(context, "Optimize final module");
-  optimizeModule(context, myJit.getTargetMachine(), settings, *finalModule);
+  finalModule.withModuleDo([&](llvm::Module &M) {
+    interruptPoint(context, "Generate bind functions");
+    generateBind(context, myJit, moduleInfo, M);
+#ifndef LDC_JITRT_USE_JITLINK
+    insertABIHacks(context, myJit, M);
+#endif
+    dumpModule(context, M, DumpStage::MergedModule);
+    interruptPoint(context, "Optimize final module");
+    optimizeModule(settings, &M, TM);
 
-  interruptPoint(context, "Verify final module");
-  verifyModule(context, *finalModule);
+    interruptPoint(context, "Verify final module");
+    verifyModule(context, M);
 
-  dumpModule(context, *finalModule, DumpStage::OptimizedModule);
+    dumpModule(context, M, DumpStage::OptimizedModule);
+  });
 
   interruptPoint(context, "Codegen final module");
+  auto callback = [&](const char *str, size_t len) {
+    context.dumpHandler(context.dumpHandlerData, DumpStage::FinalAsm, str, len);
+  };
+  CallbackOstream os{callback};
+  std::unique_ptr<DynamicCompilerContext::ListenerCleaner> listener{};
   if (nullptr != context.dumpHandler) {
-    auto callback = [&](const char *str, size_t len) {
-      context.dumpHandler(context.dumpHandlerData, DumpStage::FinalAsm, str,
-                          len);
-    };
-
-    CallbackOstream os(callback);
-    if (auto err = myJit.addModule(std::move(finalModule), &os)) {
-      fatal(context, "Can't codegen module: " + llvm::toString(std::move(err)));
-    }
-  } else {
-    if (auto err = myJit.addModule(std::move(finalModule), nullptr)) {
-      fatal(context, "Can't codegen module: " + llvm::toString(std::move(err)));
-    }
+    listener = myJit.addScopedListener(&os);
+  }
+  if (auto err = myJit.addModule(std::move(finalModule))) {
+    fatal(context, "Can't codegen module: " + llvm::toString(std::move(err)));
   }
 
   JitFinaliser jitFinalizer(myJit);
-  if (myJit.isMainContext()) {
+  /*if (myJit.isMainContext())*/ {
     interruptPoint(context, "Resolve functions");
     for (auto &&fun : moduleInfo.functions()) {
       if (fun.thunkVar == nullptr) {
         continue;
       }
-      auto decorated = decorate(fun.name, layout);
-      auto symbol = myJit.findSymbol(decorated);
+      auto symbol = myJit.lookup(fun.name);
       auto addr = resolveSymbol(symbol);
       if (nullptr == addr) {
         std::string desc = std::string("Symbol not found in jitted code: \"") +
-                           fun.name.data() + "\" (\"" + decorated + "\")";
+                           fun.name.data() + "\" (\"" + myJit.mangle(fun.name) +
+                           "\")";
         fatal(context, desc);
       } else {
         *fun.thunkVar = addr;
@@ -468,7 +496,7 @@ EXTERNAL void JIT_UNREG_BIND_PAYLOAD(class DynamicCompilerContext *context,
 }
 
 EXTERNAL DynamicCompilerContext *JIT_CREATE_COMPILER_CONTEXT() {
-  return new DynamicCompilerContext(false);
+  return DynamicCompilerContext::Create(/*mainContext*/ false).release();
 }
 
 EXTERNAL void JIT_DESTROY_COMPILER_CONTEXT(DynamicCompilerContext *context) {
