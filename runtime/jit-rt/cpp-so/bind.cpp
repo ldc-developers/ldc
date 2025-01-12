@@ -29,13 +29,14 @@ llvm::FunctionType *getDstFuncType(llvm::FunctionType &srcType,
   llvm::SmallVector<llvm::Type *, SmallParamsCount> newParams;
   const auto srcParamsCount = srcType.params().size();
   assert(params.size() <= srcParamsCount);
-  size_t sRetCount = srcParamsCount - params.size();
-  for (size_t i = 0; i < sRetCount; ++i) {
+  const size_t implicitParamsCount = srcParamsCount - params.size();
+  for (size_t i = 0; i < implicitParamsCount; ++i) {
     newParams.push_back(srcType.getParamType(static_cast<unsigned>(i)));
   }
   for (size_t i = 0; i < params.size(); ++i) {
     if (params[i].data == nullptr) {
-      newParams.push_back(srcType.getParamType(static_cast<unsigned>(i + sRetCount)));
+      newParams.push_back(
+          srcType.getParamType(static_cast<unsigned>(i + implicitParamsCount)));
     }
   }
   auto retType = srcType.getReturnType();
@@ -117,26 +118,15 @@ void doBind(llvm::Module &module, llvm::Function &dstFunc,
   auto currentArg = dstFunc.arg_begin();
   auto funcType = srcFunc.getFunctionType();
   auto &layout = module.getDataLayout();
-  size_t returnArgs = 0;
-  llvm::Type *sRetTy = nullptr;
-  // handle stack returns
-  auto funcAttrs = srcFunc.getAttributes();
-  for (size_t i = 0; i < funcType->getNumParams(); ++i) {
-    auto paramAttrs = funcAttrs.getParamAttrs(i);
-    if (paramAttrs.hasAttribute(llvm::Attribute::InReg) &&
-        params.size() != srcFunc.arg_size()) {
-      sRetTy = funcType->getParamType(i);
-    } else {
-      sRetTy = srcFunc.getParamStructRetType(i);
-    }
-    if (!sRetTy) {
-      break;
-    }
-    ++returnArgs;
+  const size_t implicitArgsCount = funcType->getNumParams() - params.size();
+
+  // forward implicit arguments
+  for (size_t i = 0; i < implicitArgsCount; ++i) {
     args.push_back(currentArg);
     ++currentArg;
   }
 
+  // handle formal arguments
   for (size_t i = 0; i < params.size(); ++i) {
     llvm::Value *arg = nullptr;
     const auto &param = params[i];
@@ -144,7 +134,7 @@ void doBind(llvm::Module &module, llvm::Function &dstFunc,
       arg = currentArg;
       ++currentArg;
     } else {
-      size_t currentOffset = i + returnArgs;
+      size_t currentOffset = i + implicitArgsCount;
       auto type = funcType->getParamType(static_cast<unsigned>(currentOffset));
       auto byvalType = srcFunc.getParamByValType(currentOffset);
       arg = allocParam(builder, *type, byvalType, layout, param, errHandler, override);
