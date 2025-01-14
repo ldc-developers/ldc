@@ -1,6 +1,7 @@
 # LDC master
 
 #### Big news
+- LLVM for prebuilt packages bumped to v19.1.7. (#4822)
 - Revived dynamic-compile (JIT) functionality (formerly unsupported since LLVM 12), supporting LLVM 18+ now. (#4774)
 - ldc2.conf: `%%ldcversion%%` placeholder added, allowing to refer to version-specific directories.
 
