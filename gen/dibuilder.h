@@ -184,7 +184,7 @@ private:
   DIType CreateArrayType(TypeArray *type);
   DIType CreateSArrayType(TypeSArray *type);
   DIType CreateAArrayType(TypeAArray *type);
-  DISubroutineType CreateFunctionType(Type *type);
+  DISubroutineType CreateFunctionType(Type *type, FuncDeclaration *fd = nullptr);
   DISubroutineType CreateEmptyFunctionType();
   DIType CreateDelegateType(TypeDelegate *type);
   DIType CreateUnspecifiedType(Dsymbol *sym);
