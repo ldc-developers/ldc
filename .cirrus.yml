@@ -34,11 +34,6 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
       ctest --output-on-failure -R ldc2-unittest
     run_lit_testsuite_script: |
       cd $CIRRUS_WORKING_DIR/../build/tests
-      if [[ "$CI_OS-$CI_ARCH" == "linux-aarch64" ]]; then
-        # FIXME: the following tests fail
-        rm $CIRRUS_WORKING_DIR/tests/debuginfo/nested_gdb.d
-        rm $CIRRUS_WORKING_DIR/tests/sanitizers/fuzz_basic.d
-      fi
       python3 runlit.py -v -j $PARALLELISM .
     run_dmd_testsuite_script: |
       cd $CIRRUS_WORKING_DIR/../build
@@ -46,19 +41,7 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
     run_defaultlib_tests_script: |
       # Run defaultlib unittests & druntime integration tests
       cd $CIRRUS_WORKING_DIR/../build
-      excludes="dmd-testsuite|ldc2-unittest|lit-tests"
-      if [[ "$CI_OS-$CI_ARCH" == "linux-aarch64" ]]; then
-        # FIXME: failing unittest(s)
-        excludes+='|^std.internal.math.gammafunction'
-        # FIXME: failing unittest(s) with enabled optimizations
-        excludes+='|^std.math.exponential(-shared)?$'
-        # FIXME: subtest rt_trap_exceptions fails
-        excludes+='|^druntime-test-exceptions-debug$'
-        # std.path unittests apparently need HOME, which happens not to be set
-        export HOME=~
-        echo "Setting HOME to '$HOME'"
-      fi
-      ctest -j$PARALLELISM --output-on-failure -E "$excludes"
+      ctest -j$PARALLELISM --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests"
 
 # Performs the extra packaging steps for jobs producing a prebuilt package.
 # Requires env variables CI_ARCH, CI_OS, GITHUB_TOKEN and PARALLELISM (and CC for FreeBSD).
@@ -161,7 +144,7 @@ packaging_steps_template: &PACKAGING_STEPS_TEMPLATE
     fi
 
 # Installs Ubuntu 20.04+ prerequisites.
-# Requires env variables CI_ARCH, HOST_LDC_VERSION, EXTRA_APT_PACKAGES and EXTRA_CMAKE_FLAGS.
+# Requires env variables CI_ARCH, EXTRA_APT_PACKAGES and EXTRA_CMAKE_FLAGS.
 install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
   install_prerequisites_script: |
     cd $CIRRUS_WORKING_DIR/..
@@ -177,31 +160,21 @@ install_ubuntu_prerequisites_template: &INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
     fi
     apt-get -q update
     apt-get -yq install \
-      git-core ninja-build $gcc_pkg \
+      git-core cmake ninja-build $gcc_pkg \
       zlib1g-dev $libcurl_pkg curl gdb python3 python3-pip tzdata unzip zip \
       $EXTRA_APT_PACKAGES
     python3 --version
-    # Download & extract CMake
-    curl -fL --retry 3 --max-time 300 -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.27.1/cmake-3.27.1-linux-$CI_ARCH.tar.gz
-    mkdir cmake
-    tar -xf cmake.tar.gz --strip 1 -C cmake
-    rm cmake.tar.gz
-    # Download & extract custom Ninja on x86_64
+    # Install custom Ninja on x86_64
     if [[ "$CI_ARCH" == "x86_64" ]]; then
       curl -fL --retry 3 --max-time 60 -O https://github.com/symmetryinvestments/ninja/releases/download/v1.11.1-sym1/ninja-linux.zip
       mkdir ninja
       unzip ninja-linux.zip -d ninja
       rm ninja-linux.zip
+      ln -sf $PWD/ninja/ninja /usr/bin/ninja
     fi
-    # Download & extract host LDC
-    curl -fL --retry 3 --max-time 300 -o ldc2.tar.xz https://github.com/ldc-developers/ldc/releases/download/v$HOST_LDC_VERSION/ldc2-$HOST_LDC_VERSION-linux-$CI_ARCH.tar.xz
-    mkdir host-ldc
-    tar -xf ldc2.tar.xz --strip 1 -C host-ldc
-    rm ldc2.tar.xz
 
 environment:
   CIRRUS_CLONE_DEPTH: 50
-  HOST_LDC_VERSION: 1.31.0
   GITHUB_TOKEN: ENCRYPTED[0955bd48c8d4e5391446fc0149d0719ad0b63df27ec9e6c180a5730a5b10dc7f28f09d1383423db158d21380ee2b022a]
 
 task:
@@ -217,7 +190,6 @@ task:
     EXTRA_APT_PACKAGES: "gdmd llvm-dev libclang-common-19-dev lld"
     EXTRA_CMAKE_FLAGS: "-DBUILD_SHARED_LIBS=ON -DBUILD_LTO_LIBS=ON -DD_COMPILER=gdmd -DLDC_LINK_MANUALLY=ON"
     PARALLELISM: 8
-    PATH: ${CIRRUS_WORKING_DIR}/../cmake/bin:${CIRRUS_WORKING_DIR}/../ninja:${PATH}
     # for gdmd:
     LANG: C.UTF-8
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
