@@ -36,6 +36,23 @@ jobs:
               -DEXTRA_CXXFLAGS=-flto=full
             with_pgo: true
 
+          - job_name: Linux aarch64
+            os: ubuntu-22.04-arm
+            arch: aarch64
+            bootstrap_cmake_flags: >-
+              -DBUILD_LTO_LIBS=ON
+              -DCOMPILER_RT_LIBDIR_OS=aarch64-unknown-linux-gnu
+            extra_cmake_flags: >-
+              -DBUILD_LTO_LIBS=ON
+              -DCOMPILER_RT_LIBDIR_OS=aarch64-unknown-linux-gnu
+              -DCMAKE_C_COMPILER=/home/runner/work/ldc/clang/bin/clang
+              -DCMAKE_CXX_COMPILER=/home/runner/work/ldc/clang/bin/clang++
+              -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++
+              -DJITRT_EXTRA_LDFLAGS=-static-libstdc++
+              -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
+              -DEXTRA_CXXFLAGS=-flto=full
+            with_pgo: true
+
           - job_name: macOS x86_64
             os: macos-13
             arch: x86_64
