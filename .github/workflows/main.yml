@@ -184,6 +184,8 @@ jobs:
 
       - name: Run a few integration tests against the installed compiler
         uses: ./.github/actions/6-integration-test
+        with:
+          arch: ${{ matrix.arch }}
       - name: 'macOS: Run iOS cross-compilation integration test'
         if: runner.os == 'macOS'
         run: |
