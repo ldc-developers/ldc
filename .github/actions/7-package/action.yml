@@ -130,8 +130,8 @@ runs:
         echo "ARTIFACT_ID=$artifactID" >> $GITHUB_ENV
         echo "ARTIFACT_NAME=$os-${{ inputs.arch }}" >> $GITHUB_ENV
 
-    - name: 'Linux: Pack source dir'
-      if: runner.os == 'Linux' && inputs.os == ''
+    - name: 'Linux x86_64: Pack source dir'
+      if: runner.os == 'Linux' && inputs.os == '' && inputs.arch == 'x86_64'
       shell: bash
       run: |
         set -eux

@@ -1,4 +1,7 @@
 name: Run a few integration tests against the installed compiler
+inputs:
+  arch:
+    required: true
 runs:
   using: composite
   steps:
@@ -18,7 +21,7 @@ runs:
         fi
         installed/bin/ldc2 hello.d -link-defaultlib-shared
         ./hello
-        if [[ '${{ runner.os }}' == Linux ]]; then
+        if [[ '${{ runner.os }}-${{ inputs.arch }}' == Linux-x86_64 ]]; then
           installed/bin/ldc2 hello.d -m32 -link-defaultlib-shared
           ./hello
         fi
@@ -31,7 +34,7 @@ runs:
         for mode in thin full; do
           installed/bin/ldc2 hello.d -of=hello_$mode -flto=$mode -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
           ./hello_$mode
-          if [[ '${{ runner.os }}' == Linux ]]; then
+          if [[ '${{ runner.os }}-${{ inputs.arch }}' == Linux-x86_64 ]]; then
             installed/bin/ldc2 hello.d -m32 -of=hello_$mode-32 -flto=$mode -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
             ./hello_$mode-32
           fi

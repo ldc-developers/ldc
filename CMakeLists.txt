@@ -478,7 +478,7 @@ if(LDC_DYNAMIC_COMPILE)
     add_definitions(-DLDC_DYNAMIC_COMPILE_API_VERSION=4)
 endif()
 if (LDC_DYNAMIC_COMPILE_USE_LLVM_JITLINK)
-    add_compile_definitions(-DLDC_JITRT_USE_JITLINK)
+    add_compile_definitions(LDC_JITRT_USE_JITLINK)
 endif()
 
 #
