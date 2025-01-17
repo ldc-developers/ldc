@@ -93,8 +93,8 @@ packaging_steps_template: &PACKAGING_STEPS_TEMPLATE
   # Run dynamic-compile integration test
   run_dynamic_compile_integration_test_script: |
     cd $CIRRUS_WORKING_DIR/..
-    # FIXME: disabled since LLVM 12, needs https://github.com/ldc-developers/ldc/pull/3184
-    if false; then
+    # FreeBSD's LLVM 15 is too old (need LLVM 18+ for dynamic-compile)
+    if [[ "$CI_OS" != "freebsd" ]]; then
       installed/bin/ldc2 -enable-dynamic-compile -run $CIRRUS_WORKING_DIR/tests/dynamiccompile/array.d
     fi
   # Run ImportC integration test

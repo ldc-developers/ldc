@@ -38,8 +38,6 @@ runs:
         done
 
     - name: Run dynamic-compile integration test
-      # disabled since LLVM 12, needs https://github.com/ldc-developers/ldc/pull/3184
-      if: '!always()'
       shell: bash
       run: |
         set -eux
