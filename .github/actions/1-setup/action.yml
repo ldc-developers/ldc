@@ -1,7 +1,5 @@
 name: Install prerequisites
 inputs:
-  clang_version:
-    required: true
   llvm_version:
     required: true
   arch:
@@ -22,6 +20,7 @@ runs:
           sudo dpkg --add-architecture i386
         fi
         sudo apt-get -q update
+
         packages=( \
           git-core cmake g++ \
           libcurl4 libxml2-dev libzstd-dev \
@@ -30,43 +29,44 @@ runs:
         if [[ $arch == x86_64 ]]; then
           packages+=(g++-multilib libcurl4:i386)
         fi
+        # extra prerequisites of apt.llvm.org install script
+        packages+=(lsb-release wget software-properties-common gnupg)
+
         sudo -E apt-get -yq install ${packages[@]}
+
         # Make sure to link libzstd statically
         sudo rm /usr/lib/$arch-linux-gnu/libzstd.so
+
         # Install a more recent CMake version in the AArch64 container (for mimalloc...)
         if [[ $arch == aarch64 ]]; then
-          curl -fL --retry 3 --max-time 300 -o cmake.tar.gz https://github.com/Kitware/CMake/releases/download/v3.31.4/cmake-3.31.4-linux-$arch.tar.gz
+          curl -fL --retry 3 --max-time 300 -o cmake.tar.gz \
+            https://github.com/Kitware/CMake/releases/download/v3.31.4/cmake-3.31.4-linux-$arch.tar.gz
           mkdir cmake
           tar -xf cmake.tar.gz --strip 1 -C cmake
           rm cmake.tar.gz
           sudo ln -sf $PWD/cmake/bin/cmake /usr/bin/cmake
         fi
 
-    - name: 'Linux: Download & extract clang' # into ../clang
+    - name: 'Linux: Install clang 19 from apt.llvm.org'
       if: runner.os == 'Linux'
       shell: bash
       run: |
         set -eux
         cd ..
-        arch='${{ inputs.arch }}'
-        extraSuffix=''
-        if [[ $arch == x86_64 ]]; then
-          extraSuffix='-ubuntu-18.04'
-        fi
-        curl -fL --retry 3 --max-time 300 -o clang.tar.xz \
-          https://github.com/llvm/llvm-project/releases/download/llvmorg-${{ inputs.clang_version }}/clang+llvm-${{ inputs.clang_version }}-$arch-linux-gnu$extraSuffix.tar.xz
-        mkdir clang
-        tar -xf clang.tar.xz --strip 1 -C clang
-        rm clang.tar.xz
-        clang/bin/clang --version
-    - name: 'Windows: Install clang'
+        curl -fL --retry 3 --max-time 30 -O https://apt.llvm.org/llvm.sh
+        sudo bash llvm.sh 19
+        for tool in clang clang++ ld.lld; do
+          sudo ln -sf $tool-19 /usr/bin/$tool
+          $tool --version
+        done
+    - name: 'Windows: Install clang v19.1.3 from GitHub'
       if: runner.os == 'Windows'
       shell: bash
       run: |
         set -eux
         cd ..
         curl -fL --retry 3 --max-time 300 -o clang.exe \
-          https://github.com/llvm/llvm-project/releases/download/llvmorg-${{ inputs.clang_version }}/LLVM-${{ inputs.clang_version }}-win64.exe
+          https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.3/LLVM-19.1.3-win64.exe
         ./clang.exe //S # double-slash for bash
         rm clang.exe
         # C:\Program Files\LLVM\bin should already be in PATH
@@ -117,28 +117,16 @@ runs:
 
         llvm/bin/llvm-config --version
 
-    - name: 'Linux: Make lld the default linker'
+    - name: 'Linux: Make lld (from apt.llvm.org) the default linker'
       if: runner.os == 'Linux'
       shell: bash
       run: |
         set -eux
-        sudo ln -sf "$(dirname "$PWD")/llvm/bin/ld.lld" /usr/bin/ld
+        sudo ln -sf ld.lld /usr/bin/ld
         ld --version
 
-    - name: Install ninja
-      if: inputs.arch != 'aarch64'
-      uses: symmetryinvestments/gha-setup-ninja@v2
-    - name: Install ninja (Linux AArch64)
-      if: inputs.arch == 'aarch64'
-      shell: bash
-      run: |
-        set -eux
-        cd ..
-        curl -fL --retry 3 --max-time 60 -O https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-linux-aarch64.zip
-        mkdir ninja
-        unzip ninja-linux-aarch64.zip -d ninja
-        rm ninja-linux-aarch64.zip
-        sudo ln -sf $PWD/ninja/ninja /usr/bin/ninja
+    - name: Install ninja v1.12.1
+      uses: Ahajha/gha-setup-ninja@69595b0cf872acdad8ce599142fbdc88724b9a2b
 
     - name: Install D host compiler
       uses: dlang-community/setup-dlang@v1
