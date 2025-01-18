@@ -25,6 +25,45 @@
 
 using namespace dmd;
 
+struct SimpleHardfloatRewrite : ABIRewrite {
+  Type *getFirstFieldType(Type *ty) {
+    if (auto ts = ty->toBasetype()->isTypeStruct()) {
+      assert(ts->sym->fields.size() == 1);
+      auto *subField = ts->sym->fields[0];
+      if (subField->type->isfloating()) {
+        return subField->type;
+      }
+      return nullptr;
+    }
+    return nullptr;
+  }
+
+  LLValue *put(DValue *dv, bool, bool) override {
+    const auto flat = getFirstFieldType(dv->type);
+    LLType *asType = DtoType(flat);
+    assert(dv->isLVal());
+    LLValue *flatGEP = DtoGEP1(asType, DtoLVal(dv), 0U);
+    LLValue *flatValue = DtoLoad(asType, flatGEP, ".HardfloatRewrite_arg");
+    return flatValue;
+  }
+
+  LLValue *getLVal(Type *dty, LLValue *v) override {
+    // inverse operation of method "put"
+    LLValue *insertedValue = DtoInsertValue(llvm::UndefValue::get(DtoType(dty)), v, 0);
+    return DtoAllocaDump(insertedValue, dty, ".HardfloatRewrite_param_storage");
+  }
+
+  LLType *type(Type *ty) override { return DtoType(getFirstFieldType(ty)); }
+
+  bool shouldApplyRewrite(Type *ty) {
+    if (auto ts = ty->toBasetype()->isTypeStruct()) {
+      return ts->sym->fields.size() == 1 &&
+             ts->sym->fields[0]->type->isfloating();
+    }
+    return false;
+  }
+};
+
 struct StructSimpleFlattenRewrite : BaseBitcastABIRewrite {
   LLType *type(Type *ty) override {
     const size_t type_size = size(ty);
@@ -47,6 +86,7 @@ struct StructSimpleFlattenRewrite : BaseBitcastABIRewrite {
 struct SystemZTargetABI : TargetABI {
   IndirectByvalRewrite indirectByvalRewrite{};
   StructSimpleFlattenRewrite structSimpleFlattenRewrite{};
+  SimpleHardfloatRewrite simpleHardfloatRewrite{};
 
   explicit SystemZTargetABI() {}
 
@@ -132,8 +172,12 @@ struct SystemZTargetABI : TargetABI {
       arg.attrs.addAttribute(ty->isunsigned() ? LLAttribute::ZExt
                                               : LLAttribute::SExt);
     }
-    if (ty->isTypeStruct() && size(ty) <= 8) {
-      structSimpleFlattenRewrite.applyToIfNotObsolete(arg);
+    if (ty->isTypeStruct()) {
+      if (simpleHardfloatRewrite.shouldApplyRewrite(ty)) {
+        simpleHardfloatRewrite.applyTo(arg);
+      } else if (size(ty) <= 8) {
+        structSimpleFlattenRewrite.applyToIfNotObsolete(arg);
+      }
     }
   }
 
