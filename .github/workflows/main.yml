@@ -10,7 +10,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CLANG_VERSION: 15.0.6
   LLVM_VERSION: 19.1.7
 
 jobs:
@@ -28,8 +27,8 @@ jobs:
             extra_cmake_flags: >-
               -DMULTILIB=ON
               -DBUILD_LTO_LIBS=ON
-              -DCMAKE_C_COMPILER=/home/runner/work/ldc/clang/bin/clang
-              -DCMAKE_CXX_COMPILER=/home/runner/work/ldc/clang/bin/clang++
+              -DCMAKE_C_COMPILER=clang
+              -DCMAKE_CXX_COMPILER=clang++
               -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++
               -DJITRT_EXTRA_LDFLAGS=-static-libstdc++
               -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
@@ -40,15 +39,14 @@ jobs:
             os: ubuntu-22.04-arm # Ubuntu 20 not natively supported
             container_image: ubuntu:20.04
             arch: aarch64
-            clang_version: 15.0.3 # 15.0.6 requires a more recent libstdc++.so.6 than shipped with Ubuntu 20
             bootstrap_cmake_flags: >-
               -DBUILD_LTO_LIBS=ON
               -DCOMPILER_RT_LIBDIR_OS=aarch64-unknown-linux-gnu
             extra_cmake_flags: >-
               -DBUILD_LTO_LIBS=ON
               -DCOMPILER_RT_LIBDIR_OS=aarch64-unknown-linux-gnu
-              -DCMAKE_C_COMPILER=/__w/ldc/clang/bin/clang
-              -DCMAKE_CXX_COMPILER=/__w/ldc/clang/bin/clang++
+              -DCMAKE_C_COMPILER=clang
+              -DCMAKE_CXX_COMPILER=clang++
               -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++
               -DJITRT_EXTRA_LDFLAGS=-static-libstdc++
               -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
@@ -83,7 +81,6 @@ jobs:
           - job_name: Windows x64
             os: windows-2022
             arch: x64
-            clang_version: 19.1.3
             bootstrap_cmake_flags: -DBUILD_LTO_LIBS=ON
             extra_cmake_flags: >-
               -DBUILD_LTO_LIBS=ON
@@ -94,7 +91,6 @@ jobs:
           - job_name: Windows x86
             os: windows-2022
             arch: x86
-            clang_version: 19.1.3
             bootstrap_cmake_flags: -DBUILD_LTO_LIBS=ON
             # `RT_CFLAGS=-m32` needed to make 64-bit clang-cl output 32-bit code for druntime integration tests
             extra_cmake_flags: >-
@@ -126,7 +122,6 @@ jobs:
       - name: Install prerequisites
         uses: ./.github/actions/1-setup
         with:
-          clang_version: ${{ matrix.clang_version || env.CLANG_VERSION }}
           llvm_version: ${{ matrix.llvm_version || env.LLVM_VERSION }}
           arch: ${{ matrix.arch }}
       - name: Build bootstrap LDC
@@ -235,7 +230,6 @@ jobs:
       - name: Install prerequisites
         uses: ./.github/actions/1-setup
         with:
-          clang_version: ${{ env.CLANG_VERSION }}
           llvm_version: ${{ env.LLVM_VERSION }}
           arch: x86_64
       - name: Build bootstrap LDC
