@@ -49,7 +49,7 @@ runs:
         set -eux
         cd ..
         if type -P apk &>/dev/null; then
-          exit 0 # FIXME: Alpine: LLVM too old for dynamic-compile support
+          exit 0 # Alpine: disabled dynamic-compile support
         fi
         if [[ '${{ runner.os }}' == Windows ]]; then
           # add ldc-jit.dll dir to PATH

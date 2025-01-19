@@ -24,6 +24,13 @@ runs:
         fi
         echo "DMD=$DMD" >> $GITHUB_ENV
 
+    - name: 'Alpine: Set DFLAGS environment variable (-Xcc=-static)' # for fully statically linked dub etc.
+      if: inputs.os == 'alpine'
+      shell: bash
+      run: |
+        set -eux
+        echo "DFLAGS=-Xcc=-static${DFLAGS:+ $DFLAGS}" >> $GITHUB_ENV
+
     - name: Build & copy dub
       shell: bash
       run: |
@@ -84,6 +91,17 @@ runs:
         if [[ '${{ inputs.cross_target_triple }}' == '' ]]; then
           ../installed/bin/reggae --version -b ninja
         fi
+
+    - name: 'Linux: List executable dependencies'
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        set -euxo pipefail
+        cd ../installed/bin
+        for i in *; do
+          ls -lh $i
+          readelf -d $i | grep NEEDED || true
+        done
 
     - name: Pack installation dir
       shell: bash
