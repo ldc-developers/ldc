@@ -26,7 +26,7 @@ T va_arg(T)(va_list ap)
 {
     static if (is(T U == __argTypes))
     {
-        static if (U.length == 0 || U[0].sizeof > 8 || is(T1 == __vector))
+        static if (U.length == 0 || U[0].sizeof > 8 || is(U[0] == __vector))
         {
             // Always passed in memory (varying vectors are passed in parameter area)
             auto p = *cast(T*) ap.__overflow_arg_area;
@@ -45,7 +45,7 @@ T va_arg(T)(va_list ap)
                     // Passed in $fr registers (FPR region starts at +0x80)
                     auto p = cast(T*) ap.__reg_save_area + 128 + ap.__fpr * 8;
                     ap.__fpr++;
-                    return p;
+                    return *p;
                 }
                 else
                 {
@@ -54,7 +54,7 @@ T va_arg(T)(va_list ap)
                     // no matter the actual size of the fp variable
                     // parameter slot is always 8-byte-wide (f32 is extended to f64)
                     ap.__overflow_arg_area += 8;
-                    return p;
+                    return *p;
                 }
             }
             else
@@ -65,7 +65,7 @@ T va_arg(T)(va_list ap)
                     // Passed in $gpr registers (GPR region starts at +0x10)
                     auto p = cast(T*) ap.__reg_save_area + 16 + ap.__gpr * 8;
                     ap.__gpr++;
-                    return p;
+                    return *p;
                 }
                 else
                 {
@@ -74,7 +74,7 @@ T va_arg(T)(va_list ap)
                     // no matter the actual size of the gpr variable
                     // parameter slot is always 8-byte-wide (after ABI adjustments)
                     ap.__overflow_arg_area += 8;
-                    return p;
+                    return *p;
                 }
             }
         }
@@ -93,6 +93,23 @@ T va_arg(T)(va_list ap)
 void va_arg()(va_list ap, TypeInfo ti, void* parmn)
 {
     TypeInfo arg1, arg2;
+    if (TypeInfo_Struct ti_struct = cast(TypeInfo_Struct) ti)
+    {
+        // handle single-float element struct
+        const rtFields = ti_struct.offTi();
+        if (rtFields && rtFields.length == 1)
+        {
+            TypeInfo field1TypeInfo = rtFields[0].ti;
+            if (field1TypeInfo is typeid(float) || field1TypeInfo is typeid(double))
+            {
+                auto tsize = field1TypeInfo.tsize;
+                auto toffset = rtFields[0].offset;
+                parmn[0..tsize] = p[toffset..tsize];
+                return;
+            }
+        }
+    }
+
     if (!ti.argTypes(arg1, arg2))
     {
         TypeInfo_Vector v1 = arg1 ? cast(TypeInfo_Vector) arg1 : null;
@@ -116,6 +133,30 @@ void va_arg()(va_list ap, TypeInfo ti, void* parmn)
                 ap.__overflow_arg_area += 8;
                 parmn[0..tsize] = p[0..tsize];
             }
+        }
+        else if (arg1 && (arg1 is typeid(float) || arg1 is typeid(double)))
+        {
+            // Maybe passed in $fr registers
+            if (ap.__fpr <= 4)
+            {
+                // Passed in $fr registers (FPR region starts at +0x80)
+                auto p = cast(T*) ap.__reg_save_area + 128 + ap.__fpr * 8;
+                ap.__fpr++;
+                parmn[0..tsize] = p[0..tsize];
+            }
+            else
+            {
+                // overflow arguments
+                auto p = cast(T*) ap.__overflow_arg_area;
+                // no matter the actual size of the fp variable
+                // parameter slot is always 8-byte-wide (f32 is extended to f64)
+                ap.__overflow_arg_area += 8;
+                parmn[0..tsize] = p[0..tsize];
+            }
+        }
+        else
+        {
+            assert(false, "unhandled va_arg type!");
         }
         assert(!arg2);
     }
