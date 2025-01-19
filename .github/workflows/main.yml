@@ -58,11 +58,14 @@ jobs:
             container_image: alpine:3.20
             arch: x86_64
             bootstrap_cmake_flags: -DBUILD_LTO_LIBS=ON
-            # TODO: Add '-DLLVM_IS_SHARED=OFF' when static linking is fully supported
             # TSan and XRay do not work.
             extra_cmake_flags: >-
               -DBUILD_LTO_LIBS=ON
               -DBUILD_SHARED_LIBS=OFF
+              -DLLVM_IS_SHARED=OFF
+              -DLDC_INSTALL_LTOPLUGIN=OFF
+              -DCOMPILER_RT_LIBDIR_OS=linux
+              -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=x86_64
               -DTEST_COMPILER_RT_LIBRARIES="profile;lsan;asan;msan;fuzzer"
               -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++
               -DJITRT_EXTRA_LDFLAGS=-static-libstdc++
