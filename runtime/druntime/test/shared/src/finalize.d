@@ -45,7 +45,7 @@ void main(string[] args)
     auto nf1 = new NoFinalize;
     auto nf2 = new NoFinalizeBig;
 
-    shared size_t finalizeCounter;
+    shared static size_t finalizeCounter;
     SetFinalizeCounter setFinalizeCounter;
     loadSym(h, setFinalizeCounter, "setFinalizeCounter");
     setFinalizeCounter(&finalizeCounter);
@@ -58,8 +58,20 @@ void main(string[] args)
     auto r = Runtime.unloadLibrary(h);
     if (!r)
         assert(0);
-    if (finalizeCounter != 4)
-        assert(0);
+    version (darwin)
+    {
+        // Fails starting with macOS 10.13, as .dylibs with TLS can't be
+        // unloaded anymore (https://github.com/ldc-developers/ldc/issues/3002).
+    }
+    else version (CRuntime_Musl)
+    {
+        // On Musl, dlclose is a no-op
+    }
+    else
+    {
+        if (finalizeCounter != 4)
+            assert(0);
+    }
     if (nf1._finalizeCounter)
         assert(0);
     if (nf2._finalizeCounter)

@@ -22,25 +22,20 @@ void runTest(string name)
     *pLibSharedStaticDtorHook = &sharedStaticDtorHook;
 
     const unloaded = Runtime.unloadLibrary(h);
-    version (CRuntime_Musl)
+    assert(unloaded);
+    assert(tlsDtor == 1);
+    version (LDC_darwin)
     {
-        // On Musl, unloadLibrary is a no-op because dlclose is a no-op
-        assert(!unloaded);
-        assert(tlsDtor == 0);
+        // Since 10.13: https://github.com/ldc-developers/ldc/issues/3002
+        assert(dtor == 0);
+    }
+    else version (CRuntime_Musl)
+    {
+        // On Musl, dlclose is a no-op
         assert(dtor == 0);
     }
     else
-    {
-        assert(unloaded);
-        assert(tlsDtor == 1);
-        version (LDC_darwin)
-        {
-            // Since 10.13: https://github.com/ldc-developers/ldc/issues/3002
-            assert(dtor == 0);
-        }
-        else
-            assert(dtor == 1);
-    }
+        assert(dtor == 1);
 }
 
 void main(string[] args)

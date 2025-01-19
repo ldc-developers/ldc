@@ -4,7 +4,7 @@ LINK_SHARED:=$(SHARED)
 include ../common.mak # affected by LINK_SHARED!
 
 ifneq (,$(LINK_SHARED))
-    # LDC: disable 3 tests on Mac, 1 on Windows
+    # LDC: disable 2 tests on Mac, 1 on Windows
     ifeq (,$(findstring ldmd2,$(DMD)))
         # TODO: enable tests on Windows
         ifeq (windows,$(OS))
@@ -14,20 +14,18 @@ ifneq (,$(LINK_SHARED))
                    link_linkdep load_linkdep link_loaddep load_loaddep load_13414
         endif
     else
-        TESTS:=link load linkD linkDR loadDR dynamiccast \
+        TESTS:=link load linkD linkDR loadDR finalize dynamiccast \
                link_linkdep link_loaddep load_loaddep load_13414
         ifneq ($(OS),osx)
             # * `host` loads two modules with the same name, which is currently disallowed
             #   by the (potentially overly eager) module collision detection on OS X.
-            # * `finalize` fails starting with macOS 10.13, as .dylibs with TLS can't be
-            #   unloaded anymore (https://github.com/ldc-developers/ldc/issues/3002).
             # * FIXME: `load_linkdep`
             #   it might fail because of unimplemented `getDependencies()` in rt.sections_elf_shared
             ifeq (windows,$(OS))
                 # LDC FIXME: disable `load_linkdep` on Windows - needs `getDependencies()`
-                TESTS+=host finalize
+                TESTS+=host
             else
-                TESTS+=host finalize load_linkdep
+                TESTS+=host load_linkdep
             endif
         endif
     endif

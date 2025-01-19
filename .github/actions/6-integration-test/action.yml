@@ -15,9 +15,6 @@ runs:
       run: |
         set -eux
         cd ..
-        if type -P apk &>/dev/null; then
-          exit 0 # Alpine: no shared libs
-        fi
         if [[ '${{ runner.os }}' == Windows ]]; then
           # add druntime/Phobos DLL dir to PATH
           export PATH="$PWD/installed/bin:$PATH"

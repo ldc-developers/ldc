@@ -61,7 +61,6 @@ jobs:
             # TSan and XRay do not work.
             extra_cmake_flags: >-
               -DBUILD_LTO_LIBS=ON
-              -DBUILD_SHARED_LIBS=OFF
               -DLLVM_IS_SHARED=OFF
               -DLDC_ENABLE_PLUGINS=OFF
               -DLDC_DYNAMIC_COMPILE=OFF
