@@ -24,13 +24,6 @@ runs:
         fi
         echo "DMD=$DMD" >> $GITHUB_ENV
 
-    - name: 'Alpine: Set DFLAGS environment variable (-Xcc=-static)' # for fully statically linked dub etc.
-      if: inputs.os == 'alpine'
-      shell: bash
-      run: |
-        set -eux
-        echo "DFLAGS=-Xcc=-static${DFLAGS:+ $DFLAGS}" >> $GITHUB_ENV
-
     - name: Build & copy dub
       shell: bash
       run: |
@@ -55,6 +48,11 @@ runs:
         git clone --recursive https://github.com/dlang/tools.git dlang-tools
         cd dlang-tools
         git checkout "$(cat ../ldc/packaging/dlang-tools_version)"
+
+        # Alpine: build these tools as fully static executables
+        if [[ '${{ inputs.os }}' == 'alpine' ]]; then
+          export DFLAGS="-Xcc=-static${DFLAGS:+ $DFLAGS}"
+        fi
 
         mkdir bin
         $DMD -w -de -dip1000 rdmd.d -of=bin/rdmd
