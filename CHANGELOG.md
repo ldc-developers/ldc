@@ -2,6 +2,7 @@
 
 #### Big news
 - LLVM for prebuilt packages bumped to v19.1.7. (#4822)
+- New prebuilt package for Alpine Linux x86_64 with musl libc. It's currently generated on Alpine v3.20, using its default LLVM 17. Most bundled executables are fully static and can be run on ~all distros. (#4826)
 - Revived dynamic-compile (JIT) functionality (formerly unsupported since LLVM 12), supporting LLVM 18+ now. (#4774)
 - ldc2.conf: `%%ldcversion%%` placeholder added, allowing to refer to version-specific directories.
 
