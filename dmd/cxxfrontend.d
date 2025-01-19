@@ -698,4 +698,13 @@ version (IN_LLVM)
         import dmd.argtypes_x86;
         return dmd.argtypes_x86.toArgTypes_x86(t);
     }
+
+    /***********************************************************
+     * argtypes_s390x.d
+     */
+    TypeTuple toArgTypes_s390x(Type t)
+    {
+        import dmd.argtypes_s390x;
+        return dmd.argtypes_s390x.toArgTypes_s390x(t);
+    }
 }

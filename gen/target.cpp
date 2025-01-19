@@ -344,6 +344,8 @@ TypeTuple *Target::toArgTypes(Type *t) {
     return toArgTypes_sysv_x64(t);
   if (arch == llvm::Triple::aarch64 || arch == llvm::Triple::aarch64_be)
     return toArgTypes_aarch64(t);
+  if (arch == llvm::Triple::systemz)
+    return toArgTypes_s390x(t);
   return nullptr;
 }
 
