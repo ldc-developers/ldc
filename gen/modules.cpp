@@ -391,15 +391,18 @@ void registerModuleInfo(Module *m) {
 
 void addModuleFlags(llvm::Module &m) {
   const auto ModuleMinFlag = llvm::Module::Min;
+  const auto ConstantOne =
+      llvm::ConstantInt::get(LLType::getInt32Ty(m.getContext()), 1);
+  const auto ConstantOneMetadata = llvm::ConstantAsMetadata::get(ConstantOne);
 
   if (opts::fCFProtection == opts::CFProtectionType::Return ||
       opts::fCFProtection == opts::CFProtectionType::Full) {
-    m.addModuleFlag(ModuleMinFlag, "cf-protection-return", 1);
+    m.setModuleFlag(ModuleMinFlag, "cf-protection-return", ConstantOneMetadata);
   }
 
   if (opts::fCFProtection == opts::CFProtectionType::Branch ||
       opts::fCFProtection == opts::CFProtectionType::Full) {
-    m.addModuleFlag(ModuleMinFlag, "cf-protection-branch", 1);
+    m.setModuleFlag(ModuleMinFlag, "cf-protection-branch", ConstantOneMetadata);
   }
 }
 
