@@ -8,6 +8,7 @@
 #### Platform support
 
 #### Bug fixes
+- Building multi-file D applications with control-flow protection will no longer cause LDC to throw an internal compiler error. (#4828)
 
 # LDC 1.40.0 (2024-12-15)
 
