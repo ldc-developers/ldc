@@ -64,6 +64,9 @@ llvm::Type *getRealType(const llvm::Triple &triple) {
   case Triple::wasm64:
     return LLType::getFP128Ty(ctx);
 
+  case Triple::ppc64le:
+    return LLType::getFP128Ty(ctx);
+
   default:
     // 64-bit double precision for all other targets
     // FIXME: PowerPC, SystemZ, ...
