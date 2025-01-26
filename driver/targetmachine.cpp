@@ -108,6 +108,8 @@ const char *getABI(const llvm::Triple &triple, const llvm::SmallVectorImpl<llvm:
         return "elfv1";
       if (ABIName.startswith("elfv2"))
         return "elfv2";
+      if (ABIName.startswith("ieeelongdouble"))
+        return "ieeelongdouble";
       break;
     case llvm::Triple::riscv64:
       if (ABIName.startswith("lp64f"))
