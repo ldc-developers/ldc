@@ -683,6 +683,10 @@ void registerPredefinedTargetVersions() {
     if (triple.getOS() == llvm::Triple::Linux) {
       VersionCondition::addPredefinedGlobalIdent(
           triple.getArch() == llvm::Triple::ppc64 ? "ELFv1" : "ELFv2");
+      if (opts::mABI == "ieeelongdouble" && triple.isOSGlibc()) {
+        // Only GLibc needs this for IEEELongDouble
+        VersionCondition::addPredefinedGlobalIdent("D_PPCUseIEEE128");
+      }
     }
     break;
   case llvm::Triple::arm:
