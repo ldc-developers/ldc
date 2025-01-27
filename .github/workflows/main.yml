@@ -53,6 +53,27 @@ jobs:
               -DEXTRA_CXXFLAGS=-flto=full
             with_pgo: true
 
+          - job_name: Alpine musl x86_64
+            os: ubuntu-latest
+            container_image: alpine:3.20
+            arch: x86_64
+            bootstrap_cmake_flags: -DBUILD_LTO_LIBS=ON
+            # TSan and XRay do not work.
+            extra_cmake_flags: >-
+              -DBUILD_LTO_LIBS=ON
+              -DLLVM_IS_SHARED=OFF
+              -DLDC_ENABLE_PLUGINS=OFF
+              -DLDC_DYNAMIC_COMPILE=OFF
+              -DLDC_INSTALL_LTOPLUGIN=OFF
+              -DCOMPILER_RT_LIBDIR_OS=linux
+              -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=x86_64
+              -DTEST_COMPILER_RT_LIBRARIES="profile;lsan;asan;msan;fuzzer"
+              -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++
+              -DLDC_FULLY_STATIC=ON
+              -DD_COMPILER_FLAGS="-O -flto=full"
+            # FIXME: -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
+            with_pgo: false
+
           - job_name: macOS x86_64
             os: macos-13
             arch: x86_64
@@ -108,18 +129,33 @@ jobs:
     env:
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.arch == 'arm64' && '11.0' || '10.12' }}
     steps:
-      - name: 'Container: Install git and sudo'
+      - name: 'Set up Linux container'
         if: matrix.container_image
-        shell: bash
         run: |
           set -eux
-          apt-get -q update
-          DEBIAN_FRONTEND=noninteractive apt-get -yq install git-core sudo
+          if type -P apt-get &>/dev/null; then
+            # Ubuntu: pre-install git and sudo
+            apt-get -q update
+            DEBIAN_FRONTEND=noninteractive apt-get -yq install git-core sudo
+          else
+            # set up Alpine container
+            apk add \
+              git cmake ninja-is-really-ninja g++ ldc llvm-dev llvm-static compiler-rt \
+              libxml2-static zstd-static zlib-static \
+              bash grep diffutils make curl 7zip perl
+            # create missing 7za symlink
+            ln -s 7z /usr/bin/7za
+            # create ../llvm symlink to distro LLVM (no prebuilt LDC-LLVM for musl)
+            ln -s /usr/lib/llvm17 $(dirname $(pwd))/llvm
+            ../llvm/bin/llvm-config --version
+          fi
       - uses: actions/checkout@v4
         with:
           submodules: true
           fetch-depth: 50
       - name: Install prerequisites
+        if: |
+          !startsWith(matrix.container_image, 'alpine')
         uses: ./.github/actions/1-setup
         with:
           llvm_version: ${{ matrix.llvm_version || env.LLVM_VERSION }}
@@ -194,6 +230,7 @@ jobs:
         uses: ./.github/actions/7-package
         with:
           arch: ${{ matrix.arch }}
+          os: ${{ startsWith(matrix.container_image, 'alpine') && 'alpine' || '' }}
 
 
   # Cross-compilation jobs for non-native targets.

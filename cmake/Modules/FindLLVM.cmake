@@ -80,9 +80,16 @@ else()
        if(LLVM_FIND_QUIETLY)
             set(_quiet_arg ERROR_QUIET)
         endif()
+        if(DEFINED LLVM_IS_SHARED)
+            if(LLVM_IS_SHARED)
+                set(_sharedstatic "--link-shared")
+            else()
+                set(_sharedstatic "--link-static")
+            endif()
+        endif()
         set(result_code)
         execute_process(
-            COMMAND ${LLVM_CONFIG} --${flag}
+            COMMAND ${LLVM_CONFIG} ${_sharedstatic} --${flag}
             RESULT_VARIABLE result_code
             OUTPUT_VARIABLE LLVM_${var}
             OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -100,9 +107,14 @@ else()
        if(LLVM_FIND_QUIETLY)
             set(_quiet_arg ERROR_QUIET)
         endif()
+        if (LLVM_IS_SHARED)
+            set(_sharedstatic "--link-shared")
+        else()
+            set(_sharedstatic "--link-static")
+        endif()
         set(result_code)
         execute_process(
-            COMMAND ${LLVM_CONFIG} --${flag} ${components}
+            COMMAND ${LLVM_CONFIG} ${_sharedstatic} --${flag} ${components}
             RESULT_VARIABLE result_code
             OUTPUT_VARIABLE tmplibs
             OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -116,6 +128,15 @@ else()
         endif()
     endmacro()
 
+    if (NOT DEFINED LLVM_IS_SHARED)
+        llvm_set(SHARED_MODE shared-mode)
+        if(LLVM_SHARED_MODE STREQUAL "shared")
+            set(LLVM_IS_SHARED ON)
+        else()
+            set(LLVM_IS_SHARED OFF)
+        endif()
+    endif()
+
     llvm_set(VERSION_STRING version)
     llvm_set(CXXFLAGS cxxflags)
     llvm_set(INCLUDE_DIRS includedir true)
@@ -126,13 +147,6 @@ else()
     string(REGEX MATCH "^[0-9]+[.][0-9]+[.][0-9]+" LLVM_VERSION_BASE_STRING "${LLVM_VERSION_STRING}")
     string(REGEX REPLACE "([0-9]+).*" "\\1" LLVM_VERSION_MAJOR "${LLVM_VERSION_STRING}" )
     string(REGEX REPLACE "[0-9]+\\.([0-9]+).*[A-Za-z]*" "\\1" LLVM_VERSION_MINOR "${LLVM_VERSION_STRING}" )
-
-    llvm_set(SHARED_MODE shared-mode)
-    if(LLVM_SHARED_MODE STREQUAL "shared")
-        set(LLVM_IS_SHARED ON)
-    else()
-        set(LLVM_IS_SHARED OFF)
-    endif()
 
     llvm_set(LDFLAGS ldflags)
     llvm_set(SYSTEM_LIBS system-libs)

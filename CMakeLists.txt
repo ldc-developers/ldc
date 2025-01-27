@@ -315,6 +315,12 @@ else()
     separate_arguments(LLVM_LDFLAGS UNIX_COMMAND "${LLVM_LDFLAGS}")
 endif()
 
+option(LDC_FULLY_STATIC "Posix: Link most executables (compiler and tools) as fully-static binaries" OFF)
+set(FULLY_STATIC_LDFLAG)
+if(UNIX AND LDC_FULLY_STATIC)
+    set(FULLY_STATIC_LDFLAG "-static")
+endif()
+
 # Suppress superfluous randlib warnings about "*.a" having no symbols on MacOSX.
 if (APPLE)
     set(CMAKE_C_ARCHIVE_CREATE   "<CMAKE_AR> Scr <TARGET> <LINK_FLAGS> <OBJECTS>")
@@ -708,7 +714,7 @@ build_d_executable(
     "${LDC_EXE_FULL}"
     "${LDC_D_SOURCE_FILES}"
     "${DFLAGS_BUILD_TYPE} ${DFLAGS_LDC}"
-    "${ALTERNATIVE_MALLOC_O};${LDC_LINKERFLAG_LIST}"
+    "${ALTERNATIVE_MALLOC_O};${LDC_LINKERFLAG_LIST};${FULLY_STATIC_LDFLAG}"
     "${FE_RES}"
     "${LDC_LIB}"
     ${COMPILE_D_MODULES_SEPARATELY}
@@ -743,7 +749,7 @@ build_d_executable(
     "${LDMD_EXE_FULL}"
     "${LDMD_D_SOURCE_FILES}"
     "${DFLAGS_BUILD_TYPE}"
-    "${LDC_LINKERFLAG_LIST}"
+    "${LDC_LINKERFLAG_LIST};${FULLY_STATIC_LDFLAG}"
     ""
     "LDMD_CXX_LIB"
     ${COMPILE_D_MODULES_SEPARATELY}
@@ -927,7 +933,7 @@ build_d_executable(
     "${LDC_UNITTEST_EXE_FULL}"
     "${LDC_D_SOURCE_FILES}"
     "-g -unittest ${DFLAGS_LDC}"
-    "${LDC_LINKERFLAG_LIST}"
+    "${LDC_LINKERFLAG_LIST};${FULLY_STATIC_LDFLAG}"
     ""
     "${LDC_LIB}"
     ${COMPILE_D_MODULES_SEPARATELY}
@@ -957,7 +963,7 @@ build_d_executable(
     "${LDC_BUILD_RUNTIME_EXE_FULL}"
     "${PROJECT_BINARY_DIR}/ldc-build-runtime.d"
     "${DFLAGS_BUILD_TYPE}"
-    ""
+    "" # must not be fully static for std.net.curl support (loading libcurl dynamically)
     "${PROJECT_SOURCE_DIR}/runtime/ldc-build-runtime.d.in"
     ""
     ${COMPILE_D_MODULES_SEPARATELY}

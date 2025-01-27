@@ -21,7 +21,7 @@ runs:
         fi
         installed/bin/ldc2 hello.d -link-defaultlib-shared
         ./hello
-        if [[ '${{ runner.os }}-${{ inputs.arch }}' == Linux-x86_64 ]]; then
+        if [[ -d installed/lib32 ]]; then
           installed/bin/ldc2 hello.d -m32 -link-defaultlib-shared
           ./hello
         fi
@@ -34,7 +34,7 @@ runs:
         for mode in thin full; do
           installed/bin/ldc2 hello.d -of=hello_$mode -flto=$mode -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
           ./hello_$mode
-          if [[ '${{ runner.os }}-${{ inputs.arch }}' == Linux-x86_64 ]]; then
+          if [[ -d installed/lib32 ]]; then
             installed/bin/ldc2 hello.d -m32 -of=hello_$mode-32 -flto=$mode -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
             ./hello_$mode-32
           fi
@@ -45,6 +45,9 @@ runs:
       run: |
         set -eux
         cd ..
+        if type -P apk &>/dev/null; then
+          exit 0 # Alpine: disabled dynamic-compile support
+        fi
         if [[ '${{ runner.os }}' == Windows ]]; then
           # add ldc-jit.dll dir to PATH
           export PATH="$PWD/installed/bin:$PATH"

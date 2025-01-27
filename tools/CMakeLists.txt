@@ -18,7 +18,7 @@ build_d_executable(
     "${LDCPRUNECACHE_EXE_FULL}"
     "${LDCPRUNECACHE_D_SRC}"
     "${DFLAGS_BUILD_TYPE}"
-    ""
+    "${FULLY_STATIC_LDFLAG}"
     ""
     ""
     ${COMPILE_D_MODULES_SEPARATELY}
@@ -35,7 +35,7 @@ if(LDC_BUNDLE_LLVM_TOOLS)
         ldc-profdata PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
         COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
-        LINK_FLAGS "${SANITIZE_LDFLAGS}"
+        LINK_FLAGS "${SANITIZE_LDFLAGS} ${FULLY_STATIC_LDFLAG}"
       )
       target_link_libraries(ldc-profdata ${LLVM_LIBRARIES} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
       install(TARGETS ldc-profdata DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
@@ -59,7 +59,7 @@ if(LDC_BUNDLE_LLVM_TOOLS)
       ${ldc_name} PROPERTIES
       RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
       COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
-      LINK_FLAGS "${SANITIZE_LDFLAGS}"
+      LINK_FLAGS "${SANITIZE_LDFLAGS} ${FULLY_STATIC_LDFLAG}"
     )
     target_link_libraries(${ldc_name} ${LLVM_LIBRARIES} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
     install(TARGETS ${ldc_name} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
@@ -91,7 +91,7 @@ build_d_executable(
     "${TIMETRACE2TXT_EXE_FULL}"
     "${TIMETRACE2TXT_D_SRC}"
     "${DFLAGS_BUILD_TYPE}"
-    ""
+    "${FULLY_STATIC_LDFLAG}"
     ""
     ""
     ${COMPILE_D_MODULES_SEPARATELY}
@@ -111,7 +111,7 @@ if(LDC_ENABLE_PLUGINS)
         "${LDC_BUILD_PLUGIN_EXE_FULL}"
         "${PROJECT_BINARY_DIR}/ldc-build-plugin.d"
         "${DFLAGS_BUILD_TYPE}"
-        ""
+        "" # must not be fully static for std.net.curl support (loading libcurl dynamically)
         "${PROJECT_SOURCE_DIR}/tools/ldc-build-plugin.d.in"
         ""
         ${COMPILE_D_MODULES_SEPARATELY}
