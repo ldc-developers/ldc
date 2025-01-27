@@ -4,7 +4,7 @@ LINK_SHARED:=$(SHARED)
 include ../common.mak # affected by LINK_SHARED!
 
 ifneq (,$(LINK_SHARED))
-    # LDC: disable 2 tests on Mac, 1 on Windows
+    # LDC: enable ~all tests on Windows too
     ifeq (,$(findstring ldmd2,$(DMD)))
         # TODO: enable tests on Windows
         ifeq (windows,$(OS))
@@ -14,18 +14,13 @@ ifneq (,$(LINK_SHARED))
                    link_linkdep load_linkdep link_loaddep load_loaddep load_13414
         endif
     else
-        TESTS:=link load linkD linkDR loadDR finalize dynamiccast \
+        TESTS:=link load linkD linkDR loadDR host finalize dynamiccast \
                link_linkdep link_loaddep load_loaddep load_13414
-        ifneq ($(OS),osx)
-            # * `host` loads two modules with the same name, which is currently disallowed
-            #   by the (potentially overly eager) module collision detection on OS X.
-            # * FIXME: `load_linkdep`
-            #   it might fail because of unimplemented `getDependencies()` in rt.sections_elf_shared
-            ifeq (windows,$(OS))
-                # LDC FIXME: disable `load_linkdep` on Windows - needs `getDependencies()`
-                TESTS+=host
-            else
-                TESTS+=host load_linkdep
+        # FIXME: `load_linkdep` needs a non-dummy `getDependencies()` in rt.sections_elf_shared,
+        #        not implemented yet on Darwin and Windows
+        ifneq (osx,$(OS))
+            ifneq (windows,$(OS))
+                TESTS+=load_linkdep
             endif
         endif
     endif
