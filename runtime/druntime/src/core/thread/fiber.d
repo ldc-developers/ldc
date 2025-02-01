@@ -573,6 +573,8 @@ version (LDC)
 
     version (AArch64) version = CheckFiberMigration;
 
+    version (PPC64)   version = CheckFiberMigration;
+
     // Fiber migration across threads is (probably) not possible with ASan fakestack enabled (different parts of the stack
     // will contain fakestack pointers that were created on different threads...)
     version (SupportSanitizers) version = CheckFiberMigration;
