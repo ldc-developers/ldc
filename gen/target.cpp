@@ -264,6 +264,13 @@ const char *TargetCPP::typeMangle(Type *t) {
     // `long double` on Android/x64 is __float128 and mangled as `g`
     bool isAndroidX64 = triple.getEnvironment() == llvm::Triple::Android &&
                         triple.getArch() == llvm::Triple::x86_64;
+    if (triple.getArch() == llvm::Triple::ppc64 ||
+        triple.getArch() == llvm::Triple::ppc64le) {
+      if (opts::mABI == "ieeelongdouble") {
+        return "u9__ieee128";
+      }
+      return "g";
+    }
     return isAndroidX64 ? "g" : "e";
   }
   return nullptr;
