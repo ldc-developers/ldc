@@ -111,7 +111,7 @@ struct PPC64LETargetABI : TargetABI {
       } else {
         compositeToArray64.applyTo(arg);
       }
-    } else if (ty->isintegral()) {
+    } else if (ty->isintegral() && !ty->isTypeVector()) {
       arg.attrs.addAttribute(ty->isunsigned() ? LLAttribute::ZExt
                                               : LLAttribute::SExt);
     } else if (!useIEEE128 && longDoubleRewrite.shouldRewrite(arg.type)) {
