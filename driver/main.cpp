@@ -683,9 +683,13 @@ void registerPredefinedTargetVersions() {
     if (triple.getOS() == llvm::Triple::Linux) {
       VersionCondition::addPredefinedGlobalIdent(
           triple.getArch() == llvm::Triple::ppc64 ? "ELFv1" : "ELFv2");
-      if (opts::mABI == "ieeelongdouble" && triple.isOSGlibc()) {
-        // Only GLibc needs this for IEEELongDouble
-        VersionCondition::addPredefinedGlobalIdent("D_PPCUseIEEE128");
+      if (opts::mABI == "ieeelongdouble") {
+        if (triple.getEnvironment() == llvm::Triple::GNU) {
+          // Only GLibc needs this for IEEELongDouble
+          VersionCondition::addPredefinedGlobalIdent("D_PPCUseIEEE128");
+        } else {
+          warning(Loc(), "float ABI 'ieeelongdouble' is not supported by the target system");
+        }
       }
     }
     break;
