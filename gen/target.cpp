@@ -266,10 +266,16 @@ const char *TargetCPP::typeMangle(Type *t) {
                         triple.getArch() == llvm::Triple::x86_64;
     if (triple.getArch() == llvm::Triple::ppc64 ||
         triple.getArch() == llvm::Triple::ppc64le) {
-      if (opts::mABI == "ieeelongdouble") {
+      if (opts::mABI == "ieeelongdouble" &&
+          triple.getEnvironment() == llvm::Triple::GNU) {
         return "u9__ieee128";
       }
-      return "g";
+      if (size(t) == 16) {
+        // IBM long double
+        return "g";
+      }
+      // fall back to 64-bit double type
+      return "e";
     }
     return isAndroidX64 ? "g" : "e";
   }
