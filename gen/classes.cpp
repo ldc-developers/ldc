@@ -480,7 +480,7 @@ DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl) {
   // get the vtbl for objects
   vtable = DtoGEP(irtc->getMemoryLLType(), vthis, 0u, 0);
   // load vtbl ptr
-  vtable = DtoLoad(vtblType->getPointerTo(), vtable);
+  vtable = DtoLoad(LLPointerType::getUnqual(vtblType), vtable);
   // index vtbl
   const std::string name = fdecl->toChars();
   const auto vtblname = name + "@vtbl";
