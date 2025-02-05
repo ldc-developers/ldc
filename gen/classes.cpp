@@ -379,7 +379,7 @@ DValue *DtoDynamicCastObject(const Loc &loc, DValue *val, Type *_to) {
   // Object _d_dynamic_cast(Object o, ClassInfo c)
   llvm::Function *func =
       getRuntimeFunction(loc, gIR->module, "_d_dynamic_cast");
-  LLFunctionType *funcTy = func->getFunctionType();
+  [[maybe_unused]] LLFunctionType *funcTy = func->getFunctionType();
 
   // Object o
   LLValue *obj = DtoRVal(val);
