@@ -15,7 +15,6 @@
 
 #include <llvm/IR/IntrinsicsPowerPC.h>
 
-#include "driver/cl_options.h"
 #include "gen/abi/abi.h"
 #include "gen/abi/generic.h"
 #include "gen/dvalue.h"
@@ -23,6 +22,7 @@
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/tollvm.h"
+#include "target.h"
 
 using namespace dmd;
 
@@ -87,7 +87,7 @@ struct PPC64LETargetABI : TargetABI {
   bool useIEEE128;
 
   explicit PPC64LETargetABI()
-      : hfvaToArray(8), useIEEE128(opts::mABI == "ieeelongdouble") {}
+      : hfvaToArray(8), useIEEE128(target.RealProperties.mant_dig == 113) {}
 
   bool passByVal(TypeFunction *, Type *t) override {
     t = t->toBasetype();
