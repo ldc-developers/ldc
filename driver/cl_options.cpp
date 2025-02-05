@@ -427,9 +427,25 @@ cl::opt<bool> m64bits("m64", cl::desc("64 bit target"), cl::ZeroOrMore);
 cl::opt<std::string> mTargetTriple("mtriple", cl::ZeroOrMore,
                                    cl::desc("Override target triple"));
 
+static std::string lastABIOption{};
+
 cl::opt<std::string>
     mABI("mabi", cl::ZeroOrMore, cl::init(""),
-         cl::desc("The name of the ABI to be targeted from the backend"));
+         cl::desc("The name of the ABI to be targeted from the backend"),
+         cl::callback([](const std::string &Arg) {
+           // special handling for ieeelongdouble options
+           // note that, it is expected if we did not see any previous mabi
+           // options, we reset mABI variable to empty
+           if (Arg == "ieeelongdouble") {
+             global.params.ppcUseIEEE128 = true;
+             mABI = lastABIOption;
+           } else if (Arg == "ibmlongdouble") {
+             global.params.ppcUseIEEE128 = false;
+             mABI = lastABIOption;
+           } else {
+             lastABIOption = Arg;
+           }
+         }));
 
 static StringsAdapter
     modFileAliasStringsStore("mv", global.params.modFileAliasStrings);

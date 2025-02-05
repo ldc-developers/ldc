@@ -411,7 +411,7 @@ void addModuleFlags(llvm::Module &m) {
   switch (global.params.targetTriple->getArch()) {
   case llvm::Triple::ppc64:
   case llvm::Triple::ppc64le:
-    if (opts::mABI == "ieeelongdouble") {
+    if (global.params.ppcUseIEEE128) {
       const auto ConstantIEEE128String = llvm::MDString::get(gIR->context(), "ieeequad");
       m.setModuleFlag(ModuleErrFlag, "float-abi", ConstantIEEE128String);
     } else {

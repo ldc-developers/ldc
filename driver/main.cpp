@@ -683,10 +683,14 @@ void registerPredefinedTargetVersions() {
     if (triple.getOS() == llvm::Triple::Linux) {
       VersionCondition::addPredefinedGlobalIdent(
           triple.getArch() == llvm::Triple::ppc64 ? "ELFv1" : "ELFv2");
-      if (opts::mABI == "ieeelongdouble") {
+      if (global.params.ppcUseIEEE128) {
         if (triple.getEnvironment() == llvm::Triple::GNU) {
           // Only GLibc needs this for IEEELongDouble
           VersionCondition::addPredefinedGlobalIdent("D_PPCUseIEEE128");
+          if (!triple.isLittleEndian()) {
+            warning(Loc(), "float ABI 'ieeelongdouble' is not well-supported "
+                           "on big-endian POWER systems");
+          }
         } else {
           warning(Loc(), "float ABI 'ieeelongdouble' is not supported by the target system");
         }

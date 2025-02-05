@@ -71,7 +71,7 @@ llvm::Type *getRealType(const llvm::Triple &triple) {
     }
     // dual-ABI complications: PPC only has IEEE 128-bit quad precision on
     // Linux, IBM double-double is available on both AIX and Linux.
-    return triple.isOSLinux() && opts::mABI == "ieeelongdouble"
+    return triple.isOSLinux() && global.params.ppcUseIEEE128
                ? LLType::getFP128Ty(ctx)
                : LLType::getPPC_FP128Ty(ctx);
 
@@ -266,7 +266,7 @@ const char *TargetCPP::typeMangle(Type *t) {
                         triple.getArch() == llvm::Triple::x86_64;
     if (triple.getArch() == llvm::Triple::ppc64 ||
         triple.getArch() == llvm::Triple::ppc64le) {
-      if (opts::mABI == "ieeelongdouble" &&
+      if (global.params.ppcUseIEEE128 &&
           triple.getEnvironment() == llvm::Triple::GNU) {
         return "u9__ieee128";
       }
