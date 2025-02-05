@@ -52,7 +52,11 @@
 #include "llvm/LinkAllPasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetMachine.h"
+#if LDC_LLVM_VER >= 2000
+#include "llvm/Transforms/Utils/Instrumentation.h"
+#else
 #include "llvm/Transforms/Instrumentation.h"
+#endif
 #include "llvm/Transforms/IPO.h"
 #if LDC_LLVM_VER < 1700
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
