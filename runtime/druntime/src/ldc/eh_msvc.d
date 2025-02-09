@@ -346,7 +346,7 @@ auto tlsOldTerminateHandler() nothrow @assumeUsed
 
 void msvc_eh_terminate() nothrow @naked
 {
-    version (Win32)
+    version (X86)
     {
         __asm(
            `call __D3ldc7eh_msvc21tlsUncaughtExceptionsFNbZk
@@ -380,7 +380,7 @@ void msvc_eh_terminate() nothrow @naked
             "~{memory},~{flags},~{ebp},~{esp},~{eax}"
         );
     }
-    else
+    else version (X86_64)
     {
         __asm(
            `push %rbx                      // align stack for better debuggability
@@ -538,6 +538,34 @@ void msvc_eh_terminate() nothrow @naked
         L_ret:
             ret`,
             "~{memory},~{flags},~{rbp},~{rsp},~{rax},~{rbx},~{rdx}"
+        );
+    }
+    else version (AArch64)
+    {
+        __asm(`
+            stp  fp,lr,[sp,#-16]!; // setup stack for better debuggability
+            mov fp,sp;
+
+            bl _D3ldc7eh_msvc21tlsUncaughtExceptionsFNbZm
+            cmp w0, #0
+            ble 1f
+
+            // hacking into the call chain to return EXCEPTION_EXECUTE_HANDLER
+            //  as the return value of __FrameUnwindFilter so that
+            // __FrameUnwindToState continues with the next unwind block
+            ldr x0, [fp]; // terminate's fp
+            ldr x0, [x0]; // __FrameUnwindFilter's fp
+            mov sp, x0;
+            mov w0, #0;   // return EXCEPTION_CONTINUE_SEARCH
+            ldp fp,lr,[sp],#16;
+            ldp x19,x20,[sp],#0x10;
+            autibsp; // uses lr,sp and x19 as input to hash
+            ret;
+
+        1:
+            ldp fp,lr,[sp],#16;
+            ret`,
+            ""
         );
     }
 }

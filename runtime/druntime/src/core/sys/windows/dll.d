@@ -402,7 +402,7 @@ private bool isWindows8OrLater() nothrow @nogc
 int dll_getRefCount( HINSTANCE hInstance ) nothrow @nogc
 {
     void** peb;
-    version (Win64)
+    version (X86_64)
     {
         asm pure nothrow @nogc
         {
@@ -411,13 +411,17 @@ int dll_getRefCount( HINSTANCE hInstance ) nothrow @nogc
             mov peb, RAX;
         }
     }
-    else version (Win32)
+    else version (X86)
     {
         asm pure nothrow @nogc
         {
             mov EAX,FS:[0x30];
             mov peb, EAX;
         }
+    }
+    else version (AArch64)
+    {
+        asm nothrow @nogc { "ldr %0, [x18,%1]" : "=r" (peb) : "r" (0x30); }
     }
     dll_aux.LDR_MODULE *ldrMod = dll_aux.findLdrModule( hInstance, peb );
     if ( !ldrMod )
