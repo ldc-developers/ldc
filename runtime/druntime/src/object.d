@@ -96,6 +96,7 @@ version (LDC) // note: there's a copy for importC in __importc_builtins.di
         else version (iOS) {}
         else version (TVOS) {}
         else version (WatchOS) {}
+        else version (CRuntime_Microsoft) {}
         else:
 
         version (ARM)

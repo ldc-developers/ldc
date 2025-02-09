@@ -19,6 +19,7 @@ version (OSX) {}
 else version (iOS) {}
 else version (TVOS) {}
 else version (WatchOS) {}
+else version (CRuntime_Microsoft) {}
 else:
 
 import core.stdc.stdarg : alignUp;
