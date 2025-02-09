@@ -373,18 +373,10 @@ private
                 stp x27, x28, [sp, #-16]!;
                 stp x29, x31, [sp, #-16]!; // fp,0
 
-                mov x19, v8.d[0];
-                mov x20, v9.d[0];
-                stp x19, x20, [sp, #-16]!;
-                mov x19, v10.d[0];
-                mov x20, v11.d[0];
-                stp x19, x20, [sp, #-16]!;
-                mov x19, v12.d[0];
-                mov x20, v13.d[0];
-                stp x19, x20, [sp, #-16]!;
-                mov x19, v14.d[0];
-                mov x20, v15.d[0];
-                stp x19, x20, [sp, #-16]!;
+                stp d8, d9, [sp, #-16]!;
+                stp d10, d11, [sp, #-16]!;
+                stp d12, d13, [sp, #-16]!;
+                stp d14, d15, [sp, #-16]!;
 
                 ldr x19, [x18];
                 ldr x20, [x18, #8];
@@ -405,18 +397,10 @@ private
                 str x19, [x18];
 
                 // load saved state from new stack
-                ldp x19, x20, [sp], #16;
-                mov v15.d[0], x20;
-                mov v14.d[0], x19;
-                ldp x19, x20, [sp], #16;
-                mov v13.d[0], x20;
-                mov v12.d[0], x19;
-                ldp x19, x20, [sp], #16;
-                mov v11.d[0], x20;
-                mov v10.d[0], x19;
-                ldp x19, x20, [sp], #16;
-                mov v9.d[0], x20;
-                mov v8.d[0], x19;
+                ldp d14, d15, [sp], #16;
+                ldp d12, d13, [sp], #16;
+                ldp d10, d11, [sp], #16;
+                ldp d8, d9, [sp], #16;
 
                 ldp x29, x31, [sp], #16; // fp,0
                 ldp x27, x28, [sp], #16;
