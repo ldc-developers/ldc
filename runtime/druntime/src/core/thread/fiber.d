@@ -64,6 +64,9 @@ version (Windows)
     import core.stdc.stdlib : malloc, free;
     import core.sys.windows.winbase;
     import core.sys.windows.winnt;
+
+    version (LDC)
+        version = LDC_Windows;
 }
 
 private
