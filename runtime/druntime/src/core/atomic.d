@@ -652,9 +652,16 @@ version (LDC)
     version (D_LP64)
     {
         version (PPC64)
-            enum has128BitCAS = false;
+        {
+            version (D_PPCUseIEEE128) 
+                enum has128BitCAS = true;
+            else
+                enum has128BitCAS = false;
+        }
         else
+        {
             enum has128BitCAS = true;
+        }
     }
     else
         enum has128BitCAS = false;

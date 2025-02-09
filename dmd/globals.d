@@ -303,6 +303,7 @@ version (IN_LLVM)
     bool verbose_cg;
     bool fullyQualifiedObjectFiles;
     bool cleanupObjectFiles;
+    bool ppcUseIEEE128;
 
     // Profile-guided optimization:
     const(char)* datafileInstrProf; // Either the input or output file for PGO data

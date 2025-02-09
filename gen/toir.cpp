@@ -1858,8 +1858,8 @@ public:
 
     LLValue *b = DtoRVal(DtoCast(e->loc, u, Type::tbool));
 
-    LLConstant *zero = DtoConstBool(false);
-    b = p->ir->CreateICmpEQ(b, zero);
+    LLConstant *one = DtoConstBool(true);
+    b = p->ir->CreateXor(b, one);
 
     result = zextBool(b, e->type);
   }

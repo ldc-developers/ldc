@@ -7,6 +7,8 @@
 - ldc2.conf: `%%ldcversion%%` placeholder added, allowing to refer to version-specific directories.
 
 #### Platform support
+- Supports LLVM 15 - 19.
+- Initial compiler and runtime support for ppc64 and ppc64le systems that use IEEE 754R 128-bit floating-point as the default 128-bit floating-point format. (#4833)
 
 #### Bug fixes
 - Building multi-file D applications with control-flow protection will no longer cause LDC to throw an internal compiler error. (#4828)
