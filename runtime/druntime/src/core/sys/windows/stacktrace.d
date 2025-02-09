@@ -230,6 +230,7 @@ private:
 
         version (X86)         enum imageType = IMAGE_FILE_MACHINE_I386;
         else version (X86_64) enum imageType = IMAGE_FILE_MACHINE_AMD64;
+        else version (AArch64) enum imageType = IMAGE_FILE_MACHINE_ARM64;
         else                  static assert(0, "unimplemented");
 
         size_t frameNum = 0;

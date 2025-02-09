@@ -482,7 +482,7 @@ version (CRuntime_Microsoft) // fully supported since MSVCRT 12 (VS 2013) only
         else // for backward compatibility with older runtimes
         {
             ///
-            pure int isnan(float x)      { version (Win64) return _isnanf(x); else return _isnan(cast(double) x); }
+            pure int isnan(float x)      { version (X86_64) return _isnanf(x); else return _isnan(cast(double) x); }
             ///
             extern(C) pragma(mangle, "_isnan") pure int isnan(double x);
             ///

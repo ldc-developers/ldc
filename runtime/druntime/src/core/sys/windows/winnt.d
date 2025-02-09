@@ -1131,7 +1131,8 @@ enum : WORD {
     IMAGE_FILE_MACHINE_MIPSFPU16 = 0x0466,
     IMAGE_FILE_MACHINE_EBC       = 0x0EBC,
     IMAGE_FILE_MACHINE_AMD64     = 0x8664,
-    IMAGE_FILE_MACHINE_M32R      = 0x9041
+    IMAGE_FILE_MACHINE_M32R      = 0x9041,
+    IMAGE_FILE_MACHINE_ARM64     = 0xAA64,
 }
 
 // ???
@@ -2257,6 +2258,51 @@ enum LEGACY_SAVE_AREA_LENGTH = XMM_SAVE_AREA32.sizeof;
         DWORD64 LastExceptionFromRip;
     }
 
+} else version(AArch64) {
+	enum CONTEXT_ARM64 = 0x400000;
+
+	enum CONTEXT_CONTROL         = (CONTEXT_ARM64 | 0x1L);
+	enum CONTEXT_INTEGER         = (CONTEXT_ARM64 | 0x2L);
+	enum CONTEXT_SEGMENTS        = (CONTEXT_ARM64 | 0x4L);
+	enum CONTEXT_FLOATING_POINT  = (CONTEXT_ARM64 | 0x8L);
+	enum CONTEXT_DEBUG_REGISTERS = (CONTEXT_ARM64 | 0x10L);
+
+    enum CONTEXT_FULL = (CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_FLOATING_POINT);
+    enum CONTEXT_ALL  = (CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS | CONTEXT_FLOATING_POINT | CONTEXT_DEBUG_REGISTERS);
+
+    enum ARM64_MAX_BREAKPOINTS = 8;
+    enum ARM64_MAX_WATCHPOINTS = 2;
+
+    union ARM64_NT_NEON128 {
+        struct {
+            ULONGLONG Low;
+            LONGLONG High;
+        };
+        double[2] D;
+        float[4] S;
+        WORD[8] H;
+        BYTE[16] B;
+    }
+    alias PARM64_NT_NEON128 = ARM64_NT_NEON128*;
+
+    align(16) struct CONTEXT
+    {
+        DWORD ContextFlags;
+        DWORD Cpsr;
+        DWORD64[31] X;
+        DWORD64 Sp;
+        DWORD64 Pc;
+
+        ARM64_NT_NEON128[32] V;
+        DWORD Fpcr;
+
+        DWORD Fpsr;
+
+        DWORD[ARM64_MAX_BREAKPOINTS] Bcr;
+        DWORD64[ARM64_MAX_BREAKPOINTS] Bvr;
+        DWORD[ARM64_MAX_WATCHPOINTS] Wcr;
+        DWORD64[ARM64_MAX_WATCHPOINTS] Wvr;
+    }
 } else {
     static assert(false, "Unsupported CPU");
     // Versions for PowerPC, Alpha, SHX, and MIPS removed.

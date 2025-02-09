@@ -77,9 +77,9 @@ llvm::Type *getRealType(const llvm::Triple &triple) {
 
   case Triple::aarch64:
   case Triple::aarch64_be:
-    // AArch64 has 128-bit quad precision; Apple uses double
-    return triple.isOSDarwin() ? LLType::getDoubleTy(ctx)
-                               : LLType::getFP128Ty(ctx);
+    // AArch64 has 128-bit quad precision; Apple and MSVC use double
+    return triple.isOSDarwin() || triple.isWindowsMSVCEnvironment()
+               ? LLType::getDoubleTy(ctx) : LLType::getFP128Ty(ctx);
 
   case Triple::riscv32:
   case Triple::riscv64:
