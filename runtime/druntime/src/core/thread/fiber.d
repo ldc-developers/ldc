@@ -146,6 +146,11 @@ private
             version = AsmExternal;
             version = AlignFiberStackTo16Byte;
         }
+        else version (Windows)
+        {
+            version = AsmAArch64_Windows;
+            version = AlignFiberStackTo16Byte;
+        }
     }
     else version (ARM)
     {
@@ -354,6 +359,58 @@ private
                 "~{memory},~{rbp},~{rsp},~{rax},~{rbx},~{rcx},~{rsi},~{rdi},~{r12},~{r13},~{r14},~{r15}," ~
                 "~{xmm6},~{xmm7},~{xmm8},~{xmm9},~{xmm10},~{xmm11},~{xmm12},~{xmm13},~{xmm14},~{xmm15}"
             );
+        }
+        else version (AsmAArch64_Windows)
+        {
+            pragma(LDC_never_inline);
+            asm nothrow @nogc {
+            "
+                // save current stack state
+                stp x19, x20, [sp, #-16]!;
+                stp x21, x22, [sp, #-16]!;
+                stp x23, x24, [sp, #-16]!;
+                stp x25, x26, [sp, #-16]!;
+                stp x27, x28, [sp, #-16]!;
+                stp x29, x31, [sp, #-16]!; // fp,0
+
+                stp d8, d9, [sp, #-16]!;
+                stp d10, d11, [sp, #-16]!;
+                stp d12, d13, [sp, #-16]!;
+                stp d14, d15, [sp, #-16]!;
+
+                ldr x19, [x18];
+                ldr x20, [x18, #8];
+                stp x19, x20, [sp, #-16]!;
+                ldr x19, [x18, #16];
+                stp x19, lr, [sp, #-16]!;
+
+                // store oldp
+                mov x19, sp;
+                str x19, [x0];
+                // load newp to begin context switch
+                mov sp, x1;
+
+                ldp x19, lr, [sp], #16;
+                str x19, [x18, #16];
+                ldp x19, x20, [sp], #16;
+                str x20, [x18, #8];
+                str x19, [x18];
+
+                // load saved state from new stack
+                ldp d14, d15, [sp], #16;
+                ldp d12, d13, [sp], #16;
+                ldp d10, d11, [sp], #16;
+                ldp d8, d9, [sp], #16;
+
+                ldp x29, x31, [sp], #16; // fp,0
+                ldp x27, x28, [sp], #16;
+                ldp x25, x26, [sp], #16;
+                ldp x23, x24, [sp], #16;
+                ldp x21, x22, [sp], #16;
+                ldp x19, x20, [sp], #16;
+
+                ret;
+            " : ; }
         }
         else
             static assert(false);
@@ -1614,6 +1671,35 @@ private:
                 push( cast(size_t) m_ctxt.bstack + m_size );        // GS:[16]
             }
         }
+        else version (AsmAArch64_Windows)
+        {
+            version (StackGrowsDown) {} else static assert( false );
+
+            push( 0x00000000_00000000 );                            // X19
+            push( 0x00000000_00000000 );                            // X20
+            push( 0x00000000_00000000 );                            // X21
+            push( 0x00000000_00000000 );                            // X22
+            push( 0x00000000_00000000 );                            // X23
+            push( 0x00000000_00000000 );                            // X24
+            push( 0x00000000_00000000 );                            // X25
+            push( 0x00000000_00000000 );                            // X26
+            push( 0x00000000_00000000 );                            // X27
+            push( 0x00000000_00000000 );                            // X28
+            push( 0x00000000_00000000 );                            // X29 (fp)
+            push( 0x00000000_00000000 );                            // alignment
+            push( 0x00000000_00000000 );                            // V8 (low)
+            push( 0x00000000_00000000 );                            // V9 (low)
+            push( 0x00000000_00000000 );                            // V10 (low)
+            push( 0x00000000_00000000 );                            // V11 (low)
+            push( 0x00000000_00000000 );                            // V12 (low)
+            push( 0x00000000_00000000 );                            // V13 (low)
+            push( 0x00000000_00000000 );                            // V14 (low)
+            push( 0x00000000_00000000 );                            // V15 (low)
+            push( cast(size_t) m_ctxt.bstack );                     // x18[8] (X18 - TEB)
+            push( 0xFFFFFFFF_FFFFFFFF );                            // x18[0]
+            push( cast(size_t) &fiber_entryPoint );                 // pc
+            push( cast(size_t) m_ctxt.bstack - m_size );            // x18[16]
+        }
         else version (AsmX86_Posix)
         {
             push( 0x00000000 );                                     // Return address of fiber_entryPoint call
@@ -2454,6 +2540,7 @@ unittest
     new Fiber({}).call(Fiber.Rethrow.no);
 }
 
+version(AArch64) {} else
 unittest
 {
     enum MSG = "Test message.";
@@ -2471,6 +2558,7 @@ unittest
     }
 }
 
+version(AArch64) {} else
 // Test exception chaining when switching contexts in finally blocks.
 unittest
 {

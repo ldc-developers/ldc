@@ -125,11 +125,13 @@ else version (Windows)
     void[] getTLSRange() nothrow @nogc
     {
         void** _tls_array;
-        version (Win32)
+        version (X86)
             asm nothrow @nogc { "mov %%fs:(0x2C), %0" : "=r" (_tls_array); }
-        else version (Win64)
+        else version (X86_64)
             asm nothrow @nogc { "mov %%gs:0(%1),  %0" : "=r" (_tls_array) : "r" (0x58); }
-        else
+        else version (AArch64)
+            asm nothrow @nogc { "ldr %0, [x18,%1]" : "=r" (_tls_array) : "r" (0x58); }
+         else
             static assert(0);
 
         void* pbeg = _tls_array[_tls_index];
