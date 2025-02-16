@@ -34,6 +34,13 @@ default:
     rpath = "@SHARED_LIBS_RPATH@";
 };
 
+"^powerpc64le-.*linux-gnu$":
+{
+    // default to IEEE quad precision
+    // if your platform does not support this, feel free to remove it.
+    switches = ["--real-precision=quad"]
+};
+
 "^wasm(32|64)-":
 {
     switches = [
