@@ -277,7 +277,34 @@ if( CMAKE_COMPILER_IS_GNUCXX
 endif()
 # Do not use doubledouble on ppc
 if( CMAKE_SYSTEM_PROCESSOR MATCHES "ppc|powerpc")
-    append("-mlong-double-64" LDC_CXXFLAGS)
+    # this extra test checks if the system uses IEEE 754R long double
+    # if that is supported, then there is no need to turn off 128-bit double type
+    CHECK_CXX_SOURCE_COMPILES(
+        "#include <float.h>\nint main(){static_assert(LDBL_MANT_DIG == 113, \"not IEEE long double\");return 0;}\n"
+        HAS_IEEE_LONG_DOUBLE
+    )
+    CHECK_CXX_SOURCE_COMPILES(
+        "#include <float.h>\nint main(){static_assert(LDBL_MANT_DIG == 106, \"not IBM long double\");return 0;}\n"
+        HAS_IBM_LONG_DOUBLE
+    )
+    if ( HAS_IEEE_LONG_DOUBLE )
+        append("-mabi=ieeelongdouble" LLVM_CXXFLAGS)
+        if ( D_COMPILER_ID MATCHES "GDMD" )
+            append("-mabi=ieeelongdouble" DFLAGS_BASE)
+        else()
+            append("--real-precision=quad" DFLAGS_BASE)
+        endif()
+        append("--real-precision=quad" D_EXTRA_FLAGS)
+    elseif ( NOT HAS_IBM_LONG_DOUBLE )
+        # usually the case for musl/uclibc
+        append("-mlong-double-64" LLVM_CXXFLAGS)
+        if ( D_COMPILER_ID MATCHES "GDMD" )
+            append("-mlong-double-64" DFLAGS_BASE)
+        else()
+            append("--real-precision=double" DFLAGS_BASE)
+        endif()
+        append("--real-precision=double" D_EXTRA_FLAGS)
+    endif()
 endif()
 if(UNIX)
     append("-DLDC_POSIX" LDC_CXXFLAGS)

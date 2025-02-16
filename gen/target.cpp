@@ -26,12 +26,30 @@
 using namespace dmd;
 using llvm::APFloat;
 
+enum class RealTypeEncoding : uint8_t { Double, IEEEQuad, Platform };
+static llvm::cl::opt<RealTypeEncoding, false> realTypeEncoding{
+    "real-precision", llvm::cl::ZeroOrMore,
+    llvm::cl::init(RealTypeEncoding::Platform),
+    llvm::cl::desc("Set the precision of the `real` type"),
+    llvm::cl::values(
+        clEnumValN(RealTypeEncoding::Double, "double",
+                   "Use double precision (64-bit)"),
+        clEnumValN(RealTypeEncoding::IEEEQuad, "quad",
+                   "Use IEEE quad precision (128-bit)"),
+        clEnumValN(RealTypeEncoding::Platform, "platform",
+                   "Use platform-specific precision (target-specific)"))};
+
 namespace {
 // Returns the LL type to be used for D `real` (C `long double`).
 llvm::Type *getRealType(const llvm::Triple &triple) {
   using llvm::Triple;
 
   auto &ctx = getGlobalContext();
+
+  // If user specified double precision, use it unconditionally.
+  if (realTypeEncoding == RealTypeEncoding::Double) {
+    return LLType::getDoubleTy(ctx);
+  }
 
   // Android: x86 targets follow ARM, with emulated quad precision for x64
   if (triple.getEnvironment() == llvm::Triple::Android) {
@@ -64,9 +82,20 @@ llvm::Type *getRealType(const llvm::Triple &triple) {
   case Triple::wasm64:
     return LLType::getFP128Ty(ctx);
 
+  case Triple::ppc64:
+  case Triple::ppc64le:
+    if (triple.isMusl()) { // Musl uses double
+      return LLType::getDoubleTy(ctx);
+    }
+    // dual-ABI complications: PPC only has IEEE 128-bit quad precision on
+    // Linux, IBM double-double is available on both AIX and Linux.
+    return triple.isOSLinux() && realTypeEncoding == RealTypeEncoding::IEEEQuad
+               ? LLType::getFP128Ty(ctx)
+               : LLType::getPPC_FP128Ty(ctx);
+
   default:
     // 64-bit double precision for all other targets
-    // FIXME: PowerPC, SystemZ, ...
+    // FIXME: SystemZ, ...
     return LLType::getDoubleTy(ctx);
   }
 }
@@ -97,6 +126,20 @@ void Target::_init(const Param &params) {
     os = OS_Solaris;
   } else {
     os = OS_Freestanding;
+  }
+
+  if (triple.isPPC64() && realTypeEncoding == RealTypeEncoding::IEEEQuad) {
+    if (triple.isGNUEnvironment()) {
+      // Only GLibc needs this for IEEELongDouble
+      if (!triple.isLittleEndian()) {
+        warning(Loc(), "float ABI 'ieeelongdouble' is not well-supported "
+                       "on big-endian POWER systems");
+      }
+    } else {
+      warning(
+          Loc(),
+          "float ABI 'ieeelongdouble' is not supported by the target system");
+    }
   }
 
   osMajor = triple.getOSMajorVersion();
@@ -156,6 +199,7 @@ void Target::_init(const Param &params) {
   const auto IEEEdouble = &APFloat::IEEEdouble();
   const auto x87DoubleExtended = &APFloat::x87DoubleExtended();
   const auto IEEEquad = &APFloat::IEEEquad();
+  const auto PPCDoubleDouble = &APFloat::PPCDoubleDouble();
   bool isOutOfRange = false;
 
   RealProperties.nan = CTFloat::nan;
@@ -197,6 +241,18 @@ void Target::_init(const Param &params) {
     RealProperties.min_exp = -16381;
     RealProperties.max_10_exp = 4932;
     RealProperties.min_10_exp = -4931;
+  } else if (targetRealSemantics == PPCDoubleDouble) {
+    RealProperties.max =
+        CTFloat::parse("0x1.fffffffffffff7ffffffffffff8p1023", isOutOfRange);
+    RealProperties.min_normal = CTFloat::parse("0x1p-969", isOutOfRange);
+    RealProperties.epsilon =
+        CTFloat::parse("0x0.000000000000000000000000008p-969", isOutOfRange);
+    RealProperties.dig = 31;
+    RealProperties.mant_dig = 106;
+    RealProperties.max_exp = 1024;
+    RealProperties.min_exp = -968;
+    RealProperties.max_10_exp = 308;
+    RealProperties.min_10_exp = -291;
   } else {
     // leave initialized with host real_t values
     warning(Loc(), "unknown properties for target `real` type, relying on D "
@@ -240,6 +296,19 @@ const char *TargetCPP::typeMangle(Type *t) {
     // `long double` on Android/x64 is __float128 and mangled as `g`
     bool isAndroidX64 = triple.getEnvironment() == llvm::Triple::Android &&
                         triple.getArch() == llvm::Triple::x86_64;
+    if (triple.getArch() == llvm::Triple::ppc64 ||
+        triple.getArch() == llvm::Triple::ppc64le) {
+      if (target.RealProperties.mant_dig == 113 &&
+          triple.getEnvironment() == llvm::Triple::GNU) {
+        return "u9__ieee128";
+      }
+      if (target.RealProperties.mant_dig == 106) {
+        // IBM long double
+        return "g";
+      }
+      // fall back to 64-bit double type
+      return "e";
+    }
     return isAndroidX64 ? "g" : "e";
   }
   return nullptr;
