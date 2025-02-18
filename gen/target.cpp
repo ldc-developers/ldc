@@ -26,18 +26,19 @@
 using namespace dmd;
 using llvm::APFloat;
 
-enum class RealTypeEncoding : uint8_t { Double, IEEEQuad, Platform };
-static llvm::cl::opt<RealTypeEncoding, false> realTypeEncoding{
-    "real-precision", llvm::cl::ZeroOrMore,
-    llvm::cl::init(RealTypeEncoding::Platform),
-    llvm::cl::desc("Set the precision of the `real` type"),
-    llvm::cl::values(
-        clEnumValN(RealTypeEncoding::Double, "double",
-                   "Use double precision (64-bit)"),
-        clEnumValN(RealTypeEncoding::IEEEQuad, "quad",
-                   "Use IEEE quad precision (128-bit)"),
-        clEnumValN(RealTypeEncoding::Platform, "platform",
-                   "Use platform-specific precision (target-specific)"))};
+enum class RealPrecision : uint8_t { Default, Double, Quad, DoubleDouble };
+static llvm::cl::opt<RealPrecision, false> realPrecision{
+    "real-precision",
+    llvm::cl::ZeroOrMore,
+    llvm::cl::Hidden,
+    llvm::cl::init(RealPrecision::Default),
+    llvm::cl::desc("Override the precision of the `real` type"),
+    llvm::cl::values(clEnumValN(RealPrecision::Double, "double",
+                                "Use double precision (64-bit)"),
+                     clEnumValN(RealPrecision::Quad, "quad",
+                                "Use IEEE quad precision (128-bit)"),
+                     clEnumValN(RealPrecision::DoubleDouble, "doubledouble",
+                                "Use IBM double double precision (128-bit)"))};
 
 namespace {
 // Returns the LL type to be used for D `real` (C `long double`).
@@ -46,9 +47,11 @@ llvm::Type *getRealType(const llvm::Triple &triple) {
 
   auto &ctx = getGlobalContext();
 
-  // If user specified double precision, use it unconditionally.
-  if (realTypeEncoding == RealTypeEncoding::Double) {
+  // If user specified double or quad precision, use it unconditionally.
+  if (realPrecision == RealPrecision::Double) {
     return LLType::getDoubleTy(ctx);
+  } else if (realPrecision == RealPrecision::Quad) {
+    return LLType::getFP128Ty(ctx);
   }
 
   // Android: x86 targets follow ARM, with emulated quad precision for x64
@@ -84,14 +87,28 @@ llvm::Type *getRealType(const llvm::Triple &triple) {
 
   case Triple::ppc64:
   case Triple::ppc64le:
+    if (realPrecision == RealPrecision::DoubleDouble) {
+      return LLType::getPPC_FP128Ty(ctx);
+    }
     if (triple.isMusl()) { // Musl uses double
       return LLType::getDoubleTy(ctx);
     }
-    // dual-ABI complications: PPC only has IEEE 128-bit quad precision on
-    // Linux, IBM double-double is available on both AIX and Linux.
-    return triple.isOSLinux() && realTypeEncoding == RealTypeEncoding::IEEEQuad
-               ? LLType::getFP128Ty(ctx)
-               : LLType::getPPC_FP128Ty(ctx);
+#if defined(__linux__) && defined(__powerpc64__)
+    // for a PowerPC64 Linux build:
+    // default to the C++ host compiler's `long double` ABI
+    switch (std::numeric_limits<long double>::digits) {
+    case 113:
+      return LLType::getFP128Ty(ctx);
+    case 106:
+      return LLType::getPPC_FP128Ty(ctx);
+    case 53:
+      return LLType::getDoubleTy(ctx);
+    default:
+      llvm_unreachable("Unexpected host C++ 'long double' precision for a "
+                       "PowerPC64 target!");
+    }
+#endif
+    return LLType::getPPC_FP128Ty(ctx);
 
   default:
     // 64-bit double precision for all other targets
@@ -126,20 +143,6 @@ void Target::_init(const Param &params) {
     os = OS_Solaris;
   } else {
     os = OS_Freestanding;
-  }
-
-  if (triple.isPPC64() && realTypeEncoding == RealTypeEncoding::IEEEQuad) {
-    if (triple.isGNUEnvironment()) {
-      // Only GLibc needs this for IEEELongDouble
-      if (!triple.isLittleEndian()) {
-        warning(Loc(), "float ABI 'ieeelongdouble' is not well-supported "
-                       "on big-endian POWER systems");
-      }
-    } else {
-      warning(
-          Loc(),
-          "float ABI 'ieeelongdouble' is not supported by the target system");
-    }
   }
 
   osMajor = triple.getOSMajorVersion();
@@ -293,9 +296,14 @@ Type *Target::va_listType(const Loc &loc, Scope *sc) {
 const char *TargetCPP::typeMangle(Type *t) {
   if (t->ty == TY::Tfloat80) {
     const auto &triple = *global.params.targetTriple;
+
     // `long double` on Android/x64 is __float128 and mangled as `g`
-    bool isAndroidX64 = triple.getEnvironment() == llvm::Triple::Android &&
-                        triple.getArch() == llvm::Triple::x86_64;
+    if (triple.getEnvironment() == llvm::Triple::Android &&
+        triple.getArch() == llvm::Triple::x86_64 &&
+        target.RealProperties.mant_dig == 113) {
+      return "g";
+    };
+
     if (triple.getArch() == llvm::Triple::ppc64 ||
         triple.getArch() == llvm::Triple::ppc64le) {
       if (target.RealProperties.mant_dig == 113 &&
@@ -306,11 +314,11 @@ const char *TargetCPP::typeMangle(Type *t) {
         // IBM long double
         return "g";
       }
-      // fall back to 64-bit double type
-      return "e";
     }
-    return isAndroidX64 ? "g" : "e";
+
+    return "e";
   }
+
   return nullptr;
 }
 

@@ -1,9 +1,8 @@
 // REQUIRES: target_PowerPC
 
 // RUN: %ldc -c -output-ll -of=%t.ll %s -mtriple=powerpc64le-linux-gnu -real-precision=quad && FileCheck %s --check-prefix=CHECK-GNU-IEEE < %t.ll
-// RUN: %ldc -c -output-ll -of=%t.ll %s -mtriple=powerpc64le-linux-gnu -real-precision=platform && FileCheck %s --check-prefix=CHECK-IBM-LDBL < %t.ll
-// the following is an invalid configuration: Musl does not support IEEE quad fp on powerpc
-// RUN: %ldc -c -output-ll -of=%t.ll %s -mtriple=powerpc64le-linux-musl -real-precision=quad && FileCheck %s --check-prefix=CHECK-MUSL < %t.ll
+// RUN: %ldc -c -output-ll -of=%t.ll %s -mtriple=powerpc64le-linux-gnu -real-precision=doubledouble && FileCheck %s --check-prefix=CHECK-IBM-LDBL < %t.ll
+// RUN: %ldc -c -output-ll -of=%t.ll %s -mtriple=powerpc64le-linux-musl && FileCheck %s --check-prefix=CHECK-MUSL < %t.ll
 
 // CHECK-GNU-IEEE-LABEL: @_Z13test_functionu9__ieee128
 // CHECK-IBM-LDBL-LABEL: @_Z13test_functiong

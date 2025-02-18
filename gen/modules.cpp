@@ -22,7 +22,6 @@
 #include "dmd/statement.h"
 #include "dmd/target.h"
 #include "dmd/template.h"
-#include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/timetrace.h"
 #include "gen/abi/abi.h"
@@ -414,7 +413,7 @@ void addModuleFlags(llvm::Module &m) {
     if (target.RealProperties.mant_dig == 113) {
       const auto ConstantIEEE128String = llvm::MDString::get(gIR->context(), "ieeequad");
       m.setModuleFlag(ModuleErrFlag, "float-abi", ConstantIEEE128String);
-    } else {
+    } else if (target.RealProperties.mant_dig == 106) {
       const auto ConstantIBM128String = llvm::MDString::get(gIR->context(), "doubledouble");
       m.setModuleFlag(ModuleErrFlag, "float-abi", ConstantIBM128String);
     }
