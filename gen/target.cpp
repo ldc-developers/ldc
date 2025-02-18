@@ -47,11 +47,19 @@ llvm::Type *getRealType(const llvm::Triple &triple) {
 
   auto &ctx = getGlobalContext();
 
-  // If user specified double or quad precision, use it unconditionally.
+  // if overridden with -real-precision:
   if (realPrecision == RealPrecision::Double) {
     return LLType::getDoubleTy(ctx);
   } else if (realPrecision == RealPrecision::Quad) {
     return LLType::getFP128Ty(ctx);
+  } else if (realPrecision == RealPrecision::DoubleDouble) {
+    if (triple.getArch() != Triple::ppc64 &&
+        triple.getArch() != Triple::ppc64le) {
+      error(Loc(), "'-real-precision=doubledouble' is only supported for "
+                   "PowerPC64 targets");
+      fatal();
+    }
+    return LLType::getPPC_FP128Ty(ctx);
   }
 
   // Android: x86 targets follow ARM, with emulated quad precision for x64
@@ -87,25 +95,25 @@ llvm::Type *getRealType(const llvm::Triple &triple) {
 
   case Triple::ppc64:
   case Triple::ppc64le:
-    if (realPrecision == RealPrecision::DoubleDouble) {
-      return LLType::getPPC_FP128Ty(ctx);
-    }
     if (triple.isMusl()) { // Musl uses double
       return LLType::getDoubleTy(ctx);
     }
 #if defined(__linux__) && defined(__powerpc64__)
     // for a PowerPC64 Linux build:
-    // default to the C++ host compiler's `long double` ABI
-    switch (std::numeric_limits<long double>::digits) {
-    case 113:
+    // default to the C++ host compiler's `long double` ABI when targeting
+    // PowerPC64 (non-musl) Linux
+    if (triple.isOSLinux()) {
+#if __LDBL_MANT_DIG__ == 113
       return LLType::getFP128Ty(ctx);
-    case 106:
+#elif __LDBL_MANT_DIG__ == 106
       return LLType::getPPC_FP128Ty(ctx);
-    case 53:
+#elif __LDBL_MANT_DIG__ == 53
       return LLType::getDoubleTy(ctx);
-    default:
-      llvm_unreachable("Unexpected host C++ 'long double' precision for a "
-                       "PowerPC64 target!");
+#else
+      static_assert(
+          __LDBL_MANT_DIG__ == 0,
+          "Unexpected C++ 'long double' precision for a PowerPC64 host!");
+#endif
     }
 #endif
     return LLType::getPPC_FP128Ty(ctx);
