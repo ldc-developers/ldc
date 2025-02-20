@@ -543,9 +543,6 @@ void msvc_eh_terminate() nothrow @naked
     else version (AArch64)
     {
         __asm(`
-            stp  fp,lr,[sp,#-16]!; // setup stack for better debuggability
-            mov fp,sp;
-
             bl _D3ldc7eh_msvc21tlsUncaughtExceptionsFNbZm
             cmp w0, #0
             ble 1f
@@ -553,19 +550,18 @@ void msvc_eh_terminate() nothrow @naked
             // hacking into the call chain to return EXCEPTION_EXECUTE_HANDLER
             //  as the return value of __FrameUnwindFilter so that
             // __FrameUnwindToState continues with the next unwind block
-            ldr x0, [fp]; // terminate's fp
-            ldr x0, [x0]; // __FrameUnwindFilter's fp
-            mov sp, x0;
-            mov w0, #0;   // return EXCEPTION_CONTINUE_SEARCH
-            ldp fp,lr,[sp],#16;
-            ldp x19,x20,[sp],#0x10;
-            autibsp; // uses lr,sp and x19 as input to hash
-            ret;
+            ldr x0, [fp] // __FrameUnwindFilter's fp
+            mov sp, x0
+            mov w0, #1   // return EXCEPTION_EXECUTE_HANDLER
+            ldp fp,lr,[sp],#16
+            ldp x19,x20,[sp],#0x10
+            autibsp      // uses lr,sp and x19 as input to hash
+            ret
 
         1:
-            ldp fp,lr,[sp],#16;
+            ldp fp,lr,[sp],#16
             ret`,
-            ""
+            "~{memory},~{x0},~{x19},~{x20}"
         );
     }
 }

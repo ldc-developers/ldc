@@ -342,7 +342,7 @@ void ld_setull(longdouble_soft* pthis, ulong d)
     {
         // emulator accuracy not good enough when running on Windows on ARM,
         // so avoid chopping off small numbers
-        version(all)
+        version(LDC)
         {
             if (!(d & (1L << 63)))
             {
