@@ -652,7 +652,7 @@ version (LDC)
     version (D_LP64)
     {
         version (PPC64)
-            enum has128BitCAS = false;
+            enum has128BitCAS = real.mant_dig == 113;
         else
             enum has128BitCAS = true;
     }

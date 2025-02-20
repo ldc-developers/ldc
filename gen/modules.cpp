@@ -404,6 +404,23 @@ void addModuleFlags(llvm::Module &m) {
       opts::fCFProtection == opts::CFProtectionType::Full) {
     m.setModuleFlag(ModuleMinFlag, "cf-protection-branch", ConstantOneMetadata);
   }
+
+  // Target specific flags
+  const auto ModuleErrFlag = llvm::Module::Error;
+  switch (global.params.targetTriple->getArch()) {
+  case llvm::Triple::ppc64:
+  case llvm::Triple::ppc64le:
+    if (target.RealProperties.mant_dig == 113) {
+      const auto ConstantIEEE128String = llvm::MDString::get(gIR->context(), "ieeequad");
+      m.setModuleFlag(ModuleErrFlag, "float-abi", ConstantIEEE128String);
+    } else if (target.RealProperties.mant_dig == 106) {
+      const auto ConstantIBM128String = llvm::MDString::get(gIR->context(), "doubledouble");
+      m.setModuleFlag(ModuleErrFlag, "float-abi", ConstantIBM128String);
+    }
+    break;
+  default:
+    break;
+  }
 }
 
 } // anonymous namespace

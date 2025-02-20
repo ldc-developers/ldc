@@ -681,8 +681,10 @@ void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("PPC64");
     registerPredefinedFloatABI("PPC_SoftFloat", "PPC_HardFloat");
     if (triple.getOS() == llvm::Triple::Linux) {
-      VersionCondition::addPredefinedGlobalIdent(
-          triple.getArch() == llvm::Triple::ppc64 ? "ELFv1" : "ELFv2");
+      const llvm::SmallVector<llvm::StringRef> features{};
+      const std::string abi = getABI(triple, features);
+      VersionCondition::addPredefinedGlobalIdent(abi == "elfv1" ? "ELFv1"
+                                                                : "ELFv2");
     }
     break;
   case llvm::Triple::arm:

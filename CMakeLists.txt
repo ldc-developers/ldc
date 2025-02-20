@@ -275,10 +275,6 @@ if( CMAKE_COMPILER_IS_GNUCXX
     AND CMAKE_C_COMPILER_VERSION VERSION_LESS "4.6.0" )
     append("-mminimal-toc" LDC_CXXFLAGS)
 endif()
-# Do not use doubledouble on ppc
-if( CMAKE_SYSTEM_PROCESSOR MATCHES "ppc|powerpc")
-    append("-mlong-double-64" LDC_CXXFLAGS)
-endif()
 if(UNIX)
     append("-DLDC_POSIX" LDC_CXXFLAGS)
 endif()

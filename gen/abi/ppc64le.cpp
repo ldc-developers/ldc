@@ -10,7 +10,7 @@
 // The ABI implementation used for 64 bit little-endian PowerPC targets.
 //
 // The PowerOpen 64bit ELF v2 ABI can be found here:
-// https://members.openpowerfoundation.org/document/dl/576
+// https://files.openpower.foundation/s/cfA2oFPXbbZwEBK/download/64biteflv2abi-v1.5.pdf
 //===----------------------------------------------------------------------===//
 
 #include "gen/abi/abi.h"
@@ -51,7 +51,7 @@ struct PPC64LETargetABI : TargetABI {
       } else {
         compositeToArray64.applyTo(arg);
       }
-    } else if (ty->isintegral()) {
+    } else if (ty->isintegral() && !ty->isTypeVector()) {
       arg.attrs.addAttribute(ty->isunsigned() ? LLAttribute::ZExt
                                               : LLAttribute::SExt);
     }
