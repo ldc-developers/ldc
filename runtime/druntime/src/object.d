@@ -91,11 +91,12 @@ version (LDC) // note: there's a copy for importC in __importc_builtins.di
     }
     else version (ARM_Any)
     {
-        // Darwin does not use __va_list
+        // Darwin and Windows do not use __va_list
         version (OSX) {}
         else version (iOS) {}
         else version (TVOS) {}
         else version (WatchOS) {}
+        else version (CRuntime_Microsoft) {}
         else:
 
         version (ARM)

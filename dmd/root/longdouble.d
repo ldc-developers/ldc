@@ -338,9 +338,20 @@ void ld_setll(longdouble_soft* pthis, long d)
 
 void ld_setull(longdouble_soft* pthis, ulong d)
 {
-    d ^= (1L << 63);
     version(AsmX86)
     {
+        // emulator accuracy not good enough when running on Windows on ARM,
+        // so avoid chopping off small numbers
+        if (!(d & (1L << 63)))
+        {
+            asm nothrow @nogc pure @trusted
+            {
+                fild qword ptr d;
+            }
+            mixin(fstp_parg!("pthis"));
+            return;
+        }
+        d ^= (1L << 63);
         auto pTwoPow63 = &twoPow63;
         mixin(fld_parg!("pTwoPow63"));
         asm nothrow @nogc pure @trusted

@@ -7,6 +7,7 @@
 - ldc2.conf: `%%ldcversion%%` placeholder added, allowing to refer to version-specific directories.
 
 #### Platform support
+- Added support for building for Windows on ARM64. Use option '-march=arm64' to compile, 'ldc-build-runtime.exe --dFlags -march=arm64' to build the runtime libraries.
 
 #### Bug fixes
 - Building multi-file D applications with control-flow protection will no longer cause LDC to throw an internal compiler error. (#4828)

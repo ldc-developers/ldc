@@ -14,11 +14,12 @@ module core.internal.vararg.aarch64;
 
 version (AArch64):
 
-// Darwin uses a simpler varargs implementation
+// Darwin and Windows use a simpler varargs implementation
 version (OSX) {}
 else version (iOS) {}
 else version (TVOS) {}
 else version (WatchOS) {}
+else version (CRuntime_Microsoft) {}
 else:
 
 import core.stdc.stdarg : alignUp;
