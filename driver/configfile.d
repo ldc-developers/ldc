@@ -30,28 +30,42 @@ string normalizeSlashes(const(char)* binDir)
     return cast(string)res; // assumeUnique
 }
 
-T findSetting(T)(GroupSetting[] sections, Setting.Type type, string name)
+T findSetting(T, alias reducer)(GroupSetting[] sections, Setting.Type type, string name)
 {
-    // lexically later sections dominate earlier ones
-    foreach_reverse (section; sections)
+    T result = null;
+    foreach (section; sections)
     {
         foreach (c; section.children)
         {
             if (c.type == type && c.name == name)
-                return cast(T) c;
+            {
+                if (result !is null)
+                    result = reducer(result, cast(T) c);
+                else
+                    result = cast(T) c;
+            }
         }
     }
-    return null;
+    return result;
 }
 
 ArraySetting findArraySetting(GroupSetting[] sections, string name)
 {
-    return findSetting!ArraySetting(sections, Setting.Type.array, name);
+    auto merge(ArraySetting a, ArraySetting b)
+    {
+        string[] newVals;
+        if (b.isAppending)
+            newVals = [] ~ a.vals ~ b.vals;
+        else
+            newVals = [] ~ b.vals;
+        return new ArraySetting(a.name, newVals, a.isAppending && b.isAppending);
+    }
+    return findSetting!(ArraySetting, merge)(sections, Setting.Type.array, name);
 }
 
 ScalarSetting findScalarSetting(GroupSetting[] sections, string name)
 {
-    return findSetting!ScalarSetting(sections, Setting.Type.scalar, name);
+    return findSetting!(ScalarSetting, (o, n) => n)(sections, Setting.Type.scalar, name);
 }
 
 string replace(string str, string pattern, string replacement)
@@ -137,8 +151,6 @@ private:
 
     bool readConfig(const(char)* cfPath, const(char)* triple, const(char)* binDir)
     {
-        switches.setDim(0);
-        postSwitches.setDim(0);
         const cfgPaths = CfgPaths(cfPath, binDir);
 
         try
@@ -156,23 +168,22 @@ private:
             if (sections.length == 0)
             {
                 const dTriple = triple[0 .. strlen(triple)];
-                const dCfPath = cfPath[0 .. strlen(cfPath)];
                 throw new Exception("No matching section for triple '" ~ cast(string) dTriple
-                                    ~ "' in " ~ cast(string) dCfPath);
+                                    ~ "'");
             }
 
             auto switches = findArraySetting(sections, "switches");
             auto postSwitches = findArraySetting(sections, "post-switches");
             if (!switches && !postSwitches)
-            {
-                const dCfPath = cfPath[0 .. strlen(cfPath)];
-                throw new Exception("Could not look up switches in " ~ cast(string) dCfPath);
-            }
+                throw new Exception("Could not look up switches");
 
             void applyArray(ref Array!(const(char)*) output, ArraySetting input)
             {
                 if (!input)
                     return;
+
+                if (!input.isAppending)
+                    output.setDim(0);
 
                 output.reserve(input.vals.length);
                 foreach (sw; input.vals)
@@ -195,7 +206,7 @@ private:
         }
         catch (Exception ex)
         {
-            fprintf(stderr, "Error: %.*s\n", cast(int) ex.msg.length, ex.msg.ptr);
+            fprintf(stderr, "Error while reading config file: %s\n%.*s\n", cfPath, cast(int) ex.msg.length, ex.msg.ptr);
             return false;
         }
     }
