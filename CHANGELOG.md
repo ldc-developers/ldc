@@ -3,6 +3,7 @@
 #### Big news
 
 #### Platform support
+- Added support for building for Windows on ARM64. Use option '-march=arm64' to compile, 'ldc-build-runtime.exe --dFlags -march=arm64' to build the runtime libraries.
 
 #### Bug fixes
 
