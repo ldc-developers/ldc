@@ -363,59 +363,59 @@ private
         else version (AsmAArch64_Windows)
         {
             pragma(LDC_never_inline);
-            asm nothrow @nogc {
-            "
-                // save current stack state (similar to posix version in threadasm.S)
-                stp x19, x20, [sp, #-16]!;
-                stp x21, x22, [sp, #-16]!;
-                stp x23, x24, [sp, #-16]!;
-                stp x25, x26, [sp, #-16]!;
-                stp x27, x28, [sp, #-16]!;
-                stp fp,  lr,  [sp, #-16]!;
-                mov x19, sp;               // no need to scan FP registers, so snapshot sp here
+            __asm(
+                `// save current stack state (similar to posix version in threadasm.S)
+                stp x19, x20, [sp, #-16]!
+                stp x21, x22, [sp, #-16]!
+                stp x23, x24, [sp, #-16]!
+                stp x25, x26, [sp, #-16]!
+                stp x27, x28, [sp, #-16]!
+                stp fp,  lr,  [sp, #-16]!
+                mov x19, sp               // no need to scan FP registers, so snapshot sp here
 
-                stp d8,  d9,  [sp, #-16]!;
-                stp d10, d11, [sp, #-16]!;
-                stp d12, d13, [sp, #-16]!;
-                stp d14, d15, [sp, #-16]!;
+                stp d8,  d9,  [sp, #-16]!
+                stp d10, d11, [sp, #-16]!
+                stp d12, d13, [sp, #-16]!
+                stp d14, d15, [sp, #-16]!
 
-                ldr x20, [x18, #8];        // read stack range from TEB
-                ldr x21, [x18, #16];
-                stp x20, x21, [sp, #-16]!;
+                ldr x20, [x18, #8]        // read stack range from TEB
+                ldr x21, [x18, #16]
+                stp x20, x21, [sp, #-16]!
 
-                ldr x20, [x18, #0x1478];   // read Deallocation Stack
-                ldr w21, [x18, #0x1748];   // read GuaranteedStackBytes
-                stp x20, x21, [sp, #-16]!;
+                ldr x20, [x18, #0x1478]   // read Deallocation Stack
+                ldr w21, [x18, #0x1748]   // read GuaranteedStackBytes
+                stp x20, x21, [sp, #-16]!
 
                 // store oldp
-                str x19, [x0];
+                str x19, [x0]
                 // load newp to begin context switch
-                sub x1, x1, #6*16;
-                mov sp, x1;
+                sub x1, x1, #6*16
+                mov sp, x1
 
-                ldp x20, x21, [sp], #16;   // restore Deallocation/GuaranteedStackBytes
-                str x20, [x18, #0x1478];
-                str w21, [x18, #0x1748];   // word only
+                ldp x20, x21, [sp], #16   // restore Deallocation/GuaranteedStackBytes
+                str x20, [x18, #0x1478]
+                str w21, [x18, #0x1748]   // word only
 
-                ldp x20, x21, [sp], #16;   // restore stack range
-                str x20, [x18, #8];
-                str x21, [x18, #16];
+                ldp x20, x21, [sp], #16   // restore stack range
+                str x20, [x18, #8]
+                str x21, [x18, #16]
 
                 // load saved state from new stack
-                ldp d14, d15, [sp], #16;
-                ldp d12, d13, [sp], #16;
-                ldp d10, d11, [sp], #16;
-                ldp d8,  d9,  [sp], #16;
+                ldp d14, d15, [sp], #16
+                ldp d12, d13, [sp], #16
+                ldp d10, d11, [sp], #16
+                ldp d8,  d9,  [sp], #16
 
-                ldp fp,  lr,  [sp], #16;
-                ldp x27, x28, [sp], #16;
-                ldp x25, x26, [sp], #16;
-                ldp x23, x24, [sp], #16;
-                ldp x21, x22, [sp], #16;
-                ldp x19, x20, [sp], #16;
+                ldp fp,  lr,  [sp], #16
+                ldp x27, x28, [sp], #16
+                ldp x25, x26, [sp], #16
+                ldp x23, x24, [sp], #16
+                ldp x21, x22, [sp], #16
+                ldp x19, x20, [sp], #16
 
-                ret;
-            " : ; }
+                ret`,
+                ""
+            );
         }
         else
             static assert(false);
@@ -1682,32 +1682,32 @@ private:
         {
             version (StackGrowsDown) {} else static assert( false );
 
-            push( 0x00000000_00000000 );                            // lr
-            push( 0x00000000_00000000 );                            // fp
+            push( 0x00000000_00000000 );                            // another stack frame is needed
+            push( 0x00000000_00000000 );                            // to catch exceptions in fiber_entryPoint
             auto nextfp = pstack;
 
-            push( 0x00000000_00000000 );                            // X19
             push( 0x00000000_00000000 );                            // X20
-            push( 0x00000000_00000000 );                            // X21
+            push( 0x00000000_00000000 );                            // X19
             push( 0x00000000_00000000 );                            // X22
-            push( 0x00000000_00000000 );                            // X23
+            push( 0x00000000_00000000 );                            // X21
             push( 0x00000000_00000000 );                            // X24
-            push( 0x00000000_00000000 );                            // X25
+            push( 0x00000000_00000000 );                            // X23
             push( 0x00000000_00000000 );                            // X26
-            push( 0x00000000_00000000 );                            // X27
+            push( 0x00000000_00000000 );                            // X25
             push( 0x00000000_00000000 );                            // X28
+            push( 0x00000000_00000000 );                            // X27
             push( cast(size_t) &fiber_entryPoint );                 // X30 (lr)
             push( cast(size_t) nextfp );                            // X29 (fp)
-            push( 0x00000000_00000000 );                            // V8 (low)
             push( 0x00000000_00000000 );                            // V9 (low)
-            push( 0x00000000_00000000 );                            // V10 (low)
+            push( 0x00000000_00000000 );                            // V8 (low)
             push( 0x00000000_00000000 );                            // V11 (low)
-            push( 0x00000000_00000000 );                            // V12 (low)
+            push( 0x00000000_00000000 );                            // V10 (low)
             push( 0x00000000_00000000 );                            // V13 (low)
-            push( 0x00000000_00000000 );                            // V14 (low)
+            push( 0x00000000_00000000 );                            // V12 (low)
             push( 0x00000000_00000000 );                            // V15 (low)
-            push( cast(size_t) m_ctxt.bstack - m_size );            // x18[16]
-            push( cast(size_t) m_ctxt.bstack );                     // x18[8] (X18 is TEB)
+            push( 0x00000000_00000000 );                            // V14 (low)
+            push( cast(size_t) m_ctxt.bstack - m_size );            // StackLimit x18[16] (X18 is TEB)
+            push( cast(size_t) m_ctxt.bstack );                     // StackBase  x18[8]
             push( 0x00000000_00000000 );                            // GuaranteedStackBytes
             push( cast(size_t) m_ctxt.bstack - m_size );            // DeallocationStack
 
