@@ -342,17 +342,14 @@ void ld_setull(longdouble_soft* pthis, ulong d)
     {
         // emulator accuracy not good enough when running on Windows on ARM,
         // so avoid chopping off small numbers
-        version(LDC)
+        if (!(d & (1L << 63)))
         {
-            if (!(d & (1L << 63)))
+            asm nothrow @nogc pure @trusted
             {
-                asm nothrow @nogc pure @trusted
-                {
-                    fild qword ptr d;
-                }
-                mixin(fstp_parg!("pthis"));
-                return;
+                fild qword ptr d;
             }
+            mixin(fstp_parg!("pthis"));
+            return;
         }
         d ^= (1L << 63);
         auto pTwoPow63 = &twoPow63;
