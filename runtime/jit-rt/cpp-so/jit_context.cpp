@@ -18,6 +18,9 @@
 
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ExecutionEngine/JITLink/EHFrameSupport.h"
+#if LDC_LLVM_VER >= 2000 && defined(LDC_JITRT_USE_JITLINK)
+#include "llvm/ExecutionEngine/Orc/EHFrameRegistrationPlugin.h"
+#endif
 #include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
 #include "llvm/ExecutionEngine/Orc/ObjectTransformLayer.h"
 #include "llvm/IR/LLVMContext.h"
