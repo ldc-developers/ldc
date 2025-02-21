@@ -83,6 +83,7 @@ llvm::Type *getRealType(const llvm::Triple &triple) {
 
   case Triple::riscv32:
   case Triple::riscv64:
+  case Triple::systemz:
 #if LDC_LLVM_VER >= 1600
   case Triple::loongarch32:
   case Triple::loongarch64:
@@ -120,7 +121,6 @@ llvm::Type *getRealType(const llvm::Triple &triple) {
 
   default:
     // 64-bit double precision for all other targets
-    // FIXME: SystemZ, ...
     return LLType::getDoubleTy(ctx);
   }
 }
@@ -324,6 +324,11 @@ const char *TargetCPP::typeMangle(Type *t) {
       }
     }
 
+    // `long double` on SystemZ is __float128 and mangled as `g`
+    if (triple.getArch() == llvm::Triple::systemz) {
+      return "g";
+    }
+
     return "e";
   }
 
@@ -339,6 +344,8 @@ TypeTuple *Target::toArgTypes(Type *t) {
     return toArgTypes_sysv_x64(t);
   if (arch == llvm::Triple::aarch64 || arch == llvm::Triple::aarch64_be)
     return toArgTypes_aarch64(t);
+  if (arch == llvm::Triple::systemz)
+    return toArgTypes_s390x(t);
   return nullptr;
 }
 
