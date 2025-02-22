@@ -1,8 +1,11 @@
 cmake_minimum_required(VERSION 3.16.0)
 project(runtime C ASM)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
+cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH PROJECT_PARENT_DIR)
 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR} "${PROJECT_PARENT_DIR}/cmake/Modules")
+
+include(LdcCommon)
 include(CheckIncludeFile)
 
 # Verify required variables if this CMake project is NOT embedded in the LDC CMake project.
@@ -16,17 +19,6 @@ if(NOT LDC_EXE)
     if(NOT DEFINED LDC_WITH_LLD)
         message(FATAL_ERROR "Please define the CMake variable LDC_WITH_LLD.")
     endif()
-
-    # Helper function
-    function(append value)
-        foreach(variable ${ARGN})
-            if(${variable} STREQUAL "")
-                set(${variable} "${value}" PARENT_SCOPE)
-            else()
-                set(${variable} "${${variable}} ${value}" PARENT_SCOPE)
-            endif()
-        endforeach(variable)
-    endfunction()
 endif()
 
 #
@@ -272,103 +264,137 @@ endif()
 # Create configuration files.
 #
 
-# Default -rpath linker option when linking against shared libraries.
-if(SHARED_LIBS_SUPPORTED)
-    set(SHARED_LIBS_RPATH         "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
-    set(SHARED_LIBS_INSTALL_RPATH "${CMAKE_INSTALL_LIBDIR}")
-endif()
+set(switches)
 
 # Only have either shared or static libs?
 # Then explicitly default to linking against them via default LDC switch.
 if(${BUILD_SHARED_LIBS} STREQUAL "ON")
-    set(ADDITIONAL_DEFAULT_LDC_SWITCHES "${ADDITIONAL_DEFAULT_LDC_SWITCHES}\n        \"-link-defaultlib-shared\",")
+    set(switches "-link-defaultlib-shared")
 elseif(${BUILD_SHARED_LIBS} STREQUAL "OFF")
-    set(ADDITIONAL_DEFAULT_LDC_SWITCHES "${ADDITIONAL_DEFAULT_LDC_SWITCHES}\n        \"-link-defaultlib-shared=false\",")
+    set(switches "-link-defaultlib-shared=false")
 endif()
 
 # LLVM 16: Disable function specializations by default.
 # They cause miscompiles of e.g. the frontend for some targets (macOS x86_64 and Windows x64).
 if(LDC_LLVM_VER GREATER 1599 AND LDC_LLVM_VER LESS 1700)
-    set(ADDITIONAL_DEFAULT_LDC_SWITCHES "${ADDITIONAL_DEFAULT_LDC_SWITCHES}\n        \"-func-specialization-size-threshold=1000000000\",")
+    list(APPEND switches "-func-specialization-size-threshold=1000000000")
 endif()
 
+list(APPEND switches "-defaultlib=phobos2-ldc,druntime-ldc")
+
+# Directory filled with auto-generated import files
+set(LDC_GCCBUILTINS_IMPORT_DIR "${CMAKE_BINARY_DIR}/import")
+set(build_post_switches
+    "-I${RUNTIME_DIR}/src"
+    "-I${LDC_GCCBUILTINS_IMPORT_DIR}"
+    "-I${JITRT_DIR}/d"
+)
+if(PHOBOS2_DIR)
+    list(APPEND build_post_switches "-I${PHOBOS2_DIR}")
+endif()
+set(install_post_switches "-I${INCLUDE_INSTALL_DIR}")
+
+set(build_libdir "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
+set(install_libdir "${CMAKE_INSTALL_LIBDIR}")
+
+# Default -rpath linker option when linking against shared libraries.
+if(SHARED_LIBS_SUPPORTED)
+    set(build_rpath   "${build_libdir}")
+    set(install_rpath "${install_libdir}")
+endif()
+
+makeConfSection(NAME "30-ldc-runtime-lib${LIB_SUFFIX}"
+    SECTION "default"
+
+    BUILD
+    SWITCHES ${switches}
+    POST_SWITCHES OVERRIDE ${build_post_switches}
+    LIB_DIRS OVERRIDE ${build_libdir}
+    RPATH ${build_rpath}
+
+    INSTALL
+    SWITCHES ${switches}
+    POST_SWITCHES OVERRIDE ${install_post_switches}
+    LIB_DIRS OVERRIDE ${install_libdir}
+    RPATH ${install_rpath}
+)
+
+set(wasm_switches -defaultlib=)
 # Default wasm stack is only 64kb, this is rather small, let's bump it to 1mb
-set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"-L-z\", \"-Lstack-size=1048576\",")
+list(APPEND wasm_switches -L-z -Lstack-size=1048576)
 # Protect from stack overflow overwriting global memory
-set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"-L--stack-first\",")
+list(APPEND wasm_switches -L--stack-first)
 if(LDC_WITH_LLD)
-    set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"-link-internally\",")
+    list(APPEND wasm_switches -link-internally)
 endif()
 # LLD 8+ requires (new) `--export-dynamic` for WebAssembly (https://github.com/ldc-developers/ldc/issues/3023).
-set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"-L--export-dynamic\",")
+list(APPEND wasm_switches -L--export-dynamic)
 
-# Note: normally inherited from LDC CMake parent build, and only needed for ldc2_install.conf
-set(INCLUDE_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/include/d" CACHE PATH "Path the D modules are installed to")
-
-# Note: default value only works if embedded in LDC CMake parent build, but only needed for ImportC (__importc_builtins.di) and non-install ldc2.conf
-set(LDC_GCCBUILTINS_IMPORT_DIR "${CMAKE_BINARY_DIR}/import" CACHE PATH "Directory filled with auto-generated ldc/gccbuiltins_*.di files")
-
-# Generate .conf files
-if(LDC_EXE)
-    set(CONFIG_BASE ${LDC_EXE})
-else() # not included from LDC parent build
-    set(CONFIG_BASE ldc2)
-endif()
-if(PHOBOS2_DIR)
-    set(CONFIG_NAME ${CONFIG_BASE}_phobos)
-else()
-    set(CONFIG_NAME ${CONFIG_BASE})
-endif()
-set(conf_path         ${CMAKE_BINARY_DIR}/etc/${CONFIG_BASE}.conf)
-set(install_conf_path ${CMAKE_BINARY_DIR}/etc/${CONFIG_BASE}_install.conf)
-configure_file(${PROJECT_SOURCE_DIR}/../${CONFIG_NAME}.conf.in ${conf_path} @ONLY)
-configure_file(${PROJECT_SOURCE_DIR}/../${CONFIG_BASE}_install.conf.in ${install_conf_path} @ONLY)
+makeConfSection(NAME "40-ldc-wasm"
+    SECTION "^wasm(32|64)-"
+    SWITCHES ${wasm_switches}
+    LIB_DIRS OVERRIDE
+)
 
 # macOS has fat libraries; otherwise, append a separate config file section for the
 # multilib target and override the lib directory.
 if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
-    # Rename the just configured host-only *.conf files to *.conf.in during CMake invocation.
-    file(RENAME ${conf_path} ${conf_path}.in)
-    file(RENAME ${install_conf_path} ${install_conf_path}.in)
+    set(build_libdir "${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}")
+    set(install_libdir "${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}")
+    if(SHARED_LIBS_SUPPORTED)
+        set(build_rpath   "${build_libdir}")
+        set(install_rpath "${install_libdir}")
+    endif()
 
-    set(MULTILIB_DIR         "${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}")
-    set(MULTILIB_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}")
+    set(name "31-ldc-runtime-lib${MULTILIB_SUFFIX}")
+    set(sectionPlaceholder "LDC_CONF_MULTILIB_TRIPLE_REGEX")
+    makeConfSection(NAME "${name}"
+        SECTION "${sectionPlaceholder}"
+        BUILD
+        LIB_DIRS OVERRIDE ${build_libdir}
+        RPATH ${build_rpath}
+        INSTALL
+        LIB_DIRS OVERRIDE ${install_libdir}
+        RPATH ${install_rpath}
+    )
 
-    # The helper script determines the multilib triple by parsing the
-    # `ldc2 -m32 -v` output. This means we depend on a built ldc2
-    # executable; sadly, we cannot add post-build commands to that
-    # top-level target directly, so use a custom target (built as part
-    # of `all`) to finalize the 2 config files.
-    add_custom_command(OUTPUT ${conf_path} VERBATIM
-        COMMAND ${PROJECT_SOURCE_DIR}/../tools/add-multilib-section.sh
-                ${LDC_EXE_FULL}
-                ${MULTILIB_SUFFIX}
-                ${MULTILIB_DIR}
-                "$<$<BOOL:${SHARED_LIBS_SUPPORTED}>:${MULTILIB_DIR}>"
-                ${conf_path}.in
-                ${conf_path}
-        DEPENDS ${LDC_EXE_FULL}
-    )
-    add_custom_command(OUTPUT ${install_conf_path} VERBATIM
-        COMMAND ${PROJECT_SOURCE_DIR}/../tools/add-multilib-section.sh
-                ${LDC_EXE_FULL}
-                ${MULTILIB_SUFFIX}
-                ${MULTILIB_INSTALL_DIR}
-                "$<$<BOOL:${SHARED_LIBS_SUPPORTED}>:${MULTILIB_INSTALL_DIR}>"
-                ${install_conf_path}.in
-                ${install_conf_path}
-        DEPENDS ${LDC_EXE_FULL}
-    )
-    add_custom_target(add-multilib-section ALL
-        DEPENDS ${conf_path} ${install_conf_path}
-    )
+    set(build_conf "${LDC_BUILD_CONF}/${name}.conf")
+    set(install_conf "${LDC_INSTALL_CONF}/${name}.conf")
+    set(confs "${build_conf}" "${install_conf}")
+    foreach(conf ${confs})
+        # Rename the just-generated config files in order to replace sectionPlaceholder
+        file(RENAME "${conf}" "${conf}.in")
+        set(fill_cmd
+            "${PROJECT_PARENT_DIR}/tools/fill-multilib-triple.sh"
+            "${conf}.in"
+            "${conf}"
+            "${sectionPlaceholder}"
+            # Next arguments are a compiler invocation for the desired triple
+            "${LDC_EXE_FULL}" -m${MULTILIB_SUFFIX}
+        )
+        if(LDC_EXE)
+            # We need to get the -m32 target triple but the compiler
+            # is not built yet. We can't depend on LDC_EXE since that
+            # would cause a cycle so pass-through the needed commands
+            # up to the root project and let it run them as POST_BUILD
+            # commands. This avoids adding the config_files as
+            # transitive dependencies to all compiled D files.
+            #
+            # The `COMMAND` comes from the syntax of
+            # add_custom_command. `BYPRODUCTS` is needed by ninja
+            # because it needs to know which command generates the
+            # config files that will be installed.
+            list(APPEND _LDC_POST_BUILD_COMMANDS "COMMAND" ${fill_cmd})
+            list(APPEND _LDC_POST_BUILD_BYPRODUCTS "${conf}")
+        else()
+            execute_process(COMMAND ${fill_cmd})
+        endif()
+    endforeach()
 endif()
 
-if(NOT DEFINED CONF_INST_DIR) # set by parent LDC build
-    set(CONF_INST_DIR "${CMAKE_INSTALL_PREFIX}/etc")
-endif()
-if(NOT CONF_INST_DIR STREQUAL "") # allow skipping the ldc2.conf installation
-    install(FILES ${install_conf_path} DESTINATION ${CONF_INST_DIR} RENAME ${CONFIG_BASE}.conf)
+if(LDC_EXE)
+    set(_LDC_POST_BUILD_COMMANDS "${_LDC_POST_BUILD_COMMANDS}" PARENT_SCOPE)
+    set(_LDC_POST_BUILD_BYPRODUCTS "${_LDC_POST_BUILD_BYPRODUCTS}" PARENT_SCOPE)
 endif()
 
 #
@@ -426,10 +452,6 @@ macro(dc src_files src_basedir d_flags output_basedir emit_bc all_at_once single
     # dc_deps can only contain paths, otherwise cmake will ignore the dependency.
     # See: https://github.com/ldc-developers/ldc/pull/4743#issuecomment-2323156173
     set(dc_deps ${LDC_EXE_FULL})
-    if(TARGET add-multilib-section)
-        # Make sure the config files are available before invoking LDC.
-        set(dc_deps ${dc_deps} add-multilib-section)
-    endif()
 
     set(relative_src_files "")
     set(new_o "")

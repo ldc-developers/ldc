@@ -41,8 +41,8 @@ runs:
         # ldc2.conf:
         # 1) make a backup copy
         cp etc/ldc2.conf /tmp/ldc2.conf.bak
-        # 2) strip to the header comments (remove all existing sections, only keep `default:` line)
-        sed -i '' '/^default:$/q' etc/ldc2.conf
+        # 2) strip to the header comments (remove all existing sections, only keep `default:` or `"default":` line)
+        sed -E -i '' '/^"?default"?:$/q' etc/ldc2.conf
         # 3) append all sections (except for wasm)
         cat >>etc/ldc2.conf <<EOF
         {

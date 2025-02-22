@@ -17,22 +17,13 @@ project(ldc)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
+include(LdcCommon)
+
 include(FindDCompiler)
 include(CheckCXXCompilerFlag)
 include(CheckDSourceCompiles)
 include(CheckLinkFlag)
 include(BuildDExecutable)
-
-# Helper function
-function(append value)
-    foreach(variable ${ARGN})
-        if(${variable} STREQUAL "")
-            set(${variable} "${value}" PARENT_SCOPE)
-        else()
-            set(${variable} "${${variable}} ${value}" PARENT_SCOPE)
-        endif()
-    endforeach(variable)
-endfunction()
 
 #
 # Locate LLVM.
@@ -128,21 +119,9 @@ set(DMDFE_PATCH_VERSION   0)
 
 set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERSION})
 
-# Generally, we want to install everything into CMAKE_INSTALL_PREFIX, but when
-# it is /usr, put the config files into /etc to meet common practice.
-if(NOT DEFINED SYSCONF_INSTALL_DIR)
-    if(CMAKE_INSTALL_PREFIX STREQUAL "/usr")
-        set(SYSCONF_INSTALL_DIR "/etc")
-    else()
-        set(SYSCONF_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/etc")
-    endif()
-endif()
-
 set(D_VERSION ${DMDFE_MAJOR_VERSION} CACHE STRING "D language version")
 set(PROGRAM_PREFIX "" CACHE STRING "Prepended to ldc/ldmd binary names")
 set(PROGRAM_SUFFIX "" CACHE STRING "Appended to ldc/ldmd binary names")
-set(CONF_INST_DIR ${SYSCONF_INSTALL_DIR} CACHE PATH "Directory ldc2.conf is installed to")
-set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/include/d CACHE PATH "Path to install D modules to")
 
 # Note: LIB_SUFFIX should perhaps be renamed to LDC_LIBDIR_SUFFIX.
 set(LIB_SUFFIX "" CACHE STRING "Appended to the library installation directory. Set to '64' to install libraries into ${PREFIX}/lib64.")
@@ -925,7 +904,7 @@ if(NOT DEFINED COMPILER_RT_LIBDIR_CONFIG)
 endif()
 if(DEFINED COMPILER_RT_LIBDIR_CONFIG)
     message(STATUS "Adding ${COMPILER_RT_LIBDIR_CONFIG} to lib-dirs in configuration file")
-    set(OPTIONAL_COMPILER_RT_DIR "\n        \"${COMPILER_RT_LIBDIR_CONFIG}\", // compiler-rt directory")
+    makeConfSection(NAME "35-ldc-compiler-rt" SECTION "default" LIB_DIRS "${COMPILER_RT_LIBDIR}")
 endif()
 
 #
@@ -1006,6 +985,15 @@ option(LDC_BUILD_RUNTIME "Build the runtime libraries" ${_LDC_BUILD_RUNTIME_DEFA
 
 if(LDC_BUILD_RUNTIME)
     add_subdirectory(runtime)
+
+    # POST_BUILD can't be used for targets in a different directory so
+    # runtime/CMakeLists.txt can't directly add the commands.
+    if(_LDC_POST_BUILD_COMMANDS)
+        add_custom_command(TARGET ${LDC_EXE} POST_BUILD
+            ${_LDC_POST_BUILD_COMMANDS}
+            BYPRODUCTS ${_LDC_POST_BUILD_BYPRODUCTS}
+        )
+    endif()
 else()
     message(STATUS "NOT building the runtime libraries (LDC_BUILD_RUNTIME=OFF)")
 endif()
@@ -1043,6 +1031,11 @@ if(${BUILD_SHARED})
     # While it might theoretically be possible to use LDC as a static library
     # as well, for the time being this just bloats the normal packages.
     install(TARGETS ${LDC_LIB} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
+endif()
+
+# Add some documentation to the installed config files
+if(NOT DONT_INSTALL_CONF)
+    install(FILES "ldc2.conf.header" DESTINATION "${CONF_INST_DIR}/ldc2.conf" RENAME 00-docs.conf)
 endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
