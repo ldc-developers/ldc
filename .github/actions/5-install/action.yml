@@ -50,8 +50,9 @@ runs:
           # /d/a/1/install => D:/a/1/install
           absInstallDir=$(cygpath --mixed "$absInstallDir")
         fi
-        perl -pi -e "s|$absInstallDir/|%%ldcbinarypath%%/../|g" install/etc/ldc2.conf
-        cat install/etc/ldc2.conf
+        confs=( install/etc/ldc2.conf/* )
+        perl -pi -e "s|$absInstallDir/|%%ldcbinarypath%%/../|g" "${confs[@]}"
+        cat "${confs[@]}"
 
     - name: Rename the installation dir to test portability
       shell: bash
