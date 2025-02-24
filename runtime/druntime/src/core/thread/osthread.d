@@ -1931,6 +1931,8 @@ private extern (D) bool suspend( Thread t ) nothrow @nogc
 
             t.m_reg[31] = context.Sp;
             t.m_reg[32] = context.Pc;
+            if ( !t.m_lock )
+                t.m_curr.tstack = cast(void*) context.Sp;
         }
         else
         {
