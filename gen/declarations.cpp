@@ -253,9 +253,12 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE;
 
-    if (decl->ir->isDefined()) {
+    if (decl->ir->isDefined())
       return;
-    }
+
+    // skip external declarations (IR-declared lazily)
+    if (decl->storage_class & STCextern)
+      return;
 
     if (decl->type->ty == TY::Terror) {
       error(decl->loc, "%s `%s` had semantic errors when compiling",
