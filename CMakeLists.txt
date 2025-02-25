@@ -122,6 +122,7 @@ set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERS
 set(D_VERSION ${DMDFE_MAJOR_VERSION} CACHE STRING "D language version")
 set(PROGRAM_PREFIX "" CACHE STRING "Prepended to ldc/ldmd binary names")
 set(PROGRAM_SUFFIX "" CACHE STRING "Appended to ldc/ldmd binary names")
+set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/include/d CACHE PATH "Path to install D modules to")
 
 # Note: LIB_SUFFIX should perhaps be renamed to LDC_LIBDIR_SUFFIX.
 set(LIB_SUFFIX "" CACHE STRING "Appended to the library installation directory. Set to '64' to install libraries into ${PREFIX}/lib64.")
@@ -902,10 +903,6 @@ if(NOT DEFINED COMPILER_RT_LIBDIR_CONFIG)
         set(COMPILER_RT_LIBDIR_CONFIG "${COMPILER_RT_LIBDIR}")
     endif()
 endif()
-if(DEFINED COMPILER_RT_LIBDIR_CONFIG)
-    message(STATUS "Adding ${COMPILER_RT_LIBDIR_CONFIG} to lib-dirs in configuration file")
-    makeConfSection(NAME "35-ldc-compiler-rt" SECTION "default" LIB_DIRS "${COMPILER_RT_LIBDIR}")
-endif()
 
 #
 # Auxiliary build and test utils.
@@ -952,6 +949,59 @@ endif()
 # Auxiliary tools.
 #
 add_subdirectory(tools)
+
+#
+# Compiler ldc2.conf configuration
+#
+
+set(switches)
+
+# LLVM 16: Disable function specializations by default.
+# They cause miscompiles of e.g. the frontend for some targets (macOS x86_64 and Windows x64).
+if(LDC_LLVM_VER GREATER 1599 AND LDC_LLVM_VER LESS 1700)
+    list(APPEND switches "-func-specialization-size-threshold=1000000000")
+endif()
+
+if(DEFINED COMPILER_RT_LIBDIR_CONFIG)
+    message(STATUS "Adding ${COMPILER_RT_LIBDIR_CONFIG} to lib-dirs in configuration file")
+endif()
+
+list(APPEND switches "-defaultlib=phobos2-ldc,druntime-ldc")
+
+makeConfSection(NAME "35-ldc-compiler" SECTION "default"
+    BUILD
+    SWITCHES ${switches}
+    # -defaultlib is configure in runtime/CMakeLists.txt
+    POST_SWITCHES
+        "-I${PROJECT_SOURCE_DIR}/runtime/druntime/src"
+        "-I${PROJECT_BINARY_DIR}/import"
+        "-I${PROJECT_SOURCE_DIR}/runtime/phobos"
+        "-I${PROJECT_SOURCE_DIR}/runtime/jit-rt/d"
+    LIB_DIRS ${COMPILER_RT_LIBDIR_CONFIG}
+
+    INSTALL
+    SWITCHES ${switches}
+    POST_SWITCHES "-I${INCLUDE_INSTALL_DIR}"
+    LIB_DIRS ${COMPILER_RT_LIBDIR_CONFIG}
+)
+
+set(wasm_switches)
+list(APPEND wasm_switches -defaultlib=)
+# Default wasm stack is only 64kb, this is rather small, let's bump it to 1mb
+list(APPEND wasm_switches -L-z -Lstack-size=1048576)
+# Protect from stack overflow overwriting global memory
+list(APPEND wasm_switches -L--stack-first)
+if(LDC_WITH_LLD)
+    list(APPEND wasm_switches -link-internally)
+endif()
+# LLD 8+ requires (new) `--export-dynamic` for WebAssembly (https://github.com/ldc-developers/ldc/issues/3023).
+list(APPEND wasm_switches -L--export-dynamic)
+
+makeConfSection(NAME "40-ldc-wasm"
+    SECTION "^wasm(32|64)-"
+    SWITCHES ${wasm_switches}
+    LIB_DIRS OVERRIDE
+)
 
 #
 # Test and runtime targets. Note that enable_testing() is order-sensitive!

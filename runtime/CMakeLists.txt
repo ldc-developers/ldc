@@ -16,9 +16,6 @@ if(NOT LDC_EXE)
     if(NOT DEFINED DMDFE_MINOR_VERSION OR NOT DEFINED DMDFE_PATCH_VERSION)
         message(FATAL_ERROR "Please define the CMake variables DMDFE_MINOR_VERSION and DMDFE_PATCH_VERSION.")
     endif()
-    if(NOT DEFINED LDC_WITH_LLD)
-        message(FATAL_ERROR "Please define the CMake variable LDC_WITH_LLD.")
-    endif()
 endif()
 
 #
@@ -274,26 +271,6 @@ elseif(${BUILD_SHARED_LIBS} STREQUAL "OFF")
     set(switches "-link-defaultlib-shared=false")
 endif()
 
-# LLVM 16: Disable function specializations by default.
-# They cause miscompiles of e.g. the frontend for some targets (macOS x86_64 and Windows x64).
-if(LDC_LLVM_VER GREATER 1599 AND LDC_LLVM_VER LESS 1700)
-    list(APPEND switches "-func-specialization-size-threshold=1000000000")
-endif()
-
-list(APPEND switches "-defaultlib=phobos2-ldc,druntime-ldc")
-
-# Directory filled with auto-generated import files
-set(LDC_GCCBUILTINS_IMPORT_DIR "${CMAKE_BINARY_DIR}/import")
-set(build_post_switches
-    "-I${RUNTIME_DIR}/src"
-    "-I${LDC_GCCBUILTINS_IMPORT_DIR}"
-    "-I${JITRT_DIR}/d"
-)
-if(PHOBOS2_DIR)
-    list(APPEND build_post_switches "-I${PHOBOS2_DIR}")
-endif()
-set(install_post_switches "-I${INCLUDE_INSTALL_DIR}")
-
 set(build_libdir "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
 set(install_libdir "${CMAKE_INSTALL_LIBDIR}")
 
@@ -308,32 +285,13 @@ makeConfSection(NAME "30-ldc-runtime-lib${LIB_SUFFIX}"
 
     BUILD
     SWITCHES ${switches}
-    POST_SWITCHES OVERRIDE ${build_post_switches}
     LIB_DIRS OVERRIDE ${build_libdir}
     RPATH ${build_rpath}
 
     INSTALL
     SWITCHES ${switches}
-    POST_SWITCHES OVERRIDE ${install_post_switches}
     LIB_DIRS OVERRIDE ${install_libdir}
     RPATH ${install_rpath}
-)
-
-set(wasm_switches -defaultlib=)
-# Default wasm stack is only 64kb, this is rather small, let's bump it to 1mb
-list(APPEND wasm_switches -L-z -Lstack-size=1048576)
-# Protect from stack overflow overwriting global memory
-list(APPEND wasm_switches -L--stack-first)
-if(LDC_WITH_LLD)
-    list(APPEND wasm_switches -link-internally)
-endif()
-# LLD 8+ requires (new) `--export-dynamic` for WebAssembly (https://github.com/ldc-developers/ldc/issues/3023).
-list(APPEND wasm_switches -L--export-dynamic)
-
-makeConfSection(NAME "40-ldc-wasm"
-    SECTION "^wasm(32|64)-"
-    SWITCHES ${wasm_switches}
-    LIB_DIRS OVERRIDE
 )
 
 # macOS has fat libraries; otherwise, append a separate config file section for the
