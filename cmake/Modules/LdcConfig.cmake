@@ -229,7 +229,5 @@ else()
     set(DONT_INSTALL_CONF FALSE)
 endif()
 
-set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/include/d CACHE PATH "Path to install D modules to")
-
 defineIfUnset(LDC_BUILD_CONF "${CMAKE_BINARY_DIR}/etc/ldc2.conf")
 defineIfUnset(LDC_INSTALL_CONF "${CMAKE_BINARY_DIR}/etc/ldc2_install.conf")
