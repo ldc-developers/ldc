@@ -148,4 +148,4 @@ jobs:
           else
             N=$(nproc)
           fi
-          ctest -j$N --output-on-failure -E "$excludes"
+          ctest -j$N --output-on-failure -E "$excludes" --timeout 120
