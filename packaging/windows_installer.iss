@@ -29,14 +29,16 @@ SolidCompression=yes
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-Source: "{#LDCDir}\*"; Excludes: "\lib32,\lib64"; DestDir: "{app}"; Components: core; Flags: ignoreversion recursesubdirs
+Source: "{#LDCDir}\*"; Excludes: "\lib32,\lib64,\libarm64"; DestDir: "{app}"; Components: core; Flags: ignoreversion recursesubdirs
 Source: "{#LDCDir}\lib64\*"; DestDir: "{app}\lib64"; Components: lib64; Flags: ignoreversion recursesubdirs
 Source: "{#LDCDir}\lib32\*"; DestDir: "{app}\lib32"; Components: lib32; Flags: ignoreversion recursesubdirs
+Source: "{#LDCDir}\libarm64\*"; DestDir: "{app}\libarm64"; Components: libarm64; Flags: ignoreversion recursesubdirs
 
 [Components]
 Name: core; Description: "Executables, config file and imports"; Types: full compact custom; Flags: fixed
 Name: lib64; Description: "x64 libraries"; Types: full compact
 Name: lib32; Description: "x86 libraries"; Types: full
+Name: libarm64; Description: "arm64 libraries"; Types: full
 
 [Run]
 ; note: not added to PATH for silent installs with /SILENT or /VERYSILENT
