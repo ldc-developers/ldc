@@ -377,6 +377,10 @@ class Thread : ThreadBase
             ulong[16]       m_reg; // rdi,rsi,rbp,rsp,rbx,rdx,rcx,rax
                                    // r8,r9,r10,r11,r12,r13,r14,r15
         }
+        else version (AArch64)
+        {
+            ulong[33]       m_reg; // x0-x31, pc
+        }
         else
         {
             static assert(false, "Architecture not supported." );
@@ -1760,6 +1764,8 @@ version (LDC_Windows)
             return __asm!(void*)("mov %fs:(4), $0", "=r");
         else version (X86_64)
             return __asm!(void*)("mov %gs:0($1), $0", "=r,r", 8);
+        else version (AArch64)
+            return __asm!(void*)("ldr $0, [x18,$1]", "=r,r", 8);
         else
             static assert(false, "Architecture not supported.");
     }
@@ -1917,6 +1923,16 @@ private extern (D) bool suspend( Thread t ) nothrow @nogc
             t.m_reg[13] = context.R13;
             t.m_reg[14] = context.R14;
             t.m_reg[15] = context.R15;
+        }
+        else version (AArch64)
+        {
+            for( int i = 0; i < 31; i++ )
+                t.m_reg[i] = context.X[i];
+
+            t.m_reg[31] = context.Sp;
+            t.m_reg[32] = context.Pc;
+            if ( !t.m_lock )
+                t.m_curr.tstack = cast(void*) context.Sp;
         }
         else
         {

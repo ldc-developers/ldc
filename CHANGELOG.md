@@ -9,6 +9,7 @@
 #### Platform support
 - Supports LLVM 15 - 19.
 - Initial compiler and runtime support for ppc64 and ppc64le systems that use IEEE 754R 128-bit floating-point as the default 128-bit floating-point format. (#4833)
+- Added support for building for Windows on ARM64. Use option '-march=arm64' to compile, 'ldc-build-runtime.exe --dFlags -march=arm64' to build the runtime libraries. (#4835)
 
 #### Bug fixes
 - Building multi-file D applications with control-flow protection will no longer cause LDC to throw an internal compiler error. (#4828)
