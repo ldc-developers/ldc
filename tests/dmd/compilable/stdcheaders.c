@@ -2,6 +2,17 @@
  * Many platforms do not support all the C Standard headers.
  */
 
+/* LDC defaults to clang-cl (if available) as preprocessor on Windows, which for
+ * this test causes importC trouble starting with the MSVC v17.13 headers, wrt.
+ * `__declspec(_Noreturn)`, `_Float16`, `__bf16`, `unsigned __int128` etc.
+ *
+ * => use Microsoft's cl.exe as preprocessor
+ * REQUIRED_ARGS(windows): -gcc=cl
+ *
+ * => ignore cl.exe printing the preprocessed filename (auto-suppressed by DMD)
+ * TRANSFORM_OUTPUT(windows): remove_lines("^stdcheaders\.c$")
+ */
+
 #include <assert.h>
 
 #include <complex.h>
