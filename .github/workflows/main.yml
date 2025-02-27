@@ -317,11 +317,14 @@ jobs:
 
   merge-windows:
     name: Windows multilib
-    runs-on: windows-latest
+    runs-on: windows-2022
     timeout-minutes: 30
     needs: build-native
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 50
       - name: Merge x64 & x86 packages to multilib one & build installer
         uses: ./.github/actions/merge-windows
 

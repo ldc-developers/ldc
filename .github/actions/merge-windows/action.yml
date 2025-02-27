@@ -31,7 +31,7 @@ runs:
         $conf32 = "`r`n""i[3-6]86-.*-windows-msvc"":" + $conf32.Substring($conf32.IndexOf("`r`ndefault:") + 10)
         $conf32 = $conf32.Substring(0, $conf32.IndexOf("`r`n};`r`n") + 6)
         $conf32 = $conf32.Replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib32')
-        Add-Content etc\ldc2.conf $conf32
+        Add-Content etc\ldc2.conf $conf32 -NoNewline
         cat etc\ldc2.conf
 
     - name: Generate hello.d
@@ -62,6 +62,49 @@ runs:
         ldc2-multilib\bin\ldc2 -link-defaultlib-shared -run hello.d || exit /b
         set PATH=%CD%\ldc2-multilib\lib32;%PATH%
         ldc2-multilib\bin\ldc2 -link-defaultlib-shared -m32 -run hello.d || exit /b
+
+    # preliminary arm64 cross-compilation support
+    - name: Install ninja v1.12.1
+      uses: Ahajha/gha-setup-ninja@69595b0cf872acdad8ce599142fbdc88724b9a2b
+    - name: Set VSDIR env variable
+      shell: bash
+      run: echo "VSDIR=$(vswhere -latest -property installationPath)" >> $GITHUB_ENV
+    - name: Cross-compile arm64 libraries
+      shell: cmd
+      run: |
+        echo on
+        call "%VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=arm64 -host_arch=x64 || exit /b
+        echo on
+        ldc2-multilib\bin\ldc-build-runtime --ninja ^
+          --buildDir=build-libs-arm64 ^
+          --dFlags=-mtriple=aarch64-windows-msvc ^
+          "--ldcSrcDir=%CD%" ^
+          BUILD_LTO_LIBS=ON
+    - name: Copy arm64 libraries
+      shell: bash
+      run: |
+        set -eux
+        cp -R build-libs-arm64/lib ldc2-multilib/libarm64
+        rm ldc2-multilib/libarm64/*.{exp,ilk}
+        rm ldc2-multilib/libarm64/{druntime,phobos2}-ldc-shared.pdb
+    - name: Add arm64 section to ldc2.conf
+      shell: pwsh
+      run: |
+        cd ldc2-multilib
+        $conf64 = cat etc\ldc2.conf -Raw
+        $conf64 = "`r`n""(aarch|arm)64-.*-windows-msvc"":" + $conf64.Substring($conf64.IndexOf("`r`ndefault:") + 10)
+        $conf64 = $conf64.Substring(0, $conf64.IndexOf("`r`n};`r`n") + 6)
+        $conf64 = $conf64.Replace('%%ldcbinarypath%%/../lib64', '%%ldcbinarypath%%/../libarm64')
+        Add-Content etc\ldc2.conf $conf64 -NoNewline
+        cat etc\ldc2.conf
+    - name: Run arm64 hello-world cross-compilation smoke tests
+      shell: cmd
+      run: |
+        echo on
+        call "%VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=arm64 -host_arch=x64 || exit /b
+        echo on
+        ldc2-multilib\bin\ldc2 -mtriple=aarch64-windows-msvc hello.d || exit /b
+        ldc2-multilib\bin\ldc2 -mtriple=aarch64-windows-msvc -link-defaultlib-shared hello.d || exit /b
 
     - name: Pack multilib package
       shell: bash
