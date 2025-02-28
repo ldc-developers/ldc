@@ -486,7 +486,7 @@ else
 
 version (Darwin)
 {
-    extern(C) alias GetTLSAnchor = void* function() nothrow @nogc;
+    alias GetTLSAnchor = void* function() nothrow @nogc;
 }
 else version (Windows)
 {
