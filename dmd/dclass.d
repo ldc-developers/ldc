@@ -922,6 +922,8 @@ version (IN_LLVM) {} else
         .objc.addSymbols(this, classes, categories);
     }
 
+version (IN_LLVM) { /* not needed */ } else
+{
     // Back end
     Dsymbol vtblsym;
 
@@ -939,6 +941,7 @@ version (IN_LLVM) {} else
         }
         return vtblsym;
     }
+}
 
     extern (D) final bool isErrorException()
     {

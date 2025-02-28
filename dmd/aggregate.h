@@ -307,9 +307,11 @@ public:
 
     void addObjcSymbols(ClassDeclarations *classes, ClassDeclarations *categories) override final;
 
+#if !IN_LLVM
     // Back end
     Dsymbol *vtblsym;
     Dsymbol *vtblSymbol();
+#endif
 
     ClassDeclaration *isClassDeclaration() override final { return (ClassDeclaration *)this; }
     void accept(Visitor *v) override { v->visit(this); }
