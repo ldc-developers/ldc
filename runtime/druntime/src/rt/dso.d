@@ -78,7 +78,7 @@ version (Posix)
     version (Darwin)
     {
         align(16) byte tlsAnchor = 1;
-        extern(C) void* getTLSAnchor() nothrow @nogc
+        void* getTLSAnchor() nothrow @nogc
         {
             return &tlsAnchor;
         }
