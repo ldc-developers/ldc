@@ -1,6 +1,7 @@
 # LDC master
 
 #### Big news
+- Latest frontend and druntime patches from DMD stable (v2.110.0-rc.1+). (#4854)
 - LLVM for prebuilt packages bumped to v19.1.7. (#4822)
 - New prebuilt package for Alpine Linux x86_64 with musl libc. It's currently generated on Alpine v3.20, using its default LLVM 17. Most bundled executables are fully static and can be run on ~all distros. (#4826)
 - Revived dynamic-compile (JIT) functionality (formerly unsupported since LLVM 12), supporting LLVM 18+ now. (#4774)
