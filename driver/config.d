@@ -240,11 +240,9 @@ struct Parser
 
     void error(in string msg, int lineNum)
     {
-        enum fmt = "line %d: %.*s";
-        char[1024] buf;
-        auto len = snprintf(buf.ptr, buf.length, fmt,
-                            lineNum, cast(int) msg.length, msg.ptr);
-        throw new Exception(buf[0 .. len].idup);
+        char[20] buf = void;
+        auto len = snprintf(buf.ptr, buf.length, "line %d: ", lineNum);
+        throw new Exception((cast(string) buf[0 .. len]) ~ msg);
     }
 
     char getChar()
