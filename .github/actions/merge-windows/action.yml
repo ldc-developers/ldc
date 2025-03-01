@@ -21,7 +21,7 @@ runs:
         cd ldc2-multilib
         mv lib lib64
         cp -R ../ldc2-x86/lib lib32
-        cp ../ldc2-x86/bin/*.{dll,pdb} lib32/
+        cp ../ldc2-x86/bin/{*.dll,*.pdb,curl-ca-bundle.crt} lib32/
     - name: Merge ldc2.conf
       shell: pwsh
       run: |
@@ -105,6 +105,17 @@ runs:
         echo on
         ldc2-multilib\bin\ldc2 -mtriple=aarch64-windows-msvc hello.d || exit /b
         ldc2-multilib\bin\ldc2 -mtriple=aarch64-windows-msvc -link-defaultlib-shared hello.d || exit /b
+    - name: Add arm64 libcurl
+      shell: bash
+      run: |
+        set -eux
+        url='https://curl.se/windows/latest.cgi?p=win64a-mingw.zip'
+        curl -fL --retry 3 --max-time 60 -o libcurl.zip "$url"
+        7z x libcurl.zip >/dev/null
+        rm libcurl.zip
+        cp curl-*/bin/{libcurl*.dll,curl-ca-bundle.crt} ldc2-multilib/libarm64/
+        rm -rf curl-*
+        mv ldc2-multilib/libarm64/libcurl*.dll ldc2-multilib/libarm64/libcurl.dll
 
     - name: Pack multilib package
       shell: bash

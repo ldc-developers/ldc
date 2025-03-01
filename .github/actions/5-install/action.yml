@@ -67,8 +67,7 @@ runs:
         set -eux
         cd ..
 
-        cp libcurl/ldc2/libcurl.dll installed/bin/
-        cp libcurl/ldc2/*.* installed/lib/
+        cp libcurl/ldc2/* installed/bin/
 
         curl -fL --retry 3 --max-time 60 -o mingw-w64-libs.7z \
           https://github.com/ldc-developers/mingw-w64-libs/releases/download/v8.0.0/mingw-w64-libs-v8.0.0.7z
