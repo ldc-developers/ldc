@@ -30,42 +30,38 @@ string normalizeSlashes(const(char)* binDir)
     return cast(string)res; // assumeUnique
 }
 
-T findSetting(T, alias reducer)(GroupSetting[] sections, Setting.Type type, string name)
+const(string)[] findArraySetting(GroupSetting[] sections, string name)
 {
-    T result = null;
+    const(string)[] result = null;
     foreach (section; sections)
     {
         foreach (c; section.children)
         {
-            if (c.type == type && c.name == name)
+            if (c.type == Setting.Type.array && c.name == name)
             {
-                if (result !is null)
-                    result = reducer(result, cast(T) c);
+                auto as = cast(ArraySetting) c;
+                if (as.isAppending)
+                    result ~= as.vals;
                 else
-                    result = cast(T) c;
+                    result = as.vals;
             }
         }
     }
     return result;
 }
 
-ArraySetting findArraySetting(GroupSetting[] sections, string name)
+string findScalarSetting(GroupSetting[] sections, string name)
 {
-    auto merge(ArraySetting a, ArraySetting b)
+    string result = null;
+    foreach (section; sections)
     {
-        string[] newVals;
-        if (b.isAppending)
-            newVals = [] ~ a.vals ~ b.vals;
-        else
-            newVals = [] ~ b.vals;
-        return new ArraySetting(a.name, newVals, a.isAppending && b.isAppending);
+        foreach (c; section.children)
+        {
+            if (c.type == Setting.Type.scalar && c.name == name)
+                result = (cast(ScalarSetting) c).val;
+        }
     }
-    return findSetting!(ArraySetting, merge)(sections, Setting.Type.array, name);
-}
-
-ScalarSetting findScalarSetting(GroupSetting[] sections, string name)
-{
-    return findSetting!(ScalarSetting, (o, n) => n)(sections, Setting.Type.scalar, name);
+    return result;
 }
 
 string replace(string str, string pattern, string replacement)
@@ -172,21 +168,17 @@ private:
                                     ~ "'");
             }
 
-            auto switches = findArraySetting(sections, "switches");
-            auto postSwitches = findArraySetting(sections, "post-switches");
-            if (!switches && !postSwitches)
+            const switches = findArraySetting(sections, "switches");
+            const postSwitches = findArraySetting(sections, "post-switches");
+            if (switches.length + postSwitches.length == 0)
                 throw new Exception("Could not look up switches");
 
-            void applyArray(ref Array!(const(char)*) output, ArraySetting input)
+            void applyArray(ref Array!(const(char)*) output, const(string)[] input)
             {
-                if (!input)
-                    return;
+                output.setDim(0);
 
-                if (!input.isAppending)
-                    output.setDim(0);
-
-                output.reserve(input.vals.length);
-                foreach (sw; input.vals)
+                output.reserve(input.length);
+                foreach (sw; input)
                 {
                     const finalSwitch = sw.replacePlaceholders(cfgPaths) ~ '\0';
                     output.push(finalSwitch.ptr);
@@ -196,11 +188,11 @@ private:
             applyArray(this.switches, switches);
             applyArray(this.postSwitches, postSwitches);
 
-            auto libDirs = findArraySetting(sections, "lib-dirs");
+            const libDirs = findArraySetting(sections, "lib-dirs");
             applyArray(_libDirs, libDirs);
 
-            if (auto rpath = findScalarSetting(sections, "rpath"))
-                this.rpathcstr = (rpath.val.replacePlaceholders(cfgPaths) ~ '\0').ptr;
+            const rpath = findScalarSetting(sections, "rpath");
+            this.rpathcstr = rpath.length == 0 ? null : (rpath.replacePlaceholders(cfgPaths) ~ '\0').ptr;
 
             return true;
         }
