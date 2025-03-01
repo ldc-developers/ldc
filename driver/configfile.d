@@ -14,15 +14,14 @@ module driver.configfile;
 
 import dmd.globals;
 import dmd.root.array;
+import dmd.root.string : toDString, toCString, toCStringThen;
 import driver.config;
 import core.stdc.stdio;
-import core.stdc.string;
 
 
 string normalizeSlashes(const(char)* binDir)
 {
-    immutable len = strlen(binDir);
-    auto res = binDir[0 .. len].dup;
+    auto res = binDir.toDString.dup;
     foreach (ref c; res)
     {
         if (c == '\\') c = '/';
@@ -143,7 +142,7 @@ private:
     Array!(const(char)*) _libDirs;
     const(char)* rpathcstr;
 
-    static bool sectionMatches(const(char)* section, const(char)* triple);
+    static bool sectionMatches(const(char)* section, const(char)* triple) nothrow;
 
     bool readConfig(const(char)* cfPath, const(char)* triple, const(char)* binDir)
     {
@@ -155,7 +154,7 @@ private:
             foreach (s; parseConfigFile(cfPath))
             {
                 if (s.type == Setting.Type.group &&
-                    (s.name == "default" || sectionMatches((s.name ~ '\0').ptr, triple)))
+                    (s.name == "default" || s.name.toCStringThen!(name => sectionMatches(name.ptr, triple))))
                 {
                     sections ~= cast(GroupSetting) s;
                 }
@@ -163,8 +162,7 @@ private:
 
             if (sections.length == 0)
             {
-                const dTriple = triple[0 .. strlen(triple)];
-                throw new Exception("No matching section for triple '" ~ cast(string) dTriple
+                throw new Exception("No matching section for triple '" ~ cast(string) triple.toDString
                                     ~ "'");
             }
 
@@ -180,7 +178,7 @@ private:
                 output.reserve(input.length);
                 foreach (sw; input)
                 {
-                    const finalSwitch = sw.replacePlaceholders(cfgPaths) ~ '\0';
+                    const finalSwitch = sw.replacePlaceholders(cfgPaths).toCString;
                     output.push(finalSwitch.ptr);
                 }
             }
@@ -192,7 +190,7 @@ private:
             applyArray(_libDirs, libDirs);
 
             const rpath = findScalarSetting(sections, "rpath");
-            this.rpathcstr = rpath.length == 0 ? null : (rpath.replacePlaceholders(cfgPaths) ~ '\0').ptr;
+            this.rpathcstr = rpath.length == 0 ? null : rpath.replacePlaceholders(cfgPaths).toCString.ptr;
 
             return true;
         }
