@@ -33,6 +33,11 @@ runs:
           lipo -create -output $exe ../ldc2-x86_64/$exe ../ldc2-arm64/$exe
         done
 
+        # merge LTO plugins to universal one (and keep in hardcoded lib/)
+        mkdir lib
+        lipo -create -output lib/libLTO.dylib lib-x86_64/libLTO.dylib lib-arm64/libLTO.dylib
+        rm lib-{x86_64,arm64}/libLTO.dylib
+
         # ldc2.conf: replace the default section and add extra sections
         # note: x86_64-apple-ios section already exists
         sections="
@@ -92,6 +97,7 @@ runs:
         for triple in x86_64-apple-macos11.0 arm64-apple-macos11.0 x86_64-apple-ios12.0-simulator arm64-apple-ios12.0; do
           ldc2-universal/bin/ldc2 -mtriple="$triple" hello.d
           ldc2-universal/bin/ldc2 -mtriple="$triple" hello.d -link-defaultlib-shared
+          ldc2-universal/bin/ldc2 -mtriple="$triple" hello.d -O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
         done
 
     - name: Pack universal package
