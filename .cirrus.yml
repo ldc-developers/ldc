@@ -41,7 +41,7 @@ common_steps_template: &COMMON_STEPS_TEMPLATE
     run_defaultlib_tests_script: |
       # Run defaultlib unittests & druntime integration tests
       cd $CIRRUS_WORKING_DIR/../build
-      ctest -j$PARALLELISM --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests"
+      ctest -j$PARALLELISM --output-on-failure -E "dmd-testsuite|ldc2-unittest|lit-tests" --timeout 120
 
 # Performs the extra packaging steps for jobs producing a prebuilt package.
 # Requires env variables CI_ARCH, CI_OS, GITHUB_TOKEN and PARALLELISM (and CC for FreeBSD).
