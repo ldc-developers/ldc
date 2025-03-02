@@ -475,7 +475,7 @@ void ArgsBuilder::addCppStdlibLinkFlags(const llvm::Triple &triple) {
 void ArgsBuilder::addObjcStdlibLinkFlags(const llvm::Triple &triple) {
   if (linkNoObjc)
     return;
-    
+
   args.push_back("-lobjc");
 }
 
@@ -613,7 +613,8 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
   }
 
   // -rpath if linking against shared default libs or ldc-jit
-  if (linkAgainstSharedDefaultLibs() || opts::enableDynamicCompile) {
+  if ((linkAgainstSharedDefaultLibs() || opts::enableDynamicCompile)
+      && !triple.isOSBinFormatWasm()) { // wasm-ld doesn't recognize -rpath
     llvm::StringRef rpath = ConfigFile::instance.rpath();
     if (!rpath.empty())
       addLdFlag("-rpath", rpath);
@@ -745,7 +746,7 @@ void ArgsBuilder::addDefaultPlatformLibs() {
   }
 
   if (triple.isOSDarwin()) {
-    
+
     // libobjc is more or less required, so we link against it here.
     // This could be prettier, though.
     addObjcStdlibLinkFlags(triple);
