@@ -55,7 +55,7 @@ jobs:
 
           - job_name: Alpine musl x86_64
             os: ubuntu-latest
-            container_image: alpine:3.20
+            container_image: alpine:3.21
             arch: x86_64
             bootstrap_cmake_flags: -DBUILD_LTO_LIBS=ON
             # TSan and XRay do not work.
@@ -150,7 +150,7 @@ jobs:
             # create missing 7za symlink
             ln -s 7z /usr/bin/7za
             # create ../llvm symlink to distro LLVM (no prebuilt LDC-LLVM for musl)
-            ln -s /usr/lib/llvm17 $(dirname $(pwd))/llvm
+            ln -s /usr/lib/llvm19 $(dirname $(pwd))/llvm
             ../llvm/bin/llvm-config --version
           fi
       - uses: actions/checkout@v4
