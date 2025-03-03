@@ -23,6 +23,7 @@ runs:
         host_dc: ldmd2
         cmake_flags: >-
           -DBUILD_SHARED_LIBS=OFF
+          -DLDC_DYNAMIC_COMPILE=OFF
           ${{ inputs.cmake_flags }}
         arch: ${{ inputs.arch }}
 
