@@ -22,8 +22,7 @@ runs:
             sysroot='/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk'
         fi
 
-        # use bootstrap-ldc, which is guaranteed to be native
-        bootstrap-ldc/bin/ldc-build-runtime --ninja \
+        installed/bin/ldc-build-runtime --ninja \
           --buildDir=build-libs-ios \
           --dFlags="-mtriple=$triple" \
           --ldcSrcDir="$PWD/ldc" \
