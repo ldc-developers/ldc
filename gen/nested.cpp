@@ -170,7 +170,7 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
     IF_LOG Logger::cout() << "Frame index: " << *val << '\n';
     currFrame = getIrFunc(fd)->frameType;
     gIR->DBuilder.OpDeref(dwarfAddrOps);
-    val = DtoAlignedLoad(currFrame->getPointerTo(), val,
+    val = DtoAlignedLoad(LLPointerType::getUnqual(currFrame), val,
                          (std::string(".frame.") + vdparent->toChars()).c_str());
     IF_LOG Logger::cout() << "Frame: " << *val << '\n';
   }
@@ -505,7 +505,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
         mem = gIR->ir->CreateAdd(mem, DtoConstSize_t(mask));
         mem = gIR->ir->CreateAnd(mem, DtoConstSize_t(~mask));
         frame =
-            gIR->ir->CreateIntToPtr(mem, frameType->getPointerTo(), ".frame");
+            gIR->ir->CreateIntToPtr(mem, LLPointerType::getUnqual(frameType), ".frame");
       }
     } else {
       frame = DtoRawAlloca(frameType, frameAlignment, ".frame");
