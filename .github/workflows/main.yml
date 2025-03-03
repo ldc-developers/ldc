@@ -63,10 +63,12 @@ jobs:
               -DTEST_COMPILER_RT_LIBRARIES="profile;lsan;asan;msan;fuzzer"
               -DLDC_INSTALL_LTOPLUGIN=OFF
               -DLDC_FULLY_STATIC=ON
+              -DCMAKE_C_COMPILER=clang
+              -DCMAKE_CXX_COMPILER=clang++
               -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++
-              -DD_COMPILER_FLAGS="-O -flto=full"
-            # FIXME: -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
-            with_pgo: false
+              -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
+              -DEXTRA_CXXFLAGS=-flto=full
+            with_pgo: true
 
           - job_name: macOS x86_64
             os: macos-13
@@ -128,11 +130,13 @@ jobs:
           else
             # set up Alpine container
             apk add \
-              git cmake ninja-is-really-ninja g++ ldc llvm-dev llvm-static compiler-rt \
+              git cmake ninja-is-really-ninja g++ clang ldc lld llvm-dev llvm-static compiler-rt \
               libxml2-static zstd-static zlib-static \
               bash grep diffutils make curl 7zip perl
             # create missing 7za symlink
             ln -s 7z /usr/bin/7za
+            # make lld the default linker (note: /usr/bin/ld seems unused)
+            ln -sf /usr/bin/ld.lld /usr/x86_64-alpine-linux-musl/bin/ld
             # create ../llvm symlink to distro LLVM (no prebuilt LDC-LLVM for musl)
             ln -s /usr/lib/llvm19 $(dirname $(pwd))/llvm
             ../llvm/bin/llvm-config --version
