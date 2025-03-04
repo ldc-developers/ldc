@@ -3,7 +3,7 @@
 #### Big news
 - Latest frontend and druntime patches from DMD stable (v2.110.0-rc.1+). (#4854)
 - LLVM for prebuilt packages bumped to v19.1.7. (#4822)
-- New prebuilt package for Alpine Linux x86_64 with musl libc. It's currently generated on Alpine v3.20, using its default LLVM 17. Most bundled executables are fully static and can be run on ~all distros. (#4826)
+- New prebuilt package for Alpine Linux x86_64 with musl libc. It's currently generated on Alpine v3.21, using its default LLVM 19. Most bundled executables are fully static and can be run on ~all distros. (#4826, #4862)
 - Revived dynamic-compile (JIT) functionality (formerly unsupported since LLVM 12), supporting LLVM 18+ now. (#4774)
 - ldc2.conf: `%%ldcversion%%` placeholder added, allowing to refer to version-specific directories.
 - Windows: The prebuilt packages now bundle an official libcurl build (from https://curl.se/windows/), currently v8.12.1. The static library (`curl_a.lib`) isn't available anymore. (#4855)

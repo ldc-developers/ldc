@@ -9,7 +9,7 @@
 /*
 TEST_OUTPUT:
 ----
-$r:.+_D7imports9pkgmod3133mod3barFZv.*$
+$r:.+(_D7imports9pkgmod3133mod3barFZv|imports\.pkgmod313\.mod\.bar).*$
 Error: $r:.+$ failed with status: $n$
 ----
 */
