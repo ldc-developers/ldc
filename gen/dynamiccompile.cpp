@@ -652,7 +652,7 @@ llvm::GlobalVariable *generateModuleListElem(IRState *irs, const Types &types,
   auto *modListElem = new llvm::GlobalVariable(
       irs->module, elem_type, false, llvm::GlobalValue::PrivateLinkage, init,
       ".rtcompile_modlist_elem");
-  modListElem->setAlignment(irs->module.getDataLayout().getABITypeAlign(elem_type->getPointerTo()));
+  modListElem->setAlignment(irs->module.getDataLayout().getABITypeAlign(LLPointerType::getUnqual(elem_type)));
 
   return modListElem;
 }
@@ -687,7 +687,8 @@ void generateCtorBody(IRState *irs, const Types &types, llvm::Function *func,
   auto modListHeadPtr = declareModListHead(irs->module, types);
   llvm::Value *gepVals[] = {zero64, elemIndex};
   auto elemNextPtr = builder.CreateGEP(types.modListElemType, modListElem, gepVals);
-  auto prevHeadVal = builder.CreateLoad(types.modListElemType->getPointerTo()->getPointerTo(), modListHeadPtr);
+  auto modListElemPtr = LLPointerType::getUnqual(types.modListElemType);
+  auto prevHeadVal = builder.CreateLoad(LLPointerType::getUnqual(modListElemPtr), modListHeadPtr);
   auto voidPtr = builder.CreateBitOrPointerCast(
       modListElem, getI8PtrType(irs->context()));
   builder.CreateStore(voidPtr, modListHeadPtr);
@@ -835,7 +836,7 @@ void defineDynamicCompiledFunction(IRState *irs, IrFunction *func) {
     auto srcFunc = func->getLLVMFunc();
     auto it = irs->dynamicCompiledFunctions.find(srcFunc);
     assert(irs->dynamicCompiledFunctions.end() != it);
-    auto thunkVarType = srcFunc->getFunctionType()->getPointerTo();
+    auto thunkVarType = LLPointerType::getUnqual(srcFunc->getFunctionType());
     auto thunkVar = new llvm::GlobalVariable(
         irs->module, thunkVarType, false, llvm::GlobalValue::PrivateLinkage,
         llvm::ConstantPointerNull::get(thunkVarType),
