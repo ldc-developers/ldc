@@ -82,6 +82,12 @@ void CTFloat::toAPFloat(const real_t src, APFloat &dst) {
   CTFloatUnion u;
   u.fp = src;
 
+#ifdef __FLOAT_WORD_ORDER
+#if __FLOAT_WORD_ORDER == __ORDER_BIG_ENDIAN__
+  std::swap(u.bits[0], u.bits[1]);
+#endif // __FLOAT_WORD_ORDER == __ORDER_BIG_ENDIAN__
+#endif // __FLOAT_WORD_ORDER
+
   const unsigned sizeInBits = APFloat::getSizeInBits(*apSemantics);
   const APInt bits = APInt(sizeInBits, numUint64Parts, u.bits);
 
@@ -97,11 +103,20 @@ real_t CTFloat::fromAPFloat(const APFloat &src_) {
     src.convert(*apSemantics, APFloat::rmNearestTiesToEven, &ignored);
   }
 
+#if LDC_LLVM_VER >= 2001 && defined(HAS_IEE754_FLOAT128)
+  return src.convertToQuad();
+#else
   const APInt bits = src.bitcastToAPInt();
-
-  CTFloatUnion u;
-  memcpy(u.bits, bits.getRawData(), bits.getBitWidth() / 8);
+  CTFloatUnion u{};
+  memcpy(u.bits, bits.getRawData(),
+         std::min(static_cast<size_t>(bits.getNumWords()) * 8, sizeof(u.bits)));
+#ifdef __FLOAT_WORD_ORDER
+#if __FLOAT_WORD_ORDER == __ORDER_BIG_ENDIAN__
+  std::swap(u.bits[0], u.bits[1]);
+#endif // __FLOAT_WORD_ORDER == __ORDER_BIG_ENDIAN__
+#endif // __FLOAT_WORD_ORDER
   return u.fp;
+#endif
 }
 
 ////////////////////////////////////////////////////////////////////////////////
