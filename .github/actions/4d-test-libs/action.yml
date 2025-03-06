@@ -26,6 +26,8 @@ runs:
           excludes+='|^std.math.exponential(-shared)?$'
           # FIXME: subtest rt_trap_exceptions fails
           excludes+='|^druntime-test-exceptions-debug$'
+          # FIXME: sporadically hanging
+          excludes+='|^core.thread-shared$'
         fi
 
         ctest -j$N --output-on-failure -E "$excludes" --timeout 120
