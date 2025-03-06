@@ -133,7 +133,8 @@ runs:
 
         artifactName="ldc2-$artifactID-windows-multilib"
         cp -R ldc2-multilib $artifactName # copy, not move - sporadic 'permission denied' errors…
-        7z a -mx=9 newArtifacts/$artifactName.7z $artifactName >/dev/null
+        # `-mf=BCJ2` to disable the ARM64 filter (introduced in 7-Zip v23.00; cannot be decompressed with older versions)
+        7z a -mx=9 -mf=BCJ2 newArtifacts/$artifactName.7z $artifactName >/dev/null
 
         # export ARTIFACT_{ID,NAME}
         echo "ARTIFACT_ID=$artifactID" >> $GITHUB_ENV
