@@ -76,10 +76,7 @@ packaging_steps_template: &PACKAGING_STEPS_TEMPLATE
   # Run dynamic-compile integration test
   run_dynamic_compile_integration_test_script: |
     cd $CIRRUS_WORKING_DIR/..
-    # FreeBSD's LLVM 15 is too old (need LLVM 18+ for dynamic-compile)
-    if [[ "$CI_OS" != "freebsd" ]]; then
-      installed/bin/ldc2 -enable-dynamic-compile -run $CIRRUS_WORKING_DIR/tests/dynamiccompile/array.d
-    fi
+    installed/bin/ldc2 -enable-dynamic-compile -run $CIRRUS_WORKING_DIR/tests/dynamiccompile/array.d
   # Run ImportC integration test
   run_importC_integration_test_script: |
     cd $CIRRUS_WORKING_DIR/..
@@ -215,16 +212,21 @@ task:
   environment:
     CI_ARCH: x86_64
     CI_OS: freebsd
+    # since LLVM 19:
+    # - need -lpthread for linking ldc-profdata (at least)
+    # - need to disable builtin lld to avoid libzstd dependency
     EXTRA_CMAKE_FLAGS: >-
       -DBUILD_LTO_LIBS=ON
       -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
       -DEXTRA_CXXFLAGS=-flto=full
+      -DLDC_WITH_LLD=OFF
+      -DCMAKE_EXE_LINKER_FLAGS="-lpthread"
     PARALLELISM: 4
     CC: clang
   install_prerequisites_script: |
     cd $CIRRUS_WORKING_DIR/..
     sysctl -n hw.ncpu
-    pkg install -y git cmake ninja gmake llvm bash gtar 7-zip ldc
+    pkg install -y git cmake ninja gmake llvm bash gtar 7-zip ldc zstd
     python3 --version
     python3 -m ensurepip
   clone_submodules_early_script: |
@@ -238,8 +240,10 @@ task:
     cmake -G Ninja $CIRRUS_WORKING_DIR \
       -DCMAKE_BUILD_TYPE=Release \
       -DD_COMPILER=ldmd2 \
-      -DBUILD_SHARED_LIBS=OFF \
-      -DBUILD_LTO_LIBS=ON
+      -DLDC_LINK_MANUALLY=OFF \
+      -DBUILD_LTO_LIBS=ON \
+      -DLDC_WITH_LLD=OFF \
+      -DCMAKE_EXE_LINKER_FLAGS="-lpthread"
     ninja -j$PARALLELISM
     bin/ldc2 -version
   << : *COMMON_STEPS_TEMPLATE
