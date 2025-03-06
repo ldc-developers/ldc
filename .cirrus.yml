@@ -212,23 +212,22 @@ task:
   environment:
     CI_ARCH: x86_64
     CI_OS: freebsd
-    # since LLVM 19:
-    # - need -lpthread for linking ldc-profdata (at least)
-    # - need to disable builtin lld to avoid libzstd dependency
     EXTRA_CMAKE_FLAGS: >-
       -DBUILD_LTO_LIBS=ON
       -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
       -DEXTRA_CXXFLAGS=-flto=full
       -DLDC_WITH_LLD=OFF
-      -DCMAKE_EXE_LINKER_FLAGS="-lpthread"
     PARALLELISM: 4
     CC: clang
   install_prerequisites_script: |
     cd $CIRRUS_WORKING_DIR/..
     sysctl -n hw.ncpu
-    pkg install -y git cmake ninja gmake llvm bash gtar 7-zip ldc zstd
+    pkg install -y git cmake ninja gmake llvm18 bash gtar 7-zip ldc
     python3 --version
     python3 -m ensurepip
+    # set up default llvm-config
+    ls -l /usr/local/bin/llvm-config*
+    ln -sf llvm-config18 /usr/local/bin/llvm-config
   clone_submodules_early_script: |
     cd $CIRRUS_WORKING_DIR
     git submodule update --init --depth $CIRRUS_CLONE_DEPTH
@@ -240,10 +239,8 @@ task:
     cmake -G Ninja $CIRRUS_WORKING_DIR \
       -DCMAKE_BUILD_TYPE=Release \
       -DD_COMPILER=ldmd2 \
-      -DLDC_LINK_MANUALLY=OFF \
       -DBUILD_LTO_LIBS=ON \
-      -DLDC_WITH_LLD=OFF \
-      -DCMAKE_EXE_LINKER_FLAGS="-lpthread"
+      -DLDC_WITH_LLD=OFF
     ninja -j$PARALLELISM
     bin/ldc2 -version
   << : *COMMON_STEPS_TEMPLATE
