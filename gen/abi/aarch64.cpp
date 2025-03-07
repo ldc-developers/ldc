@@ -126,7 +126,7 @@ public:
     // compiler magic: pass va_list args implicitly by reference
     if (!isReturnVal && isAAPCS64VaList(t)) {
       arg.byref = true;
-      arg.ltype = arg.ltype->getPointerTo();
+      arg.ltype = LLPointerType::getUnqual(arg.ltype);
       return;
     }
 
