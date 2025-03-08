@@ -93,6 +93,21 @@ jobs:
               -DEXTRA_CXXFLAGS=-flto=full
             with_pgo: true
 
+          - job_name: Linux riscv64
+            os: ubuntu-20.04-riscv64
+            container_image: ubuntu:20.04
+            arch: riscv64
+            base_cmake_flags: >-
+              -DCOMPILER_RT_LIBDIR_OS=riscv64-unknown-linux-gnu
+            extra_cmake_flags: >-
+              -DCMAKE_C_COMPILER=clang
+              -DCMAKE_CXX_COMPILER=clang++
+              -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++
+              -DJITRT_EXTRA_LDFLAGS=-static-libstdc++
+              -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
+              -DEXTRA_CXXFLAGS=-flto=full
+            with_pgo: true
+
           - job_name: Windows x64
             os: windows-2022
             arch: x64
