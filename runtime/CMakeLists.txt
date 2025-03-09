@@ -360,6 +360,11 @@ if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
     )
 endif()
 
+if(NOT DEFINED CONF_INST_DIR) # set by parent LDC build
+    set(CONF_INST_DIR "${CMAKE_INSTALL_PREFIX}/etc")
+endif()
+install(FILES ${install_conf_path} DESTINATION ${CONF_INST_DIR} RENAME ${CONFIG_BASE}.conf)
+
 #
 # druntime/Phobos compilation helpers.
 #
