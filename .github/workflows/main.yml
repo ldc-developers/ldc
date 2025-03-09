@@ -268,6 +268,11 @@ jobs:
           arch: x86_64
       - name: Build bootstrap LDC
         uses: ./.github/actions/2-build-bootstrap
+        with:
+          # prepare for installing the bootstrap compiler to ../bootstrap-install/
+          cmake_flags: >-
+            -DCMAKE_INSTALL_PREFIX="$PWD/../bootstrap-install"
+            -DINCLUDE_INSTALL_DIR="$PWD/../bootstrap-install/import"
       - name: Build LDC with PGO instrumentation & gather profile from compiling default libs
         if: matrix.with_pgo
         uses: ./.github/actions/2a-build-pgo
