@@ -80,17 +80,10 @@ runs:
         call "%VSDIR%\Common7\Tools\VsDevCmd.bat" -arch=arm64 -host_arch=x64 || exit /b
         echo on
         ldc2-multilib\bin\ldc-build-runtime --ninja ^
-          --buildDir=build-libs-arm64 ^
           --dFlags=-mtriple=aarch64-windows-msvc ^
           "--ldcSrcDir=%CD%" ^
+          --installWithSuffix=arm64 ^
           BUILD_LTO_LIBS=ON
-    - name: Copy arm64 libraries
-      shell: bash
-      run: |
-        set -eux
-        cp -R build-libs-arm64/lib ldc2-multilib/libarm64
-        rm ldc2-multilib/libarm64/*.{exp,ilk}
-        rm ldc2-multilib/libarm64/{druntime,phobos2}-ldc-shared.pdb
     - name: Add arm64 section to ldc2.conf
       shell: pwsh
       run: |

@@ -2,6 +2,7 @@
 
 #### Big news
 - ldc2.conf: Arrays can now be appended to via the `~=` operator. (#4848, #4856)
+- New `--installWithSuffix` command-line option for the `ldc-build-runtime` tool, to simplify copying the libraries to an existing LDC installation. (#4870)
 
 #### Platform support
 
