@@ -18,20 +18,19 @@ runs:
         if [[ '${{ inputs.cross_compiling }}' != true ]]; then
           ninja -C build install >/dev/null
         else
-          mkdir -p install/bin
-          cp build-cross/bin/{ldc2,ldmd2,ldc-build-runtime,ldc-profdata,ldc-profgen,ldc-prune-cache,timetrace2txt} install/bin/
-          cp build-cross/bin/ldc-build-plugin install/bin/ || true
+          ninja -C build-cross install
 
-          cp -R build-cross-libs/lib install/
-          cp build-cross/lib/{libldc_rt.*,libLTO.dylib,LLVMgold-ldc.so} install/lib/ || true
-
-          mkdir install/etc
-          cp build-cross/bin/ldc2_install.conf install/etc/ldc2.conf
-          cp -R ldc/packaging/bash_completion.d install/etc/
+          mkdir -p install/lib
+          cp -a build-cross-libs/lib/* install/lib/
 
           # use imports from installed bootstrap compiler
           ninja -C bootstrap-ldc install >/dev/null
           mv bootstrap-install/import install/
+
+          # FIXME: etc/ldc2.conf
+          mkdir -p install/etc
+          cp bootstrap-install/etc/ldc2.conf install/etc/
+          # would need to remove `-link-defaultlib-shared=false` etc.
         fi
 
         cp ldc/LICENSE install/
