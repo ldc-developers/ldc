@@ -16,24 +16,22 @@ runs:
         cd ..
 
         if [[ '${{ inputs.cross_compiling }}' != true ]]; then
-          cd build
-          ninja install >/dev/null
-          cd ..
+          ninja -C build install >/dev/null
         else
           mkdir -p install/bin
           cp build-cross/bin/{ldc2,ldmd2,ldc-build-runtime,ldc-profdata,ldc-profgen,ldc-prune-cache,timetrace2txt} install/bin/
           cp build-cross/bin/ldc-build-plugin install/bin/ || true
+
           cp -R build-cross-libs/lib install/
           cp build-cross/lib/{libldc_rt.*,libLTO.dylib,LLVMgold-ldc.so} install/lib/ || true
+
           mkdir install/etc
           cp build-cross/bin/ldc2_install.conf install/etc/ldc2.conf
           cp -R ldc/packaging/bash_completion.d install/etc/
-          mkdir install/import
-          cp -R ldc/runtime/druntime/src/{core,etc,ldc,object.d,__importc_builtins.di,importc.h} install/import/
-          cp bootstrap-ldc/runtime/import/ldc/gccbuiltins_*.di install/import/ldc/
-          cp -R ldc/runtime/phobos/etc/c install/import/etc/
-          rm -rf install/import/etc/c/zlib
-          cp -R ldc/runtime/phobos/std install/import/
+
+          # use imports from installed bootstrap compiler
+          ninja -C bootstrap-ldc install >/dev/null
+          mv bootstrap-install/import install/
         fi
 
         cp ldc/LICENSE install/
