@@ -9,7 +9,7 @@ runs:
   using: composite
   steps:
 
-    - name: Install LDC
+    - name: Install LDC # into ../install/
       shell: bash
       run: |
         set -eux
@@ -18,17 +18,16 @@ runs:
         if [[ '${{ inputs.cross_compiling }}' != true ]]; then
           ninja -C build install >/dev/null
         else
-          # populate first subdirs by installing the cross-compiled compiler:
-          # * bin/: executables
-          # * lib/: LTO plugin and compiler-rt libs only
-          # * etc/bash_completion.d/
-          # * import/: missing ldc/gccbuiltins_*.di
-          ninja -C build-cross install
-
-          # install the cross-compiled libs to populate:
+          # the cross-compiled runtime libs have already been installed:
           # * lib/: runtime library artifacts
           # * etc/ldc2.conf
-          ninja -C build-cross-libs install
+
+          # now extend by installing the cross-compiled compiler:
+          # * bin/: executables
+          # * lib/: LTO plugin and compiler-rt libs
+          # * etc/bash_completion.d/
+          # * import/: all runtime imports except for ldc/gccbuiltins_*.di
+          ninja -C build-cross install
 
           # copy gccbuiltins from bootstrap compiler
           cp bootstrap-ldc/import/ldc/gccbuiltins_*.di install/import/ldc/
