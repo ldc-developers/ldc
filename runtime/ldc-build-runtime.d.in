@@ -158,6 +158,7 @@ void runCMake() {
         "-DLDMD_EXE_FULL=" ~ ldmdExecutable,
         "-DDMDFE_MINOR_VERSION=@DMDFE_MINOR_VERSION@",
         "-DDMDFE_PATCH_VERSION=@DMDFE_PATCH_VERSION@",
+        "-DLDC_WITH_LLD=@LDC_WITH_LLD@",
     ];
 
     if (config.targetSystem.length) args ~= "-DTARGET_SYSTEM=" ~ config.targetSystem.join(";");

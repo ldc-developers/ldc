@@ -137,7 +137,7 @@ endif()
 set(D_VERSION ${DMDFE_MAJOR_VERSION} CACHE STRING "D language version")
 set(PROGRAM_PREFIX "" CACHE STRING "Prepended to ldc/ldmd binary names")
 set(PROGRAM_SUFFIX "" CACHE STRING "Appended to ldc/ldmd binary names")
-set(CONF_INST_DIR ${SYSCONF_INSTALL_DIR} CACHE PATH "Directory ldc.conf is installed to")
+set(CONF_INST_DIR ${SYSCONF_INSTALL_DIR} CACHE PATH "Directory ldc2.conf is installed to")
 
 # Note: LIB_SUFFIX should perhaps be renamed to LDC_LIBDIR_SUFFIX.
 set(LIB_SUFFIX "" CACHE STRING "Appended to the library installation directory. Set to '64' to install libraries into ${PREFIX}/lib64.")
@@ -720,7 +720,7 @@ if(MSVC_IDE)
     # the IDE generator is a multi-config one
     # so copy the config file into the correct bin subfolder
     # (different outputs no longer feasible for custom commands, so disabled)
-    #    add_custom_command(TARGET ${LDC_EXE} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf $<TARGET_FILE_DIR:${LDC_EXE}> COMMENT "Copy config file ${LDC_EXE}.conf")
+    #    add_custom_command(TARGET ${LDC_EXE} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_BINARY_DIR}/etc/${LDC_EXE}.conf $<TARGET_FILE_DIR:${LDC_EXE}> COMMENT "Copy config file ${LDC_EXE}.conf")
 endif()
 
 
@@ -939,10 +939,10 @@ add_test(NAME build-ldc2-unittest COMMAND "${CMAKE_COMMAND}" --build ${CMAKE_BIN
 add_test(NAME ldc2-unittest COMMAND ${LDC_UNITTEST_EXE_FULL} --version)
 set_tests_properties(ldc2-unittest PROPERTIES DEPENDS build-ldc2-unittest)
 
-if(EXISTS "${PROJECT_SOURCE_DIR}/runtime/druntime/src/object.d")
+if(NOT CMAKE_CROSSCOMPILING)
     add_subdirectory(runtime)
 else()
-    message(STATUS "Runtime file runtime/druntime/src/object.d not found, will build ldc binaries but not the standard library.")
+    message(STATUS "Cross-compiling - will build ldc binaries but not the runtime libraries.")
 endif()
 if(D_VERSION EQUAL 2)
     add_subdirectory(tests/dmd)
@@ -978,7 +978,6 @@ if(${BUILD_SHARED})
     # as well, for the time being this just bloats the normal packages.
     install(TARGETS ${LDC_LIB} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 endif()
-install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.conf DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.conf)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     if(NOT DEFINED BASH_COMPLETION_COMPLETIONSDIR)
