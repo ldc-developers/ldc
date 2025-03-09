@@ -23,14 +23,13 @@ runs:
           mkdir -p install/lib
           cp -a build-cross-libs/lib/* install/lib/
 
+          mkdir -p install/etc
+          cp build-cross-libs/etc/ldc2_install.conf install/etc/ldc2.conf
+          cat install/etc/ldc2.conf
+
           # use imports from installed bootstrap compiler
           ninja -C bootstrap-ldc install >/dev/null
           mv bootstrap-install/import install/
-
-          # FIXME: etc/ldc2.conf
-          mkdir -p install/etc
-          cp bootstrap-install/etc/ldc2.conf install/etc/
-          # would need to remove `-link-defaultlib-shared=false` etc.
         fi
 
         cp ldc/LICENSE install/

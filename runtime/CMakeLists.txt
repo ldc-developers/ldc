@@ -13,6 +13,9 @@ if(NOT LDC_EXE)
     if(NOT DEFINED DMDFE_MINOR_VERSION OR NOT DEFINED DMDFE_PATCH_VERSION)
         message(FATAL_ERROR "Please define the CMake variables DMDFE_MINOR_VERSION and DMDFE_PATCH_VERSION.")
     endif()
+    if(NOT DEFINED LDC_WITH_LLD)
+        message(FATAL_ERROR "Please define the CMake variable LDC_WITH_LLD.")
+    endif()
 
     # Helper function
     function(append value)
@@ -157,7 +160,6 @@ message(STATUS "--  - Building shared libraries (BUILD_SHARED_LIBS): ${BUILD_SHA
 message(STATUS "--  - Building LTO libraries (BUILD_LTO_LIBS): ${BUILD_LTO_LIBS}")
 message(STATUS "--  - Linking shared libraries (and test runners) with (C_SYSTEM_LIBS): ${C_SYSTEM_LIBS}")
 
-get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
 set(RUNTIME_DIR ${PROJECT_SOURCE_DIR}/druntime CACHE PATH "druntime root directory")
 set(PHOBOS2_DIR ${PROJECT_SOURCE_DIR}/phobos CACHE PATH "Phobos root directory")
 set(JITRT_DIR ${PROJECT_SOURCE_DIR}/jit-rt CACHE PATH "jit runtime root directory")
@@ -302,57 +304,60 @@ set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"-L--expor
 # Directory filled with auto-generated import files
 set(LDC_BUILD_IMPORT_DIR "${PROJECT_BINARY_DIR}/import")
 
-# Only generate the config files if this CMake project is embedded in the LDC CMake project.
+# Generate .conf files
 if(LDC_EXE)
-    if(PHOBOS2_DIR)
-        set(CONFIG_NAME ${LDC_EXE}_phobos)
-    else()
-        set(CONFIG_NAME ${LDC_EXE})
-    endif()
-    set(conf_path         ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
-    set(install_conf_path ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf)
-    configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${conf_path} @ONLY)
-    configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${install_conf_path} @ONLY)
+    set(CONFIG_BASE ${LDC_EXE})
+else() # not included from LDC parent build
+    set(CONFIG_BASE ldc2)
+endif()
+if(PHOBOS2_DIR)
+    set(CONFIG_NAME ${CONFIG_BASE}_phobos)
+else()
+    set(CONFIG_NAME ${CONFIG_BASE})
+endif()
+set(conf_path         ${CMAKE_BINARY_DIR}/etc/${CONFIG_BASE}.conf)
+set(install_conf_path ${CMAKE_BINARY_DIR}/etc/${CONFIG_BASE}_install.conf)
+configure_file(${PROJECT_SOURCE_DIR}/../${CONFIG_NAME}.conf.in ${conf_path} @ONLY)
+configure_file(${PROJECT_SOURCE_DIR}/../${CONFIG_BASE}_install.conf.in ${install_conf_path} @ONLY)
 
-    # macOS has fat libraries; otherwise, append a separate config file section for the
-    # multilib target and override the lib directory.
-    if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
-        # Rename the just configured host-only *.conf files to *.conf.in during CMake invocation.
-        file(RENAME ${conf_path} ${conf_path}.in)
-        file(RENAME ${install_conf_path} ${install_conf_path}.in)
+# macOS has fat libraries; otherwise, append a separate config file section for the
+# multilib target and override the lib directory.
+if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
+    # Rename the just configured host-only *.conf files to *.conf.in during CMake invocation.
+    file(RENAME ${conf_path} ${conf_path}.in)
+    file(RENAME ${install_conf_path} ${install_conf_path}.in)
 
-        set(MULTILIB_DIR         "${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}")
-        set(MULTILIB_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}")
+    set(MULTILIB_DIR         "${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}")
+    set(MULTILIB_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}")
 
-        # The helper script determines the multilib triple by parsing the
-        # `ldc2 -m32 -v` output. This means we depend on a built ldc2
-        # executable; sadly, we cannot add post-build commands to that
-        # top-level target directly, so use a custom target (built as part
-        # of `all`) to finalize the 2 config files.
-        add_custom_command(OUTPUT ${conf_path} VERBATIM
-            COMMAND ${PROJECT_PARENT_DIR}/tools/add-multilib-section.sh
-                    ${LDC_EXE_FULL}
-                    ${MULTILIB_SUFFIX}
-                    ${MULTILIB_DIR}
-                    "$<$<BOOL:${SHARED_LIBS_SUPPORTED}>:${MULTILIB_DIR}>"
-                    ${conf_path}.in
-                    ${conf_path}
-            DEPENDS ${LDC_EXE_FULL}
-        )
-        add_custom_command(OUTPUT ${install_conf_path} VERBATIM
-            COMMAND ${PROJECT_PARENT_DIR}/tools/add-multilib-section.sh
-                    ${LDC_EXE_FULL}
-                    ${MULTILIB_SUFFIX}
-                    ${MULTILIB_INSTALL_DIR}
-                    "$<$<BOOL:${SHARED_LIBS_SUPPORTED}>:${MULTILIB_INSTALL_DIR}>"
-                    ${install_conf_path}.in
-                    ${install_conf_path}
-            DEPENDS ${LDC_EXE_FULL}
-        )
-        add_custom_target(add-multilib-section ALL
-            DEPENDS ${conf_path} ${install_conf_path}
-        )
-    endif()
+    # The helper script determines the multilib triple by parsing the
+    # `ldc2 -m32 -v` output. This means we depend on a built ldc2
+    # executable; sadly, we cannot add post-build commands to that
+    # top-level target directly, so use a custom target (built as part
+    # of `all`) to finalize the 2 config files.
+    add_custom_command(OUTPUT ${conf_path} VERBATIM
+        COMMAND ${PROJECT_SOURCE_DIR}/../tools/add-multilib-section.sh
+                ${LDC_EXE_FULL}
+                ${MULTILIB_SUFFIX}
+                ${MULTILIB_DIR}
+                "$<$<BOOL:${SHARED_LIBS_SUPPORTED}>:${MULTILIB_DIR}>"
+                ${conf_path}.in
+                ${conf_path}
+        DEPENDS ${LDC_EXE_FULL}
+    )
+    add_custom_command(OUTPUT ${install_conf_path} VERBATIM
+        COMMAND ${PROJECT_SOURCE_DIR}/../tools/add-multilib-section.sh
+                ${LDC_EXE_FULL}
+                ${MULTILIB_SUFFIX}
+                ${MULTILIB_INSTALL_DIR}
+                "$<$<BOOL:${SHARED_LIBS_SUPPORTED}>:${MULTILIB_INSTALL_DIR}>"
+                ${install_conf_path}.in
+                ${install_conf_path}
+        DEPENDS ${LDC_EXE_FULL}
+    )
+    add_custom_target(add-multilib-section ALL
+        DEPENDS ${conf_path} ${install_conf_path}
+    )
 endif()
 
 #
