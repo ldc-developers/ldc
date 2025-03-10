@@ -976,11 +976,18 @@ add_test(NAME build-ldc2-unittest COMMAND "${CMAKE_COMMAND}" --build ${CMAKE_BIN
 add_test(NAME ldc2-unittest COMMAND ${LDC_UNITTEST_EXE_FULL} --version)
 set_tests_properties(ldc2-unittest PROPERTIES DEPENDS build-ldc2-unittest)
 
-if(NOT CMAKE_CROSSCOMPILING)
+set(_LDC_BUILD_RUNTIME_DEFAULT ON)
+if(CMAKE_CROSSCOMPILING)
+    set(_LDC_BUILD_RUNTIME_DEFAULT OFF)
+endif()
+option(LDC_BUILD_RUNTIME "Build the runtime libraries" ${_LDC_BUILD_RUNTIME_DEFAULT})
+
+if(LDC_BUILD_RUNTIME)
     add_subdirectory(runtime)
 else()
-    message(STATUS "Cross-compiling - will build ldc binaries but not the runtime libraries.")
+    message(STATUS "NOT building the runtime libraries (LDC_BUILD_RUNTIME=OFF)")
 endif()
+
 if(D_VERSION EQUAL 2)
     add_subdirectory(tests/dmd)
 endif()
