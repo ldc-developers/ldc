@@ -22,16 +22,16 @@ runs:
           # * bin/: executables
           # * lib/: LTO plugin and compiler-rt libs only
           # * etc/bash_completion.d/
+          # * import/: missing ldc/gccbuiltins_*.di
           ninja -C build-cross install
 
           # install the cross-compiled libs to populate:
           # * lib/: runtime library artifacts
           # * etc/ldc2.conf
-          # * import/: missing ldc/gccbuiltins_*.di
           ninja -C build-cross-libs install
 
           # copy gccbuiltins from bootstrap compiler
-          cp bootstrap-ldc/runtime/import/ldc/gccbuiltins_*.di install/import/ldc/
+          cp bootstrap-ldc/import/ldc/gccbuiltins_*.di install/import/ldc/
         fi
 
         cp ldc/LICENSE install/
