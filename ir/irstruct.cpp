@@ -107,7 +107,8 @@ LLConstant *IrStruct::getTypeInfoInit() {
   const bool withArgTypes =
       (arch == llvm::Triple::x86_64 && !triple.isOSWindows()) ||
       (!triple.isOSDarwin() && // Apple uses a simpler scheme
-       (arch == llvm::Triple::aarch64 || arch == llvm::Triple::aarch64_be));
+       (arch == llvm::Triple::aarch64 || arch == llvm::Triple::aarch64_be)) ||
+      (arch == llvm::Triple::systemz);
   const unsigned expectedFields = 11 + (withArgTypes ? 2 : 0);
   const unsigned actualFields =
       structTypeInfoDecl->fields.length -
