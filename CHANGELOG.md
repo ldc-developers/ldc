@@ -1,7 +1,7 @@
 # LDC master
 
 #### Big news
-- Latest frontend and druntime patches from DMD stable (v2.110.0-rc.1+). (#4854)
+- Frontend and druntime bumped to version [2.110.0](https://dlang.org/changelog/2.110.0.html) final. (#4854, #4868)
 - LLVM for prebuilt packages bumped to v19.1.7. (#4822)
 - New prebuilt package for Alpine Linux x86_64 with musl libc. It's currently generated on Alpine v3.21, using its default LLVM 19. Most bundled executables are fully static and can be run on ~all distros. (#4826, #4862)
 - Revived dynamic-compile (JIT) functionality (formerly unsupported since LLVM 12), supporting LLVM 18+ now. (#4774)
@@ -10,7 +10,7 @@
 
 #### Platform support
 - Supports LLVM 15 - 19.
-- Initial compiler and runtime support for ppc64 and ppc64le systems that use IEEE 754R 128-bit floating-point as the default 128-bit floating-point format. (#4833)
+- Initial compiler and runtime support for ppc64 and ppc64le systems that use IEEE 754R 128-bit floating-point as the default 128-bit floating-point format. (#4833, #4840)
 - Initial support for Windows on ARM64. The prebuilt Windows multilib package/installer bundles prebuilt arm64 druntime and Phobos; cross-compiling works out of the box via `-mtriple=aarch64-windows-msvc`, but you currently need to set up a suited MSVC arm64 build environment before yourself (e.g., by running `vsdevcmd.bat -arch=arm64 -host_arch=x64`). (#4835, #4846)
 
 #### Bug fixes
