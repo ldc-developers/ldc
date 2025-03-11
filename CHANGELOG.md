@@ -10,7 +10,7 @@
 
 #### Platform support
 - Supports LLVM 15 - 19.
-- Initial compiler and runtime support for ppc64 and ppc64le systems that use IEEE 754R 128-bit floating-point as the default 128-bit floating-point format. (#4833)
+- Initial compiler and runtime support for ppc64 and ppc64le systems that use IEEE 754R 128-bit floating-point as the default 128-bit floating-point format. (#4833, #4840)
 - Initial support for Windows on ARM64. The prebuilt Windows multilib package/installer bundles prebuilt arm64 druntime and Phobos; cross-compiling works out of the box via `-mtriple=aarch64-windows-msvc`, but you currently need to set up a suited MSVC arm64 build environment before yourself (e.g., by running `vsdevcmd.bat -arch=arm64 -host_arch=x64`). (#4835, #4846)
 
 #### Bug fixes
