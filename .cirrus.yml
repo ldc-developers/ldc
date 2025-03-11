@@ -109,7 +109,7 @@ packaging_steps_template: &PACKAGING_STEPS_TEMPLATE
   # Build & copy reggae
   build_reggae_script: |
     cd $CIRRUS_WORKING_DIR/..
-    git clone --recursive https://github.com/kinke/reggae.git
+    git clone --recursive https://github.com/atilaneves/reggae.git
     cd reggae
     git checkout "$(cat $CIRRUS_WORKING_DIR/packaging/reggae_version)"
     # needs rdmd in PATH
