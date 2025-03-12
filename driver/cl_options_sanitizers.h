@@ -14,7 +14,11 @@
 #pragma once
 
 #include "driver/cl_helpers.h"
+#if LDC_LLVM_VER >= 2000
+#include "llvm/Transforms/Utils/Instrumentation.h"
+#else
 #include "llvm/Transforms/Instrumentation.h"
+#endif
 
 class FuncDeclaration;
 namespace llvm {
