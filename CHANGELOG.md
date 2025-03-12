@@ -6,7 +6,7 @@
 - New prebuilt package for Alpine Linux x86_64 with musl libc. It's currently generated on Alpine v3.21, using its default LLVM 19. Most bundled executables are fully static and can be run on ~all distros. (#4826, #4862)
 - Revived dynamic-compile (JIT) functionality (formerly unsupported since LLVM 12), supporting LLVM 18+ now. (#4774)
 - ldc2.conf: `%%ldcversion%%` placeholder added, allowing to refer to version-specific directories.
-- Windows: The prebuilt packages now bundle an official libcurl build (from https://curl.se/windows/), currently v8.12.1. The static library (`curl_a.lib`) isn't available anymore. (#4855)
+- Windows: The prebuilt packages now bundle an official libcurl build (from https://curl.se/windows/), currently v8.12.1. The static library (`curl_a.lib`) isn't available anymore. When bundling this `libcurl.dll` with your binaries, make sure to include `curl-ca-bundle.crt` too (in the same directory as the DLL), to prevent 'SSL peer certificate or SSH remote key was not OK' exceptions. (#4855, #4875)
 
 #### Platform support
 - Supports LLVM 15 - 19.
