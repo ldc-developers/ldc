@@ -876,13 +876,17 @@ foreach(libname ${libs_to_install})
         # import .lib in regular lib dir
         install(FILES       $<TARGET_LINKER_FILE:${libname}>
                 DESTINATION ${destination_dir})
-        # .dll in bin dir
+        # when included from the LDC parent build, install .dll and .pdb into bin/
+        if(LDC_EXE)
+            set(destination_dir ${CMAKE_INSTALL_PREFIX}/bin)
+        endif()
+        # .dll in bin or lib dir
         install(FILES       $<TARGET_FILE:${libname}>
-                DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
-        # .pdb of debug DLLs in bin dir
+                DESTINATION ${destination_dir})
+        # .pdb of debug DLLs in bin or lib dir
         if(${libname} MATCHES "-debug")
             install(FILES       $<TARGET_PDB_FILE:${libname}>
-                    DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+                    DESTINATION ${destination_dir})
         endif()
     else()
         install(TARGETS     ${libname}
@@ -890,19 +894,21 @@ foreach(libname ${libs_to_install})
     endif()
 endforeach()
 
-set(DRUNTIME_PACKAGES core etc ldc)
+# only install the imports when included from the LDC parent build
+if(LDC_EXE)
+    set(DRUNTIME_PACKAGES core etc ldc)
 
-install(FILES ${RUNTIME_DIR}/src/object.d ${RUNTIME_DIR}/src/__importc_builtins.di ${RUNTIME_DIR}/src/importc.h DESTINATION ${INCLUDE_INSTALL_DIR})
-foreach(p ${DRUNTIME_PACKAGES})
-    install(DIRECTORY ${RUNTIME_DIR}/src/${p} DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
-    install(DIRECTORY ${RUNTIME_DIR}/src/${p} DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
-endforeach()
-if(PHOBOS2_DIR)
-    install(DIRECTORY ${PHOBOS2_DIR}/std DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
-    install(DIRECTORY ${PHOBOS2_DIR}/etc DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
+    install(FILES ${RUNTIME_DIR}/src/object.d ${RUNTIME_DIR}/src/__importc_builtins.di ${RUNTIME_DIR}/src/importc.h DESTINATION ${INCLUDE_INSTALL_DIR})
+    foreach(p ${DRUNTIME_PACKAGES})
+        install(DIRECTORY ${RUNTIME_DIR}/src/${p} DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
+        install(DIRECTORY ${RUNTIME_DIR}/src/${p} DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
+    endforeach()
+    if(PHOBOS2_DIR)
+        install(DIRECTORY ${PHOBOS2_DIR}/std DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
+        install(DIRECTORY ${PHOBOS2_DIR}/etc DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
+    endif()
+    install(FILES ${GCCBUILTINS} DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
 endif()
-install(FILES ${GCCBUILTINS} DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
-
 
 #
 # Test targets.
