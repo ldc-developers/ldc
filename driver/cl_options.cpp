@@ -160,7 +160,12 @@ static cl::opt<MessageStyle, true> verrorStyle(
                    "'file(line[,column]): message' (default)"),
         clEnumValN(MessageStyle::gnu, "gnu",
                    "'file:line[:column]: message', conforming to the GNU "
-                   "standard used by gcc and clang")),
+                   "standard used by gcc and clang"),
+        clEnumValN(
+            MessageStyle::sarif, "sarif",
+            "Generate JSON output conforming to the SARIF (Static Analysis "
+            "Results Interchange Format) standard, useful for integration with "
+            "tools like GitHub and other SARIF readers")),
     cl::init(MessageStyle::digitalmars));
 
 static cl::opt<unsigned, true>

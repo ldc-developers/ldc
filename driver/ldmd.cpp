@@ -186,7 +186,12 @@ Where:\n\
 #if 0
 "  -fPIE             generate position independent executables\n"
 #endif
-"  -g                add symbolic debug info\n\
+"  -ftime-trace      turn on compile time profiler, generate JSON file with results\n\
+  -ftime-trace-granularity=\n\
+                    minimum time granularity (in microseconds) traced by time profiler (default: 500)\n\
+  -ftime-trace-file=<filename>\n\
+                    specify output file for -ftime-trace\n\
+  -g                add symbolic debug info\n\
   -gdwarf=<version> add DWARF symbolic debug info\n\
   -gf               emit debug info for all referenced types\n\
   -gs               always emit stack frame\n"
@@ -241,7 +246,8 @@ Where:\n\
   -o-               do not write object file\n\
   -od=<directory>   write object & library files to directory\n\
   -of=<filename>    name output file to filename\n\
-  -op               preserve source path for output files\n"
+  -op               preserve source path for output files\n\
+  -oq               write object files with fully qualified file names\n"
 #if 0
 "  -os=<os>          sets target operating system to <os>\n"
 #endif
@@ -270,12 +276,13 @@ Where:\n\
   -vasm             generate additional textual assembly files (*.s)\n\
   -vcolumns         print character (column) numbers in diagnostics\n\
   -vdmd             print the underlying LDC command line\n\
-  -verror-style=[digitalmars|gnu]\n\
+  -verror-style=[digitalmars|gnu|sarif]\n\
                     set the style for file/line number annotations on compiler messages\n\
   -verror-supplements=<num>\n\
                     limit the number of supplemental messages for each error (0 means unlimited)\n\
-  -verrors=<num>    limit the number of error messages (0 means unlimited)\n\
-  -verrors=context  show error messages with the context of the erroring source line\n\
+  -verrors=<num>    limit the number of error/deprecation messages (0 means unlimited)\n\
+  -verrors=[context|simple]\n\
+                    set the verbosity of error messages\n\
   -verrors=spec     show errors from speculative compiles such as __traits(compiles,...)\n\
   --version         print compiler version and exit\n\
   -version=<level>  compile in version code >= level\n\
@@ -517,7 +524,12 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         }
       } else if (strcmp(p + 1, "fPIE") == 0) {
         goto Lnot_in_ldc;
-      } else if (strcmp(p + 1, "map") == 0) {
+      }
+      /* -ftime-trace
+       * -ftime-trace-granularity
+       * -ftime-trace-file
+       */
+      else if (strcmp(p + 1, "map") == 0) {
         goto Lnot_in_ldc;
       } else if (strcmp(p + 1, "multiobj") == 0) {
         goto Lnot_in_ldc;
@@ -537,6 +549,8 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         goto Lnot_in_ldc;
       } else if (strcmp(p + 1, "gt") == 0) {
         error("use -profile instead of -gt\n");
+      } else if (strcmp(p + 1, "arm") == 0) {
+        ldcArgs.push_back("-march=aarch64");
       }
       /* -m32
        * -m64
@@ -573,9 +587,11 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
       else if (startsWith(p + 1, "verrors")) {
         if (p[8] == '=' && isdigit(static_cast<unsigned char>(p[9]))) {
           ldcArgs.push_back(p);
-        } else if (startsWith(p + 9, "spec")) {
+        } else if (strcmp(p + 9, "spec") == 0) {
           ldcArgs.push_back("-verrors-spec");
-        } else if (startsWith(p + 9, "context")) {
+        } else if (strcmp(p + 9, "simple") == 0) {
+          ldcArgs.push_back("-verrors-context=false");
+        } else if (strcmp(p + 9, "context") == 0) {
           ldcArgs.push_back("-verrors-context");
         } else {
           goto Lerror;
@@ -617,6 +633,7 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
        * -od
        * -of
        * -op
+       * -oq
        */
       else if (strcmp(p + 1, "o") == 0) {
         error("-o no longer supported, use -of or -od");
@@ -677,21 +694,9 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
       else if (startsWith(p + 1, "debug") && p[6] != 'l') {
         // Parse:
         //      -debug
-        //      -debug=number
         //      -debug=identifier
         if (p[6] == '=') {
-          if (isdigit(static_cast<unsigned char>(p[7]))) {
-            long level;
-            errno = 0;
-            char *end;
-            level = strtol(p + 7, &end, 10);
-            if (*end || errno || level > INT_MAX) {
-              goto Lerror;
-            }
-            ldcArgs.push_back(concat("-d-debug=", static_cast<int>(level)));
-          } else {
-            ldcArgs.push_back(concat("-d-debug=", p + 7));
-          }
+          ldcArgs.push_back(concat("-d-debug=", p + 7));
         } else if (p[6]) {
           goto Lerror;
         } else {
@@ -699,21 +704,9 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         }
       } else if (startsWith(p + 1, "version")) {
         // Parse:
-        //      -version=number
         //      -version=identifier
         if (p[8] == '=') {
-          if (isdigit(static_cast<unsigned char>(p[9]))) {
-            long level;
-            errno = 0;
-            char *end;
-            level = strtol(p + 9, &end, 10);
-            if (*end || errno || level > INT_MAX) {
-              goto Lerror;
-            }
-            ldcArgs.push_back(concat("-d-version=", static_cast<int>(level)));
-          } else {
-            ldcArgs.push_back(concat("-d-version=", p + 9));
-          }
+          ldcArgs.push_back(concat("-d-version=", p + 9));
         } else {
           goto Lerror;
         }
