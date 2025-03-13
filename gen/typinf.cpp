@@ -231,6 +231,9 @@ public:
     // key typeinfo
     b.push_typeinfo(tc->index);
 
+    // entry typeinfo (key-value pair)
+    b.push_typeinfo(decl->entry);
+
     // finish
     b.finalize(gvar);
   }
