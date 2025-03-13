@@ -300,6 +300,9 @@ struct Param
     DString exefile;
     DString mapfile;
     bool fullyQualifiedObjectFiles;
+    bool timeTrace;
+    uint32_t timeTraceGranularityUs;
+    const char* timeTraceFile;
 
 #if IN_LLVM
     // stuff which was extracted upstream into `driverParams` global:
@@ -341,11 +344,7 @@ struct Param
     // Windows-specific:
     bool dllexport;      // dllexport ~all defined symbols?
     DLLImport dllimport; // dllimport data symbols not defined in any root module?
-#else // !IN_LLVM
-    bool timeTrace;
-    uint32_t timeTraceGranularityUs;
-    const char* timeTraceFile;
-#endif
+#endif // IN_LLVM
 };
 
 struct structalign_t

@@ -2476,7 +2476,7 @@ version (IN_LLVM)
 
 version (IN_LLVM)
 {
-        gcs.sw = sc.sw;
+        gcs.sw = sc.switchStatement;
 }
 
         if (gcs.exp)

@@ -196,7 +196,10 @@ TypeInfoDeclaration getTypeInfoAssocArrayDeclaration(TypeAArray t, Scope* sc)
     ti.entry = e.type;
     if (auto ts = ti.entry.isTypeStruct())
     {
+version (IN_LLVM) {} else
+{
         ts.sym.requestTypeInfo = true;
+}
         if (auto tmpl = ts.sym.isInstantiated())
             tmpl.minst = sc._module.importedFrom; // ensure it get's emitted
     }

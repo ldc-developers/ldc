@@ -185,6 +185,7 @@ bool isFuncHidden(ClassDeclaration cd, FuncDeclaration fd)
     return dmd.dsymbolsem.isFuncHidden(cd, fd);
 }
 
+version (IN_LLVM) { /* not needed */ } else
 Dsymbol vtblSymbol(ClassDeclaration cd)
 {
     import dmd.dsymbolsem;

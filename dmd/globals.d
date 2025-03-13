@@ -296,6 +296,11 @@ extern (C++) struct Param
 
     bool fullyQualifiedObjectFiles; // prepend module names to object files to prevent name conflicts with -od
 
+    // Time tracing
+    bool timeTrace = false; /// Whether profiling of compile time is enabled
+    uint timeTraceGranularityUs = 500; /// In microseconds, minimum event size to report
+    const(char)* timeTraceFile; /// File path of output file
+
 version (IN_LLVM)
 {
     // stuff which was extracted upstream into `driverParams` global:
@@ -338,14 +343,7 @@ version (IN_LLVM)
     // Windows-specific:
     bool dllexport;      // dllexport ~all defined symbols?
     DLLImport dllimport; // dllimport data symbols not defined in any root module?
-}
-else // !IN_LLVM: TODO!
-{
-    // Time tracing
-    bool timeTrace = false; /// Whether profiling of compile time is enabled
-    uint timeTraceGranularityUs = 500; /// In microseconds, minimum event size to report
-    const(char)* timeTraceFile; /// File path of output file
-}
+} // IN_LLVM
 
     ///
     bool parsingUnittestsRequired() @safe

@@ -45,12 +45,14 @@ import dmd.utils : escapePath;
 
 version (IN_LLVM)
 {
+    import dmd.globals : IN_LLVM;
+
     extern (C++):
 
     // in driver/archiver.cpp
-    const(char)* getPathToProducedStaticLibrary();
+    const(char)* getPathToProducedStaticLibrary() pure;
     // in driver/linker.cpp
-    const(char)* getPathToProducedBinary();
+    const(char)* getPathToProducedBinary() pure;
 }
 
 /**

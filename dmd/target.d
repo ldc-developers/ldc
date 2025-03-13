@@ -452,7 +452,7 @@ version (IN_LLVM)
     uint alignsize(Type type);
     uint fieldalign(Type type);
 
-    Type va_listType(const ref Loc loc, Scope* sc);
+    Type va_listType(Loc loc, Scope* sc);
 }
 else // !IN_LLVM
 {
@@ -1060,7 +1060,7 @@ version (IN_LLVM)
     TypeTuple toArgTypes(Type t);
     bool isReturnOnStack(TypeFunction tf, bool needsThis);
     bool preferPassByRef(Type t);
-    Expression getTargetInfo(const(char)* name, const ref Loc loc);
+    Expression getTargetInfo(const(char)* name, Loc loc);
     bool isCalleeDestroyingArgs(TypeFunction tf);
     bool libraryObjectMonitors(FuncDeclaration fd, Statement fbody) { return true; }
     bool supportsLinkerDirective() const;

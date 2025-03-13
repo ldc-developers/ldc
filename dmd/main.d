@@ -512,7 +512,14 @@ else
     if (params.timeTrace)
     {
         import dmd.timetrace;
+version (IN_LLVM)
+{
+        initializeTimeTrace(params.timeTraceGranularityUs, "ldc2");
+}
+else
+{
         initializeTimeTrace(params.timeTraceGranularityUs, argv[0]);
+}
     }
 
     // Create Modules

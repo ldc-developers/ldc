@@ -8271,6 +8271,7 @@ extern(C++) bool isFuncHidden(ClassDeclaration cd, FuncDeclaration fd)
     }
 }
 
+version (IN_LLVM) { /* not needed */ } else
 Dsymbol vtblSymbol(ClassDeclaration cd)
 {
     if (!cd.vtblsym)
