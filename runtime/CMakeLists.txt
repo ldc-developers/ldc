@@ -233,7 +233,7 @@ endif()
 # druntime ASM parts
 set(DRUNTIME_ASM)
 if("${TARGET_SYSTEM}" MATCHES "UNIX")
-    list(APPEND DRUNTIME_ASM ${RUNTIME_DIR}/src/core/threadasm.S ${RUNTIME_DIR}/src/ldc/eh_asm.S)
+    list(APPEND DRUNTIME_ASM ${RUNTIME_DIR}/src/core/thread/fiber/switch_context_asm.S ${RUNTIME_DIR}/src/ldc/eh_asm.S)
 endif()
 
 if(PHOBOS2_DIR)

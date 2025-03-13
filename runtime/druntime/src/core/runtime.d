@@ -4,7 +4,7 @@
  * Copyright: Copyright Sean Kelly 2005 - 2009.
  * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
  * Authors:   Sean Kelly
- * Source:    $(LINK2 https://github.com/dlang/dmd/blob/master/druntime/src/core/runtime.d, _runtime.d)
+ * Source:    $(DRUNTIMESRC core/_runtime.d)
  * Documentation: https://dlang.org/phobos/core_runtime.html
  */
 
@@ -572,7 +572,9 @@ extern (C) UnitTestResult runModuleUnitTests()
 
     static if (hasExecinfo)
     {
-        import core.sys.posix.signal; // segv handler
+        // segv handler
+        import core.sys.posix.signal : SA_RESETHAND, SA_SIGINFO, sigaction, sigaction_t, SIGBUS, sigfillset, siginfo_t,
+            SIGSEGV;
 
         static extern (C) void unittestSegvHandler( int signum, siginfo_t* info, void* ptr ) nothrow
         {
@@ -630,7 +632,7 @@ extern (C) UnitTestResult runModuleUnitTests()
                 if (moduleName.length && e.file.length > moduleName.length
                     && e.file[0 .. moduleName.length] == moduleName)
                 {
-                    import core.stdc.stdio;
+                    import core.stdc.stdio : printf;
                     printf("%.*s(%llu): [unittest] %.*s\n",
                         cast(int) e.file.length, e.file.ptr, cast(ulong) e.line,
                         cast(int) e.message.length, e.message.ptr);
@@ -779,7 +781,7 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null ) // @nogc
 unittest
 {
     import core.runtime;
-    import core.stdc.stdio;
+    import core.stdc.stdio : printf;
 
     void main()
     {

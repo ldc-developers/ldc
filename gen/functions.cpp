@@ -635,7 +635,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   } else {
     if (fdecl->inlining == PINLINE::always) {
       // If the function contains DMD-style inline assembly.
-      if (fdecl->hasReturnExp & 32) {
+      if (fdecl->hasInlineAsm()) {
         // The presence of DMD-style inline assembly in a function causes that
         // function to become never-inline. So, if this function contains DMD-style
         // inline assembly we'll emit an error as it can't be made always-inline.
@@ -1217,7 +1217,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   // disable frame-pointer-elimination for functions with DMD-style inline asm
-  if (fd->hasReturnExp & 32) {
+  if (fd->hasInlineAsm()) {
     func->addFnAttr(
         llvm::Attribute::get(gIR->context(), "frame-pointer", "all"));
   }

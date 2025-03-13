@@ -33,7 +33,7 @@ version (DRuntime_Use_Libunwind):
 // mechanism for Windows, so the bindings haven't been brought in yet.
 version (Posix):
 
-import core.stdc.inttypes;
+import core.stdc.inttypes : uintptr_t;
 
 extern(C):
 @nogc:
@@ -162,6 +162,11 @@ else version (RISCV64) // 32 is not supported
 {
     enum _LIBUNWIND_CONTEXT_SIZE = 64;
     enum _LIBUNWIND_CURSOR_SIZE = 76;
+}
+else version (LoongArch64)
+{
+    enum _LIBUNWIND_CONTEXT_SIZE = 65;
+    enum _LIBUNWIND_CURSOR_SIZE = 77;
 }
 else
     static assert(0, "Platform not supported");

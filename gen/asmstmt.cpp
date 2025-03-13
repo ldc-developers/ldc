@@ -102,8 +102,6 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
     return nullptr;
   }
 
-  sc->func->hasReturnExp |= 8;
-
   // GCC-style asm starts with a string literal or a `(`
   if (s->tokens->value == TOK::string_ ||
       s->tokens->value == TOK::leftParenthesis) {
@@ -112,7 +110,7 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
   }
 
   // this is DMD-style asm
-  sc->func->hasReturnExp |= 32;
+  sc->func->hasInlineAsm(true);
 
   const auto caseSensitive = s->caseSensitive;
 
@@ -164,7 +162,7 @@ void AsmStatement_toIR(InlineAsmStatement *stmt, IRState *irs) {
   LOG_SCOPE;
 
   // sanity check
-  assert((irs->func()->decl->hasReturnExp & 40) == 40);
+  assert(irs->func()->decl->hasInlineAsm());
 
   // get asm block
   IRAsmBlock *asmblock = irs->asmBlock;
