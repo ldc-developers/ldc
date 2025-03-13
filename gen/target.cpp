@@ -343,7 +343,7 @@ TypeTuple *Target::toArgTypes(Type *t) {
 }
 
 bool Target::isReturnOnStack(TypeFunction *tf, bool needsThis) {
-  return !tf->isref() && gABI->returnInArg(tf, needsThis);
+  return !tf->isRef() && gABI->returnInArg(tf, needsThis);
 }
 
 bool Target::preferPassByRef(Type *t) { return gABI->preferPassByRef(t); }

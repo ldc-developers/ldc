@@ -816,7 +816,7 @@ static if (!IN_LLVM)
         case EXP.negate:
 version (IN_LLVM)
 {
-            return tvec.isscalar();
+            return tvec.isScalar();
 }
 else
 {
@@ -852,7 +852,7 @@ else
         case EXP.notEqual:
 version (IN_LLVM)
 {
-            return tvec.isscalar();
+            return tvec.isScalar();
 }
 else
 {
@@ -893,12 +893,12 @@ else
             break;
 
         case EXP.leftShift, EXP.leftShiftAssign, EXP.rightShift, EXP.rightShiftAssign, EXP.unsignedRightShift, EXP.unsignedRightShiftAssign:
-            return IN_LLVM && tvec.isintegral();
+            return IN_LLVM && tvec.isIntegral();
 
         case EXP.add, EXP.addAssign, EXP.min, EXP.minAssign:
 version (IN_LLVM)
 {
-            return tvec.isscalar();
+            return tvec.isScalar();
 }
 else
 {
@@ -929,7 +929,7 @@ else
         case EXP.mul, EXP.mulAssign:
 version (IN_LLVM)
 {
-            return tvec.isscalar();
+            return tvec.isScalar();
 }
 else
 {
@@ -966,7 +966,7 @@ else
         case EXP.div, EXP.divAssign:
 version (IN_LLVM)
 {
-            return tvec.isscalar();
+            return tvec.isScalar();
 }
 else
 {
@@ -989,12 +989,12 @@ else
             break;
 
         case EXP.mod, EXP.modAssign:
-            return IN_LLVM && tvec.isscalar();
+            return IN_LLVM && tvec.isScalar();
 
         case EXP.and, EXP.andAssign, EXP.or, EXP.orAssign, EXP.xor, EXP.xorAssign:
 version (IN_LLVM)
 {
-            return tvec.isintegral();
+            return tvec.isIntegral();
 }
 else
 {
@@ -1016,7 +1016,7 @@ else
         case EXP.tilde:
 version (IN_LLVM)
 {
-            return tvec.isintegral();
+            return tvec.isIntegral();
 }
 else
 {

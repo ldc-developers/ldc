@@ -86,7 +86,7 @@ struct HardfloatRewrite : BaseBitcastABIRewrite {
     LLType *t[2];
     for (unsigned i = 0; i < 2; ++i) {
       t[i] =
-          flat.fields[i]->isfloating()
+          flat.fields[i]->isFloating()
               ? DtoType(flat.fields[i])
               : LLIntegerType::get(gIR->context(), size(flat.fields[i]) * 8);
     }
@@ -111,8 +111,8 @@ private:
     if (result.length <= 0)
       return false;
     if (result.length == 1)
-      return result.fields[0]->isfloating();
-    return result.fields[0]->isfloating() || result.fields[1]->isfloating();
+      return result.fields[0]->isFloating();
+    return result.fields[0]->isFloating() || result.fields[1]->isFloating();
   }
 
 public:
@@ -143,7 +143,7 @@ public:
     }
 
     Type *ty = arg.type->toBasetype();
-    if (ty->isintegral() && (ty->ty == TY::Tint32 || ty->ty == TY::Tuns32 ||
+    if (ty->isIntegral() && (ty->ty == TY::Tint32 || ty->ty == TY::Tuns32 ||
                              ty->ty == TY::Tdchar)) {
       // In the LP64D ABI, both int32 and unsigned int32 are stored in
       // general-purpose registers as proper sign extensions of their

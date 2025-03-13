@@ -98,7 +98,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     newIrFty.ret = new IrFuncTyArg(Type::tint32, false);
   } else {
     Type *rt = f->next;
-    const bool byref = f->isref() && rt->toBasetype()->ty != TY::Tvoid;
+    const bool byref = f->isRef() && rt->toBasetype()->ty != TY::Tvoid;
     llvm::AttrBuilder attrs(getGlobalContext());
 
     if (!byref && abi->returnInArg(f, fd && fd->needThis())) {
@@ -146,7 +146,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     if (fd->objc.selector) {
       hasObjCSelector = true;
     } else if (fd->parent->isClassDeclaration()) {
-      if(fd->isFinal() || ftype->isproperty()) {
+      if(fd->isFinal() || ftype->isProperty()) {
 
         // HACK: Ugly hack, but final functions for some reason don't actually declare a selector.
         // However, this does make it more flexible.
