@@ -171,7 +171,7 @@ static cl::opt<unsigned, true>
                                "each error (0 means unlimited)"));
 
 static cl::opt<Diagnostic, true> warnings(
-    cl::desc("Warnings:"), cl::ZeroOrMore, cl::location(global.params.warnings),
+    cl::desc("Warnings:"), cl::ZeroOrMore, cl::location(global.params.useWarnings),
     cl::values(
         clEnumValN(DIAGNOSTICerror, "w",
                    "Enable warnings as errors (compilation will halt)"),

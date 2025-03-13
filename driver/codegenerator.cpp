@@ -152,7 +152,7 @@ struct InlineAsmDiagnosticHandler : public llvm::DiagnosticHandler {
     if (DI.getKind() == llvm::SourceMgr::DK_Error ||
         DI.getSeverity() == llvm::DS_Error) {
       ++global.errors;
-    } else if (global.params.warnings == DIAGNOSTICerror &&
+    } else if (global.params.useWarnings == DIAGNOSTICerror &&
                (DI.getKind() == llvm::SourceMgr::DK_Warning ||
                 DI.getSeverity() == llvm::DS_Warning)) {
       ++global.warnings;
