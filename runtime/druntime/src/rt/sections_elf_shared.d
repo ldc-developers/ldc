@@ -48,7 +48,7 @@ import core.internal.container.hashtab;
 import core.internal.elf.dl;
 import core.memory;
 import core.stdc.config : c_ulong;
-import core.stdc.stdlib : calloc, free;
+import core.stdc.stdlib : calloc, free, malloc;
 version (Shared) import core.sync.mutex;
 import core.sys.posix.pthread : pthread_mutex_destroy, pthread_mutex_init, pthread_mutex_lock, pthread_mutex_unlock;
 import core.sys.posix.sys.types : pthread_mutex_t;

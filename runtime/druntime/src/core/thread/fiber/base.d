@@ -679,6 +679,9 @@ private:
         // (what is needed is version(SupportSanitizers_ABI || CheckFiberMigration))
         // The field is positioned after another bool, using up alignment padding space.
         bool m_allowMigration;
+
+        // Set first time switchIn called to indicate this Fiber's Thread
+        ThreadBase m_curThread;
     }
     Throwable           m_unhandled;
     State               m_state;
