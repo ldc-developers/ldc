@@ -156,7 +156,7 @@ add_zeros(llvm::SmallVectorImpl<llvm::Constant *> &constants,
 LLConstant *IrAggr::getDefaultInitializer(VarDeclaration *field) {
   // Issue 9057 workaround caused by issue 14666 fix, see DMD upstream
   // commit 069f570005.
-  if (field->_init && field->semanticRun < PASS::semantic2done &&
+  if (field->_init && field->semanticRun() < PASS::semantic2done &&
       field->_scope) {
     semantic2(field, field->_scope);
   }

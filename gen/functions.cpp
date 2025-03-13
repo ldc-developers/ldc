@@ -140,7 +140,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   }
 
   bool hasObjCSelector = false;
-  if (fd && fd->_linkage == LINK::objc) {
+  if (fd && fd->_linkage() == LINK::objc) {
     auto ftype = (TypeFunction*)fd->type;
 
     if (fd->objc.selector) {
@@ -362,7 +362,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl, const bool willDeclare) {
         } else if (tempdecl->llvmInternal == LLVMinline_ir) {
           Logger::println("magic inline ir found");
           assert(fdecl->llvmInternal == LLVMinline_ir);
-          fdecl->_linkage = LINK::c;
+          fdecl->_linkage(LINK::c);
           Type *type = fdecl->type;
           assert(type->ty == TY::Tfunction);
           static_cast<TypeFunction *>(type)->linkage = LINK::c;
@@ -514,7 +514,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   } else if (defineOnDeclare(fdecl, /*isFunction=*/true)) {
     Logger::println("Function is inside a linkonce_odr template, will be "
                     "defined after declaration.");
-    if (fdecl->semanticRun < PASS::semantic3done) {
+    if (fdecl->semanticRun() < PASS::semantic3done) {
       Logger::println("Function hasn't had sema3 run yet, running it now.");
       const bool semaSuccess = functionSemantic3(fdecl);
       (void)semaSuccess;
@@ -997,7 +997,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     return;
   }
 
-  if (fd->semanticRun == PASS::semanticdone) {
+  if (fd->semanticRun() == PASS::semanticdone) {
     // This function failed semantic3() with errors but the errors were gagged.
     // In contrast to DMD we immediately bail out here, since other parts of
     // the codegen expect irFunc to be set for defined functions.
@@ -1047,7 +1047,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // nested context creation code.
   FuncDeclaration *parent = fd;
   while ((parent = getParentFunc(parent))) {
-    if (parent->semanticRun != PASS::semantic3done ||
+    if (parent->semanticRun() != PASS::semantic3done ||
         parent->hasSemantic3Errors()) {
       IF_LOG Logger::println(
           "Ignoring nested function with unanalyzed parent.");
@@ -1060,7 +1060,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   assert(fd->ident != Id::empty);
 
-  if (fd->semanticRun != PASS::semantic3done) {
+  if (fd->semanticRun() != PASS::semantic3done) {
     error(fd->loc,
           "Internal Compiler Error: function not fully analyzed; "
           "previous unreported errors compiling `%s`?",

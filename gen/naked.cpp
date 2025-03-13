@@ -279,7 +279,7 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, const Loc &loc,
       }
     } else if (rt->isFloating()) {
       if (rt->isComplex()) {
-        if (fdecl->_linkage == LINK::d) {
+        if (fdecl->_linkage() == LINK::d) {
           // extern(D) always returns on the FPU stack
           as->out.c = "={st},={st(1)},";
           asmblock->retn = 2;

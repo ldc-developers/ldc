@@ -571,7 +571,7 @@ public:
     // for struct `.init` assignment.
     if (lhs->isLVal() && e->op == EXP::assign) {
       if (auto sle = e->e2->isStructLiteralExp()) {
-        if (sle->useStaticInit) {
+        if (sle->useStaticInit()) {
           if (toInPlaceConstruction(lhs->isLVal(), sle))
             return;
         }
@@ -809,7 +809,7 @@ public:
     // Only emit this extra code from -O2.
     // This optimization is only valid for D class method calls (not C++).
     bool canEmitVTableUnchangedAssumption =
-        dfnval && dfnval->func && (dfnval->func->_linkage == LINK::d) &&
+        dfnval && dfnval->func && (dfnval->func->_linkage() == LINK::d) &&
         (optLevel() >= 2);
 
     if (dfnval && dfnval->func) {
@@ -1999,7 +1999,7 @@ public:
 
       // We need to actually codegen the function here, as literals are not
       // added to the module member list.
-      if (e->func->semanticRun == PASS::semantic3done) {
+      if (e->func->semanticRun() == PASS::semantic3done) {
         Dsymbol *owner = e->func->toParent();
         while (!owner->isTemplateInstance() && owner->toParent()) {
           owner = owner->toParent();
@@ -2392,7 +2392,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    if (e->useStaticInit) {
+    if (e->useStaticInit()) {
       StructDeclaration *sd = e->sd;
       DtoResolveStruct(sd);
 

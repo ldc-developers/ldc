@@ -545,7 +545,7 @@ public:
                          e->toChars(), e->type ? e->type->toChars() : "(null)");
     LOG_SCOPE;
 
-    if (e->useStaticInit) {
+    if (e->useStaticInit()) {
       DtoResolveStruct(e->sd);
       result = getIrAggr(e->sd)->getDefaultInit();
     } else {
