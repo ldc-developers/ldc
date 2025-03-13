@@ -39,7 +39,7 @@ namespace dmd
     PURE isPure(FuncDeclaration *f);
 }
 
-//enum STC : ulong from astenums.d:
+enum class STC : uint64_t;
 
     #define STCundefined          0ULL
 
@@ -125,6 +125,10 @@ public:
     Visibility visibility;
     short inuse;                // used to detect cycles
     uint8_t bitFields;
+
+    LINK _linkage() const;
+    LINK _linkage(LINK v);
+    bool noUnderscore() const;
 
     const char *kind() const override;
     uinteger_t size(Loc loc) override final;
@@ -752,8 +756,8 @@ public:
     bool hasNestedFrameRefs();
     ParameterList getParameterList();
 
-    static FuncDeclaration *genCfunc(Parameters *args, Type *treturn, const char *name, StorageClass stc=0);
-    static FuncDeclaration *genCfunc(Parameters *args, Type *treturn, Identifier *id, StorageClass stc=0);
+    static FuncDeclaration *genCfunc(Parameters *args, Type *treturn, const char *name, STC stc = (STC)0);
+    static FuncDeclaration *genCfunc(Parameters *args, Type *treturn, Identifier *id, STC stc = (STC)0);
 
     virtual FuncDeclaration *toAliasFunc() { return this; }
     void accept(Visitor *v) override { v->visit(this); }
