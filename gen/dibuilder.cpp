@@ -509,7 +509,7 @@ void DIBuilder::AddStaticMembers(AggregateDeclaration *ad, DIFile file,
   std::function<void(Dsymbols *)> visitMembers = [&](Dsymbols *members) {
     for (auto s : *members) {
       if (auto attrib = s->isAttribDeclaration()) {
-        if (Dsymbols *d = attrib->include(nullptr))
+        if (Dsymbols *d = include(attrib, nullptr))
           visitMembers(d);
       } else if (auto tmixin = s->isTemplateMixin()) {
         // FIXME: static variables inside a template mixin need to be put inside

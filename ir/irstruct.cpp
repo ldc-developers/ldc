@@ -134,7 +134,7 @@ LLConstant *IrStruct::getTypeInfoInit() {
     b.push_null_void_array();
   } else {
     llvm::Constant *initPtr;
-    if (ts->isZeroInit(Loc())) {
+    if (isZeroInit(ts)) {
       initPtr = getNullPtr();
     } else {
       initPtr = getInitSymbol();

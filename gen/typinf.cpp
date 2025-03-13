@@ -148,7 +148,7 @@ public:
 
     // void[] init
     // the array is null if the default initializer is zero
-    if (!sd->members || decl->tinfo->isZeroInit(decl->loc)) {
+    if (!sd->members || isZeroInit(decl->tinfo, decl->loc)) {
       b.push_null_void_array();
     }
     // otherwise emit a void[] with the default initializer
