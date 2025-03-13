@@ -139,7 +139,7 @@ LLType *DtoType(Type *t) {
        */
       IF_LOG {
         Logger::println("Aggregate with multiple Types detected: %s (%s)",
-                        ad->toPrettyChars(), ad->locToChars());
+                        ad->toPrettyChars(), ad->loc.toChars());
         LOG_SCOPE;
         Logger::println("Existing deco:    %s", adType->deco);
         Logger::println("Mismatching deco: %s", t->deco);
