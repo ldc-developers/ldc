@@ -179,4 +179,20 @@ public:
 
   void push_back(const std::string &str) { push_back(str.c_str()); }
 };
+
+class ImportPathsAdapter {
+  const char *name;
+  Array<ImportPathInfo> *arrp;
+
+public:
+  ImportPathsAdapter(const char *name_, Array<ImportPathInfo> &arr) {
+    name = name_;
+    arrp = &arr;
+    assert(name);
+  }
+
+  void push_back(const char *cstr);
+
+  void push_back(const std::string &str) { push_back(str.c_str()); }
+};
 }

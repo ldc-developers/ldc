@@ -16,7 +16,7 @@ const char *getPathToImportc_h(const Loc &loc) {
   // importc.h should be next to object.d
   static const char *cached = nullptr;
   if (!cached) {
-    cached = FileName::searchPath(global.path, "importc.h", false);
+    cached = FileName::searchPath(global.importPaths, "importc.h", false);
     if (!cached) {
       error(loc, "cannot find \"importc.h\" along import path");
       fatal();

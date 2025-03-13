@@ -90,8 +90,8 @@ void generateJson(Modules *modules);
 using namespace dmd;
 using namespace opts;
 
-static StringsAdapter impPathsStore("I", global.params.imppath);
-static cl::list<std::string, StringsAdapter>
+static ImportPathsAdapter impPathsStore("I", global.params.imppath);
+static cl::list<std::string, ImportPathsAdapter>
     importPaths("I", cl::desc("Look for imports also in <directory>"),
                 cl::value_desc("directory"), cl::location(impPathsStore),
                 cl::Prefix);
@@ -377,12 +377,12 @@ void parseCommandLine(Strings &sourceFiles) {
   }
 
 #if _WIN32
-  const auto toWinPaths = [](Strings &paths) {
-    for (auto &path : paths)
-      path = opts::dupPathString(path).ptr;
-  };
-  toWinPaths(global.params.imppath);
-  toWinPaths(global.params.fileImppath);
+  for (auto &info : global.params.imppath) {
+    info.path = opts::dupPathString(info.path).ptr;
+  }
+  for (auto &path : global.params.fileImppath) {
+    path = opts::dupPathString(path).ptr;
+  }
 #endif
 
   for (const auto &field : jsonFields) {
