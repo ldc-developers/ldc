@@ -841,8 +841,8 @@ else
                 if (tvec.isIntegral() && cpu >= CPU.avx2)
                     return true;
             }
-} // !IN_LLVM
             break;
+} // !IN_LLVM
 
         case EXP.identity, EXP.notIdentity:
             return IN_LLVM;
@@ -889,8 +889,8 @@ else
                 if (tvec.isIntegral() && cpu >= CPU.avx2)
                     return true;
             }
-} // !IN_LLVM
             break;
+} // !IN_LLVM
 
         case EXP.leftShift, EXP.leftShiftAssign, EXP.rightShift, EXP.rightShiftAssign, EXP.unsignedRightShift, EXP.unsignedRightShiftAssign:
             return IN_LLVM && tvec.isIntegral();
@@ -923,8 +923,8 @@ else
                 if (tvec.isIntegral() && cpu >= CPU.avx2)
                     return true;
             }
-} // !IN_LLVM
             break;
+} // !IN_LLVM
 
         case EXP.mul, EXP.mulAssign:
 version (IN_LLVM)
@@ -960,8 +960,8 @@ else
                 if ((elemty == TY.Tint32 || elemty == TY.Tuns32) && cpu >= CPU.avx2)
                     return true;
             }
-} // !IN_LLVM
             break;
+} // !IN_LLVM
 
         case EXP.div, EXP.divAssign:
 version (IN_LLVM)
@@ -985,8 +985,8 @@ else
                 if (tvec.isFloating() && cpu >= CPU.avx)
                     return true;
             }
-} // !IN_LLVM
             break;
+} // !IN_LLVM
 
         case EXP.mod, EXP.modAssign:
             return IN_LLVM && tvec.isScalar();
@@ -1007,8 +1007,8 @@ else
                 if (vecsize == 32 && cpu >= CPU.avx2)
                     return true;
             }
-} // !IN_LLVM
             break;
+} // !IN_LLVM
 
         case EXP.not:
             return false;
@@ -1029,8 +1029,8 @@ else
                 if (vecsize == 32 && cpu >= CPU.avx2)
                     return true;
             }
-} // !IN_LLVM
             break;
+} // !IN_LLVM
 
         case EXP.pow, EXP.powAssign:
             return false;
