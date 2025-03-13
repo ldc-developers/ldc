@@ -18,7 +18,12 @@ import core.thread.threadgroup;
 import core.thread.types;
 
 import core.memory : pageSize;
-version (LDC) import ldc.llvmasm;
+
+version (LDC)
+{
+    import ldc.attributes;
+    import ldc.llvmasm;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Fiber Platform Detection

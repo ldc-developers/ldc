@@ -50,12 +50,16 @@ import core.memory;
 import core.stdc.config : c_ulong;
 import core.stdc.stdlib : calloc, free, malloc;
 version (Shared) import core.sync.mutex;
-import core.sys.posix.pthread : pthread_mutex_destroy, pthread_mutex_init, pthread_mutex_lock, pthread_mutex_unlock;
-import core.sys.posix.sys.types : pthread_mutex_t;
 import rt.deh;
 import rt.dmain2;
 import rt.minfo;
 import rt.util.utility : safeAssert;
+
+version (Posix)
+{
+    import core.sys.posix.pthread : pthread_mutex_destroy, pthread_mutex_init, pthread_mutex_lock, pthread_mutex_unlock;
+    import core.sys.posix.sys.types : pthread_mutex_t;
+}
 
 version (linux)
 {
@@ -1263,7 +1267,9 @@ void[] getTLSRange(size_t mod, size_t sz, size_t alignment) nothrow @nogc
 
             if (reference != start)
             {
+                import core.stdc.stdio : fprintf, stderr;
                 import core.stdc.stdlib : abort;
+
                 fprintf(stderr, "ERROR: getTLSRange mismatch - %p\n", start);
                 fprintf(stderr, "                          vs. %p\n", reference);
                 abort();
