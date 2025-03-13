@@ -196,6 +196,7 @@ else
     Strings files;
     Strings libmodules;
     global._init();
+}
 
     scope(exit)
     {
@@ -209,6 +210,8 @@ else
         }
     }
 
+version (IN_LLVM) {} else
+{
     target.setTargetBuildDefaults();
 
     if (parseCommandlineAndConfig(argc, argv, params, files))
