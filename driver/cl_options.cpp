@@ -146,11 +146,10 @@ static cl::opt<bool, true>
                      cl::desc("Show errors from speculative compiles such as "
                               "__traits(compiles,...)"));
 
-static cl::opt<bool, true> printErrorContext(
+cl::opt<bool> printErrorContext(
     "verrors-context", cl::ZeroOrMore,
-    cl::location(global.params.v.printErrorContext),
     cl::desc(
-        "Show error messages with the context of the erroring source line"));
+        "Show error messages with the context of the erroring source line (including caret)"));
 
 static cl::opt<MessageStyle, true> verrorStyle(
     "verror-style", cl::ZeroOrMore, cl::location(global.params.v.messageStyle),

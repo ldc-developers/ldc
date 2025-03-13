@@ -422,6 +422,12 @@ void parseCommandLine(Strings &sourceFiles) {
     global.params.outputSourceLocations = true;
   }
 
+  if (printErrorContext.getNumOccurrences() != 0) {
+    global.params.v.errorPrintMode = printErrorContext
+                                         ? ErrorPrintMode::printErrorContext
+                                         : ErrorPrintMode::simpleError;
+  }
+
   opts::initializeSanitizerOptionsFromCmdline();
 
   processVersions<DebugCondition>(debugArgs, "debug", global.params.debuglevel);
