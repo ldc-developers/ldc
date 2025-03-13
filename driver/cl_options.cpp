@@ -357,14 +357,17 @@ static cl::opt<bool, true> addMain(
     cl::desc(
         "Add default main() if not present already (e.g. for unittesting)"));
 
-// -d-debug is a bit messy, it has 3 modes:
-// -d-debug=ident, -d-debug=level and -d-debug (without argument)
-// The last one represents `-d-debug=1`, so it needs some special handling:
+// -d-debug is a bit messy, it has 2 modes:
+// -d-debug=ident and -d-debug (without argument)
+// The last one needs some special handling:
 std::vector<std::string> debugArgs;
-
 struct D_DebugStorage {
   void push_back(const std::string &str) {
-    debugArgs.push_back(str.empty() ? "1" : str);
+    if (str.empty()) {
+        global.params.debugEnabled = true;
+    } else {
+        debugArgs.push_back(str);
+    }
   }
 };
 
