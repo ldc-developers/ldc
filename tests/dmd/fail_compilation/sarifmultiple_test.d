@@ -8,7 +8,7 @@ TEST_OUTPUT:
 	"runs": [{
 		"tool": {
 			"driver": {
-				"name": "Digital Mars D",
+				"name": "LDC",
 				"version": "$r:\d+\.\d+\.\d+$",
 				"informationUri": "https://dlang.org/dmd.html"
 			}
