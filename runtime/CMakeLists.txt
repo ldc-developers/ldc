@@ -169,8 +169,6 @@ set(JITRT_DIR ${PROJECT_SOURCE_DIR}/jit-rt CACHE PATH "jit runtime root director
 # druntime D parts
 file(GLOB_RECURSE DRUNTIME_D ${RUNTIME_DIR}/src/*.d)
 list(REMOVE_ITEM DRUNTIME_D ${RUNTIME_DIR}/src/test_runner.d)
-# remove unsupported etc/linux/memoryerror.d (see issue #1915)
-list(REMOVE_ITEM DRUNTIME_D ${RUNTIME_DIR}/src/etc/linux/memoryerror.d)
 # remove some modules in rt/
 list(REMOVE_ITEM DRUNTIME_D
     ${RUNTIME_DIR}/src/rt/alloca.d
@@ -181,7 +179,6 @@ list(REMOVE_ITEM DRUNTIME_D
     ${RUNTIME_DIR}/src/rt/sections_osx_x86.d
     ${RUNTIME_DIR}/src/rt/sections_osx_x86_64.d
     ${RUNTIME_DIR}/src/rt/sections_solaris.d
-    ${RUNTIME_DIR}/src/rt/sections_win32.d
 )
 # only include core/sys/ modules matching the platform
 file(GLOB_RECURSE DRUNTIME_D_BIONIC  ${RUNTIME_DIR}/src/core/sys/bionic/*.d)
