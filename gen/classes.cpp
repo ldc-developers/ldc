@@ -80,7 +80,9 @@ DValue *DtoNewClass(const Loc &loc, TypeClass *tc, NewExp *newexp) {
   // allocate
   LLValue *mem;
   bool doInit = true;
-  if (newexp->onstack) {
+  if (newexp->placement) {
+    mem = DtoLVal(newexp->placement);
+  } else if (newexp->onstack) {
     mem = DtoRawAlloca(irClass->getLLStructType(), tc->sym->alignsize,
                        ".newclass_alloca");
   } else if (global.params.ehnogc && newexp->thrownew) {

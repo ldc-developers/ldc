@@ -1573,6 +1573,7 @@ public:
     // new dynamic array
     else if (ntype->ty == TY::Tarray) {
       IF_LOG Logger::println("new dynamic array: %s", e->newtype->toChars());
+      assert(!e->placement);
       assert(e->argprefix == NULL);
       // get dim
       assert(e->arguments);
@@ -1597,9 +1598,14 @@ public:
 
       TypeStruct *ts = static_cast<TypeStruct *>(ntype);
 
-      // allocate (via _d_newitemT template lowering)
-      assert(e->lowering);
-      LLValue *mem = DtoRVal(e->lowering);
+      LLValue *mem;
+      if (e->placement) {
+        mem = DtoLVal(e->placement);
+      } else {
+        // allocate (via _d_newitemT template lowering)
+        assert(e->lowering);
+        mem = DtoRVal(e->lowering);
+      }
 
       if (!e->member && e->arguments) {
         IF_LOG Logger::println("Constructing using literal");
@@ -1629,6 +1635,7 @@ public:
     }
     // new AA
     else if (auto taa = ntype->isTypeAArray()) {
+      assert(!e->placement);
       LLFunction *func = getRuntimeFunction(e->loc, gIR->module, "_aaNew");
       LLValue *aaTypeInfo = DtoTypeInfoOf(e->loc, stripModifiers(taa));
       LLValue *aa = gIR->CreateCallOrInvoke(func, aaTypeInfo, "aa");
@@ -1639,9 +1646,13 @@ public:
       IF_LOG Logger::println("basic type on heap: %s\n", e->newtype->toChars());
       assert(e->argprefix == NULL);
 
-      // allocate
-      LLValue *mem = DtoNew(e->loc, e->newtype);
-      DLValue tmpvar(e->newtype, mem);
+      LLValue *mem;
+      if (e->placement) {
+        mem = DtoLVal(e->placement);
+      } else {
+        // allocate
+        mem = DtoNew(e->loc, e->newtype);
+      }
 
       Expression *exp = nullptr;
       if (!e->arguments || e->arguments->length == 0) {
@@ -1655,6 +1666,7 @@ public:
       }
 
       // try to construct it in-place
+      DLValue tmpvar(e->newtype, mem);
       if (!toInPlaceConstruction(&tmpvar, exp))
         DtoAssign(e->loc, &tmpvar, toElem(exp), EXP::blit);
 
