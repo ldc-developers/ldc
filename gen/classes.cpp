@@ -83,14 +83,15 @@ DValue *DtoNewClass(const Loc &loc, TypeClass *tc, NewExp *newexp) {
   if (newexp->onstack) {
     mem = DtoRawAlloca(irClass->getLLStructType(), tc->sym->alignsize,
                        ".newclass_alloca");
+  } else if (global.params.ehnogc && newexp->thrownew) {
+    // _d_newThrowable template lowering
+    assert(newexp->lowering);
+    mem = DtoRVal(newexp->lowering);
+    doInit = false;
   } else {
-    const bool useEHAlloc = global.params.ehnogc && newexp->thrownew;
-    llvm::Function *fn = getRuntimeFunction(
-        loc, gIR->module, useEHAlloc ? "_d_newThrowable" : "_d_allocclass");
+    llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_allocclass");
     LLConstant *ci = irClass->getClassInfoSymbol();
-    mem = gIR->CreateCallOrInvoke(
-        fn, ci, useEHAlloc ? ".newthrowable" : ".newclass_gc");
-    doInit = !useEHAlloc;
+    mem = gIR->CreateCallOrInvoke(fn, ci, ".newclass_gc");
   }
 
   // init
