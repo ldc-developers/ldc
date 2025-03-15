@@ -11,14 +11,14 @@
 
 module rt.dwarfeh;
 
-// debug = EH_personality;
-
 version (Posix):
 
-import rt.dmain2: _d_print_throwable;
+// debug = EH_personality;
+
 import core.internal.backtrace.unwind;
-import core.stdc.stdio;
-import core.stdc.stdlib;
+import core.stdc.stdio : fprintf, printf, stderr;
+import core.stdc.stdlib : abort, calloc, free;
+import rt.dmain2 : _d_print_throwable;
 
 version (LDC)
 {
@@ -136,7 +136,8 @@ debug (EH_personality)
 {
     private void writeln(in char* format, ...) @nogc nothrow
     {
-        import core.stdc.stdarg;
+        import core.stdc.stdarg : va_list, va_start;
+        import core.stdc.stdio : fflush, stdout, vfprintf;
 
         va_list args;
         va_start(args, format);
@@ -192,7 +193,7 @@ struct ExceptionHeader
         auto eh = &ehstorage;
         if (eh.object)                  // if in use
         {
-            eh = cast(ExceptionHeader*)core.stdc.stdlib.calloc(1, ExceptionHeader.sizeof);
+            eh = cast(ExceptionHeader*).calloc(1, ExceptionHeader.sizeof);
             if (!eh)
                 terminate(__LINE__);              // out of memory while throwing - not much else can be done
         }
@@ -215,7 +216,7 @@ struct ExceptionHeader
          */
         *eh = ExceptionHeader.init;
         if (eh != &ehstorage)
-            core.stdc.stdlib.free(eh);
+            .free(eh);
     }
 
     /*************************
@@ -1216,8 +1217,7 @@ int actionTableLookup(_Unwind_Exception* exceptionObject, uint actionRecordPtr, 
                 {
                     // sti is catch clause type_info
                     auto sti = cast(CppTypeInfo)((cast(__cpp_type_info_ptr)cast(void*)ci).ptr);
-                    auto p = getCppPtrToThrownObject(exceptionObject, sti);
-                    if (p) // if found
+                    if (auto p = getCppPtrToThrownObject(exceptionObject, sti)) // if found
                     {
                         auto eh = CppExceptionHeader.toExceptionHeader(exceptionObject);
                         eh.thrownPtr = p;                   // for __cxa_begin_catch()

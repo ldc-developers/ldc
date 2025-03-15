@@ -17,20 +17,18 @@ module rt.sections_solaris;
 version (LDC) { /* implemented in rt.sections_ldc */ } else:
 
 version (Solaris)
-{
     version = SolarisOrOpenBSD;
-}
 else version (OpenBSD)
-{
     version = SolarisOrOpenBSD;
-}
 
 version (SolarisOrOpenBSD):
 
 // debug = PRINTF;
-debug(PRINTF) import core.stdc.stdio;
-import core.stdc.stdlib : malloc, free;
-import rt.deh, rt.minfo;
+
+import rt.deh;
+import rt.minfo;
+
+debug (PRINTF) import core.stdc.stdio : printf;
 
 struct SectionGroup
 {

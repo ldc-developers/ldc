@@ -139,9 +139,9 @@ void DtoGetComplexParts(const Loc &loc, Type *to, DValue *val, DValue *&re,
 
   Type *t = val->type->toBasetype();
 
-  if (t->iscomplex()) {
+  if (t->isComplex()) {
     DValue *v = DtoCastComplex(loc, val, to);
-    if (to->iscomplex()) {
+    if (to->isComplex()) {
       if (v->isLVal()) {
         LLValue *reVal = DtoGEP(DtoType(v->type), DtoLVal(v), 0u, 0, ".re_part");
         LLValue *imVal = DtoGEP(DtoType(v->type), DtoLVal(v), 0, 1, ".im_part");
@@ -158,13 +158,13 @@ void DtoGetComplexParts(const Loc &loc, Type *to, DValue *val, DValue *&re,
     } else {
       DtoGetComplexParts(loc, to, v, re, im);
     }
-  } else if (t->isimaginary()) {
+  } else if (t->isImaginary()) {
     re = nullptr;
     im = DtoCastFloat(loc, val, baseimty);
-  } else if (t->isfloating()) {
+  } else if (t->isFloating()) {
     re = DtoCastFloat(loc, val, baserety);
     im = nullptr;
-  } else if (t->isintegral()) {
+  } else if (t->isIntegral()) {
     re = DtoCastInt(loc, val, baserety);
     im = nullptr;
   } else {
@@ -436,7 +436,7 @@ LLValue *DtoComplexEquals(const Loc &loc, EXP op, DValue *lhs, DValue *rhs) {
 DValue *DtoCastComplex(const Loc &loc, DValue *val, Type *_to) {
   Type *to = _to->toBasetype();
   Type *vty = val->type->toBasetype();
-  if (to->iscomplex()) {
+  if (to->isComplex()) {
     if (size(vty) == size(to)) {
       return val;
     }
@@ -456,7 +456,7 @@ DValue *DtoCastComplex(const Loc &loc, DValue *val, Type *_to) {
     LLValue *pair = DtoAggrPair(DtoType(_to), re, im);
     return new DImValue(_to, pair);
   }
-  if (to->isimaginary()) {
+  if (to->isImaginary()) {
     // FIXME: this loads both values, even when we only need one
     LLValue *v = DtoRVal(val);
     LLValue *impart = gIR->ir->CreateExtractValue(v, 1, ".im_part");
@@ -481,7 +481,7 @@ DValue *DtoCastComplex(const Loc &loc, DValue *val, Type *_to) {
     return new DImValue(
         _to, DtoComplexEquals(loc, EXP::notEqual, val, DtoNullValue(vty)));
   }
-  if (to->isfloating() || to->isintegral()) {
+  if (to->isFloating() || to->isIntegral()) {
     // FIXME: this loads both values, even when we only need one
     LLValue *v = DtoRVal(val);
     LLValue *repart = gIR->ir->CreateExtractValue(v, 0, ".re_part");

@@ -798,7 +798,7 @@ version (unittest)
 {
     version (none)
     {
-        import core.stdc.stdio;
+        import core.stdc.stdio : printf;
 
         @trusted
         void print(Cent c)

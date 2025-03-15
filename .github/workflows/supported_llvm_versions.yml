@@ -2,8 +2,12 @@
 
 name: Vanilla LLVM
 on:
-  - pull_request
-  - push
+  pull_request:
+  push:
+    branches-ignore:
+      - 'merge-*' # don't run on pushes to merge-X.Y.Z branches, they are usually PRs
+    tags: # explicitly needed to run for all tags, due to the branches filter above
+      - '**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

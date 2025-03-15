@@ -98,7 +98,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     newIrFty.ret = new IrFuncTyArg(Type::tint32, false);
   } else {
     Type *rt = f->next;
-    const bool byref = f->isref() && rt->toBasetype()->ty != TY::Tvoid;
+    const bool byref = f->isRef() && rt->toBasetype()->ty != TY::Tvoid;
     llvm::AttrBuilder attrs(getGlobalContext());
 
     if (!byref && abi->returnInArg(f, fd && fd->needThis())) {
@@ -140,13 +140,13 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   }
 
   bool hasObjCSelector = false;
-  if (fd && fd->_linkage == LINK::objc) {
+  if (fd && fd->_linkage() == LINK::objc) {
     auto ftype = (TypeFunction*)fd->type;
 
     if (fd->objc.selector) {
       hasObjCSelector = true;
     } else if (fd->parent->isClassDeclaration()) {
-      if(fd->isFinal() || ftype->isproperty()) {
+      if(fd->isFinal() || ftype->isProperty()) {
 
         // HACK: Ugly hack, but final functions for some reason don't actually declare a selector.
         // However, this does make it more flexible.
@@ -362,7 +362,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl, const bool willDeclare) {
         } else if (tempdecl->llvmInternal == LLVMinline_ir) {
           Logger::println("magic inline ir found");
           assert(fdecl->llvmInternal == LLVMinline_ir);
-          fdecl->_linkage = LINK::c;
+          fdecl->_linkage(LINK::c);
           Type *type = fdecl->type;
           assert(type->ty == TY::Tfunction);
           static_cast<TypeFunction *>(type)->linkage = LINK::c;
@@ -514,7 +514,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   } else if (defineOnDeclare(fdecl, /*isFunction=*/true)) {
     Logger::println("Function is inside a linkonce_odr template, will be "
                     "defined after declaration.");
-    if (fdecl->semanticRun < PASS::semantic3done) {
+    if (fdecl->semanticRun() < PASS::semantic3done) {
       Logger::println("Function hasn't had sema3 run yet, running it now.");
       const bool semaSuccess = functionSemantic3(fdecl);
       (void)semaSuccess;
@@ -635,7 +635,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   } else {
     if (fdecl->inlining == PINLINE::always) {
       // If the function contains DMD-style inline assembly.
-      if (fdecl->hasReturnExp & 32) {
+      if (fdecl->hasInlineAsm()) {
         // The presence of DMD-style inline assembly in a function causes that
         // function to become never-inline. So, if this function contains DMD-style
         // inline assembly we'll emit an error as it can't be made always-inline.
@@ -997,7 +997,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     return;
   }
 
-  if (fd->semanticRun == PASS::semanticdone) {
+  if (fd->semanticRun() == PASS::semanticdone) {
     // This function failed semantic3() with errors but the errors were gagged.
     // In contrast to DMD we immediately bail out here, since other parts of
     // the codegen expect irFunc to be set for defined functions.
@@ -1047,7 +1047,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // nested context creation code.
   FuncDeclaration *parent = fd;
   while ((parent = getParentFunc(parent))) {
-    if (parent->semanticRun != PASS::semantic3done ||
+    if (parent->semanticRun() != PASS::semantic3done ||
         parent->hasSemantic3Errors()) {
       IF_LOG Logger::println(
           "Ignoring nested function with unanalyzed parent.");
@@ -1060,7 +1060,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   assert(fd->ident != Id::empty);
 
-  if (fd->semanticRun != PASS::semantic3done) {
+  if (fd->semanticRun() != PASS::semantic3done) {
     error(fd->loc,
           "Internal Compiler Error: function not fully analyzed; "
           "previous unreported errors compiling `%s`?",
@@ -1217,7 +1217,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   // disable frame-pointer-elimination for functions with DMD-style inline asm
-  if (fd->hasReturnExp & 32) {
+  if (fd->hasInlineAsm()) {
     func->addFnAttr(
         llvm::Attribute::get(gIR->context(), "frame-pointer", "all"));
   }

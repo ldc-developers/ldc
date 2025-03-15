@@ -146,11 +146,10 @@ static cl::opt<bool, true>
                      cl::desc("Show errors from speculative compiles such as "
                               "__traits(compiles,...)"));
 
-static cl::opt<bool, true> printErrorContext(
+cl::opt<bool> printErrorContext(
     "verrors-context", cl::ZeroOrMore,
-    cl::location(global.params.v.printErrorContext),
     cl::desc(
-        "Show error messages with the context of the erroring source line"));
+        "Show error messages with the context of the erroring source line (including caret)"));
 
 static cl::opt<MessageStyle, true> verrorStyle(
     "verror-style", cl::ZeroOrMore, cl::location(global.params.v.messageStyle),
@@ -161,7 +160,12 @@ static cl::opt<MessageStyle, true> verrorStyle(
                    "'file(line[,column]): message' (default)"),
         clEnumValN(MessageStyle::gnu, "gnu",
                    "'file:line[:column]: message', conforming to the GNU "
-                   "standard used by gcc and clang")),
+                   "standard used by gcc and clang"),
+        clEnumValN(
+            MessageStyle::sarif, "sarif",
+            "Generate JSON output conforming to the SARIF (Static Analysis "
+            "Results Interchange Format) standard, useful for integration with "
+            "tools like GitHub and other SARIF readers")),
     cl::init(MessageStyle::digitalmars));
 
 static cl::opt<unsigned, true>
@@ -171,7 +175,7 @@ static cl::opt<unsigned, true>
                                "each error (0 means unlimited)"));
 
 static cl::opt<Diagnostic, true> warnings(
-    cl::desc("Warnings:"), cl::ZeroOrMore, cl::location(global.params.warnings),
+    cl::desc("Warnings:"), cl::ZeroOrMore, cl::location(global.params.useWarnings),
     cl::values(
         clEnumValN(DIAGNOSTICerror, "w",
                    "Enable warnings as errors (compilation will halt)"),
@@ -358,14 +362,17 @@ static cl::opt<bool, true> addMain(
     cl::desc(
         "Add default main() if not present already (e.g. for unittesting)"));
 
-// -d-debug is a bit messy, it has 3 modes:
-// -d-debug=ident, -d-debug=level and -d-debug (without argument)
-// The last one represents `-d-debug=1`, so it needs some special handling:
+// -d-debug is a bit messy, it has 2 modes:
+// -d-debug=ident and -d-debug (without argument)
+// The last one needs some special handling:
 std::vector<std::string> debugArgs;
-
 struct D_DebugStorage {
   void push_back(const std::string &str) {
-    debugArgs.push_back(str.empty() ? "1" : str);
+    if (str.empty()) {
+        global.params.debugEnabled = true;
+    } else {
+        debugArgs.push_back(str);
+    }
   }
 };
 

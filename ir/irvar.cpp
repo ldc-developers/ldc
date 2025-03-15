@@ -90,7 +90,7 @@ void IrGlobal::declare() {
     if (!V->isThreadlocal()) {
       // implicitly include extern(D) globals with -dllimport
       useDLLImport =
-          (V->isExport() || V->_linkage == LINK::d) && dllimportDataSymbol(V);
+          (V->isExport() || V->_linkage() == LINK::d) && dllimportDataSymbol(V);
     }
   }
 

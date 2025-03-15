@@ -242,8 +242,8 @@ struct TimeTraceProfiler
         }
         else
         {
-            counters.allocatedMemory = dmd.root.rmem.heaptotal;
-            counters.memoryInUse = dmd.root.rmem.heaptotal - dmd.root.rmem.heapleft;
+            counters.allocatedMemory = dmd.root.rmem.heapTotal;
+            counters.memoryInUse = dmd.root.rmem.heapTotal - dmd.root.rmem.heapleft;
         }
         counters.timepoint = timepoint;
         return counters;

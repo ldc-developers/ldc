@@ -90,8 +90,8 @@ void generateJson(Modules *modules);
 using namespace dmd;
 using namespace opts;
 
-static StringsAdapter impPathsStore("I", global.params.imppath);
-static cl::list<std::string, StringsAdapter>
+static ImportPathsAdapter impPathsStore("I", global.params.imppath);
+static cl::list<std::string, ImportPathsAdapter>
     importPaths("I", cl::desc("Look for imports also in <directory>"),
                 cl::value_desc("directory"), cl::location(impPathsStore),
                 cl::Prefix);
@@ -141,26 +141,13 @@ void printVersion(llvm::raw_ostream &OS) {
 
 // Helper function to handle -d-debug=* and -d-version=*
 template <typename Condition>
-void processVersions(const std::vector<std::string> &list, const char *type,
-                     unsigned &globalLevel) {
+void processVersions(const std::vector<std::string> &list, const char *type) {
   for (const auto &i : list) {
-    const char *value = i.c_str();
-    if (isdigit(value[0])) {
-      errno = 0;
-      char *end;
-      long level = strtol(value, &end, 10);
-      if (*end || errno || level > INT_MAX) {
-        error(Loc(), "Invalid %s level: %s", type, i.c_str());
-      } else {
-        globalLevel = static_cast<unsigned>(level);
-      }
+    char *cstr = mem.xstrdup(i.c_str());
+    if (Identifier::isValidIdentifier(cstr)) {
+      Condition::addGlobalIdent(cstr);
     } else {
-      char *cstr = mem.xstrdup(value);
-      if (Identifier::isValidIdentifier(cstr)) {
-        Condition::addGlobalIdent(cstr);
-      } else {
-        error(Loc(), "Invalid %s identifier or level: '%s'", type, cstr);
-      }
+      error(Loc(), "Invalid %s identifier: '%s'", type, cstr);
     }
   }
 }
@@ -390,12 +377,12 @@ void parseCommandLine(Strings &sourceFiles) {
   }
 
 #if _WIN32
-  const auto toWinPaths = [](Strings &paths) {
-    for (auto &path : paths)
-      path = opts::dupPathString(path).ptr;
-  };
-  toWinPaths(global.params.imppath);
-  toWinPaths(global.params.fileImppath);
+  for (auto &info : global.params.imppath) {
+    info.path = opts::dupPathString(info.path).ptr;
+  }
+  for (auto &path : global.params.fileImppath) {
+    path = opts::dupPathString(path).ptr;
+  }
 #endif
 
   for (const auto &field : jsonFields) {
@@ -422,11 +409,16 @@ void parseCommandLine(Strings &sourceFiles) {
     global.params.outputSourceLocations = true;
   }
 
+  if (printErrorContext.getNumOccurrences() != 0) {
+    global.params.v.errorPrintMode = printErrorContext
+                                         ? ErrorPrintMode::printErrorContext
+                                         : ErrorPrintMode::simpleError;
+  }
+
   opts::initializeSanitizerOptionsFromCmdline();
 
-  processVersions<DebugCondition>(debugArgs, "debug", global.params.debuglevel);
-  processVersions<VersionCondition>(versions, "version",
-                                    global.params.versionlevel);
+  processVersions<DebugCondition>(debugArgs, "debug");
+  processVersions<VersionCondition>(versions, "version");
 
   for (const auto &id : transitions)
     parseTransitionOption(global.params, id.c_str());

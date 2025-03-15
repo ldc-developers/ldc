@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 include ../common.mak
 
 .PHONY: all clean
@@ -119,3 +120,6 @@ endif # end Posix
 
 clean:
 	rm -rf $(ROOT)
+=======
+include GNUmakefile.$(if $(filter windows,$(OS)),windows,posix)
+>>>>>>> origin/dmd-rewrite-stable

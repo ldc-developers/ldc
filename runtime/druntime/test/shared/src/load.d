@@ -1,6 +1,5 @@
 import core.runtime;
-import core.stdc.stdio;
-import core.stdc.string;
+import core.stdc.string : strrchr;
 import core.thread;
 
 version (DragonFlyBSD) import core.sys.dragonflybsd.dlfcn : RTLD_NOLOAD;
@@ -147,7 +146,7 @@ void main(string[] args)
         }
         else
         {
-            import core.sys.posix.dlfcn;
+            import core.sys.posix.dlfcn : dlopen, RTLD_LAZY;
             assert(dlopen(name.ptr, RTLD_LAZY | RTLD_NOLOAD) is null);
         }
         name = name[0 .. $-1];
