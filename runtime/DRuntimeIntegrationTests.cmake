@@ -83,11 +83,8 @@ foreach(name ${testnames})
                 CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER}
                 DRUNTIME=${druntime_path_build} DRUNTIMESO=${shared_druntime_path_build}
                 CFLAGS_BASE=${cflags_base} DFLAGS_BASE=${dflags_base} ${linkdl}
+		IN_LDC=1
         )
         set_tests_properties(${fullname} PROPERTIES DEPENDS clean-${fullname})
     endforeach()
 endforeach()
-
-# HACK: there's a race condition for the debug/release coverage tests
-#       (temporary in-place modification of source file)
-set_tests_properties(druntime-test-coverage-release PROPERTIES DEPENDS druntime-test-coverage-debug)

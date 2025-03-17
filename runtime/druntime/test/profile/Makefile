@@ -1,5 +1,8 @@
+TESTS := profile profilegc both
 # LDC doesn't support -profile=gc yet
-TESTS := profile $(if $(findstring ldmd2,$(DMD)),,profilegc both)
+ifdef IN_LDC
+TESTS := $(filter-out profilegc both,$(TESTS))
+endif
 
 include ../common.mak
 
@@ -30,8 +33,7 @@ $(ROOT)/profile.done: $(ROOT)/%.done: $(ROOT)/%$(DOTEXE)
 	sort $(ROOT)/mytrace.def -o $(ROOT)/mytrace.def
 	(sort mytrace.def.exp | $(DIFF) - $(ROOT)/mytrace.def) || (sort mytrace.releaseopt.def.exp | $(DIFF) - $(ROOT)/mytrace.def)
 	@touch $@
-# LDC: enable assertions for BUILD=RELEASE (=> `-O -release`)
-$(ROOT)/profile$(DOTEXE): extra_dflags += -profile $(if $(findstring ldmd2,$(DMD)),-check=assert=on,)
+$(ROOT)/profile$(DOTEXE): extra_dflags += -profile
 
 $(ROOT)/profilegc.done: $(ROOT)/%.done: $(ROOT)/%$(DOTEXE)
 	@echo Testing $*

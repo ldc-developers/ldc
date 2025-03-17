@@ -1,8 +1,12 @@
 override LINK_SHARED := $(SHARED)
 
+ifdef IN_LDC
+# need OS for the conditions below
+include ../../../../dmd/osmodel.mak
+endif
+
 ifneq (,$(LINK_SHARED))
-    # LDC: enable ~all tests on Windows too
-    ifeq (,$(findstring ldmd2,$(DMD)))
+    ifndef IN_LDC
         # TODO: enable tests on Windows
         ifeq (windows,$(OS))
             TESTS:=link linkD linkDR loadDR
@@ -11,6 +15,7 @@ ifneq (,$(LINK_SHARED))
                    link_linkdep load_linkdep link_loaddep load_loaddep load_13414
         endif
     else
+        # LDC: enable ~all tests on Windows too
         TESTS:=link load linkD linkDR loadDR host finalize dynamiccast \
                link_linkdep link_loaddep load_loaddep load_13414
         # FIXME: `load_linkdep` needs a non-dummy `getDependencies()` in rt.sections_elf_shared,
@@ -19,6 +24,10 @@ ifneq (,$(LINK_SHARED))
             ifneq (windows,$(OS))
                 TESTS+=load_linkdep
             endif
+        endif
+
+        ifeq (windows,$(OS))
+            TESTS += dll_gc_proxy_teardown dll_gc_proxy_teardown_nounload
         endif
     endif
 endif
@@ -30,22 +39,14 @@ endif
 
 include ../common.mak
 
-<<<<<<< HEAD
-.PHONY: all clean
-all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS))) $(if $(findstring ldmd2,$(DMD)),$(if $(findstring $(OS),windows),dll_gc_proxy_teardown,),)
-=======
 abs_root := $(abspath $(ROOT))
 # on posix we link directly to the .so
 # on windows you have to link the .lib which references the .dll
 for_linking := $(if $(filter windows,$(OS)),.lib,$(DOTDLL))
->>>>>>> origin/dmd-rewrite-stable
 
 ifeq (windows,$(OS)) # extra tests on Windows
 
-ifneq (,$(findstring ldmd2,$(DMD)))
-    # LDC: required for executables to implicitly dllimport DLL data symbols
-    DFLAGS+=-dllimport=all
-else # DMD
+ifndef IN_LDC
 ifeq ($(SHARED),1)
 # dmd -shared does not (yet) imply -visibility=public
 $(ROOT)/%$(DOTDLL): private extra_dflags += -visibility=public
@@ -53,40 +54,26 @@ $(ROOT)/%$(DOTDLL): private extra_dflags += -visibility=public
 extra_dflags += -version=SharedRuntime
 PATH := $(dir $(DRUNTIMESO));$(PATH)
 endif
-endif # end DMD
-
-<<<<<<< HEAD
-$(ROOT)/dllrefcount$(DOTEXE): $(SRC)/dllrefcount.d
-	$(QUIET)$(DMD) $(DFLAGS) -of$@ $<
-
-$(ROOT)/loadlibwin$(DOTEXE): $(SRC)/loadlibwin.d
-	$(QUIET)$(DMD) $(DFLAGS) -of$@ $<
+endif
 
 # LDC: this test is designed for .exe & .dll with separate druntimes
-ifneq (,$(findstring ldmd2,$(DMD)))
-$(ROOT)/dllgc$(DOTEXE): DFLAGS+=-link-defaultlib-shared=false -dllimport=none
-endif
-
-$(ROOT)/dllgc$(DOTEXE): $(SRC)/dllgc.d
-	$(QUIET)$(DMD) $(DFLAGS) -version=DLL -shared -of$(ROOT)/dllgc$(DOTDLL) $<
-	$(QUIET)$(DMD) $(DFLAGS) -of$@ $<
+$(ROOT)/dllgc$(DOTEXE): private extra_dflags += -link-defaultlib-shared=false -dllimport=none
 
 # LDC addition: test teardown with separate druntimes, with the DLL using the .exe GC
-ifneq (,$(findstring ldmd2,$(DMD)))
-dll_gc_proxy_teardown: DFLAGS+=-link-defaultlib-shared=false -dllimport=none
-dll_gc_proxy_teardown: $(SRC)/dll_gc_proxy_teardown.d
-	$(QUIET)$(DMD) $(DFLAGS) -shared -L/EXPORT:gc_setProxy -L/EXPORT:gc_clrProxy -version=DLL -of$(ROOT)/dll_gc_proxy_teardown$(DOTDLL) $<
-	$(QUIET)$(DMD) $(DFLAGS) -shared -L/EXPORT:gc_setProxy -L/EXPORT:gc_clrProxy -version=DLL -version=NoUnload -of$(ROOT)/dll_gc_proxy_teardown_nounload$(DOTDLL) $<
-	$(QUIET)$(DMD) $(DFLAGS) -of$(ROOT)/load_dll_gc_proxy_teardown$(DOTEXE) $<
-	$(QUIET)$(DMD) $(DFLAGS) -version=NoUnload -of$(ROOT)/load_dll_gc_proxy_teardown_nounload$(DOTEXE) $<
-	$(QUIET)$(ROOT)/load_dll_gc_proxy_teardown$(DOTEXE)
-	$(QUIET)$(ROOT)/load_dll_gc_proxy_teardown_nounload$(DOTEXE)
-endif
+dgpt = dll_gc_proxy_teardown dll_gc_proxy_teardown_nounload
+$(dgpt:%=$(OBJDIR)/%$(DOTDLL)): private extra_ldflags.d += -L/EXPORT:gc_setProxy -L/EXPORT:gc_clrProxy
+$(dgpt:%=$(OBJDIR)/%$(DOTDLL)): private extra_dflags += -version=DLL
+$(dgpt:%=$(OBJDIR)/%$(DOTEXE)) $(dgpt:%=$(OBJDIR)/%$(DOTDLL)): private extra_dflags += -link-defaultlib-shared=false -dllimport=none
+$(dgpt:%=$(OBJDIR)/%.done): $(OBJDIR)/%.done: $(OBJDIR)/%$(DOTDLL)
 
-=======
+$(OBJDIR)/dll_gc_proxy_teardown_nounload%: private extra_dflags += -version=NoUnload
+$(OBJDIR)/dll_gc_proxy_teardown_nounload$(DOTDLL): dll_gc_proxy_teardown.d
+	$(LINK.d) -shared $< $(extra_sources) $(extra_ldlibs.d) $(LDLIBS.d) $(OUTPUT_OPTION.d)
+$(OBJDIR)/dll_gc_proxy_teardown_nounload$(DOTEXE): dll_gc_proxy_teardown.d
+	$(LINK.d) $< $(extra_sources) $(extra_ldlibs.d) $(LDLIBS.d) $(OUTPUT_OPTION.d)
+
 $(ROOT)/dllgc.done: $(ROOT)/dllgc$(DOTDLL)
 $(ROOT)/dllgc$(DOTDLL): extra_dflags += -version=DLL
->>>>>>> origin/dmd-rewrite-stable
 endif # Windows
 
 $(ROOT)/dynamiccast.done: $(ROOT)/%.done: $(ROOT)/%$(DOTEXE) $(ROOT)/%$(DOTDLL)
@@ -142,28 +129,6 @@ $(ROOT)/load_13414$(DOTEXE): utils.di
 $(ROOT)/load_13414$(DOTEXE): private extra_ldlibs.d += $(LINKDL)
 
 ifeq (windows,$(OS))
-<<<<<<< HEAD
-    CC:=cl
-    CC_OUTFLAG:=/Fe
-    # additionally specify the .obj output directory to prevent collisions
-    CC_EXTRAS:=/Fo$(ROOT)/
-else
-    CC_OUTFLAG:=-o
-    CC_EXTRAS:=$(LDL) -pthread
-endif
-
-$(ROOT)/linkD$(DOTEXE): $(SRC)/linkD.c $(ROOT)/lib$(DOTDLL) $(DRUNTIMESO)
-	$(QUIET)$(CC) $(CFLAGS) $(CC_OUTFLAG)$@ $< $(ROOT)/lib$(DOTIMPLIB) $(CC_EXTRAS)
-
-$(ROOT)/linkDR$(DOTEXE): $(SRC)/linkDR.c $(ROOT)/lib$(DOTDLL) $(DRUNTIMESO)
-	$(QUIET)$(CC) $(CFLAGS) $(CC_OUTFLAG)$@ $< $(DRUNTIME_IMPLIB) $(CC_EXTRAS)
-
-$(ROOT)/loadDR$(DOTEXE): $(SRC)/loadDR.c $(ROOT)/lib$(DOTDLL) $(DRUNTIMESO)
-	$(QUIET)$(CC) $(CFLAGS) $(CC_OUTFLAG)$@ $< $(CC_EXTRAS)
-
-$(ROOT)/host$(DOTEXE): $(SRC)/host.c $(ROOT)/plugin1$(DOTDLL) $(ROOT)/plugin2$(DOTDLL)
-	$(QUIET)$(CC) $(CFLAGS) $(CC_OUTFLAG)$@ $< $(CC_EXTRAS)
-=======
     CC := cl
     OUTPUT_FLAG := /Fe
     # we additionally specify the .obj output path (/Fo) to prevent collisions
@@ -184,7 +149,6 @@ $(ROOT)/loadDR.done: $(ROOT)/lib$(DOTDLL) $(DRUNTIMESO)
 $(ROOT)/loadDR.done: private run_args = $(DRUNTIMESO)
 $(ROOT)/loadDR$(DOTEXE): utils.h
 $(ROOT)/loadDR$(DOTEXE): private extra_ldlibs += $(ldl)
->>>>>>> origin/dmd-rewrite-stable
 
 $(ROOT)/host.done: $(DRUNTIMESO) $(ROOT)/plugin1$(DOTDLL) $(ROOT)/plugin2$(DOTDLL)
 $(ROOT)/host.done: private run_args = $(DRUNTIMESO)

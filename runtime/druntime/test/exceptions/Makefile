@@ -147,7 +147,7 @@ $(ROOT)/refcounted.done: $(ROOT)/refcounted$(DOTEXE)
 	$<
 	@touch $@
 
-ifneq (,$(findstring ldmd,$(DMD)))
+ifdef IN_LDC
 # LDC: Make sure allocation intended to provoke exception is not elided.
 $(ROOT)/invalid_memory_operation$(DOTEXE): extra_dflags+=-disable-gc2stack
 endif

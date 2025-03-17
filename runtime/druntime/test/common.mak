@@ -1,5 +1,5 @@
 # set explicitly in the make cmdline in druntime/Makefile (`test/%/.run` rule):
-ifneq (,$(findstring ldmd2,$(DMD)))
+ifdef IN_LDC
     # LDC: we have no top makefile, include osmodel.mak for OS and set up bash shell on Windows
     MODEL:=default
     include ../../../../dmd/osmodel.mak
@@ -37,7 +37,7 @@ SHARED:=
 
 ########## Misc setup ##########
 
-ifeq (,$(findstring ldmd2,$(DMD)))
+ifndef IN_LDC
     # Windows: set up bash shell
     ifeq (windows,$(OS))
         include ../../../compiler/src/osmodel.mak
@@ -50,35 +50,6 @@ GENERATED:=./generated
 ROOT:=$(GENERATED)/$(OS)/$(BUILD)/$(MODEL)
 OBJDIR = $(ROOT)
 
-<<<<<<< HEAD
-MODEL_FLAG:=$(if $(findstring $(MODEL),default),,-m$(MODEL))
-CFLAGS_BASE:=$(if $(findstring $(OS),windows),/Wall,$(MODEL_FLAG) $(PIC) -Wall)
-ifeq (,$(findstring ldmd2,$(DMD)))
-    ifeq (osx64,$(OS)$(MODEL))
-        CFLAGS_BASE+=--target=x86_64-darwin-apple  # ARM cpu is not supported by dmd
-    endif
-endif
-# LDC:
-# * include optional DFLAGS_BASE
-# * use `-defaultlib=druntime-ldc [-link-defaultlib-shared]` instead of `-defaultlib= -L$(DRUNTIME[_IMPLIB])`
-DFLAGS:=$(MODEL_FLAG) $(PIC) $(if $(findstring ldmd2,$(DMD)),$(DFLAGS_BASE),) -w -I../../src -I../../import -I$(SRC) -defaultlib=$(if $(findstring ldmd2,$(DMD)),druntime-ldc,) -preview=dip1000 $(if $(findstring $(OS),windows),,-L-lpthread -L-lm $(LINKDL))
-# LINK_SHARED may be set by importing makefile
-ifeq (,$(findstring ldmd2,$(DMD)))
-    DFLAGS+=$(if $(LINK_SHARED),-L$(DRUNTIME_IMPLIB) $(if $(findstring $(OS),windows),-dllimport=all),-L$(DRUNTIME))
-else
-    # LDC: -link-defaultlib-shared takes care of rpath, linking ldc_rt.dso.o etc.
-    DFLAGS+=$(if $(LINK_SHARED),-link-defaultlib-shared,)
-endif
-ifeq ($(BUILD),debug)
-    DFLAGS+=-g -debug $(if $(findstring ldmd2,$(DMD)),-link-defaultlib-debug,)
-    CFLAGS:=$(CFLAGS_BASE) $(if $(findstring $(OS),windows),/Zi,-g)
-else
-    DFLAGS+=-O -release
-    CFLAGS:=$(CFLAGS_BASE) $(if $(findstring $(OS),windows),/O2,-O3)
-endif
-CXXFLAGS_BASE:=$(CFLAGS_BASE)
-CXXFLAGS:=$(CFLAGS)
-=======
 druntime_for_linking := $(if $(LINK_SHARED),$(DRUNTIMESO:.dll=.lib),$(DRUNTIME))
 DRUNTIME_DEP := $(if $(LINK_SHARED),$(DRUNTIMESO),$(DRUNTIME))
 # GNU make says that compiler variables like $(DMD) can contain arguments, technically.
@@ -108,7 +79,6 @@ OUTPUT_OPTION.d = $(OUTPUT_FLAG.d)$@
 
 OUTPUT_FLAG = -o #<- important space: OUTPUT_FLAG = "-o "
 OUTPUT_FLAG.d = -of=
->>>>>>> origin/dmd-rewrite-stable
 
 ifeq (windows,$(OS))
     DOTEXE:=.exe
@@ -170,6 +140,14 @@ endif
 CFLAGS += $(if $(filter windows,$(OS)),/Wall,-Wall)
 DFLAGS += -w
 
+ifdef IN_LDC
+# LDC: include optional user DFLAGS_BASE
+CFLAGS += $(CFLAGS_BASE)
+DFLAGS += $(DFLAGS_BASE)
+CXXFLAGS_BASE = $(CFLAGS_BASE)
+CXXFLAGS += $(CXXFLAGS_BASE)
+endif
+
 extra_cflags += $(PIC)
 extra_cxxflags += $(PIC)
 extra_dflags += $(PIC) -I../../src -I../../import -I$(SRC) -preview=dip1000
@@ -182,13 +160,24 @@ ifeq ($(OS),windows)
 extra_ldflags.d += -dllimport=all
 endif
 endif
+
+ifndef IN_LDC
 extra_ldlibs.d += -L$(druntime_for_linking)
 
 extra_ldflags.d += -defaultlib=
 extra_ldlibs.d += $(d_platform_libs)
+else # IN_LDC
+    extra_ldflags.d += -defaultlib=druntime-ldc
+    # -link-defaultlib-shared affects compilation on targets such as Windows
+    extra_dflags += $(if $(LINK_SHARED),-link-defaultlib-shared)
+    extra_ldflags.d += $(if $(filter debug,$(BUILD)),-link-defaultlib-debug)
+endif # IN_LDC
 
 model_flag := $(if $(filter-out default,$(MODEL)),-m$(MODEL))
-TARGET_ARCH = $(model_flag) $(if $(filter osx64,$(OS)$(MODEL)),--target=x86_64-darwin-apple)
+TARGET_ARCH = $(model_flag)
+ifndef IN_LDC
+TARGET_ARCH += $(if $(filter osx64,$(OS)$(MODEL)),--target=x86_64-darwin-apple)
+endif
 TARGET_ARCH.d = $(model_flag)
 
 ########## Other common code ##########
