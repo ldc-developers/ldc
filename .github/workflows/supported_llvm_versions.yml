@@ -73,6 +73,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install gdb lld-${{ matrix.llvm_version }} llvm-${{ matrix.llvm_version }}-dev libclang-common-${{ matrix.llvm_version }}-dev
 
+      - name: 'macOS: Install a more recent GNU make'
+        if: runner.os == 'macOS'
+        run: |
+          brew install make
+          gmake --version
+
       - name: 'macOS: Try to restore cached LLVM'
         if: runner.os == 'macOS'
         uses: actions/cache@v4
