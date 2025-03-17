@@ -144,6 +144,9 @@ $(ROOT)/linkD$(DOTEXE): private extra_ldlibs += $(abs_root)/lib$(for_linking)
 $(ROOT)/linkDR.done: $(ROOT)/lib$(DOTDLL)
 $(ROOT)/linkDR$(DOTEXE): $(DRUNTIME_DEP) utils.h
 $(ROOT)/linkDR$(DOTEXE): private extra_ldlibs += $(ldl) $(druntime_for_linking)
+ifneq ($(OS),windows)
+$(ROOT)/linkDR$(DOTEXE): private extra_ldflags += -Wl,-rpath,$(druntimeso_dir)
+endif
 
 $(ROOT)/loadDR.done: $(ROOT)/lib$(DOTDLL) $(DRUNTIMESO)
 $(ROOT)/loadDR.done: private run_args = $(DRUNTIMESO)

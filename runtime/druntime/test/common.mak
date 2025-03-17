@@ -51,6 +51,8 @@ ROOT:=$(GENERATED)/$(OS)/$(BUILD)/$(MODEL)
 OBJDIR = $(ROOT)
 
 druntime_for_linking := $(if $(LINK_SHARED),$(DRUNTIMESO:.dll=.lib),$(DRUNTIME))
+# Used for -rpath by some tests
+druntimeso_dir := $(abspath $(dir $(DRUNTIMESO)))
 DRUNTIME_DEP := $(if $(LINK_SHARED),$(DRUNTIMESO),$(DRUNTIME))
 # GNU make says that compiler variables like $(DMD) can contain arguments, technically.
 DMD_DEP := $(firstword $(DMD))
