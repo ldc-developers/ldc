@@ -40,7 +40,6 @@ class OverloadSet;
 class StringExp;
 class InterpExp;
 class LoweredAssignExp;
-class EnumDeclaration;
 class StaticForeach;
 #ifdef IN_GCC
 typedef union tree_node Symbol;
