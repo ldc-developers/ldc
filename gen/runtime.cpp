@@ -797,10 +797,10 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
 
-  // void invariant._d_invariant(Object o)
+  // void rt.invariant_._d_invariant(Object o)
   {
-    static const std::string mangle =
-        getIRMangledFuncName("_D9invariant12_d_invariantFC6ObjectZv", LINK::d);
+    static const std::string mangle = getIRMangledFuncName(
+        "_D2rt10invariant_12_d_invariantFC6ObjectZv", LINK::d);
     createFwdDecl(LINK::d, voidTy, {mangle}, {objectTy});
   }
 

@@ -1094,10 +1094,6 @@ macro(file_to_module_name file_name out_module_name)
     # The logical module name for package.d files doesn't include the
     # trailing .package part.
     string(REPLACE ".package" "" module ${module})
-
-    # rt.invariant doesn't have a module declaration, presumably because
-    # invariant is a keyword.
-    string(REPLACE "rt.invariant" "invariant" ${out_module_name} ${module})
 endmacro()
 
 function(add_tests d_files runner target_suffix)

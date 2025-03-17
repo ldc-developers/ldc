@@ -1835,8 +1835,8 @@ public:
 
       Logger::println("calling class invariant");
 
-      const auto fnMangle =
-          getIRMangledFuncName("_D9invariant12_d_invariantFC6ObjectZv", LINK::d);
+      const auto fnMangle = getIRMangledFuncName(
+          "_D2rt10invariant_12_d_invariantFC6ObjectZv", LINK::d);
       const auto fn = getRuntimeFunction(e->loc, gIR->module, fnMangle.c_str());
 
       const auto arg = DtoRVal(cond);
