@@ -37,13 +37,7 @@ else()
 endif()
 
 string(REPLACE ";" " " dflags_base "${D_EXTRA_FLAGS}")
-
 string(REPLACE ";" " " cflags_base "${RT_CFLAGS}")
-if("${TARGET_SYSTEM}" MATCHES "MSVC")
-    set(cflags_base "${cflags_base} /Wall")
-else()
-    set(cflags_base "${cflags_base} -Wall -Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
-endif()
 
 set(linkdl "")
 if("${TARGET_SYSTEM}" MATCHES "Linux")
