@@ -187,7 +187,7 @@ all: $(TESTS:%=$(OBJDIR)/%.done)
 
 $(OBJDIR)/%.done: $(OBJDIR)/%$(DOTEXE)
 	@echo Testing $*
-	$(TIMELIMIT)./$< $(run_args)
+	$(TIMELIMIT)$< $(run_args)
 	@touch $@
 
 $(OBJDIR):
