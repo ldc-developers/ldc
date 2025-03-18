@@ -1,4 +1,4 @@
-/**
+/** DISABLED: LDC // different error message
 REQUIRED_ARGS: -ftime-trace-granularity=-800
 TEST_OUTPUT:
 ---
