@@ -51,7 +51,7 @@ ifeq ($(OS),osx)
     TESTS+=line_trace line_trace_21656 cpp_demangle
     line_trace_dflags:=
 endif
-ifeq ($(OS)-$(BUILD),windows-debug)
+ifeq ($(OS),windows)
     TESTS+=winstack
 endif
 include ../common.mak
@@ -86,6 +86,7 @@ $(ROOT)/chain.done: $(ROOT)/chain$(DOTEXE)
 	@rm -f $(ROOT)/chain.output
 	@touch $@
 
+$(ROOT)/winstack$(DOTEXE): private extra_dflags += -g
 $(ROOT)/winstack.done: $(ROOT)/winstack$(DOTEXE)
 	@echo Testing winstack
 	$(TIMELIMIT)$< $(RUN_ARGS)
