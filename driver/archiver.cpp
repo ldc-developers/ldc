@@ -10,8 +10,8 @@
 #include "dmd/errors.h"
 #include "dmd/globals.h"
 #include "dmd/target.h"
+#include "dmd/timetrace.h"
 #include "driver/cl_options.h"
-#include "driver/timetrace.h"
 #include "driver/tool.h"
 #include "gen/logger.h"
 #if LDC_LLVM_VER < 1700
@@ -280,7 +280,7 @@ static std::string gStaticLibPath;
 
 int createStaticLibrary() {
   Logger::println("*** Creating static library ***");
-  ::TimeTraceScope timeScope("Create static library");
+  dmd::TimeTraceScope timeScope("Create static library");
 
   const bool isTargetMSVC =
       global.params.targetTriple->isWindowsMSVCEnvironment();

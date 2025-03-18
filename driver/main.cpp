@@ -21,6 +21,7 @@
 #include "dmd/root/rmem.h"
 #include "dmd/scope.h"
 #include "dmd/target.h"
+#include "dmd/timetrace.h"
 #include "driver/args.h"
 #include "driver/cache.h"
 #include "driver/cl_helpers.h"
@@ -36,7 +37,6 @@
 #include "driver/linker.h"
 #include "driver/plugins.h"
 #include "driver/targetmachine.h"
-#include "driver/timetrace.h"
 #include "gen/abi/abi.h"
 #include "gen/irstate.h"
 #include "gen/ldctraits.h"
@@ -1220,7 +1220,7 @@ int cppmain() {
 
   int status;
   {
-    TimeTraceScope timeScope("ExecuteCompiler");
+    dmd::TimeTraceScope timeScope("ExecuteCompiler");
     status = mars_tryMain(global.params, files);
   }
 
@@ -1240,7 +1240,7 @@ int cppmain() {
 void codegenModules(Modules &modules) {
   // Generate one or more object/IR/bitcode files/dcompute kernels.
   if (global.params.obj && !modules.empty()) {
-    TimeTraceScope timeScope("Codegen all modules");
+    dmd::TimeTraceScope timeScope(TimeTraceEventType::codegenGlobal);
 
 #if LDC_MLIR_ENABLED
     mlir::MLIRContext mlircontext;
@@ -1271,11 +1271,8 @@ void codegenModules(Modules &modules) {
       const auto atCompute = hasComputeAttr(m);
       if (atCompute == DComputeCompileFor::hostOnly ||
           atCompute == DComputeCompileFor::hostAndDevice) {
-        TimeTraceScope timeScope(
-            ("Codegen module " + llvm::SmallString<20>(m->toChars()))
-                .str()
-                .c_str(),
-            m->loc);
+        dmd::TimeTraceScope timeScope(TimeTraceEventType::codegenModule,
+                                      nullptr, m->toChars(), m->loc);
 #if LDC_MLIR_ENABLED
         if (global.params.output_mlir == OUTPUTFLAGset)
           cg.emitMLIR(m);
@@ -1301,13 +1298,11 @@ void codegenModules(Modules &modules) {
     }
 
     if (!computeModules.empty()) {
-      TimeTraceScope timeScope("Codegen DCompute device modules");
+      dmd::TimeTraceScope timeScope("Codegen DCompute device modules");
       for (auto &mod : computeModules) {
-        TimeTraceScope timeScope(("Codegen DCompute device module " +
-                                  llvm::SmallString<20>(mod->toChars()))
-                                     .str()
-                                     .c_str(),
-                                 mod->loc);
+        dmd::TimeTraceScope timeScope(TimeTraceEventType::codegenModule,
+                                      "Codegen DCompute: device module",
+                                      mod->toChars(), mod->loc);
         dccg.emit(mod);
       }
     }
@@ -1319,7 +1314,7 @@ void codegenModules(Modules &modules) {
   }
 
   {
-    TimeTraceScope timeScope("Prune object file cache");
+    dmd::TimeTraceScope timeScope("Prune object file cache");
     cache::pruneCache();
   }
 

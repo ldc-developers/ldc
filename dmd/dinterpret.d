@@ -100,17 +100,9 @@ public Expression ctfeInterpret(Expression e)
 
     auto rgnpos = ctfeGlobals.region.savePos();
 
-version (IN_LLVM) // TODO: required?
-{
-    import driver.timetrace, std.format, std.conv;
-    auto timeScope = TimeTraceScope(text("CTFE start: ", e.toChars()), e.toChars().to!string, e.loc);
-}
-else
-{
     import dmd.timetrace;
     timeTraceBeginEvent(TimeTraceEventType.ctfe);
     scope (exit) timeTraceEndEvent(TimeTraceEventType.ctfe, e);
-}
 
     Expression result = interpret(e, null);
 
@@ -461,17 +453,9 @@ private Expression interpretFunction(UnionExp* pue, FuncDeclaration fd, InterSta
         strbuf.write(")");
         return strbuf.extractSlice();
     };
-version (IN_LLVM) // TODO: required?
-{
-    import driver.timetrace, std.format, std.conv;
-    auto timeScope = TimeTraceScopeDelayedDetail(text("CTFE func: ", fd.toChars()), dlg, fd.loc);
-}
-else
-{
     import dmd.timetrace;
     timeTraceBeginEvent(TimeTraceEventType.ctfeCall);
     scope (exit) timeTraceEndEvent(TimeTraceEventType.ctfeCall, fd, dlg);
-}
 
     void fdError(const(char)* msg)
     {
