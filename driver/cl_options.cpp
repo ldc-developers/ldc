@@ -677,18 +677,19 @@ cl::opt<CoverageIncrement> coverageIncrement(
                           "Don't read, just set counter to 1")));
 
 // Compilation time tracing options
-cl::opt<bool> fTimeTrace(
-    "ftime-trace", cl::ZeroOrMore,
+static cl::opt<bool, true> fTimeTrace(
+    "ftime-trace", cl::ZeroOrMore, cl::location(global.params.timeTrace),
     cl::desc("Turn on time profiler. Generates JSON file "
              "based on the output filename (also see --ftime-trace-file)."));
-cl::opt<unsigned> fTimeTraceGranularity(
-    "ftime-trace-granularity", cl::ZeroOrMore, cl::init(500),
+static cl::opt<unsigned, true> fTimeTraceGranularity(
+    "ftime-trace-granularity", cl::ZeroOrMore,
+    cl::location(global.params.timeTraceGranularityUs),
     cl::desc(
         "Minimum time granularity (in microseconds) traced by time profiler"));
 cl::opt<std::string>
-fTimeTraceFile("ftime-trace-file",
-               cl::desc("Specify time trace file destination"),
-               cl::value_desc("filename"));
+    fTimeTraceFile("ftime-trace-file",
+                   cl::desc("Specify time trace file destination"),
+                   cl::value_desc("filename"));
 
 cl::opt<LTOKind> ltoMode(
     "flto", cl::ZeroOrMore, cl::desc("Set LTO mode, requires linker support"),

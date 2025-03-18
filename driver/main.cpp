@@ -376,6 +376,8 @@ void parseCommandLine(Strings &sourceFiles) {
       global.params.makeDeps.name = opts::dupPathString(makeDeps);
   }
 
+  global.params.timeTraceFile = fTimeTraceFile.c_str();
+
 #if _WIN32
   for (auto &info : global.params.imppath) {
     info.path = opts::dupPathString(info.path).ptr;
@@ -1137,10 +1139,6 @@ int cppmain() {
     fatal();
   }
 
-  if (opts::fTimeTrace) {
-    initializeTimeTrace(opts::fTimeTraceGranularity, 0, opts::allArguments[0]);
-  }
-
   // Set up the TargetMachine.
   const auto arch = getArchStr();
   if ((m32bits || m64bits) && (!arch.empty() || !mTargetTriple.empty())) {
@@ -1218,19 +1216,11 @@ int cppmain() {
 
   loadAllPlugins();
 
-  int status;
-  {
-    dmd::TimeTraceScope timeScope("ExecuteCompiler");
-    status = mars_tryMain(global.params, files);
-  }
+  const int status = mars_tryMain(global.params, files);
 
   // try to remove the temp objects dir if created for -cleanup-obj
   if (!tempObjectsDir.empty())
     llvm::sys::fs::remove(tempObjectsDir);
-
-  std::string fTimeTraceFile = opts::fTimeTraceFile;
-  writeTimeTraceProfile(fTimeTraceFile.empty() ? "" : fTimeTraceFile.c_str());
-  deinitializeTimeTrace();
 
   llvm::llvm_shutdown();
 

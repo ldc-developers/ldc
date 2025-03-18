@@ -121,9 +121,7 @@ enum class CoverageIncrement
 extern cl::opt<CoverageIncrement> coverageIncrement;
 
 // Compilation time tracing options
-extern cl::opt<bool> fTimeTrace;
 extern cl::opt<std::string> fTimeTraceFile;
-extern cl::opt<unsigned> fTimeTraceGranularity;
 
 // LTO options
 enum LTOKind {
