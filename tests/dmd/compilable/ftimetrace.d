@@ -6,7 +6,7 @@ TEST_OUTPUT:
 Code generation,
 Codegen: function add, object.add
 Codegen: function fun, object.fun
-Codegen: module , object
+Codegen: module object, object
 Ctfe: add(4, 8), add(4, 8)
 Ctfe: call add, object.add(4, 8)
 Generate IR, object
