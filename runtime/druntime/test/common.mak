@@ -159,7 +159,7 @@ extra_dflags += -check=assert
 
 ifdef LINK_SHARED
 ifeq ($(OS),windows)
-extra_ldflags.d += -dllimport=all
+extra_dflags += -dllimport=all
 endif
 endif
 
