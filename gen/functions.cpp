@@ -22,10 +22,10 @@
 #include "dmd/statement.h"
 #include "dmd/target.h"
 #include "dmd/template.h"
+#include "dmd/timetrace.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
-#include "driver/timetrace.h"
 #include "gen/abi/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
@@ -955,16 +955,10 @@ void emulateWeakAnyLinkageForMSVC(IrFunction *irFunc, LINK linkage) {
 } // anonymous namespace
 
 void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
-  TimeTraceScope timeScope([fd]() {
-                             std::string name("Codegen func ");
-                             name += fd->toChars();
-                             return name;
-                           },
-                           [fd]() {
-                             std::string detail = fd->toPrettyChars();
-                             return detail;
-                           },
-                           fd->loc);
+  dmd::timeTraceBeginEvent(TimeTraceEventType::codegenFunction);
+  SCOPE_EXIT {
+    dmd::timeTraceEndEvent(TimeTraceEventType::codegenFunction, fd);
+  };
 
   IF_LOG Logger::println("DtoDefineFunction(%s): %s", fd->toPrettyChars(),
                          fd->loc.toChars());

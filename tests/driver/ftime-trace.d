@@ -37,5 +37,4 @@ void main()
     foo();
 }
 
-// ALL-DAG: ExecuteCompiler
-// FINE-DAG: Linking executable
+// FINE-DAG: Linking

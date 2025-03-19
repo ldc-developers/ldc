@@ -1,8 +1,8 @@
 #include "driver/cpreprocessor.h"
 
 #include "dmd/errors.h"
+#include "dmd/timetrace.h"
 #include "driver/cl_options.h"
-#include "driver/timetrace.h"
 #include "driver/tool.h"
 #include "gen/irstate.h"
 #include "llvm/Support/FileSystem.h"
@@ -76,7 +76,7 @@ FileName getOutputPath(const Loc &loc, const char *csrcfile) {
 
 FileName runCPreprocessor(FileName csrcfile, const Loc &loc,
                           OutBuffer &defines) {
-  TimeTraceScope timeScope("Preprocess C file", csrcfile.toChars());
+  dmd::TimeTraceScope timeScope("Preprocess C file", csrcfile.toChars(), loc);
 
   const char *importc_h = getPathToImportc_h(loc);
 

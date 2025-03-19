@@ -21,6 +21,7 @@
 #include "dmd/root/rmem.h"
 #include "dmd/scope.h"
 #include "dmd/target.h"
+#include "dmd/timetrace.h"
 #include "driver/args.h"
 #include "driver/cache.h"
 #include "driver/cl_helpers.h"
@@ -36,7 +37,6 @@
 #include "driver/linker.h"
 #include "driver/plugins.h"
 #include "driver/targetmachine.h"
-#include "driver/timetrace.h"
 #include "gen/abi/abi.h"
 #include "gen/irstate.h"
 #include "gen/ldctraits.h"
@@ -375,6 +375,8 @@ void parseCommandLine(Strings &sourceFiles) {
     if (!makeDeps.empty())
       global.params.makeDeps.name = opts::dupPathString(makeDeps);
   }
+
+  global.params.timeTraceFile = fTimeTraceFile.c_str();
 
 #if _WIN32
   for (auto &info : global.params.imppath) {
@@ -1137,10 +1139,6 @@ int cppmain() {
     fatal();
   }
 
-  if (opts::fTimeTrace) {
-    initializeTimeTrace(opts::fTimeTraceGranularity, 0, opts::allArguments[0]);
-  }
-
   // Set up the TargetMachine.
   const auto arch = getArchStr();
   if ((m32bits || m64bits) && (!arch.empty() || !mTargetTriple.empty())) {
@@ -1218,19 +1216,11 @@ int cppmain() {
 
   loadAllPlugins();
 
-  int status;
-  {
-    TimeTraceScope timeScope("ExecuteCompiler");
-    status = mars_tryMain(global.params, files);
-  }
+  const int status = mars_tryMain(global.params, files);
 
   // try to remove the temp objects dir if created for -cleanup-obj
   if (!tempObjectsDir.empty())
     llvm::sys::fs::remove(tempObjectsDir);
-
-  std::string fTimeTraceFile = opts::fTimeTraceFile;
-  writeTimeTraceProfile(fTimeTraceFile.empty() ? "" : fTimeTraceFile.c_str());
-  deinitializeTimeTrace();
 
   llvm::llvm_shutdown();
 
@@ -1240,7 +1230,7 @@ int cppmain() {
 void codegenModules(Modules &modules) {
   // Generate one or more object/IR/bitcode files/dcompute kernels.
   if (global.params.obj && !modules.empty()) {
-    TimeTraceScope timeScope("Codegen all modules");
+    dmd::TimeTraceScope timeScope(TimeTraceEventType::codegenGlobal);
 
 #if LDC_MLIR_ENABLED
     mlir::MLIRContext mlircontext;
@@ -1271,11 +1261,10 @@ void codegenModules(Modules &modules) {
       const auto atCompute = hasComputeAttr(m);
       if (atCompute == DComputeCompileFor::hostOnly ||
           atCompute == DComputeCompileFor::hostAndDevice) {
-        TimeTraceScope timeScope(
-            ("Codegen module " + llvm::SmallString<20>(m->toChars()))
-                .str()
-                .c_str(),
-            m->loc);
+        dmd::TimeTraceScope timeScope(
+            TimeTraceEventType::codegenModule,
+            (llvm::Twine("Codegen: module ") + m->toChars()).str().c_str(),
+            m->toChars(), m->loc);
 #if LDC_MLIR_ENABLED
         if (global.params.output_mlir == OUTPUTFLAGset)
           cg.emitMLIR(m);
@@ -1301,13 +1290,14 @@ void codegenModules(Modules &modules) {
     }
 
     if (!computeModules.empty()) {
-      TimeTraceScope timeScope("Codegen DCompute device modules");
+      dmd::TimeTraceScope timeScope("Codegen DCompute device modules");
       for (auto &mod : computeModules) {
-        TimeTraceScope timeScope(("Codegen DCompute device module " +
-                                  llvm::SmallString<20>(mod->toChars()))
-                                     .str()
-                                     .c_str(),
-                                 mod->loc);
+        dmd::TimeTraceScope timeScope(
+            TimeTraceEventType::codegenModule,
+            (llvm::Twine("Codegen DCompute: device module ") + mod->toChars())
+                .str()
+                .c_str(),
+            mod->toChars(), mod->loc);
         dccg.emit(mod);
       }
     }
@@ -1319,7 +1309,7 @@ void codegenModules(Modules &modules) {
   }
 
   {
-    TimeTraceScope timeScope("Prune object file cache");
+    dmd::TimeTraceScope timeScope("Prune object file cache");
     cache::pruneCache();
   }
 

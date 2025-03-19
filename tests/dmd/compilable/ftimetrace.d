@@ -9,15 +9,19 @@ Codegen: function fun, object.fun
 Codegen: module object, object
 Ctfe: add(4, 8), add(4, 8)
 Ctfe: call add, object.add(4, 8)
+Generate IR, object
 Import object.object, object.object
+Optimize, $r:.*ftimetrace_0\.o(bj)?$
 Parse: Module object, object
 Parsing,
+Prune object file cache,
 Sema1: Module object, object
 Sema2: add, object.add
 Sema2: fun, object.fun
 Sema3: add, object.add
 Sema3: fun, object.fun
 Semantic analysis,
+Write file(s), $r:.*ftimetrace_0\.o(bj)?$
 ---
 */
 

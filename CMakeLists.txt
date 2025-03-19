@@ -413,7 +413,6 @@ set(DRV_HDR
     driver/linker.h
     driver/plugins.h
     driver/targetmachine.h
-    driver/timetrace.h
     driver/toobj.h
     driver/tool.h
 )

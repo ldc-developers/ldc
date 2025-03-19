@@ -94,18 +94,8 @@ enum LOG = false;
  */
 void dsymbolSemantic(Dsymbol dsym, Scope* sc)
 {
-version (IN_LLVM)
-{
-    import driver.timetrace_sema;
-    scope v = new DsymbolSemanticVisitor(sc);
-    scope vtimetrace = new SemanticTimeTraceVisitor!DsymbolSemanticVisitor(v);
-    dsym.accept(vtimetrace);
-}
-else
-{
     scope v = new DsymbolSemanticVisitor(sc);
     dsym.accept(v);
-}
 }
 
 /***************************************************
