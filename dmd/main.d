@@ -517,7 +517,7 @@ else
         import dmd.timetrace;
 version (IN_LLVM)
 {
-        initializeTimeTrace(params.timeTraceGranularityUs, "ldc2");
+        initializeTimeTrace(params.timeTraceGranularityUs, params.argv0.toCString.ptr);
 }
 else
 {
