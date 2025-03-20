@@ -1,6 +1,7 @@
 # LDC master
 
 #### Big news
+- ldc2.conf: Arrays can now be appended to via the `~=` operator. (#4848, #4856)
 
 #### Platform support
 
