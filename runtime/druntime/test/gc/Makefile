@@ -1,3 +1,8 @@
+ifdef IN_LDC
+# need OS for the conditions below
+include ../../../../dmd/osmodel.mak
+endif
+
 TESTS:=attributes sentinel printf memstomp invariant logging \
        precise precisegc \
        recoverfree nocollect

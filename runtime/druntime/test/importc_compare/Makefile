@@ -1,3 +1,8 @@
+ifdef IN_LDC
+# need OS for the conditions below
+include ../../../../dmd/osmodel.mak
+endif
+
 TESTS := importc_compare
 
 # FIXME: fails on Alpine v3.21 with conflicting struct declarations in the C headers:

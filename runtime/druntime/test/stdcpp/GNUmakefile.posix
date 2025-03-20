@@ -1,3 +1,8 @@
+ifdef IN_LDC
+# need OS for the conditions below
+include ../../../../dmd/osmodel.mak
+endif
+
 hascpp17 != echo wow | $(CXX) -std=c++17 -E -xc++ - > /dev/null 2>&1 && echo yes
 
 TESTS98:=allocator new utility

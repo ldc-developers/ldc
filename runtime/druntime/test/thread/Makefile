@@ -1,3 +1,8 @@
+ifdef IN_LDC
+# need OS for the conditions below
+include ../../../../dmd/osmodel.mak
+endif
+
 TESTS := tlsgc_sections test_import tlsstack
 # join_detach is currently disabled
 #TESTS += join_detach
