@@ -1,6 +1,14 @@
 # LDC master
 
 #### Big news
+
+#### Platform support
+
+#### Bug fixes
+
+# LDC 1.40.1 (2025-03-20)
+
+#### Big news
 - Frontend and druntime bumped to version [2.110.0](https://dlang.org/changelog/2.110.0.html) final. (#4854, #4868)
 - LLVM for prebuilt packages bumped to v19.1.7. (#4822)
 - New prebuilt package for Alpine Linux x86_64 with musl libc. It's currently generated on Alpine v3.21, using its default LLVM 19. Most bundled executables are fully static and can be run on ~all distros. (#4826, #4862)
