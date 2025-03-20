@@ -152,6 +152,9 @@ $(ROOT)/loadDR.done: $(ROOT)/lib$(DOTDLL) $(DRUNTIMESO)
 $(ROOT)/loadDR.done: private run_args = $(DRUNTIMESO)
 $(ROOT)/loadDR$(DOTEXE): utils.h
 $(ROOT)/loadDR$(DOTEXE): private extra_ldlibs += $(ldl)
+ifeq ($(IS_MUSL),1)
+$(ROOT)/loadDR$(DOTEXE): private extra_ldflags += -Wl,-rpath,$(druntimeso_dir)
+endif
 
 $(ROOT)/host.done: $(DRUNTIMESO) $(ROOT)/plugin1$(DOTDLL) $(ROOT)/plugin2$(DOTDLL)
 $(ROOT)/host.done: private run_args = $(DRUNTIMESO)
