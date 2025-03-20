@@ -116,6 +116,10 @@ public:
     return name;
   }
 
+  llvm::UWTableKind defaultUnwindTableKind() override {
+    return llvm::UWTableKind::Async;
+  }
+
   bool returnInArg(TypeFunction *tf, bool needsThis) override {
     Type *rt = tf->next->toBasetype();
 

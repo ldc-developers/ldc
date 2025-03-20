@@ -57,6 +57,10 @@ private:
 public:
   AArch64TargetABI() {}
 
+  llvm::UWTableKind defaultUnwindTableKind() override {
+    return isDarwin() ? llvm::UWTableKind::Sync : llvm::UWTableKind::Async;
+  }
+
   bool returnInArg(TypeFunction *tf, bool) override {
     Type *rt = tf->next->toBasetype();
     if (rt->ty == TY::Tstruct || rt->ty == TY::Tsarray) {

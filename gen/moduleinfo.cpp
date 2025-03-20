@@ -66,6 +66,7 @@ llvm::Function *buildForwarderFunction(
   llvm::Function *fn = llvm::Function::Create(
       fnTy, llvm::GlobalValue::InternalLinkage, irMangle, &gIR->module);
   fn->setCallingConv(gABI->callingConv(LINK::d));
+  gABI->setUnwindTableKind(fn);
 
   // Emit the body, consisting of...
   const auto bb = llvm::BasicBlock::Create(gIR->context(), "", fn);

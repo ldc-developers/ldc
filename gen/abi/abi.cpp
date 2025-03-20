@@ -155,6 +155,17 @@ llvm::CallingConv::ID TargetABI::callingConv(FuncDeclaration *fdecl) {
   return callingConv(tf, fdecl->needThis() || fdecl->isNested());
 }
 
+void TargetABI::setUnwindTableKind(llvm::Function *fn) {
+  llvm::UWTableKind kind = defaultUnwindTableKind();
+  if (kind != llvm::UWTableKind::None) {
+#if LDC_LLVM_VER >= 1600
+    fn->setUWTableKind(kind);
+#else
+    fn->setUWTableKind(kind);
+#endif
+  }
+}
+
 //////////////////////////////////////////////////////////////////////////////
 
 bool TargetABI::returnInArg(TypeFunction *tf, bool needsThis) {

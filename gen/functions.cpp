@@ -1157,9 +1157,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   }
 
   // function attributes
-  if (gABI->needsUnwindTables()) {
-    func->setUWTableKind(llvm::UWTableKind::Default);
-  }
+  gABI->setUnwindTableKind(func);
   if (opts::isAnySanitizerEnabled() &&
       !opts::functionIsInSanitizerBlacklist(fd)) {
     // Get the @noSanitize mask

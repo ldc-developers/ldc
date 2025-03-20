@@ -269,14 +269,8 @@ struct LazyFunctionDeclarer {
 
       fn->setAttributes(attrs);
 
-      // On x86_64, always set 'uwtable' for System V ABI compatibility.
-      // FIXME: Move to better place (abi-x86-64.cpp?)
-      // NOTE: There are several occurances if this line.
-      if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
-        fn->setUWTableKind(llvm::UWTableKind::Default);
-      }
-
       fn->setCallingConv(gABI->callingConv(dty, false));
+      gABI->setUnwindTableKind(fn);
     }
   }
 };
