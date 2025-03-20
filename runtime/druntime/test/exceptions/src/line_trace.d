@@ -13,6 +13,6 @@ void main()
 }
 
 void f1()
-{
+{   version (LDC) pragma(inline, false);
     throw new Exception("exception");
 }

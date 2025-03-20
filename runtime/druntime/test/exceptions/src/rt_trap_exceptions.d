@@ -3,7 +3,7 @@
 extern extern(C) __gshared bool rt_trapExceptions;
 extern extern(C) int _d_run_main(int, char**, void*) @system;
 
-extern(C) int main(int argc, char** argv) {
+extern(C) int main(int argc, char** argv) @(imported!"ldc.attributes".optStrategy("none")) {
     rt_trapExceptions = false;
     return _d_run_main(argc, argv, &_main);
 }
