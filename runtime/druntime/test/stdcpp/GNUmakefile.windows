@@ -15,7 +15,6 @@ include ../common.mak
 
 CXX := cl
 OUTPUT_FLAG := /Fo
-TARGET_ARCH :=
 extra_cxxflags += /nologo /EHsc
 extra_dflags += -main -unittest -version=CoreUnittest -version=_MSC_VER_$(msc_ver)
 

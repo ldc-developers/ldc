@@ -70,6 +70,7 @@ $(OBJDIR)/%_oldabi$(DOTEXE): %.cpp $(OBJDIR)/%_oldabi_d$(DOTOBJ) $(DRUNTIME_DEP)
 $(OBJDIR)/%_oldabi$(DOTEXE): private extra_cppflags += -D_GLIBCXX_USE_CXX11_ABI=0
 
 $(OBJDIR)/%$(DOTEXE): private extra_ldlibs += $(druntime_for_linking) $(d_platform_libs_cc_form)
+$(OBJDIR)/%$(DOTEXE): private extra_ldflags += -Wl,-rpath,$(druntimeso_dir)
 
 short_test_names = 98 11 17 oldabi
 .NOTINTERMEDIATE: \

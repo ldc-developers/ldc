@@ -51,7 +51,7 @@ ifeq ($(OS),osx)
     TESTS+=line_trace line_trace_21656 cpp_demangle
     line_trace_dflags:=
 endif
-ifeq ($(OS)-$(BUILD),windows-debug)
+ifeq ($(OS),windows)
     TESTS+=winstack
 endif
 include ../common.mak
@@ -86,6 +86,7 @@ $(ROOT)/chain.done: $(ROOT)/chain$(DOTEXE)
 	@rm -f $(ROOT)/chain.output
 	@touch $@
 
+$(ROOT)/winstack$(DOTEXE): private extra_dflags += -g
 $(ROOT)/winstack.done: $(ROOT)/winstack$(DOTEXE)
 	@echo Testing winstack
 	$(TIMELIMIT)$< $(RUN_ARGS)
@@ -147,7 +148,7 @@ $(ROOT)/refcounted.done: $(ROOT)/refcounted$(DOTEXE)
 	$<
 	@touch $@
 
-ifneq (,$(findstring ldmd,$(DMD)))
+ifdef IN_LDC
 # LDC: Make sure allocation intended to provoke exception is not elided.
 $(ROOT)/invalid_memory_operation$(DOTEXE): extra_dflags+=-disable-gc2stack
 endif
