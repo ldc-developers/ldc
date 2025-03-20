@@ -57,6 +57,10 @@ else()
     list(REMOVE_ITEM testnames uuid)
 endif()
 
+if(TARGET_SYSTEM MATCHES "musl")
+    set(musl "IS_MUSL=1")
+endif()
+
 foreach(name ${testnames})
     foreach(build debug release)
         set(druntime_path_build ${druntime_path})
@@ -77,7 +81,7 @@ foreach(name ${testnames})
                 CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER}
                 DRUNTIME=${druntime_path_build} DRUNTIMESO=${shared_druntime_path_build}
                 CFLAGS_BASE=${cflags_base} DFLAGS_BASE=${dflags_base} ${linkdl}
-		IN_LDC=1
+		IN_LDC=1 ${musl}
         )
         set_tests_properties(${fullname} PROPERTIES DEPENDS clean-${fullname})
     endforeach()
