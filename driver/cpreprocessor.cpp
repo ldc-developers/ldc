@@ -21,6 +21,11 @@ const char *getPathToImportc_h(const Loc &loc) {
       error(loc, "cannot find \"importc.h\" along import path");
       fatal();
     }
+
+#ifdef _WIN32
+    // if the path to importc.h is relative, cl.exe (but not clang-cl) treats it as relative to the .c file!
+    cached = FileName::toAbsolute(cached);
+#endif
   }
   return cached;
 }
