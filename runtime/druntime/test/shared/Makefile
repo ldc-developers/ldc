@@ -57,7 +57,7 @@ endif
 endif
 
 # LDC: this test is designed for .exe & .dll with separate druntimes
-$(ROOT)/dllgc$(DOTEXE): private extra_dflags += -link-defaultlib-shared=false -dllimport=none
+$(ROOT)/dllgc$(DOTEXE) $(ROOT)/dllgc$(DOTDLL): private extra_dflags += -link-defaultlib-shared=false -dllimport=none
 
 # LDC addition: test teardown with separate druntimes, with the DLL using the .exe GC
 dgpt = dll_gc_proxy_teardown dll_gc_proxy_teardown_nounload
