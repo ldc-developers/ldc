@@ -47,7 +47,7 @@ function(add_testsuite config_suffix required_flags gdbflags model make_rule)
     add_test(NAME clean-${name}
         COMMAND ${CMAKE_COMMAND} -E remove_directory ${outdir})
 
-    set(dflags "-conf=${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf")
+    set(dflags "-conf=${PROJECT_BINARY_DIR}/etc/${LDC_EXE}.conf")
     add_test(NAME ${name}
         COMMAND ${RUN_DMD_TESTSUITE_EXE_FULL} RESULTS_DIR=${resultsdir}
                      REQUIRED_ARGS=${required_flags} DFLAGS=${dflags}

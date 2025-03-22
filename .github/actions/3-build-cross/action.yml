@@ -140,6 +140,8 @@ runs:
           --buildDir="build-cross-libs" \
           --dFlags="${DFLAGS// /;}" \
           --ldcSrcDir="$PWD/ldc" \
+          CMAKE_INSTALL_PREFIX="$PWD/install" \
+          INCLUDE_INSTALL_DIR="$PWD/install/import" \
           "${flags[@]}"
 
     - name: Cross-compile LDC executables
@@ -155,4 +157,3 @@ runs:
           ${{ inputs.cmake_flags }}
           ${{ inputs.with_pgo == 'true' && '-DDFLAGS_LDC=-fprofile-use=../pgo-ldc/merged.profdata' || '' }}
           ${{ env.CROSS_CMAKE_FLAGS }}
-        build_targets: ldc2 ldmd2 ldc-build-runtime ldc-build-plugin ldc-profdata ldc-profgen ldc-prune-cache timetrace2txt
