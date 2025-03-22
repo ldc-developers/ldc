@@ -14,7 +14,7 @@
 
 class Expression;
 class FuncDeclaration;
-class OutBuffer;
+struct OutBuffer;
 
 enum class TimeTraceEventType
 {
