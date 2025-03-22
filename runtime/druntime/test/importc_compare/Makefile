@@ -13,6 +13,11 @@ ifeq ($(OS),linux)
     endif
 endif
 
+# FIXME: fails on macOS arm64, e.g., due to unsupported `_Float16`
+ifeq ($(OS)-$(ARCH),osx-aarch64)
+    TESTS :=
+endif
+
 include ../common.mak
 
 extra_dflags += -d
