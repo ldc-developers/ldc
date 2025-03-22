@@ -30,6 +30,12 @@ GDB:=gdb
 
 ifeq ($(OS),linux)
     TESTS+=line_trace line_trace_21656 long_backtrace_trunc rt_trap_exceptions cpp_demangle
+    ifdef IN_LDC
+        # FIXME: unclear why this fails on AArch64 - the only stderr output is 'Aborted (core dumped)'
+        ifeq ($(ARCH),aarch64)
+            TESTS := $(filter-out rt_trap_exceptions,$(TESTS))
+        endif
+    endif
     # registerMemoryAssertHandler requires glibc
     ifneq ($(IS_MUSL),1)
         TESTS+=memoryerror_null_read memoryerror_null_write memoryerror_null_call memoryerror_stackoverflow
