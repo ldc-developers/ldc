@@ -84,6 +84,10 @@ struct X86TargetABI : TargetABI {
     return name;
   }
 
+  llvm::UWTableKind defaultUnwindTableKind() override {
+    return isMSVC ? llvm::UWTableKind::None : llvm::UWTableKind::Async;
+  }
+
   // Helper folding the magic __c_complex_{float,double,real} enums to the basic
   // complex type.
   static Type *getExtraLoweredReturnType(TypeFunction *tf) {

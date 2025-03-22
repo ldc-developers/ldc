@@ -36,6 +36,10 @@ struct PPCTargetABI : TargetABI {
 
   explicit PPCTargetABI(const bool Is64Bit) : Is64Bit(Is64Bit) {}
 
+  llvm::UWTableKind defaultUnwindTableKind() override {
+    return llvm::UWTableKind::Async;
+  }
+
   bool returnInArg(TypeFunction *tf, bool) override {
     Type *rt = tf->next->toBasetype();
 
