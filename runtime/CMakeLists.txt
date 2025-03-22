@@ -365,7 +365,9 @@ endif()
 if(NOT DEFINED CONF_INST_DIR) # set by parent LDC build
     set(CONF_INST_DIR "${CMAKE_INSTALL_PREFIX}/etc")
 endif()
-install(FILES ${install_conf_path} DESTINATION ${CONF_INST_DIR} RENAME ${CONFIG_BASE}.conf)
+if(NOT CONF_INST_DIR STREQUAL "") # allow skipping the ldc2.conf installation
+    install(FILES ${install_conf_path} DESTINATION ${CONF_INST_DIR} RENAME ${CONFIG_BASE}.conf)
+endif()
 
 #
 # druntime/Phobos compilation helpers.
@@ -858,13 +860,17 @@ foreach(libname ${libs_to_install})
         # import .lib in regular lib dir
         install(FILES       $<TARGET_LINKER_FILE:${libname}>
                 DESTINATION ${destination_dir})
-        # .dll in bin dir
+        # when included from the LDC parent build, install .dll and .pdb into bin/
+        if(LDC_EXE)
+            set(destination_dir ${CMAKE_INSTALL_PREFIX}/bin)
+        endif()
+        # .dll in bin or lib dir
         install(FILES       $<TARGET_FILE:${libname}>
-                DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
-        # .pdb of debug DLLs in bin dir
+                DESTINATION ${destination_dir})
+        # .pdb of debug DLLs in bin or lib dir
         if(${libname} MATCHES "-debug")
             install(FILES       $<TARGET_PDB_FILE:${libname}>
-                    DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+                    DESTINATION ${destination_dir})
         endif()
     else()
         install(TARGETS     ${libname}

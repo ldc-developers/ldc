@@ -19,6 +19,7 @@ runs:
         cd ..
         if [[ '${{ inputs.cross_target_triple }}' != '' ]]; then
           DMD="$PWD/bootstrap-ldc/bin/ldmd2"
+          ln -s installed install # the DFLAGS still reference install/lib/
         else
           DMD="$PWD/installed/bin/ldmd2"
         fi
