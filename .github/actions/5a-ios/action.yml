@@ -38,8 +38,7 @@ runs:
         section="
         \"$arch-apple-ios\":
         {
-            switches = [
-                \"-defaultlib=phobos2-ldc,druntime-ldc\",
+            switches ~= [
                 \"-Xcc=-isysroot\",
                 \"-Xcc=$sysroot\",
             ];
