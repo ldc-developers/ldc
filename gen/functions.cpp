@@ -432,8 +432,6 @@ void applyTargetMachineAttributes(llvm::Function &func,
   opts::setFunctionAttributes(cpu, features, func);
   if (opts::fFastMath) // -ffast-math[=true] overrides -enable-unsafe-fp-math
     func.addFnAttr("unsafe-fp-math", "true");
-  if (!func.hasFnAttribute("frame-pointer")) // not explicitly set by user
-    func.addFnAttr("frame-pointer", isOptimizationEnabled() ? "none" : "all");
 }
 
 void applyXRayAttributes(FuncDeclaration &fdecl, llvm::Function &func) {
@@ -446,6 +444,23 @@ void applyXRayAttributes(FuncDeclaration &fdecl, llvm::Function &func) {
     func.addFnAttr("xray-instruction-threshold",
                    opts::getXRayInstructionThresholdString());
   }
+}
+
+// Keep frame pointers by default with enabled optimizations?
+// The logic is very loosely based on clang's
+// `useFramePointerForTargetByDefault()`, as well as backtrace test results for
+// druntime-test-exceptions-release.
+bool keepFramePointersByDefault() {
+  const auto &triple = *global.params.targetTriple;
+  if (triple.isAndroid())
+    return true;
+  if (triple.isAArch64())
+    return !triple.isOSWindows();
+  if (triple.getArch() == llvm::Triple::x86)
+    return triple.isOSWindows(); // required for druntime backtraces
+  if (triple.getArch() == llvm::Triple::x86_64)
+    return !(triple.isOSWindows() || triple.isGNUEnvironment());
+  return false;
 }
 
 void onlyOneMainCheck(FuncDeclaration *fd) {
@@ -1174,6 +1189,17 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     func->addFnAttr("use-sample-profile");
   }
 
+  if (fd->hasInlineAsm()) {
+    // disable frame-pointer-elimination for functions with DMD-style inline asm
+    func->addFnAttr("frame-pointer", "all");
+  } else if (!func->hasFnAttribute("frame-pointer")) {
+    // not explicitly set by user
+    func->addFnAttr("frame-pointer",
+                    isOptimizationEnabled() && !keepFramePointersByDefault()
+                        ? "none"
+                        : "all");
+  }
+
   llvm::BasicBlock *beginbb =
       llvm::BasicBlock::Create(gIR->context(), "", func);
 
@@ -1208,12 +1234,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   if (global.params.trace && fd->emitInstrumentation && !fd->isCMain() &&
       !fd->isNaked()) {
     emitDMDStyleFunctionTrace(*gIR, fd, funcGen);
-  }
-
-  // disable frame-pointer-elimination for functions with DMD-style inline asm
-  if (fd->hasInlineAsm()) {
-    func->addFnAttr(
-        llvm::Attribute::get(gIR->context(), "frame-pointer", "all"));
   }
 
   // give the 'this' parameter (an lvalue) storage and debug info

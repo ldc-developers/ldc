@@ -3,10 +3,10 @@
 
 // REQUIRES: host_X86
 
-// RUN: %ldc -O -output-s -m32 -of=%t_32.s %s -mattr=+sse2
+// RUN: %ldc -O -frame-pointer=none -output-s -m32 -of=%t_32.s %s -mattr=+sse2
 // RUN: FileCheck --check-prefix=COMMON %s < %t_32.s
 
-// RUN: %ldc -O -output-s -m64 -of=%t_64.s %s
+// RUN: %ldc -O -frame-pointer=none -output-s -m64 -of=%t_64.s %s
 // RUN: FileCheck --check-prefix=COMMON --check-prefix=X64 %s < %t_64.s
 
 import core.simd;

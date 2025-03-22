@@ -1,6 +1,7 @@
 # LDC master
 
 #### Big news
+- Keep frame pointers by default with `-O` for some targets, notably AArch64 (except Windows), x86_64 (except Windows and glibc Linux), Windows x86, and Android. This fixes druntime backtraces with optimized code (incl. prebuilt druntime/Phobos). (#4889)
 - ldc2.conf: Arrays can now be appended to via the `~=` operator. (#4848, #4856)
 
 #### Platform support
