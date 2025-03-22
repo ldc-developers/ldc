@@ -91,7 +91,7 @@ $(ROOT)/chain.done: $(ROOT)/chain$(DOTEXE)
 	@rm -f $(ROOT)/chain.output
 	@touch $@
 
-$(ROOT)/winstack$(DOTEXE): private DFLAGS += -g -O0
+$(ROOT)/winstack$(DOTEXE): private extra_dflags += -g -frame-pointer=all
 $(ROOT)/winstack.done: $(ROOT)/winstack$(DOTEXE)
 	@echo Testing winstack
 	$(TIMELIMIT)$< $(RUN_ARGS)
@@ -158,13 +158,13 @@ ifdef IN_LDC
 $(ROOT)/invalid_memory_operation$(DOTEXE): extra_dflags+=-disable-gc2stack
 endif
 $(ROOT)/unittest_assert$(DOTEXE): extra_dflags += -unittest -version=CoreUnittest
-$(ROOT)/line_trace$(DOTEXE): DFLAGS += -g -O0
+$(ROOT)/line_trace$(DOTEXE): extra_dflags += -g -frame-pointer=all
 $(ROOT)/line_trace$(DOTEXE): extra_ldflags.d += $(line_trace_dflags)
-$(ROOT)/long_backtrace_trunc$(DOTEXE): DFLAGS += -g -O0
+$(ROOT)/long_backtrace_trunc$(DOTEXE): extra_dflags += -g -frame-pointer=all
 $(ROOT)/long_backtrace_trunc$(DOTEXE): extra_ldflags.d += $(line_trace_dflags)
-$(ROOT)/rt_trap_exceptions$(DOTEXE): DFLAGS += -g -O0
+$(ROOT)/rt_trap_exceptions$(DOTEXE): extra_dflags += -g -frame-pointer=all
 $(ROOT)/rt_trap_exceptions$(DOTEXE): extra_ldflags.d += $(line_trace_dflags)
-$(ROOT)/rt_trap_exceptions_drt$(DOTEXE): DFLAGS += -g -O0
+$(ROOT)/rt_trap_exceptions_drt$(DOTEXE): extra_dflags += -g -frame-pointer=all
 $(ROOT)/refcounted$(DOTEXE): extra_dflags+=-dip1008
 $(ROOT)/cpp_demangle$(DOTEXE): extra_ldflags.d+=$(line_trace_dflags)
 $(ROOT)/cpp_demangle$(DOTEXE): extra_ldlibs.d+=-L-lstdc++
