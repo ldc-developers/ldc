@@ -571,7 +571,7 @@ public:
     // for struct `.init` assignment.
     if (lhs->isLVal() && e->op == EXP::assign) {
       if (auto sle = e->e2->isStructLiteralExp()) {
-        if (sle->useStaticInit) {
+        if (sle->useStaticInit()) {
           if (toInPlaceConstruction(lhs->isLVal(), sle))
             return;
         }
@@ -809,7 +809,7 @@ public:
     // Only emit this extra code from -O2.
     // This optimization is only valid for D class method calls (not C++).
     bool canEmitVTableUnchangedAssumption =
-        dfnval && dfnval->func && (dfnval->func->_linkage == LINK::d) &&
+        dfnval && dfnval->func && (dfnval->func->_linkage() == LINK::d) &&
         (optLevel() >= 2);
 
     if (dfnval && dfnval->func) {
@@ -937,7 +937,7 @@ public:
     }
 
     // Casts are also "optimized into" SymOffExp by the frontend.
-    LLValue *llVal = (e->type->toBasetype()->isintegral()
+    LLValue *llVal = (e->type->toBasetype()->isIntegral()
                           ? p->ir->CreatePtrToInt(offsetValue, DtoType(e->type))
                           : DtoBitCast(offsetValue, DtoType(e->type)));
     result = new DImValue(e->type, llVal);
@@ -1335,7 +1335,7 @@ public:
 
     LLValue *eval = nullptr;
 
-    if (t->isintegral() || t->ty == TY::Tpointer || t->ty == TY::Tnull) {
+    if (t->isIntegral() || t->ty == TY::Tpointer || t->ty == TY::Tnull) {
       llvm::ICmpInst::Predicate icmpPred;
       tokToICmpPred(e->op, isLLVMUnsigned(t), &icmpPred, &eval);
 
@@ -1351,7 +1351,7 @@ public:
         }
         eval = p->ir->CreateICmp(icmpPred, a, b);
       }
-    } else if (t->isfloating()) {
+    } else if (t->isFloating()) {
       llvm::FCmpInst::Predicate cmpop;
       switch (e->op) {
       case EXP::lessThan:
@@ -1438,7 +1438,7 @@ public:
 
     // the Tclass catches interface comparisons, regular
     // class equality should be rewritten as a.opEquals(b) by this time
-    if (t->isintegral() || t->ty == TY::Tpointer || t->ty == TY::Tclass ||
+    if (t->isIntegral() || t->ty == TY::Tpointer || t->ty == TY::Tclass ||
         t->ty == TY::Tnull) {
       Logger::println("integral or pointer or interface");
       llvm::ICmpInst::Predicate cmpop;
@@ -1462,7 +1462,7 @@ public:
         Logger::cout() << "rv: " << *rv << '\n';
       }
       eval = p->ir->CreateICmp(cmpop, lv, rv);
-    } else if (t->isfloating()) { // includes iscomplex
+    } else if (t->isFloating()) { // includes iscomplex
       eval = DtoBinNumericEquals(e->loc, l, r, e->op);
     } else if (t->ty == TY::Tsarray || t->ty == TY::Tarray) {
       Logger::println("static or dynamic array");
@@ -1504,10 +1504,10 @@ public:
     Type *e1type = e->e1->type->toBasetype();
     Type *e2type = e->e2->type->toBasetype();
 
-    if (e1type->isintegral()) {
-      assert(e2type->isintegral());
+    if (e1type->isIntegral()) {
+      assert(e2type->isIntegral());
       LLValue *one =
-          LLConstantInt::get(val->getType(), 1, !e2type->isunsigned());
+          LLConstantInt::get(val->getType(), 1, !e2type->isUnsigned());
       if (e->op == EXP::plusPlus) {
         post = llvm::BinaryOperator::CreateAdd(val, one, "", p->scopebb());
       } else if (e->op == EXP::minusMinus) {
@@ -1518,8 +1518,8 @@ public:
       LLConstant *offset =
           e->op == EXP::plusPlus ? DtoConstUint(1) : DtoConstInt(-1);
       post = DtoGEP1(DtoMemType(dv->type->nextOf()), val, offset, "", p->scopebb());
-    } else if (e1type->iscomplex()) {
-      assert(e2type->iscomplex());
+    } else if (e1type->isComplex()) {
+      assert(e2type->isComplex());
       LLValue *one = LLConstantFP::get(DtoComplexBaseType(e1type), 1.0);
       LLValue *re, *im;
       DtoGetComplexParts(e->loc, e1type, dv, re, im);
@@ -1529,8 +1529,8 @@ public:
         re = llvm::BinaryOperator::CreateFSub(re, one, "", p->scopebb());
       }
       DtoComplexSet(DtoType(dv->type), lval, re, im);
-    } else if (e1type->isfloating()) {
-      assert(e2type->isfloating());
+    } else if (e1type->isFloating()) {
+      assert(e2type->isFloating());
       LLValue *one = DtoConstFP(e1type, ldouble(1.0));
       if (e->op == EXP::plusPlus) {
         post = llvm::BinaryOperator::CreateFAdd(val, one, "", p->scopebb());
@@ -1543,7 +1543,7 @@ public:
 
     // The real part of the complex number has already been updated, skip the
     // store
-    if (!e1type->iscomplex()) {
+    if (!e1type->isComplex()) {
       DtoStore(post, lval);
     }
     result = new DImValue(e->type, val);
@@ -1573,6 +1573,7 @@ public:
     // new dynamic array
     else if (ntype->ty == TY::Tarray) {
       IF_LOG Logger::println("new dynamic array: %s", e->newtype->toChars());
+      assert(!e->placement);
       assert(e->argprefix == NULL);
       // get dim
       assert(e->arguments);
@@ -1597,9 +1598,14 @@ public:
 
       TypeStruct *ts = static_cast<TypeStruct *>(ntype);
 
-      // allocate (via _d_newitemT template lowering)
-      assert(e->lowering);
-      LLValue *mem = DtoRVal(e->lowering);
+      LLValue *mem;
+      if (e->placement) {
+        mem = DtoLVal(e->placement);
+      } else {
+        // allocate (via _d_newitemT template lowering)
+        assert(e->lowering);
+        mem = DtoRVal(e->lowering);
+      }
 
       if (!e->member && e->arguments) {
         IF_LOG Logger::println("Constructing using literal");
@@ -1629,6 +1635,7 @@ public:
     }
     // new AA
     else if (auto taa = ntype->isTypeAArray()) {
+      assert(!e->placement);
       LLFunction *func = getRuntimeFunction(e->loc, gIR->module, "_aaNew");
       LLValue *aaTypeInfo = DtoTypeInfoOf(e->loc, stripModifiers(taa));
       LLValue *aa = gIR->CreateCallOrInvoke(func, aaTypeInfo, "aa");
@@ -1639,9 +1646,13 @@ public:
       IF_LOG Logger::println("basic type on heap: %s\n", e->newtype->toChars());
       assert(e->argprefix == NULL);
 
-      // allocate
-      LLValue *mem = DtoNew(e->loc, e->newtype);
-      DLValue tmpvar(e->newtype, mem);
+      LLValue *mem;
+      if (e->placement) {
+        mem = DtoLVal(e->placement);
+      } else {
+        // allocate
+        mem = DtoNew(e->loc, e->newtype);
+      }
 
       Expression *exp = nullptr;
       if (!e->arguments || e->arguments->length == 0) {
@@ -1655,6 +1666,7 @@ public:
       }
 
       // try to construct it in-place
+      DLValue tmpvar(e->newtype, mem);
       if (!toInPlaceConstruction(&tmpvar, exp))
         DtoAssign(e->loc, &tmpvar, toElem(exp), EXP::blit);
 
@@ -1823,8 +1835,8 @@ public:
 
       Logger::println("calling class invariant");
 
-      const auto fnMangle =
-          getIRMangledFuncName("_D9invariant12_d_invariantFC6ObjectZv", LINK::d);
+      const auto fnMangle = getIRMangledFuncName(
+          "_D2rt10invariant_12_d_invariantFC6ObjectZv", LINK::d);
       const auto fn = getRuntimeFunction(e->loc, gIR->module, fnMangle.c_str());
 
       const auto arg = DtoRVal(cond);
@@ -1999,7 +2011,7 @@ public:
 
       // We need to actually codegen the function here, as literals are not
       // added to the module member list.
-      if (e->func->semanticRun == PASS::semantic3done) {
+      if (e->func->semanticRun() == PASS::semantic3done) {
         Dsymbol *owner = e->func->toParent();
         while (!owner->isTemplateInstance() && owner->toParent()) {
           owner = owner->toParent();
@@ -2050,7 +2062,7 @@ public:
         assert(lv->getType() == rv->getType());
       }
       eval = DtoDelegateEquals(e->op, lv, rv);
-    } else if (t1->isfloating()) { // includes iscomplex
+    } else if (t1->isFloating()) { // includes iscomplex
       eval = DtoBinNumericEquals(e->loc, l, r, e->op);
     } else if (t1->ty == TY::Tpointer || t1->ty == TY::Tclass) {
       LLValue *lv = DtoRVal(l);
@@ -2174,14 +2186,14 @@ public:
 
     DRValue *dval = toElem(e->e1)->getRVal();
 
-    if (e->type->iscomplex()) {
+    if (e->type->isComplex()) {
       result = DtoComplexNeg(e->loc, e->type, dval);
       return;
     }
 
     LLValue *val = DtoRVal(dval);
 
-    if (e->type->isintegral()) {
+    if (e->type->isIntegral()) {
       val = p->ir->CreateNeg(val, "negval");
     } else {
       val = p->ir->CreateFNeg(val, "negval");
@@ -2392,7 +2404,7 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
-    if (e->useStaticInit) {
+    if (e->useStaticInit()) {
       StructDeclaration *sd = e->sd;
       DtoResolveStruct(sd);
 

@@ -49,8 +49,8 @@ bool DtoIsInMemoryOnly(Type *type) {
 
 void DtoAddExtendAttr(Type *type, llvm::AttrBuilder &attrs) {
   type = type->toBasetype();
-  if (type->isintegral() && type->ty != TY::Tvector && size(type) <= 2) {
-    attrs.addAttribute(type->isunsigned() ? LLAttribute::ZExt
+  if (type->isIntegral() && type->ty != TY::Tvector && size(type) <= 2) {
+    attrs.addAttribute(type->isUnsigned() ? LLAttribute::ZExt
                                           : LLAttribute::SExt);
   }
 }
@@ -139,7 +139,7 @@ LLType *DtoType(Type *t) {
        */
       IF_LOG {
         Logger::println("Aggregate with multiple Types detected: %s (%s)",
-                        ad->toPrettyChars(), ad->locToChars());
+                        ad->toPrettyChars(), ad->loc.toChars());
         LOG_SCOPE;
         Logger::println("Existing deco:    %s", adType->deco);
         Logger::println("Mismatching deco: %s", t->deco);

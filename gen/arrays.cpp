@@ -624,7 +624,7 @@ DSliceValue *DtoNewDynArray(const Loc &loc, Type *arrayType, DValue *dim,
     return DtoNullValue(arrayType, loc)->isSlice();
 
   // get runtime function
-  bool zeroInit = eltType->isZeroInit();
+  bool zeroInit = isZeroInit(eltType);
   const char *fnname = defaultInit
                            ? (zeroInit ? "_d_newarrayT" : "_d_newarrayiT")
                            : "_d_newarrayU";

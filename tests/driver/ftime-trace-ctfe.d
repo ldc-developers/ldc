@@ -4,10 +4,9 @@
 
 // CHECK: traceEvents
 
-// CHECK-DAG: CTFE func: mulmul
-// CHECK-DAG: CTFE start: Thing
-// CHECK-DAG: CTFE func: muloddmul
-// CHECK-DAG: ExecuteCompiler
+// CHECK-DAG: Ctfe: call mulmul
+// CHECK-DAG: Ctfe: Thing
+// CHECK-DAG: Ctfe: call muloddmul
 
 module ftimetrace;
 

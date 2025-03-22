@@ -418,7 +418,7 @@ void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
       Logger::cout() << "r : " << *r << '\n';
     }
     DtoStore(r, l);
-  } else if (t->iscomplex()) {
+  } else if (t->isComplex()) {
     LLValue *dst = DtoLVal(lhs);
     LLValue *src = DtoRVal(DtoCast(loc, rhs, lhs->type));
     DtoStore(src, dst);
@@ -461,7 +461,7 @@ DValue *DtoNullValue(Type *type, Loc loc) {
   LLType *lltype = DtoType(basetype);
 
   // complex, needs to be first since complex are also floating
-  if (basetype->iscomplex()) {
+  if (basetype->isComplex()) {
     LLType *basefp = DtoComplexBaseType(basetype);
     LLValue *res = DtoAggrPair(DtoType(type), LLConstant::getNullValue(basefp),
                                LLConstant::getNullValue(basefp));
@@ -469,7 +469,7 @@ DValue *DtoNullValue(Type *type, Loc loc) {
   }
   // integer, floating, pointer, assoc array, delegate and class have no special
   // representation
-  if (basetype->isintegral() || basetype->isfloating() ||
+  if (basetype->isIntegral() || basetype->isFloating() ||
       basety == TY::Tpointer || basety == TY::Tnull || basety == TY::Tclass ||
       basety == TY::Tdelegate || basety == TY::Taarray) {
     return new DNullValue(type, LLConstant::getNullValue(lltype));
@@ -493,7 +493,7 @@ DValue *DtoCastInt(const Loc &loc, DValue *val, Type *_to) {
 
   Type *to = _to->toBasetype();
   Type *from = val->type->toBasetype();
-  assert(from->isintegral());
+  assert(from->isIntegral());
 
   LLValue *rval = DtoRVal(val);
   if (rval->getType() == tolltype) {
@@ -506,7 +506,7 @@ DValue *DtoCastInt(const Loc &loc, DValue *val, Type *_to) {
   if (to->ty == TY::Tbool) {
     LLValue *zero = LLConstantInt::get(rval->getType(), 0, false);
     rval = gIR->ir->CreateICmpNE(rval, zero);
-  } else if (to->isintegral()) {
+  } else if (to->isIntegral()) {
     if (fromsz < tosz || from->ty == TY::Tbool) {
       IF_LOG Logger::cout() << "cast to: " << *tolltype << '\n';
       if (isLLVMUnsigned(from) || from->ty == TY::Tbool) {
@@ -519,10 +519,10 @@ DValue *DtoCastInt(const Loc &loc, DValue *val, Type *_to) {
     } else {
       rval = DtoBitCast(rval, tolltype);
     }
-  } else if (to->iscomplex()) {
+  } else if (to->isComplex()) {
     return DtoComplex(loc, to, val);
-  } else if (to->isfloating()) {
-    if (from->isunsigned()) {
+  } else if (to->isFloating()) {
+    if (from->isUnsigned()) {
       rval = new llvm::UIToFPInst(rval, tolltype, "", gIR->scopebb());
     } else {
       rval = new llvm::SIToFPInst(rval, tolltype, "", gIR->scopebb());
@@ -561,7 +561,7 @@ DValue *DtoCastPtr(const Loc &loc, DValue *val, Type *to) {
     LLValue *src = DtoRVal(val);
     LLValue *zero = LLConstant::getNullValue(src->getType());
     rval = gIR->ir->CreateICmpNE(src, zero);
-  } else if (totype->isintegral()) {
+  } else if (totype->isIntegral()) {
     rval = new llvm::PtrToIntInst(DtoRVal(val), tolltype, "", gIR->scopebb());
   } else {
     error(loc, "invalid cast from `%s` to `%s`", val->type->toChars(),
@@ -581,7 +581,7 @@ DValue *DtoCastFloat(const Loc &loc, DValue *val, Type *to) {
 
   Type *totype = to->toBasetype();
   Type *fromtype = val->type->toBasetype();
-  assert(fromtype->isfloating());
+  assert(fromtype->isFloating());
 
   size_t fromsz = size(fromtype);
   size_t tosz = size(totype);
@@ -592,9 +592,9 @@ DValue *DtoCastFloat(const Loc &loc, DValue *val, Type *to) {
     rval = DtoRVal(val);
     LLValue *zero = LLConstant::getNullValue(rval->getType());
     rval = gIR->ir->CreateFCmpUNE(rval, zero);
-  } else if (totype->iscomplex()) {
+  } else if (totype->isComplex()) {
     return DtoComplex(loc, to, val);
-  } else if (totype->isfloating()) {
+  } else if (totype->isFloating()) {
     if (fromsz == tosz) {
       rval = DtoRVal(val);
       assert(rval->getType() == tolltype);
@@ -607,8 +607,8 @@ DValue *DtoCastFloat(const Loc &loc, DValue *val, Type *to) {
             to->toChars());
       fatal();
     }
-  } else if (totype->isintegral()) {
-    if (totype->isunsigned()) {
+  } else if (totype->isIntegral()) {
+    if (totype->isUnsigned()) {
       rval = new llvm::FPToUIInst(DtoRVal(val), tolltype, "", gIR->scopebb());
     } else {
       rval = new llvm::FPToSIInst(DtoRVal(val), tolltype, "", gIR->scopebb());
@@ -712,16 +712,16 @@ DValue *DtoCast(const Loc &loc, DValue *val, Type *to) {
   LOG_SCOPE;
 
   if (fromtype->ty == TY::Tvector) {
-    // First, handle vector types (which can also be isintegral()).
+    // First, handle vector types (which can also be isIntegral()).
     return DtoCastVector(loc, val, to);
   }
-  if (fromtype->isintegral()) {
+  if (fromtype->isIntegral()) {
     return DtoCastInt(loc, val, to);
   }
-  if (fromtype->iscomplex()) {
+  if (fromtype->isComplex()) {
     return DtoCastComplex(loc, val, to);
   }
-  if (fromtype->isfloating()) {
+  if (fromtype->isFloating()) {
     return DtoCastFloat(loc, val, to);
   }
 
@@ -975,7 +975,7 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
   } else if (AttribDeclaration *a = declaration->isAttribDeclaration()) {
     Logger::println("AttribDeclaration");
     // choose the right set in case this is a conditional declaration
-    if (auto d = a->include(nullptr)) {
+    if (auto d = include(a, nullptr)) {
       for (unsigned i = 0; i < d->length; ++i) {
         DtoDeclarationExp((*d)[i]);
       }
@@ -1240,9 +1240,9 @@ static char *DtoOverloadedIntrinsicName(TemplateInstance *ti,
   Type *T = static_cast<Type *>(ti->tdtypes[0]);
 
   char prefix;
-  if (T->isfloating() && !T->iscomplex()) {
+  if (T->isFloating() && !T->isComplex()) {
     prefix = 'f';
-  } else if (T->isintegral()) {
+  } else if (T->isIntegral()) {
     prefix = 'i';
   } else {
     error(ti->loc, "%s `%s` has invalid template parameter for intrinsic: `%s`",
@@ -1365,7 +1365,7 @@ bool isSpecialRefVar(VarDeclaration *vd) {
 ////////////////////////////////////////////////////////////////////////////////
 
 bool isLLVMUnsigned(Type *t) {
-  return t->isunsigned() || t->ty == TY::Tpointer;
+  return t->isUnsigned() || t->ty == TY::Tpointer;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1800,7 +1800,7 @@ FuncDeclaration *getParentFunc(Dsymbol *sym) {
     if (auto fld = fd->isFuncLiteralDeclaration()) {
       if (fld->tok == TOK::function_)
         return nullptr;
-    } else if (fd->isStatic() || (!fd->isThis() && fd->_linkage != LINK::d)) {
+    } else if (fd->isStatic() || (!fd->isThis() && fd->_linkage() != LINK::d)) {
       return nullptr;
     }
   }
