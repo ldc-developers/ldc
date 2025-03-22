@@ -1,4 +1,4 @@
-// RUN: %ldc -g -frame-pointer=all -link-defaultlib-debug %s -of=%t%exe
+// RUN: %ldc -g %s -of=%t%exe
 // RUN: %t%exe | FileCheck %s
 
 void bar()
