@@ -59,6 +59,13 @@ import dmd.semantic3;
 import dmd.target;
 import dmd.utils;
 
+version (Windows)
+    import core.sys.windows.winbase : getpid = GetCurrentProcessId;
+else version (Posix)
+    import core.sys.posix.unistd : getpid;
+else
+    static assert(0);
+
 version (IN_LLVM)
 {
     // DMD defines a `driverParams` global (of type DMDParams);
@@ -1255,6 +1262,9 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             case "c++20":
                 params.cplusplus = CppStdRevision.cpp20;
                 break;
+            case "c++23":
+                params.cplusplus = CppStdRevision.cpp23;
+                break;
             default:
                 error("switch `%s` is invalid", p);
                 params.help.externStd = true;
@@ -1843,7 +1853,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                     break;
                 }
                 if (runarg == "-")
-                    files.push("__stdin.d");
+                    params.readStdin = true;
                 else
                     files.push(arguments[i + 1]);
                 params.runargs.setDim(length - 1);
@@ -1860,7 +1870,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             }
         }
         else if (p[1] == '\0')
-            files.push("__stdin.d");
+            params.readStdin = true;
         else
         {
         Lerror:
@@ -2076,22 +2086,66 @@ else
 {
         if (firstmodule)
         {
-            global.params.objfiles.push(m.objfile.toChars());
+            params.objfiles.push(m.objfile.toChars());
             firstmodule = false;
         }
 }
     }
+
 version (IN_LLVM)
 {
-    // When compiling to a single object file, move that object file to the
-    // beginning of the object files list.
-    if (driverParams.oneobj && modules.length > 0 && firstModuleObjectFileIndex != 0)
+    scope(exit)
     {
-        auto fn = global.params.objfiles[firstModuleObjectFileIndex];
-        global.params.objfiles.remove(firstModuleObjectFileIndex);
-        global.params.objfiles.insert(0, fn);
+        // When compiling to a single object file, move that object file to the
+        // beginning of the object files list.
+        if (driverParams.oneobj && modules.length > 0 && firstModuleObjectFileIndex != 0)
+        {
+            auto fn = global.params.objfiles[firstModuleObjectFileIndex];
+            global.params.objfiles.remove(firstModuleObjectFileIndex);
+            global.params.objfiles.insert(0, fn);
+        }
     }
 }
+
+    // Special module representing `stdin`
+    if (params.readStdin)
+    {
+        Module m;
+        if (createModule("__stdin.d", libmodules, params, target, eSink, m))
+            return true;
+        if (m is null)
+            return false;
+
+        modules.push(m);
+
+        // Set the source file contents of the module
+        OutBuffer buf;
+        buf.readFromStdin();
+        m.src = cast(ubyte[])buf.extractSlice();
+
+        // Give unique outfile name
+        OutBuffer namebuf;
+        namebuf.printf("__stdin_%d", getpid());
+
+        auto filename = FileName.forceExt(namebuf.extractSlice(), target.obj_ext);
+        m.objfile = FileName(filename);
+
+version (IN_LLVM)
+{
+        if (!driverParams.oneobj || firstModuleObjectFileIndex == size_t.max)
+        {
+            global.params.objfiles.push(cast(const(char)*)m); // defer to a later stage after parsing
+            if (firstModuleObjectFileIndex == size_t.max)
+                firstModuleObjectFileIndex = global.params.objfiles.length - 1;
+        }
+}
+else
+{
+        if (firstmodule)
+            params.objfiles.push(m.objfile.toChars());
+}
+    }
+
     return false;
 }
 
@@ -2109,4 +2163,38 @@ Module moduleWithEmptyMain()
     result.semantic2(null);
     result.semantic3(null);
     return result;
+}
+
+private void readFromStdin(ref OutBuffer sink) nothrow
+{
+    import core.stdc.stdio;
+    import dmd.errors;
+
+    enum BufIncrement = 128 * 1024;
+
+    for (size_t j; 1; ++j)
+    {
+        char[] buffer = sink.allocate(BufIncrement + 16);
+
+        // Fill up buffer
+        size_t filled = 0;
+        do
+        {
+            filled += fread(buffer.ptr + filled, 1, buffer.length - filled, stdin);
+            if (ferror(stdin))
+            {
+                import core.stdc.errno;
+                error(Loc.initial, "cannot read from stdin, errno = %d", errno);
+                fatal();
+            }
+            if (feof(stdin)) // successful completion
+            {
+                memset(buffer.ptr + filled, '\0', 16);
+                sink.setsize(j * BufIncrement + filled);
+                return;
+            }
+        } while (filled < BufIncrement);
+    }
+
+    assert(0);
 }

@@ -400,7 +400,7 @@ version (IN_LLVM) {} else
     {
         fatal();
     }
-    if (files.length == 0)
+    if (files.length == 0 && !params.readStdin)
     {
         if (params.jsonFieldFlags)
         {

@@ -475,7 +475,7 @@ void parseCommandLine(Strings &sourceFiles) {
     global.params.run = true;
     if (!runargs.empty()) {
       if (runargs[0] == "-") {
-        sourceFiles.push("__stdin.d");
+        global.params.readStdin = true;
       } else {
         char const *name = runargs[0].c_str();
         char const *ext = FileName::ext(name);
@@ -504,8 +504,11 @@ void parseCommandLine(Strings &sourceFiles) {
   sourceFiles.reserve(fileList.size());
   for (const auto &file : fileList) {
     if (!file.empty()) {
-      sourceFiles.push(file == "-" ? "__stdin.d"
-                                   : opts::dupPathString(file).ptr);
+      if (file == "-") {
+        global.params.readStdin = true;
+      } else {
+        sourceFiles.push(opts::dupPathString(file).ptr);
+      }
     }
   }
 

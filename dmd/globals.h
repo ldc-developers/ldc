@@ -88,7 +88,8 @@ enum CppStdRevision
     CppStdRevisionCpp11 = 201103,
     CppStdRevisionCpp14 = 201402,
     CppStdRevisionCpp17 = 201703,
-    CppStdRevisionCpp20 = 202002
+    CppStdRevisionCpp20 = 202002,
+    CppStdRevisionCpp23 = 202302,
 };
 
 /// Trivalent boolean to represent the state of a `revert`able change
@@ -198,6 +199,7 @@ struct ImportPathInfo
 struct Param
 {
     d_bool obj;           // write object file
+    d_bool readStdin;     // read source file from stdin
     d_bool multiobj;      // break one object file into multiple ones
     d_bool trace;         // insert profiling hooks
     d_bool tracegc;       // instrument calls to 'new'

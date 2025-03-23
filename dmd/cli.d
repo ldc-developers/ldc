@@ -365,6 +365,8 @@ dmd -cov -unittest myprog.d
                     Sets `__traits(getTargetInfo, \"cppStd\")` to `201703`)
                 $(LI $(I c++20): Use C++20 name mangling,
                     Sets `__traits(getTargetInfo, \"cppStd\")` to `202002`)
+                $(LI $(I c++23): Use C++23 name mangling,
+                    Sets `__traits(getTargetInfo, \"cppStd\")` to `202302`)
             )",
         ),
         Option("extern-std=[h|help|?]",
@@ -1134,6 +1136,7 @@ version (IN_LLVM) {} else
   =c++14                Sets `__traits(getTargetInfo, \"cppStd\")` to `201402`
   =c++17                Sets `__traits(getTargetInfo, \"cppStd\")` to `201703`
   =c++20                Sets `__traits(getTargetInfo, \"cppStd\")` to `202002`
+  =c++23                Sets `__traits(getTargetInfo, \"cppStd\")` to `202302`
 ";
 
     /// Options supported by -HC

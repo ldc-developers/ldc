@@ -79,6 +79,7 @@ enum CppStdRevision : uint
     cpp14 = 2014_02,
     cpp17 = 2017_03,
     cpp20 = 2020_02,
+    cpp23 = 2023_02,
 }
 
 /// Trivalent boolean to represent the state of a `revert`able change
@@ -193,6 +194,7 @@ extern (C++) struct ImportPathInfo {
 extern (C++) struct Param
 {
     bool obj = true;        // write object file
+    bool readStdin;         // saw "-" on command line, read source file from stdin
     bool multiobj;          // break one object file into multiple ones
     bool trace;             // insert profiling hooks
     bool tracegc;           // instrument calls to 'new'
