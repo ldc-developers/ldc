@@ -139,6 +139,10 @@ jobs:
           if [[ '${{ runner.os }}' == 'Linux' ]]; then
             # FIXME: lsan_interceptors.cpp:82 "((!lsan_init_is_running)) != (0)"
             rm tests/sanitizers/lsan_memleak.d
+          elif [[ '${{ runner.os }}' == 'macOS' ]]; then
+            # work around weird lit-test `plugins/addFuncEntryCall/testPlugin.d`
+            # regression after switching to homebrew make (default CXX is clang++)
+            export CXX=c++
           fi
           ctest -V -R "lit-tests"
       - name: Run DMD testsuite
