@@ -682,6 +682,11 @@ private:
 
         // Set first time switchIn called to indicate this Fiber's Thread
         ThreadBase m_curThread;
+
+        version (SjLj_Exceptions)
+        {
+            SjLjFuncContext* m_sjljExStackTop;
+        }
     }
     Throwable           m_unhandled;
     State               m_state;
@@ -1137,7 +1142,10 @@ unittest
                         fibs[idx].call();
                         cont |= fibs[idx].state != Fiber.State.TERM;
                     }
-                    locks[idx] = false;
+                    version (LDC)
+                        locks[idx].atomicStore(false);
+                    else
+                        locks[idx] = false;
                 }
                 else
                 {
