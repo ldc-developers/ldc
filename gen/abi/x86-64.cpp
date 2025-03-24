@@ -146,6 +146,10 @@ struct X86_64TargetABI : TargetABI {
   ImplicitByvalRewrite byvalRewrite;
   IndirectByvalRewrite indirectByvalRewrite;
 
+  llvm::UWTableKind defaultUnwindTableKind() override {
+    return llvm::UWTableKind::Async;
+  }
+
   bool returnInArg(TypeFunction *tf, bool needsThis) override;
 
   bool preferPassByRef(Type *t) override;

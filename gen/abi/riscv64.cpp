@@ -158,6 +158,11 @@ private:
   IntegerRewrite integerRewrite;
 
 public:
+  llvm::UWTableKind defaultUnwindTableKind() override {
+    return global.params.targetTriple->isOSLinux() ? llvm::UWTableKind::Async
+                                                   : llvm::UWTableKind::None;
+  }
+
   Type *vaListType() override {
     // va_list is void*
     return pointerTo(Type::tvoid);
