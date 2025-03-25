@@ -89,9 +89,6 @@ if(LDC_DYNAMIC_COMPILE)
         list(APPEND ${outlist_targets} "ldc-jit-rt${target_suffix}")
         set(${outlist_targets} ${${outlist_targets}} PARENT_SCOPE)
     endfunction()
-
-    # Install D interface files
-    install(DIRECTORY ${JITRT_DIR}/d/ldc DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
 else()
     function(build_jit_runtime d_flags c_flags ld_flags path_suffix outlist_targets)
     endfunction()

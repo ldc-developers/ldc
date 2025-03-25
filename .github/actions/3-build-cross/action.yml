@@ -80,7 +80,7 @@ runs:
         cd ..
         arch='${{ inputs.arch }}'
         triple="$arch-apple-macos$MACOSX_DEPLOYMENT_TARGET"
-        echo "DFLAGS=-mtriple=$triple -L-L$PWD/build-cross-libs/lib -Xcc=-target -Xcc=$triple -Xcc=-isysroot -Xcc=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk" >> $GITHUB_ENV
+        echo "DFLAGS=-mtriple=$triple -L-L$PWD/install/lib -Xcc=-target -Xcc=$triple -Xcc=-isysroot -Xcc=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk" >> $GITHUB_ENV
         echo "CROSS_TRIPLE=$triple" >> $GITHUB_ENV
         echo "CROSS_CMAKE_FLAGS=-DCMAKE_OSX_ARCHITECTURES=$arch" >> $GITHUB_ENV
 
@@ -113,9 +113,9 @@ runs:
         cmakeFlags+=" -DANDROID_STL=c++_static"
         cmakeFlags+=" -DCMAKE_TOOLCHAIN_FILE=$PWD/android-ndk/build/cmake/android.toolchain.cmake"
         cmakeFlags+=" -DANDROID_USE_LEGACY_TOOLCHAIN_FILE=OFF"
-        cmakeFlags+=" -DLDC_LINK_MANUALLY=ON -DD_LINKER_ARGS='-L$PWD/build-cross-libs/lib;-lphobos2-ldc;-ldruntime-ldc'"
+        cmakeFlags+=" -DLDC_LINK_MANUALLY=ON -DD_LINKER_ARGS='-L$PWD/install/lib;-lphobos2-ldc;-ldruntime-ldc'"
 
-        echo "DFLAGS=-mtriple=$triple -L-L$PWD/build-cross-libs/lib -gcc=$PWD/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/$triple-clang" >> $GITHUB_ENV
+        echo "DFLAGS=-mtriple=$triple -L-L$PWD/install/lib -gcc=$PWD/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/$triple-clang" >> $GITHUB_ENV
         echo "CROSS_TRIPLE=$triple" >> $GITHUB_ENV
         echo "CROSS_CMAKE_FLAGS=$cmakeFlags" >> $GITHUB_ENV
 
@@ -125,7 +125,7 @@ runs:
       with:
         cmake_flags: ${{ env.CROSS_CMAKE_FLAGS }}
 
-    - name: Cross-compile default libraries
+    - name: Cross-compile and install default libraries
       shell: bash
       run: |
         set -euxo pipefail
@@ -136,10 +136,15 @@ runs:
         # convert to array, stripping all `-D` prefixes
         IFS=$'\n' flags=( $(xargs -n1 <<<"$flags" | cut -b3-) )
 
+        # install libs into install/lib/, and ldc2.conf into install/etc/
         bootstrap-ldc/bin/ldc-build-runtime --ninja \
-          --buildDir="build-cross-libs" \
+          --buildDir="build-cross-runtime" \
           --dFlags="${DFLAGS// /;}" \
           --ldcSrcDir="$PWD/ldc" \
+          --installWithSuffix "" \
+          CMAKE_INSTALL_PREFIX="$PWD/install" \
+          INCLUDE_INSTALL_DIR="$PWD/install/import" \
+          CONF_INST_DIR="$PWD/install/etc" \
           "${flags[@]}"
 
     - name: Cross-compile LDC executables
@@ -155,4 +160,3 @@ runs:
           ${{ inputs.cmake_flags }}
           ${{ inputs.with_pgo == 'true' && '-DDFLAGS_LDC=-fprofile-use=../pgo-ldc/merged.profdata' || '' }}
           ${{ env.CROSS_CMAKE_FLAGS }}
-        build_targets: ldc2 ldmd2 ldc-build-runtime ldc-build-plugin ldc-profdata ldc-profgen ldc-prune-cache timetrace2txt

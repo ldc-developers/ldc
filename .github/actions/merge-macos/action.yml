@@ -38,55 +38,77 @@ runs:
         lipo -create -output lib/libLTO.dylib lib-x86_64/libLTO.dylib lib-arm64/libLTO.dylib
         rm lib-{x86_64,arm64}/libLTO.dylib
 
-        # ldc2.conf: replace the default section and add extra sections
-        # note: x86_64-apple-ios section already exists
-        sections="
-        default:
+        # ldc2.conf:
+        # 1) make a backup copy
+        cp etc/ldc2.conf /tmp/ldc2.conf.bak
+        # 2) strip to the header comments (remove all existing sections, only keep `default:` line)
+        sed -i '' '/^default:$/q' etc/ldc2.conf
+        # 3) append all sections (except for wasm)
+        cat >>etc/ldc2.conf <<EOF
         {
             // default switches injected before all explicit command-line switches
             switches = [
-                \"-defaultlib=phobos2-ldc,druntime-ldc\",
+                "-defaultlib=phobos2-ldc,druntime-ldc",
             ];
             // default switches appended after all explicit command-line switches
             post-switches = [
-                \"-I%%ldcbinarypath%%/../import\",
+                "-I%%ldcbinarypath%%/../import",
             ];
             // default directories to be searched for libraries when linking
             lib-dirs = [];
             // default rpath when linking against the shared default libs
-            rpath = \"\";
+            rpath = "";
         };
 
-        \"x86_64-apple-\":
+        // macOS:
+
+        "x86_64-apple-":
         {
             lib-dirs = [
-                \"%%ldcbinarypath%%/../lib-x86_64\",
+                "%%ldcbinarypath%%/../lib-x86_64",
             ];
-            rpath = \"%%ldcbinarypath%%/../lib-x86_64\";
+            rpath = "%%ldcbinarypath%%/../lib-x86_64";
         };
 
-        \"arm64-apple-\":
+        "arm64-apple-":
         {
             lib-dirs = [
-                \"%%ldcbinarypath%%/../lib-arm64\",
+                "%%ldcbinarypath%%/../lib-arm64",
             ];
-            rpath = \"%%ldcbinarypath%%/../lib-arm64\";
+            rpath = "%%ldcbinarypath%%/../lib-arm64";
         };
 
-        \"arm64-apple-ios\":
+        // iOS:
+
+        "x86_64-apple-ios":
         {
-            switches = [
-                \"-defaultlib=phobos2-ldc,druntime-ldc\",
-                \"-Xcc=-isysroot\",
-                \"-Xcc=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk\",
+            switches ~= [
+                "-Xcc=-isysroot",
+                "-Xcc=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk",
             ];
             lib-dirs = [
-                \"%%ldcbinarypath%%/../lib-ios-arm64\",
+                "%%ldcbinarypath%%/../lib-ios-x86_64",
             ];
-            rpath = \"%%ldcbinarypath%%/../lib-ios-arm64\";
-        };"
+            rpath = "%%ldcbinarypath%%/../lib-ios-x86_64";
+        };
 
-        perl -0777 -pi -e "s|\\ndefault:\\n.+?\\n\\};|$sections|s" etc/ldc2.conf
+        "arm64-apple-ios":
+        {
+            switches ~= [
+                "-Xcc=-isysroot",
+                "-Xcc=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk",
+            ];
+            lib-dirs = [
+                "%%ldcbinarypath%%/../lib-ios-arm64",
+            ];
+            rpath = "%%ldcbinarypath%%/../lib-ios-arm64";
+        };
+
+        // WebAssembly
+        EOF
+        # 4) append the wasm section from the backup
+        sed -n '/^"\^wasm/,$p' /tmp/ldc2.conf.bak | sed '/^\};$/q' >> etc/ldc2.conf
+
         cat etc/ldc2.conf
 
     - name: Run x86_64/arm64 macOS/iOS cross-compilation smoke tests

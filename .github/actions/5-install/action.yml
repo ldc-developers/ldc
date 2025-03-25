@@ -9,7 +9,7 @@ runs:
   using: composite
   steps:
 
-    - name: Install LDC
+    - name: Install LDC # into ../install/
       shell: bash
       run: |
         set -eux
@@ -18,20 +18,19 @@ runs:
         if [[ '${{ inputs.cross_compiling }}' != true ]]; then
           ninja -C build install >/dev/null
         else
-          mkdir -p install/bin
-          cp build-cross/bin/{ldc2,ldmd2,ldc-build-runtime,ldc-profdata,ldc-profgen,ldc-prune-cache,timetrace2txt} install/bin/
-          cp build-cross/bin/ldc-build-plugin install/bin/ || true
+          # the cross-compiled runtime libs have already been installed:
+          # * lib/: runtime library artifacts
+          # * etc/ldc2.conf
 
-          cp -R build-cross-libs/lib install/
-          cp build-cross/lib/{libldc_rt.*,libLTO.dylib,LLVMgold-ldc.so} install/lib/ || true
+          # now extend by installing the cross-compiled compiler:
+          # * bin/: executables
+          # * lib/: LTO plugin and compiler-rt libs
+          # * etc/bash_completion.d/
+          # * import/: all runtime imports except for ldc/gccbuiltins_*.di
+          ninja -C build-cross install
 
-          mkdir install/etc
-          cp build-cross/bin/ldc2_install.conf install/etc/ldc2.conf
-          cp -R ldc/packaging/bash_completion.d install/etc/
-
-          # use imports from installed bootstrap compiler
-          ninja -C bootstrap-ldc install >/dev/null
-          mv bootstrap-install/import install/
+          # copy gccbuiltins from bootstrap compiler
+          cp bootstrap-ldc/import/ldc/gccbuiltins_*.di install/import/ldc/
         fi
 
         cp ldc/LICENSE install/
