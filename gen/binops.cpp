@@ -153,7 +153,7 @@ DValue *binAdd(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
   Type *rhsType = rhs->type->toBasetype();
 
   if (lhsType != rhsType && lhsType->ty == TY::Tpointer &&
-      rhsType->isintegral()) {
+      rhsType->isIntegral()) {
     Logger::println("Adding integer to pointer");
     return emitPointerOffset(loc, lhs, rhs, false, type, loadLhsAfterRhs);
   }
@@ -162,7 +162,7 @@ DValue *binAdd(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
 
   if (type->ty == TY::Tnull)
     return DtoNullValue(type, loc);
-  if (type->iscomplex())
+  if (type->isComplex())
     return DtoComplexAdd(loc, type, rvals.lhs, rvals.rhs);
 
   LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
@@ -171,7 +171,7 @@ DValue *binAdd(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
   if (auto aa = isAssociativeArrayAndNull(type, l, r))
     return aa;
 
-  LLValue *res = (type->isfloating() ? gIR->ir->CreateFAdd(l, r)
+  LLValue *res = (type->isFloating() ? gIR->ir->CreateFAdd(l, r)
                                      : gIR->ir->CreateAdd(l, r));
 
   return new DImValue(type, res);
@@ -185,7 +185,7 @@ DValue *binMin(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
   Type *rhsType = rhs->type->toBasetype();
 
   if (lhsType != rhsType && lhsType->ty == TY::Tpointer &&
-      rhsType->isintegral()) {
+      rhsType->isIntegral()) {
     Logger::println("Subtracting integer from pointer");
     return emitPointerOffset(loc, lhs, rhs, true, type, loadLhsAfterRhs);
   }
@@ -207,7 +207,7 @@ DValue *binMin(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
 
   if (type->ty == TY::Tnull)
     return DtoNullValue(type, loc);
-  if (type->iscomplex())
+  if (type->isComplex())
     return DtoComplexMin(loc, type, rvals.lhs, rvals.rhs);
 
   LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
@@ -216,7 +216,7 @@ DValue *binMin(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
   if (auto aa = isAssociativeArrayAndNull(type, l, r))
     return aa;
 
-  LLValue *res = (type->isfloating() ? gIR->ir->CreateFSub(l, r)
+  LLValue *res = (type->isFloating() ? gIR->ir->CreateFSub(l, r)
                                      : gIR->ir->CreateSub(l, r));
 
   return new DImValue(type, res);
@@ -228,12 +228,12 @@ DValue *binMul(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
 
-  if (type->iscomplex())
+  if (type->isComplex())
     return DtoComplexMul(loc, type, rvals.lhs, rvals.rhs);
 
   LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
   LLValue *r = DtoRVal(DtoCast(loc, rvals.rhs, type));
-  LLValue *res = (type->isfloating() ? gIR->ir->CreateFMul(l, r)
+  LLValue *res = (type->isFloating() ? gIR->ir->CreateFMul(l, r)
                                      : gIR->ir->CreateMul(l, r));
 
   return new DImValue(type, res);
@@ -245,13 +245,13 @@ DValue *binDiv(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
 
-  if (type->iscomplex())
+  if (type->isComplex())
     return DtoComplexDiv(loc, type, rvals.lhs, rvals.rhs);
 
   LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
   LLValue *r = DtoRVal(DtoCast(loc, rvals.rhs, type));
   LLValue *res;
-  if (type->isfloating()) {
+  if (type->isFloating()) {
     res = gIR->ir->CreateFDiv(l, r);
   } else if (!isLLVMUnsigned(type)) {
     res = gIR->ir->CreateSDiv(l, r);
@@ -268,13 +268,13 @@ DValue *binMod(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs) {
   auto rvals = evalSides(lhs, rhs, loadLhsAfterRhs);
 
-  if (type->iscomplex())
+  if (type->isComplex())
     return DtoComplexMod(loc, type, rvals.lhs, rvals.rhs);
 
   LLValue *l = DtoRVal(DtoCast(loc, rvals.lhs, type));
   LLValue *r = DtoRVal(DtoCast(loc, rvals.rhs, type));
   LLValue *res;
-  if (type->isfloating()) {
+  if (type->isFloating()) {
     res = gIR->ir->CreateFRem(l, r);
   } else if (!isLLVMUnsigned(type)) {
     res = gIR->ir->CreateSRem(l, r);
@@ -344,14 +344,14 @@ LLValue *DtoBinNumericEquals(const Loc &loc, DValue *lhs, DValue *rhs, EXP op) {
   assert(op == EXP::equal || op == EXP::notEqual || op == EXP::identity ||
          op == EXP::notIdentity);
   Type *t = lhs->type->toBasetype();
-  assert(t->isfloating());
+  assert(t->isFloating());
   Logger::println("numeric equality");
 
   LLValue *res = nullptr;
-  if (t->iscomplex()) {
+  if (t->isComplex()) {
     Logger::println("complex");
     res = DtoComplexEquals(loc, op, lhs, rhs);
-  } else if (t->isfloating()) {
+  } else if (t->isFloating()) {
     Logger::println("floating");
     res = DtoBinFloatsEquals(loc, lhs, rhs, op);
   }

@@ -382,7 +382,7 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(AttribDeclaration *decl) override {
-    Dsymbols *d = decl->include(nullptr);
+    Dsymbols *d = include(decl, nullptr);
 
     if (d) {
       for (auto s : *d) {

@@ -11,8 +11,8 @@
 
 #include "dmd/errors.h"
 #include "dmd/target.h"
+#include "dmd/timetrace.h"
 #include "driver/cl_options.h"
-#include "driver/timetrace.h"
 #include "driver/tool.h"
 #include "gen/llvm.h"
 #include "gen/logger.h"
@@ -289,7 +289,7 @@ static std::string gExePath;
 
 int linkObjToBinary() {
   Logger::println("*** Linking executable ***");
-  TimeTraceScope timeScope("Linking executable");
+  dmd::TimeTraceScope timeScope(TimeTraceEventType::link);
 
   // remember output path for later
   gExePath = getOutputPath();
@@ -321,7 +321,7 @@ void deleteExeFile() {
 //////////////////////////////////////////////////////////////////////////////
 
 int runProgram() {
-  TimeTraceScope timeScope("Run user program");
+  dmd::TimeTraceScope timeScope("Run user program");
 
   assert(!gExePath.empty());
 

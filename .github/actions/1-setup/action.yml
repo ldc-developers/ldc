@@ -155,6 +155,12 @@ runs:
       if: runner.os == 'Windows'
       shell: cmd
       run: make --version
+    - name: 'macOS: Install a more recent GNU make'
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        brew install make
+        gmake --version
 
     - name: 'Windows: Download & extract libcurl' # into ../libcurl/ldc2
       if: runner.os == 'Windows'
