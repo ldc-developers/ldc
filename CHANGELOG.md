@@ -1,6 +1,7 @@
 # LDC master
 
 #### Big news
+- The prebuilt (non-musl) Linux packages are now generated on Ubuntu 22.04; the minimum glibc version has accordingly been raised from v2.31 to v2.35. (#4893)
 - ldc2.conf: Arrays can now be appended to via the `~=` operator. (#4848, #4856)
 - New `--installWithSuffix` command-line option for the `ldc-build-runtime` tool, to simplify copying the libraries to an existing LDC installation. (#4870)
 

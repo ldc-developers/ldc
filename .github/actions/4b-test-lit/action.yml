@@ -15,7 +15,6 @@ runs:
         if [[ '${{ runner.os }}-${{ inputs.arch }}' == Linux-aarch64 ]]; then
           # FIXME: the following tests fail
           rm tests/debuginfo/nested_gdb.d
-          rm tests/debuginfo/print_gdb.d # works for Cirrus CI though
           rm tests/sanitizers/fuzz_basic.d
         fi
 

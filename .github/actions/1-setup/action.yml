@@ -37,16 +37,6 @@ runs:
         # Make sure to link libzstd statically
         sudo rm /usr/lib/$arch-linux-gnu/libzstd.so
 
-        # Install a more recent CMake version in the AArch64 container (for mimalloc...)
-        if [[ $arch == aarch64 ]]; then
-          curl -fL --retry 3 --max-time 300 -o cmake.tar.gz \
-            https://github.com/Kitware/CMake/releases/download/v3.31.4/cmake-3.31.4-linux-$arch.tar.gz
-          mkdir cmake
-          tar -xf cmake.tar.gz --strip 1 -C cmake
-          rm cmake.tar.gz
-          sudo ln -sf $PWD/cmake/bin/cmake /usr/bin/cmake
-        fi
-
     - name: 'Linux: Install clang 19 from apt.llvm.org'
       if: runner.os == 'Linux'
       shell: bash
