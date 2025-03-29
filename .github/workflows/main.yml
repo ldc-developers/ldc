@@ -93,7 +93,7 @@ jobs:
             with_pgo: true
 
           - job_name: Windows x64
-            os: windows-2022
+            os: windows-2025
             arch: x64
             extra_cmake_flags: >-
               "-DD_COMPILER_FLAGS=-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
@@ -101,7 +101,7 @@ jobs:
             with_pgo: true
 
           - job_name: Windows x86
-            os: windows-2022
+            os: windows-2025
             arch: x86
             # `RT_CFLAGS=-m32` needed to make 64-bit clang-cl output 32-bit code for druntime integration tests
             extra_cmake_flags: >-
@@ -314,7 +314,7 @@ jobs:
 
   merge-windows:
     name: Windows multilib
-    runs-on: windows-2022
+    runs-on: windows-2025
     timeout-minutes: 30
     needs: build-native
     steps:

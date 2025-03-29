@@ -145,6 +145,7 @@ runs:
       shell: cmd
       run: |
         echo on
+        choco install innosetup
         "C:\Program Files (x86)\Inno Setup 6\iscc" ^
           "/O%CD%\newArtifacts" ^
           "/DLDCVersion=%ARTIFACT_ID%" ^
