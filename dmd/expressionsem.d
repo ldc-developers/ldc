@@ -6,9 +6,9 @@
  * Copyright:   Copyright (C) 1999-2025 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/expressionsem.d, _expressionsem.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/compiler/src/dmd/expressionsem.d, _expressionsem.d)
  * Documentation:  https://dlang.org/phobos/dmd_expressionsem.html
- * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/expressionsem.d
+ * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/compiler/src/dmd/expressionsem.d
  */
 
 module dmd.expressionsem;
@@ -1247,6 +1247,9 @@ private Expression resolveUFCS(Scope* sc, CallExp ce)
         }
         else
         {
+            if (arrayExpressionSemantic(ce.arguments.peekSlice(), sc))
+                return ErrorExp.get();
+
             if (Expression ey = die.dotIdSemanticProp(sc, 1))
             {
                 if (ey.op == EXP.error)
@@ -1254,18 +1257,10 @@ private Expression resolveUFCS(Scope* sc, CallExp ce)
                 ce.e1 = ey;
                 if (isDotOpDispatch(ey))
                 {
-                    // even opDispatch and UFCS must have valid arguments,
-                    // so now that we've seen indication of a problem,
-                    // check them for issues.
-                    Expressions* originalArguments = Expression.arraySyntaxCopy(ce.arguments);
-
                     const errors = global.startGagging();
                     e = ce.expressionSemantic(sc);
                     if (!global.endGagging(errors))
                         return e;
-
-                    if (arrayExpressionSemantic(originalArguments.peekSlice(), sc))
-                        return ErrorExp.get();
 
                     /* fall down to UFCS */
                 }
