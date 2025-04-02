@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.4.3)
+cmake_minimum_required(VERSION 3.16.0)
 project(runtime C ASM)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
@@ -593,6 +593,7 @@ function(set_common_library_properties target name output_dir c_flags ld_flags i
         COMPILE_DEFINITIONS         "LDC=1"
         COMPILE_FLAGS               "${c_flags}"
         LINK_FLAGS                  "${full_ldflags}"
+        MSVC_RUNTIME_LIBRARY        "" # see reasoning for `/MT /Zl` above
         VERSION                     ${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERSION}
         SOVERSION                   ${DMDFE_MINOR_VERSION}
         LINKER_LANGUAGE             C

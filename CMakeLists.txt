@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.4.3)
+cmake_minimum_required(VERSION 3.16.0)
 if(POLICY CMP0025)
     cmake_policy(SET CMP0025 NEW)
 endif()
@@ -207,17 +207,11 @@ if(MSVC)
         append("-Llegacy_stdio_definitions.lib" DFLAGS_BASE)
     endif()
 
-    # Link against the static MSVC runtime; CMake's C(++) flags apparently default to the dynamic one.
-    # Host DMD/LDMD already defaults to linking against the static MSVC runtime.
-    if(${LLVM_CXXFLAGS} MATCHES "(^| )/MDd?( |$)")
-        message(FATAL_ERROR "LLVM must be built with CMake option LLVM_USE_CRT_<CMAKE_BUILD_TYPE>=MT[d]")
-    endif()
     set(llvm_ob_flag)
     string(REGEX MATCH "/Ob[0-2]" llvm_ob_flag "${LLVM_CXXFLAGS}")
     foreach(flag_var
             CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
             CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-        string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
         # CMake defaults to /W3, LLVM uses /W4 => MS compiler warns about overridden option.
         # Simply replace with /W4.
         string(REGEX REPLACE "/W[0-3]" "/W4" ${flag_var} "${${flag_var}}")

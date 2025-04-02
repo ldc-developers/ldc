@@ -95,6 +95,8 @@ jobs:
           - job_name: Windows x64
             os: windows-2025
             arch: x64
+            base_cmake_flags: >-
+              -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
             extra_cmake_flags: >-
               "-DD_COMPILER_FLAGS=-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
               -DEXTRA_CXXFLAGS=-flto=full
@@ -103,6 +105,8 @@ jobs:
           - job_name: Windows x86
             os: windows-2025
             arch: x86
+            base_cmake_flags: >-
+              -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
             # `RT_CFLAGS=-m32` needed to make 64-bit clang-cl output 32-bit code for druntime integration tests
             extra_cmake_flags: >-
               -DRT_CFLAGS=-m32
