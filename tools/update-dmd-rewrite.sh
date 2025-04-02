@@ -26,6 +26,7 @@ cd "$temp_dir"
 cat > message-filters.txt <<'EOF'
 regex:(^|\s|\()#(\d{2,})==>\1dlang/dmd!\2
 (cherry picked from commit 88d1e8fc37428b873f59d87f8dff1f40fbd3e7a3)==>(cherry picked from commit 8b9b481a322bdcbfdad38ba4ad74182742aef118)
+This reverts commit fa1f860e4be6a0d796a47329be110be14fc1d667==>This reverts commit 601bef533244166f1f114d424e6d3b3f8119d697
 EOF
 
 # clone DMD monorepo

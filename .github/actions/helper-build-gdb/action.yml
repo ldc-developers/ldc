@@ -1,0 +1,47 @@
+name: Build gdb from source
+inputs:
+  arch:
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Pre-create user-owned directory /usr/local/share/gdb, required for cache restore
+      shell: bash
+      run: |
+        set -eux
+        sudo mkdir /usr/local/share/gdb
+        sudo chown $(id -u):$(id -g) /usr/local/share/gdb
+
+    - name: Try to restore from cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          /usr/local/bin/gdb
+          /usr/local/share/gdb
+        key: gdb-${{ inputs.arch }}
+
+    - shell: bash
+      run: |
+        set -eux
+
+        if [[ -f /usr/local/bin/gdb ]]; then
+          echo "Already cached"
+          exit 0
+        fi
+
+        sudo apt-get -yq install libmpfr-dev
+
+        cd ..
+        curl -fL --retry 3 --max-time 60 -O https://mirrors.ocf.berkeley.edu/gnu/gdb/gdb-16.2.tar.xz
+        tar xf gdb-16.2.tar.xz
+
+        cd gdb-16.2
+        ./configure
+        make -j$(nproc)
+        sudo make install
+        cd ..
+
+        rm -rf gdb-16.2 gdb-16.2.tar.xz
+
+    - shell: bash
+      run: gdb --version
