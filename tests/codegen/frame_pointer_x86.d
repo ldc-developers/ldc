@@ -1,12 +1,12 @@
 // REQUIRES: target_X86
 
-// RUN: %ldc -c -mtriple=x86_64 -output-s -of=%t.s %s
+// RUN: %ldc -c -mtriple=x86_64-linux-gnu -output-s -of=%t.s %s
 // RUN: FileCheck %s --check-prefixes=COMMON,FP < %t.s
-// RUN: %ldc -c -mtriple=x86_64 -output-s -of=%t.s %s -O2
+// RUN: %ldc -c -mtriple=x86_64-linux-gnu -output-s -of=%t.s %s -O2
 // RUN: FileCheck %s --check-prefixes=COMMON,NO_FP < %t.s
-// RUN: %ldc -c -mtriple=x86_64 -output-s -of=%t.s %s -O2 -frame-pointer=all
+// RUN: %ldc -c -mtriple=x86_64-linux-gnu -output-s -of=%t.s %s -O2 -frame-pointer=all
 // RUN: FileCheck %s --check-prefixes=COMMON,FP < %t.s
-// RUN: %ldc -c -mtriple=x86_64 -output-s -of=%t.s %s -frame-pointer=none
+// RUN: %ldc -c -mtriple=x86_64-linux-gnu -output-s -of=%t.s %s -frame-pointer=none
 // RUN: FileCheck %s --check-prefixes=COMMON,NO_FP < %t.s
 
 // COMMON-LABEL: _D17frame_pointer_x8613inlineAsmLeafFZv:

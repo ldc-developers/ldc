@@ -77,6 +77,7 @@ extern cl::list<std::string> linkerSwitches;
 extern cl::list<std::string> ccSwitches;
 extern cl::list<std::string> cppSwitches;
 extern cl::list<std::string> includeModulePatterns;
+extern cl::opt<bool> printErrorContext;
 
 extern cl::opt<bool> m32bits;
 extern cl::opt<bool> m64bits;
@@ -120,9 +121,7 @@ enum class CoverageIncrement
 extern cl::opt<CoverageIncrement> coverageIncrement;
 
 // Compilation time tracing options
-extern cl::opt<bool> fTimeTrace;
 extern cl::opt<std::string> fTimeTraceFile;
-extern cl::opt<unsigned> fTimeTraceGranularity;
 
 // LTO options
 enum LTOKind {

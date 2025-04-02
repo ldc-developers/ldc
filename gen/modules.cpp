@@ -22,8 +22,8 @@
 #include "dmd/statement.h"
 #include "dmd/target.h"
 #include "dmd/template.h"
+#include "dmd/timetrace.h"
 #include "driver/cl_options_instrumentation.h"
-#include "driver/timetrace.h"
 #include "gen/abi/abi.h"
 #include "gen/arrays.h"
 #include "gen/functions.h"
@@ -426,7 +426,7 @@ void addModuleFlags(llvm::Module &m) {
 } // anonymous namespace
 
 void codegenModule(IRState *irs, Module *m) {
-  TimeTraceScope timeScope("Generate IR", m->toChars(), m->loc);
+  dmd::TimeTraceScope timeScope("Generate IR", m->toChars(), m->loc);
 
   assert(!irs->dmodule &&
          "irs->module not null, codegen already in progress?!");

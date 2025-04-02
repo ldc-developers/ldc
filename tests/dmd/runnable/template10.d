@@ -1,6 +1,6 @@
 // DISABLED: LDC
 // PERMUTE_ARGS: -inline
-// REQUIRED_ARGS: -verrors=0
+// REQUIRED_ARGS: -verrors=simple -verrors=0
 /* TEST_OUTPUT:
 ---
 runnable/template10.d(89): Deprecation: function `template10.test1b.f0.f!(a).f` function requires a dual-context, which is deprecated

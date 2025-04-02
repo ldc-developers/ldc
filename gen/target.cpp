@@ -287,7 +287,7 @@ unsigned Target::alignsize(Type *type) {
  */
 unsigned Target::fieldalign(Type *type) { return DtoAlignment(type); }
 
-Type *Target::va_listType(const Loc &loc, Scope *sc) {
+Type *Target::va_listType(Loc loc, Scope *sc) {
   if (!tvalist)
     tvalist = typeSemantic(gABI->vaListType(), loc, sc);
   return tvalist;
@@ -343,12 +343,12 @@ TypeTuple *Target::toArgTypes(Type *t) {
 }
 
 bool Target::isReturnOnStack(TypeFunction *tf, bool needsThis) {
-  return !tf->isref() && gABI->returnInArg(tf, needsThis);
+  return !tf->isRef() && gABI->returnInArg(tf, needsThis);
 }
 
 bool Target::preferPassByRef(Type *t) { return gABI->preferPassByRef(t); }
 
-Expression *Target::getTargetInfo(const char *name_, const Loc &loc) {
+Expression *Target::getTargetInfo(const char *name_, Loc loc) {
   const llvm::StringRef name(name_);
   const auto &triple = *global.params.targetTriple;
 

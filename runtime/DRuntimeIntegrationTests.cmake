@@ -28,7 +28,7 @@ if(MULTILIB AND "${TARGET_SYSTEM}" MATCHES "APPLE")
         set(druntime_path "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/libdruntime-ldc.a")
     endif()
 else()
-    set(shared_druntime_path "$<TARGET_LINKER_FILE:druntime-ldc${SHARED_LIB_SUFFIX}>")
+    set(shared_druntime_path "$<TARGET_FILE:druntime-ldc${SHARED_LIB_SUFFIX}>")
     if(${BUILD_SHARED_LIBS} STREQUAL "ON")
         set(druntime_path ${shared_druntime_path})
     else()
@@ -37,13 +37,7 @@ else()
 endif()
 
 string(REPLACE ";" " " dflags_base "${D_EXTRA_FLAGS}")
-
 string(REPLACE ";" " " cflags_base "${RT_CFLAGS}")
-if("${TARGET_SYSTEM}" MATCHES "MSVC")
-    set(cflags_base "${cflags_base} /Wall")
-else()
-    set(cflags_base "${cflags_base} -Wall -Wl,-rpath,${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
-endif()
 
 set(linkdl "")
 if("${TARGET_SYSTEM}" MATCHES "Linux")
@@ -61,6 +55,10 @@ if("${TARGET_SYSTEM}" MATCHES "Windows")
     list(REMOVE_ITEM testnames valgrind)
 else()
     list(REMOVE_ITEM testnames uuid)
+endif()
+
+if(TARGET_SYSTEM MATCHES "musl")
+    set(musl "IS_MUSL=1")
 endif()
 
 foreach(name ${testnames})
@@ -83,11 +81,8 @@ foreach(name ${testnames})
                 CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER}
                 DRUNTIME=${druntime_path_build} DRUNTIMESO=${shared_druntime_path_build}
                 CFLAGS_BASE=${cflags_base} DFLAGS_BASE=${dflags_base} ${linkdl}
+		IN_LDC=1 ${musl}
         )
         set_tests_properties(${fullname} PROPERTIES DEPENDS clean-${fullname})
     endforeach()
 endforeach()
-
-# HACK: there's a race condition for the debug/release coverage tests
-#       (temporary in-place modification of source file)
-set_tests_properties(druntime-test-coverage-release PROPERTIES DEPENDS druntime-test-coverage-debug)
