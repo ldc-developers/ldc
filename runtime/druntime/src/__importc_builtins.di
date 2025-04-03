@@ -52,6 +52,10 @@ version (LDC)
         else version (AArch64)
             public import core.internal.vararg.aarch64 : __va_list;
     }
+    else version (SystemZ)
+    {
+        public import core.internal.vararg.s390x : __va_list;
+    }
 }
 else version (Posix)
 {

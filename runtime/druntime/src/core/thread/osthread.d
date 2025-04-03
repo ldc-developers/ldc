@@ -44,6 +44,9 @@ version (LDC)
     {
         import ldc.sanitizers_optionally_linked;
     }
+
+    pragma(LDC_intrinsic, "llvm.eh.unwind.init")
+    void llvm_unwind_init() nothrow @nogc;
 }
 
 
@@ -1572,8 +1575,8 @@ in (fn)
             }}
             asm pure nothrow @nogc {
                 ("sd $gp, %0") : "=m" (regs[8]);
-                ("sd $fp, %0") : "=m" (regs[9]); 
-                ("sd $ra, %0") : "=m" (sp);
+                ("sd $fp, %0") : "=m" (regs[9]);
+                ("sd $sp, %0") : "=m" (sp);
             }
         }
         else version (MIPS_Any)
@@ -1637,9 +1640,21 @@ in (fn)
             asm pure nothrow @nogc { ( "st.d $fp, %0") : "=m" (regs[17]); }
             asm pure nothrow @nogc { ( "st.d $sp, %0") : "=m" (sp); }
         }
+        else version (SystemZ)
+        {
+            // Callee-save registers, according to SystemZ Calling Convention
+            // https://github.com/IBM/s390x-abi/blob/main/lzsabi.tex
+            size_t[10] regs = void;
+            asm pure nothrow @nogc {
+                // save callee-saved GPRs (%r6 - %r15)
+                "stmg  %%r6, %%r15, %0" : "=m" (regs[0]);
+            }
+            sp = cast(void*)regs[9];
+        }
         else
         {
-            static assert(false, "Architecture not supported.");
+            llvm_unwind_init();
+            sp = &sp;
         }
     }
     else
@@ -1704,6 +1719,7 @@ version (LDC)
     version (ARM_Any)  version = LDC_stackTopAsm;
     version (PPC_Any)  version = LDC_stackTopAsm;
     version (MIPS_Any) version = LDC_stackTopAsm;
+    version (SystemZ)  version = LDC_stackTopAsm;
 
     version (LDC_stackTopAsm)
     {
@@ -1723,6 +1739,8 @@ version (LDC)
                 return __asm!(void*)("mr $0, 1", "=r");
             else version (MIPS_Any)
                 return __asm!(void*)("move $0, $$sp", "=r");
+            else version (SystemZ)
+                return __asm!(void*)("lgr  $0, %r15", "=r");
             else
                 static assert(0);
         }
