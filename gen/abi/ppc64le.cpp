@@ -29,6 +29,10 @@ struct PPC64LETargetABI : TargetABI {
 
   explicit PPC64LETargetABI() : hfvaToArray(8) {}
 
+  llvm::UWTableKind defaultUnwindTableKind() override {
+    return llvm::UWTableKind::Async;
+  }
+
   bool passByVal(TypeFunction *, Type *t) override {
     t = t->toBasetype();
     return isPOD(t) &&

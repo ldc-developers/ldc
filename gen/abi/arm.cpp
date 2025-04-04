@@ -26,6 +26,13 @@ struct ArmTargetABI : TargetABI {
   CompositeToArray64 compositeToArray64;
   IntegerRewrite integerRewrite;
 
+  llvm::UWTableKind defaultUnwindTableKind() override {
+    const auto &triple = *global.params.targetTriple;
+    return triple.isOSLinux() || triple.isOSOpenBSD()
+               ? llvm::UWTableKind::None
+               : llvm::UWTableKind::Async;
+  }
+
   bool returnInArg(TypeFunction *tf, bool) override {
     // AAPCS 5.4 wants composites > 4-bytes returned by arg except for
     // Homogeneous Aggregates of up-to 4 float types (6.1.2.1) - an HFA.

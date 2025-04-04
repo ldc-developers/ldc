@@ -19,6 +19,7 @@
 #include "dmd/globals.h"
 #include "gen/dvalue.h"
 #include "llvm/IR/CallingConv.h"
+#include "llvm/Support/CodeGen.h" // for UWTableKind
 #include <vector>
 
 class Type;
@@ -33,6 +34,7 @@ namespace llvm {
 class Type;
 class Value;
 class FunctionType;
+class Function;
 }
 
 /// Transforms function arguments and return values.
@@ -110,13 +112,13 @@ public:
     return name;
   }
 
-  /// Returns true if all functions require the LLVM uwtable attribute.
-  virtual bool needsUnwindTables() {
-    // Condensed logic of Clang implementations of
-    // `clang::ToolChain::IsUnwindTablesDefault()` based on early Clang 5.0.
-    return global.params.targetTriple->getArch() == llvm::Triple::x86_64 ||
-           global.params.targetTriple->getOS() == llvm::Triple::NetBSD;
+  /// Returns the default unwind-table kind for all functions.
+  /// Analogous to clang's ToolChain::getDefaultUnwindTableLevel().
+  virtual llvm::UWTableKind defaultUnwindTableKind() {
+    return llvm::UWTableKind::None;
   }
+
+  void setUnwindTableKind(llvm::Function *fn);
 
   /// Returns true if the target is darwin-based.
   bool isDarwin() {
