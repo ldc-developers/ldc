@@ -76,10 +76,7 @@ packaging_steps_template: &PACKAGING_STEPS_TEMPLATE
   # Run dynamic-compile integration test
   run_dynamic_compile_integration_test_script: |
     cd $CIRRUS_WORKING_DIR/..
-    # FreeBSD's LLVM 15 is too old (need LLVM 18+ for dynamic-compile)
-    if [[ "$CI_OS" != "freebsd" ]]; then
-      installed/bin/ldc2 -enable-dynamic-compile -run $CIRRUS_WORKING_DIR/tests/dynamiccompile/array.d
-    fi
+    installed/bin/ldc2 -enable-dynamic-compile -run $CIRRUS_WORKING_DIR/tests/dynamiccompile/array.d
   # Run ImportC integration test
   run_importC_integration_test_script: |
     cd $CIRRUS_WORKING_DIR/..
@@ -220,17 +217,17 @@ task:
       -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
       -DEXTRA_CXXFLAGS=-flto=full
     PARALLELISM: 4
-    CC: clang15
-    CXX: clang++15
+    CC: clang19
+    CXX: clang++19
   install_prerequisites_script: |
     cd $CIRRUS_WORKING_DIR/..
     sysctl -n hw.ncpu
-    pkg install -y git cmake ninja gmake llvm15 bash gtar 7-zip ldc
+    pkg install -y git cmake ninja gmake llvm19 bash gtar 7-zip ldc
     python3 --version
     python3 -m ensurepip
     # set up default llvm-config
     ls -l /usr/local/bin/llvm-config*
-    ln -sf llvm-config15 /usr/local/bin/llvm-config
+    ln -sf llvm-config19 /usr/local/bin/llvm-config
   clone_submodules_early_script: |
     cd $CIRRUS_WORKING_DIR
     git submodule update --init --depth $CIRRUS_CLONE_DEPTH
