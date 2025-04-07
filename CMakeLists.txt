@@ -587,6 +587,12 @@ set_target_properties(
     # Use a custom .props file to set up Visual D (import paths, predefined versions...).
     VS_USER_PROPS "${PROJECT_SOURCE_DIR}/cmake/VisualD.props"
 )
+if(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+    # FreeBSD LLVM port links to zstd, but does not convey this information via CMake
+    # Workaround it here until it is fixed in the port
+    find_package(zstd)
+    list(APPEND LLVM_LIBRARIES "$<TARGET_LINKER_FILE:zstd::libzstd_shared>")
+endif()
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
 target_link_libraries(${LDC_LIB} ${LLVM_LIBRARIES} ${LLVM_LDFLAGS})
 if(WIN32)
