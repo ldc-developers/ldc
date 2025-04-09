@@ -112,7 +112,7 @@ void TryCatchScope::emitCatchBodies(IRState &irs, llvm::Value *ehPtrSlot) {
        * exception handler. At some point should try to do better.
        */
       FuncDeclaration *fdend =
-          FuncDeclaration::genCfunc(nullptr, Type::tvoid, "__cxa_end_catch");
+          dmd::genCfunc(nullptr, Type::tvoid, "__cxa_end_catch");
       Expression *efunc = VarExp::create(Loc(), fdend);
       Expression *ecall = CallExp::create(Loc(), efunc);
       ecall->type = Type::tvoid;

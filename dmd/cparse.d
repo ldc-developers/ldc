@@ -3,12 +3,12 @@
  *
  * Specification: C11
  *
- * Copyright:   Copyright (C) 1999-2024 by The D Language Foundation, All Rights Reserved
+ * Copyright:   Copyright (C) 1999-2025 by The D Language Foundation, All Rights Reserved
  * Authors:     $(LINK2 https://www.digitalmars.com, Walter Bright)
  * License:     $(LINK2 https://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/src/dmd/cparse.d, _cparse.d)
+ * Source:      $(LINK2 https://github.com/dlang/dmd/blob/master/compiler/src/dmd/cparse.d, _cparse.d)
  * Documentation:  https://dlang.org/phobos/dmd_cparse.html
- * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/src/dmd/cparse.d
+ * Coverage:    https://codecov.io/gh/dlang/dmd/src/master/compiler/src/dmd/cparse.d
  */
 
 module dmd.cparse;
@@ -48,6 +48,9 @@ final class CParser(AST) : Parser!AST
         // #pragma pack stack
         Array!Identifier* records;      // identifers (or null)
         Array!structalign_t* packs;     // parallel alignment values
+
+        STC defaultStorageClasses;
+        Array!STC* defaultStorageClassesStack;
     }
 
     /* C cannot be parsed without determining if an identifier is a type or a variable.
@@ -1123,75 +1126,74 @@ final class CParser(AST) : Parser!AST
      */
     private AST.Expression cparseCastExp()
     {
-        if (token.value == TOK.leftParenthesis)
+        if (token.value != TOK.leftParenthesis)
+            return cparseUnaryExp();
+
+        //printf("cparseCastExp()\n");
+        auto tk = peek(&token);
+        bool iscast;
+        bool isexp;
+        if (tk.value == TOK.identifier)
         {
-            //printf("cparseCastExp()\n");
-            auto tk = peek(&token);
-            bool iscast;
-            bool isexp;
-            if (tk.value == TOK.identifier)
-            {
-                iscast = isTypedef(tk.ident);
-                isexp = !iscast;
-            }
-            if (isexp)
-            {
-                // ( identifier ) is an expression
-                return cparseUnaryExp();
-            }
-
-            // If ( type-name )
-            auto pt = &token;
-
-            if (isCastExpression(pt))
-            {
-                // Expression may be either a cast or a compound literal, which
-                // requires checking whether the next token is leftCurly
-                const loc = token.loc;
-                nextToken();
-                auto t = cparseTypeName();
-                check(TOK.rightParenthesis);
-                pt = &token;
-
-                if (token.value == TOK.leftCurly)
-                {
-                    // C11 6.5.2.5 ( type-name ) { initializer-list }
-                    auto ci = cparseInitializer();
-                    auto ce = new AST.CompoundLiteralExp(loc, t, ci);
-                    return cparsePostfixOperators(ce);
-                }
-
-                if (iscast)
-                {
-                    // ( type-name ) cast-expression
-                    auto ce = cparseCastExp();
-                    return new AST.CastExp(loc, ce, t);
-                }
-
-                if (t.isTypeIdentifier() &&
-                    isexp &&
-                    token.value == TOK.leftParenthesis &&
-                    !isCastExpression(pt))
-                {
-                    /* (t)(...)... might be a cast expression or a function call,
-                     * with different grammars: a cast would be cparseCastExp(),
-                     * a function call would be cparsePostfixExp(CallExp(cparseArguments())).
-                     * We can't know until t is known. So, parse it as a function call
-                     * and let semantic() rewrite the AST as a CastExp if it turns out
-                     * to be a type.
-                     */
-                    auto ie = new AST.IdentifierExp(loc, t.isTypeIdentifier().ident);
-                    ie.parens = true;    // let semantic know it might be a CastExp
-                    AST.Expression e = new AST.CallExp(loc, ie, cparseArguments());
-                    return cparsePostfixOperators(e);
-                }
-
-                // ( type-name ) cast-expression
-                auto ce = cparseCastExp();
-                return new AST.CastExp(loc, ce, t);
-            }
+            iscast = isTypedef(tk.ident);
+            isexp = !iscast;
         }
-        return cparseUnaryExp();
+        if (isexp)
+        {
+            // ( identifier ) is an expression
+            return cparseUnaryExp();
+        }
+
+        // If ( type-name )
+        auto pt = &token;
+
+        if (!isCastExpression(pt))
+            return cparseUnaryExp();
+
+        // Expression may be either a cast or a compound literal, which
+        // requires checking whether the next token is leftCurly
+        const loc = token.loc;
+        nextToken();
+        auto t = cparseTypeName();
+        check(TOK.rightParenthesis);
+        pt = &token;
+
+        if (token.value == TOK.leftCurly)
+        {
+            // C11 6.5.2.5 ( type-name ) { initializer-list }
+            auto ci = cparseInitializer();
+            auto ce = new AST.CompoundLiteralExp(loc, t, ci);
+            return cparsePostfixOperators(ce);
+        }
+
+        if (iscast)
+        {
+            // ( type-name ) cast-expression
+            auto ce = cparseCastExp();
+            return new AST.CastExp(loc, ce, t);
+        }
+
+        if (t.isTypeIdentifier() &&
+            isexp &&
+            token.value == TOK.leftParenthesis &&
+            !isCastExpression(pt))
+        {
+            /* (t)(...)... might be a cast expression or a function call,
+             * with different grammars: a cast would be cparseCastExp(),
+             * a function call would be cparsePostfixExp(CallExp(cparseArguments())).
+             * We can't know until t is known. So, parse it as a function call
+             * and let semantic() rewrite the AST as a CastExp if it turns out
+             * to be a type.
+             */
+            auto ie = new AST.IdentifierExp(loc, t.isTypeIdentifier().ident);
+            ie.parens = true;    // let semantic know it might be a CastExp
+            AST.Expression e = new AST.CallExp(loc, ie, cparseArguments());
+            return cparsePostfixOperators(e);
+        }
+
+        // ( type-name ) cast-expression
+        auto ce = cparseCastExp();
+        return new AST.CastExp(loc, ce, t);
     }
 
     /**************
@@ -1446,8 +1448,10 @@ final class CParser(AST) : Parser!AST
         auto e = cparseOrExp();
         while (token.value == TOK.andAnd)
         {
+            e = new AST.CastExp(loc, e, AST.Type.tbool);
             nextToken();
             auto e2 = cparseOrExp();
+            e2 = new AST.CastExp(loc, e2, AST.Type.tbool);
             e = new AST.LogicalExp(loc, EXP.andAnd, e, e2);
         }
         return e;
@@ -1466,8 +1470,10 @@ final class CParser(AST) : Parser!AST
         auto e = cparseAndAndExp();
         while (token.value == TOK.orOr)
         {
+            e = new AST.CastExp(loc, e, AST.Type.tbool);
             nextToken();
             auto e2 = cparseAndAndExp();
+            e2 = new AST.CastExp(loc, e2, AST.Type.tbool);
             e = new AST.LogicalExp(loc, EXP.orOr, e, e2);
         }
         return e;
@@ -1687,7 +1693,7 @@ final class CParser(AST) : Parser!AST
     private AST.Expression cparseStatementExpression()
     {
         AST.ParameterList parameterList;
-        StorageClass stc = 0;
+        STC stc = STC.none;
         const loc = token.loc;
         auto symbolsSave = symbols;
         symbols = new AST.Dsymbols();
@@ -1711,7 +1717,7 @@ final class CParser(AST) : Parser!AST
         }
 
         auto tf = new AST.TypeFunction(parameterList, null, LINK.d, stc);
-        auto fd = new AST.FuncLiteralDeclaration(loc, token.loc, tf, TOK.delegate_, null, null, 0);
+        auto fd = new AST.FuncLiteralDeclaration(loc, token.loc, tf, TOK.delegate_, null, null, STC.none);
         fd.fbody = fbody;
 
         auto fe = new AST.FuncExp(loc, fd);
@@ -2007,7 +2013,7 @@ final class CParser(AST) : Parser!AST
                     //printf("AliasDeclaration %s %s\n", id.toChars(), dt.toChars());
                     auto ad = new AST.AliasDeclaration(token.loc, id, dt);
                     if (id == idt)
-                        ad.adFlags |= ad.hidden; // do not print when generating .di files
+                        ad.hidden = true; // do not print when generating .di files
                     s = ad;
                 }
 
@@ -2047,7 +2053,7 @@ final class CParser(AST) : Parser!AST
                         error("no initializer for function declaration");
                     if (specifier.scw & SCW.x_Thread_local)
                         error("functions cannot be `_Thread_local`"); // C11 6.7.1-4
-                    StorageClass stc = specifiersToSTC(level, specifier);
+                    STC stc = specifiersToSTC(level, specifier);
                     stc &= ~STC.gshared;        // no gshared functions
                     auto fd = new AST.FuncDeclaration(token.loc, Loc.initial, id, stc, dt, specifier.noreturn);
                     specifiersToFuncDeclaration(fd, specifier);
@@ -2089,8 +2095,7 @@ final class CParser(AST) : Parser!AST
                     {
                         auto str = asmName.peekString();
                         p.mangleOverride = str;
-//                      p.adFlags |= AST.VarDeclaration.nounderscore;
-                        p.adFlags |= 4; // cannot get above line to compile on Ubuntu
+                        p.noUnderscore = true;
                     }
                 }
                 s = applySpecifier(s, specifier);
@@ -2235,7 +2240,7 @@ final class CParser(AST) : Parser!AST
         auto body = cparseStatement(ParseStatementFlags.curly);  // don't start a new scope; continue with parameter scope
         typedefTab.pop();                                        // end of function scope
 
-        StorageClass stc = specifiersToSTC(LVL.global, specifier);
+        STC stc = specifiersToSTC(LVL.global, specifier);
         stc &= ~STC.gshared;    // no gshared functions
         auto fd = new AST.FuncDeclaration(locFunc, prevloc, id, stc, ft, specifier.noreturn);
         specifiersToFuncDeclaration(fd, specifier);
@@ -2991,7 +2996,7 @@ final class CParser(AST) : Parser!AST
                             if (isStatic || mod)
                                 error("static or type qualifier used outside of function prototype");
                         }
-                        if (ts.isTypeSArray() || ts.isTypeDArray())
+                        if (ts.isStaticOrDynamicArray())
                         {
                             /* C11 6.7.6.2-1: type qualifiers and 'static' shall only appear
                              * in the outermost array type derivation.
@@ -3020,9 +3025,10 @@ final class CParser(AST) : Parser!AST
 
                         auto parameterList = cparseParameterList();
                         const lkg = specifier.mod & MOD.x__stdcall ? LINK.windows : linkage;
-                        StorageClass stc = specifier._nothrow ? STC.nothrow_ : 0;
+                        STC stc = specifier._nothrow ? STC.nothrow_ : STC.none;
                         if (specifier._pure)
                             stc |= STC.pure_;
+                        stc |= defaultStorageClasses;
                         AST.Type tf = new AST.TypeFunction(parameterList, t, lkg, stc);
                         //tf = tf.addSTC(storageClass);  // TODO
                         insertTx(ts, tf, t);  // ts -> ... -> tf -> t
@@ -3175,7 +3181,7 @@ final class CParser(AST) : Parser!AST
     {
         auto parameters = new AST.Parameters();
         AST.VarArg varargs = AST.VarArg.none;
-        StorageClass varargsStc;
+        STC varargsStc;
 
         check(TOK.leftParenthesis);
         if (token.value == TOK.void_ && peekNext() == TOK.rightParenthesis) // func(void)
@@ -3538,7 +3544,7 @@ final class CParser(AST) : Parser!AST
             break;
         }
         nextToken();
-        auto s = new AST.CompoundAsmStatement(loc, statements, 0);
+        auto s = new AST.CompoundAsmStatement(loc, statements, STC.none);
         return s;
     }
 
@@ -3923,7 +3929,7 @@ final class CParser(AST) : Parser!AST
                     cparseGnuAttributes(specifierx);
                 }
 
-                auto em = new AST.EnumMember(mloc, ident, value, null, 0, null, null);
+                auto em = new AST.EnumMember(mloc, ident, value, null, STC.none, null, null);
                 members.push(em);
 
                 if (token.value == TOK.comma)
@@ -5163,9 +5169,9 @@ final class CParser(AST) : Parser!AST
      * Returns:
      *  corresponding D storage class
      */
-    StorageClass specifiersToSTC(LVL level, const ref Specifier specifier)
+    STC specifiersToSTC(LVL level, const ref Specifier specifier)
     {
-        StorageClass stc;
+        STC stc;
         if (specifier.scw & SCW.x_Thread_local)
         {
             if (level == LVL.global)
@@ -5530,6 +5536,12 @@ final class CParser(AST) : Parser!AST
             if (pt && *pt)
                 t = *pt;
         }
+        if (t.mcache && t.mcache.typedefIdent)
+        {
+            t = t.copy();
+            t.mcache = null;
+        }
+        t.getMcache().typedefIdent = id;
         static if (LDC_pre_2084)
             auto tab = *cast(void*[void*]*) &(typedefTab[$ - 1]);
         else
@@ -5630,7 +5642,7 @@ final class CParser(AST) : Parser!AST
      * Params:
      *  startloc = location to use for error messages
      */
-    private void uupragmaDirective(const ref Loc startloc)
+    private void uupragmaDirective(Loc startloc)
     {
         const loc = startloc;
         nextToken();    // move past __pragma
@@ -5678,12 +5690,14 @@ final class CParser(AST) : Parser!AST
      * the preprocessed output. Ignore them.
      * Upon return, p is at start of next line.
      */
-    private void pragmaDirective(const ref Loc loc)
+    private void pragmaDirective(Loc loc)
     {
         Token n;
         scan(&n);
         if (n.value == TOK.identifier && n.ident == Id.pack)
             return pragmaPack(loc, true);
+        if (n.value == TOK.identifier && n.ident == Id.attribute)
+            return pragmaAttribute(loc);
         if (n.value != TOK.endOfLine)
             skipToNextLine();
     }
@@ -5697,7 +5711,7 @@ final class CParser(AST) : Parser!AST
      *  startloc = location to use for error messages
      *  useScan = use scan() to retrieve next token, instead of nextToken()
      */
-    private void pragmaPack(const ref Loc startloc, bool useScan)
+    private void pragmaPack(Loc startloc, bool useScan)
     {
         const loc = startloc;
 
@@ -5827,7 +5841,7 @@ final class CParser(AST) : Parser!AST
                 if (len == 1)   // stack is now empty
                     packalign.setDefault();
                 else
-                    packalign = (*this.packs)[len - 1];
+                    packalign = (*this.packs)[len - 2];
                 return closingParen();
             }
             while (n.value == TOK.comma)        // #pragma pack ( pop ,
@@ -5887,6 +5901,125 @@ final class CParser(AST) : Parser!AST
         }
 
         error(loc, "unrecognized `#pragma pack(%s)`", n.toChars());
+        if (n.value != TOK.endOfLine)
+            skipToNextLine();
+    }
+
+    /*********
+     * # pragma attribute(...)
+     * Sets default storage classes
+     * Params:
+     *  startloc = location to use for error messages
+     */
+    private void pragmaAttribute(Loc startloc)
+    {
+        const loc = startloc;
+
+        if (!defaultStorageClassesStack)
+        {
+            defaultStorageClassesStack = new Array!STC;
+        }
+
+        Token n;
+        Lexer.scan(&n);
+        if (n.value != TOK.leftParenthesis)
+        {
+            error(loc, "left parenthesis expected to follow `#pragma attribute`");
+            if (n.value != TOK.endOfLine)
+                skipToNextLine();
+            return;
+        }
+
+        void closingParen()
+        {
+            if (n.value != TOK.rightParenthesis)
+            {
+                error(loc, "right parenthesis expected to close `#pragma attribute(`");
+            }
+            if (n.value != TOK.endOfLine)
+                skipToNextLine();
+        }
+
+        Lexer.scan(&n);
+
+        /* # pragma attribute (push, ...)
+         */
+        if (n.value == TOK.identifier && n.ident == Id.push)
+        {
+            Lexer.scan(&n);
+            if (n.value != TOK.comma)
+            {
+                error(loc, "comma expected to follow `#pragma attribute(push`");
+                if (n.value != TOK.endOfLine)
+                    skipToNextLine();
+                return;
+            }
+
+            while (1)
+            {
+                Lexer.scan(&n);
+                if (n.value == TOK.endOfLine)
+                {
+                    error(loc, "right parenthesis expected to close `#pragma attribute(push, `");
+                    break;
+                }
+
+                if (n.value == TOK.rightParenthesis)
+                    break;
+
+                if (n.value == TOK.identifier)
+                {
+                    if (n.ident == Id._nothrow)
+                        defaultStorageClasses |= STC.nothrow_;
+                    else if (n.ident == Id.nogc)
+                        defaultStorageClasses |= STC.nogc;
+                    else if (n.ident == Id._pure)
+                        defaultStorageClasses |= STC.pure_;
+                    // Ignore unknown identifiers
+                }
+                else
+                {
+                    error(loc, "unrecognized `#pragma attribute(push, %s)`", n.toChars());
+                    break;
+                }
+
+                Lexer.scan(&n);
+
+                if (n.value == TOK.rightParenthesis)
+                    break;
+
+                if (n.value != TOK.comma)
+                {
+                    error(loc, "unrecognized `#pragma attribute(push, %s)`", n.toChars());
+                    break;
+                }
+            }
+
+            this.defaultStorageClassesStack.push(defaultStorageClasses);
+
+            return closingParen();
+        }
+
+        /* # pragma attribute(pop)
+         */
+        if (n.value == TOK.identifier && n.ident == Id.pop)
+        {
+            scan(&n);
+            size_t len = this.defaultStorageClassesStack.length;
+
+            if (len)
+            {
+                this.defaultStorageClassesStack.setDim(len - 1);
+                if (len == 1)   // stack is now empty
+                    defaultStorageClasses = STC.init;
+                else
+                    defaultStorageClasses = (*this.defaultStorageClassesStack)[len - 2];
+            }
+
+            return closingParen();
+        }
+
+        error(loc, "unrecognized `#pragma attribute(%s)`", n.toChars());
         if (n.value != TOK.endOfLine)
             skipToNextLine();
     }
@@ -5969,6 +6102,30 @@ final class CParser(AST) : Parser!AST
 
                     AST.Type t;
 
+                    bool hasMinus;
+                    if (token.value == TOK.min)
+                    {
+                        nextToken();
+                        // Only allow integer and float literals after minus.
+                        switch (token.value)
+                        {
+                            case TOK.int32Literal:
+                            case TOK.uns32Literal:
+                            case TOK.int64Literal:
+                            case TOK.uns64Literal:
+                            case TOK.float32Literal:
+                            case TOK.float64Literal:
+                            case TOK.float80Literal:
+                            case TOK.imaginary32Literal:
+                            case TOK.imaginary64Literal:
+                            case TOK.imaginary80Literal:
+                                hasMinus = true;
+                                break;
+                            default:
+                                continue;
+                        }
+                    }
+
                 Lswitch:
                     switch (token.value)
                     {
@@ -5993,6 +6150,8 @@ final class CParser(AST) : Parser!AST
                                  *  enum id = intvalue;
                                  */
                                 AST.Expression e = new AST.IntegerExp(scanloc, intvalue, t);
+                                if (hasMinus)
+                                    e = new AST.NegExp(scanloc, e);
                                 auto v = new AST.VarDeclaration(scanloc, t, id, new AST.ExpInitializer(scanloc, e), STC.manifest);
                                 addSym(v);
                                 ++p;
@@ -6016,6 +6175,8 @@ final class CParser(AST) : Parser!AST
                                  *  enum id = floatvalue;
                                  */
                                 AST.Expression e = new AST.RealExp(scanloc, floatvalue, t);
+                                if (hasMinus)
+                                    e = new AST.NegExp(scanloc, e);
                                 auto v = new AST.VarDeclaration(scanloc, t, id, new AST.ExpInitializer(scanloc, e), STC.manifest);
                                 addSym(v);
                                 ++p;
@@ -6061,8 +6222,8 @@ final class CParser(AST) : Parser!AST
                             if (token.value != TOK.endOfFile)
                                 break;
                             auto ret = new AST.ReturnStatement(exp.loc, exp);
-                            auto parameterList = AST.ParameterList(new AST.Parameters(), VarArg.none, 0);
-                            StorageClass stc = STC.auto_;
+                            auto parameterList = AST.ParameterList(new AST.Parameters(), VarArg.none, STC.none);
+                            STC stc = STC.auto_;
                             auto tf = new AST.TypeFunction(parameterList, null, LINK.d, stc);
                             auto fd = new AST.FuncDeclaration(exp.loc, exp.loc, id, stc, tf, 0);
                             fd.fbody = ret;
@@ -6107,7 +6268,7 @@ final class CParser(AST) : Parser!AST
 
                                 if (token.value != TOK.identifier)
                                     break Lswitch;
-                                auto param = new AST.Parameter(token.loc, 0, null, token.ident, null, null);
+                                auto param = new AST.Parameter(token.loc, STC.none, null, token.ident, null, null);
                                 parameters.push(param);
                                 nextToken();
                                 if (token.value == TOK.comma)
@@ -6122,7 +6283,7 @@ final class CParser(AST) : Parser!AST
 
                             //auto pstart = p;
                             nextToken();
-                            auto parameterList = AST.ParameterList(parameters, varargs, 0);
+                            auto parameterList = AST.ParameterList(parameters, varargs, STC.none);
                             /* Create a type for each parameter. Add it to the template parameter list,
                              * and the parameter list.
                              */
@@ -6153,7 +6314,7 @@ final class CParser(AST) : Parser!AST
 
                             // Generate function
                             auto ret = new AST.ReturnStatement(exp.loc, exp);
-                            StorageClass stc = STC.auto_;
+                            STC stc = STC.auto_;
                             auto tf = new AST.TypeFunction(parameterList, null, LINK.d, stc);
                             auto fd = new AST.FuncDeclaration(exp.loc, exp.loc, id, stc, tf, 0);
                             fd.fbody = ret;
@@ -6185,7 +6346,6 @@ final class CParser(AST) : Parser!AST
             while (*p)
                 ++p;
             ++p; // advance to start of next line
-            scanloc.linnum = scanloc.linnum + 1;
         }
 
         if (newSymbols.length)

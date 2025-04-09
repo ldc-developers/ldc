@@ -720,7 +720,7 @@ ObjcMethodInfo *ObjCState::getMethod(FuncDeclaration *decl) {
   }
 
   // Skip functions not marked as extern(Objective-C).
-  if (decl->_linkage != LINK::objc)
+  if (decl->_linkage() != LINK::objc)
     return nullptr;
 
   methods[decl] = { /*.decl =*/ decl };

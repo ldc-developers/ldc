@@ -53,7 +53,7 @@ set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 set(DRUNTIME_EXTRA_FLAGS          )
 set(DRUNTIME_EXTRA_UNITTEST_FLAGS -d-version=CoreUnittest -unittest -checkaction=context -linkonce-templates)
 set(PHOBOS2_EXTRA_FLAGS           )
-set(PHOBOS2_EXTRA_UNITTEST_FLAGS  -d-version=StdUnittest -unittest -linkonce-templates)
+set(PHOBOS2_EXTRA_UNITTEST_FLAGS  -d-version=StdUnittest -unittest -checkaction=context -linkonce-templates)
 
 # Shadow the D_FLAGS cache variable by a regular variable containing all base D flags
 set(D_FLAGS ${D_FLAGS} ${D_EXTRA_FLAGS})
@@ -170,8 +170,6 @@ set(JITRT_DIR ${PROJECT_SOURCE_DIR}/jit-rt CACHE PATH "jit runtime root director
 # druntime D parts
 file(GLOB_RECURSE DRUNTIME_D ${RUNTIME_DIR}/src/*.d)
 list(REMOVE_ITEM DRUNTIME_D ${RUNTIME_DIR}/src/test_runner.d)
-# remove unsupported etc/linux/memoryerror.d (see issue #1915)
-list(REMOVE_ITEM DRUNTIME_D ${RUNTIME_DIR}/src/etc/linux/memoryerror.d)
 # remove some modules in rt/
 list(REMOVE_ITEM DRUNTIME_D
     ${RUNTIME_DIR}/src/rt/alloca.d
@@ -182,7 +180,6 @@ list(REMOVE_ITEM DRUNTIME_D
     ${RUNTIME_DIR}/src/rt/sections_osx_x86.d
     ${RUNTIME_DIR}/src/rt/sections_osx_x86_64.d
     ${RUNTIME_DIR}/src/rt/sections_solaris.d
-    ${RUNTIME_DIR}/src/rt/sections_win32.d
 )
 # only include core/sys/ modules matching the platform
 file(GLOB_RECURSE DRUNTIME_D_BIONIC  ${RUNTIME_DIR}/src/core/sys/bionic/*.d)
@@ -234,7 +231,7 @@ endif()
 # druntime ASM parts
 set(DRUNTIME_ASM)
 if("${TARGET_SYSTEM}" MATCHES "UNIX")
-    list(APPEND DRUNTIME_ASM ${RUNTIME_DIR}/src/core/threadasm.S ${RUNTIME_DIR}/src/ldc/eh_asm.S)
+    list(APPEND DRUNTIME_ASM ${RUNTIME_DIR}/src/core/thread/fiber/switch_context_asm.S ${RUNTIME_DIR}/src/ldc/eh_asm.S)
 endif()
 
 if(PHOBOS2_DIR)
@@ -1073,10 +1070,6 @@ macro(file_to_module_name file_name out_module_name)
     # The logical module name for package.d files doesn't include the
     # trailing .package part.
     string(REPLACE ".package" "" module ${module})
-
-    # rt.invariant doesn't have a module declaration, presumably because
-    # invariant is a keyword.
-    string(REPLACE "rt.invariant" "invariant" ${out_module_name} ${module})
 endmacro()
 
 function(add_tests d_files runner target_suffix)

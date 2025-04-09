@@ -67,4 +67,12 @@ void StringsAdapter::push_back(const char *cstr) {
   arrp->push(mem.xstrdup(cstr));
 }
 
+void ImportPathsAdapter::push_back(const char *cstr) {
+  if (!cstr || !*cstr) {
+    error(Loc(), "Expected argument to '-%s'", name);
+  }
+
+  arrp->push(ImportPathInfo(mem.xstrdup(cstr)));
+}
+
 } // namespace opts

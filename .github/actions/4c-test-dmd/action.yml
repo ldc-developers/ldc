@@ -9,20 +9,7 @@ runs:
     - name: 'Posix: Run DMD testsuite'
       if: runner.os != 'Windows'
       shell: bash
-      run: |
-        set -eux
-        repoDir=$PWD
-        cd ../build
-        if type -P apk &>/dev/null; then
-          # Alpine: run full dmd-testsuite-debug
-          ctest -V -R 'dmd-testsuite' -E '^dmd-testsuite$'
-          # these two tests require extra flags "-link-defaultlib-debug -frame-pointer=all": https://github.com/ldc-developers/ldc/issues/4694
-          # => remove before running optimized dmd-testsuite separately
-          rm $repoDir/tests/dmd/runnable/{test17559.d,test19086.d}
-          ctest -V -R '^dmd-testsuite$'
-        else
-          ctest -V -R "dmd-testsuite"
-        fi
+      run: cd ../build && ctest -V -R "dmd-testsuite"
 
     - name: 'Windows: Run DMD testsuite'
       if: runner.os == 'Windows'

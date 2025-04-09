@@ -506,6 +506,8 @@ version (LDC) version (OSX) version (AArch64) version = LDC_macOS_AArch64;
 
 void testDestruction()
 {
+    version (LDC) import ldc.attributes : optStrategy;
+
     static class Test
     {
         __gshared string unary, binary;
@@ -521,31 +523,38 @@ void testDestruction()
 
     static void createGarbage()
     {
+        version (LDC) pragma(inline, false);
         new Test();
         new long[100];
     }
 
+    @optStrategy("none") // LDC: don't inline nor optimize!
+    static void clobberStack()
+    {
+        ubyte[1024] clobber;
+        clobber[] = 0xff;
+    }
+
     import core.memory : GC;
     createGarbage();
+    // ensure there are no stale references on the stack
+    clobberStack();
     GC.collect();
 
     version (LDC)
     {
-        version (D_Optimized) {} else
-        {
-                 version (linux)   enum allowFailure = true;
-            else version (FreeBSD) enum allowFailure = true;
-            // started to fail on Win64 and macOS arm64 too with D v2.105 (apparently consistently)
-            else version (Win64)             enum allowFailure = true;
-            else version (LDC_macOS_AArch64) enum allowFailure = true;
-            else                             enum allowFailure = false;
+             version (linux)   enum allowFailure = true;
+        else version (FreeBSD) enum allowFailure = true;
+        // started to fail on Win64 and macOS arm64 too with D v2.105 (apparently consistently)
+        else version (Win64)             enum allowFailure = true;
+        else version (LDC_macOS_AArch64) enum allowFailure = true;
+        else                             enum allowFailure = false;
 
-            if (allowFailure && !Test.run)
-            {
-                fprintf(stderr, "FIXME: garbage wasn't collected, ignoring sporadic failure on Linux / consistent (?) failure on FreeBSD, Win64, macOS arm64...\n");
-                fprintf(stderr, "       (see https://github.com/ldc-developers/ldc/issues/3827)\n");
-                return;
-            }
+        if (allowFailure && !Test.run)
+        {
+            fprintf(stderr, "FIXME: garbage wasn't collected, ignoring sporadic failure on Linux / consistent (?) failure on FreeBSD, Win64, macOS arm64...\n");
+            fprintf(stderr, "       (see https://github.com/ldc-developers/ldc/issues/3827)\n");
+            return;
         }
     }
 
