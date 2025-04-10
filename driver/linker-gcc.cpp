@@ -252,10 +252,11 @@ llvm::StringRef getCompilerRTArchName(const llvm::Triple &triple) {
 // "libclang_rt.fuzzer_osx.a" on Darwin.
 std::string getCompilerRTLibFilename(const llvm::Twine &name,
                                      const llvm::Triple &triple,
-                                     bool sharedLibrary) {
+                                     bool sharedLibrary,
+                                     bool includeArch = true) {
   return (triple.isOSDarwin()
               ? name + (sharedLibrary ? "_osx_dynamic.dylib" : "_osx.a")
-              : name + "-" + getCompilerRTArchName(triple) +
+              : name + (includeArch ? ("-" + getCompilerRTArchName(triple)) : "") +
                     (sharedLibrary ? ".so" : ".a"))
       .str();
 }
@@ -285,10 +286,16 @@ std::vector<std::string> getRelativeClangCompilerRTLibPath(
       (llvm::Twine("clang/") + llvm_major_version + "/lib/" + OSName + "/" +
        name)
           .str();
+  std::string relPath_llvm_major_version_triple =
+      (llvm::Twine("clang/") + llvm_major_version + "/lib/" + triple.str() + "/" +
+       name)
+          .str();
 
   return {getCompilerRTLibFilename(relPath, triple, sharedLibrary),
           getCompilerRTLibFilename(relPath_llvm_major_version, triple,
-                                   sharedLibrary)};
+                                   sharedLibrary),
+          getCompilerRTLibFilename(relPath_llvm_major_version_triple, triple,
+                                   sharedLibrary, /*includeArch=*/ false)};
 }
 
 void appendFullLibPathCandidates(std::vector<std::string> &paths,
