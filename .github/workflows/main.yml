@@ -22,6 +22,8 @@ jobs:
           - job_name: Linux x86_64 multilib
             os: ubuntu-22.04
             arch: x86_64
+            base_cmake_flags: >-
+              -DCOMPILER_RT_LIBDIR_OS=x86_64-unknown-linux-gnu
             # To improve portability of the generated binaries, link the C++ standard library statically.
             extra_cmake_flags: >-
               -DMULTILIB=ON
