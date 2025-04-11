@@ -269,26 +269,34 @@ std::string getCompilerRTLibFilename(const llvm::Twine &name,
 // See clang/lib/Driver/Toolchain.cpp.
 std::vector<std::string> getRelativeClangCompilerRTLibPath(
     const llvm::Twine &name, const llvm::Triple &triple, bool sharedLibrary) {
-  llvm::StringRef OSName = triple.isOSDarwin()    ? "darwin"
-                           : triple.isOSFreeBSD() ? "freebsd"
-                                                  : triple.getOSName();
-
   auto llvm_major_version =
       llvm::StringRef(ldc::llvm_version_base).take_until([](char c) {
         return c == '.';
       });
+  LLSmallVector<llvm::StringRef, 2> llvmVersionCandidates = {
+      ldc::llvm_version_base, llvm_major_version};
 
-  std::string relPath = (llvm::Twine("clang/") + ldc::llvm_version_base +
-                         "/lib/" + OSName + "/" + name)
-                            .str();
-  std::string relPath_llvm_major_version =
-      (llvm::Twine("clang/") + llvm_major_version + "/lib/" + OSName + "/" +
-       name)
-          .str();
+  LLSmallVector<llvm::StringRef, 2> osNameCandidates;
+  if (triple.isOSDarwin()) {
+    osNameCandidates.emplace_back("darwin");
+  } else {
+    osNameCandidates.emplace_back(triple.str());
+    // using getOSTypeName() to avoid any OS version substring
+    osNameCandidates.emplace_back(llvm::Triple::getOSTypeName(triple.getOS()));
+  }
 
-  return {getCompilerRTLibFilename(relPath, triple, sharedLibrary),
-          getCompilerRTLibFilename(relPath_llvm_major_version, triple,
-                                   sharedLibrary)};
+  std::vector<std::string> r;
+  for (auto osName : osNameCandidates) {
+    for (auto llvmVersion : llvmVersionCandidates) {
+      std::string relPath =
+          (llvm::Twine("clang/") + llvmVersion + "/lib/" + osName + "/" + name)
+              .str();
+
+      r.push_back(getCompilerRTLibFilename(relPath, triple, sharedLibrary));
+    }
+  }
+
+  return r;
 }
 
 void appendFullLibPathCandidates(std::vector<std::string> &paths,
