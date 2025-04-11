@@ -36,8 +36,6 @@ jobs:
           - job_name: Linux aarch64
             os: ubuntu-22.04-arm
             arch: aarch64
-            base_cmake_flags: >-
-              -DCOMPILER_RT_LIBDIR_OS=aarch64-unknown-linux-gnu
             extra_cmake_flags: >-
               -DCMAKE_C_COMPILER=clang
               -DCMAKE_CXX_COMPILER=clang++
@@ -52,7 +50,6 @@ jobs:
             container_image: alpine:3.21
             arch: x86_64
             base_cmake_flags: >-
-              -DCOMPILER_RT_LIBDIR_OS=linux
               -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=x86_64
               -DLLVM_IS_SHARED=OFF
               -DLDC_ENABLE_PLUGINS=OFF
@@ -254,6 +251,8 @@ jobs:
             os: android
             arch: armv7a
             android_x86_arch: i686
+            extra_cmake_flags: >-
+              -DCOMPILER_RT_LIBDIR_OS=linux
 
           - job_name: Android aarch64
             host_os: ubuntu-22.04
