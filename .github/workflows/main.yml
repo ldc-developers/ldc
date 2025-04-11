@@ -251,8 +251,6 @@ jobs:
             os: android
             arch: armv7a
             android_x86_arch: i686
-            extra_cmake_flags: >-
-              -DCOMPILER_RT_LIBDIR_OS=linux
 
           - job_name: Android aarch64
             host_os: ubuntu-22.04
@@ -260,7 +258,6 @@ jobs:
             arch: aarch64
             android_x86_arch: x86_64
             extra_cmake_flags: >-
-              -DCOMPILER_RT_LIBDIR_OS=linux
               -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64-android
 
     name: ${{ matrix.job_name }}

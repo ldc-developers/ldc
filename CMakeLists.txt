@@ -822,6 +822,8 @@ endif()
 set(COMPILER_RT_LIBDIR "${COMPILER_RT_LIBDIR}/lib")
 if(APPLE)
     set(COMPILER_RT_LIBDIR "${COMPILER_RT_LIBDIR}/darwin")
+elseif(ANDROID)
+    set(COMPILER_RT_LIBDIR "${COMPILER_RT_LIBDIR}/linux")
 elseif(UNIX)
     set(COMPILER_RT_LIBDIR_OS_DEFAULT "${LLVM_HOST_TARGET}") # default when building compiler-rt alongside LLVM
     if(NOT EXISTS "${COMPILER_RT_LIBDIR}/${COMPILER_RT_LIBDIR_OS_DEFAULT}")

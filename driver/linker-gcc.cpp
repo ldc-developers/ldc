@@ -243,8 +243,9 @@ bool ArgsBuilder::isLldDefaultLinker() {
 // Returns the arch name as used in the compiler_rt libs.
 // FIXME: implement correctly for non-x86 platforms (e.g. ARM)
 // See clang/lib/Driver/Toolchain.cpp.
-llvm::StringRef getCompilerRTArchName(const llvm::Triple &triple) {
-  return triple.getArchName();
+std::string getCompilerRTArchName(const llvm::Triple &triple) {
+  llvm::StringRef archName = triple.getArchName();
+  return (triple.isAndroid() ? archName + "-android" : archName).str();
 }
 
 // Appends arch suffix and extension.
@@ -279,6 +280,8 @@ std::vector<std::string> getRelativeClangCompilerRTLibPath(
   LLSmallVector<llvm::StringRef, 2> osNameCandidates;
   if (triple.isOSDarwin()) {
     osNameCandidates.emplace_back("darwin");
+  } else if (triple.isAndroid()) {
+    osNameCandidates.emplace_back("linux");
   } else {
     osNameCandidates.emplace_back(triple.str());
     // using getOSTypeName() to avoid any OS version substring
