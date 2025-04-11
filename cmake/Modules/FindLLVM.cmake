@@ -142,6 +142,7 @@ else()
     llvm_set(INCLUDE_DIRS includedir true)
     llvm_set(ROOT_DIR prefix true)
     llvm_set(ENABLE_ASSERTIONS assertion-mode)
+    llvm_set(HOST_TARGET host-target)
 
     # The LLVM version string _may_ contain a git/svn suffix, so match only the x.y.z part
     string(REGEX MATCH "^[0-9]+[.][0-9]+[.][0-9]+" LLVM_VERSION_BASE_STRING "${LLVM_VERSION_STRING}")
