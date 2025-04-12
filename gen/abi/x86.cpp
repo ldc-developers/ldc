@@ -109,7 +109,7 @@ struct X86TargetABI : TargetABI {
       return false;
 
     // complex numbers
-    if (rt->iscomplex()) {
+    if (rt->isComplex()) {
       // extern(D): let LLVM return them directly as LL aggregates
       if (externD)
         return false;
@@ -206,7 +206,7 @@ struct X86TargetABI : TargetABI {
         } else {
           Type *firstTy = first.type->toBasetype();
           auto sz = size(firstTy);
-          if (!firstTy->isfloating() && (sz == 1 || sz == 2 || sz == 4)) {
+          if (!firstTy->isFloating() && (sz == 1 || sz == 2 || sz == 4)) {
             // rewrite aggregates as integers to make inreg work
             if (firstTy->ty == TY::Tstruct || firstTy->ty == TY::Tsarray) {
               integerRewrite.applyTo(first);

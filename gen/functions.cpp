@@ -22,10 +22,10 @@
 #include "dmd/statement.h"
 #include "dmd/target.h"
 #include "dmd/template.h"
+#include "dmd/timetrace.h"
 #include "driver/cl_options.h"
 #include "driver/cl_options_instrumentation.h"
 #include "driver/cl_options_sanitizers.h"
-#include "driver/timetrace.h"
 #include "gen/abi/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
@@ -98,7 +98,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     newIrFty.ret = new IrFuncTyArg(Type::tint32, false);
   } else {
     Type *rt = f->next;
-    const bool byref = f->isref() && rt->toBasetype()->ty != TY::Tvoid;
+    const bool byref = f->isRef() && rt->toBasetype()->ty != TY::Tvoid;
     llvm::AttrBuilder attrs(getGlobalContext());
 
     if (!byref && abi->returnInArg(f, fd && fd->needThis())) {
@@ -140,13 +140,13 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   }
 
   bool hasObjCSelector = false;
-  if (fd && fd->_linkage == LINK::objc) {
+  if (fd && fd->_linkage() == LINK::objc) {
     auto ftype = (TypeFunction*)fd->type;
 
     if (fd->objc.selector) {
       hasObjCSelector = true;
     } else if (fd->parent->isClassDeclaration()) {
-      if(fd->isFinal() || ftype->isproperty()) {
+      if(fd->isFinal() || ftype->isProperty()) {
 
         // HACK: Ugly hack, but final functions for some reason don't actually declare a selector.
         // However, this does make it more flexible.
@@ -362,7 +362,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl, const bool willDeclare) {
         } else if (tempdecl->llvmInternal == LLVMinline_ir) {
           Logger::println("magic inline ir found");
           assert(fdecl->llvmInternal == LLVMinline_ir);
-          fdecl->_linkage = LINK::c;
+          fdecl->_linkage(LINK::c);
           Type *type = fdecl->type;
           assert(type->ty == TY::Tfunction);
           static_cast<TypeFunction *>(type)->linkage = LINK::c;
@@ -432,8 +432,6 @@ void applyTargetMachineAttributes(llvm::Function &func,
   opts::setFunctionAttributes(cpu, features, func);
   if (opts::fFastMath) // -ffast-math[=true] overrides -enable-unsafe-fp-math
     func.addFnAttr("unsafe-fp-math", "true");
-  if (!func.hasFnAttribute("frame-pointer")) // not explicitly set by user
-    func.addFnAttr("frame-pointer", isOptimizationEnabled() ? "none" : "all");
 }
 
 void applyXRayAttributes(FuncDeclaration &fdecl, llvm::Function &func) {
@@ -446,6 +444,23 @@ void applyXRayAttributes(FuncDeclaration &fdecl, llvm::Function &func) {
     func.addFnAttr("xray-instruction-threshold",
                    opts::getXRayInstructionThresholdString());
   }
+}
+
+// Keep frame pointers by default with enabled optimizations?
+// The logic is very loosely based on clang's
+// `useFramePointerForTargetByDefault()`, as well as backtrace test results for
+// druntime-test-exceptions-release.
+bool keepFramePointersByDefault() {
+  const auto &triple = *global.params.targetTriple;
+  if (triple.isAndroid())
+    return true;
+  if (triple.isAArch64())
+    return !triple.isOSWindows();
+  if (triple.getArch() == llvm::Triple::x86)
+    return triple.isOSWindows(); // required for druntime backtraces
+  if (triple.getArch() == llvm::Triple::x86_64)
+    return !(triple.isOSWindows() || triple.isGNUEnvironment());
+  return false;
 }
 
 void onlyOneMainCheck(FuncDeclaration *fd) {
@@ -514,7 +529,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   } else if (defineOnDeclare(fdecl, /*isFunction=*/true)) {
     Logger::println("Function is inside a linkonce_odr template, will be "
                     "defined after declaration.");
-    if (fdecl->semanticRun < PASS::semantic3done) {
+    if (fdecl->semanticRun() < PASS::semantic3done) {
       Logger::println("Function hasn't had sema3 run yet, running it now.");
       const bool semaSuccess = functionSemantic3(fdecl);
       (void)semaSuccess;
@@ -635,7 +650,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl, const bool willDefine) {
   } else {
     if (fdecl->inlining == PINLINE::always) {
       // If the function contains DMD-style inline assembly.
-      if (fdecl->hasReturnExp & 32) {
+      if (fdecl->hasInlineAsm()) {
         // The presence of DMD-style inline assembly in a function causes that
         // function to become never-inline. So, if this function contains DMD-style
         // inline assembly we'll emit an error as it can't be made always-inline.
@@ -955,16 +970,10 @@ void emulateWeakAnyLinkageForMSVC(IrFunction *irFunc, LINK linkage) {
 } // anonymous namespace
 
 void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
-  TimeTraceScope timeScope([fd]() {
-                             std::string name("Codegen func ");
-                             name += fd->toChars();
-                             return name;
-                           },
-                           [fd]() {
-                             std::string detail = fd->toPrettyChars();
-                             return detail;
-                           },
-                           fd->loc);
+  dmd::timeTraceBeginEvent(TimeTraceEventType::codegenFunction);
+  SCOPE_EXIT {
+    dmd::timeTraceEndEvent(TimeTraceEventType::codegenFunction, fd);
+  };
 
   IF_LOG Logger::println("DtoDefineFunction(%s): %s", fd->toPrettyChars(),
                          fd->loc.toChars());
@@ -997,7 +1006,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     return;
   }
 
-  if (fd->semanticRun == PASS::semanticdone) {
+  if (fd->semanticRun() == PASS::semanticdone) {
     // This function failed semantic3() with errors but the errors were gagged.
     // In contrast to DMD we immediately bail out here, since other parts of
     // the codegen expect irFunc to be set for defined functions.
@@ -1047,7 +1056,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   // nested context creation code.
   FuncDeclaration *parent = fd;
   while ((parent = getParentFunc(parent))) {
-    if (parent->semanticRun != PASS::semantic3done ||
+    if (parent->semanticRun() != PASS::semantic3done ||
         parent->hasSemantic3Errors()) {
       IF_LOG Logger::println(
           "Ignoring nested function with unanalyzed parent.");
@@ -1060,7 +1069,7 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
   assert(fd->ident != Id::empty);
 
-  if (fd->semanticRun != PASS::semantic3done) {
+  if (fd->semanticRun() != PASS::semantic3done) {
     error(fd->loc,
           "Internal Compiler Error: function not fully analyzed; "
           "previous unreported errors compiling `%s`?",
@@ -1180,6 +1189,17 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     func->addFnAttr("use-sample-profile");
   }
 
+  if (fd->hasInlineAsm()) {
+    // disable frame-pointer-elimination for functions with DMD-style inline asm
+    func->addFnAttr("frame-pointer", "all");
+  } else if (!func->hasFnAttribute("frame-pointer")) {
+    // not explicitly set by user
+    func->addFnAttr("frame-pointer",
+                    isOptimizationEnabled() && !keepFramePointersByDefault()
+                        ? "none"
+                        : "all");
+  }
+
   llvm::BasicBlock *beginbb =
       llvm::BasicBlock::Create(gIR->context(), "", func);
 
@@ -1214,12 +1234,6 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
   if (global.params.trace && fd->emitInstrumentation && !fd->isCMain() &&
       !fd->isNaked()) {
     emitDMDStyleFunctionTrace(*gIR, fd, funcGen);
-  }
-
-  // disable frame-pointer-elimination for functions with DMD-style inline asm
-  if (fd->hasReturnExp & 32) {
-    func->addFnAttr(
-        llvm::Attribute::get(gIR->context(), "frame-pointer", "all"));
   }
 
   // give the 'this' parameter (an lvalue) storage and debug info

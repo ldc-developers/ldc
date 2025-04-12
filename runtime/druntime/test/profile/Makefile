@@ -1,7 +1,11 @@
+TESTS := profile profilegc both
+# LDC doesn't support -profile=gc yet
+ifdef IN_LDC
+TESTS := $(filter-out profilegc both,$(TESTS))
+endif
+
 include ../common.mak
 
-# LDC doesn't support -profile=gc yet
-TESTS:=profile $(if $(findstring ldmd2,$(DMD)),,profilegc both)
 
 DIFF:=diff --strip-trailing-cr
 GREP:=grep
@@ -19,55 +23,45 @@ else ifneq (windows,$(OS)) # already using a bash shell on Windows via common.ma
     SHELL=/bin/bash
 endif
 
-.PHONY: all clean
-all: $(addprefix $(ROOT)/,$(addsuffix .done,$(TESTS)))
-
-# LDC: enable assertions for BUILD=RELEASE (=> `-O -release`)
-$(ROOT)/profile.done: DFLAGS+=-profile $(if $(findstring ldmd2,$(DMD)),-check=assert=on,)
 $(ROOT)/profile.done: $(ROOT)/%.done: $(ROOT)/%$(DOTEXE)
 	@echo Testing $*
 	@rm -f $(ROOT)/mytrace.log $(ROOT)/mytrace.def
-	$(QUIET)$(TIMELIMIT)$(ROOT)/$* $(ROOT)/mytrace.log $(ROOT)/mytrace.def
-	$(QUIET)$(GREP) -q '1 .*_Dmain' $(ROOT)/mytrace.log
-	$(QUIET)$(GREP) -q '1000 .*uint profile.foo(uint)' $(ROOT)/mytrace.log
-	$(QUIET) cat $(ROOT)/mytrace.def
-	$(QUIET) sort $(ROOT)/mytrace.def -o $(ROOT)/mytrace.def
-	$(QUIET) (sort mytrace.def.exp | $(DIFF) - $(ROOT)/mytrace.def) || (sort mytrace.releaseopt.def.exp | $(DIFF) - $(ROOT)/mytrace.def)
+	$(TIMELIMIT)$(ROOT)/$* $(ROOT)/mytrace.log $(ROOT)/mytrace.def
+	$(GREP) -q '1 .*_Dmain' $(ROOT)/mytrace.log
+	$(GREP) -q '1000 .*uint profile.foo(uint)' $(ROOT)/mytrace.log
+	cat $(ROOT)/mytrace.def
+	sort $(ROOT)/mytrace.def -o $(ROOT)/mytrace.def
+	(sort mytrace.def.exp | $(DIFF) - $(ROOT)/mytrace.def) || (sort mytrace.releaseopt.def.exp | $(DIFF) - $(ROOT)/mytrace.def)
 	@touch $@
+$(ROOT)/profile$(DOTEXE): extra_dflags += -profile
 
-$(ROOT)/profilegc.done: DFLAGS+=-profile=gc
 $(ROOT)/profilegc.done: $(ROOT)/%.done: $(ROOT)/%$(DOTEXE)
 	@echo Testing $*
 	@rm -f $(ROOT)/myprofilegc.log
-	$(QUIET)$(TIMELIMIT)$(ROOT)/$* $(ROOT)/myprofilegc.log
-	$(QUIET)$(DIFF) \
+	$(TIMELIMIT)$(ROOT)/$* $(ROOT)/myprofilegc.log
+	$(DIFF) \
 		<($(GREP) -vF 'core.' myprofilegc.log.$(OS).$(shell echo $(MODEL) | cut -c 1-2).exp) \
 		<($(GREP) -vF 'core.' $(ROOT)/myprofilegc.log)
 	@touch $@
+$(ROOT)/profilegc$(DOTEXE): extra_dflags += -profile=gc
 
-$(ROOT)/both.done: DFLAGS+=-profile -profile=gc
 $(ROOT)/both.done: $(ROOT)/%.done: $(ROOT)/%$(DOTEXE)
 	@echo Testing $*
 	@rm -f $(ROOT)/both.log $(ROOT)/both.def $(ROOT)/bothgc.log
-	$(QUIET)$(TIMELIMIT)$(ROOT)/$* $(ROOT)/both.log $(ROOT)/both.def $(ROOT)/bothgc.log
-	$(QUIET)$(GREP) -q '1 .*_Dmain' $(ROOT)/both.log
-	$(QUIET)$(GREP) -q '1000 .*both.Num\* both.foo(uint)' $(ROOT)/both.log
-	$(QUIET) cat $(ROOT)/both.def
-	$(QUIET) sort $(ROOT)/both.def -o $(ROOT)/both.def
-	$(QUIET)(sort bothnew.def.exp | $(DIFF) - $(ROOT)/both.def)
+	$(TIMELIMIT)$(ROOT)/$* $(ROOT)/both.log $(ROOT)/both.def $(ROOT)/bothgc.log
+	$(GREP) -q '1 .*_Dmain' $(ROOT)/both.log
+	$(GREP) -q '1000 .*both.Num\* both.foo(uint)' $(ROOT)/both.log
+	cat $(ROOT)/both.def
+	sort $(ROOT)/both.def -o $(ROOT)/both.def
+	(sort bothnew.def.exp | $(DIFF) - $(ROOT)/both.def)
 ifeq (windows,$(OS))
-	$(QUIET)$(DIFF) \
+	$(DIFF) \
 		<($(GREP) -vF 'core.' bothgc.log.exp) \
 		<($(GREP) -vF 'core.' $(ROOT)/bothgc.log | $(SED) 's: src\\\\: src/:g')
 else
-	$(QUIET)$(DIFF) \
+	$(DIFF) \
 		<($(GREP) -vF 'core.' bothgc.log.exp) \
 		<($(GREP) -vF 'core.' $(ROOT)/bothgc.log)
 endif
 	@touch $@
-
-$(ROOT)/%$(DOTEXE): $(SRC)/%.d
-	$(QUIET)$(DMD) $(DFLAGS) -of$(ROOT)/$* $<
-
-clean:
-	rm -rf $(ROOT) *.log *.def
+$(ROOT)/both$(DOTEXE): extra_dflags += -profile -profile=gc

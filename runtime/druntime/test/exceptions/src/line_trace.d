@@ -6,13 +6,13 @@ void main()
     }
     catch (Exception e)
     {
-        import core.stdc.stdio;
+        import core.stdc.stdio : printf;
         auto str = e.toString();
         printf("%.*s\n", cast(int)str.length, str.ptr);
     }
 }
 
 void f1()
-{
+{   version (LDC) pragma(inline, false);
     throw new Exception("exception");
 }

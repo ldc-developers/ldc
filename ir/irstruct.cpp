@@ -87,7 +87,7 @@ LLConstant *IrStruct::getTypeInfoInit() {
   const bool isOpaque = !sd->members;
 
   // make sure xtoHash/xopEquals/xopCmp etc. are semantically analyzed
-  if (!isOpaque && sd->semanticRun < PASS::semantic3done) {
+  if (!isOpaque && sd->semanticRun() < PASS::semantic3done) {
     Logger::println(
         "Struct hasn't had semantic3 yet, calling semanticTypeInfoMembers()");
     semanticTypeInfoMembers(sd);
@@ -134,7 +134,7 @@ LLConstant *IrStruct::getTypeInfoInit() {
     b.push_null_void_array();
   } else {
     llvm::Constant *initPtr;
-    if (ts->isZeroInit(Loc())) {
+    if (isZeroInit(ts)) {
       initPtr = getNullPtr();
     } else {
       initPtr = getInitSymbol();

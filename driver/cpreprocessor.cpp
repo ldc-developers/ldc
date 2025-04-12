@@ -1,8 +1,8 @@
 #include "driver/cpreprocessor.h"
 
 #include "dmd/errors.h"
+#include "dmd/timetrace.h"
 #include "driver/cl_options.h"
-#include "driver/timetrace.h"
 #include "driver/tool.h"
 #include "gen/irstate.h"
 #include "llvm/Support/FileSystem.h"
@@ -16,11 +16,16 @@ const char *getPathToImportc_h(const Loc &loc) {
   // importc.h should be next to object.d
   static const char *cached = nullptr;
   if (!cached) {
-    cached = FileName::searchPath(global.path, "importc.h", false);
+    cached = FileName::searchPath(global.importPaths, "importc.h", false);
     if (!cached) {
       error(loc, "cannot find \"importc.h\" along import path");
       fatal();
     }
+
+#ifdef _WIN32
+    // if the path to importc.h is relative, cl.exe (but not clang-cl) treats it as relative to the .c file!
+    cached = FileName::toAbsolute(cached);
+#endif
   }
   return cached;
 }
@@ -76,7 +81,7 @@ FileName getOutputPath(const Loc &loc, const char *csrcfile) {
 
 FileName runCPreprocessor(FileName csrcfile, const Loc &loc,
                           OutBuffer &defines) {
-  TimeTraceScope timeScope("Preprocess C file", csrcfile.toChars());
+  dmd::TimeTraceScope timeScope("Preprocess C file", csrcfile.toChars(), loc);
 
   const char *importc_h = getPathToImportc_h(loc);
 

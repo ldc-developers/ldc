@@ -23,9 +23,14 @@ else version (WatchOS)
 version (Darwin):
 version (D_LP64):
 
-import core.sys.darwin.mach.dyld;
-import core.sys.darwin.mach.getsect;
-import core.sys.posix.pthread;
+import core.stdc.stdint : intptr_t, uintptr_t;
+import core.sys.darwin.mach.dyld : _dyld_get_image_header, _dyld_image_count;
+import core.sys.darwin.mach.getsect : getsectbynamefromheader_64, section_64;
+import core.sys.darwin.mach.loader : LC_SEGMENT_64, load_command, mach_header, mach_header_64, MH_MAGIC_64,
+    S_THREAD_LOCAL_VARIABLES, SECT_BSS, SECT_COMMON, SECT_DATA, SECTION_TYPE, SEG_DATA, segment_command_64,
+    tlv_descriptor;
+import core.sys.posix.pthread : pthread_getspecific;
+import core.sys.posix.sys.types : pthread_key_t;
 
 import rt.util.utility : safeAssert;
 
@@ -140,7 +145,13 @@ pthread_key_t firstTLVKey(const mach_header_64* header) pure nothrow @nogc
                 if ((section.flags & SECTION_TYPE) != S_THREAD_LOCAL_VARIABLES)
                     continue;
 
-                return section.firstTLVDescriptor(slide).key;
+                // NOTE: macOS 15.4 has started to fill the upper 32 bits of
+                // the `key` field with an additional number. Using the whole
+                // 64-bit field as a key results in a segmentation fault. Even
+                // though none of this appears to be documented anywhere, we
+                // assume that only the lower 32 bits are used for the actual
+                // key and this results in binaries that execute normally.
+                return section.firstTLVDescriptor(slide).key & 0xFFFF_FFFF;
             }
         }
 

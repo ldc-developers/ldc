@@ -240,7 +240,7 @@ LLConstant *IrClass::getVtblInit() {
 
       c = DtoCallee(fd);
 
-      if (cd->isFuncHidden(fd) && !fd->isFuture()) {
+      if (isFuncHidden(cd, fd) && !fd->isFuture()) {
         // fd is hidden from the view of this class. If fd overlaps with any
         // function in the vtbl[], issue error.
         for (size_t j = cd->vtblOffset(); j < n; j++) {

@@ -2,9 +2,8 @@
 
 // REQUIRES: Fuzzer, ASan
 
-// See https://github.com/ldc-developers/ldc/issues/2222 for -frame-pointer=all
 // See https://github.com/ldc-developers/ldc/pull/4328 for -fsanitize-address-use-after-return=never
-// RUN: %ldc -g -fsanitize=address,fuzzer -fsanitize-address-use-after-return=never -frame-pointer=all %s -of=%t%exe
+// RUN: %ldc -g -fsanitize=address,fuzzer -fsanitize-address-use-after-return=never %s -of=%t%exe
 // RUN: not %t%exe 2>&1 | FileCheck %s
 
 bool FuzzMe(ubyte* data, size_t dataSize)

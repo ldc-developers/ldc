@@ -21,6 +21,7 @@
 #include "dmd/root/rmem.h"
 #include "dmd/scope.h"
 #include "dmd/target.h"
+#include "dmd/timetrace.h"
 #include "driver/args.h"
 #include "driver/cache.h"
 #include "driver/cl_helpers.h"
@@ -36,7 +37,6 @@
 #include "driver/linker.h"
 #include "driver/plugins.h"
 #include "driver/targetmachine.h"
-#include "driver/timetrace.h"
 #include "gen/abi/abi.h"
 #include "gen/irstate.h"
 #include "gen/ldctraits.h"
@@ -90,8 +90,8 @@ void generateJson(Modules *modules);
 using namespace dmd;
 using namespace opts;
 
-static StringsAdapter impPathsStore("I", global.params.imppath);
-static cl::list<std::string, StringsAdapter>
+static ImportPathsAdapter impPathsStore("I", global.params.imppath);
+static cl::list<std::string, ImportPathsAdapter>
     importPaths("I", cl::desc("Look for imports also in <directory>"),
                 cl::value_desc("directory"), cl::location(impPathsStore),
                 cl::Prefix);
@@ -141,26 +141,13 @@ void printVersion(llvm::raw_ostream &OS) {
 
 // Helper function to handle -d-debug=* and -d-version=*
 template <typename Condition>
-void processVersions(const std::vector<std::string> &list, const char *type,
-                     unsigned &globalLevel) {
+void processVersions(const std::vector<std::string> &list, const char *type) {
   for (const auto &i : list) {
-    const char *value = i.c_str();
-    if (isdigit(value[0])) {
-      errno = 0;
-      char *end;
-      long level = strtol(value, &end, 10);
-      if (*end || errno || level > INT_MAX) {
-        error(Loc(), "Invalid %s level: %s", type, i.c_str());
-      } else {
-        globalLevel = static_cast<unsigned>(level);
-      }
+    char *cstr = mem.xstrdup(i.c_str());
+    if (Identifier::isValidIdentifier(cstr)) {
+      Condition::addGlobalIdent(cstr);
     } else {
-      char *cstr = mem.xstrdup(value);
-      if (Identifier::isValidIdentifier(cstr)) {
-        Condition::addGlobalIdent(cstr);
-      } else {
-        error(Loc(), "Invalid %s identifier or level: '%s'", type, cstr);
-      }
+      error(Loc(), "Invalid %s identifier: '%s'", type, cstr);
     }
   }
 }
@@ -389,13 +376,15 @@ void parseCommandLine(Strings &sourceFiles) {
       global.params.makeDeps.name = opts::dupPathString(makeDeps);
   }
 
+  global.params.timeTraceFile = fTimeTraceFile.c_str();
+
 #if _WIN32
-  const auto toWinPaths = [](Strings &paths) {
-    for (auto &path : paths)
-      path = opts::dupPathString(path).ptr;
-  };
-  toWinPaths(global.params.imppath);
-  toWinPaths(global.params.fileImppath);
+  for (auto &info : global.params.imppath) {
+    info.path = opts::dupPathString(info.path).ptr;
+  }
+  for (auto &path : global.params.fileImppath) {
+    path = opts::dupPathString(path).ptr;
+  }
 #endif
 
   for (const auto &field : jsonFields) {
@@ -422,11 +411,16 @@ void parseCommandLine(Strings &sourceFiles) {
     global.params.outputSourceLocations = true;
   }
 
+  if (printErrorContext.getNumOccurrences() != 0) {
+    global.params.v.errorPrintMode = printErrorContext
+                                         ? ErrorPrintMode::printErrorContext
+                                         : ErrorPrintMode::simpleError;
+  }
+
   opts::initializeSanitizerOptionsFromCmdline();
 
-  processVersions<DebugCondition>(debugArgs, "debug", global.params.debuglevel);
-  processVersions<VersionCondition>(versions, "version",
-                                    global.params.versionlevel);
+  processVersions<DebugCondition>(debugArgs, "debug");
+  processVersions<VersionCondition>(versions, "version");
 
   for (const auto &id : transitions)
     parseTransitionOption(global.params, id.c_str());
@@ -481,7 +475,7 @@ void parseCommandLine(Strings &sourceFiles) {
     global.params.run = true;
     if (!runargs.empty()) {
       if (runargs[0] == "-") {
-        sourceFiles.push("__stdin.d");
+        global.params.readStdin = true;
       } else {
         char const *name = runargs[0].c_str();
         char const *ext = FileName::ext(name);
@@ -510,8 +504,11 @@ void parseCommandLine(Strings &sourceFiles) {
   sourceFiles.reserve(fileList.size());
   for (const auto &file : fileList) {
     if (!file.empty()) {
-      sourceFiles.push(file == "-" ? "__stdin.d"
-                                   : opts::dupPathString(file).ptr);
+      if (file == "-") {
+        global.params.readStdin = true;
+      } else {
+        sourceFiles.push(opts::dupPathString(file).ptr);
+      }
     }
   }
 
@@ -1145,10 +1142,6 @@ int cppmain() {
     fatal();
   }
 
-  if (opts::fTimeTrace) {
-    initializeTimeTrace(opts::fTimeTraceGranularity, 0, opts::allArguments[0]);
-  }
-
   // Set up the TargetMachine.
   const auto arch = getArchStr();
   if ((m32bits || m64bits) && (!arch.empty() || !mTargetTriple.empty())) {
@@ -1226,19 +1219,11 @@ int cppmain() {
 
   loadAllPlugins();
 
-  int status;
-  {
-    TimeTraceScope timeScope("ExecuteCompiler");
-    status = mars_tryMain(global.params, files);
-  }
+  const int status = mars_tryMain(global.params, files);
 
   // try to remove the temp objects dir if created for -cleanup-obj
   if (!tempObjectsDir.empty())
     llvm::sys::fs::remove(tempObjectsDir);
-
-  std::string fTimeTraceFile = opts::fTimeTraceFile;
-  writeTimeTraceProfile(fTimeTraceFile.empty() ? "" : fTimeTraceFile.c_str());
-  deinitializeTimeTrace();
 
   llvm::llvm_shutdown();
 
@@ -1248,7 +1233,7 @@ int cppmain() {
 void codegenModules(Modules &modules) {
   // Generate one or more object/IR/bitcode files/dcompute kernels.
   if (global.params.obj && !modules.empty()) {
-    TimeTraceScope timeScope("Codegen all modules");
+    dmd::TimeTraceScope timeScope(TimeTraceEventType::codegenGlobal);
 
 #if LDC_MLIR_ENABLED
     mlir::MLIRContext mlircontext;
@@ -1279,11 +1264,10 @@ void codegenModules(Modules &modules) {
       const auto atCompute = hasComputeAttr(m);
       if (atCompute == DComputeCompileFor::hostOnly ||
           atCompute == DComputeCompileFor::hostAndDevice) {
-        TimeTraceScope timeScope(
-            ("Codegen module " + llvm::SmallString<20>(m->toChars()))
-                .str()
-                .c_str(),
-            m->loc);
+        dmd::TimeTraceScope timeScope(
+            TimeTraceEventType::codegenModule,
+            (llvm::Twine("Codegen: module ") + m->toChars()).str().c_str(),
+            m->toChars(), m->loc);
 #if LDC_MLIR_ENABLED
         if (global.params.output_mlir == OUTPUTFLAGset)
           cg.emitMLIR(m);
@@ -1309,13 +1293,14 @@ void codegenModules(Modules &modules) {
     }
 
     if (!computeModules.empty()) {
-      TimeTraceScope timeScope("Codegen DCompute device modules");
+      dmd::TimeTraceScope timeScope("Codegen DCompute device modules");
       for (auto &mod : computeModules) {
-        TimeTraceScope timeScope(("Codegen DCompute device module " +
-                                  llvm::SmallString<20>(mod->toChars()))
-                                     .str()
-                                     .c_str(),
-                                 mod->loc);
+        dmd::TimeTraceScope timeScope(
+            TimeTraceEventType::codegenModule,
+            (llvm::Twine("Codegen DCompute: device module ") + mod->toChars())
+                .str()
+                .c_str(),
+            mod->toChars(), mod->loc);
         dccg.emit(mod);
       }
     }
@@ -1327,7 +1312,7 @@ void codegenModules(Modules &modules) {
   }
 
   {
-    TimeTraceScope timeScope("Prune object file cache");
+    dmd::TimeTraceScope timeScope("Prune object file cache");
     cache::pruneCache();
   }
 

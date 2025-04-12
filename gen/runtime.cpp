@@ -609,10 +609,6 @@ static void buildRuntimeModule() {
   createFwdDecl(LINK::c, objectTy, {"_d_newclass", "_d_allocclass"},
                 {classInfoTy}, {STCconst});
 
-  // Throwable _d_newThrowable(const ClassInfo ci)
-  createFwdDecl(LINK::c, throwableTy, {"_d_newThrowable"}, {classInfoTy},
-                {STCconst});
-
   // void _d_delarray_t(void[]* p, const TypeInfo_Struct ti)
   createFwdDecl(LINK::c, voidTy, {"_d_delarray_t"},
                 {voidArrayPtrTy, structTypeInfoTy}, {0, STCconst});
@@ -801,10 +797,10 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
 
-  // void invariant._d_invariant(Object o)
+  // void rt.invariant_._d_invariant(Object o)
   {
-    static const std::string mangle =
-        getIRMangledFuncName("_D9invariant12_d_invariantFC6ObjectZv", LINK::d);
+    static const std::string mangle = getIRMangledFuncName(
+        "_D2rt10invariant_12_d_invariantFC6ObjectZv", LINK::d);
     createFwdDecl(LINK::d, voidTy, {mangle}, {objectTy});
   }
 
