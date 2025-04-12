@@ -287,10 +287,7 @@ void addCoverageAnalysis(Module *m) {
         LLFunction::Create(ctorTy, LLGlobalValue::InternalLinkage,
                            getIRMangledFuncName(ctorname, LINK::d), &gIR->module);
     ctor->setCallingConv(gABI->callingConv(LINK::d));
-    // Set function attributes. See functions.cpp:DtoDefineFunction()
-    if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
-      ctor->setUWTableKind(llvm::UWTableKind::Default);
-    }
+    gABI->setUnwindTableKind(ctor);
 
     llvm::BasicBlock *bb = llvm::BasicBlock::Create(gIR->context(), "", ctor);
     IRBuilder<> builder(bb);
