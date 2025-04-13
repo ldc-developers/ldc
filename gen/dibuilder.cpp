@@ -117,7 +117,7 @@ DIBuilder::DIBuilder(IRState *const IR)
       // (https://reviews.llvm.org/D23720)
       emitColumnInfo(opts::getFlagOrDefault(::emitColumnInfo, !emitCodeView)) {}
 
-unsigned DIBuilder::getColumn(const Loc &loc) const {
+unsigned DIBuilder::getColumn(Loc loc) const {
   return (loc.linnum() && emitColumnInfo) ? loc.charnum() : 0;
 }
 
@@ -202,7 +202,7 @@ llvm::StringRef DIBuilder::GetNameAndScope(Dsymbol *sym, DIScope &scope) {
 }
 
 // Sets the memory address for a debuginfo variable.
-void DIBuilder::Declare(const Loc &loc, llvm::Value *storage,
+void DIBuilder::Declare(Loc loc, llvm::Value *storage,
                         DILocalVariable divar, DIExpression diexpr) {
   auto debugLoc = llvm::DILocation::get(IR->context(), loc.linnum(),
                                         getColumn(loc), GetCurrentScope());
@@ -210,7 +210,7 @@ void DIBuilder::Declare(const Loc &loc, llvm::Value *storage,
 }
 
 // Sets the (current) value for a debuginfo variable.
-void DIBuilder::SetValue(const Loc &loc, llvm::Value *value,
+void DIBuilder::SetValue(Loc loc, llvm::Value *value,
                          DILocalVariable divar, DIExpression diexpr) {
   auto debugLoc = llvm::DILocation::get(IR->context(), loc.linnum(),
                                         getColumn(loc), GetCurrentScope());
@@ -241,7 +241,7 @@ DIFile DIBuilder::CreateFile(const char *filename) {
   return DBuilder.createFile(filename, cwd);
 }
 
-DIFile DIBuilder::CreateFile(const Loc &loc) {
+DIFile DIBuilder::CreateFile(Loc loc) {
   return CreateFile(loc.filename());
 }
 
@@ -1113,7 +1113,7 @@ void DIBuilder::EmitFuncStart(FuncDeclaration *fd) {
   EmitStopPoint(fd->loc);
 }
 
-void DIBuilder::EmitBlockStart(const Loc &loc) {
+void DIBuilder::EmitBlockStart(Loc loc) {
   if (!mustEmitLocationsDebugInfo())
     return;
 
@@ -1138,7 +1138,7 @@ void DIBuilder::EmitBlockEnd() {
   fn->diLexicalBlocks.pop();
 }
 
-void DIBuilder::EmitStopPoint(const Loc &loc) {
+void DIBuilder::EmitStopPoint(Loc loc) {
   if (!mustEmitLocationsDebugInfo())
     return;
 

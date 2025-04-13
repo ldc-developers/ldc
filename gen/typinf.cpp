@@ -60,7 +60,7 @@
 
 using namespace dmd;
 
-TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(const Loc &loc, Type *forType) {
+TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(Loc loc, Type *forType) {
   IF_LOG Logger::println("getOrCreateTypeInfoDeclaration(): %s",
                          forType->toChars());
   LOG_SCOPE

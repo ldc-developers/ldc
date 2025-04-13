@@ -444,7 +444,7 @@ struct Global
     ErrorSink* errorSinkNull;   // where the error messages disappear
 
 #if IN_LLVM
-    FileName (*preprocess)(FileName, const Loc&, OutBuffer&);
+    FileName (*preprocess)(FileName, Loc, OutBuffer &);
 #else
     DArray<unsigned char> (*preprocess)(FileName, Loc, OutBuffer&);
 #endif

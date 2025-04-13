@@ -25,10 +25,10 @@ Expressions* createExpressions() { return new Expressions(); }
 
 OutBuffer* createOutBuffer() { return new OutBuffer(); }
 
-InlineAsmStatement createInlineAsmStatement(const ref Loc loc, Token* tokens) { return new InlineAsmStatement(loc, tokens); }
-GccAsmStatement createGccAsmStatement(const ref Loc loc, Token* tokens) { return new GccAsmStatement(loc, tokens); }
+InlineAsmStatement createInlineAsmStatement(Loc loc, Token* tokens) { return new InlineAsmStatement(loc, tokens); }
+GccAsmStatement createGccAsmStatement(Loc loc, Token* tokens) { return new GccAsmStatement(loc, tokens); }
 
-Expression createExpressionForIntOp(const ref Loc loc, TOK op, Expression e1, Expression e2)
+Expression createExpressionForIntOp(Loc loc, TOK op, Expression e1, Expression e2)
 {
     switch (op)
     {
@@ -79,7 +79,7 @@ Expression createExpressionForIntOp(const ref Loc loc, TOK op, Expression e1, Ex
     }
 }
 
-Expression createExpression(const ref Loc loc, EXP op) { return new Expression(loc, op); }
-DsymbolExp createDsymbolExp(const ref Loc loc, Dsymbol s) { return new DsymbolExp(loc, s, /*hasOverloads=*/false); }
-AddrExp createAddrExp(const ref Loc loc, Expression e) { return new AddrExp(loc, e); }
-CommaExp createCommaExp(const ref Loc loc, Expression e1, Expression e2, bool generated = true) { return new CommaExp(loc, e1, e2, generated); }
+Expression createExpression(Loc loc, EXP op) { return new Expression(loc, op); }
+DsymbolExp createDsymbolExp(Loc loc, Dsymbol s) { return new DsymbolExp(loc, s, /*hasOverloads=*/false); }
+AddrExp createAddrExp(Loc loc, Expression e) { return new AddrExp(loc, e); }
+CommaExp createCommaExp(Loc loc, Expression e1, Expression e2, bool generated = true) { return new CommaExp(loc, e1, e2, generated); }

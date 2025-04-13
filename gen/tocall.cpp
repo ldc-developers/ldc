@@ -635,7 +635,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 class ImplicitArgumentsBuilder {
 public:
   ImplicitArgumentsBuilder(std::vector<LLValue *> &args, AttrSet &attrs,
-                           const Loc &loc, DValue *fnval,
+                           Loc loc, DValue *fnval,
                            LLFunctionType *llCalleeType, Expressions *argexps,
                            Type *resulttype, LLValue *sretPointer)
       : args(args), attrs(attrs), loc(loc), fnval(fnval), argexps(argexps),
@@ -664,7 +664,7 @@ private:
   // passed:
   std::vector<LLValue *> &args;
   AttrSet &attrs;
-  const Loc &loc;
+  Loc loc;
   DValue *const fnval;
   Expressions *const argexps;
   Type *const resulttype;
@@ -838,7 +838,7 @@ static LLValue *DtoCallableValue(DValue *fn) {
 }
 
 // FIXME: this function is a mess !
-DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
+DValue *DtoCallFunction(Loc loc, Type *resulttype, DValue *fnval,
                         Expressions *arguments, LLValue *sretPointer, bool directcall) {
   IF_LOG Logger::println("DtoCallFunction()");
   LOG_SCOPE

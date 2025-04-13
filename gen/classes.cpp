@@ -72,7 +72,7 @@ void DtoResolveClass(ClassDeclaration *cd) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoNewClass(const Loc &loc, TypeClass *tc, NewExp *newexp) {
+DValue *DtoNewClass(Loc loc, TypeClass *tc, NewExp *newexp) {
   // resolve type
   DtoResolveClass(tc->sym);
   const auto irClass = getIrAggr(tc->sym);
@@ -176,7 +176,7 @@ void DtoInitClass(TypeClass *tc, LLValue *dst) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoFinalizeClass(const Loc &loc, LLValue *inst) {
+void DtoFinalizeClass(Loc loc, LLValue *inst) {
   // get runtime function
   llvm::Function *fn =
       getRuntimeFunction(loc, gIR->module, "_d_callfinalizer");
@@ -186,7 +186,7 @@ void DtoFinalizeClass(const Loc &loc, LLValue *inst) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoFinalizeScopeClass(const Loc &loc, DValue *dval,
+void DtoFinalizeScopeClass(Loc loc, DValue *dval,
                            bool dynTypeMatchesStaticType) {
   llvm::Value *inst = DtoRVal(dval);
 
@@ -232,7 +232,7 @@ void DtoFinalizeScopeClass(const Loc &loc, DValue *dval,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoCastClass(const Loc &loc, DValue *val, Type *_to) {
+DValue *DtoCastClass(Loc loc, DValue *val, Type *_to) {
   IF_LOG Logger::println("DtoCastClass(%s, %s)", val->type->toChars(),
                          _to->toChars());
   LOG_SCOPE;
@@ -350,7 +350,7 @@ static void resolveObjectAndClassInfoClasses() {
   DtoResolveClass(Type::typeinfoclass);
 }
 
-DValue *DtoDynamicCastObject(const Loc &loc, DValue *val, Type *_to) {
+DValue *DtoDynamicCastObject(Loc loc, DValue *val, Type *_to) {
 
   resolveObjectAndClassInfoClasses();
 
@@ -403,7 +403,7 @@ DValue *DtoDynamicCastObject(const Loc &loc, DValue *val, Type *_to) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoDynamicCastInterface(const Loc &loc, DValue *val, Type *_to) {
+DValue *DtoDynamicCastInterface(Loc loc, DValue *val, Type *_to) {
 
   resolveObjectAndClassInfoClasses();
 

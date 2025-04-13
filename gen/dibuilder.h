@@ -113,12 +113,12 @@ public:
   void EmitFuncStart(FuncDeclaration *fd);
 
   /// \brief Emits debug info for block start
-  void EmitBlockStart(const Loc &loc);
+  void EmitBlockStart(Loc loc);
 
   /// \brief Emits debug info for block end
   void EmitBlockEnd();
 
-  void EmitStopPoint(const Loc &loc);
+  void EmitStopPoint(Loc loc);
 
   void EmitValue(llvm::Value *val, VarDeclaration *vd);
 
@@ -155,16 +155,16 @@ private:
   DIScope GetSymbolScope(Dsymbol *s);
   DIScope GetCurrentScope();
   llvm::StringRef GetNameAndScope(Dsymbol *sym, DIScope &scope);
-  void Declare(const Loc &loc, llvm::Value *storage, ldc::DILocalVariable divar,
+  void Declare(Loc loc, llvm::Value *storage, ldc::DILocalVariable divar,
                ldc::DIExpression diexpr);
-  void SetValue(const Loc &loc, llvm::Value *value, ldc::DILocalVariable divar,
+  void SetValue(Loc loc, llvm::Value *value, ldc::DILocalVariable divar,
                 ldc::DIExpression diexpr);
   void AddFields(AggregateDeclaration *sd, ldc::DIFile file,
                  llvm::SmallVector<llvm::Metadata *, 16> &elems);
   void AddStaticMembers(AggregateDeclaration *sd, ldc::DIFile file,
                  llvm::SmallVector<llvm::Metadata *, 16> &elems);
   DIFile CreateFile(const char *filename = nullptr);
-  DIFile CreateFile(const Loc &loc);
+  DIFile CreateFile(Loc loc);
   DIFile CreateFile(Dsymbol *decl);
   DIType CreateBasicType(Type *type);
   DIType CreateEnumType(TypeEnum *type);
@@ -193,7 +193,7 @@ private:
   bool mustEmitFullDebugInfo();
   bool mustEmitLocationsDebugInfo();
 
-  unsigned getColumn(const Loc &loc) const;
+  unsigned getColumn(Loc loc) const;
 
 public:
   template <typename T>

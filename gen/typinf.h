@@ -22,7 +22,7 @@ namespace llvm {
 class GlobalVariable;
 }
 
-TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(const Loc &loc,
+TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(Loc loc,
                                                     Type *forType);
 llvm::GlobalVariable *DtoResolveTypeInfo(TypeInfoDeclaration *tid);
 

@@ -4,5 +4,5 @@
 #include "dmd/globals.h"
 #include "dmd/root/filename.h"
 
-FileName runCPreprocessor(FileName csrcfile, const Loc &loc,
+FileName runCPreprocessor(FileName csrcfile, Loc loc,
                           OutBuffer &defines);

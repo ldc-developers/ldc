@@ -21,42 +21,42 @@ class Value;
 class DValue;
 
 // lhs + rhs
-DValue *binAdd(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binAdd(Loc loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs = false);
 // lhs - rhs
-DValue *binMin(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binMin(Loc loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs = false);
 // lhs * rhs
-DValue *binMul(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binMul(Loc loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs = false);
 // lhs / rhs
-DValue *binDiv(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binDiv(Loc loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs = false);
 // lhs % rhs
-DValue *binMod(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binMod(Loc loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs = false);
 
 // lhs & rhs
-DValue *binAnd(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binAnd(Loc loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs = false);
 // lhs | rhs
-DValue *binOr(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binOr(Loc loc, Type *type, DValue *lhs, Expression *rhs,
               bool loadLhsAfterRhs = false);
 // lhs ^ rhs
-DValue *binXor(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binXor(Loc loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs = false);
 // lhs << rhs
-DValue *binShl(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binShl(Loc loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs = false);
 // lhs >> rhs
-DValue *binShr(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binShr(Loc loc, Type *type, DValue *lhs, Expression *rhs,
                bool loadLhsAfterRhs = false);
 // lhs >>> rhs
-DValue *binUshr(const Loc &loc, Type *type, DValue *lhs, Expression *rhs,
+DValue *binUshr(Loc loc, Type *type, DValue *lhs, Expression *rhs,
                 bool loadLhsAfterRhs = false);
 
-llvm::Value *DtoBinNumericEquals(const Loc &loc, DValue *lhs, DValue *rhs,
+llvm::Value *DtoBinNumericEquals(Loc loc, DValue *lhs, DValue *rhs,
                                  EXP op);
-llvm::Value *DtoBinFloatsEquals(const Loc &loc, DValue *lhs, DValue *rhs,
+llvm::Value *DtoBinFloatsEquals(Loc loc, DValue *lhs, DValue *rhs,
                                 EXP op);
 llvm::Value *mergeVectorEquals(llvm::Value *resultsVector, EXP op);

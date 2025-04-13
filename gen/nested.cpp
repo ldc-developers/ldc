@@ -60,7 +60,7 @@ LLValue *indexVThis(AggregateDeclaration *ad,  LLValue* val) {
 
 static void DtoCreateNestedContextType(FuncDeclaration *fd);
 
-DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
+DValue *DtoNestedVariable(Loc loc, Type *astype, VarDeclaration *vd,
                           bool byref) {
   IF_LOG Logger::println("DtoNestedVariable for %s @ %s", vd->toChars(),
                          loc.toChars());
@@ -203,7 +203,7 @@ DValue *DtoNestedVariable(const Loc &loc, Type *astype, VarDeclaration *vd,
   return makeVarDValue(astype, vd, val);
 }
 
-void DtoResolveNestedContext(const Loc &loc, AggregateDeclaration *decl,
+void DtoResolveNestedContext(Loc loc, AggregateDeclaration *decl,
                              LLValue *value) {
   IF_LOG Logger::println("Resolving nested context");
   LOG_SCOPE;
@@ -228,7 +228,7 @@ void DtoResolveNestedContext(const Loc &loc, AggregateDeclaration *decl,
   }
 }
 
-LLValue *DtoNestedContext(const Loc &loc, Dsymbol *sym) {
+LLValue *DtoNestedContext(Loc loc, Dsymbol *sym) {
   IF_LOG Logger::println("DtoNestedContext for %s", sym->toPrettyChars());
   LOG_SCOPE;
 
