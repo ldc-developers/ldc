@@ -296,8 +296,7 @@ IRState::createInlineAsmCall(Loc loc, llvm::InlineAsm *ia,
   return call;
 }
 
-void IRState::addInlineAsmSrcLoc(Loc loc,
-                                 llvm::CallInst *inlineAsmCall) {
+void IRState::addInlineAsmSrcLoc(Loc loc, llvm::CallInst *inlineAsmCall) {
   // Simply use a stack of Loc* per IR module, and use index+1 as 32-bit
   // cookie to be mapped back by the InlineAsmDiagnosticHandler.
   // 0 is not a valid cookie.

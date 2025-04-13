@@ -184,8 +184,7 @@ void DtoGetComplexParts(Loc loc, Type *to, DValue *val, LLValue *&re,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoComplexAdd(Loc loc, Type *type, DRValue *lhs,
-                        DRValue *rhs) {
+DImValue *DtoComplexAdd(Loc loc, Type *type, DRValue *lhs, DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
   // lhs values
@@ -216,8 +215,7 @@ DImValue *DtoComplexAdd(Loc loc, Type *type, DRValue *lhs,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoComplexMin(Loc loc, Type *type, DRValue *lhs,
-                        DRValue *rhs) {
+DImValue *DtoComplexMin(Loc loc, Type *type, DRValue *lhs, DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
   // lhs values
@@ -248,8 +246,7 @@ DImValue *DtoComplexMin(Loc loc, Type *type, DRValue *lhs,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoComplexMul(Loc loc, Type *type, DRValue *lhs,
-                        DRValue *rhs) {
+DImValue *DtoComplexMul(Loc loc, Type *type, DRValue *lhs, DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
   // lhs values
@@ -302,8 +299,7 @@ DImValue *DtoComplexMul(Loc loc, Type *type, DRValue *lhs,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoComplexDiv(Loc loc, Type *type, DRValue *lhs,
-                        DRValue *rhs) {
+DImValue *DtoComplexDiv(Loc loc, Type *type, DRValue *lhs, DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
   // lhs values
@@ -376,8 +372,7 @@ DImValue *DtoComplexDiv(Loc loc, Type *type, DRValue *lhs,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoComplexMod(Loc loc, Type *type, DRValue *lhs,
-                        DRValue *rhs) {
+DImValue *DtoComplexMod(Loc loc, Type *type, DRValue *lhs, DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im, *divisor;
 
   // lhs values

@@ -36,8 +36,7 @@ static LLConstant *to_keyti(Loc loc, DValue *aa) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DLValue *DtoAAIndex(Loc loc, Type *type, DValue *aa, DValue *key,
-                    bool lvalue) {
+DLValue *DtoAAIndex(Loc loc, Type *type, DValue *aa, DValue *key, bool lvalue) {
   // D2:
   // call:
   // extern(C) void* _aaGetY(AA* aa, TypeInfo aati, size_t valuesize, void*

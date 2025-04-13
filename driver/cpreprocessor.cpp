@@ -79,8 +79,7 @@ FileName getOutputPath(Loc loc, const char *csrcfile) {
 }
 } // anonymous namespace
 
-FileName runCPreprocessor(FileName csrcfile, Loc loc,
-                          OutBuffer &defines) {
+FileName runCPreprocessor(FileName csrcfile, Loc loc, OutBuffer &defines) {
   dmd::TimeTraceScope timeScope("Preprocess C file", csrcfile.toChars(), loc);
 
   const char *importc_h = getPathToImportc_h(loc);

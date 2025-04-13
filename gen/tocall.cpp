@@ -664,7 +664,7 @@ private:
   // passed:
   std::vector<LLValue *> &args;
   AttrSet &attrs;
-  Loc loc;
+  const Loc loc;
   DValue *const fnval;
   Expressions *const argexps;
   Type *const resulttype;

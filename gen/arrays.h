@@ -62,8 +62,7 @@ DSliceValue *DtoNewDynArray(Loc loc, Type *arrayType, DValue *dim,
 
 DSliceValue *DtoCatArrays(Loc loc, Type *type, Expression *e1,
                           Expression *e2);
-DSliceValue *DtoAppendDCharToString(Loc loc, DValue *arr,
-                                    Expression *exp);
+DSliceValue *DtoAppendDCharToString(Loc loc, DValue *arr, Expression *exp);
 DSliceValue *DtoAppendDCharToUnicodeString(Loc loc, DValue *arr,
                                            Expression *exp);
 

@@ -23,8 +23,7 @@ namespace llvm {
 class Value;
 }
 
-DLValue *DtoAAIndex(Loc loc, Type *type, DValue *aa, DValue *key,
-                    bool lvalue);
+DLValue *DtoAAIndex(Loc loc, Type *type, DValue *aa, DValue *key, bool lvalue);
 DValue *DtoAAIn(Loc loc, Type *type, DValue *aa, DValue *key);
 DValue *DtoAARemove(Loc loc, DValue *aa, DValue *key);
 llvm::Value *DtoAAEquals(Loc loc, EXP op, DValue *l, DValue *r);

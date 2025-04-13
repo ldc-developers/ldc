@@ -666,8 +666,7 @@ DSliceValue *DtoAppendDChar(Loc loc, DValue *arr, Expression *exp,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DSliceValue *DtoAppendDCharToString(Loc loc, DValue *arr,
-                                    Expression *exp) {
+DSliceValue *DtoAppendDCharToString(Loc loc, DValue *arr, Expression *exp) {
   IF_LOG Logger::println("DtoAppendDCharToString");
   LOG_SCOPE;
   return DtoAppendDChar(loc, arr, exp, "_d_arrayappendcd");
@@ -685,8 +684,8 @@ DSliceValue *DtoAppendDCharToUnicodeString(Loc loc, DValue *arr,
 ////////////////////////////////////////////////////////////////////////////////
 namespace {
 // helper for eq and cmp
-LLValue *DtoArrayEqCmp_impl(Loc loc, const char *func, DValue *l,
-                            DValue *r, bool useti) {
+LLValue *DtoArrayEqCmp_impl(Loc loc, const char *func, DValue *l, DValue *r,
+                            bool useti) {
   IF_LOG Logger::println("comparing arrays");
   LLFunction *fn = getRuntimeFunction(loc, gIR->module, func);
   assert(fn);
@@ -797,8 +796,7 @@ llvm::CallInst *callMemcmp(Loc loc, IRState &irs, LLValue *l_ptr,
 /// with memcmp.
 ///
 /// Note: the dynamic array length check is not covered by (LDC's) PGO.
-LLValue *DtoArrayEqCmp_memcmp(Loc loc, DValue *l, DValue *r,
-                              IRState &irs) {
+LLValue *DtoArrayEqCmp_memcmp(Loc loc, DValue *l, DValue *r, IRState &irs) {
   IF_LOG Logger::println("Comparing arrays using memcmp");
 
   auto *l_ptr = DtoArrayPtr(l);
@@ -1061,8 +1059,8 @@ void DtoIndexBoundsCheck(Loc loc, DValue *arr, DValue *index) {
   gIR->ir->SetInsertPoint(okbb);
 }
 
-static void emitRangeErrorImpl(IRState *irs, Loc loc,
-                               const char *cAssertMsg, const char *dFnName,
+static void emitRangeErrorImpl(IRState *irs, Loc loc, const char *cAssertMsg,
+                               const char *dFnName,
                                llvm::ArrayRef<LLValue *> extraArgs) {
   Module *const module = irs->func()->decl->getModule();
 
