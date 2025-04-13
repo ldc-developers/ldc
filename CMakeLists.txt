@@ -900,10 +900,14 @@ endif()
 # If everything else if insufficient, the user can specify
 # -DCOMPILER_RT_LIBDIR_CONFIG to embed an arbitrary value.
 if(NOT DEFINED COMPILER_RT_LIBDIR_CONFIG)
-    set(COMPILER_RT_LIBDIR_CONFIG "${COMPILER_RT_LIBDIR}")
+    if(NOT LDC_INSTALL_LLVM_RUNTIME_LIBS)
+        set(COMPILER_RT_LIBDIR_CONFIG "${COMPILER_RT_LIBDIR}")
+    endif()
 endif()
-message(STATUS "Adding ${COMPILER_RT_LIBDIR_CONFIG} to lib-dirs in configuration file")
-set(OPTIONAL_COMPILER_RT_DIR "\n        \"${COMPILER_RT_LIBDIR_CONFIG}\", // compiler-rt directory")
+if(DEFINED COMPILER_RT_LIBDIR_CONFIG)
+    message(STATUS "Adding ${COMPILER_RT_LIBDIR_CONFIG} to lib-dirs in configuration file")
+    set(OPTIONAL_COMPILER_RT_DIR "\n        \"${COMPILER_RT_LIBDIR_CONFIG}\", // compiler-rt directory")
+endif()
 
 #
 # Auxiliary build and test utils.
