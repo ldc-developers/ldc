@@ -43,6 +43,14 @@ commonSteps: &commonSteps
           fi
     - checkout
     - run:
+        name: Merge PR with target branch
+        command: |
+          set -ux
+          if [ -n "${CIRCLE_PR_NUMBER:-}" ]; then
+            git fetch origin "+refs/pull/$CIRCLE_PR_NUMBER/merge:"
+            git checkout -f FETCH_HEAD
+          fi
+    - run:
         name: Checkout git submodules
         command: git submodule update --init
     - run:

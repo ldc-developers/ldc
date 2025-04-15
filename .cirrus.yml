@@ -1,3 +1,11 @@
+# For PRs: check out the current *merge* ref, i.e., merge with target branch
+clone_steps_template: &CLONE_STEPS_TEMPLATE
+  merge_with_target_branch_script: |
+    if [ -n "${CIRRUS_PR:-}" ]; then
+      git fetch origin "+refs/pull/$CIRRUS_PR/merge:"
+      git checkout -f FETCH_HEAD
+    fi
+
 # Installs lit, clones the git submodules, builds LDC and the test
 # runners and runs the tests.
 # Requires env variables CI_ARCH, CI_OS, EXTRA_CMAKE_FLAGS and PARALLELISM.
@@ -190,6 +198,7 @@ task:
     # for gdmd:
     LANG: C.UTF-8
   << : *INSTALL_UBUNTU_PREREQUISITES_TEMPLATE
+  << : *CLONE_STEPS_TEMPLATE
   # to get the LTO lit-tests working:
   make_lld_the_default_linker_script: |
     ln -sf ld.lld /usr/bin/ld
@@ -228,6 +237,7 @@ task:
     # set up default llvm-config
     ls -l /usr/local/bin/llvm-config*
     ln -sf llvm-config19 /usr/local/bin/llvm-config
+  << : *CLONE_STEPS_TEMPLATE
   clone_submodules_early_script: |
     cd $CIRRUS_WORKING_DIR
     git submodule update --init --depth $CIRRUS_CLONE_DEPTH
