@@ -805,14 +805,8 @@ endif()
 # LLVM_LIBRARY_DIRS/clang/<version>/lib/<OS>/ , for example
 # LLVM_LIBRARY_DIRS/clang/4.0.0/lib/darwin/ , but we allow the user to specify
 # another directory.
-set(COMPILER_RT_BASE_DIR "${LLVM_LIBRARY_DIRS}" CACHE PATH "Base path of compiler-rt libraries. If they in are /usr/lib/clang/17/lib/linux/libclang_rt* you should set this value to /usr/lib")
-# If it's different than the default it will need to be added to the config files
-if(COMPILER_RT_BASE_DIR STREQUAL LLVM_LIBRARY_DIRS)
-    set(WANT_COMPILER_RT_LIBDIR_CONFIG FALSE)
-else()
-    set(WANT_COMPILER_RT_LIBDIR_CONFIG TRUE)
-endif()
-set(COMPILER_RT_LIBDIR "${COMPILER_RT_BASE_DIR}/clang")
+set(COMPILER_RT_BASE_DIR "${LLVM_LIBRARY_DIRS}/clang" CACHE PATH "Base path of compiler-rt libraries. If they in are /usr/lib/clang/17/lib/linux/libclang_rt* you should set this value to /usr/lib/clang")
+set(COMPILER_RT_LIBDIR "${COMPILER_RT_BASE_DIR}")
 if(LDC_LLVM_VER LESS 1600)
     set(COMPILER_RT_LIBDIR "${COMPILER_RT_LIBDIR}/${LLVM_VERSION_BASE_STRING}")
 else()
@@ -821,12 +815,24 @@ endif()
 set(COMPILER_RT_LIBDIR "${COMPILER_RT_LIBDIR}/lib")
 if(APPLE)
     set(COMPILER_RT_LIBDIR "${COMPILER_RT_LIBDIR}/darwin")
+elseif(ANDROID)
+    set(COMPILER_RT_LIBDIR "${COMPILER_RT_LIBDIR}/linux")
 elseif(UNIX)
-    set(COMPILER_RT_LIBDIR_OS_DEFAULT "x86_64-unknown-linux-gnu")
+    set(COMPILER_RT_LIBDIR_OS_DEFAULT "${LLVM_HOST_TARGET}") # default when building compiler-rt alongside LLVM
+    if(NOT EXISTS "${COMPILER_RT_LIBDIR}/${COMPILER_RT_LIBDIR_OS_DEFAULT}")
+        # default when building compiler-rt separately: OS name alone in lowercase
+        string(TOLOWER "${CMAKE_SYSTEM_NAME}" lowercase_CMAKE_SYSTEM_NAME)
+        if(EXISTS "${COMPILER_RT_LIBDIR}/${lowercase_CMAKE_SYSTEM_NAME}")
+            set(COMPILER_RT_LIBDIR_OS_DEFAULT "${lowercase_CMAKE_SYSTEM_NAME}")
+        endif()
+    endif()
     set(COMPILER_RT_LIBDIR_OS "${COMPILER_RT_LIBDIR_OS_DEFAULT}"   CACHE STRING "Non-Mac Posix: OS used as directory name for the compiler-rt source libraries, e.g., 'freebsd'.")
     set(COMPILER_RT_LIBDIR "${COMPILER_RT_LIBDIR}/${COMPILER_RT_LIBDIR_OS}")
 elseif(WIN32)
     set(COMPILER_RT_LIBDIR "${COMPILER_RT_LIBDIR}/windows")
+endif()
+if(NOT EXISTS "${COMPILER_RT_LIBDIR}")
+    message(WARNING "Expected compiler-rt directory '${COMPILER_RT_LIBDIR}' does not exist. To include PGO and sanitizers support, COMPILER_RT_BASE_DIR and/or COMPILER_RT_LIBDIR_OS might need to be set explicitly. See docs/compiler_rt.md.")
 endif()
 if(LLVM_IS_SHARED)
     set(LDC_INSTALL_LLVM_RUNTIME_LIBS_DEFAULT OFF)
@@ -846,9 +852,6 @@ endfunction()
 message(STATUS "-- Including LLVM compiler-rt libraries (LDC_INSTALL_LLVM_RUNTIME_LIBS): ${LDC_INSTALL_LLVM_RUNTIME_LIBS}")
 if (LDC_INSTALL_LLVM_RUNTIME_LIBS)
     # Locate LLVM sanitizer runtime libraries, and copy them to our lib folder
-
-    # No need to add another libdir, the default ldc one will have the libraries
-    set(WANT_COMPILER_RT_LIBDIR_CONFIG FALSE)
 
     if(APPLE)
         copy_compilerrt_lib("libclang_rt.asan_osx_dynamic.dylib" "libldc_rt.asan.dylib" TRUE)
@@ -894,9 +897,16 @@ if (LDC_INSTALL_LLVM_RUNTIME_LIBS)
     endif()
 endif()
 
-if(WANT_COMPILER_RT_LIBDIR_CONFIG)
-    message(STATUS "Adding ${COMPILER_RT_LIBDIR} to libdir in configuration files")
-    set(OPTIONAL_COMPILER_RT_DIR "\n        \"${COMPILER_RT_LIBDIR}\",")
+# If everything else if insufficient, the user can specify
+# -DCOMPILER_RT_LIBDIR_CONFIG to embed an arbitrary value.
+if(NOT DEFINED COMPILER_RT_LIBDIR_CONFIG)
+    if(NOT LDC_INSTALL_LLVM_RUNTIME_LIBS)
+        set(COMPILER_RT_LIBDIR_CONFIG "${COMPILER_RT_LIBDIR}")
+    endif()
+endif()
+if(DEFINED COMPILER_RT_LIBDIR_CONFIG)
+    message(STATUS "Adding ${COMPILER_RT_LIBDIR_CONFIG} to lib-dirs in configuration file")
+    set(OPTIONAL_COMPILER_RT_DIR "\n        \"${COMPILER_RT_LIBDIR_CONFIG}\", // compiler-rt directory")
 endif()
 
 #
