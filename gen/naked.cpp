@@ -251,7 +251,7 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void emitABIReturnAsmStmt(IRAsmBlock *asmblock, const Loc &loc,
+void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc loc,
                           FuncDeclaration *fdecl) {
   IF_LOG Logger::println("emitABIReturnAsmStmt(%s)", mangleExact(fdecl));
   LOG_SCOPE;
@@ -401,7 +401,7 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, const Loc &loc,
 
 // sort of kinda related to naked ...
 
-DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
+DValue *DtoInlineAsmExpr(Loc loc, FuncDeclaration *fd,
                          Expressions *arguments, LLValue *sretPointer) {
   assert(fd->toParent()->isTemplateInstance() && "invalid inline __asm expr");
   assert(arguments->length >= 2 && "invalid __asm call");
@@ -490,7 +490,7 @@ DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
   return new DImValue(returnType, rv);
 }
 
-llvm::CallInst *DtoInlineAsmExpr(const Loc &loc, llvm::StringRef code,
+llvm::CallInst *DtoInlineAsmExpr(Loc loc, llvm::StringRef code,
                                  llvm::StringRef constraints,
                                  llvm::ArrayRef<llvm::Value *> operands,
                                  llvm::ArrayRef<llvm::Type *> indirectTypes,

@@ -271,7 +271,7 @@ void IRState::addLinkerDependentLib(llvm::StringRef libraryName) {
 ////////////////////////////////////////////////////////////////////////////////
 
 llvm::CallInst *
-IRState::createInlineAsmCall(const Loc &loc, llvm::InlineAsm *ia,
+IRState::createInlineAsmCall(Loc loc, llvm::InlineAsm *ia,
                              llvm::ArrayRef<llvm::Value *> args,
                              llvm::ArrayRef<llvm::Type *> indirectTypes) {
   llvm::CallInst *call = ir->CreateCall(ia, args);
@@ -296,8 +296,7 @@ IRState::createInlineAsmCall(const Loc &loc, llvm::InlineAsm *ia,
   return call;
 }
 
-void IRState::addInlineAsmSrcLoc(const Loc &loc,
-                                 llvm::CallInst *inlineAsmCall) {
+void IRState::addInlineAsmSrcLoc(Loc loc, llvm::CallInst *inlineAsmCall) {
   // Simply use a stack of Loc* per IR module, and use index+1 as 32-bit
   // cookie to be mapped back by the InlineAsmDiagnosticHandler.
   // 0 is not a valid cookie.
@@ -311,7 +310,7 @@ void IRState::addInlineAsmSrcLoc(const Loc &loc,
       llvm::MDNode::get(context(), llvm::ConstantAsMetadata::get(constant)));
 }
 
-const Loc &IRState::getInlineAsmSrcLoc(unsigned srcLocCookie) const {
+Loc IRState::getInlineAsmSrcLoc(unsigned srcLocCookie) const {
   assert(srcLocCookie > 0 && srcLocCookie <= inlineAsmLocs.size());
   return inlineAsmLocs[srcLocCookie - 1];
 }

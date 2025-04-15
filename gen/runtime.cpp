@@ -59,7 +59,7 @@ static void buildRuntimeModule();
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static void checkForImplicitGCCall(const Loc &loc, const char *name) {
+static void checkForImplicitGCCall(Loc loc, const char *name) {
   if (nogc) {
     static const std::string GCNAMES[] = {
         "_aaDelX",
@@ -139,7 +139,7 @@ private:
 public:
   LazyType(Declaration *&decl, const char *name) : declRef(decl), name(name) {}
 
-  Type *get(const Loc &loc = {}) {
+  Type *get(Loc loc = {}) {
     if (!type) {
       if (!declRef || !declRef->type) {
         const char *kind = getKind();
@@ -212,7 +212,7 @@ public:
     return copy;
   }
 
-  Type *get(const Loc &loc) const {
+  Type *get(Loc loc) const {
     Type *ty;
     if (kind == Kind::lazyClass) {
       ty = static_cast<LazyClassType *>(ptr)->get(loc);
@@ -242,7 +242,7 @@ struct LazyFunctionDeclarer {
   std::vector<StorageClass> paramsSTC;
   AttrSet attributes;
 
-  void declare(const Loc &loc) {
+  void declare(Loc loc) {
     Parameters *params = nullptr;
     if (!paramTypes.empty()) {
       params = createParameters();
@@ -302,7 +302,7 @@ void createFwdDecl(LINK linkage, PotentiallyLazyType returnType,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
+llvm::Function *getRuntimeFunction(Loc loc, llvm::Module &target,
                                    const char *name) {
   checkForImplicitGCCall(loc, name);
 
@@ -391,7 +391,7 @@ static std::vector<PotentiallyLazyType> getCAssertFunctionParamTypes() {
   return {voidPtr, voidPtr, uint};
 }
 
-llvm::Function *getCAssertFunction(const Loc &loc, llvm::Module &target) {
+llvm::Function *getCAssertFunction(Loc loc, llvm::Module &target) {
   return getRuntimeFunction(loc, target, getCAssertFunctionName());
 }
 
@@ -409,7 +409,7 @@ static const char *getUnwindResumeFunctionName() {
   return "_Unwind_Resume";
 }
 
-llvm::Function *getUnwindResumeFunction(const Loc &loc, llvm::Module &target) {
+llvm::Function *getUnwindResumeFunction(Loc loc, llvm::Module &target) {
   return getRuntimeFunction(loc, target, getUnwindResumeFunctionName());
 }
 

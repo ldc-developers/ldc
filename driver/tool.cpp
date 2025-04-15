@@ -244,7 +244,7 @@ std::vector<const char *> getFullArgs(const char *tool,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-int executeToolAndWait(const Loc &loc, const std::string &tool_,
+int executeToolAndWait(Loc loc, const std::string &tool_,
                        const std::vector<std::string> &args, bool verbose) {
   const auto tool = findProgramByName(tool_);
   if (tool.empty()) {

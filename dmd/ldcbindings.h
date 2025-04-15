@@ -28,14 +28,14 @@ Array<Expression *> *createExpressions();
 OutBuffer *createOutBuffer();
 
 // for gen/asmstmt.cpp only:
-InlineAsmStatement *createInlineAsmStatement(const Loc &loc, Token *tokens);
-GccAsmStatement *createGccAsmStatement(const Loc &loc, Token *tokens);
+InlineAsmStatement *createInlineAsmStatement(Loc loc, Token *tokens);
+GccAsmStatement *createGccAsmStatement(Loc loc, Token *tokens);
 
 // for gen/asm-x86.h only:
-Expression *createExpressionForIntOp(const Loc &loc, TOK op, Expression *e1, Expression *e2);
-Expression *createExpression(const Loc &loc, EXP op);
-DsymbolExp *createDsymbolExp(const Loc &loc, Dsymbol *s);
-AddrExp *createAddrExp(const Loc &loc, Expression *e);
+Expression *createExpressionForIntOp(Loc loc, TOK op, Expression *e1, Expression *e2);
+Expression *createExpression(Loc loc, EXP op);
+DsymbolExp *createDsymbolExp(Loc loc, Dsymbol *s);
+AddrExp *createAddrExp(Loc loc, Expression *e);
 
 // for gen/toir.cpp only:
-CommaExp *createCommaExp(const Loc &loc, Expression *e1, Expression *e2, bool generated = true);
+CommaExp *createCommaExp(Loc loc, Expression *e1, Expression *e2, bool generated = true);

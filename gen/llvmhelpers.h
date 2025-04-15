@@ -29,12 +29,12 @@ template <class T> using ArrayParam = llvm::ArrayRef<T>;
 llvm::LLVMContext& getGlobalContext();
 
 // dynamic memory helpers
-LLValue *DtoNew(const Loc &loc, Type *newtype);
-void DtoDeleteMemory(const Loc &loc, DValue *ptr);
-void DtoDeleteStruct(const Loc &loc, DValue *ptr);
-void DtoDeleteClass(const Loc &loc, DValue *inst);
-void DtoDeleteInterface(const Loc &loc, DValue *inst);
-void DtoDeleteArray(const Loc &loc, DValue *arr);
+LLValue *DtoNew(Loc loc, Type *newtype);
+void DtoDeleteMemory(Loc loc, DValue *ptr);
+void DtoDeleteStruct(Loc loc, DValue *ptr);
+void DtoDeleteClass(Loc loc, DValue *inst);
+void DtoDeleteInterface(Loc loc, DValue *inst);
+void DtoDeleteArray(Loc loc, DValue *arr);
 
 unsigned DtoAlignment(Type *type);
 unsigned DtoAlignment(VarDeclaration *vd);
@@ -58,48 +58,48 @@ LLValue *DtoAllocaDump(LLValue *val, LLType *asType, int alignment = 0,
                        const char *name = "");
 
 // assertion generator
-void DtoAssert(Module *M, const Loc &loc, DValue *msg);
-void DtoCAssert(Module *M, const Loc &loc, LLValue *msg);
+void DtoAssert(Module *M, Loc loc, DValue *msg);
+void DtoCAssert(Module *M, Loc loc, LLValue *msg);
 
-void DtoThrow(const Loc &loc, DValue *e);
+void DtoThrow(Loc loc, DValue *e);
 
 // returns module file name
-LLConstant *DtoModuleFileName(Module *M, const Loc &loc);
+LLConstant *DtoModuleFileName(Module *M, Loc loc);
 
 /// emits goto to LabelStatement with the target identifier
-void DtoGoto(const Loc &loc, LabelDsymbol *target);
+void DtoGoto(Loc loc, LabelDsymbol *target);
 
 /// Enters a critical section.
-void DtoEnterCritical(const Loc &loc, LLValue *g);
+void DtoEnterCritical(Loc loc, LLValue *g);
 /// leaves a critical section.
-void DtoLeaveCritical(const Loc &loc, LLValue *g);
+void DtoLeaveCritical(Loc loc, LLValue *g);
 
 /// Enters a monitor lock.
-void DtoEnterMonitor(const Loc &loc, LLValue *v);
+void DtoEnterMonitor(Loc loc, LLValue *v);
 /// Leaves a monitor lock.
-void DtoLeaveMonitor(const Loc &loc, LLValue *v);
+void DtoLeaveMonitor(Loc loc, LLValue *v);
 
 // basic operations
-void DtoAssign(const Loc &loc, DValue *lhs, DValue *rhs, EXP op,
+void DtoAssign(Loc loc, DValue *lhs, DValue *rhs, EXP op,
                bool canSkipPostblit = false);
 
-DValue *DtoSymbolAddress(const Loc &loc, Type *type, Declaration *decl);
-llvm::Constant *DtoConstSymbolAddress(const Loc &loc, Declaration *decl);
+DValue *DtoSymbolAddress(Loc loc, Type *type, Declaration *decl);
+llvm::Constant *DtoConstSymbolAddress(Loc loc, Declaration *decl);
 
 /// Create a null DValue.
 DValue *DtoNullValue(Type *t, const Loc loc = Loc());
 
 // casts
-DValue *DtoCastInt(const Loc &loc, DValue *val, Type *to);
-DValue *DtoCastPtr(const Loc &loc, DValue *val, Type *to);
-DValue *DtoCastFloat(const Loc &loc, DValue *val, Type *to);
-DValue *DtoCastDelegate(const Loc &loc, DValue *val, Type *to);
-DValue *DtoCastVector(const Loc &loc, DValue *val, Type *to);
-DValue *DtoCast(const Loc &loc, DValue *val, Type *to);
+DValue *DtoCastInt(Loc loc, DValue *val, Type *to);
+DValue *DtoCastPtr(Loc loc, DValue *val, Type *to);
+DValue *DtoCastFloat(Loc loc, DValue *val, Type *to);
+DValue *DtoCastDelegate(Loc loc, DValue *val, Type *to);
+DValue *DtoCastVector(Loc loc, DValue *val, Type *to);
+DValue *DtoCast(Loc loc, DValue *val, Type *to);
 
 // return the same val as passed in, modified to the target type, if possible,
 // otherwise returns a new DValue
-DValue *DtoPaintType(const Loc &loc, DValue *val, Type *to);
+DValue *DtoPaintType(Loc loc, DValue *val, Type *to);
 
 /// Makes sure the declarations corresponding to the given D symbol have been
 /// emitted to the currently processed LLVM module.
@@ -117,12 +117,12 @@ DValue *DtoDeclarationExp(Dsymbol *declaration);
 LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr = nullptr);
 
 // initializer helpers
-LLConstant *DtoConstInitializer(const Loc &loc, Type *type,
+LLConstant *DtoConstInitializer(Loc loc, Type *type,
                                 Initializer *init, bool isCfile);
-LLConstant *DtoConstExpInit(const Loc &loc, Type *targetType, Expression *exp);
+LLConstant *DtoConstExpInit(Loc loc, Type *targetType, Expression *exp);
 
 // getting typeinfo of type
-LLConstant *DtoTypeInfoOf(const Loc &loc, Type *type);
+LLConstant *DtoTypeInfoOf(Loc loc, Type *type);
 
 // target stuff
 void findDefaultTarget();
@@ -141,11 +141,11 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
 unsigned getFieldGEPIndex(AggregateDeclaration *ad, VarDeclaration *vd);
 
 ///
-DValue *DtoInlineAsmExpr(const Loc &loc, FuncDeclaration *fd,
+DValue *DtoInlineAsmExpr(Loc loc, FuncDeclaration *fd,
                          Expressions *arguments,
                          LLValue *sretPointer = nullptr);
 ///
-llvm::CallInst *DtoInlineAsmExpr(const Loc &loc, llvm::StringRef code,
+llvm::CallInst *DtoInlineAsmExpr(Loc loc, llvm::StringRef code,
                                  llvm::StringRef constraints,
                                  llvm::ArrayRef<llvm::Value *> operands,
                                  llvm::ArrayRef<llvm::Type *> indirectTypes,
@@ -154,9 +154,9 @@ llvm::CallInst *DtoInlineAsmExpr(const Loc &loc, llvm::StringRef code,
 /// Returns the llvm::Value of the passed DValue, making sure that it is an
 /// lvalue (has a memory address), so it can be passed to the D runtime
 /// functions without problems.
-LLValue *makeLValue(const Loc &loc, DValue *value);
+LLValue *makeLValue(Loc loc, DValue *value);
 
-void callPostblit(const Loc &loc, Expression *exp, LLValue *val);
+void callPostblit(Loc loc, Expression *exp, LLValue *val);
 
 /// Returns whether the given variable is a DMD-internal "ref variable".
 ///
@@ -204,7 +204,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
                             DValue *&result);
 
 ///
-DValue *DtoCallFunction(const Loc &loc, Type *resulttype, DValue *fnval,
+DValue *DtoCallFunction(Loc loc, Type *resulttype, DValue *fnval,
                         Expressions *arguments, LLValue *sretPointer = nullptr, bool directcall = false);
 
 Type *stripModifiers(Type *type, bool transitive = false);
@@ -245,7 +245,7 @@ bool dllimportDataSymbol(Dsymbol *sym);
 ///
 /// Necessary to support multiple declarations with the same mangled name, as
 /// can be the case due to pragma(mangle).
-llvm::GlobalVariable *declareGlobal(const Loc &loc, llvm::Module &module,
+llvm::GlobalVariable *declareGlobal(Loc loc, llvm::Module &module,
                                     llvm::Type *type,
                                     llvm::StringRef mangledName,
                                     bool isConstant, bool isThreadLocal,
@@ -258,7 +258,7 @@ void defineGlobal(llvm::GlobalVariable *global, llvm::Constant *init,
                   Dsymbol *symbolForLinkageAndVisibility);
 
 /// Declares (if not already declared) & defines an LLVM global.
-llvm::GlobalVariable *defineGlobal(const Loc &loc, llvm::Module &module,
+llvm::GlobalVariable *defineGlobal(Loc loc, llvm::Module &module,
                                    llvm::StringRef mangledName,
                                    llvm::Constant *init,
                                    llvm::GlobalValue::LinkageTypes linkage,

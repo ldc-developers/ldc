@@ -12,7 +12,7 @@
 #include "llvm/Target/TargetMachine.h"
 
 namespace {
-const char *getPathToImportc_h(const Loc &loc) {
+const char *getPathToImportc_h(Loc loc) {
   // importc.h should be next to object.d
   static const char *cached = nullptr;
   if (!cached) {
@@ -57,7 +57,7 @@ const std::string &getCC(bool isMSVC,
   return cached_cc;
 }
 
-FileName getOutputPath(const Loc &loc, const char *csrcfile) {
+FileName getOutputPath(Loc loc, const char *csrcfile) {
   llvm::SmallString<64> buffer;
 
   // 1) create a new temporary directory (e.g., `/tmp/itmp-ldc-10ecec`)
@@ -79,8 +79,7 @@ FileName getOutputPath(const Loc &loc, const char *csrcfile) {
 }
 } // anonymous namespace
 
-FileName runCPreprocessor(FileName csrcfile, const Loc &loc,
-                          OutBuffer &defines) {
+FileName runCPreprocessor(FileName csrcfile, Loc loc, OutBuffer &defines) {
   dmd::TimeTraceScope timeScope("Preprocess C file", csrcfile.toChars(), loc);
 
   const char *importc_h = getPathToImportc_h(loc);

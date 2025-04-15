@@ -40,7 +40,7 @@ std::vector<const char *> getFullArgs(const char *tool,
                                       const std::vector<std::string> &args,
                                       bool printVerbose);
 
-int executeToolAndWait(const Loc &loc, const std::string &tool,
+int executeToolAndWait(Loc loc, const std::string &tool,
                        const std::vector<std::string> &args,
                        bool verbose = false);
 

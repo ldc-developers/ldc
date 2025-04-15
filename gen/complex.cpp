@@ -70,7 +70,7 @@ LLConstant *DtoConstComplex(Type *_ty, real_t re, real_t im) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoComplex(const Loc &loc, Type *to, DValue *val) {
+DValue *DtoComplex(Loc loc, Type *to, DValue *val) {
   LLType *complexTy = DtoType(to);
 
   Type *baserety;
@@ -116,7 +116,7 @@ void DtoComplexSet(LLType* ty, LLValue *c, LLValue *re, LLValue *im) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoGetComplexParts(const Loc &loc, Type *to, DValue *val, DValue *&re,
+void DtoGetComplexParts(Loc loc, Type *to, DValue *val, DValue *&re,
                         DValue *&im) {
   Type *baserety;
   Type *baseimty;
@@ -174,7 +174,7 @@ void DtoGetComplexParts(const Loc &loc, Type *to, DValue *val, DValue *&re,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoGetComplexParts(const Loc &loc, Type *to, DValue *val, LLValue *&re,
+void DtoGetComplexParts(Loc loc, Type *to, DValue *val, LLValue *&re,
                         LLValue *&im) {
   DValue *dre, *dim;
   DtoGetComplexParts(loc, to, val, dre, dim);
@@ -184,8 +184,7 @@ void DtoGetComplexParts(const Loc &loc, Type *to, DValue *val, LLValue *&re,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoComplexAdd(const Loc &loc, Type *type, DRValue *lhs,
-                        DRValue *rhs) {
+DImValue *DtoComplexAdd(Loc loc, Type *type, DRValue *lhs, DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
   // lhs values
@@ -216,8 +215,7 @@ DImValue *DtoComplexAdd(const Loc &loc, Type *type, DRValue *lhs,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoComplexMin(const Loc &loc, Type *type, DRValue *lhs,
-                        DRValue *rhs) {
+DImValue *DtoComplexMin(Loc loc, Type *type, DRValue *lhs, DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
   // lhs values
@@ -248,8 +246,7 @@ DImValue *DtoComplexMin(const Loc &loc, Type *type, DRValue *lhs,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoComplexMul(const Loc &loc, Type *type, DRValue *lhs,
-                        DRValue *rhs) {
+DImValue *DtoComplexMul(Loc loc, Type *type, DRValue *lhs, DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
   // lhs values
@@ -302,8 +299,7 @@ DImValue *DtoComplexMul(const Loc &loc, Type *type, DRValue *lhs,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoComplexDiv(const Loc &loc, Type *type, DRValue *lhs,
-                        DRValue *rhs) {
+DImValue *DtoComplexDiv(Loc loc, Type *type, DRValue *lhs, DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im;
 
   // lhs values
@@ -376,8 +372,7 @@ DImValue *DtoComplexDiv(const Loc &loc, Type *type, DRValue *lhs,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoComplexMod(const Loc &loc, Type *type, DRValue *lhs,
-                        DRValue *rhs) {
+DImValue *DtoComplexMod(Loc loc, Type *type, DRValue *lhs, DRValue *rhs) {
   llvm::Value *lhs_re, *lhs_im, *rhs_re, *rhs_im, *res_re, *res_im, *divisor;
 
   // lhs values
@@ -398,7 +393,7 @@ DImValue *DtoComplexMod(const Loc &loc, Type *type, DRValue *lhs,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DImValue *DtoComplexNeg(const Loc &loc, Type *type, DRValue *val) {
+DImValue *DtoComplexNeg(Loc loc, Type *type, DRValue *val) {
   llvm::Value *a, *b, *re, *im;
 
   // values
@@ -415,7 +410,7 @@ DImValue *DtoComplexNeg(const Loc &loc, Type *type, DRValue *val) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoComplexEquals(const Loc &loc, EXP op, DValue *lhs, DValue *rhs) {
+LLValue *DtoComplexEquals(Loc loc, EXP op, DValue *lhs, DValue *rhs) {
   DValue *lhs_re, *lhs_im, *rhs_re, *rhs_im;
 
   // lhs values
@@ -433,7 +428,7 @@ LLValue *DtoComplexEquals(const Loc &loc, EXP op, DValue *lhs, DValue *rhs) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoCastComplex(const Loc &loc, DValue *val, Type *_to) {
+DValue *DtoCastComplex(Loc loc, DValue *val, Type *_to) {
   Type *to = _to->toBasetype();
   Type *vty = val->type->toBasetype();
   if (to->isComplex()) {

@@ -32,22 +32,21 @@ llvm::Constant *DtoConstComplex(Type *t, real_t re, real_t im);
 
 llvm::Constant *DtoComplexShuffleMask(unsigned a, unsigned b);
 
-DValue *DtoComplex(const Loc &loc, Type *to, DValue *val);
+DValue *DtoComplex(Loc loc, Type *to, DValue *val);
 
 void DtoComplexSet(llvm::Type*, llvm::Value *c, llvm::Value *re, llvm::Value *im);
 
-void DtoGetComplexParts(const Loc &loc, Type *to, DValue *c, DValue *&re,
-                        DValue *&im);
-void DtoGetComplexParts(const Loc &loc, Type *to, DValue *c, llvm::Value *&re,
+void DtoGetComplexParts(Loc loc, Type *to, DValue *c, DValue *&re, DValue *&im);
+void DtoGetComplexParts(Loc loc, Type *to, DValue *c, llvm::Value *&re,
                         llvm::Value *&im);
 
-DImValue *DtoComplexAdd(const Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
-DImValue *DtoComplexMin(const Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
-DImValue *DtoComplexMul(const Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
-DImValue *DtoComplexDiv(const Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
-DImValue *DtoComplexMod(const Loc &loc, Type *type, DRValue *lhs, DRValue *rhs);
-DImValue *DtoComplexNeg(const Loc &loc, Type *type, DRValue *val);
+DImValue *DtoComplexAdd(Loc loc, Type *type, DRValue *lhs, DRValue *rhs);
+DImValue *DtoComplexMin(Loc loc, Type *type, DRValue *lhs, DRValue *rhs);
+DImValue *DtoComplexMul(Loc loc, Type *type, DRValue *lhs, DRValue *rhs);
+DImValue *DtoComplexDiv(Loc loc, Type *type, DRValue *lhs, DRValue *rhs);
+DImValue *DtoComplexMod(Loc loc, Type *type, DRValue *lhs, DRValue *rhs);
+DImValue *DtoComplexNeg(Loc loc, Type *type, DRValue *val);
 
-llvm::Value *DtoComplexEquals(const Loc &loc, EXP op, DValue *lhs, DValue *rhs);
+llvm::Value *DtoComplexEquals(Loc loc, EXP op, DValue *lhs, DValue *rhs);
 
-DValue *DtoCastComplex(const Loc &loc, DValue *val, Type *to);
+DValue *DtoCastComplex(Loc loc, DValue *val, Type *to);

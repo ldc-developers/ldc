@@ -27,7 +27,7 @@
 using namespace dmd;
 
 // returns the keytype typeinfo
-static LLConstant *to_keyti(const Loc &loc, DValue *aa) {
+static LLConstant *to_keyti(Loc loc, DValue *aa) {
   // keyti param
   assert(aa->type->toBasetype()->ty == TY::Taarray);
   TypeAArray *aatype = static_cast<TypeAArray *>(aa->type->toBasetype());
@@ -36,8 +36,7 @@ static LLConstant *to_keyti(const Loc &loc, DValue *aa) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DLValue *DtoAAIndex(const Loc &loc, Type *type, DValue *aa, DValue *key,
-                    bool lvalue) {
+DLValue *DtoAAIndex(Loc loc, Type *type, DValue *aa, DValue *key, bool lvalue) {
   // D2:
   // call:
   // extern(C) void* _aaGetY(AA* aa, TypeInfo aati, size_t valuesize, void*
@@ -93,7 +92,7 @@ DLValue *DtoAAIndex(const Loc &loc, Type *type, DValue *aa, DValue *key,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoAAIn(const Loc &loc, Type *type, DValue *aa, DValue *key) {
+DValue *DtoAAIn(Loc loc, Type *type, DValue *aa, DValue *key) {
   // D1:
   // call:
   // extern(C) void* _aaIn(AA aa*, TypeInfo keyti, void* pkey)
@@ -128,7 +127,7 @@ DValue *DtoAAIn(const Loc &loc, Type *type, DValue *aa, DValue *key) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DValue *DtoAARemove(const Loc &loc, DValue *aa, DValue *key) {
+DValue *DtoAARemove(Loc loc, DValue *aa, DValue *key) {
   // D1:
   // call:
   // extern(C) void _aaDel(AA aa, TypeInfo keyti, void* pkey)
@@ -163,7 +162,7 @@ DValue *DtoAARemove(const Loc &loc, DValue *aa, DValue *key) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoAAEquals(const Loc &loc, EXP op, DValue *l, DValue *r) {
+LLValue *DtoAAEquals(Loc loc, EXP op, DValue *l, DValue *r) {
   Type *t = l->type->toBasetype();
   assert(t == r->type->toBasetype() &&
          "aa equality is only defined for aas of same type");

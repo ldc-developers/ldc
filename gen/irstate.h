@@ -268,11 +268,11 @@ public:
   void addLinkerOption(llvm::ArrayRef<llvm::StringRef> options);
   void addLinkerDependentLib(llvm::StringRef libraryName);
 
-  llvm::CallInst *createInlineAsmCall(const Loc &loc, llvm::InlineAsm *ia,
+  llvm::CallInst *createInlineAsmCall(Loc loc, llvm::InlineAsm *ia,
                                       llvm::ArrayRef<llvm::Value *> args,
                                       llvm::ArrayRef<llvm::Type *> indirectTypes);
-  void addInlineAsmSrcLoc(const Loc &loc, llvm::CallInst *inlineAsmCall);
-  const Loc &getInlineAsmSrcLoc(unsigned srcLocCookie) const;
+  void addInlineAsmSrcLoc(Loc loc, llvm::CallInst *inlineAsmCall);
+  Loc getInlineAsmSrcLoc(unsigned srcLocCookie) const;
 
   // MS C++ compatible type descriptors
   llvm::DenseMap<size_t, llvm::StructType *> TypeDescriptorTypeMap;
