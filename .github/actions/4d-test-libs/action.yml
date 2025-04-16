@@ -30,6 +30,10 @@ runs:
           # FIXME: sporadically hanging
           excludes+='|^core.thread-shared$'
         fi
+        if [[ '${{ runner.os }}' == macOS ]]; then
+          # FIXME: https://github.com/dlang/phobos/issues/10730
+          excludes+='|^std.experimental.allocator.building_blocks.allocator_list'
+        fi
 
         ctest -j$N --output-on-failure -E "$excludes" --timeout 120
 
