@@ -587,12 +587,6 @@ set_target_properties(
     # Use a custom .props file to set up Visual D (import paths, predefined versions...).
     VS_USER_PROPS "${PROJECT_SOURCE_DIR}/cmake/VisualD.props"
 )
-if(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-    # FreeBSD LLVM port links to zstd, but does not convey this information via CMake
-    # Workaround it here until it is fixed in the port
-    find_package(zstd)
-    list(APPEND LLVM_LIBRARIES "$<TARGET_LINKER_FILE:zstd::libzstd_shared>")
-endif()
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
 target_link_libraries(${LDC_LIB} ${LLVM_LIBRARIES} ${LLVM_LDFLAGS})
 if(WIN32)
@@ -626,15 +620,20 @@ if(LDC_WITH_LLD)
     else()
         set(LDC_LINKERFLAG_LIST -lLLVMSymbolize ${LDC_LINKERFLAG_LIST})
     endif()
-    set(LLD_MACHO lldMachO)
     if(MSVC)
-        list(APPEND LDC_LINKERFLAG_LIST lldMinGW.lib lldCOFF.lib lldELF.lib ${LLD_MACHO}.lib lldWasm.lib lldCommon.lib)
+        list(APPEND LDC_LINKERFLAG_LIST lldMinGW.lib lldCOFF.lib lldELF.lib lldMachO.lib lldWasm.lib lldCommon.lib)
     else()
-        set(LDC_LINKERFLAG_LIST -llldMinGW -llldCOFF -llldELF -l${LLD_MACHO} -llldWasm -llldCommon ${LDC_LINKERFLAG_LIST})
+        set(LDC_LINKERFLAG_LIST -llldMinGW -llldCOFF -llldELF -llldMachO -llldWasm -llldCommon ${LDC_LINKERFLAG_LIST})
     endif()
     if(APPLE)
         # LLD 13.0.0 on Mac needs libxar
         list(APPEND LDC_LINKERFLAG_LIST -lxar)
+    endif()
+    if(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+        # FreeBSD LLVM port links to zstd, but does not convey this information via CMake
+        # Workaround it here until it is fixed in the port
+        find_package(zstd)
+        list(APPEND LDC_LINKERFLAG_LIST "$<TARGET_LINKER_FILE:zstd::libzstd_shared>")
     endif()
 endif()
 
