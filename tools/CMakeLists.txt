@@ -30,6 +30,7 @@ if(LDC_BUNDLE_LLVM_TOOLS)
   # Build ldc-profdata for converting profile data formats (source version depends on LLVM version)
   set(LDCPROFDATA_SRC ldc-profdata/llvm-profdata-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.cpp)
   if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${LDCPROFDATA_SRC})
+      find_package(Threads)
       add_executable(ldc-profdata ${LDCPROFDATA_SRC})
       set_target_properties(
         ldc-profdata PROPERTIES
@@ -37,7 +38,7 @@ if(LDC_BUNDLE_LLVM_TOOLS)
         COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
         LINK_FLAGS "${SANITIZE_LDFLAGS} ${FULLY_STATIC_LDFLAG}"
       )
-      target_link_libraries(ldc-profdata ${LLVM_LIBRARIES} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS})
+      target_link_libraries(ldc-profdata ${LLVM_LIBRARIES} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS} ${CMAKE_THREAD_LIBS_INIT})
       install(TARGETS ldc-profdata DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
       # Set path to executable, used by the lit testsuite.
