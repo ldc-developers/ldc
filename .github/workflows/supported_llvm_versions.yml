@@ -163,6 +163,8 @@ jobs:
               # FIXME: crashes frequently with enabled optimizations on M1 runners
               excludes+='|^std.internal.math.gammafunction(-shared)?$'
             fi
+            # FIXME: https://github.com/dlang/phobos/issues/10730
+            excludes+='|^std.experimental.allocator.building_blocks.allocator_list'
           else
             N=$(nproc)
           fi
