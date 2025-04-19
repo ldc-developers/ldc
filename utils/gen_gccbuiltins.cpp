@@ -31,9 +31,15 @@ using namespace llvm;
 
 #define BUILTIN_NAME_STRING "ClangBuiltinName"
 
-string dtype(Record* rec, bool readOnlyMem)
+#if LDC_LLVM_VER >= 2000
+#define LLVM_20_CONST const
+#else
+#define LLVM_20_CONST
+#endif
+
+string dtype(LLVM_20_CONST Record* rec, bool readOnlyMem)
 {
-    Init* typeInit = rec->getValueInit("VT");
+    LLVM_20_CONST Init* typeInit = rec->getValueInit("VT");
     if(!typeInit)
         return "";
 
@@ -72,7 +78,7 @@ string dtype(Record* rec, bool readOnlyMem)
         return "";
 }
 
-StringRef attributes(ListInit* propertyList)
+StringRef attributes(LLVM_20_CONST ListInit* propertyList)
 {
   const auto prop = propertyList->size()
                     ? propertyList->getElementAsRecord(0)->getName()
@@ -100,13 +106,13 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
     replace(name.begin(), name.end(), '_', '.');
     name = string("llvm.") + name;
 
-    ListInit* propsList = rec.getValueAsListInit("IntrProperties");
+    LLVM_20_CONST ListInit* propsList = rec.getValueAsListInit("IntrProperties");
     const StringRef prop =
         propsList->size() ? propsList->getElementAsRecord(0)->getName() : "";
 
     bool readOnlyMem = prop == "IntrReadArgMem" || prop == "IntrReadMem";
 
-    ListInit* paramsList = rec.getValueAsListInit("ParamTypes");
+    LLVM_20_CONST ListInit* paramsList = rec.getValueAsListInit("ParamTypes");
     vector<string> params;
     for(unsigned int i = 0; i < paramsList->size(); i++)
     {
@@ -117,7 +123,7 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
         params.push_back(t);
     }
 
-    ListInit* retList = rec.getValueAsListInit("RetTypes");
+    LLVM_20_CONST ListInit* retList = rec.getValueAsListInit("RetTypes");
     string ret;
     size_t sz = retList->size();
     if(sz == 0)
@@ -145,7 +151,7 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
 
 std::string arch;
 
-bool emit(raw_ostream& os, RecordKeeper& records)
+bool emit(raw_ostream& os, LLVM_20_CONST RecordKeeper& records)
 {
     os << "module ldc.gccbuiltins_";
     os << arch;
