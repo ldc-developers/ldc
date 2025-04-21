@@ -170,6 +170,7 @@ runs:
       run: mv ../artifacts ./
 
     - name: Upload artifact(s)
+      if: runner.os != 'macOS'
       uses: actions/upload-artifact@v4
       with:
         name: ${{ env.ARTIFACT_NAME }}
