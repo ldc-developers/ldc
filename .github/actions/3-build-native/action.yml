@@ -22,8 +22,9 @@ runs:
         build_dir: build
         host_dc: ../bootstrap-ldc/bin/ldmd2
         specify_install_dir: true
-        # FIXME: sporadic compiler crashes on macOS arm64 when using mimalloc *and* mixing LLVM versions for Xcode clang/host LDC:
-        # libc++abi: Pure virtual function called!
+        # FIXME: mimalloc on macOS is tricky - when mixing newer LLVM from bootstrap LDC with older LLVM from Xcode clang,
+        #        causing *sporadic* compiler crashes: `libc++abi: Pure virtual function called!`
+        #        on x86_64, this is 'fixed' by using LTO - on arm64, this doesn't suffice
         cmake_flags: >-
           ${{ (runner.os != 'Windows' && !(runner.os == 'macOS' && inputs.arch == 'arm64')) && '-DALTERNATIVE_MALLOC_O="$PWD/../build-mimalloc/CMakeFiles/mimalloc-obj.dir/src/static.c.o"' || '' }}
           ${{ inputs.cmake_flags }}
