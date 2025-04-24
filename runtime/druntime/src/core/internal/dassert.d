@@ -323,7 +323,7 @@ private string miniFormat(V)(const scope ref V v)
                 return "`null`";
         }
 
-        try
+        version (D_BetterC)
         {
             // Prefer const overload of toString
             static if (__traits(compiles, { string s = v.toString(); }))
@@ -331,9 +331,20 @@ private string miniFormat(V)(const scope ref V v)
             else
                 return (cast() v).toString();
         }
-        catch (Exception e)
+        else
         {
-            return `<toString() failed: "` ~ e.msg ~ `", called on ` ~ formatMembers(v) ~`>`;
+            try
+            {
+                // Prefer const overload of toString
+                static if (__traits(compiles, { string s = v.toString(); }))
+                    return v.toString();
+                else
+                    return (cast() v).toString();
+            }
+            catch (Exception e)
+            {
+                return `<toString() failed: "` ~ e.msg ~ `", called on ` ~ formatMembers(v) ~`>`;
+            }
         }
     }
     // Static arrays or slices (but not aggregates with `alias this`)
