@@ -67,23 +67,31 @@ Tarr _d_arrayctor(Tarr : T[], T)(return scope Tarr to, scope Tarr from, char* ma
 
     static if (hasElaborateCopyConstructor!T)
     {
-        size_t i;
-        try
+        version (D_BetterC)
         {
-            for (i = 0; i < to.length; i++)
+            for (size_t i = 0; i < to.length; i++)
                 copyEmplace(from[i], to[i]);
         }
-        catch (Exception o)
+        else
         {
-            /* Destroy, in reverse order, what we've constructed so far
-            */
-            while (i--)
+            size_t i;
+            try
             {
-                auto elem = cast(Unqual!T*) &to[i];
-                destroy(*elem);
+                for (i = 0; i < to.length; i++)
+                    copyEmplace(from[i], to[i]);
             }
+            catch (Exception o)
+            {
+                /* Destroy, in reverse order, what we've constructed so far
+                */
+                while (i--)
+                {
+                    auto elem = cast(Unqual!T*) &to[i];
+                    destroy(*elem);
+                }
 
-            throw o;
+                throw o;
+            }
         }
     }
     else
@@ -207,22 +215,30 @@ void _d_arraysetctor(Tarr : T[], T)(scope Tarr p, scope ref T value) @trusted
     version (DigitalMars) pragma(inline, false);
     import core.lifetime : copyEmplace;
 
-    size_t i;
-    try
+    version (D_BetterC)
     {
-        for (i = 0; i < p.length; i++)
+        for (size_t i = 0; i < p.length; i++)
             copyEmplace(value, p[i]);
     }
-    catch (Exception o)
+    else
     {
-        // Destroy, in reverse order, what we've constructed so far
-        while (i--)
+        size_t i;
+        try
         {
-            auto elem = cast(Unqual!T*)&p[i];
-            destroy(*elem);
+            for (i = 0; i < p.length; i++)
+                copyEmplace(value, p[i]);
         }
+        catch (Exception o)
+        {
+            // Destroy, in reverse order, what we've constructed so far
+            while (i--)
+            {
+                auto elem = cast(Unqual!T*)&p[i];
+                destroy(*elem);
+            }
 
-        throw o;
+            throw o;
+        }
     }
 }
 
@@ -505,7 +521,7 @@ version (D_ProfileGC)
  * Returns:
  *    newly allocated array
  */
-Tarr _d_newarraymTX(Tarr : U[], T, U)(size_t[] dims, bool isShared=false) @trusted
+Tarr _d_newarraymTX(Tarr : U[], T, U)(scope size_t[] dims, bool isShared=false) @trusted
 {
     debug(PRINTF) printf("_d_newarraymTX(dims.length = %zd)\n", dims.length);
 
@@ -602,7 +618,7 @@ version (D_ProfileGC)
     /**
     * TraceGC wrapper around $(REF _d_newarraymT, core,internal,array,construction).
     */
-    Tarr _d_newarraymTXTrace(Tarr : U[], T, U)(size_t[] dims, bool isShared=false, string file = __FILE__, int line = __LINE__, string funcname = __FUNCTION__) @trusted
+    Tarr _d_newarraymTXTrace(Tarr : U[], T, U)(scope size_t[] dims, bool isShared=false, string file = __FILE__, int line = __LINE__, string funcname = __FUNCTION__) @trusted
     {
         version (D_TypeInfo)
         {
