@@ -460,6 +460,7 @@ void test20253(IDiaSession session, IDiaSymbol globals)
                assert(false, "line number code offset out of function range");
 
     (checkRange.ptr >= funcRange.ptr + funcRange.length) ||
+        (checkRange.ptr + checkRange.length <= funcRange.ptr) ||
         assert(false, "code range of check20253 overlaps with func20253");
 }
 
