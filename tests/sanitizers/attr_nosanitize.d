@@ -11,8 +11,8 @@ extern (C): // For easier name mangling
 
 version (NORMAL)
 {
-    // NORMAL: sanitize_address
-    // NORMAL: sanitize_thread
+    // NORMAL:      ; Function Attrs:{{.*}} sanitize_address sanitize_thread
+    // NORMAL-NEXT: define{{.*}} void {{.*}}foo
     void foo()
     {
     }
@@ -20,13 +20,16 @@ version (NORMAL)
 else version (NOSANITIZE)
 {
     // NOSANITIZE-NOT: sanitize_address
-    // NOSANITIZE: sanitize_thread
+    // NOSANITIZE:     sanitize_thread
     // NOSANITIZE-NOT: sanitize_address
+    // NOSANITIZE:     define{{.*}} void {{.*}}foo_noaddress
     @noSanitize("address")
     void foo_noaddress()
     {
     }
 
+    // NOSANITIZE-NOT: ; Function Attrs:{{.*}} sanitize_
+    // NOSANITIZE:     define{{.*}} void {{.*}}foo_nothread_noaddress
     @noSanitize("thread")
     @noSanitize("address")
     void foo_nothread_noaddress()
