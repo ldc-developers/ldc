@@ -23,7 +23,7 @@ runs:
 
         packages=( \
           git-core cmake g++ \
-          libcurl4 libxml2-dev libzstd-dev \
+          libcurl4 libxml2-dev libzstd-dev liblzma-dev \
           curl gdb p7zip-full tzdata unzip zip python3-pip \
         )
         if [[ $arch == x86_64 ]]; then
@@ -34,7 +34,7 @@ runs:
 
         sudo -E apt-get -yq install ${packages[@]}
 
-        # Make sure to link libzstd statically
+        # Make sure to link libzstd statically to increase distro compatibility
         sudo rm /usr/lib/$arch-linux-gnu/libzstd.so
 
     - name: 'Linux: Install clang 19 from apt.llvm.org'

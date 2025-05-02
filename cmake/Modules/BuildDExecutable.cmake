@@ -95,7 +95,12 @@ function(build_d_executable target_name output_exe d_src_files compiler_args lin
             list(APPEND dep_libs "-L$<TARGET_LINKER_FILE:${l}>")
         endforeach()
 
-        set(full_linker_args ${CMAKE_EXE_LINKER_FLAGS} ${linker_args} ${D_LINKER_ARGS})
+        if(UNIX)
+            separate_arguments(full_linker_args UNIX_COMMAND "${CMAKE_EXE_LINKER_FLAGS}")
+        else()
+            separate_arguments(full_linker_args WINDOWS_COMMAND "${CMAKE_EXE_LINKER_FLAGS}")
+        endif()
+        list(APPEND full_linker_args ${linker_args} ${D_LINKER_ARGS})
         translate_linker_args(full_linker_args translated_linker_args)
 
         # We need to link against the C++ runtime library.

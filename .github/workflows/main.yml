@@ -27,11 +27,12 @@ jobs:
             os: ubuntu-22.04
             arch: x86_64
             # To improve portability of the generated binaries, link the C++ standard library statically.
+            # Also link libxml2 and its libicu+liblzma dependencies statically.
             extra_cmake_flags: >-
               -DMULTILIB=ON
               -DCMAKE_C_COMPILER=clang
               -DCMAKE_CXX_COMPILER=clang++
-              -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++
+              -DCMAKE_EXE_LINKER_FLAGS="-static-libstdc++ -l:libicuuc.a -l:libicudata.a -l:liblzma.a"
               -DJITRT_EXTRA_LDFLAGS=-static-libstdc++
               -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
               -DEXTRA_CXXFLAGS=-flto=full
@@ -43,7 +44,7 @@ jobs:
             extra_cmake_flags: >-
               -DCMAKE_C_COMPILER=clang
               -DCMAKE_CXX_COMPILER=clang++
-              -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++
+              -DCMAKE_EXE_LINKER_FLAGS="-static-libstdc++ -l:libicuuc.a -l:libicudata.a -l:liblzma.a"
               -DJITRT_EXTRA_LDFLAGS=-static-libstdc++
               -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
               -DEXTRA_CXXFLAGS=-flto=full
@@ -186,6 +187,9 @@ jobs:
         with:
           cmake_flags: ${{ matrix.base_cmake_flags }}
           arch: ${{ matrix.arch }}
+      - name: 'Ubuntu: Make sure libxml2 is linked statically'
+        if: runner.os == 'Linux' && !matrix.container_image
+        run: sudo rm /usr/lib/${{ matrix.arch }}-linux-gnu/libxml2.so
       - name: Build LDC & LDC D unittests & defaultlib unittest runners
         uses: ./.github/actions/3-build-native
         with:
