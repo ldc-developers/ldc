@@ -29,7 +29,6 @@ jobs:
             # To improve portability of the generated binaries, link the C++ standard library statically.
             # Also link libxml2 and its libicu+liblzma dependencies statically.
             extra_cmake_flags: >-
-              -DMULTILIB=ON
               -DCMAKE_C_COMPILER=clang
               -DCMAKE_CXX_COMPILER=clang++
               -DCMAKE_EXE_LINKER_FLAGS="-static-libstdc++ -l:libicuuc.a -l:libicudata.a -l:liblzma.a"
