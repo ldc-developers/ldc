@@ -308,8 +308,8 @@ static void DtoSetArray(DValue *array, DValue *rhs) {
 
 LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
                                      Type *targetType, const bool isCfile) {
-  IF_LOG Logger::println("DtoConstArrayInitializer: %s | %s",
-                         arrinit->toChars(), targetType->toChars());
+  IF_LOG Logger::println("DtoConstArrayInitializer | %s",
+                         targetType->toChars());
   LOG_SCOPE;
 
   assert(arrinit->value.length == arrinit->index.length);
