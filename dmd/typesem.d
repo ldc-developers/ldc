@@ -3288,6 +3288,11 @@ Type merge(Type type)
                 return type;
             goto default;
 
+        case Tfunction:
+            if (!type.nextOf())
+                return type;
+            goto default;
+
         default:
             if (type.nextOf() && !type.nextOf().deco)
                 return type;

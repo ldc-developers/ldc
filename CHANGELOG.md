@@ -1,7 +1,7 @@
 # LDC master
 
 #### Big news
-- Frontend, druntime and Phobos are at version [2.111.0+](https://dlang.org/changelog/2.111.0.html). (#4877, #4910)
+- Frontend, druntime and Phobos are at version [2.111.0+](https://dlang.org/changelog/2.111.0.html). (#4877, #4910, #4918)
 - Keep frame pointers by default with `-O` for some targets, notably AArch64 (except Windows), x86_64 (except Windows and glibc Linux), Windows x86, and Android. This fixes druntime backtraces with optimized code (incl. prebuilt druntime/Phobos). (#4889)
 - The prebuilt (non-musl) Linux packages are now generated on Ubuntu 22.04; the minimum glibc version has accordingly been raised from v2.31 to v2.35. (#4893)
 - ldc2.conf: Arrays can now be appended to via the `~=` operator. (#4848, #4856)

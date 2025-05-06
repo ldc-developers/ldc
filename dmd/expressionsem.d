@@ -1334,8 +1334,8 @@ private Expression resolveUFCS(Scope* sc, CallExp ce)
         ce.arguments = new Expressions();
     ce.arguments.shift(eleft);
     if (!ce.names)
-        ce.names = new Identifiers();
-    ce.names.shift(null);
+        ce.names = new ArgumentLabels();
+    ce.names.shift(ArgumentLabel(cast(Identifier) null, Loc.init));
     ce.isUfcsRewrite = true;
     return null;
 }
@@ -4556,7 +4556,13 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
         {
             printf("AssocArrayLiteralExp::semantic('%s')\n", e.toChars());
         }
-
+        if (e.type)
+        {
+            // already done, but we might have missed generating type info
+            semanticTypeInfo(sc, e.type);
+            result = e;
+            return;
+        }
         // Run semantic() on each element
         bool err_keys = arrayExpressionSemantic(e.keys.peekSlice(), sc);
         bool err_vals = arrayExpressionSemantic(e.values.peekSlice(), sc);
@@ -5300,10 +5306,11 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             {
                 if (exp.names)
                 {
-                    exp.arguments = resolveStructLiteralNamedArgs(sd, exp.type, sc, exp.loc,
-                        exp.names ? (*exp.names)[] : null,
+                    exp.arguments = resolveStructLiteralNamedArgs(sd, exp.type, sc, exp.loc, exp.names.length,
+                        i => (*exp.names)[i].name,
                         (size_t i, Type t) => (*exp.arguments)[i],
-                        i => (*exp.arguments)[i].loc
+                        i => (*exp.arguments)[i].loc,
+                        i => (*exp.names)[i].loc
                     );
                     if (!exp.arguments)
                         return setError();
@@ -5367,9 +5374,9 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                 }
 
                 Expression arg = (*exp.arguments)[i];
-                if (exp.names && (*exp.names)[i])
+                if (exp.names && (*exp.names)[i].name)
                 {
-                    error(exp.loc, "no named argument `%s` allowed for array dimension", (*exp.names)[i].toChars());
+                    error(exp.loc, "no named argument `%s` allowed for array dimension", (*exp.names)[i].name.toChars());
                     return setError();
                 }
 
@@ -5483,9 +5490,9 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             }
             else if (nargs == 1)
             {
-                if (exp.names && (*exp.names)[0])
+                if (exp.names && (*exp.names)[0].name)
                 {
-                    error(exp.loc, "no named argument `%s` allowed for scalar", (*exp.names)[0].toChars());
+                    error(exp.loc, "no named argument `%s` allowed for scalar", (*exp.names)[0].name.toChars());
                     return setError();
                 }
                 Expression e = (*exp.arguments)[0];
@@ -5665,6 +5672,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             s = "__funcliteral";
 
         DsymbolTable symtab;
+        string parentMangle;
         if (FuncDeclaration func = sc.parent.isFuncDeclaration())
         {
             if (func.localsymtab is null)
@@ -5674,6 +5682,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                 func.localsymtab = new DsymbolTable();
             }
             symtab = func.localsymtab;
+            parentMangle = cast(string) mangleExact(func).toDString();
         }
         else
         {
@@ -5686,9 +5695,13 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                 sds.symtab = new DsymbolTable();
             }
             symtab = sds.symtab;
+
+            OutBuffer buf;
+            mangleToBuffer(sds, buf);
+            parentMangle = buf.extractSlice();
         }
         assert(symtab);
-        Identifier id = Identifier.generateIdWithLoc(s, exp.loc, cast(string) toDString(sc.parent.toPrettyChars()));
+        Identifier id = Identifier.generateIdWithLoc(s, exp.loc, parentMangle);
         exp.fd.ident = id;
         if (exp.td)
             exp.td.ident = id;
@@ -6275,10 +6288,11 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                 Expressions* resolvedArgs = exp.arguments;
                 if (exp.names)
                 {
-                    resolvedArgs = resolveStructLiteralNamedArgs(sd, exp.e1.type, sc, exp.loc,
-                        (*exp.names)[],
+                    resolvedArgs = resolveStructLiteralNamedArgs(sd, exp.e1.type, sc, exp.loc, exp.names.length,
+                        i => (*exp.names)[i].name,
                         (size_t i, Type t) => (*exp.arguments)[i],
-                        i => (*exp.arguments)[i].loc
+                        i => (*exp.arguments)[i].loc,
+                        i => (*exp.names)[i].loc
                     );
                     if (!resolvedArgs)
                     {
@@ -13890,6 +13904,7 @@ private bool expressionSemanticDone(Expression e)
         || e.isTypeExp() // stores its type in the Expression.type field
         || e.isCompoundLiteralExp() // stores its `(type) {}` in type field, gets rewritten to struct literal
         || e.isVarExp() // type sometimes gets set already before semantic
+        || (e.isAssocArrayLiteralExp() && !e.type.vtinfo) // semanticTypeInfo not run during initialization
     );
 }
 
