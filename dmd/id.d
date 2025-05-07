@@ -584,6 +584,7 @@ immutable Msgtable[] msgtable =
     { "udaNoSanitize", "noSanitize" },
     { "udaNoSplitStack", "_noSplitStack" },
     { "udaSwiftStub", "swift"},
+    { "udaRealTimeUnsafe", "_realTimeUnsafe"},
 
     // IN_LLVM: DCompute specific types and functionss
     { "dcompute" },

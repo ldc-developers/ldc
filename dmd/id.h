@@ -98,6 +98,7 @@ struct Id
     static Identifier *udaHidden;
     static Identifier *udaNoSanitize;
     static Identifier *udaNoSplitStack;
+    static Identifier *udaRealTimeUnsafe;
     static Identifier *io;
 #endif
 };

@@ -309,6 +309,22 @@ private struct _noSplitStack
 }
 
 /**
+ * Marks this function as real-time unsafe.
+ * This attribute is akin to Clang's `[[clang::blocking]]` attribute
+ * and is only effective when realtime sanitizer is enabled
+ * (e.g. by specifying `-fsanitize=realtime` on the commandline).
+ *
+ * If you have a function that is real-time unsafe, rather than using
+ * `@noSanitize("realtime")` to disable the check, please use this attribute
+ * to mark the function as real-time unsafe. The sanitizer will also skip
+ * checking this function for real-time violations.
+ */
+immutable realTimeUnsafe = _realTimeUnsafe();
+private struct _realTimeUnsafe
+{
+}
+
+/**
  * Sets the optimization strategy for a function.
  * Valid strategies are "none", "optsize", "minsize". The strategies are mutually exclusive.
  *

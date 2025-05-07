@@ -677,6 +677,12 @@ bool hasNoSplitStackUDA(FuncDeclaration *fd) {
   return sle != nullptr;
 }
 
+/// Check whether `fd` has the `@ldc.attributes.realTimeUnsafe` UDA applied.
+bool hasRealTimeUnsafeUDA(FuncDeclaration *fd) {
+  auto sle = getMagicAttribute(fd, Id::udaRealTimeUnsafe, Id::attributes);
+  return sle != nullptr;
+}
+
 /// Creates a mask (for &) of @ldc.attributes.noSanitize UDA applied to the
 /// function.
 /// If a bit is set in the mask, then the sanitizer is enabled.

@@ -1178,7 +1178,10 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
 
 #if LDC_LLVM_VER >= 2000
     if (opts::isSanitizerEnabled(opts::RealTimeSanitizer & noSanitizeMask)) {
-      func->addFnAttr(LLAttribute::SanitizeRealtime);
+      // mimick the `[[clang::blocking]]` attribute behavior
+      func->addFnAttr(hasRealTimeUnsafeUDA(fd)
+                          ? LLAttribute::SanitizeRealtimeBlocking
+                          : LLAttribute::SanitizeRealtime);
     }
 #endif
   }
