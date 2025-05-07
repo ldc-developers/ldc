@@ -512,6 +512,12 @@ void ArgsBuilder::addSanitizers(const llvm::Triple &triple) {
     addSanitizerLinkFlags(triple, "tsan", "-fsanitize=thread");
   }
 
+#if LDC_LLVM_VER >= 2000
+  if (opts::isSanitizerEnabled(opts::RealTimeSanitizer)) {
+    addSanitizerLinkFlags(triple, "rtsan", "-fsanitize=realtime");
+  }
+#endif
+
   if (opts::isSanitizerRecoveryEnabled(opts::AddressSanitizer)) {
       args.push_back("-fsanitize-recover=address");
   }

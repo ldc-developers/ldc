@@ -1175,6 +1175,12 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     if (opts::isSanitizerEnabled(opts::ThreadSanitizer & noSanitizeMask)) {
       func->addFnAttr(LLAttribute::SanitizeThread);
     }
+
+#if LDC_LLVM_VER >= 2000
+    if (opts::isSanitizerEnabled(opts::RealTimeSanitizer & noSanitizeMask)) {
+      func->addFnAttr(LLAttribute::SanitizeRealtime);
+    }
+#endif
   }
   applyXRayAttributes(*fd, *func);
   if (opts::fNullPointerIsValid) {
