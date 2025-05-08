@@ -121,8 +121,7 @@ runs:
     - name: Install D host compiler
       uses: dlang-community/setup-dlang@v1
       with:
-        # macOS: use LDC with LLVM version matching Xcode - v1.39.0 (LLVM 17) on arm64 with Xcode 16, v1.35.0 (LLVM 16) on x86_64 with Xcode 15
-        compiler: ${{ runner.os != 'macOS' && 'ldc-latest' || (inputs.arch == 'arm64' && 'ldc-1.39.0' || 'ldc-1.35.0') }}
+        compiler: ldc-latest
     - name: 'Posix: Clear LD_LIBRARY_PATH env variable' # don't use host druntime/Phobos .so/.dylib etc.
       if: runner.os != 'Windows'
       shell: bash
