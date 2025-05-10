@@ -23,7 +23,7 @@ runs:
 
         packages=( \
           git-core cmake g++ \
-          libcurl4 libxml2-dev libzstd-dev \
+          libcurl4 libzstd-dev \
           curl gdb p7zip-full tzdata unzip zip python3-pip \
         )
         if [[ $arch == x86_64 ]]; then

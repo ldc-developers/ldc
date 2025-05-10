@@ -51,15 +51,18 @@
 #endif
 
 #ifdef LDC_LLVM_SUPPORTS_MACHO_DWARF_LINE_AS_REGULAR_SECTION
-// LDC-LLVM >= 6.0.1:
-// On Mac, emit __debug_line section in __DWARF segment as regular (non-debug)
-// section, like DMD, to enable file/line infos in backtraces. See
+// LDC-LLVM >= 20:
+// On Darwin, emit __debug_line section in __DWARF segment as regular
+// (non-debug) section, like DMD, to enable file/line infos in backtraces
+// without having to resort to an atos process. See
+// https://github.com/ldc-developers/ldc/issues/4895
 // https://github.com/dlang/dmd/commit/2bf7d0db29416eacbb01a91e6502140e354ee0ef
-// https://github.com/ldc-developers/llvm-project/commit/110deda1bc1cf195983fea8c1107886057987955
+// https://github.com/ldc-developers/llvm-project/commit/356e996bd217afd883adf3da5fe9a16c1102b273
 static llvm::cl::opt<bool, true> preserveDwarfLineSection(
     "preserve-dwarf-line-section",
-    llvm::cl::desc("Mac: preserve DWARF line section during linking for "
-                   "file/line infos in backtraces. Defaults to true."),
+    llvm::cl::desc("Darwin: preserve DWARF __debug_line section during linking "
+                   "for builtin file/line infos in backtraces without having "
+                   "to resort to an atos process."),
     llvm::cl::Hidden, llvm::cl::ZeroOrMore,
     llvm::cl::location(ldc::emitMachODwarfLineAsRegularSection),
     llvm::cl::init(false));
