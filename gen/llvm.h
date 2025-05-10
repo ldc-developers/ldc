@@ -35,7 +35,10 @@ using llvm::APFloat;
 using llvm::APInt;
 using llvm::IRBuilder;
 
-#if LDC_LLVM_VER >= 1900
+#if LDC_LLVM_VER >= 2000
+#define GET_INTRINSIC_DECL(_X, _TY)                                              \
+  (llvm::Intrinsic::getOrInsertDeclaration(&gIR->module, llvm::Intrinsic::_X, _TY))
+#elif LDC_LLVM_VER >= 1900
 #define GET_INTRINSIC_DECL(_X, _TY)                                              \
   (llvm::Intrinsic::getDeclaration(&gIR->module, llvm::Intrinsic::_X, _TY))
 #else

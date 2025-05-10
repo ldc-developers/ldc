@@ -753,7 +753,11 @@ DISubroutineType DIBuilder::CreateFunctionType(Type *type,
     if (pointeeType) {
       DIType ditype = DBuilder.createReferenceType(
           llvm::dwarf::DW_TAG_pointer_type, pointeeType, target.ptrsize * 8);
-      ditype = DBuilder.createObjectPointerType(ditype);
+      ditype = DBuilder.createObjectPointerType(ditype
+#if LDC_LLVM_VER >= 2000
+      , /* Implicit */ true
+#endif
+      );
       params.emplace_back(ditype);
     }
   }

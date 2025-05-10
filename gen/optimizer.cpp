@@ -52,7 +52,11 @@
 #include "llvm/LinkAllPasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetMachine.h"
+#if LDC_LLVM_VER >= 2000
+#include "llvm/Transforms/Utils/Instrumentation.h"
+#else
 #include "llvm/Transforms/Instrumentation.h"
+#endif
 #include "llvm/Transforms/IPO.h"
 #if LDC_LLVM_VER < 1700
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
@@ -70,6 +74,9 @@
 #include "llvm/Transforms/Scalar/LICM.h"
 #include "llvm/Transforms/Scalar/Reassociate.h"
 #include "llvm/Transforms/Instrumentation/SanitizerCoverage.h"
+#if LDC_LLVM_VER >= 2000
+#include "llvm/Transforms/Instrumentation/RealtimeSanitizer.h"
+#endif
 
 using namespace llvm;
 
@@ -207,7 +214,12 @@ static OptimizationLevel getOptimizationLevel(){
 
 #ifndef IN_JITRT
 static void addAddressSanitizerPasses(ModulePassManager &mpm,
-                                      OptimizationLevel level ) {
+                                      OptimizationLevel level
+#if LDC_LLVM_VER >= 2000
+                                      ,
+                                      ThinOrFullLTOPhase
+#endif
+) {
   AddressSanitizerOptions aso;
   aso.CompileKernel = false;
   aso.Recover = opts::isSanitizerRecoveryEnabled(opts::AddressSanitizer);
@@ -250,13 +262,23 @@ static void addMemorySanitizerPass(ModulePassManager &mpm,
   }
 }
 static void addThreadSanitizerPass(ModulePassManager &mpm,
-                                      OptimizationLevel level ) {
+                                   OptimizationLevel level
+#if LDC_LLVM_VER >= 2000
+                                   ,
+                                   ThinOrFullLTOPhase
+#endif
+) {
   mpm.addPass(ModuleThreadSanitizerPass());
   mpm.addPass(createModuleToFunctionPassAdaptor(ThreadSanitizerPass()));
 }
 
 static void addSanitizerCoveragePass(ModulePassManager &mpm,
-                                      OptimizationLevel level ) {
+                                     OptimizationLevel level
+#if LDC_LLVM_VER >= 2000
+                                     ,
+                                     ThinOrFullLTOPhase
+#endif
+) {
 #if LDC_LLVM_VER >= 1600
   mpm.addPass(SanitizerCoveragePass(
       opts::getSanitizerCoverageOptions()));
@@ -266,8 +288,7 @@ static void addSanitizerCoveragePass(ModulePassManager &mpm,
 #endif
 }
 // Adds PGO instrumentation generation and use passes.
-static void addPGOPasses(ModulePassManager &mpm,
-                                      OptimizationLevel level ) {
+static void addPGOPasses(ModulePassManager &mpm, OptimizationLevel level) {
   if (opts::isInstrumentingForASTBasedPGO()) {
     InstrProfOptions options;
     options.NoRedZone = global.params.disableRedZone;
@@ -291,8 +312,12 @@ static void addPGOPasses(ModulePassManager &mpm,
 #endif // !IN_JITRT
 
 static void addStripExternalsPass(ModulePassManager &mpm,
-                                      OptimizationLevel level ) {
-
+                                  OptimizationLevel level
+#if LDC_LLVM_VER >= 2000
+                                  ,
+                                  ThinOrFullLTOPhase
+#endif
+) {
   if (level == OptimizationLevel::O1 || level == OptimizationLevel::O2 ||
       level == OptimizationLevel::O3) {
     mpm.addPass(StripExternalsPass());
@@ -304,7 +329,12 @@ static void addStripExternalsPass(ModulePassManager &mpm,
 }
 
 static void addSimplifyDRuntimeCallsPass(ModulePassManager &mpm,
-                                      OptimizationLevel level ) {
+                                         OptimizationLevel level
+#if LDC_LLVM_VER >= 2000
+                                         ,
+                                         ThinOrFullLTOPhase
+#endif
+) {
   if (level == OptimizationLevel::O2  || level == OptimizationLevel::O3) {
     mpm.addPass(createModuleToFunctionPassAdaptor(SimplifyDRuntimeCallsPass()));
     if (verifyEach) {
@@ -314,7 +344,12 @@ static void addSimplifyDRuntimeCallsPass(ModulePassManager &mpm,
 }
 
 static void addGarbageCollect2StackPass(ModulePassManager &mpm,
-                                         OptimizationLevel level ) {
+                                        OptimizationLevel level
+#if LDC_LLVM_VER >= 2000
+                                        ,
+                                        ThinOrFullLTOPhase
+#endif
+) {
   if (level == OptimizationLevel::O2  || level == OptimizationLevel::O3) {
     mpm.addPass(createModuleToFunctionPassAdaptor(GarbageCollect2StackPass()));
     if (verifyEach) {
@@ -457,10 +492,11 @@ void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
   ModulePassManager mpm;
 
   if (!noVerify) {
-    pb.registerPipelineStartEPCallback([&](ModulePassManager &mpm,
-                                          OptimizationLevel level) {
-      mpm.addPass(VerifierPass());
-    });
+    pb.registerPipelineStartEPCallback(
+        [&](ModulePassManager &mpm, OptimizationLevel level,
+            ThinOrFullLTOPhase phase = ThinOrFullLTOPhase::None) {
+          mpm.addPass(VerifierPass());
+        });
   }
 
   // TODO: port over strip-debuginfos pass for -strip-debug
@@ -474,7 +510,8 @@ void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
 
   if (opts::isSanitizerEnabled(opts::MemorySanitizer)) {
     pb.registerOptimizerLastEPCallback(
-        [&](ModulePassManager &mpm, OptimizationLevel level) {
+        [&](ModulePassManager &mpm, OptimizationLevel level,
+            ThinOrFullLTOPhase phase = ThinOrFullLTOPhase::None) {
           FunctionPassManager fpm;
           addMemorySanitizerPass(mpm, fpm, level);
           mpm.addPass(createModuleToFunctionPassAdaptor(std::move(fpm)));
@@ -488,6 +525,14 @@ void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
   if (opts::isSanitizerEnabled(opts::CoverageSanitizer)) {
     pb.registerOptimizerLastEPCallback(addSanitizerCoveragePass);
   }
+
+#if LDC_LLVM_VER >= 2000
+  if (opts::isSanitizerEnabled(opts::RealTimeSanitizer)) {
+    pb.registerOptimizerLastEPCallback(
+        [](ModulePassManager &mpm, OptimizationLevel level,
+           ThinOrFullLTOPhase) { mpm.addPass(RealtimeSanitizerPass()); });
+  }
+#endif // !LDC_LLVM_VER >= 2000
 #endif // !IN_JITRT
 
   if (!disableLangSpecificPasses) {
@@ -523,9 +568,23 @@ void runOptimizationPasses(llvm::Module *M, llvm::TargetMachine *TM) {
 
   if (optLevelVal == 0) {
 #ifdef IN_JITRT
-    mpm = pb.buildO0DefaultPipeline(level, false);
+#if LDC_LLVM_VER >= 2000
+    const ThinOrFullLTOPhase ltoPrelink = ThinOrFullLTOPhase::None;
 #else
-    mpm = pb.buildO0DefaultPipeline(level, opts::isUsingLTO());
+    const bool ltoPrelink = false;
+#endif // LDC_LLVM_VER >= 2000
+    mpm = pb.buildO0DefaultPipeline(level, ltoPrelink);
+#else
+#if LDC_LLVM_VER >= 2000
+    const ThinOrFullLTOPhase ltoPrelink =
+        opts::isUsingLTO()
+            ? (opts::isUsingThinLTO() ? ThinOrFullLTOPhase::ThinLTOPreLink
+                                      : ThinOrFullLTOPhase::FullLTOPreLink)
+            : ThinOrFullLTOPhase::None;
+#else
+    const bool ltoPrelink = opts::isUsingLTO();
+#endif // LDC_LLVM_VER >= 2000
+    mpm = pb.buildO0DefaultPipeline(level, ltoPrelink);
 #if LDC_LLVM_VER >= 1700
   } else if (opts::ltoFatObjects && opts::isUsingLTO()) {
     mpm = pb.buildFatLTODefaultPipeline(level,

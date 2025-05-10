@@ -41,7 +41,7 @@ struct DcomputePointer {
     int as = addrspace;
     if (translate)
       as = gIR->dcomputetarget->mapping[as];
-    return llType->getPointerTo(as);
+    return LLPointerType::get(llType, as);
   }
 };
 llvm::Optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd);

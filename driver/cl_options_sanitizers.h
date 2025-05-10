@@ -14,7 +14,11 @@
 #pragma once
 
 #include "driver/cl_helpers.h"
+#if LDC_LLVM_VER >= 2000
+#include "llvm/Transforms/Utils/Instrumentation.h"
+#else
 #include "llvm/Transforms/Instrumentation.h"
+#endif
 
 class FuncDeclaration;
 namespace llvm {
@@ -35,6 +39,7 @@ enum SanitizerCheck : SanitizerBits {
   ThreadSanitizer = 1 << 3,
   CoverageSanitizer = 1 << 4,
   LeakSanitizer = 1 << 5,
+  RealTimeSanitizer = 1 << 6,
 };
 extern SanitizerBits enabledSanitizers;
 extern SanitizerBits enabledSanitizerRecoveries;
