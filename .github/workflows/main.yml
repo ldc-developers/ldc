@@ -121,7 +121,7 @@ jobs:
     container: ${{ matrix.container_image }}
     timeout-minutes: 90
     env:
-      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.arch == 'arm64' && '11.0' || '10.12' }}
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.arch == 'arm64' && '14.7' || '13.7' }}
     steps:
       - name: 'Set up Linux container'
         if: matrix.container_image
