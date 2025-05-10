@@ -38,7 +38,15 @@ if(LDC_BUNDLE_LLVM_TOOLS)
         COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
         LINK_FLAGS "${SANITIZE_LDFLAGS} ${FULLY_STATIC_LDFLAG}"
       )
-      target_link_libraries(ldc-profdata ${LLVM_LIBRARIES} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS} ${CMAKE_THREAD_LIBS_INIT})
+      set(link_llvmdebuginfod)
+      if(LLVM_VERSION_MAJOR GREATER 19)
+        if(MSVC)
+          set(link_llvmdebuginfod "${LLVM_LIBRARY_DIRS}/LLVMDebuginfod.lib")
+        else()
+          set(link_llvmdebuginfod -lLLVMDebuginfod)
+        endif()
+      endif()
+      target_link_libraries(ldc-profdata ${link_llvmdebuginfod} ${LLVM_LIBRARIES} ${CMAKE_DL_LIBS} ${LLVM_LDFLAGS} ${CMAKE_THREAD_LIBS_INIT})
       install(TARGETS ldc-profdata DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
       # Set path to executable, used by the lit testsuite.

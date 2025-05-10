@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  LLVM_VERSION: 19.1.7
+  LLVM_VERSION: a905655f
 
 jobs:
   build-native:
@@ -121,7 +121,7 @@ jobs:
     container: ${{ matrix.container_image }}
     timeout-minutes: 90
     env:
-      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.arch == 'arm64' && '11.0' || '10.12' }}
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.arch == 'arm64' && '14.7' || '13.7' }}
     steps:
       - name: 'Set up Linux container'
         if: matrix.container_image
@@ -255,6 +255,8 @@ jobs:
             os: android
             arch: armv7a
             android_x86_arch: i686
+            extra_cmake_flags: >-
+              -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=arm-android
 
           - job_name: Android aarch64
             host_os: ubuntu-22.04
