@@ -65,7 +65,7 @@ static llvm::cl::opt<bool, true> preserveDwarfLineSection(
                    "to resort to an atos process."),
     llvm::cl::Hidden, llvm::cl::ZeroOrMore,
     llvm::cl::location(ldc::emitMachODwarfLineAsRegularSection),
-    llvm::cl::init(false));
+    llvm::cl::init(true));
 #endif
 
 // Returns true if 'feature' is enabled and false otherwise. Handles the
