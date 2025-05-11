@@ -28,17 +28,17 @@ jobs:
             os: macos-14
             host_dc: ldc-beta
             llvm_version: 17.0.5
-            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DCMAKE_EXE_LINKER_FLAGS=-L/opt/homebrew/opt/zstd/lib -DCMAKE_C_COMPILER=/usr/bin/cc -DCMAKE_CXX_COMPILER=/usr/bin/c++
+            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DCMAKE_EXE_LINKER_FLAGS=-L/opt/homebrew/opt/zstd/lib
           - job_name: macOS 14, LLVM 16, latest LDC beta
             os: macos-14
             host_dc: ldc-beta
             llvm_version: 16.0.5
-            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DCMAKE_EXE_LINKER_FLAGS=-L/opt/homebrew/opt/zstd/lib -DCMAKE_C_COMPILER=/usr/bin/cc -DCMAKE_CXX_COMPILER=/usr/bin/c++
+            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DCMAKE_EXE_LINKER_FLAGS=-L/opt/homebrew/opt/zstd/lib
           - job_name: Ubuntu 24.04, LLVM 15, latest DMD beta
             os: ubuntu-24.04
             host_dc: dmd-beta
             llvm_version: 15
-            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLIB_SUFFIX=64 -DLDC_LINK_MANUALLY=ON
+            cmake_flags: -DBUILD_SHARED_LIBS=ON -DRT_SUPPORT_SANITIZERS=ON -DLIB_SUFFIX=64
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
     env:
@@ -124,7 +124,6 @@ jobs:
           cmake -G Ninja . \
             -DCMAKE_BUILD_TYPE=Release \
             -DLLVM_ROOT_DIR=${{ runner.os == 'Linux' && format('/usr/lib/llvm-{0}', matrix.llvm_version) || '"$PWD/llvm"' }} \
-            -DLDC_LINK_MANUALLY=OFF \
             ${{ matrix.cmake_flags }}
           ninja obj/ldc2.o all ldc2-unittest all-test-runners
           bin/ldc2 --version

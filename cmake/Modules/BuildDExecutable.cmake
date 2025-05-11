@@ -100,7 +100,12 @@ function(build_d_executable target_name output_exe d_src_files compiler_args lin
 
         # We need to link against the C++ runtime library.
         if(NOT MSVC AND "${D_COMPILER_ID}" STREQUAL "LDMD" AND NOT "${dflags}" MATCHES "(^|;)-gcc=")
-            set(translated_linker_args "-gcc=${CMAKE_CXX_COMPILER}" ${translated_linker_args})
+            if(CMAKE_VERSION VERSION_LESS "4.0.0" AND APPLE AND "${CMAKE_CXX_COMPILER}" MATCHES "/Developer/.+/usr/bin/c\\+\\+$")
+                # see https://github.com/ldc-developers/ldc/issues/3901
+                set(translated_linker_args "-gcc=/usr/bin/c++" ${translated_linker_args})
+            else()
+                set(translated_linker_args "-gcc=${CMAKE_CXX_COMPILER}" ${translated_linker_args})
+            endif()
         endif()
 
         # Use an extra custom target as dependency for the executable in
