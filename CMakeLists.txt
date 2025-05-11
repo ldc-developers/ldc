@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.16.0)
 if(POLICY CMP0025)
     cmake_policy(SET CMP0025 NEW)
 endif()
+if(POLICY CMP0132)
+    # see https://github.com/ldc-developers/ldc/issues/3901
+    cmake_policy(SET CMP0132 NEW)
+endif()
 if(${CMAKE_VERSION} VERSION_GREATER "3.26.9")
     # Prevent implicit dependencies for custom commands, e.g.,
     # `obj/ldc2.o` depending on `lib/libldc.a` with LDC_LINK_MANUALLY=ON.
