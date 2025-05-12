@@ -103,6 +103,13 @@ private shared size_t _initCount;
  */
 extern (C) int rt_init()
 {
+    version (SupportSanitizers)
+    {
+        import ldc.sanitizers_optionally_linked;
+        rtsanNotifyBlockingCall("rt_init");
+        rtsanDisable();
+        scope (exit) rtsanEnable();
+    }
     /* @@BUG 11380 @@ Need to synchronize rt_init/rt_term calls for
        version (Shared) druntime, because multiple C threads might
        initialize different D libraries without knowing about the
