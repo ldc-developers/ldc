@@ -242,6 +242,8 @@ jobs:
             os: android
             arch: armv7a
             android_x86_arch: i686
+            extra_cmake_flags: >-
+              -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=arm-android
 
           - job_name: Android aarch64
             host_os: ubuntu-22.04

@@ -382,7 +382,7 @@ DValue *DtoDynamicCastObject(Loc loc, DValue *val, Type *_to) {
   // Object _d_dynamic_cast(Object o, ClassInfo c)
   llvm::Function *func =
       getRuntimeFunction(loc, gIR->module, "_d_dynamic_cast");
-  LLFunctionType *funcTy = func->getFunctionType();
+  [[maybe_unused]] LLFunctionType *funcTy = func->getFunctionType();
 
   // Object o
   LLValue *obj = DtoRVal(val);
@@ -483,7 +483,7 @@ DtoVirtualFunctionPointer(DValue *inst, FuncDeclaration *fdecl) {
   // get the vtbl for objects
   vtable = DtoGEP(irtc->getMemoryLLType(), vthis, 0u, 0);
   // load vtbl ptr
-  vtable = DtoLoad(vtblType->getPointerTo(), vtable);
+  vtable = DtoLoad(LLPointerType::getUnqual(vtblType), vtable);
   // index vtbl
   const std::string name = fdecl->toChars();
   const auto vtblname = name + "@vtbl";

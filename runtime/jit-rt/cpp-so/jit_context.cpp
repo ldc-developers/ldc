@@ -18,6 +18,9 @@
 
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ExecutionEngine/JITLink/EHFrameSupport.h"
+#if LDC_LLVM_VER >= 2000 && defined(LDC_JITRT_USE_JITLINK)
+#include "llvm/ExecutionEngine/Orc/EHFrameRegistrationPlugin.h"
+#endif
 #include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
 #include "llvm/ExecutionEngine/Orc/ObjectTransformLayer.h"
 #include "llvm/IR/LLVMContext.h"
@@ -110,7 +113,9 @@ static llvm::orc::LLJITBuilder buildLLJITforLDC() {
   // we override the object linking layer if we are using LLVM JITLink.
   // For RuntimeDyld, we use LLJIT's default setup process
   // (which includes a lot of platform-related workarounds we need)
-#ifdef LDC_JITRT_USE_JITLINK
+  // on LLVM 20+, LLJIT will auto-configure eh-frame plugin and
+  // we avoid configuring the eh-frame plugin ourselves to avoid double registration
+#if defined(LDC_JITRT_USE_JITLINK) && LDC_LLVM_VER < 2000
       .setObjectLinkingLayerCreator([&](llvm::orc::ExecutionSession &ES,
                                         const llvm::Triple &TT) {
         auto linker = std::make_unique<llvm::orc::ObjectLinkingLayer>(
