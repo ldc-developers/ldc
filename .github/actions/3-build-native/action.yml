@@ -4,7 +4,7 @@ inputs:
     required: false
     default: ''
   arch:
-    required: false # Windows only
+    required: true
   with_pgo:
     required: false
     default: false
@@ -15,6 +15,8 @@ runs:
     - name: 'Posix: Build mimalloc'
       if: runner.os != 'Windows'
       uses: ./.github/actions/helper-mimalloc
+      with:
+        cmake_flags: ${{ inputs.cmake_flags }} # propagate C(++) compilers and ignored LDC-specific vars
 
     - name: Build LDC & LDC D unittests & defaultlib unittest runners
       uses: ./.github/actions/helper-build-ldc
@@ -22,6 +24,14 @@ runs:
         build_dir: build
         host_dc: ../bootstrap-ldc/bin/ldmd2
         specify_install_dir: true
+        # NOTE:
+        # mimalloc on macOS is tricky - when mixing newer LLVM from bootstrap LDC with older LLVM from Xcode clang,
+        # causing *sporadic* compiler crashes: `libc++abi: Pure virtual function called!`
+        # What apparently makes it work with newer LLVM versions on both x86_64 and arm64 is using mixed LTO for both
+        # C++ and D parts of ldc2 (with prebuilt non-LTO'd LLVM compiled with Xcode clang); the compiler used for
+        # non-LTO'd mimalloc doesn't seem to play a role.
+        # On macOS arm64, we need a matching Homebrew clang to get C++ LTO to work, otherwise hitting linker error
+        # `LLVM ERROR: Unsupported stack probing method` with bitcode files produced by older Xcode clang.
         cmake_flags: >-
           ${{ runner.os != 'Windows' && '-DALTERNATIVE_MALLOC_O="$PWD/../build-mimalloc/CMakeFiles/mimalloc-obj.dir/src/static.c.o"' || '' }}
           ${{ inputs.cmake_flags }}

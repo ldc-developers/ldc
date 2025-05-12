@@ -49,6 +49,10 @@ runs:
           sudo ln -sf $tool-19 /usr/bin/$tool
           $tool --version
         done
+    - name: 'macOS arm64: Install Homebrew clang 19' # see mimalloc comment in ../3-build-native/action.yml
+      if: runner.os == 'macOS' && inputs.arch == 'arm64'
+      shell: bash
+      run: brew install llvm@19
     - name: 'Windows: Install clang v19.1.3 from GitHub'
       if: runner.os == 'Windows'
       shell: bash
@@ -121,8 +125,7 @@ runs:
     - name: Install D host compiler
       uses: dlang-community/setup-dlang@v1
       with:
-        # macOS: use LDC with LLVM version matching Xcode - v1.39.0 (LLVM 17) on arm64 with Xcode 16, v1.35.0 (LLVM 16) on x86_64 with Xcode 15
-        compiler: ${{ runner.os != 'macOS' && 'ldc-latest' || (inputs.arch == 'arm64' && 'ldc-1.39.0' || 'ldc-1.35.0') }}
+        compiler: ldc-latest
     - name: 'Posix: Clear LD_LIBRARY_PATH env variable' # don't use host druntime/Phobos .so/.dylib etc.
       if: runner.os != 'Windows'
       shell: bash
