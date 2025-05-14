@@ -359,6 +359,7 @@ T[] _d_newarrayU(T)(size_t length, bool isShared=false) @trusted
     if (length == 0 || elemSize == 0)
         return null;
 
+    /+ LDC: don't blind the optimizer; core.checkedint.mulu is basically an intrinsic
     version (D_InlineAsm_X86)
     {
         asm pure nothrow @nogc
@@ -379,7 +380,7 @@ T[] _d_newarrayU(T)(size_t length, bool isShared=false) @trusted
             jnc     Lcontinue           ;
         }
     }
-    else
+    else+/
     {
         import core.checkedint : mulu;
 
