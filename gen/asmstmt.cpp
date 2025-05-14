@@ -508,10 +508,13 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
 
     // we use a simple static counter to make sure the new end labels are
     // unique
-    static size_t uniqueLabelsId = 0;
     std::ostringstream asmGotoEndLabel;
-    printLabelName(asmGotoEndLabel, fdmangle, "_llvm_asm_end");
-    asmGotoEndLabel << uniqueLabelsId++;
+    {
+      static size_t uniqueLabelsId = 0;
+      std::string suffix = "_llvm_asm_end";
+      suffix += std::to_string(uniqueLabelsId++);
+      printLabelName(asmGotoEndLabel, fdmangle, suffix.c_str());
+    }
 
     // initialize the setter statement we're going to build
     auto outSetterStmt = new IRAsmStmt;
