@@ -69,6 +69,7 @@ else
 
 import core.internal.container.array;
 import core.stdc.string : strlen, memcpy;
+import core.attribute : weak;
 
 //debug = DwarfDebugMachine;
 debug(DwarfDebugMachine) import core.stdc.stdio : printf;
@@ -237,6 +238,24 @@ struct TraceInfoBuffer
     }
 }
 
+/**
+ * A weakly linked hook which can be implemented by external libraries
+ * to extend the symbolication capabilites when debug info is missing.
+*/
+extern(C) void rt_dwarfSymbolicate(ref Location[] locations) @weak
+{
+    import core.sys.posix.dlfcn : dladdr, Dl_info;
+    Dl_info info;
+    foreach(ref Location location; locations)
+    {
+        if (dladdr(location.address, &info) == 0)
+            continue;
+        
+        location.file = info.dli_fname[0..strlen(info.dli_fname)];
+        location.procedure = info.dli_sname[0..strlen(info.dli_sname)];
+    }
+}
+
 private:
 
 int processCallstack(Location[] locations, const(ubyte)[] debugLineSectionData,
@@ -244,8 +263,7 @@ int processCallstack(Location[] locations, const(ubyte)[] debugLineSectionData,
 {
     if (debugLineSectionData)
         resolveAddresses(debugLineSectionData, locations, baseAddress);
-    else
-        resolveAddressesWithDladdr(locations);
+    else rt_dwarfSymbolicate(locations);
 
     TraceInfoBuffer buffer;
     foreach (idx, const ref loc; locations)
@@ -262,34 +280,6 @@ int processCallstack(Location[] locations, const(ubyte)[] debugLineSectionData,
     }
 
     return 0;
-}
-
-/**
- * Resolve the addresses of `locations` using dladdr.
- *
- * Params:
- *   locations = The locations to resolve
-*/
-void resolveAddressesWithDladdr(ref Location[] locations) @nogc nothrow {
-    import core.demangle : demangle;
-    import core.sys.posix.dlfcn : dladdr, Dl_info;
-    import core.stdc.string : strlen;
-    foreach(ref Location location; locations) {
-        
-        Dl_info info;
-        dladdr(location.address, &info);
-        location.line = -1;
-        
-        // Strip off path to image.
-        if (info.dli_fname) {
-            location.file = info.dli_fname[0..strlen(info.dli_fname)];
-        }
-
-        // Demangle D symbols.
-        if (info.dli_sname) {
-            location.procedure = info.dli_sname[0..strlen(info.dli_sname)];
-        }
-    }
 }
 
 /**
