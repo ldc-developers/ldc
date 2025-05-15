@@ -13,7 +13,9 @@ module dmd.root.longdouble;
 
 version (CRuntime_Microsoft)
 {
-    static if (real.sizeof > 8)
+    version (AArch64)
+        alias longdouble = real; // 64-bit
+    else static if (real.sizeof > 8)
         alias longdouble = real;
     else
         alias longdouble = longdouble_soft;
@@ -24,6 +26,7 @@ else
 // longdouble_soft needed when building the backend with
 // Visual C or the frontend with LDC on Windows
 version (CRuntime_Microsoft):
+version (AArch64) { /* cannot use x87 inline asm on arm64 host */ } else:
 extern (C++):
 nothrow:
 @nogc:
