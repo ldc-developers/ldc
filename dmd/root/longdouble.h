@@ -11,7 +11,7 @@
 
 #pragma once
 
-#if !_MSC_VER // has native 10 byte doubles
+#if !defined(_MSC_VER) || defined(_M_ARM64)
 #include <stdio.h>
 typedef long double longdouble;
 typedef volatile long double volatile_longdouble;
@@ -48,7 +48,7 @@ inline size_t ld_sprint(char* str, size_t size, int fmt, longdouble x)
 #undef snprintf
 #endif
 
-#else
+#else // defined(_MSC_VER) && !defined(_M_ARM64)
 
 #include <float.h>
 #include <limits>
@@ -264,4 +264,4 @@ typedef longdouble_soft longdouble;
 // is not required.
 typedef longdouble_soft volatile_longdouble;
 
-#endif // !_MSC_VER
+#endif // defined(_MSC_VER) && !defined(_M_ARM64)
