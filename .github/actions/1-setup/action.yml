@@ -68,8 +68,12 @@ runs:
       run: |
         set -eux
         cd ..
+        suffix='win64'
+        if [[ '${{ inputs.arch }}' == arm64 ]]; then
+          suffix='woa64'
+        fi
         curl -fL --retry 3 --max-time 300 -o clang.exe \
-          https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.8/LLVM-21.1.8-win64.exe
+          https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.8/LLVM-21.1.8-$suffix.exe
         ./clang.exe //S # double-slash for bash
         rm clang.exe
         # C:\Program Files\LLVM\bin should already be in PATH
@@ -169,7 +173,9 @@ runs:
         cd ..
 
         url='https://curl.se/windows/latest.cgi?p=win64-mingw.zip'
-        if [[ '${{ inputs.arch }}' == x86 ]]; then
+        if [[ '${{ inputs.arch }}' == arm64 ]]; then
+          url='https://curl.se/windows/latest.cgi?p=win64a-mingw.zip'
+        elif [[ '${{ inputs.arch }}' == x86 ]]; then
           # this is the latest *official* 32-bit build
           url='https://curl.se/windows/dl-8.15.0_5/curl-8.15.0_5-win32-mingw.zip'
         fi
