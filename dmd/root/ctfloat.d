@@ -27,13 +27,17 @@ private
 {
     version(CRuntime_DigitalMars) __gshared extern (C) extern const(char)* __locale_decpoint;
 
-    version(CRuntime_Microsoft) extern (C++)
+    version(CRuntime_Microsoft)
     {
-        public import dmd.root.longdouble : longdouble_soft, ld_sprint;
+        version(AArch64) { /* 64-bit real_t */ } else
+        {
+            version = MSVC_X87;
+            import dmd.root.longdouble : longdouble_soft, ld_sprint;
 version (IN_LLVM) {} else
 {
-        import dmd.root.strtold;
+            import dmd.root.strtold;
 }
+        }
     }
 }
 
@@ -193,7 +197,7 @@ extern (C++) struct CTFloat
     // the implementation of longdouble for MSVC is a struct, so mangling
     //  doesn't match with the C++ header.
     // add a wrapper just for isSNaN as this is the only function called from C++
-    version(CRuntime_Microsoft) static if (is(real_t == real))
+    version(MSVC_X87) static if (is(real_t == real))
         pure @trusted
         static bool isSNaN(longdouble_soft ld)
         {
@@ -239,7 +243,7 @@ extern (C++) struct CTFloat
     @system
     static int sprint(char* str, size_t size, char fmt, real_t x)
     {
-        version(CRuntime_Microsoft)
+        version(MSVC_X87)
         {
             auto len = cast(int) ld_sprint(str, size, fmt, longdouble_soft(x));
         }
