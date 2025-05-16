@@ -185,6 +185,8 @@ int traceHandlerOpApplyImpl(size_t numFrames,
             startIdx = idx + 1;
     }
 
+    // Symbolicate locations
+    rt_dwarfSymbolicate(locations[startIdx .. $]);
 
     if (!image.isValid())
         return locations[startIdx .. $].processCallstack(null, 0, dg);
@@ -192,6 +194,9 @@ int traceHandlerOpApplyImpl(size_t numFrames,
     // find address -> file, line mapping using dwarf debug_line
     return image.processDebugLineSectionData(
         (line) => locations[startIdx .. $].processCallstack(line, image.baseAddress, dg));
+
+    // Allow cleaning up after ourselves.
+    rt_dwarfSymbolicateCleanup(locations[startIdx .. $]);
 }
 
 struct TraceInfoBuffer
@@ -242,18 +247,15 @@ struct TraceInfoBuffer
  * A weakly linked hook which can be implemented by external libraries
  * to extend the symbolication capabilites when debug info is missing.
 */
-extern(C) void rt_dwarfSymbolicate(ref Location[] locations) @weak
+@weak
+extern(C) void rt_dwarfSymbolicate(Location[] locations)
 {
-    import core.sys.posix.dlfcn : dladdr, Dl_info;
-    Dl_info info;
-    foreach(ref Location location; locations)
-    {
-        if (dladdr(location.address, &info) == 0)
-            continue;
-        
-        location.file = info.dli_fname[0..strlen(info.dli_fname)];
-        location.procedure = info.dli_sname[0..strlen(info.dli_sname)];
-    }
+}
+
+/// ditto
+@weak
+extern(C) void rt_dwarfSymbolicateCleanup(Location[] locations)
+{
 }
 
 private:
@@ -263,7 +265,6 @@ int processCallstack(Location[] locations, const(ubyte)[] debugLineSectionData,
 {
     if (debugLineSectionData)
         resolveAddresses(debugLineSectionData, locations, baseAddress);
-    else rt_dwarfSymbolicate(locations);
 
     TraceInfoBuffer buffer;
     foreach (idx, const ref loc; locations)
