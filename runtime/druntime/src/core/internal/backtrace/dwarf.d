@@ -43,7 +43,7 @@
  * Reference: http://www.dwarfstd.org/
  * Copyright: Copyright Digital Mars 2015 - 2015.
  * License:   $(HTTP www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
- * Authors:   Yazan Dabain, Sean Kelly
+ * Authors:   Yazan Dabain, Sean Kelly, Luna Nielsen
  * Source: $(DRUNTIMESRC core/internal/backtrace/dwarf.d)
  */
 
@@ -246,6 +246,16 @@ struct TraceInfoBuffer
 /**
  * A weakly linked hook which can be implemented by external libraries
  * to extend the symbolication capabilites when debug info is missing.
+ * 
+ * NOTE:
+ *   There used to be an atos based symbolication implementation built in
+ *   here, but atos is not a portable solution on darwin derived OSes.
+ *   atos conflicts with things such as the hardened runtime, iOS releases,
+ *   App Store certification and the like. I've removed that implementation
+ *   to ensure that D can easily be used to publish to the App Store.
+ *   Please avoid adding other private APIs in its place directly in to
+ *   druntime. If it resides in PrivateFrameworks or is a dev tool, 
+ *   don't use it. - Luna
 */
 @weak
 extern(C) void rt_dwarfSymbolicate(Location[] locations)
