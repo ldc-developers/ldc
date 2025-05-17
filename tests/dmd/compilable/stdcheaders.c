@@ -2,6 +2,14 @@
  * Many platforms do not support all the C Standard headers.
  */
 
+#if defined(__clang__) && (defined(__i386__) || defined(__x86_64__))
+// Prevent *unconditional* includes of all subheaders (such as avx512fp16intrin.h)
+// in immintrin.h bundled with clang, as some headers use __bf16, __int128 etc.
+// __SCE__ is apparently used for Playstation 4/5 special cases and e.g. requires
+// __AVX512FP16__ to be defined to include avx512fp16intrin.h.
+#define __SCE__ 1
+#endif
+
 #include <assert.h>
 
 #include <complex.h>
