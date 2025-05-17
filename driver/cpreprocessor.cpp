@@ -98,6 +98,8 @@ FileName runCPreprocessor(FileName csrcfile, Loc loc, OutBuffer &defines) {
   std::vector<std::string> args;
   const std::string &cc = getCC(isMSVC, args);
 
+  args.push_back(isMSVC ? "/std:c11" : "-std=c11");
+
   if (!isMSVC)
     appendTargetArgsForGcc(args);
 
