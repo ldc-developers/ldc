@@ -151,6 +151,10 @@ FileName runCPreprocessor(FileName csrcfile, Loc loc, OutBuffer &defines) {
 
       // need to redefine some macros in importc.h
       args.push_back("-Wno-builtin-macro-redefined");
+
+      // disable the clang resource headers (immintrin.h etc.), using
+      // unsupported types like __int128, __bf16 etc. - stick to the MS headers
+      args.push_back("-nobuiltininc");
     }
 
     args.push_back(csrcfile.toChars());
