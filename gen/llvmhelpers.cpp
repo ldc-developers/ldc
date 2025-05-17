@@ -1372,8 +1372,10 @@ bool isLLVMUnsigned(Type *t) {
 
 void printLabelName(std::ostream &target, const char *func_mangle,
                     const char *label_name) {
-  target << gTargetMachine->getMCAsmInfo()->getPrivateGlobalPrefix().str()
-         << func_mangle << "_" << label_name;
+  // note: quotes needed for Unicode
+  target << '"'
+         << gTargetMachine->getMCAsmInfo()->getPrivateGlobalPrefix().str()
+         << func_mangle << "_" << label_name << '"';
 }
 
 ////////////////////////////////////////////////////////////////////////////////
