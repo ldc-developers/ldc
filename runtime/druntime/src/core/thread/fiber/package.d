@@ -142,6 +142,16 @@ package
             version = AsmExternal;
         }
     }
+    else version (RISCV32)
+    {
+        version = RISCV_Any;
+        version = AsmExternal;
+    }
+    else version (RISCV64)
+    {
+        version = RISCV_Any;
+        version = AsmExternal;
+    }
     else version (SPARC)
     {
         // NOTE: The SPARC ABI specifies only doubleword alignment.
@@ -199,6 +209,14 @@ package
         version (LDC) // TODO: required?
             version (LoongArch64)
                 extern (C) void fiber_trampoline() nothrow;
+
+        version (RISCV_Any)
+        {
+            // External asm stack initialization is used to support different register
+            // storage sizes that the D compiler does not know about
+            extern (C) void* fiber_initStack(void* stack, void* entry) nothrow @nogc;
+            extern (C) void fiber_trampoline() nothrow;
+        }
     }
     else version (LDC_Windows)
     {
@@ -1610,6 +1628,13 @@ protected:
              * Position the stack pointer above the lr register
              */
             pstack += int.sizeof * 1;
+        }
+        else version (RISCV_Any)
+        {
+            version (StackGrowsDown) {}
+            else static assert(false, "RISC-V only supports decrementing stacks");
+
+            pstack = fiber_initStack(pstack, &fiber_trampoline);
         }
         else static if ( __traits( compiles, ucontext_t ) )
         {
