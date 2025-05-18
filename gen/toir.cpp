@@ -1198,7 +1198,16 @@ public:
       }
       LLType *elt = DtoMemType(e1type->nextOf());
       LLType *arrty = llvm::ArrayType::get(elt, e1type->isTypeSArray()->dim->isIntegerExp()->getInteger());
-      arrptr = DtoGEP(arrty, DtoLVal(l), DtoConstUint(0), DtoRVal(r));
+#if LDC_LLVM_VER >= 2000
+      llvm::GEPNoWrapFlags nw = llvm::GEPNoWrapFlags::inBounds();
+      if (e->indexIsInBounds)
+        nw |= llvm::GEPNoWrapFlags::noUnsignedWrap();
+#endif
+      arrptr = DtoGEP(arrty, DtoLVal(l), DtoConstUint(0), DtoRVal(r)
+#if LDC_LLVM_VER >= 2000
+                    , "", nullptr, nw
+#endif
+      );
     } else if (e1type->ty == TY::Tarray) {
       if (p->emitArrayBoundsChecks() && !e->indexIsInBounds) {
         DtoIndexBoundsCheck(e->loc, l, r);

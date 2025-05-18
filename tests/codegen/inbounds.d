@@ -9,7 +9,7 @@ extern(C):  // Avoid name mangling
 // IndexExp in static array with const exp
 // CHECK-LABEL: @foo1
 int foo1(int[3] a) {
-    // CHECK: getelementptr inbounds [3 x i32]
+    // CHECK: getelementptr inbounds{{( nuw)?}} [3 x i32]
     return a[1];
 }
 
