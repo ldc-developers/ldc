@@ -357,34 +357,74 @@ LLIntegerType *DtoSize_t() {
 namespace {
 llvm::GetElementPtrInst *DtoGEP(LLType *pointeeTy, LLValue *ptr,
                                 llvm::ArrayRef<LLValue *> indices,
-                                const char *name, llvm::BasicBlock *bb) {
+                                const char *name, llvm::BasicBlock *bb
+#if LDC_LLVM_VER >= 2000
+                              , llvm::GEPNoWrapFlags nw
+#endif
+                              ) {
   auto gep = llvm::GetElementPtrInst::Create(pointeeTy, ptr, indices, name,
                                              bb ? bb : gIR->scopebb());
+#if LDC_LLVM_VER >= 2000
+  gep->setNoWrapFlags(nw);
+#else
   gep->setIsInBounds(true);
+#endif
   return gep;
 }
 }
 
 LLValue *DtoGEP1(LLType *pointeeTy, LLValue *ptr, LLValue *i0, const char *name,
-                 llvm::BasicBlock *bb) {
-  return DtoGEP(pointeeTy, ptr, i0, name, bb);
+                 llvm::BasicBlock *bb
+#if LDC_LLVM_VER >= 2000
+               , llvm::GEPNoWrapFlags nw
+#endif
+                ) {
+  return DtoGEP(pointeeTy, ptr, i0, name, bb
+#if LDC_LLVM_VER >= 2000
+              , nw
+#endif
+  );
 }
 
 LLValue *DtoGEP(LLType *pointeeTy, LLValue *ptr, LLValue *i0, LLValue *i1,
-                const char *name, llvm::BasicBlock *bb) {
+                const char *name, llvm::BasicBlock *bb
+#if LDC_LLVM_VER >= 2000
+              , llvm::GEPNoWrapFlags nw
+#endif
+              ) {
   LLValue *indices[] = {i0, i1};
-  return DtoGEP(pointeeTy, ptr, indices, name, bb);
+  return DtoGEP(pointeeTy, ptr, indices, name, bb
+#if LDC_LLVM_VER >= 2000
+               , nw
+#endif
+  );
 }
 
 LLValue *DtoGEP1(LLType *pointeeTy, LLValue *ptr, unsigned i0, const char *name,
-                 llvm::BasicBlock *bb) {
-  return DtoGEP(pointeeTy, ptr, DtoConstUint(i0), name, bb);
+                 llvm::BasicBlock *bb
+#if LDC_LLVM_VER >= 2000
+               , llvm::GEPNoWrapFlags nw
+#endif
+                ) {
+  return DtoGEP(pointeeTy, ptr, DtoConstUint(i0), name, bb
+#if LDC_LLVM_VER >= 2000
+                , nw
+#endif
+  );
 }
 
 LLValue *DtoGEP(LLType *pointeeTy, LLValue *ptr, unsigned i0, unsigned i1,
-                const char *name, llvm::BasicBlock *bb) {
+                const char *name, llvm::BasicBlock *bb
+#if LDC_LLVM_VER >= 2000
+              , llvm::GEPNoWrapFlags nw
+#endif
+              ) {
   LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
-  return DtoGEP(pointeeTy, ptr, indices, name, bb);
+  return DtoGEP(pointeeTy, ptr, indices, name, bb
+#if LDC_LLVM_VER >= 2000
+              , nw
+#endif
+  );
 }
 
 LLConstant *DtoGEP(LLType *pointeeTy, LLConstant *ptr, unsigned i0,
@@ -395,8 +435,16 @@ LLConstant *DtoGEP(LLType *pointeeTy, LLConstant *ptr, unsigned i0,
 }
 
 LLValue *DtoGEP1i64(LLType *pointeeTy, LLValue *ptr, uint64_t i0, const char *name,
-                    llvm::BasicBlock *bb) {
-  return DtoGEP(pointeeTy, ptr, DtoConstUlong(i0), name, bb);
+                    llvm::BasicBlock *bb
+#if LDC_LLVM_VER >= 2000
+                  , llvm::GEPNoWrapFlags nw
+#endif
+                  ) {
+  return DtoGEP(pointeeTy, ptr, DtoConstUlong(i0), name, bb
+#if LDC_LLVM_VER >= 2000
+              , nw
+#endif
+  );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -701,7 +749,7 @@ LLGlobalVariable *makeGlobal(LLStringRef name, LLType* type, LLStringRef section
 
   if (!section.empty())
     var->setSection(section);
-    
+
   return var;
 }
 
@@ -737,7 +785,7 @@ LLGlobalVariable *makeGlobalWithBytes(LLStringRef name, LLConstantList packedCon
     0u,
     externInit
   );
-  
+
   return var;
 }
 
