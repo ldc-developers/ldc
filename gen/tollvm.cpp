@@ -428,10 +428,19 @@ LLValue *DtoGEP(LLType *pointeeTy, LLValue *ptr, unsigned i0, unsigned i1,
 }
 
 LLConstant *DtoGEP(LLType *pointeeTy, LLConstant *ptr, unsigned i0,
-                   unsigned i1) {
+                   unsigned i1
+#if LDC_LLVM_VER >= 2000
+                 , llvm::GEPNoWrapFlags nw
+#endif
+                  ) {
   LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
   return llvm::ConstantExpr::getGetElementPtr(pointeeTy, ptr, indices,
-                                              /* InBounds = */ true);
+#if LDC_LLVM_VER >= 2000
+                                              nw
+#else
+                                              /* InBounds = */ true
+#endif
+                                            );
 }
 
 LLValue *DtoGEP1i64(LLType *pointeeTy, LLValue *ptr, uint64_t i0, const char *name,
