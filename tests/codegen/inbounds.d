@@ -30,7 +30,7 @@ int foo3(int* p, int i) {
 // PostExp in pointer
 // CHECK-LABEL: @foo4
 int foo4(int* p) {
-    // CHECK: getelementptr inbounds
+    // CHECK: getelementptr inbounds{{( nuw)?}}
     return *p++;
 }
 
