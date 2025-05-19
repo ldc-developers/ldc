@@ -1551,10 +1551,12 @@ public:
       auto nw = llvm::GEPNoWrapFlags::inBounds();
       if (e->op == EXP::plusPlus)
         nw |= llvm::GEPNoWrapFlags::noUnsignedWrap();
-      post = DtoGEP1(DtoMemType(dv->type->nextOf()), val, offset, "", p->scopebb(), nw);
-#else
-      post = DtoGEP1(DtoMemType(dv->type->nextOf()), val, offset, "", p->scopebb());
 #endif
+      post = DtoGEP1(DtoMemType(dv->type->nextOf()), val, offset, "", p->scopebb()
+#if LDC_LLVM_VER >= 2000
+                   , nw
+#endif
+      );
     } else if (e1type->isComplex()) {
       assert(e2type->isComplex());
       LLValue *one = LLConstantFP::get(DtoComplexBaseType(e1type), 1.0);
