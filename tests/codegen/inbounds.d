@@ -79,7 +79,7 @@ int foo10(int[] a, int i) {
 // SliceExp for static array with const lower bound
 // CHECK-LABEL: @foo11
 int[] foo11(ref int[3] a) {
-    // CHECK: getelementptr inbounds i32, ptr
+    // CHECK: getelementptr inbounds{{( nuw)?}} i32, ptr
     return a[1 .. $];
 }
 
