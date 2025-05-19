@@ -37,14 +37,14 @@ int foo4(int* p) {
 // PreExp in pointer
 // CHECK-LABEL: @foo5
 int foo5(int* p) {
-    // CHECK: getelementptr inbounds
+    // CHECK: getelementptr inbounds{{( nuw)?}}
     return *++p;
 }
 
 // Add offset to pointer
 // CHECK-LABEL: @foo6
 int foo6(int* p, int i) {
-    // CHECK: getelementptr inbounds
+    // CHECK: getelementptr inbounds{{( nuw)?}}
     return *(p + i);
 }
 
