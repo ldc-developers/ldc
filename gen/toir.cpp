@@ -1301,8 +1301,16 @@ public:
       }
 
       // offset by lower
-      eptr = DtoGEP1(DtoMemType(etype->nextOf()), getBasePointer(), vlo, "lowerbound");
-
+#if LDC_LLVM_VER >= 2000
+      llvm::GEPNoWrapFlags nw = llvm::GEPNoWrapFlags::inBounds();
+      if (!needCheckUpper && !needCheckLower)
+        nw |= llvm::GEPNoWrapFlags::noUnsignedWrap();
+#endif
+      eptr = DtoGEP1(DtoMemType(etype->nextOf()), getBasePointer(), vlo, "lowerbound"
+#if LDC_LLVM_VER >= 2000
+                   , nullptr, nw
+#endif
+      );
       // adjust length
       elen = p->ir->CreateSub(vup, vlo);
     }
