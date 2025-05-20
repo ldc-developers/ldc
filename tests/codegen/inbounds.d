@@ -58,7 +58,7 @@ int foo7(int* p, int i) {
 // Struct field
 // CHECK-LABEL: @foo8
 float foo8(S s) {
-    // CHECK: getelementptr inbounds
+    // CHECK: getelementptr inbounds{{( nuw)?}}
     return s.y;
 }
 
