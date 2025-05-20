@@ -1547,16 +1547,7 @@ public:
       assert(e->e2->op == EXP::int64);
       LLConstant *offset =
           e->op == EXP::plusPlus ? DtoConstUint(1) : DtoConstInt(-1);
-#if LDC_LLVM_VER >= 2000
-      auto nw = llvm::GEPNoWrapFlags::inBounds();
-      if (e->op == EXP::plusPlus)
-        nw |= llvm::GEPNoWrapFlags::noUnsignedWrap();
-#endif
-      post = DtoGEP1(DtoMemType(dv->type->nextOf()), val, offset, "", p->scopebb()
-#if LDC_LLVM_VER >= 2000
-                   , nw
-#endif
-      );
+      post = DtoGEP1(DtoMemType(dv->type->nextOf()), val, offset, "", p->scopebb());
     } else if (e1type->isComplex()) {
       assert(e2type->isComplex());
       LLValue *one = LLConstantFP::get(DtoComplexBaseType(e1type), 1.0);

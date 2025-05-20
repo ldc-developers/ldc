@@ -116,16 +116,7 @@ DValue *emitPointerOffset(Loc loc, DValue *base, Expression *offset,
   if (!llResult) {
     if (negateOffset)
       llOffset = gIR->ir->CreateNeg(llOffset);
-#if LDC_LLVM_VER >= 2000
-      llvm::GEPNoWrapFlags nw = llvm::GEPNoWrapFlags::inBounds();
-      if (!negateOffset)
-        nw |= llvm::GEPNoWrapFlags::noUnsignedWrap();
-#endif
-    llResult = DtoGEP1(llBaseTy, llBase, llOffset
-#if LDC_LLVM_VER >= 2000
-                    , "", nullptr, nw
-#endif
-    );
+    llResult = DtoGEP1(llBaseTy, llBase, llOffset);
   }
 
   return new DImValue(resultType, llResult);
