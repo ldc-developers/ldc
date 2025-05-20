@@ -1882,7 +1882,12 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   LLType * ty = nullptr;
   if (!isFieldIdx) {
     // apply byte-wise offset from object start
-    ptr = DtoGEP1(getI8Type(), ptr, off);
+    ptr = DtoGEP1(getI8Type(), ptr, off
+#if LDC_LLVM_VER >= 2000
+      , "", nullptr
+      , llvm::GEPNoWrapFlags::inBounds() | llvm::GEPNoWrapFlags::noUnsignedWrap()
+#endif
+    );
     ty = DtoType(vd->type);
   } else {
     if (ad->structsize == 0) { // can happen for extern(C) structs
@@ -1896,7 +1901,12 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
       } else {
         st = irTypeAggr->getLLType();
       }
-      ptr = DtoGEP(st, ptr, 0, off);
+      ptr = DtoGEP(st, ptr, 0, off
+#if LDC_LLVM_VER >= 2000
+      , "", nullptr
+      , llvm::GEPNoWrapFlags::inBounds() | llvm::GEPNoWrapFlags::noUnsignedWrap()
+#endif
+      );
       ty = isaStruct(st)->getElementType(off);
     }
   }
