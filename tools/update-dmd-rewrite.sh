@@ -65,6 +65,7 @@ git filter-repo --invert-paths \
   --path-regex '(compiler/)?src/dmd/(e|s)2ir\.d' \
   --path-regex '(compiler/)?src/dmd/to(csym|ctype|cvdebug|dt|ir|obj)\.d' \
   --path-regex '(compiler/)?src/dmd/iasm(|dmd)\.d' \
+  --path-regex 'compiler/src/dmd/iasm/(package|dmd(aarch64|x86))\.d' \
   --path-regex '(compiler/)?src/dmd/(objc_)?glue\.d' \
   --path-glob 'src/*.mak' # remaining Makefiles after moving dmd into compiler/
 git filter-repo \
