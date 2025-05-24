@@ -392,40 +392,6 @@ public:
     IF_LOG Logger::println("AddrExp::toConstElem: %s @ %s", e->toChars(),
                            e->type->toChars());
     LOG_SCOPE;
-    // FIXME: this should probably be generalized more so we don't
-    // need to have a case for each thing we can take the address of
-
-    // address of global variable
-    if (auto vexp = e->e1->isVarExp()) {
-      result = DtoConstSymbolAddress(e->loc, vexp->var);
-      return;
-    }
-
-    // address of indexExp
-    if (auto iexp = e->e1->isIndexExp()) {
-      // indexee must be global static array var
-      VarExp *vexp = iexp->e1->isVarExp();
-      assert(vexp);
-      VarDeclaration *vd = vexp->var->isVarDeclaration();
-      assert(vd);
-      assert(vd->type->toBasetype()->ty == TY::Tsarray);
-      DtoResolveVariable(vd);
-      assert(isIrGlobalCreated(vd));
-
-      // get index
-      LLConstant *index = toConstElem(iexp->e2, p);
-      assert(index->getType() == DtoSize_t());
-
-      // gep
-      LLConstant *idxs[2] = {DtoConstSize_t(0), index};
-      LLConstant *val = isaConstant(getIrGlobal(vd)->value);
-      LLConstant *gep = llvm::ConstantExpr::getGetElementPtr(
-          DtoType(vd->type), val, idxs, true);
-
-      assert(e->type->toBasetype()->ty == TY::Tpointer);
-      result = gep;
-      return;
-    }
 
     if (auto se = e->e1->isStructLiteralExp()) {
       result = p->getStructLiteralGlobal(se);
@@ -449,12 +415,7 @@ public:
       return;
     }
 
-    if (e->e1->op == EXP::slice || e->e1->op == EXP::dotVariable) {
-      visit(static_cast<Expression *>(e));
-      return;
-    }
-
-    llvm_unreachable("unsupported AddrExp in ToConstElemVisitor");
+    visit(static_cast<Expression *>(e));
   }
 
   //////////////////////////////////////////////////////////////////////////////
