@@ -1861,7 +1861,7 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   if (!isFieldIdx) {
     // apply byte-wise offset from object start
     ptr = DtoGEP1(getI8Type(), ptr, off
-#if LDC_LLVM_VER >= 2000
+#if LDC_LLVM_VER >= 1900
       , "", nullptr
       , llvm::GEPNoWrapFlags::inBounds() | llvm::GEPNoWrapFlags::noUnsignedWrap()
 #endif
@@ -1880,7 +1880,7 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
         st = irTypeAggr->getLLType();
       }
       ptr = DtoGEP(st, ptr, 0, off
-#if LDC_LLVM_VER >= 2000
+#if LDC_LLVM_VER >= 1900
       , "", nullptr
       , llvm::GEPNoWrapFlags::inBounds() | llvm::GEPNoWrapFlags::noUnsignedWrap()
 #endif

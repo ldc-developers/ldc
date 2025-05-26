@@ -1190,13 +1190,13 @@ public:
       }
       LLType *elt = DtoMemType(e1type->nextOf());
       LLType *arrty = llvm::ArrayType::get(elt, e1type->isTypeSArray()->dim->isIntegerExp()->getInteger());
-#if LDC_LLVM_VER >= 2000
+#if LDC_LLVM_VER >= 1900
       llvm::GEPNoWrapFlags nw = llvm::GEPNoWrapFlags::inBounds();
       if (e->indexIsInBounds)
         nw |= llvm::GEPNoWrapFlags::noUnsignedWrap();
 #endif
       arrptr = DtoGEP(arrty, DtoLVal(l), DtoConstUint(0), DtoRVal(r)
-#if LDC_LLVM_VER >= 2000
+#if LDC_LLVM_VER >= 1900
                     , "", nullptr, nw
 #endif
       );
@@ -1293,13 +1293,13 @@ public:
       }
 
       // offset by lower
-#if LDC_LLVM_VER >= 2000
+#if LDC_LLVM_VER >= 1900
       llvm::GEPNoWrapFlags nw = llvm::GEPNoWrapFlags::inBounds();
       if (!needCheckUpper && !needCheckLower)
         nw |= llvm::GEPNoWrapFlags::noUnsignedWrap();
 #endif
       eptr = DtoGEP1(DtoMemType(etype->nextOf()), getBasePointer(), vlo, "lowerbound"
-#if LDC_LLVM_VER >= 2000
+#if LDC_LLVM_VER >= 1900
                    , nullptr, nw
 #endif
       );
