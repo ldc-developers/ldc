@@ -23,7 +23,7 @@ struct SPIRVTargetABI : TargetABI {
       return llvm::CallingConv::SPIR_FUNC;
   }
   llvm::CallingConv::ID callingConv(FuncDeclaration *fdecl) override {
-    return hasKernelAttr(fdecl) ? llvm::CallingConv::SPIR_KERNEL
+    return getKernelAttr(fdecl) ? llvm::CallingConv::SPIR_KERNEL
                                 : llvm::CallingConv::SPIR_FUNC;
   }
   bool passByVal(TypeFunction *, Type *t) override {

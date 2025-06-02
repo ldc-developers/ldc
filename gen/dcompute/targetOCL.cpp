@@ -138,7 +138,7 @@ public:
       KernArgMD_name,
       count_KernArgMD
   };
-  void addKernelMetadata(FuncDeclaration *fd, llvm::Function *llf) override {
+  void addKernelMetadata(FuncDeclaration *fd, llvm::Function *llf, StructLiteralExp *_unused_) override {
     // By the time we get here the ABI should have rewritten the function
     // type so that the magic types in ldc.dcompute are transformed into
     // what the LLVM backend expects.
