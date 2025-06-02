@@ -45,8 +45,9 @@ runs:
       run: |
         set -eux
         cd ..
-        if type -P apk &>/dev/null; then
-          exit 0 # Alpine: disabled dynamic-compile support
+        if ! ls installed/lib/*ldc-jit-rt* &>/dev/null; then
+          echo "ldc-jit-rt library not found, skipping test"
+          exit 0
         fi
         if [[ '${{ runner.os }}' == Windows ]]; then
           # add ldc-jit.dll dir to PATH
