@@ -49,7 +49,9 @@ public:
   void writeModule();
 
   virtual void addMetadata() = 0;
-  virtual void addKernelMetadata(FuncDeclaration *df, llvm::Function *llf) = 0;
+  virtual void addKernelMetadata(FuncDeclaration *df,
+                                 llvm::Function *llf,
+                                 StructLiteralExp *kernAttr) = 0;
 };
 
 #if LDC_LLVM_SUPPORTED_TARGET_NVPTX

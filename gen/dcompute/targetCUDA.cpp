@@ -52,7 +52,7 @@ public:
     // sm version?
   }
 
-  void addKernelMetadata(FuncDeclaration *df, llvm::Function *llf) override {
+  void addKernelMetadata(FuncDeclaration *df, llvm::Function *llf, StructLiteralExp *_unused_) override {
     // TODO: Handle Function attibutes
     llvm::NamedMDNode *na =
         _ir->module.getOrInsertNamedMetadata("nvvm.annotations");

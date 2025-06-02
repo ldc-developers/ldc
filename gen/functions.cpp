@@ -1342,9 +1342,12 @@ void DtoDefineFunction(FuncDeclaration *fd, bool linkageAvailableExternally) {
     allocaPoint = nullptr;
   }
 
-  if (gIR->dcomputetarget && hasKernelAttr(fd)) {
-    auto fn = gIR->module.getFunction(fd->mangleString);
-    gIR->dcomputetarget->addKernelMetadata(fd, fn);
+  if (gIR->dcomputetarget) {
+    auto kernAttr = getKernelAttr(fd);
+    if (kernAttr) {
+      auto fn = gIR->module.getFunction(fd->mangleString);
+      gIR->dcomputetarget->addKernelMetadata(fd, fn, kernAttr);
+    }
   }
 
   if (func->getLinkage() == LLGlobalValue::WeakAnyLinkage &&
