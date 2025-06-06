@@ -42,8 +42,8 @@ void CTFloat::initialize() {
   if (apSemantics)
     return;
 
-#ifdef _MSC_VER
-  // MSVC hosts use dmd.root.longdouble (80-bit x87)
+#if defined(_MSC_VER) && !defined(_M_ARM64)
+  // MSVC x86[_64] hosts use dmd.root.longdouble (80-bit x87)
   apSemantics = &APFloat::x87DoubleExtended();
 #else
   static_assert(std::numeric_limits<real_t>::is_specialized,
