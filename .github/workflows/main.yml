@@ -70,6 +70,26 @@ jobs:
               -DEXTRA_CXXFLAGS=-flto=full
             with_pgo: true
 
+          - job_name: Alpine musl aarch64
+            os: ubuntu-24.04-arm
+            container_image: alpine:3.21
+            arch: aarch64
+            base_cmake_flags: >-
+              -DLDC_INSTALL_LLVM_RUNTIME_LIBS_ARCH=aarch64
+              -DLLVM_IS_SHARED=OFF
+              -DLDC_ENABLE_PLUGINS=OFF
+              -DLDC_DYNAMIC_COMPILE=OFF
+            extra_cmake_flags: >-
+              -DTEST_COMPILER_RT_LIBRARIES="profile;lsan;asan;msan;fuzzer"
+              -DLDC_INSTALL_LTOPLUGIN=OFF
+              -DLDC_FULLY_STATIC=ON
+              -DCMAKE_C_COMPILER=clang
+              -DCMAKE_CXX_COMPILER=clang++
+              -DCMAKE_EXE_LINKER_FLAGS=-static-libstdc++
+              -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto"
+              -DEXTRA_CXXFLAGS=-flto=full
+            with_pgo: true
+
           - job_name: macOS x86_64
             os: macos-15-intel
             arch: x86_64
@@ -116,7 +136,11 @@ jobs:
 
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
-    container: ${{ matrix.container_image }}
+    container:
+      image: ${{ matrix.container_image }}
+      volumes: # needed for Alpine aarch64 job: https://github.com/actions/runner/issues/801#issuecomment-2976165281
+        - /opt:/opt:rw,rshared
+        - /opt:/__e/node20:ro,rshared
     timeout-minutes: 90
     env:
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.arch == 'arm64' && '11.0' || '10.12' }}
@@ -138,10 +162,18 @@ jobs:
             # create missing 7za symlink
             ln -s 7z /usr/bin/7za
             # make lld the default linker (note: /usr/bin/ld seems unused)
-            ln -sf /usr/bin/ld.lld /usr/x86_64-alpine-linux-musl/bin/ld
+            ln -sf /usr/bin/ld.lld /usr/${{ matrix.arch }}-alpine-linux-musl/bin/ld
             # create ../llvm symlink to distro LLVM (no prebuilt LDC-LLVM for musl)
             ln -s /usr/lib/llvm19 $(dirname $(pwd))/llvm
             ../llvm/bin/llvm-config --version
+
+            # see https://github.com/actions/runner/issues/801#issuecomment-2976165281
+            if [[ '${{ matrix.arch }}' == aarch64 ]]; then
+              sed -i "/^ID=/s/alpine/NotpineForGHA/" /etc/os-release
+              apk add nodejs --update-cache
+              mkdir /opt/bin
+              ln -s /usr/bin/node /opt/bin/node
+            fi
           fi
       - uses: actions/checkout@v4
         with:
