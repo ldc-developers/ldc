@@ -1,18 +1,30 @@
 # LDC master
 
 #### Big news
-- Frontend, druntime and Phobos are at version [2.111.0+](https://dlang.org/changelog/2.111.0.html). (#4877, #4910, #4918)
+- Frontend, druntime and Phobos are at version [2.111.0+](https://dlang.org/changelog/2.111.0.html). (#4877, #4910, #4918, #4941)
 - Support for [LLVM 20](https://releases.llvm.org/20.1.0/docs/ReleaseNotes.html). The prebuilt packages use v20.1.5. (#4843, #4911, #4935)
   - The dynamic-compile (JIT) feature has regressed with LLVM 20. Use LLVM 18 or 19 for that feature.
 - Keep frame pointers by default with `-O` for some targets, notably AArch64 (except Windows), x86_64 (except Windows and glibc Linux), Windows x86, and Android. This fixes druntime backtraces with optimized code (incl. prebuilt druntime/Phobos). (#4889)
 - The prebuilt (non-musl) Linux packages are now generated on Ubuntu 22.04; the minimum glibc version has accordingly been raised from v2.31 to v2.35. (#4893)
+- druntime: Optimize `core.int128` via inline IR/assembly. (#4892)
+- Follow clang wrt. unwind tables emission, enabling them for most popular targets. (#4888)
 - ldc2.conf: Arrays can now be appended to via the `~=` operator. (#4848, #4856)
 - New `--installWithSuffix` command-line option for the `ldc-build-runtime` tool, to simplify copying the libraries to an existing LDC installation. (#4870)
+- CMake changes (for building LDC itself):
+  - Minimum CMake version bumped to v3.16. (#4898)
+  - macOS: Fix weird linker error when running CMake the first time. (#3901, #4926)
+  - Reworked integration of the LLVM compiler-rt libraries. Package maintainers may want to see [docs/compiler_rt.md](https://github.com/ldc-developers/ldc/blob/master/docs/compiler_rt.md). (#4665)
+  - Somewhat simplify separate compiler and runtime builds, incl. cross-compiling LDC itself. (#4872)
 
 #### Platform support
 - Supports LLVM 15 - 20.
 
 #### Bug fixes
+- Prebuilt macOS packages: Fix `ldmd2` and other bundled executables crashing on macOS v15.4. (#4899, #4912)
+- ImportC: Run C preprocessor in C11 mode. (#4933)
+- ImportC Windows: Disable clang headers when C-preprocessing with `clang-cl`. (#4934)
+- Fix ICE on invalid constant address-of expressions. (#4938, #4939)
+- Allow Unicode in fully qualified label names. (#4927, #4929)
 
 # LDC 1.40.1 (2025-03-20)
 
