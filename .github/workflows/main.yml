@@ -136,7 +136,10 @@ jobs:
 
     name: ${{ matrix.job_name }}
     runs-on: ${{ matrix.os }}
-    container: ${{ matrix.container_image }}
+    container:
+      image: ${{ matrix.container_image }}
+      volumes: # needed for Alpine aarch64 job: https://github.com/actions/runner/issues/801#issuecomment-2394425757
+        - /:/host
     timeout-minutes: 90
     env:
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.arch == 'arm64' && '11.0' || '10.12' }}
@@ -162,6 +165,16 @@ jobs:
             # create ../llvm symlink to distro LLVM (no prebuilt LDC-LLVM for musl)
             ln -s /usr/lib/llvm19 $(dirname $(pwd))/llvm
             ../llvm/bin/llvm-config --version
+
+            # see https://github.com/actions/runner/issues/801#issuecomment-2394425757
+            if [[ '${{ matrix.arch }}' == aarch64 ]]; then
+              apk add nodejs
+              sed -i "s:ID=alpine:ID=NotpineForGHA:" /etc/os-release
+              cd /host/home/runner/runners/*/externals/
+              rm -rf node20/*
+              mkdir node20/bin
+              ln -s /usr/bin/node node20/bin/node
+            fi
           fi
       - uses: actions/checkout@v4
         with:
