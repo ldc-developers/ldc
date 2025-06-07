@@ -24,7 +24,7 @@ pragma(mangle,"_Z11read_imagef11ocl_image1d_ro11ocl_sampleri")
 pragma(mangle,"_Z12write_imagef11ocl_image1d_woiDv4_f")
     void write(GlobalPointer!image1d_wo_t,int,__vector(float[4]));
 
-@kernel void img(GlobalPointer!image1d_ro_t src, GlobalPointer!image1d_wo_t dst)
+@kernel() void img(GlobalPointer!image1d_ro_t src, GlobalPointer!image1d_wo_t dst)
 {
 // CHECK: %{{[0-9+]}} = call spir_func ptr addrspace(2) @__translate_sampler_initializer(i32 0) {{.*}}
 // CHECK: %{{[0-9+]}} = call spir_func <4 x float> @_Z11read_imagef11ocl_image1d_ro11ocl_sampleri(ptr addrspace(1) %.DComputePointerRewrite_arg, ptr addrspace(2) %.DComputePointerRewrite_arg1, i32 0) {{.*}}
@@ -33,7 +33,7 @@ pragma(mangle,"_Z12write_imagef11ocl_image1d_woiDv4_f")
     dst.write(0,x);
 }
 
-@kernel void img2(GlobalPointer!image1d_ro_t src, Sampler samp)
+@kernel() void img2(GlobalPointer!image1d_ro_t src, Sampler samp)
 {
 // CHECK: %{{[0-9+]}} = call spir_func <4 x float> @_Z11read_imagef11ocl_image1d_ro11ocl_sampleri(ptr addrspace(1) %.DComputePointerRewrite_arg, ptr addrspace(2) %.DComputePointerRewrite_arg1, i32 0) {{.*}}
     auto x = src.read(samp, 0);

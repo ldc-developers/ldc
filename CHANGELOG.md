@@ -23,6 +23,7 @@
   - macOS: Fix weird linker error when running CMake the first time. (#3901, #4926)
   - Reworked integration of the LLVM compiler-rt libraries. Package maintainers may want to see [docs/compiler_rt.md](https://github.com/ldc-developers/ldc/blob/master/docs/compiler_rt.md). (#4665)
   - Somewhat simplify separate compiler and runtime builds, incl. cross-compiling LDC itself. (#4872)
+- **Breaking change for dcompute**: The special `@kernel` UDA is now a function and _**requires**_ parentheses as in `@kernel() void foo(){}`. Optionally you can provide launch dimensions, `@kernel([2,4,8])`, to specify to the compute runtime how the kernel is intended to be launched. 
 
 #### Platform support
 - Supports LLVM 15 - 20.

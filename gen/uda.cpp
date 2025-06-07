@@ -660,7 +660,7 @@ StructLiteralExp *getKernelAttr(Dsymbol *sym) {
   if (!sle)
     return nullptr;
 
-  checkStructElems(sle, {});
+  checkStructElems(sle, {dmd::sarrayOf(Type::tsize_t, 3)});
 
   if (!sym->isFuncDeclaration() &&
       hasComputeAttr(sym->getModule()) != DComputeCompileFor::hostOnly) {
