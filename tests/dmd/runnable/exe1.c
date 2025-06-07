@@ -1244,7 +1244,6 @@ void cdind()
                 assert(cbptr->nextread == 4);
         }
 
-#if 0 // TODO ImportC
         {       struct ABC { char a,b,*l_text; } abc;
                 static struct { int w_doto; struct ABC *w_dotp; } curw,*curwp;
 
@@ -1255,7 +1254,6 @@ void cdind()
                 c = curwp->w_dotp->l_text[curwp->w_doto]&0xFF;
                 assert(c == '2');
         }
-#endif
 }
 
 void logexp()
