@@ -6,7 +6,7 @@ fail_compilation/fail19103.d(26):        class `C` defined here
 fail_compilation/fail19103.d(16): Error: no property `puts` for `s1` of type `fail19103.S1`
 fail_compilation/fail19103.d(30):        struct `S1` defined here
 fail_compilation/fail19103.d(18): Error: no property `puts` for type `S2`
-$p:druntime/import/core/stdc/stdio.d$($n$):        did you mean `core.stdc.stdio.puts`?
+$p:/core/stdc/stdio.d$($n$):        did you mean `core.stdc.stdio.puts`?
 ---
 */
 void main()
