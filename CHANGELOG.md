@@ -1,6 +1,14 @@
 # LDC master
 
 #### Big news
+
+#### Platform support
+
+#### Bug fixes
+
+# LDC 1.41.0 (2025-06-07)
+
+#### Big news
 - Frontend, druntime and Phobos are at version [2.111.0+](https://dlang.org/changelog/2.111.0.html). (#4877, #4910, #4918, #4941)
 - Support for [LLVM 20](https://releases.llvm.org/20.1.0/docs/ReleaseNotes.html). The prebuilt packages use v20.1.5. (#4843, #4911, #4935)
   - The dynamic-compile (JIT) feature has regressed with LLVM 20. Use LLVM 18 or 19 for that feature.
@@ -18,6 +26,7 @@
 
 #### Platform support
 - Supports LLVM 15 - 20.
+- RISC-V: Fiber context switching is now implemented natively. (#4867)
 
 #### Bug fixes
 - Prebuilt macOS packages: Fix `ldmd2` and other bundled executables crashing on macOS v15.4. (#4899, #4912)
