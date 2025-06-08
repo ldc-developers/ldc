@@ -498,44 +498,75 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
 
   // Construct some attribute lists used below (possibly multiple times)
-  AttrSet NoAttrs,
-      Attr_NoUnwind(NoAttrs, LLAttributeList::FunctionIndex,
-                    llvm::Attribute::NoUnwind),
+  AttrSet NoAttrs, Attr_NoUnwind, Attr_ReadOnly, Attr_ReadOnly_NoUnwind, Attr_Cold, Attr_Cold_NoReturn, Attr_Cold_NoReturn_NoUnwind,
+          Attr_ReadOnly_1_NoCapture, Attr_ReadOnly_1_3_NoCapture, Attr_ReadOnly_NoUnwind_1_NoCapture,
+          Attr_ReadOnly_NoUnwind_1_2_NoCapture, Attr_1_NoCapture, Attr_1_2_NoCapture, Attr_1_3_NoCapture,
+          Attr_1_4_NoCapture;
+  // `nounwind`
+  {
+    auto addNoUnwind = [&](AttrSet& a) {
+      llvm::AttrBuilder ab(context);
+      ab.addAttribute(llvm::Attribute::NoUnwind);
+      a.addToFunction(ab);
+    };
+    addNoUnwind(Attr_NoUnwind);
+    addNoUnwind(Attr_Cold_NoReturn_NoUnwind);
+    addNoUnwind(Attr_ReadOnly_NoUnwind);
+    addNoUnwind(Attr_ReadOnly_NoUnwind_1_NoCapture);
+    addNoUnwind(Attr_ReadOnly_NoUnwind_1_2_NoCapture);
+  }
+  // `readonly`
+  {
+    auto addReadOnly = [&](AttrSet& a) {
 #if LDC_LLVM_VER >= 1600
-      Attr_ReadOnly(llvm::AttributeList().addFnAttribute(
-          context, llvm::Attribute::getWithMemoryEffects(
-                       context, llvm::MemoryEffects::readOnly()))),
+      a = a.merge(AttrSet(llvm::AttributeList().addFnAttribute(
+                          context, llvm::Attribute::getWithMemoryEffects(
+                            context, llvm::MemoryEffects::readOnly()))));
 #else
-      Attr_ReadOnly(NoAttrs, LLAttributeList::FunctionIndex,
-                    llvm::Attribute::ReadOnly),
+      llvm::AttrBuilder ab(context);
+      ab.addAttribute(llvm::Attribute::ReadOnly);
+      a = a.addToFunction(ab);
 #endif
-      Attr_Cold(NoAttrs, LLAttributeList::FunctionIndex, llvm::Attribute::Cold),
-      Attr_Cold_NoReturn(Attr_Cold, LLAttributeList::FunctionIndex,
-                         llvm::Attribute::NoReturn),
-      Attr_Cold_NoReturn_NoUnwind(Attr_Cold_NoReturn,
-                                  LLAttributeList::FunctionIndex,
-                                  llvm::Attribute::NoUnwind),
-      Attr_ReadOnly_NoUnwind(Attr_ReadOnly, LLAttributeList::FunctionIndex,
-                             llvm::Attribute::NoUnwind),
-      Attr_ReadOnly_1_NoCapture(Attr_ReadOnly, LLAttributeList::FirstArgIndex,
-                                llvm::Attribute::NoCapture),
-      Attr_ReadOnly_1_3_NoCapture(Attr_ReadOnly_1_NoCapture,
-                                  LLAttributeList::FirstArgIndex + 2,
-                                  llvm::Attribute::NoCapture),
-      Attr_ReadOnly_NoUnwind_1_NoCapture(Attr_ReadOnly_1_NoCapture,
-                                         LLAttributeList::FunctionIndex,
-                                         llvm::Attribute::NoUnwind),
-      Attr_ReadOnly_NoUnwind_1_2_NoCapture(Attr_ReadOnly_NoUnwind_1_NoCapture,
-                                           LLAttributeList::FirstArgIndex + 1,
-                                           llvm::Attribute::NoCapture),
-      Attr_1_NoCapture(NoAttrs, LLAttributeList::FirstArgIndex,
-                       llvm::Attribute::NoCapture),
-      Attr_1_2_NoCapture(Attr_1_NoCapture, LLAttributeList::FirstArgIndex + 1,
-                         llvm::Attribute::NoCapture),
-      Attr_1_3_NoCapture(Attr_1_NoCapture, LLAttributeList::FirstArgIndex + 2,
-                         llvm::Attribute::NoCapture),
-      Attr_1_4_NoCapture(Attr_1_NoCapture, LLAttributeList::FirstArgIndex + 3,
-                         llvm::Attribute::NoCapture);
+    };
+    addReadOnly(Attr_ReadOnly);
+    addReadOnly(Attr_ReadOnly_NoUnwind);
+    addReadOnly(Attr_ReadOnly_1_NoCapture);
+    addReadOnly(Attr_ReadOnly_1_3_NoCapture);
+    addReadOnly(Attr_ReadOnly_NoUnwind_1_NoCapture);
+    addReadOnly(Attr_ReadOnly_NoUnwind_1_2_NoCapture);
+  }
+  // `cold`
+  {
+    auto addCold = [&](AttrSet& a) {
+      llvm::AttrBuilder ab(context);
+      ab.addAttribute(llvm::Attribute::Cold);
+    };
+    addCold(Attr_Cold);
+    addCold(Attr_Cold_NoReturn);
+    addCold(Attr_Cold_NoReturn_NoUnwind);
+  }
+  // `nocapture`/ `captures(none)`
+  {
+    auto addCapturesNone = [&](int extra, AttrSet& a) {
+      llvm::AttrBuilder ab(context);
+#if LDC_LLVM_VER >= 2100
+      ab.addCapturesAttr(llvm::CaptureInfo::none());
+#else
+      ab.addAttribute(llvm::Attribute::NoCapture);
+#endif
+      a.addToParam(0, ab);
+      if (extra)
+        a.addToParam(extra-1, ab);
+    };
+    addCapturesNone(0, Attr_ReadOnly_1_NoCapture);
+    addCapturesNone(3, Attr_ReadOnly_1_3_NoCapture);
+    addCapturesNone(0, Attr_ReadOnly_NoUnwind_1_NoCapture);
+    addCapturesNone(2, Attr_ReadOnly_NoUnwind_1_2_NoCapture);
+    addCapturesNone(0, Attr_1_NoCapture);
+    addCapturesNone(2, Attr_1_2_NoCapture);
+    addCapturesNone(3, Attr_1_3_NoCapture);
+    addCapturesNone(4, Attr_1_4_NoCapture);
+  }
 
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
