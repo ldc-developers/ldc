@@ -216,7 +216,11 @@ void CodeGenerator::prepareLLModule(Module *m) {
   // name, as it should not collide with a symbol name used somewhere in the
   // module.
   ir_ = new IRState(m->srcfile.toChars(), context_);
+#if LDC_LLVM_VER >= 2100
+  ir_->module.setTargetTriple(*global.params.targetTriple);
+#else
   ir_->module.setTargetTriple(global.params.targetTriple->str());
+#endif
   ir_->module.setDataLayout(*gDataLayout);
 
   // TODO: Make ldc::DIBuilder per-Module to be able to emit several CUs for
