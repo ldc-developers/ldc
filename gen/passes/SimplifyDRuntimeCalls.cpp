@@ -209,8 +209,16 @@ Value *ArraySliceCopyOpt::CallOptimizer(Function *Callee, CallInst *CI,
     Sz = (Int->getValue() * ElemSz->getValue()).getZExtValue();
   }
 
+#if LDC_LLVM_VER >= 2100
+  llvm::LocationSize Sz2 =
+      (Sz == llvm::MemoryLocation::UnknownSize)
+          ? llvm::LocationSize::beforeOrAfterPointer()
+          : llvm::LocationSize::precise(Sz);
+#else
+  std::uint64_t Sz2 = Sz;
+#endif
   // Check if the pointers may alias
-  if (AA->alias(CI->getOperand(0), Sz, CI->getOperand(2), Sz)) {
+  if (AA->alias(CI->getOperand(0), Sz2, CI->getOperand(2), Sz2)) {
     return nullptr;
   }
 
