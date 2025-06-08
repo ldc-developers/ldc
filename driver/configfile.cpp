@@ -16,9 +16,11 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Regex.h"
 #include <cassert>
+#include <cstdio>
 #include <cstring>
 #include <iostream>
 #include <string>
+#include <system_error>
 
 #if _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -193,9 +195,42 @@ bool ConfigFile::read(const char *explicitConfFile, const char *triple) {
   }
 
   pathcstr = strdup(pathstr.c_str());
-  auto binpath = exe_path::getBinDir();
+  return iterateConfigFiles(pathstr, triple);
+}
 
-  return readConfig(pathcstr, triple, binpath.c_str());
+bool ConfigFile::iterateConfigFiles(const std::string &path, const char *triple) {
+  auto bindirString = exe_path::getBinDir();
+  auto bindir = bindirString.c_str();
+
+  if (!sys::fs::is_directory(path))
+    return readConfig(pathcstr, triple, bindir);
+
+  llvm::SmallVector<std::string, 8> configFiles;
+
+  std::error_code ec;
+  auto it = sys::fs::directory_iterator(path, ec);
+  do {
+    if (ec) {
+      fprintf(stderr, "Could not iterate config directory at %s: %s\n",
+              path.c_str(), ec.message().c_str());
+      return false;
+    }
+    if (it->type() == sys::fs::file_type::directory_file)
+      continue;
+
+    configFiles.emplace_back(it->path());
+  } while (it.increment(ec) != sys::fs::directory_iterator{});
+
+  llvm::sort(configFiles, [](const std::string &a, const std::string &b) {
+    auto sa = llvm::StringRef(a), sb = llvm::StringRef(b);
+    return sa.compare_numeric(sb) < 0;
+  });
+
+  for (const auto &configPath: configFiles)
+    if (!readConfig(configPath.c_str(), triple, bindir))
+      return false;
+
+  return true;
 }
 
 void ConfigFile::extendCommandLine(llvm::SmallVectorImpl<const char *> &args) {

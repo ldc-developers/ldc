@@ -26,7 +26,7 @@ class Setting
         group,
     }
 
-    this(string name, Type type)
+    this(string name, Type type) pure
     {
         _name = name;
         _type = type;
