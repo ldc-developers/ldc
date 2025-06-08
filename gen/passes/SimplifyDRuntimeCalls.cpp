@@ -18,6 +18,7 @@
 
 #include "gen/passes/Passes.h"
 #include "gen/passes/SimplifyDRuntimeCalls.h"
+#include "gen/llvmhelpers.h"
 #include "gen/tollvm.h"
 #include "gen/runtime.h"
 #include "llvm/ADT/Statistic.h"
@@ -183,7 +184,7 @@ Value *ArraySliceCopyOpt::CallOptimizer(Function *Callee, CallInst *CI,
                      IRBuilder<> &B) {
   // Verify we have a reasonable prototype for _d_array_slice_copy
   const FunctionType *FT = Callee->getFunctionType();
-  const llvm::Type *VoidPtrTy = PointerType::getUnqual(B.getInt8Ty());
+  const llvm::Type *VoidPtrTy = PointerType::get(getGlobalContext(), 0);
   if (Callee->arg_size() != 5 || FT->getReturnType() != B.getVoidTy() ||
       FT->getParamType(0) != VoidPtrTy ||
       !isa<IntegerType>(FT->getParamType(1)) ||

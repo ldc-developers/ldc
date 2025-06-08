@@ -80,7 +80,7 @@ IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
     int realAS = gIR->dcomputetarget->mapping[p->addrspace];
 
     llvm::SmallVector<LLType *, 1> body;
-    body.push_back(LLPointerType::get(DtoMemType(p->type), realAS));
+    body.push_back(LLPointerType::get(getGlobalContext(), realAS));
 
     isaStruct(t->type)->setBody(body, false);
     VarGEPIndices v;

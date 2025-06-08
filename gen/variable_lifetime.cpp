@@ -31,7 +31,7 @@ static llvm::cl::opt<bool> fEmitLocalVarLifetime(
 LocalVariableLifetimeAnnotator::LocalVariableLifetimeAnnotator(IRState &irs)
     : irs(irs) {
   allocaType =
-      LLPointerType::get(LLType::getInt8Ty(irs.context()),
+      LLPointerType::get(irs.context(),
                          irs.module.getDataLayout().getAllocaAddrSpace());
 }
 

@@ -49,8 +49,7 @@ void IrTypeClass::addClassData(AggrTypeBuilder &builder,
 
       // add to the interface map
       addInterfaceToMap(b->sym, builder.currentFieldIndex());
-      auto vtblTy = LLArrayType::get(getOpaquePtrType(), b->sym->vtbl.length);
-      builder.addType(llvm::PointerType::get(vtblTy, 0), target.ptrsize);
+      builder.addType(llvm::PointerType::get(getGlobalContext(), 0), target.ptrsize);
 
       ++num_interface_vtbls;
     }
@@ -92,7 +91,7 @@ llvm::Type *IrTypeClass::getMemoryLLType() {
   }
 
   // add vtbl
-  builder.addType(llvm::PointerType::get(vtbl_type, 0), target.ptrsize);
+  builder.addType(llvm::PointerType::get(getGlobalContext(), 0), target.ptrsize);
 
   if (cd->isInterfaceDeclaration()) {
     // interfaces are just a vtable

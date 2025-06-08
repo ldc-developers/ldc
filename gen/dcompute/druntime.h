@@ -14,6 +14,7 @@
 #include "dmd/aggregate.h"
 #include "dmd/mtype.h"
 #include "gen/dcompute/target.h"
+#include "gen/llvmhelpers.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/tollvm.h"
@@ -37,11 +38,11 @@ struct DcomputePointer {
   Type *type;
   DcomputePointer(int as, Type *ty) : addrspace(as), type(ty) {}
   LLType *toLLVMType(bool translate) {
-    auto llType = DtoType(type);
+    DtoType(type);
     int as = addrspace;
     if (translate)
       as = gIR->dcomputetarget->mapping[as];
-    return LLPointerType::get(llType, as);
+    return LLPointerType::get(getGlobalContext(), as);
   }
 };
 llvm::Optional<DcomputePointer> toDcomputePointer(StructDeclaration *sd);

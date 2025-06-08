@@ -2826,7 +2826,7 @@ public:
       LLValue *val = DtoRVal(ex);
 
       // Get and load vtbl pointer.
-      llvm::Value *vtbl = DtoLoad(LLPointerType::getUnqual(vtblType),
+      llvm::Value *vtbl = DtoLoad(LLPointerType::get(getGlobalContext(), 0),
                                   DtoGEP(irtc->getMemoryLLType(), val, 0u, 0));
 
       // TypeInfo ptr is first vtbl entry.
