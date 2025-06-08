@@ -43,6 +43,8 @@ private:
   // implemented in D
   bool readConfig(const char *cfPath, const char *triple, const char *binDir);
 
+  bool iterateConfigFiles(const std::string &path, const char *triple);
+
   const char *pathcstr = nullptr;
   Array<const char *> switches;
   Array<const char *> postSwitches;
