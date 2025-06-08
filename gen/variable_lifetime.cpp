@@ -78,7 +78,12 @@ llvm::Function *LocalVariableLifetimeAnnotator::getLLVMLifetimeStartFn() {
   if (lifetimeStartFunction)
     return lifetimeStartFunction;
 
-  lifetimeStartFunction = llvm::Intrinsic::getDeclaration(
+  lifetimeStartFunction = llvm::Intrinsic::
+#if LDC_LLVM_VER >= 2100
+    getOrInsertDeclaration(
+#else
+    getDeclaration(
+#endif
       &irs.module, llvm::Intrinsic::lifetime_start, allocaType);
   assert(lifetimeStartFunction);
   return lifetimeStartFunction;
@@ -89,7 +94,12 @@ llvm::Function *LocalVariableLifetimeAnnotator::getLLVMLifetimeEndFn() {
   if (lifetimeEndFunction)
     return lifetimeEndFunction;
 
-  lifetimeEndFunction = llvm::Intrinsic::getDeclaration(
+  lifetimeEndFunction = llvm::Intrinsic::
+#if LDC_LLVM_VER >= 2100
+    getOrInsertDeclaration(
+#else
+    getDeclaration(
+#endif
       &irs.module, llvm::Intrinsic::lifetime_end, allocaType);
   assert(lifetimeEndFunction);
   return lifetimeEndFunction;
