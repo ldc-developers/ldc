@@ -170,7 +170,7 @@ DValue *DtoNestedVariable(Loc loc, Type *astype, VarDeclaration *vd,
     IF_LOG Logger::cout() << "Frame index: " << *val << '\n';
     currFrame = getIrFunc(fd)->frameType;
     gIR->DBuilder.OpDeref(dwarfAddrOps);
-    val = DtoAlignedLoad(LLPointerType::getUnqual(currFrame), val,
+    val = DtoAlignedLoad(LLPointerType::get(getGlobalContext(), 0), val,
                          (std::string(".frame.") + vdparent->toChars()).c_str());
     IF_LOG Logger::cout() << "Frame: " << *val << '\n';
   }
@@ -417,7 +417,7 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
       builder.addType(innerFrameType->getElementType(i), target.ptrsize);
     }
     // Add frame pointer type for last frame
-    builder.addType(LLPointerType::getUnqual(innerFrameType), target.ptrsize);
+    builder.addType(LLPointerType::get(getGlobalContext(), 0), target.ptrsize);
   }
 
   // Add the direct nested variables of this function, and update their
@@ -505,7 +505,7 @@ void DtoCreateNestedContext(FuncGenState &funcGen) {
         mem = gIR->ir->CreateAdd(mem, DtoConstSize_t(mask));
         mem = gIR->ir->CreateAnd(mem, DtoConstSize_t(~mask));
         frame =
-            gIR->ir->CreateIntToPtr(mem, LLPointerType::getUnqual(frameType), ".frame");
+            gIR->ir->CreateIntToPtr(mem, LLPointerType::get(getGlobalContext(), 0), ".frame");
       }
     } else {
       frame = DtoRawAlloca(frameType, frameAlignment, ".frame");
