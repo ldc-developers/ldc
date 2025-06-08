@@ -24,6 +24,9 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringSwitch.h"
+#if LDC_LLVM_VER >= 2100
+#include "llvm/IR/AbstractCallSite.h"
+#endif
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
@@ -350,7 +353,23 @@ static void RemoveCall(CallBase *CB, const G2StackAnalysis &A) {
 
   // Remove the runtime call.
   if (A.CGNode) {
+#if LDC_LLVM_VER >= 2100
+    //FIXME: Look into using `LazyCallGraph` and the new pass manager
+    for (auto I = A.CGNode->begin(); ; I++) {
+      assert(I != A.CGNode->end() && "Cannot find callsite to remove!");
+      if (I->first && *I->first == CB) {
+        A.CGNode->removeCallEdge(I);
+
+        // Remove all references to callback functions if there are any.
+        forEachCallbackFunction(*CB, [=](Function *_CB) {
+          A.CGNode->removeOneAbstractEdgeTo(A.CG->getOrInsertFunction(_CB));
+        });
+        break;
+      }
+    }
+#else
     A.CGNode->removeCallEdgeFor(*CB);
+#endif
   }
   static_cast<Instruction *>(CB)->eraseFromParent();
 }
