@@ -592,10 +592,38 @@ version (IN_LLVM)
         twstring = twchar.immutableOf().arrayOf();
         tdstring = tdchar.immutableOf().arrayOf();
 
+version (IN_LLVM)
+{
+        switch (target.ptrsize)
+        {
+            case 1:
+                tsize_t    = basic[Tuns8];
+                tptrdiff_t = basic[Tint8];
+                break;
+            case 2:
+                tsize_t    = basic[Tuns16];
+                tptrdiff_t = basic[Tint16];
+                break;
+            case 4:
+                tsize_t    = basic[Tuns32];
+                tptrdiff_t = basic[Tint32];
+                break;
+            case 8:
+                tsize_t    = basic[Tuns64];
+                tptrdiff_t = basic[Tint64];
+                break;
+            default:
+                assert(0, "Unsupported target pointer size");
+        }
+}
+else
+{
         const isLP64 = target.isLP64;
 
         tsize_t    = basic[isLP64 ? Tuns64 : Tuns32];
         tptrdiff_t = basic[isLP64 ? Tint64 : Tint32];
+}
+
         thash_t = tsize_t;
 
         static if (__VERSION__ == 2081)
