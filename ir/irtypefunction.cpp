@@ -10,6 +10,7 @@
 #include "ir/irtypefunction.h"
 
 #include "dmd/mtype.h"
+#include "gen/llvmhelpers.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/tollvm.h"
@@ -53,9 +54,8 @@ IrTypeDelegate *IrTypeDelegate::get(Type *t) {
   assert(!ctype);
 
   IrFuncTy irFty(tf);
-  llvm::Type *ltf =
-      DtoFunctionType(tf, irFty, nullptr, pointerTo(Type::tvoid));
-  llvm::Type *fptr = LLPointerType::get(ltf, gDataLayout->getProgramAddressSpace());
+  DtoFunctionType(tf, irFty, nullptr, pointerTo(Type::tvoid));
+  llvm::Type *fptr = LLPointerType::get(getGlobalContext(), gDataLayout->getProgramAddressSpace());
   llvm::Type *types[] = {getOpaquePtrType(), fptr};
   LLStructType *lt = LLStructType::get(gIR->context(), types, false);
 

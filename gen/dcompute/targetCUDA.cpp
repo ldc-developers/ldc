@@ -43,7 +43,11 @@ public:
         llvm::Reloc::Static, llvm::CodeModel::Medium, codeGenOptLevel(), false);
 
     _ir = new IRState("dcomputeTargetCUDA", ctx);
+#if LDC_LLVM_VER >= 2100
+    _ir->module.setTargetTriple(llvm::Triple(tripleString));
+#else
     _ir->module.setTargetTriple(tripleString);
+#endif
     _ir->module.setDataLayout(targetMachine->createDataLayout());
     _ir->dcomputetarget = this;
   }
