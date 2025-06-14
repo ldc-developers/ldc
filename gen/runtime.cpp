@@ -75,8 +75,6 @@ static void checkForImplicitGCCall(Loc loc, const char *name) {
         "_d_arrayappendcTX",
         "_d_arrayappendcd",
         "_d_arrayappendwd",
-        "_d_arraysetlengthT",
-        "_d_arraysetlengthiT",
         "_d_assocarrayliteralTX",
         "_d_callfinalizer",
         "_d_delarray_t",
