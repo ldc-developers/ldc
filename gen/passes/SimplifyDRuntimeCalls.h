@@ -39,11 +39,6 @@ public:
                       llvm::AliasAnalysis &AA, llvm::IRBuilder<> &B);
 };
 
-/// ArraySetLengthOpt - remove libcall for arr.length = N if N <= arr.length
-struct LLVM_LIBRARY_VISIBILITY ArraySetLengthOpt : public LibCallOptimization {
-  llvm::Value *CallOptimizer(llvm::Function *Callee, llvm::CallInst *CI,
-                       llvm::IRBuilder<> &B) override; 
-};
 /// AllocationOpt - Common optimizations for various GC allocations.
 struct LLVM_LIBRARY_VISIBILITY AllocationOpt : public LibCallOptimization {
   llvm::Value *CallOptimizer(llvm::Function *Callee, llvm::CallInst *CI,
@@ -62,7 +57,6 @@ struct LLVM_LIBRARY_VISIBILITY SimplifyDRuntimeCalls {
   llvm::StringMap<LibCallOptimization *> Optimizations;
 
   // Array operations
-  ArraySetLengthOpt ArraySetLength;
   ArraySliceCopyOpt ArraySliceCopy;
 
   // GC allocations
