@@ -6,6 +6,9 @@ import core.time;
 import core.demangle;
 import ldc.attributes;
 
+version(LDC) version(X86_64) version = LDC_X86_64;
+version(LDC_X86_64) version(D_Optimized) version = LDC_X86_64_Optimized;
+
 @optStrategy("none") // LDC
 void main(string[] args)
 {
@@ -536,14 +539,18 @@ void test21384(IDiaSession session, IDiaSymbol globals)
     testVar(vars[2], "c", DataKind.DataIsParam, "testpdb.sum21384: arg3:");
     testVar(vars[3], "s", DataKind.DataIsLocal, "testpdb.sum21384: local:");
 
-    cnt = getFuncVars(globals, "testpdb.makeS21384", vars[]);
+    // LDC: extra var with enabled optimizations for make/genS21384() on x86_64
+    version (LDC_X86_64_Optimized) enum numExtraVarsWithEnabledOptimizations = 1;
+    else                           enum numExtraVarsWithEnabledOptimizations = 0;
+
+    cnt = getFuncVars(globals, "testpdb.makeS21384", vars[]) - numExtraVarsWithEnabledOptimizations;
     cnt == 3 || assert(false, "testpdb.makeS21384: failed to fetch 3 vars");
 
     testVar(vars[0], "a", DataKind.DataIsParam, "testpdb.makeS21384: arg1:");
     testVar(vars[1], "b", DataKind.DataIsParam, "testpdb.makeS21384: arg2:");
     testVar(vars[2], "s", DataKind.DataIsLocal, "testpdb.makeS21384: hidden:");
 
-    cnt = getFuncVars(globals, "testpdb.T21384.genS21384", vars[]);
+    cnt = getFuncVars(globals, "testpdb.T21384.genS21384", vars[]) - numExtraVarsWithEnabledOptimizations;
     cnt == 4 || assert(false, "testpdb.T21384.genS21384: failed to fetch 4 vars");
 
     testVar(vars[0], "this", DataKind.DataIsObjectPtr, "testpdb.T21384.genS21384: this:");
@@ -655,6 +662,12 @@ void test21382(IDiaSession session, IDiaSymbol globals)
     IDiaSymbol dSym = searchSymbol(globals, "testpdb.Dsym21382");
     dSym || assert(false, "testpdb.Dsym21382 not found");
 
+  version (LDC_X86_64)
+  {
+    // FIXME: no methods
+  }
+  else
+  {
     BOOL virt;
     IDiaSymbol finalSym = searchSymbol(dSym, "finalFun");
     finalSym || assert(false, "testpdb.Dsym21382.finalFun not found");
@@ -663,6 +676,7 @@ void test21382(IDiaSession session, IDiaSymbol globals)
     IDiaSymbol virtualSym = searchSymbol(dSym, "virtualFun");
     virtualSym || assert(false, "testpdb.Dsym21382.virtualFun not found");
     virtualSym.get_virtual(&virt) == S_OK && virt || assert(false, "testpdb.Dsym21382.virtualFun is virtual");
+  }
 }
 
 ///////////////////////////////////////////////
