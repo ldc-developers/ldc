@@ -281,7 +281,7 @@ void DtoCAssert(Module *M, Loc loc, LLValue *msg) {
   const auto fn = getCAssertFunction(loc, gIR->module);
 
   llvm::SmallVector<LLValue *, 4> args;
-  if (triple.isOSDarwin()) {
+  if (triple.isOSDarwin() || triple.isOSFreeBSD()) {
     const auto irFunc = gIR->func();
     const auto funcName =
         irFunc && irFunc->decl ? irFunc->decl->toPrettyChars() : "";
