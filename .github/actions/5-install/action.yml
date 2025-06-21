@@ -20,7 +20,7 @@ runs:
         else
           # the cross-compiled runtime libs have already been installed:
           # * lib/: runtime library artifacts
-          # * etc/ldc2.conf
+          # * etc/ldc2.conf/30-ldc-runtime-lib.conf
 
           # now extend by installing the cross-compiled compiler:
           # * bin/: executables
