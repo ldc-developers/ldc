@@ -1425,7 +1425,8 @@ extern (C++) final class CtorDeclaration : FuncDeclaration
 
     override const(char)* kind() const
     {
-        return isCpCtor ? "copy constructor" : "constructor";
+        return isCpCtor ? "copy constructor" :
+             isMoveCtor ? "move constructor" : "constructor";
     }
 
     override bool isVirtual() const
