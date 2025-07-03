@@ -68,8 +68,6 @@ runs:
         ldc2-multilib\bin\ldc2 -link-defaultlib-shared -m32 -run hello.d || exit /b
 
     # preliminary arm64 cross-compilation support
-    - name: Install ninja v1.12.1
-      uses: Ahajha/gha-setup-ninja@69595b0cf872acdad8ce599142fbdc88724b9a2b
     - name: Set VSDIR env variable
       shell: bash
       run: echo "VSDIR=$(vswhere -latest -property installationPath)" >> $GITHUB_ENV
