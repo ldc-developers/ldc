@@ -195,7 +195,7 @@ version (IN_LLVM) { /* not needed */ } else
     * Params:
     *   x64 = target architecture (x86 if false)
     * Returns:
-    *   absolute path to cl.exe, just "cl.exe" if not found
+    *   absolute path to cl.exe, and just "cl.exe" if not found
     */
     const(char)* compilerPath(bool x64)
     {
