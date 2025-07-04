@@ -652,7 +652,13 @@ createTargetMachine(const std::string targetTriple, const std::string arch,
                     finalFeaturesString.c_str());
   }
 
-  return target->createTargetMachine(triple.str(), cpu, finalFeaturesString,
+  return target->createTargetMachine(
+#if LDC_LLVM_VER >= 2100
+                                     triple,
+#else
+                                     triple.str(),
+#endif
+                                     cpu, finalFeaturesString,
                                      targetOptions, relocModel, codeModel,
                                      static_cast<llvm::CodeGenOptLevel>(codeGenOptLevel));
 }
