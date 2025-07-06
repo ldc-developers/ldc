@@ -51,6 +51,8 @@ struct Image {
     }
 
     @property size_t baseAddress() {
-        return cast(size_t)self.baseAddress;
+        if (debugObj.slide == -1)
+            return self.slide;
+        return 0;
     }
 }
