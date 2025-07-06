@@ -84,7 +84,6 @@ else version (Darwin)
     else
         static assert(0, "Not implemented for this architecture");
 
-    extern(C) intptr_t _dyld_get_image_slide(const mach_header*) nothrow @nogc;
 }
 else version (NetBSD)
 {

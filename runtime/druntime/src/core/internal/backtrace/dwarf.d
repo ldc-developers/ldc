@@ -185,18 +185,12 @@ int traceHandlerOpApplyImpl(size_t numFrames,
             startIdx = idx + 1;
     }
 
-    // Symbolicate locations
-    rt_dwarfSymbolicate(locations[startIdx .. $]);
-
     if (!image.isValid())
         return locations[startIdx .. $].processCallstack(null, 0, dg);
 
     // find address -> file, line mapping using dwarf debug_line
     return image.processDebugLineSectionData(
         (line) => locations[startIdx .. $].processCallstack(line, image.baseAddress, dg));
-
-    // Allow cleaning up after ourselves.
-    rt_dwarfSymbolicateCleanup(locations[startIdx .. $]);
 }
 
 struct TraceInfoBuffer
@@ -241,31 +235,6 @@ struct TraceInfoBuffer
         this.buf[this.position .. this.position + data.length] = data;
         this.position += data.length;
     }
-}
-
-/**
- * A weakly linked hook which can be implemented by external libraries
- * to extend the symbolication capabilites when debug info is missing.
- * 
- * NOTE:
- *   There used to be an atos based symbolication implementation built in
- *   here, but atos is not a portable solution on darwin derived OSes.
- *   atos conflicts with things such as the hardened runtime, iOS releases,
- *   App Store certification and the like. I've removed that implementation
- *   to ensure that D can easily be used to publish to the App Store.
- *   Please avoid adding other private APIs in its place directly in to
- *   druntime. If it resides in PrivateFrameworks or is a dev tool, 
- *   don't use it. - Luna
-*/
-@weak
-extern(C) void rt_dwarfSymbolicate(Location[] locations)
-{
-}
-
-/// ditto
-@weak
-extern(C) void rt_dwarfSymbolicateCleanup(Location[] locations)
-{
 }
 
 private:
