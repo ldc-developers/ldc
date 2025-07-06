@@ -654,13 +654,13 @@ extern "C" DComputeCompileFor hasComputeAttr(Dsymbol *sym) {
   return static_cast<DComputeCompileFor>(1 + (*sle->elements)[0]->toInteger());
 }
 
-/// Checks whether 'sym' has the @ldc.dcompute._kernel() UDA applied.
-bool hasKernelAttr(Dsymbol *sym) {
+/// Returns whether `sym` has the `@ldc.dcompute._kernel()` UDA applied.
+StructLiteralExp *getKernelAttr(Dsymbol *sym) {
   auto sle = getMagicAttribute(sym, Id::udaKernel, Id::dcompute);
   if (!sle)
-    return false;
+    return nullptr;
 
-  checkStructElems(sle, {});
+  checkStructElems(sle, {dmd::sarrayOf(Type::tsize_t, 3)});
 
   if (!sym->isFuncDeclaration() &&
       hasComputeAttr(sym->getModule()) != DComputeCompileFor::hostOnly) {
@@ -668,7 +668,7 @@ bool hasKernelAttr(Dsymbol *sym) {
                     " in modules marked `@ldc.dcompute.compute`");
   }
 
-  return true;
+  return sle;
 }
 
 /// Check whether `fd` has the `@ldc.attributes.noSplitStack` UDA applied.

@@ -19,6 +19,7 @@
 class Dsymbol;
 class FuncDeclaration;
 class VarDeclaration;
+class StructLiteralExp;
 struct IrFunction;
 namespace llvm {
 class GlobalVariable;
@@ -29,7 +30,7 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar);
 
 bool hasCallingConventionUDA(FuncDeclaration *fd, llvm::CallingConv::ID *callconv);
 bool hasWeakUDA(Dsymbol *sym);
-bool hasKernelAttr(Dsymbol *sym);
+StructLiteralExp *getKernelAttr(Dsymbol *sym);
 /// Must match ldc.dcompute.Compilefor + 1 == DComputeCompileFor
 enum class DComputeCompileFor : int
 {

@@ -65,14 +65,16 @@ struct compute
 + @compute(CompileFor.deviceOnly) module foo;
 + import ldc.dcompute;
 +
-+ @kernel void bar()
++ @kernel() void bar()
 + {
 +     //...
 + }
 + ---
 +/
-private struct _kernel {}
-enum kernel = _kernel();
+private struct _kernel {
+    size_t[3] bounds;
+}
+_kernel kernel(size_t[3] a = [1,1,1]) => _kernel(a);
 
 /++
  + DCompute has the notion of adress spaces, provide by the magic structs below.

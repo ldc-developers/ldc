@@ -457,8 +457,11 @@ option(LDC_DYNAMIC_COMPILE_USE_CUSTOM_PASSES "Use custom LDC passes in jit" ON)
 if(LDC_DYNAMIC_COMPILE STREQUAL "AUTO")
     if(LDC_LLVM_VER LESS 1800)
         set(LDC_DYNAMIC_COMPILE OFF)
-    else()
+    # FIXME: dynamic-compile regressions with LLVM 20
+    elseif(LDC_LLVM_VER LESS 2000)
         set(LDC_DYNAMIC_COMPILE ON)
+    else()
+        set(LDC_DYNAMIC_COMPILE OFF)
     endif()
 endif()
 # https://llvm.org/docs/JITLink.html for the list of supported platforms

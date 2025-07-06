@@ -98,6 +98,8 @@ FileName runCPreprocessor(FileName csrcfile, Loc loc, OutBuffer &defines) {
   std::vector<std::string> args;
   const std::string &cc = getCC(isMSVC, args);
 
+  args.push_back(isMSVC ? "/std:c11" : "-std=c11");
+
   if (!isMSVC)
     appendTargetArgsForGcc(args);
 
@@ -122,8 +124,7 @@ FileName runCPreprocessor(FileName csrcfile, Loc loc, OutBuffer &defines) {
       args.push_back("/Zc:preprocessor"); // use the new conforming preprocessor
     } else {
       // propagate the target to the preprocessor
-      args.push_back("-target");
-      args.push_back(triple.getTriple());
+      args.push_back("--target=" + triple.getTriple());
 
 #if LDC_LLVM_VER >= 1800 // getAllProcessorFeatures was introduced in this version
       // propagate all enabled/disabled features to the preprocessor
@@ -144,11 +145,14 @@ FileName runCPreprocessor(FileName csrcfile, Loc loc, OutBuffer &defines) {
 
       // print macro definitions (clang-cl doesn't support /PD - use clang's
       // -dD)
-      args.push_back("-Xclang");
-      args.push_back("-dD");
+      args.push_back("/clang:-dD");
 
       // need to redefine some macros in importc.h
       args.push_back("-Wno-builtin-macro-redefined");
+
+      // disable the clang resource headers (immintrin.h etc.), using
+      // unsupported types like __int128, __bf16 etc. - stick to the MS headers
+      args.push_back("-nobuiltininc");
     }
 
     args.push_back(csrcfile.toChars());

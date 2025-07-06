@@ -19,11 +19,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - job_name: Ubuntu 24.04, LLVM 19, latest LDC beta
+            os: ubuntu-24.04
+            host_dc: ldc-beta
+            llvm_version: 19
+            cmake_flags: -DRT_SUPPORT_SANITIZERS=ON
           - job_name: Ubuntu 24.04, LLVM 18, bootstrap LDC
             os: ubuntu-24.04
             host_dc: ldc-1.19.0
             llvm_version: 18
-            cmake_flags: -DRT_SUPPORT_SANITIZERS=ON -DPHOBOS_SYSTEM_ZLIB=ON
+            cmake_flags: -DBUILD_SHARED_LIBS=OFF -DPHOBOS_SYSTEM_ZLIB=ON
           - job_name: macOS 14, LLVM 17, latest LDC beta
             os: macos-14
             host_dc: ldc-beta
@@ -49,8 +54,6 @@ jobs:
         with:
           submodules: true
           fetch-depth: 50
-      - name: Install ninja
-        uses: symmetryinvestments/gha-setup-ninja@v2
       - name: Install D host compiler
         uses: dlang-community/setup-dlang@v1
         with:

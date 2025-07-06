@@ -23,7 +23,7 @@ struct NVPTXTargetABI : TargetABI {
       return llvm::CallingConv::PTX_Device;
   }
   llvm::CallingConv::ID callingConv(FuncDeclaration *fdecl) override {
-    return hasKernelAttr(fdecl) ? llvm::CallingConv::PTX_Kernel
+    return getKernelAttr(fdecl) ? llvm::CallingConv::PTX_Kernel
                                 : llvm::CallingConv::PTX_Device;
   }
   bool passByVal(TypeFunction *, Type *t) override {

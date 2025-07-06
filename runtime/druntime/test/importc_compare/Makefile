@@ -21,12 +21,3 @@ endif
 include ../common.mak
 
 extra_dflags += -d
-
-ifeq ($(OS),windows)
-    extra_dflags += -P=/std:c11
-
-    ifdef IN_LDC
-        # use Microsoft's cl.exe as preprocessor; clang-cl leads to unsupported `_Float16` etc.
-        extra_dflags += -gcc=cl
-    endif
-endif
