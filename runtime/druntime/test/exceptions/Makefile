@@ -67,6 +67,12 @@ ifeq ($(OS),windows)
 endif
 include ../common.mak
 
+# Generate dSYMs on macOS.
+$(OBJDIR)/%$(DOTEXE).dSYM: $(OBJDIR)/%$(DOTEXE)
+	@[ "$(OS)" = "osx" ] && dsymutil -o $<.dSYM $< 
+
+$(TESTS:%=$(OBJDIR)/%.done): $(OBJDIR)/%.done: $(OBJDIR)/%$(DOTEXE) $(OBJDIR)/%$(DOTEXE).dSYM
+
 $(ROOT)/line_trace.done: $(ROOT)/line_trace$(DOTEXE)
 	@echo Testing line_trace
 	$(TIMELIMIT)$(ROOT)/line_trace > $@
