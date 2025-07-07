@@ -52,7 +52,7 @@ struct SharedObjects {
 }
 
 /**
-    A loeaded mach-o binary.
+    A loaded mach-o binary.
 */
 struct SharedObject {
 @nogc nothrow:
