@@ -20,7 +20,7 @@ runs:
         else
           # the cross-compiled runtime libs have already been installed:
           # * lib/: runtime library artifacts
-          # * etc/ldc2.conf
+          # * etc/ldc2.conf/30-ldc-runtime-lib.conf
 
           # now extend by installing the cross-compiled compiler:
           # * bin/: executables
@@ -50,8 +50,9 @@ runs:
           # /d/a/1/install => D:/a/1/install
           absInstallDir=$(cygpath --mixed "$absInstallDir")
         fi
-        perl -pi -e "s|$absInstallDir/|%%ldcbinarypath%%/../|g" install/etc/ldc2.conf
-        cat install/etc/ldc2.conf
+        confs=( install/etc/ldc2.conf/* )
+        perl -pi -e "s|$absInstallDir/|%%ldcbinarypath%%/../|g" "${confs[@]}"
+        cat "${confs[@]}"
 
     - name: Rename the installation dir to test portability
       shell: bash
