@@ -248,7 +248,7 @@ public:
   // calls with a StringExp with matching data will return the same variable.
   // Exception: ulong[]-typed hex strings (not null-terminated either).
   llvm::GlobalVariable *getCachedStringLiteral(StringExp *se);
-  llvm::GlobalVariable *getCachedStringLiteral(llvm::StringRef s);
+  llvm::GlobalVariable *getCachedStringLiteral(llvm::StringRef s, std::optional< unsigned > = std::nullopt);
 
   // List of functions with cpu or features attributes overriden by user
   std::vector<IrFunction *> targetCpuOrFeaturesOverridden;
