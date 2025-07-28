@@ -1426,6 +1426,11 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    if (e->lowering) {
+      result = toElem(e->lowering);
+      return;
+    }
+
     auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 

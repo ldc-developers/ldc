@@ -712,68 +712,6 @@ LLValue *DtoArrayEqCmp_impl(Loc loc, const char *func, DValue *l, DValue *r,
   return gIR->CreateCallOrInvoke(fn, args);
 }
 
-/// When `true` is returned, the type can be compared using `memcmp`.
-/// See `validCompareWithMemcmp`.
-bool validCompareWithMemcmpType(Type *t) {
-  switch (t->ty) {
-  case TY::Tsarray: {
-    auto *elemType = t->baseElemOf();
-    return validCompareWithMemcmpType(elemType);
-  }
-
-  case TY::Tstruct:
-    // TODO: Implement when structs can be compared with memcmp. Remember that
-    // structs can have a user-defined opEquals, alignment padding bytes (in
-    // arrays), and padding bytes.
-    return false;
-
-  case TY::Tvoid:
-  case TY::Tint8:
-  case TY::Tuns8:
-  case TY::Tint16:
-  case TY::Tuns16:
-  case TY::Tint32:
-  case TY::Tuns32:
-  case TY::Tint64:
-  case TY::Tuns64:
-  case TY::Tint128:
-  case TY::Tuns128:
-  case TY::Tbool:
-  case TY::Tchar:
-  case TY::Twchar:
-  case TY::Tdchar:
-  case TY::Tpointer:
-    return true;
-
-    // TODO: Determine whether this can be "return true" too:
-    // case TY::Tvector:
-
-  default:
-    return false;
-  }
-}
-
-/// When `true` is returned, `l` and `r` can be compared using `memcmp`.
-///
-/// This function may return `false` even though `memcmp` would be valid.
-/// It may only return `true` if it is 100% certain.
-///
-/// Comparing with memcmp is often not valid, for example due to
-/// - Floating point types
-/// - Padding bytes
-/// - User-defined opEquals
-bool validCompareWithMemcmp(DValue *l, DValue *r) {
-  auto *lElemType = l->type->toBasetype()->nextOf()->toBasetype();
-  auto *rElemType = r->type->toBasetype()->nextOf()->toBasetype();
-
-  // Only memcmp equivalent element types (memcmp should be used for
-  // `const int[3] == int[]`, but not for `int[3] == short[3]`).
-  if (!equivalent(lElemType, rElemType))
-    return false;
-
-  return validCompareWithMemcmpType(lElemType);
-}
-
 // Create a call instruction to memcmp.
 llvm::CallInst *callMemcmp(Loc loc, IRState &irs, LLValue *l_ptr,
                            LLValue *r_ptr, LLValue *numElements, LLType *elemty) {
@@ -848,17 +786,13 @@ LLValue *DtoArrayEquals(Loc loc, EXP op, DValue *l, DValue *r) {
     // optimize comparisons against null by rewriting to `l.length op 0`
     const auto predicate = eqTokToICmpPred(op);
     res = gIR->ir->CreateICmp(predicate, DtoArrayLen(l), DtoConstSize_t(0));
-  } else if (validCompareWithMemcmp(l, r)) {
-    // Use memcmp directly if possible. This avoids typeinfo lookup, and enables
-    // further optimization because LLVM understands the semantics of C's
-    // `memcmp`.
+  } else {
+    // Use memcmp directly if possible (no `EqualExp::lowering`). This avoids
+    // typeinfo lookup, and enables further optimization because LLVM
+    // understands the semantics of C's `memcmp`.
     const auto predicate = eqTokToICmpPred(op);
     const auto memcmp_result = DtoArrayEqCmp_memcmp(loc, l, r, *gIR);
     res = gIR->ir->CreateICmp(predicate, memcmp_result, DtoConstInt(0));
-  } else {
-    res = DtoArrayEqCmp_impl(loc, "_adEq2", l, r, true);
-    const auto predicate = eqTokToICmpPred(op, /* invert = */ true);
-    res = gIR->ir->CreateICmp(predicate, res, DtoConstInt(0));
   }
 
   return res;
