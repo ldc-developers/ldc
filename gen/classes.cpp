@@ -378,27 +378,7 @@ DValue *DtoDynamicCastObject(Loc loc, DValue *val, Type *_to) {
     return new DImValue(_to, ret);
   }
 
-  // call:
-  // Object _d_dynamic_cast(Object o, ClassInfo c)
-  llvm::Function *func =
-      getRuntimeFunction(loc, gIR->module, "_d_dynamic_cast");
-  [[maybe_unused]] LLFunctionType *funcTy = func->getFunctionType();
-
-  // Object o
-  LLValue *obj = DtoRVal(val);
-  assert(funcTy->getParamType(0) == obj->getType());
-
-  // ClassInfo c
-  TypeClass *to = static_cast<TypeClass *>(_to->toBasetype());
-  DtoResolveClass(to->sym);
-
-  LLValue *cinfo = getIrAggr(to->sym)->getClassInfoSymbol();
-  assert(funcTy->getParamType(1) == cinfo->getType());
-
-  // call it
-  LLValue *ret = gIR->CreateCallOrInvoke(func, obj, cinfo);
-
-  return new DImValue(_to, ret);
+  llvm_unreachable("dynamic cast should have been lowered");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -439,23 +419,7 @@ DValue *DtoDynamicCastInterface(Loc loc, DValue *val, Type *_to) {
     return new DImValue(_to, ret);
   }
 
-  // call:
-  // Object _d_interface_cast(void* p, ClassInfo c)
-  llvm::Function *func =
-      getRuntimeFunction(loc, gIR->module, "_d_interface_cast");
-
-  // void* p
-  LLValue *ptr = DtoRVal(val);
-
-  // ClassInfo c
-  TypeClass *to = static_cast<TypeClass *>(_to->toBasetype());
-  DtoResolveClass(to->sym);
-  LLValue *cinfo = getIrAggr(to->sym)->getClassInfoSymbol();
-
-  // call it
-  LLValue *ret = gIR->CreateCallOrInvoke(func, ptr, cinfo);
-
-  return new DImValue(_to, ret);
+  llvm_unreachable("interface cast should have been lowered");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
