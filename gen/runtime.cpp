@@ -75,8 +75,6 @@ static void checkForImplicitGCCall(Loc loc, const char *name) {
         "_d_arrayappendcTX",
         "_d_arrayappendcd",
         "_d_arrayappendwd",
-        "_d_arraysetlengthT",
-        "_d_arraysetlengthiT",
         "_d_assocarrayliteralTX",
         "_d_callfinalizer",
         "_d_delarray_t",
@@ -343,6 +341,8 @@ llvm::Function *getRuntimeFunction(Loc loc, llvm::Module &target,
 // C assert function:
 // OSX:     void __assert_rtn(const char *func, const char *file, unsigned line,
 //                            const char *msg)
+// FreeBSD: void __assert(const char *func, const char *file, int line,
+//                        const char *msg)
 // Android: void __assert(const char *file, int line, const char *msg)
 // MSVC:    void  _assert(const char *msg, const char *file, unsigned line)
 // Solaris: void __assert_c99(const char *assertion, const char *filename, int line_num,
@@ -378,8 +378,9 @@ static std::vector<PotentiallyLazyType> getCAssertFunctionParamTypes() {
   const auto voidPtr = Type::tvoidptr;
   const auto uint = Type::tuns32;
 
-  if (triple.isOSDarwin() || triple.isOSSolaris() || triple.isMusl() ||
-      global.params.isUClibcEnvironment || triple.isGNUEnvironment()) {
+  if (triple.isOSDarwin() || triple.isOSFreeBSD() || triple.isOSSolaris() ||
+      triple.isMusl() || global.params.isUClibcEnvironment ||
+      triple.isGNUEnvironment()) {
     return {voidPtr, voidPtr, uint, voidPtr};
   }
   if (triple.getEnvironment() == llvm::Triple::Android) {

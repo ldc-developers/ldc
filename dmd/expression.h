@@ -53,7 +53,6 @@ namespace dmd
 {
     // in expressionsem.d
     Expression *expressionSemantic(Expression *e, Scope *sc);
-    void lowerNonArrayAggregate(StaticForeach *sfe, Scope *sc);
     // in typesem.d
     Expression *defaultInit(Type *mt, Loc loc, const bool isCfile = false);
 
@@ -356,6 +355,7 @@ public:
     unsigned char sz;   // 1: char, 2: wchar, 4: dchar
     d_bool committed;   // if type is committed
     d_bool hexString;   // if string is parsed from a hex string literal
+    d_bool cMacro;      // If the string is from a collected C macro
 
     static StringExp *create(Loc loc, const char *s);
     static StringExp *create(Loc loc, const void *s, d_size_t len);
@@ -972,6 +972,7 @@ public:
 class ArrayLengthExp final : public UnaExp
 {
 public:
+    Expression lowering;
     void accept(Visitor *v) override { v->visit(this); }
 };
 
@@ -1027,6 +1028,7 @@ class CommaExp final : public BinExp
 public:
     d_bool isGenerated;
     d_bool allowCommaExp;
+    Expression* originalExp;
     bool isLvalue() override;
     Optional<bool> toBool() override;
     void accept(Visitor *v) override { v->visit(this); }

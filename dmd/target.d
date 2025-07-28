@@ -472,7 +472,7 @@ else // !IN_LLVM
         DoubleProperties.initialize();
         RealProperties.initialize();
 
-        isLP64 = isX86_64;
+        isLP64 = isX86_64 || isAArch64;
 
         // These have default values for 32 bit code, they get
         // adjusted for 64 bit code.
