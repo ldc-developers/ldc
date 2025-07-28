@@ -435,6 +435,7 @@ extern(C) void printGlobalConfigs(FILE* stream)
     fputs(buf.peekChars(), stream);
 }
 
+version (IN_LLVM) {} else
 void printGlobalConfig(ref OutBuffer buf)
 {
     buf.printf("binary    %.*s\n", cast(int)global.params.argv0.length, global.params.argv0.ptr);

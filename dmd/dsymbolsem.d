@@ -1583,7 +1583,7 @@ version (IN_LLVM)
             return;
 version (IN_LLVM)
 {
-        import dmd.iasmgcc : gccAsmSemantic;
+        import dmd.iasm.gcc : gccAsmSemantic;
         gccAsmSemantic(dsym, sc);
 }
 else
