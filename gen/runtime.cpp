@@ -72,7 +72,6 @@ static void checkForImplicitGCCall(Loc loc, const char *name) {
         "_d_allocmemoryT",
         "_d_array_slice_copy",
         "_d_arrayappendT",
-        "_d_arrayappendcTX",
         "_d_arrayappendcd",
         "_d_arrayappendwd",
         "_d_assocarrayliteralTX",
@@ -87,7 +86,7 @@ static void checkForImplicitGCCall(Loc loc, const char *name) {
         "_d_newarrayU",
         "_d_newclass",
         "_d_allocclass",
-        // TODO: _d_newitemT and _d_newarraymTX instantiations
+        // TODO: _d_newitemT, _d_newarraymTX, _d_arrayappendcTX instantiations
     };
 
     if (binary_search(&GCNAMES[0],
