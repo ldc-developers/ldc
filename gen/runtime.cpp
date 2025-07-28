@@ -714,20 +714,6 @@ static void buildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
 
-  // cast interface
-  // void* _d_interface_cast(void* p, ClassInfo c)
-  createFwdDecl(LINK::c, voidPtrTy, {"_d_interface_cast"},
-                {voidPtrTy, classInfoTy}, {}, Attr_ReadOnly_NoUnwind);
-
-  // dynamic cast
-  // void* _d_dynamic_cast(Object o, ClassInfo c)
-  createFwdDecl(LINK::c, voidPtrTy, {"_d_dynamic_cast"}, {objectTy, classInfoTy},
-                {}, Attr_ReadOnly_NoUnwind);
-
-  //////////////////////////////////////////////////////////////////////////////
-  //////////////////////////////////////////////////////////////////////////////
-  //////////////////////////////////////////////////////////////////////////////
-
   // void* _aaGetY(AA* aa, const TypeInfo aati, in size_t valuesize,
   //               in void* pkey)
   createFwdDecl(LINK::c, voidPtrTy, {"_aaGetY"},
