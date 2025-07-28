@@ -278,6 +278,8 @@ immutable Msgtable[] msgtable =
     { "_d_newitemTTrace" },
     { "_d_newarrayT" },
     { "_d_newarrayTTrace" },
+    { "_d_newarrayU" },
+    { "_d_newarrayUTrace" },
     { "_d_newarraymTX" },
     { "_d_newarraymTXTrace" },
     { "_d_assert_fail" },
@@ -289,6 +291,7 @@ immutable Msgtable[] msgtable =
     { "_d_arraysetassign" },
     { "_d_arrayassign_l" },
     { "_d_arrayassign_r" },
+    { "_d_cast" },
 
     { "imported" },
     { "InterpolationHeader" },

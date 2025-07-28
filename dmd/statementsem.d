@@ -3683,7 +3683,7 @@ version (IN_LLVM)
         assert(sc.func);
         if (!(cas.stc & STC.pure_) && sc.func.setImpure(cas.loc, "executing an `asm` statement without `pure` annotation"))
             error(cas.loc, "`asm` statement is assumed to be impure - mark it with `pure` if it is not");
-        if (!(cas.stc & STC.nogc) && sc.func.setGC(cas.loc, "executing an `asm` statement without `@nogc` annotation"))
+        if (!(cas.stc & STC.nogc) && sc.setGC(sc.func, cas.loc, "executing an `asm` statement without `@nogc` annotation"))
             error(cas.loc, "`asm` statement is assumed to use the GC - mark it with `@nogc` if it does not");
         // @@@DEPRECATED_2.114@@@
         // change deprecation() to error(), add `else` and remove `| STC.safe`
@@ -3781,7 +3781,7 @@ public bool throwSemantic(Loc loc, ref Expression exp, Scope* sc)
     exp = exp.checkGC(sc);
     if (exp.isErrorExp())
         return false;
-    if (!exp.type.isNaked())
+    if (!exp.type.isNaked)
     {
         // @@@DEPRECATED_2.112@@@
         // Deprecated in 2.102, change into an error & return false in 2.112
@@ -3941,8 +3941,8 @@ private extern(D) Expression applyAssocArray(ForeachStatement fs, Expression fld
         Type ti = (isRef ? taa.index.addMod(MODFlags.const_) : taa.index);
         if (isRef ? !ti.constConv(ta) : !ti.implicitConvTo(ta))
         {
-            error(fs.loc, "`foreach`: index must be type `%s`, not `%s`",
-                     ti.toChars(), ta.toChars());
+            error(fs.loc, "`foreach`: index parameter `%s%s` must be type `%s`, not `%s`",
+                 isRef ? "ref ".ptr : "".ptr, p.toChars(), ti.toChars(), ta.toChars());
             return null;
         }
         p = (*fs.parameters)[1];
@@ -3952,8 +3952,8 @@ private extern(D) Expression applyAssocArray(ForeachStatement fs, Expression fld
     Type taav = taa.nextOf();
     if (isRef ? !taav.constConv(ta) : !taav.implicitConvTo(ta))
     {
-        error(fs.loc, "`foreach`: value must be type `%s`, not `%s`",
-                 taav.toChars(), ta.toChars());
+        error(fs.loc, "`foreach`: value parameter `%s%s` must be type `%s`, not `%s`",
+            isRef ? "ref ".ptr : "".ptr, p.toChars(), taav.toChars(), ta.toChars());
         return null;
     }
 
@@ -4046,6 +4046,7 @@ private extern(D) Statement loopReturn(Expression e, Statements* cases, Loc loc)
 private FuncExp foreachBodyToFunction(Scope* sc, ForeachStatement fs, TypeFunction tfld,
                                       /*IN_LLVM*/ bool enforceSizeTIndex)
 {
+    auto taa = fs.aggr.type.toBasetype().isTypeAArray();
     auto params = new Parameters();
     foreach (i, p; *fs.parameters)
     {
@@ -4117,6 +4118,8 @@ else
             v.storage_class |= STC.temp | (stc & STC.scope_);
             Statement s = new ExpStatement(fs.loc, v);
             fs._body = new CompoundStatement(fs.loc, s, fs._body);
+            if (taa)
+                p.type = i == 1 || fs.parameters.length == 1 ? taa.nextOf() : taa.index;
         }
         params.push(new Parameter(fs.loc, stc, IN_LLVM ? para_type : p.type, id, null, null));
     }
@@ -4172,7 +4175,7 @@ void catchSemantic(Catch c, Scope* sc)
         // reference .object.Throwable
         c.type = getThrowable();
     }
-    else if (!c.type.isNaked() && !c.type.isConst())
+    else if (!c.type.isNaked && !c.type.isConst())
     {
         // @@@DEPRECATED_2.115@@@
         // Deprecated in 2.105, change into an error & uncomment assign in 2.115
