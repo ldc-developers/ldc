@@ -18,6 +18,7 @@
 
 #include "gen/passes/Passes.h"
 #include "gen/passes/SimplifyDRuntimeCalls.h"
+#include "gen/llvmhelpers.h"
 #include "gen/tollvm.h"
 #include "gen/runtime.h"
 #include "llvm/ADT/Statistic.h"
@@ -134,7 +135,7 @@ Value *ArraySliceCopyOpt::CallOptimizer(Function *Callee, CallInst *CI,
                      IRBuilder<> &B) {
   // Verify we have a reasonable prototype for _d_array_slice_copy
   const FunctionType *FT = Callee->getFunctionType();
-  const llvm::Type *VoidPtrTy = PointerType::getUnqual(B.getInt8Ty());
+  const llvm::Type *VoidPtrTy = PointerType::get(getGlobalContext(), 0);
   if (Callee->arg_size() != 5 || FT->getReturnType() != B.getVoidTy() ||
       FT->getParamType(0) != VoidPtrTy ||
       !isa<IntegerType>(FT->getParamType(1)) ||
@@ -159,8 +160,16 @@ Value *ArraySliceCopyOpt::CallOptimizer(Function *Callee, CallInst *CI,
     Sz = (Int->getValue() * ElemSz->getValue()).getZExtValue();
   }
 
+#if LDC_LLVM_VER >= 2100
+  llvm::LocationSize Sz2 =
+      (Sz == llvm::MemoryLocation::UnknownSize)
+          ? llvm::LocationSize::beforeOrAfterPointer()
+          : llvm::LocationSize::precise(Sz);
+#else
+  std::uint64_t Sz2 = Sz;
+#endif
   // Check if the pointers may alias
-  if (AA->alias(CI->getOperand(0), Sz, CI->getOperand(2), Sz)) {
+  if (AA->alias(CI->getOperand(0), Sz2, CI->getOperand(2), Sz2)) {
     return nullptr;
   }
 

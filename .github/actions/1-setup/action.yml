@@ -119,9 +119,6 @@ runs:
         sudo ln -sf ld.lld /usr/bin/ld
         ld --version
 
-    - name: Install ninja v1.12.1
-      uses: Ahajha/gha-setup-ninja@69595b0cf872acdad8ce599142fbdc88724b9a2b
-
     - name: Install D host compiler
       uses: dlang-community/setup-dlang@v1
       with:

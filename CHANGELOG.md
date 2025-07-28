@@ -1,6 +1,7 @@
 # LDC master
 
 #### Big news
+- **Breaking change for dcompute**: The special `@kernel` UDA is now a function and _**requires**_ parentheses as in `@kernel() void foo(){}`. Optionally you can provide launch dimensions, `@kernel([2,4,8])`, to specify to the compute runtime how the kernel is intended to be launched. 
 
 #### Platform support
 

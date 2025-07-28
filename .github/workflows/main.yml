@@ -82,7 +82,7 @@ jobs:
             with_pgo: true
 
           - job_name: macOS arm64
-            os: macos-14
+            os: macos-15
             arch: arm64
             extra_cmake_flags: >-
               -DCMAKE_C_COMPILER=/opt/homebrew/opt/llvm@20/bin/clang
@@ -159,9 +159,6 @@ jobs:
         uses: ./.github/actions/helper-build-gdb
         with:
           arch: ${{ matrix.arch }}
-      - name: 'macOS arm64: Switch to Xcode 16'
-        if: runner.os == 'macOS' && matrix.arch == 'arm64'
-        run: sudo xcode-select -switch /Applications/Xcode_16.1.app
       - name: Build bootstrap LDC
         uses: ./.github/actions/2-build-bootstrap
         with:
