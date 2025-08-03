@@ -594,7 +594,7 @@ void ArgsBuilder::build(llvm::StringRef outputPath,
     args.push_back("-l" + name);
   }
 #ifdef PHOBOS_SYSTEM_ZLIB
-  if (!defaultLibNames.empty() && !linkAgainstSharedDefaultLibs())
+  if (!defaultLibNames.empty())
       args.push_back("-lz");
 #endif
 
