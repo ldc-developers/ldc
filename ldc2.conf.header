@@ -1,0 +1,168 @@
+////////////////// Getting started
+//
+// These beginning comments are meant to help you understand how to
+// configure ldc2 through ldc2.conf.
+//
+////////////////// Layout of ldc2.conf
+//
+// ldc2.conf can be either a file or a directory. In case of a
+// directory the files *directly* inside it are read in a natural
+// numerical order (e.g conf-10 comes after conf-9). Depending on how
+// ldc2 has been installed you are either reading this as the
+// beginning of ldc2.conf or as the file ldc2.conf/00-docs.conf.
+//
+// If ldc2.conf is a directory the extensions of the file inside it
+// don't matter but the ones that come with ldc2 have a `.conf`
+// extension for clarity.
+//
+////////////////// Structure of configuration files
+//
+// Each configuration file is formed by a series of sections, each
+// section containing settings. For example:
+//
+// ```
+// // A section that applies regardless of the target system
+// "default": {
+//     // default switches injected before all explicit command-line switches
+//     switches = [
+//         "-link-defaultlib-shared=false",
+//     ];
+//     // default switches appended after all explicit command-line switches
+//     post-switches = [
+//         "-I/usr/local/include",
+//     ];
+//     // default directories to be searched for libraries when linking
+//     lib-dirs = [
+//         "/usr/local/lib/",
+//     ];
+//     // default rpath when linking against the shared default libs
+//     rpath = "%%ldcbinarypath%%/../lib";
+// }
+//
+// // A section that only applies when compiling for WebAssembly
+// "^wasm(32|64)-": {
+//     // `~=` appends the -defaultlib argument to the previous value
+//     switches ~= [
+//         "-defaultlib=",
+//     ];
+//     // `=` overwrites the previous value of the setting
+//     lib-dirs = [];
+// };
+// ```
+//
+// See comments in driver/config.d in the ldc source tree for grammar
+// description of the config files.
+//
+////////////////// Defining sections
+//
+// A section is formed from a regex that is matched against the target
+// triple followed by a group of settings. The string "default" is
+// treated specially in this context as it means *any triple*, having
+// its settings always be applied.
+//
+// The syntax for defining a section is:
+//
+// ```
+// "<regex>": {
+//     ...
+// }
+// ```
+//
+// Where `<regex>` can be, for example:
+//    - x86_64-.*-linux-gnu :: matches when targeting x64 linux glibc
+//    - ^wasm(32|64)?- :: matches when targeting WebAssembly
+//    - default :: always matches
+//
+// To check what triple ldc is targeting pass the `-v` switch
+// (alongside any `-mtriple` or `-m32` switches) and look for the
+// `config` line:
+//
+// ```
+// $ ./bin/ldc2 -m32 -v
+// binary    /home/happy/git/ldc/build/bin/ldc2
+// version   1.41.0-git-f1f7373-dirty (DMD v2.111.0, LLVM 19.1.7)
+// config    /home/happy/git/ldc/build/etc/ldc2.conf (i686-pc-linux-gnu)
+// ```
+//
+// In the above example the target triple is `i686-pc-linux-gnu`.
+//
+////////////////// Assigning values
+//
+// There are two operators for assigning to settings: `=` and `~=`. The
+// former overwrites the previous value and works on both array and
+// string settings (so all settings) and the latter, like the D
+// counterpart, appends the given array to the previous value,
+// therefore it only works on the array settings ('switches',
+// 'post-switches' and 'lib-dirs').
+//
+// As an example, assuming that the next lines are in a section:
+//
+// ```
+//     switches = [ "-flag-1" ];
+//     switches = [ "-flag-2" ];
+//     post-switches = [ "-pflag-1" ]
+//     post-switches ~= [ "-pflag-2" ]
+//     rpath = "/a/b/c"
+// ```
+//
+// The final values of the settings are:
+//    - switches :: [ "-flag-2" ]
+//    - post-switches :: [ "-pflag-1", "-pflag-2" ]
+//    - lib-dirs :: []
+//    - rpath :: "/a/b/c"
+//
+// The trailing `;` after an assignment is optional.
+//
+// Please note that it is currently not possible to append a string to
+// an array, you must wrap the value in [] like so:
+//
+// ```
+//     switches ~= "-O";     // Error
+//     switches ~= [ "-O" ]; // Works
+// ```
+//
+////////////////// Placeholder variables
+//
+// There are currently three placeholder variables:
+//
+// - %%ldcbinarypath%% :: the directory which contains the ldc2 executable
+// - %%ldcconfigpath%% :: the path to ldc2.conf (be it a directory or a file)
+// - %%ldcversion%% :: the ldc2 version as a string (e.g. 1.41.0-git-f1f7373-dirty)
+//
+// You can use these patterns inside strings and they will be
+// substituted at runtime with their values, like so:
+//
+// ```
+//     lib-dirs ~= [ "%%ldcbinarypath%%/../lib32" ]
+// ```
+//
+////////////////// Example use cases
+//
+/////// 1. Disabling the -release switch
+//
+// ```
+// // ldc2.conf/9999-remove-release
+// default: {
+//     post-switches ~= [
+//         "--enable-asserts",
+//         "--enable-contracts",
+//         "--enable-invariants",
+//         "--enable-switch-errors",
+//         "--boundscheck=on",
+//     ]
+// }
+// ```
+//
+/////// 2. Setting up cross compilation
+//
+// This assumes that you have built a aarch64 linux musl version of
+// the runtime and have installed it in 'lib-rpi' alongside the native
+// 'lib' folder of ldc2.
+//
+// ```
+// // This snippet is at the end of ldc2.conf
+// "aarch64-.*-linux-musl": {
+//     switches ~= [ "-link-defaultlib-shared=false" ]
+//     lib-dirs = [ "%%ldcbinarypath%%/../lib-rpi" ]
+// }
+// ```
