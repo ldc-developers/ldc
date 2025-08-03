@@ -341,6 +341,7 @@ version (IN_LLVM)
     bool outputSourceLocations; // if true, output line tables.
 
     LinkonceTemplates linkonceTemplates; // -linkonce-templates
+    uint templateCodegenDepth; // -template-codegen-depth
 
     // Windows-specific:
     bool dllexport;      // dllexport ~all defined symbols?
