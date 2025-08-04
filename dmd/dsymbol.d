@@ -22,7 +22,6 @@ import dmd.arraytypes;
 import dmd.attrib;
 import dmd.astenums;
 import dmd.ast_node;
-import dmd.gluelayer;
 import dmd.dclass;
 import dmd.declaration;
 import dmd.denum;
@@ -348,7 +347,7 @@ version (IN_LLVM)
 }
 else
 {
-    Symbol* csym;           // symbol for code generator
+    void* csym;             // symbol for code generator
 }
     Scope* _scope;          // !=null means context to use for semantic()
     private DsymbolAttributes* atts; /// attached attribute declarations
@@ -673,7 +672,7 @@ version (IN_LLVM)
         static bool has2This(Dsymbol s)
         {
             if (auto f = s.isFuncDeclaration())
-                return f.hasDualContext();
+                return f.hasDualContext;
             if (auto ad = s.isAggregateDeclaration())
                 return ad.vthis2 !is null;
             return false;

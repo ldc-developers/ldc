@@ -823,7 +823,7 @@ extern(D):
             }
             if (id == name) // ok, we've found same name. use index instead of name
             {
-                buf.writeByte(cast(uint)i + '0');
+                buf.writeByte(cast(char)(i + '0'));
                 return true;
             }
         }
@@ -917,7 +917,7 @@ extern(D):
             }
             if (ty.equals(type)) // ok, we've found same type. use index instead of type
             {
-                buf.writeByte(cast(uint)i + '0');
+                buf.writeByte(cast(char)(i + '0'));
                 isNotTopType = false;
                 ignoreConst = false;
                 return true;
