@@ -1578,15 +1578,9 @@ public:
       // get dim
       assert(e->arguments);
       assert(e->arguments->length >= 1);
-      if (e->arguments->length == 1) {
-        DValue *sz = toElem((*e->arguments)[0]);
-        // allocate & init
-        result = DtoNewDynArray(e->loc, e->newtype, sz, true);
-      } else {
-        assert(e->lowering);
-        LLValue *pair = DtoRVal(e->lowering);
-        result = new DSliceValue(e->type, pair);
-      }
+      assert(e->lowering);
+      LLValue *pair = DtoRVal(e->lowering);
+      result = new DSliceValue(e->type, pair);
     }
     // new static array
     else if (ntype->ty == TY::Tsarray) {
