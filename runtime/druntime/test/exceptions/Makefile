@@ -67,6 +67,18 @@ ifeq ($(OS),windows)
 endif
 include ../common.mak
 
+# Generate dSYMs on macOS.
+$(OBJDIR)/%$(DOTEXE).dSYM: $(OBJDIR)/%$(DOTEXE)
+	dsymutil $<
+
+ifeq ($(OS),osx)
+tests_without_exe = line_trace_21656 rt_trap_exceptions_drt_gdb
+exes = $(filter-out $(tests_without_exe),$(TESTS))
+$(exes:%=$(OBJDIR)/%.done): $(OBJDIR)/%.done: $(OBJDIR)/%$(DOTEXE) $(OBJDIR)/%$(DOTEXE).dSYM
+$(OBJDIR)/line_trace_21656.done: $(OBJDIR)/line_trace$(DOTEXE).dSYM
+$(OBJDIR)/rt_trap_exceptions_drt_gdb.done: $(OBJDIR)/rt_trap_exceptions_drt$(DOTEXE).dSYM
+endif
+
 $(ROOT)/line_trace.done: $(ROOT)/line_trace$(DOTEXE)
 	@echo Testing line_trace
 	$(TIMELIMIT)$(ROOT)/line_trace > $@
