@@ -512,6 +512,12 @@ else
         else version (IN_LLVM)
         {
             compileEnv.vendor = "LDC";
+
+            // Initialize the default `-color` value here; upstream does it in
+            // `dmd.mars.parseCommandLine()`, which for LDC is implemented in C++
+            // (and the `dmd.console` helpers are all `extern(D)`).
+            import dmd.console : detectTerminal, detectColorPreference;
+            params.v.color = detectTerminal() && detectColorPreference();
         }
         else
             static assert(0, "unknown vendor");
