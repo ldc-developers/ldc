@@ -162,7 +162,7 @@ void testLineNumbers19747(IDiaSession session, IDiaSymbol globals)
 
 // https://github.com/dlang/dmd/issues/19587
 enum lineReturnTest19587 = __LINE__ + 4;
-void test19587(string col)
+void test19587(string col) @optStrategy("none") // LDC: UDA
 {
     if (col.length == 0)
         return; // does this line have an entry in the debug info?
