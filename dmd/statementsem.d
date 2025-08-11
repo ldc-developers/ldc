@@ -943,8 +943,7 @@ Statement statementSemanticVisit(Statement s, Scope* sc)
                 }
             }
 
-            FuncExp flde = foreachBodyToFunction(sc2, fs, tfld,
-                /*IN_LLVM: enforceSizeTIndex=*/ tab.ty == Tarray || tab.ty == Tsarray);
+            FuncExp flde = foreachBodyToFunction(sc2, fs, tfld);
             if (!flde)
                 return null;
 
@@ -4043,10 +4042,12 @@ private extern(D) Statement loopReturn(Expression e, Statements* cases, Loc loc)
  *  Function literal created, as an expression
  *  null if error.
  */
-private FuncExp foreachBodyToFunction(Scope* sc, ForeachStatement fs, TypeFunction tfld,
-                                      /*IN_LLVM*/ bool enforceSizeTIndex)
+private FuncExp foreachBodyToFunction(Scope* sc, ForeachStatement fs, TypeFunction tfld)
 {
-    auto taa = fs.aggr.type.toBasetype().isTypeAArray();
+    auto tab = fs.aggr.type.toBasetype();
+    auto taa = tab.isTypeAArray();
+    const isStaticOrDynamicArray = tab.isTypeSArray() || tab.isTypeDArray();
+
     auto params = new Parameters();
     foreach (i, p; *fs.parameters)
     {
@@ -4055,11 +4056,6 @@ private FuncExp foreachBodyToFunction(Scope* sc, ForeachStatement fs, TypeFuncti
 
         p.type = p.type.typeSemantic(fs.loc, sc);
         p.type = p.type.addStorageClass(p.storageClass);
-version (IN_LLVM)
-{
-        // Type of parameter may be different; see below
-        auto para_type = p.type;
-}
         if (tfld)
         {
             Parameter param = tfld.parameterList[i];
@@ -4089,39 +4085,30 @@ version (IN_LLVM)
         LcopyArg:
             id = Identifier.generateId("__applyArg", cast(int)i);
 
-version (IN_LLVM)
-{
-            // In case of a foreach loop on an array the index passed
-            // to the delegate is always of type size_t. The type of
-            // the parameter must be changed to size_t and a cast to
-            // the type used must be inserted. Otherwise the index is
-            // always 0 on a big endian architecture. This fixes
-            // issue #326.
-            Initializer ie;
-            if (fs.parameters.length == 2 && i == 0 && enforceSizeTIndex)
+            // Make sure `p.type` matches the signature expected by the druntime helpers.
+            const isIndexParam = i == 0 && fs.parameters.length == 2;
+            Type userType = p.type;
+            Expression initExp = new IdentifierExp(fs.loc, id);
+            if (taa)
             {
-                para_type = Type.tsize_t;
-                ie = new ExpInitializer(fs.loc,
-                                        new CastExp(fs.loc,
-                                                    new IdentifierExp(fs.loc, id), p.type));
+                p.type = isIndexParam ? taa.index : taa.nextOf();
             }
-            else
+            else if (isStaticOrDynamicArray && isIndexParam)
             {
-                ie = new ExpInitializer(fs.loc, new IdentifierExp(fs.loc, id));
+                p.type = Type.tsize_t;
+                // If the user used an incompatible index type (e.g., `int` instead
+                // of `size_t` - which is deprecated nowadays), then add a cast.
+                if (!p.type.implicitConvTo(userType))
+                    initExp = new CastExp(fs.loc, initExp, userType);
             }
-}
-else
-{
-            Initializer ie = new ExpInitializer(fs.loc, new IdentifierExp(fs.loc, id));
-}
-            auto v = new VarDeclaration(fs.loc, p.type, p.ident, ie);
+
+            Initializer initializer = new ExpInitializer(fs.loc, initExp);
+            auto v = new VarDeclaration(fs.loc, userType, p.ident, initializer);
             v.storage_class |= STC.temp | (stc & STC.scope_);
             Statement s = new ExpStatement(fs.loc, v);
             fs._body = new CompoundStatement(fs.loc, s, fs._body);
-            if (taa)
-                p.type = i == 1 || fs.parameters.length == 1 ? taa.nextOf() : taa.index;
         }
-        params.push(new Parameter(fs.loc, stc, IN_LLVM ? para_type : p.type, id, null, null));
+        params.push(new Parameter(fs.loc, stc, p.type, id, null, null));
     }
     // https://issues.dlang.org/show_bug.cgi?id=13840
     // Throwable nested function inside nothrow function is acceptable.
