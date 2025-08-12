@@ -272,6 +272,8 @@ void parseCommandLine(Strings &sourceFiles) {
   const auto &exePath = exe_path::getExePath();
   global.params.argv0 = {exePath.length(), exePath.data()};
 
+  global.params.v.errorPrintMode = ErrorPrintMode::printErrorContext;
+
   // read config file
   ConfigFile &cfg_file = ConfigFile::instance;
   const char *explicitConfFile = tryGetExplicitConfFile(allArguments);
