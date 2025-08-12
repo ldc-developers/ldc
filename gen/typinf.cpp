@@ -450,7 +450,8 @@ void buildTypeInfo(TypeInfoDeclaration *decl) {
     // immutable on the D side, and e.g. synchronized() can be used on the
     // implicit monitor.
     const bool isConstant = false;
-    bool useDLLImport = isBuiltin && global.params.dllimport != DLLImport::none;
+    const bool useDLLImport =
+        isBuiltin && global.params.dllimport >= DLLImport::defaultLibsOnly;
     gvar = declareGlobal(decl->loc, gIR->module, type, irMangle, isConstant,
                          false, useDLLImport);
   }

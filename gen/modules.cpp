@@ -150,9 +150,8 @@ LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
   LLConstant *mref = gIR->module.getNamedGlobal(mrefIRMangle);
   LLType *ptrTy = getOpaquePtrType();
   if (!mref) {
-    mref =
-        declareGlobal(Loc(), gIR->module, ptrTy, mrefIRMangle, false,
-                      false, global.params.dllimport != DLLImport::none);
+    mref = declareGlobal(Loc(), gIR->module, ptrTy, mrefIRMangle, false, false,
+                         false);
   }
 
   // make the function insert this moduleinfo as the beginning of the

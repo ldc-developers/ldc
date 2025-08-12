@@ -1,4 +1,3 @@
-
 /* Compiler implementation of the D programming language
  * Copyright (C) 1999-2025 by The D Language Foundation, All Rights Reserved
  * written by Walter Bright
@@ -128,7 +127,8 @@ enum class LinkonceTemplates : char
 enum class DLLImport : char
 {
     none,
-    defaultLibsOnly, // only symbols from druntime/Phobos
+    externalOnly,    // only symbols from -extI modules
+    defaultLibsOnly, // only symbols from druntime/Phobos and -extI modules
     all
 };
 #endif
@@ -190,9 +190,17 @@ struct Verbose
 struct ImportPathInfo
 {
     const char* path;
+    d_bool isOutOfBinary;
 
-    ImportPathInfo() : path(NULL) { }
-    ImportPathInfo(const char* p) : path(p) { }
+    ImportPathInfo() :
+        path(),
+        isOutOfBinary()
+    {
+    }
+    ImportPathInfo(const char* path, d_bool isOutOfBinary = false) :
+        path(path),
+        isOutOfBinary(isOutOfBinary)
+        {}
 };
 
 // Put command line switches in here
@@ -226,6 +234,9 @@ struct Param
 
     Help help;
     Verbose v;
+
+    unsigned short edition;      // edition year
+    void* editionFiles;          // Edition corresponding to a filespec
 
     // Options for `-preview=/-revert=`
     FeatureState useDIP25;       // implement https://wiki.dlang.org/DIP25

@@ -919,6 +919,7 @@ public:
     Type *to;                   // type to cast to
     unsigned char mod;          // MODxxxxx
     d_bool trusted; // assume cast is safe
+    Expression* lowering;
 
     CastExp *syntaxCopy() override;
     bool isLvalue() override;
@@ -1321,6 +1322,8 @@ public:
 class EqualExp final : public BinExp
 {
 public:
+    Expression* lowering;
+
     void accept(Visitor *v) override { v->visit(this); }
 };
 

@@ -119,7 +119,8 @@ enum LinkonceTemplates : byte
 enum DLLImport : byte
 {
     none,
-    defaultLibsOnly, // only symbols from druntime/Phobos
+    externalOnly,    // only symbols from -extI modules
+    defaultLibsOnly, // only symbols from druntime/Phobos and -extI modules
     all
 }
 } // IN_LLVM
@@ -188,6 +189,7 @@ extern(C++) struct Verbose
 
 extern (C++) struct ImportPathInfo {
     const(char)* path; // char*'s of where to look for import modules
+    bool isOutOfBinary; // Will any module found from this path be out of binary?
 }
 
 /// Put command line switches in here
@@ -222,6 +224,11 @@ extern (C++) struct Param
 
     Help help;
     Verbose v;
+
+    // Editions
+    Edition edition;             // edition year
+    Edition[const(char)*] editionFiles; // Edition corresponding to a filespec
+
 
     // Options for `-preview=/-revert=`
     FeatureState useDIP25 = FeatureState.enabled; // implement https://wiki.dlang.org/DIP25
@@ -494,13 +501,10 @@ else
         errorSinkNull = new ErrorSinkNull;
 
         this.fileManager = new FileManager();
+
         version (MARS)
         {
             compileEnv.vendor = "Digital Mars D";
-
-            // -color=auto is the default value
-            import dmd.console : detectTerminal, detectColorPreference;
-            params.v.color = detectTerminal() && detectColorPreference();
         }
         else version (IN_GCC)
         {
@@ -510,11 +514,15 @@ else
         {
             compileEnv.vendor = "LDC";
 
-            import dmd.console : detectTerminal;
-            params.v.color = detectTerminal();
+            // Initialize the default `-color` value here; upstream does it in
+            // `dmd.mars.parseCommandLine()`, which for LDC is implemented in C++
+            // (and the `dmd.console` helpers are all `extern(D)`).
+            import dmd.console : detectTerminal, detectColorPreference;
+            params.v.color = detectTerminal() && detectColorPreference();
         }
+        else
+            static assert(0, "unknown vendor");
 
-        params.v.errorPrintMode = ErrorPrintMode.printErrorContext; // Enable error context globally by default
         compileEnv.versionNumber = parseVersionNumber(versionString());
 
         /* Initialize date, time, and timestamp
