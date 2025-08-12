@@ -90,11 +90,21 @@ void generateJson(Modules *modules);
 using namespace dmd;
 using namespace opts;
 
-static ImportPathsAdapter impPathsStore("I", global.params.imppath);
+static ImportPathsAdapter impPathsStore("I", global.params.imppath,
+                                        /*isExternal=*/false);
 static cl::list<std::string, ImportPathsAdapter>
     importPaths("I", cl::desc("Look for imports also in <directory>"),
                 cl::value_desc("directory"), cl::location(impPathsStore),
                 cl::Prefix);
+
+static ImportPathsAdapter extImpPathsStore("extI", global.params.imppath,
+                                           /*isExternal=*/true);
+static cl::list<std::string, ImportPathsAdapter> extImportPaths(
+    "extI",
+    cl::desc("Look also in <directory> for imports that are external to the "
+             "currently compiling binary. This affects the -dllimport behavior "
+             "for data symbols from these binary-external modules."),
+    cl::value_desc("directory"), cl::location(extImpPathsStore));
 
 // Note: this option is parsed manually in C main().
 static cl::opt<bool> enableGC(

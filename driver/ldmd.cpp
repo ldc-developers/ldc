@@ -174,7 +174,7 @@ Where:\n\
   -deps             print module dependencies (imports/file/version/debug/lib)\n\
   -deps=<filename>  write module dependencies to filename (only imports)\n\
   -dllimport=<value>\n\
-                    Windows only: select symbols to dllimport (none/defaultLibsOnly/all)\n\
+                    Windows only: select symbols to dllimport (none/defaultLibsOnly/externalOnly/all)\n\
   -extern-std=<standard>\n\
                     set C++ name mangling compatibility with <standard>\n"
 #if 0
@@ -210,6 +210,7 @@ Where:\n\
   -HCf=<filename>   write C++ 'header' file to filename instead of stdout\n\
   --help            print help and exit\n\
   -I=<directory>    look for imports also in directory\n\
+  -extI=<directory> look for imports that are out of the currently compiling binary, used to set the module as DllImport\n\
   -i[=<pattern>]    include imported modules in the compilation\n\
   -identifiers=<table>\n\
                     specify the non-ASCII tables for D identifiers\n\
@@ -689,6 +690,7 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
       }
       /* -unittest
        * -I
+       * -extI
        * -J
        */
       else if (startsWith(p + 1, "debug") && p[6] != 'l') {

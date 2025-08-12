@@ -183,11 +183,13 @@ public:
 class ImportPathsAdapter {
   const char *name;
   Array<ImportPathInfo> *arrp;
+  bool isExternal;
 
 public:
-  ImportPathsAdapter(const char *name_, Array<ImportPathInfo> &arr) {
+  ImportPathsAdapter(const char *name_, Array<ImportPathInfo> &arr, bool isExternal_) {
     name = name_;
     arrp = &arr;
+    isExternal = isExternal_;
     assert(name);
   }
 

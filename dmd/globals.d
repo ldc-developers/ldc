@@ -119,7 +119,8 @@ enum LinkonceTemplates : byte
 enum DLLImport : byte
 {
     none,
-    defaultLibsOnly, // only symbols from druntime/Phobos
+    externalOnly,    // only symbols from -extI modules
+    defaultLibsOnly, // only symbols from druntime/Phobos and -extI modules
     all
 }
 } // IN_LLVM

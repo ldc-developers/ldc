@@ -127,7 +127,8 @@ enum class LinkonceTemplates : char
 enum class DLLImport : char
 {
     none,
-    defaultLibsOnly, // only symbols from druntime/Phobos
+    externalOnly,    // only symbols from -extI modules
+    defaultLibsOnly, // only symbols from druntime/Phobos and -extI modules
     all
 };
 #endif
