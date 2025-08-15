@@ -11,6 +11,7 @@
 #include "driver/cl_options.h"
 #include "driver/cl_helpers.h"
 #include "dmd/errors.h"
+#include "dmd/module.h"
 #include "ir/irdsymbol.h"
 #include "llvm/Support/CommandLine.h"
 #include <array>
@@ -90,6 +91,7 @@ DComputeCodeGenManager::DComputeCodeGenManager(llvm::LLVMContext &c) : ctx(c) {
 
 void DComputeCodeGenManager::emit(Module *m) {
   for (auto &target : targets) {
+    m->noModuleInfo = true;
     target->emit(m);
     IrDsymbol::resetAll();
   }
