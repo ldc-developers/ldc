@@ -10,7 +10,7 @@
  * Mark the resulting object file as not requiring execution
  * permissions on stack memory. The absence of this section would mark
  * the whole resulting library as requiring an executable stack,
- * making it impossible to dynamically load druntime on several Linux
+ * making it impossible to dynamically load druntime on several
  * platforms where this is forbidden due to security policies.
  */
 
