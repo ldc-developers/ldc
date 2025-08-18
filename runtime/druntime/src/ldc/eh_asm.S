@@ -6,6 +6,7 @@
  * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
  */
 
+#if __ELF__
 /*
  * Mark the resulting object file as not requiring execution
  * permissions on stack memory. The absence of this section would mark
@@ -13,8 +14,6 @@
  * making it impossible to dynamically load druntime on several
  * platforms where this is forbidden due to security policies.
  */
-
-#if (defined(__linux__) || defined(__FreeBSD__)) && defined(__ELF__)
 .section .note.GNU-stack,"",%progbits
 .previous
 #endif
