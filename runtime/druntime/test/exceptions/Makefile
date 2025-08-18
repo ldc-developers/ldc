@@ -3,6 +3,11 @@ ifdef IN_LDC
 include ../../../../dmd/osmodel.mak
 endif
 
+$(info $(shell which apk ; echo $$?))
+$(info $(shell which apk && echo 1 ; echo $$?))
+$(info $(shell command -v apk ; echo $$?))
+$(info $(shell command -v apk && echo 1 ; echo $$?))
+
 ifeq ($(OS),linux)
     # FIXME: detect musl libc robustly; just checking Alpine Linux' apk tool for now
     ifeq (1,$(shell command -v apk &>/dev/null && echo 1))
