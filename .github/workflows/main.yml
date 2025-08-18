@@ -190,6 +190,13 @@ jobs:
         uses: ./.github/actions/4c-test-dmd
         with:
           arch: ${{ matrix.arch }}
+
+      - name: Check apk tool
+        shell: bash
+        run: |
+          command -v apk || true
+          apk --version || true
+
       - name: Run defaultlib unittests & druntime integration tests
         if: success() || failure()
         uses: ./.github/actions/4d-test-libs
