@@ -6,7 +6,10 @@ endif
 ifeq ($(OS),linux)
     # FIXME: detect musl libc robustly; just checking Alpine Linux' apk tool for now
     ifeq (1,$(shell which apk &>/dev/null && echo 1))
+        $(warning ~~~ musl detected)
         IS_MUSL:=1
+    else
+        $(warning ~~~ musl NOT detected)
     endif
 endif
 
@@ -65,6 +68,8 @@ endif
 ifeq ($(OS),windows)
     TESTS+=winstack
 endif
+
+$(warning ~~~ All the tests are: $(TESTS))
 include ../common.mak
 
 $(ROOT)/line_trace.done: $(ROOT)/line_trace$(DOTEXE)
