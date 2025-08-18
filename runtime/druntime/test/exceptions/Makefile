@@ -5,7 +5,7 @@ endif
 
 ifeq ($(OS),linux)
     # FIXME: detect musl libc robustly; just checking Alpine Linux' apk tool for now
-    ifeq (1,$(shell which apk &>/dev/null && echo 1))
+    ifeq (1,$(shell command -v apk &>/dev/null && echo 1))
         $(warning ~~~ musl detected)
         IS_MUSL:=1
     else
