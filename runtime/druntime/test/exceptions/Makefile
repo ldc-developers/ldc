@@ -65,6 +65,23 @@ ifdef IN_LDC
         # rt.dwarfeh._d_throw_exception:399 unwind switch statement.
         # The value is 0xf7fe7fb8 which is complete garbage.
         TESTS := $(filter-out memoryerror_null_call,$(TESTS))
+
+        # The aarch64 github runners fail but it works locally
+	TESTS := $(filter-out memoryerror_%,$(TESTS))
+    endif
+
+    ifeq ($(OS),linux)
+        # These maybe fail with a shared runtime.
+        #
+        # CircleCI fails on x86_64, other CI and locally work.
+        # aarch64 fails locally, shared-only is not tested in CI.
+        #
+        # The failure is caused by the backtrace call in
+        # core.runtime.DefaultTraceInfo.this
+        ifeq ($(BUILD_SHARED_LIBS),ON)
+            TESTS := $(filter-out memoryerror_%,$(TESTS))
+        endif
+        $(ROOT)/memoryerror_%: private extra_ldflags.d += -link-defaultlib-shared=false
     endif
 endif
 

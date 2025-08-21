@@ -89,7 +89,7 @@ foreach(name ${testnames})
                 ROOT=${outdir} DMD=${LDMD_EXE_FULL} BUILD=${build} SHARED=1
                 DRUNTIME=${druntime_path_build} DRUNTIMESO=${shared_druntime_path_build}
                 ${cc} ${cxx} CFLAGS_BASE=${cflags_base} DFLAGS_BASE=${dflags_base} ${linkdl}
-                IN_LDC=1 ${musl}
+                IN_LDC=1 ${musl} BUILD_SHARED_LIBS=${BUILD_SHARED_LIBS}
         )
         set_tests_properties(${fullname} PROPERTIES DEPENDS clean-${fullname})
     endforeach()
