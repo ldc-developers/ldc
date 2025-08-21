@@ -58,6 +58,16 @@ endif
 ifeq ($(OS),windows)
     TESTS+=winstack
 endif
+
+ifdef IN_LDC
+    ifeq ($(OS)-$(ARCH),linux-aarch64)
+        # This hits the "should never happen" default branch in the
+        # rt.dwarfeh._d_throw_exception:399 unwind switch statement.
+        # The value is 0xf7fe7fb8 which is complete garbage.
+        TESTS := $(filter-out memoryerror_null_call,$(TESTS))
+    endif
+endif
+
 include ../common.mak
 
 $(ROOT)/line_trace.done: $(ROOT)/line_trace$(DOTEXE)
