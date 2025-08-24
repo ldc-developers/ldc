@@ -193,3 +193,10 @@ else version (LDC)
     version (X86)    public import ldc.gccbuiltins_x86;
     version (X86_64) public import ldc.gccbuiltins_x86;
 }
+
+version (CRuntime_Glibc) version (AArch64)
+{
+    // math.h needs these
+    alias __Float32x4_t = __vector(float[4]);
+    alias __Float64x2_t = __vector(double[2]);
+}
