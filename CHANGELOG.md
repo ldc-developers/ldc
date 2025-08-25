@@ -1,7 +1,7 @@
 # LDC master
 
 #### Big news
-- Frontend, druntime and Phobos are at version ~[2.112.0](https://dlang.org/changelog/2.112.0.html). (#4949)
+- Frontend, druntime and Phobos are at version ~[2.112.0](https://dlang.org/changelog/2.112.0.html), incl. new command-line options `-extI`, `-dllimport=externalOnly` and `-edition`. (#4949, #4962)
 - **Breaking change for dcompute**: The special `@kernel` UDA is now a function and _**requires**_ parentheses as in `@kernel() void foo(){}`. Optionally you can provide launch dimensions, `@kernel([2,4,8])`, to specify to the compute runtime how the kernel is intended to be launched. 
 
 #### Platform support
