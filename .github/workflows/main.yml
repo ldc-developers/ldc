@@ -215,9 +215,16 @@ jobs:
         run: |
           set -eux
           cd ..
-          triple='${{ matrix.arch }}-apple-ios12.0${{ matrix.arch == 'x86_64' && '-simulator' || '' }}'
-          installed/bin/ldc2 -mtriple="$triple" hello.d -of=hello_ios
-          installed/bin/ldc2 -mtriple="$triple" hello.d -of=hello_ios_shared -link-defaultlib-shared
+          if [[ '${{matrix.arch}}' == 'arm64' ]]; then
+              triples=("arm64-apple-ios12.0" "arm64-apple-ios12.0-simulator")
+          else
+              triples=('${{ matrix.arch }}-apple-ios12.0${{ matrix.arch == 'x86_64' && '-simulator' || '' }}')
+          fi
+          for triple in "${triples[@]}"; do
+              installed/bin/ldc2 -mtriple="$triple" hello.d -of=hello_ios
+              installed/bin/ldc2 -mtriple="$triple" hello.d -of=hello_ios_shared -link-defaultlib-shared
+          done
+
 
       - name: Create package & upload artifact(s)
         uses: ./.github/actions/7-package
