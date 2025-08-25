@@ -26,6 +26,7 @@ runs:
         mv lib                            lib-x86_64
         cp -R ../ldc2-arm64/lib           lib-arm64
         cp -R ../ldc2-arm64/lib-ios-arm64 ./
+        cp -R ../ldc2-arm64/lib-ios-arm64-simulator ./
 
         # merge executables to universal ones
         for exe in bin/*; do
