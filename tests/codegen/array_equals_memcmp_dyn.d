@@ -22,14 +22,10 @@ bool static_dynamic(const bool[4] a, bool[] b)
 // ASM-LABEL: inv_dynamic_dynamic{{.*}}:
 bool inv_dynamic_dynamic(bool[] a, const bool[] b)
 {
-    // The front-end turns this into a call to druntime template function `object.__equals!(const(bool), const(bool)).__equals(const(bool)[], const(bool)[])`
-    // After optimization (inlining), it should boil down to a length check and a call to memcmp.
+    // LLVM: call i32 @memcmp
     // ASM: {{(mem|b)cmp}}
     return a != b;
 }
-
-// LLVM-LABEL: define{{.*}} @{{.*}}_D4core8internal5array8equality__T8__equals
-// ASM-LABEL: _D4core8internal5array8equality__T8__equals{{.*}}:
 
 // LLVM-LABEL: define{{.*}} @_Dmain
 // ASM-LABEL: _Dmain:

@@ -183,16 +183,24 @@ public:
 class ImportPathsAdapter {
   const char *name;
   Array<ImportPathInfo> *arrp;
+  bool isExternal;
 
 public:
-  ImportPathsAdapter(const char *name_, Array<ImportPathInfo> &arr) {
+  ImportPathsAdapter(const char *name_, Array<ImportPathInfo> &arr, bool isExternal_) {
     name = name_;
     arrp = &arr;
+    isExternal = isExternal_;
     assert(name);
   }
 
   void push_back(const char *cstr);
 
+  void push_back(const std::string &str) { push_back(str.c_str()); }
+};
+
+class EditionsAdapter {
+public:
+  void push_back(const char *cstr);
   void push_back(const std::string &str) { push_back(str.c_str()); }
 };
 }

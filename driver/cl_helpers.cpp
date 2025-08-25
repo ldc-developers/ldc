@@ -72,7 +72,13 @@ void ImportPathsAdapter::push_back(const char *cstr) {
     error(Loc(), "Expected argument to '-%s'", name);
   }
 
-  arrp->push(ImportPathInfo(mem.xstrdup(cstr)));
+  arrp->push(ImportPathInfo(mem.xstrdup(cstr), isExternal));
+}
+
+void EditionsAdapter::push_back(const char *cstr) {
+  if (!parseEditionOption(cstr)) {
+    error(Loc(), "Invalid argument for '-edition': %s", cstr);
+  }
 }
 
 } // namespace opts

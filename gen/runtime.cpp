@@ -72,7 +72,6 @@ static void checkForImplicitGCCall(Loc loc, const char *name) {
         "_d_allocmemoryT",
         "_d_array_slice_copy",
         "_d_arrayappendT",
-        "_d_arrayappendcTX",
         "_d_arrayappendcd",
         "_d_arrayappendwd",
         "_d_assocarrayliteralTX",
@@ -87,7 +86,7 @@ static void checkForImplicitGCCall(Loc loc, const char *name) {
         "_d_newarrayU",
         "_d_newclass",
         "_d_allocclass",
-        // TODO: _d_newitemT and _d_newarraymTX instantiations
+        // TODO: _d_newitemT, _d_newarraymTX, _d_arrayappendcTX instantiations
     };
 
     if (binary_search(&GCNAMES[0],
@@ -709,28 +708,6 @@ static void buildRuntimeModule() {
   // void* _d_arraysetassign(void* p, void* value, int count, TypeInfo ti)
   createFwdDecl(LINK::c, voidPtrTy, {"_d_arraysetassign"},
                 {voidPtrTy, voidPtrTy, intTy, typeInfoTy});
-
-  //////////////////////////////////////////////////////////////////////////////
-  //////////////////////////////////////////////////////////////////////////////
-  //////////////////////////////////////////////////////////////////////////////
-
-  // cast interface
-  // void* _d_interface_cast(void* p, ClassInfo c)
-  createFwdDecl(LINK::c, voidPtrTy, {"_d_interface_cast"},
-                {voidPtrTy, classInfoTy}, {}, Attr_ReadOnly_NoUnwind);
-
-  // dynamic cast
-  // void* _d_dynamic_cast(Object o, ClassInfo c)
-  createFwdDecl(LINK::c, voidPtrTy, {"_d_dynamic_cast"}, {objectTy, classInfoTy},
-                {}, Attr_ReadOnly_NoUnwind);
-
-  //////////////////////////////////////////////////////////////////////////////
-  //////////////////////////////////////////////////////////////////////////////
-  //////////////////////////////////////////////////////////////////////////////
-
-  // int _adEq2(void[] a1, void[] a2, TypeInfo ti)
-  createFwdDecl(LINK::c, intTy, {"_adEq2"},
-                {voidArrayTy, voidArrayTy, typeInfoTy}, {}, Attr_ReadOnly);
 
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////

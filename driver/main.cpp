@@ -90,11 +90,28 @@ void generateJson(Modules *modules);
 using namespace dmd;
 using namespace opts;
 
-static ImportPathsAdapter impPathsStore("I", global.params.imppath);
+static ImportPathsAdapter impPathsStore("I", global.params.imppath,
+                                        /*isExternal=*/false);
 static cl::list<std::string, ImportPathsAdapter>
     importPaths("I", cl::desc("Look for imports also in <directory>"),
                 cl::value_desc("directory"), cl::location(impPathsStore),
                 cl::Prefix);
+
+static ImportPathsAdapter extImpPathsStore("extI", global.params.imppath,
+                                           /*isExternal=*/true);
+static cl::list<std::string, ImportPathsAdapter> extImportPaths(
+    "extI",
+    cl::desc("Look also in <directory> for imports that are external to the "
+             "currently compiling binary. This affects the -dllimport behavior "
+             "for data symbols from these binary-external modules."),
+    cl::value_desc("directory"), cl::location(extImpPathsStore));
+
+static EditionsAdapter editionsAdapter;
+static cl::list<std::string, EditionsAdapter>
+    editions("edition",
+             cl::desc("Set language edition to edition year NNNN, "
+                      "optionally only applying to filename"),
+             cl::value_desc("NNNN[filename]"), cl::location(editionsAdapter));
 
 // Note: this option is parsed manually in C main().
 static cl::opt<bool> enableGC(
@@ -261,6 +278,8 @@ tryGetExplicitTriple(const llvm::SmallVectorImpl<const char *> &args) {
 void parseCommandLine(Strings &sourceFiles) {
   const auto &exePath = exe_path::getExePath();
   global.params.argv0 = {exePath.length(), exePath.data()};
+
+  global.params.v.errorPrintMode = ErrorPrintMode::printErrorContext;
 
   // read config file
   ConfigFile &cfg_file = ConfigFile::instance;

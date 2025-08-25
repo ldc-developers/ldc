@@ -853,6 +853,14 @@ public:
                          e->type->toChars());
     LOG_SCOPE;
 
+    if (e->lowering) {
+      result = toElem(e->lowering);
+      if (!result->type->equals(e->type)) {
+        result = DtoPaintType(e->loc, result, e->type);
+      }
+      return;
+    }
+
     auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
 
@@ -1425,6 +1433,11 @@ public:
     IF_LOG Logger::print("EqualExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
+
+    if (e->lowering) {
+      result = toElem(e->lowering);
+      return;
+    }
 
     auto &PGO = gIR->funcGen().pgo;
     PGO.setCurrentStmt(e);
