@@ -57,7 +57,7 @@ else()
     list(REMOVE_ITEM testnames uuid)
 endif()
 
-set(musl "")
+set(musl "IS_MUSL=0")
 if(TARGET_SYSTEM MATCHES "musl")
     set(musl "IS_MUSL=1")
 endif()
