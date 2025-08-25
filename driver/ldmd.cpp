@@ -175,6 +175,8 @@ Where:\n\
   -deps=<filename>  write module dependencies to filename (only imports)\n\
   -dllimport=<value>\n\
                     Windows only: select symbols to dllimport (none/defaultLibsOnly/externalOnly/all)\n\
+  -edition[=<NNNN>[<filename>]]\n\
+                    set language edition to edition year, apply to <filename>\n\
   -extern-std=<standard>\n\
                     set C++ name mangling compatibility with <standard>\n"
 #if 0
@@ -513,6 +515,11 @@ void translateArgs(const llvm::SmallVectorImpl<const char *> &ldmdArgs,
         ldcArgs.push_back(concat("-fvisibility=", p + 12));
       }
       /* -dllimport
+       */
+      else if (strcmp(p + 1, "edition") == 0) {
+        ldcArgs.push_back("-edition=");
+      }
+      /* -edition=…
        */
       else if (strcmp(p + 1, "dylib") == 0) {
         ldcArgs.push_back("-shared");

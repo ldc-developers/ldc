@@ -75,4 +75,10 @@ void ImportPathsAdapter::push_back(const char *cstr) {
   arrp->push(ImportPathInfo(mem.xstrdup(cstr), isExternal));
 }
 
+void EditionsAdapter::push_back(const char *cstr) {
+  if (!parseEditionOption(cstr)) {
+    error(Loc(), "Invalid argument for '-edition': %s", cstr);
+  }
+}
+
 } // namespace opts

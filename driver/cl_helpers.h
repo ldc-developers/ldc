@@ -197,4 +197,10 @@ public:
 
   void push_back(const std::string &str) { push_back(str.c_str()); }
 };
+
+class EditionsAdapter {
+public:
+  void push_back(const char *cstr);
+  void push_back(const std::string &str) { push_back(str.c_str()); }
+};
 }

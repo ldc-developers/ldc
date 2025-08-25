@@ -106,6 +106,13 @@ static cl::list<std::string, ImportPathsAdapter> extImportPaths(
              "for data symbols from these binary-external modules."),
     cl::value_desc("directory"), cl::location(extImpPathsStore));
 
+static EditionsAdapter editionsAdapter;
+static cl::list<std::string, EditionsAdapter>
+    editions("edition",
+             cl::desc("Set language edition to edition year NNNN, "
+                      "optionally only applying to filename"),
+             cl::value_desc("NNNN[filename]"), cl::location(editionsAdapter));
+
 // Note: this option is parsed manually in C main().
 static cl::opt<bool> enableGC(
     "lowmem", cl::ZeroOrMore,
