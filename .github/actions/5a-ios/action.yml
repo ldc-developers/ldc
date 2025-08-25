@@ -36,7 +36,7 @@ runs:
         installed/bin/ldc-build-runtime --ninja \
           --dFlags="-mtriple=${triples[$i]}" \
           --ldcSrcDir="$PWD/ldc" \
-          --installWithSuffix="-ios-$arch" \
+          --installWithSuffix="-ios-$arch$simulator" \
           CMAKE_SYSTEM_NAME=iOS \
           CMAKE_OSX_SYSROOT="${sysroot[$i]}" \
           CMAKE_OSX_ARCHITECTURES="$arch" \
