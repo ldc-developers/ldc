@@ -16,15 +16,18 @@ runs:
         arch='${{ inputs.arch }}'
         deployment_target='${{ inputs.ios_deployment_target }}'
         if [[ "$arch" == arm64 ]]; then
-            triples=($arch-apple-ios$deployment_target $arch-apple-ios$deployment_target-simulator)
+            triples=("$arch-apple-ios$deployment_target' '$arch-apple-ios$deployment_target-simulator")
             sysroot=('/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk' '/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk')
         else
-            triples=($arch-apple-ios$deployment_target-simulator)
+            triples=("$arch-apple-ios$deployment_target-simulator")
             sysroot=('/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk')
         fi
 
 
         for i in "${!triples[@]}"; do
+        reg=''
+        simulator=''
+        
         if [[ $i -eq 1 ]]; then
           reg='.*-simulator'
           simulator='-simulator'
