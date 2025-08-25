@@ -15,34 +15,44 @@ runs:
 
         arch='${{ inputs.arch }}'
         deployment_target='${{ inputs.ios_deployment_target }}'
-        triple="$arch-apple-ios$deployment_target${{ inputs.arch == 'x86_64' && '-simulator' || '' }}"
         if [[ "$arch" == arm64 ]]; then
-            sysroot='/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk'
+            triples=($arch-apple-ios$deployment_target $arch-apple-ios$deployment_target-simulator)
+            sysroot=('/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk' '/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk')
         else
-            sysroot='/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk'
+            triples=($arch-apple-ios$deployment_target-simulator)
+            sysroot=('/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk')
         fi
 
+
+        for i in "${!triples[@]}"; do
+        if [[ $i -eq 1 ]]; then
+          reg='.*-simulator'
+          simulator='-simulator'
+        fi
+        
         installed/bin/ldc-build-runtime --ninja \
-          --dFlags="-mtriple=$triple" \
+          --dFlags="-mtriple=${triples[$i]}" \
           --ldcSrcDir="$PWD/ldc" \
           --installWithSuffix="-ios-$arch" \
           CMAKE_SYSTEM_NAME=iOS \
-          CMAKE_OSX_SYSROOT="$sysroot" \
+          CMAKE_OSX_SYSROOT="${sysroot[$i]}" \
           CMAKE_OSX_ARCHITECTURES="$arch" \
           CMAKE_OSX_DEPLOYMENT_TARGET="$deployment_target" \
           BUILD_LTO_LIBS=ON
 
         section="
-        \"$arch-apple-ios\":
+        \"$arch-apple-ios$reg\":
         {
             switches ~= [
                 \"-Xcc=-isysroot\",
-                \"-Xcc=$sysroot\",
+                \"-Xcc=${sysroot[$i]}\",
             ];
             lib-dirs = [
-                \"%%ldcbinarypath%%/../lib-ios-$arch\",
+                \"%%ldcbinarypath%%/../lib-ios-$arch$simulator\",
             ];
-            rpath = \"%%ldcbinarypath%%/../lib-ios-$arch\";
+            rpath = \"%%ldcbinarypath%%/../lib-ios-$arch$simulator\";
         };"
         echo "$section" >> installed/etc/ldc2.conf
         cat installed/etc/ldc2.conf
+
+        done
