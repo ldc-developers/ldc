@@ -91,18 +91,6 @@ runs:
             ];
             rpath = "%%ldcbinarypath%%/../lib-ios-x86_64";
         };
-        "arm64-apple-ios-simulator":
-        {
-            switches ~= [
-                "-Xcc=-isysroot",
-                "-Xcc=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk",
-            ],
-            lib-dirs = [
-                "%%ldcbinarypath%%/../lib-ios-arm64-simulator",
-            ],
-            rpath = "%%ldcbinarypath%%/../lib-ios-arm64-simulator";
-        };
-
         "arm64-apple-ios":
         {
             switches ~= [
@@ -113,6 +101,17 @@ runs:
                 "%%ldcbinarypath%%/../lib-ios-arm64",
             ];
             rpath = "%%ldcbinarypath%%/../lib-ios-arm64";
+        };
+        "arm64-apple-ios.*-simulator":
+        {
+            switches ~= [
+                "-Xcc=-isysroot",
+                "-Xcc=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk",
+            ],
+            lib-dirs = [
+                "%%ldcbinarypath%%/../lib-ios-arm64-simulator",
+            ],
+            rpath = "%%ldcbinarypath%%/../lib-ios-arm64-simulator";
         };
 
         // WebAssembly
