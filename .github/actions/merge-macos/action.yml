@@ -91,6 +91,17 @@ runs:
             ];
             rpath = "%%ldcbinarypath%%/../lib-ios-x86_64";
         };
+        "arm64-apple-ios-simulator":
+        {
+            switches ~= [
+                "-Xcc=-isysroot",
+                "-Xcc=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk",
+            ],
+            lib-dirs = [
+                "%%ldcbinarypath%%/../lib-ios-arm64-simulator",
+            ],
+            rpath = "%%ldcbinarypath%%/../lib-ios-arm64-simulator";
+        };
 
         "arm64-apple-ios":
         {
@@ -116,7 +127,7 @@ runs:
       run: |
         set -eux
         echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > hello.d
-        for triple in x86_64-apple-macos11.0 arm64-apple-macos11.0 x86_64-apple-ios12.0-simulator arm64-apple-ios12.0; do
+        for triple in x86_64-apple-macos11.0 arm64-apple-macos11.0 x86_64-apple-ios12.0-simulator arm64-apple-ios12.0-simulator arm64-apple-ios12.0; do
           ldc2-universal/bin/ldc2 -mtriple="$triple" hello.d
           ldc2-universal/bin/ldc2 -mtriple="$triple" hello.d -link-defaultlib-shared
           ldc2-universal/bin/ldc2 -mtriple="$triple" hello.d -O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
