@@ -20,23 +20,23 @@ runs:
         mv ldc2-*-x64 ldc2-multilib
         cd ldc2-multilib
         mv lib lib64
+        mv etc/ldc2.conf/30-ldc-runtime-{lib,lib64}.conf
         cp -R ../ldc2-x86/lib lib32
         cp ../ldc2-x86/bin/{*.dll,*.pdb,curl-ca-bundle.crt} lib32/
     - name: Merge ldc2.conf
       shell: pwsh
       run: |
         cd ldc2-multilib
-        (cat etc\ldc2.conf).replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib64') | Set-Content etc\ldc2.conf
-        $conf32 = '
-        "i[3-6]86-.*-windows-msvc":
+        (cat etc\ldc2.conf\30-ldc-runtime-lib64.conf).replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib64') | Set-Content etc\ldc2.conf\30-ldc-runtime-lib64.conf
+        $conf32 = '"i[3-6]86-.*-windows-msvc":
         {
             lib-dirs = [
                 "%%ldcbinarypath%%/../lib32",
             ];
         };
         '
-        Add-Content etc\ldc2.conf $conf32 -NoNewline
-        cat etc\ldc2.conf
+        Set-Content etc\ldc2.conf\31-ldc-runtime-lib32.conf $conf32
+        cat etc\ldc2.conf\*
 
     - name: Generate hello.d
       shell: bash
@@ -86,16 +86,15 @@ runs:
       shell: pwsh
       run: |
         cd ldc2-multilib
-        $conf = '
-        "(aarch|arm)64-.*-windows-msvc":
+        $conf = '"(aarch|arm)64-.*-windows-msvc":
         {
             lib-dirs = [
                 "%%ldcbinarypath%%/../libarm64",
             ];
         };
         '
-        Add-Content etc\ldc2.conf $conf -NoNewline
-        cat etc\ldc2.conf
+        Set-Content etc\ldc2.conf\31-ldc-runtime-libarm64.conf $conf
+        cat etc\ldc2.conf\*
     - name: Run arm64 hello-world cross-compilation smoke tests
       shell: cmd
       run: |
