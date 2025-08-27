@@ -240,20 +240,20 @@ if(PHOBOS2_DIR)
     endif()
 
     if(PHOBOS_SYSTEM_ZLIB)
-	find_package(ZLIB REQUIRED)
+        find_package(ZLIB REQUIRED)
     else()
-	# Phobos C parts
-	file(GLOB_RECURSE PHOBOS2_C ${PHOBOS2_DIR}/etc/*.c)
-	# remove zlib test modules
-	list(REMOVE_ITEM PHOBOS2_C
+        # Phobos C parts
+        file(GLOB_RECURSE PHOBOS2_C ${PHOBOS2_DIR}/etc/*.c)
+        # remove zlib test modules
+        list(REMOVE_ITEM PHOBOS2_C
             ${PHOBOS2_DIR}/etc/c/zlib/test/example.c
             ${PHOBOS2_DIR}/etc/c/zlib/test/infcover.c
             ${PHOBOS2_DIR}/etc/c/zlib/test/minigzip.c
-	)
-	CHECK_INCLUDE_FILE(unistd.h HAVE_UNISTD_H)
-	if (HAVE_UNISTD_H)
-	    append("-DHAVE_UNISTD_H" CMAKE_C_FLAGS)
-	endif()
+        )
+        CHECK_INCLUDE_FILE(unistd.h HAVE_UNISTD_H)
+        if (HAVE_UNISTD_H)
+            append("-DHAVE_UNISTD_H" CMAKE_C_FLAGS)
+        endif()
     endif()
 endif()
 
@@ -391,11 +391,11 @@ endforeach()
 
 function(link_zlib phobos_target library_type)
     if(PHOBOS_SYSTEM_ZLIB)
-	if(${library_type} STREQUAL "SHARED")
-	    target_link_libraries(${phobos_target} ZLIB::ZLIB)
-	endif()
+        if(${library_type} STREQUAL "SHARED")
+            target_link_libraries(${phobos_target} ZLIB::ZLIB)
+        endif()
     else()
-	target_sources(${phobos_target} PRIVATE ${PHOBOS2_C})
+        target_sources(${phobos_target} PRIVATE ${PHOBOS2_C})
     endif()
 endfunction()
 
@@ -625,7 +625,7 @@ macro(build_runtime_libs druntime_o druntime_bc phobos2_o phobos2_bc c_flags ld_
 
     if(PHOBOS2_DIR)
         add_library(phobos2-ldc${target_suffix} ${library_type} ${phobos2_o})
-	link_zlib(phobos2-ldc${target_suffix} ${library_type})
+        link_zlib(phobos2-ldc${target_suffix} ${library_type})
         set_common_library_properties(phobos2-ldc${target_suffix}
             phobos2-ldc${lib_suffix} ${output_path}
             "${c_flags}" "${ld_flags}" ${is_shared}
@@ -656,7 +656,7 @@ macro(build_runtime_libs druntime_o druntime_bc phobos2_o phobos2_bc c_flags ld_
         )
 
         add_library(phobos2-ldc-lto${target_suffix} STATIC ${phobos2_bc})
-	link_zlib(phobos2-ldc-lto${target_suffix} STATIC)
+        link_zlib(phobos2-ldc-lto${target_suffix} STATIC)
         set_common_library_properties(phobos2-ldc-lto${target_suffix}
             phobos2-ldc-lto${lib_suffix} ${output_path}
             "${c_flags}" "${ld_flags}" OFF
@@ -982,9 +982,9 @@ function(build_test_runners name_suffix path_suffix d_flags linkflags is_shared)
             LINK_FLAGS      ${linkflags}
             LINK_DEPENDS    ${tested_lib_path}
         )
-	if(PHOBOS_SYSTEM_ZLIB AND "${is_shared}" STREQUAL "OFF")
-	    target_link_libraries(${phobos_name} ZLIB::ZLIB)
-	endif()
+        if(PHOBOS_SYSTEM_ZLIB AND "${is_shared}" STREQUAL "OFF")
+            target_link_libraries(${phobos_name} ZLIB::ZLIB)
+        endif()
         add_test(build-${phobos_name} "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ${phobos_name})
         set(_GLOBAL_TESTRUNNERS "${_GLOBAL_TESTRUNNERS};${phobos_name}" CACHE INTERNAL "")
     endif()
