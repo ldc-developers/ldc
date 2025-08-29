@@ -449,8 +449,11 @@ else
     reconcileLinkRunLib(params, files.length, target.obj_ext);
     version(CRuntime_Microsoft)
     {
-        import dmd.root.longdouble;
-        initFPU();
+        version(AArch64) { /* no longdouble_soft support on arm64 host */ } else
+        {
+            import dmd.root.longdouble;
+            initFPU();
+        }
     }
     import dmd.root.ctfloat : CTFloat;
     CTFloat.initialize();
