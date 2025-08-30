@@ -40,14 +40,13 @@ runs:
 
         # ldc2.conf:
 
-        # 1) x86_64 ios config
-        # already present
-        # 2) arm64 ios config
-        cp ../ldc2-arm64/etc/ldc2.conf/31-ldc-runtime-lib-ios-arm64.conf etc/ldc2.conf
-        # 3) x86_64 & arm64 macos
-        rm etc/ldc2.conf/30-ldc-runtime-lib.conf # the old ldc2-x86_64 config
+        # 1) x86_64 iOS: already present (55-target-ios-x86_64.conf)
+        # 2) arm64 iOS config
+        cp ../ldc2-arm64/etc/ldc2.conf/55-target-ios-arm64.conf etc/ldc2.conf/
+        # 3) x86_64 & arm64 macOS
+        rm etc/ldc2.conf/50-target-default.conf # the original x86_64 config
         for arch in x86_64 arm64; do
-          cat > etc/ldc2.conf/30-ldc-runtime-lib-${arch}.conf <<EOF
+          cat > etc/ldc2.conf/50-target-default-${arch}.conf <<EOF
         "${arch}-apple-":
         {
             lib-dirs = [

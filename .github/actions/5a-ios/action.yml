@@ -22,7 +22,7 @@ runs:
             sysroot='/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk'
         fi
 
-        installed/bin/ldc-build-runtime --ninja \
+        install/bin/ldc-build-runtime --ninja \
           --dFlags="-mtriple=$triple" \
           --ldcSrcDir="$PWD/ldc" \
           --installWithSuffix="-ios-$arch" \
@@ -32,16 +32,18 @@ runs:
           CMAKE_OSX_DEPLOYMENT_TARGET="$deployment_target" \
           BUILD_LTO_LIBS=ON
 
-        section="\"$arch-apple-ios\":
+        # overwrite the generated .conf file (need to patch triple regex and append cross-compile flags)
+        cat > install/etc/ldc2.conf/55-target-ios-$arch.conf <<EOF
+        "${arch}-apple-ios":
         {
             switches ~= [
-                \"-Xcc=-isysroot\",
-                \"-Xcc=$sysroot\",
+                "-Xcc=-isysroot",
+                "-Xcc=${sysroot}",
             ];
             lib-dirs = [
-                \"%%ldcbinarypath%%/../lib-ios-$arch\",
+                "%%ldcbinarypath%%/../lib-ios-${arch}",
             ];
-            rpath = \"%%ldcbinarypath%%/../lib-ios-$arch\";
-        };"
-        echo "$section" >> installed/etc/ldc2.conf/31-ldc-runtime-lib-ios-$arch.conf
-        cat installed/etc/ldc2.conf/*
+            rpath = "%%ldcbinarypath%%/../lib-ios-${arch}";
+        };
+        EOF
+        cat install/etc/ldc2.conf/*

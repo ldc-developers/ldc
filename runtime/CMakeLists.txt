@@ -280,7 +280,18 @@ if(SHARED_LIBS_SUPPORTED)
     set(install_rpath "${install_libdir}")
 endif()
 
-makeConfSection(NAME "30-ldc-runtime-lib${LIB_SUFFIX}"
+# LIB_SUFFIX is (ab)used by ldc-build-runtime and set to the optional `--installWithSuffix`.
+# If set and non-empty, change the name of the generated .conf file.
+set(conf_base_name "50-target-default")
+if(NOT "${LIB_SUFFIX}" STREQUAL "")
+    if(LIB_SUFFIX MATCHES "^-")
+        set(conf_base_name "55-target${LIB_SUFFIX}")
+    else()
+        set(conf_base_name "55-target-${LIB_SUFFIX}")
+    endif()
+endif()
+
+makeConfSection(NAME "${conf_base_name}"
     SECTION "default"
 
     BUILD
@@ -304,7 +315,7 @@ if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
         set(install_rpath "${install_libdir}")
     endif()
 
-    set(name "31-ldc-runtime-lib${MULTILIB_SUFFIX}")
+    set(name "55-target-m${MULTILIB_SUFFIX}")
     set(sectionPlaceholder "LDC_CONF_MULTILIB_TRIPLE_REGEX")
     makeConfSection(NAME "${name}"
         SECTION "${sectionPlaceholder}"
