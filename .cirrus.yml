@@ -67,11 +67,12 @@ packaging_steps_template: &PACKAGING_STEPS_TEMPLATE
     cd ..
     perl -pi -e s?$PWD/install/?%%ldcbinarypath%%/../?g install/etc/ldc2.conf/*
     if [[ "$CI_OS" == "freebsd" ]]; then
-      cat > install/etc/ldc2.conf/35-ldc-default-CC.conf <<EOF
+      cat > install/etc/ldc2.conf/31-compiler-default-CC.conf <<EOF
+    // Default to the clang version matching LDC's LLVM version.
     "default":
     {
         switches ~= [ "-gcc=${CC}" ];
-    }
+    };
     EOF
     fi
     cp $CIRRUS_WORKING_DIR/{LICENSE,packaging/README} install

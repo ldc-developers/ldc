@@ -962,13 +962,9 @@ if(LDC_LLVM_VER GREATER 1599 AND LDC_LLVM_VER LESS 1700)
     list(APPEND switches "-func-specialization-size-threshold=1000000000")
 endif()
 
-if(DEFINED COMPILER_RT_LIBDIR_CONFIG)
-    message(STATUS "Adding ${COMPILER_RT_LIBDIR_CONFIG} to lib-dirs in configuration file")
-endif()
-
 list(APPEND switches "-defaultlib=phobos2-ldc,druntime-ldc")
 
-makeConfSection(NAME "35-ldc-compiler" SECTION "default"
+makeConfSection(NAME "30-compiler" SECTION "default"
     BUILD
     SWITCHES ${switches}
     # -defaultlib is configure in runtime/CMakeLists.txt
@@ -977,12 +973,10 @@ makeConfSection(NAME "35-ldc-compiler" SECTION "default"
         "-I${PROJECT_BINARY_DIR}/import"
         "-I${PROJECT_SOURCE_DIR}/runtime/phobos"
         "-I${PROJECT_SOURCE_DIR}/runtime/jit-rt/d"
-    LIB_DIRS ${COMPILER_RT_LIBDIR_CONFIG}
 
     INSTALL
     SWITCHES ${switches}
     POST_SWITCHES "-I${INCLUDE_INSTALL_DIR}"
-    LIB_DIRS ${COMPILER_RT_LIBDIR_CONFIG}
 )
 
 set(wasm_switches)
@@ -997,11 +991,23 @@ endif()
 # LLD 8+ requires (new) `--export-dynamic` for WebAssembly (https://github.com/ldc-developers/ldc/issues/3023).
 list(APPEND wasm_switches -L--export-dynamic)
 
-makeConfSection(NAME "40-ldc-wasm"
+makeConfSection(NAME "55-target-wasm"
     SECTION "^wasm(32|64)-"
     SWITCHES ${wasm_switches}
     LIB_DIRS OVERRIDE
 )
+
+if(DEFINED COMPILER_RT_LIBDIR_CONFIG)
+    message(STATUS "Adding ${COMPILER_RT_LIBDIR_CONFIG} to lib-dirs in configuration file")
+
+    makeConfSection(NAME "70-compiler-rt" SECTION "default"
+        BUILD
+        LIB_DIRS ${COMPILER_RT_LIBDIR_CONFIG}
+
+        INSTALL
+        LIB_DIRS ${COMPILER_RT_LIBDIR_CONFIG}
+    )
+endif()
 
 #
 # Test and runtime targets. Note that enable_testing() is order-sensitive!

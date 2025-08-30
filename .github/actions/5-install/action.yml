@@ -20,11 +20,12 @@ runs:
         else
           # the cross-compiled runtime libs have already been installed:
           # * lib/: runtime library artifacts
-          # * etc/ldc2.conf/30-ldc-runtime-lib.conf
+          # * etc/ldc2.conf/: 50-target-default.conf
 
           # now extend by installing the cross-compiled compiler:
           # * bin/: executables
           # * lib/: LTO plugin and compiler-rt libs
+          # * etc/ldc2.conf/: 00-docs.conf, 30-compiler.conf, 55-target-wasm.conf, 70-compiler-rt.conf
           # * etc/bash_completion.d/
           # * import/: all runtime imports except for ldc/gccbuiltins_*.di
           ninja -C build-cross install

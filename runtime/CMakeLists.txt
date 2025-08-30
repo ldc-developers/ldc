@@ -280,7 +280,7 @@ if(SHARED_LIBS_SUPPORTED)
     set(install_rpath "${install_libdir}")
 endif()
 
-makeConfSection(NAME "30-ldc-runtime-lib${LIB_SUFFIX}"
+makeConfSection(NAME "50-target-default"
     SECTION "default"
 
     BUILD
@@ -304,7 +304,7 @@ if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
         set(install_rpath "${install_libdir}")
     endif()
 
-    set(name "31-ldc-runtime-lib${MULTILIB_SUFFIX}")
+    set(name "55-target-m${MULTILIB_SUFFIX}")
     set(sectionPlaceholder "LDC_CONF_MULTILIB_TRIPLE_REGEX")
     makeConfSection(NAME "${name}"
         SECTION "${sectionPlaceholder}"

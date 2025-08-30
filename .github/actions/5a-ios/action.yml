@@ -32,16 +32,17 @@ runs:
           CMAKE_OSX_DEPLOYMENT_TARGET="$deployment_target" \
           BUILD_LTO_LIBS=ON
 
-        section="\"$arch-apple-ios\":
+        cat > installed/etc/ldc2.conf/55-target-ios-$arch.conf <<EOF
+        "${arch}-apple-ios":
         {
             switches ~= [
-                \"-Xcc=-isysroot\",
-                \"-Xcc=$sysroot\",
+                "-Xcc=-isysroot",
+                "-Xcc=${sysroot}",
             ];
             lib-dirs = [
-                \"%%ldcbinarypath%%/../lib-ios-$arch\",
+                "%%ldcbinarypath%%/../lib-ios-${arch}",
             ];
-            rpath = \"%%ldcbinarypath%%/../lib-ios-$arch\";
-        };"
-        echo "$section" >> installed/etc/ldc2.conf/31-ldc-runtime-lib-ios-$arch.conf
+            rpath = "%%ldcbinarypath%%/../lib-ios-${arch}";
+        };
+        EOF
         cat installed/etc/ldc2.conf/*
