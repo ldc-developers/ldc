@@ -32,6 +32,7 @@ runs:
           CMAKE_OSX_DEPLOYMENT_TARGET="$deployment_target" \
           BUILD_LTO_LIBS=ON
 
+        # overwrite the generated .conf file (need to patch triple regex and append cross-compile flags)
         cat > installed/etc/ldc2.conf/55-target-ios-$arch.conf <<EOF
         "${arch}-apple-ios":
         {

@@ -170,7 +170,6 @@ void runCMake() {
         args ~= [
             "-DCMAKE_INSTALL_PREFIX=" ~ config.ldcExecutable.dirName.dirName,
             "-DLIB_SUFFIX=" ~ config.installWithSuffix,
-            "-DCONF_INST_DIR=", // don't install/overwrite existing etc/ldc2.conf!
         ];
     }
 

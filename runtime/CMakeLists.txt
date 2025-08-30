@@ -280,7 +280,18 @@ if(SHARED_LIBS_SUPPORTED)
     set(install_rpath "${install_libdir}")
 endif()
 
-makeConfSection(NAME "50-target-default"
+# LIB_SUFFIX is (ab)used by ldc-build-runtime and set to the optional `--installWithSuffix`.
+# If set and non-empty, change the name of the generated .conf file.
+set(conf_base_name "50-target-default")
+if(NOT "${LIB_SUFFIX}" STREQUAL "")
+    if(LIB_SUFFIX MATCHES "^-")
+        set(conf_base_name "55-target${LIB_SUFFIX}")
+    else()
+        set(conf_base_name "55-target-${LIB_SUFFIX}")
+    endif()
+endif()
+
+makeConfSection(NAME "${conf_base_name}"
     SECTION "default"
 
     BUILD

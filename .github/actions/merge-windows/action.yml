@@ -79,20 +79,13 @@ runs:
         ldc2-multilib\bin\ldc-build-runtime --ninja ^
           --dFlags=-mtriple=aarch64-windows-msvc ^
           "--ldcSrcDir=%CD%" ^
-          --installWithSuffix=arm64 ^
+          --installWithSuffix=-windows-arm64 ^
           BUILD_LTO_LIBS=ON
-    - name: Add arm64 section to ldc2.conf
+    - name: Patch triple regex in arm64 .conf file
       shell: pwsh
       run: |
         cd ldc2-multilib
-        $conf = '"(aarch|arm)64-.*-windows-msvc":
-        {
-            lib-dirs = [
-                "%%ldcbinarypath%%/../libarm64",
-            ];
-        };
-        '
-        Set-Content etc\ldc2.conf\55-target-windows-arm64.conf $conf
+        (cat etc\ldc2.conf\55-target-windows-arm64.conf).replace('"default":', '"(aarch|arm)64-.*-windows-msvc":') | Set-Content etc\ldc2.conf\55-target-windows-arm64.conf
         cat etc\ldc2.conf\*
     - name: Run arm64 hello-world cross-compilation smoke tests
       shell: cmd
@@ -110,9 +103,9 @@ runs:
         curl -fL --retry 3 --max-time 60 -o libcurl.zip "$url"
         7z x libcurl.zip >/dev/null
         rm libcurl.zip
-        cp curl-*/bin/{libcurl*.dll,curl-ca-bundle.crt} ldc2-multilib/libarm64/
+        cp curl-*/bin/{libcurl*.dll,curl-ca-bundle.crt} ldc2-multilib/lib-windows-arm64/
         rm -rf curl-*
-        mv ldc2-multilib/libarm64/libcurl*.dll ldc2-multilib/libarm64/libcurl.dll
+        mv ldc2-multilib/lib-windows-arm64/libcurl*.dll ldc2-multilib/lib-windows-arm64/libcurl.dll
 
     - name: Pack multilib package
       shell: bash
