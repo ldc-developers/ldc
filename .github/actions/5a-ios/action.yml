@@ -22,7 +22,7 @@ runs:
             sysroot='/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk'
         fi
 
-        installed/bin/ldc-build-runtime --ninja \
+        install/bin/ldc-build-runtime --ninja \
           --dFlags="-mtriple=$triple" \
           --ldcSrcDir="$PWD/ldc" \
           --installWithSuffix="-ios-$arch" \
@@ -33,7 +33,7 @@ runs:
           BUILD_LTO_LIBS=ON
 
         # overwrite the generated .conf file (need to patch triple regex and append cross-compile flags)
-        cat > installed/etc/ldc2.conf/55-target-ios-$arch.conf <<EOF
+        cat > install/etc/ldc2.conf/55-target-ios-$arch.conf <<EOF
         "${arch}-apple-ios":
         {
             switches ~= [
@@ -46,4 +46,4 @@ runs:
             rpath = "%%ldcbinarypath%%/../lib-ios-${arch}";
         };
         EOF
-        cat installed/etc/ldc2.conf/*
+        cat install/etc/ldc2.conf/*

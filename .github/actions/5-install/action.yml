@@ -41,24 +41,6 @@ runs:
           cp ldc/packaging/README install/
         fi
 
-    - name: Make portable
-      shell: bash
-      run: |
-        set -eux
-        cd ..
-        absInstallDir="$PWD/install"
-        if [[ '${{ runner.os }}' == Windows ]]; then
-          # /d/a/1/install => D:/a/1/install
-          absInstallDir=$(cygpath --mixed "$absInstallDir")
-        fi
-        confs=( install/etc/ldc2.conf/* )
-        perl -pi -e "s|$absInstallDir/|%%ldcbinarypath%%/../|g" "${confs[@]}"
-        cat "${confs[@]}"
-
-    - name: Rename the installation dir to test portability
-      shell: bash
-      run: mv ../install ../installed
-
     - name: 'Windows: Copy curl & MinGW-w64-based libs'
       if: runner.os == 'Windows'
       shell: bash
@@ -66,7 +48,7 @@ runs:
         set -eux
         cd ..
 
-        cp libcurl/ldc2/* installed/bin/
+        cp libcurl/ldc2/* install/bin/
 
         curl -fL --retry 3 --max-time 60 -o mingw-w64-libs.7z \
           https://github.com/ldc-developers/mingw-w64-libs/releases/download/v8.0.0/mingw-w64-libs-v8.0.0.7z
@@ -80,4 +62,4 @@ runs:
         else
           model=64
         fi
-        cp -r "lib$model" ../installed/lib/mingw
+        cp -r "lib$model" ../install/lib/mingw

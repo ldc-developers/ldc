@@ -25,11 +25,11 @@ runs:
           --dFlags="-mtriple=$triple" \
           --ldcSrcDir="$PWD/ldc" \
           --installWithSuffix="-android-$arch" \
-          CMAKE_INSTALL_PREFIX="$PWD/installed" \
+          CMAKE_INSTALL_PREFIX="$PWD/install" \
           "${flags[@]}" \
           ANDROID_ABI="$abi" # override the one in CROSS_CMAKE_FLAGS
 
         # patch triple regex in .conf file
-        sed -i "s|\"default\":|\"$arch-.*-linux-android\":|" installed/etc/ldc2.conf/55-target-android-$arch.conf
+        sed -i "s|\"default\":|\"$arch-.*-linux-android\":|" install/etc/ldc2.conf/55-target-android-$arch.conf
         # TODO: append default -gcc switch (x86_64-linux-android30-clang, i686-linux-android29-clang)
-        cat installed/etc/ldc2.conf/55-target-android-$arch.conf
+        cat install/etc/ldc2.conf/55-target-android-$arch.conf

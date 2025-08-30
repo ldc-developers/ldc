@@ -196,7 +196,7 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
 
-      - name: Install LDC & make portable
+      - name: Install LDC
         uses: ./.github/actions/5-install
         with:
           arch: ${{ matrix.arch }}
@@ -205,6 +205,8 @@ jobs:
         uses: ./.github/actions/5a-ios
         with:
           arch: ${{ matrix.arch }}
+      - name: Make portable
+        uses: ./.github/actions/5b-make-portable
 
       - name: Run a few integration tests against the installed compiler
         uses: ./.github/actions/6-integration-test
@@ -277,7 +279,7 @@ jobs:
           cmake_flags: ${{ matrix.extra_cmake_flags }}
           with_pgo: ${{ matrix.with_pgo }}
 
-      - name: Install LDC & make portable
+      - name: Install LDC
         uses: ./.github/actions/5-install
         with:
           cross_compiling: true
@@ -286,6 +288,8 @@ jobs:
         uses: ./.github/actions/5a-android-x86
         with:
           arch: ${{ matrix.android_x86_arch }}
+      - name: Make portable
+        uses: ./.github/actions/5b-make-portable
 
       - name: Create package & upload artifact(s)
         uses: ./.github/actions/7-package
