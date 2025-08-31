@@ -1,4 +1,4 @@
-// RUN: %ldc -c -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
+// RUN: %ldc -enable-getelementptr-nuw -c -output-ll -of=%t.ll %s && FileCheck %s < %t.ll
 
 struct S {
     float x, y;

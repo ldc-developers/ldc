@@ -22,6 +22,7 @@
 #include "dmd/root/rmem.h"
 #include "dmd/target.h"
 #include "dmd/template.h"
+#include "driver/cl_options.h"
 #include "gen/aa.h"
 #include "gen/abi/abi.h"
 #include "gen/arrays.h"
@@ -1200,7 +1201,7 @@ public:
       LLType *arrty = llvm::ArrayType::get(elt, e1type->isTypeSArray()->dim->isIntegerExp()->getInteger());
 #if LDC_LLVM_VER >= 2000
       llvm::GEPNoWrapFlags nw = llvm::GEPNoWrapFlags::inBounds();
-      if (e->indexIsInBounds)
+      if (e->indexIsInBounds && opts::enableGetElementPtrNuw)
         nw |= llvm::GEPNoWrapFlags::noUnsignedWrap();
 #endif
       arrptr = DtoGEP(arrty, DtoLVal(l), DtoConstUint(0), DtoRVal(r)
@@ -1303,7 +1304,7 @@ public:
       // offset by lower
 #if LDC_LLVM_VER >= 2000
       llvm::GEPNoWrapFlags nw = llvm::GEPNoWrapFlags::inBounds();
-      if (!needCheckUpper && !needCheckLower)
+      if (!needCheckUpper && !needCheckLower && opts::enableGetElementPtrNuw)
         nw |= llvm::GEPNoWrapFlags::noUnsignedWrap();
 #endif
       eptr = DtoGEP1(DtoMemType(etype->nextOf()), getBasePointer(), vlo, "lowerbound"
