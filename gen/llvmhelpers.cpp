@@ -17,6 +17,7 @@
 #include "dmd/init.h"
 #include "dmd/module.h"
 #include "dmd/template.h"
+#include "driver/cl_options.h"
 #include "gen/abi/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
@@ -1880,12 +1881,16 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
 
   LLValue *ptr = src;
   LLType * ty = nullptr;
+#if LDC_LLVM_VER >= 2000
+  llvm::GEPNoWrapFlags nw = llvm::GEPNoWrapFlags::inBounds();
+  if (opts::enableGetElementPtrNuw)
+    nw |= llvm::GEPNoWrapFlags::noUnsignedWrap();
+#endif
   if (!isFieldIdx) {
     // apply byte-wise offset from object start
     ptr = DtoGEP1(getI8Type(), ptr, off
 #if LDC_LLVM_VER >= 2000
-      , "", nullptr
-      , llvm::GEPNoWrapFlags::inBounds() | llvm::GEPNoWrapFlags::noUnsignedWrap()
+      , "", nullptr, nw
 #endif
     );
     ty = DtoType(vd->type);
@@ -1903,8 +1908,7 @@ DLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
       }
       ptr = DtoGEP(st, ptr, 0, off
 #if LDC_LLVM_VER >= 2000
-      , "", nullptr
-      , llvm::GEPNoWrapFlags::inBounds() | llvm::GEPNoWrapFlags::noUnsignedWrap()
+      , "", nullptr, nw
 #endif
       );
       ty = isaStruct(st)->getElementType(off);
