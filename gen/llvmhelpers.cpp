@@ -897,30 +897,27 @@ void DtoVarDeclaration(VarDeclaration *vd) {
 
     // We also allocate a variable for zero-sized variables, because they are technically not `null` when loaded.
     // The x86_64 ABI "loads" zero-sized function arguments, and without an allocation ASan will report an error (Github #4816).
-    llvm::Value *allocainst;
-    bool isRealAlloca = false;
     LLType *lltype = DtoType(type); // void for noreturn
     if (lltype->isVoidTy()) {
-      allocainst = getNullPtr();
-    } else if (type != vd->type) {
+      irLocal->value = getNullPtr();
+      return;
+    }
+
+    llvm::AllocaInst *allocainst;
+
+    if (type != vd->type) {
       allocainst = DtoAlloca(type, vd->toChars());
-      isRealAlloca = true;
     } else {
       allocainst = DtoAlloca(vd, vd->toChars());
-      isRealAlloca = true;
     }
 
     irLocal->value = allocainst;
 
-    if (!lltype->isVoidTy())
-      gIR->DBuilder.EmitLocalVariable(allocainst, vd);
+    gIR->DBuilder.EmitLocalVariable(allocainst, vd);
 
-    // Lifetime annotation is only valid on alloca.
-    if (isRealAlloca) {
-      // The lifetime of a stack variable starts from the point it is declared
-      gIR->funcGen().localVariableLifetimeAnnotator.addLocalVariable(
-          allocainst, DtoConstUlong(size(type)));
-    }
+    // The lifetime of a stack variable starts from the point it is declared
+    gIR->funcGen().localVariableLifetimeAnnotator.addLocalVariable(
+        allocainst, DtoConstUlong(size(type)));
   }
 
   IF_LOG Logger::cout() << "llvm value for decl: " << *getIrLocal(vd)->value
