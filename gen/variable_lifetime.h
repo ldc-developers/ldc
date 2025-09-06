@@ -21,12 +21,13 @@ namespace llvm {
 class Function;
 class Type;
 class Value;
+class AllocaInst;
 }
 struct IRState;
 
 struct LocalVariableLifetimeAnnotator {
   struct LocalVariableScope {
-    std::vector<std::pair<llvm::Value *, llvm::Value *>> variables;
+    std::vector<std::pair<llvm::Value *, llvm::AllocaInst *>> variables;
   };
   /// Stack of scopes, each scope can have multiple variables.
   std::vector<LocalVariableScope> scopes;
@@ -52,5 +53,5 @@ public:
   void popScope();
 
   /// Register a new local variable for lifetime annotation.
-  void addLocalVariable(llvm::Value *address, llvm::Value *size);
+  void addLocalVariable(llvm::AllocaInst *address, llvm::Value *size);
 };
