@@ -844,7 +844,7 @@ int linkObjToBinaryGcc(llvm::StringRef outputPath,
     tool = getProgram("wasm-ld", &opts::linker);
   } else {
     argsBuilder = std::make_unique<ArgsBuilder>();
-    tool = getGcc(argsBuilder->args);
+    tool = getCC(argsBuilder->args);
   }
 
   // build arguments

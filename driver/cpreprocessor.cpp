@@ -30,33 +30,6 @@ const char *getPathToImportc_h(Loc loc) {
   return cached;
 }
 
-const std::string &getCC(bool isMSVC,
-                         std::vector<std::string> &additional_args) {
-  static std::string cached_cc;
-  static std::vector<std::string> cached_args;
-  if (cached_cc.empty()) {
-    std::string fallback = "cc";
-    if (isMSVC) {
-#ifdef _WIN32
-      // by default, prefer clang-cl.exe (if in PATH) over cl.exe
-      // (e.g., no echoing of source filename being preprocessed to stderr)
-      auto found = llvm::sys::findProgramByName("clang-cl.exe");
-      if (found) {
-        fallback = found.get();
-      } else {
-        fallback = "cl.exe";
-      }
-#else
-      fallback = "clang-cl";
-#endif
-    }
-    cached_cc = getGcc(cached_args, fallback.c_str());
-  }
-
-  additional_args.insert(additional_args.end(), cached_args.cbegin(), cached_args.cend());
-  return cached_cc;
-}
-
 FileName getOutputPath(Loc loc, const char *csrcfile) {
   llvm::SmallString<64> buffer;
 
@@ -96,7 +69,7 @@ FileName runCPreprocessor(FileName csrcfile, Loc loc, OutBuffer &defines) {
   FileName ipath = getOutputPath(loc, csrcfile.toChars());
 
   std::vector<std::string> args;
-  const std::string &cc = getCC(isMSVC, args);
+  const std::string &cc = getCC(args);
 
   args.push_back(isMSVC ? "/std:c11" : "-std=c11");
 

@@ -25,8 +25,7 @@ namespace opts {
 extern llvm::cl::opt<std::string> linker;
 }
 
-std::string getGcc(std::vector<std::string> &additional_args,
-		   const char *fallback = "cc");
+std::string getCC(std::vector<std::string> &additional_args);
 void appendTargetArgsForGcc(std::vector<std::string> &args);
 
 std::string getProgram(const char *fallbackName,

@@ -30,5 +30,4 @@ runs:
           "${flags[@]}" \
           ANDROID_ABI="$abi" # override the one in CROSS_CMAKE_FLAGS
 
-        # TODO: append default -gcc switch (x86_64-linux-android30-clang, i686-linux-android29-clang)
         cat install/etc/ldc2.conf/55-target-android-$arch.conf

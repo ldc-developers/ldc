@@ -6,6 +6,12 @@
 - ldc2.conf can now be a directory. All the files inside it, ordered naturally, will be concatenated and treated like a big config. (#4954)
   - Running `ldc-build-runtime --installWithSuffix` now includes installing a target-specific .conf file to that directory. (#4978)
 - **Breaking change for ldc2.conf cmake generation**: The `cmake` build process now generates the `ldc2.conf` and `ldc2_install.conf` as directories. `ldc2*.conf.in` and `ADDITIONAL_DEFAULT_LDC_SWITCHES` have been removed, if you need to add switches check out `makeConfSection` in `LdcConfig.cmake`. (#4954)
+- When cross-compiling, the fallback value for the (cross) C compiler will be picked based on some heuristics.
+  The old behavior was to default to `cc`.
+  As an example, when cross-compiling for `aarch64-linux-gnu` the compilers that are checked are:
+  - `aarch64-linux-gnu-gcc`
+  - `aarch64-linux-gnu-clang`
+  - `clang --target=aarch64-linux-gnu`
 
 #### Platform support
 
