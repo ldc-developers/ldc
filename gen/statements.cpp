@@ -37,6 +37,7 @@
 #include "ir/irmodule.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/InlineAsm.h"
+#include "llvm/Support/Casting.h"
 #include <fstream>
 #include <math.h>
 #include <stdio.h>
@@ -305,6 +306,11 @@ public:
         // of function as debug location.
         if (isAnyMainFunction(fd) && !stmt->loc.linnum()) {
           irs->DBuilder.EmitStopPoint(fd->endloc);
+        }
+
+        if (returnValue->getType() != funcType->getReturnType()) {
+          assert(llvm::cast<llvm::AllocaInst>(returnValue)->getAllocatedType() == funcType->getReturnType());
+          returnValue = DtoLoad(funcType->getReturnType(), returnValue);
         }
 
         irs->ir->CreateRet(
