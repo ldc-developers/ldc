@@ -3423,3 +3423,18 @@ struct note_command
     ulong offset;
     ulong size;
 }
+
+struct fat_header
+{
+    ubyte[4] magic;
+    uint count;
+}
+
+struct fat_entry
+{
+    uint cputype;
+    uint cpusubtype;
+    uint file_offset;
+    uint size;
+    uint alignment;
+}

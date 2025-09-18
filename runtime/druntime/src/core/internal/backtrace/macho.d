@@ -20,32 +20,39 @@ else version (WatchOS)
 version (Darwin):
 
 import core.stdc.config : c_ulong;
-import core.sys.darwin.crt_externs : _NSGetMachExecuteHeader;
-import core.sys.darwin.mach.getsect : mach_header_64, getsectiondata;
+import core.stdc.stdlib : free;
+import core.internal.macho.dl;
+import core.internal.macho.io;
 
-struct Image
-{
-    private mach_header_64* self;
+struct Image {
+    SharedObject self;
+    SharedObject debugObj;
 
-    static Image openSelf()
-    {
-        return Image(_NSGetMachExecuteHeader());
+    this(SharedObject self) {
+        this.self = self;
+        this.debugObj = self; 
+
+        if (!self.hasSection("__DWARF", "__debug_line")) {
+            auto dsymPath = getDsymDefaultPath();
+            this.debugObj = SharedObject.fromFile(dsymPath.ptr);
+        }
     }
 
-    @property bool isValid()
-    {
-        return self !is null;
+    T processDebugLineSectionData(T)(scope T delegate(const(ubyte)[]) processor) {
+        return processor(debugObj.getSection("__DWARF", "__debug_line"));
     }
 
-    T processDebugLineSectionData(T)(scope T delegate(const(ubyte)[]) processor)
-    {
-        c_ulong size;
-        auto data = getsectiondata(self, "__DWARF", "__debug_line", &size);
-        return processor(data[0 .. size]);
+    static Image openSelf() {
+        return Image(SharedObject.thisExecutable());
     }
 
-    @property size_t baseAddress()
-    {
+    @property bool isValid() {
+        return self.isValid;
+    }
+
+    @property size_t baseAddress() {
+        if (debugObj.slide == -1)
+            return self.slide;
         return 0;
     }
 }
