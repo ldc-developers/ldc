@@ -349,7 +349,7 @@ void parseCommandLine(string[] args) {
             "linkerFlags", "Extra C linker flags for shared libraries and testrunner executables (separated by ';')", &config.linkerFlags,
             "j",           "Number of parallel build jobs", &config.numBuildJobs,
             "systemZlib",  "Use system zlib instead of Phobos' vendored version", &config.systemZlib,
-            "installWithSuffix", "Install the built libraries to '<directory containing LDC executable>/../lib<suffix>/'", &config.installWithSuffix,
+            "installWithSuffix", "Install the built libraries to '<directory containing LDC executable>/../lib<suffix>/'. If the libraries are for a cross-compilation target, please set the RT_CONF_TRIPLE_REGEX CMake variable accordingly. Otherwise, you can set CONF_INST_DIR to an empty string to prevent installing the .conf file.", &config.installWithSuffix,
         );
 
         // getopt() has removed all consumed args from `args`

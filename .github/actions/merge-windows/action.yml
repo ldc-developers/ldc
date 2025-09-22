@@ -80,8 +80,9 @@ runs:
           --dFlags=-mtriple=aarch64-windows-msvc ^
           "--ldcSrcDir=%CD%" ^
           --installWithSuffix=-windows-arm64 ^
+          RT_CONF_TRIPLE_REGEX="(aarch|arm)64-.*-windows-msvc" ^
           BUILD_LTO_LIBS=ON
-    - name: Patch arm64 .conf file
+    - name: Make arm64 .conf file portable
       shell: bash
       run: |
         set -eux
@@ -89,7 +90,6 @@ runs:
         absInstallDir=$(cygpath --mixed "$PWD")
         conf="etc/ldc2.conf/55-target-windows-arm64.conf"
         sed -i "s|$absInstallDir/|%%ldcbinarypath%%/../|g" $conf
-        sed -i 's@"default":@"(aarch|arm)64-.*-windows-msvc":@' $conf
         cat $conf
     - name: Run arm64 hello-world cross-compilation smoke tests
       shell: cmd

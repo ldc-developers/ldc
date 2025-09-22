@@ -283,8 +283,10 @@ endif()
 # This is e.g. set from `ldc-build-runtime --installWithSuffix`.
 set(RT_CONF_BASE_NAME "50-target-default" CACHE STRING "Base name of the generated runtime .conf file")
 
+set(RT_CONF_TRIPLE_REGEX "default" CACHE STRING "Regex for the target triple in the generated runtime .conf file")
+
 makeConfSection(NAME ${RT_CONF_BASE_NAME}
-    SECTION "default"
+    SECTION ${RT_CONF_TRIPLE_REGEX}
 
     BUILD
     SWITCHES ${switches}
