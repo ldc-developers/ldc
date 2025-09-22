@@ -171,6 +171,13 @@ void runCMake() {
             "-DCMAKE_INSTALL_PREFIX=" ~ config.ldcExecutable.dirName.dirName,
             "-DLIB_SUFFIX=" ~ config.installWithSuffix,
         ];
+
+        if (config.installWithSuffix.length) {
+            string confSuffix = config.installWithSuffix;
+            if (confSuffix[0] == '-')
+                confSuffix = confSuffix[1 .. $];
+            args ~= "-DRT_CONF_BASE_NAME=55-target-" ~ confSuffix;
+        }
     }
 
     foreach (pair; config.cmakeVars.byPair)
