@@ -173,6 +173,12 @@ void runCMake() {
         ];
 
         if (config.installWithSuffix.length) {
+            if ("RT_CONF_TRIPLE_REGEX" !in config.cmakeVars &&
+                config.cmakeVars.get("CONF_INST_DIR", "unset") != "") {
+                writeln(".: Error: when using a non-empty `--installWithSuffix`, either set the RT_CONF_TRIPLE_REGEX CMake variable, or disable installing the .conf file by setting CONF_INST_DIR to an empty string");
+                exit(1);
+            }
+
             string confSuffix = config.installWithSuffix;
             if (confSuffix[0] == '-')
                 confSuffix = confSuffix[1 .. $];
