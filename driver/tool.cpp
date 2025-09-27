@@ -21,6 +21,12 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Target/TargetMachine.h"
 
+#if LDC_LLVM_VER >= 1600
+#include "llvm/TargetParser/Host.h"
+#else
+#include "llvm/Support/Host.h"
+#endif
+
 #ifdef _WIN32
 #include <Windows.h>
 #endif
@@ -52,6 +58,69 @@ static std::string findProgramByName(llvm::StringRef name) {
 
 //////////////////////////////////////////////////////////////////////////////
 
+namespace {
+llvm::SmallVector<std::string, 2> findCCFallback() {
+  const auto &triple = *global.params.targetTriple;
+  llvm::Triple nativeTriple{ llvm::sys::getDefaultTargetTriple() };
+  const auto isNativeBuild =
+    opts::mTargetTriple.empty() || triple.isCompatibleWith(nativeTriple);
+
+  llvm::SmallVector<llvm::SmallVector<std::string, 2>, 3> choices;
+  if (triple.isWindowsMSVCEnvironment()) {
+#ifdef _WIN32
+    // by default, prefer clang-cl.exe (if in PATH) over cl.exe
+    // (e.g., no echoing of source filename being preprocessed to stderr)
+    choices = {
+      { "clang-cl.exe" },
+      { "cl.exe" },
+    };
+#else
+    choices = { { "clang-cl" } };
+#endif
+  } else if (isNativeBuild) {
+    choices = { { "cc" } };
+  } else if (triple.isOSDarwin()) {
+    // Cross-compiling for Apple is most probably done on an Apple machine
+    choices = { { "cc" } };
+  } else {
+    const auto tripleString = triple.getTriple();
+    choices = {
+      { tripleString + "-gcc" },
+      { tripleString + "-clang" },
+      { "clang", "--target=" + tripleString },
+    };
+  }
+
+
+  const auto verbose = global.params.v.verbose;
+  const auto logCross = verbose && !isNativeBuild;
+  if (logCross) message("Trying to find a C cross-compiler");
+
+  for (auto &choice : choices) {
+    auto fullPath = findProgramByName(choice[0]);
+    if (fullPath.empty()) {
+      if (logCross) message("Did not find C cross-compiler: `%s`", choice[0].c_str());
+      continue;
+    }
+
+    if (logCross) message("Found C cross-compiler: `%s`", fullPath.c_str());
+    choice[0] = fullPath;
+    return choice;
+  }
+
+  if (isNativeBuild) {
+    error(Loc(), "could not find C compiler `%s`", choices[0][0].c_str());
+  } else {
+    error(Loc(), "could not find a C cross-compiler for this cross-compilation");
+    tip("make sure you have a compiler like `%s` installed and set $CC or pass -gcc accordingly", choices[0][0].c_str());
+  }
+
+  fatal();
+}
+} // anonymous namespace
+
+////////////////////////////////////////////////////////////////////////////////
+
 std::string getProgram(const char *fallbackName,
                        const llvm::cl::opt<std::string> *opt,
                        const char *envVar) {
@@ -76,19 +145,24 @@ std::string getProgram(const char *fallbackName,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-std::string getGcc(std::vector<std::string> &additional_args,
-                   const char *fallback) {
+namespace {
+std::string getCCImpl(std::vector<std::string> &additional_args) {
+  if (!gcc.empty())
+    return getProgram(nullptr, &gcc);
+
+  std::string cc = env::get("CC");
+  if (cc.empty()) {
+    auto fallback = findCCFallback();
+    additional_args.insert(additional_args.end(), fallback.begin() + 1, fallback.end());
+    return fallback[0];
+  }
+
 #ifdef _WIN32
   // spaces in $CC are to be expected on Windows
   // (e.g., `C:\Program Files\LLVM\bin\clang-cl.exe`)
-  return getProgram(fallback, &gcc, "CC");
+  return getProgram(cc.c_str(), &gcc);
 #else
   // Posix: in case $CC contains spaces split it into a command and arguments
-  std::string cc = env::get("CC");
-  if (cc.empty())
-    return getProgram(fallback, &gcc);
-
-  // $CC is set so fallback doesn't matter anymore.
   if (cc.find(' ') == cc.npos)
     return getProgram(cc.c_str(), &gcc);
 
@@ -102,6 +176,18 @@ std::string getGcc(std::vector<std::string> &additional_args,
     additional_args.emplace_back(args[i].str());
   return getProgram(args[0].str().c_str(), &gcc);
 #endif
+}
+} // anonymous namespace
+
+std::string getCC(std::vector<std::string> &additional_args) {
+  static std::string cachedResult;
+  static std::vector<std::string> cachedArgs;
+
+  if (cachedResult.empty())
+    cachedResult = getCCImpl(cachedArgs);
+
+  additional_args.insert(additional_args.end(), cachedArgs.begin(), cachedArgs.end());
+  return cachedResult;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

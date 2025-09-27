@@ -156,7 +156,7 @@ void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 static void assemble(const std::string &asmpath, const std::string &objpath) {
   std::vector<std::string> args;
   std::string gcc;
-  gcc = getGcc(args);
+  gcc = getCC(args);
 
   args.push_back("-O3");
   args.push_back("-c");
