@@ -6,6 +6,7 @@
 - ldc2.conf can now be a directory. All the files inside it, ordered naturally, will be concatenated and treated like a big config. (#4954)
   - Running `ldc-build-runtime --installWithSuffix` now includes installing a target-specific .conf file to that directory. (#4978)
 - **Breaking change for ldc2.conf cmake generation**: The `cmake` build process now generates the `ldc2.conf` and `ldc2_install.conf` as directories. `ldc2*.conf.in` and `ADDITIONAL_DEFAULT_LDC_SWITCHES` have been removed, if you need to add switches check out `makeConfSection` in `LdcConfig.cmake`. (#4954)
+- The prebuilt arm64/universal macOS packages additionally bundle the arm64 iOS-*simulator* libraries, for out-of-the-box cross-compilation support via e.g. `-mtriple=arm64-apple-ios12.0-simulator`. (#4974)
 
 #### Platform support
 
