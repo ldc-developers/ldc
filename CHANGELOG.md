@@ -12,6 +12,7 @@
   - `aarch64-linux-gnu-gcc`
   - `aarch64-linux-gnu-clang`
   - `clang --target=aarch64-linux-gnu`
+- The prebuilt arm64/universal macOS packages additionally bundle the arm64 iOS-*simulator* libraries, for out-of-the-box cross-compilation support via e.g. `-mtriple=arm64-apple-ios12.0-simulator`. (#4974)
 
 #### Platform support
 

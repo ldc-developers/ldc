@@ -26,6 +26,7 @@ runs:
         mv lib                            lib-x86_64
         cp -R ../ldc2-arm64/lib           lib-arm64
         cp -R ../ldc2-arm64/lib-ios-arm64 ./
+        cp -R ../ldc2-arm64/lib-ios-simulator-arm64 ./
 
         # merge executables to universal ones
         for exe in bin/*; do
@@ -40,9 +41,9 @@ runs:
 
         # ldc2.conf:
 
-        # 1) x86_64 iOS: already present (55-target-ios-x86_64.conf)
-        # 2) arm64 iOS config
-        cp ../ldc2-arm64/etc/ldc2.conf/55-target-ios-arm64.conf etc/ldc2.conf/
+        # 1) x86_64 iOS-simulator: already present (55-target-ios-simulator-x86_64.conf)
+        # 2) arm64 iOS and iOS-simulator
+        cp ../ldc2-arm64/etc/ldc2.conf/55-target-ios*-arm64.conf etc/ldc2.conf/
         # 3) x86_64 & arm64 macOS
         rm etc/ldc2.conf/50-target-default.conf # the original x86_64 config
         for arch in x86_64 arm64; do
@@ -64,7 +65,7 @@ runs:
       run: |
         set -eux
         echo 'void main() { import std.stdio; writefln("Hello world, %d bits", size_t.sizeof * 8); }' > hello.d
-        for triple in x86_64-apple-macos11.0 arm64-apple-macos11.0 x86_64-apple-ios12.0-simulator arm64-apple-ios12.0; do
+        for triple in x86_64-apple-macos11.0 arm64-apple-macos11.0 x86_64-apple-ios12.0-simulator arm64-apple-ios12.0-simulator arm64-apple-ios12.0; do
           ldc2-universal/bin/ldc2 -mtriple="$triple" hello.d
           ldc2-universal/bin/ldc2 -mtriple="$triple" hello.d -link-defaultlib-shared
           ldc2-universal/bin/ldc2 -mtriple="$triple" hello.d -O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto
