@@ -603,7 +603,8 @@ private bool pragmaMangleSemantic(Loc loc, Scope* sc, Expressions* args, Dsymbol
                 dchar c = slice[i];
                 if (c < 0x80)
                 {
-                    if (c.isValidMangling)
+                    // LDC: allow leading "\1" to prevent target-specific prefix
+                    if (c.isValidMangling || (IN_LLVM && i == 0 && c == '\1'))
                     {
                         ++i;
                         continue;
