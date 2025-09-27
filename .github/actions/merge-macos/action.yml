@@ -26,7 +26,7 @@ runs:
         mv lib                            lib-x86_64
         cp -R ../ldc2-arm64/lib           lib-arm64
         cp -R ../ldc2-arm64/lib-ios-arm64 ./
-        cp -R ../ldc2-arm64/lib-ios-arm64-simulator ./
+        cp -R ../ldc2-arm64/lib-ios-simulator-arm64 ./
 
         # merge executables to universal ones
         for exe in bin/*; do
@@ -41,7 +41,7 @@ runs:
 
         # ldc2.conf:
 
-        # 1) x86_64 iOS: already present (55-target-ios-x86_64.conf)
+        # 1) x86_64 iOS-simulator: already present (55-target-ios-simulator-x86_64.conf)
         # 2) arm64 iOS and iOS-simulator
         cp ../ldc2-arm64/etc/ldc2.conf/55-target-ios*-arm64.conf etc/ldc2.conf/
         # 3) x86_64 & arm64 macOS
