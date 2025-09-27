@@ -161,7 +161,8 @@ runs:
 
         url='https://curl.se/windows/latest.cgi?p=win64-mingw.zip'
         if [[ '${{ inputs.arch }}' == x86 ]]; then
-          url='https://curl.se/windows/latest.cgi?p=win32-mingw.zip'
+          # this is the latest *official* 32-bit build
+          url='https://curl.se/windows/dl-8.15.0_5/curl-8.15.0_5-win32-mingw.zip'
         fi
 
         curl -fL --retry 3 --max-time 60 -o libcurl.zip "$url"

@@ -1676,25 +1676,35 @@ static bool isDefaultLibSymbol(Dsymbol *sym) {
             (md->packages.length > 1 && md->packages.ptr[1] == Id::io)));
 }
 
+static bool isExplicitlyOutOfBinary(Dsymbol *sym) {
+  if (auto mod = sym->getModule())
+    return mod->isExplicitlyOutOfBinary;
+  return false;
+}
+
 bool defineOnDeclare(Dsymbol *sym, bool isFunction) {
   // -linkonce-templates: all instantiated symbols
   if (global.params.linkonceTemplates != LinkonceTemplates::no)
     return sym->isInstantiated();
 
-  // -dllimport=defaultLibsOnly: all data symbols instantiated from
-  // druntime/Phobos templates
+  // -dllimport=externalOnly|defaultLibsOnly: all data symbols instantiated from
+  // binary-external modules, e.g., druntime/Phobos templates
   // see https://github.com/ldc-developers/ldc/issues/3931
-  return !isFunction && global.params.dllimport == DLLImport::defaultLibsOnly &&
-         sym->isInstantiated() && isDefaultLibSymbol(sym);
+  const auto di = global.params.dllimport;
+  return !isFunction && sym->isInstantiated() &&
+         ((di == DLLImport::externalOnly && isExplicitlyOutOfBinary(sym)) ||
+          (di == DLLImport::defaultLibsOnly &&
+           (isExplicitlyOutOfBinary(sym) || isDefaultLibSymbol(sym))));
 }
 
 bool dllimportDataSymbol(Dsymbol *sym) {
   if (!global.params.targetTriple->isOSWindows())
     return false;
 
-  if (sym->isExport() || global.params.dllimport == DLLImport::all ||
-      (global.params.dllimport == DLLImport::defaultLibsOnly &&
-       isDefaultLibSymbol(sym))) {
+  const auto di = global.params.dllimport;
+  if (sym->isExport() || di == DLLImport::all ||
+      (di >= DLLImport::externalOnly && isExplicitlyOutOfBinary(sym)) ||
+      (di == DLLImport::defaultLibsOnly && isDefaultLibSymbol(sym))) {
     // Okay, this symbol is a candidate. Use dllimport unless we have a
     // guaranteed-codegen'd definition in a root module.
     if (auto mod = sym->isModule())

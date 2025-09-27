@@ -20,11 +20,12 @@ runs:
         else
           # the cross-compiled runtime libs have already been installed:
           # * lib/: runtime library artifacts
-          # * etc/ldc2.conf
+          # * etc/ldc2.conf/: 50-target-default.conf
 
           # now extend by installing the cross-compiled compiler:
           # * bin/: executables
           # * lib/: LTO plugin and compiler-rt libs
+          # * etc/ldc2.conf/: 00-docs.conf, 30-compiler.conf, 55-target-wasm.conf, 70-compiler-rt.conf
           # * etc/bash_completion.d/
           # * import/: all runtime imports except for ldc/gccbuiltins_*.di
           ninja -C build-cross install
@@ -40,23 +41,6 @@ runs:
           cp ldc/packaging/README install/
         fi
 
-    - name: Make portable
-      shell: bash
-      run: |
-        set -eux
-        cd ..
-        absInstallDir="$PWD/install"
-        if [[ '${{ runner.os }}' == Windows ]]; then
-          # /d/a/1/install => D:/a/1/install
-          absInstallDir=$(cygpath --mixed "$absInstallDir")
-        fi
-        perl -pi -e "s|$absInstallDir/|%%ldcbinarypath%%/../|g" install/etc/ldc2.conf
-        cat install/etc/ldc2.conf
-
-    - name: Rename the installation dir to test portability
-      shell: bash
-      run: mv ../install ../installed
-
     - name: 'Windows: Copy curl & MinGW-w64-based libs'
       if: runner.os == 'Windows'
       shell: bash
@@ -64,7 +48,7 @@ runs:
         set -eux
         cd ..
 
-        cp libcurl/ldc2/* installed/bin/
+        cp libcurl/ldc2/* install/bin/
 
         curl -fL --retry 3 --max-time 60 -o mingw-w64-libs.7z \
           https://github.com/ldc-developers/mingw-w64-libs/releases/download/v8.0.0/mingw-w64-libs-v8.0.0.7z
@@ -78,4 +62,4 @@ runs:
         else
           model=64
         fi
-        cp -r "lib$model" ../installed/lib/mingw
+        cp -r "lib$model" ../install/lib/mingw

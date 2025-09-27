@@ -943,8 +943,7 @@ Statement statementSemanticVisit(Statement s, Scope* sc)
                 }
             }
 
-            FuncExp flde = foreachBodyToFunction(sc2, fs, tfld,
-                /*IN_LLVM: enforceSizeTIndex=*/ tab.ty == Tarray || tab.ty == Tsarray);
+            FuncExp flde = foreachBodyToFunction(sc2, fs, tfld);
             if (!flde)
                 return null;
 
@@ -3683,7 +3682,7 @@ version (IN_LLVM)
         assert(sc.func);
         if (!(cas.stc & STC.pure_) && sc.func.setImpure(cas.loc, "executing an `asm` statement without `pure` annotation"))
             error(cas.loc, "`asm` statement is assumed to be impure - mark it with `pure` if it is not");
-        if (!(cas.stc & STC.nogc) && sc.func.setGC(cas.loc, "executing an `asm` statement without `@nogc` annotation"))
+        if (!(cas.stc & STC.nogc) && sc.setGC(sc.func, cas.loc, "executing an `asm` statement without `@nogc` annotation"))
             error(cas.loc, "`asm` statement is assumed to use the GC - mark it with `@nogc` if it does not");
         // @@@DEPRECATED_2.114@@@
         // change deprecation() to error(), add `else` and remove `| STC.safe`
@@ -3781,7 +3780,7 @@ public bool throwSemantic(Loc loc, ref Expression exp, Scope* sc)
     exp = exp.checkGC(sc);
     if (exp.isErrorExp())
         return false;
-    if (!exp.type.isNaked())
+    if (!exp.type.isNaked)
     {
         // @@@DEPRECATED_2.112@@@
         // Deprecated in 2.102, change into an error & return false in 2.112
@@ -3941,8 +3940,8 @@ private extern(D) Expression applyAssocArray(ForeachStatement fs, Expression fld
         Type ti = (isRef ? taa.index.addMod(MODFlags.const_) : taa.index);
         if (isRef ? !ti.constConv(ta) : !ti.implicitConvTo(ta))
         {
-            error(fs.loc, "`foreach`: index must be type `%s`, not `%s`",
-                     ti.toChars(), ta.toChars());
+            error(fs.loc, "`foreach`: index parameter `%s%s` must be type `%s`, not `%s`",
+                 isRef ? "ref ".ptr : "".ptr, p.toChars(), ti.toChars(), ta.toChars());
             return null;
         }
         p = (*fs.parameters)[1];
@@ -3952,8 +3951,8 @@ private extern(D) Expression applyAssocArray(ForeachStatement fs, Expression fld
     Type taav = taa.nextOf();
     if (isRef ? !taav.constConv(ta) : !taav.implicitConvTo(ta))
     {
-        error(fs.loc, "`foreach`: value must be type `%s`, not `%s`",
-                 taav.toChars(), ta.toChars());
+        error(fs.loc, "`foreach`: value parameter `%s%s` must be type `%s`, not `%s`",
+            isRef ? "ref ".ptr : "".ptr, p.toChars(), taav.toChars(), ta.toChars());
         return null;
     }
 
@@ -4043,9 +4042,12 @@ private extern(D) Statement loopReturn(Expression e, Statements* cases, Loc loc)
  *  Function literal created, as an expression
  *  null if error.
  */
-private FuncExp foreachBodyToFunction(Scope* sc, ForeachStatement fs, TypeFunction tfld,
-                                      /*IN_LLVM*/ bool enforceSizeTIndex)
+private FuncExp foreachBodyToFunction(Scope* sc, ForeachStatement fs, TypeFunction tfld)
 {
+    auto tab = fs.aggr.type.toBasetype();
+    auto taa = tab.isTypeAArray();
+    const isStaticOrDynamicArray = tab.isTypeSArray() || tab.isTypeDArray();
+
     auto params = new Parameters();
     foreach (i, p; *fs.parameters)
     {
@@ -4054,11 +4056,6 @@ private FuncExp foreachBodyToFunction(Scope* sc, ForeachStatement fs, TypeFuncti
 
         p.type = p.type.typeSemantic(fs.loc, sc);
         p.type = p.type.addStorageClass(p.storageClass);
-version (IN_LLVM)
-{
-        // Type of parameter may be different; see below
-        auto para_type = p.type;
-}
         if (tfld)
         {
             Parameter param = tfld.parameterList[i];
@@ -4088,37 +4085,30 @@ version (IN_LLVM)
         LcopyArg:
             id = Identifier.generateId("__applyArg", cast(int)i);
 
-version (IN_LLVM)
-{
-            // In case of a foreach loop on an array the index passed
-            // to the delegate is always of type size_t. The type of
-            // the parameter must be changed to size_t and a cast to
-            // the type used must be inserted. Otherwise the index is
-            // always 0 on a big endian architecture. This fixes
-            // issue #326.
-            Initializer ie;
-            if (fs.parameters.length == 2 && i == 0 && enforceSizeTIndex)
+            // Make sure `p.type` matches the signature expected by the druntime helpers.
+            const isIndexParam = i == 0 && fs.parameters.length == 2;
+            Type userType = p.type;
+            Expression initExp = new IdentifierExp(fs.loc, id);
+            if (taa)
             {
-                para_type = Type.tsize_t;
-                ie = new ExpInitializer(fs.loc,
-                                        new CastExp(fs.loc,
-                                                    new IdentifierExp(fs.loc, id), p.type));
+                p.type = isIndexParam ? taa.index : taa.nextOf();
             }
-            else
+            else if (isStaticOrDynamicArray && isIndexParam)
             {
-                ie = new ExpInitializer(fs.loc, new IdentifierExp(fs.loc, id));
+                p.type = Type.tsize_t;
+                // If the user used an incompatible index type (e.g., `int` instead
+                // of `size_t` - which is deprecated nowadays), then add a cast.
+                if (!p.type.implicitConvTo(userType))
+                    initExp = new CastExp(fs.loc, initExp, userType);
             }
-}
-else
-{
-            Initializer ie = new ExpInitializer(fs.loc, new IdentifierExp(fs.loc, id));
-}
-            auto v = new VarDeclaration(fs.loc, p.type, p.ident, ie);
+
+            Initializer initializer = new ExpInitializer(fs.loc, initExp);
+            auto v = new VarDeclaration(fs.loc, userType, p.ident, initializer);
             v.storage_class |= STC.temp | (stc & STC.scope_);
             Statement s = new ExpStatement(fs.loc, v);
             fs._body = new CompoundStatement(fs.loc, s, fs._body);
         }
-        params.push(new Parameter(fs.loc, stc, IN_LLVM ? para_type : p.type, id, null, null));
+        params.push(new Parameter(fs.loc, stc, p.type, id, null, null));
     }
     // https://issues.dlang.org/show_bug.cgi?id=13840
     // Throwable nested function inside nothrow function is acceptable.
@@ -4172,7 +4162,7 @@ void catchSemantic(Catch c, Scope* sc)
         // reference .object.Throwable
         c.type = getThrowable();
     }
-    else if (!c.type.isNaked() && !c.type.isConst())
+    else if (!c.type.isNaked && !c.type.isConst())
     {
         // @@@DEPRECATED_2.115@@@
         // Deprecated in 2.105, change into an error & uncomment assign in 2.115

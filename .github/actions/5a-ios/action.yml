@@ -15,47 +15,41 @@ runs:
 
         arch='${{ inputs.arch }}'
         deployment_target='${{ inputs.ios_deployment_target }}'
+
+        function add_runtime {
+          local is_simulator="$1"
+
+          local triple="$arch-apple-ios$deployment_target"
+          local sysroot='/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk'
+          local install_suffix="-ios-$arch"
+          local triple_regex="$arch-apple-ios[^-]*\$"
+          if [[ "$is_simulator" == 1 ]]; then
+            triple+='-simulator'
+            sysroot='/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk'
+            install_suffix="-ios-simulator-$arch"
+            triple_regex="$arch-apple-ios.*-simulator"
+          fi
+
+          install/bin/ldc-build-runtime --ninja \
+            --dFlags="-mtriple=$triple" \
+            --ldcSrcDir="$PWD/ldc" \
+            --installWithSuffix="$install_suffix" \
+            RT_CONF_TRIPLE_REGEX="$triple_regex" \
+            CMAKE_SYSTEM_NAME=iOS \
+            CMAKE_OSX_SYSROOT="$sysroot" \
+            CMAKE_OSX_ARCHITECTURES="$arch" \
+            CMAKE_OSX_DEPLOYMENT_TARGET="$deployment_target" \
+            BUILD_LTO_LIBS=ON
+
+          # append cross-compile flags to generated .conf file
+          sed -i "" "s|^{\$|{\n    switches ~= [\n        \"-Xcc=-isysroot\",\n        \"-Xcc=${sysroot}\",\n    ];|" install/etc/ldc2.conf/55-target${install_suffix}.conf
+        }
+
         if [[ "$arch" == arm64 ]]; then
-            triples=("$arch-apple-ios$deployment_target" "$arch-apple-ios$deployment_target-simulator")
-            sysroot=('/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk' '/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk')
+          add_runtime 0  # ios-arm64
+          add_runtime 1  # ios-simulator-arm64
         else
-            triples=("$arch-apple-ios$deployment_target-simulator")
-            sysroot=('/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk')
+          add_runtime 1  # ios-simulator-x86_64
         fi
 
-
-        for i in "${!triples[@]}"; do
-        reg=''
-        simulator=''
-        
-        if [[ $i == 1 ]]; then
-          reg='.*-simulator'
-          simulator='-simulator'
-        fi
-        
-        installed/bin/ldc-build-runtime --ninja \
-          --dFlags="-mtriple=${triples[$i]}" \
-          --ldcSrcDir="$PWD/ldc" \
-          --installWithSuffix="-ios-$arch$simulator" \
-          CMAKE_SYSTEM_NAME=iOS \
-          CMAKE_OSX_SYSROOT="${sysroot[$i]}" \
-          CMAKE_OSX_ARCHITECTURES="$arch" \
-          CMAKE_OSX_DEPLOYMENT_TARGET="$deployment_target" \
-          BUILD_LTO_LIBS=ON
-
-        section="
-        \"$arch-apple-ios$reg\":
-        {
-            switches ~= [
-                \"-Xcc=-isysroot\",
-                \"-Xcc=${sysroot[$i]}\",
-            ];
-            lib-dirs = [
-                \"%%ldcbinarypath%%/../lib-ios-$arch$simulator\",
-            ];
-            rpath = \"%%ldcbinarypath%%/../lib-ios-$arch$simulator\";
-        };"
-        echo "$section" >> installed/etc/ldc2.conf
-        cat installed/etc/ldc2.conf
-
-        done
+        cat install/etc/ldc2.conf/55-target-ios*.conf

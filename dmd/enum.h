@@ -60,7 +60,7 @@ public:
 
 
 #if !IN_LLVM
-    Symbol *sinit;
+    void *sinit;
 #endif
     void accept(Visitor *v) override { v->visit(this); }
 };

@@ -39,3 +39,5 @@ AddrExp *createAddrExp(Loc loc, Expression *e);
 
 // for gen/toir.cpp only:
 CommaExp *createCommaExp(Loc loc, Expression *e1, Expression *e2, bool generated = true);
+
+bool parseEditionOption(const char *cstr);

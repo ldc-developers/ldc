@@ -29,9 +29,8 @@ string normalizeSlashes(const(char)* binDir)
     return cast(string)res; // assumeUnique
 }
 
-const(string)[] findArraySetting(GroupSetting[] sections, string name)
+void findArraySetting(GroupSetting[] sections, string name, scope void delegate(const ArraySetting as) callback)
 {
-    const(string)[] result = null;
     foreach (section; sections)
     {
         foreach (c; section.children)
@@ -39,14 +38,10 @@ const(string)[] findArraySetting(GroupSetting[] sections, string name)
             if (c.type == Setting.Type.array && c.name == name)
             {
                 auto as = cast(ArraySetting) c;
-                if (as.isAppending)
-                    result ~= as.vals;
-                else
-                    result = as.vals;
+                callback(as);
             }
         }
     }
-    return result;
 }
 
 string findScalarSetting(GroupSetting[] sections, string name)
@@ -128,6 +123,49 @@ string replacePlaceholders(string str, CfgPaths cfgPaths)
         .replace("%%ldcversion%%", cast(string) global.ldc_version);
 }
 
+/++ Check that a section only contains known config keys
+
+ ldc recognizes:
+ - switches
+ - post-switches
+ - lib-dirs
+ - rpath
++/
+void validateSettingNames(const GroupSetting group, const char* filePath) {
+    static void fail(const Setting setting, const char* filePath) {
+        string fmt(Setting.Type type) {
+            final switch(type) {
+                static foreach (mem; __traits(allMembers, Setting.Type))
+                case __traits(getMember, Setting.Type, mem):
+                    return mem;
+            }
+        }
+
+        import dmd.root.string : toDString;
+        string msg;
+        if (setting.type == Setting.Type.group)
+            msg = "Nested group " ~ setting.name ~ " is unsupported";
+        else
+            msg = "Unknown " ~ fmt(setting.type) ~ " setting named " ~ setting.name;
+
+        throw new Exception(msg);
+    }
+
+    alias ST = Setting.Type;
+    static immutable knownSettings = [
+        new Setting("switches", ST.array),
+        new Setting("post-switches", ST.array),
+        new Setting("lib-dirs", ST.array),
+        new Setting("rpath", ST.scalar),
+    ];
+    outer: foreach (setting; group.children) {
+        foreach (known; knownSettings)
+            if (setting.name == known.name && setting.type == known.type)
+                continue outer;
+        fail(setting, filePath);
+    }
+}
+
 extern(C++) struct ConfigFile
 {
     __gshared ConfigFile instance;
@@ -160,37 +198,34 @@ private:
                 }
             }
 
-            if (sections.length == 0)
+            foreach (group; sections)
+                validateSettingNames(group, cfPath);
+
+            void readArraySetting(GroupSetting[] sections, string name, ref Array!(const(char)*) output)
             {
-                throw new Exception("No matching section for triple '" ~ cast(string) triple.toDString
-                                    ~ "'");
-            }
-
-            const switches = findArraySetting(sections, "switches");
-            const postSwitches = findArraySetting(sections, "post-switches");
-            if (switches.length + postSwitches.length == 0)
-                throw new Exception("Could not look up switches");
-
-            void applyArray(ref Array!(const(char)*) output, const(string)[] input)
-            {
-                output.setDim(0);
-
-                output.reserve(input.length);
-                foreach (sw; input)
+                void applyArray(const ArraySetting input)
                 {
-                    const finalSwitch = sw.replacePlaceholders(cfgPaths).toCString;
-                    output.push(finalSwitch.ptr);
+                    if (!input.isAppending)
+                        output.setDim(0);
+
+                    output.reserve(input.vals.length);
+                    foreach (sw; input.vals)
+                    {
+                        const finalSwitch = sw.replacePlaceholders(cfgPaths).toCString;
+                        output.push(finalSwitch.ptr);
+                    }
                 }
+                findArraySetting(sections, name, &applyArray);
             }
 
-            applyArray(this.switches, switches);
-            applyArray(this.postSwitches, postSwitches);
-
-            const libDirs = findArraySetting(sections, "lib-dirs");
-            applyArray(_libDirs, libDirs);
-
+            readArraySetting(sections, "switches", switches);
+            readArraySetting(sections, "post-switches", postSwitches);
+            readArraySetting(sections, "lib-dirs", _libDirs);
             const rpath = findScalarSetting(sections, "rpath");
-            this.rpathcstr = rpath.length == 0 ? null : rpath.replacePlaceholders(cfgPaths).toCString.ptr;
+            // A missing rpath => do nothing
+            // An empty rpath => clear the setting
+            if (rpath.ptr !is null)
+                this.rpathcstr = rpath.length == 0 ? null : rpath.replacePlaceholders(cfgPaths).toCString.ptr;
 
             return true;
         }

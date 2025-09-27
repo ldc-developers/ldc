@@ -1,8 +1,11 @@
 cmake_minimum_required(VERSION 3.16.0)
 project(runtime C ASM)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
+cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH PROJECT_PARENT_DIR)
 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR} "${PROJECT_PARENT_DIR}/cmake/Modules")
+
+include(LdcCommon)
 include(CheckIncludeFile)
 
 # Verify required variables if this CMake project is NOT embedded in the LDC CMake project.
@@ -13,20 +16,6 @@ if(NOT LDC_EXE)
     if(NOT DEFINED DMDFE_MINOR_VERSION OR NOT DEFINED DMDFE_PATCH_VERSION)
         message(FATAL_ERROR "Please define the CMake variables DMDFE_MINOR_VERSION and DMDFE_PATCH_VERSION.")
     endif()
-    if(NOT DEFINED LDC_WITH_LLD)
-        message(FATAL_ERROR "Please define the CMake variable LDC_WITH_LLD.")
-    endif()
-
-    # Helper function
-    function(append value)
-        foreach(variable ${ARGN})
-            if(${variable} STREQUAL "")
-                set(${variable} "${value}" PARENT_SCOPE)
-            else()
-                set(${variable} "${${variable}} ${value}" PARENT_SCOPE)
-            endif()
-        endforeach(variable)
-    endfunction()
 endif()
 
 #
@@ -53,7 +42,8 @@ set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 set(DRUNTIME_EXTRA_FLAGS          )
 set(DRUNTIME_EXTRA_UNITTEST_FLAGS -d-version=CoreUnittest -unittest -checkaction=context -linkonce-templates)
 set(PHOBOS2_EXTRA_FLAGS           )
-set(PHOBOS2_EXTRA_UNITTEST_FLAGS  -d-version=StdUnittest -unittest -checkaction=context -linkonce-templates)
+# FIXME: restore `-checkaction=context` after https://github.com/dlang/dmd/issues/21646 has been fixed
+set(PHOBOS2_EXTRA_UNITTEST_FLAGS  -d-version=StdUnittest -unittest -linkonce-templates)
 
 # Shadow the D_FLAGS cache variable by a regular variable containing all base D flags
 set(D_FLAGS ${D_FLAGS} ${D_EXTRA_FLAGS})
@@ -250,20 +240,20 @@ if(PHOBOS2_DIR)
     endif()
 
     if(PHOBOS_SYSTEM_ZLIB)
-	find_package(ZLIB REQUIRED)
+        find_package(ZLIB REQUIRED)
     else()
-	# Phobos C parts
-	file(GLOB_RECURSE PHOBOS2_C ${PHOBOS2_DIR}/etc/*.c)
-	# remove zlib test modules
-	list(REMOVE_ITEM PHOBOS2_C
+        # Phobos C parts
+        file(GLOB_RECURSE PHOBOS2_C ${PHOBOS2_DIR}/etc/*.c)
+        # remove zlib test modules
+        list(REMOVE_ITEM PHOBOS2_C
             ${PHOBOS2_DIR}/etc/c/zlib/test/example.c
             ${PHOBOS2_DIR}/etc/c/zlib/test/infcover.c
             ${PHOBOS2_DIR}/etc/c/zlib/test/minigzip.c
-	)
-	CHECK_INCLUDE_FILE(unistd.h HAVE_UNISTD_H)
-	if (HAVE_UNISTD_H)
-	    append("-DHAVE_UNISTD_H" CMAKE_C_FLAGS)
-	endif()
+        )
+        CHECK_INCLUDE_FILE(unistd.h HAVE_UNISTD_H)
+        if (HAVE_UNISTD_H)
+            append("-DHAVE_UNISTD_H" CMAKE_C_FLAGS)
+        endif()
     endif()
 endif()
 
@@ -271,103 +261,103 @@ endif()
 # Create configuration files.
 #
 
-# Default -rpath linker option when linking against shared libraries.
-if(SHARED_LIBS_SUPPORTED)
-    set(SHARED_LIBS_RPATH         "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
-    set(SHARED_LIBS_INSTALL_RPATH "${CMAKE_INSTALL_LIBDIR}")
-endif()
+set(switches)
 
 # Only have either shared or static libs?
 # Then explicitly default to linking against them via default LDC switch.
 if(${BUILD_SHARED_LIBS} STREQUAL "ON")
-    set(ADDITIONAL_DEFAULT_LDC_SWITCHES "${ADDITIONAL_DEFAULT_LDC_SWITCHES}\n        \"-link-defaultlib-shared\",")
+    set(switches "-link-defaultlib-shared")
 elseif(${BUILD_SHARED_LIBS} STREQUAL "OFF")
-    set(ADDITIONAL_DEFAULT_LDC_SWITCHES "${ADDITIONAL_DEFAULT_LDC_SWITCHES}\n        \"-link-defaultlib-shared=false\",")
+    set(switches "-link-defaultlib-shared=false")
 endif()
 
-# LLVM 16: Disable function specializations by default.
-# They cause miscompiles of e.g. the frontend for some targets (macOS x86_64 and Windows x64).
-if(LDC_LLVM_VER GREATER 1599 AND LDC_LLVM_VER LESS 1700)
-    set(ADDITIONAL_DEFAULT_LDC_SWITCHES "${ADDITIONAL_DEFAULT_LDC_SWITCHES}\n        \"-func-specialization-size-threshold=1000000000\",")
+set(build_libdir "${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}")
+set(install_libdir "${CMAKE_INSTALL_LIBDIR}")
+
+# Default -rpath linker option when linking against shared libraries.
+if(SHARED_LIBS_SUPPORTED)
+    set(build_rpath   "${build_libdir}")
+    set(install_rpath "${install_libdir}")
 endif()
 
-# Default wasm stack is only 64kb, this is rather small, let's bump it to 1mb
-set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"-L-z\", \"-Lstack-size=1048576\",")
-# Protect from stack overflow overwriting global memory
-set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"-L--stack-first\",")
-if(LDC_WITH_LLD)
-    set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"-link-internally\",")
-endif()
-# LLD 8+ requires (new) `--export-dynamic` for WebAssembly (https://github.com/ldc-developers/ldc/issues/3023).
-set(WASM_DEFAULT_LDC_SWITCHES "${WASM_DEFAULT_LDC_SWITCHES}\n        \"-L--export-dynamic\",")
+# This is e.g. set from `ldc-build-runtime --installWithSuffix`.
+set(RT_CONF_BASE_NAME "50-target-default" CACHE STRING "Base name of the generated runtime .conf file")
 
-# Note: normally inherited from LDC CMake parent build, and only needed for ldc2_install.conf
-set(INCLUDE_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/include/d" CACHE PATH "Path the D modules are installed to")
+set(RT_CONF_TRIPLE_REGEX "default" CACHE STRING "Regex for the target triple in the generated runtime .conf file")
 
-# Note: default value only works if embedded in LDC CMake parent build, but only needed for ImportC (__importc_builtins.di) and non-install ldc2.conf
-set(LDC_GCCBUILTINS_IMPORT_DIR "${CMAKE_BINARY_DIR}/import" CACHE PATH "Directory filled with auto-generated ldc/gccbuiltins_*.di files")
+makeConfSection(NAME ${RT_CONF_BASE_NAME}
+    SECTION ${RT_CONF_TRIPLE_REGEX}
 
-# Generate .conf files
-if(LDC_EXE)
-    set(CONFIG_BASE ${LDC_EXE})
-else() # not included from LDC parent build
-    set(CONFIG_BASE ldc2)
-endif()
-if(PHOBOS2_DIR)
-    set(CONFIG_NAME ${CONFIG_BASE}_phobos)
-else()
-    set(CONFIG_NAME ${CONFIG_BASE})
-endif()
-set(conf_path         ${CMAKE_BINARY_DIR}/etc/${CONFIG_BASE}.conf)
-set(install_conf_path ${CMAKE_BINARY_DIR}/etc/${CONFIG_BASE}_install.conf)
-configure_file(${PROJECT_SOURCE_DIR}/../${CONFIG_NAME}.conf.in ${conf_path} @ONLY)
-configure_file(${PROJECT_SOURCE_DIR}/../${CONFIG_BASE}_install.conf.in ${install_conf_path} @ONLY)
+    BUILD
+    SWITCHES ${switches}
+    LIB_DIRS OVERRIDE ${build_libdir}
+    RPATH ${build_rpath}
+
+    INSTALL
+    SWITCHES ${switches}
+    LIB_DIRS OVERRIDE ${install_libdir}
+    RPATH ${install_rpath}
+)
 
 # macOS has fat libraries; otherwise, append a separate config file section for the
 # multilib target and override the lib directory.
 if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
-    # Rename the just configured host-only *.conf files to *.conf.in during CMake invocation.
-    file(RENAME ${conf_path} ${conf_path}.in)
-    file(RENAME ${install_conf_path} ${install_conf_path}.in)
+    set(build_libdir "${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}")
+    set(install_libdir "${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}")
+    if(SHARED_LIBS_SUPPORTED)
+        set(build_rpath   "${build_libdir}")
+        set(install_rpath "${install_libdir}")
+    endif()
 
-    set(MULTILIB_DIR         "${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}")
-    set(MULTILIB_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}")
+    set(name "55-target-m${MULTILIB_SUFFIX}")
+    set(sectionPlaceholder "LDC_CONF_MULTILIB_TRIPLE_REGEX")
+    makeConfSection(NAME "${name}"
+        SECTION "${sectionPlaceholder}"
+        BUILD
+        LIB_DIRS OVERRIDE ${build_libdir}
+        RPATH ${build_rpath}
+        INSTALL
+        LIB_DIRS OVERRIDE ${install_libdir}
+        RPATH ${install_rpath}
+    )
 
-    # The helper script determines the multilib triple by parsing the
-    # `ldc2 -m32 -v` output. This means we depend on a built ldc2
-    # executable; sadly, we cannot add post-build commands to that
-    # top-level target directly, so use a custom target (built as part
-    # of `all`) to finalize the 2 config files.
-    add_custom_command(OUTPUT ${conf_path} VERBATIM
-        COMMAND ${PROJECT_SOURCE_DIR}/../tools/add-multilib-section.sh
-                ${LDC_EXE_FULL}
-                ${MULTILIB_SUFFIX}
-                ${MULTILIB_DIR}
-                "$<$<BOOL:${SHARED_LIBS_SUPPORTED}>:${MULTILIB_DIR}>"
-                ${conf_path}.in
-                ${conf_path}
-        DEPENDS ${LDC_EXE_FULL}
-    )
-    add_custom_command(OUTPUT ${install_conf_path} VERBATIM
-        COMMAND ${PROJECT_SOURCE_DIR}/../tools/add-multilib-section.sh
-                ${LDC_EXE_FULL}
-                ${MULTILIB_SUFFIX}
-                ${MULTILIB_INSTALL_DIR}
-                "$<$<BOOL:${SHARED_LIBS_SUPPORTED}>:${MULTILIB_INSTALL_DIR}>"
-                ${install_conf_path}.in
-                ${install_conf_path}
-        DEPENDS ${LDC_EXE_FULL}
-    )
-    add_custom_target(add-multilib-section ALL
-        DEPENDS ${conf_path} ${install_conf_path}
-    )
+    set(build_conf "${LDC_BUILD_CONF}/${name}.conf")
+    set(install_conf "${LDC_INSTALL_CONF}/${name}.conf")
+    set(confs "${build_conf}" "${install_conf}")
+    foreach(conf ${confs})
+        # Rename the just-generated config files in order to replace sectionPlaceholder
+        file(RENAME "${conf}" "${conf}.in")
+        set(fill_cmd
+            "${PROJECT_PARENT_DIR}/tools/fill-multilib-triple.sh"
+            "${conf}.in"
+            "${conf}"
+            "${sectionPlaceholder}"
+            # Next arguments are a compiler invocation for the desired triple
+            "${LDC_EXE_FULL}" -m${MULTILIB_SUFFIX}
+        )
+        if(LDC_EXE)
+            # We need to get the -m32 target triple but the compiler
+            # is not built yet. We can't depend on LDC_EXE since that
+            # would cause a cycle so pass-through the needed commands
+            # up to the root project and let it run them as POST_BUILD
+            # commands. This avoids adding the config_files as
+            # transitive dependencies to all compiled D files.
+            #
+            # The `COMMAND` comes from the syntax of
+            # add_custom_command. `BYPRODUCTS` is needed by ninja
+            # because it needs to know which command generates the
+            # config files that will be installed.
+            list(APPEND _LDC_POST_BUILD_COMMANDS "COMMAND" ${fill_cmd})
+            list(APPEND _LDC_POST_BUILD_BYPRODUCTS "${conf}")
+        else()
+            execute_process(COMMAND ${fill_cmd})
+        endif()
+    endforeach()
 endif()
 
-if(NOT DEFINED CONF_INST_DIR) # set by parent LDC build
-    set(CONF_INST_DIR "${CMAKE_INSTALL_PREFIX}/etc")
-endif()
-if(NOT CONF_INST_DIR STREQUAL "") # allow skipping the ldc2.conf installation
-    install(FILES ${install_conf_path} DESTINATION ${CONF_INST_DIR} RENAME ${CONFIG_BASE}.conf)
+if(LDC_EXE)
+    set(_LDC_POST_BUILD_COMMANDS "${_LDC_POST_BUILD_COMMANDS}" PARENT_SCOPE)
+    set(_LDC_POST_BUILD_BYPRODUCTS "${_LDC_POST_BUILD_BYPRODUCTS}" PARENT_SCOPE)
 endif()
 
 #
@@ -406,11 +396,11 @@ endforeach()
 
 function(link_zlib phobos_target library_type)
     if(PHOBOS_SYSTEM_ZLIB)
-	if(${library_type} STREQUAL "SHARED")
-	    target_link_libraries(${phobos_target} ZLIB::ZLIB)
-	endif()
+        if(${library_type} STREQUAL "SHARED")
+            target_link_libraries(${phobos_target} ZLIB::ZLIB)
+        endif()
     else()
-	target_sources(${phobos_target} PRIVATE ${PHOBOS2_C})
+        target_sources(${phobos_target} PRIVATE ${PHOBOS2_C})
     endif()
 endfunction()
 
@@ -425,10 +415,6 @@ macro(dc src_files src_basedir d_flags output_basedir emit_bc all_at_once single
     # dc_deps can only contain paths, otherwise cmake will ignore the dependency.
     # See: https://github.com/ldc-developers/ldc/pull/4743#issuecomment-2323156173
     set(dc_deps ${LDC_EXE_FULL})
-    if(TARGET add-multilib-section)
-        # Make sure the config files are available before invoking LDC.
-        set(dc_deps ${dc_deps} add-multilib-section)
-    endif()
 
     set(relative_src_files "")
     set(new_o "")
@@ -644,7 +630,7 @@ macro(build_runtime_libs druntime_o druntime_bc phobos2_o phobos2_bc c_flags ld_
 
     if(PHOBOS2_DIR)
         add_library(phobos2-ldc${target_suffix} ${library_type} ${phobos2_o})
-	link_zlib(phobos2-ldc${target_suffix} ${library_type})
+        link_zlib(phobos2-ldc${target_suffix} ${library_type})
         set_common_library_properties(phobos2-ldc${target_suffix}
             phobos2-ldc${lib_suffix} ${output_path}
             "${c_flags}" "${ld_flags}" ${is_shared}
@@ -675,7 +661,7 @@ macro(build_runtime_libs druntime_o druntime_bc phobos2_o phobos2_bc c_flags ld_
         )
 
         add_library(phobos2-ldc-lto${target_suffix} STATIC ${phobos2_bc})
-	link_zlib(phobos2-ldc-lto${target_suffix} STATIC)
+        link_zlib(phobos2-ldc-lto${target_suffix} STATIC)
         set_common_library_properties(phobos2-ldc-lto${target_suffix}
             phobos2-ldc-lto${lib_suffix} ${output_path}
             "${c_flags}" "${ld_flags}" OFF
@@ -1001,9 +987,9 @@ function(build_test_runners name_suffix path_suffix d_flags linkflags is_shared)
             LINK_FLAGS      ${linkflags}
             LINK_DEPENDS    ${tested_lib_path}
         )
-	if(PHOBOS_SYSTEM_ZLIB AND "${is_shared}" STREQUAL "OFF")
-	    target_link_libraries(${phobos_name} ZLIB::ZLIB)
-	endif()
+        if(PHOBOS_SYSTEM_ZLIB AND "${is_shared}" STREQUAL "OFF")
+            target_link_libraries(${phobos_name} ZLIB::ZLIB)
+        endif()
         add_test(build-${phobos_name} "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ${phobos_name})
         set(_GLOBAL_TESTRUNNERS "${_GLOBAL_TESTRUNNERS};${phobos_name}" CACHE INTERNAL "")
     endif()
