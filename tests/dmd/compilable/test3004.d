@@ -2,7 +2,7 @@
 /*
 REQUIRED_ARGS: -ignore -v
 LDC:  additionally exclude 'GC stats' line
-TRANSFORM_OUTPUT: remove_lines("^(predefs|binary|version|config|DFLAG|parse|import|\(imported|semantic|entry|library|function  object|function  core|GC stats|\s*$)")
+TRANSFORM_OUTPUT: remove_lines("^(predefs|binary|version|config|DFLAG|parse|inline|.*_d_newarrayU|import|\(imported|semantic|entry|library|function  object|function  core|GC stats|\s*$)")
 TEST_OUTPUT:
 ---
 pragma    GNU_attribute (__error)
