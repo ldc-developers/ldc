@@ -280,8 +280,13 @@ if(SHARED_LIBS_SUPPORTED)
     set(install_rpath "${install_libdir}")
 endif()
 
-makeConfSection(NAME "30-ldc-runtime-lib${LIB_SUFFIX}"
-    SECTION "default"
+# This is e.g. set from `ldc-build-runtime --installWithSuffix`.
+set(RT_CONF_BASE_NAME "50-target-default" CACHE STRING "Base name of the generated runtime .conf file")
+
+set(RT_CONF_TRIPLE_REGEX "default" CACHE STRING "Regex for the target triple in the generated runtime .conf file")
+
+makeConfSection(NAME ${RT_CONF_BASE_NAME}
+    SECTION ${RT_CONF_TRIPLE_REGEX}
 
     BUILD
     SWITCHES ${switches}
@@ -304,7 +309,7 @@ if(MULTILIB AND NOT "${TARGET_SYSTEM}" MATCHES "APPLE")
         set(install_rpath "${install_libdir}")
     endif()
 
-    set(name "31-ldc-runtime-lib${MULTILIB_SUFFIX}")
+    set(name "55-target-m${MULTILIB_SUFFIX}")
     set(sectionPlaceholder "LDC_CONF_MULTILIB_TRIPLE_REGEX")
     makeConfSection(NAME "${name}"
         SECTION "${sectionPlaceholder}"

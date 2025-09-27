@@ -170,8 +170,20 @@ void runCMake() {
         args ~= [
             "-DCMAKE_INSTALL_PREFIX=" ~ config.ldcExecutable.dirName.dirName,
             "-DLIB_SUFFIX=" ~ config.installWithSuffix,
-            "-DCONF_INST_DIR=", // don't install/overwrite existing etc/ldc2.conf!
         ];
+
+        if (config.installWithSuffix.length) {
+            if ("RT_CONF_TRIPLE_REGEX" !in config.cmakeVars &&
+                config.cmakeVars.get("CONF_INST_DIR", "unset") != "") {
+                writeln(".: Error: when using a non-empty `--installWithSuffix`, either set the RT_CONF_TRIPLE_REGEX CMake variable, or disable installing the .conf file by setting CONF_INST_DIR to an empty string");
+                exit(1);
+            }
+
+            string confSuffix = config.installWithSuffix;
+            if (confSuffix[0] == '-')
+                confSuffix = confSuffix[1 .. $];
+            args ~= "-DRT_CONF_BASE_NAME=55-target-" ~ confSuffix;
+        }
     }
 
     foreach (pair; config.cmakeVars.byPair)
@@ -343,7 +355,7 @@ void parseCommandLine(string[] args) {
             "linkerFlags", "Extra C linker flags for shared libraries and testrunner executables (separated by ';')", &config.linkerFlags,
             "j",           "Number of parallel build jobs", &config.numBuildJobs,
             "systemZlib",  "Use system zlib instead of Phobos' vendored version", &config.systemZlib,
-            "installWithSuffix", "Install the built libraries to '<directory containing LDC executable>/../lib<suffix>/'", &config.installWithSuffix,
+            "installWithSuffix", "Install the built libraries to '<directory containing LDC executable>/../lib<suffix>/'. If the libraries are for a cross-compilation target, please set the RT_CONF_TRIPLE_REGEX CMake variable accordingly. Otherwise, you can set CONF_INST_DIR to an empty string to prevent installing the .conf file.", &config.installWithSuffix,
         );
 
         // getopt() has removed all consumed args from `args`

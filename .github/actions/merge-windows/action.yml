@@ -20,14 +20,13 @@ runs:
         mv ldc2-*-x64 ldc2-multilib
         cd ldc2-multilib
         mv lib lib64
-        mv etc/ldc2.conf/30-ldc-runtime-{lib,lib64}.conf
         cp -R ../ldc2-x86/lib lib32
         cp ../ldc2-x86/bin/{*.dll,*.pdb,curl-ca-bundle.crt} lib32/
     - name: Merge ldc2.conf
       shell: pwsh
       run: |
         cd ldc2-multilib
-        (cat etc\ldc2.conf\30-ldc-runtime-lib64.conf).replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib64') | Set-Content etc\ldc2.conf\30-ldc-runtime-lib64.conf
+        (cat etc\ldc2.conf\50-target-default.conf).replace('%%ldcbinarypath%%/../lib', '%%ldcbinarypath%%/../lib64') | Set-Content etc\ldc2.conf\50-target-default.conf
         $conf32 = '"i[3-6]86-.*-windows-msvc":
         {
             lib-dirs = [
@@ -35,7 +34,7 @@ runs:
             ];
         };
         '
-        Set-Content etc\ldc2.conf\31-ldc-runtime-lib32.conf $conf32
+        Set-Content etc\ldc2.conf\55-target-windows-x86.conf $conf32
         cat etc\ldc2.conf\*
 
     - name: Generate hello.d
@@ -80,21 +79,18 @@ runs:
         ldc2-multilib\bin\ldc-build-runtime --ninja ^
           --dFlags=-mtriple=aarch64-windows-msvc ^
           "--ldcSrcDir=%CD%" ^
-          --installWithSuffix=arm64 ^
+          --installWithSuffix=-windows-arm64 ^
+          RT_CONF_TRIPLE_REGEX="(aarch|arm)64-.*-windows-msvc" ^
           BUILD_LTO_LIBS=ON
-    - name: Add arm64 section to ldc2.conf
-      shell: pwsh
+    - name: Make arm64 .conf file portable
+      shell: bash
       run: |
+        set -eux
         cd ldc2-multilib
-        $conf = '"(aarch|arm)64-.*-windows-msvc":
-        {
-            lib-dirs = [
-                "%%ldcbinarypath%%/../libarm64",
-            ];
-        };
-        '
-        Set-Content etc\ldc2.conf\31-ldc-runtime-libarm64.conf $conf
-        cat etc\ldc2.conf\*
+        absInstallDir=$(cygpath --mixed "$PWD")
+        conf="etc/ldc2.conf/55-target-windows-arm64.conf"
+        sed -i "s|$absInstallDir/|%%ldcbinarypath%%/../|g" $conf
+        cat $conf
     - name: Run arm64 hello-world cross-compilation smoke tests
       shell: cmd
       run: |
@@ -111,9 +107,9 @@ runs:
         curl -fL --retry 3 --max-time 60 -o libcurl.zip "$url"
         7z x libcurl.zip >/dev/null
         rm libcurl.zip
-        cp curl-*/bin/{libcurl*.dll,curl-ca-bundle.crt} ldc2-multilib/libarm64/
+        cp curl-*/bin/{libcurl*.dll,curl-ca-bundle.crt} ldc2-multilib/lib-windows-arm64/
         rm -rf curl-*
-        mv ldc2-multilib/libarm64/libcurl*.dll ldc2-multilib/libarm64/libcurl.dll
+        mv ldc2-multilib/lib-windows-arm64/libcurl*.dll ldc2-multilib/lib-windows-arm64/libcurl.dll
 
     - name: Pack multilib package
       shell: bash

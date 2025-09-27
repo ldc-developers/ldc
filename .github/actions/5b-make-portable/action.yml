@@ -1,0 +1,22 @@
+name: Make LDC installation portable
+runs:
+  using: composite
+  steps:
+
+    - name: Make portable
+      shell: bash
+      run: |
+        set -eux
+        cd ..
+        absInstallDir="$PWD/install"
+        if [[ '${{ runner.os }}' == Windows ]]; then
+          # /d/a/1/install => D:/a/1/install
+          absInstallDir=$(cygpath --mixed "$absInstallDir")
+        fi
+        confs=( install/etc/ldc2.conf/* )
+        perl -pi -e "s|$absInstallDir/|%%ldcbinarypath%%/../|g" "${confs[@]}"
+        cat "${confs[@]}"
+
+    - name: Rename the installation dir to test portability
+      shell: bash
+      run: mv ../install ../installed

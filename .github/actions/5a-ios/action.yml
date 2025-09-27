@@ -22,26 +22,17 @@ runs:
             sysroot='/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk'
         fi
 
-        installed/bin/ldc-build-runtime --ninja \
+        install/bin/ldc-build-runtime --ninja \
           --dFlags="-mtriple=$triple" \
           --ldcSrcDir="$PWD/ldc" \
           --installWithSuffix="-ios-$arch" \
+          RT_CONF_TRIPLE_REGEX="$arch-apple-ios" \
           CMAKE_SYSTEM_NAME=iOS \
           CMAKE_OSX_SYSROOT="$sysroot" \
           CMAKE_OSX_ARCHITECTURES="$arch" \
           CMAKE_OSX_DEPLOYMENT_TARGET="$deployment_target" \
           BUILD_LTO_LIBS=ON
 
-        section="\"$arch-apple-ios\":
-        {
-            switches ~= [
-                \"-Xcc=-isysroot\",
-                \"-Xcc=$sysroot\",
-            ];
-            lib-dirs = [
-                \"%%ldcbinarypath%%/../lib-ios-$arch\",
-            ];
-            rpath = \"%%ldcbinarypath%%/../lib-ios-$arch\";
-        };"
-        echo "$section" >> installed/etc/ldc2.conf/31-ldc-runtime-lib-ios-$arch.conf
-        cat installed/etc/ldc2.conf/*
+        # append cross-compile flags to generated .conf file
+        sed -i "" "s|^{\$|{\n    switches ~= [\n        \"-Xcc=-isysroot\",\n        \"-Xcc=${sysroot}\",\n    ];|" install/etc/ldc2.conf/55-target-ios-$arch.conf
+        cat install/etc/ldc2.conf/*

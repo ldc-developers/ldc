@@ -4,6 +4,7 @@
 - Frontend, druntime and Phobos are at version ~[2.112.0](https://dlang.org/changelog/2.112.0.html), incl. new command-line options `-extI`, `-dllimport=externalOnly` and `-edition`. (#4949, #4962)
 - **Breaking change for dcompute**: The special `@kernel` UDA is now a function and _**requires**_ parentheses as in `@kernel() void foo(){}`. Optionally you can provide launch dimensions, `@kernel([2,4,8])`, to specify to the compute runtime how the kernel is intended to be launched.
 - ldc2.conf can now be a directory. All the files inside it, ordered naturally, will be concatenated and treated like a big config. (#4954)
+  - Running `ldc-build-runtime --installWithSuffix` now includes installing a target-specific .conf file to that directory. (#4978)
 - **Breaking change for ldc2.conf cmake generation**: The `cmake` build process now generates the `ldc2.conf` and `ldc2_install.conf` as directories. `ldc2*.conf.in` and `ADDITIONAL_DEFAULT_LDC_SWITCHES` have been removed, if you need to add switches check out `makeConfSection` in `LdcConfig.cmake`. (#4954)
 
 #### Platform support
