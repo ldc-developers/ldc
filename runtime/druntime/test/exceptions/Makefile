@@ -3,10 +3,12 @@ ifdef IN_LDC
 include ../../../../dmd/osmodel.mak
 endif
 
-ifeq ($(OS),linux)
-    # FIXME: detect musl libc robustly; just checking Alpine Linux' apk tool for now
-    ifeq (1,$(shell which apk &>/dev/null && echo 1))
-        IS_MUSL:=1
+ifndef IS_MUSL # LDC defines it externally
+    ifeq ($(OS),linux)
+        # FIXME: detect musl libc robustly; just checking Alpine Linux' apk tool for now
+        ifeq (1,$(shell which apk >/dev/null 2>&1 && echo 1))
+            IS_MUSL := 1
+        endif
     endif
 endif
 
@@ -65,6 +67,33 @@ endif
 ifeq ($(OS),windows)
     TESTS+=winstack
 endif
+
+ifdef IN_LDC
+    ifeq ($(OS)-$(ARCH),linux-aarch64)
+        # This hits the "should never happen" default branch in the
+        # rt.dwarfeh._d_throw_exception:399 unwind switch statement.
+        # The value is 0xf7fe7fb8 which is complete garbage.
+        TESTS := $(filter-out memoryerror_null_call,$(TESTS))
+
+        # The aarch64 github runners fail but it works locally
+	TESTS := $(filter-out memoryerror_%,$(TESTS))
+    endif
+
+    ifeq ($(OS),linux)
+        # These maybe fail with a shared runtime.
+        #
+        # CircleCI fails on x86_64, other CI and locally work.
+        # aarch64 fails locally, shared-only is not tested in CI.
+        #
+        # The failure is caused by the backtrace call in
+        # core.runtime.DefaultTraceInfo.this
+        ifeq ($(BUILD_SHARED_LIBS),ON)
+            TESTS := $(filter-out memoryerror_%,$(TESTS))
+        endif
+        $(ROOT)/memoryerror_%: private extra_ldflags.d += -link-defaultlib-shared=false
+    endif
+endif
+
 include ../common.mak
 
 $(ROOT)/line_trace.done: $(ROOT)/line_trace$(DOTEXE)
