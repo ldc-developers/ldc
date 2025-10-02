@@ -26,7 +26,7 @@ else version (LDC_LLVM_1800) enum LLVM_version = 1800;
 else version (LDC_LLVM_1801) enum LLVM_version = 1801;
 else version (LDC_LLVM_1901) enum LLVM_version = 1901;
 else version (LDC_LLVM_2001) enum LLVM_version = 2001;
-else version (LDC_LLVM_2100) enum LLVM_version = 2100;
+else version (LDC_LLVM_2101) enum LLVM_version = 2101;
 else version (LDC_LLVM_2200) enum LLVM_version = 2200;
 else static assert(false, "LDC LLVM version not supported");
 
