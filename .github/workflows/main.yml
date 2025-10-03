@@ -138,8 +138,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     container:
       image: ${{ matrix.container_image }}
-      volumes: # needed for Alpine aarch64 job: https://github.com/actions/runner/issues/801#issuecomment-2394425757
-        - /:/host
+      volumes: # needed for Alpine aarch64 job: https://github.com/actions/runner/issues/801#issuecomment-2976165281
+        - /opt:/opt:rw,rshared
+        - /opt:/__e/node20:ro,rshared
     timeout-minutes: 90
     env:
       MACOSX_DEPLOYMENT_TARGET: ${{ matrix.arch == 'arm64' && '11.0' || '10.12' }}
@@ -166,14 +167,12 @@ jobs:
             ln -s /usr/lib/llvm19 $(dirname $(pwd))/llvm
             ../llvm/bin/llvm-config --version
 
-            # see https://github.com/actions/runner/issues/801#issuecomment-2394425757
+            # see https://github.com/actions/runner/issues/801#issuecomment-2976165281
             if [[ '${{ matrix.arch }}' == aarch64 ]]; then
-              apk add nodejs
-              sed -i "s:ID=alpine:ID=NotpineForGHA:" /etc/os-release
-              cd /host/home/runner/runners/*/externals/
-              rm -rf node20/*
-              mkdir node20/bin
-              ln -s /usr/bin/node node20/bin/node
+              sed -i "/^ID=/s/alpine/NotpineForGHA/" /etc/os-release
+              apk add nodejs --update-cache
+              mkdir /opt/bin
+              ln -s /usr/bin/node /opt/bin/node
             fi
           fi
       - uses: actions/checkout@v4
