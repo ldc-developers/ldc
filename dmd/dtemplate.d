@@ -4109,6 +4109,13 @@ extern (C++) class TemplateInstance : ScopeDsymbol
 version (IN_LLVM)
 {
         assert(global.params.linkonceTemplates != LinkonceTemplates.aggressive);
+
+        static uint callDepth;
+        callDepth++;
+        scope(exit) callDepth--;
+
+        if (global.params.templateCodegenDepth && (callDepth > global.params.templateCodegenDepth))
+            return false;
 }
 
         //printf("needsCodegen() %s\n", toChars());
