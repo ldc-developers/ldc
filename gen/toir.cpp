@@ -2154,7 +2154,7 @@ public:
 
     p->ir->SetInsertPoint(condtrue);
     PGO.emitCounterIncrement(e);
-    DValue *u = toElem(e->e1);
+    DValue *u = toElemDtor(e->e1);
     if (retPtr && u->type->toBasetype()->ty != TY::Tnoreturn) {
       LLValue *lval = makeLValue(e->loc, u);
       DtoStore(lval, retPtr);
@@ -2162,7 +2162,7 @@ public:
     llvm::BranchInst::Create(condend, p->scopebb());
 
     p->ir->SetInsertPoint(condfalse);
-    DValue *v = toElem(e->e2);
+    DValue *v = toElemDtor(e->e2);
     if (retPtr && v->type->toBasetype()->ty != TY::Tnoreturn) {
       LLValue *lval = makeLValue(e->loc, v);
       DtoStore(lval, retPtr);
