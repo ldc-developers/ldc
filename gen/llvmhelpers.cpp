@@ -673,6 +673,15 @@ DValue *DtoCastStruct(Loc loc, DValue *val, Type *to) {
     return new DLValue(to, lval);
   }
 
+  // A cast between fat values is possible only when the sizes match.
+  // https://github.com/ldc-developers/ldc/issues/4993
+  if (totype->ty == TY::Tsarray || totype->ty == TY::Tvector) {
+    if (size(totype) == size(val->type->toBasetype())) {
+      llvm::Value *lval = DtoLVal(val);
+      return new DLValue(to, lval);
+    }
+  }
+
   error(loc, "Internal Compiler Error: Invalid struct cast from `%s` to `%s`",
         val->type->toChars(), to->toChars());
   fatal();
