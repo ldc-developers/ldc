@@ -14,6 +14,7 @@ enum ReflectTarget : uint
     Host = 0,
     OpenCL = 1,
     CUDA = 2,
+    Vulkan = 3,
 }
 /**
  * The pseudo conditional compilation function.
