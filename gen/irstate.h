@@ -27,6 +27,7 @@
 #include <set>
 #include <sstream>
 #include <vector>
+#include <optional>
 
 namespace llvm {
 class LLVMContext;
@@ -248,7 +249,11 @@ public:
   // calls with a StringExp with matching data will return the same variable.
   // Exception: ulong[]-typed hex strings (not null-terminated either).
   llvm::GlobalVariable *getCachedStringLiteral(StringExp *se);
-  llvm::GlobalVariable *getCachedStringLiteral(llvm::StringRef s);
+  llvm::GlobalVariable *getCachedStringLiteral(llvm::StringRef s
+#if LDC_LLVM_VER >= 1600
+                                               ,std::optional< unsigned > = std::nullopt
+#endif
+                                               );
 
   // List of functions with cpu or features attributes overriden by user
   std::vector<IrFunction *> targetCpuOrFeaturesOverridden;

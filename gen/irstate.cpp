@@ -191,7 +191,11 @@ template <typename F>
 LLGlobalVariable *
 getCachedStringLiteralImpl(llvm::Module &module,
                            llvm::StringMap<LLGlobalVariable *> &cache,
-                           llvm::StringRef key, F initFactory) {
+                           llvm::StringRef key,
+#if LDC_LLVM_VER >= 1700
+                           std::optional< unsigned > addrspace,
+#endif
+                           F initFactory) {
   auto iter = cache.find(key);
   if (iter != cache.end()) {
     return iter->second;
@@ -201,7 +205,12 @@ getCachedStringLiteralImpl(llvm::Module &module,
 
   auto gvar =
       new LLGlobalVariable(module, constant->getType(), true,
-                           LLGlobalValue::PrivateLinkage, constant, ".str");
+                           LLGlobalValue::PrivateLinkage, constant,
+                           ".str", nullptr, llvm::GlobalValue::NotThreadLocal
+#if LDC_LLVM_VER >= 1700
+                           , addrspace
+#endif
+                           );
   gvar->setUnnamedAddr(LLGlobalValue::UnnamedAddr::Global);
 
   cache[key] = gvar;
@@ -241,14 +250,28 @@ LLGlobalVariable *IRState::getCachedStringLiteral(StringExp *se) {
   const llvm::StringRef key(reinterpret_cast<const char *>(keyData.ptr),
                             keyData.length);
 
-  return getCachedStringLiteralImpl(module, *cache, key, [se]() {
+  return getCachedStringLiteralImpl(module, *cache, key,
+#if LDC_LLVM_VER >= 1700
+                                    std::nullopt,
+#endif
+                                    [se]() {
     // null-terminate
     return buildStringLiteralConstant(se, se->len + 1);
   });
 }
 
-LLGlobalVariable *IRState::getCachedStringLiteral(llvm::StringRef s) {
-  return getCachedStringLiteralImpl(module, cachedStringLiterals, s, [&]() {
+LLGlobalVariable *IRState::getCachedStringLiteral(llvm::StringRef s
+#if LDC_LLVM_VER >= 1700
+                                                  ,std::optional< unsigned > addrspace
+#endif
+                                                  ) {
+  return getCachedStringLiteralImpl(module,
+                                    cachedStringLiterals,
+                                    s,
+#if LDC_LLVM_VER >= 1700
+                                    addrspace,
+#endif
+                                    [&]() {
     return llvm::ConstantDataArray::getString(context(), s, true);
   });
 }
