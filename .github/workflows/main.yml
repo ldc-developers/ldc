@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  LLVM_VERSION: 20.1.5
+  LLVM_VERSION: d1af86a3
 
 jobs:
   build-native:
@@ -85,8 +85,8 @@ jobs:
             os: macos-15
             arch: arm64
             extra_cmake_flags: >-
-              -DCMAKE_C_COMPILER=/opt/homebrew/opt/llvm@20/bin/clang
-              -DCMAKE_CXX_COMPILER=/opt/homebrew/opt/llvm@20/bin/clang++
+              -DCMAKE_C_COMPILER=/opt/homebrew/opt/llvm@21/bin/clang
+              -DCMAKE_CXX_COMPILER=/opt/homebrew/opt/llvm@21/bin/clang++
               -DD_COMPILER_FLAGS="-O -flto=full -defaultlib=phobos2-ldc-lto,druntime-ldc-lto -L-exported_symbol '-L__*' -L-w"
               -DEXTRA_CXXFLAGS=-flto=full
             with_pgo: true
