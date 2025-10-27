@@ -60,9 +60,9 @@ void foo(GlobalPointer!float x_in) {
 }
 
 // PTX-LABEL: k_foo
-// PTX: ld.global.f32
-// PTX: st.shared.f32
-// PTX: st.local.f32
-// PTX: ld.const.f32
-// PTX: ld.shared.f32
-// PTX: ld.local.f32
+// PTX: ld.global.{{f|b}}32
+// PTX: st.shared.{{f|b}}32
+// PTX: st.local.{{f|b}}32
+// PTX: ld.const.{{f|b}}32
+// PTX: ld.shared.{{f|b}}32
+// PTX: ld.local.{{f|b}}32
