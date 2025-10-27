@@ -11,3 +11,16 @@ const(char)[] test(ref Test t)
 {
     return t;
 }
+
+struct Result(Type) {
+    Type get() {  assert(0); }
+
+    alias get this;
+
+    this(ref Result) {}
+}
+
+float dotProduct() {
+    Result!float got;
+    return got;
+}
