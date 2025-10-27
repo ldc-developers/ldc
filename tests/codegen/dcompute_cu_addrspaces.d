@@ -11,26 +11,26 @@ import ldc.dcompute;
 
 void foo(PrivatePointer!float f) {
     // LL: load float, ptr addrspace(5)
-    // PTX: ld.local.f32
+    // PTX: ld.local.{{f|b}}32
     float g = *f;
 }
 void foo(GlobalPointer!float f) {
     // LL: load float, ptr addrspace(1)
-    // PTX: ld.global.f32
+    // PTX: ld.global.{{f|b}}32
     float g = *f;
 }
 void foo(SharedPointer!float f) {
     // LL: load float, ptr addrspace(3)
-    // PTX: ld.shared.f32
+    // PTX: ld.shared.{{f|b}}32
     float g = *f;
 }
 void foo(ConstantPointer!float f) {
     // LL: load float, ptr addrspace(4)
-    // PTX: ld.const.f32
+    // PTX: ld.const.{{f|b}}32
     float g = *f;
 }
 void foo(GenericPointer!float f) {
     // LL: load float, ptr
-    // PTX: ld.f32
+    // PTX: ld.{{f|b}}32
     float g = *f;
 }
