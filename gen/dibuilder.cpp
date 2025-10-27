@@ -774,7 +774,11 @@ DISubroutineType DIBuilder::CreateFunctionType(Type *type,
 }
 
 DISubroutineType DIBuilder::CreateEmptyFunctionType() {
+#if LDC_LLVM_VER >= 2100 
+  auto paramsArray = DBuilder.getOrCreateTypeArray({});
+#else
   auto paramsArray = DBuilder.getOrCreateTypeArray(llvm::None);
+#endif
   return DBuilder.createSubroutineType(paramsArray);
 }
 
