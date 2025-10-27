@@ -6,7 +6,7 @@ class Bar
   int i;
 }
 
-// CHECK: define
+// CHECK: define{{.*foo1}}
 int foo1()
 {
   // NOOPT: call{{.*}}_d_newarrayT
@@ -17,7 +17,7 @@ int foo1()
   return i[3];
 }
 
-// CHECK: define
+// CHECK: define{{.*foo2}}
 int foo2()
 {
   // NOOPT: call{{.*}}_d_allocmemoryT
@@ -28,7 +28,7 @@ int foo2()
   return *i;
 }
 
-// CHECK: define
+// CHECK: define{{.*foo3}}
 int foo3()
 {
   // NOOPT: call{{.*}}_d_allocclass
@@ -39,6 +39,7 @@ int foo3()
   return i.i;
 }
 
+// CHECK: define{{.*bar1}}
 int[] bar1()
 {
   // CHECK: _d_newarrayT
@@ -47,6 +48,7 @@ int[] bar1()
   return i;
 }
 
+// CHECK: define{{.*bar2}}
 int* bar2()
 {
   // CHECK: _d_allocmemoryT
@@ -55,6 +57,7 @@ int* bar2()
   return i;
 }
 
+// CHECK: define{{.*bar3}}
 Bar bar3()
 {
   // CHECK: _d_allocclass
@@ -67,7 +70,7 @@ extern void fun(int[]);
 extern void fun(int*);
 extern void fun(Bar);
 
-// CHECK: define
+// CHECK: define{{.*baz1}}
 int baz1()
 {
   // CHECK: _d_newarrayT
@@ -78,7 +81,7 @@ int baz1()
   return i[3];
 }
 
-// CHECK: define
+// CHECK: define{{.*baz2}}
 int baz2()
 {
   // CHECK: _d_allocmemoryT
@@ -89,7 +92,7 @@ int baz2()
   return *i;
 }
 
-// CHECK: define
+// CHECK: define{{.*baz3}}
 int baz3()
 {
   // CHECK: _d_allocclass
@@ -104,7 +107,7 @@ __gshared int[] p1;
 __gshared int* p2;
 __gshared Bar p3;
 
-// CHECK: define
+// CHECK: define{{.*bzz1}}
 int bzz1()
 {
   // CHECK: _d_newarrayT
@@ -115,7 +118,7 @@ int bzz1()
   return i[3];
 }
 
-// CHECK: define
+// CHECK: define{{.*bzz2}}
 int bzz2()
 {
   // CHECK: _d_allocmemoryT
@@ -126,7 +129,7 @@ int bzz2()
   return *i;
 }
 
-// CHECK: define
+// CHECK: define{{.*bzz3}}
 int bzz3()
 {
   // CHECK: _d_allocclass
