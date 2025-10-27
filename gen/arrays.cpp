@@ -683,35 +683,6 @@ DSliceValue *DtoAppendDCharToUnicodeString(Loc loc, DValue *arr,
 
 ////////////////////////////////////////////////////////////////////////////////
 namespace {
-// helper for eq and cmp
-LLValue *DtoArrayEqCmp_impl(Loc loc, const char *func, DValue *l, DValue *r,
-                            bool useti) {
-  IF_LOG Logger::println("comparing arrays");
-  LLFunction *fn = getRuntimeFunction(loc, gIR->module, func);
-  assert(fn);
-
-  // find common dynamic array type
-  Type *commonType = arrayOf(l->type->toBasetype()->nextOf());
-
-  // cast static arrays to dynamic ones, this turns them into DSliceValues
-  Logger::println("casting to dynamic arrays");
-  l = DtoCastArray(loc, l, commonType);
-  r = DtoCastArray(loc, r, commonType);
-
-  LLSmallVector<LLValue *, 3> args;
-
-  args.push_back(DtoRVal(l));
-  args.push_back(DtoRVal(r));
-
-  // pass array typeinfo ?
-  if (useti) {
-    LLValue *tival = DtoTypeInfoOf(loc, l->type);
-    args.push_back(tival);
-  }
-
-  return gIR->CreateCallOrInvoke(fn, args);
-}
-
 // Create a call instruction to memcmp.
 llvm::CallInst *callMemcmp(Loc loc, IRState &irs, LLValue *l_ptr,
                            LLValue *r_ptr, LLValue *numElements, LLType *elemty) {
