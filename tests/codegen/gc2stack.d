@@ -84,7 +84,8 @@ int baz1()
 // CHECK: define{{.*baz2}}
 int baz2()
 {
-  // CHECK: _d_allocmemoryT
+  // NOOPT: call{{.*}}_d_allocmemoryT
+  // CHECK-NOT: _d_allocmemoryT
   int* i = new int;
   fun(i);
   *i = 42;
@@ -95,7 +96,8 @@ int baz2()
 // CHECK: define{{.*baz3}}
 int baz3()
 {
-  // CHECK: _d_allocclass
+  // NOOPT: call{{.*}}_d_allocclass
+  // CHECK-NOT: _d_allocclass
   Bar i = new Bar;
   fun(i);
   i.i = 42;
