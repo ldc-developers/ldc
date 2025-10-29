@@ -37,7 +37,7 @@ LocalVariableLifetimeAnnotator::LocalVariableLifetimeAnnotator(IRState &irs)
 
 void LocalVariableLifetimeAnnotator::pushScope() { scopes.emplace_back(); }
 
-void LocalVariableLifetimeAnnotator::addLocalVariable(llvm::Value *address,
+void LocalVariableLifetimeAnnotator::addLocalVariable(llvm::AllocaInst *address,
                                                       llvm::Value *size) {
   assert(address);
   assert(size);
