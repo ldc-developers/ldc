@@ -218,27 +218,70 @@ void DIBuilder::SetValue(Loc loc, llvm::Value *value,
                                    IR->scopebb());
 }
 
+std::string DIBuilder::remapDIPath(llvm::StringRef path) {
+#if LDC_LLVM_VER >= 1800
+#define startswith starts_with
+#endif
+
+  for (const auto &[from, to] : opts::debugPrefixMap) {
+    if (path.startswith(from)) {
+      return to + path.substr(from.size()).str();
+    }
+  }
+  return std::string(path);
+
+#if LDC_LLVM_VER >= 1800
+#undef startswith
+#endif
+}
+
 DIFile DIBuilder::CreateFile(const char *filename) {
   if (!filename)
     filename = IR->dmodule->srcfile.toChars();
 
-  // clang appears to use the curent working dir as 'directory' for relative
-  // source paths, and the root path for absolute ones:
-  // clang -g -emit-llvm -S ..\blub.c =>
-  //   !DIFile(filename: "..\\blub.c", directory: "C:\\LDC\\ninja-ldc", ...)
-  //   !DIFile(filename: "Program
-  //   Files\\LLVM\\lib\\clang\\11.0.1\\include\\stddef.h", directory: "C:\\",
-  //   ...)
+  // Mimic clang's behavior as much as possible, including fdebug-prefix-map
+  // remap behavior. See LLVM source clang/lib/CodeGen/CGDebugInfo.cpp
 
-  if (llvm::sys::path::is_absolute(filename)) {
-    return DBuilder.createFile(llvm::sys::path::relative_path(filename),
-                               llvm::sys::path::root_path(filename));
-  }
+  auto remappedFile = remapDIPath(filename);
 
   llvm::SmallString<128> cwd;
   llvm::sys::fs::current_path(cwd);
+  auto currentDir = remapDIPath(cwd);
 
-  return DBuilder.createFile(filename, cwd);
+  llvm::StringRef debuginfoDir;
+  llvm::StringRef debuginfoFile;
+
+  llvm::SmallString<128> DirBuf;
+  llvm::SmallString<128> FileBuf;
+  if (llvm::sys::path::is_absolute(remappedFile)) {
+    // Strip the common prefix (if it is more than just "/" or "C:\") from
+    // current directory and filename for a more space-efficient encoding.
+    auto FileIt = llvm::sys::path::begin(remappedFile);
+    auto FileE = llvm::sys::path::end(remappedFile);
+    auto CurDirIt = llvm::sys::path::begin(currentDir);
+    auto CurDirE = llvm::sys::path::end(currentDir);
+    for (; CurDirIt != CurDirE && *CurDirIt == *FileIt; ++CurDirIt, ++FileIt)
+      llvm::sys::path::append(DirBuf, *CurDirIt);
+    if (llvm::sys::path::root_path(DirBuf) == DirBuf) {
+      // Don't strip the common prefix if it is only the root ("/" or "C:\")
+      // since that would make diagnostic locations confusing.
+      debuginfoDir = {};
+      debuginfoFile = remappedFile;
+    } else {
+      for (; FileIt != FileE; ++FileIt)
+        llvm::sys::path::append(FileBuf, *FileIt);
+      debuginfoDir = DirBuf;
+      debuginfoFile = FileBuf;
+    }
+  } else {
+    if (!llvm::sys::path::is_absolute(filename))
+      debuginfoDir = currentDir;
+    debuginfoFile = remappedFile;
+  }
+
+  // TODO: If debug file creation turns out to cost a lot of time, implement a
+  // caching mechanism like clang does.
+  return DBuilder.createFile(debuginfoFile, debuginfoDir);
 }
 
 DIFile DIBuilder::CreateFile(Loc loc) {
