@@ -163,6 +163,7 @@ private:
                  llvm::SmallVector<llvm::Metadata *, 16> &elems);
   void AddStaticMembers(AggregateDeclaration *sd, ldc::DIFile file,
                  llvm::SmallVector<llvm::Metadata *, 16> &elems);
+  std::string remapDIPath(llvm::StringRef path);
   DIFile CreateFile(const char *filename = nullptr);
   DIFile CreateFile(Loc loc);
   DIFile CreateFile(Dsymbol *decl);
