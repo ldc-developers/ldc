@@ -675,7 +675,7 @@ DValue *DtoCastStruct(Loc loc, DValue *val, Type *to) {
 
   // A cast between fat values is possible only when the sizes match.
   // https://github.com/ldc-developers/ldc/issues/4993
-  if (totype->ty == TY::Tsarray || totype->ty == TY::Tvector) {
+  if (totype->ty == TY::Tsarray) {
     if (size(totype) == size(val->type->toBasetype())) {
       llvm::Value *lval = DtoLVal(val);
       return new DLValue(to, lval);
