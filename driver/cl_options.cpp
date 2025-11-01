@@ -223,6 +223,32 @@ cl::opt<bool> emitDwarfDebugInfo(
     "gdwarf", cl::ZeroOrMore,
     cl::desc("Emit DWARF debuginfo (instead of CodeView) for MSVC targets"));
 
+// Prefix map for filenames in DWARF debuginfo
+std::map<std::string, std::string> debugPrefixMap;
+
+struct DwarfPrefixParser : public cl::parser<std::string> {
+  explicit DwarfPrefixParser(cl::Option &O) : cl::parser<std::string>(O) {}
+
+  bool parse(cl::Option &O, llvm::StringRef /*ArgName*/, llvm::StringRef Arg,
+             std::string & /*Val*/) {
+    auto [from, to] = Arg.split('=');
+    if (from.empty() || to.empty()) {
+      return O.error("invalid debug prefix map: " + Arg);
+    }
+    auto fromStr = std::string(from);
+    if (debugPrefixMap.find(fromStr) != debugPrefixMap.end()) {
+      return O.error("debug prefix map already contains: " + fromStr);
+    }
+    debugPrefixMap[fromStr] = std::string(to);
+    return false;
+  }
+};
+
+static cl::opt<std::string, false, DwarfPrefixParser> fdebugPrefixMap(
+    "fdebug-prefix-map", cl::ZeroOrMore,
+    cl::desc("Prefix map for filenames in DWARF debuginfo"),
+    cl::value_desc("<old>=<new>"));
+
 cl::opt<bool> noAsm("noasm", cl::desc("Disallow use of inline assembler"),
                     cl::ZeroOrMore);
 

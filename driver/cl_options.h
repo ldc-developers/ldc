@@ -20,6 +20,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/CommandLine.h"
+#include <map>
 #include <deque>
 #include <vector>
 
@@ -149,4 +150,6 @@ extern cl::opt<bool> dynamicCompileTlsWorkaround;
 #else
 constexpr bool enableDynamicCompile = false;
 #endif
+// Prefix map for filenames in DWARF debuginfo
+extern std::map<std::string, std::string> debugPrefixMap;
 }
